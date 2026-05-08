@@ -1,0 +1,308 @@
+comdare-cache-engine
+====================
+Active Cache-Aware Hardware Adaptation Cache Engine for Trie-Based Index Structures
+TU Dresden Diplomarbeit · BEP Venture UG / Marke Comdare
+
+Copyright 2026 BEP Venture UG (Marke Comdare)
+Licensed under the Apache License, Version 2.0 (the "License");
+see LICENSE file in the project root for license terms.
+
+
+───────────────────────────────────────────────────────────────────────────────
+THIRD-PARTY SOFTWARE NOTICES AND ATTRIBUTIONS
+───────────────────────────────────────────────────────────────────────────────
+
+This product bundles or otherwise depends on the following third-party
+software components. Each component retains its own license terms, which
+are reproduced unchanged inside the corresponding `ext/<paper>/<repo>/`
+directory.
+
+The PRT-ART research uses these components in two ways:
+  (1) Static linking after C++23-metaprogramming based modularization.
+      The Architekt-Direktive (2026-05-08) clarifies that modularized
+      bruchstuecke combined with C++23 metaprogramming constitute a new
+      work in the academic-research sense, even when "inspired" by
+      original code. See `docs/lizenzen/20260508-1500-lizenzen_uebersicht.md` for the full
+      legal reasoning.
+  (2) Adapter-pattern integration via `adapters/<paper>/`. The original
+      code in `ext/<paper>/<repo>/` is left bit-identical; only the
+      C++23 wrapper is comdare-cache-engine code.
+
+For a complete cross-reference of which paper provides which conceptual
+building block, see `docs/bausteine/Bausteine_Matrix.txt`.
+
+
+───────────────────────────────────────────────────────────────────────────────
+1.  P01 — Adaptive Radix Tree (ART)  via  unodb
+───────────────────────────────────────────────────────────────────────────────
+
+Project       : unodb (Adaptive Radix Tree in C++)
+Source URL    : https://github.com/laurynas-biveinis/unodb
+Path          : ext/P01-ART/unodb/
+License       : Apache License 2.0
+Copyright     : Laurynas Biveinis and unodb contributors
+Reference     : V. Leis, A. Kemper, T. Neumann (2013). The Adaptive Radix
+                Tree: ARTful Indexing for Main-Memory Databases. ICDE 2013.
+PRT-ART role  : Adaptive Radix Tree node family (Node4, Node16, Node48,
+                Node256) + OLC concurrency (covers P08 Leis 2016 ART-Sync).
+
+
+───────────────────────────────────────────────────────────────────────────────
+2.  P02 — HOT (Height Optimized Trie)
+───────────────────────────────────────────────────────────────────────────────
+
+Project       : hot
+Source URL    : https://github.com/speedskater/hot
+Path          : ext/P02-HOT/hot/
+License       : ISC License
+Copyright     : Robert Binna and HOT contributors
+Reference     : R. Binna, E. Zangerle, M. Pichl, G. Specht, V. Leis (2018).
+                HOT: A Height Optimized Trie Index for Main-Memory Database
+                Systems. SIGMOD 2018.
+PRT-ART role  : Compound Node (k=32) baseline; BMI2/AVX2 SIMD bitstring
+                manipulation reference.
+
+
+───────────────────────────────────────────────────────────────────────────────
+3.  P03 — Masstree
+───────────────────────────────────────────────────────────────────────────────
+
+Project       : masstree-beta
+Source URL    : https://github.com/kohler/masstree-beta
+Path          : ext/P03-Masstree/masstree-beta/
+License       : MIT License
+Copyright     : President and Fellows of Harvard College and contributors
+Reference     : Y. Mao, E. Kohler, R. Morris (2012). Cache Craftiness for
+                Fast Multicore Key-Value Storage. EuroSys 2012.
+PRT-ART role  : Trie-of-B+-Trees baseline; permutation-field idea.
+
+
+───────────────────────────────────────────────────────────────────────────────
+4.  P04 — CoCo-Trie
+───────────────────────────────────────────────────────────────────────────────
+
+Project       : CoCo-trie (Compressed Cooperative Trie)
+Source URL    : https://github.com/aboffa/CoCo-trie
+Path          : ext/P04-CoCo-trie/CoCo-trie/
+License       : GNU GPL v3.0
+Copyright     : Antonio Boffa and CoCo-Trie contributors
+Reference     : A. Boffa, P. Ferragina, F. Tosoni, G. Vinciguerra (2024).
+                CoCo-trie: Data-aware compression and indexing of strings.
+                Information Systems 119, 2024.
+PRT-ART role  : Macro-Node encoding pool; compression-aware indexing
+                reference. Used as conceptual source after C++23
+                metaprogramming-based modularization (see Architekt-
+                Direktive in `docs/lizenzen/20260508-1500-lizenzen_uebersicht.md`).
+
+
+───────────────────────────────────────────────────────────────────────────────
+5.  P05 — START (Self-Tuning Adaptive Radix Tree)
+───────────────────────────────────────────────────────────────────────────────
+
+Project       : START
+Source URL    : https://github.com/jungmair/START
+Path          : ext/P05-START/START/
+License       : MIT License
+Copyright     : Michael Jungmair and START contributors
+Reference     : P. Fent, M. Jungmair, A. Kipf, T. Neumann (2020). START —
+                Self-Tuning Adaptive Radix Tree. ICDE 2020.
+PRT-ART role  : Multi-byte (rewired) nodes; cost-model calibration template.
+
+
+───────────────────────────────────────────────────────────────────────────────
+6.  P06 — B²-Tree (Page-Based String Indexing)
+───────────────────────────────────────────────────────────────────────────────
+
+Project       : b2-tree-master + bart-master (received privately 2026-05-08)
+Source URL    : (not publicly hosted)
+Path          : ext/P06-B2tree/b2-tree-master/
+                ext/P06-B2tree/bart-master/
+License       : NO LICENSE FILE (received with implicit academic permission)
+Copyright     : Josef Schmeisser, Maximilian E. Schuele, Viktor Leis,
+                Thomas Neumann, Alfons Kemper
+Reference     : J. Schmeisser, M.E. Schuele, V. Leis, T. Neumann, A. Kemper
+                (2022). B²-Tree: Page-Based String Indexing in Concurrent
+                Environments. Datenbank-Spektrum 22, 11–22.
+PRT-ART role  : Decision/Span node architecture; embedded tree per page.
+                The bart-master sub-repository additionally provides
+                cross-algorithm comparison code (ART, B+-Tree, HAT-Trie,
+                PB-Tree-Static-variants) — directly relevant for the F15
+                Bausteine-Quer-Permutation research thesis.
+Notice        : Received as ZIP archives via direct contact with the TUM
+                Database Group on 2026-05-08. Used in the academic spirit
+                of the original publication. License clarification with
+                authors pending.
+
+
+───────────────────────────────────────────────────────────────────────────────
+7.  P07 — Wormhole (Hash + Trie + B+-Tree Hybrid)
+───────────────────────────────────────────────────────────────────────────────
+
+Project       : wormhole
+Source URL    : https://github.com/wuxb45/wormhole
+Path          : ext/P07-Wormhole/wormhole/
+License       : GNU GPL v3.0
+Copyright     : Xingbo Wu and Wormhole contributors
+Reference     : X. Wu, F. Ni, S. Jiang (2019). Wormhole: A Fast Ordered
+                Index for In-memory Data Management. EuroSys 2019.
+PRT-ART role  : MetaTrieHT (Trie+Hash+B+-Tree hybrid); anchor-key
+                concept reference. Used as conceptual source after C++23
+                metaprogramming-based modularization (see Architekt-
+                Direktive in `docs/lizenzen/20260508-1500-lizenzen_uebersicht.md`).
+
+
+───────────────────────────────────────────────────────────────────────────────
+8.  P10 — SuRF (Fast Succinct Trie)
+───────────────────────────────────────────────────────────────────────────────
+
+Project       : SuRF
+Source URL    : https://github.com/efficient/SuRF
+Path          : ext/P10-SuRF/SuRF/
+License       : Apache License 2.0
+Copyright     : Carnegie Mellon University EfficientLab and SuRF contributors
+Reference     : H. Zhang, H. Lim, V. Leis, D.G. Andersen, M. Kaminsky,
+                K. Keeton, A. Pavlo (2018). SuRF: Practical Range Query
+                Filtering with Fast Succinct Tries. SIGMOD 2018.
+PRT-ART role  : LOUDS-Dense / LOUDS-Sparse / LOUDS-DS hybrid encoding;
+                succinct tree representation reference. Range filter as
+                conceptual extension.
+
+
+───────────────────────────────────────────────────────────────────────────────
+9.  P20 — LeanStore (B-Trees Are Back)
+───────────────────────────────────────────────────────────────────────────────
+
+Project       : leanstore
+Source URL    : https://github.com/leanstore/leanstore
+Path          : ext/P20-BTreesAreBack/leanstore/
+License       : MIT License
+Copyright     : LeanStore project contributors and TU Munich
+Reference     : Mueller/Benson/Leis (2025). B-Trees Are Back: Engineering
+                Fast and Pageable Node Layouts.
+PRT-ART role  : Adaptive B-Tree with 6 layout optimizations; runtime
+                layout selection reference.
+
+
+───────────────────────────────────────────────────────────────────────────────
+10. P25 — Mahling Fill-Buffer Microbenchmarks
+───────────────────────────────────────────────────────────────────────────────
+
+Project       : prefetching
+Source URL    : https://github.com/hpides/prefetching
+Path          : ext/P25-Mahling/prefetching/
+License       : NO LICENSE FILE (README invites academic citation)
+Copyright     : Fabian Mahling, Marcel Weisgut, Tilmann Rabl
+                Hasso-Plattner-Institut, University of Potsdam
+Reference     : F. Mahling, M. Weisgut, T. Rabl (2025). Fetch Me If You
+                Can: Evaluating CPU Cache Prefetching and Its Reliability
+                on High Latency Memory. DaMoN 2025.
+PRT-ART role  : Microbenchmark suite for fill-buffer occupancy and
+                weak-vs-strong prefetch reliability. Used in the academic
+                spirit of the original publication.
+
+
+───────────────────────────────────────────────────────────────────────────────
+11. P29 — Userspace RCU (liburcu)
+───────────────────────────────────────────────────────────────────────────────
+
+Project       : userspace-rcu (liburcu)
+Source URL    : https://github.com/urcu/userspace-rcu
+Path          : ext/P29-RCU/userspace-rcu/
+License       : LGPL-2.1-or-later (per-file SPDX tags; full texts in
+                ext/P29-RCU/userspace-rcu/LICENSES/)
+Copyright     : Mathieu Desnoyers, Paul E. McKenney, and contributors
+Reference     : P.E. McKenney et al. (2001). Read-Copy Update. Ottawa
+                Linux Symposium 2001.
+PRT-ART role  : RCU memory reclamation backbone for online relocation.
+                As guided by the Architekt-Direktive (2026-05-08), the
+                modularized integration via C++23-metaprogramming results
+                in a new derived work — original liburcu license terms
+                are preserved in the bundled directory.
+
+
+───────────────────────────────────────────────────────────────────────────────
+12. P30 — Hazard Pointers (huangjiahua/haz_ptr)
+───────────────────────────────────────────────────────────────────────────────
+
+Project       : haz_ptr (Lightweight Hazard Pointers)
+Source URL    : https://github.com/huangjiahua/haz_ptr
+Path          : ext/P30-HazardPointers/haz_ptr/
+License       : NO LICENSE FILE
+Copyright     : Huang Jiahua
+Reference     : M.M. Michael (2004). Hazard Pointers: Safe Memory Reclamation
+                for Lock-Free Objects. IEEE TPDS 15(6).
+PRT-ART role  : NOT ACTIVELY USED. Hazard Pointers were removed from PRT-ART
+                in architecture decision F12-K (memory leak == undefined
+                behavior). This directory is retained only as a conceptual
+                reference for completeness of the literature review.
+
+
+───────────────────────────────────────────────────────────────────────────────
+EXTERNAL CONCEPTS (NO BUNDLED CODE)
+───────────────────────────────────────────────────────────────────────────────
+
+The following papers have no bundled code in `ext/`. They are documented
+in `Forschungsarbeiten/code/<paper>/STATUS.md` and where relevant
+re-implemented from scratch in C++23 under `prt_art/legacy_reimpl/<paper>/`.
+
+  • P09  Jacobson 1989  — Space-efficient static trees and graphs (LOUDS)
+  • P11  Rao/Ross 1999  — Cache-Sensitive Search Trees (CSS-tree)
+  • P12  Rao/Ross 2000  — CSB+-tree
+  • P13  Hankins 2003   — Effect of Node Size on B+-tree Performance
+  • P14  Samuel 2005    — Making CSB+-Trees Processor Conscious
+  • P15  Graefe 2001    — B-Tree Indexes and CPU Caches (survey, no code)
+  • P16  Bender 2002    — Tree Layout in Multilevel Memory
+  • P17  Bender 2005    — Cache-Oblivious B-Trees
+  • P18  Saikkonen 2008 — Multi-Level Block Reorganization
+  • P19  Saikkonen 2016 — Layout-Invariant with Constant-Time Updates
+  • P21  Chen 2001      — Improving Index Performance through Prefetching
+  • P22  Chen 2002      — Fractal Prefetching B+-Trees
+  • P23  Khan 2010      — Adaptive Cache Prefetching
+  • P24  Naderan-Tahan 2016 — Useless Prefetch study
+  • P26  Q. Zhang 2024  — Path/Jump-Pointer Prefetcher (FGCS)
+  • P27  T. Zhang 2025  — Hierarchical Bundle Prefetching (ASPLOS;
+                          gem5-fork BSD-3 available, not bundled)
+  • P28  Kuehn 2023     — Histogram-based Cache Optimization (DaMoN;
+                          email request pending)
+  • P31  Ungethuem 2017 — TUD Hardware Optimizations Survey
+  • P32  Schmidt 2025   — TUD To Stride or Not to Stride (DIMES)
+  • P33  Berthold 2023  — VAMPIR SPP2377 Phase-1 Kickoff Poster
+
+For each of the above, see:
+  Forschungsarbeiten/code/<paper>/STATUS.md  (literature-side notes)
+  prt_art/legacy_reimpl/<paper>/             (C++23 re-implementation skeleton)
+
+
+───────────────────────────────────────────────────────────────────────────────
+TOOLING DEPENDENCIES (build/test only)
+───────────────────────────────────────────────────────────────────────────────
+
+The following build- or test-only dependencies are not bundled but are
+referenced via package managers / CMake find_package:
+
+  • GoogleTest                 (test framework)              BSD-3-Clause
+  • HdrHistogram_c             (latency measurement)         BSD-2-Clause / Public Domain
+  • PAPI                       (Performance API)             BSD-3-Clause
+  • Linux perf_event_open      (kernel API)                  GPL-2.0 (kernel headers)
+  • Intel Advisor / Intel MLC  (proprietary tool, optional)  Intel EULA
+  • SDSL-lite (optional)       (succinct data structures)    GPL-3.0
+  • tcmalloc / mimalloc / snmalloc (allocator alternatives)  Apache-2.0 / MIT
+
+
+───────────────────────────────────────────────────────────────────────────────
+DOCUMENTATION REFERENCES
+───────────────────────────────────────────────────────────────────────────────
+
+The architecture decisions, conceptual matrix and licensing reasoning
+behind this NOTICE are documented in:
+
+  docs/INDEX.md                                       Top-level docs index
+  docs/status/20260508-1600-status_projekt.md         Project phase state
+  docs/email/20260508-1800-email_kontakte.md          Communication log
+  docs/email/20260508-1700-email_habich_folge_klarstellung.md   Habich follow-up
+  docs/lizenzen/20260508-1500-lizenzen_uebersicht.md  Per-repo license analysis
+  docs/architecture/20260504-2300-architektur_referenzen.md   Termin-7 pointers
+  Forschungsarbeiten/code/REPO_INVENTAR_FINAL.md   Repo provenance
+
+
+END OF NOTICE

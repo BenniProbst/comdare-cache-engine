@@ -1,0 +1,28 @@
+/// \defgroup qsbr Quiescent State-Based Reclamation
+/// Deferred memory reclamation method, compatible with \ref optimistic-lock.
+
+/// \defgroup internal Internals
+/// Internals documentation for UnoDB developers.
+///
+/// See also [CONTRIBUTING.md](CONTRIBUTING.md).
+
+/// \defgroup optimistic-lock Optimistic Locking
+/// Optimistic lock primitive and associated internals.
+/// \ingroup internal
+
+/// \defgroup test-internals Test Support Code
+/// Common helpers for tests
+/// \ingroup internal
+
+/// \namespace unodb
+/// Namespace for the public UnoDB API.
+
+/// \namespace unodb::detail
+/// Namespace for the UnoDB internal implementation details.
+/// \ingroup internal
+/// It is not part of the public API, and it may change at any time.
+
+/// \namespace unodb::test
+/// Namespace for the UnoDB internal test support code.
+/// \ingroup test-internals
+/// It is not part of the public API, and it may change at any time.

@@ -1,0 +1,12 @@
+Diagnostics:
+  # -Wunused-member-function false positive:
+  # https://github.com/clangd/clangd/issues/363
+  Suppress: [-Wunused-macros,-Wunused-function,-Wunused-member-function,-Wunused-template]
+  UnusedIncludes: Strict
+InlayHints:
+  Enabled: Yes
+  ParameterNames: Yes
+  DeducedTypes: Yes
+  DefaultArguments: Yes
+Hover:
+  ShowAKA: Yes

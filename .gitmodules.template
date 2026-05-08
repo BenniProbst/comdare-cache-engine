@@ -1,0 +1,41 @@
+# .gitmodules.template — Vorlage fuer COMDARE-Submodules
+#
+# AUSNAHME zur globalen "KEINE Git Submodules"-Regel (siehe MEMORY.md
+# feedback_no_git_submodules.md). Diese Ausnahme gilt NUR fuer
+# comdare-cache-engine — alle anderen COMDARE-Projekte folgen weiterhin
+# der Standardregel (kein submodule, sondern BuildSystem-DependencyManager).
+#
+# Diese Datei ist eine TEMPLATE — wird zu .gitmodules umbenannt nach
+# Cluster-Migration (Fortigate-31G + GitLab-Setup).
+#
+# Die echten URLs werden nach GitLab-Push der COMDARE-Modules gesetzt.
+
+[submodule "modules/comdare-search-engine"]
+    path = modules/comdare-search-engine
+    url = git@gitlab.comdare.de:comdare/search-engine.git
+    branch = main
+
+[submodule "modules/comdare-cache-engine-core"]
+    path = modules/comdare-cache-engine-core
+    url = git@gitlab.comdare.de:comdare/cache-engine-core.git
+    branch = main
+
+[submodule "modules/comdare-measurement"]
+    path = modules/comdare-measurement
+    url = git@gitlab.comdare.de:comdare/measurement.git
+    branch = main
+
+[submodule "modules/comdare-isa-dispatch"]
+    path = modules/comdare-isa-dispatch
+    url = git@gitlab.comdare.de:comdare/isa-dispatch.git
+    branch = main
+
+[submodule "modules/comdare-build-tools"]
+    path = modules/comdare-build-tools
+    url = git@gitlab.comdare.de:comdare/build-tools.git
+    branch = main
+
+[submodule "modules/comdare-test-system"]
+    path = modules/comdare-test-system
+    url = git@gitlab.comdare.de:comdare/test-system.git
+    branch = main
