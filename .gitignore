@@ -1,0 +1,73 @@
+# Build-Artefakte
+build/
+out/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.dll
+*.dylib
+*.lib
+*.exp
+*.pdb
+*.obj
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+install_manifest.txt
+Makefile
+*.cmake
+!cmake/*.cmake
+
+# Generated (Permutations + Codegen)
+build/generated/
+build/modules/
+build/permutations/
+
+# Datasets (sehr gross, lokal/NAS/ZIH)
+datasets/*
+!datasets/.gitkeep
+!datasets/README.md
+
+# Mess-Dumps
+*.csv
+*.binarydump
+measurements/
+spool/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Compiler-Toolchains (provisioniert)
+tools/compiler_provisioning/installed/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# LaTeX-Output
+*.aux
+*.log
+*.toc
+*.bbl
+*.blg
+docs/anhang/*.pdf
+
+# Mess-Logs
+*.perflog
+*.papilog
+*.advisorlog
+
+# OS-Files
+Thumbs.db
+desktop.ini
