@@ -1,8 +1,10 @@
 # cache_engine/builder — CacheEngineBuilder = main.cpp Orchestrator
+# Phase 6 (REV 6, 2026-05-12): main.cpp noch nicht implementiert (siehe Termin 7 §5 Lifecycle).
+# Skelett-Build wird nur aktiviert, wenn main.cpp existiert.
 
-if(COMDARE_BUILD_BUILDER)
+if(COMDARE_BUILD_BUILDER AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
   add_executable(cache_engine_builder
-    # main.cpp wird in Phase 5 erzeugt — hier nur Skelett
+    main.cpp
   )
   target_link_libraries(cache_engine_builder PRIVATE
     comdare_search_engine

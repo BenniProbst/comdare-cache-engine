@@ -34,6 +34,27 @@ option(COMDARE_BUILD_PERMUTATIONS  "Pre-Build aller Modul-Permutationen"       O
 option(COMDARE_MICROBENCH_CONTINUOUS "Continuous Mikrobenchmarks (Builder-Modus)" OFF)
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Multi-OS-Infrastruktur (REV 6 Migration aus Diplomarbeit/code, 2026-05-12)
+# ─────────────────────────────────────────────────────────────────────────────
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(platform_detection)
+include(compiler_flags)
+include(isa_features)
+if(COMDARE_BUILD_TESTS)
+  include(gtest_setup)
+endif()
+
+# Build-Status-Reporting (Plattform + Block-AO-Erkennung)
+message(STATUS "==============================================================")
+message(STATUS "comdare-cache-engine Multi-OS-Konfiguration (Phase 6)")
+message(STATUS "  OS                : ${COMDARE_OS}")
+message(STATUS "  Architektur       : ${COMDARE_ARCH}")
+message(STATUS "  Block AO Plattform: ${COMDARE_BLOCK_AO_PLATFORM}")
+message(STATUS "  Cache-Line-Size   : ${COMDARE_CACHE_LINE_SIZE} B")
+message(STATUS "  ISA detected      : ${COMDARE_ISA_SUMMARY}")
+message(STATUS "==============================================================")
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Submodule-Check (Korrektur F12-K — comdare-Modules als feste Submodules)
 # ─────────────────────────────────────────────────────────────────────────────
 include(cmake/check_submodules.cmake OPTIONAL)
@@ -67,7 +88,7 @@ endif()
 
 if(COMDARE_BUILD_TESTS)
   enable_testing()
-  add_subdirectory(tests)
+  add_subdirectory(tests)  # tests/CMakeLists.txt ruft seinerseits add_subdirectory(unit) (REV 6)
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
