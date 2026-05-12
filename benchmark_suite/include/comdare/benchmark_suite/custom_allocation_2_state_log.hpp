@@ -19,13 +19,13 @@ class CustomAllocation2 {
 public:
     explicit CustomAllocation2(std::size_t capacity_bytes = 64ULL * 1024 * 1024) {  // 64 MiB
         capacity_bytes_ = capacity_bytes;
-        buffer_ = static_cast<std::byte*>(std::aligned_alloc(64, capacity_bytes_));
+        buffer_ = static_cast<std::byte*>(bs_aligned_alloc(64, capacity_bytes_));
         if (!buffer_) throw std::bad_alloc{};
         std::memset(buffer_, 0, capacity_bytes_);
     }
 
     ~CustomAllocation2() {
-        std::free(buffer_);
+        bs_aligned_free(buffer_);
     }
 
     CustomAllocation2(CustomAllocation2 const&) = delete;
@@ -57,14 +57,16 @@ public:
     }
 
     [[nodiscard]] std::span<std::byte const> snapshot() const noexcept {
-        std::uint64_t const used = std::min<std::uint64_t>(
-            next_offset_.load(std::memory_order_relaxed), capacity_bytes_);
+        std::uint64_t const used = (std::min)(
+            next_offset_.load(std::memory_order_relaxed),
+            static_cast<std::uint64_t>(capacity_bytes_));
         return std::span<std::byte const>{buffer_, used};
     }
 
     [[nodiscard]] std::size_t bytes_used() const noexcept {
-        return std::min<std::uint64_t>(next_offset_.load(std::memory_order_relaxed),
-                                         capacity_bytes_);
+        return static_cast<std::size_t>((std::min)(
+            next_offset_.load(std::memory_order_relaxed),
+            static_cast<std::uint64_t>(capacity_bytes_)));
     }
 
     [[nodiscard]] std::size_t capacity_bytes() const noexcept { return capacity_bytes_; }

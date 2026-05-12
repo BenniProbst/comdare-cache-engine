@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare>
+  <test_data_set id="ycsb_a">
+    <type>YCSB</type>
+    <workload>A</workload>
+    <num_operations>1000000</num_operations>
+    <key_distribution>uniform</key_distribution>
+  </test_data_set>
+
+  <test_data_set id="ycsb_c_zipfian">
+    <type>YCSB</type>
+    <workload>C</workload>
+    <num_operations>1000000</num_operations>
+    <key_distribution>zipfian</key_distribution>
+  </test_data_set>
+
+  <test_data_set id="commoncrawl_urls">
+    <type>String</type>
+    <source>commoncrawl_subset</source>
+    <num_keys>500000</num_keys>
+    <max_key_length>256</max_key_length>
+  </test_data_set>
+</comdare>

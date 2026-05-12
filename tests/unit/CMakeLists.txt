@@ -128,3 +128,9 @@ comdare_add_test(test_test_data_accumulation
 comdare_add_test(test_benchmark_suite
     SOURCES test_benchmark_suite.cpp
     LIBRARIES comdare::benchmark_suite)
+
+# Phase A (REV 7 Pflicht §3.2): Vollstaendige Container-Matrix x 10 Adapter +
+# Threading-Tests (Single-W/Multi-R + Multi-Threaded-Stress)
+comdare_add_test(test_allocator_full_matrix
+    SOURCES test_allocator_full_matrix.cpp
+    LIBRARIES comdare::cache_engine_concepts)

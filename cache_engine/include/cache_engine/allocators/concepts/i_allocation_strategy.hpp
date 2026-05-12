@@ -24,9 +24,9 @@ namespace axes {
 // Concept-Wurzel: jede Allokator-Familie muss diese minimalen Operationen bieten
 template <typename A>
 concept IAllocationStrategy = requires(A a, std::size_t n, void* p, std::size_t align) {
-    { a.raw_allocate(n, align)   } -> std::same_as<void*>;
-    { a.raw_deallocate(p, n, align) } -> std::same_as<void>;
-    { a.statistics()              } noexcept;
+    { a.raw_allocate(n, align)         } -> std::same_as<void*>;
+    a.raw_deallocate(p, n, align);     // void return — Concept verlangt nur Aufrufbarkeit
+    { a.statistics()                    } noexcept;
     typename A::axis_tag;        // Pflicht: Welche AA-Achse charakterisiert sie?
     typename A::family_id;       // Pflicht: A01...A23 als compile-time integer constant
 };

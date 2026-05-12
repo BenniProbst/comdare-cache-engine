@@ -103,11 +103,16 @@ TEST(MimallocAdapter, DeferredFreeCallback) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(BuddyAdapter, XorBuddyAddressCorrect) {
-    auto buddy = ace::families::a19_buddy::BuddyAdapter<>::buddy_address(0x1000, 12);
-    EXPECT_EQ(buddy, 0x2000u);
+    // Block der Order 12 (4 KiB) bei Adresse 0x2000 → Buddy via XOR(addr, 1<<12) = 0x3000
+    auto buddy = ace::families::a19_buddy::BuddyAdapter<>::buddy_address(0x2000, 12);
+    EXPECT_EQ(buddy, 0x3000u);
 
     auto buddy2 = ace::families::a19_buddy::BuddyAdapter<>::buddy_address(0x10000, 12);
     EXPECT_EQ(buddy2, 0x11000u);
+
+    // Order 0: 1-byte blocks → Buddy = addr XOR 1
+    auto buddy3 = ace::families::a19_buddy::BuddyAdapter<>::buddy_address(0xABC, 0);
+    EXPECT_EQ(buddy3, 0xABDu);
 }
 
 TEST(BuddyAdapter, AllocationRoundsToPowerOf2) {
@@ -234,7 +239,7 @@ TEST(AllocatorPermutationFlags, FlagsAggregation) {
 
 TEST(AllocatorManager, AggregatesStrategyAndFlags) {
     ace::families::a01_hoard::HoardAdapter<> strategy;
-    ace::AllocatorManager mgr{std::move(strategy), ace::permutations::kHoardStyle};
+    ace::AllocatorManager mgr{strategy, ace::permutations::kHoardStyle};
     EXPECT_TRUE(mgr.flags().is_specified());
 
     auto* res = mgr.as_pmr();

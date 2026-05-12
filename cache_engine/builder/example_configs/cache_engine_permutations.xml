@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Beispiel-Konfig fuer CacheEngineBuilder Phase 6.4 (REV 7 §5.2) -->
+<comdare>
+  <cache_engine_permutation id="ce_default">
+    <allocator_family>tcmalloc</allocator_family>
+    <concurrency_mechanic>OLC</concurrency_mechanic>
+    <telemetry_strategy>LEAFONLY_SAMPLED</telemetry_strategy>
+    <prefetch>ADAPTIVE_DISTANCE</prefetch>
+    <isa>X86_AVX2</isa>
+  </cache_engine_permutation>
+
+  <cache_engine_permutation id="ce_lockfree">
+    <allocator_family>mimalloc</allocator_family>
+    <concurrency_mechanic>RCU</concurrency_mechanic>
+    <telemetry_strategy>PER_NODE_COUNTER</telemetry_strategy>
+    <prefetch>JUMP_POINTER</prefetch>
+    <isa>X86_AVX512</isa>
+  </cache_engine_permutation>
+
+  <cache_engine_permutation id="ce_hardened">
+    <allocator_family>starmalloc</allocator_family>
+    <concurrency_mechanic>OLC</concurrency_mechanic>
+    <telemetry_strategy>RETROACTIVE_AGG</telemetry_strategy>
+    <prefetch>NONE</prefetch>
+    <isa>X86_AVX2</isa>
+  </cache_engine_permutation>
+</comdare>
