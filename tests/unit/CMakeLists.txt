@@ -110,3 +110,10 @@ comdare_add_test(test_six_page_structures
 comdare_add_test(test_allocator_concepts
     SOURCES test_allocator_concepts.cpp
     LIBRARIES comdare::cache_engine_concepts)
+
+# Phase 6.3 (REV 7, 2026-05-13): ABI-stabiles C++23-Modul-Interface
+# type_collection_traits + search_algorithm_type_collection + fingerprint +
+# execution_engine + search_engine + resolve_baustein + module_abi_v1
+comdare_add_test(test_abi_interface
+    SOURCES test_abi_interface.cpp
+    LIBRARIES comdare::cache_engine_concepts)
