@@ -1,0 +1,333 @@
+// Copyright 2022 The TCMalloc Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef TCMALLOC_SIZEMAP_H_
+#define TCMALLOC_SIZEMAP_H_
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include <limits>
+#include <utility>
+
+#include "absl/base/attributes.h"
+#include "absl/base/optimization.h"
+#include "absl/numeric/bits.h"
+#include "absl/types/span.h"
+#include "tcmalloc/common.h"
+#include "tcmalloc/internal/config.h"
+#include "tcmalloc/internal/logging.h"
+#include "tcmalloc/internal/optimization.h"
+#include "tcmalloc/internal/size_class_info.h"
+#include "tcmalloc/pages.h"
+
+GOOGLE_MALLOC_SECTION_BEGIN
+namespace tcmalloc {
+namespace tcmalloc_internal {
+
+// Definition of size class that is set in size_classes.cc
+extern const SizeClasses kSizeClasses;
+
+// Experimental size classes:
+extern const SizeClasses kExperimentalPow2SizeClasses;
+extern const SizeClasses kLegacySizeClasses;
+extern const SizeClasses kReuseSizeClasses;
+
+enum class SizeClassConfiguration {
+  kPow2Only = 2,
+  kLegacy = 4,
+  kReuse = 6,
+};
+
+// Size-class information + mapping
+class SizeMap {
+ public:
+  static constexpr int kLargeSize = 1024;
+  static constexpr int kLargeSizeAlignment = 128;
+
+ private:
+  //-------------------------------------------------------------------
+  // Mapping from size to size_class and vice versa
+  //-------------------------------------------------------------------
+
+  // Sizes <= 1024 have an alignment >= 8.  So for such sizes we have an
+  // array indexed by ceil(size/8).  Sizes > 1024 have an alignment >= 128.
+  // So for these larger sizes we have an array indexed by ceil(size/128).
+  //
+  // We flatten both logical arrays into one physical array and use
+  // arithmetic to compute an appropriate index.  The constants used by
+  // ClassIndex() were selected to make the flattening work.
+  //
+  // Examples:
+  //   Size       Expression                      Index
+  //   -------------------------------------------------------
+  //   0          (0 + 7) / 8                     0
+  //   1          (1 + 7) / 8                     1
+  //   ...
+  //   1024       (1024 + 7) / 8                  128
+  //   1025       (1025 + 127 + (120<<7)) / 128   129
+  //   ...
+  //   32768      (32768 + 127 + (120<<7)) / 128  376
+  static constexpr size_t kClassArraySize =
+      ((kMaxSize + 127 + (120 << 7)) >> 7) + 1;
+
+  // Batch size is the number of objects to move at once.
+  typedef unsigned char BatchSize;
+
+  // If TCMalloc is compiled without NUMA support, and with cold allocations
+  // (expanded classes), then the class_array_ will consist of 4 regions:
+  //   [0, kClassArraySize)                   : Lookups for allocations marked
+  //                                            as hot & for partition 0.
+  //   [kClassArraySize, 2*kClassArraySize)   : Lookups for allocations marked
+  //                                            as hot & for partition 1.
+  //   [2*kClassArraySize, 3*kClassArraySize) : Lookups for allocations marked
+  //                                            as cold & for partition 0.
+  //   [3*kClassArraySize, 4*kClassArraySize) : Lookups for allocations marked
+  //                                            as cold & for partition 1.
+  // If the heap partitioning feature is not active, then the lookups for
+  // partition 1 will contain the same information as for partition 0.
+  // If the heap partitioning feature is active, cold & partition 1 will be
+  // the same as hot & partition 1. Namely, it will point to the
+  // [kNumBaseClasses, kExpandedClassesStart) size classes.
+  // If NUMA support is compiled in, the partition 1 regions won't exist.
+  // Similarly, for cold memory, if expanded classes are not compiled in.
+  static constexpr size_t kClassArraySizePartitions =
+      kClassArraySize * ((kHasExpandedClasses ? 2 : 1) * kSecurityPartitions);
+
+  // class_array_ is accessed on every malloc, so is very hot.  We make it the
+  // first member so that it inherits the overall alignment of a SizeMap
+  // instance.  In particular, if we create a SizeMap instance that's cache-line
+  // aligned, this member is also aligned to the width of a cache line.
+  //
+  // For the mapping with the cold and/or security partitions, see the comment
+  // for kClassArraySizePartitions.
+  CompactSizeClass class_array_[kClassArraySizePartitions] = {0};
+
+  // Number of objects to move between a per-thread list and a central
+  // list in one shot.  We want this to be not too small so we can
+  // amortize the lock overhead for accessing the central list.  Making
+  // it too big may temporarily cause unnecessary memory wastage in the
+  // per-thread free list until the scavenger cleans up the list.
+  BatchSize num_objects_to_move_[kNumClasses] = {0};
+
+  // If size is no more than kMaxSize, compute index of the
+  // class_array[] entry for it, putting the class index in output
+  // parameter idx and returning true. Otherwise return false.
+  ABSL_ATTRIBUTE_ALWAYS_INLINE static inline bool ClassIndexMaybe(size_t s,
+                                                                  size_t& idx) {
+    if (ABSL_PREDICT_TRUE(s <= kLargeSize)) {
+      idx = (s + 7) >> 3;
+      return true;
+    } else if (s <= kMaxSize) {
+      idx = ((s + 127) >> 7) + 120;
+      return true;
+    }
+    return false;
+  }
+
+  ABSL_ATTRIBUTE_ALWAYS_INLINE static inline size_t ClassIndex(size_t s) {
+    size_t ret;
+    TC_CHECK(ClassIndexMaybe(s, ret));
+    return ret;
+  }
+
+  // Mapping from size class to number of pages to allocate at a time
+  unsigned char class_to_pages_[kNumClasses] = {0};
+
+  // Mapping from size class to max size storable in that class
+  uint32_t class_to_size_[kNumClasses] = {0};
+
+ protected:
+  // Set the give size classes to be used by TCMalloc.
+  bool SetSizeClasses(absl::Span<const SizeClassInfo> size_classes);
+
+  // Check that the size classes meet all requirements.
+  static bool ValidSizeClasses(absl::Span<const SizeClassInfo> size_classes);
+
+  size_t cold_sizes_[kNumBaseClasses] = {0};
+  size_t cold_sizes_count_ = 0;
+
+ public:
+  // Returns size classes to use in the current process.
+  static const SizeClasses& CurrentClasses();
+
+  // Checks assumptions used to generate the current size classes.
+  // Prints any wrong assumptions to stderr.
+  //
+  // Returns true if all assumptions are correct, else returns false.
+  [[nodiscard]] static bool CheckAssumptions();
+
+  // constexpr constructor to guarantee zero-initialization at compile-time.  We
+  // rely on Init() to populate things.
+  constexpr SizeMap() = default;
+
+  // Initialize the mapping arrays.  Returns true on success.
+  [[nodiscard]] bool Init(absl::Span<const SizeClassInfo> size_classes);
+
+  struct SizeMapResult {
+    bool is_small;
+    size_t size_class;
+  };
+
+  // Returns the size class for size `size` respecting the alignment
+  // & access requirements of `policy`.
+  //
+  // Returns true for `is_small` for size class-ful allocations. Returns false
+  // if either:
+  // - the size exceeds the maximum size class size.
+  // - the align size is greater or equal to the default page size
+  // - no matching properly aligned size class is available
+  //
+  // Requires that policy.align() returns a non-zero power of 2.
+  //
+  // When policy.align() = 1 the default alignment of the size table will be
+  // used. If policy.align() is constexpr 1 (e.g. when using
+  // DefaultAlignPolicy) then alignment-related code will optimize away.
+  //
+  // TODO(b/171978365): Replace the output parameter with returning
+  // absl::optional<uint32_t>.
+  template <typename Policy>
+  [[nodiscard]] ABSL_ATTRIBUTE_ALWAYS_INLINE inline SizeMapResult GetSizeClass(
+      Policy policy, size_t size) const {
+    const size_t align = static_cast<size_t>(policy.align());
+    TC_ASSERT(absl::has_single_bit(align));
+
+    if (ABSL_PREDICT_FALSE(align > kPageSize)) {
+      return {false};
+    }
+
+    size_t idx;
+    if (ABSL_PREDICT_FALSE(!ClassIndexMaybe(size, idx))) {
+      return {false};
+    }
+    size_t size_class;
+    // Note, if security heap partitioning is enabled, only data (partition 0)
+    // is added to the cold heap. See the comment for kClassArraySizePartitions
+    // for more details.
+    if (kHasExpandedClasses && policy.is_cold()) {
+      TC_ASSERT_LT(idx + (policy.security_partition() + kSecurityPartitions) *
+                             kClassArraySize,
+                   kClassArraySizePartitions);
+      size_class = class_array_[idx + (policy.security_partition() +
+                                       kSecurityPartitions) *
+                                          kClassArraySize];
+    } else {
+      TC_ASSERT_LT(idx + policy.security_partition() * kClassArraySize,
+                   kClassArraySizePartitions);
+      size_class =
+          class_array_[idx + policy.security_partition() * kClassArraySize] +
+          policy.scaled_numa_partition();
+    }
+
+    // Don't search for suitably aligned class for operator new
+    // (when alignment is statically known to be no greater than kAlignment).
+    // But don't do this check at runtime when the alignment is dynamic.
+    // We assume aligned allocation functions are not used with small alignment
+    // most of the time (does not make much sense). And for alignment larger
+    // than kAlignment, this is just an unnecessary check that always fails.
+    if (__builtin_constant_p(align) &&
+        align <= static_cast<size_t>(kAlignment)) {
+      return {true, size_class};
+    }
+
+    // Predict that size aligned allocs most often directly map to a proper
+    // size class, i.e., multiples of 32, 64, etc, matching our class sizes.
+    // Since alignment is <= kPageSize, we must find a suitable class
+    // (at least kMaxSize is aligned on kPageSize).
+    static_assert((kMaxSize % kPageSize) == 0, "the loop below won't work");
+    // Profiles say we usually get the right class based on the size,
+    // so avoid the loop overhead on the fast path.
+    if (ABSL_PREDICT_FALSE(class_to_size(size_class) & (align - 1))) {
+      do {
+        ++size_class;
+      } while (ABSL_PREDICT_FALSE(class_to_size(size_class) & (align - 1)));
+    }
+    return {true, size_class};
+  }
+
+  // Returns size class for given size, or 0 if this instance has not been
+  // initialized yet. REQUIRES: size <= kMaxSize.
+  template <typename Policy>
+  [[nodiscard]] ABSL_ATTRIBUTE_ALWAYS_INLINE inline size_t SizeClass(
+      Policy policy, size_t size) const {
+    ASSUME(size <= kMaxSize);
+    return GetSizeClass(policy, size).size_class;
+  }
+
+  // Get the byte-size for a specified class. REQUIRES: size_class <=
+  // kNumClasses.
+  //
+  // clang does not correctly optimize out the array bounds check,
+  // leading to high overhead. Disable UBSan to avoid the performance
+  // regression.
+  // TODO(b/406313446): Remove ABSL_ATTRIBUTE_NO_SANITIZE_UNDEFINED once clang
+  // optimizes out the array bounds check.
+  ABSL_ATTRIBUTE_NO_SANITIZE_UNDEFINED
+  ABSL_ATTRIBUTE_ALWAYS_INLINE inline size_t class_to_size(
+      size_t size_class) const {
+    TC_ASSERT_LT(size_class, kNumClasses);
+    return class_to_size_[size_class];
+  }
+
+  // Mapping from size class to number of pages to allocate at a time
+  ABSL_ATTRIBUTE_ALWAYS_INLINE inline Length class_to_pages(
+      size_t size_class) const {
+    TC_ASSERT_LT(size_class, kNumClasses);
+    return Length(class_to_pages_[size_class]);
+  }
+
+  // Returns the inclusive range of possible sizes for a given size class.
+  // REQUIRES: size_class < kNumClasses.
+  std::pair<size_t, size_t> class_to_size_range(size_t size_class) const {
+    TC_ASSERT_LT(size_class, kNumClasses);
+    if (size_class == 0) {
+      return {0, 0};
+    }
+    size_t max_size = class_to_size_[size_class];
+    size_t min_size = class_to_size_[size_class - 1] + 1;
+    if (min_size > max_size) {
+      // TCMalloc places the NUMA and cold size classes after the hot ones.
+      // If the "prior" size class is actually larger in bytes, then we fell
+      // off the beginning of one of these other size classes and should use
+      // 0 as the min size.
+      min_size = 0;
+    }
+    return {min_size, max_size};
+  }
+
+  // Number of objects to move between a per-thread list and a central
+  // list in one shot.  We want this to be not too small so we can
+  // amortize the lock overhead for accessing the central list.  Making
+  // it too big may temporarily cause unnecessary memory wastage in the
+  // per-thread free list until the scavenger cleans up the list.
+  ABSL_ATTRIBUTE_ALWAYS_INLINE inline SizeMap::BatchSize num_objects_to_move(
+      size_t size_class) const {
+    TC_ASSERT_LT(size_class, kNumClasses);
+    return num_objects_to_move_[size_class];
+  }
+
+  ABSL_ATTRIBUTE_ALWAYS_INLINE absl::Span<const size_t> ColdSizeClasses()
+      const {
+    return {cold_sizes_, cold_sizes_count_};
+  }
+
+  [[nodiscard]] static bool IsValidSizeClass(size_t size, Length num_pages,
+                                             size_t num_objects_to_move);
+};
+
+}  // namespace tcmalloc_internal
+}  // namespace tcmalloc
+GOOGLE_MALLOC_SECTION_END
+
+#endif  // TCMALLOC_SIZEMAP_H_

@@ -1,0 +1,14 @@
+*~
+*.pdb
+*.dylib
+*.obj
+*.o
+*.a
+*.exe
+*.dll
+a.out
+*.exp
+*.lib
+build/
+_codeql_build_dir/
+_codeql_detected_source_root

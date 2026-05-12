@@ -290,6 +290,165 @@ referenced via package managers / CMake find_package:
 
 
 ───────────────────────────────────────────────────────────────────────────────
+ALLOCATOR FAMILY (Phase 6.2.B-C, 2026-05-13)
+───────────────────────────────────────────────────────────────────────────────
+
+The Comdare CacheEngine treats memory allocation as a first-class building-
+block stack parallel to the search algorithm stack (REV 7 §1, 2026-05-13).
+The following 10 allocator implementations are bundled in `ext/A*/` to
+support the 7 allocator axes AA1-AA7 defined in `Allokator_Matrix.txt`.
+For per-paper extractions see `Diplomarbeit - Datenbanken/20260508 Termin 7/
+Phase5_UML_Detail/_paper_extractions_allocators/A{NN}-*.md`.
+
+
+34. A01 — Hoard (ASPLOS 2000)
+    Project       : Hoard Memory Allocator
+    Source URL    : https://github.com/emeryberger/Hoard
+    Path          : ext/A01-hoard/
+    License       : Apache License 2.0
+    Copyright     : Emery Berger and Hoard contributors
+    Reference     : E.D. Berger, K.S. McKinley, R.D. Blumofe, P.R. Wilson
+                    (2000). Hoard: A Scalable Memory Allocator for
+                    Multithreaded Applications. ASPLOS-IX.
+    Comdare role  : Per-Processor + Global Heap pattern (AA3, AA5, AA6);
+                    Bounded blowup O(1) reference; superblock concept.
+
+35. A03 — Michael Lock-Free Allocator (PLDI 2004, re-implementation)
+    Project       : scotts/michael (Re-Implementation of Maged Michael 2004)
+    Source URL    : https://github.com/scotts/michael
+    Path          : ext/A03-michael-lockfree/
+    License       : MIT (per repository README; original Maged Michael IBM
+                    paper is the algorithm source — IBM patent applies)
+    Copyright     : Re-implementation by Scott Schneider et al.
+    Reference     : M.M. Michael (2004). Scalable Lock-Free Dynamic Memory
+                    Allocation. PLDI 2004.
+    Comdare role  : Lock-free CAS-based allocator (AA4); Anchor structure +
+                    ABA-prevention via tag:42 reference for OLC variants.
+    NOTE          : IBM Patent US 2006/0190697 A1 may apply — verify legal
+                    status before commercial use.
+
+36. A04 — mimalloc (MSR-TR-2019-18)
+    Project       : mimalloc
+    Source URL    : https://github.com/microsoft/mimalloc
+    Path          : ext/A04-mimalloc/
+    License       : MIT License
+    Copyright     : 2018-2025 Microsoft Corporation, Daan Leijen
+    Reference     : D. Leijen, B. Zorn, L. de Moura (2019). Mimalloc: Free
+                    List Sharding in Action. MSR-TR-2019-18, APLAS 2019.
+    Comdare role  : Free List Sharding (AA1); 3-list-per-page pattern;
+                    temporal cadence + deferred_free callback;
+                    smimalloc-Variante als Hardening-Reference.
+
+37. A05 — jemalloc (BSDCan 2006)
+    Project       : jemalloc
+    Source URL    : https://github.com/jemalloc/jemalloc
+    Path          : ext/A05-jemalloc/
+    License       : 2-Clause BSD-style (Jason Evans Custom)
+    Copyright     : 2002-present Jason Evans + jemalloc contributors
+    Reference     : J. Evans (2006). A Scalable Concurrent malloc(3)
+                    Implementation for FreeBSD. BSDCan 2006.
+    Comdare role  : Multiple Arenas (AA3); 4-Tier-Size-Class (Tiny/Quantum/
+                    Sub-page/Large/Huge) reference; Red-Black-Tree chunks.
+    NOTE          : Jason Evans announced project sunset 2025-06.
+
+38. A06 — tcmalloc (Google, 2009 / Modern 2024+)
+    Project       : tcmalloc
+    Source URL    : https://github.com/google/tcmalloc
+    Path          : ext/A06-tcmalloc/
+    License       : Apache License 2.0
+    Copyright     : Google LLC and tcmalloc contributors
+    Reference     : S. Ghemawat, P. Menage (2009). TCMalloc: Thread-Caching
+                    Malloc. Google Tech Report.
+                    Z. Zhou et al. (2024). Characterizing a Memory Allocator
+                    at Warehouse Scale. ASPLOS 2024 (covers A14).
+    Comdare role  : Per-CPU Cache via RSEQ (AA3 + AA4 lockless); 88 size
+                    classes; PageMap radix tree; Hugepage-aware backend.
+
+39. A07 — snmalloc (ISMM 2019)
+    Project       : snmalloc
+    Source URL    : https://github.com/microsoft/snmalloc
+    Path          : ext/A07-snmalloc/
+    License       : MIT License
+    Copyright     : Microsoft Corporation
+    Reference     : P. Liétar, T. Butler, S. Clebsch, S. Drossopoulou, J.
+                    Franco, M.J. Parkinson, A. Shamis, C.M. Wintersteiger,
+                    D. Chisnall (2019). Snmalloc: a message passing
+                    allocator. ISMM 2019.
+    Comdare role  : Message-Passing for non-local frees (AA4 + AA6); 64-bit
+                    slab metadata; bump-pointer + lazy-freelist hybrid;
+                    optimal for asymmetric producer-consumer workloads.
+
+40. A08 — scalloc (OOPSLA 2015)
+    Project       : scalloc
+    Source URL    : https://github.com/cksystemsgroup/scalloc
+    Path          : ext/A08-scalloc/
+    License       : 3-Clause BSD
+    Copyright     : 2012-2015 the scalloc project authors (cksystems group,
+                    Universitaet Salzburg)
+    Reference     : M. Aigner, C.M. Kirsch, M. Lippautz, A. Sokolova
+                    (2015). Fast, Multicore-Scalable, Low-Fragmentation
+                    Memory Allocation through Large Virtual Memory and
+                    Global Data Structures. OOPSLA 2015.
+    Comdare role  : Virtual Spans + lazy mmap (AA7); lock-free Treiber-
+                    stack global pool; constant-time alloc/free.
+
+41. A10 — rpmalloc (Public Domain / MIT)
+    Project       : rpmalloc
+    Source URL    : https://github.com/mjansson/rpmalloc
+    Path          : ext/A10-rpmalloc/
+    License       : Public Domain (UNLICENSE) OR MIT
+    Copyright     : Mattias Jansson
+    Reference     : M. Jansson (2017+). rpmalloc — public domain cross-
+                    platform lock-free thread-caching memory allocator.
+    Comdare role  : Single-file C library (~2000 LOC); Embedded-friendly;
+                    optional 32-byte SIMD-aligned variant for AVX2/AVX-512.
+
+42. A11 — LRMalloc (VECPAR 2018)
+    Project       : lrmalloc
+    Source URL    : https://github.com/ricleite/lrmalloc
+    Path          : ext/A11-lrmalloc/
+    License       : MIT License
+    Copyright     : 2018 Ricardo Leite
+    Reference     : R. Leite, R. Rocha (2018/2019). LRMalloc: A Modern and
+                    Competitive Lock-Free Dynamic Memory Allocator.
+                    VECPAR 2018, published 2019.
+    Comdare role  : Lock-free + Thread-Caches (AA3 + AA4); modern descendant
+                    of A03 Michael 2004; Allocator-/User-Memory-Segregation.
+
+43. A20 — dlmalloc (Doug Lea)
+    Project       : Doug Lea's Memory Allocator (dlmalloc)
+    Source URL    : https://github.com/ennorehling/dlmalloc
+                    (mirror); upstream: gee.cs.oswego.edu/dl/html/malloc.html
+    Path          : ext/A20-dlmalloc/
+    License       : Public Domain (CC0-equivalent, Doug Lea explicit release)
+    Copyright     : Doug Lea (with "this work is in the public domain")
+    Reference     : Doug Lea, "A Memory Allocator", continuously maintained
+                    1987-2024+. Underlying algorithm: boundary tags + bins.
+    Comdare role  : Historical baseline allocator; reference implementation
+                    of boundary-tag + smallbin/treebin/wilderness patterns.
+
+ALLOCATOR REPOSITORIES NOT YET CLONED (Phase 6.2.C optional):
+
+  A02 Bonwick Slab — Linux SLUB / illumos kmem (CDDL/GPL); to be cloned as
+                     reference subset, or own re-implementation per AA-axes.
+  A09 NUMAlloc     — Forschungsprototyp Tongping Liu, UMass; URL pending.
+  A12 CAMA         — Saarland-internal Forschungsprototyp; URL pending.
+  A13 StarMalloc   — github.com/Inria-Prosecco/StarMalloc; F* build complex.
+  A15 HMalloc      — IEEE-Code-Verfuegbarkeit unklar.
+  A16 PIM-malloc   — github.com/VIA-Research/PIM-malloc; UPMEM-Hardware-only.
+  A17 Crystalline  — Penn State / Ruslan Nikolaev; URL pending.
+  A18 Exgen-Malloc — UT Austin SysML; URL pending.
+  A19 Buddy        — Eigene Re-Implementation; Linux mm/page_alloc.c als Reference.
+  A21 ptmalloc2    — System default (LGPL via glibc); already available.
+  A22 N3916 PMR    — C++17 Standard-Library; bereits Compiler-included.
+  A23 Vmem+Magazines — illumos kmem.c / FreeBSD UMA; subset clone optional.
+
+Summary: 10 of 23 allocator papers cloned; 13 documented in REV-7 with
+clear empfehlung/code-pfad. Comdare CacheEngine selects implementations
+per AA-axis based on workload requirements (REV 7 §4.2 processing_strategy_type).
+
+
+───────────────────────────────────────────────────────────────────────────────
 DOCUMENTATION REFERENCES
 ───────────────────────────────────────────────────────────────────────────────
 

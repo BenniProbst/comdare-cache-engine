@@ -1,0 +1,210 @@
+// Copyright 2019 The TCMalloc Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include <stddef.h>
+#include <sys/types.h>
+
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <optional>
+#include <vector>
+
+#include "benchmark/benchmark.h"
+#include "absl/strings/string_view.h"
+#include "tcmalloc/common.h"
+#include "tcmalloc/internal/affinity.h"
+#include "tcmalloc/internal/config.h"
+#include "tcmalloc/internal/logging.h"
+#include "tcmalloc/malloc_extension.h"
+#include "tcmalloc/static_vars.h"
+#include "tcmalloc/testing/testutil.h"
+
+namespace tcmalloc {
+namespace {
+
+using tcmalloc_internal::AllowedCpus;
+using tcmalloc_internal::ScopedAffinityMask;
+
+size_t Property(absl::string_view name) {
+  std::optional<size_t> result = MallocExtension::GetNumericProperty(name);
+  TC_CHECK(result.has_value());
+  return *result;
+}
+
+void SetSamplingInterval(int64_t val) {
+  MallocExtension::SetProfileSamplingInterval(val);
+  // We do this to reset the per-thread sampler - it may have a
+  // very large gap put in here if sampling had been disabled.
+  void* ptr = ::operator new(1024 * 1024 * 1024);
+  ::operator delete(ptr);
+}
+
+size_t CurrentHeapSize() {
+  return Property("generic.current_allocated_bytes") +
+         Property("tcmalloc.metadata_bytes");
+}
+
+// Return peak memory usage growth when allocating many "size" byte objects.
+ssize_t HeapGrowth(size_t size) {
+  if (size < sizeof(void*)) {
+    size = sizeof(void*);  // Must be able to fit a pointer in each object
+  }
+
+  // For speed, allocate smaller number of total bytes when size is small
+  size_t total = 100 << 20;
+  if (size <= 4096) {
+    total = 30 << 20;
+  }
+
+  constexpr int kMaxTries = 10;
+
+  for (int i = 0; i < kMaxTries; i++) {
+    // We are trying to make precise measurements about the overhead of
+    // allocations.  Keep harness-related allocations outside of our probe
+    // points.
+    //
+    // We pin to a CPU and trigger an allocation of the target size to ensure
+    // that the per-CPU slab has been initialized.
+    std::vector<int> cpus = AllowedCpus();
+    ScopedAffinityMask mask(cpus[0]);
+
+    void* ptr = ::operator new(size);
+    ::operator delete(ptr);
+
+    const size_t start_memory =
+        tcmalloc_internal::kSanitizerPresent ? 0 : CurrentHeapSize();
+
+    void* list = nullptr;
+    for (size_t alloc = 0; alloc < total; alloc += size) {
+      void** object = reinterpret_cast<void**>(::operator new(size));
+      benchmark::DoNotOptimize(object);
+
+      *object = list;
+      list = object;
+    }
+
+    const size_t peak_memory =
+        tcmalloc_internal::kSanitizerPresent ? 0 : CurrentHeapSize();
+
+    while (list != nullptr) {
+      void** object = reinterpret_cast<void**>(list);
+      list = *object;
+      sized_delete(object, size);
+    }
+
+    if (mask.Tampered()) {
+      continue;
+    }
+
+    // If we observed negative growth, something else in the process
+    // (e.g. a background thread) freed a lot of memory. Retry.
+    if (peak_memory < start_memory) {
+      continue;
+    }
+
+    return peak_memory - start_memory;
+  }
+
+  return 0;
+}
+
+bool RunTest(size_t size) {
+  int64_t original = MallocExtension::GetProfileSamplingInterval();
+  SetSamplingInterval(0);
+  const ssize_t baseline = HeapGrowth(size);
+
+  SetSamplingInterval(original);
+  const ssize_t with_sampling = HeapGrowth(size);
+
+  if (tcmalloc_internal::kSanitizerPresent) {
+    return true;
+  }
+
+  // Allocating many MB's of memory should trigger some growth.
+  if (baseline <= 0 || with_sampling <= 0) {
+    fprintf(stderr,
+            "Failed to get valid measurement for size %zu (baseline=%zd, "
+            "with_sampling=%zd)\n",
+            size, baseline, with_sampling);
+    return false;
+  }
+
+  const double percent =
+      (static_cast<double>(with_sampling) - static_cast<double>(baseline)) *
+      100.0 / static_cast<double>(baseline);
+
+  double expectedOverhead = 10.2;
+  // Larger page sizes have larger sampling overhead.
+  if (tcmalloc_internal::kPageShift == 15) {
+    expectedOverhead *= 2;
+  } else if (tcmalloc_internal::kPageShift == 18) {
+    expectedOverhead *= 3;
+  }
+
+  // some noise is unavoidable
+  if (percent < -expectedOverhead || percent > expectedOverhead) {
+    fprintf(stderr,
+            "Size %zu: overhead %.2f%% outside expected +/-%.2f%% "
+            "(baseline=%zd, with_sampling=%zd)\n",
+            size, percent, expectedOverhead, baseline, with_sampling);
+    return false;
+  }
+
+  return true;
+}
+
+std::vector<size_t> InterestingSizes() {
+  std::vector<size_t> ret;
+
+  // Only use the first kNumBaseClasses size classes since classes after that
+  // are intentionally duplicated.
+  for (size_t size_class = 1; size_class < tcmalloc_internal::kNumBaseClasses;
+       size_class++) {
+    size_t size =
+        tcmalloc::tcmalloc_internal::tc_globals.sizemap().class_to_size(
+            size_class);
+    if (size == 0) {
+      continue;
+    }
+    ret.push_back(size);
+  }
+  // Add one size not covered by sizeclasses
+  ret.push_back(ret.back() + 1);
+  return ret;
+}
+
+}  // namespace
+}  // namespace tcmalloc
+
+int main(int argc, char** argv) {
+  // Disable background activity to minimize noise.
+  tcmalloc::MallocExtension::SetBackgroundProcessActionsEnabled(false);
+  tcmalloc::MallocExtension::SetGuardedSamplingInterval(-1);
+
+  bool all_ok = true;
+  for (size_t size : tcmalloc::InterestingSizes()) {
+    if (!tcmalloc::RunTest(size)) {
+      all_ok = false;
+    }
+  }
+
+  if (all_ok) {
+    printf("PASS\n");
+    return 0;
+  } else {
+    printf("FAIL\n");
+    return 1;
+  }
+}

@@ -1,0 +1,71 @@
+// Copyright 2022 The TCMalloc Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include <cstddef>
+#include <vector>
+
+#include "fuzztest/fuzztest.h"
+#include "absl/log/check.h"
+#include "absl/types/span.h"
+#include "tcmalloc/common.h"
+#include "tcmalloc/internal/size_class_info.h"
+#include "tcmalloc/sizemap.h"
+#include "tcmalloc/tcmalloc_policy.h"
+
+namespace tcmalloc::tcmalloc_internal {
+namespace {
+
+struct FuzzSizeClassInfo {
+  uint32_t size;
+  uint32_t pages;
+  uint8_t num_to_move;
+};
+
+void FuzzSizeMap(const std::vector<FuzzSizeClassInfo>& fuzz_info) {
+  if (fuzz_info.empty()) {
+    return;
+  }
+
+  std::vector<SizeClassInfo> info;
+  for (const auto& f : fuzz_info) {
+    info.push_back(
+        SizeClassInfo(f.size, Length(f.pages).in_bytes(), f.num_to_move));
+  }
+
+  SizeMap m;
+  if (!m.Init(absl::MakeSpan(info))) {
+    return;
+  }
+
+  // Validate that every size on [0, kMaxSize] maps to a size class that is
+  // neither too big nor too small.
+  int last_size_class = -1;
+  for (size_t size = 0; size <= kMaxSize; size++) {
+    const int size_class = m.SizeClass(CppPolicy(), size);
+    CHECK_GT(size_class, 0) << size;
+    CHECK_LT(size_class, kNumClasses) << size;
+
+    const size_t s = m.class_to_size(size_class);
+    CHECK_LE(size, s);
+    CHECK_NE(s, 0) << size;
+
+    CHECK_LE(last_size_class, size_class);
+    last_size_class = size_class;
+  }
+}
+
+FUZZ_TEST(SizeMapTest, FuzzSizeMap);
+
+}  // namespace
+}  // namespace tcmalloc::tcmalloc_internal
