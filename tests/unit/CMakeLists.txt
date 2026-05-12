@@ -105,3 +105,8 @@ comdare_add_test(test_sub_engines
 comdare_add_test(test_six_page_structures
     SOURCES test_six_page_structures.cpp
     LIBRARIES comdare::prt_art_concepts)
+
+# Phase 6.2.E (REV 7, 2026-05-13): Allokator-Bibliothek Concept-Wurzeln + 6 Family-Adapter
+comdare_add_test(test_allocator_concepts
+    SOURCES test_allocator_concepts.cpp
+    LIBRARIES comdare::cache_engine_concepts)
