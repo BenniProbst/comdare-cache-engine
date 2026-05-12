@@ -81,6 +81,8 @@ add_subdirectory(engine_choice)      # Domaene 5
 add_subdirectory(prt_art)            # PRT-ART Test-Algorithmus (eigen)
 add_subdirectory(adapters)           # Habich-Direktive Adapter
 add_subdirectory(ext)                # Originalcode (mit Original-Compilern)
+add_subdirectory(test_data_accumulation)  # Phase 6.5 (REV 7 §7)
+add_subdirectory(benchmark_suite)         # Phase 6.6 (REV 7 §8)
 
 if(COMDARE_BUILD_BENCHMARKS)
   add_subdirectory(benchmarks)

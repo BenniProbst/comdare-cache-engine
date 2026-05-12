@@ -117,3 +117,14 @@ comdare_add_test(test_allocator_concepts
 comdare_add_test(test_abi_interface
     SOURCES test_abi_interface.cpp
     LIBRARIES comdare::cache_engine_concepts)
+
+# Phase 6.5 (REV 7, 2026-05-13): TestDataSetAccumulationEngine
+comdare_add_test(test_test_data_accumulation
+    SOURCES test_test_data_accumulation.cpp
+    LIBRARIES comdare::test_data_accumulation)
+
+# Phase 6.6 (REV 7, 2026-05-13): Mikrobenchmark-Suite
+# No-deprecate Wrapper + 2 Custom-Allokationen + Sparse-Binary-Logging + Conversions
+comdare_add_test(test_benchmark_suite
+    SOURCES test_benchmark_suite.cpp
+    LIBRARIES comdare::benchmark_suite)
