@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare>
+  <allocator_permutation id="hoard_default">
+    <family>A01_HOARD</family>
+    <superblock_bytes>8192</superblock_bytes>
+    <empty_fraction>0.25</empty_fraction>
+    <thread_locality>PER_PROCESSOR_HEAP</thread_locality>
+    <synchronization>PERHEAP_LOCK</synchronization>
+  </allocator_permutation>
+
+  <allocator_permutation id="mimalloc_default">
+    <family>A04_MIMALLOC</family>
+    <page_bytes>65536</page_bytes>
+    <thread_locality>TCACHE_PER_THREAD</thread_locality>
+    <synchronization>NO_LOCKS</synchronization>
+  </allocator_permutation>
+
+  <allocator_permutation id="tcmalloc_modern">
+    <family>A06_TCMALLOC</family>
+    <per_cpu_cache_bytes>262144</per_cpu_cache_bytes>
+    <thread_locality>PER_CPU_RSEQ</thread_locality>
+    <synchronization>PERCPU_LOCKLESS_RSEQ</synchronization>
+  </allocator_permutation>
+</comdare>

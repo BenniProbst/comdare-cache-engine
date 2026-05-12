@@ -91,9 +91,11 @@ TEST(Fingerprint, StringIsCappedAtFixedLength) {
     std::string const s = "Hello, World! This is a long string > 16 bytes";
     auto binary = comdare::fingerprint::to_binary_string(s);
     EXPECT_EQ(binary.size(), 16u);
-    // First 16 bytes should match s.data()
-    EXPECT_EQ(static_cast<char>(binary[0]), 'H');
-    EXPECT_EQ(static_cast<char>(binary[15]), 'i');
+    // First 16 bytes should match s.data() — count: "Hello, World! Th" = 16 chars
+    EXPECT_EQ(static_cast<char>(binary[0]),  'H');
+    EXPECT_EQ(static_cast<char>(binary[7]),  'W');
+    EXPECT_EQ(static_cast<char>(binary[14]), 'T');
+    EXPECT_EQ(static_cast<char>(binary[15]), 'h');
 }
 
 TEST(Fingerprint, ComplexTypeUsesHash) {

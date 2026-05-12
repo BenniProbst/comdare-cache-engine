@@ -6,6 +6,7 @@
 #include "../../concepts/i_allocation_strategy.hpp"
 #include "../../concepts/locking_concept.hpp"
 #include "../../locking/shared_mutex_lock.hpp"
+#include "../../portable_aligned_alloc.hpp"
 
 #include <atomic>
 #include <cstddef>
@@ -35,7 +36,7 @@ public:
         // Modern tcmalloc: per-CPU cache lockless via RSEQ. Skelett delegiert
         // an std::aligned_alloc; Phase 7 ersetzt durch tc_malloc/tc_new aus ext.
         stats_.allocation_count.fetch_add(1, std::memory_order_relaxed);
-        void* p = std::aligned_alloc(alignment, bytes);
+        void* p = portable_aligned_alloc(alignment, bytes);
         if (p) {
             stats_.total_bytes_allocated.fetch_add(bytes, std::memory_order_relaxed);
             stats_.total_bytes_in_use    .fetch_add(bytes, std::memory_order_relaxed);
@@ -49,7 +50,7 @@ public:
         if (!p) return;
         stats_.deallocation_count.fetch_add(1, std::memory_order_relaxed);
         stats_.total_bytes_in_use.fetch_sub(bytes, std::memory_order_relaxed);
-        std::free(p);
+        portable_aligned_free(p);
     }
 
     [[nodiscard]] AllocationStatistics statistics() const noexcept {

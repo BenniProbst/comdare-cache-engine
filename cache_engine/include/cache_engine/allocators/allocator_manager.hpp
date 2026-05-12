@@ -14,15 +14,19 @@
 
 namespace comdare::cache_engine::allocator {
 
+// Strategy enthaelt typischerweise std::shared_mutex und ist daher nicht copy-/movable.
+// AllocatorManager haelt deshalb eine Reference auf eine vom Caller besessene Strategy.
 template <IAllocationStrategy Strategy>
 class AllocatorManager {
 public:
-    explicit AllocatorManager(Strategy strategy, AllocatorPermutationFlags flags) noexcept
-        : strategy_{std::move(strategy)}, flags_{flags},
-          pmr_resource_{&strategy_} {}
+    explicit AllocatorManager(Strategy& strategy, AllocatorPermutationFlags flags) noexcept
+        : strategy_{&strategy}, flags_{flags}, pmr_resource_{&strategy} {}
 
-    [[nodiscard]] Strategy&       strategy() noexcept       { return strategy_; }
-    [[nodiscard]] Strategy const& strategy() const noexcept { return strategy_; }
+    AllocatorManager(AllocatorManager const&) = delete;
+    AllocatorManager& operator=(AllocatorManager const&) = delete;
+
+    [[nodiscard]] Strategy&       strategy() noexcept       { return *strategy_; }
+    [[nodiscard]] Strategy const& strategy() const noexcept { return *strategy_; }
 
     [[nodiscard]] AllocatorPermutationFlags const& flags() const noexcept { return flags_; }
 
@@ -35,11 +39,11 @@ public:
     }
 
     [[nodiscard]] AllocationStatistics statistics() const noexcept {
-        return strategy_.statistics();
+        return strategy_->statistics();
     }
 
 private:
-    Strategy                            strategy_;
+    Strategy*                           strategy_;
     AllocatorPermutationFlags           flags_;
     CacheEnginePmrResource<Strategy>    pmr_resource_;
 };

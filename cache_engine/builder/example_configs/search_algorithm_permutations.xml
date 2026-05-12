@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare>
+  <search_algorithm id="prt_art_v1">
+    <page>PRTART_DENSEBYTE</page>
+    <node>PRTART_REDIRECT</node>
+    <traversal>PRTART_HOT_PATH</traversal>
+    <value_handle>CHAINREF</value_handle>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </search_algorithm>
+
+  <search_algorithm id="art_baseline">
+    <page>DENSEBYTE_ART256</page>
+    <node>SPARSE_NODE4_ART</node>
+    <traversal>STANDARD</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </search_algorithm>
+</comdare>

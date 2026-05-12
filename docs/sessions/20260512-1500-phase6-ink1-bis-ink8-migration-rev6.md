@@ -264,3 +264,52 @@ Pro Pflicht-Seitentyp:
 8. 4-Ebenen-Strategien aus 12_md (~21 Patterns + ~41 Plural + ~74 Singular + ~80 Heuristiken)
 9. Habich H2/H3/H4 Workitems
 10. Eigene RCU-Impl (Task #104), SDSL-Lite-Portierung (Task #105), HBM-Hybrid (Task #106)
+
+
+
+User Feedback:
+
+Ich habe gerade 20260512-1500-phase6-ink1-bis-ink8-migration-rev6.md gelesen und ich denke wir haben die wichtigste Basis-Disziplin der Cache Engine vergessen: Custom Allokation. Die
+  Cache Engine ist ebenfalls dafür da, nach bekannten weitreichenden Allokationsmethoden Speicher zu verwalten. Dazu brauchen wir eine umfassende wissenschaftliche Analyse und suche nach
+  google scholar papers zum Thema Allokationsmethoden. Mir selbst sind allokationen wie jalloc und malloc und calloc bekannt. Diese gehören müssen noch als Baustein-Familie UMFASSEND
+  ergänzt werden, wobei zu jedem Paper eine elaborate Zusammenfassung und Recherche nach dem Programmcode erfolgen muss (exakt wie bei den anderen Papern bezüglich der Suchalgorithmen).
+  Die Anforderungen an die Allokation sind optionale thread safe Implementierungen der std C++ Bibliothek für concurrency und allocation, bitte recherchiere ausführlich wie die einzelnen
+  permutierten Implementierungen der Allokator-Algorithmus-Bausteine den Standard typsicher und strukturell korrekt erweitern können, indem sie in der Lage sein müssen, eine Grundlage
+  aller verwendeten std container zu bilden, was umfangreiche Tests für Allokation, Container, Threading und Concurrency-Sicherheit bedarf. Der Standard der Arbeit ist single schreiben
+  und multiple lesen für concurrency, Optional sind erweiterte local aware multi-write concurrency lock Erweiterungen für die Elemente der Allokatoren über Cache-Page Awareness (bitte
+  lies zu C++17 locks welche diese Eigenschaft unterstützen und auf die Allokatorvarianten angewendet werden können). Bezüglich der ABI stabilen C++23 interfaces verhält es sich so, dass
+  jedes kompilierte Experiment eine bestimmte Execution Engine -> Search Engine Rekombination ist, also formal ein zusammengesetzer Custom Suchalgorithmus einer definierten
+  Baustein-Permutation als "std::variant<comdare::search_engine<search_algorithm_type_collection<key,value>,configuration_permutation_type> :
+  comdare::execution_engine<processing_strategy_type> (test_data_set_accumulation_engine_type data_accumulation_benchmark_routines(data_set))>();" . Im folgenden erkläre ich die Details
+  des Interfaces und Randbedingungen der Bestandteile: Meine pseudocode Definition bedeutet, dass es Varianten meines Suchalgorithmus gibt, die sich einerseits an der Baustein-Permutation
+  der Cach-Engine in Rekombination der ExecutionEngine/SearchEngine bewegen und die sich andererseits automatisch je nach Anzahl der Parameter der Suchalgorithmen in ihrer Funktion
+  wandeln. Wenn nur ein Parameter in einem zu generierenden Suchalgorithmus angegeben wird, dann muss dieser typ die value sein und wir füllen den key typ der Darstellung implizit
+  automatisch mit einem beim Einfügen stets hochzählenden 64bit unsigned long. Werden mehr typ Parameter angegeben, dann ist der erste typ der Ebene der key, und alle folgenden Typen
+  formal ein Tupel mit allen zusammengesetzten values. Im Falle, dass der Key (nur bei 2 oder mehr typ Parametern) ein komplexes Objekt und kein Einfachtyp ist, muss dieser implizit
+  mindestens mit einer comdare fingerprint Bibliothek-Variante und einer überladenden Funktion das komplexe Objekt hashen, was zu einem binary string statischer Länge führt (key
+  einfach-typen werden stets per Funktionsüberladung als binary string implizit gecastet). Die execution_engine von der die SearchEngine erbt, enthält als Basisklasse die CacheEngine
+  selbst, die als Visitor Pattern durch Abkömmlinge, wie die SearchEngine, initialisiert und bei Algorithmus-Entscheidungen je Fall in jedem Algorithmus-Baustein um Rat gefragt oder als
+  experimentelles OS Interface direkt verwendet werden kann. Daher muss es für den zulässigen Kern der ExecutionEngine eine durch processing_strategy_type definierte, durch permutation
+  statische, per Verhalten runtime-dynamische, CacheEngine Konfiguration (Limits, Verhalten, Heuristiken, Allokation, Scheduling, Concurrency). Da wir also mindestens eine permutierte
+  Rekombination einer Cache Engine gegen mindestens eine permutation eines Custom Algorithmus (oder per Konfiguration definierten Algorithmus) testen, entstehen am Ende doch 3 Stufen: Der
+  CacheEngineBuilder ist ein eigenständiges Programm welches über einen Satz xml definierter Konfigurationen einerseits alle zulässigen CacheEngine Rekombinationen definiert, von denen
+  in direkter Abhängigkeit die konfigurierten Custom Suchalgorithmen gebaut werden. Implizit hat also die execution_engine als typ eine Reihe an CacheEngine impliziter Typen, die zur
+  compiletime gesetzt und kompiliert werden, und ein search_algorithm ist nichts als eine spezielle execution engine (erbt daher compile time statische permutationen festgelegter
+  Suchalgorithmus-Bausteine). Die ExecutionEngine stellt mithilfe der  CacheEngine experimentelle OS primitiven bereit, die SearchEngine dann Implementierungen für permutationen der für
+  Suche spezifische komplexere experimentelle Standard OS Such- und Speicherzugriffsmuster und Routinen bereit; die Search Engine bildet dann das Dach des Konstruktes als oberster Layer,
+  welcher Suchheuristiken und Konzepte abbildet, die strategisch die CacheEngine definierten Limits an Ressourcen abbilden und den Bereich der Speicherzugriffsmuster weit überschreiten.
+  Zum weiteren Vorgehen: Strategisch sollten wir die Struktur der CacheEngine in der Bearbeitung der stubs und Struktur bevorzugen, weil wir den PRT_ART später dort hinein mergen wollen.
+  Die cache engine verfügt über einen Stack an Algorithmus-Bausteinen im Bereich Suche und der PRT_ART hat dieselbe Struktur mit seinem spezieller zugelassenen permutativen parallel-Stack
+  zum CacheEngine Search stack. Technisch gesehen sind daher die processing_strategy_type für die Rekombinations-Konfiguration, nicht nur auf die execution_engine/search_engine, sondern
+  auch auf den PRT_ART im selben parallelen Konfigurationsformat anwendbar. Wir erben also aus der CacheEngine die Permutations-Struktur-Hierarchie der Algorithmus-Bausteine, wenn die
+  Typen aus configuration_permutation_type im Prüfling-Algorithmus wie PRT_ART nicht gefunden werden, findet zur compile time automatisch ein fallback auf die Bausteine der Cache-Engine
+  Bibliothek statt, von der der Algorithmus formal erbt. Zu deinem Vorschlag der _archive_code_pre_migration/ --> bitte mach das. Bitte dokumentiere im ersten Schritt alle meine
+  Anmerkungen und den Plan mit höchster Präzision, um das Modulare Interface der precompiled ABI stabilen C++23 Module vorzubereiten. Letzter Hinweis: Wenn wir unterschiedliche
+  Testdatentypen haben, muss jeder von diesen Datensätzen per Deserialization oder parsing in den Arbeitsspeicher geladen und verfügbar (und fair reproduzierbar aligned) gemacht werden,
+  um einen definierten Experiment Ablauf über test_data_set_accumulation_engine_type als Klasse, welche die Daten geladen hat und die Test-Algo-Interfaces kennt, bereitstellt. In der
+  Regel werden alle Testdatensätze als Implementierung der SearchEngine bei Initialisierung dieser eingelesen test_data_set_accumulation_engine_type und bereitgestellt, um dann durch eine
+  separate Testroutine ausgeführt zu werden. Die Mikrobenchmark suite ist ein no-deprecate wrapper aller Testmethoden und akkumuliert fortlaufend auf einer separaten custom
+  Basis-allokation (die so groß sein muss, dass sie nie failed oder erweitert werden muss) alle Messergebnisse traced und separat durch sparse serialized byte states binary den
+  Testzustand und Fortschritt auf einer weiteren separaten custom allocation loggt - alles wird zum Ende eines Experimentes erst von binary in handlichere Formate konsolidiert und als
+  auswertbares binary blob Ergebnis gespeichert. Zur Laufzeit ist der Fokus beim Messen nun mal sparse Eigenschaften und minimaler OS Einfluss, statt handliche Formate, die wir bei der
+  Auswertung brauchen (conversion Routine im Messmodul notwendig).

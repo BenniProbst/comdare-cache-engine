@@ -6,6 +6,7 @@
 #include "../../concepts/i_allocation_strategy.hpp"
 #include "../../concepts/locking_concept.hpp"
 #include "../../locking/shared_mutex_lock.hpp"
+#include "../../portable_aligned_alloc.hpp"
 
 #include <cstddef>
 #include <cstdlib>
@@ -31,7 +32,7 @@ public:
     [[nodiscard]] void* raw_allocate(std::size_t bytes, std::size_t alignment) {
         lock_.write_lock_acquire();
         stats_.allocation_count++;
-        void* p = std::aligned_alloc(alignment, bytes);
+        void* p = portable_aligned_alloc(alignment, bytes);
         if (p) {
             stats_.total_bytes_allocated += bytes;
             stats_.total_bytes_in_use     += bytes;
@@ -47,7 +48,7 @@ public:
         lock_.write_lock_acquire();
         stats_.deallocation_count++;
         stats_.total_bytes_in_use -= bytes;
-        std::free(p);
+        portable_aligned_free(p);
         lock_.write_lock_release();
     }
 
