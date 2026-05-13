@@ -25,10 +25,10 @@ und folgenden Phasen durchgefuehrt:
 | 5 — Engine Choice | StaticEngine vs CacheEngine als Compile-Time Template-Parameter | `engine_choice/` |
 | 6 — Publication | LaTeX-Renderer (in Builder integriert) → Anhang Diplomarbeit | `cache_engine/builder/latex_renderer/` |
 
-## Habich-Direktive (F-EXTRA-1)
+## Bearbeitungsdirektiven der Diplomarbeit (F-EXTRA-1)
 
 - Originalcode aller fremden Algorithmen (`ext/<paper>/`) wird **EXAKT KOPIERT**
-  uebernommen.
+  uebernommen (wissenschaftliche Anforderung für die Optimierung der Vergleichbarkeit)
 - Anbindung erfolgt ueber Adapter-Pattern (`adapters/<paper>/`).
 - Hauptcompiler ist IMMER C++23 (Schale, Adapter, Modul-Wrapper).
 - Originalcode-Bausteine werden mit IHREM Original-Compiler kompiliert,
