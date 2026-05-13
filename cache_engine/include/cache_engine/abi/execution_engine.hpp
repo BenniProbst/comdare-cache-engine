@@ -6,6 +6,13 @@
 // (Provider-Rolle): cache-line-aligned-Alloc, NUMA-konformes Read-Pin,
 // Coherence-aware-Write etc. Reicht die CacheEngine-Limits in primitiver
 // Form weiter; permutiert sie compile-time-statisch ueber processing_strategy.
+//
+// REV 7.6 V8.5 (User-Direktive 2026-05-13/14):
+//   "Dadurch gehoert der result Aggregator in die abstrakte ExecutionEngine,
+//    wird dort mithilfe der SearchEngine als spezielles Messinterface
+//    implementiert und ist, wenn wir im experiment Modus kompilieren, immer
+//    fester Bestandteil der result binary."
+// → Bei COMDARE_EXPERIMENT_MODE_ON: ResultAggregator-Member, sonst nichts.
 
 #include "configuration_permutation.hpp"
 #include "processing_strategy.hpp"
@@ -15,6 +22,10 @@
 
 #include <cstddef>
 #include <memory>
+
+#ifdef COMDARE_EXPERIMENT_MODE_ON
+#include <comdare/experiment/result_aggregator.hpp>
+#endif
 
 namespace comdare {
 
@@ -53,9 +64,23 @@ public:
         return cache_engine_;
     }
 
+#ifdef COMDARE_EXPERIMENT_MODE_ON
+    // REV 7.6 V8.5: ResultAggregator als integraler Bestandteil im Experiment-Modus.
+    [[nodiscard]] comdare::experiment::ResultAggregator& result_aggregator() noexcept {
+        return result_aggregator_;
+    }
+    [[nodiscard]] comdare::experiment::ResultAggregator const& result_aggregator() const noexcept {
+        return result_aggregator_;
+    }
+#endif
+
 protected:
     std::shared_ptr<cache_engine::CacheEngine> cache_engine_;
     strategy_t                                 strategy_;
+
+#ifdef COMDARE_EXPERIMENT_MODE_ON
+    comdare::experiment::ResultAggregator result_aggregator_{};
+#endif
 };
 
 }  // namespace comdare

@@ -33,6 +33,25 @@ option(COMDARE_BUILD_TESTS         "Build Google-Tests (generic + specific)"   O
 option(COMDARE_BUILD_PERMUTATIONS  "Pre-Build aller Modul-Permutationen"       OFF)
 option(COMDARE_MICROBENCH_CONTINUOUS "Continuous Mikrobenchmarks (Builder-Modus)" OFF)
 
+# REV 7.6 V8.4 — Experiment-Modus (User-Direktive 2026-05-13/14)
+# Aktiviert ResultAggregator + Mess-Hooks in der ExecutionEngine.
+# Default OFF: Production-Pfad (kein Mess-Overhead).
+# Default ON wird vom Diplomarbeits-messung_driver beim ExperimentDriver-
+# Sub-Build ueberschrieben (-DCOMDARE_EXPERIMENT_MODE=ON).
+option(COMDARE_EXPERIMENT_MODE
+    "Aktiviert ResultAggregator + Mess-Hooks in der ExecutionEngine (REV 7.6 V8.4)"
+    OFF)
+if(COMDARE_EXPERIMENT_MODE)
+    add_compile_definitions(COMDARE_EXPERIMENT_MODE_ON=1)
+endif()
+
+# REV 7.6 V8.2 — Legacy-Reimpl-Migration (User-Direktive: PRT-ART gehoert in prt-art)
+# Default OFF: prt_art/legacy_reimpl/ wird nicht mehr gebaut.
+# Folge-Phase: kompletter Move nach prt-art Repo + Loeschung in cache-engine.
+option(COMDARE_BUILD_LEGACY_REIMPL
+    "[DEPRECATED] Build prt_art/legacy_reimpl/ (Migration zu prt-art Repo, REV 7.6 V8.2)"
+    OFF)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Multi-OS-Infrastruktur (REV 6 Migration aus Diplomarbeit/code, 2026-05-12)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -108,4 +127,6 @@ message(STATUS "  Build Builder:          ${COMDARE_BUILD_BUILDER}")
 message(STATUS "  Build Benchmarks:       ${COMDARE_BUILD_BENCHMARKS}")
 message(STATUS "  Build Tests:            ${COMDARE_BUILD_TESTS}")
 message(STATUS "  Pre-Build Permutations: ${COMDARE_BUILD_PERMUTATIONS}")
+message(STATUS "  Experiment Mode (V8.4): ${COMDARE_EXPERIMENT_MODE}")
+message(STATUS "  Legacy-Reimpl (V8.2):   ${COMDARE_BUILD_LEGACY_REIMPL} [DEPRECATED]")
 message(STATUS "──────────────────────────────────────────────────────────")

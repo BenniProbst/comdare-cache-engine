@@ -37,6 +37,15 @@ struct ExperimentDriverOptions {
     bool                  enumerate_only = false;
     bool                  skip_build     = false;
     bool                  verbose        = true;  // REV 7.6 F2: Diagnose-Output an
+
+    // REV 7.6 V8.7 — Zwei-Stufen-CacheEngineBuilder:
+    //   Stage 1 (vorbereitet ueber CMake-Stack der CacheEngine): Builder-Binary selbst.
+    //   Stage 2 (zur Builder-Runtime): pro Permutation entweder vorkompiliertes
+    //     Modul laden ODER per cmake/cl-Aufruf hot-kompilieren.
+    // Defaults sind so gewaehlt, dass das Verhalten ohne Aenderung dem Stand
+    // vor V8.7 entspricht — neue Faehigkeit ist opt-in via Flag.
+    bool                  enable_runtime_codegen = false;  // V8.7: hot-compile fehlende Permutationen
+    bool                  enable_functional_tests = false; // V8.7: googletest-Funktionalitaetspruefung pro Modul (auch ohne EXPERIMENT_MODE)
 };
 
 struct WorkloadOptions {

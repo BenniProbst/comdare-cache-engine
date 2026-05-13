@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- comdare_permutation_axes — REV 7.6 V8.3
+     11 Achsen + Wertebereiche fuer Suchalgorithmus-Permutationen.
+     Im 'full'-Mode generiert der CacheEngineBuilder alle Cartesian-Product-
+     Permutationen ueber diese Achsen. -->
+<comdare_permutation_axes version="1">
+
+  <axis id="page" required="true">
+    <description>Page-Layout der Knoten</description>
+    <values>
+      <value>DENSEBYTE_ART256</value>
+      <value>HOT_MULTIBYTE</value>
+      <value>MASSTREE_INODE</value>
+      <value>COCO_COMPACT</value>
+      <value>START_PAGE</value>
+      <value>B2TREE_PAGE</value>
+      <value>WORMHOLE_PAGE</value>
+      <value>SURF_PAGE</value>
+      <value>PRTART_DENSEBYTE</value>
+      <value>PRTART_REDIRECT</value>
+    </values>
+  </axis>
+
+  <axis id="node" required="true">
+    <description>Node-Type-Variante</description>
+    <values>
+      <value>SPARSE_NODE4_ART</value>
+      <value>HOT_BIT_NODE</value>
+      <value>MASSTREE_TRIE</value>
+      <value>BPLUS_NODE</value>
+      <value>WORMHOLE_HASH</value>
+      <value>SURF_TRIE</value>
+      <value>PRTART_REDIRECT</value>
+      <value>PRTART_BPLUS</value>
+    </values>
+  </axis>
+
+  <axis id="traversal" required="true">
+    <description>Traversal-Strategie</description>
+    <values>
+      <value>STANDARD</value>
+      <value>HOT_PATH</value>
+      <value>RANGE_SCAN</value>
+      <value>RANGE_HOT_PATH</value>
+      <value>PRTART_HOT_PATH</value>
+    </values>
+  </axis>
+
+  <axis id="value_handle" required="true">
+    <description>Wertspeicherung</description>
+    <values>
+      <value>INLINE</value>
+      <value>EXTERNAL</value>
+      <value>CHAINREF</value>
+    </values>
+  </axis>
+
+  <axis id="concurrency" required="true">
+    <description>Concurrency-Mechanismus</description>
+    <values>
+      <value>SINGLE_THREADED</value>
+      <value>SHARED_MUTEX</value>
+      <value>OPTIMISTIC_LOCK_COUPLING</value>
+      <value>RCU</value>
+      <value>HAZARD_POINTERS</value>
+      <value>PRTART_OLC_RESERVED</value>
+    </values>
+  </axis>
+
+  <axis id="allocator" required="true">
+    <description>Allokator-Familie (siehe Allokator_Matrix.txt)</description>
+    <values>
+      <value>SYSTEM_MALLOC</value>
+      <value>HOARD</value>
+      <value>SLAB</value>
+      <value>MICHAEL_LOCKFREE</value>
+      <value>MIMALLOC</value>
+      <value>JEMALLOC</value>
+      <value>TCMALLOC</value>
+      <value>SNMALLOC</value>
+      <value>SCALLOC</value>
+      <value>NUMALLOC</value>
+      <value>RPMALLOC</value>
+      <value>LRMALLOC</value>
+      <value>CAMA</value>
+      <value>STARMALLOC</value>
+      <value>BUDDY</value>
+      <value>DLMALLOC</value>
+    </values>
+  </axis>
+
+  <axis id="prefetch" required="false">
+    <description>Prefetch-Strategie</description>
+    <values>
+      <value>NONE</value>
+      <value>ADAPTIVE_DISTANCE</value>
+      <value>PATH_ORIENTED</value>
+      <value>FRACTAL</value>
+      <value>HIERARCHICAL</value>
+      <value>PRTART_REDIRECT_PREFETCH</value>
+    </values>
+  </axis>
+
+  <axis id="telemetry" required="false">
+    <description>Telemetry-Strategie (Achse 11 nach REV 5.4)</description>
+    <values>
+      <value>OFF</value>
+      <value>LEAFONLY_SAMPLED</value>
+      <value>ALL_NODES</value>
+      <value>VAMPIR_OTF2</value>
+      <value>PIKA_PROFILE</value>
+    </values>
+  </axis>
+
+  <axis id="isa" required="true">
+    <description>ISA-Feature-Set</description>
+    <values>
+      <value>X86_BASELINE</value>
+      <value>X86_SSE42</value>
+      <value>X86_AVX2</value>
+      <value>X86_AVX512</value>
+      <value>ARM_NEON</value>
+      <value>ARM_SVE</value>
+    </values>
+  </axis>
+
+  <axis id="layout" required="false">
+    <description>Memory-Layout</description>
+    <values>
+      <value>STANDARD_HEAP</value>
+      <value>CACHE_OBLIVIOUS_VEB</value>
+      <value>CACHE_LINE_ALIGNED</value>
+      <value>NUMA_PINNED</value>
+      <value>HBM_HYBRID</value>
+      <value>PRTART_MULTI_LEVEL</value>
+    </values>
+  </axis>
+
+  <axis id="reclamation" required="false">
+    <description>Memory-Reclamation</description>
+    <values>
+      <value>NONE</value>
+      <value>RCU_GP</value>
+      <value>HAZARD_POINTERS</value>
+      <value>EPOCH_BASED</value>
+      <value>CRYSTALLINE_LOCKFREE</value>
+    </values>
+  </axis>
+
+</comdare_permutation_axes>

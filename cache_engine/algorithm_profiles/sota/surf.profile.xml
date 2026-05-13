@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="surf" paper_ref="P10">
+  <metadata>
+    <name>SuRF — Succinct Range Filter</name>
+    <authors>Zhang, Lim, Leis, Andersen, Kaminsky, Keeton, Pavlo</authors>
+    <year>2018</year>
+    <venue>SIGMOD</venue>
+    <doi>10.1145/3183713.3196931</doi>
+  </metadata>
+  <axes>
+    <page>SURF_PAGE</page>
+    <node>SURF_TRIE</node>
+    <traversal>RANGE_SCAN</traversal>
+    <value_handle>INLINE</value_handle>
+    <concurrency>SINGLE_THREADED</concurrency>
+    <allocator>SYSTEM_MALLOC</allocator>
+    <prefetch>NONE</prefetch>
+    <telemetry>OFF</telemetry>
+    <isa>X86_AVX2</isa>
+    <layout>CACHE_OBLIVIOUS_VEB</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::string</key_types>
+    <value_types>std::uint64_t</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>

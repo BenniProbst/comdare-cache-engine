@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="art" paper_ref="P01">
+  <metadata>
+    <name>Adaptive Radix Tree</name>
+    <authors>Leis, Kemper, Neumann</authors>
+    <year>2013</year>
+    <venue>ICDE</venue>
+    <doi>10.1109/ICDE.2013.6544812</doi>
+  </metadata>
+  <axes>
+    <page>DENSEBYTE_ART256</page>
+    <node>SPARSE_NODE4_ART</node>
+    <traversal>STANDARD</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <concurrency>OPTIMISTIC_LOCK_COUPLING</concurrency>
+    <allocator>MIMALLOC</allocator>
+    <prefetch>NONE</prefetch>
+    <telemetry>OFF</telemetry>
+    <isa>X86_AVX2</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>

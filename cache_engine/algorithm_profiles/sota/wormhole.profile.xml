@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="wormhole" paper_ref="P07">
+  <metadata>
+    <name>Wormhole</name>
+    <authors>Wu, Ni, Jiang</authors>
+    <year>2019</year>
+    <venue>EuroSys</venue>
+    <doi>10.1145/3302424.3303955</doi>
+  </metadata>
+  <axes>
+    <page>WORMHOLE_PAGE</page>
+    <node>WORMHOLE_HASH</node>
+    <traversal>STANDARD</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <concurrency>OPTIMISTIC_LOCK_COUPLING</concurrency>
+    <allocator>JEMALLOC</allocator>
+    <prefetch>NONE</prefetch>
+    <telemetry>OFF</telemetry>
+    <isa>X86_AVX2</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::string</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="start" paper_ref="P05">
+  <metadata>
+    <name>START — Self-Tuning Adaptive Radix Tree</name>
+    <authors>Fent, Jungmair, Kipf, Neumann</authors>
+    <year>2020</year>
+    <venue>VLDB</venue>
+    <doi>10.14778/3415478.3415521</doi>
+  </metadata>
+  <axes>
+    <page>START_PAGE</page>
+    <node>SPARSE_NODE4_ART</node>
+    <traversal>HOT_PATH</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <concurrency>OPTIMISTIC_LOCK_COUPLING</concurrency>
+    <allocator>MIMALLOC</allocator>
+    <prefetch>ADAPTIVE_DISTANCE</prefetch>
+    <telemetry>LEAFONLY_SAMPLED</telemetry>
+    <isa>X86_AVX2</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>
