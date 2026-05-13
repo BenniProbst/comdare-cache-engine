@@ -85,6 +85,8 @@ add_subdirectory(test_data_accumulation)  # Phase 6.5 (REV 7 §7)
 add_subdirectory(benchmark_suite)         # Phase 6.6 (REV 7 §8)
 add_subdirectory(workload_generator)      # Phase 7.1 (REV 7 §7 Workload-Generation)
 add_subdirectory(experiment)              # Phase 7.3+7.4 (REV 7 §9 Experiment-Loop)
+add_subdirectory(succinct)                # Aufgabe #105: SDSL-Lite-Portierung (2026-05-13)
+add_subdirectory(tools)                   # Phase C (ycsb_cli, 2026-05-13)
 
 if(COMDARE_BUILD_BENCHMARKS)
   add_subdirectory(benchmarks)

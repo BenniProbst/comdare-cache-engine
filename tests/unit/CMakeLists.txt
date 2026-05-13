@@ -139,3 +139,49 @@ comdare_add_test(test_allocator_full_matrix
 comdare_add_test(test_workload_and_experiment
     SOURCES test_workload_and_experiment.cpp
     LIBRARIES comdare::cache_engine_concepts comdare::workload_generator comdare::experiment)
+
+# Phase C (2026-05-13): YCSB-CLI Tool
+comdare_add_test(test_ycsb_cli
+    SOURCES test_ycsb_cli.cpp
+    LIBRARIES comdare::ycsb_cli_lib comdare::workload_generator)
+
+# Phase 7.2 (2026-05-13): CacheEngineBuilder Codegen + Aggregator-CMakeLists.txt
+comdare_add_test(test_builder_codegen
+    SOURCES test_builder_codegen.cpp
+    LIBRARIES comdare_builder_codegen)
+
+# Phase 8 (2026-05-13): LaTeX-Anhang-Tool
+comdare_add_test(test_latex_anhang
+    SOURCES test_latex_anhang.cpp
+    LIBRARIES comdare::latex_anhang_lib)
+
+# Aufgabe #104 (2026-05-13): eigene RCU-Implementation
+comdare_add_test(test_rcu
+    SOURCES test_rcu.cpp
+    LIBRARIES comdare::rcu)
+
+# Aufgabe #105 (2026-05-13): eigene SDSL-Lite-Portierung (BitVector + LOUDS)
+comdare_add_test(test_succinct
+    SOURCES test_succinct.cpp
+    LIBRARIES comdare::succinct)
+
+# Aufgabe #106 (2026-05-13): HBM-Hybrid-Cache-Hierarchie + Abstract Factory
+comdare_add_test(test_hbm_hierarchy
+    SOURCES test_hbm_hierarchy.cpp
+    LIBRARIES comdare::cache_engine_concepts)
+
+# Phase 7.2.D (2026-05-13): ModuleLoader fuer Permutations-DLLs
+# Mock-DLL als SHARED-Library, die das ABI exportiert
+add_library(comdare_perm_mock_test SHARED mock_permutation_module.cpp)
+target_compile_features(comdare_perm_mock_test PRIVATE cxx_std_23)
+target_include_directories(comdare_perm_mock_test PRIVATE
+    "${CMAKE_SOURCE_DIR}/cache_engine/include")
+set_target_properties(comdare_perm_mock_test PROPERTIES
+    POSITION_INDEPENDENT_CODE ON)
+
+comdare_add_test(test_module_loader
+    SOURCES test_module_loader.cpp
+    LIBRARIES comdare_module_loader)
+target_compile_definitions(test_module_loader PRIVATE
+    "COMDARE_MOCK_DLL_PATH=\"$<TARGET_FILE:comdare_perm_mock_test>\"")
+add_dependencies(test_module_loader comdare_perm_mock_test)
