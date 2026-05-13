@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="khan_adaptive" paper_ref="P23">
+  <metadata>
+    <name>Khan — Dynamic Adaptation of Cache Prefetching</name>
+    <authors>Khan</authors>
+    <year>2010</year>
+    <venue>HPCA</venue>
+  </metadata>
+  <axes>
+    <page>STANDARD_HEAP</page>
+    <node>BPLUS_NODE</node>
+    <traversal>STANDARD</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <concurrency>SHARED_MUTEX</concurrency>
+    <allocator>SYSTEM_MALLOC</allocator>
+    <prefetch>ADAPTIVE_DISTANCE</prefetch>
+    <telemetry>LEAFONLY_SAMPLED</telemetry>
+    <isa>X86_AVX2</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint32_t</key_types>
+    <value_types>std::uint64_t</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>

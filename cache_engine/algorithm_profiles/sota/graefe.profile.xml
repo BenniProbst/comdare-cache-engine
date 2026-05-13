@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="graefe" paper_ref="P15">
+  <metadata>
+    <name>Graefe/Larson — B-Tree Indexes and CPU Caches</name>
+    <authors>Graefe, Larson</authors>
+    <year>2001</year>
+    <venue>ICDE</venue>
+    <doi>10.1109/ICDE.2001.914855</doi>
+  </metadata>
+  <axes>
+    <page>STANDARD_HEAP</page>
+    <node>BPLUS_NODE</node>
+    <traversal>STANDARD</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <concurrency>SHARED_MUTEX</concurrency>
+    <allocator>SYSTEM_MALLOC</allocator>
+    <prefetch>NONE</prefetch>
+    <telemetry>LEAFONLY_SAMPLED</telemetry>
+    <isa>X86_BASELINE</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint32_t</key_types>
+    <value_types>std::uint64_t</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>

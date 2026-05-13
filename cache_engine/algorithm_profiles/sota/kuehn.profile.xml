@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="kuehn" paper_ref="P28">
+  <metadata>
+    <name>Kuehn et al. — Towards Data-Based Cache Optimization</name>
+    <authors>Kuehn et al.</authors>
+    <year>2023</year>
+    <venue>DaMoN</venue>
+  </metadata>
+  <axes>
+    <page>B2TREE_PAGE</page>
+    <node>BPLUS_NODE</node>
+    <traversal>STANDARD</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <concurrency>SHARED_MUTEX</concurrency>
+    <allocator>JEMALLOC</allocator>
+    <prefetch>ADAPTIVE_DISTANCE</prefetch>
+    <telemetry>ALL_NODES</telemetry>
+    <isa>X86_AVX2</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::uint64_t</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>

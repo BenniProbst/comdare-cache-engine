@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="btreesareback" paper_ref="P20">
+  <metadata>
+    <name>B-Trees Are Back: Engineering Fast and Pageable Index Structures</name>
+    <authors>Mueller, Benson, Leis</authors>
+    <year>2025</year>
+    <venue>SIGMOD</venue>
+  </metadata>
+  <axes>
+    <page>B2TREE_PAGE</page>
+    <node>BPLUS_NODE</node>
+    <traversal>RANGE_SCAN</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <concurrency>OPTIMISTIC_LOCK_COUPLING</concurrency>
+    <allocator>JEMALLOC</allocator>
+    <prefetch>ADAPTIVE_DISTANCE</prefetch>
+    <telemetry>LEAFONLY_SAMPLED</telemetry>
+    <isa>X86_AVX2</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>

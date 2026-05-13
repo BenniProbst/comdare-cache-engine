@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="samuel" paper_ref="P14">
+  <metadata>
+    <name>Samuel/Pedersen/Bonnet — Processor Conscious CSB+-Tree</name>
+    <authors>Samuel, Pedersen, Bonnet</authors>
+    <year>2005</year>
+    <venue>VLDB Workshop</venue>
+  </metadata>
+  <axes>
+    <page>B2TREE_PAGE</page>
+    <node>BPLUS_NODE</node>
+    <traversal>RANGE_SCAN</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <concurrency>SINGLE_THREADED</concurrency>
+    <allocator>SLAB</allocator>
+    <prefetch>ADAPTIVE_DISTANCE</prefetch>
+    <telemetry>OFF</telemetry>
+    <isa>X86_SSE42</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint32_t</key_types>
+    <value_types>std::uint64_t</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>
