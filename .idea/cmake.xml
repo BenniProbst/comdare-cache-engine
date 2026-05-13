@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CMakeSharedSettings">
+    <configurations>
+      <configuration PROFILE_NAME="Debug" ENABLED="true" CONFIG_NAME="Debug" GENERATION_OPTIONS="-DCMAKE_EXPORT_COMPILE_COMMANDS=ON" />
+      <configuration PROFILE_NAME="Release" ENABLED="true" CONFIG_NAME="Release" GENERATION_OPTIONS="-DCMAKE_EXPORT_COMPILE_COMMANDS=ON" />
+      <configuration PROFILE_NAME="MSVC-Debug" ENABLED="true" CONFIG_NAME="Debug" GENERATION_DIR="build-msvc" GENERATION_OPTIONS="-DCMAKE_EXPORT_COMPILE_COMMANDS=ON" />
+      <configuration PROFILE_NAME="Permutations" ENABLED="true" CONFIG_NAME="Debug" GENERATION_DIR="build-perms" GENERATION_OPTIONS="-DCOMDARE_BUILD_PERMUTATIONS=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON" />
+    </configurations>
+  </component>
+</project>
