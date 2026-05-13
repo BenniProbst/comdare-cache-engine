@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="hazard_pointers" paper_ref="P30">
+  <metadata>
+    <name>Hazard Pointers — Safe Memory Reclamation</name>
+    <authors>Michael</authors>
+    <year>2004</year>
+    <venue>IEEE TPDS</venue>
+    <doi>10.1109/TPDS.2004.8</doi>
+  </metadata>
+  <axes>
+    <page>STANDARD_HEAP</page>
+    <node>BPLUS_NODE</node>
+    <traversal>STANDARD</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <concurrency>HAZARD_POINTERS</concurrency>
+    <allocator>SLAB</allocator>
+    <prefetch>NONE</prefetch>
+    <telemetry>OFF</telemetry>
+    <isa>X86_BASELINE</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>HAZARD_POINTERS</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::uint64_t</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>

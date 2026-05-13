@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="css_tree" paper_ref="P11">
+  <metadata>
+    <name>CSS-Tree (Cache-Sensitive Search Tree)</name>
+    <authors>Rao, Ross</authors>
+    <year>1999</year>
+    <venue>VLDB</venue>
+    <doi>10.1145/304182.304188</doi>
+  </metadata>
+  <axes>
+    <page>STANDARD_HEAP</page>
+    <node>BPLUS_NODE</node>
+    <traversal>STANDARD</traversal>
+    <value_handle>INLINE</value_handle>
+    <concurrency>SINGLE_THREADED</concurrency>
+    <allocator>SYSTEM_MALLOC</allocator>
+    <prefetch>NONE</prefetch>
+    <telemetry>OFF</telemetry>
+    <isa>X86_BASELINE</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint32_t</key_types>
+    <value_types>std::uint64_t</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>

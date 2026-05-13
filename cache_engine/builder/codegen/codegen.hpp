@@ -33,6 +33,15 @@ public:
                          xml::PermutationEntry const& allocator_perm,
                          std::uint64_t fingerprint) const;
 
+    // REV 7.6 V9.3 — Generiert ein Modul direkt aus einem AlgorithmProfile
+    // (algorithm_profiles/sota/<id>.profile.xml). Das Profil enthaelt alle
+    // 11 Achsen + Key/Value-Signature + Paper-Ref. Der Codegen fingerprint-t
+    // das Profil und schreibt:
+    //   - module_<id>_<fingerprint>.cpp
+    //   - module_<id>_<fingerprint>_CMakeLists.txt
+    void generate_module_from_profile(xml::AlgorithmProfile const& profile,
+                                       std::uint64_t fingerprint) const;
+
     // Phase 7.2.A: generiert einen zentralen Aggregator CMakeLists.txt im
     // output_root, der alle module_<fp>_CMakeLists.txt include-t.
     // Aufruf NACH allen generate_module()-Calls; erwartet die fertige

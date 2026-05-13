@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="csb_tree" paper_ref="P12">
+  <metadata>
+    <name>CSB+-Tree (Cache-Sensitive B+-Tree)</name>
+    <authors>Rao, Ross</authors>
+    <year>2000</year>
+    <venue>SIGMOD</venue>
+    <doi>10.1145/342009.335449</doi>
+  </metadata>
+  <axes>
+    <page>B2TREE_PAGE</page>
+    <node>BPLUS_NODE</node>
+    <traversal>RANGE_SCAN</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <concurrency>SINGLE_THREADED</concurrency>
+    <allocator>SLAB</allocator>
+    <prefetch>NONE</prefetch>
+    <telemetry>OFF</telemetry>
+    <isa>X86_BASELINE</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint32_t</key_types>
+    <value_types>std::uint64_t</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>

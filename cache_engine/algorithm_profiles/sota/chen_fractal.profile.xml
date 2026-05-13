@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="chen_fractal" paper_ref="P22">
+  <metadata>
+    <name>Chen et al. — Fractal Prefetching B+-Trees</name>
+    <authors>Chen, Gibbons, Mowry, Valentin</authors>
+    <year>2002</year>
+    <venue>SIGMOD</venue>
+    <doi>10.1145/564691.564700</doi>
+  </metadata>
+  <axes>
+    <page>STANDARD_HEAP</page>
+    <node>BPLUS_NODE</node>
+    <traversal>STANDARD</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <concurrency>SINGLE_THREADED</concurrency>
+    <allocator>SYSTEM_MALLOC</allocator>
+    <prefetch>FRACTAL</prefetch>
+    <telemetry>OFF</telemetry>
+    <isa>X86_BASELINE</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint32_t</key_types>
+    <value_types>std::uint64_t</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>
