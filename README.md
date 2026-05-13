@@ -3,16 +3,16 @@
 **Active Cache-Aware Hardware Adaptation Cache Engine for Trie-Based Index Structures**
 
 Diplomarbeit · TU Dresden · Datenbankentwicklung mit Spezialisierung in Suchalgorithmen
-Pruefungsordnung 2010 · Hauptbetreuer: Prof. Dr. Dirk Habich
+Pruefungsordnung 2010 · Hauptbetreuer: Prof. Dr. Dirk Habich, Dr. Alexander Krause
 Lizenz: Apache 2.0 · BEP Venture UG / Marke Comdare
 
 ---
 
-## Status: Phase 4.B Skelett (KEINE Implementation)
+## Derzeitiger Status: Phase 4.B Skelett (Implementierung ausstehend)
 
 Dieses Repository enthaelt die **strukturelle Vorbereitung** der Diplomarbeit-
 Implementation. Die eigentliche Implementation wird in Phase 5 (drawio UML)
-und folgenden Phasen durchgefuehrt — nach explizitem GO durch den Architekten.
+und folgenden Phasen durchgefuehrt:
 
 ## Projekt-Domaenen (gem. Domaenenmodell v3 + v4)
 
