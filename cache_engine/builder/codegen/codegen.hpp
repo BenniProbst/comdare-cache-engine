@@ -6,8 +6,11 @@
 
 #include "../xml_config_parser/xml_config_parser.hpp"
 
+#include <cstdint>
 #include <filesystem>
+#include <span>
 #include <string>
+#include <vector>
 
 namespace comdare::builder::codegen {
 
@@ -30,8 +33,18 @@ public:
                          xml::PermutationEntry const& allocator_perm,
                          std::uint64_t fingerprint) const;
 
+    // Phase 7.2.A: generiert einen zentralen Aggregator CMakeLists.txt im
+    // output_root, der alle module_<fp>_CMakeLists.txt include-t.
+    // Aufruf NACH allen generate_module()-Calls; erwartet die fertige
+    // Fingerprint-Liste. Resultat: <output_root>/CMakeLists.txt
+    void generate_aggregate_cmake(std::span<std::uint64_t const> fingerprints) const;
+
     [[nodiscard]] std::filesystem::path module_source_path(std::uint64_t fingerprint) const;
     [[nodiscard]] std::filesystem::path module_cmake_path(std::uint64_t fingerprint) const;
+    [[nodiscard]] std::filesystem::path aggregate_cmake_path() const;
+
+    [[nodiscard]] std::filesystem::path const& output_root() const noexcept { return opts_.output_root; }
+    [[nodiscard]] std::filesystem::path const& comdare_root() const noexcept { return opts_.comdare_root; }
 
 private:
     CodegenOptions opts_;
