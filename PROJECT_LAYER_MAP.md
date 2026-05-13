@@ -1,27 +1,49 @@
-# PROJECT_LAYER_MAP — comdare-cache-engine (2026-05-13)
+# PROJECT_LAYER_MAP — comdare-cache-engine (REV 7.6, 2026-05-13)
 
 Strategische Strukturübersicht für **manuelles Code-Review**.
 Reihenfolge entspricht der **empfohlenen Lese-Reihenfolge**.
 
+> **REV 7.6 Update:** Drei-Repo-Architektur klarer getrennt
+> (User-Direktive 2026-05-13). Cache-Engine bestimmt **WIE** gemessen wird
+> (Mess-Mechanik + Bibliothek + Werkzeuge), Diplomarbeit bestimmt **WAS**
+> getestet wird. Library-Refactoring der Builder-Pipeline + Diagnose-
+> Output-Restore. Siehe Diplomarbeit-Repo `FINDINGS_REV7_6_2026_05_13.md`
+> + `30_architektur_delta_REV7_6_drei_repo_layer_2026_05_13.md`.
+
 ---
 
-## 0. Repo-Rolle
+## 0. Repo-Rolle (REV 7.6 prazisiert)
 
-`comdare-cache-engine` ist die **Werkzeug-Bibliothek** im
-Drei-Schichten-System (REV 7 §4.2):
+`comdare-cache-engine` ist die **Werkzeug- und Mess-Mechanik-Bibliothek**
+im Drei-Repo-System:
 
 ```
-CacheEngine  →  ExecutionEngine  →  SearchEngine  ←  PRT-ART
-   (this repo)    (this repo)        (this repo)     (consumer)
+Diplomarbeit/Code/  =  WAS getestet wird + AUSWERTUNG
+       │
+       ▼ (Submodule, parallel)
+comdare-prt-art      =  Test-Algorithmus (Pruefling, hybride PrtArtSearchEngine)
+       │
+       ▼ (Submodule)
+comdare-cache-engine =  WIE gemessen wird (this repo)
 ```
 
-Beinhaltet:
+Beinhaltet (cache-engine = "WIE"):
+- **Mess-Mechanik:** ExperimentDriver-Library (Phase 1-7) +
+  CacheEngineBuilder-Executable (REV 7.6 Library-Wrapper)
 - **Allokator-Bibliothek** (23 Family-Adapter A01–A23)
 - **CacheEngine-Bausteine** (Page-Typen, ConcurrencyManager, TelemetryStrategy)
-- **CacheEngineBuilder** (Permutations-Orchestrator mit XML-Config)
-- **Workload-Generator + ResultAggregator** (Phase 7 Experiment-Loop)
-- **External Tools** (ycsb_cli, latex_anhang, latex_toolchain)
+- **Workload-Generator-Library** (YCSB-A..F, Zipfian — Demo-Workloads sind
+  cache-engine-Library-Bestandteil!)
+- **ResultAggregator + Mikrobenchmark-Suite**
+- **ModuleLoader** (LoadLibrary/dlopen plattform-agnostisch)
+- **External Tools** (ycsb_cli, latex_anhang, latex_toolchain) — generische
+  Werkzeuge, BLEIBEN in cache-engine
 - **External References** (`ext/`-Verzeichnis: 23 geklonte Allokator + Such-Repos)
+
+NICHT in cache-engine:
+- 3 Messreihen-Definitionen (das ist Diplomarbeit/Code/experiment_config/)
+- Binary→CSV→LaTeX-PDF Auswertungs-Pipeline (das ist Diplomarbeit/Code/)
+- TikZ-Diagramm-Generator (das ist Diplomarbeit/Code/diagram_generator/)
 
 ---
 
@@ -38,15 +60,16 @@ Beinhaltet:
 ├─────────────────────────────────────────────────────────────────────┤
 │ L2  CACHE-ENGINE-BUILDER (Permutations-Orchestrator)                 │
 │     cache_engine/builder/                                            │
-│     ├── main.cpp                  (Master-Driver Phase 1–7)          │
-│     ├── xml_config_parser/        (Phase 1: XML → CacheEngineConfig) │
-│     ├── permutation_loop/         (Phase 1: enumerate Descriptors)   │
-│     ├── codegen/                  (Phase 2: cpp + CMakeLists pro Perm)│
-│     ├── module_loader/            (Phase 4: LoadLibrary/dlopen)      │
-│     ├── experiment_runner/        (Phase 5+6: workload-driver)       │
-│     └── 14 Sub-Komponenten        (cache_engine_component,           │
-│                                    decision_lambda_trees,            │
-│                                    measurement_matrix, ...)          │
+│     ├── main.cpp                       (REV 7.6: Library-Wrapper)    │
+│     ├── experiment_driver/   ← NEU REV 7.6: Phase 1-7 Library        │
+│     │   └── ExperimentDriver-Klasse mit verbose-Diagnose-Output     │
+│     ├── xml_config_parser/             (Phase 1: XML → Config)       │
+│     ├── permutation_loop/              (Phase 1: enumerate Descrip.) │
+│     ├── codegen/                       (Phase 2: cpp + CMakeLists)   │
+│     ├── module_loader/                 (Phase 4: LoadLib/dlopen)     │
+│     ├── experiment_runner/             (Phase 5+6: workload-driver)  │
+│     └── 14 Sub-Komponenten             (cache_engine_component,      │
+│                                         decision_lambda_trees, ...)  │
 ├─────────────────────────────────────────────────────────────────────┤
 │ L3  ABI-INTERFACE (REV 7 §4.2)                                        │
 │     cache_engine/include/cache_engine/abi/                           │
@@ -286,9 +309,12 @@ comdare-prt-art (separates Repo) ─── prt_art/ (volle Impl + Tests)
 
 | Datei | Kritikalität |
 |---|---|
-| `cache_engine/builder/main.cpp` Phase 4-7 | **HOCH** — voller E2E-Pipeline-Wire-up |
+| `cache_engine/builder/experiment_driver/experiment_driver.{hpp,cpp}` | **HOCH** REV 7.6 — Library-Refactoring der Phase 1-7 Pipeline mit verbose-Diagnose |
+| `cache_engine/builder/main.cpp` | **HOCH** REV 7.6 — Library-Wrapper (statt direkter Phase-Implementation) |
 | `cache_engine/builder/codegen/codegen.cpp` Aggregator + dllexport | **HOCH** — Cross-Platform-Codegen |
 | `cache_engine/builder/module_loader/{hpp,cpp}` | **HOCH** — Cross-Platform DLL-Loading |
+| `tools/latex_toolchain/latex_toolchain.cmake` | **HOCH** REV 7.6 — vorher silent gitignored, jetzt committed (e2dc290) |
+| `tools/permutation_codegen/codegen.cmake` | **HOCH** REV 7.6 — gleicher gitignore-Fix |
 | `succinct/include/comdare/succinct/{bit_vector,louds}.hpp` | MITTEL — SDSL-Lite-Ersatz |
 | `cache_engine/reclamation/rcu_reclaim/rcu.hpp` | MITTEL — liburcu-Ersatz |
 | `cache_engine/include/cache_engine/hbm/hbm_hierarchy.hpp` | MITTEL — Abstract Factory |
@@ -358,3 +384,62 @@ Repo `probst-Diplomarbeit-cache-engine`):
 - `27_…_ycsb_cli_…md`
 - `28_…_cmake_pipeline_…md`
 - `29_…_phase4_7_loader_…md`
+- `30_architektur_delta_REV7_6_drei_repo_layer_2026_05_13.md` (REV 7.6)
+- `STRUCTURAL_CORRECTION_2026_05_13.md` (Master mit User-Original-Nachricht §10)
+- `FINDINGS_REV7_6_2026_05_13.md` (Konsolidierung aller Findings)
+
+## 10. REV 7.6 — Diagnose-Output-Restore (heute Abend)
+
+### Problem (gefunden vom User)
+
+Beim REV-7.6-Q4 Library-Refactoring von `main.cpp` wurde die Pipeline-
+Logik in `comdare::builder::ExperimentDriver` verschoben — aber die
+`std::cout`-Diagnose-Outputs der 7 Phasen waren stillschweigend geloescht.
+Der neue main.cpp hat nur "Demo pipeline OK." ausgegeben.
+
+### Korrektur (heute commit `<naechster Push>`)
+
+- `experiment_driver.hpp`: `ExperimentDriverOptions::verbose = true`
+- `experiment_driver.cpp`: Jede Phase-Methode echoes ihre Diagnose
+  (Counts der XML-configs, Per-Module "Generated"-Lines, cmake commands,
+   Load-Status, Record-Counts, Persist-Pfade, Unload-Confirmation)
+- `main.cpp`: Mode-Banner ("full pipeline" / "enumerate-only" / "generate-only")
+  + `--quiet`-Flag + finales OK-Banner
+
+### E2E-Verifikation
+
+```
+==== CacheEngineBuilder (REV 7.6 Library-Wrapper) ====
+...
+Mode         : full pipeline
+Verbose      : ON
+
+[Phase 1] Parsed XML configs:
+  cache_engine_permutations:     3
+  search_algorithm_permutations: 3
+  allocator_permutations:        3
+  test_data_sets:                2
+  Enumerated 54 permutations.
+
+[Phase 2] Generating 54 modules ...
+  Generated: ce_lockfree:art:tcmalloc:ycsb_c
+  ... (54 lines)
+  Aggregator: .../generated/CMakeLists.txt
+
+[Phase 3] Configuring cmake subbuild ...
+  $ cmake -S "..." -B "..."
+  $ cmake --build "..." --target comdare_all_permutations
+[Phase 3] OK
+
+[Phase 4] Loading permutation modules from .../Debug ...
+[Phase 4] Loaded 54 modules.
+
+[Phase 5+6] Running workload (500 ops) against 54 modules ...
+[Phase 5+6] Collected 54 measurement records.
+
+[Phase 7] Wrote .../measurements.csv
+[Phase 7] Wrote .../measurements.json
+[Phase 7] Unloaded all modules.
+
+==== CacheEngineBuilder OK ====
+```
