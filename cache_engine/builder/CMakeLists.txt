@@ -15,6 +15,9 @@ if(COMDARE_BUILD_BUILDER AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
     comdare_builder_codegen
     comdare_builder_permutation_loop
     comdare_builder_experiment_runner
+    comdare_module_loader
+    comdare::workload_generator
+    comdare::experiment
   )
   target_compile_features(cache_engine_builder PRIVATE cxx_std_23)
   set_target_properties(cache_engine_builder PROPERTIES

@@ -1,5 +1,16 @@
-# cache_engine/builder/module_loader — Sub-Komponente
-# Skelett (Phase 4.B) — keine Implementation
+# cache_engine/builder/module_loader — Phase 7.2.D
+# Plattform-agnostischer DLL/.so-Loader fuer Permutations-Module
 
-add_library(comdare_module_loader INTERFACE)
-target_include_directories(comdare_module_loader INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+add_library(comdare_module_loader STATIC
+    module_loader.cpp
+)
+target_include_directories(comdare_module_loader PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    "${CMAKE_SOURCE_DIR}/cache_engine/include"
+)
+target_compile_features(comdare_module_loader PUBLIC cxx_std_23)
+
+# Plattform-spezifische Dependencies
+if(UNIX AND NOT APPLE)
+    target_link_libraries(comdare_module_loader PUBLIC dl)
+endif()
