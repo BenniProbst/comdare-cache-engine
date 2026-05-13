@@ -15,6 +15,7 @@ if(COMDARE_BUILD_BUILDER AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
     comdare_builder_codegen
     comdare_builder_permutation_loop
     comdare_builder_experiment_runner
+    comdare_builder_experiment_driver
     comdare_module_loader
     comdare::workload_generator
     comdare::experiment
@@ -30,6 +31,7 @@ add_subdirectory(xml_config_parser)
 add_subdirectory(codegen)
 add_subdirectory(permutation_loop)
 add_subdirectory(experiment_runner)
+add_subdirectory(experiment_driver)  # REV 7.6 (2026-05-13): Phase 1-7 als Library
 
 # Komponenten-Subdirectories
 add_subdirectory(cache_engine_component)
