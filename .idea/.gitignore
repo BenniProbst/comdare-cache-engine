@@ -1,0 +1,16 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+# CLion local
+/usage.statistics.xml
+/dictionaries
+/jsLibraryMappings.xml
+/contentModel.xml
+/dataSources/
+/dataSources.local.xml
+/sqlDataSources.xml
+/dynamic.xml
+/uiDesigner.xml
+/dbnavigator.xml
+# Per-user CMake-Settings
+/cmake-build-*/
