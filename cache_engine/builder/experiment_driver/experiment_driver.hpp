@@ -36,6 +36,7 @@ struct ExperimentDriverOptions {
     std::filesystem::path comdare_root;     // Repo-Root fuer Include-Paths
     bool                  enumerate_only = false;
     bool                  skip_build     = false;
+    bool                  verbose        = true;  // REV 7.6 F2: Diagnose-Output an
 };
 
 struct WorkloadOptions {
