@@ -22,6 +22,8 @@ install_manifest.txt
 Makefile
 *.cmake
 !cmake/*.cmake
+!tools/permutation_codegen/*.cmake
+!tools/latex_toolchain/*.cmake
 
 # Generated (Permutations + Codegen)
 build/generated/
