@@ -51,6 +51,16 @@ CacheEngineConfig XmlConfigParser::parse(std::filesystem::path const& root_dir) 
     cfg.search_algorithm_permutations = parse_one(root_dir / "search_algorithm_permutations.xml");
     cfg.allocator_permutations         = parse_one(root_dir / "allocator_permutations.xml");
     cfg.test_data_sets                  = parse_one(root_dir / "test_data_sets.xml");
+
+    // REV 7.6 V8.6 — Optional: algorithm_profiles + Messreihen
+    auto profiles_dir = root_dir / "algorithm_profiles";
+    if (std::filesystem::is_directory(profiles_dir / "sota")) {
+        cfg.sota_profiles = load_sota_profiles(profiles_dir / "sota");
+    }
+    auto messreihen_xml = root_dir / "messreihen.xml";
+    if (std::filesystem::exists(messreihen_xml)) {
+        cfg.messreihen = load_messreihen(messreihen_xml);
+    }
     return cfg;
 }
 
@@ -65,6 +75,95 @@ std::vector<PermutationEntry> XmlConfigParser::parse_one(std::filesystem::path c
         if (!entries.empty()) return entries;
     }
     return {};
+}
+
+// REV 7.6 V8.6 — algorithm_profiles/-Loader
+std::vector<AlgorithmProfile> XmlConfigParser::load_sota_profiles(
+    std::filesystem::path const& sota_dir) const
+{
+    std::vector<AlgorithmProfile> result;
+    if (!std::filesystem::is_directory(sota_dir)) return result;
+    for (auto const& entry : std::filesystem::directory_iterator(sota_dir)) {
+        auto const& p = entry.path();
+        if (p.extension() == ".xml" && p.filename().string().find(".profile.") != std::string::npos) {
+            result.push_back(parse_profile(p));
+        }
+    }
+    return result;
+}
+
+AlgorithmProfile XmlConfigParser::parse_profile(std::filesystem::path const& profile_xml) const {
+    AlgorithmProfile prof;
+    if (!std::filesystem::exists(profile_xml)) return prof;
+    std::string content = read_file(profile_xml);
+
+    // id="..." + paper_ref="..."
+    {
+        std::regex id_re{R"(<comdare_algorithm_profile\s+id\s*=\s*"([^"]+)")"};
+        std::smatch m;
+        if (std::regex_search(content, m, id_re)) prof.id = m[1].str();
+    }
+    {
+        std::regex pref_re{R"(paper_ref\s*=\s*"([^"]+)")"};
+        std::smatch m;
+        if (std::regex_search(content, m, pref_re)) prof.paper_ref = m[1].str();
+    }
+
+    // Achsen aus <axes>...</axes>
+    auto axes_open = content.find("<axes>");
+    auto axes_close = content.find("</axes>");
+    if (axes_open != std::string::npos && axes_close != std::string::npos) {
+        std::string axes_inner = content.substr(axes_open + 6, axes_close - axes_open - 6);
+        std::regex axis_re{R"(<(\w+)>([^<]+)</\w+>)"};
+        auto it = std::sregex_iterator(axes_inner.begin(), axes_inner.end(), axis_re);
+        auto end = std::sregex_iterator();
+        for (; it != end; ++it) {
+            prof.axes[(*it)[1].str()] = (*it)[2].str();
+        }
+    }
+
+    // key_value_signature
+    {
+        std::regex kt{R"(<key_types>([^<]+)</key_types>)"};
+        std::smatch m;
+        if (std::regex_search(content, m, kt)) prof.key_types = m[1].str();
+    }
+    {
+        std::regex vt{R"(<value_types>([^<]+)</value_types>)"};
+        std::smatch m;
+        if (std::regex_search(content, m, vt)) prof.value_types = m[1].str();
+    }
+    return prof;
+}
+
+std::vector<Messreihe> XmlConfigParser::load_messreihen(
+    std::filesystem::path const& messreihen_xml) const
+{
+    std::vector<Messreihe> result;
+    if (!std::filesystem::exists(messreihen_xml)) return result;
+    std::string content = read_file(messreihen_xml);
+
+    std::regex reihe_re{R"(<messreihe\s+id\s*=\s*"([^"]+)"\s*>([\s\S]*?)</messreihe>)"};
+    auto it = std::sregex_iterator(content.begin(), content.end(), reihe_re);
+    auto end = std::sregex_iterator();
+    for (; it != end; ++it) {
+        Messreihe r;
+        r.id = (*it)[1].str();
+        std::string inner = (*it)[2].str();
+
+        std::regex mode_re{R"(<mode>(\w+)</mode>)"};
+        std::smatch mm;
+        if (std::regex_search(inner, mm, mode_re)) r.mode = parse_mode(mm[1].str());
+
+        std::regex prof_re{R"(<profile>([^<]+)</profile>)"};
+        auto pit = std::sregex_iterator(inner.begin(), inner.end(), prof_re);
+        auto pend = std::sregex_iterator();
+        for (; pit != pend; ++pit) {
+            r.sota_profile_refs.push_back((*pit)[1].str());
+        }
+        result.push_back(std::move(r));
+    }
+    return result;
 }
 
 }  // namespace comdare::builder::xml

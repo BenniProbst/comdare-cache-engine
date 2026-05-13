@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="hot" paper_ref="P02">
+  <metadata>
+    <name>Height Optimized Trie</name>
+    <authors>Binna, Zangerle, Pichl, Specht, Leis</authors>
+    <year>2018</year>
+    <venue>SIGMOD</venue>
+    <doi>10.1145/3183713.3196896</doi>
+  </metadata>
+  <axes>
+    <page>HOT_MULTIBYTE</page>
+    <node>HOT_BIT_NODE</node>
+    <traversal>HOT_PATH</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <concurrency>OPTIMISTIC_LOCK_COUPLING</concurrency>
+    <allocator>JEMALLOC</allocator>
+    <prefetch>ADAPTIVE_DISTANCE</prefetch>
+    <telemetry>OFF</telemetry>
+    <isa>X86_AVX2</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>

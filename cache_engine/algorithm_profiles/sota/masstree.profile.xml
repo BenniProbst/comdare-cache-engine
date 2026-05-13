@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="masstree" paper_ref="P03">
+  <metadata>
+    <name>Masstree</name>
+    <authors>Mao, Kohler, Morris</authors>
+    <year>2012</year>
+    <venue>EuroSys</venue>
+    <doi>10.1145/2168836.2168855</doi>
+  </metadata>
+  <axes>
+    <page>MASSTREE_INODE</page>
+    <node>MASSTREE_TRIE</node>
+    <traversal>STANDARD</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <concurrency>OPTIMISTIC_LOCK_COUPLING</concurrency>
+    <allocator>JEMALLOC</allocator>
+    <prefetch>NONE</prefetch>
+    <telemetry>OFF</telemetry>
+    <isa>X86_AVX2</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>RCU_GP</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint64_t, std::array&lt;char, 8&gt;</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>
