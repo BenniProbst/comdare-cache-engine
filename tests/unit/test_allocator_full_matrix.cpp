@@ -17,9 +17,22 @@
 #include <cache_engine/allocators/families/a05_jemalloc/jemalloc_adapter.hpp>
 #include <cache_engine/allocators/families/a06_tcmalloc/tcmalloc_adapter.hpp>
 #include <cache_engine/allocators/families/a07_snmalloc/snmalloc_adapter.hpp>
+#include <cache_engine/allocators/families/a08_scalloc/scalloc_adapter.hpp>
+#include <cache_engine/allocators/families/a09_numalloc/numalloc_adapter.hpp>
+#include <cache_engine/allocators/families/a10_rpmalloc/rpmalloc_adapter.hpp>
 #include <cache_engine/allocators/families/a11_lrmalloc/lrmalloc_adapter.hpp>
+#include <cache_engine/allocators/families/a12_cama/cama_adapter.hpp>
+#include <cache_engine/allocators/families/a13_starmalloc/starmalloc_adapter.hpp>
+#include <cache_engine/allocators/families/a14_tcmalloc_warehouse/tcmalloc_warehouse_adapter.hpp>
+#include <cache_engine/allocators/families/a15_hmalloc/hmalloc_adapter.hpp>
+#include <cache_engine/allocators/families/a16_pim_malloc/pim_malloc_adapter.hpp>
+#include <cache_engine/allocators/families/a17_crystalline/crystalline_adapter.hpp>
+#include <cache_engine/allocators/families/a18_exgen_malloc/exgen_malloc_adapter.hpp>
 #include <cache_engine/allocators/families/a19_buddy/buddy_adapter.hpp>
 #include <cache_engine/allocators/families/a20_dlmalloc/dlmalloc_adapter.hpp>
+#include <cache_engine/allocators/families/a21_ptmalloc2/ptmalloc2_adapter.hpp>
+#include <cache_engine/allocators/families/a22_pmr_resource/pmr_resource_adapter.hpp>
+#include <cache_engine/allocators/families/a23_vmem_magazines/vmem_magazines_adapter.hpp>
 
 #include <gtest/gtest.h>
 
@@ -50,9 +63,22 @@ TEST(AllAdapters, AllSatisfyConcept) {
     static_assert(ace::IAllocationStrategy<a05_jemalloc::JemallocAdapter<>>);
     static_assert(ace::IAllocationStrategy<a06_tcmalloc::TcmallocAdapter<>>);
     static_assert(ace::IAllocationStrategy<a07_snmalloc::SnmallocAdapter<>>);
+    static_assert(ace::IAllocationStrategy<a08_scalloc::ScallocAdapter<>>);
+    static_assert(ace::IAllocationStrategy<a09_numalloc::NumaAllocAdapter<>>);
+    static_assert(ace::IAllocationStrategy<a10_rpmalloc::RpmallocAdapter<>>);
     static_assert(ace::IAllocationStrategy<a11_lrmalloc::LRMallocAdapter<>>);
+    static_assert(ace::IAllocationStrategy<a12_cama::CamaAdapter<>>);
+    static_assert(ace::IAllocationStrategy<a13_starmalloc::StarMallocAdapter<>>);
+    static_assert(ace::IAllocationStrategy<a14_tcmalloc_warehouse::TcmallocWarehouseAdapter<>>);
+    static_assert(ace::IAllocationStrategy<a15_hmalloc::HmallocAdapter<>>);
+    static_assert(ace::IAllocationStrategy<a16_pim_malloc::PimMallocAdapter<>>);
+    static_assert(ace::IAllocationStrategy<a17_crystalline::CrystallineAdapter<>>);
+    static_assert(ace::IAllocationStrategy<a18_exgen_malloc::ExgenMallocAdapter<>>);
     static_assert(ace::IAllocationStrategy<a19_buddy::BuddyAdapter<>>);
     static_assert(ace::IAllocationStrategy<a20_dlmalloc::DlmallocAdapter<>>);
+    static_assert(ace::IAllocationStrategy<a21_ptmalloc2::Ptmalloc2Adapter<>>);
+    static_assert(ace::IAllocationStrategy<a22_pmr_resource::PmrResourceAdapter<>>);
+    static_assert(ace::IAllocationStrategy<a23_vmem_magazines::VmemMagazinesAdapter<>>);
     SUCCEED();
 }
 
@@ -140,9 +166,22 @@ DEFINE_CONTAINER_MATRIX_TESTS(MimallocContainerMatrix,     ace::families::a04_mi
 DEFINE_CONTAINER_MATRIX_TESTS(JemallocContainerMatrix,     ace::families::a05_jemalloc::JemallocAdapter<>)
 DEFINE_CONTAINER_MATRIX_TESTS(TcmallocContainerMatrix,     ace::families::a06_tcmalloc::TcmallocAdapter<>)
 DEFINE_CONTAINER_MATRIX_TESTS(SnmallocContainerMatrix,     ace::families::a07_snmalloc::SnmallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(ScallocContainerMatrix,      ace::families::a08_scalloc::ScallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(NumaAllocContainerMatrix,    ace::families::a09_numalloc::NumaAllocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(RpmallocContainerMatrix,     ace::families::a10_rpmalloc::RpmallocAdapter<>)
 DEFINE_CONTAINER_MATRIX_TESTS(LRMallocContainerMatrix,     ace::families::a11_lrmalloc::LRMallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(CamaContainerMatrix,         ace::families::a12_cama::CamaAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(StarMallocContainerMatrix,   ace::families::a13_starmalloc::StarMallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(TcmallocWarehouseContainerMatrix, ace::families::a14_tcmalloc_warehouse::TcmallocWarehouseAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(HmallocContainerMatrix,      ace::families::a15_hmalloc::HmallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(PimMallocContainerMatrix,    ace::families::a16_pim_malloc::PimMallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(CrystallineContainerMatrix,  ace::families::a17_crystalline::CrystallineAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(ExgenMallocContainerMatrix,  ace::families::a18_exgen_malloc::ExgenMallocAdapter<>)
 DEFINE_CONTAINER_MATRIX_TESTS(BuddyContainerMatrix,        ace::families::a19_buddy::BuddyAdapter<>)
 DEFINE_CONTAINER_MATRIX_TESTS(DlmallocContainerMatrix,     ace::families::a20_dlmalloc::DlmallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(Ptmalloc2ContainerMatrix,    ace::families::a21_ptmalloc2::Ptmalloc2Adapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(PmrResourceContainerMatrix,  ace::families::a22_pmr_resource::PmrResourceAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(VmemMagazinesContainerMatrix, ace::families::a23_vmem_magazines::VmemMagazinesAdapter<>)
 
 #undef DEFINE_CONTAINER_MATRIX_TESTS
 
@@ -187,9 +226,34 @@ DEFINE_THREADING_TEST(MimallocThreading,     ace::families::a04_mimalloc::Mimall
 DEFINE_THREADING_TEST(JemallocThreading,     ace::families::a05_jemalloc::JemallocAdapter<>)
 DEFINE_THREADING_TEST(TcmallocThreading,     ace::families::a06_tcmalloc::TcmallocAdapter<>)
 DEFINE_THREADING_TEST(SnmallocThreading,     ace::families::a07_snmalloc::SnmallocAdapter<>)
+DEFINE_THREADING_TEST(ScallocThreading,      ace::families::a08_scalloc::ScallocAdapter<>)
+DEFINE_THREADING_TEST(NumaAllocThreading,    ace::families::a09_numalloc::NumaAllocAdapter<>)
+DEFINE_THREADING_TEST(RpmallocThreading,     ace::families::a10_rpmalloc::RpmallocAdapter<>)
 DEFINE_THREADING_TEST(LRMallocThreading,     ace::families::a11_lrmalloc::LRMallocAdapter<>)
+DEFINE_THREADING_TEST(CamaThreading,         ace::families::a12_cama::CamaAdapter<>)
+DEFINE_THREADING_TEST(StarMallocThreading,   ace::families::a13_starmalloc::StarMallocAdapter<>)
+DEFINE_THREADING_TEST(TcmallocWarehouseThreading, ace::families::a14_tcmalloc_warehouse::TcmallocWarehouseAdapter<>)
+DEFINE_THREADING_TEST(HmallocThreading,      ace::families::a15_hmalloc::HmallocAdapter<>)
+DEFINE_THREADING_TEST(PimMallocThreading,    ace::families::a16_pim_malloc::PimMallocAdapter<>)
+DEFINE_THREADING_TEST(CrystallineThreading,  ace::families::a17_crystalline::CrystallineAdapter<>)
+// ExgenMalloc ist single_threaded_only — non-atomic stats; statt Multi-Threading-Test
+// erfolgt ein Single-Thread-Stress-Test
+TEST(ExgenMallocThreading, SingleThreadStressTest) {
+    ace::families::a18_exgen_malloc::ExgenMallocAdapter<> alloc;
+    for (int i = 0; i < 10000; ++i) {
+        std::size_t const size = 16 + (i % 240);
+        void* p = alloc.raw_allocate(size, 16);
+        ASSERT_NE(p, nullptr);
+        alloc.raw_deallocate(p, size, 16);
+    }
+    auto stats = alloc.statistics();
+    EXPECT_EQ(stats.allocation_count, 10000u);
+    EXPECT_EQ(stats.allocation_count, stats.deallocation_count);
+}
 DEFINE_THREADING_TEST(BuddyThreading,        ace::families::a19_buddy::BuddyAdapter<>)
 DEFINE_THREADING_TEST(DlmallocThreading,     ace::families::a20_dlmalloc::DlmallocAdapter<>)
+DEFINE_THREADING_TEST(Ptmalloc2Threading,    ace::families::a21_ptmalloc2::Ptmalloc2Adapter<>)
+DEFINE_THREADING_TEST(VmemMagazinesThreading, ace::families::a23_vmem_magazines::VmemMagazinesAdapter<>)
 
 #undef DEFINE_THREADING_TEST
 
@@ -284,4 +348,176 @@ TEST(StressTest, TcmallocManyThreads) {
     run_concurrent_alloc_test(alloc, 16, 5000);
     auto stats = alloc.statistics();
     EXPECT_EQ(stats.allocation_count, stats.deallocation_count);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Adapter-spezifische Eigenschaften der 13 neuen Familien
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(ScallocAdapter, TreiberTagMonotonicallyIncreasing) {
+    ace::families::a08_scalloc::ScallocAdapter<> alloc;
+    auto t0 = alloc.treiber_tag();
+    auto* p = alloc.raw_allocate(64, 8);
+    auto t1 = alloc.treiber_tag();
+    EXPECT_GT(t1, t0);
+    alloc.raw_deallocate(p, 64, 8);
+    static_assert(ace::families::a08_scalloc::ScallocAdapter<>::is_lock_free);
+}
+
+TEST(NumaAllocAdapter, OriginNodeStableForSameThread) {
+    ace::families::a09_numalloc::NumaAllocAdapter<> alloc;
+    auto* p1 = alloc.raw_allocate(64, 8);
+    auto* p2 = alloc.raw_allocate(64, 8);
+    EXPECT_GE(alloc.allocations_for_node(0) + alloc.allocations_for_node(1), 2u);
+    alloc.raw_deallocate(p1, 64, 8);
+    alloc.raw_deallocate(p2, 64, 8);
+}
+
+TEST(RpmallocAdapter, SimdAlignmentVariant) {
+    ace::families::a10_rpmalloc::RpmallocParams params;
+    params.enable_simd_alignment = true;
+    ace::families::a10_rpmalloc::RpmallocAdapter<> alloc{params};
+    auto* p = alloc.raw_allocate(100, 16);
+    ASSERT_NE(p, nullptr);
+    EXPECT_EQ(reinterpret_cast<std::uintptr_t>(p) % 32, 0u);
+    alloc.raw_deallocate(p, 100, 16);
+    static_assert(ace::families::a10_rpmalloc::RpmallocAdapter<>::is_public_domain);
+}
+
+TEST(CamaAdapter, CacheSetDirectedAllocation) {
+    ace::families::a12_cama::CamaAdapter<> alloc;
+    auto* p1 = alloc.raw_allocate_for_set(128, 16, 5);
+    EXPECT_EQ(alloc.last_target_set(), 5);
+    auto* p2 = alloc.raw_allocate_for_set(128, 16, 17);
+    EXPECT_EQ(alloc.last_target_set(), 17);
+    alloc.raw_deallocate(p1, 128, 16);
+    alloc.raw_deallocate(p2, 128, 16);
+    static_assert(ace::families::a12_cama::CamaAdapter<>::is_constant_time);
+    static_assert(ace::families::a12_cama::CamaAdapter<>::is_wcet_analysable);
+}
+
+TEST(StarMallocAdapter, HardenedFeatures) {
+    static_assert(ace::families::a13_starmalloc::StarMallocAdapter<>::is_formally_verified);
+    static_assert(ace::families::a13_starmalloc::StarMallocAdapter<>::is_hardened);
+    static_assert(ace::families::a13_starmalloc::StarMallocAdapter<>::is_drop_in_replacement);
+
+    ace::families::a13_starmalloc::StarMallocAdapter<> alloc;
+    auto* p = alloc.raw_allocate(128, 16);
+    ASSERT_NE(p, nullptr);
+    auto* bytes = static_cast<unsigned char*>(p);
+    for (int i = 0; i < 128; ++i) EXPECT_EQ(bytes[i], 0);
+    alloc.raw_deallocate(p, 128, 16);
+}
+
+TEST(TcmallocWarehouseAdapter, LifetimeAwareSpanList) {
+    ace::families::a14_tcmalloc_warehouse::TcmallocWarehouseAdapter<> alloc;
+    auto* p_long  = alloc.raw_allocate(1024, 16);
+    auto* p_short = alloc.raw_allocate(8, 8);
+    EXPECT_GT(alloc.allocations_for_list(0), 0u);
+    EXPECT_GT(alloc.allocations_for_list(7), 0u);
+    alloc.raw_deallocate(p_long, 1024, 16);
+    alloc.raw_deallocate(p_short, 8, 8);
+    static_assert(ace::families::a14_tcmalloc_warehouse::TcmallocWarehouseAdapter<>::has_heterogeneous_caches);
+    static_assert(ace::families::a14_tcmalloc_warehouse::TcmallocWarehouseAdapter<>::has_nuca_transfer);
+    static_assert(ace::families::a14_tcmalloc_warehouse::TcmallocWarehouseAdapter<>::has_lifetime_hugepage);
+}
+
+TEST(HmallocAdapter, LocalVsSharedAllocation) {
+    ace::families::a15_hmalloc::HmallocAdapter<> alloc;
+    auto* p_local = alloc.raw_allocate_with_class(64, 8, ace::families::a15_hmalloc::MemoryClass::Local);
+    auto* p_share = alloc.raw_allocate_with_class(64, 8, ace::families::a15_hmalloc::MemoryClass::Shared);
+    EXPECT_EQ(alloc.local_count(), 1u);
+    EXPECT_EQ(alloc.shared_count(), 1u);
+    alloc.raw_deallocate(p_local, 64, 8);
+    alloc.raw_deallocate(p_share, 64, 8);
+}
+
+TEST(PimMallocAdapter, FuturePlatformMarker) {
+    static_assert(ace::families::a16_pim_malloc::PimMallocAdapter<>::requires_pim_hardware);
+    static_assert(ace::families::a16_pim_malloc::PimMallocAdapter<>::is_future_platform);
+    ace::families::a16_pim_malloc::PimMallocAdapter<> alloc;
+    auto* p = alloc.raw_allocate(64, 8);
+    EXPECT_EQ(alloc.pim_local_count(), 1u);
+    alloc.raw_deallocate(p, 64, 8);
+}
+
+TEST(CrystallineAdapter, WaitFreeReclamationProperties) {
+    static_assert(ace::families::a17_crystalline::CrystallineAdapter<>::is_wait_free);
+    static_assert(ace::families::a17_crystalline::CrystallineAdapter<>::is_lock_free);
+    static_assert(ace::families::a17_crystalline::CrystallineAdapter<>::memory_bounded);
+    static_assert(ace::families::a17_crystalline::CrystallineAdapter<>::is_async_signal_safe);
+
+    ace::families::a17_crystalline::CrystallineAdapter<> alloc;
+    auto* p = alloc.raw_allocate(64, 8);
+    alloc.raw_deallocate(p, 64, 8);
+    EXPECT_EQ(alloc.retired_count(), 1u);
+}
+
+TEST(ExgenMallocAdapter, EightByteFineGrainedSizeClasses) {
+    static_assert(ace::families::a18_exgen_malloc::ExgenMallocAdapter<>::is_single_threaded_only);
+    static_assert(ace::families::a18_exgen_malloc::ExgenMallocAdapter<>::has_metadata_compaction);
+
+    ace::families::a18_exgen_malloc::ExgenMallocAdapter<> alloc;
+    auto* p = alloc.raw_allocate(13, 8);
+    auto stats = alloc.statistics();
+    EXPECT_GE(stats.total_bytes_allocated, 16u);
+    alloc.raw_deallocate(p, 13, 8);
+}
+
+TEST(Ptmalloc2Adapter, BinClassificationCorrect) {
+    ace::families::a21_ptmalloc2::Ptmalloc2Adapter<> alloc;
+    auto* p_tcache  = alloc.raw_allocate(64, 8);
+    auto* p_large    = alloc.raw_allocate(8192, 16);
+    EXPECT_EQ(alloc.tcache_count(), 1u);
+    EXPECT_EQ(alloc.largebin_count(), 1u);
+    alloc.raw_deallocate(p_tcache, 64, 8);
+    alloc.raw_deallocate(p_large, 8192, 16);
+}
+
+TEST(PmrResourceAdapter, AllVariantsWork) {
+    using namespace ace::families::a22_pmr_resource;
+
+    {
+        PmrParams p;
+        p.variant = PmrVariant::NewDelete;
+        PmrResourceAdapter<> alloc{p};
+        auto* ptr = alloc.raw_allocate(64, 16);
+        ASSERT_NE(ptr, nullptr);
+        alloc.raw_deallocate(ptr, 64, 16);
+    }
+    {
+        PmrParams p;
+        p.variant = PmrVariant::SynchronizedPool;
+        PmrResourceAdapter<> alloc{p};
+        auto* ptr = alloc.raw_allocate(128, 16);
+        ASSERT_NE(ptr, nullptr);
+        alloc.raw_deallocate(ptr, 128, 16);
+    }
+    {
+        PmrParams p;
+        p.variant = PmrVariant::MonotonicBuffer;
+        PmrResourceAdapter<> alloc{p};
+        auto* ptr = alloc.raw_allocate(256, 16);
+        ASSERT_NE(ptr, nullptr);
+        alloc.raw_deallocate(ptr, 256, 16);
+    }
+}
+
+TEST(VmemMagazinesAdapter, AdaptiveMagazineResize) {
+    ace::families::a23_vmem_magazines::VmemMagazinesAdapter<> alloc;
+    auto initial_size = alloc.current_magazine_size();
+    alloc.trigger_magazine_resize_up();
+    auto resized = alloc.current_magazine_size();
+    EXPECT_GT(resized, initial_size);
+    static_assert(ace::families::a23_vmem_magazines::VmemMagazinesAdapter<>::is_constant_time);
+    static_assert(ace::families::a23_vmem_magazines::VmemMagazinesAdapter<>::has_per_cpu_magazines);
+}
+
+TEST(VmemMagazinesAdapter, FreelistIndexLog2Power2) {
+    ace::families::a23_vmem_magazines::VmemMagazinesAdapter<> alloc;
+    auto* p = alloc.raw_allocate(100, 8);
+    EXPECT_EQ(alloc.last_freelist_index(), 7);
+    auto stats = alloc.statistics();
+    EXPECT_GE(stats.total_bytes_allocated, 128u);
+    alloc.raw_deallocate(p, 100, 8);
 }
