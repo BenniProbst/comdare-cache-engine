@@ -134,3 +134,8 @@ comdare_add_test(test_benchmark_suite
 comdare_add_test(test_allocator_full_matrix
     SOURCES test_allocator_full_matrix.cpp
     LIBRARIES comdare::cache_engine_concepts)
+
+# Phase 7 (REV 7 §9, 2026-05-13): Workload-Generator + ResultAggregator + Demo
+comdare_add_test(test_workload_and_experiment
+    SOURCES test_workload_and_experiment.cpp
+    LIBRARIES comdare::cache_engine_concepts comdare::workload_generator comdare::experiment)

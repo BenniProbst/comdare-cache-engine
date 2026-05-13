@@ -83,6 +83,8 @@ add_subdirectory(adapters)           # Habich-Direktive Adapter
 add_subdirectory(ext)                # Originalcode (mit Original-Compilern)
 add_subdirectory(test_data_accumulation)  # Phase 6.5 (REV 7 §7)
 add_subdirectory(benchmark_suite)         # Phase 6.6 (REV 7 §8)
+add_subdirectory(workload_generator)      # Phase 7.1 (REV 7 §7 Workload-Generation)
+add_subdirectory(experiment)              # Phase 7.3+7.4 (REV 7 §9 Experiment-Loop)
 
 if(COMDARE_BUILD_BENCHMARKS)
   add_subdirectory(benchmarks)
