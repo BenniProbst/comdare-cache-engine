@@ -15,3 +15,5 @@ add_subdirectory(succinct)
 add_subdirectory(serialization)         # V23.C.2: xml_config_parser
 add_subdirectory(platform)              # V23.C.3: hardware_isa (umbenannt)
 add_subdirectory(measurement)           # V23.C.4: measurement
+# V30.D.3 (2026-05-14): engine_choice/ -> libs/common/config/
+add_subdirectory(config)                # V30.D.3: engine_choice (Compile-Time Template-Wahl)

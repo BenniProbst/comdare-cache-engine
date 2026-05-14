@@ -113,7 +113,7 @@ endif()
 # V30.D.2 (2026-05-14): search_engine/ -> libs/search_engine/
 add_subdirectory(libs/search_engine)      # Domaene 1
 add_subdirectory(cache_engine)       # Domaene 2 (nutzt 1, 3, 4)
-add_subdirectory(engine_choice)      # Domaene 5
+# V30.D.3 (2026-05-14): engine_choice/ -> libs/common/config/ (via libs/common)
 # V23.E (2026-05-14): prt_art -> libs/deprecated/prt_art_legacy/
 #   (Memory-Direktive: PRT_ART konsumiert CacheEngine, nicht umgekehrt.
 #    Echter Code im comdare-prt-art Repo.)
