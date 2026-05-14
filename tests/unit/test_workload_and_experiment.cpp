@@ -11,6 +11,9 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
 
 namespace wg = comdare::workload_generator;
 namespace expt = comdare::experiment;
@@ -182,6 +185,46 @@ TEST(ResultAggregator, ExportJson) {
     agg.export_json(path);
     EXPECT_TRUE(std::filesystem::exists(path));
     std::filesystem::remove(path);
+}
+
+// V20.4 — workload_used als CSV-Spalte und JSON-Feld
+TEST(ResultAggregator, ExportContainsWorkloadUsedColumn) {
+    expt::ResultAggregator agg;
+    expt::PermutationResult r;
+    r.permutation_id = "v20_test";
+    r.fingerprint    = 0xCAFEBABE;
+    r.succeeded      = true;
+    r.workload_used  = "YCSB_F";
+    r.record.op_count = 42;
+    agg.add(r);
+
+    // CSV-Header + Daten
+    auto csv_path = std::filesystem::temp_directory_path() / "comdare_v20_agg.csv";
+    agg.export_csv(csv_path);
+    {
+        std::ifstream f{csv_path};
+        std::string content((std::istreambuf_iterator<char>(f)),
+                             std::istreambuf_iterator<char>());
+        EXPECT_NE(content.find("workload_used"), std::string::npos)
+            << "CSV-Header muss 'workload_used' enthalten";
+        EXPECT_NE(content.find("YCSB_F"), std::string::npos)
+            << "CSV-Daten muessen 'YCSB_F' enthalten";
+    }
+    std::filesystem::remove(csv_path);
+
+    // JSON-Feld
+    auto json_path = std::filesystem::temp_directory_path() / "comdare_v20_agg.json";
+    agg.export_json(json_path);
+    {
+        std::ifstream f{json_path};
+        std::string content((std::istreambuf_iterator<char>(f)),
+                             std::istreambuf_iterator<char>());
+        EXPECT_NE(content.find("\"workload_used\""), std::string::npos)
+            << "JSON muss 'workload_used'-Feld enthalten";
+        EXPECT_NE(content.find("\"YCSB_F\""), std::string::npos)
+            << "JSON muss 'YCSB_F'-Wert enthalten";
+    }
+    std::filesystem::remove(json_path);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
