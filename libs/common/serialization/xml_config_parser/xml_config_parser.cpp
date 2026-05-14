@@ -140,6 +140,12 @@ AlgorithmProfile XmlConfigParser::parse_profile(std::filesystem::path const& pro
         std::smatch m;
         if (std::regex_search(content, m, ew)) prof.expected_workload = m[1].str();
     }
+    // V29.A — allocator_override (optional, ueberschreibt axes/allocator)
+    {
+        std::regex ao{R"(<allocator_override>([^<]+)</allocator_override>)"};
+        std::smatch m;
+        if (std::regex_search(content, m, ao)) prof.allocator_override = m[1].str();
+    }
     return prof;
 }
 
