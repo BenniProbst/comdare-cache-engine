@@ -122,6 +122,7 @@ add_subdirectory(workload_generator)      # Phase 7.1 (REV 7 §7 Workload-Genera
 add_subdirectory(experiment)              # Phase 7.3+7.4 (REV 7 §9 Experiment-Loop)
 add_subdirectory(succinct)                # Aufgabe #105: SDSL-Lite-Portierung (2026-05-13)
 add_subdirectory(tools)                   # Phase C (ycsb_cli, 2026-05-13)
+add_subdirectory(apps)                    # REV 7.7 V23.B (2026-05-14): Top-Level Executables
 
 if(COMDARE_BUILD_BENCHMARKS)
   add_subdirectory(benchmarks)
