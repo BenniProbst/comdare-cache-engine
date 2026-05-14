@@ -155,6 +155,11 @@ comdare_add_test(test_codegen_from_profile
     SOURCES test_codegen_from_profile.cpp
     LIBRARIES comdare_builder_codegen)
 
+# REV 7.6 V14.2 (2026-05-14): ExperimentDriver V13 API-Tests
+comdare_add_test(test_experiment_driver_v13
+    SOURCES test_experiment_driver_v13.cpp
+    LIBRARIES comdare_builder_experiment_driver)
+
 # Phase 8 (2026-05-13): LaTeX-Anhang-Tool
 comdare_add_test(test_latex_anhang
     SOURCES test_latex_anhang.cpp

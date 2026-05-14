@@ -391,7 +391,7 @@ int ExperimentDriver::phase5_run_workload(
         // V11.2 — wenn Modul aus Profil stammt, eigenen Workload bauen
         auto wl_it = fp_to_workload.find(h.fingerprint());
         comdare_workload_descriptor_v1 const* wl_for_this_module = &default_workload_abi;
-        std::vector<workload_generator::WorkloadOperation> profile_ops;
+        std::vector<workload_generator::Operation> profile_ops;
         comdare_workload_descriptor_v1 profile_workload_abi{};
         if (wl_it != fp_to_workload.end()) {
             profile_ops        = gen.generate_ycsb(wl_it->second);
