@@ -12,3 +12,4 @@
 #   error/         — V23.C.7 (next) — ErrorCodes, status_t
 
 add_subdirectory(succinct)
+add_subdirectory(serialization)         # V23.C.2: xml_config_parser

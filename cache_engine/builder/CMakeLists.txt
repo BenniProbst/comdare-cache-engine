@@ -4,7 +4,6 @@
 # libs/ fuer Bibliotheken). Hier verbleibt nur der Library-Anteil.
 
 # Phase 6.4 (REV 7, 2026-05-13): Builder-Subkomponenten
-add_subdirectory(xml_config_parser)
 add_subdirectory(codegen)
 add_subdirectory(permutation_loop)
 add_subdirectory(experiment_runner)
