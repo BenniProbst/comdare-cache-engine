@@ -220,6 +220,88 @@ TEST_F(CodegenFromProfileFixture, TemplateSubstitution_IncludesTemplateWhenPrese
     EXPECT_EQ(content.find("ProfileModule_v1"), std::string::npos);
 }
 
+// REV 7.6 V18.3 — Multi-Path-Lookup-Tests (cache-engine + prt-art Templates)
+TEST_F(CodegenFromProfileFixture, MultiPath_PrtArtTemplateFoundWhenSotaMissing) {
+    // Mock-Template NUR im prt_art_root, nicht in comdare_root
+    auto prt_art_tpl_dir = tmp_dir_ / "prt_art" / "codegen" / "templates";
+    fs::create_directories(prt_art_tpl_dir);
+    {
+        std::ofstream f(prt_art_tpl_dir / "prtart_body.hpp.template");
+        f << "// Mock prtart Template V18.3\n"
+          << "namespace comdare::cache_engine::builder::generated {\n"
+          << "struct ProfileModuleBody { void run_workload(...) {} void pull_live_counters(...) {} };\n"
+          << "}\n";
+    }
+
+    cg::CodegenOptions opts2;
+    opts2.output_root  = tmp_dir_ / "generated_v18_3a";
+    opts2.comdare_root = tmp_dir_;          // hat KEIN prtart-Template hier
+    opts2.prt_art_root = tmp_dir_;          // hat prtart-Template
+    cg::CodegenEngine engine2{opts2};
+
+    xml::AlgorithmProfile p;
+    p.id = "prtart";
+    p.paper_ref = "PRTART";
+    engine2.generate_module_from_profile(p, 0xAB);
+
+    auto src = read_file(opts2.output_root / "module_profile_prtart_ab.cpp");
+    EXPECT_NE(src.find("Template     : yes"), std::string::npos);
+    EXPECT_NE(src.find("prtart_body.hpp.template"), std::string::npos);
+}
+
+TEST_F(CodegenFromProfileFixture, MultiPath_SotaPriorityOverPrtArt) {
+    auto sota_tpl_dir = tmp_dir_ / "cache_engine" / "builder" / "codegen" / "templates";
+    auto prt_art_tpl_dir = tmp_dir_ / "prt_art" / "codegen" / "templates";
+    fs::create_directories(sota_tpl_dir);
+    fs::create_directories(prt_art_tpl_dir);
+    {
+        std::ofstream f(sota_tpl_dir / "shared_id_body.hpp.template");
+        f << "namespace comdare::cache_engine::builder::generated {\n"
+          << "struct ProfileModuleBody { void run_workload(...) {} void pull_live_counters(...) {} };\n"
+          << "}\n";
+    }
+    {
+        std::ofstream f(prt_art_tpl_dir / "shared_id_body.hpp.template");
+        f << "// pruefling fallback (sollte NICHT verwendet werden)\n";
+    }
+
+    cg::CodegenOptions opts2;
+    opts2.output_root  = tmp_dir_ / "generated_v18_3b";
+    opts2.comdare_root = tmp_dir_;
+    opts2.prt_art_root = tmp_dir_;
+    cg::CodegenEngine engine2{opts2};
+
+    xml::AlgorithmProfile p;
+    p.id = "shared_id";
+    engine2.generate_module_from_profile(p, 0xCD);
+
+    auto src = read_file(opts2.output_root / "module_profile_shared_id_cd.cpp");
+    EXPECT_NE(src.find("/cache_engine/builder/codegen/templates/shared_id_body.hpp.template"), std::string::npos);
+    EXPECT_EQ(src.find("/prt_art/codegen/templates/shared_id_body.hpp.template"), std::string::npos);
+}
+
+TEST_F(CodegenFromProfileFixture, MultiPath_NoOpWhenPrtArtRootEmpty) {
+    auto prt_art_tpl_dir = tmp_dir_ / "prt_art" / "codegen" / "templates";
+    fs::create_directories(prt_art_tpl_dir);
+    {
+        std::ofstream f(prt_art_tpl_dir / "alone_body.hpp.template");
+        f << "irrelevant\n";
+    }
+
+    cg::CodegenOptions opts2;
+    opts2.output_root  = tmp_dir_ / "generated_v18_3c";
+    opts2.comdare_root = tmp_dir_;
+    // opts2.prt_art_root bleibt leer
+    cg::CodegenEngine engine2{opts2};
+
+    xml::AlgorithmProfile p;
+    p.id = "alone";
+    engine2.generate_module_from_profile(p, 0xEF);
+
+    auto src = read_file(opts2.output_root / "module_profile_alone_ef.cpp");
+    EXPECT_NE(src.find("Template     : no (skelett body)"), std::string::npos);
+}
+
 TEST_F(CodegenFromProfileFixture, TemplateSubstitution_AbiGlueDelegatesToTemplate) {
     auto tpl_dir = tmp_dir_ / "cache_engine" / "builder" / "codegen" / "templates";
     fs::create_directories(tpl_dir);
