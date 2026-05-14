@@ -73,6 +73,7 @@ int ExperimentDriver::phase2_generate(
         codegen::CodegenOptions co;
         co.output_root  = opts_.output_dir / "generated";
         co.comdare_root = opts_.comdare_root;
+        co.prt_art_root = opts_.prt_art_root;  // V18.1: propagiere fuer Multi-Path-Template-Lookup
         codegen::CodegenEngine cg{co};
 
         if (opts_.verbose) {

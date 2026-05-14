@@ -105,11 +105,25 @@ void CodegenEngine::generate_module_from_profile(
 {
     std::filesystem::create_directories(opts_.output_root);
 
-    // V17.1 — Template-Lookup
-    auto const template_dir = opts_.comdare_root /
+    // V17.1 — Template-Lookup, V18.1 erweitert um prt-art-Pfad
+    auto const sota_template_dir = opts_.comdare_root /
         "cache_engine" / "builder" / "codegen" / "templates";
-    auto const template_path = template_dir / (profile.id + "_body.hpp.template");
-    bool const has_template = std::filesystem::exists(template_path);
+    auto const sota_template = sota_template_dir / (profile.id + "_body.hpp.template");
+
+    auto const prt_art_template_dir = opts_.prt_art_root /
+        "prt_art" / "codegen" / "templates";
+    auto const prt_art_template = prt_art_template_dir / (profile.id + "_body.hpp.template");
+
+    bool                 has_template = false;
+    std::filesystem::path template_path;
+    if (std::filesystem::exists(sota_template)) {
+        has_template = true;
+        template_path = sota_template;
+    } else if (!opts_.prt_art_root.empty() &&
+               std::filesystem::exists(prt_art_template)) {
+        has_template = true;
+        template_path = prt_art_template;
+    }
 
     std::ostringstream src_name;
     src_name << "module_profile_" << profile.id << "_" << std::hex << fingerprint << ".cpp";

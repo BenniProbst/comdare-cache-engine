@@ -17,6 +17,7 @@ namespace comdare::builder::codegen {
 struct CodegenOptions {
     std::filesystem::path output_root;        // wohin generierte Files
     std::filesystem::path comdare_root;        // wo cache_engine/include/ liegt
+    std::filesystem::path prt_art_root;        // V18.1: optional, prt-art-Submodule-Root fuer Pruefling-Templates
     std::string           cmake_backend = "cmake";   // cmake / sh / bat
 };
 
