@@ -109,7 +109,7 @@ endif()
 # Subdirectories (Domaenen 1-6)
 # ─────────────────────────────────────────────────────────────────────────────
 add_subdirectory(measurement)        # Domaene 3 (zuerst, wird ueberall genutzt)
-add_subdirectory(hardware_isa)       # Domaene 4
+# V23.C.3 (2026-05-14): hardware_isa migriert nach libs/common/platform/
 add_subdirectory(search_engine)      # Domaene 1
 add_subdirectory(cache_engine)       # Domaene 2 (nutzt 1, 3, 4)
 add_subdirectory(engine_choice)      # Domaene 5
