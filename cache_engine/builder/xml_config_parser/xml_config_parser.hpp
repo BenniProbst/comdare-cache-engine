@@ -42,12 +42,14 @@ enum class MessreihenMode {
 }
 
 // REV 7.6 V8.6 — Ein Profil aus algorithm_profiles/sota/<id>.profile.xml
+// REV 7.6 V19.1 — expected_workload Tag (optional Override fuer V11.2-Heuristik)
 struct AlgorithmProfile {
     std::string id;          // z.B. "art", "hot", "masstree"
     std::string paper_ref;   // z.B. "P01", "P02"
     std::unordered_map<std::string, std::string> axes;  // page, node, traversal, ...
     std::string key_types;
     std::string value_types;
+    std::string expected_workload;  // V19.1: optional, z.B. "YCSB_A".."YCSB_F" oder leer
 };
 
 // REV 7.6 V8.6 — Eine Messreihe aus messreihe-XML

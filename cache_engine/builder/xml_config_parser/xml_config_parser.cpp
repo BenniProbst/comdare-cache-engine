@@ -134,6 +134,12 @@ AlgorithmProfile XmlConfigParser::parse_profile(std::filesystem::path const& pro
         std::smatch m;
         if (std::regex_search(content, m, vt)) prof.value_types = m[1].str();
     }
+    // V19.1 — expected_workload (optional, ueberschreibt V11.2-Heuristik)
+    {
+        std::regex ew{R"(<expected_workload>([^<]+)</expected_workload>)"};
+        std::smatch m;
+        if (std::regex_search(content, m, ew)) prof.expected_workload = m[1].str();
+    }
     return prof;
 }
 

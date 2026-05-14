@@ -352,4 +352,51 @@ TEST_F(CodegenFromProfileFixture, EmptyAxesProduceValidOutput) {
     EXPECT_NE(content.find("comdare_get_module_v1"), std::string::npos);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// V19.4 — Test fuer expected_workload-Parsing aus Profile-XML
+// Verifiziert: parse_profile liest <expected_workload>YCSB_X</expected_workload>
+// und setzt AlgorithmProfile::expected_workload entsprechend.
+// ─────────────────────────────────────────────────────────────────────────────
+TEST_F(CodegenFromProfileFixture, ParsesExpectedWorkloadTag) {
+    auto profile_xml = tmp_dir_ / "test.profile.xml";
+    {
+        std::ofstream f{profile_xml};
+        f << R"(<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="testw" paper_ref="PT01">
+  <axes>
+    <traversal>STANDARD</traversal>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+  <expected_workload>YCSB_F</expected_workload>
+</comdare_algorithm_profile>)";
+    }
+    xml::XmlConfigParser parser;
+    auto p = parser.parse_profile(profile_xml);
+    EXPECT_EQ(p.id, "testw");
+    EXPECT_EQ(p.expected_workload, "YCSB_F");
+}
+
+// V19.4 — expected_workload optional: leer bei fehlendem Tag
+TEST_F(CodegenFromProfileFixture, ExpectedWorkloadOptionalEmpty) {
+    auto profile_xml = tmp_dir_ / "test_no_workload.profile.xml";
+    {
+        std::ofstream f{profile_xml};
+        f << R"(<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="nowl" paper_ref="PT02">
+  <axes><traversal>STANDARD</traversal></axes>
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>)";
+    }
+    xml::XmlConfigParser parser;
+    auto p = parser.parse_profile(profile_xml);
+    EXPECT_EQ(p.id, "nowl");
+    EXPECT_TRUE(p.expected_workload.empty());
+}
+
 }  // anonymous namespace
