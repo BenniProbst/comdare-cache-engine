@@ -1,0 +1,181 @@
+// SPDX-License-Identifier: Apache-2.0
+// REV 7.6 V10.4 — Tests fuer CodegenEngine::generate_module_from_profile (V9.3)
+//
+// Verifiziert:
+//   1. Aus AlgorithmProfile wird korrekt eine .cpp-Datei generiert
+//   2. CMakeLists pro Profil-Modul wird geschrieben
+//   3. Profil-Metadaten (id, paper_ref, axes) erscheinen im generierten Output
+//   4. Mehrere Profile mit unterschiedlichen Fingerprints kollidieren nicht
+//   5. Generated Source enthaelt comdare_get_module_v1 + ABI-Bindings
+
+#include "../../cache_engine/builder/codegen/codegen.hpp"
+
+#include <gtest/gtest.h>
+
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <string>
+
+namespace cg  = comdare::builder::codegen;
+namespace xml = comdare::builder::xml;
+namespace fs  = std::filesystem;
+
+namespace {
+
+class CodegenFromProfileFixture : public ::testing::Test {
+protected:
+    void SetUp() override {
+        tmp_dir_ = fs::temp_directory_path() / "comdare_v10_4_codegen_test";
+        fs::remove_all(tmp_dir_);
+        fs::create_directories(tmp_dir_);
+
+        opts_.output_root  = tmp_dir_ / "generated";
+        opts_.comdare_root = tmp_dir_;  // egal — Test scannt nur File-Inhalt
+        engine_ = std::make_unique<cg::CodegenEngine>(opts_);
+    }
+    void TearDown() override {
+        std::error_code ec;
+        fs::remove_all(tmp_dir_, ec);
+    }
+
+    [[nodiscard]] static std::string read_file(fs::path const& p) {
+        std::ifstream f{p};
+        std::ostringstream ss;
+        ss << f.rdbuf();
+        return ss.str();
+    }
+
+    [[nodiscard]] static xml::AlgorithmProfile sample_profile_art() {
+        xml::AlgorithmProfile p;
+        p.id          = "art";
+        p.paper_ref   = "P01";
+        p.key_types   = "std::uint64_t";
+        p.value_types = "std::string";
+        p.axes["page"]         = "DENSEBYTE_ART256";
+        p.axes["node"]         = "SPARSE_NODE4_ART";
+        p.axes["traversal"]    = "STANDARD";
+        p.axes["concurrency"]  = "OPTIMISTIC_LOCK_COUPLING";
+        p.axes["allocator"]    = "MIMALLOC";
+        return p;
+    }
+
+    [[nodiscard]] static xml::AlgorithmProfile sample_profile_hot() {
+        xml::AlgorithmProfile p;
+        p.id          = "hot";
+        p.paper_ref   = "P02";
+        p.key_types   = "std::uint64_t";
+        p.value_types = "std::string";
+        p.axes["page"]      = "HOT_MULTIBYTE";
+        p.axes["node"]      = "HOT_BIT_NODE";
+        p.axes["traversal"] = "HOT_PATH";
+        return p;
+    }
+
+    fs::path                            tmp_dir_;
+    cg::CodegenOptions                  opts_;
+    std::unique_ptr<cg::CodegenEngine>  engine_;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 1: generate_module_from_profile schreibt die Source-Datei
+// ─────────────────────────────────────────────────────────────────────────────
+TEST_F(CodegenFromProfileFixture, GeneratesSourceFile) {
+    auto profile = sample_profile_art();
+    constexpr std::uint64_t fp = 0xC0FFEE0000000001ULL;
+    engine_->generate_module_from_profile(profile, fp);
+
+    auto src_path = opts_.output_root / "module_profile_art_c0ffee0000000001.cpp";
+    EXPECT_TRUE(fs::exists(src_path)) << "Erwartet: " << src_path.string();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 2: generate_module_from_profile schreibt die CMakeLists-Datei
+// ─────────────────────────────────────────────────────────────────────────────
+TEST_F(CodegenFromProfileFixture, GeneratesCMakeListsFile) {
+    auto profile = sample_profile_art();
+    constexpr std::uint64_t fp = 0xC0FFEE0000000001ULL;
+    engine_->generate_module_from_profile(profile, fp);
+
+    auto cm_path = opts_.output_root / "module_profile_art_c0ffee0000000001_CMakeLists.txt";
+    EXPECT_TRUE(fs::exists(cm_path)) << "Erwartet: " << cm_path.string();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 3: Generated Source enthaelt Profil-Metadaten + ABI-Bindings
+// ─────────────────────────────────────────────────────────────────────────────
+TEST_F(CodegenFromProfileFixture, SourceContainsProfileMetadata) {
+    auto profile = sample_profile_art();
+    constexpr std::uint64_t fp = 0xDEADBEEF00000002ULL;
+    engine_->generate_module_from_profile(profile, fp);
+
+    auto src_path = opts_.output_root / "module_profile_art_deadbeef00000002.cpp";
+    auto content  = read_file(src_path);
+
+    EXPECT_NE(content.find("Profile id   : art"), std::string::npos);
+    EXPECT_NE(content.find("Paper-Ref    : P01"), std::string::npos);
+    EXPECT_NE(content.find("page = DENSEBYTE_ART256"), std::string::npos);
+    EXPECT_NE(content.find("node = SPARSE_NODE4_ART"), std::string::npos);
+    EXPECT_NE(content.find("comdare_get_module_v1"), std::string::npos);
+    EXPECT_NE(content.find("COMDARE_MODULE_EXPORT"), std::string::npos);
+    EXPECT_NE(content.find("comdare_permutation_module_v1"), std::string::npos);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 4: Mehrere Profile generieren eindeutige Datei-Pfade
+// ─────────────────────────────────────────────────────────────────────────────
+TEST_F(CodegenFromProfileFixture, MultipleProfilesGenerateDistinctFiles) {
+    auto art_prof = sample_profile_art();
+    auto hot_prof = sample_profile_hot();
+
+    constexpr std::uint64_t fp_art = 0xC0FFEE0000000010ULL;
+    constexpr std::uint64_t fp_hot = 0xC0FFEE0000000020ULL;
+
+    engine_->generate_module_from_profile(art_prof, fp_art);
+    engine_->generate_module_from_profile(hot_prof, fp_hot);
+
+    EXPECT_TRUE(fs::exists(opts_.output_root / "module_profile_art_c0ffee0000000010.cpp"));
+    EXPECT_TRUE(fs::exists(opts_.output_root / "module_profile_hot_c0ffee0000000020.cpp"));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 5: CMakeLists referenziert das richtige Library-Target
+// ─────────────────────────────────────────────────────────────────────────────
+TEST_F(CodegenFromProfileFixture, CMakeListsReferencesCorrectTarget) {
+    auto profile = sample_profile_art();
+    constexpr std::uint64_t fp = 0xCAFE000000000003ULL;
+    engine_->generate_module_from_profile(profile, fp);
+
+    auto cm_path = opts_.output_root / "module_profile_art_cafe000000000003_CMakeLists.txt";
+    auto content = read_file(cm_path);
+
+    EXPECT_NE(content.find("comdare_perm_profile_art_cafe000000000003"), std::string::npos);
+    EXPECT_NE(content.find("add_library"), std::string::npos);
+    EXPECT_NE(content.find("SHARED"), std::string::npos);
+    EXPECT_NE(content.find("cxx_std_23"), std::string::npos);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Test 6: Profile mit leerem axes-Map erzeugt trotzdem valide Output
+// ─────────────────────────────────────────────────────────────────────────────
+TEST_F(CodegenFromProfileFixture, EmptyAxesProduceValidOutput) {
+    xml::AlgorithmProfile minimal_profile;
+    minimal_profile.id          = "minimal";
+    minimal_profile.paper_ref   = "P00";
+    minimal_profile.key_types   = "int";
+    minimal_profile.value_types = "int";
+    // axes-Map bleibt leer
+
+    constexpr std::uint64_t fp = 0x0000000000001234ULL;  // simple valid hex
+    (void)fp;
+    EXPECT_NO_THROW(engine_->generate_module_from_profile(minimal_profile, 0x1234ULL));
+
+    auto src_path = opts_.output_root / "module_profile_minimal_1234.cpp";
+    EXPECT_TRUE(fs::exists(src_path));
+    auto content = read_file(src_path);
+    EXPECT_NE(content.find("Profile id   : minimal"), std::string::npos);
+    EXPECT_NE(content.find("comdare_get_module_v1"), std::string::npos);
+}
+
+}  // anonymous namespace

@@ -3,7 +3,9 @@
 
 #include "experiment_driver.hpp"
 
+#include <algorithm>
 #include <cstdlib>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <unordered_map>
@@ -88,6 +90,55 @@ int ExperimentDriver::phase2_generate(
                 std::cout << "  Generated: " << d.id << "\n";
             }
         }
+
+        // REV 7.6 V10.5 — Auto-Pickup von algorithm_profiles/sota/*.profile.xml
+        // Wenn vorhanden, generiere zusaetzlich pro Profil ein Modul.
+        auto profiles_dir = opts_.config_dir / "algorithm_profiles" / "sota";
+        if (!std::filesystem::is_directory(profiles_dir)) {
+            // Fallback: relative zum comdare_root cache-engine
+            profiles_dir = opts_.comdare_root / "cache_engine" / "algorithm_profiles" / "sota";
+        }
+        if (std::filesystem::is_directory(profiles_dir)) {
+            xml::XmlConfigParser parser;
+            auto profiles = parser.load_sota_profiles(profiles_dir);
+
+            // REV 7.6 V10.6 — Messreihen-Mode-Filter (Defined/Full)
+            std::size_t filtered_out = 0;
+            if (opts_.messreihen_mode == ExperimentDriverOptions::MessreihenMode::Defined &&
+                !opts_.sota_profile_filter.empty())
+            {
+                auto& filter = opts_.sota_profile_filter;
+                profiles.erase(
+                    std::remove_if(profiles.begin(), profiles.end(),
+                        [&](xml::AlgorithmProfile const& p) {
+                            bool keep = std::find(filter.begin(), filter.end(), p.id) != filter.end();
+                            if (!keep) ++filtered_out;
+                            return !keep;
+                        }),
+                    profiles.end());
+            }
+
+            if (opts_.verbose) {
+                std::cout << "  [V10.5/V10.6] Auto-Pickup: " << profiles.size()
+                          << " SOTA-Profile aus " << profiles_dir.string()
+                          << " (mode="
+                          << (opts_.messreihen_mode == ExperimentDriverOptions::MessreihenMode::Full ? "full" : "defined");
+                if (filtered_out > 0) std::cout << ", " << filtered_out << " gefiltert";
+                std::cout << ")\n";
+            }
+            for (auto const& prof : profiles) {
+                // Deterministischer Fingerprint aus Profil-id
+                std::uint64_t prof_fp = std::hash<std::string>{}(prof.id) ^ 0xC0FFEE02ull;
+                cg.generate_module_from_profile(prof, prof_fp);
+                fingerprints.push_back(prof_fp);
+                if (opts_.verbose) {
+                    std::cout << "    Profile-Modul: " << prof.id
+                              << " (paper_ref=" << prof.paper_ref
+                              << ", fp=0x" << std::hex << prof_fp << std::dec << ")\n";
+                }
+            }
+        }
+
         cg.generate_aggregate_cmake(fingerprints);
 
         if (opts_.verbose) {
