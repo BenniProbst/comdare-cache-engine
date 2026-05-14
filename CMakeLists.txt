@@ -120,7 +120,8 @@ add_subdirectory(adapters)           # Habich-Direktive Adapter
 add_subdirectory(ext)                # Originalcode (mit Original-Compilern)
 # V23.F (2026-05-14): test_data_accumulation, benchmark_suite, workload_generator
 # migriert nach libs/test_infra/
-add_subdirectory(experiment)              # Phase 7.3+7.4 (REV 7 §9 Experiment-Loop)
+# V30.D.1 (2026-05-14): experiment/ -> libs/execution_engine/ (kein domain/-Zwischenebene)
+add_subdirectory(libs/execution_engine)   # Phase 7.3+7.4 (REV 7 §9 Experiment-Loop)
 add_subdirectory(libs/common)             # REV 7.7 V23.C (2026-05-14): Cross-Cutting (succinct, ...)
 add_subdirectory(libs/test_infra)         # REV 7.7 V23.F (2026-05-14): workload_generator, test_data, benchmark_suite
 add_subdirectory(libs/deprecated)         # REV 7.7 V23.E (2026-05-14): Folly-Stil obsoleter Code
