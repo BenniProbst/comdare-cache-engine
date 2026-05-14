@@ -52,6 +52,22 @@ option(COMDARE_BUILD_LEGACY_REIMPL
     "[DEPRECATED] Build prt_art/legacy_reimpl/ (Migration zu prt-art Repo, REV 7.6 V8.2)"
     OFF)
 
+# REV 7.6 V13.4 — Stage-1/Stage-2 CMake-Integration
+# Stage 1: cache-engine-Builder selbst wird im normalen Build-Stack gebaut.
+# Stage 2: Nach Builder-Build wird Builder optional ausgefuehrt um
+# vorkonfigurierte Permutations-Module zu generieren.
+# Default OFF: Builder-Run wird nur explizit oder vom Diplomarbeits-
+# messung_driver getriggert (kein Auto-Run bei Tests/CI).
+option(COMDARE_AUTO_RUN_BUILDER
+    "Stage 2 (V13.4): nach Builder-Build automatisch Builder ausfuehren"
+    OFF)
+set(COMDARE_BUILDER_CONFIG_DIR
+    "${CMAKE_SOURCE_DIR}/cache_engine/builder/example_configs"
+    CACHE PATH "Stage 2 (V13.4): Konfig-Dir fuer Auto-Run des Builders")
+set(COMDARE_BUILDER_OUTPUT_DIR
+    "${CMAKE_BINARY_DIR}/builder_runs/auto"
+    CACHE PATH "Stage 2 (V13.4): Output-Dir fuer Auto-Run des Builders")
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Multi-OS-Infrastruktur (REV 6 Migration aus Diplomarbeit/code, 2026-05-12)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -129,4 +145,21 @@ message(STATUS "  Build Tests:            ${COMDARE_BUILD_TESTS}")
 message(STATUS "  Pre-Build Permutations: ${COMDARE_BUILD_PERMUTATIONS}")
 message(STATUS "  Experiment Mode (V8.4): ${COMDARE_EXPERIMENT_MODE}")
 message(STATUS "  Legacy-Reimpl (V8.2):   ${COMDARE_BUILD_LEGACY_REIMPL} [DEPRECATED]")
+message(STATUS "  Auto-Run Builder V13.4: ${COMDARE_AUTO_RUN_BUILDER}")
 message(STATUS "──────────────────────────────────────────────────────────")
+
+# REV 7.6 V13.4 — Stage 2: Auto-Run des Builders nach Build
+# Wird nur im ALL-Target ausgefuehrt wenn COMDARE_AUTO_RUN_BUILDER=ON.
+# Erfordert dass der Builder-Target (cache-engine-builder) bereits gebaut wurde.
+if(COMDARE_AUTO_RUN_BUILDER AND COMDARE_BUILD_BUILDER)
+    add_custom_target(comdare_run_builder ALL
+        COMMAND $<TARGET_FILE:comdare-cache-engine-builder>
+                "${COMDARE_BUILDER_CONFIG_DIR}"
+                "${COMDARE_BUILDER_OUTPUT_DIR}"
+                --enumerate-only
+                "--comdare-root=${CMAKE_SOURCE_DIR}"
+        DEPENDS comdare-cache-engine-builder
+        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+        COMMENT "[V13.4 Stage-2] Auto-Run CacheEngineBuilder (--enumerate-only)"
+        VERBATIM)
+endif()

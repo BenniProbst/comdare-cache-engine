@@ -75,6 +75,20 @@ public:
     // Phase 3: COMPILE (cmake configure + build aller Permutations-DLLs)
     [[nodiscard]] int phase3_compile();
 
+    // REV 7.6 V13.2 — Hot-compile fuer fehlende Module (V8.7 enable_runtime_codegen)
+    // Aufruf nach phase2_generate, vor phase4_load. Pro Fingerprint wird
+    // gepruefet, ob die Modul-Binary existiert; falls nicht, wird per
+    // cmake-Build-Aufruf nachkompiliert. No-op wenn enable_runtime_codegen=false.
+    [[nodiscard]] int phase3_hot_compile_missing(
+        std::vector<std::uint64_t> const& fingerprints);
+
+    // REV 7.6 V13.3 — ABI-Vertrags-Pruefung (V8.7 enable_functional_tests)
+    // Aufruf zwischen phase4_load und phase5_run_workload. Pro Modul: basic
+    // create/destroy + run_workload mit empty WorkloadDescriptor + Pruefen
+    // dass rec.version == COMDARE_ABI_VERSION. No-op wenn Flag false.
+    [[nodiscard]] int phase4b_functional_tests(
+        std::span<loader::ModuleHandle> handles);
+
     // Phase 4: LINK+LOAD (alle DLLs via ModuleLoader)
     [[nodiscard]] int phase4_load(
         std::vector<loader::ModuleHandle>& out_handles);
