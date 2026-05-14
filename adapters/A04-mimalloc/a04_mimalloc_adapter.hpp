@@ -29,10 +29,13 @@ public:
 #if defined(COMDARE_HAVE_MIMALLOC)
         return mi_malloc_aligned(size, alignment);
 #else
-        // Fallback: aligned alloc via std (works for power-of-two alignment).
+        // Fallback: aligned alloc when alignment > max_align_t. Track the
+        // path used so deallocate can pick the matching free().
         if (alignment <= alignof(std::max_align_t)) {
+            used_aligned_alloc_ = false;
             return std::malloc(size);
         }
+        used_aligned_alloc_ = true;
 #  if defined(_WIN32)
         return _aligned_malloc(size, alignment);
 #  else
@@ -47,10 +50,16 @@ public:
         if (ptr == nullptr) return;
 #if defined(COMDARE_HAVE_MIMALLOC)
         mi_free(ptr);
-#elif defined(_WIN32)
-        _aligned_free(ptr);
 #else
+        if (!used_aligned_alloc_) {
+            std::free(ptr);
+            return;
+        }
+#  if defined(_WIN32)
+        _aligned_free(ptr);
+#  else
         std::free(ptr);
+#  endif
 #endif
     }
 
@@ -65,6 +74,11 @@ public:
         return false;
 #endif
     }
+
+private:
+#if !defined(COMDARE_HAVE_MIMALLOC)
+    bool used_aligned_alloc_ = false;
+#endif
 };
 
 } // namespace comdare::adapter::a04_mimalloc

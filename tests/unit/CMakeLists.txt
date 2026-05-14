@@ -195,3 +195,31 @@ comdare_add_test(test_module_loader
 target_compile_definitions(test_module_loader PRIVATE
     "COMDARE_MOCK_DLL_PATH=\"$<TARGET_FILE:comdare_perm_mock_test>\"")
 add_dependencies(test_module_loader comdare_perm_mock_test)
+
+# V31.F (2026-05-14): Smoke-Tests fuer alle 22 V31-Adapter
+comdare_add_test(test_v31_adapters
+    SOURCES test_v31_adapters.cpp
+    LIBRARIES
+        comdare::adapter::p01_art
+        comdare::adapter::p02_hot
+        comdare::adapter::p03_masstree
+        comdare::adapter::p04_cocotrie
+        comdare::adapter::p05_start
+        comdare::adapter::p06_b2tree
+        comdare::adapter::p07_wormhole
+        comdare::adapter::p10_surf
+        comdare::adapter::p20_btreesareback
+        comdare::adapter::p25_mahling
+        comdare::adapter::p29_rcu
+        comdare::adapter::p30_hazardpointers
+        comdare::adapter::a01_hoard
+        comdare::adapter::a03_michael_lockfree
+        comdare::adapter::a04_mimalloc
+        comdare::adapter::a05_jemalloc
+        comdare::adapter::a06_tcmalloc
+        comdare::adapter::a07_snmalloc
+        comdare::adapter::a08_scalloc
+        comdare::adapter::a10_rpmalloc
+        comdare::adapter::a11_lrmalloc
+        comdare::adapter::a20_dlmalloc)
+target_include_directories(test_v31_adapters PRIVATE "${CMAKE_SOURCE_DIR}")
