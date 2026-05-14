@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="jemalloc" family_ref="A05">
+  <metadata>
+    <name>jemalloc</name>
+    <authors>Evans</authors>
+    <year>2006</year>
+    <venue>FreeBSD/Facebook</venue>
+    <license>BSD-2</license>
+    <repo>ext/A05-jemalloc</repo>
+  </metadata>
+  <axes>
+    <granularity>ARENA</granularity>
+    <numa>AWARE</numa>
+    <thread_local>YES</thread_local>
+    <fragmentation_strategy>SIZE_CLASS</fragmentation_strategy>
+    <thread_safety>FINEGRAINED_MUTEX</thread_safety>
+  </axes>
+  <abi>
+    <c_api>malloc, free, realloc, posix_memalign</c_api>
+  </abi>
+  <expected_workload>YCSB_B</expected_workload>
+</comdare_allocator_profile>

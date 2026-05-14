@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="snmalloc" family_ref="A07">
+  <metadata>
+    <name>snmalloc (Microsoft Research)</name>
+    <authors>Liedtke, Lyu, Parkinson</authors>
+    <year>2019</year>
+    <venue>ISMM</venue>
+    <license>MIT</license>
+    <repo>ext/A07-snmalloc</repo>
+  </metadata>
+  <axes>
+    <granularity>PAGE_BASED</granularity>
+    <numa>AWARE</numa>
+    <thread_local>YES</thread_local>
+    <fragmentation_strategy>MESSAGE_PASSING</fragmentation_strategy>
+    <thread_safety>LOCKFREE</thread_safety>
+  </axes>
+  <abi>
+    <c_api>sn_malloc, sn_free</c_api>
+  </abi>
+  <expected_workload>YCSB_A</expected_workload>
+</comdare_allocator_profile>

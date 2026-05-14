@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="michael_lockfree" family_ref="A03">
+  <metadata>
+    <name>Michael Lock-Free Allocator</name>
+    <authors>Michael</authors>
+    <year>2004</year>
+    <venue>PLDI</venue>
+    <license>BSD-3</license>
+    <repo>ext/A03-michael-lockfree</repo>
+  </metadata>
+  <axes>
+    <granularity>SLAB</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>NO</thread_local>
+    <fragmentation_strategy>SIZE_CLASS</fragmentation_strategy>
+    <thread_safety>LOCKFREE</thread_safety>
+  </axes>
+  <abi>
+    <c_api>malloc, free</c_api>
+  </abi>
+  <expected_workload>YCSB_B</expected_workload>
+</comdare_allocator_profile>

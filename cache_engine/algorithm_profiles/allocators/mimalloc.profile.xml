@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="mimalloc" family_ref="A04">
+  <metadata>
+    <name>mimalloc</name>
+    <authors>Microsoft Research</authors>
+    <year>2019</year>
+    <venue>(Microsoft Research Tech Report)</venue>
+    <license>MIT</license>
+    <repo>ext/A04-mimalloc</repo>
+  </metadata>
+  <axes>
+    <granularity>PAGE_BASED</granularity>
+    <numa>AWARE</numa>
+    <thread_local>YES</thread_local>
+    <fragmentation_strategy>FREE_LIST_SHARDING</fragmentation_strategy>
+    <thread_safety>LOCKFREE</thread_safety>
+  </axes>
+  <abi>
+    <c_api>mi_malloc, mi_free, mi_realloc</c_api>
+    <cpp_overload>mi_new, mi_delete</cpp_overload>
+  </abi>
+  <expected_workload>YCSB_A</expected_workload>
+</comdare_allocator_profile>
