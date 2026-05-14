@@ -481,3 +481,37 @@ Verbose      : ON
 ### Querverweis
 - Diplomarbeit/docs/sessions/20260514-1430-v11-anker-mit-delta.md
 - comdare-cache-engine/docs/sessions/20260514-0900-v8-cache-engine-strukturkorrekturen.md
+
+---
+
+## 11. V12-V14 Delta (REV 7.6 weitere Iterationen, 2026-05-14)
+
+### 11.1 Erweiterte Header (V12.3 + V12.6)
+- `cache_engine/include/cache_engine/abi/search_engine.hpp` (V12.3) — virtual contains/count/find/clear mit Default-Bodies
+- `cache_engine/include/cache_engine/abi/baustein_variants.hpp` (V12.6) — alle 11 Achsen mit description+paper_ref erweitert
+
+### 11.2 ExperimentDriver Erweiterungen (V13.2 + V13.3)
+- `phase3_hot_compile_missing(fingerprints)` (V13.2) — Hot-Compile fehlender Module via cmake-Aufruf, opt-in via enable_runtime_codegen
+- `phase4b_functional_tests(handles)` (V13.3) — ABI-Vertrag pro Modul, opt-in via enable_functional_tests
+
+### 11.3 CMake Stage-1/Stage-2 (V13.4)
+- `option(COMDARE_AUTO_RUN_BUILDER OFF)` + COMDARE_BUILDER_CONFIG_DIR/OUTPUT_DIR cache vars
+- `add_custom_target(comdare_run_builder ALL ...)` ruft Builder mit --enumerate-only nach Build
+
+### 11.4 Build-Fix (V12.7)
+- xml_config_parser.cpp: 3 regex-Patterns auf Raw-String-Delimiter `R"PAT(...)PAT"` umgestellt (MSVC C++23 Parser-Bug)
+
+### 11.5 Tests (V14.2)
+- `tests/unit/test_experiment_driver_v13.cpp` (10 Tests):
+  Defaults-Sanity + V13.2 hot_compile + V13.3 functional_tests + V10.6 MessreihenMode-Filter
+
+### 11.6 Bug-Fixes (V14.2 von Tests aufgedeckt)
+- experiment_driver.cpp: `workload_generator::WorkloadOperation` → `workload_generator::Operation`
+
+### 11.7 CI Test-Discovery-Workaround (V14.3)
+- `.gitlab-ci.yml` + `.github/workflows/ci.yml`: direkte Test-Binary-Ausfuehrung statt ctest
+- Umgeht MSB3073 (gtest_discover_tests bei MSVC), plattform-uniform
+
+### Querverweis
+- Diplomarbeit/docs/sessions/20260514-2030-v15-anker.md
+- comdare-cache-engine HEAD: 13260c7 (V14)
