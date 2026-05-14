@@ -399,4 +399,50 @@ TEST_F(CodegenFromProfileFixture, ExpectedWorkloadOptionalEmpty) {
     EXPECT_TRUE(p.expected_workload.empty());
 }
 
+// V29.A — allocator_override Tag (analog expected_workload)
+TEST_F(CodegenFromProfileFixture, ParsesAllocatorOverrideTag) {
+    auto profile_xml = tmp_dir_ / "test_alloc_override.profile.xml";
+    {
+        std::ofstream f{profile_xml};
+        f << R"(<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="testao" paper_ref="PT03">
+  <axes>
+    <allocator>MIMALLOC</allocator>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+  <expected_workload>YCSB_C</expected_workload>
+  <allocator_override>jemalloc</allocator_override>
+</comdare_algorithm_profile>)";
+    }
+    xml::XmlConfigParser parser;
+    auto p = parser.parse_profile(profile_xml);
+    EXPECT_EQ(p.id, "testao");
+    EXPECT_EQ(p.expected_workload, "YCSB_C");
+    EXPECT_EQ(p.allocator_override, "jemalloc");
+    // axes/allocator bleibt MIMALLOC (Override nur per Builder anzuwenden)
+    EXPECT_EQ(p.axes.at("allocator"), "MIMALLOC");
+}
+
+// V29.A — allocator_override optional: leer bei fehlendem Tag
+TEST_F(CodegenFromProfileFixture, AllocatorOverrideOptionalEmpty) {
+    auto profile_xml = tmp_dir_ / "test_no_alloc_override.profile.xml";
+    {
+        std::ofstream f{profile_xml};
+        f << R"(<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="noao" paper_ref="PT04">
+  <axes><allocator>MIMALLOC</allocator></axes>
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_algorithm_profile>)";
+    }
+    xml::XmlConfigParser parser;
+    auto p = parser.parse_profile(profile_xml);
+    EXPECT_TRUE(p.allocator_override.empty());
+}
+
 }  // anonymous namespace
