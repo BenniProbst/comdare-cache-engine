@@ -443,3 +443,41 @@ Verbose      : ON
 
 ==== CacheEngineBuilder OK ====
 ```
+
+---
+
+## 10. V8-V11 Delta (REV 7.6 Vollimplementierung, 2026-05-13/14)
+
+### 10.1 Neue Header (cache_engine/include/cache_engine/abi/)
+- `algorithm_baustein.hpp` (V8.8) — std::variant Pattern + algorithm_axis + eleven_axes_permutation
+- `baustein_variants.hpp` (V9.2 + V11.4) — 11 Achsen × Tag-Strukturen mit description + paper_ref
+- `resolve_baustein.hpp` (V8 → V10.2 operationalisiert) — Compile-Time-Fallback Pruefling → SOTA mit 11 Tag-Specializations
+
+### 10.2 Neue Verzeichnisse
+- `cache_engine/algorithm_profiles/` (V8.3) — README + permutation_axes.xml + sota/ (30 Profile)
+  - 8 Tier-1 (V8.3): art, hot, masstree, coco_trie, start, b2tree, wormhole, surf
+  - 22 Tier-2/3 (V9.5): css_tree, csb_tree, hankins, samuel, graefe, bender_*, saikkonen_*, btreesareback, chen_*, khan, naderan, mahling, zhang_*, kuehn, rcu, hazard_pointers, ungethuem, to_stride
+
+### 10.3 Erweiterte Komponenten
+- `cache_engine/builder/experiment_driver/` (V8.7 Options + V10.5 Auto-Pickup + V10.6 MessreihenMode + V11.2 Workload-Routing)
+- `cache_engine/builder/codegen/` (V9.3 generate_module_from_profile)
+- `cache_engine/builder/xml_config_parser/` (V8.6 AlgorithmProfile + Messreihe Loader)
+- `cache_engine/include/cache_engine/abi/execution_engine.hpp` (V8.5 ResultAggregator-Member bei EXPERIMENT_MODE)
+
+### 10.4 Geloescht (V10.1)
+- `prt_art/legacy_reimpl/P*-*/` (14 Subordner) — physisch verschoben nach prt-art Repo
+
+### 10.5 Tests
+- `tests/unit/test_codegen_from_profile.cpp` (V10.4) — 6 Roundtrip-Cases
+
+### 10.6 CI
+- `.gitlab-ci.yml` (V11.7) — primaer
+- `.github/workflows/ci.yml` (V11.7) — synchron
+
+### 10.7 CMake-Optionen
+- `COMDARE_EXPERIMENT_MODE` (V8.4, default OFF)
+- `COMDARE_BUILD_LEGACY_REIMPL` (V8.2, default OFF, V10.1 jetzt no-op)
+
+### Querverweis
+- Diplomarbeit/docs/sessions/20260514-1430-v11-anker-mit-delta.md
+- comdare-cache-engine/docs/sessions/20260514-0900-v8-cache-engine-strukturkorrekturen.md

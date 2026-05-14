@@ -1,0 +1,67 @@
+# comdare-cache-engine — GitLab CI Pipeline (REV 7.6 V11.7)
+# PRIMAERE CI (User-Direktive 2026-05-14: GitLab hauptsaechlich + synchron GitHub Actions)
+# Synchron mit .github/workflows/ci.yml.
+
+stages:
+  - configure
+  - test
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  CMAKE_BUILD_PARALLEL_LEVEL: "4"
+
+.linux_base:
+  image: debian:bookworm
+  before_script:
+    - apt-get update -qq
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends
+        build-essential cmake ninja-build git ca-certificates
+    - cmake --version
+    - g++ --version
+
+configure:default:
+  extends: .linux_base
+  stage: configure
+  script:
+    - cmake -B build-default -G Ninja
+        -DCOMDARE_BUILD_TESTS=ON
+        -DCOMDARE_BUILD_BENCHMARKS=OFF
+    - cmake --build build-default --target comdare_builder_codegen comdare_builder_xml_config_parser comdare_builder_experiment_driver
+  artifacts:
+    paths:
+      - build-default/CMakeCache.txt
+      - build-default/CMakeFiles/CMakeOutput.log
+    expire_in: 1 day
+    when: always
+
+configure:experiment_mode:
+  extends: .linux_base
+  stage: configure
+  script:
+    - cmake -B build-experiment -G Ninja
+        -DCOMDARE_BUILD_TESTS=ON
+        -DCOMDARE_BUILD_BENCHMARKS=OFF
+        -DCOMDARE_EXPERIMENT_MODE=ON
+    - cmake --build build-experiment --target comdare_builder_experiment_driver
+  artifacts:
+    paths:
+      - build-experiment/CMakeCache.txt
+    expire_in: 1 day
+    when: always
+
+test:codegen_from_profile:
+  extends: .linux_base
+  stage: test
+  needs: ["configure:default"]
+  script:
+    - cmake -B build-test -G Ninja
+        -DCOMDARE_BUILD_TESTS=ON
+        -DCOMDARE_BUILD_BENCHMARKS=OFF
+    - cmake --build build-test --target test_codegen_from_profile test_builder_codegen
+    - ctest --test-dir build-test --output-on-failure
+        -R "test_codegen_from_profile|test_builder_codegen"
+  artifacts:
+    paths:
+      - build-test/Testing/
+    expire_in: 1 week
+    when: always

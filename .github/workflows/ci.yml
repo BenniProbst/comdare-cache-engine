@@ -1,0 +1,62 @@
+name: comdare-cache-engine CI (REV 7.6 V11.7)
+
+# SYNCHRON mit .gitlab-ci.yml (User-Direktive 2026-05-14: GitLab primaer + GitHub synchron)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  configure-default:
+    name: cmake configure (default mode)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y build-essential cmake ninja-build
+      - name: Configure (default OFF)
+        run: cmake -B build-default -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_BUILD_BENCHMARKS=OFF
+      - name: Build builder targets
+        run: cmake --build build-default --target comdare_builder_codegen comdare_builder_xml_config_parser comdare_builder_experiment_driver
+
+  configure-experiment-mode:
+    name: cmake configure (EXPERIMENT_MODE=ON)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y build-essential cmake ninja-build
+      - name: Configure with EXPERIMENT_MODE=ON
+        run: cmake -B build-experiment -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_BUILD_BENCHMARKS=OFF -DCOMDARE_EXPERIMENT_MODE=ON
+      - name: Build experiment_driver target
+        run: cmake --build build-experiment --target comdare_builder_experiment_driver
+
+  test-codegen:
+    name: ctest codegen-from-profile
+    runs-on: ubuntu-latest
+    needs: configure-default
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y build-essential cmake ninja-build
+      - name: Configure + build tests
+        run: |
+          cmake -B build-test -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_BUILD_BENCHMARKS=OFF
+          cmake --build build-test --target test_codegen_from_profile test_builder_codegen
+      - name: Run ctest (codegen tests only)
+        run: ctest --test-dir build-test --output-on-failure -R "test_codegen_from_profile|test_builder_codegen"

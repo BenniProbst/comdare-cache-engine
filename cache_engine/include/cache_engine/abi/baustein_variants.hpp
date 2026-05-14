@@ -18,20 +18,67 @@
 
 namespace comdare::cache_engine::baustein {
 
+// REV 7.6 V11.4 — Konkrete Variant-Bodies mit Identitaets-Konstanten:
+// Pro Tag-Struktur: tag + description + paper_ref (Compile-Time-Reflection).
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Achse 1: Page-Layout
 // ─────────────────────────────────────────────────────────────────────────────
-struct PageStandardHeap        { static constexpr char tag[] = "STANDARD_HEAP"; };
-struct PageDenseByteArt256     { static constexpr char tag[] = "DENSEBYTE_ART256"; };
-struct PageHotMultiByte        { static constexpr char tag[] = "HOT_MULTIBYTE"; };
-struct PageMasstreeINode       { static constexpr char tag[] = "MASSTREE_INODE"; };
-struct PageCoCoCompact         { static constexpr char tag[] = "COCO_COMPACT"; };
-struct PageStart               { static constexpr char tag[] = "START_PAGE"; };
-struct PageB2Tree              { static constexpr char tag[] = "B2TREE_PAGE"; };
-struct PageWormhole            { static constexpr char tag[] = "WORMHOLE_PAGE"; };
-struct PageSurf                { static constexpr char tag[] = "SURF_PAGE"; };
-struct PagePrtArtDenseByte     { static constexpr char tag[] = "PRTART_DENSEBYTE"; };
-struct PagePrtArtRedirect      { static constexpr char tag[] = "PRTART_REDIRECT"; };
+struct PageStandardHeap {
+    static constexpr char tag[]         = "STANDARD_HEAP";
+    static constexpr char description[] = "Default heap-allocated page (no special layout)";
+    static constexpr char paper_ref[]   = "(none)";
+};
+struct PageDenseByteArt256 {
+    static constexpr char tag[]         = "DENSEBYTE_ART256";
+    static constexpr char description[] = "ART Node256 dense byte page (Leis 2013)";
+    static constexpr char paper_ref[]   = "P01";
+};
+struct PageHotMultiByte {
+    static constexpr char tag[]         = "HOT_MULTIBYTE";
+    static constexpr char description[] = "HOT multi-byte page with bit-vector indices (Binna 2018)";
+    static constexpr char paper_ref[]   = "P02";
+};
+struct PageMasstreeINode {
+    static constexpr char tag[]         = "MASSTREE_INODE";
+    static constexpr char description[] = "Masstree internal node with permutation array (Mao 2012)";
+    static constexpr char paper_ref[]   = "P03";
+};
+struct PageCoCoCompact {
+    static constexpr char tag[]         = "COCO_COMPACT";
+    static constexpr char description[] = "CoCo-Trie compact page with succinct encoding (Boffa 2024)";
+    static constexpr char paper_ref[]   = "P04";
+};
+struct PageStart {
+    static constexpr char tag[]         = "START_PAGE";
+    static constexpr char description[] = "START self-tuning ART page (Fent 2020)";
+    static constexpr char paper_ref[]   = "P05";
+};
+struct PageB2Tree {
+    static constexpr char tag[]         = "B2TREE_PAGE";
+    static constexpr char description[] = "B-squared Tree page with two-level fanout (Schmeisser 2022)";
+    static constexpr char paper_ref[]   = "P06";
+};
+struct PageWormhole {
+    static constexpr char tag[]         = "WORMHOLE_PAGE";
+    static constexpr char description[] = "Wormhole page with hash-array hybrid (Wu 2019)";
+    static constexpr char paper_ref[]   = "P07";
+};
+struct PageSurf {
+    static constexpr char tag[]         = "SURF_PAGE";
+    static constexpr char description[] = "SuRF succinct range filter page (Zhang 2018)";
+    static constexpr char paper_ref[]   = "P10";
+};
+struct PagePrtArtDenseByte {
+    static constexpr char tag[]         = "PRTART_DENSEBYTE";
+    static constexpr char description[] = "PRT-ART dense byte page (Pruefling)";
+    static constexpr char paper_ref[]   = "PRTART";
+};
+struct PagePrtArtRedirect {
+    static constexpr char tag[]         = "PRTART_REDIRECT";
+    static constexpr char description[] = "PRT-ART redirect page with virtual-offset jump (Pruefling)";
+    static constexpr char paper_ref[]   = "PRTART";
+};
 
 using PageAxis = algorithm_axis<
     PageStandardHeap, PageDenseByteArt256, PageHotMultiByte,
