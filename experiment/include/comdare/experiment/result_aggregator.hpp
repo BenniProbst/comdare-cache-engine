@@ -20,6 +20,11 @@ struct PermutationResult {
     comdare_measurement_record_v1 record{};
     bool                          succeeded     = false;
     std::string                   error_message;
+    // REV 7.6 V20.1 — Welcher Workload tatsaechlich gegen das Modul lief.
+    // Pro Permutation gesetzt durch ExperimentDriver Phase 5 (V20.2).
+    // Fuer Profile-Module: aus expected_workload (V19.3) oder traversal-Heuristik (V11.2).
+    // Fuer Nicht-Profile-Module: leer (= WorkloadOptions-Default).
+    std::string                   workload_used;
 };
 
 struct ComparisonReport {

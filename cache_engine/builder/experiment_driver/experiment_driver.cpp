@@ -377,6 +377,20 @@ int ExperimentDriver::phase5_run_workload(
         return workload_generator::YcsbWorkload::C;  // Fallback
     };
 
+    // V20.2 — YcsbWorkload -> Export-String (fuer PermutationResult.workload_used)
+    auto workload_to_string = [](workload_generator::YcsbWorkload w) -> std::string {
+        using W = workload_generator::YcsbWorkload;
+        switch (w) {
+            case W::A: return "YCSB_A";
+            case W::B: return "YCSB_B";
+            case W::C: return "YCSB_C";
+            case W::D: return "YCSB_D";
+            case W::E: return "YCSB_E";
+            case W::F: return "YCSB_F";
+        }
+        return "UNKNOWN";
+    };
+
     // Pre-Compute alle Profile-Workload-Mappings (deterministic Fingerprint -> Workload)
     std::unordered_map<std::uint64_t, workload_generator::YcsbWorkload> fp_to_workload;
     auto profiles_dir = opts_.config_dir / "algorithm_profiles" / "sota";
@@ -439,6 +453,10 @@ int ExperimentDriver::phase5_run_workload(
         pr.fingerprint = h.fingerprint();
         pr.record      = rec;
         pr.succeeded   = true;
+        // V20.2 — Welchen Workload bekam diese Permutation tatsaechlich?
+        pr.workload_used = (wl_it != fp_to_workload.end())
+            ? workload_to_string(wl_it->second)
+            : workload_to_string(wopts.workload);  // Default-Workload (Nicht-Profile-Module)
         aggregator.add(std::move(pr));
         ++total_records;
     }

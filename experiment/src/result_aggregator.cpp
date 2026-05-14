@@ -65,7 +65,8 @@ void ResultAggregator::export_csv(std::filesystem::path const& path) const {
     std::ofstream out{path};
     if (!out) throw std::runtime_error{"Could not open " + path.string()};
 
-    out << "permutation_id,fingerprint,succeeded,op_count,total_cycles,"
+    // V20.3 — workload_used als zusaetzliche Spalte (zwischen succeeded und op_count)
+    out << "permutation_id,fingerprint,succeeded,workload_used,op_count,total_cycles,"
         << "cache_misses_l1,cache_misses_l2,cache_misses_l3,dtlb_misses,"
         << "coherence_invalidations,energy_micro_joules,"
         << "bytes_allocated,bytes_in_use_peak,external_frag,internal_frag\n";
@@ -74,6 +75,7 @@ void ResultAggregator::export_csv(std::filesystem::path const& path) const {
         out << r.permutation_id << ','
             << r.fingerprint << ','
             << (r.succeeded ? 1 : 0) << ','
+            << r.workload_used << ','
             << r.record.op_count << ','
             << r.record.total_cycles << ','
             << r.record.cache_misses_l1 << ','
@@ -103,6 +105,7 @@ void ResultAggregator::export_json(std::filesystem::path const& path) const {
             << "      \"permutation_id\": \"" << r.permutation_id << "\",\n"
             << "      \"fingerprint\": " << r.fingerprint << ",\n"
             << "      \"succeeded\": " << (r.succeeded ? "true" : "false") << ",\n"
+            << "      \"workload_used\": \"" << r.workload_used << "\",\n"
             << "      \"op_count\": " << r.record.op_count << ",\n"
             << "      \"total_cycles\": " << r.record.total_cycles << ",\n"
             << "      \"bytes_in_use_peak\": " << r.record.bytes_in_use_peak << "\n"
