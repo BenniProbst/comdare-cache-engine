@@ -30,7 +30,7 @@ namespace unodb {
 namespace comdare::cache_engine::builder::generated {
 
 // REV 7.6 V16.3 — Sample-Konkrete-Implementation fuer ART (P01)
-struct ArtModuleBody {
+struct ProfileModuleBody {
     // ART-Hauptklasse (Trie-Storage)
     // In Folge-Phase: std::unique_ptr<unodb::olc_db<std::uint64_t, std::string>> trie_;
     void* trie_storage_ = nullptr;  // Stub bis ext/P01-ART verdrahtet ist
@@ -42,10 +42,10 @@ struct ArtModuleBody {
     std::atomic<std::uint64_t> erase_count_{0};
 
     // Construct/Destruct
-    ArtModuleBody()  noexcept = default;
-    ~ArtModuleBody() noexcept = default;
-    ArtModuleBody(ArtModuleBody const&)            = delete;
-    ArtModuleBody& operator=(ArtModuleBody const&) = delete;
+    ProfileModuleBody()  noexcept = default;
+    ~ProfileModuleBody() noexcept = default;
+    ProfileModuleBody(ProfileModuleBody const&)            = delete;
+    ProfileModuleBody& operator=(ProfileModuleBody const&) = delete;
 
     // ABI: run_workload — durchlaeuft die WorkloadDescriptor-Operations
     void run_workload(comdare_workload_descriptor_v1 const* workload,
@@ -92,7 +92,7 @@ struct ArtModuleBody {
 //
 // extern "C" COMDARE_MODULE_EXPORT comdare_permutation_module_v1 const*
 // comdare_get_module_v1(void) {
-//     using Body = comdare::cache_engine::builder::generated::ArtModuleBody;
+//     using Body = comdare::cache_engine::builder::generated::ProfileModuleBody;
 //     static comdare_permutation_module_v1 const k_module = {
 //         .abi_version             = COMDARE_ABI_VERSION,
 //         .permutation_fingerprint = 0xAAAA000000000001ULL,  // sample
