@@ -52,6 +52,11 @@ struct ExperimentDriverOptions {
     //   Full:    alle Permutationen aus algorithm_profiles/sota/ (Auto-Pickup V10.5)
     enum class MessreihenMode { Defined, Full } messreihen_mode = MessreihenMode::Full;
     std::vector<std::string> sota_profile_filter;  // optional: nur diese Profile (Defined-Mode)
+
+    // REV 7.6 V18.1 — Multi-Path-Lookup fuer Codegen-Templates
+    //   Cache-engine SOTA-Templates haben Prioritaet, prt-art Pruefling-Templates Fallback.
+    //   Leer = nur cache-engine SOTA wird gesucht.
+    std::filesystem::path prt_art_root;  // V18.1: optional Pruefling-Repo-Root
 };
 
 struct WorkloadOptions {

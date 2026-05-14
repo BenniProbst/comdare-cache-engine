@@ -365,6 +365,18 @@ int ExperimentDriver::phase5_run_workload(
         return workload_generator::YcsbWorkload::C;
     };
 
+    // V19.3 — expected_workload Tag ueberschreibt traversal-Heuristik
+    // Mapping (XML-String -> YcsbWorkload): YCSB_A..F
+    auto parse_expected_workload = [](std::string const& tag) -> workload_generator::YcsbWorkload {
+        if (tag == "YCSB_A") return workload_generator::YcsbWorkload::A;
+        if (tag == "YCSB_B") return workload_generator::YcsbWorkload::B;
+        if (tag == "YCSB_C") return workload_generator::YcsbWorkload::C;
+        if (tag == "YCSB_D") return workload_generator::YcsbWorkload::D;
+        if (tag == "YCSB_E") return workload_generator::YcsbWorkload::E;
+        if (tag == "YCSB_F") return workload_generator::YcsbWorkload::F;
+        return workload_generator::YcsbWorkload::C;  // Fallback
+    };
+
     // Pre-Compute alle Profile-Workload-Mappings (deterministic Fingerprint -> Workload)
     std::unordered_map<std::uint64_t, workload_generator::YcsbWorkload> fp_to_workload;
     auto profiles_dir = opts_.config_dir / "algorithm_profiles" / "sota";
@@ -376,9 +388,19 @@ int ExperimentDriver::phase5_run_workload(
         auto profiles = parser.load_sota_profiles(profiles_dir);
         for (auto const& p : profiles) {
             std::uint64_t fp = std::hash<std::string>{}(p.id) ^ 0xC0FFEE02ull;
-            auto it = p.axes.find("traversal");
-            std::string traversal = (it != p.axes.end()) ? it->second : "STANDARD";
-            fp_to_workload[fp] = pick_workload_for_traversal(traversal);
+            // V19.3 — Profile-Override: expected_workload > traversal-Heuristik
+            if (!p.expected_workload.empty()) {
+                fp_to_workload[fp] = parse_expected_workload(p.expected_workload);
+                if (opts_.verbose) {
+                    std::cout << "    [V19.3] Profile " << p.id
+                              << " expected_workload=" << p.expected_workload
+                              << " (Override traversal-Heuristik)\n";
+                }
+            } else {
+                auto it = p.axes.find("traversal");
+                std::string traversal = (it != p.axes.end()) ? it->second : "STANDARD";
+                fp_to_workload[fp] = pick_workload_for_traversal(traversal);
+            }
         }
     }
 
