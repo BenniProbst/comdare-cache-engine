@@ -21,19 +21,36 @@
 #include <cstdint>
 #include <memory>
 
-// Forward-Declaration zur ART-Implementation aus ext/P01-ART/unodb.
-// In Folge-Phase wird dies durch echtes #include ersetzt.
-namespace unodb {
-    template <typename Key, typename Value> class olc_db;
-}
+// REV 7.6 V21.1 — ext-Verdrahtung-Skelett (HAVE_UNODB-gated)
+// Aktivieren via CMake-Flag COMDARE_HAVE_UNODB=ON + ext/P01-ART/unodb
+// Build-Integration. Default-Path bleibt der Stub aus V16.3-V17.2.
+//
+// Lizenz-Hinweis: ext/P01-ART/unodb steht unter Apache 2.0 — bei
+// Aktivierung muss NOTICE-Datei aktualisiert werden (siehe README).
+#if defined(COMDARE_HAVE_UNODB)
+    #include <unodb/art.hpp>
+    namespace comdare_v21 {
+        using ext_db_t = unodb::db<std::uint64_t, std::uint64_t>;
+    }
+#else
+    // Forward-Declaration ohne Include (bleibt link-time-leer)
+    namespace unodb {
+        template <typename Key, typename Value> class db;
+    }
+#endif
 
 namespace comdare::cache_engine::builder::generated {
 
 // REV 7.6 V16.3 — Sample-Konkrete-Implementation fuer ART (P01)
+// REV 7.6 V21.1 — Optional ext-Verdrahtung via COMDARE_HAVE_UNODB
 struct ProfileModuleBody {
     // ART-Hauptklasse (Trie-Storage)
-    // In Folge-Phase: std::unique_ptr<unodb::olc_db<std::uint64_t, std::string>> trie_;
+    // V21.1: bei COMDARE_HAVE_UNODB → echte unodb::db Instance
+#if defined(COMDARE_HAVE_UNODB)
+    std::unique_ptr<comdare_v21::ext_db_t> trie_;
+#else
     void* trie_storage_ = nullptr;  // Stub bis ext/P01-ART verdrahtet ist
+#endif
 
     // Statistik-Counter (lokal pro Modul-Instance)
     std::atomic<std::uint64_t> ops_executed_{0};
