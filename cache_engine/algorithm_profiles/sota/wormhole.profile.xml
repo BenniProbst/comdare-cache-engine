@@ -24,4 +24,5 @@
     <key_types>std::string</key_types>
     <value_types>std::string</value_types>
   </key_value_signature>
+  <expected_workload>YCSB_A</expected_workload>
 </comdare_algorithm_profile>

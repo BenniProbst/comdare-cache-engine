@@ -24,4 +24,5 @@
     <key_types>std::uint64_t</key_types>
     <value_types>std::uint64_t</value_types>
   </key_value_signature>
+  <expected_workload>YCSB_B</expected_workload>
 </comdare_algorithm_profile>
