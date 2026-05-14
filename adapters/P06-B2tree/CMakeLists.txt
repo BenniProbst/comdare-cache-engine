@@ -1,0 +1,13 @@
+# V31.K3 (2026-05-14) — P06-B2tree Adapter (NEU, war noch kein Skelett)
+# Inhalt: p06_b2tree_adapter.hpp (B2TreeAdapter)
+# Lizenz: NO LICENSE -> Architekt-Direktive II 2026-05-14 (NOTICE, citation-only)
+option(COMDARE_HAVE_B2TREE "Activate ext/P06-B2tree/b2-tree-master/ (no-license, TUM DB)" OFF)
+add_library(comdare_adapter_p06_b2tree INTERFACE)
+add_library(comdare::adapter::p06_b2tree ALIAS comdare_adapter_p06_b2tree)
+target_include_directories(comdare_adapter_p06_b2tree INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_features(comdare_adapter_p06_b2tree INTERFACE cxx_std_23)
+if(COMDARE_HAVE_B2TREE)
+    target_compile_definitions(comdare_adapter_p06_b2tree INTERFACE COMDARE_HAVE_B2TREE=1)
+    target_include_directories(comdare_adapter_p06_b2tree INTERFACE
+        "${CMAKE_SOURCE_DIR}/ext/P06-B2tree/b2-tree-master/include")
+endif()

@@ -16,6 +16,7 @@ add_subdirectory(P02-HOT)
 add_subdirectory(P03-Masstree)
 add_subdirectory(P04-CoCo-trie)
 add_subdirectory(P05-START)
+add_subdirectory(P06-B2tree)         # V31.K3 (2026-05-14): NEU registriert
 add_subdirectory(P07-Wormhole)
 add_subdirectory(P10-SuRF)
 add_subdirectory(P20-BTreesAreBack)

@@ -51,6 +51,17 @@ Echter GPL-Konflikt: P04-CoCo-trie + P07-Wormhole (beide GPL-3, nicht GPL-2).
 5. V31.K4 weitere SAFE Allokator: A01-hoard, A05-jemalloc, A06-tcmalloc, A07-snmalloc, A08-scalloc, A10-rpmalloc, A11-lrmalloc, A20-dlmalloc
 6. V31.K5 USER-Pending: P04-CoCo-trie + P07-Wormhole (GPL-3 Bestaetigung), P06+P25+P30+A03 (Autoren anschreiben)
 
+## Architekt-Direktive II 2026-05-14 (User)
+
+> "Da wir alle Algorithmus-Bestandteile zerschneiden, entsteht fuer alle
+> Permutations-Achsen ein neues Werk. Das gilt fuer alle Lizenztypen.
+> Repos ohne Lizenz: formal nur Autoren-Zitation."
+
+**Konsequenz:** Alle 22 ext/-Repos sind fuer V31-Adapter freigegeben.
+GPL-3 (P04, P07), LGPL (P29) und No-LICENSE (P06, P25, P30, A03) brauchen
+keine separate User-Bestaetigung mehr. Vollstaendige Begruendung: NOTICE,
+Abschnitt "Architekt-Direktive II 2026-05-14".
+
 ## Quellen-Pfade
 
 ```
