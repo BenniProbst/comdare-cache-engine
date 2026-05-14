@@ -1,0 +1,115 @@
+// REV 7.6 V16.3 — Sample Body-Template fuer ART-Modul (P01 Leis et al. 2013)
+//
+// Verwendung: dieser Template ersetzt den ABI-Skelett-Body in
+// generated/module_profile_art_<fp>.cpp wenn ein Folge-Patch der
+// CodegenEngine das Body-Template-Substitutions-Feature aktiviert.
+//
+// Stand: V16.3 (2026-05-14) — Sample-Skelett, beschreibt das Pattern.
+// Konkrete ART-Implementation kommt aus comdare-cache-engine/ext/P01-ART/unodb
+// (geklontes Original-Repo) als Grundlage.
+//
+// Das Template wird NICHT direkt vom Codegen verwendet (V16.3 ist
+// Vorlage-Demonstration). In V17+ kann der Codegen optional dieses
+// Template einsetzen wenn Profile.id == "art".
+
+#pragma once
+
+#include <cache_engine/abi/module_abi_v1.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+#include <memory>
+
+// Forward-Declaration zur ART-Implementation aus ext/P01-ART/unodb.
+// In Folge-Phase wird dies durch echtes #include ersetzt.
+namespace unodb {
+    template <typename Key, typename Value> class olc_db;
+}
+
+namespace comdare::cache_engine::builder::generated {
+
+// REV 7.6 V16.3 — Sample-Konkrete-Implementation fuer ART (P01)
+struct ArtModuleBody {
+    // ART-Hauptklasse (Trie-Storage)
+    // In Folge-Phase: std::unique_ptr<unodb::olc_db<std::uint64_t, std::string>> trie_;
+    void* trie_storage_ = nullptr;  // Stub bis ext/P01-ART verdrahtet ist
+
+    // Statistik-Counter (lokal pro Modul-Instance)
+    std::atomic<std::uint64_t> ops_executed_{0};
+    std::atomic<std::uint64_t> insert_count_{0};
+    std::atomic<std::uint64_t> lookup_count_{0};
+    std::atomic<std::uint64_t> erase_count_{0};
+
+    // Construct/Destruct
+    ArtModuleBody()  noexcept = default;
+    ~ArtModuleBody() noexcept = default;
+    ArtModuleBody(ArtModuleBody const&)            = delete;
+    ArtModuleBody& operator=(ArtModuleBody const&) = delete;
+
+    // ABI: run_workload — durchlaeuft die WorkloadDescriptor-Operations
+    void run_workload(comdare_workload_descriptor_v1 const* workload,
+                      comdare_measurement_record_v1*       out_record) noexcept
+    {
+        if (!workload || !out_record) return;
+        out_record->version = COMDARE_ABI_VERSION;
+
+        auto const start_tsc = std::chrono::steady_clock::now();
+
+        // V16.3: minimaler Stub — iteriert die Operations + zaehlt nur.
+        // In V17+ wird hier die echte ART-API aufgerufen (insert/lookup/erase).
+        std::uint64_t iterations = 0;
+        // workload->num_ops und workload->ops sind Konvention im Descriptor-Layout
+        // (siehe comdare_workload_descriptor_v1 Header). Hier nur Stub:
+        for (std::uint64_t i = 0; i < 10; ++i) {
+            ++iterations;
+            ++ops_executed_;
+        }
+
+        auto const end_tsc = std::chrono::steady_clock::now();
+        auto const cycles  = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                end_tsc - start_tsc).count();
+        out_record->cycles_total      = static_cast<std::uint64_t>(cycles);
+        out_record->ops_total         = iterations;
+        out_record->cache_misses_l1   = 0;  // Stub bis HW-Counter verdrahtet
+        out_record->cache_misses_l2   = 0;
+        out_record->cache_misses_l3   = 0;
+    }
+
+    // ABI: pull_live_counters — Stub mit ops_executed_ als Activity-Indicator
+    void pull_live_counters(comdare_hw_counters_v1* out) noexcept {
+        if (!out) return;
+        *out = {};
+        out->cycles_per_op = ops_executed_.load(std::memory_order_relaxed) > 0
+                              ? 100u  // Stub-Wert (echter Counter: rdtsc-Diff)
+                              : 0u;
+    }
+};
+
+}  // namespace comdare::cache_engine::builder::generated
+
+// --- ABI-Glue (wuerde im Codegen mit Body-Substitution generiert werden) ---
+//
+// extern "C" COMDARE_MODULE_EXPORT comdare_permutation_module_v1 const*
+// comdare_get_module_v1(void) {
+//     using Body = comdare::cache_engine::builder::generated::ArtModuleBody;
+//     static comdare_permutation_module_v1 const k_module = {
+//         .abi_version             = COMDARE_ABI_VERSION,
+//         .permutation_fingerprint = 0xAAAA000000000001ULL,  // sample
+//         .create_instance         = +[](comdare_cache_engine_v1*) -> void* {
+//             return new Body{};
+//         },
+//         .destroy_instance        = +[](void* inst) {
+//             delete static_cast<Body*>(inst);
+//         },
+//         .run_workload            = +[](void* inst,
+//                                        comdare_workload_descriptor_v1 const* w,
+//                                        comdare_measurement_record_v1* r) {
+//             static_cast<Body*>(inst)->run_workload(w, r);
+//         },
+//         .pull_live_counters      = +[](void* inst, comdare_hw_counters_v1* o) {
+//             static_cast<Body*>(inst)->pull_live_counters(o);
+//         },
+//     };
+//     return &k_module;
+// }
