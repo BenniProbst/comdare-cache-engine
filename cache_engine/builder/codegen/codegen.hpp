@@ -4,7 +4,7 @@
 // KEIN Python! Nur CMake + sh + bat (synchron gepflegt).
 // Pro Permutation eine eigene Modul-Binary mit ABI-stabilem v1 Interface.
 
-#include "../xml_config_parser/xml_config_parser.hpp"
+#include "xml_config_parser/xml_config_parser.hpp"  // V23.C.2: libs/common/serialization/
 
 #include <cstdint>
 #include <filesystem>

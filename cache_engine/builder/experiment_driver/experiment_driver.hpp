@@ -9,7 +9,7 @@
 #include "../codegen/codegen.hpp"
 #include "../module_loader/module_loader.hpp"
 #include "../permutation_loop/permutation_loop.hpp"
-#include "../xml_config_parser/xml_config_parser.hpp"
+#include "xml_config_parser/xml_config_parser.hpp"  // V23.C.2: libs/common/serialization/
 
 #include <cache_engine/abi/module_abi_v1.hpp>
 #include <comdare/experiment/result_aggregator.hpp>

@@ -2,7 +2,7 @@
 // PermutationLoop - Master-Enumeration aller gueltigen PermutationDescriptors
 // (REV 7 §5.1 Phase 1 ENUMERATION + Phase 6 MEASURE)
 
-#include "../xml_config_parser/xml_config_parser.hpp"
+#include "xml_config_parser/xml_config_parser.hpp"  // V23.C.2: libs/common/serialization/
 
 #include <cstdint>
 #include <filesystem>
