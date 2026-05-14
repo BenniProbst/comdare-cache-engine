@@ -151,6 +151,52 @@ int ExperimentDriver::phase2_generate(
     return status_ok;
 }
 
+// REV 7.6 V13.2 — Hot-Compile-Helper fuer enable_runtime_codegen
+// Erkennt fehlende Permutations-Module und kompiliert sie via cmake-Aufruf
+// auf der bereits generierten source library nach.
+namespace {
+[[nodiscard]] bool module_binary_exists(std::filesystem::path const& dir,
+                                         std::uint64_t fingerprint) {
+    auto check_one = [&](std::string const& ext) {
+        std::ostringstream name;
+        name << "comdare_perm_" << std::hex << fingerprint << ext;
+        return std::filesystem::exists(dir / name.str());
+    };
+#if defined(_WIN32)
+    return check_one(".dll") || check_one(".lib");
+#elif defined(__APPLE__)
+    return check_one(".dylib") || check_one(".so");
+#else
+    return check_one(".so");
+#endif
+}
+
+int hot_compile_missing_modules(
+    std::filesystem::path const& generated_dir,
+    std::filesystem::path const& build_dir,
+    std::vector<std::uint64_t> const& fingerprints,
+    bool verbose)
+{
+    int hot_compiled = 0;
+    auto const dll_dir_debug = build_dir / "Debug";
+    auto const dll_dir = std::filesystem::is_directory(dll_dir_debug)
+                          ? dll_dir_debug : build_dir;
+    for (auto fp : fingerprints) {
+        if (module_binary_exists(dll_dir, fp)) continue;
+        std::ostringstream target;
+        target << "comdare_perm_" << std::hex << fp;
+        std::ostringstream cmd;
+        cmd << "cmake --build \"" << build_dir.string() << "\" --target " << target.str();
+        if (verbose) {
+            std::cout << "    [V13.2 hot-compile] " << cmd.str() << "\n";
+        }
+        int rc = std::system(cmd.str().c_str());
+        if (rc == 0) ++hot_compiled;
+    }
+    return hot_compiled;
+}
+}  // anonymous
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase 3: COMPILE (cmake configure + cmake --build)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -190,6 +236,62 @@ int ExperimentDriver::phase3_compile() {
 
     if (opts_.verbose) {
         std::cout << "[Phase 3] OK\n";
+    }
+    return status_ok;
+}
+
+// REV 7.6 V13.3 — ABI-Vertrags-Pruefung pro geladenem Modul
+// (no-op wenn enable_functional_tests=false). Prueft fuer jeden Handle:
+//   - create_instance(nullptr) liefert non-null
+//   - run_workload mit empty WorkloadDescriptor schreibt rec.version == ABI_VERSION
+//   - destroy_instance ist sicher aufrufbar
+int ExperimentDriver::phase4b_functional_tests(
+    std::span<loader::ModuleHandle> handles)
+{
+    if (!opts_.enable_functional_tests) return status_ok;
+    if (opts_.verbose) {
+        std::cout << "\n[Phase 4b V13.3] Functional-Test ABI-Vertraege fuer "
+                  << handles.size() << " Module ...\n";
+    }
+    int passed = 0;
+    int failed = 0;
+    comdare_workload_descriptor_v1 empty_workload{};
+    for (auto& h : handles) {
+        auto const* m = h.get();
+        if (!m) { ++failed; continue; }
+        void* inst = m->create_instance(nullptr);
+        if (!inst) { ++failed; continue; }
+        comdare_measurement_record_v1 rec{};
+        m->run_workload(inst, &empty_workload, &rec);
+        bool const abi_ok = (rec.version == COMDARE_ABI_VERSION);
+        m->destroy_instance(inst);
+        if (abi_ok) ++passed; else ++failed;
+    }
+    if (opts_.verbose) {
+        std::cout << "[Phase 4b V13.3] Functional-Tests: "
+                  << passed << " passed / " << failed << " failed\n";
+    }
+    return failed > 0 ? status_workload_failed : status_ok;
+}
+
+// REV 7.6 V13.2 — Public Method: hot-compile fehlende Permutations-Module
+// Aufruf nach phase2_generate (oder zwischen phase2 und phase3) wenn
+// enable_runtime_codegen aktiviert ist.
+int ExperimentDriver::phase3_hot_compile_missing(
+    std::vector<std::uint64_t> const& fingerprints)
+{
+    if (!opts_.enable_runtime_codegen) return status_ok;
+    auto const bdir = build_dir_for(opts_.output_dir);
+    auto const generated = opts_.output_dir / "generated";
+    if (opts_.verbose) {
+        std::cout << "\n[Phase 3 V13.2] Hot-Compile fehlende Module ueber "
+                  << fingerprints.size() << " Permutationen ...\n";
+    }
+    int hot_compiled = hot_compile_missing_modules(
+        generated, bdir, fingerprints, opts_.verbose);
+    if (opts_.verbose) {
+        std::cout << "[Phase 3 V13.2] Hot-Compile abgeschlossen: "
+                  << hot_compiled << " neu kompiliert\n";
     }
     return status_ok;
 }
