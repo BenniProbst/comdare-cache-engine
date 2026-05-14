@@ -238,16 +238,46 @@ int ExperimentDriver::phase5_run_workload(
     experiment::ResultAggregator& aggregator)
 {
     workload_generator::WorkloadGenerator gen{wopts.config};
-    auto ops = gen.generate_ycsb(wopts.workload);
-    auto workload_abi = gen.to_abi_descriptor(ops);
+    auto default_ops = gen.generate_ycsb(wopts.workload);
+    auto default_workload_abi = gen.to_abi_descriptor(default_ops);
 
     if (opts_.verbose) {
-        std::cout << "\n[Phase 5+6] Running workload (" << ops.size()
+        std::cout << "\n[Phase 5+6] Running workload (default: " << default_ops.size()
                   << " ops) against " << handles.size() << " modules ...\n";
     }
 
     std::unordered_map<std::uint64_t, std::string> fp_to_id;
     for (auto const& d : descriptors) fp_to_id[d.fingerprint] = d.id;
+
+    // REV 7.6 V11.2 — Profile-aware Workload-Routing
+    // Pro Profil-Modul wird der Workload aus dem Traversal-Tag des Profils
+    // abgeleitet. Mapping (traversal -> YCSB-Workload):
+    //   RANGE_SCAN / RANGE_HOT_PATH    -> YCSB-E (range queries)
+    //   HOT_PATH / PRTART_HOT_PATH      -> YCSB-A (50/50 read/update Zipfian)
+    //   STANDARD (default)               -> YCSB-C (read-only)
+    // Fallback fuer Nicht-Profil-Module: WorkloadOptions::workload (wopts)
+    auto pick_workload_for_traversal = [](std::string const& traversal) {
+        if (traversal.find("RANGE") != std::string::npos)   return workload_generator::YcsbWorkload::E;
+        if (traversal.find("HOT_PATH") != std::string::npos) return workload_generator::YcsbWorkload::A;
+        return workload_generator::YcsbWorkload::C;
+    };
+
+    // Pre-Compute alle Profile-Workload-Mappings (deterministic Fingerprint -> Workload)
+    std::unordered_map<std::uint64_t, workload_generator::YcsbWorkload> fp_to_workload;
+    auto profiles_dir = opts_.config_dir / "algorithm_profiles" / "sota";
+    if (!std::filesystem::is_directory(profiles_dir)) {
+        profiles_dir = opts_.comdare_root / "cache_engine" / "algorithm_profiles" / "sota";
+    }
+    if (std::filesystem::is_directory(profiles_dir)) {
+        xml::XmlConfigParser parser;
+        auto profiles = parser.load_sota_profiles(profiles_dir);
+        for (auto const& p : profiles) {
+            std::uint64_t fp = std::hash<std::string>{}(p.id) ^ 0xC0FFEE02ull;
+            auto it = p.axes.find("traversal");
+            std::string traversal = (it != p.axes.end()) ? it->second : "STANDARD";
+            fp_to_workload[fp] = pick_workload_for_traversal(traversal);
+        }
+    }
 
     std::uint64_t total_records = 0;
     for (auto& h : handles) {
@@ -255,8 +285,24 @@ int ExperimentDriver::phase5_run_workload(
         if (!m) continue;
         void* inst = m->create_instance(nullptr);
         if (!inst) continue;
+
+        // V11.2 — wenn Modul aus Profil stammt, eigenen Workload bauen
+        auto wl_it = fp_to_workload.find(h.fingerprint());
+        comdare_workload_descriptor_v1 const* wl_for_this_module = &default_workload_abi;
+        std::vector<workload_generator::WorkloadOperation> profile_ops;
+        comdare_workload_descriptor_v1 profile_workload_abi{};
+        if (wl_it != fp_to_workload.end()) {
+            profile_ops        = gen.generate_ycsb(wl_it->second);
+            profile_workload_abi = gen.to_abi_descriptor(profile_ops);
+            wl_for_this_module = &profile_workload_abi;
+            if (opts_.verbose) {
+                std::cout << "    [V11.2] Profile-Modul fp=0x" << std::hex << h.fingerprint()
+                          << std::dec << " benutzt YCSB-" << static_cast<int>(wl_it->second) << "\n";
+            }
+        }
+
         comdare_measurement_record_v1 rec{};
-        m->run_workload(inst, &workload_abi, &rec);
+        m->run_workload(inst, wl_for_this_module, &rec);
 
         // Phase 7 TEARDOWN (per-Modul-Instance)
         m->destroy_instance(inst);
