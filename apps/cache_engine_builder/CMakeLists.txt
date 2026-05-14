@@ -10,7 +10,7 @@ if(COMDARE_BUILD_BUILDER)
     main.cpp
   )
   target_include_directories(cache_engine_builder PRIVATE
-    "${CMAKE_SOURCE_DIR}/cache_engine/include"
+    "${CMAKE_SOURCE_DIR}/libs/cache_engine/include"
   )
   target_link_libraries(cache_engine_builder PRIVATE
     comdare_builder_xml_config_parser
