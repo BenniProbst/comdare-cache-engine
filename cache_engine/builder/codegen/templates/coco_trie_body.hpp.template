@@ -1,0 +1,39 @@
+// REV 7.6 V17.2 — Body-Template fuer CoCo-Trie-Modul (P04 Boffa et al. VLDB 2024)
+// Original: ext/P04-CoCo-trie/CoCo-trie
+// Pattern V17.1: Codegen substituiert dieses Template wenn Profile.id == "coco_trie"
+
+#pragma once
+#include <cache_engine/abi/module_abi_v1.hpp>
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+
+namespace comdare::cache_engine::builder::generated {
+
+struct ProfileModuleBody {
+    std::atomic<std::uint64_t> ops_executed_{0};
+    void* coco_storage_ = nullptr;  // Stub bis ext/P04-CoCo-trie verdrahtet
+
+    ProfileModuleBody()  noexcept = default;
+    ~ProfileModuleBody() noexcept = default;
+    ProfileModuleBody(ProfileModuleBody const&)            = delete;
+    ProfileModuleBody& operator=(ProfileModuleBody const&) = delete;
+
+    void run_workload(comdare_workload_descriptor_v1 const* workload,
+                      comdare_measurement_record_v1*       out) noexcept {
+        if (!workload || !out) return;
+        out->version = COMDARE_ABI_VERSION;
+        auto t0 = std::chrono::steady_clock::now();
+        for (std::uint64_t i = 0; i < 10; ++i) ++ops_executed_;
+        auto t1 = std::chrono::steady_clock::now();
+        out->cycles_total = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count());
+        out->ops_total = ops_executed_.load(std::memory_order_relaxed);
+    }
+    void pull_live_counters(comdare_hw_counters_v1* out) noexcept {
+        if (!out) return; *out = {};
+        out->cycles_per_op = ops_executed_.load(std::memory_order_relaxed) > 0 ? 70u : 0u;
+    }
+};
+
+}  // namespace

@@ -157,6 +157,98 @@ TEST_F(CodegenFromProfileFixture, CMakeListsReferencesCorrectTarget) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// REV 7.6 V17.3 — Tests fuer Template-Substitution (V17.1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(CodegenFromProfileFixture, TemplateSubstitution_NoOpWhenTemplateMissing) {
+    // Profile-id "nonexistent_xyz" hat kein Template
+    xml::AlgorithmProfile p;
+    p.id = "nonexistent_xyz";
+    p.paper_ref = "P99";
+    p.key_types = "int";
+    p.value_types = "int";
+
+    constexpr std::uint64_t fp = 0xC0FFEE9999999999ULL;
+    engine_->generate_module_from_profile(p, fp);
+
+    auto src_path = opts_.output_root / "module_profile_nonexistent_xyz_c0ffee9999999999.cpp";
+    ASSERT_TRUE(fs::exists(src_path));
+    auto content = read_file(src_path);
+
+    // Skelett-Body ist enthalten (kein Template)
+    EXPECT_NE(content.find("ProfileModule_v1"), std::string::npos);
+    EXPECT_NE(content.find("Template     : no (skelett body)"), std::string::npos);
+    // Kein Template-#include
+    EXPECT_EQ(content.find("_body.hpp.template"), std::string::npos);
+}
+
+TEST_F(CodegenFromProfileFixture, TemplateSubstitution_IncludesTemplateWhenPresent) {
+    // Tmp-Template anlegen unter <tmp>/cache_engine/builder/codegen/templates/test_id_body.hpp.template
+    auto tpl_dir = tmp_dir_ / "cache_engine" / "builder" / "codegen" / "templates";
+    fs::create_directories(tpl_dir);
+    {
+        std::ofstream f(tpl_dir / "test_id_body.hpp.template");
+        f << "// Mock-Template V17.3\n"
+          << "#pragma once\n"
+          << "namespace comdare::cache_engine::builder::generated {\n"
+          << "struct ProfileModuleBody { void run_workload(...) {} void pull_live_counters(...) {} };\n"
+          << "}\n";
+    }
+
+    // CodegenEngine mit comdare_root auf das Tmp-Verzeichnis (sodass Template gefunden wird)
+    cg::CodegenOptions opts2;
+    opts2.output_root = tmp_dir_ / "generated2";
+    opts2.comdare_root = tmp_dir_;
+    cg::CodegenEngine engine2{opts2};
+
+    xml::AlgorithmProfile p;
+    p.id = "test_id";
+    p.paper_ref = "PXX";
+    constexpr std::uint64_t fp = 0xCAFE000000000017ULL;
+    engine2.generate_module_from_profile(p, fp);
+
+    auto src_path = opts2.output_root / "module_profile_test_id_cafe000000000017.cpp";
+    ASSERT_TRUE(fs::exists(src_path));
+    auto content = read_file(src_path);
+
+    // Template wird inkludiert
+    EXPECT_NE(content.find("test_id_body.hpp.template"), std::string::npos);
+    EXPECT_NE(content.find("Template     : yes"), std::string::npos);
+    // ABI-Glue verwendet TemplateBody alias
+    EXPECT_NE(content.find("using TemplateBody = ::comdare::cache_engine::builder::generated::ProfileModuleBody;"), std::string::npos);
+    // Kein Skelett-Body
+    EXPECT_EQ(content.find("ProfileModule_v1"), std::string::npos);
+}
+
+TEST_F(CodegenFromProfileFixture, TemplateSubstitution_AbiGlueDelegatesToTemplate) {
+    auto tpl_dir = tmp_dir_ / "cache_engine" / "builder" / "codegen" / "templates";
+    fs::create_directories(tpl_dir);
+    std::ofstream f(tpl_dir / "abc_body.hpp.template");
+    f << "namespace comdare::cache_engine::builder::generated {\n"
+      << "struct ProfileModuleBody { void run_workload(...) {} void pull_live_counters(...) {} };\n"
+      << "}\n";
+    f.close();
+
+    cg::CodegenOptions opts2;
+    opts2.output_root = tmp_dir_ / "generated3";
+    opts2.comdare_root = tmp_dir_;
+    cg::CodegenEngine engine2{opts2};
+
+    xml::AlgorithmProfile p;
+    p.id = "abc";
+    p.paper_ref = "PXX";
+    engine2.generate_module_from_profile(p, 0x42);
+
+    auto src_path = opts2.output_root / "module_profile_abc_42.cpp";
+    ASSERT_TRUE(fs::exists(src_path));
+    auto content = read_file(src_path);
+
+    EXPECT_NE(content.find("static_cast<TemplateBody*>(inst)->run_workload"), std::string::npos);
+    EXPECT_NE(content.find("static_cast<TemplateBody*>(inst)->pull_live_counters"), std::string::npos);
+    EXPECT_NE(content.find("delete static_cast<TemplateBody*>(inst)"), std::string::npos);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Test 6: Profile mit leerem axes-Map erzeugt trotzdem valide Output
 // ─────────────────────────────────────────────────────────────────────────────
 TEST_F(CodegenFromProfileFixture, EmptyAxesProduceValidOutput) {
