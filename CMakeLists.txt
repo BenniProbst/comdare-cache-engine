@@ -108,7 +108,7 @@ endif()
 # ─────────────────────────────────────────────────────────────────────────────
 # Subdirectories (Domaenen 1-6)
 # ─────────────────────────────────────────────────────────────────────────────
-add_subdirectory(measurement)        # Domaene 3 (zuerst, wird ueberall genutzt)
+# V23.C.4 (2026-05-14): measurement migriert nach libs/common/measurement/
 # V23.C.3 (2026-05-14): hardware_isa migriert nach libs/common/platform/
 add_subdirectory(search_engine)      # Domaene 1
 add_subdirectory(cache_engine)       # Domaene 2 (nutzt 1, 3, 4)
