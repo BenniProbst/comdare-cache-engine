@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="dlmalloc" family_ref="A20">
+  <metadata>
+    <name>dlmalloc (Doug Lea)</name>
+    <authors>Doug Lea</authors>
+    <year>1996</year>
+    <venue>(Tech Report)</venue>
+    <license>Public Domain (CC0)</license>
+    <repo>ext/A20-dlmalloc</repo>
+  </metadata>
+  <axes>
+    <granularity>BOUNDARY_TAG</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>NO</thread_local>
+    <fragmentation_strategy>BEST_FIT</fragmentation_strategy>
+    <thread_safety>SINGLE_THREADED</thread_safety>
+  </axes>
+  <abi>
+    <c_api>dlmalloc, dlfree, dlrealloc</c_api>
+  </abi>
+  <expected_workload>YCSB_C</expected_workload>
+</comdare_allocator_profile>

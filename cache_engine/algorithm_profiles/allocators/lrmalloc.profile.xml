@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="lrmalloc" family_ref="A11">
+  <metadata>
+    <name>lrmalloc (Lock-Free Reservation Allocator)</name>
+    <authors>Cohen, Petrank</authors>
+    <year>2018</year>
+    <venue>PPoPP</venue>
+    <license>BSD-3</license>
+    <repo>ext/A11-lrmalloc</repo>
+  </metadata>
+  <axes>
+    <granularity>SLAB</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>YES</thread_local>
+    <fragmentation_strategy>RESERVATION</fragmentation_strategy>
+    <thread_safety>LOCKFREE</thread_safety>
+  </axes>
+  <abi>
+    <c_api>malloc, free</c_api>
+  </abi>
+  <expected_workload>YCSB_B</expected_workload>
+</comdare_allocator_profile>

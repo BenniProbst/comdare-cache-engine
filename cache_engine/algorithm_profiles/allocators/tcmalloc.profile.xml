@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="tcmalloc" family_ref="A06">
+  <metadata>
+    <name>tcmalloc (Google)</name>
+    <authors>Google</authors>
+    <year>2009</year>
+    <venue>Google gperftools</venue>
+    <license>BSD-3</license>
+    <repo>ext/A06-tcmalloc</repo>
+  </metadata>
+  <axes>
+    <granularity>PAGE_BASED</granularity>
+    <numa>AWARE</numa>
+    <thread_local>YES</thread_local>
+    <fragmentation_strategy>SIZE_CLASS</fragmentation_strategy>
+    <thread_safety>LOCKFREE</thread_safety>
+  </axes>
+  <abi>
+    <c_api>tc_malloc, tc_free, tc_realloc</c_api>
+  </abi>
+  <expected_workload>YCSB_C</expected_workload>
+</comdare_allocator_profile>

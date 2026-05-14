@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="rpmalloc" family_ref="A10">
+  <metadata>
+    <name>rpmalloc</name>
+    <authors>Mattias Jansson</authors>
+    <year>2017</year>
+    <venue>Open Source</venue>
+    <license>Public Domain</license>
+    <repo>ext/A10-rpmalloc</repo>
+  </metadata>
+  <axes>
+    <granularity>SPAN_BASED</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>YES</thread_local>
+    <fragmentation_strategy>SIZE_CLASS</fragmentation_strategy>
+    <thread_safety>LOCKFREE</thread_safety>
+  </axes>
+  <abi>
+    <c_api>rpmalloc, rpfree</c_api>
+  </abi>
+  <expected_workload>YCSB_C</expected_workload>
+</comdare_allocator_profile>
