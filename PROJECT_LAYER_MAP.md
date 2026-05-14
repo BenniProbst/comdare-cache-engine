@@ -602,3 +602,65 @@ Verbose      : ON
 - "Niemals Dokumentation loeschen" (2026-05-14) —
   `feedback_never_delete_documentation.md`. Alte READMEs, Sessions,
   PROJECT_LAYER_MAPs bleiben als historische Belege. Nur git mv erlaubt.
+
+---
+
+## 13. REV 7.7 V25-V26 (2026-05-14): Profile-Vollstaendigkeit + Adapter-Schicht
+
+### 13.1 V25.B SOTA-Profile expected_workload Vollstaendigkeit
+30/30 SOTA-Profile in `cache_engine/algorithm_profiles/sota/` haben jetzt
+`<expected_workload>YCSB_X</expected_workload>`-Tag. Vorher 5/30 (V19.1).
+
+Workload-Verteilung (30 Profile):
+- **YCSB_C** (read-heavy, 13): art, hot, start, css_tree, hankins, samuel,
+  graefe, bender_cacheoblivious, bender_treelayout, ungethuem, to_stride,
+  coco_trie, kuehn
+- **YCSB_A** (zipfian read+update, 9): masstree, wormhole, surf,
+  chen_fractal, chen_prefetch, khan_adaptive, naderan_tahan,
+  zhang_asplos, zhang_fgcs
+- **YCSB_E** (range scans, 6): b2tree, csb_tree, btreesareback, mahling,
+  saikkonen_layoutinvariant, saikkonen_multilevel
+- **YCSB_B** (95/5 read-update, 2): hazard_pointers, rcu
+
+### 13.2 V25.C SOTA-Adapter-Skelette
+11 Sub-Dirs in `adapters/` aktiviert (Pitchfork-/ClickHouse-Konvention):
+P01-ART, P02-HOT, P03-Masstree, P04-CoCo-trie, P05-START, P07-Wormhole,
+P10-SuRF, P20-BTreesAreBack, P25-Mahling, P29-RCU, P30-HazardPointers.
+
+Pro Sub-Dir: README.md (Paper + expected_workload + Status-TODOs) +
+CMakeLists.txt (INTERFACE + ALIAS `comdare::adapter::p<NN>_<name>`).
+
+### 13.3 V26.A Allokator-Profile
+NEU `cache_engine/algorithm_profiles/allocators/` mit 10 Allokator-Profile-XMLs.
+Schema:
+```xml
+<comdare_allocator_profile id="..." family_ref="A0X">
+  <metadata>name, authors, year, venue, license, repo</metadata>
+  <axes>granularity, numa, thread_local, fragmentation_strategy, thread_safety</axes>
+  <abi>c_api, cpp_overload</abi>
+  <expected_workload>YCSB_X</expected_workload>
+</comdare_allocator_profile>
+```
+
+10 Profile + Workload-Verteilung:
+- **YCSB_A** (4): hoard, mimalloc, snmalloc, scalloc
+- **YCSB_B** (3): michael_lockfree, jemalloc, lrmalloc
+- **YCSB_C** (3): tcmalloc, rpmalloc, dlmalloc
+
+### 13.4 V26.B Allokator-Adapter-Skelette
+10 Sub-Dirs in `adapters/A01-A20/` analog V25.C aktiviert mit ALIAS
+`comdare::adapter::a<NN>_<name>`. `adapters/CMakeLists.txt` enthaelt
+jetzt 21 Adapter-Subdirs total (11 SOTA + 10 Allokator).
+
+### 13.5 Permutations-Matrix (deklariert)
+30 SOTA-Algorithmen × 10 Allokatoren × 6 YCSB-Workloads =
+**1800 deklarierte Permutations-Profile**. Davon werden via
+`<expected_workload>`-Tag sinnvolle Defaults gesetzt; volle Permutation
+per messreihen.xml `mode=full`.
+
+### 13.6 Querverweis V25-V27
+- `docs/sessions/20260514-3300-v25-anker.md` + `20260514-3400-v25-final-stand.md`
+- `docs/sessions/20260514-3500-v26-anker.md` + `20260514-3600-v26-final-stand.md`
+- `docs/sessions/20260514-3700-v27-anker-N-layer-maps.md` (V27)
+- comdare-cache-engine HEAD V26: 8b8e312
+- comdare-prt-art HEAD V25.A: afbdd75
