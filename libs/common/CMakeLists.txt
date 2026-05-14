@@ -13,3 +13,4 @@
 
 add_subdirectory(succinct)
 add_subdirectory(serialization)         # V23.C.2: xml_config_parser
+add_subdirectory(platform)              # V23.C.3: hardware_isa (umbenannt)
