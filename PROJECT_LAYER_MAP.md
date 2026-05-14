@@ -515,3 +515,90 @@ Verbose      : ON
 ### Querverweis
 - Diplomarbeit/docs/sessions/20260514-2030-v15-anker.md
 - comdare-cache-engine HEAD: 13260c7 (V14)
+
+---
+
+## 12. REV 7.7 V19-V24 (2026-05-14): Pipeline-Erweiterungen + Layout-Refactoring
+
+### 12.1 V19: Profile-Tag `<expected_workload>` (cache-engine)
+- `cache_engine/algorithm_profiles/sota/*.profile.xml`: optionales Tag
+  `<expected_workload>YCSB_X</expected_workload>` ueberschreibt V11.2
+  traversal-Heuristik
+- 5 Profile mit Tag: `surf=YCSB_A`, `coco_trie=YCSB_C`, `btreesareback=YCSB_E`,
+  `mahling=YCSB_E`, `kuehn=YCSB_C`. Restliche 25+ bleiben heuristisch.
+- `AlgorithmProfile.expected_workload` Field + Parser + Phase 5 Override
+
+### 12.2 V20: `workload_used` in Mess-Pipeline-Output
+- `PermutationResult.workload_used` (std::string)
+- ExperimentDriver Phase 5 setzt das Feld pro Permutation
+- CSV-Export: neue 4. Spalte `workload_used`
+- JSON-Export: zusaetzliches Feld pro Result
+- Test: `ResultAggregator.ExportContainsWorkloadUsedColumn`
+
+### 12.3 V21: ART-Template ext-Skelett + Sample-Mess-Daten + thesis chapter 06
+- `art_body.hpp.template` mit `#if defined(COMDARE_HAVE_UNODB)` Block
+  fuer optionale `unodb::db<>`-Verdrahtung (ext/P01-ART/unodb, Apache 2.0)
+- Default-Path bleibt der V16.3 Stub
+
+### 12.4 V22: diagram_generator nutzt CSV → TikZ → PDF
+- `load_csv_with_workload_used` + `write_throughput_by_workload`
+- CLI-Subcommand `--by-workload`
+- End-to-End: sample_data_generator → diagram-generator → TikZ → pdflatex
+
+### 12.5 V23: Layout-Refactoring (PFL libs/-Pattern + ClickHouse-src/Common)
+
+**Phase A** — Cleanup:
+- 8 obsolete `build-msvc-vXX/`-Verzeichnisse weg (~7 GB)
+- Leere Ordner `modules/`, `datasets/` entfernt
+- `CMakePresets.json` (V6) mit `binaryDir=${sourceDir}/build/${presetName}`
+- 4 Presets: msvc-release, msvc-debug, gcc-release, clang-release
+
+**Phase B** — Apps:
+- `apps/cache_engine_builder/main.cpp` extrahiert (heute: `cache_engine/builder/main.cpp` → `apps/`)
+- Library-Komponenten in `cache_engine/builder/` verbleibend
+
+**Phase C** — Cross-Cutting nach `libs/common/` (ClickHouse-Stil):
+- C.1: `succinct/` → `libs/common/succinct/` (SDSL-Lite Portierung)
+- C.2: `cache_engine/builder/xml_config_parser/` → `libs/common/serialization/`
+- C.3: `hardware_isa/` → `libs/common/platform/` (umbenannt)
+- C.4: `measurement/` → `libs/common/measurement/`
+
+**Phase E** — Deprecated-Zone:
+- `prt_art/` → `libs/deprecated/prt_art_legacy/` (Folly-Stil)
+- `option(COMDARE_BUILD_DEPRECATED OFF)` per Default
+- Memory-Direktive: PRT_ART konsumiert CacheEngine, nicht umgekehrt;
+  echter Code im comdare-prt-art Repo
+
+**Phase F** — Test-Infra:
+- `workload_generator/` → `libs/test_infra/workload_generator/`
+- `test_data_accumulation/` → `libs/test_infra/test_data/` (umbenannt)
+- `benchmark_suite/` → `libs/test_infra/benchmark_suite/`
+
+**Sicherung:** Tag `v22-final` in allen 3 Repos als Rollback-Punkt.
+
+**Was NICHT migriert wurde (V23.D deferred):**
+- `cache_engine/`, `experiment/`, `search_engine/`, `adapters/`,
+  `engine_choice/` — bleiben Top-Level
+- Begruendung: ~280 Source-Dateien, 22 Builder-Subkomponenten, 41 CMakeLists
+  → hochrisikant, eigene Session-Konzentration noetig
+- Migration Ziel: `libs/domain/{cache_engine, builder, search_engine,
+  execution_engine, allocator}`
+
+### 12.6 V24: Repo-Konsistenz (prt-art + Diplomarbeit Cleanup)
+- prt-art: 5 alte build-Dirs weg + CMakePresets.json (analog V23.A)
+- Diplomarbeit Code/: 3 alte build-Dirs weg + CMakePresets.json
+- PROJECT_LAYER_MAPs in allen 3 Repos um V19-V24-Delta ergaenzt
+
+### 12.7 Querverweis V23-V24
+- `docs/sessions/20260514-2900-implementierungsverlauf-V19-V22.md`
+- `docs/sessions/20260514-2930-v23-anker-refactoring-plan.md`
+- `docs/sessions/20260514-3000-v23-layout-vorschlag.md`
+- `docs/sessions/20260514-3100-v23-stand-nach-acef.md`
+- comdare-cache-engine HEAD V24.A: e11f925 (V23.F, V24 reine prt-art/Diplomarbeit-Updates)
+- comdare-prt-art HEAD V24.A: a1bcd09
+- Tags `v22-final` in 3 Repos
+
+### Memory-Direktive V24
+- "Niemals Dokumentation loeschen" (2026-05-14) —
+  `feedback_never_delete_documentation.md`. Alte READMEs, Sessions,
+  PROJECT_LAYER_MAPs bleiben als historische Belege. Nur git mv erlaubt.
