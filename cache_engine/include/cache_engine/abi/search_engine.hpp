@@ -40,6 +40,28 @@ public:
     [[nodiscard]] virtual std::size_t size() const noexcept = 0;
     [[nodiscard]] virtual bool        empty() const noexcept = 0;
 
+    // REV 7.6 V12.3 — Container-Vertraege (Default-Impls erlauben opt-in Override)
+    // Diese Default-Bodies leiten an die Pflicht-API (lookup/size/erase) weiter,
+    // sodass Adapter sie nur bei effizienterer Spezialisierung ueberschreiben muessen.
+
+    // Membership-Check (analog std::map::contains)
+    [[nodiscard]] virtual bool contains(key_t const& key) {
+        return this->lookup(key).has_value();
+    }
+
+    // Counts (0 oder 1 fuer einen Map; Adapter mit Multi-Mode duerfen mehr returnen)
+    [[nodiscard]] virtual std::size_t count(key_t const& key) {
+        return this->contains(key) ? 1u : 0u;
+    }
+
+    // find: identisch zu lookup, aber std::map-konformer Name
+    [[nodiscard]] virtual std::optional<value_t> find(key_t const& key) {
+        return this->lookup(key);
+    }
+
+    // clear: leert die gesamte Engine; Default = NotImplemented (gibt false zurueck)
+    [[nodiscard]] virtual bool clear() { return false; }
+
     // Such-Heuristik-Layer: Hot-Path-Recognition, Adaptive-Prefetch-Distance, ...
     virtual void notify_density_threshold(std::size_t bucket_density_pct) {}
     virtual void notify_hot_path_detected(binary_key_t const& path)        {}

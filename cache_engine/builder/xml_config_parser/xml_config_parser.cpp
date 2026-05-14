@@ -97,14 +97,15 @@ AlgorithmProfile XmlConfigParser::parse_profile(std::filesystem::path const& pro
     if (!std::filesystem::exists(profile_xml)) return prof;
     std::string content = read_file(profile_xml);
 
-    // id="..." + paper_ref="..."
+    // id="..." + paper_ref="..."  (eindeutiger Raw-String-Delimiter PAT — V12.7-Fix
+    // gegen MSVC-Parser-Konflikt zwischen Pattern-`"` und Raw-String-Close)
     {
-        std::regex id_re{R"(<comdare_algorithm_profile\s+id\s*=\s*"([^"]+)")"};
+        std::regex id_re{R"PAT(<comdare_algorithm_profile\s+id\s*=\s*"([^"]+)")PAT"};
         std::smatch m;
         if (std::regex_search(content, m, id_re)) prof.id = m[1].str();
     }
     {
-        std::regex pref_re{R"(paper_ref\s*=\s*"([^"]+)")"};
+        std::regex pref_re{R"PAT(paper_ref\s*=\s*"([^"]+)")PAT"};
         std::smatch m;
         if (std::regex_search(content, m, pref_re)) prof.paper_ref = m[1].str();
     }
@@ -143,23 +144,23 @@ std::vector<Messreihe> XmlConfigParser::load_messreihen(
     if (!std::filesystem::exists(messreihen_xml)) return result;
     std::string content = read_file(messreihen_xml);
 
-    std::regex reihe_re{R"(<messreihe\s+id\s*=\s*"([^"]+)"\s*>([\s\S]*?)</messreihe>)"};
-    auto it = std::sregex_iterator(content.begin(), content.end(), reihe_re);
-    auto end = std::sregex_iterator();
-    for (; it != end; ++it) {
+    std::regex reihe_re{R"PAT(<messreihe\s+id\s*=\s*"([^"]+)"\s*>([\s\S]*?)</messreihe>)PAT"};
+    std::sregex_iterator reihe_it{content.cbegin(), content.cend(), reihe_re};
+    std::sregex_iterator reihe_end{};
+    for (; reihe_it != reihe_end; ++reihe_it) {
         Messreihe r;
-        r.id = (*it)[1].str();
-        std::string inner = (*it)[2].str();
+        r.id = (*reihe_it)[1].str();
+        std::string inner = (*reihe_it)[2].str();
 
         std::regex mode_re{R"(<mode>(\w+)</mode>)"};
         std::smatch mm;
         if (std::regex_search(inner, mm, mode_re)) r.mode = parse_mode(mm[1].str());
 
         std::regex prof_re{R"(<profile>([^<]+)</profile>)"};
-        auto pit = std::sregex_iterator(inner.begin(), inner.end(), prof_re);
-        auto pend = std::sregex_iterator();
-        for (; pit != pend; ++pit) {
-            r.sota_profile_refs.push_back((*pit)[1].str());
+        std::sregex_iterator prof_it{inner.cbegin(), inner.cend(), prof_re};
+        std::sregex_iterator prof_end{};
+        for (; prof_it != prof_end; ++prof_it) {
+            r.sota_profile_refs.push_back((*prof_it)[1].str());
         }
         result.push_back(std::move(r));
     }
