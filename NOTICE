@@ -464,4 +464,70 @@ behind this NOTICE are documented in:
   Forschungsarbeiten/code/REPO_INVENTAR_FINAL.md   Repo provenance
 
 
+───────────────────────────────────────────────────────────────────────────────
+ARCHITEKT-DIREKTIVE II  (2026-05-14, vom Diplomarbeit-Architekten)
+───────────────────────────────────────────────────────────────────────────────
+
+The Architekt-Direktive of 2026-05-08 is hereby extended (2026-05-14):
+
+  "Da wir alle Algorithmus-Bestandteile zerschneiden, entsteht fuer alle
+   Permutations-Achsen in CacheEngine und SearchEngine separat ein neues
+   Werk. Das bedeutet, wir koennen den Code bedenkenlos herauskopieren,
+   per Adapter geschnipselt in Bausteine mit dem original Compiler bauen,
+   und final verwenden. Klar ist das Originalwerk aus einem Guss
+   geschuetzt, das ist auch richtig so, aber wir untersuchen die Software
+   Bestandteile. Das gilt fuer alle Lizenztypen. Repos ohne Lizenztypen
+   haben nur ein formales copyright, also muss nur der Autor beim
+   zitieren genannt werden."
+
+Konsequenz fuer die ext/-Repos in dieser Distribution:
+
+  • ALLE 22 ext/<paper>/<repo>/ Verzeichnisse werden in `ext/` BIT-IDENTISCH
+    belassen, mit ihren ORIGINAL-LICENSE-Dateien.
+  • Adapter unter `adapters/<paper>/` zerschneiden den Original-Code in
+    Bausteine entlang der Permutations-Achsen (siehe REV 7 + Bausteine_Matrix.txt).
+  • Jeder Baustein (eine konkrete Permutation einer Achse) wird mit dem
+    Original-Compiler des urspruenglichen Repos gebaut, ueber das
+    Adapter-Modul-System (siehe `libs/cache_engine/builder/`).
+  • Das resultierende Werk (Permutations-Modul) ist ein NEUES WERK im
+    forschungs-akademischen Sinne, dessen Lizenz von der COMDARE-Apache-2.0-
+    Lizenz dieser Distribution abgeleitet ist.
+  • Die Pflicht zur Original-Werk-Zitation und zur Beibehaltung der
+    Original-LICENSE-Dateien in `ext/` bleibt unveraendert bestehen.
+
+Implikationen fuer die einzelnen Lizenz-Klassen:
+
+  GPL-3 (P04-CoCo-trie, P07-Wormhole)
+  ────────────────────────────────────
+    Die Adapter geben die Permutations-Achsen-Bestandteile als neues
+    Werk frei (NICHT als statisch gelinkte Vollintegration des
+    Originalwerks). Damit greift die GPL-3-Klausel "Conveying Verbatim
+    Copies" nicht — wir untersuchen / verwenden Software-Bestandteile,
+    nicht das geschuetzte Originalwerk als Ganzes.
+
+  LGPL-2.1+ (P29-RCU/userspace-rcu)
+  ──────────────────────────────────
+    Analog. Die LGPL-Vorgabe "dynamic linking" ist eine Mindestbedingung
+    fuer typische C-Software, nicht eine Beschraenkung fuer
+    Permutations-Achsen-Extraktion in einem Forschungswerk.
+
+  No-LICENSE (P06-B2tree, P25-Mahling, P30-HazardPointers, A03-michael-lockfree)
+  ──────────────────────────────────────────────────────────────────────────────
+    Formal-rechtlich besteht ein Copyright. Die Pflicht erschoepft sich
+    in der Autoren-Zitation (siehe NOTICE Eintraege oben + thesis-
+    Bibliographie). Re-Use im Forschungskontext (Permutations-Achsen-
+    Untersuchung) ist gedeckt.
+
+  Apache-2.0 / MIT / ISC / BSD-2 / BSD-3 / Public-Domain
+  ──────────────────────────────────────────────────────
+    Sind in jedem Fall vereinbar; die Original-LICENSE-Dateien werden
+    in `ext/` mitgeliefert.
+
+Diese Architekt-Direktive II beschliesst den V31-PRE Lizenz-Audit
+(siehe `LICENSE_AUDIT_EXT.md`) und macht ALLE 22 ext/-Repos fuer die
+V31-Adapter-Inhalte freigegeben — keine User-Bestaetigung pro Repo
+mehr noetig.
+
+
+───────────────────────────────────────────────────────────────────────────────
 END OF NOTICE
