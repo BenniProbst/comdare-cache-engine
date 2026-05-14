@@ -150,6 +150,11 @@ comdare_add_test(test_builder_codegen
     SOURCES test_builder_codegen.cpp
     LIBRARIES comdare_builder_codegen)
 
+# REV 7.6 V10.4 (2026-05-14): Codegen-Profil-Roundtrip-Tests fuer V9.3-API
+comdare_add_test(test_codegen_from_profile
+    SOURCES test_codegen_from_profile.cpp
+    LIBRARIES comdare_builder_codegen)
+
 # Phase 8 (2026-05-13): LaTeX-Anhang-Tool
 comdare_add_test(test_latex_anhang
     SOURCES test_latex_anhang.cpp

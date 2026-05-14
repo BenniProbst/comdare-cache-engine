@@ -46,6 +46,12 @@ struct ExperimentDriverOptions {
     // vor V8.7 entspricht — neue Faehigkeit ist opt-in via Flag.
     bool                  enable_runtime_codegen = false;  // V8.7: hot-compile fehlende Permutationen
     bool                  enable_functional_tests = false; // V8.7: googletest-Funktionalitaetspruefung pro Modul (auch ohne EXPERIMENT_MODE)
+
+    // REV 7.6 V10.6 — Messreihen-Mode (defined/full)
+    //   Defined: nur Permutationen, die in sota_profile_filter referenziert sind
+    //   Full:    alle Permutationen aus algorithm_profiles/sota/ (Auto-Pickup V10.5)
+    enum class MessreihenMode { Defined, Full } messreihen_mode = MessreihenMode::Full;
+    std::vector<std::string> sota_profile_filter;  // optional: nur diese Profile (Defined-Mode)
 };
 
 struct WorkloadOptions {
