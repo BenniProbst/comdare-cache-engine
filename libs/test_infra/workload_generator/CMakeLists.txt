@@ -6,6 +6,6 @@ add_library(comdare_workload_generator STATIC
 add_library(comdare::workload_generator ALIAS comdare_workload_generator)
 target_include_directories(comdare_workload_generator PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
-    "${CMAKE_SOURCE_DIR}/cache_engine/include"
+    "${CMAKE_SOURCE_DIR}/libs/cache_engine/include"
 )
 target_compile_features(comdare_workload_generator PUBLIC cxx_std_23)

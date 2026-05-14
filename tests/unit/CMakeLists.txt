@@ -5,8 +5,8 @@
 add_library(comdare_cache_engine_concepts INTERFACE)
 add_library(comdare::cache_engine_concepts ALIAS comdare_cache_engine_concepts)
 target_include_directories(comdare_cache_engine_concepts INTERFACE
-    "${CMAKE_SOURCE_DIR}/cache_engine/include"
-    "${CMAKE_SOURCE_DIR}/cache_engine/subsystems")
+    "${CMAKE_SOURCE_DIR}/libs/cache_engine/include"
+    "${CMAKE_SOURCE_DIR}/libs/cache_engine/subsystems")
 target_compile_features(comdare_cache_engine_concepts INTERFACE cxx_std_23)
 comdare_set_platform_defines(comdare_cache_engine_concepts)
 
@@ -185,7 +185,7 @@ comdare_add_test(test_hbm_hierarchy
 add_library(comdare_perm_mock_test SHARED mock_permutation_module.cpp)
 target_compile_features(comdare_perm_mock_test PRIVATE cxx_std_23)
 target_include_directories(comdare_perm_mock_test PRIVATE
-    "${CMAKE_SOURCE_DIR}/cache_engine/include")
+    "${CMAKE_SOURCE_DIR}/libs/cache_engine/include")
 set_target_properties(comdare_perm_mock_test PROPERTIES
     POSITION_INDEPENDENT_CODE ON)
 

@@ -6,7 +6,7 @@ add_library(comdare_module_loader STATIC
 )
 target_include_directories(comdare_module_loader PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
-    "${CMAKE_SOURCE_DIR}/cache_engine/include"
+    "${CMAKE_SOURCE_DIR}/libs/cache_engine/include"
 )
 target_compile_features(comdare_module_loader PUBLIC cxx_std_23)
 
