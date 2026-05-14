@@ -57,9 +57,11 @@ test:codegen_from_profile:
     - cmake -B build-test -G Ninja
         -DCOMDARE_BUILD_TESTS=ON
         -DCOMDARE_BUILD_BENCHMARKS=OFF
-    - cmake --build build-test --target test_codegen_from_profile test_builder_codegen
-    - ctest --test-dir build-test --output-on-failure
-        -R "test_codegen_from_profile|test_builder_codegen"
+    - cmake --build build-test --target test_codegen_from_profile test_builder_codegen test_experiment_driver_v13
+    # REV 7.6 V14.3 — Direkt-Ausfuehrung umgeht gtest_discover_tests MSB3073
+    - ./build-test/tests/unit/test_codegen_from_profile
+    - ./build-test/tests/unit/test_builder_codegen
+    - ./build-test/tests/unit/test_experiment_driver_v13
   artifacts:
     paths:
       - build-test/Testing/
