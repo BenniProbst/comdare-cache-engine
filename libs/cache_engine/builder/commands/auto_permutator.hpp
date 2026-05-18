@@ -50,14 +50,8 @@ public:
         : axis_id_{std::move(axis_id)} {}
 
     /// Schritt 1: Lookup aller verfuegbaren CE-Bausteine fuer diese Achse
-    /// V32.EE.2 Skelett - Lookup-Tabelle in V32.2+ Sprint
-    /// (eventuell ueber Doxygen-Tag-Extraktion @achse N.X aus Source)
-    void discover_axis_implementations() {
-        // Beispiel-Discovery fuer Achse 12.1 SIMD-Family:
-        // available_variants_.push_back({axis_id_, "AVX2", "cache_engine/families/avx2.hpp"});
-        // available_variants_.push_back({axis_id_, "AVX-512", "cache_engine/families/avx512.hpp"});
-        // ...
-    }
+    /// V32.HH.1: Lookup via AxisLibraryRegistry (hardcoded Tabelle, V33+ via Doxygen-Tag-Extraktion)
+    void discover_axis_implementations();  // implementiert in axis_library_registry.hpp
 
     /// Schritt 2: IPlatformProbe-basierter Filter
     /// V32.EE.2 Skelett - IPlatformProbe-Verdrahtung in V32.2+

@@ -37,8 +37,25 @@ public:
         InconclusiveData
     };
 
-    CompareEngineCommand(ExecutionResult result_a, ExecutionResult result_b) noexcept
-        : result_a_{result_a}, result_b_{result_b} {}
+    /// HH.3 Konfigurierbarer Verdict-Schwellwert (default 5%)
+    static constexpr double kDefaultWinnerThreshold = 1.05;
+
+    CompareEngineCommand(ExecutionResult result_a, ExecutionResult result_b,
+                         double winner_threshold = kDefaultWinnerThreshold) noexcept
+        : result_a_{result_a}, result_b_{result_b}, winner_threshold_{winner_threshold} {}
+
+    /// HH.3 H1/H2/H3 Hypothesen-Validierung (vereinfacht ohne Welch-T-Test)
+    [[nodiscard]] bool h1_clu_validated() const noexcept {
+        return result_a_.H1_clu_improvement >= 1.0;  // CE-EE-A muss CLU verbessern
+    }
+    [[nodiscard]] bool h2_layout_validated() const noexcept {
+        return result_a_.H2_layout_score >= 1.0;
+    }
+    [[nodiscard]] bool h3_inline_external_validated() const noexcept {
+        // H3: Inline vs External Decision sinnvoll wenn Ratio in [0.2, 0.8]
+        return result_a_.H3_inline_external_ratio >= 0.2
+            && result_a_.H3_inline_external_ratio <= 0.8;
+    }
 
     [[nodiscard]] std::string_view command_name() const noexcept override {
         return "CompareEngineCommand";
@@ -66,11 +83,10 @@ public:
                 / static_cast<double>(result_b_.memory_footprint_bytes)
             : 0.0;
 
-        // Schwellwerte fuer Verdict (V32.1 final-tunable)
-        constexpr double winner_threshold = 1.05;  // 5% Vorteil
-        if (throughput_ratio_ > winner_threshold) {
+        // HH.3 Konfigurierbarer Schwellwert
+        if (throughput_ratio_ > winner_threshold_) {
             verdict_ = Verdict::EE_A_Wins;
-        } else if (throughput_ratio_ < (1.0 / winner_threshold)) {
+        } else if (throughput_ratio_ < (1.0 / winner_threshold_)) {
             verdict_ = Verdict::EE_B_Wins;
         } else {
             verdict_ = Verdict::Tie;
@@ -87,6 +103,7 @@ public:
 private:
     ExecutionResult result_a_;
     ExecutionResult result_b_;
+    double winner_threshold_;
     Verdict verdict_ {Verdict::InconclusiveData};
     double throughput_ratio_ {0.0};
     long long latency_delta_ns_ {0};
