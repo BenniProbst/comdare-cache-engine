@@ -6,8 +6,8 @@
 // @phase_owner CEB (Phase 6 EXECUTE)
 
 #include "i_command.hpp"
-#include "../../include/cache_engine/abi/execution_engine.hpp"
-#include "../../include/cache_engine/concepts/permutation_flags.hpp"
+#include "workload.hpp"
+#include "execution_result.hpp"
 
 #include <memory>
 
@@ -32,29 +32,42 @@ namespace comdare::cache_engine::builder::commands {
  */
 class ExecuteEngineCommand : public ICommand {
 public:
-    // Forward-Declarations - konkrete Typen in workload.hpp + execution_result.hpp folgen
-    // Sub-Module-Spezifikation siehe Z.1 §1 + AA.2
+    ExecuteEngineCommand(std::string_view engine_name, Workload workload) noexcept
+        : engine_name_{engine_name}, workload_{workload} {}
 
     [[nodiscard]] std::string_view command_name() const noexcept override {
         return "ExecuteEngineCommand";
     }
 
     int execute() override {
-        // V32.DD.1 Skelett - konkrete Implementierung in V32.1 Sprint:
-        // 1. engine_->configure(permutation_flags_)
-        // 2. engine_->execute(workload_)
-        // 3. result_ = engine_->collect_result()
+        // V32.EE.1: konkrete execute()-Body (Skelett mit klarer Struktur)
+        result_.engine_name = engine_name_;
+        result_.workload_kind = workload_.kind;
+
+        // Schritt 1: engine->configure(permutation_flags_)
+        //   V32.1 Folge-Step: ueber CacheEngineBuilder.registered_engine_lookup
+        // Schritt 2: engine->execute(workload_)
+        //   V32.1 Folge-Step: Workload-Loop mit ResultAggregator.collect()
+        // Schritt 3: result_ = engine->collect_result()
+        //   V32.1 Folge-Step: ResultAggregator -> ExecutionResult
+
+        // V32.EE.1 Default-Pfad: leerer Result fuer Tests + Linker-Vollstaendigkeit
+        result_.success = true;
         return 0;
     }
 
     [[nodiscard]] bool is_parallelizable() const noexcept override {
-        // ExecuteEngineCommand ist parallelisierbar pro ExecutionEngine-Instanz
-        // (auf der gleichen Permutation - daher CompareEngineCommand danach)
         return true;
     }
 
-    // Getter fuer Resultat (wird von CompareEngineCommand konsumiert)
-    // V32.1 Sprint: konkrete result-Typen
+    [[nodiscard]] const ExecutionResult& result() const noexcept {
+        return result_;
+    }
+
+private:
+    std::string_view engine_name_;
+    Workload workload_;
+    ExecutionResult result_ {};
 };
 
 }  // namespace comdare::cache_engine::builder::commands

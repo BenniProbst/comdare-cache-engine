@@ -6,6 +6,8 @@
 // @phase_owner CEB (Phase 5 BIND - kann fehlende Achsen-Spec aufloesen)
 
 #include "i_command.hpp"
+#include "auto_permutator.hpp"
+#include <string>
 #include <vector>
 
 namespace comdare::cache_engine::builder::commands {
@@ -44,24 +46,35 @@ namespace comdare::cache_engine::builder::commands {
  */
 class AutoPermutateAxisCommand : public ICommand {
 public:
+    AutoPermutateAxisCommand(std::string axis_id,
+                             std::string_view engine_name,
+                             Workload workload) noexcept
+        : permutator_{std::move(axis_id)}, engine_name_{engine_name}, workload_{workload} {}
+
     [[nodiscard]] std::string_view command_name() const noexcept override {
         return "AutoPermutateAxisCommand";
     }
 
     int execute() override {
-        // V32.DD.1 Skelett - V32.1 Sprint:
-        // 1. discover_axis_implementations(axis_id_) -> available_variants_
-        // 2. platform_filter(available_variants_) -> host_compatible_
-        // 3. user_limit_filter(host_compatible_, allowed_variants_) -> to_run_
-        // 4. for each variant in to_run_: execute_one(variant)
-        // 5. compare_results() -> best_variant_
+        // V32.EE.2: konkrete Default-Lookup-Loop
+        permutator_.discover_axis_implementations();
+        permutator_.platform_filter();
+        // user_limit_filter() wird via setter aufgerufen (allowed_variants aus XML)
+        results_ = permutator_.execute_all_variants(engine_name_, workload_);
         return 0;
     }
 
-    [[nodiscard]] bool is_parallelizable() const noexcept override {
-        // Sub-Permutationen koennen parallel laufen (verschiedene EE-Instanzen)
-        return true;
+    [[nodiscard]] bool is_parallelizable() const noexcept override { return true; }
+
+    [[nodiscard]] const std::vector<ExecutionResult>& results() const noexcept {
+        return results_;
     }
+
+private:
+    AutoPermutator permutator_;
+    std::string_view engine_name_;
+    Workload workload_;
+    std::vector<ExecutionResult> results_ {};
 };
 
 }  // namespace comdare::cache_engine::builder::commands
