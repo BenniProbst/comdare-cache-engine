@@ -6,6 +6,7 @@
 // @phase_owner CEB (Phase 7 COMPARE)
 
 #include "i_command.hpp"
+#include "execution_result.hpp"
 
 namespace comdare::cache_engine::builder::commands {
 
@@ -36,23 +37,61 @@ public:
         InconclusiveData
     };
 
+    CompareEngineCommand(ExecutionResult result_a, ExecutionResult result_b) noexcept
+        : result_a_{result_a}, result_b_{result_b} {}
+
     [[nodiscard]] std::string_view command_name() const noexcept override {
         return "CompareEngineCommand";
     }
 
     int execute() override {
-        // V32.DD.1 Skelett - V32.1 Sprint:
-        // 1. throughput_ratio_ = result_a_.throughput / result_b_.throughput
-        // 2. latency_delta_ns_ = result_b_.latency_p99 - result_a_.latency_p99
-        // 3. cache_miss_improvement_ = result_a_.cache_misses - result_b_.cache_misses
-        // 4. memory_footprint_ratio_ = result_a_.memory_bytes / result_b_.memory_bytes
-        // 5. verdict_ = compute_verdict()
+        // V32.EE.1: konkrete Vergleichs-Logik
+        if (!result_a_.success || !result_b_.success) {
+            verdict_ = Verdict::InconclusiveData;
+            return 1;
+        }
+
+        // F15-Vergleich
+        throughput_ratio_ = (result_b_.throughput_ops_per_sec > 0.0)
+            ? result_a_.throughput_ops_per_sec / result_b_.throughput_ops_per_sec
+            : 0.0;
+        latency_delta_ns_ =
+            (result_b_.latency_p99 - result_a_.latency_p99).count();
+        cache_miss_improvement_ =
+            (result_a_.total_cache_misses < result_b_.total_cache_misses)
+                ? (result_b_.total_cache_misses - result_a_.total_cache_misses)
+                : 0;
+        memory_footprint_ratio_ = (result_b_.memory_footprint_bytes > 0)
+            ? static_cast<double>(result_a_.memory_footprint_bytes)
+                / static_cast<double>(result_b_.memory_footprint_bytes)
+            : 0.0;
+
+        // Schwellwerte fuer Verdict (V32.1 final-tunable)
+        constexpr double winner_threshold = 1.05;  // 5% Vorteil
+        if (throughput_ratio_ > winner_threshold) {
+            verdict_ = Verdict::EE_A_Wins;
+        } else if (throughput_ratio_ < (1.0 / winner_threshold)) {
+            verdict_ = Verdict::EE_B_Wins;
+        } else {
+            verdict_ = Verdict::Tie;
+        }
         return 0;
     }
 
-    [[nodiscard]] Verdict verdict() const noexcept {
-        return Verdict::InconclusiveData;  // V32.1 Sprint: echte Berechnung
-    }
+    [[nodiscard]] Verdict verdict() const noexcept { return verdict_; }
+    [[nodiscard]] double throughput_ratio() const noexcept { return throughput_ratio_; }
+    [[nodiscard]] long long latency_delta_ns() const noexcept { return latency_delta_ns_; }
+    [[nodiscard]] std::uint64_t cache_miss_improvement() const noexcept { return cache_miss_improvement_; }
+    [[nodiscard]] double memory_footprint_ratio() const noexcept { return memory_footprint_ratio_; }
+
+private:
+    ExecutionResult result_a_;
+    ExecutionResult result_b_;
+    Verdict verdict_ {Verdict::InconclusiveData};
+    double throughput_ratio_ {0.0};
+    long long latency_delta_ns_ {0};
+    std::uint64_t cache_miss_improvement_ {0};
+    double memory_footprint_ratio_ {0.0};
 };
 
 }  // namespace comdare::cache_engine::builder::commands
