@@ -7,6 +7,7 @@
 
 #include "i_command.hpp"
 #include "execution_result.hpp"
+#include "welch_t_test.hpp"
 
 namespace comdare::cache_engine::builder::commands {
 
@@ -39,10 +40,14 @@ public:
 
     /// HH.3 Konfigurierbarer Verdict-Schwellwert (default 5%)
     static constexpr double kDefaultWinnerThreshold = 1.05;
+    /// V33.A.3 Signifikanz-Niveau fuer Welch's t-Test (default alpha=0.05)
+    static constexpr double kDefaultAlpha = 0.05;
 
     CompareEngineCommand(ExecutionResult result_a, ExecutionResult result_b,
-                         double winner_threshold = kDefaultWinnerThreshold) noexcept
-        : result_a_{result_a}, result_b_{result_b}, winner_threshold_{winner_threshold} {}
+                         double winner_threshold = kDefaultWinnerThreshold,
+                         double alpha = kDefaultAlpha) noexcept
+        : result_a_{result_a}, result_b_{result_b},
+          winner_threshold_{winner_threshold}, alpha_{alpha} {}
 
     /// HH.3 H1/H2/H3 Hypothesen-Validierung (vereinfacht ohne Welch-T-Test)
     [[nodiscard]] bool h1_clu_validated() const noexcept {
@@ -83,7 +88,22 @@ public:
                 / static_cast<double>(result_b_.memory_footprint_bytes)
             : 0.0;
 
-        // HH.3 Konfigurierbarer Schwellwert
+        // V33.A.3 Welch's t-Test wenn Latency-Samples in beiden Ergebnissen
+        // Wenn signifikant (p < alpha): wer kleinere Latenz hat gewinnt.
+        // Wenn nicht signifikant: Tie. Fallback nur wenn keine Samples vorhanden.
+        if (!result_a_.latency_samples_ns.empty() && !result_b_.latency_samples_ns.empty()) {
+            welch_ = stats::welch_t_test(result_a_.latency_samples_ns, result_b_.latency_samples_ns);
+            if (welch_.valid && welch_.p_value < alpha_) {
+                verdict_ = (welch_.mean_a < welch_.mean_b)
+                    ? Verdict::EE_A_Wins   // kleinere Latenz = EE_A schneller
+                    : Verdict::EE_B_Wins;
+            } else {
+                verdict_ = Verdict::Tie;
+            }
+            return 0;
+        }
+
+        // HH.3 Konfigurierbarer Schwellwert (Fallback ohne Samples)
         if (throughput_ratio_ > winner_threshold_) {
             verdict_ = Verdict::EE_A_Wins;
         } else if (throughput_ratio_ < (1.0 / winner_threshold_)) {
@@ -93,6 +113,9 @@ public:
         }
         return 0;
     }
+
+    /// V33.A.3 Welch's t-Test Resultat (gueltig wenn beide ExecutionResults Samples haben)
+    [[nodiscard]] const stats::WelchResult& welch() const noexcept { return welch_; }
 
     [[nodiscard]] Verdict verdict() const noexcept { return verdict_; }
     [[nodiscard]] double throughput_ratio() const noexcept { return throughput_ratio_; }
@@ -104,11 +127,13 @@ private:
     ExecutionResult result_a_;
     ExecutionResult result_b_;
     double winner_threshold_;
+    double alpha_;
     Verdict verdict_ {Verdict::InconclusiveData};
     double throughput_ratio_ {0.0};
     long long latency_delta_ns_ {0};
     std::uint64_t cache_miss_improvement_ {0};
     double memory_footprint_ratio_ {0.0};
+    stats::WelchResult welch_ {};
 };
 
 }  // namespace comdare::cache_engine::builder::commands
