@@ -1,0 +1,56 @@
+# V33.E.1 (2026-05-21) - Minimal Doxyfile fuer V32-Command-Pattern Header
+#
+# Erzeugt HTML-Doku unter docs/ mit Custom-Tag-Aliassen fuer:
+# @achse, @subsystem, @reuse_status, @command_pattern,
+# @phase_owner, @kuehn_variant, @default_lookup_provided_by, @anti_pattern
+#
+# Aufruf: cd libs/cache_engine/builder/commands && doxygen Doxyfile
+
+PROJECT_NAME           = "comdare-cache-engine V32 Commands"
+PROJECT_NUMBER         = "V33.A.1-A.4 + V33.B.2-B.4"
+OUTPUT_DIRECTORY       = ../../../../docs/doxygen_v32_commands
+CREATE_SUBDIRS         = NO
+ALLOW_UNICODE_NAMES    = YES
+OUTPUT_LANGUAGE        = German
+BRIEF_MEMBER_DESC      = YES
+REPEAT_BRIEF           = YES
+ALWAYS_DETAILED_SEC    = NO
+INLINE_INHERITED_MEMB  = NO
+FULL_PATH_NAMES        = NO
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = NO
+MULTILINE_CPP_IS_BRIEF = NO
+
+# BB.1 Custom-Tags (Doxygen-Mapping-Konvention)
+ALIASES                = "achse=\par Achse:\n" \
+                         "subsystem=\par Subsystem:\n" \
+                         "reuse_status=\par Reuse-Status:\n" \
+                         "command_pattern=\par Command-Pattern:\n" \
+                         "phase_owner=\par Phase-Owner:\n" \
+                         "kuehn_variant=\par Kuehn-Variant:\n" \
+                         "default_lookup_provided_by=\par Default-Lookup-Provider:\n" \
+                         "anti_pattern=\par ANTI-PATTERN:\n"
+
+INPUT                  = .
+FILE_PATTERNS          = *.hpp *.cpp *.md
+RECURSIVE              = YES
+EXCLUDE                = tests/CMakeLists.txt
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+STRIP_CODE_COMMENTS    = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_FILE_EXTENSION    = .html
+GENERATE_LATEX         = NO
+GENERATE_TREEVIEW      = YES
+HAVE_DOT               = NO
+CLASS_DIAGRAMS         = YES
+WARN_NO_PARAMDOC       = NO
+QUIET                  = NO

@@ -2,6 +2,8 @@
 build/
 build-*/
 out/
+# V33.E.1: Doxygen HTML-Output (Doxyfile bleibt)
+docs/doxygen_v32_commands/
 cmake-build-*/
 *.o
 *.a
