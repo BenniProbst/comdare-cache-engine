@@ -82,20 +82,9 @@ public:
         return result;
     }
 
-    /// Schritt 5: Iteriert + fuehrt ExecuteEngineCommand pro Variant aus
-    /// V32.EE.2 Skelett - Comparator-Integration in V32.2+
-    /// V33.B.3 (2026-05-21): Variable cmd -> exec_cmd umbenannt um namespace-alias-Konflikt zu vermeiden
-    [[nodiscard]] std::vector<ExecutionResult> execute_all_variants(
-        std::string_view engine_name,
-        const Workload& workload) {
-        std::vector<ExecutionResult> results;
-        for (const auto& v : generate_permutations()) {
-            ExecuteEngineCommand exec_cmd(engine_name, workload);
-            exec_cmd.execute();
-            results.push_back(exec_cmd.result());
-        }
-        return results;
-    }
+    // V33.B.4 (2026-05-21): execute_all_variants entfernt - Multi-Achsen-Permutation
+    // wird via MultiAxisAutoPermutator (siehe unten) + V32Orchestrator (in Diplomarbeit)
+    // umgesetzt. AutoPermutator dient nur noch der Achsen-Discovery, nicht Execution.
 
 private:
     std::string axis_id_;
