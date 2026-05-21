@@ -84,15 +84,15 @@ public:
 
     /// Schritt 5: Iteriert + fuehrt ExecuteEngineCommand pro Variant aus
     /// V32.EE.2 Skelett - Comparator-Integration in V32.2+
+    /// V33.B.3 (2026-05-21): Variable cmd -> exec_cmd umbenannt um namespace-alias-Konflikt zu vermeiden
     [[nodiscard]] std::vector<ExecutionResult> execute_all_variants(
         std::string_view engine_name,
         const Workload& workload) {
         std::vector<ExecutionResult> results;
         for (const auto& v : generate_permutations()) {
-            ExecuteEngineCommand cmd(engine_name, workload);
-            cmd.execute();
-            // Variant-Metadata in result einbetten (V32.2 Sprint)
-            results.push_back(cmd.result());
+            ExecuteEngineCommand exec_cmd(engine_name, workload);
+            exec_cmd.execute();
+            results.push_back(exec_cmd.result());
         }
         return results;
     }
