@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cstdint>
 #include <string_view>
+#include <vector>
 
 namespace comdare::cache_engine::builder::commands {
 
@@ -33,6 +34,11 @@ struct ExecutionResult {
     double H1_clu_improvement {0.0};   ///< Cache-Line-Utilization
     double H2_layout_score {0.0};      ///< Layout-Wahl-Effizienz
     double H3_inline_external_ratio {0.0};  ///< Inline-vs-External-Decision
+
+    // V33.A.2: Per-Operation Latency-Samples fuer Welch's t-Test (optional)
+    // Wenn leer -> CompareEngineCommand faellt zurueck auf Schwellwert-Vergleich.
+    // Wenn gefuellt -> CompareEngineCommand kann welch_t_test() ausfuehren.
+    std::vector<std::int64_t> latency_samples_ns {};
 
     // Status
     bool success {false};

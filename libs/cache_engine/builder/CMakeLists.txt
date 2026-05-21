@@ -9,6 +9,9 @@ add_subdirectory(permutation_loop)
 add_subdirectory(experiment_runner)
 add_subdirectory(experiment_driver)  # REV 7.6 (2026-05-13): Phase 1-7 als Library
 
+# V32.JJ.1 (2026-05-18) - Command-Pattern Header-only Module (AA.2 Korrektur)
+add_subdirectory(commands)
+
 # Komponenten-Subdirectories
 add_subdirectory(cache_engine_component)
 add_subdirectory(decision_lambda_trees)
