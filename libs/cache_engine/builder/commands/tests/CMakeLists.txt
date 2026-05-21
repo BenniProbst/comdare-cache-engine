@@ -26,10 +26,23 @@ target_link_libraries(test_commands PRIVATE
 )
 target_compile_features(test_commands PRIVATE cxx_std_23)
 
+# V34.A.1 (2026-05-21) - Engine-Adapter Tests
+add_executable(test_engine_adapters test_engine_adapters.cpp)
+target_link_libraries(test_engine_adapters PRIVATE
+    cache_engine_commands_v32
+    GTest::gtest_main
+)
+target_include_directories(test_engine_adapters PRIVATE
+    ${CMAKE_SOURCE_DIR}/libs/cache_engine/include
+)
+target_compile_features(test_engine_adapters PRIVATE cxx_std_23)
+
 if(COMMAND gtest_discover_tests)
     gtest_discover_tests(test_permutation_flags_v32 DISCOVERY_TIMEOUT 30)
     gtest_discover_tests(test_commands DISCOVERY_TIMEOUT 30)
+    gtest_discover_tests(test_engine_adapters DISCOVERY_TIMEOUT 30)
 else()
     add_test(NAME test_permutation_flags_v32 COMMAND test_permutation_flags_v32)
     add_test(NAME test_commands COMMAND test_commands)
+    add_test(NAME test_engine_adapters COMMAND test_engine_adapters)
 endif()
