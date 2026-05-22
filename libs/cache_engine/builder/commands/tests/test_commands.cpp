@@ -151,6 +151,38 @@ TEST(AxisLibraryRegistry, AllFourteenAxesPopulated) {
     }
 }
 
+TEST(AxisLibraryRegistry, CompilerAxis15SubAxesPopulated) {
+    // V35.B.1 — NEUE Compiler-Achse 15.1-15.5
+    EXPECT_EQ(cmd::AxisLibraryRegistry::lookup("15.1").size(), 4u);  // GCC,Clang,AppleClang,MSVC
+    EXPECT_EQ(cmd::AxisLibraryRegistry::lookup("15.2").size(), 8u);  // O0..O3 + Ofast + MSVC_Od/O1/O2
+    EXPECT_EQ(cmd::AxisLibraryRegistry::lookup("15.3").size(), 4u);  // None,ThinLTO,FullLTO,MSVC_LTCG
+    EXPECT_EQ(cmd::AxisLibraryRegistry::lookup("15.4").size(), 4u);  // None,Generate,Use,SamplePGO
+    EXPECT_EQ(cmd::AxisLibraryRegistry::lookup("15.5").size(), 6u);  // native,v3,v4,znver4,armv9-a,generic
+}
+
+TEST(AxisLibraryRegistry, CompilerAxisLookupContent) {
+    // V35.B.1 — Stichprobe der wichtigsten Variants
+    auto family = cmd::AxisLibraryRegistry::lookup("15.1");
+    bool found_msvc = false;
+    bool found_clang = false;
+    for (const auto& v : family) {
+        if (v.variant_name == "MSVC") found_msvc = true;
+        if (v.variant_name == "Clang") found_clang = true;
+    }
+    EXPECT_TRUE(found_msvc);
+    EXPECT_TRUE(found_clang);
+
+    auto opt = cmd::AxisLibraryRegistry::lookup("15.2");
+    bool found_o3 = false;
+    bool found_msvc_o2 = false;
+    for (const auto& v : opt) {
+        if (v.variant_name == "O3") found_o3 = true;
+        if (v.variant_name == "MSVC_O2") found_msvc_o2 = true;
+    }
+    EXPECT_TRUE(found_o3);
+    EXPECT_TRUE(found_msvc_o2);
+}
+
 TEST(AxisLibraryRegistry, UnknownAxisReturnsEmpty) {
     auto variants = cmd::AxisLibraryRegistry::lookup("99.99");
     EXPECT_TRUE(variants.empty());
