@@ -254,6 +254,47 @@ public:
             result.push_back({"14", "V2_Adaptive_RuntimeDetect", "ICacheStrategy waehlt anhand Workload"});
             result.push_back({"14", "V3_Hybrid_AB", "halb manuell + halb adaptive"});
             result.push_back({"14", "V4_Automatic_FullPermutation", "CEB enumeriert alle V32-Permutationen"});
+
+        // ===== Achse 15.1 V35.B: Compiler-Family =====
+        } else if (axis_id == "15.1") {
+            result.push_back({"15.1", "GCC",        "GNU GCC 9+ (Linux primary, Windows via MinGW)"});
+            result.push_back({"15.1", "Clang",      "LLVM Clang 13+ (Linux/Windows via clang-cl)"});
+            result.push_back({"15.1", "AppleClang", "Apple Clang 14+ (macOS Xcode-toolchain)"});
+            result.push_back({"15.1", "MSVC",       "MSVC 14.30+ cl.exe (Windows primary)"});
+
+        // ===== Achse 15.2 V35.B: Optimization-Level =====
+        } else if (axis_id == "15.2") {
+            result.push_back({"15.2", "O0",     "no optimization (Debug)"});
+            result.push_back({"15.2", "O1",     "basic optimization"});
+            result.push_back({"15.2", "O2",     "standard optimization (Release-Default)"});
+            result.push_back({"15.2", "O3",     "aggressive optimization (vectorization, inlining)"});
+            result.push_back({"15.2", "Ofast",  "O3 + unsafe-math (POSIX)"});
+            result.push_back({"15.2", "MSVC_Od","MSVC /Od (kein Optimieren)"});
+            result.push_back({"15.2", "MSVC_O1","MSVC /O1 (Groessen-Optimieren)"});
+            result.push_back({"15.2", "MSVC_O2","MSVC /O2 (Geschwindigkeit, Release-Default)"});
+
+        // ===== Achse 15.3 V35.B: LTO-Mode =====
+        } else if (axis_id == "15.3") {
+            result.push_back({"15.3", "None",       "no link-time optimization"});
+            result.push_back({"15.3", "ThinLTO",    "Clang/GCC -flto=thin (parallelisierbar)"});
+            result.push_back({"15.3", "FullLTO",    "Clang/GCC -flto (single-thread, bestere Performance)"});
+            result.push_back({"15.3", "MSVC_LTCG",  "MSVC /GL + /LTCG (link-time code generation)"});
+
+        // ===== Achse 15.4 V35.B: PGO-Profile =====
+        } else if (axis_id == "15.4") {
+            result.push_back({"15.4", "None",          "kein Profile-Guided-Optimization"});
+            result.push_back({"15.4", "Generate",      "GCC/Clang -fprofile-generate / MSVC /GENPROFILE"});
+            result.push_back({"15.4", "Use",           "GCC/Clang -fprofile-use / MSVC /USEPROFILE"});
+            result.push_back({"15.4", "SamplePGO",     "Clang AutoFDO via perf samples (no instrumentation)"});
+
+        // ===== Achse 15.5 V35.B: Target-Arch =====
+        } else if (axis_id == "15.5") {
+            result.push_back({"15.5", "native",     "-march=native (Host-CPU max)"});
+            result.push_back({"15.5", "x86-64-v3",  "AVX2 baseline (Haswell+, Excavator+)"});
+            result.push_back({"15.5", "x86-64-v4",  "AVX-512 baseline (Skylake-X+, Sapphire Rapids)"});
+            result.push_back({"15.5", "znver4",     "Zen 4 (AMD Ryzen 7000+/EPYC 9004)"});
+            result.push_back({"15.5", "armv9-a",    "ARMv9 (Apple M-Series, Cortex-X3+)"});
+            result.push_back({"15.5", "generic",    "-mtune=generic, no -march"});
         }
 
         return result;
