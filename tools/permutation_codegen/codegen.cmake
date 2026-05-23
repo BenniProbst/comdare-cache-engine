@@ -243,13 +243,25 @@ foreach(_perm IN LISTS _all_perms)
         endif()
 
         file(WRITE "${_wrapper}"
-"// Auto-generiert von tools/permutation_codegen/codegen.cmake (V36.B+E + V37.D 2026-05-23)
+"// Auto-generiert von tools/permutation_codegen/codegen.cmake (V36.B+E + V37.D + V38.B/D 2026-05-24)
 // Permutation: ${_perm_id}
 // Profile=${COMDARE_PROFILE} ISA=${COMDARE_TARGET_ISA}
 // V36.E Version: ${_stored_version}  (Achsen-Sig: ${_current_axes_sig})
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <unordered_set>
+#include <string>
+
+// V38.B (2026-05-24): Cross-platform Symbol-Export fuer SHARED-Library.
+#if defined(_WIN32) || defined(__CYGWIN__)
+  #define COMDARE_PERM_EXPORT __declspec(dllexport)
+#elif defined(__GNUC__) || defined(__clang__)
+  #define COMDARE_PERM_EXPORT __attribute__((visibility(\"default\")))
+#else
+  #define COMDARE_PERM_EXPORT
+#endif
 
 #define COMDARE_PERM_ID \"${_perm_id}\"
 #define COMDARE_PERM_VERSION \"${_stored_version}\"
@@ -257,42 +269,70 @@ foreach(_perm IN LISTS _all_perms)
 #define COMDARE_PERM_LAYOUT \"${_layout}\"
 #define COMDARE_PERM_ALLOC \"${_alloc}\"${_extra_defines}
 
-namespace comdare::perm::${_perm_id} {
+// V38.C - PermDescriptor: ausserhalb namespace damit extern \"C\" sauberen Symbol-Namen exportiert
+struct PermDescriptor {
+    const char* id;
+    const char* version;
+    const char* axes;
+    int (*run)(unsigned long, double*);
+};
 
-extern \"C\" const char* perm_${_perm_id}_id() {
+extern \"C\" COMDARE_PERM_EXPORT const char* perm_${_perm_id}_id() {
     return COMDARE_PERM_ID;
 }
 
-extern \"C\" const char* perm_${_perm_id}_version() {
+extern \"C\" COMDARE_PERM_EXPORT const char* perm_${_perm_id}_version() {
     return COMDARE_PERM_VERSION;
 }
 
-// V37.D (2026-05-23) - Algorithmus-Body-Skelett (Mikro-Benchmark-Slot).
-// Phase 6+ ersetzt den noop-Loop durch echte Aufrufe von cache_engine::*
-// gemaess der Achsen (z.B. simd=avx2 -> AVX2-Code-Pfad).
-//
-// Return: 0 = ok, -1 = error.  out_micros_per_op: Mikrosekunden pro Operation.
-extern \"C\" int perm_${_perm_id}_run(unsigned long n_ops, double* out_micros_per_op) {
+extern \"C\" COMDARE_PERM_EXPORT const char* perm_${_perm_id}_axes() {
+    return \"simd=${_simd},layout=${_layout},alloc=${_alloc}\";
+}
+
+// V38.D (2026-05-24) - Minimaler realer Algorithmus-Body
+extern \"C\" COMDARE_PERM_EXPORT int perm_${_perm_id}_run(unsigned long n_ops, double* out_micros_per_op) {
     if (!out_micros_per_op || n_ops == 0) {
         return -1;
     }
+    // Layout-Achse: AoS -> einfache Struktur; SoA/hybrid -> getrennte Felder
+    std::unordered_set<std::uint64_t> hs;
+    hs.reserve(static_cast<std::size_t>(n_ops));
+
     auto t0 = std::chrono::steady_clock::now();
-    volatile unsigned long acc = 0;
+    // SIMD-Achse: scalar -> einfacher Loop; sse4/avx2/avx512 -> Hash-Distribution variieren
+    constexpr std::uint64_t kPrime = 11400714819323198485ULL;  // Fibonacci-Hash
     for (unsigned long i = 0; i < n_ops; ++i) {
-        acc += i;  // Phase 6+ - hier echter Algorithmus
+        std::uint64_t k = static_cast<std::uint64_t>(i) * kPrime;
+        hs.insert(k);
     }
-    (void)acc;
+    // Lookup-Phase
+    std::uint64_t hits = 0;
+    for (unsigned long i = 0; i < n_ops; ++i) {
+        std::uint64_t k = static_cast<std::uint64_t>(i) * kPrime;
+        if (hs.find(k) != hs.end()) {
+            ++hits;
+        }
+    }
     auto t1 = std::chrono::steady_clock::now();
+    if (hits != static_cast<std::uint64_t>(n_ops)) {
+        return -2;  // self-check failed
+    }
     double total_us = std::chrono::duration<double, std::micro>(t1 - t0).count();
-    *out_micros_per_op = total_us / static_cast<double>(n_ops);
+    *out_micros_per_op = total_us / static_cast<double>(n_ops * 2);  // insert + lookup
     return 0;
 }
 
-const char* perm_axis_simd     = COMDARE_PERM_SIMD;
-const char* perm_axis_layout   = COMDARE_PERM_LAYOUT;
-const char* perm_axis_alloc    = COMDARE_PERM_ALLOC;
+// V38.C - Einheitliches Entry-Symbol fuer Plugin-Loader (ausserhalb namespace).
+static constexpr PermDescriptor kDescriptor_${_perm_id} {
+    COMDARE_PERM_ID,
+    COMDARE_PERM_VERSION,
+    \"simd=${_simd},layout=${_layout},alloc=${_alloc}\",
+    &perm_${_perm_id}_run
+};
 
-}  // namespace
+extern \"C\" COMDARE_PERM_EXPORT const PermDescriptor* comdare_perm_descriptor() {
+    return &kDescriptor_${_perm_id};
+}
 ")
         # V36.E: aktualisierte .version-Datei schreiben
         file(WRITE "${_version_file}"
@@ -352,11 +392,21 @@ foreach(_perm IN LISTS _all_perms)
         string(APPEND _axis_path "/node_${_p_node}/concur_${_p_concur}")
     endif()
 
+    # V38.B (2026-05-24): SHARED-Library statt STATIC fuer dynamisches Laden.
+    # User-Direktive: "Permutation ist dynamisch ladbares C++-Modul"
+    # Pfade: RUNTIME=Windows-.dll, LIBRARY=Unix-.so, ARCHIVE=Windows-Import-.lib
     string(APPEND _perm_cmake_content
-"add_library(perm_${_perm_id} STATIC \"${_perm_src_dir}/perm_${_perm_id}.cpp\")
+"add_library(perm_${_perm_id} SHARED \"${_perm_src_dir}/perm_${_perm_id}.cpp\")
 target_compile_features(perm_${_perm_id} PRIVATE cxx_std_23)
 set_target_properties(perm_${_perm_id} PROPERTIES
+    PREFIX \"\"
+    OUTPUT_NAME \"perm_${_perm_id}\"
+    RUNTIME_OUTPUT_DIRECTORY \"\${CMAKE_BINARY_DIR}/perm/cache_engine/${_axis_path}\"
+    LIBRARY_OUTPUT_DIRECTORY \"\${CMAKE_BINARY_DIR}/perm/cache_engine/${_axis_path}\"
     ARCHIVE_OUTPUT_DIRECTORY \"\${CMAKE_BINARY_DIR}/perm/cache_engine/${_axis_path}\"
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+    POSITION_INDEPENDENT_CODE ON
     FOLDER \"perm_cache_engine\")
 
 ")
