@@ -243,10 +243,13 @@ foreach(_perm IN LISTS _all_perms)
         endif()
 
         file(WRITE "${_wrapper}"
-"// Auto-generiert von tools/permutation_codegen/codegen.cmake (V36.B+E 2026-05-23)
+"// Auto-generiert von tools/permutation_codegen/codegen.cmake (V36.B+E + V37.D 2026-05-23)
 // Permutation: ${_perm_id}
 // Profile=${COMDARE_PROFILE} ISA=${COMDARE_TARGET_ISA}
 // V36.E Version: ${_stored_version}  (Achsen-Sig: ${_current_axes_sig})
+
+#include <chrono>
+#include <cstddef>
 
 #define COMDARE_PERM_ID \"${_perm_id}\"
 #define COMDARE_PERM_VERSION \"${_stored_version}\"
@@ -262,6 +265,27 @@ extern \"C\" const char* perm_${_perm_id}_id() {
 
 extern \"C\" const char* perm_${_perm_id}_version() {
     return COMDARE_PERM_VERSION;
+}
+
+// V37.D (2026-05-23) - Algorithmus-Body-Skelett (Mikro-Benchmark-Slot).
+// Phase 6+ ersetzt den noop-Loop durch echte Aufrufe von cache_engine::*
+// gemaess der Achsen (z.B. simd=avx2 -> AVX2-Code-Pfad).
+//
+// Return: 0 = ok, -1 = error.  out_micros_per_op: Mikrosekunden pro Operation.
+extern \"C\" int perm_${_perm_id}_run(unsigned long n_ops, double* out_micros_per_op) {
+    if (!out_micros_per_op || n_ops == 0) {
+        return -1;
+    }
+    auto t0 = std::chrono::steady_clock::now();
+    volatile unsigned long acc = 0;
+    for (unsigned long i = 0; i < n_ops; ++i) {
+        acc += i;  // Phase 6+ - hier echter Algorithmus
+    }
+    (void)acc;
+    auto t1 = std::chrono::steady_clock::now();
+    double total_us = std::chrono::duration<double, std::micro>(t1 - t0).count();
+    *out_micros_per_op = total_us / static_cast<double>(n_ops);
+    return 0;
 }
 
 const char* perm_axis_simd     = COMDARE_PERM_SIMD;
@@ -306,15 +330,33 @@ message(STATUS \"Permutations: registriere ${_n_perms} Per-Permutation-Targets\"
 
 ")
 
-# STATIC-Libraries (statt OBJECT): erlauben sauberes Output-Layout
-# Storage-Layout: ${CMAKE_BINARY_DIR}/perm/cache_engine/<id>/perm_<id>.lib
+# V37.G (2026-05-23): Hierarchischer Achsen-Ordnerbaum
+# User-Direktive: "Prebuild Permutations als Dateisystem-Baum mit einer
+# Achsen-Eigenschaft je Dateisystemebene in der Reihenfolge der Achsen."
+#
+# Wurzel: ${BINARY_DIR}/perm/cache_engine/
+# Achsen-Reihenfolge: SIMD -> Layout -> Alloc (smoke)
+#                     +Node +Concurrency (medium/full)
+# Voller Pfad smoke:  perm/cache_engine/simd_<v>/layout_<v>/alloc_<v>/perm_<id>.lib
 foreach(_perm IN LISTS _all_perms)
     string(REPLACE "|" "_" _perm_id "${_perm}")
+    string(REPLACE "|" ";" _parts "${_perm}")
+    list(GET _parts 0 _p_simd)
+    list(GET _parts 1 _p_layout)
+    list(GET _parts 2 _p_alloc)
+    set(_axis_path "simd_${_p_simd}/layout_${_p_layout}/alloc_${_p_alloc}")
+    list(LENGTH _parts _plen)
+    if(_plen GREATER 3)
+        list(GET _parts 3 _p_node)
+        list(GET _parts 4 _p_concur)
+        string(APPEND _axis_path "/node_${_p_node}/concur_${_p_concur}")
+    endif()
+
     string(APPEND _perm_cmake_content
 "add_library(perm_${_perm_id} STATIC \"${_perm_src_dir}/perm_${_perm_id}.cpp\")
 target_compile_features(perm_${_perm_id} PRIVATE cxx_std_23)
 set_target_properties(perm_${_perm_id} PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY \"\${CMAKE_BINARY_DIR}/perm/cache_engine/${_perm_id}\"
+    ARCHIVE_OUTPUT_DIRECTORY \"\${CMAKE_BINARY_DIR}/perm/cache_engine/${_axis_path}\"
     FOLDER \"perm_cache_engine\")
 
 ")
