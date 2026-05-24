@@ -246,8 +246,10 @@ foreach(_perm IN LISTS _all_perms)
         # damit die Wrapper-Source compile-time die richtigen Code-Pfade aktiviert.
         set(_axis_macro_simd "COMDARE_PERM_SIMD_IS_${_simd}")
         set(_axis_macro_layout "COMDARE_PERM_LAYOUT_IS_${_layout}")
+        set(_axis_macro_alloc "COMDARE_PERM_ALLOC_IS_${_alloc}")
         string(TOUPPER "${_axis_macro_simd}" _axis_macro_simd)
         string(TOUPPER "${_axis_macro_layout}" _axis_macro_layout)
+        string(TOUPPER "${_axis_macro_alloc}" _axis_macro_alloc)
 
         file(WRITE "${_wrapper}"
 "// Auto-generiert von tools/permutation_codegen/codegen.cmake (V36-V39 2026-05-24)
@@ -257,10 +259,12 @@ foreach(_perm IN LISTS _all_perms)
 
 #define ${_axis_macro_simd} 1
 #define ${_axis_macro_layout} 1
+#define ${_axis_macro_alloc} 1
 
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <unordered_set>
 #include <vector>
 #include <utility>
@@ -273,6 +277,23 @@ foreach(_perm IN LISTS _all_perms)
   #elif defined(_MSC_VER)
     #include <intrin.h>
   #endif
+#endif
+
+// V40.A/B (2026-05-24) - Allokator-Achse echt
+#if defined(COMDARE_PERM_ALLOC_IS_MIMALLOC) && defined(COMDARE_PERM_HAVE_MIMALLOC)
+  #include <mimalloc.h>
+  #define COMDARE_ALLOC(sz)  ::mi_malloc(sz)
+  #define COMDARE_FREE(p)    ::mi_free(p)
+  #define COMDARE_ALLOC_NAME \"mimalloc\"
+#elif defined(COMDARE_PERM_ALLOC_IS_JEMALLOC) && defined(COMDARE_PERM_HAVE_JEMALLOC)
+  #include <jemalloc/jemalloc.h>
+  #define COMDARE_ALLOC(sz)  ::je_malloc(sz)
+  #define COMDARE_FREE(p)    ::je_free(p)
+  #define COMDARE_ALLOC_NAME \"jemalloc\"
+#else
+  #define COMDARE_ALLOC(sz)  std::malloc(sz)
+  #define COMDARE_FREE(p)    std::free(p)
+  #define COMDARE_ALLOC_NAME \"std\"
 #endif
 
 // V38.B (2026-05-24): Cross-platform Symbol-Export fuer SHARED-Library.
@@ -307,7 +328,7 @@ extern \"C\" COMDARE_PERM_EXPORT const char* perm_${_perm_id}_version() {
 }
 
 extern \"C\" COMDARE_PERM_EXPORT const char* perm_${_perm_id}_axes() {
-    return \"simd=${_simd},layout=${_layout},alloc=${_alloc}\";
+    return \"simd=${_simd},layout=${_layout},alloc=${_alloc} (real=\" COMDARE_ALLOC_NAME \")\";
 }
 
 // V39 (2026-05-24) - Echt achsen-spezifischer Algorithmus.
@@ -342,6 +363,21 @@ namespace v39_hash {
 extern \"C\" COMDARE_PERM_EXPORT int perm_${_perm_id}_run(unsigned long n_ops, double* out_micros_per_op) {
     if (!out_micros_per_op || n_ops == 0) {
         return -1;
+    }
+
+    // V40.C Allokator-Stresstest: pro op eine kleine raw-Allokation
+    // ueber den achsenspezifischen Allocator (mi_malloc/je_malloc/std::malloc).
+    // Mit reservierter pre-allocated array werden die ops sichtbar verteilt.
+    {
+        constexpr std::size_t kBufSize = 32;  // klein, viele Operationen
+        for (unsigned long i = 0; i < (n_ops / 8); ++i) {
+            void* p = COMDARE_ALLOC(kBufSize);
+            // Antimuessen-Optimization: write 1 byte
+            if (p) {
+                reinterpret_cast<volatile char*>(p)[0] = static_cast<char>(i);
+                COMDARE_FREE(p);
+            }
+        }
     }
 
 #if defined(COMDARE_PERM_LAYOUT_IS_AOS)
@@ -403,10 +439,13 @@ extern \"C\" COMDARE_PERM_EXPORT int perm_${_perm_id}_run(unsigned long n_ops, d
 }
 
 // V38.C - Einheitliches Entry-Symbol fuer Plugin-Loader (ausserhalb namespace).
+// V40.D: axes string enthaelt real= zur Markierung wenn vendored allocator aktiv ist
+static constexpr char kAxes_${_perm_id}[] =
+    \"simd=${_simd},layout=${_layout},alloc=${_alloc} (real=\" COMDARE_ALLOC_NAME \")\";
 static constexpr PermDescriptor kDescriptor_${_perm_id} {
     COMDARE_PERM_ID,
     COMDARE_PERM_VERSION,
-    \"simd=${_simd},layout=${_layout},alloc=${_alloc}\",
+    kAxes_${_perm_id},
     &perm_${_perm_id}_run
 };
 
@@ -513,6 +552,22 @@ set_target_properties(perm_${_perm_id} PROPERTIES
 "target_compile_options(perm_${_perm_id} PRIVATE
     \$<\$<CXX_COMPILER_ID:MSVC>:${_simd_flags_msvc}>
     \$<\$<OR:\$<CXX_COMPILER_ID:GNU>,\$<CXX_COMPILER_ID:Clang>,\$<CXX_COMPILER_ID:AppleClang>>:${_simd_flags_gcc}>)
+")
+    endif()
+    # V40.A/B (2026-05-24) - Allokator-Achse: link gegen vendored Library
+    if(_p_alloc STREQUAL "mimalloc")
+        string(APPEND _perm_cmake_content
+"if(TARGET comdare::vendor_mimalloc)
+    target_link_libraries(perm_${_perm_id} PRIVATE comdare::vendor_mimalloc)
+    target_compile_definitions(perm_${_perm_id} PRIVATE COMDARE_PERM_HAVE_MIMALLOC=1)
+endif()
+")
+    elseif(_p_alloc STREQUAL "jemalloc")
+        string(APPEND _perm_cmake_content
+"if(TARGET comdare::vendor_jemalloc)
+    target_link_libraries(perm_${_perm_id} PRIVATE comdare::vendor_jemalloc)
+    target_compile_definitions(perm_${_perm_id} PRIVATE COMDARE_PERM_HAVE_JEMALLOC=1)
+endif()
 ")
     endif()
     string(APPEND _perm_cmake_content "
