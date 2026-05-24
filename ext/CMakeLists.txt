@@ -43,13 +43,16 @@ if(COMDARE_VENDOR_MIMALLOC AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/A04-mimalloc/sr
     message(STATUS "V40.A comdare::vendor_mimalloc verfuegbar (static.c direct build)")
 endif()
 
-# V40.B (2026-05-24): jemalloc — versuche find_package (z.B. system-installed
-# auf Linux via apt/yum), sonst Fallback ohne echtes Link. jemalloc-Permutations
-# laufen dann ohne echten je_malloc-Aufruf (compile-time check).
-option(COMDARE_VENDOR_JEMALLOC "Versuche jemalloc zu finden (ext/A05-jemalloc oder system)"
+# V40.B + V41.A1 (2026-05-24): jemalloc — drei-stufige Detection:
+#   1. find_library: system-installed (Linux apt/yum, vcpkg)
+#   2. Pre-generierte jemalloc.h vorhanden (User hat autogen.sh manuell laufen lassen)
+#   3. Bare-State (nur .h.in templates): klare Hinweis-Message + Fallback
+option(COMDARE_VENDOR_JEMALLOC "jemalloc-Detection (system / pre-configured / Fallback)"
        ${COMDARE_BUILD_PERMUTATIONS})
 set(COMDARE_HAVE_JEMALLOC OFF CACHE BOOL "" FORCE)
+
 if(COMDARE_VENDOR_JEMALLOC)
+    # Stufe 1: System-installed jemalloc
     find_library(JEMALLOC_LIB NAMES jemalloc libjemalloc)
     find_path(JEMALLOC_INC jemalloc/jemalloc.h)
     if(JEMALLOC_LIB AND JEMALLOC_INC)
@@ -60,8 +63,42 @@ if(COMDARE_VENDOR_JEMALLOC)
             add_library(comdare::vendor_jemalloc ALIAS comdare_vendor_jemalloc)
         endif()
         set(COMDARE_HAVE_JEMALLOC ON CACHE BOOL "" FORCE)
-        message(STATUS "V40.B jemalloc gefunden: ${JEMALLOC_LIB} (${JEMALLOC_INC})")
+        message(STATUS "V41.A1 jemalloc (system): ${JEMALLOC_LIB}")
     else()
-        message(STATUS "V40.B jemalloc NICHT gefunden — alloc=jemalloc Permutationen fallen auf std zurueck")
+        # Stufe 2: ext/A05-jemalloc pre-configured? Headers schon generiert?
+        set(_je_root "${CMAKE_CURRENT_LIST_DIR}/A05-jemalloc")
+        if(EXISTS "${_je_root}/include/jemalloc/jemalloc.h"
+           AND EXISTS "${_je_root}/include/jemalloc/internal/jemalloc_preamble.h")
+            # Headers wurden via autogen.sh erzeugt — wir koennen direkt bauen
+            file(GLOB _je_sources CONFIGURE_DEPENDS "${_je_root}/src/*.c")
+            enable_language(C)
+            add_library(comdare_vendor_jemalloc STATIC ${_je_sources})
+            target_include_directories(comdare_vendor_jemalloc PUBLIC
+                "${_je_root}/include")
+            target_include_directories(comdare_vendor_jemalloc PRIVATE
+                "${_je_root}/include/jemalloc/internal")
+            target_compile_definitions(comdare_vendor_jemalloc PRIVATE
+                JEMALLOC_NO_PRIVATE_NAMESPACE=1
+                JEMALLOC_EXPORT=)
+            if(MSVC)
+                target_compile_definitions(comdare_vendor_jemalloc PRIVATE _CRT_SECURE_NO_WARNINGS)
+                target_compile_options(comdare_vendor_jemalloc PRIVATE /wd4267 /wd4244 /wd4146)
+            endif()
+            set_target_properties(comdare_vendor_jemalloc PROPERTIES
+                POSITION_INDEPENDENT_CODE ON
+                FOLDER "vendor")
+            if(NOT TARGET comdare::vendor_jemalloc)
+                add_library(comdare::vendor_jemalloc ALIAS comdare_vendor_jemalloc)
+            endif()
+            set(COMDARE_HAVE_JEMALLOC ON CACHE BOOL "" FORCE)
+            message(STATUS "V41.A1 jemalloc (ext/A05 pre-configured): direkter Build")
+        else()
+            # Stufe 3: Bare state — autogen.sh nicht ausgefuehrt
+            message(STATUS "V41.A1 jemalloc NICHT verfuegbar. Fallback (real=std).")
+            message(STATUS "  Pre-Built Headers fehlen. Setup-Optionen:")
+            message(STATUS "    A) Linux: 'apt install libjemalloc-dev'")
+            message(STATUS "    B) Windows + MSYS2: 'cd ext/A05-jemalloc && sh -c \"CC=cl ./autogen.sh\"' im 'x64 Native Tools Command Prompt'")
+            message(STATUS "    C) Windows + vcpkg: 'vcpkg install jemalloc:x64-windows-static'")
+        endif()
     endif()
 endif()
