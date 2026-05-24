@@ -270,6 +270,10 @@ foreach(_perm IN LISTS _all_perms)
 #include <utility>
 #include <string>
 
+// V41.A5 (2026-05-24): echte Algorithmus-Implementierungen statt STL-wrapper
+#include <cache_engine/indexes/linear_probe_hashset.hpp>
+#include <cache_engine/indexes/radix_index.hpp>
+
 // V39.B (2026-05-24) - SIMD-Achse echt via Intrinsics
 #if defined(COMDARE_PERM_SIMD_IS_SSE4) || defined(COMDARE_PERM_SIMD_IS_AVX2) || defined(COMDARE_PERM_SIMD_IS_AVX512)
   #if defined(__GNUC__) || defined(__clang__)
@@ -381,16 +385,16 @@ extern \"C\" COMDARE_PERM_EXPORT int perm_${_perm_id}_run(unsigned long n_ops, d
     }
 
 #if defined(COMDARE_PERM_LAYOUT_IS_AOS)
-    // AoS: ein Container mit kombinierten Keys (alles auf einmal in Memory)
-    std::unordered_set<std::uint64_t> store;
-    store.reserve(static_cast<std::size_t>(n_ops));
+    // V41.A5: AoS -> echte LinearProbeHashSet (cache-friendly, open addressing)
+    // statt std::unordered_set (separate chaining, pointer-chasing).
+    comdare::cache_engine::indexes::LinearProbeHashSet<std::uint64_t> store(static_cast<std::size_t>(n_ops));
     auto t0 = std::chrono::steady_clock::now();
     for (unsigned long i = 0; i < n_ops; ++i) {
         store.insert(v39_hash::mix(i));
     }
     std::uint64_t hits = 0;
     for (unsigned long i = 0; i < n_ops; ++i) {
-        if (store.find(v39_hash::mix(i)) != store.end()) ++hits;
+        if (store.contains(v39_hash::mix(i))) ++hits;
     }
     auto t1 = std::chrono::steady_clock::now();
 #elif defined(COMDARE_PERM_LAYOUT_IS_SOA)
@@ -413,19 +417,16 @@ extern \"C\" COMDARE_PERM_EXPORT int perm_${_perm_id}_run(unsigned long n_ops, d
     }
     auto t1 = std::chrono::steady_clock::now();
 #else  // hybrid
-    // hybrid: pair-Vektor mit (key, hash) zusammen
-    std::vector<std::pair<std::uint64_t, std::uint64_t>> kv;
-    kv.reserve(static_cast<std::size_t>(n_ops));
+    // V41.A5: hybrid -> echter Radix-Index (4-bit nibbles, ART-vereinfacht)
+    // statt brute-force pair-vector. Zeigt trie-Charakteristik (O(log_16 N) depth).
+    comdare::cache_engine::indexes::RadixIndex store;
     auto t0 = std::chrono::steady_clock::now();
     for (unsigned long i = 0; i < n_ops; ++i) {
-        kv.emplace_back(i, v39_hash::mix(i));
+        store.insert(static_cast<std::uint32_t>(v39_hash::mix(i)));
     }
     std::uint64_t hits = 0;
     for (unsigned long i = 0; i < n_ops; ++i) {
-        std::uint64_t target = v39_hash::mix(i);
-        for (auto const& p : kv) {
-            if (p.second == target) { ++hits; break; }
-        }
+        if (store.contains(static_cast<std::uint32_t>(v39_hash::mix(i)))) ++hits;
     }
     auto t1 = std::chrono::steady_clock::now();
 #endif
@@ -536,6 +537,8 @@ foreach(_perm IN LISTS _all_perms)
     string(APPEND _perm_cmake_content
 "add_library(perm_${_perm_id} SHARED \"${_perm_src_dir}/perm_${_perm_id}.cpp\")
 target_compile_features(perm_${_perm_id} PRIVATE cxx_std_23)
+# V41.A5: Permutations brauchen cache_engine/indexes/* Headers
+target_include_directories(perm_${_perm_id} PRIVATE \"\${PROJECT_SOURCE_DIR}/libs/cache_engine/include\")
 set_target_properties(perm_${_perm_id} PROPERTIES
     PREFIX \"\"
     OUTPUT_NAME \"perm_${_perm_id}\"
