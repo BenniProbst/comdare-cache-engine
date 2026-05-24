@@ -100,6 +100,12 @@ include(cmake/check_submodules.cmake OPTIONAL)
 if(COMDARE_BUILD_PERMUTATIONS)
   include(cmake/permutations.cmake OPTIONAL)
   # generiert build/generated/permutations.cmake (siehe tools/permutation_codegen/)
+  # V40.A FIX: ext/ MUSS VOR der Permutations-Inklusion gebaut werden, weil
+  # die Permutationen comdare::vendor_mimalloc/jemalloc Targets benoetigen.
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ext/CMakeLists.txt")
+    add_subdirectory(ext)
+    set(_comdare_ext_added TRUE)
+  endif()
   if(EXISTS "${CMAKE_BINARY_DIR}/generated/permutations.cmake")
     include("${CMAKE_BINARY_DIR}/generated/permutations.cmake")
   endif()
@@ -119,7 +125,9 @@ add_subdirectory(libs/cache_engine)       # Domaene 2 (nutzt 1, 3, 4) + 22 Build
 #   (Memory-Direktive: PRT_ART konsumiert CacheEngine, nicht umgekehrt.
 #    Echter Code im comdare-prt-art Repo.)
 add_subdirectory(adapters)           # Habich-Direktive Adapter
-add_subdirectory(ext)                # Originalcode (mit Original-Compilern)
+if(NOT _comdare_ext_added)
+    add_subdirectory(ext)            # Originalcode (mit Original-Compilern)
+endif()
 # V23.F (2026-05-14): test_data_accumulation, benchmark_suite, workload_generator
 # migriert nach libs/test_infra/
 # V30.D.1 (2026-05-14): experiment/ -> libs/execution_engine/ (kein domain/-Zwischenebene)
