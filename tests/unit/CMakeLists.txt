@@ -223,3 +223,9 @@ comdare_add_test(test_v31_adapters
         comdare::adapter::a11_lrmalloc
         comdare::adapter::a20_dlmalloc)
 target_include_directories(test_v31_adapters PRIVATE "${CMAKE_SOURCE_DIR}")
+
+# V41.A5 (2026-05-24): Echte Index-Implementierungen
+comdare_add_test(test_v41_indexes
+    SOURCES test_v41_indexes.cpp)
+target_include_directories(test_v41_indexes PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
