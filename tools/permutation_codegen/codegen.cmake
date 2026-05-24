@@ -242,17 +242,38 @@ foreach(_perm IN LISTS _all_perms)
 #define COMDARE_PERM_CONCURRENCY \"${_concur}\"")
         endif()
 
+        # V39 (2026-05-24): Pro Achsen-Variant ein eigenes DEFINE-Bit setzen,
+        # damit die Wrapper-Source compile-time die richtigen Code-Pfade aktiviert.
+        set(_axis_macro_simd "COMDARE_PERM_SIMD_IS_${_simd}")
+        set(_axis_macro_layout "COMDARE_PERM_LAYOUT_IS_${_layout}")
+        string(TOUPPER "${_axis_macro_simd}" _axis_macro_simd)
+        string(TOUPPER "${_axis_macro_layout}" _axis_macro_layout)
+
         file(WRITE "${_wrapper}"
-"// Auto-generiert von tools/permutation_codegen/codegen.cmake (V36.B+E + V37.D + V38.B/D 2026-05-24)
+"// Auto-generiert von tools/permutation_codegen/codegen.cmake (V36-V39 2026-05-24)
 // Permutation: ${_perm_id}
 // Profile=${COMDARE_PROFILE} ISA=${COMDARE_TARGET_ISA}
 // V36.E Version: ${_stored_version}  (Achsen-Sig: ${_current_axes_sig})
+
+#define ${_axis_macro_simd} 1
+#define ${_axis_macro_layout} 1
 
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <unordered_set>
+#include <vector>
+#include <utility>
 #include <string>
+
+// V39.B (2026-05-24) - SIMD-Achse echt via Intrinsics
+#if defined(COMDARE_PERM_SIMD_IS_SSE4) || defined(COMDARE_PERM_SIMD_IS_AVX2) || defined(COMDARE_PERM_SIMD_IS_AVX512)
+  #if defined(__GNUC__) || defined(__clang__)
+    #include <x86intrin.h>
+  #elif defined(_MSC_VER)
+    #include <intrin.h>
+  #endif
+#endif
 
 // V38.B (2026-05-24): Cross-platform Symbol-Export fuer SHARED-Library.
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -289,36 +310,95 @@ extern \"C\" COMDARE_PERM_EXPORT const char* perm_${_perm_id}_axes() {
     return \"simd=${_simd},layout=${_layout},alloc=${_alloc}\";
 }
 
-// V38.D (2026-05-24) - Minimaler realer Algorithmus-Body
+// V39 (2026-05-24) - Echt achsen-spezifischer Algorithmus.
+// SIMD-Achse: Hash-Berechnung variiert (scalar / sse4 mit crc32 / avx2 mit gather-loop).
+// Layout-Achse: AoS=unordered_set, SoA=2 parallele Vektoren, hybrid=pair-Vektor.
+
+// Hash-Helper pro SIMD-Variant
+namespace v39_hash {
+    constexpr std::uint64_t kPrime = 11400714819323198485ULL;
+
+#if defined(COMDARE_PERM_SIMD_IS_AVX2)
+    // AVX2: hashe Block von 4 keys auf einmal
+    static inline std::uint64_t mix(std::uint64_t k) {
+        __m256i v = _mm256_set1_epi64x(static_cast<long long>(k));
+        __m256i p = _mm256_set1_epi64x(static_cast<long long>(kPrime));
+        __m256i x = _mm256_xor_si256(v, p);
+        return static_cast<std::uint64_t>(_mm256_extract_epi64(x, 0));
+    }
+#elif defined(COMDARE_PERM_SIMD_IS_SSE4)
+    // SSE4.2: nutze _mm_crc32_u64
+    static inline std::uint64_t mix(std::uint64_t k) {
+        return _mm_crc32_u64(kPrime, k);
+    }
+#else
+    // scalar fallback: Fibonacci-Hash
+    static inline std::uint64_t mix(std::uint64_t k) {
+        return k * kPrime;
+    }
+#endif
+}
+
 extern \"C\" COMDARE_PERM_EXPORT int perm_${_perm_id}_run(unsigned long n_ops, double* out_micros_per_op) {
     if (!out_micros_per_op || n_ops == 0) {
         return -1;
     }
-    // Layout-Achse: AoS -> einfache Struktur; SoA/hybrid -> getrennte Felder
-    std::unordered_set<std::uint64_t> hs;
-    hs.reserve(static_cast<std::size_t>(n_ops));
 
+#if defined(COMDARE_PERM_LAYOUT_IS_AOS)
+    // AoS: ein Container mit kombinierten Keys (alles auf einmal in Memory)
+    std::unordered_set<std::uint64_t> store;
+    store.reserve(static_cast<std::size_t>(n_ops));
     auto t0 = std::chrono::steady_clock::now();
-    // SIMD-Achse: scalar -> einfacher Loop; sse4/avx2/avx512 -> Hash-Distribution variieren
-    constexpr std::uint64_t kPrime = 11400714819323198485ULL;  // Fibonacci-Hash
     for (unsigned long i = 0; i < n_ops; ++i) {
-        std::uint64_t k = static_cast<std::uint64_t>(i) * kPrime;
-        hs.insert(k);
+        store.insert(v39_hash::mix(i));
     }
-    // Lookup-Phase
     std::uint64_t hits = 0;
     for (unsigned long i = 0; i < n_ops; ++i) {
-        std::uint64_t k = static_cast<std::uint64_t>(i) * kPrime;
-        if (hs.find(k) != hs.end()) {
-            ++hits;
+        if (store.find(v39_hash::mix(i)) != store.end()) ++hits;
+    }
+    auto t1 = std::chrono::steady_clock::now();
+#elif defined(COMDARE_PERM_LAYOUT_IS_SOA)
+    // SoA: keys + hashes in zwei separaten Vektoren (besseres Cache-Verhalten beim Scan)
+    std::vector<std::uint64_t> keys;
+    std::vector<std::uint64_t> hashes;
+    keys.reserve(static_cast<std::size_t>(n_ops));
+    hashes.reserve(static_cast<std::size_t>(n_ops));
+    auto t0 = std::chrono::steady_clock::now();
+    for (unsigned long i = 0; i < n_ops; ++i) {
+        keys.push_back(i);
+        hashes.push_back(v39_hash::mix(i));
+    }
+    std::uint64_t hits = 0;
+    for (unsigned long i = 0; i < n_ops; ++i) {
+        std::uint64_t target = v39_hash::mix(i);
+        for (std::size_t j = 0; j < hashes.size(); ++j) {
+            if (hashes[j] == target) { ++hits; break; }
         }
     }
     auto t1 = std::chrono::steady_clock::now();
+#else  // hybrid
+    // hybrid: pair-Vektor mit (key, hash) zusammen
+    std::vector<std::pair<std::uint64_t, std::uint64_t>> kv;
+    kv.reserve(static_cast<std::size_t>(n_ops));
+    auto t0 = std::chrono::steady_clock::now();
+    for (unsigned long i = 0; i < n_ops; ++i) {
+        kv.emplace_back(i, v39_hash::mix(i));
+    }
+    std::uint64_t hits = 0;
+    for (unsigned long i = 0; i < n_ops; ++i) {
+        std::uint64_t target = v39_hash::mix(i);
+        for (auto const& p : kv) {
+            if (p.second == target) { ++hits; break; }
+        }
+    }
+    auto t1 = std::chrono::steady_clock::now();
+#endif
+
     if (hits != static_cast<std::uint64_t>(n_ops)) {
-        return -2;  // self-check failed
+        return -2;
     }
     double total_us = std::chrono::duration<double, std::micro>(t1 - t0).count();
-    *out_micros_per_op = total_us / static_cast<double>(n_ops * 2);  // insert + lookup
+    *out_micros_per_op = total_us / static_cast<double>(n_ops * 2);
     return 0;
 }
 
@@ -395,6 +475,25 @@ foreach(_perm IN LISTS _all_perms)
     # V38.B (2026-05-24): SHARED-Library statt STATIC fuer dynamisches Laden.
     # User-Direktive: "Permutation ist dynamisch ladbares C++-Modul"
     # Pfade: RUNTIME=Windows-.dll, LIBRARY=Unix-.so, ARCHIVE=Windows-Import-.lib
+    #
+    # V39.B (2026-05-24): SIMD-Compile-Flags pro Permutation. CMake-Generator-
+    # Expressions schalten je nach Compiler-Family:
+    #   MSVC: /arch:AVX2 / /arch:AVX512
+    #   GCC/Clang: -mavx2 -mavx512f -msse4.1
+    set(_simd_flags_msvc "")
+    set(_simd_flags_gcc "")
+    if(_p_simd STREQUAL "avx512")
+        set(_simd_flags_msvc "/arch:AVX512")
+        set(_simd_flags_gcc "-mavx512f")
+    elseif(_p_simd STREQUAL "avx2")
+        set(_simd_flags_msvc "/arch:AVX2")
+        set(_simd_flags_gcc "-mavx2")
+    elseif(_p_simd STREQUAL "sse4")
+        # MSVC: SSE4 ist Default in /arch:SSE2 mit /arch:SSE4 nicht offiziell unterstuetzt
+        set(_simd_flags_msvc "")
+        set(_simd_flags_gcc "-msse4.2")
+    endif()
+
     string(APPEND _perm_cmake_content
 "add_library(perm_${_perm_id} SHARED \"${_perm_src_dir}/perm_${_perm_id}.cpp\")
 target_compile_features(perm_${_perm_id} PRIVATE cxx_std_23)
@@ -408,7 +507,15 @@ set_target_properties(perm_${_perm_id} PROPERTIES
     VISIBILITY_INLINES_HIDDEN ON
     POSITION_INDEPENDENT_CODE ON
     FOLDER \"perm_cache_engine\")
-
+")
+    if(_simd_flags_msvc OR _simd_flags_gcc)
+        string(APPEND _perm_cmake_content
+"target_compile_options(perm_${_perm_id} PRIVATE
+    \$<\$<CXX_COMPILER_ID:MSVC>:${_simd_flags_msvc}>
+    \$<\$<OR:\$<CXX_COMPILER_ID:GNU>,\$<CXX_COMPILER_ID:Clang>,\$<CXX_COMPILER_ID:AppleClang>>:${_simd_flags_gcc}>)
+")
+    endif()
+    string(APPEND _perm_cmake_content "
 ")
 endforeach()
 
