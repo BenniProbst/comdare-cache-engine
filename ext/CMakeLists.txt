@@ -20,6 +20,9 @@ option(COMDARE_VENDOR_MIMALLOC "Build vendored mimalloc (ext/A04-mimalloc)"
 if(COMDARE_VENDOR_MIMALLOC AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/A04-mimalloc/src/static.c")
     # V40.A direkter Build via src/static.c (umgeht mimalloc's eigenes CMake-System,
     # weil cmake/-Helper-Files fehlen). static.c includiert alle .c-Sources.
+    # FIX (2026-05-24): C-Compiler braucht's. Project ist LANGUAGES CXX,
+    # daher hier enable_language(C) damit add_library mit .c-Sources klappt.
+    enable_language(C)
     add_library(comdare_vendor_mimalloc STATIC
         A04-mimalloc/src/static.c)
     target_include_directories(comdare_vendor_mimalloc PUBLIC
