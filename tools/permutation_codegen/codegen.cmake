@@ -278,13 +278,15 @@ foreach(_perm IN LISTS _all_perms)
 #include <cache_engine/indexes/linear_probe_hashset.hpp>
 #include <cache_engine/indexes/radix_index.hpp>
 
-// V39.B (2026-05-24) - SIMD-Achse echt via Intrinsics
+// V39.B + V41.A3 (2026-05-25) - SIMD-Achse echt via Intrinsics (5 Variants)
 #if defined(COMDARE_PERM_SIMD_IS_SSE4) || defined(COMDARE_PERM_SIMD_IS_AVX2) || defined(COMDARE_PERM_SIMD_IS_AVX512)
   #if defined(__GNUC__) || defined(__clang__)
     #include <x86intrin.h>
   #elif defined(_MSC_VER)
     #include <intrin.h>
   #endif
+#elif defined(COMDARE_PERM_SIMD_IS_NEON)
+  #include <arm_neon.h>
 #endif
 
 // V40.A/B + V41.A2 (2026-05-25) - Allokator-Achse echt (7 Variants)
@@ -371,8 +373,17 @@ extern \"C\" COMDARE_PERM_EXPORT const char* perm_${_perm_id}_axes() {
 namespace v39_hash {
     constexpr std::uint64_t kPrime = 11400714819323198485ULL;
 
-#if defined(COMDARE_PERM_SIMD_IS_AVX2)
-    // AVX2: hashe Block von 4 keys auf einmal
+#if defined(COMDARE_PERM_SIMD_IS_AVX512)
+    // AVX-512: 8 keys parallel, extract lane 0
+    static inline std::uint64_t mix(std::uint64_t k) {
+        __m512i v = _mm512_set1_epi64(static_cast<long long>(k));
+        __m512i p = _mm512_set1_epi64(static_cast<long long>(kPrime));
+        __m512i x = _mm512_xor_si512(v, p);
+        __m256i lo = _mm512_castsi512_si256(x);
+        return static_cast<std::uint64_t>(_mm256_extract_epi64(lo, 0));
+    }
+#elif defined(COMDARE_PERM_SIMD_IS_AVX2)
+    // AVX2: 4 keys parallel
     static inline std::uint64_t mix(std::uint64_t k) {
         __m256i v = _mm256_set1_epi64x(static_cast<long long>(k));
         __m256i p = _mm256_set1_epi64x(static_cast<long long>(kPrime));
@@ -380,9 +391,16 @@ namespace v39_hash {
         return static_cast<std::uint64_t>(_mm256_extract_epi64(x, 0));
     }
 #elif defined(COMDARE_PERM_SIMD_IS_SSE4)
-    // SSE4.2: nutze _mm_crc32_u64
+    // SSE4.2: hardware CRC32
     static inline std::uint64_t mix(std::uint64_t k) {
         return _mm_crc32_u64(kPrime, k);
+    }
+#elif defined(COMDARE_PERM_SIMD_IS_NEON)
+    // ARM NEON: 2 keys parallel, vector-xor
+    static inline std::uint64_t mix(std::uint64_t k) {
+        uint64x2_t v = vdupq_n_u64(k);
+        uint64x2_t p = vdupq_n_u64(kPrime);
+        return vgetq_lane_u64(veorq_u64(v, p), 0);
     }
 #else
     // scalar fallback: Fibonacci-Hash
