@@ -56,6 +56,8 @@ public:
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "std::pmr::memory_resource (Halpern N3916 C++17)";
     }
+    // V41.F.6.1.G CacheEngineBuilder CLI-Flag-Suffix (Doku §15.10)
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "PMR"; }
 
     PmrResourceAllocator() noexcept
         : resource_(std::pmr::new_delete_resource()) {}

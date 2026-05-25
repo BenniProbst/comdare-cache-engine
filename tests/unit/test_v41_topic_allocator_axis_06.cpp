@@ -40,6 +40,9 @@
 #include <topics/allocator/topic_allocator_config_set.hpp>
 #include <permutations/permutation_engine.hpp>
 
+// V41.F.6.1.G CacheEngineBuilder CLI-Flag-Builder
+#include <permutations/permutation_build_command.hpp>
+
 #include <boost/mp11.hpp>
 
 #include <gtest/gtest.h>
@@ -721,4 +724,86 @@ TEST(V41_TopicAllocatorAxis06_Stufe5, HybridStaticAndDynamicCombo) {
     // Heute alle Vendor ohne iterable_aspect_t -> aspect_count == 1 pro Vendor
     // -> total == Engine::count()
     EXPECT_EQ(static_cast<std::size_t>(total_measurements), Engine::count());
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// V41.F.6.1.G CacheEngineBuilder CLI-Flag-Builder (Doku §15.10)
+// ───────────────────────────────────────────────────────────────────────────
+
+// (a) Wrapper flag_suffix() ist Pflicht-Konvention
+TEST(V41_TopicAllocatorAxis06_Stufe6, WrapperHasFlagSuffix) {
+    static_assert(axis_06::StdMalloc::flag_suffix()             == "STD");
+    static_assert(axis_06::MimallocAllocator::flag_suffix()     == "MIMALLOC");
+    static_assert(axis_06::SnmallocAllocator::flag_suffix()     == "SNMALLOC");
+    static_assert(axis_06::PmrResourceAllocator::flag_suffix()  == "PMR");
+    SUCCEED();
+}
+
+// (b) hash_to_hex liefert 16-Zeichen Hex
+TEST(V41_TopicAllocatorAxis06_Stufe6, HashToHexFormat) {
+    std::string s = perms::hash_to_hex(0x0123456789abcdefULL);
+    EXPECT_EQ(s, "0123456789abcdef");
+    EXPECT_EQ(s.size(), 16u);
+
+    std::string z = perms::hash_to_hex(0ULL);
+    EXPECT_EQ(z, "0000000000000000");
+}
+
+// (c) build_cmake_invocation_prefix mit deterministischem Hash
+TEST(V41_TopicAllocatorAxis06_Stufe6, CmakeInvocationPrefix) {
+    using P = perms::PermTuple<axis_06::StdMalloc>;
+    std::string cmd = perms::build_cmake_invocation_prefix<P>("/src", "/out");
+    EXPECT_TRUE(cmd.starts_with("cmake -B /out/perm_"));
+    EXPECT_TRUE(cmd.ends_with(" -S /src"));
+    // Hash-Anteil ist 16 Hex-Zeichen lang
+    std::string hash_part = perms::hash_to_hex(P::hash());
+    EXPECT_NE(cmd.find(hash_part), std::string::npos);
+}
+
+// (d) emit_axis_flags: StdMalloc selected = STD=ON, andere=OFF
+TEST(V41_TopicAllocatorAxis06_Stufe6, EmitAxisFlagsStdSelected) {
+    std::string flags = perms::emit_axis_flags<axis_06::StdMalloc, axis_06::AllVendors>(
+        "COMDARE_AXIS_06_ENABLE");
+    EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_STD=ON"),       std::string::npos);
+    EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_MIMALLOC=OFF"), std::string::npos);
+    EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_SNMALLOC=OFF"), std::string::npos);
+    EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_PMR=OFF"),      std::string::npos);
+    // STD nicht =OFF
+    EXPECT_EQ(flags.find(" -DCOMDARE_AXIS_06_ENABLE_STD=OFF"),      std::string::npos);
+}
+
+// (e) emit_axis_flags: Mimalloc selected
+TEST(V41_TopicAllocatorAxis06_Stufe6, EmitAxisFlagsMimallocSelected) {
+    std::string flags = perms::emit_axis_flags<axis_06::MimallocAllocator, axis_06::AllVendors>(
+        "COMDARE_AXIS_06_ENABLE");
+    EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_MIMALLOC=ON"),  std::string::npos);
+    EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_STD=OFF"),      std::string::npos);
+}
+
+// (f) build_cmake_command_for_single_topic: voller Befehl
+TEST(V41_TopicAllocatorAxis06_Stufe6, FullCmakeCommandSingleTopic) {
+    using P_Std = perms::PermTuple<axis_06::StdMalloc>;
+    std::string cmd = perms::build_cmake_command_for_single_topic<P_Std, axis_06::AllVendors>(
+        "/src", "/out", "COMDARE_AXIS_06_ENABLE");
+
+    EXPECT_TRUE(cmd.starts_with("cmake -B /out/perm_"));
+    EXPECT_NE(cmd.find(" -S /src"), std::string::npos);
+    EXPECT_NE(cmd.find(" -DCOMDARE_AXIS_06_ENABLE_STD=ON"), std::string::npos);
+    EXPECT_NE(cmd.find(" -DCOMDARE_AXIS_06_ENABLE_PMR=OFF"), std::string::npos);
+}
+
+// (g) Demo: PermutationEngine + CLI-Builder zusammen — alle CMake-Commands pro Permutation
+TEST(V41_TopicAllocatorAxis06_Stufe6, EngineAndCliBuilderCombo) {
+    using Engine = perms::PermutationEngine<alloc::TopicConfigSet>;
+    std::vector<std::string> commands;
+    Engine::for_each_permutation([&commands]<class P>(){
+        commands.push_back(
+            perms::build_cmake_command_for_single_topic<P, axis_06::AllVendors>(
+                "/src", "/out", "COMDARE_AXIS_06_ENABLE"));
+    });
+    EXPECT_EQ(commands.size(), Engine::count());
+    // Jeder Command beginnt mit cmake -B
+    for (auto const& c : commands) {
+        EXPECT_TRUE(c.starts_with("cmake -B "));
+    }
 }

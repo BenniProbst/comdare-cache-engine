@@ -73,6 +73,9 @@ public:
 
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "std_malloc"; }
     [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "Standard libc malloc (ptmalloc2 / glibc)"; }
+    // V41.F.6.1.G CacheEngineBuilder CLI-Flag-Suffix (Doku §15.10):
+    // -DCOMDARE_AXIS_06_ENABLE_<flag_suffix>=ON|OFF
+    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "STD"; }
 
     // ───────────────────────────────────────────────────────────────────────
     // AllocatorStrategy: Identitaet (operator==)
