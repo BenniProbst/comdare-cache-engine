@@ -29,6 +29,8 @@
 #include "axis_06_allocator_concept.hpp"
 #include "../axis_06_allocator_subaxes_aa1_to_aa7.hpp"
 
+// TODO V41.F.6.1 Stufe 3: #include <measurement/measurable_concept.hpp> wenn Observer-Concept aktiv
+
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -123,6 +125,10 @@ concept CacheEnginePermutationStrategy =
         { ac.statistics() } noexcept;
         { a.reset() }      noexcept;
     }
+    // TODO V41.F.6.1 Stufe 3 (Doku §15.3 + §15.8): Observer-Pattern Pflicht ergaenzen
+    // (typename snapshot_t + typename observer_t + observer() const Methode) — heute
+    // noch nicht aktiv weil Wrapper-Klassen das noch nicht implementieren. Naechste
+    // Iteration: Wrapper updaten + dann Concept-Constraints aktivieren.
 #endif
     ;
 
