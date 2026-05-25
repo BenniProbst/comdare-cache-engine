@@ -1,0 +1,41 @@
+#pragma once
+// V41.F.6.1.C Stufe 1 AUTO-GENERATED (DO NOT EDIT — CMake configure_file)
+//
+// @topic allocator
+// @achse 6
+// @stand V41.F.6.1.C Stufe 1
+//
+// **Auto-generiert** aus axis_06_allocator_flags.hpp.in via CMake configure_file.
+// **Quelle:** CMakeLists.txt Optionen `COMDARE_AXIS_06_ENABLE_<VENDOR>`.
+//
+// Liefert typsichere `inline constexpr bool <vendor>_enabled` pro Vendor (NICHT
+// als Praeprozessor-Macro, sondern als C++-Konstante — kein `#ifdef` im User-Code).
+//
+// Vendor-Wrapper nutzen die Konstanten via `if constexpr (flags::<vendor>_enabled)`
+// statt `#ifdef COMDARE_HAVE_<VENDOR>`. Der Compiler verwirft nicht-genommene
+// Zweige automatisch (Discarded Statement gemaess C++17 [stmt.if]).
+
+#include <type_traits>
+
+namespace comdare::cache_engine::allocator::axis_06_allocator::flags {
+
+// `#cmakedefine01` erzeugt entweder 0 oder 1 — NIEMALS undefined (im Gegensatz
+// zu `#cmakedefine`, das undefined laesst und damit `inline constexpr bool x = ;`
+// bricht).
+#cmakedefine01 COMDARE_AXIS_06_ENABLE_STD
+#cmakedefine01 COMDARE_AXIS_06_ENABLE_MIMALLOC
+#cmakedefine01 COMDARE_AXIS_06_ENABLE_SNMALLOC
+#cmakedefine01 COMDARE_AXIS_06_ENABLE_PMR
+
+inline constexpr bool std_enabled       = COMDARE_AXIS_06_ENABLE_STD;
+inline constexpr bool mimalloc_enabled  = COMDARE_AXIS_06_ENABLE_MIMALLOC;
+inline constexpr bool snmalloc_enabled  = COMDARE_AXIS_06_ENABLE_SNMALLOC;
+inline constexpr bool pmr_enabled       = COMDARE_AXIS_06_ENABLE_PMR;
+
+// Aufraeumen Macros (User-Code soll nur constexpr-bool verwenden)
+#undef COMDARE_AXIS_06_ENABLE_STD
+#undef COMDARE_AXIS_06_ENABLE_MIMALLOC
+#undef COMDARE_AXIS_06_ENABLE_SNMALLOC
+#undef COMDARE_AXIS_06_ENABLE_PMR
+
+}  // namespace comdare::cache_engine::allocator::axis_06_allocator::flags

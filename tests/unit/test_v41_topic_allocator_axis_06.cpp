@@ -32,6 +32,12 @@
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_snmalloc.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_pmr_resource.hpp>
 
+// V41.F.6.1.C Stufe 1: Registry-Smoke-Test (W6 zentralisierte Topic-Registrierung)
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_registry.hpp>
+
+#include <boost/mp11.hpp>
+
 #include <gtest/gtest.h>
 
 #include <cstddef>
@@ -344,4 +350,46 @@ TEST(V41_TopicAllocatorAxis06, PmrResourceWithCustomResource) {
     ASSERT_NE(mem, nullptr);
     // monotonic_buffer_resource: dealloc ist no-op, kein crash
     p.deallocate(mem, 128, 16);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (9) F.6.1.C Stufe 1: Registry-Smoke-Test (W6 zentralisierte Topic-Registrierung)
+// ─────────────────────────────────────────────────────────────────────────────
+
+namespace flags = comdare::cache_engine::allocator::axis_06_allocator::flags;
+
+TEST(V41_TopicAllocatorAxis06, FlagsHeaderIsTypedConstexpr) {
+    // axis_06_allocator_flags.hpp via configure_file generiert
+    static_assert(std::is_same_v<decltype(flags::std_enabled),       const bool>);
+    static_assert(std::is_same_v<decltype(flags::mimalloc_enabled),  const bool>);
+    static_assert(std::is_same_v<decltype(flags::snmalloc_enabled),  const bool>);
+    static_assert(std::is_same_v<decltype(flags::pmr_enabled),       const bool>);
+    SUCCEED();
+}
+
+TEST(V41_TopicAllocatorAxis06, RegistryAllVendorsCount) {
+    using AllV = axis_06::AllVendors;
+    static_assert(boost::mp11::mp_size<AllV>::value == 4,
+        "Stufe 1: 4 Vendor in AllVendors (Std + Mi + Sn + PMR). Batch 2-8 ergaenzt spaeter.");
+    SUCCEED();
+}
+
+TEST(V41_TopicAllocatorAxis06, RegistryEnabledVendorsNonEmpty) {
+    using EnabledV = axis_06::EnabledVendors;
+    // Stufe 1: is_enabled<T> = mp_bool<true> -> EnabledVendors = AllVendors
+    static_assert(boost::mp11::mp_size<EnabledV>::value > 0,
+        "Mindestens 1 Vendor muss enabled sein");
+    SUCCEED();
+}
+
+TEST(V41_TopicAllocatorAxis06, RegistryMpForEachIteration) {
+    // Compile-Time Iteration ueber EnabledVendors via mp_for_each
+    int counted = 0;
+    boost::mp11::mp_for_each<axis_06::EnabledVendors>([&counted]<class V>(V) {
+        // pro Vendor: pruefen dass es das AllocatorStrategy-Concept erfuellt
+        static_assert(axis_06_cpts::AllocatorStrategy<V>,
+            "Jeder Vendor in EnabledVendors muss AllocatorStrategy erfuellen");
+        ++counted;
+    });
+    EXPECT_EQ(counted, 4);  // Stufe 1: 4 Vendor
 }
