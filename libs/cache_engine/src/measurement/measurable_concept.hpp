@@ -1,46 +1,122 @@
 #pragma once
-// V41.F.6.1.A Allgemeines Mess-Konzept (Topic-uebergreifend) (2026-05-25)
+// V41.F.6.1.A Mess-Concept mit Observer-Pattern (Topic-uebergreifend, 2026-05-25 revidiert)
 //
-// @stand V41.F.6.1.A Skelett
+// @stand V41.F.6.1.A
 //
 // **Architektur-Ebene (User-Direktive 2026-05-25):**
-//   src/measurement/ = allgemeines Mess-Konzept (Topic-uebergreifend)
+//   src/measurement/ = allgemeines Mess-Concept (Topic-uebergreifend)
 //
-//   Jede Achse in jedem Topic (z.B. allocator/axis_06) spezialisiert dieses
-//   Concept fuer ihre eigene Statistik-Struktur (z.B. AllocationStatistics).
-//   Spezialisierung lebt in der Achse selbst, NICHT hier.
+// User-Direktive:
+//   "Die Statistik sollte jeweils Observer bereitstellen koennen, um extern ganz
+//    einfach verschiedene Achsen auswerten zu koennen. Dabei verwenden die Observer
+//    Instanziierungen das Template Pattern der jeweiligen Achse, weil schliesslich
+//    jede Achse denselben Typ an statistischer Auswertung verwendet."
 //
 // **CMake-Flag COMDARE_CE_ENABLE_STATISTICS:**
-//   ON  (Default): MeasurableComponent ist Pflicht — alle Topic+Achsen verlangen
-//                  statistics() + reset() in ihren CacheEnginePermutationStrategy-Concepts.
-//   OFF: MeasurableComponent ist trivial erfuellt — Topic+Achsen-Implementierungen
-//        #ifdef'n statistics()+reset() komplett aus dem Binary (kein Overhead).
+//   ON  (Default): MeasurableComponent ist Pflicht — alle Topic+Achsen-Wrapper
+//                  bieten record()/snapshot()/reset()/observer().
+//   OFF: MeasurableComponent ist trivial erfuellt — Topic+Achsen-Wrapper #ifdef'n
+//        Mess-API komplett raus (kein Overhead).
 //
-// **NOCH SKELETT (V41.F.6.1.A Pilot):** dieses File ist Architektur-Marker.
-// Konkrete Mess-Komponenten (TestDataSetAccumulationEngine, BenchmarkRunner mit
-// 2 Custom-Allocations, sparse Byte-State-Trace, Conversion-Routinen) folgen in
-// F.6.1.X-Iterationen (vgl. UML REV7 §7+§8 + docs/sessions/.../session-end §9.5).
+// **Verwendung extern:**
+//   for (auto* topic : topics) {
+//       auto obs = topic->observer();    // Template ueber snapshot_t
+//       obs.on_event([](auto const& snap) { /* auswerten */ });
+//   }
 
 #include <concepts>
+#include <functional>
+#include <type_traits>
 
-namespace comdare::cache_engine::measurement::concepts {
+namespace comdare::cache_engine::measurement {
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+
+// ───────────────────────────────────────────────────────────────────────────
+// (1) MeasurableObserver - Template Pattern fuer Achs-spezifische Auswertung
+// ───────────────────────────────────────────────────────────────────────────
 
 /**
- * @brief MeasurableComponent - Topic-uebergreifendes Mess-Concept (Skelett)
+ * @brief MeasurableObserver<Snapshot> - Template Pattern fuer externes Auslesen
  *
- * **Verwendung in Topic-Achsen:** jede Achse spezialisiert dieses Concept mit ihrer
- * konkreten Statistik-Struktur (z.B. AllocationStatistics fuer allocator,
- * TraversalStatistics fuer traversal, etc.).
+ * Jede Achse instanziiert dieses Template mit ihrer konkreten Snapshot-Struktur
+ * (z.B. AllocationStatistics fuer allocator-Topic, BufferStats fuer queuing, ...).
  *
- * TODO V41.F.6.1.X: konkrete Pflicht-API ergaenzen wenn 2. Topic (queuing, traversal, ...)
- * gleichartige Mess-API benoetigt — dann gemeinsame Anforderungen extrahieren.
+ * Observer abonniert Snapshot-Updates via on_event-Callback. Cache-engine-Builder
+ * kann mehrere Observer pro Achse registrieren (z.B. einer fuer Welch-Test, einer
+ * fuer LaTeX-Report, einer fuer Live-Telemetry-Dashboard).
+ */
+template <typename Snapshot>
+class MeasurableObserver {
+public:
+    using snapshot_t = Snapshot;
+    using callback_t = std::function<void(snapshot_t const&)>;
+
+    void on_event(callback_t cb) { callback_ = std::move(cb); }
+
+    void notify(snapshot_t const& snap) const {
+        if (callback_) callback_(snap);
+    }
+
+    [[nodiscard]] bool has_callback() const noexcept {
+        return static_cast<bool>(callback_);
+    }
+
+private:
+    callback_t callback_{};
+};
+
+namespace concepts {
+
+// ───────────────────────────────────────────────────────────────────────────
+// (2) MeasurableComponent - Pflicht-Concept fuer alle messbaren Topic-Achsen
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * @brief MeasurableComponent - Topic-uebergreifendes Mess-Concept
  *
- * Heute (Pilot): Marker-Concept ohne API-Vertrag. Spezialisierung pro Achse:
- *   topics/<topic>/<axis_NN>/concepts/<axis_NN>_<topic>_cache_engine_permutation_concept.hpp
+ * Pflicht-API (WENN COMDARE_CE_ENABLE_STATISTICS=ON):
+ *   - typename snapshot_t          Achs-spezifische Statistics-Struct
+ *                                   (z.B. AllocationStatistics fuer allocator-Topic)
+ *   - snapshot() const noexcept    liefert aktuellen Snapshot
+ *   - reset() noexcept             Statistik zwischen Mess-Permutationen reset
+ *   - observer()                   liefert MeasurableObserver<snapshot_t> Instanz
+ *                                   fuer externe Auswertung
+ *
+ * Beispiel-Klasse die das Concept erfuellt (StdMalloc in axis_06_allocator):
+ *   struct StdMalloc {
+ *       using snapshot_t = AllocationStatistics;
+ *       snapshot_t snapshot() const noexcept { return stats_; }
+ *       void reset() noexcept { stats_ = {}; }
+ *       MeasurableObserver<snapshot_t> observer() const { return observer_; }
+ *       // ... allocate/deallocate, jeder Aufruf -> observer_.notify(stats_)
+ *   };
  */
 template <typename T>
-concept MeasurableComponent =
-    // TODO: gemeinsame Mess-API extrahieren wenn Pattern auf 2. Topic angewandt wird
-    true;
+concept MeasurableComponent = requires(T t, T const& tc) {
+    typename T::snapshot_t;
+    { tc.snapshot() } noexcept -> std::same_as<typename T::snapshot_t>;
+    { t.reset() }    noexcept;
+    { tc.observer() } -> std::same_as<MeasurableObserver<typename T::snapshot_t>>;
+};
 
-}  // namespace comdare::cache_engine::measurement::concepts
+}  // namespace concepts
+
+#else  // COMDARE_CE_ENABLE_STATISTICS
+
+namespace concepts {
+
+/**
+ * @brief MeasurableComponent (NULL-Variante bei STATISTICS=OFF)
+ *
+ * Trivial true — Production-Build entfernt Mess-Overhead komplett aus Binary.
+ * Vendor-Wrapper #ifdef'n snapshot/reset/observer-Methoden weg.
+ */
+template <typename T>
+concept MeasurableComponent = true;
+
+}  // namespace concepts
+
+#endif  // COMDARE_CE_ENABLE_STATISTICS
+
+}  // namespace comdare::cache_engine::measurement

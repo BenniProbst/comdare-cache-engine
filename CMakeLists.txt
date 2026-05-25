@@ -91,6 +91,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(platform_detection)
 include(compiler_flags)
 include(isa_features)
+include(boost_mp11_setup)   # V41.F.6.1.A: Boost.MP11 fuer Permutations-Metaprog.
 if(COMDARE_BUILD_TESTS)
   include(gtest_setup)
 endif()
