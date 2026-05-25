@@ -46,10 +46,12 @@ if(COMDARE_EXPERIMENT_MODE)
 endif()
 
 # REV 7.6 V8.2 — Legacy-Reimpl-Migration (User-Direktive: PRT-ART gehoert in prt-art)
-# Default OFF: prt_art/legacy_reimpl/ wird nicht mehr gebaut.
-# Folge-Phase: kompletter Move nach prt-art Repo + Loeschung in cache-engine.
+# V41.struct (2026-05-25): Verzeichnis prt_art/ KOMPLETT geloescht (war leeres
+# Skelett, blieb von V23.E-Migration uebrig). Verhindert zirkulare Wahrnehmung
+# (comdare-prt-art ist eigenstaendiges Wurzelmodul). Option bleibt fuer
+# Cluster-Kompatibilitaet erhalten, hat aber keinen Code mehr.
 option(COMDARE_BUILD_LEGACY_REIMPL
-    "[DEPRECATED] Build prt_art/legacy_reimpl/ (Migration zu prt-art Repo, REV 7.6 V8.2)"
+    "[REMOVED] PRT-ART legacy_reimpl ist komplett in comdare-prt-art migriert"
     OFF)
 
 # REV 7.6 V13.4 — Stage-1/Stage-2 CMake-Integration
@@ -100,6 +102,12 @@ include(cmake/check_submodules.cmake OPTIONAL)
 if(COMDARE_BUILD_PERMUTATIONS)
   include(cmake/permutations.cmake OPTIONAL)
   # generiert build/generated/permutations.cmake (siehe tools/permutation_codegen/)
+  # V40.A FIX: ext/ MUSS VOR der Permutations-Inklusion gebaut werden, weil
+  # die Permutationen comdare::vendor_mimalloc/jemalloc Targets benoetigen.
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ext/CMakeLists.txt")
+    add_subdirectory(ext)
+    set(_comdare_ext_added TRUE)
+  endif()
   if(EXISTS "${CMAKE_BINARY_DIR}/generated/permutations.cmake")
     include("${CMAKE_BINARY_DIR}/generated/permutations.cmake")
   endif()
@@ -119,7 +127,9 @@ add_subdirectory(libs/cache_engine)       # Domaene 2 (nutzt 1, 3, 4) + 22 Build
 #   (Memory-Direktive: PRT_ART konsumiert CacheEngine, nicht umgekehrt.
 #    Echter Code im comdare-prt-art Repo.)
 add_subdirectory(adapters)           # Habich-Direktive Adapter
-add_subdirectory(ext)                # Originalcode (mit Original-Compilern)
+if(NOT _comdare_ext_added)
+    add_subdirectory(ext)            # Originalcode (mit Original-Compilern)
+endif()
 # V23.F (2026-05-14): test_data_accumulation, benchmark_suite, workload_generator
 # migriert nach libs/test_infra/
 # V30.D.1 (2026-05-14): experiment/ -> libs/execution_engine/ (kein domain/-Zwischenebene)
