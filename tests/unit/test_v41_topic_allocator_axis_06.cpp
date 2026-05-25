@@ -28,6 +28,9 @@
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_subaxes_aa1_to_aa7.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_strategy_base.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_std_malloc.hpp>
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_mimalloc.hpp>
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_snmalloc.hpp>
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_pmr_resource.hpp>
 
 #include <gtest/gtest.h>
 
@@ -222,4 +225,123 @@ TEST(V41_TopicAllocatorAxis06, CRTPDelegateAllocateDeallocate) {
     EXPECT_EQ(stats.allocation_count,   1u);
     EXPECT_EQ(stats.deallocation_count, 1u);
 #endif
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (6) F.6.1.C Batch 1: Mimalloc-Wrapper (A04 Free-List-Sharding)
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(V41_TopicAllocatorAxis06, MimallocConceptConformance) {
+    static_assert(topic_alloc_cpts::AllocatorComponent<axis_06::MimallocAllocator>);
+    static_assert(axis_06_cpts::AllocatorStrategy<axis_06::MimallocAllocator>);
+    static_assert(axis_06_cpts::CacheEnginePermutationStrategy<axis_06::MimallocAllocator>);
+    static_assert(axis_06_cpts::ZeroingStrategy<axis_06::MimallocAllocator>);
+    static_assert(axis_06_cpts::ReallocatingStrategy<axis_06::MimallocAllocator>);
+    static_assert(axis_06_cpts::IntrospectableStrategy<axis_06::MimallocAllocator>);
+    static_assert(axis_06_cpts::ReclaimableStrategy<axis_06::MimallocAllocator>);
+    SUCCEED();
+}
+
+TEST(V41_TopicAllocatorAxis06, MimallocCompileTimeProperties) {
+    using M = axis_06::MimallocAllocator;
+    static_assert(std::same_as<M::axis_tag, subaxes::freelist_topology_tag>);
+    static_assert(M::family_id::value == 4);
+    static_assert(M::is_thread_safe());
+    static_assert(M::supports_pmr());
+    EXPECT_FALSE(M::name().empty());
+    EXPECT_FALSE(M::family_name().empty());
+}
+
+TEST(V41_TopicAllocatorAxis06, MimallocAllocateRoundtrip) {
+    axis_06::MimallocAllocator m{};
+    void* p = m.allocate(128, 16);
+    ASSERT_NE(p, nullptr);
+    m.deallocate(p, 128, 16);
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    EXPECT_EQ(m.statistics().allocation_count, 1u);
+    EXPECT_EQ(m.statistics().deallocation_count, 1u);
+#endif
+}
+
+TEST(V41_TopicAllocatorAxis06, MimallocCollectIsCallable) {
+    axis_06::MimallocAllocator m{};
+    void* p = m.allocate(64, 8);
+    m.deallocate(p, 64, 8);
+    m.collect(true);   // Reclaim-API darf nicht crashen
+    SUCCEED();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (7) F.6.1.C Batch 1: Snmalloc-Wrapper (A07 Message-Passing)
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(V41_TopicAllocatorAxis06, SnmallocConceptConformance) {
+    static_assert(topic_alloc_cpts::AllocatorComponent<axis_06::SnmallocAllocator>);
+    static_assert(axis_06_cpts::AllocatorStrategy<axis_06::SnmallocAllocator>);
+    static_assert(axis_06_cpts::CacheEnginePermutationStrategy<axis_06::SnmallocAllocator>);
+    static_assert(axis_06_cpts::ZeroingStrategy<axis_06::SnmallocAllocator>);
+    static_assert(axis_06_cpts::ReallocatingStrategy<axis_06::SnmallocAllocator>);
+    static_assert(axis_06_cpts::IntrospectableStrategy<axis_06::SnmallocAllocator>);
+    SUCCEED();
+}
+
+TEST(V41_TopicAllocatorAxis06, SnmallocCompileTimeProperties) {
+    using S = axis_06::SnmallocAllocator;
+    static_assert(std::same_as<S::axis_tag, subaxes::thread_locality_tag>);
+    static_assert(S::family_id::value == 7);
+    static_assert(S::is_thread_safe());
+}
+
+TEST(V41_TopicAllocatorAxis06, SnmallocAllocateRoundtrip) {
+    axis_06::SnmallocAllocator s{};
+    void* p = s.allocate(256, 32);
+    ASSERT_NE(p, nullptr);
+    s.deallocate(p, 256, 32);
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    EXPECT_EQ(s.statistics().allocation_count, 1u);
+#endif
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (8) F.6.1.C Batch 1: PMR-Resource-Wrapper (A22 Halpern N3916)
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(V41_TopicAllocatorAxis06, PmrResourceConceptConformance) {
+    static_assert(topic_alloc_cpts::AllocatorComponent<axis_06::PmrResourceAllocator>);
+    static_assert(axis_06_cpts::AllocatorStrategy<axis_06::PmrResourceAllocator>);
+    static_assert(axis_06_cpts::CacheEnginePermutationStrategy<axis_06::PmrResourceAllocator>);
+    // KEIN ZeroingStrategy/ReallocatingStrategy fuer PMR
+    static_assert(!axis_06_cpts::ZeroingStrategy<axis_06::PmrResourceAllocator>);
+    SUCCEED();
+}
+
+TEST(V41_TopicAllocatorAxis06, PmrResourceCompileTimeProperties) {
+    using P = axis_06::PmrResourceAllocator;
+    static_assert(std::same_as<P::axis_tag, subaxes::allocation_policy_tag>);
+    static_assert(P::family_id::value == 22);
+    static_assert(P::supports_pmr());
+    EXPECT_EQ(std::string_view{P::name()}, "pmr_resource");
+}
+
+TEST(V41_TopicAllocatorAxis06, PmrResourceAllocateRoundtrip) {
+    axis_06::PmrResourceAllocator p{};   // default = std::pmr::new_delete_resource()
+    void* mem = p.allocate(64, 8);
+    ASSERT_NE(mem, nullptr);
+    p.deallocate(mem, 64, 8);
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    EXPECT_EQ(p.statistics().allocation_count, 1u);
+#endif
+}
+
+TEST(V41_TopicAllocatorAxis06, PmrResourceWithCustomResource) {
+    // Test mit explicit monotonic_buffer_resource (kein delete bis Reset)
+    std::byte buffer[1024];
+    std::pmr::monotonic_buffer_resource mono(buffer, sizeof(buffer));
+    axis_06::PmrResourceAllocator p{&mono};
+    EXPECT_EQ(p.underlying_resource(), &mono);
+
+    void* mem = p.allocate(128, 16);
+    ASSERT_NE(mem, nullptr);
+    // monotonic_buffer_resource: dealloc ist no-op, kein crash
+    p.deallocate(mem, 128, 16);
 }
