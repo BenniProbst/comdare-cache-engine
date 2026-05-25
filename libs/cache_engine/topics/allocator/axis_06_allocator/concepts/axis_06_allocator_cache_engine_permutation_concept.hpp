@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.A cache-engine-spezifisches Pflicht-Concept (2026-05-25)
+// V41.F.6.1.A cache-engine-spezifisches Pflicht-Concept (2026-05-25, revidiert nach User-Klarstellung)
 //
 // @topic allocator
 // @achse 6
@@ -14,12 +14,24 @@
 //   - CacheEnginePermutationStrategy = cache-engine-Permutationen-Identitaet
 //
 // Eine Klasse erfuellt typischerweise BEIDE Concepts.
+//
+// **CMake-Flag COMDARE_CE_ENABLE_STATISTICS (User-Direktive 2026-05-25):**
+//   - ON (Default): jede Achse MUSS statistics() + reset() bieten — Pflicht-API.
+//     Mess-Reihen + Welch-Test koennen dann auf konsistente Mess-Daten zugreifen.
+//   - OFF: Concept verlangt KEINE statistics()/reset(). Topic+Achsen-Implementierungen
+//     #ifdef'n diese Methoden komplett aus dem Binary. Production-Export OHNE
+//     Mess-Overhead — z.B. "Beste gefundene Permutation als externer Suchalgorithmus".
+//
+// **Semantik reset() (User-Klarstellung):**
+//   reset() ist die **Zuruecksetzbarkeit der Statistik** zwischen Mess-Permutationen.
+//   NICHT zu verwechseln mit Pool-/Arena-Reset (das ist ResettableStrategy).
 
 #include "axis_06_allocator_concept.hpp"
 #include "../axis_06_allocator_subaxes_aa1_to_aa7.hpp"
 
 #include <concepts>
 #include <cstddef>
+#include <cstdint>
 #include <string_view>
 
 namespace comdare::cache_engine::allocator::axis_06_allocator::concepts {
@@ -32,6 +44,10 @@ namespace comdare::cache_engine::allocator::axis_06_allocator::concepts {
  * Wird vom CacheEngineBuilder fuer Welch's t-Test ausgelesen. Format ist
  * cache-engine-spezifisch (Vendor-statistics sind NICHT standardisierbar —
  * siehe Web-Recherche W1).
+ *
+ * Achsen-spezifische Statistics (allocation/dealloc Counts + Fragmentation)
+ * — andere Achsen haben andere Statistics-Structs unter ihrem eigenen Topic.
+ * Allgemeines Mess-Konzept (Topic-uebergreifend) liegt in src/measurement/.
  */
 struct AllocationStatistics {
     std::uint64_t total_bytes_allocated  = 0;
@@ -44,29 +60,51 @@ struct AllocationStatistics {
 };
 
 /**
- * @brief CacheEnginePermutationStrategy - cache-engine-Pflicht-API (parallel zu AllocatorStrategy)
+ * @brief CacheEnginePermutationStrategy - cache-engine-Pflicht-API
  * @topic allocator
  * @achse 6
  *
- * **Klassifikation (Pflicht):**
+ * **Klassifikation (Pflicht IMMER):**
  *   - typename axis_tag       (AA1-AA7 Sub-Achsen-Tag)
  *   - typename family_id      (A01-A23 Compile-Time-ID)
  *
- * **Compile-Time-Eigenschaften (Pflicht):**
+ * **Compile-Time-Eigenschaften (Pflicht IMMER):**
  *   - static constexpr bool is_thread_safe()
  *   - static constexpr bool supports_pmr()
  *   - static constexpr std::size_t max_alignment()
  *
- * **Identifikation (Pflicht):**
+ * **Identifikation (Pflicht IMMER):**
  *   - static constexpr std::string_view name()
  *   - static constexpr std::string_view family_name()
  *
- * **Mess-API (Pflicht):**
+ * **Mess-API (Pflicht nur wenn COMDARE_CE_ENABLE_STATISTICS=ON):**
  *   - statistics()       -> AllocationStatistics noexcept
+ *   - reset()            -> void noexcept  (Statistik-Reset zwischen Mess-Permutationen)
  *
- * Beispiel-Klasse erfuellt typischerweise:
- *   static_assert(AllocatorStrategy<MyAllocator>);                  // Standard
- *   static_assert(CacheEnginePermutationStrategy<MyAllocator>);     // cache-engine-spec
+ * Beispiel-Klasse:
+ *
+ *   namespace comdare::cache_engine::allocator::axis_06_allocator {
+ *       struct StdMalloc : public AllocatorStrategyBase<StdMalloc> {
+ *           using topic_tag  = concepts::AllocatorTopicTag;
+ *           using axis_tag   = subaxes::size_class_schema_tag;     // AA2
+ *           using family_id  = std::integral_constant<int, 22>;    // A22
+ *
+ *           static constexpr bool is_thread_safe()         { return true; }
+ *           static constexpr bool supports_pmr()           { return true; }
+ *           static constexpr std::size_t max_alignment()   { return alignof(std::max_align_t); }
+ *           static constexpr std::string_view name()        { return "std_malloc"; }
+ *           static constexpr std::string_view family_name() { return "Standard libc malloc"; }
+ *
+ *           void* allocate(std::size_t bytes, std::size_t align);
+ *           void  deallocate(void* p, std::size_t bytes, std::size_t align) noexcept;
+ *           bool  operator==(StdMalloc const&) const noexcept { return true; }
+ *
+ *       #ifdef COMDARE_CE_ENABLE_STATISTICS
+ *           concepts::AllocationStatistics statistics() const noexcept;
+ *           void reset() noexcept;   // Statistik zuruecksetzen
+ *       #endif
+ *       };
+ *   }
  */
 template <typename A>
 concept CacheEnginePermutationStrategy =
@@ -80,8 +118,12 @@ concept CacheEnginePermutationStrategy =
         { A::name()           } -> std::convertible_to<std::string_view>;
         { A::family_name()    } -> std::convertible_to<std::string_view>;
     }
-    && requires(A const& a) {
-        { a.statistics() } noexcept;
-    };
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    && requires(A a, A const& ac) {
+        { ac.statistics() } noexcept;
+        { a.reset() }      noexcept;
+    }
+#endif
+    ;
 
 }  // namespace comdare::cache_engine::allocator::axis_06_allocator::concepts

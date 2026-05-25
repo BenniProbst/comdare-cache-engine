@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.A StdMalloc Concept-Beweis-Klasse (libc malloc Wrapper, 2026-05-25, W1-revidiert)
+// V41.F.6.1.A StdMalloc Concept-Beweis-Klasse (libc malloc Wrapper, 2026-05-25 revidiert)
 //
 // @topic allocator
 // @achse 6
@@ -11,12 +11,15 @@
 //   - AllocatorStrategy                  (Pflicht-Standard)
 //   - CacheEnginePermutationStrategy     (Pflicht cache-engine-spec)
 //   - ZeroingStrategy                    (calloc)
-//   - ReallocatingStrategy               (realloc)
+//   - ReallocatingStrategy               (realloc via portable Pattern)
 //
-// NICHT erfuellt: ResettableStrategy (libc malloc kennt kein globales reset),
-//                 IntrospectableStrategy (kein portables usable_size — glibc spezifisch),
-//                 OverAllocatingStrategy (kein std::allocator-internal),
-//                 ReclaimableStrategy (kein malloc_trim portable).
+// **CMake-Flag COMDARE_CE_ENABLE_STATISTICS:**
+//   ON  (Default): statistics() + reset() + stats_-Member + stats-Updates aktiv
+//   OFF: alles oben #ifdef'd aus dem Binary - kein Mess-Overhead in Production
+//
+// **reset() Semantik (User-Klarstellung):** reset() ist die Statistik-Reset-Funktion
+// zwischen Mess-Permutationen. NICHT zu verwechseln mit Pool-/Arena-Reset
+// (das ist ResettableStrategy Sub-Concept).
 
 #include "axis_06_allocator_strategy_base.hpp"
 #include "axis_06_allocator_subaxes_aa1_to_aa7.hpp"
@@ -41,12 +44,6 @@ namespace comdare::cache_engine::allocator::axis_06_allocator {
  * @achse 6
  * @subaxis AA2 size_class_schema_tag
  * @family A22 (ptmalloc2 / glibc)
- *
- * Erfuellt:
- *   - AllocatorStrategy                  (allocate/deallocate/value_type/size_type/operator==)
- *   - CacheEnginePermutationStrategy     (axis_tag/family_id/name/.../statistics)
- *   - ZeroingStrategy                    (zero_allocate via calloc)
- *   - ReallocatingStrategy               (reallocate via realloc)
  */
 class StdMalloc : public AllocatorStrategyBase<StdMalloc> {
 public:
@@ -57,7 +54,7 @@ public:
     using size_type  = std::size_t;
 
     // ───────────────────────────────────────────────────────────────────────
-    // CacheEnginePermutationStrategy Pflicht: Compile-Time-Eigenschaften
+    // CacheEnginePermutationStrategy Pflicht (IMMER): Identifikation
     // ───────────────────────────────────────────────────────────────────────
     using topic_tag  = ::comdare::cache_engine::allocator::concepts::AllocatorTopicTag;
     using axis_tag   = subaxes::size_class_schema_tag;
@@ -83,8 +80,9 @@ public:
     // ───────────────────────────────────────────────────────────────────────
 
     [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment) {
-        std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         void* p = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, bytes);
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         if (p != nullptr) {
             ++stats_.allocation_count;
             stats_.total_bytes_allocated += aligned_bytes;
@@ -92,34 +90,51 @@ public:
         } else {
             ++stats_.failure_count;
         }
+#endif
         return p;
     }
 
     void deallocate(void* p, std::size_t bytes, std::size_t alignment) noexcept {
         if (p == nullptr) return;
-        std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         ::comdare::cache_engine::allocator::portable_aligned_free(p);
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         ++stats_.deallocation_count;
         if (aligned_bytes <= stats_.total_bytes_in_use) {
             stats_.total_bytes_in_use -= aligned_bytes;
         } else {
             stats_.total_bytes_in_use = 0;
         }
+#else
+        (void)bytes;
+        (void)alignment;
+#endif
     }
 
     // ───────────────────────────────────────────────────────────────────────
-    // CacheEnginePermutationStrategy Pflicht: Mess-API
+    // CacheEnginePermutationStrategy Pflicht (NUR WENN STATISTICS=ON):
+    //   - statistics() liefert Mess-Daten
+    //   - reset() setzt Statistik zwischen Mess-Permutationen zurueck
+    //     (User-Klarstellung 2026-05-25: NICHT Pool-Reset, sondern Statistik-Reset)
     // ───────────────────────────────────────────────────────────────────────
+#ifdef COMDARE_CE_ENABLE_STATISTICS
     [[nodiscard]] concepts::AllocationStatistics statistics() const noexcept {
         return stats_;
     }
+
+    void reset() noexcept {
+        // Statistik-Reset (NICHT Allokationen freigeben!)
+        stats_ = {};
+    }
+#endif
 
     // ───────────────────────────────────────────────────────────────────────
     // Sub-Concept: ZeroingStrategy (calloc-style)
     // ───────────────────────────────────────────────────────────────────────
     [[nodiscard]] void* zero_allocate(std::size_t n, std::size_t size) {
-        std::size_t bytes = n * size;
         void* p = std::calloc(n, size);
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        std::size_t bytes = n * size;
         if (p != nullptr) {
             ++stats_.allocation_count;
             stats_.total_bytes_allocated += bytes;
@@ -127,52 +142,60 @@ public:
         } else {
             ++stats_.failure_count;
         }
+#endif
         return p;
     }
 
     // ───────────────────────────────────────────────────────────────────────
-    // Sub-Concept: ReallocatingStrategy
+    // Sub-Concept: ReallocatingStrategy (portable Pattern: alloc-new + memcpy + free-old)
     // ───────────────────────────────────────────────────────────────────────
     [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes,
                                    std::size_t alignment) {
-        // Portable Pfad: alloc-new + memcpy + free-old (POSIX-/MSVC-sicher,
-        // weil _aligned_malloc-Speicher nicht mit std::realloc kompatibel ist).
         void* np = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, new_bytes);
         if (np == nullptr) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
             ++stats_.failure_count;
+#endif
             return nullptr;
         }
         if (p != nullptr) {
             std::size_t copy_bytes = (old_bytes < new_bytes) ? old_bytes : new_bytes;
             std::memcpy(np, p, copy_bytes);
             ::comdare::cache_engine::allocator::portable_aligned_free(p);
+#ifdef COMDARE_CE_ENABLE_STATISTICS
             if (old_bytes <= stats_.total_bytes_in_use)
                 stats_.total_bytes_in_use -= old_bytes;
             ++stats_.deallocation_count;
+#endif
         }
+#ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_new = ((new_bytes + alignment - 1) / alignment) * alignment;
         stats_.total_bytes_in_use    += aligned_new;
         stats_.total_bytes_allocated += aligned_new;
         ++stats_.allocation_count;
+#endif
         return np;
     }
 
 private:
+#ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::AllocationStatistics stats_{};
+#endif
 };
 
 }  // namespace comdare::cache_engine::allocator::axis_06_allocator
 
 // ───────────────────────────────────────────────────────────────────────────
-// Compile-Time-Beweise: alle erfuellten Concepts
+// Compile-Time-Beweise (Concept-Konformanz):
 // ───────────────────────────────────────────────────────────────────────────
 namespace comdare::cache_engine::allocator::axis_06_allocator {
     static_assert(concepts::AllocatorStrategy<StdMalloc>,
         "Pflicht: StdMalloc muss AllocatorStrategy erfuellen (Standard-PMR-API)");
     static_assert(concepts::CacheEnginePermutationStrategy<StdMalloc>,
-        "Pflicht: StdMalloc muss CacheEnginePermutationStrategy erfuellen (cache-engine-spec)");
+        "Pflicht: StdMalloc muss CacheEnginePermutationStrategy erfuellen "
+        "(cache-engine-spec, mit statistics()+reset() wenn STATISTICS=ON)");
     static_assert(concepts::ZeroingStrategy<StdMalloc>,
         "Optional: StdMalloc bietet zero_allocate (calloc)");
     static_assert(concepts::ReallocatingStrategy<StdMalloc>,
-        "Optional: StdMalloc bietet reallocate (realloc)");
+        "Optional: StdMalloc bietet reallocate (portable Pattern)");
 }  // namespace
