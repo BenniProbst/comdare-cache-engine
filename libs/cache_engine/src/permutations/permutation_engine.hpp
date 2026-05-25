@@ -26,8 +26,10 @@
 #include <boost/mp11.hpp>
 
 #include <array>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -184,7 +186,75 @@ public:
 };
 
 // ───────────────────────────────────────────────────────────────────────────
-// (4) Full-Join Multi-Pruefling (V41.F.6 Stufe 3, vorbereitete API)
+// (4) F.6.1.E iterable_aspect_t — Hybride Laufzeit-Permutation pro Vendor
+// ───────────────────────────────────────────────────────────────────────────
+//
+// User-Direktive (Doku §15.5 + §14.8): Vendor-Klasse darf optional einen
+// "iterierbaren Aspekt" definieren — Runtime-Iteration INNERHALB einer Binary
+// (statt jede Threshold-Variante als eigene Binary zu kompilieren). Spart bei
+// concurrency-thresholds + buffer-sizes etc. zehntausende Binaries.
+//
+// Beispiel:
+//   struct LockFreeConcurrency {
+//       using iterable_aspect_t = std::size_t;
+//       static constexpr std::array values{16u, 64u, 256u, 1024u, 4096u};
+//       static constexpr std::span<std::size_t const> iterable_values() noexcept {
+//           return values;
+//       }
+//       void set_threshold(std::size_t t) noexcept { ... }
+//   };
+
+/// Concept: Vendor hat iterierbaren Aspekt (typename iterable_aspect_t + iterable_values())
+template <class V>
+concept HasIterableAspect = requires {
+    typename V::iterable_aspect_t;
+    { V::iterable_values() } -> std::convertible_to<
+        std::span<typename V::iterable_aspect_t const>>;
+};
+
+/**
+ * @brief for_each_aspect — Runtime-Iteration ueber iterable_values<V>()
+ *
+ * Visitor wird mit dem aspect_value als Argument aufgerufen pro Iteration.
+ * Wenn V keinen iterable_aspect_t hat: 1 Aufruf mit Default-Wert (Identitaet).
+ *
+ * Verwendung INNERHALB einer Permutation-Binary:
+ *   for_each_aspect<LockFreeConcurrency>([](auto threshold){
+ *       // Mess-Reihe mit diesem Threshold
+ *   });
+ */
+template <class V, class Visitor>
+constexpr void for_each_aspect(Visitor&& visitor) {
+    if constexpr (HasIterableAspect<V>) {
+        for (auto const& val : V::iterable_values()) {
+            std::forward<Visitor>(visitor)(val);
+        }
+    } else {
+        // Keine Iteration — Vendor hat keinen iterable_aspect_t
+        // Visitor wird genau einmal aufgerufen, optional ohne Argument
+        if constexpr (std::is_invocable_v<Visitor>) {
+            std::forward<Visitor>(visitor)();
+        }
+        // sonst: kein Aufruf (Visitor erwartet Argument, Vendor liefert keins)
+    }
+}
+
+/**
+ * @brief aspect_count<V>() — Anzahl der Aspekt-Iterationen pro Vendor
+ *
+ * 1 wenn kein iterable_aspect_t (Default), sonst V::iterable_values().size().
+ */
+template <class V>
+[[nodiscard]] constexpr std::size_t aspect_count() noexcept {
+    if constexpr (HasIterableAspect<V>) {
+        return V::iterable_values().size();
+    } else {
+        return 1u;
+    }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// (5) Full-Join Multi-Pruefling (V41.F.6 Stufe 3, vorbereitete API)
 // ───────────────────────────────────────────────────────────────────────────
 //
 // User-Direktive: Stufe 3 = "non-redundant join" — alle Default-Variants ∪

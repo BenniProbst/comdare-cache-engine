@@ -637,3 +637,88 @@ TEST(V41_TopicAllocatorAxis06_Stufe4, AxisFullJoinDeduplicatesVariants) {
         "AxisFullJoin muss Duplikate via mp_unique entfernen");
     SUCCEED();
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+// V41.F.6.1.E iterable_aspect_t — Hybride Laufzeit-Permutation (Doku §15.5)
+// ───────────────────────────────────────────────────────────────────────────
+
+// Mock-Vendor mit iterable_aspect_t (nur fuer Tests, kein Production-Code)
+struct ThresholdedAllocatorMock {
+    using iterable_aspect_t = std::size_t;
+    static constexpr std::array<std::size_t, 5> values{16u, 64u, 256u, 1024u, 4096u};
+    static constexpr std::span<std::size_t const> iterable_values() noexcept {
+        return std::span<std::size_t const>{values.data(), values.size()};
+    }
+    static constexpr std::string_view name() noexcept { return "threshold_mock"; }
+};
+
+// Mock-Vendor OHNE iterable_aspect_t (Standard-Pfad)
+struct PlainAllocatorMock {
+    static constexpr std::string_view name() noexcept { return "plain_mock"; }
+};
+
+// (a) HasIterableAspect Concept erkennt korrekt
+TEST(V41_TopicAllocatorAxis06_Stufe5, HasIterableAspectConceptDetection) {
+    static_assert(perms::HasIterableAspect<ThresholdedAllocatorMock>,
+        "ThresholdedAllocatorMock erfuellt HasIterableAspect");
+    static_assert(!perms::HasIterableAspect<PlainAllocatorMock>,
+        "PlainAllocatorMock erfuellt HasIterableAspect NICHT");
+    // Echte Wrapper haben heute KEIN iterable_aspect_t
+    static_assert(!perms::HasIterableAspect<axis_06::StdMalloc>,
+        "StdMalloc hat heute keinen iterable_aspect_t");
+    SUCCEED();
+}
+
+// (b) aspect_count<V>() liefert 1 fuer Plain, N fuer Iterable
+TEST(V41_TopicAllocatorAxis06_Stufe5, AspectCountForPlainAndIterable) {
+    static_assert(perms::aspect_count<PlainAllocatorMock>() == 1u,
+        "Plain Vendor hat aspect_count 1 (Default)");
+    static_assert(perms::aspect_count<ThresholdedAllocatorMock>() == 5u,
+        "Thresholded Vendor hat 5 iterable_values");
+    EXPECT_EQ(perms::aspect_count<axis_06::StdMalloc>(), 1u);
+}
+
+// (c) for_each_aspect ueber Iterable: 5 Iterationen mit unterschiedlichen Werten
+TEST(V41_TopicAllocatorAxis06_Stufe5, ForEachAspectIteratesAllValues) {
+    std::vector<std::size_t> seen;
+    perms::for_each_aspect<ThresholdedAllocatorMock>([&seen](std::size_t v){
+        seen.push_back(v);
+    });
+    ASSERT_EQ(seen.size(), 5u);
+    EXPECT_EQ(seen[0], 16u);
+    EXPECT_EQ(seen[1], 64u);
+    EXPECT_EQ(seen[2], 256u);
+    EXPECT_EQ(seen[3], 1024u);
+    EXPECT_EQ(seen[4], 4096u);
+}
+
+// (d) for_each_aspect ueber Plain: 1 Aufruf ohne Argument
+TEST(V41_TopicAllocatorAxis06_Stufe5, ForEachAspectPlainSingleCall) {
+    int call_count = 0;
+    perms::for_each_aspect<PlainAllocatorMock>([&call_count](){
+        ++call_count;
+    });
+    EXPECT_EQ(call_count, 1);
+}
+
+// (e) Hybride Mess-Reihe Demo: pro statische Permutation N dynamische Aspekt-Iterationen
+TEST(V41_TopicAllocatorAxis06_Stufe5, HybridStaticAndDynamicCombo) {
+    // Realer Use-Case: PermutationEngine iteriert statisch, innerhalb jeder
+    // Iteration wird for_each_aspect runtime-mal aufgerufen.
+    using Engine = perms::PermutationEngine<alloc::TopicConfigSet>;
+    int total_measurements = 0;
+
+    Engine::for_each_permutation([&total_measurements]<class P>(){
+        // P::variants ist mp_list aus Achs-Vendors. Hier nur 1 Achse (allocator),
+        // also wir nehmen den ersten Vendor und iterieren seinen Aspekt.
+        using FirstVendor = boost::mp11::mp_at_c<typename P::variants, 0>;
+        perms::for_each_aspect<FirstVendor>([&total_measurements](auto...){
+            ++total_measurements;
+        });
+    });
+
+    // Erwartete Total-Mess-Reihen = sum_over_permutations(aspect_count_of_each)
+    // Heute alle Vendor ohne iterable_aspect_t -> aspect_count == 1 pro Vendor
+    // -> total == Engine::count()
+    EXPECT_EQ(static_cast<std::size_t>(total_measurements), Engine::count());
+}
