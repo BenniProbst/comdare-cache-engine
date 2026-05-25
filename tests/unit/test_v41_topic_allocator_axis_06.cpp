@@ -36,6 +36,10 @@
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_registry.hpp>
 
+// V41.F.6.1.D Stufe 4: TopicConfigSet + PermutationEngine
+#include <topics/allocator/topic_allocator_config_set.hpp>
+#include <permutations/permutation_engine.hpp>
+
 #include <boost/mp11.hpp>
 
 #include <gtest/gtest.h>
@@ -532,3 +536,104 @@ TEST(V41_TopicAllocatorAxis06_Stufe3, ObserverNotifiesOnAllocate_OtherVendors) {
 }
 
 #endif  // COMDARE_CE_ENABLE_STATISTICS
+
+// ───────────────────────────────────────────────────────────────────────────
+// V41.F.6.1.D Stufe 4: PermutationEngine + TopicConfigSet (Doku §15.4 / §15.7)
+// ───────────────────────────────────────────────────────────────────────────
+
+namespace perms = comdare::cache_engine::permutations;
+namespace alloc = comdare::cache_engine::allocator;
+
+// (a) TopicConfigSet hat StaticAxisVariants = EnabledVendors
+TEST(V41_TopicAllocatorAxis06_Stufe4, TopicConfigSetHasEnabledVendors) {
+    using TCS = alloc::TopicConfigSet;
+    static_assert(std::is_same_v<typename TCS::StaticAxisVariants,
+                                  alloc::axis_06_allocator::EnabledVendors>,
+        "TopicConfigSet::StaticAxisVariants muss EnabledVendors sein");
+    SUCCEED();
+}
+
+// (b) PermutationEngine kompiliert mit EINEM TopicConfigSet
+TEST(V41_TopicAllocatorAxis06_Stufe4, PermutationEngineSingleTopic) {
+    using Engine = perms::PermutationEngine<alloc::TopicConfigSet>;
+    static_assert(Engine::arity == 1, "1 Topic-Achse");
+    constexpr auto cnt = Engine::count();
+    // count = Produkt aller EnabledVendors-Sizes. Build-pilot: std + pmr = 2 enabled.
+    EXPECT_GE(cnt, 1u);
+    EXPECT_EQ(cnt, boost::mp11::mp_size<alloc::axis_06_allocator::EnabledVendors>::value);
+}
+
+// (c) for_each_permutation iteriert genau count() Permutationen
+TEST(V41_TopicAllocatorAxis06_Stufe4, ForEachPermutationCount) {
+    using Engine = perms::PermutationEngine<alloc::TopicConfigSet>;
+    int seen = 0;
+    Engine::for_each_permutation([&seen]<class P>(){
+        ++seen;
+        // Jede Permutation hat hash() != 0 (FNV-1a startet mit Offset-Basis)
+        constexpr auto h = P::hash();
+        static_assert(h != 0, "FNV-1a Hash darf nicht 0 sein");
+        (void)h;
+    });
+    EXPECT_EQ(static_cast<std::size_t>(seen), Engine::count());
+}
+
+// (d) PermTuple<V>-Hash ist stabil + verschieden pro Vendor
+TEST(V41_TopicAllocatorAxis06_Stufe4, PermTupleHashIsStableAndDistinct) {
+    using P_Std  = perms::PermTuple<axis_06::StdMalloc>;
+    using P_Mi   = perms::PermTuple<axis_06::MimallocAllocator>;
+    using P_Pmr  = perms::PermTuple<axis_06::PmrResourceAllocator>;
+
+    constexpr auto h_std = P_Std::hash();
+    constexpr auto h_mi  = P_Mi::hash();
+    constexpr auto h_pmr = P_Pmr::hash();
+
+    EXPECT_NE(h_std, h_mi);
+    EXPECT_NE(h_std, h_pmr);
+    EXPECT_NE(h_mi,  h_pmr);
+
+    // Stabilitaet: 2x Aufruf liefert gleichen Hash
+    EXPECT_EQ(h_std, P_Std::hash());
+}
+
+// (e) F.6.1.H Pflicht-Constraint: mp_all_of has_non_empty_axis
+TEST(V41_TopicAllocatorAxis06_Stufe4, MinOneVendorPerAxisConstraintLive) {
+    using Engine = perms::PermutationEngine<alloc::TopicConfigSet>;
+    static_assert(Engine::non_empty_axis_count == Engine::arity,
+        "alle Achsen muessen min. 1 Vendor haben (sonst greift Static-Assert)");
+    EXPECT_EQ(Engine::non_empty_axis_count, Engine::arity);
+}
+
+// (f) for_each_filtered mit AlwaysTrue == identisch mit for_each_permutation
+TEST(V41_TopicAllocatorAxis06_Stufe4, FilterAlwaysTrueIsAllPermutations) {
+    using Engine = perms::PermutationEngine<alloc::TopicConfigSet>;
+    int filtered_count = 0;
+    Engine::for_each_filtered<perms::AlwaysTrue>([&filtered_count]<class>(){
+        ++filtered_count;
+    });
+    EXPECT_EQ(static_cast<std::size_t>(filtered_count), Engine::count());
+}
+
+// (g) for_each_filtered mit AlwaysFalse = 0 Aufrufe
+TEST(V41_TopicAllocatorAxis06_Stufe4, FilterAlwaysFalseIsZero) {
+    using Engine = perms::PermutationEngine<alloc::TopicConfigSet>;
+    int filtered_count = 0;
+    Engine::for_each_filtered<perms::AlwaysFalse>([&filtered_count]<class>(){
+        ++filtered_count;
+    });
+    EXPECT_EQ(filtered_count, 0);
+    static_assert(Engine::count_filtered<perms::AlwaysFalse>() == 0,
+        "Diagnose-Counter mit AlwaysFalse muss 0 sein");
+}
+
+// (h) AxisFullJoin (Stufe 3 Skelett): mp_append + mp_unique
+TEST(V41_TopicAllocatorAxis06_Stufe4, AxisFullJoinDeduplicatesVariants) {
+    namespace mp = boost::mp11;
+    // Beispiel: cache-engine Defaults + 1 Pruefling der StdMalloc auch nutzt
+    using DefaultList   = mp::mp_list<axis_06::StdMalloc, axis_06::MimallocAllocator>;
+    using PrueflingList = mp::mp_list<axis_06::StdMalloc, axis_06::SnmallocAllocator>;  // StdMalloc doppelt
+    using Joined = perms::AxisFullJoin<DefaultList, PrueflingList>;
+    // mp_unique entfernt das doppelte StdMalloc -> 3 statt 4
+    static_assert(mp::mp_size<Joined>::value == 3,
+        "AxisFullJoin muss Duplikate via mp_unique entfernen");
+    SUCCEED();
+}
