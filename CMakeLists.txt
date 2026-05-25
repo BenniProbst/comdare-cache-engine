@@ -47,6 +47,22 @@ if(COMDARE_CE_ENABLE_STATISTICS)
     add_compile_definitions(COMDARE_CE_ENABLE_STATISTICS=1)
 endif()
 
+# V41.F.6.1.C Stufe 1 (2026-05-25): Zentrale Vendor-Aktivierungs-Flags pro Topic-Achse
+# (W6-Pattern: konfigurierte Vendor in mp_list akkumuliert, Compiler verwirft Rest)
+# Default ON wenn Vendor-Source im ext/ vorhanden; spaeter dynamisch durch
+# CacheEngineBuilder-App ueberschreibbar (siehe §15.7)
+option(COMDARE_AXIS_06_ENABLE_STD       "Allocator A22 std::malloc/free (libc)"      ON)
+option(COMDARE_AXIS_06_ENABLE_MIMALLOC  "Allocator A04 Mimalloc Free-List-Sharding"  ON)
+option(COMDARE_AXIS_06_ENABLE_SNMALLOC  "Allocator A07 Snmalloc Message-Passing"     ON)
+option(COMDARE_AXIS_06_ENABLE_PMR       "Allocator A22 std::pmr::memory_resource"    ON)
+# ... weitere Vendor-Flags fuer Batch 2-8 (A01,A02,A03,A05,A06,A08-A21,A23) folgen
+
+# V41.F.6.1.C Stufe 1: configure_file fuer axis_06_flags.hpp Generierung
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp"
+    @ONLY)
+
 # REV 7.6 V8.4 — Experiment-Modus (User-Direktive 2026-05-13/14)
 # Aktiviert ResultAggregator + Mess-Hooks in der ExecutionEngine.
 # Default OFF: Production-Pfad (kein Mess-Overhead).

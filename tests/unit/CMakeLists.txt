@@ -231,8 +231,12 @@ target_include_directories(test_v41_indexes PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 
 # V41.F.6.1.A (2026-05-25): Topic+Achsen-Concept Pilot (Allocator Axis 6)
+# V41.F.6.1.C Stufe 1: + Boost::mp11 fuer axis_06_allocator_registry.hpp
+# V41.F.6.1.C Stufe 1: + generated/ Pfad fuer axis_06_allocator_flags.hpp
 comdare_add_test(test_v41_topic_allocator_axis_06
     SOURCES test_v41_topic_allocator_axis_06.cpp)
 target_include_directories(test_v41_topic_allocator_axis_06 PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_topic_allocator_axis_06 PRIVATE Boost::mp11)

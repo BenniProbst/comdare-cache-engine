@@ -1,0 +1,81 @@
+#pragma once
+// V41.F.6.1.C Stufe 1 Zentrale Topic-Registry fuer Allocator-Achse 6 (W6-Pattern)
+//
+// @topic allocator
+// @achse 6
+// @stand V41.F.6.1.C Stufe 1
+//
+// **Zweck:** Zentrale Stelle fuer Vendor-Klassen-Liste + Compile-Time-Filter via
+// Boost.MP11. Konsolidiert alle Vendor-Wrapper-Klassen in einer mp_list und
+// filtert sie ueber `static constexpr bool enabled` zur Compile-Time
+// (`mp_filter`). CacheEngineBuilder konsumiert `EnabledVendors` und generiert
+// Permutationen NUR fuer aktive Vendor.
+//
+// Compiler-Verhalten: nicht-referenzierte Wrapper-Klassen werden via
+// Dead-Code-Elimination aus dem Binary entfernt (`-ffunction-sections -fdata-sections
+// -Wl,--gc-sections` auf GCC/Clang, `/OPT:REF /OPT:ICF` auf MSVC).
+//
+// **HINWEIS:** Stufe 1 hat noch die Wrapper im alten Stand (#ifdef-basiert).
+// Die `enabled` Konstante in jedem Wrapper wird in Stufe 2 ergaenzt — bis dahin
+// ist `is_enabled<T>` ein Dummy-Predicate, das alle includierten Vendor true zurueck gibt.
+
+// V41.F.6.1.C Stufe 1: Flags-Header ist CMake-generiert in ${BUILD}/generated/...
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+
+// Vendor-Wrapper-Includes (alle bekannten Allocator-Wrapper)
+#include "axis_06_allocator_std_malloc.hpp"
+#include "axis_06_allocator_mimalloc.hpp"
+#include "axis_06_allocator_snmalloc.hpp"
+#include "axis_06_allocator_pmr_resource.hpp"
+
+#include <boost/mp11.hpp>
+
+#include <type_traits>
+
+namespace comdare::cache_engine::allocator::axis_06_allocator {
+
+namespace mp = boost::mp11;
+
+// ───────────────────────────────────────────────────────────────────────────
+// (1) AllVendors — Komplette statische Liste aller bekannten Vendor-Wrapper
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Eine zentrale Stelle. Jeder neue Vendor: 1 Include + 1 Eintrag in AllVendors.
+// AllVendors ist die Single-Source-of-Truth fuer die Achse.
+
+using AllVendors = mp::mp_list<
+    StdMalloc,
+    MimallocAllocator,
+    SnmallocAllocator,
+    PmrResourceAllocator
+    // Batch 2-8 ergaenzen hier: A05 Jemalloc, A06 TCMalloc, A20 dlmalloc,
+    // A01 Hoard, A02 Slab, A03 Michael LockFree, A08 Scalloc, A09 NUMAlloc,
+    // A10 RPMalloc, A11 LRMalloc, A12 CAMA, A13 StarMalloc, A14 TCMalloc-Warehouse,
+    // A15 HMalloc, A16 PIM-Malloc, A17 Crystalline, A18 Exgen-Malloc,
+    // A19 Buddy, A21 ptmalloc2, A23 Vmem-Magazines
+>;
+
+// ───────────────────────────────────────────────────────────────────────────
+// (2) is_enabled - Compile-Time-Predicate ueber Vendor-Klasse
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Stufe 1 (heute): Dummy — gibt true zurueck weil alle includierten Wrapper
+// noch keinen `static constexpr bool enabled` haben (Stufe 2 ergaenzt das).
+//
+// Stufe 2 (geplant in F.6.1.C.R1): pruefe `T::enabled` Konstante:
+//   template <typename T> using is_enabled = mp::mp_bool<T::enabled>;
+
+template <typename T>
+using is_enabled = mp::mp_bool<true>;  // STUFE 1 Dummy — STUFE 2 ersetzt durch T::enabled
+
+// ───────────────────────────────────────────────────────────────────────────
+// (3) EnabledVendors - Compile-Time-Filter ueber AllVendors mit is_enabled
+// ───────────────────────────────────────────────────────────────────────────
+
+using EnabledVendors = mp::mp_filter<is_enabled, AllVendors>;
+
+// Compile-Time-Sanity: mindestens 1 Vendor muss aktiviert sein.
+static_assert(mp::mp_size<EnabledVendors>::value > 0,
+    "Axis 06 Allocator: at least one vendor must be enabled (alle COMDARE_AXIS_06_ENABLE_* OFF?)");
+
+}  // namespace comdare::cache_engine::allocator::axis_06_allocator
