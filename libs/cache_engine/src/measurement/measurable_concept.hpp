@@ -78,27 +78,29 @@ namespace concepts {
  * Pflicht-API (WENN COMDARE_CE_ENABLE_STATISTICS=ON):
  *   - typename snapshot_t          Achs-spezifische Statistics-Struct
  *                                   (z.B. AllocationStatistics fuer allocator-Topic)
+ *   - typename observer_t          == MeasurableObserver<snapshot_t> (Pflicht-Alias)
  *   - snapshot() const noexcept    liefert aktuellen Snapshot
  *   - reset() noexcept             Statistik zwischen Mess-Permutationen reset
- *   - observer()                   liefert MeasurableObserver<snapshot_t> Instanz
- *                                   fuer externe Auswertung
+ *   - observer() const noexcept    liefert observer_t const& (no-copy, kein Allokations-Overhead)
  *
  * Beispiel-Klasse die das Concept erfuellt (StdMalloc in axis_06_allocator):
  *   struct StdMalloc {
  *       using snapshot_t = AllocationStatistics;
+ *       using observer_t = MeasurableObserver<snapshot_t>;
  *       snapshot_t snapshot() const noexcept { return stats_; }
  *       void reset() noexcept { stats_ = {}; }
- *       MeasurableObserver<snapshot_t> observer() const { return observer_; }
+ *       observer_t const& observer() const noexcept { return observer_; }
  *       // ... allocate/deallocate, jeder Aufruf -> observer_.notify(stats_)
  *   };
  */
 template <typename T>
 concept MeasurableComponent = requires(T t, T const& tc) {
     typename T::snapshot_t;
+    typename T::observer_t;
     { tc.snapshot() } noexcept -> std::same_as<typename T::snapshot_t>;
     { t.reset() }    noexcept;
-    { tc.observer() } -> std::same_as<MeasurableObserver<typename T::snapshot_t>>;
-};
+    { tc.observer() } noexcept -> std::same_as<typename T::observer_t const&>;
+} && std::same_as<typename T::observer_t, MeasurableObserver<typename T::snapshot_t>>;
 
 }  // namespace concepts
 

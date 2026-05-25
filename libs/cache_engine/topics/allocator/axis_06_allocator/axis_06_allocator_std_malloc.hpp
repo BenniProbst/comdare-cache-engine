@@ -31,6 +31,7 @@
 
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
+#include <measurement/measurable_concept.hpp>   // V41.F.6.1 Stufe 3: MeasurableObserver<snapshot_t>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -96,6 +97,7 @@ public:
         } else {
             ++stats_.failure_count;
         }
+        observer_.notify(stats_);
 #endif
         return p;
     }
@@ -111,6 +113,7 @@ public:
         } else {
             stats_.total_bytes_in_use = 0;
         }
+        observer_.notify(stats_);
 #else
         (void)bytes;
         (void)alignment;
@@ -119,19 +122,27 @@ public:
 
     // ───────────────────────────────────────────────────────────────────────
     // CacheEnginePermutationStrategy Pflicht (NUR WENN STATISTICS=ON):
-    //   - statistics() liefert Mess-Daten
+    //   - statistics() liefert Mess-Daten (cache-engine-spez. API)
+    //   - snapshot() liefert Mess-Daten (Topic-uebergreifende API, identisch zu statistics)
     //   - reset() setzt Statistik zwischen Mess-Permutationen zurueck
     //     (User-Klarstellung 2026-05-25: NICHT Pool-Reset, sondern Statistik-Reset)
+    //   - observer() liefert MeasurableObserver<snapshot_t> Pflicht-Alias (V41.F.6.1 Stufe 3)
     // ───────────────────────────────────────────────────────────────────────
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-    [[nodiscard]] concepts::AllocationStatistics statistics() const noexcept {
-        return stats_;
-    }
+    using snapshot_t = concepts::AllocationStatistics;
+    using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
+
+    [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
+    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
 
     void reset() noexcept {
         // Statistik-Reset (NICHT Allokationen freigeben!)
         stats_ = {};
+        observer_.notify(stats_);
     }
+
+    [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
 #endif
 
     // ───────────────────────────────────────────────────────────────────────
@@ -148,6 +159,7 @@ public:
         } else {
             ++stats_.failure_count;
         }
+        observer_.notify(stats_);
 #endif
         return p;
     }
@@ -161,6 +173,7 @@ public:
         if (np == nullptr) {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
             ++stats_.failure_count;
+            observer_.notify(stats_);
 #endif
             return nullptr;
         }
@@ -179,6 +192,7 @@ public:
         stats_.total_bytes_in_use    += aligned_new;
         stats_.total_bytes_allocated += aligned_new;
         ++stats_.allocation_count;
+        observer_.notify(stats_);
 #endif
         return np;
     }
@@ -186,6 +200,7 @@ public:
 private:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::AllocationStatistics stats_{};
+    observer_t observer_{};
 #endif
 };
 

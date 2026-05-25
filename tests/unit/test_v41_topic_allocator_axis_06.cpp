@@ -398,3 +398,137 @@ TEST(V41_TopicAllocatorAxis06, RegistryMpForEachIteration) {
     EXPECT_EQ(static_cast<std::size_t>(counted), expected);
     EXPECT_GE(expected, 1u);  // mindestens STD/PMR (immer verfuegbar)
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+// V41.F.6.1.I Stufe 3 LIVE: Observer-Notify-Pattern (Pflicht wenn STATISTICS=ON)
+// ───────────────────────────────────────────────────────────────────────────
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+
+// (a) MeasurableComponent Concept erfuellt — observer_t als MeasurableObserver<snapshot_t>
+TEST(V41_TopicAllocatorAxis06_Stufe3, WrapperHasObserverAlias) {
+    using ObserverT_Std = axis_06::StdMalloc::observer_t;
+    using SnapshotT_Std = axis_06::StdMalloc::snapshot_t;
+    static_assert(std::is_same_v<ObserverT_Std,
+                                 ::comdare::cache_engine::measurement::MeasurableObserver<SnapshotT_Std>>,
+                  "StdMalloc::observer_t muss MeasurableObserver<snapshot_t> sein");
+
+    using ObserverT_Mi  = axis_06::MimallocAllocator::observer_t;
+    using SnapshotT_Mi  = axis_06::MimallocAllocator::snapshot_t;
+    static_assert(std::is_same_v<ObserverT_Mi,
+                                 ::comdare::cache_engine::measurement::MeasurableObserver<SnapshotT_Mi>>,
+                  "MimallocAllocator::observer_t muss MeasurableObserver<snapshot_t> sein");
+
+    using ObserverT_Sn  = axis_06::SnmallocAllocator::observer_t;
+    using SnapshotT_Sn  = axis_06::SnmallocAllocator::snapshot_t;
+    static_assert(std::is_same_v<ObserverT_Sn,
+                                 ::comdare::cache_engine::measurement::MeasurableObserver<SnapshotT_Sn>>,
+                  "SnmallocAllocator::observer_t muss MeasurableObserver<snapshot_t> sein");
+
+    using ObserverT_Pmr = axis_06::PmrResourceAllocator::observer_t;
+    using SnapshotT_Pmr = axis_06::PmrResourceAllocator::snapshot_t;
+    static_assert(std::is_same_v<ObserverT_Pmr,
+                                 ::comdare::cache_engine::measurement::MeasurableObserver<SnapshotT_Pmr>>,
+                  "PmrResourceAllocator::observer_t muss MeasurableObserver<snapshot_t> sein");
+    SUCCEED();
+}
+
+// (b) Observer-Callback wird bei allocate() benachrichtigt
+TEST(V41_TopicAllocatorAxis06_Stufe3, ObserverNotifiesOnAllocate_StdMalloc) {
+    axis_06::StdMalloc m{};
+    int events = 0;
+    std::uint64_t last_count = 0;
+    m.observer().on_event([&events, &last_count](auto const& snap) {
+        ++events;
+        last_count = snap.allocation_count;
+    });
+    void* p = m.allocate(64, 8);
+    ASSERT_NE(p, nullptr);
+    EXPECT_EQ(events, 1);
+    EXPECT_EQ(last_count, 1u);
+
+    m.deallocate(p, 64, 8);
+    EXPECT_EQ(events, 2);
+}
+
+// (c) Observer-Notify auch bei zero_allocate (separat) + reallocate (separat)
+TEST(V41_TopicAllocatorAxis06_Stufe3, ObserverNotifiesOnZeroAllocAndRealloc_StdMalloc) {
+    axis_06::StdMalloc m{};
+    int events = 0;
+    m.observer().on_event([&events](auto const&) { ++events; });
+
+    // zero_allocate -> std::free Pfad (separater Lifecycle)
+    void* zp = m.zero_allocate(4, 16);
+    ASSERT_NE(zp, nullptr);
+    EXPECT_EQ(events, 1);
+    std::free(zp);  // zero_allocate verwendet std::calloc — passendes std::free, KEIN reallocate
+
+    // reallocate ueber portable_aligned_alloc Lifecycle (separat)
+    void* p = m.allocate(64, 8);
+    ASSERT_NE(p, nullptr);
+    EXPECT_EQ(events, 2);
+    void* np = m.reallocate(p, 64, 128, 8);
+    ASSERT_NE(np, nullptr);
+    EXPECT_GE(events, 3);  // reallocate macht 1 notify im Erfolgs-Fall
+
+    m.deallocate(np, 128, 8);
+    EXPECT_GE(events, 4);
+}
+
+// (d) reset() benachrichtigt Observer mit leeren Stats
+TEST(V41_TopicAllocatorAxis06_Stufe3, ResetNotifiesObserverWithClearedStats) {
+    axis_06::StdMalloc m{};
+    void* p = m.allocate(64, 8);
+    ASSERT_NE(p, nullptr);
+
+    std::uint64_t last_alloc_count = 0;
+    m.observer().on_event([&last_alloc_count](auto const& snap) {
+        last_alloc_count = snap.allocation_count;
+    });
+    m.reset();
+    EXPECT_EQ(last_alloc_count, 0u);
+
+    m.deallocate(p, 64, 8);
+}
+
+// (e) Observer ohne registriertes Callback -> notify ist no-op (kein Crash)
+TEST(V41_TopicAllocatorAxis06_Stufe3, ObserverWithoutCallbackIsNoOp) {
+    axis_06::StdMalloc m{};
+    EXPECT_FALSE(m.observer().has_callback());
+    void* p = m.allocate(64, 8);
+    ASSERT_NE(p, nullptr);  // kein Crash trotz fehlendem Callback
+    m.deallocate(p, 64, 8);
+    SUCCEED();
+}
+
+// (f) Mimalloc + Snmalloc + PMR: Observer-Notify funktioniert genauso
+TEST(V41_TopicAllocatorAxis06_Stufe3, ObserverNotifiesOnAllocate_OtherVendors) {
+    {
+        axis_06::MimallocAllocator m{};
+        int events = 0;
+        m.observer().on_event([&events](auto const&) { ++events; });
+        void* p = m.allocate(64, 8);
+        ASSERT_NE(p, nullptr);
+        EXPECT_EQ(events, 1);
+        m.deallocate(p, 64, 8);
+    }
+    {
+        axis_06::SnmallocAllocator m{};
+        int events = 0;
+        m.observer().on_event([&events](auto const&) { ++events; });
+        void* p = m.allocate(64, 8);
+        ASSERT_NE(p, nullptr);
+        EXPECT_EQ(events, 1);
+        m.deallocate(p, 64, 8);
+    }
+    {
+        axis_06::PmrResourceAllocator m{};
+        int events = 0;
+        m.observer().on_event([&events](auto const&) { ++events; });
+        void* p = m.allocate(64, 8);
+        ASSERT_NE(p, nullptr);
+        EXPECT_EQ(events, 1);
+        m.deallocate(p, 64, 8);
+    }
+}
+
+#endif  // COMDARE_CE_ENABLE_STATISTICS

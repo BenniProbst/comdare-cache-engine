@@ -27,6 +27,7 @@
 #include "vendor_includes/snmalloc_include.hpp"   // V41.F.6.1.C Stufe 2: Shim mit Forward-Stubs
 
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
+#include <measurement/measurable_concept.hpp>   // V41.F.6.1 Stufe 3: MeasurableObserver<snapshot_t>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -88,6 +89,7 @@ public:
         } else {
             ++stats_.failure_count;
         }
+        observer_.notify(stats_);
 #endif
         return p;
     }
@@ -104,14 +106,21 @@ public:
         ++stats_.deallocation_count;
         if (aligned_bytes <= stats_.total_bytes_in_use) stats_.total_bytes_in_use -= aligned_bytes;
         else stats_.total_bytes_in_use = 0;
+        observer_.notify(stats_);
 #else
         (void)bytes; (void)alignment;
 #endif
     }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-    [[nodiscard]] concepts::AllocationStatistics statistics() const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; }
+    using snapshot_t = concepts::AllocationStatistics;
+    using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
+
+    [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
+    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
+    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
 #endif
 
     // ───────────────────────────────────────────────────────────────────────
@@ -130,6 +139,7 @@ public:
         } else {
             ++stats_.failure_count;
         }
+        observer_.notify(stats_);
 #endif
         return p;
     }
@@ -153,7 +163,7 @@ public:
             }
         }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        if (np == nullptr) { ++stats_.failure_count; return nullptr; }
+        if (np == nullptr) { ++stats_.failure_count; observer_.notify(stats_); return nullptr; }
         if (p != nullptr) {
             if (old_bytes <= stats_.total_bytes_in_use) stats_.total_bytes_in_use -= old_bytes;
             ++stats_.deallocation_count;
@@ -162,6 +172,7 @@ public:
         stats_.total_bytes_in_use    += aligned_new;
         stats_.total_bytes_allocated += aligned_new;
         ++stats_.allocation_count;
+        observer_.notify(stats_);
 #endif
         return np;
     }
@@ -177,6 +188,7 @@ public:
 private:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::AllocationStatistics stats_{};
+    observer_t observer_{};
 #endif
 };
 

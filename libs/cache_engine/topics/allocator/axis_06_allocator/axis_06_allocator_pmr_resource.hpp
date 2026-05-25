@@ -22,6 +22,7 @@
 
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
 #include "vendor_includes/pmr_resource_include.hpp"   // V41.F.6.1.C Stufe 2: Konsistenz-Shim
+#include <measurement/measurable_concept.hpp>          // V41.F.6.1 Stufe 3: MeasurableObserver
 
 #include <cstddef>
 #include <memory_resource>
@@ -86,6 +87,7 @@ public:
         } else {
             ++stats_.failure_count;
         }
+        observer_.notify(stats_);
 #endif
         return p;
     }
@@ -98,12 +100,19 @@ public:
         ++stats_.deallocation_count;
         if (aligned_bytes <= stats_.total_bytes_in_use) stats_.total_bytes_in_use -= aligned_bytes;
         else stats_.total_bytes_in_use = 0;
+        observer_.notify(stats_);
 #endif
     }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-    [[nodiscard]] concepts::AllocationStatistics statistics() const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; }
+    using snapshot_t = concepts::AllocationStatistics;
+    using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
+
+    [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
+    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
+    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
 #endif
 
     [[nodiscard]] std::pmr::memory_resource* underlying_resource() const noexcept { return resource_; }
@@ -112,6 +121,7 @@ private:
     std::pmr::memory_resource* resource_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::AllocationStatistics stats_{};
+    observer_t observer_{};
 #endif
 };
 
