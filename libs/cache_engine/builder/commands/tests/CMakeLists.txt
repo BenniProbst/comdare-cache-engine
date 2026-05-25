@@ -14,7 +14,7 @@ target_link_libraries(test_permutation_flags_v32 PRIVATE
     GTest::gtest_main
 )
 target_include_directories(test_permutation_flags_v32 PRIVATE
-    ${CMAKE_SOURCE_DIR}/libs/cache_engine/include
+    ${PROJECT_SOURCE_DIR}/libs/cache_engine/include
 )
 target_compile_features(test_permutation_flags_v32 PRIVATE cxx_std_23)
 
@@ -33,7 +33,7 @@ target_link_libraries(test_engine_adapters PRIVATE
     GTest::gtest_main
 )
 target_include_directories(test_engine_adapters PRIVATE
-    ${CMAKE_SOURCE_DIR}/libs/cache_engine/include
+    ${PROJECT_SOURCE_DIR}/libs/cache_engine/include
 )
 target_compile_features(test_engine_adapters PRIVATE cxx_std_23)
 

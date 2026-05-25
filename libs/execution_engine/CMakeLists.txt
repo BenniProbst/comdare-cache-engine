@@ -8,7 +8,7 @@ add_library(comdare_experiment STATIC
 add_library(comdare::experiment ALIAS comdare_experiment)
 target_include_directories(comdare_experiment PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
-    "${CMAKE_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
 )
 target_link_libraries(comdare_experiment PUBLIC
     comdare::workload_generator

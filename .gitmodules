@@ -1,0 +1,18 @@
+[submodule "modules/comdare-search-engine"]
+	path = modules/comdare-search-engine
+	url = https://github.com/BenniProbst/comdare-search-engine.git
+[submodule "modules/comdare-cache-engine-core"]
+	path = modules/comdare-cache-engine-core
+	url = https://github.com/BenniProbst/comdare-cache-engine-core.git
+[submodule "modules/comdare-measurement"]
+	path = modules/comdare-measurement
+	url = https://github.com/BenniProbst/comdare-measurement.git
+[submodule "modules/comdare-isa-dispatch"]
+	path = modules/comdare-isa-dispatch
+	url = https://github.com/BenniProbst/comdare-isa-dispatch.git
+[submodule "modules/comdare-build-tools"]
+	path = modules/comdare-build-tools
+	url = https://github.com/BenniProbst/comdare-build-tools.git
+[submodule "modules/comdare-test-system"]
+	path = modules/comdare-test-system
+	url = https://github.com/BenniProbst/comdare-test-system.git
