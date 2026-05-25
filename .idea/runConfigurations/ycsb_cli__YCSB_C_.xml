@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="ycsb_cli (YCSB-C demo)" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="--workload=C --num-keys=10000 --num-ops=5000 --output=$PROJECT_DIR$/_runs/ycsb_c.bin --format=binary" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="comdare-cache-engine" TARGET_NAME="comdare_ycsb_cli" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="comdare-cache-engine" RUN_TARGET_NAME="comdare_ycsb_cli">
+  <configuration default="false" name="ycsb_cli (YCSB-C demo)" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="--workload=C --num-keys=10000 --num-ops=5000 --output=$PROJECT_DIR$/_runs/ycsb_c.bin --format=binary" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" EMULATE_TERMINAL="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="Project" TARGET_NAME="comdare_ycsb_cli" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="Project" RUN_TARGET_NAME="comdare_ycsb_cli">
     <method v="2">
       <option name="CMAKE.BUILD" enabled="true" />
     </method>
