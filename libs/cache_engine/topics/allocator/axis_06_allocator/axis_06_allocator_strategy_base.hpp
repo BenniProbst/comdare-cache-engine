@@ -46,11 +46,15 @@ namespace comdare::cache_engine::allocator::axis_06_allocator {
  * im neuen Topic+Achsen-Pfad, kompatibel mit AllocatorStrategy-Concept statt
  * altem IAllocationStrategy).
  */
+// HINWEIS V41.F.6.1.A: Template-Constraint `requires concepts::AllocatorStrategy<Derived>`
+// im Template-Parameter ist BEI CRTP nicht moeglich — Derived ist zur Zeit
+// der Basis-Klassen-Instanziierung noch incomplete (klassisches Henne-Ei).
+// Loesung: Concept-Check ALLEIN per static_assert im Konstruktor — wird ausgewertet
+// wenn Derived vollstaendig ist (beim ersten Konstruktor-Aufruf).
 template <typename Derived>
-    requires concepts::AllocatorStrategy<Derived>
 class AllocatorStrategyBase {
 public:
-    /// Backup-Check im Konstruktor (zusaetzlich zu Template-Constraint, klarere Diagnostik)
+    /// Concept-Check im Konstruktor (Derived ist zu diesem Zeitpunkt vollstaendig)
     constexpr AllocatorStrategyBase() noexcept {
         static_assert(concepts::AllocatorStrategy<Derived>,
             "Derived class must satisfy AllocatorStrategy concept "

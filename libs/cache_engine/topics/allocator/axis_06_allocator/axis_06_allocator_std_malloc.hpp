@@ -25,7 +25,7 @@
 #include "concepts/axis_06_allocator_concept.hpp"
 #include "../concepts/topic_allocator_concept.hpp"
 
-#include <cstdlib>     // std::aligned_alloc, std::free
+#include <cache_engine/allocators/portable_aligned_alloc.hpp>   // portable_aligned_alloc/_free (POSIX + MSVC)
 #include <string_view>
 #include <type_traits>
 
@@ -88,9 +88,9 @@ public:
     // ───────────────────────────────────────────────────────────────────────
 
     [[nodiscard]] void* raw_allocate(std::size_t bytes, std::size_t alignment) {
-        // std::aligned_alloc verlangt dass bytes ein Multiple von alignment ist
+        // portable_aligned_alloc kuemmert sich um Padding + Cross-Platform (POSIX/MSVC)
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
-        void* p = std::aligned_alloc(alignment, aligned_bytes);
+        void* p = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, bytes);
         if (p != nullptr) {
             ++stats_.allocation_count;
             stats_.total_bytes_allocated += aligned_bytes;
@@ -104,7 +104,7 @@ public:
     void raw_deallocate(void* p, std::size_t bytes, std::size_t alignment) {
         if (p == nullptr) return;
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
-        std::free(p);
+        ::comdare::cache_engine::allocator::portable_aligned_free(p);
         ++stats_.deallocation_count;
         if (aligned_bytes <= stats_.total_bytes_in_use) {
             stats_.total_bytes_in_use -= aligned_bytes;
