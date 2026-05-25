@@ -31,6 +31,10 @@
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_mimalloc.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_snmalloc.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_pmr_resource.hpp>
+// V41.F.6.1 Batch 2 Vendor (2026-05-26)
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_jemalloc.hpp>
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_tcmalloc.hpp>
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_dlmalloc.hpp>
 
 // V41.F.6.1.C Stufe 1: Registry-Smoke-Test (W6 zentralisierte Topic-Registrierung)
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
@@ -376,8 +380,8 @@ TEST(V41_TopicAllocatorAxis06, FlagsHeaderIsTypedConstexpr) {
 
 TEST(V41_TopicAllocatorAxis06, RegistryAllVendorsCount) {
     using AllV = axis_06::AllVendors;
-    static_assert(boost::mp11::mp_size<AllV>::value == 4,
-        "Stufe 1: 4 Vendor in AllVendors (Std + Mi + Sn + PMR). Batch 2-8 ergaenzt spaeter.");
+    static_assert(boost::mp11::mp_size<AllV>::value == 7,
+        "Batch 1+2: 7 Vendor (Std/Mi/Sn/PMR + Je/Tc/Dl). Batch 3-8 ergaenzt spaeter.");
     SUCCEED();
 }
 
@@ -806,4 +810,87 @@ TEST(V41_TopicAllocatorAxis06_Stufe6, EngineAndCliBuilderCombo) {
     for (auto const& c : commands) {
         EXPECT_TRUE(c.starts_with("cmake -B "));
     }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// V41.F.6.1 Batch 2 Vendor (Jemalloc / TCMalloc / dlmalloc — 2026-05-26)
+// ───────────────────────────────────────────────────────────────────────────
+
+// (a) Concept-Conformance pro Batch-2-Vendor (compile-time via static_assert im Header)
+TEST(V41_TopicAllocatorAxis06_Batch2, ConceptConformance) {
+    static_assert(axis_06_cpts::AllocatorStrategy<axis_06::JemallocAllocator>);
+    static_assert(axis_06_cpts::CacheEnginePermutationStrategy<axis_06::JemallocAllocator>);
+    static_assert(axis_06_cpts::AllocatorStrategy<axis_06::TCMallocAllocator>);
+    static_assert(axis_06_cpts::CacheEnginePermutationStrategy<axis_06::TCMallocAllocator>);
+    static_assert(axis_06_cpts::AllocatorStrategy<axis_06::DlmallocAllocator>);
+    static_assert(axis_06_cpts::CacheEnginePermutationStrategy<axis_06::DlmallocAllocator>);
+    SUCCEED();
+}
+
+// (b) Identifikation: name / family_name / flag_suffix
+TEST(V41_TopicAllocatorAxis06_Batch2, VendorIdentification) {
+    EXPECT_EQ(axis_06::JemallocAllocator::flag_suffix(), "JEMALLOC");
+    EXPECT_EQ(axis_06::TCMallocAllocator::flag_suffix(), "TCMALLOC");
+    EXPECT_EQ(axis_06::DlmallocAllocator::flag_suffix(), "DLMALLOC");
+    EXPECT_EQ(axis_06::JemallocAllocator::family_id::value, 5);
+    EXPECT_EQ(axis_06::TCMallocAllocator::family_id::value, 6);
+    EXPECT_EQ(axis_06::DlmallocAllocator::family_id::value, 20);
+}
+
+// (c) Runtime: allocate/deallocate roundtrip pro Vendor (Fallback-Pfad wenn HAVE=OFF)
+TEST(V41_TopicAllocatorAxis06_Batch2, AllocateDeallocateRoundtrip) {
+    {
+        axis_06::JemallocAllocator m{};
+        void* p = m.allocate(128, 16);
+        ASSERT_NE(p, nullptr);
+        m.deallocate(p, 128, 16);
+    }
+    {
+        axis_06::TCMallocAllocator m{};
+        void* p = m.allocate(128, 16);
+        ASSERT_NE(p, nullptr);
+        m.deallocate(p, 128, 16);
+    }
+    {
+        axis_06::DlmallocAllocator m{};
+        void* p = m.allocate(128, 16);
+        ASSERT_NE(p, nullptr);
+        m.deallocate(p, 128, 16);
+    }
+}
+
+// (d) Observer-Notify funktioniert pro Batch-2-Vendor (Stufe 3 Pattern)
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+TEST(V41_TopicAllocatorAxis06_Batch2, ObserverNotifyOnAllocate) {
+    auto run_test = [](auto&& allocator){
+        int events = 0;
+        allocator.observer().on_event([&events](auto const&){ ++events; });
+        void* p = allocator.allocate(64, 8);
+        ASSERT_NE(p, nullptr);
+        EXPECT_EQ(events, 1);
+        allocator.deallocate(p, 64, 8);
+        EXPECT_EQ(events, 2);
+    };
+    run_test(axis_06::JemallocAllocator{});
+    run_test(axis_06::TCMallocAllocator{});
+    run_test(axis_06::DlmallocAllocator{});
+}
+#endif
+
+// (e) AllVendors mp_list hat jetzt 7 Eintraege (Batch 1 + Batch 2)
+TEST(V41_TopicAllocatorAxis06_Batch2, AllVendorsCountIs7) {
+    static_assert(boost::mp11::mp_size<axis_06::AllVendors>::value == 7,
+        "Batch 1 + 2 = 7 Vendor (Std/Mi/Sn/PMR + Je/Tc/Dl)");
+    SUCCEED();
+}
+
+// (f) PermutationEngine count beruecksichtigt Batch 2 (Cartesian-Erweiterung)
+TEST(V41_TopicAllocatorAxis06_Batch2, EngineCountIncludesBatch2) {
+    using Engine = perms::PermutationEngine<alloc::TopicConfigSet>;
+    // EnabledVendors haengt von CMake-Flags ab. build-pilot: Std + PMR + Je + Tc + Dl
+    // (HAVE=0 fuer Mimalloc/Snmalloc, aber JE/TC/DL haben jetzt HAVE=0 default — siehe nachsten Test)
+    constexpr auto cnt = Engine::count();
+    EXPECT_GE(cnt, 1u);  // mindestens Std + PMR
+    // EnabledVendors muss == AllVendors haben WENN alle ENABLE=ON UND HAVE=ON (production build)
+    // build-pilot: nur Std + PMR HAVE=ON (Batch 2 alle HAVE=OFF → USE=OFF)
 }

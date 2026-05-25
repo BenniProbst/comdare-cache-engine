@@ -23,10 +23,15 @@
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
 
 // Vendor-Wrapper-Includes (alle bekannten Allocator-Wrapper)
+// Batch 1 (Pilot, 2026-05-25)
 #include "axis_06_allocator_std_malloc.hpp"
 #include "axis_06_allocator_mimalloc.hpp"
 #include "axis_06_allocator_snmalloc.hpp"
 #include "axis_06_allocator_pmr_resource.hpp"
+// Batch 2 (2026-05-26)
+#include "axis_06_allocator_jemalloc.hpp"
+#include "axis_06_allocator_tcmalloc.hpp"
+#include "axis_06_allocator_dlmalloc.hpp"
 
 #include <boost/mp11.hpp>
 
@@ -44,11 +49,16 @@ namespace mp = boost::mp11;
 // AllVendors ist die Single-Source-of-Truth fuer die Achse.
 
 using AllVendors = mp::mp_list<
+    // Batch 1 (Pilot, 2026-05-25)
     StdMalloc,
     MimallocAllocator,
     SnmallocAllocator,
-    PmrResourceAllocator
-    // Batch 2-8 ergaenzen hier: A05 Jemalloc, A06 TCMalloc, A20 dlmalloc,
+    PmrResourceAllocator,
+    // Batch 2 (2026-05-26)
+    JemallocAllocator,
+    TCMallocAllocator,
+    DlmallocAllocator
+    // Batch 3-8 ergaenzen hier:
     // A01 Hoard, A02 Slab, A03 Michael LockFree, A08 Scalloc, A09 NUMAlloc,
     // A10 RPMalloc, A11 LRMalloc, A12 CAMA, A13 StarMalloc, A14 TCMalloc-Warehouse,
     // A15 HMalloc, A16 PIM-Malloc, A17 Crystalline, A18 Exgen-Malloc,

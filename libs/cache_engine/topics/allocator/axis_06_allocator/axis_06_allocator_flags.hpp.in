@@ -20,14 +20,22 @@ namespace comdare::cache_engine::allocator::axis_06_allocator::flags {
 
 // `#cmakedefine01` erzeugt entweder 0 oder 1 — NIEMALS undefined.
 // Macros bleiben definiert (keine #undef) damit vendor_includes/-Shims sie nutzen koennen.
+// Batch 1 Vendor
 #cmakedefine01 COMDARE_AXIS_06_USE_STD
 #cmakedefine01 COMDARE_AXIS_06_USE_MIMALLOC
 #cmakedefine01 COMDARE_AXIS_06_USE_SNMALLOC
 #cmakedefine01 COMDARE_AXIS_06_USE_PMR
+// Batch 2 Vendor (V41.F.6.1 2026-05-26)
+#cmakedefine01 COMDARE_AXIS_06_USE_JEMALLOC
+#cmakedefine01 COMDARE_AXIS_06_USE_TCMALLOC
+#cmakedefine01 COMDARE_AXIS_06_USE_DLMALLOC
 
 inline constexpr bool std_enabled       = COMDARE_AXIS_06_USE_STD;
 inline constexpr bool mimalloc_enabled  = COMDARE_AXIS_06_USE_MIMALLOC;
 inline constexpr bool snmalloc_enabled  = COMDARE_AXIS_06_USE_SNMALLOC;
 inline constexpr bool pmr_enabled       = COMDARE_AXIS_06_USE_PMR;
+inline constexpr bool jemalloc_enabled  = COMDARE_AXIS_06_USE_JEMALLOC;
+inline constexpr bool tcmalloc_enabled  = COMDARE_AXIS_06_USE_TCMALLOC;
+inline constexpr bool dlmalloc_enabled  = COMDARE_AXIS_06_USE_DLMALLOC;
 
 }  // namespace comdare::cache_engine::allocator::axis_06_allocator::flags
