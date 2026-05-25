@@ -46,10 +46,12 @@ if(COMDARE_EXPERIMENT_MODE)
 endif()
 
 # REV 7.6 V8.2 — Legacy-Reimpl-Migration (User-Direktive: PRT-ART gehoert in prt-art)
-# Default OFF: prt_art/legacy_reimpl/ wird nicht mehr gebaut.
-# Folge-Phase: kompletter Move nach prt-art Repo + Loeschung in cache-engine.
+# V41.struct (2026-05-25): Verzeichnis prt_art/ KOMPLETT geloescht (war leeres
+# Skelett, blieb von V23.E-Migration uebrig). Verhindert zirkulare Wahrnehmung
+# (comdare-prt-art ist eigenstaendiges Wurzelmodul). Option bleibt fuer
+# Cluster-Kompatibilitaet erhalten, hat aber keinen Code mehr.
 option(COMDARE_BUILD_LEGACY_REIMPL
-    "[DEPRECATED] Build prt_art/legacy_reimpl/ (Migration zu prt-art Repo, REV 7.6 V8.2)"
+    "[REMOVED] PRT-ART legacy_reimpl ist komplett in comdare-prt-art migriert"
     OFF)
 
 # REV 7.6 V13.4 — Stage-1/Stage-2 CMake-Integration
