@@ -23,6 +23,9 @@
 #include "concepts/axis_06_allocator_introspectable_strategy_concept.hpp"
 #include "../concepts/topic_allocator_concept.hpp"
 
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include "vendor_includes/snmalloc_include.hpp"   // V41.F.6.1.C Stufe 2: Shim mit Forward-Stubs
+
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
 #include <cstddef>
 #include <cstdlib>
@@ -30,19 +33,19 @@
 #include <string_view>
 #include <type_traits>
 
-#ifdef COMDARE_HAVE_SNMALLOC
-#  include <snmalloc/snmalloc.h>
-#endif
-
 namespace comdare::cache_engine::allocator::axis_06_allocator {
 
 /**
  * @brief SnmallocAllocator - Wrapper auf microsoft/snmalloc (A07)
  *
  * Message-Passing-Allocator (Lipp/Bond/Parkinson ISMM 2019).
+ *
+ * V41.F.6.1.C Stufe 2 (W6-Pattern): KEIN #ifdef mehr. enabled via flags::snmalloc_enabled.
  */
 class SnmallocAllocator : public AllocatorStrategyBase<SnmallocAllocator> {
 public:
+    static constexpr bool enabled = flags::snmalloc_enabled;
+
     using value_type = std::byte;
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::allocator::concepts::AllocatorTopicTag;
@@ -54,11 +57,8 @@ public:
     [[nodiscard]] static constexpr std::size_t max_alignment()   noexcept { return alignof(std::max_align_t); }
 
     [[nodiscard]] static constexpr std::string_view name() noexcept {
-#ifdef COMDARE_HAVE_SNMALLOC
-        return "snmalloc";
-#else
-        return "snmalloc(real=std)";
-#endif
+        if constexpr (enabled) { return "snmalloc"; }
+        else                   { return "snmalloc(real=std)"; }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "Snmalloc Message-Passing (Lipp/Bond/Parkinson ISMM 2019)";
@@ -71,13 +71,14 @@ public:
     // ───────────────────────────────────────────────────────────────────────
 
     [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment) {
-#ifdef COMDARE_HAVE_SNMALLOC
-        // snmalloc verlangt size als Multiple of alignment fuer aligned_alloc
-        std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
-        void* p = ::snmalloc::libc::aligned_alloc(alignment, aligned_bytes);
-#else
-        void* p = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, bytes);
-#endif
+        void* p;
+        if constexpr (enabled) {
+            // snmalloc verlangt size als Multiple of alignment fuer aligned_alloc
+            std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
+            p = ::snmalloc::libc::aligned_alloc(alignment, aligned_bytes);
+        } else {
+            p = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, bytes);
+        }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes_track = ((bytes + alignment - 1) / alignment) * alignment;
         if (p != nullptr) {
@@ -93,11 +94,11 @@ public:
 
     void deallocate(void* p, std::size_t bytes, std::size_t alignment) noexcept {
         if (p == nullptr) return;
-#ifdef COMDARE_HAVE_SNMALLOC
-        ::snmalloc::libc::free_aligned_sized(p, alignment, bytes);
-#else
-        ::comdare::cache_engine::allocator::portable_aligned_free(p);
-#endif
+        if constexpr (enabled) {
+            ::snmalloc::libc::free_aligned_sized(p, alignment, bytes);
+        } else {
+            ::comdare::cache_engine::allocator::portable_aligned_free(p);
+        }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         ++stats_.deallocation_count;
@@ -118,11 +119,9 @@ public:
     // ───────────────────────────────────────────────────────────────────────
     [[nodiscard]] void* zero_allocate(std::size_t n, std::size_t size) {
         std::size_t bytes = n * size;
-#ifdef COMDARE_HAVE_SNMALLOC
-        void* p = ::snmalloc::libc::calloc(n, size);
-#else
-        void* p = std::calloc(n, size);
-#endif
+        void* p;
+        if constexpr (enabled) { p = ::snmalloc::libc::calloc(n, size); }
+        else                   { p = std::calloc(n, size); }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         if (p != nullptr) {
             ++stats_.allocation_count;
@@ -140,18 +139,19 @@ public:
     // ───────────────────────────────────────────────────────────────────────
     [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes,
                                    std::size_t alignment) {
-#ifdef COMDARE_HAVE_SNMALLOC
-        // snmalloc realloc respektiert Alignment automatisch
-        void* np = ::snmalloc::libc::realloc(p, new_bytes);
-        (void)alignment;
-#else
-        void* np = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, new_bytes);
-        if (np != nullptr && p != nullptr) {
-            std::size_t copy_bytes = (old_bytes < new_bytes) ? old_bytes : new_bytes;
-            std::memcpy(np, p, copy_bytes);
-            ::comdare::cache_engine::allocator::portable_aligned_free(p);
+        void* np;
+        if constexpr (enabled) {
+            // snmalloc realloc respektiert Alignment automatisch
+            np = ::snmalloc::libc::realloc(p, new_bytes);
+            (void)alignment;
+        } else {
+            np = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, new_bytes);
+            if (np != nullptr && p != nullptr) {
+                std::size_t copy_bytes = (old_bytes < new_bytes) ? old_bytes : new_bytes;
+                std::memcpy(np, p, copy_bytes);
+                ::comdare::cache_engine::allocator::portable_aligned_free(p);
+            }
         }
-#endif
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         if (np == nullptr) { ++stats_.failure_count; return nullptr; }
         if (p != nullptr) {
@@ -170,12 +170,8 @@ public:
     // Sub-Concept: IntrospectableStrategy (snmalloc::libc::malloc_usable_size)
     // ───────────────────────────────────────────────────────────────────────
     [[nodiscard]] std::size_t usable_size(void* p) const noexcept {
-#ifdef COMDARE_HAVE_SNMALLOC
-        return ::snmalloc::libc::malloc_usable_size(p);
-#else
-        (void)p;
-        return 0;
-#endif
+        if constexpr (enabled) { return ::snmalloc::libc::malloc_usable_size(p); }
+        else                   { (void)p; return 0; }
     }
 
 private:

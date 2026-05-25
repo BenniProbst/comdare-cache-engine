@@ -29,6 +29,7 @@
 #include "concepts/axis_06_allocator_reallocating_strategy_concept.hpp"
 #include "../concepts/topic_allocator_concept.hpp"
 
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
 #include <cstddef>
 #include <cstdlib>
@@ -52,6 +53,11 @@ public:
     // ───────────────────────────────────────────────────────────────────────
     using value_type = std::byte;
     using size_type  = std::size_t;
+
+    // ───────────────────────────────────────────────────────────────────────
+    // V41.F.6.1.C Stufe 2 (W6-Pattern): zentralisierte CMake-Flag-Aktivierung
+    // ───────────────────────────────────────────────────────────────────────
+    static constexpr bool enabled = flags::std_enabled;
 
     // ───────────────────────────────────────────────────────────────────────
     // CacheEnginePermutationStrategy Pflicht (IMMER): Identifikation

@@ -384,6 +384,9 @@ TEST(V41_TopicAllocatorAxis06, RegistryEnabledVendorsNonEmpty) {
 
 TEST(V41_TopicAllocatorAxis06, RegistryMpForEachIteration) {
     // Compile-Time Iteration ueber EnabledVendors via mp_for_each
+    // Anzahl ist dynamisch (haengt von CMake-Flags COMDARE_AXIS_06_USE_<VENDOR> ab):
+    //   build-pilot ohne -DCOMDARE_BUILD_PERMUTATIONS=ON: USE_STD=1, MIMALLOC=0, SNMALLOC=0, PMR=1 -> 2 enabled
+    //   build mit Vendor-Build: alle 4 USE=1 -> 4 enabled
     int counted = 0;
     boost::mp11::mp_for_each<axis_06::EnabledVendors>([&counted]<class V>(V) {
         // pro Vendor: pruefen dass es das AllocatorStrategy-Concept erfuellt
@@ -391,5 +394,7 @@ TEST(V41_TopicAllocatorAxis06, RegistryMpForEachIteration) {
             "Jeder Vendor in EnabledVendors muss AllocatorStrategy erfuellen");
         ++counted;
     });
-    EXPECT_EQ(counted, 4);  // Stufe 1: 4 Vendor
+    constexpr auto expected = boost::mp11::mp_size<axis_06::EnabledVendors>::value;
+    EXPECT_EQ(static_cast<std::size_t>(counted), expected);
+    EXPECT_GE(expected, 1u);  // mindestens STD/PMR (immer verfuegbar)
 }

@@ -57,11 +57,9 @@ option(COMDARE_AXIS_06_ENABLE_SNMALLOC  "Allocator A07 Snmalloc Message-Passing"
 option(COMDARE_AXIS_06_ENABLE_PMR       "Allocator A22 std::pmr::memory_resource"    ON)
 # ... weitere Vendor-Flags fuer Batch 2-8 (A01,A02,A03,A05,A06,A08-A21,A23) folgen
 
-# V41.F.6.1.C Stufe 1: configure_file fuer axis_06_flags.hpp Generierung
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp"
-    @ONLY)
+# HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
+# am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
+# aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
 
 # REV 7.6 V8.4 — Experiment-Modus (User-Direktive 2026-05-13/14)
 # Aktiviert ResultAggregator + Mess-Hooks in der ExecutionEngine.
@@ -211,3 +209,43 @@ if(COMDARE_AUTO_RUN_BUILDER AND COMDARE_BUILD_BUILDER)
         COMMENT "[V13.4 Stage-2] Auto-Run CacheEngineBuilder (--enumerate-only)"
         VERBATIM)
 endif()
+
+# V41.F.6.1.C Stufe 2 (2026-05-25): configure_file fuer axis_06_allocator_flags.hpp
+# NACH add_subdirectory(ext) — damit COMDARE_HAVE_<VENDOR> Detection bekannt ist.
+# USE_<VENDOR> = ENABLE && HAVE (effektive Aktivierung beruecksichtigt Vendor-Verfuegbarkeit)
+
+# STD: immer verfuegbar (libc malloc)
+if(COMDARE_AXIS_06_ENABLE_STD)
+    set(COMDARE_AXIS_06_USE_STD 1)
+else()
+    set(COMDARE_AXIS_06_USE_STD 0)
+endif()
+
+# MIMALLOC: ENABLE && HAVE
+if(COMDARE_AXIS_06_ENABLE_MIMALLOC AND COMDARE_HAVE_MIMALLOC)
+    set(COMDARE_AXIS_06_USE_MIMALLOC 1)
+else()
+    set(COMDARE_AXIS_06_USE_MIMALLOC 0)
+endif()
+
+# SNMALLOC: ENABLE && HAVE
+if(COMDARE_AXIS_06_ENABLE_SNMALLOC AND COMDARE_HAVE_SNMALLOC)
+    set(COMDARE_AXIS_06_USE_SNMALLOC 1)
+else()
+    set(COMDARE_AXIS_06_USE_SNMALLOC 0)
+endif()
+
+# PMR: immer verfuegbar (C++17 Standard)
+if(COMDARE_AXIS_06_ENABLE_PMR)
+    set(COMDARE_AXIS_06_USE_PMR 1)
+else()
+    set(COMDARE_AXIS_06_USE_PMR 0)
+endif()
+
+message(STATUS "V41.F.6.1.C Allocator Axis 6 effective USE flags:")
+message(STATUS "  USE_STD=${COMDARE_AXIS_06_USE_STD} MIMALLOC=${COMDARE_AXIS_06_USE_MIMALLOC} SNMALLOC=${COMDARE_AXIS_06_USE_SNMALLOC} PMR=${COMDARE_AXIS_06_USE_PMR}")
+
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp"
+    @ONLY)

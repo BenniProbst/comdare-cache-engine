@@ -29,15 +29,14 @@
 #include "concepts/axis_06_allocator_reclaimable_strategy_concept.hpp"
 #include "../concepts/topic_allocator_concept.hpp"
 
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include "vendor_includes/mimalloc_include.hpp"   // V41.F.6.1.C Stufe 2: Shim mit Forward-Stubs
+
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
 #include <cstddef>
 #include <cstring>
 #include <string_view>
 #include <type_traits>
-
-#ifdef COMDARE_HAVE_MIMALLOC
-#  include <mimalloc.h>
-#endif
 
 namespace comdare::cache_engine::allocator::axis_06_allocator {
 
@@ -46,9 +45,19 @@ namespace comdare::cache_engine::allocator::axis_06_allocator {
  *
  * Free-List-Sharding (Leijen MSR-TR-2019-18): 3 Free-Lists pro Page
  * (free / local_free / thread_free), temporal cadence, deferred_free hook.
+ *
+ * V41.F.6.1.C Stufe 2 (W6-Pattern): KEIN #ifdef COMDARE_HAVE_MIMALLOC mehr.
+ * Aktivierung via `enabled = flags::mimalloc_enabled` (zentraler CMake-Flag).
+ * Vendor-Calls direkt — bei OFF werden Forward-Stubs aus dem Shim verwendet
+ * (NIEMALS aufgerufen wegen if constexpr (false) Discarded Statement).
  */
 class MimallocAllocator : public AllocatorStrategyBase<MimallocAllocator> {
 public:
+    // ───────────────────────────────────────────────────────────────────────
+    // V41.F.6.1.C Stufe 2 (W6-Pattern): zentralisierte CMake-Flag-Aktivierung
+    // ───────────────────────────────────────────────────────────────────────
+    static constexpr bool enabled = flags::mimalloc_enabled;
+
     using value_type = std::byte;
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::allocator::concepts::AllocatorTopicTag;
@@ -60,11 +69,8 @@ public:
     [[nodiscard]] static constexpr std::size_t max_alignment()   noexcept { return alignof(std::max_align_t); }
 
     [[nodiscard]] static constexpr std::string_view name() noexcept {
-#ifdef COMDARE_HAVE_MIMALLOC
-        return "mimalloc";
-#else
-        return "mimalloc(real=std)";
-#endif
+        if constexpr (enabled) { return "mimalloc"; }
+        else                   { return "mimalloc(real=std)"; }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "Mimalloc Free-List-Sharding (Leijen/Zorn/de Moura MSR-TR-2019-18 APLAS 2019)";
@@ -77,11 +83,12 @@ public:
     // ───────────────────────────────────────────────────────────────────────
 
     [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment) {
-#ifdef COMDARE_HAVE_MIMALLOC
-        void* p = ::mi_malloc_aligned(bytes, alignment);
-#else
-        void* p = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, bytes);
-#endif
+        void* p;
+        if constexpr (enabled) {
+            p = ::mi_malloc_aligned(bytes, alignment);
+        } else {
+            p = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, bytes);
+        }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         if (p != nullptr) {
@@ -97,12 +104,12 @@ public:
 
     void deallocate(void* p, std::size_t bytes, std::size_t alignment) noexcept {
         if (p == nullptr) return;
-#ifdef COMDARE_HAVE_MIMALLOC
-        // mi_free verarbeitet aligned-Allocations korrekt (kein separates mi_free_aligned)
-        ::mi_free(p);
-#else
-        ::comdare::cache_engine::allocator::portable_aligned_free(p);
-#endif
+        if constexpr (enabled) {
+            // mi_free verarbeitet aligned-Allocations korrekt (kein separates mi_free_aligned)
+            ::mi_free(p);
+        } else {
+            ::comdare::cache_engine::allocator::portable_aligned_free(p);
+        }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         ++stats_.deallocation_count;
@@ -123,11 +130,9 @@ public:
     // ───────────────────────────────────────────────────────────────────────
     [[nodiscard]] void* zero_allocate(std::size_t n, std::size_t size) {
         std::size_t bytes = n * size;
-#ifdef COMDARE_HAVE_MIMALLOC
-        void* p = ::mi_calloc(n, size);
-#else
-        void* p = std::calloc(n, size);
-#endif
+        void* p;
+        if constexpr (enabled) { p = ::mi_calloc(n, size); }
+        else                   { p = std::calloc(n, size); }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         if (p != nullptr) {
             ++stats_.allocation_count;
@@ -145,17 +150,18 @@ public:
     // ───────────────────────────────────────────────────────────────────────
     [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes,
                                    std::size_t alignment) {
-#ifdef COMDARE_HAVE_MIMALLOC
-        void* np = ::mi_realloc_aligned(p, new_bytes, alignment);
-#else
-        // Portable Fallback: alloc-new + memcpy + free-old
-        void* np = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, new_bytes);
-        if (np != nullptr && p != nullptr) {
-            std::size_t copy_bytes = (old_bytes < new_bytes) ? old_bytes : new_bytes;
-            std::memcpy(np, p, copy_bytes);
-            ::comdare::cache_engine::allocator::portable_aligned_free(p);
+        void* np;
+        if constexpr (enabled) {
+            np = ::mi_realloc_aligned(p, new_bytes, alignment);
+        } else {
+            // Portable Fallback: alloc-new + memcpy + free-old
+            np = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, new_bytes);
+            if (np != nullptr && p != nullptr) {
+                std::size_t copy_bytes = (old_bytes < new_bytes) ? old_bytes : new_bytes;
+                std::memcpy(np, p, copy_bytes);
+                ::comdare::cache_engine::allocator::portable_aligned_free(p);
+            }
         }
-#endif
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         if (np == nullptr) { ++stats_.failure_count; return nullptr; }
         if (p != nullptr) {
@@ -174,24 +180,16 @@ public:
     // Sub-Concept: IntrospectableStrategy (mi_usable_size)
     // ───────────────────────────────────────────────────────────────────────
     [[nodiscard]] std::size_t usable_size(void* p) const noexcept {
-#ifdef COMDARE_HAVE_MIMALLOC
-        return ::mi_usable_size(p);
-#else
-        (void)p;
-        return 0;  // libc malloc hat kein portables usable_size
-#endif
+        if constexpr (enabled) { return ::mi_usable_size(p); }
+        else                   { (void)p; return 0; }
     }
 
     // ───────────────────────────────────────────────────────────────────────
     // Sub-Concept: ReclaimableStrategy (mi_collect)
     // ───────────────────────────────────────────────────────────────────────
     void collect(bool force) noexcept {
-#ifdef COMDARE_HAVE_MIMALLOC
-        ::mi_collect(force);
-#else
-        (void)force;
-        // no-op fuer std-fallback
-#endif
+        if constexpr (enabled) { ::mi_collect(force); }
+        else                   { (void)force; /* no-op fuer std-fallback */ }
     }
 
 private:

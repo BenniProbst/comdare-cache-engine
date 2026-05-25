@@ -20,6 +20,9 @@
 #include "concepts/axis_06_allocator_cache_engine_permutation_concept.hpp"
 #include "../concepts/topic_allocator_concept.hpp"
 
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include "vendor_includes/pmr_resource_include.hpp"   // V41.F.6.1.C Stufe 2: Konsistenz-Shim
+
 #include <cstddef>
 #include <memory_resource>
 #include <string_view>
@@ -35,6 +38,9 @@ namespace comdare::cache_engine::allocator::axis_06_allocator {
  */
 class PmrResourceAllocator : public AllocatorStrategyBase<PmrResourceAllocator> {
 public:
+    // V41.F.6.1.C Stufe 2 (W6-Pattern): zentralisierte CMake-Flag-Aktivierung
+    static constexpr bool enabled = flags::pmr_enabled;
+
     using value_type = std::byte;
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::allocator::concepts::AllocatorTopicTag;
