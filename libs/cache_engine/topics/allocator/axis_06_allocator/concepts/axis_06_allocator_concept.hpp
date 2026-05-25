@@ -69,7 +69,7 @@ struct AllocationStatistics {
  *   namespace comdare::cache_engine::allocator::axis_06_allocator {
  *       struct StdMalloc {
  *           using topic_tag  = concepts::AllocatorTopicTag;
- *           using axis_tag   = axes::AA2_size_class;
+ *           using axis_tag   = subaxes::size_class_schema_tag;  // AA2
  *           using family_id  = std::integral_constant<int, 22>;  // A22
  *
  *           static constexpr bool is_thread_safe()         { return true; }
