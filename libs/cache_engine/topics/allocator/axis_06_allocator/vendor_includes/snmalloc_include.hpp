@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdlib>
 
-#if COMDARE_AXIS_06_ENABLE_SNMALLOC
+#if COMDARE_AXIS_06_USE_SNMALLOC
 #  include <snmalloc/snmalloc.h>
 #else
 // Forward-Stubs fuer if constexpr (false)-Zweig

@@ -56,17 +56,15 @@ using AllVendors = mp::mp_list<
 >;
 
 // ───────────────────────────────────────────────────────────────────────────
-// (2) is_enabled - Compile-Time-Predicate ueber Vendor-Klasse
+// (2) is_enabled - Compile-Time-Predicate ueber Vendor-Klasse (Stufe 2 LIVE)
 // ───────────────────────────────────────────────────────────────────────────
 //
-// Stufe 1 (heute): Dummy — gibt true zurueck weil alle includierten Wrapper
-// noch keinen `static constexpr bool enabled` haben (Stufe 2 ergaenzt das).
-//
-// Stufe 2 (geplant in F.6.1.C.R1): pruefe `T::enabled` Konstante:
-//   template <typename T> using is_enabled = mp::mp_bool<T::enabled>;
+// V41.F.6.1.C Stufe 2 (HEUTE): jeder Wrapper hat `static constexpr bool enabled`
+// als Compile-Time-Konstante, die ueber den zentralen Flags-Header gesetzt wird.
+// Vendor wird nur dann in EnabledVendors aufgenommen wenn T::enabled true ist.
 
 template <typename T>
-using is_enabled = mp::mp_bool<true>;  // STUFE 1 Dummy — STUFE 2 ersetzt durch T::enabled
+using is_enabled = mp::mp_bool<T::enabled>;
 
 // ───────────────────────────────────────────────────────────────────────────
 // (3) EnabledVendors - Compile-Time-Filter ueber AllVendors mit is_enabled

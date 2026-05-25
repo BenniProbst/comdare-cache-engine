@@ -17,9 +17,8 @@
 #include <cstddef>
 #include <cstdlib>
 
-#if COMDARE_AXIS_06_ENABLE_MIMALLOC
-// Echter Vendor-Header (nur eingebunden wenn Flag ON — CMake-Build verifiziert dass
-// ext/A04-mimalloc/include/mimalloc.h zugreifbar ist via target_include_directories).
+#if COMDARE_AXIS_06_USE_MIMALLOC
+// Echter Vendor-Header (nur eingebunden wenn USE-Flag ON = ENABLE && HAVE)
 #  include <mimalloc.h>
 #else
 // Forward-Stubs damit Wrapper-Code (`if constexpr (false)`-Zweig) syntaktisch
