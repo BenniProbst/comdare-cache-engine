@@ -71,9 +71,16 @@ public:
         derived().deallocate(p, bytes, alignment);
     }
 
+#ifdef COMDARE_CE_ENABLE_STATISTICS
     [[nodiscard]] concepts::AllocationStatistics statistics() const noexcept {
         return derived_const().statistics();
     }
+
+    void reset() noexcept {
+        // V41.F.6.1.A User-Klarstellung: reset() = Statistik-Reset, NICHT Pool-Reset!
+        derived().reset();
+    }
+#endif
 
     // ───────────────────────────────────────────────────────────────────────
     // TODO V41.F.6.1.B Adapter-Methoden (NICHT in F.6.1.A implementiert)

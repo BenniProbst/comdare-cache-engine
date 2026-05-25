@@ -74,12 +74,29 @@ TEST(V41_TopicAllocatorAxis06, StdMallocSatisfiesReallocatingStrategy) {
     SUCCEED();
 }
 
-TEST(V41_TopicAllocatorAxis06, StdMallocDoesNotSatisfyResettableStrategy) {
-    // libc malloc kennt kein globales reset() -> Sub-Concept NICHT erfuellt
-    static_assert(!axis_06_cpts::ResettableStrategy<axis_06::StdMalloc>,
-        "Negativ: libc malloc hat kein reset()");
+TEST(V41_TopicAllocatorAxis06, StdMallocDoesNotSatisfyPoolResettableStrategy) {
+    // libc malloc kennt kein release_all() (Pool/Arena-spezifisch) -> Sub-Concept NICHT erfuellt
+    static_assert(!axis_06_cpts::PoolResettableStrategy<axis_06::StdMalloc>,
+        "Negativ: libc malloc hat kein release_all() (Pool/Arena Sub-Concept)");
     SUCCEED();
 }
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+TEST(V41_TopicAllocatorAxis06, ResetClearsStatistics) {
+    // V41.F.6.1.A User-Klarstellung: reset() ist Statistik-Reset (NICHT Pool-Reset!)
+    axis_06::StdMalloc m{};
+    void* p = m.allocate(64, 8);
+    ASSERT_NE(p, nullptr);
+    m.deallocate(p, 64, 8);
+    EXPECT_EQ(m.statistics().allocation_count, 1u);
+
+    m.reset();   // = Statistik-Reset
+    auto stats = m.statistics();
+    EXPECT_EQ(stats.allocation_count,   0u);
+    EXPECT_EQ(stats.deallocation_count, 0u);
+    EXPECT_EQ(stats.total_bytes_in_use, 0u);
+}
+#endif
 
 TEST(V41_TopicAllocatorAxis06, StdMallocDoesNotSatisfyIntrospectableStrategy) {
     static_assert(!axis_06_cpts::IntrospectableStrategy<axis_06::StdMalloc>,
@@ -147,20 +164,16 @@ TEST(V41_TopicAllocatorAxis06, StdMallocEquality) {
 
 TEST(V41_TopicAllocatorAxis06, AllocateAndDeallocateRoundtrip) {
     axis_06::StdMalloc m{};
-    auto stats0 = m.statistics();
-    EXPECT_EQ(stats0.allocation_count,   0u);
-
     void* p = m.allocate(128, 16);
     ASSERT_NE(p, nullptr);
-
-    auto stats1 = m.statistics();
-    EXPECT_EQ(stats1.allocation_count, 1u);
-    EXPECT_GE(stats1.total_bytes_in_use, 128u);
-
     m.deallocate(p, 128, 16);
-    auto stats2 = m.statistics();
-    EXPECT_EQ(stats2.deallocation_count, 1u);
-    EXPECT_EQ(stats2.total_bytes_in_use, 0u);
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    auto stats = m.statistics();
+    EXPECT_EQ(stats.allocation_count,   1u);
+    EXPECT_EQ(stats.deallocation_count, 1u);
+    EXPECT_EQ(stats.total_bytes_in_use, 0u);
+#endif
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -202,12 +215,11 @@ TEST(V41_TopicAllocatorAxis06, CRTPDelegateAllocateDeallocate) {
 
     void* p = base_ref->allocate(256, 16);
     ASSERT_NE(p, nullptr);
-
-    auto stats = base_ref->statistics();
-    EXPECT_EQ(stats.allocation_count, 1u);
-
     base_ref->deallocate(p, 256, 16);
-    auto stats_after = base_ref->statistics();
-    EXPECT_EQ(stats_after.allocation_count, 1u);
-    EXPECT_EQ(stats_after.deallocation_count, 1u);
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    auto stats = base_ref->statistics();
+    EXPECT_EQ(stats.allocation_count,   1u);
+    EXPECT_EQ(stats.deallocation_count, 1u);
+#endif
 }

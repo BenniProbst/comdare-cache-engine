@@ -33,6 +33,20 @@ option(COMDARE_BUILD_TESTS         "Build Google-Tests (generic + specific)"   O
 option(COMDARE_BUILD_PERMUTATIONS  "Pre-Build aller Modul-Permutationen"       OFF)
 option(COMDARE_MICROBENCH_CONTINUOUS "Continuous Mikrobenchmarks (Builder-Modus)" OFF)
 
+# V41.F.6.1.A (2026-05-25) — Statistics/Mess-Overhead per CMake-Flag steuern
+# Default ON: alle Topic+Achsen-Implementierungen enthalten statistics() + reset()
+# als Pflicht-API (Mess-Reihen + Welch-Test brauchen das).
+# Wenn OFF: statistics()+reset()+Statistik-Member werden komplett aus dem Binary
+# herauspraepariert (#ifdef'd in den Achsen-Headers). Production-Export einer
+# Final-Permutation OHNE Mess-Overhead. CacheEnginePermutationStrategy-Concept
+# verlangt statistics()/reset() dann nicht mehr.
+option(COMDARE_CE_ENABLE_STATISTICS
+    "V41.F.6.1.A: Topic+Achsen-Statistics enabled (jede Achse muss statistics()+reset() bieten)"
+    ON)
+if(COMDARE_CE_ENABLE_STATISTICS)
+    add_compile_definitions(COMDARE_CE_ENABLE_STATISTICS=1)
+endif()
+
 # REV 7.6 V8.4 — Experiment-Modus (User-Direktive 2026-05-13/14)
 # Aktiviert ResultAggregator + Mess-Hooks in der ExecutionEngine.
 # Default OFF: Production-Pfad (kein Mess-Overhead).
