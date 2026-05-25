@@ -48,6 +48,8 @@ set(_AXIS_12 "scalar" "sse4" "avx2")          # AVX512 nur full
 # Achse 4 Cache-Layout
 set(_AXIS_4  "aos" "soa" "hybrid")
 # Achse 6 Allokator (Memory: A01-A23 Allokator-Stack)
+# V41.A2 (2026-05-25): tcmalloc/snmalloc/hoard/scalloc nur in medium/full
+# (zu viele Permutationen sonst).
 set(_AXIS_6  "std" "jemalloc" "mimalloc")
 # Achse 1 Knoten-Format (cache-engine spezifisch)
 set(_AXIS_1  "compact" "wide")
@@ -60,9 +62,11 @@ if(COMDARE_PROFILE STREQUAL "smoke")
 elseif(COMDARE_PROFILE STREQUAL "medium")
     set(_active_axes "AXIS_12" "AXIS_4" "AXIS_6" "AXIS_1" "AXIS_8")
     list(APPEND _AXIS_12 "avx512")
+    list(APPEND _AXIS_6 "snmalloc")
 elseif(COMDARE_PROFILE STREQUAL "full")
     set(_active_axes "AXIS_12" "AXIS_4" "AXIS_6" "AXIS_1" "AXIS_8")
     list(APPEND _AXIS_12 "avx512" "neon")
+    list(APPEND _AXIS_6 "snmalloc" "tcmalloc" "hoard" "scalloc")
 else()
     message(FATAL_ERROR "Unbekanntes COMDARE_PROFILE: ${COMDARE_PROFILE} (smoke|medium|full)")
 endif()
@@ -283,7 +287,7 @@ foreach(_perm IN LISTS _all_perms)
   #endif
 #endif
 
-// V40.A/B (2026-05-24) - Allokator-Achse echt
+// V40.A/B + V41.A2 (2026-05-25) - Allokator-Achse echt (7 Variants)
 #if defined(COMDARE_PERM_ALLOC_IS_MIMALLOC) && defined(COMDARE_PERM_HAVE_MIMALLOC)
   #include <mimalloc.h>
   #define COMDARE_ALLOC(sz)  ::mi_malloc(sz)
@@ -294,6 +298,30 @@ foreach(_perm IN LISTS _all_perms)
   #define COMDARE_ALLOC(sz)  ::je_malloc(sz)
   #define COMDARE_FREE(p)    ::je_free(p)
   #define COMDARE_ALLOC_NAME \"jemalloc\"
+#elif defined(COMDARE_PERM_ALLOC_IS_SNMALLOC) && defined(COMDARE_PERM_HAVE_SNMALLOC)
+  // snmalloc header-only: nutze libc-shim
+  #include <snmalloc/snmalloc.h>
+  #define COMDARE_ALLOC(sz)  ::snmalloc::libc::malloc(sz)
+  #define COMDARE_FREE(p)    ::snmalloc::libc::free(p)
+  #define COMDARE_ALLOC_NAME \"snmalloc\"
+#elif defined(COMDARE_PERM_ALLOC_IS_TCMALLOC) && defined(COMDARE_PERM_HAVE_TCMALLOC)
+  #include <gperftools/tcmalloc.h>
+  #define COMDARE_ALLOC(sz)  ::tc_malloc(sz)
+  #define COMDARE_FREE(p)    ::tc_free(p)
+  #define COMDARE_ALLOC_NAME \"tcmalloc\"
+#elif defined(COMDARE_PERM_ALLOC_IS_HOARD) && defined(COMDARE_PERM_HAVE_HOARD)
+  // hoard ueberschreibt globalen malloc bei dynamic-link; raw extern \"C\"
+  extern \"C\" void* malloc(std::size_t);
+  extern \"C\" void  free(void*);
+  #define COMDARE_ALLOC(sz)  ::malloc(sz)
+  #define COMDARE_FREE(p)    ::free(p)
+  #define COMDARE_ALLOC_NAME \"hoard\"
+#elif defined(COMDARE_PERM_ALLOC_IS_SCALLOC) && defined(COMDARE_PERM_HAVE_SCALLOC)
+  extern \"C\" void* malloc(std::size_t);
+  extern \"C\" void  free(void*);
+  #define COMDARE_ALLOC(sz)  ::malloc(sz)
+  #define COMDARE_FREE(p)    ::free(p)
+  #define COMDARE_ALLOC_NAME \"scalloc\"
 #else
   #define COMDARE_ALLOC(sz)  std::malloc(sz)
   #define COMDARE_FREE(p)    std::free(p)
@@ -557,7 +585,7 @@ set_target_properties(perm_${_perm_id} PROPERTIES
     \$<\$<OR:\$<CXX_COMPILER_ID:GNU>,\$<CXX_COMPILER_ID:Clang>,\$<CXX_COMPILER_ID:AppleClang>>:${_simd_flags_gcc}>)
 ")
     endif()
-    # V40.A/B (2026-05-24) - Allokator-Achse: link gegen vendored Library
+    # V40.A/B + V41.A2 - Allokator-Achse: link gegen vendored Library wenn verfuegbar
     if(_p_alloc STREQUAL "mimalloc")
         string(APPEND _perm_cmake_content
 "if(TARGET comdare::vendor_mimalloc)
@@ -570,6 +598,34 @@ endif()
 "if(TARGET comdare::vendor_jemalloc)
     target_link_libraries(perm_${_perm_id} PRIVATE comdare::vendor_jemalloc)
     target_compile_definitions(perm_${_perm_id} PRIVATE COMDARE_PERM_HAVE_JEMALLOC=1)
+endif()
+")
+    elseif(_p_alloc STREQUAL "snmalloc")
+        string(APPEND _perm_cmake_content
+"if(TARGET comdare::vendor_snmalloc)
+    target_link_libraries(perm_${_perm_id} PRIVATE comdare::vendor_snmalloc)
+    target_compile_definitions(perm_${_perm_id} PRIVATE COMDARE_PERM_HAVE_SNMALLOC=1)
+endif()
+")
+    elseif(_p_alloc STREQUAL "tcmalloc")
+        string(APPEND _perm_cmake_content
+"if(TARGET comdare::vendor_tcmalloc)
+    target_link_libraries(perm_${_perm_id} PRIVATE comdare::vendor_tcmalloc)
+    target_compile_definitions(perm_${_perm_id} PRIVATE COMDARE_PERM_HAVE_TCMALLOC=1)
+endif()
+")
+    elseif(_p_alloc STREQUAL "hoard")
+        string(APPEND _perm_cmake_content
+"if(TARGET comdare::vendor_hoard)
+    target_link_libraries(perm_${_perm_id} PRIVATE comdare::vendor_hoard)
+    target_compile_definitions(perm_${_perm_id} PRIVATE COMDARE_PERM_HAVE_HOARD=1)
+endif()
+")
+    elseif(_p_alloc STREQUAL "scalloc")
+        string(APPEND _perm_cmake_content
+"if(TARGET comdare::vendor_scalloc)
+    target_link_libraries(perm_${_perm_id} PRIVATE comdare::vendor_scalloc)
+    target_compile_definitions(perm_${_perm_id} PRIVATE COMDARE_PERM_HAVE_SCALLOC=1)
 endif()
 ")
     endif()
