@@ -238,5 +238,6 @@ comdare_add_test(test_v41_topic_allocator_axis_06
 target_include_directories(test_v41_topic_allocator_axis_06 PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"  # V41.F.6.1 Stufe 3: measurement/measurable_concept.hpp
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_topic_allocator_axis_06 PRIVATE Boost::mp11)

@@ -29,7 +29,7 @@
 #include "axis_06_allocator_concept.hpp"
 #include "../axis_06_allocator_subaxes_aa1_to_aa7.hpp"
 
-// TODO V41.F.6.1 Stufe 3: #include <measurement/measurable_concept.hpp> wenn Observer-Concept aktiv
+#include <measurement/measurable_concept.hpp>   // V41.F.6.1 Stufe 3 LIVE: MeasurableObserver Template
 
 #include <concepts>
 #include <cstddef>
@@ -121,14 +121,23 @@ concept CacheEnginePermutationStrategy =
         { A::family_name()    } -> std::convertible_to<std::string_view>;
     }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
+    // V41.F.6.1 Stufe 3 LIVE (Doku §15.3 + §15.8 / User-Direktive [[statistics-observer-pflicht]]):
+    // Bei STATISTICS=ON ist variadische Statistik-Observer-Auswertungsklasse Pflicht.
+    // observer_t = MeasurableObserver<snapshot_t> ueber die achs-spezifische
+    // Statistics-Struktur (z.B. AllocationStatistics fuer Allocator-Achse).
     && requires(A a, A const& ac) {
         { ac.statistics() } noexcept;
         { a.reset() }      noexcept;
     }
-    // TODO V41.F.6.1 Stufe 3 (Doku §15.3 + §15.8): Observer-Pattern Pflicht ergaenzen
-    // (typename snapshot_t + typename observer_t + observer() const Methode) — heute
-    // noch nicht aktiv weil Wrapper-Klassen das noch nicht implementieren. Naechste
-    // Iteration: Wrapper updaten + dann Concept-Constraints aktivieren.
+    && requires {
+        typename A::snapshot_t;
+        typename A::observer_t;
+    }
+    && std::same_as<typename A::observer_t,
+                    ::comdare::cache_engine::measurement::MeasurableObserver<typename A::snapshot_t>>
+    && requires(A const& ac) {
+        { ac.observer() } noexcept -> std::same_as<typename A::observer_t const&>;
+    }
 #endif
     ;
 
