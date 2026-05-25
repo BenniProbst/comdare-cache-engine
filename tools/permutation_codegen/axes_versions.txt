@@ -24,6 +24,10 @@ axis_4_layout_hybrid=v1
 axis_6_alloc_std=v1
 axis_6_alloc_jemalloc=v1
 axis_6_alloc_mimalloc=v1
+axis_6_alloc_snmalloc=v1
+axis_6_alloc_tcmalloc=v1
+axis_6_alloc_hoard=v1
+axis_6_alloc_scalloc=v1
 
 # Achse 1 Knoten-Format
 axis_1_node_compact=v1
