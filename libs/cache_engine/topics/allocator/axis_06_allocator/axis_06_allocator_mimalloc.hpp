@@ -76,6 +76,8 @@ public:
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "Mimalloc Free-List-Sharding (Leijen/Zorn/de Moura MSR-TR-2019-18 APLAS 2019)";
     }
+    // V41.F.6.1.G CacheEngineBuilder CLI-Flag-Suffix (Doku §15.10)
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "MIMALLOC"; }
 
     [[nodiscard]] bool operator==(MimallocAllocator const&) const noexcept { return true; }
 

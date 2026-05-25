@@ -64,6 +64,8 @@ public:
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "Snmalloc Message-Passing (Lipp/Bond/Parkinson ISMM 2019)";
     }
+    // V41.F.6.1.G CacheEngineBuilder CLI-Flag-Suffix (Doku §15.10)
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "SNMALLOC"; }
 
     [[nodiscard]] bool operator==(SnmallocAllocator const&) const noexcept { return true; }
 
