@@ -17,6 +17,10 @@
 #include "axis_q1_queuing_delta_chain.hpp"
 #include "axis_q1_queuing_skiplist_buffer.hpp"
 #include "axis_q1_queuing_tombstone_buffer.hpp"
+// Batch 4 (Q-COW CopyOnWrite, Q-EPOCH EpochBuffer, Q-BATCH BatchedInsertBuffer)
+#include "axis_q1_queuing_copy_on_write.hpp"
+#include "axis_q1_queuing_epoch_buffer.hpp"
+#include "axis_q1_queuing_batched_insert_buffer.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
@@ -38,10 +42,12 @@ using AllStrategies = mp::mp_list<
     // Batch 3 (2026-05-26)
     DeltaChain,
     SkiplistBuffer,
-    TombstoneBuffer
-    // Vollausbau-Batches 4-5 (geplant):
-    // Q10 CopyOnWrite, Q11 EpochBuffer, Q12 BatchedInsertBuffer,
-    // Q13 LockFreeSPSC, Q14 LockFreeMPMC
+    TombstoneBuffer,
+    // Batch 4 (2026-05-26)
+    CopyOnWrite,
+    EpochBuffer,
+    BatchedInsertBuffer
+    // Vollausbau-Batch 5 (geplant): Q13a LockFreeSPSC, Q13b LockFreeMPMC
 >;
 
 template <typename S>
