@@ -6,8 +6,8 @@
 //
 // Topic-Marker fuer Buffer/Queue-Strategien (W2-Recherche, Doku §11.2).
 // 2 Achsen unter diesem Topic (User-Entscheidung 2026-05-26):
-//   - axis_q1_buffer_strategy (13 Strategien Vollausbau, Pilot: 4)
-//   - axis_q2_flush_policy    (5 Policies Vollausbau, Pilot: 3)
+//   - axis_q1_queuing (13 Strategien Vollausbau, Pilot: 4)
+//   - axis_q2_queuing    (5 Policies Vollausbau, Pilot: 3)
 
 #include <concepts>
 

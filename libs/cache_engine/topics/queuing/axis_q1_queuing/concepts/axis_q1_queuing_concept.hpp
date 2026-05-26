@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1 axis_q1_buffer_strategy Standard-Concept (2026-05-26)
+// V41.F.6.1 axis_q1_queuing Standard-Concept (2026-05-26)
 //
 // @topic queuing
 // @achse Q1 buffer_strategy
@@ -20,7 +20,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace comdare::cache_engine::queuing::axis_q1_buffer_strategy::concepts {
+namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts {
 
 /**
  * @brief BufferStrategy — Pflicht-API fuer Q1 Buffer-Strategien

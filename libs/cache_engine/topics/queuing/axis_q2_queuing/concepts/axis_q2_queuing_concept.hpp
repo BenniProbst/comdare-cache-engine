@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1 axis_q2_flush_policy Standard-Concept (2026-05-26)
+// V41.F.6.1 axis_q2_queuing Standard-Concept (2026-05-26)
 // @topic queuing @achse Q2 flush_policy
 
 #include "../../concepts/topic_queuing_concept.hpp"
@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace comdare::cache_engine::queuing::axis_q2_flush_policy::concepts {
+namespace comdare::cache_engine::queuing::axis_q2_queuing::concepts {
 
 /**
  * @brief FlushDecision — Resultat von should_flush()

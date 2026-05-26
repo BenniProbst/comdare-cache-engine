@@ -1,14 +1,14 @@
 #pragma once
-// V41.F.6.1 axis_q2_flush_policy WatermarkFlush F-WATERMARK (2026-05-26)
+// V41.F.6.1 axis_q2_queuing WatermarkFlush F-WATERMARK (2026-05-26)
 // @topic queuing @achse Q2 @family F02 WatermarkFlush
 // @subaxis FS2 threshold_triggered
 
-#include "concepts/axis_q2_flush_policy_concept.hpp"
-#include "concepts/axis_q2_flush_policy_cache_engine_permutation_concept.hpp"
-#include "axis_q2_flush_policy_subaxes_fs1_to_fs3.hpp"
+#include "concepts/axis_q2_queuing_concept.hpp"
+#include "concepts/axis_q2_queuing_cache_engine_permutation_concept.hpp"
+#include "axis_q2_queuing_subaxes_fs1_to_fs3.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
 
-#include <topics/queuing/axis_q2_flush_policy/axis_q2_flush_policy_flags.hpp>
+#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_flags.hpp>
 #include <measurement/measurable_concept.hpp>
 #include <array>
 #include <cstddef>
@@ -16,7 +16,7 @@
 #include <string_view>
 #include <type_traits>
 
-namespace comdare::cache_engine::queuing::axis_q2_flush_policy {
+namespace comdare::cache_engine::queuing::axis_q2_queuing {
 
 /**
  * @brief WatermarkFlush — spuelt wenn fill >= threshold (Default 75% Kapazitaet)
@@ -96,7 +96,7 @@ private:
 
 }  // namespace
 
-namespace comdare::cache_engine::queuing::axis_q2_flush_policy {
+namespace comdare::cache_engine::queuing::axis_q2_queuing {
     static_assert(concepts::FlushPolicy<WatermarkFlush>);
     static_assert(concepts::CacheEngineFlushPolicyPermutationStrategy<WatermarkFlush>);
 }

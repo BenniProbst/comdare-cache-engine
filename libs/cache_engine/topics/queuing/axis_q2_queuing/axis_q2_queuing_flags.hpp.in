@@ -1,7 +1,7 @@
 #pragma once
-// V41.F.6.1 axis_q2_flush_policy AUTO-GENERATED Flags (CMake configure_file)
+// V41.F.6.1 axis_q2_queuing AUTO-GENERATED Flags (CMake configure_file)
 
-namespace comdare::cache_engine::queuing::axis_q2_flush_policy::flags {
+namespace comdare::cache_engine::queuing::axis_q2_queuing::flags {
 
 // Pilot Batch 1 (F-EAGER, F-WATERMARK, F-LAZY)
 #cmakedefine01 COMDARE_AXIS_Q2_USE_EAGER

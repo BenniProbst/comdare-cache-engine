@@ -429,8 +429,8 @@ foreach(_q1 NO_BUFFER FIFO LIFO BOUNDED_RING)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/queuing/axis_q1_buffer_strategy/axis_q1_buffer_strategy_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/queuing/axis_q1_buffer_strategy/axis_q1_buffer_strategy_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp"
     @ONLY)
 
 # axis_Q2 flush_policy
@@ -442,8 +442,8 @@ foreach(_q2 EAGER WATERMARK LAZY)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/queuing/axis_q2_flush_policy/axis_q2_flush_policy_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/queuing/axis_q2_flush_policy/axis_q2_flush_policy_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/queuing/axis_q2_queuing/axis_q2_queuing_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/queuing/axis_q2_queuing/axis_q2_queuing_flags.hpp"
     @ONLY)
 
 message(STATUS "V41.F.6.1 Topic queuing Pilot:")

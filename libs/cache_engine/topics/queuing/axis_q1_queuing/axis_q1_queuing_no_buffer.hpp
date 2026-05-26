@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1 axis_q1_buffer_strategy NoBuffer Q-NONE (2026-05-26)
+// V41.F.6.1 axis_q1_queuing NoBuffer Q-NONE (2026-05-26)
 //
 // @topic queuing @achse Q1 @family Q01 NoBuffer (Passthrough)
 // @subaxis QS1 sequential_access
@@ -8,13 +8,13 @@
 // immer std::nullopt. Sinnvoll als Baseline-Vergleich + im B+/ART
 // klassisch (direkt-zum-Leaf).
 
-#include "axis_q1_buffer_strategy_base.hpp"
-#include "axis_q1_buffer_strategy_subaxes_qs1_to_qs6.hpp"
-#include "concepts/axis_q1_buffer_strategy_concept.hpp"
-#include "concepts/axis_q1_buffer_strategy_cache_engine_permutation_concept.hpp"
+#include "axis_q1_queuing_base.hpp"
+#include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
+#include "concepts/axis_q1_queuing_concept.hpp"
+#include "concepts/axis_q1_queuing_cache_engine_permutation_concept.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
 
-#include <topics/queuing/axis_q1_buffer_strategy/axis_q1_buffer_strategy_flags.hpp>
+#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp>
 #include <measurement/measurable_concept.hpp>
 #include <cstddef>
 #include <cstdint>
@@ -22,7 +22,7 @@
 #include <string_view>
 #include <type_traits>
 
-namespace comdare::cache_engine::queuing::axis_q1_buffer_strategy {
+namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 class NoBuffer : public BufferStrategyBase<NoBuffer> {
 public:
@@ -96,7 +96,7 @@ private:
 
 }  // namespace
 
-namespace comdare::cache_engine::queuing::axis_q1_buffer_strategy {
+namespace comdare::cache_engine::queuing::axis_q1_queuing {
     static_assert(concepts::BufferStrategy<NoBuffer>);
     static_assert(concepts::CacheEngineBufferPermutationStrategy<NoBuffer>);
 }
