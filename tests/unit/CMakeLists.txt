@@ -385,3 +385,28 @@ target_include_directories(test_v41_anatomy_module_abi PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_anatomy_module_abi PRIVATE Boost::mp11)
+
+# V41.F.6.1.R5.D.2 anatomy_codegen Pilot (HotComposition Static-Lib + Test)
+# Generiert via configure_file aus
+#   libs/cache_engine/builder/codegen/templates/anatomy_permutation_module.cpp.in
+# eine STATIC-Lib mit den 4 Pflicht-extern-"C"-Symbolen fuer HotComposition.
+include(anatomy_codegen)
+comdare_codegen_anatomy_module(
+    TARGET_NAME         anatomy_codegen_pilot_hot
+    COMPOSITION_TYPE    "::comdare::cache_engine::compositions::HotComposition"
+    COMPOSITION_HEADER  "compositions/hot_reference.hpp"
+    LIBRARY_TYPE        STATIC
+    OUTPUT_DIR          "${CMAKE_BINARY_DIR}/generated/anatomy_modules"
+    FINGERPRINT         "hot_pilot")
+
+comdare_add_test(test_v41_anatomy_codegen
+    SOURCES test_v41_anatomy_codegen.cpp)
+target_include_directories(test_v41_anatomy_codegen PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_anatomy_codegen PRIVATE
+    Boost::mp11
+    anatomy_codegen_pilot_hot)
