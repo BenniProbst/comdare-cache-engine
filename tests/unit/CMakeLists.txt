@@ -374,3 +374,14 @@ target_include_directories(test_v41_search_algorithm_permutation_engine PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_search_algorithm_permutation_engine PRIVATE Boost::mp11)
+
+# V41.F.6.1.R5.D Anatomy Module ABI v1 (extern "C" Factory + Macro-Expansion)
+comdare_add_test(test_v41_anatomy_module_abi
+    SOURCES test_v41_anatomy_module_abi.cpp)
+target_include_directories(test_v41_anatomy_module_abi PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_anatomy_module_abi PRIVATE Boost::mp11)
