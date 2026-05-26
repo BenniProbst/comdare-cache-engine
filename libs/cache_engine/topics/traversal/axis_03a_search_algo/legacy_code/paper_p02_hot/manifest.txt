@@ -1,0 +1,14 @@
+# Paper: P02 HOT (Binna/Zangerle/Pichl/Specht PVLDB 11(3) 2018)
+# Cache-Engine-Wrapper: OriginalHotSearchAlgo
+# Source: ext/P02-HOT/hot (HOTRowex-Implementation, BSD)
+
+@compiler gcc-9.5
+@has_original_paper_code true
+@axis_mixin_type comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoOriginalCodeMixin
+
+# wrapper_fn  paper_fn          source_relative_path
+# HOT hat NUR insert + lookup (append-only Trie, KEIN remove / KEIN clear in Paper).
+# erase/clear sind cache-engine Luecken-Fueller-Erweiterungen (eigene Re-Impl).
+# Tool generiert nur 2 Felder im PaperManifest. Achs-Mixin defaultet fehlende auf false.
+insert        insert            hot/libs/hot/rowex/include/hot/rowex/HOTRowex.hpp
+lookup        lookup            hot/libs/hot/rowex/include/hot/rowex/HOTRowex.hpp

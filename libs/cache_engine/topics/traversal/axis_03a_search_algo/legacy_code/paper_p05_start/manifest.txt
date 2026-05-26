@@ -1,0 +1,13 @@
+# Paper: P05 START (Mertens/Mueller et al. ICDE 2024)
+# Cache-Engine-Wrapper: OriginalStartSearchAlgo
+# Source: ext/P05-START/START/sosd-competitor-adapter-START.h
+
+@compiler gcc-9.5
+@has_original_paper_code true
+@axis_mixin_type comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoOriginalCodeMixin
+
+# wrapper_fn  paper_fn          source_relative_path
+# START hat NUR insertLater (Adapter-Method, ruft intern art->insertKey) + EqualityLookup.
+# erase/clear sind cache-engine Luecken-Fueller (eigene Re-Impl).
+insert        insertLater       START/sosd-competitor-adapter-START.h
+lookup        EqualityLookup    START/sosd-competitor-adapter-START.h

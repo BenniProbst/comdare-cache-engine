@@ -634,9 +634,54 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     )
 
     # DEFER P2.D.t (Bazel + Custom-Shim Vendors):
-    #   A06 tcmalloc      — Bazel-Build, tc_free/tc_memalign nicht im Source (Symbol-Mangling)
-    #   A01 hoard         — Custom-Shim hoard_memalign (kein direktes Paper-Symbol)
-    #   A03 michael_lf    — Custom-Shim michael_lf_alloc (Header-only Pattern)
-    #   A08 scalloc       — Custom-Shim scalloc_malloc (Header-only + Bazel-aehnlich)
-    # Diese 4 brauchen spaeteren Sprint mit Custom-Build-Adaption pro Vendor.
+    #   A06 tcmalloc, A01 hoard, A03 michael_lf, A08 scalloc — spaeterer Sprint Task #685
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # V41.F.6.1.P2.D.tr s1 Traversal Roll-out — axis_03a_search_algo
+    # 3 NEUE Wrappers (parallel zu existing Re-Impl Array256/VectorU8U8/VectorU16U16).
+    # P02 HOT + P05 START haben Luecken (erase/clear) — Achs-Mixin defaultet auf false.
+    # ─────────────────────────────────────────────────────────────────────────
+    set(_a03a_legacy_root "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/traversal/axis_03a_search_algo/legacy_code")
+    set(_a03a_gen_root    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/traversal/axis_03a_search_algo/legacy_code")
+    set(_a03a_namespace_root "comdare::cache_engine::traversal::axis_03a_search_algo::generated")
+    set(_a03a_axis_mixin     "comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoOriginalCodeMixin")
+
+    # P01 ART (Leis ICDE 2013) — 4/4 originall
+    comdare_register_paper_wrapper(
+        PAPER_ID          p01_art
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/P01-ART/unodb"
+        EXT_SENTINEL_FILE "art.hpp"
+        LEGACY_DIR        "${_a03a_legacy_root}/paper_p01_art"
+        FILES             "art.hpp"
+        OUTPUT_HEADER     "${_a03a_gen_root}/paper_p01_art_is_original.hpp"
+        NAMESPACE         "${_a03a_namespace_root}::p01_art"
+        WRAPPER_NAME      art
+        AXIS_MIXIN_TYPE   "${_a03a_axis_mixin}"
+    )
+
+    # P02 HOT (Binna PVLDB 2018) — 2/4 originall (erase/clear Luecken)
+    comdare_register_paper_wrapper(
+        PAPER_ID          p02_hot
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/P02-HOT"
+        EXT_SENTINEL_FILE "hot/libs/hot/rowex/include/hot/rowex/HOTRowex.hpp"
+        LEGACY_DIR        "${_a03a_legacy_root}/paper_p02_hot"
+        FILES             "hot/libs/hot/rowex/include/hot/rowex/HOTRowex.hpp"
+        OUTPUT_HEADER     "${_a03a_gen_root}/paper_p02_hot_is_original.hpp"
+        NAMESPACE         "${_a03a_namespace_root}::p02_hot"
+        WRAPPER_NAME      hot
+        AXIS_MIXIN_TYPE   "${_a03a_axis_mixin}"
+    )
+
+    # P05 START (Mertens ICDE 2024) — 2/4 originall (erase/clear Luecken)
+    comdare_register_paper_wrapper(
+        PAPER_ID          p05_start
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/P05-START"
+        EXT_SENTINEL_FILE "START/sosd-competitor-adapter-START.h"
+        LEGACY_DIR        "${_a03a_legacy_root}/paper_p05_start"
+        FILES             "START/sosd-competitor-adapter-START.h"
+        OUTPUT_HEADER     "${_a03a_gen_root}/paper_p05_start_is_original.hpp"
+        NAMESPACE         "${_a03a_namespace_root}::p05_start"
+        WRAPPER_NAME      start
+        AXIS_MIXIN_TYPE   "${_a03a_axis_mixin}"
+    )
 endif()

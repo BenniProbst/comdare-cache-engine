@@ -1,0 +1,14 @@
+# Paper: P01 ART (Leis/Kemper/Neumann ICDE 2013)
+# Cache-Engine-Wrapper: OriginalArtSearchAlgo
+# Source: ext/P01-ART/unodb (unodb-Implementation, MIT)
+
+@compiler gcc-9.5
+@has_original_paper_code true
+@axis_mixin_type comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoOriginalCodeMixin
+
+# wrapper_fn  paper_fn          source_relative_path
+# ART hat alle 4 Functions originall — kein Luecken-Fueller noetig.
+insert        insert_internal   art.hpp
+lookup        get               art.hpp
+erase         remove_internal   art.hpp
+clear         clear             art.hpp
