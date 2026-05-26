@@ -64,10 +64,9 @@ public:
     [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // numalloc_alloc(size, alignment, node)
     [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return true; }   // SONDERFALL: Charakteristik dieser Familie
-    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }  // per-NUMA-node lock
     [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }  // node-local statt thread-local
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept { return concepts::ProgressGuarantee::Blocking; }
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_wait_free()                noexcept { return false; }
 
     NUMAllocAllocator() noexcept : numa_node_(kDefaultNumaNode) {}
     explicit NUMAllocAllocator(int node) noexcept : numa_node_(node) {}

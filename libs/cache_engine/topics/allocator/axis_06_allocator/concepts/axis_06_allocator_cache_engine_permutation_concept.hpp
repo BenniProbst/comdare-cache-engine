@@ -62,6 +62,26 @@ struct AllocationStatistics {
 };
 
 /**
+ * @brief ProgressGuarantee — Klassifikation der Synchronisations-Stufen
+ *
+ * V41.F.6.1 Batch 7 Refactoring (User-Direktive 2026-05-26
+ * [[vendor-sonderfaelle-als-pflicht-property]] Stufen-Pattern):
+ * Ersetzt frueheres is_lock_free()+is_wait_free()-Bool-Paar durch ordinale
+ * Klassifikation. Hoehere Stufen IMPLIZIEREN niedrigere Stufen (wait-free ist
+ * staerker als lock-free, lock-free ist staerker als obstruction-free).
+ *
+ * CacheEngineBuilder kann mit Vergleich `>= LockFree` Subsets bilden, ohne
+ * mehrere bools synchron halten zu muessen.
+ */
+enum class ProgressGuarantee : int {
+    Blocking        = 0,  // Mainstream: Mutex/Lock, kein Progress-Guarantee
+    ObstructionFree = 1,  // Herlihy/Luchangco/Moir 2003: progress nur ohne contention
+    LockFree        = 2,  // klassisch: mindestens 1 Thread garantiert progress
+    WaitFree        = 3,  // Herlihy 1991: ALLE Threads garantiert progress in endlicher Zeit
+    // Reserve: BoundedWaitFree=4, AmortizedWaitFree=5, ...
+};
+
+/**
  * @brief CacheEnginePermutationStrategy - cache-engine-Pflicht-API
  * @topic allocator
  * @achse 6
@@ -128,20 +148,14 @@ concept CacheEnginePermutationStrategy =
         { A::has_native_aligned_alloc()    } -> std::convertible_to<bool>;
         { A::requires_explicit_init()      } -> std::convertible_to<bool>;
         { A::supports_numa_node_hint()     } -> std::convertible_to<bool>;
-        { A::is_lock_free()                } -> std::convertible_to<bool>;
         { A::supports_thread_local_cache() } -> std::convertible_to<bool>;
-        // V41.F.6.1 Batch 6 Erweiterung (User-Direktive 2026-05-26):
-        // requires_specialized_hardware() — true bei PIM/HBM/GPU/FPGA-Allokatoren,
-        // false bei generischen CPU-Allokatoren. CacheEngineBuilder kann damit
-        // pro Plattform Subsets bilden (z.B. nur PIM-Allokatoren auf UPMEM-Systemen).
         { A::requires_specialized_hardware() } -> std::convertible_to<bool>;
-        // V41.F.6.1 Batch 7 Erweiterung (User-Direktive 2026-05-26):
-        // is_wait_free() — strikter als is_lock_free(). lock-free garantiert
-        // progress von MINDESTENS 1 Thread; wait-free garantiert progress von
-        // ALLEN Threads. Wichtig fuer Real-Time + Latency-bounded Scenarios.
-        // Beispiel: Crystalline (A17) hat wait-free Reclamation.
-        // Hinweis: wait-free=true impliziert lock-free=true (aber NICHT umgekehrt).
-        { A::is_wait_free()                } -> std::convertible_to<bool>;
+        // V41.F.6.1 Batch 7 Refactoring (User-Direktive 2026-05-26 Stufen-Pattern):
+        // progress_guarantee() — Stufen-Klassifikation der Synchronisations-Garantie.
+        // ERSETZT frueher: is_lock_free() + is_wait_free() (2 bools mit implizitem
+        // Constraint wait-free => lock-free). Jetzt 1 ordinaler Enum-Wert.
+        // CacheEngineBuilder: `level() >= LockFree` deckt lock-free + wait-free.
+        { A::progress_guarantee() } -> std::convertible_to<ProgressGuarantee>;
     }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     // V41.F.6.1 Stufe 3 LIVE (Doku §15.3 + §15.8 / User-Direktive [[statistics-observer-pflicht]]):

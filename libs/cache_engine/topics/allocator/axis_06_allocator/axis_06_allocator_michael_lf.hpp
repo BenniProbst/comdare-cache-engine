@@ -57,10 +57,9 @@ public:
     [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // michael_lf_alloc(size, alignment)
     [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }  // CAS-Init lazy
     [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return true; }   // namesgebende Eigenschaft (CAS-only)
     [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }  // single shared lock-free pool, kein per-thread
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept { return concepts::ProgressGuarantee::LockFree; }  // CAS-only Allokation
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_wait_free()                noexcept { return false; }
 
     [[nodiscard]] bool operator==(MichaelLockFreeAllocator const&) const noexcept { return true; }
 
