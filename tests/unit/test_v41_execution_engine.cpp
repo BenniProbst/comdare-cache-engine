@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include <execution_engine/execution_engine_base.hpp>
+#include <anatomy/abi_adapter.hpp>
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/known_algorithms.hpp>
 
@@ -110,26 +111,11 @@ TEST(R5CA2_AnatomyInheritance, IAnatomyBaseDerivesFromIExecutionEngine) {
     SUCCEED();
 }
 
-// Anatomy-Adapter: bridge SearchAlgorithmAnatomy<C> → IAnatomyBase → IExecutionEngine
-template <ana::AnatomyConcept A>
-class MammalAbiAdapter final : public ana::IAnatomyBase {
-public:
-    [[nodiscard]] std::string_view  engine_name() const noexcept override { return A::composition_name(); }
-    [[nodiscard]] ee::EngineLifecycleState lifecycle_state() const noexcept override { return state_; }
-    void warm_up()  override { state_ = ee::EngineLifecycleState::Warming; }
-    void reset()    override { state_ = ee::EngineLifecycleState::Idle; }
-    void shutdown() override { state_ = ee::EngineLifecycleState::Shutdown; }
+// R5.C.A3: Lokale Sample-Adapter-Klasse entfernt. Wir nutzen jetzt den
+// Production-Header `anatomy/abi_adapter.hpp` mit `ana::SearchAlgorithmAbiAdapter<A>`.
 
-    [[nodiscard]] std::string_view composition_name() const noexcept override { return A::composition_name(); }
-    [[nodiscard]] std::string_view paper_id() const noexcept override { return A::paper_id(); }
-    [[nodiscard]] ana::AnatomyGenus genus() const noexcept override { return A::genus(); }
-    [[nodiscard]] std::size_t organ_count() const noexcept override { return A::organ_count(); }
-private:
-    ee::EngineLifecycleState state_{ee::EngineLifecycleState::Uninitialized};
-};
-
-TEST(R5CA2_AnatomyInheritance, MammalAdapterBridgeToBothInterfaces) {
-    MammalAbiAdapter<ana::Art> adapter;
+TEST(R5CA2_AnatomyInheritance, SearchAlgorithmAdapterBridgeToBothInterfaces) {
+    ana::SearchAlgorithmAbiAdapter<ana::Art> adapter;
     // Als IExecutionEngine
     ee::IExecutionEngine const& exec = adapter;
     EXPECT_EQ(exec.engine_name(), std::string_view{"ArtComposition"});
@@ -202,11 +188,11 @@ TEST(R5CA2_VirusEngine, IVirusExecutionEngineDoesNotInheritIAnatomyBase) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5CA2_PolymorphicMeasurement, AnatomyAndVirusUniformLifecycle) {
-    MammalAbiAdapter<ana::Hot> mammal;
-    GraphBfsVirusStub          virus;
+    ana::SearchAlgorithmAbiAdapter<ana::Hot> anatomy;
+    GraphBfsVirusStub                        virus;
 
     // Polymorpher Mess-Loop (CacheEngineBuilder-Pattern fuer R5.D)
-    ee::IExecutionEngine* engines[] = { &mammal, &virus };
+    ee::IExecutionEngine* engines[] = { &anatomy, &virus };
     for (auto* e : engines) {
         e->warm_up();
         EXPECT_EQ(e->lifecycle_state(), ee::EngineLifecycleState::Warming);
@@ -215,6 +201,6 @@ TEST(R5CA2_PolymorphicMeasurement, AnatomyAndVirusUniformLifecycle) {
     }
 
     // Type-discrimination via engine_kind() (Doku 14 §34.1 Drei-Ebenen-Taxonomie)
-    EXPECT_EQ(mammal.engine_kind(), ee::ExecutionEngineKind::Anatomy);
-    EXPECT_EQ(virus.engine_kind(),  ee::ExecutionEngineKind::Virus);
+    EXPECT_EQ(anatomy.engine_kind(), ee::ExecutionEngineKind::Anatomy);
+    EXPECT_EQ(virus.engine_kind(),   ee::ExecutionEngineKind::Virus);
 }
