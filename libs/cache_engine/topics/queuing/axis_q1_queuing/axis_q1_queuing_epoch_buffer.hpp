@@ -29,6 +29,8 @@
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
 #include "concepts/axis_q1_queuing_cache_engine_permutation_concept.hpp"
+#include "concepts/axis_q1_queuing_versioned_strategy_concept.hpp"
+#include "concepts/axis_q1_queuing_iterable_aspect_strategy_concept.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
 
 #include <topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp>
@@ -148,11 +150,14 @@ public:
     }
     void emplace(element_type v) { put(v); }
 
-    /// Epoch-spezifisch: aktuelle Epoch-ID (monoton steigend).
-    [[nodiscard]] std::uint64_t epoch_id() const noexcept { return epoch_id_; }
+    /// VersionedBufferStrategy [[versioned-strategy]]: monoton steigender Epoch-Counter.
+    /// Inkrementiert bei jedem Epoch-Advance (Reclamation-Window-Versioning).
+    [[nodiscard]] std::uint64_t version_id() const noexcept { return epoch_id_; }
 
-    /// Setter fuer Runtime-Threshold-Switch (iterable_aspect_t Pattern).
-    void set_epoch_threshold(std::size_t new_threshold) noexcept {
+    /// Setter fuer Runtime-Threshold-Switch ([[iterable-aspect-strategy]] Sub-Concept).
+    /// Konsolidierter Name `set_iterable_aspect` analog allen anderen iterable Strategien.
+    /// Akzeptiert 0 als Sentinel — wird auf 1 normalisiert (keine Exception bei Epoch).
+    void set_iterable_aspect(std::size_t new_threshold) noexcept {
         epoch_threshold_ = (new_threshold == 0 ? 1u : new_threshold);
     }
 
@@ -182,4 +187,6 @@ private:
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
     static_assert(concepts::BufferStrategy<EpochBuffer>);
     static_assert(concepts::CacheEngineBufferPermutationStrategy<EpochBuffer>);
+    static_assert(concepts::VersionedBufferStrategy<EpochBuffer>);
+    static_assert(concepts::IterableAspectStrategy<EpochBuffer>);
 }

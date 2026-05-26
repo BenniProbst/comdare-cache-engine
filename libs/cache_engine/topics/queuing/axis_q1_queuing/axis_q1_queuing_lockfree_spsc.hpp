@@ -32,6 +32,8 @@
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
 #include "concepts/axis_q1_queuing_cache_engine_permutation_concept.hpp"
+#include "concepts/axis_q1_queuing_bounded_strategy_concept.hpp"
+#include "concepts/axis_q1_queuing_iterable_aspect_strategy_concept.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
 
 #include <topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp>
@@ -176,10 +178,16 @@ public:
     }
     void emplace(element_type v) { put(v); }
 
-    /// Setter fuer Runtime-Capacity-Switch (iterable_aspect_t Pattern).
-    /// Nur sicher wenn weder Producer noch Consumer aktiv (Reconfigure-Time).
-    void set_capacity(std::size_t new_cap) {
-        if (new_cap == 0) throw std::invalid_argument("LockFreeSPSC::set_capacity: cap must be > 0");
+    /// Setter fuer Runtime-Capacity-Switch ([[iterable-aspect-strategy]] Sub-Concept).
+    /// Konsolidierter Name `set_iterable_aspect` analog allen anderen iterable Strategien.
+    /// **Nur sicher wenn weder Producer noch Consumer aktiv** (Reconfigure-Time).
+    /// SONDERFALL [[allocation-failure-exception]]: assign kann std::bad_alloc werfen.
+    /// SONDERFALL [[zero-size-allocation-exception]]: new_cap=0 wirft std::invalid_argument.
+    void set_iterable_aspect(std::size_t new_cap) {
+        if (new_cap == 0) {
+            throw std::invalid_argument(
+                "LockFreeSPSC::set_iterable_aspect: capacity must be > 0");
+        }
         buffer_.assign(new_cap, 0);
         capacity_ = new_cap;
         head_.store(0, std::memory_order_relaxed);
@@ -212,4 +220,6 @@ private:
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
     static_assert(concepts::BufferStrategy<LockFreeSPSC>);
     static_assert(concepts::CacheEngineBufferPermutationStrategy<LockFreeSPSC>);
+    static_assert(concepts::BoundedBufferStrategy<LockFreeSPSC>);
+    static_assert(concepts::IterableAspectStrategy<LockFreeSPSC>);
 }

@@ -24,6 +24,7 @@
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
 #include "concepts/axis_q1_queuing_cache_engine_permutation_concept.hpp"
+#include "concepts/axis_q1_queuing_versioned_strategy_concept.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
 
 #include <topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp>
@@ -123,10 +124,12 @@ public:
     }
     void emplace(element_type v) { put(v); }
 
-    /// CoW-spezifisch: aktuelle Snapshot-Version (monoton steigend).
-    [[nodiscard]] std::uint64_t snapshot_version() const noexcept { return snapshot_version_; }
+    /// VersionedBufferStrategy [[versioned-strategy]]: monoton steigender Snapshot-Counter.
+    /// Inkrementiert bei jedem put()/get()/clear() (Snapshot-Versioning).
+    [[nodiscard]] std::uint64_t version_id() const noexcept { return snapshot_version_; }
 
-    /// CoW-spezifisch: aktueller Snapshot als shared_ptr (fuer Reader-Snapshot-Isolation).
+    /// CoW-spezifisch (nicht im Sub-Concept): aktueller Snapshot als shared_ptr
+    /// fuer Reader-Snapshot-Isolation (RCU-Tries-Pattern).
     [[nodiscard]] std::shared_ptr<std::vector<element_type> const> snapshot_ptr() const noexcept { return current_; }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -153,4 +156,5 @@ private:
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
     static_assert(concepts::BufferStrategy<CopyOnWrite>);
     static_assert(concepts::CacheEngineBufferPermutationStrategy<CopyOnWrite>);
+    static_assert(concepts::VersionedBufferStrategy<CopyOnWrite>);
 }

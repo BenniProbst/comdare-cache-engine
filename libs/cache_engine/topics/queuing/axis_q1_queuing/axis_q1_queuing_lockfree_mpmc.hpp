@@ -35,6 +35,8 @@
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
 #include "concepts/axis_q1_queuing_cache_engine_permutation_concept.hpp"
+#include "concepts/axis_q1_queuing_bounded_strategy_concept.hpp"
+#include "concepts/axis_q1_queuing_iterable_aspect_strategy_concept.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
 
 #include <topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp>
@@ -195,6 +197,23 @@ public:
 
     [[nodiscard]] size_type capacity() const noexcept { return capacity_; }
 
+    /// Setter fuer Runtime-Capacity-Switch ([[iterable-aspect-strategy]] Sub-Concept).
+    /// MPMC erfordert vollstaendigen Cell-Array-Reallocate (sequence-initialisierung).
+    /// **Nur sicher wenn keine Producer/Consumer aktiv** (Reconfigure-Time).
+    /// SONDERFALL [[allocation-failure-exception]]: make_unique kann std::bad_alloc werfen.
+    /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 ODER nicht-Power-of-2 wirft.
+    void set_iterable_aspect(std::size_t new_cap) {
+        std::size_t validated = validate_capacity(new_cap);
+        cells_ = std::make_unique<Cell[]>(validated);
+        capacity_ = validated;
+        mask_ = validated - 1;
+        for (std::size_t i = 0; i < validated; ++i) {
+            cells_[i].sequence.store(i, std::memory_order_relaxed);
+        }
+        enqueue_pos_.store(0, std::memory_order_relaxed);
+        dequeue_pos_.store(0, std::memory_order_relaxed);
+    }
+
     // std::queue-API — Snapshot bei MPMC ist inherent inkohaerent unter Contention.
     // Wir geben "best effort" Werte (kein Strong-Guarantee).
     [[nodiscard]] std::optional<element_type> peek_front() const noexcept {
@@ -259,4 +278,6 @@ private:
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
     static_assert(concepts::BufferStrategy<LockFreeMPMC>);
     static_assert(concepts::CacheEngineBufferPermutationStrategy<LockFreeMPMC>);
+    static_assert(concepts::BoundedBufferStrategy<LockFreeMPMC>);
+    static_assert(concepts::IterableAspectStrategy<LockFreeMPMC>);
 }
