@@ -1,0 +1,15 @@
+#pragma once
+// V41.F.6.1 axis_q2_flush_policy AUTO-GENERATED Flags (CMake configure_file)
+
+namespace comdare::cache_engine::queuing::axis_q2_flush_policy::flags {
+
+// Pilot Batch 1 (F-EAGER, F-WATERMARK, F-LAZY)
+#cmakedefine01 COMDARE_AXIS_Q2_USE_EAGER
+#cmakedefine01 COMDARE_AXIS_Q2_USE_WATERMARK
+#cmakedefine01 COMDARE_AXIS_Q2_USE_LAZY
+
+inline constexpr bool eager_enabled     = COMDARE_AXIS_Q2_USE_EAGER;
+inline constexpr bool watermark_enabled = COMDARE_AXIS_Q2_USE_WATERMARK;
+inline constexpr bool lazy_enabled      = COMDARE_AXIS_Q2_USE_LAZY;
+
+}  // namespace
