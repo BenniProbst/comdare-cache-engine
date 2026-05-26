@@ -9,6 +9,7 @@
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §11.3+§12+§14
 // @task V41.F.6.1.R3
 
+#include "anatomy_base.hpp"
 #include "composition_concept.hpp"
 #include "observer_aggregate.hpp"
 
@@ -39,6 +40,10 @@ public:
     static constexpr std::string_view composition_name() noexcept { return Composition::name; }
     static constexpr std::string_view paper_id() noexcept { return Composition::paper_id; }
     static constexpr std::size_t organ_count() noexcept { return composition_organ_count<Composition>::value; }
+
+    // R5.C.A Gattungs-Marker (User-Direktive Doku 14 Teil 4 §27.2)
+    // SearchAlgorithmAnatomy gehoert zur Mammal-Gattung (vollstaendige 17-Achsen-Anatomie)
+    static constexpr AnatomyGenus genus() noexcept { return AnatomyGenus::SearchAlgorithm; }
 
     // ─────────────────────────────────────────────────────────────────────
     // R5.A Observer-Aggregate: ABI-stabiler 17-Achsen-Snapshot

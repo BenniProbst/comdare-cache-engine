@@ -343,3 +343,13 @@ target_include_directories(test_v41_anatomy_pruefling_merge PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_anatomy_pruefling_merge PRIVATE Boost::mp11)
+
+# V41.F.6.1.R5.C.A AnatomyBase Wurzel + Gattungs-Marker (Mammal/Bird/Reptile/Invertebrate/Plant)
+comdare_add_test(test_v41_anatomy_base
+    SOURCES test_v41_anatomy_base.cpp)
+target_include_directories(test_v41_anatomy_base PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_anatomy_base PRIVATE Boost::mp11)
