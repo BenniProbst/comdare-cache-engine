@@ -40,6 +40,10 @@
 #include "axis_06_allocator_scalloc.hpp"
 #include "axis_06_allocator_numalloc.hpp"
 #include "axis_06_allocator_rpmalloc.hpp"
+// Batch 5 (2026-05-26)
+#include "axis_06_allocator_lrmalloc.hpp"
+#include "axis_06_allocator_cama.hpp"
+#include "axis_06_allocator_starmalloc.hpp"
 
 #include <boost/mp11.hpp>
 
@@ -73,11 +77,14 @@ using AllVendors = mp::mp_list<
     // Batch 4 (2026-05-26)
     ScallocAllocator,
     NUMAllocAllocator,
-    RPMallocAllocator
-    // Batch 5-8 ergaenzen hier:
-    // A11 LRMalloc, A12 CAMA, A13 StarMalloc, A14 TCMalloc-Warehouse, A15 HMalloc,
-    // A16 PIM-Malloc, A17 Crystalline, A18 Exgen-Malloc, A19 Buddy,
-    // A21 ptmalloc2, A23 Vmem-Magazines
+    RPMallocAllocator,
+    // Batch 5 (2026-05-26)
+    LRMallocAllocator,
+    CAMAAllocator,
+    StarMallocAllocator
+    // Batch 6-8 ergaenzen hier:
+    // A14 TCMalloc-Warehouse, A15 HMalloc, A16 PIM-Malloc, A17 Crystalline,
+    // A18 Exgen-Malloc, A19 Buddy, A21 ptmalloc2, A23 Vmem-Magazines
 >;
 
 // ───────────────────────────────────────────────────────────────────────────
