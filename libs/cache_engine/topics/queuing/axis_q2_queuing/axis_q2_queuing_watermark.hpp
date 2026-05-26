@@ -5,7 +5,8 @@
 
 #include "concepts/axis_q2_queuing_concept.hpp"
 #include "concepts/axis_q2_queuing_cache_engine_permutation_concept.hpp"
-#include "axis_q2_queuing_subaxes_fs1_to_fs3.hpp"
+#include "concepts/axis_q2_queuing_iterable_aspect_strategy_concept.hpp"
+#include "axis_q2_queuing_subaxes_fs1_to_fs4.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
 
 #include <topics/queuing/axis_q2_queuing/axis_q2_queuing_flags.hpp>
@@ -74,7 +75,10 @@ public:
     }
 
     [[nodiscard]] unsigned threshold_pct() const noexcept { return threshold_pct_; }
-    void set_threshold_pct(unsigned pct) noexcept { threshold_pct_ = pct; }
+
+    /// Setter fuer Runtime-Threshold-Switch ([[iterable-aspect-strategy]] Sub-Concept).
+    /// Konsolidierter Name `set_iterable_aspect` analog Q1-Schablone + TimedFlush.
+    void set_iterable_aspect(unsigned pct) noexcept { threshold_pct_ = pct; }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = concepts::FlushPolicyStatistics;
@@ -99,4 +103,5 @@ private:
 namespace comdare::cache_engine::queuing::axis_q2_queuing {
     static_assert(concepts::FlushPolicy<WatermarkFlush>);
     static_assert(concepts::CacheEngineFlushPolicyPermutationStrategy<WatermarkFlush>);
+    static_assert(concepts::IterableAspectFlushStrategy<WatermarkFlush>);
 }
