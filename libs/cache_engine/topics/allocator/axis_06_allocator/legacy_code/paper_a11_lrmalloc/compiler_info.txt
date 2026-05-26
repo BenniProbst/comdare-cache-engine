@@ -1,0 +1,3 @@
+compiler:  gcc-9.5
+flags:     -O3 -std=c++17 -mcx16
+ld_flags:  -lpthread
