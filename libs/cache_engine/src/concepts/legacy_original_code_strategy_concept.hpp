@@ -43,7 +43,7 @@ namespace mp = boost::mp11;
 template <typename W>
 concept LegacyOriginalCodePflicht =
     requires {
-        { W::experiment_compiler() } -> std::convertible_to<std::string_view>;
+        { W::get_compiler() } -> std::convertible_to<std::string_view>;
         { W::has_original_paper_code() } -> std::convertible_to<bool>;
         { W::is_original_module() } -> std::convertible_to<bool>;
     };

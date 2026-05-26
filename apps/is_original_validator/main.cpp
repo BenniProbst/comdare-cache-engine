@@ -30,7 +30,7 @@
 //
 // Manifest-Format (@-Annotations + Function-Mappings):
 //
-//   @experiment_compiler gcc-9.5
+//   @compiler gcc-9.5
 //   @has_original_paper_code true
 //   @mixin_name MimallocAllocator_OriginalCodeMixin
 //
@@ -49,7 +49,7 @@
 //       inline constexpr bool kIsOriginal_module     = false;
 //
 //       struct MimallocAllocator_OriginalCodeMixin {
-//           static constexpr std::string_view experiment_compiler() noexcept { return "gcc-9.5"; }
+//           static constexpr std::string_view compiler() noexcept { return "gcc-9.5"; }
 //           static constexpr bool has_original_paper_code() noexcept { return true; }
 //           static constexpr bool is_original_allocate() noexcept { return kIsOriginal_allocate; }
 //           static constexpr bool is_original_deallocate() noexcept { return kIsOriginal_deallocate; }
@@ -78,7 +78,7 @@ namespace ctsha = ::comdare::cache_engine::sha256;
 namespace {
 
 struct Manifest {
-    std::string experiment_compiler;
+    std::string compiler;
     std::string has_original_paper_code;  // "true"/"false"
     std::string axis_mixin_type;          // fully-qualified Achsen-Mixin-Template
     struct Mapping {
@@ -95,7 +95,7 @@ void print_usage(char const* argv0) {
               << " --output <header.hpp> --namespace <ns>\n";
     std::cerr << "\n";
     std::cerr << "Manifest-Format:\n";
-    std::cerr << "  @experiment_compiler <id>     (z.B. 'gcc-9.5' oder 'self')\n";
+    std::cerr << "  @compiler <id>     (z.B. 'gcc-9.5' oder 'self')\n";
     std::cerr << "  @has_original_paper_code <bool>\n";
     std::cerr << "  @axis_mixin_type <fully::qualified::AxisOriginalCodeMixin>\n";
     std::cerr << "  <wrapper_fn> <paper_fn> <source_relative_path>  (eine Zeile pro Mapping)\n";
@@ -125,7 +125,7 @@ Manifest read_manifest(fs::path const& p) {
             // trim leading whitespace from value
             std::size_t v_start = value.find_first_not_of(" \t");
             if (v_start != std::string::npos) value = value.substr(v_start);
-            if      (key == "experiment_compiler")    m.experiment_compiler = value;
+            if      (key == "compiler")    m.compiler = value;
             else if (key == "has_original_paper_code") m.has_original_paper_code = value;
             else if (key == "axis_mixin_type")        m.axis_mixin_type = value;
             else {
@@ -144,9 +144,9 @@ Manifest read_manifest(fs::path const& p) {
         }
         m.mappings.push_back(std::move(mapping));
     }
-    if (m.experiment_compiler.empty() || m.has_original_paper_code.empty() || m.axis_mixin_type.empty()) {
+    if (m.compiler.empty() || m.has_original_paper_code.empty() || m.axis_mixin_type.empty()) {
         std::cerr << "ERROR: manifest " << p.string() << " missing required annotations "
-                  << "(@experiment_compiler / @has_original_paper_code / @axis_mixin_type)\n";
+                  << "(@compiler / @has_original_paper_code / @axis_mixin_type)\n";
         std::exit(2);
     }
     return m;
@@ -390,8 +390,8 @@ int main(int argc, char** argv) {
     ofs << "\n";
     ofs << "// ─── Achsen-Manifest-Struct (Pflicht-Constants fuer Mixin-Template) ──\n";
     ofs << "struct PaperManifest {\n";
-    ofs << "    static constexpr ::std::string_view kExperimentCompiler = \""
-        << manifest.experiment_compiler << "\";\n";
+    ofs << "    static constexpr ::std::string_view kCompiler = \""
+        << manifest.compiler << "\";\n";
     ofs << "    static constexpr bool kHasOriginalPaperCode = "
         << manifest.has_original_paper_code << ";\n";
     for (auto const& v : validated) {
