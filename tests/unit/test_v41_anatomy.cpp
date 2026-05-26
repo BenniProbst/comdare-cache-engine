@@ -216,3 +216,110 @@ TEST(AnatomyR3_Frankenstein, AdHocCompositionInstantiatesNewTier) {
     static_assert(Frankenstein::composition_name() == std::string_view{"FrankensteinComposition"});
     static_assert(Frankenstein::organ_count() == 17);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §7 — R3.2 PaperBinding-Compositions (Audit-Korrektur Promotion statt Deprecation)
+//      Beweis: OriginalXxx-Wrappers sind alternative search_algo-Achsen-Werte,
+//      austauschbar in der Anatomie-Klasse.
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(AnatomyR3_2_PaperBinding, FivePaperBindingCompositionsConform) {
+    static_assert(ana::IsComposition<ce_compos::ArtPaperBindingComposition>);
+    static_assert(ana::IsComposition<ce_compos::HotPaperBindingComposition>);
+    static_assert(ana::IsComposition<ce_compos::StartPaperBindingComposition>);
+    static_assert(ana::IsComposition<ce_compos::WormholePaperBindingComposition>);
+    static_assert(ana::IsComposition<ce_compos::SurfPaperBindingComposition>);
+    SUCCEED();
+}
+
+TEST(AnatomyR3_2_PaperBinding, FivePaperBindingAlgosInstantiate) {
+    ana::ArtPaperBinding      art_pb;
+    ana::HotPaperBinding      hot_pb;
+    ana::StartPaperBinding    start_pb;
+    ana::WormholePaperBinding wh_pb;
+    ana::SurfPaperBinding     surf_pb;
+    EXPECT_TRUE(art_pb.empty());
+    EXPECT_TRUE(hot_pb.empty());
+    EXPECT_TRUE(start_pb.empty());
+    EXPECT_TRUE(wh_pb.empty());
+    EXPECT_TRUE(surf_pb.empty());
+}
+
+template <typename Algo>
+class PaperBindingPilotApi : public ::testing::Test {};
+
+using AllFivePaperBindings = ::testing::Types<
+    ana::ArtPaperBinding, ana::HotPaperBinding, ana::StartPaperBinding,
+    ana::WormholePaperBinding, ana::SurfPaperBinding
+>;
+TYPED_TEST_SUITE(PaperBindingPilotApi, AllFivePaperBindings);
+
+TYPED_TEST(PaperBindingPilotApi, InsertLookupEraseClearRoundtrip) {
+    TypeParam algo;
+    EXPECT_TRUE(algo.insert(7, 77));
+    EXPECT_TRUE(algo.insert(8, 88));
+    auto v = algo.lookup(7);
+    ASSERT_TRUE(v.has_value());
+    EXPECT_EQ(*v, 77u);
+    EXPECT_TRUE(algo.erase(7));
+    EXPECT_EQ(algo.size(), 1u);
+    algo.clear();
+    EXPECT_TRUE(algo.empty());
+}
+
+TEST(AnatomyR3_2_PaperBinding, NameAndPaperIdMarkedAsPaperBinding) {
+    static_assert(ana::ArtPaperBinding::composition_name()      == std::string_view{"ArtPaperBindingComposition"});
+    static_assert(ana::HotPaperBinding::composition_name()      == std::string_view{"HotPaperBindingComposition"});
+    static_assert(ana::StartPaperBinding::composition_name()    == std::string_view{"StartPaperBindingComposition"});
+    static_assert(ana::WormholePaperBinding::composition_name() == std::string_view{"WormholePaperBindingComposition"});
+    static_assert(ana::SurfPaperBinding::composition_name()     == std::string_view{"SurfPaperBindingComposition"});
+    // paper_id enthaelt "Paper-Binding" Marker
+    static_assert(ana::ArtPaperBinding::paper_id().find("Paper-Binding") != std::string_view::npos);
+    SUCCEED();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §8 — Beweis: Art vs ArtPaperBinding tauschen NUR search_algo aus
+//      (Promotion-Statement der Audit-Korrektur)
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(AnatomyR3_2_Promotion, ArtVsArtPaperBindingDifferOnlyInSearchAlgo) {
+    using A  = ce_compos::ArtComposition;
+    using AP = ce_compos::ArtPaperBindingComposition;
+    // search_algo unterschiedlich:
+    static_assert(!std::is_same_v<A::search_algo, AP::search_algo>);
+    // 16 weitere Achsen identisch:
+    static_assert(std::is_same_v<A::cache_traversal,    AP::cache_traversal>);
+    static_assert(std::is_same_v<A::mapping,            AP::mapping>);
+    static_assert(std::is_same_v<A::path_compression,   AP::path_compression>);
+    static_assert(std::is_same_v<A::node_type,          AP::node_type>);
+    static_assert(std::is_same_v<A::memory_layout,      AP::memory_layout>);
+    static_assert(std::is_same_v<A::allocator,          AP::allocator>);
+    static_assert(std::is_same_v<A::prefetch,           AP::prefetch>);
+    static_assert(std::is_same_v<A::concurrency,        AP::concurrency>);
+    static_assert(std::is_same_v<A::serialization,      AP::serialization>);
+    static_assert(std::is_same_v<A::telemetry,          AP::telemetry>);
+    static_assert(std::is_same_v<A::value_handle,       AP::value_handle>);
+    static_assert(std::is_same_v<A::isa,                AP::isa>);
+    static_assert(std::is_same_v<A::index_organization, AP::index_organization>);
+    static_assert(std::is_same_v<A::io_dispatch,        AP::io_dispatch>);
+    static_assert(std::is_same_v<A::migration_policy,   AP::migration_policy>);
+    static_assert(std::is_same_v<A::filter,             AP::filter>);
+    SUCCEED();
+}
+
+TEST(AnatomyR3_2_Promotion, ElevenAlgosFromAnatomyOrganCount17) {
+    // 6 CE-Re-Impl + 5 PaperBinding = 11 Algorithmen
+    static_assert(ana::Art::organ_count()                 == 17);
+    static_assert(ana::Hot::organ_count()                 == 17);
+    static_assert(ana::Wormhole::organ_count()            == 17);
+    static_assert(ana::SuRF::organ_count()                == 17);
+    static_assert(ana::Masstree::organ_count()            == 17);
+    static_assert(ana::Start::organ_count()               == 17);
+    static_assert(ana::ArtPaperBinding::organ_count()     == 17);
+    static_assert(ana::HotPaperBinding::organ_count()     == 17);
+    static_assert(ana::StartPaperBinding::organ_count()   == 17);
+    static_assert(ana::WormholePaperBinding::organ_count() == 17);
+    static_assert(ana::SurfPaperBinding::organ_count()    == 17);
+    SUCCEED();
+}
