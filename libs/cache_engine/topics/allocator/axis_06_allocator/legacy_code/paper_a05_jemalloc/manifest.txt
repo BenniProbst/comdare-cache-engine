@@ -1,0 +1,13 @@
+# manifest.txt fuer apps/is_original_validator
+# Paper: A05 jemalloc (Evans BSDCan 2006 / Facebook Production 2011-2024)
+# Cache-Engine-Wrapper: JemallocAllocator
+
+# Pflicht-Annotations
+@compiler gcc-9.5
+@has_original_paper_code true
+@axis_mixin_type comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorOriginalCodeMixin
+
+# Function-Mappings (3-Felder, whitespace-separated)
+# wrapper_fn   paper_fn              source_relative_path
+allocate       je_aligned_alloc      src/jemalloc.c
+deallocate     je_free               src/jemalloc.c

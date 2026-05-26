@@ -25,6 +25,10 @@
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
 #include "vendor_includes/jemalloc_include.hpp"
 
+// V41.F.6.1.P2.D jemalloc Paper-Legacy-Code Mixin (auto-generated via Pre-Build-Tool)
+#include "concepts/axis_06_allocator_original_code_mixin.hpp"
+#include <topics/allocator/axis_06_allocator/legacy_code/paper_a05_jemalloc_is_original.hpp>
+
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
 #include <measurement/measurable_concept.hpp>
 #include <cstddef>
@@ -41,8 +45,16 @@ namespace comdare::cache_engine::allocator::axis_06_allocator {
  * Arena-based Size-Class-Allocator (Evans 2006).
  * V41.F.6.1.C W6-Pattern: enabled via flags::jemalloc_enabled (zentraler CMake-Flag).
  */
-class JemallocAllocator : public AllocatorStrategyBase<JemallocAllocator> {
+class JemallocAllocator
+    : public AllocatorStrategyBase<JemallocAllocator>,
+      public generated::a05_jemalloc::OriginalCodeMixin {  // V41.F.6.1.P2.D Paper-Mixin (Habich-Compliance)
 public:
+    // V41.F.6.1.P2.D Diamond-Disambiguation (Pattern wie MimallocAllocator):
+    using generated::a05_jemalloc::OriginalCodeMixin::get_compiler;
+    using generated::a05_jemalloc::OriginalCodeMixin::is_original_allocate;
+    using generated::a05_jemalloc::OriginalCodeMixin::is_original_deallocate;
+    using generated::a05_jemalloc::OriginalCodeMixin::is_original_module;
+
     static constexpr bool enabled = flags::jemalloc_enabled;
 
     using value_type = std::byte;
