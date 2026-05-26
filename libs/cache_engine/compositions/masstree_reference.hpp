@@ -1,38 +1,55 @@
 #pragma once
-// V41.F.6.1.R2 MasstreeComposition (2026-05-26 Architektur-Refactoring)
+// V41.F.6.1.R2 Erweitert: MasstreeComposition (alle 15 Achsen)
 //
-// @composition Masstree (P03 Mao/Kohler/Morris EuroSys 2012)
-//
-// Verwendet existing axis_03a VectorU16U16 (multilevel-aequivalent fuer Masstree Layer-Slice).
-// Hinweis: Echtes Masstree-Linking via Template-Adapter (rotaki-Pattern) ist Task #689 P2.D.tr.s4
-// als Folge-Sprint. Aktuelle Composition referenziert existing Re-Impl Sub-Achse.
+// Pending s4 Template-Adapter (rotaki-Pattern) — search_algo wird dann
+// echter `Masstree::basic_table<params>` Template-Instantiation.
 
 #include "../topics/traversal/axis_03a_search_algo/axis_03a_search_algo_vector_u16u16.hpp"
 #include "../topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp"
 #include "../topics/traversal/axis_03m_mapping/axis_03m_mapping_direct_placement.hpp"
+#include "../topics/nodes/axis_02_path_compression/axis_02_path_compression_none.hpp"
+#include "../topics/nodes/axis_04_node_type/axis_04_node_type_node256.hpp"
+#include "../topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_cache_line_aligned.hpp"
 #include "../topics/allocator/axis_06_allocator/axis_06_allocator_mimalloc.hpp"
+#include "../topics/prefetch/axis_07_prefetch/axis_07_prefetch_none.hpp"
+#include "../topics/concurrency/axis_08_concurrency/axis_08_concurrency_olc.hpp"
+#include "../topics/serialization/axis_10_serialization/axis_10_serialization_raw_binary.hpp"
+#include "../topics/telemetry/axis_11_telemetry/axis_11_telemetry_leaf_only.hpp"
+#include "../topics/value_handle/axis_14_value_handle/axis_14_value_handle_inline.hpp"
+#include "../topics/hardware/axis_09_isa/axis_09_isa_scalar.hpp"
+#include "../topics/search_engine/axis_01_index_organization/axis_01_index_organization_std_map_like.hpp"
+#include "../topics/io/axis_io/axis_io_in_memory_only.hpp"
+#include "../topics/migration/axis_migration/axis_migration_none.hpp"
+#include "../topics/filter/axis_filter/axis_filter_bloom.hpp"
 
 #include <string_view>
 
 namespace comdare::cache_engine::compositions {
 
-/// MasstreeComposition — Masstree B+/Trie-Hybrid als Permutations-Konfiguration.
+/// MasstreeComposition — Masstree als 15-Achsen-Permutations-Konfiguration.
 ///
-/// Sub-Achsen-Wahl entspricht Masstree Layer-Slice Pattern:
-/// - axis_03a search_algo:  VectorU16U16 (multilevel, LAYER_SLICE-aequivalent fuer u16-key)
-/// - axis_03b cache_traversal: LinearFanout
-/// - axis_03m mapping:      DirectPlacement (in s4 ggf. PermutationIndex pro INode)
-/// - axis_06 allocator:     MimallocAllocator
-///
-/// **Pending Erweiterung** (s4 mit Template-Adapter):
-/// - search_algo → echter `Masstree::basic_table<params>` Template-Instantiation (rotaki-Pattern)
-/// - axis_03m mapping → PermutationIndex pro INode (Masstree-Spezifikum)
-/// - axis_08 concurrency → OLC + Versioning (Masstree fine-grained)
+/// Masstree Charakteristik (Mao/Kohler/Morris EuroSys 2012):
+/// - B+/Trie-Hybrid mit Layer-Slice pro 8-Byte (axis_03a VectorU16U16)
+/// - Cache-Craftiness (axis_05 CacheLineAligned)
+/// - Fine-grained OLC + Versioning (axis_08)
 struct MasstreeComposition {
-    using search_algo     = traversal::axis_03a_search_algo::VectorU16U16;
-    using cache_traversal = traversal::axis_03b_cache_traversal::LinearFanout;
-    using mapping         = traversal::axis_03m_mapping::DirectPlacement;
-    using allocator       = allocator::axis_06_allocator::MimallocAllocator;
+    using search_algo        = traversal::axis_03a_search_algo::VectorU16U16;
+    using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
+    using mapping            = traversal::axis_03m_mapping::DirectPlacement;
+    using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;
+    using node_type          = nodes::axis_04_node_type::Node256Type;
+    using memory_layout      = memory_layout::axis_05_memory_layout::CacheLineAlignedLayout;
+    using allocator          = allocator::axis_06_allocator::MimallocAllocator;
+    using prefetch           = prefetch::axis_07_prefetch::PrefetchNone;
+    using concurrency        = concurrency::axis_08_concurrency::OlcOptimistic;
+    using serialization      = serialization::axis_10_serialization::RawBinarySerialization;
+    using telemetry          = telemetry::axis_11_telemetry::LeafOnlyCounter;
+    using value_handle       = value_handle::axis_14_value_handle::InlineHandle;
+    using isa                = hardware::axis_09_isa::IsaScalar;
+    using index_organization = search_engine::axis_01_index_organization::StdMapLike;
+    using io_dispatch        = io::axis_io::InMemoryOnly;
+    using migration_policy   = migration::axis_migration::NoMigration;
+    using filter             = filter::axis_filter::BloomFilter;
 
     static constexpr std::string_view paper_id    = "P03 Mao/Kohler/Morris EuroSys 2012";
     static constexpr std::string_view paper_title = "Cache Craftiness for Fast Multicore Key-Value Storage";
