@@ -34,11 +34,16 @@ template <typename PaperManifest>
 struct AllocatorOriginalCodeMixin
     : ::comdare::cache_engine::concepts::OriginalCodeMixinBase<PaperManifest> {
 
+    // V41.F.6.1.P2.D.tr Luecken-Markierung-Pattern:
+    // Wenn PaperManifest ein Field NICHT hat (manifest.txt mit Teil-Mappings) → default false.
+    // Erlaubt Wrapper mit Teil-Original-Paper-Source + eigener Luecken-Fueller-Impl.
     [[nodiscard]] static constexpr bool is_original_allocate() noexcept {
-        return PaperManifest::kIsOriginal_allocate;
+        if constexpr (requires { PaperManifest::kIsOriginal_allocate; }) return PaperManifest::kIsOriginal_allocate;
+        else return false;
     }
     [[nodiscard]] static constexpr bool is_original_deallocate() noexcept {
-        return PaperManifest::kIsOriginal_deallocate;
+        if constexpr (requires { PaperManifest::kIsOriginal_deallocate; }) return PaperManifest::kIsOriginal_deallocate;
+        else return false;
     }
 
     /// Modul-Aggregat: alle Pflicht-Functions sind Original.

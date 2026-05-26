@@ -18,11 +18,14 @@ template <typename PaperManifest>
 struct FlushOriginalCodeMixin
     : ::comdare::cache_engine::concepts::OriginalCodeMixinBase<PaperManifest> {
 
+    // V41.F.6.1.P2.D.tr Luecken-Markierung-Pattern (if constexpr requires → default false)
     [[nodiscard]] static constexpr bool is_original_should_flush() noexcept {
-        return PaperManifest::kIsOriginal_should_flush;
+        if constexpr (requires { PaperManifest::kIsOriginal_should_flush; }) return PaperManifest::kIsOriginal_should_flush;
+        else return false;
     }
     [[nodiscard]] static constexpr bool is_original_on_flush_complete() noexcept {
-        return PaperManifest::kIsOriginal_on_flush_complete;
+        if constexpr (requires { PaperManifest::kIsOriginal_on_flush_complete; }) return PaperManifest::kIsOriginal_on_flush_complete;
+        else return false;
     }
 
     [[nodiscard]] static constexpr bool is_original_module() noexcept {
