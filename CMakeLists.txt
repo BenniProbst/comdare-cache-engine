@@ -107,6 +107,9 @@ option(COMDARE_AXIS_Q1_ENABLE_LOCKFREE_MPMC "Buffer-Strategy Q13b LockFreeMPMC (
 option(COMDARE_AXIS_Q2_ENABLE_EAGER        "Flush-Policy F01 EagerFlush (per-op)"              ON)
 option(COMDARE_AXIS_Q2_ENABLE_WATERMARK    "Flush-Policy F02 WatermarkFlush (threshold)"       ON)
 option(COMDARE_AXIS_Q2_ENABLE_LAZY         "Flush-Policy F04 LazyFlush (defer)"                ON)
+# axis_Q2 Vollausbau Batch 2 (2026-05-26): F03 TimedFlush + F05 AdaptiveLsmFlush
+option(COMDARE_AXIS_Q2_ENABLE_TIMED        "Flush-Policy F03 TimedFlush (FS3 time_window, iterable_aspect_t window_ms)" ON)
+option(COMDARE_AXIS_Q2_ENABLE_ADAPTIVE_LSM "Flush-Policy F05 AdaptiveLsmFlush (FS4 lernt aus Workload, LSM-spezifisch)"   ON)
 
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
@@ -447,8 +450,8 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp"
     @ONLY)
 
-# axis_Q2 flush_policy
-foreach(_q2 EAGER WATERMARK LAZY)
+# axis_Q2 flush_policy VOLLAUSBAU (5/5 W3-Policies)
+foreach(_q2 EAGER WATERMARK LAZY TIMED ADAPTIVE_LSM)
     if(COMDARE_AXIS_Q2_ENABLE_${_q2})
         set(COMDARE_AXIS_Q2_USE_${_q2} 1)
     else()
@@ -462,7 +465,7 @@ configure_file(
 
 message(STATUS "V41.F.6.1 Topic queuing Pilot:")
 message(STATUS "  axis_Q1 VOLLAUSBAU (13/13 W2): NO_BUFFER=${COMDARE_AXIS_Q1_USE_NO_BUFFER} FIFO=${COMDARE_AXIS_Q1_USE_FIFO} LIFO=${COMDARE_AXIS_Q1_USE_LIFO} BOUNDED_RING=${COMDARE_AXIS_Q1_USE_BOUNDED_RING} APPEND_ONLY=${COMDARE_AXIS_Q1_USE_APPEND_ONLY} PRIORITY_HEAP=${COMDARE_AXIS_Q1_USE_PRIORITY_HEAP} DELTA_CHAIN=${COMDARE_AXIS_Q1_USE_DELTA_CHAIN} SKIPLIST_BUFFER=${COMDARE_AXIS_Q1_USE_SKIPLIST_BUFFER} TOMBSTONE_BUFFER=${COMDARE_AXIS_Q1_USE_TOMBSTONE_BUFFER} COPY_ON_WRITE=${COMDARE_AXIS_Q1_USE_COPY_ON_WRITE} EPOCH_BUFFER=${COMDARE_AXIS_Q1_USE_EPOCH_BUFFER} BATCHED_INSERT_BUFFER=${COMDARE_AXIS_Q1_USE_BATCHED_INSERT_BUFFER} LOCKFREE_SPSC=${COMDARE_AXIS_Q1_USE_LOCKFREE_SPSC} LOCKFREE_MPMC=${COMDARE_AXIS_Q1_USE_LOCKFREE_MPMC}")
-message(STATUS "  axis_Q2: EAGER=${COMDARE_AXIS_Q2_USE_EAGER} WATERMARK=${COMDARE_AXIS_Q2_USE_WATERMARK} LAZY=${COMDARE_AXIS_Q2_USE_LAZY}")
+message(STATUS "  axis_Q2 VOLLAUSBAU (5/5 W3): EAGER=${COMDARE_AXIS_Q2_USE_EAGER} WATERMARK=${COMDARE_AXIS_Q2_USE_WATERMARK} LAZY=${COMDARE_AXIS_Q2_USE_LAZY} TIMED=${COMDARE_AXIS_Q2_USE_TIMED} ADAPTIVE_LSM=${COMDARE_AXIS_Q2_USE_ADAPTIVE_LSM}")
 
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp.in"

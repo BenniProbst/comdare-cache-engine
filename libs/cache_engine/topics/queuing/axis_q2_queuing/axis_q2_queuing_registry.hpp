@@ -6,6 +6,9 @@
 #include "axis_q2_queuing_eager.hpp"
 #include "axis_q2_queuing_watermark.hpp"
 #include "axis_q2_queuing_lazy.hpp"
+// Vollausbau Batch 2 (2026-05-26): F03 TimedFlush + F05 AdaptiveLsmFlush
+#include "axis_q2_queuing_timed.hpp"
+#include "axis_q2_queuing_adaptive_lsm.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
@@ -14,13 +17,15 @@ namespace comdare::cache_engine::queuing::axis_q2_queuing {
 
 namespace mp = boost::mp11;
 
+/// AllPolicies — KOMPLETTE Liste aller 5 W3-Flush-Policies (Vollausbau Batch 2)
 using AllPolicies = mp::mp_list<
-    // Pilot Batch 1 (3 von 5 W3-Strategien)
+    // Pilot Batch 1 (2026-05-26)
     EagerFlush,
     WatermarkFlush,
-    LazyFlush
-    // Vollausbau-Batch 2 (geplant):
-    // F03 TimedFlush (time_window), F05 AdaptiveLsmFlush (adaptive_lsm)
+    LazyFlush,
+    // Vollausbau Batch 2 (2026-05-26) — axis_q2_queuing 5/5 KOMPLETT
+    TimedFlush,
+    AdaptiveLsmFlush
 >;
 
 template <typename P>
