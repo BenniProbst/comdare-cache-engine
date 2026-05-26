@@ -14,8 +14,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <map>
-#include <optional>
 #include <string_view>
 
 namespace comdare::cache_engine::anatomy {
@@ -54,8 +52,8 @@ public:
     /// **R5.A Pilot:** Default-Aggregate (alle Achsen Empty-Snapshot).
     /// **R5.B+ Ziel:** echte Achsen-Members + statistics()-Aufrufe.
     /// Aktueller Block: Achsen-Wrappers haben protected CRTP-Constructor —
-    /// direktes Halten als Anatomie-Member blockiert. Wird in R5.B durch
-    /// public-Constructor-Fix oder Tuple-basierte Komposition geloest.
+    /// direktes Halten als Anatomie-Member blockiert. Wird durch
+    /// public-Constructor-Fix oder Tuple-basierte Komposition spaeter geloest.
     [[nodiscard]] observer_aggregate_t observe_all() const noexcept {
         // Default-initialized aggregate — alle Slots EmptyAxisSnapshot oder
         // Default-Snapshot je nach Composition::xxx::snapshot_t Trait
@@ -68,43 +66,18 @@ public:
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // R3 Container-API (R5.B Refactoring pending: in Builder-Commands verschieben)
+    // R5.B Container-API ENTFERNT — siehe builder::anatomy_commands::
+    //      AnatomyExecutionContext<Composition> fuer insert/lookup/erase/clear/size/empty.
+    //
+    // User-Direktive 2026-05-26 sehr spaet (Doku 14 Teil 3 §17.2+§24):
+    //   "Anatomie enthaelt nur Achsen + Statistik-Observer. Alle anderen Methoden
+    //   und tools gehoeren in CacheEngineBuilder."
+    //
+    // Migration-Pfad fuer existing Code:
+    //   ANATOMY-OLD: SearchAlgorithmAnatomy<C> a; a.insert(k,v);
+    //   BUILDER-NEU: AnatomyExecutionContext<C> ctx; ctx.insert(k,v);
+    //              (Anatomie ist intern Bestandteil des ctx)
     // ─────────────────────────────────────────────────────────────────────
-
-    /// Insert (Pilot Pipeline — kommt in R4 echte Multi-Organ-Sequenz)
-    bool insert(key_type k, value_type v) {
-        auto [it, inserted] = container_.insert_or_assign(k, v);
-        return inserted;
-    }
-
-    /// Lookup (Pilot Pipeline)
-    std::optional<value_type> lookup(key_type k) const {
-        auto it = container_.find(k);
-        if (it == container_.end()) return std::nullopt;
-        return it->second;
-    }
-
-    /// Erase (Pilot Pipeline)
-    bool erase(key_type k) {
-        return container_.erase(k) > 0;
-    }
-
-    /// Clear
-    void clear() noexcept { container_.clear(); }
-
-    /// Aktuelle Element-Anzahl
-    std::size_t size() const noexcept { return container_.size(); }
-
-    /// Composition-Empty
-    bool empty() const noexcept { return container_.empty(); }
-
-private:
-    // Pilot R3 Container — wird in R5.B durch Builder-Commands ersetzt
-    std::map<key_type, value_type> container_;
-
-    // R5.B TODO: Achsen-Members (17 Stueck) als Tuple<...> oder via
-    // public-Constructor-Fix der CRTP-Bases. Aktuell: direkte Member-
-    // Initialisierung blockiert durch protected FilterBase/MigrationBase etc.
 };
 
 }  // namespace comdare::cache_engine::anatomy

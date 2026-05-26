@@ -1,14 +1,20 @@
-// V41.F.6.1.R3 — SearchAlgorithmAnatomy Smoke-Tests (Saeugetier-Anatomie)
+// V41.F.6.1.R3 + R3.2 + R5.B — SearchAlgorithmAnatomy Tests
 //
-// Beweist:
-// 1. Alle 6 Compositions erfuellen IsComposition Concept
-// 2. SearchAlgorithmAnatomy<C> instantiiert sich fuer alle 6 Compositions
-// 3. Pflicht-API insert/lookup/erase/clear funktioniert (Pilot-Pipeline)
-// 4. Composition-Inspection via composition_name()/paper_id()/organ_count()
-// 5. Tier-Organ-Beweis: alle 6 Tiere nutzen IDENTISCHE Anatomie-Klasse
+// **R5.B Refactoring 2026-05-26 sehr spät:** Container-Operationen
+// (insert/lookup/erase/clear/size/empty) wurden aus der Anatomie entfernt.
+// Diese Operationen sind jetzt in `builder::anatomy_commands::AnatomyExecutionContext<C>`.
 //
-// @doku docs/architektur/14_achsen_komposition_organ_metapher.md
-// @task #694
+// **Diese Datei testet daher nur:**
+// - Composition-Conformance (IsComposition)
+// - Anatomie-Instantiation (default-konstruierbar)
+// - Composition-Inspection (composition_name/paper_id/organ_count)
+// - Tier-Organ-Beweis (alle 11 Algos nutzen DIESELBE Anatomie-Klasse)
+// - Frankenstein-Demo (AdHoc-Composition instantiiert)
+//
+// Container-Roundtrip-Tests sind in `test_v41_builder_anatomy_commands.cpp`.
+//
+// @doku docs/architektur/14_achsen_komposition_organ_metapher.md §17.2 + §24
+// @task #694 R3 + #695 R3.2 + #698 R5.B
 
 #include <gtest/gtest.h>
 
@@ -47,68 +53,23 @@ TEST(AnatomyR3_Concept, OrganCountIsSeventeenForAllCompositions) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §2 — SearchAlgorithmAnatomy Instantiation fuer alle 6 Compositions
+// (R5.B: kein .empty() mehr — Anatomie hat keinen Container mehr)
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(AnatomyR3_Instantiation, AllSixAlgorithmsInstantiate) {
-    ana::Art art;
-    ana::Hot hot;
-    ana::Wormhole wh;
-    ana::SuRF surf;
-    ana::Masstree mt;
-    ana::Start st;
-    EXPECT_TRUE(art.empty());
-    EXPECT_TRUE(hot.empty());
-    EXPECT_TRUE(wh.empty());
-    EXPECT_TRUE(surf.empty());
-    EXPECT_TRUE(mt.empty());
-    EXPECT_TRUE(st.empty());
+    [[maybe_unused]] ana::Art art;
+    [[maybe_unused]] ana::Hot hot;
+    [[maybe_unused]] ana::Wormhole wh;
+    [[maybe_unused]] ana::SuRF surf;
+    [[maybe_unused]] ana::Masstree mt;
+    [[maybe_unused]] ana::Start st;
+    SUCCEED();  // Compile-Time-Beweis: alle 6 Anatomien default-konstruierbar
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// §3 — Pflicht-API Smoke-Tests (insert/lookup/erase/clear)
+// §3 — Container-Roundtrip-Tests entfernt — siehe test_v41_builder_anatomy_commands.cpp
+// (R5.B: insert/lookup/erase/clear/size/empty in Builder-Commands verschoben)
 // ─────────────────────────────────────────────────────────────────────────────
-
-template <typename Algo>
-class AnatomyPilotApi : public ::testing::Test {};
-
-using AllSixAlgos = ::testing::Types<
-    ana::Art, ana::Hot, ana::Wormhole, ana::SuRF, ana::Masstree, ana::Start
->;
-TYPED_TEST_SUITE(AnatomyPilotApi, AllSixAlgos);
-
-TYPED_TEST(AnatomyPilotApi, InsertLookupEraseClearRoundtrip) {
-    TypeParam algo;
-    EXPECT_EQ(algo.size(), 0u);
-
-    // Insert 3 Eintraege
-    EXPECT_TRUE(algo.insert(1, 100));
-    EXPECT_TRUE(algo.insert(2, 200));
-    EXPECT_TRUE(algo.insert(3, 300));
-    EXPECT_EQ(algo.size(), 3u);
-
-    // Lookup
-    auto v1 = algo.lookup(1);
-    ASSERT_TRUE(v1.has_value());
-    EXPECT_EQ(*v1, 100u);
-    auto v2 = algo.lookup(2);
-    ASSERT_TRUE(v2.has_value());
-    EXPECT_EQ(*v2, 200u);
-    EXPECT_FALSE(algo.lookup(999).has_value());
-
-    // Re-Insert ueberschreibt (insert_or_assign liefert false fuer Update)
-    EXPECT_FALSE(algo.insert(1, 111));
-    EXPECT_EQ(*algo.lookup(1), 111u);
-
-    // Erase
-    EXPECT_TRUE(algo.erase(2));
-    EXPECT_FALSE(algo.erase(999));
-    EXPECT_EQ(algo.size(), 2u);
-
-    // Clear
-    algo.clear();
-    EXPECT_EQ(algo.size(), 0u);
-    EXPECT_TRUE(algo.empty());
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §4 — Composition-Inspection (composition_name/paper_id/organ_count statisch)
@@ -209,18 +170,15 @@ struct FrankensteinComposition {
 TEST(AnatomyR3_Frankenstein, AdHocCompositionInstantiatesNewTier) {
     static_assert(ana::IsComposition<FrankensteinComposition>);
     using Frankenstein = ana::SearchAlgorithmAnatomy<FrankensteinComposition>;
-    Frankenstein f;
-    EXPECT_TRUE(f.insert(42, 4242));
-    EXPECT_EQ(*f.lookup(42), 4242u);
+    [[maybe_unused]] Frankenstein f;
     // Identitaet: neues Tier, identische Anatomie
     static_assert(Frankenstein::composition_name() == std::string_view{"FrankensteinComposition"});
     static_assert(Frankenstein::organ_count() == 17);
+    SUCCEED();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §7 — R3.2 PaperBinding-Compositions (Audit-Korrektur Promotion statt Deprecation)
-//      Beweis: OriginalXxx-Wrappers sind alternative search_algo-Achsen-Werte,
-//      austauschbar in der Anatomie-Klasse.
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(AnatomyR3_2_PaperBinding, FivePaperBindingCompositionsConform) {
@@ -233,38 +191,12 @@ TEST(AnatomyR3_2_PaperBinding, FivePaperBindingCompositionsConform) {
 }
 
 TEST(AnatomyR3_2_PaperBinding, FivePaperBindingAlgosInstantiate) {
-    ana::ArtPaperBinding      art_pb;
-    ana::HotPaperBinding      hot_pb;
-    ana::StartPaperBinding    start_pb;
-    ana::WormholePaperBinding wh_pb;
-    ana::SurfPaperBinding     surf_pb;
-    EXPECT_TRUE(art_pb.empty());
-    EXPECT_TRUE(hot_pb.empty());
-    EXPECT_TRUE(start_pb.empty());
-    EXPECT_TRUE(wh_pb.empty());
-    EXPECT_TRUE(surf_pb.empty());
-}
-
-template <typename Algo>
-class PaperBindingPilotApi : public ::testing::Test {};
-
-using AllFivePaperBindings = ::testing::Types<
-    ana::ArtPaperBinding, ana::HotPaperBinding, ana::StartPaperBinding,
-    ana::WormholePaperBinding, ana::SurfPaperBinding
->;
-TYPED_TEST_SUITE(PaperBindingPilotApi, AllFivePaperBindings);
-
-TYPED_TEST(PaperBindingPilotApi, InsertLookupEraseClearRoundtrip) {
-    TypeParam algo;
-    EXPECT_TRUE(algo.insert(7, 77));
-    EXPECT_TRUE(algo.insert(8, 88));
-    auto v = algo.lookup(7);
-    ASSERT_TRUE(v.has_value());
-    EXPECT_EQ(*v, 77u);
-    EXPECT_TRUE(algo.erase(7));
-    EXPECT_EQ(algo.size(), 1u);
-    algo.clear();
-    EXPECT_TRUE(algo.empty());
+    [[maybe_unused]] ana::ArtPaperBinding      art_pb;
+    [[maybe_unused]] ana::HotPaperBinding      hot_pb;
+    [[maybe_unused]] ana::StartPaperBinding    start_pb;
+    [[maybe_unused]] ana::WormholePaperBinding wh_pb;
+    [[maybe_unused]] ana::SurfPaperBinding     surf_pb;
+    SUCCEED();
 }
 
 TEST(AnatomyR3_2_PaperBinding, NameAndPaperIdMarkedAsPaperBinding) {
@@ -273,7 +205,6 @@ TEST(AnatomyR3_2_PaperBinding, NameAndPaperIdMarkedAsPaperBinding) {
     static_assert(ana::StartPaperBinding::composition_name()    == std::string_view{"StartPaperBindingComposition"});
     static_assert(ana::WormholePaperBinding::composition_name() == std::string_view{"WormholePaperBindingComposition"});
     static_assert(ana::SurfPaperBinding::composition_name()     == std::string_view{"SurfPaperBindingComposition"});
-    // paper_id enthaelt "Paper-Binding" Marker
     static_assert(ana::ArtPaperBinding::paper_id().find("Paper-Binding") != std::string_view::npos);
     SUCCEED();
 }
@@ -286,9 +217,7 @@ TEST(AnatomyR3_2_PaperBinding, NameAndPaperIdMarkedAsPaperBinding) {
 TEST(AnatomyR3_2_Promotion, ArtVsArtPaperBindingDifferOnlyInSearchAlgo) {
     using A  = ce_compos::ArtComposition;
     using AP = ce_compos::ArtPaperBindingComposition;
-    // search_algo unterschiedlich:
     static_assert(!std::is_same_v<A::search_algo, AP::search_algo>);
-    // 16 weitere Achsen identisch:
     static_assert(std::is_same_v<A::cache_traversal,    AP::cache_traversal>);
     static_assert(std::is_same_v<A::mapping,            AP::mapping>);
     static_assert(std::is_same_v<A::path_compression,   AP::path_compression>);
@@ -309,7 +238,6 @@ TEST(AnatomyR3_2_Promotion, ArtVsArtPaperBindingDifferOnlyInSearchAlgo) {
 }
 
 TEST(AnatomyR3_2_Promotion, ElevenAlgosFromAnatomyOrganCount17) {
-    // 6 CE-Re-Impl + 5 PaperBinding = 11 Algorithmen
     static_assert(ana::Art::organ_count()                 == 17);
     static_assert(ana::Hot::organ_count()                 == 17);
     static_assert(ana::Wormhole::organ_count()            == 17);

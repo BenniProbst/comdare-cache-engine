@@ -120,11 +120,12 @@ TEST(AnatomyR4_Factory, AdHocCompositionConformsIsComposition) {
 }
 
 TEST(AnatomyR4_Factory, AdHocCompositionInstantiatesAnatomy) {
-    ana::SearchAlgorithmAnatomy<AdHocArt> algo;
-    EXPECT_TRUE(algo.insert(7, 77));
-    auto v = algo.lookup(7);
-    ASSERT_TRUE(v.has_value());
-    EXPECT_EQ(*v, 77u);
+    [[maybe_unused]] ana::SearchAlgorithmAnatomy<AdHocArt> algo;
+    // R5.B: Composition-Inspection statt Container-Ops
+    static_assert(ana::SearchAlgorithmAnatomy<AdHocArt>::organ_count() == 17);
+    static_assert(ana::SearchAlgorithmAnatomy<AdHocArt>::composition_name() ==
+                  std::string_view{"AdHocComposition"});
+    SUCCEED();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,11 +165,12 @@ TEST(AnatomyR4_Driver, PilotDriverArityAndCount) {
 
 TEST(AnatomyR4_Driver, ForEachAnimalIteratesAllSixTiere) {
     std::vector<std::string_view> visited_names;
-    PilotDriver::for_each_animal([&](auto& algo, std::string_view name) {
+    PilotDriver::for_each_animal([&](auto& anatomy, std::string_view name) {
         visited_names.push_back(name);
-        // Smoke-Test: algo ist instantiiert + funktional
-        algo.insert(1, 11);
-        EXPECT_EQ(algo.size(), 1u);
+        // R5.B Smoke-Test: Anatomie ist instantiiert + Composition-Inspection OK
+        // Container-Ops sind in AnatomyExecutionContext (siehe test_v41_builder_anatomy_commands.cpp)
+        using AnatomyT = std::remove_reference_t<decltype(anatomy)>;
+        EXPECT_EQ(AnatomyT::organ_count(), 17u);
     });
     EXPECT_EQ(visited_names.size(), 6u);
     // Alle 6 Tiere haben den Default-Namen AdHocComposition (kein paper_id Unterschied)
@@ -212,20 +214,16 @@ TEST(AnatomyR4_Driver, EachPermutationIsDistinctTier) {
 // §5 — Roundtrip Insert/Lookup pro Tier (alle 6 Tiere funktionieren)
 // ─────────────────────────────────────────────────────────────────────────────
 
-TEST(AnatomyR4_Driver, AllSixTiereRoundtripIndependently) {
-    std::size_t roundtrip_count = 0;
-    PilotDriver::for_each_animal([&](auto& algo, std::string_view) {
-        EXPECT_TRUE(algo.insert(42, 4242));
-        EXPECT_TRUE(algo.insert(100, 10000));
-        EXPECT_EQ(algo.size(), 2u);
-        EXPECT_EQ(*algo.lookup(42), 4242u);
-        EXPECT_TRUE(algo.erase(42));
-        EXPECT_EQ(algo.size(), 1u);
-        algo.clear();
-        EXPECT_TRUE(algo.empty());
-        ++roundtrip_count;
+TEST(AnatomyR4_Driver, AllSixTiereInstantiateIndependently) {
+    // R5.B: Container-Roundtrip in test_v41_builder_anatomy_commands.cpp.
+    // Hier nur Beweis dass alle 6 Anatomien default-konstruierbar sind.
+    std::size_t instantiate_count = 0;
+    PilotDriver::for_each_animal([&](auto& anatomy, std::string_view) {
+        using AnatomyT = std::remove_reference_t<decltype(anatomy)>;
+        EXPECT_EQ(AnatomyT::organ_count(), 17u);
+        ++instantiate_count;
     });
-    EXPECT_EQ(roundtrip_count, 6u);
+    EXPECT_EQ(instantiate_count, 6u);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
