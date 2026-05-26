@@ -12,6 +12,9 @@
 #include <compositions/art_reference.hpp>
 #include <compositions/wormhole_reference.hpp>
 #include <compositions/surf_reference.hpp>
+#include <compositions/hot_reference.hpp>
+#include <compositions/start_reference.hpp>
+#include <compositions/masstree_reference.hpp>
 
 #include <concepts/legacy_original_code_strategy_concept.hpp>
 #include <topics/axis_base.hpp>
@@ -125,5 +128,97 @@ TEST(CompositionMatrix, AllShareSameAllocatorChoice) {
     using SurfAlloc     = ce_compositions::SurfComposition::allocator;
     static_assert(std::same_as<ArtAlloc, WormholeAlloc>);
     static_assert(std::same_as<WormholeAlloc, SurfAlloc>);
+    SUCCEED();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (5) HotComposition + StartComposition + MasstreeComposition (R2 Batch 2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(HotComposition, PaperIdNonEmpty) {
+    static_assert(!ce_compositions::HotComposition::paper_id.empty());
+    static_assert(!ce_compositions::HotComposition::paper_title.empty());
+    SUCCEED();
+}
+TEST(HotComposition, SearchAlgoSubAchseConformance) {
+    using SA = ce_compositions::HotComposition::search_algo;
+    static_assert(ce_03a_cpts::SearchAlgoVariant<SA>);
+    SUCCEED();
+}
+TEST(HotComposition, SharesSearchAlgoWithWormhole) {
+    // HOT + Wormhole nutzen beide VectorU8U8 (sparse Sub-Achse) — gewollt
+    using HotSA      = ce_compositions::HotComposition::search_algo;
+    using WormholeSA = ce_compositions::WormholeComposition::search_algo;
+    static_assert(std::same_as<HotSA, WormholeSA>);
+    SUCCEED();
+}
+
+TEST(StartComposition, PaperIdNonEmpty) {
+    static_assert(!ce_compositions::StartComposition::paper_id.empty());
+    SUCCEED();
+}
+TEST(StartComposition, SearchAlgoSubAchseConformance) {
+    using SA = ce_compositions::StartComposition::search_algo;
+    static_assert(ce_03a_cpts::SearchAlgoVariant<SA>);
+    SUCCEED();
+}
+
+TEST(MasstreeComposition, PaperIdNonEmpty) {
+    static_assert(!ce_compositions::MasstreeComposition::paper_id.empty());
+    SUCCEED();
+}
+TEST(MasstreeComposition, SearchAlgoSubAchseConformance) {
+    using SA = ce_compositions::MasstreeComposition::search_algo;
+    static_assert(ce_03a_cpts::SearchAlgoVariant<SA>);
+    SUCCEED();
+}
+TEST(MasstreeComposition, SharesSearchAlgoWithStart) {
+    // Masstree + START nutzen beide VectorU16U16 (multilevel-Sub-Achse) — gewollt
+    using MasstreeSA = ce_compositions::MasstreeComposition::search_algo;
+    using StartSA    = ce_compositions::StartComposition::search_algo;
+    static_assert(std::same_as<MasstreeSA, StartSA>);
+    SUCCEED();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (6) Composition-Matrix-Property: 6 Compositions, davon einige Sub-Achsen-shared
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(CompositionMatrixExpanded, SixPilotCompositionsAllSearchAlgoConform) {
+    static_assert(ce_03a_cpts::SearchAlgoVariant<ce_compositions::ArtComposition::search_algo>);
+    static_assert(ce_03a_cpts::SearchAlgoVariant<ce_compositions::WormholeComposition::search_algo>);
+    static_assert(ce_03a_cpts::SearchAlgoVariant<ce_compositions::SurfComposition::search_algo>);
+    static_assert(ce_03a_cpts::SearchAlgoVariant<ce_compositions::HotComposition::search_algo>);
+    static_assert(ce_03a_cpts::SearchAlgoVariant<ce_compositions::StartComposition::search_algo>);
+    static_assert(ce_03a_cpts::SearchAlgoVariant<ce_compositions::MasstreeComposition::search_algo>);
+    SUCCEED();
+}
+
+TEST(CompositionMatrixExpanded, SubAchsenSharingEvidenceForOrganMetaphor) {
+    // Beweis-Test fuer Tier-Organ-Metapher: unterschiedliche Tiere können
+    // dieselbe Organ-Variante haben (z.B. Reh + Kuh teilen Pansen-Magen-Typ,
+    // hier HOT+Wormhole teilen VectorU8U8, START+Masstree teilen VectorU16U16).
+    // 6 Tiere mit 3 unterschiedlichen search_algo-Sub-Achsen-Varianten:
+    using ArtSA      = ce_compositions::ArtComposition::search_algo;       // Array256 (dense)
+    using HotSA      = ce_compositions::HotComposition::search_algo;       // VectorU8U8 (sparse)
+    using WormholeSA = ce_compositions::WormholeComposition::search_algo;  // VectorU8U8 (sparse)
+    using StartSA    = ce_compositions::StartComposition::search_algo;     // VectorU16U16 (multilevel)
+    using MasstreeSA = ce_compositions::MasstreeComposition::search_algo;  // VectorU16U16 (multilevel)
+    using SurfSA     = ce_compositions::SurfComposition::search_algo;      // VectorU16U16 (multilevel — Read-Only)
+
+    // Gruppe Dense: nur ART
+    static_assert(!std::same_as<ArtSA, HotSA>);
+
+    // Gruppe Sparse (HOT/Wormhole) shared
+    static_assert(std::same_as<HotSA, WormholeSA>);
+
+    // Gruppe Multilevel (START/Masstree/SuRF) shared
+    static_assert(std::same_as<StartSA, MasstreeSA>);
+    static_assert(std::same_as<MasstreeSA, SurfSA>);
+
+    // 3 Gruppen alle voneinander distinct
+    static_assert(!std::same_as<ArtSA, HotSA>);
+    static_assert(!std::same_as<HotSA, StartSA>);
+    static_assert(!std::same_as<ArtSA, StartSA>);
     SUCCEED();
 }
