@@ -1,25 +1,27 @@
-# Allokator-Repositories Overview (Phase 6.2.C)
+# Allokator-Repositories Overview (Phase V41.F.6.1.struct ext/-Reorganisation)
 
-**Stand:** 2026-05-13
+**Stand:** 2026-05-26 nach ext/-Topic-Reorganisation + 6/10 Original-Wrapper integriert
 **Pflicht-Klone abgeschlossen:** 10 von 23 Allokator-Papern (A01-A23)
 **Vorlage:** Phase 4.B-detail (12 Such-Algorithmus-Repos in P*-Verzeichnissen)
+**Roll-out Status (V41.F.6.1.P2.B/P2.D/P2.D.b2):** 6 als Original-Wrapper integriert, 4 deferred (Task #685)
 
 ## Geklonte Repositories (Pflicht, alle Lizenzen permissive)
 
-| ID | Verzeichnis | Repo | Lizenz | Groesse | Zweck |
-|----|-------------|------|--------|---------|-------|
-| **A01** | `A01-hoard/` | [emeryberger/Hoard](https://github.com/emeryberger/Hoard) | Apache 2.0 | 983K | Per-Processor + Global Heap; Bounded Blowup O(1) |
-| **A03** | `A03-michael-lockfree/` | [scotts/michael](https://github.com/scotts/michael) | MIT (re-impl) | 173K | Lock-free CAS, Anchor-Structure (IBM-Patent pruefen!) |
-| **A04** | `A04-mimalloc/` | [microsoft/mimalloc](https://github.com/microsoft/mimalloc) | MIT | 7.4M | Free-List Sharding, 3-Lists-per-Page, deferred-free |
-| **A05** | `A05-jemalloc/` | [jemalloc/jemalloc](https://github.com/jemalloc/jemalloc) | BSD-2 | 6.4M | Multiple Arenas, 4-Tier Size Classes |
-| **A06** | `A06-tcmalloc/` | [google/tcmalloc](https://github.com/google/tcmalloc) | Apache 2.0 | 6.5M | Per-CPU Cache via RSEQ, ~88 size classes |
-| **A07** | `A07-snmalloc/` | [microsoft/snmalloc](https://github.com/microsoft/snmalloc) | MIT | 9.2M | Message-Passing, 64-bit slab metadata |
-| **A08** | `A08-scalloc/` | [cksystemsgroup/scalloc](https://github.com/cksystemsgroup/scalloc) | BSD-3 | 558K | Virtual Spans + lazy mmap, lock-free Treiber-stack |
-| **A10** | `A10-rpmalloc/` | [mjansson/rpmalloc](https://github.com/mjansson/rpmalloc) | PD/MIT | 617K | Single-file C lib, embedded-friendly, 32-byte SIMD opt |
-| **A11** | `A11-lrmalloc/` | [ricleite/lrmalloc](https://github.com/ricleite/lrmalloc) | MIT | 223K | Lock-free + Thread-Caches, Michael-2004-Nachfolger |
-| **A20** | `A20-dlmalloc/` | [ennorehling/dlmalloc](https://github.com/ennorehling/dlmalloc) | Public Domain | 366K | Doug Lea's malloc, Boundary-Tags + Bins |
+| ID | Verzeichnis | Repo | Lizenz | Groesse | Wrapper-Status | Originall |
+|----|-------------|------|--------|---------|:--------------:|:---------:|
+| **A01** | `A01-hoard/` | [emeryberger/Hoard](https://github.com/emeryberger/Hoard) | Apache 2.0 | 983K | DEFERRED Task #685 (Custom-Shim) | (TBD) |
+| **A03** | `A03-michael-lockfree/` | [scotts/michael](https://github.com/scotts/michael) | MIT (re-impl) | 173K | DEFERRED Task #685 (Custom-Shim) | (TBD) |
+| **A04** | `A04-mimalloc/` | [microsoft/mimalloc](https://github.com/microsoft/mimalloc) | MIT | 7.4M | ✅ MimallocAllocator (Pilot P2.B) | 2/2 |
+| **A05** | `A05-jemalloc/` | [jemalloc/jemalloc](https://github.com/jemalloc/jemalloc) | BSD-2 | 6.4M | ✅ JemallocAllocator (P2.D) | 2/2 |
+| **A06** | `A06-tcmalloc/` | [google/tcmalloc](https://github.com/google/tcmalloc) | Apache 2.0 | 6.5M | DEFERRED Task #685 (Bazel-Build) | (TBD) |
+| **A07** | `A07-snmalloc/` | [microsoft/snmalloc](https://github.com/microsoft/snmalloc) | MIT | 9.2M | ✅ SnmallocAllocator (P2.D) | 2/2 |
+| **A08** | `A08-scalloc/` | [cksystemsgroup/scalloc](https://github.com/cksystemsgroup/scalloc) | BSD-3 | 558K | DEFERRED Task #685 (Custom-Shim) | (TBD) |
+| **A10** | `A10-rpmalloc/` | [mjansson/rpmalloc](https://github.com/mjansson/rpmalloc) | PD/MIT | 617K | ✅ RPMallocAllocator (P2.D.b2) | 2/2 |
+| **A11** | `A11-lrmalloc/` | [ricleite/lrmalloc](https://github.com/ricleite/lrmalloc) | MIT | 223K | ✅ LRMallocAllocator (P2.D.b2) | 2/2 |
+| **A20** | `A20-dlmalloc/` | [ennorehling/dlmalloc](https://github.com/ennorehling/dlmalloc) | Public Domain | 366K | ✅ DlmallocAllocator (P2.D.b2) | 2/2 |
 
 **Total Disk:** ~32 MiB (mit `--depth 1` schmal gehalten)
+**Roll-out Bilanz:** 6/10 integriert, 4 DEFERRED (Custom-Shim/Bazel-Build noetig)
 
 ## Lizenz-Kompatibilitaet (alle 10 Repos)
 
