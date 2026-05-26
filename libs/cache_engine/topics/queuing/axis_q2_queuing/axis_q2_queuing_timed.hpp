@@ -20,6 +20,7 @@
 #include "concepts/axis_q2_queuing_iterable_aspect_strategy_concept.hpp"
 #include "axis_q2_queuing_subaxes_fs1_to_fs4.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
+#include "../../axis_base.hpp"
 
 #include <topics/queuing/axis_q2_queuing/axis_q2_queuing_flags.hpp>
 #include <measurement/measurable_concept.hpp>
@@ -38,7 +39,7 @@ namespace comdare::cache_engine::queuing::axis_q2_queuing {
  * iterable_aspect_t fuer window_ms (10/100/1000/10000). PermutationEngine generiert
  * 1 Binary mit Runtime-Loop ueber Window-Werte.
  */
-class TimedFlush {
+class TimedFlush : public ::comdare::cache_engine::topics::AxisBase {
 public:
     static constexpr bool enabled = flags::timed_enabled;
 
@@ -119,4 +120,5 @@ namespace comdare::cache_engine::queuing::axis_q2_queuing {
     static_assert(concepts::FlushPolicy<TimedFlush>);
     static_assert(concepts::CacheEngineFlushPolicyPermutationStrategy<TimedFlush>);
     static_assert(concepts::IterableAspectFlushStrategy<TimedFlush>);
+    static_assert(::comdare::cache_engine::topics::AxisBaseConcept<TimedFlush>);
 }
