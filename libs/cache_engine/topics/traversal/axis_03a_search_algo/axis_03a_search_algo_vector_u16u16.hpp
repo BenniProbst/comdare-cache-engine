@@ -4,10 +4,13 @@
 // @topic traversal @achse 03a @family S03 VectorU16U16
 // @subaxis SA3 multilevel_access
 //
-// Multilevel Such-Algorithmus mit 16-Bit-Discriminator (START-Pattern,
-// Mertens et al. ICDE 2024 "START: Self-Tuning Adaptive Radix Tree"). Erlaubt
-// mehrbyteige Discriminatoren durch Cost-DP-basiertes Level-Splitting. Pro
-// Eintrag: (uint16 key, uint16 value_index_in_pool).
+// **Algorithmus-Pattern:** Multi-Byte Discriminator mit Cost-DP-Splitting
+// (START Self-Tuning Adaptive Radix Tree, Mertens et al. ICDE 2024).
+//
+// Standalone-Implementation: sortierte std::vector<uint16> Keys + parallel
+// std::vector<uint64> Values, std::lower_bound O(log N) Lookup. Aequivalent
+// zu START-multibyte Decision-Points (vereinfacht ohne Cost-Modell — das
+// wuerde adaptive Permutationen erfordern, hier als Pilot weggelassen).
 //
 // Erfuellt:
 //   - SearchAlgoVariant (Pflicht-API)

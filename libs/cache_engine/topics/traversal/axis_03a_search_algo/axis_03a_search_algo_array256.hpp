@@ -4,9 +4,12 @@
 // @topic traversal @achse 03a @family S01 Array256
 // @subaxis SA1 dense_access
 //
-// Direkt-adressierter dense Such-Algorithmus fuer 1-Byte-Discriminator (ART
-// Node256-Pattern, Leis ICDE 2013). 256-Slot Array mit O(1) Lookup/Insert/
-// Erase. Cache-Line-Alignment durch contiguous layout.
+// **Algorithmus-Pattern:** ART Node256 direct-addressed dense Search.
+//   Leis/Kemper/Neumann: "The Adaptive Radix Tree: ARTful Indexing for
+//   Main-Memory Databases." ICDE 2013, pp. 38-49.
+//
+// Standalone-Implementation: std::array<std::optional<value>, 256> mit
+// O(1) Lookup/Insert/Erase. Cache-Line-Alignment durch contiguous layout.
 //
 // Erfuellt:
 //   - SearchAlgoVariant (Pflicht-API)

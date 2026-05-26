@@ -4,10 +4,13 @@
 // @topic traversal @achse 03m @family MP01 DirectPlacement
 // @subaxis MP1 direct_access
 //
-// Direkter Slot-zu-Offset-Mapping (linear packing). Pro registriertem Slot
-// wird der absolute Offset in einem std::vector gehalten. Inspiriert von
-// prt-art-Legacy INode::placement_page_ Pattern (direkte Page-Pointer-
-// Referenzen).
+// **Algorithmus-Pattern:** direktes Slot-zu-Absolute-Offset-Mapping (linear
+// packing). Klassisches Array-of-Pointers-Layout aus B-Tree Inner-Nodes
+// (Bayer/McCreight 1972). Vorteil: O(N) Lookup, kein Pool-Indirection,
+// einfache Cache-Locality.
+//
+// Standalone-Implementation: std::vector<pair<slot, absolute_offset>> +
+// std::find_if linear-scan.
 //
 // Allocation: std::vector — [[allocation-failure-exception]].
 
