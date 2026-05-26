@@ -13,6 +13,8 @@
 // @task #699 V41.F.6.1.R5.C
 // @related [[3-kompositionale-joins-anatomie]] [[pruefling-replace-not-extend]]
 
+#include "anatomy_base.hpp"
+
 #include <boost/mp11.hpp>
 
 #include <concepts>
@@ -30,10 +32,18 @@ namespace mp = boost::mp11;
 struct EmptyPrueflingSlot {
     using PrueflingVariants = mp::mp_list<>;
     static constexpr bool has_pruefling = false;
+    // R5.C.B: Default-Gattung ist SearchAlgorithm (Mammal in Tier-Metapher).
+    // Andere Gattungen muessen Slot::genus explizit ueberschreiben.
+    static constexpr AnatomyGenus genus = AnatomyGenus::SearchAlgorithm;
 };
 
 /// PrueflingSlotConcept — ein Slot ist gueltig wenn er PrueflingVariants
 /// (mp_list von Wrappers) + has_pruefling (bool) liefert.
+///
+/// **R5.C.B Erweiterung:** Slot DARF optional `static constexpr AnatomyGenus genus`
+/// deklarieren. Wenn nicht: Default SearchAlgorithm (Mammal-Gattung) via
+/// `slot_genus_v<Slot>` (siehe unten). Empfehlung: jeder neue Slot deklariert
+/// genus explizit fuer Klarheit.
 template <class Slot>
 concept PrueflingSlotConcept = requires {
     typename Slot::PrueflingVariants;
@@ -43,6 +53,38 @@ concept PrueflingSlotConcept = requires {
 /// HasPruefling<Slot> — Compile-Time-Predicate (true wenn Pruefling-Slot belegt).
 template <class Slot>
 constexpr bool HasPruefling_v = PrueflingSlotConcept<Slot> && Slot::has_pruefling;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (1.5) R5.C.B — Slot-Genus-Detection (Pflicht-Validierung fuer Gattungs-Constraint)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// HasExplicitGenus<Slot> — true wenn Slot::genus deklariert ist.
+template <class Slot>
+concept HasExplicitGenus = requires {
+    { Slot::genus } -> std::convertible_to<AnatomyGenus>;
+};
+
+/// slot_genus_v<Slot> — liefert die Gattung des Slots.
+/// Default: SearchAlgorithm (Mammal-Gattung) wenn Slot::genus nicht deklariert.
+template <class Slot>
+constexpr AnatomyGenus slot_genus_v = []{
+    if constexpr (HasExplicitGenus<Slot>) {
+        return Slot::genus;
+    } else {
+        return AnatomyGenus::SearchAlgorithm;
+    }
+}();
+
+/// IsSlotOfGenus<Slot, G> — Compile-Time-Predicate fuer Gattungs-Match.
+/// Verwendet in SearchAlgorithmPermutationEngine static_assert (Doku 14 §32.3).
+template <class Slot, AnatomyGenus G>
+constexpr bool IsSlotOfGenus_v = (slot_genus_v<Slot> == G);
+
+/// IsSearchAlgorithmSlot<Slot> — Concept fuer Mammal-Slot-Validierung.
+template <class Slot>
+concept IsSearchAlgorithmSlot =
+    PrueflingSlotConcept<Slot> &&
+    IsSlotOfGenus_v<Slot, AnatomyGenus::SearchAlgorithm>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // (2) Stufe 1 — comdare_perms_ce (CE-only, KEINE Pruefling-Beteiligung)

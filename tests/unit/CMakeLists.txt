@@ -363,3 +363,14 @@ target_include_directories(test_v41_execution_engine PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_execution_engine PRIVATE Boost::mp11)
+
+# V41.F.6.1.R5.C.B SearchAlgorithmPermutationEngine (genus-aware Specialization)
+comdare_add_test(test_v41_search_algorithm_permutation_engine
+    SOURCES test_v41_search_algorithm_permutation_engine.cpp)
+target_include_directories(test_v41_search_algorithm_permutation_engine PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_search_algorithm_permutation_engine PRIVATE Boost::mp11)
