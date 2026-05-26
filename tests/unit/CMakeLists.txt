@@ -251,3 +251,13 @@ target_include_directories(test_v41_topic_queuing PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_topic_queuing PRIVATE Boost::mp11)
+
+# V41.F.6.1 Topic traversal Pilot (2026-05-26)
+comdare_add_test(test_v41_topic_traversal
+    SOURCES test_v41_topic_traversal.cpp)
+target_include_directories(test_v41_topic_traversal PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_topic_traversal PRIVATE Boost::mp11)

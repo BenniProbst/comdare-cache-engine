@@ -1,0 +1,17 @@
+#pragma once
+// V41.F.6.1 axis_03a_search_algo AUTO-GENERATED Flags (CMake configure_file)
+//
+// @topic traversal @achse 03a search_algo
+
+namespace comdare::cache_engine::traversal::axis_03a_search_algo::flags {
+
+// Pilot Batch 1 (S01 Array256, S02 VectorU8U8, S03 VectorU16U16) — 2026-05-26
+#cmakedefine01 COMDARE_AXIS_03A_USE_ARRAY256
+#cmakedefine01 COMDARE_AXIS_03A_USE_VECTOR_U8U8
+#cmakedefine01 COMDARE_AXIS_03A_USE_VECTOR_U16U16
+
+inline constexpr bool array256_enabled       = COMDARE_AXIS_03A_USE_ARRAY256;
+inline constexpr bool vector_u8u8_enabled    = COMDARE_AXIS_03A_USE_VECTOR_U8U8;
+inline constexpr bool vector_u16u16_enabled  = COMDARE_AXIS_03A_USE_VECTOR_U16U16;
+
+}  // namespace
