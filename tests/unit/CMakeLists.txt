@@ -463,3 +463,15 @@ target_link_libraries(test_v41_anatomy_multi_codegen PRIVATE
 target_compile_definitions(test_v41_anatomy_multi_codegen PRIVATE
     "COMDARE_R5D3_PILOT_DIR=\"${_r5d3_pilot_dir}\"")
 add_dependencies(test_v41_anatomy_multi_codegen ${_r5d3_pilot_targets})
+
+# V41.F.6.1.R5.F anatomy_codegen_tool Library-Tests
+comdare_add_test(test_v41_anatomy_codegen_tool
+    SOURCES test_v41_anatomy_codegen_tool.cpp)
+target_include_directories(test_v41_anatomy_codegen_tool PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_anatomy_codegen_tool PRIVATE
+    comdare::anatomy_codegen_tool)
