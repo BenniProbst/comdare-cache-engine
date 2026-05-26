@@ -24,6 +24,10 @@
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
 #include "vendor_includes/dlmalloc_include.hpp"
 
+// V41.F.6.1.P2.D Batch 2 dlmalloc Paper-Legacy-Code Mixin
+#include "concepts/axis_06_allocator_original_code_mixin.hpp"
+#include <topics/allocator/axis_06_allocator/legacy_code/paper_a20_dlmalloc_is_original.hpp>
+
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
 #include <measurement/measurable_concept.hpp>
 #include <cstddef>
@@ -39,8 +43,15 @@ namespace comdare::cache_engine::allocator::axis_06_allocator {
  *
  * Bins-based Size-Class-Allocator.
  */
-class DlmallocAllocator : public AllocatorStrategyBase<DlmallocAllocator> {
+class DlmallocAllocator
+    : public AllocatorStrategyBase<DlmallocAllocator>,
+      public generated::a20_dlmalloc::OriginalCodeMixin {  // V41.F.6.1.P2.D Batch 2
 public:
+    using generated::a20_dlmalloc::OriginalCodeMixin::get_compiler;
+    using generated::a20_dlmalloc::OriginalCodeMixin::is_original_allocate;
+    using generated::a20_dlmalloc::OriginalCodeMixin::is_original_deallocate;
+    using generated::a20_dlmalloc::OriginalCodeMixin::is_original_module;
+
     static constexpr bool enabled = flags::dlmalloc_enabled;
 
     using value_type = std::byte;

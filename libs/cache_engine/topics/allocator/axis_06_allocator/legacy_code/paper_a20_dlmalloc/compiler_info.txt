@@ -1,0 +1,3 @@
+compiler:  gcc-9.5
+flags:     -O3 -DUSE_DL_PREFIX=1
+ld_flags:  -lpthread

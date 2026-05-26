@@ -597,7 +597,46 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
         WRAPPER_NAME      snmalloc
     )
 
-    # A06 tcmalloc DEFER P2.D.t (Bazel-Build + Symbol-Mangling):
-    # tc_free/tc_memalign sind nicht direkt im Source, sondern Bazel-generierte
-    # Mangled-Names. Pattern braucht spaeteren Sprint (P2.D.t mit Bazel-Adaption).
+    # A20 dlmalloc (P2.D Batch 2, 1/3) — Doug Lea 1987 Classic Bins
+    comdare_register_paper_wrapper(
+        PAPER_ID          a20_dlmalloc
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/A20-dlmalloc"
+        EXT_SENTINEL_FILE "malloc.c"
+        LEGACY_DIR        "${_a06_legacy_root}/paper_a20_dlmalloc"
+        FILES             "malloc.c"
+        OUTPUT_HEADER     "${_a06_gen_root}/paper_a20_dlmalloc_is_original.hpp"
+        NAMESPACE         "${_a06_namespace_root}::a20_dlmalloc"
+        WRAPPER_NAME      dlmalloc
+    )
+
+    # A10 rpmalloc (P2.D Batch 2, 2/3) — Jansson 2017
+    comdare_register_paper_wrapper(
+        PAPER_ID          a10_rpmalloc
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/A10-rpmalloc"
+        EXT_SENTINEL_FILE "rpmalloc/rpmalloc.c"
+        LEGACY_DIR        "${_a06_legacy_root}/paper_a10_rpmalloc"
+        FILES             "rpmalloc/rpmalloc.c"
+        OUTPUT_HEADER     "${_a06_gen_root}/paper_a10_rpmalloc_is_original.hpp"
+        NAMESPACE         "${_a06_namespace_root}::a10_rpmalloc"
+        WRAPPER_NAME      rpmalloc
+    )
+
+    # A11 lrmalloc (P2.D Batch 2, 3/3) — Leite/Rocha JPDC 2019
+    comdare_register_paper_wrapper(
+        PAPER_ID          a11_lrmalloc
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/A11-lrmalloc"
+        EXT_SENTINEL_FILE "lrmalloc.cpp"
+        LEGACY_DIR        "${_a06_legacy_root}/paper_a11_lrmalloc"
+        FILES             "lrmalloc.cpp"
+        OUTPUT_HEADER     "${_a06_gen_root}/paper_a11_lrmalloc_is_original.hpp"
+        NAMESPACE         "${_a06_namespace_root}::a11_lrmalloc"
+        WRAPPER_NAME      lrmalloc
+    )
+
+    # DEFER P2.D.t (Bazel + Custom-Shim Vendors):
+    #   A06 tcmalloc      — Bazel-Build, tc_free/tc_memalign nicht im Source (Symbol-Mangling)
+    #   A01 hoard         — Custom-Shim hoard_memalign (kein direktes Paper-Symbol)
+    #   A03 michael_lf    — Custom-Shim michael_lf_alloc (Header-only Pattern)
+    #   A08 scalloc       — Custom-Shim scalloc_malloc (Header-only + Bazel-aehnlich)
+    # Diese 4 brauchen spaeteren Sprint mit Custom-Build-Adaption pro Vendor.
 endif()
