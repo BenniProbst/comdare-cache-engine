@@ -57,6 +57,7 @@ public:
     [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
     [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return true; }   // namesgebend (LR = Lock-Free + Reclamation)
     [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // per-thread reservations
+    [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
 
     [[nodiscard]] bool operator==(LRMallocAllocator const&) const noexcept { return true; }
 

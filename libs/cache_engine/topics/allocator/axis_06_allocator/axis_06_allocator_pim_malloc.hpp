@@ -1,17 +1,17 @@
 #pragma once
-// V41.F.6.1 Batch 4 RPMallocAllocator A10 (2026-05-26)
+// V41.F.6.1 Batch 6 PIMMallocAllocator A16 (2026-05-26)
 //
-// @topic allocator
-// @achse 6
-// @family A10 (RPMalloc — Mattias Jansson 2017, Per-Thread Spans)
-// @subaxis AA3 thread_locality (Per-Thread-Heaps mit Span-basierter Allokation)
+// @topic allocator @achse 6 @family A16 (PIM-Malloc, UPMEM/HBM-PIM 2023+)
+// @subaxis AA5 allocation_policy (Processing-In-Memory Hardware-Awareness)
 //
-// **SONDERFALL RPMalloc:** Pflicht-Init vor erstem Aufruf!
-//   - rpmalloc_initialize() — pro Prozess EINMAL (process-init guard)
-//   - rpmalloc_thread_initialize() — pro Thread EINMAL (thread-local guard)
-// Wir nutzen "init-on-first-use" via static-flags. Cleanup ist optional
-// (rpmalloc Self-Cleanup beim Prozess-Ende). Bei expliziter Finalisierung:
-//   ensure_finalize_at_exit() — Optional fuer Code mit deterministischem Cleanup.
+// **SONDERFALL PIM-Malloc:** Verlangt PIM-Hardware (UPMEM DPUs, Samsung HBM-PIM,
+// SK Hynix AiM). API hat DPU-ID-Parameter analog NUMA-Node bei NUMAlloc.
+// On non-PIM-systems: Fallback auf portable_aligned_alloc (Host-Memory).
+//
+// SONDERFALL-PROPERTY (User-Direktive 2026-05-26, Concept-Erweiterung):
+//   requires_specialized_hardware() = true
+//   CacheEngineBuilder kann pro Plattform Allocator-Subsets bilden — auf einem
+//   reinem CPU-System wuerde dieser Allocator nicht permutiert werden.
 
 #include "axis_06_allocator_strategy_base.hpp"
 #include "axis_06_allocator_subaxes_aa1_to_aa7.hpp"
@@ -19,15 +19,13 @@
 #include "concepts/axis_06_allocator_cache_engine_permutation_concept.hpp"
 #include "concepts/axis_06_allocator_zeroing_strategy_concept.hpp"
 #include "concepts/axis_06_allocator_reallocating_strategy_concept.hpp"
-#include "concepts/axis_06_allocator_introspectable_strategy_concept.hpp"
 #include "../concepts/topic_allocator_concept.hpp"
 
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
-#include "vendor_includes/rpmalloc_include.hpp"
+#include "vendor_includes/pim_malloc_include.hpp"
 
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
 #include <measurement/measurable_concept.hpp>
-#include <atomic>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -36,70 +34,50 @@
 
 namespace comdare::cache_engine::allocator::axis_06_allocator {
 
-namespace detail {
-
-/**
- * @brief RPMalloc Init-on-First-Use Guard (process + thread).
- *
- * Sicherheit: idempotent via std::atomic_flag (Process-Init) + thread_local
- * bool (Thread-Init). Compile-Time skip wenn HAVE=OFF (alle Calls sind no-op).
- */
-struct RPMallocInitGuard {
-    static void ensure_initialized() noexcept {
-        if constexpr (flags::rpmalloc_enabled) {
-            static std::atomic_flag process_inited = ATOMIC_FLAG_INIT;
-            if (!process_inited.test_and_set(std::memory_order_acquire)) {
-                ::rpmalloc_initialize();
-            }
-            thread_local bool thread_inited = false;
-            if (!thread_inited) {
-                ::rpmalloc_thread_initialize();
-                thread_inited = true;
-            }
-        }
-    }
-};
-
-}  // namespace detail
-
-class RPMallocAllocator : public AllocatorStrategyBase<RPMallocAllocator> {
+class PIMMallocAllocator : public AllocatorStrategyBase<PIMMallocAllocator> {
 public:
-    static constexpr bool enabled = flags::rpmalloc_enabled;
+    static constexpr bool enabled = flags::pim_malloc_enabled;
+
+    /// SONDERFALL: PIM-DPU-Default (-1 = primaerer DPU)
+    static constexpr int kDefaultDpuId = -1;
 
     using value_type = std::byte;
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::allocator::concepts::AllocatorTopicTag;
-    using axis_tag   = subaxes::thread_locality_tag;
-    using family_id  = std::integral_constant<int, 10>;
+    using axis_tag   = subaxes::allocation_policy_tag;
+    using family_id  = std::integral_constant<int, 16>;
 
     [[nodiscard]] static constexpr bool        is_thread_safe()  noexcept { return true; }
     [[nodiscard]] static constexpr bool        supports_pmr()    noexcept { return true; }
     [[nodiscard]] static constexpr std::size_t max_alignment()   noexcept { return alignof(std::max_align_t); }
 
     [[nodiscard]] static constexpr std::string_view name() noexcept {
-        if constexpr (enabled) { return "rpmalloc"; }
-        else                   { return "rpmalloc(real=std)"; }
+        if constexpr (enabled) { return "pim_malloc"; }
+        else                   { return "pim_malloc(real=std)"; }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "RPMalloc Per-Thread Spans (Mattias Jansson 2017)";
+        return "PIM-Malloc Processing-In-Memory (UPMEM/HBM-PIM 2023+)";
     }
-    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "RPMALLOC"; }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "PIM_MALLOC"; }
 
-    // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
-    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // rpaligned_alloc
-    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return true; }   // SONDERFALL: rpmalloc_initialize + thread_initialize
-    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }  // Span-allocation nutzt Atomic-Operationen aber nicht voll lock-free
-    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // namesgebend: per-thread spans
-    [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
+    // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht)
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // pim_alloc(size, alignment, dpu)
+    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }  // pim_detect_hardware lazy
+    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }  // PIM != NUMA
+    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }  // single-DPU per allocation
+    [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return true; } // SONDERFALL: PIM-Hardware-Pflicht
 
-    [[nodiscard]] bool operator==(RPMallocAllocator const&) const noexcept { return true; }
+    PIMMallocAllocator() noexcept : dpu_id_(kDefaultDpuId) {}
+    explicit PIMMallocAllocator(int dpu_id) noexcept : dpu_id_(dpu_id) {}
+
+    [[nodiscard]] bool operator==(PIMMallocAllocator const& other) const noexcept {
+        return dpu_id_ == other.dpu_id_;
+    }
 
     [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment) {
-        // SONDERFALL: rpmalloc verlangt Init vor erstem Aufruf
-        detail::RPMallocInitGuard::ensure_initialized();
         void* p;
-        if constexpr (enabled) { p = ::rpaligned_alloc(alignment, bytes); }
+        if constexpr (enabled) { p = ::pim_alloc(bytes, alignment, dpu_id_); }
         else                   { p = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, bytes); }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
@@ -117,7 +95,7 @@ public:
 
     void deallocate(void* p, std::size_t bytes, std::size_t alignment) noexcept {
         if (p == nullptr) return;
-        if constexpr (enabled) { ::rpfree(p); }
+        if constexpr (enabled) { ::pim_free(p, dpu_id_); }
         else                   { ::comdare::cache_engine::allocator::portable_aligned_free(p); }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
@@ -133,7 +111,6 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = concepts::AllocationStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
-
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
     [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
     void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
@@ -142,10 +119,9 @@ public:
 #endif
 
     [[nodiscard]] void* zero_allocate(std::size_t n, std::size_t size) {
-        detail::RPMallocInitGuard::ensure_initialized();
         std::size_t bytes = n * size;
         void* p;
-        if constexpr (enabled) { p = ::rpcalloc(n, size); }
+        if constexpr (enabled) { p = ::pim_calloc(n, size, dpu_id_); }
         else                   { p = std::calloc(n, size); }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         if (p != nullptr) {
@@ -162,10 +138,9 @@ public:
 
     [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes,
                                    std::size_t alignment) {
-        detail::RPMallocInitGuard::ensure_initialized();
         void* np;
         if constexpr (enabled) {
-            np = ::rprealloc(p, new_bytes);
+            np = ::pim_realloc(p, new_bytes, dpu_id_);
             (void)alignment;
         } else {
             np = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, new_bytes);
@@ -190,12 +165,12 @@ public:
         return np;
     }
 
-    [[nodiscard]] std::size_t usable_size(void* p) const noexcept {
-        if constexpr (enabled) { return ::rpmalloc_usable_size(p); }
-        else                   { (void)p; return 0; }
-    }
+    /// PIM-spezifisch: DPU-ID Setter/Getter
+    [[nodiscard]] int dpu_id() const noexcept { return dpu_id_; }
+    void set_dpu_id(int dpu) noexcept { dpu_id_ = dpu; }
 
 private:
+    int dpu_id_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::AllocationStatistics stats_{};
     observer_t observer_{};
@@ -205,9 +180,8 @@ private:
 }  // namespace
 
 namespace comdare::cache_engine::allocator::axis_06_allocator {
-    static_assert(concepts::AllocatorStrategy<RPMallocAllocator>);
-    static_assert(concepts::CacheEnginePermutationStrategy<RPMallocAllocator>);
-    static_assert(concepts::ZeroingStrategy<RPMallocAllocator>);
-    static_assert(concepts::ReallocatingStrategy<RPMallocAllocator>);
-    static_assert(concepts::IntrospectableStrategy<RPMallocAllocator>);
+    static_assert(concepts::AllocatorStrategy<PIMMallocAllocator>);
+    static_assert(concepts::CacheEnginePermutationStrategy<PIMMallocAllocator>);
+    static_assert(concepts::ZeroingStrategy<PIMMallocAllocator>);
+    static_assert(concepts::ReallocatingStrategy<PIMMallocAllocator>);
 }

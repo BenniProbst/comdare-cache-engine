@@ -59,6 +59,7 @@ public:
     [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
     [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }  // per-heap-locks
     [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // per-thread-heaps (Charakteristik)
+    [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
 
     [[nodiscard]] bool operator==(HoardAllocator const&) const noexcept { return true; }
 

@@ -130,6 +130,11 @@ concept CacheEnginePermutationStrategy =
         { A::supports_numa_node_hint()     } -> std::convertible_to<bool>;
         { A::is_lock_free()                } -> std::convertible_to<bool>;
         { A::supports_thread_local_cache() } -> std::convertible_to<bool>;
+        // V41.F.6.1 Batch 6 Erweiterung (User-Direktive 2026-05-26):
+        // requires_specialized_hardware() — true bei PIM/HBM/GPU/FPGA-Allokatoren,
+        // false bei generischen CPU-Allokatoren. CacheEngineBuilder kann damit
+        // pro Plattform Subsets bilden (z.B. nur PIM-Allokatoren auf UPMEM-Systemen).
+        { A::requires_specialized_hardware() } -> std::convertible_to<bool>;
     }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     // V41.F.6.1 Stufe 3 LIVE (Doku §15.3 + §15.8 / User-Direktive [[statistics-observer-pflicht]]):
