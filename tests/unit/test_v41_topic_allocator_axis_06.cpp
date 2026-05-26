@@ -128,6 +128,31 @@ TYPED_TEST(AllocatorVendorTest, Identification) {
     SUCCEED();
 }
 
+// V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
+// Pro Vendor MUSS jede Property eine bool-Antwort liefern (Wert variabel, aber Methode Pflicht).
+TYPED_TEST(AllocatorVendorTest, SonderfallPropertiesQueryable) {
+    // Properties existieren (Compile-Pflicht via CacheEnginePermutationStrategy)
+    [[maybe_unused]] constexpr bool a = TypeParam::has_native_aligned_alloc();
+    [[maybe_unused]] constexpr bool b = TypeParam::requires_explicit_init();
+    [[maybe_unused]] constexpr bool c = TypeParam::supports_numa_node_hint();
+    [[maybe_unused]] constexpr bool d = TypeParam::is_lock_free();
+    [[maybe_unused]] constexpr bool e = TypeParam::supports_thread_local_cache();
+    // Konsistenz-Checks: Sonderfaelle der Batch-4-Vendor
+    if constexpr (std::is_same_v<TypeParam, axis_06::ScallocAllocator>) {
+        static_assert(!a, "Scalloc-Sonderfall: keine native aligned_alloc API");
+    }
+    if constexpr (std::is_same_v<TypeParam, axis_06::RPMallocAllocator>) {
+        static_assert(b, "RPMalloc-Sonderfall: requires_explicit_init=true");
+    }
+    if constexpr (std::is_same_v<TypeParam, axis_06::NUMAllocAllocator>) {
+        static_assert(c, "NUMAlloc-Sonderfall: supports_numa_node_hint=true");
+    }
+    if constexpr (std::is_same_v<TypeParam, axis_06::MichaelLockFreeAllocator>) {
+        static_assert(d, "MichaelLockFree-Sonderfall: is_lock_free=true");
+    }
+    SUCCEED();
+}
+
 // Roundtrip: allocate + deallocate ueber Runtime-Konfigurations-Liste
 // (User-Direktive 2026-05-26: dynamische Seite testen — for-loop ueber constexpr Liste)
 TYPED_TEST(AllocatorVendorTest, AllocateDeallocateRoundtripAllConfigs) {

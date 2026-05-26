@@ -57,6 +57,13 @@ public:
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "SCALLOC"; }
 
+    // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return false; }  // SONDERFALL: keine native aligned_alloc API
+    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return true; }   // Spans-Free-List ist lock-free
+    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // per-thread spans
+
     [[nodiscard]] bool operator==(ScallocAllocator const&) const noexcept { return true; }
 
     [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment) {

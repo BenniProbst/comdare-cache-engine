@@ -53,6 +53,13 @@ public:
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "MICHAEL_LF"; }
 
+    // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // michael_lf_alloc(size, alignment)
+    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }  // CAS-Init lazy
+    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return true; }   // namesgebende Eigenschaft (CAS-only)
+    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }  // single shared lock-free pool, kein per-thread
+
     [[nodiscard]] bool operator==(MichaelLockFreeAllocator const&) const noexcept { return true; }
 
     [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment) {

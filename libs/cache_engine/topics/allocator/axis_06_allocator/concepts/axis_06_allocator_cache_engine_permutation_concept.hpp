@@ -119,6 +119,17 @@ concept CacheEnginePermutationStrategy =
         { A::max_alignment()  } -> std::convertible_to<std::size_t>;
         { A::name()           } -> std::convertible_to<std::string_view>;
         { A::family_name()    } -> std::convertible_to<std::string_view>;
+        // V41.F.6.1 Batch 4 Konsolidierung 2026-05-26 (User-Direktive
+        // [[vendor-sonderfaelle-als-pflicht-property]]):
+        // Sonderfaelle der Vendors als abfragbare static-constexpr-Properties.
+        // Jeder Wrapper muss antworten — der Wert kann negativ sein (false), aber
+        // die Methode MUSS existieren. CacheEngineBuilder kann pro Permutation
+        // daraus Constraints + Pruefling-Filter ableiten.
+        { A::has_native_aligned_alloc()    } -> std::convertible_to<bool>;
+        { A::requires_explicit_init()      } -> std::convertible_to<bool>;
+        { A::supports_numa_node_hint()     } -> std::convertible_to<bool>;
+        { A::is_lock_free()                } -> std::convertible_to<bool>;
+        { A::supports_thread_local_cache() } -> std::convertible_to<bool>;
     }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     // V41.F.6.1 Stufe 3 LIVE (Doku §15.3 + §15.8 / User-Direktive [[statistics-observer-pflicht]]):

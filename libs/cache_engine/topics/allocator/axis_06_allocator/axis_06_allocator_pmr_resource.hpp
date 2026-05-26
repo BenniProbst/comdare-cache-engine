@@ -56,8 +56,14 @@ public:
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "std::pmr::memory_resource (Halpern N3916 C++17)";
     }
-    // V41.F.6.1.G CacheEngineBuilder CLI-Flag-Suffix (Doku §15.10)
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "PMR"; }
+
+    // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // PMR allocate(bytes, alignment)
+    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }  // default_resource immer da
+    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }  // resource-abhaengig, Default-pool nicht lock-free
+    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }  // resource-typ-abhaengig
 
     PmrResourceAllocator() noexcept
         : resource_(std::pmr::new_delete_resource()) {}
