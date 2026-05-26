@@ -4,3 +4,6 @@
 # hier nur die main.cpp-Wrapper.
 
 add_subdirectory(cache_engine_builder)
+
+# V41.F.6.1.P1 Phase B — Pre-Build-Tool fuer is_original-Codegen
+add_subdirectory(is_original_validator)

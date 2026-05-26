@@ -261,3 +261,13 @@ target_include_directories(test_v41_topic_traversal PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_topic_traversal PRIVATE Boost::mp11)
+
+# V41.F.6.1.P1 Phase B Paper-Legacy-Code Pattern (ctsha + Sub-Concept + Macro)
+comdare_add_test(test_v41_paper_legacy_code
+    SOURCES test_v41_paper_legacy_code.cpp)
+target_include_directories(test_v41_paper_legacy_code PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_paper_legacy_code PRIVATE Boost::mp11)
