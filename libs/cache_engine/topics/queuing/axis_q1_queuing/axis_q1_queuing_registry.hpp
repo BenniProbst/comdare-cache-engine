@@ -13,6 +13,10 @@
 // Batch 2 (Q-APP AppendOnly, Q-PRIO PriorityHeap)
 #include "axis_q1_queuing_append_only.hpp"
 #include "axis_q1_queuing_priority_heap.hpp"
+// Batch 3 (Q-DELTA DeltaChain, Q-SKIP SkiplistBuffer, Q-TOMB TombstoneBuffer)
+#include "axis_q1_queuing_delta_chain.hpp"
+#include "axis_q1_queuing_skiplist_buffer.hpp"
+#include "axis_q1_queuing_tombstone_buffer.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
@@ -30,10 +34,14 @@ using AllStrategies = mp::mp_list<
     BoundedRing,
     // Batch 2 (2026-05-26)
     AppendOnly,
-    PriorityHeap
-    // Vollausbau-Batches 3-5 (geplant):
-    // Q07 DeltaChain, Q08 SkiplistBuffer, Q09 TombstoneBuffer, Q10 CopyOnWrite,
-    // Q11 EpochBuffer, Q12 BatchedInsertBuffer, Q13 LockFreeSPSC, Q14 LockFreeMPMC
+    PriorityHeap,
+    // Batch 3 (2026-05-26)
+    DeltaChain,
+    SkiplistBuffer,
+    TombstoneBuffer
+    // Vollausbau-Batches 4-5 (geplant):
+    // Q10 CopyOnWrite, Q11 EpochBuffer, Q12 BatchedInsertBuffer,
+    // Q13 LockFreeSPSC, Q14 LockFreeMPMC
 >;
 
 template <typename S>
