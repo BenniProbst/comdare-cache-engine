@@ -1,0 +1,20 @@
+# Empfohlene Compiler-Konfiguration fuer paper_a04_mimalloc Original-Build
+# Quelle: Leijen MSR-TR-2019-18 (mimalloc Original-Paper Build-Profile)
+
+compiler:       gcc-9.5
+flags:          -O3 -mavx2 -DMI_DEBUG=0
+flags_optional: -DMI_SECURE=0 -DMI_PADDING=0
+ld_flags:       -lpthread
+
+# Cross-Platform Pflicht (User-Direktive [[consteval-sha256-function-validation]]):
+# - 3 OS:  Linux, macOS, Windows
+# - 4 ISAs: x86_64, ARM64, RISC-V, POWER
+
+# Per ISA + OS Compiler-Cache-Eintraege (P2.A.W Windows TODO):
+#   linux-x86_64:   gcc-9.5 (compiler_cache/gcc-9.5/bin/gcc)
+#   linux-arm64:    gcc-9.5-aarch64
+#   linux-riscv:    gcc-9.5-riscv64
+#   linux-power:    gcc-9.5-powerpc64
+#   macos-x86_64:   clang-12 (Apple-prebuilt — find_program)
+#   macos-arm64:    clang-12 (Apple Silicon)
+#   windows-x86_64: msvc-19.30 (manual prebuilt + Marker)

@@ -1,0 +1,13 @@
+# manifest.txt fuer apps/is_original_validator
+# Paper: A04 mimalloc (Leijen MSR-TR-2019-18 / ISMM 2019)
+# Cache-Engine-Wrapper: MimallocAllocator
+
+# Pflicht-Annotations (3 Stueck)
+@compiler gcc-9.5
+@has_original_paper_code true
+@axis_mixin_type comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorOriginalCodeMixin
+
+# Function-Mappings (3-Felder, whitespace-separated)
+# wrapper_fn   paper_fn              source_relative_path
+allocate       mi_malloc_aligned     src/alloc-aligned.c
+deallocate     mi_free               src/free.c
