@@ -15,9 +15,11 @@
 // Konkrete Anatomien (SearchAlgorithmAnatomy etc.) erfuellen den Concept; ABI-
 // Wrapper-Adapter (in R5.D) bridge zur IAnatomyBase Virtual-Schicht.
 //
-// @doku docs/architektur/14_achsen_komposition_organ_metapher.md §27
-// @task #700 V41.F.6.1.R5.C.A
-// @related [[anatomie-gattungen]] [[anatomie-nur-achsen-und-observer]]
+// @doku docs/architektur/14_achsen_komposition_organ_metapher.md §27 + §35.3 (R5.C.A2)
+// @task #700 V41.F.6.1.R5.C.A + #701 V41.F.6.1.R5.C.A2
+// @related [[anatomie-gattungen]] [[anatomie-nur-achsen-und-observer]] [[execution-engine-als-wurzel]]
+
+#include "../execution_engine/execution_engine_base.hpp"  // R5.C.A2 ExecutionEngine Wurzel
 
 #include <concepts>
 #include <cstddef>
@@ -85,15 +87,31 @@ concept AnatomyConcept = requires {
 
 /// IAnatomyBase — abstract base fuer alle Anatomie-Gattungen (Runtime-Polymorph).
 ///
-/// **Verwendung:** AusschliesslichR5.D Module-Loader-Adapter. Konkrete Anatomien
+/// **Wurzel-Inheritance (R5.C.A2):** Erbt von `IExecutionEngine` — Anatomien
+/// sind eine spezielle Form von ExecutionEngine (Lebewesen vs Viren, Doku 14 §33-§40).
+///
+/// **Verwendung:** Ausschliesslich R5.E Module-Loader-Adapter. Konkrete Anatomien
 /// nutzen die Compile-Time-Concept-Schicht (AnatomyConcept), NICHT diese Virtual-
 /// Schicht — fuer Hot-Path-Performance.
 ///
 /// **Zweck Virtual:** Ein .so/.dll exportiert genau EINE IAnatomyBase-Instanz
 /// (extern "C" Factory), die der CacheEngineBuilder ueber dlopen lossticht.
-class IAnatomyBase {
+class IAnatomyBase : public ::comdare::cache_engine::execution_engine::IExecutionEngine {
 public:
-    virtual ~IAnatomyBase() = default;
+    // ─────────────────────────────────────────────────────────────────────
+    // IExecutionEngine-Pflicht-Override: engine_kind() = Anatomy (final)
+    // ─────────────────────────────────────────────────────────────────────
+    [[nodiscard]] ::comdare::cache_engine::execution_engine::ExecutionEngineKind
+    engine_kind() const noexcept final {
+        return ::comdare::cache_engine::execution_engine::ExecutionEngineKind::Anatomy;
+    }
+
+    // engine_name() wird in konkreten Anatomien implementiert (z.B. composition_name)
+    // warm_up/reset/shutdown bleiben Pflicht-API der Subklasse
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Anatomie-spezifische Pflicht-API (zusaetzlich zu IExecutionEngine)
+    // ─────────────────────────────────────────────────────────────────────
 
     /// Composition-Identifier (z.B. "ArtComposition")
     [[nodiscard]] virtual std::string_view composition_name() const noexcept = 0;
