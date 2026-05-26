@@ -301,3 +301,13 @@ target_include_directories(test_v41_anatomy PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_anatomy PRIVATE Boost::mp11)
+
+# V41.F.6.1.R4 AnatomyPermutationDriver (PermutationEngine + Anatomie-Brueckenkopf)
+comdare_add_test(test_v41_anatomy_r4_driver
+    SOURCES test_v41_anatomy_r4_driver.cpp)
+target_include_directories(test_v41_anatomy_r4_driver PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_anatomy_r4_driver PRIVATE Boost::mp11)
