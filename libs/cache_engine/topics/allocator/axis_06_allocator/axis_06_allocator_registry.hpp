@@ -32,6 +32,10 @@
 #include "axis_06_allocator_jemalloc.hpp"
 #include "axis_06_allocator_tcmalloc.hpp"
 #include "axis_06_allocator_dlmalloc.hpp"
+// Batch 3 (2026-05-26)
+#include "axis_06_allocator_hoard.hpp"
+#include "axis_06_allocator_slab.hpp"
+#include "axis_06_allocator_michael_lf.hpp"
 
 #include <boost/mp11.hpp>
 
@@ -57,12 +61,15 @@ using AllVendors = mp::mp_list<
     // Batch 2 (2026-05-26)
     JemallocAllocator,
     TCMallocAllocator,
-    DlmallocAllocator
-    // Batch 3-8 ergaenzen hier:
-    // A01 Hoard, A02 Slab, A03 Michael LockFree, A08 Scalloc, A09 NUMAlloc,
-    // A10 RPMalloc, A11 LRMalloc, A12 CAMA, A13 StarMalloc, A14 TCMalloc-Warehouse,
-    // A15 HMalloc, A16 PIM-Malloc, A17 Crystalline, A18 Exgen-Malloc,
-    // A19 Buddy, A21 ptmalloc2, A23 Vmem-Magazines
+    DlmallocAllocator,
+    // Batch 3 (2026-05-26)
+    HoardAllocator,
+    SlabAllocator,
+    MichaelLockFreeAllocator
+    // Batch 4-8 ergaenzen hier:
+    // A08 Scalloc, A09 NUMAlloc, A10 RPMalloc, A11 LRMalloc, A12 CAMA, A13 StarMalloc,
+    // A14 TCMalloc-Warehouse, A15 HMalloc, A16 PIM-Malloc, A17 Crystalline,
+    // A18 Exgen-Malloc, A19 Buddy, A21 ptmalloc2, A23 Vmem-Magazines
 >;
 
 // ───────────────────────────────────────────────────────────────────────────

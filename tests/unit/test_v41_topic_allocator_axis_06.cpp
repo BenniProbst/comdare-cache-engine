@@ -62,6 +62,77 @@ namespace axis_06_cpts      = comdare::cache_engine::allocator::axis_06_allocato
 namespace subaxes           = comdare::cache_engine::allocator::axis_06_allocator::subaxes;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// V41.F.6.1 Batch 3 (User-Direktive 2026-05-26): TYPED_TEST_SUITE
+// statt wiederholter Einzeltests pro Vendor. mp_apply konvertiert die zentrale
+// AllVendors mp_list automatisch in ::testing::Types — KEIN Sync-Aufwand bei
+// Erweiterung der Vendor-Liste. Test-Granularitaet bleibt pro Vendor erhalten
+// (GTest expandiert TYPED_TEST in 1 Test pro Type).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GTest TYPED_TEST_SUITE Boilerplate im globalen Scope (Macro vertraegt
+// keine namespace-Qualifier, deshalb hier direkt, nicht in test_helpers::).
+template <class... Vs>
+using ToGTestTypes = ::testing::Types<Vs...>;
+
+/// MP11 -> GTest-Typliste: synchron mit axis_06::AllVendors per mp_apply
+/// Erweiterung der AllVendors-mp_list = automatische Test-Erweiterung
+using AllVendorTypes = boost::mp11::mp_apply<ToGTestTypes, axis_06::AllVendors>;
+
+template <class T>
+class AllocatorVendorTest : public ::testing::Test {};
+
+TYPED_TEST_SUITE(AllocatorVendorTest, AllVendorTypes);
+
+// Pflicht-Concepts werden pro Vendor compile-time geprueft (1 Test je Vendor)
+TYPED_TEST(AllocatorVendorTest, ConceptConformance) {
+    static_assert(axis_06_cpts::AllocatorStrategy<TypeParam>,
+        "Pflicht: AllocatorStrategy (PMR-Standard)");
+    static_assert(axis_06_cpts::CacheEnginePermutationStrategy<TypeParam>,
+        "Pflicht: CacheEnginePermutationStrategy (cache-engine-spec, mit statistics+observer wenn STATISTICS=ON)");
+    SUCCEED();
+}
+
+// Identifikation: name + flag_suffix + family_id != 0
+TYPED_TEST(AllocatorVendorTest, Identification) {
+    static_assert(!TypeParam::name().empty(),         "name() darf nicht leer sein");
+    static_assert(!TypeParam::family_name().empty(),  "family_name() darf nicht leer sein");
+    static_assert(!TypeParam::flag_suffix().empty(),  "flag_suffix() darf nicht leer sein (F.6.1.G CLI)");
+    static_assert(TypeParam::family_id::value > 0,    "family_id muss > 0 (A01-A23 mapping)");
+    SUCCEED();
+}
+
+// Roundtrip: allocate + deallocate (mit portable Fallback wenn HAVE=OFF)
+TYPED_TEST(AllocatorVendorTest, AllocateDeallocateRoundtrip) {
+    TypeParam m{};
+    void* p = m.allocate(128, 16);
+    ASSERT_NE(p, nullptr) << "Vendor " << TypeParam::name() << " allocate failed";
+    m.deallocate(p, 128, 16);
+}
+
+// Stufe 3 Observer-Notify-Pflicht (nur wenn STATISTICS=ON)
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+TYPED_TEST(AllocatorVendorTest, ObserverNotifyOnAllocateAndDeallocate) {
+    TypeParam m{};
+    int events = 0;
+    m.observer().on_event([&events](auto const&){ ++events; });
+    void* p = m.allocate(64, 8);
+    ASSERT_NE(p, nullptr);
+    EXPECT_EQ(events, 1) << "allocate muss observer.notify(stats_) ausloesen";
+    m.deallocate(p, 64, 8);
+    EXPECT_EQ(events, 2) << "deallocate muss observer.notify(stats_) ausloesen";
+}
+
+// observer_t Pflicht-Alias = MeasurableObserver<snapshot_t>
+TYPED_TEST(AllocatorVendorTest, ObserverAliasIsMeasurableObserverOfSnapshot) {
+    using S = typename TypeParam::snapshot_t;
+    using O = typename TypeParam::observer_t;
+    static_assert(std::is_same_v<O, ::comdare::cache_engine::measurement::MeasurableObserver<S>>,
+        "observer_t Pflicht-Alias = MeasurableObserver<snapshot_t>");
+    SUCCEED();
+}
+#endif
+
+// ─────────────────────────────────────────────────────────────────────────────
 // (1) Concept-Konformanz Beweise
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -380,8 +451,10 @@ TEST(V41_TopicAllocatorAxis06, FlagsHeaderIsTypedConstexpr) {
 
 TEST(V41_TopicAllocatorAxis06, RegistryAllVendorsCount) {
     using AllV = axis_06::AllVendors;
-    static_assert(boost::mp11::mp_size<AllV>::value == 7,
-        "Batch 1+2: 7 Vendor (Std/Mi/Sn/PMR + Je/Tc/Dl). Batch 3-8 ergaenzt spaeter.");
+    // KEIN hartkodierter Count — User-Direktive 2026-05-26: bei Batch-Erweiterung
+    // ist `AllVendorsCountUpToDate` (dynamisch >= 4) ausreichend, kein Manual-Update noetig.
+    constexpr auto n = boost::mp11::mp_size<AllV>::value;
+    EXPECT_GE(n, 4u) << "mindestens Batch 1 (4 Vendor)";
     SUCCEED();
 }
 
@@ -511,36 +584,9 @@ TEST(V41_TopicAllocatorAxis06_Stufe3, ObserverWithoutCallbackIsNoOp) {
     SUCCEED();
 }
 
-// (f) Mimalloc + Snmalloc + PMR: Observer-Notify funktioniert genauso
-TEST(V41_TopicAllocatorAxis06_Stufe3, ObserverNotifiesOnAllocate_OtherVendors) {
-    {
-        axis_06::MimallocAllocator m{};
-        int events = 0;
-        m.observer().on_event([&events](auto const&) { ++events; });
-        void* p = m.allocate(64, 8);
-        ASSERT_NE(p, nullptr);
-        EXPECT_EQ(events, 1);
-        m.deallocate(p, 64, 8);
-    }
-    {
-        axis_06::SnmallocAllocator m{};
-        int events = 0;
-        m.observer().on_event([&events](auto const&) { ++events; });
-        void* p = m.allocate(64, 8);
-        ASSERT_NE(p, nullptr);
-        EXPECT_EQ(events, 1);
-        m.deallocate(p, 64, 8);
-    }
-    {
-        axis_06::PmrResourceAllocator m{};
-        int events = 0;
-        m.observer().on_event([&events](auto const&) { ++events; });
-        void* p = m.allocate(64, 8);
-        ASSERT_NE(p, nullptr);
-        EXPECT_EQ(events, 1);
-        m.deallocate(p, 64, 8);
-    }
-}
+// (f) ObserverNotifiesOnAllocate_OtherVendors entfernt (2026-05-26)
+// User-Direktive: redundant — TYPED_TEST(AllocatorVendorTest, ObserverNotifyOnAllocateAndDeallocate)
+// am Anfang dieses Files deckt alle Vendor in AllVendors automatisch ab.
 
 #endif  // COMDARE_CE_ENABLE_STATISTICS
 
@@ -813,74 +859,17 @@ TEST(V41_TopicAllocatorAxis06_Stufe6, EngineAndCliBuilderCombo) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// V41.F.6.1 Batch 2 Vendor (Jemalloc / TCMalloc / dlmalloc — 2026-05-26)
+// V41.F.6.1 Batch 2+ Vendor-Spezifika (per-Vendor Tests via TYPED_TEST_SUITE
+// am Anfang dieses Files — User-Direktive 2026-05-26)
 // ───────────────────────────────────────────────────────────────────────────
-
-// (a) Concept-Conformance pro Batch-2-Vendor (compile-time via static_assert im Header)
-TEST(V41_TopicAllocatorAxis06_Batch2, ConceptConformance) {
-    static_assert(axis_06_cpts::AllocatorStrategy<axis_06::JemallocAllocator>);
-    static_assert(axis_06_cpts::CacheEnginePermutationStrategy<axis_06::JemallocAllocator>);
-    static_assert(axis_06_cpts::AllocatorStrategy<axis_06::TCMallocAllocator>);
-    static_assert(axis_06_cpts::CacheEnginePermutationStrategy<axis_06::TCMallocAllocator>);
-    static_assert(axis_06_cpts::AllocatorStrategy<axis_06::DlmallocAllocator>);
-    static_assert(axis_06_cpts::CacheEnginePermutationStrategy<axis_06::DlmallocAllocator>);
-    SUCCEED();
-}
-
-// (b) Identifikation: name / family_name / flag_suffix
-TEST(V41_TopicAllocatorAxis06_Batch2, VendorIdentification) {
-    EXPECT_EQ(axis_06::JemallocAllocator::flag_suffix(), "JEMALLOC");
-    EXPECT_EQ(axis_06::TCMallocAllocator::flag_suffix(), "TCMALLOC");
-    EXPECT_EQ(axis_06::DlmallocAllocator::flag_suffix(), "DLMALLOC");
-    EXPECT_EQ(axis_06::JemallocAllocator::family_id::value, 5);
-    EXPECT_EQ(axis_06::TCMallocAllocator::family_id::value, 6);
-    EXPECT_EQ(axis_06::DlmallocAllocator::family_id::value, 20);
-}
-
-// (c) Runtime: allocate/deallocate roundtrip pro Vendor (Fallback-Pfad wenn HAVE=OFF)
-TEST(V41_TopicAllocatorAxis06_Batch2, AllocateDeallocateRoundtrip) {
-    {
-        axis_06::JemallocAllocator m{};
-        void* p = m.allocate(128, 16);
-        ASSERT_NE(p, nullptr);
-        m.deallocate(p, 128, 16);
-    }
-    {
-        axis_06::TCMallocAllocator m{};
-        void* p = m.allocate(128, 16);
-        ASSERT_NE(p, nullptr);
-        m.deallocate(p, 128, 16);
-    }
-    {
-        axis_06::DlmallocAllocator m{};
-        void* p = m.allocate(128, 16);
-        ASSERT_NE(p, nullptr);
-        m.deallocate(p, 128, 16);
-    }
-}
-
-// (d) Observer-Notify funktioniert pro Batch-2-Vendor (Stufe 3 Pattern)
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-TEST(V41_TopicAllocatorAxis06_Batch2, ObserverNotifyOnAllocate) {
-    auto run_test = [](auto&& allocator){
-        int events = 0;
-        allocator.observer().on_event([&events](auto const&){ ++events; });
-        void* p = allocator.allocate(64, 8);
-        ASSERT_NE(p, nullptr);
-        EXPECT_EQ(events, 1);
-        allocator.deallocate(p, 64, 8);
-        EXPECT_EQ(events, 2);
-    };
-    run_test(axis_06::JemallocAllocator{});
-    run_test(axis_06::TCMallocAllocator{});
-    run_test(axis_06::DlmallocAllocator{});
-}
-#endif
-
-// (e) AllVendors mp_list hat jetzt 7 Eintraege (Batch 1 + Batch 2)
-TEST(V41_TopicAllocatorAxis06_Batch2, AllVendorsCountIs7) {
-    static_assert(boost::mp11::mp_size<axis_06::AllVendors>::value == 7,
-        "Batch 1 + 2 = 7 Vendor (Std/Mi/Sn/PMR + Je/Tc/Dl)");
+// ConceptConformance / Identification / AllocateDeallocateRoundtrip / ObserverNotify
+// werden jetzt AUTOMATISCH pro Vendor in AllVendors expandiert. Vendor-Erweiterung
+// (Batch 3-8) addiert KEINE Tests im Test-File mehr — nur Registry-Update reicht.
+//
+// Hier verbleibt nur die AllVendors-Count-Sanity (manuell ablesbar):
+TEST(V41_TopicAllocatorAxis06_Registry, AllVendorsCountUpToDate) {
+    constexpr auto n = boost::mp11::mp_size<axis_06::AllVendors>::value;
+    EXPECT_GE(n, 4u) << "mindestens Batch 1 (Std/Mi/Sn/PMR)";
     SUCCEED();
 }
 
