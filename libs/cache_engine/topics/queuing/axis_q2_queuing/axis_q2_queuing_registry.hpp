@@ -1,16 +1,16 @@
 #pragma once
-// V41.F.6.1 axis_q2_flush_policy Registry (W6-Pattern)
+// V41.F.6.1 axis_q2_queuing Registry (W6-Pattern)
 
-#include <topics/queuing/axis_q2_flush_policy/axis_q2_flush_policy_flags.hpp>
+#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_flags.hpp>
 
-#include "axis_q2_flush_policy_eager.hpp"
-#include "axis_q2_flush_policy_watermark.hpp"
-#include "axis_q2_flush_policy_lazy.hpp"
+#include "axis_q2_queuing_eager.hpp"
+#include "axis_q2_queuing_watermark.hpp"
+#include "axis_q2_queuing_lazy.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
 
-namespace comdare::cache_engine::queuing::axis_q2_flush_policy {
+namespace comdare::cache_engine::queuing::axis_q2_queuing {
 
 namespace mp = boost::mp11;
 
@@ -29,6 +29,6 @@ using is_enabled = mp::mp_bool<P::enabled>;
 using EnabledPolicies = mp::mp_filter<is_enabled, AllPolicies>;
 
 static_assert(mp::mp_size<EnabledPolicies>::value > 0,
-    "axis_q2_flush_policy: at least one policy must be enabled");
+    "axis_q2_queuing: at least one policy must be enabled");
 
 }  // namespace

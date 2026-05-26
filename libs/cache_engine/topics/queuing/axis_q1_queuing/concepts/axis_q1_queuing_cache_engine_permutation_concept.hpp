@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1 axis_q1_buffer_strategy cache-engine-Pflicht-Concept (2026-05-26)
+// V41.F.6.1 axis_q1_queuing cache-engine-Pflicht-Concept (2026-05-26)
 //
 // @topic queuing
 // @achse Q1 buffer_strategy
@@ -32,8 +32,8 @@
 //   - typename snapshot_t / observer_t
 //   - observer() const& -> observer_t const&
 
-#include "axis_q1_buffer_strategy_concept.hpp"
-#include "../axis_q1_buffer_strategy_subaxes_qs1_to_qs6.hpp"
+#include "axis_q1_queuing_concept.hpp"
+#include "../axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 
 #include <measurement/measurable_concept.hpp>
 
@@ -42,7 +42,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace comdare::cache_engine::queuing::axis_q1_buffer_strategy::concepts {
+namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts {
 
 /**
  * @brief BufferStatistics — Pflicht-Felder fuer Buffer-Mess-Reihen

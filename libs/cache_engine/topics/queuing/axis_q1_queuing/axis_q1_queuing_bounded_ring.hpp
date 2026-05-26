@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1 axis_q1_buffer_strategy BoundedRing Q-RING (2026-05-26)
+// V41.F.6.1 axis_q1_queuing BoundedRing Q-RING (2026-05-26)
 //
 // @topic queuing @achse Q1 @family Q05 BoundedRing<N>
 // @subaxis QS3 cyclic_access
@@ -12,13 +12,13 @@
 // HasIterableAspect<BoundedRing> und generiert 1 Binary mit Runtime-Loop
 // ueber kIterableCapacities statt 5 separate Binaries.
 
-#include "axis_q1_buffer_strategy_base.hpp"
-#include "axis_q1_buffer_strategy_subaxes_qs1_to_qs6.hpp"
-#include "concepts/axis_q1_buffer_strategy_concept.hpp"
-#include "concepts/axis_q1_buffer_strategy_cache_engine_permutation_concept.hpp"
+#include "axis_q1_queuing_base.hpp"
+#include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
+#include "concepts/axis_q1_queuing_concept.hpp"
+#include "concepts/axis_q1_queuing_cache_engine_permutation_concept.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
 
-#include <topics/queuing/axis_q1_buffer_strategy/axis_q1_buffer_strategy_flags.hpp>
+#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp>
 #include <measurement/measurable_concept.hpp>
 #include <array>
 #include <cstddef>
@@ -29,7 +29,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace comdare::cache_engine::queuing::axis_q1_buffer_strategy {
+namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 class BoundedRing : public BufferStrategyBase<BoundedRing> {
 public:
@@ -158,7 +158,7 @@ private:
 
 }  // namespace
 
-namespace comdare::cache_engine::queuing::axis_q1_buffer_strategy {
+namespace comdare::cache_engine::queuing::axis_q1_queuing {
     static_assert(concepts::BufferStrategy<BoundedRing>);
     static_assert(concepts::CacheEngineBufferPermutationStrategy<BoundedRing>);
 }

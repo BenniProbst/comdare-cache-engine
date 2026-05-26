@@ -7,8 +7,8 @@
 // Schablone analog allocator-Achse — strukturelle Bewaehrung der Vorlage.
 
 #include <topics/queuing/concepts/topic_queuing_concept.hpp>
-#include <topics/queuing/axis_q1_buffer_strategy/axis_q1_buffer_strategy_registry.hpp>
-#include <topics/queuing/axis_q2_flush_policy/axis_q2_flush_policy_registry.hpp>
+#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_registry.hpp>
+#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_registry.hpp>
 #include <topics/queuing/topic_queuing_config_set.hpp>
 
 #include <boost/mp11.hpp>
@@ -17,10 +17,10 @@
 #include <array>
 #include <cstdint>
 
-namespace q1      = comdare::cache_engine::queuing::axis_q1_buffer_strategy;
-namespace q1_cpts = comdare::cache_engine::queuing::axis_q1_buffer_strategy::concepts;
-namespace q2      = comdare::cache_engine::queuing::axis_q2_flush_policy;
-namespace q2_cpts = comdare::cache_engine::queuing::axis_q2_flush_policy::concepts;
+namespace q1      = comdare::cache_engine::queuing::axis_q1_queuing;
+namespace q1_cpts = comdare::cache_engine::queuing::axis_q1_queuing::concepts;
+namespace q2      = comdare::cache_engine::queuing::axis_q2_queuing;
+namespace q2_cpts = comdare::cache_engine::queuing::axis_q2_queuing::concepts;
 namespace qing    = comdare::cache_engine::queuing;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -181,6 +181,54 @@ TEST(Q1BufferStrategy_BoundedRing, IterableAspectValuesCount) {
     EXPECT_EQ(vals[4], 65536u);
 }
 
+// Runtime-Permutationen Buffer-Kapazitaeten (User-Direktive 2026-05-26
+// [[neue-achse-strict-vorlage-allocator]]):
+// Edge-Cases mit Extremfaelle + Power-of-2-Alignment-Werte + NICHT-Power-of-2.
+struct CapacityConfig { std::size_t cap; char const* label; };
+constexpr std::array<CapacityConfig, 9> kTestBufferCapacities{{
+    {     1, "extrem-1"   },    // kleinste sinnvolle (kein FIFO/LIFO-Sinn aber valid)
+    {     2, "extrem-2"   },
+    {     3, "non-pow2-3" },    // klein, NICHT-Power-of-2
+    {     7, "non-pow2-7" },    // klein, NICHT-Power-of-2 (Cache-Line-Edge)
+    {     8, "pow2-8"     },    // Power-of-2 (Cache-Line-aligned)
+    {    15, "non-pow2-15"},
+    {    64, "pow2-64"    },    // Cache-Line (typisch)
+    {   100, "non-pow2-100"},   // round-decimal
+    { 16384, "pow2-16k"   },    // Page-aligned
+}};
+
+TEST(Q1BufferStrategy_BoundedRing, PutGetWithMultipleBufferSizesEdgeCases) {
+    for (auto const& cfg : kTestBufferCapacities) {
+        q1::BoundedRing r{cfg.cap};
+        // fill bis Overflow
+        for (std::size_t i = 0; i < cfg.cap + 3; ++i) {
+            r.put(static_cast<std::uint64_t>(i + 1));
+        }
+        EXPECT_EQ(r.size(), cfg.cap)
+            << "Capacity=" << cfg.cap << " (" << cfg.label
+            << ") nach Overflow muss size==cap sein";
+        // alle wieder raus
+        std::size_t pulled = 0;
+        while (r.get()) ++pulled;
+        EXPECT_EQ(pulled, cfg.cap)
+            << "Capacity=" << cfg.cap << " (" << cfg.label << ") roundtrip";
+        EXPECT_TRUE(r.is_empty());
+    }
+}
+
+TEST(Q1BufferStrategy_BoundedRing, PeekWithMultipleBufferSizes) {
+    for (auto const& cfg : kTestBufferCapacities) {
+        q1::BoundedRing r{cfg.cap};
+        if (cfg.cap < 2) continue;  // peek-back-Test braucht >=2 elements
+        r.put(11); r.put(22);
+        ASSERT_TRUE(r.peek_front().has_value());
+        ASSERT_TRUE(r.peek_back().has_value());
+        EXPECT_EQ(*r.peek_front(), 11u) << "cap=" << cfg.cap;
+        EXPECT_EQ(*r.peek_back(),  22u) << "cap=" << cfg.cap;
+        EXPECT_EQ(r.size(), 2u) << "peek darf size nicht aendern (cap=" << cfg.cap << ")";
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPED_TEST_SUITE fuer axis_Q2 flush_policy (3 Pilot-Policies)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -266,6 +314,58 @@ TEST(Q2FlushPolicy_Watermark, IterableAspectValuesCount) {
     constexpr auto vals = q2::WatermarkFlush::iterable_values();
     EXPECT_EQ(vals.size(), 5u);  // {50, 65, 75, 85, 95}
     EXPECT_EQ(vals[2], 75u);
+}
+
+// Runtime-Permutationen Watermark-Werte (User-Direktive 2026-05-26
+// [[neue-achse-strict-vorlage-allocator]]):
+// Iteriere ueber alle iterable_values() + verifiziere Schwellen-Verhalten an
+// Edge-Cases (0, threshold-1, threshold, threshold+1, cap).
+struct FillEdge { std::size_t fill; bool expect_flush_at_75; };
+constexpr std::array<FillEdge, 7> kTestFillLevelsAt100Cap{{
+    {  0, false},   // leer
+    {  1, false},   // 1% << 75%
+    { 74, false},   // direkt unter Threshold
+    { 75, true },   // genau Threshold
+    { 76, true },   // direkt darueber
+    { 99, true },   // fast voll
+    {100, true },   // voll
+}};
+
+TEST(Q2FlushPolicy_Watermark, ShouldFlushAtAllIterableThresholds) {
+    constexpr auto thresholds = q2::WatermarkFlush::iterable_values();
+    for (auto thr : thresholds) {
+        q2::WatermarkFlush p{thr};
+        // Fill genau auf threshold% -> FullFlush erwartet
+        EXPECT_EQ(p.should_flush(thr, 100), q2_cpts::FlushDecision::FullFlush)
+            << "WatermarkPct=" << thr << " fill=" << thr << "/100";
+        // Fill unter threshold% -> NoFlush
+        if (thr > 0) {
+            EXPECT_EQ(p.should_flush(thr - 1, 100), q2_cpts::FlushDecision::NoFlush)
+                << "WatermarkPct=" << thr << " fill=" << (thr-1) << "/100";
+        }
+    }
+}
+
+TEST(Q2FlushPolicy_Watermark, FillLevelEdgeCasesAt75Default) {
+    q2::WatermarkFlush p{75};
+    for (auto const& edge : kTestFillLevelsAt100Cap) {
+        auto dec = p.should_flush(edge.fill, 100);
+        EXPECT_EQ(dec == q2_cpts::FlushDecision::FullFlush, edge.expect_flush_at_75)
+            << "fill=" << edge.fill << "/100, threshold=75%";
+    }
+}
+
+// Watermark mit nicht-Standard-Kapazitaeten (Alignment-Edge-Cases)
+TEST(Q2FlushPolicy_Watermark, ShouldFlushWithNonStandardCapacities) {
+    q2::WatermarkFlush p{50};
+    // cap=7 (NICHT power-of-2): bei fill=3 ergibt 3*100/7 = 42% < 50% -> NoFlush
+    EXPECT_EQ(p.should_flush(3, 7), q2_cpts::FlushDecision::NoFlush);
+    // cap=7, fill=4: 4*100/7 = 57% >= 50% -> FullFlush
+    EXPECT_EQ(p.should_flush(4, 7), q2_cpts::FlushDecision::FullFlush);
+    // cap=0 (edge): NoFlush garantiert (division-by-zero guard)
+    EXPECT_EQ(p.should_flush(10, 0), q2_cpts::FlushDecision::NoFlush);
+    // cap=1, fill=1 (extrem): 100% -> FullFlush
+    EXPECT_EQ(p.should_flush(1, 1), q2_cpts::FlushDecision::FullFlush);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

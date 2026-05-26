@@ -1,9 +1,9 @@
 #pragma once
-// V41.F.6.1 axis_q2_flush_policy cache-engine-Pflicht-Concept (2026-05-26)
+// V41.F.6.1 axis_q2_queuing cache-engine-Pflicht-Concept (2026-05-26)
 // @topic queuing @achse Q2
 
-#include "axis_q2_flush_policy_concept.hpp"
-#include "../axis_q2_flush_policy_subaxes_fs1_to_fs3.hpp"
+#include "axis_q2_queuing_concept.hpp"
+#include "../axis_q2_queuing_subaxes_fs1_to_fs3.hpp"
 
 #include <measurement/measurable_concept.hpp>
 
@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace comdare::cache_engine::queuing::axis_q2_flush_policy::concepts {
+namespace comdare::cache_engine::queuing::axis_q2_queuing::concepts {
 
 /**
  * @brief FlushPolicyStatistics — Pflicht-Felder fuer Flush-Policy Mess-Reihen

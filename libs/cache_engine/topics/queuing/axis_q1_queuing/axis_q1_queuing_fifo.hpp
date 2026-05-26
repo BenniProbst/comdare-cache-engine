@@ -1,44 +1,45 @@
 #pragma once
-// V41.F.6.1 axis_q1_buffer_strategy LIFOStack Q-LIFO (2026-05-26)
+// V41.F.6.1 axis_q1_queuing FIFOQueue Q-FIFO (2026-05-26)
 //
-// @topic queuing @achse Q1 @family Q04 LIFOStack
+// @topic queuing @achse Q1 @family Q03 FIFOQueue (Ring/Deque)
 // @subaxis QS1 sequential_access
 //
-// Last-In-First-Out (Stack): Hot-Path Reuse + Versions-Tombstones.
+// First-In-First-Out: klassische LSM-MemTable + Write-Coalescing-Pattern.
+// Unbounded — std::deque-basiert.
 
-#include "axis_q1_buffer_strategy_base.hpp"
-#include "axis_q1_buffer_strategy_subaxes_qs1_to_qs6.hpp"
-#include "concepts/axis_q1_buffer_strategy_concept.hpp"
-#include "concepts/axis_q1_buffer_strategy_cache_engine_permutation_concept.hpp"
+#include "axis_q1_queuing_base.hpp"
+#include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
+#include "concepts/axis_q1_queuing_concept.hpp"
+#include "concepts/axis_q1_queuing_cache_engine_permutation_concept.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
 
-#include <topics/queuing/axis_q1_buffer_strategy/axis_q1_buffer_strategy_flags.hpp>
+#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp>
 #include <measurement/measurable_concept.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <optional>
 #include <string_view>
 #include <type_traits>
-#include <vector>
 
-namespace comdare::cache_engine::queuing::axis_q1_buffer_strategy {
+namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
-class LIFOStack : public BufferStrategyBase<LIFOStack> {
+class FIFOQueue : public BufferStrategyBase<FIFOQueue> {
 public:
-    static constexpr bool enabled = flags::lifo_enabled;
+    static constexpr bool enabled = flags::fifo_enabled;
 
     using element_type = std::uint64_t;
     using size_type    = std::size_t;
     using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag     = subaxes::sequential_access_tag;
-    using family_id    = std::integral_constant<int, 4>;  // Q04
+    using family_id    = std::integral_constant<int, 3>;  // Q03
 
     [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
     [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "lifo_stack"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "LIFOStack (Hot-Path Reuse + Versions-Tombstones)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "LIFO"; }
+    [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }  // unbounded
+    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "fifo_queue"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "FIFOQueue (Ring/Deque — LSM MemTable + Write-Coalescing)"; }
+    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "FIFO"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_concurrent_consumers() noexcept { return false; }
@@ -48,8 +49,8 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
-    [[nodiscard]] bool operator==(LIFOStack const& other) const noexcept {
-        return data_.size() == other.data_.size();
+    [[nodiscard]] bool operator==(FIFOQueue const& other) const noexcept {
+        return data_.size() == other.data_.size();  // gleicher Inhalt zu pruefen waere teuer
     }
 
     void put(element_type v) {
@@ -69,8 +70,8 @@ public:
 #endif
             return std::nullopt;
         }
-        element_type v = data_.back();
-        data_.pop_back();
+        element_type v = data_.front();
+        data_.pop_front();
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_get_count;
         observer_.notify(stats_);
@@ -82,14 +83,14 @@ public:
     [[nodiscard]] bool      is_empty() const noexcept { return data_.empty(); }
     void                    clear()          noexcept { data_.clear(); }
 
-    // std::queue-API auf Stack: peek_front=top (last-in), peek_back=bottom (first-in)
+    // std::queue-API: peek_front=oldest (deque::front), peek_back=newest (deque::back)
     [[nodiscard]] std::optional<element_type> peek_front() const noexcept {
         if (data_.empty()) return std::nullopt;
-        return data_.back();  // top of stack = LIFO front
+        return data_.front();
     }
     [[nodiscard]] std::optional<element_type> peek_back() const noexcept {
         if (data_.empty()) return std::nullopt;
-        return data_.front();  // bottom of stack = oldest
+        return data_.back();
     }
     void emplace(element_type v) { put(v); }
 
@@ -104,7 +105,7 @@ public:
 #endif
 
 private:
-    std::vector<element_type> data_;
+    std::deque<element_type> data_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
     observer_t observer_{};
@@ -113,7 +114,7 @@ private:
 
 }  // namespace
 
-namespace comdare::cache_engine::queuing::axis_q1_buffer_strategy {
-    static_assert(concepts::BufferStrategy<LIFOStack>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<LIFOStack>);
+namespace comdare::cache_engine::queuing::axis_q1_queuing {
+    static_assert(concepts::BufferStrategy<FIFOQueue>);
+    static_assert(concepts::CacheEngineBufferPermutationStrategy<FIFOQueue>);
 }

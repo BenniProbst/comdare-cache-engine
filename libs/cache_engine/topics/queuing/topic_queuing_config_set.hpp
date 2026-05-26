@@ -7,8 +7,8 @@
 // bietet beide separat fuer PermutationEngine + ein kombiniertes Cartesian-Product
 // fuer Buffer-Strategy x Flush-Policy.
 
-#include <topics/queuing/axis_q1_buffer_strategy/axis_q1_buffer_strategy_registry.hpp>
-#include <topics/queuing/axis_q2_flush_policy/axis_q2_flush_policy_registry.hpp>
+#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_registry.hpp>
+#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_registry.hpp>
 
 #include <boost/mp11.hpp>
 
@@ -19,10 +19,10 @@ namespace mp = boost::mp11;
 /// TopicConfigSet — beide Achsen Q1 + Q2 zentral, PermutationEngine-tauglich
 struct TopicConfigSet {
     // axis_q1: Buffer-Strategy (NoBuffer/FIFO/LIFO/BoundedRing pilot)
-    using StaticAxisVariants_Q1 = axis_q1_buffer_strategy::EnabledStrategies;
+    using StaticAxisVariants_Q1 = axis_q1_queuing::EnabledStrategies;
 
     // axis_q2: Flush-Policy (Eager/Watermark/Lazy pilot)
-    using StaticAxisVariants_Q2 = axis_q2_flush_policy::EnabledPolicies;
+    using StaticAxisVariants_Q2 = axis_q2_queuing::EnabledPolicies;
 
     /// Default-StaticAxisVariants — PermutationEngine 1-Topic-Variante nimmt Q1
     /// (Buffer-Strategy ist die Haupt-Achse, Q2 als sub-Permutation)

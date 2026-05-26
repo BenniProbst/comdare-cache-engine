@@ -1,12 +1,12 @@
 #pragma once
-// V41.F.6.1 axis_q1_buffer_strategy Subaxis-Tags QS1-QS6 (2026-05-26)
+// V41.F.6.1 axis_q1_queuing Subaxis-Tags QS1-QS6 (2026-05-26)
 //
 // @topic queuing
 // @achse Q1
 //
 // Klassifikation der Buffer-Strategien (analog Allocator AA1-AA7):
 
-namespace comdare::cache_engine::queuing::axis_q1_buffer_strategy::subaxes {
+namespace comdare::cache_engine::queuing::axis_q1_queuing::subaxes {
 
 /// QS1 sequential — sequenzieller Zugriff (FIFO/LIFO/AppendOnly)
 struct sequential_access_tag {};

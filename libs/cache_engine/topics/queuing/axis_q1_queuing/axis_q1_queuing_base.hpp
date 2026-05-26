@@ -1,14 +1,14 @@
 #pragma once
-// V41.F.6.1 axis_q1_buffer_strategy CRTP-Basis + Concept-Guard (2026-05-26)
+// V41.F.6.1 axis_q1_queuing CRTP-Basis + Concept-Guard (2026-05-26)
 //
 // @topic queuing
 // @achse Q1 buffer_strategy
 
-#include "concepts/axis_q1_buffer_strategy_concept.hpp"
+#include "concepts/axis_q1_queuing_concept.hpp"
 
 #include <type_traits>
 
-namespace comdare::cache_engine::queuing::axis_q1_buffer_strategy {
+namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 /**
  * @brief BufferStrategyBase — CRTP-Basis fuer Q1-Wrapper

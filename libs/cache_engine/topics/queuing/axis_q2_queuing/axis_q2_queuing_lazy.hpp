@@ -1,38 +1,38 @@
 #pragma once
-// V41.F.6.1 axis_q2_flush_policy EagerFlush F-EAGER (2026-05-26)
-// @topic queuing @achse Q2 @family F01 EagerFlush
+// V41.F.6.1 axis_q2_queuing LazyFlush F-LAZY (2026-05-26)
+// @topic queuing @achse Q2 @family F04 LazyFlush
 // @subaxis FS1 event_triggered
 
-#include "concepts/axis_q2_flush_policy_concept.hpp"
-#include "concepts/axis_q2_flush_policy_cache_engine_permutation_concept.hpp"
-#include "axis_q2_flush_policy_subaxes_fs1_to_fs3.hpp"
+#include "concepts/axis_q2_queuing_concept.hpp"
+#include "concepts/axis_q2_queuing_cache_engine_permutation_concept.hpp"
+#include "axis_q2_queuing_subaxes_fs1_to_fs3.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
 
-#include <topics/queuing/axis_q2_flush_policy/axis_q2_flush_policy_flags.hpp>
+#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_flags.hpp>
 #include <measurement/measurable_concept.hpp>
 #include <cstddef>
 #include <string_view>
 #include <type_traits>
 
-namespace comdare::cache_engine::queuing::axis_q2_flush_policy {
+namespace comdare::cache_engine::queuing::axis_q2_queuing {
 
 /**
- * @brief EagerFlush — spuelt nach JEDEM put() (FullFlush)
+ * @brief LazyFlush — spuelt NIE automatisch (nur bei expliziter Eviction)
  *
- * Verwendung: niedrige Latenz, keine Batching-Vorteile. Klassischer
- * Pessimistic-Sync-Pattern.
+ * Verwendung: Maximum-Batching, niedriger Spuelaufwand. Klassischer
+ * Optimistic-Defer-Pattern. should_flush liefert IMMER NoFlush.
  */
-class EagerFlush {
+class LazyFlush {
 public:
-    static constexpr bool enabled = flags::eager_enabled;
+    static constexpr bool enabled = flags::lazy_enabled;
 
     using topic_tag = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag  = subaxes::event_triggered_tag;
-    using family_id = std::integral_constant<int, 1>;  // F01
+    using family_id = std::integral_constant<int, 4>;  // F04
 
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "eager_flush"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "EagerFlush (per-op FullFlush, niedrige Latenz)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "EAGER"; }
+    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "lazy_flush"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "LazyFlush (defer until eviction, maximum batching)"; }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "LAZY"; }
 
     [[nodiscard]] static constexpr bool is_time_based()      noexcept { return false; }
     [[nodiscard]] static constexpr bool is_threshold_based() noexcept { return false; }
@@ -42,10 +42,10 @@ public:
     [[nodiscard]] concepts::FlushDecision should_flush(std::size_t, std::size_t) const noexcept {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_decisions_evaluated;
-        ++stats_.full_flush_count;
+        ++stats_.no_flush_count;
         observer_.notify(stats_);
 #endif
-        return concepts::FlushDecision::FullFlush;
+        return concepts::FlushDecision::NoFlush;
     }
     void on_flush_complete() noexcept {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -70,7 +70,7 @@ private:
 
 }  // namespace
 
-namespace comdare::cache_engine::queuing::axis_q2_flush_policy {
-    static_assert(concepts::FlushPolicy<EagerFlush>);
-    static_assert(concepts::CacheEngineFlushPolicyPermutationStrategy<EagerFlush>);
+namespace comdare::cache_engine::queuing::axis_q2_queuing {
+    static_assert(concepts::FlushPolicy<LazyFlush>);
+    static_assert(concepts::CacheEngineFlushPolicyPermutationStrategy<LazyFlush>);
 }
