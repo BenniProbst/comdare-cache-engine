@@ -174,6 +174,12 @@ TEST(Q1BufferStrategy_BoundedRing, OverflowDropsOldest) {
     EXPECT_EQ(*r.get(), 5u);
 }
 
+// [[zero-size-allocation-exception]] User-Direktive 2026-05-26:
+// BoundedRing mit capacity=0 wirft std::invalid_argument (UB-Vermeidung)
+TEST(Q1BufferStrategy_BoundedRing, ZeroCapacityThrows) {
+    EXPECT_THROW(q1::BoundedRing{0}, std::invalid_argument);
+}
+
 TEST(Q1BufferStrategy_BoundedRing, IterableAspectValuesCount) {
     constexpr auto vals = q1::BoundedRing::iterable_values();
     EXPECT_EQ(vals.size(), 5u);  // {8, 64, 1024, 16384, 65536}
