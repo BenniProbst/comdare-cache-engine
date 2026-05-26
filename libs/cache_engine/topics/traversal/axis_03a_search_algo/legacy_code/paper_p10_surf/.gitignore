@@ -1,0 +1,5 @@
+# Source-Snapshot wird Build-Time von ext/traversal kopiert (comdare_paper_init)
+wh.c
+surf.hpp
+masstree.hh
+.extracted.marker

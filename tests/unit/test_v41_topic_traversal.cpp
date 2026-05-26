@@ -585,8 +585,9 @@ TEST(PropertyFilter_03a, SimdCapableSubset) {
     using SimdSubset = mp::mp_filter<is_simd_search_algo, ce_03a::AllStrategies>;
     // Re-Impl: Array256 + VectorU8U8 (SIMD), VectorU16U16 (kein SIMD)
     // V41.F.6.1.P2.D.tr.s2: + OriginalArt (SIMD) + OriginalHot (SIMD), OriginalStart (kein SIMD)
-    //   → 4 von 6 SIMD-faehig
-    EXPECT_EQ(mp::mp_size<SimdSubset>::value, 4u);
+    // V41.F.6.1.P2.D.tr.s3 Batch 1: + OriginalWormhole (SIMD via AVX2), OriginalSurf (kein SIMD LOUDS)
+    //   → 5 von 8 SIMD-faehig
+    EXPECT_EQ(mp::mp_size<SimdSubset>::value, 5u);
 }
 
 TEST(PropertyFilter_03a, DenseSubset) {

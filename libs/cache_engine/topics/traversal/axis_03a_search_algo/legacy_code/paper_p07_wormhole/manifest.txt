@@ -1,0 +1,14 @@
+# Paper: P07 Wormhole (Wu/Ni/Jin, ATC 2019)
+# Cache-Engine-Wrapper: OriginalWormholeSearchAlgo
+# Source: ext/traversal/P07-Wormhole/wormhole/wh.c
+
+@compiler gcc-9.5
+@has_original_paper_code true
+@axis_mixin_type comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoOriginalCodeMixin
+
+# wrapper_fn  paper_fn   source_relative_path
+# 3/4 originall — Wormhole hat put/get/del als Paper-API. clear nicht im Paper
+# (Wormhole ist persistent, kein Bulk-Clear — Cache-Engine Re-Impl als Drain).
+insert        wh_put     wh.c
+lookup        wh_get     wh.c
+erase         wh_del     wh.c
