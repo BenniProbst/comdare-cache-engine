@@ -410,3 +410,29 @@ target_include_directories(test_v41_anatomy_codegen PRIVATE
 target_link_libraries(test_v41_anatomy_codegen PRIVATE
     Boost::mp11
     anatomy_codegen_pilot_hot)
+
+# V41.F.6.1.R5.E AnatomyModuleLoader (dlopen/LoadLibrary SHARED-Pilot via WormholeComposition)
+# Pilot wird als SHARED-Lib generiert + Test laedt via dlopen.
+comdare_codegen_anatomy_module(
+    TARGET_NAME         anatomy_codegen_pilot_wormhole_shared
+    COMPOSITION_TYPE    "::comdare::cache_engine::compositions::WormholeComposition"
+    COMPOSITION_HEADER  "compositions/wormhole_reference.hpp"
+    LIBRARY_TYPE        SHARED
+    OUTPUT_DIR          "${CMAKE_BINARY_DIR}/generated/anatomy_modules"
+    FINGERPRINT         "wormhole_pilot")
+
+comdare_add_test(test_v41_anatomy_module_loader
+    SOURCES test_v41_anatomy_module_loader.cpp)
+target_include_directories(test_v41_anatomy_module_loader PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_anatomy_module_loader PRIVATE
+    Boost::mp11
+    comdare::anatomy_module_loader)
+# Pfad zur Pilot-DLL via Compile-Define + Build-Dependency auf SHARED-Pilot
+target_compile_definitions(test_v41_anatomy_module_loader PRIVATE
+    "COMDARE_R5E_PILOT_DLL=\"$<TARGET_FILE:anatomy_codegen_pilot_wormhole_shared>\"")
+add_dependencies(test_v41_anatomy_module_loader anatomy_codegen_pilot_wormhole_shared)

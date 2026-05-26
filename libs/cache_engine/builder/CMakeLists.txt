@@ -18,6 +18,7 @@ add_subdirectory(decision_lambda_trees)
 add_subdirectory(measurement_matrix)
 add_subdirectory(permutation_engine)
 add_subdirectory(module_loader)
+add_subdirectory(anatomy_module_loader)  # V41.F.6.1.R5.E
 add_subdirectory(platform_probe)
 add_subdirectory(live_cpu_model)
 add_subdirectory(algorithm_visitor)
