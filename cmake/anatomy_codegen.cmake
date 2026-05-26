@@ -132,3 +132,100 @@ function(comdare_codegen_anatomy_module)
     set("${ARG_TARGET_NAME}_GENERATED_CPP" "${_output_cpp}" PARENT_SCOPE)
     set("${ARG_TARGET_NAME}_FINGERPRINT"   "${ARG_FINGERPRINT}" PARENT_SCOPE)
 endfunction()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# V41.F.6.1.R5.D.3 — comdare_codegen_anatomy_module_list
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Multi-Permutation-Codegen: ruft comdare_codegen_anatomy_module() fuer eine
+# Liste von Compositions auf. Jeder Listen-Eintrag ist ein "type|header"-Paar
+# (Pipe-getrennt — Semikolon waere CMake-List-Separator-Konflikt).
+#
+# Generiert pro Eintrag ein eigenes Build-Target. TARGET_NAME = PILOT_PREFIX_<index>.
+# Output-DLLs landen alle in OUTPUT_DIR (gemeinsam ladbar via
+# AnatomyModuleLoader::load_all).
+#
+# Usage:
+#   comdare_codegen_anatomy_module_list(
+#       PILOT_PREFIX  "anatomy_codegen_multi_pilot"
+#       OUTPUT_DIR    "${CMAKE_BINARY_DIR}/generated/anatomy_modules_multi"
+#       LIBRARY_TYPE  SHARED
+#       COMPOSITIONS
+#           "::comdare::cache_engine::compositions::ArtComposition|compositions/art_reference.hpp"
+#           "::comdare::cache_engine::compositions::StartComposition|compositions/start_reference.hpp"
+#           "::comdare::cache_engine::compositions::SurfComposition|compositions/surf_reference.hpp"
+#       [TARGETS_OUT  <var-name>]     # Optional: Liste der erzeugten Target-Namen
+#   )
+#
+# @reference docs/architektur/14_achsen_komposition_organ_metapher.md §47
+# @task V41.F.6.1.R5.D.3
+function(comdare_codegen_anatomy_module_list)
+    set(_options)
+    set(_one_value PILOT_PREFIX OUTPUT_DIR LIBRARY_TYPE TARGETS_OUT)
+    set(_multi_value COMPOSITIONS)
+    cmake_parse_arguments(ARG "${_options}" "${_one_value}" "${_multi_value}" ${ARGN})
+
+    foreach(_arg PILOT_PREFIX OUTPUT_DIR COMPOSITIONS)
+        if(NOT ARG_${_arg})
+            message(FATAL_ERROR
+                "comdare_codegen_anatomy_module_list: ${_arg} required.")
+        endif()
+    endforeach()
+
+    if(NOT ARG_LIBRARY_TYPE)
+        set(ARG_LIBRARY_TYPE SHARED)
+    endif()
+
+    set(_target_list "")
+    set(_index 0)
+    foreach(_entry IN LISTS ARG_COMPOSITIONS)
+        # Pipe-Split: "type|header"
+        string(REPLACE "|" ";" _parts "${_entry}")
+        list(LENGTH _parts _parts_len)
+        if(NOT _parts_len EQUAL 2)
+            message(FATAL_ERROR
+                "comdare_codegen_anatomy_module_list: COMPOSITIONS entry "
+                "must be 'type|header' (got: ${_entry}).")
+        endif()
+        list(GET _parts 0 _type)
+        list(GET _parts 1 _header)
+
+        set(_target "${ARG_PILOT_PREFIX}_${_index}")
+        # Fingerprint = Pilot-Prefix-Index fuer stabile DLL-Namen
+        # (statt SHA256-Default damit DLL-Namen lesbar bleiben fuer load_all-Pattern)
+        set(_fingerprint "${ARG_PILOT_PREFIX}_${_index}")
+
+        comdare_codegen_anatomy_module(
+            TARGET_NAME         "${_target}"
+            COMPOSITION_TYPE    "${_type}"
+            COMPOSITION_HEADER  "${_header}"
+            LIBRARY_TYPE        "${ARG_LIBRARY_TYPE}"
+            OUTPUT_DIR          "${ARG_OUTPUT_DIR}"
+            FINGERPRINT         "${_fingerprint}")
+
+        # Alle DLLs in dasselbe RUNTIME_OUTPUT_DIRECTORY damit load_all sie
+        # in einem Verzeichnis findet (default: tests/unit/Release/ je nach Generator).
+        # Wir setzen explicit damit AnatomyModuleLoader::load_all sie alle dort sieht.
+        set_target_properties("${_target}" PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY                  "${ARG_OUTPUT_DIR}"
+            RUNTIME_OUTPUT_DIRECTORY_RELEASE          "${ARG_OUTPUT_DIR}"
+            RUNTIME_OUTPUT_DIRECTORY_DEBUG            "${ARG_OUTPUT_DIR}"
+            RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO   "${ARG_OUTPUT_DIR}"
+            LIBRARY_OUTPUT_DIRECTORY                  "${ARG_OUTPUT_DIR}"
+            LIBRARY_OUTPUT_DIRECTORY_RELEASE          "${ARG_OUTPUT_DIR}"
+            LIBRARY_OUTPUT_DIRECTORY_DEBUG            "${ARG_OUTPUT_DIR}"
+            LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO   "${ARG_OUTPUT_DIR}")
+
+        list(APPEND _target_list "${_target}")
+        math(EXPR _index "${_index} + 1")
+    endforeach()
+
+    if(ARG_TARGETS_OUT)
+        set("${ARG_TARGETS_OUT}" "${_target_list}" PARENT_SCOPE)
+    endif()
+
+    message(STATUS
+        "comdare_codegen_anatomy_module_list: generated ${_index} "
+        "${ARG_LIBRARY_TYPE} targets (prefix=${ARG_PILOT_PREFIX}, output=${ARG_OUTPUT_DIR})")
+endfunction()

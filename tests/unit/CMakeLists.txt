@@ -436,3 +436,30 @@ target_link_libraries(test_v41_anatomy_module_loader PRIVATE
 target_compile_definitions(test_v41_anatomy_module_loader PRIVATE
     "COMDARE_R5E_PILOT_DLL=\"$<TARGET_FILE:anatomy_codegen_pilot_wormhole_shared>\"")
 add_dependencies(test_v41_anatomy_module_loader anatomy_codegen_pilot_wormhole_shared)
+
+# V41.F.6.1.R5.D.3 Multi-Permutation-Codegen + load_all (3 Compositions als SHARED-DLLs)
+set(_r5d3_pilot_dir "${CMAKE_BINARY_DIR}/generated/anatomy_modules_multi")
+comdare_codegen_anatomy_module_list(
+    PILOT_PREFIX  "anatomy_multi_pilot"
+    OUTPUT_DIR    "${_r5d3_pilot_dir}"
+    LIBRARY_TYPE  SHARED
+    COMPOSITIONS
+        "::comdare::cache_engine::compositions::ArtComposition|compositions/art_reference.hpp"
+        "::comdare::cache_engine::compositions::StartComposition|compositions/start_reference.hpp"
+        "::comdare::cache_engine::compositions::SurfComposition|compositions/surf_reference.hpp"
+    TARGETS_OUT _r5d3_pilot_targets)
+
+comdare_add_test(test_v41_anatomy_multi_codegen
+    SOURCES test_v41_anatomy_multi_codegen.cpp)
+target_include_directories(test_v41_anatomy_multi_codegen PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_anatomy_multi_codegen PRIVATE
+    Boost::mp11
+    comdare::anatomy_module_loader)
+target_compile_definitions(test_v41_anatomy_multi_codegen PRIVATE
+    "COMDARE_R5D3_PILOT_DIR=\"${_r5d3_pilot_dir}\"")
+add_dependencies(test_v41_anatomy_multi_codegen ${_r5d3_pilot_targets})
