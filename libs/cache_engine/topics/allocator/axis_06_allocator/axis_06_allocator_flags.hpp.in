@@ -37,6 +37,10 @@ namespace comdare::cache_engine::allocator::axis_06_allocator::flags {
 #cmakedefine01 COMDARE_AXIS_06_USE_SCALLOC
 #cmakedefine01 COMDARE_AXIS_06_USE_NUMALLOC
 #cmakedefine01 COMDARE_AXIS_06_USE_RPMALLOC
+// Batch 5 Vendor (V41.F.6.1 2026-05-26)
+#cmakedefine01 COMDARE_AXIS_06_USE_LRMALLOC
+#cmakedefine01 COMDARE_AXIS_06_USE_CAMA
+#cmakedefine01 COMDARE_AXIS_06_USE_STARMALLOC
 
 inline constexpr bool std_enabled        = COMDARE_AXIS_06_USE_STD;
 inline constexpr bool mimalloc_enabled   = COMDARE_AXIS_06_USE_MIMALLOC;
@@ -51,5 +55,8 @@ inline constexpr bool michael_lf_enabled = COMDARE_AXIS_06_USE_MICHAEL_LF;
 inline constexpr bool scalloc_enabled    = COMDARE_AXIS_06_USE_SCALLOC;
 inline constexpr bool numalloc_enabled   = COMDARE_AXIS_06_USE_NUMALLOC;
 inline constexpr bool rpmalloc_enabled   = COMDARE_AXIS_06_USE_RPMALLOC;
+inline constexpr bool lrmalloc_enabled   = COMDARE_AXIS_06_USE_LRMALLOC;
+inline constexpr bool cama_enabled       = COMDARE_AXIS_06_USE_CAMA;
+inline constexpr bool starmalloc_enabled = COMDARE_AXIS_06_USE_STARMALLOC;
 
 }  // namespace comdare::cache_engine::allocator::axis_06_allocator::flags
