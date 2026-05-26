@@ -62,8 +62,10 @@ public:
     static constexpr void for_each_animal(Visitor&& v) {
         Engine::for_each_permutation([&]<class P>(){
             using AdHoc = CompositionFromPermTuple<P>;
-            SearchAlgorithmAnatomy<AdHoc> algo;
-            std::forward<Visitor>(v)(algo, AdHoc::name);
+            SearchAlgorithmAnatomy<AdHoc> anatomy;
+            // R5.B: Visitor erhaelt Anatomie + Name (KEINE Container-API mehr in Anatomie)
+            // Fuer Container-Ops Builder muss AnatomyExecutionContext<AdHoc> wrappen.
+            std::forward<Visitor>(v)(anatomy, AdHoc::name);
         });
     }
 
