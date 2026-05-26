@@ -25,9 +25,17 @@ namespace comdare::cache_engine::queuing::axis_q1_buffer_strategy::concepts {
 /**
  * @brief BufferStrategy — Pflicht-API fuer Q1 Buffer-Strategien
  *
- * Topic-uebergreifend einheitliche minimale Buffer-API. Konkrete
+ * Topic-uebergreifend einheitliche Buffer-API analog std::queue. Konkrete
  * Implementations (FIFOQueue, LIFOStack, BoundedRing, ...) erfuellen
  * dies + bringen jeweils ihre Charakteristiken mit.
+ *
+ * Pflicht-API (analog std::queue + std::deque hybrid):
+ *   - put(v)         — Einfuegen (analog push_back)
+ *   - get()          — Entnehmen mit Resultat (analog pop_front + front)
+ *   - peek_front()   — Anschauen ohne Entfernen (front)
+ *   - peek_back()    — Anschauen ohne Entfernen (back)
+ *   - emplace(args...) — In-place Konstruktion (typischerweise = put(T{args...}))
+ *   - size() / is_empty() / clear()
  */
 template <typename B>
 concept BufferStrategy =
@@ -36,13 +44,16 @@ concept BufferStrategy =
     && requires(B b, typename B::element_type v) {
         { b.put(v) }                        -> std::same_as<void>;
         { b.get() }                         -> std::same_as<std::optional<typename B::element_type>>;
+        { b.emplace(v) }                    -> std::same_as<void>;
     }
     && requires(B const& bc) {
-        { bc.size() }     noexcept -> std::convertible_to<std::size_t>;
-        { bc.is_empty() } noexcept -> std::convertible_to<bool>;
+        { bc.size() }       noexcept -> std::convertible_to<std::size_t>;
+        { bc.is_empty() }   noexcept -> std::convertible_to<bool>;
+        { bc.peek_front() } noexcept -> std::same_as<std::optional<typename B::element_type>>;
+        { bc.peek_back() }  noexcept -> std::same_as<std::optional<typename B::element_type>>;
     }
     && requires(B b) {
-        { b.clear() }     noexcept;
+        { b.clear() }       noexcept;
     };
 
 }  // namespace

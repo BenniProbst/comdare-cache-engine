@@ -79,6 +79,53 @@ TYPED_TEST(Q1BufferStrategyTest, ClearMakesEmpty) {
     EXPECT_EQ(b.size(), 0u);
 }
 
+// PutGetRoundtrip: alle Werte rein, dann alle wieder raus. Anzahl gleich.
+// (NoBuffer: 0 raus, andere: N raus). Verifiziert vollen Lifecycle pro Vendor.
+TYPED_TEST(Q1BufferStrategyTest, PutGetRoundtripAllValues) {
+    TypeParam b{};
+    for (auto v : kTestPutValues) b.put(v);
+    std::size_t before = b.size();
+    std::size_t pulled = 0;
+    while (auto v = b.get()) {
+        ++pulled;
+        if (pulled > kTestPutValues.size() + 10) break;  // safety
+    }
+    EXPECT_EQ(pulled, before) << "Vendor " << TypeParam::name()
+                              << ": #put = #get muss konsistent sein";
+    EXPECT_TRUE(b.is_empty());
+}
+
+// std::queue-API: peek_front/peek_back analog std::queue::front/back
+TYPED_TEST(Q1BufferStrategyTest, PeekDoesNotConsume) {
+    TypeParam b{};
+    if constexpr (std::is_same_v<TypeParam, q1::NoBuffer>) {
+        EXPECT_FALSE(b.peek_front().has_value());
+        EXPECT_FALSE(b.peek_back().has_value());
+        return;
+    }
+    b.put(42); b.put(99);
+    auto f1 = b.peek_front();
+    auto f2 = b.peek_front();  // 2x peek = gleicher Wert (kein consume)
+    ASSERT_TRUE(f1.has_value());
+    ASSERT_TRUE(f2.has_value());
+    EXPECT_EQ(*f1, *f2);
+    EXPECT_EQ(b.size(), 2u) << "peek darf size nicht aendern";
+    auto bk = b.peek_back();
+    ASSERT_TRUE(bk.has_value());
+    EXPECT_EQ(b.size(), 2u);
+}
+
+TYPED_TEST(Q1BufferStrategyTest, EmplaceEquivalentToPut) {
+    TypeParam b{};
+    b.emplace(77);
+    if constexpr (std::is_same_v<TypeParam, q1::NoBuffer>) {
+        EXPECT_TRUE(b.is_empty());  // no-op
+    } else {
+        EXPECT_EQ(b.size(), 1u);
+        EXPECT_EQ(*b.get(), 77u);
+    }
+}
+
 // Sonderfall-Properties Compile-Pflicht
 TYPED_TEST(Q1BufferStrategyTest, SonderfallPropertiesQueryable) {
     using PG = q1_cpts::ProgressGuarantee;
@@ -157,6 +204,22 @@ TYPED_TEST(Q2FlushPolicyTest, Identification) {
     SUCCEED();
 }
 
+// Q2 should_flush ist deterministisch: gleicher Input -> gleicher Output
+TYPED_TEST(Q2FlushPolicyTest, ShouldFlushDeterministisch) {
+    TypeParam p{};
+    auto d1 = p.should_flush(50, 100);
+    auto d2 = p.should_flush(50, 100);
+    EXPECT_EQ(d1, d2) << "Policy " << TypeParam::name()
+                      << " should_flush muss deterministisch sein bei gleichem Input";
+}
+
+TYPED_TEST(Q2FlushPolicyTest, OnFlushCompleteNoCrash) {
+    TypeParam p{};
+    p.on_flush_complete();
+    p.on_flush_complete();  // 2x sollte safe sein
+    SUCCEED();
+}
+
 TYPED_TEST(Q2FlushPolicyTest, SonderfallPropertiesQueryable) {
     [[maybe_unused]] constexpr bool a = TypeParam::is_time_based();
     [[maybe_unused]] constexpr bool b = TypeParam::is_threshold_based();
@@ -218,3 +281,51 @@ TEST(TopicQueuing_ConfigSet, CartesianProductSize) {
     EXPECT_GE(q2_cnt, 1u);
     EXPECT_EQ(cartesian_cnt, q1_cnt * q2_cnt);
 }
+
+// PermutationEngine-Integration analog Allocator-Topic (test_v41_topic_allocator_axis_06.cpp)
+TEST(TopicQueuing_PermutationEngine, ForEachQ1xQ2) {
+    int count = 0;
+    boost::mp11::mp_for_each<qing::TopicConfigSet::CartesianQ1xQ2>([&count]<class P>(P){
+        ++count;
+        using Q1 = boost::mp11::mp_at_c<P, 0>;
+        using Q2 = boost::mp11::mp_at_c<P, 1>;
+        // Compile-time Pflicht: jede Permutation hat 1 BufferStrategy + 1 FlushPolicy
+        static_assert(q1_cpts::BufferStrategy<Q1>);
+        static_assert(q2_cpts::FlushPolicy<Q2>);
+    });
+    EXPECT_EQ(static_cast<std::size_t>(count),
+              boost::mp11::mp_size<qing::TopicConfigSet::CartesianQ1xQ2>::value);
+}
+
+// Statistics-TYPED_TEST: pro Vendor MUSS statistics()/snapshot()/observer() vorhanden sein (wenn STATISTICS=ON)
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+TYPED_TEST(Q1BufferStrategyTest, ObserverAliasIsMeasurableObserver) {
+    using S = typename TypeParam::snapshot_t;
+    using O = typename TypeParam::observer_t;
+    static_assert(std::is_same_v<O, ::comdare::cache_engine::measurement::MeasurableObserver<S>>);
+    SUCCEED();
+}
+
+TYPED_TEST(Q1BufferStrategyTest, ObserverNotifyOnPut) {
+    TypeParam b{};
+    int events = 0;
+    b.observer().on_event([&events](auto const&){ ++events; });
+    b.put(42);
+    EXPECT_GE(events, 1) << "put muss notify ausloesen (Vendor " << TypeParam::name() << ")";
+}
+
+TYPED_TEST(Q2FlushPolicyTest, ObserverAliasIsMeasurableObserver) {
+    using S = typename TypeParam::snapshot_t;
+    using O = typename TypeParam::observer_t;
+    static_assert(std::is_same_v<O, ::comdare::cache_engine::measurement::MeasurableObserver<S>>);
+    SUCCEED();
+}
+
+TYPED_TEST(Q2FlushPolicyTest, ObserverNotifyOnShouldFlush) {
+    TypeParam p{};
+    int events = 0;
+    p.observer().on_event([&events](auto const&){ ++events; });
+    (void)p.should_flush(50, 100);
+    EXPECT_GE(events, 1) << "should_flush muss notify ausloesen (Policy " << TypeParam::name() << ")";
+}
+#endif

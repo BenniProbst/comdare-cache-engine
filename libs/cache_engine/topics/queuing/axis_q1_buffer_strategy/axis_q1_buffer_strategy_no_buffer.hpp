@@ -72,6 +72,11 @@ public:
     [[nodiscard]] bool      is_empty() const noexcept { return true; }
     void                    clear()          noexcept {}
 
+    // std::queue-API analog (Passthrough: alle Peek-Calls liefern nullopt)
+    [[nodiscard]] std::optional<element_type> peek_front() const noexcept { return std::nullopt; }
+    [[nodiscard]] std::optional<element_type> peek_back()  const noexcept { return std::nullopt; }
+    void emplace(element_type v) { put(v); }
+
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = concepts::BufferStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
