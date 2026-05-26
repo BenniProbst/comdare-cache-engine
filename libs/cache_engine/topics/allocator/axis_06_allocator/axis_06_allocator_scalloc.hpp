@@ -61,10 +61,9 @@ public:
     [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return false; }  // SONDERFALL: keine native aligned_alloc API
     [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return true; }   // Spans-Free-List ist lock-free
     [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // per-thread spans
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept { return concepts::ProgressGuarantee::LockFree; }  // Spans-Free-List lock-free
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_wait_free()                noexcept { return false; }
 
     [[nodiscard]] bool operator==(ScallocAllocator const&) const noexcept { return true; }
 

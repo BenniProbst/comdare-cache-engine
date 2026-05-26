@@ -129,18 +129,20 @@ TYPED_TEST(AllocatorVendorTest, Identification) {
 }
 
 // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
-// Pro Vendor MUSS jede Property eine bool-Antwort liefern (Wert variabel, aber Methode Pflicht).
+// Pro Vendor MUSS jede Property eine Antwort liefern (Wert variabel, aber Methode Pflicht).
 TYPED_TEST(AllocatorVendorTest, SonderfallPropertiesQueryable) {
+    using PG = axis_06_cpts::ProgressGuarantee;
     // Properties existieren (Compile-Pflicht via CacheEnginePermutationStrategy)
     [[maybe_unused]] constexpr bool a = TypeParam::has_native_aligned_alloc();
     [[maybe_unused]] constexpr bool b = TypeParam::requires_explicit_init();
     [[maybe_unused]] constexpr bool c = TypeParam::supports_numa_node_hint();
-    [[maybe_unused]] constexpr bool d = TypeParam::is_lock_free();
     [[maybe_unused]] constexpr bool e = TypeParam::supports_thread_local_cache();
-    [[maybe_unused]] constexpr bool f = TypeParam::requires_specialized_hardware();  // Batch 6 NEU
+    [[maybe_unused]] constexpr bool f = TypeParam::requires_specialized_hardware();
+    [[maybe_unused]] constexpr PG   pg = TypeParam::progress_guarantee();  // Batch 7 Stufen-Refactor
     // Konsistenz-Checks: Sonderfaelle pro Batch
     if constexpr (std::is_same_v<TypeParam, axis_06::ScallocAllocator>) {
         static_assert(!a, "Scalloc-Sonderfall: keine native aligned_alloc API");
+        static_assert(pg == PG::LockFree, "Scalloc Spans-Free-List ist lock-free");
     }
     if constexpr (std::is_same_v<TypeParam, axis_06::RPMallocAllocator>) {
         static_assert(b, "RPMalloc-Sonderfall: requires_explicit_init=true");
@@ -149,16 +151,14 @@ TYPED_TEST(AllocatorVendorTest, SonderfallPropertiesQueryable) {
         static_assert(c, "NUMAlloc-Sonderfall: supports_numa_node_hint=true");
     }
     if constexpr (std::is_same_v<TypeParam, axis_06::MichaelLockFreeAllocator>) {
-        static_assert(d, "MichaelLockFree-Sonderfall: is_lock_free=true");
+        static_assert(pg == PG::LockFree, "MichaelLockFree: progress_guarantee=LockFree");
     }
     if constexpr (std::is_same_v<TypeParam, axis_06::PIMMallocAllocator>) {
         static_assert(f, "PIM-Malloc-Sonderfall (Batch 6): requires_specialized_hardware=true");
     }
-    // V41.F.6.1 Batch 7 Concept-Erweiterung: is_wait_free()
-    [[maybe_unused]] constexpr bool g = TypeParam::is_wait_free();
     if constexpr (std::is_same_v<TypeParam, axis_06::CrystallineAllocator>) {
-        static_assert(g, "Crystalline-Sonderfall (Batch 7): is_wait_free=true (impliziert lock_free)");
-        static_assert(d, "Crystalline: wait-free impliziert lock-free");
+        static_assert(pg == PG::WaitFree, "Crystalline-Sonderfall (Batch 7): progress_guarantee=WaitFree");
+        static_assert(pg >= PG::LockFree, "WaitFree impliziert LockFree (Stufen-Ordnung)");
     }
     SUCCEED();
 }

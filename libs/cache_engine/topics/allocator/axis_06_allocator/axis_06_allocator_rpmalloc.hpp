@@ -89,10 +89,9 @@ public:
     [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // rpaligned_alloc
     [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return true; }   // SONDERFALL: rpmalloc_initialize + thread_initialize
     [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }  // Span-allocation nutzt Atomic-Operationen aber nicht voll lock-free
     [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // namesgebend: per-thread spans
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept { return concepts::ProgressGuarantee::Blocking; }
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_wait_free()                noexcept { return false; }
 
     [[nodiscard]] bool operator==(RPMallocAllocator const&) const noexcept { return true; }
 

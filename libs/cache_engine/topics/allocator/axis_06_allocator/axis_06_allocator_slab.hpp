@@ -57,10 +57,9 @@ public:
     [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // slab_alloc(size, alignment)
     [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }  // bonwick-2001 nutzt lazy-init
     [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }  // magazine cache nutzt mutex
     [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // per-CPU magazines (bonwick 2001)
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept { return concepts::ProgressGuarantee::Blocking; }
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_wait_free()                noexcept { return false; }
 
     [[nodiscard]] bool operator==(SlabAllocator const&) const noexcept { return true; }
 

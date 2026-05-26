@@ -57,10 +57,9 @@ public:
     [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // hoard_memalign
     [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }  // LD_PRELOAD-Init oder lazy
     [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }  // per-heap-locks
     [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // per-thread-heaps (Charakteristik)
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept { return concepts::ProgressGuarantee::Blocking; }
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_wait_free()                noexcept { return false; }
 
     [[nodiscard]] bool operator==(HoardAllocator const&) const noexcept { return true; }
 

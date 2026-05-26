@@ -80,10 +80,9 @@ public:
     [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // portable_aligned_alloc via posix_memalign/_aligned_malloc
     [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }  // ptmalloc2 nutzt Mutex pro Arena
     [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept { return concepts::ProgressGuarantee::Blocking; }
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_wait_free()                noexcept { return false; }
 
     // ───────────────────────────────────────────────────────────────────────
     // AllocatorStrategy: Identitaet (operator==)
