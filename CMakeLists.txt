@@ -537,3 +537,35 @@ configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp"
     @ONLY)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# V41.F.6.1.P2.B mimalloc Pilot — Paper-Legacy-Code Init + is_original Codegen
+# Build-Time-Init aus ext/ in legacy_code/ + Tool-Run zur SHA-Validierung.
+# Erst aktiv wenn USE_MIMALLOC=ON UND is_original_validator gebaut wurde.
+# ─────────────────────────────────────────────────────────────────────────────
+if(COMMAND comdare_paper_init AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ext/A04-mimalloc/src/alloc-aligned.c")
+    set(_a04_legacy "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/legacy_code/paper_a04_mimalloc")
+    set(_a04_output "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/allocator/axis_06_allocator/legacy_code/paper_a04_mimalloc_is_original.hpp")
+
+    comdare_paper_init(
+        PAPER_ID         a04_mimalloc
+        EXT_SOURCE_DIR   "${CMAKE_CURRENT_SOURCE_DIR}/ext/A04-mimalloc"
+        LEGACY_CODE_DIR  "${_a04_legacy}"
+        FILES
+            "src/alloc-aligned.c"
+            "src/free.c"
+    )
+
+    if(TARGET is_original_validator)
+        comdare_generate_is_original_mixin(
+            WRAPPER_NAME    mimalloc
+            PAPER_ID        a04_mimalloc
+            LEGACY_CODE_DIR "${_a04_legacy}"
+            OUTPUT_HEADER   "${_a04_output}"
+            NAMESPACE       "comdare::cache_engine::allocator::axis_06_allocator::generated::a04_mimalloc"
+            AXIS_MIXIN_TYPE "comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorOriginalCodeMixin"
+        )
+        add_custom_target(comdare_paper_a04_mimalloc_codegen ALL
+            DEPENDS "${_a04_output}")
+    endif()
+endif()

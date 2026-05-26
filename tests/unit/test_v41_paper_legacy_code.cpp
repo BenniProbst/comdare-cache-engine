@@ -452,3 +452,51 @@ TEST(P2F_AxisMixins, InterfaceFunctionsListsCorrectCount) {
     static_assert(traversal::axis_03m_mapping::concepts::kAxisInterfaceFunctions.size() == 4);
     SUCCEED();
 }
+
+// =================================================================
+// (11) P2.B mimalloc Pilot End-to-End — echter Wrapper-Refactor
+// =================================================================
+//
+// MimallocAllocator erbt jetzt von Paper-Mixin (Tool-generiert).
+// Validiert dass:
+//  - get_compiler() == "gcc-9.5" (via PaperManifest::kCompiler)
+//  - has_original_paper_code() == true
+//  - is_original_module() == true (SHA-Match aus Lock-File)
+//  - LegacyOriginalCodePflicht-Concept erfuellt
+//  - PaperOriginalValidated-Concept erfuellt
+
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_mimalloc.hpp>
+
+namespace mimalloc_pilot = ::comdare::cache_engine::allocator::axis_06_allocator;
+
+TEST(P2B_MimallocPilot, GetCompilerOverridesAxisBaseDefault) {
+    static_assert(mimalloc_pilot::MimallocAllocator::get_compiler() == "gcc-9.5",
+                  "MimallocAllocator must return Paper-Compiler via Mixin, not AxisBase Default 'original'");
+    SUCCEED();
+}
+
+TEST(P2B_MimallocPilot, HasOriginalPaperCode) {
+    static_assert(mimalloc_pilot::MimallocAllocator::has_original_paper_code(),
+                  "Tool-generated kHasOriginalPaperCode = true");
+    SUCCEED();
+}
+
+TEST(P2B_MimallocPilot, IsOriginalModuleAllFunctions) {
+    static_assert(mimalloc_pilot::MimallocAllocator::is_original_allocate());
+    static_assert(mimalloc_pilot::MimallocAllocator::is_original_deallocate());
+    static_assert(mimalloc_pilot::MimallocAllocator::is_original_module(),
+                  "Beim First-Build: alle Functions sind ORIGINAL");
+    SUCCEED();
+}
+
+TEST(P2B_MimallocPilot, AxisBaseConcept) {
+    static_assert(ce_topics::AxisBaseConcept<mimalloc_pilot::MimallocAllocator>);
+    SUCCEED();
+}
+
+TEST(P2B_MimallocPilot, LegacyPflichtAndPaperValidatedConforms) {
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<mimalloc_pilot::MimallocAllocator>);
+    static_assert(ce_concepts::HasOriginalCode<mimalloc_pilot::MimallocAllocator>);
+    static_assert(ce_concepts::PaperOriginalValidated<mimalloc_pilot::MimallocAllocator>);
+    SUCCEED();
+}
