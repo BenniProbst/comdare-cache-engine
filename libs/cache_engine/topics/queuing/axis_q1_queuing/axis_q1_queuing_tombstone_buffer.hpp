@@ -22,6 +22,7 @@
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
 #include "concepts/axis_q1_queuing_cache_engine_permutation_concept.hpp"
+#include "concepts/axis_q1_queuing_versioned_strategy_concept.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
 
 #include <topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp>
@@ -69,6 +70,7 @@ public:
     void put(element_type v) {
         slots_.push_back(std::optional<element_type>{v});
         ++live_count_;
+        ++version_counter_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_put_count;
         if (live_count_ > stats_.peak_size) stats_.peak_size = live_count_;
@@ -93,6 +95,7 @@ public:
         slots_[drain_pos_].reset();  // markiere als Tombstone NACH get()
         ++drain_pos_;
         --live_count_;
+        ++version_counter_;
         // Inline-Compact bei vollem Drain
         if (drain_pos_ >= slots_.size()) {
             slots_.clear();
@@ -129,6 +132,10 @@ public:
         return (slots_.size() - drain_pos_) - live_count_;
     }
 
+    /// VersionedBufferStrategy [[versioned-strategy]]: monoton steigender Operation-Counter.
+    /// Inkrementiert bei jedem put()/get() (Tombstone-Operation-Versioning, MVCC-Snapshot-Marker).
+    [[nodiscard]] std::uint64_t version_id() const noexcept { return version_counter_; }
+
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = concepts::BufferStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
@@ -141,8 +148,9 @@ public:
 
 private:
     std::vector<std::optional<element_type>> slots_;
-    std::size_t drain_pos_ = 0;
-    std::size_t live_count_ = 0;
+    std::size_t   drain_pos_       = 0;
+    std::size_t   live_count_      = 0;
+    std::uint64_t version_counter_ = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
     observer_t observer_{};
@@ -154,4 +162,5 @@ private:
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
     static_assert(concepts::BufferStrategy<TombstoneBuffer>);
     static_assert(concepts::CacheEngineBufferPermutationStrategy<TombstoneBuffer>);
+    static_assert(concepts::VersionedBufferStrategy<TombstoneBuffer>);
 }

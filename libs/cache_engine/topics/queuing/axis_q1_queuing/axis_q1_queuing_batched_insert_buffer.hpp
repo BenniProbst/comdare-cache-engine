@@ -21,6 +21,7 @@
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
 #include "concepts/axis_q1_queuing_cache_engine_permutation_concept.hpp"
+#include "concepts/axis_q1_queuing_batched_insertable_strategy_concept.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
 
 #include <topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp>
@@ -196,4 +197,5 @@ private:
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
     static_assert(concepts::BufferStrategy<BatchedInsertBuffer>);
     static_assert(concepts::CacheEngineBufferPermutationStrategy<BatchedInsertBuffer>);
+    static_assert(concepts::BatchedInsertableStrategy<BatchedInsertBuffer>);
 }

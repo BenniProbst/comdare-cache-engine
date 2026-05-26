@@ -20,6 +20,7 @@
 #include "axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 #include "concepts/axis_q1_queuing_concept.hpp"
 #include "concepts/axis_q1_queuing_cache_engine_permutation_concept.hpp"
+#include "concepts/axis_q1_queuing_versioned_strategy_concept.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
 
 #include <topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp>
@@ -107,8 +108,9 @@ public:
     }
     void emplace(element_type v) { put(v); }
 
-    /// Bw-Tree-spezifisch: aktuelle Version-ID (monoton steigend).
-    [[nodiscard]] std::uint64_t current_version() const noexcept { return next_version_id_; }
+    /// VersionedBufferStrategy [[versioned-strategy]]: monoton steigender Delta-Counter.
+    /// Inkrementiert bei jedem put() (Append-Versioning, Bw-Tree-Stil).
+    [[nodiscard]] std::uint64_t version_id() const noexcept { return next_version_id_; }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = concepts::BufferStatistics;
@@ -134,4 +136,5 @@ private:
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
     static_assert(concepts::BufferStrategy<DeltaChain>);
     static_assert(concepts::CacheEngineBufferPermutationStrategy<DeltaChain>);
+    static_assert(concepts::VersionedBufferStrategy<DeltaChain>);
 }
