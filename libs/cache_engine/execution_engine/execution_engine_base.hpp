@@ -110,6 +110,10 @@ public:
 
     // Mess-Schnittstelle (Pflicht fuer alle ExecutionEngines — analog prt_art_legacy)
     virtual void warm_up()  = 0;  ///< Engine vor Mess-Reihe vorwaermen (Cache-Preheat, Bulk-Load)
+    /// R5.C.A4: aktive Mess-Phase starten (Uebergang Warming/Idle → Running).
+    /// CacheEngineBuilder ruft run() bevor Workload-Driver Insert/Lookup-Commands
+    /// dispatched. Mess-Hooks (Latenz/Throughput) sind nur waehrend Running aktiv.
+    virtual void run()      = 0;  ///< Aktive Mess-Phase starten (lifecycle_state → Running)
     virtual void reset()    = 0;  ///< Statistik-Reset (NICHT Container-Clear! — siehe [[reset-is-statistics-reset]])
     virtual void shutdown() = 0;  ///< Engine sauber herunterfahren (Resources freigeben)
 };

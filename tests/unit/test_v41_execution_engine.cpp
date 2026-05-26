@@ -128,9 +128,13 @@ TEST(R5CA2_AnatomyInheritance, SearchAlgorithmAdapterBridgeToBothInterfaces) {
     EXPECT_EQ(anat.genus(), ana::AnatomyGenus::SearchAlgorithm);
     EXPECT_EQ(anat.organ_count(), 17u);
 
-    // Lifecycle-Transitionen
+    // Lifecycle-Transitionen (R5.C.A4: vollstaendiger Roundtrip mit run())
     adapter.warm_up();
     EXPECT_EQ(adapter.lifecycle_state(), ee::EngineLifecycleState::Warming);
+    adapter.run();
+    EXPECT_EQ(adapter.lifecycle_state(), ee::EngineLifecycleState::Running);
+    adapter.reset();
+    EXPECT_EQ(adapter.lifecycle_state(), ee::EngineLifecycleState::Idle);
     adapter.shutdown();
     EXPECT_EQ(adapter.lifecycle_state(), ee::EngineLifecycleState::Shutdown);
 }
@@ -155,6 +159,7 @@ public:
     [[nodiscard]] std::string_view  engine_name() const noexcept override { return "GraphBFS"; }
     [[nodiscard]] ee::EngineLifecycleState lifecycle_state() const noexcept override { return state_; }
     void warm_up()  override { state_ = ee::EngineLifecycleState::Warming; }
+    void run()      override { state_ = ee::EngineLifecycleState::Running; }
     void reset()    override { state_ = ee::EngineLifecycleState::Idle; }
     void shutdown() override { state_ = ee::EngineLifecycleState::Shutdown; }
 
@@ -174,6 +179,9 @@ TEST(R5CA2_VirusEngine, GraphBfsStubAsVirusExecutionEngine) {
     // Virus hat keine Composition/Achsen, aber lifecycle Pflicht-API
     bfs.warm_up();
     EXPECT_EQ(bfs.lifecycle_state(), ee::EngineLifecycleState::Warming);
+    // R5.C.A4: run() Hook auch fuer Virus pflicht
+    bfs.run();
+    EXPECT_EQ(bfs.lifecycle_state(), ee::EngineLifecycleState::Running);
     EXPECT_EQ(bfs.algorithm_family(), std::string_view{"GraphTraversal"});
 }
 
@@ -192,10 +200,15 @@ TEST(R5CA2_PolymorphicMeasurement, AnatomyAndVirusUniformLifecycle) {
     GraphBfsVirusStub                        virus;
 
     // Polymorpher Mess-Loop (CacheEngineBuilder-Pattern fuer R5.D)
+    // R5.C.A4: vollstaendige Lifecycle-Sequenz mit run()
     ee::IExecutionEngine* engines[] = { &anatomy, &virus };
     for (auto* e : engines) {
         e->warm_up();
         EXPECT_EQ(e->lifecycle_state(), ee::EngineLifecycleState::Warming);
+        e->run();
+        EXPECT_EQ(e->lifecycle_state(), ee::EngineLifecycleState::Running);
+        e->reset();
+        EXPECT_EQ(e->lifecycle_state(), ee::EngineLifecycleState::Idle);
         e->shutdown();
         EXPECT_EQ(e->lifecycle_state(), ee::EngineLifecycleState::Shutdown);
     }

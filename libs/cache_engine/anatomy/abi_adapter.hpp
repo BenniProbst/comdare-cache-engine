@@ -83,6 +83,11 @@ public:
         state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Warming;
     }
 
+    /// R5.C.A4: Mess-Phase aktivieren — Lifecycle Warming/Idle → Running.
+    void run() override {
+        state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Running;
+    }
+
     void reset() override {
         state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Idle;
     }

@@ -275,6 +275,7 @@ TEST(R5CB_VisitorApi, ForEachCompositionTypeIteratesAllPermutations) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5CB_AbiAdapterIteration, ForEachAbiAdapterProducesIAnatomyBasePerPermutation) {
+    namespace ee = ::comdare::cache_engine::execution_engine;
     std::size_t adapter_count = 0;
     std::vector<ana::AnatomyGenus> genera_seen;
     std::vector<std::string_view> names_seen;
@@ -284,11 +285,18 @@ TEST(R5CB_AbiAdapterIteration, ForEachAbiAdapterProducesIAnatomyBasePerPermutati
         genera_seen.push_back(base.genus());
         names_seen.push_back(name);
         EXPECT_EQ(base.organ_count(), 17u);
-        EXPECT_EQ(base.engine_kind(),
-                  ::comdare::cache_engine::execution_engine::ExecutionEngineKind::Anatomy);
+        EXPECT_EQ(base.engine_kind(), ee::ExecutionEngineKind::Anatomy);
+
+        // R5.C.A4: vollstaendiger Mess-Lifecycle (CacheEngineBuilder-Pattern R5.D)
+        base.warm_up();
+        EXPECT_EQ(base.lifecycle_state(), ee::EngineLifecycleState::Warming);
+        base.run();
+        EXPECT_EQ(base.lifecycle_state(), ee::EngineLifecycleState::Running);
+        base.shutdown();
+        EXPECT_EQ(base.lifecycle_state(), ee::EngineLifecycleState::Shutdown);
     });
     EXPECT_EQ(adapter_count, 6u);
-    // Alle 6 Adapter haben Mammal-Gattung
+    // Alle 6 Adapter haben SearchAlgorithm-Gattung
     for (auto g : genera_seen) {
         EXPECT_EQ(g, ana::AnatomyGenus::SearchAlgorithm);
     }
