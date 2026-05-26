@@ -27,14 +27,22 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::flags {
 #cmakedefine01 COMDARE_AXIS_Q1_USE_SKIPLIST_BUFFER
 #cmakedefine01 COMDARE_AXIS_Q1_USE_TOMBSTONE_BUFFER
 
-inline constexpr bool no_buffer_enabled        = COMDARE_AXIS_Q1_USE_NO_BUFFER;
-inline constexpr bool fifo_enabled             = COMDARE_AXIS_Q1_USE_FIFO;
-inline constexpr bool lifo_enabled             = COMDARE_AXIS_Q1_USE_LIFO;
-inline constexpr bool bounded_ring_enabled     = COMDARE_AXIS_Q1_USE_BOUNDED_RING;
-inline constexpr bool append_only_enabled      = COMDARE_AXIS_Q1_USE_APPEND_ONLY;
-inline constexpr bool priority_heap_enabled    = COMDARE_AXIS_Q1_USE_PRIORITY_HEAP;
-inline constexpr bool delta_chain_enabled      = COMDARE_AXIS_Q1_USE_DELTA_CHAIN;
-inline constexpr bool skiplist_buffer_enabled  = COMDARE_AXIS_Q1_USE_SKIPLIST_BUFFER;
-inline constexpr bool tombstone_buffer_enabled = COMDARE_AXIS_Q1_USE_TOMBSTONE_BUFFER;
+// Batch 4 (Q-COW CopyOnWrite, Q-EPOCH EpochBuffer, Q-BATCH BatchedInsertBuffer) — 2026-05-26
+#cmakedefine01 COMDARE_AXIS_Q1_USE_COPY_ON_WRITE
+#cmakedefine01 COMDARE_AXIS_Q1_USE_EPOCH_BUFFER
+#cmakedefine01 COMDARE_AXIS_Q1_USE_BATCHED_INSERT_BUFFER
+
+inline constexpr bool no_buffer_enabled              = COMDARE_AXIS_Q1_USE_NO_BUFFER;
+inline constexpr bool fifo_enabled                   = COMDARE_AXIS_Q1_USE_FIFO;
+inline constexpr bool lifo_enabled                   = COMDARE_AXIS_Q1_USE_LIFO;
+inline constexpr bool bounded_ring_enabled           = COMDARE_AXIS_Q1_USE_BOUNDED_RING;
+inline constexpr bool append_only_enabled            = COMDARE_AXIS_Q1_USE_APPEND_ONLY;
+inline constexpr bool priority_heap_enabled          = COMDARE_AXIS_Q1_USE_PRIORITY_HEAP;
+inline constexpr bool delta_chain_enabled            = COMDARE_AXIS_Q1_USE_DELTA_CHAIN;
+inline constexpr bool skiplist_buffer_enabled        = COMDARE_AXIS_Q1_USE_SKIPLIST_BUFFER;
+inline constexpr bool tombstone_buffer_enabled       = COMDARE_AXIS_Q1_USE_TOMBSTONE_BUFFER;
+inline constexpr bool copy_on_write_enabled          = COMDARE_AXIS_Q1_USE_COPY_ON_WRITE;
+inline constexpr bool epoch_buffer_enabled           = COMDARE_AXIS_Q1_USE_EPOCH_BUFFER;
+inline constexpr bool batched_insert_buffer_enabled  = COMDARE_AXIS_Q1_USE_BATCHED_INSERT_BUFFER;
 
 }  // namespace
