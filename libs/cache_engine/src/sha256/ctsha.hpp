@@ -146,4 +146,34 @@ consteval bool fits_compile_time_budget() noexcept {
     return N <= kMaxFunctionBodyBytes;
 }
 
+/// consteval Konvertierung 64-char hex string → Digest
+consteval Digest from_hex(std::string_view hex) noexcept {
+    Digest d{};
+    if (hex.size() != 64) return d;  // Defekt-Marker: bleibt all-zero
+    auto to_nibble = [](char c) -> std::uint8_t {
+        if (c >= '0' && c <= '9') return static_cast<std::uint8_t>(c - '0');
+        if (c >= 'a' && c <= 'f') return static_cast<std::uint8_t>(c - 'a' + 10);
+        if (c >= 'A' && c <= 'F') return static_cast<std::uint8_t>(c - 'A' + 10);
+        return 0;
+    };
+    for (std::size_t i = 0; i < 32; ++i) {
+        d[i] = static_cast<std::uint8_t>((to_nibble(hex[2 * i]) << 4) | to_nibble(hex[2 * i + 1]));
+    }
+    return d;
+}
+
+/// constexpr Konvertierung Digest → 64-char hex string (fuer Diagnose)
+constexpr std::array<char, 64> to_hex(Digest const& d) noexcept {
+    std::array<char, 64> out{};
+    constexpr char kHex[] = "0123456789abcdef";
+    for (std::size_t i = 0; i < 32; ++i) {
+        out[2 * i + 0] = kHex[(d[i] >> 4) & 0x0f];
+        out[2 * i + 1] = kHex[d[i] & 0x0f];
+    }
+    return out;
+}
+
 }  // namespace comdare::cache_engine::sha256
+
+// Include from_hex / to_hex auch im namespace verfuegbar machen
+#include <string_view>
