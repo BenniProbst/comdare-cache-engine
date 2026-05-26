@@ -311,3 +311,144 @@ TEST(AxisBase, EmptyClassNotAxisBaseConform) {
     static_assert(!ce_topics::AxisBaseConcept<NoLegacyPaperWrapper>);
     SUCCEED();
 }
+
+// =================================================================
+// (10) P2.F Smoke-Tests — 6 echte Achsen-Mixin-Templates aus topics/
+// =================================================================
+//
+// Validiert dass die 6 echten Mixin-Header (P2.F) kompilieren + saubere
+// Semantik haben (alle Pflicht-Functions originall → is_original_module = true).
+
+#include <topics/allocator/axis_06_allocator/concepts/axis_06_allocator_original_code_mixin.hpp>
+#include <topics/allocator/axis_06_allocator/concepts/axis_06_allocator_interface_functions.hpp>
+#include <topics/queuing/axis_q1_queuing/concepts/axis_q1_queuing_original_code_mixin.hpp>
+#include <topics/queuing/axis_q1_queuing/concepts/axis_q1_queuing_interface_functions.hpp>
+#include <topics/queuing/axis_q2_queuing/concepts/axis_q2_queuing_original_code_mixin.hpp>
+#include <topics/queuing/axis_q2_queuing/concepts/axis_q2_queuing_interface_functions.hpp>
+#include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_original_code_mixin.hpp>
+#include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_interface_functions.hpp>
+#include <topics/traversal/axis_03b_cache_traversal/concepts/axis_03b_cache_traversal_original_code_mixin.hpp>
+#include <topics/traversal/axis_03b_cache_traversal/concepts/axis_03b_cache_traversal_interface_functions.hpp>
+#include <topics/traversal/axis_03m_mapping/concepts/axis_03m_mapping_original_code_mixin.hpp>
+#include <topics/traversal/axis_03m_mapping/concepts/axis_03m_mapping_interface_functions.hpp>
+
+namespace p2f_smoke {
+
+// Dummy-Manifests: alle Pflicht-Functions originall → is_original_module = true
+struct AllocatorManifest {
+    static constexpr std::string_view kCompiler = "gcc-9.5";
+    static constexpr bool kHasOriginalPaperCode = true;
+    static constexpr bool kIsOriginal_allocate   = true;
+    static constexpr bool kIsOriginal_deallocate = true;
+};
+struct BufferManifest {
+    static constexpr std::string_view kCompiler = "gcc-9.5";
+    static constexpr bool kHasOriginalPaperCode = true;
+    static constexpr bool kIsOriginal_put        = true;
+    static constexpr bool kIsOriginal_get        = true;
+    static constexpr bool kIsOriginal_emplace    = true;
+    static constexpr bool kIsOriginal_peek_front = true;
+    static constexpr bool kIsOriginal_peek_back  = true;
+    static constexpr bool kIsOriginal_clear      = true;
+};
+struct FlushManifest {
+    static constexpr std::string_view kCompiler = "gcc-9.5";
+    static constexpr bool kHasOriginalPaperCode = true;
+    static constexpr bool kIsOriginal_should_flush      = true;
+    static constexpr bool kIsOriginal_on_flush_complete = true;
+};
+struct SearchAlgoManifest {
+    static constexpr std::string_view kCompiler = "gcc-9.5";
+    static constexpr bool kHasOriginalPaperCode = true;
+    static constexpr bool kIsOriginal_insert = true;
+    static constexpr bool kIsOriginal_lookup = true;
+    static constexpr bool kIsOriginal_erase  = true;
+    static constexpr bool kIsOriginal_clear  = true;
+};
+struct CacheTraversalManifest {
+    static constexpr std::string_view kCompiler = "gcc-9.5";
+    static constexpr bool kHasOriginalPaperCode = true;
+    static constexpr bool kIsOriginal_register_entry = true;
+    static constexpr bool kIsOriginal_resolve        = true;
+    static constexpr bool kIsOriginal_unregister    = true;
+    static constexpr bool kIsOriginal_clear         = true;
+};
+struct MappingManifest {
+    static constexpr std::string_view kCompiler = "gcc-9.5";
+    static constexpr bool kHasOriginalPaperCode = true;
+    static constexpr bool kIsOriginal_register_slot  = true;
+    static constexpr bool kIsOriginal_resolve_offset = true;
+    static constexpr bool kIsOriginal_reverse_lookup = true;
+    static constexpr bool kIsOriginal_clear          = true;
+};
+
+using AllocatorMixin       = ::comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorOriginalCodeMixin<AllocatorManifest>;
+using BufferMixin          = ::comdare::cache_engine::queuing::axis_q1_queuing::concepts::BufferOriginalCodeMixin<BufferManifest>;
+using FlushMixin           = ::comdare::cache_engine::queuing::axis_q2_queuing::concepts::FlushOriginalCodeMixin<FlushManifest>;
+using SearchAlgoMixin      = ::comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoOriginalCodeMixin<SearchAlgoManifest>;
+using CacheTraversalMixin  = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::concepts::CacheTraversalOriginalCodeMixin<CacheTraversalManifest>;
+using MappingMixin         = ::comdare::cache_engine::traversal::axis_03m_mapping::concepts::MappingOriginalCodeMixin<MappingManifest>;
+
+}  // namespace p2f_smoke
+
+TEST(P2F_AxisMixins, AllocatorMixinModuleTrue) {
+    static_assert(p2f_smoke::AllocatorMixin::get_compiler() == "gcc-9.5");
+    static_assert(p2f_smoke::AllocatorMixin::has_original_paper_code());
+    static_assert(p2f_smoke::AllocatorMixin::is_original_allocate());
+    static_assert(p2f_smoke::AllocatorMixin::is_original_deallocate());
+    static_assert(p2f_smoke::AllocatorMixin::is_original_module());
+    static_assert(ce_topics::AxisBaseConcept<p2f_smoke::AllocatorMixin>);
+    SUCCEED();
+}
+
+TEST(P2F_AxisMixins, BufferMixinModuleTrue) {
+    static_assert(p2f_smoke::BufferMixin::is_original_put());
+    static_assert(p2f_smoke::BufferMixin::is_original_emplace());
+    static_assert(p2f_smoke::BufferMixin::is_original_peek_back());
+    static_assert(p2f_smoke::BufferMixin::is_original_module());
+    static_assert(ce_topics::AxisBaseConcept<p2f_smoke::BufferMixin>);
+    SUCCEED();
+}
+
+TEST(P2F_AxisMixins, FlushMixinModuleTrue) {
+    static_assert(p2f_smoke::FlushMixin::is_original_should_flush());
+    static_assert(p2f_smoke::FlushMixin::is_original_on_flush_complete());
+    static_assert(p2f_smoke::FlushMixin::is_original_module());
+    static_assert(ce_topics::AxisBaseConcept<p2f_smoke::FlushMixin>);
+    SUCCEED();
+}
+
+TEST(P2F_AxisMixins, SearchAlgoMixinModuleTrue) {
+    static_assert(p2f_smoke::SearchAlgoMixin::is_original_insert());
+    static_assert(p2f_smoke::SearchAlgoMixin::is_original_lookup());
+    static_assert(p2f_smoke::SearchAlgoMixin::is_original_module());
+    static_assert(ce_topics::AxisBaseConcept<p2f_smoke::SearchAlgoMixin>);
+    SUCCEED();
+}
+
+TEST(P2F_AxisMixins, CacheTraversalMixinModuleTrue) {
+    static_assert(p2f_smoke::CacheTraversalMixin::is_original_register_entry());
+    static_assert(p2f_smoke::CacheTraversalMixin::is_original_resolve());
+    static_assert(p2f_smoke::CacheTraversalMixin::is_original_module());
+    static_assert(ce_topics::AxisBaseConcept<p2f_smoke::CacheTraversalMixin>);
+    SUCCEED();
+}
+
+TEST(P2F_AxisMixins, MappingMixinModuleTrue) {
+    static_assert(p2f_smoke::MappingMixin::is_original_register_slot());
+    static_assert(p2f_smoke::MappingMixin::is_original_reverse_lookup());
+    static_assert(p2f_smoke::MappingMixin::is_original_module());
+    static_assert(ce_topics::AxisBaseConcept<p2f_smoke::MappingMixin>);
+    SUCCEED();
+}
+
+TEST(P2F_AxisMixins, InterfaceFunctionsListsCorrectCount) {
+    using namespace ::comdare::cache_engine;
+    static_assert(allocator::axis_06_allocator::concepts::kAxisInterfaceFunctions.size() == 2);
+    static_assert(queuing::axis_q1_queuing::concepts::kAxisInterfaceFunctions.size() == 6);
+    static_assert(queuing::axis_q2_queuing::concepts::kAxisInterfaceFunctions.size() == 2);
+    static_assert(traversal::axis_03a_search_algo::concepts::kAxisInterfaceFunctions.size() == 4);
+    static_assert(traversal::axis_03b_cache_traversal::concepts::kAxisInterfaceFunctions.size() == 4);
+    static_assert(traversal::axis_03m_mapping::concepts::kAxisInterfaceFunctions.size() == 4);
+    SUCCEED();
+}
