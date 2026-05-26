@@ -1,0 +1,18 @@
+# Paper: Q01 moodycamel::ConcurrentQueue (Cameron Desrochers, BSD-2)
+# Cache-Engine-Wrapper: OriginalLockFreeMpmcConcurrentQueue
+# Source: ext/queuing/Q01-concurrentqueue/concurrentqueue.h (BSD-2 / Simplified BSD)
+#
+# Algorithmus-Inspiration: Vyukov-MPMC + Michael-Scott + moodycamel Erweiterungen
+# (block-based, lock-free, MPMC bounded/unbounded). Real-world produktionserprobt.
+
+@compiler gcc-9.5
+@has_original_paper_code true
+@axis_mixin_type comdare::cache_engine::queuing::axis_q1_queuing::concepts::BufferOriginalCodeMixin
+
+# wrapper_fn  paper_fn        source_relative_path
+# 2/6 originall — concurrentqueue hat enqueue + try_dequeue als Paper-API.
+# emplace / peek_front / peek_back / clear sind cache-engine Luecken-Fueller
+# (concurrentqueue hat keine peek-Methode, kein clear; emplace ist
+# C++14-Standard-API ergaenzt).
+put           enqueue         concurrentqueue.h
+get           try_dequeue     concurrentqueue.h

@@ -103,6 +103,8 @@ option(COMDARE_AXIS_Q1_ENABLE_BATCHED_INSERT_BUFFER "Buffer-Strategy Q12 Batched
 # Batch 5 VOLLAUSBAU (2026-05-26): Q-SPSC LockFreeSPSC (Lamport 1983) + Q-MPMC LockFreeMPMC (Vyukov bounded)
 option(COMDARE_AXIS_Q1_ENABLE_LOCKFREE_SPSC "Buffer-Strategy Q13a LockFreeSPSC (Lamport 1983, atomic head/tail, lock-free, iterable_aspect_t)" ON)
 option(COMDARE_AXIS_Q1_ENABLE_LOCKFREE_MPMC "Buffer-Strategy Q13b LockFreeMPMC (Vyukov bounded MPMC, per-Cell-Sequence, lock-free concurrent)" ON)
+# V41.F.6.1.P2.D.q.s2 — Original-Paper-Wrapper Q01 ConcurrentQueue (moodycamel BSD-2, Habich-Compliance via Mixin)
+option(COMDARE_AXIS_Q1_ENABLE_ORIGINAL_CONCURRENTQUEUE "Buffer-Strategy Q01 OriginalLockFreeMpmcConcurrentQueue (moodycamel, 2/6 originall)" ON)
 # axis_Q2 Pilot Batch 1 (3 von 5 W3-Flush-Policies)
 option(COMDARE_AXIS_Q2_ENABLE_EAGER        "Flush-Policy F01 EagerFlush (per-op)"              ON)
 option(COMDARE_AXIS_Q2_ENABLE_WATERMARK    "Flush-Policy F02 WatermarkFlush (threshold)"       ON)
@@ -463,7 +465,7 @@ message(STATUS "  Batch 8: USE_PTMALLOC2=${COMDARE_AXIS_06_USE_PTMALLOC2} VMEM_M
 
 # V41.F.6.1 Topic queuing Pilot — USE = ENABLE direkt (kein externer Vendor heute)
 # axis_Q1 buffer_strategy VOLLAUSBAU (Batch 1-5, alle 13 W2-Strategien)
-foreach(_q1 NO_BUFFER FIFO LIFO BOUNDED_RING APPEND_ONLY PRIORITY_HEAP DELTA_CHAIN SKIPLIST_BUFFER TOMBSTONE_BUFFER COPY_ON_WRITE EPOCH_BUFFER BATCHED_INSERT_BUFFER LOCKFREE_SPSC LOCKFREE_MPMC)
+foreach(_q1 NO_BUFFER FIFO LIFO BOUNDED_RING APPEND_ONLY PRIORITY_HEAP DELTA_CHAIN SKIPLIST_BUFFER TOMBSTONE_BUFFER COPY_ON_WRITE EPOCH_BUFFER BATCHED_INSERT_BUFFER LOCKFREE_SPSC LOCKFREE_MPMC ORIGINAL_CONCURRENTQUEUE)
     if(COMDARE_AXIS_Q1_ENABLE_${_q1})
         set(COMDARE_AXIS_Q1_USE_${_q1} 1)
     else()
@@ -687,5 +689,28 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
         NAMESPACE         "${_a03a_namespace_root}::p05_start"
         WRAPPER_NAME      start
         AXIS_MIXIN_TYPE   "${_a03a_axis_mixin}"
+    )
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # V41.F.6.1.P2.D.q.s2 Queuing Roll-out Stufe 1 — axis_q1_queuing
+    # Q01-concurrentqueue (moodycamel, BSD-2) als Pilot fuer externe Submodule.
+    # 2/6 originall (put=enqueue, get=try_dequeue), 4/6 Luecken (emplace/peek/clear).
+    # ─────────────────────────────────────────────────────────────────────────
+    set(_aq1_legacy_root "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/queuing/axis_q1_queuing/legacy_code")
+    set(_aq1_gen_root    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/queuing/axis_q1_queuing/legacy_code")
+    set(_aq1_namespace_root "comdare::cache_engine::queuing::axis_q1_queuing::generated")
+    set(_aq1_axis_mixin     "comdare::cache_engine::queuing::axis_q1_queuing::concepts::BufferOriginalCodeMixin")
+
+    # Q01 moodycamel::ConcurrentQueue (BSD-2) — 2/6 originall
+    comdare_register_paper_wrapper(
+        PAPER_ID          q01_concurrentqueue
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/queuing/Q01-concurrentqueue"
+        EXT_SENTINEL_FILE "concurrentqueue.h"
+        LEGACY_DIR        "${_aq1_legacy_root}/paper_q01_concurrentqueue"
+        FILES             "concurrentqueue.h"
+        OUTPUT_HEADER     "${_aq1_gen_root}/paper_q01_concurrentqueue_is_original.hpp"
+        NAMESPACE         "${_aq1_namespace_root}::q01_concurrentqueue"
+        WRAPPER_NAME      concurrentqueue
+        AXIS_MIXIN_TYPE   "${_aq1_axis_mixin}"
     )
 endif()

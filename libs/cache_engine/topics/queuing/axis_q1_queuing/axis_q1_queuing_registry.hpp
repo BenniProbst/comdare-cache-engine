@@ -24,6 +24,8 @@
 // Batch 5 VOLLAUSBAU (Q-SPSC LockFreeSPSC Lamport, Q-MPMC LockFreeMPMC Vyukov)
 #include "axis_q1_queuing_lockfree_spsc.hpp"
 #include "axis_q1_queuing_lockfree_mpmc.hpp"
+// V41.F.6.1.P2.D.q.s2 Original-Paper-Wrapper Q01 (moodycamel ConcurrentQueue, BSD-2)
+#include "axis_q1_queuing_original_concurrentqueue.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
@@ -52,7 +54,9 @@ using AllStrategies = mp::mp_list<
     BatchedInsertBuffer,
     // Batch 5 VOLLAUSBAU (2026-05-26) — axis_q1_queuing 14/14 KOMPLETT
     LockFreeSPSC,
-    LockFreeMPMC
+    LockFreeMPMC,
+    // V41.F.6.1.P2.D.q.s2 Original-Paper-Wrapper Q15 (moodycamel ConcurrentQueue, 2/6 originall)
+    OriginalLockFreeMpmcConcurrentQueue
 >;
 
 template <typename S>

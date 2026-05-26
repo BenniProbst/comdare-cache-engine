@@ -1,0 +1,4 @@
+# Source-Snapshot wird Build-Time von ext/queuing/Q01-concurrentqueue kopiert
+# (comdare_paper_init) — nicht git-tracken.
+concurrentqueue.h
+.extracted.marker
