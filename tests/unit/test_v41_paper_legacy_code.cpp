@@ -15,12 +15,14 @@
 #include <sha256/ctsha.hpp>
 #include <concepts/legacy_original_code_strategy_concept.hpp>
 #include <concepts/axis_original_code_mixin_base.hpp>
+#include <topics/axis_base.hpp>
 
 #include <string_view>
 #include <type_traits>
 
 namespace ctsha = ::comdare::cache_engine::sha256;
 namespace ce_concepts = ::comdare::cache_engine::concepts;
+namespace ce_topics = ::comdare::cache_engine::topics;
 
 // =================================================================
 // (1) ctsha consteval SHA256 — REIN COMPILE-TIME
@@ -108,7 +110,7 @@ inline constexpr bool kIsOriginal_reallocate = true;
 
 // Achsen-Manifest-Struct (Pflicht-Constants fuer Mixin-Template):
 struct PaperManifest {
-    static constexpr std::string_view kExperimentCompiler = "gcc-9.5";
+    static constexpr std::string_view kCompiler = "gcc-9.5";
     static constexpr bool kHasOriginalPaperCode = true;
     static constexpr bool kIsOriginal_allocate   = simulated_generated::paper_a04_mimalloc::kIsOriginal_allocate;
     static constexpr bool kIsOriginal_deallocate = simulated_generated::paper_a04_mimalloc::kIsOriginal_deallocate;
@@ -131,7 +133,7 @@ inline constexpr bool kIsOriginal_deallocate = false;  // ← Mismatch: source w
 inline constexpr bool kIsOriginal_reallocate = true;
 
 struct PaperManifest {
-    static constexpr std::string_view kExperimentCompiler = "clang-12";
+    static constexpr std::string_view kCompiler = "clang-12";
     static constexpr bool kHasOriginalPaperCode = true;
     static constexpr bool kIsOriginal_allocate   = simulated_generated::paper_a07_snmalloc::kIsOriginal_allocate;
     static constexpr bool kIsOriginal_deallocate = simulated_generated::paper_a07_snmalloc::kIsOriginal_deallocate;
@@ -164,7 +166,7 @@ public:
 // =================================================================
 
 TEST(AchsenMixin, MimallocAllProperties) {
-    static_assert(DemoMimallocAllocator::experiment_compiler() == "gcc-9.5");
+    static_assert(DemoMimallocAllocator::get_compiler() == "gcc-9.5");
     static_assert(DemoMimallocAllocator::has_original_paper_code());
     static_assert(DemoMimallocAllocator::is_original_allocate());
     static_assert(DemoMimallocAllocator::is_original_deallocate());
@@ -174,7 +176,7 @@ TEST(AchsenMixin, MimallocAllProperties) {
 }
 
 TEST(AchsenMixin, SnmallocMismatchDetected) {
-    static_assert(DemoSnmallocAllocator::experiment_compiler() == "clang-12");
+    static_assert(DemoSnmallocAllocator::get_compiler() == "clang-12");
     static_assert(DemoSnmallocAllocator::has_original_paper_code());
     static_assert(DemoSnmallocAllocator::is_original_allocate());
     static_assert(!DemoSnmallocAllocator::is_original_deallocate());  // ← Mismatch!
@@ -220,7 +222,7 @@ inline constexpr bool kIsOriginal_allocate   = false;
 inline constexpr bool kIsOriginal_deallocate = false;
 inline constexpr bool kIsOriginal_reallocate = false;
 struct PaperManifest {
-    static constexpr std::string_view kExperimentCompiler = "self";
+    static constexpr std::string_view kCompiler = "self";
     static constexpr bool kHasOriginalPaperCode = false;
     static constexpr bool kIsOriginal_allocate   = false;
     static constexpr bool kIsOriginal_deallocate = false;
@@ -236,7 +238,7 @@ public:
 };
 
 TEST(PseudocodeReImpl, AllFalseHarte) {
-    static_assert(DemoBuddyAllocator::experiment_compiler() == "self");
+    static_assert(DemoBuddyAllocator::get_compiler() == "self");
     static_assert(!DemoBuddyAllocator::has_original_paper_code());
     static_assert(!DemoBuddyAllocator::is_original_allocate());
     static_assert(!DemoBuddyAllocator::is_original_deallocate());
@@ -259,5 +261,53 @@ class NoLegacyPaperWrapper {};
 
 TEST(LegacyOriginalCodeSubConcept, EmptyClassNotConforms) {
     static_assert(!ce_concepts::LegacyOriginalCodePflicht<NoLegacyPaperWrapper>);
+    SUCCEED();
+}
+
+// =================================================================
+// (9) AxisBase Wurzel-Pattern (V41.F.6.1.P2.A0.7)
+// =================================================================
+//
+// Cross-axis Pflicht-Property get_compiler() — Default "original" in AxisBase,
+// Override pro Paper-Wrapper via OriginalCodeMixinBase (delegiert an PaperManifest::kCompiler).
+
+class DefaultAxisWrapper : public ce_topics::AxisBase {
+    // KEIN Override → get_compiler() = "original" (Default)
+};
+
+TEST(AxisBase, DefaultGetCompilerOriginal) {
+    static_assert(DefaultAxisWrapper::get_compiler() == "original");
+    static_assert(ce_topics::AxisBase::get_compiler() == "original");
+    SUCCEED();
+}
+
+TEST(AxisBase, ConceptConformance) {
+    static_assert(ce_topics::AxisBaseConcept<DefaultAxisWrapper>);
+    static_assert(ce_topics::AxisBaseConcept<ce_topics::AxisBase>);
+    SUCCEED();
+}
+
+TEST(AxisBase, MimallocOverridesCompiler) {
+    // DemoMimallocAllocator erbt von OriginalCodeMixin → OriginalCodeMixinBase
+    // → ueberschreibt AxisBase::get_compiler() mit kCompiler aus PaperManifest
+    static_assert(DemoMimallocAllocator::get_compiler() == "gcc-9.5");
+    static_assert(ce_topics::AxisBaseConcept<DemoMimallocAllocator>);
+    SUCCEED();
+}
+
+TEST(AxisBase, SnmallocOverridesCompiler) {
+    static_assert(DemoSnmallocAllocator::get_compiler() == "clang-12");
+    static_assert(ce_topics::AxisBaseConcept<DemoSnmallocAllocator>);
+    SUCCEED();
+}
+
+TEST(AxisBase, PseudocodeReImplCompilerSelf) {
+    static_assert(DemoBuddyAllocator::get_compiler() == "self");
+    static_assert(ce_topics::AxisBaseConcept<DemoBuddyAllocator>);
+    SUCCEED();
+}
+
+TEST(AxisBase, EmptyClassNotAxisBaseConform) {
+    static_assert(!ce_topics::AxisBaseConcept<NoLegacyPaperWrapper>);
     SUCCEED();
 }
