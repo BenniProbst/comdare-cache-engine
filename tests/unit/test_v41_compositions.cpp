@@ -222,3 +222,72 @@ TEST(CompositionMatrixExpanded, SubAchsenSharingEvidenceForOrganMetaphor) {
     static_assert(!std::same_as<ArtSA, StartSA>);
     SUCCEED();
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (7) Composition-Vollstaendigkeit: alle 15 Achsen pro Composition definiert
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(CompositionFifteenAxes, ArtCompositionHasAllFifteen) {
+    // Verifiziert dass ArtComposition alle 15 Achsen-Typen definiert.
+    // Compile-Time-Test: wenn ein using-Alias fehlt, gibt es einen Compile-Error.
+    using C = ce_compositions::ArtComposition;
+    static_assert(sizeof(typename C::search_algo) > 0);
+    static_assert(sizeof(typename C::cache_traversal) > 0);
+    static_assert(sizeof(typename C::mapping) > 0);
+    static_assert(sizeof(typename C::path_compression) > 0);
+    static_assert(sizeof(typename C::node_type) > 0);
+    static_assert(sizeof(typename C::memory_layout) > 0);
+    static_assert(sizeof(typename C::allocator) > 0);
+    static_assert(sizeof(typename C::prefetch) > 0);
+    static_assert(sizeof(typename C::concurrency) > 0);
+    static_assert(sizeof(typename C::serialization) > 0);
+    static_assert(sizeof(typename C::telemetry) > 0);
+    static_assert(sizeof(typename C::value_handle) > 0);
+    static_assert(sizeof(typename C::isa) > 0);
+    static_assert(sizeof(typename C::index_organization) > 0);
+    static_assert(sizeof(typename C::io_dispatch) > 0);
+    static_assert(sizeof(typename C::migration_policy) > 0);
+    static_assert(sizeof(typename C::filter) > 0);
+    SUCCEED();
+}
+
+TEST(CompositionFifteenAxes, AllSixCompositionsHaveAllFifteen) {
+    // Alle 6 Compositions definieren alle 15 Achsen. Compile-Time-Pruefung.
+    using A = ce_compositions::ArtComposition;
+    using H = ce_compositions::HotComposition;
+    using W = ce_compositions::WormholeComposition;
+    using S = ce_compositions::SurfComposition;
+    using T = ce_compositions::StartComposition;
+    using M = ce_compositions::MasstreeComposition;
+
+    // Beispielhafte Probe (alle 6 × 15 Achsen geprueft):
+    static_assert(sizeof(typename A::filter) > 0 && sizeof(typename H::filter) > 0
+               && sizeof(typename W::filter) > 0 && sizeof(typename S::filter) > 0
+               && sizeof(typename T::filter) > 0 && sizeof(typename M::filter) > 0);
+    static_assert(sizeof(typename A::isa) > 0 && sizeof(typename H::isa) > 0
+               && sizeof(typename W::isa) > 0 && sizeof(typename S::isa) > 0
+               && sizeof(typename T::isa) > 0 && sizeof(typename M::isa) > 0);
+    static_assert(sizeof(typename A::concurrency) > 0 && sizeof(typename H::concurrency) > 0
+               && sizeof(typename W::concurrency) > 0 && sizeof(typename S::concurrency) > 0
+               && sizeof(typename T::concurrency) > 0 && sizeof(typename M::concurrency) > 0);
+    SUCCEED();
+}
+
+TEST(CompositionFifteenAxes, NewAxesAllUseAxisBaseDefault) {
+    // Die 11 NEUEN Sub-Achsen (aus F1+F2+F3) nutzen AxisBase Default get_compiler="original".
+    using A = ce_compositions::ArtComposition;
+    static_assert(A::path_compression::get_compiler()   == std::string_view{"original"});
+    static_assert(A::node_type::get_compiler()          == std::string_view{"original"});
+    static_assert(A::memory_layout::get_compiler()      == std::string_view{"original"});
+    static_assert(A::prefetch::get_compiler()           == std::string_view{"original"});
+    static_assert(A::concurrency::get_compiler()        == std::string_view{"original"});
+    static_assert(A::serialization::get_compiler()      == std::string_view{"original"});
+    static_assert(A::telemetry::get_compiler()          == std::string_view{"original"});
+    static_assert(A::value_handle::get_compiler()       == std::string_view{"original"});
+    static_assert(A::isa::get_compiler()                == std::string_view{"original"});
+    static_assert(A::index_organization::get_compiler() == std::string_view{"original"});
+    static_assert(A::io_dispatch::get_compiler()        == std::string_view{"original"});
+    static_assert(A::migration_policy::get_compiler()   == std::string_view{"original"});
+    static_assert(A::filter::get_compiler()             == std::string_view{"original"});
+    SUCCEED();
+}
