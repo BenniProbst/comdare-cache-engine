@@ -271,3 +271,13 @@ target_include_directories(test_v41_paper_legacy_code PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_paper_legacy_code PRIVATE Boost::mp11)
+
+# V41.F.6.1.R2 Composition-Templates (Architektur-Refactoring nach Organ-Metapher)
+comdare_add_test(test_v41_compositions
+    SOURCES test_v41_compositions.cpp)
+target_include_directories(test_v41_compositions PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_compositions PRIVATE Boost::mp11)
