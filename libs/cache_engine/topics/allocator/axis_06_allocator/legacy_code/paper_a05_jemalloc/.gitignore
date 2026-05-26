@@ -1,0 +1,7 @@
+# V41.F.6.1.P2.D legacy_code/paper_a05_jemalloc/ — Build-Time-Init Konvention
+# Source-Files werden Build-Time aus ext/A05-jemalloc/ kopiert
+# (siehe cmake/is_original_codegen.cmake comdare_paper_init() + Root CMakeLists.txt).
+
+src/
+include/
+.extracted.marker

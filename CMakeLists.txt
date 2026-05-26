@@ -548,35 +548,56 @@ option(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION
        "Enable Paper-Original-Code SHA-Validation (Habich-Compliance Pre-Build-Tool)" ON)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# V41.F.6.1.P2.B mimalloc Pilot — Paper-Legacy-Code Init + is_original Codegen
+# V41.F.6.1.P2.B/D Paper-Legacy-Code Roll-out (kompakt via Helper)
 # Build-Time-Init aus ext/ in legacy_code/ + Tool-Run zur SHA-Validierung.
-# Aktiv nur wenn: Validation-Option ON + comdare_paper_init verfuegbar + ext-Sources da.
+# Pro Paper 1 Helper-Aufruf (statt Block-Wiederholung — [[cross-axis-defaults-no-bloat]]).
+# Aktiv nur wenn Validation-Option ON + Helper verfuegbar.
+# Helper SKIPPED Paper automatisch wenn ext-Sentinel fehlt.
 # ─────────────────────────────────────────────────────────────────────────────
-if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION
-   AND COMMAND comdare_paper_init
-   AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ext/A04-mimalloc/src/alloc-aligned.c")
-    set(_a04_legacy "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/legacy_code/paper_a04_mimalloc")
-    set(_a04_output "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/allocator/axis_06_allocator/legacy_code/paper_a04_mimalloc_is_original.hpp")
+if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper_wrapper)
+    set(_a06_legacy_root "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/legacy_code")
+    set(_a06_gen_root    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/allocator/axis_06_allocator/legacy_code")
+    set(_a06_namespace_root "comdare::cache_engine::allocator::axis_06_allocator::generated")
 
-    comdare_paper_init(
-        PAPER_ID         a04_mimalloc
-        EXT_SOURCE_DIR   "${CMAKE_CURRENT_SOURCE_DIR}/ext/A04-mimalloc"
-        LEGACY_CODE_DIR  "${_a04_legacy}"
-        FILES
-            "src/alloc-aligned.c"
-            "src/free.c"
+    # A04 mimalloc (Pilot P2.B) — Leijen MSR-TR-2019-18 / ISMM 2019
+    comdare_register_paper_wrapper(
+        PAPER_ID          a04_mimalloc
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/A04-mimalloc"
+        EXT_SENTINEL_FILE "src/alloc-aligned.c"
+        LEGACY_DIR        "${_a06_legacy_root}/paper_a04_mimalloc"
+        FILES             "src/alloc-aligned.c" "src/free.c"
+        OUTPUT_HEADER     "${_a06_gen_root}/paper_a04_mimalloc_is_original.hpp"
+        NAMESPACE         "${_a06_namespace_root}::a04_mimalloc"
+        WRAPPER_NAME      mimalloc
     )
 
-    if(TARGET is_original_validator)
-        comdare_generate_is_original_mixin(
-            WRAPPER_NAME    mimalloc
-            PAPER_ID        a04_mimalloc
-            LEGACY_CODE_DIR "${_a04_legacy}"
-            OUTPUT_HEADER   "${_a04_output}"
-            NAMESPACE       "comdare::cache_engine::allocator::axis_06_allocator::generated::a04_mimalloc"
-            AXIS_MIXIN_TYPE "comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorOriginalCodeMixin"
-        )
-        add_custom_target(comdare_paper_a04_mimalloc_codegen ALL
-            DEPENDS "${_a04_output}")
-    endif()
+    # A05 jemalloc (P2.D Roll-out 1/3) — Evans BSDCan 2006 / Facebook Production
+    comdare_register_paper_wrapper(
+        PAPER_ID          a05_jemalloc
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/A05-jemalloc"
+        EXT_SENTINEL_FILE "src/jemalloc.c"
+        LEGACY_DIR        "${_a06_legacy_root}/paper_a05_jemalloc"
+        FILES             "src/jemalloc.c"
+        OUTPUT_HEADER     "${_a06_gen_root}/paper_a05_jemalloc_is_original.hpp"
+        NAMESPACE         "${_a06_namespace_root}::a05_jemalloc"
+        WRAPPER_NAME      jemalloc
+    )
+
+    # A07 snmalloc (P2.D Roll-out 2/3) — Lipp/Bond/Parkinson ISMM 2019
+    # snmalloc nutzt C++ namespace (snmalloc::libc::*) statt extern "C" —
+    # Tool findet aligned_alloc/free_aligned_sized als Identifier in libc.h.
+    comdare_register_paper_wrapper(
+        PAPER_ID          a07_snmalloc
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/A07-snmalloc"
+        EXT_SENTINEL_FILE "src/snmalloc/global/libc.h"
+        LEGACY_DIR        "${_a06_legacy_root}/paper_a07_snmalloc"
+        FILES             "src/snmalloc/global/libc.h"
+        OUTPUT_HEADER     "${_a06_gen_root}/paper_a07_snmalloc_is_original.hpp"
+        NAMESPACE         "${_a06_namespace_root}::a07_snmalloc"
+        WRAPPER_NAME      snmalloc
+    )
+
+    # A06 tcmalloc DEFER P2.D.t (Bazel-Build + Symbol-Mangling):
+    # tc_free/tc_memalign sind nicht direkt im Source, sondern Bazel-generierte
+    # Mangled-Names. Pattern braucht spaeteren Sprint (P2.D.t mit Bazel-Adaption).
 endif()

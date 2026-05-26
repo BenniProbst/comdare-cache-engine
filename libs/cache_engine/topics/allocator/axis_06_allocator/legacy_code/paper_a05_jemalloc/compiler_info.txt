@@ -1,0 +1,10 @@
+# Empfohlene Compiler-Konfiguration fuer paper_a05_jemalloc Original-Build
+# Quelle: Evans BSDCan 2006 + jemalloc/jemalloc GitHub README
+
+compiler:       gcc-9.5
+flags:          -O3 -funroll-loops -DJEMALLOC_NO_PRIVATE_NAMESPACE
+ld_flags:       -lpthread -ldl
+
+# Note: jemalloc Original-Build nutzt Autoconf (./configure + make). Fuer cache-engine
+# Pilot reicht SHA-Validierung (P2.D) — full Paper-Compiler-Cache-Build kommt in spaeterer
+# Phase B.3 (P2.A.W Windows-Compiler-Cache + CI-Pipeline).

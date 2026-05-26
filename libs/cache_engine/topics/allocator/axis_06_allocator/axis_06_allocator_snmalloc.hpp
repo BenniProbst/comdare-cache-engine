@@ -26,6 +26,10 @@
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
 #include "vendor_includes/snmalloc_include.hpp"   // V41.F.6.1.C Stufe 2: Shim mit Forward-Stubs
 
+// V41.F.6.1.P2.D snmalloc Paper-Legacy-Code Mixin (auto-generated via Pre-Build-Tool)
+#include "concepts/axis_06_allocator_original_code_mixin.hpp"
+#include <topics/allocator/axis_06_allocator/legacy_code/paper_a07_snmalloc_is_original.hpp>
+
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
 #include <measurement/measurable_concept.hpp>   // V41.F.6.1 Stufe 3: MeasurableObserver<snapshot_t>
 #include <cstddef>
@@ -43,8 +47,16 @@ namespace comdare::cache_engine::allocator::axis_06_allocator {
  *
  * V41.F.6.1.C Stufe 2 (W6-Pattern): KEIN #ifdef mehr. enabled via flags::snmalloc_enabled.
  */
-class SnmallocAllocator : public AllocatorStrategyBase<SnmallocAllocator> {
+class SnmallocAllocator
+    : public AllocatorStrategyBase<SnmallocAllocator>,
+      public generated::a07_snmalloc::OriginalCodeMixin {  // V41.F.6.1.P2.D Paper-Mixin (Habich-Compliance)
 public:
+    // V41.F.6.1.P2.D Diamond-Disambiguation (Pattern wie MimallocAllocator):
+    using generated::a07_snmalloc::OriginalCodeMixin::get_compiler;
+    using generated::a07_snmalloc::OriginalCodeMixin::is_original_allocate;
+    using generated::a07_snmalloc::OriginalCodeMixin::is_original_deallocate;
+    using generated::a07_snmalloc::OriginalCodeMixin::is_original_module;
+
     static constexpr bool enabled = flags::snmalloc_enabled;
 
     using value_type = std::byte;

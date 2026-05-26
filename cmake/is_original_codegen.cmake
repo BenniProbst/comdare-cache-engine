@@ -115,3 +115,63 @@ function(comdare_paper_init)
     list(LENGTH ARG_FILES _n_files)
     message(STATUS "comdare paper-init READY: ${ARG_PAPER_ID} (${_n_files} files)")
 endfunction()
+
+#
+# V41.F.6.1.P2.D Roll-out Helper: 1 Aufruf statt 3 Blocks pro Paper
+# Pflicht-Disziplin [[cross-axis-defaults-no-bloat]]: kompakte Generik statt Wiederholung.
+#
+# Skipped automatisch wenn EXT_SENTINEL_FILE in EXT_DIR fehlt (z.B. ext-Submodul nicht ausgecheckt).
+#
+# Args:
+#   PAPER_ID         z.B. "a04_mimalloc" / "a05_jemalloc"
+#   EXT_DIR          ${CMAKE_CURRENT_SOURCE_DIR}/ext/A04-mimalloc
+#   EXT_SENTINEL_FILE relativer Pfad zur Source, deren Existenz Triggert (z.B. "src/alloc-aligned.c")
+#   LEGACY_DIR       ${CMAKE_CURRENT_SOURCE_DIR}/libs/.../legacy_code/paper_<id>
+#   FILES            Liste der zu kopierenden Source-Files (multi-value)
+#   OUTPUT_HEADER    Generierter Header-Pfad
+#   NAMESPACE        z.B. "comdare::cache_engine::allocator::axis_06_allocator::generated::a04_mimalloc"
+#   WRAPPER_NAME     Logging-Bezeichner (z.B. "mimalloc")
+#   AXIS_MIXIN_TYPE  Fully-qualified Mixin-Template (Default: AllocatorOriginalCodeMixin)
+function(comdare_register_paper_wrapper)
+    set(_options)
+    set(_one_value PAPER_ID EXT_DIR EXT_SENTINEL_FILE LEGACY_DIR OUTPUT_HEADER NAMESPACE WRAPPER_NAME AXIS_MIXIN_TYPE)
+    set(_multi_value FILES)
+    cmake_parse_arguments(ARG "${_options}" "${_one_value}" "${_multi_value}" ${ARGN})
+
+    foreach(_arg PAPER_ID EXT_DIR EXT_SENTINEL_FILE LEGACY_DIR OUTPUT_HEADER NAMESPACE WRAPPER_NAME)
+        if(NOT ARG_${_arg})
+            message(FATAL_ERROR "comdare_register_paper_wrapper: ${_arg} required")
+        endif()
+    endforeach()
+    if(NOT ARG_FILES)
+        message(FATAL_ERROR "comdare_register_paper_wrapper: FILES required (at least 1 file)")
+    endif()
+    if(NOT ARG_AXIS_MIXIN_TYPE)
+        set(ARG_AXIS_MIXIN_TYPE "comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorOriginalCodeMixin")
+    endif()
+
+    if(NOT EXISTS "${ARG_EXT_DIR}/${ARG_EXT_SENTINEL_FILE}")
+        message(STATUS "comdare paper-roll-out: SKIP ${ARG_PAPER_ID} (${ARG_EXT_DIR}/${ARG_EXT_SENTINEL_FILE} missing)")
+        return()
+    endif()
+
+    comdare_paper_init(
+        PAPER_ID         ${ARG_PAPER_ID}
+        EXT_SOURCE_DIR   "${ARG_EXT_DIR}"
+        LEGACY_CODE_DIR  "${ARG_LEGACY_DIR}"
+        FILES            ${ARG_FILES}
+    )
+
+    if(TARGET is_original_validator)
+        comdare_generate_is_original_mixin(
+            WRAPPER_NAME    ${ARG_WRAPPER_NAME}
+            PAPER_ID        ${ARG_PAPER_ID}
+            LEGACY_CODE_DIR "${ARG_LEGACY_DIR}"
+            OUTPUT_HEADER   "${ARG_OUTPUT_HEADER}"
+            NAMESPACE       "${ARG_NAMESPACE}"
+            AXIS_MIXIN_TYPE "${ARG_AXIS_MIXIN_TYPE}"
+        )
+        add_custom_target(comdare_paper_${ARG_PAPER_ID}_codegen ALL
+            DEPENDS "${ARG_OUTPUT_HEADER}")
+    endif()
+endfunction()

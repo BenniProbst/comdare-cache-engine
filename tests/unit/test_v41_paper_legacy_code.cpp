@@ -559,3 +559,61 @@ TEST(P2C_NonPaperDefaults, GetCompilerOriginalDefault) {
     static_assert(p2c_nopaper::NoPaperSearchAlgo::get_compiler() == "original");
     SUCCEED();
 }
+
+// =================================================================
+// (13) P2.D Roll-out — jemalloc + snmalloc Paper-Wrappers
+// =================================================================
+//
+// 2 weitere Paper-Wrappers analog MimallocAllocator (Pattern via Helper
+// comdare_register_paper_wrapper). tcmalloc DEFER P2.D.t (Bazel-Mangling).
+
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_jemalloc.hpp>
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_snmalloc.hpp>
+
+namespace p2d_papers {
+using JemallocPaper = ::comdare::cache_engine::allocator::axis_06_allocator::JemallocAllocator;
+using SnmallocPaper = ::comdare::cache_engine::allocator::axis_06_allocator::SnmallocAllocator;
+}  // namespace
+
+TEST(P2D_JemallocPilot, GetCompilerOverridesAxisBaseDefault) {
+    static_assert(p2d_papers::JemallocPaper::get_compiler() == "gcc-9.5",
+                  "JemallocAllocator returns Paper-Compiler via Mixin");
+    SUCCEED();
+}
+
+TEST(P2D_JemallocPilot, IsOriginalModuleAllFunctions) {
+    static_assert(p2d_papers::JemallocPaper::is_original_allocate());
+    static_assert(p2d_papers::JemallocPaper::is_original_deallocate());
+    static_assert(p2d_papers::JemallocPaper::is_original_module(),
+                  "First-Build: alle Functions ORIGINAL (SHA-Match aus Lock-File)");
+    SUCCEED();
+}
+
+TEST(P2D_JemallocPilot, ConceptConforms) {
+    static_assert(ce_topics::AxisBaseConcept<p2d_papers::JemallocPaper>);
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<p2d_papers::JemallocPaper>);
+    static_assert(ce_concepts::HasOriginalCode<p2d_papers::JemallocPaper>);
+    static_assert(ce_concepts::PaperOriginalValidated<p2d_papers::JemallocPaper>);
+    SUCCEED();
+}
+
+TEST(P2D_SnmallocPilot, GetCompilerOverridesAxisBaseDefault) {
+    static_assert(p2d_papers::SnmallocPaper::get_compiler() == "clang-12",
+                  "SnmallocAllocator returns Paper-Compiler via Mixin (clang-12)");
+    SUCCEED();
+}
+
+TEST(P2D_SnmallocPilot, IsOriginalModuleAllFunctions) {
+    static_assert(p2d_papers::SnmallocPaper::is_original_allocate());
+    static_assert(p2d_papers::SnmallocPaper::is_original_deallocate());
+    static_assert(p2d_papers::SnmallocPaper::is_original_module());
+    SUCCEED();
+}
+
+TEST(P2D_SnmallocPilot, ConceptConforms) {
+    static_assert(ce_topics::AxisBaseConcept<p2d_papers::SnmallocPaper>);
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<p2d_papers::SnmallocPaper>);
+    static_assert(ce_concepts::HasOriginalCode<p2d_papers::SnmallocPaper>);
+    static_assert(ce_concepts::PaperOriginalValidated<p2d_papers::SnmallocPaper>);
+    SUCCEED();
+}
