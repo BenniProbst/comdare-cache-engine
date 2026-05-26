@@ -1,0 +1,26 @@
+#pragma once
+// V41.F.6.1 axis_q1_buffer_strategy AUTO-GENERATED Flags (CMake configure_file)
+//
+// @topic queuing
+// @achse Q1 buffer_strategy
+//
+// Quelle: CMakeLists.txt COMDARE_AXIS_Q1_USE_<NAME> Variablen
+// (= ENABLE && HAVE). Pilot ohne externe Vendor-Libs (alle Strategien
+// sind Standard-C++23 Implementation), daher USE = ENABLE direkt.
+
+#include <type_traits>
+
+namespace comdare::cache_engine::queuing::axis_q1_buffer_strategy::flags {
+
+// Pilot Batch 1 (Q-NONE, Q-FIFO, Q-LIFO, Q-RING)
+#cmakedefine01 COMDARE_AXIS_Q1_USE_NO_BUFFER
+#cmakedefine01 COMDARE_AXIS_Q1_USE_FIFO
+#cmakedefine01 COMDARE_AXIS_Q1_USE_LIFO
+#cmakedefine01 COMDARE_AXIS_Q1_USE_BOUNDED_RING
+
+inline constexpr bool no_buffer_enabled    = COMDARE_AXIS_Q1_USE_NO_BUFFER;
+inline constexpr bool fifo_enabled         = COMDARE_AXIS_Q1_USE_FIFO;
+inline constexpr bool lifo_enabled         = COMDARE_AXIS_Q1_USE_LIFO;
+inline constexpr bool bounded_ring_enabled = COMDARE_AXIS_Q1_USE_BOUNDED_RING;
+
+}  // namespace

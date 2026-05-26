@@ -83,6 +83,17 @@ option(COMDARE_AXIS_06_ENABLE_BUDDY       "Allocator A19 Buddy Power-of-2 Splitt
 option(COMDARE_AXIS_06_ENABLE_PTMALLOC2   "Allocator A21 ptmalloc2 explizit (Wolfram Gloger, glibc-Default)" ON)
 option(COMDARE_AXIS_06_ENABLE_VMEM_MAG    "Allocator A23 Vmem-Magazines (Bonwick USENIX 2001)"               ON)
 
+# V41.F.6.1 Topic queuing Pilot (2026-05-26): 2 Achsen — axis_Q1 buffer_strategy + axis_Q2 flush_policy
+# axis_Q1 Pilot Batch 1 (4 von 13 W2-Strategien)
+option(COMDARE_AXIS_Q1_ENABLE_NO_BUFFER    "Buffer-Strategy Q01 NoBuffer (Passthrough)"        ON)
+option(COMDARE_AXIS_Q1_ENABLE_FIFO         "Buffer-Strategy Q03 FIFOQueue (Ring/Deque)"        ON)
+option(COMDARE_AXIS_Q1_ENABLE_LIFO         "Buffer-Strategy Q04 LIFOStack"                     ON)
+option(COMDARE_AXIS_Q1_ENABLE_BOUNDED_RING "Buffer-Strategy Q05 BoundedRing<N> (Disruptor LMAX 2011)" ON)
+# axis_Q2 Pilot Batch 1 (3 von 5 W3-Flush-Policies)
+option(COMDARE_AXIS_Q2_ENABLE_EAGER        "Flush-Policy F01 EagerFlush (per-op)"              ON)
+option(COMDARE_AXIS_Q2_ENABLE_WATERMARK    "Flush-Policy F02 WatermarkFlush (threshold)"       ON)
+option(COMDARE_AXIS_Q2_ENABLE_LAZY         "Flush-Policy F04 LazyFlush (defer)"                ON)
+
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
 # aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
@@ -407,6 +418,37 @@ message(STATUS "  Batch 5: USE_LRMALLOC=${COMDARE_AXIS_06_USE_LRMALLOC} CAMA=${C
 message(STATUS "  Batch 6: USE_TCMALLOC_WH=${COMDARE_AXIS_06_USE_TCMALLOC_WH} HMALLOC=${COMDARE_AXIS_06_USE_HMALLOC} PIM_MALLOC=${COMDARE_AXIS_06_USE_PIM_MALLOC}")
 message(STATUS "  Batch 7: USE_CRYSTALLINE=${COMDARE_AXIS_06_USE_CRYSTALLINE} EXGEN=${COMDARE_AXIS_06_USE_EXGEN} BUDDY=${COMDARE_AXIS_06_USE_BUDDY}")
 message(STATUS "  Batch 8: USE_PTMALLOC2=${COMDARE_AXIS_06_USE_PTMALLOC2} VMEM_MAG=${COMDARE_AXIS_06_USE_VMEM_MAG} (VOLLAUSBAU 24 Vendor)")
+
+# V41.F.6.1 Topic queuing Pilot — USE = ENABLE direkt (kein externer Vendor heute)
+# axis_Q1 buffer_strategy
+foreach(_q1 NO_BUFFER FIFO LIFO BOUNDED_RING)
+    if(COMDARE_AXIS_Q1_ENABLE_${_q1})
+        set(COMDARE_AXIS_Q1_USE_${_q1} 1)
+    else()
+        set(COMDARE_AXIS_Q1_USE_${_q1} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/queuing/axis_q1_buffer_strategy/axis_q1_buffer_strategy_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/queuing/axis_q1_buffer_strategy/axis_q1_buffer_strategy_flags.hpp"
+    @ONLY)
+
+# axis_Q2 flush_policy
+foreach(_q2 EAGER WATERMARK LAZY)
+    if(COMDARE_AXIS_Q2_ENABLE_${_q2})
+        set(COMDARE_AXIS_Q2_USE_${_q2} 1)
+    else()
+        set(COMDARE_AXIS_Q2_USE_${_q2} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/queuing/axis_q2_flush_policy/axis_q2_flush_policy_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/queuing/axis_q2_flush_policy/axis_q2_flush_policy_flags.hpp"
+    @ONLY)
+
+message(STATUS "V41.F.6.1 Topic queuing Pilot:")
+message(STATUS "  axis_Q1: NO_BUFFER=${COMDARE_AXIS_Q1_USE_NO_BUFFER} FIFO=${COMDARE_AXIS_Q1_USE_FIFO} LIFO=${COMDARE_AXIS_Q1_USE_LIFO} BOUNDED_RING=${COMDARE_AXIS_Q1_USE_BOUNDED_RING}")
+message(STATUS "  axis_Q2: EAGER=${COMDARE_AXIS_Q2_USE_EAGER} WATERMARK=${COMDARE_AXIS_Q2_USE_WATERMARK} LAZY=${COMDARE_AXIS_Q2_USE_LAZY}")
 
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp.in"
