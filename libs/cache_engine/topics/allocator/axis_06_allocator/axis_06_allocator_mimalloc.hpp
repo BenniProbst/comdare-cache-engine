@@ -60,12 +60,11 @@ class MimallocAllocator
     : public AllocatorStrategyBase<MimallocAllocator>,
       public generated::a04_mimalloc::OriginalCodeMixin {  // V41.F.6.1.P2.B Paper-Mixin (Habich-Compliance)
 public:
-    // V41.F.6.1.P2.B Diamond-Disambiguation:
-    // AllocatorStrategyBase erbt von AxisBase (get_compiler() = "original" Default).
-    // OriginalCodeMixin (via OriginalCodeMixinBase) override mit PaperManifest::kCompiler.
-    // Mixin-Pfad wins fuer Habich-Compliance (gcc-9.5 statt "original").
+    // V41.F.6.1.P2.B/P2.C Diamond-Disambiguation:
+    // AllocatorStrategyBase erbt von AxisBase (get_compiler() = "original",
+    // is_original_module() = false Defaults). OriginalCodeMixin (via OriginalCodeMixinBase)
+    // ueberschreibt beides — Mixin-Pfad wins fuer Habich-Compliance.
     using generated::a04_mimalloc::OriginalCodeMixin::get_compiler;
-    using generated::a04_mimalloc::OriginalCodeMixin::has_original_paper_code;
     using generated::a04_mimalloc::OriginalCodeMixin::is_original_allocate;
     using generated::a04_mimalloc::OriginalCodeMixin::is_original_deallocate;
     using generated::a04_mimalloc::OriginalCodeMixin::is_original_module;

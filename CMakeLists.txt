@@ -539,11 +539,22 @@ configure_file(
     @ONLY)
 
 # ─────────────────────────────────────────────────────────────────────────────
+# V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung
+# (User-Direktive: cmake flag fuer alle Funktionen, mit dem die app Originalitaet
+# beweist). Bei OFF: kein Codegen, kein Mixin-Include — is_original_module()=false
+# kommt generisch via AxisBase Default automatisch fuer ALLE Algorithmen.
+# ─────────────────────────────────────────────────────────────────────────────
+option(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION
+       "Enable Paper-Original-Code SHA-Validation (Habich-Compliance Pre-Build-Tool)" ON)
+
+# ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.B mimalloc Pilot — Paper-Legacy-Code Init + is_original Codegen
 # Build-Time-Init aus ext/ in legacy_code/ + Tool-Run zur SHA-Validierung.
-# Erst aktiv wenn USE_MIMALLOC=ON UND is_original_validator gebaut wurde.
+# Aktiv nur wenn: Validation-Option ON + comdare_paper_init verfuegbar + ext-Sources da.
 # ─────────────────────────────────────────────────────────────────────────────
-if(COMMAND comdare_paper_init AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ext/A04-mimalloc/src/alloc-aligned.c")
+if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION
+   AND COMMAND comdare_paper_init
+   AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ext/A04-mimalloc/src/alloc-aligned.c")
     set(_a04_legacy "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/legacy_code/paper_a04_mimalloc")
     set(_a04_output "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/allocator/axis_06_allocator/legacy_code/paper_a04_mimalloc_is_original.hpp")
 

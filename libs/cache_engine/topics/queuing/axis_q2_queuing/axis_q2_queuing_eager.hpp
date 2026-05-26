@@ -26,6 +26,7 @@ namespace comdare::cache_engine::queuing::axis_q2_queuing {
 class EagerFlush : public ::comdare::cache_engine::topics::AxisBase {
 public:
     static constexpr bool enabled = flags::eager_enabled;
+    // V41.F.6.1.P2.C ENTFERNT: Defaults kommen via AxisBase (is_original_module = false).
 
     using topic_tag = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag  = subaxes::event_triggered_tag;

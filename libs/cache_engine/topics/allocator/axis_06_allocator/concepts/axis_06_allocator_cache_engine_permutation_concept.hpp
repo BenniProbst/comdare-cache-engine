@@ -30,6 +30,7 @@
 #include "../axis_06_allocator_subaxes_aa1_to_aa7.hpp"
 
 #include <measurement/measurable_concept.hpp>   // V41.F.6.1 Stufe 3 LIVE: MeasurableObserver Template
+#include <concepts/legacy_original_code_strategy_concept.hpp>   // V41.F.6.1.P2.C Habich-Compliance Pflicht-API
 
 #include <concepts>
 #include <cstddef>
@@ -176,6 +177,8 @@ concept CacheEnginePermutationStrategy =
         { ac.observer() } noexcept -> std::same_as<typename A::observer_t const&>;
     }
 #endif
+    // V41.F.6.1.P2.C Habich-Compliance Pflicht: get_compiler + has_original_paper_code + is_original_module
+    && ::comdare::cache_engine::concepts::LegacyOriginalCodePflicht<A>
     ;
 
 }  // namespace comdare::cache_engine::allocator::axis_06_allocator::concepts

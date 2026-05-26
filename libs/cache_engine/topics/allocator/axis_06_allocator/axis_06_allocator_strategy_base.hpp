@@ -64,6 +64,12 @@ public:
     }
 
     // ───────────────────────────────────────────────────────────────────────
+    // V41.F.6.1.P2.C ENTFERNT: has_original_paper_code + is_original_module
+    // Kommen jetzt generisch via AxisBase Default (is_original_module = false).
+    // Paper-Wrappers (z.B. MimallocAllocator) ueberschreiben via Mixin-Inheritance.
+    // ───────────────────────────────────────────────────────────────────────
+
+    // ───────────────────────────────────────────────────────────────────────
     // CRTP-Delegate-Methoden zu Derived (Standard-PMR-Naming)
     // ───────────────────────────────────────────────────────────────────────
 

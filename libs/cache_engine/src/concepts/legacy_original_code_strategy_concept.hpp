@@ -10,15 +10,17 @@
 // aus einem wissenschaftlichen Paper implementiert. Cross-Topic (Allocator,
 // queuing, traversal, ...) — daher in src/concepts/ statt topic-spezifisch.
 //
-// Pflicht-Properties pro Wrapper:
-//   - static constexpr std::string_view experiment_compiler() noexcept;
+// Pflicht-Properties pro Wrapper (V41.F.6.1.P2.C reduziert auf 2 statt 3):
+//   - static constexpr std::string_view get_compiler() noexcept;
 //     z.B. "gcc-9.5"; "self" wenn eigene Re-Impl; "system" wenn ohne Paper-Bindung
-//   - static constexpr bool has_original_paper_code() noexcept;
-//     true: legacy_code/paper_<id>/ existiert + wird gelinkt
-//     false: Re-Implementation (Pseudocode-Paper, Non-C/C++/Go)
 //   - static constexpr bool is_original_module() noexcept;
-//     true: ALLE is_original_<function> sind true (SHA-validiert)
-//     false: mindestens eine Function ist modifiziert oder re-implementiert
+//     true: Paper-Original-Code-Linking aktiv UND ALLE is_original_<fn>() sind true (SHA-validiert)
+//     false: Re-Impl ODER Paper-Code wurde modifiziert ODER kein Mixin im Build
+//
+// **Eliminiert P2.C (User-Direktive 2026-05-26):** `has_original_paper_code` war
+// redundant zu `is_original_module` und produzierte Code-Bloat (10 hardcoded Defaults).
+// Eine Boolean reicht semantisch. AxisBase liefert generischen Default `false`,
+// Paper-Mixin (Tool-generiert) ueberschreibt mit `mp_all_of` aller per-function Bools.
 
 #include <boost/mp11.hpp>
 
@@ -43,21 +45,27 @@ namespace mp = boost::mp11;
 template <typename W>
 concept LegacyOriginalCodePflicht =
     requires {
-        { W::get_compiler() } -> std::convertible_to<std::string_view>;
-        { W::has_original_paper_code() } -> std::convertible_to<bool>;
+        { W::get_compiler() }       -> std::convertible_to<std::string_view>;
         { W::is_original_module() } -> std::convertible_to<bool>;
     };
 
 /**
- * @brief HasOriginalCode — Sub-Concept: Wrapper hat legacy_code-Linking
+ * @brief HasOriginalCode — Sub-Concept: Paper-Wrapper mit konkretem Compiler
  *
- * Erfuellt wenn has_original_paper_code() = true zur Compile-Zeit.
+ * Erfuellt wenn get_compiler() != "original" UND != "self" UND != "system"
+ * (also konkreter Paper-Compiler wie "gcc-9.5", "clang-12", ...).
+ * V41.F.6.1.P2.C: ersetzt frueheres `has_original_paper_code()` Bool durch
+ * compile-time Auswertung der bereits vorhandenen get_compiler()-Property.
+ *
  * CacheEngineBuilder kann via mp_filter is_compiler_available pruefen
  * ob das Paper-Binary gebuildet werden kann.
  */
 template <typename W>
 concept HasOriginalCode =
-    LegacyOriginalCodePflicht<W> && (W::has_original_paper_code());
+    LegacyOriginalCodePflicht<W>
+    && (W::get_compiler() != std::string_view{"original"})
+    && (W::get_compiler() != std::string_view{"self"})
+    && (W::get_compiler() != std::string_view{"system"});
 
 /**
  * @brief PaperOriginalValidated — Sub-Concept: SHA-validierte Original-Code

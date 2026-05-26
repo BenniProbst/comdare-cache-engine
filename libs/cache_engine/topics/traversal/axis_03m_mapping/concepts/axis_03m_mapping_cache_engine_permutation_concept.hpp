@@ -5,6 +5,7 @@
 #include "../axis_03m_mapping_subaxes_mp1_to_mp2.hpp"
 
 #include <measurement/measurable_concept.hpp>
+#include <concepts/legacy_original_code_strategy_concept.hpp>   // V41.F.6.1.P2.C Habich-Compliance Pflicht-API
 
 #include <concepts>
 #include <cstddef>
@@ -60,6 +61,8 @@ concept CacheEngineMappingPermutationStrategy =
         { mc.observer() } noexcept -> std::same_as<typename M::observer_t const&>;
     }
 #endif
+    // V41.F.6.1.P2.C Habich-Compliance: get_compiler + is_original_module (cross-axis via AxisBase Default)
+    && ::comdare::cache_engine::concepts::LegacyOriginalCodePflicht<M>
     ;
 
 }  // namespace
