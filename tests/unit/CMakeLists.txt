@@ -281,3 +281,13 @@ target_include_directories(test_v41_compositions PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_compositions PRIVATE Boost::mp11)
+
+# V41.F.6.1.F Topics-Fundament-Sprint (12 Topics Skelett-Stufe-A)
+comdare_add_test(test_v41_topics_fundament
+    SOURCES test_v41_topics_fundament.cpp)
+target_include_directories(test_v41_topics_fundament PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_topics_fundament PRIVATE Boost::mp11)
