@@ -59,7 +59,11 @@ option(COMDARE_AXIS_06_ENABLE_PMR       "Allocator A22 std::pmr::memory_resource
 option(COMDARE_AXIS_06_ENABLE_JEMALLOC  "Allocator A05 Jemalloc Arena-based (Evans)" ON)
 option(COMDARE_AXIS_06_ENABLE_TCMALLOC  "Allocator A06 TCMalloc Thread-Caching (Google)" ON)
 option(COMDARE_AXIS_06_ENABLE_DLMALLOC  "Allocator A20 dlmalloc Bins (Doug Lea)"     ON)
-# ... weitere Vendor-Flags fuer Batch 3-8 (A01,A02,A03,A08-A19,A21,A23) folgen
+# V41.F.6.1 Batch 3 Vendor (2026-05-26): Hoard / Slab / Michael LockFree
+option(COMDARE_AXIS_06_ENABLE_HOARD      "Allocator A01 Hoard Per-Heap (Berger/McKinley 2000)" ON)
+option(COMDARE_AXIS_06_ENABLE_SLAB       "Allocator A02 Slab Magazine-Cache (Bonwick 1994)"    ON)
+option(COMDARE_AXIS_06_ENABLE_MICHAEL_LF "Allocator A03 Michael Lock-Free CAS (PODC 2002)"     ON)
+# ... weitere Vendor-Flags fuer Batch 4-8 (A08-A19,A21,A23) folgen
 
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
@@ -268,9 +272,29 @@ else()
     set(COMDARE_AXIS_06_USE_DLMALLOC 0)
 endif()
 
+# V41.F.6.1 Batch 3 Vendor — USE = ENABLE && HAVE
+if(COMDARE_AXIS_06_ENABLE_HOARD AND COMDARE_HAVE_HOARD)
+    set(COMDARE_AXIS_06_USE_HOARD 1)
+else()
+    set(COMDARE_AXIS_06_USE_HOARD 0)
+endif()
+
+if(COMDARE_AXIS_06_ENABLE_SLAB AND COMDARE_HAVE_SLAB)
+    set(COMDARE_AXIS_06_USE_SLAB 1)
+else()
+    set(COMDARE_AXIS_06_USE_SLAB 0)
+endif()
+
+if(COMDARE_AXIS_06_ENABLE_MICHAEL_LF AND COMDARE_HAVE_MICHAEL_LF)
+    set(COMDARE_AXIS_06_USE_MICHAEL_LF 1)
+else()
+    set(COMDARE_AXIS_06_USE_MICHAEL_LF 0)
+endif()
+
 message(STATUS "V41.F.6.1.C Allocator Axis 6 effective USE flags:")
 message(STATUS "  Batch 1: USE_STD=${COMDARE_AXIS_06_USE_STD} MIMALLOC=${COMDARE_AXIS_06_USE_MIMALLOC} SNMALLOC=${COMDARE_AXIS_06_USE_SNMALLOC} PMR=${COMDARE_AXIS_06_USE_PMR}")
 message(STATUS "  Batch 2: USE_JEMALLOC=${COMDARE_AXIS_06_USE_JEMALLOC} TCMALLOC=${COMDARE_AXIS_06_USE_TCMALLOC} DLMALLOC=${COMDARE_AXIS_06_USE_DLMALLOC}")
+message(STATUS "  Batch 3: USE_HOARD=${COMDARE_AXIS_06_USE_HOARD} SLAB=${COMDARE_AXIS_06_USE_SLAB} MICHAEL_LF=${COMDARE_AXIS_06_USE_MICHAEL_LF}")
 
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp.in"
