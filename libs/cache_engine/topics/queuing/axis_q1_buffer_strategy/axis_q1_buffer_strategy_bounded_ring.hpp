@@ -115,6 +115,18 @@ public:
 
     [[nodiscard]] size_type capacity() const noexcept { return capacity_; }
 
+    // std::queue-API: peek_front=head (oldest), peek_back=tail-1 (newest)
+    [[nodiscard]] std::optional<element_type> peek_front() const noexcept {
+        if (count_ == 0) return std::nullopt;
+        return buffer_[head_];
+    }
+    [[nodiscard]] std::optional<element_type> peek_back() const noexcept {
+        if (count_ == 0) return std::nullopt;
+        std::size_t last_idx = (tail_ + capacity_ - 1) % capacity_;
+        return buffer_[last_idx];
+    }
+    void emplace(element_type v) { put(v); }
+
     /// Setter fuer Runtime-Capacity-Switch (iterable_aspect_t Pattern)
     void set_capacity(std::size_t new_cap) {
         buffer_.assign(new_cap, 0);

@@ -83,6 +83,17 @@ public:
     [[nodiscard]] bool      is_empty() const noexcept { return data_.empty(); }
     void                    clear()          noexcept { data_.clear(); }
 
+    // std::queue-API: peek_front=oldest (deque::front), peek_back=newest (deque::back)
+    [[nodiscard]] std::optional<element_type> peek_front() const noexcept {
+        if (data_.empty()) return std::nullopt;
+        return data_.front();
+    }
+    [[nodiscard]] std::optional<element_type> peek_back() const noexcept {
+        if (data_.empty()) return std::nullopt;
+        return data_.back();
+    }
+    void emplace(element_type v) { put(v); }
+
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = concepts::BufferStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;

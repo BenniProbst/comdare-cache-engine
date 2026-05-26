@@ -9,6 +9,7 @@
 #include "../concepts/topic_queuing_concept.hpp"
 
 #include <topics/queuing/axis_q2_flush_policy/axis_q2_flush_policy_flags.hpp>
+#include <measurement/measurable_concept.hpp>
 #include <array>
 #include <cstddef>
 #include <span>
@@ -52,18 +53,45 @@ public:
     explicit WatermarkFlush(unsigned pct) noexcept : threshold_pct_(pct) {}
 
     [[nodiscard]] concepts::FlushDecision should_flush(std::size_t fill, std::size_t cap) const noexcept {
-        if (cap == 0) return concepts::FlushDecision::NoFlush;
-        unsigned current_pct = static_cast<unsigned>((fill * 100u) / cap);
-        return (current_pct >= threshold_pct_) ? concepts::FlushDecision::FullFlush
-                                                : concepts::FlushDecision::NoFlush;
+        concepts::FlushDecision dec = concepts::FlushDecision::NoFlush;
+        if (cap > 0) {
+            unsigned current_pct = static_cast<unsigned>((fill * 100u) / cap);
+            if (current_pct >= threshold_pct_) dec = concepts::FlushDecision::FullFlush;
+        }
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        ++stats_.total_decisions_evaluated;
+        if (dec == concepts::FlushDecision::FullFlush) ++stats_.full_flush_count;
+        else                                            ++stats_.no_flush_count;
+        observer_.notify(stats_);
+#endif
+        return dec;
     }
-    void on_flush_complete() noexcept {}
+    void on_flush_complete() noexcept {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        ++stats_.flush_complete_count;
+        observer_.notify(stats_);
+#endif
+    }
 
     [[nodiscard]] unsigned threshold_pct() const noexcept { return threshold_pct_; }
     void set_threshold_pct(unsigned pct) noexcept { threshold_pct_ = pct; }
 
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    using snapshot_t = concepts::FlushPolicyStatistics;
+    using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
+    [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
+    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
+    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+#endif
+
 private:
     unsigned threshold_pct_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    mutable concepts::FlushPolicyStatistics stats_{};
+    mutable observer_t                       observer_{};
+#endif
 };
 
 }  // namespace

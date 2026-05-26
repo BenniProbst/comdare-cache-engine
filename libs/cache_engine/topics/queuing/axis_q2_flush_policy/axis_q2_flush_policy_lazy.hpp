@@ -9,6 +9,7 @@
 #include "../concepts/topic_queuing_concept.hpp"
 
 #include <topics/queuing/axis_q2_flush_policy/axis_q2_flush_policy_flags.hpp>
+#include <measurement/measurable_concept.hpp>
 #include <cstddef>
 #include <string_view>
 #include <type_traits>
@@ -39,9 +40,32 @@ public:
     [[nodiscard]] static constexpr bool is_adaptive()        noexcept { return false; }
 
     [[nodiscard]] concepts::FlushDecision should_flush(std::size_t, std::size_t) const noexcept {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        ++stats_.total_decisions_evaluated;
+        ++stats_.no_flush_count;
+        observer_.notify(stats_);
+#endif
         return concepts::FlushDecision::NoFlush;
     }
-    void on_flush_complete() noexcept {}
+    void on_flush_complete() noexcept {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        ++stats_.flush_complete_count;
+        observer_.notify(stats_);
+#endif
+    }
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    using snapshot_t = concepts::FlushPolicyStatistics;
+    using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
+    [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
+    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
+    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+private:
+    mutable concepts::FlushPolicyStatistics stats_{};
+    mutable observer_t                       observer_{};
+#endif
 };
 
 }  // namespace
