@@ -10,6 +10,9 @@
 #include "axis_q1_queuing_fifo.hpp"
 #include "axis_q1_queuing_lifo.hpp"
 #include "axis_q1_queuing_bounded_ring.hpp"
+// Batch 2 (Q-APP AppendOnly, Q-PRIO PriorityHeap)
+#include "axis_q1_queuing_append_only.hpp"
+#include "axis_q1_queuing_priority_heap.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
@@ -24,11 +27,13 @@ using AllStrategies = mp::mp_list<
     NoBuffer,
     FIFOQueue,
     LIFOStack,
-    BoundedRing
-    // Vollausbau-Batches 2-5 (geplant):
-    // Q02 AppendOnly, Q06 PriorityHeap, Q07 DeltaChain, Q08 SkiplistBuffer,
-    // Q09 TombstoneBuffer, Q10 CopyOnWrite, Q11 EpochBuffer, Q12 BatchedInsertBuffer,
-    // Q13 LockFreeSPSC, Q14 LockFreeMPMC
+    BoundedRing,
+    // Batch 2 (2026-05-26)
+    AppendOnly,
+    PriorityHeap
+    // Vollausbau-Batches 3-5 (geplant):
+    // Q07 DeltaChain, Q08 SkiplistBuffer, Q09 TombstoneBuffer, Q10 CopyOnWrite,
+    // Q11 EpochBuffer, Q12 BatchedInsertBuffer, Q13 LockFreeSPSC, Q14 LockFreeMPMC
 >;
 
 template <typename S>

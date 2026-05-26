@@ -89,6 +89,9 @@ option(COMDARE_AXIS_Q1_ENABLE_NO_BUFFER    "Buffer-Strategy Q01 NoBuffer (Passth
 option(COMDARE_AXIS_Q1_ENABLE_FIFO         "Buffer-Strategy Q03 FIFOQueue (Ring/Deque)"        ON)
 option(COMDARE_AXIS_Q1_ENABLE_LIFO         "Buffer-Strategy Q04 LIFOStack"                     ON)
 option(COMDARE_AXIS_Q1_ENABLE_BOUNDED_RING "Buffer-Strategy Q05 BoundedRing<N> (Disruptor LMAX 2011)" ON)
+# Batch 2 (2026-05-26): Q-APP AppendOnly (LSM-MemTable) + Q-PRIO PriorityHeap (Hot-Key)
+option(COMDARE_AXIS_Q1_ENABLE_APPEND_ONLY   "Buffer-Strategy Q02 AppendOnly (LSM-MemTable, Bw-Tree Delta)" ON)
+option(COMDARE_AXIS_Q1_ENABLE_PRIORITY_HEAP "Buffer-Strategy Q06 PriorityHeap (LRU-Approx, Hot-Key Promo)" ON)
 # axis_Q2 Pilot Batch 1 (3 von 5 W3-Flush-Policies)
 option(COMDARE_AXIS_Q2_ENABLE_EAGER        "Flush-Policy F01 EagerFlush (per-op)"              ON)
 option(COMDARE_AXIS_Q2_ENABLE_WATERMARK    "Flush-Policy F02 WatermarkFlush (threshold)"       ON)
@@ -420,8 +423,8 @@ message(STATUS "  Batch 7: USE_CRYSTALLINE=${COMDARE_AXIS_06_USE_CRYSTALLINE} EX
 message(STATUS "  Batch 8: USE_PTMALLOC2=${COMDARE_AXIS_06_USE_PTMALLOC2} VMEM_MAG=${COMDARE_AXIS_06_USE_VMEM_MAG} (VOLLAUSBAU 24 Vendor)")
 
 # V41.F.6.1 Topic queuing Pilot — USE = ENABLE direkt (kein externer Vendor heute)
-# axis_Q1 buffer_strategy
-foreach(_q1 NO_BUFFER FIFO LIFO BOUNDED_RING)
+# axis_Q1 buffer_strategy (Pilot Batch 1 + Batch 2 Q-APP/Q-PRIO)
+foreach(_q1 NO_BUFFER FIFO LIFO BOUNDED_RING APPEND_ONLY PRIORITY_HEAP)
     if(COMDARE_AXIS_Q1_ENABLE_${_q1})
         set(COMDARE_AXIS_Q1_USE_${_q1} 1)
     else()
@@ -447,7 +450,7 @@ configure_file(
     @ONLY)
 
 message(STATUS "V41.F.6.1 Topic queuing Pilot:")
-message(STATUS "  axis_Q1: NO_BUFFER=${COMDARE_AXIS_Q1_USE_NO_BUFFER} FIFO=${COMDARE_AXIS_Q1_USE_FIFO} LIFO=${COMDARE_AXIS_Q1_USE_LIFO} BOUNDED_RING=${COMDARE_AXIS_Q1_USE_BOUNDED_RING}")
+message(STATUS "  axis_Q1: NO_BUFFER=${COMDARE_AXIS_Q1_USE_NO_BUFFER} FIFO=${COMDARE_AXIS_Q1_USE_FIFO} LIFO=${COMDARE_AXIS_Q1_USE_LIFO} BOUNDED_RING=${COMDARE_AXIS_Q1_USE_BOUNDED_RING} APPEND_ONLY=${COMDARE_AXIS_Q1_USE_APPEND_ONLY} PRIORITY_HEAP=${COMDARE_AXIS_Q1_USE_PRIORITY_HEAP}")
 message(STATUS "  axis_Q2: EAGER=${COMDARE_AXIS_Q2_USE_EAGER} WATERMARK=${COMDARE_AXIS_Q2_USE_WATERMARK} LAZY=${COMDARE_AXIS_Q2_USE_LAZY}")
 
 configure_file(
