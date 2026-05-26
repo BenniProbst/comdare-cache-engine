@@ -116,6 +116,10 @@ option(COMDARE_AXIS_Q2_ENABLE_ADAPTIVE_LSM "Flush-Policy F05 AdaptiveLsmFlush (F
 option(COMDARE_AXIS_03A_ENABLE_ARRAY256       "Search-Algo S01 Array256 (ART Node256 dense, Leis ICDE 2013, SA1 dense, SIMD)" ON)
 option(COMDARE_AXIS_03A_ENABLE_VECTOR_U8U8    "Search-Algo S02 VectorU8U8 (HOT Patricia sparse, Binna PVLDB 2018, SA2 sparse, SIMD)" ON)
 option(COMDARE_AXIS_03A_ENABLE_VECTOR_U16U16  "Search-Algo S03 VectorU16U16 (START multi-byte Cost-DP, Mertens ICDE 2024, SA3 multilevel)" ON)
+# V41.F.6.1.P2.D.tr.s2 — Original-Paper-Wrappers (Habich-Compliance get_compiler='gcc-9.5' via Mixin)
+option(COMDARE_AXIS_03A_ENABLE_ORIGINAL_ART   "Search-Algo S04 OriginalArtSearchAlgo (ART Leis ICDE 2013 — 4/4 originall)" ON)
+option(COMDARE_AXIS_03A_ENABLE_ORIGINAL_HOT   "Search-Algo S05 OriginalHotSearchAlgo (HOT Binna PVLDB 2018 — 2/4 originall, erase+clear Luecken)" ON)
+option(COMDARE_AXIS_03A_ENABLE_ORIGINAL_START "Search-Algo S06 OriginalStartSearchAlgo (START Mertens ICDE 2024 — 2/4 originall, erase+clear Luecken)" ON)
 # axis_03b Pilot Batch 1 (2 Strategien)
 option(COMDARE_AXIS_03B_ENABLE_LINEAR_FANOUT  "Cache-Traversal CT01 LinearFanout (prt-art IFanout linear-scan, CT1 linear)" ON)
 option(COMDARE_AXIS_03B_ENABLE_HASH_LOOKUP    "Cache-Traversal CT02 HashLookup (Fibonacci-Hash open-addressing, CT2 hash)" ON)
@@ -489,8 +493,8 @@ message(STATUS "  axis_Q1 VOLLAUSBAU (13/13 W2): NO_BUFFER=${COMDARE_AXIS_Q1_USE
 message(STATUS "  axis_Q2 VOLLAUSBAU (5/5 W3): EAGER=${COMDARE_AXIS_Q2_USE_EAGER} WATERMARK=${COMDARE_AXIS_Q2_USE_WATERMARK} LAZY=${COMDARE_AXIS_Q2_USE_LAZY} TIMED=${COMDARE_AXIS_Q2_USE_TIMED} ADAPTIVE_LSM=${COMDARE_AXIS_Q2_USE_ADAPTIVE_LSM}")
 
 # V41.F.6.1 Topic traversal Pilot — USE-Flag-Berechnungen + configure_file (2026-05-26)
-# axis_03a search_algo
-foreach(_s03a ARRAY256 VECTOR_U8U8 VECTOR_U16U16)
+# axis_03a search_algo (Re-Impl Wrapper S01-S03 + V41.F.6.1.P2.D.tr.s2 Original-Paper-Wrappers S04-S06)
+foreach(_s03a ARRAY256 VECTOR_U8U8 VECTOR_U16U16 ORIGINAL_ART ORIGINAL_HOT ORIGINAL_START)
     if(COMDARE_AXIS_03A_ENABLE_${_s03a})
         set(COMDARE_AXIS_03A_USE_${_s03a} 1)
     else()
@@ -529,7 +533,7 @@ configure_file(
     @ONLY)
 
 message(STATUS "V41.F.6.1 Topic traversal Pilot:")
-message(STATUS "  axis_03a (3 search_algo): ARRAY256=${COMDARE_AXIS_03A_USE_ARRAY256} VECTOR_U8U8=${COMDARE_AXIS_03A_USE_VECTOR_U8U8} VECTOR_U16U16=${COMDARE_AXIS_03A_USE_VECTOR_U16U16}")
+message(STATUS "  axis_03a (6 search_algo): ARRAY256=${COMDARE_AXIS_03A_USE_ARRAY256} VECTOR_U8U8=${COMDARE_AXIS_03A_USE_VECTOR_U8U8} VECTOR_U16U16=${COMDARE_AXIS_03A_USE_VECTOR_U16U16} ORIGINAL_ART=${COMDARE_AXIS_03A_USE_ORIGINAL_ART} ORIGINAL_HOT=${COMDARE_AXIS_03A_USE_ORIGINAL_HOT} ORIGINAL_START=${COMDARE_AXIS_03A_USE_ORIGINAL_START}")
 message(STATUS "  axis_03b (2 cache_traversal): LINEAR_FANOUT=${COMDARE_AXIS_03B_USE_LINEAR_FANOUT} HASH_LOOKUP=${COMDARE_AXIS_03B_USE_HASH_LOOKUP}")
 message(STATUS "  axis_03m (2 mapping): DIRECT_PLACEMENT=${COMDARE_AXIS_03M_USE_DIRECT_PLACEMENT} POOL_RELATIVE=${COMDARE_AXIS_03M_USE_POOL_RELATIVE}")
 

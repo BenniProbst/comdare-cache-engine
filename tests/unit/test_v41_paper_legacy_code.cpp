@@ -525,6 +525,121 @@ TYPED_TEST(PaperWrapperConformance, IsOriginalModuleAggregation) {
 }
 
 // =================================================================
+// (11b) P2.D.tr.s2 Original-SearchAlgo-Wrappers — Cross-Validation
+// =================================================================
+//
+// Pattern-Disziplin [[cross-axis-defaults-no-bloat]]: Auto-Skalierung via TYPED_TEST.
+// 2 separate Suites wegen unterschiedlicher is_original_module()-Erwartung:
+//   - FullOriginal:    alle 4 Functions originall (ART) — is_original_module()=true
+//   - PartialOriginal: 2/4 originall + 2 Luecken (HOT, START) — is_original_module()=false
+
+#include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_original_art.hpp>
+#include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_original_hot.hpp>
+#include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_original_start.hpp>
+
+namespace original_search_algo {
+using OrigArt   = ::comdare::cache_engine::traversal::axis_03a_search_algo::OriginalArtSearchAlgo;
+using OrigHot   = ::comdare::cache_engine::traversal::axis_03a_search_algo::OriginalHotSearchAlgo;
+using OrigStart = ::comdare::cache_engine::traversal::axis_03a_search_algo::OriginalStartSearchAlgo;
+}  // namespace
+
+// (a) Full-Original SearchAlgo (alle Functions Paper-bound) — heute nur ART
+using FullOriginalSearchAlgoList = ::testing::Types<
+    original_search_algo::OrigArt
+>;
+template <typename W> class FullOriginalSearchAlgoConformance : public ::testing::Test {};
+TYPED_TEST_SUITE(FullOriginalSearchAlgoConformance, FullOriginalSearchAlgoList);
+
+TYPED_TEST(FullOriginalSearchAlgoConformance, AxisBaseConcept) {
+    static_assert(ce_topics::AxisBaseConcept<TypeParam>);
+    SUCCEED();
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, LegacyOriginalCodePflichtConcept) {
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<TypeParam>);
+    SUCCEED();
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, HasOriginalCodeConcept) {
+    static_assert(ce_concepts::HasOriginalCode<TypeParam>);
+    SUCCEED();
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, PaperOriginalValidatedConcept) {
+    static_assert(ce_concepts::PaperOriginalValidated<TypeParam>,
+                  "Full-Original SearchAlgo: is_original_module() MUSS true sein (alle 4 Functions originall)");
+    SUCCEED();
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, GetCompilerOverridesAxisBaseDefault) {
+    static_assert(TypeParam::get_compiler() != std::string_view{"original"});
+    static_assert(TypeParam::get_compiler() != std::string_view{"self"});
+    static_assert(TypeParam::get_compiler() != std::string_view{"system"});
+    SUCCEED();
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, IsOriginalInsert) {
+    static_assert(TypeParam::is_original_insert());
+    SUCCEED();
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, IsOriginalLookup) {
+    static_assert(TypeParam::is_original_lookup());
+    SUCCEED();
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, IsOriginalErase) {
+    static_assert(TypeParam::is_original_erase());
+    SUCCEED();
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, IsOriginalClear) {
+    static_assert(TypeParam::is_original_clear());
+    SUCCEED();
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, IsOriginalModuleAggregation) {
+    static_assert(TypeParam::is_original_module());
+    SUCCEED();
+}
+
+// (b) Partial-Original SearchAlgo (Paper-API + Luecken) — HOT + START
+using PartialOriginalSearchAlgoList = ::testing::Types<
+    original_search_algo::OrigHot,
+    original_search_algo::OrigStart
+>;
+template <typename W> class PartialOriginalSearchAlgoConformance : public ::testing::Test {};
+TYPED_TEST_SUITE(PartialOriginalSearchAlgoConformance, PartialOriginalSearchAlgoList);
+
+TYPED_TEST(PartialOriginalSearchAlgoConformance, AxisBaseConcept) {
+    static_assert(ce_topics::AxisBaseConcept<TypeParam>);
+    SUCCEED();
+}
+TYPED_TEST(PartialOriginalSearchAlgoConformance, LegacyOriginalCodePflichtConcept) {
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<TypeParam>);
+    SUCCEED();
+}
+TYPED_TEST(PartialOriginalSearchAlgoConformance, HasOriginalCodeConcept) {
+    static_assert(ce_concepts::HasOriginalCode<TypeParam>,
+                  "Partial-Original SearchAlgo: get_compiler() MUSS konkret sein (gcc-9.5 via Mixin), HasOriginalCode greift");
+    SUCCEED();
+}
+TYPED_TEST(PartialOriginalSearchAlgoConformance, NotPaperOriginalValidated) {
+    static_assert(!ce_concepts::PaperOriginalValidated<TypeParam>,
+                  "Partial-Original SearchAlgo: is_original_module() MUSS false sein (2/4 Lücken)");
+    SUCCEED();
+}
+TYPED_TEST(PartialOriginalSearchAlgoConformance, GetCompilerOverridesAxisBaseDefault) {
+    static_assert(TypeParam::get_compiler() != std::string_view{"original"});
+    SUCCEED();
+}
+TYPED_TEST(PartialOriginalSearchAlgoConformance, PaperApiFunctionsOriginal) {
+    static_assert(TypeParam::is_original_insert(),
+                  "Partial-Original: insert MUSS Paper-API originall sein");
+    static_assert(TypeParam::is_original_lookup(),
+                  "Partial-Original: lookup MUSS Paper-API originall sein");
+    SUCCEED();
+}
+TYPED_TEST(PartialOriginalSearchAlgoConformance, LueckenFunctionsNotOriginal) {
+    static_assert(!TypeParam::is_original_erase(),
+                  "Partial-Original: erase ist Cache-Engine Re-Impl Luecke — MUSS false sein");
+    static_assert(!TypeParam::is_original_clear(),
+                  "Partial-Original: clear ist Cache-Engine Re-Impl Luecke — MUSS false sein");
+    SUCCEED();
+}
+
+// =================================================================
 // (12) P2.C Non-Paper-Wrappers — TYPED_TEST_SUITE (kompakt, cross-topic)
 // =================================================================
 //

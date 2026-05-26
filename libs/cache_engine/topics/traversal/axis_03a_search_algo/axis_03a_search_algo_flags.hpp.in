@@ -10,8 +10,18 @@ namespace comdare::cache_engine::traversal::axis_03a_search_algo::flags {
 #cmakedefine01 COMDARE_AXIS_03A_USE_VECTOR_U8U8
 #cmakedefine01 COMDARE_AXIS_03A_USE_VECTOR_U16U16
 
+// V41.F.6.1.P2.D.tr.s2 Original-Paper-Wrappers (S04 ART, S05 HOT, S06 START) — 2026-05-26
+// parallel zu Re-Impl S01-S03; get_compiler="gcc-9.5" via Paper-Mixin; is_original_*=true
+// fuer Paper-API. P02 HOT + P05 START haben erase/clear Lücken (eigene Re-Impl).
+#cmakedefine01 COMDARE_AXIS_03A_USE_ORIGINAL_ART
+#cmakedefine01 COMDARE_AXIS_03A_USE_ORIGINAL_HOT
+#cmakedefine01 COMDARE_AXIS_03A_USE_ORIGINAL_START
+
 inline constexpr bool array256_enabled       = COMDARE_AXIS_03A_USE_ARRAY256;
 inline constexpr bool vector_u8u8_enabled    = COMDARE_AXIS_03A_USE_VECTOR_U8U8;
 inline constexpr bool vector_u16u16_enabled  = COMDARE_AXIS_03A_USE_VECTOR_U16U16;
+inline constexpr bool original_art_enabled   = COMDARE_AXIS_03A_USE_ORIGINAL_ART;
+inline constexpr bool original_hot_enabled   = COMDARE_AXIS_03A_USE_ORIGINAL_HOT;
+inline constexpr bool original_start_enabled = COMDARE_AXIS_03A_USE_ORIGINAL_START;
 
 }  // namespace

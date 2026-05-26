@@ -583,14 +583,17 @@ template <class M> using is_pool_relative_mapping = mp::mp_bool<M::is_pool_relat
 
 TEST(PropertyFilter_03a, SimdCapableSubset) {
     using SimdSubset = mp::mp_filter<is_simd_search_algo, ce_03a::AllStrategies>;
-    // Array256 + VectorU8U8 sind SIMD, VectorU16U16 nicht → 2/3
-    EXPECT_EQ(mp::mp_size<SimdSubset>::value, 2u);
+    // Re-Impl: Array256 + VectorU8U8 (SIMD), VectorU16U16 (kein SIMD)
+    // V41.F.6.1.P2.D.tr.s2: + OriginalArt (SIMD) + OriginalHot (SIMD), OriginalStart (kein SIMD)
+    //   → 4 von 6 SIMD-faehig
+    EXPECT_EQ(mp::mp_size<SimdSubset>::value, 4u);
 }
 
 TEST(PropertyFilter_03a, DenseSubset) {
     using DenseSubset = mp::mp_filter<is_dense_search_algo, ce_03a::AllStrategies>;
-    // Nur Array256 ist statisch dense → 1/3
-    EXPECT_EQ(mp::mp_size<DenseSubset>::value, 1u);
+    // Re-Impl: Array256 (Dense). V41.F.6.1.P2.D.tr.s2: + OriginalArt (Dense, ART Node256)
+    //   → 2 von 6 statisch Dense
+    EXPECT_EQ(mp::mp_size<DenseSubset>::value, 2u);
 }
 
 TEST(PropertyFilter_03b, HashedSubset) {
