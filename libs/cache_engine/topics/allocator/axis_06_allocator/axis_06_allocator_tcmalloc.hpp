@@ -68,6 +68,7 @@ public:
     [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
     [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }  // central-heap nutzt Mutex
     [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // namesgebende Eigenschaft (Thread-Cache)
+    [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
 
     [[nodiscard]] bool operator==(TCMallocAllocator const&) const noexcept { return true; }
 

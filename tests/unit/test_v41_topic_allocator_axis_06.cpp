@@ -137,7 +137,8 @@ TYPED_TEST(AllocatorVendorTest, SonderfallPropertiesQueryable) {
     [[maybe_unused]] constexpr bool c = TypeParam::supports_numa_node_hint();
     [[maybe_unused]] constexpr bool d = TypeParam::is_lock_free();
     [[maybe_unused]] constexpr bool e = TypeParam::supports_thread_local_cache();
-    // Konsistenz-Checks: Sonderfaelle der Batch-4-Vendor
+    [[maybe_unused]] constexpr bool f = TypeParam::requires_specialized_hardware();  // Batch 6 NEU
+    // Konsistenz-Checks: Sonderfaelle pro Batch
     if constexpr (std::is_same_v<TypeParam, axis_06::ScallocAllocator>) {
         static_assert(!a, "Scalloc-Sonderfall: keine native aligned_alloc API");
     }
@@ -149,6 +150,9 @@ TYPED_TEST(AllocatorVendorTest, SonderfallPropertiesQueryable) {
     }
     if constexpr (std::is_same_v<TypeParam, axis_06::MichaelLockFreeAllocator>) {
         static_assert(d, "MichaelLockFree-Sonderfall: is_lock_free=true");
+    }
+    if constexpr (std::is_same_v<TypeParam, axis_06::PIMMallocAllocator>) {
+        static_assert(f, "PIM-Malloc-Sonderfall (Batch 6): requires_specialized_hardware=true");
     }
     SUCCEED();
 }

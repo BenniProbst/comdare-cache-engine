@@ -72,6 +72,7 @@ public:
     [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
     [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return true; }   // Message-Passing-Queue ist lock-free
     [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // per-thread allocator slabs
+    [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
 
     [[nodiscard]] bool operator==(SnmallocAllocator const&) const noexcept { return true; }
 
