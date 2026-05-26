@@ -291,3 +291,13 @@ target_include_directories(test_v41_topics_fundament PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_topics_fundament PRIVATE Boost::mp11)
+
+# V41.F.6.1.R3 SearchAlgorithmAnatomy Skelett (Saeugetier-Anatomie)
+comdare_add_test(test_v41_anatomy
+    SOURCES test_v41_anatomy.cpp)
+target_include_directories(test_v41_anatomy PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_anatomy PRIVATE Boost::mp11)
