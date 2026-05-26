@@ -48,6 +48,10 @@
 #include "axis_06_allocator_tcmalloc_wh.hpp"
 #include "axis_06_allocator_hmalloc.hpp"
 #include "axis_06_allocator_pim_malloc.hpp"
+// Batch 7 (2026-05-26)
+#include "axis_06_allocator_crystalline.hpp"
+#include "axis_06_allocator_exgen.hpp"
+#include "axis_06_allocator_buddy.hpp"
 
 #include <boost/mp11.hpp>
 
@@ -89,9 +93,12 @@ using AllVendors = mp::mp_list<
     // Batch 6 (2026-05-26)
     TCMallocWarehouseAllocator,
     HMallocAllocator,
-    PIMMallocAllocator
-    // Batch 7-8 ergaenzen hier:
-    // A17 Crystalline, A18 Exgen-Malloc, A19 Buddy, A21 ptmalloc2, A23 Vmem-Magazines
+    PIMMallocAllocator,
+    // Batch 7 (2026-05-26)
+    CrystallineAllocator,
+    ExgenAllocator,
+    BuddyAllocator
+    // Batch 8 ergaenzen hier: A21 ptmalloc2, A23 Vmem-Magazines
 >;
 
 // ───────────────────────────────────────────────────────────────────────────

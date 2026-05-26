@@ -1,11 +1,11 @@
 #pragma once
-// V41.F.6.1 Batch 5 LRMallocAllocator A11 (2026-05-26)
+// V41.F.6.1 Batch 7 ExgenAllocator A18 (2026-05-26)
 //
-// @topic allocator @achse 6 @family A11 (LRMalloc — Leite/Rocha JPDC 2019)
-// @subaxis AA4 synchronization (Lock-Free + Hazard-Pointer)
+// @topic allocator @achse 6 @family A18 (Exgen-Malloc Exception-Generated Single-Thread)
+// @subaxis AA4 synchronization (Single-Threaded Specialized)
 //
-// Lock-Free Allocator mit Hazard-Pointers fuer safe Memory-Reclamation.
-// Verwendet per-thread Reservations + lock-free Global Free-List.
+// Spezialisiert fuer single-threaded Code mit Exception-Safety-Garantien.
+// Sehr schnell aufgrund fehlender Synchronisation.
 
 #include "axis_06_allocator_strategy_base.hpp"
 #include "axis_06_allocator_subaxes_aa1_to_aa7.hpp"
@@ -16,7 +16,7 @@
 #include "../concepts/topic_allocator_concept.hpp"
 
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
-#include "vendor_includes/lrmalloc_include.hpp"
+#include "vendor_includes/exgen_include.hpp"
 
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
 #include <measurement/measurable_concept.hpp>
@@ -28,43 +28,42 @@
 
 namespace comdare::cache_engine::allocator::axis_06_allocator {
 
-class LRMallocAllocator : public AllocatorStrategyBase<LRMallocAllocator> {
+class ExgenAllocator : public AllocatorStrategyBase<ExgenAllocator> {
 public:
-    static constexpr bool enabled = flags::lrmalloc_enabled;
+    static constexpr bool enabled = flags::exgen_enabled;
 
     using value_type = std::byte;
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::allocator::concepts::AllocatorTopicTag;
     using axis_tag   = subaxes::synchronization_tag;
-    using family_id  = std::integral_constant<int, 11>;
+    using family_id  = std::integral_constant<int, 18>;
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()  noexcept { return true; }
+    [[nodiscard]] static constexpr bool        is_thread_safe()  noexcept { return false; }  // SONDERFALL: single-threaded
     [[nodiscard]] static constexpr bool        supports_pmr()    noexcept { return true; }
     [[nodiscard]] static constexpr std::size_t max_alignment()   noexcept { return alignof(std::max_align_t); }
 
     [[nodiscard]] static constexpr std::string_view name() noexcept {
-        if constexpr (enabled) { return "lrmalloc"; }
-        else                   { return "lrmalloc(real=std)"; }
+        if constexpr (enabled) { return "exgen"; }
+        else                   { return "exgen(real=std)"; }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "LRMalloc Lock-Free + Hazard-Pointer (Leite/Rocha JPDC 2019)";
+        return "Exgen-Malloc Exception-Generated Single-Thread Specialized";
     }
-    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "LRMALLOC"; }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "EXGEN"; }
 
-    // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht)
     [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }
     [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return true; }   // namesgebend (LR = Lock-Free + Reclamation)
-    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // per-thread reservations
+    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return true; }   // single-threaded = trivially lock-free (kein Kontext-Wechsel)
+    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }  // single-thread = thread-local irrelevant
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_wait_free()                noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_wait_free()                noexcept { return true; }   // single-thread = trivially wait-free
 
-    [[nodiscard]] bool operator==(LRMallocAllocator const&) const noexcept { return true; }
+    [[nodiscard]] bool operator==(ExgenAllocator const&) const noexcept { return true; }
 
     [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment) {
         void* p;
-        if constexpr (enabled) { p = ::lrmalloc_alloc(bytes, alignment); }
+        if constexpr (enabled) { p = ::exgen_alloc(bytes, alignment); }
         else                   { p = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, bytes); }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
@@ -82,7 +81,7 @@ public:
 
     void deallocate(void* p, std::size_t bytes, std::size_t alignment) noexcept {
         if (p == nullptr) return;
-        if constexpr (enabled) { ::lrmalloc_free(p); }
+        if constexpr (enabled) { ::exgen_free(p); }
         else                   { ::comdare::cache_engine::allocator::portable_aligned_free(p); }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
@@ -108,7 +107,7 @@ public:
     [[nodiscard]] void* zero_allocate(std::size_t n, std::size_t size) {
         std::size_t bytes = n * size;
         void* p;
-        if constexpr (enabled) { p = ::lrmalloc_calloc(n, size); }
+        if constexpr (enabled) { p = ::exgen_calloc(n, size); }
         else                   { p = std::calloc(n, size); }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         if (p != nullptr) {
@@ -127,7 +126,7 @@ public:
                                    std::size_t alignment) {
         void* np;
         if constexpr (enabled) {
-            np = ::lrmalloc_realloc(p, new_bytes);
+            np = ::exgen_realloc(p, new_bytes);
             (void)alignment;
         } else {
             np = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, new_bytes);
@@ -162,8 +161,8 @@ private:
 }  // namespace
 
 namespace comdare::cache_engine::allocator::axis_06_allocator {
-    static_assert(concepts::AllocatorStrategy<LRMallocAllocator>);
-    static_assert(concepts::CacheEnginePermutationStrategy<LRMallocAllocator>);
-    static_assert(concepts::ZeroingStrategy<LRMallocAllocator>);
-    static_assert(concepts::ReallocatingStrategy<LRMallocAllocator>);
+    static_assert(concepts::AllocatorStrategy<ExgenAllocator>);
+    static_assert(concepts::CacheEnginePermutationStrategy<ExgenAllocator>);
+    static_assert(concepts::ZeroingStrategy<ExgenAllocator>);
+    static_assert(concepts::ReallocatingStrategy<ExgenAllocator>);
 }

@@ -65,6 +65,7 @@ public:
     [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }  // resource-abhaengig, Default-pool nicht lock-free
     [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }  // resource-typ-abhaengig
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_wait_free()                noexcept { return false; }
 
     PmrResourceAllocator() noexcept
         : resource_(std::pmr::new_delete_resource()) {}

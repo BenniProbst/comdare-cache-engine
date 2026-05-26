@@ -135,6 +135,13 @@ concept CacheEnginePermutationStrategy =
         // false bei generischen CPU-Allokatoren. CacheEngineBuilder kann damit
         // pro Plattform Subsets bilden (z.B. nur PIM-Allokatoren auf UPMEM-Systemen).
         { A::requires_specialized_hardware() } -> std::convertible_to<bool>;
+        // V41.F.6.1 Batch 7 Erweiterung (User-Direktive 2026-05-26):
+        // is_wait_free() — strikter als is_lock_free(). lock-free garantiert
+        // progress von MINDESTENS 1 Thread; wait-free garantiert progress von
+        // ALLEN Threads. Wichtig fuer Real-Time + Latency-bounded Scenarios.
+        // Beispiel: Crystalline (A17) hat wait-free Reclamation.
+        // Hinweis: wait-free=true impliziert lock-free=true (aber NICHT umgekehrt).
+        { A::is_wait_free()                } -> std::convertible_to<bool>;
     }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     // V41.F.6.1 Stufe 3 LIVE (Doku §15.3 + §15.8 / User-Direktive [[statistics-observer-pflicht]]):

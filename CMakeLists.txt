@@ -75,7 +75,11 @@ option(COMDARE_AXIS_06_ENABLE_STARMALLOC "Allocator A13 StarMalloc Formal Verifi
 option(COMDARE_AXIS_06_ENABLE_TCMALLOC_WH "Allocator A14 TCMalloc-Warehouse Hyperscale (Google 2020+)" ON)
 option(COMDARE_AXIS_06_ENABLE_HMALLOC     "Allocator A15 HMalloc Hybrid Free-List (Tang 2020)"        ON)
 option(COMDARE_AXIS_06_ENABLE_PIM_MALLOC  "Allocator A16 PIM-Malloc Processing-In-Memory (UPMEM 2023)" ON)
-# ... weitere Vendor-Flags fuer Batch 7-8 (A17-A19,A21,A23) folgen
+# V41.F.6.1 Batch 7 Vendor (2026-05-26): Crystalline / Exgen-Malloc / Buddy
+option(COMDARE_AXIS_06_ENABLE_CRYSTALLINE "Allocator A17 Crystalline Wait-Free Reclamation (Solodkyy 2021)" ON)
+option(COMDARE_AXIS_06_ENABLE_EXGEN       "Allocator A18 Exgen-Malloc Exception-Generated Single-Thread"     ON)
+option(COMDARE_AXIS_06_ENABLE_BUDDY       "Allocator A19 Buddy Power-of-2 Splitting (Knuth Klassik)"        ON)
+# ... weitere Vendor-Flags fuer Batch 8 (A21,A23) folgen
 
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
@@ -360,6 +364,25 @@ else()
     set(COMDARE_AXIS_06_USE_PIM_MALLOC 0)
 endif()
 
+# V41.F.6.1 Batch 7 Vendor — USE = ENABLE && HAVE
+if(COMDARE_AXIS_06_ENABLE_CRYSTALLINE AND COMDARE_HAVE_CRYSTALLINE)
+    set(COMDARE_AXIS_06_USE_CRYSTALLINE 1)
+else()
+    set(COMDARE_AXIS_06_USE_CRYSTALLINE 0)
+endif()
+
+if(COMDARE_AXIS_06_ENABLE_EXGEN AND COMDARE_HAVE_EXGEN)
+    set(COMDARE_AXIS_06_USE_EXGEN 1)
+else()
+    set(COMDARE_AXIS_06_USE_EXGEN 0)
+endif()
+
+if(COMDARE_AXIS_06_ENABLE_BUDDY AND COMDARE_HAVE_BUDDY)
+    set(COMDARE_AXIS_06_USE_BUDDY 1)
+else()
+    set(COMDARE_AXIS_06_USE_BUDDY 0)
+endif()
+
 message(STATUS "V41.F.6.1.C Allocator Axis 6 effective USE flags:")
 message(STATUS "  Batch 1: USE_STD=${COMDARE_AXIS_06_USE_STD} MIMALLOC=${COMDARE_AXIS_06_USE_MIMALLOC} SNMALLOC=${COMDARE_AXIS_06_USE_SNMALLOC} PMR=${COMDARE_AXIS_06_USE_PMR}")
 message(STATUS "  Batch 2: USE_JEMALLOC=${COMDARE_AXIS_06_USE_JEMALLOC} TCMALLOC=${COMDARE_AXIS_06_USE_TCMALLOC} DLMALLOC=${COMDARE_AXIS_06_USE_DLMALLOC}")
@@ -367,6 +390,7 @@ message(STATUS "  Batch 3: USE_HOARD=${COMDARE_AXIS_06_USE_HOARD} SLAB=${COMDARE
 message(STATUS "  Batch 4: USE_SCALLOC=${COMDARE_AXIS_06_USE_SCALLOC} NUMALLOC=${COMDARE_AXIS_06_USE_NUMALLOC} RPMALLOC=${COMDARE_AXIS_06_USE_RPMALLOC}")
 message(STATUS "  Batch 5: USE_LRMALLOC=${COMDARE_AXIS_06_USE_LRMALLOC} CAMA=${COMDARE_AXIS_06_USE_CAMA} STARMALLOC=${COMDARE_AXIS_06_USE_STARMALLOC}")
 message(STATUS "  Batch 6: USE_TCMALLOC_WH=${COMDARE_AXIS_06_USE_TCMALLOC_WH} HMALLOC=${COMDARE_AXIS_06_USE_HMALLOC} PIM_MALLOC=${COMDARE_AXIS_06_USE_PIM_MALLOC}")
+message(STATUS "  Batch 7: USE_CRYSTALLINE=${COMDARE_AXIS_06_USE_CRYSTALLINE} EXGEN=${COMDARE_AXIS_06_USE_EXGEN} BUDDY=${COMDARE_AXIS_06_USE_BUDDY}")
 
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp.in"

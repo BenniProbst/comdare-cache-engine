@@ -60,6 +60,7 @@ public:
     [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }  // magazine cache nutzt mutex
     [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // per-CPU magazines (bonwick 2001)
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_wait_free()                noexcept { return false; }
 
     [[nodiscard]] bool operator==(SlabAllocator const&) const noexcept { return true; }
 

@@ -67,6 +67,7 @@ public:
     [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }  // single-DPU per allocation
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return true; } // SONDERFALL: PIM-Hardware-Pflicht
+    [[nodiscard]] static constexpr bool is_wait_free()                noexcept { return false; }
 
     PIMMallocAllocator() noexcept : dpu_id_(kDefaultDpuId) {}
     explicit PIMMallocAllocator(int dpu_id) noexcept : dpu_id_(dpu_id) {}

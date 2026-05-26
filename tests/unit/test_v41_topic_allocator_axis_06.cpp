@@ -154,6 +154,12 @@ TYPED_TEST(AllocatorVendorTest, SonderfallPropertiesQueryable) {
     if constexpr (std::is_same_v<TypeParam, axis_06::PIMMallocAllocator>) {
         static_assert(f, "PIM-Malloc-Sonderfall (Batch 6): requires_specialized_hardware=true");
     }
+    // V41.F.6.1 Batch 7 Concept-Erweiterung: is_wait_free()
+    [[maybe_unused]] constexpr bool g = TypeParam::is_wait_free();
+    if constexpr (std::is_same_v<TypeParam, axis_06::CrystallineAllocator>) {
+        static_assert(g, "Crystalline-Sonderfall (Batch 7): is_wait_free=true (impliziert lock_free)");
+        static_assert(d, "Crystalline: wait-free impliziert lock-free");
+    }
     SUCCEED();
 }
 
