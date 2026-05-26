@@ -192,6 +192,15 @@ message(STATUS "==============================================================")
 include(cmake/check_submodules.cmake OPTIONAL)
 
 # ─────────────────────────────────────────────────────────────────────────────
+# V41.F.6.1.P2.A Paper-Legacy-Code Build-Infrastruktur (4 Module)
+# Funktionen werden erst aktiv bei Aufruf (P2.B mimalloc Pilot, P2.D Roll-out)
+# ─────────────────────────────────────────────────────────────────────────────
+include(cmake/is_original_codegen.cmake OPTIONAL)
+include(cmake/compiler_cache.cmake     OPTIONAL)
+include(cmake/paper_binary.cmake       OPTIONAL)
+include(cmake/tools_cache.cmake        OPTIONAL)
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Permutations-Codegen (F-EXTRA-5 — Python-Codegen erzeugt CMake-Targets)
 # ─────────────────────────────────────────────────────────────────────────────
 if(COMDARE_BUILD_PERMUTATIONS)
