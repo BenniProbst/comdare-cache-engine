@@ -42,6 +42,7 @@ namespace comdare::cache_engine::queuing::axis_q2_queuing {
 class TimedFlush : public ::comdare::cache_engine::topics::AxisBase {
 public:
     static constexpr bool enabled = flags::timed_enabled;
+    // V41.F.6.1.P2.C ENTFERNT: Defaults kommen via AxisBase (is_original_module = false).
 
     /// Window in Millisekunden als iterable_aspect_t (F.6.1.E hybride Permutation)
     using iterable_aspect_t = std::size_t;

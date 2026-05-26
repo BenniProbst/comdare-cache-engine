@@ -71,7 +71,7 @@ namespace test_allocator_axis {
 
 /// @brief Demo-Achs-Mixin (analog AllocatorOriginalCodeMixin)
 ///
-/// Erbt von cross-topic OriginalCodeMixinBase (Compiler + has_original_paper_code)
+/// Erbt von cross-topic OriginalCodeMixinBase (Compiler)
 /// und erweitert um Achsen-spezifische is_original_<fn>() pro Pflicht-Interface
 /// (allocate/deallocate/reallocate).
 template <typename PaperManifest>
@@ -167,7 +167,6 @@ public:
 
 TEST(AchsenMixin, MimallocAllProperties) {
     static_assert(DemoMimallocAllocator::get_compiler() == "gcc-9.5");
-    static_assert(DemoMimallocAllocator::has_original_paper_code());
     static_assert(DemoMimallocAllocator::is_original_allocate());
     static_assert(DemoMimallocAllocator::is_original_deallocate());
     static_assert(DemoMimallocAllocator::is_original_reallocate());
@@ -177,7 +176,6 @@ TEST(AchsenMixin, MimallocAllProperties) {
 
 TEST(AchsenMixin, SnmallocMismatchDetected) {
     static_assert(DemoSnmallocAllocator::get_compiler() == "clang-12");
-    static_assert(DemoSnmallocAllocator::has_original_paper_code());
     static_assert(DemoSnmallocAllocator::is_original_allocate());
     static_assert(!DemoSnmallocAllocator::is_original_deallocate());  // ← Mismatch!
     static_assert(DemoSnmallocAllocator::is_original_reallocate());
@@ -239,7 +237,6 @@ public:
 
 TEST(PseudocodeReImpl, AllFalseHarte) {
     static_assert(DemoBuddyAllocator::get_compiler() == "self");
-    static_assert(!DemoBuddyAllocator::has_original_paper_code());
     static_assert(!DemoBuddyAllocator::is_original_allocate());
     static_assert(!DemoBuddyAllocator::is_original_deallocate());
     static_assert(!DemoBuddyAllocator::is_original_module());
@@ -393,7 +390,6 @@ using MappingMixin         = ::comdare::cache_engine::traversal::axis_03m_mappin
 
 TEST(P2F_AxisMixins, AllocatorMixinModuleTrue) {
     static_assert(p2f_smoke::AllocatorMixin::get_compiler() == "gcc-9.5");
-    static_assert(p2f_smoke::AllocatorMixin::has_original_paper_code());
     static_assert(p2f_smoke::AllocatorMixin::is_original_allocate());
     static_assert(p2f_smoke::AllocatorMixin::is_original_deallocate());
     static_assert(p2f_smoke::AllocatorMixin::is_original_module());
@@ -460,9 +456,8 @@ TEST(P2F_AxisMixins, InterfaceFunctionsListsCorrectCount) {
 // MimallocAllocator erbt jetzt von Paper-Mixin (Tool-generiert).
 // Validiert dass:
 //  - get_compiler() == "gcc-9.5" (via PaperManifest::kCompiler)
-//  - has_original_paper_code() == true
-//  - is_original_module() == true (SHA-Match aus Lock-File)
-//  - LegacyOriginalCodePflicht-Concept erfuellt
+//  - is_original_module() == true (SHA-Match aus Lock-File, AND aller per-fn Bools)
+//  - LegacyOriginalCodePflicht-Concept erfuellt (2 Properties seit P2.C)
 //  - PaperOriginalValidated-Concept erfuellt
 
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_mimalloc.hpp>
@@ -472,12 +467,6 @@ namespace mimalloc_pilot = ::comdare::cache_engine::allocator::axis_06_allocator
 TEST(P2B_MimallocPilot, GetCompilerOverridesAxisBaseDefault) {
     static_assert(mimalloc_pilot::MimallocAllocator::get_compiler() == "gcc-9.5",
                   "MimallocAllocator must return Paper-Compiler via Mixin, not AxisBase Default 'original'");
-    SUCCEED();
-}
-
-TEST(P2B_MimallocPilot, HasOriginalPaperCode) {
-    static_assert(mimalloc_pilot::MimallocAllocator::has_original_paper_code(),
-                  "Tool-generated kHasOriginalPaperCode = true");
     SUCCEED();
 }
 
@@ -498,5 +487,75 @@ TEST(P2B_MimallocPilot, LegacyPflichtAndPaperValidatedConforms) {
     static_assert(ce_concepts::LegacyOriginalCodePflicht<mimalloc_pilot::MimallocAllocator>);
     static_assert(ce_concepts::HasOriginalCode<mimalloc_pilot::MimallocAllocator>);
     static_assert(ce_concepts::PaperOriginalValidated<mimalloc_pilot::MimallocAllocator>);
+    SUCCEED();
+}
+
+// =================================================================
+// (12) P2.C Cross-Topic Default-Properties — Non-Paper-Wrappers
+// =================================================================
+//
+// Validiert dass alle Non-Paper-Wrappers via AxisBase Default jetzt LegacyOriginalCodePflicht
+// erfuellen (is_original_module = false generisch, KEIN hardcoded Default in CRTP-Base mehr).
+
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_std_malloc.hpp>
+#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_fifo.hpp>
+#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_eager.hpp>
+#include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
+#include <topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp>
+#include <topics/traversal/axis_03m_mapping/axis_03m_mapping_direct_placement.hpp>
+
+namespace p2c_nopaper {
+using NoPaperAllocator   = ::comdare::cache_engine::allocator::axis_06_allocator::StdMalloc;
+using NoPaperBuffer      = ::comdare::cache_engine::queuing::axis_q1_queuing::FIFOQueue;
+using NoPaperFlushPolicy = ::comdare::cache_engine::queuing::axis_q2_queuing::EagerFlush;
+using NoPaperSearchAlgo  = ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256;
+using NoPaperTraversal   = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::LinearFanout;
+using NoPaperMapping     = ::comdare::cache_engine::traversal::axis_03m_mapping::DirectPlacement;
+}  // namespace
+
+TEST(P2C_NonPaperDefaults, AllocatorWrapperConforms) {
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<p2c_nopaper::NoPaperAllocator>);
+    static_assert(!p2c_nopaper::NoPaperAllocator::is_original_module());
+    static_assert(!ce_concepts::HasOriginalCode<p2c_nopaper::NoPaperAllocator>);
+    static_assert(!ce_concepts::PaperOriginalValidated<p2c_nopaper::NoPaperAllocator>);
+    SUCCEED();
+}
+
+TEST(P2C_NonPaperDefaults, BufferWrapperConforms) {
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<p2c_nopaper::NoPaperBuffer>);
+    static_assert(!p2c_nopaper::NoPaperBuffer::is_original_module());
+    SUCCEED();
+}
+
+TEST(P2C_NonPaperDefaults, FlushPolicyWrapperConforms) {
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<p2c_nopaper::NoPaperFlushPolicy>);
+    static_assert(!p2c_nopaper::NoPaperFlushPolicy::is_original_module());
+    SUCCEED();
+}
+
+TEST(P2C_NonPaperDefaults, SearchAlgoWrapperConforms) {
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<p2c_nopaper::NoPaperSearchAlgo>);
+    static_assert(!p2c_nopaper::NoPaperSearchAlgo::is_original_module());
+    SUCCEED();
+}
+
+TEST(P2C_NonPaperDefaults, CacheTraversalWrapperConforms) {
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<p2c_nopaper::NoPaperTraversal>);
+    static_assert(!p2c_nopaper::NoPaperTraversal::is_original_module());
+    SUCCEED();
+}
+
+TEST(P2C_NonPaperDefaults, MappingWrapperConforms) {
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<p2c_nopaper::NoPaperMapping>);
+    static_assert(!p2c_nopaper::NoPaperMapping::is_original_module());
+    SUCCEED();
+}
+
+TEST(P2C_NonPaperDefaults, GetCompilerOriginalDefault) {
+    // AxisBase Default "original" greift fuer Non-Paper-Wrappers (kein Override)
+    static_assert(p2c_nopaper::NoPaperAllocator::get_compiler() == "original");
+    static_assert(p2c_nopaper::NoPaperBuffer::get_compiler() == "original");
+    static_assert(p2c_nopaper::NoPaperFlushPolicy::get_compiler() == "original");
+    static_assert(p2c_nopaper::NoPaperSearchAlgo::get_compiler() == "original");
     SUCCEED();
 }

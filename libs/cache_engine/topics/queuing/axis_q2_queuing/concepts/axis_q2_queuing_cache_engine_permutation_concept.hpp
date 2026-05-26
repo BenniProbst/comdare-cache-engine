@@ -6,6 +6,7 @@
 #include "../axis_q2_queuing_subaxes_fs1_to_fs4.hpp"
 
 #include <measurement/measurable_concept.hpp>
+#include <concepts/legacy_original_code_strategy_concept.hpp>   // V41.F.6.1.P2.C Habich-Compliance Pflicht-API
 
 #include <concepts>
 #include <cstddef>
@@ -72,6 +73,8 @@ concept CacheEngineFlushPolicyPermutationStrategy =
         { pc.observer() } noexcept -> std::same_as<typename P::observer_t const&>;
     }
 #endif
+    // V41.F.6.1.P2.C Habich-Compliance: get_compiler + is_original_module (cross-axis via AxisBase Default)
+    && ::comdare::cache_engine::concepts::LegacyOriginalCodePflicht<P>
     ;
 
 }  // namespace
