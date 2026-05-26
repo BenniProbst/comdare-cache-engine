@@ -1,0 +1,12 @@
+# Paper: P10 SuRF (Zhang/Lim/Andersen et al., SIGMOD 2018)
+# Cache-Engine-Wrapper: OriginalSurfSearchAlgo
+# Source: ext/traversal/P10-SuRF/SuRF/include/surf.hpp
+
+@compiler gcc-9.5
+@has_original_paper_code true
+@axis_mixin_type comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoOriginalCodeMixin
+
+# wrapper_fn  paper_fn      source_relative_path
+# SuRF ist Read-Only Succinct-Range-Filter — nur lookupKey im Paper.
+# 1/4 originall, 3/4 Luecken (insert/erase/clear sind nicht im Bulk-Loaded-Index).
+lookup        lookupKey     include/surf.hpp

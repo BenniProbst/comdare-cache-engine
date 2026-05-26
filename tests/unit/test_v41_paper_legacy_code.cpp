@@ -536,11 +536,16 @@ TYPED_TEST(PaperWrapperConformance, IsOriginalModuleAggregation) {
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_original_art.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_original_hot.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_original_start.hpp>
+// V41.F.6.1.P2.D.tr.s3 Batch 1
+#include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_original_wormhole.hpp>
+#include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_original_surf.hpp>
 
 namespace original_search_algo {
-using OrigArt   = ::comdare::cache_engine::traversal::axis_03a_search_algo::OriginalArtSearchAlgo;
-using OrigHot   = ::comdare::cache_engine::traversal::axis_03a_search_algo::OriginalHotSearchAlgo;
-using OrigStart = ::comdare::cache_engine::traversal::axis_03a_search_algo::OriginalStartSearchAlgo;
+using OrigArt      = ::comdare::cache_engine::traversal::axis_03a_search_algo::OriginalArtSearchAlgo;
+using OrigHot      = ::comdare::cache_engine::traversal::axis_03a_search_algo::OriginalHotSearchAlgo;
+using OrigStart    = ::comdare::cache_engine::traversal::axis_03a_search_algo::OriginalStartSearchAlgo;
+using OrigWormhole = ::comdare::cache_engine::traversal::axis_03a_search_algo::OriginalWormholeSearchAlgo;
+using OrigSurf     = ::comdare::cache_engine::traversal::axis_03a_search_algo::OriginalSurfSearchAlgo;
 }  // namespace
 
 // (a) Full-Original SearchAlgo (alle Functions Paper-bound) — heute nur ART
@@ -594,7 +599,7 @@ TYPED_TEST(FullOriginalSearchAlgoConformance, IsOriginalModuleAggregation) {
     SUCCEED();
 }
 
-// (b) Partial-Original SearchAlgo (Paper-API + Luecken) — HOT + START
+// (b) Partial-Original SearchAlgo (Paper-API insert+lookup originall, erase+clear Lücken) — HOT + START
 using PartialOriginalSearchAlgoList = ::testing::Types<
     original_search_algo::OrigHot,
     original_search_algo::OrigStart
@@ -636,6 +641,43 @@ TYPED_TEST(PartialOriginalSearchAlgoConformance, LueckenFunctionsNotOriginal) {
                   "Partial-Original: erase ist Cache-Engine Re-Impl Luecke — MUSS false sein");
     static_assert(!TypeParam::is_original_clear(),
                   "Partial-Original: clear ist Cache-Engine Re-Impl Luecke — MUSS false sein");
+    SUCCEED();
+}
+
+// (c) Flexible-Original SearchAlgo (s3 Batch 1) — variable Anzahl Original-Functions,
+// gemeinsam: HasOriginalCode + !PaperOriginalValidated + is_original_lookup=true.
+// Wormhole 3/4 (insert+lookup+erase, clear-Lücke), SuRF/Masstree 1/4 (nur lookup).
+using FlexibleOriginalSearchAlgoList = ::testing::Types<
+    original_search_algo::OrigWormhole,
+    original_search_algo::OrigSurf
+>;
+template <typename W> class FlexibleOriginalSearchAlgoConformance : public ::testing::Test {};
+TYPED_TEST_SUITE(FlexibleOriginalSearchAlgoConformance, FlexibleOriginalSearchAlgoList);
+
+TYPED_TEST(FlexibleOriginalSearchAlgoConformance, AxisBaseConcept) {
+    static_assert(ce_topics::AxisBaseConcept<TypeParam>);
+    SUCCEED();
+}
+TYPED_TEST(FlexibleOriginalSearchAlgoConformance, LegacyOriginalCodePflichtConcept) {
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<TypeParam>);
+    SUCCEED();
+}
+TYPED_TEST(FlexibleOriginalSearchAlgoConformance, HasOriginalCodeConcept) {
+    static_assert(ce_concepts::HasOriginalCode<TypeParam>);
+    SUCCEED();
+}
+TYPED_TEST(FlexibleOriginalSearchAlgoConformance, NotPaperOriginalValidated) {
+    static_assert(!ce_concepts::PaperOriginalValidated<TypeParam>,
+                  "Flexible-Original: is_original_module() MUSS false sein (mind. 1 Lücke)");
+    SUCCEED();
+}
+TYPED_TEST(FlexibleOriginalSearchAlgoConformance, GetCompilerOverridesAxisBaseDefault) {
+    static_assert(TypeParam::get_compiler() != std::string_view{"original"});
+    SUCCEED();
+}
+TYPED_TEST(FlexibleOriginalSearchAlgoConformance, LookupAlwaysOriginal) {
+    static_assert(TypeParam::is_original_lookup(),
+                  "Flexible-Original: lookup MUSS in jedem Paper-Bindung originall sein (gemeinsamer Nenner)");
     SUCCEED();
 }
 
