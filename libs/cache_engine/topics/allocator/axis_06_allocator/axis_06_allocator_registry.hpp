@@ -52,6 +52,9 @@
 #include "axis_06_allocator_crystalline.hpp"
 #include "axis_06_allocator_exgen.hpp"
 #include "axis_06_allocator_buddy.hpp"
+// Batch 8 (2026-05-26) — VOLLAUSBAU-Abschluss
+#include "axis_06_allocator_ptmalloc2.hpp"
+#include "axis_06_allocator_vmem_mag.hpp"
 
 #include <boost/mp11.hpp>
 
@@ -97,8 +100,11 @@ using AllVendors = mp::mp_list<
     // Batch 7 (2026-05-26)
     CrystallineAllocator,
     ExgenAllocator,
-    BuddyAllocator
-    // Batch 8 ergaenzen hier: A21 ptmalloc2, A23 Vmem-Magazines
+    BuddyAllocator,
+    // Batch 8 (2026-05-26) — VOLLAUSBAU-Abschluss A21+A23
+    PtMalloc2Allocator,
+    VmemMagazinesAllocator
+    // Allocator-Achse 6 KOMPLETT (24 Vendor: Batch 1-8)
 >;
 
 // ───────────────────────────────────────────────────────────────────────────
