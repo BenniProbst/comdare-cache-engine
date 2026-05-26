@@ -111,6 +111,18 @@ option(COMDARE_AXIS_Q2_ENABLE_LAZY         "Flush-Policy F04 LazyFlush (defer)" 
 option(COMDARE_AXIS_Q2_ENABLE_TIMED        "Flush-Policy F03 TimedFlush (FS3 time_window, iterable_aspect_t window_ms)" ON)
 option(COMDARE_AXIS_Q2_ENABLE_ADAPTIVE_LSM "Flush-Policy F05 AdaptiveLsmFlush (FS4 lernt aus Workload, LSM-spezifisch)"   ON)
 
+# V41.F.6.1 Topic traversal Pilot (2026-05-26): 3 Achsen — axis_03a search_algo + axis_03b cache_traversal + axis_03m mapping
+# axis_03a Pilot Batch 1 (3 Strategien analog prt-art Legacy Interpreter)
+option(COMDARE_AXIS_03A_ENABLE_ARRAY256       "Search-Algo S01 Array256 (ART Node256 dense, Leis ICDE 2013, SA1 dense, SIMD)" ON)
+option(COMDARE_AXIS_03A_ENABLE_VECTOR_U8U8    "Search-Algo S02 VectorU8U8 (HOT Patricia sparse, Binna PVLDB 2018, SA2 sparse, SIMD)" ON)
+option(COMDARE_AXIS_03A_ENABLE_VECTOR_U16U16  "Search-Algo S03 VectorU16U16 (START multi-byte Cost-DP, Mertens ICDE 2024, SA3 multilevel)" ON)
+# axis_03b Pilot Batch 1 (2 Strategien)
+option(COMDARE_AXIS_03B_ENABLE_LINEAR_FANOUT  "Cache-Traversal CT01 LinearFanout (prt-art IFanout linear-scan, CT1 linear)" ON)
+option(COMDARE_AXIS_03B_ENABLE_HASH_LOOKUP    "Cache-Traversal CT02 HashLookup (Fibonacci-Hash open-addressing, CT2 hash)" ON)
+# axis_03m Pilot Batch 1 (2 Strategien)
+option(COMDARE_AXIS_03M_ENABLE_DIRECT_PLACEMENT "Mapping MP01 DirectPlacement (prt-art INode::placement_page_, MP1 direct)" ON)
+option(COMDARE_AXIS_03M_ENABLE_POOL_RELATIVE    "Mapping MP02 PoolRelative (prt-art CustomAlignedStructure, MP2 pool_relative)" ON)
+
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
 # aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
@@ -466,6 +478,51 @@ configure_file(
 message(STATUS "V41.F.6.1 Topic queuing Pilot:")
 message(STATUS "  axis_Q1 VOLLAUSBAU (13/13 W2): NO_BUFFER=${COMDARE_AXIS_Q1_USE_NO_BUFFER} FIFO=${COMDARE_AXIS_Q1_USE_FIFO} LIFO=${COMDARE_AXIS_Q1_USE_LIFO} BOUNDED_RING=${COMDARE_AXIS_Q1_USE_BOUNDED_RING} APPEND_ONLY=${COMDARE_AXIS_Q1_USE_APPEND_ONLY} PRIORITY_HEAP=${COMDARE_AXIS_Q1_USE_PRIORITY_HEAP} DELTA_CHAIN=${COMDARE_AXIS_Q1_USE_DELTA_CHAIN} SKIPLIST_BUFFER=${COMDARE_AXIS_Q1_USE_SKIPLIST_BUFFER} TOMBSTONE_BUFFER=${COMDARE_AXIS_Q1_USE_TOMBSTONE_BUFFER} COPY_ON_WRITE=${COMDARE_AXIS_Q1_USE_COPY_ON_WRITE} EPOCH_BUFFER=${COMDARE_AXIS_Q1_USE_EPOCH_BUFFER} BATCHED_INSERT_BUFFER=${COMDARE_AXIS_Q1_USE_BATCHED_INSERT_BUFFER} LOCKFREE_SPSC=${COMDARE_AXIS_Q1_USE_LOCKFREE_SPSC} LOCKFREE_MPMC=${COMDARE_AXIS_Q1_USE_LOCKFREE_MPMC}")
 message(STATUS "  axis_Q2 VOLLAUSBAU (5/5 W3): EAGER=${COMDARE_AXIS_Q2_USE_EAGER} WATERMARK=${COMDARE_AXIS_Q2_USE_WATERMARK} LAZY=${COMDARE_AXIS_Q2_USE_LAZY} TIMED=${COMDARE_AXIS_Q2_USE_TIMED} ADAPTIVE_LSM=${COMDARE_AXIS_Q2_USE_ADAPTIVE_LSM}")
+
+# V41.F.6.1 Topic traversal Pilot — USE-Flag-Berechnungen + configure_file (2026-05-26)
+# axis_03a search_algo
+foreach(_s03a ARRAY256 VECTOR_U8U8 VECTOR_U16U16)
+    if(COMDARE_AXIS_03A_ENABLE_${_s03a})
+        set(COMDARE_AXIS_03A_USE_${_s03a} 1)
+    else()
+        set(COMDARE_AXIS_03A_USE_${_s03a} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/traversal/axis_03a_search_algo/axis_03a_search_algo_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/traversal/axis_03a_search_algo/axis_03a_search_algo_flags.hpp"
+    @ONLY)
+
+# axis_03b cache_traversal
+foreach(_s03b LINEAR_FANOUT HASH_LOOKUP)
+    if(COMDARE_AXIS_03B_ENABLE_${_s03b})
+        set(COMDARE_AXIS_03B_USE_${_s03b} 1)
+    else()
+        set(COMDARE_AXIS_03B_USE_${_s03b} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_flags.hpp"
+    @ONLY)
+
+# axis_03m mapping
+foreach(_s03m DIRECT_PLACEMENT POOL_RELATIVE)
+    if(COMDARE_AXIS_03M_ENABLE_${_s03m})
+        set(COMDARE_AXIS_03M_USE_${_s03m} 1)
+    else()
+        set(COMDARE_AXIS_03M_USE_${_s03m} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/traversal/axis_03m_mapping/axis_03m_mapping_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/traversal/axis_03m_mapping/axis_03m_mapping_flags.hpp"
+    @ONLY)
+
+message(STATUS "V41.F.6.1 Topic traversal Pilot:")
+message(STATUS "  axis_03a (3 search_algo): ARRAY256=${COMDARE_AXIS_03A_USE_ARRAY256} VECTOR_U8U8=${COMDARE_AXIS_03A_USE_VECTOR_U8U8} VECTOR_U16U16=${COMDARE_AXIS_03A_USE_VECTOR_U16U16}")
+message(STATUS "  axis_03b (2 cache_traversal): LINEAR_FANOUT=${COMDARE_AXIS_03B_USE_LINEAR_FANOUT} HASH_LOOKUP=${COMDARE_AXIS_03B_USE_HASH_LOOKUP}")
+message(STATUS "  axis_03m (2 mapping): DIRECT_PLACEMENT=${COMDARE_AXIS_03M_USE_DIRECT_PLACEMENT} POOL_RELATIVE=${COMDARE_AXIS_03M_USE_POOL_RELATIVE}")
 
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp.in"
