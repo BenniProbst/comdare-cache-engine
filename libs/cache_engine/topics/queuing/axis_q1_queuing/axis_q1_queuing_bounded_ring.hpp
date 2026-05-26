@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string_view>
 #include <type_traits>
 #include <vector>
@@ -65,8 +66,14 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
-    BoundedRing() noexcept : BoundedRing(default_capacity()) {}
-    explicit BoundedRing(std::size_t cap) : buffer_(cap), capacity_(cap), head_(0), tail_(0), count_(0) {}
+    BoundedRing() : BoundedRing(default_capacity()) {}
+    /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 wirft std::invalid_argument
+    /// (UB-Vermeidung: head_=(head_+1)%capacity_ ist Division-By-Zero bei cap=0).
+    explicit BoundedRing(std::size_t cap)
+        : buffer_((cap == 0 ? throw std::invalid_argument(
+                                  "BoundedRing: capacity must be > 0 (cap=0 division-by-zero in modulo)")
+                            : cap))
+        , capacity_(cap), head_(0), tail_(0), count_(0) {}
 
     [[nodiscard]] bool operator==(BoundedRing const& other) const noexcept {
         return capacity_ == other.capacity_;
