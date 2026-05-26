@@ -36,6 +36,10 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::flags {
 #cmakedefine01 COMDARE_AXIS_Q1_USE_LOCKFREE_SPSC
 #cmakedefine01 COMDARE_AXIS_Q1_USE_LOCKFREE_MPMC
 
+// V41.F.6.1.P2.D.q.s2 (2026-05-26) — Original-Paper-Wrapper Q01 ConcurrentQueue (moodycamel)
+// Habich-Compliance via Mixin — get_compiler='gcc-9.5' + is_original_put/get=true (2/6 originall).
+#cmakedefine01 COMDARE_AXIS_Q1_USE_ORIGINAL_CONCURRENTQUEUE
+
 inline constexpr bool no_buffer_enabled              = COMDARE_AXIS_Q1_USE_NO_BUFFER;
 inline constexpr bool fifo_enabled                   = COMDARE_AXIS_Q1_USE_FIFO;
 inline constexpr bool lifo_enabled                   = COMDARE_AXIS_Q1_USE_LIFO;
@@ -50,5 +54,6 @@ inline constexpr bool epoch_buffer_enabled           = COMDARE_AXIS_Q1_USE_EPOCH
 inline constexpr bool batched_insert_buffer_enabled  = COMDARE_AXIS_Q1_USE_BATCHED_INSERT_BUFFER;
 inline constexpr bool lockfree_spsc_enabled          = COMDARE_AXIS_Q1_USE_LOCKFREE_SPSC;
 inline constexpr bool lockfree_mpmc_enabled          = COMDARE_AXIS_Q1_USE_LOCKFREE_MPMC;
+inline constexpr bool original_concurrentqueue_enabled = COMDARE_AXIS_Q1_USE_ORIGINAL_CONCURRENTQUEUE;
 
 }  // namespace

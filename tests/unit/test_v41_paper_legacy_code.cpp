@@ -640,6 +640,69 @@ TYPED_TEST(PartialOriginalSearchAlgoConformance, LueckenFunctionsNotOriginal) {
 }
 
 // =================================================================
+// (11c) P2.D.q.s2 Original-Buffer-Wrappers (Q1 Queuing) — Cross-Validation
+// =================================================================
+//
+// Erste externe Submodule-Bindung im queuing-Topic (moodycamel ConcurrentQueue).
+// Pattern analog (11b) Partial-Original SearchAlgo, aber Q1 hat 6 Functions
+// (put/get/emplace/peek_front/peek_back/clear) statt 4.
+
+#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_original_concurrentqueue.hpp>
+
+namespace original_buffer {
+using OrigConcurrentQueue = ::comdare::cache_engine::queuing::axis_q1_queuing::OriginalLockFreeMpmcConcurrentQueue;
+}  // namespace
+
+// Q01 ConcurrentQueue ist Partial-Original (2/6: put+get originall, 4 Lücken).
+// Bei Roll-out weiterer Q-Wrappers nur PartialOriginalBufferList ergaenzen.
+using PartialOriginalBufferList = ::testing::Types<
+    original_buffer::OrigConcurrentQueue
+>;
+template <typename W> class PartialOriginalBufferConformance : public ::testing::Test {};
+TYPED_TEST_SUITE(PartialOriginalBufferConformance, PartialOriginalBufferList);
+
+TYPED_TEST(PartialOriginalBufferConformance, AxisBaseConcept) {
+    static_assert(ce_topics::AxisBaseConcept<TypeParam>);
+    SUCCEED();
+}
+TYPED_TEST(PartialOriginalBufferConformance, LegacyOriginalCodePflichtConcept) {
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<TypeParam>);
+    SUCCEED();
+}
+TYPED_TEST(PartialOriginalBufferConformance, HasOriginalCodeConcept) {
+    static_assert(ce_concepts::HasOriginalCode<TypeParam>,
+                  "Partial-Original Buffer: get_compiler() MUSS konkret sein (gcc-9.5 via Mixin)");
+    SUCCEED();
+}
+TYPED_TEST(PartialOriginalBufferConformance, NotPaperOriginalValidated) {
+    static_assert(!ce_concepts::PaperOriginalValidated<TypeParam>,
+                  "Partial-Original Buffer: is_original_module() MUSS false sein (4/6 Lücken)");
+    SUCCEED();
+}
+TYPED_TEST(PartialOriginalBufferConformance, GetCompilerOverridesAxisBaseDefault) {
+    static_assert(TypeParam::get_compiler() != std::string_view{"original"});
+    SUCCEED();
+}
+TYPED_TEST(PartialOriginalBufferConformance, PaperApiFunctionsOriginal) {
+    static_assert(TypeParam::is_original_put(),
+                  "Partial-Original Buffer: put MUSS Paper-API originall sein (enqueue)");
+    static_assert(TypeParam::is_original_get(),
+                  "Partial-Original Buffer: get MUSS Paper-API originall sein (try_dequeue)");
+    SUCCEED();
+}
+TYPED_TEST(PartialOriginalBufferConformance, LueckenFunctionsNotOriginal) {
+    static_assert(!TypeParam::is_original_emplace(),
+                  "Partial-Original Buffer: emplace ist Re-Impl Luecke (concurrentqueue hat keine emplace)");
+    static_assert(!TypeParam::is_original_peek_front(),
+                  "Partial-Original Buffer: peek_front ist Re-Impl Luecke (async-only)");
+    static_assert(!TypeParam::is_original_peek_back(),
+                  "Partial-Original Buffer: peek_back ist Re-Impl Luecke");
+    static_assert(!TypeParam::is_original_clear(),
+                  "Partial-Original Buffer: clear ist Re-Impl Luecke (kein clear in concurrentqueue)");
+    SUCCEED();
+}
+
+// =================================================================
 // (12) P2.C Non-Paper-Wrappers — TYPED_TEST_SUITE (kompakt, cross-topic)
 // =================================================================
 //
