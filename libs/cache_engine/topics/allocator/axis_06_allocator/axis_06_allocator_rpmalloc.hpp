@@ -85,6 +85,13 @@ public:
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "RPMALLOC"; }
 
+    // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // rpaligned_alloc
+    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return true; }   // SONDERFALL: rpmalloc_initialize + thread_initialize
+    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }  // Span-allocation nutzt Atomic-Operationen aber nicht voll lock-free
+    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // namesgebend: per-thread spans
+
     [[nodiscard]] bool operator==(RPMallocAllocator const&) const noexcept { return true; }
 
     [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment) {

@@ -64,8 +64,14 @@ public:
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "Snmalloc Message-Passing (Lipp/Bond/Parkinson ISMM 2019)";
     }
-    // V41.F.6.1.G CacheEngineBuilder CLI-Flag-Suffix (Doku §15.10)
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "SNMALLOC"; }
+
+    // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // snmalloc::libc::aligned_alloc
+    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return true; }   // Message-Passing-Queue ist lock-free
+    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // per-thread allocator slabs
 
     [[nodiscard]] bool operator==(SnmallocAllocator const&) const noexcept { return true; }
 

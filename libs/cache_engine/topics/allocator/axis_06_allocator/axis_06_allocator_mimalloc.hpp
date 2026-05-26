@@ -76,8 +76,14 @@ public:
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "Mimalloc Free-List-Sharding (Leijen/Zorn/de Moura MSR-TR-2019-18 APLAS 2019)";
     }
-    // V41.F.6.1.G CacheEngineBuilder CLI-Flag-Suffix (Doku §15.10)
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "MIMALLOC"; }
+
+    // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // mi_malloc_aligned
+    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }  // Self-init lazy
+    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }  // Free-List nutzt CAS aber nicht voll lock-free
+    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // 3-stage Free-List: free/local_free/thread_free
 
     [[nodiscard]] bool operator==(MimallocAllocator const&) const noexcept { return true; }
 

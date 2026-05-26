@@ -73,9 +73,15 @@ public:
 
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "std_malloc"; }
     [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "Standard libc malloc (ptmalloc2 / glibc)"; }
-    // V41.F.6.1.G CacheEngineBuilder CLI-Flag-Suffix (Doku §15.10):
-    // -DCOMDARE_AXIS_06_ENABLE_<flag_suffix>=ON|OFF
+    // V41.F.6.1.G CacheEngineBuilder CLI-Flag-Suffix (Doku §15.10)
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "STD"; }
+
+    // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // portable_aligned_alloc via posix_memalign/_aligned_malloc
+    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }  // ptmalloc2 nutzt Mutex pro Arena
+    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }
 
     // ───────────────────────────────────────────────────────────────────────
     // AllocatorStrategy: Identitaet (operator==)

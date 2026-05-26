@@ -64,6 +64,13 @@ public:
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "JEMALLOC"; }
 
+    // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // je_aligned_alloc
+    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }  // Self-init
+    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }  // Arena-aware aber kein direkter NUMA-API
+    [[nodiscard]] static constexpr bool is_lock_free()                noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // tcache layer
+
     [[nodiscard]] bool operator==(JemallocAllocator const&) const noexcept { return true; }
 
     [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment) {
