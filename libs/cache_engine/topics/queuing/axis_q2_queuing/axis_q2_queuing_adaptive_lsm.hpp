@@ -23,6 +23,7 @@
 #include "concepts/axis_q2_queuing_cache_engine_permutation_concept.hpp"
 #include "axis_q2_queuing_subaxes_fs1_to_fs4.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
+#include "../../axis_base.hpp"
 
 #include <topics/queuing/axis_q2_queuing/axis_q2_queuing_flags.hpp>
 #include <measurement/measurable_concept.hpp>
@@ -40,7 +41,7 @@ namespace comdare::cache_engine::queuing::axis_q2_queuing {
  * — Algorithmus passt Threshold selbst an. ewma_burst_rate_ steuert
  * effektiven Threshold zwischen kMinThreshold (60%) und kMaxThreshold (95%).
  */
-class AdaptiveLsmFlush {
+class AdaptiveLsmFlush : public ::comdare::cache_engine::topics::AxisBase {
 public:
     static constexpr bool enabled = flags::adaptive_lsm_enabled;
 
@@ -133,4 +134,5 @@ private:
 namespace comdare::cache_engine::queuing::axis_q2_queuing {
     static_assert(concepts::FlushPolicy<AdaptiveLsmFlush>);
     static_assert(concepts::CacheEngineFlushPolicyPermutationStrategy<AdaptiveLsmFlush>);
+    static_assert(::comdare::cache_engine::topics::AxisBaseConcept<AdaptiveLsmFlush>);
 }

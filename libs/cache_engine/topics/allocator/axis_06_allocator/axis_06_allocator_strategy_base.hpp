@@ -22,6 +22,7 @@
 #include "concepts/axis_06_allocator_concept.hpp"
 #include "concepts/axis_06_allocator_cache_engine_permutation_concept.hpp"
 #include "axis_06_allocator_subaxes_aa1_to_aa7.hpp"
+#include "../../axis_base.hpp"
 
 #include <concepts>
 #include <cstddef>
@@ -47,9 +48,9 @@ namespace comdare::cache_engine::allocator::axis_06_allocator {
  * sind als TODO-Stubs vorhanden — Implementation folgt mit neuen Wrappern.
  */
 template <typename Derived>
-class AllocatorStrategyBase {
+class AllocatorStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
 public:
-    /// Concept-Check im Konstruktor: Pflicht-Set AllocatorStrategy + CacheEnginePermutationStrategy
+    /// Concept-Check im Konstruktor: Pflicht-Set AllocatorStrategy + CacheEnginePermutationStrategy + AxisBase
     constexpr AllocatorStrategyBase() noexcept {
         static_assert(concepts::AllocatorStrategy<Derived>,
             "Derived must satisfy AllocatorStrategy concept "
@@ -57,6 +58,9 @@ public:
         static_assert(concepts::CacheEnginePermutationStrategy<Derived>,
             "Derived must satisfy CacheEnginePermutationStrategy concept "
             "(see concepts/axis_06_allocator_cache_engine_permutation_concept.hpp)");
+        static_assert(::comdare::cache_engine::topics::AxisBaseConcept<Derived>,
+            "Derived must satisfy AxisBaseConcept (get_compiler() Pflicht-API). "
+            "AllocatorStrategyBase erbt von AxisBase — Derived bekommt Default 'original' automatisch.");
     }
 
     // ───────────────────────────────────────────────────────────────────────

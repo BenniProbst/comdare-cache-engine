@@ -4,6 +4,7 @@
 // @topic traversal @achse 03a
 
 #include "concepts/axis_03a_search_algo_concept.hpp"
+#include "../../axis_base.hpp"
 
 #include <type_traits>
 
@@ -14,14 +15,19 @@ namespace comdare::cache_engine::traversal::axis_03a_search_algo {
  *
  * Concept-Guard via static_assert im Konstruktor (CRTP-Henne-Ei-Pattern aus
  * Allocator-Achse).
+ *
+ * Erbt von ::topics::AxisBase fuer cross-axis Pflicht-Property get_compiler()
+ * (Default "original", per Wrapper ueberschreibbar).
  */
 template <typename Derived>
-class SearchAlgoBase {
+class SearchAlgoBase : public ::comdare::cache_engine::topics::AxisBase {
 protected:
     SearchAlgoBase() noexcept {
         static_assert(concepts::SearchAlgoVariant<Derived>,
             "Pflicht: Derived muss SearchAlgoVariant erfuellen "
             "(insert/lookup/erase/occupied_count/density_percent/clear)");
+        static_assert(::comdare::cache_engine::topics::AxisBaseConcept<Derived>,
+            "Pflicht: Derived erfuellt AxisBaseConcept (get_compiler() Default 'original' via Inheritance)");
     }
 };
 
