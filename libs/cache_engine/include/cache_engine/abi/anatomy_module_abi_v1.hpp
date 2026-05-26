@@ -22,9 +22,12 @@
 // @task #706 V41.F.6.1.R5.D
 // @related [[execution-engine-als-wurzel]] [[anatomie-gattungen]]
 
+#include "../../../anatomy/abi_adapter.hpp"
 #include "../../../anatomy/anatomy_base.hpp"
+#include "../../../anatomy/search_algorithm_anatomy.hpp"
 
 #include <cstdint>
+#include <new>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ABI-Version + Magic-Number (Compile-Time-Konstanten fuer Module-Loader-Check)
@@ -44,8 +47,14 @@
 // Export/Import Macros (Cross-Plattform)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Drei Build-Modi:
+//   - COMDARE_ANATOMY_ABI_STATIC : STATIC-Library oder In-Process Build (kein dll*)
+//   - COMDARE_ANATOMY_MODULE_BUILD : SHARED-Lib Author-Side (dllexport)
+//   - (default Consumer-Side) : SHARED-Lib Consumer-Side (dllimport)
 #if defined(_WIN32) || defined(__CYGWIN__)
-    #if defined(COMDARE_ANATOMY_MODULE_BUILD)
+    #if defined(COMDARE_ANATOMY_ABI_STATIC)
+        #define COMDARE_ANATOMY_ABI_EXPORT
+    #elif defined(COMDARE_ANATOMY_MODULE_BUILD)
         #define COMDARE_ANATOMY_ABI_EXPORT __declspec(dllexport)
     #else
         #define COMDARE_ANATOMY_ABI_EXPORT __declspec(dllimport)
