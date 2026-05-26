@@ -32,6 +32,10 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::flags {
 #cmakedefine01 COMDARE_AXIS_Q1_USE_EPOCH_BUFFER
 #cmakedefine01 COMDARE_AXIS_Q1_USE_BATCHED_INSERT_BUFFER
 
+// Batch 5 VOLLAUSBAU (Q-SPSC LockFreeSPSC Lamport, Q-MPMC LockFreeMPMC Vyukov) — 2026-05-26
+#cmakedefine01 COMDARE_AXIS_Q1_USE_LOCKFREE_SPSC
+#cmakedefine01 COMDARE_AXIS_Q1_USE_LOCKFREE_MPMC
+
 inline constexpr bool no_buffer_enabled              = COMDARE_AXIS_Q1_USE_NO_BUFFER;
 inline constexpr bool fifo_enabled                   = COMDARE_AXIS_Q1_USE_FIFO;
 inline constexpr bool lifo_enabled                   = COMDARE_AXIS_Q1_USE_LIFO;
@@ -44,5 +48,7 @@ inline constexpr bool tombstone_buffer_enabled       = COMDARE_AXIS_Q1_USE_TOMBS
 inline constexpr bool copy_on_write_enabled          = COMDARE_AXIS_Q1_USE_COPY_ON_WRITE;
 inline constexpr bool epoch_buffer_enabled           = COMDARE_AXIS_Q1_USE_EPOCH_BUFFER;
 inline constexpr bool batched_insert_buffer_enabled  = COMDARE_AXIS_Q1_USE_BATCHED_INSERT_BUFFER;
+inline constexpr bool lockfree_spsc_enabled          = COMDARE_AXIS_Q1_USE_LOCKFREE_SPSC;
+inline constexpr bool lockfree_mpmc_enabled          = COMDARE_AXIS_Q1_USE_LOCKFREE_MPMC;
 
 }  // namespace

@@ -21,6 +21,9 @@
 #include "axis_q1_queuing_copy_on_write.hpp"
 #include "axis_q1_queuing_epoch_buffer.hpp"
 #include "axis_q1_queuing_batched_insert_buffer.hpp"
+// Batch 5 VOLLAUSBAU (Q-SPSC LockFreeSPSC Lamport, Q-MPMC LockFreeMPMC Vyukov)
+#include "axis_q1_queuing_lockfree_spsc.hpp"
+#include "axis_q1_queuing_lockfree_mpmc.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
@@ -29,7 +32,7 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 namespace mp = boost::mp11;
 
-/// AllStrategies — Komplette Liste aller bekannten Q1-Strategien
+/// AllStrategies — KOMPLETTE Liste aller 14 W2-Strategien (Vollausbau Batch 5)
 using AllStrategies = mp::mp_list<
     // Pilot Batch 1 (2026-05-26)
     NoBuffer,
@@ -46,8 +49,10 @@ using AllStrategies = mp::mp_list<
     // Batch 4 (2026-05-26)
     CopyOnWrite,
     EpochBuffer,
-    BatchedInsertBuffer
-    // Vollausbau-Batch 5 (geplant): Q13a LockFreeSPSC, Q13b LockFreeMPMC
+    BatchedInsertBuffer,
+    // Batch 5 VOLLAUSBAU (2026-05-26) — axis_q1_queuing 14/14 KOMPLETT
+    LockFreeSPSC,
+    LockFreeMPMC
 >;
 
 template <typename S>
