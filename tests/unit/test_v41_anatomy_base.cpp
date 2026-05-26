@@ -14,6 +14,7 @@
 
 #include <gtest/gtest.h>
 
+#include <anatomy/abi_adapter.hpp>
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/known_algorithms.hpp>
 
@@ -105,18 +106,14 @@ TEST(R5CA_IAnatomyBase, IsAbstractClass) {
     SUCCEED();
 }
 
-// Sample-Adapter (R5.D Pattern): bridge SearchAlgorithmAnatomy<C> → IAnatomyBase
-template <ana::AnatomyConcept A>
-class AnatomyAbiAdapter final : public ana::IAnatomyBase {
-public:
-    [[nodiscard]] std::string_view composition_name() const noexcept override { return A::composition_name(); }
-    [[nodiscard]] std::string_view paper_id() const noexcept override { return A::paper_id(); }
-    [[nodiscard]] ana::AnatomyGenus genus() const noexcept override { return A::genus(); }
-    [[nodiscard]] std::size_t organ_count() const noexcept override { return A::organ_count(); }
-};
+// R5.C.A3: Lokale Sample-Adapter-Klasse entfernt. Wir nutzen jetzt den
+// Production-Header `anatomy/abi_adapter.hpp` mit `ana::SearchAlgorithmAbiAdapter<A>`.
+// Dieser Adapter implementiert ALLE Pflicht-API von IAnatomyBase + IExecutionEngine
+// (composition_name/paper_id/genus/organ_count + engine_name/lifecycle_state/
+//  warm_up/reset/shutdown).
 
 TEST(R5CA_IAnatomyBase, AbiAdapterBridgeToVirtualInterface) {
-    AnatomyAbiAdapter<ana::Art> adapter;
+    ana::SearchAlgorithmAbiAdapter<ana::Art> adapter;
     ana::IAnatomyBase const& base = adapter;
     EXPECT_EQ(base.composition_name(), std::string_view{"ArtComposition"});
     EXPECT_TRUE(base.paper_id().starts_with("P01"));
@@ -125,7 +122,7 @@ TEST(R5CA_IAnatomyBase, AbiAdapterBridgeToVirtualInterface) {
 }
 
 TEST(R5CA_IAnatomyBase, AbiAdapterForPaperBinding) {
-    AnatomyAbiAdapter<ana::ArtPaperBinding> adapter;
+    ana::SearchAlgorithmAbiAdapter<ana::ArtPaperBinding> adapter;
     ana::IAnatomyBase const& base = adapter;
     EXPECT_EQ(base.composition_name(), std::string_view{"ArtPaperBindingComposition"});
     EXPECT_EQ(base.genus(), ana::AnatomyGenus::SearchAlgorithm);
