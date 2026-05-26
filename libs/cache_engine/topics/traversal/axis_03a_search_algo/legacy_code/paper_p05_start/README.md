@@ -7,8 +7,8 @@ ICDE 2024.
 ueber Adaptive Radix Tree, MIT).
 
 **API-Mapping (2/4 originall, 2 Luecken):**
-- insert → insertKey (Z45 sosd-Adapter)
-- lookup → EqualityLookup (Z75)
+- insert → insertLater (echte Function-Def im sosd-Adapter, nicht insertKey-Call)
+- lookup → EqualityLookup
 - erase → **LUECKE** (kein remove im sosd-Adapter, eigene Re-Impl)
 - clear → **LUECKE** (kein clear im sosd-Adapter, eigene Re-Impl)
 
