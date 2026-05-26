@@ -4,11 +4,12 @@
 // @topic traversal @achse 03b @family CT01 LinearFanout
 // @subaxis CT1 linear_access
 //
-// Linear-scan Cache-Traversal: registrierte Eintraege werden in std::vector
-// gehalten, resolve() durchsucht linear. Cache-freundlich fuer kleine N
-// (<32), CPU-Branch-Predictor-friendly.
+// **Algorithmus-Pattern:** Linear-scan auf kleinen Fanout-Arrays. Klassischer
+// B+ Tree Inner-Node-Search (Bayer/McCreight, Acta Informatica 1972) ohne
+// Hash-Overhead. Cache-freundlich fuer kleine N (<32), CPU-Branch-Predictor-
+// friendly bei sortierten Eintraegen.
 //
-// Inspiriert von prt-art IFanout::lookup_page(byte) linear-scan-Fallback.
+// Standalone-Implementation: std::vector<pair<key, value>> + std::find_if.
 //
 // Allocation: std::vector — [[allocation-failure-exception]]: register_entry
 // kann std::bad_alloc werfen.

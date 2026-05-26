@@ -4,10 +4,14 @@
 // @topic traversal @achse 03m @family MP02 PoolRelative
 // @subaxis MP2 pool_relative_access
 //
-// Pool-relativer Slot-zu-Offset-Mapping. Inspiriert von prt-art-Legacy
-// CustomAlignedStructure-Pattern: alle Offsets sind relativ zu einem
-// pool_base_address gespeichert. Vorteil: Pool kann komplett umalloziert
-// werden ohne Mapping-Tabelle anzufassen (nur pool_base_ wird neu gesetzt).
+// **Algorithmus-Pattern:** Persistent-Data-Structure mit Snapshot-Versioning
+// (Driscoll/Sarnak/Sleator/Tarjan: "Making Data Structures Persistent." JCSS
+// 38(1):86-124, 1989). Alle Offsets sind relativ zu einem pool_base_address
+// gespeichert.
+//
+// Standalone-Implementation: std::vector<pair<slot, relative_offset>>. Vorteil:
+// Pool kann komplett umalloziert werden ohne Mapping-Tabelle anzufassen
+// — nur pool_base_ wird neu gesetzt (O(1) Rebase statt O(N) Translation).
 //
 // Constructor benoetigt pool_base_address (Pflicht-Sonderfall:
 // requires_pool_base()=true).
@@ -18,6 +22,7 @@
 #include "axis_03m_mapping_subaxes_mp1_to_mp2.hpp"
 #include "concepts/axis_03m_mapping_concept.hpp"
 #include "concepts/axis_03m_mapping_cache_engine_permutation_concept.hpp"
+#include "concepts/axis_03m_mapping_pool_rebasable_strategy_concept.hpp"
 #include "../concepts/topic_traversal_concept.hpp"
 
 #include <topics/traversal/axis_03m_mapping/axis_03m_mapping_flags.hpp>
@@ -142,4 +147,5 @@ private:
 namespace comdare::cache_engine::traversal::axis_03m_mapping {
     static_assert(concepts::MappingVariant<PoolRelative>);
     static_assert(concepts::CacheEngineMappingPermutationStrategy<PoolRelative>);
+    static_assert(concepts::PoolRebasableStrategy<PoolRelative>);
 }

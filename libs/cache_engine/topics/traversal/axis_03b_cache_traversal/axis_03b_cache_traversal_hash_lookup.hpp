@@ -4,11 +4,18 @@
 // @topic traversal @achse 03b @family CT02 HashLookup
 // @subaxis CT2 hash_access
 //
-// Hash-basierte Cache-Traversal mit Fibonacci-Hash + Open-Addressing (Linear
-// Probing). Inspiriert von prt-art-Legacy LinearProbeHashSet. Amortisiert
-// O(1) bei load_factor < 0.7.
+// **Algorithmus-Pattern:** Fibonacci-Hash open-addressing (Knuth TAOCP Vol 3,
+// "Sorting and Searching", 2nd Ed. 1998 §6.4 Multiplikative Hashing).
+// Konstante 11400714819323198485 ≈ 2^64 / golden_ratio. Linear Probing als
+// Kollisions-Strategie (Knuth analyzed L1-cache-effizient).
 //
-// Resize-Pattern: bei load_factor > 0.7 wird capacity verdoppelt (Power-of-2).
+// Standalone-Implementation: std::vector<std::optional<pair>> Buckets +
+// power-of-2 mask + Fibonacci-Hash. Amortisiert O(1) bei load_factor < 0.7.
+// Resize verdoppelt Capacity bei load > 0.7 (Power-of-2 Pflicht fuer Mask).
+//
+// **iterable_aspect_t:** initial_capacity ist iterable Aspekt fuer hybride
+// Laufzeit-Permutation (kIterableInitialCapacities). PermutationEngine
+// generiert 1 Binary mit Runtime-Loop ueber Capacity-Werte.
 //
 // Allocation: std::vector — [[allocation-failure-exception]]: register_entry
 // + Resize koennen std::bad_alloc werfen.
@@ -17,15 +24,21 @@
 #include "axis_03b_cache_traversal_subaxes_ct1_to_ct2.hpp"
 #include "concepts/axis_03b_cache_traversal_concept.hpp"
 #include "concepts/axis_03b_cache_traversal_cache_engine_permutation_concept.hpp"
+#include "concepts/axis_03b_cache_traversal_hashed_strategy_concept.hpp"
+#include "concepts/axis_03b_cache_traversal_iterable_aspect_strategy_concept.hpp"
 #include "../concepts/topic_traversal_concept.hpp"
 
 #include <topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_flags.hpp>
 #include <measurement/measurable_concept.hpp>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <span>
+#include <stdexcept>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace comdare::cache_engine::traversal::axis_03b_cache_traversal {
@@ -41,6 +54,15 @@ public:
     using axis_tag   = subaxes::hash_access_tag;
     using family_id  = std::integral_constant<int, 2>;  // CT02
 
+    /// iterable_aspect_t (F.6.1.E hybride Laufzeit-Permutation):
+    /// initial_capacity als Power-of-2. PermutationEngine erkennt via
+    /// HasIterableAspect<V> und generiert 1 Binary mit Runtime-Loop.
+    using iterable_aspect_t = std::size_t;
+    static constexpr std::array<std::size_t, 5> kIterableInitialCapacities{8u, 16u, 64u, 256u, 1024u};
+    [[nodiscard]] static constexpr std::span<std::size_t const> iterable_values() noexcept {
+        return std::span<std::size_t const>{kIterableInitialCapacities.data(), kIterableInitialCapacities.size()};
+    }
+
     [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "hash_lookup"; }
     [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "HashLookup (Fibonacci-Hash open-addressing, prt-art LinearProbeHashSet-Pattern)"; }
@@ -51,9 +73,15 @@ public:
     [[nodiscard]] static constexpr bool amortized_o1()         noexcept { return true; }
 
     static constexpr std::uint64_t kFibonacciMul = 11400714819323198485ULL;
-    static constexpr std::size_t   kInitialCapacity = 16;  // Power-of-2
+    static constexpr std::size_t   kInitialCapacity = 16;  // Power-of-2 Default
 
-    HashLookup() : capacity_mask_(kInitialCapacity - 1), buckets_(kInitialCapacity), size_(0) {}
+    HashLookup() : HashLookup(kInitialCapacity) {}
+    /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 wirft std::invalid_argument
+    /// (Mask-Modulo waere Division-By-Zero). cap MUSS Power-of-2 sein.
+    explicit HashLookup(std::size_t initial_capacity)
+        : capacity_mask_(validate_capacity(initial_capacity) - 1)
+        , buckets_(initial_capacity)
+        , size_(0) {}
 
     [[nodiscard]] bool operator==(HashLookup const& other) const noexcept {
         return size_ == other.size_;
@@ -141,6 +169,23 @@ public:
         size_ = 0;
     }
 
+    /// HashedTraversalStrategy [[hashed-strategy]]: Bucket-Count Accessor.
+    [[nodiscard]] std::size_t bucket_count() const noexcept { return capacity_mask_ + 1; }
+
+    /// HashedTraversalStrategy [[hashed-strategy]]: aktueller Load-Factor in [0.0, 1.0].
+    [[nodiscard]] double load_factor() const noexcept {
+        return static_cast<double>(size_) / static_cast<double>(bucket_count());
+    }
+
+    /// IterableAspectCacheTraversalStrategy [[iterable-aspect-strategy]]:
+    /// Setter fuer Runtime-Capacity-Switch (vollstaendiger Rehash).
+    /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 oder nicht-Power-of-2 wirft.
+    /// SONDERFALL [[allocation-failure-exception]]: rehash kann std::bad_alloc werfen.
+    void set_iterable_aspect(std::size_t new_capacity) {
+        std::size_t validated = validate_capacity(new_capacity);
+        rehash(validated);
+    }
+
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = concepts::CacheTraversalStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
@@ -152,6 +197,18 @@ public:
 #endif
 
 private:
+    static std::size_t validate_capacity(std::size_t cap) {
+        if (cap == 0) {
+            throw std::invalid_argument(
+                "HashLookup: initial_capacity must be > 0 (Mask-Modulo would division-by-zero)");
+        }
+        if ((cap & (cap - 1)) != 0) {
+            throw std::invalid_argument(
+                "HashLookup: initial_capacity must be Power-of-2 (Fibonacci-Hash bitmask constraint)");
+        }
+        return cap;
+    }
+
     [[nodiscard]] std::size_t hash_index(key_type k) const noexcept {
         return static_cast<std::size_t>((k * kFibonacciMul) & capacity_mask_);
     }
@@ -193,4 +250,6 @@ private:
 namespace comdare::cache_engine::traversal::axis_03b_cache_traversal {
     static_assert(concepts::CacheTraversalVariant<HashLookup>);
     static_assert(concepts::CacheEngineCacheTraversalPermutationStrategy<HashLookup>);
+    static_assert(concepts::HashedTraversalStrategy<HashLookup>);
+    static_assert(concepts::IterableAspectCacheTraversalStrategy<HashLookup>);
 }

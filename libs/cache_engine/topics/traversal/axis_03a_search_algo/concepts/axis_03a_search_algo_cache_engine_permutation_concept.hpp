@@ -3,7 +3,8 @@
 //
 // @topic traversal @achse 03a
 //
-// Parallel zu SearchAlgoVariant: cache-engine-spezifische Pflicht-API
+// **Meta-Modell M2-Schicht** [[meta-driven-concept-hardening-pattern]]:
+// Parallel zu SearchAlgoVariant — cache-engine-spezifische Pflicht-API
 // analog CacheEnginePermutationStrategy bei Allocator.
 //
 // Pflicht-API (IMMER):

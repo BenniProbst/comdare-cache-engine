@@ -11,12 +11,19 @@
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_registry.hpp>
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_density_classified_strategy_concept.hpp>
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_simd_capable_strategy_concept.hpp>
+#include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_iterable_aspect_strategy_concept.hpp>
 #include <topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_registry.hpp>
+#include <topics/traversal/axis_03b_cache_traversal/concepts/axis_03b_cache_traversal_hashed_strategy_concept.hpp>
+#include <topics/traversal/axis_03b_cache_traversal/concepts/axis_03b_cache_traversal_iterable_aspect_strategy_concept.hpp>
 #include <topics/traversal/axis_03m_mapping/axis_03m_mapping_registry.hpp>
+#include <topics/traversal/axis_03m_mapping/concepts/axis_03m_mapping_pool_rebasable_strategy_concept.hpp>
+#include <permutations/permutation_engine.hpp>
 
 #include <boost/mp11.hpp>
 
+#include <array>
 #include <cstdint>
+#include <stdexcept>
 #include <type_traits>
 
 namespace mp = boost::mp11;
@@ -367,4 +374,231 @@ TEST(Mapping_PoolRelative, RebaseChangesAbsoluteOffsets) {
 TEST(Mapping_PoolRelative, PoolBaseAccessor) {
     ce_03m::PoolRelative m{4096};
     EXPECT_EQ(m.pool_base(), 4096u);
+}
+
+// =================================================================
+// Sub-Concept-Konformitaet (P0-Konsolidierung 2026-05-26)
+// =================================================================
+
+TEST(SubConcepts_03a, IterableAspectSearchAlgoStrategy) {
+    static_assert(ce_03a::concepts::IterableAspectSearchAlgoStrategy<ce_03a::VectorU8U8>);
+    static_assert(!ce_03a::concepts::IterableAspectSearchAlgoStrategy<ce_03a::Array256>,
+                  "Array256 hat keinen iterable_aspect_t");
+    static_assert(!ce_03a::concepts::IterableAspectSearchAlgoStrategy<ce_03a::VectorU16U16>,
+                  "VectorU16U16 hat keinen iterable_aspect_t");
+    SUCCEED();
+}
+
+TEST(SubConcepts_03b, HashedTraversalStrategy) {
+    static_assert(ce_03b::concepts::HashedTraversalStrategy<ce_03b::HashLookup>);
+    static_assert(!ce_03b::concepts::HashedTraversalStrategy<ce_03b::LinearFanout>,
+                  "LinearFanout ist nicht hashed");
+    SUCCEED();
+}
+
+TEST(SubConcepts_03b, IterableAspectCacheTraversalStrategy) {
+    static_assert(ce_03b::concepts::IterableAspectCacheTraversalStrategy<ce_03b::HashLookup>);
+    static_assert(!ce_03b::concepts::IterableAspectCacheTraversalStrategy<ce_03b::LinearFanout>);
+    SUCCEED();
+}
+
+TEST(SubConcepts_03m, PoolRebasableStrategy) {
+    static_assert(ce_03m::concepts::PoolRebasableStrategy<ce_03m::PoolRelative>);
+    static_assert(!ce_03m::concepts::PoolRebasableStrategy<ce_03m::DirectPlacement>,
+                  "DirectPlacement hat keinen pool_base / rebase");
+    SUCCEED();
+}
+
+// =================================================================
+// iterable_aspect_t Verhalten (Runtime-Permutation)
+// =================================================================
+
+TEST(IterableAspect_VectorU8U8, DensityThresholdAffectsClass) {
+    // 5 von 256 Slots = ~2% density; threshold 1% (klein) → Balanced
+    ce_03a::VectorU8U8 s{1};
+    for (int i = 0; i < 5; ++i) s.insert(static_cast<std::uint8_t>(i * 50), i + 100);
+    EXPECT_EQ(s.density_class(), ce_03a::concepts::DensityClass::Balanced);
+
+    // gleicher Buffer, threshold dynamisch hochgesetzt → Sparse
+    s.set_iterable_aspect(50);
+    EXPECT_EQ(s.density_class(), ce_03a::concepts::DensityClass::Sparse);
+}
+
+TEST(IterableAspect_VectorU8U8, IterableValuesContainsDefault) {
+    auto vals = ce_03a::VectorU8U8::iterable_values();
+    bool found_default = false;
+    for (auto v : vals) {
+        if (v == ce_03a::VectorU8U8::kDefaultDensityThresholdPct) found_default = true;
+    }
+    EXPECT_TRUE(found_default);
+}
+
+TEST(IterableAspect_HashLookup, InitialCapacityAffectsBucketCount) {
+    ce_03b::HashLookup t{64};
+    EXPECT_EQ(t.bucket_count(), 64u);
+    ce_03b::HashLookup t2{1024};
+    EXPECT_EQ(t2.bucket_count(), 1024u);
+}
+
+TEST(IterableAspect_HashLookup, SetIterableAspectRehashes) {
+    ce_03b::HashLookup t{16};
+    for (std::uint64_t k = 0; k < 5; ++k) t.register_entry(k, k * 10);
+    t.set_iterable_aspect(256);  // Rehash auf 256 buckets
+    EXPECT_EQ(t.bucket_count(), 256u);
+    for (std::uint64_t k = 0; k < 5; ++k) {
+        auto v = t.resolve(k);
+        ASSERT_TRUE(v.has_value()) << "key=" << k << " nach rehash verloren";
+        EXPECT_EQ(*v, k * 10);
+    }
+}
+
+// =================================================================
+// Edge-Case + Zero-Boundary-Tests (Allocator-Lessons-Learned)
+// =================================================================
+
+TEST(EdgeCase_HashLookup, ZeroCapacityThrows) {
+    EXPECT_THROW(ce_03b::HashLookup{0}, std::invalid_argument);
+}
+
+TEST(EdgeCase_HashLookup, NonPowerOf2Throws) {
+    EXPECT_THROW(ce_03b::HashLookup{3},   std::invalid_argument);
+    EXPECT_THROW(ce_03b::HashLookup{17},  std::invalid_argument);
+    EXPECT_THROW(ce_03b::HashLookup{100}, std::invalid_argument);
+}
+
+TEST(EdgeCase_HashLookup, SetIterableAspectZeroThrows) {
+    ce_03b::HashLookup t{16};
+    EXPECT_THROW(t.set_iterable_aspect(0), std::invalid_argument);
+    EXPECT_THROW(t.set_iterable_aspect(7), std::invalid_argument);
+}
+
+TEST(EdgeCase_HashLookup, AllIterableCapacitiesAreValidPowerOf2) {
+    for (auto cap : ce_03b::HashLookup::iterable_values()) {
+        EXPECT_GT(cap, 0u);
+        EXPECT_EQ((cap & (cap - 1)), 0u) << "cap=" << cap << " ist nicht Power-of-2";
+        EXPECT_NO_THROW(ce_03b::HashLookup{cap});
+    }
+}
+
+// =================================================================
+// Runtime-Permutationen via constexpr-Configs (Allocator-Pattern)
+// =================================================================
+
+namespace {
+struct SearchAlgoTestConfig {
+    std::uint64_t key_base;
+    std::size_t   count;
+};
+
+constexpr std::array<SearchAlgoTestConfig, 5> kTestSearchAlgoConfigs{{
+    {0, 1}, {0, 10}, {64, 50}, {128, 100}, {200, 30},
+}};
+}  // namespace
+
+TYPED_TEST(SearchAlgoTest, InsertLookupAllRuntimeConfigs) {
+    for (auto const& cfg : kTestSearchAlgoConfigs) {
+        TypeParam s{};
+        using K = typename TypeParam::key_type;
+        using V = typename TypeParam::value_type;
+        for (std::size_t i = 0; i < cfg.count; ++i) {
+            K k = static_cast<K>(cfg.key_base + i);
+            s.insert(k, V{static_cast<V>(i + 1)});
+        }
+        for (std::size_t i = 0; i < cfg.count; ++i) {
+            K k = static_cast<K>(cfg.key_base + i);
+            auto v = s.lookup(k);
+            ASSERT_TRUE(v.has_value()) << "cfg.key_base=" << cfg.key_base << " i=" << i;
+            EXPECT_EQ(*v, V{static_cast<V>(i + 1)});
+        }
+    }
+}
+
+namespace {
+constexpr std::array<std::size_t, 5> kTestHashCapacities{8u, 16u, 64u, 256u, 1024u};
+}  // namespace
+
+TEST(Runtime_HashLookup, RoundtripAllCapacities) {
+    for (auto cap : kTestHashCapacities) {
+        ce_03b::HashLookup t{cap};
+        // fill bis ~50% load
+        std::size_t fill = cap / 2;
+        for (std::uint64_t k = 0; k < fill; ++k) t.register_entry(k, k * 7);
+        EXPECT_EQ(t.tracked_count(), fill);
+        for (std::uint64_t k = 0; k < fill; ++k) {
+            auto v = t.resolve(k);
+            ASSERT_TRUE(v.has_value()) << "cap=" << cap << " k=" << k;
+            EXPECT_EQ(*v, k * 7);
+        }
+    }
+}
+
+// =================================================================
+// PermutationEngine-Integration (analog Q1/Q2/Allocator-Pattern)
+// =================================================================
+
+namespace ce_perm = ::comdare::cache_engine::permutations;
+
+// Wrapper TopicConfigSet — eine Achse pro Engine-Argument.
+// Hier verwenden wir 1-Achsen-Variante mit Default-StaticAxisVariants
+// (03a search_algo als primaere Achse).
+struct TraversalEnginePrimaryAxisTopic {
+    using StaticAxisVariants = ce_traversal::TopicConfigSet::StaticAxisVariants_03a;
+};
+
+TEST(TopicTraversal_PermutationEngine, ForEach03a) {
+    using Engine = ce_perm::PermutationEngine<TraversalEnginePrimaryAxisTopic>;
+    EXPECT_EQ(Engine::count(), mp::mp_size<ce_03a::EnabledStrategies>::value);
+    int seen = 0;
+    Engine::for_each_permutation([&seen]<class P>(){ ++seen; });
+    EXPECT_EQ(seen, static_cast<int>(Engine::count()));
+}
+
+TEST(TopicTraversal_PermutationEngine, ForEachAspectPerVendor) {
+    // VectorU8U8 hat iterable_aspect_t (5 density thresholds)
+    int aspects = 0;
+    ce_perm::for_each_aspect<ce_03a::VectorU8U8>([&aspects](auto /*value*/){ ++aspects; });
+    EXPECT_EQ(aspects, 5);
+    // Array256 hat KEINEN iterable_aspect_t → exakt 1 Aufruf ohne Argument
+    int single = 0;
+    ce_perm::for_each_aspect<ce_03a::Array256>([&single](){ ++single; });
+    EXPECT_EQ(single, 1);
+}
+
+TEST(TopicTraversal_PermutationEngine, AspectCount) {
+    EXPECT_EQ(ce_perm::aspect_count<ce_03a::VectorU8U8>(), 5u);
+    EXPECT_EQ(ce_perm::aspect_count<ce_03a::Array256>(), 1u);
+    EXPECT_EQ(ce_perm::aspect_count<ce_03b::HashLookup>(), 5u);
+    EXPECT_EQ(ce_perm::aspect_count<ce_03b::LinearFanout>(), 1u);
+}
+
+// =================================================================
+// Algorithmus-Eigenschaften-Filterung (mp_filter — User-Direktive
+// "Algorithmen bezueglich ihrer Eigenschaften unterscheiden")
+// =================================================================
+
+template <class S> using is_simd_search_algo = mp::mp_bool<S::supports_simd()>;
+template <class S> using is_dense_search_algo = mp::mp_bool<S::is_dense()>;
+template <class T> using is_hashed_cache_traversal = mp::mp_bool<T::is_hashed()>;
+template <class M> using is_pool_relative_mapping = mp::mp_bool<M::is_pool_relative()>;
+
+TEST(PropertyFilter_03a, SimdCapableSubset) {
+    using SimdSubset = mp::mp_filter<is_simd_search_algo, ce_03a::AllStrategies>;
+    // Array256 + VectorU8U8 sind SIMD, VectorU16U16 nicht → 2/3
+    EXPECT_EQ(mp::mp_size<SimdSubset>::value, 2u);
+}
+
+TEST(PropertyFilter_03a, DenseSubset) {
+    using DenseSubset = mp::mp_filter<is_dense_search_algo, ce_03a::AllStrategies>;
+    // Nur Array256 ist statisch dense → 1/3
+    EXPECT_EQ(mp::mp_size<DenseSubset>::value, 1u);
+}
+
+TEST(PropertyFilter_03b, HashedSubset) {
+    using HashedSubset = mp::mp_filter<is_hashed_cache_traversal, ce_03b::AllStrategies>;
+    EXPECT_EQ(mp::mp_size<HashedSubset>::value, 1u);
+}
+
+TEST(PropertyFilter_03m, PoolRelativeSubset) {
+    using PRSubset = mp::mp_filter<is_pool_relative_mapping, ce_03m::AllStrategies>;
+    EXPECT_EQ(mp::mp_size<PRSubset>::value, 1u);
 }
