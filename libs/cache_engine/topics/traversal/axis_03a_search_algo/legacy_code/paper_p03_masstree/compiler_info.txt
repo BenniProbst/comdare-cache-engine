@@ -1,0 +1,3 @@
+compiler:  gcc-9.5
+flags:     -O3 -std=c++17 -pthread -include masstree-beta/config.h -DMASSTREE_NODEPARAMS_LW=15 -DMASSTREE_NODEPARAMS_IW=15
+ld_flags:  -lpthread -lmasstree

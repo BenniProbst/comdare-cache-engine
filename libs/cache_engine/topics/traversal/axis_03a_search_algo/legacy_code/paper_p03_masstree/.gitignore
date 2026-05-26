@@ -1,0 +1,8 @@
+# Source-Snapshot wird Build-Time von ext/traversal/P03-Masstree kopiert
+masstree.hh
+masstree_get.hh
+masstree_insert.hh
+masstree_remove.hh
+masstree_tcursor.hh
+masstree_scan.hh
+.extracted.marker
