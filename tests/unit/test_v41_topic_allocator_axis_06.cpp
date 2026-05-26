@@ -83,6 +83,33 @@ class AllocatorVendorTest : public ::testing::Test {};
 
 TYPED_TEST_SUITE(AllocatorVendorTest, AllVendorTypes);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// V41.F.6.1 (User-Direktive 2026-05-26): Runtime-Permutations-Liste
+// Pro TYPED_TEST iterieren wir zusaetzlich ueber eine constexpr-Konfigurations-
+// Liste (size/alignment-Kombinationen), damit die dynamische Seite jeder Vendor-
+// Variante mitgetestet wird — nicht nur 1 fixe Konfiguration pro Vendor.
+// ─────────────────────────────────────────────────────────────────────────────
+struct AllocConfig {
+    std::size_t bytes;
+    std::size_t alignment;
+};
+constexpr std::array<AllocConfig, 7> kTestAllocConfigs{{
+    {  8,     8},   // word-aligned tiny
+    { 64,     8},   // cache-line-aligned small
+    {128,    16},   // SSE-aligned
+    {256,    32},   // AVX-aligned
+    {1024,   64},   // cache-line-aligned medium
+    {4096,  4096},  // page-aligned + page-sized
+    {16384,  16},   // larger block, default alignment
+}};
+
+constexpr std::array<std::pair<std::size_t, std::size_t>, 4> kTestZeroAllocConfigs{{
+    {  1,  64},     // 1 element x 64 bytes
+    {  4,  16},     // 4 element x 16 bytes
+    { 16,  64},     // 16 element x 64 bytes (1 KB)
+    {128, 128},     // 128 element x 128 bytes (16 KB)
+}};
+
 // Pflicht-Concepts werden pro Vendor compile-time geprueft (1 Test je Vendor)
 TYPED_TEST(AllocatorVendorTest, ConceptConformance) {
     static_assert(axis_06_cpts::AllocatorStrategy<TypeParam>,
@@ -101,25 +128,80 @@ TYPED_TEST(AllocatorVendorTest, Identification) {
     SUCCEED();
 }
 
-// Roundtrip: allocate + deallocate (mit portable Fallback wenn HAVE=OFF)
-TYPED_TEST(AllocatorVendorTest, AllocateDeallocateRoundtrip) {
+// Roundtrip: allocate + deallocate ueber Runtime-Konfigurations-Liste
+// (User-Direktive 2026-05-26: dynamische Seite testen — for-loop ueber constexpr Liste)
+TYPED_TEST(AllocatorVendorTest, AllocateDeallocateRoundtripAllConfigs) {
     TypeParam m{};
-    void* p = m.allocate(128, 16);
-    ASSERT_NE(p, nullptr) << "Vendor " << TypeParam::name() << " allocate failed";
-    m.deallocate(p, 128, 16);
+    for (auto const& cfg : kTestAllocConfigs) {
+        void* p = m.allocate(cfg.bytes, cfg.alignment);
+        ASSERT_NE(p, nullptr) << "Vendor " << TypeParam::name()
+                              << " allocate(" << cfg.bytes << ", " << cfg.alignment << ") failed";
+        m.deallocate(p, cfg.bytes, cfg.alignment);
+    }
 }
 
-// Stufe 3 Observer-Notify-Pflicht (nur wenn STATISTICS=ON)
+// zero_allocate ueber Runtime-Konfigurations-Liste (n x size Permutationen)
+// if constexpr Guard: nur fuer Vendor die ZeroingStrategy Sub-Concept erfuellen
+// (PmrResourceAllocator z.B. erfuellt es nicht — PMR-Interface bietet das nicht).
+TYPED_TEST(AllocatorVendorTest, ZeroAllocateRoundtripAllConfigs) {
+    if constexpr (axis_06_cpts::ZeroingStrategy<TypeParam>) {
+        TypeParam m{};
+        for (auto const& [n, size] : kTestZeroAllocConfigs) {
+            void* p = m.zero_allocate(n, size);
+            ASSERT_NE(p, nullptr) << "Vendor " << TypeParam::name()
+                                  << " zero_allocate(" << n << ", " << size << ") failed";
+            // Pruefe dass Memory zero-initialisiert ist (calloc-Pflicht)
+            auto* bytes = static_cast<unsigned char*>(p);
+            for (std::size_t i = 0; i < n * size; ++i) {
+                ASSERT_EQ(bytes[i], 0u) << "zero_allocate Byte " << i << " nicht 0 (Vendor "
+                                        << TypeParam::name() << ")";
+            }
+            // zero_allocate verwendet std::calloc Pfad — std::free statt deallocate
+            // (Heap-Crossover-Vermeidung wenn HAVE=OFF Fallback)
+            std::free(p);
+        }
+    }
+    SUCCEED();  // Vendor ohne ZeroingStrategy: kein Body, kein Failure
+}
+
+// reallocate ueber Runtime-Konfigurations-Liste (alloc -> realloc -> dealloc)
+// Sub-Concept ReallocatingStrategy ggf. nicht erfuellt -> if constexpr Guard.
+TYPED_TEST(AllocatorVendorTest, ReallocateRoundtripAllConfigs) {
+    if constexpr (axis_06_cpts::ReallocatingStrategy<TypeParam>) {
+        TypeParam m{};
+        for (auto const& cfg : kTestAllocConfigs) {
+            std::size_t new_bytes = cfg.bytes * 2;
+            void* p = m.allocate(cfg.bytes, cfg.alignment);
+            ASSERT_NE(p, nullptr);
+            void* np = m.reallocate(p, cfg.bytes, new_bytes, cfg.alignment);
+            ASSERT_NE(np, nullptr) << "Vendor " << TypeParam::name()
+                                   << " reallocate(" << cfg.bytes << "->" << new_bytes << ") failed";
+            m.deallocate(np, new_bytes, cfg.alignment);
+        }
+    }
+    SUCCEED();
+}
+
+// Stufe 3 Observer-Notify-Pflicht ueber Runtime-Konfigurations-Liste
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-TYPED_TEST(AllocatorVendorTest, ObserverNotifyOnAllocateAndDeallocate) {
+TYPED_TEST(AllocatorVendorTest, ObserverNotifyOnAllocateAndDeallocateAllConfigs) {
     TypeParam m{};
     int events = 0;
     m.observer().on_event([&events](auto const&){ ++events; });
-    void* p = m.allocate(64, 8);
-    ASSERT_NE(p, nullptr);
-    EXPECT_EQ(events, 1) << "allocate muss observer.notify(stats_) ausloesen";
-    m.deallocate(p, 64, 8);
-    EXPECT_EQ(events, 2) << "deallocate muss observer.notify(stats_) ausloesen";
+    int expected_events = 0;
+    for (auto const& cfg : kTestAllocConfigs) {
+        void* p = m.allocate(cfg.bytes, cfg.alignment);
+        ASSERT_NE(p, nullptr);
+        ++expected_events;
+        EXPECT_EQ(events, expected_events)
+            << "Nach allocate(" << cfg.bytes << "," << cfg.alignment << ") fehlt notify";
+        m.deallocate(p, cfg.bytes, cfg.alignment);
+        ++expected_events;
+        EXPECT_EQ(events, expected_events)
+            << "Nach deallocate(" << cfg.bytes << "," << cfg.alignment << ") fehlt notify";
+    }
+    // Pro AllocConfig 2 Events (alloc + dealloc)
+    EXPECT_EQ(events, static_cast<int>(kTestAllocConfigs.size()) * 2);
 }
 
 // observer_t Pflicht-Alias = MeasurableObserver<snapshot_t>
