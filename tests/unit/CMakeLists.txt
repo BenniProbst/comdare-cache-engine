@@ -353,3 +353,13 @@ target_include_directories(test_v41_anatomy_base PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_anatomy_base PRIVATE Boost::mp11)
+
+# V41.F.6.1.R5.C.A2 ExecutionEngine als Wurzel ueber AnatomyBase (Lebewesen vs Viren)
+comdare_add_test(test_v41_execution_engine
+    SOURCES test_v41_execution_engine.cpp)
+target_include_directories(test_v41_execution_engine PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_execution_engine PRIVATE Boost::mp11)
