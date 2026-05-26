@@ -566,7 +566,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     # A04 mimalloc (Pilot P2.B) — Leijen MSR-TR-2019-18 / ISMM 2019
     comdare_register_paper_wrapper(
         PAPER_ID          a04_mimalloc
-        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/A04-mimalloc"
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/A04-mimalloc"
         EXT_SENTINEL_FILE "src/alloc-aligned.c"
         LEGACY_DIR        "${_a06_legacy_root}/paper_a04_mimalloc"
         FILES             "src/alloc-aligned.c" "src/free.c"
@@ -578,7 +578,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     # A05 jemalloc (P2.D Roll-out 1/3) — Evans BSDCan 2006 / Facebook Production
     comdare_register_paper_wrapper(
         PAPER_ID          a05_jemalloc
-        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/A05-jemalloc"
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/A05-jemalloc"
         EXT_SENTINEL_FILE "src/jemalloc.c"
         LEGACY_DIR        "${_a06_legacy_root}/paper_a05_jemalloc"
         FILES             "src/jemalloc.c"
@@ -592,7 +592,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     # Tool findet aligned_alloc/free_aligned_sized als Identifier in libc.h.
     comdare_register_paper_wrapper(
         PAPER_ID          a07_snmalloc
-        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/A07-snmalloc"
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/A07-snmalloc"
         EXT_SENTINEL_FILE "src/snmalloc/global/libc.h"
         LEGACY_DIR        "${_a06_legacy_root}/paper_a07_snmalloc"
         FILES             "src/snmalloc/global/libc.h"
@@ -604,7 +604,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     # A20 dlmalloc (P2.D Batch 2, 1/3) — Doug Lea 1987 Classic Bins
     comdare_register_paper_wrapper(
         PAPER_ID          a20_dlmalloc
-        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/A20-dlmalloc"
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/A20-dlmalloc"
         EXT_SENTINEL_FILE "malloc.c"
         LEGACY_DIR        "${_a06_legacy_root}/paper_a20_dlmalloc"
         FILES             "malloc.c"
@@ -616,7 +616,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     # A10 rpmalloc (P2.D Batch 2, 2/3) — Jansson 2017
     comdare_register_paper_wrapper(
         PAPER_ID          a10_rpmalloc
-        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/A10-rpmalloc"
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/A10-rpmalloc"
         EXT_SENTINEL_FILE "rpmalloc/rpmalloc.c"
         LEGACY_DIR        "${_a06_legacy_root}/paper_a10_rpmalloc"
         FILES             "rpmalloc/rpmalloc.c"
@@ -628,7 +628,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     # A11 lrmalloc (P2.D Batch 2, 3/3) — Leite/Rocha JPDC 2019
     comdare_register_paper_wrapper(
         PAPER_ID          a11_lrmalloc
-        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/A11-lrmalloc"
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/A11-lrmalloc"
         EXT_SENTINEL_FILE "lrmalloc.cpp"
         LEGACY_DIR        "${_a06_legacy_root}/paper_a11_lrmalloc"
         FILES             "lrmalloc.cpp"
@@ -653,7 +653,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     # P01 ART (Leis ICDE 2013) — 4/4 originall
     comdare_register_paper_wrapper(
         PAPER_ID          p01_art
-        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/P01-ART/unodb"
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/traversal/P01-ART/unodb"
         EXT_SENTINEL_FILE "art.hpp"
         LEGACY_DIR        "${_a03a_legacy_root}/paper_p01_art"
         FILES             "art.hpp"
@@ -666,7 +666,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     # P02 HOT (Binna PVLDB 2018) — 2/4 originall (erase/clear Luecken)
     comdare_register_paper_wrapper(
         PAPER_ID          p02_hot
-        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/P02-HOT"
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/traversal/P02-HOT"
         EXT_SENTINEL_FILE "hot/libs/hot/rowex/include/hot/rowex/HOTRowex.hpp"
         LEGACY_DIR        "${_a03a_legacy_root}/paper_p02_hot"
         FILES             "hot/libs/hot/rowex/include/hot/rowex/HOTRowex.hpp"
@@ -679,7 +679,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     # P05 START (Mertens ICDE 2024) — 2/4 originall (erase/clear Luecken)
     comdare_register_paper_wrapper(
         PAPER_ID          p05_start
-        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/P05-START"
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/traversal/P05-START"
         EXT_SENTINEL_FILE "START/sosd-competitor-adapter-START.h"
         LEGACY_DIR        "${_a03a_legacy_root}/paper_p05_start"
         FILES             "START/sosd-competitor-adapter-START.h"

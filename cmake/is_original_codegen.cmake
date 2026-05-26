@@ -73,7 +73,7 @@ endfunction()
 #
 # Args:
 #   PAPER_ID         — z.B. "a04_mimalloc" (definiert legacy_code/paper_<id>/)
-#   EXT_SOURCE_DIR   — Quell-Verzeichnis (z.B. ${CMAKE_SOURCE_DIR}/ext/A04-mimalloc/)
+#   EXT_SOURCE_DIR   — Quell-Verzeichnis (z.B. ${CMAKE_SOURCE_DIR}/ext/allocator/A04-mimalloc/)
 #   LEGACY_CODE_DIR  — Ziel-Verzeichnis (z.B. ${CMAKE_SOURCE_DIR}/libs/.../legacy_code/paper_a04_mimalloc/)
 #   FILES            — relative Pfade zu kopierenden Files (multi-value), z.B. src/alloc.c
 function(comdare_paper_init)
@@ -124,7 +124,7 @@ endfunction()
 #
 # Args:
 #   PAPER_ID         z.B. "a04_mimalloc" / "a05_jemalloc"
-#   EXT_DIR          ${CMAKE_CURRENT_SOURCE_DIR}/ext/A04-mimalloc
+#   EXT_DIR          ${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/A04-mimalloc
 #   EXT_SENTINEL_FILE relativer Pfad zur Source, deren Existenz Triggert (z.B. "src/alloc-aligned.c")
 #   LEGACY_DIR       ${CMAKE_CURRENT_SOURCE_DIR}/libs/.../legacy_code/paper_<id>
 #   FILES            Liste der zu kopierenden Source-Files (multi-value)

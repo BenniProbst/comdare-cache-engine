@@ -15,7 +15,7 @@
 
 # V40.A (2026-05-24): Allokator-Achse echt — mimalloc als Vendor-Library
 # Aktiviert wenn COMDARE_BUILD_PERMUTATIONS=ON (Permutationen brauchen den Allokator)
-option(COMDARE_VENDOR_MIMALLOC "Build vendored mimalloc (ext/A04-mimalloc)"
+option(COMDARE_VENDOR_MIMALLOC "Build vendored mimalloc (ext/allocator/A04-mimalloc)"
        ${COMDARE_BUILD_PERMUTATIONS})
 if(COMDARE_VENDOR_MIMALLOC AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/A04-mimalloc/src/static.c")
     # V40.A direkter Build via src/static.c (umgeht mimalloc's eigenes CMake-System,
@@ -65,7 +65,7 @@ if(COMDARE_VENDOR_JEMALLOC)
         set(COMDARE_HAVE_JEMALLOC ON CACHE BOOL "" FORCE)
         message(STATUS "V41.A1 jemalloc (system): ${JEMALLOC_LIB}")
     else()
-        # Stufe 2: ext/A05-jemalloc pre-configured? Headers schon generiert?
+        # Stufe 2: ext/allocator/A05-jemalloc pre-configured? Headers schon generiert?
         set(_je_root "${CMAKE_CURRENT_LIST_DIR}/A05-jemalloc")
         if(EXISTS "${_je_root}/include/jemalloc/jemalloc.h"
            AND EXISTS "${_je_root}/include/jemalloc/internal/jemalloc_preamble.h")
@@ -97,7 +97,7 @@ if(COMDARE_VENDOR_JEMALLOC)
             message(STATUS "V41.A1 jemalloc NICHT verfuegbar. Fallback (real=std).")
             message(STATUS "  Pre-Built Headers fehlen. Setup-Optionen:")
             message(STATUS "    A) Linux: 'apt install libjemalloc-dev'")
-            message(STATUS "    B) Windows + MSYS2: 'cd ext/A05-jemalloc && sh -c \"CC=cl ./autogen.sh\"' im 'x64 Native Tools Command Prompt'")
+            message(STATUS "    B) Windows + MSYS2: 'cd ext/allocator/A05-jemalloc && sh -c \"CC=cl ./autogen.sh\"' im 'x64 Native Tools Command Prompt'")
             message(STATUS "    C) Windows + vcpkg: 'vcpkg install jemalloc:x64-windows-static'")
         endif()
     endif()
@@ -170,7 +170,7 @@ if(COMDARE_VENDOR_HOARD)
         message(STATUS "V41.A2 hoard (system): ${HOARD_LIB}")
     else()
         message(STATUS "V41.A2 hoard NICHT gefunden. Fallback (real=std).")
-        message(STATUS "  Setup: vendored ext/A01-hoard Build via add_subdirectory (komplexes Linker-Setup)")
+        message(STATUS "  Setup: vendored ext/allocator/A01-hoard Build via add_subdirectory (komplexes Linker-Setup)")
     endif()
 endif()
 
@@ -189,6 +189,6 @@ if(COMDARE_VENDOR_SCALLOC)
         message(STATUS "V41.A2 scalloc (system): ${SCALLOC_LIB}")
     else()
         message(STATUS "V41.A2 scalloc NICHT gefunden. Fallback (real=std).")
-        message(STATUS "  Setup: vendored ext/A08-scalloc nutzt gyp (Chrome legacy), kein CMake-Port verfuegbar")
+        message(STATUS "  Setup: vendored ext/allocator/A08-scalloc nutzt gyp (Chrome legacy), kein CMake-Port verfuegbar")
     endif()
 endif()

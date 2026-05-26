@@ -16,3 +16,6 @@
 [submodule "modules/comdare-test-system"]
 	path = modules/comdare-test-system
 	url = https://github.com/BenniProbst/comdare-test-system.git
+[submodule "ext/queuing/Q01-concurrentqueue"]
+	path = ext/queuing/Q01-concurrentqueue
+	url = https://github.com/cameron314/concurrentqueue
