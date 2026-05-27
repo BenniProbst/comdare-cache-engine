@@ -1,0 +1,16 @@
+#pragma once
+// V41.F.6.1.R7.5.g axis_migration CMake-generierter Flags-Header
+
+#cmakedefine01 COMDARE_AXIS_MIGRATION_USE_NONE
+#cmakedefine01 COMDARE_AXIS_MIGRATION_USE_HOT_COLD
+#cmakedefine01 COMDARE_AXIS_MIGRATION_USE_TIER_BASED
+#cmakedefine01 COMDARE_AXIS_MIGRATION_USE_ADAPTIVE
+
+namespace comdare::cache_engine::migration::axis_migration::flags {
+
+inline constexpr bool none_enabled       = COMDARE_AXIS_MIGRATION_USE_NONE;
+inline constexpr bool hot_cold_enabled   = COMDARE_AXIS_MIGRATION_USE_HOT_COLD;
+inline constexpr bool tier_based_enabled = COMDARE_AXIS_MIGRATION_USE_TIER_BASED;
+inline constexpr bool adaptive_enabled   = COMDARE_AXIS_MIGRATION_USE_ADAPTIVE;
+
+}  // namespace
