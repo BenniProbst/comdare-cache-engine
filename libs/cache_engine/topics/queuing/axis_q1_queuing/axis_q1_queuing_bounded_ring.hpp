@@ -1,7 +1,7 @@
 #pragma once
-// V41.F.6.1 axis_q1_queuing BoundedRing Q-RING (2026-05-26)
+// V41.F.6.1 axis_q1_queuing BoundedRingBuffer Q-RING (2026-05-26)
 //
-// @topic queuing @achse Q1 @family Q05 BoundedRing<N>
+// @topic queuing @achse Q1 @family Q05 BoundedRingBuffer<N>
 // @subaxis QS3 cyclic_access
 //
 // Bounded Ring-Buffer (Disruptor-Pattern, LMAX 2011): zyklischer Buffer
@@ -9,7 +9,7 @@
 //
 // **iterable_aspect_t Sonderfall:** Capacity ist iterable Aspekt fuer
 // hybride Laufzeit-Permutation (Doku §15.5). PermutationEngine erkennt
-// HasIterableAspect<BoundedRing> und generiert 1 Binary mit Runtime-Loop
+// HasIterableAspect<BoundedRingBuffer> und generiert 1 Binary mit Runtime-Loop
 // ueber kIterableCapacities statt 5 separate Binaries.
 
 #include "axis_q1_queuing_base.hpp"
@@ -34,7 +34,7 @@
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
-class BoundedRing : public BufferStrategyBase<BoundedRing> {
+class BoundedRingBuffer : public BufferStrategyBase<BoundedRingBuffer> {
 public:
     static constexpr bool enabled = flags::bounded_ring_enabled;
 
@@ -57,7 +57,7 @@ public:
     [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return true; }
     [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 64; }
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "bounded_ring"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "BoundedRing<N> (Disruptor-Pattern LMAX 2011, SPSC/MPMC)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "BoundedRingBuffer<N> (Disruptor-Pattern LMAX 2011, SPSC/MPMC)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "BOUNDED_RING"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }  // SPSC-Variante
@@ -68,16 +68,16 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
-    BoundedRing() : BoundedRing(default_capacity()) {}
+    BoundedRingBuffer() : BoundedRingBuffer(default_capacity()) {}
     /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 wirft std::invalid_argument
     /// (UB-Vermeidung: head_=(head_+1)%capacity_ ist Division-By-Zero bei cap=0).
-    explicit BoundedRing(std::size_t cap)
+    explicit BoundedRingBuffer(std::size_t cap)
         : buffer_((cap == 0 ? throw std::invalid_argument(
-                                  "BoundedRing: capacity must be > 0 (cap=0 division-by-zero in modulo)")
+                                  "BoundedRingBuffer: capacity must be > 0 (cap=0 division-by-zero in modulo)")
                             : cap))
         , capacity_(cap), head_(0), tail_(0), count_(0) {}
 
-    [[nodiscard]] bool operator==(BoundedRing const& other) const noexcept {
+    [[nodiscard]] bool operator==(BoundedRingBuffer const& other) const noexcept {
         return capacity_ == other.capacity_;
     }
 
@@ -143,7 +143,7 @@ public:
     void set_iterable_aspect(std::size_t new_cap) {
         if (new_cap == 0) {
             throw std::invalid_argument(
-                "BoundedRing::set_iterable_aspect: capacity must be > 0");
+                "BoundedRingBuffer::set_iterable_aspect: capacity must be > 0");
         }
         buffer_.assign(new_cap, 0);
         capacity_ = new_cap;
@@ -175,8 +175,8 @@ private:
 }  // namespace
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<BoundedRing>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<BoundedRing>);
-    static_assert(concepts::BoundedBufferStrategy<BoundedRing>);
-    static_assert(concepts::IterableAspectStrategy<BoundedRing>);
+    static_assert(concepts::BufferStrategy<BoundedRingBuffer>);
+    static_assert(concepts::CacheEngineBufferPermutationStrategy<BoundedRingBuffer>);
+    static_assert(concepts::BoundedBufferStrategy<BoundedRingBuffer>);
+    static_assert(concepts::IterableAspectStrategy<BoundedRingBuffer>);
 }

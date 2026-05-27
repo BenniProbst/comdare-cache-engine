@@ -18,7 +18,7 @@ namespace mp = boost::mp11;
 
 /// TopicConfigSet — beide Achsen Q1 + Q2 zentral, PermutationEngine-tauglich
 struct TopicConfigSet {
-    // axis_q1: Buffer-Strategy (NoBuffer/FIFO/LIFO/BoundedRing pilot)
+    // axis_q1: Buffer-Strategy (NoBuffer/FIFO/LIFO/BoundedRingBuffer pilot)
     using StaticAxisVariants_Q1 = axis_q1_queuing::EnabledStrategies;
 
     // axis_q2: Flush-Policy (Eager/Watermark/Lazy pilot)

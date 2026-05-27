@@ -26,13 +26,13 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts {
  * anbieten.
  *
  * **Concept-Erfuellung:**
- *   - BoundedRing
- *   - LockFreeSPSC
- *   - LockFreeMPMC
+ *   - BoundedRingBuffer
+ *   - LockFreeSPSCBuffer
+ *   - LockFreeMPMCBuffer
  *
- * **Unbounded Wrapper (NICHT Concept-erfuellend):** FIFOQueue, LIFOStack,
- * AppendOnly, PriorityHeap, DeltaChain, SkiplistBuffer, TombstoneBuffer,
- * CopyOnWrite, EpochBuffer, BatchedInsertBuffer, NoBuffer.
+ * **Unbounded Wrapper (NICHT Concept-erfuellend):** FIFOQueueBuffer, LIFOStackBuffer,
+ * AppendOnlyBuffer, PriorityHeapBuffer, DeltaChainBuffer, SkiplistBuffer, TombstoneBuffer,
+ * CopyOnWriteBuffer, EpochBuffer, BatchedInsertBuffer, NoBuffer.
  */
 template <typename B>
 concept BoundedBufferStrategy =

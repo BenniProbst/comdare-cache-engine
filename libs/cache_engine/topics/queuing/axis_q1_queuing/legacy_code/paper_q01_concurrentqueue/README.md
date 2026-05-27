@@ -19,7 +19,7 @@ Real-world produktionserprobt (Microsoft, Facebook, Tencent etc.).
   Drain-Loop `while(try_dequeue(_));`, is_original_clear()=false)
 
 **Wrapper-Klasse:** `OriginalLockFreeMpmcConcurrentQueue` (parallel zu existing
-`LockFreeMPMC` Re-Impl).
+`LockFreeMPMCBuffer` Re-Impl).
 
 **is_original_module()** = false (weil 4/6 Lücken). PermutationEngine kann via
 `PaperOriginalValidated`-Concept-Filter ausschliessen, oder via `HasOriginalCode`

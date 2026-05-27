@@ -2,11 +2,11 @@
 // V41.F.6.1.P2.D.q.s2 OriginalLockFreeMpmcConcurrentQueue Q15 (2026-05-26)
 //
 // @topic queuing @achse Q1 @family Q15 OriginalLockFreeMpmcConcurrentQueue
-// @subaxis QS6 lock_free_access (analog LockFreeMPMC)
+// @subaxis QS6 lock_free_access (analog LockFreeMPMCBuffer)
 // @paper Q01 moodycamel::ConcurrentQueue (Cameron Desrochers, BSD-2)
 // @source ext/queuing/Q01-concurrentqueue/concurrentqueue.h
 //
-// **Habich-Compliance-Wrapper:** parallel zu LockFreeMPMC (Re-Impl Vyukov bounded).
+// **Habich-Compliance-Wrapper:** parallel zu LockFreeMPMCBuffer (Re-Impl Vyukov bounded).
 // get_compiler()="gcc-9.5" via Paper-Mixin (Tool-validierte Source-Identity via SHA256).
 //
 // **Luecken-Markierung (2/6 originall, 4/6 Luecken):**
@@ -18,7 +18,7 @@
 //   - clear:      LUECKE (kein clear — Re-Impl via Drain-Loop)
 // is_original_module()=false (weil 4/6 Lücken).
 //
-// **Body-Strategie (s2):** Standalone Vyukov bounded MPMC (analog LockFreeMPMC).
+// **Body-Strategie (s2):** Standalone Vyukov bounded MPMC (analog LockFreeMPMCBuffer).
 // s4: extern Linking via #include <concurrentqueue.h> + ConcurrentQueue<u64>.
 // concurrentqueue ist header-only (BSD-2) — kein add_library noetig in s4.
 //
@@ -74,7 +74,7 @@ public:
     using axis_tag     = subaxes::lock_free_access_tag;
     using family_id    = std::integral_constant<int, 15>;  // Q15 (nach Q01-Q13b)
 
-    /// iterable_aspect_t — Power-of-2 Pflicht (Vyukov-Modulo via bitmask, identisch zu LockFreeMPMC).
+    /// iterable_aspect_t — Power-of-2 Pflicht (Vyukov-Modulo via bitmask, identisch zu LockFreeMPMCBuffer).
     using iterable_aspect_t = std::size_t;
     static constexpr std::array<std::size_t, 5> kIterableCapacities{8u, 64u, 1024u, 16384u, 65536u};
     [[nodiscard]] static constexpr std::span<std::size_t const> iterable_values() noexcept {

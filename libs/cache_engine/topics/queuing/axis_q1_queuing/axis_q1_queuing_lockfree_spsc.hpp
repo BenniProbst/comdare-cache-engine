@@ -1,7 +1,7 @@
 #pragma once
-// V41.F.6.1 axis_q1_queuing LockFreeSPSC Q-SPSC (2026-05-26)
+// V41.F.6.1 axis_q1_queuing LockFreeSPSCBuffer Q-SPSC (2026-05-26)
 //
-// @topic queuing @achse Q1 @family Q13a LockFreeSPSC
+// @topic queuing @achse Q1 @family Q13a LockFreeSPSCBuffer
 // @subaxis QS6 lock_free_access (ERSTE QS6-Strategie)
 //
 // Lock-Free Single-Producer/Single-Consumer Ring-Queue nach Lamport's
@@ -15,7 +15,7 @@
 //   - get() ist wait-free (1 atomic.load + 1 atomic.store)
 //
 // **Erste Q1-Strategie mit ProgressGuarantee::LockFree** + erste QS6 lock_free
-// Subaxis-Belegung. **3. Strategie mit iterable_aspect_t** (nach BoundedRing
+// Subaxis-Belegung. **3. Strategie mit iterable_aspect_t** (nach BoundedRingBuffer
 // + EpochBuffer) — Capacity ist iterable Aspekt.
 //
 // Overflow-Verhalten: put() bei vollem Buffer ist dropping (kein Block, kein
@@ -51,7 +51,7 @@
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
-class LockFreeSPSC : public BufferStrategyBase<LockFreeSPSC> {
+class LockFreeSPSCBuffer : public BufferStrategyBase<LockFreeSPSCBuffer> {
 public:
     static constexpr bool enabled = flags::lockfree_spsc_enabled;
 
@@ -73,7 +73,7 @@ public:
     [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return true; }
     [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 1024; }
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "lockfree_spsc"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "LockFreeSPSC (Lamport 1983, wait-free SPSC Ring)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "LockFreeSPSCBuffer (Lamport 1983, wait-free SPSC Ring)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "LOCKFREE_SPSC"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }  // S = Single
@@ -85,22 +85,22 @@ public:
         return concepts::ProgressGuarantee::LockFree;
     }
 
-    LockFreeSPSC() : LockFreeSPSC(default_capacity()) {}
+    LockFreeSPSCBuffer() : LockFreeSPSCBuffer(default_capacity()) {}
     /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 wirft std::invalid_argument
     /// (UB-Vermeidung: tail_=(tail_+1)%capacity_ ist Division-By-Zero bei cap=0).
-    explicit LockFreeSPSC(std::size_t cap)
+    explicit LockFreeSPSCBuffer(std::size_t cap)
         : buffer_((cap == 0 ? throw std::invalid_argument(
-                                  "LockFreeSPSC: capacity must be > 0 (cap=0 division-by-zero in modulo)")
+                                  "LockFreeSPSCBuffer: capacity must be > 0 (cap=0 division-by-zero in modulo)")
                             : cap))
         , capacity_(cap), head_(0), tail_(0) {}
 
     // SPSC ist nicht copy/move-fähig (atomics) — Vergleich nur ueber Capacity.
-    LockFreeSPSC(LockFreeSPSC const&) = delete;
-    LockFreeSPSC& operator=(LockFreeSPSC const&) = delete;
-    LockFreeSPSC(LockFreeSPSC&&) = delete;
-    LockFreeSPSC& operator=(LockFreeSPSC&&) = delete;
+    LockFreeSPSCBuffer(LockFreeSPSCBuffer const&) = delete;
+    LockFreeSPSCBuffer& operator=(LockFreeSPSCBuffer const&) = delete;
+    LockFreeSPSCBuffer(LockFreeSPSCBuffer&&) = delete;
+    LockFreeSPSCBuffer& operator=(LockFreeSPSCBuffer&&) = delete;
 
-    [[nodiscard]] bool operator==(LockFreeSPSC const& other) const noexcept {
+    [[nodiscard]] bool operator==(LockFreeSPSCBuffer const& other) const noexcept {
         return capacity_ == other.capacity_;
     }
 
@@ -186,7 +186,7 @@ public:
     void set_iterable_aspect(std::size_t new_cap) {
         if (new_cap == 0) {
             throw std::invalid_argument(
-                "LockFreeSPSC::set_iterable_aspect: capacity must be > 0");
+                "LockFreeSPSCBuffer::set_iterable_aspect: capacity must be > 0");
         }
         buffer_.assign(new_cap, 0);
         capacity_ = new_cap;
@@ -218,8 +218,8 @@ private:
 }  // namespace
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<LockFreeSPSC>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<LockFreeSPSC>);
-    static_assert(concepts::BoundedBufferStrategy<LockFreeSPSC>);
-    static_assert(concepts::IterableAspectStrategy<LockFreeSPSC>);
+    static_assert(concepts::BufferStrategy<LockFreeSPSCBuffer>);
+    static_assert(concepts::CacheEngineBufferPermutationStrategy<LockFreeSPSCBuffer>);
+    static_assert(concepts::BoundedBufferStrategy<LockFreeSPSCBuffer>);
+    static_assert(concepts::IterableAspectStrategy<LockFreeSPSCBuffer>);
 }

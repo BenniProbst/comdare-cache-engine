@@ -1,7 +1,7 @@
 #pragma once
-// V41.F.6.1 axis_q1_queuing LockFreeMPMC Q-MPMC (2026-05-26)
+// V41.F.6.1 axis_q1_queuing LockFreeMPMCBuffer Q-MPMC (2026-05-26)
 //
-// @topic queuing @achse Q1 @family Q13b LockFreeMPMC
+// @topic queuing @achse Q1 @family Q13b LockFreeMPMCBuffer
 // @subaxis QS6 lock_free_access
 //
 // Lock-Free Multi-Producer/Multi-Consumer Bounded Ring-Queue nach Vyukov
@@ -55,7 +55,7 @@
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
-class LockFreeMPMC : public BufferStrategyBase<LockFreeMPMC> {
+class LockFreeMPMCBuffer : public BufferStrategyBase<LockFreeMPMCBuffer> {
 public:
     static constexpr bool enabled = flags::lockfree_mpmc_enabled;
 
@@ -76,7 +76,7 @@ public:
     [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return true; }
     [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 1024; }  // Power-of-2
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "lockfree_mpmc"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "LockFreeMPMC (Vyukov bounded MPMC, per-Cell-Sequence, 1024cores.net)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "LockFreeMPMCBuffer (Vyukov bounded MPMC, per-Cell-Sequence, 1024cores.net)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "LOCKFREE_MPMC"; }
 
     /// SONDERFALL: ERSTE Q1-Strategien mit supports_concurrent_producers/consumers=true.
@@ -89,10 +89,10 @@ public:
         return concepts::ProgressGuarantee::LockFree;
     }
 
-    LockFreeMPMC() : LockFreeMPMC(default_capacity()) {}
+    LockFreeMPMCBuffer() : LockFreeMPMCBuffer(default_capacity()) {}
 
     /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 oder nicht-Power-of-2 wirft.
-    explicit LockFreeMPMC(std::size_t cap)
+    explicit LockFreeMPMCBuffer(std::size_t cap)
         : capacity_(validate_capacity(cap))
         , mask_(cap - 1)
         , enqueue_pos_(0)
@@ -105,12 +105,12 @@ public:
     }
 
     // MPMC ist nicht copy/move-fähig (atomics + unique_ptr Sequence)
-    LockFreeMPMC(LockFreeMPMC const&) = delete;
-    LockFreeMPMC& operator=(LockFreeMPMC const&) = delete;
-    LockFreeMPMC(LockFreeMPMC&&) = delete;
-    LockFreeMPMC& operator=(LockFreeMPMC&&) = delete;
+    LockFreeMPMCBuffer(LockFreeMPMCBuffer const&) = delete;
+    LockFreeMPMCBuffer& operator=(LockFreeMPMCBuffer const&) = delete;
+    LockFreeMPMCBuffer(LockFreeMPMCBuffer&&) = delete;
+    LockFreeMPMCBuffer& operator=(LockFreeMPMCBuffer&&) = delete;
 
-    [[nodiscard]] bool operator==(LockFreeMPMC const& other) const noexcept {
+    [[nodiscard]] bool operator==(LockFreeMPMCBuffer const& other) const noexcept {
         return capacity_ == other.capacity_;
     }
 
@@ -252,12 +252,12 @@ private:
     static std::size_t validate_capacity(std::size_t cap) {
         if (cap == 0) {
             throw std::invalid_argument(
-                "LockFreeMPMC: capacity must be > 0 (cap=0 division-by-zero in bitmask)");
+                "LockFreeMPMCBuffer: capacity must be > 0 (cap=0 division-by-zero in bitmask)");
         }
         // Power-of-2 check (Vyukov-Constraint)
         if ((cap & (cap - 1)) != 0) {
             throw std::invalid_argument(
-                "LockFreeMPMC: capacity must be Power-of-2 (Vyukov-Constraint for bitmask modulo)");
+                "LockFreeMPMCBuffer: capacity must be Power-of-2 (Vyukov-Constraint for bitmask modulo)");
         }
         return cap;
     }
@@ -276,8 +276,8 @@ private:
 }  // namespace
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<LockFreeMPMC>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<LockFreeMPMC>);
-    static_assert(concepts::BoundedBufferStrategy<LockFreeMPMC>);
-    static_assert(concepts::IterableAspectStrategy<LockFreeMPMC>);
+    static_assert(concepts::BufferStrategy<LockFreeMPMCBuffer>);
+    static_assert(concepts::CacheEngineBufferPermutationStrategy<LockFreeMPMCBuffer>);
+    static_assert(concepts::BoundedBufferStrategy<LockFreeMPMCBuffer>);
+    static_assert(concepts::IterableAspectStrategy<LockFreeMPMCBuffer>);
 }

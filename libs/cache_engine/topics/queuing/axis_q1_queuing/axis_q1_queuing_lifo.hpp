@@ -1,7 +1,7 @@
 #pragma once
-// V41.F.6.1 axis_q1_queuing LIFOStack Q-LIFO (2026-05-26)
+// V41.F.6.1 axis_q1_queuing LIFOStackBuffer Q-LIFO (2026-05-26)
 //
-// @topic queuing @achse Q1 @family Q04 LIFOStack
+// @topic queuing @achse Q1 @family Q04 LIFOStackBuffer
 // @subaxis QS1 sequential_access
 //
 // Last-In-First-Out (Stack): Hot-Path Reuse + Versions-Tombstones.
@@ -23,7 +23,7 @@
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
-class LIFOStack : public BufferStrategyBase<LIFOStack> {
+class LIFOStackBuffer : public BufferStrategyBase<LIFOStackBuffer> {
 public:
     static constexpr bool enabled = flags::lifo_enabled;
 
@@ -37,7 +37,7 @@ public:
     [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "lifo_stack"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "LIFOStack (Hot-Path Reuse + Versions-Tombstones)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "LIFOStackBuffer (Hot-Path Reuse + Versions-Tombstones)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "LIFO"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
@@ -48,7 +48,7 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
-    [[nodiscard]] bool operator==(LIFOStack const& other) const noexcept {
+    [[nodiscard]] bool operator==(LIFOStackBuffer const& other) const noexcept {
         return data_.size() == other.data_.size();
     }
 
@@ -114,6 +114,6 @@ private:
 }  // namespace
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<LIFOStack>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<LIFOStack>);
+    static_assert(concepts::BufferStrategy<LIFOStackBuffer>);
+    static_assert(concepts::CacheEngineBufferPermutationStrategy<LIFOStackBuffer>);
 }

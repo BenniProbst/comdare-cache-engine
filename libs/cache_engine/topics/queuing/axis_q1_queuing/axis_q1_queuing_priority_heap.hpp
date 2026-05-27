@@ -1,7 +1,7 @@
 #pragma once
-// V41.F.6.1 axis_q1_queuing PriorityHeap Q-PRIO (2026-05-26)
+// V41.F.6.1 axis_q1_queuing PriorityHeapBuffer Q-PRIO (2026-05-26)
 //
-// @topic queuing @achse Q1 @family Q06 PriorityHeap (Hot-Key Promotion)
+// @topic queuing @achse Q1 @family Q06 PriorityHeapBuffer (Hot-Key Promotion)
 // @subaxis QS2 ordered_access
 //
 // Priority-basierter Buffer: get() liefert IMMER hoechste Prioritaet (max-heap).
@@ -35,7 +35,7 @@
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
-class PriorityHeap : public BufferStrategyBase<PriorityHeap> {
+class PriorityHeapBuffer : public BufferStrategyBase<PriorityHeapBuffer> {
 public:
     static constexpr bool enabled = flags::priority_heap_enabled;
 
@@ -49,7 +49,7 @@ public:
     [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }  // unbounded
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "priority_heap"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "PriorityHeap (Max-Heap, LRU-Approx + Hot-Key Promotion)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "PriorityHeapBuffer (Max-Heap, LRU-Approx + Hot-Key Promotion)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "PRIORITY_HEAP"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
@@ -61,7 +61,7 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
-    [[nodiscard]] bool operator==(PriorityHeap const& other) const noexcept {
+    [[nodiscard]] bool operator==(PriorityHeapBuffer const& other) const noexcept {
         return heap_.size() == other.heap_.size();
     }
 
@@ -110,7 +110,7 @@ public:
     /// (aber portable) c-Member-Konvention NICHT, sondern duplizieren via O(N) scan.
     [[nodiscard]] std::optional<element_type> peek_back() const noexcept {
         if (heap_.empty()) return std::nullopt;
-        // Tradeoff: O(N) scan ist akzeptabel da peek_back() bei PriorityHeap selten genutzt
+        // Tradeoff: O(N) scan ist akzeptabel da peek_back() bei PriorityHeapBuffer selten genutzt
         // (typisch nur Diagnostik). Wir kopieren den Heap einmalig und drainen.
         auto copy = heap_;
         element_type min_val = copy.top();
@@ -144,6 +144,6 @@ private:
 }  // namespace
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<PriorityHeap>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<PriorityHeap>);
+    static_assert(concepts::BufferStrategy<PriorityHeapBuffer>);
+    static_assert(concepts::CacheEngineBufferPermutationStrategy<PriorityHeapBuffer>);
 }

@@ -1,7 +1,7 @@
 #pragma once
-// V41.F.6.1 axis_q1_queuing AppendOnly Q-APP (2026-05-26)
+// V41.F.6.1 axis_q1_queuing AppendOnlyBuffer Q-APP (2026-05-26)
 //
-// @topic queuing @achse Q1 @family Q02 AppendOnly (Linear)
+// @topic queuing @achse Q1 @family Q02 AppendOnlyBuffer (Linear)
 // @subaxis QS1 sequential_access
 //
 // Append-Only Buffer: monoton wachsender Linear-Buffer ohne mittiges Loeschen.
@@ -9,9 +9,9 @@
 // (Levandoski 2013). get() entfernt vom Anfang (FIFO-Drain). put() hat amortisiert
 // O(1) — bei Heap-Wachstum kann std::bad_alloc fliegen ([[allocation-failure-exception]]).
 //
-// Unterschied zu FIFOQueue:
-//   - FIFOQueue: std::deque, kann mittig effizient erweitert/entleert werden
-//   - AppendOnly: std::vector, OPTIMIERT fuer reine Append + Bulk-Drain (cache-freundlicher,
+// Unterschied zu FIFOQueueBuffer:
+//   - FIFOQueueBuffer: std::deque, kann mittig effizient erweitert/entleert werden
+//   - AppendOnlyBuffer: std::vector, OPTIMIERT fuer reine Append + Bulk-Drain (cache-freundlicher,
 //     bessere Locality bei Sequenz-Scan; nicht fuer haeufige Single-get() optimiert)
 
 #include "axis_q1_queuing_base.hpp"
@@ -31,7 +31,7 @@
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
-class AppendOnly : public BufferStrategyBase<AppendOnly> {
+class AppendOnlyBuffer : public BufferStrategyBase<AppendOnlyBuffer> {
 public:
     static constexpr bool enabled = flags::append_only_enabled;
 
@@ -45,7 +45,7 @@ public:
     [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }  // unbounded
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "append_only"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "AppendOnly (LSM-MemTable + Bw-Tree Delta-Chain, Levandoski 2013)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "AppendOnlyBuffer (LSM-MemTable + Bw-Tree Delta-Chain, Levandoski 2013)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "APPEND_ONLY"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
@@ -56,7 +56,7 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
-    [[nodiscard]] bool operator==(AppendOnly const& other) const noexcept {
+    [[nodiscard]] bool operator==(AppendOnlyBuffer const& other) const noexcept {
         return data_.size() == other.data_.size();
     }
 
@@ -131,6 +131,6 @@ private:
 }  // namespace
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<AppendOnly>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<AppendOnly>);
+    static_assert(concepts::BufferStrategy<AppendOnlyBuffer>);
+    static_assert(concepts::CacheEngineBufferPermutationStrategy<AppendOnlyBuffer>);
 }

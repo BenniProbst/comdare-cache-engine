@@ -13,13 +13,13 @@
 // hybride Laufzeit-Permutation (Doku §15.5). PermutationEngine erkennt
 // HasIterableAspect<EpochBuffer> und generiert 1 Binary mit Runtime-Loop ueber
 // kIterableEpochThresholds statt 5 separate Binaries. **2. Strategie mit
-// iterable_aspect_t** (nach BoundedRing-Capacity).
+// iterable_aspect_t** (nach BoundedRingBuffer-Capacity).
 //
 // **4. Strategie mit is_versioned()=true** (Epoch-Versioning, anders als
-// DeltaChain/Tombstone/CoW). Konzeptioneller Unterschied:
-//   - DeltaChain     = Append-Versioning
+// DeltaChainBuffer/Tombstone/CoW). Konzeptioneller Unterschied:
+//   - DeltaChainBuffer     = Append-Versioning
 //   - TombstoneBuffer = Erase-Versioning
-//   - CopyOnWrite     = Snapshot-Versioning
+//   - CopyOnWriteBuffer     = Snapshot-Versioning
 //   - EpochBuffer     = Reclamation-Window-Versioning (zeitlich begrenzt)
 //
 // Allocation: std::vector-basierte Epochen-Slots — wirft std::bad_alloc bei OOM
