@@ -179,6 +179,12 @@ option(COMDARE_AXIS_14_ENABLE_EXTERNAL_POOL        "ValueHandle ExternalPool (Wo
 option(COMDARE_AXIS_14_ENABLE_IMMUTABLE_SHARED_REF "ValueHandle ImmutableSharedRef (RCU shared_ptr)" ON)
 option(COMDARE_AXIS_14_ENABLE_VERSIONED_POINTER    "ValueHandle VersionedPointer (MVCC, Masstree/SMART)" ON)
 
+# V41.F.6.1.R7.5.e axis_filter (4 Strategien)
+option(COMDARE_AXIS_FILTER_ENABLE_BLOOM      "Filter Bloom (Bloom 1970 point-query)" ON)
+option(COMDARE_AXIS_FILTER_ENABLE_CUCKOO     "Filter Cuckoo (Fan CoNEXT 2014, delete-capable)" ON)
+option(COMDARE_AXIS_FILTER_ENABLE_RANGE_SURF "Filter RangeSurf (Zhang SIGMOD 2018, range-query)" ON)
+option(COMDARE_AXIS_FILTER_ENABLE_XOR        "Filter Xor (Graf+Lemire 2020, smaller than Bloom)" ON)
+
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
 # aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
@@ -707,6 +713,20 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/value_handle/axis_14_value_handle/axis_14_value_handle_flags.hpp"
     @ONLY)
 message(STATUS "  axis_14 (4 value-handles): INLINE=${COMDARE_AXIS_14_USE_INLINE} EXT_POOL=${COMDARE_AXIS_14_USE_EXTERNAL_POOL} SHARED_REF=${COMDARE_AXIS_14_USE_IMMUTABLE_SHARED_REF} VERSIONED=${COMDARE_AXIS_14_USE_VERSIONED_POINTER}")
+
+# V41.F.6.1.R7.5.e axis_filter Flags (USE = ENABLE)
+foreach(_f BLOOM CUCKOO RANGE_SURF XOR)
+    if(COMDARE_AXIS_FILTER_ENABLE_${_f})
+        set(COMDARE_AXIS_FILTER_USE_${_f} 1)
+    else()
+        set(COMDARE_AXIS_FILTER_USE_${_f} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/filter/axis_filter/axis_filter_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/filter/axis_filter/axis_filter_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_filter (4 filters): BLOOM=${COMDARE_AXIS_FILTER_USE_BLOOM} CUCKOO=${COMDARE_AXIS_FILTER_USE_CUCKOO} RANGE_SURF=${COMDARE_AXIS_FILTER_USE_RANGE_SURF} XOR=${COMDARE_AXIS_FILTER_USE_XOR}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung
