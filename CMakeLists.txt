@@ -203,11 +203,21 @@ option(COMDARE_AXIS_01_ENABLE_CLUSTERED             "IndexOrg Clustered (Index-O
 option(COMDARE_AXIS_01_ENABLE_NON_CLUSTERED         "IndexOrg NonClustered (Secondary Index, SQL Server/PostgreSQL)" ON)
 option(COMDARE_AXIS_01_ENABLE_INDEX_ORGANIZED_TABLE "IndexOrg IOT (data in B+Tree leaves, Oracle IOT, ART/HOT-style)" ON)
 
-# V41.F.6.1.R7.5.i axis_09 ISA (4 SIMD-Widths)
-option(COMDARE_AXIS_09_ENABLE_SCALAR "ISA Scalar (no SIMD baseline)" ON)
-option(COMDARE_AXIS_09_ENABLE_SSE2   "ISA SSE2 128-bit (x86_64 ABI-baseline)" ON)
-option(COMDARE_AXIS_09_ENABLE_AVX2   "ISA AVX2 256-bit (Haswell+ 2013)" ON)
-option(COMDARE_AXIS_09_ENABLE_NEON   "ISA NEON 128-bit (ARMv8+ AArch64)" ON)
+# V41.F.6.1.R7.5.i.2 axis_09 ISA Haupt-CPU (4 Haupt-CPU-Familien nach User-Korrektur)
+option(COMDARE_AXIS_09_ENABLE_AMD64    "ISA AMD64/x86_64 (Intel/AMD, ZIH Barnard EPYC + Capella Xeon)" ON)
+option(COMDARE_AXIS_09_ENABLE_AARCH64  "ISA AArch64/ARM64 (ZIH Grace Hopper GH200, Apple M, Graviton)" ON)
+option(COMDARE_AXIS_09_ENABLE_RISCV    "ISA RISC-V (RV64GC, SiFive/Alibaba Xuantie, embedded)" ON)
+option(COMDARE_AXIS_09_ENABLE_POWERPC  "ISA PowerPC (POWER9/10 ppc64le, IBM Power Systems)" ON)
+
+# V41.F.6.1.R7.5.j axis_09b SIMD-Extension Sub-Achse (8 Extensions inkl. NoExtension Baseline)
+option(COMDARE_AXIS_09B_ENABLE_NO_EXTENSION "SIMD-Ext None (baseline, alle Haupt-ISAs compat)" ON)
+option(COMDARE_AXIS_09B_ENABLE_SSE2         "SIMD-Ext SSE2 (x86 ABI-baseline)" ON)
+option(COMDARE_AXIS_09B_ENABLE_AVX2         "SIMD-Ext AVX2 (x86 Haswell+, ZIH Barnard/Capella)" ON)
+option(COMDARE_AXIS_09B_ENABLE_AVX512       "SIMD-Ext AVX-512 (x86 Skylake-X+/Ice Lake/Zen 4+)" ON)
+option(COMDARE_AXIS_09B_ENABLE_NEON         "SIMD-Ext NEON (ARM baseline, Apple M/Graviton)" ON)
+option(COMDARE_AXIS_09B_ENABLE_SVE2         "SIMD-Ext SVE2 (ARMv9 scalable, ZIH Grace Hopper)" ON)
+option(COMDARE_AXIS_09B_ENABLE_RVV          "SIMD-Ext RVV (RISC-V Vector v1.0 scalable)" ON)
+option(COMDARE_AXIS_09B_ENABLE_CUDA_GH200   "SIMD-Ext CUDA-GH200 (NVIDIA Hopper, NVLink-C2C, ZIH GH)" ON)
 
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
@@ -794,8 +804,8 @@ configure_file(
     @ONLY)
 message(STATUS "  axis_01 (4 clusterings): HEAP=${COMDARE_AXIS_01_USE_HEAP} CLUSTERED=${COMDARE_AXIS_01_USE_CLUSTERED} NON_CLUSTERED=${COMDARE_AXIS_01_USE_NON_CLUSTERED} IOT=${COMDARE_AXIS_01_USE_INDEX_ORGANIZED_TABLE}")
 
-# V41.F.6.1.R7.5.i axis_09 ISA Flags (USE = ENABLE)
-foreach(_isa SCALAR SSE2 AVX2 NEON)
+# V41.F.6.1.R7.5.i.2 axis_09 Haupt-CPU-ISA Flags (USE = ENABLE)
+foreach(_isa AMD64 AARCH64 RISCV POWERPC)
     if(COMDARE_AXIS_09_ENABLE_${_isa})
         set(COMDARE_AXIS_09_USE_${_isa} 1)
     else()
@@ -806,7 +816,21 @@ configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/hardware/axis_09_isa/axis_09_isa_flags.hpp.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/hardware/axis_09_isa/axis_09_isa_flags.hpp"
     @ONLY)
-message(STATUS "  axis_09 (4 ISAs): SCALAR=${COMDARE_AXIS_09_USE_SCALAR} SSE2=${COMDARE_AXIS_09_USE_SSE2} AVX2=${COMDARE_AXIS_09_USE_AVX2} NEON=${COMDARE_AXIS_09_USE_NEON}")
+message(STATUS "  axis_09 (4 main-CPU-ISAs): AMD64=${COMDARE_AXIS_09_USE_AMD64} AARCH64=${COMDARE_AXIS_09_USE_AARCH64} RISCV=${COMDARE_AXIS_09_USE_RISCV} POWERPC=${COMDARE_AXIS_09_USE_POWERPC}")
+
+# V41.F.6.1.R7.5.j axis_09b SIMD-Extension Flags (USE = ENABLE)
+foreach(_ext NO_EXTENSION SSE2 AVX2 AVX512 NEON SVE2 RVV CUDA_GH200)
+    if(COMDARE_AXIS_09B_ENABLE_${_ext})
+        set(COMDARE_AXIS_09B_USE_${_ext} 1)
+    else()
+        set(COMDARE_AXIS_09B_USE_${_ext} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/hardware/axis_09b_simd_extension/axis_09b_simd_extension_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension/axis_09b_simd_extension_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_09b (8 SIMD-extensions): NO_EXT=${COMDARE_AXIS_09B_USE_NO_EXTENSION} SSE2=${COMDARE_AXIS_09B_USE_SSE2} AVX2=${COMDARE_AXIS_09B_USE_AVX2} AVX512=${COMDARE_AXIS_09B_USE_AVX512} NEON=${COMDARE_AXIS_09B_USE_NEON} SVE2=${COMDARE_AXIS_09B_USE_SVE2} RVV=${COMDARE_AXIS_09B_USE_RVV} CUDA_GH200=${COMDARE_AXIS_09B_USE_CUDA_GH200}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung
