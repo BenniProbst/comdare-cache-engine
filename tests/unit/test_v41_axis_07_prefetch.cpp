@@ -24,11 +24,11 @@ namespace pf   = ::comdare::cache_engine::prefetch;
 namespace mp   = ::boost::mp11;
 
 TEST(R7_5_a_Axis07, AllPrefetchersSatisfyConcepts) {
-    static_assert(ax07::concepts::PrefetchStrategy<ax07::PrefetchNone>);
+    static_assert(ax07::concepts::PrefetchStrategy<ax07::NonePrefetch>);
     static_assert(ax07::concepts::PrefetchStrategy<ax07::DistanceEstimatorPrefetch>);
     static_assert(ax07::concepts::PrefetchStrategy<ax07::HardwarePrefetch>);
     static_assert(ax07::concepts::PrefetchStrategy<ax07::PathOrientedPrefetch>);
-    static_assert(ax07::concepts::CacheEnginePermutationStrategy<ax07::PrefetchNone>);
+    static_assert(ax07::concepts::CacheEnginePermutationStrategy<ax07::NonePrefetch>);
     static_assert(ax07::concepts::CacheEnginePermutationStrategy<ax07::DistanceEstimatorPrefetch>);
     static_assert(ax07::concepts::CacheEnginePermutationStrategy<ax07::HardwarePrefetch>);
     static_assert(ax07::concepts::CacheEnginePermutationStrategy<ax07::PathOrientedPrefetch>);
@@ -36,7 +36,7 @@ TEST(R7_5_a_Axis07, AllPrefetchersSatisfyConcepts) {
 }
 
 TEST(R7_5_a_Axis07, IsActiveDifferentiated) {
-    static_assert(ax07::PrefetchNone::is_active()              == false);
+    static_assert(ax07::NonePrefetch::is_active()              == false);
     static_assert(ax07::DistanceEstimatorPrefetch::is_active() == true);
     static_assert(ax07::HardwarePrefetch::is_active()          == true);
     static_assert(ax07::PathOrientedPrefetch::is_active()      == true);
@@ -44,7 +44,7 @@ TEST(R7_5_a_Axis07, IsActiveDifferentiated) {
 }
 
 TEST(R7_5_a_Axis07, FlagSuffixUppercase) {
-    static_assert(ax07::PrefetchNone::flag_suffix()              == std::string_view{"NONE"});
+    static_assert(ax07::NonePrefetch::flag_suffix()              == std::string_view{"NONE"});
     static_assert(ax07::DistanceEstimatorPrefetch::flag_suffix() == std::string_view{"DISTANCE_ESTIMATOR"});
     static_assert(ax07::HardwarePrefetch::flag_suffix()          == std::string_view{"HARDWARE_PREFETCH"});
     static_assert(ax07::PathOrientedPrefetch::flag_suffix()      == std::string_view{"PATH_ORIENTED"});
@@ -52,7 +52,7 @@ TEST(R7_5_a_Axis07, FlagSuffixUppercase) {
 }
 
 TEST(R7_5_a_Axis07, SubaxesOrthogonal) {
-    static_assert(std::is_same_v<ax07::PrefetchNone::axis_tag,              ax07::subaxes::trigger_mechanism_tag>);
+    static_assert(std::is_same_v<ax07::NonePrefetch::axis_tag,              ax07::subaxes::trigger_mechanism_tag>);
     static_assert(std::is_same_v<ax07::DistanceEstimatorPrefetch::axis_tag, ax07::subaxes::distance_heuristic_tag>);
     static_assert(std::is_same_v<ax07::HardwarePrefetch::axis_tag,          ax07::subaxes::trigger_mechanism_tag>);
     static_assert(std::is_same_v<ax07::PathOrientedPrefetch::axis_tag,      ax07::subaxes::granularity_tag>);
@@ -66,7 +66,7 @@ TEST(R7_5_a_Axis07, RegistryHas4Prefetchers) {
 }
 
 TEST(R7_5_a_Axis07, FamilyIdsDistinct) {
-    static_assert(ax07::PrefetchNone::family_id::value              == 0);
+    static_assert(ax07::NonePrefetch::family_id::value              == 0);
     static_assert(ax07::DistanceEstimatorPrefetch::family_id::value == 1);
     static_assert(ax07::HardwarePrefetch::family_id::value          == 2);
     static_assert(ax07::PathOrientedPrefetch::family_id::value      == 3);

@@ -16,10 +16,10 @@ namespace comdare::cache_engine::search_engine::axis_01_index_organization {
 namespace mp = boost::mp11;
 
 using AllOrganizations = mp::mp_list<
-    HeapOrganization,
-    ClusteredOrganization,
-    NonClusteredOrganization,
-    IndexOrganizedTable
+    HeapIndexOrganization,
+    ClusteredIndexOrganization,
+    NonClusteredIndexOrganization,
+    IotIndexOrganization
 >;
 
 template <typename T>

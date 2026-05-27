@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.R7.5.h axis_01 ClusteredOrganization (Index-Order = Storage-Order)
+// V41.F.6.1.R7.5.h axis_01 ClusteredIndexOrganization (Index-Order = Storage-Order)
 
 #include "axis_01_index_organization_strategy_base.hpp"
 #include "axis_01_index_organization_subaxes_io1_to_io3.hpp"
@@ -11,10 +11,10 @@
 
 namespace comdare::cache_engine::search_engine::axis_01_index_organization {
 
-/// ClusteredOrganization — Storage-Order entspricht Index-Order (1 Primary Key).
+/// ClusteredIndexOrganization — Storage-Order entspricht Index-Order (1 Primary Key).
 /// MySQL InnoDB Default, PostgreSQL CLUSTER. Optimal fuer Range-Scans entlang
 /// Primary-Key (sequentielle Disk-Reads). Daten getrennt vom Index-Tree.
-class ClusteredOrganization : public IndexOrganizationStrategyBase<ClusteredOrganization> {
+class ClusteredIndexOrganization : public IndexOrganizationStrategyBase<ClusteredIndexOrganization> {
 public:
     using topic_tag = ::comdare::cache_engine::search_engine::concepts::SearchEngineTopicTag;
     using axis_tag  = subaxes::storage_order_tag;
@@ -26,13 +26,13 @@ public:
     [[nodiscard]] static constexpr bool             has_secondary_indexes() noexcept { return false; }
     [[nodiscard]] static constexpr bool             data_embedded_in_leaf() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "index_org_clustered"; }
-    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "ClusteredOrganization (Index-Order = Storage-Order, MySQL InnoDB)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "ClusteredIndexOrganization (Index-Order = Storage-Order, MySQL InnoDB)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "CLUSTERED"; }
 };
 
 }  // namespace
 
 namespace comdare::cache_engine::search_engine::axis_01_index_organization {
-    static_assert(concepts::IndexOrganizationStrategy<ClusteredOrganization>);
-    static_assert(concepts::CacheEnginePermutationStrategy<ClusteredOrganization>);
+    static_assert(concepts::IndexOrganizationStrategy<ClusteredIndexOrganization>);
+    static_assert(concepts::CacheEnginePermutationStrategy<ClusteredIndexOrganization>);
 }

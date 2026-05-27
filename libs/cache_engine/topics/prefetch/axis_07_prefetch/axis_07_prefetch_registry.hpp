@@ -16,7 +16,7 @@ namespace comdare::cache_engine::prefetch::axis_07_prefetch {
 namespace mp = boost::mp11;
 
 using AllPrefetchers = mp::mp_list<
-    PrefetchNone,
+    NonePrefetch,
     DistanceEstimatorPrefetch,
     HardwarePrefetch,
     PathOrientedPrefetch

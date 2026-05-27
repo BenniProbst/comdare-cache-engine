@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.R7.5.a axis_07 PrefetchNone (Goldstandard-Update)
+// V41.F.6.1.R7.5.a axis_07 NonePrefetch (Goldstandard-Update)
 
 #include "axis_07_prefetch_strategy_base.hpp"
 #include "axis_07_prefetch_subaxes_pf1_to_pf3.hpp"
@@ -11,8 +11,8 @@
 
 namespace comdare::cache_engine::prefetch::axis_07_prefetch {
 
-/// PrefetchNone — Default: kein Prefetch (Baseline fuer Mess-Reihen).
-class PrefetchNone : public PrefetchStrategyBase<PrefetchNone> {
+/// NonePrefetch — Default: kein Prefetch (Baseline fuer Mess-Reihen).
+class NonePrefetch : public PrefetchStrategyBase<NonePrefetch> {
 public:
     using topic_tag = ::comdare::cache_engine::prefetch::concepts::PrefetchTopicTag;
     using axis_tag  = subaxes::trigger_mechanism_tag;
@@ -22,13 +22,13 @@ public:
 
     [[nodiscard]] static constexpr bool             is_active()    noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "prefetch_none"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "PrefetchNone (no prefetch baseline)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "NonePrefetch (no prefetch baseline)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "NONE"; }
 };
 
 }  // namespace
 
 namespace comdare::cache_engine::prefetch::axis_07_prefetch {
-    static_assert(concepts::PrefetchStrategy<PrefetchNone>);
-    static_assert(concepts::CacheEnginePermutationStrategy<PrefetchNone>);
+    static_assert(concepts::PrefetchStrategy<NonePrefetch>);
+    static_assert(concepts::CacheEnginePermutationStrategy<NonePrefetch>);
 }
