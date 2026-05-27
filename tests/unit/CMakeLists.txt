@@ -488,3 +488,48 @@ target_include_directories(test_v41_anatomy_codegen_tool_traits PRIVATE
 target_link_libraries(test_v41_anatomy_codegen_tool_traits PRIVATE
     Boost::mp11
     comdare::anatomy_codegen_tool)
+
+# V41.F.6.1.R5.I Tool zur Configure-Time aufrufen + Snippet inline include
+# 2-Pass-Build: 1. cmake-Pass (Tool noch nicht gebaut, Warning) -> Tool bauen ->
+# 2. cmake-Pass (Tool da, Snippet wird generiert + included)
+include(anatomy_codegen_runner)
+set(_r5i_snippet "${CMAKE_BINARY_DIR}/generated/r5i_perm_list.cmake")
+set(_r5i_pilot_dir "${CMAKE_BINARY_DIR}/generated/r5i_anatomy_modules")
+comdare_run_anatomy_codegen_tool(
+    OUTPUT       "${_r5i_snippet}"
+    NAMES        "art,hot,wormhole"
+    LIBRARY_TYPE SHARED
+    STATUS_OUT   _r5i_status)
+
+if(_r5i_status STREQUAL "FOUND" AND EXISTS "${_r5i_snippet}")
+    include("${_r5i_snippet}")
+    # Pilot-DLLs aus Tool-erzeugter Composition-Liste bauen
+    comdare_codegen_anatomy_module_list(
+        PILOT_PREFIX  "r5i_configure_pilot"
+        OUTPUT_DIR    "${_r5i_pilot_dir}"
+        LIBRARY_TYPE  ${COMDARE_PERMUTATION_LIBRARY_TYPE}
+        COMPOSITIONS  ${COMDARE_PERMUTATION_COMPOSITIONS}
+        TARGETS_OUT   _r5i_pilot_targets)
+
+    comdare_add_test(test_v41_anatomy_r5i_configure_codegen
+        SOURCES test_v41_anatomy_r5i_configure_codegen.cpp)
+    target_include_directories(test_v41_anatomy_r5i_configure_codegen PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${CMAKE_BINARY_DIR}/generated")
+    target_link_libraries(test_v41_anatomy_r5i_configure_codegen PRIVATE
+        Boost::mp11
+        comdare::anatomy_module_loader)
+    target_compile_definitions(test_v41_anatomy_r5i_configure_codegen PRIVATE
+        "COMDARE_R5I_PILOT_DIR=\"${_r5i_pilot_dir}\"")
+    add_dependencies(test_v41_anatomy_r5i_configure_codegen ${_r5i_pilot_targets})
+
+    message(STATUS "R5.I: configure-time codegen ACTIVE (test target enabled)")
+else()
+    message(STATUS
+        "R5.I: configure-time codegen SKIPPED (status=${_r5i_status}). "
+        "Build the tool first: cmake --build . --target comdare_anatomy_codegen_cli, "
+        "then re-configure to enable the R5.I pilot test.")
+endif()
