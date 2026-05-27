@@ -1,0 +1,16 @@
+#pragma once
+// V41.F.6.1.R7.5.d axis_14_value_handle CMake-generierter Flags-Header
+
+#cmakedefine01 COMDARE_AXIS_14_USE_INLINE
+#cmakedefine01 COMDARE_AXIS_14_USE_EXTERNAL_POOL
+#cmakedefine01 COMDARE_AXIS_14_USE_IMMUTABLE_SHARED_REF
+#cmakedefine01 COMDARE_AXIS_14_USE_VERSIONED_POINTER
+
+namespace comdare::cache_engine::value_handle::axis_14_value_handle::flags {
+
+inline constexpr bool inline_enabled              = COMDARE_AXIS_14_USE_INLINE;
+inline constexpr bool external_pool_enabled       = COMDARE_AXIS_14_USE_EXTERNAL_POOL;
+inline constexpr bool immutable_shared_ref_enabled = COMDARE_AXIS_14_USE_IMMUTABLE_SHARED_REF;
+inline constexpr bool versioned_pointer_enabled   = COMDARE_AXIS_14_USE_VERSIONED_POINTER;
+
+}  // namespace
