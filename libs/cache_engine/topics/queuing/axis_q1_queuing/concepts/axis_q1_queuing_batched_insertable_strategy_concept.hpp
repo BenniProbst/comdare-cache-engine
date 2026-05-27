@@ -24,7 +24,7 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts {
  *   - BatchedInsertBuffer (Q12, QS5 batched_access)
  *
  * Andere Strategien koennten es spaeter ebenfalls erfuellen (z.B. SkiplistBuffer
- * mit Bulk-Insert-Optimierung, BoundedRing mit bulk_put). Nicht-Pflicht.
+ * mit Bulk-Insert-Optimierung, BoundedRingBuffer mit bulk_put). Nicht-Pflicht.
  *
  * Semantik: bulk_insert(span) ist semantisch aequivalent zu N × put(span[i]),
  * aber amortisiert effizienter (z.B. via SIMD-Vectorization, Cache-Line-Burst,

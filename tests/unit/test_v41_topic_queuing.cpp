@@ -65,7 +65,7 @@ TYPED_TEST(Q1BufferStrategyTest, PutDoesNotCrash) {
     }
     // Spezial-Cases:
     // - NoBuffer: bleibt leer (passthrough)
-    // - FIFO/LIFO/BoundedRing: enthaelt jetzt Werte
+    // - FIFO/LIFO/BoundedRingBuffer: enthaelt jetzt Werte
     SUCCEED();
 }
 
@@ -143,7 +143,7 @@ TYPED_TEST(Q1BufferStrategyTest, SonderfallPropertiesQueryable) {
 
 // FIFO-spezifischer Funktionstest (nicht TYPED — Verhaltens-Pruefung)
 TEST(Q1BufferStrategy_FIFO, FifoOrder) {
-    q1::FIFOQueue f{};
+    q1::FIFOQueueBuffer f{};
     f.put(1); f.put(2); f.put(3);
     EXPECT_EQ(f.size(), 3u);
     EXPECT_EQ(*f.get(), 1u);
@@ -153,7 +153,7 @@ TEST(Q1BufferStrategy_FIFO, FifoOrder) {
 }
 
 TEST(Q1BufferStrategy_LIFO, LifoOrder) {
-    q1::LIFOStack s{};
+    q1::LIFOStackBuffer s{};
     s.put(1); s.put(2); s.put(3);
     EXPECT_EQ(s.size(), 3u);
     EXPECT_EQ(*s.get(), 3u);
@@ -163,7 +163,7 @@ TEST(Q1BufferStrategy_LIFO, LifoOrder) {
 }
 
 TEST(Q1BufferStrategy_BoundedRing, OverflowDropsOldest) {
-    q1::BoundedRing r{4};  // capacity=4
+    q1::BoundedRingBuffer r{4};  // capacity=4
     r.put(1); r.put(2); r.put(3); r.put(4);
     EXPECT_EQ(r.size(), 4u);
     r.put(5);  // overflow: drops 1
@@ -175,13 +175,13 @@ TEST(Q1BufferStrategy_BoundedRing, OverflowDropsOldest) {
 }
 
 // [[zero-size-allocation-exception]] User-Direktive 2026-05-26:
-// BoundedRing mit capacity=0 wirft std::invalid_argument (UB-Vermeidung)
+// BoundedRingBuffer mit capacity=0 wirft std::invalid_argument (UB-Vermeidung)
 TEST(Q1BufferStrategy_BoundedRing, ZeroCapacityThrows) {
-    EXPECT_THROW(q1::BoundedRing{0}, std::invalid_argument);
+    EXPECT_THROW(q1::BoundedRingBuffer{0}, std::invalid_argument);
 }
 
 TEST(Q1BufferStrategy_BoundedRing, IterableAspectValuesCount) {
-    constexpr auto vals = q1::BoundedRing::iterable_values();
+    constexpr auto vals = q1::BoundedRingBuffer::iterable_values();
     EXPECT_EQ(vals.size(), 5u);  // {8, 64, 1024, 16384, 65536}
     EXPECT_EQ(vals[0], 8u);
     EXPECT_EQ(vals[4], 65536u);
@@ -205,7 +205,7 @@ constexpr std::array<CapacityConfig, 9> kTestBufferCapacities{{
 
 TEST(Q1BufferStrategy_BoundedRing, PutGetWithMultipleBufferSizesEdgeCases) {
     for (auto const& cfg : kTestBufferCapacities) {
-        q1::BoundedRing r{cfg.cap};
+        q1::BoundedRingBuffer r{cfg.cap};
         // fill bis Overflow
         for (std::size_t i = 0; i < cfg.cap + 3; ++i) {
             r.put(static_cast<std::uint64_t>(i + 1));
@@ -224,7 +224,7 @@ TEST(Q1BufferStrategy_BoundedRing, PutGetWithMultipleBufferSizesEdgeCases) {
 
 TEST(Q1BufferStrategy_BoundedRing, PeekWithMultipleBufferSizes) {
     for (auto const& cfg : kTestBufferCapacities) {
-        q1::BoundedRing r{cfg.cap};
+        q1::BoundedRingBuffer r{cfg.cap};
         if (cfg.cap < 2) continue;  // peek-back-Test braucht >=2 elements
         r.put(11); r.put(22);
         ASSERT_TRUE(r.peek_front().has_value());

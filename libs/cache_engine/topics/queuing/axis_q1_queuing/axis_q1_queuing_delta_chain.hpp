@@ -1,7 +1,7 @@
 #pragma once
-// V41.F.6.1 axis_q1_queuing DeltaChain Q-DELTA (2026-05-26)
+// V41.F.6.1 axis_q1_queuing DeltaChainBuffer Q-DELTA (2026-05-26)
 //
-// @topic queuing @achse Q1 @family Q07 DeltaChain
+// @topic queuing @achse Q1 @family Q07 DeltaChainBuffer
 // @subaxis QS4 versioned_access
 //
 // Delta-Chain Buffer im Bw-Tree-Stil (Levandoski/Lomet/Sengupta, ICDE 2013):
@@ -34,7 +34,7 @@
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
-class DeltaChain : public BufferStrategyBase<DeltaChain> {
+class DeltaChainBuffer : public BufferStrategyBase<DeltaChainBuffer> {
 public:
     static constexpr bool enabled = flags::delta_chain_enabled;
 
@@ -48,7 +48,7 @@ public:
     [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }  // unbounded
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "delta_chain"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "DeltaChain (Bw-Tree, Levandoski/Lomet/Sengupta ICDE 2013)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "DeltaChainBuffer (Bw-Tree, Levandoski/Lomet/Sengupta ICDE 2013)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "DELTA_CHAIN"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
@@ -60,7 +60,7 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
-    [[nodiscard]] bool operator==(DeltaChain const& other) const noexcept {
+    [[nodiscard]] bool operator==(DeltaChainBuffer const& other) const noexcept {
         return chain_.size() == other.chain_.size();
     }
 
@@ -134,7 +134,7 @@ private:
 }  // namespace
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<DeltaChain>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<DeltaChain>);
-    static_assert(concepts::VersionedBufferStrategy<DeltaChain>);
+    static_assert(concepts::BufferStrategy<DeltaChainBuffer>);
+    static_assert(concepts::CacheEngineBufferPermutationStrategy<DeltaChainBuffer>);
+    static_assert(concepts::VersionedBufferStrategy<DeltaChainBuffer>);
 }

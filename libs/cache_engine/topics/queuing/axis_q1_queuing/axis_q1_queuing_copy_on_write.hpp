@@ -1,7 +1,7 @@
 #pragma once
-// V41.F.6.1 axis_q1_queuing CopyOnWrite Q-COW (2026-05-26)
+// V41.F.6.1 axis_q1_queuing CopyOnWriteBuffer Q-COW (2026-05-26)
 //
-// @topic queuing @achse Q1 @family Q10 CopyOnWrite
+// @topic queuing @achse Q1 @family Q10 CopyOnWriteBuffer
 // @subaxis QS4 versioned_access
 //
 // Snapshot-Buffer im Persistent-Data-Structure-Stil (Driscoll/Sarnak/Sleator/
@@ -11,11 +11,11 @@
 // auf den aktuellen Inhalt — der GC erledigt die nicht-mehr-referenzierten
 // Snapshots automatisch).
 //
-// **3. Strategie mit is_versioned()=true** (nach DeltaChain + TombstoneBuffer).
+// **3. Strategie mit is_versioned()=true** (nach DeltaChainBuffer + TombstoneBuffer).
 // Konzeptioneller Unterschied:
-//   - DeltaChain    = Append-Versioning (LIFO der Deltas)
+//   - DeltaChainBuffer    = Append-Versioning (LIFO der Deltas)
 //   - TombstoneBuffer = Erase-Versioning (Marker bleiben bis Compact)
-//   - CopyOnWrite     = Snapshot-Versioning (gesamter State pro Version)
+//   - CopyOnWriteBuffer     = Snapshot-Versioning (gesamter State pro Version)
 //
 // Allocation: shared_ptr<vector> + Konstruktor — wirft std::bad_alloc bei OOM
 // ([[allocation-failure-exception]]).
@@ -39,7 +39,7 @@
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
-class CopyOnWrite : public BufferStrategyBase<CopyOnWrite> {
+class CopyOnWriteBuffer : public BufferStrategyBase<CopyOnWriteBuffer> {
 public:
     static constexpr bool enabled = flags::copy_on_write_enabled;
 
@@ -53,7 +53,7 @@ public:
     [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }  // unbounded
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "copy_on_write"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "CopyOnWrite (Persistent ART, RCU-Tries — Driscoll/Sarnak/Sleator/Tarjan JCSS 1989)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "CopyOnWriteBuffer (Persistent ART, RCU-Tries — Driscoll/Sarnak/Sleator/Tarjan JCSS 1989)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "COPY_ON_WRITE"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
@@ -65,9 +65,9 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
-    CopyOnWrite() : current_(std::make_shared<std::vector<element_type>>()) {}
+    CopyOnWriteBuffer() : current_(std::make_shared<std::vector<element_type>>()) {}
 
-    [[nodiscard]] bool operator==(CopyOnWrite const& other) const noexcept {
+    [[nodiscard]] bool operator==(CopyOnWriteBuffer const& other) const noexcept {
         return current_->size() == other.current_->size();
     }
 
@@ -154,7 +154,7 @@ private:
 }  // namespace
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<CopyOnWrite>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<CopyOnWrite>);
-    static_assert(concepts::VersionedBufferStrategy<CopyOnWrite>);
+    static_assert(concepts::BufferStrategy<CopyOnWriteBuffer>);
+    static_assert(concepts::CacheEngineBufferPermutationStrategy<CopyOnWriteBuffer>);
+    static_assert(concepts::VersionedBufferStrategy<CopyOnWriteBuffer>);
 }

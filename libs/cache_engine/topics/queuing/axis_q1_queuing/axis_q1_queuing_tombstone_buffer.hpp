@@ -12,8 +12,8 @@
 // (FIFO-Drain ueber Live-Slots). size() zaehlt nur Live-Slots; tombstone_count()
 // liefert die zusaetzlichen Tombstone-Bytes (Compact-Trigger-Metrik).
 //
-// **2. Strategie mit is_versioned()=true** (nach DeltaChain) — anders aber:
-// DeltaChain = Append-Versioning, TombstoneBuffer = Erase-Versioning.
+// **2. Strategie mit is_versioned()=true** (nach DeltaChainBuffer) — anders aber:
+// DeltaChainBuffer = Append-Versioning, TombstoneBuffer = Erase-Versioning.
 //
 // Allocation: std::vector<std::optional<...>> — wirft std::bad_alloc bei OOM
 // ([[allocation-failure-exception]]).
@@ -56,7 +56,7 @@ public:
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_concurrent_consumers() noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_priority_ordering()    noexcept { return false; }
-    /// SONDERFALL: versioned via Tombstone-Marker (anders als DeltaChain Append-Version).
+    /// SONDERFALL: versioned via Tombstone-Marker (anders als DeltaChainBuffer Append-Version).
     [[nodiscard]] static constexpr bool is_versioned()                  noexcept { return true; }
     [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
         return concepts::ProgressGuarantee::Blocking;

@@ -25,9 +25,9 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts {
  * `is_versioned() == true` muessen `version_id() const noexcept -> std::uint64_t`
  * anbieten — monoton steigender Counter, dessen Semantik je nach Versioning-
  * Pattern variiert:
- *   - DeltaChain      → Anzahl appended Deltas (Append-Versioning)
+ *   - DeltaChainBuffer      → Anzahl appended Deltas (Append-Versioning)
  *   - TombstoneBuffer → Anzahl put-Operations (Operation-Versioning)
- *   - CopyOnWrite     → Snapshot-Index (Snapshot-Versioning)
+ *   - CopyOnWriteBuffer     → Snapshot-Index (Snapshot-Versioning)
  *   - EpochBuffer     → aktuelle Epoch-ID (Reclamation-Window-Versioning)
  *
  * Konvention: monotonic steigend, startet bei 0, inkrementiert bei jedem

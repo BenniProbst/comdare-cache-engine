@@ -8,16 +8,16 @@
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing::subaxes {
 
-/// QS1 sequential — sequenzieller Zugriff (FIFO/LIFO/AppendOnly)
+/// QS1 sequential — sequenzieller Zugriff (FIFO/LIFO/AppendOnlyBuffer)
 struct sequential_access_tag {};
 
 /// QS2 ordered — sortierter Zugriff (Priority, Skiplist)
 struct ordered_access_tag {};
 
-/// QS3 cyclic — zyklischer Zugriff (BoundedRing/Disruptor)
+/// QS3 cyclic — zyklischer Zugriff (BoundedRingBuffer/Disruptor)
 struct cyclic_access_tag {};
 
-/// QS4 versioned — versionierter Zugriff (DeltaChain/Tombstone/CoW/Epoch)
+/// QS4 versioned — versionierter Zugriff (DeltaChainBuffer/Tombstone/CoW/Epoch)
 struct versioned_access_tag {};
 
 /// QS5 batched — Batch-Operationen (BulkInsert/BulkRead)

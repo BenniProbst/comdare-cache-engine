@@ -10,7 +10,7 @@
 // Pflicht-Pattern: jede Klasse mit `using iterable_aspect_t = ...` (kein void)
 // MUSS dieses Sub-Concept erfuellen. Vorher hatten 3 betroffene Strategien
 // 2 verschiedene Setter-Namen (set_capacity/set_epoch_threshold) + 1 fehlend
-// (LockFreeMPMC). Konsolidiert auf `set_iterable_aspect()`.
+// (LockFreeMPMCBuffer). Konsolidiert auf `set_iterable_aspect()`.
 
 #include "axis_q1_queuing_concept.hpp"
 
@@ -29,13 +29,13 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts {
  *   - `set_iterable_aspect(T value)` — Setter mit Reallokation falls notwendig
  *
  * **Concept-Erfuellung:**
- *   - BoundedRing     (capacity, kein-Realloc-noexcept)
+ *   - BoundedRingBuffer     (capacity, kein-Realloc-noexcept)
  *   - EpochBuffer     (epoch_threshold, noexcept)
- *   - LockFreeSPSC    (capacity, NICHT noexcept — Buffer-Realloc)
- *   - LockFreeMPMC    (capacity, NICHT noexcept — Cell-Array-Realloc, Power-of-2 Check)
+ *   - LockFreeSPSCBuffer    (capacity, NICHT noexcept — Buffer-Realloc)
+ *   - LockFreeMPMCBuffer    (capacity, NICHT noexcept — Cell-Array-Realloc, Power-of-2 Check)
  *
  * **Setter darf werfen** ([[allocation-failure-exception]]): bei Reallokation
- * std::bad_alloc moeglich; LockFreeMPMC zusaetzlich std::invalid_argument bei
+ * std::bad_alloc moeglich; LockFreeMPMCBuffer zusaetzlich std::invalid_argument bei
  * nicht-Power-of-2 ([[zero-size-allocation-exception]]). Daher KEIN noexcept
  * im Concept gefordert.
  *

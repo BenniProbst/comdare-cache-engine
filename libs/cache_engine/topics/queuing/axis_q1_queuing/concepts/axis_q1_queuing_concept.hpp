@@ -26,7 +26,7 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts {
  * @brief BufferStrategy — Pflicht-API fuer Q1 Buffer-Strategien
  *
  * Topic-uebergreifend einheitliche Buffer-API analog std::queue. Konkrete
- * Implementations (FIFOQueue, LIFOStack, BoundedRing, ...) erfuellen
+ * Implementations (FIFOQueueBuffer, LIFOStackBuffer, BoundedRingBuffer, ...) erfuellen
  * dies + bringen jeweils ihre Charakteristiken mit.
  *
  * Pflicht-API (analog std::queue + std::deque hybrid):

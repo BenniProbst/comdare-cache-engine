@@ -13,8 +13,8 @@
 // Concept-Pflicht-API ist identisch, nur die O(log N)-Asymptotik wird durch
 // Red-Black-Tree statt Skiplist erbracht.
 //
-// Cross-Constraint mit PriorityHeap: beide haben supports_priority_ordering=true,
-// aber SkiplistBuffer ist ASCENDING (min first), PriorityHeap ist DESCENDING
+// Cross-Constraint mit PriorityHeapBuffer: beide haben supports_priority_ordering=true,
+// aber SkiplistBuffer ist ASCENDING (min first), PriorityHeapBuffer ist DESCENDING
 // (max first). Q-SKIP fuer LSM-Compact, Q-PRIO fuer Hot-Key-Eviction.
 //
 // Allocation: std::set Tree-Knoten via std::allocator — wirft std::bad_alloc

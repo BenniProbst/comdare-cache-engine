@@ -21,7 +21,7 @@
 // Sonderfall-Properties (analog Allocator [[vendor-sonderfaelle-als-pflicht-property]]):
 //   - supports_concurrent_producers()  // SPSC: false, MPMC: true
 //   - supports_concurrent_consumers()
-//   - supports_priority_ordering()     // PriorityHeap: true
+//   - supports_priority_ordering()     // PriorityHeapBuffer: true
 //   - is_versioned()                   // CoW/Epoch/Delta: true
 //   - progress_guarantee()             // Stufen-Enum analog Allocator
 //

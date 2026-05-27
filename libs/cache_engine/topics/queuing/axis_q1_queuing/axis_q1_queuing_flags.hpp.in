@@ -18,21 +18,21 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::flags {
 #cmakedefine01 COMDARE_AXIS_Q1_USE_LIFO
 #cmakedefine01 COMDARE_AXIS_Q1_USE_BOUNDED_RING
 
-// Batch 2 (Q-APP AppendOnly, Q-PRIO PriorityHeap) — 2026-05-26
+// Batch 2 (Q-APP AppendOnlyBuffer, Q-PRIO PriorityHeapBuffer) — 2026-05-26
 #cmakedefine01 COMDARE_AXIS_Q1_USE_APPEND_ONLY
 #cmakedefine01 COMDARE_AXIS_Q1_USE_PRIORITY_HEAP
 
-// Batch 3 (Q-DELTA DeltaChain, Q-SKIP SkiplistBuffer, Q-TOMB TombstoneBuffer) — 2026-05-26
+// Batch 3 (Q-DELTA DeltaChainBuffer, Q-SKIP SkiplistBuffer, Q-TOMB TombstoneBuffer) — 2026-05-26
 #cmakedefine01 COMDARE_AXIS_Q1_USE_DELTA_CHAIN
 #cmakedefine01 COMDARE_AXIS_Q1_USE_SKIPLIST_BUFFER
 #cmakedefine01 COMDARE_AXIS_Q1_USE_TOMBSTONE_BUFFER
 
-// Batch 4 (Q-COW CopyOnWrite, Q-EPOCH EpochBuffer, Q-BATCH BatchedInsertBuffer) — 2026-05-26
+// Batch 4 (Q-COW CopyOnWriteBuffer, Q-EPOCH EpochBuffer, Q-BATCH BatchedInsertBuffer) — 2026-05-26
 #cmakedefine01 COMDARE_AXIS_Q1_USE_COPY_ON_WRITE
 #cmakedefine01 COMDARE_AXIS_Q1_USE_EPOCH_BUFFER
 #cmakedefine01 COMDARE_AXIS_Q1_USE_BATCHED_INSERT_BUFFER
 
-// Batch 5 VOLLAUSBAU (Q-SPSC LockFreeSPSC Lamport, Q-MPMC LockFreeMPMC Vyukov) — 2026-05-26
+// Batch 5 VOLLAUSBAU (Q-SPSC LockFreeSPSCBuffer Lamport, Q-MPMC LockFreeMPMCBuffer Vyukov) — 2026-05-26
 #cmakedefine01 COMDARE_AXIS_Q1_USE_LOCKFREE_SPSC
 #cmakedefine01 COMDARE_AXIS_Q1_USE_LOCKFREE_MPMC
 

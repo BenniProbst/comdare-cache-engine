@@ -1,7 +1,7 @@
 #pragma once
-// V41.F.6.1 axis_q1_queuing FIFOQueue Q-FIFO (2026-05-26)
+// V41.F.6.1 axis_q1_queuing FIFOQueueBuffer Q-FIFO (2026-05-26)
 //
-// @topic queuing @achse Q1 @family Q03 FIFOQueue (Ring/Deque)
+// @topic queuing @achse Q1 @family Q03 FIFOQueueBuffer (Ring/Deque)
 // @subaxis QS1 sequential_access
 //
 // First-In-First-Out: klassische LSM-MemTable + Write-Coalescing-Pattern.
@@ -24,7 +24,7 @@
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
-class FIFOQueue : public BufferStrategyBase<FIFOQueue> {
+class FIFOQueueBuffer : public BufferStrategyBase<FIFOQueueBuffer> {
 public:
     static constexpr bool enabled = flags::fifo_enabled;
 
@@ -38,7 +38,7 @@ public:
     [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }  // unbounded
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "fifo_queue"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "FIFOQueue (Ring/Deque — LSM MemTable + Write-Coalescing)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "FIFOQueueBuffer (Ring/Deque — LSM MemTable + Write-Coalescing)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "FIFO"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
@@ -49,7 +49,7 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
-    [[nodiscard]] bool operator==(FIFOQueue const& other) const noexcept {
+    [[nodiscard]] bool operator==(FIFOQueueBuffer const& other) const noexcept {
         return data_.size() == other.data_.size();  // gleicher Inhalt zu pruefen waere teuer
     }
 
@@ -115,6 +115,6 @@ private:
 }  // namespace
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<FIFOQueue>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<FIFOQueue>);
+    static_assert(concepts::BufferStrategy<FIFOQueueBuffer>);
+    static_assert(concepts::CacheEngineBufferPermutationStrategy<FIFOQueueBuffer>);
 }
