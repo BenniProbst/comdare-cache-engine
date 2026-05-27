@@ -849,7 +849,8 @@ option(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION
 # Helper SKIPPED Paper automatisch wenn ext-Sentinel fehlt.
 # ─────────────────────────────────────────────────────────────────────────────
 if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper_wrapper)
-    set(_a06_legacy_root "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/legacy_code")
+    # V41.F.6.1.R7.6.b (User-Direktive 2026-05-27): Paper-Code unter ext/<topic>/<axis>/ statt libs/.../legacy_code/
+    set(_a06_legacy_root "${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/axis_06_allocator")
     set(_a06_gen_root    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/allocator/axis_06_allocator/legacy_code")
     set(_a06_namespace_root "comdare::cache_engine::allocator::axis_06_allocator::generated")
 
@@ -935,7 +936,8 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     # 3 NEUE Wrappers (parallel zu existing Re-Impl Array256/VectorU8U8/VectorU16U16).
     # P02 HOT + P05 START haben Luecken (erase/clear) — Achs-Mixin defaultet auf false.
     # ─────────────────────────────────────────────────────────────────────────
-    set(_a03a_legacy_root "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/traversal/axis_03a_search_algo/legacy_code")
+    # V41.F.6.1.R7.6.b: Paper-Code unter ext/<topic>/<axis>/ statt libs/.../legacy_code/
+    set(_a03a_legacy_root "${CMAKE_CURRENT_SOURCE_DIR}/ext/traversal/axis_03a_search_algo")
     set(_a03a_gen_root    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/traversal/axis_03a_search_algo/legacy_code")
     set(_a03a_namespace_root "comdare::cache_engine::traversal::axis_03a_search_algo::generated")
     set(_a03a_axis_mixin     "comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoOriginalCodeMixin")
@@ -1017,7 +1019,8 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     # Q01-concurrentqueue (moodycamel, BSD-2) als Pilot fuer externe Submodule.
     # 2/6 originall (put=enqueue, get=try_dequeue), 4/6 Luecken (emplace/peek/clear).
     # ─────────────────────────────────────────────────────────────────────────
-    set(_aq1_legacy_root "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/queuing/axis_q1_queuing/legacy_code")
+    # V41.F.6.1.R7.6.b: Paper-Code unter ext/<topic>/<axis>/ statt libs/.../legacy_code/
+    set(_aq1_legacy_root "${CMAKE_CURRENT_SOURCE_DIR}/ext/queuing/axis_q1_queuing")
     set(_aq1_gen_root    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/queuing/axis_q1_queuing/legacy_code")
     set(_aq1_namespace_root "comdare::cache_engine::queuing::axis_q1_queuing::generated")
     set(_aq1_axis_mixin     "comdare::cache_engine::queuing::axis_q1_queuing::concepts::BufferOriginalCodeMixin")
