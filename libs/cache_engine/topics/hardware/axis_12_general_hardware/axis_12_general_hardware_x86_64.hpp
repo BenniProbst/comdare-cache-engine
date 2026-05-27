@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.R7.1 axis_12 X86_64Hardware — modern x86-64 desktop/server Plattform.
+// V41.F.6.1.R7.1 axis_12 X86_64HardwareProfile — modern x86-64 desktop/server Plattform.
 //
 // Werte:
 // - cache_line_size = 64 (alle modernen x86, Sandy Bridge+)
@@ -24,7 +24,7 @@
 
 namespace comdare::cache_engine::hardware::axis_12_general_hardware {
 
-class X86_64Hardware : public GeneralHardwareStrategyBase<X86_64Hardware> {
+class X86_64HardwareProfile : public GeneralHardwareStrategyBase<X86_64HardwareProfile> {
 public:
     using topic_tag = ::comdare::cache_engine::hardware::concepts::HardwareTopicTag;
     using axis_tag  = subaxes::cpu_family_tag;
@@ -38,7 +38,7 @@ public:
 
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "general_hardware_x86_64"; }
     [[nodiscard]] static constexpr std::string_view family_name()  noexcept {
-        return "X86_64Hardware (cache_line=64, page=4K, AVX2 256-bit SIMD, NUMA + huge-pages capable)";
+        return "X86_64HardwareProfile (cache_line=64, page=4K, AVX2 256-bit SIMD, NUMA + huge-pages capable)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "X86_64"; }
 
@@ -48,6 +48,6 @@ public:
 }  // namespace comdare::cache_engine::hardware::axis_12_general_hardware
 
 namespace comdare::cache_engine::hardware::axis_12_general_hardware {
-    static_assert(concepts::GeneralHardwareStrategy<X86_64Hardware>);
-    static_assert(concepts::CacheEnginePermutationStrategy<X86_64Hardware>);
+    static_assert(concepts::GeneralHardwareStrategy<X86_64HardwareProfile>);
+    static_assert(concepts::CacheEnginePermutationStrategy<X86_64HardwareProfile>);
 }

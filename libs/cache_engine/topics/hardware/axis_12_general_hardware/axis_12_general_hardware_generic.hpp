@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.R7.1 axis_12 GenericHardware — konservative Defaults (Pre-Detection-Fallback).
+// V41.F.6.1.R7.1 axis_12 GenericHardwareProfile — konservative Defaults (Pre-Detection-Fallback).
 //
 // Verwendung: wenn kein spezifischer Plattform-Adapter (x86_64/aarch64/etc.)
 // passt, oder fuer Plattform-agnostische Permutations-Konfigurationen.
@@ -24,7 +24,7 @@
 
 namespace comdare::cache_engine::hardware::axis_12_general_hardware {
 
-class GenericHardware : public GeneralHardwareStrategyBase<GenericHardware> {
+class GenericHardwareProfile : public GeneralHardwareStrategyBase<GenericHardwareProfile> {
 public:
     // Topic + Subaxis Tags (Pflicht-API CacheEnginePermutationStrategy)
     using topic_tag = ::comdare::cache_engine::hardware::concepts::HardwareTopicTag;
@@ -41,7 +41,7 @@ public:
     // Identifikation (Pflicht-API CacheEnginePermutationStrategy)
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "general_hardware_generic"; }
     [[nodiscard]] static constexpr std::string_view family_name()  noexcept {
-        return "GenericHardware (cache_line=64, page=4K, no SIMD, no NUMA, no huge-pages — conservative defaults)";
+        return "GenericHardwareProfile (cache_line=64, page=4K, no SIMD, no NUMA, no huge-pages — conservative defaults)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "GENERIC"; }
 
@@ -52,6 +52,6 @@ public:
 }  // namespace comdare::cache_engine::hardware::axis_12_general_hardware
 
 namespace comdare::cache_engine::hardware::axis_12_general_hardware {
-    static_assert(concepts::GeneralHardwareStrategy<GenericHardware>);
-    static_assert(concepts::CacheEnginePermutationStrategy<GenericHardware>);
+    static_assert(concepts::GeneralHardwareStrategy<GenericHardwareProfile>);
+    static_assert(concepts::CacheEnginePermutationStrategy<GenericHardwareProfile>);
 }
