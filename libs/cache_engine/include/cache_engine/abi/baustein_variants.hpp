@@ -321,7 +321,7 @@ using AllocatorAxis = algorithm_axis<
 // ─────────────────────────────────────────────────────────────────────────────
 // Achse 7: Prefetch (V12.6)
 // ─────────────────────────────────────────────────────────────────────────────
-struct PrefetchNone {
+struct NonePrefetch {
     static constexpr char tag[]         = "NONE";
     static constexpr char description[] = "No software prefetching";
     static constexpr char paper_ref[]   = "(baseline)";
@@ -353,7 +353,7 @@ struct PrefetchPrtArtRedirectPrefetch {
 };
 
 using PrefetchAxis = algorithm_axis<
-    PrefetchNone, PrefetchAdaptiveDistance, PrefetchPathOriented,
+    NonePrefetch, PrefetchAdaptiveDistance, PrefetchPathOriented,
     PrefetchFractal, PrefetchHierarchical, PrefetchPrtArtRedirectPrefetch>;
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -19,7 +19,7 @@ namespace mp = boost::mp11;
 
 /// TopicConfigSet — alle 3 Achsen zentral, PermutationEngine-tauglich
 struct TopicConfigSet {
-    // axis_03a: Search-Algorithm (Array256/VectorU8U8/VectorU16U16 pilot)
+    // axis_03a: Search-Algorithm (Array256SearchAlgo/VectorU8U8SearchAlgo/VectorU16U16SearchAlgo pilot)
     using StaticAxisVariants_03a = axis_03a_search_algo::EnabledStrategies;
 
     // axis_03b: Cache-Traversal (LinearFanout/HashLookup pilot)
