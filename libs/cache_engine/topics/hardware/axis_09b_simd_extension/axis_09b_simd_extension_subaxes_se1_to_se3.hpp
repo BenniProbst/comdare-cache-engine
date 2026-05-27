@@ -3,7 +3,7 @@
 //
 // User-Direktive 2026-05-27: SIMD/Accelerator-Erweiterungen als Sub-Achse
 // von axis_09 (Haupt-CPU-ISA). Pro Permutation 0..1 Extension; falls keine,
-// dann NoExtension-Wrapper. Compat-Constraint zur Haupt-ISA via
+// dann NoSimdExtension-Wrapper. Compat-Constraint zur Haupt-ISA via
 // `compatible_with<MainIsa>()` Compile-Time-Predicate.
 
 namespace comdare::cache_engine::hardware::axis_09b_simd_extension::subaxes {

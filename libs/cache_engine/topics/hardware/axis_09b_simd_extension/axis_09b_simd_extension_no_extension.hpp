@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.R7.5.j axis_09b NoExtension (Baseline: kein SIMD-Accelerator)
+// V41.F.6.1.R7.5.j axis_09b NoSimdExtension (Baseline: kein SIMD-Accelerator)
 
 #include "axis_09b_simd_extension_strategy_base.hpp"
 #include "axis_09b_simd_extension_subaxes_se1_to_se3.hpp"
@@ -11,10 +11,10 @@
 
 namespace comdare::cache_engine::hardware::axis_09b_simd_extension {
 
-/// NoExtension — Baseline: Permutation NUTZT keinen Beschleuniger.
+/// NoSimdExtension — Baseline: Permutation NUTZT keinen Beschleuniger.
 /// Universell kompatibel zu allen Haupt-ISAs. Pflicht-Variante fuer
 /// "ohne SIMD/Accelerator"-Permutations-Vergleich (gegen mit-Beschleuniger).
-class NoExtension : public SimdExtensionStrategyBase<NoExtension> {
+class NoSimdExtension : public SimdExtensionStrategyBase<NoSimdExtension> {
 public:
     using topic_tag = ::comdare::cache_engine::hardware::concepts::HardwareTopicTag;
     using axis_tag  = subaxes::vector_width_tag;
@@ -29,13 +29,13 @@ public:
     [[nodiscard]] static constexpr bool             compatible_with_riscv() noexcept { return true; }
     [[nodiscard]] static constexpr bool             compatible_with_powerpc() noexcept { return true; }
     [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "simd_ext_none"; }
-    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "NoExtension (baseline, no SIMD/accelerator, alle Haupt-ISAs compat)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "NoSimdExtension (baseline, no SIMD/accelerator, alle Haupt-ISAs compat)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "NO_EXTENSION"; }
 };
 
 }  // namespace
 
 namespace comdare::cache_engine::hardware::axis_09b_simd_extension {
-    static_assert(concepts::SimdExtensionStrategy<NoExtension>);
-    static_assert(concepts::CacheEnginePermutationStrategy<NoExtension>);
+    static_assert(concepts::SimdExtensionStrategy<NoSimdExtension>);
+    static_assert(concepts::CacheEnginePermutationStrategy<NoSimdExtension>);
 }

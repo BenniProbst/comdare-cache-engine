@@ -20,14 +20,14 @@ namespace comdare::cache_engine::hardware::axis_09b_simd_extension {
 namespace mp = boost::mp11;
 
 using AllExtensions = mp::mp_list<
-    NoExtension,
-    Sse2Extension,
-    Avx2Extension,
-    Avx512Extension,
-    NeonExtension,
-    Sve2Extension,
-    RvvExtension,
-    CudaGh200Extension
+    NoSimdExtension,
+    Sse2SimdExtension,
+    Avx2SimdExtension,
+    Avx512SimdExtension,
+    NeonSimdExtension,
+    Sve2SimdExtension,
+    RvvSimdExtension,
+    CudaGh200SimdExtension
 >;
 
 template <typename T>
@@ -36,6 +36,6 @@ using is_enabled = mp::mp_bool<T::enabled>;
 using EnabledExtensions = mp::mp_filter<is_enabled, AllExtensions>;
 
 static_assert(mp::mp_size<EnabledExtensions>::value > 0,
-    "Axis 09b SimdExtension: at least one extension (incl NoExtension) must be enabled");
+    "Axis 09b SimdExtension: at least one extension (incl NoSimdExtension) must be enabled");
 
 }  // namespace

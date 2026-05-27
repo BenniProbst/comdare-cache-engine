@@ -2,7 +2,7 @@
 // V41.F.6.1.R7.5.j axis_09b_simd_extension Strategy-Concept (SIMD/Accelerator)
 //
 // Pflicht-API:
-//   - is_active() : true wenn Extension benutzt wird (NoExtension=false)
+//   - is_active() : true wenn Extension benutzt wird (NoSimdExtension=false)
 //   - vector_width_bits() : 0 (None), 128 (SSE/NEON), 256 (AVX2), 512 (AVX-512), -1 (scalable)
 //   - compatible_with_x86() : Compat-Constraint zur Haupt-ISA
 //   - compatible_with_arm() : "

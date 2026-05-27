@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.R7.5.j axis_09b Sse2Extension (x86_64-only, 128-bit baseline)
+// V41.F.6.1.R7.5.j axis_09b Sse2SimdExtension (x86_64-only, 128-bit baseline)
 
 #include "axis_09b_simd_extension_strategy_base.hpp"
 #include "axis_09b_simd_extension_subaxes_se1_to_se3.hpp"
@@ -11,9 +11,9 @@
 
 namespace comdare::cache_engine::hardware::axis_09b_simd_extension {
 
-/// Sse2Extension — SSE2 128-bit Vector-Extension (x86_64 ABI-baseline seit 2003).
+/// Sse2SimdExtension — SSE2 128-bit Vector-Extension (x86_64 ABI-baseline seit 2003).
 /// NUR mit Amd64Isa kompatibel. Pflicht-Teil der x86_64 ABI.
-class Sse2Extension : public SimdExtensionStrategyBase<Sse2Extension> {
+class Sse2SimdExtension : public SimdExtensionStrategyBase<Sse2SimdExtension> {
 public:
     using topic_tag = ::comdare::cache_engine::hardware::concepts::HardwareTopicTag;
     using axis_tag  = subaxes::compat_family_tag;
@@ -28,13 +28,13 @@ public:
     [[nodiscard]] static constexpr bool             compatible_with_riscv() noexcept { return false; }
     [[nodiscard]] static constexpr bool             compatible_with_powerpc() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "simd_ext_sse2"; }
-    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "Sse2Extension (x86_64 ABI-baseline 128-bit, nur Amd64-compat)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "Sse2SimdExtension (x86_64 ABI-baseline 128-bit, nur Amd64-compat)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "SSE2"; }
 };
 
 }  // namespace
 
 namespace comdare::cache_engine::hardware::axis_09b_simd_extension {
-    static_assert(concepts::SimdExtensionStrategy<Sse2Extension>);
-    static_assert(concepts::CacheEnginePermutationStrategy<Sse2Extension>);
+    static_assert(concepts::SimdExtensionStrategy<Sse2SimdExtension>);
+    static_assert(concepts::CacheEnginePermutationStrategy<Sse2SimdExtension>);
 }

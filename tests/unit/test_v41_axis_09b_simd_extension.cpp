@@ -68,63 +68,63 @@ TYPED_TEST(SimdExtensionWrapperTest, IsEnabledMatchesFlag) {
 
 // ─── Spezifische Compat-Tests (User-Direktive Cross-ISA-Constraint) ───
 
-TEST(R7_5_j_Axis_09b_Specific, NoExtensionAllCompat) {
-    // NoExtension ist universell kompatibel (Baseline)
-    static_assert(ax09b::NoExtension::is_active()             == false);
-    static_assert(ax09b::NoExtension::compatible_with_x86()   == true);
-    static_assert(ax09b::NoExtension::compatible_with_arm()   == true);
-    static_assert(ax09b::NoExtension::compatible_with_riscv() == true);
-    static_assert(ax09b::NoExtension::compatible_with_powerpc() == true);
+TEST(R7_5_j_Axis_09b_Specific, NoSimdExtensionAllCompat) {
+    // NoSimdExtension ist universell kompatibel (Baseline)
+    static_assert(ax09b::NoSimdExtension::is_active()             == false);
+    static_assert(ax09b::NoSimdExtension::compatible_with_x86()   == true);
+    static_assert(ax09b::NoSimdExtension::compatible_with_arm()   == true);
+    static_assert(ax09b::NoSimdExtension::compatible_with_riscv() == true);
+    static_assert(ax09b::NoSimdExtension::compatible_with_powerpc() == true);
     SUCCEED();
 }
 
 TEST(R7_5_j_Axis_09b_Specific, X86OnlyExtensions) {
     // SSE2/AVX2/AVX-512 sind x86-only
-    static_assert(ax09b::Sse2Extension::compatible_with_x86()   == true);
-    static_assert(ax09b::Sse2Extension::compatible_with_arm()   == false);
-    static_assert(ax09b::Avx2Extension::compatible_with_x86()   == true);
-    static_assert(ax09b::Avx2Extension::compatible_with_arm()   == false);
-    static_assert(ax09b::Avx512Extension::compatible_with_x86() == true);
-    static_assert(ax09b::Avx512Extension::compatible_with_arm() == false);
+    static_assert(ax09b::Sse2SimdExtension::compatible_with_x86()   == true);
+    static_assert(ax09b::Sse2SimdExtension::compatible_with_arm()   == false);
+    static_assert(ax09b::Avx2SimdExtension::compatible_with_x86()   == true);
+    static_assert(ax09b::Avx2SimdExtension::compatible_with_arm()   == false);
+    static_assert(ax09b::Avx512SimdExtension::compatible_with_x86() == true);
+    static_assert(ax09b::Avx512SimdExtension::compatible_with_arm() == false);
     SUCCEED();
 }
 
 TEST(R7_5_j_Axis_09b_Specific, ArmOnlyExtensions) {
     // NEON/SVE2 sind ARM-only
-    static_assert(ax09b::NeonExtension::compatible_with_arm() == true);
-    static_assert(ax09b::NeonExtension::compatible_with_x86() == false);
-    static_assert(ax09b::Sve2Extension::compatible_with_arm() == true);
-    static_assert(ax09b::Sve2Extension::compatible_with_x86() == false);
+    static_assert(ax09b::NeonSimdExtension::compatible_with_arm() == true);
+    static_assert(ax09b::NeonSimdExtension::compatible_with_x86() == false);
+    static_assert(ax09b::Sve2SimdExtension::compatible_with_arm() == true);
+    static_assert(ax09b::Sve2SimdExtension::compatible_with_x86() == false);
     SUCCEED();
 }
 
 TEST(R7_5_j_Axis_09b_Specific, RiscVOnlyExtensions) {
     // RVV ist RISC-V-only
-    static_assert(ax09b::RvvExtension::compatible_with_riscv() == true);
-    static_assert(ax09b::RvvExtension::compatible_with_x86()   == false);
-    static_assert(ax09b::RvvExtension::compatible_with_arm()   == false);
+    static_assert(ax09b::RvvSimdExtension::compatible_with_riscv() == true);
+    static_assert(ax09b::RvvSimdExtension::compatible_with_x86()   == false);
+    static_assert(ax09b::RvvSimdExtension::compatible_with_arm()   == false);
     SUCCEED();
 }
 
 TEST(R7_5_j_Axis_09b_Specific, CudaGh200MultiCompat) {
     // CUDA-GH200 ist mit x86 (Hopper-only Host) + ARM (Grace+Hopper) + PowerPC (AC922) kompatibel
-    static_assert(ax09b::CudaGh200Extension::compatible_with_x86()     == true);
-    static_assert(ax09b::CudaGh200Extension::compatible_with_arm()     == true);
-    static_assert(ax09b::CudaGh200Extension::compatible_with_powerpc() == true);
-    static_assert(ax09b::CudaGh200Extension::compatible_with_riscv()   == false);
+    static_assert(ax09b::CudaGh200SimdExtension::compatible_with_x86()     == true);
+    static_assert(ax09b::CudaGh200SimdExtension::compatible_with_arm()     == true);
+    static_assert(ax09b::CudaGh200SimdExtension::compatible_with_powerpc() == true);
+    static_assert(ax09b::CudaGh200SimdExtension::compatible_with_riscv()   == false);
     SUCCEED();
 }
 
 TEST(R7_5_j_Axis_09b_Specific, VectorWidthCategorized) {
     // Vector-Width: 0 (None), 128 (Sse2/Neon), 256 (Avx2), 512 (Avx512), -1 (scalable Sve2/Rvv/GPU)
-    static_assert(ax09b::NoExtension::vector_width_bits()       == 0);
-    static_assert(ax09b::Sse2Extension::vector_width_bits()     == 128);
-    static_assert(ax09b::Avx2Extension::vector_width_bits()     == 256);
-    static_assert(ax09b::Avx512Extension::vector_width_bits()   == 512);
-    static_assert(ax09b::NeonExtension::vector_width_bits()     == 128);
-    static_assert(ax09b::Sve2Extension::vector_width_bits()     == -1);  // scalable
-    static_assert(ax09b::RvvExtension::vector_width_bits()      == -1);  // scalable
-    static_assert(ax09b::CudaGh200Extension::vector_width_bits() == -1); // massive parallel
+    static_assert(ax09b::NoSimdExtension::vector_width_bits()       == 0);
+    static_assert(ax09b::Sse2SimdExtension::vector_width_bits()     == 128);
+    static_assert(ax09b::Avx2SimdExtension::vector_width_bits()     == 256);
+    static_assert(ax09b::Avx512SimdExtension::vector_width_bits()   == 512);
+    static_assert(ax09b::NeonSimdExtension::vector_width_bits()     == 128);
+    static_assert(ax09b::Sve2SimdExtension::vector_width_bits()     == -1);  // scalable
+    static_assert(ax09b::RvvSimdExtension::vector_width_bits()      == -1);  // scalable
+    static_assert(ax09b::CudaGh200SimdExtension::vector_width_bits() == -1); // massive parallel
     SUCCEED();
 }
 
