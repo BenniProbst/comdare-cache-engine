@@ -19,6 +19,9 @@
 #include "../topics/migration/axis_migration/axis_migration_none.hpp"
 #include "../topics/filter/axis_filter/axis_filter_bloom.hpp"
 
+// R5.G
+#include "../anatomy/composition_concept.hpp"
+
 #include <string_view>
 
 namespace comdare::cache_engine::compositions {
@@ -52,6 +55,9 @@ struct SurfComposition {
     static constexpr std::string_view paper_id    = "P10 Zhang/Lim/Andersen SIGMOD 2018";
     static constexpr std::string_view paper_title = "SuRF: Practical Range Query Filtering with Fast Succinct Tries";
     static constexpr std::string_view name        = "SurfComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION(
+        "::comdare::cache_engine::compositions::SurfComposition",
+        "compositions/surf_reference.hpp");
 };
 
 }  // namespace

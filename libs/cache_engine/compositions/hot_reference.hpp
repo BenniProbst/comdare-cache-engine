@@ -19,6 +19,9 @@
 #include "../topics/migration/axis_migration/axis_migration_none.hpp"
 #include "../topics/filter/axis_filter/axis_filter_bloom.hpp"
 
+// R5.G: COMDARE_DEFINE_COMPOSITION_LOCATION Macro
+#include "../anatomy/composition_concept.hpp"
+
 #include <string_view>
 
 namespace comdare::cache_engine::compositions {
@@ -52,6 +55,9 @@ struct HotComposition {
     static constexpr std::string_view paper_id    = "P02 Binna/Zangerle/Pichl/Specht PVLDB 11(3) 2018";
     static constexpr std::string_view paper_title = "HOT: A Height Optimized Trie Index for Main-Memory Database Systems";
     static constexpr std::string_view name        = "HotComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION(
+        "::comdare::cache_engine::compositions::HotComposition",
+        "compositions/hot_reference.hpp");
 };
 
 }  // namespace

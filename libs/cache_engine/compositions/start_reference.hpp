@@ -19,6 +19,9 @@
 #include "../topics/migration/axis_migration/axis_migration_none.hpp"
 #include "../topics/filter/axis_filter/axis_filter_bloom.hpp"
 
+// R5.G
+#include "../anatomy/composition_concept.hpp"
+
 #include <string_view>
 
 namespace comdare::cache_engine::compositions {
@@ -50,6 +53,9 @@ struct StartComposition {
     static constexpr std::string_view paper_id    = "P05 Mertens et al. ICDE 2024";
     static constexpr std::string_view paper_title = "START: Self-Tuning Adaptive Radix Tree";
     static constexpr std::string_view name        = "StartComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION(
+        "::comdare::cache_engine::compositions::StartComposition",
+        "compositions/start_reference.hpp");
 };
 
 }  // namespace

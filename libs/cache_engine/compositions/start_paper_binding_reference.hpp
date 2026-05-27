@@ -19,6 +19,9 @@
 #include "../topics/migration/axis_migration/axis_migration_none.hpp"
 #include "../topics/filter/axis_filter/axis_filter_bloom.hpp"
 
+// R5.G
+#include "../anatomy/composition_concept.hpp"
+
 #include <string_view>
 
 namespace comdare::cache_engine::compositions {
@@ -46,6 +49,9 @@ struct StartPaperBindingComposition {
     static constexpr std::string_view paper_id    = "P05 Mertens ICDE 2024 (Paper-Binding)";
     static constexpr std::string_view paper_title = "START: Self-Tuning Adaptive Radix Tree (Paper-Source)";
     static constexpr std::string_view name        = "StartPaperBindingComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION(
+        "::comdare::cache_engine::compositions::StartPaperBindingComposition",
+        "compositions/start_paper_binding_reference.hpp");
 };
 
 }  // namespace

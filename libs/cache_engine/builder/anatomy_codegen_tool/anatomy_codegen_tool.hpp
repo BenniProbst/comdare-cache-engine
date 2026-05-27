@@ -13,6 +13,8 @@
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §48
 // @task #710 V41.F.6.1.R5.F
 
+#include "../../anatomy/composition_concept.hpp"
+
 #include <cstdint>
 #include <filesystem>
 #include <span>
@@ -72,6 +74,37 @@ enum class LibraryType : std::uint8_t {
 
 /// parse_library_type(s) — String -> LibraryType. nullptr bei Unbekannt.
 [[nodiscard]] LibraryType const* parse_library_type(std::string_view s) noexcept;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// R5.G — descriptor_from_composition<C>() Template (Compile-Time-Extraktion)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// descriptor_from_composition<C>() — extrahiert CompositionDescriptor aus
+/// einem Compile-Time Composition-Type C. Pflicht: C erfuellt
+/// `HasCompositionLocation` Concept (cpp_type_name + header_include vorhanden).
+///
+/// short_name wird aus dem `C::name`-Member uebernommen (z.B. "ArtComposition").
+/// Wenn der CLI-Tool-User einen anderen short_name will, baut er den
+/// CompositionDescriptor manuell mit anderen Defaults.
+///
+/// Verwendung:
+/// ```cpp
+/// using ArtComp = ::comdare::cache_engine::compositions::ArtComposition;
+/// constexpr auto desc = descriptor_from_composition<ArtComp>();
+/// static_assert(desc.cpp_type_name ==
+///     "::comdare::cache_engine::compositions::ArtComposition");
+/// ```
+///
+/// Bridge zwischen Compile-Time `for_each_composition_type` (R5.C.B) und
+/// Build-System CMake-Codegen (R5.D.2 + R5.D.3 + R5.F).
+template <::comdare::cache_engine::anatomy::HasCompositionLocation C>
+[[nodiscard]] constexpr CompositionDescriptor descriptor_from_composition() noexcept {
+    return CompositionDescriptor{
+        C::name,
+        C::cpp_type_name,
+        C::header_include
+    };
+}
 
 /// write_cmake_snippet(path, selected, lib_type) — Schreibt CMake-Snippet das
 /// die Variablen COMDARE_PERMUTATION_LIBRARY_TYPE + COMDARE_PERMUTATION_COMPOSITIONS

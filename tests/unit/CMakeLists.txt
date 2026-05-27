@@ -475,3 +475,16 @@ target_include_directories(test_v41_anatomy_codegen_tool PRIVATE
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_anatomy_codegen_tool PRIVATE
     comdare::anatomy_codegen_tool)
+
+# V41.F.6.1.R5.G Composition-Location-Traits + descriptor_from_composition Tests
+comdare_add_test(test_v41_anatomy_codegen_tool_traits
+    SOURCES test_v41_anatomy_codegen_tool_traits.cpp)
+target_include_directories(test_v41_anatomy_codegen_tool_traits PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_anatomy_codegen_tool_traits PRIVATE
+    Boost::mp11
+    comdare::anatomy_codegen_tool)

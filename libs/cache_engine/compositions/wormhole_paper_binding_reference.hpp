@@ -19,6 +19,9 @@
 #include "../topics/migration/axis_migration/axis_migration_none.hpp"
 #include "../topics/filter/axis_filter/axis_filter_bloom.hpp"
 
+// R5.G
+#include "../anatomy/composition_concept.hpp"
+
 #include <string_view>
 
 namespace comdare::cache_engine::compositions {
@@ -46,6 +49,9 @@ struct WormholePaperBindingComposition {
     static constexpr std::string_view paper_id    = "P07 Wu/Ni/Jiang ATC 2019 (Paper-Binding)";
     static constexpr std::string_view paper_title = "Wormhole: Fast Ordered Index (wh.c Paper-Source)";
     static constexpr std::string_view name        = "WormholePaperBindingComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION(
+        "::comdare::cache_engine::compositions::WormholePaperBindingComposition",
+        "compositions/wormhole_paper_binding_reference.hpp");
 };
 
 }  // namespace

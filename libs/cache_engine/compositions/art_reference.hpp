@@ -36,6 +36,9 @@
 // Topic filter (1 Achse) — bei ART optional (BloomFilter als CE-Erweiterung)
 #include "../topics/filter/axis_filter/axis_filter_bloom.hpp"
 
+// R5.G: COMDARE_DEFINE_COMPOSITION_LOCATION Macro fuer CMake-Codegen-Lokalisierung
+#include "../anatomy/composition_concept.hpp"
+
 #include <string_view>
 
 namespace comdare::cache_engine::compositions {
@@ -86,6 +89,11 @@ struct ArtComposition {
     static constexpr std::string_view paper_id    = "P01 Leis/Kemper/Neumann ICDE 2013";
     static constexpr std::string_view paper_title = "The Adaptive Radix Tree: ARTful Indexing for Main-Memory Databases";
     static constexpr std::string_view name        = "ArtComposition";
+
+    // R5.G CMake-Codegen-Location (HasCompositionLocation Concept)
+    COMDARE_DEFINE_COMPOSITION_LOCATION(
+        "::comdare::cache_engine::compositions::ArtComposition",
+        "compositions/art_reference.hpp");
 };
 
 }  // namespace
