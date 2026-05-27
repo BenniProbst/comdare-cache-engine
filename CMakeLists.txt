@@ -185,6 +185,12 @@ option(COMDARE_AXIS_FILTER_ENABLE_CUCKOO     "Filter Cuckoo (Fan CoNEXT 2014, de
 option(COMDARE_AXIS_FILTER_ENABLE_RANGE_SURF "Filter RangeSurf (Zhang SIGMOD 2018, range-query)" ON)
 option(COMDARE_AXIS_FILTER_ENABLE_XOR        "Filter Xor (Graf+Lemire 2020, smaller than Bloom)" ON)
 
+# V41.F.6.1.R7.5.f axis_io (4 Strategien)
+option(COMDARE_AXIS_IO_ENABLE_IN_MEMORY_ONLY "IO InMemoryOnly (baseline, no persistence)" ON)
+option(COMDARE_AXIS_IO_ENABLE_DIRECT         "IO Direct (O_DIRECT bypass OS-cache, NVMe-optimal)" ON)
+option(COMDARE_AXIS_IO_ENABLE_BUFFERED       "IO Buffered (OS page-cache, default)" ON)
+option(COMDARE_AXIS_IO_ENABLE_MMAP           "IO Mmap (mmap-based, Persistent Memory)" ON)
+
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
 # aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
@@ -727,6 +733,20 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/filter/axis_filter/axis_filter_flags.hpp"
     @ONLY)
 message(STATUS "  axis_filter (4 filters): BLOOM=${COMDARE_AXIS_FILTER_USE_BLOOM} CUCKOO=${COMDARE_AXIS_FILTER_USE_CUCKOO} RANGE_SURF=${COMDARE_AXIS_FILTER_USE_RANGE_SURF} XOR=${COMDARE_AXIS_FILTER_USE_XOR}")
+
+# V41.F.6.1.R7.5.f axis_io Flags (USE = ENABLE)
+foreach(_i IN_MEMORY_ONLY DIRECT BUFFERED MMAP)
+    if(COMDARE_AXIS_IO_ENABLE_${_i})
+        set(COMDARE_AXIS_IO_USE_${_i} 1)
+    else()
+        set(COMDARE_AXIS_IO_USE_${_i} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/io/axis_io/axis_io_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/io/axis_io/axis_io_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_io (4 io-strategies): IN_MEM=${COMDARE_AXIS_IO_USE_IN_MEMORY_ONLY} DIRECT=${COMDARE_AXIS_IO_USE_DIRECT} BUFFERED=${COMDARE_AXIS_IO_USE_BUFFERED} MMAP=${COMDARE_AXIS_IO_USE_MMAP}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung

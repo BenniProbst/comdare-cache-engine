@@ -1,0 +1,20 @@
+#pragma once
+// V41.F.6.1.R7.5.f axis_io CRTP-StrategyBase (Goldstandard)
+
+#include "concepts/axis_io_concept.hpp"
+#include "concepts/axis_io_cache_engine_permutation_concept.hpp"
+#include "../../axis_base.hpp"
+
+namespace comdare::cache_engine::io::axis_io {
+
+template <typename Derived>
+class IoStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
+protected:
+    IoStrategyBase() noexcept {
+        static_assert(concepts::IoStrategy<Derived>);
+        static_assert(concepts::CacheEnginePermutationStrategy<Derived>);
+        static_assert(::comdare::cache_engine::topics::AxisBaseConcept<Derived>);
+    }
+};
+
+}  // namespace
