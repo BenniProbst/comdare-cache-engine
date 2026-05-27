@@ -523,7 +523,8 @@ target_include_directories(test_v41_axis_12_general_hardware PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
     "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware"
-    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09_isa")
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09_isa"
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension")
 target_link_libraries(test_v41_axis_12_general_hardware PRIVATE
     Boost::mp11)
 
@@ -648,7 +649,8 @@ target_include_directories(test_v41_axis_01_index_organization PRIVATE
 target_link_libraries(test_v41_axis_01_index_organization PRIVATE
     Boost::mp11)
 
-# V41.F.6.1.R7.5.i axis_09 ISA (4 SIMD-Wrappers + TYPED_TEST_SUITE)
+# V41.F.6.1.R7.5.i.2 axis_09 Haupt-CPU-ISA (4 Wrappers Amd64/Aarch64/RiscV/PowerPc)
+# Braucht auch axis_09b + axis_12 includes (topic_hardware_config_set referenziert alle)
 comdare_add_test(test_v41_axis_09_isa
     SOURCES test_v41_axis_09_isa.cpp)
 target_include_directories(test_v41_axis_09_isa PRIVATE
@@ -656,10 +658,27 @@ target_include_directories(test_v41_axis_09_isa PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09_isa")
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09_isa"
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware")
 target_link_libraries(test_v41_axis_09_isa PRIVATE
     Boost::mp11)
 
+# V41.F.6.1.R7.5.j axis_09b SIMD-Extension Sub-Achse (8 Wrappers + TYPED_TEST_SUITE)
+comdare_add_test(test_v41_axis_09b_simd_extension
+    SOURCES test_v41_axis_09b_simd_extension.cpp)
+target_include_directories(test_v41_axis_09b_simd_extension PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09_isa"
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware")
+target_link_libraries(test_v41_axis_09b_simd_extension PRIVATE
+    Boost::mp11)
+
+# axis_12 braucht jetzt auch axis_09b Include-Path
 # V41.F.6.1.R5.I Tool zur Configure-Time aufrufen + Snippet inline include
 # 2-Pass-Build: 1. cmake-Pass (Tool noch nicht gebaut, Warning) -> Tool bauen ->
 # 2. cmake-Pass (Tool da, Snippet wird generiert + included)

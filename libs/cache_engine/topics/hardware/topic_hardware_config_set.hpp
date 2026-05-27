@@ -19,8 +19,14 @@
 
 #include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_registry.hpp>
 
-// R7.5.i: axis_09_isa hat jetzt eigene Registry (4 ISAs: Scalar/Sse2/Avx2/Neon).
+// R7.5.i.2: axis_09_isa = Haupt-CPU-ISA (Amd64/Aarch64/RiscV/PowerPc, User-Direktive
+// 2026-05-27: "ISA der CPU selbst"). SIMD-Extensions sind separate Sub-Achse.
 #include <topics/hardware/axis_09_isa/axis_09_isa_registry.hpp>
+
+// R7.5.j: axis_09b_simd_extension = SIMD/Accelerator-Sub-Achse (NoExt/Sse2/Avx2/Avx512/
+// Neon/Sve2/Rvv/CudaGh200, User-Direktive 2026-05-27: "Erweiterungsbausteine als Sub-Achse").
+// Pro Permutation 0..1 Extension; Compat-Constraint zur Haupt-ISA.
+#include <topics/hardware/axis_09b_simd_extension/axis_09b_simd_extension_registry.hpp>
 
 #include <boost/mp11.hpp>
 
@@ -39,8 +45,12 @@ namespace mp = boost::mp11;
  * mit optional dynamischen iterable_aspect_t pro Wrapper (F.6.1.E).
  */
 struct TopicConfigSet {
-    // axis_09_isa: ISA-Family (R7.5.i Goldstandard: Scalar/Sse2/Avx2/Neon)
+    // axis_09_isa: Haupt-CPU-ISA (R7.5.i.2 nach User-Korrektur: Amd64/Aarch64/RiscV/PowerPc)
     using StaticAxisVariants_09 = axis_09_isa::EnabledIsas;
+
+    // axis_09b_simd_extension: SIMD/Accelerator-Sub-Achse (R7.5.j NEU)
+    // (NoExt/Sse2/Avx2/Avx512/Neon/Sve2/Rvv/CudaGh200) — pro Permutation 0..1 mit Compat-Check
+    using StaticAxisVariants_09b = axis_09b_simd_extension::EnabledExtensions;
 
     // axis_12_general_hardware: Plattform-Familie (Generic/X86_64/Aarch64)
     using StaticAxisVariants_12 = axis_12_general_hardware::EnabledPlatforms;
@@ -49,10 +59,20 @@ struct TopicConfigSet {
     // (Plattform-Konfiguration ist die uebergeordnete Achse, ISA als Sub-Permutation)
     using StaticAxisVariants = StaticAxisVariants_12;
 
-    // Cartesian-Product axis_09 x axis_12 (1 x 3 = 3, mit eigener axis_09-Registry spaeter Nx3)
+    // Cartesian-Product axis_09 (Haupt-ISA) x axis_12 (Plattform)
     using CartesianIsa09xPlatform12 = mp::mp_product<
         mp::mp_list,
         StaticAxisVariants_09,
+        StaticAxisVariants_12
+    >;
+
+    // Voller Cartesian-Product axis_09 x axis_09b x axis_12 (Haupt-ISA x SIMD-Ext x Plattform)
+    // Compat-Filter (Sse2/Avx2 nur mit Amd64, Neon/Sve2 nur mit Aarch64) ist Aufgabe der
+    // PermutationEngine via mp_remove_if mit Compat-Predicate (R5.C.3 cross-constraints).
+    using CartesianIsa09xExt09bxPlatform12 = mp::mp_product<
+        mp::mp_list,
+        StaticAxisVariants_09,
+        StaticAxisVariants_09b,
         StaticAxisVariants_12
     >;
 

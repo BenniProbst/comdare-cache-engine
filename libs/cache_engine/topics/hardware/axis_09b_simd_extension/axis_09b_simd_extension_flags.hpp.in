@@ -1,0 +1,24 @@
+#pragma once
+// V41.F.6.1.R7.5.j axis_09b_simd_extension CMake-generierter Flags-Header
+
+#cmakedefine01 COMDARE_AXIS_09B_USE_NO_EXTENSION
+#cmakedefine01 COMDARE_AXIS_09B_USE_SSE2
+#cmakedefine01 COMDARE_AXIS_09B_USE_AVX2
+#cmakedefine01 COMDARE_AXIS_09B_USE_AVX512
+#cmakedefine01 COMDARE_AXIS_09B_USE_NEON
+#cmakedefine01 COMDARE_AXIS_09B_USE_SVE2
+#cmakedefine01 COMDARE_AXIS_09B_USE_RVV
+#cmakedefine01 COMDARE_AXIS_09B_USE_CUDA_GH200
+
+namespace comdare::cache_engine::hardware::axis_09b_simd_extension::flags {
+
+inline constexpr bool no_extension_enabled = COMDARE_AXIS_09B_USE_NO_EXTENSION;
+inline constexpr bool sse2_enabled         = COMDARE_AXIS_09B_USE_SSE2;
+inline constexpr bool avx2_enabled         = COMDARE_AXIS_09B_USE_AVX2;
+inline constexpr bool avx512_enabled       = COMDARE_AXIS_09B_USE_AVX512;
+inline constexpr bool neon_enabled         = COMDARE_AXIS_09B_USE_NEON;
+inline constexpr bool sve2_enabled         = COMDARE_AXIS_09B_USE_SVE2;
+inline constexpr bool rvv_enabled          = COMDARE_AXIS_09B_USE_RVV;
+inline constexpr bool cuda_gh200_enabled   = COMDARE_AXIS_09B_USE_CUDA_GH200;
+
+}  // namespace
