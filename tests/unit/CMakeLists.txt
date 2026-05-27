@@ -489,6 +489,19 @@ target_link_libraries(test_v41_anatomy_codegen_tool_traits PRIVATE
     Boost::mp11
     comdare::anatomy_codegen_tool)
 
+# V41.F.6.1.R5.J mp_list-driven Tool-Tabelle Tests
+comdare_add_test(test_v41_anatomy_codegen_tool_mp_list
+    SOURCES test_v41_anatomy_codegen_tool_mp_list.cpp)
+target_include_directories(test_v41_anatomy_codegen_tool_mp_list PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_anatomy_codegen_tool_mp_list PRIVATE
+    Boost::mp11
+    comdare::anatomy_codegen_tool)
+
 # V41.F.6.1.R5.I Tool zur Configure-Time aufrufen + Snippet inline include
 # 2-Pass-Build: 1. cmake-Pass (Tool noch nicht gebaut, Warning) -> Tool bauen ->
 # 2. cmake-Pass (Tool da, Snippet wird generiert + included)

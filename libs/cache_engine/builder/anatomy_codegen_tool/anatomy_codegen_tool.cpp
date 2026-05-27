@@ -1,73 +1,62 @@
-// V41.F.6.1.R5.F + R5.H — anatomy_codegen_tool Library Implementation
+// V41.F.6.1.R5.F + R5.H + R5.J — anatomy_codegen_tool Library Implementation
 //
 // R5.H (2026-05-27 spaet): hardcoded Strings durch trait-driven
-// descriptor_from_composition<C>() ersetzt. Tabelle behaelt nur noch
-// (short_name, Type)-Mapping; cpp_type_name + header_include kommen aus
-// den 11 Reference-Composition-Traits (HasCompositionLocation Concept, R5.G).
-// Drift zwischen Composition-Header und Tool-Tabelle nicht mehr moeglich.
+// descriptor_from_composition<C>() ersetzt.
+// R5.J (2026-05-27 nacht): hardcoded std::array durch mp_for_each-Iteration
+// ueber KnownReferenceCompositions mp_list ersetzt. Reine Compile-Time-
+// Cartesian-Iteration; jede neue Composition wird durch Hinzufuegen eines
+// Entry-Wrappers zur mp_list automatisch im Tool sichtbar.
 //
-// @task #712 V41.F.6.1.R5.H
+// @task #714 V41.F.6.1.R5.J
 
 #include "anatomy_codegen_tool.hpp"
 
-// R5.H: alle 11 Reference-Compositions fuer Trait-Extraktion
-#include "../../compositions/art_reference.hpp"
-#include "../../compositions/hot_reference.hpp"
-#include "../../compositions/wormhole_reference.hpp"
-#include "../../compositions/surf_reference.hpp"
-#include "../../compositions/masstree_reference.hpp"
-#include "../../compositions/start_reference.hpp"
-#include "../../compositions/art_paper_binding_reference.hpp"
-#include "../../compositions/hot_paper_binding_reference.hpp"
-#include "../../compositions/start_paper_binding_reference.hpp"
-#include "../../compositions/wormhole_paper_binding_reference.hpp"
-#include "../../compositions/surf_paper_binding_reference.hpp"
+// R5.J: zentrale mp_list aller Reference-Compositions (Entry-Wrapper-Pattern).
+// Inkludiert transitiv alle 11 Composition-Header.
+#include "../../compositions/known_compositions_list.hpp"
 
-#include <array>
+#include <boost/mp11.hpp>
+
 #include <fstream>
+#include <vector>
 
 namespace comdare::cache_engine::builder::codegen_tool {
 
+namespace comp = ::comdare::cache_engine::compositions;
+namespace mp   = ::boost::mp11;
+
 // ─────────────────────────────────────────────────────────────────────────────
-// kKnownCompositions Tabelle (11 Eintraege, R5.H trait-driven)
+// kKnownCompositions — Init-on-first-use ueber KnownReferenceCompositions mp_list
 // ─────────────────────────────────────────────────────────────────────────────
+//
+// Strategie: anstatt einer hardcoded std::array nutzen wir mp_for_each ueber
+// die zentrale mp_list. Pro Entry extrahieren wir den CompositionDescriptor
+// via descriptor_from_composition<C>() (R5.G Trait) und ueberschreiben nur
+// den short_name aus dem Entry-Wrapper. Statisch initialisiert beim ersten
+// Aufruf von known_compositions().
 
 namespace {
 
-namespace comp = ::comdare::cache_engine::compositions;
-
-/// make_desc<C>(short_name) — extrahiert cpp_type_name + header_include via
-/// Trait (descriptor_from_composition<C>()), ueberschreibt nur den User-friendly
-/// CLI-Short-Name. Damit ist die Tool-Tabelle drift-frei: jede Aenderung in
-/// einer Composition propagiert automatisch in die Tool-Tabelle.
-template <::comdare::cache_engine::anatomy::HasCompositionLocation C>
-[[nodiscard]] constexpr CompositionDescriptor make_desc(std::string_view short_name) noexcept {
-    auto d = descriptor_from_composition<C>();
-    d.short_name = short_name;  // User-friendly CLI-Name (z.B. "art" statt "ArtComposition")
-    return d;
+[[nodiscard]] std::vector<CompositionDescriptor> const& known_compositions_storage() {
+    static std::vector<CompositionDescriptor> const tbl = [] {
+        std::vector<CompositionDescriptor> v;
+        v.reserve(comp::kKnownReferenceCompositionsCount);
+        mp::mp_for_each<comp::KnownReferenceCompositions>([&v]<class Entry>(Entry) {
+            using C = typename Entry::composition;
+            auto d = descriptor_from_composition<C>();
+            d.short_name = Entry::short_name;  // Tool-spezifischer CLI-Override
+            v.push_back(d);
+        });
+        return v;
+    }();
+    return tbl;
 }
-
-constexpr std::array<CompositionDescriptor, 11> kKnownCompositionsImpl = {{
-    // 6 CE-Reimpl-Compositions (R2)
-    make_desc<comp::ArtComposition>("art"),
-    make_desc<comp::HotComposition>("hot"),
-    make_desc<comp::WormholeComposition>("wormhole"),
-    make_desc<comp::SurfComposition>("surf"),
-    make_desc<comp::MasstreeComposition>("masstree"),
-    make_desc<comp::StartComposition>("start"),
-    // 5 PaperBinding-Compositions (R3.2 Promotion)
-    make_desc<comp::ArtPaperBindingComposition>("art_pb"),
-    make_desc<comp::HotPaperBindingComposition>("hot_pb"),
-    make_desc<comp::StartPaperBindingComposition>("start_pb"),
-    make_desc<comp::WormholePaperBindingComposition>("wormhole_pb"),
-    make_desc<comp::SurfPaperBindingComposition>("surf_pb"),
-}};
 
 }  // anonymous namespace
 
 std::span<CompositionDescriptor const> known_compositions() noexcept {
-    return std::span<CompositionDescriptor const>{kKnownCompositionsImpl.data(),
-                                                   kKnownCompositionsImpl.size()};
+    auto const& tbl = known_compositions_storage();
+    return std::span<CompositionDescriptor const>{tbl.data(), tbl.size()};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,7 +64,7 @@ std::span<CompositionDescriptor const> known_compositions() noexcept {
 // ─────────────────────────────────────────────────────────────────────────────
 
 CompositionDescriptor const* find_composition(std::string_view short_name) noexcept {
-    for (auto const& c : kKnownCompositionsImpl) {
+    for (auto const& c : known_compositions_storage()) {
         if (c.short_name == short_name) return &c;
     }
     return nullptr;
@@ -101,9 +90,10 @@ select_compositions(std::string_view csv_names,
                     std::vector<std::string>* unknown_out)
 {
     std::vector<CompositionDescriptor const*> out;
+    auto const& tbl = known_compositions_storage();
     if (csv_names.empty()) {
-        out.reserve(kKnownCompositionsImpl.size());
-        for (auto const& c : kKnownCompositionsImpl) {
+        out.reserve(tbl.size());
+        for (auto const& c : tbl) {
             out.push_back(&c);
         }
         return out;
