@@ -538,6 +538,19 @@ target_include_directories(test_v41_axis_05_memory_layout PRIVATE
 target_link_libraries(test_v41_axis_05_memory_layout PRIVATE
     Boost::mp11)
 
+# V41.F.6.1.R7.1.c+d axis_02 + axis_04 nodes (Goldstandard-Vollausbau in einem Test-File)
+comdare_add_test(test_v41_axis_02_axis_04_nodes
+    SOURCES test_v41_axis_02_axis_04_nodes.cpp)
+target_include_directories(test_v41_axis_02_axis_04_nodes PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    "${CMAKE_BINARY_DIR}/generated/topics/nodes/axis_02_path_compression"
+    "${CMAKE_BINARY_DIR}/generated/topics/nodes/axis_04_node_type")
+target_link_libraries(test_v41_axis_02_axis_04_nodes PRIVATE
+    Boost::mp11)
+
 # V41.F.6.1.R5.I Tool zur Configure-Time aufrufen + Snippet inline include
 # 2-Pass-Build: 1. cmake-Pass (Tool noch nicht gebaut, Warning) -> Tool bauen ->
 # 2. cmake-Pass (Tool da, Snippet wird generiert + included)
