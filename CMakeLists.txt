@@ -161,6 +161,12 @@ option(COMDARE_AXIS_07_ENABLE_DISTANCE_ESTIMATOR "Prefetch DistanceEstimator (AR
 option(COMDARE_AXIS_07_ENABLE_HARDWARE_PREFETCH  "Prefetch HardwarePrefetch (Wormhole PREFETCHT0)" ON)
 option(COMDARE_AXIS_07_ENABLE_PATH_ORIENTED      "Prefetch PathOriented (PRT-ART bundle-prefetch)" ON)
 
+# V41.F.6.1.R7.5.b axis_11 Telemetry (4 Strategien)
+option(COMDARE_AXIS_11_ENABLE_LEAF_ONLY_COUNTER "Telemetry LeafOnlyCounter (Kuehn DaMoN 2023 X1)" ON)
+option(COMDARE_AXIS_11_ENABLE_DENSITY_TRACKER   "Telemetry DensityTracker (ART per-node density)" ON)
+option(COMDARE_AXIS_11_ENABLE_INSERT_COUNTER    "Telemetry InsertCounter (HOT global insert counter)" ON)
+option(COMDARE_AXIS_11_ENABLE_LATENCY_HISTOGRAM "Telemetry LatencyHistogram (HDR p50/p95/p99)" ON)
+
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
 # aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
@@ -647,6 +653,20 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/prefetch/axis_07_prefetch/axis_07_prefetch_flags.hpp"
     @ONLY)
 message(STATUS "  axis_07 (4 prefetchers): NONE=${COMDARE_AXIS_07_USE_NONE} DISTANCE_ESTIMATOR=${COMDARE_AXIS_07_USE_DISTANCE_ESTIMATOR} HARDWARE_PREFETCH=${COMDARE_AXIS_07_USE_HARDWARE_PREFETCH} PATH_ORIENTED=${COMDARE_AXIS_07_USE_PATH_ORIENTED}")
+
+# V41.F.6.1.R7.5.b axis_11 Telemetry Flags (USE = ENABLE)
+foreach(_t LEAF_ONLY_COUNTER DENSITY_TRACKER INSERT_COUNTER LATENCY_HISTOGRAM)
+    if(COMDARE_AXIS_11_ENABLE_${_t})
+        set(COMDARE_AXIS_11_USE_${_t} 1)
+    else()
+        set(COMDARE_AXIS_11_USE_${_t} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/telemetry/axis_11_telemetry/axis_11_telemetry_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/telemetry/axis_11_telemetry/axis_11_telemetry_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_11 (4 telemetries): LEAF=${COMDARE_AXIS_11_USE_LEAF_ONLY_COUNTER} DENSITY=${COMDARE_AXIS_11_USE_DENSITY_TRACKER} INSERT=${COMDARE_AXIS_11_USE_INSERT_COUNTER} LATENCY=${COMDARE_AXIS_11_USE_LATENCY_HISTOGRAM}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung

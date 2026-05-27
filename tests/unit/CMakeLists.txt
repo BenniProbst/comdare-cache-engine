@@ -563,6 +563,18 @@ target_include_directories(test_v41_axis_07_prefetch PRIVATE
 target_link_libraries(test_v41_axis_07_prefetch PRIVATE
     Boost::mp11)
 
+# V41.F.6.1.R7.5.b axis_11 Telemetry (4 Wrappers, Optional-Topics)
+comdare_add_test(test_v41_axis_11_telemetry
+    SOURCES test_v41_axis_11_telemetry.cpp)
+target_include_directories(test_v41_axis_11_telemetry PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    "${CMAKE_BINARY_DIR}/generated/topics/telemetry/axis_11_telemetry")
+target_link_libraries(test_v41_axis_11_telemetry PRIVATE
+    Boost::mp11)
+
 # V41.F.6.1.R5.I Tool zur Configure-Time aufrufen + Snippet inline include
 # 2-Pass-Build: 1. cmake-Pass (Tool noch nicht gebaut, Warning) -> Tool bauen ->
 # 2. cmake-Pass (Tool da, Snippet wird generiert + included)
