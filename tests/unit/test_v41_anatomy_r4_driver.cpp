@@ -52,9 +52,9 @@ namespace mp  = boost::mp11;
 // Type-Aliases (kompakter)
 // ─────────────────────────────────────────────────────────────────────────────
 
-using Array256             = ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256;
-using VectorU8U8           = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU8U8;
-using VectorU16U16         = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU16U16;
+using Array256SearchAlgo             = ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256SearchAlgo;
+using VectorU8U8SearchAlgo           = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;
+using VectorU16U16SearchAlgo         = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;
 using LinearFanout         = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::LinearFanout;
 using HashLookup           = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::HashLookup;
 using DirectPlacement      = ::comdare::cache_engine::traversal::axis_03m_mapping::DirectPlacement;
@@ -77,7 +77,7 @@ using BloomFilter          = ::comdare::cache_engine::filter::axis_filter::Bloom
 // 17 Topic-Config-Sets fuer Pilot (3 × 2 × 1^15 = 6 Permutationen)
 // ─────────────────────────────────────────────────────────────────────────────
 
-struct T0_SearchAlgo     { using StaticAxisVariants = mp::mp_list<Array256, VectorU8U8, VectorU16U16>; };
+struct T0_SearchAlgo     { using StaticAxisVariants = mp::mp_list<Array256SearchAlgo, VectorU8U8SearchAlgo, VectorU16U16SearchAlgo>; };
 struct T1_CacheTraversal { using StaticAxisVariants = mp::mp_list<LinearFanout, HashLookup>; };
 struct T2_Mapping        { using StaticAxisVariants = mp::mp_list<DirectPlacement>; };
 struct T3_PathCompr      { using StaticAxisVariants = mp::mp_list<PathCompressionNone>; };
@@ -107,7 +107,7 @@ using PilotDriver = ana::AnatomyPermutationDriver<
 // ─────────────────────────────────────────────────────────────────────────────
 
 using AdHocArt = ana::AdHocComposition<
-    Array256, LinearFanout, DirectPlacement, PathCompressionNone, Node256Layout,
+    Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256Layout,
     CacheLineAligned, MimallocAllocator, PrefetchNone, OlcOptimistic, RawBinarySer,
     LeafOnlyCounter, InlineHandle, IsaScalar, StdMapLike, InMemoryOnly,
     NoMigration, BloomFilter
@@ -133,7 +133,7 @@ TEST(AnatomyR4_Factory, AdHocCompositionInstantiatesAnatomy) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 using SamplePermTuple = pe::PermTuple<
-    Array256, LinearFanout, DirectPlacement, PathCompressionNone, Node256Layout,
+    Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256Layout,
     CacheLineAligned, MimallocAllocator, PrefetchNone, OlcOptimistic, RawBinarySer,
     LeafOnlyCounter, InlineHandle, IsaScalar, StdMapLike, InMemoryOnly,
     NoMigration, BloomFilter
@@ -142,7 +142,7 @@ using SamplePermTuple = pe::PermTuple<
 TEST(AnatomyR4_Factory, CompositionFromPermTupleProducesValidComposition) {
     using Materialized = ana::CompositionFromPermTuple<SamplePermTuple>;
     static_assert(ana::IsComposition<Materialized>);
-    static_assert(std::is_same_v<Materialized::search_algo, Array256>);
+    static_assert(std::is_same_v<Materialized::search_algo, Array256SearchAlgo>);
     static_assert(std::is_same_v<Materialized::cache_traversal, LinearFanout>);
     static_assert(std::is_same_v<Materialized::filter, BloomFilter>);
     SUCCEED();

@@ -1,7 +1,7 @@
 #pragma once
-// V41.F.6.1 axis_03a_search_algo Array256 S01 (2026-05-26)
+// V41.F.6.1 axis_03a_search_algo Array256SearchAlgo S01 (2026-05-26)
 //
-// @topic traversal @achse 03a @family S01 Array256
+// @topic traversal @achse 03a @family S01 Array256SearchAlgo
 // @subaxis SA1 dense_access
 //
 // **Algorithmus-Pattern:** ART Node256 direct-addressed dense Search.
@@ -39,7 +39,7 @@
 
 namespace comdare::cache_engine::traversal::axis_03a_search_algo {
 
-class Array256 : public SearchAlgoBase<Array256> {
+class Array256SearchAlgo : public SearchAlgoBase<Array256SearchAlgo> {
 public:
     static constexpr bool enabled = flags::array256_enabled;
 
@@ -53,7 +53,7 @@ public:
     [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t max_fanout()        noexcept { return 256; }
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "array256"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "Array256 (ART Node256 direct-addressed, Leis ICDE 2013)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "Array256SearchAlgo (ART Node256 direct-addressed, Leis ICDE 2013)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "ARRAY256"; }
 
     [[nodiscard]] static constexpr bool supports_simd()            noexcept { return true; }
@@ -61,9 +61,9 @@ public:
     [[nodiscard]] static constexpr bool is_dense()                 noexcept { return true; }
     [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return true; }
 
-    Array256() noexcept : count_(0) {}
+    Array256SearchAlgo() noexcept : count_(0) {}
 
-    [[nodiscard]] bool operator==(Array256 const& other) const noexcept {
+    [[nodiscard]] bool operator==(Array256SearchAlgo const& other) const noexcept {
         return count_ == other.count_;
     }
 
@@ -88,7 +88,7 @@ public:
     }
 
     /// SIMD-Fast-Path ([[simd-capable-strategy]] Sub-Concept).
-    /// Bei Array256 ist direkt-Lookup bereits O(1) — SIMD-Branch verifiziert
+    /// Bei Array256SearchAlgo ist direkt-Lookup bereits O(1) — SIMD-Branch verifiziert
     /// nur das Presence-Bit (relevanter bei multi-key Bulk-Lookup).
     [[nodiscard]] std::optional<value_type> simd_lookup(key_type k) const {
         return data_[k];  // semantisch aequivalent, hot-path optimiert
@@ -115,7 +115,7 @@ public:
     }
 
     /// DensityClassifiedStrategy [[density-classified-strategy]]:
-    /// Array256 ist immer per Konstruktion DENSE (direkt-adressiert).
+    /// Array256SearchAlgo ist immer per Konstruktion DENSE (direkt-adressiert).
     [[nodiscard]] concepts::DensityClass density_class() const noexcept {
         return concepts::DensityClass::Dense;
     }
@@ -142,8 +142,8 @@ private:
 }  // namespace
 
 namespace comdare::cache_engine::traversal::axis_03a_search_algo {
-    static_assert(concepts::SearchAlgoVariant<Array256>);
-    static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<Array256>);
-    static_assert(concepts::DensityClassifiedStrategy<Array256>);
-    static_assert(concepts::SimdCapableStrategy<Array256>);
+    static_assert(concepts::SearchAlgoVariant<Array256SearchAlgo>);
+    static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<Array256SearchAlgo>);
+    static_assert(concepts::DensityClassifiedStrategy<Array256SearchAlgo>);
+    static_assert(concepts::SimdCapableStrategy<Array256SearchAlgo>);
 }

@@ -2,14 +2,14 @@
 // V41.F.6.1.P2.D.tr.s2 OriginalArtSearchAlgo S04 (2026-05-26)
 //
 // @topic traversal @achse 03a @family S04 OriginalArtSearchAlgo
-// @subaxis SA1 dense_access (analog Array256)
+// @subaxis SA1 dense_access (analog Array256SearchAlgo)
 // @paper P01 ART (Leis/Kemper/Neumann, ICDE 2013)
 //
-// **Habich-Compliance-Wrapper:** parallel zu Array256 (Re-Impl).
+// **Habich-Compliance-Wrapper:** parallel zu Array256SearchAlgo (Re-Impl).
 // get_compiler()="gcc-9.5" via Paper-Mixin (Tool-validierte Source-Identity ueber SHA256).
 // is_original_module()=true (alle 4 Functions: insert/lookup/erase/clear originall).
 //
-// **Body-Strategie (s2):** Standalone Re-Impl analog Array256 (std::array<optional<u64>,256>).
+// **Body-Strategie (s2):** Standalone Re-Impl analog Array256SearchAlgo (std::array<optional<u64>,256>).
 // Compile-Time-Switch via `enabled = flags::original_art_enabled`. Wenn aktiviert,
 // signalisiert die Wrapper-Klasse die Paper-Bindung via Mixin-Properties. Tatsaechliches
 // Linking gegen unodb::db erfolgt in s4 (Library-Build mit Original-Compiler via
@@ -82,7 +82,7 @@ public:
 
     void insert(key_type k, value_type v) {
         if constexpr (enabled) {
-            // s2 Standalone-Body (Array256-Pattern). s4 wird ueber extern "C" Adapter
+            // s2 Standalone-Body (Array256SearchAlgo-Pattern). s4 wird ueber extern "C" Adapter
             // unodb::db<key,value>::insert_internal aufrufen.
             if (!data_[k].has_value()) ++count_;
             data_[k] = v;

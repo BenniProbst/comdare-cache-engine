@@ -34,7 +34,7 @@ namespace comdare::cache_engine::compositions {
 /// - **KERN-Funktion: Range-Query-Filter** → filter::BloomFilter ist Composition-konstitutiv
 ///   (im Gegensatz zu ART/HOT wo Filter optional ist)
 struct SurfComposition {
-    using search_algo        = traversal::axis_03a_search_algo::VectorU16U16;
+    using search_algo        = traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;
     using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
     using mapping            = traversal::axis_03m_mapping::PoolRelative;
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;

@@ -29,10 +29,10 @@ namespace comdare::cache_engine::compositions {
 /// StartComposition — START als 15-Achsen-Permutations-Konfiguration.
 ///
 /// START Charakteristik (Mertens ICDE 2024):
-/// - Multi-Byte-Span Cost-DP Trie (axis_03a VectorU16U16)
+/// - Multi-Byte-Span Cost-DP Trie (axis_03a VectorU16U16SearchAlgo)
 /// - Self-Tuning Adaptive — node_type variabel zur Laufzeit (Node4/16/48/256-Mix)
 struct StartComposition {
-    using search_algo        = traversal::axis_03a_search_algo::VectorU16U16;
+    using search_algo        = traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;
     using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;

@@ -22,15 +22,15 @@ namespace comdare::cache_engine::traversal::axis_03a_search_algo::concepts {
  * Stufen-Pattern). Hoehere Stufen IMPLIZIEREN niedrigere Stufen.
  *
  * CacheEngineBuilder kann Vendor-Subsets bilden:
- *   - level() >= Dense          (Array256 only)
- *   - level() >= Balanced       (Array256 + Multilevel)
+ *   - level() >= Dense          (Array256SearchAlgo only)
+ *   - level() >= Balanced       (Array256SearchAlgo + Multilevel)
  *   - level() >= Sparse         (alle Strategien)
  *   - level() == AdaptiveTransition  (alle die zur Laufzeit umschalten)
  */
 enum class DensityClass : int {
     Sparse              = 0,  // <30% fanout occupied (HOT, Patricia)
     Balanced            = 1,  // 30-70% (Masstree W=15)
-    Dense               = 2,  // >70% (Array256, ART Node256)
+    Dense               = 2,  // >70% (Array256SearchAlgo, ART Node256)
     AdaptiveTransition  = 3,  // Threshold-Crossing (notify_density_threshold)
 };
 

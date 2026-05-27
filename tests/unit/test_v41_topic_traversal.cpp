@@ -169,39 +169,39 @@ TYPED_TEST(SearchAlgoTest, ObserverNotifiedOnInsert) {
 // =================================================================
 
 TEST(SearchAlgo_Array256, DensityClassAlwaysDense) {
-    ce_03a::Array256 s{};
+    ce_03a::Array256SearchAlgo s{};
     EXPECT_EQ(s.density_class(), ce_03a::concepts::DensityClass::Dense);
 }
 
 TEST(SearchAlgo_Array256, MaxFanoutIs256) {
-    EXPECT_EQ(ce_03a::Array256::max_fanout(), 256u);
+    EXPECT_EQ(ce_03a::Array256SearchAlgo::max_fanout(), 256u);
 }
 
 TEST(SearchAlgo_VectorU8U8, SparseAtLowDensity) {
-    ce_03a::VectorU8U8 s{};
+    ce_03a::VectorU8U8SearchAlgo s{};
     s.insert(1, 100);
     s.insert(2, 200);
     EXPECT_EQ(s.density_class(), ce_03a::concepts::DensityClass::Sparse);
 }
 
 TEST(SearchAlgo_VectorU16U16, BalancedDefault) {
-    ce_03a::VectorU16U16 s{};
+    ce_03a::VectorU16U16SearchAlgo s{};
     EXPECT_EQ(s.density_class(), ce_03a::concepts::DensityClass::Balanced);
 }
 
 TEST(SearchAlgo_VectorU16U16, DoesNotErfuellSimdConcept) {
-    static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::VectorU16U16>,
-        "VectorU16U16 darf SimdCapableStrategy NICHT erfuellen (Cost-DP nicht vectorisierbar)");
+    static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::VectorU16U16SearchAlgo>,
+        "VectorU16U16SearchAlgo darf SimdCapableStrategy NICHT erfuellen (Cost-DP nicht vectorisierbar)");
     SUCCEED();
 }
 
 TEST(SearchAlgo_Array256, ErfuellSimdConcept) {
-    static_assert(ce_03a::concepts::SimdCapableStrategy<ce_03a::Array256>);
+    static_assert(ce_03a::concepts::SimdCapableStrategy<ce_03a::Array256SearchAlgo>);
     SUCCEED();
 }
 
 TEST(SearchAlgo_VectorU8U8, ErfuellSimdConcept) {
-    static_assert(ce_03a::concepts::SimdCapableStrategy<ce_03a::VectorU8U8>);
+    static_assert(ce_03a::concepts::SimdCapableStrategy<ce_03a::VectorU8U8SearchAlgo>);
     SUCCEED();
 }
 
@@ -381,11 +381,11 @@ TEST(Mapping_PoolRelative, PoolBaseAccessor) {
 // =================================================================
 
 TEST(SubConcepts_03a, IterableAspectSearchAlgoStrategy) {
-    static_assert(ce_03a::concepts::IterableAspectSearchAlgoStrategy<ce_03a::VectorU8U8>);
-    static_assert(!ce_03a::concepts::IterableAspectSearchAlgoStrategy<ce_03a::Array256>,
-                  "Array256 hat keinen iterable_aspect_t");
-    static_assert(!ce_03a::concepts::IterableAspectSearchAlgoStrategy<ce_03a::VectorU16U16>,
-                  "VectorU16U16 hat keinen iterable_aspect_t");
+    static_assert(ce_03a::concepts::IterableAspectSearchAlgoStrategy<ce_03a::VectorU8U8SearchAlgo>);
+    static_assert(!ce_03a::concepts::IterableAspectSearchAlgoStrategy<ce_03a::Array256SearchAlgo>,
+                  "Array256SearchAlgo hat keinen iterable_aspect_t");
+    static_assert(!ce_03a::concepts::IterableAspectSearchAlgoStrategy<ce_03a::VectorU16U16SearchAlgo>,
+                  "VectorU16U16SearchAlgo hat keinen iterable_aspect_t");
     SUCCEED();
 }
 
@@ -415,7 +415,7 @@ TEST(SubConcepts_03m, PoolRebasableStrategy) {
 
 TEST(IterableAspect_VectorU8U8, DensityThresholdAffectsClass) {
     // 5 von 256 Slots = ~2% density; threshold 1% (klein) → Balanced
-    ce_03a::VectorU8U8 s{1};
+    ce_03a::VectorU8U8SearchAlgo s{1};
     for (int i = 0; i < 5; ++i) s.insert(static_cast<std::uint8_t>(i * 50), i + 100);
     EXPECT_EQ(s.density_class(), ce_03a::concepts::DensityClass::Balanced);
 
@@ -425,10 +425,10 @@ TEST(IterableAspect_VectorU8U8, DensityThresholdAffectsClass) {
 }
 
 TEST(IterableAspect_VectorU8U8, IterableValuesContainsDefault) {
-    auto vals = ce_03a::VectorU8U8::iterable_values();
+    auto vals = ce_03a::VectorU8U8SearchAlgo::iterable_values();
     bool found_default = false;
     for (auto v : vals) {
-        if (v == ce_03a::VectorU8U8::kDefaultDensityThresholdPct) found_default = true;
+        if (v == ce_03a::VectorU8U8SearchAlgo::kDefaultDensityThresholdPct) found_default = true;
     }
     EXPECT_TRUE(found_default);
 }
@@ -554,19 +554,19 @@ TEST(TopicTraversal_PermutationEngine, ForEach03a) {
 }
 
 TEST(TopicTraversal_PermutationEngine, ForEachAspectPerVendor) {
-    // VectorU8U8 hat iterable_aspect_t (5 density thresholds)
+    // VectorU8U8SearchAlgo hat iterable_aspect_t (5 density thresholds)
     int aspects = 0;
-    ce_perm::for_each_aspect<ce_03a::VectorU8U8>([&aspects](auto /*value*/){ ++aspects; });
+    ce_perm::for_each_aspect<ce_03a::VectorU8U8SearchAlgo>([&aspects](auto /*value*/){ ++aspects; });
     EXPECT_EQ(aspects, 5);
-    // Array256 hat KEINEN iterable_aspect_t → exakt 1 Aufruf ohne Argument
+    // Array256SearchAlgo hat KEINEN iterable_aspect_t → exakt 1 Aufruf ohne Argument
     int single = 0;
-    ce_perm::for_each_aspect<ce_03a::Array256>([&single](){ ++single; });
+    ce_perm::for_each_aspect<ce_03a::Array256SearchAlgo>([&single](){ ++single; });
     EXPECT_EQ(single, 1);
 }
 
 TEST(TopicTraversal_PermutationEngine, AspectCount) {
-    EXPECT_EQ(ce_perm::aspect_count<ce_03a::VectorU8U8>(), 5u);
-    EXPECT_EQ(ce_perm::aspect_count<ce_03a::Array256>(), 1u);
+    EXPECT_EQ(ce_perm::aspect_count<ce_03a::VectorU8U8SearchAlgo>(), 5u);
+    EXPECT_EQ(ce_perm::aspect_count<ce_03a::Array256SearchAlgo>(), 1u);
     EXPECT_EQ(ce_perm::aspect_count<ce_03b::HashLookup>(), 5u);
     EXPECT_EQ(ce_perm::aspect_count<ce_03b::LinearFanout>(), 1u);
 }
@@ -583,7 +583,7 @@ template <class M> using is_pool_relative_mapping = mp::mp_bool<M::is_pool_relat
 
 TEST(PropertyFilter_03a, SimdCapableSubset) {
     using SimdSubset = mp::mp_filter<is_simd_search_algo, ce_03a::AllStrategies>;
-    // Re-Impl: Array256 + VectorU8U8 (SIMD), VectorU16U16 (kein SIMD)
+    // Re-Impl: Array256SearchAlgo + VectorU8U8SearchAlgo (SIMD), VectorU16U16SearchAlgo (kein SIMD)
     // V41.F.6.1.P2.D.tr.s2: + OriginalArt (SIMD) + OriginalHot (SIMD), OriginalStart (kein SIMD)
     // V41.F.6.1.P2.D.tr.s3 Batch 1: + OriginalWormhole (SIMD via AVX2), OriginalSurf (kein SIMD LOUDS)
     //   → 5 von 8 SIMD-faehig
@@ -592,7 +592,7 @@ TEST(PropertyFilter_03a, SimdCapableSubset) {
 
 TEST(PropertyFilter_03a, DenseSubset) {
     using DenseSubset = mp::mp_filter<is_dense_search_algo, ce_03a::AllStrategies>;
-    // Re-Impl: Array256 (Dense). V41.F.6.1.P2.D.tr.s2: + OriginalArt (Dense, ART Node256)
+    // Re-Impl: Array256SearchAlgo (Dense). V41.F.6.1.P2.D.tr.s2: + OriginalArt (Dense, ART Node256)
     //   → 2 von 6 statisch Dense
     EXPECT_EQ(mp::mp_size<DenseSubset>::value, 2u);
 }

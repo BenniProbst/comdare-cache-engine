@@ -23,8 +23,8 @@ namespace comdare::cache_engine::traversal::axis_03a_search_algo::concepts {
  * erfuellen (semantisch: `simd_lookup` MUSS gleiche Resultate wie `lookup`
  * liefern, nur schneller).
  *
- * **Concept-Erfuellung:** Array256 (dense + SIMD), VectorU8U8 (Patricia + SIMD).
- * **Nicht erfuellt von:** VectorU16U16 (Multilevel-DP, kein SIMD).
+ * **Concept-Erfuellung:** Array256SearchAlgo (dense + SIMD), VectorU8U8SearchAlgo (Patricia + SIMD).
+ * **Nicht erfuellt von:** VectorU16U16SearchAlgo (Multilevel-DP, kein SIMD).
  */
 template <typename S>
 concept SimdCapableStrategy =

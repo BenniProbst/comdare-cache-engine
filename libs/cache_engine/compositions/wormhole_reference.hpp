@@ -32,11 +32,11 @@ namespace comdare::cache_engine::compositions {
 ///
 /// Wormhole Charakteristik (Wu/Ni/Jiang ATC 2019):
 /// - Hash-Anchor-Lookup statt sequential Walk (axis_03b HashLookup)
-/// - Sparse Search-Algo Variant (axis_03a VectorU8U8)
+/// - Sparse Search-Algo Variant (axis_03a VectorU8U8SearchAlgo)
 /// - Persistent Index (kein clear API im Original)
 /// - HW-Prefetch typisch genutzt (heute Default None bis axis_07 erweitert)
 struct WormholeComposition {
-    using search_algo        = traversal::axis_03a_search_algo::VectorU8U8;
+    using search_algo        = traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;
     using cache_traversal    = traversal::axis_03b_cache_traversal::HashLookup;
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;

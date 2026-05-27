@@ -762,7 +762,7 @@ namespace non_paper_wrappers {
 using NoPaperAllocator   = ::comdare::cache_engine::allocator::axis_06_allocator::StdMalloc;
 using NoPaperBuffer      = ::comdare::cache_engine::queuing::axis_q1_queuing::FIFOQueue;
 using NoPaperFlushPolicy = ::comdare::cache_engine::queuing::axis_q2_queuing::EagerFlush;
-using NoPaperSearchAlgo  = ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256;
+using NoPaperSearchAlgo  = ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256SearchAlgo;
 using NoPaperTraversal   = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::LinearFanout;
 using NoPaperMapping     = ::comdare::cache_engine::traversal::axis_03m_mapping::DirectPlacement;
 }  // namespace

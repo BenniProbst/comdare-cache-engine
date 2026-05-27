@@ -11,7 +11,7 @@
 //   - typename axis_tag    (SA1-SA3 Subaxis-Tag)
 //   - typename family_id   (S01-S0N Compile-Time-ID)
 //   - static constexpr bool        is_thread_safe()
-//   - static constexpr std::size_t max_fanout()     (256 fuer Array256, dynamisch fuer Vector*)
+//   - static constexpr std::size_t max_fanout()     (256 fuer Array256SearchAlgo, dynamisch fuer Vector*)
 //   - static constexpr std::string_view name() / family_name() / flag_suffix()
 //
 // Sonderfall-Properties (analog Allocator + Queuing):

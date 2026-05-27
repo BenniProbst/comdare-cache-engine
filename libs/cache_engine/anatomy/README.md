@@ -17,12 +17,12 @@ Template-Instantiationen mit konkreter Composition.
 
 | Tier (Algorithmus) | Composition | Distinguishing Organ |
 |---|---|---|
-| ART | `ArtComposition` | Array256-Skelett (dense) |
-| HOT | `HotComposition` | VectorU8U8 + Patricia-Verdichtung |
+| ART | `ArtComposition` | Array256SearchAlgo-Skelett (dense) |
+| HOT | `HotComposition` | VectorU8U8SearchAlgo + Patricia-Verdichtung |
 | Wormhole | `WormholeComposition` | HashLookup (Verdauung) |
 | SuRF | `SurfComposition` | PoolRelative (Nervensystem) + Filter = Funktion |
-| Masstree | `MasstreeComposition` | VectorU16U16 (Layer-Slice 8-Byte) |
-| START | `StartComposition` | VectorU16U16 (Multibyte-Span) |
+| Masstree | `MasstreeComposition` | VectorU16U16SearchAlgo (Layer-Slice 8-Byte) |
+| START | `StartComposition` | VectorU16U16SearchAlgo (Multibyte-Span) |
 
 ## Dateien
 

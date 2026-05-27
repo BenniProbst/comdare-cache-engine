@@ -11,7 +11,7 @@ Ein **Composition-Template** ist ein reines `using`-Tupel das einen konkreten
 
 ```cpp
 struct ArtComposition {
-    using search_algo     = traversal::axis_03a_search_algo::Array256;       // 3.A BYTEBYBYTE
+    using search_algo     = traversal::axis_03a_search_algo::Array256SearchAlgo;       // 3.A BYTEBYBYTE
     using cache_traversal = traversal::axis_03b_cache_traversal::LinearFanout;
     using mapping         = traversal::axis_03m_mapping::DirectPlacement;
     using allocator       = allocator::axis_06_allocator::MimallocAllocator;
@@ -33,9 +33,9 @@ Permutations-Konfigurationen.
 
 | Composition | Paper | Search-Algo | Status |
 |---|---|---|---|
-| `ArtComposition` | P01 ART (Leis 2013) | Array256 (BYTEBYBYTE-aequivalent) | Pilot R2 |
-| `WormholeComposition` | P07 Wormhole (Wu 2019) | VectorU8U8 (HASH_ANCHOR-aequivalent) | Pilot R2 |
-| `SurfComposition` | P10 SuRF (Zhang 2018) | VectorU16U16 (LOUDS-aequivalent) | Pilot R2 |
+| `ArtComposition` | P01 ART (Leis 2013) | Array256SearchAlgo (BYTEBYBYTE-aequivalent) | Pilot R2 |
+| `WormholeComposition` | P07 Wormhole (Wu 2019) | VectorU8U8SearchAlgo (HASH_ANCHOR-aequivalent) | Pilot R2 |
+| `SurfComposition` | P10 SuRF (Zhang 2018) | VectorU16U16SearchAlgo (LOUDS-aequivalent) | Pilot R2 |
 
 ## Erweiterbarkeit
 

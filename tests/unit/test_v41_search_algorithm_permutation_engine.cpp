@@ -60,9 +60,9 @@ namespace mp  = boost::mp11;
 // Type-Aliases (kompakter)
 // ─────────────────────────────────────────────────────────────────────────────
 
-using Array256             = ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256;
-using VectorU8U8           = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU8U8;
-using VectorU16U16         = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU16U16;
+using Array256SearchAlgo             = ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256SearchAlgo;
+using VectorU8U8SearchAlgo           = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;
+using VectorU16U16SearchAlgo         = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;
 using LinearFanout         = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::LinearFanout;
 using HashLookup           = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::HashLookup;
 using DirectPlacement      = ::comdare::cache_engine::traversal::axis_03m_mapping::DirectPlacement;
@@ -85,7 +85,7 @@ using BloomFilter          = ::comdare::cache_engine::filter::axis_filter::Bloom
 // Pilot 17 Topic-Config-Sets (3 × 2 × 1^15 = 6 Permutationen, identisch zu R4-Test)
 // ─────────────────────────────────────────────────────────────────────────────
 
-struct T0_SearchAlgo     { using StaticAxisVariants = mp::mp_list<Array256, VectorU8U8, VectorU16U16>; };
+struct T0_SearchAlgo     { using StaticAxisVariants = mp::mp_list<Array256SearchAlgo, VectorU8U8SearchAlgo, VectorU16U16SearchAlgo>; };
 struct T1_CacheTraversal { using StaticAxisVariants = mp::mp_list<LinearFanout, HashLookup>; };
 struct T2_Mapping        { using StaticAxisVariants = mp::mp_list<DirectPlacement>; };
 struct T3_PathCompr      { using StaticAxisVariants = mp::mp_list<PathCompressionNone>; };
@@ -116,13 +116,13 @@ using PilotEngine = ana::SearchAlgorithmPermutationEngine<
 
 // Default-Slot ohne explicit genus → slot_genus_v Default = SearchAlgorithm
 struct ImplicitMammalSlot {
-    using PrueflingVariants = mp::mp_list<Array256>;
+    using PrueflingVariants = mp::mp_list<Array256SearchAlgo>;
     static constexpr bool has_pruefling = true;
 };
 
 // Explicit-SearchAlgorithm Slot
 struct ExplicitMammalSlot {
-    using PrueflingVariants = mp::mp_list<Array256>;
+    using PrueflingVariants = mp::mp_list<Array256SearchAlgo>;
     static constexpr bool has_pruefling = true;
     static constexpr ana::AnatomyGenus genus = ana::AnatomyGenus::SearchAlgorithm;
 };

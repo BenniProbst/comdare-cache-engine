@@ -2,10 +2,10 @@
 // V41.F.6.1.P2.D.tr.s2 OriginalStartSearchAlgo S06 (2026-05-26)
 //
 // @topic traversal @achse 03a @family S06 OriginalStartSearchAlgo
-// @subaxis SA3 multilevel_access (analog VectorU16U16)
+// @subaxis SA3 multilevel_access (analog VectorU16U16SearchAlgo)
 // @paper P05 START (Mertens et al., ICDE 2024)
 //
-// **Habich-Compliance-Wrapper:** parallel zu VectorU16U16 (Re-Impl).
+// **Habich-Compliance-Wrapper:** parallel zu VectorU16U16SearchAlgo (Re-Impl).
 // get_compiler()="gcc-9.5" via Paper-Mixin.
 // **Luecken-Markierung (2/4 originall):**
 //   - insert: originall (insertLater im sosd-Adapter)
@@ -13,7 +13,7 @@
 //   - erase:  LUECKE (kein remove im sosd-Adapter — Re-Impl, is_original_erase()=false)
 //   - clear:  LUECKE (kein clear im sosd-Adapter — Re-Impl, is_original_clear()=false)
 //
-// **Body-Strategie (s2):** Standalone Re-Impl analog VectorU16U16 (u16-key + sorted lower_bound).
+// **Body-Strategie (s2):** Standalone Re-Impl analog VectorU16U16SearchAlgo (u16-key + sorted lower_bound).
 // s4: extern "C" Adapter zu START::insertLater / EqualityLookup.
 
 #include "axis_03a_search_algo_base.hpp"
@@ -54,7 +54,7 @@ public:
 
     static constexpr bool enabled = flags::original_start_enabled;
 
-    using key_type   = std::uint16_t;  // Multi-Byte Discriminator (analog VectorU16U16)
+    using key_type   = std::uint16_t;  // Multi-Byte Discriminator (analog VectorU16U16SearchAlgo)
     using value_type = std::uint64_t;
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
@@ -70,7 +70,7 @@ public:
     [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "OriginalStartSearchAlgo (START Mertens ICDE 2024, Cost-DP Paper-Bindung — 2/4 originall)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "ORIGINAL_START"; }
 
-    /// SONDERFALL (analog VectorU16U16): kein SIMD — Cost-DP nicht vectorisierbar.
+    /// SONDERFALL (analog VectorU16U16SearchAlgo): kein SIMD — Cost-DP nicht vectorisierbar.
     [[nodiscard]] static constexpr bool supports_simd()            noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_range_scan()      noexcept { return true; }
     [[nodiscard]] static constexpr bool is_dense()                 noexcept { return false; }
@@ -174,7 +174,7 @@ namespace comdare::cache_engine::traversal::axis_03a_search_algo {
     static_assert(concepts::SearchAlgoVariant<OriginalStartSearchAlgo>);
     static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<OriginalStartSearchAlgo>);
     static_assert(concepts::DensityClassifiedStrategy<OriginalStartSearchAlgo>);
-    // NICHT SimdCapableStrategy — START Cost-DP nicht vectorisierbar (analog VectorU16U16)
+    // NICHT SimdCapableStrategy — START Cost-DP nicht vectorisierbar (analog VectorU16U16SearchAlgo)
     // Habich-Compliance: 2/4 originall (insert+lookup), 2/4 Lücken (erase+clear)
     static_assert(OriginalStartSearchAlgo::is_original_insert(),
         "OriginalStartSearchAlgo: insert MUSS via insertLater Paper-Bindung originall sein");
