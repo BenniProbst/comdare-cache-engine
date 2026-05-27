@@ -173,6 +173,12 @@ option(COMDARE_AXIS_10_ENABLE_VAR_LEN    "Serialization VarLen (ART signaling-bi
 option(COMDARE_AXIS_10_ENABLE_SUCCINCT   "Serialization Succinct (LOUDS/SuRF bit-packed)" ON)
 option(COMDARE_AXIS_10_ENABLE_COMPRESSED "Serialization Compressed (lz4/snappy block-compress)" ON)
 
+# V41.F.6.1.R7.5.d axis_14 ValueHandle (4 Strategien)
+option(COMDARE_AXIS_14_ENABLE_INLINE               "ValueHandle Inline (value embedded in slot)" ON)
+option(COMDARE_AXIS_14_ENABLE_EXTERNAL_POOL        "ValueHandle ExternalPool (Wormhole pool-offset)" ON)
+option(COMDARE_AXIS_14_ENABLE_IMMUTABLE_SHARED_REF "ValueHandle ImmutableSharedRef (RCU shared_ptr)" ON)
+option(COMDARE_AXIS_14_ENABLE_VERSIONED_POINTER    "ValueHandle VersionedPointer (MVCC, Masstree/SMART)" ON)
+
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
 # aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
@@ -687,6 +693,20 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/serialization/axis_10_serialization/axis_10_serialization_flags.hpp"
     @ONLY)
 message(STATUS "  axis_10 (4 serializers): RAW=${COMDARE_AXIS_10_USE_RAW_BINARY} VAR_LEN=${COMDARE_AXIS_10_USE_VAR_LEN} SUCCINCT=${COMDARE_AXIS_10_USE_SUCCINCT} COMPRESSED=${COMDARE_AXIS_10_USE_COMPRESSED}")
+
+# V41.F.6.1.R7.5.d axis_14 ValueHandle Flags (USE = ENABLE)
+foreach(_h INLINE EXTERNAL_POOL IMMUTABLE_SHARED_REF VERSIONED_POINTER)
+    if(COMDARE_AXIS_14_ENABLE_${_h})
+        set(COMDARE_AXIS_14_USE_${_h} 1)
+    else()
+        set(COMDARE_AXIS_14_USE_${_h} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/value_handle/axis_14_value_handle/axis_14_value_handle_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/value_handle/axis_14_value_handle/axis_14_value_handle_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_14 (4 value-handles): INLINE=${COMDARE_AXIS_14_USE_INLINE} EXT_POOL=${COMDARE_AXIS_14_USE_EXTERNAL_POOL} SHARED_REF=${COMDARE_AXIS_14_USE_IMMUTABLE_SHARED_REF} VERSIONED=${COMDARE_AXIS_14_USE_VERSIONED_POINTER}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung
