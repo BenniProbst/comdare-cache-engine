@@ -13,7 +13,10 @@
 // IPlatformProbe (Doku 11 §K07 / V42-Task #650).
 
 #include "axis_12_general_hardware_base.hpp"
+#include "axis_12_general_hardware_subaxes_hw1_to_hw4.hpp"
 #include "../concepts/topic_hardware_concept.hpp"
+
+#include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_flags.hpp>
 
 #include <cstddef>
 #include <string_view>
@@ -24,6 +27,7 @@ namespace comdare::cache_engine::hardware::axis_12_general_hardware {
 class X86_64Hardware : public GeneralHardwareBase<X86_64Hardware> {
 public:
     using topic_tag = ::comdare::cache_engine::hardware::concepts::HardwareTopicTag;
+    using axis_tag  = subaxes::cpu_family_tag;
     using family_id = std::integral_constant<int, 1>;
 
     [[nodiscard]] static constexpr std::size_t cache_line_size()   noexcept { return 64; }
@@ -36,10 +40,14 @@ public:
     [[nodiscard]] static constexpr std::string_view family_name()  noexcept {
         return "X86_64Hardware (cache_line=64, page=4K, AVX2 256-bit SIMD, NUMA + huge-pages capable)";
     }
+    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "X86_64"; }
+
+    static constexpr bool enabled = flags::x86_64_enabled;
 };
 
 }  // namespace comdare::cache_engine::hardware::axis_12_general_hardware
 
 namespace comdare::cache_engine::hardware::axis_12_general_hardware {
     static_assert(concepts::GeneralHardwareStrategy<X86_64Hardware>);
+    static_assert(concepts::CacheEnginePermutationStrategy<X86_64Hardware>);
 }
