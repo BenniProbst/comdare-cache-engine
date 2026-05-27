@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1.R7.1.b axis_05 PackedBitmapLayout Wrapper
 
-#include "axis_05_memory_layout_base.hpp"
+#include "axis_05_memory_layout_strategy_base.hpp"
 #include "axis_05_memory_layout_subaxes_hm1_to_hm4.hpp"
 #include "concepts/axis_05_memory_layout_cache_engine_permutation_concept.hpp"
 #include "axis_05_memory_layout_flags.hpp"
@@ -14,7 +14,7 @@ namespace comdare::cache_engine::memory_layout::axis_05_memory_layout {
 /// PackedBitmapLayout — Bit-packed (1 Bit pro Slot), succinct.
 /// Typischer Layout fuer LOUDS / SuRF Filter-Trees. Sehr kompakt
 /// (n * lg(sigma) bits), aber hoeherer Decode-Aufwand pro Lookup.
-class PackedBitmapLayout : public MemoryLayoutBase<PackedBitmapLayout> {
+class PackedBitmapLayout : public MemoryLayoutStrategyBase<PackedBitmapLayout> {
 public:
     using topic_tag  = ::comdare::cache_engine::memory_layout::concepts::MemoryLayoutTopicTag;
     using axis_tag   = subaxes::packing_density_tag;

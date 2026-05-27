@@ -10,7 +10,7 @@
 // - numa_capable = true (Multi-Socket Aarch64-Server wie Ampere Altra)
 // - huge_page_capable = true (transparent hugepages auf Aarch64-Linux)
 
-#include "axis_12_general_hardware_base.hpp"
+#include "axis_12_general_hardware_strategy_base.hpp"
 #include "axis_12_general_hardware_subaxes_hw1_to_hw4.hpp"
 #include "../concepts/topic_hardware_concept.hpp"
 
@@ -22,7 +22,7 @@
 
 namespace comdare::cache_engine::hardware::axis_12_general_hardware {
 
-class Aarch64Hardware : public GeneralHardwareBase<Aarch64Hardware> {
+class Aarch64Hardware : public GeneralHardwareStrategyBase<Aarch64Hardware> {
 public:
     using topic_tag = ::comdare::cache_engine::hardware::concepts::HardwareTopicTag;
     using axis_tag  = subaxes::cpu_family_tag;
