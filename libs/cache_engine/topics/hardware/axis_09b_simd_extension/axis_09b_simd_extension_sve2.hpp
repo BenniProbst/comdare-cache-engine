@@ -32,6 +32,10 @@ public:
     [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "simd_ext_sve2"; }
     [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "Sve2SimdExtension (ARM SVE2 scalable 128-2048bit, ARMv9, ZIH Grace Hopper)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "SVE2"; }
+
+    // ─── R7.7.c Topologie: 1 SVE2-Unit/Sockel (Grace V2: alle Cores SVE2) ───
+    [[nodiscard]] static constexpr int  units_per_socket()                  noexcept { return 1; }
+    [[nodiscard]] static constexpr bool accessible_from_efficiency_cores() noexcept { return true; }
 };
 
 }  // namespace

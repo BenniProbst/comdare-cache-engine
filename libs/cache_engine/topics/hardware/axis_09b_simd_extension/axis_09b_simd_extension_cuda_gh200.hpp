@@ -33,6 +33,13 @@ public:
     [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "simd_ext_cuda_gh200"; }
     [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "CudaGh200SimdExtension (NVIDIA Hopper GH200, NVLink-C2C 900GB/s, ZIH Grace Hopper)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "CUDA_GH200"; }
+
+    // ─── R7.7.c Topologie: GPU "per Socket" macht keinen Sinn ────────────────
+    // -1 = massive parallel (96 GB HBM3, ~16896 CUDA Cores im H100 GPU-Die).
+    // shared_among_cores=false: GPU ist separate Device, nicht CPU-intern shared.
+    // accessible_from_efficiency_cores=true: irrelevant (GPU-Bus statt CPU-Core).
+    [[nodiscard]] static constexpr int  units_per_socket()                  noexcept { return -1; }
+    [[nodiscard]] static constexpr bool shared_among_cores()                noexcept { return false; }
 };
 
 }  // namespace
