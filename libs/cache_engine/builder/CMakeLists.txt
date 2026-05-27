@@ -20,6 +20,7 @@ add_subdirectory(permutation_engine)
 add_subdirectory(module_loader)
 add_subdirectory(anatomy_module_loader)  # V41.F.6.1.R5.E
 add_subdirectory(anatomy_codegen_tool)   # V41.F.6.1.R5.F
+add_subdirectory(workload_driver)        # V41.F.6.1.R6.A
 add_subdirectory(platform_probe)
 add_subdirectory(live_cpu_model)
 add_subdirectory(algorithm_visitor)
