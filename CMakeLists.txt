@@ -144,6 +144,17 @@ option(COMDARE_AXIS_05_ENABLE_AOS_STRICT         "Memory-Layout AoSStrict (packe
 option(COMDARE_AXIS_05_ENABLE_SOA                "Memory-Layout SoA (Struct-of-Arrays, SIMD-friendly, columnar)" ON)
 option(COMDARE_AXIS_05_ENABLE_PACKED_BITMAP      "Memory-Layout PackedBitmap (bit-packed succinct, LOUDS/SuRF)" ON)
 
+# V41.F.6.1.R7.1.c axis_02 Path-Compression (3 Strategien)
+option(COMDARE_AXIS_02_ENABLE_NONE       "Path-Compression None (raw path, no compression)" ON)
+option(COMDARE_AXIS_02_ENABLE_PATRICIA   "Path-Compression Patricia (single-bit-split, HOT/Wormhole)" ON)
+option(COMDARE_AXIS_02_ENABLE_BYTE_WISE  "Path-Compression ByteWise (byte-by-byte, ART)" ON)
+
+# V41.F.6.1.R7.1.d axis_04 Node-Type (4 ART-Varianten)
+option(COMDARE_AXIS_04_ENABLE_NODE4    "Node-Type Node4 (ART small, linear-search 4-slot)" ON)
+option(COMDARE_AXIS_04_ENABLE_NODE16   "Node-Type Node16 (ART medium, SIMD-binary-search 16-slot)" ON)
+option(COMDARE_AXIS_04_ENABLE_NODE48   "Node-Type Node48 (ART large, indirect-array 48-slot)" ON)
+option(COMDARE_AXIS_04_ENABLE_NODE256  "Node-Type Node256 (ART dense, direct-addressed 256-slot)" ON)
+
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
 # aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
@@ -588,6 +599,34 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_flags.hpp"
     @ONLY)
 message(STATUS "  axis_05 (4 layouts): CACHE_LINE_ALIGNED=${COMDARE_AXIS_05_USE_CACHE_LINE_ALIGNED} AOS_STRICT=${COMDARE_AXIS_05_USE_AOS_STRICT} SOA=${COMDARE_AXIS_05_USE_SOA} PACKED_BITMAP=${COMDARE_AXIS_05_USE_PACKED_BITMAP}")
+
+# V41.F.6.1.R7.1.c axis_02 Path-Compression Flags (USE = ENABLE)
+foreach(_c NONE PATRICIA BYTE_WISE)
+    if(COMDARE_AXIS_02_ENABLE_${_c})
+        set(COMDARE_AXIS_02_USE_${_c} 1)
+    else()
+        set(COMDARE_AXIS_02_USE_${_c} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/nodes/axis_02_path_compression/axis_02_path_compression_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/nodes/axis_02_path_compression/axis_02_path_compression_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_02 (3 compressions): NONE=${COMDARE_AXIS_02_USE_NONE} PATRICIA=${COMDARE_AXIS_02_USE_PATRICIA} BYTE_WISE=${COMDARE_AXIS_02_USE_BYTE_WISE}")
+
+# V41.F.6.1.R7.1.d axis_04 Node-Type Flags (USE = ENABLE)
+foreach(_n NODE4 NODE16 NODE48 NODE256)
+    if(COMDARE_AXIS_04_ENABLE_${_n})
+        set(COMDARE_AXIS_04_USE_${_n} 1)
+    else()
+        set(COMDARE_AXIS_04_USE_${_n} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/nodes/axis_04_node_type/axis_04_node_type_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/nodes/axis_04_node_type/axis_04_node_type_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_04 (4 node-types): NODE4=${COMDARE_AXIS_04_USE_NODE4} NODE16=${COMDARE_AXIS_04_USE_NODE16} NODE48=${COMDARE_AXIS_04_USE_NODE48} NODE256=${COMDARE_AXIS_04_USE_NODE256}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung

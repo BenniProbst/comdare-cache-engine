@@ -1,0 +1,16 @@
+#pragma once
+// V41.F.6.1.R7.1.d axis_04_node_type CMake-generierter Flags-Header
+
+#cmakedefine01 COMDARE_AXIS_04_USE_NODE4
+#cmakedefine01 COMDARE_AXIS_04_USE_NODE16
+#cmakedefine01 COMDARE_AXIS_04_USE_NODE48
+#cmakedefine01 COMDARE_AXIS_04_USE_NODE256
+
+namespace comdare::cache_engine::nodes::axis_04_node_type::flags {
+
+inline constexpr bool node4_enabled   = COMDARE_AXIS_04_USE_NODE4;
+inline constexpr bool node16_enabled  = COMDARE_AXIS_04_USE_NODE16;
+inline constexpr bool node48_enabled  = COMDARE_AXIS_04_USE_NODE48;
+inline constexpr bool node256_enabled = COMDARE_AXIS_04_USE_NODE256;
+
+}  // namespace

@@ -1,0 +1,14 @@
+#pragma once
+// V41.F.6.1.R7.1.c axis_02_path_compression CMake-generierter Flags-Header
+
+#cmakedefine01 COMDARE_AXIS_02_USE_NONE
+#cmakedefine01 COMDARE_AXIS_02_USE_PATRICIA
+#cmakedefine01 COMDARE_AXIS_02_USE_BYTE_WISE
+
+namespace comdare::cache_engine::nodes::axis_02_path_compression::flags {
+
+inline constexpr bool none_enabled      = COMDARE_AXIS_02_USE_NONE;
+inline constexpr bool patricia_enabled  = COMDARE_AXIS_02_USE_PATRICIA;
+inline constexpr bool byte_wise_enabled = COMDARE_AXIS_02_USE_BYTE_WISE;
+
+}  // namespace
