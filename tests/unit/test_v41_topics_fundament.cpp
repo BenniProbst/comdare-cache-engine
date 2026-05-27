@@ -30,7 +30,7 @@ namespace ce_concepts = ::comdare::cache_engine::concepts;
 
 // Phase F1 Type-Aliases
 using PathCompressionNone   = ::comdare::cache_engine::nodes::axis_02_path_compression::PathCompressionNone;
-using Node256Type           = ::comdare::cache_engine::nodes::axis_04_node_type::Node256Type;
+using Node256Layout           = ::comdare::cache_engine::nodes::axis_04_node_type::Node256Layout;
 using CacheLineAlignedLayout = ::comdare::cache_engine::memory_layout::axis_05_memory_layout::CacheLineAlignedLayout;
 using OlcOptimistic         = ::comdare::cache_engine::concurrency::axis_08_concurrency::OlcOptimistic;
 using PrefetchNone          = ::comdare::cache_engine::prefetch::axis_07_prefetch::PrefetchNone;
@@ -45,10 +45,10 @@ TEST(PhaseF1_Nodes, PathCompressionNoneAxisBase) {
     SUCCEED();
 }
 
-TEST(PhaseF1_Nodes, Node256TypeAxisBase) {
-    static_assert(ce_topics::AxisBaseConcept<Node256Type>);
-    static_assert(ce_concepts::LegacyOriginalCodePflicht<Node256Type>);
-    static_assert(Node256Type::max_capacity() == 256);
+TEST(PhaseF1_Nodes, Node256LayoutAxisBase) {
+    static_assert(ce_topics::AxisBaseConcept<Node256Layout>);
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<Node256Layout>);
+    static_assert(Node256Layout::max_capacity() == 256);
     SUCCEED();
 }
 
@@ -80,7 +80,7 @@ TEST(PhaseF1_Prefetch, PrefetchNoneAxisBase) {
 
 TEST(PhaseF1_CrossTopic, AllUseAxisBaseDefaultCompiler) {
     static_assert(PathCompressionNone::get_compiler() == std::string_view{"original"});
-    static_assert(Node256Type::get_compiler() == std::string_view{"original"});
+    static_assert(Node256Layout::get_compiler() == std::string_view{"original"});
     static_assert(CacheLineAlignedLayout::get_compiler() == std::string_view{"original"});
     static_assert(OlcOptimistic::get_compiler() == std::string_view{"original"});
     static_assert(PrefetchNone::get_compiler() == std::string_view{"original"});
@@ -89,7 +89,7 @@ TEST(PhaseF1_CrossTopic, AllUseAxisBaseDefaultCompiler) {
 
 TEST(PhaseF1_CrossTopic, AllUseAxisBaseDefaultIsOriginalModule) {
     static_assert(!PathCompressionNone::is_original_module());
-    static_assert(!Node256Type::is_original_module());
+    static_assert(!Node256Layout::is_original_module());
     static_assert(!CacheLineAlignedLayout::is_original_module());
     static_assert(!OlcOptimistic::is_original_module());
     static_assert(!PrefetchNone::is_original_module());
@@ -164,7 +164,7 @@ TEST(PhaseF3_Filter, BloomFilterAxisBase) {
 TEST(AllTopicsCoverage, ThirteenAxisWrappersAllUseAxisBaseDefaults) {
     // 5 Phase F1
     static_assert(PathCompressionNone::get_compiler() == std::string_view{"original"});
-    static_assert(Node256Type::get_compiler() == std::string_view{"original"});
+    static_assert(Node256Layout::get_compiler() == std::string_view{"original"});
     static_assert(CacheLineAlignedLayout::get_compiler() == std::string_view{"original"});
     static_assert(OlcOptimistic::get_compiler() == std::string_view{"original"});
     static_assert(PrefetchNone::get_compiler() == std::string_view{"original"});

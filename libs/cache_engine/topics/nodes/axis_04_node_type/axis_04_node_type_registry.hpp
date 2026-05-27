@@ -16,10 +16,10 @@ namespace comdare::cache_engine::nodes::axis_04_node_type {
 namespace mp = boost::mp11;
 
 using AllNodeTypes = mp::mp_list<
-    Node4Type,
-    Node16Type,
-    Node48Type,
-    Node256Type
+    Node4Layout,
+    Node16Layout,
+    Node48Layout,
+    Node256Layout
 >;
 
 template <typename T>

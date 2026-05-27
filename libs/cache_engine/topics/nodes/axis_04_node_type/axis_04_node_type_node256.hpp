@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.R7.1.d axis_04 Node256Type (Goldstandard-Update, ART dense direct-addressed)
+// V41.F.6.1.R7.1.d axis_04 Node256Layout (Goldstandard-Update, ART dense direct-addressed)
 
 #include "axis_04_node_type_strategy_base.hpp"
 #include "axis_04_node_type_subaxes_nt1_to_nt3.hpp"
@@ -11,9 +11,9 @@
 
 namespace comdare::cache_engine::nodes::axis_04_node_type {
 
-/// Node256Type — ART dense node mit 256 Slots, direct-addressed.
+/// Node256Layout — ART dense node mit 256 Slots, direct-addressed.
 /// Default-Variante: 1 Pointer-Lookup ohne Search (Leis ICDE 2013).
-class Node256Type : public NodeTypeStrategyBase<Node256Type> {
+class Node256Layout : public NodeTypeStrategyBase<Node256Layout> {
 public:
     using topic_tag = ::comdare::cache_engine::nodes::concepts::NodesTopicTag;
     using axis_tag  = subaxes::capacity_class_tag;
@@ -23,13 +23,13 @@ public:
 
     [[nodiscard]] static constexpr std::size_t      max_capacity() noexcept { return 256; }
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "node256"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "Node256Type (ART dense, direct-addressed 256-slot)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "Node256Layout (ART dense, direct-addressed 256-slot)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "NODE256"; }
 };
 
 }  // namespace
 
 namespace comdare::cache_engine::nodes::axis_04_node_type {
-    static_assert(concepts::NodeTypeStrategy<Node256Type>);
-    static_assert(concepts::CacheEnginePermutationStrategy<Node256Type>);
+    static_assert(concepts::NodeTypeStrategy<Node256Layout>);
+    static_assert(concepts::CacheEnginePermutationStrategy<Node256Layout>);
 }

@@ -59,7 +59,7 @@ using LinearFanout         = ::comdare::cache_engine::traversal::axis_03b_cache_
 using HashLookup           = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::HashLookup;
 using DirectPlacement      = ::comdare::cache_engine::traversal::axis_03m_mapping::DirectPlacement;
 using PathCompressionNone  = ::comdare::cache_engine::nodes::axis_02_path_compression::PathCompressionNone;
-using Node256Type          = ::comdare::cache_engine::nodes::axis_04_node_type::Node256Type;
+using Node256Layout          = ::comdare::cache_engine::nodes::axis_04_node_type::Node256Layout;
 using CacheLineAligned     = ::comdare::cache_engine::memory_layout::axis_05_memory_layout::CacheLineAlignedLayout;
 using MimallocAllocator    = ::comdare::cache_engine::allocator::axis_06_allocator::MimallocAllocator;
 using PrefetchNone         = ::comdare::cache_engine::prefetch::axis_07_prefetch::PrefetchNone;
@@ -81,7 +81,7 @@ struct T0_SearchAlgo     { using StaticAxisVariants = mp::mp_list<Array256, Vect
 struct T1_CacheTraversal { using StaticAxisVariants = mp::mp_list<LinearFanout, HashLookup>; };
 struct T2_Mapping        { using StaticAxisVariants = mp::mp_list<DirectPlacement>; };
 struct T3_PathCompr      { using StaticAxisVariants = mp::mp_list<PathCompressionNone>; };
-struct T4_NodeType       { using StaticAxisVariants = mp::mp_list<Node256Type>; };
+struct T4_NodeType       { using StaticAxisVariants = mp::mp_list<Node256Layout>; };
 struct T5_MemoryLayout   { using StaticAxisVariants = mp::mp_list<CacheLineAligned>; };
 struct T6_Allocator      { using StaticAxisVariants = mp::mp_list<MimallocAllocator>; };
 struct T7_Prefetch       { using StaticAxisVariants = mp::mp_list<PrefetchNone>; };
@@ -107,7 +107,7 @@ using PilotDriver = ana::AnatomyPermutationDriver<
 // ─────────────────────────────────────────────────────────────────────────────
 
 using AdHocArt = ana::AdHocComposition<
-    Array256, LinearFanout, DirectPlacement, PathCompressionNone, Node256Type,
+    Array256, LinearFanout, DirectPlacement, PathCompressionNone, Node256Layout,
     CacheLineAligned, MimallocAllocator, PrefetchNone, OlcOptimistic, RawBinarySer,
     LeafOnlyCounter, InlineHandle, IsaScalar, StdMapLike, InMemoryOnly,
     NoMigration, BloomFilter
@@ -133,7 +133,7 @@ TEST(AnatomyR4_Factory, AdHocCompositionInstantiatesAnatomy) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 using SamplePermTuple = pe::PermTuple<
-    Array256, LinearFanout, DirectPlacement, PathCompressionNone, Node256Type,
+    Array256, LinearFanout, DirectPlacement, PathCompressionNone, Node256Layout,
     CacheLineAligned, MimallocAllocator, PrefetchNone, OlcOptimistic, RawBinarySer,
     LeafOnlyCounter, InlineHandle, IsaScalar, StdMapLike, InMemoryOnly,
     NoMigration, BloomFilter

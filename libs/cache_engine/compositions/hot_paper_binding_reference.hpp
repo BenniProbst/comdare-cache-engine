@@ -33,7 +33,7 @@ struct HotPaperBindingComposition {
     using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;
-    using node_type          = nodes::axis_04_node_type::Node256Type;
+    using node_type          = nodes::axis_04_node_type::Node256Layout;
     using memory_layout      = memory_layout::axis_05_memory_layout::CacheLineAlignedLayout;
     using allocator          = allocator::axis_06_allocator::MimallocAllocator;
     using prefetch           = prefetch::axis_07_prefetch::PrefetchNone;

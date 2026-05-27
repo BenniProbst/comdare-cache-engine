@@ -81,26 +81,26 @@ TEST(R7_1_c_Axis02, CompressionRatiosDistinguished) {
 
 // ─── axis_04 node_type ───
 TEST(R7_1_d_Axis04, AllNodeTypesSatisfyCacheEnginePermutationConcept) {
-    static_assert(ax04::concepts::CacheEnginePermutationStrategy<ax04::Node4Type>);
-    static_assert(ax04::concepts::CacheEnginePermutationStrategy<ax04::Node16Type>);
-    static_assert(ax04::concepts::CacheEnginePermutationStrategy<ax04::Node48Type>);
-    static_assert(ax04::concepts::CacheEnginePermutationStrategy<ax04::Node256Type>);
+    static_assert(ax04::concepts::CacheEnginePermutationStrategy<ax04::Node4Layout>);
+    static_assert(ax04::concepts::CacheEnginePermutationStrategy<ax04::Node16Layout>);
+    static_assert(ax04::concepts::CacheEnginePermutationStrategy<ax04::Node48Layout>);
+    static_assert(ax04::concepts::CacheEnginePermutationStrategy<ax04::Node256Layout>);
     SUCCEED();
 }
 
 TEST(R7_1_d_Axis04, FlagSuffixUppercase) {
-    static_assert(ax04::Node4Type::flag_suffix()   == std::string_view{"NODE4"});
-    static_assert(ax04::Node16Type::flag_suffix()  == std::string_view{"NODE16"});
-    static_assert(ax04::Node48Type::flag_suffix()  == std::string_view{"NODE48"});
-    static_assert(ax04::Node256Type::flag_suffix() == std::string_view{"NODE256"});
+    static_assert(ax04::Node4Layout::flag_suffix()   == std::string_view{"NODE4"});
+    static_assert(ax04::Node16Layout::flag_suffix()  == std::string_view{"NODE16"});
+    static_assert(ax04::Node48Layout::flag_suffix()  == std::string_view{"NODE48"});
+    static_assert(ax04::Node256Layout::flag_suffix() == std::string_view{"NODE256"});
     SUCCEED();
 }
 
 TEST(R7_1_d_Axis04, CapacitiesArtClassic) {
-    static_assert(ax04::Node4Type::max_capacity()   == 4);
-    static_assert(ax04::Node16Type::max_capacity()  == 16);
-    static_assert(ax04::Node48Type::max_capacity()  == 48);
-    static_assert(ax04::Node256Type::max_capacity() == 256);
+    static_assert(ax04::Node4Layout::max_capacity()   == 4);
+    static_assert(ax04::Node16Layout::max_capacity()  == 16);
+    static_assert(ax04::Node48Layout::max_capacity()  == 48);
+    static_assert(ax04::Node256Layout::max_capacity() == 256);
     SUCCEED();
 }
 
@@ -111,10 +111,10 @@ TEST(R7_1_d_Axis04, RegistryAllNodeTypes4) {
 }
 
 TEST(R7_1_d_Axis04, FamilyIdsMatchCapacity) {
-    static_assert(ax04::Node4Type::family_id::value   == 4);
-    static_assert(ax04::Node16Type::family_id::value  == 16);
-    static_assert(ax04::Node48Type::family_id::value  == 48);
-    static_assert(ax04::Node256Type::family_id::value == 256);
+    static_assert(ax04::Node4Layout::family_id::value   == 4);
+    static_assert(ax04::Node16Layout::family_id::value  == 16);
+    static_assert(ax04::Node48Layout::family_id::value  == 48);
+    static_assert(ax04::Node256Layout::family_id::value == 256);
     SUCCEED();
 }
 
