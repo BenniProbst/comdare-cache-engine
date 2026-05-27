@@ -167,6 +167,12 @@ option(COMDARE_AXIS_11_ENABLE_DENSITY_TRACKER   "Telemetry DensityTracker (ART p
 option(COMDARE_AXIS_11_ENABLE_INSERT_COUNTER    "Telemetry InsertCounter (HOT global insert counter)" ON)
 option(COMDARE_AXIS_11_ENABLE_LATENCY_HISTOGRAM "Telemetry LatencyHistogram (HDR p50/p95/p99)" ON)
 
+# V41.F.6.1.R7.5.c axis_10 Serialization (4 Strategien)
+option(COMDARE_AXIS_10_ENABLE_RAW_BINARY "Serialization RawBinary (memcpy baseline)" ON)
+option(COMDARE_AXIS_10_ENABLE_VAR_LEN    "Serialization VarLen (ART signaling-bits VarInt)" ON)
+option(COMDARE_AXIS_10_ENABLE_SUCCINCT   "Serialization Succinct (LOUDS/SuRF bit-packed)" ON)
+option(COMDARE_AXIS_10_ENABLE_COMPRESSED "Serialization Compressed (lz4/snappy block-compress)" ON)
+
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
 # aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
@@ -667,6 +673,20 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/telemetry/axis_11_telemetry/axis_11_telemetry_flags.hpp"
     @ONLY)
 message(STATUS "  axis_11 (4 telemetries): LEAF=${COMDARE_AXIS_11_USE_LEAF_ONLY_COUNTER} DENSITY=${COMDARE_AXIS_11_USE_DENSITY_TRACKER} INSERT=${COMDARE_AXIS_11_USE_INSERT_COUNTER} LATENCY=${COMDARE_AXIS_11_USE_LATENCY_HISTOGRAM}")
+
+# V41.F.6.1.R7.5.c axis_10 Serialization Flags (USE = ENABLE)
+foreach(_s RAW_BINARY VAR_LEN SUCCINCT COMPRESSED)
+    if(COMDARE_AXIS_10_ENABLE_${_s})
+        set(COMDARE_AXIS_10_USE_${_s} 1)
+    else()
+        set(COMDARE_AXIS_10_USE_${_s} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/serialization/axis_10_serialization/axis_10_serialization_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/serialization/axis_10_serialization/axis_10_serialization_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_10 (4 serializers): RAW=${COMDARE_AXIS_10_USE_RAW_BINARY} VAR_LEN=${COMDARE_AXIS_10_USE_VAR_LEN} SUCCINCT=${COMDARE_AXIS_10_USE_SUCCINCT} COMPRESSED=${COMDARE_AXIS_10_USE_COMPRESSED}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung

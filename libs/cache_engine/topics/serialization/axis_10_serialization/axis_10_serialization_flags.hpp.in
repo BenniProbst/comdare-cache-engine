@@ -1,0 +1,16 @@
+#pragma once
+// V41.F.6.1.R7.5.c axis_10_serialization CMake-generierter Flags-Header
+
+#cmakedefine01 COMDARE_AXIS_10_USE_RAW_BINARY
+#cmakedefine01 COMDARE_AXIS_10_USE_VAR_LEN
+#cmakedefine01 COMDARE_AXIS_10_USE_SUCCINCT
+#cmakedefine01 COMDARE_AXIS_10_USE_COMPRESSED
+
+namespace comdare::cache_engine::serialization::axis_10_serialization::flags {
+
+inline constexpr bool raw_binary_enabled = COMDARE_AXIS_10_USE_RAW_BINARY;
+inline constexpr bool var_len_enabled    = COMDARE_AXIS_10_USE_VAR_LEN;
+inline constexpr bool succinct_enabled   = COMDARE_AXIS_10_USE_SUCCINCT;
+inline constexpr bool compressed_enabled = COMDARE_AXIS_10_USE_COMPRESSED;
+
+}  // namespace
