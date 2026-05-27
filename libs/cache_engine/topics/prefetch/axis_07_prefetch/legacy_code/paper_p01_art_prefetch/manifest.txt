@@ -1,0 +1,18 @@
+# manifest.txt fuer apps/is_original_validator
+# Paper: P01 ART (Leis ICDE 2013)
+# Cache-Engine-Wrapper: DistanceEstimatorPrefetch
+#
+# Reference:
+#   Leis, V., Kemper, A., Neumann, T. "The Adaptive Radix Tree: ARTful Indexing
+#   for Main-Memory Databases." ICDE 2013, pp. 38-49. DOI: 10.1109/ICDE.2013.6544812
+#   Original-Code: https://github.com/laurynas-biveinis/unodb (Apache-2.0 License)
+#   Kuratiert in: Forschungsarbeiten/code/P01-ART/unodb/
+
+# Pflicht-Annotations (3 Stueck)
+@compiler gcc-9+
+@has_original_paper_code true
+@axis_mixin_type comdare::cache_engine::prefetch::axis_07_prefetch::concepts::PrefetchOriginalCodeMixin
+
+# Function-Mappings (3-Felder, whitespace-separated)
+# wrapper_fn   paper_fn               source_relative_path
+prefetch       art_internal_prefetch  src/art_internal.cpp

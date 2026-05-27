@@ -1,0 +1,18 @@
+# manifest.txt fuer apps/is_original_validator
+# Paper: P07 Wormhole (Wu EuroSys 2019)
+# Cache-Engine-Wrapper: HardwarePrefetch
+#
+# Reference:
+#   Wu, X., Ni, F., Jiang, S. "Wormhole: A Fast Ordered Index for In-memory
+#   Data Management." EuroSys 2019. DOI: 10.1145/3302424.3303955
+#   Original-Code: https://github.com/wuxb45/wormhole (GPL-3.0 License)
+#   Kuratiert in: Forschungsarbeiten/code/P07-Wormhole/wormhole/
+
+# Pflicht-Annotations (3 Stueck)
+@compiler gcc-7+
+@has_original_paper_code true
+@axis_mixin_type comdare::cache_engine::prefetch::axis_07_prefetch::concepts::PrefetchOriginalCodeMixin
+
+# Function-Mappings (3-Felder, whitespace-separated)
+# wrapper_fn   paper_fn              source_relative_path
+prefetch       wormhole_prefetcht0   src/wh.c
