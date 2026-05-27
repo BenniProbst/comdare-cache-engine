@@ -1,5 +1,15 @@
 #pragma once
 // V41.F.6.1.R7.5.a axis_07 HardwarePrefetch (Wormhole)
+//
+// R7.6 Paper-Reference (Task #723):
+// Wu, X., Ni, F., Jiang, S. "Wormhole: A Fast Ordered Index for In-memory
+// Data Management." Proceedings of EuroSys 2019.
+// DOI: 10.1145/3302424.3303955
+// URL: https://dl.acm.org/doi/10.1145/3302424.3303955
+// Code: https://github.com/wuxb45/wormhole (BSD-2-Clause License)
+//
+// Original-Pattern: PREFETCHT0 explizit auf Hash-Anchor-Chain ohne Software-
+// Heuristik (CPU schaetzt Distance autonom). Implementiert via __builtin_prefetch.
 
 #include "axis_07_prefetch_strategy_base.hpp"
 #include "axis_07_prefetch_subaxes_pf1_to_pf3.hpp"

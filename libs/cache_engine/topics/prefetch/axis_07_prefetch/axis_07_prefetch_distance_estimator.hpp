@@ -1,5 +1,18 @@
 #pragma once
 // V41.F.6.1.R7.5.a axis_07 DistanceEstimatorPrefetch (ART)
+//
+// R7.6 Paper-Reference (Task #723):
+// Leis, V., Kemper, A., Neumann, T. "The Adaptive Radix Tree: ARTful
+// Indexing for Main-Memory Databases." Proceedings of IEEE ICDE 2013,
+// pp. 38-49.
+// DOI: 10.1109/ICDE.2013.6544812
+// URL: https://db.in.tum.de/~leis/papers/ART.pdf
+// Original-Implementation: https://github.com/armon/libart (verwendete
+// Distance-Estimator-Heuristik aus Paper)
+//
+// Original-Pattern: Schaetzt Cache-Distance zur naechsten Node (typisch via
+// Trie-Depth + Node-Capacity), emittiert __builtin_prefetch wenn Distance >
+// Threshold (typisch 1 Cache-Line). Threshold heuristisch in Leis 2013 §4.2.
 
 #include "axis_07_prefetch_strategy_base.hpp"
 #include "axis_07_prefetch_subaxes_pf1_to_pf3.hpp"
