@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.R7.5.h axis_01 NonClusteredOrganization (Secondary Index)
+// V41.F.6.1.R7.5.h axis_01 NonClusteredIndexOrganization (Secondary Index)
 
 #include "axis_01_index_organization_strategy_base.hpp"
 #include "axis_01_index_organization_subaxes_io1_to_io3.hpp"
@@ -11,11 +11,11 @@
 
 namespace comdare::cache_engine::search_engine::axis_01_index_organization {
 
-/// NonClusteredOrganization — Index-Order != Storage-Order, N Secondary-Indizes.
+/// NonClusteredIndexOrganization — Index-Order != Storage-Order, N Secondary-Indizes.
 /// SQL Server NONCLUSTERED, PostgreSQL CREATE INDEX. Lookup ueber Index +
 /// zusaetzlicher Pointer-Hop zur Daten-Row. Standard fuer OLTP-Workloads mit
 /// multiplen Suchfeldern.
-class NonClusteredOrganization : public IndexOrganizationStrategyBase<NonClusteredOrganization> {
+class NonClusteredIndexOrganization : public IndexOrganizationStrategyBase<NonClusteredIndexOrganization> {
 public:
     using topic_tag = ::comdare::cache_engine::search_engine::concepts::SearchEngineTopicTag;
     using axis_tag  = subaxes::index_count_tag;
@@ -27,13 +27,13 @@ public:
     [[nodiscard]] static constexpr bool             has_secondary_indexes() noexcept { return true; }
     [[nodiscard]] static constexpr bool             data_embedded_in_leaf() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "index_org_non_clustered"; }
-    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "NonClusteredOrganization (Secondary Index, N-pro-Tabelle, SQL Server/PostgreSQL)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "NonClusteredIndexOrganization (Secondary Index, N-pro-Tabelle, SQL Server/PostgreSQL)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "NON_CLUSTERED"; }
 };
 
 }  // namespace
 
 namespace comdare::cache_engine::search_engine::axis_01_index_organization {
-    static_assert(concepts::IndexOrganizationStrategy<NonClusteredOrganization>);
-    static_assert(concepts::CacheEnginePermutationStrategy<NonClusteredOrganization>);
+    static_assert(concepts::IndexOrganizationStrategy<NonClusteredIndexOrganization>);
+    static_assert(concepts::CacheEnginePermutationStrategy<NonClusteredIndexOrganization>);
 }
