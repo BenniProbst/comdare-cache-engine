@@ -32,11 +32,11 @@ namespace comdare::cache_engine::compositions {
 /// MasstreeComposition — Masstree als 15-Achsen-Permutations-Konfiguration.
 ///
 /// Masstree Charakteristik (Mao/Kohler/Morris EuroSys 2012):
-/// - B+/Trie-Hybrid mit Layer-Slice pro 8-Byte (axis_03a VectorU16U16)
+/// - B+/Trie-Hybrid mit Layer-Slice pro 8-Byte (axis_03a VectorU16U16SearchAlgo)
 /// - Cache-Craftiness (axis_05 CacheLineAligned)
 /// - Fine-grained OLC + Versioning (axis_08)
 struct MasstreeComposition {
-    using search_algo        = traversal::axis_03a_search_algo::VectorU16U16;
+    using search_algo        = traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;
     using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;

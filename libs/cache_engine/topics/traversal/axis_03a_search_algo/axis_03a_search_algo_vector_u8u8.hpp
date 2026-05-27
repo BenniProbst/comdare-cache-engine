@@ -1,7 +1,7 @@
 #pragma once
-// V41.F.6.1 axis_03a_search_algo VectorU8U8 S02 (2026-05-26)
+// V41.F.6.1 axis_03a_search_algo VectorU8U8SearchAlgo S02 (2026-05-26)
 //
-// @topic traversal @achse 03a @family S02 VectorU8U8
+// @topic traversal @achse 03a @family S02 VectorU8U8SearchAlgo
 // @subaxis SA2 sparse_access
 //
 // **Algorithmus-Pattern:** sparse sortiertes Key-Value-Vektor-Paar mit
@@ -47,7 +47,7 @@
 
 namespace comdare::cache_engine::traversal::axis_03a_search_algo {
 
-class VectorU8U8 : public SearchAlgoBase<VectorU8U8> {
+class VectorU8U8SearchAlgo : public SearchAlgoBase<VectorU8U8SearchAlgo> {
 public:
     static constexpr bool enabled = flags::vector_u8u8_enabled;
 
@@ -71,7 +71,7 @@ public:
     [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t max_fanout()        noexcept { return 256; }  // theoretisch, sparse
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "vector_u8u8"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "VectorU8U8 (HOT Patricia sparse — Binna PVLDB 2018)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "VectorU8U8SearchAlgo (HOT Patricia sparse — Binna PVLDB 2018)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "VECTOR_U8U8"; }
 
     [[nodiscard]] static constexpr bool supports_simd()            noexcept { return true; }
@@ -81,11 +81,11 @@ public:
 
     static constexpr unsigned kDefaultDensityThresholdPct = 30;
 
-    VectorU8U8() noexcept : density_threshold_pct_(kDefaultDensityThresholdPct) {}
-    explicit VectorU8U8(unsigned density_threshold_pct) noexcept
+    VectorU8U8SearchAlgo() noexcept : density_threshold_pct_(kDefaultDensityThresholdPct) {}
+    explicit VectorU8U8SearchAlgo(unsigned density_threshold_pct) noexcept
         : density_threshold_pct_(density_threshold_pct) {}
 
-    [[nodiscard]] bool operator==(VectorU8U8 const& other) const noexcept {
+    [[nodiscard]] bool operator==(VectorU8U8SearchAlgo const& other) const noexcept {
         return keys_.size() == other.keys_.size();
     }
 
@@ -190,9 +190,9 @@ private:
 }  // namespace
 
 namespace comdare::cache_engine::traversal::axis_03a_search_algo {
-    static_assert(concepts::SearchAlgoVariant<VectorU8U8>);
-    static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<VectorU8U8>);
-    static_assert(concepts::DensityClassifiedStrategy<VectorU8U8>);
-    static_assert(concepts::SimdCapableStrategy<VectorU8U8>);
-    static_assert(concepts::IterableAspectSearchAlgoStrategy<VectorU8U8>);
+    static_assert(concepts::SearchAlgoVariant<VectorU8U8SearchAlgo>);
+    static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<VectorU8U8SearchAlgo>);
+    static_assert(concepts::DensityClassifiedStrategy<VectorU8U8SearchAlgo>);
+    static_assert(concepts::SimdCapableStrategy<VectorU8U8SearchAlgo>);
+    static_assert(concepts::IterableAspectSearchAlgoStrategy<VectorU8U8SearchAlgo>);
 }

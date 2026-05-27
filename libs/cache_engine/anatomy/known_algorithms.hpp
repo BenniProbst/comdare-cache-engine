@@ -26,7 +26,7 @@
 
 namespace comdare::cache_engine::anatomy {
 
-/// 6 CE-Re-Impl Tiere — Stufe-A Defaults (search_algo = Array256/VectorU8U8/VectorU16U16).
+/// 6 CE-Re-Impl Tiere — Stufe-A Defaults (search_algo = Array256SearchAlgo/VectorU8U8SearchAlgo/VectorU16U16SearchAlgo).
 /// Alle nutzen DIESELBE Anatomie-Klasse, unterscheiden sich nur durch 17 Achsen-Auspraegungen.
 
 using Art      = SearchAlgorithmAnatomy<compositions::ArtComposition>;

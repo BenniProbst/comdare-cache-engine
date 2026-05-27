@@ -31,10 +31,10 @@ namespace comdare::cache_engine::compositions {
 /// HOT Charakteristik (Binna PVLDB 2018):
 /// - Patricia-comprimierte Knoten mit k-constrained Sub-Trees
 /// - Discriminative-Bits-Traversierung (TRAVERSAL_3A_DISCRIMINATIVE_BITS)
-/// - typisch dense sparse-Mix (axis_03a VectorU8U8)
+/// - typisch dense sparse-Mix (axis_03a VectorU8U8SearchAlgo)
 /// - RCU-light Concurrency (heute approximiert mit OlcOptimistic)
 struct HotComposition {
-    using search_algo        = traversal::axis_03a_search_algo::VectorU8U8;
+    using search_algo        = traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;
     using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;

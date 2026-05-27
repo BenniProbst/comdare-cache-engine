@@ -8,7 +8,7 @@
 
 namespace comdare::cache_engine::traversal::axis_03a_search_algo::subaxes {
 
-/// SA1 dense — direkt-adressiert, hohe Fuelldichte (ART Node256, Array256)
+/// SA1 dense — direkt-adressiert, hohe Fuelldichte (ART Node256, Array256SearchAlgo)
 struct dense_access_tag {};
 
 /// SA2 sparse — Patricia-comprimiert, niedrige Fuelldichte (HOT k-constrained)

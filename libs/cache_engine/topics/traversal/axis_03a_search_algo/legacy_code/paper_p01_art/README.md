@@ -11,4 +11,4 @@ Indexing for Main-Memory Databases.* ICDE 2013.
 - erase → remove_internal
 - clear → clear
 
-**Wrapper-Klasse:** OriginalArtSearchAlgo (parallel zu Array256 Re-Impl).
+**Wrapper-Klasse:** OriginalArtSearchAlgo (parallel zu Array256SearchAlgo Re-Impl).

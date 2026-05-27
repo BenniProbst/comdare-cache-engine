@@ -2,10 +2,10 @@
 // V41.F.6.1.P2.D.tr.s2 OriginalHotSearchAlgo S05 (2026-05-26)
 //
 // @topic traversal @achse 03a @family S05 OriginalHotSearchAlgo
-// @subaxis SA2 sparse_access (analog VectorU8U8)
+// @subaxis SA2 sparse_access (analog VectorU8U8SearchAlgo)
 // @paper P02 HOT (Binna/Zangerle/Pichl/Specht, PVLDB 11(3), 2018)
 //
-// **Habich-Compliance-Wrapper:** parallel zu VectorU8U8 (Re-Impl).
+// **Habich-Compliance-Wrapper:** parallel zu VectorU8U8SearchAlgo (Re-Impl).
 // get_compiler()="gcc-9.5" via Paper-Mixin.
 // **Luecken-Markierung (2/4 originall):**
 //   - insert: originall (HOTRowex::insert)
@@ -14,7 +14,7 @@
 //   - clear:  LUECKE (kein clear im Paper — Re-Impl, is_original_clear()=false)
 // is_original_module()=false (weil 2/4 Lücken).
 //
-// **Body-Strategie (s2):** Standalone Re-Impl analog VectorU8U8 (sorted lower_bound).
+// **Body-Strategie (s2):** Standalone Re-Impl analog VectorU8U8SearchAlgo (sorted lower_bound).
 // s4: extern "C" Adapter zu HOTRowex<KeyType, std::uint64_t>::insert/lookup.
 
 #include "axis_03a_search_algo_base.hpp"

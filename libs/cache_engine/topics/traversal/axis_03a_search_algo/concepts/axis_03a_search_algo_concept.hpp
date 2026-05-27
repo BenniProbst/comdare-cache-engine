@@ -29,7 +29,7 @@ namespace comdare::cache_engine::traversal::axis_03a_search_algo::concepts {
  * @brief SearchAlgoVariant — Pflicht-API fuer Such-Algorithmus-Varianten
  *
  * Topic-uebergreifend einheitliche Such-API analog std::map<K,V>. Konkrete
- * Wrapper (Array256, VectorU8U8, VectorU16U16) erfuellen dies + bringen
+ * Wrapper (Array256SearchAlgo, VectorU8U8SearchAlgo, VectorU16U16SearchAlgo) erfuellen dies + bringen
  * jeweils ihre Charakteristiken mit (dense/sparse/multilevel, SIMD/non-SIMD).
  */
 template <typename S>

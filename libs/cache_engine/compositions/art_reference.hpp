@@ -55,7 +55,7 @@ namespace comdare::cache_engine::compositions {
 /// - Pure in-memory Index (axis_io)
 struct ArtComposition {
     // Topic 3 traversal
-    using search_algo        = traversal::axis_03a_search_algo::Array256;
+    using search_algo        = traversal::axis_03a_search_algo::Array256SearchAlgo;
     using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     // Topic 4 nodes

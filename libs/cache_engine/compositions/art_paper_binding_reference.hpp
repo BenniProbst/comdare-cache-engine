@@ -2,7 +2,7 @@
 // V41.F.6.1.R3.2 ArtPaperBindingComposition (15 Achsen, Paper-Bindung)
 //
 // Identisch zu ArtComposition AUSSER search_algo:
-//   - ArtComposition           → Array256 (CE-Re-Impl Dense)
+//   - ArtComposition           → Array256SearchAlgo (CE-Re-Impl Dense)
 //   - ArtPaperBindingComposition → OriginalArtSearchAlgo (P01 ART, Habich-SHA256)
 //
 // Beweis: beide instantiieren SearchAlgorithmAnatomy<C> mit identischen 16 Organen
@@ -40,7 +40,7 @@ namespace comdare::cache_engine::compositions {
 
 /// ArtPaperBindingComposition — ART mit Habich-konformer Paper-Bindung (OriginalArtSearchAlgo).
 ///
-/// Unterschied zu ArtComposition: search_algo wechselt von Array256 (CE-Re-Impl)
+/// Unterschied zu ArtComposition: search_algo wechselt von Array256SearchAlgo (CE-Re-Impl)
 /// zu OriginalArtSearchAlgo (Paper-Original mit SHA256-Validation gegen art.hpp).
 /// Alle anderen 16 Achsen identisch.
 struct ArtPaperBindingComposition {

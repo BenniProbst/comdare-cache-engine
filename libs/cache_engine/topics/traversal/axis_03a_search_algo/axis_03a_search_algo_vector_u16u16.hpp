@@ -1,7 +1,7 @@
 #pragma once
-// V41.F.6.1 axis_03a_search_algo VectorU16U16 S03 (2026-05-26)
+// V41.F.6.1 axis_03a_search_algo VectorU16U16SearchAlgo S03 (2026-05-26)
 //
-// @topic traversal @achse 03a @family S03 VectorU16U16
+// @topic traversal @achse 03a @family S03 VectorU16U16SearchAlgo
 // @subaxis SA3 multilevel_access
 //
 // **Algorithmus-Pattern:** Multi-Byte Discriminator mit Cost-DP-Splitting
@@ -39,7 +39,7 @@
 
 namespace comdare::cache_engine::traversal::axis_03a_search_algo {
 
-class VectorU16U16 : public SearchAlgoBase<VectorU16U16> {
+class VectorU16U16SearchAlgo : public SearchAlgoBase<VectorU16U16SearchAlgo> {
 public:
     static constexpr bool enabled = flags::vector_u16u16_enabled;
 
@@ -53,7 +53,7 @@ public:
     [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t max_fanout()        noexcept { return 65536; }
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "vector_u16u16"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "VectorU16U16 (START multi-byte Cost-DP, Mertens ICDE 2024)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "VectorU16U16SearchAlgo (START multi-byte Cost-DP, Mertens ICDE 2024)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "VECTOR_U16U16"; }
 
     /// SONDERFALL: kein SIMD — Cost-DP-Algorithmus ist nicht vectorisierbar.
@@ -62,9 +62,9 @@ public:
     [[nodiscard]] static constexpr bool is_dense()                 noexcept { return false; }
     [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return true; }
 
-    VectorU16U16() = default;
+    VectorU16U16SearchAlgo() = default;
 
-    [[nodiscard]] bool operator==(VectorU16U16 const& other) const noexcept {
+    [[nodiscard]] bool operator==(VectorU16U16SearchAlgo const& other) const noexcept {
         return keys_.size() == other.keys_.size();
     }
 
@@ -147,8 +147,8 @@ private:
 }  // namespace
 
 namespace comdare::cache_engine::traversal::axis_03a_search_algo {
-    static_assert(concepts::SearchAlgoVariant<VectorU16U16>);
-    static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<VectorU16U16>);
-    static_assert(concepts::DensityClassifiedStrategy<VectorU16U16>);
+    static_assert(concepts::SearchAlgoVariant<VectorU16U16SearchAlgo>);
+    static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<VectorU16U16SearchAlgo>);
+    static_assert(concepts::DensityClassifiedStrategy<VectorU16U16SearchAlgo>);
     // NICHT: SimdCapableStrategy (Cost-DP ist nicht vektorisierbar)
 }

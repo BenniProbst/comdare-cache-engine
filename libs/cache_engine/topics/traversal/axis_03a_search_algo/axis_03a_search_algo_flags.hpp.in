@@ -5,7 +5,7 @@
 
 namespace comdare::cache_engine::traversal::axis_03a_search_algo::flags {
 
-// Pilot Batch 1 (S01 Array256, S02 VectorU8U8, S03 VectorU16U16) — 2026-05-26
+// Pilot Batch 1 (S01 Array256SearchAlgo, S02 VectorU8U8SearchAlgo, S03 VectorU16U16SearchAlgo) — 2026-05-26
 #cmakedefine01 COMDARE_AXIS_03A_USE_ARRAY256
 #cmakedefine01 COMDARE_AXIS_03A_USE_VECTOR_U8U8
 #cmakedefine01 COMDARE_AXIS_03A_USE_VECTOR_U16U16

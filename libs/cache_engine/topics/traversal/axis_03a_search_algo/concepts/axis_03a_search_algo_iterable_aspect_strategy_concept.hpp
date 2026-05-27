@@ -6,7 +6,7 @@
 // Sub-Concept fuer Such-Algorithmen mit hybrider Laufzeit-Permutation
 // (iterable_aspect_t — analog Q1 IterableAspectStrategy + Q2 IterableAspectFlushStrategy).
 // Erfuellt von Wrappern die einen iterable Aspekt zur Laufzeit umstellen koennen
-// (z.B. density_threshold bei VectorU8U8, fanout_size bei adaptiven Strategien).
+// (z.B. density_threshold bei VectorU8U8SearchAlgo, fanout_size bei adaptiven Strategien).
 
 #include "axis_03a_search_algo_concept.hpp"
 
@@ -26,8 +26,8 @@ namespace comdare::cache_engine::traversal::axis_03a_search_algo::concepts {
  *
  * **Konsolidierter Setter-Name** `set_iterable_aspect` analog Q1/Q2 Schablone.
  *
- * **Concept-Erfuellung:** VectorU8U8 (density_threshold pct {10/20/30/50/70}).
- * **Nicht erfuellt von:** Array256 (Dense per Definition), VectorU16U16 (Multilevel
+ * **Concept-Erfuellung:** VectorU8U8SearchAlgo (density_threshold pct {10/20/30/50/70}).
+ * **Nicht erfuellt von:** Array256SearchAlgo (Dense per Definition), VectorU16U16SearchAlgo (Multilevel
  * Cost-DP — keine threshold-Parametrisierung).
  */
 template <typename S>

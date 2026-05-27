@@ -26,9 +26,9 @@ namespace mp = boost::mp11;
 /// AllStrategies — Komplette Liste aller bekannten 03a-Such-Strategien (Pilot 3 + Paper-Bindung 3)
 using AllStrategies = mp::mp_list<
     // Pilot Batch 1 (2026-05-26) — Cache-Engine Standalone Re-Impl
-    Array256,
-    VectorU8U8,
-    VectorU16U16,
+    Array256SearchAlgo,
+    VectorU8U8SearchAlgo,
+    VectorU16U16SearchAlgo,
     // V41.F.6.1.P2.D.tr.s2 (2026-05-26) — Original-Paper-Wrappers (Habich-Compliance)
     OriginalArtSearchAlgo,    // S04, P01 ART (Leis ICDE 2013, 4/4 originall)
     OriginalHotSearchAlgo,    // S05, P02 HOT (Binna PVLDB 2018, 2/4 originall + 2 Luecken)
