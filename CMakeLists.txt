@@ -191,6 +191,12 @@ option(COMDARE_AXIS_IO_ENABLE_DIRECT         "IO Direct (O_DIRECT bypass OS-cach
 option(COMDARE_AXIS_IO_ENABLE_BUFFERED       "IO Buffered (OS page-cache, default)" ON)
 option(COMDARE_AXIS_IO_ENABLE_MMAP           "IO Mmap (mmap-based, Persistent Memory)" ON)
 
+# V41.F.6.1.R7.5.g axis_migration (4 Strategien)
+option(COMDARE_AXIS_MIGRATION_ENABLE_NONE       "Migration None (static placement baseline)" ON)
+option(COMDARE_AXIS_MIGRATION_ENABLE_HOT_COLD   "Migration HotCold (LRU/probabilistic Hot/Cold separation)" ON)
+option(COMDARE_AXIS_MIGRATION_ENABLE_TIER_BASED "Migration TierBased (RAM/SSD/HDD multi-tier RocksDB-style)" ON)
+option(COMDARE_AXIS_MIGRATION_ENABLE_ADAPTIVE   "Migration Adaptive (ML-driven Cachelib/LeCaR-style)" ON)
+
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
 # aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
@@ -747,6 +753,20 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/io/axis_io/axis_io_flags.hpp"
     @ONLY)
 message(STATUS "  axis_io (4 io-strategies): IN_MEM=${COMDARE_AXIS_IO_USE_IN_MEMORY_ONLY} DIRECT=${COMDARE_AXIS_IO_USE_DIRECT} BUFFERED=${COMDARE_AXIS_IO_USE_BUFFERED} MMAP=${COMDARE_AXIS_IO_USE_MMAP}")
+
+# V41.F.6.1.R7.5.g axis_migration Flags (USE = ENABLE)
+foreach(_m NONE HOT_COLD TIER_BASED ADAPTIVE)
+    if(COMDARE_AXIS_MIGRATION_ENABLE_${_m})
+        set(COMDARE_AXIS_MIGRATION_USE_${_m} 1)
+    else()
+        set(COMDARE_AXIS_MIGRATION_USE_${_m} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/migration/axis_migration/axis_migration_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/migration/axis_migration/axis_migration_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_migration (4 migrations): NONE=${COMDARE_AXIS_MIGRATION_USE_NONE} HOT_COLD=${COMDARE_AXIS_MIGRATION_USE_HOT_COLD} TIER=${COMDARE_AXIS_MIGRATION_USE_TIER_BASED} ADAPTIVE=${COMDARE_AXIS_MIGRATION_USE_ADAPTIVE}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung
