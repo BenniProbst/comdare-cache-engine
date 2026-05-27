@@ -502,6 +502,16 @@ target_link_libraries(test_v41_anatomy_codegen_tool_mp_list PRIVATE
     Boost::mp11
     comdare::anatomy_codegen_tool)
 
+# V41.F.6.1.R6.A WorkloadConfig + deterministischer WorkloadGenerator
+comdare_add_test(test_v41_workload_generator
+    SOURCES test_v41_workload_generator.cpp)
+target_include_directories(test_v41_workload_generator PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_link_libraries(test_v41_workload_generator PRIVATE
+    comdare::workload_driver)
+
 # V41.F.6.1.R5.I Tool zur Configure-Time aufrufen + Snippet inline include
 # 2-Pass-Build: 1. cmake-Pass (Tool noch nicht gebaut, Warning) -> Tool bauen ->
 # 2. cmake-Pass (Tool da, Snippet wird generiert + included)
