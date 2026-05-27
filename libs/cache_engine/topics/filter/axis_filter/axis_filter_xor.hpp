@@ -1,5 +1,14 @@
 #pragma once
 // V41.F.6.1.R7.5.e axis_filter XorFilter (Graf/Lemire 2020)
+//
+// R7.6 Paper-Reference (Task #723):
+// Graf, T.M., Lemire, D. "Xor Filters: Faster and Smaller Than Bloom and
+// Cuckoo Filters." ACM Journal of Experimental Algorithmics (JEA), Vol. 25,
+// Article No. 1.5, March 2020.
+// DOI: 10.1145/3376122
+// URL (Preprint): https://arxiv.org/abs/1912.08258
+// Code: https://github.com/FastFilter/fastfilter_cpp (MIT License)
+// Original-Code-File: src/xorfilter/xorfilter.h
 
 #include "axis_filter_strategy_base.hpp"
 #include "axis_filter_subaxes_ft1_to_ft3.hpp"

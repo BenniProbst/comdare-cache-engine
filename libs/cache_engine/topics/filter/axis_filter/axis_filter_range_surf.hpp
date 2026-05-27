@@ -1,5 +1,15 @@
 #pragma once
 // V41.F.6.1.R7.5.e axis_filter RangeSurfFilter (Zhang SIGMOD 2018)
+//
+// R7.6 Paper-Reference (Task #723):
+// Zhang, H., Lim, H., Leis, V., Andersen, D.G., Kaminsky, M., Keeton, K.,
+// Pavlo, A. "SuRF: Practical Range Query Filtering with Fast Succinct Tries."
+// Proceedings of the 2018 International Conference on Management of Data
+// (SIGMOD 2018), pp. 323-336.
+// DOI: 10.1145/3183713.3196931
+// URL: https://www.cs.cmu.edu/~huanche1/publications/surf_paper.pdf
+// Code: https://github.com/efficient/SuRF (BSD-3-Clause License)
+// Original-Code-File: include/surf.hpp + src/louds_dense.cpp
 
 #include "axis_filter_strategy_base.hpp"
 #include "axis_filter_subaxes_ft1_to_ft3.hpp"

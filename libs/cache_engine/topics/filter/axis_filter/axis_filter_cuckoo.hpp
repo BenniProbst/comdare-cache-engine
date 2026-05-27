@@ -1,5 +1,15 @@
 #pragma once
 // V41.F.6.1.R7.5.e axis_filter CuckooFilter (Fan CoNEXT 2014)
+//
+// R7.6 Paper-Reference (Task #723):
+// Fan, B., Andersen, D.G., Kaminsky, M., Mitzenmacher, M.D. "Cuckoo Filter:
+// Practically Better Than Bloom." Proceedings of the 10th ACM International
+// Conference on Emerging Networking Experiments and Technologies (CoNEXT 2014),
+// pp. 75-88.
+// DOI: 10.1145/2674005.2674994
+// URL: https://www.cs.cmu.edu/~dga/papers/cuckoo-conext2014.pdf
+// Code: https://github.com/efficient/cuckoofilter (Apache-2.0 License)
+// Original-Code-Files: src/cuckoofilter.h, src/cuckoofilter.cc
 
 #include "axis_filter_strategy_base.hpp"
 #include "axis_filter_subaxes_ft1_to_ft3.hpp"
