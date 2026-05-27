@@ -1,0 +1,16 @@
+#pragma once
+// V41.F.6.1.R7.5.a axis_07_prefetch CMake-generierter Flags-Header
+
+#cmakedefine01 COMDARE_AXIS_07_USE_NONE
+#cmakedefine01 COMDARE_AXIS_07_USE_DISTANCE_ESTIMATOR
+#cmakedefine01 COMDARE_AXIS_07_USE_HARDWARE_PREFETCH
+#cmakedefine01 COMDARE_AXIS_07_USE_PATH_ORIENTED
+
+namespace comdare::cache_engine::prefetch::axis_07_prefetch::flags {
+
+inline constexpr bool none_enabled               = COMDARE_AXIS_07_USE_NONE;
+inline constexpr bool distance_estimator_enabled = COMDARE_AXIS_07_USE_DISTANCE_ESTIMATOR;
+inline constexpr bool hardware_prefetch_enabled  = COMDARE_AXIS_07_USE_HARDWARE_PREFETCH;
+inline constexpr bool path_oriented_enabled      = COMDARE_AXIS_07_USE_PATH_ORIENTED;
+
+}  // namespace

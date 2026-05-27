@@ -155,6 +155,12 @@ option(COMDARE_AXIS_04_ENABLE_NODE16   "Node-Type Node16 (ART medium, SIMD-binar
 option(COMDARE_AXIS_04_ENABLE_NODE48   "Node-Type Node48 (ART large, indirect-array 48-slot)" ON)
 option(COMDARE_AXIS_04_ENABLE_NODE256  "Node-Type Node256 (ART dense, direct-addressed 256-slot)" ON)
 
+# V41.F.6.1.R7.5.a axis_07 Prefetch (4 Strategien)
+option(COMDARE_AXIS_07_ENABLE_NONE               "Prefetch None (baseline, no prefetch)" ON)
+option(COMDARE_AXIS_07_ENABLE_DISTANCE_ESTIMATOR "Prefetch DistanceEstimator (ART software-prefetch)" ON)
+option(COMDARE_AXIS_07_ENABLE_HARDWARE_PREFETCH  "Prefetch HardwarePrefetch (Wormhole PREFETCHT0)" ON)
+option(COMDARE_AXIS_07_ENABLE_PATH_ORIENTED      "Prefetch PathOriented (PRT-ART bundle-prefetch)" ON)
+
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
 # aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
@@ -627,6 +633,20 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/nodes/axis_04_node_type/axis_04_node_type_flags.hpp"
     @ONLY)
 message(STATUS "  axis_04 (4 node-types): NODE4=${COMDARE_AXIS_04_USE_NODE4} NODE16=${COMDARE_AXIS_04_USE_NODE16} NODE48=${COMDARE_AXIS_04_USE_NODE48} NODE256=${COMDARE_AXIS_04_USE_NODE256}")
+
+# V41.F.6.1.R7.5.a axis_07 Prefetch Flags (USE = ENABLE)
+foreach(_p NONE DISTANCE_ESTIMATOR HARDWARE_PREFETCH PATH_ORIENTED)
+    if(COMDARE_AXIS_07_ENABLE_${_p})
+        set(COMDARE_AXIS_07_USE_${_p} 1)
+    else()
+        set(COMDARE_AXIS_07_USE_${_p} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/prefetch/axis_07_prefetch/axis_07_prefetch_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/prefetch/axis_07_prefetch/axis_07_prefetch_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_07 (4 prefetchers): NONE=${COMDARE_AXIS_07_USE_NONE} DISTANCE_ESTIMATOR=${COMDARE_AXIS_07_USE_DISTANCE_ESTIMATOR} HARDWARE_PREFETCH=${COMDARE_AXIS_07_USE_HARDWARE_PREFETCH} PATH_ORIENTED=${COMDARE_AXIS_07_USE_PATH_ORIENTED}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung
