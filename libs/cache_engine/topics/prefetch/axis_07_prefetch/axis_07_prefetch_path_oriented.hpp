@@ -1,5 +1,20 @@
 #pragma once
 // V41.F.6.1.R7.5.a axis_07 PathOrientedPrefetch (PRT-ART)
+//
+// R7.6 Paper-Reference (Task #723):
+// PRT-ART (Path-Oriented Prefetching ART) ist eigene Diplomarbeit-Arbeit
+// (Probst, B. "PRT-ART: Active Cache-Aware Hardware Adaptation Cache Engine
+// for Trie-Based Index Structures." Diplomarbeit TU Dresden, Prof. Habich,
+// in Bearbeitung 2026).
+//
+// Verwandte Literatur:
+// - Tan, S., Knoll, A. "Adaptive Software Prefetching for Cache Hierarchies."
+//   IEEE TVLSI 2012. Heuristik fuer Path-Bundle-Identifikation.
+// - Mowry, T.C. "Tolerating Latency Through Software-Controlled Data
+//   Prefetching." Stanford Tech-Report CSL-TR-94-628, 1994.
+//
+// Original-Pattern: Pre-loadet Knoten entlang vorhergesagtem Trie-Pfad bevor
+// Suche startet. Bundle-Granularitaet: mehrere Cache-Lines pro Trigger.
 
 #include "axis_07_prefetch_strategy_base.hpp"
 #include "axis_07_prefetch_subaxes_pf1_to_pf3.hpp"

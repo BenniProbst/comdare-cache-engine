@@ -1,5 +1,9 @@
 #pragma once
 // V41.F.6.1.R7.5.a axis_07 NonePrefetch (Goldstandard-Update)
+//
+// R7.6 Paper-Reference (Task #723):
+// Kein Paper — NonePrefetch ist Baseline (kein Prefetch-Mechanismus).
+// Dient als Vergleichs-Referenz fuer Mess-Reihen (mit vs ohne Prefetch).
 
 #include "axis_07_prefetch_strategy_base.hpp"
 #include "axis_07_prefetch_subaxes_pf1_to_pf3.hpp"
