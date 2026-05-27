@@ -1,8 +1,27 @@
-// V41.F.6.1.R5.F — anatomy_codegen_tool Library Implementation
+// V41.F.6.1.R5.F + R5.H — anatomy_codegen_tool Library Implementation
 //
-// @task #710 V41.F.6.1.R5.F
+// R5.H (2026-05-27 spaet): hardcoded Strings durch trait-driven
+// descriptor_from_composition<C>() ersetzt. Tabelle behaelt nur noch
+// (short_name, Type)-Mapping; cpp_type_name + header_include kommen aus
+// den 11 Reference-Composition-Traits (HasCompositionLocation Concept, R5.G).
+// Drift zwischen Composition-Header und Tool-Tabelle nicht mehr moeglich.
+//
+// @task #712 V41.F.6.1.R5.H
 
 #include "anatomy_codegen_tool.hpp"
+
+// R5.H: alle 11 Reference-Compositions fuer Trait-Extraktion
+#include "../../compositions/art_reference.hpp"
+#include "../../compositions/hot_reference.hpp"
+#include "../../compositions/wormhole_reference.hpp"
+#include "../../compositions/surf_reference.hpp"
+#include "../../compositions/masstree_reference.hpp"
+#include "../../compositions/start_reference.hpp"
+#include "../../compositions/art_paper_binding_reference.hpp"
+#include "../../compositions/hot_paper_binding_reference.hpp"
+#include "../../compositions/start_paper_binding_reference.hpp"
+#include "../../compositions/wormhole_paper_binding_reference.hpp"
+#include "../../compositions/surf_paper_binding_reference.hpp"
 
 #include <array>
 #include <fstream>
@@ -10,25 +29,38 @@
 namespace comdare::cache_engine::builder::codegen_tool {
 
 // ─────────────────────────────────────────────────────────────────────────────
-// kKnownCompositions Tabelle (11 Eintraege, Stand R5.F)
+// kKnownCompositions Tabelle (11 Eintraege, R5.H trait-driven)
 // ─────────────────────────────────────────────────────────────────────────────
 
 namespace {
 
+namespace comp = ::comdare::cache_engine::compositions;
+
+/// make_desc<C>(short_name) — extrahiert cpp_type_name + header_include via
+/// Trait (descriptor_from_composition<C>()), ueberschreibt nur den User-friendly
+/// CLI-Short-Name. Damit ist die Tool-Tabelle drift-frei: jede Aenderung in
+/// einer Composition propagiert automatisch in die Tool-Tabelle.
+template <::comdare::cache_engine::anatomy::HasCompositionLocation C>
+[[nodiscard]] constexpr CompositionDescriptor make_desc(std::string_view short_name) noexcept {
+    auto d = descriptor_from_composition<C>();
+    d.short_name = short_name;  // User-friendly CLI-Name (z.B. "art" statt "ArtComposition")
+    return d;
+}
+
 constexpr std::array<CompositionDescriptor, 11> kKnownCompositionsImpl = {{
     // 6 CE-Reimpl-Compositions (R2)
-    {"art",      "::comdare::cache_engine::compositions::ArtComposition",      "compositions/art_reference.hpp"},
-    {"hot",      "::comdare::cache_engine::compositions::HotComposition",      "compositions/hot_reference.hpp"},
-    {"wormhole", "::comdare::cache_engine::compositions::WormholeComposition", "compositions/wormhole_reference.hpp"},
-    {"surf",     "::comdare::cache_engine::compositions::SurfComposition",     "compositions/surf_reference.hpp"},
-    {"masstree", "::comdare::cache_engine::compositions::MasstreeComposition", "compositions/masstree_reference.hpp"},
-    {"start",    "::comdare::cache_engine::compositions::StartComposition",    "compositions/start_reference.hpp"},
+    make_desc<comp::ArtComposition>("art"),
+    make_desc<comp::HotComposition>("hot"),
+    make_desc<comp::WormholeComposition>("wormhole"),
+    make_desc<comp::SurfComposition>("surf"),
+    make_desc<comp::MasstreeComposition>("masstree"),
+    make_desc<comp::StartComposition>("start"),
     // 5 PaperBinding-Compositions (R3.2 Promotion)
-    {"art_pb",      "::comdare::cache_engine::compositions::ArtPaperBindingComposition",      "compositions/art_paper_binding_reference.hpp"},
-    {"hot_pb",      "::comdare::cache_engine::compositions::HotPaperBindingComposition",      "compositions/hot_paper_binding_reference.hpp"},
-    {"start_pb",    "::comdare::cache_engine::compositions::StartPaperBindingComposition",    "compositions/start_paper_binding_reference.hpp"},
-    {"wormhole_pb", "::comdare::cache_engine::compositions::WormholePaperBindingComposition", "compositions/wormhole_paper_binding_reference.hpp"},
-    {"surf_pb",     "::comdare::cache_engine::compositions::SurfPaperBindingComposition",     "compositions/surf_paper_binding_reference.hpp"},
+    make_desc<comp::ArtPaperBindingComposition>("art_pb"),
+    make_desc<comp::HotPaperBindingComposition>("hot_pb"),
+    make_desc<comp::StartPaperBindingComposition>("start_pb"),
+    make_desc<comp::WormholePaperBindingComposition>("wormhole_pb"),
+    make_desc<comp::SurfPaperBindingComposition>("surf_pb"),
 }};
 
 }  // anonymous namespace
