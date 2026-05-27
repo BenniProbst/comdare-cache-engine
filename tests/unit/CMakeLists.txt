@@ -1,6 +1,11 @@
 # tests/unit/CMakeLists.txt - REV 6 Phase 6 Migration aus Diplomarbeit/code (2026-05-12)
 # Unit-Tests fuer migrierte Concept-Header (Cache-Engine + PRT-ART)
 
+# V41.F.6.1 — alle generierten axis_*_flags.hpp include-paths (CMake-Configure-Time GLOB)
+# Wird von Tests verwendet, die mehrere Topics referenzieren (z.B. Anatomy/PermutationEngine).
+file(GLOB COMDARE_ALL_AXIS_GENERATED_DIRS LIST_DIRECTORIES true
+    "${CMAKE_BINARY_DIR}/generated/topics/*/axis_*")
+
 # Header-only INTERFACE-Library: Cache-Engine Concepts
 add_library(comdare_cache_engine_concepts INTERFACE)
 add_library(comdare::cache_engine_concepts ALIAS comdare_cache_engine_concepts)
@@ -289,7 +294,8 @@ target_include_directories(test_v41_topics_fundament PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_topics_fundament PRIVATE Boost::mp11)
 
 # V41.F.6.1.R3 SearchAlgorithmAnatomy Skelett (Saeugetier-Anatomie)
@@ -309,7 +315,8 @@ target_include_directories(test_v41_anatomy_r4_driver PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_r4_driver PRIVATE Boost::mp11)
 
 # V41.F.6.1.R5.A ObserverAggregate (ABI-stabiler 17-Achsen-Snapshot)
@@ -372,7 +379,8 @@ target_include_directories(test_v41_search_algorithm_permutation_engine PRIVATE
     "${PROJECT_SOURCE_DIR}"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_search_algorithm_permutation_engine PRIVATE Boost::mp11)
 
 # V41.F.6.1.R5.D Anatomy Module ABI v1 (extern "C" Factory + Macro-Expansion)

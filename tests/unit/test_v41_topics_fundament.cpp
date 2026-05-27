@@ -18,9 +18,9 @@
 #include <topics/telemetry/axis_11_telemetry/axis_11_telemetry_leaf_only.hpp>
 #include <topics/serialization/axis_10_serialization/axis_10_serialization_raw_binary.hpp>
 #include <topics/value_handle/axis_14_value_handle/axis_14_value_handle_inline.hpp>
-#include <topics/hardware/axis_09_isa/axis_09_isa_scalar.hpp>
+#include <topics/hardware/axis_09_isa/axis_09_isa_amd64.hpp>
 // Phase F3 Topics
-#include <topics/search_engine/axis_01_index_organization/axis_01_index_organization_std_map_like.hpp>
+#include <topics/search_engine/axis_01_index_organization/axis_01_index_organization_index_organized_table.hpp>
 #include <topics/io/axis_io/axis_io_in_memory_only.hpp>
 #include <topics/migration/axis_migration/axis_migration_none.hpp>
 #include <topics/filter/axis_filter/axis_filter_bloom.hpp>
@@ -103,7 +103,7 @@ TEST(PhaseF1_CrossTopic, AllUseAxisBaseDefaultIsOriginalModule) {
 using LeafOnlyCounter        = ::comdare::cache_engine::telemetry::axis_11_telemetry::LeafOnlyCounter;
 using RawBinarySerialization = ::comdare::cache_engine::serialization::axis_10_serialization::RawBinarySerialization;
 using InlineValueHandle           = ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle;
-using IsaScalar              = ::comdare::cache_engine::hardware::axis_09_isa::IsaScalar;
+using Amd64Isa              = ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa;
 
 TEST(PhaseF2_Telemetry, LeafOnlyCounterAxisBase) {
     static_assert(ce_topics::AxisBaseConcept<LeafOnlyCounter>);
@@ -120,9 +120,9 @@ TEST(PhaseF2_ValueHandle, InlineHandleAxisBase) {
     static_assert(InlineValueHandle::is_inline());
     SUCCEED();
 }
-TEST(PhaseF2_Hardware, IsaScalarAxisBase) {
-    static_assert(ce_topics::AxisBaseConcept<IsaScalar>);
-    static_assert(!IsaScalar::supports_simd());
+TEST(PhaseF2_Hardware, IsaAmd64AxisBase) {
+    static_assert(ce_topics::AxisBaseConcept<Amd64Isa>);
+    static_assert(Amd64Isa::supports_native_simd());  // x86_64 ABI hat SSE2 als Baseline
     SUCCEED();
 }
 
@@ -130,14 +130,13 @@ TEST(PhaseF2_Hardware, IsaScalarAxisBase) {
 // Phase F3 — search_engine + io + migration + filter
 // ─────────────────────────────────────────────────────────────────────────────
 
-using StdMapLike   = ::comdare::cache_engine::search_engine::axis_01_index_organization::StdMapLike;
+using IotIndexOrganization   = ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization;
 using InMemoryOnly = ::comdare::cache_engine::io::axis_io::InMemoryOnly;
 using NoMigration  = ::comdare::cache_engine::migration::axis_migration::NoMigration;
 using BloomFilter  = ::comdare::cache_engine::filter::axis_filter::BloomFilter;
 
-TEST(PhaseF3_SearchEngine, StdMapLikeAxisBase) {
-    static_assert(ce_topics::AxisBaseConcept<StdMapLike>);
-    static_assert(StdMapLike::is_ordered());
+TEST(PhaseF3_SearchEngine, IotIndexOrganizationAxisBase) {
+    static_assert(ce_topics::AxisBaseConcept<IotIndexOrganization>);
     SUCCEED();
 }
 TEST(PhaseF3_Io, InMemoryOnlyAxisBase) {
@@ -172,9 +171,9 @@ TEST(AllTopicsCoverage, ThirteenAxisWrappersAllUseAxisBaseDefaults) {
     static_assert(LeafOnlyCounter::get_compiler() == std::string_view{"original"});
     static_assert(RawBinarySerialization::get_compiler() == std::string_view{"original"});
     static_assert(InlineValueHandle::get_compiler() == std::string_view{"original"});
-    static_assert(IsaScalar::get_compiler() == std::string_view{"original"});
+    static_assert(Amd64Isa::get_compiler() == std::string_view{"original"});
     // 4 Phase F3
-    static_assert(StdMapLike::get_compiler() == std::string_view{"original"});
+    static_assert(IotIndexOrganization::get_compiler() == std::string_view{"original"});
     static_assert(InMemoryOnly::get_compiler() == std::string_view{"original"});
     static_assert(NoMigration::get_compiler() == std::string_view{"original"});
     static_assert(BloomFilter::get_compiler() == std::string_view{"original"});

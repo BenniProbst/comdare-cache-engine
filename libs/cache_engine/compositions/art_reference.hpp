@@ -26,9 +26,9 @@
 // Topic-14 value_handle (1 Achse)
 #include "../topics/value_handle/axis_14_value_handle/axis_14_value_handle_inline.hpp"
 // Topic hardware (1 Achse)
-#include "../topics/hardware/axis_09_isa/axis_09_isa_scalar.hpp"
+#include "../topics/hardware/axis_09_isa/axis_09_isa_amd64.hpp"
 // Topic search_engine (1 Achse)
-#include "../topics/search_engine/axis_01_index_organization/axis_01_index_organization_std_map_like.hpp"
+#include "../topics/search_engine/axis_01_index_organization/axis_01_index_organization_index_organized_table.hpp"
 // Topic io (1 Achse)
 #include "../topics/io/axis_io/axis_io_in_memory_only.hpp"
 // Topic migration (1 Achse)
@@ -62,23 +62,23 @@ struct ArtComposition {
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;
     using node_type          = nodes::axis_04_node_type::Node256Layout;
     // Topic 5
-    using memory_layout      = memory_layout::axis_05_memory_layout::CacheLineAlignedLayout;
+    using memory_layout      = memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
     // Topic 6
     using allocator          = allocator::axis_06_allocator::MimallocAllocator;
     // Topic 7
-    using prefetch           = prefetch::axis_07_prefetch::PrefetchNone;
+    using prefetch           = prefetch::axis_07_prefetch::NonePrefetch;
     // Topic 8
-    using concurrency        = concurrency::axis_08_concurrency::OlcOptimistic;
+    using concurrency        = concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
     // Topic 10
     using serialization      = serialization::axis_10_serialization::RawBinarySerialization;
     // Topic 11
     using telemetry          = telemetry::axis_11_telemetry::LeafOnlyCounter;
     // Topic 14
-    using value_handle       = value_handle::axis_14_value_handle::InlineHandle;
+    using value_handle       = value_handle::axis_14_value_handle::InlineValueHandle;
     // Topic hardware
-    using isa                = hardware::axis_09_isa::IsaScalar;
+    using isa                = hardware::axis_09_isa::Amd64Isa;
     // Topic search_engine
-    using index_organization = search_engine::axis_01_index_organization::StdMapLike;
+    using index_organization = search_engine::axis_01_index_organization::IotIndexOrganization;
     // Topic io
     using io_dispatch        = io::axis_io::InMemoryOnly;
     // Topic migration
