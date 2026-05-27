@@ -13,8 +13,8 @@
 #include "../topics/serialization/axis_10_serialization/axis_10_serialization_raw_binary.hpp"
 #include "../topics/telemetry/axis_11_telemetry/axis_11_telemetry_leaf_only.hpp"
 #include "../topics/value_handle/axis_14_value_handle/axis_14_value_handle_inline.hpp"
-#include "../topics/hardware/axis_09_isa/axis_09_isa_scalar.hpp"
-#include "../topics/search_engine/axis_01_index_organization/axis_01_index_organization_std_map_like.hpp"
+#include "../topics/hardware/axis_09_isa/axis_09_isa_amd64.hpp"
+#include "../topics/search_engine/axis_01_index_organization/axis_01_index_organization_index_organized_table.hpp"
 #include "../topics/io/axis_io/axis_io_in_memory_only.hpp"
 #include "../topics/migration/axis_migration/axis_migration_none.hpp"
 #include "../topics/filter/axis_filter/axis_filter_bloom.hpp"
@@ -34,15 +34,15 @@ struct HotPaperBindingComposition {
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;
     using node_type          = nodes::axis_04_node_type::Node256Layout;
-    using memory_layout      = memory_layout::axis_05_memory_layout::CacheLineAlignedLayout;
+    using memory_layout      = memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
     using allocator          = allocator::axis_06_allocator::MimallocAllocator;
-    using prefetch           = prefetch::axis_07_prefetch::PrefetchNone;
-    using concurrency        = concurrency::axis_08_concurrency::OlcOptimistic;
+    using prefetch           = prefetch::axis_07_prefetch::NonePrefetch;
+    using concurrency        = concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
     using serialization      = serialization::axis_10_serialization::RawBinarySerialization;
     using telemetry          = telemetry::axis_11_telemetry::LeafOnlyCounter;
-    using value_handle       = value_handle::axis_14_value_handle::InlineHandle;
-    using isa                = hardware::axis_09_isa::IsaScalar;
-    using index_organization = search_engine::axis_01_index_organization::StdMapLike;
+    using value_handle       = value_handle::axis_14_value_handle::InlineValueHandle;
+    using isa                = hardware::axis_09_isa::Amd64Isa;
+    using index_organization = search_engine::axis_01_index_organization::IotIndexOrganization;
     using io_dispatch        = io::axis_io::InMemoryOnly;
     using migration_policy   = migration::axis_migration::NoMigration;
     using filter             = filter::axis_filter::BloomFilter;

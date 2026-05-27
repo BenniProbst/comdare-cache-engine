@@ -40,8 +40,8 @@
 #include <topics/serialization/axis_10_serialization/axis_10_serialization_raw_binary.hpp>
 #include <topics/telemetry/axis_11_telemetry/axis_11_telemetry_leaf_only.hpp>
 #include <topics/value_handle/axis_14_value_handle/axis_14_value_handle_inline.hpp>
-#include <topics/hardware/axis_09_isa/axis_09_isa_scalar.hpp>
-#include <topics/search_engine/axis_01_index_organization/axis_01_index_organization_std_map_like.hpp>
+#include <topics/hardware/axis_09_isa/axis_09_isa_amd64.hpp>
+#include <topics/search_engine/axis_01_index_organization/axis_01_index_organization_index_organized_table.hpp>
 #include <topics/io/axis_io/axis_io_in_memory_only.hpp>
 #include <topics/migration/axis_migration/axis_migration_none.hpp>
 #include <topics/filter/axis_filter/axis_filter_bloom.hpp>
@@ -75,8 +75,8 @@ using OlcOptimisticConcurrency        = ::comdare::cache_engine::concurrency::ax
 using RawBinarySer         = ::comdare::cache_engine::serialization::axis_10_serialization::RawBinarySerialization;
 using LeafOnlyCounter      = ::comdare::cache_engine::telemetry::axis_11_telemetry::LeafOnlyCounter;
 using InlineValueHandle         = ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle;
-using IsaScalar            = ::comdare::cache_engine::hardware::axis_09_isa::IsaScalar;
-using StdMapLike           = ::comdare::cache_engine::search_engine::axis_01_index_organization::StdMapLike;
+using Amd64Isa            = ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa;
+using IotIndexOrganization           = ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization;
 using InMemoryOnly         = ::comdare::cache_engine::io::axis_io::InMemoryOnly;
 using NoMigration          = ::comdare::cache_engine::migration::axis_migration::NoMigration;
 using BloomFilter          = ::comdare::cache_engine::filter::axis_filter::BloomFilter;
@@ -97,8 +97,8 @@ struct T8_Concurrency    { using StaticAxisVariants = mp::mp_list<OlcOptimisticC
 struct T9_Serialization  { using StaticAxisVariants = mp::mp_list<RawBinarySer>; };
 struct T10_Telemetry     { using StaticAxisVariants = mp::mp_list<LeafOnlyCounter>; };
 struct T11_ValueHandle   { using StaticAxisVariants = mp::mp_list<InlineValueHandle>; };
-struct T12_Isa           { using StaticAxisVariants = mp::mp_list<IsaScalar>; };
-struct T13_IndexOrg      { using StaticAxisVariants = mp::mp_list<StdMapLike>; };
+struct T12_Isa           { using StaticAxisVariants = mp::mp_list<Amd64Isa>; };
+struct T13_IndexOrg      { using StaticAxisVariants = mp::mp_list<IotIndexOrganization>; };
 struct T14_IoDispatch    { using StaticAxisVariants = mp::mp_list<InMemoryOnly>; };
 struct T15_Migration     { using StaticAxisVariants = mp::mp_list<NoMigration>; };
 struct T16_Filter        { using StaticAxisVariants = mp::mp_list<BloomFilter>; };
