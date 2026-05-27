@@ -188,8 +188,8 @@ TEST(R7_1_a_2_Axis12, FlagsHeaderProvidesAllThreePlatforms) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R7_1_a_2_Hardware, TopicConfigSetExposesBothAxes) {
-    // axis_09 (Pilot 1 Wrapper)
-    static_assert(mp::mp_size<hw::TopicConfigSet::StaticAxisVariants_09>::value == 1);
+    // axis_09 (R7.5.i: jetzt 4 ISAs Scalar/Sse2/Avx2/Neon via eigene Registry)
+    static_assert(mp::mp_size<hw::TopicConfigSet::StaticAxisVariants_09>::value == 4);
     // axis_12 (3 Wrappers per default ENABLE)
     static_assert(mp::mp_size<hw::TopicConfigSet::StaticAxisVariants_12>::value > 0);
     // Default-StaticAxisVariants = axis_12 (Plattform-Konfiguration ist Haupt-Achse)

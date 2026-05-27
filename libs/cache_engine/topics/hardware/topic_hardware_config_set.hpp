@@ -19,10 +19,8 @@
 
 #include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_registry.hpp>
 
-// axis_09_isa hat (Stand R7.1.a.2) noch keine eigene Registry — fuer
-// PermutationEngine-Kompatibilitaet hier eine lokale mp_list mit dem 1
-// existing IsaScalar-Wrapper. Migration zur eigenen Registry erfolgt in R7.1.a.3.
-#include <topics/hardware/axis_09_isa/axis_09_isa_scalar.hpp>
+// R7.5.i: axis_09_isa hat jetzt eigene Registry (4 ISAs: Scalar/Sse2/Avx2/Neon).
+#include <topics/hardware/axis_09_isa/axis_09_isa_registry.hpp>
 
 #include <boost/mp11.hpp>
 
@@ -41,9 +39,8 @@ namespace mp = boost::mp11;
  * mit optional dynamischen iterable_aspect_t pro Wrapper (F.6.1.E).
  */
 struct TopicConfigSet {
-    // axis_09_isa: ISA-Family (heute Pilot: nur IsaScalar)
-    // TODO R7.1.a.3: axis_09 bekommt eigene Registry mit flags.hpp.in + mp_filter
-    using StaticAxisVariants_09 = mp::mp_list<axis_09_isa::IsaScalar>;
+    // axis_09_isa: ISA-Family (R7.5.i Goldstandard: Scalar/Sse2/Avx2/Neon)
+    using StaticAxisVariants_09 = axis_09_isa::EnabledIsas;
 
     // axis_12_general_hardware: Plattform-Familie (Generic/X86_64/Aarch64)
     using StaticAxisVariants_12 = axis_12_general_hardware::EnabledPlatforms;
