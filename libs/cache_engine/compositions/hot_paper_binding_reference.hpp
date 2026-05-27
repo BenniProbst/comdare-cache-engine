@@ -19,6 +19,9 @@
 #include "../topics/migration/axis_migration/axis_migration_none.hpp"
 #include "../topics/filter/axis_filter/axis_filter_bloom.hpp"
 
+// R5.G
+#include "../anatomy/composition_concept.hpp"
+
 #include <string_view>
 
 namespace comdare::cache_engine::compositions {
@@ -47,6 +50,9 @@ struct HotPaperBindingComposition {
     static constexpr std::string_view paper_id    = "P02 Binna PVLDB 2018 (Paper-Binding)";
     static constexpr std::string_view paper_title = "HOT: Height Optimized Trie (Paper-Source)";
     static constexpr std::string_view name        = "HotPaperBindingComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION(
+        "::comdare::cache_engine::compositions::HotPaperBindingComposition",
+        "compositions/hot_paper_binding_reference.hpp");
 };
 
 }  // namespace

@@ -22,6 +22,9 @@
 #include "../topics/migration/axis_migration/axis_migration_none.hpp"
 #include "../topics/filter/axis_filter/axis_filter_bloom.hpp"
 
+// R5.G
+#include "../anatomy/composition_concept.hpp"
+
 #include <string_view>
 
 namespace comdare::cache_engine::compositions {
@@ -54,6 +57,9 @@ struct MasstreeComposition {
     static constexpr std::string_view paper_id    = "P03 Mao/Kohler/Morris EuroSys 2012";
     static constexpr std::string_view paper_title = "Cache Craftiness for Fast Multicore Key-Value Storage";
     static constexpr std::string_view name        = "MasstreeComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION(
+        "::comdare::cache_engine::compositions::MasstreeComposition",
+        "compositions/masstree_reference.hpp");
 };
 
 }  // namespace

@@ -31,6 +31,9 @@
 #include "../topics/migration/axis_migration/axis_migration_none.hpp"
 #include "../topics/filter/axis_filter/axis_filter_bloom.hpp"
 
+// R5.G
+#include "../anatomy/composition_concept.hpp"
+
 #include <string_view>
 
 namespace comdare::cache_engine::compositions {
@@ -62,6 +65,9 @@ struct ArtPaperBindingComposition {
     static constexpr std::string_view paper_id    = "P01 Leis/Kemper/Neumann ICDE 2013 (Paper-Binding)";
     static constexpr std::string_view paper_title = "The Adaptive Radix Tree: ARTful Indexing (unodb::db Paper-Source)";
     static constexpr std::string_view name        = "ArtPaperBindingComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION(
+        "::comdare::cache_engine::compositions::ArtPaperBindingComposition",
+        "compositions/art_paper_binding_reference.hpp");
 };
 
 }  // namespace
