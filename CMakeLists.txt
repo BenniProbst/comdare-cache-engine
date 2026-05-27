@@ -197,6 +197,12 @@ option(COMDARE_AXIS_MIGRATION_ENABLE_HOT_COLD   "Migration HotCold (LRU/probabil
 option(COMDARE_AXIS_MIGRATION_ENABLE_TIER_BASED "Migration TierBased (RAM/SSD/HDD multi-tier RocksDB-style)" ON)
 option(COMDARE_AXIS_MIGRATION_ENABLE_ADAPTIVE   "Migration Adaptive (ML-driven Cachelib/LeCaR-style)" ON)
 
+# V41.F.6.1.R7.5.h axis_01 IndexOrganization (Clustering, User-Direktive 2026-05-27: Achse=Organ, nicht Gattung)
+option(COMDARE_AXIS_01_ENABLE_HEAP                  "IndexOrg Heap (no index, baseline)" ON)
+option(COMDARE_AXIS_01_ENABLE_CLUSTERED             "IndexOrg Clustered (Index-Order=Storage-Order, MySQL InnoDB)" ON)
+option(COMDARE_AXIS_01_ENABLE_NON_CLUSTERED         "IndexOrg NonClustered (Secondary Index, SQL Server/PostgreSQL)" ON)
+option(COMDARE_AXIS_01_ENABLE_INDEX_ORGANIZED_TABLE "IndexOrg IOT (data in B+Tree leaves, Oracle IOT, ART/HOT-style)" ON)
+
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
 # aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
@@ -767,6 +773,20 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/migration/axis_migration/axis_migration_flags.hpp"
     @ONLY)
 message(STATUS "  axis_migration (4 migrations): NONE=${COMDARE_AXIS_MIGRATION_USE_NONE} HOT_COLD=${COMDARE_AXIS_MIGRATION_USE_HOT_COLD} TIER=${COMDARE_AXIS_MIGRATION_USE_TIER_BASED} ADAPTIVE=${COMDARE_AXIS_MIGRATION_USE_ADAPTIVE}")
+
+# V41.F.6.1.R7.5.h axis_01 IndexOrganization Flags (USE = ENABLE)
+foreach(_o HEAP CLUSTERED NON_CLUSTERED INDEX_ORGANIZED_TABLE)
+    if(COMDARE_AXIS_01_ENABLE_${_o})
+        set(COMDARE_AXIS_01_USE_${_o} 1)
+    else()
+        set(COMDARE_AXIS_01_USE_${_o} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/search_engine/axis_01_index_organization/axis_01_index_organization_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/search_engine/axis_01_index_organization/axis_01_index_organization_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_01 (4 clusterings): HEAP=${COMDARE_AXIS_01_USE_HEAP} CLUSTERED=${COMDARE_AXIS_01_USE_CLUSTERED} NON_CLUSTERED=${COMDARE_AXIS_01_USE_NON_CLUSTERED} IOT=${COMDARE_AXIS_01_USE_INDEX_ORGANIZED_TABLE}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung

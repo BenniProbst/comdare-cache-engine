@@ -1,0 +1,16 @@
+#pragma once
+// V41.F.6.1.R7.5.h axis_01_index_organization CMake-generierter Flags-Header
+
+#cmakedefine01 COMDARE_AXIS_01_USE_HEAP
+#cmakedefine01 COMDARE_AXIS_01_USE_CLUSTERED
+#cmakedefine01 COMDARE_AXIS_01_USE_NON_CLUSTERED
+#cmakedefine01 COMDARE_AXIS_01_USE_INDEX_ORGANIZED_TABLE
+
+namespace comdare::cache_engine::search_engine::axis_01_index_organization::flags {
+
+inline constexpr bool heap_enabled                   = COMDARE_AXIS_01_USE_HEAP;
+inline constexpr bool clustered_enabled              = COMDARE_AXIS_01_USE_CLUSTERED;
+inline constexpr bool non_clustered_enabled          = COMDARE_AXIS_01_USE_NON_CLUSTERED;
+inline constexpr bool index_organized_table_enabled  = COMDARE_AXIS_01_USE_INDEX_ORGANIZED_TABLE;
+
+}  // namespace

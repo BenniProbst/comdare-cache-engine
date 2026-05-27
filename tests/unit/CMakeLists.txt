@@ -635,6 +635,18 @@ target_include_directories(test_v41_axis_migration PRIVATE
 target_link_libraries(test_v41_axis_migration PRIVATE
     Boost::mp11)
 
+# V41.F.6.1.R7.5.h axis_01 IndexOrganization (4 Clustering-Wrappers + TYPED_TEST_SUITE)
+comdare_add_test(test_v41_axis_01_index_organization
+    SOURCES test_v41_axis_01_index_organization.cpp)
+target_include_directories(test_v41_axis_01_index_organization PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    "${CMAKE_BINARY_DIR}/generated/topics/search_engine/axis_01_index_organization")
+target_link_libraries(test_v41_axis_01_index_organization PRIVATE
+    Boost::mp11)
+
 # V41.F.6.1.R5.I Tool zur Configure-Time aufrufen + Snippet inline include
 # 2-Pass-Build: 1. cmake-Pass (Tool noch nicht gebaut, Warning) -> Tool bauen ->
 # 2. cmake-Pass (Tool da, Snippet wird generiert + included)
