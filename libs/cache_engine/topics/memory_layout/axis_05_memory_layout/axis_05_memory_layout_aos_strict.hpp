@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1.R7.1.b axis_05 AoSStrictLayout Wrapper
 
-#include "axis_05_memory_layout_base.hpp"
+#include "axis_05_memory_layout_strategy_base.hpp"
 #include "axis_05_memory_layout_subaxes_hm1_to_hm4.hpp"
 #include "concepts/axis_05_memory_layout_cache_engine_permutation_concept.hpp"
 #include "axis_05_memory_layout_flags.hpp"
@@ -14,7 +14,7 @@ namespace comdare::cache_engine::memory_layout::axis_05_memory_layout {
 /// AoSStrictLayout — Array-of-Structs, packed (ohne Cache-Line Padding).
 /// Vorteil: kompakte Daten. Nachteil: False-Sharing + schlechter Cache-Line-Hit
 /// bei concurrent Schreibern. Typischer Wormhole-Layout (strict AoS).
-class AoSStrictLayout : public MemoryLayoutBase<AoSStrictLayout> {
+class AoSStrictLayout : public MemoryLayoutStrategyBase<AoSStrictLayout> {
 public:
     using topic_tag  = ::comdare::cache_engine::memory_layout::concepts::MemoryLayoutTopicTag;
     using axis_tag   = subaxes::data_organization_tag;

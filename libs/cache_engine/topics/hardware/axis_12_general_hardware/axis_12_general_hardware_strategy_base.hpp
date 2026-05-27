@@ -13,9 +13,9 @@
 namespace comdare::cache_engine::hardware::axis_12_general_hardware {
 
 template <typename Derived>
-class GeneralHardwareBase : public ::comdare::cache_engine::topics::AxisBase {
+class GeneralHardwareStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
 protected:
-    GeneralHardwareBase() noexcept {
+    GeneralHardwareStrategyBase() noexcept {
         static_assert(concepts::GeneralHardwareStrategy<Derived>,
             "Derived must satisfy GeneralHardwareStrategy concept "
             "(see concepts/axis_12_general_hardware_concept.hpp)");
@@ -24,7 +24,7 @@ protected:
             "(see concepts/axis_12_general_hardware_cache_engine_permutation_concept.hpp)");
         static_assert(::comdare::cache_engine::topics::AxisBaseConcept<Derived>,
             "Derived must satisfy AxisBaseConcept (get_compiler() Default-API). "
-            "GeneralHardwareBase erbt von AxisBase — Derived bekommt Default 'original' automatisch.");
+            "GeneralHardwareStrategyBase erbt von AxisBase — Derived bekommt Default 'original' automatisch.");
     }
 };
 

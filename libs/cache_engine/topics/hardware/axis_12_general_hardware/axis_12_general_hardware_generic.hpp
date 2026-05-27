@@ -11,7 +11,7 @@
 // - numa_capable = false (single-socket Assumption)
 // - huge_page_capable = false
 
-#include "axis_12_general_hardware_base.hpp"
+#include "axis_12_general_hardware_strategy_base.hpp"
 #include "axis_12_general_hardware_subaxes_hw1_to_hw4.hpp"
 #include "../concepts/topic_hardware_concept.hpp"
 
@@ -24,7 +24,7 @@
 
 namespace comdare::cache_engine::hardware::axis_12_general_hardware {
 
-class GenericHardware : public GeneralHardwareBase<GenericHardware> {
+class GenericHardware : public GeneralHardwareStrategyBase<GenericHardware> {
 public:
     // Topic + Subaxis Tags (Pflicht-API CacheEnginePermutationStrategy)
     using topic_tag = ::comdare::cache_engine::hardware::concepts::HardwareTopicTag;

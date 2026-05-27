@@ -12,7 +12,7 @@
 // Konfiguration aus?"), nicht der Runtime-Detection-Wert. Letztere kommt aus
 // IPlatformProbe (Doku 11 §K07 / V42-Task #650).
 
-#include "axis_12_general_hardware_base.hpp"
+#include "axis_12_general_hardware_strategy_base.hpp"
 #include "axis_12_general_hardware_subaxes_hw1_to_hw4.hpp"
 #include "../concepts/topic_hardware_concept.hpp"
 
@@ -24,7 +24,7 @@
 
 namespace comdare::cache_engine::hardware::axis_12_general_hardware {
 
-class X86_64Hardware : public GeneralHardwareBase<X86_64Hardware> {
+class X86_64Hardware : public GeneralHardwareStrategyBase<X86_64Hardware> {
 public:
     using topic_tag = ::comdare::cache_engine::hardware::concepts::HardwareTopicTag;
     using axis_tag  = subaxes::cpu_family_tag;
