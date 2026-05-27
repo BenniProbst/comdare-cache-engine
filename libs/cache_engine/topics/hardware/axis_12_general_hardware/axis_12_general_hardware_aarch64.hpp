@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.R7.1 axis_12 Aarch64Hardware — ARM64 (server/mobile/Apple Silicon).
+// V41.F.6.1.R7.1 axis_12 Aarch64HardwareProfile — ARM64 (server/mobile/Apple Silicon).
 //
 // Werte:
 // - cache_line_size = 64 (ARM Cortex-A/Neoverse Standard;
@@ -22,7 +22,7 @@
 
 namespace comdare::cache_engine::hardware::axis_12_general_hardware {
 
-class Aarch64Hardware : public GeneralHardwareStrategyBase<Aarch64Hardware> {
+class Aarch64HardwareProfile : public GeneralHardwareStrategyBase<Aarch64HardwareProfile> {
 public:
     using topic_tag = ::comdare::cache_engine::hardware::concepts::HardwareTopicTag;
     using axis_tag  = subaxes::cpu_family_tag;
@@ -36,7 +36,7 @@ public:
 
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "general_hardware_aarch64"; }
     [[nodiscard]] static constexpr std::string_view family_name()  noexcept {
-        return "Aarch64Hardware (cache_line=64, page=4K, NEON 128-bit SIMD, NUMA + huge-pages capable)";
+        return "Aarch64HardwareProfile (cache_line=64, page=4K, NEON 128-bit SIMD, NUMA + huge-pages capable)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "AARCH64"; }
 
@@ -46,6 +46,6 @@ public:
 }  // namespace comdare::cache_engine::hardware::axis_12_general_hardware
 
 namespace comdare::cache_engine::hardware::axis_12_general_hardware {
-    static_assert(concepts::GeneralHardwareStrategy<Aarch64Hardware>);
-    static_assert(concepts::CacheEnginePermutationStrategy<Aarch64Hardware>);
+    static_assert(concepts::GeneralHardwareStrategy<Aarch64HardwareProfile>);
+    static_assert(concepts::CacheEnginePermutationStrategy<Aarch64HardwareProfile>);
 }

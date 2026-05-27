@@ -40,9 +40,9 @@ namespace mp = boost::mp11;
 // AllPlatforms. AllPlatforms ist die Single-Source-of-Truth fuer die Achse.
 
 using AllPlatforms = mp::mp_list<
-    GenericHardware,
-    X86_64Hardware,
-    Aarch64Hardware
+    GenericHardwareProfile,
+    X86_64HardwareProfile,
+    Aarch64HardwareProfile
 >;
 
 // ─────────────────────────────────────────────────────────────────────────────
