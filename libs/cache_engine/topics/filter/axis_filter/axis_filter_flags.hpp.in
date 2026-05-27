@@ -1,0 +1,16 @@
+#pragma once
+// V41.F.6.1.R7.5.e axis_filter CMake-generierter Flags-Header
+
+#cmakedefine01 COMDARE_AXIS_FILTER_USE_BLOOM
+#cmakedefine01 COMDARE_AXIS_FILTER_USE_CUCKOO
+#cmakedefine01 COMDARE_AXIS_FILTER_USE_RANGE_SURF
+#cmakedefine01 COMDARE_AXIS_FILTER_USE_XOR
+
+namespace comdare::cache_engine::filter::axis_filter::flags {
+
+inline constexpr bool bloom_enabled       = COMDARE_AXIS_FILTER_USE_BLOOM;
+inline constexpr bool cuckoo_enabled      = COMDARE_AXIS_FILTER_USE_CUCKOO;
+inline constexpr bool range_surf_enabled  = COMDARE_AXIS_FILTER_USE_RANGE_SURF;
+inline constexpr bool xor_enabled         = COMDARE_AXIS_FILTER_USE_XOR;
+
+}  // namespace

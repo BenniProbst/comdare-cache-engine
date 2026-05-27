@@ -599,6 +599,18 @@ target_include_directories(test_v41_axis_14_value_handle PRIVATE
 target_link_libraries(test_v41_axis_14_value_handle PRIVATE
     Boost::mp11)
 
+# V41.F.6.1.R7.5.e axis_filter (4 Wrappers + TYPED_TEST_SUITE Pattern aus axis_06_allocator)
+comdare_add_test(test_v41_axis_filter
+    SOURCES test_v41_axis_filter.cpp)
+target_include_directories(test_v41_axis_filter PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    "${CMAKE_BINARY_DIR}/generated/topics/filter/axis_filter")
+target_link_libraries(test_v41_axis_filter PRIVATE
+    Boost::mp11)
+
 # V41.F.6.1.R5.I Tool zur Configure-Time aufrufen + Snippet inline include
 # 2-Pass-Build: 1. cmake-Pass (Tool noch nicht gebaut, Warning) -> Tool bauen ->
 # 2. cmake-Pass (Tool da, Snippet wird generiert + included)
