@@ -6,6 +6,8 @@
 # Tarball in cmake/third_party/googletest-1.15.2.tar.gz abgelegt werden.
 
 include(FetchContent)
+include(fetchcontent_stale_cleanup)
+comdare_clean_stale_fetchcontent_subbuild(googletest)
 
 set(_gtest_local "${CMAKE_SOURCE_DIR}/cmake/third_party/googletest-1.15.2.tar.gz")
 

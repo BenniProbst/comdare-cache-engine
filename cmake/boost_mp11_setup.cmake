@@ -9,6 +9,8 @@
 # Erzeugt INTERFACE-Target Boost::mp11 mit Include-Directory.
 
 include(FetchContent)
+include(fetchcontent_stale_cleanup)
+comdare_clean_stale_fetchcontent_subbuild(boost_mp11)
 
 set(_mp11_local "${CMAKE_SOURCE_DIR}/cmake/third_party/boost_mp11-1.86.0.tar.gz")
 
