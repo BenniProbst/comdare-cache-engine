@@ -60,13 +60,13 @@ using HashLookup           = ::comdare::cache_engine::traversal::axis_03b_cache_
 using DirectPlacement      = ::comdare::cache_engine::traversal::axis_03m_mapping::DirectPlacement;
 using PathCompressionNone  = ::comdare::cache_engine::nodes::axis_02_path_compression::PathCompressionNone;
 using Node256Layout          = ::comdare::cache_engine::nodes::axis_04_node_type::Node256Layout;
-using CacheLineAligned     = ::comdare::cache_engine::memory_layout::axis_05_memory_layout::CacheLineAlignedLayout;
+using CacheLineAligned     = ::comdare::cache_engine::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
 using MimallocAllocator    = ::comdare::cache_engine::allocator::axis_06_allocator::MimallocAllocator;
 using PrefetchNone         = ::comdare::cache_engine::prefetch::axis_07_prefetch::PrefetchNone;
 using OlcOptimistic        = ::comdare::cache_engine::concurrency::axis_08_concurrency::OlcOptimistic;
 using RawBinarySer         = ::comdare::cache_engine::serialization::axis_10_serialization::RawBinarySerialization;
 using LeafOnlyCounter      = ::comdare::cache_engine::telemetry::axis_11_telemetry::LeafOnlyCounter;
-using InlineHandle         = ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineHandle;
+using InlineValueHandle         = ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle;
 using IsaScalar            = ::comdare::cache_engine::hardware::axis_09_isa::IsaScalar;
 using StdMapLike           = ::comdare::cache_engine::search_engine::axis_01_index_organization::StdMapLike;
 using InMemoryOnly         = ::comdare::cache_engine::io::axis_io::InMemoryOnly;
@@ -88,7 +88,7 @@ struct T7_Prefetch       { using StaticAxisVariants = mp::mp_list<PrefetchNone>;
 struct T8_Concurrency    { using StaticAxisVariants = mp::mp_list<OlcOptimistic>; };
 struct T9_Serialization  { using StaticAxisVariants = mp::mp_list<RawBinarySer>; };
 struct T10_Telemetry     { using StaticAxisVariants = mp::mp_list<LeafOnlyCounter>; };
-struct T11_ValueHandle   { using StaticAxisVariants = mp::mp_list<InlineHandle>; };
+struct T11_ValueHandle   { using StaticAxisVariants = mp::mp_list<InlineValueHandle>; };
 struct T12_Isa           { using StaticAxisVariants = mp::mp_list<IsaScalar>; };
 struct T13_IndexOrg      { using StaticAxisVariants = mp::mp_list<StdMapLike>; };
 struct T14_IoDispatch    { using StaticAxisVariants = mp::mp_list<InMemoryOnly>; };
@@ -109,7 +109,7 @@ using PilotDriver = ana::AnatomyPermutationDriver<
 using AdHocArt = ana::AdHocComposition<
     Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256Layout,
     CacheLineAligned, MimallocAllocator, PrefetchNone, OlcOptimistic, RawBinarySer,
-    LeafOnlyCounter, InlineHandle, IsaScalar, StdMapLike, InMemoryOnly,
+    LeafOnlyCounter, InlineValueHandle, IsaScalar, StdMapLike, InMemoryOnly,
     NoMigration, BloomFilter
 >;
 
@@ -135,7 +135,7 @@ TEST(AnatomyR4_Factory, AdHocCompositionInstantiatesAnatomy) {
 using SamplePermTuple = pe::PermTuple<
     Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256Layout,
     CacheLineAligned, MimallocAllocator, PrefetchNone, OlcOptimistic, RawBinarySer,
-    LeafOnlyCounter, InlineHandle, IsaScalar, StdMapLike, InMemoryOnly,
+    LeafOnlyCounter, InlineValueHandle, IsaScalar, StdMapLike, InMemoryOnly,
     NoMigration, BloomFilter
 >;
 

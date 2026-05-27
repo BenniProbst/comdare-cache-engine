@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.R7.1.b axis_05 AoSStrictLayout Wrapper
+// V41.F.6.1.R7.1.b axis_05 AoSStrictMemoryLayout Wrapper
 
 #include "axis_05_memory_layout_strategy_base.hpp"
 #include "axis_05_memory_layout_subaxes_hm1_to_hm4.hpp"
@@ -11,10 +11,10 @@
 
 namespace comdare::cache_engine::memory_layout::axis_05_memory_layout {
 
-/// AoSStrictLayout — Array-of-Structs, packed (ohne Cache-Line Padding).
+/// AoSStrictMemoryLayout — Array-of-Structs, packed (ohne Cache-Line Padding).
 /// Vorteil: kompakte Daten. Nachteil: False-Sharing + schlechter Cache-Line-Hit
 /// bei concurrent Schreibern. Typischer Wormhole-Layout (strict AoS).
-class AoSStrictLayout : public MemoryLayoutStrategyBase<AoSStrictLayout> {
+class AoSStrictMemoryLayout : public MemoryLayoutStrategyBase<AoSStrictMemoryLayout> {
 public:
     using topic_tag  = ::comdare::cache_engine::memory_layout::concepts::MemoryLayoutTopicTag;
     using axis_tag   = subaxes::data_organization_tag;
@@ -24,13 +24,13 @@ public:
 
     [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return 1; }  // strict packed, kein alignment
     [[nodiscard]] static constexpr std::string_view name()            noexcept { return "memory_layout_aos_strict"; }
-    [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "AoSStrictLayout (strict packed, no cache-line alignment, dense)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "AoSStrictMemoryLayout (strict packed, no cache-line alignment, dense)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()     noexcept { return "AOS_STRICT"; }
 };
 
 }  // namespace
 
 namespace comdare::cache_engine::memory_layout::axis_05_memory_layout {
-    static_assert(concepts::MemoryLayoutStrategy<AoSStrictLayout>);
-    static_assert(concepts::CacheEnginePermutationStrategy<AoSStrictLayout>);
+    static_assert(concepts::MemoryLayoutStrategy<AoSStrictMemoryLayout>);
+    static_assert(concepts::CacheEnginePermutationStrategy<AoSStrictMemoryLayout>);
 }

@@ -16,10 +16,10 @@ namespace comdare::cache_engine::value_handle::axis_14_value_handle {
 namespace mp = boost::mp11;
 
 using AllHandles = mp::mp_list<
-    InlineHandle,
-    ExternalPoolHandle,
-    ImmutableSharedRefHandle,
-    VersionedPointerHandle
+    InlineValueHandle,
+    ExternalPoolValueHandle,
+    ImmutableSharedRefValueHandle,
+    VersionedPointerValueHandle
 >;
 
 template <typename T>

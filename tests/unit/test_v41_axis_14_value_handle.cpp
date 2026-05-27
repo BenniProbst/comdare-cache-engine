@@ -23,38 +23,38 @@ namespace vh   = ::comdare::cache_engine::value_handle;
 namespace mp   = ::boost::mp11;
 
 TEST(R7_5_d_Axis14, AllHandlesSatisfyConcepts) {
-    static_assert(ax14::concepts::ValueHandleStrategy<ax14::InlineHandle>);
-    static_assert(ax14::concepts::ValueHandleStrategy<ax14::ExternalPoolHandle>);
-    static_assert(ax14::concepts::ValueHandleStrategy<ax14::ImmutableSharedRefHandle>);
-    static_assert(ax14::concepts::ValueHandleStrategy<ax14::VersionedPointerHandle>);
-    static_assert(ax14::concepts::CacheEnginePermutationStrategy<ax14::InlineHandle>);
-    static_assert(ax14::concepts::CacheEnginePermutationStrategy<ax14::ExternalPoolHandle>);
-    static_assert(ax14::concepts::CacheEnginePermutationStrategy<ax14::ImmutableSharedRefHandle>);
-    static_assert(ax14::concepts::CacheEnginePermutationStrategy<ax14::VersionedPointerHandle>);
+    static_assert(ax14::concepts::ValueHandleStrategy<ax14::InlineValueHandle>);
+    static_assert(ax14::concepts::ValueHandleStrategy<ax14::ExternalPoolValueHandle>);
+    static_assert(ax14::concepts::ValueHandleStrategy<ax14::ImmutableSharedRefValueHandle>);
+    static_assert(ax14::concepts::ValueHandleStrategy<ax14::VersionedPointerValueHandle>);
+    static_assert(ax14::concepts::CacheEnginePermutationStrategy<ax14::InlineValueHandle>);
+    static_assert(ax14::concepts::CacheEnginePermutationStrategy<ax14::ExternalPoolValueHandle>);
+    static_assert(ax14::concepts::CacheEnginePermutationStrategy<ax14::ImmutableSharedRefValueHandle>);
+    static_assert(ax14::concepts::CacheEnginePermutationStrategy<ax14::VersionedPointerValueHandle>);
     SUCCEED();
 }
 
 TEST(R7_5_d_Axis14, IsInlineDifferentiated) {
-    static_assert(ax14::InlineHandle::is_inline()              == true);
-    static_assert(ax14::ExternalPoolHandle::is_inline()        == false);
-    static_assert(ax14::ImmutableSharedRefHandle::is_inline()  == false);
-    static_assert(ax14::VersionedPointerHandle::is_inline()    == false);
+    static_assert(ax14::InlineValueHandle::is_inline()              == true);
+    static_assert(ax14::ExternalPoolValueHandle::is_inline()        == false);
+    static_assert(ax14::ImmutableSharedRefValueHandle::is_inline()  == false);
+    static_assert(ax14::VersionedPointerValueHandle::is_inline()    == false);
     SUCCEED();
 }
 
 TEST(R7_5_d_Axis14, FlagSuffixUppercase) {
-    static_assert(ax14::InlineHandle::flag_suffix()              == std::string_view{"INLINE"});
-    static_assert(ax14::ExternalPoolHandle::flag_suffix()        == std::string_view{"EXTERNAL_POOL"});
-    static_assert(ax14::ImmutableSharedRefHandle::flag_suffix()  == std::string_view{"IMMUTABLE_SHARED_REF"});
-    static_assert(ax14::VersionedPointerHandle::flag_suffix()    == std::string_view{"VERSIONED_POINTER"});
+    static_assert(ax14::InlineValueHandle::flag_suffix()              == std::string_view{"INLINE"});
+    static_assert(ax14::ExternalPoolValueHandle::flag_suffix()        == std::string_view{"EXTERNAL_POOL"});
+    static_assert(ax14::ImmutableSharedRefValueHandle::flag_suffix()  == std::string_view{"IMMUTABLE_SHARED_REF"});
+    static_assert(ax14::VersionedPointerValueHandle::flag_suffix()    == std::string_view{"VERSIONED_POINTER"});
     SUCCEED();
 }
 
 TEST(R7_5_d_Axis14, SubaxesOrthogonal) {
-    static_assert(std::is_same_v<ax14::InlineHandle::axis_tag,             ax14::subaxes::storage_location_tag>);
-    static_assert(std::is_same_v<ax14::ExternalPoolHandle::axis_tag,       ax14::subaxes::storage_location_tag>);
-    static_assert(std::is_same_v<ax14::ImmutableSharedRefHandle::axis_tag, ax14::subaxes::ownership_tag>);
-    static_assert(std::is_same_v<ax14::VersionedPointerHandle::axis_tag,   ax14::subaxes::versioning_tag>);
+    static_assert(std::is_same_v<ax14::InlineValueHandle::axis_tag,             ax14::subaxes::storage_location_tag>);
+    static_assert(std::is_same_v<ax14::ExternalPoolValueHandle::axis_tag,       ax14::subaxes::storage_location_tag>);
+    static_assert(std::is_same_v<ax14::ImmutableSharedRefValueHandle::axis_tag, ax14::subaxes::ownership_tag>);
+    static_assert(std::is_same_v<ax14::VersionedPointerValueHandle::axis_tag,   ax14::subaxes::versioning_tag>);
     SUCCEED();
 }
 
@@ -65,10 +65,10 @@ TEST(R7_5_d_Axis14, RegistryHas4Handles) {
 }
 
 TEST(R7_5_d_Axis14, FamilyIdsDistinct) {
-    static_assert(ax14::InlineHandle::family_id::value             == 1);
-    static_assert(ax14::ExternalPoolHandle::family_id::value       == 2);
-    static_assert(ax14::ImmutableSharedRefHandle::family_id::value == 3);
-    static_assert(ax14::VersionedPointerHandle::family_id::value   == 4);
+    static_assert(ax14::InlineValueHandle::family_id::value             == 1);
+    static_assert(ax14::ExternalPoolValueHandle::family_id::value       == 2);
+    static_assert(ax14::ImmutableSharedRefValueHandle::family_id::value == 3);
+    static_assert(ax14::VersionedPointerValueHandle::family_id::value   == 4);
     SUCCEED();
 }
 
