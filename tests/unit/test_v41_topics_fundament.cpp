@@ -31,7 +31,7 @@ namespace ce_concepts = ::comdare::cache_engine::concepts;
 // Phase F1 Type-Aliases
 using PathCompressionNone   = ::comdare::cache_engine::nodes::axis_02_path_compression::PathCompressionNone;
 using Node256Layout           = ::comdare::cache_engine::nodes::axis_04_node_type::Node256Layout;
-using CacheLineAlignedLayout = ::comdare::cache_engine::memory_layout::axis_05_memory_layout::CacheLineAlignedLayout;
+using CacheLineAlignedMemoryLayout = ::comdare::cache_engine::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
 using OlcOptimistic         = ::comdare::cache_engine::concurrency::axis_08_concurrency::OlcOptimistic;
 using PrefetchNone          = ::comdare::cache_engine::prefetch::axis_07_prefetch::PrefetchNone;
 
@@ -53,9 +53,9 @@ TEST(PhaseF1_Nodes, Node256LayoutAxisBase) {
 }
 
 TEST(PhaseF1_MemoryLayout, CacheLineAlignedAxisBase) {
-    static_assert(ce_topics::AxisBaseConcept<CacheLineAlignedLayout>);
-    static_assert(ce_concepts::LegacyOriginalCodePflicht<CacheLineAlignedLayout>);
-    static_assert(CacheLineAlignedLayout::cache_line_size() == 64);
+    static_assert(ce_topics::AxisBaseConcept<CacheLineAlignedMemoryLayout>);
+    static_assert(ce_concepts::LegacyOriginalCodePflicht<CacheLineAlignedMemoryLayout>);
+    static_assert(CacheLineAlignedMemoryLayout::cache_line_size() == 64);
     SUCCEED();
 }
 
@@ -81,7 +81,7 @@ TEST(PhaseF1_Prefetch, PrefetchNoneAxisBase) {
 TEST(PhaseF1_CrossTopic, AllUseAxisBaseDefaultCompiler) {
     static_assert(PathCompressionNone::get_compiler() == std::string_view{"original"});
     static_assert(Node256Layout::get_compiler() == std::string_view{"original"});
-    static_assert(CacheLineAlignedLayout::get_compiler() == std::string_view{"original"});
+    static_assert(CacheLineAlignedMemoryLayout::get_compiler() == std::string_view{"original"});
     static_assert(OlcOptimistic::get_compiler() == std::string_view{"original"});
     static_assert(PrefetchNone::get_compiler() == std::string_view{"original"});
     SUCCEED();
@@ -90,7 +90,7 @@ TEST(PhaseF1_CrossTopic, AllUseAxisBaseDefaultCompiler) {
 TEST(PhaseF1_CrossTopic, AllUseAxisBaseDefaultIsOriginalModule) {
     static_assert(!PathCompressionNone::is_original_module());
     static_assert(!Node256Layout::is_original_module());
-    static_assert(!CacheLineAlignedLayout::is_original_module());
+    static_assert(!CacheLineAlignedMemoryLayout::is_original_module());
     static_assert(!OlcOptimistic::is_original_module());
     static_assert(!PrefetchNone::is_original_module());
     SUCCEED();
@@ -102,7 +102,7 @@ TEST(PhaseF1_CrossTopic, AllUseAxisBaseDefaultIsOriginalModule) {
 
 using LeafOnlyCounter        = ::comdare::cache_engine::telemetry::axis_11_telemetry::LeafOnlyCounter;
 using RawBinarySerialization = ::comdare::cache_engine::serialization::axis_10_serialization::RawBinarySerialization;
-using InlineHandle           = ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineHandle;
+using InlineValueHandle           = ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle;
 using IsaScalar              = ::comdare::cache_engine::hardware::axis_09_isa::IsaScalar;
 
 TEST(PhaseF2_Telemetry, LeafOnlyCounterAxisBase) {
@@ -116,8 +116,8 @@ TEST(PhaseF2_Serialization, RawBinaryAxisBase) {
     SUCCEED();
 }
 TEST(PhaseF2_ValueHandle, InlineHandleAxisBase) {
-    static_assert(ce_topics::AxisBaseConcept<InlineHandle>);
-    static_assert(InlineHandle::is_inline());
+    static_assert(ce_topics::AxisBaseConcept<InlineValueHandle>);
+    static_assert(InlineValueHandle::is_inline());
     SUCCEED();
 }
 TEST(PhaseF2_Hardware, IsaScalarAxisBase) {
@@ -165,13 +165,13 @@ TEST(AllTopicsCoverage, ThirteenAxisWrappersAllUseAxisBaseDefaults) {
     // 5 Phase F1
     static_assert(PathCompressionNone::get_compiler() == std::string_view{"original"});
     static_assert(Node256Layout::get_compiler() == std::string_view{"original"});
-    static_assert(CacheLineAlignedLayout::get_compiler() == std::string_view{"original"});
+    static_assert(CacheLineAlignedMemoryLayout::get_compiler() == std::string_view{"original"});
     static_assert(OlcOptimistic::get_compiler() == std::string_view{"original"});
     static_assert(PrefetchNone::get_compiler() == std::string_view{"original"});
     // 4 Phase F2
     static_assert(LeafOnlyCounter::get_compiler() == std::string_view{"original"});
     static_assert(RawBinarySerialization::get_compiler() == std::string_view{"original"});
-    static_assert(InlineHandle::get_compiler() == std::string_view{"original"});
+    static_assert(InlineValueHandle::get_compiler() == std::string_view{"original"});
     static_assert(IsaScalar::get_compiler() == std::string_view{"original"});
     // 4 Phase F3
     static_assert(StdMapLike::get_compiler() == std::string_view{"original"});

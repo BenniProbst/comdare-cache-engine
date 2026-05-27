@@ -32,10 +32,10 @@ namespace mp = boost::mp11;
 // (1) AllLayouts — komplette statische Liste aller bekannten Layout-Wrapper
 // ─────────────────────────────────────────────────────────────────────────────
 using AllLayouts = mp::mp_list<
-    CacheLineAlignedLayout,
-    AoSStrictLayout,
-    SoALayout,
-    PackedBitmapLayout
+    CacheLineAlignedMemoryLayout,
+    AoSStrictMemoryLayout,
+    SoAMemoryLayout,
+    PackedBitmapMemoryLayout
 >;
 
 // ─────────────────────────────────────────────────────────────────────────────

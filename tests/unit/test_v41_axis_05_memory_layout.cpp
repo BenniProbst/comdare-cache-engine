@@ -40,10 +40,10 @@ namespace mp   = ::boost::mp11;
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R7_1_b_Axis05, AllWrappersConformToMemoryLayoutStrategy) {
-    static_assert(ax05::concepts::MemoryLayoutStrategy<ax05::CacheLineAlignedLayout>);
-    static_assert(ax05::concepts::MemoryLayoutStrategy<ax05::AoSStrictLayout>);
-    static_assert(ax05::concepts::MemoryLayoutStrategy<ax05::SoALayout>);
-    static_assert(ax05::concepts::MemoryLayoutStrategy<ax05::PackedBitmapLayout>);
+    static_assert(ax05::concepts::MemoryLayoutStrategy<ax05::CacheLineAlignedMemoryLayout>);
+    static_assert(ax05::concepts::MemoryLayoutStrategy<ax05::AoSStrictMemoryLayout>);
+    static_assert(ax05::concepts::MemoryLayoutStrategy<ax05::SoAMemoryLayout>);
+    static_assert(ax05::concepts::MemoryLayoutStrategy<ax05::PackedBitmapMemoryLayout>);
     SUCCEED();
 }
 
@@ -52,26 +52,26 @@ TEST(R7_1_b_Axis05, AllWrappersConformToMemoryLayoutStrategy) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R7_1_b_Axis05, CacheLineAlignedHasStandard64ByteAlignment) {
-    static_assert(ax05::CacheLineAlignedLayout::cache_line_size() == 64);
-    static_assert(ax05::CacheLineAlignedLayout::name() == std::string_view{"memory_layout_cache_line_aligned"});
+    static_assert(ax05::CacheLineAlignedMemoryLayout::cache_line_size() == 64);
+    static_assert(ax05::CacheLineAlignedMemoryLayout::name() == std::string_view{"memory_layout_cache_line_aligned"});
     SUCCEED();
 }
 
 TEST(R7_1_b_Axis05, AoSStrictHasPackedAlignment) {
-    static_assert(ax05::AoSStrictLayout::cache_line_size() == 1);
-    static_assert(ax05::AoSStrictLayout::name() == std::string_view{"memory_layout_aos_strict"});
+    static_assert(ax05::AoSStrictMemoryLayout::cache_line_size() == 1);
+    static_assert(ax05::AoSStrictMemoryLayout::name() == std::string_view{"memory_layout_aos_strict"});
     SUCCEED();
 }
 
 TEST(R7_1_b_Axis05, SoAHas64ByteAlignment) {
-    static_assert(ax05::SoALayout::cache_line_size() == 64);
-    static_assert(ax05::SoALayout::name() == std::string_view{"memory_layout_soa"});
+    static_assert(ax05::SoAMemoryLayout::cache_line_size() == 64);
+    static_assert(ax05::SoAMemoryLayout::name() == std::string_view{"memory_layout_soa"});
     SUCCEED();
 }
 
 TEST(R7_1_b_Axis05, PackedBitmapHas8ByteWordAlignment) {
-    static_assert(ax05::PackedBitmapLayout::cache_line_size() == 8);
-    static_assert(ax05::PackedBitmapLayout::name() == std::string_view{"memory_layout_packed_bitmap"});
+    static_assert(ax05::PackedBitmapMemoryLayout::cache_line_size() == 8);
+    static_assert(ax05::PackedBitmapMemoryLayout::name() == std::string_view{"memory_layout_packed_bitmap"});
     SUCCEED();
 }
 
@@ -80,10 +80,10 @@ TEST(R7_1_b_Axis05, PackedBitmapHas8ByteWordAlignment) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R7_1_b_Axis05, AllWrappersSatisfyCacheEnginePermutationConcept) {
-    static_assert(ax05::concepts::CacheEnginePermutationStrategy<ax05::CacheLineAlignedLayout>);
-    static_assert(ax05::concepts::CacheEnginePermutationStrategy<ax05::AoSStrictLayout>);
-    static_assert(ax05::concepts::CacheEnginePermutationStrategy<ax05::SoALayout>);
-    static_assert(ax05::concepts::CacheEnginePermutationStrategy<ax05::PackedBitmapLayout>);
+    static_assert(ax05::concepts::CacheEnginePermutationStrategy<ax05::CacheLineAlignedMemoryLayout>);
+    static_assert(ax05::concepts::CacheEnginePermutationStrategy<ax05::AoSStrictMemoryLayout>);
+    static_assert(ax05::concepts::CacheEnginePermutationStrategy<ax05::SoAMemoryLayout>);
+    static_assert(ax05::concepts::CacheEnginePermutationStrategy<ax05::PackedBitmapMemoryLayout>);
     SUCCEED();
 }
 
@@ -92,10 +92,10 @@ TEST(R7_1_b_Axis05, AllWrappersSatisfyCacheEnginePermutationConcept) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R7_1_b_Axis05, SubaxesTagsAreOrthogonal) {
-    static_assert(std::is_same_v<ax05::CacheLineAlignedLayout::axis_tag, ax05::subaxes::alignment_strategy_tag>);
-    static_assert(std::is_same_v<ax05::AoSStrictLayout::axis_tag,        ax05::subaxes::data_organization_tag>);
-    static_assert(std::is_same_v<ax05::SoALayout::axis_tag,              ax05::subaxes::data_organization_tag>);
-    static_assert(std::is_same_v<ax05::PackedBitmapLayout::axis_tag,     ax05::subaxes::packing_density_tag>);
+    static_assert(std::is_same_v<ax05::CacheLineAlignedMemoryLayout::axis_tag, ax05::subaxes::alignment_strategy_tag>);
+    static_assert(std::is_same_v<ax05::AoSStrictMemoryLayout::axis_tag,        ax05::subaxes::data_organization_tag>);
+    static_assert(std::is_same_v<ax05::SoAMemoryLayout::axis_tag,              ax05::subaxes::data_organization_tag>);
+    static_assert(std::is_same_v<ax05::PackedBitmapMemoryLayout::axis_tag,     ax05::subaxes::packing_density_tag>);
     SUCCEED();
 }
 
@@ -104,10 +104,10 @@ TEST(R7_1_b_Axis05, SubaxesTagsAreOrthogonal) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R7_1_b_Axis05, FlagSuffixUppercase) {
-    static_assert(ax05::CacheLineAlignedLayout::flag_suffix() == std::string_view{"CACHE_LINE_ALIGNED"});
-    static_assert(ax05::AoSStrictLayout::flag_suffix()        == std::string_view{"AOS_STRICT"});
-    static_assert(ax05::SoALayout::flag_suffix()              == std::string_view{"SOA"});
-    static_assert(ax05::PackedBitmapLayout::flag_suffix()     == std::string_view{"PACKED_BITMAP"});
+    static_assert(ax05::CacheLineAlignedMemoryLayout::flag_suffix() == std::string_view{"CACHE_LINE_ALIGNED"});
+    static_assert(ax05::AoSStrictMemoryLayout::flag_suffix()        == std::string_view{"AOS_STRICT"});
+    static_assert(ax05::SoAMemoryLayout::flag_suffix()              == std::string_view{"SOA"});
+    static_assert(ax05::PackedBitmapMemoryLayout::flag_suffix()     == std::string_view{"PACKED_BITMAP"});
     SUCCEED();
 }
 
@@ -131,10 +131,10 @@ TEST(R7_1_b_Axis05, EnabledLayoutsIsNonEmpty) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R7_1_b_Axis05, IsEnabledPredicateMatchesWrapperFlag) {
-    static_assert(ax05::is_enabled<ax05::CacheLineAlignedLayout>::value == ax05::CacheLineAlignedLayout::enabled);
-    static_assert(ax05::is_enabled<ax05::AoSStrictLayout>::value        == ax05::AoSStrictLayout::enabled);
-    static_assert(ax05::is_enabled<ax05::SoALayout>::value              == ax05::SoALayout::enabled);
-    static_assert(ax05::is_enabled<ax05::PackedBitmapLayout>::value     == ax05::PackedBitmapLayout::enabled);
+    static_assert(ax05::is_enabled<ax05::CacheLineAlignedMemoryLayout>::value == ax05::CacheLineAlignedMemoryLayout::enabled);
+    static_assert(ax05::is_enabled<ax05::AoSStrictMemoryLayout>::value        == ax05::AoSStrictMemoryLayout::enabled);
+    static_assert(ax05::is_enabled<ax05::SoAMemoryLayout>::value              == ax05::SoAMemoryLayout::enabled);
+    static_assert(ax05::is_enabled<ax05::PackedBitmapMemoryLayout>::value     == ax05::PackedBitmapMemoryLayout::enabled);
     SUCCEED();
 }
 
@@ -163,9 +163,9 @@ TEST(R7_1_b_MemoryLayout, TopicConfigSetExposesAxis05) {
 }
 
 TEST(R7_1_b_MemoryLayout, AllFourLayoutsInstantiable) {
-    [[maybe_unused]] ax05::CacheLineAlignedLayout cla;
-    [[maybe_unused]] ax05::AoSStrictLayout        aos;
-    [[maybe_unused]] ax05::SoALayout              soa;
-    [[maybe_unused]] ax05::PackedBitmapLayout     pbm;
+    [[maybe_unused]] ax05::CacheLineAlignedMemoryLayout cla;
+    [[maybe_unused]] ax05::AoSStrictMemoryLayout        aos;
+    [[maybe_unused]] ax05::SoAMemoryLayout              soa;
+    [[maybe_unused]] ax05::PackedBitmapMemoryLayout     pbm;
     SUCCEED();
 }
