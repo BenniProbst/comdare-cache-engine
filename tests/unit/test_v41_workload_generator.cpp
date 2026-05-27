@@ -186,9 +186,9 @@ TEST(R6A_BulkApi, RemainingDecrements) {
     wd::WorkloadGenerator g{cfg};
 
     EXPECT_EQ(g.remaining(), 10u);
-    g.next();
+    (void)g.next();                              // [[nodiscard]]-result intentionally discarded
     EXPECT_EQ(g.remaining(), 9u);
-    for (int i = 0; i < 9; ++i) g.next();
+    for (int i = 0; i < 9; ++i) (void)g.next();  // siehe oben
     EXPECT_EQ(g.remaining(), 0u);
     EXPECT_EQ(g.generated_count(), 10u);
 }
