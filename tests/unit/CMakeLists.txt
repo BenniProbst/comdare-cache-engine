@@ -522,7 +522,8 @@ target_include_directories(test_v41_axis_12_general_hardware PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware")
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware"
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09_isa")
 target_link_libraries(test_v41_axis_12_general_hardware PRIVATE
     Boost::mp11)
 
@@ -645,6 +646,18 @@ target_include_directories(test_v41_axis_01_index_organization PRIVATE
     "${CMAKE_BINARY_DIR}/generated"
     "${CMAKE_BINARY_DIR}/generated/topics/search_engine/axis_01_index_organization")
 target_link_libraries(test_v41_axis_01_index_organization PRIVATE
+    Boost::mp11)
+
+# V41.F.6.1.R7.5.i axis_09 ISA (4 SIMD-Wrappers + TYPED_TEST_SUITE)
+comdare_add_test(test_v41_axis_09_isa
+    SOURCES test_v41_axis_09_isa.cpp)
+target_include_directories(test_v41_axis_09_isa PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09_isa")
+target_link_libraries(test_v41_axis_09_isa PRIVATE
     Boost::mp11)
 
 # V41.F.6.1.R5.I Tool zur Configure-Time aufrufen + Snippet inline include

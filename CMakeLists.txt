@@ -203,6 +203,12 @@ option(COMDARE_AXIS_01_ENABLE_CLUSTERED             "IndexOrg Clustered (Index-O
 option(COMDARE_AXIS_01_ENABLE_NON_CLUSTERED         "IndexOrg NonClustered (Secondary Index, SQL Server/PostgreSQL)" ON)
 option(COMDARE_AXIS_01_ENABLE_INDEX_ORGANIZED_TABLE "IndexOrg IOT (data in B+Tree leaves, Oracle IOT, ART/HOT-style)" ON)
 
+# V41.F.6.1.R7.5.i axis_09 ISA (4 SIMD-Widths)
+option(COMDARE_AXIS_09_ENABLE_SCALAR "ISA Scalar (no SIMD baseline)" ON)
+option(COMDARE_AXIS_09_ENABLE_SSE2   "ISA SSE2 128-bit (x86_64 ABI-baseline)" ON)
+option(COMDARE_AXIS_09_ENABLE_AVX2   "ISA AVX2 256-bit (Haswell+ 2013)" ON)
+option(COMDARE_AXIS_09_ENABLE_NEON   "ISA NEON 128-bit (ARMv8+ AArch64)" ON)
+
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
 # aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
@@ -787,6 +793,20 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/search_engine/axis_01_index_organization/axis_01_index_organization_flags.hpp"
     @ONLY)
 message(STATUS "  axis_01 (4 clusterings): HEAP=${COMDARE_AXIS_01_USE_HEAP} CLUSTERED=${COMDARE_AXIS_01_USE_CLUSTERED} NON_CLUSTERED=${COMDARE_AXIS_01_USE_NON_CLUSTERED} IOT=${COMDARE_AXIS_01_USE_INDEX_ORGANIZED_TABLE}")
+
+# V41.F.6.1.R7.5.i axis_09 ISA Flags (USE = ENABLE)
+foreach(_isa SCALAR SSE2 AVX2 NEON)
+    if(COMDARE_AXIS_09_ENABLE_${_isa})
+        set(COMDARE_AXIS_09_USE_${_isa} 1)
+    else()
+        set(COMDARE_AXIS_09_USE_${_isa} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/hardware/axis_09_isa/axis_09_isa_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/hardware/axis_09_isa/axis_09_isa_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_09 (4 ISAs): SCALAR=${COMDARE_AXIS_09_USE_SCALAR} SSE2=${COMDARE_AXIS_09_USE_SSE2} AVX2=${COMDARE_AXIS_09_USE_AVX2} NEON=${COMDARE_AXIS_09_USE_NEON}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung
