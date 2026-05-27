@@ -138,6 +138,12 @@ option(COMDARE_AXIS_12_ENABLE_GENERIC "General-Hardware Generic (conservative de
 option(COMDARE_AXIS_12_ENABLE_X86_64  "General-Hardware X86_64 (AVX2 256-bit, NUMA, hugepage)" ON)
 option(COMDARE_AXIS_12_ENABLE_AARCH64 "General-Hardware Aarch64 (NEON 128-bit, NUMA, hugepage)" ON)
 
+# V41.F.6.1.R7.1.b axis_05 Memory-Layout (4 Layouts, Goldstandard-konform)
+option(COMDARE_AXIS_05_ENABLE_CACHE_LINE_ALIGNED "Memory-Layout CacheLineAligned (64B AoS, standard cache architectures)" ON)
+option(COMDARE_AXIS_05_ENABLE_AOS_STRICT         "Memory-Layout AoSStrict (packed AoS, dense, Wormhole-style)" ON)
+option(COMDARE_AXIS_05_ENABLE_SOA                "Memory-Layout SoA (Struct-of-Arrays, SIMD-friendly, columnar)" ON)
+option(COMDARE_AXIS_05_ENABLE_PACKED_BITMAP      "Memory-Layout PackedBitmap (bit-packed succinct, LOUDS/SuRF)" ON)
+
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
 # aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
@@ -567,6 +573,21 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware/axis_12_general_hardware_flags.hpp"
     @ONLY)
 message(STATUS "  axis_12 (3 platforms): GENERIC=${COMDARE_AXIS_12_USE_GENERIC} X86_64=${COMDARE_AXIS_12_USE_X86_64} AARCH64=${COMDARE_AXIS_12_USE_AARCH64}")
+
+# V41.F.6.1.R7.1.b axis_05 Memory-Layout Flags (USE = ENABLE; alle Layouts sind
+# reine Konfigurations-Templates, kein Runtime-Detection-Gate noetig)
+foreach(_l CACHE_LINE_ALIGNED AOS_STRICT SOA PACKED_BITMAP)
+    if(COMDARE_AXIS_05_ENABLE_${_l})
+        set(COMDARE_AXIS_05_USE_${_l} 1)
+    else()
+        set(COMDARE_AXIS_05_USE_${_l} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_05 (4 layouts): CACHE_LINE_ALIGNED=${COMDARE_AXIS_05_USE_CACHE_LINE_ALIGNED} AOS_STRICT=${COMDARE_AXIS_05_USE_AOS_STRICT} SOA=${COMDARE_AXIS_05_USE_SOA} PACKED_BITMAP=${COMDARE_AXIS_05_USE_PACKED_BITMAP}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung

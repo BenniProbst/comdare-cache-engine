@@ -1,0 +1,20 @@
+#pragma once
+// V41.F.6.1.R7.1.b axis_05_memory_layout CMake-generierter Flags-Header
+//
+// Generiert via configure_file aus axis_05_memory_layout_flags.hpp.in.
+// Wird vom Registry konsumiert um EnabledLayouts zur Compile-Zeit zu
+// filtern (mp_filter).
+
+#cmakedefine01 COMDARE_AXIS_05_USE_CACHE_LINE_ALIGNED
+#cmakedefine01 COMDARE_AXIS_05_USE_AOS_STRICT
+#cmakedefine01 COMDARE_AXIS_05_USE_SOA
+#cmakedefine01 COMDARE_AXIS_05_USE_PACKED_BITMAP
+
+namespace comdare::cache_engine::memory_layout::axis_05_memory_layout::flags {
+
+inline constexpr bool cache_line_aligned_enabled = COMDARE_AXIS_05_USE_CACHE_LINE_ALIGNED;
+inline constexpr bool aos_strict_enabled         = COMDARE_AXIS_05_USE_AOS_STRICT;
+inline constexpr bool soa_enabled                = COMDARE_AXIS_05_USE_SOA;
+inline constexpr bool packed_bitmap_enabled      = COMDARE_AXIS_05_USE_PACKED_BITMAP;
+
+}  // namespace
