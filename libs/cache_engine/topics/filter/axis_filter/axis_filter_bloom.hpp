@@ -1,5 +1,12 @@
 #pragma once
 // V41.F.6.1.R7.5.e axis_filter BloomFilter (Goldstandard-Update, Bloom 1970)
+//
+// R7.6 Paper-Reference (Task #723):
+// Bloom, B.H. "Space/Time Trade-offs in Hash Coding with Allowable Errors."
+// Communications of the ACM, Vol. 13, No. 7, July 1970, pp. 422-426.
+// DOI: 10.1145/362686.362692
+// Klassisches Paper, kein Open-Source-Original (Re-Impl basierend auf
+// Pseudocode in Paper §3).
 
 #include "axis_filter_strategy_base.hpp"
 #include "axis_filter_subaxes_ft1_to_ft3.hpp"
