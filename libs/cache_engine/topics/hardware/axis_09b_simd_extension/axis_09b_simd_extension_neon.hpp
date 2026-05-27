@@ -31,6 +31,10 @@ public:
     [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "simd_ext_neon"; }
     [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "NeonSimdExtension (ARM AdvSIMD 128-bit, AArch64 ABI-baseline, Apple M/Graviton)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "NEON"; }
+
+    // ─── R7.7.c Topologie: 1 NEON-Unit/Sockel, ARM big.LITTLE alle Cores ────
+    [[nodiscard]] static constexpr int  units_per_socket()                  noexcept { return 1; }
+    [[nodiscard]] static constexpr bool accessible_from_efficiency_cores() noexcept { return true; }
 };
 
 }  // namespace

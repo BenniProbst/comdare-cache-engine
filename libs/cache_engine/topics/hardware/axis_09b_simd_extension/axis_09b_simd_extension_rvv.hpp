@@ -32,6 +32,10 @@ public:
     [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "simd_ext_rvv"; }
     [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "RvvSimdExtension (RISC-V Vector v1.0 scalable VLEN, SiFive/T-Head)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "RVV"; }
+
+    // ─── R7.7.c Topologie: 1 RVV-Unit/Sockel (SiFive/T-Head: alle Cores) ────
+    [[nodiscard]] static constexpr int  units_per_socket()                  noexcept { return 1; }
+    [[nodiscard]] static constexpr bool accessible_from_efficiency_cores() noexcept { return true; }
 };
 
 }  // namespace

@@ -30,6 +30,15 @@ public:
     [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "simd_ext_sse2"; }
     [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "Sse2SimdExtension (x86_64 ABI-baseline 128-bit, nur Amd64-compat)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "SSE2"; }
+
+    // ─── R7.7.b SSE-Schichten (Baseline: nur SSE+SSE2) ───────────────────────
+    [[nodiscard]] static constexpr bool provides_sse()              noexcept { return true; }
+    [[nodiscard]] static constexpr bool provides_sse2()             noexcept { return true; }
+    // SSE3+ false (Defaults aus Base) — explizit ABI-baseline ist nur SSE2
+
+    // ─── R7.7.c Topologie: typisch 2 SSE-Units/Sockel, alle Cores (auch E) ──
+    [[nodiscard]] static constexpr int  units_per_socket()                  noexcept { return 2; }
+    [[nodiscard]] static constexpr bool accessible_from_efficiency_cores() noexcept { return true; }
 };
 
 }  // namespace

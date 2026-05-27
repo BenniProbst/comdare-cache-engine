@@ -145,3 +145,124 @@ TEST(R7_5_j_Hardware, TopicConfigSetExposesAxis09bWith8Extensions) {
     static_assert(prod_count == isa_count * ext_count * plat_count);
     SUCCEED();
 }
+
+// ─── R7.7.b SSE/AVX/AVX-512 Schichten-Modell (rueckwaerts-kumulativ) ───
+// Doku 15 §4: SSE → SSE2 → SSE3 → SSSE3 → SSE4.1 → SSE4.2 → AVX → AVX2 → AVX-512F
+// Annahme: hoehere Schicht impliziert alle Vorgaenger-Schichten = true.
+
+TEST(R7_7_b_Sse2_Layers, OnlySseAndSse2Provided) {
+    static_assert(ax09b::Sse2SimdExtension::provides_sse());
+    static_assert(ax09b::Sse2SimdExtension::provides_sse2());
+    static_assert(!ax09b::Sse2SimdExtension::provides_sse3());
+    static_assert(!ax09b::Sse2SimdExtension::provides_ssse3());
+    static_assert(!ax09b::Sse2SimdExtension::provides_sse4_1());
+    static_assert(!ax09b::Sse2SimdExtension::provides_sse4_2());
+    static_assert(!ax09b::Sse2SimdExtension::provides_avx());
+    static_assert(!ax09b::Sse2SimdExtension::provides_avx2());
+    static_assert(!ax09b::Sse2SimdExtension::provides_avx512f());
+    SUCCEED();
+}
+
+TEST(R7_7_b_Avx2_Layers, AllSseLayersPlusAvxAvx2Provided) {
+    // Avx2 umfasst SSE/SSE2/SSE3/SSSE3/SSE4.1/SSE4.2/AVX/AVX2 (Haswell+ 2013)
+    static_assert(ax09b::Avx2SimdExtension::provides_sse());
+    static_assert(ax09b::Avx2SimdExtension::provides_sse2());
+    static_assert(ax09b::Avx2SimdExtension::provides_sse3());
+    static_assert(ax09b::Avx2SimdExtension::provides_ssse3());
+    static_assert(ax09b::Avx2SimdExtension::provides_sse4_1());
+    static_assert(ax09b::Avx2SimdExtension::provides_sse4_2());
+    static_assert(ax09b::Avx2SimdExtension::provides_avx());
+    static_assert(ax09b::Avx2SimdExtension::provides_avx2());
+    static_assert(!ax09b::Avx2SimdExtension::provides_avx512f());  // Cut-Off
+    SUCCEED();
+}
+
+TEST(R7_7_b_Avx512_Layers, FullSseAvxAvx512FoundationProvided) {
+    // Avx512 umfasst alle SSE/AVX/AVX2 + AVX-512F (Skylake-X+/Zen 4+)
+    static_assert(ax09b::Avx512SimdExtension::provides_sse());
+    static_assert(ax09b::Avx512SimdExtension::provides_sse2());
+    static_assert(ax09b::Avx512SimdExtension::provides_sse3());
+    static_assert(ax09b::Avx512SimdExtension::provides_ssse3());
+    static_assert(ax09b::Avx512SimdExtension::provides_sse4_1());
+    static_assert(ax09b::Avx512SimdExtension::provides_sse4_2());
+    static_assert(ax09b::Avx512SimdExtension::provides_avx());
+    static_assert(ax09b::Avx512SimdExtension::provides_avx2());
+    static_assert(ax09b::Avx512SimdExtension::provides_avx512f());  // Pflicht-Basis
+    SUCCEED();
+}
+
+TEST(R7_7_b_Avx512_SubFlags, ServerDefaultSubFlagsCorrect) {
+    // Server-Default: alle relevanten Sub-Flags TRUE, KNL-Only Sub-Flags FALSE.
+    static_assert(ax09b::Avx512SimdExtension::provides_avx512cd());
+    static_assert(!ax09b::Avx512SimdExtension::provides_avx512er());  // Xeon Phi KNL only
+    static_assert(!ax09b::Avx512SimdExtension::provides_avx512pf());  // Xeon Phi KNL only
+    static_assert(ax09b::Avx512SimdExtension::provides_avx512bw());
+    static_assert(ax09b::Avx512SimdExtension::provides_avx512dq());
+    static_assert(ax09b::Avx512SimdExtension::provides_avx512vl());
+    static_assert(ax09b::Avx512SimdExtension::provides_avx512ifma());
+    static_assert(ax09b::Avx512SimdExtension::provides_avx512vbmi());
+    static_assert(ax09b::Avx512SimdExtension::provides_avx512vbmi2());
+    static_assert(ax09b::Avx512SimdExtension::provides_avx512vnni());      // DBMS Vector-Indexes
+    static_assert(ax09b::Avx512SimdExtension::provides_avx512bitalg());
+    static_assert(ax09b::Avx512SimdExtension::provides_avx512vpopcntdq()); // Bitmap-Indexes
+    static_assert(ax09b::Avx512SimdExtension::provides_avx512bf16());
+    static_assert(ax09b::Avx512SimdExtension::provides_avx512fp16());
+    SUCCEED();
+}
+
+TEST(R7_7_b_NonX86_Layers, NoSseAvxAvx512Provided) {
+    // NEON/SVE2/RVV/CUDA haben KEINE SSE/AVX/AVX-512 (eigene ARM/RISC-V/GPU-ISA).
+    static_assert(!ax09b::NeonSimdExtension::provides_sse2());
+    static_assert(!ax09b::NeonSimdExtension::provides_avx2());
+    static_assert(!ax09b::Sve2SimdExtension::provides_avx2());
+    static_assert(!ax09b::Sve2SimdExtension::provides_avx512f());
+    static_assert(!ax09b::RvvSimdExtension::provides_avx2());
+    static_assert(!ax09b::CudaGh200SimdExtension::provides_avx2());
+    static_assert(!ax09b::NoSimdExtension::provides_sse());
+    static_assert(!ax09b::NoSimdExtension::provides_avx2());
+    SUCCEED();
+}
+
+// ─── R7.7.c CPU-Sockel-Count + P/E-Cores Topologie (User-Direktive) ───
+// Doku 15 §5: units_per_socket, shared_among_cores, accessible_from_efficiency_cores
+
+TEST(R7_7_c_Topology_X86, Sse2Avx2DualUnitAllCores) {
+    // SSE/AVX2: typisch 2 Units/Sockel, alle Cores haben Zugriff.
+    static_assert(ax09b::Sse2SimdExtension::units_per_socket() == 2);
+    static_assert(ax09b::Sse2SimdExtension::accessible_from_efficiency_cores());
+    static_assert(ax09b::Avx2SimdExtension::units_per_socket() == 2);
+    static_assert(ax09b::Avx2SimdExtension::accessible_from_efficiency_cores());
+    SUCCEED();
+}
+
+TEST(R7_7_c_Topology_Avx512, SingleUnitPCoresOnly) {
+    // AVX-512: 1 Unit/Sockel, Intel Alder/Raptor Lake P-Core-only (E-Cores disabled).
+    static_assert(ax09b::Avx512SimdExtension::units_per_socket() == 1);
+    static_assert(!ax09b::Avx512SimdExtension::accessible_from_efficiency_cores());
+    SUCCEED();
+}
+
+TEST(R7_7_c_Topology_Arm_RiscV, AllCoresAccessible) {
+    // ARM big.LITTLE / RISC-V: alle Cores haben NEON/SVE2/RVV.
+    static_assert(ax09b::NeonSimdExtension::units_per_socket() == 1);
+    static_assert(ax09b::NeonSimdExtension::accessible_from_efficiency_cores());
+    static_assert(ax09b::Sve2SimdExtension::units_per_socket() == 1);
+    static_assert(ax09b::Sve2SimdExtension::accessible_from_efficiency_cores());
+    static_assert(ax09b::RvvSimdExtension::units_per_socket() == 1);
+    SUCCEED();
+}
+
+TEST(R7_7_c_Topology_Gpu, MassiveParallelNotSocketBound) {
+    // CUDA GPU: units_per_socket=-1 (massive parallel, GPU-Bus statt CPU-intern),
+    // shared_among_cores=false (GPU ist separate Device).
+    static_assert(ax09b::CudaGh200SimdExtension::units_per_socket() == -1);
+    static_assert(!ax09b::CudaGh200SimdExtension::shared_among_cores());
+    SUCCEED();
+}
+
+TEST(R7_7_c_Topology_NoSimd, ZeroUnitsButAllCores) {
+    // NoSimd: keine SIMD-Units (0), aber Default "alle Cores koennen 'kein SIMD'".
+    static_assert(ax09b::NoSimdExtension::units_per_socket() == 0);
+    static_assert(ax09b::NoSimdExtension::accessible_from_efficiency_cores());
+    SUCCEED();
+}
