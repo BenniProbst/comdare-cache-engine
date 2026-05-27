@@ -1,0 +1,16 @@
+#pragma once
+// V41.F.6.1.R7.5.f axis_io CMake-generierter Flags-Header
+
+#cmakedefine01 COMDARE_AXIS_IO_USE_IN_MEMORY_ONLY
+#cmakedefine01 COMDARE_AXIS_IO_USE_DIRECT
+#cmakedefine01 COMDARE_AXIS_IO_USE_BUFFERED
+#cmakedefine01 COMDARE_AXIS_IO_USE_MMAP
+
+namespace comdare::cache_engine::io::axis_io::flags {
+
+inline constexpr bool in_memory_only_enabled = COMDARE_AXIS_IO_USE_IN_MEMORY_ONLY;
+inline constexpr bool direct_enabled         = COMDARE_AXIS_IO_USE_DIRECT;
+inline constexpr bool buffered_enabled       = COMDARE_AXIS_IO_USE_BUFFERED;
+inline constexpr bool mmap_enabled           = COMDARE_AXIS_IO_USE_MMAP;
+
+}  // namespace
