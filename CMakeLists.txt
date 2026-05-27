@@ -133,6 +133,11 @@ option(COMDARE_AXIS_03B_ENABLE_HASH_LOOKUP    "Cache-Traversal CT02 HashLookup (
 option(COMDARE_AXIS_03M_ENABLE_DIRECT_PLACEMENT "Mapping MP01 DirectPlacement (prt-art INode::placement_page_, MP1 direct)" ON)
 option(COMDARE_AXIS_03M_ENABLE_POOL_RELATIVE    "Mapping MP02 PoolRelative (prt-art CustomAlignedStructure, MP2 pool_relative)" ON)
 
+# V41.F.6.1.R7.1.a.2 axis_12 General-Hardware (3 Plattformen, Goldstandard-konform)
+option(COMDARE_AXIS_12_ENABLE_GENERIC "General-Hardware Generic (conservative defaults: cache=64, page=4K, no SIMD/NUMA/hugepage)" ON)
+option(COMDARE_AXIS_12_ENABLE_X86_64  "General-Hardware X86_64 (AVX2 256-bit, NUMA, hugepage)" ON)
+option(COMDARE_AXIS_12_ENABLE_AARCH64 "General-Hardware Aarch64 (NEON 128-bit, NUMA, hugepage)" ON)
+
 # HINWEIS: configure_file fuer axis_06_allocator_flags.hpp wird NACH add_subdirectory(ext)
 # am Ende von CMakeLists.txt aufgerufen — dann sind COMDARE_HAVE_<VENDOR> Detection-Flags
 # aus ext/CMakeLists.txt bekannt und USE_<VENDOR> = ENABLE && HAVE berechenbar.
@@ -547,6 +552,21 @@ configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp"
     @ONLY)
+
+# V41.F.6.1.R7.1.a.2 axis_12 General-Hardware Flags (USE = ENABLE; alle Plattformen
+# sind reine Konfigurations-Templates, kein Runtime-Detection-Gate noetig)
+foreach(_p GENERIC X86_64 AARCH64)
+    if(COMDARE_AXIS_12_ENABLE_${_p})
+        set(COMDARE_AXIS_12_USE_${_p} 1)
+    else()
+        set(COMDARE_AXIS_12_USE_${_p} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/hardware/axis_12_general_hardware/axis_12_general_hardware_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware/axis_12_general_hardware_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_12 (3 platforms): GENERIC=${COMDARE_AXIS_12_USE_GENERIC} X86_64=${COMDARE_AXIS_12_USE_X86_64} AARCH64=${COMDARE_AXIS_12_USE_AARCH64}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung

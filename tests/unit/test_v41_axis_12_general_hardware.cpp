@@ -1,24 +1,42 @@
-// V41.F.6.1.R7.1 axis_12 General-Hardware Tests
+// V41.F.6.1.R7.1.a + R7.1.a.2 axis_12 General-Hardware Tests
 //
-// Beweist:
+// R7.1.a Beweist:
 // 1. Concept-Conformance fuer GenericHardware/X86_64Hardware/Aarch64Hardware
 // 2. Pflicht-Properties (cache_line_size, memory_page_size, simd_width_bits,
 //    numa_capable, huge_page_capable) sind constexpr und sinnvoll
 // 3. HardwareTopicTag im topic_tag eingehalten
 // 4. Unterscheidung Generic vs Plattform-Aware (SIMD 0 vs 128 vs 256)
 //
+// R7.1.a.2 (Goldstandard-Nachruestung) Beweist:
+// 5. CacheEnginePermutationStrategy Concept-Conformance (axis_tag/family_id/
+//    name/family_name/flag_suffix/enabled)
+// 6. Subaxes-Tags (cpu_family/simd_capability/memory_topology/page_topology)
+// 7. Registry-Filter: AllPlatforms = 3, EnabledPlatforms via mp_filter
+// 8. Flags-Header constexpr-Werte (generic/x86_64/aarch64 _enabled)
+// 9. TopicConfigSet hardware (axis_09 + axis_12 + CartesianIsa09xPlatform12)
+//
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §54.5 R7.1
-// @task #716 V41.F.6.1.R7.1
+// @memory [[axis-gold-standard-checklist]]
+// @task #716 V41.F.6.1.R7.1.a + R7.1.a.2
 
 #include <gtest/gtest.h>
 
 #include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_generic.hpp>
 #include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_x86_64.hpp>
 #include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_aarch64.hpp>
+#include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_registry.hpp>
+#include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_subaxes_hw1_to_hw4.hpp>
+#include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_flags.hpp>
+#include <topics/hardware/topic_hardware_config_set.hpp>
+
+#include <boost/mp11.hpp>
 
 #include <string_view>
+#include <type_traits>
 
 namespace ax12 = ::comdare::cache_engine::hardware::axis_12_general_hardware;
+namespace hw   = ::comdare::cache_engine::hardware;
+namespace mp   = ::boost::mp11;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §1 — Concept-Conformance
@@ -104,5 +122,86 @@ TEST(R7_1_Axis12, AllWrappersInstantiable) {
     [[maybe_unused]] ax12::GenericHardware g;
     [[maybe_unused]] ax12::X86_64Hardware  x;
     [[maybe_unused]] ax12::Aarch64Hardware a;
+    SUCCEED();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §7 — R7.1.a.2 Goldstandard: CacheEnginePermutationStrategy Concept
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(R7_1_a_2_Axis12, AllWrappersSatisfyCacheEnginePermutationConcept) {
+    static_assert(ax12::concepts::CacheEnginePermutationStrategy<ax12::GenericHardware>);
+    static_assert(ax12::concepts::CacheEnginePermutationStrategy<ax12::X86_64Hardware>);
+    static_assert(ax12::concepts::CacheEnginePermutationStrategy<ax12::Aarch64Hardware>);
+    SUCCEED();
+}
+
+TEST(R7_1_a_2_Axis12, AllWrappersHaveSubaxisTagCpuFamily) {
+    static_assert(std::is_same_v<ax12::GenericHardware::axis_tag, ax12::subaxes::cpu_family_tag>);
+    static_assert(std::is_same_v<ax12::X86_64Hardware::axis_tag,  ax12::subaxes::cpu_family_tag>);
+    static_assert(std::is_same_v<ax12::Aarch64Hardware::axis_tag, ax12::subaxes::cpu_family_tag>);
+    SUCCEED();
+}
+
+TEST(R7_1_a_2_Axis12, AllWrappersHaveFlagSuffix) {
+    static_assert(ax12::GenericHardware::flag_suffix() == std::string_view{"GENERIC"});
+    static_assert(ax12::X86_64Hardware::flag_suffix()  == std::string_view{"X86_64"});
+    static_assert(ax12::Aarch64Hardware::flag_suffix() == std::string_view{"AARCH64"});
+    SUCCEED();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §8 — R7.1.a.2 Goldstandard: Registry (AllPlatforms + EnabledPlatforms)
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(R7_1_a_2_Axis12, AllPlatformsContainsThreeWrappers) {
+    static_assert(mp::mp_size<ax12::AllPlatforms>::value == 3);
+    SUCCEED();
+}
+
+TEST(R7_1_a_2_Axis12, EnabledPlatformsIsNonEmpty) {
+    // Default: alle 3 ENABLE-Optionen ON -> alle in EnabledPlatforms
+    static_assert(mp::mp_size<ax12::EnabledPlatforms>::value > 0);
+    SUCCEED();
+}
+
+TEST(R7_1_a_2_Axis12, IsEnabledPredicateMatchesWrapperFlag) {
+    static_assert(ax12::is_enabled<ax12::GenericHardware>::value == ax12::GenericHardware::enabled);
+    static_assert(ax12::is_enabled<ax12::X86_64Hardware>::value  == ax12::X86_64Hardware::enabled);
+    static_assert(ax12::is_enabled<ax12::Aarch64Hardware>::value == ax12::Aarch64Hardware::enabled);
+    SUCCEED();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §9 — R7.1.a.2 Goldstandard: Flags-Header constexpr-Werte
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(R7_1_a_2_Axis12, FlagsHeaderProvidesAllThreePlatforms) {
+    static_assert(std::is_same_v<decltype(ax12::flags::generic_enabled), const bool>);
+    static_assert(std::is_same_v<decltype(ax12::flags::x86_64_enabled),  const bool>);
+    static_assert(std::is_same_v<decltype(ax12::flags::aarch64_enabled), const bool>);
+    SUCCEED();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §10 — R7.1.a.2 Goldstandard: TopicConfigSet (axis_09 + axis_12 + Cartesian)
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(R7_1_a_2_Hardware, TopicConfigSetExposesBothAxes) {
+    // axis_09 (Pilot 1 Wrapper)
+    static_assert(mp::mp_size<hw::TopicConfigSet::StaticAxisVariants_09>::value == 1);
+    // axis_12 (3 Wrappers per default ENABLE)
+    static_assert(mp::mp_size<hw::TopicConfigSet::StaticAxisVariants_12>::value > 0);
+    // Default-StaticAxisVariants = axis_12 (Plattform-Konfiguration ist Haupt-Achse)
+    static_assert(std::is_same_v<hw::TopicConfigSet::StaticAxisVariants,
+                                  hw::TopicConfigSet::StaticAxisVariants_12>);
+    SUCCEED();
+}
+
+TEST(R7_1_a_2_Hardware, TopicConfigSetCartesianIsa09xPlatform12IsProductOfBoth) {
+    constexpr auto isa_count   = mp::mp_size<hw::TopicConfigSet::StaticAxisVariants_09>::value;
+    constexpr auto plat_count  = mp::mp_size<hw::TopicConfigSet::StaticAxisVariants_12>::value;
+    constexpr auto prod_count  = mp::mp_size<hw::TopicConfigSet::CartesianIsa09xPlatform12>::value;
+    static_assert(prod_count == isa_count * plat_count);
     SUCCEED();
 }

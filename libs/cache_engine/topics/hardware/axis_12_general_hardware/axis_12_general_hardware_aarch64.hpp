@@ -11,7 +11,10 @@
 // - huge_page_capable = true (transparent hugepages auf Aarch64-Linux)
 
 #include "axis_12_general_hardware_base.hpp"
+#include "axis_12_general_hardware_subaxes_hw1_to_hw4.hpp"
 #include "../concepts/topic_hardware_concept.hpp"
+
+#include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_flags.hpp>
 
 #include <cstddef>
 #include <string_view>
@@ -22,6 +25,7 @@ namespace comdare::cache_engine::hardware::axis_12_general_hardware {
 class Aarch64Hardware : public GeneralHardwareBase<Aarch64Hardware> {
 public:
     using topic_tag = ::comdare::cache_engine::hardware::concepts::HardwareTopicTag;
+    using axis_tag  = subaxes::cpu_family_tag;
     using family_id = std::integral_constant<int, 2>;
 
     [[nodiscard]] static constexpr std::size_t cache_line_size()   noexcept { return 64; }
@@ -34,10 +38,14 @@ public:
     [[nodiscard]] static constexpr std::string_view family_name()  noexcept {
         return "Aarch64Hardware (cache_line=64, page=4K, NEON 128-bit SIMD, NUMA + huge-pages capable)";
     }
+    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "AARCH64"; }
+
+    static constexpr bool enabled = flags::aarch64_enabled;
 };
 
 }  // namespace comdare::cache_engine::hardware::axis_12_general_hardware
 
 namespace comdare::cache_engine::hardware::axis_12_general_hardware {
     static_assert(concepts::GeneralHardwareStrategy<Aarch64Hardware>);
+    static_assert(concepts::CacheEnginePermutationStrategy<Aarch64Hardware>);
 }

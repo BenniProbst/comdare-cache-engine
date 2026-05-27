@@ -1,0 +1,29 @@
+#pragma once
+// V41.F.6.1.R7.1.a.2 axis_12 General-Hardware Flags — AUTO-GENERATED (DO NOT EDIT)
+//
+// @topic hardware
+// @achse 12
+//
+// Auto-generiert aus axis_12_general_hardware_flags.hpp.in via CMake configure_file.
+// Quelle: CMakeLists.txt-berechnete `COMDARE_AXIS_12_USE_<PLATFORM>` Variablen
+// (= ENABLE && verfuegbar; alle Plattformen sind plattform-agnostisch
+//  immer verfuegbar weil reine Konfigurations-Templates).
+//
+// Liefert typsichere `inline constexpr bool <platform>_enabled` pro Plattform.
+// Plattform-Wrapper nutzen `static constexpr bool enabled = flags::<x>_enabled;`
+// damit Registry-Filter via mp_filter funktioniert.
+
+#include <type_traits>
+
+namespace comdare::cache_engine::hardware::axis_12_general_hardware::flags {
+
+// `#cmakedefine01` erzeugt entweder 0 oder 1 — NIEMALS undefined.
+#cmakedefine01 COMDARE_AXIS_12_USE_GENERIC
+#cmakedefine01 COMDARE_AXIS_12_USE_X86_64
+#cmakedefine01 COMDARE_AXIS_12_USE_AARCH64
+
+inline constexpr bool generic_enabled = COMDARE_AXIS_12_USE_GENERIC;
+inline constexpr bool x86_64_enabled  = COMDARE_AXIS_12_USE_X86_64;
+inline constexpr bool aarch64_enabled = COMDARE_AXIS_12_USE_AARCH64;
+
+}  // namespace comdare::cache_engine::hardware::axis_12_general_hardware::flags
