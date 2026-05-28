@@ -7,6 +7,7 @@
 #include "axis_14_value_handle_external_pool.hpp"
 #include "axis_14_value_handle_immutable_shared_ref.hpp"
 #include "axis_14_value_handle_versioned_pointer.hpp"
+#include "axis_14_value_handle_chain_ref.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
@@ -19,7 +20,8 @@ using AllHandles = mp::mp_list<
     InlineValueHandle,
     ExternalPoolValueHandle,
     ImmutableSharedRefValueHandle,
-    VersionedPointerValueHandle
+    VersionedPointerValueHandle,
+    ChainRefValueHandle
 >;
 
 template <typename T>
