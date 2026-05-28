@@ -8,6 +8,8 @@
 #include "axis_03a_search_algo_array256.hpp"
 #include "axis_03a_search_algo_vector_u8u8.hpp"
 #include "axis_03a_search_algo_vector_u16u16.hpp"
+// V41.F.6.1.F.6 (2026-05-29) F.6-Migration aus prt-art internal_search/array_65535.hpp
+#include "axis_03a_search_algo_array65535.hpp"
 // V41.F.6.1.P2.D.tr.s2 Original-Paper-Wrappers (Habich-Compliance via Paper-Mixin)
 #include "axis_03a_search_algo_original_art.hpp"
 #include "axis_03a_search_algo_original_hot.hpp"
@@ -23,7 +25,7 @@ namespace comdare::cache_engine::traversal::axis_03a_search_algo {
 
 namespace mp = boost::mp11;
 
-/// AllStrategies — Komplette Liste aller bekannten 03a-Such-Strategien (Pilot 3 + Paper-Bindung 3)
+/// AllStrategies — Komplette Liste aller bekannten 03a-Such-Strategien (Pilot 3 + Paper-Bindung 5 + F.6-Migration 1)
 using AllStrategies = mp::mp_list<
     // Pilot Batch 1 (2026-05-26) — Cache-Engine Standalone Re-Impl
     Array256SearchAlgo,
@@ -35,11 +37,13 @@ using AllStrategies = mp::mp_list<
     OriginalStartSearchAlgo,  // S06, P05 START (Mertens ICDE 2024, 2/4 originall + 2 Luecken)
     // V41.F.6.1.P2.D.tr.s3 Batch 1 (2026-05-26) — 2 weitere Paper-Wrappers (Masstree DEFERRED)
     OriginalWormholeSearchAlgo,  // S07, P07 Wormhole (Wu/Ni/Jiang ATC 2019, 3/4 originall + 1 Luecke)
-    OriginalSurfSearchAlgo       // S08, P10 SuRF (Zhang/Lim/Andersen SIGMOD 2018, 1/4 originall + 3 Luecken)
-    // Vollausbau-Roadmap (Folge-Batches):
-    // S09 P03 Masstree DEFERRED — masstree.hh hat keine direkten Function-Bodies (alle Templates)
-    // S10 P04 CoCo-trie (Read-Only, 0/4 originall — deferred wegen kein CRUD-API)
-    // S11 P06 B²tree, S12 P20 BTreesAreBack, S13 P25 Mahling, S14 P29 RCU, S15 P30 HazardPointers
+    OriginalSurfSearchAlgo,      // S08, P10 SuRF (Zhang/Lim/Andersen SIGMOD 2018, 1/4 originall + 3 Luecken)
+    // V41.F.6.1.F.6 (2026-05-29) — F.6-Migration aus prt-art internal_search/array_65535.hpp
+    Array65535SearchAlgo         // S09, prt-art REV6 §5.17 mid-density direct-addressed uint16 (kein Paper)
+    // Vollausbau-Roadmap (Folge-Batches, Paper-Wrappers):
+    // S10 P03 Masstree DEFERRED — masstree.hh hat keine direkten Function-Bodies (alle Templates)
+    // S11 P04 CoCo-trie (Read-Only, 0/4 originall — deferred wegen kein CRUD-API)
+    // S12 P06 B²tree, S13 P20 BTreesAreBack, S14 P25 Mahling, S15 P29 RCU, S16 P30 HazardPointers
 >;
 
 template <typename S>

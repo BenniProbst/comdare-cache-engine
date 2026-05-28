@@ -17,4 +17,10 @@ struct sparse_access_tag {};
 /// SA3 multilevel — mehrbyteig, multi-discriminator (START, Cost-DP)
 struct multilevel_access_tag {};
 
+/// SA4 direct_multibyte — direkt-adressiert mit Multi-Byte (uint16) Diskriminator,
+/// mittlere Fuelldichte 25-50 % (prt-art Array65535, REV 6 §5.17). Teilt das
+/// Direkt-Adressierungs-Zugriffsmuster mit SA1, aber bei uint16-Granularitaet und
+/// mittlerer (statt hoher) Density — daher eigene Subaxis.
+struct direct_multibyte_access_tag {};
+
 }  // namespace

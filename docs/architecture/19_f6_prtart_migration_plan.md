@@ -258,9 +258,12 @@ gesamten Phase A unverändert weiterbauen, da nur neue Header/Klassen in cache-e
 Reihenfolge innerhalb Phase A (von „reines Hinzufügen, keine Konsumenten" zu „Konsumenten anpassen"):
 
 1. **Eigenständige Basis-Konzepte ohne Abhängigkeiten** (reines Hinzufügen):
-   - `identity/status.hpp` → `cache_engine/concepts/status_code.hpp` (errno-Goldstandard)
-   - `serialization/signaling_bits.hpp` → `axis_10_serialization_primitives.hpp`
-   - `internal_search/array_65535.hpp` → neue `Array65535SearchAlgo` in `axis_03a_search_algo`
+   - ✅ `identity/status.hpp` → `cache_engine/concepts/status_code.hpp` (errno-Goldstandard) — **DONE** (7405524)
+   - ✅ `serialization/signaling_bits.hpp` → `axis_10_serialization_primitives.hpp` — **DONE** (fe2508c)
+   - ✅ `internal_search/array_65535.hpp` → neue `Array65535SearchAlgo` (S09, SA4 direct_multibyte,
+     DensityClass::Balanced) in `axis_03a_search_algo` — **DONE 2026-05-29**. Korrektur ggü. Original:
+     `kCapacity=65536` statt 65535 (Original-OOB bei discriminator==65535 behoben); Presence-Vektor
+     statt Sentinel (jeder uint64-Wert gueltig). Typed-Test deckt automatisch ab + 5 spezifische Tests.
 2. **Algorithmus-Logik in vorhandene CE-Wrapper einziehen** (StrategyImpl-Pattern):
    - `prefetch/distance_estimator.hpp` → `axis_07_prefetch_distance_estimator_impl.hpp`
    - `prefetch/path_oriented_prefetch.hpp` → `axis_07_prefetch_path_oriented_impl.hpp`
