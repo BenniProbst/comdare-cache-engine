@@ -33,6 +33,14 @@ option(COMDARE_BUILD_TESTS         "Build Google-Tests (generic + specific)"   O
 option(COMDARE_BUILD_PERMUTATIONS  "Pre-Build aller Modul-Permutationen"       OFF)
 option(COMDARE_MICROBENCH_CONTINUOUS "Continuous Mikrobenchmarks (Builder-Modus)" OFF)
 
+# V41.E11 Plugin-Controller: per Konfiguration geladene Prüfling-Repos (Doku 20).
+# Semikolon-Liste von Prüfling-Verzeichnissen (parallel zur cache-engine-Wurzel), die die
+# cache-engine als CE-konforme Plugins laedt. Default leer = nur CE-Permutation (Stufe 1).
+# Jedes Prüfling-Repo stellt <dir>/comdare_pruefling.cmake bereit (registriert seine
+# Achsen-Slots/Targets). Die Diplomarbeit setzt diese Liste via -DCOMDARE_CE_PRUEFLINGE=...
+set(COMDARE_CE_PRUEFLINGE "" CACHE STRING
+    "Semikolon-Liste der zu ladenden Pruefling-Repo-Verzeichnisse (z.B. ${CMAKE_SOURCE_DIR}/../comdare-prt-art)")
+
 # V41.F.6.1.A (2026-05-25) — Statistics/Mess-Overhead per CMake-Flag steuern
 # Default ON: alle Topic+Achsen-Implementierungen enthalten statistics() + reset()
 # als Pflicht-API (Mess-Reihen + Welch-Test brauchen das).
@@ -357,6 +365,23 @@ add_subdirectory(libs/execution_engine)   # Phase 7.3+7.4 (REV 7 §9 Experiment-
 add_subdirectory(libs/common)             # REV 7.7 V23.C (2026-05-14): Cross-Cutting (succinct, ...)
 add_subdirectory(libs/test_infra)         # REV 7.7 V23.F (2026-05-14): workload_generator, test_data, benchmark_suite
 add_subdirectory(libs/deprecated)         # REV 7.7 V23.E (2026-05-14): Folly-Stil obsoleter Code
+
+# V41.E11 Plugin-Controller: konfigurierte Pruefling-Repos laden (Doku 20).
+# Jedes Pruefling-Repo (parallel zur CE-Wurzel) stellt <dir>/comdare_pruefling.cmake bereit,
+# das seine Achsen-Slots (optional_prt_art_impl) + Targets registriert. NACH den Core-Libs,
+# damit der Pruefling gegen die cache-engine binden kann.
+foreach(_pruefling_dir IN LISTS COMDARE_CE_PRUEFLINGE)
+    if(_pruefling_dir AND EXISTS "${_pruefling_dir}/comdare_pruefling.cmake")
+        message(STATUS "comdare Plugin-Controller: lade Pruefling ${_pruefling_dir}")
+        include("${_pruefling_dir}/comdare_pruefling.cmake")
+    elseif(_pruefling_dir)
+        message(WARNING "comdare Plugin-Controller: Pruefling-Dir '${_pruefling_dir}' hat kein comdare_pruefling.cmake — uebersprungen")
+    endif()
+endforeach()
+if(NOT COMDARE_CE_PRUEFLINGE)
+    message(STATUS "comdare Plugin-Controller: keine Pruefling-Repos konfiguriert (nur CE-Permutation, Stufe 1)")
+endif()
+
 add_subdirectory(tools)                   # Phase C (ycsb_cli, 2026-05-13)
 add_subdirectory(apps)                    # REV 7.7 V23.B (2026-05-14): Top-Level Executables
 
