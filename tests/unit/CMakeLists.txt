@@ -609,6 +609,18 @@ target_include_directories(test_v41_axis_14_value_handle PRIVATE
 target_link_libraries(test_v41_axis_14_value_handle PRIVATE
     Boost::mp11)
 
+# V41.F.6.1.R7.3 axis_08 Concurrency (8 Wrappers, Goldstandard)
+comdare_add_test(test_v41_axis_08_concurrency
+    SOURCES test_v41_axis_08_concurrency.cpp)
+target_include_directories(test_v41_axis_08_concurrency PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    "${CMAKE_BINARY_DIR}/generated/topics/concurrency/axis_08_concurrency")
+target_link_libraries(test_v41_axis_08_concurrency PRIVATE
+    Boost::mp11)
+
 # V41.F.6.1.R7.5.e axis_filter (4 Wrappers + TYPED_TEST_SUITE Pattern aus axis_06_allocator)
 comdare_add_test(test_v41_axis_filter
     SOURCES test_v41_axis_filter.cpp)
