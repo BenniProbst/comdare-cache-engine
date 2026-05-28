@@ -9,6 +9,7 @@
 #cmakedefine01 COMDARE_AXIS_08_USE_WAIT_FREE
 #cmakedefine01 COMDARE_AXIS_08_USE_RCU
 #cmakedefine01 COMDARE_AXIS_08_USE_HAZARD_PTR
+#cmakedefine01 COMDARE_AXIS_08_USE_OLC_RESERVED_BLOCKS
 
 namespace comdare::cache_engine::concurrency::axis_08_concurrency::flags {
 
@@ -20,5 +21,6 @@ inline constexpr bool lock_free_enabled     = COMDARE_AXIS_08_USE_LOCK_FREE;
 inline constexpr bool wait_free_enabled     = COMDARE_AXIS_08_USE_WAIT_FREE;
 inline constexpr bool rcu_enabled           = COMDARE_AXIS_08_USE_RCU;
 inline constexpr bool hazard_ptr_enabled    = COMDARE_AXIS_08_USE_HAZARD_PTR;
+inline constexpr bool olc_reserved_blocks_enabled = COMDARE_AXIS_08_USE_OLC_RESERVED_BLOCKS;
 
 }  // namespace
