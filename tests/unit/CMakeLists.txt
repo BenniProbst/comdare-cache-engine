@@ -650,6 +650,12 @@ comdare_add_test(test_v41_status_code
 target_include_directories(test_v41_status_code PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 
+# V41.F.6.1 F.6 Phase A: migrierte Serialisierungs-Primitive (signaling_bits prt-art -> cache-engine)
+comdare_add_test(test_v41_serialization_primitives
+    SOURCES test_v41_serialization_primitives.cpp)
+target_include_directories(test_v41_serialization_primitives PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+
 # V41.F.6.1.R7.5.e axis_filter (4 Wrappers + TYPED_TEST_SUITE Pattern aus axis_06_allocator)
 comdare_add_test(test_v41_axis_filter
     SOURCES test_v41_axis_filter.cpp)
