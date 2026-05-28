@@ -92,11 +92,25 @@ function(comdare_codegen_anatomy_module)
     # ─── add_library mit generierter .cpp ────────────────────────────────
     add_library(${ARG_TARGET_NAME} ${ARG_LIBRARY_TYPE} "${_output_cpp}")
 
+    # V41.F.6.1.R7.3-buildfix: per-Achsen generierte flags.hpp-Dirs (source-derived,
+    # ordering-invariant — analog tests/unit). Ohne diese fanden generierte Anatomy-Module
+    # (Pilots) axis_NN_*_flags.hpp nicht im Full-ALL-Build (Compositions ziehen alle Achsen).
+    file(GLOB _cdg_axis_src_dirs LIST_DIRECTORIES true
+        "${CMAKE_SOURCE_DIR}/libs/cache_engine/topics/*/axis_*")
+    set(_cdg_axis_gen_dirs "")
+    foreach(_cdg_d ${_cdg_axis_src_dirs})
+        if(IS_DIRECTORY "${_cdg_d}")
+            file(RELATIVE_PATH _cdg_rel "${CMAKE_SOURCE_DIR}/libs/cache_engine/topics" "${_cdg_d}")
+            list(APPEND _cdg_axis_gen_dirs "${CMAKE_BINARY_DIR}/generated/topics/${_cdg_rel}")
+        endif()
+    endforeach()
+
     target_include_directories(${ARG_TARGET_NAME} PRIVATE
         "${CMAKE_SOURCE_DIR}/libs/cache_engine"
         "${CMAKE_SOURCE_DIR}/libs/cache_engine/include"
         "${CMAKE_SOURCE_DIR}/libs/cache_engine/src"
-        "${CMAKE_BINARY_DIR}/generated")
+        "${CMAKE_BINARY_DIR}/generated"
+        ${_cdg_axis_gen_dirs})
 
     # Build-Mode-Defines fuer ABI-Header:
     #   STATIC: PUBLIC COMDARE_ANATOMY_ABI_STATIC (Lib + Consumer brauchen kein dll*)
