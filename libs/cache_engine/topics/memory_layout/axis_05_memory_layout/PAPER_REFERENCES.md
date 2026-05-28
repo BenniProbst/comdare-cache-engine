@@ -1,51 +1,27 @@
-# axis_05_memory_layout — Paper-References (R7.6)
-
+# axis_05_memory_layout — Paper-References
 **Stand:** 2026-05-28
-**Task:** #730 R7.6 Paper-Identifikation
-**Klasse:** D (pseudocode-only) — alle is_original_module = false
+**Quelle:** docs/architecture/18_achsen_algorithmus_paper_code_map.md (autoritative Map, web-verifiziert) — DIESE Datei ist ein Achsen-Auszug.
+**Klasse (Doku 17 §4.5):** Mix D/E — Folklore/Textbook-Layout-Konventionen (AoS, Cache-Line-Alignment) und ein "verwandt/Motivation"-Paper (SoA), plus EIN succinct-Datenstruktur-Fundamentpaper (LOUDS/SuRF FST). Kein Wrapper is_original-faehig.
 
-## §1 Pflicht-Note (Goldstandard)
+## §1 Pflicht-Note
+Kein Wrapper dieser Achse hat echtes is_original-Linking (alle ✗). `AoSStrictMemoryLayout` und `CacheLineAlignedMemoryLayout` sind Layout-Konventionen ohne Algorithmus-Code (Folklore/Textbook bzw. HW-Standard, Patterson & Hennessy). `SoAMemoryLayout` ist eine Baseline mit nur "verwandtem" Motivations-Paper (Abadi SIGMOD 2008). `PackedBitmapMemoryLayout` referenziert das LOUDS-Fundamentpaper (Jacobson FOCS 1989, P09 — Konzept ohne Code) mit OSS-Code aus SuRF (Apache-2.0) / SDSL (GPL-3.0), ist aber als Layout-Realisierung nicht is_original-gebunden.
 
-Klasse D: Layout-Strategien stammen aus Pseudocode-Papern / Lehrbuechern. Kein
-Original-Code-Linking, Re-Impl mit is_original=false. Cross-Ref Doku 16 (axis_05
-CPU IMC Runtime-Heuristik).
+## §2 Wrapper → Paper → Code
+| Wrapper | Algorithmus | Paper (Titel) | Venue/Jahr | DOI/URL | C/C++-Code | Lizenz | is_original |
+|---------|-------------|---------------|------------|---------|------------|--------|-------------|
+| AoSStrictMemoryLayout | Array-of-Structs (strict packed, dense object layout) | — (Folklore/Textbook) | — | — | unbekannt | none | ✗ |
+| CacheLineAlignedMemoryLayout | 64-byte cache-line aligned AoS (False-Sharing-Vermeidung) | — (HW-Standard, Patterson & Hennessy) | — | — | unbekannt | none | ✗ |
+| SoAMemoryLayout | Struct-of-Arrays (spaltenorientiert, SIMD-freundlich) | Column-Stores vs. Row-Stores: How Different Are They Really? (verwandt) | SIGMOD 2008 | 10.1145/1376616.1376712 | nein | none | ✗ |
+| PackedBitmapMemoryLayout | Bit-packed succinct Layout (LOUDS / SuRF FST) | Space-efficient Static Trees and Graphs (Jacobson LOUDS) | FOCS 1989 | 10.1109/SFCS.1989.63533 | OSS | Apache-2.0 (SuRF) / GPL-3.0 (SDSL) | ✗ |
 
-## §2 Wrapper-Paper-Mapping
+## §3 Compliance-Status
+Alle 4 Wrapper haben eine Paper-Ref ODER sind als Baseline/Folklore/Lehrbuch-Konvention gekennzeichnet → Habich-Pflicht erfuellt.
 
-### §2.1 CacheLineAlignedMemoryLayout
-- **Quelle:** Patterson & Hennessy, "Computer Architecture: A Quantitative
-  Approach" (Lehrbuch, Cache-Line-Alignment Grundlage)
-- **is_original_module:** false
+- is_original-Kandidaten (Map §3): **keine** in dieser Achse (0 Wrapper is_original_eligible).
+- Lizenz-Korrektur (Map §4): `PackedBitmapMemoryLayout` nutzt SuRF-Code unter **Apache-2.0** — der frueher in PAPER_REFERENCES.md angesetzte Eintrag "BSD-3" war falsch und ist korrigiert. Die alternative SDSL-Implementierung der LOUDS-Bitmap steht unter **GPL-3.0** und waere — falls als Code-Basis verwendet — copyleft-blockiert.
+- Offene Punkte (Map §5): `SoAMemoryLayout` (confidence medium — SoA hat kein kanonisches Ursprungspaper; Abadi SIGMOD 2008 nur "verwandt/Motivation"); `AoSStrictMemoryLayout` + `CacheLineAlignedMemoryLayout` (confidence high, aber `c_cpp_code_exists = unknown` — reine Layout-Konventionen, kein Algorithmus-Code).
 
-### §2.2 AoSStrictMemoryLayout
-- **Quelle:** Data-Oriented-Design-Pattern (Array-of-Structs, kein Paper)
-- **is_original_module:** false
-
-### §2.3 SoAMemoryLayout
-- **Titel:** "Column-Stores vs. Row-Stores: How Different Are They Really?"
-- **Autoren:** Daniel Abadi, Samuel Madden, Nabil Hachem
-- **Venue:** SIGMOD 2008 (verwandt — Struct-of-Arrays-Begruendung)
-- **is_original_module:** false
-
-### §2.4 PackedBitmapMemoryLayout
-- **Titel:** "Space-efficient Static Trees and Graphs"
-- **Autoren:** Guy Jacobson
-- **Venue:** FOCS 1989
-- **DOI:** 10.1109/SFCS.1989.63533 (P09, Pseudocode)
-- **is_original_module:** false
-
-## §3 Verwandte Layouts (Cross-Ref)
-- Bender Tree Layout (P16), Cache-Oblivious B-Trees (P17) — siehe Doku 16.
-
-## §4 Achsen-Compliance-Status
-
-| Wrapper | Paper-Ref | is_original | Habich-Compliant |
-|---------|-----------|-------------|------------------|
-| CacheLineAlignedMemoryLayout | Patterson&Hennessy | false | OK (Lehrbuch) |
-| AoSStrictMemoryLayout | DOD-Pattern | false | OK (kein Paper) |
-| SoAMemoryLayout | Abadi SIGMOD 2008 | false | OK (verwandt) |
-| PackedBitmapMemoryLayout | Jacobson FOCS 1989 | false | OK (Pseudocode) |
-
-## §5 Cross-Refs
-- Doku 16 — axis_05 CPU IMC Runtime-Heuristik
-- Doku 17 §4.5 Klasse D
+## §4 Cross-Refs
+- Autoritative Map: docs/architecture/18_achsen_algorithmus_paper_code_map.md
+- Doku 17 §4.5 (Klassifikation)
+- Lokaler Katalog Forschungsarbeiten/code/ (Map §6): **P09** = Jacobson LOUDS (FOCS 1989) — Originalpaper-Konzept, KEIN Code; verwendet in axis_05.
