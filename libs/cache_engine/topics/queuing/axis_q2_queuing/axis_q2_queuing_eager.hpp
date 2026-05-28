@@ -3,6 +3,7 @@
 // @topic queuing @achse Q2 @family F01 EagerFlush
 // @subaxis FS1 event_triggered
 
+#include "axis_q2_queuing_strategy_base.hpp"
 #include "concepts/axis_q2_queuing_concept.hpp"
 #include "concepts/axis_q2_queuing_cache_engine_permutation_concept.hpp"
 #include "axis_q2_queuing_subaxes_fs1_to_fs4.hpp"
@@ -23,7 +24,7 @@ namespace comdare::cache_engine::queuing::axis_q2_queuing {
  * Verwendung: niedrige Latenz, keine Batching-Vorteile. Klassischer
  * Pessimistic-Sync-Pattern.
  */
-class EagerFlush : public ::comdare::cache_engine::topics::AxisBase {
+class EagerFlush : public FlushPolicyStrategyBase<EagerFlush> {
 public:
     static constexpr bool enabled = flags::eager_enabled;
     // V41.F.6.1.P2.C ENTFERNT: Defaults kommen via AxisBase (is_original_module = false).
