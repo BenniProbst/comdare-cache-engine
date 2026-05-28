@@ -202,6 +202,29 @@ libs/cache_engine/topics/<topic>/<axis>/legacy_code/paper_<id>_<name>/
 - **P04 CoCo-Trie GPL-3.0**: viral License, kann nicht in BSD/MIT-Engine
   linken. Architekt-Direktive: "OK", Sonderfall.
 
+## §4.5 Klassifikation: standalone vs embedded (is_original-Linking-Eignung)
+
+Beim axis_07-Pilot zeigte sich: **is_original_validator funktioniert NUR fuer
+Achsen mit standalone-Algorithmus-Funktionen** (SHA256 ueber isolierte
+Funktion-Bodies via Macro-Stringification). Prefetch in Wormhole = `#define
+wh_prefetch` (Macro), ART = embedded in Traversal → KEINE standalone-Funktion.
+
+| Klasse | Achsen | is_original-Linking | Begruendung |
+|--------|--------|---------------------|-------------|
+| **A: standalone** | axis_06_allocator, axis_03a_search_algo, axis_q1_queuing | JA (DONE "ALL ORIGINAL") | isolierte Funktionen |
+| **B: embedded/macro** | axis_07_prefetch | NEIN | Macro/embedded |
+| **C: license-blockiert** | axis_14_value_handle | NEIN | RCU LGPL, Hazard NO LICENSE |
+| **D: pseudocode-only** | axis_05_memory_layout, axis_01_index_organization | NEIN | Bender/Bayer/Comer Pseudocode |
+| **E: engineering-pattern** | axis_11_telemetry, axis_migration, axis_io | NEIN | Praxis-Heuristiken |
+
+**Konsequenz:** Klasse A = echtes Linking (3 Achsen bereits done). Klasse B-E =
+Referenz-Code in ext/ + Re-Impl-Fallback (is_original=false). KEIN
+Qualitaetsverlust: Habich-Compliance via vollstaendige Paper-Referenz +
+ehrliche is_original=false-Deklaration.
+
+**Revidierter R7.6-Aufwand:** ~28 SP statt 76 SP (Klasse B-E braucht kein
+Linking).
+
 ## §5 Naechste Schritte (User-Entscheidung)
 
 Nach Doku-Commit + Submodule-Bump entscheidet User:
