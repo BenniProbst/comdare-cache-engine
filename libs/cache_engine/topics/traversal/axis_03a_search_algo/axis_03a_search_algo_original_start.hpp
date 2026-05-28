@@ -3,7 +3,7 @@
 //
 // @topic traversal @achse 03a @family S06 OriginalStartSearchAlgo
 // @subaxis SA3 multilevel_access (analog VectorU16U16SearchAlgo)
-// @paper P05 START (Mertens et al., ICDE 2024)
+// @paper P05 START (Fent/Jungmair/Kipf/Neumann, ICDEW 2020)
 //
 // **Habich-Compliance-Wrapper:** parallel zu VectorU16U16SearchAlgo (Re-Impl).
 // get_compiler()="gcc-9.5" via Paper-Mixin.

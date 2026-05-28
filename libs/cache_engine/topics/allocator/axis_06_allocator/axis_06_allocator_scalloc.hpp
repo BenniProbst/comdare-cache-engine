@@ -3,7 +3,7 @@
 //
 // @topic allocator
 // @achse 6
-// @family A08 (Scalloc Spans — Aigner/Iurca/Wimmer PPoPP 2015)
+// @family A08 (Scalloc Spans — Aigner/Kirsch/Lippautz/Sokolova, OOPSLA 2015)
 // @subaxis AA1 freelist_topology (Spans als Variable-Size-Free-List)
 //
 // **SONDERFALL Scalloc:** Standard-API hat KEINE native aligned_alloc.
@@ -53,7 +53,7 @@ public:
         else                   { return "scalloc(real=std)"; }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "Scalloc Spans (Aigner/Iurca/Wimmer PPoPP 2015)";
+        return "Scalloc Spans (Aigner/Kirsch/Lippautz/Sokolova, OOPSLA 2015)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "SCALLOC"; }
 

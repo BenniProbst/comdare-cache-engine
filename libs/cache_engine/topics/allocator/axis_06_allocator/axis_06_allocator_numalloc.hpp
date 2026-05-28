@@ -3,7 +3,7 @@
 //
 // @topic allocator
 // @achse 6
-// @family A09 (NUMAlloc — Linden/Liu/Williams ICDCS 2018)
+// @family A09 (NUMAlloc — UTSASRG, ISMM 2023)
 // @subaxis AA5 allocation_policy (NUMA-Origin-Awareness)
 //
 // **SONDERFALL NUMAlloc:** API verlangt expliziten NUMA-Node-Parameter.
@@ -56,7 +56,7 @@ public:
         else                   { return "numalloc(real=std)"; }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "NUMAlloc NUMA-aware (Linden/Liu/Williams ICDCS 2018)";
+        return "NUMAlloc NUMA-aware (UTSASRG, ISMM 2023)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "NUMALLOC"; }
 

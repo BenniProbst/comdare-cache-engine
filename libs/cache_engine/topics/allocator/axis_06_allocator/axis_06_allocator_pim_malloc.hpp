@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 6 PIMMallocAllocator A16 (2026-05-26)
 //
-// @topic allocator @achse 6 @family A16 (PIM-Malloc, UPMEM/HBM-PIM 2023+)
+// @topic allocator @achse 6 @family A16 (PIM-Malloc — VIA-Research, HPCA 2026 / arXiv:2505.13002)
 // @subaxis AA5 allocation_policy (Processing-In-Memory Hardware-Awareness)
 //
 // **SONDERFALL PIM-Malloc:** Verlangt PIM-Hardware (UPMEM DPUs, Samsung HBM-PIM,
@@ -56,7 +56,7 @@ public:
         else                   { return "pim_malloc(real=std)"; }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "PIM-Malloc Processing-In-Memory (UPMEM/HBM-PIM 2023+)";
+        return "PIM-Malloc Processing-In-Memory (VIA-Research, HPCA 2026 / arXiv:2505.13002)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "PIM_MALLOC"; }
 

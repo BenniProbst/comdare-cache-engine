@@ -3,7 +3,7 @@
 //
 // @topic allocator
 // @achse 6
-// @family A03 (Michael Lock-Free CAS — Michael PODC 2002 + JPDC 2004)
+// @family A03 (Michael Lock-Free CAS — Maged Michael, PLDI 2004, ACM SIGPLAN)
 // @subaxis AA4 synchronization (Lock-Free CAS-only Operations)
 //
 // Erster vollstaendig Lock-Free Memory-Allocator. CAS-basierte Free-Lists
@@ -49,7 +49,7 @@ public:
         else                   { return "michael_lockfree(real=std)"; }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "Michael Lock-Free CAS-Allocator (Michael PODC 2002 + JPDC 2004)";
+        return "Michael Lock-Free CAS-Allocator (Maged Michael, PLDI 2004, ACM SIGPLAN)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "MICHAEL_LF"; }
 

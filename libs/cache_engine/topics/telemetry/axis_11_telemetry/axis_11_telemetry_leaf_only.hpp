@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.R7.5.b axis_11 LeafOnlyCounter (Goldstandard-Update, Kuehn DaMoN 2023 X1)
+// V41.F.6.1.R7.5.b axis_11 LeafOnlyCounter (Goldstandard-Update, leaf-scope counter)
 
 #include "axis_11_telemetry_strategy_base.hpp"
 #include "axis_11_telemetry_subaxes_tm1_to_tm3.hpp"
@@ -11,8 +11,10 @@
 
 namespace comdare::cache_engine::telemetry::axis_11_telemetry {
 
-/// LeafOnlyCounter — Kuehn DaMoN 2023 11.X1: Counter NUR in Blatt-Knoten
+/// LeafOnlyCounter — Counter NUR in Blatt-Knoten
 /// (vermeidet Cache-Line-Ping-Pong durch shared Inner-Node-Updates).
+/// HINWEIS: KEINE Paper-Attribution — das Kuehn-DaMoN-2023-Paper behandelt
+/// cache-freundliches B+-Layout, NICHT einen Leaf-only-Counter.
 class LeafOnlyCounter : public TelemetryStrategyBase<LeafOnlyCounter> {
 public:
     using topic_tag = ::comdare::cache_engine::telemetry::concepts::TelemetryTopicTag;

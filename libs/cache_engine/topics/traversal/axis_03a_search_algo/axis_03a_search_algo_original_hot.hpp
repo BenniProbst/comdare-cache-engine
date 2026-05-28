@@ -3,7 +3,7 @@
 //
 // @topic traversal @achse 03a @family S05 OriginalHotSearchAlgo
 // @subaxis SA2 sparse_access (analog VectorU8U8SearchAlgo)
-// @paper P02 HOT (Binna/Zangerle/Pichl/Specht, PVLDB 11(3), 2018)
+// @paper P02 HOT (Binna/Zangerle/Pichl/Specht, SIGMOD 2018; erw. ACM TODS 2022)
 //
 // **Habich-Compliance-Wrapper:** parallel zu VectorU8U8SearchAlgo (Re-Impl).
 // get_compiler()="gcc-9.5" via Paper-Mixin.

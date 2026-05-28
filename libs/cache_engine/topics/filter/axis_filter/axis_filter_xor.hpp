@@ -7,7 +7,7 @@
 // Article No. 1.5, March 2020.
 // DOI: 10.1145/3376122
 // URL (Preprint): https://arxiv.org/abs/1912.08258
-// Code: https://github.com/FastFilter/fastfilter_cpp (MIT License)
+// Code: https://github.com/FastFilter/fastfilter_cpp (Apache-2.0 License)
 // Original-Code-File: src/xorfilter/xorfilter.h
 
 #include "axis_filter_strategy_base.hpp"
@@ -20,7 +20,7 @@
 
 namespace comdare::cache_engine::filter::axis_filter {
 
-/// XorFilter — Graf/Lemire 2020 (JEA, MIT-License).
+/// XorFilter — Graf/Lemire 2020 (JEA, Apache-2.0 License).
 /// XOR-Hash-Based Filter mit kleinerer Space-Bound als Bloom (~9 bits/key
 /// statt ~10 bits/key bei gleicher false-positive-Rate). Immutable nach Build.
 class XorFilter : public FilterStrategyBase<XorFilter> {

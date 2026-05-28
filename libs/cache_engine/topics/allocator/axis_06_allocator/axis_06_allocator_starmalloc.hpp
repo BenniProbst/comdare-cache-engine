@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 5 StarMallocAllocator A13 (2026-05-26)
 //
-// @topic allocator @achse 6 @family A13 (StarMalloc — Dang/Charguer 2024)
+// @topic allocator @achse 6 @family A13 (StarMalloc — Inria-Prosecco: Reitz/Fromherz/Protzenko et al., OOPSLA 2024)
 // @subaxis AA2 size_class_schema (formal-verified Bins)
 //
 // **WISSENSCHAFTLICHE BEDEUTUNG (kein Concept-Property aber Doku-wichtig):**
@@ -52,7 +52,7 @@ public:
         else                   { return "starmalloc(real=std)"; }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "StarMalloc Formal Verified F*/KaRaMeL (Dang/Charguer 2024)";
+        return "StarMalloc Formal Verified F*/KaRaMeL (Inria-Prosecco: Reitz/Fromherz/Protzenko et al., OOPSLA 2024)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "STARMALLOC"; }
 

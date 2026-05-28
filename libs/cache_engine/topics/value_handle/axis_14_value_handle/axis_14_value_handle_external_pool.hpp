@@ -12,7 +12,7 @@
 namespace comdare::cache_engine::value_handle::axis_14_value_handle {
 
 /// ExternalPoolValueHandle — Value extern in Pool, Node speichert nur Pool-Offset.
-/// Standard fuer Wormhole (Wu SIGMOD 2019): kompakte Nodes + Variable-Size
+/// Standard fuer Wormhole (Wu EuroSys 2019): kompakte Nodes + Variable-Size
 /// Values via Pool. Pointer-Indirektion kostet 1 Cache-Miss pro Lookup.
 class ExternalPoolValueHandle : public ValueHandleStrategyBase<ExternalPoolValueHandle> {
 public:
