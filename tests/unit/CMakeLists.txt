@@ -644,6 +644,12 @@ target_include_directories(test_v41_axis_08_concurrency PRIVATE
 target_link_libraries(test_v41_axis_08_concurrency PRIVATE
     Boost::mp11)
 
+# V41.F.6.1 F.6 Phase A: migrierte errno-style Status-Codes (status.hpp prt-art -> cache-engine)
+comdare_add_test(test_v41_status_code
+    SOURCES test_v41_status_code.cpp)
+target_include_directories(test_v41_status_code PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+
 # V41.F.6.1.R7.5.e axis_filter (4 Wrappers + TYPED_TEST_SUITE Pattern aus axis_06_allocator)
 comdare_add_test(test_v41_axis_filter
     SOURCES test_v41_axis_filter.cpp)
