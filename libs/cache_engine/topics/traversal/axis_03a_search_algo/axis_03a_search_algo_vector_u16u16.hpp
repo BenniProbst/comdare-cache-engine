@@ -5,7 +5,7 @@
 // @subaxis SA3 multilevel_access
 //
 // **Algorithmus-Pattern:** Multi-Byte Discriminator mit Cost-DP-Splitting
-// (START Self-Tuning Adaptive Radix Tree, Mertens et al. ICDE 2024).
+// (START Self-Tuning Adaptive Radix Tree, Fent et al., ICDEW 2020).
 //
 // Standalone-Implementation: sortierte std::vector<uint16> Keys + parallel
 // std::vector<uint64> Values, std::lower_bound O(log N) Lookup. Aequivalent

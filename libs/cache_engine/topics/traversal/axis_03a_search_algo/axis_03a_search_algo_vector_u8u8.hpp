@@ -7,7 +7,7 @@
 // **Algorithmus-Pattern:** sparse sortiertes Key-Value-Vektor-Paar mit
 // Patricia-Compression-Eigenschaften, beschrieben in:
 //   Binna/Zangerle/Pichl: "HOT: A Height Optimized Trie Index for Main-Memory
-//   Database Systems." PVLDB 11(3):274-286, 2018.
+//   Database Systems." SIGMOD 2018.
 //
 // Standalone-Implementation (kein Delegate, keine Legacy-Code-Referenz):
 // std::lower_bound auf std::vector<uint8> keys + parallel std::vector<uint64>

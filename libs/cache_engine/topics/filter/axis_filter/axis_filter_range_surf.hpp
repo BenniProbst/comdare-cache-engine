@@ -8,7 +8,7 @@
 // (SIGMOD 2018), pp. 323-336.
 // DOI: 10.1145/3183713.3196931
 // URL: https://www.cs.cmu.edu/~huanche1/publications/surf_paper.pdf
-// Code: https://github.com/efficient/SuRF (BSD-3-Clause License)
+// Code: https://github.com/efficient/SuRF (Apache-2.0 License)
 // Original-Code-File: include/surf.hpp + src/louds_dense.cpp
 
 #include "axis_filter_strategy_base.hpp"

@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 5 CAMAAllocator A12 (2026-05-26)
 //
-// @topic allocator @achse 6 @family A12 (CAMA — Bhattacharyya/Beard/Cohen 2020)
+// @topic allocator @achse 6 @family A12 (CAMA — Herter/Backes/Haupenthal/Reineke, ECRTS 2011, Saarland)
 // @subaxis AA5 allocation_policy (Cache-Aware)
 //
 // Cache-Aware Memory Allocator mit Awareness fuer L1/L2/L3-Topologie.
@@ -47,7 +47,7 @@ public:
         else                   { return "cama(real=std)"; }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "CAMA Cache-Aware (Bhattacharyya/Beard/Cohen 2020)";
+        return "CAMA Cache-Aware (Herter/Backes/Haupenthal/Reineke, ECRTS 2011, Saarland)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "CAMA"; }
 

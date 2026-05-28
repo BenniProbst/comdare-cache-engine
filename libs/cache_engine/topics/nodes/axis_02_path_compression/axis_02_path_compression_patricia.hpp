@@ -12,7 +12,7 @@
 namespace comdare::cache_engine::nodes::axis_02_path_compression {
 
 /// PatriciaPathCompression — Single-Bit-Split (Patricia-Trie).
-/// Verwendet von HOT (Binna PVLDB 2018) + Wormhole (Wu SIGMOD 2019).
+/// Verwendet von HOT (Binna PVLDB 2018) + Wormhole (Wu EuroSys 2019, 10.1145/3302424.3303955).
 /// Vorteil: Trie-Hoehe drastisch reduziert (nur signifikante Bits).
 class PatriciaPathCompression : public PathCompressionStrategyBase<PatriciaPathCompression> {
 public:

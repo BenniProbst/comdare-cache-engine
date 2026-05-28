@@ -11,7 +11,7 @@
 
 namespace comdare::cache_engine::telemetry::axis_11_telemetry {
 
-/// InsertCounter — globaler Insert-Zaehler (HOT Binna PVLDB 2018).
+/// InsertCounter — globaler Insert-Zaehler (HOT Binna SIGMOD 2018).
 /// Niedriger Overhead (1 atomic increment pro insert), keine per-node-Daten.
 /// Genuegt fuer Throughput-Mess-Reihen.
 class InsertCounter : public TelemetryStrategyBase<InsertCounter> {

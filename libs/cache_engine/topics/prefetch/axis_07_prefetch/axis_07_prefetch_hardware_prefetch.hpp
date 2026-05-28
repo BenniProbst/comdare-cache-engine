@@ -6,7 +6,7 @@
 // Data Management." Proceedings of EuroSys 2019.
 // DOI: 10.1145/3302424.3303955
 // URL: https://dl.acm.org/doi/10.1145/3302424.3303955
-// Code: https://github.com/wuxb45/wormhole (BSD-2-Clause License)
+// Code: https://github.com/wuxb45/wormhole (GPL-3.0 License — blockiert Linking)
 //
 // Original-Pattern: PREFETCHT0 explizit auf Hash-Anchor-Chain ohne Software-
 // Heuristik (CPU schaetzt Distance autonom). Implementiert via __builtin_prefetch.

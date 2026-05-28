@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.R7.5.b axis_11 LatencyHistogram (Wormhole latency distribution)
+// V41.F.6.1.R7.5.b axis_11 LatencyHistogram (HdrHistogram latency distribution)
 
 #include "axis_11_telemetry_strategy_base.hpp"
 #include "axis_11_telemetry_subaxes_tm1_to_tm3.hpp"
@@ -11,7 +11,7 @@
 
 namespace comdare::cache_engine::telemetry::axis_11_telemetry {
 
-/// LatencyHistogram — Lookup-Latenz-Histogramm (Wormhole Wu SIGMOD 2019).
+/// LatencyHistogram — Lookup-Latenz-Histogramm (HdrHistogram, Gil Tene).
 /// HDR-Histogramm (Gil Tene) pro Lookup. Hoechster Overhead, aber liefert
 /// p50/p95/p99 Latenz-Statistik fuer SLA-orientierte Mess-Reihen.
 class LatencyHistogram : public TelemetryStrategyBase<LatencyHistogram> {

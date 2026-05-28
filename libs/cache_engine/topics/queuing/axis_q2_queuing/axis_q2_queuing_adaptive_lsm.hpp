@@ -3,8 +3,8 @@
 // @topic queuing @achse Q2 @family F05 AdaptiveLsmFlush
 // @subaxis FS4 adaptive_triggered (erste FS4-Belegung)
 //
-// Adaptive Flush-Policy fuer LSM-Trees (Levandoski 2013, RocksDB Dynamic
-// Level-Based Compaction). Lernt aus Workload: Write-Rate, Read-Rate,
+// Adaptive Flush-Policy fuer LSM-Trees (konzeptuell RocksDB Dynamic Level
+// Compaction + O'Neil LSM-Tree 1996). Lernt aus Workload: Write-Rate, Read-Rate,
 // Compact-Stalls. Ein laufender EWMA (Exponential Weighted Moving Average)
 // ueber die letzte Write-Burst-Rate steuert den Watermark-Threshold
 // adaptiv (60-95%).

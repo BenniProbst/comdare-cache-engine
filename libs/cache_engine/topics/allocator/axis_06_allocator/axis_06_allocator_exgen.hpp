@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 7 ExgenAllocator A18 (2026-05-26)
 //
-// @topic allocator @achse 6 @family A18 (Exgen-Malloc Exception-Generated Single-Thread)
+// @topic allocator @achse 6 @family A18 (Exgen-Malloc — "Old is Gold", UT Austin, IEEE CAL 2025)
 // @subaxis AA4 synchronization (Single-Threaded Specialized)
 //
 // Spezialisiert fuer single-threaded Code mit Exception-Safety-Garantien.
@@ -47,7 +47,7 @@ public:
         else                   { return "exgen(real=std)"; }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "Exgen-Malloc Exception-Generated Single-Thread Specialized";
+        return "Exgen-Malloc Single-Thread Specialized (\"Old is Gold\", UT Austin, IEEE CAL 2025)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "EXGEN"; }
 

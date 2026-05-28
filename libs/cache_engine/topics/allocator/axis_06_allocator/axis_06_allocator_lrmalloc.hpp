@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 5 LRMallocAllocator A11 (2026-05-26)
 //
-// @topic allocator @achse 6 @family A11 (LRMalloc — Leite/Rocha JPDC 2019)
+// @topic allocator @achse 6 @family A11 (LRMalloc — Leite/Rocha, VECPAR 2018)
 // @subaxis AA4 synchronization (Lock-Free + Hazard-Pointer)
 //
 // Lock-Free Allocator mit Hazard-Pointers fuer safe Memory-Reclamation.
@@ -58,7 +58,7 @@ public:
         else                   { return "lrmalloc(real=std)"; }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "LRMalloc Lock-Free + Hazard-Pointer (Leite/Rocha JPDC 2019)";
+        return "LRMalloc Lock-Free + Hazard-Pointer (Leite/Rocha, VECPAR 2018)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "LRMALLOC"; }
 

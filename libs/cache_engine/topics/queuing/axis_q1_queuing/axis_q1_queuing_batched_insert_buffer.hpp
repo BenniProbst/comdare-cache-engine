@@ -5,7 +5,9 @@
 // @subaxis QS5 batched_access  (ERSTE QS5-Strategie)
 //
 // Batch-orientierter Buffer fuer OLAP-Indexe + ART-Bulk-Insert (Leis ICDE 2013
-// §6 Bulk-Insertion-Optimization, Lopez-Pesch ICDE 2024 Vectorized OLAP):
+// §6 Bulk-Insertion-Optimization; vektorisiertes OLAP-Batching ist eine
+// Re-Implementierung/Baseline im LSM-Batching-Kontext ohne verifiziertes
+// Ursprungspaper):
 // put() puffert in Sub-Batches der Groesse batch_size_; vollstaendige Batches
 // werden in den Output-Bereich uebergeben (bulk-Drain). Ziel: amortisierter
 // Insert-Cost durch Bulk-Operations (SIMD-Vectorization + Cache-Locality).

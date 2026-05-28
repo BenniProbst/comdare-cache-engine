@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1.P2.D.tr.s3 OriginalWormholeSearchAlgo S07 (2026-05-26)
 //
-// @paper P07 Wormhole (Wu/Ni/Jiang, USENIX ATC 2019)
+// @paper P07 Wormhole (Wu/Ni/Jiang, EuroSys 2019)
 // @source ext/traversal/P07-Wormhole/wormhole/wh.c
 //
 // 3/4 originall (wh_put/wh_get/wh_del), 1 Lücke (clear — Re-Impl via Drain-Loop).

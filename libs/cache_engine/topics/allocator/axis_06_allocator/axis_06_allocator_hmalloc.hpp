@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 6 HMallocAllocator A15 (2026-05-26)
 //
-// @topic allocator @achse 6 @family A15 (HMalloc Hybrid Free-List, Tang 2020)
+// @topic allocator @achse 6 @family A15 (HMalloc Hybrid Free-List — Li/Yao/Tang/Lin, ICPADS 2019)
 // @subaxis AA1 freelist_topology (Hybride Free-List-Strategien)
 //
 // Hybrid Allocator: kombiniert Free-List-Strategien dynamisch je nach Workload
@@ -47,7 +47,7 @@ public:
         else                   { return "hmalloc(real=std)"; }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "HMalloc Hybrid Free-List (Tang 2020 + irregular workloads)";
+        return "HMalloc Hybrid Free-List (Li/Yao/Tang/Lin, ICPADS 2019)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "HMALLOC"; }
 

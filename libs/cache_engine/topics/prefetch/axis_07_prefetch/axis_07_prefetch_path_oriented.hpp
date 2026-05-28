@@ -8,8 +8,9 @@
 // in Bearbeitung 2026).
 //
 // Verwandte Literatur:
-// - Tan, S., Knoll, A. "Adaptive Software Prefetching for Cache Hierarchies."
-//   IEEE TVLSI 2012. Heuristik fuer Path-Bundle-Identifikation.
+// - Chen, S., Gibbons, P.B., Mowry, T.C. "Improving Index Performance through
+//   Prefetching." Proceedings of ACM SIGMOD 2001. Heuristik fuer
+//   Path-Bundle-Identifikation.
 // - Mowry, T.C. "Tolerating Latency Through Software-Controlled Data
 //   Prefetching." Stanford Tech-Report CSL-TR-94-628, 1994.
 //

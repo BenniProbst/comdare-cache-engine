@@ -3,7 +3,7 @@
 //
 // @topic allocator
 // @achse 6
-// @family A07 (Snmalloc — Lipp/Bond/Parkinson, ISMM 2019)
+// @family A07 (Snmalloc — Paul Liétar et al., ISMM 2019)
 // @subaxis AA3 thread_locality (Message-Passing zwischen Threads)
 // @stand V41.F.6.1.C Batch 1 Vendor-Vollausbau
 //
@@ -43,7 +43,7 @@ namespace comdare::cache_engine::allocator::axis_06_allocator {
 /**
  * @brief SnmallocAllocator - Wrapper auf microsoft/snmalloc (A07)
  *
- * Message-Passing-Allocator (Lipp/Bond/Parkinson ISMM 2019).
+ * Message-Passing-Allocator (Paul Liétar et al. ISMM 2019).
  *
  * V41.F.6.1.C Stufe 2 (W6-Pattern): KEIN #ifdef mehr. enabled via flags::snmalloc_enabled.
  */
@@ -74,7 +74,7 @@ public:
         else                   { return "snmalloc(real=std)"; }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "Snmalloc Message-Passing (Lipp/Bond/Parkinson ISMM 2019)";
+        return "Snmalloc Message-Passing (Paul Liétar et al., ISMM 2019)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "SNMALLOC"; }
 
