@@ -76,3 +76,7 @@ docs/anhang/*.pdf
 # OS-Files
 Thumbs.db
 desktop.ini
+
+# V41.F.6.1: Build-Zeit-extrahierter Original-Paper-Code (Codegen-Extraktion aus ext/<topic>/<axis>/)
+# Diese legacy_code/-Inhalte sind Build-Artefakte (regenerierbar via comdare_paper_*_codegen) — NICHT committen.
+libs/cache_engine/topics/**/legacy_code/
