@@ -255,6 +255,14 @@ liegen — dort kann eine Datei mit der achsenlokalen Klassifikation erneut ersc
 Diese Migrationen **ergänzen** cache-engine, ohne prt-art zu brechen: prt-art kann während der
 gesamten Phase A unverändert weiterbauen, da nur neue Header/Klassen in cache-engine entstehen.
 
+> **Phase-A-Status (Stand 2026-05-29):** Die genuin-additiven Basis-Migrationen sind **abgeschlossen**:
+> status_code, signaling_bits, array_65535 (S09), distance_estimator + path_oriented (axis_07 StrategyImpl),
+> OLC-reserved-blocks. Die ursprünglich als „Phase-A" gelisteten Telemetrie-/Node-/Handle-Punkte sind nach
+> Validierung **deskriptor-seitig bereits covered** (axis_11/axis_01/axis_14) — ihre prt-art-spezifischen
+> Datenstrukturen gehören als `optional_prt_art_impl` in **Phase B** (Plugin-Controller-Slotfüllung). **Einziger
+> verbleibender großer Phase-A-Basis-Port:** `identity/prt_art_identity.hpp` → `cache_engine/anatomy/identity.hpp`
+> (PermutationFlags-System, 11 Banks).
+
 Reihenfolge innerhalb Phase A (von „reines Hinzufügen, keine Konsumenten" zu „Konsumenten anpassen"):
 
 1. **Eigenständige Basis-Konzepte ohne Abhängigkeiten** (reines Hinzufügen):
@@ -271,13 +279,25 @@ Reihenfolge innerhalb Phase A (von „reines Hinzufügen, keine Konsumenten" zu 
      (PathOrientedImpl: enqueue/suggest_next/reset + V11.1 note_hot_path_bytes; PathOrientedPrefetch stateful).
      Test 14/14 grün (6 neue F.6-Tests).
    - ✅ `concurrency/olc_with_reserved_blocks.hpp` → `axis_08_concurrency_olc.hpp` (optionale Variante) — **DONE** (fc038b3)
-   - `telemetry/leaf_only_counter.hpp` → ConcreteImpl in `axis_11_telemetry_leaf_only.hpp`
-     (nur LeafOnlyCounter; PerNodeCounter bleibt prt-art → Phase B)
-3. **Neue Node-/Handle-Typen ergänzen** (CE-Feature-Erweiterung):
-   - `nodes/bplus_node.hpp` → `axis_04_node_type_bplus_page.hpp`
-   - `nodes/redirect_node.hpp` → `axis_04_node_type_redirect_node.hpp`
-   - `value_handle/chain_ref_handle.hpp` → VH4-Subaxis in `axis_14_value_handle`
-   - `nodes/traversal/search_algo_traversal.hpp` → Density-Dispatch-Concept in `axis_02_path_compression/concepts/`
+   - ⏭️ `telemetry/leaf_only_counter.hpp` — **KEINE Phase-A-Wrapper-Migration** (Validierung 2026-05-29,
+     reconciled mit §3.11): Alle axis_11-Wrapper sind metadaten-only Deskriptoren; das Zählen erfolgt in
+     der Mess-Schicht (CacheEngineBuilder misst, [[anatomie-nur-achsen-und-observer]]), NICHT im Wrapper.
+     LeafOnlyCounter-Deskriptor ist **bereits covered** (axis_11_telemetry_leaf_only.hpp). Die Datenstruktur
+     (NodeAccessCount + LeafOnlyCounter-Impl + PerNodeCounter = F15-Anti-Pattern-Validierung) **BLEIBT als
+     optional_prt_art_impl in prt-art → Phase B** (vom Mess-Treiber konsumiert). Einbetten einer move-only
+     atomic-Map in den Wrapper würde Muster + Kopierbarkeit brechen.
+3. **Neue Node-/Handle-Typen** — **Deskriptor-Aspekt covered, Datenstruktur → Phase B**
+   (Validierung 2026-05-29 + Session-Planrunde: B+/Redirect sind PAGE-TYPES (axis_01), NICHT axis_04
+   Kapazitätsklasse). Die CE-Achsen liefern die **Deskriptoren/Defaults**; die prt-art-spezifischen
+   **Datenstrukturen** werden als `optional_prt_art_impl` via Plugin-Controller in die Slots gefüllt:
+   - ✅ `nodes/bplus_node.hpp` — Page-Type-Deskriptor covered: `axis_01_page_type_bplus.hpp` (BPlusPageType).
+     B+-Page-Layout-Datenstruktur → Phase B optional_prt_art_impl.
+   - ✅ `nodes/redirect_node.hpp` — Deskriptor covered: `axis_01_page_type_redirect.hpp` (RedirectPageType).
+     Fan-Out-Slot-Datenstruktur → Phase B optional_prt_art_impl.
+   - ✅ `value_handle/chain_ref_handle.hpp` — covered: `axis_14_value_handle_chain_ref.hpp` (ChainRef VH5, 91468cc).
+     Linked-List-Verwaltung (chain_head_offset/chain_length) → Phase B optional_prt_art_impl.
+   - ⏭️ `nodes/traversal/search_algo_traversal.hpp` — nur V32-Skelett (§3.12); CE axis_03a Goldstandard
+     deckt S01–S09 ab → **keine Migration**, Phase-C-Löschkandidat in prt-art.
 4. **Hybrid-/Entscheidungs-Migrationen** (Architektur-Entscheidung erforderlich):
    - `value_buffer/linear_value_buffer.hpp` → AppendOnlyTombstoneBuffer (Q10+) **oder** prt-art-Adapter
    - `identity/prt_art_identity.hpp` → `cache_engine/anatomy/identity.hpp` (Golden-Standard-Permutation)
