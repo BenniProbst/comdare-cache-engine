@@ -1,0 +1,24 @@
+#pragma once
+// V41.F.6.1.R7.3 axis_08_concurrency CMake-generierter Flags-Header
+
+#cmakedefine01 COMDARE_AXIS_08_USE_NONE
+#cmakedefine01 COMDARE_AXIS_08_USE_BLOCKING
+#cmakedefine01 COMDARE_AXIS_08_USE_READER_WRITER
+#cmakedefine01 COMDARE_AXIS_08_USE_OPTIMISTIC
+#cmakedefine01 COMDARE_AXIS_08_USE_LOCK_FREE
+#cmakedefine01 COMDARE_AXIS_08_USE_WAIT_FREE
+#cmakedefine01 COMDARE_AXIS_08_USE_RCU
+#cmakedefine01 COMDARE_AXIS_08_USE_HAZARD_PTR
+
+namespace comdare::cache_engine::concurrency::axis_08_concurrency::flags {
+
+inline constexpr bool none_enabled          = COMDARE_AXIS_08_USE_NONE;
+inline constexpr bool blocking_enabled      = COMDARE_AXIS_08_USE_BLOCKING;
+inline constexpr bool reader_writer_enabled = COMDARE_AXIS_08_USE_READER_WRITER;
+inline constexpr bool optimistic_enabled    = COMDARE_AXIS_08_USE_OPTIMISTIC;
+inline constexpr bool lock_free_enabled     = COMDARE_AXIS_08_USE_LOCK_FREE;
+inline constexpr bool wait_free_enabled     = COMDARE_AXIS_08_USE_WAIT_FREE;
+inline constexpr bool rcu_enabled           = COMDARE_AXIS_08_USE_RCU;
+inline constexpr bool hazard_ptr_enabled    = COMDARE_AXIS_08_USE_HAZARD_PTR;
+
+}  // namespace

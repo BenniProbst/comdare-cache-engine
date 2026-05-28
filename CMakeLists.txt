@@ -161,6 +161,16 @@ option(COMDARE_AXIS_07_ENABLE_DISTANCE_ESTIMATOR "Prefetch DistanceEstimator (AR
 option(COMDARE_AXIS_07_ENABLE_HARDWARE_PREFETCH  "Prefetch HardwarePrefetch (Wormhole PREFETCHT0)" ON)
 option(COMDARE_AXIS_07_ENABLE_PATH_ORIENTED      "Prefetch PathOriented (PRT-ART bundle-prefetch)" ON)
 
+# V41.F.6.1.R7.3 axis_08 Concurrency (8 Strategien)
+option(COMDARE_AXIS_08_ENABLE_NONE          "Concurrency None (single-threaded baseline)" ON)
+option(COMDARE_AXIS_08_ENABLE_BLOCKING      "Concurrency Blocking (coarse mutex, pessimistic)" ON)
+option(COMDARE_AXIS_08_ENABLE_READER_WRITER "Concurrency ReaderWriter (std::shared_mutex 1W/NR)" ON)
+option(COMDARE_AXIS_08_ENABLE_OPTIMISTIC    "Concurrency OLC (Optimistic Lock-Coupling, ART-Sync)" ON)
+option(COMDARE_AXIS_08_ENABLE_LOCK_FREE     "Concurrency LockFree (CAS-based)" ON)
+option(COMDARE_AXIS_08_ENABLE_WAIT_FREE     "Concurrency WaitFree (bounded per-thread)" ON)
+option(COMDARE_AXIS_08_ENABLE_RCU           "Concurrency RCU (McKenney, deferred reclamation)" ON)
+option(COMDARE_AXIS_08_ENABLE_HAZARD_PTR    "Concurrency HazardPtr (Michael TPDS 2004)" ON)
+
 # V41.F.6.1.R7.5.b axis_11 Telemetry (4 Strategien)
 option(COMDARE_AXIS_11_ENABLE_LEAF_ONLY_COUNTER "Telemetry LeafOnlyCounter (Kuehn DaMoN 2023 X1)" ON)
 option(COMDARE_AXIS_11_ENABLE_DENSITY_TRACKER   "Telemetry DensityTracker (ART per-node density)" ON)
@@ -747,6 +757,20 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/value_handle/axis_14_value_handle/axis_14_value_handle_flags.hpp"
     @ONLY)
 message(STATUS "  axis_14 (4 value-handles): INLINE=${COMDARE_AXIS_14_USE_INLINE} EXT_POOL=${COMDARE_AXIS_14_USE_EXTERNAL_POOL} SHARED_REF=${COMDARE_AXIS_14_USE_IMMUTABLE_SHARED_REF} VERSIONED=${COMDARE_AXIS_14_USE_VERSIONED_POINTER}")
+
+# V41.F.6.1.R7.3 axis_08 Concurrency Flags (USE = ENABLE)
+foreach(_c NONE BLOCKING READER_WRITER OPTIMISTIC LOCK_FREE WAIT_FREE RCU HAZARD_PTR)
+    if(COMDARE_AXIS_08_ENABLE_${_c})
+        set(COMDARE_AXIS_08_USE_${_c} 1)
+    else()
+        set(COMDARE_AXIS_08_USE_${_c} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/concurrency/axis_08_concurrency/axis_08_concurrency_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/concurrency/axis_08_concurrency/axis_08_concurrency_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_08 (8 concurrency): NONE=${COMDARE_AXIS_08_USE_NONE} BLOCKING=${COMDARE_AXIS_08_USE_BLOCKING} RW=${COMDARE_AXIS_08_USE_READER_WRITER} OLC=${COMDARE_AXIS_08_USE_OPTIMISTIC} LF=${COMDARE_AXIS_08_USE_LOCK_FREE} WF=${COMDARE_AXIS_08_USE_WAIT_FREE} RCU=${COMDARE_AXIS_08_USE_RCU} HP=${COMDARE_AXIS_08_USE_HAZARD_PTR}")
 
 # V41.F.6.1.R7.5.e axis_filter Flags (USE = ENABLE)
 foreach(_f BLOOM CUCKOO RANGE_SURF XOR)

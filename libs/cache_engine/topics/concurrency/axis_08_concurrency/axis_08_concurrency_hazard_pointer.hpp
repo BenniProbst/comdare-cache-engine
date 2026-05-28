@@ -1,0 +1,39 @@
+#pragma once
+// V41.F.6.1.R7.3 axis_08 HazardPointerConcurrency (Hazard Pointers, Reclamation)
+// Klasse C: P30 NO LICENSE → eigene Re-Impl (vgl. C++26 P0233R4). is_original=false.
+
+#include "axis_08_concurrency_strategy_base.hpp"
+#include "axis_08_concurrency_subaxes_cc1_to_cc2.hpp"
+#include "concepts/axis_08_concurrency_cache_engine_permutation_concept.hpp"
+#include "axis_08_concurrency_flags.hpp"
+#include "../concepts/topic_concurrency_concept.hpp"
+#include <string_view>
+#include <type_traits>
+
+namespace comdare::cache_engine::concurrency::axis_08_concurrency {
+
+/// HazardPointerConcurrency — Safe Memory Reclamation via Hazard Pointers:
+/// pro Thread markierte "in-use"-Zeiger verhindern verfruehte Freigabe.
+/// (Michael TPDS 2004.)
+class HazardPointerConcurrency : public ConcurrencyStrategyBase<HazardPointerConcurrency> {
+public:
+    using topic_tag = ::comdare::cache_engine::concurrency::concepts::ConcurrencyTopicTag;
+    using axis_tag  = subaxes::reclamation_scheme_tag;
+    using family_id = std::integral_constant<int, 8>;
+
+    static constexpr bool enabled = flags::hazard_ptr_enabled;
+
+    [[nodiscard]] static constexpr concepts::ConcurrencyPattern concurrency_pattern() noexcept {
+        return concepts::ConcurrencyPattern::HazardPtr;
+    }
+    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "concurrency_hazard_ptr"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "HazardPointerConcurrency (per-thread hazard pointers, safe reclamation)"; }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "HAZARD_PTR"; }
+};
+
+}  // namespace
+
+namespace comdare::cache_engine::concurrency::axis_08_concurrency {
+    static_assert(concepts::ConcurrencyStrategy<HazardPointerConcurrency>);
+    static_assert(concepts::CacheEnginePermutationStrategy<HazardPointerConcurrency>);
+}
