@@ -1,10 +1,24 @@
 # tests/unit/CMakeLists.txt - REV 6 Phase 6 Migration aus Diplomarbeit/code (2026-05-12)
 # Unit-Tests fuer migrierte Concept-Header (Cache-Engine + PRT-ART)
 
-# V41.F.6.1 — alle generierten axis_*_flags.hpp include-paths (CMake-Configure-Time GLOB)
-# Wird von Tests verwendet, die mehrere Topics referenzieren (z.B. Anatomy/PermutationEngine).
-file(GLOB COMDARE_ALL_AXIS_GENERATED_DIRS LIST_DIRECTORIES true
-    "${CMAKE_BINARY_DIR}/generated/topics/*/axis_*")
+# V41.F.6.1.R7.3-buildfix — alle generierten axis_*_flags.hpp include-paths.
+# ROBUST gegen Configure-Ordering: Pfade werden aus dem SOURCE-Tree abgeleitet (existiert
+# IMMER), NICHT per GLOB des Binary-Trees. Grund: add_subdirectory(tests) (Root-CMakeLists
+# Z.359) laeuft VOR den configure_file()-Aufrufen (Z.575+), die die generated/topics/<...>-
+# Dirs erst erzeugen. Ein Binary-Tree-GLOB war daher beim 1. Configure leer -> "2x-configure"-
+# Bug (Composition-Tests fanden axis_NN_*_flags.hpp nicht). Die Binary-Dirs existieren zur
+# BUILD-Zeit (configure_file laeuft im selben Configure) — daher genuegt die Pfad-Ableitung.
+file(GLOB _comdare_axis_src_dirs LIST_DIRECTORIES true
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/topics/*/axis_*")
+set(COMDARE_ALL_AXIS_GENERATED_DIRS "")
+foreach(_axis_src_dir ${_comdare_axis_src_dirs})
+    if(IS_DIRECTORY "${_axis_src_dir}")
+        file(RELATIVE_PATH _axis_rel
+            "${PROJECT_SOURCE_DIR}/libs/cache_engine/topics" "${_axis_src_dir}")
+        list(APPEND COMDARE_ALL_AXIS_GENERATED_DIRS
+            "${CMAKE_BINARY_DIR}/generated/topics/${_axis_rel}")
+    endif()
+endforeach()
 
 # Header-only INTERFACE-Library: Cache-Engine Concepts
 add_library(comdare_cache_engine_concepts INTERFACE)
@@ -274,7 +288,8 @@ target_include_directories(test_v41_paper_legacy_code PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_paper_legacy_code PRIVATE Boost::mp11)
 
 # V41.F.6.1.R2 Composition-Templates (Architektur-Refactoring nach Organ-Metapher)
@@ -284,7 +299,8 @@ target_include_directories(test_v41_compositions PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_compositions PRIVATE Boost::mp11)
 
 # V41.F.6.1.F Topics-Fundament-Sprint (12 Topics Skelett-Stufe-A)
@@ -305,7 +321,8 @@ target_include_directories(test_v41_anatomy PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy PRIVATE Boost::mp11)
 
 # V41.F.6.1.R4 AnatomyPermutationDriver (PermutationEngine + Anatomie-Brueckenkopf)
@@ -326,7 +343,8 @@ target_include_directories(test_v41_anatomy_observer PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_observer PRIVATE Boost::mp11)
 
 # V41.F.6.1.R5.B Builder-Anatomy-Commands (insert/lookup/erase/clear/observe)
@@ -337,7 +355,8 @@ target_include_directories(test_v41_builder_anatomy_commands PRIVATE
     "${PROJECT_SOURCE_DIR}"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_builder_anatomy_commands PRIVATE Boost::mp11)
 
 # V41.F.6.1.R5.C Pruefling-Merge (3 Kompositionale Joins Stufe 1/2/3)
@@ -348,7 +367,8 @@ target_include_directories(test_v41_anatomy_pruefling_merge PRIVATE
     "${PROJECT_SOURCE_DIR}"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_pruefling_merge PRIVATE Boost::mp11)
 
 # V41.F.6.1.R5.C.A AnatomyBase Wurzel + Gattungs-Marker (Mammal/Bird/Reptile/Invertebrate/Plant)
@@ -358,7 +378,8 @@ target_include_directories(test_v41_anatomy_base PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_base PRIVATE Boost::mp11)
 
 # V41.F.6.1.R5.C.A2 ExecutionEngine als Wurzel ueber AnatomyBase (Lebewesen vs Viren)
@@ -368,7 +389,8 @@ target_include_directories(test_v41_execution_engine PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_execution_engine PRIVATE Boost::mp11)
 
 # V41.F.6.1.R5.C.B SearchAlgorithmPermutationEngine (genus-aware Specialization)
@@ -391,7 +413,8 @@ target_include_directories(test_v41_anatomy_module_abi PRIVATE
     "${PROJECT_SOURCE_DIR}"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_module_abi PRIVATE Boost::mp11)
 
 # V41.F.6.1.R5.D.2 anatomy_codegen Pilot (HotComposition Static-Lib + Test)
