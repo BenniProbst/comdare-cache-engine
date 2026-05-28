@@ -665,6 +665,12 @@ target_include_directories(test_v41_axis_01_page_type PRIVATE
     "${CMAKE_BINARY_DIR}/generated/topics/nodes/axis_01_page_type")
 target_link_libraries(test_v41_axis_01_page_type PRIVATE Boost::mp11)
 
+# V41.E11 Plugin-Controller Pruefling-Registry
+comdare_add_test(test_v41_pruefling_registry
+    SOURCES test_v41_pruefling_registry.cpp)
+target_include_directories(test_v41_pruefling_registry PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+
 # V41.F.6.1.R7.5.e axis_filter (4 Wrappers + TYPED_TEST_SUITE Pattern aus axis_06_allocator)
 comdare_add_test(test_v41_axis_filter
     SOURCES test_v41_axis_filter.cpp)

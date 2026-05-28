@@ -56,6 +56,7 @@ public:
     [[nodiscard]] virtual IPrueflingFactory* find(std::string_view pruefling_name) = 0;
 };
 
-[[nodiscard]] IPrueflingRegistry& get_pruefling_registry();
+// get_pruefling_registry() — konkrete Impl + Accessor in pruefling_registry.hpp
+// (V41.E11 2026-05-29, header-only inline-Singleton).
 
 }  // namespace comdare::cache_engine::api
