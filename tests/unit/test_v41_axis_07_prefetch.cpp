@@ -16,6 +16,8 @@
 #include <topics/prefetch/topic_prefetch_config_set.hpp>
 
 #include <boost/mp11.hpp>
+#include <cstddef>
+#include <cstdint>
 #include <string_view>
 #include <type_traits>
 
@@ -86,4 +88,70 @@ TEST(R7_5_a_Prefetch, TopicConfigSetExposesAxis07) {
     static_assert(std::is_same_v<pf::TopicConfigSet::StaticAxisVariants,
                                   pf::TopicConfigSet::StaticAxisVariants_07>);
     SUCCEED();
+}
+
+// =================================================================
+// V41.F.6.1.F.6 — Migrierte native Logik (prt-art → StrategyImpl)
+// =================================================================
+
+// DistanceEstimatorPrefetch::estimate — Density-/Latenz-Heuristik (prt-art REV 6 §5.17).
+TEST(F6_Axis07_DistanceEstimator, EstimateDenseLowSparseHigh) {
+    // Dichter Knoten + niedrige Latenz → minimale Distanz.
+    static_assert(ax07::DistanceEstimatorPrefetch::estimate(100.0, 1.0) == 1);
+    // Spaerlicher Knoten + mittlere Latenz → hohe Distanz (1 + 8 + 3 = 12).
+    static_assert(ax07::DistanceEstimatorPrefetch::estimate(0.0, 30.0) == 12);
+    // Spaerlich + sehr hohe Latenz → auf kMaxDistance geklemmt (1 + 8 + 10 = 19 → 16).
+    static_assert(ax07::DistanceEstimatorPrefetch::estimate(0.0, 100.0)
+                  == ax07::DistanceEstimatorPrefetch::kMaxDistance);
+    SUCCEED();
+}
+
+TEST(F6_Axis07_DistanceEstimator, ClampBounds) {
+    static_assert(ax07::DistanceEstimatorPrefetch::clamp(0)   == ax07::DistanceEstimatorPrefetch::kMinDistance);
+    static_assert(ax07::DistanceEstimatorPrefetch::clamp(999) == ax07::DistanceEstimatorPrefetch::kMaxDistance);
+    static_assert(ax07::DistanceEstimatorPrefetch::clamp(5)   == 5);
+    SUCCEED();
+}
+
+// PathOrientedPrefetch — Pfad-Tracking + lineare Extrapolation (Diplomarbeit-Kern).
+TEST(F6_Axis07_PathOriented, SuggestNextExtrapolatesLinearStep) {
+    ax07::PathOrientedPrefetch p{};
+    EXPECT_EQ(p.suggest_next(), 0u);            // leer
+    p.enqueue(10);
+    EXPECT_EQ(p.suggest_next(), 10u);           // einzelner Eintrag
+    p.enqueue(20);
+    EXPECT_EQ(p.suggest_next(), 30u);           // 20 + (20-10)
+    EXPECT_EQ(p.total_enqueued(), 2u);
+    EXPECT_EQ(p.queue_depth(), 2u);
+}
+
+TEST(F6_Axis07_PathOriented, BoundedToMaxTrackedSlots) {
+    ax07::PathOrientedPrefetch p{};
+    for (std::uint64_t i = 0; i < 50; ++i) p.enqueue(i);
+    EXPECT_EQ(p.queue_depth(), ax07::PathOrientedPrefetch::kMaxTrackedSlots);
+    EXPECT_EQ(p.total_enqueued(), 50u);         // Zaehler unabhaengig vom Ring-Limit
+}
+
+TEST(F6_Axis07_PathOriented, ResetClearsState) {
+    ax07::PathOrientedPrefetch p{};
+    p.enqueue(1);
+    p.enqueue(2);
+    p.reset();
+    EXPECT_EQ(p.queue_depth(), 0u);
+    EXPECT_EQ(p.total_enqueued(), 0u);
+    EXPECT_EQ(p.suggest_next(), 0u);
+}
+
+// V11.1 Hot-Path-Hint aus rohen Schluessel-Bytes.
+TEST(F6_Axis07_PathOriented, HotPathBytesEnqueuesAndCounts) {
+    ax07::PathOrientedPrefetch p{};
+    std::uint64_t key = 0xDEADBEEFu;
+    p.note_hot_path_bytes(reinterpret_cast<std::byte const*>(&key), sizeof(key));
+    EXPECT_EQ(p.total_hot_path_hints(), 1u);
+    EXPECT_EQ(p.queue_depth(), 1u);
+    EXPECT_EQ(p.path().back(), key);
+    // Null/0-Bytes werden ignoriert (kein Hint).
+    p.note_hot_path_bytes(nullptr, 8);
+    p.note_hot_path_bytes(reinterpret_cast<std::byte const*>(&key), 0);
+    EXPECT_EQ(p.total_hot_path_hints(), 1u);
 }

@@ -265,9 +265,12 @@ Reihenfolge innerhalb Phase A (von „reines Hinzufügen, keine Konsumenten" zu 
      `kCapacity=65536` statt 65535 (Original-OOB bei discriminator==65535 behoben); Presence-Vektor
      statt Sentinel (jeder uint64-Wert gueltig). Typed-Test deckt automatisch ab + 5 spezifische Tests.
 2. **Algorithmus-Logik in vorhandene CE-Wrapper einziehen** (StrategyImpl-Pattern):
-   - `prefetch/distance_estimator.hpp` → `axis_07_prefetch_distance_estimator_impl.hpp`
-   - `prefetch/path_oriented_prefetch.hpp` → `axis_07_prefetch_path_oriented_impl.hpp`
-   - `concurrency/olc_with_reserved_blocks.hpp` → `axis_08_concurrency_olc.hpp` (optionale Variante)
+   - ✅ `prefetch/distance_estimator.hpp` → `axis_07_prefetch_distance_estimator_impl.hpp` — **DONE 2026-05-29**
+     (DistanceEstimatorImpl: estimate(density,latency)+clamp, constexpr; DistanceEstimatorPrefetch delegiert).
+   - ✅ `prefetch/path_oriented_prefetch.hpp` → `axis_07_prefetch_path_oriented_impl.hpp` — **DONE 2026-05-29**
+     (PathOrientedImpl: enqueue/suggest_next/reset + V11.1 note_hot_path_bytes; PathOrientedPrefetch stateful).
+     Test 14/14 grün (6 neue F.6-Tests).
+   - ✅ `concurrency/olc_with_reserved_blocks.hpp` → `axis_08_concurrency_olc.hpp` (optionale Variante) — **DONE** (fc038b3)
    - `telemetry/leaf_only_counter.hpp` → ConcreteImpl in `axis_11_telemetry_leaf_only.hpp`
      (nur LeafOnlyCounter; PerNodeCounter bleibt prt-art → Phase B)
 3. **Neue Node-/Handle-Typen ergänzen** (CE-Feature-Erweiterung):
