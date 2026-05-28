@@ -5,9 +5,10 @@
 // @stand V41.F.6.1.F1 Stufe-A Skelett
 //
 // Topic-Marker fuer Node-Strukturen + Path-Compression (Master-Doc §11.7.A).
-// 2 Achsen unter diesem Topic:
+// 3 Achsen unter diesem Topic:
+//   - axis_01_page_type        (welche Seiten-STRUKTUR: 6 Pflicht-Seitentypen — Achse 1 IPage, V41.F.6)
 //   - axis_02_path_compression (wie wird Pfad-Information komprimiert?)
-//   - axis_04_node_type        (welcher Knoten-Typ: Node4/16/48/256, Patricia, BPlusPage)
+//   - axis_04_node_type        (welche ART-Kapazitaetsklasse: Node4/16/48/256)
 
 #include <concepts>
 
