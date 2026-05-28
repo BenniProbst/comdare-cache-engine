@@ -18,7 +18,9 @@
 #include "axis_07_prefetch_subaxes_pf1_to_pf3.hpp"
 #include "concepts/axis_07_prefetch_cache_engine_permutation_concept.hpp"
 #include "axis_07_prefetch_flags.hpp"
+#include "axis_07_prefetch_distance_estimator_impl.hpp"  // V41.F.6.1.F.6 native Logik (prt-art-Migration)
 #include "../concepts/topic_prefetch_concept.hpp"
+#include <cstdint>
 #include <string_view>
 #include <type_traits>
 
@@ -39,6 +41,20 @@ public:
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "prefetch_distance_estimator"; }
     [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "DistanceEstimatorPrefetch (ART software-prefetch, distance-based)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "DISTANCE_ESTIMATOR"; }
+
+    // V41.F.6.1.F.6 — native Density-/Latenz-Heuristik (prt-art REV 6 §5.17), stateless+constexpr.
+    using impl_type = impl::DistanceEstimatorImpl;
+    static constexpr std::uint8_t kMinDistance = impl_type::kMinDistance;
+    static constexpr std::uint8_t kMaxDistance = impl_type::kMaxDistance;
+
+    /// Schaetzt die Prefetch-Distanz (Cache-Lines) aus Knoten-Density [%] + Tier-Latenz [cycles].
+    [[nodiscard]] static constexpr std::uint8_t estimate(double density_percent,
+                                                         double tier_latency_cycles) noexcept {
+        return impl_type::estimate(density_percent, tier_latency_cycles);
+    }
+    [[nodiscard]] static constexpr std::uint8_t clamp(int raw) noexcept {
+        return impl_type::clamp(raw);
+    }
 };
 
 }  // namespace
