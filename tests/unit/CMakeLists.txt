@@ -671,6 +671,17 @@ comdare_add_test(test_v41_pruefling_registry
 target_include_directories(test_v41_pruefling_registry PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 
+# V41.E11 Phase B — Pruefling-Integration-Tests (von comdare_pruefling.cmake je geladenem
+# Pruefling registriert; Listen kommen aus dem Plugin-Controller-Load-Loop der Root-CMakeLists).
+foreach(_pt_src IN LISTS COMDARE_PRUEFLING_TEST_SOURCES)
+    get_filename_component(_pt_name "${_pt_src}" NAME_WE)
+    comdare_add_test(${_pt_name} SOURCES "${_pt_src}")
+    target_include_directories(${_pt_name} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        ${COMDARE_PRUEFLING_INCLUDE_DIRS})
+    message(STATUS "comdare Plugin-Controller: Pruefling-Integration-Test ${_pt_name} registriert")
+endforeach()
+
 # V41.F.6.1.R7.5.e axis_filter (4 Wrappers + TYPED_TEST_SUITE Pattern aus axis_06_allocator)
 comdare_add_test(test_v41_axis_filter
     SOURCES test_v41_axis_filter.cpp)
