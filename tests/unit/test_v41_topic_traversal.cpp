@@ -205,6 +205,45 @@ TEST(SearchAlgo_VectorU8U8, ErfuellSimdConcept) {
     SUCCEED();
 }
 
+// --- V41.F.6.1.F.6 Array65535SearchAlgo (F.6-Migration aus prt-art) ---------
+
+TEST(SearchAlgo_Array65535, BalancedMidDensityClass) {
+    ce_03a::Array65535SearchAlgo s{};
+    EXPECT_EQ(s.density_class(), ce_03a::concepts::DensityClass::Balanced);
+}
+
+TEST(SearchAlgo_Array65535, MaxFanoutIs65536) {
+    EXPECT_EQ(ce_03a::Array65535SearchAlgo::max_fanout(), 65536u);
+    EXPECT_EQ(ce_03a::Array65535SearchAlgo::kCapacity, 65536u);
+}
+
+TEST(SearchAlgo_Array65535, DoesNotErfuellSimdConcept) {
+    static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::Array65535SearchAlgo>,
+        "Array65535SearchAlgo darf SimdCapableStrategy NICHT erfuellen (direkter O(1)-Index)");
+    SUCCEED();
+}
+
+// Korrektheit ggü. prt-art-Original: hoechster uint16-Diskriminator 65535 muss
+// adressierbar sein (Original-65535-Slots waren hier Out-of-Bounds).
+TEST(SearchAlgo_Array65535, MaxDiscriminatorNoOutOfBounds) {
+    ce_03a::Array65535SearchAlgo s{};
+    s.insert(std::uint16_t{65535}, std::uint64_t{777});
+    auto v = s.lookup(std::uint16_t{65535});
+    ASSERT_TRUE(v.has_value());
+    EXPECT_EQ(*v, 777u);
+    EXPECT_EQ(s.occupied_count(), 1u);
+    EXPECT_TRUE(s.erase(std::uint16_t{65535}));
+}
+
+// Presence-Vektor statt Sentinel: value_type == ~0ull bleibt ein gueltiger Wert.
+TEST(SearchAlgo_Array65535, AllOnesValueIsValidNotSentinel) {
+    ce_03a::Array65535SearchAlgo s{};
+    s.insert(std::uint16_t{1234}, ~std::uint64_t{0});
+    auto v = s.lookup(std::uint16_t{1234});
+    ASSERT_TRUE(v.has_value());
+    EXPECT_EQ(*v, ~std::uint64_t{0});
+}
+
 // =================================================================
 // TYPED_TEST_SUITE — axis_03b cache_traversal
 // =================================================================
