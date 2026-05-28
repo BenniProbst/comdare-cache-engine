@@ -149,7 +149,7 @@ liegen — dort kann eine Datei mit der achsenlokalen Klassifikation erneut ersc
 
 | Datei | Klassifikation | Aktion | Notiz |
 |-------|----------------|--------|-------|
-| `prt_art_identity.hpp` | basis_missing | MIGRIEREN → `cache_engine/anatomy/identity.hpp` | PermutationFlags-System (11 Banks); generisches Golden-Standard-Pattern |
+| `prt_art_identity.hpp` | ~~basis_missing~~ **korrigiert: spezifisch** | **BLEIBT-als-prt-art (Prüfling-Identität)** | Fehlklassifikation (Validierung 2026-05-29): generisches PermutationFlags-System (10 Banks + to_identifier) liegt BEREITS in `cache_engine/concepts/permutation_flags.hpp`. `prt_art_identity.hpp` *konsumiert* es nur + deklariert die PRT-ART-Bit-Kombination → Prüfling-Belang, vom Plugin-Controller gelesen. KEINE `anatomy/identity.hpp` nötig. |
 | `prt_art_search_engine.hpp` | already_covered | ERBT-von `comdare::search_engine<Collection, ConfigPermutation>` | Hybrid-Klasse (3 Spezialisierungen), cache-engine-konform; status_t eigen |
 | `prt_art_search_engine_adapter.hpp` | spezifisch | BLEIBT-als-optional_prt_art_impl | Spezialfall des SearchAlgorithmAbiAdapter; Such-Heuristik-Hooks prt-art-spezifisch (V8.9) |
 | `prt_art_execution_engine_adapter.hpp` | spezifisch | BLEIBT-als-optional_prt_art_impl | EE-B (PrtArt-Surrogat); PrtArtHashBackend Dummy; EngineCallable-DI (V32.FF.2 + V34.A.2) |
@@ -255,13 +255,22 @@ liegen — dort kann eine Datei mit der achsenlokalen Klassifikation erneut ersc
 Diese Migrationen **ergänzen** cache-engine, ohne prt-art zu brechen: prt-art kann während der
 gesamten Phase A unverändert weiterbauen, da nur neue Header/Klassen in cache-engine entstehen.
 
-> **Phase-A-Status (Stand 2026-05-29):** Die genuin-additiven Basis-Migrationen sind **abgeschlossen**:
-> status_code, signaling_bits, array_65535 (S09), distance_estimator + path_oriented (axis_07 StrategyImpl),
-> OLC-reserved-blocks. Die ursprünglich als „Phase-A" gelisteten Telemetrie-/Node-/Handle-Punkte sind nach
-> Validierung **deskriptor-seitig bereits covered** (axis_11/axis_01/axis_14) — ihre prt-art-spezifischen
-> Datenstrukturen gehören als `optional_prt_art_impl` in **Phase B** (Plugin-Controller-Slotfüllung). **Einziger
-> verbleibender großer Phase-A-Basis-Port:** `identity/prt_art_identity.hpp` → `cache_engine/anatomy/identity.hpp`
-> (PermutationFlags-System, 11 Banks).
+> **Phase-A-Status (Stand 2026-05-29): KOMPLETT.** Die genuin-additiven Basis-Migrationen sind
+> **abgeschlossen**: status_code, signaling_bits, array_65535 (S09), distance_estimator + path_oriented
+> (axis_07 StrategyImpl), OLC-reserved-blocks. Die ursprünglich als „Phase-A" gelisteten Telemetrie-/
+> Node-/Handle-Punkte sind nach Validierung **deskriptor-seitig bereits covered** (axis_11/axis_01/axis_14) —
+> ihre prt-art-spezifischen Datenstrukturen gehören als `optional_prt_art_impl` in **Phase B**.
+>
+> **`identity/prt_art_identity.hpp` ist KEINE Migration (Validierung 2026-05-29, korrigiert §3.2):** Das
+> generische **PermutationFlags-System (10 Banks + to_identifier)** liegt bereits in
+> `cache_engine/include/cache_engine/concepts/permutation_flags.hpp`. `prt_art_identity.hpp` *konsumiert*
+> dieses nur und deklariert die **PRT-ART-spezifische Bit-Kombination** — ein **Prüfling-Belang, bleibt
+> prt-art** (vom Plugin-Controller gelesen, um zu wissen welche Achsen-Slots PRT-ART füllt). Eine generische
+> `cache_engine/anatomy/identity.hpp` ist **nicht nötig** (Redundanz vermieden).
+>
+> → **Es gibt keinen verbleibenden Phase-A-Basis-Port.** F.6 verschiebt sich auf **Phase B**
+> (`optional_prt_art_impl`-Slotfüllung via Plugin-Controller, läuft end-to-end) + **Phase C** (destruktive
+> prt-art-Header-Löschungen, autorisiert via Restore-Tag).
 
 Reihenfolge innerhalb Phase A (von „reines Hinzufügen, keine Konsumenten" zu „Konsumenten anpassen"):
 
