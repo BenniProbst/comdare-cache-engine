@@ -1,55 +1,29 @@
-# axis_migration — Paper-References (R7.6)
-
+# axis_migration — Paper-References
 **Stand:** 2026-05-28
-**Task:** #734 R7.6 Paper-Identifikation
-**Klasse:** D/E (web-verifizierte DBMS-Referenzen) — is_original = false
+**Quelle:** docs/architecture/18_achsen_algorithmus_paper_code_map.md (autoritative Map, web-verifiziert) — DIESE Datei ist ein Achsen-Auszug.
+**Klasse (Doku 17 §4.5):** mix (E/C) — kein Wrapper ist is_original-faehig. NoMigration ist reine Baseline (E Engineering); HotColdMigration und AdaptiveMigration verweisen auf OSS-Code, sind aber als Re-Impl umgesetzt (HotCold zusaetzlich C: GPL-3.0 license-blockiert); TierBasedMigration ist code-unsicher (RocksDB als praktische Referenz, kein van-Renen-Repo).
 
-## §1 Pflicht-Note (Goldstandard)
+## §1 Pflicht-Note
+Kein Wrapper dieser Achse hat echtes is_original-Linking (alle is_original = ✗). HotColdMigration (Anti-Caching, GPL-3.0) und AdaptiveMigration (LeCaR + CacheLib) referenzieren OSS-Code, sind aber als Re-Impl/Baseline ohne Original-Bindung umgesetzt; HotColdMigration ist zusaetzlich durch GPL-3.0 fuer Linking gesperrt. NoMigration ist eine bewusste Vergleichs-Baseline ohne Paper.
 
-Klasse D/E: Hot/Cold- und Tier-Migration aus DBMS-Forschung. Lizenz-/Komplexitaets-
-Gruende → Re-Impl mit is_original=false.
+## §2 Wrapper → Paper → Code
 
-## §2 Wrapper-Paper-Mapping
+| Wrapper | Algorithmus | Paper (Titel) | Venue/Jahr | DOI/URL | C/C++-Code | Lizenz | is_original |
+|---------|-------------|---------------|------------|---------|------------|--------|-------------|
+| NoMigration | Static placement / No migration (baseline) | — | — | — | nein | none | ✗ |
+| HotColdMigration | Hot/Cold-Daten-Separation | Anti-Caching: A New Approach to DBMS Architecture | PVLDB 6(14) 2013 | 10.14778/2556549.2556575 | OSS | GPL-3.0 | ✗ |
+| TierBasedMigration | Multi-Tier-Migration RAM→NVM→SSD→HDD | Managing Non-Volatile Memory in Database Systems | SIGMOD 2018 | 10.1145/3183713.3196897 | ? | Apache-2.0 OR GPL-2.0 (RocksDB) | ✗ |
+| AdaptiveMigration | ML-driven adaptive Migration (Online-Learning) | Driving Cache Replacement with ML-based LeCaR | USENIX HotStorage 2018 | usenix.org/.../vietri | OSS | LeCaR: none ; CacheLib: Apache-2.0 | ✗ |
 
-### §2.1 NoMigration
-- **Quelle:** Baseline (kein Paper)
-- **is_original_module:** false
+## §3 Compliance-Status
+Alle 4 Wrapper haben eine Paper-Referenz ODER sind als Baseline gekennzeichnet (NoMigration = Static-Placement-Baseline ohne Paper) → Habich-Pflicht erfuellt.
 
-### §2.2 HotColdMigration
-- **Titel:** "Anti-Caching: A New Approach to Database Management System
-  Architecture"
-- **Autoren:** Justin DeBrabant, Andrew Pavlo, Stephen Tu, Michael Stonebraker,
-  Stan Zdonik
-- **Venue:** PVLDB 2013, Vol. 6, No. 14
-- **DOI:** 10.14778/2556549.2556575 (H-Store, GPL)
-- **Verwandt:** Levandoski et al. "Hekaton Project Siberia (Hot/Cold)", ICDE 2013
-- **is_original_module:** false
-
-### §2.3 TierBasedMigration
-- **Titel:** "Managing Non-Volatile Memory in Database Systems"
-- **Autoren:** Alexander van Renen, Viktor Leis, Alfons Kemper, Thomas Neumann
-  et al.
-- **Venue:** SIGMOD 2018
-- **DOI:** 10.1145/3183713.3196897
-- **Verwandt:** Eisenman et al. "Reducing DRAM Footprint with NVM", EuroSys 2018
-- **is_original_module:** false
-
-### §2.4 AdaptiveMigration
-- **Titel:** "Database Cracking"
-- **Autoren:** Stratos Idreos, Martin Kersten, Stefan Manegold
-- **Venue:** CIDR 2007 (MonetDB)
-- **Verwandt:** Chaudhuri, Narasayya "Self-Tuning Database Systems", VLDB 2007
-- **is_original_module:** false
-
-## §3 Achsen-Compliance-Status
-
-| Wrapper | Paper-Ref | is_original | Habich-Compliant |
-|---------|-----------|-------------|------------------|
-| NoMigration | Baseline | false | OK |
-| HotColdMigration | DeBrabant PVLDB 2013 | false | OK (Web-verifiziert) |
-| TierBasedMigration | van Renen SIGMOD 2018 | false | OK |
-| AdaptiveMigration | Idreos CIDR 2007 | false | OK |
+- **is_original-Kandidaten (Map §3):** keine — kein axis_migration-Wrapper hat is_original_eligible = true.
+- **Lizenz-blockiert:** HotColdMigration (Anti-Caching, GPL-3.0) → kein Original-Code-Linking moeglich.
+- **Korrektur angewandt (Map §4):** AdaptiveMigration — der alte Code-Kommentar (PAPER_REFERENCES.md §2.4) behauptete faelschlich "Database Cracking (Idreos CIDR 2007)". Korrekt ist LeCaR (Vietri, USENIX HotStorage 2018) + CacheLib (Berg, OSDI 2020) — Block-Migration, NICHT Index-Cracking. Diese Datei verwendet ausschliesslich die korrigierte Attribution.
+- **Offener Punkt (Map §5):** TierBasedMigration (conf=high, code=?) — van-Renen-NVM-Code ist nicht als Repo auffindbar; RocksDB dient als praktische Referenz, daher c_cpp_code_exists=unknown und keine Original-Bindung.
 
 ## §4 Cross-Refs
-- Doku 17 §4.5 Klasse D/E
-- Naming-Backlog: axis_migration ohne Topic-Suffix (optional P2)
+- Autoritative Map: docs/architecture/18_achsen_algorithmus_paper_code_map.md (§2 axis_migration, §4 AdaptiveMigration-Korrektur, §5 TierBasedMigration)
+- Doku 17 §4.5 (Klassifikation A standalone / C license-blockiert / D pseudocode / E engineering)
+- Lokaler Katalog Forschungsarbeiten/code/REPO_INVENTAR_FINAL.md: kein P-ID-Eintrag fuer axis_migration (Anti-Caching/LeCaR/CacheLib/RocksDB nicht im P01-P33-Katalog).
