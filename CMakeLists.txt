@@ -149,6 +149,14 @@ option(COMDARE_AXIS_02_ENABLE_NONE       "Path-Compression None (raw path, no co
 option(COMDARE_AXIS_02_ENABLE_PATRICIA   "Path-Compression Patricia (single-bit-split, HOT/Wormhole)" ON)
 option(COMDARE_AXIS_02_ENABLE_BYTE_WISE  "Path-Compression ByteWise (byte-by-byte, ART)" ON)
 
+# V41.F.6.1 F.6 axis_01_page_type PAGE-TYPE (6 Pflicht-Seitentypen, Achse 1 IPage)
+option(COMDARE_AXIS_01PT_ENABLE_DENSE_BYTE      "PageType DenseByte (dense byte-indexed branch)" ON)
+option(COMDARE_AXIS_01PT_ENABLE_EXTENDED_DENSE  "PageType ExtendedDense (multi-level dense)" ON)
+option(COMDARE_AXIS_01PT_ENABLE_SPARSE_PATRICIA "PageType SparsePatricia (sparse, Patricia)" ON)
+option(COMDARE_AXIS_01PT_ENABLE_REDIRECT        "PageType Redirect (collapsed path, CoCo-trie)" ON)
+option(COMDARE_AXIS_01PT_ENABLE_CUSTOM_CACHE    "PageType CustomCache (cache-line custom, PRT-ART)" ON)
+option(COMDARE_AXIS_01PT_ENABLE_BPLUS           "PageType BPlus (sorted B+ branch, Masstree)" ON)
+
 # V41.F.6.1.R7.1.d axis_04 Node-Type (4 ART-Varianten)
 option(COMDARE_AXIS_04_ENABLE_NODE4    "Node-Type Node4 (ART small, linear-search 4-slot)" ON)
 option(COMDARE_AXIS_04_ENABLE_NODE16   "Node-Type Node16 (ART medium, SIMD-binary-search 16-slot)" ON)
@@ -688,6 +696,20 @@ configure_file(
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/nodes/axis_02_path_compression/axis_02_path_compression_flags.hpp"
     @ONLY)
 message(STATUS "  axis_02 (3 compressions): NONE=${COMDARE_AXIS_02_USE_NONE} PATRICIA=${COMDARE_AXIS_02_USE_PATRICIA} BYTE_WISE=${COMDARE_AXIS_02_USE_BYTE_WISE}")
+
+# V41.F.6.1 F.6 axis_01_page_type PAGE-TYPE Flags (USE = ENABLE)
+foreach(_pt DENSE_BYTE EXTENDED_DENSE SPARSE_PATRICIA REDIRECT CUSTOM_CACHE BPLUS)
+    if(COMDARE_AXIS_01PT_ENABLE_${_pt})
+        set(COMDARE_AXIS_01PT_USE_${_pt} 1)
+    else()
+        set(COMDARE_AXIS_01PT_USE_${_pt} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/nodes/axis_01_page_type/axis_01_page_type_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/nodes/axis_01_page_type/axis_01_page_type_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_01_page_type (6 page-types): DENSE=${COMDARE_AXIS_01PT_USE_DENSE_BYTE} EXT=${COMDARE_AXIS_01PT_USE_EXTENDED_DENSE} PATRICIA=${COMDARE_AXIS_01PT_USE_SPARSE_PATRICIA} REDIRECT=${COMDARE_AXIS_01PT_USE_REDIRECT} CUSTOM=${COMDARE_AXIS_01PT_USE_CUSTOM_CACHE} BPLUS=${COMDARE_AXIS_01PT_USE_BPLUS}")
 
 # V41.F.6.1.R7.1.d axis_04 Node-Type Flags (USE = ENABLE)
 foreach(_n NODE4 NODE16 NODE48 NODE256)

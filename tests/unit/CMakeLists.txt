@@ -656,6 +656,15 @@ comdare_add_test(test_v41_serialization_primitives
 target_include_directories(test_v41_serialization_primitives PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine")
 
+# V41.F.6.1 F.6 NEUE Achse axis_01_page_type (6 Pflicht-Seitentypen)
+comdare_add_test(test_v41_axis_01_page_type
+    SOURCES test_v41_axis_01_page_type.cpp)
+target_include_directories(test_v41_axis_01_page_type PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${CMAKE_BINARY_DIR}/generated"
+    "${CMAKE_BINARY_DIR}/generated/topics/nodes/axis_01_page_type")
+target_link_libraries(test_v41_axis_01_page_type PRIVATE Boost::mp11)
+
 # V41.F.6.1.R7.5.e axis_filter (4 Wrappers + TYPED_TEST_SUITE Pattern aus axis_06_allocator)
 comdare_add_test(test_v41_axis_filter
     SOURCES test_v41_axis_filter.cpp)

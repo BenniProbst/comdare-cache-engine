@@ -1,0 +1,20 @@
+#pragma once
+// V41.F.6.1 F.6 axis_01_page_type CMake-generierter Flags-Header
+
+#cmakedefine01 COMDARE_AXIS_01PT_USE_DENSE_BYTE
+#cmakedefine01 COMDARE_AXIS_01PT_USE_EXTENDED_DENSE
+#cmakedefine01 COMDARE_AXIS_01PT_USE_SPARSE_PATRICIA
+#cmakedefine01 COMDARE_AXIS_01PT_USE_REDIRECT
+#cmakedefine01 COMDARE_AXIS_01PT_USE_CUSTOM_CACHE
+#cmakedefine01 COMDARE_AXIS_01PT_USE_BPLUS
+
+namespace comdare::cache_engine::nodes::axis_01_page_type::flags {
+
+inline constexpr bool dense_byte_enabled      = COMDARE_AXIS_01PT_USE_DENSE_BYTE;
+inline constexpr bool extended_dense_enabled  = COMDARE_AXIS_01PT_USE_EXTENDED_DENSE;
+inline constexpr bool sparse_patricia_enabled = COMDARE_AXIS_01PT_USE_SPARSE_PATRICIA;
+inline constexpr bool redirect_enabled        = COMDARE_AXIS_01PT_USE_REDIRECT;
+inline constexpr bool custom_cache_enabled    = COMDARE_AXIS_01PT_USE_CUSTOM_CACHE;
+inline constexpr bool bplus_enabled           = COMDARE_AXIS_01PT_USE_BPLUS;
+
+}  // namespace
