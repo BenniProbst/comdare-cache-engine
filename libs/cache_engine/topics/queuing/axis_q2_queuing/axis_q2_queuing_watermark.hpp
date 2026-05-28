@@ -8,6 +8,7 @@
 #include "concepts/axis_q2_queuing_iterable_aspect_strategy_concept.hpp"
 #include "axis_q2_queuing_subaxes_fs1_to_fs4.hpp"
 #include "../concepts/topic_queuing_concept.hpp"
+#include "axis_q2_queuing_strategy_base.hpp"
 #include "../../axis_base.hpp"
 
 #include <topics/queuing/axis_q2_queuing/axis_q2_queuing_flags.hpp>
@@ -26,7 +27,7 @@ namespace comdare::cache_engine::queuing::axis_q2_queuing {
  * iterable_aspect_t fuer Watermark-Prozent (50/65/75/85/95). PermutationEngine
  * generiert 1 Binary mit Runtime-Loop ueber Watermark-Werte.
  */
-class WatermarkFlush : public ::comdare::cache_engine::topics::AxisBase {
+class WatermarkFlush : public FlushPolicyStrategyBase<WatermarkFlush> {
 public:
     static constexpr bool enabled = flags::watermark_enabled;
     // V41.F.6.1.P2.C ENTFERNT: Defaults kommen via AxisBase (is_original_module = false).
