@@ -188,6 +188,7 @@ option(COMDARE_AXIS_14_ENABLE_INLINE               "ValueHandle Inline (value em
 option(COMDARE_AXIS_14_ENABLE_EXTERNAL_POOL        "ValueHandle ExternalPool (Wormhole pool-offset)" ON)
 option(COMDARE_AXIS_14_ENABLE_IMMUTABLE_SHARED_REF "ValueHandle ImmutableSharedRef (RCU shared_ptr)" ON)
 option(COMDARE_AXIS_14_ENABLE_VERSIONED_POINTER    "ValueHandle VersionedPointer (MVCC, Masstree/SMART)" ON)
+option(COMDARE_AXIS_14_ENABLE_CHAIN_REF            "ValueHandle ChainRef (multi-value chained external, prt-art F.6)" ON)
 
 # V41.F.6.1.R7.5.e axis_filter (4 Strategien)
 option(COMDARE_AXIS_FILTER_ENABLE_BLOOM      "Filter Bloom (Bloom 1970 point-query)" ON)
@@ -745,7 +746,7 @@ configure_file(
 message(STATUS "  axis_10 (4 serializers): RAW=${COMDARE_AXIS_10_USE_RAW_BINARY} VAR_LEN=${COMDARE_AXIS_10_USE_VAR_LEN} SUCCINCT=${COMDARE_AXIS_10_USE_SUCCINCT} COMPRESSED=${COMDARE_AXIS_10_USE_COMPRESSED}")
 
 # V41.F.6.1.R7.5.d axis_14 ValueHandle Flags (USE = ENABLE)
-foreach(_h INLINE EXTERNAL_POOL IMMUTABLE_SHARED_REF VERSIONED_POINTER)
+foreach(_h INLINE EXTERNAL_POOL IMMUTABLE_SHARED_REF VERSIONED_POINTER CHAIN_REF)
     if(COMDARE_AXIS_14_ENABLE_${_h})
         set(COMDARE_AXIS_14_USE_${_h} 1)
     else()
@@ -756,7 +757,7 @@ configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/value_handle/axis_14_value_handle/axis_14_value_handle_flags.hpp.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/value_handle/axis_14_value_handle/axis_14_value_handle_flags.hpp"
     @ONLY)
-message(STATUS "  axis_14 (4 value-handles): INLINE=${COMDARE_AXIS_14_USE_INLINE} EXT_POOL=${COMDARE_AXIS_14_USE_EXTERNAL_POOL} SHARED_REF=${COMDARE_AXIS_14_USE_IMMUTABLE_SHARED_REF} VERSIONED=${COMDARE_AXIS_14_USE_VERSIONED_POINTER}")
+message(STATUS "  axis_14 (5 value-handles): INLINE=${COMDARE_AXIS_14_USE_INLINE} EXT_POOL=${COMDARE_AXIS_14_USE_EXTERNAL_POOL} SHARED_REF=${COMDARE_AXIS_14_USE_IMMUTABLE_SHARED_REF} VERSIONED=${COMDARE_AXIS_14_USE_VERSIONED_POINTER} CHAIN_REF=${COMDARE_AXIS_14_USE_CHAIN_REF}")
 
 # V41.F.6.1.R7.3 axis_08 Concurrency Flags (USE = ENABLE)
 foreach(_c NONE BLOCKING READER_WRITER OPTIMISTIC LOCK_FREE WAIT_FREE RCU HAZARD_PTR)
