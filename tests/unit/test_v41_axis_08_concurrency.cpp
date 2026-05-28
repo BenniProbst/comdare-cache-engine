@@ -37,6 +37,8 @@ TEST(R7_3_Axis08, AllStrategiesSatisfyConcepts) {
     static_assert(ax08::concepts::ConcurrencyStrategy<ax08::WaitFreeConcurrency>);
     static_assert(ax08::concepts::ConcurrencyStrategy<ax08::RcuConcurrency>);
     static_assert(ax08::concepts::ConcurrencyStrategy<ax08::HazardPointerConcurrency>);
+    static_assert(ax08::concepts::ConcurrencyStrategy<ax08::OlcReservedBlocksConcurrency>);
+    static_assert(ax08::concepts::CacheEnginePermutationStrategy<ax08::OlcReservedBlocksConcurrency>);
     static_assert(ax08::concepts::CacheEnginePermutationStrategy<ax08::NoneConcurrency>);
     static_assert(ax08::concepts::CacheEnginePermutationStrategy<ax08::OlcOptimisticConcurrency>);
     static_assert(ax08::concepts::CacheEnginePermutationStrategy<ax08::RcuConcurrency>);
@@ -65,6 +67,7 @@ TEST(R7_3_Axis08, FlagSuffixUppercase) {
     static_assert(ax08::WaitFreeConcurrency::flag_suffix()      == std::string_view{"WAIT_FREE"});
     static_assert(ax08::RcuConcurrency::flag_suffix()           == std::string_view{"RCU"});
     static_assert(ax08::HazardPointerConcurrency::flag_suffix() == std::string_view{"HAZARD_PTR"});
+    static_assert(ax08::OlcReservedBlocksConcurrency::flag_suffix() == std::string_view{"OLC_RESERVED_BLOCKS"});
     SUCCEED();
 }
 
@@ -77,8 +80,8 @@ TEST(R7_3_Axis08, SubaxesOrthogonal) {
     SUCCEED();
 }
 
-TEST(R7_3_Axis08, RegistryHas8Strategies) {
-    static_assert(mp::mp_size<ax08::AllStrategies>::value == 8);
+TEST(R7_3_Axis08, RegistryHas9Strategies) {
+    static_assert(mp::mp_size<ax08::AllStrategies>::value == 9);  // F.6: + OlcReservedBlocks
     static_assert(mp::mp_size<ax08::EnabledStrategies>::value > 0);
     SUCCEED();
 }
@@ -92,6 +95,7 @@ TEST(R7_3_Axis08, FamilyIdsDistinct) {
     static_assert(ax08::WaitFreeConcurrency::family_id::value      == 6);
     static_assert(ax08::RcuConcurrency::family_id::value           == 7);
     static_assert(ax08::HazardPointerConcurrency::family_id::value == 8);
+    static_assert(ax08::OlcReservedBlocksConcurrency::family_id::value == 9);
     SUCCEED();
 }
 

@@ -11,6 +11,7 @@
 #include "axis_08_concurrency_wait_free.hpp"
 #include "axis_08_concurrency_rcu.hpp"
 #include "axis_08_concurrency_hazard_pointer.hpp"
+#include "axis_08_concurrency_olc_reserved_blocks.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
@@ -27,7 +28,8 @@ using AllStrategies = mp::mp_list<
     LockFreeConcurrency,
     WaitFreeConcurrency,
     RcuConcurrency,
-    HazardPointerConcurrency
+    HazardPointerConcurrency,
+    OlcReservedBlocksConcurrency
 >;
 
 template <typename T>
