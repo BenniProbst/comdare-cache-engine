@@ -43,6 +43,7 @@
 #include <builder/commands/welch_t_test.hpp>
 #include <builder/commands/multiple_comparison.hpp>   // R6: FWER-Korrektur bei vielen Vergleichen
 #include <builder/commands/result_aggregator.hpp>      // R5.E: Mess-Ergebnisse → CSV/JSON
+#include <builder/commands/latency_stats.hpp>           // R5.E: Latenz-Perzentile (geteilt, non-mutierend)
 
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_vector_u8u8.hpp>
@@ -332,4 +333,37 @@ TEST(F15ResultAggregator, EmptyCollection) {
     EXPECT_NE(csv.find("engine_name"), std::string::npos);  // nur Header
     EXPECT_EQ(std::count(csv.begin(), csv.end(), '\n'), 1);
     EXPECT_EQ(cmd::to_json(std::span<const cmd::ExecutionResult>{rs}), "[]");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// R5.E — latency_stats: geteilte, non-mutierende Perzentil/Statistik-Helfer.
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(F15LatencyStats, NearestRankPercentiles) {
+    // 1..100 → p50 (k=floor(0.5*100)=50) = sortiert[50] = 51; p99 (k=99) = 100.
+    std::vector<std::int64_t> s(100);
+    for (int i = 0; i < 100; ++i) s[static_cast<std::size_t>(i)] = i + 1;
+    EXPECT_EQ(stats::latency_p50_ns(std::span<const std::int64_t>{s}).count(), 51);
+    EXPECT_EQ(stats::latency_p99_ns(std::span<const std::int64_t>{s}).count(), 100);
+    EXPECT_EQ(stats::percentile_ns(std::span<const std::int64_t>{s}, 0.0).count(), 1);
+    EXPECT_EQ(stats::percentile_ns(std::span<const std::int64_t>{s}, 1.0).count(), 100);  // q geklemmt, k=n-1
+}
+
+TEST(F15LatencyStats, NonMutatingInput) {
+    std::vector<std::int64_t> s{5, 1, 4, 2, 3};
+    auto const before = s;  // Kopie
+    (void)stats::latency_p50_ns(std::span<const std::int64_t>{s});
+    (void)stats::latency_p99_ns(std::span<const std::int64_t>{s});
+    EXPECT_EQ(s, before) << "percentile_ns darf die Eingabe NICHT umsortieren (Welch-Samples bleiben)";
+}
+
+TEST(F15LatencyStats, MinMaxMeanAndEmpty) {
+    std::vector<std::int64_t> s{10, 20, 30};
+    EXPECT_EQ(stats::latency_min_ns(std::span<const std::int64_t>{s}), 10);
+    EXPECT_EQ(stats::latency_max_ns(std::span<const std::int64_t>{s}), 30);
+    EXPECT_NEAR(stats::latency_mean_ns(std::span<const std::int64_t>{s}), 20.0, 1e-9);
+    std::vector<std::int64_t> e{};
+    EXPECT_EQ(stats::percentile_ns(std::span<const std::int64_t>{e}, 0.5).count(), 0);
+    EXPECT_EQ(stats::latency_min_ns(std::span<const std::int64_t>{e}), 0);
+    EXPECT_EQ(stats::latency_mean_ns(std::span<const std::int64_t>{e}), 0.0);
 }

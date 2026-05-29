@@ -8,12 +8,14 @@
 #include "i_command.hpp"
 #include "workload.hpp"
 #include "execution_result.hpp"
+#include "latency_stats.hpp"   // R5.E: geteilte, non-mutierende Perzentil-Berechnung
 
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <span>
 #include <vector>
 
 namespace comdare::cache_engine::builder::commands {
@@ -121,8 +123,10 @@ public:
                 ? (static_cast<double>(workload_.operation_count) * 1e9 / static_cast<double>(overall_ns))
                 : 0.0;
 
-        result_.latency_p50 = percentile_ns(op_latencies_ns, 0.50);
-        result_.latency_p99 = percentile_ns(op_latencies_ns, 0.99);
+        // R5.E: geteilte, non-mutierende Perzentile (op_latencies_ns bleibt in Original-Reihenfolge
+        // → unten als latency_samples_ns fuer Welch's t-Test gemovet).
+        result_.latency_p50 = stats::percentile_ns(std::span<const std::int64_t>{op_latencies_ns}, 0.50);
+        result_.latency_p99 = stats::percentile_ns(std::span<const std::int64_t>{op_latencies_ns}, 0.99);
         result_.total_cache_misses = cache_misses_total;
         result_.memory_footprint_bytes =
             engine_callable_ ? bytes_touched_total : workload_.record_count * 64;
@@ -147,13 +151,7 @@ public:
     }
 
 private:
-    static std::chrono::nanoseconds percentile_ns(std::vector<std::int64_t>& samples, double q) {
-        if (samples.empty()) return std::chrono::nanoseconds{0};
-        const std::size_t k = std::min(samples.size() - 1,
-            static_cast<std::size_t>(q * static_cast<double>(samples.size())));
-        std::nth_element(samples.begin(), samples.begin() + static_cast<std::ptrdiff_t>(k), samples.end());
-        return std::chrono::nanoseconds{samples[k]};
-    }
+    // V41.F.6.1 R5.E: percentile_ns nach latency_stats.hpp extrahiert (wiederverwendbar + non-mutierend).
 
     std::string_view engine_name_;
     Workload workload_;
