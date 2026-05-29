@@ -9,6 +9,31 @@ sind durch `static_assert`- bzw. GTest-Tests im Repo abgesichert (Pfade in Klamm
 
 ---
 
+## 0. Kern-Beitrag der Arbeit (Motivation — warum das alles)
+
+Die gesamte Architektur begründet sich aus EINEM Kern-Beitrag (User-Direktive 2026-05-29):
+
+1. **Zerlegen + original-getreu rekonstruieren:** Existierende Algorithmen aus Papern werden in
+   **Achsen-Algorithmen zerlegt**, sodass sie als **eindeutige Kompositions-Auswahl aller Achsen** per
+   Metaprogrammierung **original-getreu wieder erstellbar** sind (Habich-Compliance, Doku 18 Provenienz).
+2. **Modularer Austausch → Vergleichbarkeit:** Über die Achsen-Schichten lassen sich einzelne
+   Achsen-Algorithmen **modular austauschen** — gleiches Gerüst, eine Achse variiert → starke Vergleichbarkeit.
+3. **Transparente Anatomie:** Wir finden die **Anatomie** eines (Such-)Algorithmus / Containers und machen
+   sie **transparent auswertbar — pro Achse UND für den gesamten Algorithmus** (zweidimensionale Messung, §4a).
+4. **Das gelöste Problem:** Ein Forscher, der nur EINEN neuen Achsen-Algorithmus erforscht, müsste sonst
+   einen ganzen Suchalgorithmus bauen + für ALLE übrigen Achsen je einen Algorithmus finden/implementieren,
+   den er gar nicht braucht. Ineffizient.
+5. **Die Lösung:** Ein **Library-Framework der Algorithmus-Achsen mit der cache engine** — der Forscher
+   steckt seine eine neue Achse ein, das Framework liefert alle übrigen Achsen als Defaults → sofort ein
+   vollständiger, vergleichbarer Algorithmus. Genau das realisiert das **Plugin-Controller-/Prüfling-Slot-
+   Modell** (§2-§3): der Prüfling liefert nur seine spezifischen Achsen (`optional_prt_art_impl`), die
+   cache-engine ergänzt die Defaults; die 3-Stufen-Permutation (§4) + der F15-Mess-Treiber (§4a) machen das
+   Ergebnis messbar.
+
+→ Jede Achsen-, Mess- und Framework-Arbeit dient diesem Zweck.
+
+---
+
 ## 1. Die thesis-zentrale Kette (bewiesen)
 
 ```

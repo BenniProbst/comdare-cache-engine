@@ -39,6 +39,7 @@
 
 #include <builder/anatomy_module_loader/anatomy_module_loader.hpp>
 #include <anatomy/anatomy_base.hpp>
+#include <anatomy/measurable_workload.hpp>   // Stufe B: Mess-Last DURCH die geladene DLL
 #include <builder/commands/welch_t_test.hpp>
 
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
@@ -52,6 +53,7 @@
 #include <filesystem>
 #include <random>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -170,6 +172,40 @@ TEST(F15Measurement, Dim2_AlgorithmLevel_WholeCompositions) {
     EXPECT_GT(w.mean_b, 0.0);
     // HINWEIS: Dim 2 misst aktuell die dominante search_algo-Struktur der Komposition. Sobald weitere
     // Achsen ins std::map-Innenleben routen (R5.B), erfasst dieselbe Mess-Stelle den vollen Algorithmus.
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (3) STUFE B — Mess-Last DURCH die geladene DLL (IMeasurableWorkload-Sub-Interface)
+//     Die Last läuft jetzt IN der DLL (auf deren eigener Komposition), nicht host-seitig.
+// ─────────────────────────────────────────────────────────────────────────────
+TEST(F15Measurement, StufeB_InDllWorkloadThroughLoadedComposition) {
+    namespace an = ::comdare::cache_engine::anatomy;
+    std::filesystem::path const dir{COMDARE_F15_MEASUREMENT_DIR};
+    std::vector<loader::AnatomyModuleHandle> handles;
+    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(dir, handles), loader::status_ok);
+    ASSERT_GE(handles.size(), 2u);
+
+    constexpr std::uint64_t kBatches = 200, kOps = 4000;
+    struct Run { std::string name; std::vector<std::int64_t> samples; };
+    std::vector<Run> runs;
+    for (auto& h : handles) {
+        auto* a = h.anatomy();
+        ASSERT_NE(a, nullptr);
+        // Sub-Interface via dynamic_cast abfragen (ABI-sicher: alte DLLs → nullptr).
+        auto* mw = dynamic_cast<an::IMeasurableWorkload*>(a);
+        ASSERT_NE(mw, nullptr) << "Geladene DLL implementiert IMeasurableWorkload nicht.";
+        std::vector<std::int64_t> s(static_cast<std::size_t>(kBatches));
+        auto const n = mw->run_workload(kOps, kBatches, 0xB15u, s.data(), s.size());
+        ASSERT_EQ(n, kBatches);                       // Last lief IN der DLL
+        runs.push_back(Run{std::string{a->composition_name()}, std::move(s)});
+    }
+
+    // Welch-Vergleich der ersten beiden Kompositionen — in-DLL gemessen (volle Stufe B).
+    auto const w = welch_compare(runs[0].samples, runs[1].samples, "DIM2-inDLL",
+                                 runs[0].name.c_str(), runs[1].name.c_str());
+    ASSERT_TRUE(w.valid);
+    EXPECT_GT(w.mean_a, 0.0);
+    EXPECT_GT(w.mean_b, 0.0);
 }
 
 // Welch-Validität-Randfall: <2 Samples → valid=false (dokumentierter Fallback).
