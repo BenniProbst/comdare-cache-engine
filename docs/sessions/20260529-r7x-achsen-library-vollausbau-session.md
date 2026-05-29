@@ -169,3 +169,33 @@ Goldstandard-Vorlage für neue axis_03a-Wrapper: `axis_03a_search_algo_skip_list
 `pre-f2f3-axiscentric-aliases-…` · `pre-f3-all17-concepts-…` · `pre-saeule2-observer-korrektur-…` · `pre-saeule1-axis03a-remodel-20260529` (= Stand vor Increment 1).
 
 **Status: PAUSE auf User-Wunsch.** Bestehende F15/Wrapper-Arbeit ist nicht „falsch" (Wrapper erfüllen std::map korrekt, als Reference-Compositions nutzbar); sie ist im Mess-Modell neu eingeordnet (Doku 24). Wiederaufnahme manuell durch den User.
+
+---
+
+## WIEDERAUFNAHME (2026-05-29) — RESUME-PLAN Schritt 1 erledigt + Build-Unblock
+
+**`/goal` reaktiviert.** RESUME-PLAN-Schritt 1 (Doku 24 §6: „node_type/layout/allocator als ECHTE Storage-Organe") — **Increment 1 (node_type) abgeschlossen, verifiziert, committed, gepusht.**
+
+### Implementiert (ce `a703cfc`, Tag `v41-saeule1-inc1-nodetype-storage-organ`)
+- **`storage_organ_concept.hpp`** (neu): `StorageOrgan<S>`-Concept, aus `RawSlotStore` extrahiert (keine erfundene Abstraktion), gemeinsamer **uint64**-Key. `static_assert(StorageOrgan<RawSlotStore>)` als Selbstbeweis in `composable_search.hpp`.
+- **`axis_04_node_type_slot_store.hpp`** (neu): `NodeTypeSlotStore<N>` macht den node_type zum echten Storage-Organ (bounded `std::array` der Kapazität `N::max_capacity()`, uint64-Key) → von `ComposedSearch` konsumierbar. Compile-Selbstbeweis StorageOrgan + beide Traversal-Organe.
+- **Pilot-Test** `Saeule1_NodeTypeStorageOrgan.Node4DrivesBothTraversalOrgansAsStdMap`: Node4 ⊕ LinearScan/SortedBinary = std::map-äquivalent (key_mod=3 ≤ cap 4). node_type ist damit austauschbares Organ, kein „Tier".
+- **Anatomie/`AnatomyExecutionContext` (std::map) UNANGETASTET** (Folge-Increment, Doku 24 §6.3) — die 21 Builder-Tests bleiben grün.
+
+### Build-Unblock (Boost.MP11-Prerequisite-Mechanismus)
+- Configure scheiterte zunächst: **FortiGate-Captive-Portal** blockt allen externen Egress → `boost_mp11`-FetchContent unmöglich (Diagnose: git-SSL/schannel/codeload/boost.io alle `fgtauth`-Sperrseite). KEIN Cert-Problem.
+- Gelöst über vom User bereitgestellte **Boost 1.91.0**-Archive (`boost_1_91_0.tar.bz2`/`.zip`, Desktop): 36 mp11-Header (verifiziert self-contained, `BOOST_MP11_VERSION 109100`) als **vendored** Header committet.
+- Neuer Mechanismus: `boost_mp11_setup.cmake` (vendored → `file(ARCHIVE_EXTRACT)` aus `prerequisites/` → FetchContent-Egress-Fallback 1.91.0) + `provision_mp11.cmake` + `tools/prerequisites/bootstrap_*.{sh,bat}` (kein Python) + `prerequisites/README.md` + `.gitignore` (große Archive >100 MB außen vor). Memory: `[[reference_boost_mp11_offline_prerequisite]]`.
+- Build-Fix: `test_v41_topic_traversal` bekommt `COMDARE_ALL_AXIS_GENERATED_DIRS` (Cross-Topic-Komposition mit nodes-axis_04 → generierte Flags).
+
+### Verifikation
+configure offline grün (vendored mp11) · Voll-Build grün · **ctest 2012/2012 bestanden, 0 Regressionen** (inkl. beider Säule-1-Tests).
+
+### Submodule-Sync
+ce `a703cfc` → GitHub + Tag gepusht · da `1bae82f` Submodule-Pointer auf `a703cfc` gebumpt + gepusht. pa unverändert.
+
+### Restore-Tag dieser Phase
+`pre-saeule1-nodetype-storage-organ-20260529` (= Stand `4d2369a` vor Increment 1).
+
+### Offen (RESUME-PLAN-Schritte 2–5, Doku 24 §6) — unverändert
+2. node_type→**layout/allocator** als Storage-Organe (NodeTypeSlotStore<N,L,A>) · 3. Tier-Wrapper zu Reference-Compositions umstufen · 4. Anatomie/Context auf `ComposedSearch` · 5. Säule-2-Mess-Pfad + Achsen-Vergleichs-Tests.
