@@ -237,6 +237,7 @@
 | HashSearchAlgo | Open-Addressing-Hashtabelle (Fibonacci-Hash, Linear Probing, Tombstone) — UNGEORDNET, O(1) avg | The Art of Computer Programming Vol.3 §6.4 (Hashing) | Addison-Wesley 2nd Ed. 1998 | en.wikipedia.org/wiki/Open_addressing | nein (Lehrbuch) | none | — | ✗ | high |
 | LinearScanSearchAlgo | Unsortierter linearer Scan (ART-Node4-Strategie, Baseline-Nullpunkt) | The Adaptive Radix Tree: ARTful Indexing… (Node4) | ICDE 2013 | 10.1109/ICDE.2013.6544812 | nein (Konzept-Baseline) | none | — | ✗ | high |
 | BinarySearchTreeSearchAlgo | Unbalancierter binaerer Suchbaum (Hibbard-Deletion) | The Art of Computer Programming Vol.3 §6.2.2 (Binary Tree Searching) | Addison-Wesley 2nd Ed. 1998 | en.wikipedia.org/wiki/Binary_search_tree | nein (Lehrbuch) | none | — | ✗ | high |
+| BTreeSearchAlgo | Balancierter block-orientierter Mehrwege-B-Baum (t=4; CLRS B-TREE-INSERT/DELETE, borrow/merge) | Organization and Maintenance of Large Ordered Indexes (Bayer/McCreight) | Acta Informatica 1(3):173-189, 1972 | 10.1007/BF00288683 | nein (Beschreibung; CLRS Kap. 18 Pseudocode) | none | — | ✗ | high |
 
 ### axis_03b_cache_traversal
 
