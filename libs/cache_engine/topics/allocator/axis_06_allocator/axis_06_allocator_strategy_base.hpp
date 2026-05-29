@@ -44,8 +44,10 @@ namespace comdare::cache_engine::allocator::axis_06_allocator {
  * **CRTP-Pattern:** Default-Methoden delegieren via static_cast an Derived.
  * Compile-Time-Polymorphie, KEINE virtual call, Inlining-faehig.
  *
- * **TODO V41.F.6.1.B:** Adapter-Methoden as_std_allocator + as_pmr_resource
- * sind als TODO-Stubs vorhanden — Implementation folgt mit neuen Wrappern.
+ * **V41.F.6.1.R7.4 (2026-05-29):** Adapter-Methoden as_std_allocator<T>() + as_pmr_resource()
+ * implementiert (vorher static_assert-Stubs). Beide liefern WERT-basierte Adapter, die an die
+ * allocate/deallocate-API der Strategie weiterleiten — KEINE Basis-Datenmember (Empty-Base-
+ * Optimization + Wrapper-Groesse bleiben erhalten; der Adapter haelt nur einen Derived*).
  */
 template <typename Derived>
 class AllocatorStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
@@ -93,27 +95,70 @@ public:
 #endif
 
     // ───────────────────────────────────────────────────────────────────────
-    // TODO V41.F.6.1.B Adapter-Methoden (NICHT in F.6.1.A implementiert)
+    // V41.F.6.1.R7.4 Adapter-Methoden — Allocator-Achse an std::allocator / std::pmr anbinden.
+    // WERT-basiert (kein Basis-Datenmember → EBO + Wrapper-Groesse bleiben erhalten).
     // ───────────────────────────────────────────────────────────────────────
 
     /**
-     * @brief TODO V41.F.6.1.B as_std_allocator
-     *
-     * Stub: nicht implementiert, Aufruf fuehrt zu static_assert beim Instanziieren.
+     * @brief StdAllocatorAdapter<T> — erfuellt die std::allocator-Named-Requirements (C++23) und
+     *        leitet allocate/deallocate an die zugrundeliegende Achsen-Strategie weiter.
+     *        Nutzbar mit std::vector<T, StdAllocatorAdapter<T>>, std::allocator_traits, rebind.
      */
     template <typename T>
-    [[nodiscard]] auto as_std_allocator() {
-        static_assert(sizeof(T) == 0,
-            "TODO V41.F.6.1.B: as_std_allocator<T>() Wrapper noch nicht implementiert.");
-    }
+    class StdAllocatorAdapter {
+    public:
+        using value_type = T;
+        explicit StdAllocatorAdapter(Derived* strat) noexcept : strat_(strat) {}
+        template <typename U>
+        StdAllocatorAdapter(StdAllocatorAdapter<U> const& other) noexcept : strat_(other.strat_) {}
+
+        [[nodiscard]] T* allocate(std::size_t n) {
+            return static_cast<T*>(strat_->allocate(n * sizeof(T), alignof(T)));
+        }
+        void deallocate(T* p, std::size_t n) noexcept {
+            strat_->deallocate(p, n * sizeof(T), alignof(T));
+        }
+        template <typename U>
+        [[nodiscard]] bool operator==(StdAllocatorAdapter<U> const& other) const noexcept {
+            return strat_ == other.strat_;
+        }
+    private:
+        template <typename U> friend class StdAllocatorAdapter;
+        Derived* strat_;
+    };
 
     /**
-     * @brief TODO V41.F.6.1.B as_pmr_resource
+     * @brief PmrResourceAdapter — std::pmr::memory_resource ueber die Achsen-Strategie. Konkreter,
+     *        kopierbarer Wert-Typ (haelt nur Derived*); der Aufrufer haelt ihn am Leben und
+     *        uebergibt &resource an pmr-Container.
      */
-    [[nodiscard]] std::pmr::memory_resource* as_pmr_resource() {
-        static_assert(sizeof(Derived) == 0,
-            "TODO V41.F.6.1.B: as_pmr_resource() Wrapper noch nicht implementiert.");
-        return nullptr;
+    class PmrResourceAdapter final : public std::pmr::memory_resource {
+    public:
+        explicit PmrResourceAdapter(Derived* strat) noexcept : strat_(strat) {}
+    private:
+        void* do_allocate(std::size_t bytes, std::size_t alignment) override {
+            return strat_->allocate(bytes, alignment);
+        }
+        void do_deallocate(void* p, std::size_t bytes, std::size_t alignment) override {
+            strat_->deallocate(p, bytes, alignment);
+        }
+        [[nodiscard]] bool do_is_equal(std::pmr::memory_resource const& other) const noexcept override {
+            auto const* o = dynamic_cast<PmrResourceAdapter const*>(&other);
+            return o != nullptr && o->strat_ == strat_;
+        }
+        Derived* strat_;
+    };
+
+    /// Liefert einen std::allocator-kompatiblen Adapter (Wert) fuer Element-Typ T.
+    template <typename T>
+    [[nodiscard]] StdAllocatorAdapter<T> as_std_allocator() noexcept {
+        return StdAllocatorAdapter<T>(&derived());
+    }
+
+    /// Liefert einen pmr-memory_resource-Adapter (Wert). Aufrufer haelt ihn am Leben und uebergibt
+    /// dessen Adresse an pmr-Container (z.B. std::pmr::polymorphic_allocator).
+    [[nodiscard]] PmrResourceAdapter as_pmr_resource() noexcept {
+        return PmrResourceAdapter(&derived());
     }
 
 protected:
