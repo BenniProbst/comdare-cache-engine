@@ -177,4 +177,34 @@ Key-Type-Reconciliation **verschränkt mit Säule 1** (Organ-Key-Typen). Saubere
 
 ---
 
+### §5.5 Befund: Die Vereinheitlichung ist durch die Organ-Key-Typen BLOCKIERT (Säule-1-Verschränkung)
+
+Beim Versuch, Schritt §5.4.2 (Builder treibt das Anatomie-Organ AS Container) umzusetzen, zeigt sich
+ein harter Blocker (im Code verifiziert):
+
+- Die Such-Organe haben **schmale, organ-eigene Key-Typen**: `Array256` = **uint8** (Key 0–255),
+  `BST`/`BTree` = **uint16** (0–65535). Treibt man z. B. `ArtComposition`s Organ (Array256) als
+  Container, wird Key `999` still zu `999 % 256 = 231` → **verlustbehaftet** (zwei verschiedene Keys
+  kollidieren, size/lookup werden falsch). Die `builder_anatomy_commands`-Tests passieren nur
+  ZUFÄLLIG (ihre Keys 1/2/5/7/999 kollidieren in uint8 nicht), aber als allgemeiner Container ist das
+  Organ wegen des schmalen Key-Raums ungeeignet.
+- Genau deshalb hält der Builder-Context bisher einen `std::map<uint64,uint64>` (breiter, exakter
+  Key-Raum) — als Platzhalter, der den Mismatch umgeht.
+
+**Konsequenz für die Reihenfolge:** Die volle Säule-2-VEREINHEITLICHUNG (Builder treibt Organ →
+observe_all real im Mess-Pfad) ist NICHT vor der Säule-1-Key-Type-Reconciliation sauber machbar.
+Optionen:
+- **(A) Säule-1-Reconciliation zuerst:** Organe über einen gemeinsamen, breiten Key (z. B. uint64)
+  parametrisieren bzw. Composition-Key ableiten — dann kann der Builder das Organ verlustfrei als
+  Container treiben. Sauber, aber berührt alle Such-Wrapper (Key-Typ templatisieren) → GROSS.
+- **(B) Transitions-Mirror:** Builder treibt zusätzlich zum std::map das Organ (für den Observer),
+  Keys gecastet — schließt die observe_all-Lücke, ist aber redundant + bei breiten Keys lossy für den
+  Observer-Teil. Nur als dokumentierte Übergangslösung vertretbar.
+
+**Status:** observe_all-MECHANISMUS ist real (§2.2 erledigt, verifiziert). Die produktive Verdrahtung
+in den Mess-Pfad ist durch (A)/(B) eine bewusste Entscheidung — vorgelegt zur Steuerung, KEINE fragile
+Hau-Ruck-Änderung erzwungen.
+
+---
+
 **Ende Doku 24 — Mess-Modell-Korrektur (2026-05-29).**
