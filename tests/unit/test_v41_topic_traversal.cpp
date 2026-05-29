@@ -9,6 +9,7 @@
 #include <topics/traversal/concepts/topic_traversal_concept.hpp>
 #include <topics/traversal/topic_traversal_config_set.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_registry.hpp>
+#include <topics/traversal/axis_03a_search_algo/composable/composable_search.hpp>  // Saeule-1 Organ-Modell
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_density_classified_strategy_concept.hpp>
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_simd_capable_strategy_concept.hpp>
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_iterable_aspect_strategy_concept.hpp>
@@ -643,6 +644,24 @@ TEST(SearchAlgo_Interchangeability, AllUint8WrappersMatchStdMap) {
     verify_matches_std_map<ce_03a::Array256SearchAlgo>(200u, 255u);   // dense direct-addressed
     verify_matches_std_map<ce_03a::VectorU8U8SearchAlgo>(200u, 255u); // sparse sorted lower_bound
     SUCCEED();  // → alle 12 CE-nativen Such-Achsen (u8+u16) sind std::map-aequivalent + austauschbar
+}
+
+// V41 Saeule-1 (Doku 24 §5.4, Doku 14 §11.3) — komponierbares Traversal-Organ-Modell: ein Suchalgorithmus
+// = Traversal-Organ ⊕ Storage-Organ ueber GEMEINSAMEM breitem uint64-Key. Beweist: (1) zwei
+// austauschbare Traversal-Organe (LinearScan vs SortedBinary) ueber demselben Storage liefern beide
+// std::map-Semantik (Organ-Swappability, Doku 14 §1.2); (2) WEITE Keys (>65535) funktionieren —
+// d.h. der Key-Type-Blocker (Doku 24 §5.5) ist strukturell geloest (anders als die schmalen Tier-Wrapper).
+namespace ce_cmp = comdare::cache_engine::traversal::axis_03a_search_algo::composable;
+
+TEST(Saeule1_ComposableOrgan, BothTraversalOrgansMatchStdMapOverWideKeys) {
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal, ce_cmp::RawSlotStore>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, ce_cmp::RawSlotStore>);
+    static_assert(std::is_same_v<ce_cmp::RawSlotStore::key_type, std::uint64_t>);  // gemeinsamer breiter Key
+
+    // key_mod = 100000 > 65535 → Keys ueberschreiten den uint16-Bereich der Tier-Wrapper.
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,  ce_cmp::RawSlotStore>>(100000u, 2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, ce_cmp::RawSlotStore>>(100000u, 2000u);
+    SUCCEED();  // Traversal-Organ ⊕ Storage-Organ, frei austauschbar, std::map-aequivalent, breiter Key
 }
 
 // =================================================================
