@@ -80,3 +80,15 @@ desktop.ini
 # V41.F.6.1: Build-Zeit-extrahierter Original-Paper-Code (Codegen-Extraktion aus ext/<topic>/<axis>/)
 # Diese legacy_code/-Inhalte sind Build-Artefakte (regenerierbar via comdare_paper_*_codegen) — NICHT committen.
 libs/cache_engine/topics/**/legacy_code/
+
+# V41.F.6.1 (2026-05-29): Prerequisite-ARCHIVE (Boost etc.) — zu gross fuer Git (GitHub 100-MB-Limit).
+# Werden bei der Einrichtung autonom entpackt (boost_mp11_setup.cmake / tools/prerequisites/bootstrap_*).
+# Die kleinen vendored mp11-Header (cmake/third_party/boost_mp11/) bleiben dagegen GETRACKT (Offline-Build).
+prerequisites/*.tar.bz2
+prerequisites/*.tar.gz
+prerequisites/*.tar.xz
+prerequisites/*.7z
+prerequisites/*.zip
+!prerequisites/README.md
+# Build-Zeit-Extraktions-Temp des Prerequisite-Mechanismus
+cmake/third_party/_mp11_extract/
