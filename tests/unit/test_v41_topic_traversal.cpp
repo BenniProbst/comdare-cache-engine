@@ -529,6 +529,40 @@ TEST(CacheTraversal_HashLookup, ResizesUnderLoad) {
     }
 }
 
+// V41.F.6.1.R7.2 — CT03 BinarySearchFanout (sortiert + lower_bound, B+ inner-node binary search)
+TEST(CacheTraversal_BinarySearchFanout, NotHashedNotO1) {
+    EXPECT_FALSE(ce_03b::BinarySearchFanout::is_hashed());
+    EXPECT_FALSE(ce_03b::BinarySearchFanout::amortized_o1());  // O(log N)
+    EXPECT_EQ(ce_03b::BinarySearchFanout::family_id::value, 3);
+}
+
+// KERN-KORREKTHEIT: nicht-sortierte register-Reihenfolge → intern sortiert; resolve via Binärsuche
+// muss EXAKT die Referenz liefern (auch nach unregister).
+TEST(CacheTraversal_BinarySearchFanout, SortedInsertResolveUnregister) {
+    ce_03b::BinarySearchFanout t{};
+    // register in NICHT-sortierter Reihenfolge
+    for (std::uint64_t i = 0; i < 200; ++i) {
+        auto k = (i * 53u) % 401u;
+        t.register_entry(k, k * 7u + 1u);
+    }
+    auto present = [](std::uint64_t q) {
+        for (std::uint64_t i = 0; i < 200; ++i) if ((i * 53u) % 401u == q) return true;
+        return false;
+    };
+    for (std::uint64_t q = 0; q <= 410u; ++q) {
+        auto v = t.resolve(q);
+        if (present(q)) { ASSERT_TRUE(v.has_value()) << "key=" << q; EXPECT_EQ(*v, q * 7u + 1u); }
+        else            { EXPECT_FALSE(v.has_value()) << "key=" << q; }
+    }
+    // Update + unregister
+    t.register_entry(std::uint64_t{53u % 401u}, std::uint64_t{12345});
+    EXPECT_EQ(*t.resolve(std::uint64_t{53u % 401u}), 12345u);
+    std::uint64_t const some = (5u * 53u) % 401u;
+    EXPECT_TRUE(t.unregister(some));
+    EXPECT_FALSE(t.resolve(some).has_value());
+    EXPECT_FALSE(t.unregister(some));  // schon weg
+}
+
 // =================================================================
 // TYPED_TEST_SUITE — axis_03m mapping
 // =================================================================

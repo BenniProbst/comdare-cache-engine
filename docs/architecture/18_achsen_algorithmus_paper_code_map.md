@@ -241,6 +241,7 @@
 |---------|-------------|---------------|------------|---------|------------|--------|-----------|-------------|-------|
 | LinearFanout | Linear-scan lookup auf kleinen Fanout-Arrays | Organization and maintenance of large ordered indexes | Acta Informatica 1972 | 10.1007/BF00288683 | nein | none | — | ✗ | high |
 | HashLookup | Fibonacci-/multiplikatives Hashing, Open-Addressing Linear Probing | The Art of Computer Programming Vol.3 §6.4 (Hashing) | Addison-Wesley 2nd Ed. 1998 | en.wikipedia.org/wiki/Hash_function | nein | none | — | ✗ | high |
+| BinarySearchFanout | Sortierter Fanout + lower_bound (B+ Inner-Node Binärsuche) | Organization and Maintenance of Large Ordered Indexes (Bayer/McCreight) | Acta Informatica 1(3) 1972 | 10.1007/BF00288683 | nein (Lehrbuch) | none | — | ✗ | high |
 
 ### axis_03m_mapping
 

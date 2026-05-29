@@ -6,8 +6,11 @@ namespace comdare::cache_engine::traversal::axis_03b_cache_traversal::flags {
 // Pilot Batch 1 (CT-LINEAR, CT-HASH) — 2026-05-26
 #cmakedefine01 COMDARE_AXIS_03B_USE_LINEAR_FANOUT
 #cmakedefine01 COMDARE_AXIS_03B_USE_HASH_LOOKUP
+// V41.F.6.1 R7.2 (2026-05-29) — CT03 BinarySearchFanout (sortiert + lower_bound, B+ inner-node)
+#cmakedefine01 COMDARE_AXIS_03B_USE_BINARY_SEARCH_FANOUT
 
 inline constexpr bool linear_fanout_enabled = COMDARE_AXIS_03B_USE_LINEAR_FANOUT;
 inline constexpr bool hash_lookup_enabled   = COMDARE_AXIS_03B_USE_HASH_LOOKUP;
+inline constexpr bool binary_search_fanout_enabled = COMDARE_AXIS_03B_USE_BINARY_SEARCH_FANOUT;
 
 }  // namespace
