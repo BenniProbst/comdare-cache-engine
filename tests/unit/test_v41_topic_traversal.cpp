@@ -11,6 +11,8 @@
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_registry.hpp>
 #include <topics/traversal/axis_03a_search_algo/composable/composable_search.hpp>  // Saeule-1 Organ-Modell
 #include <topics/nodes/axis_04_node_type/axis_04_node_type_slot_store.hpp>         // Saeule-1 node_type-Storage-Organ
+#include <topics/nodes/axis_04_node_type/axis_04_node_type_composed_store.hpp>     // Saeule-1 Inc2: 3-Achsen-Storage-Organ (N,L,A)
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_pmr_resource.hpp>   // Saeule-1 Inc2: PMR-Anker (immer verfuegbar)
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_density_classified_strategy_concept.hpp>
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_simd_capable_strategy_concept.hpp>
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_iterable_aspect_strategy_concept.hpp>
@@ -686,6 +688,36 @@ TEST(Saeule1_NodeTypeStorageOrgan, Node4DrivesBothTraversalOrgansAsStdMap) {
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,   Store>>(3u, 6u);
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, Store>>(3u, 6u);
     SUCCEED();  // node_type-getriebenes Storage-Organ, beide Traversal-Organe, std::map-aequivalent
+}
+
+// V41 Saeule-1 Inc2 (Doku 24 §6) — ComposedStore<N,L,A>: node_type ⊕ layout ⊕ allocator ALS Storage-Organ.
+// Beweist: (1) alle 3 Achsen fliessen in den Organ-Typ ein (Compile-Selbstbeweise); (2) der Slot-Speicher
+// kommt REAL aus der Allocator-Achse (vector<Slot, A::StdAllocatorAdapter<Slot>>); (3) beide Traversal-Organe
+// ueber demselben ComposedStore sind std::map-aequivalent — fuer Mimalloc UND den immer-verfuegbaren PMR-Anker.
+namespace ce_layout = comdare::cache_engine::memory_layout::axis_05_memory_layout;
+namespace ce_alloc  = comdare::cache_engine::allocator::axis_06_allocator;
+
+TEST(Saeule1_ComposedStore, AllocatorBackedStoreDrivesBothTraversalOrgansAsStdMap) {
+    using StoreMi  = ce_nodes::ComposedStore<ce_nodes::Node4Layout, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::MimallocAllocator>;
+    using StorePmr = ce_nodes::ComposedStore<ce_nodes::Node4Layout, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::PmrResourceAllocator>;
+
+    // Compile-Selbstbeweis: alle 3 Achsen flossen in den Organ-Typ ein, weiter StorageOrgan-konform.
+    static_assert(ce_cmp::StorageOrgan<StoreMi>);
+    static_assert(ce_cmp::StorageOrgan<StorePmr>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal,   StoreMi>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, StoreMi>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal,   StorePmr>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, StorePmr>);
+    static_assert(std::is_same_v<StoreMi::key_type, std::uint64_t>);
+    static_assert(StoreMi::node_capacity() == 4u);     // node_type floss ein
+    static_assert(StoreMi::cache_line_size == 64u);    // layout floss in den Typ ein
+
+    // Allocator real + vector-unbounded ⇒ WEITE Keys wie RawSlotStore (kein cap-Limit, key_mod=100000 > 65535):
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,   StoreMi>>(100000u, 2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, StoreMi>>(100000u, 2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,   StorePmr>>(100000u, 2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, StorePmr>>(100000u, 2000u);
+    SUCCEED();  // 3-Achsen-Organ (N·L·A), Allocator real, beide Traversal-Organe, std::map-aequivalent
 }
 
 // =================================================================
