@@ -940,3 +940,14 @@ target_include_directories(test_v41_codegen_type_name PRIVATE
     "${CMAKE_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_codegen_type_name PRIVATE Boost::mp11)
+
+# V41.F.6.1 R5.G — all_axes_umbrella.hpp (Auto-Emitter-Plumbing: alle 17 Achsen in einem Include).
+comdare_add_test(test_v41_codegen_all_axes_umbrella
+    SOURCES test_v41_codegen_all_axes_umbrella.cpp)
+target_include_directories(test_v41_codegen_all_axes_umbrella PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_v41_codegen_all_axes_umbrella PRIVATE Boost::mp11)
