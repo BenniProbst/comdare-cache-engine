@@ -38,6 +38,16 @@ target_compile_features(comdare_prt_art_concepts INTERFACE cxx_std_23)
 target_link_libraries(comdare_prt_art_concepts INTERFACE comdare::cache_engine_concepts)
 comdare_set_platform_defines(comdare_prt_art_concepts)
 
+# V41.F.6.1 E1 (2026-05-29) — Legacy-prt_art-Concept-Tests gaten: sie inkludieren
+# prt_art/concepts|page_structures-Header, die in der F.6-Migration nach cache-engine-Achsen
+# verschoben wurden und im STANDALONE-Build (ohne befuelltes prt-art-Submodul) NICHT vorhanden sind
+# → wuerden mit C1083 als _NOT_BUILT scheitern. Root-cause-korrekt: nur registrieren, wenn die
+# prt-art-Legacy-Header tatsaechlich da sind (mit COMDARE_CE_PRUEFLINGE/prt-art-Kontext bauen sie).
+set(COMDARE_PRT_ART_LEGACY_AVAILABLE FALSE)
+if(EXISTS "${CMAKE_SOURCE_DIR}/prt_art/include/prt_art/prt_art.hpp")
+    set(COMDARE_PRT_ART_LEGACY_AVAILABLE TRUE)
+endif()
+
 # Tests anlegen via Helper aus gtest_setup.cmake
 comdare_add_test(test_pressure_state
     SOURCES test_pressure_state.cpp
@@ -51,17 +61,23 @@ comdare_add_test(test_cpuid_probe
     SOURCES test_cpuid_probe.cpp
     LIBRARIES comdare::cache_engine_concepts)
 
-comdare_add_test(test_concepts_compile
-    SOURCES test_concepts_compile.cpp
-    LIBRARIES comdare::prt_art_concepts)
+# V41.F.6.1 E1: prt-art-Legacy-Concept-Tests nur mit verfuegbaren prt-art-Headern (sonst _NOT_BUILT).
+if(COMDARE_PRT_ART_LEGACY_AVAILABLE)
+    comdare_add_test(test_concepts_compile
+        SOURCES test_concepts_compile.cpp
+        LIBRARIES comdare::prt_art_concepts)
 
-comdare_add_test(test_value_handle
-    SOURCES test_value_handle.cpp
-    LIBRARIES comdare::prt_art_concepts)
+    comdare_add_test(test_value_handle
+        SOURCES test_value_handle.cpp
+        LIBRARIES comdare::prt_art_concepts)
 
-comdare_add_test(test_three_layer_audit
-    SOURCES test_three_layer_audit.cpp
-    LIBRARIES comdare::prt_art_concepts)
+    comdare_add_test(test_three_layer_audit
+        SOURCES test_three_layer_audit.cpp
+        LIBRARIES comdare::prt_art_concepts)
+else()
+    message(STATUS "tests/unit: prt-art-Legacy-Concept-Tests (concepts_compile/value_handle/three_layer_audit) "
+        "uebersprungen — prt-art-Header nicht im Standalone-Build (mit COMDARE_CE_PRUEFLINGE verfuegbar).")
+endif()
 
 # INK-1 (REV 6 Phase 6, 2026-05-12): PermutationFlags + Events + Observer
 comdare_add_test(test_permutation_flags
@@ -120,10 +136,13 @@ comdare_add_test(test_sub_engines
     SOURCES test_sub_engines.cpp
     LIBRARIES comdare::cache_engine_concepts)
 
-# 6 Pflicht-Seitentypen (REV 5 K05) — ISearchPageStructure + ISearchPageStructureInterpreter
-comdare_add_test(test_six_page_structures
-    SOURCES test_six_page_structures.cpp
-    LIBRARIES comdare::prt_art_concepts)
+# 6 Pflicht-Seitentypen (REV 5 K05) — Legacy-prt_art-Test (page_structures); die migrierten 6
+# Seitentypen sind aktuell durch test_v41_axis_01_page_type abgedeckt. Nur mit prt-art-Headern bauen.
+if(COMDARE_PRT_ART_LEGACY_AVAILABLE)
+    comdare_add_test(test_six_page_structures
+        SOURCES test_six_page_structures.cpp
+        LIBRARIES comdare::prt_art_concepts)
+endif()
 
 # Phase 6.2.E (REV 7, 2026-05-13): Allokator-Bibliothek Concept-Wurzeln + 6 Family-Adapter
 comdare_add_test(test_allocator_concepts
