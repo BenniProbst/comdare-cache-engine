@@ -79,6 +79,36 @@ struct MultiCompareReport {
     return rep;
 }
 
+// ─── F15-Headline-Metrik: quantitative Kernaussage des Multi-Vergleichs ───────────────────────
+
+/// Aggregierte F15-Kennzahlen ueber einen MultiCompareReport.
+struct MultiCompareSummary {
+    std::size_t total {0};                ///< Zahl der Vergleiche
+    std::size_t significant_faster {0};   ///< signifikant UND schneller als Baseline (= CE bringt Wert)
+    std::size_t significant_slower {0};   ///< signifikant ABER langsamer
+    std::size_t not_significant {0};       ///< kein signifikanter Unterschied (FWER-korrigiert)
+    double      win_rate {0.0};            ///< significant_faster / total — die F15-Headline-Zahl
+};
+
+/// Verdichtet den Report zur F15-Kernaussage: welcher Anteil der Kompositionen schlaegt die Baseline
+/// FWER-korrigiert signifikant? (win_rate). Beantwortet "bringt die CacheEngine messbaren Wert?".
+[[nodiscard]] inline MultiCompareSummary summarize(MultiCompareReport const& rep) {
+    MultiCompareSummary s;
+    s.total = rep.comparisons.size();
+    for (auto const& c : rep.comparisons) {
+        if (c.significant) {
+            if (c.faster_than_baseline) ++s.significant_faster;
+            else                        ++s.significant_slower;
+        } else {
+            ++s.not_significant;
+        }
+    }
+    s.win_rate = (s.total > 0)
+        ? static_cast<double>(s.significant_faster) / static_cast<double>(s.total)
+        : 0.0;
+    return s;
+}
+
 // ─── Export des Multi-Vergleichs-Reports (Diplomarbeit-Tabellen / CI-Artefakte) ───────────────
 
 /// MultiCompareReport → CSV (Header + eine Zeile pro Vergleich, RFC-4180 fuer name).
