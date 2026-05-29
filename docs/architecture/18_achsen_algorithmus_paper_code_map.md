@@ -235,6 +235,7 @@
 | EytzingerSearchAlgo | Eytzinger/BFS-Layout-Suche — Such-METHODE (cache-conscious Layout, branch-free) | Array Layouts for Comparison-Based Searching (Khuong/Morin) | JEA 22 2017 | arXiv:1509.05053 | nein (Experiment-Harness, keine Standard-OSS-Lizenz) | none | — | ✗ | high |
 | SkipListSearchAlgo | Skip-Liste — probabilistische geordnete STRUKTUR (O(log n) erwartet, kein Rebalancing) | Skip Lists: A Probabilistic Alternative to Balanced Trees (Pugh) | CACM 33(6) 1990 | 10.1145/78973.78977 | nein (Lehrbuch-Algorithmus) | none | — | ✗ | high |
 | HashSearchAlgo | Open-Addressing-Hashtabelle (Fibonacci-Hash, Linear Probing, Tombstone) — UNGEORDNET, O(1) avg | The Art of Computer Programming Vol.3 §6.4 (Hashing) | Addison-Wesley 2nd Ed. 1998 | en.wikipedia.org/wiki/Open_addressing | nein (Lehrbuch) | none | — | ✗ | high |
+| LinearScanSearchAlgo | Unsortierter linearer Scan (ART-Node4-Strategie, Baseline-Nullpunkt) | The Adaptive Radix Tree: ARTful Indexing… (Node4) | ICDE 2013 | 10.1109/ICDE.2013.6544812 | nein (Konzept-Baseline) | none | — | ✗ | high |
 
 ### axis_03b_cache_traversal
 

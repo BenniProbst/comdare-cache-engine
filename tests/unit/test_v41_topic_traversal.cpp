@@ -486,6 +486,44 @@ TEST(SearchAlgo_HashSearch, UnorderedNoRangeScanAndProperties) {
     EXPECT_EQ(ce_03a::HashSearchAlgo::family_id::value, 14);
 }
 
+// --- V41.F.6.1.R7.2 LinearScanSearchAlgo (unsorted linear scan, ART Node4-Baseline) -----------
+
+TEST(SearchAlgo_LinearScan, CorrectInsertLookupEraseSwapPop) {
+    ce_03a::LinearScanSearchAlgo s{};
+    // NICHT-sortierte Einfuege-Reihenfolge; bleibt unsortiert (Einfuege-Order).
+    for (std::uint16_t i = 0; i < 100; ++i) {
+        auto key = static_cast<std::uint16_t>((static_cast<std::uint32_t>(i) * 17u) % 211u);
+        s.insert(key, static_cast<std::uint64_t>(key) + 1u);
+    }
+    auto present = [](std::uint32_t q) {
+        for (std::uint16_t i = 0; i < 100; ++i) if ((static_cast<std::uint32_t>(i) * 17u) % 211u == q) return true;
+        return false;
+    };
+    for (std::uint32_t q = 0; q <= 215u; ++q) {
+        auto v = s.lookup(static_cast<std::uint16_t>(q));
+        if (present(q)) { ASSERT_TRUE(v.has_value()) << "key=" << q; EXPECT_EQ(*v, q + 1u); }
+        else            { EXPECT_FALSE(v.has_value()) << "key=" << q; }
+    }
+    // Update + erase (swap-and-pop) — restliche Keys muessen findbar bleiben.
+    s.insert(std::uint16_t{0}, std::uint64_t{999});
+    EXPECT_EQ(*s.lookup(std::uint16_t{0}), 999u);
+    std::size_t const before = s.occupied_count();
+    EXPECT_TRUE(s.erase(std::uint16_t{17u % 211u}));  // i=1 → key 17
+    EXPECT_EQ(s.occupied_count(), before - 1u);
+    EXPECT_FALSE(s.lookup(std::uint16_t{17u % 211u}).has_value());
+    EXPECT_TRUE(s.lookup(std::uint16_t{0}).has_value());        // andere unberuehrt (swap-pop korrekt)
+    EXPECT_TRUE(s.lookup(std::uint16_t{34u % 211u}).has_value());
+    EXPECT_FALSE(s.erase(std::uint16_t{17u % 211u}));           // schon weg
+}
+
+TEST(SearchAlgo_LinearScan, UnsortedBaselineProperties) {
+    static_assert(ce_03a::concepts::SearchAlgoVariant<ce_03a::LinearScanSearchAlgo>);
+    static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::LinearScanSearchAlgo>);
+    EXPECT_FALSE(ce_03a::LinearScanSearchAlgo::supports_range_scan());  // UNSORTIERT
+    EXPECT_FALSE(ce_03a::LinearScanSearchAlgo::is_dense());
+    EXPECT_EQ(ce_03a::LinearScanSearchAlgo::family_id::value, 15);
+}
+
 // =================================================================
 // TYPED_TEST_SUITE — axis_03b cache_traversal
 // =================================================================
