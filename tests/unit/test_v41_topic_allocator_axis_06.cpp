@@ -54,6 +54,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <vector>
+#include <numeric>
+#include <memory>
+#include <memory_resource>
 
 namespace topic_alloc       = comdare::cache_engine::allocator;
 namespace topic_alloc_cpts  = comdare::cache_engine::allocator::concepts;
@@ -999,4 +1003,48 @@ TEST(V41_TopicAllocatorAxis06_Batch2, EngineCountIncludesBatch2) {
     EXPECT_GE(cnt, 1u);  // mindestens Std + PMR
     // EnabledVendors muss == AllVendors haben WENN alle ENABLE=ON UND HAVE=ON (production build)
     // build-pilot: nur Std + PMR HAVE=ON (Batch 2 alle HAVE=OFF → USE=OFF)
+}
+
+// =================================================================
+// V41.F.6.1.R7.4 — Adapter-Methoden as_std_allocator<T>() + as_pmr_resource()
+// (vorher static_assert-Stubs). Getestet ueber StdMalloc-Baseline (dependency-frei).
+// =================================================================
+
+TEST(V41_TopicAllocatorAxis06_Adapter, AsStdAllocatorBacksStdVector) {
+    axis_06::StdMalloc a{};
+    auto alloc = a.as_std_allocator<int>();
+    std::vector<int, decltype(alloc)> v{alloc};
+    for (int i = 0; i < 1000; ++i) v.push_back(i);  // erzwingt mehrere Reallocs via Achsen-Strategie
+    ASSERT_EQ(v.size(), 1000u);
+    EXPECT_EQ(v.front(), 0);
+    EXPECT_EQ(v.back(), 999);
+    EXPECT_EQ(std::accumulate(v.begin(), v.end(), 0LL), 999LL * 1000LL / 2LL);
+}
+
+TEST(V41_TopicAllocatorAxis06_Adapter, StdAllocatorRebindAndEquality) {
+    axis_06::StdMalloc a{};
+    auto ai = a.as_std_allocator<int>();
+    // Rebind int -> double via allocator_traits + Converting-Ctor
+    using AllocDouble = std::allocator_traits<decltype(ai)>::rebind_alloc<double>;
+    AllocDouble ad{ai};
+    EXPECT_TRUE(ai == ad);   // gleiche zugrundeliegende Strategie
+    axis_06::StdMalloc b{};
+    auto bi = b.as_std_allocator<int>();
+    EXPECT_FALSE(ai == bi);  // verschiedene Strategie-Instanzen
+}
+
+TEST(V41_TopicAllocatorAxis06_Adapter, AsPmrResourceBacksPmrVector) {
+    axis_06::StdMalloc a{};
+    auto res = a.as_pmr_resource();   // Wert; Aufrufer haelt ihn am Leben
+    std::pmr::vector<std::uint64_t> v{&res};
+    for (std::uint64_t i = 0; i < 500; ++i) v.push_back(i * 2u);
+    ASSERT_EQ(v.size(), 500u);
+    EXPECT_EQ(v[10], 20u);
+    EXPECT_EQ(v.back(), 998u);
+    // do_is_equal: dieselbe Strategie → gleich; andere Strategie → ungleich.
+    auto res_same  = a.as_pmr_resource();
+    axis_06::StdMalloc b{};
+    auto res_other = b.as_pmr_resource();
+    EXPECT_TRUE(res.is_equal(res_same));
+    EXPECT_FALSE(res.is_equal(res_other));
 }
