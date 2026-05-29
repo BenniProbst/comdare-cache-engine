@@ -25,6 +25,7 @@
 #include "../../../anatomy/abi_adapter.hpp"
 #include "../../../anatomy/anatomy_base.hpp"
 #include "../../../anatomy/search_algorithm_anatomy.hpp"
+#include "../../../anatomy/composition_factory.hpp"   // R5.G: AdHocComposition für Auto-Permutations-Codegen
 
 #include <cstdint>
 #include <new>
@@ -142,6 +143,28 @@ void comdare_destroy_anatomy(
         ::comdare::cache_engine::anatomy::IAnatomyBase* ptr) noexcept {             \
         delete ptr;                                                                  \
     }
+
+/// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(...) — R5.G: Materialisiert eine AUTO-ENUMERIERTE Permutation
+/// (AdHocComposition) als Permutations-Binary, OHNE benannten Composition-Header. Nimmt die 17
+/// Achsen-Vendor-Typen VARIADISCH (T0..T16) und baut die Composition intern als Alias — das löst das
+/// Komma-im-Makro-Argument-Problem von AdHocComposition<A,B,…> (Komma = sonst mehrere Makro-Args).
+/// Der Typ-Pfad (SearchAlgorithmAnatomy<AdHocComposition<...>> → SearchAlgorithmAbiAdapter) ist durch
+/// die for_each_abi_adapter-Tests bewiesen; dieses Makro exponiert ihn für den Codegen jeder Permutation.
+///
+/// Verwendung (in einem vom Auto-Enumerator generierten Permutations-Modul-.cpp):
+/// ```cpp
+/// #include <cache_engine/abi/anatomy_module_abi_v1.hpp>
+/// #include <topics/.../axis_03a_search_algo_array256.hpp>   // + die 16 weiteren Achsen-Header
+/// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(
+///     ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256SearchAlgo, /*T0 search_algo*/
+///     /* ... T1..T16: cache_traversal, mapping, path_compression, node_type, memory_layout,
+///        allocator, prefetch, concurrency, serialization, telemetry, value_handle, isa,
+///        index_organization, io_dispatch, migration_policy, filter ... */ )
+/// ```
+#define COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(...)                                     \
+    using ComdareAdHocPermutationComposition =                                      \
+        ::comdare::cache_engine::anatomy::AdHocComposition<__VA_ARGS__>;            \
+    COMDARE_DEFINE_ANATOMY_MODULE(ComdareAdHocPermutationComposition)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AnatomyAbiVersion Helper-Klasse (host-seitig im Module-Loader)

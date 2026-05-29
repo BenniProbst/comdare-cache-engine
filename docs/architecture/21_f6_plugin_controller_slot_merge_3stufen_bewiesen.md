@@ -175,14 +175,18 @@ Der Permutations-RAUM ist bewiesen UND als Binaries materialisiert:
     zeigt `for_each_composition_type` über den vollen 17-Achsen-kartesischen Raum (count = 3×2×1¹⁵ = 6),
     jede auto-enumerierte `AdHocComposition` ist `IsComposition` + via `for_each_abi_adapter` als
     `IAnatomyBase` (organ_count=17) instanziierbar.
-  - **GROSS-Rest = die Codegen-MATERIALISIERUNG** der auto-enumerierten AdHoc-Kompositionen. Konkreter
-    technischer Blocker: AdHoc-Typen haben (a) keinen Header zum `#include` und (b) ihr Typ-Ausdruck
-    `AdHocComposition<A,B,…,P>` enthält **Kommas → bricht das `COMDARE_DEFINE_ANATOMY_MODULE`-Makro**
-    (Komma im Template-Argument = mehrere Makro-Args). Lösung (R5.G-Implementierung): ein Tool/Template,
-    das **pro enumerierter Permutation einen Alias-Header emittiert** (`using PermN = AdHocComposition<…>;`
-    + `COMDARE_DEFINE_COMPOSITION_LOCATION` + die 17 Achsen-`#include`), dann via der bestehenden
-    `comdare_codegen_anatomy_module_list`-Pipeline materialisiert. Mechanik (Enumeration + Named-Composition-
-    Codegen + Welch-Mess-Treiber) ist bewiesen; nur der Alias-Header-Emitter fehlt.
+  - ✅ **Materialisierungs-Kern GELÖST + bewiesen** (2026-05-29): Der Komma-Blocker (AdHoc-Typ-Ausdruck
+    `AdHocComposition<A,B,…>` enthält Kommas → bräche das Makro) ist via neuem **variadischem Makro
+    `COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(T0,…,T16)`** gelöst (baut die AdHoc-Composition intern als Alias).
+    Verifiziert end-to-end: `test_v41_anatomy_adhoc_codegen_macro` (1/1) — das Makro definiert die
+    extern-C-Factory einer AdHoc-Permutation (= ArtCompositions 17 Achsen), `comdare_create_anatomy()`
+    liefert IAnatomyBase (organ_count=17, composition_name="AdHocComposition", genus=SearchAlgorithm,
+    run_workload/Stufe-B funktioniert). Auto-enumerierte Permutationen sind damit codegen-fähig.
+  - **VERBLEIBEND R5.G = nur noch der Auto-Emitter:** ein Generator, der via `for_each_composition_type`
+    pro enumerierter Permutation ein Modul-`.cpp` schreibt, das `COMDARE_DEFINE_ANATOMY_MODULE_ADHOC` mit
+    den 17 Achsen-Vendor-Typen der Permutation + deren `#include`s aufruft (braucht pro Achsen-Variante den
+    fully-qualified Typ-Namen + Header als String). Enumeration + Makro-Materialisierung + Welch-Mess-Treiber
+    sind alle bewiesen — es fehlt nur die String-Emission der enumerierten Typen.
   - **R5.B (separat):** weitere Achsen ins `std::map`-Innenleben routen, damit Dim 2 / in-DLL den
     VOLLEN Algorithmus statt nur `search_algo` misst.
 - **R5.D/R5.E/R6** (#26): CacheEngineBuilder-CLI + extern-C-ABI + dlopen-Loader + Mess-Treiber
