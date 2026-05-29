@@ -25,6 +25,8 @@
 #include "axis_03a_search_algo_eytzinger.hpp"
 // V41.F.6.1.R7.2 (2026-05-29) S13 skip list (geordnete STRUKTUR, Pugh CACM 1990)
 #include "axis_03a_search_algo_skip_list.hpp"
+// V41.F.6.1.R7.2 (2026-05-29) S14 hash search (ungeordnete open-addressing Hashtabelle, Knuth)
+#include "axis_03a_search_algo_hash_search.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
@@ -52,7 +54,8 @@ using AllStrategies = mp::mp_list<
     KArySearchAlgo,              // S10, k-ary search (Schlegel/Gemulla/Lehner DaMoN 2009) — SIMD-Partition
     InterpolationSearchAlgo,     // S11, interpolation search (Perl/Itai/Avni CACM 1978) — verteilungsbewusst
     EytzingerSearchAlgo,         // S12, Eytzinger BFS-Layout branch-free (Khuong/Morin JEA 2017) — Cache-Layout
-    SkipListSearchAlgo           // S13, Skip-Liste (Pugh CACM 1990) — probabilistische geordnete STRUKTUR
+    SkipListSearchAlgo,          // S13, Skip-Liste (Pugh CACM 1990) — probabilistische geordnete STRUKTUR
+    HashSearchAlgo               // S14, open-addressing Hashtabelle (Knuth TAOCP 3 §6.4) — UNGEORDNET, O(1)
     // Vollausbau-Roadmap (Folge-Batches, Tree-STRUKTUR-Paper-Wrappers):
     // P03 Masstree DEFERRED — masstree.hh hat keine direkten Function-Bodies (alle Templates)
     // S13 P04 CoCo-trie (Read-Only, 0/4 originall — deferred wegen kein CRUD-API)
