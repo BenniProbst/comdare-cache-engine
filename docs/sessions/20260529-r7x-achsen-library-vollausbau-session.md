@@ -80,3 +80,32 @@ Goldstandard-Vorlage für neue axis_03a-Wrapper: `axis_03a_search_algo_skip_list
 **axis_03b** zusätzlich 2→3 (BinarySearchFanout). Achsen-Bibliothek-Endstand: axis_03a 13, axis_03b 3, axis_05 5; 22 Achsen / ~140 Wrapper (G.1-Auswertung).
 
 **Verbleibend unverändert** (siehe §3) — GROSS/gated/user-manuell: R5.D CacheEngineBuilder-CLI-Main + HW-Counter + durchgängiger Messlauf-Treiber (baut nun auf der fertigen Auswertungs-Schicht) · axis_03a-Tree-Struktur-Paper · F.2/F.3 · E11/E10 (→E4.1) · D1/D2.
+
+---
+
+## 6. Addendum — Units 18–30 (Fortsetzung gleiche Session, ce c1e0b13 / v34-final-205)
+
+| # | Einheit | Beleg | ce-Commit |
+|---|---------|-------|-----------|
+| 18 | **R5.D make_execution_result** (Konnektor Samples→ExecutionResult, p50/p99) + volle Driver-Kette in-process | F15 25/25 | 84662fe |
+| 19 | **R5.D F15-Treiber über REALE DLLs** (load_all→run_workload→multi_compare→summarize, FullF15DriverOverRealDlls) | 2/2 | 0567b68 |
+| 20 | **R5.D comdare-f15-compare CLI** (apps/f15_compare) — Mess-Treiber als Tool | empirisch: Array256 ~8× < sorted, p≈1e-132 | 1e37bf6 |
+| 21 | **R5.D Permutations-Raum 3→8 Such-Algos** (head-to-head F15) | 7/7 Holm-signifikant | 6339af5 |
+| 22 | **R7.2 HashSearchAlgo** (S14, open-addressing, Tombstone-Erase, Knuth) | traversal 254/254 | cc9ff85 |
+| 23 | **Doku 22** (F15-Pipeline + Such-Bibliothek + empirisches Resultat, D1/D2-Vorlage) | — | d6945fb |
+| 24 | **R5.D CTest-Smoke** für f15-compare CLI | ctest 1/1 | 8a66f57 |
+| 25 | **R5.D CLI-Ranking** (alle Kompositionen nach Latenz, Spanne) | Achsen-Wahl ~10× | d2c1545 |
+| 26 | **B5 COMDARE_PERM_ROOT-Discovery** (CLI env-fallback) + B2-Verifikation (YCSB-Gen 21/21 vorhanden) | 3 Modi | a960388 |
+| 27 | **R7.2 LinearScanSearchAlgo** (S15, unsortiert, ART-Node4-Baseline) | traversal 268/268 | cdfce2f |
+| 28 | Doku: axis_03a PAPER_REFERENCES §3-Zählung korrigiert (15 Wrapper) | — | 12e627f |
+| 29 | **Integrations-Regression** (volle ctest-Suite) + Diagnose 4 vorbestehender _NOT_BUILT | 1965/1969, root-cause | (verify) |
+| 30 | **E1 prt-art-Legacy-Tests gegatet** (COMDARE_PRT_ART_LEGACY_AVAILABLE) → Standalone-Suite makellos | **1965/1965 (100%)** | c1e0b13 |
+
+**FINALER STAND (30 Einheiten):**
+- **Säule 1 — Achsen-Bibliothek:** axis_03a **15 Such-Strategien** (vollständige Paradigmen-Palette: dense/sorted/Such-Methode/Struktur/Hash/unsortiert-linear/Original-Trie) · axis_03b 3 · axis_05 5 · R7.3/R7.4 · R5.G · G.1.
+- **Säule 2 — F15-Messung:** end-to-end + ausführbares CLI (`comdare-f15-compare`, Ranking + COMDARE_PERM_ROOT) + empirisches Resultat (8 Permutationen head-to-head: Achsen-Wahl → ~10× Latenz-Spanne, alle Holm-FWER-signifikant).
+- **Qualität:** volle ctest-Suite **1965/1965 (100%)**, CLI CI-getestet, session-weite Regression sauber.
+
+**Methodik:** verify-first (`[[feedback_verify_ist_state_before_gross_tasks]]`) deckte 6× auf, dass „GROSS"-Tasks fast fertig waren; 1 vorbestehendes Build-Stabilitäts-Problem (E1) root-cause behoben. Alle Einheiten prinzipientreu (kein Quick-Fix/Stub), durchgängig 3-Repo-synchron (≈31 Restore-Tags).
+
+**Genuin verbleibend (Mehr-Session/gated/user-manuell):** R5.D HW-Counter (PMC) + voller kartesischer Raum · R5.B (Achsen operativ, gated auf R7.x) · F.2/F.3 Namespace (GROSS) · E11/E10 (gated auf E4.1-Submodule) · weitere Tree-Struktur-Paper · D1/D2 (Autor schreibt Volltext, Doku 22 als Vorlage).
