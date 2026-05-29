@@ -247,10 +247,13 @@ end-to-end (48 DLLs).
 VERBLEIBEND (Mehr-Session / gated / user-manuell): **R5.D Hardware-Counter (PMC)** — fuer fein-granulare
 Achsen (memory_layout AoS/SoA) ist Wall-Clock NICHT ausreichend (§3.3-Limit-Befund: Effekt unter
 Rausch-Schwelle); PMC/Cache-Miss-Zaehler sind dafuer noetig · R5.B-Erweiterung auf weitere Trait-Achsen
-(serialization/… analog §3.3 erst runtime-operativ machen) · voller kartesischer Mehr-Achsen-Raum-Build
-(NICHT vollstaendig baubar — 1e15+; Sampling-GRUNDLAGE jetzt vorhanden: `anatomy/combinatorial_coverage.hpp`
-quantifiziert full/1-wise/pairwise + erzeugt eine 1-wise-Ueberdeckungs-Stichprobe = max(Achsen-Varianten)
-Permutationen, die jede Achsen-Variante mind. 1× abdeckt → traktable Coverage statt Voll-Build; offen ist
-nur das Verdrahten dieser Stichprobe in den Emitter) · F.2/F.3 Namespace-Restrukturierung · E11-Master-Facade +
+(serialization/… analog §3.3 erst runtime-operativ machen) · **voller kartesischer Raum — Sampling
+ERLEDIGT:** `combinatorial_coverage.hpp` (Quantifizierung + 1-wise-Stichprobe) ist in den Emitter
+verdrahtet (`comdare-adhoc-emitter --full-coverage`): emittiert eine 1-wise-Ueberdeckung ueber die
+ECHTEN Registries (search 17 × allocator 25 × layout 5) in **25** Modulen, die — verifiziert —
+ALLE 17 Such-Algos + 25 Allokatoren + 5 Layouts mind. 1× abdecken (statt 2125). Default bleibt der
+kuratierte 48-Pilot (keine Regression). Offen ist nur noch der OPTIONALE 25-DLL-Build dieser
+Stichprobe (reiner Build-Modus-Entscheid; die Emission + Coverage ist bewiesen) · F.2/F.3
+Namespace-Restrukturierung · E11-Master-Facade +
 E10 per-Untermodul-STATIC/SHARED (gated auf E4.1-Submodul-Befüllung) · weitere Tree-STRUKTUR-Paper ·
 D1/D2 Diplomarbeit-Volltext (Autor).

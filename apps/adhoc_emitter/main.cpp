@@ -88,23 +88,56 @@ struct C16 { using StaticAxisVariants = mp::mp_list<FL>;  };
 using PilotEngine = ana::SearchAlgorithmPermutationEngine<
     C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16>;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// V41.F.6.1 R5.D — VOLL-COVERAGE-Modus (--full-coverage): 1-wise-Ueberdeckungs-Stichprobe ueber die
+// ECHTEN Achsen-Registry-Listen. Deckt ALLE Varianten der drei multi-varianten Achsen
+// (search 17 × allocator 25 × layout 5) in max=25 Permutationen statt 2125 ab (each-value-Coverage,
+// vgl. anatomy/combinatorial_coverage.hpp). Default bleibt der kuratierte Pilot → keine Regression.
+// ─────────────────────────────────────────────────────────────────────────────
+namespace fullcov {
+using SearchList = ce::traversal::axis_03a_search_algo::AllStrategies;
+using AllocList  = ce::allocator::axis_06_allocator::AllVendors;
+using LayoutList = ce::memory_layout::axis_05_memory_layout::AllLayouts;
+inline constexpr std::size_t kNs = mp::mp_size<SearchList>::value;
+inline constexpr std::size_t kNa = mp::mp_size<AllocList>::value;
+inline constexpr std::size_t kNl = mp::mp_size<LayoutList>::value;
+inline constexpr std::size_t kMax = (kNs > kNa ? (kNs > kNl ? kNs : kNl) : (kNa > kNl ? kNa : kNl));
+
+// Zeile r → Achse i = (r mod n_i): jede Variante jeder Achse erscheint mind. 1× (1-wise).
+template <class R>
+using SampledComposition = ana::AdHocComposition<
+    mp::mp_at_c<SearchList, R::value % kNs>,   // T0  search_algo
+    CT, MP, PC, NT,                             // T1..T4
+    mp::mp_at_c<LayoutList, R::value % kNl>,    // T5  memory_layout
+    mp::mp_at_c<AllocList,  R::value % kNa>,    // T6  allocator
+    PF, CC, SE, TM, VH, IS, IO, IOD, MG, FL>;   // T7..T16
+
+using SampleList = mp::mp_transform<SampledComposition, mp::mp_iota_c<kMax>>;
+
+struct SampleEngine {
+    [[nodiscard]] static constexpr std::size_t count() noexcept { return mp::mp_size<SampleList>::value; }
+    template <class Visitor>
+    static constexpr void for_each_composition_type(Visitor&& v) {
+        mp::mp_for_each<mp::mp_transform<mp::mp_identity, SampleList>>([&](auto id) {
+            using C = typename decltype(id)::type;
+            v.template operator()<C>();
+        });
+    }
+};
+static_assert(SampleEngine::count() == kMax, "1-wise-Stichprobe muss max(Achsen-Varianten) Permutationen haben");
+}  // namespace fullcov
+
 }  // namespace
 
-int main(int argc, char** argv) {
-    if (argc < 2) {
-        std::cerr << "Usage: comdare-adhoc-emitter <output-dir>\n"
-                     "  Emittiert pro Permutation des Pilot-Raums ein Modul-.cpp.\n";
-        return 1;
-    }
-    auto const files = cg::emit_adhoc_modules<PilotEngine>(argv[1]);
+namespace {
+// Emittiert den Raum des gewaehlten Engine + schreibt manifest.txt (idx → search/allocator/memory_layout).
+template <class Engine>
+int emit_with(std::string const& out_dir, char const* mode) {
+    auto const files = cg::emit_adhoc_modules<Engine>(out_dir);
     for (auto const& f : files) std::cout << f.string() << "\n";
-
-    // V41.F.6.1 R5.B — MANIFEST: AdHocComposition_<idx> → (search_algo, allocator, memory_layout) in
-    // EXAKT der for_each_composition_type-Reihenfolge (= idx in comdare_anatomy_perm_auto_<idx>.cpp).
-    // Macht den 3-Achsen-F15-Raum interpretierbar, OHNE composition_name (ABI/Tests) zu aendern.
-    std::ofstream manifest(std::filesystem::path{argv[1]} / "manifest.txt", std::ios::trunc);
+    std::ofstream manifest(std::filesystem::path{out_dir} / "manifest.txt", std::ios::trunc);
     int mi = 0;
-    PilotEngine::for_each_composition_type([&]<class C>() {
+    Engine::for_each_composition_type([&]<class C>() {
         std::string const line = std::to_string(mi) + "\t"
             + std::string{C::search_algo::name()} + "\t" + std::string{C::allocator::name()}
             + "\t" + std::string{C::memory_layout::name()};
@@ -112,9 +145,26 @@ int main(int argc, char** argv) {
         manifest << line << "\n";
         ++mi;
     });
-
     std::cerr << "comdare-adhoc-emitter: " << files.size()
-              << " Permutations-Modul-.cpp geschrieben (count=" << PilotEngine::count()
-              << ", 3-Achsen search_algo×allocator×memory_layout, manifest.txt geschrieben).\n";
+              << " Permutations-Modul-.cpp geschrieben (count=" << Engine::count()
+              << ", Modus=" << mode << ", manifest.txt geschrieben).\n";
     return files.empty() ? 2 : 0;
+}
+}  // namespace
+
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        std::cerr << "Usage: comdare-adhoc-emitter <output-dir> [--full-coverage]\n"
+                     "  Default: kuratierter 3-Achsen-Pilot (search×allocator×memory_layout = 48).\n"
+                     "  --full-coverage: 1-wise-Ueberdeckung ueber ALLE Achsen-Varianten "
+                     "(17×25×5 → 25 Permutationen, jede Variante mind. 1×).\n";
+        return 1;
+    }
+    std::string const out_dir = argv[1];
+    bool full_coverage = false;
+    for (int i = 2; i < argc; ++i) if (std::string{argv[i]} == "--full-coverage") full_coverage = true;
+
+    return full_coverage
+        ? emit_with<fullcov::SampleEngine>(out_dir, "full-coverage-1wise")
+        : emit_with<PilotEngine>(out_dir, "kuratiert-3achsen");
 }
