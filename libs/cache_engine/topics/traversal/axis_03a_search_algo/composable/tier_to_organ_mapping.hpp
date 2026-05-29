@@ -22,6 +22,7 @@
 #include "interpolation_traversal_organ.hpp"
 #include "composed_tree_search.hpp"               // BSTTraversalOrgan + TreeNodePoolStore + ComposedTreeSearch
 #include "composed_hash_search.hpp"               // HashProbeTraversalOrgan + HashBucketPoolStore + ComposedHashSearch (#41)
+#include "composed_skip_list_search.hpp"          // SkipListTraversalOrgan + SkipListNodePoolStore + ComposedSkipListSearch (#41)
 
 namespace comdare::cache_engine::traversal::axis_03a_search_algo::composable {
 
@@ -32,6 +33,7 @@ using InterpolationOrgan = ComposedSearch<InterpolationTraversalOrgan, RawSlotSt
 using BstTreeOrgan       = ComposedTreeSearch<BSTTraversalOrgan,       TreeNodePoolStore>;
 // V41 Umstufung-A (#41) — sezierte CE-native Such-Strukturen als Organ-Kompositionen (eigene Pool-Familien):
 using HashSearchOrgan    = ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore>;   // HashSearchAlgo S14
+using SkipListOrgan      = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore>; // SkipListSearchAlgo S13
 
 /// Dokumentiertes Tier→Organ-Paar (für den Äquivalenz-/Rekonstruktions-Test konsumierbar).
 /// `tier` = monolithischer axis_03a-Wrapper (noch Achsen-Wert, bis zur Umstufung).

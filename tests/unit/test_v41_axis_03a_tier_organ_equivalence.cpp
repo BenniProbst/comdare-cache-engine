@@ -57,3 +57,10 @@ TEST(Axis03aTierOrgan, Uint16HashReconstructibleFromOrgan) {
     ts::verify_variants_equivalent<ce_cmp::HashSearchOrgan, ce_03a::HashSearchAlgo>(1000u, 1000u);
     SUCCEED();  // HashSearchAlgo exakt aus ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore> rekonstruierbar
 }
+
+// SkipList (GEORDNET probabilistisch, Pugh CACM 1990): eigene SkipListNodePool-Familie (RNG im Store, Seed 0xC0FFEEu).
+TEST(Axis03aTierOrgan, Uint16SkipListReconstructibleFromOrgan) {
+    ts::verify_matches_std_map<ce_cmp::SkipListOrgan>(1000u, 1000u);
+    ts::verify_variants_equivalent<ce_cmp::SkipListOrgan, ce_03a::SkipListSearchAlgo>(1000u, 1000u);
+    SUCCEED();  // SkipListSearchAlgo exakt aus ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore> rekonstruierbar
+}
