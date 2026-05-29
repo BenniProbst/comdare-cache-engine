@@ -19,6 +19,8 @@
 #include "axis_05_memory_layout_aos_strict.hpp"
 #include "axis_05_memory_layout_soa.hpp"
 #include "axis_05_memory_layout_packed_bitmap.hpp"
+// V41.F.6.1 A4 (2026-05-29) — AoSoA Hybrid-Layout (Block-SoA + Block-AoS, SIMD-tiled)
+#include "axis_05_memory_layout_aosoa.hpp"
 
 #include <boost/mp11.hpp>
 
@@ -35,7 +37,8 @@ using AllLayouts = mp::mp_list<
     CacheLineAlignedMemoryLayout,
     AoSStrictMemoryLayout,
     SoAMemoryLayout,
-    PackedBitmapMemoryLayout
+    PackedBitmapMemoryLayout,
+    AoSoAMemoryLayout
 >;
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -115,8 +115,21 @@ TEST(R7_1_b_Axis05, FlagSuffixUppercase) {
 // §6 — Registry: AllLayouts + EnabledLayouts (mp_filter)
 // ─────────────────────────────────────────────────────────────────────────────
 
-TEST(R7_1_b_Axis05, AllLayoutsContainsFourWrappers) {
-    static_assert(mp::mp_size<ax05::AllLayouts>::value == 4);
+TEST(R7_1_b_Axis05, AllLayoutsContainsFiveWrappers) {
+    static_assert(mp::mp_size<ax05::AllLayouts>::value == 5);  // + AoSoA (A4, 2026-05-29)
+    SUCCEED();
+}
+
+// V41.F.6.1 A4 — AoSoAMemoryLayout (Array-of-Structures-of-Arrays, Block-SoA+AoS Hybrid, SIMD-tiled)
+TEST(R7_1_b_Axis05, AoSoAHybridLayoutProperties) {
+    static_assert(ax05::concepts::MemoryLayoutStrategy<ax05::AoSoAMemoryLayout>);
+    static_assert(ax05::concepts::CacheEnginePermutationStrategy<ax05::AoSoAMemoryLayout>);
+    static_assert(ax05::AoSoAMemoryLayout::name()        == std::string_view{"memory_layout_aosoa"});
+    static_assert(ax05::AoSoAMemoryLayout::flag_suffix() == std::string_view{"AOSOA"});
+    static_assert(ax05::AoSoAMemoryLayout::cache_line_size() == 64);
+    static_assert(ax05::AoSoAMemoryLayout::block_width()     == 8);   // AVX2-u64-Lane-Zahl
+    static_assert(ax05::AoSoAMemoryLayout::family_id::value  == 5);
+    static_assert(std::is_same_v<ax05::AoSoAMemoryLayout::axis_tag, ax05::subaxes::data_organization_tag>);
     SUCCEED();
 }
 
