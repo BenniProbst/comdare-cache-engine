@@ -19,6 +19,7 @@ Vier Wrapper sind is_original-faehig mit permissivem OSS-Original-Code (Original
 | VectorU16U16SearchAlgo | Sorted u16-vector lower_bound (START-Konzept, vereinfacht) | START — Self-Tuning Adaptive Radix Tree (Fent et al.) | ICDEW 2020 | 10.1109/ICDEW49219.2020.00015 | OSS | MIT | ✗ |
 | VectorU8U8SearchAlgo | Sparse sorted u8-vector lower_bound (HOT-k-Konzept) | HOT: A Height Optimized Trie Index… | SIGMOD 2018 | 10.1145/3183713.3196896 | OSS | ISC | ✗ |
 | KArySearchAlgo | k-ary search — Such-METHODE (K-Wege-Partition statt Halbierung; Aritaet K iterable) | k-ary search on modern processors | DaMoN 2009 | 10.1145/1565694.1565705 | nein (Paper liefert Pseudocode + Mess-Studie, kein kanonischer Repo-Code) | none (Algorithmus) | ✗ |
+| InterpolationSearchAlgo | interpolation search — Such-METHODE (verteilungsbewusste Positionsschaetzung, O(log log N) avg) | Interpolation search — a log log N search | CACM 21(7) 1978 | 10.1145/359545.359557 | nein (Lehrbuch-Algorithmus) | none (Algorithmus) | ✗ |
 
 > §4-Korrekturen (Map) angewendet:
 > - OriginalHotSearchAlgo: Venue korrigiert von Code-Kommentar "PVLDB 11(3):274-286, 2018" → **SIGMOD 2018** (erw. Version ACM TODS 2022).
@@ -29,7 +30,7 @@ Vier Wrapper sind is_original-faehig mit permissivem OSS-Original-Code (Original
 > - OriginalSurfSearchAlgo: Klarstellung (kein Bug) — Mehr-Header-Bibliothek, kein Single-Header.
 
 ## §3 Compliance-Status
-Alle 9 Wrapper besitzen eine Paper-Referenz; vereinfachte/Re-Impl-Wrapper (Array256SearchAlgo, VectorU16U16SearchAlgo, VectorU8U8SearchAlgo, KArySearchAlgo) sind als Konzept-Ableitung des jeweiligen Anker-Papers gekennzeichnet → Habich-Pflicht erfuellt. KArySearchAlgo (R7.2, 2026-05-29) ist eine originalgetreue C++23-Re-Implementierung der k-ary-Suche (Schlegel/Gemulla/Lehner DaMoN 2009) — das Paper liefert nur Pseudocode + Mess-Studie, keinen kanonischen permissiven Repo-Code, daher is_original=false ([[pseudocode-papers-fallback]]).
+Alle 10 Wrapper besitzen eine Paper-Referenz; vereinfachte/Re-Impl-Wrapper (Array256SearchAlgo, VectorU16U16SearchAlgo, VectorU8U8SearchAlgo, KArySearchAlgo, InterpolationSearchAlgo) sind als Konzept-Ableitung des jeweiligen Anker-Papers gekennzeichnet → Habich-Pflicht erfuellt. KArySearchAlgo (k-ary search, Schlegel/Gemulla/Lehner DaMoN 2009) und InterpolationSearchAlgo (interpolation search, Perl/Itai/Avni CACM 1978) sind R7.2-Such-METHODEN — originalgetreue C++23-Re-Implementierungen (Paper liefern Pseudocode/Mess-Studie bzw. Lehrbuch-Algorithmus, keinen kanonischen permissiven Repo-Code), daher is_original=false ([[pseudocode-papers-fallback]]).
 
 is_original-Kandidaten (Map §3, fuer R7.6.c — echtes Original-Code-Linking):
 - OriginalArtSearchAlgo → github.com/laurynas-biveinis/unodb (Apache-2.0)

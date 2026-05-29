@@ -292,6 +292,54 @@ TEST(SearchAlgo_KAry, ErfuelltErwarteteConcepts) {
     SUCCEED();
 }
 
+// --- V41.F.6.1.R7.2 InterpolationSearchAlgo (interpolation search, Perl/Itai/Avni CACM 1978) ----
+
+// KERN-KORREKTHEIT (Gleichverteilung): Interpolationssuche muss EXAKT die Referenz-Ergebnisse liefern.
+TEST(SearchAlgo_Interpolation, CorrectUniform) {
+    constexpr std::uint16_t kStep = 7, kMaxKey = 1400;
+    ce_03a::InterpolationSearchAlgo s{};
+    for (std::uint16_t k = 0; k <= kMaxKey; k += kStep) s.insert(k, static_cast<std::uint64_t>(k) * 3u + 1u);
+    for (std::uint32_t q = 0; q <= 1500u; ++q) {
+        auto const key = static_cast<std::uint16_t>(q);
+        auto v = s.lookup(key);
+        bool const present = (q <= kMaxKey) && (q % kStep == 0);
+        if (present) { ASSERT_TRUE(v.has_value()) << "key=" << q; EXPECT_EQ(*v, static_cast<std::uint64_t>(key) * 3u + 1u); }
+        else         { EXPECT_FALSE(v.has_value()) << "key=" << q; }
+    }
+}
+
+// KERN-KORREKTHEIT (SCHIEFE Verteilung = Interpolations-Worst-Case): muss trotz degenerierter
+// Positionsschaetzung korrekt bleiben. Cluster [0..50] + Cluster [60000..60050].
+TEST(SearchAlgo_Interpolation, CorrectSkewed) {
+    ce_03a::InterpolationSearchAlgo s{};
+    for (std::uint16_t k = 0; k <= 50; ++k)               s.insert(k, static_cast<std::uint64_t>(k) + 1u);
+    for (std::uint16_t k = 60000; k <= 60050; ++k)        s.insert(k, static_cast<std::uint64_t>(k) + 1u);
+    auto present = [](std::uint32_t q){ return (q <= 50u) || (q >= 60000u && q <= 60050u); };
+    for (std::uint32_t q = 0; q <= 65535u; q += 137u) {   // gestreute Stichproben über den ganzen u16-Raum
+        auto v = s.lookup(static_cast<std::uint16_t>(q));
+        if (present(q)) { ASSERT_TRUE(v.has_value()) << "key=" << q; EXPECT_EQ(*v, static_cast<std::uint64_t>(q) + 1u); }
+        else            { EXPECT_FALSE(v.has_value()) << "key=" << q; }
+    }
+    // Randwerte exakt
+    EXPECT_TRUE(s.lookup(std::uint16_t{0}).has_value());
+    EXPECT_TRUE(s.lookup(std::uint16_t{60050}).has_value());
+    EXPECT_FALSE(s.lookup(std::uint16_t{51}).has_value());
+    EXPECT_FALSE(s.lookup(std::uint16_t{59999}).has_value());
+}
+
+TEST(SearchAlgo_Interpolation, EdgeCasesAndNotSimd) {
+    static_assert(ce_03a::concepts::SearchAlgoVariant<ce_03a::InterpolationSearchAlgo>);
+    static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::InterpolationSearchAlgo>,
+        "Interpolationssuche darf SimdCapableStrategy NICHT erfuellen (datenabhaengiger Index)");
+    EXPECT_FALSE(ce_03a::InterpolationSearchAlgo::supports_simd());
+    ce_03a::InterpolationSearchAlgo s{};
+    EXPECT_FALSE(s.lookup(std::uint16_t{5}).has_value());  // leer
+    s.insert(std::uint16_t{42}, std::uint64_t{99});
+    EXPECT_EQ(*s.lookup(std::uint16_t{42}), 99u);          // Single-Element
+    EXPECT_FALSE(s.lookup(std::uint16_t{41}).has_value());
+    EXPECT_FALSE(s.lookup(std::uint16_t{43}).has_value());
+}
+
 // =================================================================
 // TYPED_TEST_SUITE — axis_03b cache_traversal
 // =================================================================

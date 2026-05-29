@@ -19,6 +19,8 @@
 #include "axis_03a_search_algo_original_surf.hpp"
 // V41.F.6.1.R7.2 (2026-05-29) S10 k-ary search (Such-METHODE, Schlegel/Gemulla/Lehner DaMoN 2009)
 #include "axis_03a_search_algo_k_ary.hpp"
+// V41.F.6.1.R7.2 (2026-05-29) S11 interpolation search (Such-METHODE, Perl/Itai/Avni CACM 1978)
+#include "axis_03a_search_algo_interpolation.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
@@ -42,12 +44,13 @@ using AllStrategies = mp::mp_list<
     OriginalSurfSearchAlgo,      // S08, P10 SuRF (Zhang/Lim/Andersen SIGMOD 2018, 1/4 originall + 3 Luecken)
     // V41.F.6.1.F.6 (2026-05-29) — F.6-Migration aus prt-art internal_search/array_65535.hpp
     Array65535SearchAlgo,        // S09, prt-art REV6 §5.17 mid-density direct-addressed uint16 (kein Paper)
-    // V41.F.6.1.R7.2 (2026-05-29) — Such-METHODE k-ary search (Re-Impl, is_original=false)
-    KArySearchAlgo               // S10, k-ary search (Schlegel/Gemulla/Lehner DaMoN 2009), Aritaet K iterable
+    // V41.F.6.1.R7.2 (2026-05-29) — Such-METHODEN (Re-Impl, is_original=false)
+    KArySearchAlgo,              // S10, k-ary search (Schlegel/Gemulla/Lehner DaMoN 2009), Aritaet K iterable
+    InterpolationSearchAlgo      // S11, interpolation search (Perl/Itai/Avni CACM 1978), verteilungsbewusst
     // Vollausbau-Roadmap (Folge-Batches, Paper-Wrappers):
     // P03 Masstree DEFERRED — masstree.hh hat keine direkten Function-Bodies (alle Templates)
-    // S11 P04 CoCo-trie (Read-Only, 0/4 originall — deferred wegen kein CRUD-API)
-    // S12 P06 B²tree, S13 P20 BTreesAreBack, S14 P25 Mahling, S15 P29 RCU, S16 P30 HazardPointers
+    // S12 P04 CoCo-trie (Read-Only, 0/4 originall — deferred wegen kein CRUD-API)
+    // S13 P06 B²tree, S14 P20 BTreesAreBack, S15 P25 Mahling, S16 P29 RCU, S17 P30 HazardPointers
 >;
 
 template <typename S>
