@@ -24,6 +24,7 @@
 #include "composed_hash_search.hpp"               // HashProbeTraversalOrgan + HashBucketPoolStore + ComposedHashSearch (#41)
 #include "composed_skip_list_search.hpp"          // SkipListTraversalOrgan + SkipListNodePoolStore + ComposedSkipListSearch (#41)
 #include "composed_btree_search.hpp"              // BTreeTraversalOrgan + BTreeNodePoolStore + ComposedBTreeSearch (#41)
+#include "composed_art_trie_search.hpp"           // ArtTrieTraversalOrgan + ArtTrieNodePoolStore + ComposedArtTrieSearch (#43 s4)
 
 namespace comdare::cache_engine::traversal::axis_03a_search_algo::composable {
 
@@ -44,7 +45,10 @@ using BTreeSearchOrgan   = ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoo
 // (Bodies unangetastet); das Organ seziert NUR das IST-Such-Verhalten. Die ECHTE Trie-Anatomie (Node4/16/48/
 // 256, LOUDS, wormmeta-Hash-Anchor, Patricia) lebt nur im physischen Paper-Code → eigene s4-Charge
 // (node_type x path_compression x Trie-Traversal Mehr-Achsen-Modell + extern-C-Linking), NICHT #41.
-using OriginalArtOrgan      = LinearScanOrgan;    // S04 ART      (uint8, std::array<optional,256> direct-addressed)
+// S04 ART: ECHTE Trie-Anatomie (#43 s4) — adaptive Node4/16/48/256 + ByteWise-Path-Compression + Byte-Descent.
+// (Loest den fruehen flachen LinearScanOrgan-Platzhalter ab: ART ist jetzt als echtes Organ rekonstruiert.)
+using ArtTrieOrgan          = ComposedArtTrieSearch<ArtTrieTraversalOrgan, ArtTrieNodePoolStore>;
+using OriginalArtOrgan      = ArtTrieOrgan;
 using OriginalHotOrgan      = SortedBinaryOrgan;  // S05 HOT      (uint8, sorted-vector+lower_bound)
 using OriginalStartOrgan    = SortedBinaryOrgan;  // S06 START    (uint16! sorted-vector — Beleg key_mod=1000)
 using OriginalWormholeOrgan = SortedBinaryOrgan;  // S07 Wormhole (uint8, sorted-vector — KEIN Hash/Trie im Body)
