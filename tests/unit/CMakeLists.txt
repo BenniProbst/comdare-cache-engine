@@ -394,6 +394,18 @@ target_include_directories(test_v41_tier_observe_trace PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_tier_observe_trace PRIVATE Boost::mp11)
 
+# V41 Roadmap-4 (Doku 24 §2.3) Saeule 3: Achsen-Vergleich gegen vereinheitlichtes std::map-Interface
+comdare_add_test(test_v41_axis_03a_cross_variant_equivalence
+    SOURCES test_v41_axis_03a_cross_variant_equivalence.cpp)
+target_include_directories(test_v41_axis_03a_cross_variant_equivalence PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_v41_axis_03a_cross_variant_equivalence PRIVATE Boost::mp11)
+
 # V41.F.6.1.R5.C Pruefling-Merge (3 Kompositionale Joins Stufe 1/2/3)
 comdare_add_test(test_v41_anatomy_pruefling_merge
     SOURCES test_v41_anatomy_pruefling_merge.cpp)
