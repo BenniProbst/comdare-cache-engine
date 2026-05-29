@@ -568,7 +568,34 @@ TEST(SearchAlgo_Interchangeability, AllUint16WrappersMatchStdMap) {
     verify_matches_std_map<ce_03a::SkipListSearchAlgo>(1000u, 1000u);       // geordnete Struktur
     verify_matches_std_map<ce_03a::HashSearchAlgo>(1000u, 1000u);           // Hash (ungeordnet)
     verify_matches_std_map<ce_03a::LinearScanSearchAlgo>(1000u, 1000u);     // unsortiert linear
-    SUCCEED();  // alle 8 uint16-Achsen liefern identische std::map-Semantik (austauschbar)
+    verify_matches_std_map<ce_03a::BinarySearchTreeSearchAlgo>(1000u, 1000u); // BST (Hibbard-Deletion)
+    SUCCEED();  // alle 9 uint16-Achsen liefern identische std::map-Semantik (austauschbar)
+}
+
+// V41.F.6.1 R7.2 — BST: korrekt auch bei DEGENERIERTER (sortierter) Einfuege-Reihenfolge (O(n)-Kette),
+// + Hibbard-erase aller drei Faelle (Blatt/1 Kind/2 Kinder). Validiert zusaetzlich zur Austauschbarkeit.
+TEST(SearchAlgo_BST, DegenerateSortedInputAndErase) {
+    ce_03a::BinarySearchTreeSearchAlgo s{};
+    for (std::uint16_t k = 1; k <= 300; ++k) s.insert(k, static_cast<std::uint64_t>(k) * 2u);  // sortiert → reine rechte Kette
+    EXPECT_EQ(s.occupied_count(), 300u);
+    for (std::uint32_t k = 1; k <= 300; ++k) {
+        auto v = s.lookup(static_cast<std::uint16_t>(k));
+        ASSERT_TRUE(v.has_value()) << "key=" << k; EXPECT_EQ(*v, k * 2u);
+    }
+    EXPECT_FALSE(s.lookup(std::uint16_t{0}).has_value());
+    EXPECT_FALSE(s.lookup(std::uint16_t{301}).has_value());
+    // erase: Blatt (300), Mitte mit 2 Kindern nach Re-Insert, Wurzel.
+    EXPECT_TRUE(s.erase(std::uint16_t{300}));   // Endknoten der Kette
+    EXPECT_TRUE(s.erase(std::uint16_t{1}));     // Wurzel (hat nur rechtes Kind)
+    EXPECT_TRUE(s.erase(std::uint16_t{150}));   // innerer Knoten
+    EXPECT_EQ(s.occupied_count(), 297u);
+    EXPECT_FALSE(s.lookup(std::uint16_t{300}).has_value());
+    EXPECT_FALSE(s.lookup(std::uint16_t{1}).has_value());
+    EXPECT_FALSE(s.lookup(std::uint16_t{150}).has_value());
+    EXPECT_TRUE(s.lookup(std::uint16_t{149}).has_value());   // Nachbarn intakt
+    EXPECT_TRUE(s.lookup(std::uint16_t{151}).has_value());
+    EXPECT_TRUE(ce_03a::BinarySearchTreeSearchAlgo::supports_range_scan());  // geordnet
+    EXPECT_EQ(ce_03a::BinarySearchTreeSearchAlgo::family_id::value, 16);
 }
 
 TEST(SearchAlgo_Interchangeability, AllUint8WrappersMatchStdMap) {

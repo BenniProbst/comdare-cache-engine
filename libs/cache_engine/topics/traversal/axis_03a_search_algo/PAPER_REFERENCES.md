@@ -24,6 +24,7 @@ Vier Wrapper sind is_original-faehig mit permissivem OSS-Original-Code (Original
 | SkipListSearchAlgo | Skip-Liste — probabilistische geordnete STRUKTUR (O(log n) erwartet, kein Rebalancing) | Skip Lists: A Probabilistic Alternative to Balanced Trees | CACM 33(6) 1990 | 10.1145/78973.78977 | nein (Lehrbuch-Algorithmus/Pseudocode) | none | ✗ |
 | HashSearchAlgo | Open-Addressing-Hashtabelle (Fibonacci-Hash, Linear Probing, Tombstone-Erase) — UNGEORDNET, O(1) avg | The Art of Computer Programming Vol.3 §6.4 (Hashing) | Addison-Wesley 2nd Ed. 1998 | en.wikipedia.org/wiki/Open_addressing | nein (Lehrbuch-Algorithmus) | none | ✗ |
 | LinearScanSearchAlgo | Unsortierter linearer Scan (ART-Node4-Strategie, Baseline-Nullpunkt) | The Adaptive Radix Tree: ARTful Indexing… (Node4 linear search) | ICDE 2013 | 10.1109/ICDE.2013.6544812 | nein (Konzept-Baseline) | none | ✗ |
+| BinarySearchTreeSearchAlgo | Unbalancierter binaerer Suchbaum, Hibbard-Deletion | The Art of Computer Programming Vol.3 §6.2.2 (Binary Tree Searching) | Addison-Wesley 2nd Ed. 1998 | en.wikipedia.org/wiki/Binary_search_tree | nein (Lehrbuch) | none | ✗ |
 
 > §4-Korrekturen (Map) angewendet:
 > - OriginalHotSearchAlgo: Venue korrigiert von Code-Kommentar "PVLDB 11(3):274-286, 2018" → **SIGMOD 2018** (erw. Version ACM TODS 2022).
@@ -34,8 +35,8 @@ Vier Wrapper sind is_original-faehig mit permissivem OSS-Original-Code (Original
 > - OriginalSurfSearchAlgo: Klarstellung (kein Bug) — Mehr-Header-Bibliothek, kein Single-Header.
 
 ## §3 Compliance-Status
-Alle 15 axis_03a-Wrapper besitzen eine Paper-Referenz (10 Re-Impl/Konzept-Wrapper + 5 Original-Paper-
-Wrapper). Die Re-Impl/Konzept-Wrapper (Array256SearchAlgo, Array65535SearchAlgo, VectorU16U16SearchAlgo,
+Alle 16 axis_03a-Wrapper besitzen eine Paper-Referenz (11 Re-Impl/Konzept-Wrapper + 5 Original-Paper-
+Wrapper; + BinarySearchTreeSearchAlgo = unbalancierter BST mit Hibbard-Deletion, Knuth TAOCP 3 §6.2.2). Die Re-Impl/Konzept-Wrapper (Array256SearchAlgo, Array65535SearchAlgo, VectorU16U16SearchAlgo,
 VectorU8U8SearchAlgo, KArySearchAlgo, InterpolationSearchAlgo, EytzingerSearchAlgo, SkipListSearchAlgo,
 HashSearchAlgo, LinearScanSearchAlgo) sind als Konzept-Ableitung des jeweiligen Anker-Papers
 gekennzeichnet → Habich-Pflicht erfuellt. Such-METHODEN: KArySearchAlgo (k-ary/SIMD-Partition,
