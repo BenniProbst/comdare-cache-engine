@@ -41,6 +41,7 @@
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/measurable_workload.hpp>   // Stufe B: Mess-Last DURCH die geladene DLL
 #include <builder/commands/welch_t_test.hpp>
+#include <builder/commands/multiple_comparison.hpp>   // R6: FWER-Korrektur bei vielen Vergleichen
 
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_vector_u8u8.hpp>
@@ -214,4 +215,58 @@ TEST(F15Measurement, WelchInvalidOnTooFewSamples) {
     auto const w = stats::welch_t_test(std::span<const std::int64_t>{one},
                                        std::span<const std::int64_t>{one});
     EXPECT_FALSE(w.valid);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// R6 — Multiple-Comparison-Korrektur (Bonferroni + Holm-Bonferroni). Bei F15 werden VIELE
+// Achsen-Kompositionen paarweise verglichen → FWER-Kontrolle noetig, sonst Zufalls-"Signifikanzen".
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(F15MultipleComparison, BonferroniScalesByCount) {
+    std::vector<double> p{0.01, 0.02, 0.04};
+    auto adj = stats::bonferroni_adjust(std::span<const double>{p});
+    ASSERT_EQ(adj.size(), 3u);
+    EXPECT_NEAR(adj[0], 0.03, 1e-12);
+    EXPECT_NEAR(adj[1], 0.06, 1e-12);
+    EXPECT_NEAR(adj[2], 0.12, 1e-12);
+    // Bei alpha=0.05 ueberlebt nur der erste.
+    EXPECT_EQ(stats::count_significant(std::span<const double>{adj}, 0.05), 1u);
+}
+
+TEST(F15MultipleComparison, BonferroniClampsAtOne) {
+    std::vector<double> p{0.5, 0.9};
+    auto adj = stats::bonferroni_adjust(std::span<const double>{p});
+    EXPECT_NEAR(adj[0], 1.0, 1e-12);  // 0.5*2=1.0
+    EXPECT_NEAR(adj[1], 1.0, 1e-12);  // 0.9*2=1.8 -> clamp 1.0
+}
+
+TEST(F15MultipleComparison, HolmIsMorePowerfulThanBonferroni) {
+    std::vector<double> p{0.01, 0.02, 0.04};  // m=3
+    auto holm = stats::holm_bonferroni_adjust(std::span<const double>{p});
+    // sortiert: 3*0.01=0.03, 2*0.02=0.04, 1*0.04=0.04 (monoton) → [0.03, 0.04, 0.04]
+    EXPECT_NEAR(holm[0], 0.03, 1e-12);
+    EXPECT_NEAR(holm[1], 0.04, 1e-12);
+    EXPECT_NEAR(holm[2], 0.04, 1e-12);
+    // Holm: alle 3 signifikant @0.05; Bonferroni nur 1 → Holm strikt maechtiger bei gleicher FWER.
+    EXPECT_EQ(stats::count_significant(std::span<const double>{holm}, 0.05), 3u);
+}
+
+TEST(F15MultipleComparison, HolmReorderEnforcesMonotonicity) {
+    // Original-Reihenfolge unsortiert; Monotonie wird in p-Sortier-Reihenfolge erzwungen + zurueckgestreut.
+    std::vector<double> p{0.6, 0.04, 0.5};  // m=3
+    auto holm = stats::holm_bonferroni_adjust(std::span<const double>{p});
+    ASSERT_EQ(holm.size(), 3u);
+    // sortiert [0.04,0.5,0.6]: 3*0.04=0.12, 2*0.5=1.0, max(1*0.6,1.0)=1.0 → [0.12,1.0,1.0]
+    // zurueck auf Original-Indizes: p[1]=0.04→0.12, p[2]=0.5→1.0, p[0]=0.6→1.0
+    EXPECT_NEAR(holm[1], 0.12, 1e-12);
+    EXPECT_NEAR(holm[0], 1.0, 1e-12);
+    EXPECT_NEAR(holm[2], 1.0, 1e-12);
+    // korrigierte p-Werte nie kleiner als das Roh-p
+    for (std::size_t i = 0; i < p.size(); ++i) EXPECT_GE(holm[i], p[i] - 1e-12);
+}
+
+TEST(F15MultipleComparison, EmptyInputSafe) {
+    std::vector<double> p{};
+    EXPECT_TRUE(stats::bonferroni_adjust(std::span<const double>{p}).empty());
+    EXPECT_TRUE(stats::holm_bonferroni_adjust(std::span<const double>{p}).empty());
 }
