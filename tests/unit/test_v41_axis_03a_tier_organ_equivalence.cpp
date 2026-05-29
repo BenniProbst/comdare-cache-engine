@@ -48,3 +48,12 @@ TEST(Axis03aTierOrgan, Uint16TiersReconstructibleFromOrgan) {
     ts::verify_variants_equivalent<ce_cmp::BstTreeOrgan,      ce_03a::BinarySearchTreeSearchAlgo>(1000u, 1000u);
     SUCCEED();  // jeder uint16-Tier exakt aus seiner Organ-Komposition wiederherstellbar
 }
+
+// --- Umstufung-A (#41): sezierte CE-native Strukturen ≡ Organ-Komposition (REKONSTRUKTION, key_mod=1000) --
+// Hash (UNGEORDNET, open-addressing Fibonacci, Knuth TAOCP 3 §6.4): eigene HashBucketPool-Familie.
+// Doppel-Beleg: vertikal (Organ ≡ std::map) + horizontal (Organ ≡ Monolith) ⇒ transitiv Organ ≡ std::map.
+TEST(Axis03aTierOrgan, Uint16HashReconstructibleFromOrgan) {
+    ts::verify_matches_std_map<ce_cmp::HashSearchOrgan>(1000u, 1000u);
+    ts::verify_variants_equivalent<ce_cmp::HashSearchOrgan, ce_03a::HashSearchAlgo>(1000u, 1000u);
+    SUCCEED();  // HashSearchAlgo exakt aus ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore> rekonstruierbar
+}
