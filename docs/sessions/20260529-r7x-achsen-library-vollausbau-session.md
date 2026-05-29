@@ -59,3 +59,24 @@ Mehrere als „GROSS / 29–42 SP" gelistete Tasks waren faktisch ~90–100% fer
 Weiterer R7.2-Struktur-Wrapper **oder** verify-first auf einen der mittleren Tasks (#17 E10, #9 Cross-Constraints, #27 Tech-Debt). Per dieser Session: **vor jedem als GROSS gelisteten Task zuerst Ist-State verifizieren** — der echte Rest ist oft bounded.
 
 Goldstandard-Vorlage für neue axis_03a-Wrapper: `axis_03a_search_algo_skip_list.hpp` (Struktur) bzw. `axis_03a_search_algo_k_ary.hpp` (Such-Methode) + die 5 Wiring-Punkte (CMake-Option `option(COMDARE_AXIS_03A_ENABLE_*)` Z.126ff + foreach Z.636 + message + flags.hpp.in + Registry) + Test in `tests/unit/test_v41_topic_traversal.cpp` + PAPER_REFERENCES + Doku 18 §2.
+
+---
+
+## 5. Addendum — Units 11–17 (Fortsetzung gleiche Session, ce 325ce73)
+
+| # | Einheit | Beleg | ce-Commit |
+|---|---------|-------|-----------|
+| 11 | **R7.2 BinarySearchFanout** (axis_03b CT03, sortiert+lower_bound, Bayer/McCreight 1972) | traversal 239/239 | c3bf24d |
+| 12 | **R6 multiple_comparison** (Bonferroni + Holm-Bonferroni FWER-Korrektur) | F15 +5 | 21cd5d5 |
+| 13 | **R5.E result_aggregator** (ExecutionResult → CSV (RFC-4180) / JSON) | F15 +4 | f4dd175 |
+| 14 | **R5.E latency_stats** (Perzentile p50/p99/min/max/mean, geteilt+non-mutierend; ExecuteEngineCommand DRY) | test_commands 20/20 | 6fd813e |
+| 15 | **R6 multi_compare** (multi_compare_against_baseline: N vs Baseline, Welch+Holm) | F15 +3 | 3c31e35 |
+| 16 | **R5.E report_to_csv/json** (MultiCompareReport-Export) | F15 +1 | 6440366 |
+| 17 | **R6 summarize** (F15-Headline win_rate über den Report) | F15 23/23 | 325ce73 |
+
+**F15-Mess-Auswertungs-Schicht jetzt END-TO-END** (Namespace `builder::commands::stats`):
+`latency_stats` (Perzentile) → `welch_t_test` (Effektgröße/p) → `multi_compare` (N-vs-Baseline + Holm-FWER) → `summarize` (Headline `win_rate`) → `result_aggregator`/`report_to_csv/json` (Export). Alle header-only, ohne externe Abhängigkeit, exhaustiv getestet.
+
+**axis_03b** zusätzlich 2→3 (BinarySearchFanout). Achsen-Bibliothek-Endstand: axis_03a 13, axis_03b 3, axis_05 5; 22 Achsen / ~140 Wrapper (G.1-Auswertung).
+
+**Verbleibend unverändert** (siehe §3) — GROSS/gated/user-manuell: R5.D CacheEngineBuilder-CLI-Main + HW-Counter + durchgängiger Messlauf-Treiber (baut nun auf der fertigen Auswertungs-Schicht) · axis_03a-Tree-Struktur-Paper · F.2/F.3 · E11/E10 (→E4.1) · D1/D2.
