@@ -1,5 +1,12 @@
 # Doku 22 — F15-Messpipeline + vollständige Such-Algorithmen-Bibliothek (Stand 2026-05-29)
 
+> ⚠️ **KORREKTUR-HINWEIS (2026-05-29, siehe Doku 24):** Die hier beschriebene F15-Messung mischt
+> zwei Dimensionen, die getrennt gehören. Das Wall-Clock-Ranking über 3 Achsen (§3.1–§3.3) ist eine
+> **Tier-Metrik** (ganzer Algorithmus, CacheEngineBuilder) — es ist NICHT der Achsen-Vergleich und
+> umgeht den vorgesehenen Per-Achsen-`ObserverAggregate` (`observe_all`). Korrektes Modell + Korrektur-
+> Plan: **Doku 24** (Tier-Wall-Clock vs. Achsen-Observer vs. Achsen-Vergleich-per-Test). Die robusten
+> Statistik-Werkzeuge (Median/MWU/Cliff's δ, §3.1–§3.3) bleiben für die Tier-Dimension gültig.
+
 **Zweck:** elaborate Architektur- + Ergebnis-Skizze für die Diplomarbeit-Kapitel zu (1) dem
 Library-Framework der Achsen-Algorithmen und (2) der F15-Messung „bringt die CacheEngine messbaren
 Wert?". Liefert die reproduzierbaren Bausteine + ein konkretes empirisches Resultat. (Volltext schreibt
