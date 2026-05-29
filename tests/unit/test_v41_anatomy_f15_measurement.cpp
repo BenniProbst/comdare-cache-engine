@@ -44,6 +44,7 @@
 #include <builder/commands/multiple_comparison.hpp>   // R6: FWER-Korrektur bei vielen Vergleichen
 #include <builder/commands/result_aggregator.hpp>      // R5.E: Mess-Ergebnisse → CSV/JSON
 #include <builder/commands/latency_stats.hpp>           // R5.E: Latenz-Perzentile (geteilt, non-mutierend)
+#include <builder/commands/multi_compare.hpp>            // R6: N Kompositionen vs Baseline, FWER-kontrolliert
 
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_vector_u8u8.hpp>
@@ -366,4 +367,66 @@ TEST(F15LatencyStats, MinMaxMeanAndEmpty) {
     EXPECT_EQ(stats::percentile_ns(std::span<const std::int64_t>{e}, 0.5).count(), 0);
     EXPECT_EQ(stats::latency_min_ns(std::span<const std::int64_t>{e}), 0);
     EXPECT_EQ(stats::latency_mean_ns(std::span<const std::int64_t>{e}), 0.0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// R6 — multi_compare_against_baseline: der vollstaendige F15-Workflow (N Kompositionen vs Baseline,
+// Welch pro Paar + Holm-FWER-Korrektur + Signifikanz/Schneller-Flag).
+// ─────────────────────────────────────────────────────────────────────────────
+
+namespace {
+// Samples um center mit kleinem Jitter (±2) → nicht-null Varianz, deterministisch.
+std::vector<std::int64_t> make_samples(std::int64_t center, std::size_t n) {
+    std::vector<std::int64_t> v;
+    v.reserve(n);
+    for (std::size_t i = 0; i < n; ++i)
+        v.push_back(center + static_cast<std::int64_t>(i % 5) - 2);
+    return v;
+}
+}  // namespace
+
+TEST(F15MultiCompare, FasterSlowerSimilarVsBaseline) {
+    cmd::ExecutionResult base{}; base.engine_name = "baseline"; base.latency_samples_ns = make_samples(100, 40);
+    cmd::ExecutionResult fast{}; fast.engine_name = "fast";     fast.latency_samples_ns = make_samples(50, 40);
+    cmd::ExecutionResult slow{}; slow.engine_name = "slow";     slow.latency_samples_ns = make_samples(150, 40);
+    cmd::ExecutionResult sim{};  sim.engine_name  = "similar";  sim.latency_samples_ns  = make_samples(100, 40);
+
+    std::vector<cmd::ExecutionResult> cands{fast, slow, sim};
+    auto rep = stats::multi_compare_against_baseline(base, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+
+    ASSERT_EQ(rep.comparisons.size(), 3u);
+    EXPECT_EQ(rep.comparisons[0].name, std::string_view{"fast"});     // Reihenfolge erhalten
+    EXPECT_EQ(rep.comparisons[1].name, std::string_view{"slow"});
+    EXPECT_EQ(rep.comparisons[2].name, std::string_view{"similar"});
+
+    EXPECT_TRUE(rep.comparisons[0].significant);             // fast klar schneller
+    EXPECT_TRUE(rep.comparisons[0].faster_than_baseline);
+    EXPECT_TRUE(rep.comparisons[1].significant);             // slow klar langsamer
+    EXPECT_FALSE(rep.comparisons[1].faster_than_baseline);
+    EXPECT_FALSE(rep.comparisons[2].significant);            // similar == baseline → nicht signifikant
+
+    EXPECT_EQ(rep.significant_count, 2u);
+    EXPECT_DOUBLE_EQ(rep.alpha, 0.05);
+    // korrigierte p-Werte >= Roh-p (Holm macht nie kleiner)
+    for (auto const& c : rep.comparisons) EXPECT_GE(c.adjusted_p, c.raw_p - 1e-12);
+}
+
+TEST(F15MultiCompare, InvalidCandidateNotSignificant) {
+    cmd::ExecutionResult base{}; base.engine_name = "baseline"; base.latency_samples_ns = make_samples(100, 40);
+    cmd::ExecutionResult tiny{}; tiny.engine_name = "tiny";     tiny.latency_samples_ns = {42};  // <2 → Welch ungueltig
+    std::vector<cmd::ExecutionResult> cands{tiny};
+    auto rep = stats::multi_compare_against_baseline(base, std::span<const cmd::ExecutionResult>{cands});
+    ASSERT_EQ(rep.comparisons.size(), 1u);
+    EXPECT_FALSE(rep.comparisons[0].welch.valid);
+    EXPECT_DOUBLE_EQ(rep.comparisons[0].raw_p, 1.0);
+    EXPECT_FALSE(rep.comparisons[0].significant);
+    EXPECT_EQ(rep.significant_count, 0u);
+}
+
+TEST(F15MultiCompare, EmptyCandidates) {
+    cmd::ExecutionResult base{}; base.latency_samples_ns = make_samples(100, 10);
+    std::vector<cmd::ExecutionResult> none{};
+    auto rep = stats::multi_compare_against_baseline(base, std::span<const cmd::ExecutionResult>{none});
+    EXPECT_TRUE(rep.comparisons.empty());
+    EXPECT_EQ(rep.significant_count, 0u);
 }
