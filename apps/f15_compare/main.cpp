@@ -18,6 +18,7 @@
 #include <builder/commands/multi_compare.hpp>
 #include <builder/commands/result_aggregator.hpp>
 
+#include <algorithm>
 #include <charconv>
 #include <cstdint>
 #include <filesystem>
@@ -26,6 +27,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace loader = ::comdare::cache_engine::builder::anatomy_loader;
@@ -150,6 +152,28 @@ int main(int argc, char** argv) {
         std::cout << "    " << c.name << ": adjusted_p=" << c.adjusted_p
                   << (c.significant ? "  SIGNIFIKANT" : "  n.s.")
                   << (c.faster_than_baseline ? "  (schneller)" : "  (langsamer)") << "\n";
+    }
+
+    // Ranking ueber ALLE Kompositionen (inkl. Baseline) nach mittlerer Latenz — die praktische
+    // F15-Antwort "welche Achsen-Komposition gewinnt?". Schnellste zuerst.
+    std::vector<std::pair<double, std::size_t>> ranking;
+    ranking.reserve(results.size());
+    for (std::size_t i = 0; i < results.size(); ++i) {
+        double const mean = stats::latency_mean_ns(
+            std::span<const std::int64_t>{results[i].latency_samples_ns});
+        ranking.emplace_back(mean, i);
+    }
+    std::sort(ranking.begin(), ranking.end(),
+              [](auto const& a, auto const& b) { return a.first < b.first; });
+    std::cout << "  Ranking (schnellste zuerst, mittlere Latenz ns):\n";
+    for (std::size_t r = 0; r < ranking.size(); ++r) {
+        auto const [mean, idx] = ranking[r];
+        std::cout << "    #" << (r + 1) << "  " << names[idx] << "  mean=" << mean << " ns"
+                  << (idx == base_idx ? "  [baseline]" : "") << "\n";
+    }
+    if (ranking.size() >= 2 && ranking.back().first > 0.0) {
+        std::cout << "  Spanne langsamste/schnellste = "
+                  << (ranking.back().first / ranking.front().first) << "x\n";
     }
 
     if (!csv_path.empty()) {

@@ -1031,7 +1031,7 @@ if(_r5g_ae_status STREQUAL "FOUND")
             add_test(NAME f15_compare_cli_smoke
                 COMMAND comdare_f15_compare_cli "${_r5g_autobuilt_dir}" --batches=16 --alpha=0.05)
             set_tests_properties(f15_compare_cli_smoke PROPERTIES
-                PASS_REGULAR_EXPRESSION "win_rate"
+                PASS_REGULAR_EXPRESSION "Ranking .schnellste"
                 LABELS "r5d;f15;cli")
         endif()
     endif()
