@@ -22,17 +22,24 @@
 #   include(anatomy_codegen_runner)
 #   comdare_run_anatomy_codegen_tool(
 #       OUTPUT       "${CMAKE_BINARY_DIR}/generated/r5i_perm_list.cmake"
-#       NAMES        "art,hot,wormhole"      # optional, default = alle 11
+#       NAMES        "art,hot,wormhole"      # optional, default = alle 11 (bekannte CE)
 #       LIBRARY_TYPE SHARED                  # optional, default = SHARED
+#       [NO_KNOWN]                           # optional: bekannte CE-Compositions weglassen
+#       [EXTERNAL_COMPOSITIONS               # optional (F.5): Pruefling-Compositions
+#           "prtart-demo|::comdare::prt_art::slots::PrtArtCompositionDemo|prt_art/slots/prt_art_composition_demo.hpp"]
 #       [STATUS_OUT  <var-name>])            # optional, "FOUND"/"SKIPPED"/"ERROR"
+#
+# Pruefling-Stufe-2-Codegen (nur prt-art):
+#   comdare_run_anatomy_codegen_tool(OUTPUT <pa.cmake> NO_KNOWN
+#       EXTERNAL_COMPOSITIONS "prtart-demo|::comdare::...PrtArtCompositionDemo|prt_art/slots/...hpp")
 #
 # @doku docs/architektur/14_achsen_komposition_organ_metapher.md §51
 # @task V41.F.6.1.R5.I
 
 function(comdare_run_anatomy_codegen_tool)
-    set(_options)
+    set(_options NO_KNOWN)
     set(_one_value OUTPUT NAMES LIBRARY_TYPE STATUS_OUT)
-    set(_multi_value)
+    set(_multi_value EXTERNAL_COMPOSITIONS)
     cmake_parse_arguments(ARG "${_options}" "${_one_value}" "${_multi_value}" ${ARGN})
 
     if(NOT ARG_OUTPUT)
@@ -104,6 +111,13 @@ function(comdare_run_anatomy_codegen_tool)
     if(ARG_NAMES)
         list(APPEND _args "--names" "${ARG_NAMES}")
     endif()
+    # F.5: Pruefling-Codegen — bekannte CE-Compositions unterdrücken + externe injizieren.
+    if(ARG_NO_KNOWN)
+        list(APPEND _args "--no-known")
+    endif()
+    foreach(_ext IN LISTS ARG_EXTERNAL_COMPOSITIONS)
+        list(APPEND _args "--external-composition" "${_ext}")
+    endforeach()
 
     message(STATUS "comdare_run_anatomy_codegen_tool: running ${_tool_path} ${_args}")
     execute_process(
