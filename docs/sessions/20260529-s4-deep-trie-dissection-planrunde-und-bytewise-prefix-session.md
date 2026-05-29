@@ -100,6 +100,26 @@ bestätigen**; SuRF Zhang SIGMOD 2018 Apache-2.0 (Range-Filter-Semantik).
 
 ---
 
+## 4b LIEFERSTAND ART (2026-05-29) — erstes Original-Tier voll seziert
+
+| Inc | Lieferung | Tag | Test |
+|---|---|---|---|
+| 1 | `ByteWiseKeyPrefix`-Organ (axis_02) | `v41-s4-inc1-bytewise-keyprefix` | 18/18 (axis_02_axis_04) |
+| 2-5 | **echtes ART-Trie-Organ** (ArtTrieNodePool-Familie: Concept/Store 4 adaptive Knoten+Growth/Traversal/Composed) | `v41-s4-inc2-art-real-trie` | **11/11** (tier_organ_equivalence) |
+
+ART ist als **`ArtTrieOrgan = ComposedArtTrieSearch<ArtTrieTraversalOrgan, ArtTrieNodePoolStore>`** rekonstruiert
+(adaptive Node4/16/48/256 mit je eigener Kind-Such-Disziplin + Growth N4→16→48→256 daten-getrieben + ByteWise-
+Path-Compression + Byte-Descent + Leaf-Split + Prefix-Split + Erase, NodeRef-Encoding + per-Kind Free-Lists).
+`OriginalArtOrgan` zeigt jetzt auf `ArtTrieOrgan` (flacher LinearScan-Platzhalter abgelöst). Belege (gegen
+std::map, gnadenlos): uint8 (ART≡OriginalArtSearchAlgo) + uint64 Multi-Byte + adversarialer 1200-Key-Stress
+(N256-Growth, Prefix-Split, Erase, Clear, Re-Insert). is_original=false (Re-Impl); SIMD-`find_child` +
+Node-Shrink/Kollaps + echtes extern-C-Linking = Folge-Increments.
+
+**Verbleibende s4-Tiere (Folge-Chargen):** START (recyclet ART-Pool + Span-Param + uint16 + Cost-DP-Achse
+`axis_03t_node_tuning`); HOT (Bit-Patricia + SparsePartialKey-AVX-512); Wormhole (GPL-Re-Impl Hash-Anchor,
+ext leer); SuRF (LOUDS Range-Filter — Gattungs-Designentscheidung axis_filter MIT User-Abstimmung). Diese
+Tiere sind heute weiter auf `SortedBinaryOrgan` gemappt (IST-Body-Rekonstruktion #41) bis zu ihrer Deep-Charge.
+
 ## 5 Verweise
 - Planrunde-Output (vollständig): `tasks/w82140m0g.output` (82k+ chars; understanding[4] + designs[3] + blueprint).
 - ART-Paper-Organe (Re-Impl-Quelle): `ext/traversal/P01-ART/unodb/art_internal_impl.hpp` + `node_type.hpp`
