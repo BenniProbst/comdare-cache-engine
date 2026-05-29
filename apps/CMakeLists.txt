@@ -11,3 +11,6 @@ add_subdirectory(is_original_validator)
 
 # V41.F.6.1.R5.F — CLI-Tool fuer Anatomy-Composition-Snippet-Codegen
 add_subdirectory(anatomy_codegen_tool)
+
+# V41.F.6.1.R5.G — CLI-Tool, das pro Permutation eines Raums ein AdHoc-Modul-.cpp emittiert
+add_subdirectory(adhoc_emitter)

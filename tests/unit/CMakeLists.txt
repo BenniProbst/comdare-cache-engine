@@ -988,3 +988,44 @@ target_link_libraries(test_v41_anatomy_adhoc_dll_load PRIVATE
 target_compile_definitions(test_v41_anatomy_adhoc_dll_load PRIVATE
     "COMDARE_R5G_ADHOC_DLL_DIR=\"${_r5g_adhoc_dir}\"")
 add_dependencies(test_v41_anatomy_adhoc_dll_load comdare_r5g_adhoc_perm)
+
+# V41.F.6.1 R5.G — SKALIERUNG: comdare-adhoc-emitter enumeriert den GANZEN Pilot-Raum (Configure-Time)
+# und CMake baut JEDE emittierte Permutation zu einer eigenen SHARED-DLL. 2-Pass:
+#   Pass 1: cmake -B build  (Tool noch nicht gebaut -> SKIPPED, Tool-Target eingehaengt)
+#   Build:  cmake --build build --target comdare_adhoc_emitter_cli
+#   Pass 2: cmake -B build  -> Emitter laeuft, DLLs + Load-Test werden gebaut
+include(adhoc_emitter)
+set(_r5g_autobuilt_dir "${CMAKE_BINARY_DIR}/generated/r5g_autobuilt_modules")
+comdare_run_adhoc_emitter(
+    OUTPUT_DIR "${_r5g_autobuilt_dir}"
+    STATUS_OUT _r5g_ae_status)
+if(_r5g_ae_status STREQUAL "FOUND")
+    comdare_build_adhoc_modules(
+        OUTPUT_DIR    "${_r5g_autobuilt_dir}"
+        PILOT_PREFIX  "comdare_r5g_autobuilt_perm"
+        AXIS_GEN_DIRS ${COMDARE_ALL_AXIS_GENERATED_DIRS}
+        TARGETS_OUT   _r5g_autobuilt_targets)
+    list(LENGTH _r5g_autobuilt_targets _r5g_autobuilt_count)
+    if(_r5g_autobuilt_count GREATER 0)
+        comdare_add_test(test_v41_anatomy_adhoc_autobuilt_load
+            SOURCES test_v41_anatomy_adhoc_autobuilt_load.cpp)
+        target_include_directories(test_v41_anatomy_adhoc_autobuilt_load PRIVATE
+            "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+            "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+            "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+            "${CMAKE_BINARY_DIR}/generated")
+        target_link_libraries(test_v41_anatomy_adhoc_autobuilt_load PRIVATE
+            Boost::mp11
+            comdare::anatomy_module_loader)
+        target_compile_definitions(test_v41_anatomy_adhoc_autobuilt_load PRIVATE
+            "COMDARE_R5G_AUTOBUILT_DLL_DIR=\"${_r5g_autobuilt_dir}\""
+            "COMDARE_R5G_AUTOBUILT_COUNT=${_r5g_autobuilt_count}")
+        add_dependencies(test_v41_anatomy_adhoc_autobuilt_load ${_r5g_autobuilt_targets})
+        message(STATUS
+            "R5.G: Auto-Permutations-Skalierung ACTIVE (${_r5g_autobuilt_count} auto-gebaute DLLs).")
+    endif()
+else()
+    message(STATUS
+        "R5.G: Auto-Permutations-Skalierung SKIPPED (status=${_r5g_ae_status}). "
+        "Build comdare_adhoc_emitter_cli first, then re-configure.")
+endif()
