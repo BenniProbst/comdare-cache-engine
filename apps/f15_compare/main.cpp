@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <charconv>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -39,8 +40,9 @@ namespace {
 
 void print_usage() {
     std::cerr
-        << "Usage: comdare-f15-compare <dll-dir> [options]\n"
-        << "  <dll-dir>   Verzeichnis mit Anatomie-Permutations-DLLs (comdare_anatomy_perm_*)\n"
+        << "Usage: comdare-f15-compare [<dll-dir>] [options]\n"
+        << "  <dll-dir>   Verzeichnis mit Anatomie-Permutations-DLLs (comdare_anatomy_perm_*).\n"
+        << "              Fehlt es, wird die Umgebungsvariable COMDARE_PERM_ROOT verwendet (B5-Discovery).\n"
         << "Optionen:\n"
         << "  --alpha=F      Signifikanz-Niveau (FWER), Default 0.05\n"
         << "  --baseline=N   Index der Baseline-DLL, Default 0\n"
@@ -83,13 +85,27 @@ bool write_text_file(std::string const& path, std::string const& content) {
 }  // namespace
 
 int main(int argc, char** argv) {
-    if (argc < 2) { print_usage(); return 1; }
-    std::filesystem::path const dll_dir{argv[1]};
+    // B5 Plugin-Discovery: erstes Positions-Argument ist das DLL-Verzeichnis; fehlt es (oder beginnt
+    // direkt mit einer Option), faellt die CLI auf die Umgebungsvariable COMDARE_PERM_ROOT zurueck.
+    std::string dll_dir_str;
+    int first_opt = 1;
+    if (argc >= 2 && !std::string_view{argv[1]}.starts_with("--")) {
+        dll_dir_str = argv[1];
+        first_opt = 2;
+    } else if (char const* env = std::getenv("COMDARE_PERM_ROOT"); env != nullptr) {
+        dll_dir_str = env;
+    }
+    if (dll_dir_str.empty()) {
+        std::cerr << "Kein DLL-Verzeichnis angegeben (Argument oder Umgebungsvariable COMDARE_PERM_ROOT).\n";
+        print_usage();
+        return 1;
+    }
+    std::filesystem::path const dll_dir{dll_dir_str};
 
     double        alpha    = 0.05;
     std::uint64_t baseline = 0, ops = 2000, batches = 128, seed = 11;
     std::string   csv_path, json_path;
-    for (int i = 2; i < argc; ++i) {
+    for (int i = first_opt; i < argc; ++i) {
         std::string_view a{argv[i]};
         std::uint64_t u{};
         if      (parse_flag_double(a, "--alpha=", alpha))     {}
