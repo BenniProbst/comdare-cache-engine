@@ -442,6 +442,50 @@ TEST(SearchAlgo_SkipList, EmptyClearAndProperties) {
     EXPECT_EQ(*s.lookup(std::uint16_t{7}), 70u);
 }
 
+// --- V41.F.6.1.R7.2 HashSearchAlgo (open-addressing Fibonacci hash, Knuth TAOCP 3) -------------
+
+// KERN-KORREKTHEIT: insert (nicht-sortiert) + lookup + erase + Resize über die Last-Schwelle.
+TEST(SearchAlgo_HashSearch, CorrectAcrossResize) {
+    ce_03a::HashSearchAlgo s{};
+    constexpr std::uint16_t kStep = 11, kMaxKey = 2200;  // 201 Keys → erzwingt mehrere Resizes
+    for (std::uint16_t k = 0; k <= kMaxKey; k += kStep) s.insert(k, static_cast<std::uint64_t>(k) * 5u + 3u);
+    for (std::uint32_t q = 0; q <= 2300u; ++q) {
+        auto v = s.lookup(static_cast<std::uint16_t>(q));
+        bool const present = (q <= kMaxKey) && (q % kStep == 0);
+        if (present) { ASSERT_TRUE(v.has_value()) << "key=" << q; EXPECT_EQ(*v, static_cast<std::uint64_t>(q) * 5u + 3u); }
+        else         { EXPECT_FALSE(v.has_value()) << "key=" << q; }
+    }
+}
+
+// KRITISCH: erase darf die Probe-Kette NICHT brechen (Tombstone, nicht bloßes Leeren). Wir erzwingen
+// eine Kollisions-Kette und loeschen ein mittleres Element — die dahinter liegenden muessen findbar bleiben.
+TEST(SearchAlgo_HashSearch, TombstoneKeepsProbeChainIntact) {
+    ce_03a::HashSearchAlgo s{};
+    // Viele Keys einfuegen, einen Block loeschen, Rest muss findbar bleiben (Tombstone-Korrektheit).
+    for (std::uint16_t k = 1; k <= 200; ++k) s.insert(k, static_cast<std::uint64_t>(k));
+    EXPECT_EQ(s.occupied_count(), 200u);
+    for (std::uint16_t k = 50; k <= 100; ++k) EXPECT_TRUE(s.erase(k));  // mittleren Block loeschen
+    EXPECT_EQ(s.occupied_count(), 149u);
+    for (std::uint32_t k = 1; k <= 200; ++k) {
+        auto v = s.lookup(static_cast<std::uint16_t>(k));
+        bool const present = (k < 50u || k > 100u);
+        if (present) { ASSERT_TRUE(v.has_value()) << "key=" << k; EXPECT_EQ(*v, k); }  // Kette intakt!
+        else         { EXPECT_FALSE(v.has_value()) << "geloeschter key=" << k; }
+    }
+    // Tombstone-Wiederverwendung: einen geloeschten Key neu einfuegen.
+    s.insert(std::uint16_t{75}, std::uint64_t{7777});
+    EXPECT_EQ(*s.lookup(std::uint16_t{75}), 7777u);
+    EXPECT_FALSE(s.erase(std::uint16_t{75u + 1000u}));  // nie vorhanden
+}
+
+TEST(SearchAlgo_HashSearch, UnorderedNoRangeScanAndProperties) {
+    static_assert(ce_03a::concepts::SearchAlgoVariant<ce_03a::HashSearchAlgo>);
+    static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::HashSearchAlgo>);
+    EXPECT_FALSE(ce_03a::HashSearchAlgo::supports_range_scan());  // UNGEORDNET — Kern-Unterschied
+    EXPECT_FALSE(ce_03a::HashSearchAlgo::is_dense());
+    EXPECT_EQ(ce_03a::HashSearchAlgo::family_id::value, 14);
+}
+
 // =================================================================
 // TYPED_TEST_SUITE — axis_03b cache_traversal
 // =================================================================

@@ -42,6 +42,10 @@ namespace comdare::cache_engine::traversal::axis_03a_search_algo::flags {
 // (Pugh CACM 1990), erweitert die Achse von Such-Methoden in die Struktur-Dimension.
 #cmakedefine01 COMDARE_AXIS_03A_USE_SKIP_LIST
 
+// V41.F.6.1 R7.2 (2026-05-29) — S14 HashSearchAlgo: ungeordnete open-addressing Hashtabelle
+// (Knuth TAOCP 3 §6.4), das fundamentale Hash-Such-Paradigma (kein Range-Scan).
+#cmakedefine01 COMDARE_AXIS_03A_USE_HASH_SEARCH
+
 inline constexpr bool array256_enabled         = COMDARE_AXIS_03A_USE_ARRAY256;
 inline constexpr bool vector_u8u8_enabled      = COMDARE_AXIS_03A_USE_VECTOR_U8U8;
 inline constexpr bool vector_u16u16_enabled    = COMDARE_AXIS_03A_USE_VECTOR_U16U16;
@@ -55,5 +59,6 @@ inline constexpr bool k_ary_enabled             = COMDARE_AXIS_03A_USE_K_ARY;
 inline constexpr bool interpolation_enabled     = COMDARE_AXIS_03A_USE_INTERPOLATION;
 inline constexpr bool eytzinger_enabled         = COMDARE_AXIS_03A_USE_EYTZINGER;
 inline constexpr bool skip_list_enabled         = COMDARE_AXIS_03A_USE_SKIP_LIST;
+inline constexpr bool hash_search_enabled       = COMDARE_AXIS_03A_USE_HASH_SEARCH;
 
 }  // namespace
