@@ -30,6 +30,10 @@ namespace comdare::cache_engine::traversal::axis_03a_search_algo::flags {
 // Such-METHODE auf sortierten u16-Keys; Aritaet K als iterable_aspect (K=2 ≙ Binärsuch-Baseline).
 #cmakedefine01 COMDARE_AXIS_03A_USE_K_ARY
 
+// V41.F.6.1 R7.2 (2026-05-29) — S11 InterpolationSearchAlgo: interpolation search (Perl/Itai/Avni
+// CACM 1978), verteilungsbewusste Such-METHODE (O(log log N) avg bei Gleichverteilung), kein SIMD.
+#cmakedefine01 COMDARE_AXIS_03A_USE_INTERPOLATION
+
 inline constexpr bool array256_enabled         = COMDARE_AXIS_03A_USE_ARRAY256;
 inline constexpr bool vector_u8u8_enabled      = COMDARE_AXIS_03A_USE_VECTOR_U8U8;
 inline constexpr bool vector_u16u16_enabled    = COMDARE_AXIS_03A_USE_VECTOR_U16U16;
@@ -40,5 +44,6 @@ inline constexpr bool original_start_enabled   = COMDARE_AXIS_03A_USE_ORIGINAL_S
 inline constexpr bool original_wormhole_enabled = COMDARE_AXIS_03A_USE_ORIGINAL_WORMHOLE;
 inline constexpr bool original_surf_enabled     = COMDARE_AXIS_03A_USE_ORIGINAL_SURF;
 inline constexpr bool k_ary_enabled             = COMDARE_AXIS_03A_USE_K_ARY;
+inline constexpr bool interpolation_enabled     = COMDARE_AXIS_03A_USE_INTERPOLATION;
 
 }  // namespace
