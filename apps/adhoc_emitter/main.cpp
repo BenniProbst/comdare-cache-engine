@@ -5,9 +5,10 @@
 // emittierten .cpp werden anschließend per add_library als Permutations-DLLs gebaut. Damit baut der
 // volle gemergte Permutations-Raum automatisch zu DLLs — die Skalierung des R5.G-Auto-Emitters.
 //
-// Pilot-Raum: 10 search_algo × 1^16 = 10 Permutationen (nur die GEMESSENE Achse search_algo variiert
-// → 10 head-to-head messbare Kompositionen ueber die VOLLE Paradigmen-Palette: dense/sorted/k-ary/
-// interpolation/eytzinger/skip-list/hash/unsortiert-linear).
+// Pilot-Raum: 12 search_algo × 1^16 = 12 Permutationen (nur die GEMESSENE Achse search_algo variiert
+// → 12 head-to-head messbare Kompositionen ueber die VOLLE Paradigmen-Palette: dense/sorted/k-ary/
+// interpolation/eytzinger/skip-list/hash/unsortiert-linear/BST/B-Baum — geordnete Struktur jetzt in
+// allen drei Balance-Auspraegungen, sodass F15 den Balancierungs- + Block-Orientierungs-Effekt misst).
 //
 // @task V41.F.6.1 R5.G
 
@@ -38,6 +39,8 @@ using SA6 = ce::traversal::axis_03a_search_algo::EytzingerSearchAlgo;      // ca
 using SA7 = ce::traversal::axis_03a_search_algo::SkipListSearchAlgo;       // skip-list (Pugh CACM 1990)
 using SA8 = ce::traversal::axis_03a_search_algo::HashSearchAlgo;           // open-addressing Hash (Knuth)
 using SA9 = ce::traversal::axis_03a_search_algo::LinearScanSearchAlgo;     // unsorted linear (ART Node4)
+using SA10 = ce::traversal::axis_03a_search_algo::BinarySearchTreeSearchAlgo; // unbalancierter BST (Knuth §6.2.2)
+using SA11 = ce::traversal::axis_03a_search_algo::BTreeSearchAlgo;            // balancierter B-Baum (Bayer/McCreight 1972)
 using CT  = ce::traversal::axis_03b_cache_traversal::LinearFanout;
 using MP  = ce::traversal::axis_03m_mapping::DirectPlacement;
 using PC  = ce::nodes::axis_02_path_compression::PathCompressionNone;
@@ -55,8 +58,8 @@ using IOD = ce::io::axis_io::InMemoryOnly;
 using MG  = ce::migration::axis_migration::NoMigration;
 using FL  = ce::filter::axis_filter::BloomFilter;
 
-// Pilot-Raum: nur search_algo variiert (3 Varianten) → 3 Permutationen.
-struct C0  { using StaticAxisVariants = mp::mp_list<SA0, SA1, SA2, SA3, SA4, SA5, SA6, SA7, SA8, SA9>; };
+// Pilot-Raum: nur search_algo variiert (12 Varianten) → 12 Permutationen.
+struct C0  { using StaticAxisVariants = mp::mp_list<SA0, SA1, SA2, SA3, SA4, SA5, SA6, SA7, SA8, SA9, SA10, SA11>; };
 struct C1  { using StaticAxisVariants = mp::mp_list<CT>;  };
 struct C2  { using StaticAxisVariants = mp::mp_list<MP>;  };
 struct C3  { using StaticAxisVariants = mp::mp_list<PC>;  };

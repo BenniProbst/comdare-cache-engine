@@ -101,13 +101,43 @@ Das beantwortet F15 konkret + quantitativ: die CacheEngine macht die Wirkung der
 hier ~18,5× zwischen bester und schlechtester Such-Strategie bei identischem std::map-Interface.
 
 **Reproduktion:** Doku 21 §6 (2-Pass-Build) + `comdare-f15-compare build/.../generated/r5g_autobuilt_modules`.
+(Hinweis: das obige 10-Zeilen-Ranking stammt aus dem 10-Paradigmen-Lauf; das Messset ist seither auf
+12 erweitert — siehe §3.1.)
+
+### 3.1 Addendum (2026-05-29): Messset auf 12 Paradigmen erweitert + interpretierbare Labels
+
+Der adhoc_emitter-Pilot-Raum (apps/adhoc_emitter) variiert nun **12** search_algo-Varianten
+(SA0..SA11): die bisherigen 10 + **SA10 BinarySearchTreeSearchAlgo** (unbalancierter BST) +
+**SA11 BTreeSearchAlgo** (balancierter, block-orientierter Mehrwege-B-Baum, t=4). Damit misst F15 die
+geordnete Struktur in allen drei Balance-Auspraegungen (unbalanciert · probabilistisch · deterministisch+
+block-orientiert) — der Effekt von Balancierung und Cache-Block-Orientierung wird am einheitlichen
+std::map-Interface direkt quantifizierbar.
+
+**Interpretierbarkeits-Fix (Loader):** `AnatomyModuleLoader::load_all` sortiert die Permutations-DLLs
+jetzt **numerisch** nach dem `..._auto_<N>`-Suffix statt lexikographisch. Vorher sortierte `_10`/`_11`
+zwischen `_1` und `_2`, sodass der F15-Label-Index (Lade-Reihenfolge) nicht mehr dem Permutations-/
+SA-Index entsprach — bei 0..9 fiel das nur zufaellig nicht auf. Jetzt gilt deterministisch
+`AdHocComposition_i ↔ SAi`, das Ranking ist ohne Umrechnung lesbar (verifiziert: 11/11 loader-Tests +
+FullF15DriverOverRealDlls ueber alle 12 DLLs gruen).
+
+**Empirischer Befund (12 DLLs, ops=20000, batches=128, seed=42; alle 11 Nicht-Baseline Holm-signifikant):**
+Stabil ueber Laeufe sind die Extreme — InterpolationSearchAlgo (SA5) am schnellsten, der sortierte
+u16-Vektor (SA2, O(n)-Insert-Shifts) am langsamsten, Spanne ~85×; die Mittelfeld-Raenge variieren
+wall-clock-bedingt zwischen Laeufen (der Seed steuert die Keys, nicht das CPU-Timing → absolute
+ns-Werte sind nicht bit-reproduzierbar, die Signifikanz-Aussage und die Extrem-Ordnung schon).
+Bemerkenswert + ehrlich: bei diesem **in-memory-Zufalls-Workload mit kleinem uint16-Keyraum** schlaegt
+der simple BST (SA10) den B-Baum (SA11) deutlich — der theoretische B-Baum-Vorteil (flachere Baeume,
+weniger Cache-Misses) materialisiert sich erst bei Block-/Disk-orientiertem Zugriff, sehr grossen
+Datenmengen oder degeneriert-sortiertem Insert, nicht bei kleinen random-in-memory-Lasten, wo die
+hoeheren Knoten-Konstanten (Array-Shifts, komplexeres CLRS-Delete) dominieren. Genau diese
+Differenzierung sichtbar und messbar zu machen ist der Zweck der Achsen-Bibliothek (F15).
 
 ---
 
 ## 4. Stand der Architektur-Anforderungen (V41.F.6.1)
 
 ERFÜLLT + verifiziert: Plugin-Controller/Prüfling-Slot (E11-AbstractFactory) · 3-Stufen-Dreigliedrigkeit
-(F.5) · R5.G Auto-Materialisierung + Skalierung · Such-Bibliothek (14 Paradigmen) · R7.3 Queuing+
+(F.5) · R5.G Auto-Materialisierung + Skalierung · Such-Bibliothek (axis_03a: 17 Wrapper, 12 CE-native via F15 gemessen) · R7.3 Queuing+
 Concurrency · R7.4 Allocator-Adapter · A4 AoSoA-Layout · G.1 Build-Hierarchie · komplette F15-Mess-
 Auswertung + CLI + empirisches Resultat.
 

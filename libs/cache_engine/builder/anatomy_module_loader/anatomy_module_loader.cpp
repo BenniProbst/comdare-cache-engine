@@ -7,8 +7,10 @@
 #include "anatomy_module_loader.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <iostream>
+#include <string>
 #include <string_view>
 
 #if defined(_WIN32)
@@ -186,7 +188,24 @@ int AnatomyModuleLoader::load_all(std::filesystem::path const& dir,
         if (p.extension() != suffix)                continue;
         candidates.push_back(p);
     }
-    std::sort(candidates.begin(), candidates.end());
+    // NUMERISCHE Sortierung nach dem Zahl-Suffix (..._auto_<N>), NICHT lexikographisch:
+    // sonst sortiert "..._10" zwischen "..._1" und "..._2", und der Lade-Index (= F15-Label-Index)
+    // entspraeche nicht mehr dem Emissions-/Permutations-Index. Primaer nach Prefix-Gruppe
+    // (alles vor den End-Ziffern) lexikographisch, sekundaer nach Suffix-Zahl aufsteigend.
+    auto split_stem = [](std::filesystem::path const& p) {
+        std::string s = p.stem().string();
+        std::size_t i = s.size();
+        while (i > 0 && std::isdigit(static_cast<unsigned char>(s[i - 1]))) --i;
+        long long const num = (i < s.size()) ? std::stoll(s.substr(i)) : -1;
+        return std::pair<std::string, long long>{s.substr(0, i), num};
+    };
+    std::sort(candidates.begin(), candidates.end(),
+        [&](std::filesystem::path const& a, std::filesystem::path const& b) {
+            auto const [pa, na] = split_stem(a);
+            auto const [pb, nb] = split_stem(b);
+            if (pa != pb) return pa < pb;
+            return na < nb;
+        });
 
     int last_status = status_ok;
     for (auto const& p : candidates) {
