@@ -162,8 +162,20 @@ konsistente ~2–3×-Pool-vs-System-Differenz ueber die uebrigen Such-Algos ist 
 
 Damit ist die **zweidimensionale** Messung demonstriert: search-Dimension (~119× Spanne ueber Such-Algos)
 UND allocator-Dimension (~2–3× Pool-vs-System je Such-Algo) — beides an EINEM `std::map`-Interface, pro
-Achse UND in der Komposition messbar. R5.B ist damit fuer die allocator-Achse erfuellt; die Erweiterung
-auf weitere Achsen folgt demselben Muster (behavioral-distinkte Wrapper + run_workload-Segment).
+Achse UND in der Komposition messbar. R5.B ist damit fuer die allocator-Achse erfuellt.
+
+**Praezisierung (verifiziert 2026-05-29) — warum die allocator-Achse der Sonderfall war:** Die
+allocator-Achse besass BEREITS eine aufrufbare Laufzeit-API (`allocate`/`deallocate`) UND eine
+off-the-shelf verhaltens-distinkte Implementierung (`std::pmr::unsynchronized_pool_resource`). Eine
+Code-Inspektion der uebrigen Achsen zeigt: `memory_layout` (axis_05), `serialization` (axis_10) u. a.
+sind **compile-time-Trait/Tag-Typen** — ihre Concepts verlangen nur statische Properties (`cache_line_size()`,
+`supports_compression()`, `name()` …), es gibt KEINE aufrufbare `store/load`- bzw. `serialize`-Methode.
+Eine Variation dieser Achsen in `run_workload` waere daher aktuell HOHL (kein messbarer Verhaltensunterschied).
+Die Erweiterung von R5.B auf eine 3. Achse erfordert deshalb ZUERST, die jeweilige Achse runtime-operativ
+zu machen (pro Achse eine behavioral-tragende Laufzeit-API + Wrapper mit echtem Verhaltensunterschied) —
+das ist substantielle Achsen-Neugestaltung (R5.B-Voll / R5.C), kein blosses Wiederholen des
+allocator-Musters. Die zweidimensionale Messung IST mit search × allocator vollwertig belegt; weitere
+Dimensionen sind ein klar abgegrenztes Folge-Arbeitspaket.
 
 ---
 
@@ -175,8 +187,9 @@ Concurrency · R7.4 Allocator-Adapter · A4 AoSoA-Layout · G.1 Build-Hierarchie
 Auswertung + CLI + empirisches Resultat · **R5.B 2. Mess-Dimension (search_algo × allocator, §3.2)**.
 
 VERBLEIBEND (Mehr-Session / gated / user-manuell): voller kartesischer Mehr-Achsen-Raum-Build +
-Hardware-Counter (PMC) · R5.B-Erweiterung auf WEITERE Achsen (allocator erfüllt §3.2; je Achse ein
-behavioral-distinkter Wrapper + run_workload-Segment — memory_layout/prefetch/concurrency folgen dem
-Muster) · F.2/F.3 Namespace-Restrukturierung · E11-Master-Facade +
+Hardware-Counter (PMC) · R5.B-Erweiterung auf WEITERE Achsen (allocator erfüllt §3.2; ABER: memory_layout/
+serialization/… sind compile-time-Trait-Typen ohne Laufzeit-API → erst runtime-operativ zu machen, je
+Achse substantielle API-Neugestaltung, NICHT nur Muster-Wiederholung — siehe §3.2-Präzisierung) · F.2/F.3
+Namespace-Restrukturierung · E11-Master-Facade +
 E10 per-Untermodul-STATIC/SHARED (gated auf E4.1-Submodul-Befüllung) · weitere Tree-STRUKTUR-Paper ·
 D1/D2 Diplomarbeit-Volltext (Autor).
