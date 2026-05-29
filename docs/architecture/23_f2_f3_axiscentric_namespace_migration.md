@@ -66,17 +66,24 @@ deren Default-Typ).
 ## 5. `optional_prt_art_impl`-Slot (F.2)
 
 Pro Achse ist `comdare::cache_engine::<axis>::optional_prt_art_impl` der reservierte Slot fuer
-Pruefling-Spezialisierungen (prt-art u. a.). Registrierung compile-time per CMake-Liste
-`COMDARE_CE_PRUEFLINGE` (open-todos §278–281): cache-engine durchlaeuft je Pruefling alle Achsen und
-inkludiert `<cache_engine/<axis>/<pruefling>_impl.hpp>` falls vorhanden (sonst Dummy). Wird je Achse
-beim physischen Rename (Stufe 2) materialisiert.
+Pruefling-Spezialisierungen (prt-art u. a.; muss das jeweilige `cache_engine::concepts::*Axis`-Concept
+erfuellen). Registrierung compile-time per CMake-Liste `COMDARE_CE_PRUEFLINGE` (open-todos §278–281):
+cache-engine durchlaeuft je Pruefling alle Achsen und inkludiert `<cache_engine/<axis>/<pruefling>_impl.hpp>`
+falls vorhanden (sonst Dummy). **ERLEDIGT (Code-Artefakt):** die 17 `optional_prt_art_impl`-Slot-Namespaces
+sind in `axis_centric_namespaces.hpp` deklariert und ueber die Achsen-Aliase adressierbar
+(`cache_engine::lookup::optional_prt_art_impl` etc.; verifiziert per Block-Scope-Alias im Facade-Test).
+Offen bleibt die CMake-`COMDARE_CE_PRUEFLINGE`-Auto-Discovery + echte prt-art-Slot-Fuellung (#8/R8).
 
 ## 6. Stand
 
-- **ERLEDIGT (Inkrement 1+2):** Alias-Fassade (17 Achsen) + **F.3-Concepts fuer ALLE 17 Achsen** +
-  Test (je Achse static_assert, perm-engine 21/21), kein Regress. F.3 (abstrakte Achsen-Concepts) ist
-  damit als Concept-Layer VOLLSTAENDIG; F.2 liefert die axen-zentrische Zugriffsstruktur (Aliase).
-- **VERBLEIBEND (GROSS, Mehr-Session):** physischer Rename je Achse (Stufe 2 — Header-Verschiebung +
-  Definition-Namespace-Umbenennung, codebase-weit) + Slot-Materialisierung (`optional_prt_art_impl`) +
-  Alt-Alias-Entfernung (Stufe 3). Verbunden mit E11 (Facade braucht klare Achsen-Interfaces) und der
-  prt-art-Pruefling-Einbindung (#8/R8).
+- **ERLEDIGT (Inkrement 1–3) — die gesamte STRUKTUR-Schicht von F.2/F.3:**
+  1. Alias-Fassade (17 axen-zentrische Namespaces, rueckwaerts-kompatibel).
+  2. F.3-Concepts fuer ALLE 17 Achsen (Concept-Layer vollstaendig, je Achse static_assert).
+  3. `optional_prt_art_impl`-Slot-Namespaces fuer alle 17 Achsen (Pruefling-Erweiterungspunkt als
+     Code-Artefakt, ueber Achsen-Aliase adressierbar). perm-engine 21/21, kein Regress.
+- **VERBLEIBEND (GROSS, Mehr-Session):** der PHYSISCHE Rename je Achse (Stufe 2 — Definition-Namespace
+  `<topic>::axis_NN` → `<axis>` umziehen + Header verschieben + Rueckwaerts-Alias; codebase-weit,
+  ~10 Datei-Edits + ~30 Referenz-Aufloesungen je Achse) + Alt-Alias-Entfernung (Stufe 3) + CMake-
+  `COMDARE_CE_PRUEFLINGE`-Auto-Discovery + echte prt-art-Slot-Fuellung (#8/R8). Die Struktur-Schicht
+  steht; der Rename ist mechanische (aber risikobehaftete) Wiederholung je Achse, durch die Aliase
+  jederzeit gruen-haltbar.

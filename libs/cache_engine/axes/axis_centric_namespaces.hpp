@@ -139,8 +139,30 @@ template <typename T> concept FilterAxis =
 
 }  // namespace comdare::cache_engine
 
-// HINWEIS optional_prt_art_impl-Slot (F.2): pro Achse ist der Sub-Namespace
-//   comdare::cache_engine::<axis>::optional_prt_art_impl
-// der reservierte Slot, in dem ein Pruefling (z.B. prt-art) seine pro-Achse-Spezialisierung der
-// Achsen-Interfaces ablegt; per CMake-Liste COMDARE_CE_PRUEFLINGE compile-time registriert
-// (open-todos §278-281). Wird beim physischen Rename je Achse materialisiert (Doku 23).
+// ─────────────────────────────────────────────────────────────────────────────
+// F.2 — optional_prt_art_impl-SLOT je Achse (Pruefling-Erweiterungspunkt), als echtes Code-Artefakt.
+// Pro Achse ist `comdare::cache_engine::<axis>::optional_prt_art_impl` der reservierte Slot, in dem ein
+// Pruefling (z.B. prt-art) seine pro-Achse-Spezialisierung der Achsen-Interfaces ablegt (muss das
+// jeweilige Achsen-Concept aus `cache_engine::concepts::*Axis` erfuellen). Registrierung compile-time per
+// CMake-Liste COMDARE_CE_PRUEFLINGE: cache-engine inkludiert je Pruefling+Achse
+// `<cache_engine/<axis>/<pruefling>_impl.hpp>` falls vorhanden, sonst bleibt der Slot leer (Dummy).
+// Hier als leere Sub-Namespaces im jeweiligen (physischen) Achsen-Namespace deklariert → ueber die
+// Achsen-Aliase oben adressierbar (z.B. cache_engine::lookup::optional_prt_art_impl).
+// ─────────────────────────────────────────────────────────────────────────────
+namespace comdare::cache_engine::traversal::axis_03a_search_algo       { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::traversal::axis_03b_cache_traversal   { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::traversal::axis_03m_mapping           { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::nodes::axis_02_path_compression       { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::nodes::axis_04_node_type              { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::memory_layout::axis_05_memory_layout  { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::allocator::axis_06_allocator          { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::prefetch::axis_07_prefetch            { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::concurrency::axis_08_concurrency      { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::serialization::axis_10_serialization  { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::telemetry::axis_11_telemetry          { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::value_handle::axis_14_value_handle    { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::hardware::axis_09_isa                 { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::search_engine::axis_01_index_organization { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::io::axis_io                           { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::migration::axis_migration             { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::filter::axis_filter                   { namespace optional_prt_art_impl {} }
