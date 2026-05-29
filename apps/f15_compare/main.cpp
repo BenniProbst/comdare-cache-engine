@@ -164,10 +164,17 @@ int main(int argc, char** argv) {
               << "  significant_slower=" << sum.significant_slower
               << "  not_significant=" << sum.not_significant << "\n";
     std::cout << "  win_rate=" << sum.win_rate << "  (Anteil, der die Baseline signifikant schlaegt)\n";
+    // R5.D — robuster Rang-Test (Mann-Whitney-U) als Gegenprobe zum parametrischen Welch.
+    std::cout << "  robust_significant(MWU)=" << sum.robust_significant
+              << "  discrepancies(Welch<->MWU)=" << sum.discrepancies
+              << (sum.discrepancies > 0 ? "  <- ausreisser-verdaechtige Welch-Befunde" : "") << "\n";
     for (auto const& c : rep.comparisons) {
-        std::cout << "    " << c.name << ": adjusted_p=" << c.adjusted_p
+        std::cout << "    " << c.name << ": welch_p=" << c.adjusted_p
                   << (c.significant ? "  SIGNIFIKANT" : "  n.s.")
-                  << (c.faster_than_baseline ? "  (schneller)" : "  (langsamer)") << "\n";
+                  << "  | mwu_p=" << c.robust_adjusted_p
+                  << (c.robust_significant ? "  ROBUST-SIG" : "  robust-n.s.")
+                  << (c.faster_than_baseline ? "  (schneller)" : "  (langsamer)")
+                  << (c.significance_discrepancy ? "  [DISKREPANZ]" : "") << "\n";
     }
 
     // Ranking ueber ALLE Kompositionen (inkl. Baseline) nach MEDIAN (p50) statt Mittelwert — die
