@@ -197,8 +197,21 @@ Der Permutations-RAUM ist bewiesen UND als Binaries materialisiert:
     **Damit ist R5.G end-to-end UND skaliert geschlossen** (Raum → N Modul-`.cpp` → N DLLs → N Anatomien);
     offen bleibt nur die Ausweitung des Pilot-Raums auf den vollen kartesischen Produkt-Raum (Konfig-Frage,
     kein neuer Mechanismus).
-  - **R5.B (separat):** weitere Achsen ins `std::map`-Innenleben routen, damit Dim 2 / in-DLL den
-    VOLLEN Algorithmus statt nur `search_algo` misst.
+  - **R5.B (separat) — Gap präzise analysiert (Planrunde 2026-05-29):** Heute misst
+    `SearchAlgorithmAbiAdapter::run_workload` (abi_adapter.hpp §127) NUR `A::composition_t::search_algo`
+    (instanziiert die Struktur direkt, insert/lookup); die 16 übrigen Achsen werden nicht durchlaufen.
+    **Wurzelursache:** die Nicht-`search_algo`-Achsen sind derzeit **Compile-Time-Deskriptoren** (nur
+    `name()`/`family_name()`/`is_*()`/`flag_suffix()` + Tags/Flags — z.B. `LeafOnlyCounter` hat KEINE
+    operative `record`/`count`-Methode), während die operative insert/lookup-Logik in `search_algo`
+    konzentriert ist. Die Deskriptoren machen Algorithmen **vergleichbar + selektierbar** (das ist ihre
+    Anatomie-Rolle), tun aber zur Laufzeit (noch) nichts. **Folgerung:** „mehr Achsen ins `std::map`-
+    Innenleben routen" ist KEIN bounded Increment — es ist gated auf (a) den **operativen Achsen-
+    Vollausbau** (R7.2 Traversal / R7.3 Queuing+Concurrency / R7.4 Allocator-Body — #5/#6/#7: Achsen
+    bekommen echte, an insert/lookup teilnehmende Implementierungen) UND (b) einen **Composition-Driver**,
+    der `search_algo` an die operativen Achsen (allocator/node_type/memory_layout/prefetch/value_handle/
+    telemetry) delegiert. Deskriptoren künstlich in `run_workload` zu „bolzen" wäre ein Quick-Fix
+    (verboten — `[[no_quick_fixes]]`): die Achsen müssen erst operativ werden, dann misst Dim 2 / in-DLL
+    automatisch den VOLLEN Algorithmus. R5.B ist somit ein Folge-Task NACH R7.x, kein eigenständiger.
 - **R5.D/R5.E/R6** (#26): CacheEngineBuilder-CLI + extern-C-ABI + dlopen-Loader + Mess-Treiber
   (der eigentliche F15-Messlauf: bringt die CacheEngine messbaren Wert?).
 - **F.2/F.3** (#12/#13): Achsen-zentrische Namespace-Restrukturierung + Legacy-Concept-Wiederverwendung.
