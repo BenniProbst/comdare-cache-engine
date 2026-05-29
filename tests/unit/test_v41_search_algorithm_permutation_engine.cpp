@@ -504,16 +504,31 @@ TEST(R5D_CombinatorialCoverage, DimensionedFromRealAxisRegistries) {
 // Achsen-Concepts (F.3) greifen ueber den axen-zentrischen Namen. Compile-time-Beweis.
 TEST(F2F3_AxisCentricFacade, AliasesAreSameTypeAndConceptsHold) {
     namespace cce = ::comdare::cache_engine;
-    // F.2: axen-zentrischer Alias == physischer Achsen-Typ.
+    // F.2: axen-zentrischer Alias == physischer Achsen-Typ (Stichprobe ueber 3 Topics).
     static_assert(std::is_same_v<cce::lookup::Array256SearchAlgo,
                                  cce::traversal::axis_03a_search_algo::Array256SearchAlgo>);
     static_assert(std::is_same_v<cce::alloc::StdMalloc,
                                  cce::allocator::axis_06_allocator::StdMalloc>);
     static_assert(std::is_same_v<cce::layout::SoAMemoryLayout,
                                  cce::memory_layout::axis_05_memory_layout::SoAMemoryLayout>);
-    // F.3: abstrakte Achsen-Concepts greifen ueber den axen-zentrischen Namen.
-    static_assert(cce::concepts::LookupAxis<cce::lookup::Array256SearchAlgo>);
-    static_assert(cce::concepts::AllocAxis<cce::alloc::StdMalloc>);
-    static_assert(cce::concepts::LayoutAxis<cce::layout::SoAMemoryLayout>);
-    SUCCEED();
+    // F.3: JEDE der 17 Achsen entspricht einem abstrakten Concept (ueber den axen-zentrischen Namen).
+    namespace cc = cce::concepts;
+    static_assert(cc::LookupAxis<cce::lookup::Array256SearchAlgo>);
+    static_assert(cc::CacheTraversalAxis<cce::cache_traversal::LinearFanout>);
+    static_assert(cc::MappingAxis<cce::mapping::DirectPlacement>);
+    static_assert(cc::AllocAxis<cce::alloc::StdMalloc>);
+    static_assert(cc::LayoutAxis<cce::layout::SoAMemoryLayout>);
+    static_assert(cc::PathCompressionAxis<cce::path_compression::PathCompressionNone>);
+    static_assert(cc::NodeAxis<cce::node::Node256Layout>);
+    static_assert(cc::PrefetchAxis<cce::prefetch_axis::NonePrefetch>);
+    static_assert(cc::ConcurrencyAxis<cce::concurrency_axis::OlcOptimisticConcurrency>);
+    static_assert(cc::SerializationAxis<cce::serialization_axis::RawBinarySerialization>);
+    static_assert(cc::TelemetryAxis<cce::telemetry_axis::LeafOnlyCounter>);
+    static_assert(cc::ValueHandleAxis<cce::value_handle_axis::InlineValueHandle>);
+    static_assert(cc::SimdAxis<cce::simd::Amd64Isa>);
+    static_assert(cc::IndexOrganizationAxis<cce::index_organization::IotIndexOrganization>);
+    static_assert(cc::IoDispatchAxis<cce::io_dispatch::InMemoryOnly>);
+    static_assert(cc::MigrationPolicyAxis<cce::migration_policy::NoMigration>);
+    static_assert(cc::FilterAxis<cce::filter_axis::BloomFilter>);
+    SUCCEED();  // alle 17 Achsen ↔ abstraktes Achsen-Concept (F.3-Kerndirektive konkret belegt)
 }

@@ -21,10 +21,26 @@
 // axen-zentrischen abstrakten Namen re-exponiert (concept-Alias via `requires`-Delegation). Pilot:
 // lookup/alloc/layout; die uebrigen folgen demselben Muster.
 
-// F.3-Pilot: Concept-Header der drei Pilot-Achsen (fuer die abstrakten Achsen-Concepts unten).
+// F.3: Concept-Header ALLER 17 Achsen (fuer die abstrakten Achsen-Concepts unten). Traversal-Achsen
+// (03a/03b/03m) tragen achsen-spezifische *Variant-Concepts; alloc/layout *Strategy; die uebrigen 12
+// das uniforme CacheEnginePermutationStrategy.
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_concept.hpp>
+#include <topics/traversal/axis_03b_cache_traversal/concepts/axis_03b_cache_traversal_concept.hpp>
+#include <topics/traversal/axis_03m_mapping/concepts/axis_03m_mapping_concept.hpp>
 #include <topics/allocator/axis_06_allocator/concepts/axis_06_allocator_concept.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/concepts/axis_05_memory_layout_concept.hpp>
+#include <topics/nodes/axis_02_path_compression/concepts/axis_02_path_compression_cache_engine_permutation_concept.hpp>
+#include <topics/nodes/axis_04_node_type/concepts/axis_04_node_type_cache_engine_permutation_concept.hpp>
+#include <topics/prefetch/axis_07_prefetch/concepts/axis_07_prefetch_cache_engine_permutation_concept.hpp>
+#include <topics/concurrency/axis_08_concurrency/concepts/axis_08_concurrency_cache_engine_permutation_concept.hpp>
+#include <topics/serialization/axis_10_serialization/concepts/axis_10_serialization_cache_engine_permutation_concept.hpp>
+#include <topics/telemetry/axis_11_telemetry/concepts/axis_11_telemetry_cache_engine_permutation_concept.hpp>
+#include <topics/value_handle/axis_14_value_handle/concepts/axis_14_value_handle_cache_engine_permutation_concept.hpp>
+#include <topics/hardware/axis_09_isa/concepts/axis_09_isa_cache_engine_permutation_concept.hpp>
+#include <topics/search_engine/axis_01_index_organization/concepts/axis_01_index_organization_cache_engine_permutation_concept.hpp>
+#include <topics/io/axis_io/concepts/axis_io_cache_engine_permutation_concept.hpp>
+#include <topics/migration/axis_migration/concepts/axis_migration_cache_engine_permutation_concept.hpp>
+#include <topics/filter/axis_filter/concepts/axis_filter_cache_engine_permutation_concept.hpp>
 
 // Forward-Deklaration der physischen topic-/achsen-Namespaces, damit die Aliase auch ohne Include
 // jedes Wrapper-Headers gueltig sind (der Nutzer inkludiert die konkreten Wrapper zusaetzlich).
@@ -76,17 +92,48 @@ namespace filter_axis        = ::comdare::cache_engine::filter::axis_filter;    
 // ─────────────────────────────────────────────────────────────────────────────
 namespace concepts {
 
-/// Achse lookup: ein Such-Algorithmus erfuellt das Lookup-Achsen-Concept (= SearchAlgoVariant).
-template <typename T>
-concept LookupAxis = ::comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoVariant<T>;
+// F.3 — je Achse ein abstraktes Concept (Delegation auf das bestehende, getestete Achsen-Concept).
+// Damit entspricht JEDE der 17 Achsen klar einem C++23-Concept (User-Direktive F.3).
 
-/// Achse alloc: ein Allokator erfuellt das Allocator-Achsen-Concept (= AllocatorStrategy).
-template <typename T>
-concept AllocAxis = ::comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorStrategy<T>;
+// Traversal-Achsen: achsen-spezifische *Variant-Concepts.
+template <typename T> concept LookupAxis =
+    ::comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoVariant<T>;
+template <typename T> concept CacheTraversalAxis =
+    ::comdare::cache_engine::traversal::axis_03b_cache_traversal::concepts::CacheTraversalVariant<T>;
+template <typename T> concept MappingAxis =
+    ::comdare::cache_engine::traversal::axis_03m_mapping::concepts::MappingVariant<T>;
 
-/// Achse layout: ein Speicher-Layout erfuellt das Layout-Achsen-Concept (= MemoryLayoutStrategy).
-template <typename T>
-concept LayoutAxis = ::comdare::cache_engine::memory_layout::axis_05_memory_layout::concepts::MemoryLayoutStrategy<T>;
+// Allocator/Layout: achsen-spezifische *Strategy-Concepts.
+template <typename T> concept AllocAxis =
+    ::comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorStrategy<T>;
+template <typename T> concept LayoutAxis =
+    ::comdare::cache_engine::memory_layout::axis_05_memory_layout::concepts::MemoryLayoutStrategy<T>;
+
+// Uebrige 12 Achsen: das uniforme CacheEnginePermutationStrategy je Achse.
+template <typename T> concept PathCompressionAxis =
+    ::comdare::cache_engine::nodes::axis_02_path_compression::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T> concept NodeAxis =
+    ::comdare::cache_engine::nodes::axis_04_node_type::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T> concept PrefetchAxis =
+    ::comdare::cache_engine::prefetch::axis_07_prefetch::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T> concept ConcurrencyAxis =
+    ::comdare::cache_engine::concurrency::axis_08_concurrency::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T> concept SerializationAxis =
+    ::comdare::cache_engine::serialization::axis_10_serialization::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T> concept TelemetryAxis =
+    ::comdare::cache_engine::telemetry::axis_11_telemetry::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T> concept ValueHandleAxis =
+    ::comdare::cache_engine::value_handle::axis_14_value_handle::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T> concept SimdAxis =
+    ::comdare::cache_engine::hardware::axis_09_isa::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T> concept IndexOrganizationAxis =
+    ::comdare::cache_engine::search_engine::axis_01_index_organization::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T> concept IoDispatchAxis =
+    ::comdare::cache_engine::io::axis_io::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T> concept MigrationPolicyAxis =
+    ::comdare::cache_engine::migration::axis_migration::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T> concept FilterAxis =
+    ::comdare::cache_engine::filter::axis_filter::concepts::CacheEnginePermutationStrategy<T>;
 
 }  // namespace concepts
 
