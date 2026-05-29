@@ -530,5 +530,12 @@ TEST(F2F3_AxisCentricFacade, AliasesAreSameTypeAndConceptsHold) {
     static_assert(cc::IoDispatchAxis<cce::io_dispatch::InMemoryOnly>);
     static_assert(cc::MigrationPolicyAxis<cce::migration_policy::NoMigration>);
     static_assert(cc::FilterAxis<cce::filter_axis::BloomFilter>);
-    SUCCEED();  // alle 17 Achsen ↔ abstraktes Achsen-Concept (F.3-Kerndirektive konkret belegt)
+    // F.2-Slot: der optional_prt_art_impl-Pruefling-Slot ist je Achse ueber den axen-zentrischen
+    // Namen adressierbar (Block-Scope-Namespace-Aliase kompilieren → Slots existieren).
+    namespace slot_lookup = cce::lookup::optional_prt_art_impl;
+    namespace slot_alloc  = cce::alloc::optional_prt_art_impl;
+    namespace slot_layout = cce::layout::optional_prt_art_impl;
+    namespace slot_filter = cce::filter_axis::optional_prt_art_impl;
+    (void)sizeof(int);  // slot_*-Aliase nur zum Compile-Beweis
+    SUCCEED();  // 17 Achsen ↔ Concept (F.3) + Pruefling-Slots via Achsen-Name adressierbar (F.2)
 }
