@@ -28,6 +28,7 @@
 #include "measurable_workload.hpp"   // F15/Stufe B: optionales Mess-Sub-Interface (ABI-sicher)
 #include "../execution_engine/execution_engine_base.hpp"
 
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -124,8 +125,11 @@ public:
     // IMeasurableWorkload-Override (F15 / Stufe B): Mess-Last DURCH die DLL
     // ─────────────────────────────────────────────────────────────────────
 
-    /// Fährt die insert/lookup-Last auf der EIGENEN search_algo-Struktur der Komposition
-    /// (A::composition_t::search_algo) — kompiliert IN der DLL, misst also die geladene Komposition.
+    /// KOMPOSIT-Mess-Last (R5.B, F15 Stufe B) — uebt ZWEI Achsen der geladenen Komposition aus:
+    ///   Segment 1: insert/lookup auf A::composition_t::search_algo  (search_algo-Achse)
+    ///   Segment 2: alloc/dealloc-Churn ueber A::composition_t::allocator (allocator-Achse)
+    /// Beide kompiliert IN der DLL; die Batch-Latenz misst also die GANZE Komposition entlang
+    /// beider variierten Achsen (Voraussetzung: Allocator behavioral-distinkt, vgl. PoolResourceAllocator).
     [[nodiscard]] std::uint64_t run_workload(std::uint64_t ops_per_batch,
                                              std::uint64_t batches,
                                              std::uint64_t seed,
@@ -136,18 +140,37 @@ public:
         }
         try {
             using SearchAlgo = typename A::composition_t::search_algo;
+            using Allocator  = typename A::composition_t::allocator;   // R5.B: 2. operative Achse
             using K          = typename SearchAlgo::key_type;
             SearchAlgo algo;
             for (int k = 0; k < 256; ++k) {
                 algo.insert(static_cast<K>(k), static_cast<std::uint64_t>(k) * 7u + 1u);
             }
+            Allocator alloc;                              // Komposition-Allocator (persistiert ueber Batches)
+            constexpr std::size_t kChurn = 2048;          // moderate alloc/dealloc-Last je Batch
+            constexpr std::size_t kAlign = 16;
+            std::array<void*, kChurn> blocks{};
+            auto const churn_size = [](std::size_t j) noexcept {
+                return std::size_t{16} + ((j * 16u) & 0xF0u);  // 16..256 Bytes, deterministisch
+            };
             std::mt19937_64 rng{seed};
             auto do_batch = [&]() -> std::int64_t {
                 std::uint64_t sink = 0;
                 auto const t0 = std::chrono::steady_clock::now();
+                // Segment 1: search_algo-Achse (Lookups auf der geladenen Such-Struktur)
                 for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
                     auto v = algo.lookup(static_cast<K>(rng() & 0xFFu));
                     if (v) sink += *v;
+                }
+                // Segment 2: allocator-Achse (alloc N → touch → dealloc N; Pool reused Free-Lists)
+                for (std::size_t j = 0; j < kChurn; ++j) {
+                    void* p = alloc.allocate(churn_size(j), kAlign);
+                    *static_cast<unsigned char*>(p) = static_cast<unsigned char>(j);  // touch
+                    sink += *static_cast<unsigned char*>(p);
+                    blocks[j] = p;
+                }
+                for (std::size_t j = 0; j < kChurn; ++j) {
+                    alloc.deallocate(blocks[j], churn_size(j), kAlign);
                 }
                 auto const t1 = std::chrono::steady_clock::now();
                 auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
