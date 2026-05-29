@@ -382,6 +382,18 @@ target_include_directories(test_v41_builder_anatomy_commands PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_builder_anatomy_commands PRIVATE Boost::mp11)
 
+# V41 Roadmap-3 (Doku 24 §2.1/§2.2) Saeule-2 Mess-Pfad: TierObserveTrace Fuellstands-Treiber
+comdare_add_test(test_v41_tier_observe_trace
+    SOURCES test_v41_tier_observe_trace.cpp)
+target_include_directories(test_v41_tier_observe_trace PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_v41_tier_observe_trace PRIVATE Boost::mp11)
+
 # V41.F.6.1.R5.C Pruefling-Merge (3 Kompositionale Joins Stufe 1/2/3)
 comdare_add_test(test_v41_anatomy_pruefling_merge
     SOURCES test_v41_anatomy_pruefling_merge.cpp)
