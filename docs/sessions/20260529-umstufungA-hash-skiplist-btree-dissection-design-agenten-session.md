@@ -176,3 +176,47 @@ Monolith-Wrapper, Bestands-Organe/-Stores/-Concepts, `composable_search.hpp`, `t
   ExecutionEngine-Wurzel (§33–§40), technische Identifier (§41); §43–§54 = R5.D–R6.A-Sprint-Lieferungen.
 - Vorlage: BST-Familie `composable/tree_node_pool_concept.hpp` + `tree_node_pool_store.hpp` +
   `tree_traversal_organ.hpp` + `composed_tree_search.hpp` (INC-2b).
+
+---
+
+## 6 LIEFERSTAND #41-Schritt-A (2026-05-29) — 3 CE-native Strukturen seziert
+
+Alle 3 CE-nativen Monolithen sind seziert, build-grün, äquivalenz-belegt, getaggt, gepusht, da-synchron:
+
+| Inc | Struktur | ce-Commit | Tag | Test |
+|---|---|---|---|---|
+| 1 | **Hash** (HashSearchAlgo S14) | `a9bb093` | `v41-umstufungA-inc1-hash-dissection` | `Uint16HashReconstructibleFromOrgan` |
+| 2 | **SkipList** (SkipListSearchAlgo S13) | `d109c86` | `v41-umstufungA-inc2-skiplist-dissection` | `Uint16SkipListReconstructibleFromOrgan` |
+| 3 | **B-Baum** (BTreeSearchAlgo S17) | `d914a6e` | `v41-umstufungA-inc3-btree-dissection` | `Uint16BTreeReconstructibleFromOrgan` + `BTreeDeleteStressMatchesStdMap` (adversarial, 400 Keys, borrow/merge/root-shrink) |
+
+`ctest test_v41_axis_03a_tier_organ_equivalence`: **7/7 grün** (3 Bestand + 3 neue + 1 Stress).
+da-Pointer zuletzt `57b2bed` → ce `d914a6e`. 12 neue Header in `composable/` + 3 Mapping-Aliase
+(`HashSearchOrgan`/`SkipListOrgan`/`BTreeSearchOrgan`) + 4 TEST-Cases. Bestand unangetastet.
+**Naming-Korrektur ggü. Blueprint:** Concept ≠ Struct (C++-Namenskonflikt) — `HashProbeTraversal` vs
+`HashProbeTraversalOrgan`, `SkipListTraversal` vs `SkipListTraversalOrgan`, `BTreeTraversal` vs
+`BTreeTraversalOrgan`. **B-Baum-Inc3:** `inc_size()`/`dec_size()` zum Concept ergänzt (logische
+Schlüsselzahl ≠ Knotenzahl — Blueprint-Lücke geschlossen). `alignas(64)`-Node erhalten (F15-Merkmal).
+
+## 7 OFFEN #41-Schritt-A — OriginalXxx-Tiere (eigene Design-Runde nötig)
+
+Ist-State (`axis_03a_search_algo_registry.hpp:45-72`): von 17 `AllStrategies` sind nach Inc1-3 **nur noch
+5 unseziert** — die paper-gebundenen Radix-Tries:
+- `OriginalArtSearchAlgo` (S04, P01 ART, Leis ICDE 2013, 4/4 original)
+- `OriginalHotSearchAlgo` (S05, P02 HOT, Binna PVLDB 2018)
+- `OriginalStartSearchAlgo` (S06, P05 START, Mertens ICDE 2024)
+- `OriginalWormholeSearchAlgo` (S07, P07 Wormhole, Wu/Ni/Jiang ATC 2019)
+- `OriginalSurfSearchAlgo` (S08, P10 SuRF, Zhang/Lim/Andersen SIGMOD 2018)
+
+**Warum eigene Charge (NICHT wie die 3 CE-nativen):** (a) paper-gebunden — `is_original`-Linking + Web-
+Recherche-Pflicht je Algorithmus (`[[feedback_web_research_per_algorithm_pflicht]]`); (b) Multi-Achsen-
+Zerlegung statt EINER Pool-Organ-Familie — ART/HOT/etc. zerfallen gemäß §13-Anatomie in node_type
+(axis_04), path_compression (axis_02), traversal-Organ (axis_03a) u.a., die teils als EIGENE Achsen
+existieren; (c) die Gattungs-Konfiguratoren (`ArtComposition`, `SearchAlgorithmAnatomy<ArtComposition>`)
+existieren bereits (Doku 14 §11.2/§14.2 R3.2) — vor der Sezierung Ist-State verifizieren
+(`[[feedback_verify_ist_state_before_gross_tasks]]`): WAS an Organ-Zerlegung existiert schon, was fehlt.
+
+**Nächster Schritt (Planrunde):** eigene Understand+Design-Runde für die OriginalXxx-Sezierung — pro
+Tier die vorhandene Composition/Anatomie + die fehlenden Traversal-Organe kartografieren, dann je Tier
+ein build-grüner Sezier-Increment mit Rekonstruktions-Beleg. **Erst danach #42** (Entfernung aller Tiere
+aus `EnabledStrategies` → Gattungs-Konfiguratoren), gemäß Option 3 (erst ALLE sezieren, dann umstufen).
+Erklärte Ordnung: auch OriginalXxx müssen seziert werden — KEINES bleibt monolithisch.
