@@ -46,6 +46,10 @@ namespace comdare::cache_engine::traversal::axis_03a_search_algo::flags {
 // (Knuth TAOCP 3 §6.4), das fundamentale Hash-Such-Paradigma (kein Range-Scan).
 #cmakedefine01 COMDARE_AXIS_03A_USE_HASH_SEARCH
 
+// V41.F.6.1 R7.2 (2026-05-29) — S15 LinearScanSearchAlgo: unsortierter linearer Scan
+// (ART-Node4-Baseline, Leis ICDE 2013), der einfachste Vergleichs-Nullpunkt (kein Range-Scan).
+#cmakedefine01 COMDARE_AXIS_03A_USE_LINEAR_SCAN
+
 inline constexpr bool array256_enabled         = COMDARE_AXIS_03A_USE_ARRAY256;
 inline constexpr bool vector_u8u8_enabled      = COMDARE_AXIS_03A_USE_VECTOR_U8U8;
 inline constexpr bool vector_u16u16_enabled    = COMDARE_AXIS_03A_USE_VECTOR_U16U16;
@@ -60,5 +64,6 @@ inline constexpr bool interpolation_enabled     = COMDARE_AXIS_03A_USE_INTERPOLA
 inline constexpr bool eytzinger_enabled         = COMDARE_AXIS_03A_USE_EYTZINGER;
 inline constexpr bool skip_list_enabled         = COMDARE_AXIS_03A_USE_SKIP_LIST;
 inline constexpr bool hash_search_enabled       = COMDARE_AXIS_03A_USE_HASH_SEARCH;
+inline constexpr bool linear_scan_enabled       = COMDARE_AXIS_03A_USE_LINEAR_SCAN;
 
 }  // namespace
