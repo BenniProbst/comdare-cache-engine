@@ -929,3 +929,14 @@ target_include_directories(test_v41_anatomy_adhoc_codegen_macro PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_adhoc_codegen_macro PRIVATE Boost::mp11)
 target_compile_definitions(test_v41_anatomy_adhoc_codegen_macro PRIVATE COMDARE_ANATOMY_ABI_STATIC=1)
+
+# V41.F.6.1 R5.G — constexpr type_name<T>() (Auto-Emitter-Grundlage: FQ-Typ-Name als String).
+comdare_add_test(test_v41_codegen_type_name
+    SOURCES test_v41_codegen_type_name.cpp)
+target_include_directories(test_v41_codegen_type_name PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_v41_codegen_type_name PRIVATE Boost::mp11)
