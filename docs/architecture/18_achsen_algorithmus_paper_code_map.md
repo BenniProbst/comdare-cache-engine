@@ -124,6 +124,7 @@
 | CacheLineAlignedMemoryLayout | 64-byte cache-line aligned AoS (False-Sharing-Vermeidung) | — (HW-Standard, Patterson & Hennessy) | — | — | ? | none | — | ✗ | high |
 | SoAMemoryLayout | Struct-of-Arrays (spaltenorientiert, SIMD-freundlich) | Column-Stores vs. Row-Stores: How Different Are They Really? (verwandt) | SIGMOD 2008 | 10.1145/1376616.1376712 | nein | none | — | ✗ | medium |
 | PackedBitmapMemoryLayout | Bit-packed succinct Layout (LOUDS / SuRF FST) | Space-efficient Static Trees and Graphs (Jacobson LOUDS) | FOCS 1989 | 10.1109/SFCS.1989.63533 | OSS | Apache-2.0 (SuRF) / GPL-3.0 (SDSL) | P09 | ✗ | high |
+| AoSoAMemoryLayout | Array-of-Structures-of-Arrays (Block-SoA+AoS Hybrid, SIMD-tiled, block_width=8) | — (HPC-/SIMD-Layout-Idiom, z.B. ISPC; kein einzelnes Ursprungspaper) | — | — | nein (Konvention) | none | — | ✗ | high |
 
 ### axis_migration
 

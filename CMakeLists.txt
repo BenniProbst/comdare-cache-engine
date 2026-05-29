@@ -156,6 +156,7 @@ option(COMDARE_AXIS_05_ENABLE_CACHE_LINE_ALIGNED "Memory-Layout CacheLineAligned
 option(COMDARE_AXIS_05_ENABLE_AOS_STRICT         "Memory-Layout AoSStrict (packed AoS, dense, Wormhole-style)" ON)
 option(COMDARE_AXIS_05_ENABLE_SOA                "Memory-Layout SoA (Struct-of-Arrays, SIMD-friendly, columnar)" ON)
 option(COMDARE_AXIS_05_ENABLE_PACKED_BITMAP      "Memory-Layout PackedBitmap (bit-packed succinct, LOUDS/SuRF)" ON)
+option(COMDARE_AXIS_05_ENABLE_AOSOA              "Memory-Layout AoSoA (Array-of-Structures-of-Arrays, Block-SoA+AoS Hybrid, SIMD-tiled)" ON)
 
 # V41.F.6.1.R7.1.c axis_02 Path-Compression (3 Strategien)
 option(COMDARE_AXIS_02_ENABLE_NONE       "Path-Compression None (raw path, no compression)" ON)
@@ -701,7 +702,7 @@ message(STATUS "  axis_12 (3 platforms): GENERIC=${COMDARE_AXIS_12_USE_GENERIC} 
 
 # V41.F.6.1.R7.1.b axis_05 Memory-Layout Flags (USE = ENABLE; alle Layouts sind
 # reine Konfigurations-Templates, kein Runtime-Detection-Gate noetig)
-foreach(_l CACHE_LINE_ALIGNED AOS_STRICT SOA PACKED_BITMAP)
+foreach(_l CACHE_LINE_ALIGNED AOS_STRICT SOA PACKED_BITMAP AOSOA)
     if(COMDARE_AXIS_05_ENABLE_${_l})
         set(COMDARE_AXIS_05_USE_${_l} 1)
     else()
@@ -712,7 +713,7 @@ configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_flags.hpp.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_flags.hpp"
     @ONLY)
-message(STATUS "  axis_05 (4 layouts): CACHE_LINE_ALIGNED=${COMDARE_AXIS_05_USE_CACHE_LINE_ALIGNED} AOS_STRICT=${COMDARE_AXIS_05_USE_AOS_STRICT} SOA=${COMDARE_AXIS_05_USE_SOA} PACKED_BITMAP=${COMDARE_AXIS_05_USE_PACKED_BITMAP}")
+message(STATUS "  axis_05 (5 layouts): CACHE_LINE_ALIGNED=${COMDARE_AXIS_05_USE_CACHE_LINE_ALIGNED} AOS_STRICT=${COMDARE_AXIS_05_USE_AOS_STRICT} SOA=${COMDARE_AXIS_05_USE_SOA} PACKED_BITMAP=${COMDARE_AXIS_05_USE_PACKED_BITMAP} AOSOA=${COMDARE_AXIS_05_USE_AOSOA}")
 
 # V41.F.6.1.R7.1.c axis_02 Path-Compression Flags (USE = ENABLE)
 foreach(_c NONE PATRICIA BYTE_WISE)
