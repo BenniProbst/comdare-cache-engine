@@ -5,7 +5,8 @@
 // emittierten .cpp werden anschließend per add_library als Permutations-DLLs gebaut. Damit baut der
 // volle gemergte Permutations-Raum automatisch zu DLLs — die Skalierung des R5.G-Auto-Emitters.
 //
-// Pilot-Raum: 3 search_algo × 1^16 = 3 Permutationen (nur search_algo variiert; minimal + schnell).
+// Pilot-Raum: 8 search_algo × 1^16 = 8 Permutationen (nur die GEMESSENE Achse search_algo variiert
+// → 8 head-to-head messbare Kompositionen: dense/sorted/k-ary/interpolation/eytzinger/skip-list).
 //
 // @task V41.F.6.1 R5.G
 
@@ -26,9 +27,14 @@ namespace mp  = ::boost::mp11;
 namespace {
 
 // 17 Achsen-Default-Typen (via Umbrella verfügbar).
-using SA0 = ce::traversal::axis_03a_search_algo::Array256SearchAlgo;
-using SA1 = ce::traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;
-using SA2 = ce::traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;
+using SA0 = ce::traversal::axis_03a_search_algo::Array256SearchAlgo;       // dense direct-addressed (u8)
+using SA1 = ce::traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;     // sorted lower_bound (u8)
+using SA2 = ce::traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;   // sorted lower_bound (u16)
+using SA3 = ce::traversal::axis_03a_search_algo::Array65535SearchAlgo;     // dense direct-addressed (u16)
+using SA4 = ce::traversal::axis_03a_search_algo::KArySearchAlgo;           // k-ary search (DaMoN 2009)
+using SA5 = ce::traversal::axis_03a_search_algo::InterpolationSearchAlgo;  // interpolation (CACM 1978)
+using SA6 = ce::traversal::axis_03a_search_algo::EytzingerSearchAlgo;      // cache-conscious BFS (JEA 2017)
+using SA7 = ce::traversal::axis_03a_search_algo::SkipListSearchAlgo;       // skip-list (Pugh CACM 1990)
 using CT  = ce::traversal::axis_03b_cache_traversal::LinearFanout;
 using MP  = ce::traversal::axis_03m_mapping::DirectPlacement;
 using PC  = ce::nodes::axis_02_path_compression::PathCompressionNone;
@@ -47,7 +53,7 @@ using MG  = ce::migration::axis_migration::NoMigration;
 using FL  = ce::filter::axis_filter::BloomFilter;
 
 // Pilot-Raum: nur search_algo variiert (3 Varianten) → 3 Permutationen.
-struct C0  { using StaticAxisVariants = mp::mp_list<SA0, SA1, SA2>; };
+struct C0  { using StaticAxisVariants = mp::mp_list<SA0, SA1, SA2, SA3, SA4, SA5, SA6, SA7>; };
 struct C1  { using StaticAxisVariants = mp::mp_list<CT>;  };
 struct C2  { using StaticAxisVariants = mp::mp_list<MP>;  };
 struct C3  { using StaticAxisVariants = mp::mp_list<PC>;  };
