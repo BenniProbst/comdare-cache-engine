@@ -845,4 +845,33 @@ if(COMDARE_PRUEFLING_INCLUDE_DIRS)
         message(STATUS
             "F.5 comdare_perms_pa: SKIPPED (status=${_pa_status}; Tool zuerst bauen + reconfigure).")
     endif()
+
+    # --- Stufe 3: comdare_perms_full_join — CE-Compositions + prt-art gemeinsam → DLLs ---
+    # Vervollständigt die 3-Stufen-Target-Trilogie (#15): Stufe 1 = R5.I-Pilot (CE-only),
+    # Stufe 2 = comdare_perms_pa (oben, prt-art ersetzt), Stufe 3 = full-join (CE + prt-art unioniert).
+    set(_fj_snippet   "${CMAKE_BINARY_DIR}/generated/comdare_perms_full_join_list.cmake")
+    set(_fj_pilot_dir "${CMAKE_BINARY_DIR}/generated/comdare_perms_full_join_modules")
+    comdare_run_anatomy_codegen_tool(
+        OUTPUT       "${_fj_snippet}"
+        NAMES        "art,hot"
+        LIBRARY_TYPE SHARED
+        EXTERNAL_COMPOSITIONS
+            "prtart-demo|::comdare::prt_art::slots::PrtArtCompositionDemo|prt_art/slots/prt_art_composition_demo.hpp"
+        STATUS_OUT   _fj_status)
+
+    if(_fj_status STREQUAL "FOUND" AND EXISTS "${_fj_snippet}")
+        include("${_fj_snippet}")
+        comdare_codegen_anatomy_module_list(
+            PILOT_PREFIX  "comdare_perms_full_join_pilot"
+            OUTPUT_DIR    "${_fj_pilot_dir}"
+            LIBRARY_TYPE  ${COMDARE_PERMUTATION_LIBRARY_TYPE}
+            COMPOSITIONS  ${COMDARE_PERMUTATION_COMPOSITIONS}
+            TARGETS_OUT   _fj_pilot_targets)
+        # prt-art-Include additiv auf alle Targets (CE-Targets brauchen ihn nicht, unschädlich).
+        foreach(_fj_t IN LISTS _fj_pilot_targets)
+            target_include_directories(${_fj_t} PRIVATE ${COMDARE_PRUEFLING_INCLUDE_DIRS})
+        endforeach()
+        message(STATUS
+            "F.5 comdare_perms_full_join: Stufe-3-DLL-Codegen ACTIVE (targets=${_fj_pilot_targets})")
+    endif()
 endif()
