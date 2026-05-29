@@ -1023,6 +1023,17 @@ if(_r5g_ae_status STREQUAL "FOUND")
         add_dependencies(test_v41_anatomy_adhoc_autobuilt_load ${_r5g_autobuilt_targets})
         message(STATUS
             "R5.G: Auto-Permutations-Skalierung ACTIVE (${_r5g_autobuilt_count} auto-gebaute DLLs).")
+
+        # V41.F.6.1 R5.D — Smoke-Test des comdare-f15-compare-CLI ueber die realen R5.G-DLLs:
+        # faehrt die echte Binary (nicht nur die Treiber-Logik) + prueft Exit-0 + "win_rate"-Ausgabe.
+        # (apps/ wird vor tests/ verarbeitet → Target existiert; default-Build baut CLI + DLLs.)
+        if(TARGET comdare_f15_compare_cli)
+            add_test(NAME f15_compare_cli_smoke
+                COMMAND comdare_f15_compare_cli "${_r5g_autobuilt_dir}" --batches=16 --alpha=0.05)
+            set_tests_properties(f15_compare_cli_smoke PROPERTIES
+                PASS_REGULAR_EXPRESSION "win_rate"
+                LABELS "r5d;f15;cli")
+        endif()
     endif()
 else()
     message(STATUS
