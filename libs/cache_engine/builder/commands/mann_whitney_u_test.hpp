@@ -19,6 +19,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -30,7 +31,21 @@ struct MannWhitneyResult {
     double p_value    {1.0};           ///< zweiseitiger p-Wert (erfc-Normalapprox)
     bool   a_stochastically_less {false};  ///< a tendiert zu KLEINEREN Werten (= a schneller bei Latenz)
     bool   valid      {false};         ///< false bei leeren Gruppen
+    // R5.D — robustes Effektmass (Cliff's delta / Rang-Biseriale, direkt aus U_a). Beantwortet
+    // "WIE VIEL", nicht nur "ob". Wertebereich [+1 .. -1]: +1 = a stochastisch IMMER kleiner (a
+    // durchweg schneller), 0 = kein Unterschied, -1 = a durchweg langsamer. Ausreisser-robust (rang-basiert).
+    double cliff_delta {0.0};          ///< 1 - 2*U_a/(n_a*n_b)
 };
+
+/// Standard-Magnitude-Schwellen fuer |Cliff's delta| (Romano et al. 2006): <0.147 vernachlaessigbar,
+/// <0.33 klein, <0.474 mittel, sonst gross.
+[[nodiscard]] inline std::string_view cliff_delta_magnitude(double delta) {
+    double const a = delta < 0.0 ? -delta : delta;
+    if (a < 0.147) return "negligible";
+    if (a < 0.330) return "small";
+    if (a < 0.474) return "medium";
+    return "large";
+}
 
 /// Mann-Whitney-U / Wilcoxon-Rangsummen-Test. a, b = Latenz-Samples (ns). Bei leerer Gruppe valid=false.
 [[nodiscard]] inline MannWhitneyResult mann_whitney_u_test(std::span<const std::int64_t> a,
@@ -73,6 +88,7 @@ struct MannWhitneyResult {
 
     r.u_statistic = U_a;
     r.valid = true;
+    r.cliff_delta = 1.0 - 2.0 * U_a / (nad * nbd);   // robustes Effektmass [+1..-1]
     if (var_U <= 0.0) {                 // alle Werte identisch (oder n=1) → kein Unterschied
         r.z_score = 0.0; r.p_value = 1.0; r.a_stochastically_less = false;
         return r;
