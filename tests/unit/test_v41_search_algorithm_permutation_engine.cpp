@@ -23,6 +23,7 @@
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/pruefling_merge.hpp>
 #include <anatomy/search_algorithm_permutation_engine.hpp>
+#include <builder/codegen/type_name.hpp>   // R5.G Auto-Emitter: FQ-Typ-Namen pro Achse
 
 // 17 Topic-Achsen Wrappers (identisch zu test_v41_anatomy_r4_driver.cpp)
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
@@ -48,7 +49,11 @@
 
 #include <boost/mp11.hpp>
 
+#include <algorithm>
 #include <cstddef>
+#include <iostream>
+#include <set>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -304,4 +309,62 @@ TEST(R5CB_AbiAdapterIteration, ForEachAbiAdapterProducesIAnatomyBasePerPermutati
     for (auto n : names_seen) {
         EXPECT_FALSE(n.empty());
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §R5.G — Auto-Emitter-Kern-Logik: for_each_composition_type × type_name
+//         → der COMDARE_DEFINE_ANATOMY_MODULE_ADHOC-Argument-String pro Permutation.
+//         (Das ist exakt, was der Auto-Emitter pro Permutation in ein Modul-.cpp schreibt.)
+// ─────────────────────────────────────────────────────────────────────────────
+
+namespace {
+namespace cg = ::comdare::cache_engine::builder::codegen;
+
+/// Baut den 17-Achsen-FQ-Typ-Namen-String einer Composition C (Komma-getrennt) — der
+/// Argument-Block für COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(...).
+template <class C>
+std::string adhoc_macro_args() {
+    std::string s;
+    auto add = [&](std::string_view t) { if (!s.empty()) s += ", "; s += t; };
+    add(cg::type_name<typename C::search_algo>());
+    add(cg::type_name<typename C::cache_traversal>());
+    add(cg::type_name<typename C::mapping>());
+    add(cg::type_name<typename C::path_compression>());
+    add(cg::type_name<typename C::node_type>());
+    add(cg::type_name<typename C::memory_layout>());
+    add(cg::type_name<typename C::allocator>());
+    add(cg::type_name<typename C::prefetch>());
+    add(cg::type_name<typename C::concurrency>());
+    add(cg::type_name<typename C::serialization>());
+    add(cg::type_name<typename C::telemetry>());
+    add(cg::type_name<typename C::value_handle>());
+    add(cg::type_name<typename C::isa>());
+    add(cg::type_name<typename C::index_organization>());
+    add(cg::type_name<typename C::io_dispatch>());
+    add(cg::type_name<typename C::migration_policy>());
+    add(cg::type_name<typename C::filter>());
+    return s;
+}
+}  // namespace
+
+TEST(R5G_AutoEmitter, BuildsAdHocMacroArgsPerPermutation) {
+    std::vector<std::string> emitted;
+    PilotEngine::for_each_composition_type([&]<class C>() {
+        emitted.push_back(adhoc_macro_args<C>());
+    });
+
+    // Eine Argument-Zeile pro Permutation des gemergten Raums.
+    ASSERT_EQ(emitted.size(), PilotEngine::count());           // 6
+    for (auto const& s : emitted) {
+        // 17 FQ-Typ-Namen → 16 Kommas; reale Achsen-Namespaces vorhanden.
+        EXPECT_EQ(std::count(s.begin(), s.end(), ','), 16);
+        EXPECT_NE(s.find("comdare::cache_engine::"), std::string::npos);
+        EXPECT_EQ(s.find("class "), std::string::npos);        // codegen-nutzbar (kein Elaborated-Prefix)
+    }
+    // Alle 6 Permutationen sind distinkt (unterschiedliche search_algo/cache_traversal-Achsen).
+    std::set<std::string> uniq(emitted.begin(), emitted.end());
+    EXPECT_EQ(uniq.size(), emitted.size());
+
+    std::cout << "[R5G auto-emitter] " << emitted.size()
+              << " Permutationen; Perm[0] ADHOC-args:\n  " << emitted.front() << "\n";
 }
