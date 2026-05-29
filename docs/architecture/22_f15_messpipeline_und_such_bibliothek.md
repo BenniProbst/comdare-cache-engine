@@ -132,6 +132,39 @@ Datenmengen oder degeneriert-sortiertem Insert, nicht bei kleinen random-in-memo
 hoeheren Knoten-Konstanten (Array-Shifts, komplexeres CLRS-Delete) dominieren. Genau diese
 Differenzierung sichtbar und messbar zu machen ist der Zweck der Achsen-Bibliothek (F15).
 
+### 3.2 Addendum (2026-05-29): R5.B — ZWEITE Mess-Dimension (search_algo × allocator)
+
+Die These verlangt zwei Mess-Dimensionen: individuelle Achsen UND ganze Algorithmen. Bisher uebte
+`run_workload` nur die search_algo-Achse aus → nur EINE Dimension. R5.B macht eine zweite Achse
+operativ:
+
+1. **Behavioral-distinkter Allocator** (Voraussetzung): `PoolResourceAllocator` (eigener
+   `std::pmr::unsynchronized_pool_resource`) ist der erste axis_06-Wrapper, der sich OHNE externes
+   Vendor-Linking real von System-malloc unterscheidet (alle uebrigen fallen ohne Linking auf
+   `portable_aligned_alloc` = System zurueck → eine Variation waere hohl gewesen).
+2. **Komposit-`run_workload`** (`abi_adapter.hpp`): Segment 1 = search-Lookups (search_algo-Achse),
+   Segment 2 = 2048 alloc/dealloc je Batch ueber `composition_t::allocator` (allocator-Achse). Die
+   Batch-Latenz misst damit die Komposition entlang BEIDER variierten Achsen.
+3. **2-Achsen-Pilot** (adhoc_emitter): `search_algo` (12) × `allocator` {StdMalloc, PoolResource} =
+   **24 Permutationen**. Interpretierbar via emittiertem `manifest.txt` (idx → search+allocator, in
+   exakter `for_each_composition_type`-Reihenfolge; gerade idx = std_malloc, ungerade idx =
+   pool_resource) — ohne `composition_name`/ABI zu aendern.
+
+**Empirisches Resultat (24 DLLs, ops=20000, batches=128, seed=42; alle 23 Nicht-Baseline
+Holm-FWER-signifikant: 6 schneller / 17 langsamer / 0 nicht-signifikant):** Der Pool-Allocator schlaegt
+System-malloc bei den meisten Such-Algos KONSISTENT um ~2–3× (array256 565µs→200µs = 2,8×; k_ary
+1,21ms→375µs = 3,2×; bst 365µs→181µs = 2,0×; vector_u16u16 1,27ms→561µs = 2,3×) — die alloc/dealloc-
+Churn-Phase profitiert von den Size-Class-Free-Lists des Pools gegenueber dem per-call-Overhead von
+malloc. Schnellste Komposition absolut: idx 21 = **bst + pool_resource** (181µs). Ehrliche Einschraenkung:
+zwei Messungen (idx 13 eytzinger+pool, idx 14 skip_list+std, beide ~21,6ms) sind Wall-Clock-Ausreisser
+(inkonsistent mit ihren Allocator-Paaren) — dieselbe Nicht-Bit-Reproduzierbarkeit wie in §3.1; die
+konsistente ~2–3×-Pool-vs-System-Differenz ueber die uebrigen Such-Algos ist der belastbare Befund.
+
+Damit ist die **zweidimensionale** Messung demonstriert: search-Dimension (~119× Spanne ueber Such-Algos)
+UND allocator-Dimension (~2–3× Pool-vs-System je Such-Algo) — beides an EINEM `std::map`-Interface, pro
+Achse UND in der Komposition messbar. R5.B ist damit fuer die allocator-Achse erfuellt; die Erweiterung
+auf weitere Achsen folgt demselben Muster (behavioral-distinkte Wrapper + run_workload-Segment).
+
 ---
 
 ## 4. Stand der Architektur-Anforderungen (V41.F.6.1)
@@ -139,10 +172,11 @@ Differenzierung sichtbar und messbar zu machen ist der Zweck der Achsen-Biblioth
 ERFÜLLT + verifiziert: Plugin-Controller/Prüfling-Slot (E11-AbstractFactory) · 3-Stufen-Dreigliedrigkeit
 (F.5) · R5.G Auto-Materialisierung + Skalierung · Such-Bibliothek (axis_03a: 17 Wrapper, 12 CE-native via F15 gemessen) · R7.3 Queuing+
 Concurrency · R7.4 Allocator-Adapter · A4 AoSoA-Layout · G.1 Build-Hierarchie · komplette F15-Mess-
-Auswertung + CLI + empirisches Resultat.
+Auswertung + CLI + empirisches Resultat · **R5.B 2. Mess-Dimension (search_algo × allocator, §3.2)**.
 
 VERBLEIBEND (Mehr-Session / gated / user-manuell): voller kartesischer Mehr-Achsen-Raum-Build +
-Hardware-Counter (PMC) · R5.B (Achsen operativ machen, damit run_workload den GANZEN Algorithmus statt
-nur search_algo misst — gated, Doku 21 §5) · F.2/F.3 Namespace-Restrukturierung · E11-Master-Facade +
+Hardware-Counter (PMC) · R5.B-Erweiterung auf WEITERE Achsen (allocator erfüllt §3.2; je Achse ein
+behavioral-distinkter Wrapper + run_workload-Segment — memory_layout/prefetch/concurrency folgen dem
+Muster) · F.2/F.3 Namespace-Restrukturierung · E11-Master-Facade +
 E10 per-Untermodul-STATIC/SHARED (gated auf E4.1-Submodul-Befüllung) · weitere Tree-STRUKTUR-Paper ·
 D1/D2 Diplomarbeit-Volltext (Autor).

@@ -18,6 +18,8 @@
 
 #include <boost/mp11.hpp>
 
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <string>
 
@@ -46,7 +48,10 @@ using MP  = ce::traversal::axis_03m_mapping::DirectPlacement;
 using PC  = ce::nodes::axis_02_path_compression::PathCompressionNone;
 using NT  = ce::nodes::axis_04_node_type::Node256Layout;
 using ML  = ce::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
-using AL  = ce::allocator::axis_06_allocator::MimallocAllocator;
+// V41.F.6.1 R5.B (2026-05-29): 2. variierte Achse = allocator. Zwei BEHAVIORAL-distinkte Varianten
+// (ohne externes Linking): System-malloc vs. eigener std::pmr-Pool.
+using AL0 = ce::allocator::axis_06_allocator::StdMalloc;             // System-malloc (Baseline)
+using AL1 = ce::allocator::axis_06_allocator::PoolResourceAllocator; // eigener unsynchronized_pool_resource
 using PF  = ce::prefetch::axis_07_prefetch::NonePrefetch;
 using CC  = ce::concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
 using SE  = ce::serialization::axis_10_serialization::RawBinarySerialization;
@@ -58,14 +63,14 @@ using IOD = ce::io::axis_io::InMemoryOnly;
 using MG  = ce::migration::axis_migration::NoMigration;
 using FL  = ce::filter::axis_filter::BloomFilter;
 
-// Pilot-Raum: nur search_algo variiert (12 Varianten) → 12 Permutationen.
+// Pilot-Raum (R5.B 2-Achsen): search_algo (12) × allocator (2) = 24 Permutationen.
 struct C0  { using StaticAxisVariants = mp::mp_list<SA0, SA1, SA2, SA3, SA4, SA5, SA6, SA7, SA8, SA9, SA10, SA11>; };
 struct C1  { using StaticAxisVariants = mp::mp_list<CT>;  };
 struct C2  { using StaticAxisVariants = mp::mp_list<MP>;  };
 struct C3  { using StaticAxisVariants = mp::mp_list<PC>;  };
 struct C4  { using StaticAxisVariants = mp::mp_list<NT>;  };
 struct C5  { using StaticAxisVariants = mp::mp_list<ML>;  };
-struct C6  { using StaticAxisVariants = mp::mp_list<AL>;  };
+struct C6  { using StaticAxisVariants = mp::mp_list<AL0, AL1>;  };  // R5.B: 2 Allocator-Varianten
 struct C7  { using StaticAxisVariants = mp::mp_list<PF>;  };
 struct C8  { using StaticAxisVariants = mp::mp_list<CC>;  };
 struct C9  { using StaticAxisVariants = mp::mp_list<SE>;  };
@@ -90,7 +95,22 @@ int main(int argc, char** argv) {
     }
     auto const files = cg::emit_adhoc_modules<PilotEngine>(argv[1]);
     for (auto const& f : files) std::cout << f.string() << "\n";
+
+    // V41.F.6.1 R5.B — MANIFEST: AdHocComposition_<idx> → (search_algo, allocator) in EXAKT der
+    // for_each_composition_type-Reihenfolge (= idx in comdare_anatomy_perm_auto_<idx>.cpp). Macht
+    // den 2-Achsen-F15-Raum interpretierbar, OHNE composition_name (ABI/Tests) zu aendern.
+    std::ofstream manifest(std::filesystem::path{argv[1]} / "manifest.txt", std::ios::trunc);
+    int mi = 0;
+    PilotEngine::for_each_composition_type([&]<class C>() {
+        std::string const line = std::to_string(mi) + "\t"
+            + std::string{C::search_algo::name()} + "\t" + std::string{C::allocator::name()};
+        std::cerr << "  [idx " << line << "]\n";
+        manifest << line << "\n";
+        ++mi;
+    });
+
     std::cerr << "comdare-adhoc-emitter: " << files.size()
-              << " Permutations-Modul-.cpp geschrieben (count=" << PilotEngine::count() << ").\n";
+              << " Permutations-Modul-.cpp geschrieben (count=" << PilotEngine::count()
+              << ", 2-Achsen search_algo×allocator, manifest.txt geschrieben).\n";
     return files.empty() ? 2 : 0;
 }
