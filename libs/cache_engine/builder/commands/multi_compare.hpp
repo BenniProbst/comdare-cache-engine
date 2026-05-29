@@ -16,6 +16,7 @@
 
 #include "execution_result.hpp"
 #include "welch_t_test.hpp"
+#include "mann_whitney_u_test.hpp"   // R5.D: robuster nicht-parametrischer Komplementaer-Test
 #include "multiple_comparison.hpp"
 #include "result_aggregator.hpp"   // reuse detail::csv_quote + detail::json_escape (DRY)
 
@@ -32,10 +33,15 @@ namespace comdare::cache_engine::builder::commands::stats {
 struct PairwiseComparison {
     std::string_view name {};                 ///< Kompositions-/Engine-Name des Kandidaten
     WelchResult       welch {};               ///< Welch-Resultat (Kandidat = a, Baseline = b)
-    double            raw_p {1.0};             ///< unkorrigierter p-Wert (1.0 wenn Welch ungueltig)
-    double            adjusted_p {1.0};        ///< Holm-Bonferroni-korrigierter p-Wert
-    bool              significant {false};     ///< adjusted_p <= alpha
+    double            raw_p {1.0};             ///< unkorrigierter Welch-p-Wert (1.0 wenn ungueltig)
+    double            adjusted_p {1.0};        ///< Holm-Bonferroni-korrigierter Welch-p-Wert
+    bool              significant {false};     ///< adjusted_p <= alpha (parametrisch, Welch)
     bool              faster_than_baseline {false};  ///< mean_a < mean_b (kleinere Latenz)
+    // R5.D — robuster nicht-parametrischer Komplementaer-Test (rang-basiert, ausreisser-robust):
+    MannWhitneyResult mwu {};                  ///< Mann-Whitney-U (Kandidat = a, Baseline = b)
+    double            robust_adjusted_p {1.0}; ///< Holm-korrigierter MWU-p-Wert
+    bool              robust_significant {false};      ///< robust_adjusted_p <= alpha (Rang-Test)
+    bool              significance_discrepancy {false};///< Welch- ↔ MWU-Signifikanz UNEINIG (Warnsignal)
 };
 
 /// Ergebnis eines Multi-Vergleichs gegen eine Baseline.
@@ -56,25 +62,36 @@ struct MultiCompareReport {
     rep.alpha = alpha;
     rep.comparisons.reserve(candidates.size());
 
-    std::vector<double> raw_p;
+    std::vector<double> raw_p;        // Welch
+    std::vector<double> raw_p_mwu;    // R5.D: Mann-Whitney-U
     raw_p.reserve(candidates.size());
+    raw_p_mwu.reserve(candidates.size());
 
     std::span<const std::int64_t> const base_samples{baseline.latency_samples_ns};
     for (auto const& c : candidates) {
         PairwiseComparison pc;
         pc.name  = c.engine_name;
-        pc.welch = welch_t_test(std::span<const std::int64_t>{c.latency_samples_ns}, base_samples);
+        std::span<const std::int64_t> const cand_samples{c.latency_samples_ns};
+        pc.welch = welch_t_test(cand_samples, base_samples);
         pc.raw_p = pc.welch.valid ? pc.welch.p_value : 1.0;
         pc.faster_than_baseline = pc.welch.valid && (pc.welch.mean_a < pc.welch.mean_b);
+        pc.mwu = mann_whitney_u_test(cand_samples, base_samples);   // robuster Rang-Test
         raw_p.push_back(pc.raw_p);
+        raw_p_mwu.push_back(pc.mwu.valid ? pc.mwu.p_value : 1.0);
         rep.comparisons.push_back(pc);
     }
 
-    auto const adj = holm_bonferroni_adjust(std::span<const double>{raw_p});
+    auto const adj     = holm_bonferroni_adjust(std::span<const double>{raw_p});
+    auto const adj_mwu = holm_bonferroni_adjust(std::span<const double>{raw_p_mwu});
     for (std::size_t i = 0; i < rep.comparisons.size(); ++i) {
-        rep.comparisons[i].adjusted_p  = adj[i];
-        rep.comparisons[i].significant = (adj[i] <= alpha);
-        if (rep.comparisons[i].significant) ++rep.significant_count;
+        auto& pc = rep.comparisons[i];
+        pc.adjusted_p  = adj[i];
+        pc.significant = (adj[i] <= alpha);
+        if (pc.significant) ++rep.significant_count;
+        pc.robust_adjusted_p  = adj_mwu[i];
+        pc.robust_significant = (adj_mwu[i] <= alpha);
+        // Diskrepanz: parametrischer und Rang-Test sind UNEINIG → Warnsignal (oft ausreisser-getrieben).
+        pc.significance_discrepancy = (pc.significant != pc.robust_significant);
     }
     return rep;
 }
@@ -88,6 +105,8 @@ struct MultiCompareSummary {
     std::size_t significant_slower {0};   ///< signifikant ABER langsamer
     std::size_t not_significant {0};       ///< kein signifikanter Unterschied (FWER-korrigiert)
     double      win_rate {0.0};            ///< significant_faster / total — die F15-Headline-Zahl
+    std::size_t robust_significant {0};    ///< R5.D: signifikant auch im robusten Rang-Test (MWU)
+    std::size_t discrepancies {0};         ///< R5.D: Welch ↔ MWU uneinig (ausreisser-Warnsignal)
 };
 
 /// Verdichtet den Report zur F15-Kernaussage: welcher Anteil der Kompositionen schlaegt die Baseline
@@ -102,6 +121,8 @@ struct MultiCompareSummary {
         } else {
             ++s.not_significant;
         }
+        if (c.robust_significant)       ++s.robust_significant;
+        if (c.significance_discrepancy) ++s.discrepancies;
     }
     s.win_rate = (s.total > 0)
         ? static_cast<double>(s.significant_faster) / static_cast<double>(s.total)

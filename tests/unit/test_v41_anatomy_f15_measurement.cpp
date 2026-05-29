@@ -515,3 +515,37 @@ TEST(F15ResultBuilder, FullDriverChainSamplesToSummary) {
     EXPECT_FALSE(stats::report_to_csv(rep).empty());
     EXPECT_NE(stats::report_to_json(rep).find("\"significant_count\":2"), std::string::npos);
 }
+
+// V41.F.6.1 R5.D — Mann-Whitney-U (robuster Rang-Test). Klar getrennte Gruppen → signifikant + a<b;
+// identische Gruppen → n.s.; und Robustheit: ein einzelner extremer Ausreisser in a kippt das
+// Rang-Urteil NICHT (waehrend er einen mittelwert-basierten Test verzerren wuerde).
+TEST(F15RobustStats, MannWhitneyDistinctIdenticalAndOutlierRobust) {
+    // (1) a klar kleiner als b (keine Ueberlappung) → hochsignifikant, a stochastisch kleiner.
+    std::vector<std::int64_t> a(40, 0), b(40, 0);
+    for (int i = 0; i < 40; ++i) { a[i] = 100 + i; b[i] = 1000 + i; }
+    auto const w1 = stats::mann_whitney_u_test(std::span<const std::int64_t>{a},
+                                               std::span<const std::int64_t>{b});
+    EXPECT_TRUE(w1.valid);
+    EXPECT_TRUE(w1.a_stochastically_less);
+    EXPECT_LT(w1.p_value, 0.001);
+
+    // (2) identische Gruppen → kein Unterschied (p ~ 1).
+    std::vector<std::int64_t> same(40, 500);
+    auto const w2 = stats::mann_whitney_u_test(std::span<const std::int64_t>{same},
+                                               std::span<const std::int64_t>{same});
+    EXPECT_TRUE(w2.valid);
+    EXPECT_GT(w2.p_value, 0.5);
+
+    // (3) Ausreisser-Robustheit: a = lauter 100er + EIN 10^9-Spike; b = lauter 200er.
+    // Median/Rang von a liegt klar unter b → MWU sagt weiterhin a<b, trotz Ausreisser.
+    std::vector<std::int64_t> ao(40, 100); ao[39] = 1000000000;  // ein extremer Spike
+    std::vector<std::int64_t> bo(40, 200);
+    auto const w3 = stats::mann_whitney_u_test(std::span<const std::int64_t>{ao},
+                                               std::span<const std::int64_t>{bo});
+    EXPECT_TRUE(w3.valid);
+    EXPECT_TRUE(w3.a_stochastically_less) << "Rang-Test bleibt vom Einzel-Ausreisser unbeeinflusst";
+    EXPECT_LT(w3.p_value, 0.05);
+    // invalid bei leerer Gruppe:
+    EXPECT_FALSE(stats::mann_whitney_u_test(std::span<const std::int64_t>{},
+                                            std::span<const std::int64_t>{bo}).valid);
+}

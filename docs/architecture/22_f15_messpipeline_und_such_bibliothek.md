@@ -213,6 +213,18 @@ ueber Wiederholungslaeufe bleibt der schnellste Cluster stabil (durchgehend pool
 unter dem ausreisser-inflationierten mean. Die Holm-Signifikanz (Welch-t auf mean+Varianz) bleibt
 unveraendert; nur die Ranking-Darstellung ist robuster.
 
+**Robuster Signifikanztest (2026-05-29): Mann-Whitney-U als Gegenprobe zum Welch-t.** Zusaetzlich zum
+parametrischen Welch-t laeuft nun ein nicht-parametrischer, rang-basierter Mann-Whitney-U-Test
+(`mann_whitney_u_test.hpp`, Tie-korrigiert, Normalapprox) je Kandidat-vs-Baseline, ebenfalls
+Holm-FWER-korrigiert; `comdare-f15-compare` weist beide Verdikte aus und MARKIERT Diskrepanzen
+(`[DISKREPANZ]`). Konkreter Befund (48-DLL-Lauf): 2 Diskrepanzen — bei idx 39 (linear_scan/pool/soa,
+welch_p=0,43) und idx 41 (interpolation/pool/cacheline, welch_p=0,096) hielt Welch den Unterschied fuer
+NICHT signifikant, der robuste MWU dagegen fuer hochsignifikant (mwu_p≈1e-19 bzw. 1e-29). Ursache: die
+Wall-Clock-Ausreisser inflationieren die VARIANZ → Welch wird zu KONSERVATIV (verpasst echte
+Unterschiede), waehrend der Rang-Test sie korrekt erkennt. Der MWU recoveriert hier also 2 reale
+Differenzen, die der mittelwert-basierte Test verschluckt — ein direkter Beleg fuer den Mehrwert des
+robusten Tests bei verrauschten Wall-Clock-Messungen.
+
 ---
 
 ## 4. Stand der Architektur-Anforderungen (V41.F.6.1)
