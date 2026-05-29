@@ -170,25 +170,31 @@ int main(int argc, char** argv) {
                   << (c.faster_than_baseline ? "  (schneller)" : "  (langsamer)") << "\n";
     }
 
-    // Ranking ueber ALLE Kompositionen (inkl. Baseline) nach mittlerer Latenz — die praktische
-    // F15-Antwort "welche Achsen-Komposition gewinnt?". Schnellste zuerst.
+    // Ranking ueber ALLE Kompositionen (inkl. Baseline) nach MEDIAN (p50) statt Mittelwert — die
+    // praktische F15-Antwort "welche Achsen-Komposition gewinnt?". Der Median ist ROBUST gegen
+    // Wall-Clock-Ausreisser: einzelne Batch-Spitzen (Scheduler-Preemption, Page-Faults, Turbo-Takt-
+    // Schwankungen) verzerren den Mittelwert massiv (beobachtet: bis ~10× Ausreisser), nicht aber den
+    // Median. mean wird zum Vergleich mit ausgewiesen. Schnellste zuerst.
     std::vector<std::pair<double, std::size_t>> ranking;
     ranking.reserve(results.size());
     for (std::size_t i = 0; i < results.size(); ++i) {
-        double const mean = stats::latency_mean_ns(
-            std::span<const std::int64_t>{results[i].latency_samples_ns});
-        ranking.emplace_back(mean, i);
+        double const p50 = static_cast<double>(stats::latency_p50_ns(
+            std::span<const std::int64_t>{results[i].latency_samples_ns}).count());
+        ranking.emplace_back(p50, i);
     }
     std::sort(ranking.begin(), ranking.end(),
               [](auto const& a, auto const& b) { return a.first < b.first; });
-    std::cout << "  Ranking (schnellste zuerst, mittlere Latenz ns):\n";
+    std::cout << "  Ranking (schnellste zuerst, robuster Median p50 ns; mean zum Vergleich):\n";
     for (std::size_t r = 0; r < ranking.size(); ++r) {
-        auto const [mean, idx] = ranking[r];
-        std::cout << "    #" << (r + 1) << "  " << names[idx] << "  mean=" << mean << " ns"
+        auto const [p50, idx] = ranking[r];
+        double const mean = stats::latency_mean_ns(
+            std::span<const std::int64_t>{results[idx].latency_samples_ns});
+        std::cout << "    #" << (r + 1) << "  " << names[idx] << "  p50=" << p50 << " ns"
+                  << "  mean=" << mean << " ns"
                   << (idx == base_idx ? "  [baseline]" : "") << "\n";
     }
-    if (ranking.size() >= 2 && ranking.back().first > 0.0) {
-        std::cout << "  Spanne langsamste/schnellste = "
+    if (ranking.size() >= 2 && ranking.front().first > 0.0) {
+        std::cout << "  Spanne langsamste/schnellste (p50) = "
                   << (ranking.back().first / ranking.front().first) << "x\n";
     }
 

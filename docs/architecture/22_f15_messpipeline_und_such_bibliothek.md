@@ -204,6 +204,15 @@ ausgewiesen.
 Die Achsen-MASCHINERIE ist damit fuer 3 Achsen end-to-end operativ + verifiziert; die saubere
 QUANTIFIZIERUNG fein-granularer Achsen ist das konkrete Ziel von R5.D (PMC-Integration).
 
+**Robustheits-Verbesserung (2026-05-29) gegen Wall-Clock-Ausreisser:** Das `comdare-f15-compare`-Ranking
+sortiert nun nach **Median (p50)** statt Mittelwert (mean wird zum Vergleich weiter ausgewiesen). Da
+einzelne Batch-Spitzen (Scheduler-Preemption, Page-Faults, Turbo-Schwankungen) den Mittelwert massiv
+verzerren (beobachtet: bis ~10×), den Median aber nicht, ist das p50-Ranking deutlich reproduzierbarer:
+ueber Wiederholungslaeufe bleibt der schnellste Cluster stabil (durchgehend pool_resource-Kompositionen
+→ bestaetigt den allocator-Effekt sauberer als der verrauschte Mittelwert), und p50 liegt konsistent
+unter dem ausreisser-inflationierten mean. Die Holm-Signifikanz (Welch-t auf mean+Varianz) bleibt
+unveraendert; nur die Ranking-Darstellung ist robuster.
+
 ---
 
 ## 4. Stand der Architektur-Anforderungen (V41.F.6.1)
