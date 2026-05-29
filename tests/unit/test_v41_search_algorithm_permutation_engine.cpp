@@ -23,6 +23,7 @@
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/pruefling_merge.hpp>
 #include <anatomy/search_algorithm_permutation_engine.hpp>
+#include <anatomy/combinatorial_coverage.hpp>   // R5.D: Sampling-Grundlage fuer den kartesischen Raum
 #include <builder/codegen/type_name.hpp>   // R5.G Auto-Emitter: FQ-Typ-Namen pro Achse
 
 // 17 Topic-Achsen Wrappers (identisch zu test_v41_anatomy_r4_driver.cpp)
@@ -50,12 +51,14 @@
 #include <boost/mp11.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iterator>
 #include <set>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -408,4 +411,48 @@ TEST(R5G_AutoEmitter, EmitsModuleCppPerPermutation) {
     std::cout << "[R5G emitter] " << files.size() << " Modul-.cpp geschrieben nach " << dir << "\n";
 
     for (auto const& f : files) fs::remove(f, ec);  // Aufräumen
+}
+
+// V41.F.6.1 R5.D — kombinatorische Coverage des Permutations-Raums (Sampling-Grundlage).
+// Quantifizierung (full/1-wise/pairwise) + 1-wise-Stichprobe deckt jede Achsen-Variante mind. 1×.
+TEST(R5D_CombinatorialCoverage, QuantifyAndOneWiseSampleCoversEveryValue) {
+    std::array<std::size_t, 3> counts{17, 25, 5};   // z. B. search × allocator × layout
+    auto const rep = ana::analyze_coverage(std::span<const std::size_t>{counts});
+    EXPECT_EQ(rep.axis_count, 3u);
+    EXPECT_EQ(rep.full_space, 17u * 25u * 5u);          // 2125
+    EXPECT_FALSE(rep.full_space_saturated);
+    EXPECT_FALSE(rep.any_axis_empty);
+    EXPECT_EQ(rep.one_wise_cover, 25u);                  // = max(counts)
+    EXPECT_EQ(rep.pairwise_lower_bound, 25u * 17u);      // zwei groesste
+
+    // 1-wise-Stichprobe: 25 Zeilen; JEDE Variante JEDER Achse muss vorkommen.
+    auto const sample = ana::one_wise_cover_sample(std::span<const std::size_t>{counts});
+    ASSERT_EQ(sample.size(), 25u);
+    for (std::size_t axis = 0; axis < counts.size(); ++axis) {
+        std::set<std::size_t> seen;
+        for (auto const& row : sample) { ASSERT_EQ(row.size(), 3u); seen.insert(row[axis]); }
+        EXPECT_EQ(seen.size(), counts[axis]) << "Achse " << axis << " nicht voll abgedeckt";
+        EXPECT_EQ(*seen.begin(), 0u);
+        EXPECT_EQ(*seen.rbegin(), counts[axis] - 1);
+    }
+}
+
+TEST(R5D_CombinatorialCoverage, SaturationEmptyAxisAndEdgeCases) {
+    // Overflow → gesaettigt (viele grosse Achsen).
+    std::array<std::size_t, 8> big{}; big.fill(1000000u);  // 1e6^8 = 1e48 >> uint64
+    auto const rs = ana::analyze_coverage(std::span<const std::size_t>{big});
+    EXPECT_TRUE(rs.full_space_saturated);
+    EXPECT_EQ(rs.full_space, ana::kCoverageSaturated);
+
+    // Leere Achse (0 Varianten) → Raum leer, Stichprobe leer.
+    std::array<std::size_t, 3> withzero{4, 0, 7};
+    auto const rz = ana::analyze_coverage(std::span<const std::size_t>{withzero});
+    EXPECT_TRUE(rz.any_axis_empty);
+    EXPECT_EQ(rz.full_space, 0u);
+    EXPECT_TRUE(ana::one_wise_cover_sample(std::span<const std::size_t>{withzero}).empty());
+
+    // Leere Achsenliste.
+    auto const re = ana::analyze_coverage(std::span<const std::size_t>{});
+    EXPECT_EQ(re.axis_count, 0u);
+    EXPECT_EQ(re.full_space, 0u);
 }
