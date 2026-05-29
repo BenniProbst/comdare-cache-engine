@@ -24,6 +24,10 @@
 #include <anatomy/pruefling_merge.hpp>
 #include <anatomy/search_algorithm_permutation_engine.hpp>
 #include <anatomy/combinatorial_coverage.hpp>   // R5.D: Sampling-Grundlage fuer den kartesischen Raum
+// R5.D — echte Achsen-Registry-Listen (fuer Coverage ueber die REALEN Achsen-Groessen):
+#include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_registry.hpp>
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_registry.hpp>
+#include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_registry.hpp>
 #include <builder/codegen/type_name.hpp>   // R5.G Auto-Emitter: FQ-Typ-Namen pro Achse
 
 // 17 Topic-Achsen Wrappers (identisch zu test_v41_anatomy_r4_driver.cpp)
@@ -455,4 +459,40 @@ TEST(R5D_CombinatorialCoverage, SaturationEmptyAxisAndEdgeCases) {
     auto const re = ana::analyze_coverage(std::span<const std::size_t>{});
     EXPECT_EQ(re.axis_count, 0u);
     EXPECT_EQ(re.full_space, 0u);
+}
+
+// V41.F.6.1 R5.D — Bruecke zur REALEN Achsen-Bibliothek: die Coverage-Utility, gespeist mit den
+// ECHTEN Registry-Groessen (mp_size der AllStrategies/AllVendors/AllLayouts), dimensioniert die
+// 1-wise-Stichprobe korrekt UND liefert ausschliesslich Indizes < der jeweiligen Listengroesse —
+// d. h. ein mp_at_c<Liste, idx> waere fuer JEDE Stichproben-Zeile gueltig (Voraussetzung fuers
+// spaetere Emitter-Verdrahten der Voll-Coverage). Beweis ohne 2125 DLLs zu bauen.
+TEST(R5D_CombinatorialCoverage, DimensionedFromRealAxisRegistries) {
+    namespace s03a = ::comdare::cache_engine::traversal::axis_03a_search_algo;
+    namespace a06  = ::comdare::cache_engine::allocator::axis_06_allocator;
+    namespace m05  = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;
+
+    constexpr std::size_t kSearch = mp::mp_size<s03a::AllStrategies>::value;  // 17
+    constexpr std::size_t kAlloc  = mp::mp_size<a06::AllVendors>::value;      // 25
+    constexpr std::size_t kLayout = mp::mp_size<m05::AllLayouts>::value;      // 5
+    static_assert(kSearch == 17 && kAlloc == 25 && kLayout == 5,
+                  "Achsen-Groessen-Snapshot (bei Erweiterung anpassen)");
+
+    std::array<std::size_t, 3> counts{kSearch, kAlloc, kLayout};
+    auto const rep = ana::analyze_coverage(std::span<const std::size_t>{counts});
+    EXPECT_EQ(rep.full_space, std::uint64_t{kSearch} * kAlloc * kLayout);  // 2125 voller Raum
+    EXPECT_EQ(rep.one_wise_cover, kAlloc);          // 25 = max → traktabel statt 2125
+    EXPECT_EQ(rep.pairwise_lower_bound, std::uint64_t{kAlloc} * kSearch);  // 425
+
+    // Jeder Stichproben-Index ist < der jeweiligen Listengroesse → mp_at_c stets gueltig.
+    auto const sample = ana::one_wise_cover_sample(std::span<const std::size_t>{counts});
+    ASSERT_EQ(sample.size(), kAlloc);  // 25 Permutationen decken die volle Variantenmenge
+    std::set<std::size_t> sset, aset, lset;
+    for (auto const& row : sample) {
+        ASSERT_EQ(row.size(), 3u);
+        EXPECT_LT(row[0], kSearch); EXPECT_LT(row[1], kAlloc); EXPECT_LT(row[2], kLayout);
+        sset.insert(row[0]); aset.insert(row[1]); lset.insert(row[2]);
+    }
+    EXPECT_EQ(sset.size(), kSearch);  // ALLE 17 Such-Algos abgedeckt
+    EXPECT_EQ(aset.size(), kAlloc);   // ALLE 25 Allokatoren abgedeckt
+    EXPECT_EQ(lset.size(), kLayout);  // ALLE 5 Layouts abgedeckt
 }
