@@ -676,9 +676,16 @@ target_include_directories(test_v41_pruefling_registry PRIVATE
 foreach(_pt_src IN LISTS COMDARE_PRUEFLING_TEST_SOURCES)
     get_filename_component(_pt_name "${_pt_src}" NAME_WE)
     comdare_add_test(${_pt_name} SOURCES "${_pt_src}")
+    # Volle CE-Include-Roots: Pruefling-Slots inkludieren CE-Achsen-Header (topics/), die
+    # Merge-Mechanik (anatomy/) + die generierten Achsen-Flags (Phase B Slot-Füllung).
     target_include_directories(${_pt_name} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
         "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${CMAKE_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS}
         ${COMDARE_PRUEFLING_INCLUDE_DIRS})
+    target_link_libraries(${_pt_name} PRIVATE Boost::mp11)
     message(STATUS "comdare Plugin-Controller: Pruefling-Integration-Test ${_pt_name} registriert")
 endforeach()
 
