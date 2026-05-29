@@ -534,22 +534,23 @@ TEST(SearchAlgo_LinearScan, UnsortedBaselineProperties) {
 // (Dense/Sorted/k-ary/Interpolation/Eytzinger/SkipList/Hash/Linear → semantisch identisch, nur
 // performance-different — genau das misst F15.)
 template <class Wrapper>
-void verify_matches_std_map() {
+void verify_matches_std_map(std::uint32_t key_mod, std::uint32_t query_max) {
+    using K = typename Wrapper::key_type;  // key_type-generisch (u8 oder u16)
     Wrapper w{};
-    std::map<std::uint16_t, std::uint64_t> ref;
+    std::map<K, std::uint64_t> ref;
     for (std::uint32_t i = 0; i < 600u; ++i) {
-        auto const k = static_cast<std::uint16_t>((i * 2654435761u) % 1000u);  // gestreut, deterministisch
+        auto const k = static_cast<K>((i * 2654435761u) % key_mod);  // gestreut, deterministisch
         if (i % 7u == 0u) {
             bool const had = (ref.erase(k) != 0u);
-            EXPECT_EQ(w.erase(k), had) << "erase-Mismatch key=" << k;
+            EXPECT_EQ(w.erase(k), had) << "erase-Mismatch key=" << static_cast<std::uint32_t>(k);
         } else {
             auto const v = static_cast<std::uint64_t>(k) * 11u + 1u;
             ref[k] = v;
             w.insert(k, v);
         }
     }
-    for (std::uint32_t q = 0; q <= 1000u; ++q) {
-        auto const key = static_cast<std::uint16_t>(q);
+    for (std::uint32_t q = 0; q <= query_max; ++q) {
+        auto const key = static_cast<K>(q);
         auto const it = ref.find(key);
         auto const got = w.lookup(key);
         if (it != ref.end()) { ASSERT_TRUE(got.has_value()) << "key=" << q; EXPECT_EQ(*got, it->second); }
@@ -559,15 +560,22 @@ void verify_matches_std_map() {
 }
 
 TEST(SearchAlgo_Interchangeability, AllUint16WrappersMatchStdMap) {
-    verify_matches_std_map<ce_03a::VectorU16U16SearchAlgo>();   // sorted
-    verify_matches_std_map<ce_03a::Array65535SearchAlgo>();     // dense
-    verify_matches_std_map<ce_03a::KArySearchAlgo>();           // k-ary/SIMD-Partition
-    verify_matches_std_map<ce_03a::InterpolationSearchAlgo>();  // verteilungsbewusst
-    verify_matches_std_map<ce_03a::EytzingerSearchAlgo>();      // cache-conscious Layout
-    verify_matches_std_map<ce_03a::SkipListSearchAlgo>();       // geordnete Struktur
-    verify_matches_std_map<ce_03a::HashSearchAlgo>();           // Hash (ungeordnet)
-    verify_matches_std_map<ce_03a::LinearScanSearchAlgo>();     // unsortiert linear
-    SUCCEED();  // alle 8 Achsen liefern identische std::map-Semantik (austauschbar)
+    verify_matches_std_map<ce_03a::VectorU16U16SearchAlgo>(1000u, 1000u);   // sorted
+    verify_matches_std_map<ce_03a::Array65535SearchAlgo>(1000u, 1000u);     // dense
+    verify_matches_std_map<ce_03a::KArySearchAlgo>(1000u, 1000u);           // k-ary/SIMD-Partition
+    verify_matches_std_map<ce_03a::InterpolationSearchAlgo>(1000u, 1000u);  // verteilungsbewusst
+    verify_matches_std_map<ce_03a::EytzingerSearchAlgo>(1000u, 1000u);      // cache-conscious Layout
+    verify_matches_std_map<ce_03a::SkipListSearchAlgo>(1000u, 1000u);       // geordnete Struktur
+    verify_matches_std_map<ce_03a::HashSearchAlgo>(1000u, 1000u);           // Hash (ungeordnet)
+    verify_matches_std_map<ce_03a::LinearScanSearchAlgo>(1000u, 1000u);     // unsortiert linear
+    SUCCEED();  // alle 8 uint16-Achsen liefern identische std::map-Semantik (austauschbar)
+}
+
+TEST(SearchAlgo_Interchangeability, AllUint8WrappersMatchStdMap) {
+    // uint8-Schluessel (0..255): Keys mod 200, Query-Bereich 0..255.
+    verify_matches_std_map<ce_03a::Array256SearchAlgo>(200u, 255u);   // dense direct-addressed
+    verify_matches_std_map<ce_03a::VectorU8U8SearchAlgo>(200u, 255u); // sparse sorted lower_bound
+    SUCCEED();  // → alle 10 CE-nativen Such-Achsen (u8+u16) sind std::map-aequivalent + austauschbar
 }
 
 // =================================================================
