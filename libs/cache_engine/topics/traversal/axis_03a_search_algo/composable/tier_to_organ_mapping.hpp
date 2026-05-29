@@ -37,6 +37,19 @@ using HashSearchOrgan    = ComposedHashSearch<HashProbeTraversalOrgan, HashBucke
 using SkipListOrgan      = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore>; // SkipListSearchAlgo S13
 using BTreeSearchOrgan   = ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoolStore>;          // BTreeSearchAlgo S17
 
+// V41 Umstufung-A (#41) — OriginalXxx-Tiere (S04-S08) auf bestehende flache Organe seziert.
+// **Befund (Planrunde 2026-05-29):** Die OriginalXxx-Wrapper-BODIES sind triviale C++23-Re-Impls (KEIN
+// Paper-Code im Body): ART = std::array<optional,256> (== Array256 == LinearScan); HOT/START/Wormhole/SuRF
+// = sorted-vector+lower_bound (== VectorU8U8/U16U16 == SortedBinary). `is_original`/Habich bleibt am Wrapper
+// (Bodies unangetastet); das Organ seziert NUR das IST-Such-Verhalten. Die ECHTE Trie-Anatomie (Node4/16/48/
+// 256, LOUDS, wormmeta-Hash-Anchor, Patricia) lebt nur im physischen Paper-Code → eigene s4-Charge
+// (node_type x path_compression x Trie-Traversal Mehr-Achsen-Modell + extern-C-Linking), NICHT #41.
+using OriginalArtOrgan      = LinearScanOrgan;    // S04 ART      (uint8, std::array<optional,256> direct-addressed)
+using OriginalHotOrgan      = SortedBinaryOrgan;  // S05 HOT      (uint8, sorted-vector+lower_bound)
+using OriginalStartOrgan    = SortedBinaryOrgan;  // S06 START    (uint16! sorted-vector — Beleg key_mod=1000)
+using OriginalWormholeOrgan = SortedBinaryOrgan;  // S07 Wormhole (uint8, sorted-vector — KEIN Hash/Trie im Body)
+using OriginalSurfOrgan     = SortedBinaryOrgan;  // S08 SuRF     (uint8, sorted-vector — exaktes K->V im Body)
+
 /// Dokumentiertes Tier→Organ-Paar (für den Äquivalenz-/Rekonstruktions-Test konsumierbar).
 /// `tier` = monolithischer axis_03a-Wrapper (noch Achsen-Wert, bis zur Umstufung).
 /// `organ` = äquivalente Organ-Komposition (das Stufe-1-Gegenstück, das ihn ersetzt).
