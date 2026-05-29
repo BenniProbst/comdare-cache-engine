@@ -42,6 +42,7 @@
 #include <anatomy/measurable_workload.hpp>   // Stufe B: Mess-Last DURCH die geladene DLL
 #include <builder/commands/welch_t_test.hpp>
 #include <builder/commands/multiple_comparison.hpp>   // R6: FWER-Korrektur bei vielen Vergleichen
+#include <builder/commands/result_aggregator.hpp>      // R5.E: Mess-Ergebnisse → CSV/JSON
 
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_vector_u8u8.hpp>
@@ -269,4 +270,66 @@ TEST(F15MultipleComparison, EmptyInputSafe) {
     std::vector<double> p{};
     EXPECT_TRUE(stats::bonferroni_adjust(std::span<const double>{p}).empty());
     EXPECT_TRUE(stats::holm_bonferroni_adjust(std::span<const double>{p}).empty());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// R5.E — ResultAggregator: ExecutionResult-Sammlung → CSV/JSON (maschinenlesbarer F15-Export).
+// ─────────────────────────────────────────────────────────────────────────────
+
+namespace cmd = ::comdare::cache_engine::builder::commands;
+
+TEST(F15ResultAggregator, CsvHeaderAndRows) {
+    cmd::ExecutionResult a{};
+    a.engine_name = "art";
+    a.throughput_ops_per_sec = 1000000.0;
+    a.latency_p50 = std::chrono::nanoseconds{50};
+    a.latency_p99 = std::chrono::nanoseconds{120};
+    a.memory_footprint_bytes = 4096;
+    a.latency_samples_ns = {1, 2, 3};
+    a.success = true;
+    cmd::ExecutionResult b{};
+    b.engine_name = "hot";
+    b.success = false;
+
+    std::vector<cmd::ExecutionResult> rs{a, b};
+    auto csv = cmd::to_csv(std::span<const cmd::ExecutionResult>{rs});
+    // Header + 2 Daten-Zeilen + finaler newline → 3 newlines.
+    EXPECT_EQ(std::count(csv.begin(), csv.end(), '\n'), 3);
+    EXPECT_NE(csv.find("engine_name,workload_kind"), std::string::npos);  // Header
+    EXPECT_NE(csv.find("\"art\""), std::string::npos);
+    EXPECT_NE(csv.find("\"hot\""), std::string::npos);
+    EXPECT_NE(csv.find(",50,120,"), std::string::npos);  // p50/p99
+    // success als 1/0, n_latency_samples=3 fuer art
+    auto row_a = cmd::to_csv_row(a);
+    EXPECT_NE(row_a.find(",3,1"), std::string::npos);   // n_samples=3, success=1 am Ende
+}
+
+TEST(F15ResultAggregator, JsonArrayOfObjects) {
+    cmd::ExecutionResult a{};
+    a.engine_name = "art";
+    a.throughput_ops_per_sec = 5.0;
+    a.success = true;
+    std::vector<cmd::ExecutionResult> rs{a};
+    auto json = cmd::to_json(std::span<const cmd::ExecutionResult>{rs});
+    EXPECT_EQ(json.front(), '[');
+    EXPECT_EQ(json.back(), ']');
+    EXPECT_NE(json.find("\"engine_name\":\"art\""), std::string::npos);
+    EXPECT_NE(json.find("\"success\":true"), std::string::npos);
+    EXPECT_NE(json.find("\"n_latency_samples\":0"), std::string::npos);
+}
+
+TEST(F15ResultAggregator, JsonEscapesSpecialChars) {
+    cmd::ExecutionResult a{};
+    a.engine_name = "ev\"il\\name";   // " und \ muessen escaped werden
+    std::vector<cmd::ExecutionResult> rs{a};
+    auto json = cmd::to_json(std::span<const cmd::ExecutionResult>{rs});
+    EXPECT_NE(json.find("ev\\\"il\\\\name"), std::string::npos);
+}
+
+TEST(F15ResultAggregator, EmptyCollection) {
+    std::vector<cmd::ExecutionResult> rs{};
+    auto csv = cmd::to_csv(std::span<const cmd::ExecutionResult>{rs});
+    EXPECT_NE(csv.find("engine_name"), std::string::npos);  // nur Header
+    EXPECT_EQ(std::count(csv.begin(), csv.end(), '\n'), 1);
+    EXPECT_EQ(cmd::to_json(std::span<const cmd::ExecutionResult>{rs}), "[]");
 }
