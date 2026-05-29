@@ -25,9 +25,13 @@
 //          [[anatomie-nur-achsen-und-observer]]
 
 #include "anatomy_base.hpp"
+#include "measurable_workload.hpp"   // F15/Stufe B: optionales Mess-Sub-Interface (ABI-sicher)
 #include "../execution_engine/execution_engine_base.hpp"
 
+#include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <random>
 #include <string_view>
 
 namespace comdare::cache_engine::anatomy {
@@ -59,7 +63,7 @@ namespace comdare::cache_engine::anatomy {
 /// setzt state_ in den entsprechenden Hooks. Echte Cache-Preheat/Bulk-Load
 /// kommt mit R5.D (CacheEngineBuilder Workload-Treiber).
 template <AnatomyConcept A>
-class SearchAlgorithmAbiAdapter final : public IAnatomyBase {
+class SearchAlgorithmAbiAdapter final : public IAnatomyBase, public IMeasurableWorkload {
     static_assert(A::genus() == AnatomyGenus::SearchAlgorithm,
                   "SearchAlgorithmAbiAdapter erwartet eine SearchAlgorithm-Gattung-"
                   "Anatomie (AnatomyGenus::SearchAlgorithm). Cross-Genus-Adapter "
@@ -114,6 +118,48 @@ public:
 
     [[nodiscard]] std::size_t organ_count() const noexcept override {
         return A::organ_count();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // IMeasurableWorkload-Override (F15 / Stufe B): Mess-Last DURCH die DLL
+    // ─────────────────────────────────────────────────────────────────────
+
+    /// Fährt die insert/lookup-Last auf der EIGENEN search_algo-Struktur der Komposition
+    /// (A::composition_t::search_algo) — kompiliert IN der DLL, misst also die geladene Komposition.
+    [[nodiscard]] std::uint64_t run_workload(std::uint64_t ops_per_batch,
+                                             std::uint64_t batches,
+                                             std::uint64_t seed,
+                                             std::int64_t* out_latencies_ns,
+                                             std::uint64_t out_capacity) noexcept override {
+        if (out_latencies_ns == nullptr || out_capacity == 0 || batches == 0 || ops_per_batch == 0) {
+            return 0;
+        }
+        try {
+            using SearchAlgo = typename A::composition_t::search_algo;
+            using K          = typename SearchAlgo::key_type;
+            SearchAlgo algo;
+            for (int k = 0; k < 256; ++k) {
+                algo.insert(static_cast<K>(k), static_cast<std::uint64_t>(k) * 7u + 1u);
+            }
+            std::mt19937_64 rng{seed};
+            auto do_batch = [&]() -> std::int64_t {
+                std::uint64_t sink = 0;
+                auto const t0 = std::chrono::steady_clock::now();
+                for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
+                    auto v = algo.lookup(static_cast<K>(rng() & 0xFFu));
+                    if (v) sink += *v;
+                }
+                auto const t1 = std::chrono::steady_clock::now();
+                auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+                return (sink == ~0ull) ? (ns ^ 1) : ns;  // sink-Nutzung gegen Wegoptimierung
+            };
+            do_batch();  // Warmup (verworfen)
+            std::uint64_t const n = (batches < out_capacity) ? batches : out_capacity;
+            for (std::uint64_t b = 0; b < n; ++b) out_latencies_ns[b] = do_batch();
+            return n;
+        } catch (...) {
+            return 0;  // noexcept-Vertrag: interne Exception (z.B. OOM) → 0 Samples
+        }
     }
 
 private:
