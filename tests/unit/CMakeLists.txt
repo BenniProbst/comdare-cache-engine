@@ -811,3 +811,38 @@ else()
         "Build the tool first: cmake --build . --target comdare_anatomy_codegen_cli, "
         "then re-configure to enable the R5.I pilot test.")
 endif()
+
+# V41.F.6.1 F.5 — comdare_perms_pa Pilot: Pruefling-Stufe-2-Composition -> DLL (Plugin-Controller).
+# MATERIALISIERT die prt-art-Composition als Permutations-Binary (Beweis "Binaries aus Rekombinationen").
+# Nur aktiv wenn ein Pruefling geladen ist (COMDARE_PRUEFLING_INCLUDE_DIRS via COMDARE_CE_PRUEFLINGE)
+# UND das Codegen-Tool bereits gebaut wurde (2-Pass-Build, wie R5.I).
+if(COMDARE_PRUEFLING_INCLUDE_DIRS)
+    set(_pa_snippet   "${CMAKE_BINARY_DIR}/generated/comdare_perms_pa_list.cmake")
+    set(_pa_pilot_dir "${CMAKE_BINARY_DIR}/generated/comdare_perms_pa_modules")
+    comdare_run_anatomy_codegen_tool(
+        OUTPUT       "${_pa_snippet}"
+        NO_KNOWN
+        LIBRARY_TYPE SHARED
+        EXTERNAL_COMPOSITIONS
+            "prtart-demo|::comdare::prt_art::slots::PrtArtCompositionDemo|prt_art/slots/prt_art_composition_demo.hpp"
+        STATUS_OUT   _pa_status)
+
+    if(_pa_status STREQUAL "FOUND" AND EXISTS "${_pa_snippet}")
+        include("${_pa_snippet}")
+        comdare_codegen_anatomy_module_list(
+            PILOT_PREFIX  "comdare_perms_pa_pilot"
+            OUTPUT_DIR    "${_pa_pilot_dir}"
+            LIBRARY_TYPE  ${COMDARE_PERMUTATION_LIBRARY_TYPE}
+            COMPOSITIONS  ${COMDARE_PERMUTATION_COMPOSITIONS}
+            TARGETS_OUT   _pa_pilot_targets)
+        # prt-art-Include-Pfad auf die generierten DLL-Targets (Composition-Header liegt in prt-art).
+        foreach(_pa_t IN LISTS _pa_pilot_targets)
+            target_include_directories(${_pa_t} PRIVATE ${COMDARE_PRUEFLING_INCLUDE_DIRS})
+        endforeach()
+        message(STATUS
+            "F.5 comdare_perms_pa: Pruefling-Stufe-2-DLL-Codegen ACTIVE (targets=${_pa_pilot_targets})")
+    else()
+        message(STATUS
+            "F.5 comdare_perms_pa: SKIPPED (status=${_pa_status}; Tool zuerst bauen + reconfigure).")
+    endif()
+endif()
