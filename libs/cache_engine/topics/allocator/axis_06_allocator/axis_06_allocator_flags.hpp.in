@@ -52,11 +52,15 @@ namespace comdare::cache_engine::allocator::axis_06_allocator::flags {
 // Batch 8 Vendor (V41.F.6.1 2026-05-26) — VOLLAUSBAU-Abschluss
 #cmakedefine01 COMDARE_AXIS_06_USE_PTMALLOC2
 #cmakedefine01 COMDARE_AXIS_06_USE_VMEM_MAG
+// V41.F.6.1 R5.B (2026-05-29) — PoolResourceAllocator: eigener std::pmr::unsynchronized_pool_resource,
+// behavioral-distinkt von System-malloc OHNE externes Linking (macht Allocator-Achse F15-operativ).
+#cmakedefine01 COMDARE_AXIS_06_USE_POOL
 
 inline constexpr bool std_enabled        = COMDARE_AXIS_06_USE_STD;
 inline constexpr bool mimalloc_enabled   = COMDARE_AXIS_06_USE_MIMALLOC;
 inline constexpr bool snmalloc_enabled   = COMDARE_AXIS_06_USE_SNMALLOC;
 inline constexpr bool pmr_enabled        = COMDARE_AXIS_06_USE_PMR;
+inline constexpr bool pool_enabled       = COMDARE_AXIS_06_USE_POOL;
 inline constexpr bool jemalloc_enabled   = COMDARE_AXIS_06_USE_JEMALLOC;
 inline constexpr bool tcmalloc_enabled   = COMDARE_AXIS_06_USE_TCMALLOC;
 inline constexpr bool dlmalloc_enabled   = COMDARE_AXIS_06_USE_DLMALLOC;

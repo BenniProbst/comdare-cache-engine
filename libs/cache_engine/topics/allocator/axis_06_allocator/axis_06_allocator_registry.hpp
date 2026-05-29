@@ -55,6 +55,8 @@
 // Batch 8 (2026-05-26) — VOLLAUSBAU-Abschluss
 #include "axis_06_allocator_ptmalloc2.hpp"
 #include "axis_06_allocator_vmem_mag.hpp"
+// V41.F.6.1 R5.B (2026-05-29) — eigener std::pmr-Pool, behavioral-distinkt ohne externes Linking
+#include "axis_06_allocator_pool_resource.hpp"
 
 #include <boost/mp11.hpp>
 
@@ -103,8 +105,10 @@ using AllVendors = mp::mp_list<
     BuddyAllocator,
     // Batch 8 (2026-05-26) — VOLLAUSBAU-Abschluss A21+A23
     PtMalloc2Allocator,
-    VmemMagazinesAllocator
-    // Allocator-Achse 6 KOMPLETT (24 Vendor: Batch 1-8)
+    VmemMagazinesAllocator,
+    // V41.F.6.1 R5.B (2026-05-29) — eigener std::pmr::unsynchronized_pool_resource (F15-operativ)
+    PoolResourceAllocator
+    // Allocator-Achse 6 KOMPLETT (25 Vendor: Batch 1-8 + R5.B Pool)
 >;
 
 // ───────────────────────────────────────────────────────────────────────────

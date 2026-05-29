@@ -22,6 +22,7 @@ Echtes `is_original`-Linking (OSS + permissiv) haben 6 Wrapper dieser Achse: Mim
 | NUMAllocAllocator | NUMAlloc (NUMA origin-aware Allocator) | NUMAlloc: A Faster NUMA Memory Allocator | ISMM 2023 | 10.1145/3591195.3595276 | OSS | unknown (vermutl. Apache-2.0) | ✗ |
 | PIMMallocAllocator | PIM-malloc (Processing-In-Memory Allocator) | PIM-malloc: A Fast and Scalable Dynamic Memory Allocator for PIM… | HPCA 2026 (arXiv 2025) | arxiv.org/abs/2505.13002 | OSS | MIT | ✗ |
 | PmrResourceAllocator | std::pmr::memory_resource | N3916: Polymorphic Memory Resources (WG21) | WG21 2014 → C++17 | open-std.org/.../n3916.pdf | OSS | Standard-Library | ✗ |
+| PoolResourceAllocator | std::pmr::unsynchronized_pool_resource (eigener Size-Class-Pool) | N3916: Polymorphic Memory Resources (WG21) | WG21 2014 → C++17 | open-std.org/.../n3916.pdf | OSS | Standard-Library | ✗ |
 | PtMalloc2Allocator | ptmalloc2 (glibc malloc) | — (kein Peer-Review; Gloger/Lea) | 1990er-2000er | malloc.de/en/ | OSS | LGPL-2.1+ | ✗ |
 | BuddyAllocator | Buddy System (Power-of-2 Splitting) | A Fast Storage Allocator (Buddy); Knuth TAOCP Vol.1 | CACM 1965; TAOCP 1968 | 10.1145/365628.365655 | nein | none | ✗ |
 | ExgenAllocator | Exgen-Malloc (Single-Threaded Specialized) | Old is Gold: Optimizing Single-threaded Applications with Exgen-Malloc | IEEE CAL 2025 (UT Austin) | arxiv.org/abs/2510.10219 | ? | unknown | ✗ |
@@ -47,7 +48,9 @@ Echtes `is_original`-Linking (OSS + permissiv) haben 6 Wrapper dieser Achse: Mim
 > - ExgenAllocator: vage "Exception-Generated Single-Thread" → präzisiert "Old is Gold", UT Austin, IEEE CAL 2025.
 
 ## §3 Compliance-Status
-Alle 24 Allocator-Wrapper (RPMallocInitGuard ist Guard, kein Allocator) haben entweder eine Paper-Referenz oder sind explizit als Baseline/Lehrbuch gekennzeichnet (StdMalloc = libc-Baseline; Buddy/Slab/Vmem = Lehrbuch-/Kernel-Klassiker ohne OSS-Code). → Habich-Pflicht erfuellt.
+Alle 25 Allocator-Wrapper (RPMallocInitGuard ist Guard, kein Allocator) haben entweder eine Paper-Referenz oder sind explizit als Baseline/Lehrbuch gekennzeichnet (StdMalloc = libc-Baseline; Buddy/Slab/Vmem = Lehrbuch-/Kernel-Klassiker ohne OSS-Code; PoolResourceAllocator = std::pmr-Standardbibliothek, R5.B 2026-05-29). → Habich-Pflicht erfuellt.
+
+**R5.B-Hinweis (2026-05-29):** PoolResourceAllocator ist der erste axis_06-Wrapper, der sich OHNE externes Linking verhaltens-distinkt von System-malloc verhaelt (besitzt einen eigenen unsynchronized_pool_resource statt new_delete-Fallback). Damit wird die Allocator-Achse F15-operativ (nicht-hohle 2-Achsen-Messung search_algo × allocator moeglich, vs. die uebrigen Wrapper, die ohne Vendor-Linking auf portable_aligned_alloc = System zurueckfallen).
 
 **is_original-Linking-Kandidaten dieser Achse (Map §3, alle bereits aktiv mit OriginalCodeMixin, is_original 2/2):**
 - MimallocAllocator — github.com/microsoft/mimalloc — MIT
