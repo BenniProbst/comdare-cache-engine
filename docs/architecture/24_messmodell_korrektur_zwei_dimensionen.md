@@ -116,4 +116,65 @@ Die Messung hat **zwei getrennte Dimensionen** plus eine separate Vergleichs-Dim
 
 ---
 
+## §5 Verifikation: Trennung CacheEngineBuilder ↔ Suchalgorithmus-Composition (Ist-Zustand 2026-05-29)
+
+**Frage (User):** Besteht die Trennung zwischen CacheEngineBuilder und den erzeugten
+Suchalgorithmus-Compositions noch?
+
+**Antwort:** **Formal JA — aber der Datenfluss ist über DREI Pfade FRAGMENTIERT** (Befund-Verifikation
+im Code, nicht behauptet).
+
+### §5.1 Formal korrekt (Doku 14 §17.2/§24 R5.B umgesetzt)
+
+| Einheit | Inhalt | Trennungs-Konformität |
+|---------|--------|------------------------|
+| `Composition` (AdHocComposition<17>) | reines 17-Achsen-**Typ**-Tupel (using-Aliases) | ✅ nur Typ-Bündel |
+| `SearchAlgorithmAnatomy<C>` | **Organe + observe_all()** — KEIN insert/lookup/erase/Container | ✅ Container-API entfernt (R5.B) |
+| `AnatomyExecutionContext<C>` (Builder) | hält `anatomy_` + `container_` + insert/lookup/erase/clear/size-**Commands** | ✅ Container+Commands im Builder |
+
+→ Die R5.B-Korrektur (Container raus aus der Anatomie, rein in den Builder) IST vollzogen; die
+Anatomie ist sauber „nur Organe + Observer".
+
+### §5.2 ABER: drei DISKONNEKTIERTE Container/Antriebs-Pfade (Fragmentierung)
+
+| Pfad | Wo lebt der „Container"? | Wer treibt ihn? | Observer-Anschluss |
+|------|--------------------------|------------------|--------------------|
+| **(1) Anatomie-Organ** | `anatomy_.axis_search_algo_` (Säule-2-Fix) | **niemand** (Produktionspfad) | observe_all() liest IHN |
+| **(2) Builder-Context** | `container_` = `std::map<uint64,uint64>` (R5.B-Pilot-Platzhalter) | insert/lookup/erase | observe_all() liest NICHT ihn → **liefert 0** |
+| **(3) ABI-Mess-Adapter** | lokales `SearchAlgo algo;` in `run_workload` | run_workload (Wall-Clock) | gar keiner (lokal, verworfen) |
+
+**Konkrete Gaps (verifiziert):**
+- **`AnatomyExecutionContext::observe_all()` liefert NULL-Statistik:** der Context treibt `container_`
+  (std::map), aber observe_all() delegiert an `anatomy_.observe_all()` — und das Anatomie-Organ ist
+  ungetrieben. Container und Observer sind ENTKOPPELT.
+- **`abi_adapter::run_workload` umgeht beides:** misst Wall-Clock eines lokalen Organs, weder
+  Builder-Container noch Anatomie-Organ/Observer.
+
+### §5.3 Ziel-Zustand (Vereinheitlichung — Säule-2-Fortsetzung)
+
+Der Builder (AnatomyExecutionContext) MUSS die **Anatomie-Organe** treiben (statt eines losgelösten
+std::map), sodass:
+- die „Container"-Aufgabe in den Organen lebt (von der Anatomie gehalten, Doku 14 §17.2),
+- der Builder sie über Commands treibt,
+- `observe_all()` die ECHTEN getriebenen Organ-Statistiken liefert (Säule-2-Trace),
+- die Mess-Last (abi_adapter) über Builder/Anatomie statt eines lokalen Organs läuft.
+
+**Blocker für die Vereinheitlichung:** Key-Type-Mismatch — `SearchAlgorithmAnatomy::key_type = uint64`,
+aber die Such-Organe (Array256 = uint8, BST/B-Baum = uint16) haben eigene, schmalere Key-Typen. Der
+std::map<uint64,uint64> im Builder umgeht das; das Treiben des Organs erfordert eine bewusste
+Reconciliation (Anatomie-Key-Typ aus der Composition ableiten ODER Organ über Anatomie-Key
+parametrisieren). Dieser Mismatch ist selbst ein Symptom der Säule-1-Modellierung (Organe mit eigenen
+Key-Typen statt komponierbarer Traversal-Organe über einen gemeinsamen Key).
+
+### §5.4 Konsequenz für die Reihenfolge
+
+Die Säule-2-Vereinheitlichung (Builder treibt Organ → observe_all real im Mess-Pfad) ist mit der
+Key-Type-Reconciliation **verschränkt mit Säule 1** (Organ-Key-Typen). Saubere Reihenfolge:
+1. observe_all-Mechanismus real (✅ erledigt, §2.2).
+2. Builder-Context auf Anatomie-Organ-Antrieb umstellen + Key-Type-Reconciliation (Säule-2 ↔ Säule-1-Brücke).
+3. abi_adapter-Mess-Last über den Builder/Anatomie statt lokalem Organ.
+4. axis_03a entschärfen (Säule 1).
+
+---
+
 **Ende Doku 24 — Mess-Modell-Korrektur (2026-05-29).**
