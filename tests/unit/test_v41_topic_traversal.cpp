@@ -14,6 +14,7 @@
 #include <topics/nodes/axis_04_node_type/axis_04_node_type_composed_store.hpp>     // Saeule-1 Inc2: 3-Achsen-Storage-Organ (N,L,A)
 #include <topics/traversal/axis_03a_search_algo/composable/interpolation_traversal_organ.hpp>  // Roadmap-2 INC-2a
 #include <topics/traversal/axis_03a_search_algo/composable/galloping_traversal_organ.hpp>      // Roadmap-2 INC-2a
+#include <topics/traversal/axis_03a_search_algo/composable/composed_tree_search.hpp>           // Roadmap-2 INC-2b (BST-Pool)
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_pmr_resource.hpp>   // Saeule-1 Inc2: PMR-Anker (immer verfuegbar)
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_density_classified_strategy_concept.hpp>
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_simd_capable_strategy_concept.hpp>
@@ -747,6 +748,49 @@ TEST(Saeule1_ComposedStore, InterpolationAndGallopingOverComposedStore) {
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, StorePmr>>(100000u, 2000u);
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan,     StorePmr>>(100000u, 2000u);
     SUCCEED();  // Interpolation/Galloping ⊕ ComposedStore<N,L,A>, std::map-aequivalent
+}
+
+// V41 Roadmap-2 INC-2b (Doku 24 §6) — BAUM-Organ ueber eigenstaendigem TreeNodePool (index-stabil, NICHT
+// das flache StorageOrgan). BSTTraversalOrgan ⊕ TreeNodePoolStore = ComposedTreeSearch, std::map-aequivalent
+// ueber breitem uint64-Key. Liefert das Organ-Pendant fuer die monolithischen BST/B-Baum-Tier-Wrapper
+// (entblockt Tier-Wrapper-Umstufung, Task #40).
+TEST(Saeule1_TreePoolOrgan, BSTMatchesStdMapOverWideKeys) {
+    static_assert(ce_cmp::TreeNodePool<ce_cmp::TreeNodePoolStore>);
+    static_assert(ce_cmp::TreeTraversalOrgan<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore>);
+    static_assert(std::is_same_v<ce_cmp::TreeNodePoolStore::key_type, std::uint64_t>);
+    // key_mod=100000 (>65535) → breite uint64-Keys (anders als der uint16-Tier-Wrapper).
+    verify_matches_std_map<ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore>>(100000u, 2000u);
+    SUCCEED();  // BST-Organ ⊕ Pool, std::map-aequivalent, breiter Key
+}
+
+// Haertung analog SearchAlgo_BST (degenerierte sortierte Einfuege-Reihenfolge = reine rechte Kette) +
+// Hibbard-Deletion aller 3 Faelle (Blatt / 1 Kind / 2 Kinder) — jetzt ueber dem uint64-Pool-Organ.
+TEST(Saeule1_TreePoolOrgan, BSTDegenerateSortedInputAndHibbardErase) {
+    ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore> s{};
+    for (std::uint64_t k = 1; k <= 300; ++k) s.insert(k, k * 2u);   // sortiert → reine rechte Kette
+    EXPECT_EQ(s.occupied_count(), 300u);
+    for (std::uint64_t k = 1; k <= 300; ++k) {
+        auto v = s.lookup(k);
+        ASSERT_TRUE(v.has_value()) << "key=" << k;
+        EXPECT_EQ(*v, k * 2u);
+    }
+    EXPECT_FALSE(s.lookup(0u).has_value());
+    EXPECT_FALSE(s.lookup(301u).has_value());
+    // Hibbard: Blatt (300), Wurzel (1, nur rechtes Kind), innerer Knoten mit 2 Kindern (150).
+    EXPECT_TRUE(s.erase(300u));
+    EXPECT_TRUE(s.erase(1u));
+    EXPECT_TRUE(s.erase(150u));
+    EXPECT_EQ(s.occupied_count(), 297u);
+    EXPECT_FALSE(s.lookup(300u).has_value());
+    EXPECT_FALSE(s.lookup(1u).has_value());
+    EXPECT_FALSE(s.lookup(150u).has_value());
+    EXPECT_TRUE(s.lookup(149u).has_value());   // Nachbarn intakt
+    EXPECT_TRUE(s.lookup(151u).has_value());
+    EXPECT_FALSE(s.erase(150u));               // bereits geloescht → false
+    // Rest abbauen → leerer Baum.
+    for (std::uint64_t k = 2; k <= 299; ++k) { if (k != 150u) (void)s.erase(k); }
+    EXPECT_EQ(s.occupied_count(), 0u);
+    EXPECT_FALSE(s.lookup(149u).has_value());
 }
 
 // =================================================================
