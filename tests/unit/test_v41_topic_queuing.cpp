@@ -162,6 +162,42 @@ TEST(Q1BufferStrategy_LIFO, LifoOrder) {
     EXPECT_TRUE(s.is_empty());
 }
 
+TEST(Q1BufferStrategy_AppendOnly, FifoOrderViaCursorNoShift) {
+    q1::AppendOnlyBuffer a{};
+    a.put(10); a.put(20); a.put(30);
+    EXPECT_EQ(a.size(), 3u);
+    EXPECT_EQ(*a.peek_front(), 10u);
+    EXPECT_EQ(*a.peek_back(),  30u);
+    EXPECT_EQ(*a.get(), 10u);  // O(1)-Cursor-Drain, kein Shift
+    EXPECT_EQ(*a.get(), 20u);
+    EXPECT_EQ(a.size(), 1u);
+    EXPECT_EQ(*a.get(), 30u);
+    EXPECT_TRUE(a.is_empty());
+    EXPECT_FALSE(a.get().has_value());  // Underflow -> nullopt
+}
+
+TEST(Q1BufferStrategy_AppendOnly, DrainAllFull) {
+    q1::AppendOnlyBuffer a{};
+    a.put(1); a.put(2); a.put(3); a.put(4);
+    auto drained = a.drain_all();  // gesamter Buffer ungedraint -> Move
+    ASSERT_EQ(drained.size(), 4u);
+    EXPECT_EQ(drained[0], 1u);
+    EXPECT_EQ(drained[3], 4u);
+    EXPECT_TRUE(a.is_empty());
+    EXPECT_TRUE(a.drain_all().empty());  // erneuter Drain -> leer
+}
+
+TEST(Q1BufferStrategy_AppendOnly, DrainAllAfterPartialGet) {
+    q1::AppendOnlyBuffer a{};
+    a.put(7); a.put(8); a.put(9);
+    EXPECT_EQ(*a.get(), 7u);          // 7 gedraint, drain_pos_=1
+    auto rest = a.drain_all();        // liefert nur den Rest [8,9]
+    ASSERT_EQ(rest.size(), 2u);
+    EXPECT_EQ(rest[0], 8u);
+    EXPECT_EQ(rest[1], 9u);
+    EXPECT_TRUE(a.is_empty());
+}
+
 TEST(Q1BufferStrategy_BoundedRing, OverflowDropsOldest) {
     q1::BoundedRingBuffer r{4};  // capacity=4
     r.put(1); r.put(2); r.put(3); r.put(4);

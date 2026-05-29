@@ -71,8 +71,8 @@ public:
 #endif
     }
 
-    /// Drain vom Anfang (FIFO-Semantik). O(N) Verschieben — fuer Bulk-Drain
-    /// drain_all() noch effizienter (TODO Vollausbau).
+    /// Drain vom Anfang (FIFO-Semantik). O(1) amortisiert via drain_pos_-Cursor (KEIN Element-Shift);
+    /// bei vollstaendigem Drain wird der Vector freigegeben. Fuer Bulk-Drain siehe drain_all().
     [[nodiscard]] std::optional<element_type> get() {
         if (drain_pos_ >= data_.size()) {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -92,6 +92,28 @@ public:
         observer_.notify(stats_);
 #endif
         return v;
+    }
+
+    /// Bulk-Drain (Vollausbau): liefert ALLE noch nicht gedrainten Elemente in Append-Reihenfolge und
+    /// leert den Buffer. O(M) fuer M = size() verbleibende Elemente via EINMALIGEM Move statt M× get()
+    /// (cache-freundlich, erfuellt den dokumentierten Bulk-Drain-Zweck — vgl. LSM-MemTable-Flush). Wenn
+    /// noch nichts gedraint wurde (drain_pos_==0), wird der gesamte Vector per Move uebergeben (O(1)
+    /// Buffer-Transfer). [[allocation-failure-exception]]: kann bei drain_pos_>0 std::bad_alloc werfen.
+    [[nodiscard]] std::vector<element_type> drain_all() {
+        std::vector<element_type> out;
+        if (drain_pos_ == 0) {
+            out = std::move(data_);  // ganzer Buffer ungedraint -> Move (kein Kopieren)
+        } else if (drain_pos_ < data_.size()) {
+            out.assign(std::make_move_iterator(data_.begin() + static_cast<std::ptrdiff_t>(drain_pos_)),
+                       std::make_move_iterator(data_.end()));
+        }
+        data_.clear();
+        drain_pos_ = 0;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_.total_get_count += out.size();
+        observer_.notify(stats_);
+#endif
+        return out;
     }
 
     [[nodiscard]] size_type size()     const noexcept { return data_.size() - drain_pos_; }
