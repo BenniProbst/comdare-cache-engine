@@ -200,3 +200,43 @@ TEST(R5B_AnatomyApiStripped, SearchAlgorithmAnatomyHasNoInsert) {
     static_assert(HasInsertMethod<bcmd::AnatomyExecutionContext<ce_compos::ArtComposition>>);
     SUCCEED();
 }
+
+// V41 Saeule-2 (Doku 24 §5.2/§5.3) — observe_all() liefert ECHTE Per-Achsen-Statistik aus dem GETRIEBENEN
+// uint64-Container (ObservableComposedSearch). Dieser Test scheiterte mit der frueheren losgelosten std::map
+// (alle Zaehler 0) → er beweist die Schliessung der observe_all-NULL-Luecke. Nur unter STATISTICS (sonst
+// existieren snapshot_t/statistics() nicht und observe_all liefert reine Anatomie-Defaults).
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+namespace comp = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable;
+
+// Compile-Selbstbeweis: der getriebene Container IST eine ObservableAxis (observer_aggregate.hpp:40-44).
+static_assert(ana::ObservableAxis<comp::ObservableComposedSearch<comp::SortedBinaryTraversal, comp::RawSlotStore>>);
+
+TEST(R5B_ObserveReal, SearchAlgoCountersReflectDrivenOps) {
+    bcmd::AnatomyExecutionContext<ce_compos::ArtComposition> ctx;
+    EXPECT_TRUE(ctx.insert(1, 100));
+    EXPECT_TRUE(ctx.insert(2, 200));
+    EXPECT_TRUE(ctx.insert(3, 300));
+    auto const s1 = ctx.observe_all().search_algo;
+    EXPECT_EQ(s1.total_insert_count, 3u);
+    EXPECT_GE(s1.peak_occupancy,     3u);
+
+    EXPECT_TRUE (ctx.lookup(2).has_value());    // hit
+    EXPECT_FALSE(ctx.lookup(999).has_value());  // miss (uint64 → kein narrow-key-Alias wie 999%256)
+    auto const s2 = ctx.observe_all().search_algo;
+    EXPECT_EQ(s2.total_lookup_count, 2u);
+    EXPECT_EQ(s2.total_hit_count,    1u);
+    EXPECT_EQ(s2.total_miss_count,   1u);
+
+    EXPECT_TRUE(ctx.erase(2));
+    auto const s3 = ctx.observe_all().search_algo;
+    EXPECT_EQ(s3.total_erase_count, 1u);
+
+    // Idempotenz: observe_all ohne State-Aenderung liefert identische Zaehler (reiner Snapshot-Read).
+    auto const s3b = ctx.observe_all().search_algo;
+    EXPECT_EQ(s3.total_insert_count, s3b.total_insert_count);
+    EXPECT_EQ(s3.total_lookup_count, s3b.total_lookup_count);
+
+    // search_algo-Slot ist observable (>= 1 observable Achse im Aggregat).
+    EXPECT_GE(decltype(ctx.observe_all())::observable_count(), 1u);
+}
+#endif
