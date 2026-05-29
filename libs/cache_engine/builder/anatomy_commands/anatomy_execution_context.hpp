@@ -14,14 +14,16 @@
 #include <anatomy/composition_concept.hpp>
 #include <anatomy/observer_aggregate.hpp>
 #include <topics/traversal/axis_03a_search_algo/composable/observable_composed_search.hpp>  // Saeule-2
+#include <topics/nodes/axis_04_node_type/axis_04_node_type_composed_store.hpp>               // Roadmap-1: allocator real
 
 #include <cstdint>
 #include <optional>
 
 namespace comdare::cache_engine::builder::anatomy_commands {
 
-namespace ana  = ::comdare::cache_engine::anatomy;
-namespace comp = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable;
+namespace ana   = ::comdare::cache_engine::anatomy;
+namespace comp  = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable;
+namespace nodes = ::comdare::cache_engine::nodes::axis_04_node_type;
 
 /// AnatomyExecutionContext — Builder-Side Container + Anatomie-Holder.
 ///
@@ -35,10 +37,15 @@ public:
     using observer_aggregate_t = typename anatomy_t::observer_aggregate_t;
     using key_type             = std::uint64_t;
     using value_type           = std::uint64_t;
-    // Saeule-2 (Doku 24 §5.3/§5.5): GETRIEBENER uint64-Container statt losgelostem std::map —
-    // ObservableComposedSearch liefert echte search_algo-Statistik (Composition-unabhaengig; RawSlotStore
-    // vector-backed → keine Allocator-Adapter-Lifetime-Falle; SortedBinary fuer deterministisches lookup).
-    using container_t          = comp::ObservableComposedSearch<comp::SortedBinaryTraversal, comp::RawSlotStore>;
+    // Saeule-2 (Doku 24 §5.3/§5.5) + Roadmap-1: GETRIEBENER uint64-Container statt losgelostem std::map.
+    // Inneres Storage-Organ ist jetzt ComposedStore<N,L,A> mit der Composition-Allocator-Achse → dessen
+    // Vector-Growth treibt die Allocator-Statistik REAL (2. observierbare Achse). ObservableComposedSearch
+    // haelt den Store by value (nie kopiert) → ComposedStore Copy/Move=delete (Derived*-Lifetime) vertraeglich.
+    using container_t          = comp::ObservableComposedSearch<
+        comp::SortedBinaryTraversal,
+        nodes::ComposedStore<typename Composition::node_type,
+                             typename Composition::memory_layout,
+                             typename Composition::allocator>>;
 
     /// Default-konstruiert — Anatomie + leeren Container
     AnatomyExecutionContext() = default;
@@ -68,9 +75,16 @@ public:
     [[nodiscard]] observer_aggregate_t observe_all() const noexcept {
         observer_aggregate_t agg = anatomy_.observe_all();
 #ifdef COMDARE_CE_ENABLE_STATISTICS
+        // Achse 1 (search_algo) — echte Zaehler aus dem getriebenen Container.
         if constexpr (ana::ObservableAxis<container_t>
                    && ana::ObservableAxis<typename Composition::search_algo>) {
-            agg.search_algo = container_.statistics();  // echte Per-Achsen-Statistik (Doku 24 §5.2-Luecke geschlossen)
+            agg.search_algo = container_.statistics();  // Doku 24 §5.2-Luecke geschlossen
+        }
+        // Achse 2 (allocator, Roadmap-1) — der innere ComposedStore-Vector treibt die Allocator-Achse REAL.
+        // Doppeltes Gate: Composition::allocator observable UND der Store bietet allocator_statistics().
+        if constexpr (ana::ObservableAxis<typename Composition::allocator>
+                   && container_t::template store_has_allocator_stats<typename container_t::store_type>) {
+            agg.allocator = container_.store_allocator_statistics();
         }
 #endif
         return agg;

@@ -239,4 +239,37 @@ TEST(R5B_ObserveReal, SearchAlgoCountersReflectDrivenOps) {
     // search_algo-Slot ist observable (>= 1 observable Achse im Aggregat).
     EXPECT_GE(decltype(ctx.observe_all())::observable_count(), 1u);
 }
+
+// V41 Roadmap-1 (Doku 24 §2.2) — ZWEITE real-getriebene Achse: der innere ComposedStore<N,L,A> treibt
+// ueber seinen Allocator-Adapter (Vector-Growth bei insert/erase) die Allocator-Achse. Damit liefert EIN
+// observe_all() aus EINEM Workload zwei verschiedene echte Snapshot-Typen (search_algo + allocator).
+static_assert(ana::ObservableAxis<ce_compos::ArtComposition::allocator>);
+
+TEST(R5B_ObserveMultiAxes, SearchAlgoAndAllocatorBothDrivenFromOneWorkload) {
+    bcmd::AnatomyExecutionContext<ce_compos::ArtComposition> ctx;
+    for (std::uint64_t i = 0; i < 100u; ++i) ctx.insert(i, i * 2u + 1u);
+    for (std::uint64_t i = 0; i < 100u; ++i) (void)ctx.lookup(i);
+    auto const agg = ctx.observe_all();
+
+    // Achse 1 (search_algo) — wie bisher.
+    EXPECT_EQ(agg.search_algo.total_insert_count, 100u);
+    EXPECT_EQ(agg.search_algo.total_lookup_count, 100u);
+    EXPECT_EQ(agg.search_algo.total_hit_count,    100u);
+
+    // Achse 2 NEU (allocator) — aus dem Vector-Growth des inneren ComposedStore.
+    EXPECT_GT(agg.allocator.allocation_count,   0u);
+    EXPECT_GT(agg.allocator.total_bytes_in_use, 0u);
+
+    // Zwei verschiedene Snapshot-Typen gleichzeitig aus EINEM observe_all().
+    static_assert(!std::is_same_v<decltype(agg.search_algo), decltype(agg.allocator)>);
+
+    // >= 2 observable Achsen (search_algo + allocator); <= 17 gesamt.
+    EXPECT_GE(decltype(agg)::observable_count(), 2u);
+    EXPECT_LE(decltype(agg)::observable_count(), 17u);
+
+    // Idempotenz: observe_all ohne State-Aenderung liefert identische Zaehler (reiner Snapshot-Read).
+    auto const agg2 = ctx.observe_all();
+    EXPECT_EQ(agg.allocator.allocation_count,     agg2.allocator.allocation_count);
+    EXPECT_EQ(agg.search_algo.total_insert_count, agg2.search_algo.total_insert_count);
+}
 #endif

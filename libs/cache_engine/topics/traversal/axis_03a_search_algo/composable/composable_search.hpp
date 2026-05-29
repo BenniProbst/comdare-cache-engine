@@ -127,6 +127,8 @@ public:
     bool erase(key_type k)                                { return Traversal::template erase_from<Store>(store_, k); }
     [[nodiscard]] std::size_t occupied_count()      const noexcept { return store_.slot_count(); }
     void clear()                                          noexcept { store_.clear(); }
+    // Saeule-2: read-only Zugriff auf das Storage-Organ (z.B. fuer den Allocator-Statistik-Durchgriff).
+    [[nodiscard]] Store const& store()              const noexcept { return store_; }
 
 private:
     Store store_;

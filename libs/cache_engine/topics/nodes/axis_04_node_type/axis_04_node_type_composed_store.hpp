@@ -91,6 +91,15 @@ public:
                                  slots_.size(), sizeof(slot_t));
     }
 
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    // Saeule-2 (Doku 24 §2.2): Durchgriff auf die Allocator-Achsen-Statistik. NICHT-Vertrags-Methode
+    // (StorageOrgan fordert statistics() bewusst nicht); A::statistics() ist unter STATISTICS Pflicht-API
+    // (CacheEnginePermutationStrategy). Der Allocator wird durch slots_-Vector-Growth (insert/erase) real
+    // getrieben → allocation_count/total_bytes_in_use sind workload-getrieben.
+    using allocator_snapshot_t = typename A::snapshot_t;   // == allocator::…::AllocationStatistics
+    [[nodiscard]] allocator_snapshot_t allocator_statistics() const noexcept { return allocator_.statistics(); }
+#endif
+
     // --- Lifetime: der StdAllocatorAdapter haelt einen Derived*-Zeiger auf allocator_ ---
     // allocator_ MUSS vor slots_ deklariert sein; slots_ wird mit allocator_.as_std_allocator<slot_t>()
     // konstruiert. Copy/Move bewusst geloescht — der Adapter haelt &allocator_, eine korrekte
@@ -104,9 +113,8 @@ public:
     ~ComposedStore()                               = default;
 
 private:
-    using slot_t     = std::pair<key_type, value_type>;
-    using slot_alloc = typename A::template StdAllocatorAdapter<slot_t>;
-
+    // slot_t/slot_alloc sind oben (vor den public-Membern) deklariert — KEINE Re-Deklaration hier
+    // (frueheres Doppel war MSVC-toleriert, aber GCC/Clang-brechend; Cleanup Roadmap-1).
     A allocator_;                              // VOR slots_ (Lifetime des Derived*-Zeigers im Adapter)
     std::vector<slot_t, slot_alloc> slots_;
 };
