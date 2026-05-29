@@ -17,9 +17,12 @@
 #include "execution_result.hpp"
 #include "welch_t_test.hpp"
 #include "multiple_comparison.hpp"
+#include "result_aggregator.hpp"   // reuse detail::csv_quote + detail::json_escape (DRY)
 
 #include <cstddef>
 #include <span>
+#include <sstream>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -74,6 +77,50 @@ struct MultiCompareReport {
         if (rep.comparisons[i].significant) ++rep.significant_count;
     }
     return rep;
+}
+
+// ─── Export des Multi-Vergleichs-Reports (Diplomarbeit-Tabellen / CI-Artefakte) ───────────────
+
+/// MultiCompareReport → CSV (Header + eine Zeile pro Vergleich, RFC-4180 fuer name).
+[[nodiscard]] inline std::string report_to_csv(MultiCompareReport const& rep) {
+    std::ostringstream os;
+    os << "name,raw_p,adjusted_p,significant,faster_than_baseline,welch_t,welch_df,mean_a,mean_b,welch_valid\n";
+    for (auto const& c : rep.comparisons) {
+        os << ::comdare::cache_engine::builder::commands::detail::csv_quote(c.name) << ','
+           << c.raw_p << ',' << c.adjusted_p << ','
+           << (c.significant ? 1 : 0) << ',' << (c.faster_than_baseline ? 1 : 0) << ','
+           << c.welch.t_statistic << ',' << c.welch.degrees_of_freedom << ','
+           << c.welch.mean_a << ',' << c.welch.mean_b << ','
+           << (c.welch.valid ? 1 : 0) << '\n';
+    }
+    return os.str();
+}
+
+/// MultiCompareReport → JSON-Objekt {alpha, significant_count, comparisons:[...]}.
+[[nodiscard]] inline std::string report_to_json(MultiCompareReport const& rep) {
+    std::ostringstream os;
+    os << "{\"alpha\":" << rep.alpha
+       << ",\"significant_count\":" << rep.significant_count
+       << ",\"comparisons\":[";
+    bool first = true;
+    for (auto const& c : rep.comparisons) {
+        if (!first) os << ',';
+        os << '{'
+           << "\"name\":\"" << ::comdare::cache_engine::builder::commands::detail::json_escape(c.name) << "\","
+           << "\"raw_p\":" << c.raw_p << ','
+           << "\"adjusted_p\":" << c.adjusted_p << ','
+           << "\"significant\":" << (c.significant ? "true" : "false") << ','
+           << "\"faster_than_baseline\":" << (c.faster_than_baseline ? "true" : "false") << ','
+           << "\"welch_t\":" << c.welch.t_statistic << ','
+           << "\"welch_df\":" << c.welch.degrees_of_freedom << ','
+           << "\"mean_a\":" << c.welch.mean_a << ','
+           << "\"mean_b\":" << c.welch.mean_b << ','
+           << "\"welch_valid\":" << (c.welch.valid ? "true" : "false")
+           << '}';
+        first = false;
+    }
+    os << "]}";
+    return os.str();
 }
 
 }  // namespace comdare::cache_engine::builder::commands::stats

@@ -430,3 +430,25 @@ TEST(F15MultiCompare, EmptyCandidates) {
     EXPECT_TRUE(rep.comparisons.empty());
     EXPECT_EQ(rep.significant_count, 0u);
 }
+
+TEST(F15MultiCompare, ReportCsvAndJsonExport) {
+    cmd::ExecutionResult base{}; base.engine_name = "baseline"; base.latency_samples_ns = make_samples(100, 40);
+    cmd::ExecutionResult fast{}; fast.engine_name = "fast";     fast.latency_samples_ns = make_samples(50, 40);
+    cmd::ExecutionResult sim{};  sim.engine_name  = "similar";  sim.latency_samples_ns  = make_samples(100, 40);
+    std::vector<cmd::ExecutionResult> cands{fast, sim};
+    auto rep = stats::multi_compare_against_baseline(base, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+
+    auto csv = stats::report_to_csv(rep);
+    EXPECT_NE(csv.find("name,raw_p,adjusted_p,significant,faster_than_baseline"), std::string::npos);
+    EXPECT_NE(csv.find("\"fast\""), std::string::npos);
+    EXPECT_NE(csv.find("\"similar\""), std::string::npos);
+    EXPECT_EQ(std::count(csv.begin(), csv.end(), '\n'), 3);  // Header + 2 Zeilen
+
+    auto json = stats::report_to_json(rep);
+    EXPECT_EQ(json.front(), '{');
+    EXPECT_EQ(json.back(), '}');
+    EXPECT_NE(json.find("\"significant_count\":1"), std::string::npos);  // nur fast signifikant
+    EXPECT_NE(json.find("\"comparisons\":["), std::string::npos);
+    EXPECT_NE(json.find("\"name\":\"fast\""), std::string::npos);
+    EXPECT_NE(json.find("\"faster_than_baseline\":true"), std::string::npos);
+}
