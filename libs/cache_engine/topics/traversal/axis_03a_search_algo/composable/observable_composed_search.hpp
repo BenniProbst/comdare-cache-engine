@@ -71,6 +71,8 @@ public:
     void clear()                                     noexcept { search_.clear(); }
     [[nodiscard]] std::size_t occupied_count() const noexcept { return search_.occupied_count(); }
 
+    using store_type = Store;   // fuer den optionalen Allocator-Statistik-Durchgriff (Saeule-2)
+
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = ce_concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
@@ -78,6 +80,17 @@ public:
     void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+
+    // Saeule-2 (Roadmap-1): OPTIONALER Durchgriff auf die Allocator-Statistik des inneren Storage-Organs,
+    // falls dieses (z.B. ComposedStore<N,L,A>) sie bietet. KEIN Runtime-Switch (reines requires/if constexpr);
+    // erweitert NICHT den ObservableAxis-Vertrag (der laeuft weiter ueber search_algo/statistics()).
+    template <class S>
+    static constexpr bool store_has_allocator_stats = requires(S const& s) { s.allocator_statistics(); };
+
+    template <class S = Store>
+    [[nodiscard]] auto store_allocator_statistics() const noexcept
+        requires store_has_allocator_stats<S>
+    { return search_.store().allocator_statistics(); }
 #endif
 
 private:
