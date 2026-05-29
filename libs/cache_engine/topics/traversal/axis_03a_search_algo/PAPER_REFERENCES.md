@@ -34,7 +34,19 @@ Vier Wrapper sind is_original-faehig mit permissivem OSS-Original-Code (Original
 > - OriginalSurfSearchAlgo: Klarstellung (kein Bug) — Mehr-Header-Bibliothek, kein Single-Header.
 
 ## §3 Compliance-Status
-Alle 14 Re-Impl/Konzept-Wrapper besitzen eine Paper-Referenz; vereinfachte/Re-Impl-Wrapper (Array256SearchAlgo, VectorU16U16SearchAlgo, VectorU8U8SearchAlgo, KArySearchAlgo, InterpolationSearchAlgo, EytzingerSearchAlgo, SkipListSearchAlgo) sind als Konzept-Ableitung des jeweiligen Anker-Papers gekennzeichnet → Habich-Pflicht erfuellt. Die R7.2-Such-METHODEN (KArySearchAlgo = k-ary/SIMD-Partition, Schlegel/Gemulla/Lehner DaMoN 2009; InterpolationSearchAlgo = verteilungsbewusst, Perl/Itai/Avni CACM 1978; EytzingerSearchAlgo = cache-conscious BFS-Layout branch-free, Khuong/Morin JEA 2017) + die erste STRUKTUR (SkipListSearchAlgo = probabilistische geordnete Struktur, Pugh CACM 1990) sind originalgetreue C++23-Re-Implementierungen (Paper liefern Pseudocode/Mess-Studie/Lehrbuch-Algorithmus bzw. Experiment-Harness ohne Standard-OSS-Lizenz, keinen kanonischen permissiven Repo-Code), daher is_original=false ([[pseudocode-papers-fallback]]).
+Alle 15 axis_03a-Wrapper besitzen eine Paper-Referenz (10 Re-Impl/Konzept-Wrapper + 5 Original-Paper-
+Wrapper). Die Re-Impl/Konzept-Wrapper (Array256SearchAlgo, Array65535SearchAlgo, VectorU16U16SearchAlgo,
+VectorU8U8SearchAlgo, KArySearchAlgo, InterpolationSearchAlgo, EytzingerSearchAlgo, SkipListSearchAlgo,
+HashSearchAlgo, LinearScanSearchAlgo) sind als Konzept-Ableitung des jeweiligen Anker-Papers
+gekennzeichnet → Habich-Pflicht erfuellt. Such-METHODEN: KArySearchAlgo (k-ary/SIMD-Partition,
+Schlegel/Gemulla/Lehner DaMoN 2009), InterpolationSearchAlgo (verteilungsbewusst, Perl/Itai/Avni CACM
+1978), EytzingerSearchAlgo (cache-conscious BFS-Layout, Khuong/Morin JEA 2017); STRUKTUREN: SkipListSearchAlgo
+(probabilistisch geordnet, Pugh CACM 1990), HashSearchAlgo (open-addressing, Knuth TAOCP 3 §6.4),
+LinearScanSearchAlgo (unsortierte ART-Node4-Baseline, Leis ICDE 2013). Alle originalgetreue C++23-Re-
+Implementierungen (Paper liefern Pseudocode/Lehrbuch-Algorithmus/Mess-Studie, keinen kanonischen
+permissiven Repo-Code), daher is_original=false ([[pseudocode-papers-fallback]]). Damit ist die
+Such-Paradigmen-Palette vollstaendig: dense / sorted / Such-Methode / geordnete Struktur / Hash /
+unsortiert-linear / Original-Trie.
 
 is_original-Kandidaten (Map §3, fuer R7.6.c — echtes Original-Code-Linking):
 - OriginalArtSearchAlgo → github.com/laurynas-biveinis/unodb (Apache-2.0)
