@@ -55,9 +55,13 @@ Build-Zwischenstand brechen (codebase-weit, alle 1965 Tests). Stattdessen drei S
 ## 4. F.3 — abstrakte Achsen-Concepts
 
 Pro Achse wird das bestehende, getestete Achsen-Concept unter dem axen-zentrischen abstrakten Namen
-re-exponiert (Delegation via `requires`). **Pilot (ERLEDIGT):**
-`cache_engine::concepts::LookupAxis` (= `SearchAlgoVariant`), `AllocAxis` (= `AllocatorStrategy`),
-`LayoutAxis` (= `MemoryLayoutStrategy`). Die uebrigen 14 folgen demselben Muster beim Achsen-Rename.
+re-exponiert (Delegation via `requires`). **ALLE 17 Achsen ERLEDIGT** (`cache_engine::concepts::*Axis`):
+traversal-Achsen via `*Variant` (LookupAxis=SearchAlgoVariant, CacheTraversalAxis, MappingAxis),
+alloc/layout via `*Strategy` (AllocAxis, LayoutAxis), die uebrigen 12 via dem uniformen
+`CacheEnginePermutationStrategy` (PathCompression/Node/Prefetch/Concurrency/Serialization/Telemetry/
+ValueHandle/Simd/IndexOrganization/IoDispatch/MigrationPolicy/Filter). Damit entspricht JEDE Achse
+konkret einem abstrakten Concept (verifiziert: `F2F3_AxisCentricFacade` static_assert je Achse ueber
+deren Default-Typ).
 
 ## 5. `optional_prt_art_impl`-Slot (F.2)
 
@@ -69,7 +73,10 @@ beim physischen Rename (Stufe 2) materialisiert.
 
 ## 6. Stand
 
-- **ERLEDIGT (Inkrement 1):** Alias-Fassade (17 Achsen) + F.3-Pilot-Concepts (3) + Test (21/21), kein Regress.
-- **VERBLEIBEND (GROSS, Mehr-Session):** physischer Rename je Achse (Stufe 2) + Rest-Concepts (14) +
-  Slot-Materialisierung + Alt-Alias-Entfernung (Stufe 3). Verbunden mit E11 (Facade braucht klare
-  Achsen-Interfaces) und der prt-art-Pruefling-Einbindung (#8/R8).
+- **ERLEDIGT (Inkrement 1+2):** Alias-Fassade (17 Achsen) + **F.3-Concepts fuer ALLE 17 Achsen** +
+  Test (je Achse static_assert, perm-engine 21/21), kein Regress. F.3 (abstrakte Achsen-Concepts) ist
+  damit als Concept-Layer VOLLSTAENDIG; F.2 liefert die axen-zentrische Zugriffsstruktur (Aliase).
+- **VERBLEIBEND (GROSS, Mehr-Session):** physischer Rename je Achse (Stufe 2 — Header-Verschiebung +
+  Definition-Namespace-Umbenennung, codebase-weit) + Slot-Materialisierung (`optional_prt_art_impl`) +
+  Alt-Alias-Entfernung (Stufe 3). Verbunden mit E11 (Facade braucht klare Achsen-Interfaces) und der
+  prt-art-Pruefling-Einbindung (#8/R8).
