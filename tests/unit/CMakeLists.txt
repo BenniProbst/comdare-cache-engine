@@ -951,3 +951,40 @@ target_include_directories(test_v41_codegen_all_axes_umbrella PRIVATE
     "${CMAKE_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_codegen_all_axes_umbrella PRIVATE Boost::mp11)
+
+# V41.F.6.1 R5.G — End-to-End: auto-emittiertes AdHoc-Permutations-Modul → SHARED-DLL → laden + messen.
+set(_r5g_adhoc_dir "${CMAKE_BINARY_DIR}/generated/r5g_adhoc_modules")
+add_library(comdare_r5g_adhoc_perm SHARED auto_emitted_perm_module.cpp)
+target_include_directories(comdare_r5g_adhoc_perm PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(comdare_r5g_adhoc_perm PRIVATE Boost::mp11)
+target_compile_features(comdare_r5g_adhoc_perm PRIVATE cxx_std_23)
+target_compile_definitions(comdare_r5g_adhoc_perm PRIVATE COMDARE_ANATOMY_MODULE_BUILD=1)
+set_target_properties(comdare_r5g_adhoc_perm PROPERTIES
+    POSITION_INDEPENDENT_CODE                ON
+    OUTPUT_NAME                              "comdare_anatomy_perm_r5g_adhoc"
+    RUNTIME_OUTPUT_DIRECTORY                 "${_r5g_adhoc_dir}"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE         "${_r5g_adhoc_dir}"
+    LIBRARY_OUTPUT_DIRECTORY                 "${_r5g_adhoc_dir}"
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE         "${_r5g_adhoc_dir}")
+if(COMMAND comdare_set_platform_defines)
+    comdare_set_platform_defines(comdare_r5g_adhoc_perm)
+endif()
+
+comdare_add_test(test_v41_anatomy_adhoc_dll_load
+    SOURCES test_v41_anatomy_adhoc_dll_load.cpp)
+target_include_directories(test_v41_anatomy_adhoc_dll_load PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_v41_anatomy_adhoc_dll_load PRIVATE
+    Boost::mp11
+    comdare::anatomy_module_loader)
+target_compile_definitions(test_v41_anatomy_adhoc_dll_load PRIVATE
+    "COMDARE_R5G_ADHOC_DLL_DIR=\"${_r5g_adhoc_dir}\"")
+add_dependencies(test_v41_anatomy_adhoc_dll_load comdare_r5g_adhoc_perm)
