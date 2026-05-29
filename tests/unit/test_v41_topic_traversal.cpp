@@ -244,6 +244,54 @@ TEST(SearchAlgo_Array65535, AllOnesValueIsValidNotSentinel) {
     EXPECT_EQ(*v, ~std::uint64_t{0});
 }
 
+// --- V41.F.6.1.R7.2 KArySearchAlgo (k-ary search, Schlegel/Gemulla/Lehner DaMoN 2009) ----
+
+// KERN-KORREKTHEIT: k-ary search muss bei JEDER Aritaet K ∈ {2,4,8,16} EXAKT dieselben Ergebnisse
+// liefern wie die Referenz (Brute-Force) — die Aritaet ist eine reine Performance-/Iterations-Wahl,
+// nie ein Ergebnis-Unterschied. K=2 ist die Binärsuch-Baseline.
+TEST(SearchAlgo_KAry, CorrectAtAllArities) {
+    constexpr std::uint16_t kStep = 7;
+    constexpr std::uint16_t kMaxKey = 1400;  // present: Vielfache von 7 in [0,1400]
+    for (unsigned arity : {2u, 4u, 8u, 16u}) {
+        ce_03a::KArySearchAlgo s{arity};
+        for (std::uint16_t k = 0; k <= kMaxKey; k += kStep) {
+            s.insert(k, static_cast<std::uint64_t>(k) * 3u + 1u);
+        }
+        EXPECT_EQ(s.arity(), arity);
+        for (std::uint32_t q = 0; q <= 1500u; ++q) {
+            auto const key = static_cast<std::uint16_t>(q);
+            auto v = s.lookup(key);
+            bool const present = (q <= kMaxKey) && (q % kStep == 0);
+            if (present) {
+                ASSERT_TRUE(v.has_value()) << "arity=" << arity << " key=" << q;
+                EXPECT_EQ(*v, static_cast<std::uint64_t>(key) * 3u + 1u) << "arity=" << arity << " key=" << q;
+            } else {
+                EXPECT_FALSE(v.has_value()) << "arity=" << arity << " key=" << q;
+            }
+        }
+    }
+}
+
+TEST(SearchAlgo_KAry, ArityIterableValuesAndDefault) {
+    EXPECT_EQ(ce_03a::KArySearchAlgo{}.arity(), 4u);                  // Default = 5-Wege-Partition
+    auto vals = ce_03a::KArySearchAlgo::iterable_values();
+    ASSERT_EQ(vals.size(), 4u);
+    EXPECT_EQ(vals[0], 2u); EXPECT_EQ(vals[1], 4u); EXPECT_EQ(vals[2], 8u); EXPECT_EQ(vals[3], 16u);
+    ce_03a::KArySearchAlgo s{};
+    s.set_iterable_aspect(8u);
+    EXPECT_EQ(s.arity(), 8u);
+    s.set_iterable_aspect(1u);  // < 2 wird auf 2 geklemmt (Binärsuch-Minimum)
+    EXPECT_EQ(s.arity(), 2u);
+}
+
+TEST(SearchAlgo_KAry, ErfuelltErwarteteConcepts) {
+    static_assert(ce_03a::concepts::SearchAlgoVariant<ce_03a::KArySearchAlgo>);
+    static_assert(ce_03a::concepts::SimdCapableStrategy<ce_03a::KArySearchAlgo>);
+    static_assert(ce_03a::concepts::IterableAspectSearchAlgoStrategy<ce_03a::KArySearchAlgo>);
+    EXPECT_EQ(ce_03a::KArySearchAlgo::max_fanout(), 65536u);
+    SUCCEED();
+}
+
 // =================================================================
 // TYPED_TEST_SUITE — axis_03b cache_traversal
 // =================================================================
@@ -625,8 +673,9 @@ TEST(PropertyFilter_03a, SimdCapableSubset) {
     // Re-Impl: Array256SearchAlgo + VectorU8U8SearchAlgo (SIMD), VectorU16U16SearchAlgo (kein SIMD)
     // V41.F.6.1.P2.D.tr.s2: + OriginalArt (SIMD) + OriginalHot (SIMD), OriginalStart (kein SIMD)
     // V41.F.6.1.P2.D.tr.s3 Batch 1: + OriginalWormhole (SIMD via AVX2), OriginalSurf (kein SIMD LOUDS)
-    //   → 5 von 8 SIMD-faehig
-    EXPECT_EQ(mp::mp_size<SimdSubset>::value, 5u);
+    // V41.F.6.1.R7.2: + KArySearchAlgo (SIMD via data-parallel Layout, Schlegel DaMoN 2009)
+    //   → 6 von 10 SIMD-faehig
+    EXPECT_EQ(mp::mp_size<SimdSubset>::value, 6u);
 }
 
 TEST(PropertyFilter_03a, DenseSubset) {

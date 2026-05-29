@@ -229,6 +229,7 @@
 | OriginalWormholeSearchAlgo | Wormhole — Hash+Trie+B+ Hybrid Ordered Index | Wormhole: A Fast Ordered Index for In-memory Data Management | EuroSys 2019 | 10.1145/3302424.3303955 | OSS | GPL-3.0 | P07 | ✗ | high |
 | VectorU16U16SearchAlgo | Sorted u16-vector lower_bound (START-Konzept, vereinfacht) | START — Self-Tuning Adaptive Radix Tree | ICDEW 2020 | 10.1109/ICDEW49219.2020.00015 | OSS | MIT | P05 | ✗ | high |
 | VectorU8U8SearchAlgo | Sparse sorted u8-vector lower_bound (HOT-k-Konzept) | HOT: A Height Optimized Trie Index… | SIGMOD 2018 | 10.1145/3183713.3196896 | OSS | ISC | P02 | ✗ | high |
+| KArySearchAlgo | k-ary search — Such-METHODE (K-Wege-Partition, Aritaet K iterable) | k-ary search on modern processors (Schlegel/Gemulla/Lehner) | DaMoN 2009 | 10.1145/1565694.1565705 | nein (Pseudocode + Mess-Studie) | none | — | ✗ | high |
 
 ### axis_03b_cache_traversal
 
