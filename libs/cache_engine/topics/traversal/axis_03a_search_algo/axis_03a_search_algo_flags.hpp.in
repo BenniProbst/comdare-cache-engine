@@ -34,6 +34,10 @@ namespace comdare::cache_engine::traversal::axis_03a_search_algo::flags {
 // CACM 1978), verteilungsbewusste Such-METHODE (O(log log N) avg bei Gleichverteilung), kein SIMD.
 #cmakedefine01 COMDARE_AXIS_03A_USE_INTERPOLATION
 
+// V41.F.6.1 R7.2 (2026-05-29) — S12 EytzingerSearchAlgo: cache-conscious BFS-Layout + branch-free
+// Suche (Khuong/Morin JEA 2017), Speicher-Layout-Such-METHODE.
+#cmakedefine01 COMDARE_AXIS_03A_USE_EYTZINGER
+
 inline constexpr bool array256_enabled         = COMDARE_AXIS_03A_USE_ARRAY256;
 inline constexpr bool vector_u8u8_enabled      = COMDARE_AXIS_03A_USE_VECTOR_U8U8;
 inline constexpr bool vector_u16u16_enabled    = COMDARE_AXIS_03A_USE_VECTOR_U16U16;
@@ -45,5 +49,6 @@ inline constexpr bool original_wormhole_enabled = COMDARE_AXIS_03A_USE_ORIGINAL_
 inline constexpr bool original_surf_enabled     = COMDARE_AXIS_03A_USE_ORIGINAL_SURF;
 inline constexpr bool k_ary_enabled             = COMDARE_AXIS_03A_USE_K_ARY;
 inline constexpr bool interpolation_enabled     = COMDARE_AXIS_03A_USE_INTERPOLATION;
+inline constexpr bool eytzinger_enabled         = COMDARE_AXIS_03A_USE_EYTZINGER;
 
 }  // namespace

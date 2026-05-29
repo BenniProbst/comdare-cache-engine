@@ -231,6 +231,7 @@
 | VectorU8U8SearchAlgo | Sparse sorted u8-vector lower_bound (HOT-k-Konzept) | HOT: A Height Optimized Trie Index… | SIGMOD 2018 | 10.1145/3183713.3196896 | OSS | ISC | P02 | ✗ | high |
 | KArySearchAlgo | k-ary search — Such-METHODE (K-Wege-Partition, Aritaet K iterable) | k-ary search on modern processors (Schlegel/Gemulla/Lehner) | DaMoN 2009 | 10.1145/1565694.1565705 | nein (Pseudocode + Mess-Studie) | none | — | ✗ | high |
 | InterpolationSearchAlgo | interpolation search — Such-METHODE (verteilungsbewusst, O(log log N) avg) | Interpolation search — a log log N search (Perl/Itai/Avni) | CACM 21(7) 1978 | 10.1145/359545.359557 | nein (Lehrbuch-Algorithmus) | none | — | ✗ | high |
+| EytzingerSearchAlgo | Eytzinger/BFS-Layout-Suche — Such-METHODE (cache-conscious Layout, branch-free) | Array Layouts for Comparison-Based Searching (Khuong/Morin) | JEA 22 2017 | arXiv:1509.05053 | nein (Experiment-Harness, keine Standard-OSS-Lizenz) | none | — | ✗ | high |
 
 ### axis_03b_cache_traversal
 

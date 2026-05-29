@@ -340,6 +340,50 @@ TEST(SearchAlgo_Interpolation, EdgeCasesAndNotSimd) {
     EXPECT_FALSE(s.lookup(std::uint16_t{43}).has_value());
 }
 
+// --- V41.F.6.1.R7.2 EytzingerSearchAlgo (cache-conscious BFS layout, Khuong/Morin JEA 2017) ----
+
+// KERN-KORREKTHEIT: das branch-free Eytzinger-Ergebnis haengt vom Bit-Trick (k >> (countr_one(k)+1))
+// und damit von der BAUMFORM ab → ueber VIELE Groessen n testen (jede ergibt eine andere Baumform).
+TEST(SearchAlgo_Eytzinger, CorrectAcrossManySizes) {
+    for (std::uint16_t nKeys : {1u, 2u, 3u, 4u, 5u, 7u, 8u, 15u, 16u, 17u, 31u, 100u, 1000u}) {
+        ce_03a::EytzingerSearchAlgo s{};
+        // Keys = 5, 10, 15, ... (Schrittweite 5) → present iff durch 5 teilbar und in [5, 5*nKeys]
+        for (std::uint16_t i = 1; i <= nKeys; ++i) s.insert(static_cast<std::uint16_t>(i * 5u), static_cast<std::uint64_t>(i));
+        std::uint32_t const maxKey = static_cast<std::uint32_t>(nKeys) * 5u;
+        for (std::uint32_t q = 0; q <= maxKey + 10u; ++q) {
+            auto v = s.lookup(static_cast<std::uint16_t>(q));
+            bool const present = (q >= 5u) && (q % 5u == 0) && (q <= maxKey);
+            if (present) {
+                ASSERT_TRUE(v.has_value()) << "n=" << nKeys << " key=" << q;
+                EXPECT_EQ(*v, static_cast<std::uint64_t>(q / 5u)) << "n=" << nKeys << " key=" << q;
+            } else {
+                EXPECT_FALSE(v.has_value()) << "n=" << nKeys << " key=" << q;
+            }
+        }
+    }
+}
+
+// Lazy-Rebuild: nach erase/insert muss das Layout neu gebaut + korrekt sein.
+TEST(SearchAlgo_Eytzinger, LazyRebuildAfterMutation) {
+    ce_03a::EytzingerSearchAlgo s{};
+    for (std::uint16_t k = 10; k <= 100; k += 10) s.insert(k, static_cast<std::uint64_t>(k));
+    EXPECT_EQ(*s.lookup(std::uint16_t{50}), 50u);     // baut Layout
+    EXPECT_TRUE(s.erase(std::uint16_t{50}));          // markiert dirty
+    EXPECT_FALSE(s.lookup(std::uint16_t{50}).has_value());  // rebuild ohne 50
+    EXPECT_EQ(*s.lookup(std::uint16_t{40}), 40u);
+    EXPECT_EQ(*s.lookup(std::uint16_t{60}), 60u);
+    s.insert(std::uint16_t{55}, std::uint64_t{555});  // dirty
+    EXPECT_EQ(*s.lookup(std::uint16_t{55}), 555u);    // rebuild mit 55
+}
+
+TEST(SearchAlgo_Eytzinger, NotSimdButCacheAligned) {
+    static_assert(ce_03a::concepts::SearchAlgoVariant<ce_03a::EytzingerSearchAlgo>);
+    static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::EytzingerSearchAlgo>,
+        "Eytzinger ist branch-free/prefetch, NICHT SIMD-vektorisiert");
+    EXPECT_FALSE(ce_03a::EytzingerSearchAlgo::supports_simd());
+    EXPECT_TRUE(ce_03a::EytzingerSearchAlgo::has_cache_line_alignment());  // Kern-Vorteil
+}
+
 // =================================================================
 // TYPED_TEST_SUITE — axis_03b cache_traversal
 // =================================================================
