@@ -452,3 +452,28 @@ TEST(F15MultiCompare, ReportCsvAndJsonExport) {
     EXPECT_NE(json.find("\"name\":\"fast\""), std::string::npos);
     EXPECT_NE(json.find("\"faster_than_baseline\":true"), std::string::npos);
 }
+
+TEST(F15MultiCompare, SummarizeWinRate) {
+    cmd::ExecutionResult base{}; base.engine_name = "baseline"; base.latency_samples_ns = make_samples(100, 40);
+    cmd::ExecutionResult fast{}; fast.engine_name = "fast";     fast.latency_samples_ns = make_samples(50, 40);
+    cmd::ExecutionResult slow{}; slow.engine_name = "slow";     slow.latency_samples_ns = make_samples(150, 40);
+    cmd::ExecutionResult sim{};  sim.engine_name  = "similar";  sim.latency_samples_ns  = make_samples(100, 40);
+    std::vector<cmd::ExecutionResult> cands{fast, slow, sim};
+    auto rep = stats::multi_compare_against_baseline(base, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+
+    auto sum = stats::summarize(rep);
+    EXPECT_EQ(sum.total, 3u);
+    EXPECT_EQ(sum.significant_faster, 1u);   // fast
+    EXPECT_EQ(sum.significant_slower, 1u);   // slow
+    EXPECT_EQ(sum.not_significant, 1u);      // similar
+    EXPECT_NEAR(sum.win_rate, 1.0 / 3.0, 1e-12);  // F15-Headline: 1/3 schlagen Baseline signifikant
+    // Konsistenz: Kategorien summieren zu total.
+    EXPECT_EQ(sum.significant_faster + sum.significant_slower + sum.not_significant, sum.total);
+}
+
+TEST(F15MultiCompare, SummarizeEmptyZeroWinRate) {
+    stats::MultiCompareReport empty{};
+    auto sum = stats::summarize(empty);
+    EXPECT_EQ(sum.total, 0u);
+    EXPECT_DOUBLE_EQ(sum.win_rate, 0.0);  // kein Division-durch-0
+}
