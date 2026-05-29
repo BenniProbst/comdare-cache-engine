@@ -477,3 +477,41 @@ TEST(F15MultiCompare, SummarizeEmptyZeroWinRate) {
     EXPECT_EQ(sum.total, 0u);
     EXPECT_DOUBLE_EQ(sum.win_rate, 0.0);  // kein Division-durch-0
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// R5.D — Konnektor make_execution_result + die vollstaendige Driver-Kette in Miniatur:
+// Samples → ExecutionResult → multi_compare → summarize → export.
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(F15ResultBuilder, MakeExecutionResultFillsPercentiles) {
+    std::vector<std::int64_t> s(100);
+    for (int i = 0; i < 100; ++i) s[static_cast<std::size_t>(i)] = i + 1;
+    auto r = cmd::make_execution_result("art", s, 1234.0);
+    EXPECT_EQ(r.engine_name, std::string_view{"art"});
+    EXPECT_DOUBLE_EQ(r.throughput_ops_per_sec, 1234.0);
+    EXPECT_EQ(r.latency_p50.count(), 51);   // p50 (nearest-rank) von 1..100
+    EXPECT_EQ(r.latency_p99.count(), 100);
+    EXPECT_TRUE(r.success);
+    EXPECT_EQ(r.latency_samples_ns.size(), 100u);
+    // leere Samples → success=false
+    auto empty = cmd::make_execution_result("none", {});
+    EXPECT_FALSE(empty.success);
+}
+
+// Vollstaendige F15-Driver-Kette (in-process): drei "gemessene" Kompositionen vs Baseline.
+TEST(F15ResultBuilder, FullDriverChainSamplesToSummary) {
+    auto baseline = cmd::make_execution_result("baseline", make_samples(100, 40));
+    std::vector<cmd::ExecutionResult> cands{
+        cmd::make_execution_result("fast",    make_samples(50, 40)),
+        cmd::make_execution_result("slow",    make_samples(150, 40)),
+        cmd::make_execution_result("similar", make_samples(100, 40)),
+    };
+    auto rep = stats::multi_compare_against_baseline(baseline, std::span<const cmd::ExecutionResult>{cands}, 0.05);
+    auto sum = stats::summarize(rep);
+    EXPECT_EQ(sum.total, 3u);
+    EXPECT_EQ(sum.significant_faster, 1u);  // nur "fast" schlaegt die Baseline signifikant
+    EXPECT_NEAR(sum.win_rate, 1.0 / 3.0, 1e-12);
+    // Export der ganzen Kette ist nicht-leer + maschinenlesbar.
+    EXPECT_FALSE(stats::report_to_csv(rep).empty());
+    EXPECT_NE(stats::report_to_json(rep).find("\"significant_count\":2"), std::string::npos);
+}

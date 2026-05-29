@@ -14,6 +14,7 @@
 // Roh-Samples gehoeren in separate Dateien (Groesse).
 
 #include "execution_result.hpp"
+#include "latency_stats.hpp"   // make_execution_result fuellt p50/p99 aus den Samples
 
 #include <cstdint>
 #include <cstdio>
@@ -21,6 +22,8 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace comdare::cache_engine::builder::commands {
 
@@ -61,6 +64,27 @@ inline std::string csv_quote(std::string_view s) {
 }
 
 }  // namespace detail
+
+/// make_execution_result — Konnektor measure→analyze: aus Latenz-Samples (z.B. von
+/// IMeasurableWorkload::run_workload) eine ExecutionResult bauen, mit p50/p99 aus den Samples
+/// (latency_stats) + success-Flag. Damit kann ein Mess-Treiber pro Komposition run_workload ->
+/// make_execution_result -> multi_compare_against_baseline -> summarize/export verketten.
+/// HINWEIS: engine_name ist string_view → der Aufrufer muss den Namen am Leben halten (wie ueblich
+/// bei ExecutionResult); Samples werden gemovet.
+[[nodiscard]] inline ExecutionResult make_execution_result(
+    std::string_view engine_name,
+    std::vector<std::int64_t> latency_samples_ns,
+    double throughput_ops_per_sec = 0.0) {
+    ExecutionResult r{};
+    r.engine_name = engine_name;
+    r.throughput_ops_per_sec = throughput_ops_per_sec;
+    std::span<const std::int64_t> const sp{latency_samples_ns};
+    r.latency_p50 = stats::latency_p50_ns(sp);
+    r.latency_p99 = stats::latency_p99_ns(sp);
+    r.success = !latency_samples_ns.empty();
+    r.latency_samples_ns = std::move(latency_samples_ns);
+    return r;
+}
 
 /// CSV-Header-Zeile (RFC-4180-konform), passend zu to_csv_row / to_csv.
 [[nodiscard]] inline std::string result_csv_header() {
