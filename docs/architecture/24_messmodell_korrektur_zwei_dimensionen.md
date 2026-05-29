@@ -236,4 +236,49 @@ UND funktionieren mit **weiten Keys >65535** → der Key-Type-Blocker (§5.5) is
 
 ---
 
+## §7 Tier→Organ-Rekonstruktions-Beleg + die ERKLÄRTE Ordnung (Korrektur 2026-05-29)
+
+**Erklärte Ordnung (User-Direktive, autoritativ — korrigiert eine frühere Fehlrichtung):**
+> Achsen enthalten **ausschließlich Organe**, **niemals** ganze Tiere. Es sind **NIE** monolithische
+> Tiere als Achsen-Werte erlaubt — auch nicht „übergangsweise". Ein noch **nicht seziertes** Tier steht
+> **außerhalb des Systems** (Doku 14 §3.1: „ein Gesamtalgorithmus steht außerhalb des Systems; erst zerlegt
+> bringen wir seine Organe ein") — es wird **NICHT** als Achsen-Wert abgelegt. Erst nach Sezierung in
+> Organe tritt es als **Gattungs-Konfigurator** (Composition über alle, teils optional genutzten,
+> Organ-Achsen) ins System ein, den der CacheEngineBuilder metaprogrammiert zur exakten Wiederherstellung
+> des Tieres aus seinen Organen.
+
+> **Konsequenz für den Ist-Stand:** Die heutigen monolithischen `axis_03a`-Wrapper (Array256/BST/Hash/…)
+> sind genau das zu behebende Anti-Pattern (Tiere als Achsen-Werte). Sie werden ausnahmslos seziert + aus
+> `EnabledStrategies` entfernt; bis ein Tier seziert ist, gehört es nicht als Achsen-Wert ins System.
+
+**Korrektur:** Die zuvor erwogene Lesart „Tier-Wrapper als Achsen-Werte BEHALTEN + nur dokumentieren"
+(gestützt auf Doku 14 §14.2 „PROMOTION") ist damit **falsch**. §14.2 bedeutet „nicht ersatzlos löschen",
+**nicht** „als Achse behalten". Korrekt: die sezierten Tier-Wrapper werden aus `axis_03a::EnabledStrategies`
+**entfernt** und als Gattungs-Konfigurator (`SearchAlgorithmAnatomy<Composition>` über Organ-Achsen,
+Doku 14 §3.3/§11.3/§27-§29) rekonstruiert. axis_03a hält dann nur noch **Traversal-Organe**.
+
+**Dieser Increment (Rekonstruktions-Beleg, Brücke):** `composable/tier_to_organ_mapping.hpp` ordnet jedem
+bereits sezierten Tier-Wrapper seine äquivalente Organ-Komposition zu; `test_v41_axis_03a_tier_organ_equivalence.cpp`
+**belegt** Tier ≡ Organ-Komposition ≡ std::map (key-type-sicher). Damit ist bewiesen, dass die Tiere exakt aus
+Organen wiederherstellbar sind — die Voraussetzung für die Umstufung. **Bewusst KEINE „mp_size==17 muss bleiben"-
+Invariante** (würde die Umstufung blockieren).
+
+**Grundprinzip (User 2026-05-29):** Ein Tier darf **nur seziert** vorliegen — d. h. ausschließlich als
+Organ-Komposition (Gattungs-Konfigurator). Es gibt **keine** monolithische Form im System, weder dauerhaft
+noch übergangsweise. Folglich müssen **ALLE** Tiere seziert werden (auch OriginalXxx-Paper-Baselines);
+keines bleibt monolithisch.
+
+**Umstufungs-Programm (Reihenfolge per User 2026-05-29 — „erst restliche Tiere sezieren, dann ALLE umstufen"):**
+1. **ALLE** noch nicht sezierten Tiere in Organe sezieren: Hash → Bucket-Pool+Probe-Organ, SkipList →
+   SkipList-Pool+Walk-Organ, B-Baum → BTree-Pool+Walk-Organ (analog TreeNodePool/BST aus Roadmap-2 INC-2b);
+   OriginalXxx (S04-S08) als paper-gebundene Organ-Kompositionen (Habich-Original-Code pro Organ).
+2. DANN ALLE Tiere gemeinsam umstufen: aus `EnabledStrategies` entfernen → ausschließlich als Gattungs-
+   Konfiguratoren (Compositions über Organe) rekonstruieren → Anatomie/Compositions/Tests umverdrahten
+   (Doku 24 §6 Folge-Increment 1+3). End-Zustand: `axis_03a::EnabledStrategies` enthält **nur Traversal-Organe**,
+   die Tiere existieren nur noch als Compositions.
+
+**Bezug Memory:** `[[feedback_no_whole_tier_axes_genus_configurator]]` (kritische Ordnung + Pflicht-Pre-Read Doku 14).
+
+---
+
 **Ende Doku 24 — Mess-Modell-Korrektur (2026-05-29).**
