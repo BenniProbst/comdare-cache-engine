@@ -182,11 +182,21 @@ Der Permutations-RAUM ist bewiesen UND als Binaries materialisiert:
     extern-C-Factory einer AdHoc-Permutation (= ArtCompositions 17 Achsen), `comdare_create_anatomy()`
     liefert IAnatomyBase (organ_count=17, composition_name="AdHocComposition", genus=SearchAlgorithm,
     run_workload/Stufe-B funktioniert). Auto-enumerierte Permutationen sind damit codegen-fähig.
-  - **VERBLEIBEND R5.G = nur noch der Auto-Emitter:** ein Generator, der via `for_each_composition_type`
-    pro enumerierter Permutation ein Modul-`.cpp` schreibt, das `COMDARE_DEFINE_ANATOMY_MODULE_ADHOC` mit
-    den 17 Achsen-Vendor-Typen der Permutation + deren `#include`s aufruft (braucht pro Achsen-Variante den
-    fully-qualified Typ-Namen + Header als String). Enumeration + Makro-Materialisierung + Welch-Mess-Treiber
-    sind alle bewiesen — es fehlt nur die String-Emission der enumerierten Typen.
+  - ✅ **Auto-Emitter GELÖST + bewiesen** (2026-05-29): `type_name<T>()` (constexpr FQ-Typ-Name via
+    `__FUNCSIG__`) + `all_axes_umbrella.hpp` (alle 17 Achsen in einem Include) + `emit_adhoc_modules<Engine>`
+    (`adhoc_emitter.hpp`) schreiben pro enumerierter Permutation ein standalone-kompilierbares Modul-`.cpp`
+    (Umbrella-Include + `COMDARE_DEFINE_ANATOMY_MODULE_ADHOC` mit den 17 FQ-Achsen-Typen). End-to-end
+    verifiziert: `test_v41_anatomy_adhoc_dll_load` (1/1) — eine auto-emittierte AdHoc-Permutation →
+    SHARED-DLL → via `AnatomyModuleLoader` geladen → `run_workload`/Stufe-B grün.
+  - ✅ **R5.G SKALIERUNG GELÖST + bewiesen** (2026-05-29): `comdare-adhoc-emitter` (configure-time-CLI,
+    `apps/adhoc_emitter/`) enumeriert den GANZEN Pilot-Raum + emittiert pro Permutation ein `.cpp`;
+    `cmake/adhoc_emitter.cmake` (`comdare_run_adhoc_emitter` 2-Pass-Runner + `comdare_build_adhoc_modules`
+    glob/`add_library`-Loop) baut JEDE emittierte Permutation automatisch zu einer eigenen SHARED-DLL.
+    Verifiziert: Pass1 SKIPPED → Tool gebaut → Pass2 emittiert 3 `.cpp` → 3 SHARED-DLLs →
+    `test_v41_anatomy_adhoc_autobuilt_load` (1/1) lädt ALLE 3 via `load_all` + misst jede (Stufe B).
+    **Damit ist R5.G end-to-end UND skaliert geschlossen** (Raum → N Modul-`.cpp` → N DLLs → N Anatomien);
+    offen bleibt nur die Ausweitung des Pilot-Raums auf den vollen kartesischen Produkt-Raum (Konfig-Frage,
+    kein neuer Mechanismus).
   - **R5.B (separat):** weitere Achsen ins `std::map`-Innenleben routen, damit Dim 2 / in-DLL den
     VOLLEN Algorithmus statt nur `search_algo` misst.
 - **R5.D/R5.E/R6** (#26): CacheEngineBuilder-CLI + extern-C-ABI + dlopen-Loader + Mess-Treiber
@@ -211,3 +221,19 @@ cmake --build build/msvc-release --config Release --target test_prt_art_prueflin
 
 - 3 E11-Factory-Tests · 6 axis_07 · 4 axis_01 · 4 axis_14 · 4 axis_11 · 1 F.5-Permutations-Raum.
 - Reiner CE-Standalone-Merge (Dummy-Typen): `test_v41_anatomy_pruefling_merge.cpp`.
+
+### R5.G Auto-Emitter + Skalierung (CE-only, 2-Pass-Build)
+
+```
+cmake -S . -B build/msvc-release                                              # Pass 1 (R5.G SKIPPED)
+cmake --build build/msvc-release --config Release --target comdare_adhoc_emitter_cli
+cmake -S . -B build/msvc-release                                              # Pass 2 (Emitter laeuft, 3 DLLs)
+cmake --build build/msvc-release --config Release --target test_v41_anatomy_adhoc_autobuilt_load
+./build/msvc-release/tests/unit/Release/test_v41_anatomy_adhoc_autobuilt_load.exe   # 1/1 PASSED
+```
+
+- `test_v41_anatomy_adhoc_codegen_macro` (1/1, ABI_STATIC) · `test_v41_codegen_type_name` (2/2)
+  · `test_v41_codegen_all_axes_umbrella` · `test_v41_anatomy_adhoc_dll_load` (1/1, eine auto-emittierte DLL)
+  · `test_v41_anatomy_adhoc_autobuilt_load` (1/1, ALLE 3 auto-gebauten DLLs via `load_all` + Stufe-B-Messung).
+- Helper: `libs/cache_engine/builder/codegen/{type_name,all_axes_umbrella,adhoc_emitter}.hpp` ·
+  `apps/adhoc_emitter/` · `cmake/adhoc_emitter.cmake`.
