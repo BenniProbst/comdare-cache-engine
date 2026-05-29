@@ -94,13 +94,16 @@ materialisieren würden, ist metaprogrammatisch bestimmt, bevor irgendein Binary
 
 ## 5. Verbleibend: schweres Build-Subsystem (noch nicht implementiert)
 
-Der Permutations-RAUM ist bewiesen; offen ist seine **Materialisierung in Binaries**:
+Der Permutations-RAUM ist bewiesen UND als Binaries materialisiert:
 
-- **F.5 Codegen-Build-Targets** `comdare_perms_ce/pa/full_join` (#15): generieren pro Komposition ein
-  `.cpp`/`.so` via `for_each_composition_type` + `anatomy_codegen_tool`. Das Tool arbeitet derzeit auf
-  **hand-geschriebenen benannten Kompositionen** (`anatomy/known_algorithms.hpp`), NICHT auf dem
-  auto-gemergten Raum → erfordert Tool/Pipeline-Erweiterung (R5.D/R5.E/R5.I-Subsystem,
-  `cmake/permutations.cmake` Profile smoke/medium/full).
+- ✅ **F.5 Codegen-Build-Targets** `comdare_perms_ce/pa/full_join` (#15) — **DONE 2026-05-29**: alle 3
+  Stufen materialisieren echte SHARED-DLLs end-to-end. Kette: prt-art-Slots → `PrtArtCompositionDemo`
+  (codegen-fähig, `prt_art/slots/prt_art_composition_demo.hpp`) → `anatomy_codegen_tool`
+  (`--external-composition`/`--no-known`) → `anatomy_codegen_runner` (`EXTERNAL_COMPOSITIONS`/`NO_KNOWN`)
+  → `comdare_codegen_anatomy_module_list` → DLL. Verifiziert: Stufe-2 (1 DLL) + Stufe-3 (3 DLLs:
+  CE art/hot + prt-art), Stufe-1 via R5.I-Pilot. Gated auf Plugin-Controller-Build + 2-Pass (Tool zuerst).
+- **VERBLEIBEND F.5:** volle PermutationEngine-getriebene Auto-Enumeration (Codegen iteriert den GANZEN
+  gemergten Raum via `for_each_composition_type` statt hand-Composition-Liste) — R5.G-Erweiterung.
 - **R5.D/R5.E/R6** (#26): CacheEngineBuilder-CLI + extern-C-ABI + dlopen-Loader + Mess-Treiber
   (der eigentliche F15-Messlauf: bringt die CacheEngine messbaren Wert?).
 - **F.2/F.3** (#12/#13): Achsen-zentrische Namespace-Restrukturierung + Legacy-Concept-Wiederverwendung.
