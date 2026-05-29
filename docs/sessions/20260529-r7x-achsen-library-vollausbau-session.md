@@ -135,3 +135,37 @@ Goldstandard-Vorlage für neue axis_03a-Wrapper: `axis_03a_search_algo_skip_list
 **Methodik (Fortsetzung):** durchgaengig verify-first + nicht-hohl; R5.B von „gated" zu „erfuellt (allocator-Dimension)" konvertiert, indem die VERIFIZIERTE Ursache (Achsen trait-only) behoben wurde (PoolResource + scan_field_sum). Negativ-/Limit-Ergebnisse ehrlich ausgewiesen statt Effekte zu erfinden. 3-Repo-synchron, +10 Restore-Tags (pre-r7.2-bst … pre-r5d-cliffdelta).
 
 **Genuin verbleibend (verifiziert NICHT in-Kontext-bounded):** R5.D-**PMC** (HW-Cache-Counter, OS-/Infra-Scope — nötig für fein-granulare Achsen) · R5.B-Erweiterung auf weitere Trait-Achsen (je Achse Laufzeit-API-Neugestaltung) · voller kartesischer Raum (1e15 → braucht Sampling-Strategie) · F.2/F.3 Namespace (codebase-weit GROSS) · E11/E10 (gated E4.1-Submodule) · D1/D2 (Autor-Volltext, Doku 22 als Vorlage).
+
+---
+
+## PAUSE-STAND (2026-05-29) — User-Kurs-Korrektur + Säule-1-Start; manuelle Wiederaufnahme
+
+**Kontext:** Nach den Einheiten 1–40 (Such-Bibliothek + F15 + robuste Statistik + Coverage + F.2/F.3-Fassade) hat der User ZWEI fundamentale Architektur-Abweichungen festgestellt und eine Kurs-Korrektur gesteuert. Dieser Block hält den Stand bei der Pause fest. **Repo:** ce `3d3a41a` (v34-final-231) · da `27e3b70` · pa `35d1143` — 3-Repo-synchron.
+
+### A. Festgestellte Abweichungen (User 2026-05-29) — beide bestätigt + dokumentiert
+1. **Säule 1 — „Tiere statt Organe":** axis_03a wurde um monolithische self-contained Such-Strukturen (BST/B-Baum/SkipList/Hash, eigener Speicher, schmaler uint8/uint16-Key) erweitert. Widerspricht Doku 14 §1–§3 (Achse=Organ, Algorithmus=Komposition über 17 Organe) + §7 (axis_03a REFACTORING-PFLICHT).
+2. **Säule 2 — Wall-Clock-3-Achsen statt Per-Achsen-Observer:** F15 maß Wall-Clock über 3 künstlich variierte Achsen + umging `observe_all()` (den Per-Achsen-`ObserverAggregate`, Doku 14 §17.2/§20).
+
+### B. Korrigiertes Mess-Modell (Doku 24, autoritativ) — drei getrennte Aspekte
+1. **Tier-Ebene (ganzer Algorithmus):** CacheEngineBuilder misst Wall-Clock als Akkumulation von Detail-Kurven (Latenz über Füllstand, read/write/delete getrennt) + RAM + Disk. (Wall-Clock bleibt hier.)
+2. **Achsen-Ebene:** `observe_all()` → `ObserverAggregate` sammelt je Achse `statistics()` → Gesamt-Statistics-Trace.
+3. **Achsen-VERGLEICH:** Tests gegen die vereinheitlichten Achsen-Interfaces vs. bekannte Algorithmen (z. B. `verify_matches_std_map`), NICHT die Latenz-Benchmark.
+
+### C. In dieser Korrektur-Phase erledigt (verifiziert, committed)
+- **Doku 24** (Mess-Modell-Korrektur, §1–§6) + Doku-22-Korrektur-Banner + Memory `[[feedback_zwei_dimensionen_messmodell]]`.
+- **F.2/F.3** (Doku 23): axen-zentrische Alias-Fassade (17) + abstrakte Achsen-Concepts (alle 17, `cache_engine::concepts::*Axis`) + `optional_prt_art_impl`-Slots (17). perm-engine 21/21.
+- **Säule 2, Schritt 2a:** `SearchAlgorithmAnatomy::observe_all()` un-gestubbt — hält `search_algo`-Organ real + sammelt dessen ECHTE `statistics()` (Test `Saeule2_ObserveAllReal`). Regress 0.
+- **Trennungs-Verifikation (Doku 24 §5):** CEB↔Composition besteht formal, ist aber 3-Pfad-fragmentiert; konkret liefert `AnatomyExecutionContext::observe_all()` NULL (Container=std::map ↔ Observer=ungetriebenes Organ entkoppelt). **Blocker §5.5:** schmale Organ-Key-Typen (uint8/uint16) → Organ untauglich als allgemeiner Container.
+- **Säule 1, Increment 1 (Doku 24 §6):** `composable/composable_search.hpp` — komponierbares Modell (RawSlotStore Storage-Organ + `TraversalOrgan`-Concept + LinearScan/SortedBinary-Organe + `ComposedSearch`) über GEMEINSAMEM uint64-Key → Key-Type-Blocker strukturell gelöst, Organ-Swappability bewiesen (Test `Saeule1_ComposableOrgan`, traversal 297/297).
+
+### D. RESUME-PLAN (Reihenfolge, wenn der User fortsetzt) — Doku 24 §6 Folge-Increments
+1. **node_type/layout/allocator als ECHTE Storage-Organe** (statt trait-only) → `RawSlotStore` durch organ-getriebenen Speicher ersetzen (axis_04/05/06 bekommen ein echtes Slot/Storage-API).
+2. **Tier-Wrapper umstufen:** Array256/BST/B-Baum/Original*… als **Reference-Compositions / Stufe-2-Prüfling-Referenzen** (Doku 14 §6), NICHT als axis_03a-Organe.
+3. **Anatomie + AnatomyExecutionContext auf `ComposedSearch`** (gemeinsamer uint64-Key) umstellen → schliesst die §5.2-NULL-Lücke (observe_all real im Mess-Pfad) + vereinheitlicht die 3 Pfade.
+4. **Säule 2 vollenden:** Mess-Pfad (abi_adapter/CLI) erhebt pro Permutation den Per-Achsen-`observe_all`-Trace ZUSÄTZLICH zur Tier-Wall-Clock; Tier-Metriken anreichern (Füllstands-Kurven, r/w/d, RAM/Disk).
+5. **Achsen-Vergleich** (Doku 24 §2.3) als Interface-Tests-vs-bekannte-Algos ausbauen.
+
+### E. Restore-Tags dieser Phase (alle gepusht)
+`pre-f2f3-axiscentric-aliases-…` · `pre-f3-all17-concepts-…` · `pre-saeule2-observer-korrektur-…` · `pre-saeule1-axis03a-remodel-20260529` (= Stand vor Increment 1).
+
+**Status: PAUSE auf User-Wunsch.** Bestehende F15/Wrapper-Arbeit ist nicht „falsch" (Wrapper erfüllen std::map korrekt, als Reference-Compositions nutzbar); sie ist im Mess-Modell neu eingeordnet (Doku 24). Wiederaufnahme manuell durch den User.
