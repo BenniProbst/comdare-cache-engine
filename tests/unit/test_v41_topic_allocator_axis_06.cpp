@@ -1048,3 +1048,42 @@ TEST(V41_TopicAllocatorAxis06_Adapter, AsPmrResourceBacksPmrVector) {
     EXPECT_TRUE(res.is_equal(res_same));
     EXPECT_FALSE(res.is_equal(res_other));
 }
+
+// V41.F.6.1 R5.B (2026-05-29) — PoolResourceAllocator: die NICHT-HOHL-Eigenschaft.
+// Anders als die uebrigen axis_06-Wrapper (die ohne Vendor-Linking auf System-malloc zurueckfallen)
+// besitzt dieser einen EIGENEN std::pmr::unsynchronized_pool_resource → verhaltens-distinkt.
+TEST(V41_TopicAllocatorAxis06_Pool, OwnsDistinctPoolAndRoundtrips) {
+    axis_06::PoolResourceAllocator a{};
+    EXPECT_TRUE(axis_06::PoolResourceAllocator::supports_pmr());
+    EXPECT_FALSE(axis_06::PoolResourceAllocator::is_thread_safe());  // unsynchronized
+    EXPECT_EQ(axis_06::PoolResourceAllocator::name(), std::string_view{"pool_resource"});
+    ASSERT_NE(a.underlying_resource(), nullptr);
+
+    // Pool-Roundtrip mit vielen kleinen, gleichgrossen Allokationen (Size-Class-Wiederverwendung).
+    constexpr std::size_t kBytes = 64, kAlign = 16, kN = 1000;
+    std::vector<void*> ptrs;
+    ptrs.reserve(kN);
+    for (std::size_t i = 0; i < kN; ++i) {
+        void* p = a.allocate(kBytes, kAlign);
+        ASSERT_NE(p, nullptr);
+        std::memset(p, 0xAB, kBytes);   // Speicher wirklich anfassen
+        ptrs.push_back(p);
+    }
+    for (void* p : ptrs) a.deallocate(p, kBytes, kAlign);  // zurueck in die Pool-Free-Lists
+    // Nach Freigabe erneut allokieren → Pool bedient aus wiederverwendeten Bloecken (kein Crash).
+    void* reuse = a.allocate(kBytes, kAlign);
+    ASSERT_NE(reuse, nullptr);
+    a.deallocate(reuse, kBytes, kAlign);
+}
+
+// is_equal-Semantik: distinkte Default-Instanzen besitzen UNTERSCHIEDLICHE Pools (ungleich);
+// eine Kopie TEILT den Pool (gleich) — korrekte PMR-Semantik fuer einen stateful Allocator.
+TEST(V41_TopicAllocatorAxis06_Pool, CopySharesPoolDistinctInstancesDiffer) {
+    axis_06::PoolResourceAllocator a{};
+    axis_06::PoolResourceAllocator a_copy{a};   // teilt den shared_ptr-Pool
+    axis_06::PoolResourceAllocator b{};         // eigener, anderer Pool
+    EXPECT_TRUE(a == a_copy);                   // gleicher Pool
+    EXPECT_FALSE(a == b);                        // verschiedene Pools
+    EXPECT_EQ(a.underlying_resource(), a_copy.underlying_resource());
+    EXPECT_NE(a.underlying_resource(), b.underlying_resource());
+}

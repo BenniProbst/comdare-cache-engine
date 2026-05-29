@@ -63,6 +63,7 @@ option(COMDARE_AXIS_06_ENABLE_STD       "Allocator A22 std::malloc/free (libc)" 
 option(COMDARE_AXIS_06_ENABLE_MIMALLOC  "Allocator A04 Mimalloc Free-List-Sharding"  ON)
 option(COMDARE_AXIS_06_ENABLE_SNMALLOC  "Allocator A07 Snmalloc Message-Passing"     ON)
 option(COMDARE_AXIS_06_ENABLE_PMR       "Allocator A22 std::pmr::memory_resource"    ON)
+option(COMDARE_AXIS_06_ENABLE_POOL      "Allocator A22 std::pmr::unsynchronized_pool_resource (eigener Pool, F15-operativ)" ON)
 # V41.F.6.1 Batch 2 Vendor (2026-05-26): Jemalloc / TCMalloc / dlmalloc
 option(COMDARE_AXIS_06_ENABLE_JEMALLOC  "Allocator A05 Jemalloc Arena-based (Evans)" ON)
 option(COMDARE_AXIS_06_ENABLE_TCMALLOC  "Allocator A06 TCMalloc Thread-Caching (Google)" ON)
@@ -470,6 +471,13 @@ else()
     set(COMDARE_AXIS_06_USE_PMR 0)
 endif()
 
+# V41.F.6.1 R5.B (2026-05-29) — PoolResourceAllocator (std::pmr, kein externes Linking → immer baubar)
+if(COMDARE_AXIS_06_ENABLE_POOL)
+    set(COMDARE_AXIS_06_USE_POOL 1)
+else()
+    set(COMDARE_AXIS_06_USE_POOL 0)
+endif()
+
 # V41.F.6.1 Batch 2 Vendor — USE = ENABLE && HAVE
 # JEMALLOC: ENABLE && HAVE
 if(COMDARE_AXIS_06_ENABLE_JEMALLOC AND COMDARE_HAVE_JEMALLOC)
@@ -601,7 +609,7 @@ else()
 endif()
 
 message(STATUS "V41.F.6.1.C Allocator Axis 6 effective USE flags:")
-message(STATUS "  Batch 1: USE_STD=${COMDARE_AXIS_06_USE_STD} MIMALLOC=${COMDARE_AXIS_06_USE_MIMALLOC} SNMALLOC=${COMDARE_AXIS_06_USE_SNMALLOC} PMR=${COMDARE_AXIS_06_USE_PMR}")
+message(STATUS "  Batch 1: USE_STD=${COMDARE_AXIS_06_USE_STD} MIMALLOC=${COMDARE_AXIS_06_USE_MIMALLOC} SNMALLOC=${COMDARE_AXIS_06_USE_SNMALLOC} PMR=${COMDARE_AXIS_06_USE_PMR} POOL=${COMDARE_AXIS_06_USE_POOL}")
 message(STATUS "  Batch 2: USE_JEMALLOC=${COMDARE_AXIS_06_USE_JEMALLOC} TCMALLOC=${COMDARE_AXIS_06_USE_TCMALLOC} DLMALLOC=${COMDARE_AXIS_06_USE_DLMALLOC}")
 message(STATUS "  Batch 3: USE_HOARD=${COMDARE_AXIS_06_USE_HOARD} SLAB=${COMDARE_AXIS_06_USE_SLAB} MICHAEL_LF=${COMDARE_AXIS_06_USE_MICHAEL_LF}")
 message(STATUS "  Batch 4: USE_SCALLOC=${COMDARE_AXIS_06_USE_SCALLOC} NUMALLOC=${COMDARE_AXIS_06_USE_NUMALLOC} RPMALLOC=${COMDARE_AXIS_06_USE_RPMALLOC}")

@@ -43,6 +43,7 @@
 | NUMAllocAllocator | NUMAlloc (NUMA origin-aware Allocator) | NUMAlloc: A Faster NUMA Memory Allocator | ISMM 2023 | 10.1145/3591195.3595276 | OSS | unknown (vermutl. Apache-2.0) | — | ✗ | medium |
 | PIMMallocAllocator | PIM-malloc (Processing-In-Memory Allocator) | PIM-malloc: A Fast and Scalable Dynamic Memory Allocator for PIM… | HPCA 2026 (arXiv 2025) | arxiv.org/abs/2505.13002 | OSS | MIT | — | ✗ | high |
 | PmrResourceAllocator | std::pmr::memory_resource | N3916: Polymorphic Memory Resources (WG21) | WG21 2014 → C++17 | open-std.org/.../n3916.pdf | OSS | Standard-Library | — | ✗ | high |
+| PoolResourceAllocator | std::pmr::unsynchronized_pool_resource (eigener Size-Class-Pool, R5.B F15-operativ) | N3916: Polymorphic Memory Resources (WG21) | WG21 2014 → C++17 | open-std.org/.../n3916.pdf | OSS | Standard-Library | — | ✗ | high |
 | PtMalloc2Allocator | ptmalloc2 (glibc malloc) | — (kein Peer-Review; Gloger/Lea) | 1990er-2000er | malloc.de/en/ | OSS | LGPL-2.1+ | — | ✗ | high |
 | BuddyAllocator | Buddy System (Power-of-2 Splitting) | A Fast Storage Allocator (Buddy); Knuth TAOCP Vol.1 | CACM 1965; TAOCP 1968 | 10.1145/365628.365655 | nein | none | — | ✗ | high |
 | ExgenAllocator | Exgen-Malloc (Single-Threaded Specialized) | Old is Gold: Optimizing Single-threaded Applications with Exgen-Malloc | IEEE CAL 2025 | arxiv.org/abs/2510.10219 | ? | unknown | — | ✗ | medium |
