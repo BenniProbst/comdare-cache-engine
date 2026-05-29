@@ -1118,3 +1118,10 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
         AXIS_MIXIN_TYPE   "${_aq1_axis_mixin}"
     )
 endif()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# V41.F.6.1 G.1 — Hierarchische Achsen-Iteration im Build-Output + Permutations-Raum-Auswertung
+# (ersetzt die flachen per-Achse-message()-Zeilen durch eine Topic->Achse->Wrapper-Hierarchie).
+# ─────────────────────────────────────────────────────────────────────────────
+include(axis_hierarchy_summary)
+comdare_print_axis_hierarchy()
