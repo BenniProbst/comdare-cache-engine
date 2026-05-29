@@ -75,6 +75,25 @@ TEST(Axis03aTierOrgan, Uint16BTreeReconstructibleFromOrgan) {
     SUCCEED();  // BTreeSearchAlgo exakt aus ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoolStore> rekonstruierbar
 }
 
+// --- Umstufung-A (#41 Schritt B): OriginalXxx-Tiere ≡ Organ-Komposition (REKONSTRUKTION) ------------------
+// Die OriginalXxx-Wrapper-Bodies sind triviale Re-Impls (ART=array256-dense, HOT/START/Wormhole/SuRF=
+// sorted-vector+lower_bound) → seziert auf bestehende flache Organe. is_original/Habich bleibt am Wrapper;
+// hier wird NUR das IST-Such-Verhalten als Organ-Komposition belegt (echte Trie-Anatomie = s4-Folge-Charge).
+// Doppel-Beleg transitiv: Organ ≡ std::map (über identische Organ-Typen) + Organ ≡ OriginalXxx (hier).
+TEST(Axis03aTierOrgan, Uint8OriginalTiersReconstructibleFromOrgan) {
+    ts::verify_variants_equivalent<ce_cmp::OriginalArtOrgan,      ce_03a::OriginalArtSearchAlgo>(200u, 255u);   // uint8
+    ts::verify_variants_equivalent<ce_cmp::OriginalHotOrgan,      ce_03a::OriginalHotSearchAlgo>(200u, 255u);   // uint8
+    ts::verify_variants_equivalent<ce_cmp::OriginalWormholeOrgan, ce_03a::OriginalWormholeSearchAlgo>(200u, 255u); // uint8
+    ts::verify_variants_equivalent<ce_cmp::OriginalSurfOrgan,     ce_03a::OriginalSurfSearchAlgo>(200u, 255u);  // uint8
+    SUCCEED();  // ART/HOT/Wormhole/SuRF (uint8-IST-Bodies) exakt aus ihrer Organ-Komposition wiederherstellbar
+}
+
+// START ist das EINZIGE uint16-OriginalXxx-Tier → key_mod=1000 (sonst Key-Cast-Kollision organ=uint64 vs tier=uint16).
+TEST(Axis03aTierOrgan, Uint16OriginalStartReconstructibleFromOrgan) {
+    ts::verify_variants_equivalent<ce_cmp::OriginalStartOrgan, ce_03a::OriginalStartSearchAlgo>(1000u, 1000u);
+    SUCCEED();  // START (uint16-IST-Body) exakt aus SortedBinaryOrgan wiederherstellbar
+}
+
 // --- Adversarialer B-Baum-Delete-Stresstest (#41 Inc3) -----------------------------------------------------
 // Der B-Baum-Delete (11 von Hand auf Pool-Getter/Setter portierte CLRS-Helfer: borrow_from_prev/next, merge,
 // remove_from_nonleaf, fill, Wurzel-Schrumpf) ist das riskanteste Stueck der Sezierung. Der Harness-600-Op-
