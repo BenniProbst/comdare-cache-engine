@@ -25,6 +25,7 @@ Vier Wrapper sind is_original-faehig mit permissivem OSS-Original-Code (Original
 | HashSearchAlgo | Open-Addressing-Hashtabelle (Fibonacci-Hash, Linear Probing, Tombstone-Erase) — UNGEORDNET, O(1) avg | The Art of Computer Programming Vol.3 §6.4 (Hashing) | Addison-Wesley 2nd Ed. 1998 | en.wikipedia.org/wiki/Open_addressing | nein (Lehrbuch-Algorithmus) | none | ✗ |
 | LinearScanSearchAlgo | Unsortierter linearer Scan (ART-Node4-Strategie, Baseline-Nullpunkt) | The Adaptive Radix Tree: ARTful Indexing… (Node4 linear search) | ICDE 2013 | 10.1109/ICDE.2013.6544812 | nein (Konzept-Baseline) | none | ✗ |
 | BinarySearchTreeSearchAlgo | Unbalancierter binaerer Suchbaum, Hibbard-Deletion | The Art of Computer Programming Vol.3 §6.2.2 (Binary Tree Searching) | Addison-Wesley 2nd Ed. 1998 | en.wikipedia.org/wiki/Binary_search_tree | nein (Lehrbuch) | none | ✗ |
+| BTreeSearchAlgo | Balancierter block-orientierter Mehrwege-B-Baum (t=4, CLRS B-TREE-INSERT/DELETE) | Organization and Maintenance of Large Ordered Indexes | Acta Informatica 1(3):173-189, 1972 (Bayer/McCreight) | 10.1007/BF00288683 | nein (Paper liefert Beschreibung; CLRS Kap. 18 Pseudocode) | none (Algorithmus) | ✗ |
 
 > §4-Korrekturen (Map) angewendet:
 > - OriginalHotSearchAlgo: Venue korrigiert von Code-Kommentar "PVLDB 11(3):274-286, 2018" → **SIGMOD 2018** (erw. Version ACM TODS 2022).
@@ -35,19 +36,26 @@ Vier Wrapper sind is_original-faehig mit permissivem OSS-Original-Code (Original
 > - OriginalSurfSearchAlgo: Klarstellung (kein Bug) — Mehr-Header-Bibliothek, kein Single-Header.
 
 ## §3 Compliance-Status
-Alle 16 axis_03a-Wrapper besitzen eine Paper-Referenz (11 Re-Impl/Konzept-Wrapper + 5 Original-Paper-
-Wrapper; + BinarySearchTreeSearchAlgo = unbalancierter BST mit Hibbard-Deletion, Knuth TAOCP 3 §6.2.2). Die Re-Impl/Konzept-Wrapper (Array256SearchAlgo, Array65535SearchAlgo, VectorU16U16SearchAlgo,
+Alle 17 axis_03a-Wrapper besitzen eine Paper-Referenz (12 Re-Impl/Konzept-Wrapper + 5 Original-Paper-
+Wrapper; + BinarySearchTreeSearchAlgo = unbalancierter BST mit Hibbard-Deletion, Knuth TAOCP 3 §6.2.2;
++ BTreeSearchAlgo = balancierter block-orientierter Mehrwege-B-Baum, Bayer/McCreight Acta Inf. 1972 /
+CLRS Kap. 18). Die Re-Impl/Konzept-Wrapper (Array256SearchAlgo, Array65535SearchAlgo, VectorU16U16SearchAlgo,
 VectorU8U8SearchAlgo, KArySearchAlgo, InterpolationSearchAlgo, EytzingerSearchAlgo, SkipListSearchAlgo,
 HashSearchAlgo, LinearScanSearchAlgo) sind als Konzept-Ableitung des jeweiligen Anker-Papers
 gekennzeichnet → Habich-Pflicht erfuellt. Such-METHODEN: KArySearchAlgo (k-ary/SIMD-Partition,
 Schlegel/Gemulla/Lehner DaMoN 2009), InterpolationSearchAlgo (verteilungsbewusst, Perl/Itai/Avni CACM
 1978), EytzingerSearchAlgo (cache-conscious BFS-Layout, Khuong/Morin JEA 2017); STRUKTUREN: SkipListSearchAlgo
 (probabilistisch geordnet, Pugh CACM 1990), HashSearchAlgo (open-addressing, Knuth TAOCP 3 §6.4),
-LinearScanSearchAlgo (unsortierte ART-Node4-Baseline, Leis ICDE 2013). Alle originalgetreue C++23-Re-
-Implementierungen (Paper liefern Pseudocode/Lehrbuch-Algorithmus/Mess-Studie, keinen kanonischen
-permissiven Repo-Code), daher is_original=false ([[pseudocode-papers-fallback]]). Damit ist die
-Such-Paradigmen-Palette vollstaendig: dense / sorted / Such-Methode / geordnete Struktur / Hash /
-unsortiert-linear / Original-Trie.
+LinearScanSearchAlgo (unsortierte ART-Node4-Baseline, Leis ICDE 2013), BinarySearchTreeSearchAlgo
+(deterministischer unbalancierter Vergleichsbaum), BTreeSearchAlgo (deterministisch balancierter,
+block-orientierter Mehrwege-Baum — das DB-Index-Arbeitspferd, Bayer/McCreight Acta Inf. 1972). Alle
+originalgetreue C++23-Re-Implementierungen (Paper liefern Pseudocode/Lehrbuch-Algorithmus/Mess-Studie,
+keinen kanonischen permissiven Repo-Code), daher is_original=false ([[pseudocode-papers-fallback]]).
+Damit ist die Such-Paradigmen-Palette vollstaendig und entlang der Balance-Achse geschlossen: dense /
+sorted / Such-Methode / Hash / unsortiert-linear / Original-Trie / geordnete Struktur in allen drei
+Balance-Auspraegungen (BST unbalanciert · SkipList probabilistisch balanciert · B-Baum deterministisch
+balanciert + block-orientiert), womit das Komplexitaets- und Cache-Verhalten am einheitlichen
+std::map-Interface vollstaendig vergleichbar wird (F15).
 
 is_original-Kandidaten (Map §3, fuer R7.6.c — echtes Original-Code-Linking):
 - OriginalArtSearchAlgo → github.com/laurynas-biveinis/unodb (Apache-2.0)

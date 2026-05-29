@@ -31,6 +31,8 @@
 #include "axis_03a_search_algo_linear_scan.hpp"
 // V41.F.6.1.R7.2 (2026-05-29) S16 binary search tree (unbalancierter BST, Hibbard, Knuth TAOCP 3)
 #include "axis_03a_search_algo_bst.hpp"
+// V41.F.6.1.R7.2 (2026-05-29) S17 B-tree (balancierter block-orientierter Mehrwege-Baum, Bayer/McCreight 1972)
+#include "axis_03a_search_algo_btree.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
@@ -61,7 +63,8 @@ using AllStrategies = mp::mp_list<
     SkipListSearchAlgo,          // S13, Skip-Liste (Pugh CACM 1990) — probabilistische geordnete STRUKTUR
     HashSearchAlgo,              // S14, open-addressing Hashtabelle (Knuth TAOCP 3 §6.4) — UNGEORDNET, O(1)
     LinearScanSearchAlgo,        // S15, unsortierter linearer Scan (ART Node4-Baseline, Leis ICDE 2013)
-    BinarySearchTreeSearchAlgo   // S16, unbalancierter BST (Hibbard-Deletion, Knuth TAOCP 3 §6.2.2)
+    BinarySearchTreeSearchAlgo,  // S16, unbalancierter BST (Hibbard-Deletion, Knuth TAOCP 3 §6.2.2)
+    BTreeSearchAlgo              // S17, balancierter Mehrwege-B-Baum (Bayer/McCreight Acta Inf. 1972, t=4, block-orientiert)
     // Vollausbau-Roadmap (Folge-Batches, Tree-STRUKTUR-Paper-Wrappers):
     // P03 Masstree DEFERRED — masstree.hh hat keine direkten Function-Bodies (alle Templates)
     // S13 P04 CoCo-trie (Read-Only, 0/4 originall — deferred wegen kein CRUD-API)

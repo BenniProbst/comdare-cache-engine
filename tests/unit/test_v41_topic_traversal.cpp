@@ -569,7 +569,8 @@ TEST(SearchAlgo_Interchangeability, AllUint16WrappersMatchStdMap) {
     verify_matches_std_map<ce_03a::HashSearchAlgo>(1000u, 1000u);           // Hash (ungeordnet)
     verify_matches_std_map<ce_03a::LinearScanSearchAlgo>(1000u, 1000u);     // unsortiert linear
     verify_matches_std_map<ce_03a::BinarySearchTreeSearchAlgo>(1000u, 1000u); // BST (Hibbard-Deletion)
-    SUCCEED();  // alle 9 uint16-Achsen liefern identische std::map-Semantik (austauschbar)
+    verify_matches_std_map<ce_03a::BTreeSearchAlgo>(1000u, 1000u);          // balancierter Mehrwege-B-Baum (CLRS-Delete)
+    SUCCEED();  // alle 10 uint16-Achsen liefern identische std::map-Semantik (austauschbar)
 }
 
 // V41.F.6.1 R7.2 — BST: korrekt auch bei DEGENERIERTER (sortierter) Einfuege-Reihenfolge (O(n)-Kette),
@@ -598,11 +599,50 @@ TEST(SearchAlgo_BST, DegenerateSortedInputAndErase) {
     EXPECT_EQ(ce_03a::BinarySearchTreeSearchAlgo::family_id::value, 16);
 }
 
+// V41.F.6.1 R7.2 — B-Baum: erzwingt CLRS-spezifische Maschinerie (Knoten-Splits beim Einfuegen,
+// borrow-from-sibling + merge + Wurzel-Schrumpfung beim Loeschen), die der binaere BST nicht hat.
+// 2000 Schluessel ⇒ mehrere Ebenen + viele Splits; Loeschen aller geraden Keys ⇒ Borrows/Merges.
+TEST(SearchAlgo_BTree, SplitMergeAndRootShrinkStress) {
+    ce_03a::BTreeSearchAlgo s{};
+    EXPECT_TRUE(ce_03a::BTreeSearchAlgo::has_cache_line_alignment());  // block-orientiert (alignas(64))
+    EXPECT_TRUE(ce_03a::BTreeSearchAlgo::supports_range_scan());       // geordnet
+    EXPECT_EQ(ce_03a::BTreeSearchAlgo::family_id::value, 17);
+
+    constexpr std::uint16_t N = 2000;
+    // sortiert einfuegen ⇒ rein rechtsseitige Splits (Stress fuer split_child + insert_nonfull).
+    for (std::uint16_t k = 1; k <= N; ++k) s.insert(k, static_cast<std::uint64_t>(k) * 3u);
+    EXPECT_EQ(s.occupied_count(), N);
+    // Update-Semantik (kein Wachstum, Wert ersetzt).
+    s.insert(std::uint16_t{1234}, 99999u);
+    EXPECT_EQ(s.occupied_count(), N);
+    EXPECT_EQ(*s.lookup(std::uint16_t{1234}), 99999u);
+    for (std::uint32_t k = 1; k <= N; ++k) {
+        auto v = s.lookup(static_cast<std::uint16_t>(k));
+        ASSERT_TRUE(v.has_value()) << "key=" << k;
+        if (k != 1234u) EXPECT_EQ(*v, k * 3u);
+    }
+    // alle geraden Keys loeschen ⇒ massiv Borrows/Merges + mehrfache Wurzel-Schrumpfung.
+    std::uint16_t erased = 0;
+    for (std::uint16_t k = 2; k <= N; k += 2) { EXPECT_TRUE(s.erase(k)); ++erased; }
+    EXPECT_EQ(s.occupied_count(), static_cast<std::size_t>(N - erased));
+    EXPECT_FALSE(s.erase(std::uint16_t{2}));  // bereits geloescht ⇒ false (std::map::erase-Semantik)
+    // ungerade Keys vollstaendig intakt, gerade verschwunden.
+    for (std::uint32_t k = 1; k <= N; ++k) {
+        auto v = s.lookup(static_cast<std::uint16_t>(k));
+        if (k % 2u == 1u) { ASSERT_TRUE(v.has_value()) << "odd key=" << k; }
+        else              { EXPECT_FALSE(v.has_value()) << "even key=" << k; }
+    }
+    // restliche ungerade Keys loeschen ⇒ Baum bis zur leeren Wurzel abbauen.
+    for (std::uint16_t k = 1; k <= N; k += 2) EXPECT_TRUE(s.erase(k));
+    EXPECT_EQ(s.occupied_count(), 0u);
+    EXPECT_FALSE(s.lookup(std::uint16_t{777}).has_value());
+}
+
 TEST(SearchAlgo_Interchangeability, AllUint8WrappersMatchStdMap) {
     // uint8-Schluessel (0..255): Keys mod 200, Query-Bereich 0..255.
     verify_matches_std_map<ce_03a::Array256SearchAlgo>(200u, 255u);   // dense direct-addressed
     verify_matches_std_map<ce_03a::VectorU8U8SearchAlgo>(200u, 255u); // sparse sorted lower_bound
-    SUCCEED();  // → alle 10 CE-nativen Such-Achsen (u8+u16) sind std::map-aequivalent + austauschbar
+    SUCCEED();  // → alle 12 CE-nativen Such-Achsen (u8+u16) sind std::map-aequivalent + austauschbar
 }
 
 // =================================================================
