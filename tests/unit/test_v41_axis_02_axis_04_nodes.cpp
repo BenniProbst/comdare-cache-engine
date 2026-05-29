@@ -134,3 +134,59 @@ TEST(R7_1_cd_Nodes, CartesianCompressionTimesNodeTypeIsProduct) {
     static_assert(prod_count == comp_count * node_count);
     SUCCEED();
 }
+
+// ─── V41 #43 s4: ByteWiseKeyPrefix — echtes Byte-Prefix-Organ (ART, verbatim unodb::key_prefix) ───
+namespace ax02ns = ::comdare::cache_engine::nodes::axis_02_path_compression;
+
+// Concept: das echte Organ erfuellt ByteSkipPathCompression; der Tag bleibt PathCompressionStrategy.
+TEST(Axis02ByteWisePrefix, ConceptsSatisfied) {
+    static_assert(ax02ns::concepts::ByteSkipPathCompression<ax02ns::ByteWiseKeyPrefix>);
+    static_assert(ax02ns::concepts::PathCompressionStrategy<ax02ns::ByteWisePathCompression>);  // unveraendert
+    SUCCEED();
+}
+
+// Pack-Layout: Byte 0 = LSB, Laenge im High-Byte.
+TEST(Axis02ByteWisePrefix, LengthAndIndexing) {
+    constexpr auto p = ax02ns::ByteWiseKeyPrefix::from_bytes(0x332211u, 3);  // Bytes [0x11,0x22,0x33]
+    static_assert(p.length() == 3u);
+    static_assert(p[0] == 0x11u && p[1] == 0x22u && p[2] == 0x33u);
+    static_assert(p.packed_ == 0x0300000000332211ull);
+    SUCCEED();
+}
+
+// common_prefix_len = gemeinsame Byte-Laenge, geklemmt auf length() (Laenge-High-Byte beeinflusst NICHT).
+TEST(Axis02ByteWisePrefix, CommonPrefixLenMatchesManualExpectation) {
+    constexpr auto p = ax02ns::ByteWiseKeyPrefix::from_bytes(0x332211u, 3);
+    static_assert(p.common_prefix_len(0x332211u)   == 3u);  // exakte Low-Byte-Uebereinstimmung
+    static_assert(p.common_prefix_len(0x44332211u) == 3u);  // 4. Byte egal (geklemmt auf len 3)
+    static_assert(p.common_prefix_len(0x332299u)   == 0u);  // Byte 0 differiert (0x11 vs 0x99)
+    static_assert(p.common_prefix_len(0x339911u)   == 1u);  // Byte 1 differiert
+    static_assert(p.common_prefix_len(0x992211u)   == 2u);  // Byte 2 differiert
+    SUCCEED();
+}
+
+// cut entfernt fuehrende Bytes (Abstieg).
+TEST(Axis02ByteWisePrefix, CutShortensFromFront) {
+    auto p = ax02ns::ByteWiseKeyPrefix::from_bytes(0x332211u, 3);  // [0x11,0x22,0x33]
+    p.cut(1);                                                      // -> [0x22,0x33]
+    ASSERT_EQ(p.length(), 2u);
+    ASSERT_EQ(p[0], 0x22u);
+    ASSERT_EQ(p[1], 0x33u);
+}
+
+// prepend: Ergebnis = prefix1 + prefix2 + current; cut dann prepend == Identitaet.
+TEST(Axis02ByteWisePrefix, PrependMergesAndRoundtripsWithCut) {
+    auto p = ax02ns::ByteWiseKeyPrefix::from_bytes(0x33u, 1);                 // [0x33]
+    p.prepend(ax02ns::ByteWiseKeyPrefix::from_bytes(0x11u, 1), 0x22u);        // -> [0x11,0x22,0x33]
+    ASSERT_EQ(p.length(), 3u);
+    ASSERT_EQ(p[0], 0x11u); ASSERT_EQ(p[1], 0x22u); ASSERT_EQ(p[2], 0x33u);
+    ASSERT_EQ(p.packed_, 0x0300000000332211ull);
+
+    auto full = ax02ns::ByteWiseKeyPrefix::from_bytes(0x332211u, 3);
+    const auto original = full.packed_;
+    full.cut(2);                                                             // -> [0x33]
+    ASSERT_EQ(full.length(), 1u);
+    ASSERT_EQ(full[0], 0x33u);
+    full.prepend(ax02ns::ByteWiseKeyPrefix::from_bytes(0x11u, 1), 0x22u);    // -> [0x11,0x22,0x33]
+    ASSERT_EQ(full.packed_, original);
+}
