@@ -184,3 +184,26 @@ TEST(R5A_AbiStability, AllEmptyAggregateIsStandardLayoutPod) {
     static_assert(Agg::total_slots()      == 17);
     SUCCEED();
 }
+
+// V41 Saeule-2-Korrektur (Doku 24 §2.2/§3): observe_all() liefert jetzt ECHTE Per-Achsen-statistics()
+// statt EmptyAxisSnapshot-Stub. Beweis: das search_algo-Organ der Anatomie wird getrieben → seine
+// Insert/Lookup/Hit/Miss-Statistik fliesst real in das ObserverAggregate (= Per-Achsen-Statistics-Trace).
+TEST(Saeule2_ObserveAllReal, DrivenSearchAlgoOrganFlowsIntoAggregate) {
+    ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
+    using Organ = ce_compos::ArtComposition::search_algo;  // Array256SearchAlgo
+    if constexpr (ana::ObservableAxis<Organ>) {
+        using K = typename Organ::key_type;
+        auto& organ = anat.search_algo_organ();
+        for (int i = 0; i < 40; ++i) organ.insert(static_cast<K>(i), static_cast<std::uint64_t>(i) * 3u + 1u);
+        for (int i = 0; i < 40; ++i) (void)organ.lookup(static_cast<K>(i));   // Treffer
+
+        auto const agg = anat.observe_all();
+        // Vorher (Stub): alle Werte 0. Jetzt: ECHTE search_algo-Statistik aus dem getriebenen Organ.
+        EXPECT_EQ(agg.search_algo.total_insert_count, 40u);
+        EXPECT_GE(agg.search_algo.total_lookup_count, 40u);
+        EXPECT_GE(agg.search_algo.total_hit_count, 40u);
+        EXPECT_GT(agg.search_algo.peak_occupancy, 0u);
+    } else {
+        GTEST_SKIP() << "search_algo nicht ObservableAxis (STATISTICS=OFF)";
+    }
+}

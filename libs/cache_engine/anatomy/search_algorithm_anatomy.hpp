@@ -60,10 +60,21 @@ public:
     /// direktes Halten als Anatomie-Member blockiert. Wird durch
     /// public-Constructor-Fix oder Tuple-basierte Komposition spaeter geloest.
     [[nodiscard]] observer_aggregate_t observe_all() const noexcept {
-        // Default-initialized aggregate — alle Slots EmptyAxisSnapshot oder
-        // Default-Snapshot je nach Composition::xxx::snapshot_t Trait
-        return observer_aggregate_t{};
+        observer_aggregate_t agg{};
+        // Saeule-2-Korrektur (Doku 24 §2.2/§3): ECHTE Per-Achsen-statistics() statt EmptyAxisSnapshot-
+        // Stub. Das search_algo-Organ wird real gehalten + (vom Builder) getrieben → sein Observer
+        // liefert echte Werte (insert/lookup/hit/miss/peak_occupancy). Weitere Achsen: Slot bleibt
+        // Default, bis sie als Organe getrieben werden (Saeule 1) — Mechanismus identisch via ObservableAxis.
+        if constexpr (ObservableAxis<typename Composition::search_algo>) {
+            agg.search_algo = axis_search_algo_.statistics();
+        }
+        return agg;
     }
+
+    /// Zugriff auf das search_algo-Organ (Driver-Organ). Der Builder/Mess-Treiber treibt es
+    /// (insert/lookup/erase) → seine statistics() fliessen via observe_all() in den Per-Achsen-Trace.
+    [[nodiscard]] typename Composition::search_algo&       search_algo_organ()       noexcept { return axis_search_algo_; }
+    [[nodiscard]] typename Composition::search_algo const& search_algo_organ() const noexcept { return axis_search_algo_; }
 
     /// Diagnose: wie viele Achsen liefern echte Snapshots? (Rest = EmptyAxisSnapshot)
     [[nodiscard]] static constexpr std::size_t observable_axis_count() noexcept {
@@ -83,6 +94,11 @@ public:
     //   BUILDER-NEU: AnatomyExecutionContext<C> ctx; ctx.insert(k,v);
     //              (Anatomie ist intern Bestandteil des ctx)
     // ─────────────────────────────────────────────────────────────────────
+
+private:
+    // Saeule-2 (Doku 24): das search_algo-Organ wird real gehalten. Default-konstruiert; vom Builder
+    // ueber search_algo_organ() getrieben. Sein statistics()-Observer liefert echte Per-Achsen-Daten.
+    typename Composition::search_algo axis_search_algo_{};
 };
 
 }  // namespace comdare::cache_engine::anatomy
