@@ -1,0 +1,84 @@
+// V41.F.6.1 R5.G — comdare-adhoc-emitter CLI: emittiert pro Permutation eines Pilot-Raums ein
+// kompilierbares Permutations-Modul-.cpp (Umbrella-Include + COMDARE_DEFINE_ANATOMY_MODULE_ADHOC).
+//
+// Wird zur CMake-Configure-Time aufgerufen (2-Pass-Build, analog comdare-anatomy-codegen-tool); die
+// emittierten .cpp werden anschließend per add_library als Permutations-DLLs gebaut. Damit baut der
+// volle gemergte Permutations-Raum automatisch zu DLLs — die Skalierung des R5.G-Auto-Emitters.
+//
+// Pilot-Raum: 3 search_algo × 1^16 = 3 Permutationen (nur search_algo variiert; minimal + schnell).
+//
+// @task V41.F.6.1 R5.G
+
+#include <builder/codegen/adhoc_emitter.hpp>
+#include <builder/codegen/all_axes_umbrella.hpp>   // alle Achsen-Typen + AdHocComposition + ADHOC-Makro
+#include <anatomy/search_algorithm_permutation_engine.hpp>
+
+#include <boost/mp11.hpp>
+
+#include <iostream>
+#include <string>
+
+namespace ce  = ::comdare::cache_engine;
+namespace ana = ::comdare::cache_engine::anatomy;
+namespace cg  = ::comdare::cache_engine::builder::codegen;
+namespace mp  = ::boost::mp11;
+
+namespace {
+
+// 17 Achsen-Default-Typen (via Umbrella verfügbar).
+using SA0 = ce::traversal::axis_03a_search_algo::Array256SearchAlgo;
+using SA1 = ce::traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;
+using SA2 = ce::traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;
+using CT  = ce::traversal::axis_03b_cache_traversal::LinearFanout;
+using MP  = ce::traversal::axis_03m_mapping::DirectPlacement;
+using PC  = ce::nodes::axis_02_path_compression::PathCompressionNone;
+using NT  = ce::nodes::axis_04_node_type::Node256Layout;
+using ML  = ce::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
+using AL  = ce::allocator::axis_06_allocator::MimallocAllocator;
+using PF  = ce::prefetch::axis_07_prefetch::NonePrefetch;
+using CC  = ce::concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
+using SE  = ce::serialization::axis_10_serialization::RawBinarySerialization;
+using TM  = ce::telemetry::axis_11_telemetry::LeafOnlyCounter;
+using VH  = ce::value_handle::axis_14_value_handle::InlineValueHandle;
+using IS  = ce::hardware::axis_09_isa::Amd64Isa;
+using IO  = ce::search_engine::axis_01_index_organization::IotIndexOrganization;
+using IOD = ce::io::axis_io::InMemoryOnly;
+using MG  = ce::migration::axis_migration::NoMigration;
+using FL  = ce::filter::axis_filter::BloomFilter;
+
+// Pilot-Raum: nur search_algo variiert (3 Varianten) → 3 Permutationen.
+struct C0  { using StaticAxisVariants = mp::mp_list<SA0, SA1, SA2>; };
+struct C1  { using StaticAxisVariants = mp::mp_list<CT>;  };
+struct C2  { using StaticAxisVariants = mp::mp_list<MP>;  };
+struct C3  { using StaticAxisVariants = mp::mp_list<PC>;  };
+struct C4  { using StaticAxisVariants = mp::mp_list<NT>;  };
+struct C5  { using StaticAxisVariants = mp::mp_list<ML>;  };
+struct C6  { using StaticAxisVariants = mp::mp_list<AL>;  };
+struct C7  { using StaticAxisVariants = mp::mp_list<PF>;  };
+struct C8  { using StaticAxisVariants = mp::mp_list<CC>;  };
+struct C9  { using StaticAxisVariants = mp::mp_list<SE>;  };
+struct C10 { using StaticAxisVariants = mp::mp_list<TM>;  };
+struct C11 { using StaticAxisVariants = mp::mp_list<VH>;  };
+struct C12 { using StaticAxisVariants = mp::mp_list<IS>;  };
+struct C13 { using StaticAxisVariants = mp::mp_list<IO>;  };
+struct C14 { using StaticAxisVariants = mp::mp_list<IOD>; };
+struct C15 { using StaticAxisVariants = mp::mp_list<MG>;  };
+struct C16 { using StaticAxisVariants = mp::mp_list<FL>;  };
+
+using PilotEngine = ana::SearchAlgorithmPermutationEngine<
+    C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16>;
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        std::cerr << "Usage: comdare-adhoc-emitter <output-dir>\n"
+                     "  Emittiert pro Permutation des Pilot-Raums ein Modul-.cpp.\n";
+        return 1;
+    }
+    auto const files = cg::emit_adhoc_modules<PilotEngine>(argv[1]);
+    for (auto const& f : files) std::cout << f.string() << "\n";
+    std::cerr << "comdare-adhoc-emitter: " << files.size()
+              << " Permutations-Modul-.cpp geschrieben (count=" << PilotEngine::count() << ").\n";
+    return files.empty() ? 2 : 0;
+}
