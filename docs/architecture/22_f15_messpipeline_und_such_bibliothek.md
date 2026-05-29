@@ -74,26 +74,31 @@ verkettet die ganze Pipeline über ein Verzeichnis materialisierter Permutations
 
 ---
 
-## 3. Reproduzierbares empirisches Resultat (2026-05-29)
+## 3. Reproduzierbares empirisches Resultat (2026-05-29) — volle Paradigmen-Palette
 
-8 auto-materialisierte Permutations-DLLs (search_algo variiert), 128 Latenz-Samples/DLL, baseline =
-Array256 (dense direct-addressed, u8), alpha=0.05:
+10 auto-materialisierte Permutations-DLLs (search_algo variiert über ALLE Such-Paradigmen),
+128 Latenz-Samples/DLL, alpha=0.05. Ranking nach mittlerer Latenz (`comdare-f15-compare`-Ausgabe):
 
-| Komposition | search_algo | Verdict vs Baseline | Holm-p |
-|-------------|-------------|---------------------|--------|
-| AdHocComposition_0 | Array256 (dense u8) | Baseline (~27,6 µs) | — |
-| AdHocComposition_3 | Array65535 (dense u16) | **schneller** | 3e-85 |
-| AdHocComposition_1 | VectorU8U8 (sorted) | langsamer | 7e-91 |
-| AdHocComposition_2 | VectorU16U16 (sorted) | langsamer | 9e-23 |
-| AdHocComposition_4 | KAry (SIMD-Partition) | langsamer | 1e-08 |
-| AdHocComposition_5 | Interpolation | langsamer | 3e-14 |
-| AdHocComposition_6 | Eytzinger (Cache-Layout) | langsamer | 1e-71 |
-| AdHocComposition_7 | SkipList | langsamer | 1e-85 |
+| Rang | search_algo | Paradigma | mean (ns) |
+|------|-------------|-----------|-----------|
+| #1 | Array65535 | dense direct-addressed (u16) | 12 614 |
+| #2 | Array256 | dense direct-addressed (u8) | 13 420 |
+| #3 | HashSearchAlgo | open-addressing Hash, O(1) | 31 993 |
+| #4 | InterpolationSearchAlgo | verteilungsbewusst | 35 901 |
+| #5 | EytzingerSearchAlgo | cache-conscious BFS-Layout | 46 247 |
+| #6 | VectorU8U8 | sorted lower_bound | 159 273 |
+| #7 | VectorU16U16 | sorted lower_bound | 167 334 |
+| #8 | LinearScanSearchAlgo | unsortiert linear, O(n) | 183 820 |
+| #9 | KArySearchAlgo | k-ary/SIMD-Partition | 190 157 |
+| #10 | SkipListSearchAlgo | probabilistische Struktur | 233 812 |
 
-**Alle 7 Vergleiche Holm-FWER-korrigiert signifikant.** win_rate = 0,143 (1 von 7 schlägt die Baseline).
-Interpretation für diesen Workload (kleiner u8/u16-Keyraum, lookup-lastig): direct-addressed Arrays
-dominieren die vergleichsbasierten Verfahren um ~8× — eine messbare, statistisch rigorose Achsen-Wirkung.
-Das beantwortet F15 konkret: die CacheEngine erlaubt es, diesen Wert pro Achsen-Wahl MESSBAR zu machen.
+**Spanne langsamste/schnellste = 18,5×.** Interpretation für diesen Workload (kleiner u8/u16-Keyraum,
+lookup-lastig): dense Arrays dominieren; Hashing ist konkurrenzfähig (Rang 3); die smarten Such-Methoden
+(Interpolation, Eytzinger) schlagen die naive sorted-vector-Suche deutlich; KAry/SkipList/Linear sind
+für diese kleine Datenmenge am langsamsten. Beim paarweisen Vergleich gegen eine dense-Baseline sind
+alle vergleichsbasierten Verfahren Holm-FWER-korrigiert signifikant langsamer (p von ~1e-8 bis ~1e-130).
+Das beantwortet F15 konkret + quantitativ: die CacheEngine macht die Wirkung der Achsen-Wahl MESSBAR —
+hier ~18,5× zwischen bester und schlechtester Such-Strategie bei identischem std::map-Interface.
 
 **Reproduktion:** Doku 21 §6 (2-Pass-Build) + `comdare-f15-compare build/.../generated/r5g_autobuilt_modules`.
 
