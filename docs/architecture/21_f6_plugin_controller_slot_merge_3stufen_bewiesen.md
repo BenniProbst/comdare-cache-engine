@@ -170,8 +170,21 @@ Der Permutations-RAUM ist bewiesen UND als Binaries materialisiert:
   (`--external-composition`/`--no-known`) → `anatomy_codegen_runner` (`EXTERNAL_COMPOSITIONS`/`NO_KNOWN`)
   → `comdare_codegen_anatomy_module_list` → DLL. Verifiziert: Stufe-2 (1 DLL) + Stufe-3 (3 DLLs:
   CE art/hot + prt-art), Stufe-1 via R5.I-Pilot. Gated auf Plugin-Controller-Build + 2-Pass (Tool zuerst).
-- **VERBLEIBEND F.5:** volle PermutationEngine-getriebene Auto-Enumeration (Codegen iteriert den GANZEN
-  gemergten Raum via `for_each_composition_type` statt hand-Composition-Liste) — R5.G-Erweiterung.
+- **VERBLEIBEND F.5 / R5.G — präzise gescopt (Planrunde 2026-05-29):**
+  - ✅ Die **Enumeration** ist BEREITS bewiesen: `test_v41_search_algorithm_permutation_engine.cpp`
+    zeigt `for_each_composition_type` über den vollen 17-Achsen-kartesischen Raum (count = 3×2×1¹⁵ = 6),
+    jede auto-enumerierte `AdHocComposition` ist `IsComposition` + via `for_each_abi_adapter` als
+    `IAnatomyBase` (organ_count=17) instanziierbar.
+  - **GROSS-Rest = die Codegen-MATERIALISIERUNG** der auto-enumerierten AdHoc-Kompositionen. Konkreter
+    technischer Blocker: AdHoc-Typen haben (a) keinen Header zum `#include` und (b) ihr Typ-Ausdruck
+    `AdHocComposition<A,B,…,P>` enthält **Kommas → bricht das `COMDARE_DEFINE_ANATOMY_MODULE`-Makro**
+    (Komma im Template-Argument = mehrere Makro-Args). Lösung (R5.G-Implementierung): ein Tool/Template,
+    das **pro enumerierter Permutation einen Alias-Header emittiert** (`using PermN = AdHocComposition<…>;`
+    + `COMDARE_DEFINE_COMPOSITION_LOCATION` + die 17 Achsen-`#include`), dann via der bestehenden
+    `comdare_codegen_anatomy_module_list`-Pipeline materialisiert. Mechanik (Enumeration + Named-Composition-
+    Codegen + Welch-Mess-Treiber) ist bewiesen; nur der Alias-Header-Emitter fehlt.
+  - **R5.B (separat):** weitere Achsen ins `std::map`-Innenleben routen, damit Dim 2 / in-DLL den
+    VOLLEN Algorithmus statt nur `search_algo` misst.
 - **R5.D/R5.E/R6** (#26): CacheEngineBuilder-CLI + extern-C-ABI + dlopen-Loader + Mess-Treiber
   (der eigentliche F15-Messlauf: bringt die CacheEngine messbaren Wert?).
 - **F.2/F.3** (#12/#13): Achsen-zentrische Namespace-Restrukturierung + Legacy-Concept-Wiederverwendung.
