@@ -28,6 +28,7 @@
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_registry.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_registry.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_registry.hpp>
+#include <axes/axis_centric_namespaces.hpp>   // F.2/F.3: axen-zentrische Namespace-Fassade + Concepts
 #include <builder/codegen/type_name.hpp>   // R5.G Auto-Emitter: FQ-Typ-Namen pro Achse
 
 // 17 Topic-Achsen Wrappers (identisch zu test_v41_anatomy_r4_driver.cpp)
@@ -65,6 +66,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace ana = ::comdare::cache_engine::anatomy;
@@ -495,4 +497,23 @@ TEST(R5D_CombinatorialCoverage, DimensionedFromRealAxisRegistries) {
     EXPECT_EQ(sset.size(), kSearch);  // ALLE 17 Such-Algos abgedeckt
     EXPECT_EQ(aset.size(), kAlloc);   // ALLE 25 Allokatoren abgedeckt
     EXPECT_EQ(lset.size(), kLayout);  // ALLE 5 Layouts abgedeckt
+}
+
+// V41.F.6.1 F.2/F.3 — axen-zentrische Namespace-Fassade: die Aliase liefern denselben Typ wie der
+// physische topic-/achsen-Namespace (rueckwaerts-kompatibel, kein Bruch), und die abstrakten
+// Achsen-Concepts (F.3) greifen ueber den axen-zentrischen Namen. Compile-time-Beweis.
+TEST(F2F3_AxisCentricFacade, AliasesAreSameTypeAndConceptsHold) {
+    namespace cce = ::comdare::cache_engine;
+    // F.2: axen-zentrischer Alias == physischer Achsen-Typ.
+    static_assert(std::is_same_v<cce::lookup::Array256SearchAlgo,
+                                 cce::traversal::axis_03a_search_algo::Array256SearchAlgo>);
+    static_assert(std::is_same_v<cce::alloc::StdMalloc,
+                                 cce::allocator::axis_06_allocator::StdMalloc>);
+    static_assert(std::is_same_v<cce::layout::SoAMemoryLayout,
+                                 cce::memory_layout::axis_05_memory_layout::SoAMemoryLayout>);
+    // F.3: abstrakte Achsen-Concepts greifen ueber den axen-zentrischen Namen.
+    static_assert(cce::concepts::LookupAxis<cce::lookup::Array256SearchAlgo>);
+    static_assert(cce::concepts::AllocAxis<cce::alloc::StdMalloc>);
+    static_assert(cce::concepts::LayoutAxis<cce::layout::SoAMemoryLayout>);
+    SUCCEED();
 }
