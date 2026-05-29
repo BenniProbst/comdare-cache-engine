@@ -17,6 +17,8 @@
 // V41.F.6.1.P2.D.tr.s3 Batch 1 Original-Paper-Wrappers (P03 Masstree DEFERRED — siehe CMakeLists)
 #include "axis_03a_search_algo_original_wormhole.hpp"
 #include "axis_03a_search_algo_original_surf.hpp"
+// V41.F.6.1.R7.2 (2026-05-29) S10 k-ary search (Such-METHODE, Schlegel/Gemulla/Lehner DaMoN 2009)
+#include "axis_03a_search_algo_k_ary.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
@@ -39,9 +41,11 @@ using AllStrategies = mp::mp_list<
     OriginalWormholeSearchAlgo,  // S07, P07 Wormhole (Wu/Ni/Jiang ATC 2019, 3/4 originall + 1 Luecke)
     OriginalSurfSearchAlgo,      // S08, P10 SuRF (Zhang/Lim/Andersen SIGMOD 2018, 1/4 originall + 3 Luecken)
     // V41.F.6.1.F.6 (2026-05-29) — F.6-Migration aus prt-art internal_search/array_65535.hpp
-    Array65535SearchAlgo         // S09, prt-art REV6 §5.17 mid-density direct-addressed uint16 (kein Paper)
+    Array65535SearchAlgo,        // S09, prt-art REV6 §5.17 mid-density direct-addressed uint16 (kein Paper)
+    // V41.F.6.1.R7.2 (2026-05-29) — Such-METHODE k-ary search (Re-Impl, is_original=false)
+    KArySearchAlgo               // S10, k-ary search (Schlegel/Gemulla/Lehner DaMoN 2009), Aritaet K iterable
     // Vollausbau-Roadmap (Folge-Batches, Paper-Wrappers):
-    // S10 P03 Masstree DEFERRED — masstree.hh hat keine direkten Function-Bodies (alle Templates)
+    // P03 Masstree DEFERRED — masstree.hh hat keine direkten Function-Bodies (alle Templates)
     // S11 P04 CoCo-trie (Read-Only, 0/4 originall — deferred wegen kein CRUD-API)
     // S12 P06 B²tree, S13 P20 BTreesAreBack, S14 P25 Mahling, S15 P29 RCU, S16 P30 HazardPointers
 >;
