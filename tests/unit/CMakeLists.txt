@@ -875,3 +875,43 @@ if(COMDARE_PRUEFLING_INCLUDE_DIRS)
             "F.5 comdare_perms_full_join: Stufe-3-DLL-Codegen ACTIVE (targets=${_fj_pilot_targets})")
     endif()
 endif()
+
+# V41.F.6.1 F15 — Mess-Treiber-Test (Stufe A): lädt generierte Permutations-DLLs + misst+vergleicht.
+# CE-only (art,hot) → NICHT auf Pruefling gegated. 2-Pass-Build wie R5.I (Tool zuerst bauen).
+set(_f15_snippet   "${CMAKE_BINARY_DIR}/generated/f15_perm_list.cmake")
+set(_f15_pilot_dir "${CMAKE_BINARY_DIR}/generated/f15_measurement_modules")
+comdare_run_anatomy_codegen_tool(
+    OUTPUT       "${_f15_snippet}"
+    NAMES        "art,hot"
+    LIBRARY_TYPE SHARED
+    STATUS_OUT   _f15_status)
+
+if(_f15_status STREQUAL "FOUND" AND EXISTS "${_f15_snippet}")
+    include("${_f15_snippet}")
+    comdare_codegen_anatomy_module_list(
+        PILOT_PREFIX  "f15_measurement_pilot"
+        OUTPUT_DIR    "${_f15_pilot_dir}"
+        LIBRARY_TYPE  ${COMDARE_PERMUTATION_LIBRARY_TYPE}
+        COMPOSITIONS  ${COMDARE_PERMUTATION_COMPOSITIONS}
+        TARGETS_OUT   _f15_pilot_targets)
+
+    comdare_add_test(test_v41_anatomy_f15_measurement
+        SOURCES test_v41_anatomy_f15_measurement.cpp)
+    target_include_directories(test_v41_anatomy_f15_measurement PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${CMAKE_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    target_link_libraries(test_v41_anatomy_f15_measurement PRIVATE
+        Boost::mp11
+        comdare::anatomy_module_loader)
+    target_compile_definitions(test_v41_anatomy_f15_measurement PRIVATE
+        "COMDARE_F15_MEASUREMENT_DIR=\"${_f15_pilot_dir}\"")
+    add_dependencies(test_v41_anatomy_f15_measurement ${_f15_pilot_targets})
+    message(STATUS "F15: measurement driver test ENABLED")
+else()
+    message(STATUS
+        "F15: SKIPPED (status=${_f15_status}). Build comdare_anatomy_codegen_cli first, then re-configure.")
+endif()

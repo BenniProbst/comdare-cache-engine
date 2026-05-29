@@ -92,6 +92,49 @@ materialisieren würden, ist metaprogrammatisch bestimmt, bevor irgendein Binary
 
 ---
 
+## 4a. Das einheitliche `std::map<key,value>`-Interface + F15-Mess-Treiber (Kernziel)
+
+**Konzept (Anatomie-Metapher, [[std-map-unified-interface]]):** Die Tier-Metapher dient dazu,
+Algorithmen zu DEFINIEREN + ZERLEGEN, damit sie überhaupt VERGLEICHBAR werden. Jeder Such-Algorithmus
+wird auf EIN einheitliches Interface zusammengeschnitten — bei (key,value) ist das **immer
+`std::map<key,value>`** (der „Körperbau", der Vergleichbarkeit herstellt). Die 17 Achsen (Organe)
+beschreiben, **WIE sich das Innere** dieser `std::map` verhält (dense-Array / sortierter Vektor / ART /
+B+ / Patricia / …) — und das bestimmt die Performance.
+
+**Daraus folgt das KERNZIEL (F15):** Zwei `std::map<key,value>` zu vergleichen ist **nicht hohl**,
+sondern die Operationalisierung der Diplomarbeit-Frage. Identisches Interface, unterschiedliches
+Innen-Verhalten durch Achsen-Wahl → messbar unterschiedliche Performance. „Bringt die CacheEngine
+messbaren Wert?" ≡ „Bringt die Achsen-Konfiguration des `std::map`-Innenlebens messbaren Wert?".
+
+**Die Messung ist ZWEIDIMENSIONAL (Join):**
+- **Dimension 1 — Achsen-Ebene:** einzelne Achsen-Werte gegeneinander (z.B. zwei `search_algo`-Werte).
+- **Dimension 2 — Algorithmus-Ebene:** ganze Algorithmen/Kompositionen gegeneinander.
+
+Beides vergleicht Implementierungen DESSELBEN `std::map`-Interface mit unterschiedlichem Innenleben.
+
+**F15-Mess-Treiber (Stufe A, `tests/unit/test_v41_anatomy_f15_measurement.cpp`, 4/4 grün):**
+0. lädt die Codegen-DLLs (`load_all`, R5.I-Pattern) → Identität (`composition_name`) + Lifecycle.
+1. **Dim 1:** `Array256SearchAlgo` (dense O(1)) vs `VectorU8U8SearchAlgo` (sortiert O(log n)).
+2. **Dim 2:** `ArtComposition` vs `HotComposition` (volle Algorithmen, gemessen über ihr
+   `C::search_algo` = dominante `std::map`-Lookup-Struktur).
+Beide via echtem Welch-T-Test (`welch_t_test.hpp`).
+
+**Empirisches Ergebnis (belegt F15, beide Dimensionen):**
+- Dim 1: Array256 ≈ 44 µs vs VectorU8U8 ≈ 410 µs/Batch, t = −57, **p ≈ 2.8e-128**.
+- Dim 2: ArtComposition ≈ 42 µs vs HotComposition ≈ 391 µs/Batch, t = −68, **p ≈ 1.3e-143**.
+
+→ Sowohl die Achsen-Wahl ALS AUCH die Algorithmus-Wahl bringen einen **~9× messbaren,
+hochsignifikanten** Performance-Unterschied. Die CacheEngine-Konfiguration bringt messbaren Wert.
+
+> HINWEIS Dim 2: misst aktuell die dominante `search_algo`-Struktur der Komposition. Sobald weitere
+> Achsen ins `std::map`-Innenleben routen (R5.B), erfasst dieselbe Mess-Stelle den vollen Algorithmus.
+
+**Ehrliche Grenze:** Last läuft host-seitig über die Achsen-Implementierungen (die geladene DLL
+exponiert via `IAnatomyBase` nur Metadaten + Lifecycle-State-Flips, keine CRUD-ABI); Latenz =
+`steady_clock` (keine PMC). Last DURCH die DLL = additive ABI-Methode (Stufe B, R6).
+
+---
+
 ## 5. Verbleibend: schweres Build-Subsystem (noch nicht implementiert)
 
 Der Permutations-RAUM ist bewiesen UND als Binaries materialisiert:
