@@ -13,14 +13,15 @@
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <anatomy/composition_concept.hpp>
 #include <anatomy/observer_aggregate.hpp>
+#include <topics/traversal/axis_03a_search_algo/composable/observable_composed_search.hpp>  // Saeule-2
 
 #include <cstdint>
-#include <map>
 #include <optional>
 
 namespace comdare::cache_engine::builder::anatomy_commands {
 
-namespace ana = ::comdare::cache_engine::anatomy;
+namespace ana  = ::comdare::cache_engine::anatomy;
+namespace comp = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable;
 
 /// AnatomyExecutionContext — Builder-Side Container + Anatomie-Holder.
 ///
@@ -34,6 +35,10 @@ public:
     using observer_aggregate_t = typename anatomy_t::observer_aggregate_t;
     using key_type             = std::uint64_t;
     using value_type           = std::uint64_t;
+    // Saeule-2 (Doku 24 §5.3/§5.5): GETRIEBENER uint64-Container statt losgelostem std::map —
+    // ObservableComposedSearch liefert echte search_algo-Statistik (Composition-unabhaengig; RawSlotStore
+    // vector-backed → keine Allocator-Adapter-Lifetime-Falle; SortedBinary fuer deterministisches lookup).
+    using container_t          = comp::ObservableComposedSearch<comp::SortedBinaryTraversal, comp::RawSlotStore>;
 
     /// Default-konstruiert — Anatomie + leeren Container
     AnatomyExecutionContext() = default;
@@ -45,29 +50,30 @@ public:
     // Container-Operationen (R5.B: gehoeren in Builder, nicht Anatomie)
     // ─────────────────────────────────────────────────────────────────────
 
-    bool insert(key_type k, value_type v) {
-        auto [it, inserted] = container_.insert_or_assign(k, v);
-        return inserted;
-    }
+    bool insert(key_type k, value_type v) { return container_.insert(k, v); }  // inserted-Flag (insert_or_assign-Semantik)
 
-    [[nodiscard]] std::optional<value_type> lookup(key_type k) const {
-        auto it = container_.find(k);
-        if (it == container_.end()) return std::nullopt;
-        return it->second;
-    }
+    [[nodiscard]] std::optional<value_type> lookup(key_type k) const { return container_.lookup(k); }
 
-    bool erase(key_type k) {
-        return container_.erase(k) > 0;
-    }
+    bool erase(key_type k) { return container_.erase(k); }
 
     void clear() noexcept { container_.clear(); }
 
-    [[nodiscard]] std::size_t size() const noexcept { return container_.size(); }
-    [[nodiscard]] bool        empty() const noexcept { return container_.empty(); }
+    [[nodiscard]] std::size_t size()  const noexcept { return container_.occupied_count(); }
+    [[nodiscard]] bool        empty() const noexcept { return container_.occupied_count() == 0; }
 
-    /// Snapshot-Abruf via Anatomie-API (R5.A observe_all)
+    /// Snapshot-Abruf (R5.A observe_all) — Saeule-2 (Doku 24 §5.2/§5.3): die 16 nicht-getriebenen Achsen
+    /// kommen als Default aus der Anatomie; der GETRIEBENE search_algo-Slot bekommt die ECHTEN Zaehler
+    /// aus dem Container. Typkompatibel: container_t::snapshot_t == SearchAlgoStatistics ==
+    /// snapshot_of_t<Composition::search_algo> fuer alle Compositions (Praezedenz Array256SearchAlgo:124).
     [[nodiscard]] observer_aggregate_t observe_all() const noexcept {
-        return anatomy_.observe_all();
+        observer_aggregate_t agg = anatomy_.observe_all();
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        if constexpr (ana::ObservableAxis<container_t>
+                   && ana::ObservableAxis<typename Composition::search_algo>) {
+            agg.search_algo = container_.statistics();  // echte Per-Achsen-Statistik (Doku 24 §5.2-Luecke geschlossen)
+        }
+#endif
+        return agg;
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -79,8 +85,8 @@ public:
     static constexpr std::size_t      organ_count()      noexcept { return anatomy_t::organ_count(); }
 
 private:
-    anatomy_t                       anatomy_{};
-    std::map<key_type, value_type>  container_{};
+    anatomy_t   anatomy_{};
+    container_t container_{};   // Saeule-2: getriebener uint64-ObservableComposedSearch (war std::map, R5.B-Pilot)
 };
 
 }  // namespace comdare::cache_engine::builder::anatomy_commands
