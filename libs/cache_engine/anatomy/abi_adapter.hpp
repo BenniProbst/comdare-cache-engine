@@ -125,11 +125,14 @@ public:
     // IMeasurableWorkload-Override (F15 / Stufe B): Mess-Last DURCH die DLL
     // ─────────────────────────────────────────────────────────────────────
 
-    /// KOMPOSIT-Mess-Last (R5.B, F15 Stufe B) — uebt ZWEI Achsen der geladenen Komposition aus:
+    /// KOMPOSIT-Mess-Last (R5.B, F15 Stufe B) — uebt DREI Achsen der geladenen Komposition aus:
     ///   Segment 1: insert/lookup auf A::composition_t::search_algo  (search_algo-Achse)
     ///   Segment 2: alloc/dealloc-Churn ueber A::composition_t::allocator (allocator-Achse)
-    /// Beide kompiliert IN der DLL; die Batch-Latenz misst also die GANZE Komposition entlang
-    /// beider variierten Achsen (Voraussetzung: Allocator behavioral-distinkt, vgl. PoolResourceAllocator).
+    ///   Segment 3: Feld-Scan ueber A::composition_t::memory_layout (memory_layout-Achse; AoS-strided
+    ///              vs SoA-contiguous → echter Cache-Effekt)
+    /// Alle drei kompiliert IN der DLL; die Batch-Latenz misst die GANZE Komposition entlang der
+    /// variierten Achsen. F15s paarweiser Holm-Test isoliert jede Achse (Paare, die sich nur in einer
+    /// Achse unterscheiden) — Dominanz/Balance der Segmente ist dafuer irrelevant.
     [[nodiscard]] std::uint64_t run_workload(std::uint64_t ops_per_batch,
                                              std::uint64_t batches,
                                              std::uint64_t seed,
@@ -140,7 +143,8 @@ public:
         }
         try {
             using SearchAlgo = typename A::composition_t::search_algo;
-            using Allocator  = typename A::composition_t::allocator;   // R5.B: 2. operative Achse
+            using Allocator  = typename A::composition_t::allocator;       // R5.B: 2. operative Achse
+            using MemLayout  = typename A::composition_t::memory_layout;   // R5.B: 3. operative Achse
             using K          = typename SearchAlgo::key_type;
             SearchAlgo algo;
             for (int k = 0; k < 256; ++k) {
@@ -153,6 +157,13 @@ public:
             auto const churn_size = [](std::size_t j) noexcept {
                 return std::size_t{16} + ((j * 16u) & 0xF0u);  // 16..256 Bytes, deterministisch
             };
+            // Layout-Scan-Puffer (Segment 3): 16384 Datensaetze × 64 B = 1 MB (> L1/L2). EINMAL via
+            // Komposition-Allocator alloziert (Setup, NICHT gemessen); pro Batch nur der Scan.
+            constexpr std::size_t kRecords    = 16384;
+            constexpr std::size_t kRecordSize = 64;
+            constexpr std::size_t kLbufBytes  = kRecords * kRecordSize;
+            unsigned char* lbuf = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
+            for (std::size_t i = 0; i < kLbufBytes; ++i) lbuf[i] = static_cast<unsigned char>(i * 31u + 7u);
             std::mt19937_64 rng{seed};
             auto do_batch = [&]() -> std::int64_t {
                 std::uint64_t sink = 0;
@@ -172,6 +183,8 @@ public:
                 for (std::size_t j = 0; j < kChurn; ++j) {
                     alloc.deallocate(blocks[j], churn_size(j), kAlign);
                 }
+                // Segment 3: memory_layout-Achse (Feld-Scan im layout-charakteristischen Zugriffsmuster)
+                sink += MemLayout::scan_field_sum(lbuf, kRecords, kRecordSize);
                 auto const t1 = std::chrono::steady_clock::now();
                 auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
                 return (sink == ~0ull) ? (ns ^ 1) : ns;  // sink-Nutzung gegen Wegoptimierung
@@ -179,6 +192,7 @@ public:
             do_batch();  // Warmup (verworfen)
             std::uint64_t const n = (batches < out_capacity) ? batches : out_capacity;
             for (std::uint64_t b = 0; b < n; ++b) out_latencies_ns[b] = do_batch();
+            alloc.deallocate(lbuf, kLbufBytes, 64);   // Layout-Puffer freigeben
             return n;
         } catch (...) {
             return 0;  // noexcept-Vertrag: interne Exception (z.B. OOM) → 0 Samples

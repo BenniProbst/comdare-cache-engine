@@ -47,7 +47,10 @@ using CT  = ce::traversal::axis_03b_cache_traversal::LinearFanout;
 using MP  = ce::traversal::axis_03m_mapping::DirectPlacement;
 using PC  = ce::nodes::axis_02_path_compression::PathCompressionNone;
 using NT  = ce::nodes::axis_04_node_type::Node256Layout;
-using ML  = ce::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
+// V41.F.6.1 R5.B (2026-05-29): 3. variierte Achse = memory_layout. Zwei behavioral-distinkte
+// Zugriffsmuster (scan_field_sum): AoS-strided vs SoA-contiguous → echter Cache-Effekt.
+using ML0 = ce::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout; // AoS strided
+using ML1 = ce::memory_layout::axis_05_memory_layout::SoAMemoryLayout;              // SoA contiguous
 // V41.F.6.1 R5.B (2026-05-29): 2. variierte Achse = allocator. Zwei BEHAVIORAL-distinkte Varianten
 // (ohne externes Linking): System-malloc vs. eigener std::pmr-Pool.
 using AL0 = ce::allocator::axis_06_allocator::StdMalloc;             // System-malloc (Baseline)
@@ -63,13 +66,13 @@ using IOD = ce::io::axis_io::InMemoryOnly;
 using MG  = ce::migration::axis_migration::NoMigration;
 using FL  = ce::filter::axis_filter::BloomFilter;
 
-// Pilot-Raum (R5.B 2-Achsen): search_algo (12) × allocator (2) = 24 Permutationen.
+// Pilot-Raum (R5.B 3-Achsen): search_algo (12) × allocator (2) × memory_layout (2) = 48 Permutationen.
 struct C0  { using StaticAxisVariants = mp::mp_list<SA0, SA1, SA2, SA3, SA4, SA5, SA6, SA7, SA8, SA9, SA10, SA11>; };
 struct C1  { using StaticAxisVariants = mp::mp_list<CT>;  };
 struct C2  { using StaticAxisVariants = mp::mp_list<MP>;  };
 struct C3  { using StaticAxisVariants = mp::mp_list<PC>;  };
 struct C4  { using StaticAxisVariants = mp::mp_list<NT>;  };
-struct C5  { using StaticAxisVariants = mp::mp_list<ML>;  };
+struct C5  { using StaticAxisVariants = mp::mp_list<ML0, ML1>;  };  // R5.B: 2 memory_layout-Varianten
 struct C6  { using StaticAxisVariants = mp::mp_list<AL0, AL1>;  };  // R5.B: 2 Allocator-Varianten
 struct C7  { using StaticAxisVariants = mp::mp_list<PF>;  };
 struct C8  { using StaticAxisVariants = mp::mp_list<CC>;  };
@@ -96,14 +99,15 @@ int main(int argc, char** argv) {
     auto const files = cg::emit_adhoc_modules<PilotEngine>(argv[1]);
     for (auto const& f : files) std::cout << f.string() << "\n";
 
-    // V41.F.6.1 R5.B — MANIFEST: AdHocComposition_<idx> → (search_algo, allocator) in EXAKT der
-    // for_each_composition_type-Reihenfolge (= idx in comdare_anatomy_perm_auto_<idx>.cpp). Macht
-    // den 2-Achsen-F15-Raum interpretierbar, OHNE composition_name (ABI/Tests) zu aendern.
+    // V41.F.6.1 R5.B — MANIFEST: AdHocComposition_<idx> → (search_algo, allocator, memory_layout) in
+    // EXAKT der for_each_composition_type-Reihenfolge (= idx in comdare_anatomy_perm_auto_<idx>.cpp).
+    // Macht den 3-Achsen-F15-Raum interpretierbar, OHNE composition_name (ABI/Tests) zu aendern.
     std::ofstream manifest(std::filesystem::path{argv[1]} / "manifest.txt", std::ios::trunc);
     int mi = 0;
     PilotEngine::for_each_composition_type([&]<class C>() {
         std::string const line = std::to_string(mi) + "\t"
-            + std::string{C::search_algo::name()} + "\t" + std::string{C::allocator::name()};
+            + std::string{C::search_algo::name()} + "\t" + std::string{C::allocator::name()}
+            + "\t" + std::string{C::memory_layout::name()};
         std::cerr << "  [idx " << line << "]\n";
         manifest << line << "\n";
         ++mi;
@@ -111,6 +115,6 @@ int main(int argc, char** argv) {
 
     std::cerr << "comdare-adhoc-emitter: " << files.size()
               << " Permutations-Modul-.cpp geschrieben (count=" << PilotEngine::count()
-              << ", 2-Achsen search_algo×allocator, manifest.txt geschrieben).\n";
+              << ", 3-Achsen search_algo×allocator×memory_layout, manifest.txt geschrieben).\n";
     return files.empty() ? 2 : 0;
 }

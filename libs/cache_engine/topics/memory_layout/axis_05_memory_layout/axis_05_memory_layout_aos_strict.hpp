@@ -6,6 +6,9 @@
 #include "concepts/axis_05_memory_layout_cache_engine_permutation_concept.hpp"
 #include "axis_05_memory_layout_flags.hpp"
 #include "../concepts/topic_memory_layout_concept.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -26,6 +29,19 @@ public:
     [[nodiscard]] static constexpr std::string_view name()            noexcept { return "memory_layout_aos_strict"; }
     [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "AoSStrictMemoryLayout (strict packed, no cache-line alignment, dense)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()     noexcept { return "AOS_STRICT"; }
+
+    // V41.F.6.1 R5.B — verhaltens-tragende Laufzeit-API (Layout-Achse F15-operativ): AoS-strided
+    // (Feld i bei i*record_size) — wie CacheLineAligned, aber strict-packed ohne Alignment.
+    [[nodiscard]] static std::uint64_t scan_field_sum(unsigned char const* buf, std::size_t n,
+                                                      std::size_t record_size) noexcept {
+        std::uint64_t s = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::uint32_t v;
+            std::memcpy(&v, buf + i * record_size, sizeof(v));   // AoS: strided
+            s += v;
+        }
+        return s;
+    }
 };
 
 }  // namespace

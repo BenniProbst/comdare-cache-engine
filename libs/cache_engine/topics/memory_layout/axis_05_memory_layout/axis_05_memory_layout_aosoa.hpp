@@ -20,6 +20,8 @@
 #include "axis_05_memory_layout_flags.hpp"
 #include "../concepts/topic_memory_layout_concept.hpp"
 #include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -43,6 +45,23 @@ public:
     [[nodiscard]] static constexpr std::string_view name()            noexcept { return "memory_layout_aosoa"; }
     [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "AoSoAMemoryLayout (Array-of-Structures-of-Arrays, Block-SoA + Block-AoS Hybrid, SIMD-tiled)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()     noexcept { return "AOSOA"; }
+
+    // V41.F.6.1 R5.B — verhaltens-tragende Laufzeit-API (Layout-Achse F15-operativ): BLOCKED-Zugriff.
+    // Innerhalb eines W-Blocks liegt das Feld kontiguierlich (W*4 Bytes, SoA-artig), Bloecke sind um
+    // W*record_size gestrided (AoS-artig). Cache-Charakteristik zwischen reinem SoA und reinem AoS.
+    [[nodiscard]] static std::uint64_t scan_field_sum(unsigned char const* buf, std::size_t n,
+                                                      std::size_t record_size) noexcept {
+        std::uint64_t s = 0;
+        std::size_t const block_stride = kBlockWidth * record_size;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::size_t const block  = i / kBlockWidth;
+            std::size_t const within = i % kBlockWidth;
+            std::uint32_t v;
+            std::memcpy(&v, buf + block * block_stride + within * sizeof(std::uint32_t), sizeof(v));
+            s += v;
+        }
+        return s;
+    }
 };
 
 }  // namespace

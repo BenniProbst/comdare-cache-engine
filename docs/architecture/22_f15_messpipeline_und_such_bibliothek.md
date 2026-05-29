@@ -175,7 +175,34 @@ Die Erweiterung von R5.B auf eine 3. Achse erfordert deshalb ZUERST, die jeweili
 zu machen (pro Achse eine behavioral-tragende Laufzeit-API + Wrapper mit echtem Verhaltensunterschied) —
 das ist substantielle Achsen-Neugestaltung (R5.B-Voll / R5.C), kein blosses Wiederholen des
 allocator-Musters. Die zweidimensionale Messung IST mit search × allocator vollwertig belegt; weitere
-Dimensionen sind ein klar abgegrenztes Folge-Arbeitspaket.
+Dimensionen sind ein klar abgegrenztes Folge-Arbeitspaket. (→ §3.3 setzt genau das fuer memory_layout um.)
+
+### 3.3 Addendum (2026-05-29): DRITTE Achse memory_layout runtime-operativ + ehrliches Mess-Limit
+
+Umsetzung der in §3.2 beschriebenen Achsen-Operativierung fuer `memory_layout` (axis_05):
+1. **Echte Laufzeit-API** in allen 5 Layout-Wrappern: `scan_field_sum(buf, n, record_size)` summiert je
+   Datensatz ein Feld im LAYOUT-CHARAKTERISTISCHEN Zugriffsmuster — AoS-strided (`i*record_size`,
+   CacheLineAligned/AoSStrict), SoA-contiguous (`i*4`), AoSoA-blocked (Block-Breite 8), Packed-2-Byte.
+   Damit ist die Achse nicht mehr trait-only. Korrektheit verifiziert (`R5B_Axis05_ScanFieldSum`,
+   axis_05-Suite 16/16): jedes Layout liest exakt seine Soll-Positionen.
+2. **run_workload Segment 3** ruft `composition_t::memory_layout::scan_field_sum` auf einem 1-MB-Puffer
+   (via Komposition-Allocator alloziert). 3-Achsen-Pilot: search (12) × allocator (2) × memory_layout (2)
+   = **48 Permutationen**, Manifest um die Layout-Spalte erweitert.
+
+**Ehrliches Mess-Ergebnis (48 DLLs, ops=20000, batches=128, seed=42):** Die **allocator**-Dimension
+bleibt auch in der 48-DLL-Messung sauber aufloesbar (z. B. array256/AoS: std 589µs vs pool 219µs = 2,7×).
+Die **memory_layout**-Dimension dagegen ist mit Wall-Clock auf dieser Maschine **NICHT** zuverlaessig
+aufloesbar: die SoA/AoS-Verhaeltnisse je (search,allocator)-Paar streuen von 0,07× bis 9,18× ohne
+konsistentes Vorzeichen — der echte Cache-Layout-Effekt (~zweistellige µs) liegt UNTER der
+Wall-Clock-Rausch-Schwelle der Maschine (hunderte µs bis ms, dieselben Ausreisser wie §3.1). Das ist
+ein belastbares **Negativ-/Limit-Ergebnis, kein Layout-Effekt-Nachweis** — bewusst NICHT als solcher
+ausgewiesen.
+
+**Schlussfolgerung (motiviert R5.D):** Grob-granulare Achsen mit per-Operation-Overhead im µs-ms-Bereich
+(allocator: malloc-Call vs Pool-Free-List) sind wall-clock-messbar; fein-granulare Cache-Layout-Effekte
+(AoS vs SoA) erfordern **Hardware-Performance-Counter** (Cache-Miss/L2-MPKI via PMC) statt Wall-Clock.
+Die Achsen-MASCHINERIE ist damit fuer 3 Achsen end-to-end operativ + verifiziert; die saubere
+QUANTIFIZIERUNG fein-granularer Achsen ist das konkrete Ziel von R5.D (PMC-Integration).
 
 ---
 
@@ -184,12 +211,14 @@ Dimensionen sind ein klar abgegrenztes Folge-Arbeitspaket.
 ERFÜLLT + verifiziert: Plugin-Controller/Prüfling-Slot (E11-AbstractFactory) · 3-Stufen-Dreigliedrigkeit
 (F.5) · R5.G Auto-Materialisierung + Skalierung · Such-Bibliothek (axis_03a: 17 Wrapper, 12 CE-native via F15 gemessen) · R7.3 Queuing+
 Concurrency · R7.4 Allocator-Adapter · A4 AoSoA-Layout · G.1 Build-Hierarchie · komplette F15-Mess-
-Auswertung + CLI + empirisches Resultat · **R5.B 2. Mess-Dimension (search_algo × allocator, §3.2)**.
+Auswertung + CLI + empirisches Resultat · **R5.B Mess-Dimensionen: search_algo (§3.1) × allocator (§3.2,
+wall-clock-aufloesbar) × memory_layout (§3.3, Achse runtime-operativ + verifiziert)** — 3-Achsen-Maschinerie
+end-to-end (48 DLLs).
 
-VERBLEIBEND (Mehr-Session / gated / user-manuell): voller kartesischer Mehr-Achsen-Raum-Build +
-Hardware-Counter (PMC) · R5.B-Erweiterung auf WEITERE Achsen (allocator erfüllt §3.2; ABER: memory_layout/
-serialization/… sind compile-time-Trait-Typen ohne Laufzeit-API → erst runtime-operativ zu machen, je
-Achse substantielle API-Neugestaltung, NICHT nur Muster-Wiederholung — siehe §3.2-Präzisierung) · F.2/F.3
-Namespace-Restrukturierung · E11-Master-Facade +
+VERBLEIBEND (Mehr-Session / gated / user-manuell): **R5.D Hardware-Counter (PMC)** — fuer fein-granulare
+Achsen (memory_layout AoS/SoA) ist Wall-Clock NICHT ausreichend (§3.3-Limit-Befund: Effekt unter
+Rausch-Schwelle); PMC/Cache-Miss-Zaehler sind dafuer noetig · R5.B-Erweiterung auf weitere Trait-Achsen
+(serialization/… analog §3.3 erst runtime-operativ machen) · voller kartesischer Mehr-Achsen-Raum-Build ·
+F.2/F.3 Namespace-Restrukturierung · E11-Master-Facade +
 E10 per-Untermodul-STATIC/SHARED (gated auf E4.1-Submodul-Befüllung) · weitere Tree-STRUKTUR-Paper ·
 D1/D2 Diplomarbeit-Volltext (Autor).

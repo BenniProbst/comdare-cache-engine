@@ -6,6 +6,9 @@
 #include "concepts/axis_05_memory_layout_cache_engine_permutation_concept.hpp"
 #include "axis_05_memory_layout_flags.hpp"
 #include "../concepts/topic_memory_layout_concept.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -26,6 +29,21 @@ public:
     [[nodiscard]] static constexpr std::string_view name()            noexcept { return "memory_layout_soa"; }
     [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "SoAMemoryLayout (Struct-of-Arrays, SIMD-friendly, column-scan optimal)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()     noexcept { return "SOA"; }
+
+    // V41.F.6.1 R5.B — verhaltens-tragende Laufzeit-API (macht die Layout-Achse F15-operativ):
+    // summiert je Datensatz ein 4-Byte-Feld aus `buf` im SoA-PATTERN — das Feld liegt CONTIGUOUS
+    // (Feld i bei i*4), volle Cache-Line-Auslastung, ~16× weniger Cache-Lines als AoS-strided.
+    // Genau der kanonische Vorteil columnarer Layouts bei Einzelfeld-Scans (echter Cache-Effekt).
+    [[nodiscard]] static std::uint64_t scan_field_sum(unsigned char const* buf, std::size_t n,
+                                                      std::size_t /*record_size*/) noexcept {
+        std::uint64_t s = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::uint32_t v;
+            std::memcpy(&v, buf + i * sizeof(std::uint32_t), sizeof(v));   // SoA: contiguous
+            s += v;
+        }
+        return s;
+    }
 };
 
 }  // namespace

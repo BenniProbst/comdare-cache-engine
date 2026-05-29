@@ -26,10 +26,16 @@
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_flags.hpp>
 #include <topics/memory_layout/topic_memory_layout_config_set.hpp>
 
+#include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_aosoa.hpp>
+
 #include <boost/mp11.hpp>
 
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
 namespace ax05 = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;
 namespace ml   = ::comdare::cache_engine::memory_layout;
@@ -181,4 +187,45 @@ TEST(R7_1_b_MemoryLayout, AllFourLayoutsInstantiable) {
     [[maybe_unused]] ax05::SoAMemoryLayout              soa;
     [[maybe_unused]] ax05::PackedBitmapMemoryLayout     pbm;
     SUCCEED();
+}
+
+// V41.F.6.1 R5.B — scan_field_sum KORREKTHEIT (beweist die layout-charakteristischen Zugriffsmuster,
+// nicht Geschwindigkeit): pro Layout wird der Puffer IN dessen Muster mit Werten (i+1) befuellt und
+// geprueft, dass scan_field_sum exakt die Summe sum(i+1)=n(n+1)/2 liefert. Damit ist die neue
+// Laufzeit-API (die die Achse F15-operativ macht) als korrekt verifiziert.
+TEST(R5B_Axis05_ScanFieldSum, EachLayoutReadsItsCharacteristicPattern) {
+    constexpr std::size_t n = 64;                 // Vielfaches von 8 (AoSoA-Block)
+    constexpr std::size_t record_size = 64;
+    constexpr std::uint64_t expected = (std::uint64_t{n} * (n + 1)) / 2;  // 2080
+    std::vector<unsigned char> buf(n * record_size, 0u);
+
+    auto put32 = [&](std::size_t off, std::uint32_t v) { std::memcpy(buf.data() + off, &v, sizeof(v)); };
+    auto reset = [&]() { std::fill(buf.begin(), buf.end(), static_cast<unsigned char>(0)); };
+
+    // AoS (CacheLineAligned + AoSStrict): Feld i bei i*record_size
+    reset();
+    for (std::size_t i = 0; i < n; ++i) put32(i * record_size, static_cast<std::uint32_t>(i + 1));
+    EXPECT_EQ(ax05::CacheLineAlignedMemoryLayout::scan_field_sum(buf.data(), n, record_size), expected);
+    EXPECT_EQ(ax05::AoSStrictMemoryLayout::scan_field_sum(buf.data(), n, record_size), expected);
+
+    // SoA: Feld i kontiguierlich bei i*4
+    reset();
+    for (std::size_t i = 0; i < n; ++i) put32(i * sizeof(std::uint32_t), static_cast<std::uint32_t>(i + 1));
+    EXPECT_EQ(ax05::SoAMemoryLayout::scan_field_sum(buf.data(), n, record_size), expected);
+
+    // AoSoA (Block-Breite 8): Feld i bei block*(8*record_size) + within*4
+    reset();
+    for (std::size_t i = 0; i < n; ++i) {
+        std::size_t const off = (i / 8u) * (8u * record_size) + (i % 8u) * sizeof(std::uint32_t);
+        put32(off, static_cast<std::uint32_t>(i + 1));
+    }
+    EXPECT_EQ(ax05::AoSoAMemoryLayout::scan_field_sum(buf.data(), n, record_size), expected);
+
+    // PackedBitmap: kontiguierliche 2-Byte-Felder bei i*2
+    reset();
+    for (std::size_t i = 0; i < n; ++i) {
+        std::uint16_t const v = static_cast<std::uint16_t>(i + 1);
+        std::memcpy(buf.data() + i * sizeof(std::uint16_t), &v, sizeof(v));
+    }
+    EXPECT_EQ(ax05::PackedBitmapMemoryLayout::scan_field_sum(buf.data(), n, record_size), expected);
 }
