@@ -207,4 +207,33 @@ Hau-Ruck-Änderung erzwungen.
 
 ---
 
+## §6 Säule-1 Re-Modellierung — Increment 1: komponierbares Traversal-Organ-Modell (erledigt)
+
+User-Entscheidung (2026-05-29): „Säule 1 jetzt: axis_03a re-modellieren" (die saubere Lösung statt
+Transitions-Mirror). Erster build-grüner Increment (parallele neue Struktur, bestehende Wrapper
+unangetastet):
+
+`libs/cache_engine/topics/traversal/axis_03a_search_algo/composable/composable_search.hpp` etabliert
+das Modell aus Doku 14 §11.3:
+- **Storage-Organ** `RawSlotStore` (Pilot) — indizierte Slots ueber GEMEINSAMEM **uint64**-Key
+  (vertritt das node_type/layout/allocator-getriebene Substrat).
+- **Traversal-Organ-Concept** `TraversalOrgan<T,Store>` — statische `insert_into/lookup_in/erase_from`
+  auf einem Storage-Organ, KEIN eigener Speicher (Organ, nicht Tier).
+- **2 Pilot-Traversal-Organe**: `LinearScanTraversal` (ART-Node4) + `SortedBinaryTraversal` (Binärsuche).
+- **`ComposedSearch<Traversal, Store>`** — Such-Algorithmus = Traversal ⊕ Storage, std::map-Interface.
+
+**Verifiziert** (`Saeule1_ComposableOrgan.BothTraversalOrgansMatchStdMapOverWideKeys`, traversal 297/297):
+beide Traversal-Organe ueber demselben Store sind std::map-aequivalent (Organ-Swappability, Doku 14 §1.2)
+UND funktionieren mit **weiten Keys >65535** → der Key-Type-Blocker (§5.5) ist strukturell geloest.
+
+**Folge-Increments (Säule 1, Mehr-Session):**
+1. node_type/layout/allocator als ECHTE Storage-Organe (statt trait-only) → `RawSlotStore` durch
+   organ-getriebenen Speicher ersetzen.
+2. Bestehende monolithische Tier-Wrapper (Array256/BST/B-Baum/Original*…) als **Reference-Compositions /
+   Stufe-2-Prüfling-Referenzen** umstufen (Doku 14 §6) statt als axis_03a-Organe.
+3. SearchAlgorithmAnatomy + AnatomyExecutionContext auf `ComposedSearch` (gemeinsamer uint64-Key)
+   umstellen → schliesst die §5.2-Lücke (observe_all real im Mess-Pfad) + vereinheitlicht die 3 Pfade.
+
+---
+
 **Ende Doku 24 — Mess-Modell-Korrektur (2026-05-29).**
