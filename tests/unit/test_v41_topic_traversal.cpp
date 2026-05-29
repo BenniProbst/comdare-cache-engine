@@ -384,6 +384,64 @@ TEST(SearchAlgo_Eytzinger, NotSimdButCacheAligned) {
     EXPECT_TRUE(ce_03a::EytzingerSearchAlgo::has_cache_line_alignment());  // Kern-Vorteil
 }
 
+// --- V41.F.6.1.R7.2 SkipListSearchAlgo (probabilistic ordered structure, Pugh CACM 1990) -------
+
+// KERN-KORREKTHEIT: nicht-sortierte Insert-Reihenfolge + Updates + erase + Tombstone-Reinsert
+// muessen EXAKT die Referenz-Semantik liefern (probabilistische Level aendern nie das Ergebnis).
+TEST(SearchAlgo_SkipList, CorrectInsertLookupEraseReinsert) {
+    ce_03a::SkipListSearchAlgo s{};
+    // Insert in NICHT-sortierter Reihenfolge (Skip-Liste sortiert intern): Schritt 37 mod 1009.
+    constexpr std::uint16_t kN = 400;
+    for (std::uint16_t i = 0; i < kN; ++i) {
+        auto key = static_cast<std::uint16_t>((static_cast<std::uint32_t>(i) * 37u) % 1009u);
+        s.insert(key, static_cast<std::uint64_t>(key) + 1u);
+    }
+    // Praesenz-Referenz: alle erzeugten Keys.
+    auto present = [](std::uint32_t q) {
+        for (std::uint16_t i = 0; i < kN; ++i) if ((static_cast<std::uint32_t>(i) * 37u) % 1009u == q) return true;
+        return false;
+    };
+    for (std::uint32_t q = 0; q <= 1010u; ++q) {
+        auto v = s.lookup(static_cast<std::uint16_t>(q));
+        if (present(q)) { ASSERT_TRUE(v.has_value()) << "key=" << q; EXPECT_EQ(*v, q + 1u); }
+        else            { EXPECT_FALSE(v.has_value()) << "key=" << q; }
+    }
+    // Update eines vorhandenen Keys
+    s.insert(std::uint16_t{0}, std::uint64_t{999999});
+    EXPECT_EQ(*s.lookup(std::uint16_t{0}), 999999u);
+    // erase: jeden 2. erzeugten Key loeschen
+    std::size_t const before = s.occupied_count();
+    for (std::uint16_t i = 0; i < kN; i += 2) {
+        auto key = static_cast<std::uint16_t>((static_cast<std::uint32_t>(i) * 37u) % 1009u);
+        s.erase(key);
+    }
+    EXPECT_LT(s.occupied_count(), before);
+    EXPECT_FALSE(s.lookup(static_cast<std::uint16_t>(0)).has_value());          // i=0 -> key 0 geloescht
+    EXPECT_TRUE(s.lookup(static_cast<std::uint16_t>(37u % 1009u)).has_value());  // i=1 -> key 37 bleibt
+    EXPECT_FALSE(s.erase(std::uint16_t{0}));  // schon weg
+    // Tombstone-Reinsert: geloeschten Key 0 neu einfuegen (neuer Knoten)
+    s.insert(std::uint16_t{0}, std::uint64_t{42});
+    EXPECT_EQ(*s.lookup(std::uint16_t{0}), 42u);
+}
+
+TEST(SearchAlgo_SkipList, EmptyClearAndProperties) {
+    static_assert(ce_03a::concepts::SearchAlgoVariant<ce_03a::SkipListSearchAlgo>);
+    static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::SkipListSearchAlgo>,
+        "Skip-Liste ist Pointer-Chasing, NICHT SIMD");
+    ce_03a::SkipListSearchAlgo s{};
+    EXPECT_EQ(s.occupied_count(), 0u);
+    EXPECT_FALSE(s.lookup(std::uint16_t{5}).has_value());
+    s.insert(std::uint16_t{5}, std::uint64_t{50});
+    s.insert(std::uint16_t{5}, std::uint64_t{51});  // Update, kein neuer Knoten
+    EXPECT_EQ(s.occupied_count(), 1u);
+    EXPECT_EQ(*s.lookup(std::uint16_t{5}), 51u);
+    s.clear();
+    EXPECT_EQ(s.occupied_count(), 0u);
+    EXPECT_FALSE(s.lookup(std::uint16_t{5}).has_value());
+    s.insert(std::uint16_t{7}, std::uint64_t{70});  // nach clear wieder nutzbar
+    EXPECT_EQ(*s.lookup(std::uint16_t{7}), 70u);
+}
+
 // =================================================================
 // TYPED_TEST_SUITE — axis_03b cache_traversal
 // =================================================================
