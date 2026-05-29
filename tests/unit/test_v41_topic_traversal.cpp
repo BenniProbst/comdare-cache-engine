@@ -23,8 +23,11 @@
 
 #include <array>
 #include <cstdint>
+#include <map>
+#include <optional>
 #include <stdexcept>
 #include <type_traits>
+#include <vector>
 
 namespace mp = boost::mp11;
 namespace ce_traversal = comdare::cache_engine::traversal;
@@ -522,6 +525,49 @@ TEST(SearchAlgo_LinearScan, UnsortedBaselineProperties) {
     EXPECT_FALSE(ce_03a::LinearScanSearchAlgo::supports_range_scan());  // UNSORTIERT
     EXPECT_FALSE(ce_03a::LinearScanSearchAlgo::is_dense());
     EXPECT_EQ(ce_03a::LinearScanSearchAlgo::family_id::value, 15);
+}
+
+// --- KERN-THESE [[std-map-unified-interface]]: AUSTAUSCHBARKEIT der Such-Achsen ----------------
+// Alle Such-Algorithmen sind auf das einheitliche std::map<key,value>-Vergleichs-Interface
+// zusammengeschnitten; die Achse beschreibt nur das INNEN-Verhalten. Beweis: jeder uint16-Wrapper
+// MUSS fuer dieselbe gemischte insert/erase/lookup-Folge EXAKT die std::map-Ground-Truth liefern.
+// (Dense/Sorted/k-ary/Interpolation/Eytzinger/SkipList/Hash/Linear → semantisch identisch, nur
+// performance-different — genau das misst F15.)
+template <class Wrapper>
+void verify_matches_std_map() {
+    Wrapper w{};
+    std::map<std::uint16_t, std::uint64_t> ref;
+    for (std::uint32_t i = 0; i < 600u; ++i) {
+        auto const k = static_cast<std::uint16_t>((i * 2654435761u) % 1000u);  // gestreut, deterministisch
+        if (i % 7u == 0u) {
+            bool const had = (ref.erase(k) != 0u);
+            EXPECT_EQ(w.erase(k), had) << "erase-Mismatch key=" << k;
+        } else {
+            auto const v = static_cast<std::uint64_t>(k) * 11u + 1u;
+            ref[k] = v;
+            w.insert(k, v);
+        }
+    }
+    for (std::uint32_t q = 0; q <= 1000u; ++q) {
+        auto const key = static_cast<std::uint16_t>(q);
+        auto const it = ref.find(key);
+        auto const got = w.lookup(key);
+        if (it != ref.end()) { ASSERT_TRUE(got.has_value()) << "key=" << q; EXPECT_EQ(*got, it->second); }
+        else                 { EXPECT_FALSE(got.has_value()) << "key=" << q; }
+    }
+    EXPECT_EQ(w.occupied_count(), ref.size());
+}
+
+TEST(SearchAlgo_Interchangeability, AllUint16WrappersMatchStdMap) {
+    verify_matches_std_map<ce_03a::VectorU16U16SearchAlgo>();   // sorted
+    verify_matches_std_map<ce_03a::Array65535SearchAlgo>();     // dense
+    verify_matches_std_map<ce_03a::KArySearchAlgo>();           // k-ary/SIMD-Partition
+    verify_matches_std_map<ce_03a::InterpolationSearchAlgo>();  // verteilungsbewusst
+    verify_matches_std_map<ce_03a::EytzingerSearchAlgo>();      // cache-conscious Layout
+    verify_matches_std_map<ce_03a::SkipListSearchAlgo>();       // geordnete Struktur
+    verify_matches_std_map<ce_03a::HashSearchAlgo>();           // Hash (ungeordnet)
+    verify_matches_std_map<ce_03a::LinearScanSearchAlgo>();     // unsortiert linear
+    SUCCEED();  // alle 8 Achsen liefern identische std::map-Semantik (austauschbar)
 }
 
 // =================================================================
