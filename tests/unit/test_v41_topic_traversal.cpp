@@ -12,6 +12,8 @@
 #include <topics/traversal/axis_03a_search_algo/composable/composable_search.hpp>  // Saeule-1 Organ-Modell
 #include <topics/nodes/axis_04_node_type/axis_04_node_type_slot_store.hpp>         // Saeule-1 node_type-Storage-Organ
 #include <topics/nodes/axis_04_node_type/axis_04_node_type_composed_store.hpp>     // Saeule-1 Inc2: 3-Achsen-Storage-Organ (N,L,A)
+#include <topics/traversal/axis_03a_search_algo/composable/interpolation_traversal_organ.hpp>  // Roadmap-2 INC-2a
+#include <topics/traversal/axis_03a_search_algo/composable/galloping_traversal_organ.hpp>      // Roadmap-2 INC-2a
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_pmr_resource.hpp>   // Saeule-1 Inc2: PMR-Anker (immer verfuegbar)
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_density_classified_strategy_concept.hpp>
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_simd_capable_strategy_concept.hpp>
@@ -718,6 +720,33 @@ TEST(Saeule1_ComposedStore, AllocatorBackedStoreDrivesBothTraversalOrgansAsStdMa
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,   StorePmr>>(100000u, 2000u);
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, StorePmr>>(100000u, 2000u);
     SUCCEED();  // 3-Achsen-Organ (N·L·A), Allocator real, beide Traversal-Organe, std::map-aequivalent
+}
+
+// V41 Roadmap-2 INC-2a (Doku 14 §1.2) — zwei WEITERE Traversal-Organe auf dem flachen sortierten Store:
+// Interpolation + Galloping. Beweist Organ-Swappability: vier sortier-invariante Traversal-Organe
+// (SortedBinary/Interpolation/Galloping) ueber DEMSELBEN Storage-Organ sind alle std::map-aequivalent
+// — genau das "genetische Experiment" (ein Organ tauschen, Rest gleich).
+TEST(Saeule1_ComposableOrgan, InterpolationAndGallopingMatchStdMapOverWideKeys) {
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::InterpolationTraversalOrgan, ce_cmp::RawSlotStore>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::GallopingTraversalOrgan,     ce_cmp::RawSlotStore>);
+    // key_mod=100000 (>65535) → breite uint64-Keys, query_max=2000.
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, ce_cmp::RawSlotStore>>(100000u, 2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan,     ce_cmp::RawSlotStore>>(100000u, 2000u);
+    SUCCEED();  // Interpolation + Galloping, std::map-aequivalent, breiter Key
+}
+
+// Dieselben zwei Organe ueber dem 3-Achsen-Storage-Organ (ComposedStore<N,L,A>) — Organ-Swappability
+// quer ueber Traversal- UND Storage-Achse (Mimalloc + PMR-Anker).
+TEST(Saeule1_ComposedStore, InterpolationAndGallopingOverComposedStore) {
+    using StoreMi  = ce_nodes::ComposedStore<ce_nodes::Node4Layout, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::MimallocAllocator>;
+    using StorePmr = ce_nodes::ComposedStore<ce_nodes::Node4Layout, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::PmrResourceAllocator>;
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::InterpolationTraversalOrgan, StoreMi>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::GallopingTraversalOrgan,     StorePmr>);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, StoreMi>>(100000u, 2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan,     StoreMi>>(100000u, 2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, StorePmr>>(100000u, 2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan,     StorePmr>>(100000u, 2000u);
+    SUCCEED();  // Interpolation/Galloping ⊕ ComposedStore<N,L,A>, std::map-aequivalent
 }
 
 // =================================================================
