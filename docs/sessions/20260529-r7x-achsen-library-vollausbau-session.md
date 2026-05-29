@@ -109,3 +109,29 @@ Goldstandard-Vorlage für neue axis_03a-Wrapper: `axis_03a_search_algo_skip_list
 **Methodik:** verify-first (`[[feedback_verify_ist_state_before_gross_tasks]]`) deckte 6× auf, dass „GROSS"-Tasks fast fertig waren; 1 vorbestehendes Build-Stabilitäts-Problem (E1) root-cause behoben. Alle Einheiten prinzipientreu (kein Quick-Fix/Stub), durchgängig 3-Repo-synchron (≈31 Restore-Tags).
 
 **Genuin verbleibend (Mehr-Session/gated/user-manuell):** R5.D HW-Counter (PMC) + voller kartesischer Raum · R5.B (Achsen operativ, gated auf R7.x) · F.2/F.3 Namespace (GROSS) · E11/E10 (gated auf E4.1-Submodule) · weitere Tree-Struktur-Paper · D1/D2 (Autor schreibt Volltext, Doku 22 als Vorlage).
+
+---
+
+## Fortsetzung (2026-05-29, Einheiten 31–40) — Such-Paradigmen schliessen + R5.B-Achsen-Operativierung + R5.D-Mess-Robustheit
+
+| # | Einheit | Ergebnis | Commit |
+|---|---------|----------|--------|
+| 31 | **R7.2 BinarySearchTreeSearchAlgo** (S16, unbalancierter BST, Hibbard-Deletion, Knuth §6.2.2) — deterministische Vergleichs-Baum-Baseline | gegen std::map austauschbar; traversal 283/283 | 633d363 |
+| 32 | **R7.2 BTreeSearchAlgo** (S17, balancierter block-orientierter Mehrwege-B-Baum, CLRS-Insert/Delete, t=4) — schliesst Balance-Achse (unbalanciert/probabilistisch/det.+block) | traversal 296/296; perm 17/17 | d853ac9 |
+| 33 | **F15-Messset 12 Paradigmen** (BST+B-Baum in adhoc_emitter) + **numerische DLL-Loader-Ordnung** (Root-Cause: lexikograf. `_10` zwischen `_1`/`_2` → Label≠SA-Index) | 12 DLLs, alle Holm-sig | 58031cc |
+| 34 | **R5.B PoolResourceAllocator** (eigener std::pmr::unsynchronized_pool_resource, behavioral-distinkt OHNE externes Linking — erster nicht-hohler axis_06-Variations-Kandidat) | axis_06 265/265 | 43b886a |
+| 35 | **R5.B 2. Mess-Dimension** search_algo×allocator (24 DLLs) + interpretierbares `manifest.txt` (ohne composition_name/ABI-Aenderung) | Pool 2–3× vs malloc, alle Holm-sig | 4b8114c |
+| 36 | **R5.B Doku-Praezisierung** (verifiziert: Achsen sind compile-time-trait-only; allocator war Sonderfall mit Laufzeit-API + std-Impl) | — | d91140a |
+| 37 | **R5.B memory_layout (3. Achse) runtime-operativ** (scan_field_sum AoS/SoA/AoSoA/packed in 5 Wrappern) + **ehrliches Wall-Clock-Limit** (Layout-Effekt unter Rausch-Schwelle → motiviert PMC; KEIN Effekt behauptet) | axis_05 16/16; 48 DLLs | 5e1fc8d |
+| 38 | **R5.D F15-Ranking robust nach Median (p50)** statt Mittelwert (gegen ~10×-Ausreisser) | p50<mean stabil; Cluster reproduzierbar | 8a50530 |
+| 39 | **R5.D Mann-Whitney-U** robuster Rang-Signifikanztest + Diskrepanz-Erkennung (recoveriert 2 reale Differenzen, die Welch via varianz-inflation verschluckte) | f15_measurement 26/26 | 48910e6 |
+| 40 | **R5.D Cliff's delta** robustes Effektmass (rang-biserial aus U) — Stats-Triade vollstaendig (Median+MWU+delta) | delta=0,84 (large) f. allocator-Effekt | 90e9f21 |
+
+**FINALER STAND (40 Einheiten, ce HEAD 90e9f21 = v34-final-219):**
+- **Säule 1 — Achsen-Bibliothek:** axis_03a **17 Such-Strategien** (Paradigmen-Palette + geordnete Struktur in ALLEN drei Balance-Auspraegungen: BST unbalanciert / SkipList probabilistisch / B-Baum det.+block) · axis_06 +PoolResource (25 Vendor, 1 behavioral-distinkt) · axis_05 5 Layout-Wrapper jetzt **runtime-operativ** (scan_field_sum).
+- **Säule 2 — F15-Messung:** **3-Achsen-Mess-Maschinerie** end-to-end (search×allocator×memory_layout, 48 DLLs, Manifest) · **zweidimensionale Messung empirisch belegt** (search ~119× **UND** allocator ~2–3×, beides am std::map-Interface) · **robuste Statistik-Triade** (Median-Ranking + Mann-Whitney-U + Cliff's delta).
+- **Ehrliche Limit-Befunde (dokumentiert, NICHT als Erfolg ausgewiesen):** memory_layout-Cache-Effekt liegt unter der Wall-Clock-Rausch-Schwelle → saubere Quantifizierung fein-granularer Achsen braucht HW-Performance-Counter (R5.D-PMC). Trait-Achsen (serialization/…) brauchen erst eine Laufzeit-API, bevor ihre Variation nicht-hohl messbar ist.
+
+**Methodik (Fortsetzung):** durchgaengig verify-first + nicht-hohl; R5.B von „gated" zu „erfuellt (allocator-Dimension)" konvertiert, indem die VERIFIZIERTE Ursache (Achsen trait-only) behoben wurde (PoolResource + scan_field_sum). Negativ-/Limit-Ergebnisse ehrlich ausgewiesen statt Effekte zu erfinden. 3-Repo-synchron, +10 Restore-Tags (pre-r7.2-bst … pre-r5d-cliffdelta).
+
+**Genuin verbleibend (verifiziert NICHT in-Kontext-bounded):** R5.D-**PMC** (HW-Cache-Counter, OS-/Infra-Scope — nötig für fein-granulare Achsen) · R5.B-Erweiterung auf weitere Trait-Achsen (je Achse Laufzeit-API-Neugestaltung) · voller kartesischer Raum (1e15 → braucht Sampling-Strategie) · F.2/F.3 Namespace (codebase-weit GROSS) · E11/E10 (gated E4.1-Submodule) · D1/D2 (Autor-Volltext, Doku 22 als Vorlage).
