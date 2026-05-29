@@ -143,3 +143,62 @@ TEST(Axis03aTierOrgan, BTreeDeleteStressMatchesStdMap) {
     for (std::uint64_t k = 0; k < 50; ++k) { organ.insert(k, k + 100); ref[k] = k + 100; }
     btree_cross_check(organ, ref, N);
 }
+
+// --- ART-Trie echte Anatomie (#43 s4 Inc2-5) -------------------------------------------------------------
+// Der OriginalArtOrgan ist jetzt das ECHTE ART-Organ (ComposedArtTrieSearch: adaptive Node4/16/48/256 +
+// ByteWise-Path-Compression + Byte-Descent). Der uint8-Beleg (ART ≡ OriginalArtSearchAlgo) laeuft bereits in
+// Uint8OriginalTiersReconstructibleFromOrgan oben. Hier zusaetzlich MULTI-BYTE-uint64-Belege, die Descent +
+// Prefix-Split + Knoten-Growth (N4->N256) erst richtig ausreizen (uint8-Keys belegen nur den Wurzel-Knoten).
+namespace {
+template <class Organ>
+void art_cross_check(Organ const& organ, std::map<std::uint64_t, std::uint64_t> const& ref, std::uint64_t query_max) {
+    ASSERT_EQ(organ.occupied_count(), ref.size());
+    for (std::uint64_t q = 0; q <= query_max; ++q) {
+        auto const o  = organ.lookup(q);
+        auto const it = ref.find(q);
+        if (it == ref.end()) { ASSERT_FALSE(o.has_value()) << "phantom key " << q; }
+        else { ASSERT_TRUE(o.has_value()) << "lost key " << q; ASSERT_EQ(*o, it->second) << "value mismatch key " << q; }
+    }
+}
+}  // namespace
+
+// Vertikal: ART-Organ ≡ std::map ueber einen MEHR-BYTE-Schluesselraum (Descent + Prefix + Growth via Harness-Stream).
+TEST(Axis03aTierOrgan, Uint64ArtTrieMatchesStdMap) {
+    ts::verify_matches_std_map<ce_cmp::ArtTrieOrgan>(60000u, 60000u);   // Keys spannen Byte 0+1 -> 2-Ebenen-Trie
+    SUCCEED();
+}
+
+// Adversarial: erzwingt mehrstufigen Trie + N4->N256-Growth an Verzweigungen + Prefix-Split + Erase.
+TEST(Axis03aTierOrgan, ArtTrieMultiLevelStressMatchesStdMap) {
+    ce_cmp::ArtTrieOrgan organ;
+    std::map<std::uint64_t, std::uint64_t> ref;
+
+    // (1) 0..1199: byte0 deckt 0..255 (Wurzel waechst auf N256), je byte0 bis 5 byte1-Werte (innere N4/N16)
+    //     -> 2-Ebenen-Trie + Leaf-Split + Prefix-Split.
+    for (std::uint64_t k = 0; k < 1200; ++k) { organ.insert(k, k * 3 + 1); ref[k] = k * 3 + 1; }
+    art_cross_check(organ, ref, 1300);
+
+    // (2) Hohe Bytes: Schluessel mit gesetztem Byte 2/3 -> tiefere Prefix-Ketten.
+    for (std::uint64_t hi = 1; hi <= 8; ++hi) {
+        std::uint64_t const k = (hi << 16) | 0x0102u;   // byte0=0x02, byte1=0x01, byte2=hi
+        organ.insert(k, k); ref[k] = k;
+    }
+    ASSERT_EQ(organ.occupied_count(), ref.size());
+    for (auto const& kv : ref) { auto o = organ.lookup(kv.first); ASSERT_TRUE(o.has_value()); ASSERT_EQ(*o, kv.second); }
+
+    // (3) Update bestehender Keys (kein Count-Wachstum).
+    for (std::uint64_t k = 0; k < 1200; k += 3) { organ.insert(k, k * 7); ref[k] = k * 7; }
+    art_cross_check(organ, ref, 1300);
+
+    // (4) Erase jeden 2. (remove_child ueber N256/N4 + Pfad-Cleanup), dann Kreuzpruefung.
+    for (std::uint64_t k = 0; k < 1200; k += 2) { organ.erase(k); ref.erase(k); }
+    art_cross_check(organ, ref, 1300);
+
+    // (5) Rest leeren (absteigend) -> leerer Trie, dann Re-Insert (Free-List-Recycling).
+    std::vector<std::uint64_t> rest;
+    for (auto const& kv : ref) rest.push_back(kv.first);
+    for (auto it = rest.rbegin(); it != rest.rend(); ++it) { organ.erase(*it); ref.erase(*it); }
+    ASSERT_EQ(organ.occupied_count(), 0u);
+    for (std::uint64_t k = 100; k < 400; ++k) { organ.insert(k, k + 9); ref[k] = k + 9; }
+    art_cross_check(organ, ref, 500);
+}
