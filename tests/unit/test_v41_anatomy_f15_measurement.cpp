@@ -528,13 +528,17 @@ TEST(F15RobustStats, MannWhitneyDistinctIdenticalAndOutlierRobust) {
     EXPECT_TRUE(w1.valid);
     EXPECT_TRUE(w1.a_stochastically_less);
     EXPECT_LT(w1.p_value, 0.001);
+    EXPECT_NEAR(w1.cliff_delta, 1.0, 1e-9);  // a durchweg kleiner → delta=+1
+    EXPECT_EQ(stats::cliff_delta_magnitude(w1.cliff_delta), std::string_view{"large"});
 
-    // (2) identische Gruppen → kein Unterschied (p ~ 1).
+    // (2) identische Gruppen → kein Unterschied (p ~ 1, delta ~ 0).
     std::vector<std::int64_t> same(40, 500);
     auto const w2 = stats::mann_whitney_u_test(std::span<const std::int64_t>{same},
                                                std::span<const std::int64_t>{same});
     EXPECT_TRUE(w2.valid);
     EXPECT_GT(w2.p_value, 0.5);
+    EXPECT_NEAR(w2.cliff_delta, 0.0, 1e-9);
+    EXPECT_EQ(stats::cliff_delta_magnitude(w2.cliff_delta), std::string_view{"negligible"});
 
     // (3) Ausreisser-Robustheit: a = lauter 100er + EIN 10^9-Spike; b = lauter 200er.
     // Median/Rang von a liegt klar unter b → MWU sagt weiterhin a<b, trotz Ausreisser.
@@ -545,6 +549,8 @@ TEST(F15RobustStats, MannWhitneyDistinctIdenticalAndOutlierRobust) {
     EXPECT_TRUE(w3.valid);
     EXPECT_TRUE(w3.a_stochastically_less) << "Rang-Test bleibt vom Einzel-Ausreisser unbeeinflusst";
     EXPECT_LT(w3.p_value, 0.05);
+    EXPECT_NEAR(w3.cliff_delta, 0.95, 1e-9);  // 1 - 2*40/1600; trotz Ausreisser klar grosses Effektmass
+    EXPECT_EQ(stats::cliff_delta_magnitude(w3.cliff_delta), std::string_view{"large"});
     // invalid bei leerer Gruppe:
     EXPECT_FALSE(stats::mann_whitney_u_test(std::span<const std::int64_t>{},
                                             std::span<const std::int64_t>{bo}).valid);

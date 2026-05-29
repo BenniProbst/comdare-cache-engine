@@ -225,6 +225,14 @@ Unterschiede), waehrend der Rang-Test sie korrekt erkennt. Der MWU recoveriert h
 Differenzen, die der mittelwert-basierte Test verschluckt — ein direkter Beleg fuer den Mehrwert des
 robusten Tests bei verrauschten Wall-Clock-Messungen.
 
+**Robustes Effektmass (Cliff's delta).** Aus der U-Statistik faellt direkt das rang-basierte Effektmass
+`cliff_delta = 1 − 2·U_a/(n_a·n_b)` ∈ [+1..−1] (+1 = Kandidat durchweg schneller, 0 = kein Unterschied,
+−1 = durchweg langsamer) mit Standard-Magnitude-Schwellen (negligible/small/medium/large, Romano 2006).
+Es beantwortet das thesis-zentrale "WIE VIEL bringt die Achse?" ROBUST (ausreisser-immun, da rang-basiert)
+— im 48-DLL-Lauf z. B. der allocator-Effekt array256 std→pool als delta=0,84 (large). Damit ist die
+F15-Statistik-Schicht als robuste Triade vollstaendig: **Median-Ranking** (robuste Sortierung) +
+**Mann-Whitney-U** (robuste Signifikanz + Diskrepanz-Warnung) + **Cliff's delta** (robustes Effektmass).
+
 ---
 
 ## 4. Stand der Architektur-Anforderungen (V41.F.6.1)

@@ -173,6 +173,8 @@ int main(int argc, char** argv) {
                   << (c.significant ? "  SIGNIFIKANT" : "  n.s.")
                   << "  | mwu_p=" << c.robust_adjusted_p
                   << (c.robust_significant ? "  ROBUST-SIG" : "  robust-n.s.")
+                  << "  delta=" << c.mwu.cliff_delta
+                  << "(" << stats::cliff_delta_magnitude(c.mwu.cliff_delta) << ")"
                   << (c.faster_than_baseline ? "  (schneller)" : "  (langsamer)")
                   << (c.significance_discrepancy ? "  [DISKREPANZ]" : "") << "\n";
     }
