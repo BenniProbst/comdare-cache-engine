@@ -12,6 +12,9 @@
 #include <topics/traversal/axis_03a_search_algo/composable/tier_to_organ_mapping.hpp>        // Organ-Pendants
 #include "support/std_map_equivalence_harness.hpp"
 
+#include <map>
+#include <vector>
+
 namespace ce_03a = ::comdare::cache_engine::traversal::axis_03a_search_algo;
 namespace ce_cmp = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable;
 namespace ts     = ::comdare::cache_engine::test_support;
@@ -63,4 +66,61 @@ TEST(Axis03aTierOrgan, Uint16SkipListReconstructibleFromOrgan) {
     ts::verify_matches_std_map<ce_cmp::SkipListOrgan>(1000u, 1000u);
     ts::verify_variants_equivalent<ce_cmp::SkipListOrgan, ce_03a::SkipListSearchAlgo>(1000u, 1000u);
     SUCCEED();  // SkipListSearchAlgo exakt aus ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore> rekonstruierbar
+}
+
+// B-Baum (GEORDNET balanciert, Mehrwege t=4, block-orientiert, Bayer/McCreight / CLRS Kap.18): eigene BTreeNodePool-Familie.
+TEST(Axis03aTierOrgan, Uint16BTreeReconstructibleFromOrgan) {
+    ts::verify_matches_std_map<ce_cmp::BTreeSearchOrgan>(1000u, 1000u);
+    ts::verify_variants_equivalent<ce_cmp::BTreeSearchOrgan, ce_03a::BTreeSearchAlgo>(1000u, 1000u);
+    SUCCEED();  // BTreeSearchAlgo exakt aus ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoolStore> rekonstruierbar
+}
+
+// --- Adversarialer B-Baum-Delete-Stresstest (#41 Inc3) -----------------------------------------------------
+// Der B-Baum-Delete (11 von Hand auf Pool-Getter/Setter portierte CLRS-Helfer: borrow_from_prev/next, merge,
+// remove_from_nonleaf, fill, Wurzel-Schrumpf) ist das riskanteste Stueck der Sezierung. Der Harness-600-Op-
+// Stream uebt borrow/merge nur begrenzt. Dieser Test erzwingt sie gezielt: grosser Baum (mehrstufig bei t=4),
+// dann drei delete-lastige Phasen (jede-2., aufsteigend, absteigend) mit voller std::map-Kreuzpruefung nach
+// jeder Loeschung — bricht eine Borrow/Merge/Root-Shrink-Transformation, divergiert lookup/occupied_count sofort.
+namespace {
+void btree_cross_check(ce_cmp::BTreeSearchOrgan const& organ, std::map<std::uint64_t, std::uint64_t> const& ref,
+                       std::uint64_t query_max) {
+    ASSERT_EQ(organ.occupied_count(), ref.size());
+    for (std::uint64_t q = 0; q <= query_max; ++q) {
+        auto const o  = organ.lookup(q);
+        auto const it = ref.find(q);
+        if (it == ref.end()) { ASSERT_FALSE(o.has_value()) << "phantom key " << q; }
+        else { ASSERT_TRUE(o.has_value()) << "lost key " << q; ASSERT_EQ(*o, it->second) << "value mismatch key " << q; }
+    }
+}
+}  // namespace
+
+TEST(Axis03aTierOrgan, BTreeDeleteStressMatchesStdMap) {
+    constexpr std::uint64_t N = 400;   // mehrstufiger Baum bei t=4 (>= 3 Ebenen)
+    ce_cmp::BTreeSearchOrgan organ;
+    std::map<std::uint64_t, std::uint64_t> ref;
+    for (std::uint64_t k = 0; k < N; ++k) { organ.insert(k, k * 7 + 1); ref[k] = k * 7 + 1; }
+    btree_cross_check(organ, ref, N);
+
+    // Phase 1: jeden 2. Schluessel loeschen (erzwingt verstreute borrow/merge).
+    for (std::uint64_t k = 0; k < N; k += 2) { organ.erase(k); ref.erase(k); }
+    btree_cross_check(organ, ref, N);
+
+    // Phase 2: verbleibende aufsteigend loeschen (erzwingt wiederholtes Links-Borrow/Merge + Root-Shrink).
+    std::vector<std::uint64_t> remaining;
+    for (auto const& kv : ref) remaining.push_back(kv.first);
+    for (std::uint64_t k : remaining) {
+        if (k % 4 == 1) { organ.erase(k); ref.erase(k); }
+    }
+    btree_cross_check(organ, ref, N);
+
+    // Phase 3: Rest absteigend leeren (erzwingt Rechts-Borrow/Merge bis leerer Baum).
+    remaining.clear();
+    for (auto const& kv : ref) remaining.push_back(kv.first);
+    for (auto it = remaining.rbegin(); it != remaining.rend(); ++it) { organ.erase(*it); ref.erase(*it); }
+    btree_cross_check(organ, ref, N);
+    ASSERT_EQ(organ.occupied_count(), 0u);
+
+    // Re-Insert nach vollstaendiger Leerung (Free-List-Recycling + Wurzel-Neuaufbau).
+    for (std::uint64_t k = 0; k < 50; ++k) { organ.insert(k, k + 100); ref[k] = k + 100; }
+    btree_cross_check(organ, ref, N);
 }
