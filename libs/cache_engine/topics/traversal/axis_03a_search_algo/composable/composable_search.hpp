@@ -27,6 +27,8 @@
 #include <utility>
 #include <vector>
 
+#include "storage_organ_concept.hpp"  // Saeule-1: Storage-Organ-Vertrag (aus RawSlotStore extrahiert)
+
 namespace comdare::cache_engine::traversal::axis_03a_search_algo::composable {
 
 /// STORAGE-Organ (Pilot): rohe, indizierte Slots (key,value) ueber GEMEINSAMEM uint64-Key. Vertritt
@@ -129,5 +131,10 @@ public:
 private:
     Store store_;
 };
+
+// Selbstbeweis: die Pilot-Klasse RawSlotStore erfuellt das neu extrahierte StorageOrgan-Concept exakt
+// (Vertrag == Ist-Implementierung, keine erfundene Abstraktion). Bricht dieser static_assert, ist das
+// Concept falsch (z.B. faelschlich gefordertes noexcept), NICHT die Implementierung.
+static_assert(StorageOrgan<RawSlotStore>);
 
 }  // namespace comdare::cache_engine::traversal::axis_03a_search_algo::composable

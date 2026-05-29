@@ -10,6 +10,7 @@
 #include <topics/traversal/topic_traversal_config_set.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_registry.hpp>
 #include <topics/traversal/axis_03a_search_algo/composable/composable_search.hpp>  // Saeule-1 Organ-Modell
+#include <topics/nodes/axis_04_node_type/axis_04_node_type_slot_store.hpp>         // Saeule-1 node_type-Storage-Organ
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_density_classified_strategy_concept.hpp>
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_simd_capable_strategy_concept.hpp>
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_iterable_aspect_strategy_concept.hpp>
@@ -662,6 +663,29 @@ TEST(Saeule1_ComposableOrgan, BothTraversalOrgansMatchStdMapOverWideKeys) {
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,  ce_cmp::RawSlotStore>>(100000u, 2000u);
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, ce_cmp::RawSlotStore>>(100000u, 2000u);
     SUCCEED();  // Traversal-Organ ⊕ Storage-Organ, frei austauschbar, std::map-aequivalent, breiter Key
+}
+
+// V41 Saeule-1 (Doku 24 §5.4) — node_type ALS echtes Storage-Organ: NodeTypeSlotStore<Node4Layout>
+// (bounded std::array der Kapazitaet N::max_capacity()=4) wird unter dasselbe StorageOrgan-Concept
+// gestellt und von BEIDEN Traversal-Organen konsumiert. Beweist: (1) der node_type ist kein "Tier",
+// sondern ein austauschbares Organ; (2) er liefert ueber dem breiten uint64-Key dieselbe
+// std::map-Semantik wie RawSlotStore (nur kapazitaetsbeschraenkt).
+namespace ce_nodes = comdare::cache_engine::nodes::axis_04_node_type;
+
+TEST(Saeule1_NodeTypeStorageOrgan, Node4DrivesBothTraversalOrgansAsStdMap) {
+    using Store = ce_nodes::NodeTypeSlotStore<ce_nodes::Node4Layout>;
+    static_assert(ce_cmp::StorageOrgan<Store>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal,   Store>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, Store>);
+    static_assert(std::is_same_v<Store::key_type, std::uint64_t>);  // breiter Key, kein uint8/uint16
+    static_assert(Store::node_capacity() == 4u);                    // node_type-getrieben
+
+    // key_mod=3 ⇒ Distinct-Keys ∈ {0,1,2} ⇒ max. 3 gleichzeitig belegte Slots ≤ Node4-Kapazitaet 4.
+    // (Der Harness macht 600 gemischte Ops; bounded array haelt, weil Distinct-Keys ≤ cap. Bei groesserem
+    //  key_mod wuerfe append_slot/insert_slot_at std::length_error — laut+sichtbar, kein stilles UB.)
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,   Store>>(3u, 6u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, Store>>(3u, 6u);
+    SUCCEED();  // node_type-getriebenes Storage-Organ, beide Traversal-Organe, std::map-aequivalent
 }
 
 // =================================================================

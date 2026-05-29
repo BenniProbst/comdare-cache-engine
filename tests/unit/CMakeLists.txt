@@ -297,7 +297,11 @@ target_include_directories(test_v41_topic_traversal PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    # V41 Saeule-1 (Doku 24 §6): der traversal-Test komponiert das Traversal-Organ mit dem
+    # nodes-axis_04 Storage-Organ (NodeTypeSlotStore<Node4Layout>) -> braucht die generierten
+    # Flags aller Achsen (wie compositions/anatomy-Tests). Folge-Increments (layout/allocator) inklusive.
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_topic_traversal PRIVATE Boost::mp11)
 
 # V41.F.6.1.P1 Phase B Paper-Legacy-Code Pattern (ctsha + Sub-Concept + Macro)
