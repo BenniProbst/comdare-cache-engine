@@ -622,7 +622,7 @@ target_include_directories(test_v41_axis_12_general_hardware PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
     "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware"
-    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09_isa"
+    "${CMAKE_BINARY_DIR}/generated/axes/simd"
     "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension")
 target_link_libraries(test_v41_axis_12_general_hardware PRIVATE
     Boost::mp11)
@@ -708,7 +708,7 @@ target_include_directories(test_v41_axis_08_concurrency PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/concurrency/axis_08_concurrency")
+    "${CMAKE_BINARY_DIR}/generated/axes/concurrency_axis")
 target_link_libraries(test_v41_axis_08_concurrency PRIVATE
     Boost::mp11)
 
@@ -838,7 +838,7 @@ target_include_directories(test_v41_axis_09_isa PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09_isa"
+    "${CMAKE_BINARY_DIR}/generated/axes/simd"
     "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
     "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware")
 target_link_libraries(test_v41_axis_09_isa PRIVATE
@@ -852,7 +852,7 @@ target_include_directories(test_v41_axis_09b_simd_extension PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09_isa"
+    "${CMAKE_BINARY_DIR}/generated/axes/simd"
     "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
     "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware")
 target_link_libraries(test_v41_axis_09b_simd_extension PRIVATE
@@ -866,7 +866,7 @@ target_include_directories(test_v41_r5c3_isa_simd_cross_constraint PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09_isa"
+    "${CMAKE_BINARY_DIR}/generated/axes/simd"
     "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
     "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware")
 target_link_libraries(test_v41_r5c3_isa_simd_cross_constraint PRIVATE

@@ -849,8 +849,8 @@ foreach(_c NONE BLOCKING READER_WRITER OPTIMISTIC LOCK_FREE WAIT_FREE RCU HAZARD
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/concurrency/axis_08_concurrency/axis_08_concurrency_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/concurrency/axis_08_concurrency/axis_08_concurrency_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/concurrency_axis/axis_08_concurrency_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/concurrency_axis/axis_08_concurrency_flags.hpp"
     @ONLY)
 message(STATUS "  axis_08 (9 concurrency): NONE=${COMDARE_AXIS_08_USE_NONE} BLOCKING=${COMDARE_AXIS_08_USE_BLOCKING} RW=${COMDARE_AXIS_08_USE_READER_WRITER} OLC=${COMDARE_AXIS_08_USE_OPTIMISTIC} LF=${COMDARE_AXIS_08_USE_LOCK_FREE} WF=${COMDARE_AXIS_08_USE_WAIT_FREE} RCU=${COMDARE_AXIS_08_USE_RCU} HP=${COMDARE_AXIS_08_USE_HAZARD_PTR} OLC_RB=${COMDARE_AXIS_08_USE_OLC_RESERVED_BLOCKS}")
 
@@ -920,8 +920,8 @@ foreach(_isa AMD64 AARCH64 RISCV POWERPC)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/hardware/axis_09_isa/axis_09_isa_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/hardware/axis_09_isa/axis_09_isa_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/simd/axis_09_isa_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/simd/axis_09_isa_flags.hpp"
     @ONLY)
 message(STATUS "  axis_09 (4 main-CPU-ISAs): AMD64=${COMDARE_AXIS_09_USE_AMD64} AARCH64=${COMDARE_AXIS_09_USE_AARCH64} RISCV=${COMDARE_AXIS_09_USE_RISCV} POWERPC=${COMDARE_AXIS_09_USE_POWERPC}")
 
