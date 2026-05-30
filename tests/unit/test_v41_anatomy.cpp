@@ -27,6 +27,10 @@
 namespace ana       = ::comdare::cache_engine::anatomy;
 namespace ce_compos = ::comdare::cache_engine::compositions;
 
+// #42: robuste paper_source-Detektion (MSVC hart-fehlert bei `requires { typename T::x; }` fuer fehlende x).
+template <class T, class = void> constexpr bool has_paper_source_v = false;
+template <class T> constexpr bool has_paper_source_v<T, std::void_t<typename T::paper_source>> = true;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // §1 — IsComposition Concept-Conformance fuer alle 6 bekannten Compositions
 // ─────────────────────────────────────────────────────────────────────────────
@@ -210,14 +214,26 @@ TEST(AnatomyR3_2_PaperBinding, NameAndPaperIdMarkedAsPaperBinding) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// §8 — Beweis: Art vs ArtPaperBinding tauschen NUR search_algo aus
-//      (Promotion-Statement der Audit-Korrektur)
+// §8 — Beweis (#42 Umstufung-B AKTUALISIERT): Art vs ArtPaperBinding teilen DASSELBE
+//      sezierte ART-Organ; sie unterscheiden sich nur noch in der PAPER-PROVENIENZ.
+//
+//      Vor #42: search_algo war ein Tier (Array256SearchAlgo vs OriginalArtSearchAlgo) — die Varianten
+//      unterschieden sich im search_algo-Tier. Nach #42 (Doku 14 §3.1: Achse=Organ): beide Konfiguratoren
+//      tragen DASSELBE sezierte ART-Organ (ObservableArtTrieOrgan) im search_algo-Slot. Die Habich-/is_original-
+//      Bindung lebt jetzt im separaten paper_source-Slot (Provenienz-Traeger, KEIN Achsen-Wert), den nur die
+//      Paper-Binding-Composition besitzt. Das ist die korrekte Ordnung: der Such-Algorithmus ist EIN Organ,
+//      die Paper-Bindung ist Metadatum.
 // ─────────────────────────────────────────────────────────────────────────────
 
-TEST(AnatomyR3_2_Promotion, ArtVsArtPaperBindingDifferOnlyInSearchAlgo) {
+TEST(AnatomyR3_2_Promotion, ArtVsArtPaperBindingShareOrganDifferInProvenance) {
     using A  = ce_compos::ArtComposition;
     using AP = ce_compos::ArtPaperBindingComposition;
-    static_assert(!std::is_same_v<A::search_algo, AP::search_algo>);
+    // #42: BEIDE tragen jetzt dasselbe sezierte ART-Organ (war frueher unterschiedlicher Tier).
+    static_assert(std::is_same_v<A::search_algo, AP::search_algo>);
+    // Die Unterscheidung wandert in die Provenienz: nur die Paper-Binding hat einen paper_source-Slot.
+    static_assert(has_paper_source_v<AP>);
+    static_assert(!has_paper_source_v<A>);
+    // Alle 17 Achsen (inkl. search_algo) sind nun identisch — der Unterschied ist rein die Provenienz:
     static_assert(std::is_same_v<A::cache_traversal,    AP::cache_traversal>);
     static_assert(std::is_same_v<A::mapping,            AP::mapping>);
     static_assert(std::is_same_v<A::path_compression,   AP::path_compression>);

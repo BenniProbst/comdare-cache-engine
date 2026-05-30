@@ -19,11 +19,34 @@
 #include <concepts/legacy_original_code_strategy_concept.hpp>
 #include <topics/axis_base.hpp>
 
+#include <concepts>
+#include <cstdint>
+#include <optional>
+#include <type_traits>
+
 namespace ce_topics   = ::comdare::cache_engine::topics;
 namespace ce_concepts = ::comdare::cache_engine::concepts;
 namespace ce_03a      = ::comdare::cache_engine::traversal::axis_03a_search_algo;
 namespace ce_03a_cpts = ::comdare::cache_engine::traversal::axis_03a_search_algo::concepts;
 namespace ce_compositions = ::comdare::cache_engine::compositions;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #42 Umstufung-B: Der search_algo-Slot der Konfiguratoren traegt jetzt ein SEZIERTES,
+// observables ORGAN (ObservableComposedContainer<...>), KEINEN flachen axis_03a-Tier-Wert mehr
+// (Doku 14 §3.1: Achse=Organ, Tier=Composition). Daher wird statt SearchAlgoVariant der ORGAN-Vertrag
+// geprueft: default-konstruierbar, uint64-Key, einheitliches std::map-Interface (lookup/insert/erase/
+// occupied_count). Diese Pruefung ist build-config-stabil (unabhaengig von COMDARE_CE_ENABLE_STATISTICS).
+// ─────────────────────────────────────────────────────────────────────────────
+template <class SA>
+concept IsDissectedSearchOrgan =
+    std::is_default_constructible_v<SA> &&
+    std::is_same_v<typename SA::key_type, std::uint64_t> &&
+    requires(SA& s, SA const& cs, std::uint64_t k, std::uint64_t v) {
+        { cs.lookup(k) }         -> std::same_as<std::optional<std::uint64_t>>;
+        s.insert(k, v);
+        { s.erase(k) }           -> std::same_as<bool>;
+        { cs.occupied_count() }  -> std::convertible_to<std::size_t>;
+    };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // (1) ArtComposition
@@ -36,10 +59,10 @@ TEST(ArtComposition, PaperIdNonEmpty) {
     SUCCEED();
 }
 
-TEST(ArtComposition, SearchAlgoSubAchseConformance) {
+TEST(ArtComposition, SearchAlgoIsDissectedOrgan) {
+    // #42: ArtComposition::search_algo ist jetzt das SEZIERTE ART-Organ (Node4/16/48/256), kein Tier-Wert.
     using SA = ce_compositions::ArtComposition::search_algo;
-    static_assert(ce_03a_cpts::SearchAlgoVariant<SA>);
-    static_assert(ce_03a_cpts::CacheEngineSearchAlgoPermutationStrategy<SA>);
+    static_assert(IsDissectedSearchOrgan<SA>);
     SUCCEED();
 }
 
@@ -67,9 +90,9 @@ TEST(WormholeComposition, PaperIdNonEmpty) {
     SUCCEED();
 }
 
-TEST(WormholeComposition, SearchAlgoSubAchseConformance) {
-    using SA = ce_compositions::WormholeComposition::search_algo;
-    static_assert(ce_03a_cpts::SearchAlgoVariant<SA>);
+TEST(WormholeComposition, SearchAlgoIsDissectedOrgan) {
+    using SA = ce_compositions::WormholeComposition::search_algo;  // SEZIERT: Hash-Anchor-Jump + Leaf-Liste
+    static_assert(IsDissectedSearchOrgan<SA>);
     SUCCEED();
 }
 
@@ -90,9 +113,9 @@ TEST(SurfComposition, PaperIdNonEmpty) {
     SUCCEED();
 }
 
-TEST(SurfComposition, SearchAlgoSubAchseConformance) {
-    using SA = ce_compositions::SurfComposition::search_algo;
-    static_assert(ce_03a_cpts::SearchAlgoVariant<SA>);
+TEST(SurfComposition, SearchAlgoIsDissectedOrgan) {
+    using SA = ce_compositions::SurfComposition::search_algo;  // SEZIERT: exakte Map-Schale (Filter-Organ in axis_filter)
+    static_assert(IsDissectedSearchOrgan<SA>);
     SUCCEED();
 }
 
@@ -140,16 +163,18 @@ TEST(HotComposition, PaperIdNonEmpty) {
     static_assert(!ce_compositions::HotComposition::paper_title.empty());
     SUCCEED();
 }
-TEST(HotComposition, SearchAlgoSubAchseConformance) {
-    using SA = ce_compositions::HotComposition::search_algo;
-    static_assert(ce_03a_cpts::SearchAlgoVariant<SA>);
+TEST(HotComposition, SearchAlgoIsDissectedOrgan) {
+    using SA = ce_compositions::HotComposition::search_algo;  // SEZIERT: bit-crit-bit-Patricia
+    static_assert(IsDissectedSearchOrgan<SA>);
     SUCCEED();
 }
-TEST(HotComposition, SharesSearchAlgoWithWormhole) {
-    // HOT + Wormhole nutzen beide VectorU8U8SearchAlgo (sparse Sub-Achse) — gewollt
+TEST(HotComposition, HasOwnDistinctOrganVsWormhole) {
+    // #42 INVERTIERT: vor der Sezierung teilten HOT + Wormhole den FLACHEN Platzhalter VectorU8U8SearchAlgo.
+    // Nach der Sezierung hat JEDES Tier sein EIGENES echtes Organ (HOT=crit-bit-Patricia, Wormhole=Hash-
+    // Anchor-Jump) — kein geteilter Platzhalter mehr (das ist der eigentliche Sinn der Organ-Sezierung, #41).
     using HotSA      = ce_compositions::HotComposition::search_algo;
     using WormholeSA = ce_compositions::WormholeComposition::search_algo;
-    static_assert(std::same_as<HotSA, WormholeSA>);
+    static_assert(!std::same_as<HotSA, WormholeSA>);
     SUCCEED();
 }
 
@@ -157,9 +182,9 @@ TEST(StartComposition, PaperIdNonEmpty) {
     static_assert(!ce_compositions::StartComposition::paper_id.empty());
     SUCCEED();
 }
-TEST(StartComposition, SearchAlgoSubAchseConformance) {
-    using SA = ce_compositions::StartComposition::search_algo;
-    static_assert(ce_03a_cpts::SearchAlgoVariant<SA>);
+TEST(StartComposition, SearchAlgoIsDissectedOrgan) {
+    using SA = ce_compositions::StartComposition::search_algo;  // SEZIERT: Multibyte-Span-Radix
+    static_assert(IsDissectedSearchOrgan<SA>);
     SUCCEED();
 }
 
@@ -167,16 +192,20 @@ TEST(MasstreeComposition, PaperIdNonEmpty) {
     static_assert(!ce_compositions::MasstreeComposition::paper_id.empty());
     SUCCEED();
 }
-TEST(MasstreeComposition, SearchAlgoSubAchseConformance) {
+TEST(MasstreeComposition, SearchAlgoIsDissectedOrgan) {
+    // Masstree-Organ ist noch ein Naeherungs-Platzhalter (ObservableSortedBinaryOrgan); echtes Masstree-
+    // Layer-Slice-Organ ist eigener s4-Task. Der Organ-Vertrag (uint64-Interface) gilt trotzdem.
     using SA = ce_compositions::MasstreeComposition::search_algo;
-    static_assert(ce_03a_cpts::SearchAlgoVariant<SA>);
+    static_assert(IsDissectedSearchOrgan<SA>);
     SUCCEED();
 }
-TEST(MasstreeComposition, SharesSearchAlgoWithStart) {
-    // Masstree + START nutzen beide VectorU16U16SearchAlgo (multilevel-Sub-Achse) — gewollt
+TEST(MasstreeComposition, DistinctOrganVsStart) {
+    // #42 INVERTIERT: vor der Sezierung teilten Masstree + START den FLACHEN Platzhalter VectorU16U16SearchAlgo.
+    // Nach der Sezierung hat START sein echtes Multibyte-Span-Radix-Organ; Masstree haelt (bis zum eigenen
+    // s4-Task) den flachen SortedBinary-Platzhalter — beide sind TYP-DISTINKT (kein geteilter Platzhalter).
     using MasstreeSA = ce_compositions::MasstreeComposition::search_algo;
     using StartSA    = ce_compositions::StartComposition::search_algo;
-    static_assert(std::same_as<MasstreeSA, StartSA>);
+    static_assert(!std::same_as<MasstreeSA, StartSA>);
     SUCCEED();
 }
 
@@ -184,42 +213,37 @@ TEST(MasstreeComposition, SharesSearchAlgoWithStart) {
 // (6) Composition-Matrix-Property: 6 Compositions, davon einige Sub-Achsen-shared
 // ─────────────────────────────────────────────────────────────────────────────
 
-TEST(CompositionMatrixExpanded, SixPilotCompositionsAllSearchAlgoConform) {
-    static_assert(ce_03a_cpts::SearchAlgoVariant<ce_compositions::ArtComposition::search_algo>);
-    static_assert(ce_03a_cpts::SearchAlgoVariant<ce_compositions::WormholeComposition::search_algo>);
-    static_assert(ce_03a_cpts::SearchAlgoVariant<ce_compositions::SurfComposition::search_algo>);
-    static_assert(ce_03a_cpts::SearchAlgoVariant<ce_compositions::HotComposition::search_algo>);
-    static_assert(ce_03a_cpts::SearchAlgoVariant<ce_compositions::StartComposition::search_algo>);
-    static_assert(ce_03a_cpts::SearchAlgoVariant<ce_compositions::MasstreeComposition::search_algo>);
+TEST(CompositionMatrixExpanded, SixPilotCompositionsAllSearchAlgoAreDissectedOrgans) {
+    static_assert(IsDissectedSearchOrgan<ce_compositions::ArtComposition::search_algo>);
+    static_assert(IsDissectedSearchOrgan<ce_compositions::WormholeComposition::search_algo>);
+    static_assert(IsDissectedSearchOrgan<ce_compositions::SurfComposition::search_algo>);
+    static_assert(IsDissectedSearchOrgan<ce_compositions::HotComposition::search_algo>);
+    static_assert(IsDissectedSearchOrgan<ce_compositions::StartComposition::search_algo>);
+    static_assert(IsDissectedSearchOrgan<ce_compositions::MasstreeComposition::search_algo>);
     SUCCEED();
 }
 
-TEST(CompositionMatrixExpanded, SubAchsenSharingEvidenceForOrganMetaphor) {
-    // Beweis-Test fuer Tier-Organ-Metapher: unterschiedliche Tiere können
-    // dieselbe Organ-Variante haben (z.B. Reh + Kuh teilen Pansen-Magen-Typ,
-    // hier HOT+Wormhole teilen VectorU8U8SearchAlgo, START+Masstree teilen VectorU16U16SearchAlgo).
-    // 6 Tiere mit 3 unterschiedlichen search_algo-Sub-Achsen-Varianten:
-    using ArtSA      = ce_compositions::ArtComposition::search_algo;       // Array256SearchAlgo (dense)
-    using HotSA      = ce_compositions::HotComposition::search_algo;       // VectorU8U8SearchAlgo (sparse)
-    using WormholeSA = ce_compositions::WormholeComposition::search_algo;  // VectorU8U8SearchAlgo (sparse)
-    using StartSA    = ce_compositions::StartComposition::search_algo;     // VectorU16U16SearchAlgo (multilevel)
-    using MasstreeSA = ce_compositions::MasstreeComposition::search_algo;  // VectorU16U16SearchAlgo (multilevel)
-    using SurfSA     = ce_compositions::SurfComposition::search_algo;      // VectorU16U16SearchAlgo (multilevel — Read-Only)
+TEST(CompositionMatrixExpanded, EachAnimalHasItsOwnDissectedOrgan) {
+    // #42 KORRIGIERTE Organ-Metapher: Der fruehere Test behauptete, Tiere TEILTEN sich eine search_algo-
+    // "Variante" (HOT+Wormhole=VectorU8U8, START+Masstree+SuRF=VectorU16U16). Das war ein Artefakt der
+    // FLACHEN PLATZHALTER vor der Sezierung — NICHT die echte Anatomie. Die korrekte Aussage der Organ-
+    // Metapher (Doku 14 §3.1, Memory feedback_achsen_komposition_organ_metapher): die ACHSE ist das Organ
+    // (Sub-Aufgabe), und JEDES Tier ist eine EIGENE Komposition mit seinem EIGENEN sezierten Such-Organ.
+    // Nach #41/#43 hat daher jedes Tier ein TYP-DISTINKTES Organ — kein geteilter Platzhalter mehr.
+    using ArtSA      = ce_compositions::ArtComposition::search_algo;       // ART: Node4/16/48/256
+    using HotSA      = ce_compositions::HotComposition::search_algo;       // HOT: crit-bit-Patricia
+    using WormholeSA = ce_compositions::WormholeComposition::search_algo;  // Wormhole: Hash-Anchor-Jump
+    using StartSA    = ce_compositions::StartComposition::search_algo;     // START: Multibyte-Span-Radix
+    using SurfSA     = ce_compositions::SurfComposition::search_algo;      // SuRF: exakte Map-Schale
 
-    // Gruppe Dense: nur ART
+    // Die 5 echten Trie/Hybrid-Organe sind paarweise TYP-DISTINKT (kein geteilter Platzhalter mehr):
     static_assert(!std::same_as<ArtSA, HotSA>);
-
-    // Gruppe Sparse (HOT/Wormhole) shared
-    static_assert(std::same_as<HotSA, WormholeSA>);
-
-    // Gruppe Multilevel (START/Masstree/SuRF) shared
-    static_assert(std::same_as<StartSA, MasstreeSA>);
-    static_assert(std::same_as<MasstreeSA, SurfSA>);
-
-    // 3 Gruppen alle voneinander distinct
-    static_assert(!std::same_as<ArtSA, HotSA>);
+    static_assert(!std::same_as<HotSA, WormholeSA>);    // war frueher GETEILT (VectorU8U8) — jetzt distinkt
+    static_assert(!std::same_as<ArtSA, WormholeSA>);
+    static_assert(!std::same_as<StartSA, SurfSA>);      // war frueher GETEILT (VectorU16U16) — jetzt distinkt
     static_assert(!std::same_as<HotSA, StartSA>);
     static_assert(!std::same_as<ArtSA, StartSA>);
+    static_assert(!std::same_as<WormholeSA, SurfSA>);
     SUCCEED();
 }
 

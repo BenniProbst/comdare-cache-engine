@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1.R2 Erweitert: StartComposition (alle 15 Achsen)
 
-#include "../topics/traversal/axis_03a_search_algo/axis_03a_search_algo_vector_u16u16.hpp"
+#include "../topics/traversal/axis_03a_search_algo/composable/tier_to_organ_mapping.hpp"  // #42: START als Organ statt Tier
 #include "../topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp"
 #include "../topics/traversal/axis_03m_mapping/axis_03m_mapping_direct_placement.hpp"
 #include "../topics/nodes/axis_02_path_compression/axis_02_path_compression_none.hpp"
@@ -32,7 +32,7 @@ namespace comdare::cache_engine::compositions {
 /// - Multi-Byte-Span Cost-DP Trie (axis_03a VectorU16U16SearchAlgo)
 /// - Self-Tuning Adaptive — node_type variabel zur Laufzeit (Node4/16/48/256-Mix)
 struct StartComposition {
-    using search_algo        = traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;
+    using search_algo        = traversal::axis_03a_search_algo::composable::ObservableStartTrieOrgan;  // SEZIERT: Multibyte-Span-Radix
     using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;

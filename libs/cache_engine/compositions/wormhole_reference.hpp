@@ -3,7 +3,7 @@
 //
 // @composition Wormhole (P07 Wu/Ni/Jiang ATC 2019)
 
-#include "../topics/traversal/axis_03a_search_algo/axis_03a_search_algo_vector_u8u8.hpp"
+#include "../topics/traversal/axis_03a_search_algo/composable/tier_to_organ_mapping.hpp"  // #42: Wormhole als Organ statt Tier
 #include "../topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_hash_lookup.hpp"
 #include "../topics/traversal/axis_03m_mapping/axis_03m_mapping_direct_placement.hpp"
 #include "../topics/nodes/axis_02_path_compression/axis_02_path_compression_none.hpp"
@@ -36,7 +36,7 @@ namespace comdare::cache_engine::compositions {
 /// - Persistent Index (kein clear API im Original)
 /// - HW-Prefetch typisch genutzt (heute Default None bis axis_07 erweitert)
 struct WormholeComposition {
-    using search_algo        = traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;
+    using search_algo        = traversal::axis_03a_search_algo::composable::ObservableWormholeOrgan;  // SEZIERT: Hash-Anchor-Jump + Leaf-Liste
     using cache_traversal    = traversal::axis_03b_cache_traversal::HashLookup;
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;
