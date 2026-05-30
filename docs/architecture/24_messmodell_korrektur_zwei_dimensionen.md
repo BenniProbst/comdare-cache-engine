@@ -490,12 +490,21 @@ realisiert die in-process-Variante (Trigger-Modus (b), Füllstands-Checkpoints; 
 > und die Anatomie-Permutation einer Algorithmus-Gattung ist als Binary-Tier-Modul kompiliert und wird durch
 > die CacheEngineBuilder durchgemessen."
 
+> ⚠️ **KEIN NEUBAU — nur Benennung (User 2026-05-30):** „Prüf-Docks sind nur ein neuer Begriff der
+> CacheEngineBuilder-seitigen ABI-Schnittstelle der VORHANDENEN Architektur für zu prüfende ABI-stabile
+> Algorithmen-Binaries, es ist nicht komplett neu, nur anders benannt." → Das Prüf-Dock-Konzept benennt +
+> organisiert die BEREITS EXISTIERENDE host-seitige ABI-Mess-Schnittstelle (`AnatomyModuleLoader` +
+> `IObservableTier`/`IMeasurableWorkload` + `drive_tier_observe_trace_abi`). Die Umsetzung ist daher eine
+> LEICHTE Benennungs-/Organisations-Schicht (per-Gattung-Aliase + Config-getriebene Dock-Auswahl), KEINE
+> schwere neue Abstraktion und KEIN Rückbau des Bestehenden.
+
 **Definition.** Ein **Prüf-Dock** ist die **CacheEngineBuilder-SEITE für genau EINE Gattung** (Anatomie-Genus):
 ein **per-Gattung ABI-stabiler Mess-Übergang**, der ein als **Binary-Tier-Modul** kompiliertes Tier DIESER
 Gattung (a) laedt, (b) ueber die **Gattungs-API** treibt und (c) dessen **Observer** durchmisst + persistiert.
 Es gibt ein Prüf-Dock je Gattung: `SearchAlgorithm`-Dock, `Container`-Dock, `Graph`-Dock, … — entsprechend
 der Tier-Metapher (Lebewesen→Tiere-Gattungen vs Viren = Graphen-Algos ohne Anatomie, Doku 14 §33-§40,
-`[[execution-engine-als-wurzel]]` `[[anatomie-gattungen]]`).
+`[[execution-engine-als-wurzel]]` `[[anatomie-gattungen]]`). **Dies ist die heutige Architektur unter neuem
+Namen** — `IObservableTier` IST der SearchAlgorithm-Gattungs-Antrieb, der Loader IST der Lade-Mechanismus.
 
 **Die CacheEngineBuilder besitzt den vollen Lebenszyklus** (alles INNERHALB der cache-engine):
 1. **Anatomie-Konfiguration** — welche Achsen-Permutation (Gattungs-Konfigurator) gemessen wird.
