@@ -270,3 +270,62 @@ TEST(Axis03aTierOrgan, ArtTrieN48EraseReinsertMatchesStdMap) {
     for (std::uint64_t k = 130; k <= 255; k += 2) { organ.erase(k); ref.erase(k); }
     art_cross_check(organ, ref, 300);
 }
+
+// Regression (adversariale Verifikation): kleiner Keyraum + viele Ops -> starkes Churn (Update + Erase-dann-
+// Reinsert derselben Keys) -> ein MERGE kann ein Leaf auf kWhKpn fuellen, ein Folge-Insert haette ohne den
+// Array-Kapazitaet-kWhKpn+1-Fix das Leaf ueberlaufen lassen (op 307 im Harness-Stream). key_mod=200/250/300.
+TEST(Axis03aTierOrgan, WormholeSmallKeyChurnMatchesStdMap) {
+    ts::verify_matches_std_map<ce_cmp::WormholeOrgan>(200u, 255u);
+    ts::verify_matches_std_map<ce_cmp::WormholeOrgan>(50u, 60u);     // noch dichteres Churn (jeder Key ~12x)
+    ts::verify_matches_std_map<ce_cmp::WormholeOrgan>(300u, 320u);
+    SUCCEED();
+}
+
+// --- Wormhole echte Hybrid-Anatomie (#43 s4) -----------------------------------------------------------
+// OriginalWormholeOrgan ist jetzt das ECHTE Wormhole-Organ (ComposedWormholeSearch: sortierte doppelt-
+// verkettete Leaf-Liste + Hash-Anchor-Jump + Leaf-Split/Merge). Der uint8-Beleg (Wormhole ≡
+// OriginalWormholeSearchAlgo) laeuft in Uint8OriginalTiersReconstructibleFromOrgan oben; hier zusaetzlich
+// uint64-Multi-Leaf-Belege (kWhKpn=8 -> viele Splits/Merges + Anchor-Pflege via Jump-Index).
+TEST(Axis03aTierOrgan, Uint64WormholeMatchesStdMap) {
+    ts::verify_matches_std_map<ce_cmp::WormholeOrgan>(60000u, 60000u);
+    SUCCEED();
+}
+
+TEST(Axis03aTierOrgan, WormholeMultiLevelStressMatchesStdMap) {
+    ce_cmp::WormholeOrgan organ;
+    std::map<std::uint64_t, std::uint64_t> ref;
+
+    // (1) 0..1199 -> viele Leaf-Splits (kWhKpn=8), lange Liste.
+    for (std::uint64_t k = 0; k < 1200; ++k) { organ.insert(k, k * 3 + 1); ref[k] = k * 3 + 1; }
+    art_cross_check(organ, ref, 1300);
+    // (2) hohe Bytes weit auseinander -> Hash-Jump ueber grosse Anchor-Luecken.
+    for (std::uint64_t hi = 1; hi <= 16; ++hi) { std::uint64_t const k = (hi << 48) | 0x0102u; organ.insert(k, k); ref[k] = k; }
+    ASSERT_EQ(organ.occupied_count(), ref.size());
+    for (auto const& kv : ref) { auto o = organ.lookup(kv.first); ASSERT_TRUE(o.has_value()); ASSERT_EQ(*o, kv.second); }
+    // (3) Update jeden 3. (a==a) — KEIN Count-Wachstum.
+    for (std::uint64_t k = 0; k < 1200; k += 3) { organ.insert(k, k * 7); ref[k] = k * 7; }
+    art_cross_check(organ, ref, 1300);
+    // (4) Erase jeden 2. -> verstreuter Borrow/Merge + Anchor-Veraltung beim Minimum-Erase.
+    for (std::uint64_t k = 0; k < 1200; k += 2) { organ.erase(k); ref.erase(k); }
+    art_cross_check(organ, ref, 1300);
+    // (5) Rest absteigend leeren -> root==kNil, dann Re-Insert (Free-List-Recycling + Listen-Neuaufbau).
+    std::vector<std::uint64_t> rest;
+    for (auto const& kv : ref) rest.push_back(kv.first);
+    for (auto it = rest.rbegin(); it != rest.rend(); ++it) { organ.erase(*it); ref.erase(*it); }
+    ASSERT_EQ(organ.occupied_count(), 0u);
+    for (std::uint64_t k = 100; k < 400; ++k) { organ.insert(k, k + 9); ref[k] = k + 9; }
+    art_cross_check(organ, ref, 500);
+
+    // ZUSATZ R1 — Anchor-Veraltung: wiederholt Minimum loeschen + neues kleineres globales Minimum einfuegen
+    // (erzwingt reanchor(head) + Index-Pflege + Listen-Kopf-Verschiebung).
+    organ.clear(); ref.clear();
+    for (std::uint64_t k = 1000; k < 1100; ++k) { organ.insert(k, k); ref[k] = k; }
+    art_cross_check(organ, ref, 1200);
+    for (std::uint64_t c = 0; c < 50; ++c) {
+        std::uint64_t const cur_min = ref.begin()->first;
+        organ.erase(cur_min); ref.erase(cur_min);
+        std::uint64_t const newk = 900 - c;            // streng fallend, unter allen vorhandenen
+        organ.insert(newk, newk + 1); ref[newk] = newk + 1;
+        art_cross_check(organ, ref, 1200);
+    }
+}
