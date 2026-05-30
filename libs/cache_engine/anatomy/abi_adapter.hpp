@@ -26,12 +26,15 @@
 
 #include "anatomy_base.hpp"
 #include "measurable_workload.hpp"   // F15/Stufe B: optionales Mess-Sub-Interface (ABI-sicher)
+#include "observable_tier.hpp"       // R6/Pfad B: ABI-stabiler Observer-Zugriff (Doku 24 §8.6)
+#include "observer_aggregate.hpp"    // ObservableAxis + ObserverAggregate (observable_count)
 #include "../execution_engine/execution_engine_base.hpp"
 
 #include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <random>
 #include <string_view>
 
@@ -64,7 +67,8 @@ namespace comdare::cache_engine::anatomy {
 /// setzt state_ in den entsprechenden Hooks. Echte Cache-Preheat/Bulk-Load
 /// kommt mit R5.D (CacheEngineBuilder Workload-Treiber).
 template <AnatomyConcept A>
-class SearchAlgorithmAbiAdapter final : public IAnatomyBase, public IMeasurableWorkload {
+class SearchAlgorithmAbiAdapter final : public IAnatomyBase, public IMeasurableWorkload,
+                                        public IObservableTier {
     static_assert(A::genus() == AnatomyGenus::SearchAlgorithm,
                   "SearchAlgorithmAbiAdapter erwartet eine SearchAlgorithm-Gattung-"
                   "Anatomie (AnatomyGenus::SearchAlgorithm). Cross-Genus-Adapter "
@@ -199,9 +203,67 @@ public:
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // IObservableTier-Override (R6 / Pfad B, Doku 24 §8.6): Der Host treibt die GATTUNGS-API +
+    // zieht die IM Tier eingebauten Observer als flachen POD durch die ABI-Grenze. Getrieben wird
+    // das ECHTE sezierte Composition-Such-Organ (gemeinsamer uint64-Key nach Umstufung-B) — GETRENNT
+    // vom Pfad-A-`run_workload` (lokales Wegwerf-Organ); beide koexistieren (Hybrid-Modell §8.1).
+    // ─────────────────────────────────────────────────────────────────────
+
+    [[nodiscard]] bool tier_insert(std::uint64_t key, std::uint64_t value) noexcept override {
+        // Neu-Flag ueber occupied_count-Delta (NICHT ueber einen internen lookup — der wuerde sonst die
+        // lookup_count-Observer-Statistik verfaelschen; manche Organe insert()->void).
+        auto const before = search_organ_.occupied_count();
+        search_organ_.insert(key, value);
+        return search_organ_.occupied_count() > before;
+    }
+
+    [[nodiscard]] bool tier_lookup(std::uint64_t key, std::uint64_t* out_value) const noexcept override {
+        auto const v = search_organ_.lookup(key);
+        if (v.has_value() && out_value != nullptr) *out_value = *v;
+        return v.has_value();
+    }
+
+    [[nodiscard]] bool tier_erase(std::uint64_t key) noexcept override {
+        auto const before = search_organ_.occupied_count();
+        search_organ_.erase(key);            // Rueckgabe-Typ organ-abhaengig → ueber Delta bestimmen
+        return search_organ_.occupied_count() < before;
+    }
+
+    void tier_clear() noexcept override { search_organ_.clear(); }
+
+    [[nodiscard]] std::uint64_t tier_size() const noexcept override {
+        return static_cast<std::uint64_t>(search_organ_.occupied_count());
+    }
+
+    void tier_observe(ComdareTierObserverSnapshotV1* out) const noexcept override {
+        if (out == nullptr) return;
+        ComdareTierObserverSnapshotV1 snap{};
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        if constexpr (ObservableAxis<SearchAlgo>) {
+            auto const s = search_organ_.statistics();   // SearchAlgoStatistics (echtes getriebenes Organ)
+            snap.search_lookup_count   = s.total_lookup_count;
+            snap.search_hit_count      = s.total_hit_count;
+            snap.search_miss_count     = s.total_miss_count;
+            snap.search_insert_count   = s.total_insert_count;
+            snap.search_erase_count    = s.total_erase_count;
+            snap.search_peak_occupancy = s.peak_occupancy;
+        }
+#endif
+        snap.observable_axis_count = ObserverAggregate<Composition>::observable_count();
+        snap.tier_fill_level       = tier_size();
+        *out = snap;
+    }
+
 private:
+    using Composition = typename A::composition_t;
+    using SearchAlgo  = typename Composition::search_algo;
+
     ::comdare::cache_engine::execution_engine::EngineLifecycleState state_{
         ::comdare::cache_engine::execution_engine::EngineLifecycleState::Uninitialized};
+    // R6 / Pfad B: das getriebene ECHTE Composition-Such-Organ (uint64-Key). Default-konstruiert;
+    // Default-konstruierbar + ObservableAxis garantiert durch #42 (ObservableComposedContainer-Huelle).
+    SearchAlgo search_organ_{};
 };
 
 }  // namespace comdare::cache_engine::anatomy
