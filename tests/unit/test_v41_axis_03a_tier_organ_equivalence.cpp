@@ -10,6 +10,7 @@
 
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_registry.hpp>          // Tier-Wrapper-Typen
 #include <topics/traversal/axis_03a_search_algo/composable/tier_to_organ_mapping.hpp>        // Organ-Pendants
+#include <topics/traversal/axis_03a_search_algo/composable/masstree_layer_pool_store.hpp>     // Masstree-Kperm15 (S9-Fundament)
 #include "support/std_map_equivalence_harness.hpp"
 
 #include <map>
@@ -18,6 +19,49 @@
 namespace ce_03a = ::comdare::cache_engine::traversal::axis_03a_search_algo;
 namespace ce_cmp = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable;
 namespace ts     = ::comdare::cache_engine::test_support;
+
+// --- Masstree-Fundament (S9): kpermuter-Bit-Arithmetik (fragilste Stelle) VOR dem Organ isoliert verifiziert.
+// Belegt Kperm15 gegen die dokumentierten kpermuter.hh-Invarianten (make_sorted/insert_from_back/remove).
+TEST(MasstreeKpermuter, Kperm15Invariants) {
+    using KP = ce_cmp::MasstreeLayerNodePoolStore::Kperm15;
+    // make_sorted(n): size()==n und [i]==i fuer 0<=i<n.
+    for (int n = 0; n <= 15; ++n) {
+        KP p{KP::make_sorted(n)};
+        ASSERT_EQ(p.size(), n) << "make_sorted size n=" << n;
+        for (int i = 0; i < n; ++i) ASSERT_EQ(p[i], i) << "make_sorted[" << i << "] n=" << n;
+    }
+    // make_empty: size 0; Allokationsreihenfolge 0,1,2,... via insert_from_back(0) (Prepend -> [k-1..0]).
+    {
+        KP p{KP::make_empty()};
+        ASSERT_EQ(p.size(), 0);
+        for (int k = 0; k < 5; ++k) { int const phys = p.insert_from_back(0); ASSERT_EQ(phys, k) << "alloc order k=" << k; }
+        ASSERT_EQ(p.size(), 5);
+        for (int i = 0; i < 5; ++i) ASSERT_EQ(p[i], 4 - i) << "prepend[" << i << "]";
+    }
+    // insert_from_back(i) Invariante: q[j]==p[j] (j<i); q[i]==alloc; q[j]==p[j-1] (i<j<size).
+    {
+        KP p{KP::make_sorted(4)};                 // [0,1,2,3], back()==4
+        int const x = p.insert_from_back(2);
+        ASSERT_EQ(x, 4);
+        ASSERT_EQ(p.size(), 5);
+        ASSERT_EQ(p[0], 0); ASSERT_EQ(p[1], 1); ASSERT_EQ(p[2], 4); ASSERT_EQ(p[3], 2); ASSERT_EQ(p[4], 3);
+    }
+    // remove(i) Invariante: size-1; [j]==alt[j] (j<i); [j]==alt[j+1] (i<=j<size); entfernter Slot -> back.
+    {
+        KP p{KP::make_sorted(5)};                 // [0,1,2,3,4]
+        p.remove(2);
+        ASSERT_EQ(p.size(), 4);
+        ASSERT_EQ(p[0], 0); ASSERT_EQ(p[1], 1); ASSERT_EQ(p[2], 3); ASSERT_EQ(p[3], 4);
+        ASSERT_EQ(p[4], 2) << "entfernter Slot recycelbar am back";
+    }
+    {
+        KP q{KP::make_sorted(3)};                 // [0,1,2]; remove letztes (Sonderfall x&15==i+1)
+        q.remove(2);
+        ASSERT_EQ(q.size(), 2);
+        ASSERT_EQ(q[0], 0); ASSERT_EQ(q[1], 1);
+    }
+    SUCCEED();
+}
 
 // --- Jeder bereits sezierte Tier-Wrapper == std::map (vertikal, in seiner eigenen Key-Breite) -----------
 TEST(Axis03aTierOrgan, EachDissectedTierMatchesStdMap) {
