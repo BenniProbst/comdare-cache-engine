@@ -8,10 +8,17 @@
 #include <builder/anatomy_module_loader/anatomy_module_loader.hpp>
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/measurable_workload.hpp>
+#include <anatomy/observable_tier.hpp>
+#include <builder/pruef_dock/pruef_dock.hpp>
+#include <builder/pruef_dock/search_algorithm_dock.hpp>
+#include <builder/pruef_dock/pruef_dock_registry.hpp>
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -39,4 +46,54 @@ TEST(R5G_AdHocDllLoad, AutoEmittedAdHocPermutationLoadsAsDllAndRuns) {
                                     samples.data(), samples.size());
     EXPECT_EQ(n, 10u);
     EXPECT_GT(samples[0], 0);
+}
+
+// =================================================================
+// V41.F.6.1 R8-REST(a) — e2e Pfad B: REALE codegen'te DLL → IObservableTier → SearchAlgorithmDock → Trace.
+//
+// Schliesst die letzte e2e-Luecke (Ledger §a R8-REST a): das SearchAlgorithmDock misst hier NICHT ein
+// In-Process-Stand-in (so der pruef_dock-Unit-Test mit native=nullptr), sondern ein ECHTES dlopen/
+// LoadLibrary-geladenes Tier-Modul. Beweist, dass die IObservableTier-vtable + der POD-Snapshot ueber die
+// reale .dll-Grenze tragen (RTTI-dynamic_cast wie bei IMeasurableWorkload in R5G) und der host-seitige
+// Mess-Treiber CSV/JSON persistiert. Doku 24 §8.8 (Prüf-Dock) + §8.9.1 (EIN Dock je Gattung).
+// =================================================================
+TEST(R8RestA_DockMeasuresRealDll, RealAdHocDllObservedThroughSearchAlgorithmDock) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    namespace pd = ::comdare::cache_engine::builder::pruef_dock;
+
+    std::filesystem::path const dir{COMDARE_R5G_ADHOC_DLL_DIR};
+    std::vector<loader::AnatomyModuleHandle> handles;
+    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(dir, handles), loader::status_ok);
+    ASSERT_GE(handles.size(), 1u);
+
+    // (1) RTTI ueber die REALE DLL-Grenze: die geladene Anatomie IST ein SearchAlgorithmAbiAdapter → IObservableTier.
+    auto* obs = dynamic_cast<ana::IObservableTier*>(handles[0].anatomy());
+    ASSERT_NE(obs, nullptr) << "IObservableTier-dynamic_cast ueber die DLL-Grenze fehlgeschlagen (RTTI-Mismatch).";
+
+    // (2) Das Dock waehlt sich per Gattung des REALEN Handles + misst es (Pfad B, host-seitiger Treiber).
+    pd::PruefDockRegistry reg;
+    reg.register_dock(std::make_unique<pd::SearchAlgorithmDock>());
+    auto* dock = reg.select_for(handles[0]);
+    ASSERT_NE(dock, nullptr) << "kein Dock akzeptiert das reale DLL-Handle (Gattungs-Mismatch).";
+    EXPECT_EQ(dock->dock_genus(), ana::AnatomyGenus::SearchAlgorithm);
+
+    pd::PruefDockMeasureOptions opts;
+    opts.fill_checkpoints       = {50, 200};
+    opts.lookups_per_checkpoint = 200;
+    opts.deletes_per_checkpoint = 20;
+    std::string csv, json;
+    int const rc = dock->measure(handles[0], opts, csv, json);
+    ASSERT_EQ(rc, pd::dock_status_ok) << pd::dock_status_name(rc);
+
+    // (3) Persistierter Observer-Trace, ueber die DLL-Grenze gezogen: Header + ≥2 Checkpoint-Zeilen + Zaehler-Keys.
+    EXPECT_NE(csv.find("checkpoint,observe_wall_ns,fill_level"), std::string::npos);  // CSV-Header
+    EXPECT_GT(std::count(csv.begin(), csv.end(), '\n'), 2)                            // Header + 2 Checkpoints
+        << "CSV hat keine Checkpoint-Zeilen — Mess-Loop lief nicht ueber die DLL.";
+    ASSERT_FALSE(json.empty());
+    EXPECT_EQ(json.front(), '[');                                                     // JSON-Array
+    EXPECT_NE(json.find("\"search_insert\""), std::string::npos);                     // Observer-Zaehler korreliert
+    EXPECT_NE(json.find("\"fill_level\""), std::string::npos);                        // Tier-Fuellstand pro Checkpoint
+#else
+    GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus — e2e-Dock-Mess-Test n/a";
+#endif
 }
