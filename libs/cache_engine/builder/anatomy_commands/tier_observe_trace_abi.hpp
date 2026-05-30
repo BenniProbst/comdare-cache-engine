@@ -34,6 +34,11 @@ struct AbiTierTraceConfig {
     std::uint64_t lookups_per_checkpoint = 2000;
     std::uint64_t deletes_per_checkpoint = 200;                   // erase+reinsert → Fuellstand stabil
     std::uint64_t seed = 11;
+    // Robustheit (2026-05-31): max. aufeinanderfolgende tier_insert-Versuche OHNE Fuellstand-Zuwachs, bevor
+    // die WRITE-Phase abbricht. Ohne diese Schranke laeuft `while (tier_size() < target)` ENDLOS, sobald
+    // tier_insert den Fuellstand nicht mehr erhoeht (Fixed-Capacity-Store voll / Key-Kollision) — ein Fill
+    // ueber die effektive Tier-Kapazitaet wuerde sonst haengen (entdeckt via f15_compare --observe).
+    std::uint64_t max_insert_stagnation = 4096;
 };
 
 /// Eine Fuellstands-Stufe: r/w/d-Wall-Clock-Roh-Samples + der Wall-Clock-korrelierte Observer-POD.
@@ -85,12 +90,19 @@ drive_tier_observe_trace_abi(an::IObservableTier& tier, AbiTierTraceConfig const
         AbiFillLevelSnapshot snap;
 
         // WRITE-Phase: bis Fuellstand == target; jede tier_insert() Wall-Clock-umklammert.
+        // Robustheit (2026-05-31): bricht ab, wenn der Fuellstand ueber max_insert_stagnation Versuche NICHT
+        // mehr waechst (Fixed-Capacity-Store voll / Key-Kollision) — sonst Endlosschleife bei target > Kapazitaet.
+        std::uint64_t write_stagnation = 0;
+        std::uint64_t last_fill = tier.tier_size();
         while (tier.tier_size() < target) {
             auto const t0 = clock::now();
             (void)tier.tier_insert(next_key, next_key * 2u + 1u);
             auto const t1 = clock::now();
             snap.write_ns.push_back(detail::abi_dur_ns(t0, t1));
             ++next_key;
+            std::uint64_t const cur_fill = tier.tier_size();
+            if (cur_fill > last_fill) { last_fill = cur_fill; write_stagnation = 0; }
+            else if (++write_stagnation >= cfg.max_insert_stagnation) break;  // effektive Tier-Kapazitaet erreicht
         }
 
         // READ-Phase: deterministische ~50%-Hit/Miss-Lookups ueber das Interface.
