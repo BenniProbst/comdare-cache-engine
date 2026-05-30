@@ -14,7 +14,9 @@
 
 #include <anatomy/observable_tier.hpp>
 
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <random>
 #include <sstream>
@@ -55,6 +57,15 @@ namespace detail {
 [[nodiscard]] inline std::int64_t abi_dur_ns(std::chrono::steady_clock::time_point a,
                                              std::chrono::steady_clock::time_point b) noexcept {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
+}
+
+/// Nearest-Rank-Perzentil (p ∈ [0,1]) über eine Roh-ns-Stichprobe (Kopie + sort; leere Stichprobe → 0).
+[[nodiscard]] inline std::int64_t nearest_rank_p(std::vector<std::int64_t> v, double p) {
+    if (v.empty()) return 0;
+    std::sort(v.begin(), v.end());
+    std::size_t rank = static_cast<std::size_t>(p * static_cast<double>(v.size() - 1) + 0.5);
+    if (rank >= v.size()) rank = v.size() - 1;
+    return v[rank];
 }
 }  // namespace detail
 
@@ -131,6 +142,36 @@ drive_tier_observe_trace_abi(an::IObservableTier& tier, AbiTierTraceConfig const
            << o.search_miss_count << ',' << o.search_erase_count << ',' << o.search_peak_occupancy << ','
            << o.alloc_bytes_in_use << ',' << o.alloc_allocation_count << ',' << o.observable_axis_count << '\n';
     }
+    return os.str();
+}
+
+/// Persistiert den Pfad-B-Trace als JSON-Array (eine Objekt-Zeile je Checkpoint). Zusätzlich zur CSV trägt
+/// die JSON die **Perzentile** (p50/p99) der r/w/d-Roh-ns-Kurven — die Tier-Wall-Clock-Detail-Auswertung
+/// (Doku 24 §2.1) korreliert mit den Observer-Zählern. Robust gegen Wall-Clock-Ausreisser (p50, vgl. Doku 22 §3.3).
+[[nodiscard]] inline std::string serialize_abi_tier_trace_json(AbiTierObserveTrace const& trace) {
+    std::ostringstream os;
+    os << '[';
+    for (std::size_t i = 0; i < trace.checkpoints.size(); ++i) {
+        auto const& cp = trace.checkpoints[i];
+        auto const& o  = cp.observer;
+        if (i != 0) os << ',';
+        os << "{\"checkpoint\":" << i
+           << ",\"observe_wall_ns\":" << cp.observe_wall_ns
+           << ",\"fill_level\":" << cp.fill_level
+           << ",\"write_p50_ns\":"  << detail::nearest_rank_p(cp.write_ns,  0.5)
+           << ",\"write_p99_ns\":"  << detail::nearest_rank_p(cp.write_ns,  0.99)
+           << ",\"read_p50_ns\":"   << detail::nearest_rank_p(cp.read_ns,   0.5)
+           << ",\"read_p99_ns\":"   << detail::nearest_rank_p(cp.read_ns,   0.99)
+           << ",\"delete_p50_ns\":" << detail::nearest_rank_p(cp.delete_ns, 0.5)
+           << ",\"search_insert\":" << o.search_insert_count
+           << ",\"search_lookup\":" << o.search_lookup_count
+           << ",\"search_hit\":"    << o.search_hit_count
+           << ",\"search_miss\":"   << o.search_miss_count
+           << ",\"search_peak_occupancy\":" << o.search_peak_occupancy
+           << ",\"alloc_bytes_in_use\":"    << o.alloc_bytes_in_use
+           << ",\"observable_axes\":"       << o.observable_axis_count << '}';
+    }
+    os << ']';
     return os.str();
 }
 
