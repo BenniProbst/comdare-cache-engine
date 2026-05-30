@@ -417,11 +417,17 @@ f15 29/29, alle Adapter-Tests grün, Pfad A unberührt.
   Damit ist die Pfad-B-Schleife geschlossen: **bauen → laden → Gattungs-API durchtesten → Observer ziehen →
   Wall-Clock-korrelieren → persistieren**. **Offen (additiv):** JSON-Export, p50/p99 der r/w/d-Roh-Kurven.
 - **Allocator-Achse in den Cross-ABI-POD:** erfordert den `ComposedStore<N,L,A>`-Container IM Adapter
-  (`abi_adapter.hpp`). **Build-Layering-Befund:** dessen `topics/composable`-Includes ziehen
-  `measurement/measurable_concept.hpp` transitiv in das `comdare_anatomy_module_loader`-Library-Target,
-  dessen Include-Pfade das (noch) nicht abdecken (C1083). Erfordert also eine **bewusste CMake-Include-
-  Erweiterung** des Loader-Targets (+ ggf. weiterer ABI-Konsumenten) — NICHT session-tail (Folge-Charge).
-  In-Process wird die allocator-Achse bereits via `AnatomyExecutionContext` gemessen.
+  (`abi_adapter.hpp`). **Build-Layering-Befund (2026-05-30, zwei Schichten verifiziert):** der Container
+  zieht (1) `measurement/measurable_concept.hpp` (unter `src/`) UND (2) die **generierten** Achsen-Flags-Header
+  (`axis_04_node_type_flags.hpp` etc. via `configure_file` unter `build/generated/`) transitiv in das
+  `comdare_anatomy_module_loader`-Target (C1083). **Wurzel:** `cache_engine/abi/anatomy_module_abi_v1.hpp`
+  inkludiert `abi_adapter.hpp` (die schwere Adapter-Template) → der leichte host-seitige Loader (nur ein
+  dlopen-Wrapper) wird damit an die GANZE Achsen-Library + generierte-Flags-Maschinerie gekoppelt. Den Loader
+  bloss mit allen `generated/`-Include-Dirs zu fluten waere ein Schmierfix. **Saubere Lösung (Folge-Charge,
+  Architektur):** den Loader von `abi_adapter.hpp` ENTKOPPELN — er braucht nur die ABI-INTERFACES
+  (`IAnatomyBase`/`IMeasurableWorkload`/`IObservableTier`), NICHT die Adapter-Implementierung (die lebt in den
+  DLLs). Erst danach kann der Adapter den ComposedStore halten, ohne den Loader zu belasten. NICHT session-tail.
+  In-Process wird die allocator-Achse bereits via `AnatomyExecutionContext` gemessen (Pfad B in-process).
 - **Echter .dll-Round-Trip:** Treiber über ein per `AnatomyModuleLoader` GELADENES Modul statt in-process-
   Adapter — erfordert Rebuild der `adhoc`-Permutations-DLLs mit dem `IObservableTier`-Adapter.
 
