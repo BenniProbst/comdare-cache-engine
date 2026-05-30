@@ -410,8 +410,12 @@ f15 29/29, alle Adapter-Tests grün, Pfad A unberührt.
 **Inkrement 2b — Befund 2026-05-30 (Teil-erledigt):** Drei Teilziele, je mit präzisem Aufwand:
 - **✅ Wall-Clock-Stempel je Snapshot (erledigt):** `AbiFillLevelSnapshot::observe_wall_ns` — der ABI-Treiber
   stempelt jeden Observer-Snapshot mit einem Wall-Clock-Zeitstempel (relativ zum Trace-Start) im Moment des
-  `tier_observe` → explizite (t ↔ Observer)-Korrelation (§8.7). Test: Stempel monoton wachsend über die
-  Checkpoints. **Offen (additiv):** Heraus-Serialisierung als CSV/JSON via `result_aggregator`.
+  `tier_observe` → explizite (t ↔ Observer)-Korrelation (§8.7). Test: Stempel monoton wachsend über die Checkpoints.
+- **✅ Persistierung als CSV (erledigt):** `serialize_abi_tier_trace_csv(AbiTierObserveTrace)` — §8.6 Schritt 6:
+  der Builder serialisiert die korrelierten (Wall-Clock ↔ Observer)-Ergebnisse, eine Zeile je Checkpoint
+  (observe_wall_ns + fill_level + r/w/d-Sample-Zahlen + alle Observer-POD-Felder). Test: Header + 3 Datenzeilen.
+  Damit ist die Pfad-B-Schleife geschlossen: **bauen → laden → Gattungs-API durchtesten → Observer ziehen →
+  Wall-Clock-korrelieren → persistieren**. **Offen (additiv):** JSON-Export, p50/p99 der r/w/d-Roh-Kurven.
 - **Allocator-Achse in den Cross-ABI-POD:** erfordert den `ComposedStore<N,L,A>`-Container IM Adapter
   (`abi_adapter.hpp`). **Build-Layering-Befund:** dessen `topics/composable`-Includes ziehen
   `measurement/measurable_concept.hpp` transitiv in das `comdare_anatomy_module_loader`-Library-Target,

@@ -17,6 +17,8 @@
 #include <chrono>
 #include <cstdint>
 #include <random>
+#include <sstream>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -109,6 +111,27 @@ drive_tier_observe_trace_abi(an::IObservableTier& tier, AbiTierTraceConfig const
         trace.checkpoints.push_back(std::move(snap));
     }
     return trace;
+}
+
+/// Persistiert den Pfad-B-Trace als CSV (Doku 24 §8.6 Schritt 6: der Builder persistiert die korrelierten
+/// (Wall-Clock ↔ Observer)-Messergebnisse). Eine Zeile je Füllstand-Checkpoint; der Wall-Clock-Zeitstempel
+/// (observe_wall_ns) korreliert die Per-Achsen-Observer-Zähler mit der Latenz-Phase. Header + r/w/d-Sample-
+/// Zahlen (die Roh-ns-Kurven bleiben im Trace für eine separate Perzentil-Auswertung).
+[[nodiscard]] inline std::string serialize_abi_tier_trace_csv(AbiTierObserveTrace const& trace) {
+    std::ostringstream os;
+    os << "checkpoint,observe_wall_ns,fill_level,write_samples,read_samples,delete_samples,"
+          "search_insert,search_lookup,search_hit,search_miss,search_erase,search_peak_occupancy,"
+          "alloc_bytes_in_use,alloc_alloc_count,observable_axes\n";
+    for (std::size_t i = 0; i < trace.checkpoints.size(); ++i) {
+        auto const& cp = trace.checkpoints[i];
+        auto const& o  = cp.observer;
+        os << i << ',' << cp.observe_wall_ns << ',' << cp.fill_level << ','
+           << cp.write_ns.size() << ',' << cp.read_ns.size() << ',' << cp.delete_ns.size() << ','
+           << o.search_insert_count << ',' << o.search_lookup_count << ',' << o.search_hit_count << ','
+           << o.search_miss_count << ',' << o.search_erase_count << ',' << o.search_peak_occupancy << ','
+           << o.alloc_bytes_in_use << ',' << o.alloc_allocation_count << ',' << o.observable_axis_count << '\n';
+    }
+    return os.str();
 }
 
 }  // namespace comdare::cache_engine::builder::anatomy_commands

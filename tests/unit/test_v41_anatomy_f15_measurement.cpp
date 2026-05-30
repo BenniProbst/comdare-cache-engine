@@ -338,6 +338,13 @@ TEST(F15Measurement, R6_AbiTierObserveTraceCorrelatesWallClockAndObservers) {
         prev_wall_ns = cp.observe_wall_ns;
     }
     EXPECT_EQ(trace.checkpoints.back().observer.tier_fill_level, 1000u);
+
+    // §8.6 Schritt 6: PERSISTIERUNG — der Builder serialisiert die korrelierten (Wall-Clock ↔ Observer)-
+    // Ergebnisse als CSV (eine Zeile je Checkpoint).
+    std::string const csv = ac2::serialize_abi_tier_trace_csv(trace);
+    EXPECT_NE(csv.find("checkpoint,observe_wall_ns,fill_level"), std::string::npos);   // Header
+    std::size_t nl = 0; for (char const c : csv) if (c == '\n') ++nl;
+    EXPECT_EQ(nl, 4u);                                                                 // 1 Header + 3 Datenzeilen
     SUCCEED();
 #else
     GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus — R6-Trace n/a";
