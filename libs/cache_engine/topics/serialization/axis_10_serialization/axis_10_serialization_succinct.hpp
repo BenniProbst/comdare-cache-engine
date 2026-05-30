@@ -6,6 +6,9 @@
 #include "concepts/axis_10_serialization_cache_engine_permutation_concept.hpp"
 #include "axis_10_serialization_flags.hpp"
 #include "../concepts/topic_serialization_concept.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -26,6 +29,26 @@ public:
     [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "serialization_succinct"; }
     [[nodiscard]] static constexpr std::string_view family_name()          noexcept { return "SuccinctSerialization (LOUDS/SuRF bit-packed, n*H + o(n) bits)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()          noexcept { return "SUCCINCT"; }
+
+    // R5.B: behaviorale Laufzeit-API (s. RawBinarySerialization). Succinct = Bit-für-Bit-Packing jedes Werts
+    // mit seiner minimalen Bit-Breite in einen 64-Bit-Akkumulator (information-theoretisch dichte Kodierung) —
+    // der HÖCHSTE Per-Element-CPU-Aufwand der Achse (echte Bit-Manipulation pro Bit).
+    [[nodiscard]] static std::uint64_t serialize_scan(unsigned char const* buf, std::size_t n,
+                                                      std::size_t record_size) noexcept {
+        std::uint64_t s = 0, acc = 0;
+        unsigned filled = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::uint32_t v;
+            std::memcpy(&v, buf + i * record_size, sizeof(v));
+            unsigned w = 1;
+            for (std::uint32_t t = v; t > 1u; t >>= 1) ++w;     // minimale Bit-Breite
+            for (unsigned b = 0; b < w; ++b) {                  // Bit-für-Bit packen
+                acc = (acc << 1) | ((v >> b) & 1u);
+                if (++filled == 64u) { s += acc; acc = 0; filled = 0; }
+            }
+        }
+        return s + acc + filled;
+    }
 };
 
 }  // namespace

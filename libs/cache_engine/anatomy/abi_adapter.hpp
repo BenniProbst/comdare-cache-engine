@@ -155,6 +155,7 @@ public:
             using SearchAlgo = typename A::composition_t::search_algo;
             using Allocator  = typename A::composition_t::allocator;       // R5.B: 2. operative Achse
             using MemLayout  = typename A::composition_t::memory_layout;   // R5.B: 3. operative Achse
+            using Serializer = typename A::composition_t::serialization;   // R5.B: 4. operative Achse (axis_10)
             using K          = typename SearchAlgo::key_type;
             SearchAlgo algo;
             for (int k = 0; k < 256; ++k) {
@@ -195,6 +196,9 @@ public:
                 }
                 // Segment 3: memory_layout-Achse (Feld-Scan im layout-charakteristischen Zugriffsmuster)
                 sink += MemLayout::scan_field_sum(lbuf, kRecords, kRecordSize);
+                // Segment 4: serialization-Achse (Encode-Scan im strategie-charakteristischen CPU-Aufwand:
+                // raw=Byte-Sum < compressed=Delta+Zigzag < var_len=LEB128 < succinct=Bit-Packing). Doku 22 §4.
+                sink += Serializer::serialize_scan(lbuf, kRecords, kRecordSize);
                 auto const t1 = std::chrono::steady_clock::now();
                 auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
                 return (sink == ~0ull) ? (ns ^ 1) : ns;  // sink-Nutzung gegen Wegoptimierung

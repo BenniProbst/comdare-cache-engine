@@ -15,8 +15,11 @@
 #include <topics/serialization/topic_serialization_config_set.hpp>
 
 #include <boost/mp11.hpp>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
 namespace ax10 = ::comdare::cache_engine::serialization::axis_10_serialization;
 namespace ser  = ::comdare::cache_engine::serialization;
@@ -85,4 +88,35 @@ TEST(R7_5_c_Serialization, TopicConfigSetExposesAxis10) {
     static_assert(std::is_same_v<ser::TopicConfigSet::StaticAxisVariants,
                                   ser::TopicConfigSet::StaticAxisVariants_10>);
     SUCCEED();
+}
+
+// V41 R5.B (Doku 22 §3.2/§4) — serialization-Achse RUNTIME-OPERATIV: behaviorale `serialize_scan`-Laufzeit-API.
+// Vor R5.B war axis_10 trait-only (nur constexpr supports_compression()/name() …) → eine Variation in
+// run_workload waere HOHL gewesen. Dieser Test belegt: (1) Baseline-Korrektheit (raw = Feld-Summe),
+// (2) Determinismus, (3) paarweise DISTINKTE Ergebnisse der 4 Strategien auf demselben Input = echter
+// Verhaltensunterschied. Damit ist die Achse als 4. Mess-Dimension (abi_adapter Segment 4) variierbar.
+TEST(R5B_Axis10_SerializeScan, RuntimeOperativeBehaviorallyDistinct) {
+    constexpr std::size_t kN = 512, kRec = 64;
+    std::vector<unsigned char> buf(kN * kRec, 0u);
+    std::uint64_t field_sum = 0;
+    for (std::size_t i = 0; i < kN; ++i) {
+        std::uint32_t const v = static_cast<std::uint32_t>(i * 2654435761u + 12345u);
+        std::memcpy(buf.data() + i * kRec, &v, sizeof(v));   // 32-Bit-Feld je Datensatz
+        field_sum += v;
+    }
+    unsigned char const* p = buf.data();
+    std::uint64_t const raw  = ax10::RawBinarySerialization::serialize_scan(p, kN, kRec);
+    std::uint64_t const comp = ax10::CompressedSerialization::serialize_scan(p, kN, kRec);
+    std::uint64_t const vlen = ax10::VarLenSerialization::serialize_scan(p, kN, kRec);
+    std::uint64_t const succ = ax10::SuccinctSerialization::serialize_scan(p, kN, kRec);
+
+    // (1) Baseline-Korrektheit: RawBinary = exakte Summe der 32-Bit-Felder.
+    EXPECT_EQ(raw, field_sum);
+    // (2) Determinismus: identischer Re-Lauf → identisches Ergebnis (reine Funktion des Puffers).
+    EXPECT_EQ(comp, ax10::CompressedSerialization::serialize_scan(p, kN, kRec));
+    EXPECT_EQ(vlen, ax10::VarLenSerialization::serialize_scan(p, kN, kRec));
+    EXPECT_EQ(succ, ax10::SuccinctSerialization::serialize_scan(p, kN, kRec));
+    // (3) Paarweise DISTINKT → echter Verhaltensunterschied der 4 Strategien (Achse nicht mehr trait-only).
+    EXPECT_NE(raw, comp);  EXPECT_NE(raw, vlen);  EXPECT_NE(raw, succ);
+    EXPECT_NE(comp, vlen); EXPECT_NE(comp, succ); EXPECT_NE(vlen, succ);
 }

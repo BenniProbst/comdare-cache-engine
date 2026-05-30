@@ -6,6 +6,9 @@
 #include "concepts/axis_10_serialization_cache_engine_permutation_concept.hpp"
 #include "axis_10_serialization_flags.hpp"
 #include "../concepts/topic_serialization_concept.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -26,6 +29,24 @@ public:
     [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "serialization_compressed"; }
     [[nodiscard]] static constexpr std::string_view family_name()          noexcept { return "CompressedSerialization (lz4/snappy block-compress on raw)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()          noexcept { return "COMPRESSED"; }
+
+    // R5.B: behaviorale Laufzeit-API (s. RawBinarySerialization). Compressed = Delta-Encoding gegen den
+    // Vorgängerwert + Zigzag-Transform (negatives Delta → kleine unsigned) — der typische Kompressions-
+    // Vorverarbeitungs-Aufwand (mehr CPU als Roh-memcpy, weniger als Bit-Packing/Varint).
+    [[nodiscard]] static std::uint64_t serialize_scan(unsigned char const* buf, std::size_t n,
+                                                      std::size_t record_size) noexcept {
+        std::uint64_t s = 0;
+        std::uint32_t prev = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::uint32_t v;
+            std::memcpy(&v, buf + i * record_size, sizeof(v));
+            std::int64_t const delta = static_cast<std::int64_t>(v) - static_cast<std::int64_t>(prev);
+            std::uint64_t const zig  = static_cast<std::uint64_t>((delta << 1) ^ (delta >> 63));  // zigzag
+            prev = v;
+            s += zig;
+        }
+        return s;
+    }
 };
 
 }  // namespace
