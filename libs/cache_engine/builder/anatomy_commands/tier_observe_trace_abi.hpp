@@ -40,6 +40,8 @@ struct AbiFillLevelSnapshot {
     std::vector<std::int64_t> delete_ns{};
     std::uint64_t             read_sink = 0;       // Anti-Wegoptimierungs-Senke
     an::ComdareTierObserverSnapshotV1 observer{};  // §8.7: EIN Observer-POD je Checkpoint, korreliert
+    std::int64_t              observe_wall_ns = 0;  // §8.7: Wall-Clock-Zeitstempel (relativ zum Trace-Start)
+                                                    // im Moment des tier_observe → explizite (t ↔ Observer)-Korrelation
 };
 
 /// Tier-Mess-Trace ueber das ABI-Interface (Akkumulation von Fuellstands-Stufen).
@@ -64,6 +66,7 @@ drive_tier_observe_trace_abi(an::IObservableTier& tier, AbiTierTraceConfig const
     std::mt19937_64 rng{cfg.seed};
     std::uint64_t next_key = 0;
     AbiTierObserveTrace trace;
+    auto const trace_start = clock::now();   // §8.7: Nullpunkt der Wall-Clock-Korrelations-Achse
 
     for (std::uint64_t const target : cfg.fill_checkpoints) {
         AbiFillLevelSnapshot snap;
@@ -99,9 +102,10 @@ drive_tier_observe_trace_abi(an::IObservableTier& tier, AbiTierTraceConfig const
         }
 
         snap.fill_level = tier.tier_size();
-        // §8.7: EIN Observer-POD am Checkpoint, korreliert zur Wall-Clock-Phase (der Builder persistiert
-        // die (Wall-Clock-Phase ↔ Observer)-Zuordnung).
+        // §8.7: EIN Observer-POD am Checkpoint, mit explizitem Wall-Clock-Zeitstempel korreliert (der
+        // Builder persistiert die (Wall-Clock ↔ Observer)-Zuordnung).
         tier.tier_observe(&snap.observer);
+        snap.observe_wall_ns = detail::abi_dur_ns(trace_start, clock::now());
         trace.checkpoints.push_back(std::move(snap));
     }
     return trace;

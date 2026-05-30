@@ -407,9 +407,19 @@ Test `R6_AbiTierObserveTraceCorrelatesWallClockAndObservers` (3 Checkpoints 10/1
 r/w/d-Samples + korrelierter Observer (tier_fill_level == Checkpoint, insert_count monoton wachsend).
 f15 29/29, alle Adapter-Tests grün, Pfad A unberührt.
 
-**Inkrement 2b (offen):** Wall-Clock-Stempel im Trace explizit pro Observer-Snapshot persistieren (CSV/JSON
-via `result_aggregator`) + echter .dll-Round-Trip (Treiber über ein per `AnatomyModuleLoader` GELADENES
-Modul statt in-process-Adapter) + allocator-Achse in den POD (ComposedStore im Adapter, 2. Mess-Achse).
+**Inkrement 2b — Befund 2026-05-30 (Teil-erledigt):** Drei Teilziele, je mit präzisem Aufwand:
+- **✅ Wall-Clock-Stempel je Snapshot (erledigt):** `AbiFillLevelSnapshot::observe_wall_ns` — der ABI-Treiber
+  stempelt jeden Observer-Snapshot mit einem Wall-Clock-Zeitstempel (relativ zum Trace-Start) im Moment des
+  `tier_observe` → explizite (t ↔ Observer)-Korrelation (§8.7). Test: Stempel monoton wachsend über die
+  Checkpoints. **Offen (additiv):** Heraus-Serialisierung als CSV/JSON via `result_aggregator`.
+- **Allocator-Achse in den Cross-ABI-POD:** erfordert den `ComposedStore<N,L,A>`-Container IM Adapter
+  (`abi_adapter.hpp`). **Build-Layering-Befund:** dessen `topics/composable`-Includes ziehen
+  `measurement/measurable_concept.hpp` transitiv in das `comdare_anatomy_module_loader`-Library-Target,
+  dessen Include-Pfade das (noch) nicht abdecken (C1083). Erfordert also eine **bewusste CMake-Include-
+  Erweiterung** des Loader-Targets (+ ggf. weiterer ABI-Konsumenten) — NICHT session-tail (Folge-Charge).
+  In-Process wird die allocator-Achse bereits via `AnatomyExecutionContext` gemessen.
+- **Echter .dll-Round-Trip:** Treiber über ein per `AnatomyModuleLoader` GELADENES Modul statt in-process-
+  Adapter — erfordert Rebuild der `adhoc`-Permutations-DLLs mit dem `IObservableTier`-Adapter.
 
 ### §8.7 Pfad B im Detail: CacheEngineBuilder erhebt BEIDE Dimensionen, zeit-/zustands-KORRELIERT
 

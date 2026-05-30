@@ -324,6 +324,7 @@ TEST(F15Measurement, R6_AbiTierObserveTraceCorrelatesWallClockAndObservers) {
 
     ASSERT_EQ(trace.checkpoints.size(), 3u);
     std::uint64_t prev_inserts = 0;
+    std::int64_t  prev_wall_ns = -1;
     for (std::size_t i = 0; i < trace.checkpoints.size(); ++i) {
         auto const& cp = trace.checkpoints[i];
         EXPECT_EQ(cp.fill_level, cfg.fill_checkpoints[i]);
@@ -332,7 +333,9 @@ TEST(F15Measurement, R6_AbiTierObserveTraceCorrelatesWallClockAndObservers) {
         EXPECT_EQ(cp.read_ns.size(), 500u);                               // r/w/d getrennt (read-Kurve)
         EXPECT_GT(cp.observer.search_insert_count, prev_inserts);         // Inserts wachsen monoton
         EXPECT_GT(cp.observer.search_lookup_count, 0u);
+        EXPECT_GT(cp.observe_wall_ns, prev_wall_ns);                      // §8.7: Wall-Clock-Stempel monoton
         prev_inserts = cp.observer.search_insert_count;
+        prev_wall_ns = cp.observe_wall_ns;
     }
     EXPECT_EQ(trace.checkpoints.back().observer.tier_fill_level, 1000u);
     SUCCEED();
