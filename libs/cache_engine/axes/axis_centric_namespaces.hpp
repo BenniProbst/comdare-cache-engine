@@ -81,7 +81,8 @@ namespace telemetry_axis     = ::comdare::cache_engine::telemetry::axis_11_telem
 namespace value_handle_axis  = ::comdare::cache_engine::value_handle::axis_14_value_handle;    // Value-Handle
 namespace simd               = ::comdare::cache_engine::hardware::axis_09_isa;                 // SIMD/ISA
 namespace index_organization = ::comdare::cache_engine::search_engine::axis_01_index_organization; // Index-Organisation
-namespace io_dispatch        = ::comdare::cache_engine::io::axis_io;                           // IO-Dispatch
+// V41.F.2: io_dispatch ist jetzt der ECHTE physische Namespace (axes/io_dispatch/, Pilot-Migration) —
+// KEIN Alias mehr. Rueckwaerts-Alias io::axis_io→io_dispatch liegt in den Forwarding-Headern (topics/io/axis_io/).
 namespace migration_policy   = ::comdare::cache_engine::migration::axis_migration;            // Migrations-Policy
 namespace filter_axis        = ::comdare::cache_engine::filter::axis_filter;                  // Filter (filter_axis: Topic-Namespace 'filter' existiert bereits)
 

@@ -6,7 +6,7 @@
 #cmakedefine01 COMDARE_AXIS_IO_USE_BUFFERED
 #cmakedefine01 COMDARE_AXIS_IO_USE_MMAP
 
-namespace comdare::cache_engine::io::axis_io::flags {
+namespace comdare::cache_engine::io_dispatch::flags {
 
 inline constexpr bool in_memory_only_enabled = COMDARE_AXIS_IO_USE_IN_MEMORY_ONLY;
 inline constexpr bool direct_enabled         = COMDARE_AXIS_IO_USE_DIRECT;

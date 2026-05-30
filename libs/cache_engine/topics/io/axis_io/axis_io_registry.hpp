@@ -1,33 +1,5 @@
 #pragma once
-// V41.F.6.1.R7.5.f axis_io Zentrale Registry
-
-#include <topics/io/axis_io/axis_io_flags.hpp>
-
-#include "axis_io_in_memory_only.hpp"
-#include "axis_io_direct.hpp"
-#include "axis_io_buffered.hpp"
-#include "axis_io_mmap.hpp"
-
-#include <boost/mp11.hpp>
-#include <type_traits>
-
-namespace comdare::cache_engine::io::axis_io {
-
-namespace mp = boost::mp11;
-
-using AllIos = mp::mp_list<
-    InMemoryOnly,
-    DirectIo,
-    BufferedIo,
-    MmapIo
->;
-
-template <typename T>
-using is_enabled = mp::mp_bool<T::enabled>;
-
-using EnabledIos = mp::mp_filter<is_enabled, AllIos>;
-
-static_assert(mp::mp_size<EnabledIos>::value > 0,
-    "Axis IO: at least one IO strategy must be enabled");
-
-}  // namespace
+// V41.F.2 Forwarding-Header (Stufe 2): Achse physisch nach axes/io_dispatch/ migriert.
+// Haelt externe #include <topics/io/axis_io/...> + io::axis_io::-Nutzungen gueltig (Stufe 3 = Referenz-Migration).
+#include <axes/io_dispatch/axis_io_registry.hpp>
+namespace comdare::cache_engine::io::axis_io { using namespace comdare::cache_engine::io_dispatch; }
