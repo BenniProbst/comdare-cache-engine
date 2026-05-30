@@ -6,6 +6,9 @@
 #include "concepts/axis_10_serialization_cache_engine_permutation_concept.hpp"
 #include "axis_10_serialization_flags.hpp"
 #include "../concepts/topic_serialization_concept.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -26,6 +29,27 @@ public:
     [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "serialization_var_len"; }
     [[nodiscard]] static constexpr std::string_view family_name()          noexcept { return "VarLenSerialization (ART signaling-bits VarInt encoding)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()          noexcept { return "VAR_LEN"; }
+
+    // R5.B: behaviorale Laufzeit-API (s. RawBinarySerialization). VarLen = LEB128-VarInt: 7 Nutz-Bits je Byte,
+    // MSB = Continuation-Flag (kleine Werte = wenige Bytes). Order-sensitiver FNV-Mix der emittierten Bytes —
+    // datenabhängige Schleifenlänge (1–5 Bytes), echter Branch-Aufwand pro Datensatz.
+    [[nodiscard]] static std::uint64_t serialize_scan(unsigned char const* buf, std::size_t n,
+                                                      std::size_t record_size) noexcept {
+        std::uint64_t s = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::uint32_t v;
+            std::memcpy(&v, buf + i * record_size, sizeof(v));
+            std::uint64_t mix = 1469598103934665603ULL;        // FNV-1a offset basis
+            do {
+                unsigned char byte = static_cast<unsigned char>(v & 0x7Fu);
+                v >>= 7;
+                if (v != 0u) byte = static_cast<unsigned char>(byte | 0x80u);  // Continuation-Bit
+                mix = (mix ^ byte) * 1099511628211ULL;          // FNV-1a Mix der emittierten Bytes
+            } while (v != 0u);
+            s += mix;
+        }
+        return s;
+    }
 };
 
 }  // namespace
