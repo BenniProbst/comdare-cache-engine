@@ -1,9 +1,4 @@
 #pragma once
-#include "../../concepts/topic_migration_concept.hpp"
-#include <concepts>
-namespace comdare::cache_engine::migration::axis_migration::concepts {
-template <typename M>
-concept MigrationStrategy =
-    ::comdare::cache_engine::migration::concepts::MigrationComponent<M>
-    && requires { { M::is_active() } noexcept -> std::convertible_to<bool>; };
-}  // namespace
+// V41.F.2 Forwarding-Header (Stufe 2): Achse physisch nach axes/migration_policy/ migriert.
+#include <axes/migration_policy/concepts/axis_migration_concept.hpp>
+namespace comdare::cache_engine::migration::axis_migration { using namespace comdare::cache_engine::migration_policy; }

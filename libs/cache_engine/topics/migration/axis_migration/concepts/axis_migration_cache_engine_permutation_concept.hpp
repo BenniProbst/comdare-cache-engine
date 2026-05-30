@@ -1,22 +1,4 @@
 #pragma once
-// V41.F.6.1.R7.5.g axis_migration CacheEngine-Permutation-Concept
-
-#include "axis_migration_concept.hpp"
-#include <concepts>
-#include <string_view>
-
-namespace comdare::cache_engine::migration::axis_migration::concepts {
-
-template <typename M>
-concept CacheEnginePermutationStrategy =
-    MigrationStrategy<M>
-    && requires {
-        typename M::axis_tag;
-        typename M::family_id;
-        { M::name() }         noexcept -> std::convertible_to<std::string_view>;
-        { M::family_name() }  noexcept -> std::convertible_to<std::string_view>;
-        { M::flag_suffix() }  noexcept -> std::convertible_to<std::string_view>;
-        { M::enabled }                 -> std::convertible_to<bool>;
-    };
-
-}  // namespace
+// V41.F.2 Forwarding-Header (Stufe 2): Achse physisch nach axes/migration_policy/ migriert.
+#include <axes/migration_policy/concepts/axis_migration_cache_engine_permutation_concept.hpp>
+namespace comdare::cache_engine::migration::axis_migration { using namespace comdare::cache_engine::migration_policy; }
