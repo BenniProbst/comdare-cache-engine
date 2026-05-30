@@ -540,4 +540,44 @@ Folge-Charge); Set/Sequence/Adapter/View-Docks ab V42 (Gattungs-Implementierunge
 
 ---
 
-**Ende Doku 24 — Mess-Modell-Korrektur (2026-05-29; §8 HYBRID-Modell + zeit/zustands-korrelierte Erhebung + R6 + §8.8 Prüf-Dock 2026-05-30).**
+### §8.9 PRT-ART-Prüfling-Integration: CMake + Metaprogrammierungs-Join, gemessen via Prüf-Dock (User 2026-05-30)
+
+> **User 2026-05-30 (verbatim-tragend):** „Der PRT-ART ist ein abstract Tier Permutation (angelehnt an das
+> Konzept einer abstrakten Klasse) und liefert für einige Achsen **unbekannte Algorithmen**, die dem jeweiligen
+> Wissensstand jeder cache-engine-Achse **joinen** können, indem bei der Kompilation **C++23-Metaprogrammierung**
+> für das Einbinden der Prüflings-Tier-Stack-Achsen-Algorithmen verwendet wird, wobei die cache-engine die neuen
+> Algorithmen auf **3 Join-Mustern** (dokumentiert) auf **2 Arten getrennt** misst und auf **eine Art als
+> full-join**, um über das **Dock der Prüflings-Algorithmus-Tier-Gattung** die dabei entstandenen Binaries aus
+> der Metaprogrammierung durchzumessen. Einen Prüfling (oder MEHRERE gleichzeitig) einzubinden ist also eine
+> **CMake + Metaprogrammierung**-Aufgabe."
+
+**Was PRT-ART ist.** Ein **Prüfling** ist eine **abstrakte Tier-Permutation** (Konzept analog einer abstrakten
+Klasse): er liefert für EINIGE Achsen **neue/unbekannte Algorithmen**, die zur **Compile-Zeit per C++23-
+Metaprogrammierung** mit dem Wissensstand der jeweiligen cache-engine-Achse **gejoint** werden (Prüflings-Slot
+`optional_prt_art_impl` je Achse — ERSETZT-mit-Fallback, `[[feedback_pruefling_replace_not_extend]]`). Achsen
+ohne Prüflings-Beitrag fallen auf die CE-Defaults zurück.
+
+**Die 3 Join-Muster (`[[reference_3_kompositionale_joins_anatomie]]`) + ihre Messung:**
+| Stufe | Join-Muster | Messung |
+|-------|-------------|---------|
+| **Stufe 1** `comdare_perms_ce` | NUR cache-engine-Achsen (kein Prüfling) | **getrennt** (Baseline) |
+| **Stufe 2** `comdare_perms_<pruefling>` | Prüfling ERSETZT je Achse, sonst CE-Fallback | **getrennt** (Prüfling-vs-Baseline) |
+| **Stufe 3** `comdare_perms_full_join` | voller, NICHT-redundanter Join CE × Prüfling | **full-join** (Kombinations-Raum) |
+
+→ **2 Arten getrennt** (Stufe 1 + Stufe 2) **+ 1 Art full-join** (Stufe 3). Die je Stufe per Metaprogrammierung
+(`AdHocComposition` + `pruefling_merge.hpp`) entstehenden **Permutations-Binaries** werden über das **Prüf-Dock
+der Prüflings-Gattung** (§8.8 — für Suchalgorithmen das `SearchAlgorithmDock`) durchgemessen: laden → Gattungs-API
+durchtesten → Observer ziehen → korrelieren → persistieren.
+
+**Konsequenz für R8 (KORREKTUR der Audit-Schätzung).** „prt-art als Prüfling einbinden" ist **KEINE Header-
+Kopier-/Migrations-Aufgabe** (Phase-A-Migration ist IST-verifiziert bereits erledigt — alle additiven
+basis_missing-Header sind im CE, Planrunde `wrvvcf8ed`/Commit `60b1369`). R8 ist eine **CMake + Metaprogrammierung**-
+Aufgabe: (1) die `optional_prt_art_impl`-Slots je Achse befüllen (Compile-Time-Join der Prüflings-Achsen-Algos,
+Stufe-2-Pattern), (2) die 3 Join-Muster-Targets (`comdare_perms_ce/_pruefling/_full_join`) als Permutations-
+Binaries materialisieren, (3) sie über das Prüf-Dock durchmessen. EINEN oder MEHRERE Prüflinge gleichzeitig =
+derselbe Mechanismus (mehrere Slots / mehrere full-join-Faktoren). Erster bounded Schritt: 1 Achse end-to-end
+(axis_07_prefetch-Slot → Stufe-2-Verdrahtung → Test).
+
+---
+
+**Ende Doku 24 — Mess-Modell-Korrektur (2026-05-29; §8 HYBRID + korrelierte Erhebung + R6 + §8.8 Prüf-Dock + §8.9 Prüfling-Integration 2026-05-30).**
