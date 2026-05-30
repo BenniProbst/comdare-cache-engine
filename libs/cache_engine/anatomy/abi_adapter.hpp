@@ -29,6 +29,12 @@
 #include "observable_tier.hpp"       // R6/Pfad B: ABI-stabiler Observer-Zugriff (Doku 24 §8.6)
 #include "observer_aggregate.hpp"    // ObservableAxis + ObserverAggregate (observable_count)
 #include "../execution_engine/execution_engine_base.hpp"
+// R6 Inkrement 2b: die allocator-Achse im Cross-ABI-Observer-POD — der ComposedStore<N,L,A>-Vector-Growth
+// treibt die Allocator-Statistik REAL (2. Mess-Achse, spiegelt builder/AnatomyExecutionContext). Da der
+// host-seitige Loader jetzt das LEICHTE anatomy_module_abi_v1_decl.hpp nutzt (NICHT mehr abi_adapter.hpp),
+// belasten diese topics/-Includes nur die Voll-Header-Konsumenten (DLLs/Tests, die die Pfade ohnehin haben).
+#include "../topics/traversal/axis_03a_search_algo/composable/observable_composed_search.hpp"
+#include "../topics/nodes/axis_04_node_type/axis_04_node_type_composed_store.hpp"
 
 #include <array>
 #include <chrono>
@@ -215,6 +221,7 @@ public:
         // lookup_count-Observer-Statistik verfaelschen; manche Organe insert()->void).
         auto const before = search_organ_.occupied_count();
         search_organ_.insert(key, value);
+        container_.insert(key, value);       // treibt + MISST die allocator-Achse (ComposedStore-Vector-Growth)
         return search_organ_.occupied_count() > before;
     }
 
@@ -227,10 +234,11 @@ public:
     [[nodiscard]] bool tier_erase(std::uint64_t key) noexcept override {
         auto const before = search_organ_.occupied_count();
         search_organ_.erase(key);            // Rueckgabe-Typ organ-abhaengig → ueber Delta bestimmen
+        container_.erase(key);
         return search_organ_.occupied_count() < before;
     }
 
-    void tier_clear() noexcept override { search_organ_.clear(); }
+    void tier_clear() noexcept override { search_organ_.clear(); container_.clear(); }
 
     [[nodiscard]] std::uint64_t tier_size() const noexcept override {
         return static_cast<std::uint64_t>(search_organ_.occupied_count());
@@ -249,11 +257,17 @@ public:
             snap.search_erase_count    = s.total_erase_count;
             snap.search_peak_occupancy = s.peak_occupancy;
         }
-        // HINWEIS R6 Inkrement 2b (offen): die allocator-Achse über die ABI-Grenze erfordert den
-        // ComposedStore<N,L,A>-Container im Adapter — dessen topics/-Includes ziehen measurement/ in das
-        // anatomy_module_loader-Target, dessen Include-Pfade das (noch) nicht abdecken. Bewusste
-        // Build-Config-Erweiterung (Folge-Charge), NICHT session-tail. Hier bleibt search_algo die
-        // ABI-gezogene Achse; allocator wird in-process via AnatomyExecutionContext gemessen.
+        // Achse 2 (allocator) — der innere ComposedStore-Vector treibt die Allocator-Achse REAL (Doppeltes
+        // Gate wie AnatomyExecutionContext: Composition::allocator observable UND Store bietet allocator-Stats).
+        if constexpr (ObservableAxis<typename Composition::allocator>
+                   && container_t::template store_has_allocator_stats<typename container_t::store_type>) {
+            auto const a = container_.store_allocator_statistics();   // AllocationStatistics
+            snap.alloc_bytes_allocated    = a.total_bytes_allocated;
+            snap.alloc_bytes_in_use       = a.total_bytes_in_use;
+            snap.alloc_allocation_count   = a.allocation_count;
+            snap.alloc_deallocation_count = a.deallocation_count;
+            snap.alloc_failure_count      = a.failure_count;
+        }
 #endif
         snap.observable_axis_count = ObserverAggregate<Composition>::observable_count();
         snap.tier_fill_level       = tier_size();
@@ -263,12 +277,19 @@ public:
 private:
     using Composition = typename A::composition_t;
     using SearchAlgo  = typename Composition::search_algo;
+    // allocator-messender Container (spiegelt builder/AnatomyExecutionContext): ComposedStore<N,L,A> über
+    // die Composition-Achsen → dessen Vector-Growth treibt die Allocator-Statistik real.
+    using container_t = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::ObservableComposedSearch<
+        ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::SortedBinaryTraversal,
+        ::comdare::cache_engine::nodes::axis_04_node_type::ComposedStore<
+            typename Composition::node_type, typename Composition::memory_layout, typename Composition::allocator>>;
 
     ::comdare::cache_engine::execution_engine::EngineLifecycleState state_{
         ::comdare::cache_engine::execution_engine::EngineLifecycleState::Uninitialized};
     // R6 / Pfad B: das getriebene ECHTE Composition-Such-Organ (uint64-Key). Default-konstruiert;
     // Default-konstruierbar + ObservableAxis garantiert durch #42 (ObservableComposedContainer-Huelle).
     SearchAlgo  search_organ_{};
+    container_t container_{};   // R6 Inkrement 2b: misst die ALLOCATOR-Achse über die ABI-Grenze
 };
 
 }  // namespace comdare::cache_engine::anatomy

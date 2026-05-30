@@ -293,6 +293,10 @@ TEST(F15Measurement, R6_HostSideObserverPullViaAbiInterface) {
     EXPECT_GT(snap.search_peak_occupancy, 0u);
     EXPECT_EQ(snap.tier_fill_level, obs->tier_size());          // korrelierter Fuellstand (§8.7)
     EXPECT_GT(snap.observable_axis_count, 0u);                  // mind. die search_algo-Achse observable
+    // R6 Inkrement 2b: die allocator-Achse wird JETZT AUCH über die ABI-Grenze gemessen (2. Mess-Achse,
+    // ComposedStore-Vector-Growth) — sofern die Composition-allocator-Achse observable ist.
+    EXPECT_GT(snap.alloc_bytes_allocated, 0u);
+    EXPECT_GT(snap.alloc_allocation_count, 0u);
 
     // (3) ABI-Stabilität: der Snapshot ist memcpy-fähig (Cross-Boundary-Pflicht).
     static_assert(std::is_trivially_copyable_v<an::ComdareTierObserverSnapshotV1>);
