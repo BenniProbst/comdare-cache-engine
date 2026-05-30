@@ -86,7 +86,7 @@ namespace alloc              = ::comdare::cache_engine::allocator::axis_06_alloc
 // KEIN Alias mehr. Rueckwaerts-Alias io::axis_io→io_dispatch liegt in den Forwarding-Headern (topics/io/axis_io/).
 // V41.F.2: migration_policy ist jetzt der ECHTE physische Namespace (axes/migration_policy/) — KEIN Alias.
 // Rueckwaerts-Alias migration::axis_migration→migration_policy liegt in den Forwardern (topics/migration/axis_migration/).
-namespace filter_axis        = ::comdare::cache_engine::filter::axis_filter;                  // Filter (filter_axis: Topic-Namespace 'filter' existiert bereits)
+// V41.F.2: filter_axis = ECHTER physischer Namespace (axes/filter_axis/), KEIN Alias (Forwarder).
 
 // ─────────────────────────────────────────────────────────────────────────────
 // F.3 — abstrakte Achsen-Concepts (Pilot: lookup/alloc/layout). Re-Exposition der bestehenden,

@@ -765,7 +765,7 @@ target_include_directories(test_v41_axis_filter PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/filter/axis_filter")
+    "${CMAKE_BINARY_DIR}/generated/axes/filter_axis")
 target_link_libraries(test_v41_axis_filter PRIVATE
     Boost::mp11)
 
@@ -777,7 +777,7 @@ target_include_directories(test_v41_axis_filter_surf_organ PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/filter/axis_filter")
+    "${CMAKE_BINARY_DIR}/generated/axes/filter_axis")
 target_link_libraries(test_v41_axis_filter_surf_organ PRIVATE
     Boost::mp11)
 
@@ -789,7 +789,7 @@ target_include_directories(test_v41_axis_filter_surf_louds_organ PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/filter/axis_filter")
+    "${CMAKE_BINARY_DIR}/generated/axes/filter_axis")
 target_link_libraries(test_v41_axis_filter_surf_louds_organ PRIVATE
     Boost::mp11)
 

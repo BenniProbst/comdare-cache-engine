@@ -863,8 +863,8 @@ foreach(_f BLOOM CUCKOO RANGE_SURF XOR)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/filter/axis_filter/axis_filter_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/filter/axis_filter/axis_filter_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/filter_axis/axis_filter_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/filter_axis/axis_filter_flags.hpp"
     @ONLY)
 message(STATUS "  axis_filter (4 filters): BLOOM=${COMDARE_AXIS_FILTER_USE_BLOOM} CUCKOO=${COMDARE_AXIS_FILTER_USE_CUCKOO} RANGE_SURF=${COMDARE_AXIS_FILTER_USE_RANGE_SURF} XOR=${COMDARE_AXIS_FILTER_USE_XOR}")
 

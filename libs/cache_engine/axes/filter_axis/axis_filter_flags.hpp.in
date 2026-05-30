@@ -6,7 +6,7 @@
 #cmakedefine01 COMDARE_AXIS_FILTER_USE_RANGE_SURF
 #cmakedefine01 COMDARE_AXIS_FILTER_USE_XOR
 
-namespace comdare::cache_engine::filter::axis_filter::flags {
+namespace comdare::cache_engine::filter_axis::flags {
 
 inline constexpr bool bloom_enabled       = COMDARE_AXIS_FILTER_USE_BLOOM;
 inline constexpr bool cuckoo_enabled      = COMDARE_AXIS_FILTER_USE_CUCKOO;
