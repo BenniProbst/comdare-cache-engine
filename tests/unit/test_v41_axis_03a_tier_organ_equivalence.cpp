@@ -11,6 +11,7 @@
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_registry.hpp>          // Tier-Wrapper-Typen
 #include <topics/traversal/axis_03a_search_algo/composable/tier_to_organ_mapping.hpp>        // Organ-Pendants
 #include <topics/traversal/axis_03a_search_algo/composable/masstree_layer_pool_store.hpp>     // Masstree-Kperm15 (S9-Fundament)
+#include <topics/traversal/axis_03a_search_algo/composable/composed_masstree_search.hpp>      // Masstree-Organ (S3/S4)
 #include "support/std_map_equivalence_harness.hpp"
 
 #include <map>
@@ -60,6 +61,39 @@ TEST(MasstreeKpermuter, Kperm15Invariants) {
         ASSERT_EQ(q.size(), 2);
         ASSERT_EQ(q[0], 0); ASSERT_EQ(q[1], 1);
     }
+    SUCCEED();
+}
+
+// --- Masstree-Organ standalone: Voll-Dekompositions-B+Baum-of-Tries gegen std::map (S3/S4 Verifikation) ---
+using MasstreeOrgan2 = ce_cmp::ComposedMasstreeSearch<ce_cmp::MasstreeLayerTraversalOrgan<2>, ce_cmp::MasstreeLayerNodePoolStore>;
+using MasstreeOrgan8 = ce_cmp::ComposedMasstreeSearch<ce_cmp::MasstreeLayerTraversalOrgan<8>, ce_cmp::MasstreeLayerNodePoolStore>;
+TEST(Axis03aTierOrgan, Uint64MasstreeMatchesStdMap) {
+    ts::verify_matches_std_map<MasstreeOrgan2>(60000u, 60000u);   // Mehr-Layer (SliceBytes=2) + Leaf/Internode-Split + neue Wurzel
+    ts::verify_matches_std_map<MasstreeOrgan8>(60000u, 60000u);   // Single-Layer-Degenerationsanker (SliceBytes=8 == reiner B+Baum)
+    ts::verify_matches_std_map<MasstreeOrgan2>(200u, 255u);
+    ts::verify_matches_std_map<MasstreeOrgan2>(1000u, 1000u);
+}
+
+// Namensanspruch-Beleg (Doku 14, [[algorithm-correctness-when-named]]): Keys mit IDENTISCHEM fuehrenden
+// 2-Byte-Slice (slice[0] fix) + divergentem Rest erzwingen echte Sub-Layer (B+Baum-of-Tries, nicht flacher
+// B+Baum). Ohne korrekte Layer-Maschinerie ginge bei slice[0]-Kollision der Lookup verloren.
+TEST(Axis03aTierOrgan, MasstreeLayerBoundaryMatchesStdMap) {
+    MasstreeOrgan2 organ;
+    std::map<std::uint64_t, std::uint64_t> ref;
+    auto mk = [](std::uint64_t i) { return (std::uint64_t{0x0042} << 48) | ((i * 2654435761u) % 0x0000FFFFFFFFFFFFull); };
+    for (std::uint64_t i = 0; i < 1500; ++i) { std::uint64_t const k = mk(i); organ.insert(k, k * 11 + 1); ref[k] = k * 11 + 1; }
+    ASSERT_EQ(organ.occupied_count(), ref.size());
+    for (auto const& kv : ref) { auto o = organ.lookup(kv.first); ASSERT_TRUE(o.has_value()) << kv.first; ASSERT_EQ(*o, kv.second); }
+    EXPECT_FALSE(organ.lookup((std::uint64_t{0x0043} << 48)).has_value());   // anderer slice[0] -> nicht da
+    for (std::uint64_t i = 0; i < 1500; i += 2) { std::uint64_t const k = mk(i); organ.erase(k); ref.erase(k); }
+    ASSERT_EQ(organ.occupied_count(), ref.size());
+    for (auto const& kv : ref) { auto o = organ.lookup(kv.first); ASSERT_TRUE(o.has_value()); ASSERT_EQ(*o, kv.second); }
+    SUCCEED();
+}
+
+// Horizontal: Masstree-Organ ≡ ArtTrieOrgan (identischer Op-Stream, identische Resultate) -> transitiv ≡ std::map.
+TEST(Axis03aTierOrgan, MasstreeVariantsEquivalentToArt) {
+    ts::verify_variants_equivalent<MasstreeOrgan2, ce_cmp::ArtTrieOrgan>(60000u, 60000u);
     SUCCEED();
 }
 

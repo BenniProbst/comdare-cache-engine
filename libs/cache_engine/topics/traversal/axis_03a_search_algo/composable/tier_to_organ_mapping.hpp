@@ -29,6 +29,7 @@
 #include "composed_wormhole_search.hpp"           // WormholeJumpTraversalOrgan + WormholeLeafListPoolStore + ComposedWormholeSearch (#43 s4)
 #include "composed_surf_map_search.hpp"           // SurfMapTraversalOrgan + SurfFstMapPoolStore + ComposedSurfMapSearch (#43 s4 SuRF-Map-Schale)
 #include "composed_start_trie_search.hpp"         // StartTrieTraversalOrgan + StartTrieNodePoolStore + ComposedStartTrieSearch (#43 s4)
+#include "composed_masstree_search.hpp"           // MasstreeLayerTraversalOrgan + MasstreeLayerNodePoolStore + ComposedMasstreeSearch (#42-Folge)
 #include "observable_composed_search.hpp"         // ObservableComposedSearch — ObservableAxis-Huelle flache Organe (#42)
 #include "observable_composed_container.hpp"      // ObservableComposedContainer — ObservableAxis-Huelle Container-Organe (#42)
 
@@ -87,10 +88,13 @@ using ObservableHotPatriciaOrgan  = ObservableComposedContainer<HotPatriciaOrgan
 using ObservableWormholeOrgan     = ObservableComposedContainer<WormholeOrgan>;
 using ObservableSurfMapOrgan      = ObservableComposedContainer<SurfMapOrgan>;
 using ObservableStartTrieOrgan    = ObservableComposedContainer<StartTrieOrgan>;
-// Masstree hat (noch) KEIN echtes Organ-Pendant (eigener s4-Task, rotaki-Pattern). Naeherung: das flache
-// SortedBinary-Organ ueber RawSlotStore (== VectorU16U16-Semantik des bisherigen Platzhalters). TODO: echtes
-// Masstree-Layer-Slice-Organ bauen (Memory feedback_algorithm_correctness_when_named).
-using ObservableSortedBinaryOrgan = ObservableComposedSearch<SortedBinaryTraversal, RawSlotStore>;
+// Masstree: ECHTES B+Baum-of-Tries-Organ (#42-Folge, Planrunde wxciy2wjk) — Voll-Dekomposition mit kpermuter-
+// Knoten (cache-craftiness) + Multi-Layer-Slice-Tries. SliceBytes=2 erzwingt echte Mehr-Layer am uint64-
+// Interface (make_new_layer real erreichbar, NICHT toter Code) => Namensanspruch erfuellt ([[algorithm-
+// correctness-when-named]]); SliceBytes=8 = Single-Layer-B+Baum-Degenerationsanker. Loest den frueheren flachen
+// ObservableSortedBinaryOrgan-Platzhalter ab (letzter Platzhalter-Konfigurator -> echtes Organ).
+using MasstreeOrgan           = ComposedMasstreeSearch<MasstreeLayerTraversalOrgan<2>, MasstreeLayerNodePoolStore>;
+using ObservableMasstreeOrgan = ObservableComposedContainer<MasstreeOrgan>;
 
 /// Dokumentiertes Tier→Organ-Paar (für den Äquivalenz-/Rekonstruktions-Test konsumierbar).
 /// `tier` = monolithischer axis_03a-Wrapper (noch Achsen-Wert, bis zur Umstufung).

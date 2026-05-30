@@ -50,6 +50,7 @@ concept MasstreeLayerNodePool =
         { s.leaf_alloc_slot(ref) }           -> std::convertible_to<int>;           // peek back() (naechster freier phys)
         { s.leaf_perm_insert(ref, logical) } -> std::convertible_to<int>;           // insert_from_back(logical) -> phys
         { s.leaf_perm_remove(ref, logical) } -> std::same_as<void>;                 // remove(logical) (Slot recycelt)
+        { s.leaf_set_sorted_size(ref, slot) } -> std::same_as<void>;                // perm = make_sorted(n) (Split-Rebuild)
         { cs.leaf_slice_at(ref, slot) }      -> std::convertible_to<std::uint64_t>;
         { s.leaf_set_slice_at(ref, slot, sl) } -> std::same_as<void>;
         { cs.leaf_keylenx_at(ref, slot) }    -> std::convertible_to<int>;           // 8 = Inline-Wert, 128 = Layer
