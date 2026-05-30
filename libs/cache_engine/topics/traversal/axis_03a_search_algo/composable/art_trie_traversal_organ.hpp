@@ -135,14 +135,20 @@ struct ArtTrieTraversalOrgan {
         std::size_t const NIL = Pool::kNil;
         std::size_t ref = p.root();
         if (ref == NIL) return false;
-        std::size_t parent = NIL;
-        std::uint8_t parent_byte = 0;
+        std::size_t  gp = NIL;          std::uint8_t gp_byte = 0;        // Grosselternknoten (fuer Parent-Shrink)
+        std::size_t  parent = NIL;      std::uint8_t parent_byte = 0;
         unsigned depth = 0;
         for (;;) {
             if (p.is_leaf(ref)) {
                 if (p.leaf_key(ref) != key) return false;
-                if (parent == NIL) p.set_root(NIL);
-                else               p.remove_child(parent, parent_byte);
+                if (parent == NIL) {
+                    p.set_root(NIL);
+                } else {
+                    // remove_child liefert den ggf. GESCHRUMPFTEN Parent-Ref (N256->N48->N16->N4); aenderte sich
+                    // der Ref, muss der Grosselternknoten (bzw. die Wurzel) auf den neuen Knoten umgehaengt werden.
+                    std::size_t const new_parent = p.remove_child(parent, parent_byte);
+                    if (new_parent != parent) link_parent(p, gp, gp_byte, new_parent);
+                }
                 p.free_node(ref);
                 p.dec_size();
                 return true;
@@ -155,7 +161,7 @@ struct ArtTrieTraversalOrgan {
             std::uint8_t const b = byte_at(key, depth);
             std::size_t const child = p.find_child(ref, b);
             if (child == NIL) return false;
-            parent = ref; parent_byte = b; ref = child; depth += 1;
+            gp = parent; gp_byte = parent_byte; parent = ref; parent_byte = b; ref = child; depth += 1;
         }
     }
 };
