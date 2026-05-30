@@ -1,15 +1,4 @@
 #pragma once
-// V41.F.6.1.R7.5.b axis_11_telemetry Subaxes-Tags
-
-namespace comdare::cache_engine::telemetry::axis_11_telemetry::subaxes {
-
-// TM1: Scope (leaf-only / per-node / global)
-struct scope_tag {};
-
-// TM2: Metric-Type (counter / histogram / density)
-struct metric_type_tag {};
-
-// TM3: Collection-Overhead-Level (low / medium / high)
-struct overhead_level_tag {};
-
-}  // namespace
+// V41.F.2 Forwarding-Header (Stufe 2): Achse physisch nach axes/telemetry_axis/ migriert.
+#include <axes/telemetry_axis/axis_11_telemetry_subaxes_tm1_to_tm3.hpp>
+namespace comdare::cache_engine::telemetry::axis_11_telemetry { using namespace comdare::cache_engine::telemetry_axis; }

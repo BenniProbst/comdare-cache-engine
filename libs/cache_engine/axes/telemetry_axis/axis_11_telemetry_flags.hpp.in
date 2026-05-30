@@ -6,7 +6,7 @@
 #cmakedefine01 COMDARE_AXIS_11_USE_INSERT_COUNTER
 #cmakedefine01 COMDARE_AXIS_11_USE_LATENCY_HISTOGRAM
 
-namespace comdare::cache_engine::telemetry::axis_11_telemetry::flags {
+namespace comdare::cache_engine::telemetry_axis::flags {
 
 inline constexpr bool leaf_only_counter_enabled = COMDARE_AXIS_11_USE_LEAF_ONLY_COUNTER;
 inline constexpr bool density_tracker_enabled   = COMDARE_AXIS_11_USE_DENSITY_TRACKER;

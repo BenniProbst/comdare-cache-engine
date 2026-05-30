@@ -672,7 +672,7 @@ target_include_directories(test_v41_axis_11_telemetry PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/telemetry/axis_11_telemetry")
+    "${CMAKE_BINARY_DIR}/generated/axes/telemetry_axis")  # V41.F.2: axis_11_telemetry → axes/telemetry_axis
 target_link_libraries(test_v41_axis_11_telemetry PRIVATE
     Boost::mp11)
 

@@ -77,7 +77,8 @@ namespace alloc              = ::comdare::cache_engine::allocator::axis_06_alloc
 namespace prefetch_axis      = ::comdare::cache_engine::prefetch::axis_07_prefetch;            // Prefetch
 namespace concurrency_axis   = ::comdare::cache_engine::concurrency::axis_08_concurrency;      // Concurrency
 namespace serialization_axis = ::comdare::cache_engine::serialization::axis_10_serialization;  // Serialisierung
-namespace telemetry_axis     = ::comdare::cache_engine::telemetry::axis_11_telemetry;          // Telemetrie
+// V41.F.2: telemetry_axis ist jetzt der ECHTE physische Namespace (axes/telemetry_axis/) — KEIN Alias.
+// Rueckwaerts-Alias telemetry::axis_11_telemetry→telemetry_axis liegt in den Forwardern.
 namespace value_handle_axis  = ::comdare::cache_engine::value_handle::axis_14_value_handle;    // Value-Handle
 namespace simd               = ::comdare::cache_engine::hardware::axis_09_isa;                 // SIMD/ISA
 namespace index_organization = ::comdare::cache_engine::search_engine::axis_01_index_organization; // Index-Organisation

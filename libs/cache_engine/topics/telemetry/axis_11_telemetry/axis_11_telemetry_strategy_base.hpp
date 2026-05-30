@@ -1,20 +1,4 @@
 #pragma once
-// V41.F.6.1.R7.5.b axis_11_telemetry CRTP-StrategyBase (Goldstandard)
-
-#include "concepts/axis_11_telemetry_concept.hpp"
-#include "concepts/axis_11_telemetry_cache_engine_permutation_concept.hpp"
-#include "../../axis_base.hpp"
-
-namespace comdare::cache_engine::telemetry::axis_11_telemetry {
-
-template <typename Derived>
-class TelemetryStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
-protected:
-    TelemetryStrategyBase() noexcept {
-        static_assert(concepts::TelemetryStrategy<Derived>);
-        static_assert(concepts::CacheEnginePermutationStrategy<Derived>);
-        static_assert(::comdare::cache_engine::topics::AxisBaseConcept<Derived>);
-    }
-};
-
-}  // namespace
+// V41.F.2 Forwarding-Header (Stufe 2): Achse physisch nach axes/telemetry_axis/ migriert.
+#include <axes/telemetry_axis/axis_11_telemetry_strategy_base.hpp>
+namespace comdare::cache_engine::telemetry::axis_11_telemetry { using namespace comdare::cache_engine::telemetry_axis; }
