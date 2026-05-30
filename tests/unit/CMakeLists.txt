@@ -647,8 +647,8 @@ target_include_directories(test_v41_axis_02_axis_04_nodes PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/nodes/axis_02_path_compression"
-    "${CMAKE_BINARY_DIR}/generated/topics/nodes/axis_04_node_type")
+    "${CMAKE_BINARY_DIR}/generated/axes/path_compression"
+    "${CMAKE_BINARY_DIR}/generated/axes/node")
 target_link_libraries(test_v41_axis_02_axis_04_nodes PRIVATE
     Boost::mp11)
 

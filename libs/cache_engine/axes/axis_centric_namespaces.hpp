@@ -70,8 +70,8 @@ namespace comdare::cache_engine {
 namespace lookup             = ::comdare::cache_engine::traversal::axis_03a_search_algo;       // Such-/Lookup-Algorithmus
 namespace cache_traversal    = ::comdare::cache_engine::traversal::axis_03b_cache_traversal;   // Cache-Traversal
 namespace mapping            = ::comdare::cache_engine::traversal::axis_03m_mapping;           // Slot-Mapping
-namespace path_compression   = ::comdare::cache_engine::nodes::axis_02_path_compression;       // Pfad-Kompression
-namespace node               = ::comdare::cache_engine::nodes::axis_04_node_type;              // Knoten-Typ
+// V41.F.2: path_compression = ECHTER physischer Namespace (axes/path_compression/), KEIN Alias (Forwarder).
+// V41.F.2: node = ECHTER physischer Namespace (axes/node/), KEIN Alias (Forwarder).
 namespace layout             = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;  // Speicher-Layout
 namespace alloc              = ::comdare::cache_engine::allocator::axis_06_allocator;          // Allokator
 // V41.F.2: prefetch_axis = ECHTER physischer Namespace (axes/prefetch_axis/), KEIN Alias (Rueckwaerts-Alias in Forwardern).
