@@ -11,7 +11,7 @@
 #cmakedefine01 COMDARE_AXIS_05_USE_PACKED_BITMAP
 #cmakedefine01 COMDARE_AXIS_05_USE_AOSOA
 
-namespace comdare::cache_engine::memory_layout::axis_05_memory_layout::flags {
+namespace comdare::cache_engine::layout::flags {
 
 inline constexpr bool cache_line_aligned_enabled = COMDARE_AXIS_05_USE_CACHE_LINE_ALIGNED;
 inline constexpr bool aos_strict_enabled         = COMDARE_AXIS_05_USE_AOS_STRICT;

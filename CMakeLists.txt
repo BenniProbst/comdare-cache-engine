@@ -737,8 +737,8 @@ foreach(_l CACHE_LINE_ALIGNED AOS_STRICT SOA PACKED_BITMAP AOSOA)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/layout/axis_05_memory_layout_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/layout/axis_05_memory_layout_flags.hpp"
     @ONLY)
 message(STATUS "  axis_05 (5 layouts): CACHE_LINE_ALIGNED=${COMDARE_AXIS_05_USE_CACHE_LINE_ALIGNED} AOS_STRICT=${COMDARE_AXIS_05_USE_AOS_STRICT} SOA=${COMDARE_AXIS_05_USE_SOA} PACKED_BITMAP=${COMDARE_AXIS_05_USE_PACKED_BITMAP} AOSOA=${COMDARE_AXIS_05_USE_AOSOA}")
 
