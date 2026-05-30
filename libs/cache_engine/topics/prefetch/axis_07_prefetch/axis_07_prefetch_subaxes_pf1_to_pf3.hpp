@@ -1,15 +1,4 @@
 #pragma once
-// V41.F.6.1.R7.5.a axis_07_prefetch Subaxes-Tags
-
-namespace comdare::cache_engine::prefetch::axis_07_prefetch::subaxes {
-
-// PF1: Trigger-Mechanismus (none / compile-hint / hw-instruction / observed-pattern)
-struct trigger_mechanism_tag {};
-
-// PF2: Distance-Heuristik (none / linear / adaptive)
-struct distance_heuristic_tag {};
-
-// PF3: Granularitaet (cache-line / page / bundle)
-struct granularity_tag {};
-
-}  // namespace
+// V41.F.2 Forwarding-Header: Achse nach axes/prefetch_axis/ migriert.
+#include <axes/prefetch_axis/axis_07_prefetch_subaxes_pf1_to_pf3.hpp>
+namespace comdare::cache_engine::prefetch::axis_07_prefetch { using namespace comdare::cache_engine::prefetch_axis; }

@@ -7,7 +7,7 @@
 #cmakedefine01 COMDARE_AXIS_14_USE_VERSIONED_POINTER
 #cmakedefine01 COMDARE_AXIS_14_USE_CHAIN_REF
 
-namespace comdare::cache_engine::value_handle::axis_14_value_handle::flags {
+namespace comdare::cache_engine::value_handle_axis::flags {
 
 inline constexpr bool inline_enabled              = COMDARE_AXIS_14_USE_INLINE;
 inline constexpr bool external_pool_enabled       = COMDARE_AXIS_14_USE_EXTERNAL_POOL;

@@ -74,12 +74,12 @@ namespace path_compression   = ::comdare::cache_engine::nodes::axis_02_path_comp
 namespace node               = ::comdare::cache_engine::nodes::axis_04_node_type;              // Knoten-Typ
 namespace layout             = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;  // Speicher-Layout
 namespace alloc              = ::comdare::cache_engine::allocator::axis_06_allocator;          // Allokator
-namespace prefetch_axis      = ::comdare::cache_engine::prefetch::axis_07_prefetch;            // Prefetch
+// V41.F.2: prefetch_axis = ECHTER physischer Namespace (axes/prefetch_axis/), KEIN Alias (Rueckwaerts-Alias in Forwardern).
 namespace concurrency_axis   = ::comdare::cache_engine::concurrency::axis_08_concurrency;      // Concurrency
 namespace serialization_axis = ::comdare::cache_engine::serialization::axis_10_serialization;  // Serialisierung
 // V41.F.2: telemetry_axis ist jetzt der ECHTE physische Namespace (axes/telemetry_axis/) — KEIN Alias.
 // Rueckwaerts-Alias telemetry::axis_11_telemetry→telemetry_axis liegt in den Forwardern.
-namespace value_handle_axis  = ::comdare::cache_engine::value_handle::axis_14_value_handle;    // Value-Handle
+// V41.F.2: value_handle_axis = ECHTER physischer Namespace (axes/value_handle_axis/), KEIN Alias (Rueckwaerts-Alias in Forwardern).
 namespace simd               = ::comdare::cache_engine::hardware::axis_09_isa;                 // SIMD/ISA
 namespace index_organization = ::comdare::cache_engine::search_engine::axis_01_index_organization; // Index-Organisation
 // V41.F.2: io_dispatch ist jetzt der ECHTE physische Namespace (axes/io_dispatch/, Pilot-Migration) —
