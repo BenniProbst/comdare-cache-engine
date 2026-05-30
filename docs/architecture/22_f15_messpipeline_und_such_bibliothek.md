@@ -218,6 +218,29 @@ ausgewiesen.
 Die Achsen-MASCHINERIE ist damit fuer 3 Achsen end-to-end operativ + verifiziert; die saubere
 QUANTIFIZIERUNG fein-granularer Achsen ist das konkrete Ziel von R5.D (PMC-Integration).
 
+### 3.4 Addendum (2026-05-31): VIERTE Achse serialization (axis_10) runtime-operativ
+
+Umsetzung der in §3.2 beschriebenen Achsen-Operativierung für `serialization` (axis_10) — analog zu §3.3
+(memory_layout), aber mit einem **besseren Wall-Clock-Profil**, weil Serialisierungs-Encodings echte
+per-Element-CPU-Kosten oberhalb der Rausch-Schwelle haben (anders als der sub-noise Cache-Layout-Effekt).
+
+1. **Echte Laufzeit-API** in allen 4 Serializer-Wrappern: `serialize_scan(buf, n, record_size)` encodiert je
+   Datensatz das 32-Bit-Feld im STRATEGIE-CHARAKTERISTISCHEN Aufwand und liefert eine Order-sensitive
+   Prüfsumme (Anti-Wegoptimierung). Aufwands-Leiter: **RawBinary** (Roh-Byte-Sum, Baseline) < **Compressed**
+   (Delta-gegen-Vorgänger + Zigzag) < **VarLen** (LEB128, datenabhängige 1–5-Byte-Schleife + Branch) <
+   **Succinct** (Bit-für-Bit-Packing mit minimaler Bit-Breite — höchster Per-Element-Aufwand). Damit ist die
+   Achse nicht mehr trait-only. Korrektheit + echter Verhaltensunterschied verifiziert
+   (`R5B_Axis10_SerializeScan.RuntimeOperativeBehaviorallyDistinct`, axis_10-Suite 9/9): RawBinary = exakte
+   Feld-Summe, alle 4 Strategien deterministisch UND paarweise distinkt.
+2. **run_workload Segment 4** (`abi_adapter.hpp`) ruft `composition_t::serialization::serialize_scan` auf
+   demselben 1-MB-Puffer wie Segment 3. Die Komposition exponiert `serialization` bereits als Member-Typ →
+   die Achse ist als 4. Mess-Dimension (search × allocator × memory_layout × serialization) variierbar; die
+   Materialisierung als DLL läuft (`comdare_r5g_adhoc_perm` + e2e `run_workload`-Lauf 3/3 grün).
+
+Damit ist die Achsen-MASCHINERIE für eine **vierte** Achse end-to-end operativ + verifiziert. Die empirische
+Mehr-DLL-Quantifizierung (Emit eines serialization-variierenden Permutations-Satzes, analog §3.3-48-Perm) ist
+ein optionaler Folge-Build — die saubere Auflösbarkeit ist hier wegen der echten CPU-Kosten erwartbar gegeben.
+
 **Robustheits-Verbesserung (2026-05-29) gegen Wall-Clock-Ausreisser:** Das `comdare-f15-compare`-Ranking
 sortiert nun nach **Median (p50)** statt Mittelwert (mean wird zum Vergleich weiter ausgewiesen). Da
 einzelne Batch-Spitzen (Scheduler-Preemption, Page-Faults, Turbo-Schwankungen) den Mittelwert massiv
