@@ -27,6 +27,7 @@
 #include "composed_art_trie_search.hpp"           // ArtTrieTraversalOrgan + ArtTrieNodePoolStore + ComposedArtTrieSearch (#43 s4)
 #include "composed_hot_patricia_search.hpp"       // HotPatriciaTraversalOrgan + HotPatriciaNodePoolStore + ComposedHotPatriciaSearch (#43 s4)
 #include "composed_wormhole_search.hpp"           // WormholeJumpTraversalOrgan + WormholeLeafListPoolStore + ComposedWormholeSearch (#43 s4)
+#include "composed_surf_map_search.hpp"           // SurfMapTraversalOrgan + SurfFstMapPoolStore + ComposedSurfMapSearch (#43 s4 SuRF-Map-Schale)
 
 namespace comdare::cache_engine::traversal::axis_03a_search_algo::composable {
 
@@ -61,7 +62,11 @@ using OriginalStartOrgan    = SortedBinaryOrgan;  // S06 START    (uint16! sorte
 // wh.c GPL-3.0, KEIN extern-C-Linking). Loest den flachen SortedBinaryOrgan-Platzhalter ab.
 using WormholeOrgan         = ComposedWormholeSearch<WormholeJumpTraversalOrgan, WormholeLeafListPoolStore>;
 using OriginalWormholeOrgan = WormholeOrgan;   // S07 Wormhole (war flacher SortedBinaryOrgan-Platzhalter)
-using OriginalSurfOrgan     = SortedBinaryOrgan;  // S08 SuRF     (uint8, sorted-vector — exaktes K->V im Body)
+// S08 SuRF: exakte Map-Schale (#43 s4) — autoritatives exaktes K->V (sortiert), traegt std::map-Vergleichbarkeit.
+// Das echte LOUDS-Succinct-Range-Filter-Organ (may-contain, bool) lebt separat in axis_filter (Gattungs-Trennung).
+// is_original=false ([[pseudocode-papers-fallback]]). Loest den flachen SortedBinaryOrgan-Platzhalter ab.
+using SurfMapOrgan          = ComposedSurfMapSearch<SurfMapTraversalOrgan, SurfFstMapPoolStore>;
+using OriginalSurfOrgan     = SurfMapOrgan;       // S08 SuRF (war flacher SortedBinaryOrgan-Platzhalter)
 
 /// Dokumentiertes Tier→Organ-Paar (für den Äquivalenz-/Rekonstruktions-Test konsumierbar).
 /// `tier` = monolithischer axis_03a-Wrapper (noch Achsen-Wert, bis zur Umstufung).
