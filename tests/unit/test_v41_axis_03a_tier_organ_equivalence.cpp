@@ -291,6 +291,15 @@ TEST(Axis03aTierOrgan, Uint64WormholeMatchesStdMap) {
     SUCCEED();
 }
 
+// SuRF-Map-Schale (#43 s4): autoritatives exaktes K->V == std::map (das LOUDS-Filter-Organ in axis_filter
+// liefert nur approximatives may-contain; die Map-Schale traegt die exakte Vergleichbarkeit). uint8-Beleg
+// (SurfMapOrgan == OriginalSurfSearchAlgo) laeuft in Uint8OriginalTiersReconstructibleFromOrgan oben.
+TEST(Axis03aTierOrgan, Uint64SurfMapMatchesStdMap) {
+    ts::verify_matches_std_map<ce_cmp::SurfMapOrgan>(60000u, 60000u);
+    ts::verify_matches_std_map<ce_cmp::SurfMapOrgan>(200u, 255u);    // dichtes Churn (Update + Erase-Reinsert)
+    SUCCEED();
+}
+
 TEST(Axis03aTierOrgan, WormholeMultiLevelStressMatchesStdMap) {
     ce_cmp::WormholeOrgan organ;
     std::map<std::uint64_t, std::uint64_t> ref;
