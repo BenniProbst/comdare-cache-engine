@@ -81,17 +81,26 @@ TEST(Axis03aTierOrgan, Uint16BTreeReconstructibleFromOrgan) {
 // hier wird NUR das IST-Such-Verhalten als Organ-Komposition belegt (echte Trie-Anatomie = s4-Folge-Charge).
 // Doppel-Beleg transitiv: Organ ≡ std::map (über identische Organ-Typen) + Organ ≡ OriginalXxx (hier).
 TEST(Axis03aTierOrgan, Uint8OriginalTiersReconstructibleFromOrgan) {
-    ts::verify_variants_equivalent<ce_cmp::OriginalArtOrgan,      ce_03a::OriginalArtSearchAlgo>(200u, 255u);   // uint8
-    ts::verify_variants_equivalent<ce_cmp::OriginalHotOrgan,      ce_03a::OriginalHotSearchAlgo>(200u, 255u);   // uint8
-    ts::verify_variants_equivalent<ce_cmp::OriginalWormholeOrgan, ce_03a::OriginalWormholeSearchAlgo>(200u, 255u); // uint8
-    ts::verify_variants_equivalent<ce_cmp::OriginalSurfOrgan,     ce_03a::OriginalSurfSearchAlgo>(200u, 255u);  // uint8
-    SUCCEED();  // ART/HOT/Wormhole/SuRF (uint8-IST-Bodies) exakt aus ihrer Organ-Komposition wiederherstellbar
+    // #42 Phase 2: die OriginalXxx-Tier-Wrapper sind nach Deregistrierung No-op-Stubs (enabled=false,
+    // Compile-Time-Switch). Der Tier-vs-Organ-Rekonstruktionsbeweis ist nur sinnvoll, wenn das Tier AKTIV
+    // ist (reversibel: -DCOMDARE_AXIS_03A_ENABLE_ORIGINAL_*=ON re-aktiviert ihn). Die Organ-vs-std::map-
+    // Gleichheit (das bleibende Invariant) liegt separat in den verify_matches_std_map-Tests.
+    if constexpr (ce_03a::OriginalArtSearchAlgo::enabled)
+        ts::verify_variants_equivalent<ce_cmp::OriginalArtOrgan,      ce_03a::OriginalArtSearchAlgo>(200u, 255u);
+    if constexpr (ce_03a::OriginalHotSearchAlgo::enabled)
+        ts::verify_variants_equivalent<ce_cmp::OriginalHotOrgan,      ce_03a::OriginalHotSearchAlgo>(200u, 255u);
+    if constexpr (ce_03a::OriginalWormholeSearchAlgo::enabled)
+        ts::verify_variants_equivalent<ce_cmp::OriginalWormholeOrgan, ce_03a::OriginalWormholeSearchAlgo>(200u, 255u);
+    if constexpr (ce_03a::OriginalSurfSearchAlgo::enabled)
+        ts::verify_variants_equivalent<ce_cmp::OriginalSurfOrgan,     ce_03a::OriginalSurfSearchAlgo>(200u, 255u);
+    SUCCEED();  // ART/HOT/Wormhole/SuRF aus Organ-Komposition wiederherstellbar (sofern Tier aktiv)
 }
 
 // START ist das EINZIGE uint16-OriginalXxx-Tier → key_mod=1000 (sonst Key-Cast-Kollision organ=uint64 vs tier=uint16).
 TEST(Axis03aTierOrgan, Uint16OriginalStartReconstructibleFromOrgan) {
-    ts::verify_variants_equivalent<ce_cmp::OriginalStartOrgan, ce_03a::OriginalStartSearchAlgo>(1000u, 1000u);
-    SUCCEED();  // START (uint16-IST-Body) exakt aus SortedBinaryOrgan wiederherstellbar
+    if constexpr (ce_03a::OriginalStartSearchAlgo::enabled)  // #42 Phase 2: deregistriert -> Stub, skip
+        ts::verify_variants_equivalent<ce_cmp::OriginalStartOrgan, ce_03a::OriginalStartSearchAlgo>(1000u, 1000u);
+    SUCCEED();  // START aus Multibyte-Span-Organ wiederherstellbar (sofern Tier aktiv)
 }
 
 // --- Adversarialer B-Baum-Delete-Stresstest (#41 Inc3) -----------------------------------------------------

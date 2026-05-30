@@ -96,6 +96,10 @@ TYPED_TEST(SearchAlgoTest, EmptyAfterDefault) {
 }
 
 TYPED_TEST(SearchAlgoTest, InsertLookupRoundtrip) {
+    // #42 Umstufung-B Phase 2: deregistrierte Tiere (enabled=false) sind per Design No-op-Stubs
+    // (Compile-Time-Switch im Wrapper) — ein Runtime-Roundtrip ist auf einem Stub nicht sinnvoll.
+    // Die Conformance-Suite laeuft weiterhin ueber ALLE 17 (compile-time); nur dieser Runtime-Test skippt Stubs.
+    if (!TypeParam::enabled) GTEST_SKIP() << "deregistriertes Tier (enabled=false, Stub) — Runtime-Roundtrip n/a";
     TypeParam s{};
     using K = typename TypeParam::key_type;
     using V = typename TypeParam::value_type;
@@ -118,6 +122,7 @@ TYPED_TEST(SearchAlgoTest, LookupMissReturnsNullopt) {
 }
 
 TYPED_TEST(SearchAlgoTest, EraseRemovesEntry) {
+    if (!TypeParam::enabled) GTEST_SKIP() << "#42: deregistriertes Tier (Stub) — Runtime-Erase n/a";
     TypeParam s{};
     using K = typename TypeParam::key_type;
     using V = typename TypeParam::value_type;
@@ -1118,6 +1123,7 @@ constexpr std::array<SearchAlgoTestConfig, 5> kTestSearchAlgoConfigs{{
 }  // namespace
 
 TYPED_TEST(SearchAlgoTest, InsertLookupAllRuntimeConfigs) {
+    if (!TypeParam::enabled) GTEST_SKIP() << "#42: deregistriertes Tier (Stub) — Runtime-Configs n/a";
     for (auto const& cfg : kTestSearchAlgoConfigs) {
         TypeParam s{};
         using K = typename TypeParam::key_type;
