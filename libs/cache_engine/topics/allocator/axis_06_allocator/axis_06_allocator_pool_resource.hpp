@@ -72,6 +72,12 @@ public:
     [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept { return concepts::ProgressGuarantee::Blocking; }
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
 
+    /// R7.4: BESITZT die memory_resource selbst (eigener unsynchronized_pool_resource via shared_ptr,
+    /// Lebensdauer an die Wrapper-Instanz gebunden) -> Owned. Grenzt POOL gegen PMR (Borrowed) ab.
+    [[nodiscard]] static constexpr concepts::ResourceOwnership resource_ownership() noexcept {
+        return concepts::ResourceOwnership::Owned;
+    }
+
     PoolResourceAllocator()
         : resource_(std::make_shared<std::pmr::unsynchronized_pool_resource>()) {}
 

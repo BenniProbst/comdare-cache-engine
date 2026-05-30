@@ -31,6 +31,7 @@
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_mimalloc.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_snmalloc.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_pmr_resource.hpp>
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_pool_resource.hpp>   // R7.4 resource_ownership Owned-Anker
 // V41.F.6.1 Batch 2 Vendor (2026-05-26)
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_jemalloc.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_tcmalloc.hpp>
@@ -143,6 +144,7 @@ TYPED_TEST(AllocatorVendorTest, SonderfallPropertiesQueryable) {
     [[maybe_unused]] constexpr bool e = TypeParam::supports_thread_local_cache();
     [[maybe_unused]] constexpr bool f = TypeParam::requires_specialized_hardware();
     [[maybe_unused]] constexpr PG   pg = TypeParam::progress_guarantee();  // Batch 7 Stufen-Refactor
+    [[maybe_unused]] constexpr axis_06_cpts::ResourceOwnership ro = TypeParam::resource_ownership();  // R7.4 Pflicht-Property
     // Konsistenz-Checks: Sonderfaelle pro Batch
     if constexpr (std::is_same_v<TypeParam, axis_06::ScallocAllocator>) {
         static_assert(!a, "Scalloc-Sonderfall: keine native aligned_alloc API");
@@ -164,6 +166,31 @@ TYPED_TEST(AllocatorVendorTest, SonderfallPropertiesQueryable) {
         static_assert(pg == PG::WaitFree, "Crystalline-Sonderfall (Batch 7): progress_guarantee=WaitFree");
         static_assert(pg >= PG::LockFree, "WaitFree impliziert LockFree (Stufen-Ordnung)");
     }
+    SUCCEED();
+}
+
+// R7.4: resource_ownership() grenzt die PMR-Familie (A22) TYPSICHER ab — POOL besitzt seine
+// memory_resource selbst (Owned), PMR reicht eine externe durch (Borrowed), die gesamte malloc-
+// Familie verwaltet keine pmr-Resource (None, via AllocatorStrategyBase-Default). Orthogonal zu
+// supports_pmr() (das ist fuer alle drei true). Reiner Compile-Time-Beweis.
+TEST(V41_TopicAllocatorAxis06, ResourceOwnershipDistinguishesPoolFromPmr) {
+    using RO = axis_06_cpts::ResourceOwnership;
+    // Die eigentliche Abgrenzung: POOL=Owned vs PMR=Borrowed.
+    static_assert(axis_06::PoolResourceAllocator::resource_ownership() == RO::Owned,
+        "POOL besitzt eine eigene unsynchronized_pool_resource (Owned)");
+    static_assert(axis_06::PmrResourceAllocator::resource_ownership()  == RO::Borrowed,
+        "PMR reicht eine extern besessene memory_resource durch (Borrowed)");
+    static_assert(RO::Owned != RO::Borrowed, "Owned und Borrowed sind verschieden");
+    // malloc-Familie erbt den None-Default aus AllocatorStrategyBase (kein 25x-Hardcode):
+    static_assert(axis_06::StdMalloc::resource_ownership()         == RO::None, "StdMalloc: None (Default)");
+    static_assert(axis_06::JemallocAllocator::resource_ownership() == RO::None, "Jemalloc: None (Default)");
+    static_assert(axis_06::MimallocAllocator::resource_ownership() == RO::None, "Mimalloc: None (Default)");
+    static_assert(RO::None != RO::Owned && RO::None != RO::Borrowed, "None ist von beiden verschieden");
+    // Orthogonalitaet zu supports_pmr(): POOL, PMR UND jemalloc liefern supports_pmr()==true,
+    // aber NUR POOL/PMR haben ein eigenes/geborgtes Resource-Objekt -> resource_ownership trennt feiner.
+    static_assert(axis_06::JemallocAllocator::supports_pmr() &&
+                  axis_06::JemallocAllocator::resource_ownership() == RO::None,
+        "supports_pmr() != resource_ownership(): jemalloc ist pmr-nutzbar, besitzt aber keine Resource");
     SUCCEED();
 }
 
