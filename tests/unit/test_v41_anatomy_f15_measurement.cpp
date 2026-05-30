@@ -57,6 +57,7 @@
 #include <compositions/hot_reference.hpp>
 #include <compositions/masstree_reference.hpp>                         // 3. Komposition (echtes Masstree-Organ)
 #include <builder/anatomy_commands/anatomy_execution_context.hpp>      // Saeule-2: Per-Achsen-observe_all-Statistik
+#include <builder/anatomy_commands/tier_observe_trace_abi.hpp>         // R6 Inkrement 2: ABI-Fuellstands-Treiber
 
 #include <chrono>
 #include <cstdint>
@@ -301,6 +302,42 @@ TEST(F15Measurement, R6_HostSideObserverPullViaAbiInterface) {
     SUCCEED();
 #else
     GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus — R6-Observer-Trace n/a";
+#endif
+}
+
+// R6 Inkrement 2 (Doku 24 §8.7): host-seitiger Füllstands-Treiber über IObservableTier — korrelierte
+// (Wall-Clock ↔ Observer)-Erhebung über das ABI-Interface, OHNE den Composition-Typ zu kennen (nur Gattung).
+TEST(F15Measurement, R6_AbiTierObserveTraceCorrelatesWallClockAndObservers) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    namespace an2 = ::comdare::cache_engine::anatomy;
+    namespace ac2 = ::comdare::cache_engine::builder::anatomy_commands;
+    using Anatomy = an2::SearchAlgorithmAnatomy<comp::ArtComposition>;
+    an2::SearchAlgorithmAbiAdapter<Anatomy> tier;
+    auto* obs = dynamic_cast<an2::IObservableTier*>(static_cast<an2::IAnatomyBase*>(&tier));
+    ASSERT_NE(obs, nullptr);
+
+    ac2::AbiTierTraceConfig cfg;
+    cfg.fill_checkpoints       = {10, 100, 1000};
+    cfg.lookups_per_checkpoint = 500;
+    cfg.deletes_per_checkpoint = 50;
+    auto const trace = ac2::drive_tier_observe_trace_abi(*obs, cfg);
+
+    ASSERT_EQ(trace.checkpoints.size(), 3u);
+    std::uint64_t prev_inserts = 0;
+    for (std::size_t i = 0; i < trace.checkpoints.size(); ++i) {
+        auto const& cp = trace.checkpoints[i];
+        EXPECT_EQ(cp.fill_level, cfg.fill_checkpoints[i]);
+        EXPECT_EQ(cp.observer.tier_fill_level, cfg.fill_checkpoints[i]);   // Observer korreliert zum Füllstand
+        EXPECT_FALSE(cp.write_ns.empty());                                 // Tier-Wall-Clock erhoben (write)
+        EXPECT_EQ(cp.read_ns.size(), 500u);                               // r/w/d getrennt (read-Kurve)
+        EXPECT_GT(cp.observer.search_insert_count, prev_inserts);         // Inserts wachsen monoton
+        EXPECT_GT(cp.observer.search_lookup_count, 0u);
+        prev_inserts = cp.observer.search_insert_count;
+    }
+    EXPECT_EQ(trace.checkpoints.back().observer.tier_fill_level, 1000u);
+    SUCCEED();
+#else
+    GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus — R6-Trace n/a";
 #endif
 }
 
