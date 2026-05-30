@@ -19,7 +19,7 @@
 // @task #708 V41.F.6.1.R5.E
 // @related [[execution-engine-als-wurzel]] [[anatomie-gattungen]]
 
-#include <cache_engine/abi/anatomy_module_abi_v1.hpp>
+#include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp>   // R6 Ink.2b: leichte ABI-Schnittstelle (entkoppelt von abi_adapter.hpp)
 
 #include <cstdint>
 #include <filesystem>
