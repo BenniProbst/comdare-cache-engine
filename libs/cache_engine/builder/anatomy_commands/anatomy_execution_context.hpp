@@ -57,16 +57,22 @@ public:
     // Container-Operationen (R5.B: gehoeren in Builder, nicht Anatomie)
     // ─────────────────────────────────────────────────────────────────────
 
-    bool insert(key_type k, value_type v) { return container_.insert(k, v); }  // inserted-Flag (insert_or_assign-Semantik)
+    bool insert(key_type k, value_type v) {
+        search_organ_.insert(k, v);               // treibt + MISST die search_algo-Achse (echtes Composition-Organ; Rueckgabe egal — manche Organe insert()->void)
+        return container_.insert(k, v);            // inserted-Flag + ALLOCATOR-Achse (container_ ist immer bool)
+    }
 
-    [[nodiscard]] std::optional<value_type> lookup(key_type k) const { return container_.lookup(k); }
+    [[nodiscard]] std::optional<value_type> lookup(key_type k) const { return search_organ_.lookup(k); }  // echtes Organ (Lookup-Stats)
 
-    bool erase(key_type k) { return container_.erase(k); }
+    bool erase(key_type k) {
+        search_organ_.erase(k);
+        return container_.erase(k);
+    }
 
-    void clear() noexcept { container_.clear(); }
+    void clear() noexcept { container_.clear(); search_organ_.clear(); }
 
-    [[nodiscard]] std::size_t size()  const noexcept { return container_.occupied_count(); }
-    [[nodiscard]] bool        empty() const noexcept { return container_.occupied_count() == 0; }
+    [[nodiscard]] std::size_t size()  const noexcept { return search_organ_.occupied_count(); }
+    [[nodiscard]] bool        empty() const noexcept { return search_organ_.occupied_count() == 0; }
 
     /// Snapshot-Abruf (R5.A observe_all) — Saeule-2 (Doku 24 §5.2/§5.3): die 16 nicht-getriebenen Achsen
     /// kommen als Default aus der Anatomie; der GETRIEBENE search_algo-Slot bekommt die ECHTEN Zaehler
@@ -75,10 +81,10 @@ public:
     [[nodiscard]] observer_aggregate_t observe_all() const noexcept {
         observer_aggregate_t agg = anatomy_.observe_all();
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        // Achse 1 (search_algo) — echte Zaehler aus dem getriebenen Container.
-        if constexpr (ana::ObservableAxis<container_t>
-                   && ana::ObservableAxis<typename Composition::search_algo>) {
-            agg.search_algo = container_.statistics();  // Doku 24 §5.2-Luecke geschlossen
+        // Achse 1 (search_algo) — echte Zaehler aus dem GETRIEBENEN ECHTEN Composition-Organ (#42-Folge:
+        // jede Composition misst ihr EIGENES seziertes Organ, nicht mehr generisch SortedBinary).
+        if constexpr (ana::ObservableAxis<typename Composition::search_algo>) {
+            agg.search_algo = search_organ_.statistics();  // Doku 24 §5.2-Luecke geschlossen + mess-treu
         }
         // Achse 2 (allocator, Roadmap-1) — der innere ComposedStore-Vector treibt die Allocator-Achse REAL.
         // Doppeltes Gate: Composition::allocator observable UND der Store bietet allocator_statistics().
@@ -100,7 +106,11 @@ public:
 
 private:
     anatomy_t   anatomy_{};
-    container_t container_{};   // Saeule-2: getriebener uint64-ObservableComposedSearch (war std::map, R5.B-Pilot)
+    container_t container_{};   // misst die ALLOCATOR-Achse (ComposedStore<N,L,A>-Vector-Growth treibt allocator_statistics)
+    // Saeule-2-Mess-Treue (#42-Folge): das ECHTE sezierte Composition-Organ (ART/Masstree/Wormhole/SuRF/...)
+    // im search_algo-Slot misst jetzt die search_algo-Achse — statt fuer ALLE Compositions generisch SortedBinary.
+    // Default-konstruierbar + ObservableAxis (durch #42 garantiert: ObservableComposedContainer-Huelle).
+    typename Composition::search_algo search_organ_{};
 };
 
 }  // namespace comdare::cache_engine::builder::anatomy_commands
