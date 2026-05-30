@@ -772,6 +772,18 @@ target_include_directories(test_v41_axis_filter_surf_organ PRIVATE
 target_link_libraries(test_v41_axis_filter_surf_organ PRIVATE
     Boost::mp11)
 
+# V41 SuRF S2 Inkrement 1 — echtes succinct LOUDS-Sparse-Filter-Organ (no-FN + FP-Tunbarkeit + S2>=S1-Kreuzbeleg)
+comdare_add_test(test_v41_axis_filter_surf_louds_organ
+    SOURCES test_v41_axis_filter_surf_louds_organ.cpp)
+target_include_directories(test_v41_axis_filter_surf_louds_organ PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    "${CMAKE_BINARY_DIR}/generated/topics/filter/axis_filter")
+target_link_libraries(test_v41_axis_filter_surf_louds_organ PRIVATE
+    Boost::mp11)
+
 # V41.F.6.1.R7.5.f axis_io (4 Wrappers + TYPED_TEST_SUITE Pattern)
 comdare_add_test(test_v41_axis_io
     SOURCES test_v41_axis_io.cpp)
