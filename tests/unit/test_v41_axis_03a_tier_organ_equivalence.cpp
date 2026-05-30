@@ -97,6 +97,31 @@ TEST(Axis03aTierOrgan, MasstreeVariantsEquivalentToArt) {
     SUCCEED();
 }
 
+// Adversarial-Churn (Coverage-Haertung, Verifikation w2tra534f): wiederholtes Erase+Reinsert ueber Split-
+// Grenzen + Multi-Layer + Slot-Recycling; std::map-Kreuzpruefung nach JEDER Phase.
+TEST(Axis03aTierOrgan, MasstreeChurnStressMatchesStdMap) {
+    MasstreeOrgan2 organ;
+    std::map<std::uint64_t, std::uint64_t> ref;
+    auto check = [&](char const* ph) {
+        ASSERT_EQ(organ.occupied_count(), ref.size()) << ph;
+        for (auto const& kv : ref) { auto o = organ.lookup(kv.first); ASSERT_TRUE(o.has_value()) << ph << " k=" << kv.first; ASSERT_EQ(*o, kv.second); }
+    };
+    for (std::uint64_t i = 0; i < 2000; ++i) { std::uint64_t const k = (i * 2654435761u) % 40000u; organ.insert(k, k * 7 + 1); ref[k] = k * 7 + 1; }
+    check("fill");
+    for (std::uint64_t i = 0; i < 2000; i += 3) { std::uint64_t const k = (i * 2654435761u) % 40000u; organ.erase(k); ref.erase(k); }
+    check("erase-1/3");
+    for (std::uint64_t i = 0; i < 2000; i += 3) { std::uint64_t const k = (i * 2654435761u) % 40000u; organ.insert(k, k * 13 + 2); ref[k] = k * 13 + 2; }
+    check("reinsert");
+    for (std::uint64_t i = 0; i < 800; ++i) { std::uint64_t const k = (std::uint64_t{0x00AB} << 48) | ((i * 40503u) % 0xFFFFFFFFu); organ.insert(k, k | 1); ref[k] = k | 1; }   // shared slice[0] -> Multi-Layer
+    check("layer-block");
+    std::vector<std::uint64_t> keys; keys.reserve(ref.size());
+    for (auto const& kv : ref) keys.push_back(kv.first);
+    for (auto it = keys.rbegin(); it != keys.rend(); ++it) { organ.erase(*it); ref.erase(*it); }   // absteigend leeren
+    ASSERT_EQ(organ.occupied_count(), 0u);
+    EXPECT_FALSE(organ.lookup(keys.front()).has_value());
+    SUCCEED();
+}
+
 // --- Jeder bereits sezierte Tier-Wrapper == std::map (vertikal, in seiner eigenen Key-Breite) -----------
 TEST(Axis03aTierOrgan, EachDissectedTierMatchesStdMap) {
     ts::verify_matches_std_map<ce_03a::Array256SearchAlgo>(200u, 255u);          // uint8
