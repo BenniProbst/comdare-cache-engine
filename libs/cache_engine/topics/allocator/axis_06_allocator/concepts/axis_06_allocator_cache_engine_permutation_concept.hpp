@@ -83,6 +83,31 @@ enum class ProgressGuarantee : int {
 };
 
 /**
+ * @brief ResourceOwnership — Besitz-Modell des zugrundeliegenden std::pmr::memory_resource
+ *
+ * V41.F.6.1.R7.4 ([[vendor-sonderfaelle-als-pflicht-property]]): macht die bislang nur per
+ * Kommentar getrennte PMR-Familie (A22) typsicher unterscheidbar. Der CacheEngineBuilder kann
+ * daraus Lebensdauer-/Konfigurations-Constraints ableiten (geborgte Resource = Aufrufer muss sie
+ * ueberleben lassen; eigene Resource = Wrapper-Instanz haelt sie selbst).
+ *
+ * - None     : Allokator verwaltet KEIN std::pmr::memory_resource-Objekt (libc malloc + alle
+ *              Vendor-Allokatoren rufen direkt malloc/vendor-API; Default).
+ * - Owned    : Wrapper BESITZT seine memory_resource (Lebensdauer an die Instanz gebunden, z.B.
+ *              PoolResourceAllocator haelt einen eigenen unsynchronized_pool_resource).
+ * - Borrowed : Wrapper LEITET eine extern besessene memory_resource WEITER (roher Zeiger, Lebens-
+ *              dauer liegt beim Aufrufer, z.B. PmrResourceAllocator ueber new_delete_resource()).
+ *
+ * Orthogonal zu supports_pmr(): supports_pmr() == "kann als pmr-Resource genutzt werden" (POOL/PMR
+ * UND z.B. jemalloc == true), waehrend resource_ownership() das BESITZMODELL des Resource-Objekts
+ * angibt (nur POOL=Owned, PMR=Borrowed, malloc-Familie=None).
+ */
+enum class ResourceOwnership : int {
+    None     = 0,  // kein eigenes/geborgtes memory_resource-Objekt (Default, malloc-Familie)
+    Owned    = 1,  // eigene memory_resource (Lebensdauer an die Wrapper-Instanz gebunden)
+    Borrowed = 2,  // externe memory_resource durchgereicht (Lebensdauer beim Aufrufer)
+};
+
+/**
  * @brief CacheEnginePermutationStrategy - cache-engine-Pflicht-API
  * @topic allocator
  * @achse 6
@@ -157,6 +182,11 @@ concept CacheEnginePermutationStrategy =
         // Constraint wait-free => lock-free). Jetzt 1 ordinaler Enum-Wert.
         // CacheEngineBuilder: `level() >= LockFree` deckt lock-free + wait-free.
         { A::progress_guarantee() } -> std::convertible_to<ProgressGuarantee>;
+        // V41.F.6.1.R7.4 ([[vendor-sonderfaelle-als-pflicht-property]]): Besitz-Modell des
+        // memory_resource-Objekts (None/Owned/Borrowed). Grenzt POOL (Owned) gegen PMR (Borrowed)
+        // gegen malloc-Familie (None) TYPSICHER ab. Default None liefert AllocatorStrategyBase —
+        // nur POOL/PMR ueberschreiben (kein Bloat: nicht 25x hardcoded).
+        { A::resource_ownership() } -> std::convertible_to<ResourceOwnership>;
     }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     // V41.F.6.1 Stufe 3 LIVE (Doku §15.3 + §15.8 / User-Direktive [[statistics-observer-pflicht]]):

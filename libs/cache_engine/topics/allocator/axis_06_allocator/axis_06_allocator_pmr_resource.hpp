@@ -66,6 +66,13 @@ public:
     [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept { return concepts::ProgressGuarantee::Blocking; }
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
 
+    /// R7.4: LEITET eine EXTERN besessene memory_resource WEITER (roher Zeiger; Default = globaler
+    /// new_delete_resource() bzw. eine vom Aufrufer per Constructor uebergebene Resource, deren
+    /// Lebensdauer der Aufrufer garantiert) -> Borrowed. Grenzt PMR gegen POOL (Owned) ab.
+    [[nodiscard]] static constexpr concepts::ResourceOwnership resource_ownership() noexcept {
+        return concepts::ResourceOwnership::Borrowed;
+    }
+
     PmrResourceAllocator() noexcept
         : resource_(std::pmr::new_delete_resource()) {}
 

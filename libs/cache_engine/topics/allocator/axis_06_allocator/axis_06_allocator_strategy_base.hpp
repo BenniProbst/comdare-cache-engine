@@ -72,6 +72,17 @@ public:
     // ───────────────────────────────────────────────────────────────────────
 
     // ───────────────────────────────────────────────────────────────────────
+    // V41.F.6.1.R7.4 Cross-Axis-Default resource_ownership() ([[cross-axis-defaults-no-bloat]]):
+    // Das Besitz-Modell des memory_resource-Objekts ist fuer die GANZE malloc-Familie (libc +
+    // alle Vendor-Allokatoren) None — sie verwalten kein std::pmr::memory_resource. Der Default
+    // gehoert daher EINMAL hierher in die CRTP-Wurzel, NICHT 25x in die Wrapper. Nur die beiden
+    // PMR-Familien-Wrapper ueberschreiben (PoolResourceAllocator=Owned, PmrResourceAllocator=Borrowed).
+    // ───────────────────────────────────────────────────────────────────────
+    [[nodiscard]] static constexpr concepts::ResourceOwnership resource_ownership() noexcept {
+        return concepts::ResourceOwnership::None;
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
     // CRTP-Delegate-Methoden zu Derived (Standard-PMR-Naming)
     // ───────────────────────────────────────────────────────────────────────
 
