@@ -580,4 +580,67 @@ derselbe Mechanismus (mehrere Slots / mehrere full-join-Faktoren). Erster bounde
 
 ---
 
-**Ende Doku 24 — Mess-Modell-Korrektur (2026-05-29; §8 HYBRID + korrelierte Erhebung + R6 + §8.8 Prüf-Dock + §8.9 Prüfling-Integration 2026-05-30).**
+### §8.9.1 Zwei Anatomie-Generatoren EINER Gattung, EIN Prüf-Dock, EINE Konfigurator-Struktur — und die Regel der abstrakt-leeren Achse (User 2026-05-30)
+
+> **User 2026-05-30 (verbatim-tragend):** „[…] beide cache engine und prt-art müssen aus derselben
+> Konfigurator-Struktur heraus als zwei Anatomie-Generatoren von Tieren derselben Gattung agieren. Das heißt
+> ihre Binaries werden alle durch exakt dasselbe Dock gemessen, aber per Konfiguration sind sie in derselben
+> Gattung zwei unterschiedliche Tier-Klassifizierungen (wie es unter den Tieren Säugetiere und Reptilien gibt,
+> deren Organe aber im Schnitt gleich und austauschbar sind und es Mischformen wie das Schnabeltier gibt, das
+> weder Vogel, noch Reptil, noch Säugetier ist, aber dennoch alle Organe vereint → full-join-Hybrid zweier
+> Tierklassen zu einer Tierklasse, beschreibbar durch die mathematische Mengenlehre A, B und A-JOIN-B). Wir
+> hatten definiert, dass wenn die Achse eines Prüflings abstrakt leer ist, dass sie dann alle Algorithmen der
+> cache engine automatisch als Default wiederverwendet und versucht ALLE Permutationen dieser bereitzustellen,
+> um die schnellste Rekombination per Ausmessen für den Prüfling-Algorithmus-Tierklassen-Prototypen zu finden."
+
+**(1) EINE Konfigurator-Struktur, zwei Generatoren.** cache-engine und Prüfling (prt-art) sind KEINE getrennten
+Build-Welten: sie sind **zwei Anatomie-Generatoren EINER Gattung** (z.B. SearchAlgorithm), gespeist aus
+**derselben Konfigurator-Struktur** — `PermutationEngine<TopicConfigSets...>`
+(`src/permutations/permutation_engine.hpp`, `mp_product`-Kartesisch) über die je Achse per
+`MergeAxis<Stufe, DefaultList, Slot...>` (`anatomy/pruefling_merge.hpp`) aufgelösten Varianten-Listen. Der
+Generator ist identisch; nur die je-Achse-Liste unterscheidet die Stufe/Klassifizierung. Die cache-engine
+funktioniert dabei IMMER unter ihrer eigenen Konfiguration (Stufe 1) — der Prüfling ist additiv eingeklinkt.
+
+**(2) EIN Prüf-Dock misst alle.** Weil beide Generatoren Tiere DERSELBEN Gattung erzeugen, gehen ALLE ihre
+Binaries — Stufe 1 (CE), Stufe 2 (Prüfling), Stufe 3 (Hybrid) — durch **exakt dasselbe Prüf-Dock** (§8.8;
+für Suchalgorithmen `SearchAlgorithmDock`). `PruefDockRegistry::select_for` wählt nach `genus()`, **NICHT**
+nach CE-vs-Prüfling — die Tier-Klassifizierung ist mess-transparent; identische ABI-Schnittstelle, identischer
+Mess-Treiber, identische Observer-Persistierung.
+
+**(3) Mengenlehre der Tier-Klassifizierungen.** Innerhalb der Gattung sind CE und Prüfling **zwei
+Tier-Klassifizierungen** (Metapher: Säugetier `A` vs. Reptil `B`) mit im Schnitt gleichen, austauschbaren
+Organen (Achsen). Die 3 Join-Muster (§8.9) sind die mengentheoretischen Operationen:
+
+| Stufe | Mengenlehre | Tier-Metapher |
+|-------|-------------|---------------|
+| Stufe 1 `comdare_perms_ce` | `A` | reine CE-Klasse (Säugetier) |
+| Stufe 2 `comdare_perms_<pruefling>` | `B` | reine Prüfling-Klasse (Reptil) |
+| Stufe 3 `comdare_perms_full_join` | `A ⋈ B` (full join, dedupliziert) | **Schnabeltier** — Hybrid, der ALLE Organe beider Klassen vereint |
+
+**(4) Die Regel der abstrakt-leeren Achse — der „Tierklassen-Prototyp".** Ein Prüfling liefert NUR für EINIGE
+Achsen eigene Algorithmen. Für jede Achse, die er NICHT belegt (Slot **abstrakt leer**, `has_pruefling == false`),
+gilt: er **reust ALLE CE-Algorithmen dieser Achse als Default** und der Generator **permutiert sie voll aus**.
+Type-Mechanik (`pruefling_merge.hpp`): `StufeTwoAxis<DefaultList, EmptyPrueflingSlot> == DefaultList`
+(volle CE-Liste). Damit ist der Stufe-2-Raum des Prüfling-Prototyps:
+
+```
+B  =  ∏ (belegte Achsen i: {prüfling_i})  ×  ∏ (leere Achsen j: A_j)
+   =  1^|belegt|  ×  ∏_j |A_j|
+```
+
+— das **kartesische Produkt ÜBER DIE LEEREN ACHSEN**, NICHT eine einzige Komposition. Genau diese
+Rekombinationen materialisiert die Metaprogrammierung, und das Prüf-Dock **misst sie alle aus, um die schnellste
+Rekombination des Prototyps zu finden**. Die frühere Teilsicht „Stufe 2 = 1 Komposition" gilt NUR, wenn man
+ausschließlich die belegten Achsen betrachtet — über die volle (z.B. 17-Achsen-)Anatomie expandieren die leeren
+Achsen den Raum.
+
+**Beleg (Compile-Time, IST-verifiziert).** `prt_art/tests/unit/test_prt_art_pruefling_registration.cpp`,
+`F5_DreigliedrigkeitPermutationSpace`:
+- `.StufeTwoEmptyAxesReuseAllCeAlgorithms` — `static_assert(StufeTwoAxis<…,EmptyPrueflingSlot> == DefaultList)`
+  (Type-Beleg) **+** `PermutationEngine::count() == ∏_leer |A_j|  > 1` (Raum-Beleg über 2 leere + 2 belegte Achsen).
+- `.ThreeStufenProduceDistinctBinarySetSizes` — Stufe 1 = `∏ A_i`, Stufe 2 (belegt-Teilsicht) = 1,
+  Stufe 3 = `∏ (|A_i|+1)` (full-join `A ⋈ B`).
+
+---
+
+**Ende Doku 24 — Mess-Modell-Korrektur (2026-05-29; §8 HYBRID + korrelierte Erhebung + R6 + §8.8 Prüf-Dock + §8.9 Prüfling-Integration + §8.9.1 Zwei-Generatoren/leere-Achse-Regel 2026-05-30).**
