@@ -17,6 +17,11 @@
 #include <anatomy/measurable_workload.hpp>
 #include <builder/commands/multi_compare.hpp>
 #include <builder/commands/result_aggregator.hpp>
+// V41 OpenDone.2 — Pfad-B Prüf-Dock-Observe-Modus (Option B: Standalone-CLI mit measure_genus_sequential).
+#include <builder/pruef_dock/pruef_dock.hpp>
+#include <builder/pruef_dock/search_algorithm_dock.hpp>
+#include <builder/pruef_dock/pruef_dock_registry.hpp>
+#include <builder/pruef_dock/pruef_dock_sequencer.hpp>
 
 #include <algorithm>
 #include <charconv>
@@ -25,6 +30,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
@@ -50,7 +56,11 @@ void print_usage() {
         << "  --batches=N    Batches (= Latenz-Samples pro DLL), Default 128\n"
         << "  --seed=N       RNG-Seed, Default 11\n"
         << "  --csv=PATH     Report zusaetzlich als CSV schreiben\n"
-        << "  --json=PATH    Report zusaetzlich als JSON schreiben\n";
+        << "  --json=PATH    Report zusaetzlich als JSON schreiben\n"
+        << "  --observe      Pfad-B Prüf-Dock-Modus: jede DLL ueber das gattungs-passende Prüf-Dock\n"
+        << "                 (measure_genus_sequential) messen + Observer-Trace (CSV+JSON) je DLL schreiben.\n"
+        << "                 Funktioniert ab 1 DLL (kein Baseline-Vergleich). Statt des Pfad-A-Vergleichs.\n"
+        << "  --observe-out=DIR  Ausgabe-Verzeichnis fuer die je-DLL Observer-Traces (Default: .)\n";
 }
 
 bool parse_flag_u64(std::string_view arg, std::string_view key, std::uint64_t& out) {
@@ -104,17 +114,20 @@ int main(int argc, char** argv) {
 
     double        alpha    = 0.05;
     std::uint64_t baseline = 0, ops = 2000, batches = 128, seed = 11;
-    std::string   csv_path, json_path;
+    std::string   csv_path, json_path, observe_out;
+    bool          observe = false;
     for (int i = first_opt; i < argc; ++i) {
         std::string_view a{argv[i]};
         std::uint64_t u{};
-        if      (parse_flag_double(a, "--alpha=", alpha))     {}
+        if      (a == "--observe")                            { observe = true; }
+        else if (parse_flag_double(a, "--alpha=", alpha))     {}
         else if (parse_flag_u64(a, "--baseline=", u))         { baseline = u; }
         else if (parse_flag_u64(a, "--ops=", u))              { ops = u; }
         else if (parse_flag_u64(a, "--batches=", u))          { batches = u; }
         else if (parse_flag_u64(a, "--seed=", u))             { seed = u; }
         else if (parse_flag_str(a, "--csv=", csv_path))       {}
         else if (parse_flag_str(a, "--json=", json_path))     {}
+        else if (parse_flag_str(a, "--observe-out=", observe_out)) {}
         else { std::cerr << "Unbekannte Option: " << a << "\n"; print_usage(); return 1; }
     }
     if (batches == 0) batches = 1;
@@ -125,6 +138,56 @@ int main(int argc, char** argv) {
         std::cerr << "load_all fehlgeschlagen: " << loader::status_name(st) << " (dir=" << dll_dir << ")\n";
         return 2;
     }
+
+    // ── OpenDone.2 / Pfad B — Prüf-Dock-Observe-Modus (Option B: Standalone-CLI mit measure_genus_sequential).
+    // Wireht den (in test_v41_anatomy_adhoc_dll_load bewiesenen) Prüf-Dock-Mess-Pfad als CLI: jede REAL
+    // dlopen-geladene DLL wird gattungs-sequentiell über ihr passendes Dock gemessen (IObservableTier →
+    // drive_tier_observe_trace_abi → CSV/JSON), die Observer-Traces je DLL persistiert. Funktioniert ab 1 DLL.
+    if (observe) {
+        namespace pd = ::comdare::cache_engine::builder::pruef_dock;
+        pd::PruefDockRegistry reg;
+        reg.register_dock(std::make_unique<pd::SearchAlgorithmDock>());
+
+        // Checkpoints inkl. 1000 (> typischer Fixed-Capacity-Tier): der drive_tier_observe_trace_abi-
+        // Stagnations-Guard (max_insert_stagnation) bricht die WRITE-Phase an der effektiven Tier-Kapazität
+        // ab statt zu haengen → der Checkpoint zeigt dann den Kapazitäts-Füllstand. Robust gegen jede Permutation.
+        pd::PruefDockMeasureOptions opts;
+        opts.fill_checkpoints       = {50, 200, 1000};
+        opts.lookups_per_checkpoint = ops;
+        opts.deletes_per_checkpoint = ops / 10;
+
+        auto const results = pd::measure_genus_sequential(reg, handles, opts);  // sortiert handles in-place
+        std::filesystem::path const out_dir = observe_out.empty()
+            ? std::filesystem::path{"."} : std::filesystem::path{observe_out};
+        std::cout << "F15 Pfad-B Prüf-Dock-Observe über " << results.size()
+                  << " DLL(s) (gattungs-sequentiell, out=" << out_dir.string() << "):\n";
+        int ok = 0;
+        for (std::size_t i = 0; i < results.size(); ++i) {
+            auto const& r = results[i];
+            std::string const nm = (i < handles.size() && handles[i].anatomy() != nullptr)
+                ? std::string{handles[i].anatomy()->composition_name()} + "_" + std::to_string(i)
+                : std::string{"module_"} + std::to_string(i);
+            std::cout << "  [" << i << "] " << nm
+                      << "  dock=" << (r.dock_name.empty() ? "<none>" : r.dock_name)
+                      << "  genus=" << static_cast<int>(r.genus)
+                      << "  status=" << pd::dock_status_name(r.status) << "\n";
+            if (r.status == pd::dock_status_ok) {
+                std::filesystem::path const csv_p  = out_dir / (nm + ".observe.csv");
+                std::filesystem::path const json_p = out_dir / (nm + ".observe.json");
+                if (write_text_file(csv_p.string(), r.csv) && write_text_file(json_p.string(), r.json)) {
+                    std::cout << "        CSV -> " << csv_p.string()
+                              << "  JSON -> " << json_p.string() << "\n";
+                    ++ok;
+                } else {
+                    std::cerr << "        Trace-Schreiben fehlgeschlagen (" << nm << ")\n";
+                }
+            }
+        }
+        std::cout << "  " << ok << "/" << results.size()
+                  << " Modul(e) erfolgreich observiert (Pfad B).\n";
+        return (ok > 0) ? 0 : 5;
+    }
+
     if (handles.size() < 2) {
         std::cerr << "Brauche >= 2 DLLs fuer einen Vergleich (geladen: " << handles.size() << ")\n";
         return 3;

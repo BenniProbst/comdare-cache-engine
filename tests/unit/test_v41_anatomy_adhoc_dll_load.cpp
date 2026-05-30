@@ -12,6 +12,7 @@
 #include <builder/pruef_dock/pruef_dock.hpp>
 #include <builder/pruef_dock/search_algorithm_dock.hpp>
 #include <builder/pruef_dock/pruef_dock_registry.hpp>
+#include <builder/anatomy_commands/tier_observe_trace_abi.hpp>
 
 #include <gtest/gtest.h>
 #include <algorithm>
@@ -95,5 +96,34 @@ TEST(R8RestA_DockMeasuresRealDll, RealAdHocDllObservedThroughSearchAlgorithmDock
     EXPECT_NE(json.find("\"fill_level\""), std::string::npos);                        // Tier-Fuellstand pro Checkpoint
 #else
     GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus — e2e-Dock-Mess-Test n/a";
+#endif
+}
+
+// V41 (2026-05-31) — Robustheits-Regression: der Fuellstands-Treiber haengt NICHT bei einem Fill ÜBER die
+// Tier-Kapazitaet. Der AdHoc-Tier hat 256 Slots (via f15_compare --observe entdeckt); ein Checkpoint von
+// 1e6 wuerde ohne den max_insert_stagnation-Guard `while (tier_size() < target)` ENDLOS laufen. Der Guard
+// deckelt die WRITE-Phase an der effektiven Kapazitaet → der Treiber terminiert + liefert einen gedeckelten
+// fill_level. (Bug entdeckt + gefixt in der OpenDone.2-Charge.)
+TEST(R8RestA_DockMeasuresRealDll, ObserveTraceGuardCapsOverCapacityFillNoHang) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    namespace ac = ::comdare::cache_engine::builder::anatomy_commands;
+    std::filesystem::path const dir{COMDARE_R5G_ADHOC_DLL_DIR};
+    std::vector<loader::AnatomyModuleHandle> handles;
+    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(dir, handles), loader::status_ok);
+    ASSERT_GE(handles.size(), 1u);
+    auto* obs = dynamic_cast<ana::IObservableTier*>(handles[0].anatomy());
+    ASSERT_NE(obs, nullptr);
+
+    ac::AbiTierTraceConfig cfg;
+    cfg.fill_checkpoints       = {1'000'000};   // WEIT über die 256-Slot-Kapazität
+    cfg.lookups_per_checkpoint = 10;
+    cfg.deletes_per_checkpoint = 0;
+    cfg.max_insert_stagnation  = 1024;          // schneller, bounded Abbruch
+    auto const trace = ac::drive_tier_observe_trace_abi(*obs, cfg);   // MUSS terminieren (ohne Guard = Hang)
+    ASSERT_EQ(trace.checkpoints.size(), 1u);
+    EXPECT_GT(trace.checkpoints[0].fill_level, 0u);
+    EXPECT_LT(trace.checkpoints[0].fill_level, 1'000'000u);   // an der effektiven Kapazität gedeckelt
+#else
+    GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus";
 #endif
 }
