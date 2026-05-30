@@ -1025,6 +1025,20 @@ target_include_directories(test_v41_anatomy_adhoc_codegen_macro PRIVATE
     "${CMAKE_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_adhoc_codegen_macro PRIVATE Boost::mp11)
+
+# V41.F.6.1.R6 — Prüf-Dock SearchAlgorithm (per-Gattung ABI-Mess-Übergang, Doku 24 §8.8). In-Process-Test:
+# verkabelt IObservableTier + AnatomyModuleHandle + drive_tier_observe_trace_abi hinter IPruefDock.
+comdare_add_test(test_v41_pruef_dock_search_algorithm
+    SOURCES test_v41_pruef_dock_search_algorithm.cpp)
+target_include_directories(test_v41_pruef_dock_search_algorithm PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_v41_pruef_dock_search_algorithm PRIVATE
+    Boost::mp11
+    comdare::anatomy_module_loader)
 target_compile_definitions(test_v41_anatomy_adhoc_codegen_macro PRIVATE COMDARE_ANATOMY_ABI_STATIC=1)
 
 # V41.F.6.1 R5.G — constexpr type_name<T>() (Auto-Emitter-Grundlage: FQ-Typ-Name als String).
