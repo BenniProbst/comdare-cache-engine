@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 axis_03b_cache_traversal AUTO-GENERATED Flags
 
-namespace comdare::cache_engine::traversal::axis_03b_cache_traversal::flags {
+namespace comdare::cache_engine::cache_traversal::flags {
 
 // Pilot Batch 1 (CT-LINEAR, CT-HASH) — 2026-05-26
 #cmakedefine01 COMDARE_AXIS_03B_USE_LINEAR_FANOUT

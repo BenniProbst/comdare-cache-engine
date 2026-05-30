@@ -68,8 +68,8 @@ namespace comdare::cache_engine {
 // F.2 — axen-zentrische Namespace-Aliase (17 Achsen). Ab sofort gueltige Zugriffs-Struktur.
 // ─────────────────────────────────────────────────────────────────────────────
 namespace lookup             = ::comdare::cache_engine::traversal::axis_03a_search_algo;       // Such-/Lookup-Algorithmus
-namespace cache_traversal    = ::comdare::cache_engine::traversal::axis_03b_cache_traversal;   // Cache-Traversal
-namespace mapping            = ::comdare::cache_engine::traversal::axis_03m_mapping;           // Slot-Mapping
+// V41.F.2: cache_traversal = ECHTER physischer Namespace (axes/cache_traversal/), KEIN Alias (Forwarder).
+// V41.F.2: mapping = ECHTER physischer Namespace (axes/mapping/), KEIN Alias (Forwarder).
 // V41.F.2: path_compression = ECHTER physischer Namespace (axes/path_compression/), KEIN Alias (Forwarder).
 // V41.F.2: node = ECHTER physischer Namespace (axes/node/), KEIN Alias (Forwarder).
 namespace layout             = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;  // Speicher-Layout

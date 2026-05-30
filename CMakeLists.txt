@@ -685,8 +685,8 @@ foreach(_s03b LINEAR_FANOUT HASH_LOOKUP BINARY_SEARCH_FANOUT)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/cache_traversal/axis_03b_cache_traversal_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/cache_traversal/axis_03b_cache_traversal_flags.hpp"
     @ONLY)
 
 # axis_03m mapping
@@ -698,8 +698,8 @@ foreach(_s03m DIRECT_PLACEMENT POOL_RELATIVE)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/traversal/axis_03m_mapping/axis_03m_mapping_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/traversal/axis_03m_mapping/axis_03m_mapping_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/mapping/axis_03m_mapping_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/mapping/axis_03m_mapping_flags.hpp"
     @ONLY)
 
 message(STATUS "V41.F.6.1 Topic traversal Pilot:")
