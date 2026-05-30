@@ -25,6 +25,7 @@
 #include "composed_skip_list_search.hpp"          // SkipListTraversalOrgan + SkipListNodePoolStore + ComposedSkipListSearch (#41)
 #include "composed_btree_search.hpp"              // BTreeTraversalOrgan + BTreeNodePoolStore + ComposedBTreeSearch (#41)
 #include "composed_art_trie_search.hpp"           // ArtTrieTraversalOrgan + ArtTrieNodePoolStore + ComposedArtTrieSearch (#43 s4)
+#include "composed_hot_patricia_search.hpp"       // HotPatriciaTraversalOrgan + HotPatriciaNodePoolStore + ComposedHotPatriciaSearch (#43 s4)
 
 namespace comdare::cache_engine::traversal::axis_03a_search_algo::composable {
 
@@ -49,7 +50,10 @@ using BTreeSearchOrgan   = ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoo
 // (Loest den fruehen flachen LinearScanOrgan-Platzhalter ab: ART ist jetzt als echtes Organ rekonstruiert.)
 using ArtTrieOrgan          = ComposedArtTrieSearch<ArtTrieTraversalOrgan, ArtTrieNodePoolStore>;
 using OriginalArtOrgan      = ArtTrieOrgan;
-using OriginalHotOrgan      = SortedBinaryOrgan;  // S05 HOT      (uint8, sorted-vector+lower_bound)
+// S05 HOT: ECHTE bit-level Patricia-Anatomie (#43 s4) — crit-bit (countl_zero MSB-first) + Single-Bit-Split +
+// Collapse-Erase. is_original=false ([[pseudocode-papers-fallback]]); Multi-Bit/SparsePartialKeys+SIMD = Folge.
+using HotPatriciaOrgan      = ComposedHotPatriciaSearch<HotPatriciaTraversalOrgan, HotPatriciaNodePoolStore>;
+using OriginalHotOrgan      = HotPatriciaOrgan;   // S05 HOT (war flacher SortedBinaryOrgan-Platzhalter)
 using OriginalStartOrgan    = SortedBinaryOrgan;  // S06 START    (uint16! sorted-vector — Beleg key_mod=1000)
 using OriginalWormholeOrgan = SortedBinaryOrgan;  // S07 Wormhole (uint8, sorted-vector — KEIN Hash/Trie im Body)
 using OriginalSurfOrgan     = SortedBinaryOrgan;  // S08 SuRF     (uint8, sorted-vector — exaktes K->V im Body)

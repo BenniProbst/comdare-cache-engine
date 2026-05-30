@@ -168,6 +168,50 @@ TEST(Axis03aTierOrgan, Uint64ArtTrieMatchesStdMap) {
     SUCCEED();
 }
 
+// --- HOT echte bit-Patricia-Anatomie (#43 s4) ----------------------------------------------------------
+// OriginalHotOrgan ist jetzt das ECHTE HOT-Organ (ComposedHotPatriciaSearch: binary crit-bit, MSB-first,
+// Single-Bit-Split + Collapse-Erase). Der uint8-Beleg (HOT ≡ OriginalHotSearchAlgo) laeuft in
+// Uint8OriginalTiersReconstructibleFromOrgan oben; uint8-Keys belegen MSB-first nur eine flache Patricia,
+// daher hier zusaetzlich MULTI-BIT-uint64-Belege (mehrstufige Patricia + Single-Bit-Split + Collapse).
+TEST(Axis03aTierOrgan, Uint64HotPatriciaMatchesStdMap) {
+    ts::verify_matches_std_map<ce_cmp::HotPatriciaOrgan>(60000u, 60000u);
+    SUCCEED();
+}
+
+TEST(Axis03aTierOrgan, HotPatriciaMultiLevelStressMatchesStdMap) {
+    ce_cmp::HotPatriciaOrgan organ;
+    std::map<std::uint64_t, std::uint64_t> ref;
+
+    // (1) tiefe Patricia + viele Single-Bit-Splits.
+    for (std::uint64_t k = 0; k < 1200; ++k) { organ.insert(k, k * 3 + 1); ref[k] = k * 3 + 1; }
+    art_cross_check(organ, ref, 1300);
+    // (2) hohe Bytes -> lange gemeinsame MSB-Prefixe, tiefe Descent-Ketten.
+    for (std::uint64_t hi = 1; hi <= 8; ++hi) { std::uint64_t const k = (hi << 16) | 0x0102u; organ.insert(k, k); ref[k] = k; }
+    ASSERT_EQ(organ.occupied_count(), ref.size());
+    for (auto const& kv : ref) { auto o = organ.lookup(kv.first); ASSERT_TRUE(o.has_value()); ASSERT_EQ(*o, kv.second); }
+    // (3) Update-Pfad (a==b) — KEIN Count-Wachstum.
+    for (std::uint64_t k = 0; k < 1200; k += 3) { organ.insert(k, k * 7); ref[k] = k * 7; }
+    art_cross_check(organ, ref, 1300);
+    // (4) Erase jeden 2. -> Collapse + Doppel-free + Free-List-Recycling.
+    for (std::uint64_t k = 0; k < 1200; k += 2) { organ.erase(k); ref.erase(k); }
+    art_cross_check(organ, ref, 1300);
+    // (5) Rest absteigend leeren -> root==NIL, dann Re-Insert (Recycling beider Kinds).
+    std::vector<std::uint64_t> rest;
+    for (auto const& kv : ref) rest.push_back(kv.first);
+    for (auto it = rest.rbegin(); it != rest.rend(); ++it) { organ.erase(*it); ref.erase(*it); }
+    ASSERT_EQ(organ.occupied_count(), 0u);
+    for (std::uint64_t k = 100; k < 400; ++k) { organ.insert(k, k + 9); ref[k] = k + 9; }
+    art_cross_check(organ, ref, 500);
+
+    // ZUSATZ — Patricia-Extreme (Bit-Grenzfaelle ueber den ART-Klon hinaus).
+    organ.clear(); ref.clear();
+    organ.insert(0, 1); ref[0] = 1; organ.insert(1, 2); ref[1] = 2;                          // crit_bit=63 (tiefste Stelle)
+    organ.insert(0x8000000000000000ULL, 3); ref[0x8000000000000000ULL] = 3;                  // crit_bit=0 (Wurzel-Split)
+    for (int s = 0; s < 16; ++s) { std::uint64_t const k = (1ULL << s) - 1; organ.insert(k, k + 1); ref[k] = k + 1; }  // 0,0x1,0x3,0x7,... Praefix-Kette
+    for (auto const& kv : ref) { auto o = organ.lookup(kv.first); ASSERT_TRUE(o.has_value()) << kv.first; ASSERT_EQ(*o, kv.second); }
+    ASSERT_FALSE(organ.lookup(0x4000000000000000ULL).has_value());                           // Phantom-Negativprobe
+}
+
 // Adversarial: erzwingt mehrstufigen Trie + N4->N256-Growth an Verzweigungen + Prefix-Split + Erase.
 TEST(Axis03aTierOrgan, ArtTrieMultiLevelStressMatchesStdMap) {
     ce_cmp::ArtTrieOrgan organ;
