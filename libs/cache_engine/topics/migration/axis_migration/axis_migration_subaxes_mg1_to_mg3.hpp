@@ -1,15 +1,4 @@
 #pragma once
-// V41.F.6.1.R7.5.g axis_migration Subaxes-Tags
-
-namespace comdare::cache_engine::migration::axis_migration::subaxes {
-
-// MG1: Trigger (none / threshold / observation)
-struct trigger_tag {};
-
-// MG2: Direction (none / up / down / bidirectional)
-struct direction_tag {};
-
-// MG3: Granularity (none / page / block / object)
-struct granularity_tag {};
-
-}  // namespace
+// V41.F.2 Forwarding-Header (Stufe 2): Achse physisch nach axes/migration_policy/ migriert.
+#include <axes/migration_policy/axis_migration_subaxes_mg1_to_mg3.hpp>
+namespace comdare::cache_engine::migration::axis_migration { using namespace comdare::cache_engine::migration_policy; }

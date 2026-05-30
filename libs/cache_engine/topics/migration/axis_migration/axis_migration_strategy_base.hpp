@@ -1,20 +1,4 @@
 #pragma once
-// V41.F.6.1.R7.5.g axis_migration CRTP-StrategyBase (Goldstandard)
-
-#include "concepts/axis_migration_concept.hpp"
-#include "concepts/axis_migration_cache_engine_permutation_concept.hpp"
-#include "../../axis_base.hpp"
-
-namespace comdare::cache_engine::migration::axis_migration {
-
-template <typename Derived>
-class MigrationStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
-protected:
-    MigrationStrategyBase() noexcept {
-        static_assert(concepts::MigrationStrategy<Derived>);
-        static_assert(concepts::CacheEnginePermutationStrategy<Derived>);
-        static_assert(::comdare::cache_engine::topics::AxisBaseConcept<Derived>);
-    }
-};
-
-}  // namespace
+// V41.F.2 Forwarding-Header (Stufe 2): Achse physisch nach axes/migration_policy/ migriert.
+#include <axes/migration_policy/axis_migration_strategy_base.hpp>
+namespace comdare::cache_engine::migration::axis_migration { using namespace comdare::cache_engine::migration_policy; }

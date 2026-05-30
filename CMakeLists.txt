@@ -892,8 +892,8 @@ foreach(_m NONE HOT_COLD TIER_BASED ADAPTIVE)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/migration/axis_migration/axis_migration_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/migration/axis_migration/axis_migration_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/migration_policy/axis_migration_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/migration_policy/axis_migration_flags.hpp"
     @ONLY)
 message(STATUS "  axis_migration (4 migrations): NONE=${COMDARE_AXIS_MIGRATION_USE_NONE} HOT_COLD=${COMDARE_AXIS_MIGRATION_USE_HOT_COLD} TIER=${COMDARE_AXIS_MIGRATION_USE_TIER_BASED} ADAPTIVE=${COMDARE_AXIS_MIGRATION_USE_ADAPTIVE}")
 

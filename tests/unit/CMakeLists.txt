@@ -19,9 +19,15 @@ foreach(_axis_src_dir ${_comdare_axis_src_dirs})
             "${CMAKE_BINARY_DIR}/generated/topics/${_axis_rel}")
     endif()
 endforeach()
-# V41.F.2: io_dispatch physisch nach axes/ migriert (nicht mehr unter topics/*/axis_*) → Glob findet es
-# nicht; sein generated-Dir explizit ergaenzen, sonst C1083 axis_io_flags.hpp in umbrella/compositions.
-list(APPEND COMDARE_ALL_AXIS_GENERATED_DIRS "${CMAKE_BINARY_DIR}/generated/axes/io_dispatch")
+# V41.F.2: physisch nach axes/<axis>/ migrierte Achsen (Glob topics/*/axis_* findet sie nicht) — generisch
+# je migriertem axes/<axis>-Verzeichnis das generated-Dir ergaenzen, sonst C1083 in umbrella/compositions.
+file(GLOB _comdare_axes_dirs LIST_DIRECTORIES true "${PROJECT_SOURCE_DIR}/libs/cache_engine/axes/*")
+foreach(_axes_dir ${_comdare_axes_dirs})
+    if(IS_DIRECTORY "${_axes_dir}")
+        get_filename_component(_axes_name "${_axes_dir}" NAME)
+        list(APPEND COMDARE_ALL_AXIS_GENERATED_DIRS "${CMAKE_BINARY_DIR}/generated/axes/${_axes_name}")
+    endif()
+endforeach()
 
 # Header-only INTERFACE-Library: Cache-Engine Concepts
 add_library(comdare_cache_engine_concepts INTERFACE)
@@ -807,7 +813,7 @@ target_include_directories(test_v41_axis_migration PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/migration/axis_migration")
+    "${CMAKE_BINARY_DIR}/generated/axes/migration_policy")  # V41.F.2: axis_migration → axes/migration_policy
 target_link_libraries(test_v41_axis_migration PRIVATE
     Boost::mp11)
 
