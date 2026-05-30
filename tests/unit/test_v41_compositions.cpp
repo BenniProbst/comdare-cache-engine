@@ -193,8 +193,8 @@ TEST(MasstreeComposition, PaperIdNonEmpty) {
     SUCCEED();
 }
 TEST(MasstreeComposition, SearchAlgoIsDissectedOrgan) {
-    // Masstree-Organ ist noch ein Naeherungs-Platzhalter (ObservableSortedBinaryOrgan); echtes Masstree-
-    // Layer-Slice-Organ ist eigener s4-Task. Der Organ-Vertrag (uint64-Interface) gilt trotzdem.
+    // #42-Folge: Masstree-Organ ist jetzt das ECHTE B+Baum-of-Tries-Organ (kpermuter + Multi-Layer-Slices),
+    // kein Platzhalter mehr — letzter Konfigurator auf ein echtes seziertes Organ umgestellt.
     using SA = ce_compositions::MasstreeComposition::search_algo;
     static_assert(IsDissectedSearchOrgan<SA>);
     SUCCEED();

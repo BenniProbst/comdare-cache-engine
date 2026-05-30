@@ -120,6 +120,9 @@ public:
     }
     [[nodiscard]] std::uint64_t leaf_permutation(std::size_t r) const noexcept { return leaves_[ref_idx(r)].perm; }
     void          leaf_set_permutation(std::size_t r, std::uint64_t p) noexcept { leaves_[ref_idx(r)].perm = p; }
+    // Setzt die Permutation auf make_sorted(n): logische Reihenfolge 0,1,..,n-1 == physische Slots 0..n-1.
+    // Der Aufrufer fuellt Slots 0..n-1 (slice/keylenx/value/layer) VORHER (Split-Rebuild, Masstree-Praezedenz).
+    void leaf_set_sorted_size(std::size_t r, int n) noexcept { leaves_[ref_idx(r)].perm = Kperm15::make_sorted(n); }
 
     [[nodiscard]] std::uint64_t leaf_slice_at(std::size_t r, int slot)   const noexcept { return leaves_[ref_idx(r)].slice[slot]; }
     void leaf_set_slice_at(std::size_t r, int slot, std::uint64_t s)     noexcept { leaves_[ref_idx(r)].slice[slot] = s; }
