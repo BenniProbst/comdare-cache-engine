@@ -760,6 +760,18 @@ target_include_directories(test_v41_axis_filter PRIVATE
 target_link_libraries(test_v41_axis_filter PRIVATE
     Boost::mp11)
 
+# V41 #43 s4 — SuRF-Filter-Organ (axis_filter/composable): Filter-Property-Tests (no-FN + FP-Rate + Range)
+comdare_add_test(test_v41_axis_filter_surf_organ
+    SOURCES test_v41_axis_filter_surf_organ.cpp)
+target_include_directories(test_v41_axis_filter_surf_organ PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    "${CMAKE_BINARY_DIR}/generated/topics/filter/axis_filter")
+target_link_libraries(test_v41_axis_filter_surf_organ PRIVATE
+    Boost::mp11)
+
 # V41.F.6.1.R7.5.f axis_io (4 Wrappers + TYPED_TEST_SUITE Pattern)
 comdare_add_test(test_v41_axis_io
     SOURCES test_v41_axis_io.cpp)
