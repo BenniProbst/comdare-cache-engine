@@ -13,7 +13,8 @@
 // der Hash-Jump verschiebt nur den Startpunkt, die geordnete Leaf-Liste traegt die Korrektheit.
 //
 // INVARIANTEN: W1 Anchors strikt aufsteigend entlang head->next; W2 Leaf intern sortiert+duplikatfrei,
-// 0<=n<=kWhKpn; W3 genau EIN besitzendes Leaf je Key (groesster anchor<=key); W4 leaf_anchor==key[0];
+// 0<=n<=kWhKpn (transient n==kWhKpn+1 zwischen Shift-Insert und split_leaf — daher Array-Kapazitaet kWhKpn+1);
+// W3 genau EIN besitzendes Leaf je Key (groesster anchor<=key); W4 leaf_anchor==key[0];
 // W5 size==Sum leaf_n; W6 Index-Konsistenz (nur Performance, NIE Korrektheit); W7 Listen-Integritaet.
 // [[no-runtime-switch]]: rein statische Templates. Concurrency/SIMD/Cuckoo = Folge-Increments/andere Achsen.
 

@@ -33,6 +33,9 @@ public:
     static constexpr int         kWhKpn = 8;   // Keys/Leaf (klein -> erzwingt Split/Merge)
     static constexpr int         kWhMid = 4;   // Split-Punkt
     static constexpr int         kWhMrg = 6;   // Borrow/Merge-Schwelle (~3/4 kWhKpn)
+    // Robustheits-Guard (adversariale Verifikation): die Split/Merge-Logik setzt diese Relationen voraus.
+    static_assert(kWhMid >= 1 && kWhMid < kWhKpn, "kWhMid muss in [1, kWhKpn) liegen (split_leaf-Korrektheit)");
+    static_assert(kWhMrg >= kWhMid && kWhMrg <= kWhKpn, "kWhMrg muss in [kWhMid, kWhKpn] liegen (borrow/merge-Korrektheit)");
 
     // ── Wurzel (= Listenkopf) + Groesse ──
     [[nodiscard]] std::size_t root() const noexcept { return root_; }
