@@ -358,14 +358,38 @@ umgesetzt — der Builder treibt das echte Composition-Organ verlustfrei (Pfad B
 
 ### §8.6 R6 — der präzise verbleibende Schritt (Pfad B über die Modul-Binary-Grenze)
 
-Ein **ABI-stabiles Observer-Zugriffs-Sub-Interface** (`IObservableTier`, Muster `IMeasurableWorkload`:
-der ABI-Adapter erbt es ZUSÄTZLICH, Host-Abfrage via `dynamic_cast`, KEIN vtable-Bruch von `IAnatomyBase`),
-mit dem der host-seitige CacheEngineBuilder das geladene composite-Tier-Modul-Binary
-(a) **treibt** (insert/lookup/erase/clear/size über uint64) und (b) dessen **Observer** als **flachen
-POD-Snapshot** (`ComdareTierObserverSnapshotV1`, nur uint64-Felder → ABI-stabil, keine STL/vtable über die
-Grenze) ausliest. Der `drive_tier_observe_trace`-Treiber (in-process) wird über dieses Interface
-generalisiert, sodass die `observe_all`-Trace eines permutierten Modul-Binarys über die ABI-Grenze zentral
-erhoben wird. → Umsetzung 2026-05-30 (Folge-Session-Doc); Pfad A bleibt unverändert (kein Rückbau).
+> **User 2026-05-30 (verbatim-tragend, „bitte nicht vergessen"):** „alle Tier-Binaries [sind] C++23
+> dynamisch ladbare Module und daher separat von der CacheEngineBuilder, die CacheEngineBuilder baut die
+> Tiere dynamisch und hat ein ABI-stabiles Interface für die API der **Gattung** eines Algorithmus (etwa
+> Suchalgorithmen) und **testet die API durch**, dann **misst es die in dem Tier eingebauten Observer**
+> durch und **zieht diese durch die Schnittstelle** zwischen CacheEngineBuilder und Tier-Binary hindurch,
+> um als CacheEngineBuilder die **Messergebnisse der Observer zu persistieren**."
+
+**Grundprinzip:** Tier-Binaries sind **separate, dynamisch ladbare C++23-Module** (.so/.dll) — NICHT in den
+Builder einkompiliert. Die CacheEngineBuilder baut sie dynamisch und kommuniziert mit ihnen **ausschließlich
+über das ABI-stabile Interface der GATTUNG** (Gattungs-typisiert: für die SearchAlgorithm-Gattung die
+insert/lookup/erase-API; vgl. `SearchAlgorithmAbiAdapter`/`IAnatomyBase::genus()`). Der vollständige
+host-seitige Mess-Ablauf je Tier-Modul:
+
+1. **Bauen (dynamisch):** Builder/`adhoc_emitter`+CMake materialisiert die Permutation als ladbares Modul.
+2. **Laden:** `AnatomyModuleLoader` (dlopen/LoadLibrary) → `comdare_create_anatomy()` → `IAnatomyBase*`;
+   ABI-Version/Magic geprüft.
+3. **Gattungs-API DURCHTESTEN:** Builder treibt die Gattungs-API (insert/lookup/erase) über das ABI gegen
+   das Tier-Modul und verifiziert sie (Korrektheit der API durch die Grenze — Gattungs-Vertrag).
+4. **Eingebaute Observer MESSEN:** Builder triggert Observer-Updates (Zeitschritt/Zustands-Manipulation,
+   §8.7) — die Observer leben IM Tier-Modul.
+5. **Durch die Schnittstelle ZIEHEN:** der Observer-Snapshot wird als **flacher POD** über die ABI-Grenze
+   gezogen (`ComdareTierObserverSnapshotV1` bzw. der `ObserverAggregate` ist bereits `standard_layout` +
+   `trivially_copyable` → memcpy-fähig; nur uint64-Felder, keine STL/vtable über die Grenze).
+6. **PERSISTIEREN (durch den Builder):** der Builder schreibt die korrelierten Observer-Messergebnisse
+   `(wall_clock_t ↔ ObserverAggregate)` heraus (binary records / CSV / JSON, vgl. `result_aggregator`).
+
+**Umsetzung:** ABI-stabiles Sub-Interface `IObservableTier` (Muster `IMeasurableWorkload`: der genus-typisierte
+ABI-Adapter erbt es ZUSÄTZLICH, Host-Abfrage via `dynamic_cast`, KEIN vtable-Bruch von `IAnatomyBase`):
+`tier_insert/tier_lookup/tier_erase/tier_clear/tier_size` (Gattungs-Drive, uint64) +
+`tier_observe(snapshot*)` (Observer-POD ziehen). Der `drive_tier_observe_trace`-Treiber (in-process) wird
+über dieses Interface generalisiert (host treibt + stempelt Wall-Clock + zieht Observer-POD + persistiert).
+→ Umsetzung 2026-05-30 (Folge-Session-Doc); Pfad A (run_workload) bleibt unverändert (kein Rückbau).
 
 ### §8.7 Pfad B im Detail: CacheEngineBuilder erhebt BEIDE Dimensionen, zeit-/zustands-KORRELIERT
 
