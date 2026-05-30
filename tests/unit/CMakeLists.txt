@@ -684,7 +684,7 @@ target_include_directories(test_v41_axis_10_serialization PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/serialization/axis_10_serialization")
+    "${CMAKE_BINARY_DIR}/generated/axes/serialization_axis")
 target_link_libraries(test_v41_axis_10_serialization PRIVATE
     Boost::mp11)
 
@@ -825,7 +825,7 @@ target_include_directories(test_v41_axis_01_index_organization PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/search_engine/axis_01_index_organization")
+    "${CMAKE_BINARY_DIR}/generated/axes/index_organization")
 target_link_libraries(test_v41_axis_01_index_organization PRIVATE
     Boost::mp11)
 
