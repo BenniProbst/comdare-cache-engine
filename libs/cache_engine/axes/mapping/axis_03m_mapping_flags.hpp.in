@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 axis_03m_mapping AUTO-GENERATED Flags
 
-namespace comdare::cache_engine::traversal::axis_03m_mapping::flags {
+namespace comdare::cache_engine::mapping::flags {
 
 // Pilot Batch 1 (MP-DIRECT, MP-POOL_RELATIVE) — 2026-05-26
 #cmakedefine01 COMDARE_AXIS_03M_USE_DIRECT_PLACEMENT
