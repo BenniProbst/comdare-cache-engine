@@ -67,7 +67,7 @@ public:
         if constexpr (enabled) { return "original_start"; }
         else                   { return "original_start(disabled)"; }
     }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "OriginalStartSearchAlgo (START Mertens ICDE 2024, Cost-DP Paper-Bindung — 2/4 originall)"; }
+    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "OriginalStartSearchAlgo (START — Self-Tuning Adaptive Radix Tree, Fent/Jungmair/Kipf/Neumann, ICDEW 2020, DOI 10.1109/ICDEW49219.2020.00015 — 2/4 originall)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "ORIGINAL_START"; }
 
     /// SONDERFALL (analog VectorU16U16SearchAlgo): kein SIMD — Cost-DP nicht vectorisierbar.

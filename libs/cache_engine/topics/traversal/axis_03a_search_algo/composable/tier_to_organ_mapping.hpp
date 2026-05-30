@@ -28,6 +28,7 @@
 #include "composed_hot_patricia_search.hpp"       // HotPatriciaTraversalOrgan + HotPatriciaNodePoolStore + ComposedHotPatriciaSearch (#43 s4)
 #include "composed_wormhole_search.hpp"           // WormholeJumpTraversalOrgan + WormholeLeafListPoolStore + ComposedWormholeSearch (#43 s4)
 #include "composed_surf_map_search.hpp"           // SurfMapTraversalOrgan + SurfFstMapPoolStore + ComposedSurfMapSearch (#43 s4 SuRF-Map-Schale)
+#include "composed_start_trie_search.hpp"         // StartTrieTraversalOrgan + StartTrieNodePoolStore + ComposedStartTrieSearch (#43 s4)
 
 namespace comdare::cache_engine::traversal::axis_03a_search_algo::composable {
 
@@ -56,7 +57,12 @@ using OriginalArtOrgan      = ArtTrieOrgan;
 // Collapse-Erase. is_original=false ([[pseudocode-papers-fallback]]); Multi-Bit/SparsePartialKeys+SIMD = Folge.
 using HotPatriciaOrgan      = ComposedHotPatriciaSearch<HotPatriciaTraversalOrgan, HotPatriciaNodePoolStore>;
 using OriginalHotOrgan      = HotPatriciaOrgan;   // S05 HOT (war flacher SortedBinaryOrgan-Platzhalter)
-using OriginalStartOrgan    = SortedBinaryOrgan;  // S06 START    (uint16! sorted-vector — Beleg key_mod=1000)
+// S06 START: ECHTE Multibyte-Span-Anatomie (#43 s4) — Adaptive Radix Tree mit per-Node-Span (1/2/3-Byte-
+// Diskriminator, span-2 = Rewired64K-Distinktion ggue. ARTs fixem 1-Byte) + ByteWise-Path-Compression.
+// is_original=false ([[pseudocode-papers-fallback]]; volle Quelle fehlt). Cost-DP-Self-Tuning (adaptive
+// Span-Wahl) = Folge-Achse axis_03t_node_tuning. Loest den letzten flachen SortedBinaryOrgan-Platzhalter ab.
+using StartTrieOrgan        = ComposedStartTrieSearch<StartTrieTraversalOrgan<2>, StartTrieNodePoolStore>;  // span-2 Multibyte
+using OriginalStartOrgan    = StartTrieOrgan;     // S06 START (war letzter flacher SortedBinaryOrgan-Platzhalter)
 // S07 Wormhole: ECHTE Hybrid-Anatomie (#43 s4) — sortierte doppelt-verkettete Leaf-Liste + Hash-Anchor-Jump
 // (groesster Anker<=key statt Wurzel-Abstieg) + Leaf-Split/Merge. is_original=false ([[pseudocode-papers-fallback]];
 // wh.c GPL-3.0, KEIN extern-C-Linking). Loest den flachen SortedBinaryOrgan-Platzhalter ab.
