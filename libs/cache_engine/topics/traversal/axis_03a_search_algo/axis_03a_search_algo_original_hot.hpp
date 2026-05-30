@@ -10,7 +10,10 @@
 // **Luecken-Markierung (2/4 originall):**
 //   - insert: originall (HOTRowex::insert)
 //   - lookup: originall (HOTRowex::lookup)
-//   - erase:  LUECKE (HOT ist append-only Trie — Re-Impl, is_original_erase()=false)
+//   - erase:  LUECKE (gemappt auf HOTRowex, das append-only ist — Re-Impl, is_original_erase()=false).
+//             Praezisierung (#43 s4): NUR die nebenlaeufige HOTRowex-Variante ist append-only; das
+//             single-threaded HOT (HOTSingleThreaded::removeEntry) HAT ein erase. Da der Wrapper auf
+//             rowex gemappt ist, bleibt is_original_erase()=false korrekt.
 //   - clear:  LUECKE (kein clear im Paper — Re-Impl, is_original_clear()=false)
 // is_original_module()=false (weil 2/4 Lücken).
 //
