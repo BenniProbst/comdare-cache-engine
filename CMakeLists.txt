@@ -876,9 +876,10 @@ foreach(_i IN_MEMORY_ONLY DIRECT BUFFERED MMAP)
         set(COMDARE_AXIS_IO_USE_${_i} 0)
     endif()
 endforeach()
+# V41.F.2: axis_io physisch nach axes/io_dispatch/ migriert (Pilot der axen-zentrischen Struktur, Doku 23a).
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/io/axis_io/axis_io_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/io/axis_io/axis_io_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/io_dispatch/axis_io_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/io_dispatch/axis_io_flags.hpp"
     @ONLY)
 message(STATUS "  axis_io (4 io-strategies): IN_MEM=${COMDARE_AXIS_IO_USE_IN_MEMORY_ONLY} DIRECT=${COMDARE_AXIS_IO_USE_DIRECT} BUFFERED=${COMDARE_AXIS_IO_USE_BUFFERED} MMAP=${COMDARE_AXIS_IO_USE_MMAP}")
 

@@ -1,15 +1,5 @@
 #pragma once
-// V41.F.6.1.R7.5.f axis_io Subaxes-Tags
-
-namespace comdare::cache_engine::io::axis_io::subaxes {
-
-// IO1: Persistence (in-memory / disk / persistent-memory)
-struct persistence_tag {};
-
-// IO2: Caching-Strategy (none / os-cache / direct / mmap)
-struct caching_strategy_tag {};
-
-// IO3: Write-Durability (none / fsync / atomic)
-struct write_durability_tag {};
-
-}  // namespace
+// V41.F.2 Forwarding-Header (Stufe 2): Achse physisch nach axes/io_dispatch/ migriert.
+// Haelt externe #include <topics/io/axis_io/...> + io::axis_io::-Nutzungen gueltig (Stufe 3 = Referenz-Migration).
+#include <axes/io_dispatch/axis_io_subaxes_io1_to_io3.hpp>
+namespace comdare::cache_engine::io::axis_io { using namespace comdare::cache_engine::io_dispatch; }
