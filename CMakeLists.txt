@@ -123,27 +123,40 @@ option(COMDARE_AXIS_Q2_ENABLE_TIMED        "Flush-Policy F03 TimedFlush (FS3 tim
 option(COMDARE_AXIS_Q2_ENABLE_ADAPTIVE_LSM "Flush-Policy F05 AdaptiveLsmFlush (FS4 lernt aus Workload, LSM-spezifisch)"   ON)
 
 # V41.F.6.1 Topic traversal Pilot (2026-05-26): 3 Achsen — axis_03a search_algo + axis_03b cache_traversal + axis_03m mapping
-# axis_03a Pilot Batch 1 (3 Strategien analog prt-art Legacy Interpreter)
-option(COMDARE_AXIS_03A_ENABLE_ARRAY256       "Search-Algo S01 Array256 (ART Node256 dense, Leis ICDE 2013, SA1 dense, SIMD)" ON)
-option(COMDARE_AXIS_03A_ENABLE_VECTOR_U8U8    "Search-Algo S02 VectorU8U8 (HOT Patricia sparse, Binna PVLDB 2018, SA2 sparse, SIMD)" ON)
-option(COMDARE_AXIS_03A_ENABLE_VECTOR_U16U16  "Search-Algo S03 VectorU16U16 (START multi-byte Cost-DP, Mertens ICDE 2024, SA3 multilevel)" ON)
+#
+# === #42 Umstufung-B Phase 2 (2026-05-30): TIER-DEREGISTRIERUNG via Flag-Gating ===
+# Die „Erklaerte Ordnung" (Doku 14 §3.1): Achsen enthalten NUR Organe (Sub-Tasks), NIEMALS ganze Tiere.
+# Tiere (Such-ALGORITHMEN: ART/HOT/Wormhole/SuRF/START/Hash/SkipList/B-Baum) sind seziert (#41/#43) + als
+# Gattungs-Konfiguratoren rekonstruiert (Phase 1, compositions/*_reference.hpp). Phase 2 entfernt sie aus der
+# axis_03a-WERTE-Liste: EnabledStrategies = mp_filter<is_enabled, AllStrategies> schrumpft via OFF-Defaults.
+# AllStrategies (mp_list) + Wrapper-Header + Direkt-Typ-Referenzen (paper_source, Equivalence-Test, adhoc_emitter)
+# bleiben PHYSISCH erhalten (reversibel, kein Header geloescht): kSearch==mp_size<AllStrategies>==17,
+# SimdSubset==6u, DenseSubset==2u (alle ueber AllStrategies) bleiben gruen; count()==mp_size<EnabledStrategies>
+# + Cartesian (ueber EnabledStrategies) bleiben tautologisch gruen.
+# ENABLED bleiben NUR die echten elementaren Such-METHODEN (Organe, KEINE benannten DB-Index-Tiere):
+#   K-ary(S10) · Interpolation(S11) · Eytzinger(S12) · LinearScan(S15).
+# Auch die 4 flachen Tier-PLATZHALTER (Array256/VectorU8U8/VectorU16U16/Array65535) gehen OFF (User 2026-05-30).
+# Umkehrbar jederzeit via -DCOMDARE_AXIS_03A_ENABLE_<X>=ON.
+option(COMDARE_AXIS_03A_ENABLE_ARRAY256       "Search-Algo S01 Array256 (flacher Tier-Platzhalter -> deregistriert #42)" OFF)
+option(COMDARE_AXIS_03A_ENABLE_VECTOR_U8U8    "Search-Algo S02 VectorU8U8 (flacher Tier-Platzhalter -> deregistriert #42)" OFF)
+option(COMDARE_AXIS_03A_ENABLE_VECTOR_U16U16  "Search-Algo S03 VectorU16U16 (flacher Tier-Platzhalter -> deregistriert #42)" OFF)
 # V41.F.6.1.F.6 (2026-05-29) — F.6-Migration aus prt-art internal_search/array_65535.hpp
-option(COMDARE_AXIS_03A_ENABLE_ARRAY65535     "Search-Algo S09 Array65535 (prt-art REV6 §5.17 mid-density direct-addressed uint16, SA4 direct_multibyte, no-SIMD)" ON)
-# V41.F.6.1.P2.D.tr.s2 — Original-Paper-Wrappers (Habich-Compliance get_compiler='gcc-9.5' via Mixin)
-option(COMDARE_AXIS_03A_ENABLE_ORIGINAL_ART   "Search-Algo S04 OriginalArtSearchAlgo (ART Leis ICDE 2013 — 4/4 originall)" ON)
-option(COMDARE_AXIS_03A_ENABLE_ORIGINAL_HOT   "Search-Algo S05 OriginalHotSearchAlgo (HOT Binna PVLDB 2018 — 2/4 originall, erase+clear Luecken)" ON)
-option(COMDARE_AXIS_03A_ENABLE_ORIGINAL_START "Search-Algo S06 OriginalStartSearchAlgo (START Mertens ICDE 2024 — 2/4 originall, erase+clear Luecken)" ON)
+option(COMDARE_AXIS_03A_ENABLE_ARRAY65535     "Search-Algo S09 Array65535 (flacher Tier-Platzhalter -> deregistriert #42)" OFF)
+# V41.F.6.1.P2.D.tr.s2 — Original-Paper-Wrappers (bleiben als paper_source-Provenienz-Traeger, KEIN Achsen-Wert)
+option(COMDARE_AXIS_03A_ENABLE_ORIGINAL_ART   "Search-Algo S04 OriginalArtSearchAlgo (Tier seziert -> deregistriert #42)" OFF)
+option(COMDARE_AXIS_03A_ENABLE_ORIGINAL_HOT   "Search-Algo S05 OriginalHotSearchAlgo (Tier seziert -> deregistriert #42)" OFF)
+option(COMDARE_AXIS_03A_ENABLE_ORIGINAL_START "Search-Algo S06 OriginalStartSearchAlgo (Tier seziert -> deregistriert #42)" OFF)
 # V41.F.6.1.P2.D.tr.s3 Batch 1 — Wormhole + SuRF + Masstree
-option(COMDARE_AXIS_03A_ENABLE_ORIGINAL_WORMHOLE "Search-Algo S07 OriginalWormholeSearchAlgo (Wormhole Wu/Ni/Jiang ATC 2019 — 3/4 originall, clear-Lücke)" ON)
-option(COMDARE_AXIS_03A_ENABLE_ORIGINAL_SURF     "Search-Algo S08 OriginalSurfSearchAlgo (SuRF Zhang/Lim/Andersen SIGMOD 2018 — 1/4 originall, Read-Only-Index)" ON)
-option(COMDARE_AXIS_03A_ENABLE_K_ARY             "Search-Algo S10 KArySearchAlgo (k-ary search, Schlegel/Gemulla/Lehner DaMoN 2009, Such-METHODE, Aritaet iterable)" ON)
-option(COMDARE_AXIS_03A_ENABLE_INTERPOLATION     "Search-Algo S11 InterpolationSearchAlgo (interpolation search, Perl/Itai/Avni CACM 1978, verteilungsbewusste Such-METHODE)" ON)
-option(COMDARE_AXIS_03A_ENABLE_EYTZINGER         "Search-Algo S12 EytzingerSearchAlgo (cache-conscious BFS layout + branch-free, Khuong/Morin JEA 2017)" ON)
-option(COMDARE_AXIS_03A_ENABLE_SKIP_LIST         "Search-Algo S13 SkipListSearchAlgo (probabilistic ordered structure, Pugh CACM 1990)" ON)
-option(COMDARE_AXIS_03A_ENABLE_HASH_SEARCH       "Search-Algo S14 HashSearchAlgo (open-addressing Fibonacci hash, linear probing, Knuth TAOCP 3 §6.4)" ON)
-option(COMDARE_AXIS_03A_ENABLE_LINEAR_SCAN       "Search-Algo S15 LinearScanSearchAlgo (unsorted linear scan, ART Node4-Baseline, Leis ICDE 2013)" ON)
-option(COMDARE_AXIS_03A_ENABLE_BST               "Search-Algo S16 BinarySearchTreeSearchAlgo (unbalanced BST, Hibbard-Deletion, Knuth TAOCP 3 §6.2.2)" ON)
-option(COMDARE_AXIS_03A_ENABLE_BTREE             "Search-Algo S17 BTreeSearchAlgo (balanced block-oriented multi-way B-tree, t=4, Bayer/McCreight Acta Inf. 1972 / CLRS Kap. 18)" ON)
+option(COMDARE_AXIS_03A_ENABLE_ORIGINAL_WORMHOLE "Search-Algo S07 OriginalWormholeSearchAlgo (Tier seziert -> deregistriert #42)" OFF)
+option(COMDARE_AXIS_03A_ENABLE_ORIGINAL_SURF     "Search-Algo S08 OriginalSurfSearchAlgo (Tier seziert -> deregistriert #42)" OFF)
+option(COMDARE_AXIS_03A_ENABLE_K_ARY             "Search-Algo S10 KArySearchAlgo (k-ary search, Schlegel/Gemulla/Lehner DaMoN 2009 — elementare Such-METHODE/Organ, ENABLED)" ON)
+option(COMDARE_AXIS_03A_ENABLE_INTERPOLATION     "Search-Algo S11 InterpolationSearchAlgo (Perl/Itai/Avni CACM 1978 — elementare Such-METHODE/Organ, ENABLED)" ON)
+option(COMDARE_AXIS_03A_ENABLE_EYTZINGER         "Search-Algo S12 EytzingerSearchAlgo (Khuong/Morin JEA 2017 — elementare Such-METHODE/Organ, ENABLED)" ON)
+option(COMDARE_AXIS_03A_ENABLE_SKIP_LIST         "Search-Algo S13 SkipListSearchAlgo (Tier seziert -> deregistriert #42)" OFF)
+option(COMDARE_AXIS_03A_ENABLE_HASH_SEARCH       "Search-Algo S14 HashSearchAlgo (Tier seziert -> deregistriert #42)" OFF)
+option(COMDARE_AXIS_03A_ENABLE_LINEAR_SCAN       "Search-Algo S15 LinearScanSearchAlgo (Leis ICDE 2013 — elementare Such-METHODE/Organ, ENABLED)" ON)
+option(COMDARE_AXIS_03A_ENABLE_BST               "Search-Algo S16 BinarySearchTreeSearchAlgo (Tier seziert -> deregistriert #42)" OFF)
+option(COMDARE_AXIS_03A_ENABLE_BTREE             "Search-Algo S17 BTreeSearchAlgo (Tier seziert -> deregistriert #42)" OFF)
 # COMDARE_AXIS_03A_ENABLE_ORIGINAL_MASSTREE DEFERRED — masstree.hh hat keine Function-Bodies (Templates)
 # axis_03b Pilot Batch 1 (2 Strategien)
 option(COMDARE_AXIS_03B_ENABLE_LINEAR_FANOUT  "Cache-Traversal CT01 LinearFanout (prt-art IFanout linear-scan, CT1 linear)" ON)
