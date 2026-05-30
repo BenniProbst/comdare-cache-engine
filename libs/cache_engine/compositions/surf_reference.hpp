@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1.R2 Erweitert: SurfComposition (alle 15 Achsen)
 
-#include "../topics/traversal/axis_03a_search_algo/axis_03a_search_algo_vector_u16u16.hpp"
+#include "../topics/traversal/axis_03a_search_algo/composable/tier_to_organ_mapping.hpp"  // #42: SuRF als Organ statt Tier
 #include "../topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp"
 #include "../topics/traversal/axis_03m_mapping/axis_03m_mapping_pool_relative.hpp"
 #include "../topics/nodes/axis_02_path_compression/axis_02_path_compression_none.hpp"
@@ -34,7 +34,7 @@ namespace comdare::cache_engine::compositions {
 /// - **KERN-Funktion: Range-Query-Filter** → filter::BloomFilter ist Composition-konstitutiv
 ///   (im Gegensatz zu ART/HOT wo Filter optional ist)
 struct SurfComposition {
-    using search_algo        = traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;
+    using search_algo        = traversal::axis_03a_search_algo::composable::ObservableSurfMapOrgan;  // SEZIERT: exakte Map-Schale (Filter-Organ separat in axis_filter)
     using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
     using mapping            = traversal::axis_03m_mapping::PoolRelative;
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;

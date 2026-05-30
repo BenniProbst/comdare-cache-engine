@@ -1,6 +1,8 @@
 #pragma once
 // V41.F.6.1.R3.2 StartPaperBindingComposition (Paper-Binding S06)
 
+// #42: search_algo = SEZIERTES START-Organ; OriginalStartSearchAlgo bleibt nur als paper_source-Provenienz.
+#include "../topics/traversal/axis_03a_search_algo/composable/tier_to_organ_mapping.hpp"
 #include "../topics/traversal/axis_03a_search_algo/axis_03a_search_algo_original_start.hpp"
 #include "../topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp"
 #include "../topics/traversal/axis_03m_mapping/axis_03m_mapping_direct_placement.hpp"
@@ -28,7 +30,8 @@ namespace comdare::cache_engine::compositions {
 
 /// StartPaperBindingComposition — START mit Paper-Bindung (OriginalStartSearchAlgo, 2/4 originall).
 struct StartPaperBindingComposition {
-    using search_algo        = traversal::axis_03a_search_algo::OriginalStartSearchAlgo;
+    using search_algo        = traversal::axis_03a_search_algo::composable::ObservableStartTrieOrgan;
+    using paper_source       = traversal::axis_03a_search_algo::OriginalStartSearchAlgo;  // #42 is_original/SHA256-Traeger, kein Achsen-Wert
     using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;

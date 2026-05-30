@@ -4,7 +4,7 @@
 // Pending s4 Template-Adapter (rotaki-Pattern) — search_algo wird dann
 // echter `Masstree::basic_table<params>` Template-Instantiation.
 
-#include "../topics/traversal/axis_03a_search_algo/axis_03a_search_algo_vector_u16u16.hpp"
+#include "../topics/traversal/axis_03a_search_algo/composable/tier_to_organ_mapping.hpp"  // #42: Organ-Platzhalter (echtes Masstree-Organ = eigener s4-Task)
 #include "../topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp"
 #include "../topics/traversal/axis_03m_mapping/axis_03m_mapping_direct_placement.hpp"
 #include "../topics/nodes/axis_02_path_compression/axis_02_path_compression_none.hpp"
@@ -36,7 +36,7 @@ namespace comdare::cache_engine::compositions {
 /// - Cache-Craftiness (axis_05 CacheLineAligned)
 /// - Fine-grained OLC + Versioning (axis_08)
 struct MasstreeComposition {
-    using search_algo        = traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;
+    using search_algo        = traversal::axis_03a_search_algo::composable::ObservableSortedBinaryOrgan;  // #42 Naeherungs-Platzhalter (TODO echtes Masstree-Layer-Slice-Organ)
     using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;

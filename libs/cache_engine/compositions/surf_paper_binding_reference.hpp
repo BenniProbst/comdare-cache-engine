@@ -1,6 +1,8 @@
 #pragma once
 // V41.F.6.1.R3.2 SurfPaperBindingComposition (Paper-Binding S08)
 
+// #42: search_algo = SEZIERTE SuRF-Map-Schale; OriginalSurfSearchAlgo bleibt nur als paper_source-Provenienz.
+#include "../topics/traversal/axis_03a_search_algo/composable/tier_to_organ_mapping.hpp"
 #include "../topics/traversal/axis_03a_search_algo/axis_03a_search_algo_original_surf.hpp"
 #include "../topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp"
 #include "../topics/traversal/axis_03m_mapping/axis_03m_mapping_pool_relative.hpp"
