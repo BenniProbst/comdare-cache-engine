@@ -149,6 +149,19 @@ TEST(SurfLoudsFilter, AdversarialPrefixSingletonEmpty) {
     }
 }
 
+// REGRESSION (Verifikation wuegyse1h): Keyset, das den louds-Bitvektor auf exakt 64 Bits (Wort-Grenze)
+// mit Carry bringt -> vormals heap-buffer-overflow in SurfBitVector::concatenate (One-Past-End-Write).
+// Vor dem +1-Carry-Wort-Fix CRASH; danach: Build ok + no-FN.
+TEST(SurfLoudsFilter, WordBoundaryCarryNoOverflow) {
+    std::vector<std::uint64_t> keys = {0xFFFFFFFFFFFFFFAAull, 0xFFFFFFFFFFFFFFBBull};
+    for (std::uint64_t i = 0; i < 48; ++i) keys.push_back((i * 0x0100000000000001ull) & 0x00FFFFFFFFFFFFFFull);
+    std::set<std::uint64_t> gt(keys.begin(), keys.end());
+    std::vector<std::uint64_t> sorted(gt.begin(), gt.end());
+    S2R8 f; f.build_from_sorted_keys(sorted);   // darf NICHT crashen
+    EXPECT_EQ(f.key_count(), gt.size());
+    for (std::uint64_t const k : gt) EXPECT_TRUE(f.contains(k)) << "no-FN bei Wort-Grenz-Key " << k;
+}
+
 // Observer: bit_size>0, bits_per_key approximativ (deutlich < 64 = S1-exakt) und > 0.
 TEST(SurfLoudsFilter, ObserversApproximateVsExact) {
     std::set<std::uint64_t> gt;
