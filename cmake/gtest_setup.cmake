@@ -50,8 +50,13 @@ function(COMDARE_add_test name)
         ${ARG_LIBRARIES})
 
     # ctest-Discovery
+    # V41.E1: DISCOVERY_MODE PRE_TEST — Test-Enumeration zur ctest-Laufzeit statt POST_BUILD.
+    # POST_BUILD (Default) fuehrt jede Test-.exe direkt nach dem Link aus; bei Tests mit DLL-Runtime-Deps
+    # (z.B. R5G-AdHoc-DLL-Loader) oder im Sandbox-/CI-Lauf wirft MSBuild dabei MSB3073, obwohl Build+Test
+    # spaeter passieren. PRE_TEST entkoppelt Discovery vom Build → kein Post-Build-Exe-Lauf, keine MSB3073.
     include(GoogleTest)
     gtest_discover_tests(${name}
+        DISCOVERY_MODE PRE_TEST
         DISCOVERY_TIMEOUT 30
         PROPERTIES TIMEOUT 60)
 endfunction()

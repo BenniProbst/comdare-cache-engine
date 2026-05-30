@@ -65,6 +65,25 @@ cmake --build build -j
   --architecture=x86_avx512 --dataset=YCSB-A
 ```
 
+### Reproduzierbare Builds über CMake-Presets (`CMakePresets.json`)
+
+Statt der manuellen `-D`-Flags oben kapselt `CMakePresets.json` (Schema v6) die geprüften
+Konfigurationen. Verwendung: `cmake --preset <name>` → `cmake --build --preset <name>` → `ctest --preset <name>`.
+
+| Preset | Generator / Compiler | Zweck | Plattform-Bedingung |
+|--------|----------------------|-------|---------------------|
+| `msvc-release` | Visual Studio 17 2022, x64, Release | **Daily-Dev** unter Windows (Standard; `COMDARE_EXPERIMENT_MODE=ON`) | `hostSystemName == Windows` |
+| `msvc-debug`   | VS 17 2022, Debug (erbt `msvc-release`) | **Debugging** unter Windows (Asserts/Statistics aktiv) | `hostSystemName == Windows` |
+| `gcc-release`  | Ninja, `g++`, Release | **CI-Linux / Cluster-Build** (ZIH Barnard/Capella GCC-Toolchain) | `hostSystemName == Linux` |
+| `clang-release`| Ninja, `clang++`, Release | **Cluster-/Profiling-Alternative** (Clang-Toolchain) | `hostSystemName == Linux` |
+
+Gemeinsame Basis (`_base`, hidden): `CMAKE_CXX_STANDARD=23` (Required, keine GNU-Extensions) +
+`CMAKE_EXPORT_COMPILE_COMMANDS=ON` (für clangd/IDE). Es gibt je 4 `configurePresets`/`buildPresets`
+und 2 `testPresets` (`msvc-release`, `gcc-release` mit `outputOnFailure`).
+
+> Hinweis: Die `condition`-Klauseln blenden nicht-passende Presets je Host automatisch aus
+> (`cmake --list-presets` zeigt nur die auf dem aktuellen System gültigen).
+
 ## Compiler-Anforderungen
 
 | Komponente | Compiler |
