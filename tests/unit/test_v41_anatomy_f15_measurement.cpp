@@ -40,6 +40,10 @@
 #include <builder/anatomy_module_loader/anatomy_module_loader.hpp>
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/measurable_workload.hpp>   // Stufe B: Mess-Last DURCH die geladene DLL
+#include <anatomy/abi_adapter.hpp>           // R6/Pfad B: SearchAlgorithmAbiAdapter + IObservableTier
+#include <anatomy/observable_tier.hpp>       // R6: ABI-stabiler Observer-Snapshot-POD
+#include <anatomy/search_algorithm_anatomy.hpp>
+#include <cstring>                            // memcpy (ABI-Stabilitaets-Roundtrip)
 #include <builder/commands/welch_t_test.hpp>
 #include <builder/commands/multiple_comparison.hpp>   // R6: FWER-Korrektur bei vielen Vergleichen
 #include <builder/commands/result_aggregator.hpp>      // R5.E: Mess-Ergebnisse → CSV/JSON
@@ -246,6 +250,57 @@ TEST(F15Measurement, Saeule2_PerAxisStatisticsTraceRealOrgan) {
     SUCCEED();
 #else
     GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus — Saeule-2-Trace n/a";
+#endif
+}
+
+// R6 / Pfad B (Doku 24 §8.6, HYBRID-Modell): host-seitiger Observer-Zugriff über das ABI-stabile
+// IObservableTier. Belegt den vollständigen Mess-Ablauf, den die CacheEngineBuilder über die Modul-Binary-
+// Grenze fährt (hier in-process Stand-in; über die .dll-Grenze identische vtable/POD-Layout):
+//   (1) Gattungs-API DURCHTESTEN (tier_insert/lookup/erase über uint64),
+//   (2) die IM Tier eingebauten Observer als flachen POD durch die Schnittstelle ZIEHEN (tier_observe),
+//   (3) ABI-Stabilität des Snapshots (trivially_copyable → memcpy-Roundtrip).
+TEST(F15Measurement, R6_HostSideObserverPullViaAbiInterface) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    namespace an = ::comdare::cache_engine::anatomy;
+    using Anatomy = an::SearchAlgorithmAnatomy<comp::ArtComposition>;
+    an::SearchAlgorithmAbiAdapter<Anatomy> tier;   // das gebaute composite-Tier-Modul (in-process Stand-in)
+
+    // Host greift NUR über das ABI-Sub-Interface zu (genau wie nach dynamic_cast eines geladenen Moduls):
+    auto* obs = dynamic_cast<an::IObservableTier*>(static_cast<an::IAnatomyBase*>(&tier));
+    ASSERT_NE(obs, nullptr) << "Tier-Modul muss IObservableTier exponieren (Pfad B)";
+
+    // (1) Gattungs-API DURCHTESTEN: insert N (alle neu) → lookup (1 Hit, 1 Miss, 500 weitere) → 1 erase.
+    constexpr std::uint64_t N = 2000;
+    std::uint64_t new_keys = 0;
+    for (std::uint64_t i = 0; i < N; ++i) if (obs->tier_insert(i, i * 7u + 1u)) ++new_keys;
+    EXPECT_EQ(new_keys, N);
+    EXPECT_EQ(obs->tier_size(), N);
+    std::uint64_t out = 0;
+    EXPECT_TRUE(obs->tier_lookup(123, &out));
+    EXPECT_EQ(out, 123u * 7u + 1u);
+    EXPECT_FALSE(obs->tier_lookup(999999, &out));               // Miss
+    for (std::uint64_t i = 0; i < 500; ++i) (void)obs->tier_lookup(i, nullptr);
+    EXPECT_TRUE(obs->tier_erase(0));
+    EXPECT_FALSE(obs->tier_erase(0));                           // schon weg
+    EXPECT_EQ(obs->tier_size(), N - 1u);
+
+    // (2) Observer durch die ABI-Grenze ZIEHEN (flacher POD).
+    an::ComdareTierObserverSnapshotV1 snap{};
+    obs->tier_observe(&snap);
+    EXPECT_EQ(snap.search_insert_count, N);                     // alle Inserts beim getriebenen ECHTEN Organ
+    EXPECT_GE(snap.search_lookup_count, 502u);                  // 1 Hit + 1 Miss + 500 explizite Lookups
+    EXPECT_GT(snap.search_peak_occupancy, 0u);
+    EXPECT_EQ(snap.tier_fill_level, obs->tier_size());          // korrelierter Fuellstand (§8.7)
+    EXPECT_GT(snap.observable_axis_count, 0u);                  // mind. die search_algo-Achse observable
+
+    // (3) ABI-Stabilität: der Snapshot ist memcpy-fähig (Cross-Boundary-Pflicht).
+    static_assert(std::is_trivially_copyable_v<an::ComdareTierObserverSnapshotV1>);
+    an::ComdareTierObserverSnapshotV1 copy{};
+    std::memcpy(&copy, &snap, sizeof(snap));
+    EXPECT_EQ(copy, snap);
+    SUCCEED();
+#else
+    GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus — R6-Observer-Trace n/a";
 #endif
 }
 

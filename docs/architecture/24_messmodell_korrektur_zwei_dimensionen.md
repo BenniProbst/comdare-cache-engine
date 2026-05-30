@@ -389,7 +389,17 @@ ABI-Adapter erbt es ZUSÄTZLICH, Host-Abfrage via `dynamic_cast`, KEIN vtable-Br
 `tier_insert/tier_lookup/tier_erase/tier_clear/tier_size` (Gattungs-Drive, uint64) +
 `tier_observe(snapshot*)` (Observer-POD ziehen). Der `drive_tier_observe_trace`-Treiber (in-process) wird
 über dieses Interface generalisiert (host treibt + stempelt Wall-Clock + zieht Observer-POD + persistiert).
-→ Umsetzung 2026-05-30 (Folge-Session-Doc); Pfad A (run_workload) bleibt unverändert (kein Rückbau).
+Pfad A (run_workload) bleibt unverändert (kein Rückbau).
+
+**✅ R6 Inkrement 1 (erledigt 2026-05-30):** `anatomy/observable_tier.hpp` — `IObservableTier`-Sub-Interface
++ flacher POD `ComdareTierObserverSnapshotV1` (nur uint64, `static_assert` standard_layout + trivially_copyable).
+`SearchAlgorithmAbiAdapter` erbt `IObservableTier` zusätzlich + treibt das ECHTE Composition-Such-Organ
+(uint64) + flacht `observe_all` (search_algo real) in den POD. Test `R6_HostSideObserverPullViaAbiInterface`
+belegt host-seitig (via `dynamic_cast<IObservableTier*>`): Gattungs-API-Durchtesten + Observer-POD-Ziehen
+(insert_count==2000, korrelierter Füllstand) + memcpy-Roundtrip. 28/28 f15 + alle Adapter-Tests grün, Pfad A
+unberührt. **Inkrement 2 (offen):** Host-Treiber `drive_tier_observe_trace` über `IObservableTier*`
+generalisieren (Zeit-/Zustands-Trigger + Wall-Clock-Korrelation + Persistierung) + echter .dll-Round-Trip;
+allocator-Achse in den POD (ComposedStore im Adapter).
 
 ### §8.7 Pfad B im Detail: CacheEngineBuilder erhebt BEIDE Dimensionen, zeit-/zustands-KORRELIERT
 
