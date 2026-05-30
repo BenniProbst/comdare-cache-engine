@@ -396,10 +396,20 @@ Pfad A (run_workload) bleibt unverändert (kein Rückbau).
 `SearchAlgorithmAbiAdapter` erbt `IObservableTier` zusätzlich + treibt das ECHTE Composition-Such-Organ
 (uint64) + flacht `observe_all` (search_algo real) in den POD. Test `R6_HostSideObserverPullViaAbiInterface`
 belegt host-seitig (via `dynamic_cast<IObservableTier*>`): Gattungs-API-Durchtesten + Observer-POD-Ziehen
-(insert_count==2000, korrelierter Füllstand) + memcpy-Roundtrip. 28/28 f15 + alle Adapter-Tests grün, Pfad A
-unberührt. **Inkrement 2 (offen):** Host-Treiber `drive_tier_observe_trace` über `IObservableTier*`
-generalisieren (Zeit-/Zustands-Trigger + Wall-Clock-Korrelation + Persistierung) + echter .dll-Round-Trip;
-allocator-Achse in den POD (ComposedStore im Adapter).
+(insert_count==2000, korrelierter Füllstand) + memcpy-Roundtrip.
+
+**✅ R6 Inkrement 2a (erledigt 2026-05-30):** `builder/anatomy_commands/tier_observe_trace_abi.hpp` —
+`drive_tier_observe_trace_abi(IObservableTier&, cfg)` generalisiert den in-process-Füllstands-Treiber auf
+das ABI-Interface: der Builder treibt das Tier-Modul über Füllstand-Checkpoints (Trigger-Modus
+Zustands-Manipulation §8.7b), erhebt pro Checkpoint r/w/d-Wall-Clock-Roh-Samples (§2.1) UND einen
+`tier_observe`-POD (§2.2), Wall-Clock-korreliert — OHNE den Composition-Typ zu kennen (nur das Gattungs-ABI).
+Test `R6_AbiTierObserveTraceCorrelatesWallClockAndObservers` (3 Checkpoints 10/100/1000): pro Stufe
+r/w/d-Samples + korrelierter Observer (tier_fill_level == Checkpoint, insert_count monoton wachsend).
+f15 29/29, alle Adapter-Tests grün, Pfad A unberührt.
+
+**Inkrement 2b (offen):** Wall-Clock-Stempel im Trace explizit pro Observer-Snapshot persistieren (CSV/JSON
+via `result_aggregator`) + echter .dll-Round-Trip (Treiber über ein per `AnatomyModuleLoader` GELADENES
+Modul statt in-process-Adapter) + allocator-Achse in den POD (ComposedStore im Adapter, 2. Mess-Achse).
 
 ### §8.7 Pfad B im Detail: CacheEngineBuilder erhebt BEIDE Dimensionen, zeit-/zustands-KORRELIERT
 
