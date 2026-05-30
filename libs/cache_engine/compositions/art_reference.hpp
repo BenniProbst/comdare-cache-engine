@@ -5,7 +5,9 @@
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md
 
 // Topic-3 traversal (3 Achsen)
-#include "../topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp"
+// #42 Umstufung-B: search_algo zeigt jetzt auf das SEZIERTE ART-Organ (Composition statt Tier), nicht mehr
+// auf den monolithischen Array256SearchAlgo-Wrapper (Doku 14 §3.1: Achse=Organ, Tier=Composition).
+#include "../topics/traversal/axis_03a_search_algo/composable/tier_to_organ_mapping.hpp"
 #include "../topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp"
 #include "../topics/traversal/axis_03m_mapping/axis_03m_mapping_direct_placement.hpp"
 // Topic-4 nodes (2 Achsen)
@@ -54,8 +56,8 @@ namespace comdare::cache_engine::compositions {
 /// - Inline-Values in Nodes (axis_14)
 /// - Pure in-memory Index (axis_io)
 struct ArtComposition {
-    // Topic 3 traversal
-    using search_algo        = traversal::axis_03a_search_algo::Array256SearchAlgo;
+    // Topic 3 traversal — SEZIERTES ART-Organ (adaptive Node4/16/48/256 + Byte-Descent), observable Huelle.
+    using search_algo        = traversal::axis_03a_search_algo::composable::ObservableArtTrieOrgan;
     using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     // Topic 4 nodes

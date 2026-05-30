@@ -13,6 +13,10 @@
 // @paper_binding OriginalArtSearchAlgo (S04 im Registry, unodb::db Paper-Source)
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §14.2 (KORRIGIERT)
 
+// #42 Umstufung-B: search_algo = SEZIERTES ART-Organ (Composition statt Tier). Der OriginalArtSearchAlgo-
+// Wrapper bleibt included, dient aber nur noch als paper_source-Provenienz-Traeger (Habich/SHA256/is_original),
+// NICHT mehr als Achsen-Wert (Doku 14 §3.4; Memory feedback_legacy_code_sha256_validation).
+#include "../topics/traversal/axis_03a_search_algo/composable/tier_to_organ_mapping.hpp"
 #include "../topics/traversal/axis_03a_search_algo/axis_03a_search_algo_original_art.hpp"
 #include "../topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp"
 #include "../topics/traversal/axis_03m_mapping/axis_03m_mapping_direct_placement.hpp"
@@ -44,7 +48,10 @@ namespace comdare::cache_engine::compositions {
 /// zu OriginalArtSearchAlgo (Paper-Original mit SHA256-Validation gegen art.hpp).
 /// Alle anderen 16 Achsen identisch.
 struct ArtPaperBindingComposition {
-    using search_algo        = traversal::axis_03a_search_algo::OriginalArtSearchAlgo;
+    using search_algo        = traversal::axis_03a_search_algo::composable::ObservableArtTrieOrgan;
+    // Provenienz-Slot (#42): traegt is_original/SHA256/get_compiler (Habich, Doku 14 §3.4), OHNE Achsen-Wert
+    // zu sein. So bleibt die Paper-Bindung ueber die Composition erreichbar, das Skelett ist aber ein Organ.
+    using paper_source       = traversal::axis_03a_search_algo::OriginalArtSearchAlgo;
     using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;

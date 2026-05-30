@@ -29,6 +29,8 @@
 #include "composed_wormhole_search.hpp"           // WormholeJumpTraversalOrgan + WormholeLeafListPoolStore + ComposedWormholeSearch (#43 s4)
 #include "composed_surf_map_search.hpp"           // SurfMapTraversalOrgan + SurfFstMapPoolStore + ComposedSurfMapSearch (#43 s4 SuRF-Map-Schale)
 #include "composed_start_trie_search.hpp"         // StartTrieTraversalOrgan + StartTrieNodePoolStore + ComposedStartTrieSearch (#43 s4)
+#include "observable_composed_search.hpp"         // ObservableComposedSearch — ObservableAxis-Huelle flache Organe (#42)
+#include "observable_composed_container.hpp"      // ObservableComposedContainer — ObservableAxis-Huelle Container-Organe (#42)
 
 namespace comdare::cache_engine::traversal::axis_03a_search_algo::composable {
 
@@ -73,6 +75,22 @@ using OriginalWormholeOrgan = WormholeOrgan;   // S07 Wormhole (war flacher Sort
 // is_original=false ([[pseudocode-papers-fallback]]). Loest den flachen SortedBinaryOrgan-Platzhalter ab.
 using SurfMapOrgan          = ComposedSurfMapSearch<SurfMapTraversalOrgan, SurfFstMapPoolStore>;
 using OriginalSurfOrgan     = SurfMapOrgan;       // S08 SuRF (war flacher SortedBinaryOrgan-Platzhalter)
+
+// --- Observable-Organ-Aliase (#42 Umstufung-B Phase 1) — die im search_algo-Slot der Gattungs-Konfiguratoren
+// (compositions/*_reference.hpp) gefuehrten OBSERVABLEN Organe. ObservableAxis-Pflicht (snapshot_t=
+// SearchAlgoStatistics), damit observe_all() (search_algorithm_anatomy.hpp:68) + der abi_adapter-F15-Workload
+// (abi_adapter.hpp:149) echte Per-Achsen-Statistik liefern statt EmptyAxisSnapshot (Saeule-2, Doku 24 §5.2;
+// Memory feedback_zwei_dimensionen_messmodell). Container-Organe → ObservableComposedContainer; das flache
+// Naeherungs-Organ fuer Masstree → bestehendes ObservableComposedSearch. Reine Typ-Aliase (keine Instantiierung).
+using ObservableArtTrieOrgan      = ObservableComposedContainer<ArtTrieOrgan>;
+using ObservableHotPatriciaOrgan  = ObservableComposedContainer<HotPatriciaOrgan>;
+using ObservableWormholeOrgan     = ObservableComposedContainer<WormholeOrgan>;
+using ObservableSurfMapOrgan      = ObservableComposedContainer<SurfMapOrgan>;
+using ObservableStartTrieOrgan    = ObservableComposedContainer<StartTrieOrgan>;
+// Masstree hat (noch) KEIN echtes Organ-Pendant (eigener s4-Task, rotaki-Pattern). Naeherung: das flache
+// SortedBinary-Organ ueber RawSlotStore (== VectorU16U16-Semantik des bisherigen Platzhalters). TODO: echtes
+// Masstree-Layer-Slice-Organ bauen (Memory feedback_algorithm_correctness_when_named).
+using ObservableSortedBinaryOrgan = ObservableComposedSearch<SortedBinaryTraversal, RawSlotStore>;
 
 /// Dokumentiertes Tier→Organ-Paar (für den Äquivalenz-/Rekonstruktions-Test konsumierbar).
 /// `tier` = monolithischer axis_03a-Wrapper (noch Achsen-Wert, bis zur Umstufung).
