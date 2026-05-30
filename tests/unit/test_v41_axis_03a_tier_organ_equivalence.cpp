@@ -122,6 +122,25 @@ TEST(Axis03aTierOrgan, MasstreeChurnStressMatchesStdMap) {
     SUCCEED();
 }
 
+// --- ART adaptiver Node-Type-SHRINK beim Erase (Leis ICDE 2013: Knotengroesse passt sich BEIDE Richtungen an).
+// Wurzel waechst auf N256 (201 Byte-0-Kinder), schrumpft beim Loeschen N256->N48->N16->N4 — std::map-treu.
+TEST(Axis03aTierOrgan, ArtNodeShrinkOnEraseMatchesStdMap) {
+    using Store = ce_cmp::ArtTrieNodePoolStore;
+    ce_cmp::ArtTrieOrgan organ;
+    std::map<std::uint64_t, std::uint64_t> ref;
+    for (std::uint64_t i = 0; i <= 200; ++i) { std::uint64_t const k = (i << 56) | i; organ.insert(k, k + 1); ref[k] = k + 1; }
+    auto const& s = organ.pool();
+    EXPECT_EQ(Store::ref_kind(s.root()), Store::kN256) << "Wurzel waechst auf N256 bei 201 Byte-0-Kindern";
+    for (std::uint64_t i = 200; i >= 3; --i) {                       // absteigend loeschen bis 3 Keys
+        std::uint64_t const k = (i << 56) | i; organ.erase(k); ref.erase(k);
+        ASSERT_EQ(organ.occupied_count(), ref.size()) << "i=" << i;
+    }
+    EXPECT_EQ(Store::ref_kind(s.root()), Store::kN4) << "Wurzel schrumpft N256->N48->N16->N4";
+    for (auto const& kv : ref) { auto o = organ.lookup(kv.first); ASSERT_TRUE(o.has_value()) << kv.first; ASSERT_EQ(*o, kv.second); }
+    EXPECT_FALSE(organ.lookup((200ull << 56) | 200).has_value());   // geloescht -> weg
+    SUCCEED();
+}
+
 // --- Jeder bereits sezierte Tier-Wrapper == std::map (vertikal, in seiner eigenen Key-Breite) -----------
 TEST(Axis03aTierOrgan, EachDissectedTierMatchesStdMap) {
     ts::verify_matches_std_map<ce_03a::Array256SearchAlgo>(200u, 255u);          // uint8

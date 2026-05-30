@@ -61,7 +61,7 @@ concept ArtTrieNodePool =
         { cs.find_child(ref, b) }-> std::convertible_to<std::size_t>;  // Kind-Ref oder kNil (Byte-Dispatch)
         { s.add_child(ref, b, ref) } -> std::convertible_to<std::size_t>;  // ggf. GEWACHSENE neue Node-Ref
         { s.set_child(ref, b, ref) } -> std::same_as<void>;            // bestehenden Kind-Slot ersetzen
-        { s.remove_child(ref, b) }   -> std::same_as<void>;            // Kind-Slot fuer b entfernen (Erase)
+        { s.remove_child(ref, b) }   -> std::convertible_to<std::size_t>;  // Kind entfernen -> ggf. GESCHRUMPFTER Node-Ref
         { s.free_node(ref) }     -> std::same_as<void>;
     };
 

@@ -153,18 +153,24 @@ public:
 
     /// Entfernt den Kind-Slot fuer Byte b (Erase). KEIN Shrink (under-volle Knoten sind lookup-korrekt;
     /// die N4<-N16<-N48<-N256-Schrumpfung + Kollaps ist ein Folge-Refinement-Increment). b ist vorhanden.
-    void remove_child(std::size_t r, std::uint8_t b) noexcept {
+    // Entfernt das Kind fuer Byte b und gibt den (ggf. GESCHRUMPFTEN) Knoten-Ref zurueck — adaptiver Shrink
+    // N256->N48->N16->N4 (Leis ICDE 2013: Knotengroesse passt sich in BEIDE Richtungen an; bisher wuchs nur).
+    // Hysterese gegen Thrashing (Grow bei 49/17/5, Shrink bei 36/12/3). N4 ist kleinster Typ -> kein weiterer
+    // Shrink hier; der N4-Einzelkind-Praefix-KOLLAPS in den Eltern ist ein separates Folge-Refinement (wie I4).
+    std::size_t remove_child(std::size_t r, std::uint8_t b) noexcept {
         switch (ref_kind(r)) {
             case kN4: { N4& x = n4_[ref_idx(r)];
                 for (int i = 0; i < x.n; ++i) if (x.keys[i] == b) {
                     for (int j = i + 1; j < x.n; ++j) { x.keys[j - 1] = x.keys[j]; x.kids[j - 1] = x.kids[j]; }
-                    --x.n; return;
-                } return; }
+                    --x.n; break;
+                } return r; }
             case kN16: { N16& x = n16_[ref_idx(r)];
                 for (int i = 0; i < x.n; ++i) if (x.keys[i] == b) {
                     for (int j = i + 1; j < x.n; ++j) { x.keys[j - 1] = x.keys[j]; x.kids[j - 1] = x.kids[j]; }
-                    --x.n; return;
-                } return; }
+                    --x.n;
+                    if (x.n == kShrink16) return shrink_n16_to_n4(ref_idx(r));
+                    break;
+                } return r; }
             case kN48: { N48& x = n48_[ref_idx(r)];
                 // KOMPAKTIERUNG (Bugfix, adversariale Verifikation w21detpyz): den letzten belegten Slot in den
                 // frei werdenden ziehen, damit kids[0..n-1] DICHT bleibt -> insert_n48 (slot=x.n) aliast nie einen
@@ -181,11 +187,16 @@ public:
                     }
                     x.child_index[b] = kEmpty48;
                     --x.n;
+                    if (x.n == kShrink48) return shrink_n48_to_n16(ref_idx(r));
                 }
-                return; }
+                return r; }
             case kN256: { N256& x = n256_[ref_idx(r)];
-                if (x.kids[b] != kNil) { x.kids[b] = kNil; --x.n; } return; }
-            default: return;
+                if (x.kids[b] != kNil) {
+                    x.kids[b] = kNil; --x.n;
+                    if (x.n == kShrink256) return shrink_n256_to_n48(ref_idx(r));
+                }
+                return r; }
+            default: return r;
         }
     }
 
@@ -201,6 +212,12 @@ public:
 
 private:
     static constexpr std::uint8_t kEmpty48 = 0xFFu;   // "kein Slot" im N48-child_index
+    // Shrink-Schwellen (Hysterese ggue. Grow bei 49/17/5): geschrumpft wird, wenn n NACH dem Entfernen DIESEN
+    // Wert erreicht — jeweils unter der Zielkapazitaet (48/16/4) mit Reserve, damit ein direktes Re-Insert
+    // nicht sofort wieder waechst.
+    static constexpr int kShrink256 = 36;   // N256 -> N48
+    static constexpr int kShrink48  = 12;   // N48  -> N16
+    static constexpr int kShrink16  = 3;    // N16  -> N4
 
     struct Leaf { key_type key{}; value_type val{}; };
     struct N4   { prefix_type prefix{}; int n = 0; std::array<std::uint8_t, 4>  keys{}; std::array<std::size_t, 4>  kids{}; };
@@ -273,6 +290,48 @@ private:
         for (int b = 0; b < 256; ++b) { std::uint8_t const slot = s.child_index[static_cast<std::size_t>(b)]; if (slot != kEmpty48) d.kids[static_cast<std::size_t>(b)] = s.kids[slot]; }
         fl_n48_.push_back(idx);
         return r256;
+    }
+
+    // ── Adaptiver SHRINK (Spiegel der Growth, Leis ICDE 2013) — Byte-Reihenfolge bleibt erhalten ──
+    [[nodiscard]] std::size_t shrink_n256_to_n48(std::size_t idx) {
+        std::size_t const r48 = new_node48();
+        N48& d = n48_[ref_idx(r48)];
+        N256& s = n256_[idx];
+        d.prefix = s.prefix; d.n = s.n;
+        int slot = 0;
+        for (int b = 0; b < 256; ++b) {
+            std::size_t const kid = s.kids[static_cast<std::size_t>(b)];
+            if (kid != kNil) {
+                d.kids[static_cast<std::size_t>(slot)]        = kid;
+                d.child_index[static_cast<std::size_t>(b)]    = static_cast<std::uint8_t>(slot);
+                d.slot_byte[static_cast<std::size_t>(slot)]   = static_cast<std::uint8_t>(b);
+                ++slot;
+            }
+        }
+        fl_n256_.push_back(idx);
+        return r48;
+    }
+    [[nodiscard]] std::size_t shrink_n48_to_n16(std::size_t idx) {
+        std::size_t const r16 = new_node16();
+        N16& d = n16_[ref_idx(r16)];
+        N48& s = n48_[idx];
+        d.prefix = s.prefix; d.n = s.n;
+        int i = 0;
+        for (int b = 0; b < 256; ++b) {                       // Byte-Reihenfolge -> N16-keys bleiben sortiert
+            std::uint8_t const sl = s.child_index[static_cast<std::size_t>(b)];
+            if (sl != kEmpty48) { d.keys[i] = static_cast<std::uint8_t>(b); d.kids[i] = s.kids[sl]; ++i; }
+        }
+        fl_n48_.push_back(idx);
+        return r16;
+    }
+    [[nodiscard]] std::size_t shrink_n16_to_n4(std::size_t idx) {
+        std::size_t const r4 = new_node4();
+        N4& d = n4_[ref_idx(r4)];
+        N16& s = n16_[idx];
+        d.prefix = s.prefix; d.n = s.n;
+        for (int i = 0; i < s.n; ++i) { d.keys[i] = s.keys[i]; d.kids[i] = s.kids[i]; }   // bereits sortiert
+        fl_n16_.push_back(idx);
+        return r4;
     }
     [[nodiscard]] std::size_t new_node16() {
         std::size_t idx;
