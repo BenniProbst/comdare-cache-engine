@@ -849,6 +849,20 @@ target_include_directories(test_v41_axis_09b_simd_extension PRIVATE
 target_link_libraries(test_v41_axis_09b_simd_extension PRIVATE
     Boost::mp11)
 
+# V41 R5.C.3 / #704 — Cross-Axis-Constraint ISA × SIMD-Extension (Permutationsraum-Korrektheit)
+comdare_add_test(test_v41_r5c3_isa_simd_cross_constraint
+    SOURCES test_v41_r5c3_isa_simd_cross_constraint.cpp)
+target_include_directories(test_v41_r5c3_isa_simd_cross_constraint PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09_isa"
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware")
+target_link_libraries(test_v41_r5c3_isa_simd_cross_constraint PRIVATE
+    Boost::mp11)
+
 # axis_12 braucht jetzt auch axis_09b Include-Path
 # V41.F.6.1.R5.I Tool zur Configure-Time aufrufen + Snippet inline include
 # 2-Pass-Build: 1. cmake-Pass (Tool noch nicht gebaut, Warning) -> Tool bauen ->

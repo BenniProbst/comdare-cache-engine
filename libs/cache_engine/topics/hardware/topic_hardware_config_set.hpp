@@ -32,10 +32,32 @@
 
 #include <array>
 #include <cstddef>
+#include <string_view>
 
 namespace comdare::cache_engine::hardware {
 
 namespace mp = boost::mp11;
+
+// ── R5.C.3 / #704 Cross-Axis-Constraint: ISA (axis_09) × SIMD-Extension (axis_09b) ──────────────────────────
+// Korrektheit des Permutationsraums (Compile-Time, [[no-runtime-switch]]): eine SIMD-Extension passt NUR zu
+// einer ISA, deren cpu_family() sie unterstuetzt. Sonst emittiert der Hardware-Konfigurator physisch unmoegliche
+// Varianten (z.B. Neon-SIMD auf x86_64, Avx512 auf aarch64). NoExt ist mit JEDER ISA kompatibel (compatible_*
+// alle true). Unbekannte ISA -> konservativ erlaubt (kein stiller Verlust).
+template <class Isa, class Ext>
+[[nodiscard]] constexpr bool isa_simd_compatible() noexcept {
+    std::string_view const fam = Isa::cpu_family();
+    if (fam == "x86_64")  return Ext::compatible_with_x86();
+    if (fam == "aarch64") return Ext::compatible_with_arm();
+    if (fam == "riscv64") return Ext::compatible_with_riscv();
+    if (fam == "ppc64le") return Ext::compatible_with_powerpc();
+    return true;
+}
+
+/// mp_remove_if-Praedikat: true fuer ein PHYSISCH UNMOEGLICHES <Isa, Ext, Platform>-Tupel (wird ausgefiltert).
+/// Platform (Tupel-Position 2) ist orthogonal zur ISA×SIMD-Constraint und fliesst NICHT ein.
+template <class PermTuple>
+using IsaSimdIncompatible =
+    mp::mp_bool<!isa_simd_compatible<mp::mp_at_c<PermTuple, 0>, mp::mp_at_c<PermTuple, 1>>()>;
 
 /**
  * @brief TopicConfigSet — zentrale Konfiguration fuer Topic `hardware`
@@ -66,15 +88,20 @@ struct TopicConfigSet {
         StaticAxisVariants_12
     >;
 
-    // Voller Cartesian-Product axis_09 x axis_09b x axis_12 (Haupt-ISA x SIMD-Ext x Plattform)
-    // Compat-Filter (Sse2/Avx2 nur mit Amd64, Neon/Sve2 nur mit Aarch64) ist Aufgabe der
-    // PermutationEngine via mp_remove_if mit Compat-Predicate (R5.C.3 cross-constraints).
+    // ROH-Produkt axis_09 x axis_09b x axis_12 (Haupt-ISA x SIMD-Ext x Plattform) — bewusst UNGEFILTERT
+    // erhalten (Diagnose/Rueckwaerts-Kompatibilitaet; enthaelt physisch unmoegliche Paare).
     using CartesianIsa09xExt09bxPlatform12 = mp::mp_product<
         mp::mp_list,
         StaticAxisVariants_09,
         StaticAxisVariants_09b,
         StaticAxisVariants_12
     >;
+
+    // R5.C.3 / #704: PRODUKTIV konsumiertes Set — der ISA×SIMD-Cross-Constraint ist JETZT ANGEWANDT
+    // (mp_remove_if mit IsaSimdIncompatible). Physisch unmoegliche Paare (Sse2/Avx2/Avx512 nur x86_64,
+    // Neon/Sve2 nur aarch64, Rvv nur riscv64, ...) sind ausgefiltert; NoExt+jede-ISA bleibt erhalten.
+    using FilteredIsa09xExt09bxPlatform12 =
+        mp::mp_remove_if<CartesianIsa09xExt09bxPlatform12, IsaSimdIncompatible>;
 
     /**
      * @brief Pro-Vendor iterable Aspekt-Typ (F.6.1.E hybride Laufzeit-Permutation)
