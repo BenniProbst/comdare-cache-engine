@@ -1,4 +1,10 @@
-# Session 2026-05-30 — #42 Umstufung-B KOMPLETT · SuRF S2 · START-Verifikation · Masstree-Blueprint
+# Session 2026-05-30 — #42 Umstufung-B KOMPLETT · SuRF S2 · START-Verifikation · Masstree KOMPLETT · Cross-Constraints · Säule-2 · R7.4
+
+> **STATUS-UPDATE (Teil 2, nach diesem Blueprint geschrieben):** Der in §3 als „nächster Schritt" geplante
+> Masstree-Blueprint ist VOLLSTÄNDIG AUSGEFÜHRT + adversarial verifiziert (0 Bugs). Danach folgten 7 weitere
+> Charges (Cross-Constraints ISA×SIMD + ISA×Plattform, Säule-2-Mess-Pfad real, ART-Node-Shrink, queuing-Doku,
+> R7.4 resource_ownership). Siehe **§5 Teil 2** am Ende + die erweiterte Commit-Tabelle. §3/§4 sind als
+> historischer Plan markiert; der Ist-Stand steht in §5.
 
 **Agent:** Thesis-Implementierungs-Agent (cache-engine), autonom unter aktivem `/goal` (Ultracode-Loop).
 **Methodik durchgängig:** Design-Planrunde (echte Paper-Code-Lektüre) → Implementierung → adversariale Verifikation.
@@ -12,8 +18,19 @@
 | `v41-42-phase1-rewiring` | `e31541a` | #42 Phase 1: alle 11 Konfiguratoren auf sezierte Organe (ObservableComposedContainer + paper_source) |
 | `v41-surf-s2-inc1-louds` / `…-inc1b-oob-fix` | `05f12cb`/`ccdedf6` | SuRF S2 Inkrement 1: echtes LOUDS-Sparse-Filter-Organ (+ 2 Bug-Fixes) |
 | `v41-42-phase2-deregistrierung` | `8bcbd7e` | #42 Phase 2: 13 Tiere via Flag-Gating deregistriert (EnabledStrategies 17→4) |
+| *(Doc-Commit)* | `c82d151` | dieser Session-Doc (Blueprint-Stand) — danach folgten die untenstehenden Charges |
+| — | `f9de770` | Masstree-Organ Fundament: Concept + Store + verifizierter kpermuter (S1/S2/S9) |
+| — | `539e64f` | **Masstree-Organ KOMPLETT** — letzter Platzhalter-Konfigurator seziert (S3–S8) |
+| — | `1a2b12a` | Masstree adversariale Verifikation `w2tra534f` — 0 Bugs, Churn-Coverage-Härtung |
+| `v41-r5c3-isa-simd` | `f9b6303` | Cross-Constraint ISA×SIMD (#704): Permutationsraum-Korrektheit (mp_remove_if) |
+| — | `4f499cd` | Säule-2: search_algo-Achse misst das ECHTE Composition-Organ (statt generisch SortedBinary) |
+| — | `ce262d7` | Säule-2: Per-Achsen-observe_all-Statistik-Trace im Mess-Treiber (2. Mess-Dimension) |
+| `v41-…-art-shrink` | `65f3102` | ART adaptiver Node-Type-Shrink beim Erase (N256→N48→N16→N4, std::map-treu) |
+| `v41-isa-platform-cross-constraint-d29fdef` | `d29fdef` | **Cross-Constraint ISA×Plattform (#704-Erweiterung)** — 2. latenter Defekt geschlossen |
+| — | `fdbb2bc` | queuing: CartesianQ1xQ2 bewusst ungefiltert begründet (kein #704-Defekt, orthogonal) |
+| `v41-r74-allocator-resource-ownership` | `185f038` | **R7.4: resource_ownership() grenzt POOL gegen PMR typsicher ab** |
 
-da-Pointer zuletzt: `1feed3a`. Baseline-Tag `pre-42-umstufung-b`.
+da-Pointer zuletzt: `15ca2cc` (→ ce `185f038`). Baseline-Tag `pre-42-umstufung-b`.
 
 ## 1. #42 Umstufung-B — VOLLSTÄNDIG (kritische Direktive erfüllt)
 
@@ -40,7 +57,15 @@ Seziert aus `ext/traversal/P10-SuRF` (Apache-2.0), portabel C++23 (std::popcount
 
 Beweis (7/7 grün): no-FN HART, S2.contains≥S1.contains-Kreuzbeleg über 0..100000, FP-Monotonie + bits_per_key streng steigend über RealLen{0,4,8,16}, Range-no-FN vs std::set, Adversarial (Präfix-Ketten/Singleton/leer/Wort-Grenze).
 
-## 3. NÄCHSTER SCHRITT — Masstree-Organ (letzter Platzhalter): BUILD-REIFER BLUEPRINT
+## 3. Masstree-Organ (letzter Platzhalter): BUILD-REIFER BLUEPRINT — ✅ AUSGEFÜHRT
+
+> **✅ ERLEDIGT (commits `f9de770` → `539e64f` → `1a2b12a`):** Der folgende S0–S9-Plan wurde
+> VOLLSTÄNDIG umgesetzt. Das echte Masstree-Organ (`MasstreeLayerTraversalOrgan<SliceBytes=2>` +
+> `MasstreeLayerNodePoolStore` mit nested `Kperm15` + `ComposedMasstreeSearch`) ersetzt den
+> `ObservableSortedBinaryOrgan`-Platzhalter; `tier_to_organ_mapping.hpp`/`masstree_reference.hpp`
+> routen das echte Organ. Adversarial verifiziert (Planrunde `w2tra534f`, **0 Bugs**): Churn-Stress
+> (füllen/⅓-löschen/reinsert/Multi-Layer/komplett-leeren ≡ std::map), Layer-Boundary-Namensanspruch-Beleg,
+> Variants≡ArtTrieOrgan, `<8>`-Degenerationsanker, Kperm15-Unit-Test. Der Plan unten ist HISTORISCH.
 
 Planrunde `wxciy2wjk` (paper-verifiziert, `blocked: false`). `masstree_reference.hpp` nutzt noch `ObservableSortedBinaryOrgan` (Platzhalter). Ziel: echtes Masstree (Mao/Kohler/Morris EuroSys 2012) als 4-Datei-composable-Organ. is_original=false (masstree.hh ist template-only → Re-Impl). Single-Thread (OLC/RCU weg). C++23 portabel.
 
@@ -72,9 +97,28 @@ Planrunde `wxciy2wjk` (paper-verifiziert, `blocked: false`). `masstree_reference
 
 **open_question (Planrunde-Empfehlung getroffen, reversibel):** SliceBytes=2 als Composition-Default (echte Layer + Namensanspruch) vs SliceBytes=8 (paper-treu, Layer tot für uint64). Empfehlung+Default = 2, mit 8 als Anker. 1-Zeilen-Umkehrung falls User strikte Paper-Slice-Breite höher gewichtet.
 
-## 4. Verbleibende Folge-Chargen (optional/Refinement)
-- Masstree-Organ (Blueprint oben — NÄCHSTER SCHRITT).
-- SuRF S2 Inkrement 2 (LoudsDense, reine Space-Opt).
-- `axis_03t_node_tuning` (START Cost-DP, Mess-Modell USER-zu-bestätigen).
-- ART/HOT/Wormhole-Refinements (SIMD find_child, Multi-Bit-Höhe, Node-Shrink/Collapse, Cuckoo).
-- extern-C-Linking lizenzierte Paper-Codes (#4 / R7.6.c).
+## 4. Verbleibende Folge-Chargen (optional/Refinement) — Stand nach Teil 2
+- ~~Masstree-Organ~~ ✅ ERLEDIGT (§3, commits `f9de770`/`539e64f`/`1a2b12a`).
+- ~~ART-Node-Shrink beim Erase~~ ✅ ERLEDIGT (`65f3102`, N256→N48→N16→N4).
+- SuRF S2 Inkrement 2 (LoudsDense, reine Space-Opt) — **offen, grounded** (LOUDS-DENSE ist real spezifiziert; medium, session-tail-riskant da invasiv an der Sparse-Query). Sparse-only ist bereits korrekt+vollständig.
+- `axis_03t_node_tuning` (START Cost-DP) — **GESPERRT**: Mess-Modell ist USER-eigene Entscheidung (Säule-2-Selbstmessung vs CEB-Säule-1), NICHT autonom zu starten.
+- HOT/Wormhole-Refinements (SIMD find_child = Portabilitätskonflikt; Multi-Bit-Höhe; Node-Collapse) — Refinement, nicht Korrektheit.
+- extern-C-Linking lizenzierte Paper-Codes (#4 / R7.6.c) — überwiegend lizenz-/template-blockiert (Wormhole GPL-3, Masstree template-only).
+- Vendor-Detection-CMake für 24 disabled Allocatoren (R7.4-Rest) — extern-abhängig (jemalloc/tcmalloc-libs nicht im Repo), session-tail-riskant.
+- axis_03m MP03/MP04 + axis_03b CT04/CT05 — **NICHT grounded**: nur vage Roadmap-Platzhalternamen ohne Paper-/Spec-Basis; Implementierung wäre spekulative Scope-Creep (verstößt gegen Algorithmus-Korrektheits-Disziplin). Bewusst NICHT umgesetzt.
+
+## 5. Teil 2 — Folge-Charges NACH dem Blueprint (autonome /goal-Sequenz, Ultracode)
+
+Methodik je Charge: (Planrunde bei Unklarheit →) Implementierung → adversariale Verifikation → Commit+Tag+Push+da-Bump.
+
+1. **Masstree-Organ KOMPLETT** (`f9de770`/`539e64f`/`1a2b12a`) — §3-Blueprint ausgeführt; letzter Tier-Platzhalter seziert. Damit ist die Umstufung-B-Direktive (Achsen enthalten NUR Organe) restlos erfüllt: KEIN monolithisches Tier mehr in `axis_03a`.
+2. **Cross-Constraint ISA×SIMD (#704)** (`f9b6303`) — physisch unmögliche SIMD/ISA-Paare (Neon auf x86_64 etc.) aus dem Permutationsraum gefiltert (`mp_remove_if`); Roh-Produkt diagnostisch erhalten.
+3. **Säule-2 Mess-Pfad real** (`4f499cd`/`ce262d7`) — der F15-Mess-Treiber misst das ECHTE Composition-Organ pro Achse (`observe_all`-Statistik-Trace), statt generisch SortedBinary. Zweite Mess-Dimension operativ.
+4. **ART-Node-Shrink beim Erase** (`65f3102`) — adaptiver Knoten schrumpft N256→N48→N16→N4 (Leis ICDE 2013, beide Richtungen), std::map-treu via Equivalence-Test.
+5. **Cross-Constraint ISA×Plattform (#704-Erweiterung)** (`d29fdef`) — 2. latenter Defekt: eine Mikroarchitektur-ISA läuft nur auf Plattform DERSELBEN CPU-Familie (Amd64 nicht auf Aarch64-Plattform). `isa_platform_compatible<Isa,Platform>()` + `FilteredIsa09xPlatform12` + 3-Wege-Verkettung (schließt auch das SIMD-kompatible-aber-plattform-unmögliche Tupel). Deterministischer Voll-Produkt-Beweis: 12 Paare → genau 6 möglich.
+6. **queuing Q1×Q2 begründet ungefiltert** (`fdbb2bc`) — Gegenprobe zu #704: Buffer×Flush sind orthogonal (kein physisch-unmögliches Paar; NoBuffer+Watermark nur redundant). Filter widerspräche dem F15-Vollraum-Mess-Ziel. Asymmetrie als Absicht dokumentiert.
+7. **R7.4: resource_ownership() POOL vs PMR** (`185f038`) — die PMR-Familie (A22) typsicher getrennt: `enum ResourceOwnership {None,Owned,Borrowed}`, Pflicht-Property im Concept, Default `None` einmal in der CRTP-Base (kein Bloat), nur POOL=Owned/PMR=Borrowed überschreiben. Orthogonal zu `supports_pmr()`.
+
+**Verifikations-Stand Teil 2:** volle Regression `ctest` **2078/2078 grün** (0 Defekte), nach der letzten Charge gemessen. Allocator-Topic 473/473. Cross-Constraint-Untersuchung über ALLE Topics abgeschlossen (nur hardware+queuing haben kartesische Produkte).
+
+**Cluster-Architektur-Status:** Die Cross-Constraint-Methodik (physisch-unmögliche Permutationen compile-time ausfiltern) ist auf den Permutationsraum der cache-engine beschränkt — keine Infrastruktur-Berührung.
