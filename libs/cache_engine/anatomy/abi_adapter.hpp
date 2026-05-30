@@ -249,6 +249,11 @@ public:
             snap.search_erase_count    = s.total_erase_count;
             snap.search_peak_occupancy = s.peak_occupancy;
         }
+        // HINWEIS R6 Inkrement 2b (offen): die allocator-Achse über die ABI-Grenze erfordert den
+        // ComposedStore<N,L,A>-Container im Adapter — dessen topics/-Includes ziehen measurement/ in das
+        // anatomy_module_loader-Target, dessen Include-Pfade das (noch) nicht abdecken. Bewusste
+        // Build-Config-Erweiterung (Folge-Charge), NICHT session-tail. Hier bleibt search_algo die
+        // ABI-gezogene Achse; allocator wird in-process via AnatomyExecutionContext gemessen.
 #endif
         snap.observable_axis_count = ObserverAggregate<Composition>::observable_count();
         snap.tier_fill_level       = tier_size();
@@ -263,7 +268,7 @@ private:
         ::comdare::cache_engine::execution_engine::EngineLifecycleState::Uninitialized};
     // R6 / Pfad B: das getriebene ECHTE Composition-Such-Organ (uint64-Key). Default-konstruiert;
     // Default-konstruierbar + ObservableAxis garantiert durch #42 (ObservableComposedContainer-Huelle).
-    SearchAlgo search_organ_{};
+    SearchAlgo  search_organ_{};
 };
 
 }  // namespace comdare::cache_engine::anatomy
