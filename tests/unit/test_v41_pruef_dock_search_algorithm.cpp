@@ -11,6 +11,7 @@
 #include <builder/pruef_dock/pruef_dock.hpp>
 #include <builder/pruef_dock/search_algorithm_dock.hpp>
 #include <builder/pruef_dock/pruef_dock_registry.hpp>
+#include <builder/pruef_dock/pruef_dock_sequencer.hpp>
 #include <anatomy/abi_adapter.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <compositions/art_reference.hpp>
@@ -18,6 +19,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace pd   = ::comdare::cache_engine::builder::pruef_dock;
 namespace al   = ::comdare::cache_engine::builder::anatomy_loader;
@@ -75,4 +77,39 @@ TEST(PruefDock, EmptyHandleRejectedCleanly) {
     pd::PruefDockMeasureOptions opts;
     std::string csv, json;
     EXPECT_EQ(dock.measure(empty, opts, csv, json), pd::dock_status_no_anatomy);
+}
+
+// Sequenzierung (Doku 24 §8.8 Default): mehrere Module gattungs-sequentiell durchmessen.
+TEST(PruefDock, GenusSequentialMeasuresAllModules) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    namespace abi = ::comdare::cache_engine::abi;
+    using Anatomy = an::SearchAlgorithmAnatomy<comp::ArtComposition>;
+    an::SearchAlgorithmAbiAdapter<Anatomy> a0, a1, a2;            // 3 In-Process-"Tier-Module" derselben Gattung
+
+    std::vector<al::AnatomyModuleHandle> handles;
+    handles.emplace_back(nullptr, &a0, nullptr, abi::AnatomyAbiVersion{1, 0});
+    handles.emplace_back(nullptr, &a1, nullptr, abi::AnatomyAbiVersion{1, 0});
+    handles.emplace_back(nullptr, &a2, nullptr, abi::AnatomyAbiVersion{1, 0});
+
+    pd::PruefDockRegistry reg;
+    reg.register_dock(std::make_unique<pd::SearchAlgorithmDock>());
+
+    pd::PruefDockMeasureOptions opts;
+    opts.fill_checkpoints       = {10, 50};
+    opts.lookups_per_checkpoint = 100;
+    opts.deletes_per_checkpoint = 10;
+
+    auto const results = pd::measure_genus_sequential(reg, handles, opts);
+    ASSERT_EQ(results.size(), 3u);
+    for (auto const& r : results) {
+        EXPECT_EQ(r.status, pd::dock_status_ok) << pd::dock_status_name(r.status);
+        EXPECT_EQ(r.genus, an::AnatomyGenus::SearchAlgorithm);
+        EXPECT_EQ(r.dock_name, std::string{"SearchAlgorithmDock"});
+        EXPECT_FALSE(r.csv.empty());
+        EXPECT_FALSE(r.json.empty());
+    }
+    SUCCEED();
+#else
+    GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus — Sequenzierungs-Test n/a";
+#endif
 }

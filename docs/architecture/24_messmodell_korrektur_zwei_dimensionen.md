@@ -526,8 +526,17 @@ zu generalisieren, NICHT neu zu erfinden: `IObservableTier` (ABI-stabiler Gattun
 Pfad B) + `AnatomyModuleLoader` (Laden via `genus()`-typisiertes `IAnatomyBase`) + `drive_tier_observe_trace_abi`
 (host-seitiger Mess-/Persistier-Treiber). Die Prüf-Dock-Abstraktion hebt diese SearchAlgorithm-spezifische
 Verdrahtung auf eine **per-Gattung-Variante eines gemeinsamen Mess-Übergangs** + ergaenzt die **Config-getriebene
-Dock-Auswahl + Gattungs-sequentielle Mess-Orchestrierung**. Design-Blueprint: Planrunde `wt5q7de5t` (laufend);
-Umsetzung als Folge-Inkremente.
+Dock-Auswahl + Gattungs-sequentielle Mess-Orchestrierung**.
+
+**✅ Umsetzung (2026-05-30, Planrunde `wt5q7de5t`):** `libs/cache_engine/builder/pruef_dock/`:
+`pruef_dock.hpp` (`IPruefDock` + `PruefDockMeasureOptions`=Alias `AbiTierTraceConfig` + `dock_status_*`;
+KEINE ABI-Grenze) · `search_algorithm_dock.hpp` (`SearchAlgorithmDock` verkabelt
+`dynamic_cast<IObservableTier*>` → `drive_tier_observe_trace_abi` → `serialize_csv/json`, dünner Wrapper) ·
+`pruef_dock_registry.hpp` (`PruefDockRegistry` + `select_for` via `genus()`) · `pruef_dock_sequencer.hpp`
+(`measure_genus_sequential`: stabile Gattungs-Gruppierung, gleiche Gattung sequentiell, Cartesian-Ordnung
+innerhalb erhalten). Test `test_v41_pruef_dock_search_algorithm` (3 gr). **Bewusst NICHT in den
+Legacy-ExperimentDriver-phase5 verdrahtet** (zwei Loader-Welten module_loader vs anatomy_module_loader —
+Folge-Charge); Set/Sequence/Adapter/View-Docks ab V42 (Gattungs-Implementierungen existieren noch nicht).
 
 ---
 
