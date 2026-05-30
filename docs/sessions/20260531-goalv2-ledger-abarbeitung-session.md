@@ -44,7 +44,13 @@ Notations-Fixes: R7.4 266/266 gesamt, R7.2 264+79 skipped. R5.D-RDTSC = eigenes 
 
 ## 3. NÄCHSTE CHARGEN (offene §(a), nach Priorität)
 
-### (1) R5.B-serialization (Architektur-Pflicht, bounded) — SCOPE
+### ✅ R5.B-serialization — ERLEDIGT (Nachtrag, ce `f65a2ad`)
+axis_10 runtime-operativ gemacht: 4 Serializer-Wrapper mit `serialize_scan`-Laufzeit-API (raw=Byte-Sum <
+compressed=Delta+Zigzag < var_len=LEB128 < succinct=Bit-Packing) + `run_workload` Segment 4
+(`composition_t::serialization::serialize_scan`). Tests `R5B_Axis10_SerializeScan` 9/9 + e2e `run_workload`
+3/3. Doku 22 §3.4. → §(a)-Rest jetzt: **F.2-§2.2 (Primär)** + 25-DLL-Build (optional).
+
+### (1) R5.B-serialization (Architektur-Pflicht, bounded) — ✅ ERLEDIGT (s. o.); ursprünglicher SCOPE:
 Doku 22 §3.2-§4: `run_workload` variiert nur search_algo. Trait-Achsen sind **„HOHL"** für die Messung, bis ihre Wrapper eine **behaviorale Laufzeit-API** mit echtem Verhaltensunterschied haben. Template = die ERLEDIGTE §3.3-memory_layout-Operativierung (Komposit-`run_workload`-Segmente in `abi_adapter.hpp`).
 **To-do:** den 5 `axis_10_serialization`-Wrappern (raw_binary/primitives/compressed/succinct/var_len) eine echte `serialize`/`deserialize`-Laufzeit-API mit messbar distinktem Verhalten geben (raw=memcpy, compressed=compress, succinct=bit-pack, var_len=varint) → in ein Komposit-`run_workload`-Segment einbauen → Test, dass die Variation messbar differenziert.
 **Referenzen:** Doku 22 §3.2/§3.3/§4; `topics/serialization/axis_10_serialization/`; `abi_adapter.hpp` run_workload.
