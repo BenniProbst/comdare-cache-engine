@@ -474,4 +474,52 @@ realisiert die in-process-Variante (Trigger-Modus (b), Füllstands-Checkpoints; 
 
 ---
 
-**Ende Doku 24 — Mess-Modell-Korrektur (2026-05-29; §8 HYBRID-Modell + zeit/zustands-korrelierte Erhebung + R6 vollständig dokumentiert 2026-05-30).**
+### §8.8 Das PRÜF-DOCK — der per-Gattung ABI-stabile Mess-Übergang der CacheEngineBuilder (User 2026-05-30)
+
+> **User 2026-05-30 (verbatim-tragend):** „eine geladene Anatomie ist eine bestimmte durch Metaprogrammierung
+> unterstützte Gattung eines zu prüfenden per Konfiguration permutierten Tier-Binary-Algorithmus. Bevor eine
+> Gattung an Algorithmen als Tier-Module durch die CacheEngineBuilder durchgemessen werden kann, muss die
+> Gattung als Variante eines je Gattung ABI-stabilen Messübergangs von der CacheEngineBuilder unterstützt
+> werden, wir nennen jede CacheEngineBuilder Seite für eine Gattung ein **Prüf-Dock** (etwa für Search
+> Algorithm oder für Container oder für Graphen … die wir vorher auch mit der Metapher Lebewesen→Tiere vs
+> Viren beschrieben hatten). In der Konfiguration der CacheEngineBuilder … können bei Bedarf auch multiple
+> Gattungen quer gemessen werden, je nach der nächsten durchzumessenden Binary wird ein passendes Prüf-Dock
+> verwendet … Default … Binaries derselben Gattung sequentiell, gefolgt von der Sequenz der nachfolgenden
+> Gattung …"
+> „Die Konfiguration der Anatomie und der compile, sowie das Prüf-Dock ist also Teil der CacheEngineBuilder
+> und die Anatomie-Permutation einer Algorithmus-Gattung ist als Binary-Tier-Modul kompiliert und wird durch
+> die CacheEngineBuilder durchgemessen."
+
+**Definition.** Ein **Prüf-Dock** ist die **CacheEngineBuilder-SEITE für genau EINE Gattung** (Anatomie-Genus):
+ein **per-Gattung ABI-stabiler Mess-Übergang**, der ein als **Binary-Tier-Modul** kompiliertes Tier DIESER
+Gattung (a) laedt, (b) ueber die **Gattungs-API** treibt und (c) dessen **Observer** durchmisst + persistiert.
+Es gibt ein Prüf-Dock je Gattung: `SearchAlgorithm`-Dock, `Container`-Dock, `Graph`-Dock, … — entsprechend
+der Tier-Metapher (Lebewesen→Tiere-Gattungen vs Viren = Graphen-Algos ohne Anatomie, Doku 14 §33-§40,
+`[[execution-engine-als-wurzel]]` `[[anatomie-gattungen]]`).
+
+**Die CacheEngineBuilder besitzt den vollen Lebenszyklus** (alles INNERHALB der cache-engine):
+1. **Anatomie-Konfiguration** — welche Achsen-Permutation (Gattungs-Konfigurator) gemessen wird.
+2. **Compile** — die Anatomie-Permutation einer Gattung wird als **Binary-Tier-Modul** (.so/.dll) kompiliert
+   (`adhoc_emitter` + `comdare_build_adhoc_modules`).
+3. **Prüf-Dock** — das per-Gattung passende Mess-Dock laedt + treibt + misst das Binary-Tier-Modul.
+
+**Gattungs-Constraint.** Ein Prüf-Dock ist an seine Gattung gebunden (cross-genus type-system-mathematisch
+unmoeglich, Doku 14 §32, `[[gattungs-constraint-pruefling-merge]]`). Der Loader liest `IAnatomyBase::genus()`
+des Moduls; das **passende** Prüf-Dock wird je Binary-Gattung gewaehlt.
+
+**Konfiguration + Sequenzierung.** Die Builder-Config waehlt je naechster zu messender Binary das passende
+Prüf-Dock. **Default:** Binaries DERSELBEN Gattung werden SEQUENTIELL durchgemessen, dann die naechste
+Gattung, usw. — was nacheinander bestimmte Prüf-Dock-Typen bedarf. **Optional:** multiple Gattungen QUER
+gemessen (Config-gesteuert).
+
+**Bezug zum Ist-Stand (R6).** Das **SearchAlgorithm-Prüf-Dock existiert faktisch bereits in Teilen** und ist
+zu generalisieren, NICHT neu zu erfinden: `IObservableTier` (ABI-stabiler Gattungs-Antrieb + Observer-Zugriff,
+Pfad B) + `AnatomyModuleLoader` (Laden via `genus()`-typisiertes `IAnatomyBase`) + `drive_tier_observe_trace_abi`
+(host-seitiger Mess-/Persistier-Treiber). Die Prüf-Dock-Abstraktion hebt diese SearchAlgorithm-spezifische
+Verdrahtung auf eine **per-Gattung-Variante eines gemeinsamen Mess-Übergangs** + ergaenzt die **Config-getriebene
+Dock-Auswahl + Gattungs-sequentielle Mess-Orchestrierung**. Design-Blueprint: Planrunde `wt5q7de5t` (laufend);
+Umsetzung als Folge-Inkremente.
+
+---
+
+**Ende Doku 24 — Mess-Modell-Korrektur (2026-05-29; §8 HYBRID-Modell + zeit/zustands-korrelierte Erhebung + R6 + §8.8 Prüf-Dock 2026-05-30).**

@@ -59,16 +59,18 @@ auswertbar.
 | Dimension | Pfad A (DLL-selbst, isolierte Achse) | Pfad B in-process (Composite) | Pfad B über Modul-Binary-ABI |
 |-----------|--------------------------------------|-------------------------------|------------------------------|
 | §2.1 Tier-Wall-Clock (Füllstand, r/w/d, RAM) | ✅ run_workload + f15_compare | ✅ `tier_observe_trace.hpp` | ✅ **R6 Ink.2a** `drive_tier_observe_trace_abi` (r/w/d) |
-| §2.2 Achsen-`observe_all` | (n/a, isoliert) | ✅ `AnatomyExecutionContext::observe_all` (search_algo+allocator real, uint64) | ✅ **R6 Ink.1** `IObservableTier::tier_observe` (search_algo; allocator=2b-Folge) |
+| §2.2 Achsen-`observe_all` | (n/a, isoliert) | ✅ `AnatomyExecutionContext::observe_all` (search_algo+allocator real, uint64) | ✅ **R6 Ink.1+2b** `IObservableTier::tier_observe` (search_algo **+ allocator**, 2-dimensional) |
 | §2.3 Achsen-Vergleich (Interface vs std::map) | ✅ Welch+MWU+Cliff's δ | ✅ `verify_matches_std_map` (Compile-Time) | n/a |
 
 **R6-Implementierungs-Stand (2026-05-30, erledigt + verifiziert):** Ink.1 `IObservableTier` ABI-Sub-Interface
 + POD `ComdareTierObserverSnapshotV1` (`5b72eae`) · Ink.2a host-seitiger Füllstand-Treiber
 `drive_tier_observe_trace_abi` (`4b68b13`) · Ink.2b Wall-Clock-Stempel-Korrelation (`146e6b2`) +
-CSV-Persistierung `serialize_abi_tier_trace_csv` (`7c6d670`). **Pfad-B-Schleife geschlossen:** bauen → laden
-→ Gattungs-API durchtesten → Observer ziehen → Wall-Clock-korrelieren → persistieren. Verbleibend (additiv/
-Folge-Charge, Doku 24 §8.6): allocator-Achse im Cross-ABI-POD (Loader-Include-Erweiterung), echter
-.dll-Round-Trip, JSON + p50/p99.
+CSV-Persistierung `serialize_abi_tier_trace_csv` (`7c6d670`) + JSON + p50/p99 (`c8f26e8`). **Pfad-B-Schleife
+geschlossen:** bauen → laden → Gattungs-API durchtesten → Observer ziehen → Wall-Clock-korrelieren → persistieren.
+**Loader-Entkopplung (`6140705`):** `anatomy_module_abi_v1_decl.hpp` (leichte ABI-Schnittstelle) → Loader
+ohne `abi_adapter`. **Allocator-Achse über ABI (`db4de2e`):** ComposedStore im Adapter → Cross-ABI-POD
+2-dimensional (search_algo + allocator). Verbleibend (Folge-Charge): echter .dll-Round-Trip (DLL-Rebuild +
+Treiber über geladenes Modul).
 
 ---
 
