@@ -821,8 +821,8 @@ foreach(_s RAW_BINARY VAR_LEN SUCCINCT COMPRESSED)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/serialization/axis_10_serialization/axis_10_serialization_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/serialization/axis_10_serialization/axis_10_serialization_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/serialization_axis/axis_10_serialization_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/serialization_axis/axis_10_serialization_flags.hpp"
     @ONLY)
 message(STATUS "  axis_10 (4 serializers): RAW=${COMDARE_AXIS_10_USE_RAW_BINARY} VAR_LEN=${COMDARE_AXIS_10_USE_VAR_LEN} SUCCINCT=${COMDARE_AXIS_10_USE_SUCCINCT} COMPRESSED=${COMDARE_AXIS_10_USE_COMPRESSED}")
 
@@ -906,8 +906,8 @@ foreach(_o HEAP CLUSTERED NON_CLUSTERED INDEX_ORGANIZED_TABLE)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/search_engine/axis_01_index_organization/axis_01_index_organization_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/search_engine/axis_01_index_organization/axis_01_index_organization_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/index_organization/axis_01_index_organization_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/index_organization/axis_01_index_organization_flags.hpp"
     @ONLY)
 message(STATUS "  axis_01 (4 clusterings): HEAP=${COMDARE_AXIS_01_USE_HEAP} CLUSTERED=${COMDARE_AXIS_01_USE_CLUSTERED} NON_CLUSTERED=${COMDARE_AXIS_01_USE_NON_CLUSTERED} IOT=${COMDARE_AXIS_01_USE_INDEX_ORGANIZED_TABLE}")
 

@@ -6,7 +6,7 @@
 #cmakedefine01 COMDARE_AXIS_01_USE_NON_CLUSTERED
 #cmakedefine01 COMDARE_AXIS_01_USE_INDEX_ORGANIZED_TABLE
 
-namespace comdare::cache_engine::search_engine::axis_01_index_organization::flags {
+namespace comdare::cache_engine::index_organization::flags {
 
 inline constexpr bool heap_enabled                   = COMDARE_AXIS_01_USE_HEAP;
 inline constexpr bool clustered_enabled              = COMDARE_AXIS_01_USE_CLUSTERED;

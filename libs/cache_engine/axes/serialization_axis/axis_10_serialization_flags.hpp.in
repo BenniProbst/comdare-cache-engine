@@ -6,7 +6,7 @@
 #cmakedefine01 COMDARE_AXIS_10_USE_SUCCINCT
 #cmakedefine01 COMDARE_AXIS_10_USE_COMPRESSED
 
-namespace comdare::cache_engine::serialization::axis_10_serialization::flags {
+namespace comdare::cache_engine::serialization_axis::flags {
 
 inline constexpr bool raw_binary_enabled = COMDARE_AXIS_10_USE_RAW_BINARY;
 inline constexpr bool var_len_enabled    = COMDARE_AXIS_10_USE_VAR_LEN;
