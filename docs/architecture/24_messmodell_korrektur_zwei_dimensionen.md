@@ -420,18 +420,22 @@ f15 29/29, alle Adapter-Tests grün, Pfad A unberührt.
   mit p50/p99 der r/w/d-Roh-ns-Kurven (Tier-Wall-Clock-Detail-Auswertung §2.1, ausreisser-robust via p50
   vgl. Doku 22 §3.3) korreliert mit den Observer-Zählern + `observe_wall_ns`. `detail::nearest_rank_p`
   Nearest-Rank-Perzentil. Test: JSON-Form + p50/p99-Felder + 3 Checkpoint-Objekte. f15 29/29.
-- **Allocator-Achse in den Cross-ABI-POD:** erfordert den `ComposedStore<N,L,A>`-Container IM Adapter
-  (`abi_adapter.hpp`). **Build-Layering-Befund (2026-05-30, zwei Schichten verifiziert):** der Container
-  zieht (1) `measurement/measurable_concept.hpp` (unter `src/`) UND (2) die **generierten** Achsen-Flags-Header
-  (`axis_04_node_type_flags.hpp` etc. via `configure_file` unter `build/generated/`) transitiv in das
-  `comdare_anatomy_module_loader`-Target (C1083). **Wurzel:** `cache_engine/abi/anatomy_module_abi_v1.hpp`
-  inkludiert `abi_adapter.hpp` (die schwere Adapter-Template) → der leichte host-seitige Loader (nur ein
-  dlopen-Wrapper) wird damit an die GANZE Achsen-Library + generierte-Flags-Maschinerie gekoppelt. Den Loader
-  bloss mit allen `generated/`-Include-Dirs zu fluten waere ein Schmierfix. **Saubere Lösung (Folge-Charge,
-  Architektur):** den Loader von `abi_adapter.hpp` ENTKOPPELN — er braucht nur die ABI-INTERFACES
-  (`IAnatomyBase`/`IMeasurableWorkload`/`IObservableTier`), NICHT die Adapter-Implementierung (die lebt in den
-  DLLs). Erst danach kann der Adapter den ComposedStore halten, ohne den Loader zu belasten. NICHT session-tail.
-  In-Process wird die allocator-Achse bereits via `AnatomyExecutionContext` gemessen (Pfad B in-process).
+- **✅ Allocator-Achse in den Cross-ABI-POD (erledigt 2026-05-30):** Zwei Schritte:
+  1. **Loader-Entkopplung (`6140705`):** `cache_engine/abi/anatomy_module_abi_v1.hpp` zog `abi_adapter.hpp`
+     (schwere Template) → koppelte den leichten dlopen-Loader an die GANZE Achsen-Library + generierte-Flags-
+     Maschinerie (C1083 in zwei Schichten: `measurement/` unter `src/` + generierte `axis_04_*_flags.hpp` unter
+     `build/generated/`). **NEU `anatomy_module_abi_v1_decl.hpp`** = leichte ABI-Schnittstelle (Version/Magic,
+     Factory-Decls, AnatomyAbiVersion, Interface-Includes) — der Loader inkludiert NUR das Decl; das volle
+     Header (Decl + abi_adapter + COMDARE_DEFINE-Makros) bleibt für DLLs/Tests unverändert. KEIN Schmierfix,
+     KEINE Emitter-Änderung.
+  2. **ComposedStore im Adapter (`abi_adapter.hpp`):** der genus-Adapter hält jetzt den
+     `ObservableComposedSearch<SortedBinaryTraversal, ComposedStore<N,L,A>>`-Container (spiegelt
+     `AnatomyExecutionContext`); `tier_insert/erase/clear` treiben ihn, `tier_observe` flacht
+     `store_allocator_statistics()` in die `alloc_*`-POD-Felder. Da der Loader entkoppelt ist, belasten die
+     topics/-Includes nur die Voll-Header-Konsumenten (DLLs/Tests, die die Pfade ohnehin haben). Test
+     `R6_HostSide…`: `alloc_bytes_allocated>0` + `alloc_allocation_count>0` → der Cross-ABI-POD ist jetzt
+     **2-dimensional** (search_algo + allocator, beide aus den echten getriebenen Organen). f15 29/29,
+     loader 11/11, execution_engine 11/11.
 - **Echter .dll-Round-Trip:** Treiber über ein per `AnatomyModuleLoader` GELADENES Modul statt in-process-
   Adapter — erfordert Rebuild der `adhoc`-Permutations-DLLs mit dem `IObservableTier`-Adapter.
 
