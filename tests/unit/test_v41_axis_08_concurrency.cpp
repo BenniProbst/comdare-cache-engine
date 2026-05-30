@@ -38,11 +38,16 @@ TEST(R7_3_Axis08, AllStrategiesSatisfyConcepts) {
     static_assert(ax08::concepts::ConcurrencyStrategy<ax08::RcuConcurrency>);
     static_assert(ax08::concepts::ConcurrencyStrategy<ax08::HazardPointerConcurrency>);
     static_assert(ax08::concepts::ConcurrencyStrategy<ax08::OlcReservedBlocksConcurrency>);
-    static_assert(ax08::concepts::CacheEnginePermutationStrategy<ax08::OlcReservedBlocksConcurrency>);
+    // R7.1.b (Ledger §a): CacheEnginePermutationStrategy fuer ALLE 9 Wrapper (vorher nur 5) — volle per-Wrapper-Coverage.
     static_assert(ax08::concepts::CacheEnginePermutationStrategy<ax08::NoneConcurrency>);
+    static_assert(ax08::concepts::CacheEnginePermutationStrategy<ax08::BlockingConcurrency>);
+    static_assert(ax08::concepts::CacheEnginePermutationStrategy<ax08::ReaderWriterConcurrency>);
     static_assert(ax08::concepts::CacheEnginePermutationStrategy<ax08::OlcOptimisticConcurrency>);
+    static_assert(ax08::concepts::CacheEnginePermutationStrategy<ax08::LockFreeConcurrency>);
+    static_assert(ax08::concepts::CacheEnginePermutationStrategy<ax08::WaitFreeConcurrency>);
     static_assert(ax08::concepts::CacheEnginePermutationStrategy<ax08::RcuConcurrency>);
     static_assert(ax08::concepts::CacheEnginePermutationStrategy<ax08::HazardPointerConcurrency>);
+    static_assert(ax08::concepts::CacheEnginePermutationStrategy<ax08::OlcReservedBlocksConcurrency>);
     SUCCEED();
 }
 
