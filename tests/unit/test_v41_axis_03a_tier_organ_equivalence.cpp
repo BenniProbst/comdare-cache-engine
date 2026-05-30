@@ -338,3 +338,48 @@ TEST(Axis03aTierOrgan, WormholeMultiLevelStressMatchesStdMap) {
         art_cross_check(organ, ref, 1200);
     }
 }
+
+// --- START echte Multibyte-Span-Anatomie (#43 s4, letztes Tier) ----------------------------------------
+// OriginalStartOrgan ist jetzt das ECHTE START-Organ (ComposedStartTrieSearch span-2: Multibyte-Span-Radix
+// mit per-Node-Span + ByteWise-Path-Compression). uint16-Beleg (START == OriginalStartSearchAlgo) laeuft in
+// Uint16OriginalStartReconstructibleFromOrgan oben; hier MULTI-BYTE-uint64-Belege (span-2-Diskriminatoren).
+using StartSpan1Organ = ce_cmp::ComposedStartTrieSearch<ce_cmp::StartTrieTraversalOrgan<1>, ce_cmp::StartTrieNodePoolStore>;
+
+TEST(Axis03aTierOrgan, Uint64StartTrieMatchesStdMap) {
+    ts::verify_matches_std_map<ce_cmp::StartTrieOrgan>(60000u, 60000u);   // span-2 Multibyte-Diskriminatoren
+    ts::verify_matches_std_map<ce_cmp::StartTrieOrgan>(200u, 255u);       // dichtes uint8-Churn
+    SUCCEED();
+}
+
+// I1-Anker: span-1-START ist verhaltensaequivalent zu ART (degeneriert zum Byte-Radix) — beide == std::map.
+TEST(Axis03aTierOrgan, StartSpan1EquivalentToArt) {
+    ts::verify_variants_equivalent<StartSpan1Organ, ce_cmp::ArtTrieOrgan>(60000u, 60000u);
+    ts::verify_variants_equivalent<StartSpan1Organ, ce_cmp::ArtTrieOrgan>(200u, 255u);
+    SUCCEED();
+}
+
+// Adversarial: span-2-Diskriminatoren (Keys divergieren im 2./3. Byte) + Multi-Level + Erase-Reinsert.
+TEST(Axis03aTierOrgan, StartTrieMultiByteStressMatchesStdMap) {
+    ce_cmp::StartTrieOrgan organ;
+    std::map<std::uint64_t, std::uint64_t> ref;
+    // (1) 0..1199 -> span-2-Knoten branchen ueber 2 Bytes (byte0+byte1).
+    for (std::uint64_t k = 0; k < 1200; ++k) { organ.insert(k, k * 3 + 1); ref[k] = k * 3 + 1; }
+    art_cross_check(organ, ref, 1300);
+    // (2) Keys, die NUR im 2./3. Byte divergieren (gemeinsamer Byte-0-Prefix -> Prefix-Compression + span-Disk).
+    for (std::uint64_t hi = 0; hi < 64; ++hi) { std::uint64_t const k = (hi << 8) | 0x07u; organ.insert(k, k + 5); ref[k] = k + 5; }
+    for (std::uint64_t hi = 1; hi <= 12; ++hi) { std::uint64_t const k = (hi << 16) | 0x0203u; organ.insert(k, k); ref[k] = k; }
+    art_cross_check(organ, ref, 1300);
+    // (3) Update (a==a) — kein Count-Wachstum.
+    for (std::uint64_t k = 0; k < 1200; k += 3) { organ.insert(k, k * 9); ref[k] = k * 9; }
+    art_cross_check(organ, ref, 1300);
+    // (4) Erase jeden 2. -> remove_child ueber span-Disk + Free-List-Recycling.
+    for (std::uint64_t k = 0; k < 1200; k += 2) { organ.erase(k); ref.erase(k); }
+    art_cross_check(organ, ref, 1300);
+    // (5) Rest absteigend leeren -> root==kNil, Re-Insert.
+    std::vector<std::uint64_t> rest;
+    for (auto const& kv : ref) rest.push_back(kv.first);
+    for (auto it = rest.rbegin(); it != rest.rend(); ++it) { organ.erase(*it); ref.erase(*it); }
+    ASSERT_EQ(organ.occupied_count(), 0u);
+    for (std::uint64_t k = 100; k < 500; ++k) { organ.insert(k, k + 9); ref[k] = k + 9; }
+    art_cross_check(organ, ref, 600);
+}
