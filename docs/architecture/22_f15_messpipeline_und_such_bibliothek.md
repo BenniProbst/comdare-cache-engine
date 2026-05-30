@@ -6,6 +6,13 @@
 > umgeht den vorgesehenen Per-Achsen-`ObserverAggregate` (`observe_all`). Korrektes Modell + Korrektur-
 > Plan: **Doku 24** (Tier-Wall-Clock vs. Achsen-Observer vs. Achsen-Vergleich-per-Test). Die robusten
 > Statistik-Werkzeuge (Median/MWU/Cliff's δ, §3.1–§3.3) bleiben für die Tier-Dimension gültig.
+>
+> 🔁 **PRÄZISIERUNG (2026-05-30, Doku 24 §8 — HYBRID-Modell):** Das hier beschriebene DLL-seitige
+> `IMeasurableWorkload::run_workload` ist **nicht falsch**, sondern **Pfad A** des Hybrid-Mess-Modells:
+> es misst **isolierte Achsen-Algorithmen gegeneinander** (auf der DLL selbst) — genau die §3-Resultate.
+> Der **composite Tier** dagegen wird **zentral host-seitig über die CacheEngineBuilder** gemessen, durch
+> **ABI-stabilen Observer-Zugriff** (`observe_all`, Pfad B). Beide Pfade koexistieren; die Mess-Konfiguration
+> wählt. Vollständige Doku: **Doku 24 §8**.
 
 **Zweck:** elaborate Architektur- + Ergebnis-Skizze für die Diplomarbeit-Kapitel zu (1) dem
 Library-Framework der Achsen-Algorithmen und (2) der F15-Messung „bringt die CacheEngine messbaren

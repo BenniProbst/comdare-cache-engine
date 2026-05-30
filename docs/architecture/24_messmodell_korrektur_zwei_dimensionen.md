@@ -281,4 +281,125 @@ keines bleibt monolithisch.
 
 ---
 
-**Ende Doku 24 — Mess-Modell-Korrektur (2026-05-29).**
+## §8 Das HYBRID-Mess-Modell (User-Klarstellung 2026-05-30, vollständig dokumentiert)
+
+**Bestätigung (User 2026-05-30):** Das Messmodell der Diplomarbeit IST akkurat dokumentiert — in dieser
+Doku 24 (§2 die drei Dimensionen), Doku 22 (F15-Mess-Pipeline) und den Säulen-Session-Docs
+(`20260529-roadmap3-saeule2-messpfad`, `…-roadmap4-saeule3-achsen-vergleich`,
+`…-saeule1-inc2-composed-store`, `…-saeule2-observable-anatomy-context`). Diese Doku bleibt autoritativ.
+
+### §8.1 Die zentrale Erkenntnis: die Messung ist ein HYBRID (zwei Pfade, je nach Mess-Konfiguration)
+
+> **User 2026-05-30 (verbatim-tragend):**
+> „Die CacheEngineBuilder und Submodule sollten den Tier-Modul-Binary-Build übernehmen und durchmessen."
+> „Die Messung erfolgt durch ein ABI-stabiles Interface auf der Seite der CacheEngineBuilder durch Zugriff
+> auf die **Observer** eines **composite Tiers**, welches aus Achsen permutiert **als Modul-Binary** aufgebaut wird."
+> „Die Messung läuft bei Konfiguration der Messung von **isolierten Achsen-Algorithmen gegeneinander** auf
+> der **DLL selbst**, aber im **Composite zentral über die CacheEngineBuilder**. Es ist ein **Hybrid-Modell**."
+
+Gemeinsame Grundlage BEIDER Pfade: Der **composite Tier** (ein ganzer Suchalgorithmus = Komposition über
+die 17 Achsen) wird vom **CacheEngineBuilder + Submodulen** als **Modul-Binary** (.so/.dll) gebaut
+(`apps/adhoc_emitter` enumeriert den Permutationsraum → CMake `comdare_build_adhoc_modules` baut JEDE
+Permutation als SHARED-DLL → `AnatomyModuleLoader` lädt sie host-seitig). Die **Mess-KONFIGURATION**
+entscheidet dann, WELCHER der beiden Mess-Pfade läuft:
+
+| | **Pfad A — Isolierte Achsen-Algorithmen** | **Pfad B — Composite Tier** |
+|---|---|---|
+| **Mess-Konfiguration** | Achsen-Algorithmus-Varianten **gegeneinander** isoliert vergleichen (z. B. welche `search_algo`-Variante / welcher Allocator je Achse schneller) | Den GANZEN Suchalgorithmus (alle 17 Achsen komponiert) als Tier durchmessen |
+| **WO läuft die Messung** | **auf der DLL selbst** (in-Modul) | **zentral host-seitig über die CacheEngineBuilder** |
+| **Mechanismus** | `IMeasurableWorkload::run_workload` — die DLL fährt ihren eigenen Mess-Workload und liefert Batch-Latenzen | ABI-stabiler **Observer-Zugriff**: der Host treibt das Tier-Modul + liest dessen **Observer** (`observe_all` → `ObserverAggregate`) über die ABI-Grenze |
+| **Was wird gemessen** | Wall-Clock-Vergleich der isolierten Achsen-Variante (Doku 22 §3.1–§3.3: 18,5×/85× Spannen, Holm/MWU/Cliff's δ) | Tier-Wall-Clock (Füllstand-Kurven, r/w/d getrennt, RAM/Disk, §2.1) **+** Per-Achsen-Statistik-Trace (`observe_all`, §2.2) des composite Tiers |
+| **Dimension (§2)** | §2.3 Achsen-Vergleich (+ Tier-Wall-Clock je isolierter Achse) | §2.1 Tier + §2.2 Achsen-Observer, zentral |
+
+**KORREKTUR einer früheren Fehlformulierung (dieser Doku, 2026-05-30):** `IMeasurableWorkload::run_workload`
+ist **NICHT verworfen**. Es ist der **Pfad A** (isolierte Achsen-Messung auf der DLL selbst) des Hybrids —
+korrekt + produktiv (Doku 22 §3 belegt damit die Achsen-Vergleichs-Resultate). Verworfen ist nur die
+Vorstellung, run_workload sei der EINZIGE/zentrale Mess-Mechanismus: für das **Composite** misst der Host
+zentral über die **Observer** (Pfad B).
+
+### §8.2 Warum hybrid (Begründung)
+
+- **Isolierte Achse → DLL-selbst:** Will man Achsen-Algorithmen GEGENEINANDER vergleichen, ist die je
+  Permutation kompilierte DLL die natürliche Mess-Einheit — die Variante lebt + läuft IN ihrer DLL, und der
+  Vergleich ist „eine DLL vs. die andere" (host-seitige Aggregation der DLL-gelieferten Samples + Statistik).
+  Der Mess-Code läuft IN der DLL, weil nur dort die konkrete Achsen-Variante einkompiliert ist.
+- **Composite → zentral CacheEngineBuilder:** Den GANZEN Tier durchzumessen heißt, seine 17 Achsen-Observer
+  als EINEN Statistics-Trace zu erheben (`observe_all`). Das gehört zentral in den Builder (er hält/treibt
+  das Tier + liest dessen Observer über das ABI-stabile Interface), damit ALLE Achsen eines Tiers in EINEM
+  Lauf konsistent getract werden — unabhängig davon, welche Achse gerade „interessiert".
+
+### §8.3 Abbildung auf die existierende Implementierung
+
+| Baustein | Rolle im Hybrid | Datei | Status |
+|----------|-----------------|-------|--------|
+| `adhoc_emitter` + `comdare_build_adhoc_modules` | baut composite Tier als Modul-Binary (Grundlage beider Pfade) | `apps/adhoc_emitter`, CMake | ✅ |
+| `AnatomyModuleLoader` | lädt die Tier-Modul-Binaries host-seitig | `abi/module_loader.hpp` | ✅ |
+| `IMeasurableWorkload::run_workload` | **Pfad A** — isolierte Achsen-Messung IN der DLL | `anatomy/measurable_workload.hpp`, `anatomy/abi_adapter.hpp` | ✅ |
+| `f15_compare` / Welch+MWU+Cliff's δ | **Pfad A** Auswertung (host-seitige Aggregation der DLL-Samples) | `apps/f15_compare`, `builder/commands/stats/*` | ✅ |
+| `AnatomyExecutionContext::observe_all()` | **Pfad B** — treibt echtes Composition-Organ + liest Observer (search_algo+allocator real, uint64-Key) | `builder/anatomy_commands/anatomy_execution_context.hpp` | ✅ in-process |
+| `drive_tier_observe_trace` | **Pfad B** — Füllstand-Treiber: Tier-Wall-Clock (r/w/d) + observe_all + RAM | `builder/anatomy_commands/tier_observe_trace.hpp` | ✅ in-process |
+| **`IObservableTier` (ABI)** | **Pfad B über die Modul-Binary-Grenze** — Host treibt geladenes Tier + liest dessen Observer als POD | *neu (R6)* | **offen** |
+
+### §8.4 §5.5-Blocker AUFGELÖST
+
+Der in §5.5 als „BLOCKIERT (Säule-1-Verschränkung, Organ-Key-Typen)" markierte Zustand ist durch
+**Umstufung-A/B (erledigt 2026-05-30)** behoben: ALLE Such-Organe laufen über den gemeinsamen **uint64-Key**
+(die schmal-key Tiere Array256=uint8 etc. sind deregistriert). Damit ist **Option (A)** aus §5.5 de facto
+umgesetzt — der Builder treibt das echte Composition-Organ verlustfrei (Pfad B). Die zuvor
+„USER-zu-bestätigende Entscheidung" ist mit „nach Plan umsetzen" (User 2026-05-30) **freigegeben**.
+
+### §8.5 Ist-Stand der drei Dimensionen × der zwei Pfade
+
+| Dimension | Pfad A (DLL-selbst, isolierte Achse) | Pfad B in-process (Composite) | Pfad B über Modul-Binary-ABI |
+|-----------|--------------------------------------|-------------------------------|------------------------------|
+| §2.1 Tier-Wall-Clock | ✅ run_workload + f15_compare | ✅ tier_observe_trace (Füllstand, r/w/d, RAM) | **R6 offen** |
+| §2.2 Achsen-`observe_all` | (n/a — Pfad A misst isoliert) | ✅ AnatomyExecutionContext::observe_all (search_algo+allocator real) | **R6 offen** |
+| §2.3 Achsen-Vergleich | ✅ Welch+MWU+Cliff's δ (Doku 22 §3) | ✅ verify_matches_std_map (Compile-Time-Korrektheit) | n/a |
+
+### §8.6 R6 — der präzise verbleibende Schritt (Pfad B über die Modul-Binary-Grenze)
+
+Ein **ABI-stabiles Observer-Zugriffs-Sub-Interface** (`IObservableTier`, Muster `IMeasurableWorkload`:
+der ABI-Adapter erbt es ZUSÄTZLICH, Host-Abfrage via `dynamic_cast`, KEIN vtable-Bruch von `IAnatomyBase`),
+mit dem der host-seitige CacheEngineBuilder das geladene composite-Tier-Modul-Binary
+(a) **treibt** (insert/lookup/erase/clear/size über uint64) und (b) dessen **Observer** als **flachen
+POD-Snapshot** (`ComdareTierObserverSnapshotV1`, nur uint64-Felder → ABI-stabil, keine STL/vtable über die
+Grenze) ausliest. Der `drive_tier_observe_trace`-Treiber (in-process) wird über dieses Interface
+generalisiert, sodass die `observe_all`-Trace eines permutierten Modul-Binarys über die ABI-Grenze zentral
+erhoben wird. → Umsetzung 2026-05-30 (Folge-Session-Doc); Pfad A bleibt unverändert (kein Rückbau).
+
+### §8.7 Pfad B im Detail: CacheEngineBuilder erhebt BEIDE Dimensionen, zeit-/zustands-KORRELIERT
+
+> **User 2026-05-30 (verbatim-tragend):** „die CacheEngineBuilder [erhebt] SOWOHL die allgemeinen Metriken
+> wie wall clock, als auch die Achsen-observer-statistics vollständig. Dabei kann jeder wall clock time mit
+> sync nach Zeitschritten oder nach Manipulation des Suchalgorithmus-Zustandes ein update der Observer
+> getriggert werden, die dann einer wall clock time zugeordnet werden können."
+
+Im **Composite-Pfad (B)** sind Tier-Wall-Clock (§2.1) und Achsen-Observer (§2.2) **NICHT zwei getrennte
+Läufe**, sondern werden vom CacheEngineBuilder in EINEM Lauf **gemeinsam + korreliert** erhoben:
+
+1. **Vollständigkeit:** Der Builder erhebt **beide** — die allgemeinen Tier-Metriken (Wall-Clock, später
+   RAM/Disk) UND die **vollständigen** Achsen-Observer-Statistics (`observe_all()` → `ObserverAggregate`
+   über ALLE 17 Achsen, nicht nur die getriebenen — die nicht-getriebenen liefern ihre Default-Snapshots).
+2. **Zwei Trigger-Modi für Observer-Updates** (Mess-Konfiguration wählt):
+   - **(a) Zeitschritt-Sync (`sync nach Zeitschritten`):** periodisches Sampling — alle Δt wird ein
+     `observe_all()`-Snapshot genommen + mit der aktuellen Wall-Clock-Zeit gestempelt. Liefert die
+     **Observer-Trajektorie über die Zeit**.
+   - **(b) Zustands-Manipulation (`nach Manipulation des Suchalgorithmus-Zustandes`):** ereignis-getrieben —
+     nach einer zustandsändernden Operation (insert/erase; ggf. lookup) wird ein Snapshot genommen + gestempelt.
+     Liefert die **Observer-Entwicklung über den Algorithmus-Zustand** (z. B. Füllstand — das ist exakt der
+     Checkpoint-Modus von `tier_observe_trace.hpp`, dort an Füllstands-Stützpunkte gebunden).
+3. **Korrelation:** JEDER Observer-Snapshot trägt einen **Wall-Clock-Zeitstempel** → die Messung ist eine
+   **korrelierte Zeitreihe** `[(t₀, ObserverAggregate₀), (t₁, ObserverAggregate₁), …]`. Damit lässt sich
+   jede Per-Achsen-Statistik-Änderung (z. B. `allocator.total_bytes_in_use`-Sprung, `search_algo.peak_occupancy`)
+   einer Wall-Clock-Zeit (und damit einer Latenz-Phase) ZUORDNEN — die zwei Composite-Dimensionen sind
+   über die Zeit/den Zustand **verschränkt auswertbar**, nicht nur nebeneinander.
+
+**Konsequenz für die Datenstruktur (Pfad B):** Ein Tier-Mess-Resultat ist eine Sequenz korrelierter
+Samples `{ wall_clock_ns, op_type∈{read,write,delete}, fill_level, ObserverAggregate }` — `tier_observe_trace.hpp`
+realisiert die in-process-Variante (Trigger-Modus (b), Füllstands-Checkpoints; pro Checkpoint r/w/d-Wall-Clock
++ ein observe_all). R6 generalisiert genau diese korrelierte Erhebung über die **Modul-Binary-ABI-Grenze**
+(Host triggert Operation/Zeitschritt → stempelt Wall-Clock → liest Observer-POD `ComdareTierObserverSnapshotV1`).
+
+---
+
+**Ende Doku 24 — Mess-Modell-Korrektur (2026-05-29; §8 HYBRID-Modell + zeit/zustands-korrelierte Erhebung + R6 vollständig dokumentiert 2026-05-30).**
