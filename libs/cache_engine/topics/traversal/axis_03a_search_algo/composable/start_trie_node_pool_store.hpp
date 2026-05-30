@@ -18,6 +18,7 @@
 #include "../../../nodes/axis_02_path_compression/axis_02_path_compression_byte_wise.hpp"  // ByteWiseKeyPrefix
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -85,6 +86,10 @@ public:
     void add_child(std::size_t r, std::uint32_t disc, std::size_t child) {
         Inner& x = inners_[ref_idx(r)];
         auto it = std::lower_bound(x.disc.begin(), x.disc.end(), disc);
+        // Praekondition (Concept Z.63): disc NICHT vorhanden. DEBUG-Guard, damit ein kuenftiger
+        // axis_03t/Gattungs-Konfigurator-Aufrufer, der das verletzt, sofort auffaellt statt still einen
+        // Subtree zu ueberschreiben (adversariale Verifikation w3346v581; heute kein Verhaltenswechsel).
+        assert((it == x.disc.end() || *it != disc) && "add_child: disc bereits vorhanden — Praekondition verletzt");
         std::size_t const pos = static_cast<std::size_t>(it - x.disc.begin());
         x.disc.insert(x.disc.begin() + static_cast<std::ptrdiff_t>(pos), disc);
         x.kids.insert(x.kids.begin() + static_cast<std::ptrdiff_t>(pos), child);

@@ -383,3 +383,23 @@ TEST(Axis03aTierOrgan, StartTrieMultiByteStressMatchesStdMap) {
     for (std::uint64_t k = 100; k < 500; ++k) { organ.insert(k, k + 9); ref[k] = k + 9; }
     art_cross_check(organ, ref, 600);
 }
+
+// Coverage-Haertung (adversariale Verifikation w3346v581): span-3 (Rewired16M, 24-Bit-Diskriminator) +
+// hohe Byte-Positionen (5/6/7) + Phantom-Byte-7-Grenze — vom Stress oben nicht abgedeckte Korrektheitsflaeche.
+using StartSpan3Organ = ce_cmp::ComposedStartTrieSearch<ce_cmp::StartTrieTraversalOrgan<3>, ce_cmp::StartTrieNodePoolStore>;
+TEST(Axis03aTierOrgan, StartSpan3AndHighByteMatchesStdMap) {
+    ts::verify_matches_std_map<StartSpan3Organ>(60000u, 60000u);   // span-3 gegen std::map
+    ts::verify_matches_std_map<StartSpan3Organ>(200u, 255u);
+
+    ce_cmp::StartTrieOrgan organ;
+    std::map<std::uint64_t, std::uint64_t> ref;
+    for (std::uint64_t v = 1; v <= 300; ++v) { std::uint64_t const k = (v << 48) | 0x0102u; organ.insert(k, k); ref[k] = k; }  // span-Kette ueber Byte 6/7
+    organ.insert(0xAA00000000000001ull, 1); ref[0xAA00000000000001ull] = 1;   // Byte-7-Divergenz
+    organ.insert(0xBB00000000000001ull, 2); ref[0xBB00000000000001ull] = 2;
+    ASSERT_EQ(organ.occupied_count(), ref.size());
+    for (auto const& kv : ref) { auto o = organ.lookup(kv.first); ASSERT_TRUE(o.has_value()) << kv.first; ASSERT_EQ(*o, kv.second); }
+    for (std::uint64_t v = 1; v <= 300; v += 2) { std::uint64_t const k = (v << 48) | 0x0102u; organ.erase(k); ref.erase(k); }   // Erase ueber span-Disk
+    ASSERT_EQ(organ.occupied_count(), ref.size());
+    for (auto const& kv : ref) { auto o = organ.lookup(kv.first); ASSERT_TRUE(o.has_value()); ASSERT_EQ(*o, kv.second); }
+    SUCCEED();
+}
