@@ -51,6 +51,8 @@
 // Dim 2 (Algorithmus-Ebene): volle Kompositionen, gemessen über C::search_algo
 #include <compositions/art_reference.hpp>
 #include <compositions/hot_reference.hpp>
+#include <compositions/masstree_reference.hpp>                         // 3. Komposition (echtes Masstree-Organ)
+#include <builder/anatomy_commands/anatomy_execution_context.hpp>      // Saeule-2: Per-Achsen-observe_all-Statistik
 
 #include <chrono>
 #include <cstdint>
@@ -210,6 +212,41 @@ TEST(F15Measurement, StufeB_InDllWorkloadThroughLoadedComposition) {
     ASSERT_TRUE(w.valid);
     EXPECT_GT(w.mean_a, 0.0);
     EXPECT_GT(w.mean_b, 0.0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (4) SAEULE 2 — PER-ACHSEN-observe_all-STATISTIK (komplementaer zur Saeule-1-Wall-Clock oben)
+//     Zweite Mess-Dimension im f15-Treiber: jede Komposition treibt + misst ihr ECHTES seziertes
+//     search_algo-Organ (ART/HOT/Masstree) ueber AnatomyExecutionContext::observe_all() — seit der
+//     #42-Umstufung + Saeule-2-Mess-Treue NICHT mehr generisch SortedBinary (Doku 24 §5.2).
+// ─────────────────────────────────────────────────────────────────────────────
+TEST(F15Measurement, Saeule2_PerAxisStatisticsTraceRealOrgan) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    namespace ac = ::comdare::cache_engine::builder::anatomy_commands;
+    auto drive_and_observe = []<class C>() {
+        ac::AnatomyExecutionContext<C> ctx;
+        constexpr std::uint64_t N = 5000;
+        for (std::uint64_t i = 0; i < N; ++i) { std::uint64_t const k = (i * 2654435761u) % 100000u; ctx.insert(k, k + 1); }
+        for (std::uint64_t i = 0; i < N; ++i) { std::uint64_t const k = (i * 2654435761u) % 100000u; (void)ctx.lookup(k); }
+        return ctx.observe_all();
+    };
+    auto const art_agg  = drive_and_observe.template operator()<comp::ArtComposition>();
+    auto const hot_agg  = drive_and_observe.template operator()<comp::HotComposition>();
+    auto const mass_agg = drive_and_observe.template operator()<comp::MasstreeComposition>();
+
+    // Per-Achsen-Statistik (Saeule 2) ist ECHT/nicht-leer: jede Komposition hat ihr eigenes Organ getrieben.
+    EXPECT_GT(art_agg.search_algo.total_insert_count,  0u);
+    EXPECT_GT(art_agg.search_algo.total_lookup_count,  0u);
+    EXPECT_GT(art_agg.search_algo.peak_occupancy,      0u);
+    EXPECT_GT(hot_agg.search_algo.total_lookup_count,  0u);
+    EXPECT_GT(mass_agg.search_algo.total_lookup_count, 0u);
+    // Lookup-Zaehler == Anzahl Lookups (Workload-getrieben, organ-unabhaengig deterministisch).
+    EXPECT_EQ(art_agg.search_algo.total_lookup_count,  5000u);
+    EXPECT_EQ(mass_agg.search_algo.total_lookup_count, 5000u);
+    SUCCEED();
+#else
+    GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus — Saeule-2-Trace n/a";
+#endif
 }
 
 // Welch-Validität-Randfall: <2 Samples → valid=false (dokumentierter Fallback).
