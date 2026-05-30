@@ -11,7 +11,7 @@
 #cmakedefine01 COMDARE_AXIS_08_USE_HAZARD_PTR
 #cmakedefine01 COMDARE_AXIS_08_USE_OLC_RESERVED_BLOCKS
 
-namespace comdare::cache_engine::concurrency::axis_08_concurrency::flags {
+namespace comdare::cache_engine::concurrency_axis::flags {
 
 inline constexpr bool none_enabled          = COMDARE_AXIS_08_USE_NONE;
 inline constexpr bool blocking_enabled      = COMDARE_AXIS_08_USE_BLOCKING;

@@ -6,7 +6,7 @@
 #cmakedefine01 COMDARE_AXIS_09_USE_RISCV
 #cmakedefine01 COMDARE_AXIS_09_USE_POWERPC
 
-namespace comdare::cache_engine::hardware::axis_09_isa::flags {
+namespace comdare::cache_engine::simd::flags {
 
 inline constexpr bool amd64_enabled   = COMDARE_AXIS_09_USE_AMD64;
 inline constexpr bool aarch64_enabled = COMDARE_AXIS_09_USE_AARCH64;
