@@ -415,7 +415,11 @@ f15 29/29, alle Adapter-Tests grün, Pfad A unberührt.
   der Builder serialisiert die korrelierten (Wall-Clock ↔ Observer)-Ergebnisse, eine Zeile je Checkpoint
   (observe_wall_ns + fill_level + r/w/d-Sample-Zahlen + alle Observer-POD-Felder). Test: Header + 3 Datenzeilen.
   Damit ist die Pfad-B-Schleife geschlossen: **bauen → laden → Gattungs-API durchtesten → Observer ziehen →
-  Wall-Clock-korrelieren → persistieren**. **Offen (additiv):** JSON-Export, p50/p99 der r/w/d-Roh-Kurven.
+  Wall-Clock-korrelieren → persistieren**.
+- **✅ JSON-Export + Perzentile (erledigt):** `serialize_abi_tier_trace_json` — JSON-Array (Objekt je Checkpoint)
+  mit p50/p99 der r/w/d-Roh-ns-Kurven (Tier-Wall-Clock-Detail-Auswertung §2.1, ausreisser-robust via p50
+  vgl. Doku 22 §3.3) korreliert mit den Observer-Zählern + `observe_wall_ns`. `detail::nearest_rank_p`
+  Nearest-Rank-Perzentil. Test: JSON-Form + p50/p99-Felder + 3 Checkpoint-Objekte. f15 29/29.
 - **Allocator-Achse in den Cross-ABI-POD:** erfordert den `ComposedStore<N,L,A>`-Container IM Adapter
   (`abi_adapter.hpp`). **Build-Layering-Befund (2026-05-30, zwei Schichten verifiziert):** der Container
   zieht (1) `measurement/measurable_concept.hpp` (unter `src/`) UND (2) die **generierten** Achsen-Flags-Header

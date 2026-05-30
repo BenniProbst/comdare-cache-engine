@@ -345,6 +345,17 @@ TEST(F15Measurement, R6_AbiTierObserveTraceCorrelatesWallClockAndObservers) {
     EXPECT_NE(csv.find("checkpoint,observe_wall_ns,fill_level"), std::string::npos);   // Header
     std::size_t nl = 0; for (char const c : csv) if (c == '\n') ++nl;
     EXPECT_EQ(nl, 4u);                                                                 // 1 Header + 3 Datenzeilen
+
+    // JSON-Persistierung mit p50/p99 der r/w/d-Kurven (Tier-Wall-Clock-Detail-Auswertung §2.1).
+    std::string const json = ac2::serialize_abi_tier_trace_json(trace);
+    EXPECT_EQ(json.front(), '[');
+    EXPECT_EQ(json.back(),  ']');
+    EXPECT_NE(json.find("\"write_p50_ns\""),   std::string::npos);
+    EXPECT_NE(json.find("\"read_p99_ns\""),    std::string::npos);
+    EXPECT_NE(json.find("\"observe_wall_ns\""), std::string::npos);
+    std::size_t obj_seps = 0, pos = 0;
+    while ((pos = json.find("},{", pos)) != std::string::npos) { ++obj_seps; pos += 3; }
+    EXPECT_EQ(obj_seps, 2u);                                                           // 3 Checkpoint-Objekte
     SUCCEED();
 #else
     GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus — R6-Trace n/a";
