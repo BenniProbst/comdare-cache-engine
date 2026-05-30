@@ -54,7 +54,12 @@ public:
     SurfBitVector(std::vector<std::vector<std::uint64_t>> const& bitvector_per_level,
                   std::vector<std::uint32_t> const& num_bits_per_level) {
         for (std::uint32_t n : num_bits_per_level) num_bits_ += n;
-        bits_.assign(num_words(), 0);
+        // +1 Carry-Wort: concatenate (und distance_to_next_set_bit) hat ein One-Past-End-Muster (bitvector.hpp
+        // Z.165 schreibt bits_[numWords()] wenn ein Level mit Carry exakt eine Wort-Grenze auffuellt). Das
+        // Original nutzt new word_t[numWords()] (UB, faultet meist nicht); die std::vector-Portierung braucht
+        // das Extra-Wort, sonst heap-buffer-overflow (ASan-bestaetigt, Verifikation wuegyse1h). num_words()/
+        // bit_size_bits()/rank/select bleiben auf num_bits_ basiert — das Extra-Wort ist reines Padding.
+        bits_.assign(static_cast<std::size_t>(num_words()) + 1, 0);
         concatenate(bitvector_per_level, num_bits_per_level);
     }
 
@@ -74,6 +79,9 @@ public:
         std::uint32_t distance = 1;
         std::uint32_t word_id = (pos + 1) / kSurfWordSize;
         std::uint32_t offset  = (pos + 1) % kSurfWordSize;
+        // Defensiv: pos+1 kann genau auf die Wort-Grenze jenseits num_words() fallen (pos==num_bits-1,
+        // num_bits%64==0). Dann existiert kein naechstes Set-Bit -> der letzte Knoten reicht bis num_bits.
+        if (word_id >= num_words()) return num_bits_ - pos;
         std::uint64_t test_bits = (offset == 0) ? bits_[word_id] : (bits_[word_id] << offset);
         if (test_bits > 0) return distance + static_cast<std::uint32_t>(std::countl_zero(test_bits));
         if (word_id == num_words() - 1) return num_bits_ - pos;
