@@ -807,8 +807,8 @@ foreach(_t LEAF_ONLY_COUNTER DENSITY_TRACKER INSERT_COUNTER LATENCY_HISTOGRAM)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/telemetry/axis_11_telemetry/axis_11_telemetry_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/telemetry/axis_11_telemetry/axis_11_telemetry_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/telemetry_axis/axis_11_telemetry_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/telemetry_axis/axis_11_telemetry_flags.hpp"
     @ONLY)
 message(STATUS "  axis_11 (4 telemetries): LEAF=${COMDARE_AXIS_11_USE_LEAF_ONLY_COUNTER} DENSITY=${COMDARE_AXIS_11_USE_DENSITY_TRACKER} INSERT=${COMDARE_AXIS_11_USE_INSERT_COUNTER} LATENCY=${COMDARE_AXIS_11_USE_LATENCY_HISTOGRAM}")
 
