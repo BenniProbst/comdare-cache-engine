@@ -166,7 +166,23 @@ public:
                     --x.n; return;
                 } return; }
             case kN48: { N48& x = n48_[ref_idx(r)];
-                if (x.child_index[b] != kEmpty48) { x.child_index[b] = kEmpty48; --x.n; } return; }   // Slot geleakt bis free_node (ok)
+                // KOMPAKTIERUNG (Bugfix, adversariale Verifikation w21detpyz): den letzten belegten Slot in den
+                // frei werdenden ziehen, damit kids[0..n-1] DICHT bleibt -> insert_n48 (slot=x.n) aliast nie einen
+                // lebenden Slot. Ohne Kompaktierung wuerde slot=x.n nach Erase einen noch referenzierten Slot
+                // ueberschreiben (stiller Lookup-Verlust). Reverse-Map slot_byte macht das O(1).
+                std::uint8_t const s = x.child_index[b];
+                if (s != kEmpty48) {
+                    int const last = x.n - 1;
+                    if (static_cast<int>(s) != last) {
+                        std::uint8_t const b_last = x.slot_byte[static_cast<std::size_t>(last)];
+                        x.kids[s]             = x.kids[static_cast<std::size_t>(last)];
+                        x.child_index[b_last] = s;
+                        x.slot_byte[s]        = b_last;
+                    }
+                    x.child_index[b] = kEmpty48;
+                    --x.n;
+                }
+                return; }
             case kN256: { N256& x = n256_[ref_idx(r)];
                 if (x.kids[b] != kNil) { x.kids[b] = kNil; --x.n; } return; }
             default: return;
@@ -190,6 +206,7 @@ private:
     struct N4   { prefix_type prefix{}; int n = 0; std::array<std::uint8_t, 4>  keys{}; std::array<std::size_t, 4>  kids{}; };
     struct N16  { prefix_type prefix{}; int n = 0; std::array<std::uint8_t, 16> keys{}; std::array<std::size_t, 16> kids{}; };
     struct N48  { prefix_type prefix{}; int n = 0; std::array<std::uint8_t, 256> child_index{}; std::array<std::size_t, 48> kids{};
+                  std::array<std::uint8_t, 48> slot_byte{};   // Reverse-Map Slot->Byte (fuer O(1)-Kompaktierung bei remove_child)
                   N48() { child_index.fill(kEmpty48); } };
     struct N256 { prefix_type prefix{}; int n = 0; std::array<std::size_t, 256> kids{};
                   N256() { kids.fill(kNil); } };
@@ -218,9 +235,10 @@ private:
     }
     void insert_n48(std::size_t idx, std::uint8_t b, std::size_t child) noexcept {
         N48& x = n48_[idx];
-        int const slot = x.n;                          // naechster freier Slot (append-only innerhalb Lebensdauer)
+        int const slot = x.n;                          // kids[0..n-1] DICHT (remove_child kompaktiert) -> slot == Hochwasser
         x.kids[static_cast<std::size_t>(slot)] = child;
         x.child_index[b] = static_cast<std::uint8_t>(slot);
+        x.slot_byte[static_cast<std::size_t>(slot)] = b;
         ++x.n;
     }
     void insert_n256(std::size_t idx, std::uint8_t b, std::size_t child) noexcept {
@@ -243,7 +261,7 @@ private:
         N48& d = n48_[ref_idx(r48)];
         N16& s = n16_[idx];
         d.prefix = s.prefix; d.n = s.n;
-        for (int i = 0; i < s.n; ++i) { d.kids[static_cast<std::size_t>(i)] = s.kids[i]; d.child_index[s.keys[i]] = static_cast<std::uint8_t>(i); }
+        for (int i = 0; i < s.n; ++i) { d.kids[static_cast<std::size_t>(i)] = s.kids[i]; d.child_index[s.keys[i]] = static_cast<std::uint8_t>(i); d.slot_byte[static_cast<std::size_t>(i)] = s.keys[i]; }
         fl_n16_.push_back(idx);
         return r48;
     }

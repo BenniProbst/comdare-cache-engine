@@ -246,3 +246,27 @@ TEST(Axis03aTierOrgan, ArtTrieMultiLevelStressMatchesStdMap) {
     for (std::uint64_t k = 100; k < 400; ++k) { organ.insert(k, k + 9); ref[k] = k + 9; }
     art_cross_check(organ, ref, 500);
 }
+
+// Regression (adversariale Verifikation w21detpyz): ART-N48-Slot-Reuse nach Erase. Haelt die Wurzel in der
+// N48-Groesse (17..48 Kinder) waehrend Erase+Reinsert-Zyklen — der ArtTrieMultiLevelStress waechst vorher auf
+// N256 und verfehlte daher das N48-Slot-Aliasing-Fenster. Keys mit distinktem Byte 0 (hoehere Bytes 0) -> EIN N48.
+TEST(Axis03aTierOrgan, ArtTrieN48EraseReinsertMatchesStdMap) {
+    ce_cmp::ArtTrieOrgan organ;
+    std::map<std::uint64_t, std::uint64_t> ref;
+    // Wurzel auf N48 fuellen (40 Kinder: N4->N16->N48).
+    for (std::uint64_t k = 1; k <= 40; ++k) { organ.insert(k, k + 1000); ref[k] = k + 1000; }
+    art_cross_check(organ, ref, 300);
+    // 30 Erase+Reinsert-Zyklen — Knoten bleibt N48 (immer ~40 Kinder) -> exerziert den Slot-Recycling-Pfad.
+    for (std::uint64_t c = 0; c < 30; ++c) {
+        std::uint64_t const victim = 1 + (c % 40);
+        if (ref.count(victim)) { organ.erase(victim); ref.erase(victim); }
+        std::uint64_t const fresh = 100 + c;                 // distinkte Byte-0-Werte 100..129
+        organ.insert(fresh, fresh + 1); ref[fresh] = fresh + 1;
+        art_cross_check(organ, ref, 300);                     // JEDER Zyklus gegen std::map
+    }
+    // Danach auf N256 wachsen (distinkte Byte-0-Werte 130..255) + dort weiter erase.
+    for (std::uint64_t k = 130; k <= 255; ++k) { organ.insert(k, k); ref[k] = k; }
+    art_cross_check(organ, ref, 300);
+    for (std::uint64_t k = 130; k <= 255; k += 2) { organ.erase(k); ref.erase(k); }
+    art_cross_check(organ, ref, 300);
+}
