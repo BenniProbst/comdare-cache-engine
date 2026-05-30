@@ -793,8 +793,8 @@ foreach(_p NONE DISTANCE_ESTIMATOR HARDWARE_PREFETCH PATH_ORIENTED)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/prefetch/axis_07_prefetch/axis_07_prefetch_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/prefetch/axis_07_prefetch/axis_07_prefetch_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/prefetch_axis/axis_07_prefetch_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/prefetch_axis/axis_07_prefetch_flags.hpp"
     @ONLY)
 message(STATUS "  axis_07 (4 prefetchers): NONE=${COMDARE_AXIS_07_USE_NONE} DISTANCE_ESTIMATOR=${COMDARE_AXIS_07_USE_DISTANCE_ESTIMATOR} HARDWARE_PREFETCH=${COMDARE_AXIS_07_USE_HARDWARE_PREFETCH} PATH_ORIENTED=${COMDARE_AXIS_07_USE_PATH_ORIENTED}")
 
@@ -835,8 +835,8 @@ foreach(_h INLINE EXTERNAL_POOL IMMUTABLE_SHARED_REF VERSIONED_POINTER CHAIN_REF
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/value_handle/axis_14_value_handle/axis_14_value_handle_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/value_handle/axis_14_value_handle/axis_14_value_handle_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/value_handle_axis/axis_14_value_handle_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/value_handle_axis/axis_14_value_handle_flags.hpp"
     @ONLY)
 message(STATUS "  axis_14 (5 value-handles): INLINE=${COMDARE_AXIS_14_USE_INLINE} EXT_POOL=${COMDARE_AXIS_14_USE_EXTERNAL_POOL} SHARED_REF=${COMDARE_AXIS_14_USE_IMMUTABLE_SHARED_REF} VERSIONED=${COMDARE_AXIS_14_USE_VERSIONED_POINTER} CHAIN_REF=${COMDARE_AXIS_14_USE_CHAIN_REF}")
 

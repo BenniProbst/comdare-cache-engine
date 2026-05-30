@@ -660,7 +660,7 @@ target_include_directories(test_v41_axis_07_prefetch PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/prefetch/axis_07_prefetch")
+    "${CMAKE_BINARY_DIR}/generated/axes/prefetch_axis")
 target_link_libraries(test_v41_axis_07_prefetch PRIVATE
     Boost::mp11)
 
@@ -696,7 +696,7 @@ target_include_directories(test_v41_axis_14_value_handle PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/value_handle/axis_14_value_handle")
+    "${CMAKE_BINARY_DIR}/generated/axes/value_handle_axis")
 target_link_libraries(test_v41_axis_14_value_handle PRIVATE
     Boost::mp11)
 
