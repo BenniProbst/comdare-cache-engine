@@ -59,6 +59,35 @@ template <class PermTuple>
 using IsaSimdIncompatible =
     mp::mp_bool<!isa_simd_compatible<mp::mp_at_c<PermTuple, 0>, mp::mp_at_c<PermTuple, 1>>()>;
 
+// ── R5.C.3 / #704 (Erweiterung) Cross-Axis-Constraint: ISA (axis_09) × Plattform-Familie (axis_12) ──────────
+// ZWEITE physische Constraint im selben Permutationsraum: eine Mikroarchitektur-ISA laeuft NUR auf einer
+// Plattform DERSELBEN CPU-Familie. Sonst emittiert der Konfigurator unmoegliche Varianten (Amd64-ISA auf einer
+// Aarch64-Plattform, Aarch64-ISA auf einer x86_64-Plattform, ...). Die GENERIC-Plattform ist familien-agnostisch
+// (portabler Baseline-Build) und mit JEDER ISA kompatibel. Re-nutzt die VORHANDENEN semantischen Accessoren beider
+// Achsen (Isa::cpu_family() + Platform::flag_suffix()) — KEINE neue Familie-Property (kein Bloat, P2.C-Lektion).
+// Unbekannte Plattform -> konservativ erlaubt (kein stiller Verlust, analog isa_simd_compatible).
+template <class Isa, class Platform>
+[[nodiscard]] constexpr bool isa_platform_compatible() noexcept {
+    std::string_view const plat = Platform::flag_suffix();
+    if (plat == "GENERIC") return true;                       // familien-agnostische Baseline-Plattform
+    std::string_view const fam = Isa::cpu_family();
+    if (plat == "X86_64")  return fam == "x86_64";
+    if (plat == "AARCH64") return fam == "aarch64";
+    if (plat == "RISCV64") return fam == "riscv64";
+    if (plat == "PPC64LE") return fam == "ppc64le";
+    return true;                                              // unbekannte Plattform -> konservativ erlaubt
+}
+
+/// mp_remove_if-Praedikat fuer das 2-Tupel <Isa, Platform> (Plattform an Position 1).
+template <class PermTuple>
+using IsaPlatformIncompatible2 =
+    mp::mp_bool<!isa_platform_compatible<mp::mp_at_c<PermTuple, 0>, mp::mp_at_c<PermTuple, 1>>()>;
+
+/// mp_remove_if-Praedikat fuer das 3-Tupel <Isa, Ext, Platform> (Plattform an Position 2).
+template <class PermTuple>
+using IsaPlatformIncompatible3 =
+    mp::mp_bool<!isa_platform_compatible<mp::mp_at_c<PermTuple, 0>, mp::mp_at_c<PermTuple, 2>>()>;
+
 /**
  * @brief TopicConfigSet — zentrale Konfiguration fuer Topic `hardware`
  *
@@ -81,12 +110,19 @@ struct TopicConfigSet {
     // (Plattform-Konfiguration ist die uebergeordnete Achse, ISA als Sub-Permutation)
     using StaticAxisVariants = StaticAxisVariants_12;
 
-    // Cartesian-Product axis_09 (Haupt-ISA) x axis_12 (Plattform)
+    // ROH-Produkt axis_09 (Haupt-ISA) x axis_12 (Plattform) — bewusst UNGEFILTERT erhalten (Diagnose/Rueckwaerts-
+    // Kompatibilitaet; enthaelt physisch unmoegliche Paare wie Amd64-ISA x Aarch64-Plattform).
     using CartesianIsa09xPlatform12 = mp::mp_product<
         mp::mp_list,
         StaticAxisVariants_09,
         StaticAxisVariants_12
     >;
+
+    // R5.C.3 / #704 (Erweiterung): PRODUKTIV konsumierbares ISA×Plattform-Set — der ISA×Plattform-Cross-Constraint
+    // ist angewandt (mp_remove_if IsaPlatformIncompatible2). Familien-fremde Paare (Amd64 x Aarch64-Plattform usw.)
+    // sind ausgefiltert; GENERIC-Plattform + jede-ISA bleibt erhalten.
+    using FilteredIsa09xPlatform12 =
+        mp::mp_remove_if<CartesianIsa09xPlatform12, IsaPlatformIncompatible2>;
 
     // ROH-Produkt axis_09 x axis_09b x axis_12 (Haupt-ISA x SIMD-Ext x Plattform) — bewusst UNGEFILTERT
     // erhalten (Diagnose/Rueckwaerts-Kompatibilitaet; enthaelt physisch unmoegliche Paare).
@@ -97,11 +133,15 @@ struct TopicConfigSet {
         StaticAxisVariants_12
     >;
 
-    // R5.C.3 / #704: PRODUKTIV konsumiertes Set — der ISA×SIMD-Cross-Constraint ist JETZT ANGEWANDT
-    // (mp_remove_if mit IsaSimdIncompatible). Physisch unmoegliche Paare (Sse2/Avx2/Avx512 nur x86_64,
-    // Neon/Sve2 nur aarch64, Rvv nur riscv64, ...) sind ausgefiltert; NoExt+jede-ISA bleibt erhalten.
+    // R5.C.3 / #704: PRODUKTIV konsumiertes Set — BEIDE Cross-Constraints sind JETZT ANGEWANDT (verkettete
+    // mp_remove_if): zuerst ISA×SIMD (Sse2/Avx2/Avx512 nur x86_64, Neon/Sve2 nur aarch64, Rvv nur riscv64),
+    // DANN ISA×Plattform (Amd64-ISA nicht auf Aarch64-Plattform usw.). Erst die Verkettung schliesst die
+    // urspruengliche Luecke, dass das 3-Tupel zwar SIMD-, aber NICHT plattform-konsistent war (z.B. <Amd64,
+    // Avx2, Aarch64-Plattform>: SIMD-kompatibel, aber physisch unmoeglich). NoExt + GENERIC + passende-ISA bleibt.
     using FilteredIsa09xExt09bxPlatform12 =
-        mp::mp_remove_if<CartesianIsa09xExt09bxPlatform12, IsaSimdIncompatible>;
+        mp::mp_remove_if<
+            mp::mp_remove_if<CartesianIsa09xExt09bxPlatform12, IsaSimdIncompatible>,
+            IsaPlatformIncompatible3>;
 
     /**
      * @brief Pro-Vendor iterable Aspekt-Typ (F.6.1.E hybride Laufzeit-Permutation)
