@@ -635,7 +635,7 @@ target_include_directories(test_v41_axis_05_memory_layout PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/memory_layout/axis_05_memory_layout")
+    "${CMAKE_BINARY_DIR}/generated/axes/layout")
 target_link_libraries(test_v41_axis_05_memory_layout PRIVATE
     Boost::mp11)
 
