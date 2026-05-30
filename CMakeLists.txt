@@ -751,8 +751,8 @@ foreach(_c NONE PATRICIA BYTE_WISE)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/nodes/axis_02_path_compression/axis_02_path_compression_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/nodes/axis_02_path_compression/axis_02_path_compression_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/path_compression/axis_02_path_compression_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/path_compression/axis_02_path_compression_flags.hpp"
     @ONLY)
 message(STATUS "  axis_02 (3 compressions): NONE=${COMDARE_AXIS_02_USE_NONE} PATRICIA=${COMDARE_AXIS_02_USE_PATRICIA} BYTE_WISE=${COMDARE_AXIS_02_USE_BYTE_WISE}")
 
@@ -779,8 +779,8 @@ foreach(_n NODE4 NODE16 NODE48 NODE256)
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/nodes/axis_04_node_type/axis_04_node_type_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/nodes/axis_04_node_type/axis_04_node_type_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/node/axis_04_node_type_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/node/axis_04_node_type_flags.hpp"
     @ONLY)
 message(STATUS "  axis_04 (4 node-types): NODE4=${COMDARE_AXIS_04_USE_NODE4} NODE16=${COMDARE_AXIS_04_USE_NODE16} NODE48=${COMDARE_AXIS_04_USE_NODE48} NODE256=${COMDARE_AXIS_04_USE_NODE256}")
 

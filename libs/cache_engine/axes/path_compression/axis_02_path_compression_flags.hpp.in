@@ -5,7 +5,7 @@
 #cmakedefine01 COMDARE_AXIS_02_USE_PATRICIA
 #cmakedefine01 COMDARE_AXIS_02_USE_BYTE_WISE
 
-namespace comdare::cache_engine::nodes::axis_02_path_compression::flags {
+namespace comdare::cache_engine::path_compression::flags {
 
 inline constexpr bool none_enabled      = COMDARE_AXIS_02_USE_NONE;
 inline constexpr bool patricia_enabled  = COMDARE_AXIS_02_USE_PATRICIA;
