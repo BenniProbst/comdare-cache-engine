@@ -19,6 +19,7 @@
 
 #include <anatomy/observable_tier.hpp>
 #include "workload_driver/workload_orchestrator.hpp"
+#include "pmc_source.hpp"   // V5-#26: pluggable HW-Counter-Quelle (PmcCounters) für die +6-Spalten
 
 #include <cstdint>
 #include <sstream>
@@ -99,6 +100,24 @@ measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, st
     m.search_miss           = r.observer.search_miss_count;
     m.search_erase          = r.observer.search_erase_count;
     m.search_peak_occupancy = r.observer.search_peak_occupancy;
+    return m;
+}
+
+/// Wie oben, aber befüllt zusätzlich die 6 HW-Counter aus einer PMC-Quelle (#26). `pmc_available` spiegelt
+/// EHRLICH `pmc.available`: NullPmcSource → 0 (HW-Spalten bleiben 0), reale Quelle → 1 + echte Werte.
+[[nodiscard]] inline ComdareMeasurementSnapshotV1
+measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, std::string_view permutation_id,
+                                 PmcCounters const& pmc) {
+    auto m = measurement_from_workload_result(r, permutation_id);
+    if (pmc.available) {
+        m.cache_misses_l1         = pmc.cache_misses_l1;
+        m.cache_misses_l2         = pmc.cache_misses_l2;
+        m.cache_misses_l3         = pmc.cache_misses_l3;
+        m.dtlb_misses             = pmc.dtlb_misses;
+        m.coherence_invalidations = pmc.coherence_invalidations;
+        m.energy_micro_joules     = pmc.energy_micro_joules;
+        m.pmc_available           = 1;
+    }
     return m;
 }
 

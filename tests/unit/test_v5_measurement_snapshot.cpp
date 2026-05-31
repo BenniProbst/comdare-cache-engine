@@ -83,3 +83,30 @@ TEST(V5MeasurementSnapshot, Pipeline16IsConsumableByStage04) {
     EXPECT_EQ(hdr.rfind("permutation_id,fingerprint,succeeded,workload_used,op_count,total_cycles,", 0), 0u);
     EXPECT_NE(hdr.find("internal_frag"), std::string::npos);
 }
+
+// #26 PMC-Quelle: NullPmcSource meldet EHRLICH „nicht verfügbar" → pmc_available=0, HW-Spalten bleiben 0.
+TEST(V5MeasurementSnapshot, NullPmcSourceReportsUnavailable) {
+    b::NullPmcSource pmc;
+    EXPECT_FALSE(pmc.available());
+    pmc.begin();
+    auto const c = pmc.end();
+    EXPECT_FALSE(c.available);
+    auto const m = b::measurement_from_workload_result(make_result(), "ArtComposition", c);
+    EXPECT_EQ(m.pmc_available, 0u);
+    EXPECT_EQ(m.cache_misses_l1, 0u);
+    EXPECT_EQ(m.energy_micro_joules, 0u);
+}
+
+// #26 PMC-Quelle: eine VERFÜGBARE Quelle (Mock) speist die 6 HW-Spalten + setzt pmc_available=1.
+TEST(V5MeasurementSnapshot, AvailablePmcFillsHwColumns) {
+    b::PmcCounters c;
+    c.available = true;
+    c.cache_misses_l1 = 1111; c.cache_misses_l2 = 222; c.cache_misses_l3 = 33;
+    c.dtlb_misses = 7; c.coherence_invalidations = 5; c.energy_micro_joules = 99000;
+    auto const m = b::measurement_from_workload_result(make_result(), "ArtComposition", c);
+    EXPECT_EQ(m.pmc_available, 1u);
+    EXPECT_EQ(m.cache_misses_l1, 1111u);
+    EXPECT_EQ(m.cache_misses_l3, 33u);
+    EXPECT_EQ(m.energy_micro_joules, 99000u);
+    EXPECT_EQ(m.search_lookup, 1088u);   // Observer-Daten unverändert daneben
+}
