@@ -82,6 +82,26 @@ namespace detail {
 /// Rollback ZWEIMAL gerufen (Warmup verworfen, Messung behalten), sonst EINMAL (Kalt-Messung, Fallback
 /// für alte Module / nicht-kopierbare Organe). Da jede Phase 1 exakt zurückgerollt wird, macht NUR die
 /// gemessene Phase-2-Op logischen Fortschritt ⇒ End-Zustand + Observer-Zähler identisch zur Einphasen-Messung.
+/// V5-Audit-Härtung: EMPIRISCHE Rollback-Exaktheits-Probe über das ABI (KEINE Interface-Erweiterung nötig).
+/// save-all(leer) → Mutation → rollback-all → ist der leere Zustand exakt wiederhergestellt? Adressiert die
+/// Audit-Lücke „two_phase_measure prüft nur rb!=nullptr, nicht Exaktheit": nicht-exakt-rollbackbare Organe
+/// (z.B. nicht-kopierbare, deren save/rollback zu no-op degradiert) werden so erkannt → Kalt-Messung statt
+/// stiller Warmup-Verfälschung. Läuft EINMAL je Tier VOR der Messung; lässt den Tier geleert zurück.
+[[nodiscard]] inline bool
+rollback_is_empirically_exact(::comdare::cache_engine::anatomy::IObservableTier& tier,
+                              ::comdare::cache_engine::anatomy::IRollbackableTier* rb) noexcept {
+    if (rb == nullptr) return false;
+    tier.tier_clear();
+    rb->tier_save_all();                          // Memento des LEEREN Zustands
+    (void)tier.tier_insert(0xDEADBEEFu, 1u);      // Mutation (insert/peak werden bei exaktem Rollback zurückgerollt)
+    bool const mutated = (tier.tier_size() == 1); // Mutation hat gewirkt
+    rb->tier_rollback_all();                       // muss den leeren Zustand exakt zurückrollen
+    bool const exact = mutated && (tier.tier_size() == 0);   // NUR tier_size() — KEIN tier_lookup (das würde
+                                                  // lk_/miss_-Observer-Stats außerhalb des Mementos erhöhen).
+    tier.tier_clear();                             // Aufräumen (falls nicht exakt: Probe-Key entfernen)
+    return exact;
+}
+
 template <class TimedOp>
 [[nodiscard]] std::int64_t two_phase_measure(::comdare::cache_engine::anatomy::IRollbackableTier* rb,
                                              TimedOp&& timed_op) {
@@ -171,6 +191,9 @@ drive_two_phase_tier_trace_abi(an::IObservableTier& tier,
                                an::IRollbackableTier* rollback,
                                AbiTierTraceConfig const& cfg = {}) {
     using clock = std::chrono::steady_clock;
+    // V5-Audit-Härtung: nur zwei-phasig messen, wenn der Rollback EMPIRISCH exakt ist (sonst stille
+    // Warmup-Verfälschung). Nicht-exakt → nullptr → Einphasen-Kalt-Messung pro Op.
+    if (rollback != nullptr && !detail::rollback_is_empirically_exact(tier, rollback)) rollback = nullptr;
     std::mt19937_64 rng{cfg.seed};
     std::uint64_t next_key = 0;
     AbiTierObserveTrace trace;
