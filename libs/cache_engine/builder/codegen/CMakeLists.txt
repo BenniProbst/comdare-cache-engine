@@ -1,5 +1,5 @@
 # Codegen - Phase 6.4
-add_library(comdare_builder_codegen STATIC
+comdare_add_library(comdare_builder_codegen PROJECT CACHE_ENGINE SOURCES
     codegen.cpp
 )
 target_include_directories(comdare_builder_codegen PUBLIC

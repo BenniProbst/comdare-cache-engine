@@ -1,7 +1,7 @@
 # cache_engine/builder/module_loader — Phase 7.2.D
 # Plattform-agnostischer DLL/.so-Loader fuer Permutations-Module
 
-add_library(comdare_module_loader STATIC
+comdare_add_library(comdare_module_loader PROJECT CACHE_ENGINE SOURCES
     module_loader.cpp
 )
 target_include_directories(comdare_module_loader PUBLIC

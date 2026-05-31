@@ -2,7 +2,7 @@
 # REV 7.7 V30.D.1 (2026-05-14): migriert von experiment/ -> libs/execution_engine/
 # (User-Direktive: keine domain/-Zwischenebene)
 
-add_library(comdare_experiment STATIC
+comdare_add_library(comdare_experiment PROJECT EXECUTION_ENGINE SOURCES
     src/result_aggregator.cpp
 )
 add_library(comdare::experiment ALIAS comdare_experiment)

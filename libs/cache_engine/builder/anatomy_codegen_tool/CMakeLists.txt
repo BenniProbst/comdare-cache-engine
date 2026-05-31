@@ -1,6 +1,6 @@
 # V41.F.6.1.R5.F — anatomy_codegen_tool Library-Target
 
-add_library(comdare_anatomy_codegen_tool STATIC
+comdare_add_library(comdare_anatomy_codegen_tool PROJECT CACHE_ENGINE SOURCES
     anatomy_codegen_tool.cpp)
 
 add_library(comdare::anatomy_codegen_tool ALIAS comdare_anatomy_codegen_tool)
