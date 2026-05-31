@@ -67,7 +67,7 @@ namespace comdare::cache_engine {
 // ─────────────────────────────────────────────────────────────────────────────
 // F.2 — axen-zentrische Namespace-Aliase (17 Achsen). Ab sofort gueltige Zugriffs-Struktur.
 // ─────────────────────────────────────────────────────────────────────────────
-namespace lookup             = ::comdare::cache_engine::traversal::axis_03a_search_algo;       // Such-/Lookup-Algorithmus
+// V41.F.2: lookup = ECHTER physischer Namespace (axes/lookup/), KEIN Alias (Forwarder).
 // V41.F.2: cache_traversal = ECHTER physischer Namespace (axes/cache_traversal/), KEIN Alias (Forwarder).
 // V41.F.2: mapping = ECHTER physischer Namespace (axes/mapping/), KEIN Alias (Forwarder).
 // V41.F.2: path_compression = ECHTER physischer Namespace (axes/path_compression/), KEIN Alias (Forwarder).
@@ -152,20 +152,20 @@ template <typename T> concept FilterAxis =
 // Hier als leere Sub-Namespaces im jeweiligen (physischen) Achsen-Namespace deklariert → ueber die
 // Achsen-Aliase oben adressierbar (z.B. cache_engine::lookup::optional_prt_art_impl).
 // ─────────────────────────────────────────────────────────────────────────────
-namespace comdare::cache_engine::traversal::axis_03a_search_algo       { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::traversal::axis_03b_cache_traversal   { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::traversal::axis_03m_mapping           { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::nodes::axis_02_path_compression       { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::nodes::axis_04_node_type              { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::memory_layout::axis_05_memory_layout  { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::allocator::axis_06_allocator          { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::prefetch::axis_07_prefetch            { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::concurrency::axis_08_concurrency      { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::serialization::axis_10_serialization  { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::telemetry::axis_11_telemetry          { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::value_handle::axis_14_value_handle    { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::hardware::axis_09_isa                 { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::search_engine::axis_01_index_organization { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::io::axis_io                           { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::migration::axis_migration             { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::filter::axis_filter                   { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::lookup                               { namespace optional_prt_art_impl {} }  // V41.F.2: lookup echter Namespace
+namespace comdare::cache_engine::cache_traversal   { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::mapping           { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::path_compression       { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::node              { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::layout  { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::alloc          { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::prefetch_axis            { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::concurrency_axis      { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::serialization_axis  { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::telemetry_axis          { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::value_handle_axis    { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::simd                 { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::index_organization { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::io_dispatch                           { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::migration_policy             { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::filter_axis                   { namespace optional_prt_art_impl {} }
