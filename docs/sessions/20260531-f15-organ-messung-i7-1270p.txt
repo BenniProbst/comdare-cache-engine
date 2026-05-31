@@ -1,0 +1,23 @@
+# F15 direktiven-konforme Organ-Messung — reale lokale Hardware (Intel i7-1270P), 2026-05-31
+# Mess-Raum: 6 sezierte Observable-Organ-Compositions (Umstufung-B im Mess-Pfad, P2).
+# search_algo-Achsenwert = ObservableArtTrie/HotPatricia/StartTrie/SurfMap/Wormhole/Masstree-Organ.
+# Tool: comdare-f15-compare (Pfad A run_workload + Welch/Holm/Mann-Whitney/Cliff's delta).
+# HINWEIS: hoehere Sample-Zahl fuer Signifikanz noetig (P3-Skalierung); hier 16 samples/DLL Mindestmessung.
+
+F15 multi-compare ueber 6 DLLs (baseline=ArtComposition_0, alpha=0.05, samples/DLL=64)
+  significant_faster=0  significant_slower=5  not_significant=0
+  win_rate=0  (Anteil, der die Baseline signifikant schlaegt)
+  robust_significant(MWU)=5  discrepancies(Welch<->MWU)=0
+    HotComposition_1: welch_p=0.0240023  SIGNIFIKANT  | mwu_p=0.00167267  ROBUST-SIG  delta=-0.322021(small)  (langsamer)
+    StartComposition_2: welch_p=7.54545e-25  SIGNIFIKANT  | mwu_p=1.18007e-20  ROBUST-SIG  delta=-0.963867(large)  (langsamer)
+    SurfComposition_3: welch_p=1.36933e-30  SIGNIFIKANT  | mwu_p=1.18007e-20  ROBUST-SIG  delta=-0.969727(large)  (langsamer)
+    WormholeComposition_4: welch_p=3.65345e-25  SIGNIFIKANT  | mwu_p=1.18007e-20  ROBUST-SIG  delta=-0.96875(large)  (langsamer)
+    MasstreeComposition_5: welch_p=2.11283e-41  SIGNIFIKANT  | mwu_p=1.12157e-20  ROBUST-SIG  delta=-0.972656(large)  (langsamer)
+  Ranking (schnellste zuerst, robuster Median p50 ns; mean zum Vergleich):
+    #1  ArtComposition_0  p50=479800 ns  mean=485106 ns  [baseline]
+    #2  HotComposition_1  p50=491500 ns  mean=503080 ns
+    #3  StartComposition_2  p50=573900 ns  mean=582092 ns
+    #4  WormholeComposition_4  p50=587200 ns  mean=605577 ns
+    #5  SurfComposition_3  p50=587600 ns  mean=596902 ns
+    #6  MasstreeComposition_5  p50=653100 ns  mean=665659 ns
+  Spanne langsamste/schnellste (p50) = 1.36119x
