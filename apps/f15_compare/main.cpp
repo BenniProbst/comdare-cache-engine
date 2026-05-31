@@ -22,6 +22,11 @@
 #include <builder/pruef_dock/search_algorithm_dock.hpp>
 #include <builder/pruef_dock/pruef_dock_registry.hpp>
 #include <builder/pruef_dock/pruef_dock_sequencer.hpp>
+#include <builder/pruef_dock/conformance_gate.hpp>            // V5: std::map-Konformitäts-Gate vor Messung
+// V5-I9/I10: host-seitiger Lastprofil-Orchestrator (mehrere Lastprofile je Binary, Zwei-Phasen-Messung).
+#include <builder/workload_driver/workload_orchestrator.hpp>
+#include <anatomy/observable_tier.hpp>
+#include <anatomy/rollbackable_tier.hpp>
 
 #include <algorithm>
 #include <charconv>
@@ -41,8 +46,23 @@ namespace loader = ::comdare::cache_engine::builder::anatomy_loader;
 namespace ana    = ::comdare::cache_engine::anatomy;
 namespace cmd    = ::comdare::cache_engine::builder::commands;
 namespace stats  = ::comdare::cache_engine::builder::commands::stats;
+namespace wd     = ::comdare::cache_engine::builder::workload_driver;
+namespace pd     = ::comdare::cache_engine::builder::pruef_dock;
 
 namespace {
+
+/// Bildet einen Lastprofil-Namen (CLI-Token) auf eine WorkloadConfig ab. Unbekannt → name leer (Skip).
+/// Deckt YCSB-A/B/C/D + Insert/Lookup-Heavy ab (V5-I9). E/F bewusst nicht (kein Scan/RMW-Op-Kind).
+[[nodiscard]] wd::WorkloadConfig profile_by_name(std::string_view tok, std::uint64_t seed, std::size_t ops) {
+    if (tok == "A"  || tok == "mixed_a")      return wd::make_mixed_a(seed, ops);
+    if (tok == "B"  || tok == "mixed_b")      return wd::make_mixed_b(seed, ops);
+    if (tok == "C"  || tok == "ycsb_c")       return wd::make_ycsb_c(seed, ops);
+    if (tok == "D"  || tok == "ycsb_d")       return wd::make_ycsb_d(seed, ops);
+    if (tok == "IH" || tok == "insert_heavy") return wd::make_insert_heavy(seed, ops);
+    if (tok == "LH" || tok == "lookup_heavy") return wd::make_lookup_heavy(seed, ops);
+    wd::WorkloadConfig empty; empty.name = "";  // Marker: unbekannt
+    return empty;
+}
 
 void print_usage() {
     std::cerr
@@ -60,7 +80,12 @@ void print_usage() {
         << "  --observe      Pfad-B Prüf-Dock-Modus: jede DLL ueber das gattungs-passende Prüf-Dock\n"
         << "                 (measure_genus_sequential) messen + Observer-Trace (CSV+JSON) je DLL schreiben.\n"
         << "                 Funktioniert ab 1 DLL (kein Baseline-Vergleich). Statt des Pfad-A-Vergleichs.\n"
-        << "  --observe-out=DIR  Ausgabe-Verzeichnis fuer die je-DLL Observer-Traces (Default: .)\n";
+        << "  --observe-out=DIR  Ausgabe-Verzeichnis fuer die je-DLL Observer-Traces (Default: .)\n"
+        << "  --measurement-plan=A,B,C,D  V5 Lastprofil-Plan: jede DLL host-seitig gegen mehrere YCSB-\n"
+        << "                 Lastprofile messen (Zwei-Phasen via memento_all). Profile: A=mixed_a B=mixed_b\n"
+        << "                 C=ycsb_c(read-only) D=ycsb_d(read-latest) IH=insert_heavy LH=lookup_heavy.\n"
+        << "                 Nutzt --ops (Ops je Profil) + --seed; Konformitaets-Gate vor jeder Messung;\n"
+        << "                 schreibt <comp>.plan.csv je DLL nach --observe-out. Funktioniert ab 1 DLL.\n";
 }
 
 bool parse_flag_u64(std::string_view arg, std::string_view key, std::uint64_t& out) {
@@ -116,6 +141,7 @@ int main(int argc, char** argv) {
     std::uint64_t baseline = 0, ops = 2000, batches = 128, seed = 11;
     std::string   csv_path, json_path, observe_out, pipeline_csv;
     std::string   workload_label = "micro";
+    std::string   measurement_plan;   // V5-I10: --measurement-plan=A,B,C,D (host-seitige Lastprofile je Binary)
     bool          observe = false;
     for (int i = first_opt; i < argc; ++i) {
         std::string_view a{argv[i]};
@@ -133,6 +159,7 @@ int main(int argc, char** argv) {
         else if (parse_flag_str(a, "--pipeline-csv=", pipeline_csv)) {}
         else if (parse_flag_str(a, "--workload=", workload_label))   {}
         else if (parse_flag_str(a, "--observe-out=", observe_out)) {}
+        else if (parse_flag_str(a, "--measurement-plan=", measurement_plan)) {}
         else { std::cerr << "Unbekannte Option: " << a << "\n"; print_usage(); return 1; }
     }
     if (batches == 0) batches = 1;
@@ -190,6 +217,59 @@ int main(int argc, char** argv) {
         }
         std::cout << "  " << ok << "/" << results.size()
                   << " Modul(e) erfolgreich observiert (Pfad B).\n";
+        return (ok > 0) ? 0 : 5;
+    }
+
+    // ── V5-I10 — Lastprofil-Plan-Modus: host-seitiger WorkloadOrchestrator (mehrere Lastprofile je Binary).
+    // Pro REAL geladener DLL: Konformitäts-Gate (import→GATE→messen) → run_measurement_plan (jedes YCSB-Profil,
+    // jede Op ZWEI-PHASIG via memento_all wenn IRollbackableTier vorhanden) → WorkloadRunResult-CSV je DLL.
+    // Das ist die host-relokalisierte IMeasurableWorkload-Achse (run_workload-in-DLL = V3-Designfehler behoben).
+    // Hinweis: run_measurement_plan leert den Tier je Profil → reine Read-Profile (YCSB-C) messen gegen den
+    // leeren Tier (Testdaten-Vorladung pro Profil = Lastprofil-Design-Refinement, separater Punkt).
+    if (!measurement_plan.empty()) {
+        wd::MeasurementPlan plan;
+        std::string_view rest{measurement_plan};
+        while (!rest.empty()) {
+            auto const comma   = rest.find(',');
+            std::string_view tok = (comma == std::string_view::npos) ? rest : rest.substr(0, comma);
+            if (!tok.empty()) {
+                auto cfg = profile_by_name(tok, seed, ops);
+                if (cfg.name.empty()) { std::cerr << "Unbekanntes Lastprofil: " << tok << "\n"; print_usage(); return 1; }
+                plan.profiles.push_back(cfg);
+            }
+            if (comma == std::string_view::npos) break;
+            rest.remove_prefix(comma + 1);
+        }
+        if (plan.profiles.empty()) { std::cerr << "--measurement-plan: keine gueltigen Profile.\n"; return 1; }
+
+        std::filesystem::path const out_dir = observe_out.empty()
+            ? std::filesystem::path{"."} : std::filesystem::path{observe_out};
+        std::cout << "F15 Lastprofil-Plan (" << plan.profiles.size() << " Profile) ueber " << handles.size()
+                  << " DLL(s) (host-seitig, zwei-phasig, out=" << out_dir.string() << "):\n";
+        int ok = 0;
+        for (std::size_t i = 0; i < handles.size(); ++i) {
+            auto* base = handles[i].anatomy();
+            if (base == nullptr) continue;
+            auto* tier = dynamic_cast<ana::IObservableTier*>(base);
+            if (tier == nullptr) { std::cerr << "  [" << i << "] kein IObservableTier — uebersprungen.\n"; continue; }
+            std::string const nm = std::string{base->composition_name()} + "_" + std::to_string(i);
+            if (!pd::run_conformance_gate(*tier).passed()) {
+                std::cerr << "  [" << i << "] " << nm << "  KONFORMITAET FEHLGESCHLAGEN — nicht gemessen.\n";
+                continue;
+            }
+            auto* rb = dynamic_cast<ana::IRollbackableTier*>(base);   // nullptr → Kalt-Messung (kein Rollback)
+            auto const results = wd::run_measurement_plan(*tier, rb, plan);
+            auto const csv     = wd::serialize_workload_run_results_csv(results);
+            std::filesystem::path const csv_p = out_dir / (nm + ".plan.csv");
+            if (write_text_file(csv_p.string(), csv)) {
+                std::cout << "  [" << i << "] " << nm << "  two_phase=" << (rb != nullptr)
+                          << "  Profile=" << results.size() << "  CSV -> " << csv_p.string() << "\n";
+                ++ok;
+            } else {
+                std::cerr << "  [" << i << "] " << nm << "  CSV-Schreiben fehlgeschlagen.\n";
+            }
+        }
+        std::cout << "  " << ok << "/" << handles.size() << " DLL(s) per Lastprofil-Plan gemessen.\n";
         return (ok > 0) ? 0 : 5;
     }
 
