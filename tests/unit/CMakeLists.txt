@@ -1056,6 +1056,12 @@ target_link_libraries(test_v41_pruef_dock_search_algorithm PRIVATE
     comdare::anatomy_module_loader)
 target_compile_definitions(test_v41_anatomy_adhoc_codegen_macro PRIVATE COMDARE_ANATOMY_ABI_STATIC=1)
 
+# V5-I4 — Konformitäts-Gate (std::map-Hüllen-Konformität je Gattung VOR Messung; header-only + std, kein Link).
+comdare_add_test(test_v5_conformance_gate
+    SOURCES test_v5_conformance_gate.cpp)
+target_include_directories(test_v5_conformance_gate PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+
 # V41.F.6.1 R5.G — constexpr type_name<T>() (Auto-Emitter-Grundlage: FQ-Typ-Name als String).
 comdare_add_test(test_v41_codegen_type_name
     SOURCES test_v41_codegen_type_name.cpp)
