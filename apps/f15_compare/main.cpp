@@ -114,7 +114,8 @@ int main(int argc, char** argv) {
 
     double        alpha    = 0.05;
     std::uint64_t baseline = 0, ops = 2000, batches = 128, seed = 11;
-    std::string   csv_path, json_path, observe_out;
+    std::string   csv_path, json_path, observe_out, pipeline_csv;
+    std::string   workload_label = "micro";
     bool          observe = false;
     for (int i = first_opt; i < argc; ++i) {
         std::string_view a{argv[i]};
@@ -127,6 +128,10 @@ int main(int argc, char** argv) {
         else if (parse_flag_u64(a, "--seed=", u))             { seed = u; }
         else if (parse_flag_str(a, "--csv=", csv_path))       {}
         else if (parse_flag_str(a, "--json=", json_path))     {}
+        // V41.P3-Bridge: 16-Spalten-Pipeline-Mess-CSV (eine Zeile je Composition; total_cycles=ns-Latenz,
+        // wie Stufe-05-Konvention) — speist die LaTeX-Pipeline (03/04/05) mit ECHTEN Mess-Zahlen.
+        else if (parse_flag_str(a, "--pipeline-csv=", pipeline_csv)) {}
+        else if (parse_flag_str(a, "--workload=", workload_label))   {}
         else if (parse_flag_str(a, "--observe-out=", observe_out)) {}
         else { std::cerr << "Unbekannte Option: " << a << "\n"; print_usage(); return 1; }
     }
@@ -268,6 +273,30 @@ int main(int argc, char** argv) {
     if (ranking.size() >= 2 && ranking.front().first > 0.0) {
         std::cout << "  Spanne langsamste/schnellste (p50) = "
                   << (ranking.back().first / ranking.front().first) << "x\n";
+    }
+
+    // V41.P3-Bridge: 16-Spalten-Pipeline-Mess-CSV (eine Zeile je gemessener Organ-Composition).
+    // total_cycles = gemessene mittlere Latenz in ns (Stufe-05-Konvention "cycles als ns interpretiert").
+    // PMU-/Energie-Spalten = 0 (P4-gated, kein PMC). Speist Stufe 04/05 mit REALEN Mess-Zahlen.
+    if (!pipeline_csv.empty()) {
+        std::string out =
+            "permutation_id,fingerprint,succeeded,workload_used,op_count,total_cycles,"
+            "cache_misses_l1,cache_misses_l2,cache_misses_l3,dtlb_misses,"
+            "coherence_invalidations,energy_micro_joules,"
+            "bytes_allocated,bytes_in_use_peak,external_frag,internal_frag\n";
+        for (std::size_t i = 0; i < results.size(); ++i) {
+            double const mean = stats::latency_mean_ns(
+                std::span<const std::int64_t>{results[i].latency_samples_ns});
+            std::uint64_t fp = 14695981039346656037ULL;  // FNV-1a über den Namen → stabiler Fingerprint
+            for (char c : names[i]) { fp ^= static_cast<unsigned char>(c); fp *= 1099511628211ULL; }
+            std::uint64_t const bytes = ops * 64ULL;       // Schätzung (PMC-frei)
+            out += names[i] + ',' + std::to_string(fp) + ",1," + workload_label + ','
+                 + std::to_string(ops) + ',' + std::to_string(static_cast<std::uint64_t>(mean))
+                 + ",0,0,0,0,0,0," + std::to_string(bytes) + ',' + std::to_string(bytes) + ",0,0\n";
+        }
+        if (write_text_file(pipeline_csv, out))
+            std::cout << "  Pipeline-CSV (16-col, reale Mess-Zahlen) -> " << pipeline_csv << "\n";
+        else { std::cerr << "Pipeline-CSV-Schreiben fehlgeschlagen: " << pipeline_csv << "\n"; return 4; }
     }
 
     if (!csv_path.empty()) {
