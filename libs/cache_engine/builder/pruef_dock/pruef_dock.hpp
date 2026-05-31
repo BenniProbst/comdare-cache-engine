@@ -70,6 +70,10 @@ public:
     /// Misst EIN geladenes Modul der eigenen Gattung: zieht das gattungs-eigene Antriebs-Sub-Interface,
     /// fährt den gattungs-eigenen Mess-Treiber, schreibt das serialisierte Ergebnis (CSV/JSON) nach out_*.
     /// errno-style int (0 = ok; sonst dock_status_*). noexcept-frei: die Treiber sind selbst exception-arm.
+    /// **VERTRAG (V5 Konformitäts-Gate):** Jede measure()-Implementierung MUSS das Modul VOR der Messung gegen
+    /// die std::map-Hüllen-Konformität prüfen (run_conformance_gate, Reihenfolge import → GATE → messen) und bei
+    /// Fehlschlag dock_status_conformance_failed liefern, ohne zu messen. Gleiches gilt für JEDEN produktiven
+    /// Mess-Eintrittspunkt außerhalb der Docks (z.B. die f15_compare-Pfade A/Observe/measurement-plan).
     [[nodiscard]] virtual int measure(anatomy_loader::AnatomyModuleHandle& h,
                                       PruefDockMeasureOptions const& opts,
                                       std::string& out_csv, std::string& out_json) = 0;

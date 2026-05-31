@@ -282,8 +282,16 @@ int main(int argc, char** argv) {
     std::vector<std::string>          names;   names.reserve(handles.size());
     std::vector<cmd::ExecutionResult> results; results.reserve(handles.size());
     for (std::size_t i = 0; i < handles.size(); ++i) {
-        auto* mw = dynamic_cast<ana::IMeasurableWorkload*>(handles[i].anatomy());
+        auto* base = handles[i].anatomy();
+        auto* mw   = dynamic_cast<ana::IMeasurableWorkload*>(base);
         if (mw == nullptr) { std::cerr << "DLL " << i << " nicht mess-faehig — uebersprungen\n"; continue; }
+        // V5-Audit-Fix (Konformitäts-Gate-Pflicht, Mess-Architektur): JEDE Tier-Binary besteht VOR der Messung
+        // das std::map-Hüllen-Gate — auch der Pfad-A-Multi-Compare (vorher ungegateter Mess-Eintrittspunkt).
+        // import → GATE → messen. dt = IDriveableTier-Sicht (Gate treibt den funktionalen Antrieb, leert am Ende).
+        auto* dt = dynamic_cast<ana::IDriveableTier*>(base);
+        if (dt == nullptr || !pd::run_conformance_gate(*dt).passed()) {
+            std::cerr << "DLL " << i << " KONFORMITAET FEHLGESCHLAGEN — nicht gemessen\n"; continue;
+        }
         std::vector<std::int64_t> samples(static_cast<std::size_t>(batches));
         auto const n = mw->run_workload(ops, batches, seed, samples.data(), samples.size());
         if (n < 2) { std::cerr << "DLL " << i << " lieferte < 2 Samples — uebersprungen\n"; continue; }
