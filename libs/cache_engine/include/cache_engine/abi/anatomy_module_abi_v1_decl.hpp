@@ -24,12 +24,15 @@
 // ABI-Version + Magic-Number (Compile-Time-Konstanten fuer Module-Loader-Check)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Anatomy-Module ABI Version. Major: 1. Minor: 0.
-#define COMDARE_ANATOMY_ABI_MAJOR 1
+/// Anatomy-Module ABI Version. Major: 2 (V5-I2.2). Minor: 0.
+/// V5-I2.2 ABI-Bruch: IObservableTier→IDriveableTier-Split + konditionale Adapter-Vererbung (observer_all/memento_all
+/// nur bei MESSUNG-AN compile-time einkompiliert). Major 1→2 ⇒ alt-gebaute DLLs (major 1) werden vom Loader
+/// (`AnatomyAbiVersion::host_compatible_with`) sauber abgelehnt → alle Permutations-DLLs neu zu bauen.
+#define COMDARE_ANATOMY_ABI_MAJOR 2
 #define COMDARE_ANATOMY_ABI_MINOR 0
 
-/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA·A1·" als big-endian uint64_t.
-#define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141312EULL
+/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA·A2·" als big-endian uint64_t (V5-I2.2).
+#define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141322EULL
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Export/Import Macros (Cross-Plattform)
