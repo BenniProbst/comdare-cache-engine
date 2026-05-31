@@ -73,8 +73,16 @@ namespace comdare::cache_engine::anatomy {
 /// setzt state_ in den entsprechenden Hooks. Echte Cache-Preheat/Bulk-Load
 /// kommt mit R5.D (CacheEngineBuilder Workload-Treiber).
 template <AnatomyConcept A>
-class SearchAlgorithmAbiAdapter final : public IAnatomyBase, public IMeasurableWorkload,
-                                        public IObservableTier {
+class SearchAlgorithmAbiAdapter final : public IAnatomyBase,
+// V5-I2.2: Antrieb ⊥ Observer compile-time disjunkt (kein Diamond — IObservableTier IS-A IDriveableTier).
+//   MESSUNG-AN  : IObservableTier (Antrieb + tier_observe/observer_all) + IMeasurableWorkload (Pfad-A, host-relokal. I9).
+//   MESSUNG-AUS : NUR IDriveableTier (funktionaler Antrieb) → Release-/funktional-only-DLL OHNE jeden Mess-Overhead.
+#if COMDARE_MEASUREMENT_ON
+                                        public IObservableTier,
+                                        public IMeasurableWorkload {
+#else
+                                        public IDriveableTier {
+#endif
     static_assert(A::genus() == AnatomyGenus::SearchAlgorithm,
                   "SearchAlgorithmAbiAdapter erwartet eine SearchAlgorithm-Gattung-"
                   "Anatomie (AnatomyGenus::SearchAlgorithm). Cross-Genus-Adapter "
@@ -143,6 +151,7 @@ public:
     /// Alle drei kompiliert IN der DLL; die Batch-Latenz misst die GANZE Komposition entlang der
     /// variierten Achsen. F15s paarweiser Holm-Test isoliert jede Achse (Paare, die sich nur in einer
     /// Achse unterscheiden) — Dominanz/Balance der Segmente ist dafuer irrelevant.
+#if COMDARE_MEASUREMENT_ON   // V5-I2.2: Pfad-A run_workload NUR bei Messung-AN (V3-Designfehler; host-relokalisiert in I9)
     [[nodiscard]] std::uint64_t run_workload(std::uint64_t ops_per_batch,
                                              std::uint64_t batches,
                                              std::uint64_t seed,
@@ -212,12 +221,12 @@ public:
             return 0;  // noexcept-Vertrag: interne Exception (z.B. OOM) → 0 Samples
         }
     }
+#endif  // COMDARE_MEASUREMENT_ON (run_workload / Pfad A)
 
     // ─────────────────────────────────────────────────────────────────────
-    // IObservableTier-Override (R6 / Pfad B, Doku 24 §8.6): Der Host treibt die GATTUNGS-API +
-    // zieht die IM Tier eingebauten Observer als flachen POD durch die ABI-Grenze. Getrieben wird
-    // das ECHTE sezierte Composition-Such-Organ (gemeinsamer uint64-Key nach Umstufung-B) — GETRENNT
-    // vom Pfad-A-`run_workload` (lokales Wegwerf-Organ); beide koexistieren (Hybrid-Modell §8.1).
+    // IDriveableTier-Override (V5-I2.2): funktionaler Gattungs-Antrieb — IMMER einkompiliert (auch Release-DLL).
+    // Treibt das ECHTE sezierte Composition-Such-Organ (gemeinsamer uint64-Key nach Umstufung-B). GETRENNT
+    // vom Pfad-A-`run_workload` (Messung-AN-only); bei MESSUNG-AN zieht tier_observe zusaetzlich observer_all (Doku 24 §8.6).
     // ─────────────────────────────────────────────────────────────────────
 
     [[nodiscard]] bool tier_insert(std::uint64_t key, std::uint64_t value) noexcept override {
@@ -248,6 +257,7 @@ public:
         return static_cast<std::uint64_t>(search_organ_.occupied_count());
     }
 
+#if COMDARE_MEASUREMENT_ON   // V5-I2.2: tier_observe (observer_all) NUR bei Messung-AN
     void tier_observe(ComdareTierObserverSnapshotV1* out) const noexcept override {
         if (out == nullptr) return;
         ComdareTierObserverSnapshotV1 snap{};
@@ -277,6 +287,7 @@ public:
         snap.tier_fill_level       = tier_size();
         *out = snap;
     }
+#endif  // COMDARE_MEASUREMENT_ON (tier_observe / observer_all)
 
 private:
     using Composition = typename A::composition_t;
