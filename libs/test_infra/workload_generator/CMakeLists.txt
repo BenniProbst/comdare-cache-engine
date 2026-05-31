@@ -1,6 +1,6 @@
 # workload_generator - Phase 7.1 (REV 7 §7 Workload-Generation)
 
-add_library(comdare_workload_generator STATIC
+comdare_add_library(comdare_workload_generator PROJECT TEST_INFRA SOURCES
     src/workload_generator.cpp
 )
 add_library(comdare::workload_generator ALIAS comdare_workload_generator)

@@ -1,6 +1,6 @@
 # V41.F.6.1.R5.E — AnatomyModuleLoader Library-Target
 
-add_library(comdare_anatomy_module_loader STATIC
+comdare_add_library(comdare_anatomy_module_loader PROJECT CACHE_ENGINE SOURCES
     anatomy_module_loader.cpp)
 
 add_library(comdare::anatomy_module_loader ALIAS comdare_anatomy_module_loader)

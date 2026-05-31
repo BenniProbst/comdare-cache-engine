@@ -1,6 +1,6 @@
 # experiment_driver — Library-Refactoring der Phase 1-7 (REV 7.6, Q4)
 
-add_library(comdare_builder_experiment_driver STATIC
+comdare_add_library(comdare_builder_experiment_driver PROJECT CACHE_ENGINE SOURCES
     experiment_driver.cpp
 )
 target_compile_features(comdare_builder_experiment_driver PUBLIC cxx_std_23)

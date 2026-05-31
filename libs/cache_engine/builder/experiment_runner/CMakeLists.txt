@@ -1,5 +1,5 @@
 # Experiment Runner - Phase 6.4
-add_library(comdare_builder_experiment_runner STATIC
+comdare_add_library(comdare_builder_experiment_runner PROJECT CACHE_ENGINE SOURCES
     experiment_runner.cpp
 )
 target_include_directories(comdare_builder_experiment_runner PUBLIC

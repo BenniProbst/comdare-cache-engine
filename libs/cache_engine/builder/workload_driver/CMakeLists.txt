@@ -1,6 +1,6 @@
 # V41.F.6.1.R6.A — workload_driver Library-Target
 
-add_library(comdare_workload_driver STATIC
+comdare_add_library(comdare_workload_driver PROJECT CACHE_ENGINE SOURCES
     workload_generator.cpp)
 
 add_library(comdare::workload_driver ALIAS comdare_workload_driver)

@@ -1,5 +1,5 @@
 # Permutation Loop - Phase 6.4
-add_library(comdare_builder_permutation_loop STATIC
+comdare_add_library(comdare_builder_permutation_loop PROJECT CACHE_ENGINE SOURCES
     permutation_loop.cpp
 )
 target_include_directories(comdare_builder_permutation_loop PUBLIC

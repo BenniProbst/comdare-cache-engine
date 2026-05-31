@@ -322,6 +322,7 @@ include(platform_detection)
 include(compiler_flags)
 include(isa_features)
 include(boost_mp11_setup)   # V41.F.6.1.A: Boost.MP11 fuer Permutations-Metaprog.
+include(comdare_add_library) # V41.E10: STATIC/SHARED-Linkage-Achse pro Projekt
 if(COMDARE_BUILD_TESTS)
   include(gtest_setup)
 endif()
