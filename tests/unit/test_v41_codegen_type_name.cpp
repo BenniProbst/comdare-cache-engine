@@ -29,7 +29,7 @@ TEST(R5G_TypeName, ExtractsFqNameOfAxisVariants) {
 
     // Enthält Typ + Namespace.
     EXPECT_NE(a.find("Array256SearchAlgo"), std::string_view::npos);
-    EXPECT_NE(a.find("axis_03a_search_algo"), std::string_view::npos);
+    EXPECT_NE(a.find("lookup"), std::string_view::npos);  // V41.F.2: axis_03a physisch → lookup-Namespace
     EXPECT_NE(v.find("VectorU8U8SearchAlgo"), std::string_view::npos);
     // Kein führendes Elaborated-Keyword (MSVC "class "/"struct ") — sonst nicht codegen-nutzbar.
     EXPECT_NE(a.substr(0, 6), std::string_view{"class "});
