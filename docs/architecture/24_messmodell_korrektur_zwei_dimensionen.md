@@ -338,7 +338,7 @@ zentral über die **Observer** (Pfad B).
 | `f15_compare` / Welch+MWU+Cliff's δ | **Pfad A** Auswertung (host-seitige Aggregation der DLL-Samples) | `apps/f15_compare`, `builder/commands/stats/*` | ✅ |
 | `AnatomyExecutionContext::observe_all()` | **Pfad B** — treibt echtes Composition-Organ + liest Observer (search_algo+allocator real, uint64-Key) | `builder/anatomy_commands/anatomy_execution_context.hpp` | ✅ in-process |
 | `drive_tier_observe_trace` | **Pfad B** — Füllstand-Treiber: Tier-Wall-Clock (r/w/d) + observe_all + RAM | `builder/anatomy_commands/tier_observe_trace.hpp` | ✅ in-process |
-| **`IObservableTier` (ABI)** | **Pfad B über die Modul-Binary-Grenze** — Host treibt geladenes Tier + liest dessen Observer als POD | *neu (R6)* | **offen** |
+| **`IObservableTier` (ABI)** | **Pfad B über die Modul-Binary-Grenze** — Host treibt geladenes Tier + liest dessen Observer als POD | `abi/observable_tier.hpp` (R6) | **✅ erledigt** (R6.1–R6.4 done-verified; reale DLL via `R8RestA_DockMeasuresRealDll` 2/2 grün) |
 
 ### §8.4 §5.5-Blocker AUFGELÖST
 
@@ -352,11 +352,17 @@ umgesetzt — der Builder treibt das echte Composition-Organ verlustfrei (Pfad B
 
 | Dimension | Pfad A (DLL-selbst, isolierte Achse) | Pfad B in-process (Composite) | Pfad B über Modul-Binary-ABI |
 |-----------|--------------------------------------|-------------------------------|------------------------------|
-| §2.1 Tier-Wall-Clock | ✅ run_workload + f15_compare | ✅ tier_observe_trace (Füllstand, r/w/d, RAM) | **R6 offen** |
-| §2.2 Achsen-`observe_all` | (n/a — Pfad A misst isoliert) | ✅ AnatomyExecutionContext::observe_all (search_algo+allocator real) | **R6 offen** |
+| §2.1 Tier-Wall-Clock | ✅ run_workload + f15_compare | ✅ tier_observe_trace (Füllstand, r/w/d, RAM) | ✅ **erledigt** (R6, reale DLL `R8RestA_DockMeasuresRealDll` 2/2) |
+| §2.2 Achsen-`observe_all` | (n/a — Pfad A misst isoliert) | ✅ AnatomyExecutionContext::observe_all (search_algo+allocator real) | ✅ **erledigt** (R6, `IObservableTier` über ABI-Grenze) |
 | §2.3 Achsen-Vergleich | ✅ Welch+MWU+Cliff's δ (Doku 22 §3) | ✅ verify_matches_std_map (Compile-Time-Korrektheit) | n/a |
 
 ### §8.6 R6 — der präzise verbleibende Schritt (Pfad B über die Modul-Binary-Grenze)
+
+> **✅ R6 ERLEDIGT (Stand 2026-05-31, Audit `wdfezww0t` bestätigt):** der hier beschriebene Schritt ist
+> umgesetzt — `IObservableTier` (`abi/observable_tier.hpp`) trägt über die echte `.dll`-Grenze; Host lädt
+> reale Permutations-DLL via `AnatomyModuleLoader` → `dynamic_cast<IObservableTier*>` → `SearchAlgorithmDock.measure()`
+> → CSV/JSON. Test-belegt: `R8RestA_DockMeasuresRealDll` 2/2 grün. Die folgende Beschreibung ist der
+> Umsetzungs-Plan (historisch); Ledger §(e) R6.1–R6.4 = done-verified.
 
 > **User 2026-05-30 (verbatim-tragend, „bitte nicht vergessen"):** „alle Tier-Binaries [sind] C++23
 > dynamisch ladbare Module und daher separat von der CacheEngineBuilder, die CacheEngineBuilder baut die
