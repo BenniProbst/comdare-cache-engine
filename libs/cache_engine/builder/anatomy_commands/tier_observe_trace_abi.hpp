@@ -13,6 +13,7 @@
 // Gattungs-ABI). KEIN Runtime-Switch; reine Interface-Indirektion.
 
 #include <anatomy/observable_tier.hpp>
+#include <anatomy/rollbackable_tier.hpp>   // V5-I7: Zwei-Phasen-Treiber (tier_save_all/tier_rollback_all)
 
 #include <algorithm>
 #include <chrono>
@@ -72,6 +73,25 @@ namespace detail {
     if (rank >= v.size()) rank = v.size() - 1;
     return v[rank];
 }
+
+/// V5-I7 Zwei-Phasen-Messung EINER Operation (User-Direktive 2026-05-31, Mess-Architektur §4):
+///   save-all → op (Phase 1: Warmup, Cache/Branch-Predictor heizen, Timing VERWORFEN)
+///   → rollback-all (Vor-Zustand exakt wiederhergestellt)
+///   → op (Phase 2: Messung — warm, aber logisch gegen DENSELBEN Vor-Zustand wie der Warmup).
+/// `timed_op()` führt die Operation aus UND liefert ihre Wall-Clock-ns zurück; wird bei verfügbarem
+/// Rollback ZWEIMAL gerufen (Warmup verworfen, Messung behalten), sonst EINMAL (Kalt-Messung, Fallback
+/// für alte Module / nicht-kopierbare Organe). Da jede Phase 1 exakt zurückgerollt wird, macht NUR die
+/// gemessene Phase-2-Op logischen Fortschritt ⇒ End-Zustand + Observer-Zähler identisch zur Einphasen-Messung.
+template <class TimedOp>
+[[nodiscard]] std::int64_t two_phase_measure(::comdare::cache_engine::anatomy::IRollbackableTier* rb,
+                                             TimedOp&& timed_op) {
+    if (rb != nullptr) {
+        rb->tier_save_all();
+        (void)timed_op();        // Phase 1: Warmup (verworfen)
+        rb->tier_rollback_all();  // Vor-Zustand exakt zurück
+    }
+    return timed_op();           // Phase 2: Messung (bzw. Kalt-Messung wenn rb==nullptr)
+}
 }  // namespace detail
 
 /// Treibt ein IObservableTier ueber die Fuellstands-Checkpoints (Pfad B; Trigger Zustands-Manipulation
@@ -129,6 +149,87 @@ drive_tier_observe_trace_abi(an::IObservableTier& tier, AbiTierTraceConfig const
         snap.fill_level = tier.tier_size();
         // §8.7: EIN Observer-POD am Checkpoint, mit explizitem Wall-Clock-Zeitstempel korreliert (der
         // Builder persistiert die (Wall-Clock ↔ Observer)-Zuordnung).
+        tier.tier_observe(&snap.observer);
+        snap.observe_wall_ns = detail::abi_dur_ns(trace_start, clock::now());
+        trace.checkpoints.push_back(std::move(snap));
+    }
+    return trace;
+}
+
+/// V5-I7 — ZWEI-PHASEN-Treiber (User-Direktive 2026-05-31, Mess-Architektur §4): identisch zur Füllstands-
+/// Trajektorie von drive_tier_observe_trace_abi, ABER jede GEMESSENE Operation läuft als zwei-phasiger Op
+/// (save-all → op-warmup [verworfen] → rollback-all → op-measure), sofern `rollback != nullptr`. Dadurch wird
+/// jeder gemessene Op warm (Cache/Branch-Predictor geheizt durch den Warmup), aber logisch gegen DENSELBEN
+/// Vor-Zustand gemessen wie der Warmup. Da jede Warmup-Phase exakt zurückgerollt wird, macht nur die Mess-Op
+/// logischen Fortschritt ⇒ End-Füllstand + Observer-Zähler IDENTISCH zu drive_tier_observe_trace_abi.
+///
+/// `rollback`: das memento_all-Sub-Interface der GLEICHEN Tier-Instanz (Loader-`dynamic_cast`; nullptr ⇒ altes
+/// Modul / nicht-exakt-rollbackbares Organ ⇒ graziöser Fallback auf Einphasen-Kalt-Messung pro Op). Die
+/// nicht-gemessenen Zustands-Operationen (DELETE-reinsert) bleiben einphasig (reine Füllstand-Restauration).
+[[nodiscard]] inline AbiTierObserveTrace
+drive_two_phase_tier_trace_abi(an::IObservableTier& tier,
+                               an::IRollbackableTier* rollback,
+                               AbiTierTraceConfig const& cfg = {}) {
+    using clock = std::chrono::steady_clock;
+    std::mt19937_64 rng{cfg.seed};
+    std::uint64_t next_key = 0;
+    AbiTierObserveTrace trace;
+    auto const trace_start = clock::now();
+
+    for (std::uint64_t const target : cfg.fill_checkpoints) {
+        AbiFillLevelSnapshot snap;
+
+        // WRITE-Phase zwei-phasig: Warmup-insert(k) → rollback (k weg) → Mess-insert(k) (k da, echter Fortschritt).
+        std::uint64_t write_stagnation = 0;
+        std::uint64_t last_fill = tier.tier_size();
+        while (tier.tier_size() < target) {
+            std::uint64_t const k = next_key;
+            auto const ns = detail::two_phase_measure(rollback, [&]() -> std::int64_t {
+                auto const t0 = clock::now();
+                (void)tier.tier_insert(k, k * 2u + 1u);
+                auto const t1 = clock::now();
+                return detail::abi_dur_ns(t0, t1);
+            });
+            snap.write_ns.push_back(ns);
+            ++next_key;
+            std::uint64_t const cur_fill = tier.tier_size();
+            if (cur_fill > last_fill) { last_fill = cur_fill; write_stagnation = 0; }
+            else if (++write_stagnation >= cfg.max_insert_stagnation) break;
+        }
+
+        // READ-Phase zwei-phasig: Warmup-lookup heizt, rollback restauriert Observer-Stats, Mess-lookup zählt.
+        for (std::uint64_t i = 0; i < cfg.lookups_per_checkpoint; ++i) {
+            std::uint64_t const k = (next_key != 0) ? (rng() % (next_key * 2u)) : 0u;
+            std::uint64_t measured_out = 0;
+            bool          measured_hit = false;
+            auto const ns = detail::two_phase_measure(rollback, [&]() -> std::int64_t {
+                std::uint64_t out = 0;
+                auto const t0 = clock::now();
+                bool const hit = tier.tier_lookup(k, &out);
+                auto const t1 = clock::now();
+                measured_hit = hit; measured_out = out;   // nach two_phase_measure spiegelt dies die MESS-Phase
+                return detail::abi_dur_ns(t0, t1);
+            });
+            snap.read_sink += measured_hit ? measured_out : 0u;
+            snap.read_ns.push_back(ns);
+        }
+
+        // DELETE-Phase zwei-phasig (Mess-Op = erase); die Füllstand-Restauration (reinsert) ist NICHT gemessen.
+        for (std::uint64_t i = 0; i < cfg.deletes_per_checkpoint && tier.tier_size() > 0; ++i) {
+            std::uint64_t const dk = (next_key != 0) ? (rng() % next_key) : 0u;
+            bool measured_ok = false;
+            auto const ns = detail::two_phase_measure(rollback, [&]() -> std::int64_t {
+                auto const t0 = clock::now();
+                bool const ok = tier.tier_erase(dk);
+                auto const t1 = clock::now();
+                measured_ok = ok;
+                return detail::abi_dur_ns(t0, t1);
+            });
+            snap.delete_ns.push_back(ns);
+            if (measured_ok) (void)tier.tier_insert(dk, dk * 2u + 1u);   // Füllstand wiederherstellen (einphasig)
+        }
+
+        snap.fill_level = tier.tier_size();
         tier.tier_observe(&snap.observer);
         snap.observe_wall_ns = detail::abi_dur_ns(trace_start, clock::now());
         trace.checkpoints.push_back(std::move(snap));
