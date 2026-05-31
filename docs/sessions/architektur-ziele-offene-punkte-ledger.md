@@ -23,10 +23,16 @@
 
 ## (a) OFFEN · ACTIONABLE · NICHT-BLOCKIERT — nach Priorität (Korrektheit > Architektur-Pflicht > Refinement)
 
-> **✅ STATUS 2026-05-31 — /goal Gate-C ERFÜLLT (5. Audit `wdfezww0t`: `goal_section_a_empty=true`,
-> reclassification BESTÄTIGT, final_verdict „Gate-C ERFÜLLT — JA", confidence hoch). §(a) in BEIDEN Repos
-> (cache-engine + Diplomarbeit-Superprojekt) genuin leer; 3 nicht-blockierende Härtungspunkte BEHOBEN
-> (test_axis_tree gtest 4/4 gebaut+gelaufen; TODOs-Master-Pfad präzisiert; Doku 24 §8.5/§8.6 R6-Prosa nachgezogen).**
+> **✅ STATUS 2026-05-31 — /goal Gate-C (Ledger-Architekturanforderungen) ERFÜLLT (5. Audit `wdfezww0t`).**
+> §(a) der Ledger-Architekturanforderungen in BEIDEN Repos genuin leer; 3 Härtungspunkte behoben.
+>
+> **⚠️ NEUE ARBEITSFRONT (2026-05-31, NACH E2E-Abnahme-Audit `w9iy2dhrc` + User-Entscheidungen):** Ein TIEFERES
+> End-zu-Ende-Abnahme-Audit (über die Ledger-Architekturanforderungen HINAUS — der reale Pipeline-Datenfluss +
+> die Mess-Substanz) deckte auf: das 3-Repo-Modell ist code-verifiziert KORREKT, aber die Kette ist NICHT
+> geschlossen. Neue actionable Punkte (siehe `docs/sessions/20260531-e2e-abnahme-audit-und-entscheidungen.md`),
+> per User freigegeben: **P1** CSV-16-col + E2E-Orchestrierung+Cross-Stage-Test (BLOCKER, Code) · **P2** Umstufung-B
+> im Mess-Pfad vollenden + F15 neu (cache-engine) · **P3** i7-1270P-Mindest-Messreihe · **P4** Vendor-Allokatoren+PMC
+> (Beschaffung) · **P5** Doku-Drift + Plugin-ABI-Konsolidierung + prt-art-`run()`(E6). Diese sind nach §(a) aufgenommen.
 > RUNDE 1 (`wr26qdndl`): F.2-§2.2 17/17 (`fc5bfd0`, 2112/2112) · R5.B-serialization (`f65a2ad`) · 25-DLL-Build (`00eb5cc`).
 > RUNDE 2 (`wse7bv9kd`): F.4 (`f1e8745`, 5/5) · E10.1+E10.2 (`0a7d390`) → §e; F.6 Phase-C termin-gated (§b).
 > RUNDE 3 (`wg9we7etc`): §(a)-cache-engine bestätigt leer; 2 Form-Fixes behoben.
