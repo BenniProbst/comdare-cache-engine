@@ -1,5 +1,9 @@
 # Doku 23 — F.2/F.3: Axen-zentrische Namespaces + Achsen-Concepts (Migrationsplan)
 
+> ✅ **STATUS-UPDATE (2026-05-31):** Dieser MIGRATIONSPLAN ist UMGESETZT — F.2 (17/17 physische `axes/<axis>/`,
+> volle Regression 2112/2112) + F.3 (Concept-Layer alle 17, `F2F3_AxisCentricFacade` + perm_engine 21/21) sind
+> **done-verified** (Ledger §e). Etwaige „pending"-Formulierungen unten sind historischer Plan, NICHT offener Stand.
+
 **Stand:** 2026-05-29 · **Tasks:** #12 V41.F.2 (axen-zentrische Namespaces) + #13 V41.F.3 (Achsen-Concepts)
 **Quelle:** `Diplomarbeit/docs/sessions/20260524-V41-open-todos.md` §261–314 (User-Wortlaut).
 
