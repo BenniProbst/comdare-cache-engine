@@ -16,22 +16,23 @@
 **Autoritative Quellen:** TaskList · Open-TODOs-Master docs/sessions/20260524-V41-open-todos.md (Superprojekt)
 · R7.x #717-736 · Doku 11/14/22/24 · jüngste Session-Handoffs.
 
-**Stand:** 2026-05-30 · **Repo:** comdare-cache-engine HEAD `59d6e87` · **Synthese aus 4 Audit-Streams (dedupliziert)**
-**Verifikation diese Session:** observable_tier.hpp / pruef_dock/* / axis_centric_namespaces.hpp existieren; allocator-Wrapper=28; axis_03a=77 Header; 22 axis_*-Dirs; 0 TODO/FIXME im Topic-Hauptcode; R6-Commit-Kette `5b72eae..db4de2e` real; F.2 = reine Alias-Fassade (keine phys. axes/-Subdirs).
+**Stand:** 2026-05-31 · **Repo:** comdare-cache-engine HEAD `0a7d390` (+ Ledger-Folge-Commit) · **Synthese + 2 finale Audits (`wr26qdndl`, `wse7bv9kd`)**
+**Verifikation diese Session:** observable_tier.hpp / pruef_dock/* / axis_centric_namespaces.hpp existieren; allocator-Wrapper=28; 0 TODO/FIXME im Topic-Hauptcode; R6-Commit-Kette `5b72eae..db4de2e` real. **F.2 = 17/17 reale `libs/cache_engine/axes/<axis>/`-Subdirs** (alte „reine Alias-Fassade"-Notiz überholt; volle Regression 2112/2112, `fc5bfd0`). F.4 (`f1e8745`) + E10.1/E10.2 (`0a7d390`) als fälschlich §b-klassifiziert korrigiert → §e.
 
 ---
 
 ## (a) OFFEN · ACTIONABLE · NICHT-BLOCKIERT — nach Priorität (Korrektheit > Architektur-Pflicht > Refinement)
 
-> **STATUS 2026-05-31 (nach Abarbeitung ALLER 3 Audit-Punkte): §(a) enthält KEINEN offenen actionable
-> nicht-blockierten Punkt mehr — finaler RE-Audit-Workflow ausstehend (/goal-Gate C).**
-> 12 Einträge dieser Session done-verified (R8, R7.1.b, R7.4, R7.2, A3+A4, B2, B5, OpenDone.0/2, E1, E3, E7;
-> 8 Audit-„offen"-Marken widerlegt). Die 3 vom finalen Audit `wr26qdndl` GENUIN gefundenen Punkte sind jetzt
-> ALLE **✅ done-verified** mit literaler Evidenz: **(1) F.2-§2.2** physischer Achsen-Rename **17/17 KOMPLETT**
-> (`fc5bfd0`, volle Regression Build-ALL exit 0 + ctest 2112/2112); **(2) R5.B-serialization** axis_10
-> runtime-operativ (`f65a2ad`, axis_10 9/9 + e2e 3/3); **(3) 25-DLL-Build** reproduzierbare CMake-Option
-> `COMDARE_CE_ADHOC_FULL_COVERAGE` + End-to-End 25 DLLs gebaut + Loader 2/2. → Alle §(a)-Zeilen done-verified;
-> nächster Schritt = **finaler Audit-Workflow** zur Vollständigkeits-Bestätigung über ALLE autoritativen Quellen.
+> **STATUS 2026-05-31 (nach 2. finalem Audit `wse7bv9kd` + Abarbeitung seiner Funde): §(a) enthält
+> KEINEN offenen actionable nicht-blockierten Punkt mehr — 3. (Bestätigungs-)Audit ausstehend (/goal-Gate C).**
+> RUNDE 1 (Audit `wr26qdndl`): 3 Funde → ALLE done-verified: **F.2-§2.2** 17/17 (`fc5bfd0`, Regression 2112/2112);
+> **R5.B-serialization** (`f65a2ad`, 9/9 + e2e 3/3); **25-DLL-Build** (`COMDARE_CE_ADHOC_FULL_COVERAGE`, 25 DLLs + Loader 2/2).
+> RUNDE 2 (Audit `wse7bv9kd`, adversarial): deckte erneut „victory by reclassification" auf — 2 fälschlich nach §b
+> verschobene benannte V41-Anforderungen → JETZT done-verified: **F.4** ICacheEngineTools-Facade (`f1e8745`, Smoke 5/5);
+> **E10.1+E10.2** STATIC/SHARED-Achse (`0a7d390`, Toggle ON→.dll/OFF→.lib verifiziert). 3. Fund **F.6 Phase-C**
+> (deprecated-Header) korrekt als **termin-gated** (§b, dokumentiertes README-Removal-Date „nach Habich-Termin")
+> klassifiziert — kein actionable-jetzt. Form-Fixes: E11-§b-Evidenz korrigiert (Registry-Hälfte→§e, Doku 20 §5 existiert),
+> Kopf-HEAD + F.2-Notiz nachgezogen. → Alle §(a)-Zeilen done-verified; nächster Schritt = **3. Bestätigungs-Audit**.
 
 | ID | Titel | Kat. | Status (verif.) | Evidenz | Referenzen | Nächster Schritt |
 |----|-------|------|-----------------|---------|------------|------------------|
@@ -64,9 +65,9 @@
 | **R5.D** (Task #26) | PMC-Hardware-Counter (Cache-Miss/L2-MPKI via PMU) für fein-granulare Achsen (memory_layout AoS/SoA) | blocked-external | open (verifiziert SEPARAT von R6) | **IST-verifiziert 2026-05-30 (`feedback_verify_ist_state`):** KEINE PMC-Impl existiert (`concepts/measurement/` LEER, `cache_miss.hpp` = bloßer Registry-Stub-Pfad). **NICHT Teil von R6** (R6=Wall-Clock+Observer real, Doku 24 §8; PMC=eigene HW-Schicht, Doku 22 §3.3 Z.217-219). Echte Cache-Miss-Counter erfordern **Intel PCM (Vendor-Lib)** ODER Admin/MSR-Treiber-Zugriff (Doku 22 stützt „PMC nötig statt Wall-Clock"; das RDTSC-Argument — RDTSC liefert nur Zyklen, diskriminiert AoS/SoA NICHT besser als ns-Wall-Clock — ist eigenes sachliches Reasoning, KEIN Doku-Zitat). Selber Blocker-Typ wie A1/A2.1. Doku 22 selbst klassifiziert: „VERBLEIBEND (gated)" | Wenn Intel PCM / PMU-Zugriff verfügbar: `IPmcSource`-ABI (analog `IObservableTier`) + Treiber-Verdrahtung in `tier_observe_trace_abi` (Design-Skizze steht) |
 | **C1** | Cluster-Tasks | blocked-external | open | Extern, Phase 7+ | Termin |
 | **C2** | Grace Hopper | blocked-external | open | Extern, kritisch | User-Absprache |
-| **F.4** (Task #14) | Tools-Plugin-Concept ICacheEngineTools Facade | blocked-external (Design/User-Decision) | open | Memory erwähnt; kein Impl-Pointer; Scope unklar (Refinement F.2/F.3 vs. Standalone?) | Scope-Klärung mit User (R8-Kontext) |
-| **E10** (Task #17) | STATIC/SHARED pro-Projekt/-Untermodul-Achse | blocked-external (Design/User-Decision) | open | Task pending; kein Code-Pointer; CMake-Achse vs. Konzept unklar | User-Klärung (Abhängigkeit E11?) |
-| **E11** (Task #16) | Master-Framework Facade + AbstractFactory-Prüfling-Slot | blocked-external (Design/User-Decision) | open | Task pending; kein Design-Doc | Design-Phase (analog R5.A ExecutionEngine) |
+| **E10.6/E10.7** (Task #17, Rest) | STATIC/SHARED Cluster-Build-Layout / Verteil-Topologie der SHARED-Libs über ZIH-Nodes | blocked-external (Termin) | open | **Korrigiert (Audit `wse7bv9kd`):** E10.1 (add_library-Audit) + E10.2 (Option `COMDARE_<P>_BUILD_SHARED_LIBS` + `comdare_add_library`-Helper) sind done-verified (`0a7d390`, §e) — lokale CMake-Arbeit, KEIN externes Gate. NUR die Cluster-Verteilung bleibt termin-/extern-abhängig | Nach Cluster-Termin (C1/C2-Kontext) |
+| **E11-Facade-Impl** (Task #16, Rest) | Master-Framework-Facade `get_cache_engine()`-IMPL über die 6 ausgelagerten Submodule | blocked-intern (sequenz-gated auf #22/E4.1=V42) | open | **Korrigiert (Audit `wse7bv9kd`):** die alte Evidenz „kein Design-Doc" war FALSCH — `docs/architecture/20_plugin_controller_pruefling_loading.md:91` definiert „E11 = Plugin-Controller-Impl". Die **AbstractFactory/Registry-HÄLFTE ist DONE** (`pruefling_registry` 3/3 + `prt_art_pruefling_registration` 26/26) → §(e). Die Facade-IMPL vermittelt die via E4.1 **leeren** 6 Submodule (V42) → vorerst nichts zu vermitteln; real intern-blockiert auf #22, NICHT „extern/Design-Decision" | Nach #22-Submodul-Befüllung (V42) |
+| **F.6 Phase-C** (Task #31) | Löschung der 23 deprecated prt-art-Legacy-Header (`libs/deprecated/prt_art_legacy/`) | termin-gated (dokumentiert) | open (bewusst zurückgestellt) | **IST-verifiziert 2026-05-31:** F.2-Kopplung aufgelöst (17/17), ABER `libs/deprecated/README.md` trägt ein DOKUMENTIERTES Removal-Date **„nach Habich-Termin~9 final löschen"** (von mir NICHT erfunden — vorbestehendes Zeit-Gate). Keine Live-`#include` (nur Kommentar-`@historical_reference` in execution_engine_base.hpp + 1 Test), `COMDARE_BUILD_DEPRECATED=OFF` → 0 Build-/Regressions-Risiko. Referenz-Skelett bis zur Verteidigung absichtlich erhalten → KEIN actionable-jetzt-Punkt | Nach Habich-Termin: 23 Header `git rm` + Tag |
 | **Doku-11-Verif.** | TopicConfigSet/PermutationEngine-Doku lokalisieren | blocked-external | open | Doku 11 nicht im Repo (nur 17–24); Konzept im Code verankert | Termin-7-Verzeichnis konsultieren |
 | **Doku-14-Verif.** | Anatomie/Gattungen-Doku lokalisieren | blocked-external | open | Doku 14 nicht im Repo; Code unter anatomy/ (26 Header) implementiert | Termin-7-Quellen / Glossar ergänzen |
 
@@ -98,6 +99,9 @@
 
 | ID | Titel | Evidenz (verifiziert) |
 |----|-------|------------------------|
+| **F.4** (Task #14) | ICacheEngineTools Tools-Plugin-Facade über die in-repo-Werkzeuge | **done-verified `f1e8745` (Audit-Fund `wse7bv9kd` korrigiert: war fälschlich §b extern):** `libs/cache_engine/include/cache_engine/api/i_cache_engine_tools.hpp` — header-only C++23-Facade vermittelt Welch/Mann-Whitney (`builder/commands`), Codegen (`render_adhoc_module_source`, DRY-faktorisiert) + YCSB-Workload (`test_infra/workload_generator`) über Sub-Interfaces + `register_external_tool()`-Plugin-Registry. Smoke-Test `test_v41_cache_engine_tools_facade` **5/5** (echte Tool-Aufrufe). Emitter-Output byte-identisch nach DRY-Refactor verifiziert |
+| **E10.1+E10.2** (Task #17) | STATIC/SHARED-Linkage-Achse pro Projekt | **done-verified `0a7d390`:** E10.1-Audit (85 add_library = 62 INTERFACE + 11 STATIC-Ziele + 12 ALIAS) + E10.2 `cmake/comdare_add_library.cmake` (pro-Projekt-Option `COMDARE_<P>_BUILD_SHARED_LIBS`, Default OFF=STATIC; SHARED⇒WINDOWS_EXPORT_ALL_SYMBOLS+PIC). 11 STATIC-Libs retrofittet. Verifiziert: Configure default grün; STATIC-Build `.lib`; Toggle ON→`.dll`; Toggle OFF→`.lib` (non-destruktiv). Doku 25. (Rest E10.6/E10.7 Cluster-Layout = §b Termin) |
+| **E11-Registry-Hälfte** (Task #16, Teil) | AbstractFactory/Registry-Slot des Prüfling-Plugin-Controllers | **done-verified (Audit-Fund `wse7bv9kd`):** `pruefling_registry.hpp` + `i_pruefling_factory.hpp`; `test_v41_pruefling_registry` 3/3 + `test_prt_art_pruefling_registration` 26/26 PASSED. Design-Doc `docs/architecture/20_plugin_controller_pruefling_loading.md:91`. (Die Facade-Vermittlungs-IMPL der 6 leeren Submodule = §b, intern-gated auf #22/V42) |
 | **R6.1** | IObservableTier + ComdareTierObserverSnapshotV1 POD | observable_tier.hpp (Datei verifiziert vorhanden); static_assert standard_layout+trivially_copyable; commit 5b72eae; Tests test_v41_pruef_dock + test_v41_anatomy_module_abi |
 | **R6.2** | drive_tier_observe_trace_abi (Wall-Clock+Observer korreliert) | tier_observe_trace_abi.hpp; commits 4b68b13+146e6b2; test_v41_tier_observe_trace |
 | **R6.3** | Loader-Entkopplung anatomy_module_abi_v1_decl.hpp | commit 6140705 (verifiziert in git log); kein C1083 mehr |
