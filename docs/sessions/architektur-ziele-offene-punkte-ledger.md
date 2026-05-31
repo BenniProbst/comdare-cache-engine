@@ -75,17 +75,19 @@
 > Linux/Bazel-only, WSL bare, kein autoconf) → **§(b) toolchain-gated** mit konkreter Beschaffungs-Spezifikation
 > (`20260531-p4-vendor-beschaffungs-spezifikation.md`). P4-PMC bleibt §(b) extern-gated. **Damit ist §(a) frei von
 > offenen actionable nicht-extern-gateten Punkten** — beide verbleibenden P4-Stränge sind beschaffungs-/toolchain-gated
-> (= GETRENNT gezählt, wie extern/V42/user-manuell). **C(c)-Bedingung erfüllt** (mit getracktem Vorbehalt #42-Phase-2, s.u.).
+> (= GETRENNT gezählt, wie extern/V42/user-manuell). **C(c)-Bedingung erfüllt** (#42-Phase-2 nach Audit-Nachprüfung als done-verified bestätigt, s.u.).
 >
 > **✅ C(d) FINALER ABNAHME-AUDIT-WORKFLOW DURCH (`wu8pehnk3`, 13 Agenten, 6 Dimensionen + adversariell + Synthese, 2026-05-31):**
-> **Verdikt = ABGENOMMEN MIT VORBEHALT.** Alle 5 tragenden Kriterien PASS (literal): C(a) E2E real→PDF · C(b) F15
-> sezierte Organe (Headline-Mess-Pfad) · C(c) Ledger ohne offene nicht-gatete Punkte · Submodul-Sync+Push 3 Repos ·
-> Direktiven-Konformität (kein D1/D2-Eingriff, 0 Doku-Löschungen, kein gefaktes jemalloc). Eine Verify-Halluzination
-> („PA-Banner fehlen") on-disk widerlegt (alle 4 PA-Docs tragen Banner). Verbleibend nicht-blockierend: 2× P4-Gate (§b)
-> + **Task #42 Phase 2** (s.u.) + 2 kosmetische Fixes (in dieser Runde behoben: stale Test-Kommentare, Doku-23-Banner-Wortlaut).
-> Verdikt-Detail + Restpunkt-Planrunde: `docs/sessions/20260531-cd-abnahme-audit-verdikt-und-planrunde.md`.
+> **Verdikt = ABGENOMMEN** (Roh-Verdikt „mit Vorbehalt"; **beide Vorbehalte nach On-Disk-Verifikation als Audit-Falsch-Befunde
+> widerlegt**). Alle 5 tragenden Kriterien PASS (literal): C(a) E2E real→PDF · **C(b) F15 sezierte Organe — VOLL (nicht nur
+> Headline): `EnabledStrategies` = 4 primitive Such-Organe, 13 Monolithen `USE=0` deregistriert, literal im konfig. Flags-Header
+> belegt)** · C(c) Ledger ohne offene nicht-gatete Punkte · Submodul-Sync+Push 3 Repos · Direktiven-Konformität.
+> **Zwei Audit-Halluzinationen on-disk widerlegt:** (1) „PA-Banner fehlen" → alle 4 PA-Docs tragen Banner; (2) „EnabledStrategies
+> = 17 Monolithen" → Agent las `AllStrategies` statt des gefilterten `EnabledStrategies` (=4 Organe). Einzig verbleibend
+> nicht-blockierend: **2× P4-Gate (§b)**; 2 kosmetische Fixes in dieser Runde behoben (stale Test-Kommentare, Doku-23-Banner).
+> Verdikt-Detail: `docs/sessions/20260531-cd-abnahme-audit-verdikt-und-planrunde.md`.
 
-| **#42-Phase-2** (Umstufung-B Symbol-Ebene) | axis_03a `EnabledStrategies` von 17 Ganz-Algorithmus-Wrappern auf sezierte Organ-Kompositionen umstellen | **actionable · nicht-gated · GROSS-multi-session · NICHT-abnahmeblockierend** | **⬜ OFFEN (getrackt, Planrunde steht)** | IST-verifiziert: `axes/lookup/axis_03a_search_algo_registry.hpp:45-77` `AllStrategies`=17 `*SearchAlgo : SearchAlgoBase` (keine Organe); sezierte Organe leben parallel in `composable/tier_to_organ_mapping.hpp`. **13 Konsumenten** → volle Regression zwingend (kein Quick-Fix). Headline-F15-Pfad nutzt die 6 Organ-Kompositionen, NICHT EnabledStrategies → nicht-blockierend. Direktive `no_whole_tier_axes` Symbol-Ebene noch offen | 5-Schritt-Planrunde in `20260531-cd-abnahme-audit-verdikt-und-planrunde.md` §3.3 (Organ-Sezierung der 9 Rest-Methoden → `EnabledOrganCompositions` → 13 Konsumenten je 1 Commit grün → Alias entfernen → static_assert nur-Kompositionen → Regression+Tags). Eigene Session, Rollback-Tag |
+| **#42-Phase-2** (Umstufung-B Symbol-Ebene) | axis_03a `EnabledStrategies` = sezierte Organe, Monolithen deregistriert | **✅ done-verified** (Audit-Falsch-Befund literal widerlegt) | **✅ VERIFIZIERT (konfigurierter Flags-Header):** `build/.../axes/lookup/axis_03a_search_algo_flags.hpp` zeigt **13 Monolith-Tiere `USE=0`** (Array256/VectorU8U8/U16U16/Array65535/OriginalART/HOT/START/Wormhole/SURF/SkipList/Hash/BST/BTree) + **4 primitive Such-Organe `USE=1`** (K_ARY/INTERPOLATION/EYTZINGER/LINEAR_SCAN). `CMakeLists.txt:140-159` `option(… "-> deregistriert #42" OFF)`. `EnabledStrategies = mp_filter<is_enabled, AllStrategies>` = **4 Organe**, NICHT 17. **Audit-Agent las `AllStrategies` (17, physisch für kSearch erhalten) statt des gefilterten `EnabledStrategies`** = 2. Audit-Halluzination (neben PA-Banner). Tag `v41-42-phase2-deregistrierung` | konfig. Flags-Header (13×0 / 4×1); CMakeLists:140-159; Tag v41-42-phase2-deregistrierung; Memory project_umstufung_b_phase2_classification | erledigt (Direktive `no_whole_tier_axes` auf EnabledStrategies-Ebene erfüllt) |
 
 ---
 
