@@ -13,8 +13,8 @@
 4. Neu entdeckte Punkte ergänzen.
 5. Bei Strom-Abschluss: Audit-Workflow erneut fahren ([[feedback_verify_ist_state_before_gross_tasks]]).
 
-**Autoritative Quellen:** TaskList · Open-TODOs-Master `docs/sessions/20260524-V41-open-todos.md`
-(liegt im **Diplomarbeit-Superprojekt**, NICHT im cache-engine-Repo) · R7.x #717-736 · Doku 11/14/22/24 · jüngste Session-Handoffs.
+**Autoritative Quellen:** TaskList · Open-TODOs-Master — präziser Pfad **`<Diplomarbeit-Repo-Wurzel>/docs/sessions/20260524-V41-open-todos.md`**
+(auf der Diplomarbeit-Repo-Wurzel, PARALLEL zu `Code/` — NICHT unter `Code/docs/` und NICHT im cache-engine-Repo; Audit `wdfezww0t` korrigiert) · R7.x #717-736 · Doku 11/14/22/24 · jüngste Session-Handoffs.
 
 **Stand:** 2026-05-31 · **Repo:** comdare-cache-engine HEAD `0a7d390` (+ Ledger-Folge-Commit) · **Synthese + 2 finale Audits (`wr26qdndl`, `wse7bv9kd`)**
 **Verifikation diese Session:** observable_tier.hpp / pruef_dock/* / axis_centric_namespaces.hpp existieren; allocator-Wrapper=28; 0 TODO/FIXME im Topic-Hauptcode; R6-Commit-Kette `5b72eae..db4de2e` real. **F.2 = 17/17 reale `libs/cache_engine/axes/<axis>/`-Subdirs** (alte „reine Alias-Fassade"-Notiz überholt; volle Regression 2112/2112, `fc5bfd0`). F.4 (`f1e8745`) + E10.1/E10.2 (`0a7d390`) als fälschlich §b-klassifiziert korrigiert → §e.
@@ -23,8 +23,10 @@
 
 ## (a) OFFEN · ACTIONABLE · NICHT-BLOCKIERT — nach Priorität (Korrektheit > Architektur-Pflicht > Refinement)
 
-> **STATUS 2026-05-31 (nach 4. Audit `w072su5dz` + Abarbeitung seiner Funde): §(a) bzgl. Architektur-Substanz
-> leer — 5. (Bestätigungs-)Audit ausstehend (/goal-Gate C).**
+> **✅ STATUS 2026-05-31 — /goal Gate-C ERFÜLLT (5. Audit `wdfezww0t`: `goal_section_a_empty=true`,
+> reclassification BESTÄTIGT, final_verdict „Gate-C ERFÜLLT — JA", confidence hoch). §(a) in BEIDEN Repos
+> (cache-engine + Diplomarbeit-Superprojekt) genuin leer; 3 nicht-blockierende Härtungspunkte BEHOBEN
+> (test_axis_tree gtest 4/4 gebaut+gelaufen; TODOs-Master-Pfad präzisiert; Doku 24 §8.5/§8.6 R6-Prosa nachgezogen).**
 > RUNDE 1 (`wr26qdndl`): F.2-§2.2 17/17 (`fc5bfd0`, 2112/2112) · R5.B-serialization (`f65a2ad`) · 25-DLL-Build (`00eb5cc`).
 > RUNDE 2 (`wse7bv9kd`): F.4 (`f1e8745`, 5/5) · E10.1+E10.2 (`0a7d390`) → §e; F.6 Phase-C termin-gated (§b).
 > RUNDE 3 (`wg9we7etc`): §(a)-cache-engine bestätigt leer; 2 Form-Fixes behoben.
@@ -121,7 +123,7 @@
 | **Umstufung-B** (Task #42) | Tiere aus axis_03a raus → Gattungs-Konfiguratoren | commits e31541a+8bcbd7e; EnabledStrategies 17→4; 264 Tests grün |
 | **s4** (Task #43) | OriginalXxx Trie-Anatomie seziert (ART/HOT/START/SuRF/Wormhole) | ByteWiseKeyPrefix-Organ 18/18; SuRF=Filter-Gattung, Wormhole=GPL-3 markiert |
 | **Cross-Constraints** (Task #9, R5.C.3 #704) | ISA×SIMD + ISA×Plattform | commits f9b6303+d29fdef; 12 Paare→6 möglich (Beweis) |
-| **G.1** (Task #18) | Hierarchische Achsen-Iteration + Auswertung im messung_driver (4 Deliverables) | **done-verified (Diplomarbeit `d6d957c`; Audit `w072su5dz` korrigierte evidenzloses „completed"):** NEU `02_messung_driver/axis_tree.hpp` (pure std) — **Item 1** `build_axis_tree` (Tree-Loader aus dem im `axes`-String kodierten Achsen-Baum, Format `simd=,layout=,alloc=`); **Item 2** hierarchische Gruppen-Ausgabe `== key=value ==` in main.cpp (ersetzt flache Liste/map); **Item 3** `write_stats_csv_per_axis` = EINE CSV-Spalte je Achsen-Schlüssel (ersetzt Sammelspalte); **Item 4** `subtree_groups_varying` → Welch RESTRINGIERT auf Achsen-Subtrees (gleiche Fix-Achsen, 1 variierend; ersetzt flachen all-pairs). Verifiziert: `tests/unit/test_axis_tree.cpp` (gtest, im Build verankert) + standalone MSVC-Check **4/4 PASSED**; stats_aggregator + main.cpp `cl /Zs` **RC=0** |
+| **G.1** (Task #18) | Hierarchische Achsen-Iteration + Auswertung im messung_driver (4 Deliverables) | **done-verified (Diplomarbeit `d6d957c`; Audit `w072su5dz` korrigierte evidenzloses „completed"):** NEU `02_messung_driver/axis_tree.hpp` (pure std) — **Item 1** `build_axis_tree` (Tree-Loader aus dem im `axes`-String kodierten Achsen-Baum, Format `simd=,layout=,alloc=`); **Item 2** hierarchische Gruppen-Ausgabe `== key=value ==` in main.cpp (ersetzt flache Liste/map); **Item 3** `write_stats_csv_per_axis` = EINE CSV-Spalte je Achsen-Schlüssel (ersetzt Sammelspalte); **Item 4** `subtree_groups_varying` → Welch RESTRINGIERT auf Achsen-Subtrees (gleiche Fix-Achsen, 1 variierend; ersetzt flachen all-pairs). Verifiziert: **`test_axis_tree` (gtest) gebaut + gelaufen = 4/4 PASSED** (ParsesCodegenAxesString/CollectsOrderedUniqueKeys/BuildsHierarchicalTree/SubtreeGroupsVaryingAllocator, MSVC + cache-engine-gtest); stats_aggregator + main.cpp `cl /Zs` **RC=0** |
 | **E10.3-E10.5** (Task #17) | STATIC/SHARED pro Diplomarbeit-Untermodul (`COMDARE_DA_<Mxx>_BUILD_SHARED`) | **done-verified (Diplomarbeit `f1bba3b`; Audit `w072su5dz` korrigierte fälschlich übersprungen):** NEU `Code/cmake/comdare_da_add_library.cmake` — pro-Untermodul-Option `COMDARE_DA_<Mxx>_BUILD_SHARED` (Default OFF=STATIC, folgt global `COMDARE_DA_BUILD_SHARED_LIBS`; SHARED⇒WINDOWS_EXPORT_ALL_SYMBOLS+PIC). M03/M04/M05-STATIC-Libs retrofittet (M01/M02/M06 exe/test-only). Verifiziert (Minimal-Projekt, VS 2022): Default beide STATIC; `-DCOMDARE_DA_M03_BUILD_SHARED=ON` → `dummy_m03.dll` (SHARED) + `dummy_m04.lib` (STATIC) = per-Untermodul-Granularität (Akzeptanzkriterium erfüllt). (Rest E10.6/E10.7 Cluster-Layout = §b Termin) |
 | **Pflicht-vs-Roadmap** | Architektur-Klassifikation Pflicht (R7.1-6/F.1-6) vs. Optional (V42/R7.6.c) | Doku 17 §1; Task #4/#10 optional, #5-9 Pflicht |
 
