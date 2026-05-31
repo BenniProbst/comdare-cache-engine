@@ -1,7 +1,7 @@
 # Paper: A20 dlmalloc (Doug Lea 1987)
 @compiler gcc-9.5
 @has_original_paper_code true
-@axis_mixin_type comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorOriginalCodeMixin
+@axis_mixin_type comdare::cache_engine::alloc::concepts::AllocatorOriginalCodeMixin
 
 # wrapper_fn   paper_fn          source_relative_path
 # Original-Symbole sind public_mEMALIGn / public_fREe (von #define dlmemalign/dlfree gemappt)

@@ -5,7 +5,7 @@
 # Pflicht-Annotations
 @compiler clang-12
 @has_original_paper_code true
-@axis_mixin_type comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorOriginalCodeMixin
+@axis_mixin_type comdare::cache_engine::alloc::concepts::AllocatorOriginalCodeMixin
 
 # Function-Mappings
 # wrapper_fn   paper_fn              source_relative_path

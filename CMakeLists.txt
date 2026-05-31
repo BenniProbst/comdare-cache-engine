@@ -708,8 +708,8 @@ message(STATUS "  axis_03b (3 cache_traversal): LINEAR_FANOUT=${COMDARE_AXIS_03B
 message(STATUS "  axis_03m (2 mapping): DIRECT_PLACEMENT=${COMDARE_AXIS_03M_USE_DIRECT_PLACEMENT} POOL_RELATIVE=${COMDARE_AXIS_03M_USE_POOL_RELATIVE}")
 
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/alloc/axis_06_allocator_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/alloc/axis_06_allocator_flags.hpp"
     @ONLY)
 
 # V41.F.6.1.R7.1.a.2 axis_12 General-Hardware Flags (USE = ENABLE; alle Plattformen
@@ -959,7 +959,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     # V41.F.6.1.R7.6.b (User-Direktive 2026-05-27): Paper-Code unter ext/<topic>/<axis>/ statt libs/.../legacy_code/
     set(_a06_legacy_root "${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/axis_06_allocator")
     set(_a06_gen_root    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/allocator/axis_06_allocator/legacy_code")
-    set(_a06_namespace_root "comdare::cache_engine::allocator::axis_06_allocator::generated")
+    set(_a06_namespace_root "comdare::cache_engine::alloc::generated")  # V41.F.2: nur Namespace, Output-Pfad bleibt (Build-Artefakt)
 
     # A04 mimalloc (Pilot P2.B) — Leijen MSR-TR-2019-18 / ISMM 2019
     comdare_register_paper_wrapper(
@@ -970,6 +970,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
         FILES             "src/alloc-aligned.c" "src/free.c"
         OUTPUT_HEADER     "${_a06_gen_root}/paper_a04_mimalloc_is_original.hpp"
         NAMESPACE         "${_a06_namespace_root}::a04_mimalloc"
+        AXIS_MIXIN_TYPE   "comdare::cache_engine::alloc::concepts::AllocatorOriginalCodeMixin"
         WRAPPER_NAME      mimalloc
     )
 
@@ -982,6 +983,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
         FILES             "src/jemalloc.c"
         OUTPUT_HEADER     "${_a06_gen_root}/paper_a05_jemalloc_is_original.hpp"
         NAMESPACE         "${_a06_namespace_root}::a05_jemalloc"
+        AXIS_MIXIN_TYPE   "comdare::cache_engine::alloc::concepts::AllocatorOriginalCodeMixin"
         WRAPPER_NAME      jemalloc
     )
 
@@ -996,6 +998,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
         FILES             "src/snmalloc/global/libc.h"
         OUTPUT_HEADER     "${_a06_gen_root}/paper_a07_snmalloc_is_original.hpp"
         NAMESPACE         "${_a06_namespace_root}::a07_snmalloc"
+        AXIS_MIXIN_TYPE   "comdare::cache_engine::alloc::concepts::AllocatorOriginalCodeMixin"
         WRAPPER_NAME      snmalloc
     )
 
@@ -1008,6 +1011,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
         FILES             "malloc.c"
         OUTPUT_HEADER     "${_a06_gen_root}/paper_a20_dlmalloc_is_original.hpp"
         NAMESPACE         "${_a06_namespace_root}::a20_dlmalloc"
+        AXIS_MIXIN_TYPE   "comdare::cache_engine::alloc::concepts::AllocatorOriginalCodeMixin"
         WRAPPER_NAME      dlmalloc
     )
 
@@ -1020,6 +1024,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
         FILES             "rpmalloc/rpmalloc.c"
         OUTPUT_HEADER     "${_a06_gen_root}/paper_a10_rpmalloc_is_original.hpp"
         NAMESPACE         "${_a06_namespace_root}::a10_rpmalloc"
+        AXIS_MIXIN_TYPE   "comdare::cache_engine::alloc::concepts::AllocatorOriginalCodeMixin"
         WRAPPER_NAME      rpmalloc
     )
 
@@ -1032,6 +1037,7 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
         FILES             "lrmalloc.cpp"
         OUTPUT_HEADER     "${_a06_gen_root}/paper_a11_lrmalloc_is_original.hpp"
         NAMESPACE         "${_a06_namespace_root}::a11_lrmalloc"
+        AXIS_MIXIN_TYPE   "comdare::cache_engine::alloc::concepts::AllocatorOriginalCodeMixin"
         WRAPPER_NAME      lrmalloc
     )
 
