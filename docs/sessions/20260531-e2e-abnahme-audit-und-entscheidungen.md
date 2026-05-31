@@ -54,4 +54,11 @@
   - **GATEWAY-BLOCKER diagnostiziert (P5-Cross-Repo-Build-Bug):** `cache-engine/cmake/anatomy_codegen.cmake` (+ `adhoc_emitter.cmake`, `is_original_codegen.cmake`, evtl. boost/gtest/compiler_cache) nutzen `${CMAKE_SOURCE_DIR}/libs/cache_engine/...` — im Superprojekt-Kontext zeigt das auf die SUPERPROJEKT-Wurzel (`Code/`), nicht die cache-engine-Wurzel → `Template not found`-FATAL_ERROR beim Configure. Standalone gebaut funktioniert es.
   - **Fix-Muster (etabliert, schon in `permutations.cmake:24`):** `set(_ce_root "${CMAKE_CURRENT_LIST_DIR}/..")` + `${CMAKE_SOURCE_DIR}/libs/cache_engine` → `${_ce_root}/libs/cache_engine`. ~22 Vorkommen über 9 cmake-Dateien klassifizieren (echte Pfad-Bugs vs. legitime Container-Caches), fixen, dann voller Superprojekt-Configure+Build → `comdare_pipeline_e2e` → PDF.
 
-### Nächster Schritt: Gateway-Fix (cache-engine CMAKE_SOURCE_DIR → _ce_root) → Superprojekt-Build → P1-RUN, dann P2 (Umstufung-B Mess-Pfad).
+### P1-Gateway + E2E-Lauf ✅ (2026-05-31)
+- **Gateway-Build-Fix done-verified** (cache-engine `cec3a85`): `CMAKE_SOURCE_DIR`→`CMAKE_CURRENT_FUNCTION_LIST_DIR/..` (anatomy_codegen+adhoc_emitter) bzw. `CMAKE_CURRENT_LIST_DIR`-relativ (boost/gtest/compiler/tools). **Superprojekt-Configure EXIT 0 + Build EXIT 0.**
+- **Pipeline-Tests grün (CMake-Build):** `test_pipeline_cross_stage` 1/1 (03→04→**05**-Kohärenz), binary_to_csv 5/5, csv_to_latex 5/5, diagram_generator 6/6.
+- **E2E-Orchestrierung läuft real:** `comdare_pipeline_e2e` → 01 `measurements.csv` (10 Perm., 16-col) → 04 „10 rows → 04_table.tex" (kein Wurf!) → 05 „10 rows by workload → 05_diagram.tex".
+- **PDF baut:** `pdflatex thesis/main.tex` → `main.pdf` (29 Seiten, 511 KB, EXIT 0).
+- **OFFEN für volle P1-Schließung:** Thesis bindet die generierten Pipeline-Artefakte (04_table/05_diagram) noch NICHT ein („No anhang/*.tex") → anhang-Verdrahtung (Pipeline-Output → `thesis/anhang/` → PDF inkludiert sie) + build_thesis-Pfad-Fix (`..\..\thesis`).
+
+### Nächster Schritt: anhang-Verdrahtung (P1-Schließung: Pipeline-Tabelle/Diagramm IM PDF) → dann P2 (Umstufung-B Mess-Pfad).
