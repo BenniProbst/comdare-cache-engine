@@ -59,6 +59,22 @@
 | **R5.B-serialization** (Audit-entdeckt) | axis_10 (serialization) runtime-operativ als echte Mess-Dimension | actionable | **✅ done-verified** (`f65a2ad`) | **✅ ERLEDIGT (analog §3.3-memory_layout):** die 4 Serializer-Wrapper (RawBinary/Compressed/Succinct/VarLen) haben jetzt eine behaviorale `serialize_scan`-Laufzeit-API mit echtem CPU-Kosten-Unterschied (raw=Byte-Sum < compressed=Delta+Zigzag < var_len=LEB128 < succinct=Bit-Packing). **run_workload Segment 4** ruft `composition_t::serialization::serialize_scan` (4. Mess-Dimension). Tests: `R5B_Axis10_SerializeScan` (raw=Feld-Summe + Determinismus + **4 paarweise distinkt**) → axis_10-Suite **9/9**; R5G-DLL+e2e (`run_workload`) **3/3**. Doku 22 §3.4. Besserer Wall-Clock-Kandidat als layout (CPU-Kosten über Rauschen) | abi_adapter.hpp Segment 4; topics/serialization/axis_10_serialization/*; test_v41_axis_10_serialization.cpp; Doku 22 §3.4; ce `f65a2ad` | erledigt (Kern); optionaler empirischer Mehr-DLL-Emit = fold in 25-DLL-Build |
 | **25-DLL-Build** (optional, Audit-entdeckt) | Optionaler 25-DLL-Build der full-coverage-1-wise-Stichprobe | actionable (niedrige Prio/optional) | **✅ done-verified** (`00eb5cc`; CMake-Option `COMDARE_CE_ADHOC_FULL_COVERAGE`, End-to-End 25-DLL-Build verifiziert) | **✅ ERLEDIGT (Root-Cause, kein Reklassifizieren):** reproduzierbare CMake-Option `COMDARE_CE_ADHOC_FULL_COVERAGE` (Default OFF → keine Regression). `comdare_run_adhoc_emitter` bekam `FULL_COVERAGE`-Flag (reicht `--full-coverage` an den Emitter durch). **End-to-End live verifiziert:** `cmake -DCOMDARE_CE_ADHOC_FULL_COVERAGE=ON` → Emitter „25 Permutations-Modul-.cpp (count=25, Modus=full-coverage-1wise)" → Configure „Auto-Permutations-Skalierung ACTIVE (25 ...)" → Build exit 0 → **25 `comdare_anatomy_perm_auto_*.dll` materialisiert** (`ls \| wc -l` = 25) → `test_v41_anatomy_adhoc_autobuilt_load` 2/2 grün (Loader lädt alle 25, COUNT=25). **Toggle non-destruktiv:** OFF → Emitter re-emittiert 48-Pilot, Build exit 0, 48 DLLs wiederhergestellt. Doku 22 §4 synchronisiert | cmake/adhoc_emitter.cmake (FULL_COVERAGE-Flag); tests/unit/CMakeLists.txt (`option(COMDARE_CE_ADHOC_FULL_COVERAGE)`); apps/adhoc_emitter/main.cpp `--full-coverage`; Doku 22 §4; Live-Logs (25 DLLs + 2/2 Loader-Test) | erledigt |
 
+### (a.V5) AKTIVE ARBEITSFRONT — /goal V5 Mess-Architektur (User-Entscheidungen + Workflows `w1fzdr47e`/`wjr7lwpp3`/`wlw1w69eg`, 2026-05-31)
+
+> **Programm:** `docs/architecture/messarchitektur_v5_design.md` (ausgearbeitet) + `_v5_entscheidungen.md` (bindend) +
+> `_klarstellungen…` + `abhaengigkeitskette…` + `_design_observer_handle…`. Kern: 2 Seiten · 3 Profile · Memento_all (9 stateful
+> Achsen, hybrider Visitor, IO/Disk) parallel observe_all · Zwei-Phasen-Op (save→op→rollback→op-measure) · host-IMeasurableWorkload
+> (Pfad-A-Relok) · Konformitäts-Gate gegen std::map · Observer/Memento NUR compile-time entfernbar (kein dynamic_cast).
+
+| ID | Titel | Status (verif.) | Evidenz | Nächster Schritt |
+|----|-------|-----------------|---------|------------------|
+| **V5-I1** | Mess-Master-Flags `COMDARE_MEASUREMENT_MODE` + `COMDARE_RELEASE_MODE` | **✅ logic-verified** (`69773d3`) | isolierter cmake-Konfigure 3 Szenarien: Default→MEAS=ON/STATS=ON (heutiges Verhalten erhalten); RELEASE_MODE=ON→beide OFF; MEASUREMENT_MODE=OFF→beide OFF. `COMDARE_MEASUREMENT_ON` inert bis I2 | Voll-Konfigure-Verifikation fällt mit I2-Rebuild zusammen |
+| **V5-I0** | Mehr-Achsen real treiben (Grundlage observe_all/memento_all über >2 Achsen) | ⬜ offen | observe_all real nur search_algo+allocator (2/17); Rest EmptyAxisSnapshot; #42 EnabledStrategies=4 Organe verifiziert done | reale Treibung weiterer stateful Achsen |
+| **V5-I2** | Interface-Split `IObservableTier`→`IDriveableTier` + observer_all/memento_all compile-time-Sub-IF + `ANATOMY_ABI_MAJOR 1→2` | ⬜ offen (DESTRUKTIV, Tag+Push) | Anfass-Liste V5-Design §8 (Datei:Zeile); alle DLLs neu | nach I0; Pre-Tag `pre-v5-i2-abi-break`, volle Regression |
+| **V5-I3..I10** | observer-gating · Konformitäts-Gate · MementoAxis · memento In-Memory · Zwei-Phasen-Treiber · memento Disk · Host-Workload-Orchestrator · Sequencer | ⬜ offen | V5-Design §9 Inkrement-Reihenfolge + Risiken R1-R7 | sequenziell |
+
+---
+
 ### (a.P) E2E-Abnahme-Arbeitsfront P1–P5 (nach E2E-Audit `w9iy2dhrc` + User-Entscheidungen 2026-05-31)
 
 | ID | Titel | Kat. | Status (verif.) | Evidenz | Nächster Schritt |
