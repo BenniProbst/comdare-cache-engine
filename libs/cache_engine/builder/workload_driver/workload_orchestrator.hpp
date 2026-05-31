@@ -135,6 +135,10 @@ struct MeasurementPlan {
 
 /// Fährt alle Profile des Plans gegen ein Tier. Vor JEDEM Profil wird der Tier geleert (tier_clear), damit
 /// die Profile unabhängig + reproduzierbar sind. Ein Ergebnis je Profil (in Plan-Reihenfolge).
+///
+/// **GATE-VERTRAG (V5, Aufrufer-Pflicht):** Der Aufrufer MUSS das Tier VOR dem Aufruf gegen die std::map-
+/// Konformität geprüft haben (pruef_dock::run_conformance_gate, import → GATE → messen) — diese Funktion misst
+/// nur Performance und prüft KEINE Funktionalität (vgl. IPruefDock::measure-Vertrag, pruef_dock.hpp).
 [[nodiscard]] inline std::vector<WorkloadRunResult>
 run_measurement_plan(an::IObservableTier& tier,
                      an::IRollbackableTier* rollback,
