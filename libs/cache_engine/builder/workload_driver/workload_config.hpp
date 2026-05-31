@@ -155,7 +155,21 @@ struct WorkloadConfig {
         .name = "MixedB_5_95"};
 }
 
-/// YCSB-C: 100% Lookup (Read-Only — der reine Lese-Durchsatz nach Bulk-Load). Faithfuller YCSB-C-Mix.
+// ─────────────────────────────────────────────────────────────────────────────
+// YCSB-ANLEHNUNG — EHRLICHE EINSCHRÄNKUNG (User 2026-05-31, Task #49)
+// ─────────────────────────────────────────────────────────────────────────────
+// Die folgenden make_ycsb_*-Profile sind YCSB-INSPIRIERT (Op-MIX-Anlehnung), NICHT YCSB-KONFORM:
+//   - YCSB = Yahoo! Cloud Serving Benchmark (Cooper, Silberstein, Tam, Ramakrishnan, Sears: "Benchmarking
+//     Cloud Serving Systems with YCSB", ACM SoCC 2010) — Zitat web-zu-verifizieren ([[feedback_web_research_per_algorithm_pflicht]]).
+//   - ABWEICHUNGEN vom echten YCSB: (1) Key-Verteilung hier UNIFORM (WorkloadGenerator xorshift64), YCSB nutzt
+//     ZIPFIAN bzw. "latest" (D); (2) "update" (A/B) ist hier auf Insert gemappt, tier_insert=emplace ≠ Overwrite;
+//     (3) E (Range-Scan) + F (Read-Modify-Write) sind mit dem Op-Set (Insert/Lookup/Erase/Clear) NICHT abbildbar
+//     und bewusst NICHT als Fake-Proxy erfunden ([[feedback_no_quick_fixes]]).
+//   - Die EXTERNE Testdatensatz-Quelle (vertragliche Schnittstelle) ist NUR gemockt; weder in die Testdaten-
+//     Konfigurabilität erweitert noch web-dokumentiert. TREUE Einbindung (Zipfian/latest + Update/Scan-Op +
+//     Zitat) ODER ehrliche Entkopplung ("YCSB-inspiriert") = **Task #49** (Planrunde/User-Entscheidung offen).
+
+/// YCSB-C: 100% Lookup (Read-Only). Op-MIX YCSB-C-treu; Key-Verteilung uniform (YCSB=Zipfian). S. Note oben + Task #49.
 [[nodiscard]] constexpr WorkloadConfig make_ycsb_c(std::uint64_t seed = 42,
                                                    std::size_t  ops  = 10'000) noexcept {
     return WorkloadConfig{
