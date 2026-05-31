@@ -93,6 +93,33 @@ public:
     { return search_.store().allocator_statistics(); }
 #endif
 
+    // ── V5-I6-SUBSTANZ (#44) — MementoAxis (per-Achsen-Memento, inkl. Observer-Stats) ──────────────────
+    // Kapselt den GESAMTEN beobachtbaren Zustand: Daten (über das innere ComposedSearch-MementoAxis) UND die
+    // Observer-Statistik. Letzteres ist für die Zwei-Phasen-Invariante PFLICHT: würde der Warmup-Op die Stats
+    // erhöhen ohne Rollback, zählte die Mess-Op doppelt. So rollt restore_state Daten + Stats exakt zurück.
+    struct memento_t {
+        typename ComposedSearch<Traversal, Store>::memento_t data{};
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        ce_concepts::SearchAlgoStatistics stats{};
+#endif
+    };
+
+    [[nodiscard]] memento_t save_state() const {
+        memento_t m;
+        m.data = search_.save_state();
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        m.stats = stats_;
+#endif
+        return m;
+    }
+    void restore_state(memento_t const& m) {
+        search_.restore_state(m.data);
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_ = m.stats;
+        observer_.notify(stats_);
+#endif
+    }
+
 private:
     ComposedSearch<Traversal, Store> search_{};
 #ifdef COMDARE_CE_ENABLE_STATISTICS

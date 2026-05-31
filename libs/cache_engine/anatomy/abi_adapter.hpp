@@ -29,6 +29,7 @@
 #include "observable_tier.hpp"       // R6/Pfad B: ABI-stabiler Observer-Zugriff (Doku 24 §8.6)
 #include "rollbackable_tier.hpp"     // V5-I6: memento_all-ABI-Sub-Interface (tier_save_all/tier_rollback_all)
 #include "observer_aggregate.hpp"    // ObservableAxis + ObserverAggregate (observable_count)
+#include "memento_aggregate.hpp"     // V5-I6-SUBSTANZ (#44): MementoAxis + save_axis/restore_axis (per-Achsen-Memento)
 #include "../execution_engine/execution_engine_base.hpp"
 // R6 Inkrement 2b: die allocator-Achse im Cross-ABI-Observer-POD — der ComposedStore<N,L,A>-Vector-Growth
 // treibt die Allocator-Statistik REAL (2. Mess-Achse, spiegelt builder/AnatomyExecutionContext). Da der
@@ -309,30 +310,41 @@ public:
     // (build-verifiziert), die Degradation greift dort nicht.
     // ─────────────────────────────────────────────────────────────────────
 
+    // V5-#44-SUBSTANZ: memento_all läuft BEVORZUGT über den per-Achsen-Memento (MementoAxis::save_state/
+    // restore_state der Organe — der vom /goal geforderte „je stateful Achsen-Interface"); nur Organe OHNE
+    // MementoAxis fallen auf die In-Memory-Tiefkopie zurück. Die produktiven Such-Organe (ComposedSearch /
+    // ObservableComposedSearch) SIND MementoAxis (test_v5_organ_memento) → hier läuft der echte per-Achsen-Pfad.
     void tier_save_all() noexcept override {
         try {
-            if constexpr (std::is_copy_constructible_v<SearchAlgo>)  saved_search_.emplace(search_organ_);
-            if constexpr (std::is_copy_constructible_v<container_t>) saved_container_.emplace(container_);
+            if constexpr (MementoAxis<SearchAlgo>)                        saved_search_m_    = search_organ_.save_state();
+            else if constexpr (std::is_copy_constructible_v<SearchAlgo>)  saved_search_.emplace(search_organ_);
+            if constexpr (MementoAxis<container_t>)                       saved_container_m_ = container_.save_state();
+            else if constexpr (std::is_copy_constructible_v<container_t>) saved_container_.emplace(container_);
         } catch (...) {
-            saved_search_.reset();      // OOM beim Kapseln → Memento verwerfen (Mess-Robustheit; Treiber prüft has_value)
+            saved_search_.reset();      // OOM beim Kapseln → Kopie-Fallback-Memento verwerfen (Mess-Robustheit)
             saved_container_.reset();
         }
     }
 
     void tier_rollback_all() noexcept override {
         try {
-            if constexpr (std::is_copy_assignable_v<SearchAlgo>)  { if (saved_search_)    search_organ_ = *saved_search_; }
-            if constexpr (std::is_copy_assignable_v<container_t>) { if (saved_container_) container_    = *saved_container_; }
+            if constexpr (MementoAxis<SearchAlgo>)                       search_organ_.restore_state(saved_search_m_);
+            else if constexpr (std::is_copy_assignable_v<SearchAlgo>)  { if (saved_search_)    search_organ_ = *saved_search_; }
+            if constexpr (MementoAxis<container_t>)                      container_.restore_state(saved_container_m_);
+            else if constexpr (std::is_copy_assignable_v<container_t>) { if (saved_container_) container_    = *saved_container_; }
         } catch (...) {
             // noexcept-Vertrag: ein Rollback-Fehler darf den Mess-Lauf nicht abreißen.
         }
     }
 
-    /// Diagnose für den Zwei-Phasen-Treiber (I7): liefert true, wenn dieser Adapter einen exakten In-Memory-
-    /// Rollback bietet (beide Organe kopierbar). Sonst muss der Treiber Kalt-Messung wählen.
+    /// Diagnose für den Zwei-Phasen-Treiber (I7): exakter Rollback, wenn jedes Organ ENTWEDER MementoAxis ODER
+    /// kopierbar ist. Sonst muss der Treiber Kalt-Messung wählen (empirische Probe in tier_observe_trace_abi.hpp).
     [[nodiscard]] bool tier_rollback_is_exact() const noexcept {
-        return std::is_copy_constructible_v<SearchAlgo>  && std::is_copy_assignable_v<SearchAlgo>
-            && std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>;
+        constexpr bool search_ok = MementoAxis<SearchAlgo>
+            || (std::is_copy_constructible_v<SearchAlgo>  && std::is_copy_assignable_v<SearchAlgo>);
+        constexpr bool cont_ok = MementoAxis<container_t>
+            || (std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>);
+        return search_ok && cont_ok;
     }
 #endif  // COMDARE_MEASUREMENT_ON (tier_save_all / tier_rollback_all / memento_all)
 
@@ -353,9 +365,12 @@ private:
     SearchAlgo  search_organ_{};
     container_t container_{};   // R6 Inkrement 2b: misst die ALLOCATOR-Achse über die ABI-Grenze
 #if COMDARE_MEASUREMENT_ON
-    // V5-I6 memento_all: In-Memory-Schnappschuss der getriebenen Organe (Warmup-Vor-Zustand). Lebt IN der
-    // Binary, quert die ABI NICHT (nur tier_save_all/tier_rollback_all queren als void-vtable). std::optional
-    // → leer, bis das erste save_all den Vor-Zustand kapselt; reset bei Kapsel-OOM (Mess-Robustheit).
+    // V5-#44 memento_all: Warmup-Vor-Zustand der getriebenen Organe. Lebt IN der Binary, quert die ABI NICHT.
+    // PER-ACHSEN-Memento (bevorzugt, MementoAxis): memento_of_t<Organ> = Organ::memento_t (riche (key,value)-
+    // Liste + Stats) bzw. EmptyMemento wenn das Organ KEIN MementoAxis ist (dann greift der Kopie-Fallback).
+    memento_of_t<SearchAlgo>   saved_search_m_{};
+    memento_of_t<container_t>  saved_container_m_{};
+    // Kopie-Fallback NUR für Organe ohne MementoAxis (std::optional → leer bis save_all; reset bei Kapsel-OOM).
     std::optional<SearchAlgo>  saved_search_{};
     std::optional<container_t> saved_container_{};
 #endif
