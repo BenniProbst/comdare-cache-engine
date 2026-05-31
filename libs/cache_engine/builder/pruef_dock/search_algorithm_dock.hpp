@@ -16,6 +16,7 @@
 #include "pruef_dock.hpp"
 #include "conformance_gate.hpp"          // V5-I4: std::map-Konformitäts-Gate vor der Messung
 #include <anatomy/observable_tier.hpp>   // IObservableTier (SearchAlgorithm-Gattungs-Antrieb)
+#include <anatomy/rollbackable_tier.hpp> // V5-I6/I7: IRollbackableTier (memento_all) für Zwei-Phasen-Messung
 
 namespace comdare::cache_engine::builder::pruef_dock {
 
@@ -46,8 +47,12 @@ public:
         // (Reihenfolge import → GATE → messen). tier IS-A IDriveableTier (Split); das Gate leert den Tier am Ende
         // → saubere Ausgangslage für die anschließende Füllstands-Messung.
         if (!run_conformance_gate(*tier).passed())  return dock_status_conformance_failed;
-        // Der bestehende, unveränderte Füllstands-Treiber: r/w/d-Wall-Clock + tier_observe-POD Wall-Clock-korreliert.
-        auto const trace = anatomy_cmds::drive_tier_observe_trace_abi(*tier, opts);
+        // V5-I6/I7: memento_all-Sub-Interface derselben Tier-Instanz ziehen (nullbar). Vorhanden → der Treiber
+        // misst je Op ZWEI-PHASIG (save→warmup→rollback→measure, Mess-Architektur §4 Default); nullptr (altes
+        // Modul / nicht-rollbackbares Organ) → der Treiber fällt intern auf Einphasen-Kalt-Messung zurück =
+        // exakt das bisherige Verhalten. Eine RAII-untaugliche Slot-Aliasing-Gefahr besteht nicht (gleiche Instanz).
+        auto* rollback = dynamic_cast<anatomy::IRollbackableTier*>(base);
+        auto const trace = anatomy_cmds::drive_two_phase_tier_trace_abi(*tier, rollback, opts);
         out_csv  = anatomy_cmds::serialize_abi_tier_trace_csv(trace);
         out_json = anatomy_cmds::serialize_abi_tier_trace_json(trace);
         return dock_status_ok;
