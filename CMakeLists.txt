@@ -41,6 +41,28 @@ option(COMDARE_MICROBENCH_CONTINUOUS "Continuous Mikrobenchmarks (Builder-Modus)
 set(COMDARE_CE_PRUEFLINGE "" CACHE STRING
     "Semikolon-Liste der zu ladenden Pruefling-Repo-Verzeichnisse (z.B. ${CMAKE_SOURCE_DIR}/../comdare-prt-art)")
 
+# V41.P0 / V5-I1 (2026-05-31) — Mess-Master-Schalter (Compile-Release-Profil).
+# Doku: docs/architecture/messarchitektur_v5_design.md §2.3 (NEU-Flags) + §7 (compile-time-Entfernung).
+#   COMDARE_MEASUREMENT_MODE (Master): bindet observer_all + memento_all + Pfad-A-in-DLL ein.
+#       DEFAULT ON = Messung eingebaut (User-Direktive A5: Compile-Release-Profil default Messung-an).
+#   COMDARE_RELEASE_MODE (Komplement): reine funktional-getriebene Tier-Binary OHNE Mess-Overhead,
+#       an die Forschung auslieferbar (observer_all+memento_all compile-time restlos entfernt).
+#   Verhaeltnis (V5-Design §9 R7): RELEASE_MODE=ON erzwingt MEASUREMENT_MODE=OFF;
+#       MEASUREMENT_MODE=OFF erzwingt COMDARE_CE_ENABLE_STATISTICS=OFF;
+#       MEASUREMENT_MODE=ON definiert COMDARE_MEASUREMENT_ON=1 (zieht observer_all/memento_all in den Adapter, §7).
+option(COMDARE_MEASUREMENT_MODE "V5: Messung (observer_all+memento_all) einkompilieren (Master)" ON)
+option(COMDARE_RELEASE_MODE     "V5: Release-DLL ohne Messung (funktional-only, auslieferbar)"   OFF)
+if(COMDARE_RELEASE_MODE)
+    set(COMDARE_MEASUREMENT_MODE OFF CACHE BOOL "V5: durch COMDARE_RELEASE_MODE erzwungen" FORCE)
+endif()
+if(COMDARE_MEASUREMENT_MODE)
+    add_compile_definitions(COMDARE_MEASUREMENT_ON=1)
+else()
+    # Funktional-only/Release: Statistics zwingend aus (observer_all+memento_all werden nicht vererbt, §7).
+    set(COMDARE_CE_ENABLE_STATISTICS OFF CACHE BOOL "V5: durch !COMDARE_MEASUREMENT_MODE erzwungen" FORCE)
+    message(STATUS "COMDARE V5: RELEASE/funktional-only -> Messung (observer_all+memento_all) NICHT einkompiliert")
+endif()
+
 # V41.F.6.1.A (2026-05-25) — Statistics/Mess-Overhead per CMake-Flag steuern
 # Default ON: alle Topic+Achsen-Implementierungen enthalten statistics() + reset()
 # als Pflicht-API (Mess-Reihen + Welch-Test brauchen das).
@@ -48,6 +70,7 @@ set(COMDARE_CE_PRUEFLINGE "" CACHE STRING
 # herauspraepariert (#ifdef'd in den Achsen-Headers). Production-Export einer
 # Final-Permutation OHNE Mess-Overhead. CacheEnginePermutationStrategy-Concept
 # verlangt statistics()/reset() dann nicht mehr.
+# V5-I1: COMDARE_MEASUREMENT_MODE ist der Master darueber (R7); bei MEASUREMENT_MODE=ON bleibt der Default ON.
 option(COMDARE_CE_ENABLE_STATISTICS
     "V41.F.6.1.A: Topic+Achsen-Statistics enabled (jede Achse muss statistics()+reset() bieten)"
     ON)
