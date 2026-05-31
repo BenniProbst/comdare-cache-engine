@@ -87,4 +87,12 @@ Audit-Gap G3: `axis_03a::EnabledStrategies`/`AllStrategies` + `adhoc_emitter` SA
 
 **🔄 VERBLEIBEND (koppelt an G8/P5 — EINE autoritative Mess-Quelle):** Der ALTE `adhoc_emitter`-Pilot (R5.G, 48 DLLs) emittiert weiterhin AdHoc<Monolith, Default-Achsen> (Array256..BTree) — der Planrunden-Befund zeigte, dass dieser AdHoc-Default-Pfad organ-architektonisch NICHT umstellbar ist. `axis_03a::EnabledStrategies` listet weiter 17 Monolithen (breit referenziert: adhoc-Pilot + Äquivalenz-Tests). Um G3 VOLL zu schließen: die organ-basierte named-Composition-Messung zur AUTHORITATIVEN F15-Quelle machen (f15_compare/Pipeline laden die Organ-DLLs) + den Monolith-AdHoc-Pilot als legacy/superseded markieren. Das ist Teil der P5-Plugin-ABI-/Mess-Quellen-Konsolidierung (G8).
 
-### Nächster Schritt: G8/P5 — Organ-Composition-Messung als autoritative F15-Quelle verdrahten (Monolith-Pilot supersedieren), dann P3 (reale i7-1270P-Messung).
+### P2-„F15 neu" + P3-Mindestmessung ✅ (2026-05-31, reale i7-1270P-Hardware)
+`comdare-f15-compare` über die **6 sezierten Organ-Composition-DLLs** auf dieser **i7-1270P-Maschine** ausgeführt → echtes F15-Head-to-Head (Welch/Holm/Mann-Whitney/Cliff's δ + p50/mean-Ranking). 64-Batch-Lauf: p50 479.800–653.100 ns, Spanne 1,36×. **Beleg: `docs/sessions/20260531-f15-organ-messung-i7-1270p.txt`.** Damit ist die F15-Messung **direktiven-konform über Organe** (kein Monolith) auf **realer lokaler HW** erhoben — deckt P2-„F15 neu erheben" + P3-„i7-1270P-Mindestmessung". (Signifikanz braucht höhere Sample-Zahl = Skalierung; Infrastruktur + reale Zahlen belegt.)
+
+### VERBLEIBEND zur Voll-Schließung:
+- **Bridge organ-F15 → Pipeline-CSV (16-col):** f15_compare-Ranking in das Pipeline-Mess-CSV-Format überführen, damit das PDF die ECHTEN Organ-Zahlen statt Sample-Daten zeigt (P3-Vollintegration; ties G8).
+- **Monolith-Supersession (G3/G8/P5):** Monolith-AdHoc-Pilot als legacy markieren; named-Composition-Organ-Messung = autoritative F15-Quelle.
+- **P4** Vendor/PMC (beschaffungs-gated) · **P5** Doku-Drift/SUPERSEDED-Banner · **finaler Abnahme-Audit** über 3 Repos.
+
+### Nächster Schritt: organ-F15 → Pipeline-CSV bridgen (echte Zahlen ins PDF), dann P4/P5 + finaler Audit.
