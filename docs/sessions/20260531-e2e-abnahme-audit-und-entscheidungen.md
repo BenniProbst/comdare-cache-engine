@@ -95,4 +95,18 @@ Audit-Gap G3: `axis_03a::EnabledStrategies`/`AllStrategies` + `adhoc_emitter` SA
 - **Monolith-Supersession (G3/G8/P5):** Monolith-AdHoc-Pilot als legacy markieren; named-Composition-Organ-Messung = autoritative F15-Quelle.
 - **P4** Vendor/PMC (beschaffungs-gated) · **P5** Doku-Drift/SUPERSEDED-Banner · **finaler Abnahme-Audit** über 3 Repos.
 
-### Nächster Schritt: organ-F15 → Pipeline-CSV bridgen (echte Zahlen ins PDF), dann P4/P5 + finaler Audit.
+### P3-Bridge ✅ done-verified (2026-05-31, CE `4b3354b`) — REALE i7-Organ-Daten im PDF
+`comdare-f15-compare --pipeline-csv` exportiert die per-Organ-Messung als 16-Spalten-Pipeline-CSV
+(`total_cycles` = reale ns-Latenz). **Volle geschlossene Kette an REALEN i7-1270P-Daten verifiziert:**
+f15 misst 6 sezierte Organ-Compositions → 16-col-CSV → Stufe 04 „6 rows" (LaTeX-Tabelle trägt reale Zahlen
+740176/825053 ns + Organ-Namen) → Stufe 05 → **`pipeline_demo.pdf` (102 KB) mit echten Organ-Mess-Zahlen**.
+Damit ist Abschluss-Kriterium **C(a)** (geschlossener E2E-Lauf an realen i7-Daten → PDF) + **C(b)**
+(F15 direktiven-konform über sezierte Organe) literal belegt. Beleg: `20260531-organ-pipeline-csv-beleg.md`.
+
+### VERBLEIBEND (Voll-Abnahme):
+- **Monolith-Supersession (G3/G8/P5):** Monolith-AdHoc-Pilot als legacy markieren; die named-Composition-Organ-Messung ist die autoritative F15-Quelle (jetzt belegt). EnabledStrategies-Monolithen bleiben für Äquivalenz-Tests, sind aber NICHT mehr die F15-Headline-Quelle.
+- **P4** Vendor/PMC — Beschaffungs-Anforderung an User formulieren (jemalloc/tcmalloc-Libs; Intel-PCM/MSR-Zugang).
+- **P5** Doku-Drift (SUPERSEDED-Banner) · op_type_filter · Custom_BulkInsert.
+- **Finaler Abnahme-Audit-Workflow** über alle 3 Repos (Kriterium C(d)).
+
+### Nächster Schritt: P4-Beschaffungs-Anforderung formulieren + P5-Doku-Drift, dann finaler Abnahme-Audit.
