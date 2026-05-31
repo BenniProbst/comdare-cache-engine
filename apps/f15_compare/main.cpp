@@ -25,6 +25,7 @@
 #include <builder/pruef_dock/conformance_gate.hpp>            // V5: std::map-Konformitäts-Gate vor Messung
 // V5-I9/I10: host-seitiger Lastprofil-Orchestrator (mehrere Lastprofile je Binary, Zwei-Phasen-Messung).
 #include <builder/workload_driver/workload_orchestrator.hpp>
+#include <builder/measurement_snapshot.hpp>   // V5-I1 (#50): EIN autoritativer 16+6-Mess-POD + Pipeline-16-Serializer
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/rollbackable_tier.hpp>
 
@@ -48,6 +49,7 @@ namespace cmd    = ::comdare::cache_engine::builder::commands;
 namespace stats  = ::comdare::cache_engine::builder::commands::stats;
 namespace wd     = ::comdare::cache_engine::builder::workload_driver;
 namespace pd     = ::comdare::cache_engine::builder::pruef_dock;
+namespace bld    = ::comdare::cache_engine::builder;   // V5-I1 (#50): ComdareMeasurementSnapshotV1 + Serializer
 
 namespace {
 
@@ -246,6 +248,9 @@ int main(int argc, char** argv) {
             ? std::filesystem::path{"."} : std::filesystem::path{observe_out};
         std::cout << "F15 Lastprofil-Plan (" << plan.profiles.size() << " Profile) ueber " << handles.size()
                   << " DLL(s) (host-seitig, zwei-phasig, out=" << out_dir.string() << "):\n";
+        // V5-I1 (#50): autoritative 16+6-Mess-POD-Zeilen sammeln (eine je Komposition×Lastprofil) → Pipeline-Bridge.
+        std::vector<bld::ComdareMeasurementSnapshotV1> snaps;
+        std::vector<std::string>                       snap_ids, snap_wls;
         int ok = 0;
         for (std::size_t i = 0; i < handles.size(); ++i) {
             auto* base = handles[i].anatomy();
@@ -268,6 +273,22 @@ int main(int argc, char** argv) {
             } else {
                 std::cerr << "  [" << i << "] " << nm << "  CSV-Schreiben fehlgeschlagen.\n";
             }
+            // POD je (Komposition × Lastprofil): echte Observer-Daten in die 16 Kern-Spalten; workload_used =
+            // Profil-Name (steuert die PDF-Diagramm-Gruppierung). Die +6 Observer-Spalten + pmc_available=0 (ehrlich).
+            for (auto const& res : results) {
+                snaps.push_back(bld::measurement_from_workload_result(res, nm));
+                snap_ids.push_back(nm);
+                snap_wls.push_back(res.profile_name);
+            }
+        }
+        // V5-I1 (#50) Bridge: --pipeline-csv schreibt die 16-col-Pipeline-Sicht aus dem autoritativen POD →
+        // Stufe 04/05/06 → PDF (echte V5-Zwei-Phasen-Daten, per Lastprofil gruppiert). Re-Audit-Blocker 1+2.
+        if (!pipeline_csv.empty()) {
+            auto const p16 = bld::serialize_measurements_pipeline16_csv(snaps, snap_ids, snap_wls);
+            if (write_text_file(pipeline_csv, p16))
+                std::cout << "  Pipeline-CSV (16-col aus autoritativem 16+6-POD, " << snaps.size()
+                          << " Zeilen) -> " << pipeline_csv << "\n";
+            else { std::cerr << "Pipeline-CSV-Schreiben fehlgeschlagen: " << pipeline_csv << "\n"; return 4; }
         }
         std::cout << "  " << ok << "/" << handles.size() << " DLL(s) per Lastprofil-Plan gemessen.\n";
         return (ok > 0) ? 0 : 5;
