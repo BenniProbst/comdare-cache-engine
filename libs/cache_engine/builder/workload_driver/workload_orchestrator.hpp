@@ -141,6 +141,8 @@ run_measurement_plan(an::IObservableTier& tier,
                      MeasurementPlan const& plan) {
     std::vector<WorkloadRunResult> results;
     results.reserve(plan.profiles.size());
+    // V5-Audit-Härtung: nur zwei-phasig, wenn der Rollback EMPIRISCH exakt ist (einmalige Probe je Binary).
+    if (rollback != nullptr && !ac::detail::rollback_is_empirically_exact(tier, rollback)) rollback = nullptr;
     for (auto const& cfg : plan.profiles) {
         if (!cfg.is_valid()) continue;                 // ungültiges Profil überspringen (Robustheit)
         tier.tier_clear();                              // frischer Start je Profil
