@@ -47,14 +47,14 @@ COMDARE_DEFINE_ANATOMY_MODULE(::comdare::cache_engine::compositions::ArtComposit
 
 TEST(R5D_AnatomyAbi, MacroDefinesVersionAndMagic) {
     static_assert(COMDARE_ANATOMY_ABI_MAJOR == 2);   // V5-I2.2: ABI-Bruch (IDriveableTier-Split + konditionale Vererbung)
-    static_assert(COMDARE_ANATOMY_ABI_MINOR == 0);
-    static_assert(COMDARE_ANATOMY_ABI_MAGIC == 0x434F4D444141322EULL);  // "COMDA·A2·" (V5-I2.2)
+    static_assert(COMDARE_ANATOMY_ABI_MINOR == 1);   // V5-I6: MESSUNG-AN-Variante + IRollbackableTier (memento_all)
+    static_assert(COMDARE_ANATOMY_ABI_MAGIC == 0x434F4D444141322EULL);  // "COMDA·A2·" (Magic kodiert Major, Minor-Bump ändert es nicht)
     SUCCEED();
 }
 
 TEST(R5D_AnatomyAbi, HostAbiVersionMatchesMacro) {
     static_assert(abi::kHostAnatomyAbiVersion.major == 2);   // V5-I2.2
-    static_assert(abi::kHostAnatomyAbiVersion.minor == 0);
+    static_assert(abi::kHostAnatomyAbiVersion.minor == 1);   // V5-I6
     SUCCEED();
 }
 

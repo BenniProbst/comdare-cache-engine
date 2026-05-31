@@ -27,6 +27,7 @@
 #include "anatomy_base.hpp"
 #include "measurable_workload.hpp"   // F15/Stufe B: optionales Mess-Sub-Interface (ABI-sicher)
 #include "observable_tier.hpp"       // R6/Pfad B: ABI-stabiler Observer-Zugriff (Doku 24 §8.6)
+#include "rollbackable_tier.hpp"     // V5-I6: memento_all-ABI-Sub-Interface (tier_save_all/tier_rollback_all)
 #include "observer_aggregate.hpp"    // ObservableAxis + ObserverAggregate (observable_count)
 #include "../execution_engine/execution_engine_base.hpp"
 // R6 Inkrement 2b: die allocator-Achse im Cross-ABI-Observer-POD — der ComposedStore<N,L,A>-Vector-Growth
@@ -43,6 +44,7 @@
 #include <optional>
 #include <random>
 #include <string_view>
+#include <type_traits>   // V5-I6: is_copy_constructible/assignable-Guards für die In-Memory-Memento-Kopie
 
 namespace comdare::cache_engine::anatomy {
 
@@ -74,12 +76,13 @@ namespace comdare::cache_engine::anatomy {
 /// kommt mit R5.D (CacheEngineBuilder Workload-Treiber).
 template <AnatomyConcept A>
 class SearchAlgorithmAbiAdapter final : public IAnatomyBase,
-// V5-I2.2: Antrieb ⊥ Observer compile-time disjunkt (kein Diamond — IObservableTier IS-A IDriveableTier).
-//   MESSUNG-AN  : IObservableTier (Antrieb + tier_observe/observer_all) + IMeasurableWorkload (Pfad-A, host-relokal. I9).
-//   MESSUNG-AUS : NUR IDriveableTier (funktionaler Antrieb) → Release-/funktional-only-DLL OHNE jeden Mess-Overhead.
+// V5-I2.2/I6: Antrieb ⊥ Observer ⊥ Memento compile-time disjunkt (kein Diamond — IObservableTier/IRollbackableTier IS-A nichts Gemeinsames; IDriveableTier kommt über IObservableTier).
+//   MESSUNG-AN  : IObservableTier (Antrieb + tier_observe/observer_all) + IMeasurableWorkload (Pfad-A, host-relokal. I9) + IRollbackableTier (memento_all, V5-I6).
+//   MESSUNG-AUS : NUR IDriveableTier (funktionaler Antrieb) → Release-/funktional-only-DLL OHNE jeden Mess-Overhead (kein Observer-, kein Memento-vtable-Slot).
 #if COMDARE_MEASUREMENT_ON
                                         public IObservableTier,
-                                        public IMeasurableWorkload {
+                                        public IMeasurableWorkload,
+                                        public IRollbackableTier {
 #else
                                         public IDriveableTier {
 #endif
@@ -289,6 +292,50 @@ public:
     }
 #endif  // COMDARE_MEASUREMENT_ON (tier_observe / observer_all)
 
+#if COMDARE_MEASUREMENT_ON
+    // ─────────────────────────────────────────────────────────────────────
+    // IRollbackableTier-Override (V5-I6): memento_all — In-Memory-Rollback der getriebenen Organe.
+    // Der host-seitige Zwei-Phasen-Treiber (I7) triggert: save_all → op (warmup) → rollback_all → op (measure),
+    // sodass der GEMESSENE Op gegen DENSELBEN Vor-Zustand läuft (eliminiert Pfad-Abhängigkeit der Latenz).
+    //
+    // IN-MEMORY-Memento (search_organ_ + container_ leben komplett im RAM): eine Tiefkopie IST der vollständige,
+    // korrekte Memento für die RAM-residenten Achsen (search_algo/node_type/memory_layout/allocator-Arena, die
+    // alle im ComposedStore liegen). Für die DISK-residenten Achsen (io_dispatch/serialization/migration) ist
+    // „ein einfacher Snapshot reicht NICHT" → explizites Checkpoint-save_state je Achse folgt in V5-I8.
+    //
+    // if-constexpr-Kopierbarkeits-Guards: kompiliert für JEDE Komposition. Nicht-kopierbare Organe (selten;
+    // z.B. Allocator mit OS-Handle) degradieren zu no-op-Rollback — der Treiber (I7) muss diese via
+    // Capability-Probe als Kalt-Messung behandeln. Die produktiven SearchAlgorithm-Organe sind kopierbar
+    // (build-verifiziert), die Degradation greift dort nicht.
+    // ─────────────────────────────────────────────────────────────────────
+
+    void tier_save_all() noexcept override {
+        try {
+            if constexpr (std::is_copy_constructible_v<SearchAlgo>)  saved_search_.emplace(search_organ_);
+            if constexpr (std::is_copy_constructible_v<container_t>) saved_container_.emplace(container_);
+        } catch (...) {
+            saved_search_.reset();      // OOM beim Kapseln → Memento verwerfen (Mess-Robustheit; Treiber prüft has_value)
+            saved_container_.reset();
+        }
+    }
+
+    void tier_rollback_all() noexcept override {
+        try {
+            if constexpr (std::is_copy_assignable_v<SearchAlgo>)  { if (saved_search_)    search_organ_ = *saved_search_; }
+            if constexpr (std::is_copy_assignable_v<container_t>) { if (saved_container_) container_    = *saved_container_; }
+        } catch (...) {
+            // noexcept-Vertrag: ein Rollback-Fehler darf den Mess-Lauf nicht abreißen.
+        }
+    }
+
+    /// Diagnose für den Zwei-Phasen-Treiber (I7): liefert true, wenn dieser Adapter einen exakten In-Memory-
+    /// Rollback bietet (beide Organe kopierbar). Sonst muss der Treiber Kalt-Messung wählen.
+    [[nodiscard]] bool tier_rollback_is_exact() const noexcept {
+        return std::is_copy_constructible_v<SearchAlgo>  && std::is_copy_assignable_v<SearchAlgo>
+            && std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>;
+    }
+#endif  // COMDARE_MEASUREMENT_ON (tier_save_all / tier_rollback_all / memento_all)
+
 private:
     using Composition = typename A::composition_t;
     using SearchAlgo  = typename Composition::search_algo;
@@ -305,6 +352,13 @@ private:
     // Default-konstruierbar + ObservableAxis garantiert durch #42 (ObservableComposedContainer-Huelle).
     SearchAlgo  search_organ_{};
     container_t container_{};   // R6 Inkrement 2b: misst die ALLOCATOR-Achse über die ABI-Grenze
+#if COMDARE_MEASUREMENT_ON
+    // V5-I6 memento_all: In-Memory-Schnappschuss der getriebenen Organe (Warmup-Vor-Zustand). Lebt IN der
+    // Binary, quert die ABI NICHT (nur tier_save_all/tier_rollback_all queren als void-vtable). std::optional
+    // → leer, bis das erste save_all den Vor-Zustand kapselt; reset bei Kapsel-OOM (Mess-Robustheit).
+    std::optional<SearchAlgo>  saved_search_{};
+    std::optional<container_t> saved_container_{};
+#endif
 };
 
 }  // namespace comdare::cache_engine::anatomy
