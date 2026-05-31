@@ -1069,6 +1069,12 @@ target_include_directories(test_v5_memento_axis PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 
+# V5-I7 — Zwei-Phasen-Treiber: Invariante 2phase==1phase==cold-fallback (header-only + std, std::map-Mock-Tier).
+comdare_add_test(test_v5_two_phase_driver
+    SOURCES test_v5_two_phase_driver.cpp)
+target_include_directories(test_v5_two_phase_driver PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+
 # V41.F.6.1 R5.G — constexpr type_name<T>() (Auto-Emitter-Grundlage: FQ-Typ-Name als String).
 comdare_add_test(test_v41_codegen_type_name
     SOURCES test_v41_codegen_type_name.cpp)
