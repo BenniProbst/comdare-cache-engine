@@ -10,7 +10,16 @@
 // interpolation/eytzinger/skip-list/hash/unsortiert-linear/BST/B-Baum — geordnete Struktur jetzt in
 // allen drei Balance-Auspraegungen, sodass F15 den Balancierungs- + Block-Orientierungs-Effekt misst).
 //
-// @task V41.F.6.1 R5.G
+// ⚠️ SUPERSEDED (V41.P2/P3, 2026-05-31) — NICHT die autoritative F15-Quelle:
+// Dieser Pilot variiert search_algo über MONOLITHISCHE Tiere (Array256..BTree) + AdHoc-Default-Achsen.
+// Das verletzt die Direktive „Achse=Organ, NIE ganze Tiere" (Doku 14 §3.1) und ist NICHT direktiven-konform.
+// Planrunde 2026-05-31: Organe sind im AdHoc-Default-Pfad ill-formed (brauchen organ-kompatible Begleit-
+// Achsen). Die AUTORITATIVE, direktiven-konforme F15-Mess-Quelle ist die named-Composition-Organ-Messung
+// (`comdare_codegen_anatomy_module_list` über die 6 Observable-Organ-Compositions; `f15_compare --pipeline-csv`
+// → reale i7-Mess-Zahlen → Pipeline → PDF). Dieser Emitter bleibt als DIAGNOSTISCHER Monolith-Pilot/Smoke-Test
+// (R5.G-Skalierungs-Beleg), NICHT für die Diplomarbeits-F15-Headline-Resultate.
+//
+// @task V41.F.6.1 R5.G · V41.P2 SUPERSEDED
 
 #include <builder/codegen/adhoc_emitter.hpp>
 #include <builder/codegen/all_axes_umbrella.hpp>   // alle Achsen-Typen + AdHocComposition + ADHOC-Makro
