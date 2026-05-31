@@ -74,3 +74,26 @@ Der frühere „Capability-Bit / kalter dynamic_cast genügt"-Ansatz ist **hinf�
 - EIN autoritativer Mess-POD (volle Spalten + HW-Counter) + `ANATOMY_ABI_MAJOR 1→2` → **alle DLLs neu**, Rollback-Tag, volle Regression grün.
 - `run_workload` aus der DLL-ABI **entfernen** (host-seitig relokalisieren).
 - Detail-Anfass-Liste + Datei:Zeile: `messarchitektur_v5_design.md` (Workflow `wlw1w69eg`).
+
+## 8. IDriveableTier-Vollständigkeit je Gattung = vollständige Standard-Container-Hülle (User 2026-05-31)
+
+**Bindende Erweiterung von [[std_map_unified_interface]]:** Die Antriebs-Schnittstelle einer Tier-Binary
+(`IDriveableTier` für die SearchAlgorithm-Gattung) muss **die VOLLSTÄNDIGE Schnittstelle des repräsentativen
+Standard-Containers** anbieten — weil das Tier **genau das IST** (eine `std::map`-Hülle).
+
+- **SearchAlgorithm-Gattung ↔ `std::map`-Hülle:** Die aktuell vorhandenen **5 Ops** (`tier_insert/lookup/erase/
+  clear/size`) sind **korrekt + super als Mock/Startpunkt**, müssen aber **zukünftig erweitert** werden, bis die
+  Hülle der **Vollständigkeit eines echten `std::map`** nahekommt: `operator[]`, `at`, `find`, `count`, `contains`,
+  `begin/end`/Iteratoren, `lower_bound/upper_bound/equal_range`, `emplace/insert(hint)`, `erase(range/iterator)`,
+  `empty`, `size`, `clear`, `swap`, `merge`, … (über den ABI-uint64-Key/Value-Raum, ABI-stabil projiziert).
+- **Sequence-Gattung ↔ `std::vector`-Hülle:** muss **vollständig von `std::vector`** als Hülle ableiten —
+  `push_back/pop_back/operator[]/at/front/back/data/begin/end/size/capacity/reserve/resize/insert/erase/clear/empty`, …
+- **Verallgemeinerung:** Jede Gattung exponiert über ihren Drive-Handle die **volle Standard-Container-API** ihres
+  Repräsentanten (Set ↔ `std::set`, Adapter ↔ Container-Adapter, View ↔ `std::span`/Range-View — je nach Gattungs-Map).
+
+**Bezug:** Genau dafür existiert das **Konformitäts-Gate gegen `std::map`** (§4 / `messarchitektur_v5_design.md` §6):
+es testet die Hülle gegen den Standard-Container-Oracle über **alle** Interface-Methoden + Randfälle. Die Erweiterung
+der Drive-Interfaces ist damit die Voraussetzung, dass das Gate die **volle** Container-Äquivalenz prüfen kann.
+
+**Status:** Notiert + persistiert. Die 5-Op-`IDriveableTier`-Hülle bleibt der verifizierte Startpunkt (I2.1);
+die Voll-API-Erweiterung je Gattung ist ein eigener Inkrement-Strang (V5-I-Drive-Vollausbau, nach dem ABI-Split).
