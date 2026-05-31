@@ -4,7 +4,7 @@
 
 @compiler gcc-9.5
 @has_original_paper_code true
-@axis_mixin_type comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoOriginalCodeMixin
+@axis_mixin_type comdare::cache_engine::lookup::concepts::SearchAlgoOriginalCodeMixin
 
 # wrapper_fn  paper_fn      source_relative_path
 # SuRF ist Read-Only Succinct-Range-Filter — nur lookupKey im Paper.

@@ -3,7 +3,7 @@
 //
 // @topic traversal @achse 03a search_algo
 
-namespace comdare::cache_engine::traversal::axis_03a_search_algo::flags {
+namespace comdare::cache_engine::lookup::flags {
 
 // Pilot Batch 1 (S01 Array256SearchAlgo, S02 VectorU8U8SearchAlgo, S03 VectorU16U16SearchAlgo) — 2026-05-26
 #cmakedefine01 COMDARE_AXIS_03A_USE_ARRAY256

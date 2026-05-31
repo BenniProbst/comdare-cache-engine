@@ -411,7 +411,7 @@ TEST(R5G_AutoEmitter, EmitsModuleCppPerPermutation) {
                                    std::istreambuf_iterator<char>());
         EXPECT_NE(content.find("all_axes_umbrella.hpp"), std::string::npos);
         EXPECT_NE(content.find("COMDARE_DEFINE_ANATOMY_MODULE_ADHOC("), std::string::npos);
-        EXPECT_NE(content.find("comdare::cache_engine::traversal::axis_03a_search_algo::"),
+        EXPECT_NE(content.find("comdare::cache_engine::lookup::"),  // V41.F.2: axis_03a → lookup (physisch migriert)
                   std::string::npos);
     }
     std::cout << "[R5G emitter] " << files.size() << " Modul-.cpp geschrieben nach " << dir << "\n";

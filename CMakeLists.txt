@@ -672,8 +672,8 @@ foreach(_s03a ARRAY256 VECTOR_U8U8 VECTOR_U16U16 ARRAY65535 ORIGINAL_ART ORIGINA
     endif()
 endforeach()
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/traversal/axis_03a_search_algo/axis_03a_search_algo_flags.hpp.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/traversal/axis_03a_search_algo/axis_03a_search_algo_flags.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/axes/lookup/axis_03a_search_algo_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/axes/lookup/axis_03a_search_algo_flags.hpp"
     @ONLY)
 
 # axis_03b cache_traversal
@@ -1052,8 +1052,8 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     # V41.F.6.1.R7.6.b: Paper-Code unter ext/<topic>/<axis>/ statt libs/.../legacy_code/
     set(_a03a_legacy_root "${CMAKE_CURRENT_SOURCE_DIR}/ext/traversal/axis_03a_search_algo")
     set(_a03a_gen_root    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/traversal/axis_03a_search_algo/legacy_code")
-    set(_a03a_namespace_root "comdare::cache_engine::traversal::axis_03a_search_algo::generated")
-    set(_a03a_axis_mixin     "comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoOriginalCodeMixin")
+    set(_a03a_namespace_root "comdare::cache_engine::lookup::generated")
+    set(_a03a_axis_mixin     "comdare::cache_engine::lookup::concepts::SearchAlgoOriginalCodeMixin")
 
     # P01 ART (Leis ICDE 2013) — 4/4 originall
     comdare_register_paper_wrapper(
