@@ -1084,6 +1084,15 @@ target_include_directories(test_v5_workload_orchestrator PRIVATE
 target_link_libraries(test_v5_workload_orchestrator PRIVATE
     comdare::workload_driver)
 
+# V5-I1-SUBSTANZ (#50) — ComdareMeasurementSnapshotV1: EIN autoritativer 16+6-Mess-POD + kanonische Serializer.
+comdare_add_test(test_v5_measurement_snapshot
+    SOURCES test_v5_measurement_snapshot.cpp)
+target_include_directories(test_v5_measurement_snapshot PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_link_libraries(test_v5_measurement_snapshot PRIVATE
+    comdare::workload_driver)
+
 # V41.F.6.1 R5.G — constexpr type_name<T>() (Auto-Emitter-Grundlage: FQ-Typ-Name als String).
 comdare_add_test(test_v41_codegen_type_name
     SOURCES test_v41_codegen_type_name.cpp)
