@@ -66,7 +66,14 @@
 - D1/D2-Grenze respektiert: `pipeline_demo.tex` ist Build-Artefakt; die Integration in `thesis/main.pdf` (Auskommentieren der `\input{tabellen/…}`/`\input{tikz/…}` in `chapters/06_auswertung.tex`) bleibt user-manueller D1-Schritt.
 - **Verbleibend P3:** die synthetischen 10-Perm-Sample-Daten durch reale i7-1270P-Messung ersetzen (nach P2).
 
-### P2 — Mess-Pfad-Korrektur (Umstufung-B, cache-engine) — IN ARBEIT
-Audit-Gap G3: `axis_03a::EnabledStrategies`/`AllStrategies` + `adhoc_emitter` SA0..SA11 fahren weiterhin 17 monolithische Tiere (Array256..BTree) als search_algo-Achsenwert statt sezierter Organe. Ziel: EnabledStrategies+adhoc_emitter auf Organe, Monolithen deregistrieren, F15 neu erheben.
+### P2 — Mess-Pfad-Korrektur (Umstufung-B, cache-engine) — IN ARBEIT (Investigation)
+Audit-Gap G3: `axis_03a::EnabledStrategies`/`AllStrategies` + `adhoc_emitter` SA0..SA11 fahren weiterhin 17 monolithische Tiere (Array256..BTree) als search_algo-Achsenwert statt sezierter Organe.
+
+**IST verifiziert** (`axis_03a_search_algo_registry.hpp:45-77`): `AllStrategies = mp_list<Array256SearchAlgo, …17 Monolith-Wrapper… BTreeSearchAlgo>`; `EnabledStrategies = mp_filter<is_enabled, AllStrategies>`. Diese 17 Wrapper werden BREIT referenziert (perm_engine, named Compositions, adhoc_emitter SA0..SA11, equivalence-Tests).
+
+**Offene Architektur-Frage (vor dem Eingriff zu klären — Planrunde):** Umstufung-B Phase 1 (#42, `e31541a`) hat die named CE-Compositions auf sezierte Organe via `ObservableComposedContainer` umgestellt, ABER die Registry/adhoc_emitter NICHT. Korrekter Ziel-Zustand zu bestimmen:
+- (a) `adhoc_emitter` variiert search_algo über die ORGAN-Compositions (named Observable*-Compositions) statt SA0..SA11-Monolithen → Mess-Permutationsraum direktiven-konform; ODER
+- (b) `AllStrategies` selbst von Monolithen auf Organ-Compositions umstellen (breiter Eingriff, viele Konsumenten).
+**Risiko:** Monolithen sind breit referenziert; der gerade reparierte Superprojekt-Build darf nicht brechen. Vorgehen: erst `ObservableComposedContainer`/named-Compositions + alle `AllStrategies`-Konsumenten kartieren, dann inkrementell + test-gedeckt umstellen, perm_engine/topic_traversal/cross_variant nach jedem Schritt grün halten, Rollback-Tag vor dem Eingriff.
 
 ### Nächster Schritt: P2 (Umstufung-B im Mess-Pfad), dann P3 (reale i7-1270P-Messung durch die geschlossene Pipeline).
