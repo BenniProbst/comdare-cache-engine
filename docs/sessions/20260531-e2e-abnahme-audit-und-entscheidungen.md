@@ -44,3 +44,14 @@
 5. **P5 Konsistenz** (Code+Doku): zwei-Plugin-ABI-Konsolidierung, prt-art `run()` (E6)+Slot-Abdeckung, `op_type_filter`+`Custom_BulkInsert`, Doku-Drift (SUPERSEDED-Banner, niemals löschen).
 
 **Abgegrenzt (kein Agenten-Scope):** D1/D2-Volltext (User), F.6-Phase-C-Löschung (nach Habich-Termin~9), Cluster C1/C2 (extern/Termin).
+
+## 5. Fortschritt (Goal V3)
+
+### P1 — Pipeline-Schließung
+- **P1-A CSV-16-Spalten-Schema ✅ done-verified** (Diplomarbeit `d19c2de`): Container-v2 (`measurement_writer.hpp` + `workload_used` längen-präfixiert), Stufe 02 `workload_used="micro"`, Stufe 03 liest v1/v2 + emittiert 16-col, Stufe 04 parst 16-col (cols[3]=workload_used, Rest +1). Bestehende Tests + `test_pipeline_cross_stage` (Gap G2) nachgezogen. **Verifiziert: standalone MSVC 03→04 ALLE CHECKS PASSED** (16-col, Stufe 04 kein Wurf, workload+op_count an korrekt verschobenen Spalten).
+- **P1-B Orchestrierungs-Target ✅ angelegt** (Diplomarbeit `4794b94`): `comdare_pipeline_e2e` (`add_custom_target`) treibt 01 Sample-CSV → 04 LaTeX + 05 TikZ (Sample-Pfad, DLL-frei).
+- **P1-RUN (voller E2E-Lauf → thesis/main.pdf) ⏳ GE-GATET auf Superprojekt-Build.** `pdflatex` (MiKTeX) lokal vorhanden ✓.
+  - **GATEWAY-BLOCKER diagnostiziert (P5-Cross-Repo-Build-Bug):** `cache-engine/cmake/anatomy_codegen.cmake` (+ `adhoc_emitter.cmake`, `is_original_codegen.cmake`, evtl. boost/gtest/compiler_cache) nutzen `${CMAKE_SOURCE_DIR}/libs/cache_engine/...` — im Superprojekt-Kontext zeigt das auf die SUPERPROJEKT-Wurzel (`Code/`), nicht die cache-engine-Wurzel → `Template not found`-FATAL_ERROR beim Configure. Standalone gebaut funktioniert es.
+  - **Fix-Muster (etabliert, schon in `permutations.cmake:24`):** `set(_ce_root "${CMAKE_CURRENT_LIST_DIR}/..")` + `${CMAKE_SOURCE_DIR}/libs/cache_engine` → `${_ce_root}/libs/cache_engine`. ~22 Vorkommen über 9 cmake-Dateien klassifizieren (echte Pfad-Bugs vs. legitime Container-Caches), fixen, dann voller Superprojekt-Configure+Build → `comdare_pipeline_e2e` → PDF.
+
+### Nächster Schritt: Gateway-Fix (cache-engine CMAKE_SOURCE_DIR → _ce_root) → Superprojekt-Build → P1-RUN, dann P2 (Umstufung-B Mess-Pfad).
