@@ -5,15 +5,17 @@
 
 ---
 
-## 1. Gesamt-Verdikt: **ABGENOMMEN MIT VORBEHALT**
+## 1. Gesamt-Verdikt: **ABGENOMMEN**
 
+Roh-Workflow-Verdikt war „ABGENOMMEN MIT VORBEHALT"; **beide Vorbehalte erwiesen sich bei literaler
+On-Disk-Nachprüfung als Audit-Falsch-Befunde** (§2 PA-Banner + §3.3 EnabledStrategies) → bereinigt **ABGENOMMEN**.
 Alle fünf tragenden Abnahme-Kriterien literal belegt (PASS):
 
 | Kriterium | Verdikt | Beleg |
 |-----------|---------|-------|
 | C(a) E2E real → PDF | **PASS** | `comdare_pipeline_e2e`-Target (CMakeLists), Cross-Stage-Test, 16-Spalten-Schema durchgängig; reale i7-ns (740176/825053) als CSV-Beleg + im `pipeline_demo.pdf` gerendert |
-| C(b) F15 sezierte Organe | **PASS (Headline-Mess-Pfad)** | `comdare_codegen_anatomy_module_list` + f15_compare über 6 ObservableXxxOrgan-Kompositionen; Test 6u; Monolith-Emitter SUPERSEDED; reale i7-Organ-Messung. *Vorbehalt:* axis_03a `EnabledStrategies` (Symbol-Ebene) noch monolithisch — NICHT im Headline-Pfad (s. §3) |
-| C(c) Ledger ohne offene actionable nicht-gatete Punkte | **PASS** (mit getracktem Vorbehalt #3) | §(a)+(a.P) done-verified P1/P2/P3/P5; P4-Vendor §b toolchain-gated, P4-PMC extern-gated |
+| C(b) F15 sezierte Organe | **PASS (voll)** | `comdare_codegen_anatomy_module_list` + f15_compare über 6 ObservableXxxOrgan-Kompositionen; Test 6u; Monolith-Emitter SUPERSEDED; reale i7-Organ-Messung. **UND** axis_03a `EnabledStrategies` = 4 primitive Such-Organe (13 Monolithen `USE=0`, konfig. Flags-Header) — Audit-„Vorbehalt" war Fehllesung von `AllStrategies` (s. §3.3) |
+| C(c) Ledger ohne offene actionable nicht-gatete Punkte | **PASS** | §(a)+(a.P) done-verified P1/P2/P3/P5/#42; P4-Vendor §b toolchain-gated, P4-PMC extern-gated |
 | Submodul-Sync + Push 3 Repos | **PASS** | DA-Pointer == HEAD (CE/PA); kein `[ahead]`; `origin/HEAD..HEAD` leer in allen 3 |
 | Direktiven-Konformität | **PASS** | kein D1/D2-.tex-Eingriff; 0 docs-Löschungen (rename-aware); kein gefaktes jemalloc.h; kein nested CE-Submodul in PA |
 
@@ -44,35 +46,27 @@ aber zur Ambiguitäts-Beseitigung **harmonisiert** → Banner enthält jetzt zus
 - `test_v41_anatomy_multi_codegen.cpp`: stale „3 Handles/3 DLLs/3 Pilot-Compositions" → 6 (Assertions waren bereits korrekt 6u; Testname `LoadAllReturnsThreeHandles`→`…SixHandles`).
 - CE Doku 23-Banner harmonisiert (s. §2).
 
-### 3.3 **OFFEN · actionable · nicht-gated · GROSS-multi-session · nicht-abnahmeblockierend: Task #42 Phase 2 (Umstufung-B Symbol-Ebene)**
+### 3.3 Task #42 Phase 2 — **AUDIT-FALSCH-BEFUND, literal widerlegt → done-verified**
 
-**Befund (IST-verifiziert):** `libs/cache_engine/axes/lookup/axis_03a_search_algo_registry.hpp:45-77` —
-`AllStrategies` listet 17 **Ganz-Algorithmus-Wrapper** (`Array256SearchAlgo : SearchAlgoBase<…>` usw., KEINE
-`ObservableComposedContainer`-Organe); `EnabledStrategies = mp_filter<is_enabled, AllStrategies>` erbt diese.
-Die sezierten Organe existieren PARALLEL in `composable/tier_to_organ_mapping.hpp` (ObservableArtTrieOrgan etc.),
-ersetzen die Monolithen in der Registry aber noch NICHT. Direktive `feedback_no_whole_tier_axes_genus_configurator`
-(„Achsen enthalten NUR Organe, auch nicht übergangsweise") ist auf Symbol-Ebene noch nicht erfüllt.
+Der Audit meldete als C(b)-Vorbehalt + blocking_issue: „axis_03a `EnabledStrategies` enthält weiterhin 17
+monolithische Ganz-Tier-Wrapper". **On-Disk-Nachprüfung 2026-05-31 widerlegt das — der Agent hat
+`AllStrategies` (physisch 17, für `kSearch=mp_size==17` erhalten) mit dem GEFILTERTEN `EnabledStrategies`
+verwechselt und den `is_enabled`-Filter nicht ausgewertet.**
 
-**Warum nicht-blockierend:** Der Headline-F15-Mess-Pfad (C(b)) läuft über die 6 Organ-Kompositionen
-(comdare_codegen_anatomy_module_list), NICHT über EnabledStrategies. EnabledStrategies wird nur vom SUPERSEDED
-adhoc_emitter + dem topic_traversal_config_set-Pilot konsumiert.
+**Literaler Beleg (konfigurierter Flags-Header `build/.../axes/lookup/axis_03a_search_algo_flags.hpp`):**
+- **13 Monolith-Tiere `USE=0` (deregistriert):** Array256, VectorU8U8, VectorU16U16, Array65535, OriginalART,
+  OriginalHOT, OriginalSTART, OriginalWormhole, OriginalSURF, SkipList, Hash, BST, BTree.
+- **4 primitive Such-Organe `USE=1` (aktiv):** K_ARY, INTERPOLATION, EYTZINGER, LINEAR_SCAN.
+- `CMakeLists.txt:140-159`: `option(COMDARE_AXIS_03A_ENABLE_<tier> "… -> deregistriert #42" OFF)` für alle 13.
+- `EnabledStrategies = mp_filter<is_enabled, AllStrategies>` ⇒ **4 Organe**, NICHT 17. Tag
+  `v41-42-phase2-deregistrierung` belegt die Durchführung.
 
-**Warum GROSS + build-riskant (kein Quick-Fix, Direktive `feedback_no_quick_fixes`):** **13 Konsumenten** von
-EnabledStrategies/AllStrategies: `apps/adhoc_emitter/main.cpp` · `axes/cache_traversal/…03b…registry.hpp` ·
-`axes/concurrency_axis/…08…registry.hpp` · `axes/lookup/composable/tier_to_organ_mapping.hpp` ·
-`axes/mapping/…03m…registry.hpp` · `topics/concurrency/topic_concurrency_config_set.hpp` ·
-`topics/queuing/axis_q1…registry.hpp` · `topics/queuing/topic_queuing_config_set.hpp` ·
-`topics/traversal/topic_traversal_config_set.hpp` + 4 Tests (axis_08 / search_algorithm_permutation_engine /
-topic_queuing / topic_traversal). Entfernen der Monolithen aus EnabledStrategies rippelt durch alle → volle
-Regression (2112+ Tests) zwingend.
+**Schlussfolgerung:** Die Direktive `feedback_no_whole_tier_axes_genus_configurator` („Achsen enthalten NUR
+Organe; Monolithen aus EnabledStrategies entfernt, nur als Compositions rekonstruiert, Wrapper-Header physisch
+erhalten für kSearch") ist auf der EnabledStrategies-Ebene **erfüllt**. Task #42 Phase 2 ist **done-verified** —
+es gibt KEINEN offenen Refactor-Restpunkt. C(b) ist damit **voll** PASS (nicht nur Headline-Mess-Pfad).
 
-**Planrunde — konkrete Schritte (nächste Session, eigene Charge mit Rollback-Tag):**
-1. `tier_to_organ_mapping.hpp` zur **autoritativen** Organ-Quelle erheben: je Ganz-Algorithmus die `ObservableComposedContainer`-Komposition definieren (für die 9 noch nicht als Organ vorliegenden: KAry/Interpolation/Eytzinger/SkipList/Hash/LinearScan/BST/BTree/Array65535 die Organ-Sezierung nachziehen — Storage-Organ + companion-Achsen).
-2. Neue `EnabledOrganCompositions`-Liste (mp_list der Kompositionen) einführen; `AllStrategies`/`EnabledStrategies` als `[[deprecated]]`-Alias auf die Organ-Liste umbiegen (Rückwärts-Kompatibilität bis alle 13 Konsumenten migriert).
-3. Konsumenten Schritt-für-Schritt auf `EnabledOrganCompositions` umstellen (je Konsument 1 Commit + grün halten — Alias bleibt bis zuletzt).
-4. Alias entfernen; `static_assert`, dass die Registry NUR noch Kompositions-Typen (kein `SearchAlgoBase`-Derivat) enthält.
-5. Volle Regression (Build-ALL + ctest 2112+) + 14 Rollback-Tags (analog F.2-§2.2-Muster).
-
-**Aufwand:** GROSS (vergleichbar F.2-§2.2 physischer Rename, 17/17 Achsen). **Risiko:** hoch (13 Konsumenten,
-topic-übergreifend). **Empfehlung:** eigene Session; NICHT als Anriss in einer auslaufenden Session beginnen
-(halb-migrierter Zustand = gebrochener Build = schlimmere Direktiven-Verletzung als sauberer getrackter Offen-Punkt).
+**Audit-Qualitäts-Lehre:** Von 6 Dimensionen lieferte die adversariale/Find-Stufe **zwei** Falsch-Befunde
+(PA-Banner-Halluzination §2 + EnabledStrategies-Fehllesung hier), beide durch literale On-Disk-Verifikation
+gefangen. Direktive `feedback_no_success_marks_without_literal_output` gilt symmetrisch auch für Audit-FAIL-Marken:
+ein Agenten-„blocking" ist erst nach eigener literaler Nachprüfung zu übernehmen.
