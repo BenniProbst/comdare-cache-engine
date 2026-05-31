@@ -8,7 +8,8 @@
 // 5. Set-Vergleich (Reihenfolge irrelevant, weil load_all sortiert nach Dateiname)
 // 6. Lifecycle pro Handle: warm_up -> run -> shutdown (alle 3 Compositions parallel)
 //
-// Pilot-Liste: Art / Start / Surf — 3 verschiedene Composition-Types.
+// Pilot-Liste (V41.P2): Art / Hot / Start / Surf / Wormhole / Masstree — 6 sezierte ORGAN-Compositions
+// (search_algo = Observable-Organe, direktiven-konform; Umstufung-B im Mess-Pfad).
 //
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §47
 // @task #709 V41.F.6.1.R5.D.3
@@ -63,7 +64,7 @@ TEST(R5D3_MultiCodegen, PilotDirectoryContainsExpectedDlls) {
             ++count;
         }
     }
-    EXPECT_EQ(count, 3u) << "Erwartet 3 anatomy-Pilot-DLLs in " << dir.string();
+    EXPECT_EQ(count, 6u) << "Erwartet 3 anatomy-Pilot-DLLs in " << dir.string();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,7 +76,7 @@ TEST(R5D3_MultiCodegen, LoadAllReturnsThreeHandles) {
     int const status = loader::AnatomyModuleLoader::load_all(pilot_dir(), handles);
     ASSERT_EQ(status, loader::status_ok)
         << "load_all status: " << loader::status_name(status);
-    EXPECT_EQ(handles.size(), 3u);
+    EXPECT_EQ(handles.size(), 6u);
     for (auto const& h : handles) {
         EXPECT_TRUE(h.valid());
     }
@@ -89,7 +90,7 @@ TEST(R5D3_MultiCodegen, LoadAllProducesCorrectCompositionSet) {
     std::vector<loader::AnatomyModuleHandle> handles;
     ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles),
               loader::status_ok);
-    ASSERT_EQ(handles.size(), 3u);
+    ASSERT_EQ(handles.size(), 6u);
 
     std::set<std::string> seen;
     for (auto& h : handles) {
@@ -97,9 +98,13 @@ TEST(R5D3_MultiCodegen, LoadAllProducesCorrectCompositionSet) {
         seen.insert(std::string{h.anatomy()->composition_name()});
     }
 
-    EXPECT_TRUE(seen.contains("ArtComposition"))   << "ArtComposition fehlt im load_all-Set";
-    EXPECT_TRUE(seen.contains("StartComposition")) << "StartComposition fehlt im load_all-Set";
-    EXPECT_TRUE(seen.contains("SurfComposition"))  << "SurfComposition fehlt im load_all-Set";
+    // V41.P2: alle 6 sezierten Organ-Compositions (search_algo = Observable-Organe, direktiven-konform).
+    EXPECT_TRUE(seen.contains("ArtComposition"))      << "ArtComposition fehlt im load_all-Set";
+    EXPECT_TRUE(seen.contains("HotComposition"))      << "HotComposition fehlt im load_all-Set";
+    EXPECT_TRUE(seen.contains("StartComposition"))    << "StartComposition fehlt im load_all-Set";
+    EXPECT_TRUE(seen.contains("SurfComposition"))     << "SurfComposition fehlt im load_all-Set";
+    EXPECT_TRUE(seen.contains("WormholeComposition")) << "WormholeComposition fehlt im load_all-Set";
+    EXPECT_TRUE(seen.contains("MasstreeComposition")) << "MasstreeComposition fehlt im load_all-Set";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,7 +115,7 @@ TEST(R5D3_MultiCodegen, AllHandlesHaveSearchAlgorithmGenus) {
     std::vector<loader::AnatomyModuleHandle> handles;
     ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles),
               loader::status_ok);
-    ASSERT_EQ(handles.size(), 3u);
+    ASSERT_EQ(handles.size(), 6u);
 
     for (auto& h : handles) {
         auto* a = h.anatomy();
@@ -129,7 +134,7 @@ TEST(R5D3_MultiCodegen, LifecyclePerHandleIsIndependent) {
     std::vector<loader::AnatomyModuleHandle> handles;
     ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles),
               loader::status_ok);
-    ASSERT_EQ(handles.size(), 3u);
+    ASSERT_EQ(handles.size(), 6u);
 
     // Alle warm_up
     for (auto& h : handles) {
@@ -172,5 +177,5 @@ TEST(R5D3_MultiCodegen, PolymorphicMeasurementLoopOverAllHandles) {
         EXPECT_EQ(a->lifecycle_state(), ee::EngineLifecycleState::Shutdown);
     }
 
-    EXPECT_EQ(measured_compositions.size(), 3u);
+    EXPECT_EQ(measured_compositions.size(), 6u);
 }
