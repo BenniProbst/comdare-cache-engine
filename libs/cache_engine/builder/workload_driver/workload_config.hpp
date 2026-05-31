@@ -30,6 +30,22 @@ enum class WorkloadOpKind : std::uint8_t {
     Clear  = 3   ///< Container komplett leeren (selten, fuer Stress-Tests)
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// KeyDistribution — Key-Zugriffsverteilung (YCSB-Treue, Task #49 Pfad A)
+// ─────────────────────────────────────────────────────────────────────────────
+// YCSB = Yahoo! Cloud Serving Benchmark (Cooper, Silberstein, Tam, Ramakrishnan, Sears:
+// "Benchmarking Cloud Serving Systems with YCSB", Proc. 1st ACM Symposium on Cloud Computing (SoCC),
+// 2010, S. 143–154, doi:10.1145/1807128.1807152; OSS brianfrankcooper/YCSB).
+// Das DEFINITIONSMERKMAL von YCSB ist die SKEWED Key-Verteilung (Default ZIPFIAN, theta≈0.99), bzw.
+// "latest" für Workload D. Reine Uniform-Verteilung ist NICHT YCSB-konform. Zipfian-Algorithmus:
+// Gray, Sundaresan, Englert, Baclawski, Weinberger: "Quickly Generating Billion-Record Synthetic
+// Databases", SIGMOD 1994 (das von YCSB verwendete schnelle Inverse-CDF-Verfahren).
+enum class KeyDistribution : std::uint8_t {
+    Uniform  = 0,  ///< gleichverteilt [key_min, key_max] (nicht YCSB-konform; Default für Rückwärtskompat)
+    Zipfian  = 1,  ///< Zipf-verteilt (YCSB Default: wenige heiße Keys; theta≈0.99) — YCSB A/B/C
+    Latest   = 2   ///< Zipf, aber auf die ZULETZT eingefügten (höchsten) Keys verschoben — YCSB D
+};
+
 [[nodiscard]] constexpr std::string_view op_kind_name(WorkloadOpKind k) noexcept {
     switch (k) {
         case WorkloadOpKind::Insert: return "Insert";
@@ -91,6 +107,11 @@ struct WorkloadConfig {
     double pct_erase  = 0.09;
     double pct_clear  = 0.01;
 
+    /// Key-Zugriffsverteilung (YCSB-Treue, #49). Default Uniform (rückwärtskompatibel); die YCSB-Profile
+    /// setzen Zipfian (A/B/C) bzw. Latest (D). zipfian_theta = Skew-Parameter (YCSB-Default 0.99).
+    KeyDistribution key_distribution = KeyDistribution::Uniform;
+    double          zipfian_theta    = 0.99;
+
     /// Identifikation fuer Mess-Protokoll-Ausgaben.
     std::string_view name = "DefaultMixedWorkload";
 
@@ -141,6 +162,7 @@ struct WorkloadConfig {
         .key_min = 1, .key_max = 1'000'000,
         .pct_insert = 0.50, .pct_lookup = 0.50,
         .pct_erase = 0.0, .pct_clear = 0.0,
+        .key_distribution = KeyDistribution::Zipfian,   // YCSB-A: Zipf-Skew (Definitionsmerkmal)
         .name = "MixedA_50_50"};
 }
 
@@ -152,24 +174,22 @@ struct WorkloadConfig {
         .key_min = 1, .key_max = 1'000'000,
         .pct_insert = 0.05, .pct_lookup = 0.95,
         .pct_erase = 0.0, .pct_clear = 0.0,
+        .key_distribution = KeyDistribution::Zipfian,   // YCSB-B: Zipf-Skew, read-heavy
         .name = "MixedB_5_95"};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// YCSB-ANLEHNUNG — EHRLICHE EINSCHRÄNKUNG (User 2026-05-31, Task #49)
+// YCSB-TREUE — Stand nach #49 Pfad A (User-Direktive „müssen treu einbinden")
 // ─────────────────────────────────────────────────────────────────────────────
-// Die folgenden make_ycsb_*-Profile sind YCSB-INSPIRIERT (Op-MIX-Anlehnung), NICHT YCSB-KONFORM:
-//   - YCSB = Yahoo! Cloud Serving Benchmark (Cooper, Silberstein, Tam, Ramakrishnan, Sears: "Benchmarking
-//     Cloud Serving Systems with YCSB", ACM SoCC 2010) — Zitat web-zu-verifizieren ([[feedback_web_research_per_algorithm_pflicht]]).
-//   - ABWEICHUNGEN vom echten YCSB: (1) Key-Verteilung hier UNIFORM (WorkloadGenerator xorshift64), YCSB nutzt
-//     ZIPFIAN bzw. "latest" (D); (2) "update" (A/B) ist hier auf Insert gemappt, tier_insert=emplace ≠ Overwrite;
-//     (3) E (Range-Scan) + F (Read-Modify-Write) sind mit dem Op-Set (Insert/Lookup/Erase/Clear) NICHT abbildbar
-//     und bewusst NICHT als Fake-Proxy erfunden ([[feedback_no_quick_fixes]]).
-//   - Die EXTERNE Testdatensatz-Quelle (vertragliche Schnittstelle) ist NUR gemockt; weder in die Testdaten-
-//     Konfigurabilität erweitert noch web-dokumentiert. TREUE Einbindung (Zipfian/latest + Update/Scan-Op +
-//     Zitat) ODER ehrliche Entkopplung ("YCSB-inspiriert") = **Task #49** (Planrunde/User-Entscheidung offen).
+// Die make_ycsb_*-Profile sind jetzt YCSB-TREU bzgl. Op-Mix UND Key-VERTEILUNG (das Definitionsmerkmal):
+// A/B/C = Zipfian (theta=0.99, YCSB-Default), D = Latest. Vollzitat: Cooper et al., ACM SoCC 2010 (s.
+// KeyDistribution-Doku oben). VERBLEIBENDE, EHRLICH offene Treue-Lücken (brauchen Op-Set-/Tier-Interface-
+// Erweiterung, separater Punkt — NICHT als Fake-Proxy erfunden, [[feedback_no_quick_fixes]]):
+//   - "update" (A/B) wird auf Insert gemappt; tier_insert=emplace ≠ Overwrite (kein Update-Op-Kind).
+//   - YCSB-E (95% Range-SCAN) + YCSB-F (Read-Modify-Write) brauchen Scan- bzw. RMW-Op + entsprechende
+//     Tier-Interface-Methoden (existieren noch nicht) → bewusst NICHT als A–D-Profile vorgetäuscht.
 
-/// YCSB-C: 100% Lookup (Read-Only). Op-MIX YCSB-C-treu; Key-Verteilung uniform (YCSB=Zipfian). S. Note oben + Task #49.
+/// YCSB-C: 100% Lookup (Read-Only), Zipfian-Verteilung. Op-Mix + Verteilung YCSB-C-treu.
 [[nodiscard]] constexpr WorkloadConfig make_ycsb_c(std::uint64_t seed = 42,
                                                    std::size_t  ops  = 10'000) noexcept {
     return WorkloadConfig{
@@ -177,12 +197,11 @@ struct WorkloadConfig {
         .key_min = 1, .key_max = 1'000'000,
         .pct_insert = 0.0, .pct_lookup = 1.0,
         .pct_erase = 0.0, .pct_clear = 0.0,
+        .key_distribution = KeyDistribution::Zipfian,   // YCSB-C: 100% read, Zipf-Skew
         .name = "YCSB_C_read_only"};
 }
 
-/// YCSB-D: 95% Lookup, 5% Insert (Read-Latest — neue Keys werden eingefügt + bald gelesen). Der Op-MIX ist
-/// YCSB-D-treu; die „read-latest"-Key-VERTEILUNG ist mit der aktuellen uniformen Key-Sampling-Strategie des
-/// WorkloadGenerator NICHT abgebildet (uniform statt latest-skewed) — dokumentierte Einschränkung.
+/// YCSB-D: 95% Lookup, 5% Insert, Read-Latest-Verteilung (zuletzt eingefügte/höchste Keys sind am heißesten).
 [[nodiscard]] constexpr WorkloadConfig make_ycsb_d(std::uint64_t seed = 42,
                                                    std::size_t  ops  = 10'000) noexcept {
     return WorkloadConfig{
@@ -190,6 +209,7 @@ struct WorkloadConfig {
         .key_min = 1, .key_max = 1'000'000,
         .pct_insert = 0.05, .pct_lookup = 0.95,
         .pct_erase = 0.0, .pct_clear = 0.0,
+        .key_distribution = KeyDistribution::Latest,    // YCSB-D: „read latest"-Skew (Definitionsmerkmal)
         .name = "YCSB_D_read_latest"};
 }
 

@@ -4,6 +4,7 @@
 
 #include "workload_generator.hpp"
 
+#include <cmath>
 #include <stdexcept>
 
 namespace comdare::cache_engine::builder::workload_driver {
@@ -38,6 +39,41 @@ WorkloadGenerator::WorkloadGenerator(WorkloadConfig config)
     cdf_lookup_ = cdf_insert_ + config_.pct_lookup;
     cdf_erase_  = cdf_lookup_ + config_.pct_erase;
     cdf_clear_  = 1.0;  // Pflicht-Anker (Summe normalisiert)
+
+    // YCSB-Treue (#49): Zipfian-Konstanten vorberechnen, falls Zipfian/Latest gewählt.
+    if (config_.key_distribution != KeyDistribution::Uniform) precompute_zipfian();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Zipfian-Vorberechnung (Gray, Sundaresan, Englert, Baclawski, Weinberger, SIGMOD 1994;
+// das von YCSB genutzte schnelle Inverse-CDF-Verfahren). #49 Pfad A (YCSB-Treue).
+// ─────────────────────────────────────────────────────────────────────────────
+
+void WorkloadGenerator::precompute_zipfian() noexcept {
+    zipf_n_     = config_.key_max - config_.key_min + 1ULL;
+    zipf_theta_ = (config_.zipfian_theta > 0.0 && config_.zipfian_theta != 1.0) ? config_.zipfian_theta : 0.99;
+    // zetan = sum_{i=1}^{n} 1/i^theta (O(n) einmalig); zeta2 = 1 + 0.5^theta.
+    double zetan = 0.0;
+    for (std::uint64_t i = 1; i <= zipf_n_; ++i)
+        zetan += 1.0 / std::pow(static_cast<double>(i), zipf_theta_);
+    zipf_zetan_    = zetan;
+    zipf_half_pow_ = std::pow(0.5, zipf_theta_);
+    zipf_zeta2_    = 1.0 + zipf_half_pow_;
+    zipf_alpha_    = 1.0 / (1.0 - zipf_theta_);
+    zipf_eta_      = (1.0 - std::pow(2.0 / static_cast<double>(zipf_n_), 1.0 - zipf_theta_))
+                   / (1.0 - zipf_zeta2_ / zipf_zetan_);
+}
+
+std::uint64_t WorkloadGenerator::sample_zipf_rank() noexcept {
+    // Inverse-CDF nach Gray et al.: liefert einen Rang in [0, n) mit P(rang) ∝ 1/(rang+1)^theta.
+    double const u  = next_unit();
+    double const uz = u * zipf_zetan_;
+    if (uz < 1.0)                 return 0;
+    if (uz < 1.0 + zipf_half_pow_) return 1;
+    auto rank = static_cast<std::uint64_t>(
+        static_cast<double>(zipf_n_) * std::pow(zipf_eta_ * u - zipf_eta_ + 1.0, zipf_alpha_));
+    if (rank >= zipf_n_) rank = zipf_n_ - 1;   // Numerik-Clamp
+    return rank;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -74,10 +110,26 @@ WorkloadOpKind WorkloadGenerator::sample_op_kind() noexcept {
 // Key-Sampling aus [key_min, key_max] uniform
 // ─────────────────────────────────────────────────────────────────────────────
 
+double WorkloadGenerator::next_unit() noexcept {
+    return static_cast<double>(next_random()) / (static_cast<double>(static_cast<std::uint64_t>(-1)) + 1.0);
+}
+
 std::uint64_t WorkloadGenerator::sample_key() noexcept {
     auto const range = config_.key_max - config_.key_min + 1ULL;
-    // Modulo-Bias akzeptabel fuer Mess-Reihen (range << 2^64)
-    return config_.key_min + (next_random() % range);
+    switch (config_.key_distribution) {
+        case KeyDistribution::Zipfian: {
+            // Zipf-Rang [0,n) → Key. Heißester Rang 0 ↦ key_min (stabile, reproduzierbare Zuordnung).
+            return config_.key_min + (sample_zipf_rank() % range);
+        }
+        case KeyDistribution::Latest: {
+            // YCSB-D „read latest": Zipf-Skew auf die HÖCHSTEN Keys (zuletzt eingefügt) → key_max - rang.
+            return config_.key_max - (sample_zipf_rank() % range);
+        }
+        case KeyDistribution::Uniform:
+        default:
+            // Modulo-Bias akzeptabel fuer Mess-Reihen (range << 2^64)
+            return config_.key_min + (next_random() % range);
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
