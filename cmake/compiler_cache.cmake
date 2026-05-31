@@ -16,7 +16,8 @@
 #
 # @reference docs/architektur/13_paper_legacy_code_architektur.md §5 + §12.3
 
-set(COMDARE_COMPILER_CACHE_DIR "${CMAKE_SOURCE_DIR}/compiler_cache"
+# V41.P1-Gateway: cache-engine-gewurzelt (CMAKE_SOURCE_DIR = Superprojekt-Wurzel im add_subdirectory-Kontext).
+set(COMDARE_COMPILER_CACHE_DIR "${CMAKE_CURRENT_LIST_DIR}/../compiler_cache"
     CACHE PATH "Cache directory for on-demand Paper-Compiler builds")
 
 #

@@ -129,15 +129,18 @@ function(comdare_build_adhoc_modules)
         return()
     endif()
 
+    # V41.P1-Gateway: cache-engine-Wurzel robust via CMAKE_CURRENT_FUNCTION_LIST_DIR (Definitions-Datei
+    # <ce>/cmake/, korrekt im Funktions-Aufruf; CMAKE_SOURCE_DIR = Superprojekt-Wurzel im subdir-Kontext).
+    set(_ce_root "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/..")
     set(_target_list "")
     set(_index 0)
     foreach(_cpp ${_emitted_cpps})
         set(_target "${ARG_PILOT_PREFIX}_${_index}")
         add_library(${_target} SHARED "${_cpp}")
         target_include_directories(${_target} PRIVATE
-            "${CMAKE_SOURCE_DIR}/libs/cache_engine"
-            "${CMAKE_SOURCE_DIR}/libs/cache_engine/include"
-            "${CMAKE_SOURCE_DIR}/libs/cache_engine/src"
+            "${_ce_root}/libs/cache_engine"
+            "${_ce_root}/libs/cache_engine/include"
+            "${_ce_root}/libs/cache_engine/src"
             "${CMAKE_BINARY_DIR}/generated"
             ${ARG_AXIS_GEN_DIRS})
         target_link_libraries(${_target} PRIVATE Boost::mp11)

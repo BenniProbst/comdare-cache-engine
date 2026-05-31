@@ -37,6 +37,11 @@ function(comdare_codegen_anatomy_module)
     set(_multi_value)
     cmake_parse_arguments(ARG "${_options}" "${_one_value}" "${_multi_value}" ${ARGN})
 
+    # V41.P1-Gateway: cache-engine-Wurzel robust ueber CMAKE_CURRENT_FUNCTION_LIST_DIR (= Verzeichnis der
+    # DEFINIERENDEN Datei <ce>/cmake/, korrekt auch im Funktions-Aufruf — CMAKE_CURRENT_LIST_DIR zeigte
+    # sonst auf den Aufrufer, CMAKE_SOURCE_DIR auf die Superprojekt-Wurzel im add_subdirectory-Kontext).
+    set(_ce_root "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/..")
+
     # ─── Pflicht-Argumente validieren ──────────────────────────────────────
     foreach(_arg TARGET_NAME COMPOSITION_TYPE COMPOSITION_HEADER OUTPUT_DIR)
         if(NOT ARG_${_arg})
@@ -70,7 +75,7 @@ function(comdare_codegen_anatomy_module)
 
     # ─── Output-Pfade ─────────────────────────────────────────────────────
     set(_template_path
-        "${CMAKE_SOURCE_DIR}/libs/cache_engine/builder/codegen/templates/anatomy_permutation_module.cpp.in")
+        "${_ce_root}/libs/cache_engine/builder/codegen/templates/anatomy_permutation_module.cpp.in")
     if(NOT EXISTS "${_template_path}")
         message(FATAL_ERROR
             "comdare_codegen_anatomy_module: Template not found at ${_template_path}")
@@ -96,19 +101,19 @@ function(comdare_codegen_anatomy_module)
     # ordering-invariant — analog tests/unit). Ohne diese fanden generierte Anatomy-Module
     # (Pilots) axis_NN_*_flags.hpp nicht im Full-ALL-Build (Compositions ziehen alle Achsen).
     file(GLOB _cdg_axis_src_dirs LIST_DIRECTORIES true
-        "${CMAKE_SOURCE_DIR}/libs/cache_engine/topics/*/axis_*")
+        "${_ce_root}/libs/cache_engine/topics/*/axis_*")
     set(_cdg_axis_gen_dirs "")
     foreach(_cdg_d ${_cdg_axis_src_dirs})
         if(IS_DIRECTORY "${_cdg_d}")
-            file(RELATIVE_PATH _cdg_rel "${CMAKE_SOURCE_DIR}/libs/cache_engine/topics" "${_cdg_d}")
+            file(RELATIVE_PATH _cdg_rel "${_ce_root}/libs/cache_engine/topics" "${_cdg_d}")
             list(APPEND _cdg_axis_gen_dirs "${CMAKE_BINARY_DIR}/generated/topics/${_cdg_rel}")
         endif()
     endforeach()
 
     target_include_directories(${ARG_TARGET_NAME} PRIVATE
-        "${CMAKE_SOURCE_DIR}/libs/cache_engine"
-        "${CMAKE_SOURCE_DIR}/libs/cache_engine/include"
-        "${CMAKE_SOURCE_DIR}/libs/cache_engine/src"
+        "${_ce_root}/libs/cache_engine"
+        "${_ce_root}/libs/cache_engine/include"
+        "${_ce_root}/libs/cache_engine/src"
         "${CMAKE_BINARY_DIR}/generated"
         ${_cdg_axis_gen_dirs})
 

@@ -9,7 +9,9 @@ include(FetchContent)
 include(fetchcontent_stale_cleanup)
 comdare_clean_stale_fetchcontent_subbuild(googletest)
 
-set(_gtest_local "${CMAKE_SOURCE_DIR}/cmake/third_party/googletest-1.15.2.tar.gz")
+# V41.P1-Gateway: vendored gtest relativ zu diesem .cmake (cmake/), nicht via CMAKE_SOURCE_DIR
+# (= Superprojekt-Wurzel im add_subdirectory-Kontext).
+set(_gtest_local "${CMAKE_CURRENT_LIST_DIR}/third_party/googletest-1.15.2.tar.gz")
 
 if(EXISTS "${_gtest_local}")
     message(STATUS "GTest: lokaler Tarball gefunden: ${_gtest_local}")

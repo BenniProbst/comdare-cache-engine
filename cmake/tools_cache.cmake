@@ -11,7 +11,8 @@
 #
 # @reference docs/architektur/13_paper_legacy_code_architektur.md §13.3 (xxd-Fallback bei MSVC #embed-Blocker)
 
-set(COMDARE_TOOLS_CACHE_DIR "${CMAKE_SOURCE_DIR}/tools_cache"
+# V41.P1-Gateway: cache-engine-gewurzelt (CMAKE_SOURCE_DIR = Superprojekt-Wurzel im add_subdirectory-Kontext).
+set(COMDARE_TOOLS_CACHE_DIR "${CMAKE_CURRENT_LIST_DIR}/../tools_cache"
     CACHE PATH "Cache directory for on-demand Build-Tool builds")
 
 #

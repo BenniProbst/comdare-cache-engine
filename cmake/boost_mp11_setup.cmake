@@ -19,10 +19,13 @@
 
 include(FetchContent)
 
-set(_mp11_vendor_dir "${CMAKE_SOURCE_DIR}/cmake/third_party/boost_mp11")
+# V41.P1-Gateway: cache-engine-Wurzel robust (CMAKE_SOURCE_DIR = Superprojekt-Wurzel im
+# add_subdirectory-Kontext → Offline-Boost-Prerequisite würde sonst nicht gefunden).
+set(_ce_root "${CMAKE_CURRENT_LIST_DIR}/..")
+set(_mp11_vendor_dir "${_ce_root}/cmake/third_party/boost_mp11")
 set(_mp11_vendor_inc "${_mp11_vendor_dir}/include")
 set(_mp11_vendor_hdr "${_mp11_vendor_inc}/boost/mp11.hpp")
-set(_mp11_prereq_dir "${CMAKE_SOURCE_DIR}/prerequisites")
+set(_mp11_prereq_dir "${_ce_root}/prerequisites")
 set(_mp11_pinned_tag "boost-1.91.0")   # Fallback-Tag (passt zum bereitgestellten Prerequisite-Boost 1.91.0)
 
 # --- Hilfsfunktion: mp11-Header aus einem (vollen Boost- ODER standalone-mp11-) Archiv extrahieren -------
