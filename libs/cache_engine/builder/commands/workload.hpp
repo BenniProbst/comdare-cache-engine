@@ -23,7 +23,8 @@ enum class WorkloadKind : std::uint8_t {
     YCSB_E_Scan95        = 4,
     YCSB_F_ReadModifyWrite = 5,
     Custom_HotKey        = 100,
-    Custom_RangeDelete   = 101
+    Custom_RangeDelete   = 101,
+    Custom_BulkInsert    = 102   // V41.P5 (G11): OP-2 Bulk-Insert (datasets OP_1_to_6_SPECIFICATIONS)
 };
 
 /**

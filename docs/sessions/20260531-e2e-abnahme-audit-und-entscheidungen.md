@@ -109,4 +109,8 @@ Damit ist Abschluss-Kriterium **C(a)** (geschlossener E2E-Lauf an realen i7-Date
 - **P5** Doku-Drift (SUPERSEDED-Banner) · op_type_filter · Custom_BulkInsert.
 - **Finaler Abnahme-Audit-Workflow** über alle 3 Repos (Kriterium C(d)).
 
-### Nächster Schritt: P4-Beschaffungs-Anforderung formulieren + P5-Doku-Drift, dann finaler Abnahme-Audit.
+### P4 — präzisiert (2026-05-31): Vendor-Allokatoren = LOKALER Build (KEINE Beschaffung), PMC = extern
+**Befund:** jemalloc + tcmalloc-QUELLEN sind bereits lokal vendored (`ext/A05-jemalloc` inkl. vc2022-MSVC-Projekt; `ext/A06-tcmalloc`). Es fehlt KEINE Beschaffung — sondern: `COMDARE_HAVE_JEMALLOC`/`_TCMALLOC` werden in CMakeLists.txt nur GENUTZT (Z.497/504), aber NIE gesetzt → die vendored Quellen werden nie gebaut/detektiert/gelinkt. **Actionable lokaler Build-Task (nicht Beschaffung):** jemalloc/tcmalloc aus den vendored MSVC-Projekten bauen → `jemalloc.lib`/`tcmalloc.lib` → `COMDARE_HAVE_*=1` + `find_library`/Pfad + Link. Mittel-großer, build-risikobehafteter Integrationsschritt (eigene Charge, Rollback-Tag).
+- **Beschaffungs-Anforderung an User (NUR PMC):** Für die PMC-Hardware-Counter (Cache-Miss/L2-MPKI, G6) wird **Intel PCM (Vendor-Lib)** ODER **MSR-Treiber-Zugriff + Admin-Rechte** benötigt — das ist der EINZIGE genuin extern/beschaffungs-gatete P4-Teil. Bitte bereitstellen: (a) Intel-PCM-Build/-Lib ODER (b) Bestätigung MSR/Admin-Zugang auf der i7-1270P-Maschine. Bis dahin bleiben PMU-Spalten 0 (im Pipeline-CSV dokumentiert).
+
+### Nächster Schritt: P5-Quick-Wins (Custom_BulkInsert, op_type_filter) + Doku-Drift-Banner; P4-Vendor-Build (eigene Charge); finaler Abnahme-Audit.
