@@ -1,7 +1,7 @@
 # Paper: A11 lrmalloc (Leite/Rocha JPDC 2019)
 @compiler gcc-9.5
 @has_original_paper_code true
-@axis_mixin_type comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorOriginalCodeMixin
+@axis_mixin_type comdare::cache_engine::alloc::concepts::AllocatorOriginalCodeMixin
 
 # wrapper_fn   paper_fn           source_relative_path
 allocate       lf_aligned_alloc   lrmalloc.cpp

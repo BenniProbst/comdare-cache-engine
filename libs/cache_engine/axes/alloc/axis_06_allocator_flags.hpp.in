@@ -16,7 +16,7 @@
 
 #include <type_traits>
 
-namespace comdare::cache_engine::allocator::axis_06_allocator::flags {
+namespace comdare::cache_engine::alloc::flags {
 
 // `#cmakedefine01` erzeugt entweder 0 oder 1 — NIEMALS undefined.
 // Macros bleiben definiert (keine #undef) damit vendor_includes/-Shims sie nutzen koennen.
@@ -82,4 +82,4 @@ inline constexpr bool buddy_enabled      = COMDARE_AXIS_06_USE_BUDDY;
 inline constexpr bool ptmalloc2_enabled  = COMDARE_AXIS_06_USE_PTMALLOC2;
 inline constexpr bool vmem_mag_enabled   = COMDARE_AXIS_06_USE_VMEM_MAG;
 
-}  // namespace comdare::cache_engine::allocator::axis_06_allocator::flags
+}  // namespace comdare::cache_engine::alloc::flags
