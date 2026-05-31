@@ -61,4 +61,12 @@
 - **PDF baut:** `pdflatex thesis/main.tex` → `main.pdf` (29 Seiten, 511 KB, EXIT 0).
 - **OFFEN für volle P1-Schließung:** Thesis bindet die generierten Pipeline-Artefakte (04_table/05_diagram) noch NICHT ein („No anhang/*.tex") → anhang-Verdrahtung (Pipeline-Output → `thesis/anhang/` → PDF inkludiert sie) + build_thesis-Pfad-Fix (`..\..\thesis`).
 
-### Nächster Schritt: anhang-Verdrahtung (P1-Schließung: Pipeline-Tabelle/Diagramm IM PDF) → dann P2 (Umstufung-B Mess-Pfad).
+### P1 ✅ done-verified (2026-05-31, DA `362a5cc`)
+- `comdare_pipeline_e2e` erzeugt über CMake-Build einen GESCHLOSSENEN Lauf: 01 `measurements.csv` (10 Perm., 16-col) → 04 `04_table.tex` (10 rows, kein Wurf) → 05 `05_diagram.tex` (10 rows by workload) → 06 **`pipeline_demo.pdf` (2 Seiten)**. PDF enthält die generierte Tabelle + TikZ-Diagramm.
+- D1/D2-Grenze respektiert: `pipeline_demo.tex` ist Build-Artefakt; die Integration in `thesis/main.pdf` (Auskommentieren der `\input{tabellen/…}`/`\input{tikz/…}` in `chapters/06_auswertung.tex`) bleibt user-manueller D1-Schritt.
+- **Verbleibend P3:** die synthetischen 10-Perm-Sample-Daten durch reale i7-1270P-Messung ersetzen (nach P2).
+
+### P2 — Mess-Pfad-Korrektur (Umstufung-B, cache-engine) — IN ARBEIT
+Audit-Gap G3: `axis_03a::EnabledStrategies`/`AllStrategies` + `adhoc_emitter` SA0..SA11 fahren weiterhin 17 monolithische Tiere (Array256..BTree) als search_algo-Achsenwert statt sezierter Organe. Ziel: EnabledStrategies+adhoc_emitter auf Organe, Monolithen deregistrieren, F15 neu erheben.
+
+### Nächster Schritt: P2 (Umstufung-B im Mess-Pfad), dann P3 (reale i7-1270P-Messung durch die geschlossene Pipeline).
