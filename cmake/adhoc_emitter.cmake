@@ -20,12 +20,19 @@
 # comdare_run_adhoc_emitter — ruft comdare-adhoc-emitter zur Configure-Time auf.
 #   OUTPUT_DIR  <dir>        Ziel-Verzeichnis für die emittierten comdare_anatomy_perm_auto_*.cpp
 #   [STATUS_OUT <var>]       "FOUND" | "SKIPPED" | "ERROR"
+#   [FULL_COVERAGE]          --full-coverage an den Emitter durchreichen (1-wise-Stichprobe statt Pilot)
 # ─────────────────────────────────────────────────────────────────────────────
 function(comdare_run_adhoc_emitter)
-    set(_options)
+    set(_options FULL_COVERAGE)
     set(_one_value OUTPUT_DIR STATUS_OUT)
     set(_multi_value)
     cmake_parse_arguments(ARG "${_options}" "${_one_value}" "${_multi_value}" ${ARGN})
+
+    # Optionales --full-coverage-Argument (R5.D: 1-wise-Ueberdeckung über ALLE Achsen-Varianten).
+    set(_emitter_extra_args "")
+    if(ARG_FULL_COVERAGE)
+        list(APPEND _emitter_extra_args "--full-coverage")
+    endif()
 
     if(NOT ARG_OUTPUT_DIR)
         message(FATAL_ERROR "comdare_run_adhoc_emitter: OUTPUT_DIR required.")
@@ -68,9 +75,9 @@ function(comdare_run_adhoc_emitter)
     endif()
 
     file(MAKE_DIRECTORY "${ARG_OUTPUT_DIR}")
-    message(STATUS "comdare_run_adhoc_emitter: running ${_tool_path} ${ARG_OUTPUT_DIR}")
+    message(STATUS "comdare_run_adhoc_emitter: running ${_tool_path} ${ARG_OUTPUT_DIR} ${_emitter_extra_args}")
     execute_process(
-        COMMAND "${_tool_path}" "${ARG_OUTPUT_DIR}"
+        COMMAND "${_tool_path}" "${ARG_OUTPUT_DIR}" ${_emitter_extra_args}
         RESULT_VARIABLE _rc
         OUTPUT_VARIABLE _stdout
         ERROR_VARIABLE  _stderr

@@ -289,8 +289,13 @@ ERLEDIGT:** `combinatorial_coverage.hpp` (Quantifizierung + 1-wise-Stichprobe) i
 verdrahtet (`comdare-adhoc-emitter --full-coverage`): emittiert eine 1-wise-Ueberdeckung ueber die
 ECHTEN Registries (search 17 × allocator 25 × layout 5) in **25** Modulen, die — verifiziert —
 ALLE 17 Such-Algos + 25 Allokatoren + 5 Layouts mind. 1× abdecken (statt 2125). Default bleibt der
-kuratierte 48-Pilot (keine Regression). Offen ist nur noch der OPTIONALE 25-DLL-Build dieser
-Stichprobe (reiner Build-Modus-Entscheid; die Emission + Coverage ist bewiesen) · F.2/F.3
+kuratierte 48-Pilot (keine Regression). **25-DLL-Build ✅ ERLEDIGT (2026-05-31):** reproduzierbar
+über die CMake-Option `COMDARE_CE_ADHOC_FULL_COVERAGE` (Default OFF; `cmake -B build
+-DCOMDARE_CE_ADHOC_FULL_COVERAGE=ON` reicht `--full-coverage` zur Configure-Zeit an den Emitter
+durch → 25 statt 48 DLLs). End-to-End verifiziert: Configure meldet „Auto-Permutations-Skalierung
+ACTIVE (25 ...)" → Build exit 0 → **25 `comdare_anatomy_perm_auto_*.dll`** materialisiert →
+`test_v41_anatomy_adhoc_autobuilt_load` 2/2 grün (Loader lädt alle 25). Toggle non-destruktiv
+(OFF → 48 Pilot-DLLs wiederhergestellt, exit 0). · F.2/F.3
 Namespace-Restrukturierung · E11-Master-Facade +
 E10 per-Untermodul-STATIC/SHARED (gated auf E4.1-Submodul-Befüllung) · weitere Tree-STRUKTUR-Paper ·
 D1/D2 Diplomarbeit-Volltext (Autor).
