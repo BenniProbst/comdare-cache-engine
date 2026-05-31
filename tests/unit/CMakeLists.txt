@@ -1093,6 +1093,14 @@ target_include_directories(test_v5_measurement_snapshot PRIVATE
 target_link_libraries(test_v5_measurement_snapshot PRIVATE
     comdare::workload_driver)
 
+# V5-#49 Pfad A — YCSB-Treue: Zipfian/Latest-Key-Verteilung (Definitionsmerkmal) statt uniform.
+comdare_add_test(test_v5_ycsb_distribution
+    SOURCES test_v5_ycsb_distribution.cpp)
+target_include_directories(test_v5_ycsb_distribution PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_link_libraries(test_v5_ycsb_distribution PRIVATE comdare::workload_driver)
+
 # V5-I6-SUBSTANZ (#44) — echte produktive MementoAxis auf den Such-Organen (ComposedSearch + Observable-Wrapper).
 comdare_add_test(test_v5_organ_memento
     SOURCES test_v5_organ_memento.cpp)
