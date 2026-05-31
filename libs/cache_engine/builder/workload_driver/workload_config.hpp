@@ -155,4 +155,33 @@ struct WorkloadConfig {
         .name = "MixedB_5_95"};
 }
 
+/// YCSB-C: 100% Lookup (Read-Only — der reine Lese-Durchsatz nach Bulk-Load). Faithfuller YCSB-C-Mix.
+[[nodiscard]] constexpr WorkloadConfig make_ycsb_c(std::uint64_t seed = 42,
+                                                   std::size_t  ops  = 10'000) noexcept {
+    return WorkloadConfig{
+        .seed = seed, .num_operations = ops,
+        .key_min = 1, .key_max = 1'000'000,
+        .pct_insert = 0.0, .pct_lookup = 1.0,
+        .pct_erase = 0.0, .pct_clear = 0.0,
+        .name = "YCSB_C_read_only"};
+}
+
+/// YCSB-D: 95% Lookup, 5% Insert (Read-Latest — neue Keys werden eingefügt + bald gelesen). Der Op-MIX ist
+/// YCSB-D-treu; die „read-latest"-Key-VERTEILUNG ist mit der aktuellen uniformen Key-Sampling-Strategie des
+/// WorkloadGenerator NICHT abgebildet (uniform statt latest-skewed) — dokumentierte Einschränkung.
+[[nodiscard]] constexpr WorkloadConfig make_ycsb_d(std::uint64_t seed = 42,
+                                                   std::size_t  ops  = 10'000) noexcept {
+    return WorkloadConfig{
+        .seed = seed, .num_operations = ops,
+        .key_min = 1, .key_max = 1'000'000,
+        .pct_insert = 0.05, .pct_lookup = 0.95,
+        .pct_erase = 0.0, .pct_clear = 0.0,
+        .name = "YCSB_D_read_latest"};
+}
+
+// HINWEIS YCSB-E/F: E (95% Range-Scan / 5% Insert) und F (Read-Modify-Write) sind mit dem aktuellen
+// WorkloadOpKind-Set (Insert/Lookup/Erase/Clear) NICHT verlustfrei abbildbar — E braucht eine Scan/Range-
+// Operation, F eine atomare RMW-Op. Bewusst NICHT als Fake-Profil mit Lookup-Proxy erfunden
+// ([[feedback_no_quick_fixes]]); Erweiterung des Op-Sets = separater Punkt.
+
 }  // namespace comdare::cache_engine::builder::workload_driver

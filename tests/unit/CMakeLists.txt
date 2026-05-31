@@ -1075,6 +1075,15 @@ comdare_add_test(test_v5_two_phase_driver
 target_include_directories(test_v5_two_phase_driver PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine")
 
+# V5-I9 — WorkloadOrchestrator: host-seitiger Lastprofil-Treiber + Multi-Profil + Serialisierung (linkt Generator).
+comdare_add_test(test_v5_workload_orchestrator
+    SOURCES test_v5_workload_orchestrator.cpp)
+target_include_directories(test_v5_workload_orchestrator PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_link_libraries(test_v5_workload_orchestrator PRIVATE
+    comdare::workload_driver)
+
 # V41.F.6.1 R5.G — constexpr type_name<T>() (Auto-Emitter-Grundlage: FQ-Typ-Name als String).
 comdare_add_test(test_v41_codegen_type_name
     SOURCES test_v41_codegen_type_name.cpp)
