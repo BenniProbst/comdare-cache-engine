@@ -1116,9 +1116,21 @@ add_dependencies(test_v41_anatomy_adhoc_dll_load comdare_r5g_adhoc_perm)
 #   Pass 2: cmake -B build  -> Emitter laeuft, DLLs + Load-Test werden gebaut
 include(adhoc_emitter)
 set(_r5g_autobuilt_dir "${CMAKE_BINARY_DIR}/generated/r5g_autobuilt_modules")
-comdare_run_adhoc_emitter(
-    OUTPUT_DIR "${_r5g_autobuilt_dir}"
-    STATUS_OUT _r5g_ae_status)
+# V41.F.6.1 R5.D — optionaler Voll-Coverage-Modus: statt des kuratierten 48er-Pilot-Raums die
+# 1-wise-Ueberdeckungs-Stichprobe (search 17 × allocator 25 × layout 5 → 25 Permutationen, jede
+# Variante mind. 1×) als DLLs bauen. Default OFF → keine Regression / kein Build-Zeit-Aufschlag.
+option(COMDARE_CE_ADHOC_FULL_COVERAGE
+    "R5.D: adhoc-emitter im --full-coverage-Modus (25 1-wise-DLLs statt 48er-Pilot)" OFF)
+if(COMDARE_CE_ADHOC_FULL_COVERAGE)
+    comdare_run_adhoc_emitter(
+        OUTPUT_DIR "${_r5g_autobuilt_dir}"
+        STATUS_OUT _r5g_ae_status
+        FULL_COVERAGE)
+else()
+    comdare_run_adhoc_emitter(
+        OUTPUT_DIR "${_r5g_autobuilt_dir}"
+        STATUS_OUT _r5g_ae_status)
+endif()
 if(_r5g_ae_status STREQUAL "FOUND")
     comdare_build_adhoc_modules(
         OUTPUT_DIR    "${_r5g_autobuilt_dir}"
