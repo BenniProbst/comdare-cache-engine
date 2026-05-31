@@ -79,10 +79,15 @@ nur an der ABI-Grenze (dem geladenen Handle) treffen:
   fixer AxesList) — die ABI exponiert nur das **aufgelöste Ergebnis** (fixe Funktionszeiger / fixer POD). Die
   „constexpr AxesList"/„template Observer init" sind compile-time *in* der DLL; nach außen quert nur das Resultat.
 
-> **Offen (Design-Workflow `wjr7lwpp3`, in Arbeit):** Verifiziert gerade, ob der heutige `dynamic_cast` **kalt**
-> (1× beim Laden, im Handle gecacht — dann ist die Latenz-Sorge im Hot-Path bereits entschärft) oder **heiß**
-> (pro Operation — dann echtes Problem) feuert, und entwirft den konkreten No-Cast-Mechanismus (Capability-Bit
-> `major2+has_observer` vs. Funktionszeiger-Tabelle). Befund wird hier nachgetragen.
+> **✅ GEKLÄRT (Design-Workflow `wjr7lwpp3`, verifiziert 2026-05-31 — Detail: `messarchitektur_design_observer_handle_no_dynamic_cast.md`):**
+> Der `dynamic_cast<IObservableTier*>` ist **KALT** — exakt **1× pro Modul** beim `measure()`-Eintritt
+> (`search_algorithm_dock.hpp:42`), per Referenz an die **cast-freie** Hot-Loop gereicht
+> (`tier_observe_trace_abi.hpp:82,89-135` enthält NULL Casts, nur Virtual-Calls). **Die Latenz-Sorge ist auf dem
+> Mess-Weg bereits eingehalten** (1 Cast/Modul bei Σ(writes+~2000 lookups+~200 erases)/Checkpoint Operationen).
+> Ebenso: Operation+Observer sind in `IObservableTier` **bereits in EINER Schnittstelle vereint**
+> (`tier_insert`=Op+Param, `tier_observe`=Observer, gleiches Objekt). Beide meistgefürchteten Vision-Punkte sind
+> also schon erfüllt. **Empfohlener Härtungs-Schritt:** Capability-Bit als additives 5. `extern "C"`-Symbol
+> (`comdare_anatomy_capabilities()`) → Host weiß Observer-Präsenz ohne Cast (statt aus `nullptr` raten).
 
 ---
 
@@ -129,11 +134,12 @@ Revidierte, vollständige I1-Anfass-Liste folgt mit dem Design-Workflow-Ergebnis
 
 ---
 
-## 7. Offene Entscheidungen (für den Design-Workflow + danach)
+## 7. Offene Entscheidungen — Stand nach Design-Workflow
 
-1. `dynamic_cast` heute kalt (1×) oder heiß (pro-Op)? → bestimmt, wie dringend der No-Cast-Umbau ist.
-2. Pfad A (DLL-internes `run_workload`) vs. Pfad B (host-getriebene Sequenz) als primärer Messpfad — oder Koexistenz?
-3. Mechanismus für „Observer vorhanden ohne Cast": Capability-Bit im Versions-Handshake (`major 2 + has_observer`)
-   vs. Funktionszeiger-Tabelle in der `comdare_create_anatomy`-Rückgabe.
-4. Profil-Schleife: wie werden die n Lastprofile je Binary registriert/ausgewählt (Eignung gegen Tierart)?
-5. Verbose-Trace/Funktional-Test-Modus: existiert er schon, oder neu (Doku-Recherche im Workflow)?
+1. ✅ **GEKLÄRT:** `dynamic_cast` ist **kalt** (1×/Modul) → No-Cast-Umbau im Hot-Path **nicht nötig**; nur Capability-Bit-Härtung empfohlen.
+2. ⬜ **Pfad A (DLL-internes `run_workload`) vs. Pfad B (host-getriebene Sequenz)** — Koexistenz oder Ablösung? (Vision „host-seitiger Belastungsplan" = Pfad B; aktuell beide vorhanden.) **Entscheidung offen.**
+3. ✅ **EMPFOHLEN:** Capability-Bit als **additives 5. `extern "C"`-Symbol** `comdare_anatomy_capabilities()` (ABI-Major bleibt 1 für diesen Teil; `dynamic_cast`-Fallback für alte DLLs). Funktionszeiger-Tabelle (Mechanik 3) nur falls Cross-Compiler-RTTI unzuverlässig.
+4. ⬜ **Profil-Schleife** (n Lastprofile je Binary) — Registrierung/Eignungs-Match gegen Tierart noch zu entwerfen.
+5. ✅ **GEKLÄRT:** Verbose-**Op**-Trace existiert NICHT (Trace ist checkpoint-aggregiert) → **NEU** als `ITierTraceSink` fürs funktional-only-Profil (C1), compile-time-gated, nie im Mess-Heißpfad.
+
+**Entscheidungs-Kandidat für I1 (User):** B1 „Interface-Split `IObservableTier`→`IDrivableTier`+`IObservableTier` für *vollkommen disjunkt*" ist ein vtable-Eingriff → reitet auf dem ohnehin geplanten `COMDARE_ANATOMY_ABI_MAJOR 1→2` mit (eine Charge: POD-Unifikation + Split + Capability-Bit). Funktional erfüllt der Ist-Stand die Disjunktheit bereits; B1 = Reinheit. **Mitmachen (Vision wörtlich) oder funktional belassen?**
