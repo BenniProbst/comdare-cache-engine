@@ -37,6 +37,7 @@ inline constexpr int dock_status_ok                   = 0;
 inline constexpr int dock_status_no_anatomy           = 1;   // Handle ohne IAnatomyBase
 inline constexpr int dock_status_wrong_genus          = 2;   // Modul-Gattung != Dock-Gattung
 inline constexpr int dock_status_subinterface_missing = 3;   // gattungs-Antrieb (dynamic_cast) == nullptr (alte DLL)
+inline constexpr int dock_status_conformance_failed   = 4;   // V5-I4: std::map-Konformitaets-Gate fehlgeschlagen (vor Messung)
 
 [[nodiscard]] inline std::string_view dock_status_name(int s) noexcept {
     switch (s) {
@@ -44,6 +45,7 @@ inline constexpr int dock_status_subinterface_missing = 3;   // gattungs-Antrieb
         case dock_status_no_anatomy:           return "no_anatomy";
         case dock_status_wrong_genus:          return "wrong_genus";
         case dock_status_subinterface_missing: return "subinterface_missing";
+        case dock_status_conformance_failed:   return "conformance_failed";
         default:                               return "unknown";
     }
 }

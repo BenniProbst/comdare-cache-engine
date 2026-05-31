@@ -14,6 +14,7 @@
 // @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md §8.8
 
 #include "pruef_dock.hpp"
+#include "conformance_gate.hpp"          // V5-I4: std::map-Konformitäts-Gate vor der Messung
 #include <anatomy/observable_tier.hpp>   // IObservableTier (SearchAlgorithm-Gattungs-Antrieb)
 
 namespace comdare::cache_engine::builder::pruef_dock {
@@ -41,6 +42,10 @@ public:
         // Sub-Interface aus IAnatomyBase ziehen. nullptr = altes Modul ohne Pfad B → sauber degradieren.
         auto* tier = dynamic_cast<anatomy::IObservableTier*>(base);
         if (tier == nullptr)                  return dock_status_subinterface_missing;
+        // V5-I4: Konformitäts-Gate gegen std::map VOR der Messung — eine nicht-konforme Hülle wird NICHT gemessen
+        // (Reihenfolge import → GATE → messen). tier IS-A IDriveableTier (Split); das Gate leert den Tier am Ende
+        // → saubere Ausgangslage für die anschließende Füllstands-Messung.
+        if (!run_conformance_gate(*tier).passed())  return dock_status_conformance_failed;
         // Der bestehende, unveränderte Füllstands-Treiber: r/w/d-Wall-Clock + tier_observe-POD Wall-Clock-korreliert.
         auto const trace = anatomy_cmds::drive_tier_observe_trace_abi(*tier, opts);
         out_csv  = anatomy_cmds::serialize_abi_tier_trace_csv(trace);
