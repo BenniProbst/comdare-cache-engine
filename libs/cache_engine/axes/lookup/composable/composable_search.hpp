@@ -130,6 +130,26 @@ public:
     // Saeule-2: read-only Zugriff auf das Storage-Organ (z.B. fuer den Allocator-Statistik-Durchgriff).
     [[nodiscard]] Store const& store()              const noexcept { return store_; }
 
+    // ── V5-I6-SUBSTANZ (#44) — MementoAxis: per-Achsen-Zustands-Kapselung (statt Adapter-Pauschalkopie) ──
+    // Das /goal verlangt „einheitliche Memento-Hilfsfunktionen JE STATEFUL ACHSEN-INTERFACE" (kein einfacher
+    // Snapshot). Dieses Such-Organ implementiert damit das MementoAxis-Concept (memento_aggregate.hpp:44-49):
+    //   memento_t       = vollstaendige (key,value)-Liste des Store-Substrats (der gesamte logische Zustand)
+    //   save_state()     = kapselt den Zustand (Warmup-Vor-Zustand)
+    //   restore_state(m) = rekonstruiert via Traversal::insert_into → erhaelt die Traversal-Invariante
+    //                      (z.B. SortedBinary haelt sortiert), nicht nur einen rohen Speicher-Klon.
+    using memento_t = std::vector<std::pair<key_type, value_type>>;
+
+    [[nodiscard]] memento_t save_state() const {
+        memento_t m;
+        m.reserve(store_.slot_count());
+        for (std::size_t i = 0; i < store_.slot_count(); ++i) m.emplace_back(store_.key_at(i), store_.value_at(i));
+        return m;
+    }
+    void restore_state(memento_t const& m) {
+        store_.clear();
+        for (auto const& kv : m) Traversal::template insert_into<Store>(store_, kv.first, kv.second);
+    }
+
 private:
     Store store_;
 };
