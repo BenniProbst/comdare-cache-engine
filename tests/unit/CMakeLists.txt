@@ -1062,6 +1062,13 @@ comdare_add_test(test_v5_conformance_gate
 target_include_directories(test_v5_conformance_gate PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine")
 
+# V5-I5 — MementoAxis-Concept + save_axis/restore_axis Round-Trip (Fundament memento_all; header-only + std).
+comdare_add_test(test_v5_memento_axis
+    SOURCES test_v5_memento_axis.cpp)
+target_include_directories(test_v5_memento_axis PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+
 # V41.F.6.1 R5.G — constexpr type_name<T>() (Auto-Emitter-Grundlage: FQ-Typ-Name als String).
 comdare_add_test(test_v41_codegen_type_name
     SOURCES test_v41_codegen_type_name.cpp)
