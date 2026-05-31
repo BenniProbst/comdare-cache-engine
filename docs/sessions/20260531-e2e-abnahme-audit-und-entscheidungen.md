@@ -113,4 +113,17 @@ Damit ist Abschluss-Kriterium **C(a)** (geschlossener E2E-Lauf an realen i7-Date
 **Befund:** jemalloc + tcmalloc-QUELLEN sind bereits lokal vendored (`ext/A05-jemalloc` inkl. vc2022-MSVC-Projekt; `ext/A06-tcmalloc`). Es fehlt KEINE Beschaffung — sondern: `COMDARE_HAVE_JEMALLOC`/`_TCMALLOC` werden in CMakeLists.txt nur GENUTZT (Z.497/504), aber NIE gesetzt → die vendored Quellen werden nie gebaut/detektiert/gelinkt. **Actionable lokaler Build-Task (nicht Beschaffung):** jemalloc/tcmalloc aus den vendored MSVC-Projekten bauen → `jemalloc.lib`/`tcmalloc.lib` → `COMDARE_HAVE_*=1` + `find_library`/Pfad + Link. Mittel-großer, build-risikobehafteter Integrationsschritt (eigene Charge, Rollback-Tag).
 - **Beschaffungs-Anforderung an User (NUR PMC):** Für die PMC-Hardware-Counter (Cache-Miss/L2-MPKI, G6) wird **Intel PCM (Vendor-Lib)** ODER **MSR-Treiber-Zugriff + Admin-Rechte** benötigt — das ist der EINZIGE genuin extern/beschaffungs-gatete P4-Teil. Bitte bereitstellen: (a) Intel-PCM-Build/-Lib ODER (b) Bestätigung MSR/Admin-Zugang auf der i7-1270P-Maschine. Bis dahin bleiben PMU-Spalten 0 (im Pipeline-CSV dokumentiert).
 
-### Nächster Schritt: P5-Quick-Wins (Custom_BulkInsert, op_type_filter) + Doku-Drift-Banner; P4-Vendor-Build (eigene Charge); finaler Abnahme-Audit.
+### P5-Fortschritt (2026-05-31)
+- **G11 `Custom_BulkInsert`** ✅ (WorkloadKind=102, Build grün).
+- **Monolith-Supersession** ✅ (adhoc_emitter SUPERSEDED-Kommentar; Organ-Messung = autoritative F15-Quelle).
+- **Doku-Drift-Banner** ✅ (Schlüssel-Docs aller 3 Repos: prt-art-README [nennt alle 4], DA-REV7.7-Master, DA-Z5-UML [nennt Y1–Z5], CE-Doku-23). Rest-Docs (Y1–Y4/Z1–Z4 einzeln, Docs 00–09, 23a) = Workflow-Kandidat.
+- **G10 `op_type_filter`** — BEFUND: existiert NICHT (kein Header); XSD/XML-Soll-Seite hat `<op_type>` (`test_data_xml/messreihe_v32_schema.xsd`), aber KEIN Runtime-Filter; V32Orchestrator filtert nicht nach op_type. = **neue Feature-Impl** (OP-Typ → Strategie-Auswahl aus der dokumentarischen Empfehlungstabelle), keine Trivialität → eigene Charge.
+
+### VERBLEIBEND zur Voll-Abnahme (C(c)+C(d)):
+1. **P4 Vendor-Build** (jemalloc/tcmalloc lokal bauen+linken; build-risikobehaftet, Rollback-Tag).
+2. **G10 `op_type_filter`** implementieren + in V32Orchestrator verdrahten.
+3. **Rest-Doku-Drift-Sweep** (Y1–Y4/Z1–Z4, Docs 00–09, 23a → Workflow).
+4. **PMC** (extern-gated, Beschaffungs-Anforderung an User gestellt).
+5. **Finaler Abnahme-Audit-Workflow** über 3 Repos (C(d)) → Abnahme.
+
+### Nächster Schritt: P4-Vendor-Build (eigene Charge, Rollback-Tag) ODER G10 op_type_filter; dann Rest-Doku-Sweep + finaler Audit.
