@@ -543,9 +543,15 @@ comdare_codegen_anatomy_module_list(
     OUTPUT_DIR    "${_r5d3_pilot_dir}"
     LIBRARY_TYPE  SHARED
     COMPOSITIONS
+        # V41.P2 (2026-05-31) Umstufung-B im Mess-Pfad: ALLE 6 named ORGAN-Compositions als Mess-DLLs
+        # (search_algo = sezierte Observable-Organe, direktiven-konform — Doku 14 §3.1). Jede Composition
+        # traegt organ-kompatible Begleit-Achsen (anders als der AdHoc-Default-Pfad, der nur Monolithen trug).
         "::comdare::cache_engine::compositions::ArtComposition|compositions/art_reference.hpp"
+        "::comdare::cache_engine::compositions::HotComposition|compositions/hot_reference.hpp"
         "::comdare::cache_engine::compositions::StartComposition|compositions/start_reference.hpp"
         "::comdare::cache_engine::compositions::SurfComposition|compositions/surf_reference.hpp"
+        "::comdare::cache_engine::compositions::WormholeComposition|compositions/wormhole_reference.hpp"
+        "::comdare::cache_engine::compositions::MasstreeComposition|compositions/masstree_reference.hpp"
     TARGETS_OUT _r5d3_pilot_targets)
 
 comdare_add_test(test_v41_anatomy_multi_codegen
