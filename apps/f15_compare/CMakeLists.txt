@@ -16,6 +16,7 @@ target_include_directories(comdare_f15_compare_cli PRIVATE
 
 target_link_libraries(comdare_f15_compare_cli PRIVATE
     comdare::anatomy_module_loader
+    comdare::workload_driver   # V5-I10: WorkloadGenerator-Impl für --measurement-plan (run_measurement_plan)
     Boost::mp11)
 
 target_compile_features(comdare_f15_compare_cli PRIVATE cxx_std_23)
