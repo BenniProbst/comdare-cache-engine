@@ -23,6 +23,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -170,6 +171,31 @@ run_measurement_plan(an::IObservableTier& tier,
     s += std::to_string(c.pct_erase);          s += '|';
     s += std::to_string(c.pct_clear);
     return s;
+}
+
+/// serialize_workload_run_results_csv — Mess-Ergebnis-CSV des Lastprofil-Pfads (eine Zeile je Profil-Lauf).
+/// Trägt je Op-Kind die Sample-Zahl + p50/p99-Perzentile (Tier-Wall-Clock, Doku 24 §2.1, GETRENNT) UND die
+/// korrelierten Observer-Zähler am Lauf-Ende. `two_phase`-Spalte dokumentiert, ob zwei-phasig (Rollback aktiv)
+/// gemessen wurde. Perzentile via `anatomy_commands::detail::nearest_rank_p` (Nearest-Rank, robust).
+[[nodiscard]] inline std::string serialize_workload_run_results_csv(std::vector<WorkloadRunResult> const& rs) {
+    std::ostringstream os;
+    os << "profile,op_count,two_phase,"
+          "insert_n,insert_p50_ns,insert_p99_ns,lookup_n,lookup_p50_ns,lookup_p99_ns,"
+          "erase_n,erase_p50_ns,erase_p99_ns,clear_n,clear_p50_ns,clear_p99_ns,"
+          "search_insert,search_lookup,search_hit,search_miss,search_erase,search_peak_occupancy,"
+          "alloc_bytes_in_use,alloc_alloc_count,observable_axes\n";
+    for (auto const& r : rs) {
+        auto const& o = r.observer;
+        os << r.profile_name << ',' << r.op_count << ',' << (r.two_phase ? 1 : 0) << ','
+           << r.insert_ns.size() << ',' << ac::detail::nearest_rank_p(r.insert_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.insert_ns, 0.99) << ','
+           << r.lookup_ns.size() << ',' << ac::detail::nearest_rank_p(r.lookup_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.lookup_ns, 0.99) << ','
+           << r.erase_ns.size()  << ',' << ac::detail::nearest_rank_p(r.erase_ns,  0.5) << ',' << ac::detail::nearest_rank_p(r.erase_ns,  0.99) << ','
+           << r.clear_ns.size()  << ',' << ac::detail::nearest_rank_p(r.clear_ns,  0.5) << ',' << ac::detail::nearest_rank_p(r.clear_ns,  0.99) << ','
+           << o.search_insert_count << ',' << o.search_lookup_count << ',' << o.search_hit_count << ','
+           << o.search_miss_count << ',' << o.search_erase_count << ',' << o.search_peak_occupancy << ','
+           << o.alloc_bytes_in_use << ',' << o.alloc_allocation_count << ',' << o.observable_axis_count << '\n';
+    }
+    return os.str();
 }
 
 }  // namespace comdare::cache_engine::builder::workload_driver

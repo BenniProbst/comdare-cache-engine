@@ -11,6 +11,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <map>
 #include <optional>
@@ -109,4 +110,17 @@ TEST(V5WorkloadOrchestrator, MeasurementPlanRunsMultipleProfiles) {
 TEST(V5WorkloadOrchestrator, SerializeWorkloadConfigFormat) {
     auto const s = wd::serialize_workload_config(wd::make_ycsb_c(42, 1000));
     EXPECT_EQ(s.rfind("YCSB_C_read_only|42|1000|1|1000000|", 0), 0u);
+}
+
+// Mess-Ergebnis-CSV: Header + eine Datenzeile je Profil-Lauf (Sample-Zahlen je Op-Kind + Observer).
+TEST(V5WorkloadOrchestrator, SerializeRunResultsCsv) {
+    wd::MeasurementPlan plan;
+    plan.profiles = {wd::make_mixed_a(7, 60), wd::make_ycsb_c(7, 40)};
+    MockTier t; auto const res = wd::run_measurement_plan(t, &t, plan);
+    auto const csv = wd::serialize_workload_run_results_csv(res);
+    EXPECT_EQ(csv.rfind("profile,op_count,two_phase,", 0), 0u);   // Header zuerst
+    EXPECT_NE(csv.find("\nMixedA_50_50,60,1,"), std::string::npos);     // Profil-1-Zeile, two_phase=1
+    EXPECT_NE(csv.find("\nYCSB_C_read_only,40,1,"), std::string::npos); // Profil-2-Zeile
+    // 3 Zeilen (Header + 2 Profile): genau 2 '\n' nach dem Header, 3 insgesamt.
+    EXPECT_EQ(std::count(csv.begin(), csv.end(), '\n'), 3);
 }
