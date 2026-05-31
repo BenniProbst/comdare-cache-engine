@@ -75,7 +75,17 @@
 > Linux/Bazel-only, WSL bare, kein autoconf) → **§(b) toolchain-gated** mit konkreter Beschaffungs-Spezifikation
 > (`20260531-p4-vendor-beschaffungs-spezifikation.md`). P4-PMC bleibt §(b) extern-gated. **Damit ist §(a) frei von
 > offenen actionable nicht-extern-gateten Punkten** — beide verbleibenden P4-Stränge sind beschaffungs-/toolchain-gated
-> (= GETRENNT gezählt, wie extern/V42/user-manuell). **C(c)-Bedingung erfüllt.** Verbleibt: finaler Abnahme-Audit-Workflow (C(d)).
+> (= GETRENNT gezählt, wie extern/V42/user-manuell). **C(c)-Bedingung erfüllt** (mit getracktem Vorbehalt #42-Phase-2, s.u.).
+>
+> **✅ C(d) FINALER ABNAHME-AUDIT-WORKFLOW DURCH (`wu8pehnk3`, 13 Agenten, 6 Dimensionen + adversariell + Synthese, 2026-05-31):**
+> **Verdikt = ABGENOMMEN MIT VORBEHALT.** Alle 5 tragenden Kriterien PASS (literal): C(a) E2E real→PDF · C(b) F15
+> sezierte Organe (Headline-Mess-Pfad) · C(c) Ledger ohne offene nicht-gatete Punkte · Submodul-Sync+Push 3 Repos ·
+> Direktiven-Konformität (kein D1/D2-Eingriff, 0 Doku-Löschungen, kein gefaktes jemalloc). Eine Verify-Halluzination
+> („PA-Banner fehlen") on-disk widerlegt (alle 4 PA-Docs tragen Banner). Verbleibend nicht-blockierend: 2× P4-Gate (§b)
+> + **Task #42 Phase 2** (s.u.) + 2 kosmetische Fixes (in dieser Runde behoben: stale Test-Kommentare, Doku-23-Banner-Wortlaut).
+> Verdikt-Detail + Restpunkt-Planrunde: `docs/sessions/20260531-cd-abnahme-audit-verdikt-und-planrunde.md`.
+
+| **#42-Phase-2** (Umstufung-B Symbol-Ebene) | axis_03a `EnabledStrategies` von 17 Ganz-Algorithmus-Wrappern auf sezierte Organ-Kompositionen umstellen | **actionable · nicht-gated · GROSS-multi-session · NICHT-abnahmeblockierend** | **⬜ OFFEN (getrackt, Planrunde steht)** | IST-verifiziert: `axes/lookup/axis_03a_search_algo_registry.hpp:45-77` `AllStrategies`=17 `*SearchAlgo : SearchAlgoBase` (keine Organe); sezierte Organe leben parallel in `composable/tier_to_organ_mapping.hpp`. **13 Konsumenten** → volle Regression zwingend (kein Quick-Fix). Headline-F15-Pfad nutzt die 6 Organ-Kompositionen, NICHT EnabledStrategies → nicht-blockierend. Direktive `no_whole_tier_axes` Symbol-Ebene noch offen | 5-Schritt-Planrunde in `20260531-cd-abnahme-audit-verdikt-und-planrunde.md` §3.3 (Organ-Sezierung der 9 Rest-Methoden → `EnabledOrganCompositions` → 13 Konsumenten je 1 Commit grün → Alias entfernen → static_assert nur-Kompositionen → Regression+Tags). Eigene Session, Rollback-Tag |
 
 ---
 
