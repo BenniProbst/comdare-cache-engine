@@ -21,6 +21,8 @@
 // @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md §8.6/§8.7
 // @related [[feedback_zwei_dimensionen_messmodell]] [[execution-engine-als-wurzel]]
 
+#include "idriveable_tier.hpp"   // V5-I2: IObservableTier erbt den funktionalen Antrieb (immer einkompiliert)
+
 #include <cstdint>
 #include <type_traits>
 
@@ -77,26 +79,12 @@ inline constexpr std::uint32_t kTierObserverSnapshotVersion = 1;
 /// flachen POD (tier_observe). Beide Trigger-Modi aus §8.7 (Zeitschritt-Sync / Zustands-Manipulation)
 /// realisiert der Host, indem er nach Operationen bzw. Intervallen tier_observe() aufruft und den Snapshot
 /// mit einem Wall-Clock-Zeitstempel korreliert + persistiert.
-class IObservableTier {
+/// V5-I2: IObservableTier erbt den funktionalen Antrieb aus IDriveableTier (idriveable_tier.hpp, IMMER einkompiliert)
+/// und ergänzt NUR die Beobachtung (tier_observe). Der ABI-Adapter vererbt IObservableTier NUR bei Messung-AN
+/// (COMDARE_MEASUREMENT_ON) — die Antriebs-Ops bleiben über IDriveableTier auch in der Release-/funktional-only-DLL.
+class IObservableTier : public IDriveableTier {
 public:
-    virtual ~IObservableTier() = default;
-
-    // ── Gattungs-Antrieb (SearchAlgorithm-Gattung): gemeinsamer uint64-Key/Value-Raum ──
-
-    /// Fügt (key,value) ein bzw. aktualisiert. Rückgabe: true wenn ein NEUER Schlüssel entstand.
-    [[nodiscard]] virtual bool tier_insert(std::uint64_t key, std::uint64_t value) noexcept = 0;
-
-    /// Sucht key. Bei Treffer wird *out_value gesetzt (falls out_value != nullptr) und true geliefert.
-    [[nodiscard]] virtual bool tier_lookup(std::uint64_t key, std::uint64_t* out_value) const noexcept = 0;
-
-    /// Entfernt key. Rückgabe: true wenn key vorhanden war.
-    [[nodiscard]] virtual bool tier_erase(std::uint64_t key) noexcept = 0;
-
-    /// Leert den Tier-Zustand (Schlüssel; Statistik-Reset ist separat über reset()).
-    virtual void tier_clear() noexcept = 0;
-
-    /// Logische Schlüsselzahl (Füllstand) — Stützpunkt der zustands-getriggerten Observer-Erhebung (§8.7b).
-    [[nodiscard]] virtual std::uint64_t tier_size() const noexcept = 0;
+    ~IObservableTier() override = default;
 
     // ── Observer-Zugriff: die IM Tier eingebauten Observer als flachen POD durch die ABI-Grenze ziehen ──
 
