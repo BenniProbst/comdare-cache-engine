@@ -64,14 +64,14 @@ TEST(R5D3_MultiCodegen, PilotDirectoryContainsExpectedDlls) {
             ++count;
         }
     }
-    EXPECT_EQ(count, 6u) << "Erwartet 3 anatomy-Pilot-DLLs in " << dir.string();
+    EXPECT_EQ(count, 6u) << "Erwartet 6 anatomy-Pilot-DLLs in " << dir.string();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// §2 — load_all liefert 3 Handles
+// §2 — load_all liefert 6 Handles (6 sezierte Organ-Kompositionen)
 // ─────────────────────────────────────────────────────────────────────────────
 
-TEST(R5D3_MultiCodegen, LoadAllReturnsThreeHandles) {
+TEST(R5D3_MultiCodegen, LoadAllReturnsSixHandles) {
     std::vector<loader::AnatomyModuleHandle> handles;
     int const status = loader::AnatomyModuleLoader::load_all(pilot_dir(), handles);
     ASSERT_EQ(status, loader::status_ok)
@@ -83,7 +83,7 @@ TEST(R5D3_MultiCodegen, LoadAllReturnsThreeHandles) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// §3 — Geladene Composition-Names matchen die 3 Pilot-Compositions (Set-Vergleich)
+// §3 — Geladene Composition-Names matchen die 6 Pilot-Compositions (Set-Vergleich)
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5D3_MultiCodegen, LoadAllProducesCorrectCompositionSet) {
