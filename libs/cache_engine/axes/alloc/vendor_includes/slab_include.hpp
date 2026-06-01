@@ -3,7 +3,7 @@
 //
 // @vendor A02 Slab (Bonwick USENIX 1994 + Magazines USENIX 2001)
 
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <axes/alloc/axis_06_allocator_flags.hpp>
 
 #include <cstddef>
 #include <cstdlib>

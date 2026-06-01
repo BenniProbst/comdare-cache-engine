@@ -7,7 +7,7 @@
 // Aligned-Allocation muss via Overallocation + manueller Pointer-Justierung
 // erfolgen — siehe Wrapper-Klasse axis_06_allocator_scalloc.hpp.
 
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <axes/alloc/axis_06_allocator_flags.hpp>
 
 #include <cstddef>
 #include <cstdlib>

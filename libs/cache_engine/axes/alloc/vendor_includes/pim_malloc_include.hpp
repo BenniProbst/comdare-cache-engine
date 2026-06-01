@@ -7,7 +7,7 @@
 // Auf nicht-PIM-Hardware: Fallback auf portable_aligned_alloc (Host-Memory).
 // `requires_specialized_hardware()` Property = true im Wrapper.
 
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <axes/alloc/axis_06_allocator_flags.hpp>
 
 #include <cstddef>
 #include <cstdlib>

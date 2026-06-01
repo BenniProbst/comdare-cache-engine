@@ -3,7 +3,7 @@
 //
 // @vendor A19 Buddy Power-of-2 Splitting (Knuth TAoCP Vol 1, Classic 1968)
 
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <axes/alloc/axis_06_allocator_flags.hpp>
 
 #include <cstddef>
 #include <cstdlib>

@@ -3,7 +3,7 @@
 //
 // @vendor A12 CAMA Cache-Aware (Bhattacharyya/Beard/Cohen 2020)
 
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <axes/alloc/axis_06_allocator_flags.hpp>
 
 #include <cstddef>
 #include <cstdlib>

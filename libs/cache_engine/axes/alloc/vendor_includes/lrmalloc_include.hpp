@@ -4,7 +4,7 @@
 // @vendor A11 LRMalloc (Leite/Rocha JPDC 2019)
 // Lock-Free Memory Allocator using Hazard-Pointers fuer safe Reclamation.
 
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <axes/alloc/axis_06_allocator_flags.hpp>
 
 #include <cstddef>
 #include <cstdlib>

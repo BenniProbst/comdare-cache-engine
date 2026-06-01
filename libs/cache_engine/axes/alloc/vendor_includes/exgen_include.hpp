@@ -4,7 +4,7 @@
 // @vendor A18 Exgen-Malloc Exception-Generated Single-Thread Specialized
 // Optimiert fuer single-threaded Code mit Exception-Safety.
 
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <axes/alloc/axis_06_allocator_flags.hpp>
 
 #include <cstddef>
 #include <cstdlib>

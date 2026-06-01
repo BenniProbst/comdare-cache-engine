@@ -4,7 +4,7 @@
 // @vendor A14 TCMalloc-Warehouse (Google Cloud, Hyperscale-Erweiterung von TCMalloc)
 // Erweitert TCMalloc um Warehouse-style storage fuer Cloud-Workloads.
 
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <axes/alloc/axis_06_allocator_flags.hpp>
 
 #include <cstddef>
 #include <cstdlib>
