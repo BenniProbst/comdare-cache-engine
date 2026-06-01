@@ -15,7 +15,7 @@
 #include <topics/search_engine/axis_01_index_organization/axis_01_index_organization_index_organized_table.hpp>
 #include <topics/search_engine/axis_01_index_organization/axis_01_index_organization_registry.hpp>
 #include <topics/search_engine/axis_01_index_organization/axis_01_index_organization_subaxes_io1_to_io3.hpp>
-#include <topics/search_engine/axis_01_index_organization/axis_01_index_organization_flags.hpp>
+#include <axes/index_organization/axis_01_index_organization_flags.hpp>
 #include <topics/search_engine/topic_search_engine_config_set.hpp>
 
 #include <boost/mp11.hpp>

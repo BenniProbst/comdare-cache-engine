@@ -38,7 +38,7 @@
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_dlmalloc.hpp>
 
 // V41.F.6.1.C Stufe 1: Registry-Smoke-Test (W6 zentralisierte Topic-Registrierung)
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <axes/alloc/axis_06_allocator_flags.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_registry.hpp>
 
 // V41.F.6.1.D Stufe 4: TopicConfigSet + PermutationEngine

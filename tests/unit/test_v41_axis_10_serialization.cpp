@@ -11,7 +11,7 @@
 #include <topics/serialization/axis_10_serialization/axis_10_serialization_compressed.hpp>
 #include <topics/serialization/axis_10_serialization/axis_10_serialization_registry.hpp>
 #include <topics/serialization/axis_10_serialization/axis_10_serialization_subaxes_sr1_to_sr3.hpp>
-#include <topics/serialization/axis_10_serialization/axis_10_serialization_flags.hpp>
+#include <axes/serialization_axis/axis_10_serialization_flags.hpp>
 #include <topics/serialization/topic_serialization_config_set.hpp>
 
 #include <boost/mp11.hpp>

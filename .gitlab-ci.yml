@@ -3,8 +3,19 @@
 # Synchron mit .github/workflows/ci.yml.
 
 stages:
+  - lint
   - configure
   - test
+
+# Wartbarkeits-Lint (2026-06-01): generierte *_flags.hpp müssen über ihren echten Generierungs-Ort
+# inkludiert werden (axes/ vs topics/) — verhindert die latente Bug-Klasse (stale-Artefakt-maskiert).
+lint:flags_includes:
+  image: debian:bookworm
+  stage: lint
+  variables:
+    GIT_SUBMODULE_STRATEGY: none
+  script:
+    - bash scripts/lint_flags_includes.sh
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
