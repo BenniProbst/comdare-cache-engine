@@ -25,20 +25,25 @@ WorkloadGenerator::WorkloadGenerator(WorkloadConfig config)
             "negative or zero-sum op-mix?)"};
     }
 
-    // Op-Mix normalisieren (Summe -> 1.0)
+    // Op-Mix normalisieren (Summe -> 1.0) — inkl. Scan/RMW (V5-#49-E/F)
     double const sum =
         config_.pct_insert + config_.pct_lookup +
-        config_.pct_erase  + config_.pct_clear;
+        config_.pct_erase  + config_.pct_clear  +
+        config_.pct_scan   + config_.pct_rmw;
     config_.pct_insert /= sum;
     config_.pct_lookup /= sum;
     config_.pct_erase  /= sum;
     config_.pct_clear  /= sum;
+    config_.pct_scan   /= sum;
+    config_.pct_rmw    /= sum;
 
-    // CDF aufbauen (kumulative Schwellenwerte fuer Op-Sampling)
+    // CDF aufbauen (kumulative Schwellenwerte fuer Op-Sampling; Reihenfolge Insert→Lookup→Erase→Clear→Scan→RMW)
     cdf_insert_ = config_.pct_insert;
     cdf_lookup_ = cdf_insert_ + config_.pct_lookup;
     cdf_erase_  = cdf_lookup_ + config_.pct_erase;
-    cdf_clear_  = 1.0;  // Pflicht-Anker (Summe normalisiert)
+    cdf_clear_  = cdf_erase_  + config_.pct_clear;
+    cdf_scan_   = cdf_clear_  + config_.pct_scan;
+    cdf_rmw_    = 1.0;  // Pflicht-Anker (Summe normalisiert)
 
     // YCSB-Treue (#49): Zipfian-Konstanten vorberechnen, falls Zipfian/Latest gewählt.
     if (config_.key_distribution != KeyDistribution::Uniform) precompute_zipfian();
@@ -103,7 +108,9 @@ WorkloadOpKind WorkloadGenerator::sample_op_kind() noexcept {
     if (r < cdf_insert_) return WorkloadOpKind::Insert;
     if (r < cdf_lookup_) return WorkloadOpKind::Lookup;
     if (r < cdf_erase_)  return WorkloadOpKind::Erase;
-    return WorkloadOpKind::Clear;  // r in [cdf_erase_, 1.0)
+    if (r < cdf_clear_)  return WorkloadOpKind::Clear;
+    if (r < cdf_scan_)   return WorkloadOpKind::Scan;             // V5-#49-E
+    return WorkloadOpKind::ReadModifyWrite;  // r in [cdf_scan_, 1.0)   V5-#49-F
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -137,10 +144,13 @@ std::uint64_t WorkloadGenerator::sample_key() noexcept {
 // ─────────────────────────────────────────────────────────────────────────────
 
 WorkloadOp WorkloadGenerator::next() noexcept {
-    auto const kind = sample_op_kind();
-    auto const k    = sample_key();
-    auto const v    = next_random();  // value (nur fuer Insert relevant, aber
-                                       // immer generiert um State-Sync zu halten)
+    auto const kind  = sample_op_kind();
+    auto const k     = sample_key();
+    auto const v_raw = next_random();  // value (immer gezogen, hält den PRNG-State synchron / reproduzierbar)
+    // V5-#49-E: für Scan-Ops kodiert `value` die Scan-Länge in [1, scan_length_max] (YCSB-E, uniform).
+    std::uint64_t const v = (kind == WorkloadOpKind::Scan)
+        ? (1ULL + (v_raw % (config_.scan_length_max == 0 ? 1ULL : config_.scan_length_max)))
+        : v_raw;
     ++generated_;
     return WorkloadOp{kind, k, v};
 }

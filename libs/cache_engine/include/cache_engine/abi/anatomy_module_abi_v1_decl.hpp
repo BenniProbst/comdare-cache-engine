@@ -33,8 +33,12 @@
 /// Variante gewinnt ZUSÄTZLICH IRollbackableTier (memento_all, tier_save_all/tier_rollback_all). Minor-Bump:
 /// ein neuerer Host akzeptiert ältere Module (minor 0, ohne Rollback) weiterhin — der Loader-`dynamic_cast` auf
 /// IRollbackableTier liefert dort null → der Zwei-Phasen-Treiber (I7) fällt graziös auf Kalt-Messung zurück.
+/// V5-#49-E (Minor 1→2): die MESSUNG-AN-Variante gewinnt ZUSÄTZLICH IScannableTier (tier_scan, YCSB-E-Range-Scan).
+/// Wieder rein additiv: Major (IDriveableTier) unverändert; ältere Module (minor ≤ 1, ohne Scan) bleiben kompatibel
+/// (host_compatible_with: minor 1 ≤ 2), der `dynamic_cast<IScannableTier*>` liefert dort null → YCSB-E-Profile
+/// fallen für solche Module ehrlich aus. (Magic kodiert nur Major → durch den Minor-Bump UNVERÄNDERT.)
 #define COMDARE_ANATOMY_ABI_MAJOR 2
-#define COMDARE_ANATOMY_ABI_MINOR 1
+#define COMDARE_ANATOMY_ABI_MINOR 2
 
 /// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA·A2·" als big-endian uint64_t (V5-I2.2).
 #define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141322EULL

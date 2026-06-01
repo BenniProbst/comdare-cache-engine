@@ -86,11 +86,13 @@ private:
     WorkloadConfig config_;
     std::uint64_t  state_;        ///< xorshift64-State
     std::size_t    generated_;    ///< Counter
-    // Cumulative-Distribution-Function fuer Op-Sampling (4 thresholds)
+    // Cumulative-Distribution-Function fuer Op-Sampling (6 thresholds: +Scan/+RMW, V5-#49-E/F)
     double cdf_insert_{};
     double cdf_lookup_{};
     double cdf_erase_{};
     double cdf_clear_{};
+    double cdf_scan_{};
+    double cdf_rmw_{};
     // Zipfian-Vorberechnung (Gray et al. 1994; nur bei Zipfian/Latest besetzt). YCSB-Treue (#49).
     std::uint64_t zipf_n_{1};     ///< Anzahl Items = key_max - key_min + 1
     double zipf_theta_{0.99};

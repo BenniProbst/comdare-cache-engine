@@ -28,6 +28,7 @@
 #include "measurable_workload.hpp"   // F15/Stufe B: optionales Mess-Sub-Interface (ABI-sicher)
 #include "observable_tier.hpp"       // R6/Pfad B: ABI-stabiler Observer-Zugriff (Doku 24 §8.6)
 #include "rollbackable_tier.hpp"     // V5-I6: memento_all-ABI-Sub-Interface (tier_save_all/tier_rollback_all)
+#include "scannable_tier.hpp"        // V5-#49-E: Range-Scan-ABI-Sub-Interface (tier_scan, YCSB-E)
 #include "observer_aggregate.hpp"    // ObservableAxis + ObserverAggregate (observable_count)
 #include "memento_aggregate.hpp"     // V5-I6-SUBSTANZ (#44): MementoAxis + save_axis/restore_axis (per-Achsen-Memento)
 #include "../execution_engine/execution_engine_base.hpp"
@@ -38,6 +39,7 @@
 #include "../topics/traversal/axis_03a_search_algo/composable/observable_composed_search.hpp"
 #include "../topics/nodes/axis_04_node_type/axis_04_node_type_composed_store.hpp"
 
+#include <algorithm>     // V5-#49-E: std::sort für den geordneten Range-Scan (tier_scan)
 #include <array>
 #include <chrono>
 #include <cstddef>
@@ -46,6 +48,7 @@
 #include <random>
 #include <string_view>
 #include <type_traits>   // V5-I6: is_copy_constructible/assignable-Guards für die In-Memory-Memento-Kopie
+#include <vector>        // V5-#49-E: save_state()-Snapshot-Liste für den Range-Scan
 
 namespace comdare::cache_engine::anatomy {
 
@@ -78,12 +81,13 @@ namespace comdare::cache_engine::anatomy {
 template <AnatomyConcept A>
 class SearchAlgorithmAbiAdapter final : public IAnatomyBase,
 // V5-I2.2/I6: Antrieb ⊥ Observer ⊥ Memento compile-time disjunkt (kein Diamond — IObservableTier/IRollbackableTier IS-A nichts Gemeinsames; IDriveableTier kommt über IObservableTier).
-//   MESSUNG-AN  : IObservableTier (Antrieb + tier_observe/observer_all) + IMeasurableWorkload (Pfad-A, host-relokal. I9) + IRollbackableTier (memento_all, V5-I6).
-//   MESSUNG-AUS : NUR IDriveableTier (funktionaler Antrieb) → Release-/funktional-only-DLL OHNE jeden Mess-Overhead (kein Observer-, kein Memento-vtable-Slot).
+//   MESSUNG-AN  : IObservableTier (Antrieb + tier_observe/observer_all) + IMeasurableWorkload (Pfad-A, host-relokal. I9) + IRollbackableTier (memento_all, V5-I6) + IScannableTier (Range-Scan, V5-#49-E).
+//   MESSUNG-AUS : NUR IDriveableTier (funktionaler Antrieb) → Release-/funktional-only-DLL OHNE jeden Mess-Overhead (kein Observer-, kein Memento-, kein Scan-vtable-Slot).
 #if COMDARE_MEASUREMENT_ON
                                         public IObservableTier,
                                         public IMeasurableWorkload,
-                                        public IRollbackableTier {
+                                        public IRollbackableTier,
+                                        public IScannableTier {
 #else
                                         public IDriveableTier {
 #endif
@@ -346,7 +350,38 @@ public:
             || (std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>);
         return search_ok && cont_ok;
     }
-#endif  // COMDARE_MEASUREMENT_ON (tier_save_all / tier_rollback_all / memento_all)
+
+    // ─────────────────────────────────────────────────────────────────────
+    // IScannableTier-Override (V5-#49-E): YCSB-E Range-Scan über das getriebene Such-Organ.
+    // Liest ab dem kleinsten gespeicherten Key >= start_key bis zu max_count Records IN KEY-REIHENFOLGE.
+    // Implementierung über den MementoAxis-Snapshot (save_state() = vollständige (key,value)-Liste, in JEDEM
+    // produktiven Such-Organ vorhanden) → sortieren → ab start_key bis max_count akkumulieren. Organe OHNE
+    // MementoAxis sind nicht scanbar → 0 (ehrlich, kein Fake). const + noexcept (Mess-Robustheit: jede
+    // interne Störung → 0). Der Scan verändert weder Daten noch Observer-Zähler (reines Lesen des Substrats).
+    // ─────────────────────────────────────────────────────────────────────
+    [[nodiscard]] std::uint64_t tier_scan(std::uint64_t start_key, std::uint64_t max_count,
+                                          std::uint64_t* out_checksum) const noexcept override {
+        std::uint64_t visited = 0;
+        std::uint64_t sum     = 0;
+        try {
+            if constexpr (MementoAxis<SearchAlgo>) {
+                auto snapshot = search_organ_.save_state();   // vollständige (key,value)-Liste des Substrats
+                std::sort(snapshot.begin(), snapshot.end(),
+                          [](auto const& a, auto const& b) noexcept { return a.first < b.first; });
+                for (auto const& kv : snapshot) {
+                    if (static_cast<std::uint64_t>(kv.first) < start_key) continue;   // vor dem Scan-Fenster
+                    if (visited >= max_count) break;                                   // Fenster gefüllt
+                    sum += static_cast<std::uint64_t>(kv.second);
+                    ++visited;
+                }
+            }
+        } catch (...) {
+            return 0;   // noexcept-Vertrag: interne Störung (z.B. OOM beim Snapshot) → 0 Records
+        }
+        if (out_checksum != nullptr) *out_checksum += sum;
+        return visited;
+    }
+#endif  // COMDARE_MEASUREMENT_ON (tier_save_all / tier_rollback_all / memento_all / tier_scan)
 
 private:
     using Composition = typename A::composition_t;
