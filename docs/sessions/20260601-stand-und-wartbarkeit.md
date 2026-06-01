@@ -65,6 +65,15 @@ Cluster-Kontext (User 2026-06-01): dev läuft, prod fast bereit, GitLab läuft, 
 
 ## 4. Wartbarkeits-Agenda (für die „Ordnung herstellen"-Phase)
 
+> **✅ UMGESETZT 2026-06-01 (User-Freigabe):** #1 (CWD-Stray-Fallback der Stufen-Tests 03/04/05 gehärtet via
+> CMake-Source-Dir-Compile-Def — kein Stray mehr, test_03 5/5 grün), #2 (Flags-Include-Lint
+> `scripts/lint_flags_includes.sh` + CI GitHub/GitLab; **fand sofort 12 weitere latente Instanzen derselben
+> Bug-Klasse** in tests/unit/test_v41_axis_* → alle gefixt; Generalisierungs-Check ergab: `*_flags.hpp` ist die
+> EINZIGE configure_file-generierte Header-Klasse → vollständig abgedeckt), #3 (`.gitattributes` in allen 4
+> Wurzeln gegen LF/CRLF). Commits CE `f93f3a0`, PA `de8ab30`, DA `e134f14`; CI grün. Verbleibend §4-intern:
+> nur #4 (MEMORY.md, Cluster-Domäne) + #5 (Spiegel-Drift, gated auf Option B). Stray-`fixtures/` (Punkt 1 unten)
+> + die 2 thesis-`.zip` (nun in `.gitignore`, User 2026-06-01) erledigt.
+
 Konkrete, in dieser Session aufgedeckte Wartbarkeits-Punkte (Empfehlung, keine Blocker):
 
 1. **🧹 ERLEDIGT — Stray `fixtures/` auf DA-Wurzel entfernt.** Ursache: die Stufen-Tests 03/04/05
