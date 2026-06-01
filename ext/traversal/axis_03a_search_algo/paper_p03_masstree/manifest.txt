@@ -1,11 +1,12 @@
 # Paper: P03 Masstree (Mao/Kohler/Morris EuroSys 2012)
 # Cache-Engine-Wrapper: OriginalMasstreeSearchAlgo (Template-Adapter via rotaki/masstree-wrapper Pattern)
 #
-# Multi-File Out-of-Class Templates (Masstree-typisch):
-# - get():           Body in masstree_get.hh (NICHT masstree.hh!)
-# - find_insert():   Body in masstree_insert.hh (tcursor<P>::find_insert)
-# - find_locked():   Body in masstree_remove.hh (tcursor<P>::find_locked)
-# - find_unlocked(): Body in masstree_tcursor.hh (unlocked_tcursor<P>::find_unlocked)
+# Multi-File Out-of-Class Templates (Masstree-typisch). WICHTIG: source_relative_path zeigt auf den
+# DEFINITIONS-Ort des Funktions-Bodies (nicht den Aufruf-Ort) — der is_original_validator hasht den Body:
+# - get():         DEFINIERT in masstree_get.hh   (basic_table<P>::get)
+# - find_insert(): DEFINIERT in masstree_insert.hh (tcursor<P>::find_insert)
+# - find_locked(): DEFINIERT in masstree_get.hh:71 (tcursor<P>::find_locked) — NICHT remove.hh (dort nur Aufruf)
+# - destroy():     DEFINIERT in masstree_remove.hh:358 (basic_table<P>::destroy) — NICHT masstree.hh (dort nur Deklaration)
 #
 # Wrapper bindet via `Masstree::basic_table<table_params>` Template-Instantiation
 # (rotaki/masstree-wrapper Gold-Standard, MIT). Template-Type ist Build-Time-Flag.
@@ -20,5 +21,5 @@
 # eben so... Ist trotzdem original code, wenn wir ein Template Typ davon verwenden.")
 insert        find_insert     masstree_insert.hh
 lookup        get             masstree_get.hh
-erase         find_locked     masstree_remove.hh
-clear         destroy         masstree.hh
+erase         find_locked     masstree_get.hh
+clear         destroy         masstree_remove.hh
