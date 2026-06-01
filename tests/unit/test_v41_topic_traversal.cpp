@@ -675,7 +675,7 @@ TEST(Saeule1_ComposableOrgan, BothTraversalOrgansMatchStdMapOverWideKeys) {
     SUCCEED();  // Traversal-Organ ⊕ Storage-Organ, frei austauschbar, std::map-aequivalent, breiter Key
 }
 
-// V41 Saeule-1 (Doku 24 §5.4) — node_type ALS echtes Storage-Organ: NodeTypeSlotStore<Node4Layout>
+// V41 Saeule-1 (Doku 24 §5.4) — node_type ALS echtes Storage-Organ: NodeTypeSlotStore<Node4NodeType>
 // (bounded std::array der Kapazitaet N::max_capacity()=4) wird unter dasselbe StorageOrgan-Concept
 // gestellt und von BEIDEN Traversal-Organen konsumiert. Beweist: (1) der node_type ist kein "Tier",
 // sondern ein austauschbares Organ; (2) er liefert ueber dem breiten uint64-Key dieselbe
@@ -683,7 +683,7 @@ TEST(Saeule1_ComposableOrgan, BothTraversalOrgansMatchStdMapOverWideKeys) {
 namespace ce_nodes = comdare::cache_engine::nodes::axis_04_node_type;
 
 TEST(Saeule1_NodeTypeStorageOrgan, Node4DrivesBothTraversalOrgansAsStdMap) {
-    using Store = ce_nodes::NodeTypeSlotStore<ce_nodes::Node4Layout>;
+    using Store = ce_nodes::NodeTypeSlotStore<ce_nodes::Node4NodeType>;
     static_assert(ce_cmp::StorageOrgan<Store>);
     static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal,   Store>);
     static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, Store>);
@@ -706,8 +706,8 @@ namespace ce_layout = comdare::cache_engine::memory_layout::axis_05_memory_layou
 namespace ce_alloc  = comdare::cache_engine::allocator::axis_06_allocator;
 
 TEST(Saeule1_ComposedStore, AllocatorBackedStoreDrivesBothTraversalOrgansAsStdMap) {
-    using StoreMi  = ce_nodes::ComposedStore<ce_nodes::Node4Layout, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::MimallocAllocator>;
-    using StorePmr = ce_nodes::ComposedStore<ce_nodes::Node4Layout, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::PmrResourceAllocator>;
+    using StoreMi  = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::MimallocAllocator>;
+    using StorePmr = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::PmrResourceAllocator>;
 
     // Compile-Selbstbeweis: alle 3 Achsen flossen in den Organ-Typ ein, weiter StorageOrgan-konform.
     static_assert(ce_cmp::StorageOrgan<StoreMi>);
@@ -744,8 +744,8 @@ TEST(Saeule1_ComposableOrgan, InterpolationAndGallopingMatchStdMapOverWideKeys) 
 // Dieselben zwei Organe ueber dem 3-Achsen-Storage-Organ (ComposedStore<N,L,A>) — Organ-Swappability
 // quer ueber Traversal- UND Storage-Achse (Mimalloc + PMR-Anker).
 TEST(Saeule1_ComposedStore, InterpolationAndGallopingOverComposedStore) {
-    using StoreMi  = ce_nodes::ComposedStore<ce_nodes::Node4Layout, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::MimallocAllocator>;
-    using StorePmr = ce_nodes::ComposedStore<ce_nodes::Node4Layout, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::PmrResourceAllocator>;
+    using StoreMi  = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::MimallocAllocator>;
+    using StorePmr = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::PmrResourceAllocator>;
     static_assert(ce_cmp::TraversalOrgan<ce_cmp::InterpolationTraversalOrgan, StoreMi>);
     static_assert(ce_cmp::TraversalOrgan<ce_cmp::GallopingTraversalOrgan,     StorePmr>);
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, StoreMi>>(100000u, 2000u);

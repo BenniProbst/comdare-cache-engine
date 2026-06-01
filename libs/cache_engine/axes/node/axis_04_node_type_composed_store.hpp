@@ -122,7 +122,7 @@ private:
 // Compile-Time-Selbstbeweis (Regel "Compile-Time-Only NO Runtime"): das 3-Achsen-Organ erfuellt
 // StorageOrgan UND ist von BEIDEN Traversal-Organen nutzbar. Pilot = (Node4, CacheLineAligned, Mimalloc).
 namespace ce_cmp = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable;
-using PilotComposedStore = ComposedStore<Node4Layout, _ml::CacheLineAlignedMemoryLayout, _al::MimallocAllocator>;
+using PilotComposedStore = ComposedStore<Node4NodeType, _ml::CacheLineAlignedMemoryLayout, _al::MimallocAllocator>;
 static_assert(ce_cmp::StorageOrgan<PilotComposedStore>);
 static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal,   PilotComposedStore>);
 static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, PilotComposedStore>);

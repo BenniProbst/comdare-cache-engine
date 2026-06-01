@@ -15,7 +15,7 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(
     ::comdare::cache_engine::traversal::axis_03b_cache_traversal::LinearFanout,
     ::comdare::cache_engine::traversal::axis_03m_mapping::DirectPlacement,
     ::comdare::cache_engine::nodes::axis_02_path_compression::PathCompressionNone,
-    ::comdare::cache_engine::nodes::axis_04_node_type::Node256Layout,
+    ::comdare::cache_engine::nodes::axis_04_node_type::Node256NodeType,
     ::comdare::cache_engine::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout,
     ::comdare::cache_engine::allocator::axis_06_allocator::MimallocAllocator,
     ::comdare::cache_engine::prefetch::axis_07_prefetch::NonePrefetch,

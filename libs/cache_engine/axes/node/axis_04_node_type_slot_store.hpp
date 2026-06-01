@@ -75,8 +75,8 @@ private:
 // Compile-Time-Selbstbeweis (Regel "Compile-Time-Only NO Runtime"): der node_type-getriebene Store
 // erfuellt das StorageOrgan-Concept UND ist von BEIDEN Traversal-Organen nutzbar (Organ-Swappability).
 namespace ce_cmp = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable;
-static_assert(ce_cmp::StorageOrgan<NodeTypeSlotStore<Node4Layout>>);
-static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal,   NodeTypeSlotStore<Node4Layout>>);
-static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, NodeTypeSlotStore<Node4Layout>>);
+static_assert(ce_cmp::StorageOrgan<NodeTypeSlotStore<Node4NodeType>>);
+static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal,   NodeTypeSlotStore<Node4NodeType>>);
+static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, NodeTypeSlotStore<Node4NodeType>>);
 
 }  // namespace comdare::cache_engine::node

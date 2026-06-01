@@ -62,7 +62,7 @@ struct ArtComposition {
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     // Topic 4 nodes
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;
-    using node_type          = nodes::axis_04_node_type::Node256Layout;
+    using node_type          = nodes::axis_04_node_type::Node256NodeType;
     // Topic 5
     using memory_layout      = memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
     // Topic 6
