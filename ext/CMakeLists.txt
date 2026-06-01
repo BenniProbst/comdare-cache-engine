@@ -17,16 +17,19 @@
 # Aktiviert wenn COMDARE_BUILD_PERMUTATIONS=ON (Permutationen brauchen den Allokator)
 option(COMDARE_VENDOR_MIMALLOC "Build vendored mimalloc (ext/allocator/A04-mimalloc)"
        ${COMDARE_BUILD_PERMUTATIONS})
-if(COMDARE_VENDOR_MIMALLOC AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/A04-mimalloc/src/static.c")
+# V41.A1-FIX (#19, 2026-06-01): Pfad korrigiert auf allocator/A04-mimalloc — die baubare Amalgamation
+# (src/static.c) liegt unter ext/allocator/A04-mimalloc, NICHT ext/A04-mimalloc (Letzteres = Upstream-
+# Checkout ohne static.c). Vorher schlug der EXISTS-Check fehl → der Branch lief NIE → mimalloc nie gebaut.
+if(COMDARE_VENDOR_MIMALLOC AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/allocator/A04-mimalloc/src/static.c")
     # V40.A direkter Build via src/static.c (umgeht mimalloc's eigenes CMake-System,
     # weil cmake/-Helper-Files fehlen). static.c includiert alle .c-Sources.
     # FIX (2026-05-24): C-Compiler braucht's. Project ist LANGUAGES CXX,
     # daher hier enable_language(C) damit add_library mit .c-Sources klappt.
     enable_language(C)
     add_library(comdare_vendor_mimalloc STATIC
-        A04-mimalloc/src/static.c)
+        allocator/A04-mimalloc/src/static.c)
     target_include_directories(comdare_vendor_mimalloc PUBLIC
-        A04-mimalloc/include)
+        allocator/A04-mimalloc/include)
     target_compile_definitions(comdare_vendor_mimalloc PRIVATE
         MI_STATIC_LIB=1
         MI_BUILD_RELEASE=1)
@@ -40,7 +43,10 @@ if(COMDARE_VENDOR_MIMALLOC AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/A04-mimalloc/sr
     if(NOT TARGET comdare::vendor_mimalloc)
         add_library(comdare::vendor_mimalloc ALIAS comdare_vendor_mimalloc)
     endif()
-    message(STATUS "V40.A comdare::vendor_mimalloc verfuegbar (static.c direct build)")
+    # V41.A1-FIX (#19, 2026-06-01): HAVE_MIMALLOC setzen (analog jemalloc Z.65) — fehlte, daher blieb
+    # USE_MIMALLOC = ENABLE && HAVE stets 0 trotz gebauter Vendor-Lib. Erst hiermit greift echtes Linking.
+    set(COMDARE_HAVE_MIMALLOC ON CACHE BOOL "" FORCE)
+    message(STATUS "V40.A comdare::vendor_mimalloc verfuegbar (static.c direct build) — HAVE_MIMALLOC=ON")
 endif()
 
 # V40.B + V41.A1 (2026-05-24): jemalloc — drei-stufige Detection:
