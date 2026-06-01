@@ -3,7 +3,7 @@
 //
 // @vendor A15 HMalloc Hybrid Free-List (Tang 2020 + Anwendungen)
 
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <axes/alloc/axis_06_allocator_flags.hpp>
 
 #include <cstddef>
 #include <cstdlib>

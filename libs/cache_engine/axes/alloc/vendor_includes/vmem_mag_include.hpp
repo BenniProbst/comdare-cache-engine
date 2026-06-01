@@ -7,7 +7,7 @@
 // Object-Caching. Bonwick's Erweiterung des Slab-Allokators (A02) — beide
 // stammen vom selben Autor, aber A23 hat den vollen Vmem-Layer + Magazines.
 
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <axes/alloc/axis_06_allocator_flags.hpp>
 
 #include <cstddef>
 #include <cstdlib>

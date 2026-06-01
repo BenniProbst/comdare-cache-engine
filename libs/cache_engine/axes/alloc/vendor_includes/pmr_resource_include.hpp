@@ -7,6 +7,6 @@
 // und IMMER verfuegbar — KEINE Forward-Stubs noetig. Shim existiert nur fuer
 // Naming-Konsistenz mit anderen Vendor (Mimalloc/Snmalloc).
 
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <axes/alloc/axis_06_allocator_flags.hpp>
 
 #include <memory_resource>

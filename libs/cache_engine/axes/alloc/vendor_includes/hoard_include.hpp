@@ -3,7 +3,7 @@
 //
 // @vendor A01 Hoard (Berger/McKinley/Blumofe/Wilson PPoPP 2000)
 
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <axes/alloc/axis_06_allocator_flags.hpp>
 
 #include <cstddef>
 #include <cstdlib>

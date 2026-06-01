@@ -4,7 +4,7 @@
 // @vendor A17 Crystalline Wait-Free Reclamation (Solodkyy/Bunkov PLDI 2021)
 // SONDERFALL: Wait-Free (strikter als Lock-Free) — alle Threads progress-garantiert.
 
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_flags.hpp>
+#include <axes/alloc/axis_06_allocator_flags.hpp>
 
 #include <cstddef>
 #include <cstdlib>
