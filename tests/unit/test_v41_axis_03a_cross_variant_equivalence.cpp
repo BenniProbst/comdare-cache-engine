@@ -53,8 +53,8 @@ TEST(Axis03aCrossVariant, TreeOrganEquivalentToFlatAnchor) {
 
 // --- (4) Storage-Achsen-Tausch aendert das Resultat nicht (Mimalloc vs PMR; LinearScan + SortedBinary) ----
 TEST(Axis03aCrossVariant, StorageSwapEquivalent) {
-    using StoreMi  = ce_nodes::ComposedStore<ce_nodes::Node4Layout, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::MimallocAllocator>;
-    using StorePmr = ce_nodes::ComposedStore<ce_nodes::Node4Layout, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::PmrResourceAllocator>;
+    using StoreMi  = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::MimallocAllocator>;
+    using StorePmr = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::PmrResourceAllocator>;
     ts::verify_variants_equivalent<
         ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,   StoreMi>,
         ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,   StorePmr>,

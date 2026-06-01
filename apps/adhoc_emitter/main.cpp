@@ -55,7 +55,7 @@ using SA11 = ce::traversal::axis_03a_search_algo::BTreeSearchAlgo;            //
 using CT  = ce::traversal::axis_03b_cache_traversal::LinearFanout;
 using MP  = ce::traversal::axis_03m_mapping::DirectPlacement;
 using PC  = ce::nodes::axis_02_path_compression::PathCompressionNone;
-using NT  = ce::nodes::axis_04_node_type::Node256Layout;
+using NT  = ce::nodes::axis_04_node_type::Node256NodeType;
 // V41.F.6.1 R5.B (2026-05-29): 3. variierte Achse = memory_layout. Zwei behavioral-distinkte
 // Zugriffsmuster (scan_field_sum): AoS-strided vs SoA-contiguous → echter Cache-Effekt.
 using ML0 = ce::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout; // AoS strided

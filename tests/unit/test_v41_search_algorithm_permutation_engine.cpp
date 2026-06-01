@@ -84,7 +84,7 @@ using LinearFanout         = ::comdare::cache_engine::traversal::axis_03b_cache_
 using HashLookup           = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::HashLookup;
 using DirectPlacement      = ::comdare::cache_engine::traversal::axis_03m_mapping::DirectPlacement;
 using PathCompressionNone  = ::comdare::cache_engine::nodes::axis_02_path_compression::PathCompressionNone;
-using Node256Layout          = ::comdare::cache_engine::nodes::axis_04_node_type::Node256Layout;
+using Node256NodeType          = ::comdare::cache_engine::nodes::axis_04_node_type::Node256NodeType;
 using CacheLineAligned     = ::comdare::cache_engine::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
 using MimallocAllocator    = ::comdare::cache_engine::allocator::axis_06_allocator::MimallocAllocator;
 using NonePrefetch         = ::comdare::cache_engine::prefetch::axis_07_prefetch::NonePrefetch;
@@ -106,7 +106,7 @@ struct T0_SearchAlgo     { using StaticAxisVariants = mp::mp_list<Array256Search
 struct T1_CacheTraversal { using StaticAxisVariants = mp::mp_list<LinearFanout, HashLookup>; };
 struct T2_Mapping        { using StaticAxisVariants = mp::mp_list<DirectPlacement>; };
 struct T3_PathCompr      { using StaticAxisVariants = mp::mp_list<PathCompressionNone>; };
-struct T4_NodeType       { using StaticAxisVariants = mp::mp_list<Node256Layout>; };
+struct T4_NodeType       { using StaticAxisVariants = mp::mp_list<Node256NodeType>; };
 struct T5_MemoryLayout   { using StaticAxisVariants = mp::mp_list<CacheLineAligned>; };
 struct T6_Allocator      { using StaticAxisVariants = mp::mp_list<MimallocAllocator>; };
 struct T7_Prefetch       { using StaticAxisVariants = mp::mp_list<NonePrefetch>; };
@@ -519,7 +519,7 @@ TEST(F2F3_AxisCentricFacade, AliasesAreSameTypeAndConceptsHold) {
     static_assert(cc::AllocAxis<cce::alloc::StdMalloc>);
     static_assert(cc::LayoutAxis<cce::layout::SoAMemoryLayout>);
     static_assert(cc::PathCompressionAxis<cce::path_compression::PathCompressionNone>);
-    static_assert(cc::NodeAxis<cce::node::Node256Layout>);
+    static_assert(cc::NodeAxis<cce::node::Node256NodeType>);
     static_assert(cc::PrefetchAxis<cce::prefetch_axis::NonePrefetch>);
     static_assert(cc::ConcurrencyAxis<cce::concurrency_axis::OlcOptimisticConcurrency>);
     static_assert(cc::SerializationAxis<cce::serialization_axis::RawBinarySerialization>);
