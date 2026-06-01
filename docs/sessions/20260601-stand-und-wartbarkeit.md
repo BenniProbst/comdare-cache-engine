@@ -81,13 +81,15 @@ Cluster-Kontext (User 2026-06-01): dev läuft, prod fast bereit, GitLab läuft, 
 > Includes) **abschließend geschlossen**: die committed Source baut + testet aus dem Nichts sauber. (Temp-Dir
 > `build/freshverify` danach entfernt; gitignored.)
 
+> **✅ ALTLASTEN-CLEANUP UMGESETZT 2026-06-01 (User-/goal-Freigabe, Habich-Gate aufgehoben):**
+> (a) **`libs/deprecated/prt_art_legacy/` entfernt** (46 Dateien; `git rm` + Tag `pre-cleanup-deprecated-removal-20260601`
+> reversibel; `add_subdirectory`+`COMDARE_BUILD_DEPRECATED` raus; CE `6b3ed0d`). (b) **4 tote Registry-Pfade
+> repointet** (`axis_library_registry.hpp`: CSS_Node/CSB_NodeGroup/BPlusBinarySearch/FractalChen → reale
+> `algorithm_profiles/sota/{css_tree,csb_tree,chen_fractal}.profile.xml`). (c) **`$job.pdf`-Build-Glitch entfernt**
+> (+ Disk-Geschwister; `diplomarbeit/.gitignore` `$job.*`; DA `5c7e187`; build.ps1 selbst korrekt, Ursache =
+> Nicht-PowerShell-Shell-Ausführung). Verifiziert: reconfigure sauber + `test_commands` 20/20.
+
 Konkrete, in dieser Session aufgedeckte Wartbarkeits-Punkte (Empfehlung, keine Blocker):
-- **Altlasten-Sichtung 2026-06-01 (Funde, dem User vorgelegt — NICHT einseitig entfernt):**
-  (a) `libs/deprecated/prt_art_legacy/` = Vor-Migrations-Skelett (46 Dateien/147K), DEPRECATED, KEINE echten
-  Code-Abhängigkeiten (nur Pfad-Strings in `axis_library_registry.hpp` + `@historical_reference`-Kommentare),
-  Removal laut README **milestone-gated „nach Habich-Termin~9"** → User-Entscheidung; bei Freigabe reversibel
-  (git rm + Tag) + Registry-Strings bereinigen. (b) `axis_library_registry.hpp` enthält tote Pfad-Strings auf
-  nicht-existentes `libs/deprecated/legacy_reimpl/` (kosmetische Daten-Staleness).
 
 1. **🧹 ERLEDIGT — Stray `fixtures/` auf DA-Wurzel entfernt.** Ursache: die Stufen-Tests 03/04/05
    (`test_0X_..._cached_fixtures.cpp`) haben einen CWD-relativen Fallback `fs::current_path() / "fixtures" / "cached"`.
