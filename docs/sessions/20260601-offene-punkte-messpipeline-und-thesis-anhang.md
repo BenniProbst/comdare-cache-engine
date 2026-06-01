@@ -106,25 +106,39 @@ Test-Matrix pro Achse × Variante gegen std::map; Lücken auffüllen.
 > User-Bild: „Messergebnisse automatisch beim Ausführen, wählbar EN/DE per compile-Schalter, hinten in die DA-Anhänge
 > anfügen — ein Dokument mit allen Messtabellen + Diagrammen je Tier/Permutation." IST: die **Bausteine** sind fertig,
 > die **Automatisierung/Verdrahtung** fehlt.
+>
+> **STATUS-UPDATE 2026-06-01 (Commit DA `ddae10b`): C1–C4 ERLEDIGT + verifiziert.** Der zentrale User-Wunsch — ein
+> bilingualer, befüllter Mess-Anhang per `build.ps1 -Lang de|en` — ist real. Verifiziert: Thesis-Build EN+DE je 48 Seiten,
+> 0 fatale LaTeX-Fehler, Tabelle A.1 (S.29) + Abbildung A.1 (S.30) in `.lot`/`.lof`, alle measurements-Refs aufgelöst;
+> Regression test_04 5/5, test_05 6/6 grün. Offen bleibt nur C6 (USAGE-Doc, P3) und — orthogonal — A1 (valide
+> Cache-Line-Zahlen am PMC/#26-Gate, s. Gruppe A) und Gruppe B (Custom-Permutations-Tiere).
 
-**C1 [P0] KERN-LÜCKE: keine E2E-Build-Automatisierung (Mess → Pipeline → Anhang → PDF).** Es gibt kein Target/Hook, das
-(1) messung_driver, (2) Pipeline 01–06 (CSV→LaTeX), (3) Einhängen in `anhang/{en,de}/A_measurements.tex`, (4)
-`build.ps1 -Lang en|de` verkettet. Aktuell alles manuell (CLI-Stufen).
-- *Nächster Schritt:* CMake-Custom-Target `thesis_measurements_e2e` (5 Schritte verkettet), in `Code/CMakeLists.txt` verdrahten.
+**C1 [P0] ✅ ERLEDIGT — E2E-Build-Automatisierung (Mess-CSV → Pipeline → Anhang → PDF).** Statt eines CMake-Custom-Targets
+gewählt: **PowerShell-Orchestrator** `thesis/diplomarbeit/generate_measurement_appendix.ps1` (passt zum Thesis-Build-Flow
+`build.ps1`). Er nimmt EINE 16-Spalten-`measurements.csv`, ruft je Sprache `csv-to-latex --lang` + `diagram-generator --lang`
+auf, legt Tabellen-+Diagramm-Fragmente nach `anhang/{de,en}/tabellen/` ab; `build.ps1 -Lang de|en` produziert den befüllten
+Anhang. (Vollständige Verkettung mit `messung_driver` als vorgelagertem Schritt = optional, s. Gruppe B / B3.)
 
-**C2 [P0] Bilingualer Compile-Schalter der PIPELINE fehlt (`--lang=de|en`).** Die Thesis selbst hat den Schalter
-(`build.ps1 -Lang` + `\thesislang`), aber die Pipeline 01–06 nicht: `csv_to_latex`/`diagram_generator` erzeugen keine
-DE-Caption-/Dezimalkomma-/Typografie-Varianten. Ohne `--lang` landen die Ergebnisse nicht bilingual in `anhang/en/` UND `anhang/de/`.
-- *Nächster Schritt:* `--lang=de|en` an `csv_to_latex` (Caption/Label/Dezimalkomma) + `diagram_generator` (TikZ-Captions) ergänzen.
+**C2 [P0] ✅ ERLEDIGT — bilingualer Pipeline-Schalter `--lang=de|en`.** An `csv_to_latex` (Spaltenkopf DE „Zyklen" vs EN
+„cycles") + `diagram_generator` (TikZ-Titel/Achsen DE „Comdare-Messvergleich"/„Zyklen" vs EN) ergänzt. Default `en` =
+rückwärtskompatibel. (Commits DA `f0dd4c7`, `73e8845`.)
 
-**C3 [P1] Anhang-Stubs + `tabellen/` leer.** `anhang/{en,de}/A_measurements.tex` = nur `\chapter` + TODO; `tabellen/` = 0 Dateien.
-- *Nächster Schritt:* `\input{tabellen/<spec_id>_table.tex}`-Mechanik aktivieren; Pipeline schreibt Fragmente nach `tabellen/{en,de}/`.
+**C3 [P1] ✅ ERLEDIGT — Anhang-Stubs + `tabellen/` befüllt.** `anhang/{de,en}/A_measurements.tex` hängen via
+`\input{anhang/<lang>/tabellen/<spec_id>_table.tex}` + `_diagram.tex` ein (+ Intro-Text + Querverweise auf Tabelle/Abbildung);
+`tabellen/` enthält die generierten Fragmente.
 
-**C4 [P1] LaTeX-Fragment-Standardisierung fehlt** (per `\input{}` einhängbares Fragment-Schema mit Caption/Label/Sprache als Parameter).
+**C4 [P1] ✅ ERLEDIGT — LaTeX-Fragment-Standardisierung.** Tabellen-Fragment (booktabs, Caption/Label/Sprache parametrisiert,
+csv_to_latex escaped selbst) + Diagramm: `diagram_generator --body-only` (`PageConstraints.body_only`) emittiert nur die
+reine `tikzpicture`; der Orchestrator wrappt sie in eine `figure` mit spec-spezifischer Caption + referenzierbarem `\label`
+(vermeidet verschachtelte `figure`). Caption-Sonderzeichen (SpecId-`_`) werden escaped (sonst Bruch in `.lof`).
+*Korrektheits-Fix nebenbei:* Diagramm-Demo-Pfad plottete `op_count` trotz Achse „Zyklen/Cycles" → jetzt `total_cycles`.
 
-**C5 [P2] Pipeline erzeugt nur Standalone-`pipeline_demo.pdf`, keine Thesis-Integration** → Stufe 06 als Fragment-Lieferant nutzen; finales pdflatex über `build.ps1`.
+**C5 [P2] ~ WEITGEHEND ABGEDECKT — Thesis-Integration statt nur Standalone-PDF.** Der Orchestrator liefert Fragmente direkt
+in die Thesis-Anhänge; finales pdflatex über `build.ps1`. Das Standalone-`pipeline_demo.pdf` (Stufe 06) bleibt als separater
+Demo-Pfad bestehen, ist aber für den Anhang nicht mehr nötig.
 
-**C6 [P3] Verdrahtungs-Doku fehlt** (USAGE.md: „ein Befehl → beide PDFs mit befüllten Anhängen") — nach C1/C2.
+**C6 [P3] OFFEN — Verdrahtungs-Doku** (USAGE.md: „ein Befehl → beide PDFs mit befüllten Anhängen"). Kerninhalt steht im
+Orchestrator-Header + hier; ein dediziertes USAGE.md fehlt noch.
 
 ---
 
@@ -154,10 +168,10 @@ Kompilation (`cmake/adhoc_emitter.cmake`); **Prüf-Dock REAL** (IPruefDock gattu
 
 ## Roter Faden / Empfohlene Reihenfolge
 
-1. **C1 + C2 (bilinguale E2E-Anhang-Automatisierung)** — höchster User-Nutzen, lokal machbar, keine HW nötig: macht aus
-   den fertigen Bausteinen den gewünschten „ein-Befehl → beide PDFs mit befüllten Anhängen"-Flow. **Kann ich autonom umsetzen.**
+1. ~~**C1 + C2 (bilinguale E2E-Anhang-Automatisierung)**~~ ✅ **ERLEDIGT 2026-06-01 (Commit DA `ddae10b`)** — inkl. C3/C4.
+   Der „ein-Befehl → beide PDFs mit befüllten Anhängen"-Flow steht (`generate_measurement_appendix.ps1` → `build.ps1 -Lang`).
 2. **B3 (Vollpermutations-/Sampling-Entscheidung + kartesische Größen-Tabelle)** + B1-Klarstellung — definiert „alle Achsen
-   gegeneinander permutieren" sauber. **Lokal machbar.**
+   gegeneinander permutieren" sauber. **Lokal machbar. ← NÄCHSTER FOKUS.**
 3. **A1/#26 (PMC)** — erst dann werden die Cache-Line-Latenzen valide isoliert messbar. **Extern-gated (Cluster/ZIH).**
 4. A2 (Pfad-B-Observer), A3 (Isolations-Bench), B4/B5 (Gate-Provenance, std::map-Test-Matrix) — mittelfristig.
 
