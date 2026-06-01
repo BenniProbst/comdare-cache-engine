@@ -17,7 +17,7 @@
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §33-§40
 // @task #701 V41.F.6.1.R5.C.A2
 // @related [[execution-engine-als-wurzel]] [[anatomie-gattungen]]
-// @historical_reference libs/deprecated/prt_art_legacy/include/prt_art/concepts/i_executing_engine.hpp REV5
+// @historical_reference prt_art IExecutingEngine REV5 (comdare-prt-art-Repo; libs/deprecated/prt_art_legacy-Skelett 2026-06-01 entfernt)
 
 #include <concepts>
 #include <cstdint>
