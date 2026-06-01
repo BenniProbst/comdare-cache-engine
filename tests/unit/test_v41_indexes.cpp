@@ -20,6 +20,40 @@ TEST(LinearProbeHashSet, BasicInsertContains) {
     EXPECT_EQ(h.size(), 1u);
 }
 
+TEST(LinearProbeHashSet, ZeroKeyIsStorable) {
+    // Regression (2026-06-01): der als Empty-Marker reservierte Wert 0 muss
+    // speicher- UND auffindbar sein. Vorher wurde 0 still verworfen, wodurch
+    // scalar-Permutationen mit mix(0)=0*kPrime=0 systematisch 1 Treffer verloren
+    // (run()=-2). 0 wird jetzt separat via has_zero_ gefuehrt.
+    ix::LinearProbeHashSet<std::uint64_t> h;
+    EXPECT_FALSE(h.contains(0));   // leer: nicht enthalten
+    EXPECT_TRUE(h.insert(0));      // 0 ist einfuegbar
+    EXPECT_TRUE(h.contains(0));    // und auffindbar
+    EXPECT_FALSE(h.insert(0));     // Duplikat
+    EXPECT_EQ(h.size(), 1u);
+    // Gemischt mit Nicht-Null-Key: loest den lazy reserve(16) im Nicht-Null-Pfad aus;
+    // has_zero_ darf dabei NICHT verlorengehen.
+    EXPECT_TRUE(h.insert(7));
+    EXPECT_TRUE(h.contains(0));
+    EXPECT_TRUE(h.contains(7));
+    EXPECT_EQ(h.size(), 2u);
+}
+
+TEST(LinearProbeHashSet, ZeroKeySurvivesGrow) {
+    // 0 muss auch ueber grow() (Rehash) erhalten bleiben und in size() zaehlen.
+    ix::LinearProbeHashSet<std::uint64_t> h(16);
+    EXPECT_TRUE(h.insert(0));
+    constexpr std::size_t kN = 500;  // erzwingt mehrere grow()
+    for (std::size_t i = 1; i <= kN; ++i) {
+        EXPECT_TRUE(h.insert(static_cast<std::uint64_t>(i * 17)));
+    }
+    EXPECT_TRUE(h.contains(0));      // ueber grow() hinweg auffindbar
+    EXPECT_EQ(h.size(), kN + 1u);    // +1 fuer den Sentinel-Eintrag
+    for (std::size_t i = 1; i <= kN; ++i) {
+        EXPECT_TRUE(h.contains(static_cast<std::uint64_t>(i * 17)));
+    }
+}
+
 TEST(LinearProbeHashSet, GrowsBeyondInitialCapacity) {
     ix::LinearProbeHashSet<std::uint64_t> h(16);
     constexpr std::size_t kN = 500;

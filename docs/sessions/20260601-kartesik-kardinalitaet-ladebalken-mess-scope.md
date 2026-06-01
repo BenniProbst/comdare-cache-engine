@@ -45,9 +45,12 @@ Verifiziert auf smoke (43 Permutationen):
 - **40/43** Permutationen valide gemessen (Mikrobench, je n_runs=10), Output: `permutation_stats.csv`,
   `all_permutations.bin`, `welch_pairwise.csv`, `permutation_stats_per_axis.csv`.
 - Real diskriminierend: `avx2_aos_*` ≈ 0,0027 µs/op vs. `avx2_hybrid_*` ≈ 0,079 µs/op (Layout ~30×).
-- **3 Fehler:** `scalar_aos_{jemalloc,mimalloc,std}` liefern `run()!=0` (ok-samples=0). Pre-existing
-  Laufzeitfehler der scalar+aos-Tier-Familie (NICHT durch den Ladebalken verursacht). → **vor einer
-  medium-Voll-Coverage zu untersuchen**, sonst fehlen systematisch alle scalar_aos-Kombinationen.
+- **3 Fehler → BEHOBEN (2026-06-01):** `scalar_aos_{jemalloc,mimalloc,std}` lieferten `run()!=0`.
+  Wurzelursache: `LinearProbeHashSet` reservierte den Wert **0 als Empty-Sentinel** und verwarf ihn
+  beim Insert; der scalar-Hash `mix(0)=0*kPrime=0` fügte aber 0 ein → 1 Miss → `run()=-2`. avx2/sse4
+  treffen den Sentinel nie (`mix(0)≠0`). Fix: 0 separat via `has_zero_`-Flag führen (insert/contains/
+  grow/reserve), Header `linear_probe_hashset.hpp` + 2 Regressionstests. **Verifiziert: smoke jetzt
+  43/43 valide** (scalar_aos_* n_runs=10, ≈0,0023 µs/op), Unit-Test 7/7 grün.
 
 ## 5. Voll-Mess-Scope — Entscheidungsmatrix (`only-sampled` ist die ehrliche Lage)
 
@@ -69,7 +72,7 @@ sperrt aktuell die volle Explosion — vorher mit User abstimmen).
 1. **PMC P4-gated:** die 6 HW-Counter (L1/L2/L3/dTLB/coherence/energy) sind `pmc_available=0` /
    NullPmcSource ohne echte PmcSource → Voll-Messung liefert ohne PMC NUR Wall-Clock + Software-Counter
    (= die ehrlich-leeren 0-Spalten im CSV, vgl. Cache-Line-Validitäts-Frage A1/#26).
-2. **scalar_aos_* run()-Fehler** (s. §4) — vor medium-Lauf root-causen.
+2. ~~**scalar_aos_* run()-Fehler**~~ → BEHOBEN 2026-06-01 (LinearProbeHashSet-Sentinel-Fix, s. §4).
 3. **full-Codegen 5-Achsen-Deckel** — echtes 22-Achsen-Produkt im Build-Pfad nicht ohne EVAL-CODE-Umbau.
 4. **ExperimentDriver-Vollworkload** noch nicht in einem Lauf gegen ALLE materialisierten DLLs verschaltet
    (aktuell nur Mikrobench produziert; R5.B/R6 = Task #26 in_progress).

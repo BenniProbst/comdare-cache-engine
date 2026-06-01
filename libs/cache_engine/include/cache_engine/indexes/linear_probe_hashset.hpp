@@ -38,14 +38,25 @@ public:
         }
         buckets_.assign(cap, kEmpty);
         capacity_mask_ = cap - 1;  // cap is power-of-2
-        size_ = 0;
+        // has_zero_ wird NICHT zurueckgesetzt (sonst verloere der lazy reserve(16) im
+        // Nicht-Null-insert ein zuvor per insert(0) gesetztes Flag); den Sentinel-Eintrag
+        // aber in size_ beruecksichtigen, da reserve() hier mit leeren buckets_ laeuft.
+        size_ = has_zero_ ? std::size_t{1} : std::size_t{0};
     }
 
     // Returns true wenn neu eingefuegt, false wenn schon vorhanden
     bool insert(Key k) {
         if (k == kEmpty) {
-            // Reserved sentinel — gracefully skip
-            return false;
+            // V41.A5-fix (2026-06-01): Der als Empty-Marker reservierte Wert 0 wird
+            // separat via has_zero_ gefuehrt (Standardloesung fuer value-sentinel
+            // open-addressing), damit ALLE Key-Werte inkl. 0 speicherbar sind
+            // (std::unordered_set-Kompatibilitaet, vgl. Header-Doku). Vorher wurde 0
+            // still verworfen und war nie auffindbar — das liess scalar-Permutationen
+            // mit mix(0)=0*kPrime=0 systematisch um 1 Treffer danebenliegen (run()=-2).
+            if (has_zero_) return false;  // duplicate
+            has_zero_ = true;
+            ++size_;
+            return true;
         }
         if (buckets_.empty()) {
             reserve(16);
@@ -65,7 +76,8 @@ public:
 
     // Returns true wenn gefunden
     [[nodiscard]] bool contains(Key k) const {
-        if (buckets_.empty() || k == kEmpty) return false;
+        if (k == kEmpty) return has_zero_;
+        if (buckets_.empty()) return false;
         std::size_t idx = hash_index(k);
         while (buckets_[idx] != kEmpty) {
             if (buckets_[idx] == k) return true;
@@ -88,7 +100,9 @@ private:
         std::size_t new_cap = old_cap * 2;
         buckets_.assign(new_cap, kEmpty);
         capacity_mask_ = new_cap - 1;
-        size_ = 0;
+        // has_zero_ bleibt erhalten (nicht in buckets_ gespeichert); den Sentinel-Eintrag
+        // im size_-Reset beruecksichtigen, sonst zaehlt size() nach grow() um 1 zu wenig.
+        size_ = has_zero_ ? std::size_t{1} : std::size_t{0};
         for (std::size_t i = 0; i < old_cap; ++i) {
             if (old[i] != kEmpty) {
                 insert(old[i]);
@@ -99,6 +113,7 @@ private:
     std::vector<Key> buckets_;
     std::size_t      capacity_mask_ {0};
     std::size_t      size_          {0};
+    bool             has_zero_      {false};  // V41.A5-fix: speichert den Sentinel-Key 0 separat
 };
 
 }  // namespace comdare::cache_engine::indexes
