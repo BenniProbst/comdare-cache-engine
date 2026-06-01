@@ -74,7 +74,20 @@ Cluster-Kontext (User 2026-06-01): dev läuft, prod fast bereit, GitLab läuft, 
 > nur #4 (MEMORY.md, Cluster-Domäne) + #5 (Spiegel-Drift, gated auf Option B). Stray-`fixtures/` (Punkt 1 unten)
 > + die 2 thesis-`.zip` (nun in `.gitignore`, User 2026-06-01) erledigt.
 
+> **✅ FRESH-BUILD-VERIFIKATION 2026-06-01 (definitiv):** Ein komplett frischer Build-Dir (`build/freshverify`,
+> 2× Configure → ALLE `generated/`-Header neu erzeugt) gebaut: **39 Targets, FRESH-BUILD EXIT=0, 0 Fehler** +
+> **25/25 Test-Suiten grün** (die 15 flags-betroffenen Tests + V5-Suite + dock/adhoc/abi/multi_codegen).
+> Damit ist der wiederkehrende Stale-Artefakt-maskierte-Bug-Befund dieser Session (vendor_includes + 15 Flags-
+> Includes) **abschließend geschlossen**: die committed Source baut + testet aus dem Nichts sauber. (Temp-Dir
+> `build/freshverify` danach entfernt; gitignored.)
+
 Konkrete, in dieser Session aufgedeckte Wartbarkeits-Punkte (Empfehlung, keine Blocker):
+- **Altlasten-Sichtung 2026-06-01 (Funde, dem User vorgelegt — NICHT einseitig entfernt):**
+  (a) `libs/deprecated/prt_art_legacy/` = Vor-Migrations-Skelett (46 Dateien/147K), DEPRECATED, KEINE echten
+  Code-Abhängigkeiten (nur Pfad-Strings in `axis_library_registry.hpp` + `@historical_reference`-Kommentare),
+  Removal laut README **milestone-gated „nach Habich-Termin~9"** → User-Entscheidung; bei Freigabe reversibel
+  (git rm + Tag) + Registry-Strings bereinigen. (b) `axis_library_registry.hpp` enthält tote Pfad-Strings auf
+  nicht-existentes `libs/deprecated/legacy_reimpl/` (kosmetische Daten-Staleness).
 
 1. **🧹 ERLEDIGT — Stray `fixtures/` auf DA-Wurzel entfernt.** Ursache: die Stufen-Tests 03/04/05
    (`test_0X_..._cached_fixtures.cpp`) haben einen CWD-relativen Fallback `fs::current_path() / "fixtures" / "cached"`.
