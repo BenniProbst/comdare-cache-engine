@@ -414,7 +414,8 @@ endif()
 add_subdirectory(libs/execution_engine)   # Phase 7.3+7.4 (REV 7 §9 Experiment-Loop)
 add_subdirectory(libs/common)             # REV 7.7 V23.C (2026-05-14): Cross-Cutting (succinct, ...)
 add_subdirectory(libs/test_infra)         # REV 7.7 V23.F (2026-05-14): workload_generator, test_data, benchmark_suite
-add_subdirectory(libs/deprecated)         # REV 7.7 V23.E (2026-05-14): Folly-Stil obsoleter Code
+# libs/deprecated/ (Folly-Stil prt_art_legacy-Vor-Migrations-Skelett) 2026-06-01 ENTFERNT (User-OK,
+# Habich-Termin-Gate aufgehoben) — echter prt-art-Code liegt im comdare-prt-art-Repo. Keine Code-Abhängigkeit.
 
 # V41.E11 Plugin-Controller: konfigurierte Pruefling-Repos laden (Doku 20).
 # Jedes Pruefling-Repo (parallel zur CE-Wurzel) stellt <dir>/comdare_pruefling.cmake bereit,

@@ -39,8 +39,8 @@ public:
             result.push_back({"1", "LOUDS_Dense_SuRF", "adapters/P10-SuRF/"});
             result.push_back({"1", "BPlus_Masstree", "adapters/P03-Masstree/"});
             result.push_back({"1", "Decision_B2Tree", "adapters/P06-B2tree/"});
-            result.push_back({"1", "CSS_Node", "libs/deprecated/legacy_reimpl/css/"});
-            result.push_back({"1", "CSB_NodeGroup", "libs/deprecated/legacy_reimpl/csb/"});
+            result.push_back({"1", "CSS_Node", "libs/cache_engine/algorithm_profiles/sota/css_tree.profile.xml"});
+            result.push_back({"1", "CSB_NodeGroup", "libs/cache_engine/algorithm_profiles/sota/csb_tree.profile.xml"});
             result.push_back({"1", "Adaptive_BTreesAreBack", "adapters/P20-BTreesAreBack/"});
 
         // ===== Achse 2: NODE-TYPE (13 Bausteine, Auswahl) =====
@@ -64,7 +64,7 @@ public:
             result.push_back({"3.A", "MacroNode", "adapters/P04-CoCo-trie/"});
             result.push_back({"3.A", "MultibyteSpan", "adapters/P05-START/"});
             result.push_back({"3.A", "EmbeddedDecTree", "adapters/P06-B2tree/"});
-            result.push_back({"3.A", "BPlusBinarySearch", "libs/deprecated/legacy_reimpl/csb/"});
+            result.push_back({"3.A", "BPlusBinarySearch", "libs/cache_engine/algorithm_profiles/sota/csb_tree.profile.xml"});
 
         // ===== Achse 3.B: Cache-Seite Traversal =====
         } else if (axis_id == "3.B") {
@@ -143,7 +143,7 @@ public:
             result.push_back({"7", "PathOriented", "prt_art/include/prt_art/prefetch/path_oriented.hpp"});
             result.push_back({"7", "RedirectPrefetch", "prt_art/include/prt_art/prefetch/redirect_prefetch.hpp"});
             result.push_back({"7", "HierarchicalBundle", "adapters/P27-hp-soft/"});
-            result.push_back({"7", "FractalChen", "libs/deprecated/legacy_reimpl/fractal_chen/"});
+            result.push_back({"7", "FractalChen", "libs/cache_engine/algorithm_profiles/sota/chen_fractal.profile.xml"});
 
         // ===== Achse 8.1: Concurrency-Pattern =====
         } else if (axis_id == "8.1") {
