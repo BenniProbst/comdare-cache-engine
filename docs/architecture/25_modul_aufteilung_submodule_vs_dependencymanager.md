@@ -1,8 +1,15 @@
 # Architektur-Entscheidung: Modul-Aufteilung — Git-Submodule vs. DependencyManager
 
-> **Status: OFFENE ENTSCHEIDUNG (User, 2026-06-01).** Dieses Dokument bereitet die Entscheidung für #22
-> (E4.1+E6, „6 cache-engine-Submodule-Repos befüllen") vor. Die Befüllung ist PAUSIERT, bis diese Richtung
-> entschieden ist (User-Auswahl 2026-06-01: „Erst Architektur klären"). KEINE Code-Extraktion vor der Entscheidung.
+> **Status: ENTSCHIEDEN + UMGESETZT (User „doch befüllen", 2026-06-01).** Der User hat nach dieser Vorlage
+> **Option A (Submodule befüllen)** als Sofort-Schritt gewählt. UMGESETZT: alle 6 modules/-Repos sind mit einem
+> **kuratierten Public-Header-Set** (120 Header) + Scope-README + INTERFACE-CMakeLists (`comdare::<modul>`)
+> befüllt + gepusht (core `f0a2878` · search-engine `b6caff5` · measurement `fa27bf4` · isa-dispatch `f7541de` ·
+> build-tools `4fc1df4` · test-system `7bb9e08`); Parent-Pointer gebumpt (CE `ce32e84`). **Non-destruktiv:** der
+> Monolith (`libs/cache_engine/`) ist UNVERÄNDERT, `modules/` ist NICHT im CMake-Build-Graph (kein
+> `add_subdirectory(modules)`, kein Wurzel-`**`-GLOB) → Monolith-Build grün (Smoke `test_v5_ycsb_op_set` 5/5).
+> Die Module sind damit eigenständige, dokumentierte Modul-Spiegel. **VERBLEIBT als Folgephase (Option B):** die
+> tatsächliche Konsumptions-Migration (Monolith baut FROM den Submodulen via DependencyManager) + `nested cleanup` —
+> das ist die nächste, größere Stufe, weiter gemäß der untenstehenden Analyse.
 
 ## 1. Das Problem
 
