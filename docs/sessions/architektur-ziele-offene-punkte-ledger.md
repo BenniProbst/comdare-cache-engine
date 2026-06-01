@@ -30,6 +30,14 @@
 > (NICHT generiert) auf `<axes/alloc/axis_06_allocator_flags.hpp>` (Wrapper-Konvention) — behebt den latenten
 > Build-Config-Bug (frischer Build-Dir scheiterte sonst). **Verifiziert:** dock 3/3 (kein SEH mehr) + V5-Suiten
 > two_phase 3/3 · snapshot 5/5 · organ_memento 2/2 · orchestrator 5/5. Übergabe-Doku `20260601-uebergabe-v5-substanz-und-buildzustand.md`.
+>
+> **🟢 TODO-SWEEP 2026-06-01 (autonomes /goal „übrige TODOs abarbeiten") — Stand der Hook-gelisteten Rest-Items:**
+> - **#49-E/F ✅ DONE** (`982ca95`+`48f9b38`): YCSB Scan(E)+RMW(F) treu, additives IScannableTier, Unit 5/5 + Echt-DLL-E2E (scan_n=473/rmw_n=228). S. #49-Zeile.
+> - **#4 ✅ DONE** (`d3abd44`+`947d5b1`): masstree is_original 4/4 ALL ORIGINAL (Manifest-Def-Orte-Fix + p03-Codegen registriert). axis_03a = 6/6 Original-Codes belegt.
+> - **#9 (Naming) — KOSMETISCH/TEILS STALE:** „axis_12 general_hardware-vs-telemetry-Kollision" ist im Ist-Code NICHT vorhanden (`grep telemetr` in hardware = leer; Notiz von 2026-05-27 überholt). axis_12-Wrapper (`X86_64HardwareProfile` etc.) = korrekte Algorithmen, vernünftiger Suffix. Rest = Suffix-Konsistenz-Backlog über 5 Achsen (KEINE Korrektheit — [[feedback_algorithm_correctness_when_named]] erfüllt). Achsenübergreifendes Rename = riskanter Ripple (Klassen+Registries+Tests+Flags+PermEngines) → NICHT am Turn-Ende überstürzt, eigene fokussierte Session ([[feedback_no_quick_fixes]]/[[feedback_verify_ist_state_before_gross_tasks]]). axis_08-Teil von #9 bereits done (R7.1.b).
+> - **#19 (jemalloc/tcmalloc/hoard/scalloc) — TOOLCHAIN-GATED (extern):** lokale Machbarkeit verifiziert-negativ (§b P4-Vendor: jemalloc=autotools/kein configure, tcmalloc=Bazel/Linux-only, WSL bare). Mechanik real bewiesen an CMake-Vendor (mimalloc/snmalloc/dlmalloc). Braucht vcpkg/WSL-gcc/Pre-Built + FortiGate-Egress-Ausnahme. NICHT lokal-offline fälschbar.
+> - **#26 (reale PMC-Werte) — HARDWARE-GATED (extern):** Software-Abstraktion (IPmcSource/NullPmcSource, `pmc_available` ehrlich) DONE; reale Counter brauchen Intel-PCM/MSR + Admin (Beschaffung/Recht).
+> - **#22 (6 Submodule-Repos befüllen) — V42-FUTURE:** Push-Blocker weg (Firewall=inside), aber Befüllung = echte Code-Extraktion in 6 modules/-Repos = eigenes V42-Arbeitspaket (sequenz-gated „Nach Pflicht-Pfad").
 **Verifikation diese Session:** observable_tier.hpp / pruef_dock/* / axis_centric_namespaces.hpp existieren; allocator-Wrapper=28; 0 TODO/FIXME im Topic-Hauptcode; R6-Commit-Kette `5b72eae..db4de2e` real. **F.2 = 17/17 reale `libs/cache_engine/axes/<axis>/`-Subdirs** (alte „reine Alias-Fassade"-Notiz überholt; volle Regression 2112/2112, `fc5bfd0`). F.4 (`f1e8745`) + E10.1/E10.2 (`0a7d390`) als fälschlich §b-klassifiziert korrigiert → §e.
 
 ---
