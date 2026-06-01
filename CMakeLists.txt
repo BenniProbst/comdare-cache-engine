@@ -1145,11 +1145,22 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
         AXIS_MIXIN_TYPE   "${_a03a_axis_mixin}"
     )
 
-    # P03 Masstree (Mao/Kohler/Morris EuroSys 2012) — DEFERRED:
-    # masstree.hh enthaelt nur API-Deklarationen ohne Function-Bodies (alle Templates
-    # in masstree-impl.hh oder verteilt). Tool-Output: "function 'get' not found".
-    # → P03 wartet auf anderen Source-File-Sprint oder Pseudocode-Pattern
-    #   ([[pseudocode-papers-fallback]]).
+    # P03 Masstree (Mao/Kohler/Morris EuroSys 2012) — 4/4 originall (Template-Adapter via Cursor-API).
+    # AUFGELÖST (2026-06-01, #4): das frühere "function 'get' not found" kam vom FALSCHEN Source-File
+    # (masstree.hh = nur Deklarationen). Die Out-of-Class-Template-BODIES liegen verteilt:
+    #   get + find_locked → masstree_get.hh · find_insert → masstree_insert.hh · destroy → masstree_remove.hh.
+    # Validator-verifiziert: alle 4 Bodies extrahiert + gehasht → module=ALL ORIGINAL (sha256_locked.txt).
+    comdare_register_paper_wrapper(
+        PAPER_ID          p03_masstree
+        EXT_DIR           "${CMAKE_CURRENT_SOURCE_DIR}/ext/traversal/P03-Masstree/masstree-beta"
+        EXT_SENTINEL_FILE "masstree_get.hh"
+        LEGACY_DIR        "${_a03a_legacy_root}/paper_p03_masstree"
+        FILES             "masstree_get.hh" "masstree_insert.hh" "masstree_remove.hh"
+        OUTPUT_HEADER     "${_a03a_gen_root}/paper_p03_masstree_is_original.hpp"
+        NAMESPACE         "${_a03a_namespace_root}::p03_masstree"
+        WRAPPER_NAME      masstree
+        AXIS_MIXIN_TYPE   "${_a03a_axis_mixin}"
+    )
 
     # ─────────────────────────────────────────────────────────────────────────
     # V41.F.6.1.P2.D.q.s2 Queuing Roll-out Stufe 1 — axis_q1_queuing
