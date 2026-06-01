@@ -27,7 +27,10 @@ enum class WorkloadOpKind : std::uint8_t {
     Insert = 0,  ///< (key, value) ins Container einfuegen
     Lookup = 1,  ///< key suchen, optional value zurueckgeben
     Erase  = 2,  ///< key entfernen
-    Clear  = 3   ///< Container komplett leeren (selten, fuer Stress-Tests)
+    Clear  = 3,  ///< Container komplett leeren (selten, fuer Stress-Tests)
+    // V5-#49-E/F (YCSB-Treue, Op-Set-Erweiterung):
+    Scan            = 4,  ///< YCSB-E Range-Scan: ab `key` die nächsten `value` (=scan_length) Records in Key-Reihenfolge
+    ReadModifyWrite = 5   ///< YCSB-F: lookup(key) → modifizieren → insert(key, value) als EINE Op (kein ABI-Bedarf)
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,6 +55,8 @@ enum class KeyDistribution : std::uint8_t {
         case WorkloadOpKind::Lookup: return "Lookup";
         case WorkloadOpKind::Erase:  return "Erase";
         case WorkloadOpKind::Clear:  return "Clear";
+        case WorkloadOpKind::Scan:            return "Scan";
+        case WorkloadOpKind::ReadModifyWrite: return "ReadModifyWrite";
     }
     return "Unknown";
 }
@@ -63,10 +68,12 @@ enum class KeyDistribution : std::uint8_t {
 /// WorkloadOp — POD mit Operation-Kind + Daten.
 ///
 /// Pro Op-Kind ist nur ein Teil relevant:
-/// - Insert: `key` + `value`
-/// - Lookup: `key` (value ignoriert)
-/// - Erase:  `key` (value ignoriert)
-/// - Clear:  alles ignoriert
+/// - Insert:          `key` + `value`
+/// - Lookup:          `key` (value ignoriert)
+/// - Erase:           `key` (value ignoriert)
+/// - Clear:           alles ignoriert
+/// - Scan:            `key` = Start-Key, `value` = scan_length (Anzahl zu lesender Records, YCSB-E)
+/// - ReadModifyWrite: `key` + `value` (lookup(key) → modifizieren → insert(key, value), YCSB-F)
 struct WorkloadOp {
     WorkloadOpKind kind;
     std::uint64_t  key;
@@ -106,6 +113,11 @@ struct WorkloadConfig {
     double pct_lookup = 0.40;
     double pct_erase  = 0.09;
     double pct_clear  = 0.01;
+    /// V5-#49-E/F: YCSB-E (Range-Scan) + YCSB-F (Read-Modify-Write). Default 0.0 → rückwärtskompatibel
+    /// (bestehende Profile A–D unverändert). scan_length_max = YCSB-E max Records je Scan (YCSB-Default 100).
+    double        pct_scan        = 0.0;
+    double        pct_rmw         = 0.0;
+    std::uint64_t scan_length_max = 100;
 
     /// Key-Zugriffsverteilung (YCSB-Treue, #49). Default Uniform (rückwärtskompatibel); die YCSB-Profile
     /// setzen Zipfian (A/B/C) bzw. Latest (D). zipfian_theta = Skew-Parameter (YCSB-Default 0.99).
@@ -121,8 +133,9 @@ struct WorkloadConfig {
         if (num_operations == 0)     return false;
         if (key_max <= key_min)      return false;
         if (pct_insert < 0.0 || pct_lookup < 0.0 ||
-            pct_erase  < 0.0 || pct_clear  < 0.0) return false;
-        if ((pct_insert + pct_lookup + pct_erase + pct_clear) <= 0.0) return false;
+            pct_erase  < 0.0 || pct_clear  < 0.0 ||
+            pct_scan   < 0.0 || pct_rmw    < 0.0) return false;
+        if ((pct_insert + pct_lookup + pct_erase + pct_clear + pct_scan + pct_rmw) <= 0.0) return false;
         return true;
     }
 };
@@ -213,9 +226,40 @@ struct WorkloadConfig {
         .name = "YCSB_D_read_latest"};
 }
 
-// HINWEIS YCSB-E/F: E (95% Range-Scan / 5% Insert) und F (Read-Modify-Write) sind mit dem aktuellen
-// WorkloadOpKind-Set (Insert/Lookup/Erase/Clear) NICHT verlustfrei abbildbar — E braucht eine Scan/Range-
-// Operation, F eine atomare RMW-Op. Bewusst NICHT als Fake-Profil mit Lookup-Proxy erfunden
-// ([[feedback_no_quick_fixes]]); Erweiterung des Op-Sets = separater Punkt.
+/// YCSB-E: 95% Range-Scan, 5% Insert, Zipfian-Verteilung. Scan-Länge je Op uniform [1, scan_length_max=100]
+/// (YCSB-Default). Setzt eine scanbare Tier-Binary voraus (IScannableTier, ABI-Minor ≥ 2); alt-gebaute DLLs
+/// ohne Scan-Fähigkeit → der Host überspringt die Scan-Ops ehrlich (dynamic_cast → null).
+[[nodiscard]] constexpr WorkloadConfig make_ycsb_e(std::uint64_t seed = 42,
+                                                   std::size_t  ops  = 10'000) noexcept {
+    return WorkloadConfig{
+        .seed = seed, .num_operations = ops,
+        .key_min = 1, .key_max = 1'000'000,
+        .pct_insert = 0.05, .pct_lookup = 0.0,
+        .pct_erase = 0.0, .pct_clear = 0.0,
+        .pct_scan = 0.95, .pct_rmw = 0.0, .scan_length_max = 100,
+        .key_distribution = KeyDistribution::Zipfian,   // YCSB-E: Zipf-Skew auf den Scan-Start-Key
+        .name = "YCSB_E_scan_insert"};
+}
+
+/// YCSB-F: 50% Read, 50% Read-Modify-Write, Zipfian-Verteilung. RMW = lookup(key) → modifizieren →
+/// insert(key, neuer Wert) als EINE Op (host-seitig, kein zusätzliches Tier-Interface nötig).
+[[nodiscard]] constexpr WorkloadConfig make_ycsb_f(std::uint64_t seed = 42,
+                                                   std::size_t  ops  = 10'000) noexcept {
+    return WorkloadConfig{
+        .seed = seed, .num_operations = ops,
+        .key_min = 1, .key_max = 1'000'000,
+        .pct_insert = 0.0, .pct_lookup = 0.50,
+        .pct_erase = 0.0, .pct_clear = 0.0,
+        .pct_scan = 0.0, .pct_rmw = 0.50,
+        .key_distribution = KeyDistribution::Zipfian,   // YCSB-F: Zipf-Skew, read + read-modify-write
+        .name = "YCSB_F_read_modify_write"};
+}
+
+// STAND YCSB-E/F (V5-#49, Op-Set-Erweiterung): E (95% Range-Scan / 5% Insert) und F (50% Read / 50% RMW) sind
+// jetzt TREU abgebildet — E über den neuen WorkloadOpKind::Scan + das ABI-Sub-Interface IScannableTier
+// (anatomy/scannable_tier.hpp, additiv, ABI-Minor 2), F über WorkloadOpKind::ReadModifyWrite (lookup+insert
+// host-seitig, kein ABI-Bedarf). KEIN Fake-Proxy ([[feedback_no_quick_fixes]]). Verbleibende ehrliche Lücke:
+// "update" (A/B) bleibt auf Insert gemappt (tier_insert=emplace mit Update-bei-Kollision in ComposedSearch,
+// s. composable_search.hpp:69/97 — faktisch ein Upsert, daher YCSB-treu genug; kein separater Update-Op-Kind).
 
 }  // namespace comdare::cache_engine::builder::workload_driver

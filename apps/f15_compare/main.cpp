@@ -28,6 +28,7 @@
 #include <builder/measurement_snapshot.hpp>   // V5-I1 (#50): EIN autoritativer 16+6-Mess-POD + Pipeline-16-Serializer
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/rollbackable_tier.hpp>
+#include <anatomy/scannable_tier.hpp>   // V5-#49-E: Range-Scan-Sub-Interface (YCSB-E)
 
 #include <algorithm>
 #include <charconv>
@@ -60,6 +61,8 @@ namespace {
     if (tok == "B"  || tok == "mixed_b")      return wd::make_mixed_b(seed, ops);
     if (tok == "C"  || tok == "ycsb_c")       return wd::make_ycsb_c(seed, ops);
     if (tok == "D"  || tok == "ycsb_d")       return wd::make_ycsb_d(seed, ops);
+    if (tok == "E"  || tok == "ycsb_e")       return wd::make_ycsb_e(seed, ops);   // V5-#49-E (Range-Scan)
+    if (tok == "F"  || tok == "ycsb_f")       return wd::make_ycsb_f(seed, ops);   // V5-#49-F (Read-Modify-Write)
     if (tok == "IH" || tok == "insert_heavy") return wd::make_insert_heavy(seed, ops);
     if (tok == "LH" || tok == "lookup_heavy") return wd::make_lookup_heavy(seed, ops);
     wd::WorkloadConfig empty; empty.name = "";  // Marker: unbekannt
@@ -263,7 +266,8 @@ int main(int argc, char** argv) {
                 continue;
             }
             auto* rb = dynamic_cast<ana::IRollbackableTier*>(base);   // nullptr → Kalt-Messung (kein Rollback)
-            auto const results = wd::run_measurement_plan(*tier, rb, plan);
+            auto* sc = dynamic_cast<ana::IScannableTier*>(base);      // V5-#49-E: nullptr → YCSB-E-Scan-Ops übersprungen
+            auto const results = wd::run_measurement_plan(*tier, rb, plan, sc);
             auto const csv     = wd::serialize_workload_run_results_csv(results);
             std::filesystem::path const csv_p = out_dir / (nm + ".plan.csv");
             if (write_text_file(csv_p.string(), csv)) {
