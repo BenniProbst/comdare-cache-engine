@@ -1,0 +1,27 @@
+# Zeilenenden-Normalisierung (2026-06-01, Wartbarkeit): im Repo immer LF, auf Windows KEINE
+# CRLF-Konversion beim Checkout → beendet die "LF will be replaced by CRLF"-Warnungsflut.
+* text=auto eol=lf
+
+# Binär — niemals als Text behandeln/normalisieren.
+*.bin   binary
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gz    binary
+*.tgz   binary
+*.zip   binary
+*.tar   binary
+*.lib   binary
+*.a     binary
+*.so    binary
+*.dll   binary
+*.exe   binary
+*.o     binary
+*.obj   binary
+*.pdb   binary
+
+# Windows-Skripte brauchen CRLF.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf

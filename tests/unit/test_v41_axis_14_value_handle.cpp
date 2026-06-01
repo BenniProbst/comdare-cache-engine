@@ -11,7 +11,7 @@
 #include <topics/value_handle/axis_14_value_handle/axis_14_value_handle_versioned_pointer.hpp>
 #include <topics/value_handle/axis_14_value_handle/axis_14_value_handle_registry.hpp>
 #include <topics/value_handle/axis_14_value_handle/axis_14_value_handle_subaxes_vh1_to_vh3.hpp>
-#include <topics/value_handle/axis_14_value_handle/axis_14_value_handle_flags.hpp>
+#include <axes/value_handle_axis/axis_14_value_handle_flags.hpp>
 #include <topics/value_handle/topic_value_handle_config_set.hpp>
 
 #include <boost/mp11.hpp>

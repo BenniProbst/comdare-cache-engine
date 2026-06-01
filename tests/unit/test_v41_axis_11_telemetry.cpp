@@ -12,7 +12,7 @@
 #include <topics/telemetry/axis_11_telemetry/axis_11_telemetry_latency_histogram.hpp>
 #include <topics/telemetry/axis_11_telemetry/axis_11_telemetry_registry.hpp>
 #include <topics/telemetry/axis_11_telemetry/axis_11_telemetry_subaxes_tm1_to_tm3.hpp>
-#include <topics/telemetry/axis_11_telemetry/axis_11_telemetry_flags.hpp>
+#include <axes/telemetry_axis/axis_11_telemetry_flags.hpp>
 #include <topics/telemetry/topic_telemetry_config_set.hpp>
 
 #include <boost/mp11.hpp>

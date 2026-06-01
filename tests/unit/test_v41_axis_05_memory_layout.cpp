@@ -23,7 +23,7 @@
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_packed_bitmap.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_registry.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_subaxes_hm1_to_hm4.hpp>
-#include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_flags.hpp>
+#include <axes/layout/axis_05_memory_layout_flags.hpp>
 #include <topics/memory_layout/topic_memory_layout_config_set.hpp>
 
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_aosoa.hpp>

@@ -15,7 +15,7 @@
 #include <topics/filter/axis_filter/axis_filter_xor.hpp>
 #include <topics/filter/axis_filter/axis_filter_registry.hpp>
 #include <topics/filter/axis_filter/axis_filter_subaxes_ft1_to_ft3.hpp>
-#include <topics/filter/axis_filter/axis_filter_flags.hpp>
+#include <axes/filter_axis/axis_filter_flags.hpp>
 #include <topics/filter/topic_filter_config_set.hpp>
 
 #include <boost/mp11.hpp>

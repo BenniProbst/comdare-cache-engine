@@ -15,7 +15,7 @@
 #include <topics/concurrency/axis_08_concurrency/axis_08_concurrency_hazard_pointer.hpp>
 #include <topics/concurrency/axis_08_concurrency/axis_08_concurrency_registry.hpp>
 #include <topics/concurrency/axis_08_concurrency/axis_08_concurrency_subaxes_cc1_to_cc2.hpp>
-#include <topics/concurrency/axis_08_concurrency/axis_08_concurrency_flags.hpp>
+#include <axes/concurrency_axis/axis_08_concurrency_flags.hpp>
 #include <topics/concurrency/topic_concurrency_config_set.hpp>
 
 #include <boost/mp11.hpp>

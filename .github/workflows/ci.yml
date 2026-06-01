@@ -10,6 +10,17 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint-flags-includes:
+    name: lint flags-include consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Wartbarkeits-Lint (2026-06-01): jeder #include eines generierten *_flags.hpp muss den
+      # configure_file-Generierungs-Ort treffen (axes/ vs topics/). Verhindert die latente Bug-Klasse,
+      # die nur dank stale Build-Artefakten kompiliert + bei frischem Build-Dir scheitert.
+      - name: Flags-include consistency lint
+        run: bash scripts/lint_flags_includes.sh
+
   configure-default:
     name: cmake configure (default mode)
     runs-on: ubuntu-latest

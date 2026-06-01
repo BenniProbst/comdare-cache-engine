@@ -14,7 +14,7 @@
 #include <topics/hardware/axis_09_isa/axis_09_isa_powerpc.hpp>
 #include <topics/hardware/axis_09_isa/axis_09_isa_registry.hpp>
 #include <topics/hardware/axis_09_isa/axis_09_isa_subaxes_is1_to_is3.hpp>
-#include <topics/hardware/axis_09_isa/axis_09_isa_flags.hpp>
+#include <axes/simd/axis_09_isa_flags.hpp>
 #include <topics/hardware/topic_hardware_config_set.hpp>
 
 #include <boost/mp11.hpp>

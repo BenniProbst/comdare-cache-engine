@@ -11,7 +11,7 @@
 #include <topics/io/axis_io/axis_io_mmap.hpp>
 #include <topics/io/axis_io/axis_io_registry.hpp>
 #include <topics/io/axis_io/axis_io_subaxes_io1_to_io3.hpp>
-#include <topics/io/axis_io/axis_io_flags.hpp>
+#include <axes/io_dispatch/axis_io_flags.hpp>
 #include <topics/io/topic_io_config_set.hpp>
 
 #include <boost/mp11.hpp>

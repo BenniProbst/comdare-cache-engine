@@ -12,7 +12,7 @@
 #include <topics/prefetch/axis_07_prefetch/axis_07_prefetch_path_oriented.hpp>
 #include <topics/prefetch/axis_07_prefetch/axis_07_prefetch_registry.hpp>
 #include <topics/prefetch/axis_07_prefetch/axis_07_prefetch_subaxes_pf1_to_pf3.hpp>
-#include <topics/prefetch/axis_07_prefetch/axis_07_prefetch_flags.hpp>
+#include <axes/prefetch_axis/axis_07_prefetch_flags.hpp>
 #include <topics/prefetch/topic_prefetch_config_set.hpp>
 
 #include <boost/mp11.hpp>

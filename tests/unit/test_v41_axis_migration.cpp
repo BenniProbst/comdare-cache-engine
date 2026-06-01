@@ -11,7 +11,7 @@
 #include <topics/migration/axis_migration/axis_migration_adaptive.hpp>
 #include <topics/migration/axis_migration/axis_migration_registry.hpp>
 #include <topics/migration/axis_migration/axis_migration_subaxes_mg1_to_mg3.hpp>
-#include <topics/migration/axis_migration/axis_migration_flags.hpp>
+#include <axes/migration_policy/axis_migration_flags.hpp>
 #include <topics/migration/topic_migration_config_set.hpp>
 
 #include <boost/mp11.hpp>
