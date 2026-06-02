@@ -1293,9 +1293,11 @@ endforeach()
 
 # (b) Container-Gattungs-Tests: brauchen die q1/q2-Achsen-Registries → Boost::mp11 + generated-Flags.
 set(COMDARE_GOALV6_BOOST_DTESTS
-    test_container_genus      # #75 Container q2-Slot (in-process)
-    test_container_dock       # #75 Container-Pruef-Dock
-    test_d_v42_probe)         # V42-Composition-Driver-Probe (telemetry default_ctor/ObservableAxis-Befund)
+    test_container_genus            # #75 Container q2-Slot (in-process)
+    test_container_dock             # #75 Container-Pruef-Dock
+    test_d_v42_probe                # V42-Composition-Driver-Probe (telemetry default_ctor/ObservableAxis-Befund)
+    test_d_v42_probe2               # V42-Korrektur-Probe (LeafOnlyCounter: is_aggregate/{}-Block/default-init)
+    test_d_v42_telemetry_observable) # V42 L-74c ObservableTelemetry-Driver-Baustein (setzt STATISTICS in-Quelle)
 foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
@@ -1312,5 +1314,5 @@ foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     set_tests_properties(${_dt} PROPERTIES LABELS "goal_v6;phase_d")
 endforeach()
 
-message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 14 D-Tests CTest-registriert (12 leicht + 2 Container/Boost). "
+message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 16 D-Tests CTest-registriert (12 leicht + 4 Container/Boost/V42). "
     "DLL-Round-Trip-Tests (test_d4b_container_dll/test_dgenus_dll, mehrstufig) bleiben scratch-verifiziert (Folge-Registrierung).")
