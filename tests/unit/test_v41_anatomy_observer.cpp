@@ -16,6 +16,7 @@
 #include <anatomy/observer_aggregate.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <anatomy/known_algorithms.hpp>
+#include <anatomy/tier_observer_v2_bridge.hpp>   // V42 L-74c: Cross-ABI-Bruecke ObserverAggregate -> V2-POD
 
 #include <type_traits>
 #include <cstring>   // V42 L-74c: std::memcpy im memory_layout-Test
@@ -309,5 +310,53 @@ TEST(Saeule2_ObserveAllReal, DrivenNodeTypeOrganFlowsIntoAggregate) {
         EXPECT_GE(ana::ObserverAggregate<ce_compos::ArtComposition>::observable_count(), 5u);
     } else {
         GTEST_SKIP() << "node_type nicht ObservableAxis (STATISTICS=OFF)";
+    }
+}
+
+// V42 L-74c Cross-ABI-Bruecke: alle 5 getriebenen Achsen fliessen aus dem Composition-abhaengigen
+// ObserverAggregate in den FLACHEN, versionierten ComdareTierObserverSnapshotV2 (memcpy-faehig ueber die
+// DLL-Grenze). Beweist den ersten Cross-ABI-Schritt (Doc 29 §3 Schritt 4): Aggregate -> flacher POD.
+TEST(V2Bridge_FlatPod, AllDrivenAxesFlowIntoV2Snapshot) {
+    ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
+    if constexpr (ana::ObservableAxis<ce_compos::ArtComposition::telemetry>) {
+        // search_algo treiben
+        for (int i = 0; i < 10; ++i) anat.search_algo_organ().insert(static_cast<std::uint64_t>(i),
+                                                                      static_cast<std::uint64_t>(i) * 2u);
+        for (int i = 0; i < 10; ++i) (void)anat.search_algo_organ().lookup(static_cast<std::uint64_t>(i));
+        // 4 OperativeCapable-Achsen treiben
+        anat.telemetry_organ().record_node_touch(true);
+        anat.telemetry_organ().record_node_touch(false);   // leaf-only verwirft
+        std::uint32_t const vals[4] = {10u, 20u, 30u, 40u};
+        unsigned char lbuf[64 * 4] = {};
+        for (std::size_t i = 0; i < 4; ++i) std::memcpy(lbuf + i * 64, &vals[i], sizeof(std::uint32_t));
+        (void)anat.memory_layout_organ().observe_scan(lbuf, 4, 64);
+        unsigned char sbuf[8 * 4] = {};
+        for (std::size_t i = 0; i < 4; ++i) std::memcpy(sbuf + i * 8, &vals[i], sizeof(std::uint32_t));
+        (void)anat.serialization_organ().observe_serialize(sbuf, 4, 8);
+        std::uint8_t const stored[4] = {1u, 2u, 3u, 4u};
+        std::uint8_t const queries[3] = {2u, 4u, 9u};
+        (void)anat.node_type_organ().observe_node_find(stored, 4, queries, 3);
+
+        // Aggregate -> flacher V2-POD
+        auto const agg = anat.observe_all();
+        ana::ComdareTierObserverSnapshotV2 v2{};
+        ana::fill_tier_observer_v2(agg, &v2);
+
+        EXPECT_EQ(v2.search_insert_count, 10u);
+        EXPECT_GE(v2.search_lookup_count, 10u);
+        EXPECT_EQ(v2.telemetry_total_events, 2u);
+        EXPECT_EQ(v2.telemetry_node_updates, 0u);             // leaf-only
+        EXPECT_EQ(v2.layout_scan_count, 1u);
+        EXPECT_EQ(v2.layout_last_checksum, 100u);
+        EXPECT_EQ(v2.serialization_serialize_count, 1u);
+        EXPECT_EQ(v2.serialization_bytes_serialized, 32u);
+        EXPECT_EQ(v2.node_find_count, 1u);
+        EXPECT_EQ(v2.node_last_checksum, 6u);
+        EXPECT_GE(v2.observable_axis_count, 5u);
+        // ABI-Pflicht des flachen POD.
+        static_assert(std::is_standard_layout_v<ana::ComdareTierObserverSnapshotV2>);
+        static_assert(std::is_trivially_copyable_v<ana::ComdareTierObserverSnapshotV2>);
+    } else {
+        GTEST_SKIP() << "OperativeCapable-Achsen nicht observable (STATISTICS=OFF)";
     }
 }
