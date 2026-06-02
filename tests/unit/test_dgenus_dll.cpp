@@ -7,6 +7,7 @@
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/sequence_tier.hpp>
 #include <anatomy/view_tier.hpp>
+#include <anatomy/set_tier.hpp>
 
 #include <cstdint>
 #include <iostream>
@@ -30,6 +31,20 @@ static void drive_sequence(ana::IAnatomyBase* a) {
     st->tier_observe_sequence(&pod);
     tr("Sequence: observe push_count==8 + growth_events>0 über DLL", pod.push_count == 8 && pod.growth_events > 0);
 }
+static void drive_set(ana::IAnatomyBase* a) {
+    auto* st = dynamic_cast<ana::ISetTier*>(a);
+    tr("Set: dynamic_cast<ISetTier*> != null", st != nullptr);
+    if (!st) return;
+    tr("Set: insert(1)", st->tier_set_insert(1));
+    tr("Set: insert(2)", st->tier_set_insert(2));
+    tr("Set: insert(2) dup → false über DLL", !st->tier_set_insert(2));
+    tr("Set: tier_set_size()==2 über DLL", st->tier_set_size() == 2);
+    tr("Set: contains(2) über DLL", st->tier_set_contains(2));
+    tr("Set: contains(99)==false über DLL", !st->tier_set_contains(99));
+    ana::SetObserverSnapshotV1 pod{};
+    st->tier_observe_set(&pod);
+    tr("Set: observe insert_count==2 + organ_count==15 über DLL", pod.insert_count == 2 && pod.organ_count == 15);
+}
 static void drive_view(ana::IAnatomyBase* a) {
     auto* vt = dynamic_cast<ana::IViewTier*>(a);
     tr("View: dynamic_cast<IViewTier*> != null", vt != nullptr);
@@ -47,7 +62,7 @@ static void drive_view(ana::IAnatomyBase* a) {
 int main(int argc, char** argv) {
     if (argc < 2) { std::cerr << "usage: test_dgenus_dll <dll...>\n"; return 2; }
     std::cout << "D-Genus DLL-Round-Trip (Sequence/View über gattungs-agnostischen Loader):\n";
-    int seen_seq = 0, seen_view = 0;
+    int seen_seq = 0, seen_view = 0, seen_set = 0;
     for (int i = 1; i < argc; ++i) {
         loader::AnatomyModuleHandle handle;
         int const st = loader::AnatomyModuleLoader::load(argv[i], handle);
@@ -58,11 +73,13 @@ int main(int argc, char** argv) {
         switch (a->genus()) {
             case ana::AnatomyGenus::Sequence: ++seen_seq;  drive_sequence(a); break;
             case ana::AnatomyGenus::View:     ++seen_view; drive_view(a);     break;
+            case ana::AnatomyGenus::Set:      ++seen_set;  drive_set(a);      break;
             default: tr("unerwartete Gattung", false); break;
         }
     }
     tr("Sequence-DLL geladen + getrieben", seen_seq >= 1);
     tr("View-DLL geladen + getrieben", seen_view >= 1);
+    tr("Set-DLL geladen + getrieben", seen_set >= 1);
     std::cout << "\n==== D-Genus DLL: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }
