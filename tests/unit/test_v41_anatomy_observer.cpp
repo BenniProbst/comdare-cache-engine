@@ -207,3 +207,27 @@ TEST(Saeule2_ObserveAllReal, DrivenSearchAlgoOrganFlowsIntoAggregate) {
         GTEST_SKIP() << "search_algo nicht ObservableAxis (STATISTICS=OFF)";
     }
 }
+
+// V42 L-74c Composition-Driver: telemetry als 2. getriebenes Organ. ArtComposition::telemetry ist jetzt die
+// ObservableTelemetry-Huelle → getrieben via telemetry_organ() fliesst sie real in observe_all().telemetry.
+// Die LeafOnlyCounter-Strategie VERWIRFT Inner-Node-Touches (node_updates==0) — der messbare Achsen-Unterschied.
+TEST(Saeule2_ObserveAllReal, DrivenTelemetryOrganFlowsIntoAggregate) {
+    ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
+    using TelOrgan = ce_compos::ArtComposition::telemetry;  // ObservableTelemetry<LeafOnlyCounter>
+    if constexpr (ana::ObservableAxis<TelOrgan>) {
+        auto& tel = anat.telemetry_organ();
+        tel.record_node_touch(true);    // Blatt
+        tel.record_node_touch(false);   // Inner → leaf-only verwirft
+        tel.record_node_touch(true);    // Blatt
+
+        auto const agg = anat.observe_all();
+        EXPECT_EQ(agg.telemetry.total_events, 3u);
+        EXPECT_EQ(agg.telemetry.leaf_updates, 2u);
+        EXPECT_EQ(agg.telemetry.node_updates, 0u);   // LeafOnlyCounter-Strategie verwirft Inner-Touch
+        EXPECT_EQ(agg.telemetry.peak_tracked, 2u);
+        // observable_count steigt: search_algo + telemetry beide getrieben + observierbar.
+        EXPECT_GE(ana::ObserverAggregate<ce_compos::ArtComposition>::observable_count(), 2u);
+    } else {
+        GTEST_SKIP() << "telemetry nicht ObservableAxis (STATISTICS=OFF)";
+    }
+}

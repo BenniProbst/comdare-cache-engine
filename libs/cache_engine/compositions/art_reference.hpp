@@ -23,8 +23,10 @@
 #include "../topics/concurrency/axis_08_concurrency/axis_08_concurrency_olc.hpp"
 // Topic-10 serialization (1 Achse)
 #include "../topics/serialization/axis_10_serialization/axis_10_serialization_raw_binary.hpp"
-// Topic-11 telemetry (1 Achse)
+// Topic-11 telemetry (1 Achse) — V42 L-74c: observable Huelle (ObservableTelemetry) statt nackter Strategie,
+// damit telemetry eine echte getriebene ObservableAxis ist (analog search_algo = ObservableArtTrieOrgan).
 #include "../topics/telemetry/axis_11_telemetry/axis_11_telemetry_leaf_only.hpp"
+#include "../topics/telemetry/axis_11_telemetry/axis_11_telemetry_observable.hpp"
 // Topic-14 value_handle (1 Achse)
 #include "../topics/value_handle/axis_14_value_handle/axis_14_value_handle_inline.hpp"
 // Topic hardware (1 Achse)
@@ -73,8 +75,9 @@ struct ArtComposition {
     using concurrency        = concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
     // Topic 10
     using serialization      = serialization::axis_10_serialization::RawBinarySerialization;
-    // Topic 11
-    using telemetry          = telemetry::axis_11_telemetry::LeafOnlyCounter;
+    // Topic 11 — V42 L-74c: ObservableTelemetry-Huelle um die LeafOnlyCounter-Strategie (getrieben + observierbar)
+    using telemetry          = telemetry::axis_11_telemetry::ObservableTelemetry<
+                                   telemetry::axis_11_telemetry::LeafOnlyCounter>;
     // Topic 14
     using value_handle       = value_handle::axis_14_value_handle::InlineValueHandle;
     // Topic hardware
