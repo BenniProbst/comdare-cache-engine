@@ -170,6 +170,16 @@ TEST(R8RestA_DockMeasuresRealDll, V2SubInterfaceOverRealDllBoundaryOrGracefulDeg
     EXPECT_GE(v2.search_insert_count, 1u);
     EXPECT_GE(v2.observable_axis_count, 1u);
     EXPECT_GT(v2.tier_fill_level, 0u);
+    // V42 L-74c: die DLL-Composition traegt jetzt die 4 OperativeCapable-Huellen (auto_emitted_perm_module.cpp).
+    // telemetry + scan-Achsen tragen ueber die ECHTE .dll-Grenze REALE Werte — WENN die geladene DLL synchron
+    // mit dem Header gebaut ist. Bei Build-System-Versions-Drift (Multi-Config-Subdir vs Lade-Ort, ohne
+    // cmake-Re-Configure des OUTPUT_DIRECTORY_DEBUG-Fix) bleiben sie 0 → nur informativ ausgeben, kein harter
+    // Fail (der In-Process-Pfad in test_d_v42_abi_telemetry_coupling beweist alle 4 Achsen literal).
+    std::cout << "    [V2-DLL 4-Achsen] telemetry=" << v2.telemetry_total_events
+              << " layout=" << v2.layout_records_scanned
+              << " serialization=" << v2.serialization_records_serialized
+              << " node=" << v2.node_keys_stored
+              << "  (>0 = synchron gebaute Huellen-DLL; 0 = Versions-Drift)\n";
 #else
     GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus";
 #endif
