@@ -42,6 +42,16 @@ int main() {
     assert(v2.telemetry_node_updates == 0u);   // LeafOnlyCounter verwirft Inner-Touch
     assert(v2.observable_axis_count >= 5u);
 
+    // V42 scan-Achsen-Auto-Kopplung: memory_layout + serialization wurden in fill_observer_v2 ueber das ECHTE
+    // Slot-Backing des container_ getrieben (Pfad-B Zustand-Scan) → records == tier_fill_level (alle Slots).
+    std::cout << "  scan-Achsen ueber Slot-Backing: layout_records=" << v2.layout_records_scanned
+              << " layout_checksum=" << v2.layout_last_checksum
+              << " | serialization_records=" << v2.serialization_records_serialized << "\n";
+    assert(v2.layout_scan_count == 1u);
+    assert(v2.layout_records_scanned == v2.tier_fill_level);          // alle Tier-Slots gescannt
+    assert(v2.serialization_serialize_count == 1u);
+    assert(v2.serialization_records_serialized == v2.tier_fill_level);
+
     // KERN-BEWEIS 2: derselbe V2-POD über das EIGENSTÄNDIGE Sub-Interface IObservableTierV2 (ABI-robust —
     // wie der Host ihn über die DLL-Grenze zieht: dynamic_cast<IObservableTierV2*>; alte Module → nullptr →
     // Degrade auf V1, KEIN vtable-Append-Crash). Hier gelingt der Cast (der neue Adapter erbt IObservableTierV2).

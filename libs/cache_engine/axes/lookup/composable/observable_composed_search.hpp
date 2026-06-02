@@ -91,6 +91,20 @@ public:
     [[nodiscard]] auto store_allocator_statistics() const noexcept
         requires store_has_allocator_stats<S>
     { return search_.store().allocator_statistics(); }
+
+    // V42 L-74c scan-Achsen-Auto-Kopplung: reicht den Store-Slot-Zugriff durch, damit der abi_adapter/Anatomie-
+    // Treiber die memory_layout/serialization-Observer-Organe ueber das ECHTE Slot-Backing treiben kann
+    // (organ_observe_layout/serialization am ComposedStore). if-constexpr-detektierbar (requires), kein Bruch
+    // fuer Stores ohne diese Nicht-Vertrags-Methoden.
+    template <class LayoutOrgan>
+    std::uint64_t store_observe_layout(LayoutOrgan& org) const
+        requires requires(Store const& s, LayoutOrgan& o) { s.organ_observe_layout(o); }
+    { return search_.store().organ_observe_layout(org); }
+
+    template <class SerOrgan>
+    std::uint64_t store_observe_serialization(SerOrgan& org) const
+        requires requires(Store const& s, SerOrgan& o) { s.organ_observe_serialization(o); }
+    { return search_.store().organ_observe_serialization(org); }
 #endif
 
     // ── V5-I6-SUBSTANZ (#44) — MementoAxis (per-Achsen-Memento, inkl. Observer-Stats) ──────────────────
