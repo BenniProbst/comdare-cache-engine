@@ -42,6 +42,16 @@ int main() {
     assert(v2.telemetry_node_updates == 0u);   // LeafOnlyCounter verwirft Inner-Touch
     assert(v2.observable_axis_count >= 5u);
 
-    std::cout << "OK: abi_adapter tier_insert/lookup koppelt telemetry AUTOMATISCH -> fill_observer_v2 (Cross-ABI V2-POD).\n";
+    // KERN-BEWEIS 2: derselbe V2-POD über die ECHTE Gattungs-ABI (IObservableTier::tier_observe_v2),
+    // wie der Host ihn zieht (dynamic_cast<IObservableTier*> → tier_observe_v2). Identisch zu fill_observer_v2.
+    ana::IObservableTier* itier = static_cast<ana::IObservableTier*>(&ad);
+    ana::ComdareTierObserverSnapshotV2 v2_abi{};
+    itier->tier_observe_v2(&v2_abi);
+    assert(v2_abi == v2);                       // über das Interface == direkt
+    assert(v2_abi.telemetry_total_events == 40u);
+    std::cout << "  via IObservableTier::tier_observe_v2: telemetry_total=" << v2_abi.telemetry_total_events
+              << " (== fill_observer_v2)\n";
+
+    std::cout << "OK: abi_adapter tier_insert/lookup koppelt telemetry AUTOMATISCH -> tier_observe_v2 (Cross-ABI V2-POD ueber Interface).\n";
     return 0;
 }
