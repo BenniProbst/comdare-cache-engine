@@ -44,8 +44,10 @@ int main() {
     // D10 (2026-06-02): Sequence ist jetzt GEBUNDEN (GenusBindingTraits<Sequence>, 10 + axis_growth = 11 Slots).
     check_true("GenusBound<Sequence> == true (Sequence-Gattung seit D10 gebunden, 11 Slots)", ex::GenusBound<cea::AnatomyGenus::Sequence>);
     check_eq("GenusBindingTraits<Sequence>::slot_count == 11", ex::GenusBindingTraits<cea::AnatomyGenus::Sequence>::slot_count, std::size_t{11});
-    check_true("GenusBound<View> == false (NICHT gebunden — offener Erweiterungspunkt)", !ex::GenusBound<cea::AnatomyGenus::View>);
-    std::cout << "    Gattungs-Bindung: 4 von 5 gebunden (SearchAlgorithm + Adapter + Set + Sequence); View OFFEN\n";
+    // D11 (2026-06-02): View ist jetzt GEBUNDEN (GenusBindingTraits<View>, 4 geteilt + extent/layout/accessor = 7).
+    check_true("GenusBound<View> == true (View-Gattung seit D11 gebunden, 7 Slots)", ex::GenusBound<cea::AnatomyGenus::View>);
+    check_eq("GenusBindingTraits<View>::slot_count == 7", ex::GenusBindingTraits<cea::AnatomyGenus::View>::slot_count, std::size_t{7});
+    std::cout << "    Gattungs-Bindung: ALLE 5 von 5 gebunden (SearchAlgorithm + Adapter + Set + Sequence + View)\n";
 
     // Statische Bindungs-Identität: CompositionFor<PermTuple> ist eine AdHocComposition (BR-2 belegt die Materialisierung;
     // hier nur, dass die Traits den richtigen Composition-Typ binden). Konstruiere ein PermTuple<17> aus 17 void-Markern? —
