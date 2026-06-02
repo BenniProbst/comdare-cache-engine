@@ -6,7 +6,7 @@
 
 | Repo | Rolle (IST-belegt) |
 |------|--------------------|
-| **cache-engine** | Achsen-Bibliothek (15 Topics / 17 Achsen, `axes/`-Rename physisch) + Anatomie-Generator (`AdHocComposition<T0..T16>` → PermutationEngine → `adhoc_emitter` → je Permutation eine SHARED-DLL, 48 real gebaut) + EINHEITLICHES Prüf-Dock (`SearchAlgorithmDock`: `dynamic_cast<IObservableTier*>` über reale DLL-Grenze; Hybrid Pfad A `run_workload`+`f15_compare` / Pfad B `IObservableTier`-POD). Konsumiert prt-art als Prüfling via `COMDARE_CE_PRUEFLINGE`. |
+| **cache-engine** | Achsen-Bibliothek (15 Topics / 22 Achsen [Korr. 2026-06-02: „17" = NUR SearchAlgorithm-Komposition-Slots, NICHT Gesamtzahl; 5 außerhalb: page_type/09b/12/q1/q2], `axes/`-Rename physisch) + Anatomie-Generator (`AdHocComposition<T0..T16>` → PermutationEngine → `adhoc_emitter` → je Permutation eine SHARED-DLL, 48 real gebaut) + EINHEITLICHES Prüf-Dock (`SearchAlgorithmDock`: `dynamic_cast<IObservableTier*>` über reale DLL-Grenze; Hybrid Pfad A `run_workload`+`f15_compare` / Pfad B `IObservableTier`-POD). Konsumiert prt-art als Prüfling via `COMDARE_CE_PRUEFLINGE`. |
 | **prt-art** | PRÜFLING der Gattung SearchAlgorithm — reines Plugin (kein nested Submodul), `comdare_pruefling.cmake` + `register_prt_art_pruefling`; 4/17 Achsen-Slots gefüllt; 3-Stufen-Join compile-time (`pruefling_merge` static_assert). |
 | **Diplomarbeit** | 6-Stufen-LaTeX-Pipeline `01 sample → 02 messung_driver → 03 binary→csv → 04 csv→latex → 05 diagram → 06 latex→pdf`; konsumiert CE korrekt (lädt Permutations-DLLs + nutzt CE-`welch_t_test`). |
 
