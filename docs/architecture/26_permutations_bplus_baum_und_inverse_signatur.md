@@ -176,7 +176,11 @@ Serialisierung) → getrennte Typen + Factory (Typsicherheit + Erweiterbarkeit).
   Blatt = ein Tier-Binary, sein serialisierter Pfad = seine eindeutige ID. Statische Signatur je Blatt mitführen.
 - **KF-15** (inverse Auswertung): KEINE Hash-Dedup, sondern **`multimap<statische Signatur, Paper>`** +
   Projektion der gemessenen Blätter auf die Paper-Sichten per Signatur-Filter (linear).
-- **KF-8** (CEB-Generator): erzeugt je Blatt das `perm_<pfad>.cpp` (der Pfad determiniert die Achsen-Wahl je Ebene).
+- **KF-8** (CEB-Generator): ZWEI getrennte Pfade (D3/L-77, 2026-06-02): (1) `ceb_generator::generate_all` = STRING-
+  getriebenes **Diagnose/Pfad-Manifest** (je Blatt ein `perm_<pfad>.cpp` mit Pfad-#defines + `perm_run`-Stub, KEINE
+  reale Anatomie — der Pfad kennt nur Namen, kein C++-Typ → bewusst kein String→Typ-Dispatch); (2)
+  `ceb_generator::generate_all_real<Engine>` → delegiert TYP-getrieben an `codegen::emit_adhoc_modules<Engine>` =
+  **realer BR-4-Anatomie-Emitter** (`COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<17 FQ>)` + Umbrella; baubar/ladbar/observierbar).
 - Knoten-Typen (KF-9): `StaticAxisNode` / `DynamicVariableNode` via Abstract Factory.
 
 ## 8. Entscheidungen (Stand 2026-06-02, vom User bestätigt)

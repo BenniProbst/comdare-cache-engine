@@ -1,12 +1,25 @@
 #pragma once
 // KF-8 (2026-06-02) — CebGenerator: C++23-Codegen aus dem Experiment-B+-Baum (KEIN Python).
 //
-// Nutzt ExperimentTree::for_each_binary (KF-9): je STATISCHEM Binary-Pfad (= eine zu ladende Tier-Binary)
-// wird ein perm_<id>.cpp erzeugt. Die Achsen-Wahl je Ebene wird aus dem serialisierten Pfad abgeleitet —
-// BELIEBIGE Achsentiefe (bricht den hartcodierten 5-Achsen-Deckel von tools/permutation_codegen/codegen.cmake).
-// Host-Werkzeug: baut den Baum zur Laufzeit; die erzeugten Binaries bleiben compile-time-statisch. Doc architecture/26.
+// ⚠️ ZWEI PFADE — KLARE TRENNUNG (D3 / L-77, 2026-06-02; korrigiert die irreführende Lesart von Task #70):
+//
+//   (1) generate_perm_source / generate_all = STRING-getriebenes PFAD-MANIFEST + DIAGNOSE-SHELL. Aus dem
+//       serialisierten Binary-Pfad (for_each_binary, BELIEBIGE Achsentiefe — bricht den 5-Achsen-Deckel von
+//       tools/permutation_codegen) wird je Binary ein perm_<id>.cpp mit Pfad-#defines + GÜLTIGEM Default-
+//       `perm_run`-Stub erzeugt. Das ist KEINE reale Anatomie — `perm_run` misst nichts (Default 0.0); die
+//       #defines werden von keiner Anatomie konsumiert. Zweck: Pfad↔Datei-Korrelation, Diagnose, Achsen-Manifest.
+//
+//   (2) generate_all_real<Engine> = REALER BR-4-ANATOMIE-PFAD. Delegiert an codegen::emit_adhoc_modules<Engine>
+//       (TYP-getrieben via Engine::for_each_composition_type): je Komposition-TYP ein Modul-.cpp mit
+//       #include all_axes_umbrella.hpp + COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<17 FQ-Typen>). DAS ist der reale,
+//       baubare, ladbare Anatomie-Emitter (Gate-3/BR-4). Schreibt zusätzlich das Pfad/Index-Manifest dazu.
+//
+// Merksatz: Der String-Pfad (1) kennt nur Namen, kann daraus keinen C++-TYP auflösen → bewusst KEIN
+// String→Typ-Dispatch (Direktive „kein Runtime-Switch"); die reale Anatomie kommt typ-getrieben über (2).
+// Host-Werkzeug: baut den Baum zur Laufzeit; die erzeugten Binaries bleiben compile-time-statisch. Doc 26 §7 KF-8.
 
 #include "experiment_tree.hpp"
+#include "../codegen/adhoc_emitter.hpp"   // (2) realer Anatomie-Emitter (emit_adhoc_modules<Engine>)
 
 #include <cctype>
 #include <filesystem>
@@ -46,9 +59,10 @@ namespace comdare::cache_engine::builder::experiment {
     return out;
 }
 
-/// Erzeugt den C++23-Quelltext einer Permutations-DLL für genau EINEN Binary-Pfad (beliebige Achsentiefe).
-/// Selbst-konsistente Shell (Descriptor + extern-"C"-Entry); der achsen-spezifische run()-Body wird beim
-/// Einweben der Organe (KF-5/KF-6) gefüllt — hier ein gültiger, kompilierbarer Default.
+/// (1) DIAGNOSE-SHELL (KEIN reale-Anatomie-Emitter): C++23-Quelltext für genau EINEN Binary-Pfad (beliebige
+/// Achsentiefe). Selbst-konsistente Shell (Pfad-#defines + Descriptor + extern-"C"-Entry); `perm_run` ist ein
+/// GÜLTIGER DEFAULT-STUB (gibt 0.0 zurück, misst NICHTS) — die #defines werden von keiner Anatomie konsumiert.
+/// Zweck = Pfad↔Datei-Korrelation/Diagnose. Reale, messbare Anatomie ⇒ generate_all_real<Engine> (BR-4).
 [[nodiscard]] inline std::string generate_perm_source(std::string const& binary_id) {
     std::string const id = ceb_sanitize(binary_id);
     auto const axes = ceb_parse_path(binary_id);
@@ -81,7 +95,9 @@ namespace comdare::cache_engine::builder::experiment {
     return s;
 }
 
-/// Generiert je Binary (for_each_binary) ein perm_<id>.cpp in out_dir + ein Manifest. Liefert die Anzahl.
+/// (1) STRING-PFAD-MANIFEST/DIAGNOSE: je Binary (for_each_binary) ein DIAGNOSE-perm_<id>.cpp + Manifest.
+/// ⚠️ KEINE reale Anatomie (perm_run misst nichts) — für baubare, messbare Module: generate_all_real<Engine>.
+/// ⚠️ O(∏) (for_each_binary) — nur auf handhabbaren (Pilot-)Bäumen aufrufen.
 [[nodiscard]] inline std::size_t generate_all(ExperimentTree const& tree, std::filesystem::path const& out_dir) {
     std::filesystem::create_directories(out_dir);
     std::ofstream manifest{out_dir / "perm_manifest.txt"};
@@ -94,6 +110,22 @@ namespace comdare::cache_engine::builder::experiment {
         ++count;
     });
     return count;
+}
+
+/// (2) REALER BR-4-ANATOMIE-PFAD (D3 / L-77): delegiert TYP-getrieben an codegen::emit_adhoc_modules<Engine>
+/// (Engine::for_each_composition_type) — je Komposition-TYP ein Modul-.cpp mit #include all_axes_umbrella.hpp +
+/// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<17 FQ-Typen>). DIESE Module sind baubar/ladbar/observierbar (Gate-3/BR-4).
+/// Schreibt zusätzlich ein anatomy_manifest.txt (idx → Dateiname). Liefert die geschriebenen .cpp-Pfade.
+/// Damit erfüllt KF-8 den realen-Anatomie-Anspruch an EINER Stelle (der String-Pfad (1) bleibt Diagnose).
+template <class Engine>
+[[nodiscard]] std::vector<std::filesystem::path>
+generate_all_real(std::filesystem::path const& out_dir) {
+    auto files = codegen::emit_adhoc_modules<Engine>(out_dir);
+    std::ofstream manifest{out_dir / "anatomy_manifest.txt"};
+    if (manifest)
+        for (std::size_t i = 0; i < files.size(); ++i)
+            manifest << i << "  " << files[i].filename().string() << "\n";
+    return files;
 }
 
 }  // namespace comdare::cache_engine::builder::experiment
