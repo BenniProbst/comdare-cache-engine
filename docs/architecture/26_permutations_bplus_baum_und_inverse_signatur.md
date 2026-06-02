@@ -9,6 +9,30 @@
 > Grundsatz (merken): **Für Suche werden IMMER Bäume verwendet** — lineare Baum-Traversierung, NICHT quadratische
 > Scans. (Thematisch konsequent: die Diplomarbeit IST eine Studie über Such-/Baum-Algorithmen.)
 
+## 0. Schicht-Trennung — Experiment-Manager vs. Tiere/Organe vs. Diplomarbeit (User 2026-06-02)
+
+**Diese Ergänzung betrifft AUSSCHLIESSLICH die Organisation/Verarbeitung des Experiments (erhobene Permutationen +
+Ergebnisse). Sie ersetzt nur Bestandteile des MESS-Systems IN der `CacheEngineBuilder` (die das Prüf-Dock fährt) —
+die Tiere und Organe bleiben UNVERÄNDERT.** Tier/Organ-Metapher (Doku 14): Organ = Achse/Sub-Aufgabe eines Algorithmus;
+Tier = volle Achsen-Komposition; ein Tier liegt nur SEZIERT als Organ-Komposition vor. Der B+-Baum strukturiert + liest
+die Messungen ÜBER die Tiere/Organe, **greift aber nicht in sie ein**. Annahme: die aktuelle Cache Engine funktioniert
+einwandfrei + ist perfekt aufgebaut — diese Ergänzung ändert nur die Mess-Organisation, nicht die Engine-Interna.
+
+**WER macht WAS:**
+- **Cache-Engine-Bibliothek = das WIE.** Profilverwaltung + Permutation (Aufbau/Traversierung des Experiment-B+-Baums)
+  + die Organe/Achsen + das Messen am Prüf-Dock sind IMMER Aufgabe der Bibliothek (`CacheEngineBuilder` als
+  Experiment-Manager).
+- **Diplomarbeit = das WAS.** Liefert nur, WAS untersucht werden soll (`comdare_thesis_profile`), und liest die
+  Ergebnisse **read-only über das Traversal des Experiment-Baums** durch ein Interface aus der Cache Engine.
+
+Konkret = ein **custom C++23-SLURM-Experiment-Launcher mit Baum-Traversierung**, der die zuvor FLACH verwalteten
+Experimente baum-strukturiert. **Alles in C++23.**
+
+> Abgrenzung zur cacheline-Achsen-Erweiterung (KF-3/KF-5): Das per-Organ-`cacheline` ist eine separate, vom User
+> mandatierte **Bibliotheks-Achsen-Erweiterung** (erweitert Organ-Algorithmen, damit sie die Cache-Line-Einstellung
+> tragen — die untersuchte Eigenschaft). Sie ist NICHT Teil des Experiment-Managers; der Manager (dieses Dokument)
+> fasst Organe nicht an, er misst + organisiert nur.
+
 ## 1. Das Problem mit Fingerprints
 
 Ein flacher Hash (FNV1a) über die volle Achsen-Konfiguration liefert pro voller Kombination EINE opake ID. Damit
@@ -31,6 +55,13 @@ EIN großer B+-Baum repräsentiert das GESAMTE Experiment (alle Paper + alle Per
   Achsen-Ebene eine WEITERE dynamische Baumebene (mit eigenem Fanout über die dynamischen Werte).
 - **Blatt = Pointer auf das erzeugte optionale Resultat** (das Tier-Binary / der Mess-Eintrag; „optional", weil es
   bis zum Bau/zur Messung fehlen darf).
+- **JEDE node hält ein Key-Value (nicht nur die Blätter):**
+  - **key** = die **serialisierte Signatur der Kind-Permutationen**, die der Knoten durch seine bloße Existenz
+    repräsentiert (der Pfad-Abschnitt Wurzel→Knoten);
+  - **value** = die **Observer-Statistics + Mess-Auswertung**, die der Knoten **spezifisch für diese B+-Baum-Ebene
+    persistiert** (aggregiert über den Teilbaum unter dem Knoten).
+  → Der Baum ist damit ein auf JEDER Ebene lesbarer Ergebnis-Speicher: die Diplomarbeit liest Resultate auf beliebiger
+  Granularität (z. B. „alle Messungen unter traversal=ART" am ART-Knoten aggregiert) per reiner Baum-Traversierung.
 - **Pfad Wurzel→Blatt = die serialisierte, eindeutige Verifikation/Signatur** eines (gemischt statisch/dynamischen)
   Tier-Binary-Experiments. Die Pfadabfolge ERSETZT den FNV1a-Fingerprint als eindeutige Binary-ID.
 
@@ -65,17 +96,26 @@ Die „inverse Auswertung" = Projektion der real gemessenen Blätter auf die Pap
 
 ## 4. Statische vs. dynamische Knoten — Abstract Factory (KEIN enum-Flag)
 
-Die Baumknoten müssen formal in **statische** und **dynamische Beschreibungsknoten** unterscheidbar sein —
-**per Abstract-Factory-Muster**, ein `struct`-`enum`-Flag genügt NICHT:
+GENAU ZWEI Knotenarten, **per Abstract-Factory-Muster** als **Einzelklassen** (ein `struct`-`enum`-Flag genügt NICHT):
 
 - `AbstractNodeFactory` (Schnittstelle) → erzeugt `INodeDescription`-Instanzen.
-- `StaticAxisNodeFactory` → `StaticAxisNode` (beschreibt eine fixe Achsen-Algorithmus-Wahl; definiert Paper-Signatur).
-- `DynamicVariableNodeFactory` → `DynamicVariableNode` (beschreibt eine dynamische Variablen-Iteration unter einer Achse).
+- `StaticAxisNodeFactory` → `StaticAxisNode` — bildet eine **statische Achseneigenschaft eines Organ-Algorithmus** ab
+  (die fixe Algorithmus-Wahl der Achse; trägt die Paper-Signatur).
+- `DynamicVariableNodeFactory` → `DynamicVariableNode` — bildet eine **Organ-Algorithmus-Variable (dynamisch)** ab
+  (eine einstellbare Variable unter einer Achse, z. B. cacheline-Wert, thread_count).
 
-Begründung: die zwei Knoten-Arten tragen UNTERSCHIEDLICHES Verhalten (Signatur-Beitrag, Serialisierung, ob sie zur
-statischen Wiedererkennung zählen, ob compile-time gebacken oder Laufzeit-durchlaufen). Das gehört in getrennte Typen
-mit polymorphem Verhalten (Factory), nicht in ein Discriminator-Flag — Typsicherheit + Erweiterbarkeit + saubere
-Trennung der Serialisierungs-/Signatur-Logik.
+**Zusätzlich werden beide Arten je konkreter Achseneigenschaft als EIGENE Einzelklasse ausgeprägt** (nicht generisch-
+flach), damit:
+- für **jedes einstellbare Detail die korrekten Variablen** typsicher mitgeliefert werden, und
+- **Observer-Statistics-Mappings für ALLE Kind-Serialisierungen** im Knoten aufgenommen werden können (das key→value
+  je Knoten aus §2: key = serialisierte Signatur der Kind-Permutationen, value = Observer-Statistics + Mess-Auswertung
+  dieser Ebene).
+
+`compile-time` vs. `runtime` ist ein **Attribut am `DynamicVariableNode`** (nicht eine dritte Knotenart): compile-time-
+freigegebene Achsen → eigenes Binary (Compile-Blatt); OS-Laufzeit-Variablen (thread_count/hw_prefetcher) → vom
+CacheEngineBuilder je Binary am Prüf-Dock durchlaufen (Mess-Blatt). Begründung gegen enum-Flag: die Arten +
+Achseneigenschaft-Spezialisierungen tragen unterschiedliches Verhalten (Signatur-Beitrag, Variablen-Satz,
+Observer-Mapping, Serialisierung) → getrennte Typen + Factory (Typsicherheit + Erweiterbarkeit).
 
 ## 5. Komplexität
 
@@ -104,9 +144,13 @@ Trennung der Serialisierungs-/Signatur-Logik.
 - **KF-8** (CEB-Generator): erzeugt je Blatt das `perm_<pfad>.cpp` (der Pfad determiniert die Achsen-Wahl je Ebene).
 - Knoten-Typen (KF-9): `StaticAxisNode` / `DynamicVariableNode` via Abstract Factory.
 
-## 8. Offen / zu bestätigen
+## 8. Entscheidungen (Stand 2026-06-02, vom User bestätigt)
 
-- Genaue B+-Knoten-API (Fanout-Repräsentation, Serialisierungsformat des Pfads, Signatur-Encoding).
-- Ob der Baum compile-time (Typ-Ebene) ODER als Laufzeit-Struktur im CEB-Generator gebaut wird (wahrscheinlich
-  Laufzeit im Generator-Tool KF-8, da es das Profil zur Laufzeit liest und `perm_<id>.cpp` schreibt — das passt zur
-  Faustregel: der Generator ist Host-Werkzeug, die erzeugten Binaries bleiben compile-time-statisch).
+- ✅ **Schicht-Trennung (§0):** B+-Baum/`CacheEngineBuilder` = Experiment-Manager (das WIE); Diplomarbeit = das WAS +
+  read-only-Traversal. Tiere/Organe unverändert (cacheline-Achse KF-3/5 = separate Bibliotheks-Achsen-Erweiterung).
+- ✅ **Zwei Knotenarten** (`StaticAxisNode` / `DynamicVariableNode`), als Einzelklassen je Achseneigenschaft;
+  compile-time vs. runtime als Attribut am dynamischen Knoten (keine dritte Art).
+- ✅ **Jede node hält key+value** (serialisierte Signatur → Observer-Statistics/Mess-Auswertung der Ebene).
+- ✅ **Alles C++23**, inkl. des custom SLURM-Experiment-Launchers mit Baum-Traversierung (ersetzt die flache Verwaltung).
+- offen (Implementierungsdetail, in KF-9 festzulegen): genaues Serialisierungsformat des Pfads/der Signatur +
+  konkretes Observer-Mapping-Layout je Knoten + die Read-Interface-Signatur für die Diplomarbeit-Seite.
