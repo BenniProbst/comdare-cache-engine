@@ -71,3 +71,31 @@ error: TelemetryStrategyBase<LeafOnlyCounter>::TelemetryStrategyBase ist nicht z
 - **Option C (Wurzel-Fix): protected CRTP-Base-ctor → public** in den Telemetry/MemoryLayout/Serialization/NodeType-Strategy-Bases. Am einfachsten, aber berührt die CRTP-Disziplin (protected-ctor verhindert Slicing/Fremd-Instanziierung) — nur nach Prüfung, ob das eine bewusste Invariante ist.
 
 **Empirische Lehre für die nächste Runde:** Probe IMMER mit dem **real in der Composition verwendeten Wrapper** (hier `LeafOnlyCounter`, via `ArtComposition::telemetry` ermitteln), nicht mit beliebigen Vertretern der Achse. Der Default-Wrapper pro Achse steht in der jeweiligen `compositions/*_composition.hpp`.
+
+## §3c VERIFIZIERTER BEFUND + LÖSUNG (2026-06-02, test_d_v42_probe2 + test_d_v42_telemetry_observable, beide literal grün)
+
+**Probe2 (`test_d_v42_probe2`, REALER Wrapper LeafOnlyCounter) — literal:**
+
+| Wrapper | is_aggregate | default_constructible | brace_ok `T{}` | ObservableAxis | HoldPlain (Member ohne `{}`) |
+|---------|:---:|:---:|:---:|:---:|:---:|
+| LeafOnlyCounter | **1** | 1 | **0** | **0** | **konstruiert** |
+| InsertCounter | **1** | 1 | **0** | **0** | konstruiert |
+
+**Zwei harte Korrekturen am §3b-Befund:**
+1. Der „CRTP-ctor-Block" ist in Wahrheit ein **`{}`-Aggregat-Init-Artefakt**: Die Strategie-Wrapper sind **Aggregate** (`is_aggregate=1`); `T{}` (Aggregat-Init) spricht die protected Base **direkt** an (`brace_ok=0`) — aber **default-init OHNE `{}` klappt** (`HoldPlain<LeafOnlyCounter>` konstruiert). Der Build-Fehler kam vom Member-Initializer `axis_telemetry_{}` (Brace), nicht von genereller Nicht-Konstruierbarkeit. Member-Hold ist also möglich, nur ohne Brace bzw. über eine Nicht-Aggregat-Hülle.
+2. **Aber die Strategie-Wrapper sind selbst NICHT `ObservableAxis`** (`ObservableAxis=0`, auch unter STATISTICS — sie haben kein `statistics()`/`snapshot_t`, nur `static constexpr` name/family/is_leaf_only). Member-Halten allein bringt also nichts; observe_all hätte weiter `EmptyAxisSnapshot` gesammelt.
+
+**LÖSUNG = Hülle (Option H, exakt das search_algo-Vorbild):** `axes/telemetry_axis/axis_11_telemetry_observable.hpp` → `ObservableTelemetry<Strategy>`. Sie trägt die **Mess-Mechanik** (eigener Counter + `statistics()`/`snapshot_t`/`reset()`, gegated), parametrisiert durch die Strategie (`Strategy::is_leaf_only()`): leaf-only-Strategien verwerfen Inner-Node-Touches, non-leaf zählen sie. Die Hülle ist **kein Aggregat** → direkt als Anatomie-Member `{}`-haltbar. **`test_d_v42_telemetry_observable` (MIT STATISTICS) literal grün:**
+```
+LeafOnlyCounter : total=3 leaf=2 node=0 peak=2   (leaf-only verwirft Inner-Touch)
+InsertCounter   : total=3 leaf=2 node=1 peak=3   (non-leaf zählt Inner-Touch)
+```
+Belegt: `ObservableAxis<ObservableTelemetry<...>> == true`, Delta vor/nach Treiben > 0 (kein Stub), Strategie parametrisiert die Mechanik (der messbare Achsen-Unterschied), Snapshot `standard_layout`+`trivially_copyable` (ABI-tauglich).
+
+**Verdrahtungs-Plan (Option A, belegt durch das search_algo-Vorbild `art_reference.hpp:60` `using search_algo = ...::ObservableArtTrieOrgan`):**
+1. Alias je Strategie: `using ObservableLeafOnlyCounter = ObservableTelemetry<LeafOnlyCounter>;` etc. (analog wie search_algo eine observable Hülle als Slot-Typ trägt).
+2. Reference-Compositions (`art_reference.hpp:77` u.a.): `using telemetry = ...::ObservableLeafOnlyCounter;` statt der nackten Strategie. `IsComposition` fordert nur Typ-Existenz (`composition_concept.hpp:38`) → zulässig.
+3. `search_algorithm_anatomy.hpp`: `typename Composition::telemetry axis_telemetry_{};` als 2. Organ (jetzt Hülle = kein Aggregat → `{}` klappt) + `telemetry_organ()`-Accessor + `observe_all` `if constexpr (ObservableAxis<...>) agg.telemetry = axis_telemetry_.statistics();`. Dann `snapshot_of_t<Composition::telemetry> == TelemetrySnapshot`, `observable_count()` steigt um 1.
+4. **Kopplung (der eigentliche Driver):** der Tier-insert/lookup (`abi_adapter`/`anatomy_execution_context`) ruft `telemetry_organ().record_node_touch(is_leaf)`.
+5. Cross-ABI-POD (`ComdareTierObserverSnapshotV1`) append-only um telemetry-uint64-Felder erweitern (nur wenn über die DLL-Grenze nötig).
+6. **Risiko-Prüfung vor Schritt 2:** alle Stellen finden, die `Composition::telemetry` als `TelemetryStrategy` voraussetzen (memento_aggregate/codegen/Gattungs-Compositions) — der Slot-Typ-Wechsel darf sie nicht brechen. Umbrella-Build (`test_v41_anatomy_observer`) muss grün bleiben.
