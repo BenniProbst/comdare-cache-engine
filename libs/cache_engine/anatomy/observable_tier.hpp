@@ -69,6 +69,62 @@ static_assert(std::is_trivially_copyable_v<ComdareTierObserverSnapshotV1>,
 inline constexpr std::uint32_t kTierObserverSnapshotVersion = 1;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ComdareTierObserverSnapshotV2 — erweitert V1 um die 4 OperativeCapable-Achsen (V42 L-74c)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// V2 trägt die V1-Achsen (search_algo + allocator) UND die 4 in V42 voll observable+getriebenen
+/// OperativeCapable-Achsen (telemetry/memory_layout/serialization/node_type, Doc 29 §3c–§3f). Nach der
+/// POD-Design-Regel (oben) = NEUER versionierter Typ statt append-only an V1 — V1 bleibt ABI-stabil für
+/// bestehende Konsumenten. NUR uint64 → standard_layout + trivially_copyable (memcpy über die DLL-Grenze).
+/// Die ersten 13 Felder sind layout-identisch zu V1 (bewusst, erleichtert die Migration host-seitig).
+struct ComdareTierObserverSnapshotV2 {
+    // ── V1-Block (layout-identisch zu ComdareTierObserverSnapshotV1) ──
+    std::uint64_t search_lookup_count   = 0;
+    std::uint64_t search_hit_count      = 0;
+    std::uint64_t search_miss_count     = 0;
+    std::uint64_t search_insert_count   = 0;
+    std::uint64_t search_erase_count    = 0;
+    std::uint64_t search_peak_occupancy = 0;
+    std::uint64_t alloc_bytes_allocated = 0;
+    std::uint64_t alloc_bytes_in_use    = 0;
+    std::uint64_t alloc_allocation_count   = 0;
+    std::uint64_t alloc_deallocation_count = 0;
+    std::uint64_t alloc_failure_count   = 0;
+    std::uint64_t observable_axis_count = 0;
+    std::uint64_t tier_fill_level       = 0;
+    // ── Achse telemetry (axis_11) — TelemetrySnapshot, gespiegelt ──
+    std::uint64_t telemetry_total_events = 0;
+    std::uint64_t telemetry_leaf_updates = 0;
+    std::uint64_t telemetry_node_updates = 0;
+    std::uint64_t telemetry_peak_tracked = 0;
+    // ── Achse memory_layout (axis_05) — MemoryLayoutSnapshot, gespiegelt ──
+    std::uint64_t layout_scan_count          = 0;
+    std::uint64_t layout_records_scanned     = 0;
+    std::uint64_t layout_field_bytes_read    = 0;
+    std::uint64_t layout_cache_lines_touched = 0;
+    std::uint64_t layout_last_checksum       = 0;
+    // ── Achse serialization (axis_10) — SerializationSnapshot, gespiegelt ──
+    std::uint64_t serialization_serialize_count    = 0;
+    std::uint64_t serialization_records_serialized = 0;
+    std::uint64_t serialization_bytes_serialized   = 0;
+    std::uint64_t serialization_last_checksum      = 0;
+    // ── Achse node_type (axis_04) — NodeTypeSnapshot, gespiegelt ──
+    std::uint64_t node_find_count    = 0;
+    std::uint64_t node_keys_stored   = 0;
+    std::uint64_t node_queries_run   = 0;
+    std::uint64_t node_last_checksum = 0;
+
+    [[nodiscard]] constexpr bool operator==(ComdareTierObserverSnapshotV2 const&) const noexcept = default;
+};
+
+static_assert(std::is_standard_layout_v<ComdareTierObserverSnapshotV2>,
+              "ABI-Pflicht: V2-Snapshot muss standard_layout sein");
+static_assert(std::is_trivially_copyable_v<ComdareTierObserverSnapshotV2>,
+              "ABI-Pflicht: V2-Snapshot muss memcpy-fähig (trivially_copyable) sein");
+
+inline constexpr std::uint32_t kTierObserverSnapshotVersionV2 = 2;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // IObservableTier — ABI-stabiles Observer-Zugriffs-Sub-Interface
 // ─────────────────────────────────────────────────────────────────────────────
 
