@@ -1294,7 +1294,8 @@ endforeach()
 # (b) Container-Gattungs-Tests: brauchen die q1/q2-Achsen-Registries → Boost::mp11 + generated-Flags.
 set(COMDARE_GOALV6_BOOST_DTESTS
     test_container_genus      # #75 Container q2-Slot (in-process)
-    test_container_dock)      # #75 Container-Pruef-Dock
+    test_container_dock       # #75 Container-Pruef-Dock
+    test_d_v42_probe)         # V42-Composition-Driver-Probe (telemetry default_ctor/ObservableAxis-Befund)
 foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
