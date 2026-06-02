@@ -53,3 +53,21 @@ Direkt am Code verifiziert (telemetry-Achse, ohne `COMDARE_CE_ENABLE_STATISTICS`
 (c) **Kopplung (der eigentliche Driver):** der Tier-insert/lookup im abi_adapter muss `axis_telemetry_.record(...)` mit-treiben (sonst leer) — der Workload-Treiber koppelt search_algo-Op + telemetry-record;
 (d) Cross-ABI-POD nur falls telemetry-Metriken über die DLL-Grenze sollen (append-only).
 Verifikation: Test MIT `-DCOMDARE_CE_ENABLE_STATISTICS`, Delta telemetry-statistics vor/nach Treiben > 0. Achsen-Reihenfolge memory_layout/serialization/node_type analog prüfen (Probe je Achse zuerst).
+
+## §3b KORREKTUR (2026-06-02, literaler Build-Fehler widerlegt §3a) — Member-Hold IST blockiert
+
+**Der in §3a (a)+(b) vorgeschlagene Schritt wurde umgesetzt und schlug am realen Build fehl.** `cmake --build --target test_v41_anatomy_observer` (STATISTICS-Umbrella, min_free 11 GB) brach mit folgendem ab:
+
+```
+error: TelemetryStrategyBase<LeafOnlyCounter>::TelemetryStrategyBase ist nicht zugreifbar
+  in der vom Compiler generierten SearchAlgorithmAnatomy<ArtComposition>::SearchAlgorithmAnatomy(void)
+```
+
+**Ursache + warum die Probe (§3a) falsch lag:** `test_d_v42_probe` testete `InsertCounter`/`DensityTracker`/`LatencyHistogram` — aber **`ArtComposition::telemetry` = `LeafOnlyCounter`**, ein anderer Wrapper. Der protected `TelemetryStrategyBase`-ctor blockiert das **direkte Member-Halten** (`axis_telemetry_{}` in einer fremden Klasse, die NICHT von `LeafOnlyCounter` erbt → kann den protected Base-ctor nicht aufrufen). Bei `t::InsertCounter ic;` im Probe-`main()` ist `main` zwar auch keine Derived, aber der Befund war schlicht **wrapper-unvollständig** — `LeafOnlyCounter` hat (anders als InsertCounter) keinen extern zugänglichen default-ctor-Pfad als Member. **§3a-Schlussfolgerung „telemetry direkt als Member haltbar" ist damit FALSCH für die reale Composition.**
+
+**Konsequenz (Revert, Repo wieder grün — 13/13 test_v41_anatomy_observer):** Der Member-Hold-Ansatz ist verworfen. Der **korrekte Pfad ist der ursprüngliche §3 Schritt 1** — und zwar NICHT pro-Achse-stückeln, sondern an der Wurzel lösen:
+- **Option T (empfohlen, generisch): Tuple-basierte Organ-Komposition.** Die Anatomie hält alle Achsen-Organe in einem `std::tuple<...>`, **default-konstruiert via `emplace`/Aggregat-Init mit Zugriffsfreundlichkeit**, ODER — sauberer — über je eine `ObservableComposed*`-Hülle pro Achse (analog `ObservableComposedSearch` #42), die den protected ctor kapselt. Tuple löst den Block für ALLE 17 Achsen zugleich; das ist der eigentliche „Composition-driven"-Umbau (Doku 14 §11.3/§12).
+- **Option H (punktuell): pro OperativeCapable-Achse eine Observable-Hülle** mit public default-ctor, die das Organ kapselt (wie search_algo es via ObservableComposedSearch bereits tut). Weniger invasiv, aber 4×-Wiederholung.
+- **Option C (Wurzel-Fix): protected CRTP-Base-ctor → public** in den Telemetry/MemoryLayout/Serialization/NodeType-Strategy-Bases. Am einfachsten, aber berührt die CRTP-Disziplin (protected-ctor verhindert Slicing/Fremd-Instanziierung) — nur nach Prüfung, ob das eine bewusste Invariante ist.
+
+**Empirische Lehre für die nächste Runde:** Probe IMMER mit dem **real in der Composition verwendeten Wrapper** (hier `LeafOnlyCounter`, via `ArtComposition::telemetry` ermitteln), nicht mit beliebigen Vertretern der Achse. Der Default-Wrapper pro Achse steht in der jeweiligen `compositions/*_composition.hpp`.
