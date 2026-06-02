@@ -81,6 +81,11 @@ public:
         if constexpr (ObservableAxis<typename Composition::memory_layout>) {
             agg.memory_layout = axis_memory_layout_.statistics();
         }
+        // V42 L-74c: serialization-Achse als 4. real gehaltenes Organ (static serialize_scan bleibt fuer
+        // abi_adapter:218; Observer-Treiber ruft observe_serialize()). Greift nur im STATISTICS-Build.
+        if constexpr (ObservableAxis<typename Composition::serialization>) {
+            agg.serialization = axis_serialization_.statistics();
+        }
         return agg;
     }
 
@@ -98,6 +103,11 @@ public:
     /// observe_scan(buf,n,record_size) → die Layout-Scan-Statistik fliesst via observe_all().
     [[nodiscard]] typename Composition::memory_layout&       memory_layout_organ()       noexcept { return axis_memory_layout_; }
     [[nodiscard]] typename Composition::memory_layout const& memory_layout_organ() const noexcept { return axis_memory_layout_; }
+
+    /// V42 L-74c: Zugriff auf das serialization-Organ (4. getriebenes Achsen-Organ). Treiber ruft
+    /// observe_serialize(buf,n,record_size) → die Serialisierungs-Statistik fliesst via observe_all().
+    [[nodiscard]] typename Composition::serialization&       serialization_organ()       noexcept { return axis_serialization_; }
+    [[nodiscard]] typename Composition::serialization const& serialization_organ() const noexcept { return axis_serialization_; }
 
     /// Diagnose: wie viele Achsen liefern echte Snapshots? (Rest = EmptyAxisSnapshot)
     [[nodiscard]] static constexpr std::size_t observable_axis_count() noexcept {
@@ -131,6 +141,9 @@ private:
 
     // V42 L-74c (Doc 29 §3e): memory_layout-Huelle als 3. Organ. Kein Aggregat (Decorator) → default-init.
     typename Composition::memory_layout axis_memory_layout_;
+
+    // V42 L-74c: serialization-Huelle als 4. Organ.
+    typename Composition::serialization axis_serialization_;
 };
 
 }  // namespace comdare::cache_engine::anatomy
