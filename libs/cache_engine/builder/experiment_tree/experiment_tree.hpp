@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -203,6 +204,22 @@ public:
     }
     [[nodiscard]] std::size_t size()  const noexcept { return size_; }
     [[nodiscard]] bool        empty() const noexcept { return size_ == 0; }
+
+    // ── D1 (L-SEL): Ebenen-Metadaten für die endliche BuildSelection (Coverage-Sampling) ──
+    /// Zahl der statischen Ebenen (= Achsen der Binary-Identität).
+    [[nodiscard]] std::size_t level_count() const noexcept { return levels_.size(); }
+    /// Varianten-Zahl der Ebene d (0 wenn d außerhalb) — Eingabe für one_wise_cover_sample.
+    [[nodiscard]] std::size_t level_size(std::size_t d) const noexcept {
+        return d < levels_.size() ? levels_[d].values.size() : 0;
+    }
+    /// mixed-radix ENKODIERUNG (Inverse von operator[]): tuple[d] = Varianten-Index der Ebene d → flacher
+    /// View-Index i (== Σ_d tuple[d]·div_[d]). Da div_ die Mixed-Radix-Stellenwerte hält, gilt
+    /// (i / div_[d]) % level_size(d) == tuple[d] (für tuple[d] < level_size(d)) → operator[](flat_index(t)) trifft t.
+    [[nodiscard]] std::size_t flat_index(std::span<const std::size_t> tuple) const noexcept {
+        std::size_t i = 0;
+        for (std::size_t d = 0; d < levels_.size() && d < tuple.size(); ++d) i += tuple[d] * div_[d];
+        return i;
+    }
 
     /// On-demand: dekodiert Index i mixed-radix → EINE BinarySpec (materialisiert genau einen Pfad).
     [[nodiscard]] BinarySpec operator[](std::size_t i) const {
