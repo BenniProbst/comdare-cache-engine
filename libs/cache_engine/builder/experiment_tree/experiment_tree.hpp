@@ -47,13 +47,16 @@ public:
     [[nodiscard]] virtual bool contributes_to_signature() const noexcept = 0;
     [[nodiscard]] virtual bool contributes_to_pinned_signature() const noexcept = 0;
     [[nodiscard]] virtual bool is_runtime_loop() const noexcept = 0;
+    /// RÜCK-Referenz (Bidirektionalität, User 2026-06-02): die ID des AxisBlock, dem dieser Knoten gehört.
+    /// Macht statische UND dynamische Knoten auf dem GESAMTBAUM-Objekt block-filterbar + -zuordbar.
+    [[nodiscard]] virtual std::string block_id() const = 0;
 };
 
 /// StaticAxisNode — compile-time-Entscheidung → MATERIALISIERT; je Static-Pfad eine Tier-Binary.
 class StaticAxisNode final : public INodeDescription {
 public:
-    StaticAxisNode(std::string axis, std::string value, bool pinned)
-        : axis_{std::move(axis)}, value_{std::move(value)}, pinned_{pinned} {}
+    StaticAxisNode(std::string axis, std::string value, bool pinned, std::string block_id = {})
+        : axis_{std::move(axis)}, value_{std::move(value)}, pinned_{pinned}, block_id_{std::move(block_id)} {}
     NodeKind    kind() const noexcept override { return NodeKind::Static; }
     std::string axis() const override { return axis_; }
     std::string value() const override { return value_; }
@@ -61,18 +64,20 @@ public:
     bool contributes_to_signature() const noexcept override { return true; }
     bool contributes_to_pinned_signature() const noexcept override { return pinned_; }
     bool is_runtime_loop() const noexcept override { return false; }
+    std::string block_id() const override { return block_id_; }   // Rück-Referenz auf den compile-time AxisBlock
     [[nodiscard]] bool pinned() const noexcept { return pinned_; }
 private:
     std::string axis_, value_;
     bool pinned_;
+    std::string block_id_;
 };
 
 /// DynamicVariableNode — Laufzeit-Variable → VIRTUELLE for-Schleife (nicht materialisiert). Wird je
 /// Schleifen-Punkt von der Factory erzeugt und in die Experiment-Einstellung akkumuliert.
 class DynamicVariableNode final : public INodeDescription {
 public:
-    DynamicVariableNode(std::string axis, std::string var, std::string value)
-        : axis_{std::move(axis)}, var_{std::move(var)}, value_{std::move(value)} {}
+    DynamicVariableNode(std::string axis, std::string var, std::string value, std::string block_id = {})
+        : axis_{std::move(axis)}, var_{std::move(var)}, value_{std::move(value)}, block_id_{std::move(block_id)} {}
     NodeKind    kind() const noexcept override { return NodeKind::Dynamic; }
     std::string axis() const override { return axis_; }
     std::string value() const override { return value_; }
@@ -80,29 +85,31 @@ public:
     bool contributes_to_signature() const noexcept override { return false; }
     bool contributes_to_pinned_signature() const noexcept override { return false; }
     bool is_runtime_loop() const noexcept override { return true; }
+    std::string block_id() const override { return block_id_; }   // Rück-Referenz auf den compile-time AxisBlock
     [[nodiscard]] std::string variable() const { return var_; }
 private:
     std::string axis_, var_, value_;
+    std::string block_id_;
 };
 
 class AbstractNodeFactory {
 public:
     virtual ~AbstractNodeFactory() = default;
     [[nodiscard]] virtual std::unique_ptr<INodeDescription>
-        make_static(std::string axis, std::string value, bool pinned) const = 0;
+        make_static(std::string axis, std::string value, bool pinned, std::string block_id = {}) const = 0;
     [[nodiscard]] virtual std::unique_ptr<INodeDescription>
-        make_dynamic(std::string axis, std::string var, std::string value) const = 0;
+        make_dynamic(std::string axis, std::string var, std::string value, std::string block_id = {}) const = 0;
 };
 
 class ExperimentNodeFactory final : public AbstractNodeFactory {
 public:
     std::unique_ptr<INodeDescription>
-    make_static(std::string axis, std::string value, bool pinned) const override {
-        return std::make_unique<StaticAxisNode>(std::move(axis), std::move(value), pinned);
+    make_static(std::string axis, std::string value, bool pinned, std::string block_id = {}) const override {
+        return std::make_unique<StaticAxisNode>(std::move(axis), std::move(value), pinned, std::move(block_id));
     }
     std::unique_ptr<INodeDescription>
-    make_dynamic(std::string axis, std::string var, std::string value) const override {
-        return std::make_unique<DynamicVariableNode>(std::move(axis), std::move(var), std::move(value));
+    make_dynamic(std::string axis, std::string var, std::string value, std::string block_id = {}) const override {
+        return std::make_unique<DynamicVariableNode>(std::move(axis), std::move(var), std::move(value), std::move(block_id));
     }
 };
 
@@ -119,8 +126,9 @@ struct TreeNode {
 struct AxisLevel {
     std::string              axis;
     std::vector<std::string> values;
-    bool                     is_static = true;   // hier stets statisch (materialisiert)
+    bool                     is_static = true;   // static/dynamic = KNOTEN-EIGENSCHAFT (gleichrangig im Baum)
     std::string              variable;            // ungenutzt für statische Ebenen
+    std::string              block_id;            // Rück-Referenz auf den compile-time AxisBlock (Bidirektionalität)
 };
 
 /// Dynamische Dimension = eine virtuelle (nicht materialisierte) for-Schleife über einer Binary.
@@ -128,7 +136,15 @@ struct DynamicDim {
     std::string              axis;
     std::string              variable;
     std::vector<std::string> values;
+    std::string              block_id;   // Rück-Referenz auf den compile-time AxisBlock (Bidirektionalität)
 };
+
+// HINWEIS (User 2026-06-02): AxisBlock ist ein COMPILE-TIME-Metaprogrammier-Konstrukt (registrier-/erweiterbar),
+// definiert in der Reflektions-Schicht (registry_to_axis_levels.hpp / axis_block compile-time), NICHT hier als
+// Runtime-Struktur. Im GESAMTBAUM sind statische und dynamische Achsen GLEICHWERTIG (flache, gleichrangige
+// Knoten-Folge) — die static/dynamic-Unterscheidung ist eine KNOTEN-EIGENSCHAFT (StaticAxisNode/DynamicVariableNode,
+// Abstract Factory), KEINE strukturelle Block-Hierarchie. Der compile-time AxisBlock wird in flache AxisLevel/
+// DynamicDim reflektiert, jeweils mit `block_id` getaggt (Bidirektionalität: Knoten → Block, INodeDescription::block_id()).
 
 /// DAS Blatt = exakt EINE Experiment-Einstellung (Binary × eine vollständige dynamische Belegung).
 struct ExperimentSetting {
@@ -179,6 +195,7 @@ public:
         set_dynamic_dims(dynamic_filter());
     }
 
+
     /// FILTER: statischer Teilbaum (materialisierte Ebenen → Binary-Identität).
     [[nodiscard]] std::vector<AxisLevel> static_filter() const {
         std::vector<AxisLevel> out;
@@ -188,7 +205,7 @@ public:
     /// FILTER: dynamischer Teilbaum (virtuelle for-Schleifen-Dimensionen).
     [[nodiscard]] std::vector<DynamicDim> dynamic_filter() const {
         std::vector<DynamicDim> out;
-        for (auto const& l : all_levels_) if (!l.is_static) out.push_back(DynamicDim{l.axis, l.variable, l.values});
+        for (auto const& l : all_levels_) if (!l.is_static) out.push_back(DynamicDim{l.axis, l.variable, l.values, l.block_id});
         return out;
     }
 
@@ -210,6 +227,12 @@ public:
     [[nodiscard]] std::size_t binary_count() const {
         std::size_t n = 0; for_each_binary([&](std::string const&, std::string const&, TreeNode const&) { ++n; }); return n;
     }
+
+    /// Besucht JEDEN materialisierten Knoten-Deskriptor (Bidirektionalität, User 2026-06-02): über kind() +
+    /// block_id() + axis() sind statische UND dynamische Knoten auf dem GESAMTBAUM-Objekt filter-/zuordbar
+    /// (z.B. "alle Knoten des Blocks X", "alle statischen Knoten"). visitor(INodeDescription const&).
+    template <class Visitor>
+    void for_each_node(Visitor&& v) const { traverse_nodes(*root_, v); }
 
     /// VIRTUELL: je Binary × geschachtelte for-Schleifen über dynamic_dims_ → je Kombination eine
     /// ExperimentSetting (= das Blatt). visitor(ExperimentSetting const&).
@@ -269,12 +292,18 @@ private:
         bool const pinned = (lvl.values.size() == 1);
         for (auto const& val : lvl.values) {
             auto child = std::make_unique<TreeNode>();
-            child->desc = factory_->make_static(lvl.axis, val, pinned);  // statisch → materialisiert
+            child->desc = factory_->make_static(lvl.axis, val, pinned, lvl.block_id);  // statisch → materialisiert
             std::string const seg = child->desc->serialize();
             child->key = prefix.empty() ? seg : (prefix + "/" + seg);
             build_recursive(*child, levels, depth + 1, child->key);
             parent.children.push_back(std::move(child));
         }
+    }
+
+    template <class Visitor>
+    void traverse_nodes(TreeNode const& node, Visitor& v) const {
+        if (node.desc) v(*node.desc);
+        for (auto const& c : node.children) traverse_nodes(*c, v);
     }
 
     template <class Visitor>
@@ -311,7 +340,7 @@ private:
         }
         DynamicDim const& d = dynamic_dims_[dim];
         for (auto const& val : d.values) {
-            auto node = factory_->make_dynamic(d.axis, d.variable, val);  // Factory erzeugt den dyn. Knoten
+            auto node = factory_->make_dynamic(d.axis, d.variable, val, d.block_id);  // Factory erzeugt den dyn. Knoten
             assign.push_back(node->serialize());
             expand(bin, pin, leaf, dim + 1, assign, v);
             assign.pop_back();
