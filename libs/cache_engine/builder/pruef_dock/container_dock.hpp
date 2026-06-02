@@ -32,21 +32,27 @@ public:
     }
 
     /// Treibt das Container-Tier mit n_puts put + n_gets get (Zustands-Manipulation, Doku 24 §8.7b) und zieht
-    /// den eingebauten Container-Observer. Reines in-process-Treiben des echten Q1-Organs.
-    [[nodiscard]] MeasureResult measure(std::uint64_t n_puts, std::uint64_t n_gets) const {
-        ContainerAnatomyT tier;
+    /// den eingebauten Container-Observer. Reines in-process-Treiben BEIDER Organe (Q1 buffer + Q2 flush).
+    /// capacity > 0 aktiviert die Q2-Flush-Policy (Bezugsgröße); 0 (Default) = kein Auto-Flush.
+    [[nodiscard]] MeasureResult measure(std::uint64_t n_puts, std::uint64_t n_gets,
+                                        std::size_t capacity = 0) const {
+        ContainerAnatomyT tier(capacity);
         for (std::uint64_t i = 0; i < n_puts; ++i)
             tier.put(static_cast<typename ContainerAnatomyT::element_type>(i));
         for (std::uint64_t i = 0; i < n_gets; ++i) (void)tier.get();
         return MeasureResult{ tier.observe_all(), n_puts + n_gets };
     }
 
-    /// Persistierung (Doc 24 §8.8 Schritt c): eine CSV-Zeile mit den korrelierten Container-Observer-Werten.
+    /// Persistierung (Doc 24 §8.8 Schritt c): eine CSV-Zeile mit den korrelierten Container-Observer-Werten
+    /// (Q1 buffer + Q2 flush). Die Flush-Felder stehen am Zeilenende (stabile Präfix-Spalten für Bestands-Parser).
     [[nodiscard]] static std::string serialize_csv(MeasureResult const& r) {
-        std::string s = "genus,total_ops,put_count,get_count,peak_occupancy,current_occupancy\n";
+        std::string s = "genus,total_ops,put_count,get_count,peak_occupancy,current_occupancy,"
+                        "flush_decisions,full_flush,flush_complete\n";
         s += "Container," + std::to_string(r.total_ops) + ","
            + std::to_string(r.observer.put_count) + "," + std::to_string(r.observer.get_count) + ","
-           + std::to_string(r.observer.peak_occupancy) + "," + std::to_string(r.observer.current_occupancy) + "\n";
+           + std::to_string(r.observer.peak_occupancy) + "," + std::to_string(r.observer.current_occupancy) + ","
+           + std::to_string(r.observer.flush_decisions_evaluated) + "," + std::to_string(r.observer.full_flush_count) + ","
+           + std::to_string(r.observer.flush_complete_count) + "\n";
         return s;
     }
 };
