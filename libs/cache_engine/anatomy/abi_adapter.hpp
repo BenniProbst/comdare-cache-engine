@@ -85,6 +85,7 @@ class SearchAlgorithmAbiAdapter final : public IAnatomyBase,
 //   MESSUNG-AUS : NUR IDriveableTier (funktionaler Antrieb) → Release-/funktional-only-DLL OHNE jeden Mess-Overhead (kein Observer-, kein Memento-, kein Scan-vtable-Slot).
 #if COMDARE_MEASUREMENT_ON
                                         public IObservableTier,
+                                        public IObservableTierV2,   // V42 L-74c: eigenständiges V2-Sub-Interface (ABI-robust, kein vtable-Append)
                                         public IMeasurableWorkload,
                                         public IRollbackableTier,
                                         public IScannableTier {

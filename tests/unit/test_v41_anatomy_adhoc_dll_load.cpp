@@ -141,3 +141,36 @@ TEST(R8RestA_DockMeasuresRealDll, ObserveTraceGuardCapsOverCapacityFillNoHang) {
 // Sub-Interface IObservableTierV2 (per dynamic_cast abgefragt, alte DLLs → nullptr, kein vtable-Slap).
 // Nächster Sprint: IObservableTierV2 als eigenständiges Sub-Interface (analog wie IObservableTier selbst
 // NICHT an IAnatomyBase hängt) + Codegen-DLL-Rebuild-Dependency. Der In-Process-V2-Pfad bleibt verifiziert.
+
+// V42 L-74c — DLL-ROUND-TRIP über das ABI-ROBUSTE IObservableTierV2-Sub-Interface (2026-06-03, Nachzug).
+// Anders als die vtable-additive Variante (die crashte) fragt der Host das V2-Sub-Interface via dynamic_cast
+// ab: gelingt er (DLL mit IObservableTierV2 gebaut) → tier_observe_v2 trägt den V2-POD über die reale
+// .dll-Grenze; schlägt er fehl (alte DLL) → nullptr → sauberer Degrade auf V1, KEIN Crash. Genau das
+// Designprinzip von IObservableTier selbst. Beweist die ABI-Robustheit des V2-Pfads über die echte DLL.
+TEST(R8RestA_DockMeasuresRealDll, V2SubInterfaceOverRealDllBoundaryOrGracefulDegrade) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    std::filesystem::path const dir{COMDARE_R5G_ADHOC_DLL_DIR};
+    std::vector<loader::AnatomyModuleHandle> handles;
+    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(dir, handles), loader::status_ok);
+    ASSERT_GE(handles.size(), 1u);
+
+    auto* obs2 = dynamic_cast<ana::IObservableTierV2*>(handles[0].anatomy());
+    if (obs2 == nullptr) {
+        // Alte DLL ohne IObservableTierV2 → sauberer Degrade (KEIN Crash). Die ABI-Robustheit IST der Beweis.
+        GTEST_SKIP() << "DLL ohne IObservableTierV2 (nicht synchron neu gebaut) — Host degradiert sauber auf V1.";
+    }
+    // Neue DLL: V2-POD über die reale .dll-Grenze ziehen.
+    for (int i = 0; i < 30; ++i) {
+        auto* drv = dynamic_cast<ana::IDriveableTier*>(handles[0].anatomy());
+        ASSERT_NE(drv, nullptr);
+        (void)drv->tier_insert(static_cast<std::uint64_t>(i), static_cast<std::uint64_t>(i) * 2u);
+    }
+    ana::ComdareTierObserverSnapshotV2 v2{};
+    obs2->tier_observe_v2(&v2);
+    EXPECT_GE(v2.search_insert_count, 1u);
+    EXPECT_GE(v2.observable_axis_count, 1u);
+    EXPECT_GT(v2.tier_fill_level, 0u);
+#else
+    GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus";
+#endif
+}

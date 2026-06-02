@@ -147,15 +147,22 @@ public:
     /// Schreibt den aktuellen Observer-Snapshot (observe_all → flacher POD) nach *out. out != nullptr.
     /// noexcept (reines Auslesen von Zählern). Der Host stempelt das Resultat mit Wall-Clock + persistiert.
     virtual void tier_observe(ComdareTierObserverSnapshotV1* out) const noexcept = 0;
+};
 
-    /// V42 L-74c: erweiterter V2-Snapshot (V1-Achsen + die 4 OperativeCapable telemetry/memory_layout/
-    /// serialization/node_type). vtable-ADDITIV mit Default-no-op am vtable-Ende → Module, die ihn NICHT
-    /// überschreiben (älter ODER ohne die Achsen), liefern einen leeren V2-POD; neue überschreiben ihn mit
-    /// echten Werten. Der Host prüft die V2-Fähigkeit (observable_axis_count / Versions-Handshake), bevor er
-    /// die V2-Felder interpretiert. So bleibt das Sub-Interface vorwärts-kompatibel ohne tier_observe-Bruch.
-    virtual void tier_observe_v2(ComdareTierObserverSnapshotV2* out) const noexcept {
-        if (out != nullptr) *out = ComdareTierObserverSnapshotV2{};
-    }
+/// V42 L-74c — IObservableTierV2: EIGENSTÄNDIGES Sub-Interface für den erweiterten V2-Snapshot (V1-Achsen +
+/// die 4 OperativeCapable telemetry/memory_layout/serialization/node_type). ABI-ROBUST nach exakt demselben
+/// Prinzip wie IObservableTier selbst (hängt NICHT an IObservableTier/IAnatomyBase → ändert deren vtable
+/// NICHT): der Host fragt es via `dynamic_cast<IObservableTierV2*>(ianatomy_ptr)`; alte Module → nullptr →
+/// sauberer Degrade auf tier_observe-V1. Das vermeidet den vtable-Append-Crash über die DLL-Grenze (SEH
+/// 0xc0000005, Befund 2026-06-03: eine neue virtuelle Methode AM vtable-Ende von IObservableTier ist nur
+/// bei synchronem DLL+Host-Rebuild sicher; ein eigenständiges Interface ist es IMMER, weil der dynamic_cast
+/// fehlschlägt statt über eine fremde vtable zu springen).
+class IObservableTierV2 {
+public:
+    virtual ~IObservableTierV2() = default;
+
+    /// Schreibt den erweiterten V2-Observer-Snapshot nach *out. out != nullptr. noexcept (reines Auslesen).
+    virtual void tier_observe_v2(ComdareTierObserverSnapshotV2* out) const noexcept = 0;
 };
 
 }  // namespace comdare::cache_engine::anatomy
