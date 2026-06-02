@@ -139,6 +139,31 @@ struct ExperimentSetting {
     TreeNode const*          binary_node = nullptr;
 };
 
+// ── KF-16: indizierte Sicht auf den STATISCHEN Teilbaum (Bereitstellung der Tier-Binaries vor Experimenten) ──
+/// Die statischen Eigenschaften EINER zu kompilierenden Tier-Binary (= ein Static-Pfad/Blatt).
+struct BinarySpec {
+    std::size_t                                      index = 0;  // 0-basiert, stabile Reihenfolge
+    std::string                                      binary_id;        // serialisierter Static-Pfad = die Binary
+    std::string                                      pinned_signature; // gepinnte Achsen (Paper-Wiedererkennung)
+    std::vector<std::pair<std::string, std::string>> axes;             // (achse, wert) je statischer Ebene
+};
+
+/// Indizierter, iterierbarer Blick auf den statischen Teilbaum. „Interface, um die notwendigen statischen
+/// Eigenschaften zur Kompilation aller notwendigen Tier-Binaries indexiert mit einem Iterator zu durchlaufen"
+/// (User 2026-06-02). Random-Access (operator[]) + Bereichs-Iteration (begin/end) für den Build-Orchestrator.
+class StaticBinaryView {
+public:
+    StaticBinaryView() = default;
+    explicit StaticBinaryView(std::vector<BinarySpec> specs) : specs_{std::move(specs)} {}
+    [[nodiscard]] std::size_t       size()  const noexcept { return specs_.size(); }
+    [[nodiscard]] bool              empty() const noexcept { return specs_.empty(); }
+    [[nodiscard]] BinarySpec const& operator[](std::size_t i) const { return specs_.at(i); }
+    [[nodiscard]] auto begin() const noexcept { return specs_.begin(); }
+    [[nodiscard]] auto end()   const noexcept { return specs_.end(); }
+private:
+    std::vector<BinarySpec> specs_;
+};
+
 class ExperimentTree {
 public:
     explicit ExperimentTree(std::shared_ptr<AbstractNodeFactory> factory)
@@ -206,7 +231,37 @@ public:
         return idx;
     }
 
+    /// KF-16: indizierte Sicht auf den statischen Teilbaum (alle zu bauenden Tier-Binaries, geordnet). Der
+    /// Build-Orchestrator stellt darüber VOR den Experimenten je Binary genau ein DLL bereit.
+    [[nodiscard]] StaticBinaryView static_binary_view() const {
+        std::vector<BinarySpec> specs;
+        for_each_binary([&](std::string const& bin, std::string const& pin, TreeNode const&) {
+            BinarySpec s;
+            s.index            = specs.size();
+            s.binary_id        = bin;
+            s.pinned_signature = pin;
+            s.axes             = parse_axes(bin);
+            specs.push_back(std::move(s));
+        });
+        return StaticBinaryView{std::move(specs)};
+    }
+
 private:
+    /// Zerlegt einen serialisierten Static-Pfad ("achse=wert/achse=wert/…") in (achse, wert)-Paare.
+    [[nodiscard]] static std::vector<std::pair<std::string, std::string>> parse_axes(std::string const& path) {
+        std::vector<std::pair<std::string, std::string>> out;
+        std::size_t i = 0;
+        while (i < path.size()) {
+            std::size_t slash = path.find('/', i);
+            std::string seg   = path.substr(i, (slash == std::string::npos ? path.size() : slash) - i);
+            std::size_t eq    = seg.find('=');
+            if (eq != std::string::npos) out.emplace_back(seg.substr(0, eq), seg.substr(eq + 1));
+            if (slash == std::string::npos) break;
+            i = slash + 1;
+        }
+        return out;
+    }
+
     void build_recursive(TreeNode& parent, std::vector<AxisLevel> const& levels,
                          std::size_t depth, std::string const& prefix) {
         if (depth >= levels.size()) return;
