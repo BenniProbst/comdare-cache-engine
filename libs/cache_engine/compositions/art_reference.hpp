@@ -66,7 +66,7 @@ struct ArtComposition {
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;
     using node_type          = nodes::axis_04_node_type::Node256NodeType;
     // Topic 5
-    using memory_layout      = memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
+    using memory_layout      = memory_layout::axis_05_memory_layout::ObservableMemoryLayout<memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout>;  // V42 L-74c
     // Topic 6
     using allocator          = allocator::axis_06_allocator::MimallocAllocator;
     // Topic 7
