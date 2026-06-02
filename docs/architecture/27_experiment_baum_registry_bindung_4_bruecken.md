@@ -88,6 +88,23 @@ KEIN komposition-typisiertes Member → standard_layout bleibt). Der Mess-Treibe
 realen Snapshot via `observe_all()`/`IObservableTier::tier_observe` und legt ihn im Knoten ab. Definitionen
 (Wrapper-Identität/Properties) je Knoten über die `BinarySpec.axes` + die CompositionRegistry read-only abrufbar.
 
+> **AUDIT-TODO BR-3-OBS-22 (User 2026-06-02):** `ObserverAggregate<C>` (observer_aggregate.hpp) hat heute nur
+> **17 Snapshot-Slots** (= die 17 Komposition-Achsen T0..T16). Die 22-Achsen-Bindung (BR-1) braucht aber **22
+> Observer-Strukturen** — die **5 Achsen außerhalb** (page_type/01, simd_extension/09b, general_hardware/12,
+> queuing_q1, queuing_q2) haben KEINEN Observer-Slot. Vor der Done-Marke für Gate-4 ist je außerhalb-Achse
+> bewusst zu klären (nicht stillschweigend auf 17 reduzieren):
+> - **Hardware-Achsen (09b simd_extension, 12 general_hardware, sowie 09 isa):** sind reine Build-Time-Konstanten
+>   (Definition/Properties), evtl. KEIN Laufzeit-Observer → dann „Achsen-Definition statt Observer" je Knoten, aber
+>   EXPLIZIT dokumentiert (nicht implizit weggelassen).
+> - **queuing_q1/q2:** andere Gattung (Container/Queue, Doku 24 §8.8 → eigenes Prüf-Dock) → eigener Gattungs-
+>   Observer-Aggregate (NICHT der SearchAlgorithm-`ObserverAggregate<17>`).
+> - **page_type/01:** nodes-Sub-Achse → entweder Teil des node-Observers oder eigener Slot.
+> Ergebnis: entweder ein erweiterter/parallel-gehaltener Observer je Gattung ODER eine dokumentierte
+> „Definition-statt-Observer"-Klassifikation je außerhalb-Achse. Bis dahin gilt zusätzlich die R5.B-Grenze
+> (Doku 21/24 §5.5: operativ misst real nur search_algo (+ allocator); die übrigen Komposition-Achsen sind
+> heute passive Compile-Time-Deskriptoren) — der „volle" 17-Observer-Snapshot ist selbst noch nicht voll
+> operativ. BR-3 muss BEIDE Grenzen (22-vs-17-Slots UND R5.B-Operativität) ehrlich abbilden.
+
 ### BR-4 — Generierte Binary → reale Anatomie
 **Erweitern KF-8 (ceb_generator):** statt nur `#define`-Hülle emittiert `perm_<id>.cpp` jetzt
 `#include <…/all_axes_umbrella.hpp>` + `COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<17 FQ-Typnamen aus dem Pfad>)` →
@@ -101,7 +118,10 @@ BuildOrchestrator (KF-16) gebaut → via `AnatomyModuleLoader` geladen → `dyna
 2. ALLE 22 Achsen erscheinen als Baum-Ebene mit vollem Enabled-Inventar (17 im SearchAlgorithm-Teilbaum +
    5 in separaten Genus-/Sub-Achsen-Teilbäumen).
 3. Jedes statische Blatt → reale `AdHocComposition`, als Tier-Binary baubar (BR-4).
-4. Jeder gemessene Knoten → realer `ObserverAggregate`-Snapshot + Achsen-Definition (BR-3).
+4. Jeder gemessene Knoten → realer `ObserverAggregate`-Snapshot + Achsen-Definition (BR-3). **22 Observer-
+   Strukturen, NICHT 17** (Audit-TODO BR-3-OBS-22, §3): die 5 außerhalb-Achsen (page_type/09b/12/q1/q2)
+   brauchen eigene Observer bzw. eine bewusst dokumentierte „Definition-statt-Observer"-Klassifikation —
+   keine stillschweigende Reduktion auf die 17 Komposition-Slots.
 5. Inverse Signatur-Projektion (KF-15) über die REALEN Kompositionen.
 6. Belegt hier (Doc 27) + Doc 26 + finaler Session-Doku; finaler Audit bestätigt die Gleichheit.
 
