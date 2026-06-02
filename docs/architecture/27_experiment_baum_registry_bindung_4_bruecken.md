@@ -131,8 +131,13 @@ realen Snapshot via `observe_all()`/`IObservableTier::tier_observe` und legt ihn
 > getrieben, kein Stub), ungemessener Knoten == 0 (Kontrast), `measured_node_count == 1`, 17-Achsen-Definition
 > read-only via CompositionRegistry. **R5.B-Grenze EHRLICH:** `observable_axis_count` macht transparent, wie viele
 > Achsen real beobachtet sind (operativ search_algo + allocator; Rest passive Compile-Time-Deskriptoren → Default 0).
-> **VERBLEIBT (BR-3-OBS-22, #72):** die 22-Observer-Differenzierung — die 5 außerhalb-Achsen (page_type/09b/12 =
-> Definition-statt-Observer; q1/q2 = eigener Container-Gattungs-Observer) sind hier NOCH NICHT getragen.
+> ✅ **BR-3-OBS-22 ERLEDIGT + VERIFIZIERT (2026-06-02, `test_br3_obs22`, Voll-22-Include, RAM-Watchdog 11.7 GB):**
+> `axis_observer_classification.hpp` klassifiziert ALLE 22 Achsen gattungs-korrekt (kein Wegschrumpfen): **17
+> SearchAlgorithmObserver** (ObserverAggregate<17>, BR-3 real) + **3 DefinitionOnly** (page_type/09b/12 = Build-
+> Konstanten → read-only Definition statt Laufzeit-Observer, EHRLICH) + **2 ContainerObserver** (queuing q1/q2 =
+> eigene Container-Gattung, eigenes Dock = Gattungs-Generik-Folgeschritt) = 22. Literal belegt gegen die ECHTEN
+> 22 Achsen (BR-1 `build_all_axis_levels`): jede der 22 ist observer-klassifiziert UND trägt ihre read-only
+> Definition (reale Wrapper-Namen via reflect_names); Summe 17+3+2==22 (keine doppelt/fehlend).
 
 > **AUDIT-TODO BR-3-OBS-22 (User 2026-06-02):** `ObserverAggregate<C>` (observer_aggregate.hpp) hat heute nur
 > **17 Snapshot-Slots** (= die 17 Komposition-Achsen T0..T16). Die 22-Achsen-Bindung (BR-1) braucht aber **22
