@@ -62,6 +62,15 @@ EIN großer B+-Baum repräsentiert das GESAMTE Experiment (alle Paper + alle Per
     persistiert** (aggregiert über den Teilbaum unter dem Knoten).
   → Der Baum ist damit ein auf JEDER Ebene lesbarer Ergebnis-Speicher: die Diplomarbeit liest Resultate auf beliebiger
   Granularität (z. B. „alle Messungen unter traversal=ART" am ART-Knoten aggregiert) per reiner Baum-Traversierung.
+
+**Ausführungssemantik am Prüf-Dock (User 2026-06-02) — Kern der Trennung:**
+- **STATISCHE Knoten = je distinkter Static-Pfad lädt EINE NEUE Tier-Binary ins Prüf-Dock** (compile-time-Identität,
+  inkl. der compile-time-Cache-Line-Sub-Properties line_size/alignment/sw_hint, die in die Binary gebacken sind).
+- **DYNAMISCHE Knoten = eine FOR-SCHLEIFE auf EINER bereits geladenen Binary**, die nacheinander die Test-Einstellungen
+  über die Variablen-Schnittstelle (`Algorithm_Resource_Control`, KF-4) durchprobiert (thread_count, hw_prefetcher, …)
+  — erzeugt KEINE neue Binary.
+- Folglich: ein **Blatt = EIN Mess-Lauf (Binary × Laufzeit-Einstellung)**; `binary_count` = Zahl distinkter Static-Pfade;
+  Prüf-Dock-Modell = **je Binary EINMAL laden, dann Laufzeit-Schleife** über die dynamischen Einstellungen (KF-7).
 - **Pfad Wurzel→Blatt = die serialisierte, eindeutige Verifikation/Signatur** eines (gemischt statisch/dynamischen)
   Tier-Binary-Experiments. Die Pfadabfolge ERSETZT den FNV1a-Fingerprint als eindeutige Binary-ID.
 
@@ -111,11 +120,13 @@ flach), damit:
   je Knoten aus §2: key = serialisierte Signatur der Kind-Permutationen, value = Observer-Statistics + Mess-Auswertung
   dieser Ebene).
 
-`compile-time` vs. `runtime` ist ein **Attribut am `DynamicVariableNode`** (nicht eine dritte Knotenart): compile-time-
-freigegebene Achsen → eigenes Binary (Compile-Blatt); OS-Laufzeit-Variablen (thread_count/hw_prefetcher) → vom
-CacheEngineBuilder je Binary am Prüf-Dock durchlaufen (Mess-Blatt). Begründung gegen enum-Flag: die Arten +
-Achseneigenschaft-Spezialisierungen tragen unterschiedliches Verhalten (Signatur-Beitrag, Variablen-Satz,
-Observer-Mapping, Serialisierung) → getrennte Typen + Factory (Typsicherheit + Erweiterbarkeit).
+**Die Knotenart IST die compile-time/runtime-Unterscheidung** (kein separates Flag): `StaticAxisNode` = compile-time →
+lädt eine Binary; `DynamicVariableNode` = Laufzeit-FOR-SCHLEIFE auf der geladenen Binary über die Variablen-Schnittstelle.
+Compile-time-variierende Eigenschaften (auch cacheline-size/alignment, obwohl „Sub-Ebene unter einer Achse") sind daher
+**StaticAxisNodes** (sie erzeugen Binaries); nur echt laufzeit-einstellbare Größen (thread_count, hw_prefetcher) sind
+`DynamicVariableNodes`. Begründung gegen enum-Flag: die Arten + Achseneigenschaft-Spezialisierungen tragen
+unterschiedliches Verhalten (Binary-Identität vs. Laufzeit-Schleife, Signatur-Beitrag, Variablen-Satz, Observer-Mapping,
+Serialisierung) → getrennte Typen + Factory (Typsicherheit + Erweiterbarkeit).
 
 ## 5. Komplexität
 
