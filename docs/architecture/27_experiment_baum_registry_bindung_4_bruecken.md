@@ -194,7 +194,11 @@ BuildOrchestrator (KF-16) gebaut → via `AnatomyModuleLoader` geladen → `dyna
    Achsen → 8 Blätter); `ReadOnlyResultView` projiziert alle 8 realen Komposition-Pfade auf die gepinnte
    Signatur (registry-getrieben, `search_algo=<realer Wrapper>`); `aggregate_for_signature` sieht den echten
    gesetzten NodeValue (BR-3). Lineare Signatur-Filter-Projektion (Doc 26 §3), KEINE Fingerprints.
-6. Belegt hier (Doc 27) + Doc 26 + finaler Session-Doku; finaler Audit bestätigt die Gleichheit.
+6. Belegt hier (Doc 27) + Doc 26 + finaler Session-Doku; finaler Audit bestätigt die Gleichheit. ✅ **ERLEDIGT
+   (2026-06-02):** finaler Audit `docs/sessions/20260602-experiment-baum-4-bruecken-final-audit.md` konsolidiert
+   die literalen Test-Belege + Commit-Refs aller 6 Gates. **Alle 6 Gates literal grün** (Gate-1 Gleichheit
+   `binary_count==∏ mp_size==137.594.142.720.000` belegt). Verbleibend (NICHT in den 6 Gates): Gattungs-Generik
+   (Container-Bau-Brücke q1/q2) + #73 provision_all-Batching.
 
 ## 5. Reihenfolge + Risiken
 
