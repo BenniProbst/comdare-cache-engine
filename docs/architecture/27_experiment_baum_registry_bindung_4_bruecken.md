@@ -82,6 +82,17 @@ CompositionFromPermTuple<P>>` instanziiert. Der Baum-Blatt-`binary_id` (= dersel
 die Komposition nach. **Verifikation:** jeder Blatt-Pfad round-trippt auf genau eine reale Komposition; die
 Pfad-Serialisierung von BR-1 (Level-Namen) == die von BR-2 (PermTuple-Namen).
 
+> ✅ **BR-2 ERLEDIGT + VERIFIZIERT (2026-06-02, `test_br2_roundtrip`, cl, RAM-Watchdog 16.7 GB frei):** Umgesetzt
+> als `composition_registry.hpp` (`CompositionRegistry::register_from_engine<PilotEngine>` → je `for_each_permutation`-
+> Permutation eine reale `CompositionFromPermTuple<P>` = `AdHocComposition<17>`) + `axis_path_serialization.hpp`
+> (DIE eine zentrale Pfad-Konvention `serialize_composition_path<P>()` == experiment_tree.hpp `binary_id`-Format).
+> C1060-sicher über ein PILOT-Engine (schwere Achsen ×1, node_type/memory_layout ×2 → ∏=4); Doc 27 §6: nur die
+> Pilot-Blätter werden compile-time materialisiert, NIE der Voll-Typ-Baum. Literale Belege: `reg.size() ==
+> PilotEngine::count() == 4`; `tree.binary_count() == 4`; **alle 4 Baum-Blätter `lookup`-en genau eine reale
+> Komposition**; Round-Trip `path == slot_path` (P→Composition Slot-Reihenfolge verlustfrei); jede Komposition
+> trägt die 17-Achsen-Definition; Pfad-Mengen BR-1 == BR-2 identisch. `SearchAlgorithmAnatomy`-Instanziierung +
+> observe_all gehören zu BR-3/BR-4 (hier nur AdHocComposition<17> + Definition).
+
 ### BR-3 — NodeValue → echter ObserverAggregate
 **Erweitern:** `NodeValue` um einen ABI-stabilen Observer-Snapshot-Block (uint64-Slots je Achse, memcpy-fähig;
 KEIN komposition-typisiertes Member → standard_layout bleibt). Der Mess-Treiber zieht je gemessenem Blatt den
