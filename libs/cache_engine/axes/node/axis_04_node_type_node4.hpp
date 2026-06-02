@@ -6,6 +6,8 @@
 #include "concepts/axis_04_node_type_cache_engine_permutation_concept.hpp"
 #include <axes/node/axis_04_node_type_flags.hpp>
 #include <topics/nodes/concepts/topic_nodes_concept.hpp>
+#include <cstddef>
+#include <cstdint>
 #include <string_view>
 #include <type_traits>
 
@@ -25,6 +27,26 @@ public:
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "node4"; }
     [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "Node4NodeType (ART small node, 4-slot linear-search)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "NODE4"; }
+
+    // KF-6 (2026-06-02): verhaltens-tragender Run-Body, DIVERGENT je ART-Node-Format (Leis ICDE 2013) —
+    // macht die node-Achse F15-operativ (analog axis_05 scan_field_sum / axis_10 serialize_scan).
+    // Node4 = LINEAR-Scan über bis zu 4 sortierte Schlüssel; Prüfsumme der berührten Zellen (Scan-Kosten,
+    // Anti-Wegoptimierung). cacheline_prefetch (geerbt von CacheLineAware, KF-5) bäckt den konfigurierten
+    // SW-Prefetch-Hint ein (no-op bei Default None).
+    [[nodiscard]] static std::uint64_t node_find_scan(std::uint8_t const* stored, std::size_t n,
+                                                      std::uint8_t const* queries, std::size_t q) noexcept {
+        cacheline_prefetch(stored);
+        std::size_t const cap = (n < 4) ? n : 4;          // ART Node4 hält ≤ 4 Schlüssel
+        std::uint64_t sum = 0;
+        for (std::size_t i = 0; i < q; ++i) {
+            std::uint8_t const key = queries[i];
+            for (std::size_t j = 0; j < cap; ++j) {        // LINEAR-Scan sortierter Schlüssel
+                sum += stored[j];                           // jede verglichene Zelle berührt
+                if (stored[j] >= key) break;                // ART: sortiert → Abbruch bei >=
+            }
+        }
+        return sum;
+    }
 };
 
 }  // namespace

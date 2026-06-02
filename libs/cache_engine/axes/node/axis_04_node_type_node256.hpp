@@ -6,6 +6,8 @@
 #include "concepts/axis_04_node_type_cache_engine_permutation_concept.hpp"
 #include <axes/node/axis_04_node_type_flags.hpp>
 #include <topics/nodes/concepts/topic_nodes_concept.hpp>
+#include <cstddef>
+#include <cstdint>
 #include <string_view>
 #include <type_traits>
 
@@ -25,6 +27,23 @@ public:
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "node256"; }
     [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "Node256NodeType (ART dense, direct-addressed 256-slot)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "NODE256"; }
+
+    // KF-6 (2026-06-02): Run-Body DIVERGENT je ART-Format. Node256 = DIREKT-adressiert: 256-Slot-ChildArray,
+    // 1 Berührung je Lookup (kein Index, kein Scan). Prüfsumme reflektiert das O(1)-Direkt-Zugriffsmuster
+    // (NUR Child-Touch, KEIN Index-Touch wie Node48 → andere Prüfsumme).
+    [[nodiscard]] static std::uint64_t node_find_scan(std::uint8_t const* stored, std::size_t n,
+                                                      std::uint8_t const* queries, std::size_t q) noexcept {
+        cacheline_prefetch(stored);
+        std::size_t const cap = (n < 256) ? n : 256;       // ART Node256: direkt 256 Slots
+        bool present[256] = {};                             // direktes ChildArray (present-Flag je key-Byte)
+        for (std::size_t i = 0; i < cap; ++i) present[stored[i]] = true;
+        std::uint64_t sum = 0;
+        for (std::size_t i = 0; i < q; ++i) {
+            std::uint8_t const key = queries[i];
+            if (present[key]) sum += key;                   // DIREKT: ChildArray[key], 1 Touch, kein Index
+        }
+        return sum;
+    }
 };
 
 }  // namespace
