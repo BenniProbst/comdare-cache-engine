@@ -12,6 +12,7 @@
 #include "anatomy/anatomy_base.hpp"                      // AnatomyGenus
 #include "anatomy/composition_factory.hpp"               // CompositionFromPermTuple / AdHocComposition<17>
 #include "anatomy/search_algorithm_anatomy.hpp"          // SearchAlgorithmAnatomy
+#include "anatomy/container_anatomy.hpp"                 // ContainerAnatomy / ContainerComposition (Container-Gattung)
 
 #include <array>
 #include <cstddef>
@@ -40,6 +41,24 @@ struct GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm> {
     /// Die Achsen-Namen der Komposition-Slots (Reihenfolge T0..T16) — zentrale Pfad-Konvention (BR-2).
     [[nodiscard]] static constexpr std::array<std::string_view, 17> const& axis_names() noexcept {
         return kCompositionAxisNames;
+    }
+};
+
+/// Adapter (Container/Queue) — die 2. Gattungs-Instanz (queuing q1/q2). Minimal: 1 Slot (Q1 buffer_strategy);
+/// erweiterbar um Q2 (flush_policy). EIGENE Komposition/Anatomie + eigener Container-Observer (Cross-Genus
+/// type-unmöglich → getrennt von SearchAlgorithm). Belegt: der EINE Baum bindet auch die Container-Gattung.
+template <>
+struct GenusBindingTraits<cea::AnatomyGenus::Adapter> {
+    static constexpr cea::AnatomyGenus genus = cea::AnatomyGenus::Adapter;
+    static constexpr std::size_t       slot_count = 1;   // Q1 buffer_strategy (minimal; Q2 flush_policy = Folge)
+    static constexpr std::string_view  name = "Container";
+
+    template <class Q1Buffer> using CompositionFor = cea::ContainerComposition<Q1Buffer>;
+    template <class Comp>     using AnatomyFor     = cea::ContainerAnatomy<Comp>;
+
+    [[nodiscard]] static constexpr std::array<std::string_view, 1> const& axis_names() noexcept {
+        static constexpr std::array<std::string_view, 1> kNames = {"queuing_q1"};
+        return kNames;
     }
 };
 
