@@ -143,3 +143,25 @@ IMMER BÄUME (linear); Tiere/Organe bleiben durch den Manager UNVERÄNDERT; Bibl
 3. **KF-6** node-Achse Run-Body-Divergenz; **KF-7** Prüf-Dock-Laufzeit-Schleife.
 4. **KF-10** 3 Wiederholungen separat; **KF-11** Telemetrie silent-mode; **KF-15** inverse Signatur-Auswertung.
 5. **KF-12/13** vorbereiten (nicht ausführen). Finaler Audit gegen das Ledger.
+
+---
+
+## 9. Abschluss-Stand dieses Turns (2026-06-02) — 6 KF-Meilensteine verifiziert + gepusht
+
+| KF | Inhalt | Beleg | Commit (CE) |
+|----|--------|-------|-------------|
+| KF-8  | C++23 CebGenerator (Baum→`perm_<id>.cpp`, kein Python; bricht 5-Achsen-Deckel) | Test 11/11 + generierter Source kompiliert | 56a6931 |
+| KF-16 | StaticBinaryView (indizierter Iterator) + multithreaded DLL-Build-Orchestrierung (2 Kerne/Build, alle Kerne) | 26/26 + realer E2E-Build 2/2 DLLs (peak=2) | 08a07e7 |
+| KF-5  | Cache-Line-Unterachse in **5 Achsen** eingewebt (4 + axis_05_memory_layout, User-Entscheidung) | gegen echte Wrapper: COMPILE 0 + 10/10 + alle static_assert | 43d8008 |
+| KF-6  | node-Achse runtime-operativ — `node_find_scan` divergent je ART-Format | COMPILE 0 + 8/8: 4 distinkte Prüfsummen 160/270/115/30 | 397d123 |
+| KF-7  | dynamischer Laufzeit-Durchlauf am Prüf-Dock (`RuntimeVariableLoop`, eine Binary/N Einstellungen) | COMPILE 0 + 18/18 (Clamp cap∩env, Kartesik, hw_prefetcher launcher-gated) | 5680063 |
+| KF-15 | inverse Auswertung via Signatur-`multimap` + read-only Tree-Interface | COMPILE 0 + 16/16 (Doppelerkennung + Projektion) | fe2ff30 |
+
+**Damit ist die Experiment-Baum-Kette geschlossen:** Profil → B+-Baum (KF-9) → statischer Teilbaum-Iterator (KF-16)
+→ CebGenerator (KF-8) → multithreaded DLL-Build (KF-16) → [Prüf-Dock: statische Organe cacheline-fähig (KF-5) +
+divergente node-Run-Bodies (KF-6)] → dynamischer Laufzeit-Durchlauf (KF-7) → inverse Paper-Projektion read-only (KF-15).
+
+**VERBLEIBEND (autonom):** KF-10 (Wiederholungen Default 3, separat/nie interpoliert — CSV repetition_index +
+Diagramm-Overlay) · KF-11 (Telemetrie Default-AN + silent-mode via Snapshot-Diff). **VORBEREITEN (Cluster-gated,
+NICHT ausführen):** KF-12 (C++23 SLURM-Launcher: affinity/MSR/governor/SMT/ASLR/NUMA) · KF-13 (ZIH SLURM-Array +
+Singularity + Webhook). Danach finaler Audit gegen das Ledger.
