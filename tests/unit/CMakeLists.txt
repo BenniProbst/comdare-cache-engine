@@ -1173,8 +1173,16 @@ set_target_properties(comdare_r5g_adhoc_perm PROPERTIES
     OUTPUT_NAME                              "comdare_anatomy_perm_r5g_adhoc"
     RUNTIME_OUTPUT_DIRECTORY                 "${_r5g_adhoc_dir}"
     RUNTIME_OUTPUT_DIRECTORY_RELEASE         "${_r5g_adhoc_dir}"
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG           "${_r5g_adhoc_dir}"
+    RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO  "${_r5g_adhoc_dir}"
     LIBRARY_OUTPUT_DIRECTORY                 "${_r5g_adhoc_dir}"
-    LIBRARY_OUTPUT_DIRECTORY_RELEASE         "${_r5g_adhoc_dir}")
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE         "${_r5g_adhoc_dir}"
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG           "${_r5g_adhoc_dir}"
+    LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO  "${_r5g_adhoc_dir}")
+# V42 L-74c: _DEBUG/_RELWITHDEBINFO-Output-Dirs explizit → die codegen-DLL landet bei JEDER Build-Config
+# direkt im Lade-Ort (COMDARE_R5G_ADHOC_DLL_DIR), nicht im Multi-Config-Debug-Unterordner. Behebt den
+# „alte DLL geladen / neue DLL im Debug-Subdir"-Bug (Befund 2026-06-03: V2-DLL-Round-Trip lud sonst die
+# veraltete DLL → tier_observe_v2-SKIP statt echtem V2-POD).
 if(COMMAND comdare_set_platform_defines)
     comdare_set_platform_defines(comdare_r5g_adhoc_perm)
 endif()
