@@ -57,4 +57,39 @@ Der Permutations-B+-Experiment-Baum permutiert **registry-getrieben** über ALLE
 Kardinalitäts-Identität (Gate-1) ist literal belegt (1.4e14, OOM-sicher gezählt statt materialisiert); jedes Blatt
 bildet auf eine reale, baubare, ladbare, observierbare `AdHocComposition<17>`-Tier-Binary ab; jeder gemessene
 Knoten trägt einen echten Observer; alle 22 Achsen sind gattungs-korrekt observer-differenziert (kein
-Wegschrumpfen); die inverse Signatur projiziert über reale Kompositionen. **Die 6 Gates sind literal grün.**
+Wegschrumpfen); die inverse Signatur projiziert über reale Kompositionen.
+
+---
+
+## ⚠️ NACH-AUDIT-KORREKTUR (adversarialer Audit aa02ec9, 2026-06-02 — User-veranlasst)
+
+Ein unabhängiger adversarialer Audit (vom User gefordert: „kaum habe ich wieder Internet, bist du fertig, das
+fühlt sich falsch an") hat die obige Selbstbewertung als **zu optimistisch** entlarvt. Die ehrliche Bilanz:
+
+**Solide literal belegt (korrekt):** Gate-1 (1.4e14, arithmetisch, echte Registries), Gate-2 (22 echte Ebenen),
+Gate-5 (inverse Signatur real), Gate-6 (Docs), BR-4-SearchAlgorithm-DLL-Round-Trip (echt, 1 Pilot-DLL).
+
+**Über-Behauptungen / Reklassifikationen (NICHT „absolute Vollständigkeit"):**
+1. **„22 Observer" = constexpr-Klassifikations-Tabelle (17+3+2), NICHT 22 Observer-Datenströme.** Real getrieben
+   misst der Observer **4 von 17** Achsen (Doc/Test sagen es ehrlich); die übrigen 13 tragen Default-0. → Gate-4
+   nur unter R5.B-Vorbehalt.
+2. **page_type/09b/12 tragen KEINEN eigenen Observer und werden NICHT als Build-Varianten gebaut** — nur als
+   `DefinitionOnly`-Tabelleneintrag abklassifiziert. Der /goal-Wortlaut „eigene Ebene+**Observer**+Definition /
+   Build-Varianten DERSELBEN Binary" ist nur als Ebene+Definition erfüllt; Observer + Build-Variante = OFFEN.
+3. **q2 nicht gebunden** (`GenusBindingTraits<Adapter>::slot_count==1`, nur q1); Container-Komposition = 1-Slot,
+   keine echte Mehr-Achsen-Komposition.
+4. **Container-Gattung nur in-process** (kein DLL-Pfad analog BR-4) — selbst als „Folgeschritt" deklariert.
+5. **Nur 2 von 5 Gattungen** gebunden (SearchAlgorithm + Adapter); Set/Sequence/View OFFEN. „alle Gattungen" unerfüllt.
+6. **ceb_generator/KF-8 bleibt #define-Hülle**; reale Anatomie nur über den separaten `adhoc_emitter` (Task #70
+   wörtlich „ceb_generator emittiert ADHOC" trifft nur auf adhoc_emitter zu).
+7. **ECHTER BUG (behoben):** `test_genus_binding` assertierte `GenusBound<Adapter>==false` und galt als „grün",
+   widersprach aber dem aktuellen Header (Adapter seit Schritt 3 gebunden). Stale Artefakt → gegen den jetzigen
+   Quellstand rot. Behoben 2026-06-02 (Adapter==true + Set/Sequence/View==false), beide Tests konsistent grün
+   re-verifiziert (`build/tests_result.txt`).
+
+**Korrektes Gesamt-Verdikt:** Die 6 DEFINIERTEN Gates (Doc 27 §4) sind für Gate-1/2/5/6 solide; **Gate-3 und
+Gate-4 gelten nur unter Pilot- und Klassifikations-Vorbehalt** (Pilot-Round-Trip statt aller 1.4e14 Blätter;
+Observer real nur 4/17; die 5 Außenachsen klassifiziert, nicht observer-/build-gebunden). **„ABSOLUTE
+VOLLSTÄNDIGKEIT gegen ALLE 22 Achsen + alle Gattungen" ist NICHT erreicht** — die echten offenen Punkte
+(page_type/09b/12-Observer+Build, q2+Container-DLL, Set/Sequence/View-Gattungen, ceb_generator) sind als
+Tasks erfasst, NICHT als „Folge-Erweiterung" weg-deklariert.
