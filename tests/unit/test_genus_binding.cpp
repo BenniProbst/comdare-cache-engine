@@ -41,9 +41,11 @@ int main() {
     check_true("GenusBound<Set> == true (Set-Gattung seit D9 gebunden, 15 Achsen)", ex::GenusBound<cea::AnatomyGenus::Set>);
     check_eq("GenusBindingTraits<Set>::slot_count == 15", ex::GenusBindingTraits<cea::AnatomyGenus::Set>::slot_count, std::size_t{15});
     check_eq("GenusBindingTraits<Set>::name", std::string{ex::GenusBindingTraits<cea::AnatomyGenus::Set>::name}, std::string{"Set"});
-    check_true("GenusBound<Sequence> == false (NICHT gebunden — offener Erweiterungspunkt)", !ex::GenusBound<cea::AnatomyGenus::Sequence>);
+    // D10 (2026-06-02): Sequence ist jetzt GEBUNDEN (GenusBindingTraits<Sequence>, 10 + axis_growth = 11 Slots).
+    check_true("GenusBound<Sequence> == true (Sequence-Gattung seit D10 gebunden, 11 Slots)", ex::GenusBound<cea::AnatomyGenus::Sequence>);
+    check_eq("GenusBindingTraits<Sequence>::slot_count == 11", ex::GenusBindingTraits<cea::AnatomyGenus::Sequence>::slot_count, std::size_t{11});
     check_true("GenusBound<View> == false (NICHT gebunden — offener Erweiterungspunkt)", !ex::GenusBound<cea::AnatomyGenus::View>);
-    std::cout << "    Gattungs-Bindung: 3 von 5 gebunden (SearchAlgorithm + Adapter + Set); Sequence/View OFFEN\n";
+    std::cout << "    Gattungs-Bindung: 4 von 5 gebunden (SearchAlgorithm + Adapter + Set + Sequence); View OFFEN\n";
 
     // Statische Bindungs-Identität: CompositionFor<PermTuple> ist eine AdHocComposition (BR-2 belegt die Materialisierung;
     // hier nur, dass die Traits den richtigen Composition-Typ binden). Konstruiere ein PermTuple<17> aus 17 void-Markern? —
