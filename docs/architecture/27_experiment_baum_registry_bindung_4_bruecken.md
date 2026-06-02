@@ -1,0 +1,114 @@
+# 27 — Experiment-B+-Baum: vollständige Registry-Bindung (die 4 Brücken) (2026-06-02)
+
+> **Companion zu Doc 26.** Doc 26 definiert das B+-Baum-Modell; dieses Dokument ist der verbindliche
+> Umsetzungsplan, der den heute STRING-getriebenen Baum **registry-getrieben + vollständig** gegen ALLE
+> realen Achsen + Observer + Definitionen macht (aktives /goal 2026-06-02, „absolute Vollständigkeit").
+> Provenienz: Code-Verifikation 2026-06-02 (permutation_engine.hpp, composition_factory.hpp, alle
+> *_registry.hpp + *_config_set.hpp, all_axes_umbrella.hpp, observer_aggregate.hpp).
+
+## 0. KORREKTUR des Achsen-Inventars — 22 Achsen, nicht 18
+
+Ein früherer Explore-Agent zählte **18** und übersah `queuing q1/q2`, `simd_extension 09b`, `general_hardware 12`.
+Rigorose Zählung der `*_registry.hpp` (dedupliziert axes/ vs topics/-Spiegel): **15 Topics, 22 Achsen** — exakt
+Doku 22 „15 Topics · 22 Achsen". Die User-Angabe „22/23" war korrekt; „18" ist verworfen.
+
+### 22 Achsen, gruppiert nach Topic + Enabled-Liste + Komposition-Zugehörigkeit
+
+| # | Achse | Topic | Enabled-Liste | AdHoc-Slot |
+|---|-------|-------|---------------|-----------|
+| 1 | axis_03a_search_algo | traversal | `EnabledStrategies` | **T0** |
+| 2 | axis_03b_cache_traversal | traversal | `EnabledStrategies` | **T1** |
+| 3 | axis_03m_mapping | traversal | `EnabledStrategies` | **T2** |
+| 4 | axis_02_path_compression | nodes | `EnabledCompressions` | **T3** |
+| 5 | axis_04_node_type | nodes | `EnabledNodeTypes` | **T4** |
+| 6 | axis_05_memory_layout | memory_layout | `EnabledLayouts` | **T5** |
+| 7 | axis_06_allocator | allocator | `EnabledVendors` | **T6** |
+| 8 | axis_07_prefetch | prefetch | `EnabledPrefetchers` | **T7** |
+| 9 | axis_08_concurrency | concurrency | `EnabledStrategies` | **T8** |
+| 10 | axis_10_serialization | serialization | `EnabledSerializers` | **T9** |
+| 11 | axis_11_telemetry | telemetry | `EnabledTelemetries` | **T10** |
+| 12 | axis_14_value_handle | value_handle | `EnabledHandles` | **T11** |
+| 13 | axis_09_isa | hardware | `EnabledIsas` | **T12** |
+| 14 | axis_01_index_organization | search_engine | `EnabledOrganizations` | **T13** |
+| 15 | axis_io (io_dispatch) | io | `EnabledIos` | **T14** |
+| 16 | axis_migration (policy) | migration | `EnabledMigrations` | **T15** |
+| 17 | axis_filter | filter | `EnabledFilters` | **T16** |
+| 18 | axis_01_page_type | nodes | `EnabledPageTypes` | — (außerhalb) |
+| 19 | axis_09b_simd_extension | hardware | `EnabledExtensions` | — (außerhalb) |
+| 20 | axis_12_general_hardware | hardware | `EnabledPlatforms` | — (außerhalb) |
+| 21 | axis_q1_queuing | queuing | `EnabledStrategies` | — (außerhalb) |
+| 22 | axis_q2_queuing | queuing | `EnabledPolicies` | — (außerhalb) |
+
+**17 Achsen = AdHocComposition-Slots T0..T16** (composition_factory.hpp:41-66, feste Reihenfolge) → bilden EIN
+baubares SearchAlgorithm-Tier-Binary. **5 Achsen außerhalb** (page_type, 09b, 12, q1, q2) sind separate
+Sub-Achsen/andere Gattungen (queuing = Container/Queue-Gattung; 09b/12 = Hardware-Sub; page_type = nodes-Sub).
+
+## 1. Verifizierter Permutations-Mechanismus (an den der Baum bindet)
+
+- `PermutationEngine<TopicConfigSets...>` (src/permutations/permutation_engine.hpp): `AllPermutations =
+  mp_product<PermTuple, TopicConfigSets::StaticAxisVariants...>`; `count() = mp_size<AllPermutations>`;
+  `for_each_permutation(v)` ruft `v.operator()<PermTuple<...>>()` je Permutation.
+- `AdHocComposition<T0..T16>` (anatomy/composition_factory.hpp): 17 named using-Slots; `CompositionFromPermTuple<P>`
+  = `AdHocComposition<Vs...>` aus `PermTuple<Vs...>` (static_assert sizeof...==17).
+- `SearchAlgorithmAnatomy<Composition>` → `observe_all()` → `ObserverAggregate<C>` (anatomy/observer_aggregate.hpp,
+  17 Snapshot-Slots; `ObservableAxis`-Concept: Achse hat `snapshot_t` + `statistics()`).
+- `TopicConfigSet`s (topics/*/topic_*_config_set.hpp) exponieren je Achse `StaticAxisVariants_<id>` (= die
+  Enabled-Liste, namespace-korrekt) — **der namespace-sichere Reflektions-Anker** (nicht die rohen Registry-NS).
+- `all_axes_umbrella.hpp` (builder/codegen) inkludiert alle 17 Komposition-Registries + composition_factory.
+
+## 2. Befund: heutige Lücke (warum „String-Gerüst")
+
+- `profile_to_tree.hpp` baut `AxisLevel`s aus `ThesisProfile` + externer `AxisRegistry = std::map<string,
+  vector<string>>` (XML) → **Strings, NICHT die echten mp_lists**.
+- `NodeValue` (experiment_tree.hpp) = 4-uint64-Stub → **kein echter ObserverAggregate**.
+- Keine Datei verbindet den Baum mit `PermutationEngine`/`for_each_permutation`/`ObserverAggregate`.
+
+## 3. DIE 4 BRÜCKEN (Plan)
+
+### BR-1 — Registry → Baum-Levels (registry-getriebene Permutation)
+**Neu:** `builder/experiment_tree/registry_to_axis_levels.hpp`. Reflektiert die 17 Komposition-Achsen-Enabled-
+Listen (Anker: `TopicConfigSet::StaticAxisVariants_<id>` bzw. die `Enabled*` über all_axes_umbrella) via
+`mp_for_each` → je Achse ein `AxisLevel{axis_name, [W::name() …], is_static=true}` in T0..T16-Reihenfolge.
++ die statische Sub-Achse cacheline (45/Organ) für die 5 betroffenen Achsen + die dynamischen Sub-Achsen
+(thread_count/hw_prefetcher) als `DynamicDim`. **Verifikation (Gate-1):** `tree.binary_count()` ==
+`PermutationEngine<…17 ConfigSets…>::count()` == `∏ mp_size(Enabled_i)` — exakte Gleichheit. Die 5 Achsen
+außerhalb werden als eigene Genus-/Sub-Achsen-Levels reflektiert (separater Teilbaum, NICHT im 17-Slot-Binary).
+
+### BR-2 — Baum ↔ AdHocComposition (Blatt → reale Komposition)
+**Neu:** `builder/experiment_tree/tree_to_anatomy_adapter.hpp` + `composition_registry.hpp`. Eine
+`CompositionRegistry`, die via `PermutationEngine::for_each_permutation` jeden `PermTuple<17>` aufnimmt, keyed
+über seinen **serialisierten Pfad** (axis=W::name() je Slot, T0..T16) → Factory, die `SearchAlgorithmAnatomy<
+CompositionFromPermTuple<P>>` instanziiert. Der Baum-Blatt-`binary_id` (= derselbe serialisierte Pfad) schlägt
+die Komposition nach. **Verifikation:** jeder Blatt-Pfad round-trippt auf genau eine reale Komposition; die
+Pfad-Serialisierung von BR-1 (Level-Namen) == die von BR-2 (PermTuple-Namen).
+
+### BR-3 — NodeValue → echter ObserverAggregate
+**Erweitern:** `NodeValue` um einen ABI-stabilen Observer-Snapshot-Block (uint64-Slots je Achse, memcpy-fähig;
+KEIN komposition-typisiertes Member → standard_layout bleibt). Der Mess-Treiber zieht je gemessenem Blatt den
+realen Snapshot via `observe_all()`/`IObservableTier::tier_observe` und legt ihn im Knoten ab. Definitionen
+(Wrapper-Identität/Properties) je Knoten über die `BinarySpec.axes` + die CompositionRegistry read-only abrufbar.
+
+### BR-4 — Generierte Binary → reale Anatomie
+**Erweitern KF-8 (ceb_generator):** statt nur `#define`-Hülle emittiert `perm_<id>.cpp` jetzt
+`#include <…/all_axes_umbrella.hpp>` + `COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<17 FQ-Typnamen aus dem Pfad>)` →
+eine echte ladbare Tier-Binary mit `comdare_create_anatomy` + `observe_all`. **Verifikation:** generiert → via
+BuildOrchestrator (KF-16) gebaut → via `AnatomyModuleLoader` geladen → `dynamic_cast<IObservableTier*>` +
+`tier_observe` über die reale Komposition liefert echte Achsen-Statistik.
+
+## 4. Vollständigkeits-Gate (Done-Bedingung, literal)
+
+1. `tree.binary_count() == PermutationEngine::count()` (exakt, über die 17 Komposition-Achsen).
+2. ALLE 22 Achsen erscheinen als Baum-Ebene mit vollem Enabled-Inventar (17 im SearchAlgorithm-Teilbaum +
+   5 in separaten Genus-/Sub-Achsen-Teilbäumen).
+3. Jedes statische Blatt → reale `AdHocComposition`, als Tier-Binary baubar (BR-4).
+4. Jeder gemessene Knoten → realer `ObserverAggregate`-Snapshot + Achsen-Definition (BR-3).
+5. Inverse Signatur-Projektion (KF-15) über die REALEN Kompositionen.
+6. Belegt hier (Doc 27) + Doc 26 + finaler Session-Doku; finaler Audit bestätigt die Gleichheit.
+
+## 5. Reihenfolge + Risiken
+
+BR-1 → BR-2 → BR-4 → BR-3 (Observer zuletzt, da auf reale geladene Binary gestützt). Risiken: (R1) mp_product-
+Compile-Explosion bei „alle Wrapper enabled" — Enabled-Set wird durch Flags klein gehalten (Pilot: ∏≈klein);
+„voll" = volles ENABLED-Inventar (Experiment-Konfig wählt). (R2) Namespace-Auflösung der Enabled-Listen →
+Anker = TopicConfigSets (namespace-korrekt). (R3) Pfad-Serialisierung muss BR-1↔BR-2↔BR-4 identisch sein →
+EINE zentrale `serialize_path(axis,value)`-Konvention. (R4) ABI: Observer-Block als flacher uint64-POD.
