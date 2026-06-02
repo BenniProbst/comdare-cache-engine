@@ -30,6 +30,7 @@
 #include <iterator>
 #include <limits>
 #include <mutex>
+#include <span>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -140,17 +141,39 @@ public:
     BuildOrchestrator(BuildConfig cfg, CompileFn compile, SourceGenFn gen, FreeRamFn free_ram = free_ram_unlimited)
         : cfg_{std::move(cfg)}, compile_{std::move(compile)}, gen_{std::move(gen)}, free_ram_{std::move(free_ram)} {}
 
-    /// Stellt ALLE Tier-Binaries des statischen Teilbaums bereit: je Binary Source generieren (KF-8) + DLL
-    /// kompilieren — INKREMENTELL (versions-aktuelle DLLs überspringen), RAM-gewahr (Admission), MULTITHREADED
-    /// (parallel_jobs Worker, je cores_per_build Threads, keine Oversubscription). Liefert indizierte Ergebnisse.
+    /// Stellt ALLE Tier-Binaries des statischen Teilbaums bereit (rückwärtskompatibel): je Binary Source (KF-8)
+    /// + DLL kompilieren — INKREMENTELL, RAM-gewahr, MULTITHREADED. ⚠️ results-Vektor O(view.size()): nur für
+    /// HANDHABBARE Views (Pilot/Test); für riesige Inventare provision_all(view, selection, stats) (D2/L-73).
+    /// Der „alle"-Pfad nutzt eine Identity-Index-Map → erzeugt KEINEN ∏-großen Index-Vektor.
     std::vector<BuildResult> provision_all(StaticBinaryView const& view, BuildStats* stats = nullptr) {
-        if (view.empty()) { if (stats) *stats = BuildStats{}; return {}; }
+        return provision_core(view, view.size(), [](std::size_t j) noexcept { return j; }, stats);
+    }
+
+    /// D2 / L-73: baut NUR die selektierten View-Indizes (BuildSelection.indices). results-Vektor O(K=selection.size()),
+    /// NICHT O(∏); `next.fetch_add` läuft bis K; je Worker `view[selection[j]]`. OOM-sicher bei riesiger View
+    /// (Doc 26 §2). Aufruf: `orch.provision_all(view, sel.indices, &stats)` (BuildSelection.indices → span).
+    std::vector<BuildResult> provision_all(StaticBinaryView const& view,
+                                           std::span<const std::size_t> selection, BuildStats* stats = nullptr) {
+        return provision_core(view, selection.size(),
+                              [selection](std::size_t j) noexcept { return selection[j]; }, stats);
+    }
+
+    [[nodiscard]] BuildConfig const& config() const noexcept { return cfg_; }
+
+private:
+    /// Gemeinsamer Bau-Kern (KF-16b). Baut K Binaries; `view_index(j)` mappt den selektions-relativen Index j
+    /// (0..K-1) auf den View-Index i. results ist O(K). Der „alle"-Pfad (K=view.size(), view_index=identity)
+    /// materialisiert KEINEN Index-Vektor; der Selektions-Pfad hält nur die K gewählten Indizes (Aufrufer-seitig).
+    template <class IndexMap>
+    std::vector<BuildResult> provision_core(StaticBinaryView const& view, std::size_t k,
+                                            IndexMap view_index, BuildStats* stats) {
+        if (k == 0 || view.empty()) { if (stats) *stats = BuildStats{}; return {}; }
 
         std::error_code ec;
         std::filesystem::create_directories(cfg_.source_dir, ec);
         std::filesystem::create_directories(cfg_.output_dir, ec);
 
-        std::vector<BuildResult> results(view.size());
+        std::vector<BuildResult> results(k);             // O(K) — NICHT view.size() (L-73)
         std::atomic<std::size_t> next{0};
 
         std::mutex              mtx;             // schützt active/peak/min_free + CV-Prädikat
@@ -159,7 +182,7 @@ public:
         std::size_t             peak   = 0;
         std::uint64_t           min_free = (std::numeric_limits<std::uint64_t>::max)();
 
-        std::size_t const n_workers = std::min(cfg_.parallel_jobs(), view.size());
+        std::size_t const n_workers = std::min(cfg_.parallel_jobs(), k);
         std::size_t const cores     = cfg_.effective_cores_per_build();
         // RAM-Baseline EINMAL zu Beginn messen (= jetzt frei verfügbar). Die Admission reserviert dagegen
         // (active+1)×Budget — deterministisch + OOM-sicher, unabhängig vom Ramp-Lag des OS-free_ram.
@@ -167,11 +190,20 @@ public:
 
         auto worker = [&] {
             for (;;) {
-                std::size_t const i = next.fetch_add(1);
-                if (i >= view.size()) return;
+                std::size_t const j = next.fetch_add(1);   // selektions-relativ
+                if (j >= k) return;
+                std::size_t const i = view_index(j);       // → View-Index
 
-                BinarySpec const& spec = view[i];
-                std::string const id   = orch_sanitize(spec.binary_id);
+                BuildResult r;
+                // Defensiv: ungültiger Selektions-Index → Fehler-Result statt OOB-Dekodierung.
+                if (i >= view.size()) {
+                    r.index = i; r.status = -3; r.message = "selection index out of range";
+                    results[j] = std::move(r);
+                    continue;
+                }
+
+                BinarySpec const spec = view[i];           // by value (operator[] dekodiert on-demand)
+                std::string const id  = orch_sanitize(spec.binary_id);
 
                 BuildJob job;
                 job.index     = spec.index;
@@ -180,13 +212,12 @@ public:
                 job.output    = cfg_.output_dir / ("perm_" + id + ".dll");
                 job.cores     = cores;
 
-                BuildResult r;
                 r.index = spec.index; r.binary_id = spec.binary_id; r.output = job.output;
 
                 // (A) INKREMENTELL: bestehende, versions-aktuelle DLL überspringen (Resume nach Absturz).
                 if (dll_is_current(job.output, cfg_.build_version)) {
                     r.status = 0; r.skipped = true; r.message = "übersprungen (Version aktuell)";
-                    results[i] = std::move(r);
+                    results[j] = std::move(r);
                     continue;
                 }
 
@@ -220,7 +251,7 @@ public:
                     r.message = (r.status == 0) ? "ok" : ("compile-exit " + std::to_string(r.status));
                     if (r.status == 0) write_version_sidecar(job.output, cfg_.build_version);  // Resume-Marke
                 }
-                results[i] = std::move(r);
+                results[j] = std::move(r);
 
                 { std::lock_guard<std::mutex> lk(mtx); --active; }
                 cv.notify_all();
@@ -246,9 +277,6 @@ public:
         return results;
     }
 
-    [[nodiscard]] BuildConfig const& config() const noexcept { return cfg_; }
-
-private:
     BuildConfig cfg_;
     CompileFn   compile_;
     SourceGenFn gen_;
