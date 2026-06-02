@@ -59,6 +59,14 @@ Sub-Achsen/andere Gattungen (queuing = Container/Queue-Gattung; 09b/12 = Hardwar
 | **SearchAlgorithm-Sub/Build-Varianten (3)** | page_type/01 (nodes-Sub), simd_extension/09b + general_hardware/12 (Hardware) | modifizieren DIESELBE SearchAlgorithm-Binary (zusätzliche Baum-Ebene + Build-/Codegen-Variante je Wert) — NICHT eigene Gattung | je eigener Observer/Definition (BR-3-OBS-22) |
 | **Container-Gattung (2)** | queuing q1 + q2 | EIGENE Container-Gattungs-Komposition + eigenes **Container-Prüf-Dock** (Doku 24 §8.8) — NICHT in die SearchAlgorithm-17-Komposition (Cross-Genus type-unmöglich, Doku 14 §32) | eigener Container-Observer |
 
+> ✅ **Gattungs-Generik ERLEDIGT (2026-06-02, User-Option-B Schritt 2+3):** Die Bau-Brücke ist jetzt
+> gattungs-PARAMETRISCH (`genus_binding_traits.hpp` `GenusBindingTraits<G>`): SearchAlgorithm = verifizierter
+> Spezialfall (17 Slots, `test_genus_binding`), **Container-Gattung als 2. Instanz** (`container_anatomy.hpp`
+> `ContainerAnatomy<ContainerComposition<Q1>>`, genus()==Adapter; `test_container_genus`: FIFO-Queue real
+> getrieben put/get/size, EIGENER Container-Observer put_count/get_count/peak_occupancy, GenusBound<Adapter>==true).
+> Der EINE Experiment-Baum baut damit 2 Gattungen (Cross-Genus type-getrennt, Doku 14 §32). Folge: Container-
+> Prüf-Dock (dünner ABI-Wrapper analog SearchAlgorithmDock), q2-flush_policy als 2. Container-Slot, Graph-Gattung.
+
 **Konsequenz:** Alle **22** erscheinen als volle Baum-Ebene (BR-1 ✓, registry-getrieben). Die 17 SearchAlgorithm-
 Slots + die 3 Sub/Build-Achsen binden an die SearchAlgorithm-Tier-Binary; q1/q2 an eine getrennte Container-Tier-
 Binary (eigene Gattung). JEDE der 22 trägt einen eigenen Observer + eigene Definition (kein Wegschrumpfen). Die
