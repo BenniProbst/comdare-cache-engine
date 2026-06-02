@@ -118,13 +118,15 @@
 
 ---
 
-## §2 Pre-Sprint-Klärungen (Doku-interne Achsen-Zahl-Differenzen)
+## §2 Pre-Sprint-Klärungen — AUFGELÖST (genaues Doku-14-§28-Lesen, 2026-06-02)
 
-| ID | Differenz | Quelle-A | Quelle-B | Auflösung |
-|----|-----------|----------|----------|-----------|
-| K-A | Set 14 vs 15 | Doc 28 + Doku 14 §32.2 = 14 | Doku 14 §28-Tabelle = 15 ✓ (filter) | vor D-2: genaues §28-Lesen; Planrunde, NICHT User fragen |
-| K-B | Sequence 9 vs 10 | Doku 14 §32.2 = 9 | Doku 14 §28-Tabelle = 10 ✓ | vor D-3: genaues §28-Lesen |
-| K-C | View 7 vs 4 geteilt | Doc 28 + §32.2 = 7 | Doku 14 §28-Plant = 4 ✓ | „7 = 4 geteilt + 3 eigen" (plausibelst); vor D-4 verifizieren |
+**Auflösung (Planrunde, NICHT User gefragt):** Die explizite Achsen-Matrix Doku 14 **§28** (jede Achse je Gattung einzeln ✓-markiert) ist maßgeblich; die zusammenfassende §32.2 hat bei Set/Sequence ein systematisches **Off-by-one** (−1). Exakte Zählung der ✓:
+
+| ID | Frage | AUFLÖSUNG (§28-Zählung) |
+|----|-------|--------------------------|
+| K-A | Set 14 vs 15 | **15 geteilte Achsen** ✓ (search_algo, cache_traversal, path_compression, node_type, memory_layout, allocator, prefetch, concurrency, serialization, telemetry, isa, index_organization, io_dispatch, migration_policy, filter); **kein** mapping/value_handle (K=V). §32.2-„14" = Off-by-one. |
+| K-B | Sequence 9 vs 10 | **10 geteilte** ✓ (memory_layout, allocator, prefetch, concurrency, serialization, telemetry, value_handle, isa, io_dispatch, migration_policy) **+ axis_growth** (eigene). §32.2-„9" = Off-by-one. |
+| K-C | View 7 | **7 gesamt** = 4 geteilte (memory_layout, telemetry, value_handle, isa) + 3 eigene (axis_extent, axis_layout, axis_accessor). §28 bestätigt; non-owning → kein allocator/concurrency/insert. |
 
 ## §2.5 Phase-D-Fortschritt + Verifikations-Build-Rezeptur (Kontinuität)
 

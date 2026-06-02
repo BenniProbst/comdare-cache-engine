@@ -59,8 +59,8 @@ Quelle: `anatomy_base.hpp:44-50` (AnatomyGenus), Doku 14 §26-§40, Doc 24 §8.8
 |---------|--------------------|-----------|-----------|---------------|----------------------------------|-----|
 | **SearchAlgorithm** | Säugetier (map) | K→V | **17** | — | SearchAlgorithmAnatomy ✓ / SearchAlgorithmAbiAdapter ✓ / ObserverAggregate<17> ✓ / SearchAlgorithmDock ✓ | **voll** (BR-1..4) |
 | **Adapter (Container)** | Wirbelloses (queue/stack) | Wrapper über Inner | **2** (q1 buffer + q2 flush) + axis_inner | axis_inner | ContainerAnatomy ✓ / ABI [FUTURE] / ContainerObserverSnapshot ✓ / ContainerDock ✓ (in-process) | **teilw.** (q1 + Dock; q2+DLL offen #75) |
-| **Set** | Vogel (set) | K-only (K=V) | **14** (ohne mapping/value_handle/inner) | — | — | **FUTURE** (#76) |
-| **Sequence** | Reptil (vector/list) | V-indexed | **9** + axis_growth | axis_growth | — | **FUTURE** (#76) |
+| **Set** | Vogel (set) | K-only (K=V) | **15** (ohne mapping/value_handle; §28-Zählung, K-A aufgelöst) | — | — | **FUTURE** (#76) |
+| **Sequence** | Reptil (vector/list) | V-indexed | **10** geteilte + axis_growth (§28, K-B aufgelöst) | axis_growth | — | **FUTURE** (#76) |
 | **View** | Pflanze (span/mdspan) | non-owning (kein insert/erase/alloc/concurrency) | **7** + axis_extent/layout/accessor | axis_extent/layout/accessor | — | **FUTURE** (#76) |
 | (Viren) | Nicht-Lebewesen (Graph/FFT/Crypto) | keine Achsen | 0 (Kapsel) | — | IVirusExecutionEngine (Schwester von AnatomyBase an Wurzel IExecutionEngine); Graph-Dock | **FUTURE** (nur Test-Stub; R6/V42) |
 
