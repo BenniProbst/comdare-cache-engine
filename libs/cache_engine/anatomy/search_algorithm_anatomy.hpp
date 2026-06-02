@@ -68,12 +68,13 @@ public:
         if constexpr (ObservableAxis<typename Composition::search_algo>) {
             agg.search_algo = axis_search_algo_.statistics();
         }
-        // V42-Composition-Driver telemetry-Sammlung HIER ENTFERNT (2026-06-02): Member-Hold von
-        // Composition::telemetry scheitert für die reale Composition — ArtComposition::telemetry =
-        // LeafOnlyCounter, dessen protected TelemetryStrategyBase-ctor das direkte Member-Halten
-        // blockiert (literaler Build-Fehler). Der frühere test_d_v42_probe war UNVOLLSTÄNDIG (testete
-        // nur InsertCounter/DensityTracker/LatencyHistogram, NICHT LeafOnlyCounter). → korrekter Pfad =
-        // CRTP-ctor public ODER ObservableComposed*-Hülle (#42) ODER Tuple-Komposition (Doc 29 §3 Schritt 1).
+        // V42 L-74c Composition-Driver (Doc 29 §3c): telemetry-Achse als 2. real gehaltenes Organ. Die
+        // Composition traegt jetzt die ObservableTelemetry-Huelle (art_reference.hpp), die — anders als der
+        // nackte Strategie-Marker (test_d_v42_probe2: ObservableAxis=0, kein statistics()) — eine echte
+        // Mess-Mechanik bietet. Greift nur im STATISTICS-Build; sonst EmptyAxisSnapshot (Release-Pfad).
+        if constexpr (ObservableAxis<typename Composition::telemetry>) {
+            agg.telemetry = axis_telemetry_.statistics();
+        }
         return agg;
     }
 
@@ -81,6 +82,11 @@ public:
     /// (insert/lookup/erase) → seine statistics() fliessen via observe_all() in den Per-Achsen-Trace.
     [[nodiscard]] typename Composition::search_algo&       search_algo_organ()       noexcept { return axis_search_algo_; }
     [[nodiscard]] typename Composition::search_algo const& search_algo_organ() const noexcept { return axis_search_algo_; }
+
+    /// V42 L-74c: Zugriff auf das telemetry-Organ (2. getriebenes Achsen-Organ). Der Builder/Mess-Treiber
+    /// koppelt es an die Tier-Op (record_node_touch beim insert/lookup) → statistics() fliesst via observe_all().
+    [[nodiscard]] typename Composition::telemetry&       telemetry_organ()       noexcept { return axis_telemetry_; }
+    [[nodiscard]] typename Composition::telemetry const& telemetry_organ() const noexcept { return axis_telemetry_; }
 
     /// Diagnose: wie viele Achsen liefern echte Snapshots? (Rest = EmptyAxisSnapshot)
     [[nodiscard]] static constexpr std::size_t observable_axis_count() noexcept {
@@ -105,6 +111,12 @@ private:
     // Saeule-2 (Doku 24): das search_algo-Organ wird real gehalten. Default-konstruiert; vom Builder
     // ueber search_algo_organ() getrieben. Sein statistics()-Observer liefert echte Per-Achsen-Daten.
     typename Composition::search_algo axis_search_algo_{};
+
+    // V42 L-74c (Doc 29 §3c): telemetry als 2. real gehaltenes Organ. OHNE `{}` (default-init) — sowohl die
+    // ObservableTelemetry-Huelle ALS AUCH eine nackte Aggregat-Strategie sind default-init-fähig, aber
+    // Aggregat + `{}` waere ill-formed (test_d_v42_probe2: is_aggregate=1, brace_ok{T{}}=0). Vom Builder via
+    // telemetry_organ() getrieben; statistics() fliesst via observe_all() (nur im STATISTICS-Build).
+    typename Composition::telemetry axis_telemetry_;
 };
 
 }  // namespace comdare::cache_engine::anatomy

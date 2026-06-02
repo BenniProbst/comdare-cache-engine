@@ -99,3 +99,15 @@ Belegt: `ObservableAxis<ObservableTelemetry<...>> == true`, Delta vor/nach Treib
 4. **Kopplung (der eigentliche Driver):** der Tier-insert/lookup (`abi_adapter`/`anatomy_execution_context`) ruft `telemetry_organ().record_node_touch(is_leaf)`.
 5. Cross-ABI-POD (`ComdareTierObserverSnapshotV1`) append-only um telemetry-uint64-Felder erweitern (nur wenn über die DLL-Grenze nötig).
 6. **Risiko-Prüfung vor Schritt 2:** alle Stellen finden, die `Composition::telemetry` als `TelemetryStrategy` voraussetzen (memento_aggregate/codegen/Gattungs-Compositions) — der Slot-Typ-Wechsel darf sie nicht brechen. Umbrella-Build (`test_v41_anatomy_observer`) muss grün bleiben.
+
+## §3d VERDRAHTUNG UMGESETZT + VERIFIZIERT (2026-06-02, test_v41_anatomy_observer 14/14, telemetry-Test `[ OK ]`)
+
+Schritte 1–3 + Test umgesetzt (Schritt 6 Risiko-Prüfung erledigt: `composition_registry.hpp:35` + `axis_path_serialization.hpp:67` rufen `C::telemetry::name()` → die Hülle reicht `name()`/`family_name()`/`flag_suffix()` als transparenter Decorator durch; `memento_of_t<Hülle>` fällt wie zuvor auf EmptyMemento, kein Bruch):
+- `axis_11_telemetry_observable.hpp`: Hülle um `name()/family_name()/flag_suffix()`-Durchgriff erweitert.
+- `art_reference.hpp:77`: `telemetry = ObservableTelemetry<LeafOnlyCounter>` (statt nackte Strategie).
+- `search_algorithm_anatomy.hpp`: `axis_telemetry_` als 2. Organ (Member OHNE `{}` — Aggregat-Strategie + Hülle beide default-init-fähig) + `telemetry_organ()` + observe_all-Sammlung.
+- `test_v41_anatomy_observer.cpp`: `DrivenTelemetryOrganFlowsIntoAggregate` (analog search_algo-Säule-2).
+
+**Literaler Beleg (`msvc-release`, STATISTICS aktiv):** `[ OK ] Saeule2_ObserveAllReal.DrivenTelemetryOrganFlowsIntoAggregate` (NICHT SKIP) — `observe_all().telemetry` trägt nach Treiben via `telemetry_organ()` die echten Werte `total_events=3, leaf_updates=2, node_updates=0` (LeafOnlyCounter verwirft Inner-Touch), `peak_tracked=2`, `observable_count()>=2`. 14/14 Tests PASSED (vorher 13). **telemetry ist damit die zweite voll observable+getriebene Achse, auf demselben Niveau wie search_algo.**
+
+**VERBLEIBT für telemetry-VOLL (ehrlich):** (a) **automatische Kopplung** — telemetry beim ECHTEN Tier-insert/lookup mit-treiben (heute: explizit via `telemetry_organ()`, exakt wie search_algo via `search_algo_organ()`; eine Auto-Kopplung beider im abi_adapter/AnatomyExecutionContext ist Zusatz, kein Block); (b) **restliche Reference-Compositions** (Hot/Wormhole/SuRF/Masstree/Start + PaperBindings) + der **AdHoc/Registry-Pfad** (telemetry-Registry müsste die Hülle liefern, damit auch Permutationen telemetry-observable sind) analog umstellen; (c) Cross-ABI-POD-Append (nur falls über DLL-Grenze nötig). **Danach** die 3 weiteren OperativeCapable-Achsen memory_layout/serialization/node_type nach demselben Hüllen-Muster (je zuerst Probe mit dem realen Wrapper).

@@ -18,6 +18,7 @@
 
 #include "concepts/axis_11_telemetry_concept.hpp"
 #include <cstdint>
+#include <string_view>
 
 namespace comdare::cache_engine::telemetry_axis {
 
@@ -41,8 +42,15 @@ class ObservableTelemetry {
 public:
     using strategy_type = Strategy;
 
-    /// Statische Strategie-Inspektion (Pflicht-Durchgriff fuer den Mess-Treiber).
-    [[nodiscard]] static constexpr bool is_leaf_only() noexcept { return Strategy::is_leaf_only(); }
+    // Transparenter Decorator: die Strategie-Inspektion wird durchgereicht, damit die Huelle ueberall als
+    // telemetry-Slot funktioniert (composition_registry.hpp:35 / axis_path_serialization.hpp:67 rufen
+    // C::telemetry::name()). family_name/flag_suffix nur weiterreichen, wenn die Strategie sie bietet.
+    [[nodiscard]] static constexpr bool             is_leaf_only() noexcept { return Strategy::is_leaf_only(); }
+    [[nodiscard]] static constexpr std::string_view name()         noexcept { return Strategy::name(); }
+    [[nodiscard]] static constexpr std::string_view family_name()
+        noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
+    [[nodiscard]] static constexpr std::string_view flag_suffix()
+        noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
 
     /// Mess-Kopplung (der eigentliche „Driver", Doc 29 §3 Schritt 3): der Tier-insert/lookup ruft dies bei
     /// jedem Knoten-Touch. `is_leaf`=true fuer Blatt-Knoten. Leaf-only-Strategien verwerfen Inner-Touches.
