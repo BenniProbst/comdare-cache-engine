@@ -91,6 +91,19 @@ public:
                                  slots_.size(), sizeof(slot_t));
     }
 
+    // V42 L-74c scan-Achsen-Auto-Kopplung (Pfad-B Zustand-Scan): treibt ein gegebenes Observer-Organ
+    // (memory_layout/serialization-Huelle) ueber das ECHTE Slot-Backing → die scan-Achsen-statistics()
+    // messen die realen Tier-Daten zum Observe-Zeitpunkt (nicht einen synthetischen Buffer). Nicht-Vertrags-
+    // Methoden (analog organ_scan_field_sum). Templated → kein Achsen-Header-Include im Store noetig.
+    template <class LayoutOrgan>
+    std::uint64_t organ_observe_layout(LayoutOrgan& org) const {
+        return org.observe_scan(reinterpret_cast<unsigned char const*>(slots_.data()), slots_.size(), sizeof(slot_t));
+    }
+    template <class SerOrgan>
+    std::uint64_t organ_observe_serialization(SerOrgan& org) const {
+        return org.observe_serialize(reinterpret_cast<unsigned char const*>(slots_.data()), slots_.size(), sizeof(slot_t));
+    }
+
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     // Saeule-2 (Doku 24 §2.2): Durchgriff auf die Allocator-Achsen-Statistik. NICHT-Vertrags-Methode
     // (StorageOrgan fordert statistics() bewusst nicht); A::statistics() ist unter STATISTICS Pflicht-API

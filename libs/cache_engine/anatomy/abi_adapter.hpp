@@ -334,6 +334,30 @@ public:
             s.telemetry_node_updates = t.node_updates;
             s.telemetry_peak_tracked = t.peak_tracked;
         }
+        // V42 L-74c scan-Achsen-Auto-Kopplung (Pfad-B Zustand-Scan): treibt memory_layout/serialization über das
+        // ECHTE Slot-Backing des container_ (organ_observe_layout/serialization am ComposedStore) → ihre
+        // statistics() reflektieren die realen Tier-Daten zum Observe-Zeitpunkt. if-constexpr-geschützt.
+        if constexpr (ObservableAxis<typename Composition::memory_layout>
+                   && requires { container_.store_observe_layout(ml_organ_); }) {
+            ml_organ_.reset();   // idempotenter Observe: frischer Zustand-Scan je tier_observe_v2-Aufruf
+            (void)container_.store_observe_layout(ml_organ_);
+            auto const ml = ml_organ_.statistics();
+            s.layout_scan_count          = ml.scan_count;
+            s.layout_records_scanned     = ml.records_scanned;
+            s.layout_field_bytes_read    = ml.field_bytes_read;
+            s.layout_cache_lines_touched = ml.cache_lines_touched;
+            s.layout_last_checksum       = ml.last_checksum;
+        }
+        if constexpr (ObservableAxis<typename Composition::serialization>
+                   && requires { container_.store_observe_serialization(ser_organ_); }) {
+            ser_organ_.reset();   // idempotenter Observe
+            (void)container_.store_observe_serialization(ser_organ_);
+            auto const sr = ser_organ_.statistics();
+            s.serialization_serialize_count    = sr.serialize_count;
+            s.serialization_records_serialized = sr.records_serialized;
+            s.serialization_bytes_serialized   = sr.bytes_serialized;
+            s.serialization_last_checksum      = sr.last_checksum;
+        }
 #endif
         s.observable_axis_count = ObserverAggregate<Composition>::observable_count();
         s.tier_fill_level       = tier_size();
@@ -452,6 +476,10 @@ private:
     // OHNE {} (Aggregat-Strategie UND Huelle beide default-init-fähig, test_d_v42_probe2). mutable: das Tracking
     // im const tier_lookup ist logisch nicht-const (analog observer-notify-Muster, observable_composed_search.hpp).
     mutable typename Composition::telemetry telemetry_organ_;
+    // V42 L-74c scan-Achsen-Auto-Kopplung: memory_layout + serialization Observer-Organe. In fill_observer_v2
+    // ueber das ECHTE Slot-Backing des container_ getrieben (Pfad-B Zustand-Scan). mutable (const-Methode).
+    mutable typename Composition::memory_layout ml_organ_;
+    mutable typename Composition::serialization ser_organ_;
 #if COMDARE_MEASUREMENT_ON
     // V5-#44 memento_all: Warmup-Vor-Zustand der getriebenen Organe. Lebt IN der Binary, quert die ABI NICHT.
     // PER-ACHSEN-Memento (bevorzugt, MementoAxis): memento_of_t<Organ> = Organ::memento_t (riche (key,value)-
