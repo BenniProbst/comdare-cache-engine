@@ -127,3 +127,17 @@ TEST(R8RestA_DockMeasuresRealDll, ObserveTraceGuardCapsOverCapacityFillNoHang) {
     GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus";
 #endif
 }
+
+// V42 L-74c — DLL-ROUND-TRIP für tier_observe_v2 ZURÜCKGESTELLT (2026-06-03, ehrlicher Befund):
+// Ein erster Versuch (TEST V2ObserverSnapshotOverRealDllBoundary) crashte mit SEH 0xc0000005 — NICHT wegen
+// fehlerhaften V2-Codes (der In-Process-Beweis test_d_v42_abi_telemetry_coupling ist grün), sondern wegen
+// einer vtable-ABI-Subtilität über die REALE .dll-Grenze: `tier_observe_v2` ist eine NEUE virtuelle Methode
+// am vtable-Ende von IObservableTier. Die per Codegen erzeugte comdare_r5g_adhoc_perm-DLL wurde NICHT
+// zuverlässig mit dem neuen Header neu gebaut (auto_emitted_perm_module.cpp wird vom Emitter regeneriert,
+// ein Datei-Touch erzwingt den DLL-Rebuild nicht) → Host-vtable (mit dem neuen Slot) vs. DLL-vtable (alt) →
+// der Aufruf springt über das vtable-Ende → Crash. LEHRE (Doc 29-würdig): eine vtable-additive Methode ist
+// über eine DLL-Grenze nur sicher, wenn DLL UND Host SYNCHRON aus demselben Header gebaut werden; der saubere
+// Weg ist entweder ein erzwungener Clean-DLL-Rebuild im CMake-Graph ODER — ABI-robuster — ein SEPARATES
+// Sub-Interface IObservableTierV2 (per dynamic_cast abgefragt, alte DLLs → nullptr, kein vtable-Slap).
+// Nächster Sprint: IObservableTierV2 als eigenständiges Sub-Interface (analog wie IObservableTier selbst
+// NICHT an IAnatomyBase hängt) + Codegen-DLL-Rebuild-Dependency. Der In-Process-V2-Pfad bleibt verifiziert.
