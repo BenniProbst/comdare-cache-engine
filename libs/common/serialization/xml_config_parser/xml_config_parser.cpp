@@ -2,8 +2,12 @@
 // Phase 6.4: minimaler XML-Tag-Reader; produktiv via tinyxml2 oder eigener Parser
 
 #include "xml_config_parser.hpp"
+#include "xml_reader.hpp"
 
+#include <cctype>
+#include <charconv>
 #include <fstream>
+#include <optional>
 #include <regex>
 #include <sstream>
 
@@ -41,6 +45,28 @@ std::vector<PermutationEntry> parse_xml_string(std::string const& content,
         entries.push_back(std::move(entry));
     }
     return entries;
+}
+
+// KF-1 (2026-06-02): Helfer fuer den Thesis-Profil-Parser.
+[[nodiscard]] std::vector<std::string> split_ws(std::string const& s) {
+    std::vector<std::string> out;
+    std::size_t i = 0;
+    while (i < s.size()) {
+        while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i]))) ++i;
+        std::size_t start = i;
+        while (i < s.size() && !std::isspace(static_cast<unsigned char>(s[i]))) ++i;
+        if (i > start) out.push_back(s.substr(start, i - start));
+    }
+    return out;
+}
+
+[[nodiscard]] int to_int(std::string const& s, int def) {
+    int v = def;
+    auto const* begin = s.data();
+    auto const* end = s.data() + s.size();
+    auto [ptr, ec] = std::from_chars(begin, end, v);
+    (void)ptr;
+    return (ec == std::errc{}) ? v : def;
 }
 
 }  // anonymous namespace
@@ -177,6 +203,73 @@ std::vector<Messreihe> XmlConfigParser::load_messreihen(
         result.push_back(std::move(r));
     }
     return result;
+}
+
+// KF-1 (2026-06-02): comdare_thesis_profile-Parser ueber den self-contained XML-DOM.
+std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(
+    std::filesystem::path const& xml_file) const
+{
+    if (!std::filesystem::exists(xml_file)) return std::nullopt;
+    std::string content = read_file(xml_file);
+    auto root = comdare::common::xml::parse_document(content);
+    if (!root || root->tag != "comdare_thesis_profile") return std::nullopt;
+
+    ThesisProfile tp;
+    tp.id             = root->attr("id");
+    tp.schema_version = to_int(root->attr("schema_version", "0"), 0);
+
+    if (auto const* bt = root->child("base_tiers")) {
+        for (auto const* t : bt->children_named("tier"))
+            tp.base_tiers.push_back({t->attr("id"), t->attr("profile_ref"), t->attr("paper_ref")});
+    }
+    if (auto const* pa = root->child("permute_axes")) {
+        for (auto const* a : pa->children_named("axis")) {
+            ThesisAxisSpec ax;
+            ax.ref = a->attr("ref");
+            for (auto const* v : a->children_named("value")) ax.values.push_back(v->text);
+            if (ax.ref == "cacheline") {  // per-Organ Cache-Line-Unterachse (KF-3)
+                ax.per_organ = split_ws(a->attr("per_organ"));
+                for (auto const* x : a->children_named("line_size"))        ax.line_sizes.push_back(x->text);
+                for (auto const* x : a->children_named("alignment"))        ax.alignments.push_back(x->text);
+                for (auto const* x : a->children_named("sw_prefetch_hint")) ax.sw_prefetch_hints.push_back(x->text);
+            }
+            tp.permute_axes.push_back(std::move(ax));
+        }
+    }
+    if (auto const* cd = root->child("compile_dims")) {
+        if (auto const* w = cd->child("workloads")) tp.workloads = w->text_tokens();
+        if (auto const* t = cd->child("telemetry")) {
+            tp.telemetry_mode   = t->attr("mode");
+            tp.telemetry_silent = (t->attr("silent") == "true");
+        }
+    }
+    if (auto const* rd = root->child("runtime_dynamic")) {
+        if (auto const* tc = rd->child("thread_count"))  tp.thread_counts = tc->text_tokens();
+        if (auto const* hp = rd->child("hw_prefetcher")) tp.hw_prefetcher = hp->text_tokens();
+    }
+    if (auto const* fc = root->child("fixed_conditions")) tp.fixed_conditions = fc->attrs;
+    if (auto const* rep = root->child("repetitions")) {
+        tp.repetitions             = to_int(rep->attr("count", "3"), 3);
+        tp.repetitions_interpolate = (rep->attr("interpolate", "false") == "true");
+        tp.repetitions_overlay     = (rep->attr("overlay_in_chart", "true") == "true");
+    }
+    if (auto const* ms = root->child("modes")) {
+        for (auto const* m : ms->children_named("mode")) {
+            ThesisMode md;
+            md.name          = m->attr("name");
+            md.merge         = m->attr("merge");
+            md.active_axes   = split_ws(m->attr("active_axes"));
+            md.pruefling     = m->attr("pruefling");
+            md.replaces_axes = split_ws(m->attr("replaces_axes"));
+            tp.modes.push_back(std::move(md));
+        }
+    }
+    if (auto const* sa = root->child("static_axes")) tp.static_axes_from = sa->attr("from");
+    if (auto const* kv = root->child("key_value_signature")) {
+        if (auto const* k = kv->child("key_types"))   tp.key_types   = k->text;
+        if (auto const* v = kv->child("value_types")) tp.value_types = v->text;
+    }
+    return tp;
 }
 
 }  // namespace comdare::builder::xml
