@@ -338,6 +338,10 @@ public:
         s.tier_fill_level       = tier_size();
         *out = s;
     }
+
+    /// V42 L-74c: IObservableTier-Override — macht den V2-POD über die echte Gattungs-ABI verfügbar
+    /// (der Host zieht ihn via dynamic_cast<IObservableTier*> + tier_observe_v2, analog tier_observe-V1).
+    void tier_observe_v2(ComdareTierObserverSnapshotV2* out) const noexcept override { fill_observer_v2(out); }
 #endif  // COMDARE_MEASUREMENT_ON (tier_observe / observer_all)
 
 #if COMDARE_MEASUREMENT_ON
