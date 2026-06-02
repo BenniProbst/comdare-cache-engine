@@ -38,8 +38,9 @@
 ### L-77 — ceb_generator reale Anatomie ODER Anspruch präzisieren  · Task #77 · Aufwand: S (Doku) + M (Brücke)
 - **SOLL:** Doc 28 §3 BR-4-Kriterium (generiert→gebaut→Loader→`dynamic_cast<IObservableTier*>`+`tier_observe` über REALE Komposition), Doc 28 §6 (#77), Doc 26 §7 KF-8.
 - **IST (literal):** `builder/experiment_tree/ceb_generator.hpp:52-82` emittiert STUB: `#define COMDARE_PERM_<AXIS>_IS_<VALUE>` (von niemandem konsumiert) + leerer `extern "C" perm_<id>_run` (gibt `0.0`). KEIN Umbrella-Include, KEIN ADHOC-Makro. Der REALE BR-4-Pfad ist `builder/codegen/adhoc_emitter.hpp` (`render_adhoc_module_source` → `COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<17 FQ>)`). **Diskrepanz:** Task #70 `[completed]` betitelt „ceb_generator emittiert ADHOC" — trifft nur auf adhoc_emitter zu.
-- **Verifikations-Kriterium:** (4.B Primär) ceb_generator-Header-Doku + Doc 26 §7 KF-8 + Task #70-Titel korrigiert: ceb_generator = Pfad-Manifest/Diagnose-Shell; reale Anatomie = adhoc_emitter; Grep belegt Querverweis. (4.A optional) `generate_all_real<Engine>` delegiert an `emit_adhoc_modules<Engine>` → gebaut→`load_all`→`tier_observe` grün.
-- **Risiko:** NICHT zur vollen String→Typ-Tabelle ausbauen (Direktive „kein Runtime-Switch"). **Status:** OFFEN.
+- **Verifikations-Kriterium:** (4.B) ceb_generator-Header-Doku + Doc 26 §7 KF-8 + Task #70-Titel korrigiert: ceb_generator = Pfad-Manifest/Diagnose-Shell; reale Anatomie = adhoc_emitter. (4.A) `generate_all_real<Engine>` delegiert an `emit_adhoc_modules<Engine>`.
+- **Risiko:** NICHT zur vollen String→Typ-Tabelle ausbauen (Direktive „kein Runtime-Switch"). — eingehalten (Brücke ist typ-getrieben via Engine).
+- **✅ ERLEDIGT (D3, test_d3_ceb_generator literal grün, min_free 9.34 GB):** (1) `generate_perm_source` = Diagnose-Shell — hat `COMDARE_PERM_`-#defines + `perm_<id>_run`-Stub (0.0), KEIN ADHOC-Makro. (2) `generate_all_real<FakeEngine>` emittiert 1 Modul mit `COMDARE_DEFINE_ANATOMY_MODULE_ADHOC` + `all_axes_umbrella.hpp` + `anatomy_manifest.txt`. Beide Pfade output-disjunkt. Header-Doku + Doc 26 §7 KF-8 + Task #70-Titel präzisiert.
 
 ### L-75 — Container-Gattung vervollständigen: q2-Slot + DLL-Pfad  · Task #75 · Aufwand: M (3–5 Tage)
 - **SOLL:** Doc 28 §2 (Adapter: 2 Slots q1+q2 + axis_inner), Doku 14 §26.4/§28/§32.2, Doc 24 §8.8 (neue Gattung = neues Sub-Interface + neuer V1-POD, NIE IAnatomyBase mutieren).
