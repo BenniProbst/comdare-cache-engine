@@ -1,0 +1,54 @@
+#pragma once
+// Gattungs-Generik (2026-06-02, User-Option-B Schritt 2) — GenusBindingTraits<G>: die gattungs-PARAMETRISCHE
+// Bau-Brücke. Der Baum-KERN ist bereits gattungs-agnostisch (AxisLevel/StaticAxisNode tragen beliebige Achsen);
+// was eine Permutation in eine baubare Tier-Binary verwandelt, war bisher auf SearchAlgorithm (AdHocComposition
+// <17>) hartcodiert. Dieses Traits hebt die Bindung auf eine pro-Gattung-Spezialisierung: jede Gattung deklariert
+// ihre Slot-Zahl, Achsen-Namen, Composition-/Anatomie-Bindung. SearchAlgorithm ist der VERIFIZIERTE Spezialfall
+// (BR-2/BR-3/BR-4); weitere Gattungen (Container/queuing als Adapter/Sequence, Graph) docken als 2. Instanz an,
+// sobald ihre Komposition/Anatomie existiert (Cross-Genus type-unmöglich, Doku 14 §32 — daher GETRENNTE Traits).
+// C++23, header-only.
+
+#include "axis_path_serialization.hpp"                  // kCompositionAxisNames (17 SearchAlgorithm-Achsen)
+#include "anatomy/anatomy_base.hpp"                      // AnatomyGenus
+#include "anatomy/composition_factory.hpp"               // CompositionFromPermTuple / AdHocComposition<17>
+#include "anatomy/search_algorithm_anatomy.hpp"          // SearchAlgorithmAnatomy
+
+#include <array>
+#include <cstddef>
+#include <string_view>
+
+namespace comdare::cache_engine::builder::experiment {
+
+namespace cea = ::comdare::cache_engine::anatomy;
+
+/// Primär UNDEFINIERT — jede UNTERSTÜTZTE Gattung liefert eine vollständige Spezialisierung. Eine Gattung ohne
+/// Spezialisierung ist (noch) nicht baubar — der Baum trägt ihre Achsen, aber es gibt keine Komposition/Anatomie.
+template <cea::AnatomyGenus G>
+struct GenusBindingTraits;
+
+/// SearchAlgorithm — der VERIFIZIERTE Spezialfall (alle 4 Brücken literal grün). 17-Slot-Komposition.
+template <>
+struct GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm> {
+    static constexpr cea::AnatomyGenus genus = cea::AnatomyGenus::SearchAlgorithm;
+    static constexpr std::size_t       slot_count = 17;
+    static constexpr std::string_view  name = "SearchAlgorithm";
+
+    /// Blatt-PermTuple<17> → reale Komposition (AdHocComposition<17>) → Gattungs-Anatomie.
+    template <class PermT> using CompositionFor = cea::CompositionFromPermTuple<PermT>;
+    template <class Comp>  using AnatomyFor     = cea::SearchAlgorithmAnatomy<Comp>;
+
+    /// Die Achsen-Namen der Komposition-Slots (Reihenfolge T0..T16) — zentrale Pfad-Konvention (BR-2).
+    [[nodiscard]] static constexpr std::array<std::string_view, 17> const& axis_names() noexcept {
+        return kCompositionAxisNames;
+    }
+};
+
+/// GenusBound<G> — true gdw. die Gattung G eine Bau-Bindung (GenusBindingTraits-Spezialisierung) hat.
+/// SearchAlgorithm == true; Container/queuing (Adapter/Sequence), Graph == false (Achsen im Baum, Bau-Brücke folgt).
+template <cea::AnatomyGenus G>
+concept GenusBound = requires {
+    { GenusBindingTraits<G>::slot_count } -> std::convertible_to<std::size_t>;
+    GenusBindingTraits<G>::name;
+};
+
+}  // namespace comdare::cache_engine::builder::experiment
