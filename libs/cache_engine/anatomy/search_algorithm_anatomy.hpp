@@ -86,6 +86,11 @@ public:
         if constexpr (ObservableAxis<typename Composition::serialization>) {
             agg.serialization = axis_serialization_.statistics();
         }
+        // V42 L-74c: node_type-Achse als 5. real gehaltenes Organ (static node_find_scan bleibt fuer N-Einsatz
+        // in ComposedStore; Observer-Treiber ruft observe_node_find()). Greift nur im STATISTICS-Build.
+        if constexpr (ObservableAxis<typename Composition::node_type>) {
+            agg.node_type = axis_node_type_.statistics();
+        }
         return agg;
     }
 
@@ -108,6 +113,11 @@ public:
     /// observe_serialize(buf,n,record_size) → die Serialisierungs-Statistik fliesst via observe_all().
     [[nodiscard]] typename Composition::serialization&       serialization_organ()       noexcept { return axis_serialization_; }
     [[nodiscard]] typename Composition::serialization const& serialization_organ() const noexcept { return axis_serialization_; }
+
+    /// V42 L-74c: Zugriff auf das node_type-Organ (5. getriebenes Achsen-Organ). Treiber ruft
+    /// observe_node_find(stored,n,queries,q) → die Node-Lookup-Statistik fliesst via observe_all().
+    [[nodiscard]] typename Composition::node_type&       node_type_organ()       noexcept { return axis_node_type_; }
+    [[nodiscard]] typename Composition::node_type const& node_type_organ() const noexcept { return axis_node_type_; }
 
     /// Diagnose: wie viele Achsen liefern echte Snapshots? (Rest = EmptyAxisSnapshot)
     [[nodiscard]] static constexpr std::size_t observable_axis_count() noexcept {
@@ -144,6 +154,9 @@ private:
 
     // V42 L-74c: serialization-Huelle als 4. Organ.
     typename Composition::serialization axis_serialization_;
+
+    // V42 L-74c: node_type-Huelle als 5. Organ.
+    typename Composition::node_type axis_node_type_;
 };
 
 }  // namespace comdare::cache_engine::anatomy

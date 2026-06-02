@@ -286,3 +286,28 @@ TEST(Saeule2_ObserveAllReal, DrivenSerializationOrganFlowsIntoAggregate) {
         GTEST_SKIP() << "serialization nicht ObservableAxis (STATISTICS=OFF)";
     }
 }
+
+// V42 L-74c Composition-Driver: node_type als 5. getriebenes Organ — schliesst die 4 OperativeCapable-Achsen
+// (telemetry+memory_layout+serialization+node_type) ab. ArtComposition::node_type ist die ObservableNodeType-
+// Huelle (zugleich N in ComposedStore<N,L,A>); observe_node_find() treibt die Statistik in observe_all().
+TEST(Saeule2_ObserveAllReal, DrivenNodeTypeOrganFlowsIntoAggregate) {
+    ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
+    using NtOrgan = ce_compos::ArtComposition::node_type;  // ObservableNodeType<Node256>
+    if constexpr (ana::ObservableAxis<NtOrgan>) {
+        std::uint8_t const stored[4]  = {1u, 2u, 3u, 4u};
+        std::uint8_t const queries[3] = {2u, 4u, 9u};   // 2(+2),4(+4),9(miss) -> Summe 6
+        auto& nt = anat.node_type_organ();
+        std::uint64_t const checksum = nt.observe_node_find(stored, 4, queries, 3);
+        EXPECT_EQ(checksum, 6u);
+
+        auto const agg = anat.observe_all();
+        EXPECT_EQ(agg.node_type.find_count, 1u);
+        EXPECT_EQ(agg.node_type.keys_stored, 4u);
+        EXPECT_EQ(agg.node_type.queries_run, 3u);
+        EXPECT_EQ(agg.node_type.last_checksum, 6u);
+        // ALLE 4 OperativeCapable-Achsen + search_algo observable.
+        EXPECT_GE(ana::ObserverAggregate<ce_compos::ArtComposition>::observable_count(), 5u);
+    } else {
+        GTEST_SKIP() << "node_type nicht ObservableAxis (STATISTICS=OFF)";
+    }
+}
