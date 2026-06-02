@@ -243,12 +243,16 @@ public:
         auto const before = search_organ_.occupied_count();
         search_organ_.insert(key, value);
         container_.insert(key, value);       // treibt + MISST die allocator-Achse (ComposedStore-Vector-Growth)
+        // V42 L-74c Cross-ABI-Auto-Kopplung: jeder insert berührt einen Blatt-Knoten → telemetry mit-treiben.
+        if constexpr (requires { telemetry_organ_.record_node_touch(true); }) telemetry_organ_.record_node_touch(true);
         return search_organ_.occupied_count() > before;
     }
 
     [[nodiscard]] bool tier_lookup(std::uint64_t key, std::uint64_t* out_value) const noexcept override {
         auto const v = search_organ_.lookup(key);
         if (v.has_value() && out_value != nullptr) *out_value = *v;
+        // V42 L-74c: lookup berührt ebenfalls einen Knoten → telemetry mit-treiben (telemetry_organ_ mutable).
+        if constexpr (requires { telemetry_organ_.record_node_touch(true); }) telemetry_organ_.record_node_touch(true);
         return v.has_value();
     }
 
@@ -294,6 +298,45 @@ public:
         snap.observable_axis_count = ObserverAggregate<Composition>::observable_count();
         snap.tier_fill_level       = tier_size();
         *out = snap;
+    }
+
+    // V42 L-74c: Cross-ABI-Observe in den erweiterten V2-POD (observable_tier.hpp) — V1-Achsen (search_algo +
+    // allocator) PLUS die per tier_insert/lookup AUTO-GEKOPPELTE telemetry-Achse. Non-virtual + additiv (kein
+    // IObservableTier-vtable-Bruch). Die scan-Achsen (memory_layout/serialization/node_type) sind run_workload-
+    // getrieben (Pfad A) und folgen in einem späteren Inkrement über die echte DLL-Grenze.
+    void fill_observer_v2(ComdareTierObserverSnapshotV2* out) const noexcept {
+        if (out == nullptr) return;
+        ComdareTierObserverSnapshotV2 s{};
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        if constexpr (ObservableAxis<SearchAlgo>) {
+            auto const ss = search_organ_.statistics();
+            s.search_lookup_count   = ss.total_lookup_count;
+            s.search_hit_count      = ss.total_hit_count;
+            s.search_miss_count     = ss.total_miss_count;
+            s.search_insert_count   = ss.total_insert_count;
+            s.search_erase_count    = ss.total_erase_count;
+            s.search_peak_occupancy = ss.peak_occupancy;
+        }
+        if constexpr (ObservableAxis<typename Composition::allocator>
+                   && container_t::template store_has_allocator_stats<typename container_t::store_type>) {
+            auto const a = container_.store_allocator_statistics();
+            s.alloc_bytes_allocated    = a.total_bytes_allocated;
+            s.alloc_bytes_in_use       = a.total_bytes_in_use;
+            s.alloc_allocation_count   = a.allocation_count;
+            s.alloc_deallocation_count = a.deallocation_count;
+            s.alloc_failure_count      = a.failure_count;
+        }
+        if constexpr (ObservableAxis<typename Composition::telemetry>) {
+            auto const t = telemetry_organ_.statistics();   // AUTO-gekoppelt via tier_insert/lookup
+            s.telemetry_total_events = t.total_events;
+            s.telemetry_leaf_updates = t.leaf_updates;
+            s.telemetry_node_updates = t.node_updates;
+            s.telemetry_peak_tracked = t.peak_tracked;
+        }
+#endif
+        s.observable_axis_count = ObserverAggregate<Composition>::observable_count();
+        s.tier_fill_level       = tier_size();
+        *out = s;
     }
 #endif  // COMDARE_MEASUREMENT_ON (tier_observe / observer_all)
 
@@ -399,6 +442,11 @@ private:
     // Default-konstruierbar + ObservableAxis garantiert durch #42 (ObservableComposedContainer-Huelle).
     SearchAlgo  search_organ_{};
     container_t container_{};   // R6 Inkrement 2b: misst die ALLOCATOR-Achse über die ABI-Grenze
+    // V42 L-74c: telemetry-Organ für die Cross-ABI-Auto-Kopplung. Bei tier_insert/lookup wird record_node_touch
+    // getrieben (if-constexpr-geschützt: AdHoc-Compositions tragen die nackte Strategie ohne record_node_touch).
+    // OHNE {} (Aggregat-Strategie UND Huelle beide default-init-fähig, test_d_v42_probe2). mutable: das Tracking
+    // im const tier_lookup ist logisch nicht-const (analog observer-notify-Muster, observable_composed_search.hpp).
+    mutable typename Composition::telemetry telemetry_organ_;
 #if COMDARE_MEASUREMENT_ON
     // V5-#44 memento_all: Warmup-Vor-Zustand der getriebenen Organe. Lebt IN der Binary, quert die ABI NICHT.
     // PER-ACHSEN-Memento (bevorzugt, MementoAxis): memento_of_t<Organ> = Organ::memento_t (riche (key,value)-
