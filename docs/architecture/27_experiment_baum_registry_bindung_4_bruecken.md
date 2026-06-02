@@ -121,6 +121,19 @@ KEIN komposition-typisiertes Member → standard_layout bleibt). Der Mess-Treibe
 realen Snapshot via `observe_all()`/`IObservableTier::tier_observe` und legt ihn im Knoten ab. Definitionen
 (Wrapper-Identität/Properties) je Knoten über die `BinarySpec.axes` + die CompositionRegistry read-only abrufbar.
 
+> ✅ **BR-3 (SearchAlgorithm-Kern) ERLEDIGT + VERIFIZIERT (2026-06-02, `test_br3_observer`, cl /DCOMDARE_MEASUREMENT_ON=1
+> /DCOMDARE_CE_ENABLE_STATISTICS, RAM-Watchdog 15.9 GB frei):** `NodeValue` trägt jetzt `NodeObserverSnapshot`
+> (flacher uint64-POD, umbrella-unabhängig, Layout == `ComdareTierObserverSnapshotV1`) + `observer_real`. Treiber
+> `node_value_measurement.hpp`: `measure_composition<P>` instanziiert den REALEN genus-Adapter `SearchAlgorithmAbiAdapter<
+> SearchAlgorithmAnatomy<CompositionFromPermTuple<P>>>`, treibt das echte Such-Organ + allocator-`ComposedStore`
+> (tier_insert/tier_lookup), zieht `tier_observe` → POD → `NodeValue.observer`; `set_node_value`/`node_value` legen
+> ihn in der SPARSE value_map ab (nur GEMESSENE Knoten). Literale Belege: `search_insert_count == 256` (ECHT
+> getrieben, kein Stub), ungemessener Knoten == 0 (Kontrast), `measured_node_count == 1`, 17-Achsen-Definition
+> read-only via CompositionRegistry. **R5.B-Grenze EHRLICH:** `observable_axis_count` macht transparent, wie viele
+> Achsen real beobachtet sind (operativ search_algo + allocator; Rest passive Compile-Time-Deskriptoren → Default 0).
+> **VERBLEIBT (BR-3-OBS-22, #72):** die 22-Observer-Differenzierung — die 5 außerhalb-Achsen (page_type/09b/12 =
+> Definition-statt-Observer; q1/q2 = eigener Container-Gattungs-Observer) sind hier NOCH NICHT getragen.
+
 > **AUDIT-TODO BR-3-OBS-22 (User 2026-06-02):** `ObserverAggregate<C>` (observer_aggregate.hpp) hat heute nur
 > **17 Snapshot-Slots** (= die 17 Komposition-Achsen T0..T16). Die 22-Achsen-Bindung (BR-1) braucht aber **22
 > Observer-Strukturen** — die **5 Achsen außerhalb** (page_type/01, simd_extension/09b, general_hardware/12,
