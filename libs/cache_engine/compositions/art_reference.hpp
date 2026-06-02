@@ -74,7 +74,7 @@ struct ArtComposition {
     // Topic 8
     using concurrency        = concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
     // Topic 10
-    using serialization      = serialization::axis_10_serialization::RawBinarySerialization;
+    using serialization      = serialization::axis_10_serialization::ObservableSerialization<serialization::axis_10_serialization::RawBinarySerialization>;  // V42 L-74c
     // Topic 11 — V42 L-74c: ObservableTelemetry-Huelle um die LeafOnlyCounter-Strategie (getrieben + observierbar)
     using telemetry          = telemetry::axis_11_telemetry::ObservableTelemetry<
                                    telemetry::axis_11_telemetry::LeafOnlyCounter>;

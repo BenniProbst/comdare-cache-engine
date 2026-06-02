@@ -260,3 +260,29 @@ TEST(Saeule2_ObserveAllReal, DrivenMemoryLayoutOrganFlowsIntoAggregate) {
         GTEST_SKIP() << "memory_layout nicht ObservableAxis (STATISTICS=OFF)";
     }
 }
+
+// V42 L-74c Composition-Driver: serialization als 4. getriebenes Organ. ArtComposition::serialization ist
+// jetzt die ObservableSerialization-Huelle; observe_serialize() treibt die Statistik in observe_all().
+TEST(Saeule2_ObserveAllReal, DrivenSerializationOrganFlowsIntoAggregate) {
+    ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
+    using SerOrgan = ce_compos::ArtComposition::serialization;  // ObservableSerialization<RawBinary>
+    if constexpr (ana::ObservableAxis<SerOrgan>) {
+        constexpr std::size_t record_size = 8, n = 4;
+        unsigned char buf[record_size * n] = {};
+        std::uint32_t const vals[n] = {10u, 20u, 30u, 40u};   // Summe = 100
+        for (std::size_t i = 0; i < n; ++i) std::memcpy(buf + i * record_size, &vals[i], sizeof(std::uint32_t));
+
+        auto& ser = anat.serialization_organ();
+        std::uint64_t const checksum = ser.observe_serialize(buf, n, record_size);
+        EXPECT_EQ(checksum, 100u);
+
+        auto const agg = anat.observe_all();
+        EXPECT_EQ(agg.serialization.serialize_count, 1u);
+        EXPECT_EQ(agg.serialization.records_serialized, 4u);
+        EXPECT_EQ(agg.serialization.bytes_serialized, 32u);     // 4 * 8
+        EXPECT_EQ(agg.serialization.last_checksum, 100u);
+        EXPECT_GE(ana::ObserverAggregate<ce_compos::ArtComposition>::observable_count(), 4u);  // +serialization
+    } else {
+        GTEST_SKIP() << "serialization nicht ObservableAxis (STATISTICS=OFF)";
+    }
+}
