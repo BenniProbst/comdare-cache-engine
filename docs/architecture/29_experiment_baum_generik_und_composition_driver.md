@@ -34,3 +34,22 @@ Die **Gattungs-Komposition + ObserverAggregate sind fest-N pro Gattung** (`obser
 5. **observable_axis_count ehrlich hochzählen** + Delta-vor/nach-Treiben-Test (kein Fake).
 
 **Empfehlung:** Schritt 1 über die **Tuple-basierte Organ-Komposition** lösen (generisch, löst den CRTP-Block für alle 17 Achsen zugleich) — das ist zugleich die saubere Grundlage, um die Anatomie wirklich „Composition-driven" (Doku 14 §11.3/§12) statt search_algo-only zu machen. Schwerer Umbrella-Eingriff → eine Achse pro Commit, RAM-Watchdog, CTest-registrieren.
+
+## §3a EMPIRISCHER BEFUND (test_d_v42_probe, literal grün 2026-06-02) — präzisiert §3
+
+Direkt am Code verifiziert (telemetry-Achse, ohne `COMDARE_CE_ENABLE_STATISTICS`):
+
+| Wrapper | default_constructible | ObservableAxis |
+|---------|:---------------------:|:--------------:|
+| InsertCounter / DensityTracker / LatencyHistogram | **1 (JA)** | **0 (NEIN)** |
+
+**Zwei Korrekturen am §3-Befund:**
+1. **Der protected CRTP-Base-ctor (`TelemetryStrategyBase`) ist KEIN Block für die telemetry-Derived** — `InsertCounter` hat einen impliziten public default-ctor (ruft den protected Base-ctor zulässig, da abgeleitet), `t::InsertCounter ic;` kompiliert. Der search_algorithm_anatomy.hpp:59-Block ist also **achsen-spezifisch** (gilt für search_algo, das NICHT trivial default-konstruierbar ist → braucht die ComposedStore-Komposition + #42-Hülle), **NICHT pauschal für alle Achsen**. → Tuple/Hülle ist für telemetry NICHT nötig; telemetry ist direkt als Member haltbar.
+2. **ObservableAxis ist an `COMDARE_CE_ENABLE_STATISTICS` gebunden** (statistics()/snapshot_t sind flag-gekapselt, wie bei FIFOQueueBuffer/WatermarkFlush). Ohne Flag → kein Observer (Release-Pfad, korrekt). observe_all sammelt telemetry also nur im STATISTICS-Build (konsistent mit dem search_algo-`if constexpr (ObservableAxis<>)`-Muster).
+
+**Daraus der konkrete, machbare telemetry-Composition-Driver (nächster Code-Schritt):**
+(a) `typename Composition::telemetry axis_telemetry_{}` als Member in SearchAlgorithmAnatomy (kein Block) + `telemetry_organ()`-Accessor;
+(b) observe_all `if constexpr (ObservableAxis<typename Composition::telemetry>) agg.telemetry = axis_telemetry_.statistics();` (greift im STATISTICS-Build);
+(c) **Kopplung (der eigentliche Driver):** der Tier-insert/lookup im abi_adapter muss `axis_telemetry_.record(...)` mit-treiben (sonst leer) — der Workload-Treiber koppelt search_algo-Op + telemetry-record;
+(d) Cross-ABI-POD nur falls telemetry-Metriken über die DLL-Grenze sollen (append-only).
+Verifikation: Test MIT `-DCOMDARE_CE_ENABLE_STATISTICS`, Delta telemetry-statistics vor/nach Treiben > 0. Achsen-Reihenfolge memory_layout/serialization/node_type analog prüfen (Probe je Achse zuerst).
