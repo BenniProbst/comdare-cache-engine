@@ -37,7 +37,7 @@ struct StartComposition {
     using mapping            = traversal::axis_03m_mapping::DirectPlacement;
     using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;
     using node_type          = nodes::axis_04_node_type::Node256NodeType;
-    using memory_layout      = memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
+    using memory_layout      = memory_layout::axis_05_memory_layout::ObservableMemoryLayout<memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout>;  // V42 L-74c
     using allocator          = allocator::axis_06_allocator::MimallocAllocator;
     using prefetch           = prefetch::axis_07_prefetch::NonePrefetch;
     using concurrency        = concurrency::axis_08_concurrency::OlcOptimisticConcurrency;

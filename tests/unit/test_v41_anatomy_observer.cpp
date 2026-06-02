@@ -18,6 +18,9 @@
 #include <anatomy/known_algorithms.hpp>
 
 #include <type_traits>
+#include <cstring>   // V42 L-74c: std::memcpy im memory_layout-Test
+#include <cstdint>
+#include <cstddef>
 
 namespace ana       = ::comdare::cache_engine::anatomy;
 namespace ce_compos = ::comdare::cache_engine::compositions;
@@ -229,5 +232,31 @@ TEST(Saeule2_ObserveAllReal, DrivenTelemetryOrganFlowsIntoAggregate) {
         EXPECT_GE(ana::ObserverAggregate<ce_compos::ArtComposition>::observable_count(), 2u);
     } else {
         GTEST_SKIP() << "telemetry nicht ObservableAxis (STATISTICS=OFF)";
+    }
+}
+
+// V42 L-74c Composition-Driver: memory_layout als 3. getriebenes Organ. ArtComposition::memory_layout ist
+// jetzt die ObservableMemoryLayout-Huelle; observe_scan() treibt die Layout-Scan-Statistik in observe_all().
+TEST(Saeule2_ObserveAllReal, DrivenMemoryLayoutOrganFlowsIntoAggregate) {
+    ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
+    using MlOrgan = ce_compos::ArtComposition::memory_layout;  // ObservableMemoryLayout<CacheLineAligned>
+    if constexpr (ana::ObservableAxis<MlOrgan>) {
+        constexpr std::size_t record_size = 64, n = 4;
+        unsigned char buf[record_size * n] = {};
+        std::uint32_t const vals[n] = {10u, 20u, 30u, 40u};   // Summe = 100
+        for (std::size_t i = 0; i < n; ++i) std::memcpy(buf + i * record_size, &vals[i], sizeof(std::uint32_t));
+
+        auto& ml = anat.memory_layout_organ();
+        std::uint64_t const checksum = ml.observe_scan(buf, n, record_size);
+        EXPECT_EQ(checksum, 100u);
+
+        auto const agg = anat.observe_all();
+        EXPECT_EQ(agg.memory_layout.scan_count, 1u);
+        EXPECT_EQ(agg.memory_layout.records_scanned, 4u);
+        EXPECT_EQ(agg.memory_layout.last_checksum, 100u);
+        EXPECT_GT(agg.memory_layout.cache_lines_touched, 0u);
+        EXPECT_GE(ana::ObserverAggregate<ce_compos::ArtComposition>::observable_count(), 3u);  // search_algo+telemetry+memory_layout
+    } else {
+        GTEST_SKIP() << "memory_layout nicht ObservableAxis (STATISTICS=OFF)";
     }
 }

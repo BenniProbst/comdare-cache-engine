@@ -41,6 +41,9 @@ template <class Strategy>
 class ObservableMemoryLayout {
 public:
     using strategy_type = Strategy;
+    // topic_tag durchgereicht → die Huelle erfuellt MemoryLayoutComponent/MemoryLayoutStrategy und ist damit
+    // als L in ComposedStore<N,L,A> einsetzbar (node_type-Achse, anatomy_execution_context.hpp:46 / abi_adapter.hpp:393).
+    using topic_tag = typename Strategy::topic_tag;
 
     // Transparenter Decorator: Strategie-Inspektion durchgereicht (composition_registry/axis_path_serialization
     // rufen C::memory_layout::name()).
