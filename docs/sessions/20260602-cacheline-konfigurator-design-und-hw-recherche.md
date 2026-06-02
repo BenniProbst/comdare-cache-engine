@@ -101,12 +101,15 @@ Permutations-Unterdimension für die betroffenen Achsen** — zur Laufzeit via M
 als echter experimenteller Faktor VARIIERT (nicht nur fixe Bedingung). Cross-cutting: eine globale Einstellung, alle
 Organe honorieren (§4.3).
 
-### 4.3 Querschnitt-Charakter
+### 4.3 Per-Organ-Charakter (KERNTHEMA — korrigiert 2026-06-02)
 
-`cacheline` ist EINE globale Einstellung, die die betroffenen Organe (allocator/page/traversal/node) **gemeinsam**
-honorieren (nicht 4 unabhängige → würde `9^4` explodieren). Alle betroffenen Tier-Algorithmen (per Benennung: ART-Node256,
-HOT, B+-Page, Allocator-Pools …) werden um die Unterstützung erweitert (Goldstandard-Achsen-Vorlage: Concept + CEPS +
-Subaxes + CRTP-Base + Wrapper + flags.hpp.in + Registry, vgl. `axis_06_allocator`).
+**Das Kernthema der Diplomarbeit ist, die Cache-Line-Größe je Organ EINZELN zu variieren/permutieren.** `cacheline` ist
+daher KEINE globale Einstellung, sondern eine **eigene Unterachse PRO betroffenem Organ** (allocator, page, traversal,
+node) — jedes Organ trägt seine UNABHÄNGIGE Cache-Line-Einstellung (45 Werte). Das ergibt bis zu **45⁴** allein für den
+Cache-Line-Kreuzraum der 4 Organe — **und das ist beabsichtigt** (ZIH-Sonderbudget + inverse Auswertungslogik §7-B).
+Dies erfordert die **umfassende Erweiterung ALLER Algorithmen jeder betroffenen Achse**, die Cache-Line-Einstellung
+einzeln zu unterstützen (Goldstandard-Achsen-Vorlage je Algorithmus: Concept + CEPS + Subaxes + CRTP-Base + Wrapper +
+flags.hpp.in + Registry, vgl. `axis_06_allocator`). KF-5.
 
 ## 5. XML-Schema `comdare_thesis_profile` (Entwurf V1)
 
@@ -171,8 +174,14 @@ compile-time in distinkte Binaries gebacken** — inkl. workload-Typ, telemetry-
 **ZIH-Sonderbudget** (Prof. Habich, „wir dürfen das") trägt die resultierende Binary-Zahl; die Compile-Zahl ist KEIN
 limitierender Faktor mehr (anders als das reguläre 20.000-core-h-Kontingent).
 
-**Architektonische Laufzeit-Ausnahmen** — nur HW/OS-Zustand, der sich physisch NICHT einkompilieren lässt; vom
-SLURM-Launcher je Lauf gesetzt (kanonische reproduzierbare-Mikrobench-Bedingungen, web-recherchiert, Quellen §12):
+**Faustregel (User 2026-06-02):** Betrifft eine Variable eine **betriebssystemseitige Einstellbarkeit der Plattform**
+UND NICHT die **Tier-Architektur-Eigenschaften** → sie läuft **dynamisch zur Laufzeit**: das Prüf-Dock /
+**CacheEngineBuilder** durchläuft ihre einstellbaren Möglichkeiten in den Grenzen der System-Umgebungsvariablen +
+Ressourcenlimits. Betrifft sie eine **Architektur-Entscheidung** (in Paper-Algorithmen auffindbar) → **compile-time**
+gebacken. (Cache-Line-Größe je Organ = Architektur → compile-time §4.3; HW-Prefetcher-MSR = OS-seitig → runtime.)
+
+**Architektonische Laufzeit-Ausnahmen** — der OS-seitige dynamische Dimensionsraum, den der CacheEngineBuilder je Binary
+zur Laufzeit durchläuft (kanonische reproduzierbare-Mikrobench-Bedingungen, web-recherchiert, Quellen §12):
 
 | Laufzeit-Ausnahme | Rolle | Mechanismus |
 |---|---|---|
@@ -197,13 +206,32 @@ die ÜBRIGEN (statischen) Achsen nehmen NICHT ihr unabhängiges Produkt an, sond
 ihre experimentellen Rekombinationen wider — die Originale sind die Punkte, an denen auch die dynamischen Achsen den
 Paper-Wert tragen.
 
-Dynamisches Compile-Hauptset:
-layout 5 × isa 3 × traversal 5 × node 8 × page 10 × prefetch 3 × allocator 3 × cacheline 45 (size×align×sw-hint) =
-**~24,3 Mio strukturelle Binaries** × workload 6 = **~146 Mio**, × **Paper-Tupel-Dimension 8** (statische Achsen) →
-Größenordnung **10⁸–10⁹** distinkte Binaries bei voll geöffnetem Raum. **Stellschraube** = Werteumfang je dynamischer
-Achse (nicht jede muss voll geöffnet sein). × **Laufzeit-Faktoren** (cores 3 × hw_prefetcher ~3–4 × Wiederholungen 3)
-multiplizieren die LAUF-Zahl je Binary. ZIH-Sonderbudget trägt das; SLURM-Array über FNV1a-Fingerprint je
-`PermutationDescriptor`, Singularity-Container, Ergebnis-Webhook (VLAN 60).
+Compile-Hauptset (Architektur-Achsen) MIT per-Organ-Cache-Line (§4.3): jedes der 4 betroffenen Organe trägt 45
+Cache-Line-Werte → bis zu **45⁴ ≈ 4,1 Mio** allein im Cache-Line-Kreuzraum, multipliziert mit den übrigen
+Architektur-Achsen (layout 5 × isa 3 × traversal 5 × node 8 × page 10 × prefetch 3 × allocator 3) × workload 6 ×
+Paper-Tupel 8 → roh **10¹⁰–10¹³**. **Das ist beabsichtigt.** Reduziert wird NICHT durch Abschneiden, sondern durch
+**inverse Auswertungslogik (§7-B):** nur UNIQUE Binaries (per FNV1a-Fingerprint dedupliziert) werden gebaut + gemessen —
+viele (Paper × dynamische Kombination)-Punkte kollabieren auf dasselbe Organ-Tupel → eine Größenordnung+ weniger Compiles.
+Die **dynamischen Laufzeit-Dimensionen** (cores, hw_prefetcher, …) durchläuft der CacheEngineBuilder je Binary zur
+Laufzeit (Tabelle oben), Wiederholungen ×3. ZIH-Sonderbudget trägt das; SLURM-Array über die Fingerprints.
+
+## 7-B. Inverse Auswertungslogik (Dedup + Ergebnis-Projektion)
+
+**User-Konzept 2026-06-02:** Die Konfiguration legt die eingestellten Experimente **intelligent zusammen**, weil viele
+Paper-Algorithmen + dynamische Rekombinationen identische Organ-Achsen-Konfigurationen ergeben → das Experiment wird
+**eine Größenordnung kleiner**:
+
+1. **Dedup (Build/Mess-Zeit):** Aus dem rohen kartesischen Produkt (Paper × dynamische Achsen) wird je Kombination der
+   **FNV1a-Fingerprint** des `PermutationDescriptor` gebildet. Nur **UNIQUE** Fingerprints werden als Binary gebaut +
+   gemessen (vgl. Stufe-3 `mp_unique<mp_append>`). Überlappende Kombinationen teilen sich EIN reales Messergebnis.
+2. **Inverse Projektion (Auswertungs-Zeit):** Bei der Auswertung wird das Ergebnis jedes Unique-Binaries auf **ALLE**
+   (Paper, Kombination)-Punkte zurückkopiert, die denselben Fingerprint tragen — die Auswertung sieht aus, **als wären
+   die Paper-Algorithmen einzeln permutiert worden**, ohne sie einzeln zu messen („sich überlagernde Auswertungen werden
+   einfach kopiert").
+
+Mapping `fingerprint → [(paper, kombination), …]` wird bei der Enumeration aufgebaut (KF-9) und bei der Auswertung
+angewandt (KF-15). **Garantie:** kein Messergebnis wird interpoliert (§9) — die Kopien sind EXAKTE Duplikate des realen
+Laufs (zulässig, da derselbe Fingerprint = bit-identische Achsen-Konfiguration = derselbe gemessene Code).
 
 ## 7-A. Algorithm_Resource_Control — Laufzeit-Steuerschnittstelle am Prüf-Dock
 
@@ -281,9 +309,13 @@ CSV-Schema um `repetition_index` erweitern, Diagramm-Generator Overlay-Modus. (K
 - ✅ **Tier-Modell:** EIN Großexperiment = dynamisches Hauptset × Paper-Static-Tupel-Dimension (8 Tupel); statische Achsen
   NICHT unabhängig permutiert, sondern aus den Paper-Konfigs (§7). Kein 8×-Separatlauf.
 - ✅ **Telemetrie-Default:** AN (host + binary) + `silent-mode` Snapshot-Diff (§8) — NICHT off.
-- ⬜ **Cacheline global vs per-Organ:** global (1 Einstellung, alle Organe honorieren) — noch zu bestätigen.
+- ✅ **Cacheline PER-ORGAN (Kernthema):** jede betroffene Achse trägt eine EIGENE Cache-Line-Einstellung (45 Werte),
+  bis zu 45⁴ — beabsichtigt. Erfordert Erweiterung ALLER Algorithmen je betroffener Achse (KF-5). Reduktion via
+  inverser Auswertungslogik (§7-B), NICHT via Abschneiden.
+- ✅ **Compile-vs-Runtime = Faustregel (§7):** OS-seitig-einstellbar ∧ nicht-Architektur → runtime (CacheEngineBuilder
+  durchläuft sie am Prüf-Dock in Env-/Ressourcengrenzen); Architektur-Entscheidung → compile-time.
 - ⬜ **Werteumfang je dynamischer Achse / welche statischen Achsen ggf. zusätzlich geöffnet:** Feintuning der
-  Größenordnung (10⁸–10⁹ Hauptset). Pro `<axis ref=...>` im Profil deklarierbar.
+  Größenordnung. Pro `<axis ref=...>` im Profil deklarierbar.
 
 ## 12. Quellen (Web, 2026-06-02)
 
