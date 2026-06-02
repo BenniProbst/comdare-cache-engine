@@ -141,3 +141,13 @@ Das IST der Wert von `PermutationEngine::count()` per Kardinalitäts-Identität 
 - Bidirektionalität: Laufzeit-Knoten → `block_id` → compile-time Deskriptor (typsichere Properties read-only
   abrufbar); Deskriptor-Registry → flache AxisLevels/DynamicDims (BR-1). So vereint: Doc-26-§4-Typsicherheit
   + Materialisierungs-Grenze.
+
+**Verkettungs-Formalik (User 2026-06-02 — Block = typsicherer Teilbaum-Einheit):** Ein `AxisBlock` ist formal
+EINE Einheit = ein eigener, typsicherer **C++-Deskriptor-Teilbaum** (CRTP-Subklasse: statische Achse + ihre
+Sub-Achsen als TYPISIERTE Descriptor-Knoten). Die **Wurzel** der statischen node eines Blocks wird **an das
+ENDE (Tail) der vorangegangenen Achse** angehängt — NICHT an ein Blatt (Blätter = finale Experiment-Einstellungen;
+Zwischen-Achsen verketten sich Wurzel-an-Tail). Die Block-Teilbäume fügen sich so zum EINEN zusammenhängenden
+Gesamtbaum (= die Achsen-Verkettung in `build_recursive`: jede Achsen-Ebene = Kinder der vorigen). **Typsicherheit
+sitzt auf der Block-Ebene** (jeder Block ist ein kleiner, voll type-checkter Deskriptor-Teilbaum, materialisierbar);
+die **Gesamtbaum-Assemblierung** der Block-Teilbäume ist LAUFZEIT (Wurzel-an-Tail-Verkettung), da das volle
+Typ-Produkt C1060-infeasible ist. Hauptzweck: Typsicherheit der Deskriptoren je Achse.
