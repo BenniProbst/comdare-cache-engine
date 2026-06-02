@@ -68,6 +68,12 @@ public:
         if constexpr (ObservableAxis<typename Composition::search_algo>) {
             agg.search_algo = axis_search_algo_.statistics();
         }
+        // V42-Composition-Driver telemetry-Sammlung HIER ENTFERNT (2026-06-02): Member-Hold von
+        // Composition::telemetry scheitert für die reale Composition — ArtComposition::telemetry =
+        // LeafOnlyCounter, dessen protected TelemetryStrategyBase-ctor das direkte Member-Halten
+        // blockiert (literaler Build-Fehler). Der frühere test_d_v42_probe war UNVOLLSTÄNDIG (testete
+        // nur InsertCounter/DensityTracker/LatencyHistogram, NICHT LeafOnlyCounter). → korrekter Pfad =
+        // CRTP-ctor public ODER ObservableComposed*-Hülle (#42) ODER Tuple-Komposition (Doc 29 §3 Schritt 1).
         return agg;
     }
 
