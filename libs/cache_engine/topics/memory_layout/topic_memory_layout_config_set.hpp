@@ -15,6 +15,7 @@
 //   - aspect_values<V>() Pflicht-Helper (heute leerer span)
 
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_registry.hpp>
+#include <axes/layout/axis_05_memory_layout_observable.hpp>   // V42 L-74c: ObservableMemoryLayout-Huelle
 
 #include <boost/mp11.hpp>
 
@@ -26,13 +27,17 @@ namespace comdare::cache_engine::memory_layout {
 
 namespace mp = boost::mp11;
 
+// V42 L-74c: macht den Permutations-Pfad memory_layout-OBSERVABLE (analog telemetry, Doc 29 §3e). Die
+// Huelle reicht cache_line_size/name/topic_tag durch → als L in ComposedStore<N,L,A> einsetzbar (bewiesen).
+template <class S> using make_observable_layout = ::comdare::cache_engine::layout::ObservableMemoryLayout<S>;
+
 /// TopicConfigSet — zentrale Konfiguration fuer Topic `memory_layout`.
 ///
 /// 1-Achse Topic: axis_05 ist die einzige Memory-Layout-Achse.
 /// StaticAxisVariants = EnabledLayouts der Achse.
 struct TopicConfigSet {
-    // axis_05_memory_layout: Layout-Family (Cache-Line/AoS/SoA/Bitmap)
-    using StaticAxisVariants_05 = axis_05_memory_layout::EnabledLayouts;
+    // axis_05_memory_layout: Layout-Family (Cache-Line/AoS/SoA/Bitmap) — V42 L-74c: observable Huellen
+    using StaticAxisVariants_05 = mp::mp_transform<make_observable_layout, axis_05_memory_layout::EnabledLayouts>;
 
     // Default-StaticAxisVariants — die einzige Achse
     using StaticAxisVariants = StaticAxisVariants_05;
