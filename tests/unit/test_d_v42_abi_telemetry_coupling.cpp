@@ -42,15 +42,17 @@ int main() {
     assert(v2.telemetry_node_updates == 0u);   // LeafOnlyCounter verwirft Inner-Touch
     assert(v2.observable_axis_count >= 5u);
 
-    // KERN-BEWEIS 2: derselbe V2-POD über die ECHTE Gattungs-ABI (IObservableTier::tier_observe_v2),
-    // wie der Host ihn zieht (dynamic_cast<IObservableTier*> → tier_observe_v2). Identisch zu fill_observer_v2.
-    ana::IObservableTier* itier = static_cast<ana::IObservableTier*>(&ad);
+    // KERN-BEWEIS 2: derselbe V2-POD über das EIGENSTÄNDIGE Sub-Interface IObservableTierV2 (ABI-robust —
+    // wie der Host ihn über die DLL-Grenze zieht: dynamic_cast<IObservableTierV2*>; alte Module → nullptr →
+    // Degrade auf V1, KEIN vtable-Append-Crash). Hier gelingt der Cast (der neue Adapter erbt IObservableTierV2).
+    ana::IObservableTierV2* itier2 = dynamic_cast<ana::IObservableTierV2*>(static_cast<ana::IObservableTier*>(&ad));
+    assert(itier2 != nullptr);
     ana::ComdareTierObserverSnapshotV2 v2_abi{};
-    itier->tier_observe_v2(&v2_abi);
-    assert(v2_abi == v2);                       // über das Interface == direkt
+    itier2->tier_observe_v2(&v2_abi);
+    assert(v2_abi == v2);                       // über das Sub-Interface == direkt
     assert(v2_abi.telemetry_total_events == 40u);
-    std::cout << "  via IObservableTier::tier_observe_v2: telemetry_total=" << v2_abi.telemetry_total_events
-              << " (== fill_observer_v2)\n";
+    std::cout << "  via IObservableTierV2::tier_observe_v2: telemetry_total=" << v2_abi.telemetry_total_events
+              << " (== fill_observer_v2, ABI-robust dynamic_cast)\n";
 
     std::cout << "OK: abi_adapter tier_insert/lookup koppelt telemetry AUTOMATISCH -> tier_observe_v2 (Cross-ABI V2-POD ueber Interface).\n";
     return 0;
