@@ -34,9 +34,13 @@ int main() {
 
     // Die Generik: SearchAlgorithm ist GEBUNDEN; die übrigen Gattungen sind definierte Erweiterungspunkte (noch nicht).
     check_true("GenusBound<SearchAlgorithm> == true (verifizierte Bau-Brücke)", ex::GenusBound<cea::AnatomyGenus::SearchAlgorithm>);
-    check_true("GenusBound<Adapter> == false (Container/queuing-Bau-Brücke = Folgeschritt)", !ex::GenusBound<cea::AnatomyGenus::Adapter>);
-    check_true("GenusBound<Sequence> == false (noch nicht gebunden)", !ex::GenusBound<cea::AnatomyGenus::Sequence>);
-    check_true("GenusBound<Set> == false (noch nicht gebunden)", !ex::GenusBound<cea::AnatomyGenus::Set>);
+    // KORREKTUR 2026-06-02 (Audit aa02ec9): Adapter ist seit Schritt 3 (GenusBindingTraits<Adapter>) GEBUNDEN.
+    // Die frühere Assert „Adapter==false" war nach dem Hinzufügen der Spezialisierung stale → jetzt korrekt true.
+    check_true("GenusBound<Adapter> == true (Container/queuing seit Schritt 3 gebunden)", ex::GenusBound<cea::AnatomyGenus::Adapter>);
+    check_true("GenusBound<Sequence> == false (NICHT gebunden — offener Erweiterungspunkt)", !ex::GenusBound<cea::AnatomyGenus::Sequence>);
+    check_true("GenusBound<Set> == false (NICHT gebunden — offener Erweiterungspunkt)", !ex::GenusBound<cea::AnatomyGenus::Set>);
+    check_true("GenusBound<View> == false (NICHT gebunden — offener Erweiterungspunkt)", !ex::GenusBound<cea::AnatomyGenus::View>);
+    std::cout << "    Gattungs-Bindung: 2 von 5 gebunden (SearchAlgorithm + Adapter); Set/Sequence/View OFFEN\n";
 
     // Statische Bindungs-Identität: CompositionFor<PermTuple> ist eine AdHocComposition (BR-2 belegt die Materialisierung;
     // hier nur, dass die Traits den richtigen Composition-Typ binden). Konstruiere ein PermTuple<17> aus 17 void-Markern? —
