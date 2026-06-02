@@ -358,6 +358,16 @@ public:
             s.serialization_bytes_serialized   = sr.bytes_serialized;
             s.serialization_last_checksum      = sr.last_checksum;
         }
+        if constexpr (ObservableAxis<typename Composition::node_type>
+                   && requires { container_.store_observe_node_type(node_organ_); }) {
+            node_organ_.reset();   // idempotenter Observe
+            (void)container_.store_observe_node_type(node_organ_);
+            auto const nt = node_organ_.statistics();
+            s.node_find_count    = nt.find_count;
+            s.node_keys_stored   = nt.keys_stored;
+            s.node_queries_run   = nt.queries_run;
+            s.node_last_checksum = nt.last_checksum;
+        }
 #endif
         s.observable_axis_count = ObserverAggregate<Composition>::observable_count();
         s.tier_fill_level       = tier_size();
@@ -480,6 +490,7 @@ private:
     // ueber das ECHTE Slot-Backing des container_ getrieben (Pfad-B Zustand-Scan). mutable (const-Methode).
     mutable typename Composition::memory_layout ml_organ_;
     mutable typename Composition::serialization ser_organ_;
+    mutable typename Composition::node_type     node_organ_;
 #if COMDARE_MEASUREMENT_ON
     // V5-#44 memento_all: Warmup-Vor-Zustand der getriebenen Organe. Lebt IN der Binary, quert die ABI NICHT.
     // PER-ACHSEN-Memento (bevorzugt, MementoAxis): memento_of_t<Organ> = Organ::memento_t (riche (key,value)-
