@@ -15,6 +15,7 @@
 #include "anatomy/container_anatomy.hpp"                 // ContainerAnatomy / ContainerComposition (Container-Gattung)
 #include "anatomy/set_anatomy.hpp"                       // SetAnatomy / SetComposition (Set-Gattung, D9)
 #include "anatomy/sequence_anatomy.hpp"                  // SequenceAnatomy / SequenceComposition (Sequence-Gattung, D10)
+#include "anatomy/view_anatomy.hpp"                      // ViewAnatomy / ViewComposition (View-Gattung, D11)
 
 #include <array>
 #include <cstddef>
@@ -113,8 +114,30 @@ struct GenusBindingTraits<cea::AnatomyGenus::Sequence> {
     }
 };
 
+/// View (Pflanze, non-owning) — die 5. (letzte) Gattungs-Instanz (D11/L-76c). 7 Slots = 4 geteilte Achsen
+/// (§28 Plant, K-C aufgelöst) + axis_extent/axis_layout/axis_accessor (eigene). EIGENE Komposition/Anatomie
+/// (ViewAnatomy referenziert externen Puffer non-owning, liest über layout/accessor) + eigener View-Observer.
+template <>
+struct GenusBindingTraits<cea::AnatomyGenus::View> {
+    static constexpr cea::AnatomyGenus genus = cea::AnatomyGenus::View;
+    static constexpr std::size_t       slot_count = 7;   // 4 geteilt + extent/layout/accessor
+    static constexpr std::string_view  name = "View";
+
+    /// 4-geteilte + extent/layout/accessor (alle drei defaulten → 4-arg-Aufrufe bleiben gültig).
+    template <class T0, class T1, class T2, class T3,
+              class Extent = cea::DynamicExtent, class Layout = cea::LayoutRight, class Accessor = cea::DefaultAccessor>
+    using CompositionFor = cea::ViewComposition<T0, T1, T2, T3, Extent, Layout, Accessor>;
+    template <class Comp> using AnatomyFor = cea::ViewAnatomy<Comp>;
+
+    [[nodiscard]] static constexpr std::array<std::string_view, 7> const& axis_names() noexcept {
+        static constexpr std::array<std::string_view, 7> kNames = {
+            "memory_layout", "telemetry", "value_handle", "isa", "extent_policy", "layout_policy", "accessor_policy"};
+        return kNames;
+    }
+};
+
 /// GenusBound<G> — true gdw. die Gattung G eine Bau-Bindung (GenusBindingTraits-Spezialisierung) hat.
-/// SearchAlgorithm + Adapter (Container) + Set + Sequence == true (4/5, D10); View == false (Achsen im Baum, Bau-Brücke folgt).
+/// ALLE 5 Gattungen gebunden (D11): SearchAlgorithm + Adapter + Set + Sequence + View == true (5/5).
 template <cea::AnatomyGenus G>
 concept GenusBound = requires {
     { GenusBindingTraits<G>::slot_count } -> std::convertible_to<std::size_t>;
