@@ -43,6 +43,28 @@ Doku 22 „15 Topics · 22 Achsen". Die User-Angabe „22/23" war korrekt; „18
 baubares SearchAlgorithm-Tier-Binary. **5 Achsen außerhalb** (page_type, 09b, 12, q1, q2) sind separate
 Sub-Achsen/andere Gattungen (queuing = Container/Queue-Gattung; 09b/12 = Hardware-Sub; page_type = nodes-Sub).
 
+### 0.1 AUTORITATIV: „22" ist die Gesamtzahl, „17" ist NUR die SearchAlgorithm-Gattung (User 2026-06-02)
+
+> **Kritische Klarstellung (User 2026-06-02): die „17" darf die „22" NICHT wegschrumpfen.** „17" ist KEINE
+> Achsen-Gesamtzahl, sondern die **Slot-Zahl der SearchAlgorithm-Gattungs-Komposition** (`AdHocComposition<17>`,
+> `ObserverAggregate<17>`, `sizeof...(Vs)==17` — eine GATTUNGS-Invariante, bleibt). Wo Doku „15 Topics / 17 Achsen"
+> o.ä. als Bibliotheks-GESAMTZAHL schreibt, ist das FALSCH → **22 Achsen / 15 Topics**. Verifiziert 2026-06-02:
+> 22 `axis_*_registry.hpp` (Liste in Session-Doku); `test_br1_full22_count` bindet alle 22 als Baum-Ebene.
+
+**Differenzierte Bindung der 22 (User-Entscheidung „gattungs-korrekt", 2026-06-02) — KEINE Achse schrumpft weg:**
+
+| Gruppe | Achsen | Bindung an Binary/Messung | Observer |
+|--------|--------|----------------------------|----------|
+| **SearchAlgorithm-Komposition (17)** | T0..T16 (search_algo … filter) | `AdHocComposition<17>` = EIN SearchAlgorithm-Tier-Binary (Gattungs-Invariante) | `ObserverAggregate<17>` |
+| **SearchAlgorithm-Sub/Build-Varianten (3)** | page_type/01 (nodes-Sub), simd_extension/09b + general_hardware/12 (Hardware) | modifizieren DIESELBE SearchAlgorithm-Binary (zusätzliche Baum-Ebene + Build-/Codegen-Variante je Wert) — NICHT eigene Gattung | je eigener Observer/Definition (BR-3-OBS-22) |
+| **Container-Gattung (2)** | queuing q1 + q2 | EIGENE Container-Gattungs-Komposition + eigenes **Container-Prüf-Dock** (Doku 24 §8.8) — NICHT in die SearchAlgorithm-17-Komposition (Cross-Genus type-unmöglich, Doku 14 §32) | eigener Container-Observer |
+
+**Konsequenz:** Alle **22** erscheinen als volle Baum-Ebene (BR-1 ✓, registry-getrieben). Die 17 SearchAlgorithm-
+Slots + die 3 Sub/Build-Achsen binden an die SearchAlgorithm-Tier-Binary; q1/q2 an eine getrennte Container-Tier-
+Binary (eigene Gattung). JEDE der 22 trägt einen eigenen Observer + eigene Definition (kein Wegschrumpfen). Die
+„17"-Stellen im Code/Doku, die `AdHocComposition`/`ObserverAggregate`/„17 Organe einer Komposition" meinen, sind
+KORREKT und bleiben; nur Bibliotheks-GESAMTZAHL-Angaben werden auf 22 korrigiert.
+
 ## 1. Verifizierter Permutations-Mechanismus (an den der Baum bindet)
 
 - `PermutationEngine<TopicConfigSets...>` (src/permutations/permutation_engine.hpp): `AllPermutations =
