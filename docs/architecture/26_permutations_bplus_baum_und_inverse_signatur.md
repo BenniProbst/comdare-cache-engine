@@ -75,7 +75,22 @@ EIN großer B+-Baum repräsentiert das GESAMTE Experiment (alle Paper + alle Per
 **Materialisierung + Filterung (User 2026-06-02):** Der Gesamtbaum existiert formal ZUSAMMENHÄNGEND (statische +
 dynamische Schichten), aber MATERIALISIERT werden nur die STATISCHEN Ebenen → Binary-Blätter; die dynamischen
 Variablen sind VIRTUELL ineinander geschachtelte for-Schleifen (nicht physisch aufgefächert → der Baum bleibt bei der
-BINARY-Zahl, nicht der dyn. Kartesik). Eine **Baum-Filterung nach statisch/dynamisch** (`static_filter()` /
+BINARY-Zahl, nicht der dyn. Kartesik).
+
+> **KORREKTUR/Präzisierung (User 2026-06-02, OOM-Befund):** „Den gesamten Baum zu materialisieren ist falsch — du
+> materialisierst immer nur EINEN Pfad von der Wurzel zum Blatt und iterierst durch. Beim Build sind es nur so viele
+> Pfade wie zulässige DLL-Build-Prozesse." Auch der STATISCHE Teilbaum darf NICHT eager voll-materialisiert werden:
+> bei vollem Enabled-Inventar ist die Binary-Zahl ∏ mp_size(Enabled_i) astronomisch (≥ 1e15) — ein Knoten-je-Wert-
+> je-Ebene-Aufbau zieht OOM (empirisch belegt: ein eager `tree.build` über alle 22 Achsen zog ~21 GB). Daher:
+> - **`binary_count()` = ∏ der statischen Ebenen-Größen — REIN ARITHMETISCH**, ohne je einen Knoten zu materialisieren
+>   (Doc 26 §5: der Baum ZÄHLT die Kardinalität, er baut sie nicht).
+> - **Iteration = lazy mixed-radix Odometer:** es lebt zu jeder Zeit nur EIN Pfad Wurzel→Blatt (O(Tiefe) Speicher);
+>   nach dem Besuch wird er verworfen, der nächste erzeugt.
+> - **Build = nur K Pfade gleichzeitig** (K = zulässige parallele DLL-Build-Prozesse, KF-16b): die indizierte
+>   `StaticBinaryView::operator[](i)` dekodiert genau EINEN Pfad on-demand (Index → mixed-radix), der Orchestrator
+>   hält nie alle ∏ Specs. Implementiert in `experiment_tree.hpp` (lazy `StaticBinaryView` + `for_each_binary`-Odometer).
+> - **per-node Observer-Statistics (§2) = SPARSE Map** (key=binary_id → NodeValue), NUR für tatsächlich GEMESSENE
+>   Binaries — nie ein Eintrag je ∏-Blatt. Eine **Baum-Filterung nach statisch/dynamisch** (`static_filter()` /
 `dynamic_filter()`) extrahiert aus dem zusammenhängenden Ganzen den statischen Teilbaum (Binaries) und den dynamischen
 Teilbaum (Iterations-Schleifen je Binary). Das **BLATT (`ExperimentSetting`) akkumuliert die volle dynamische Belegung
 als EXAKT EINE Experiment-Einstellung** (Binary × eine dyn. Kombination). Implementiert in
