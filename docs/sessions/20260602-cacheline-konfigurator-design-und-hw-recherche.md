@@ -58,7 +58,9 @@ cache-line-relevanten Achsen permutiert werden.
 - **Permutiert (architektonische Laufzeit-Ausnahme, Launcher-gesetzt, §7):** concurrency-Core-Anzahl (1/2/4 via Affinität),
   HW-Prefetcher-Zustand (MSR).
 - **Orchestrierung:** Wiederholungen ×3 (§9).
-- **Fixiert (Tier-Original):** value_handle, reclamation; telemetry konfigurierbar.
+- **Statische Achsen = Paper-Tupel-Dimension (§7):** value_handle, reclamation, concurrency-Mechanismus etc. werden
+  NICHT unabhängig permutiert, sondern nehmen die Werte der 8 Paper-Standardkonfig-Tupel an — EINE Dimension, gekreuzt
+  mit dem dynamischen Hauptset (ein Großexperiment, kein 8×-Separatlauf). telemetry bleibt AN (silent-mode, §8).
 
 ## 4. NEUE Cache-Line-Unterachse (Kern der Anlage)
 
@@ -93,9 +95,11 @@ Die Unterachse `cacheline` ist ein **strukturiertes, architekturübergreifendes*
 | `sw_prefetch_hint` | none / T0 / T1 / T2 / NTA | **compile-time** (`_mm_prefetch` mit konstantem Hint, gebacken) |
 | `hw_prefetcher_state` | all_on / adjacent_off / dcu_off / all_off | **Laufzeit-Ausnahme** (MSR 0x1A4 / AMD; Launcher, §7) |
 
-Primär-permutiert für die Thesis (compile-time): `line_size_target` × `alignment_policy` (= 3×3 = **9** strukturelle
-Cache-Line-Varianten), optional × `sw_prefetch_hint`. Der `hw_prefetcher_state` ist die EINZIGE Laufzeit-Ausnahme dieser
-Unterachse (CPU-Register, nicht einkompilierbar) und wird vom Launcher gesetzt (§7).
+Permutiert für die Thesis (ENTSCHIEDEN 2026-06-02): compile-time `line_size_target` × `alignment_policy` ×
+`sw_prefetch_hint` (= 3×3×5 = **45** strukturelle Cache-Line-Varianten) **PLUS `hw_prefetcher_state` als eigene
+Permutations-Unterdimension für die betroffenen Achsen** — zur Laufzeit via MSR durch den Launcher gesetzt (§7), aber
+als echter experimenteller Faktor VARIIERT (nicht nur fixe Bedingung). Cross-cutting: eine globale Einstellung, alle
+Organe honorieren (§4.3).
 
 ### 4.3 Querschnitt-Charakter
 
@@ -185,13 +189,21 @@ SLURM-Launcher je Lauf gesetzt (kanonische reproduzierbare-Mikrobench-Bedingunge
 **Lauf-Zahl je Binary**, NICHT die Compile-Zahl. **Fixe Bedingungen** (turbo/SMT/ASLR/NUMA/governor) sind für ALLE Läufe
 konstant — Reproduzierbarkeit.
 
-**Kombinations-Schätzung (compile-time-strukturell):**
-layout 5 × isa 3 × traversal 5 × node 8 × page 10 × prefetch 3 × allocator 3 × cacheline 9 × workload 6 =
-**~87,5 Mio Binaries** bei voll geöffnetem Achsenraum. Mit **Tier-Pinning** (jedes Paper-Tier fixiert die meisten Achsen
-auf sein Original und öffnet nur eine im Profil deklarierte Wolke) realistisch **10⁴–10⁶ Binaries je Tier × 8 Tiere**.
-× **Laufzeit-Faktoren** (cores 3 × hw_prefetcher ~4 × Wiederholungen 3 = 36 Läufe/Binary) → **Mess-Läufe in den
-zweistelligen Millionen+**. Stellschraube = Tier-Öffnungsgrad (je `<tier>` deklariert, §11). ZIH: SLURM-Array über
-FNV1a-Fingerprint je `PermutationDescriptor` (existiert bereits), Singularity-Container, Ergebnis-Webhook (VLAN 60).
+**Kombinations-Schätzung — EIN Großexperiment (User-Klarstellung 2026-06-02):**
+Statt das dynamische Achsen-Produkt pro Paper-Algorithmus separat 8× durchzutesten, ist es EIN kartesisches
+Großexperiment: **dynamisches Hauptset × Paper-Static-Tupel-Dimension**. Die DYNAMISCHEN Achsen werden voll permutiert;
+die ÜBRIGEN (statischen) Achsen nehmen NICHT ihr unabhängiges Produkt an, sondern nur die **8 Paper-Standardkonfig-Tupel**
+(je Tupel = alle statischen Achsenwerte eines Papers). EIN Durchlauf spiegelt so die vorhandenen Paper-Algorithmen UND
+ihre experimentellen Rekombinationen wider — die Originale sind die Punkte, an denen auch die dynamischen Achsen den
+Paper-Wert tragen.
+
+Dynamisches Compile-Hauptset:
+layout 5 × isa 3 × traversal 5 × node 8 × page 10 × prefetch 3 × allocator 3 × cacheline 45 (size×align×sw-hint) =
+**~24,3 Mio strukturelle Binaries** × workload 6 = **~146 Mio**, × **Paper-Tupel-Dimension 8** (statische Achsen) →
+Größenordnung **10⁸–10⁹** distinkte Binaries bei voll geöffnetem Raum. **Stellschraube** = Werteumfang je dynamischer
+Achse (nicht jede muss voll geöffnet sein). × **Laufzeit-Faktoren** (cores 3 × hw_prefetcher ~3–4 × Wiederholungen 3)
+multiplizieren die LAUF-Zahl je Binary. ZIH-Sonderbudget trägt das; SLURM-Array über FNV1a-Fingerprint je
+`PermutationDescriptor`, Singularity-Container, Ergebnis-Webhook (VLAN 60).
 
 ## 7-A. Algorithm_Resource_Control — Laufzeit-Steuerschnittstelle am Prüf-Dock
 
@@ -221,14 +233,17 @@ Dies ist die DRITTE Property-Kategorie neben (1) compile-time-gebacken (§3/§7)
 `Algorithm_Resource_Control` = algorithmus-INTERNE Laufzeit-Properties (IM DLL, vom Prüf-Dock gesetzt). Die
 **Thread-Anzahl** ist beides: OS-Affinität (welche Kerne, §7) + algorithmus-interne Thread-Spawn-Zahl (hier).
 
-## 8. Telemetrie — warum „aus" vorgeschlagen wurde + konfigurierbare Lösung
+## 8. Telemetrie — Default AN + Silent-Mode (Snapshot-Diff)
 
-Telemetrie-AN fügt **pro Operation** Beobachter-Overhead ein, der genau die Latenz **verfälscht**, die Pfad A
-(in-DLL `run_workload`) misst (Heisenberg-Effekt). Daher Default `off` für reine Latenzläufe. **ABER:** die
-Achsen-Observer-Daten (Pfad B) liefern gerade die per-Achsen-Korrelation des Hybrid-Messmodells. Lösung:
-`telemetry` ist eine **konfigurierbare Mess-Dimension** (`off | leaf_sampled | all`); Pfad B erhebt die Observer
-**host-seitig** (CEB, ABI-stabiler `observe_all`) entkoppelt vom gemessenen Binary, sodass volle Observability
-OHNE Latenz-Verfälschung möglich ist. Default-Wahl bleibt User-Entscheidung (offen, §11).
+**Klarstellung (User 2026-06-02):** Telemetrie-Default bleibt **AN** — host-seitig UND in den Tier-Binaries. Der
+Heisenberg-Einwand (per-Operation-Overhead verfälscht die Latenz) wird NICHT durch Abschalten gelöst, sondern durch
+einen **`silent-mode`**: die Statistics-Observer werden **VOR** der Operation latenzfrei ausgelesen (Snapshot) und
+**NACH** der Operation erneut; die Messung ist die **Differenz** beider Snapshots. Die Operation selbst läuft OHNE
+inline-Messcode → keine Verfälschung. `telemetry on/off` bleibt erhalten; `silent-mode` ist eine **additive
+all-at-once-Erweiterung** für die Diff-Messung — EIN Observer-Read erfasst alle Achsen-Statistics gemeinsam (vgl.
+`observe_all`/Pfad B, ABI-stabil). **Default-Mess-Setup:** `telemetry=on` + `silent-mode` (Snapshot vor/nach Op),
+Pfad B host-seitig parallel. Die `Algorithm_Resource_Control`-Schnittstelle (§7-A) und der Silent-Observer teilen sich
+die „auch bei Messung-aus aktiv"-Eigenschaft.
 
 ## 9. Wiederholungen / Mess-Integrität
 
@@ -259,13 +274,16 @@ CSV-Schema um `repetition_index` erweitern, Diagramm-Generator Overlay-Modus. (K
 11. **ZIH-Skalierung:** SLURM-Array über Fingerprints + Singularity + Webhook.
 12. **Thesis-Anbindung:** Profil → `generate_measurement_appendix` mit 3-Wiederholungs-Overlay.
 
-## 11. Offene Mikro-Entscheidungen
+## 11. Entscheidungen (Stand 2026-06-02)
 
-- **Cacheline-Werte-Set:** reicht `line_size{64,128,256} × alignment{none,aligned,padded}` (=9), oder zusätzlich
-  `sw_prefetch_hint` (T0/T1/T2/NTA) und `hw_prefetcher_state` (MSR) mit aufnehmen?
-- **Cacheline global vs per-Organ:** global (1 Einstellung, alle Organe honorieren) — bestätigen (vs per-Organ-Explosion).
-- **Tier-Öffnungsgrad:** wie weit fächert jedes Paper-Tier seine gepinnten Achsen auf (steuert die Compile-Zahl)?
-- **Telemetrie-Default:** `off` (reine Latenz) + Pfad-B-Observer host-seitig — bestätigen?
+- ✅ **Cacheline-Werte-Set:** `line_size{64,128,256} × alignment{none,aligned,padded} × sw_prefetch_hint{none,T0,T1,T2,NTA}`
+  (compile-time, =45) PLUS `hw_prefetcher_state` als eigene Permutations-Unterdimension (runtime-MSR) für betroffene Achsen.
+- ✅ **Tier-Modell:** EIN Großexperiment = dynamisches Hauptset × Paper-Static-Tupel-Dimension (8 Tupel); statische Achsen
+  NICHT unabhängig permutiert, sondern aus den Paper-Konfigs (§7). Kein 8×-Separatlauf.
+- ✅ **Telemetrie-Default:** AN (host + binary) + `silent-mode` Snapshot-Diff (§8) — NICHT off.
+- ⬜ **Cacheline global vs per-Organ:** global (1 Einstellung, alle Organe honorieren) — noch zu bestätigen.
+- ⬜ **Werteumfang je dynamischer Achse / welche statischen Achsen ggf. zusätzlich geöffnet:** Feintuning der
+  Größenordnung (10⁸–10⁹ Hauptset). Pro `<axis ref=...>` im Profil deklarierbar.
 
 ## 12. Quellen (Web, 2026-06-02)
 
