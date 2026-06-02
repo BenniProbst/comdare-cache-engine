@@ -13,6 +13,7 @@
 #include "anatomy/composition_factory.hpp"               // CompositionFromPermTuple / AdHocComposition<17>
 #include "anatomy/search_algorithm_anatomy.hpp"          // SearchAlgorithmAnatomy
 #include "anatomy/container_anatomy.hpp"                 // ContainerAnatomy / ContainerComposition (Container-Gattung)
+#include "anatomy/set_anatomy.hpp"                       // SetAnatomy / SetComposition (Set-Gattung, D9)
 
 #include <array>
 #include <cstddef>
@@ -64,8 +65,32 @@ struct GenusBindingTraits<cea::AnatomyGenus::Adapter> {
     }
 };
 
+/// Set (Vogel, K-only) — die 3. Gattungs-Instanz (D9/L-76a). 15 Achsen-Slots (§28 Bird, kein mapping/value_handle,
+/// K-A aufgelöst). EIGENE Komposition/Anatomie (SetAnatomy treibt Composition::search_algo als Menge K=V) +
+/// eigener Set-Observer (Cross-Genus type-unmöglich → getrennt). Belegt: der EINE Baum bindet auch die Set-Gattung.
+template <>
+struct GenusBindingTraits<cea::AnatomyGenus::Set> {
+    static constexpr cea::AnatomyGenus genus = cea::AnatomyGenus::Set;
+    static constexpr std::size_t       slot_count = 15;
+    static constexpr std::string_view  name = "Set";
+
+    /// 15-Slot-Komposition (Reihenfolge = §28 Bird-Spalte). Blatt-PermTuple<15> → SetComposition → SetAnatomy.
+    template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7,
+              class T8, class T9, class T10, class T11, class T12, class T13, class T14>
+    using CompositionFor = cea::SetComposition<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>;
+    template <class Comp> using AnatomyFor = cea::SetAnatomy<Comp>;
+
+    [[nodiscard]] static constexpr std::array<std::string_view, 15> const& axis_names() noexcept {
+        static constexpr std::array<std::string_view, 15> kNames = {
+            "search_algo", "cache_traversal", "path_compression", "node_type", "memory_layout",
+            "allocator", "prefetch", "concurrency", "serialization", "telemetry",
+            "isa", "index_organization", "io_dispatch", "migration_policy", "filter"};
+        return kNames;
+    }
+};
+
 /// GenusBound<G> — true gdw. die Gattung G eine Bau-Bindung (GenusBindingTraits-Spezialisierung) hat.
-/// SearchAlgorithm == true; Container/queuing (Adapter/Sequence), Graph == false (Achsen im Baum, Bau-Brücke folgt).
+/// SearchAlgorithm + Adapter (Container) + Set == true (3/5, D9); Sequence/View == false (Achsen im Baum, Bau-Brücke folgt).
 template <cea::AnatomyGenus G>
 concept GenusBound = requires {
     { GenusBindingTraits<G>::slot_count } -> std::convertible_to<std::size_t>;
