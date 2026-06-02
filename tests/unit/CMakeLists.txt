@@ -1256,3 +1256,58 @@ else()
         "R5.G: Auto-Permutations-Skalierung SKIPPED (status=${_r5g_ae_status}). "
         "Build comdare_adhoc_emitter_cli first, then re-configure.")
 endif()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Goal-V6 Phase D — standalone main()-Tests (KEIN gtest; eigenes main + errno-style return).
+# Behebt den Phase-E-Audit-Vorbehalt: vorher nur via git-ignorierte build/scratch_*.ps1 verifiziert
+# (autor-behauptet, nicht repo-reproduzierbar) → jetzt CTest-registriert (ctest baut + laeuft sie).
+# add_test direkt (nicht comdare_add_test, das ist gtest). Include-Roots = die scratch-verifizierten.
+# ─────────────────────────────────────────────────────────────────────────────
+# (a) leichtgewichtig: nur libs/cache_engine(+include/common); kein Boost/generated.
+set(COMDARE_GOALV6_LIGHT_DTESTS
+    test_d1_d2_selection      # L-SEL + L-73 (BuildSelection + provision_all O(K))
+    test_d3_ceb_generator     # L-77 (ceb_generator generate_all_real)
+    test_d7_build_variant     # L-74b (BuildVariantDefinition)
+    test_d7a_build_inspection # L-74a (Build-Variant-Inspection-ABI)
+    test_d8_operability       # L-74c (R5.B-Operabilitaets-Klassifikation)
+    test_d9_set               # L-76a (Set-Gattung Kern)
+    test_d9_set_adapter       # L-76a (SetAbiAdapter)
+    test_d10_sequence         # L-76b (Sequence-Gattung)
+    test_d11_view             # L-76c (View-Gattung)
+    test_d12_virus            # L-76d (Viren IVirusExecutionEngine + GraphBfs)
+    test_d13_runtime_measure  # L-MEAS (RuntimeMeasureVisitor)
+    test_d14_result_ingest)   # L-CLUSTER gate-frei (result_ingest)
+foreach(_dt IN LISTS COMDARE_GOALV6_LIGHT_DTESTS)
+    add_executable(${_dt} "${_dt}.cpp")
+    target_compile_features(${_dt} PRIVATE cxx_std_23)
+    target_include_directories(${_dt} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/common")
+    comdare_set_platform_defines(${_dt})
+    add_test(NAME ${_dt} COMMAND ${_dt})
+    set_tests_properties(${_dt} PROPERTIES LABELS "goal_v6;phase_d")
+endforeach()
+
+# (b) Container-Gattungs-Tests: brauchen die q1/q2-Achsen-Registries → Boost::mp11 + generated-Flags.
+set(COMDARE_GOALV6_BOOST_DTESTS
+    test_container_genus      # #75 Container q2-Slot (in-process)
+    test_container_dock)      # #75 Container-Pruef-Dock
+foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
+    add_executable(${_dt} "${_dt}.cpp")
+    target_compile_features(${_dt} PRIVATE cxx_std_23)
+    target_include_directories(${_dt} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${CMAKE_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    target_link_libraries(${_dt} PRIVATE Boost::mp11)
+    comdare_set_platform_defines(${_dt})
+    add_test(NAME ${_dt} COMMAND ${_dt})
+    set_tests_properties(${_dt} PROPERTIES LABELS "goal_v6;phase_d")
+endforeach()
+
+message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 14 D-Tests CTest-registriert (12 leicht + 2 Container/Boost). "
+    "DLL-Round-Trip-Tests (test_d4b_container_dll/test_dgenus_dll, mehrstufig) bleiben scratch-verifiziert (Folge-Registrierung).")
