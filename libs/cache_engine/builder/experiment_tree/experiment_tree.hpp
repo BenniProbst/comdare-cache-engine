@@ -30,12 +30,30 @@
 
 namespace comdare::cache_engine::builder::experiment {
 
+// ── BR-3 (Doc 27 §3): flacher, komposition-UNABHÄNGIGER Per-Achsen-Observer-Snapshot ──
+/// Layout-identisch zu anatomy::ComdareTierObserverSnapshotV1 (NUR uint64 → standard_layout); der Mess-Treiber
+/// (node_value_measurement.hpp) flacht `observe_all()`/`tier_observe` einer REALEN Komposition hier hinein.
+/// KEIN komposition-typisiertes Member → experiment_tree.hpp bleibt umbrella-unabhängig (Doc 27 §3 BR-3).
+/// R5.B-Grenze (ehrlich): real getrieben werden search_algo + allocator; `observable_axis_count` macht
+/// transparent, wie viele der Achsen real beobachtet sind (Rest = passive Compile-Time-Deskriptoren / Default 0).
+struct NodeObserverSnapshot {
+    std::uint64_t search_lookup_count    = 0, search_hit_count        = 0, search_miss_count   = 0,
+                  search_insert_count    = 0, search_erase_count      = 0, search_peak_occupancy = 0;
+    std::uint64_t alloc_bytes_allocated  = 0, alloc_bytes_in_use      = 0, alloc_allocation_count = 0,
+                  alloc_deallocation_count = 0, alloc_failure_count   = 0;
+    std::uint64_t observable_axis_count  = 0;  // ObserverAggregate::observable_count() — wie viele Achsen real
+    std::uint64_t tier_fill_level        = 0;  // tier_size() zum Snapshot-Zeitpunkt
+};
+
 // ── Per-node Value (§2): Observer-Statistics + Mess-Auswertung der Ebene ──
 struct NodeValue {
     std::uint64_t measured_setting_count = 0;  // gemessene Experiment-Einstellungen unter diesem Knoten
     std::uint64_t sum_total_cycles       = 0;
     std::uint64_t sum_op_count           = 0;
     bool          has_result             = false;
+    // BR-3: ECHTER Per-Achsen-Observer-Snapshot (kein 4-uint64-Stub mehr), via observe_all/tier_observe.
+    NodeObserverSnapshot observer{};
+    bool                 observer_real = false;  // true = via realem observe_all einer Komposition gezogen
 };
 
 enum class NodeKind { Static, Dynamic };
