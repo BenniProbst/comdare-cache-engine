@@ -71,6 +71,15 @@ EIN großer B+-Baum repräsentiert das GESAMTE Experiment (alle Paper + alle Per
   — erzeugt KEINE neue Binary.
 - Folglich: ein **Blatt = EIN Mess-Lauf (Binary × Laufzeit-Einstellung)**; `binary_count` = Zahl distinkter Static-Pfade;
   Prüf-Dock-Modell = **je Binary EINMAL laden, dann Laufzeit-Schleife** über die dynamischen Einstellungen (KF-7).
+
+**Materialisierung + Filterung (User 2026-06-02):** Der Gesamtbaum existiert formal ZUSAMMENHÄNGEND (statische +
+dynamische Schichten), aber MATERIALISIERT werden nur die STATISCHEN Ebenen → Binary-Blätter; die dynamischen
+Variablen sind VIRTUELL ineinander geschachtelte for-Schleifen (nicht physisch aufgefächert → der Baum bleibt bei der
+BINARY-Zahl, nicht der dyn. Kartesik). Eine **Baum-Filterung nach statisch/dynamisch** (`static_filter()` /
+`dynamic_filter()`) extrahiert aus dem zusammenhängenden Ganzen den statischen Teilbaum (Binaries) und den dynamischen
+Teilbaum (Iterations-Schleifen je Binary). Das **BLATT (`ExperimentSetting`) akkumuliert die volle dynamische Belegung
+als EXAKT EINE Experiment-Einstellung** (Binary × eine dyn. Kombination). Implementiert in
+`libs/cache_engine/builder/experiment_tree/` (KF-9, verifiziert).
 - **Pfad Wurzel→Blatt = die serialisierte, eindeutige Verifikation/Signatur** eines (gemischt statisch/dynamischen)
   Tier-Binary-Experiments. Die Pfadabfolge ERSETZT den FNV1a-Fingerprint als eindeutige Binary-ID.
 

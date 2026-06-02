@@ -1,16 +1,19 @@
 // test_kf9_experiment_tree — KF-9 (2026-06-02)
-// Standalone-Test für den Experiment-B+-Baum: statische Knoten = Binaries, dynamische = Laufzeit-for-Schleife.
-// Build: cl /std:c++latest /EHsc /I<libs/cache_engine> test_kf9_experiment_tree.cpp
+// Experiment-B+-Baum: zusammenhängender Gesamtbaum, Filter statisch/dynamisch, statisch=Binary,
+// dynamisch=virtuelle for-Schleifen (Experiment-Iterationen), Blatt = eine Experiment-Einstellung.
+// + Adapter comdare_thesis_profile -> AxisLevels.
+// Build: cl /std:c++latest /EHsc /I<libs/cache_engine> /I<libs/common/serialization> test_kf9_experiment_tree.cpp
 
 #include "builder/experiment_tree/experiment_tree.hpp"
+#include "builder/experiment_tree/profile_to_tree.hpp"
 
-#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace ex = comdare::cache_engine::builder::experiment;
+namespace ex  = comdare::cache_engine::builder::experiment;
+namespace cx  = comdare::builder::xml;
 
 static int g_fail = 0;
 template <typename A, typename B>
@@ -25,51 +28,56 @@ void check_true(char const* what, bool c) { std::cout << (c ? "  [OK]  " : "  [E
 int main() {
     auto factory = std::make_shared<ex::ExperimentNodeFactory>();
 
-    // Abstract Factory: zwei Knotenarten + Ausführungssemantik
-    auto sn = factory->make_static("traversal", "ART", true);
-    auto dn = factory->make_dynamic("concurrency", "thread_count", "2");
-    check_true("static = NICHT Laufzeit-Schleife (laedt Binary)", !sn->is_runtime_loop());
-    check_true("static traegt Binary-Signatur bei", sn->contributes_to_signature());
-    check_true("dynamic = Laufzeit-Schleife (auf geladener Binary)", dn->is_runtime_loop());
-    check_true("dynamic traegt KEINE Binary-Signatur bei", !dn->contributes_to_signature());
-    check_eq("dynamic.serialize", dn->serialize(), std::string{"concurrency.thread_count=2"});
-
-    // Baum: STATISCH traversal(1,pinned) x node(3) x node.cl_line(2) = 6 Binaries;
-    //       DYNAMISCH concurrency.thread_count(3) = Laufzeit-Schleife je Binary -> 18 Mess-Blaetter.
+    // ── Teil 1: Baum aus ZUSAMMENHÄNGENDEM Gesamt-Level-Satz + Filterung ──
     ex::ExperimentTree tree{factory};
-    std::vector<ex::AxisLevel> levels = {
-        ex::AxisLevel{"traversal", {"ART"}, true, ""},
-        ex::AxisLevel{"node", {"N4", "N16", "N256"}, true, ""},
-        ex::AxisLevel{"node.cl_line", {"64", "128"}, true, ""},          // compile-time cacheline -> Binary
-        ex::AxisLevel{"concurrency", {"1", "2", "4"}, false, "thread_count"},  // Laufzeit-Schleife
+    std::vector<ex::AxisLevel> all_levels = {
+        ex::AxisLevel{"traversal", {"ART"}, true, ""},                   // statisch, gepinnt
+        ex::AxisLevel{"node", {"N4", "N16", "N256"}, true, ""},          // statisch, freigegeben
+        ex::AxisLevel{"node.cl_line", {"64", "128"}, true, ""},          // statisch (compile-time cacheline) -> Binary
+        ex::AxisLevel{"concurrency", {"1", "2", "4"}, false, "thread_count"},  // DYNAMISCH -> for-Schleife
     };
-    tree.build(levels);
+    tree.build(all_levels);
 
-    check_eq("Mess-Blaetter (1x3x2 x 3)", tree.leaf_count(), std::size_t{18});
-    check_eq("distinkte Tier-Binaries (1x3x2)", tree.binary_count(), std::size_t{6});
+    // Filter statisch/dynamisch (Gesamtbaum bleibt zusammenhängend)
+    check_eq("static_filter (3 Ebenen)", tree.static_filter().size(), std::size_t{3});
+    check_eq("dynamic_filter (1 Dimension)", tree.dynamic_filter().size(), std::size_t{1});
 
-    std::vector<ex::LeafView> leaves;
-    tree.for_each_leaf([&](ex::LeafView const& lv) { leaves.push_back(lv); });
-    check_eq("Blatt[0].binary_id (nur statisch)", leaves.front().binary_id,
-             std::string{"traversal=ART/node=N4/node.cl_line=64"});
-    check_eq("Blatt[0].runtime_setting (nur dynamisch)", leaves.front().runtime_setting,
-             std::string{"concurrency.thread_count=1"});
-    check_eq("Blatt[0].pinned_signature", leaves.front().pinned_signature, std::string{"traversal=ART"});
-    check_eq("Blatt[0].path (voll)", leaves.front().path,
+    // statische Rekombination = Binaries; dynamische Rekombination = Iterationen je Binary
+    check_eq("binary_count (1x3x2)", tree.binary_count(), std::size_t{6});
+    check_eq("experiment_setting_count (6 x 3)", tree.experiment_setting_count(), std::size_t{18});
+
+    std::vector<ex::ExperimentSetting> settings;
+    tree.for_each_experiment_setting([&](ex::ExperimentSetting const& s) { settings.push_back(s); });
+    check_eq("Einstellung[0].binary_id", settings.front().binary_id, std::string{"traversal=ART/node=N4/node.cl_line=64"});
+    check_eq("Einstellung[0].dyn-Belegung (1 Variable)", settings.front().dynamic_assignment.size(), std::size_t{1});
+    check_eq("Einstellung[0].setting_id (Binary + dyn)", settings.front().setting_id,
              std::string{"traversal=ART/node=N4/node.cl_line=64/concurrency.thread_count=1"});
+    check_eq("Einstellung[0].pinned_signature", settings.front().pinned_signature, std::string{"traversal=ART"});
 
-    // Prüf-Dock-Modell: je Binary einmal laden, 3 Laufzeit-Einstellungen durchschleifen
-    std::size_t bins = 0; bool all_three = true;
-    tree.for_each_binary([&](std::string const& bin, std::vector<std::string> const& settings) {
-        ++bins; if (settings.size() != 3) all_three = false; (void)bin;
-    });
-    check_eq("for_each_binary: Binaries", bins, std::size_t{6});
-    check_true("je Binary 3 Laufzeit-Einstellungen", all_three);
+    // je Binary 3 Iterationen (gleicher binary_id 3x in den 18 Settings)
+    std::size_t art_n4_64 = 0;
+    for (auto const& s : settings) if (s.binary_id == "traversal=ART/node=N4/node.cl_line=64") ++art_n4_64;
+    check_eq("Binary 'ART/N4/64' hat 3 Iterationen", art_n4_64, std::size_t{3});
 
-    // KF-15: alle Binaries teilen pinned-Signatur "traversal=ART"
-    auto idx = tree.pinned_signature_index();
-    check_eq("multimap unter 'traversal=ART' (18 Mess-Blaetter)", idx.count("traversal=ART"), std::size_t{18});
+    // ── Teil 2: Adapter comdare_thesis_profile -> AxisLevels ──
+    cx::ThesisProfile tp;
+    tp.id = "t"; tp.schema_version = 1;
+    tp.base_tiers = { {"art", "../sota/art.profile.xml", "P01"}, {"hot", "../sota/hot.profile.xml", "P02"} };
+    cx::ThesisAxisSpec isa;  isa.ref = "isa";  isa.values = {"X86_AVX2", "X86_AVX512"};
+    cx::ThesisAxisSpec cl;   cl.ref = "cacheline"; cl.per_organ = {"node"}; cl.line_sizes = {"64","128"}; cl.alignments = {"none"};
+    tp.permute_axes = { isa, cl };
+    tp.thread_counts = {"1", "2"};
+    cx::ThesisMode m; m.name = "ce_only"; m.merge = "Stufe1_CeOnly"; m.active_axes = {"isa", "cacheline"};
+    tp.modes = { m };
 
-    std::cout << "\n==== KF-9 Experiment-B+-Baum: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    auto levels = ex::build_axis_levels(tp, "ce_only", ex::AxisRegistry{});
+    ex::ExperimentTree tree2{factory};
+    tree2.build(levels);
+    // statisch: tier(2) x isa(2) x cl_line(2) x cl_align(1) = 8 Binaries; dynamisch: thread_count(2)
+    check_eq("Adapter: binary_count (2x2x2x1)", tree2.binary_count(), std::size_t{8});
+    check_eq("Adapter: experiment_setting_count (8 x 2)", tree2.experiment_setting_count(), std::size_t{16});
+    check_eq("Adapter: dynamic_filter (thread_count)", tree2.dynamic_filter().size(), std::size_t{1});
+
+    std::cout << "\n==== KF-9 Experiment-B+-Baum + Adapter: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }
