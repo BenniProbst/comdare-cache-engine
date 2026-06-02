@@ -112,3 +112,32 @@ Compile-Explosion bei „alle Wrapper enabled" — Enabled-Set wird durch Flags 
 „voll" = volles ENABLED-Inventar (Experiment-Konfig wählt). (R2) Namespace-Auflösung der Enabled-Listen →
 Anker = TopicConfigSets (namespace-korrekt). (R3) Pfad-Serialisierung muss BR-1↔BR-2↔BR-4 identisch sein →
 EINE zentrale `serialize_path(axis,value)`-Konvention. (R4) ABI: Observer-Block als flacher uint64-POD.
+
+## 6. EMPIRISCHER BEFUND C1060 + aufgelöste Knoten-Klassen-Architektur (User 2026-06-02)
+
+**C1060 (Compiler-Heap-Erschöpfung) — belegt:** das Instanziieren von `PermutationEngine<…17 Achsen…>::count()`
+(= `mp_size<mp_product<PermTuple, Enabled_03a, …, Enabled_filter>>`) **sprengt den Compiler-Heap**. Der VOLLE
+kartesische **Typ-Raum** über die 17 Achsen mit ihren realen Enabled-Inventaren (18×3×…×25×…) ist astronomisch
+und **NICHT als Typen materialisierbar**. Das bestätigt empirisch den Kern von Doc 26: man **zählt** die
+Kardinalität, materialisiert aber NICHT den Typ-Baum. Ein **voll compile-time Baum** (type-level über alle
+Achsen) ist damit nachweislich **infeasible**.
+
+**Konsequenz für Gate-1 (Mess-Methode korrigiert):** `tree.binary_count()` wird gegen
+`composition_binary_count() = ∏ mp_size(Enabled_i)` geprüft (constexpr, OHNE `mp_product`-Materialisierung).
+Das IST der Wert von `PermutationEngine::count()` per Kardinalitäts-Identität `mp_size<mp_product<L…>> = ∏|L|`
+— literal belegbar, ohne den infeasiblen Typ-Baum zu bauen.
+
+**Aufgelöste Knoten-Klassen-Architektur (User-Entscheidung „Compile-time Deskriptor-Typen + Laufzeit-Baum"):**
+- **Per-Achse COMPILE-TIME Spezial-Deskriptor-Klassen** (CRTP, typsicher, KEIN struct): Hierarchie
+  Head-Concept `AxisNodeDescriptor` → `StaticAxisDescriptorBase<D>` / `DynamicAxisDescriptorBase<D>` →
+  per-Achse-SPEZIAL (`AllocatorAxisDescriptor`, `ConcurrencyDynamicDescriptor`, …), je mit den achsen-eigenen
+  typsicheren Properties (Doc 26 §4 „nicht generisch-flach"). Registrier-/erweiterbar (mp_list-Registry).
+- **Laufzeit-Baum-Manager** hält LEICHTE Knoten (`StaticAxisNode`/`DynamicVariableNode`, bereits da), die per
+  `block_id`/Achsen-Name auf den compile-time Deskriptor **zurück-verweisen** (Bidirektionalität). Der Baum
+  zählt/strukturiert den riesigen Raum zur LAUFZEIT (ohne Typ-Materialisierung); statische und dynamische
+  Knoten sind GLEICHRANGIG.
+- **Nur EIN Blatt = compile-time:** je zu bauender Binary wird genau EINE `AdHocComposition<17>` /
+  `SearchAlgorithmAnatomy` materialisiert (on-demand, BR-2/BR-4) — nie der ganze Baum.
+- Bidirektionalität: Laufzeit-Knoten → `block_id` → compile-time Deskriptor (typsichere Properties read-only
+  abrufbar); Deskriptor-Registry → flache AxisLevels/DynamicDims (BR-1). So vereint: Doc-26-§4-Typsicherheit
+  + Materialisierungs-Grenze.
