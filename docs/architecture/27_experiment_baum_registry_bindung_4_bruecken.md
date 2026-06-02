@@ -158,6 +158,22 @@ eine echte ladbare Tier-Binary mit `comdare_create_anatomy` + `observe_all`. **V
 BuildOrchestrator (KF-16) gebaut → via `AnatomyModuleLoader` geladen → `dynamic_cast<IObservableTier*>` +
 `tier_observe` über die reale Komposition liefert echte Achsen-Statistik.
 
+> ✅ **BR-4 ERLEDIGT + VERIFIZIERT (2026-06-02, 3-Phasen-Round-Trip `br4_emit`/`br4_load`, RAM-Watchdog 14.3 GB frei):**
+> - **Phase 1 (emit):** aus EINEM Baum-Blatt (reale Pilot-Komposition via `for_each_permutation`→`CompositionFromPermTuple<P>`)
+>   schreibt `render_adhoc_module_source(0, adhoc_macro_args<Comp>())` (builder/codegen/adhoc_emitter.hpp) die ECHTE
+>   Anatomie-Quelle: `#include all_axes_umbrella.hpp` + `COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<17 FQ-Typnamen via type_name>)`.
+>   Pfad-Round-Trip `serialize_composition_path<P>() == serialize_composition_from_slots<Comp>()` (BR-1↔BR-2-Identität).
+> - **Phase 2 (DLL):** `cl /LD /DCOMDARE_ANATOMY_MODULE_BUILD /DCOMDARE_MEASUREMENT_ON=1 /DCOMDARE_CE_ENABLE_STATISTICS`
+>   baut die reale Anatomie als SHARED-DLL (kein OOM).
+> - **Phase 3 (load+observe):** `AnatomyModuleLoader::load` → `status_ok`; `composition_name=="AdHocComposition"`,
+>   `organ_count()==17`, `genus()==SearchAlgorithm`; `dynamic_cast<IObservableTier*>` → `tier_insert`×256 → `tier_observe`
+>   liefert über die REALE DLL-Grenze echte Werte: **search_insert=256, lookup=256, fill=256, observable_axes=4** (R5.B).
+>   Der Baum-Blatt-Pfad (`search_algo=k_ary/.../filter=filter_bloom`) IST die Identität der gebauten Binary.
+>
+> Anmerkung: der reale Anatomie-Emit läuft über den compile-time `render_adhoc_module_source<C>` (type_name → FQ-Typen);
+> der string-getriebene `ceb_generator::generate_perm_source` bleibt die leichte `#define`-Hülle für die Build-Orchestrierung
+> ohne Typ-Auflösung — die ECHTE ladbare Anatomie kommt über den Komposition-typisierten Emit (BR-2 ordnet Blatt↔Komposition zu).
+
 ## 4. Vollständigkeits-Gate (Done-Bedingung, literal)
 
 1. `tree.binary_count() == PermutationEngine::count()` (exakt, über die 17 Komposition-Achsen).
