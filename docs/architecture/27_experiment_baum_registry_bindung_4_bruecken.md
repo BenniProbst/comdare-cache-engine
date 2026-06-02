@@ -184,7 +184,11 @@ BuildOrchestrator (KF-16) gebaut → via `AnatomyModuleLoader` geladen → `dyna
    Strukturen, NICHT 17** (Audit-TODO BR-3-OBS-22, §3): die 5 außerhalb-Achsen (page_type/09b/12/q1/q2)
    brauchen eigene Observer bzw. eine bewusst dokumentierte „Definition-statt-Observer"-Klassifikation —
    keine stillschweigende Reduktion auf die 17 Komposition-Slots.
-5. Inverse Signatur-Projektion (KF-15) über die REALEN Kompositionen.
+5. Inverse Signatur-Projektion (KF-15) über die REALEN Kompositionen. ✅ **VERIFIZIERT (2026-06-02,
+   `test_br_kf15_real`):** Baum aus ECHTEN Enabled-Listen (search_algo gepinnt = Paper-Signatur + 3 freigegebene
+   Achsen → 8 Blätter); `ReadOnlyResultView` projiziert alle 8 realen Komposition-Pfade auf die gepinnte
+   Signatur (registry-getrieben, `search_algo=<realer Wrapper>`); `aggregate_for_signature` sieht den echten
+   gesetzten NodeValue (BR-3). Lineare Signatur-Filter-Projektion (Doc 26 §3), KEINE Fingerprints.
 6. Belegt hier (Doc 27) + Doc 26 + finaler Session-Doku; finaler Audit bestätigt die Gleichheit.
 
 ## 5. Reihenfolge + Risiken
