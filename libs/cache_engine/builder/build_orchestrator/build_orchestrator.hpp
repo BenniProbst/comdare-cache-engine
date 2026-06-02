@@ -1,29 +1,35 @@
 #pragma once
-// KF-16 (2026-06-02) — BuildOrchestrator: C++23 multithreaded Bereitstellung der Tier-Binaries VOR den Experimenten.
+// KF-16 + KF-16b (2026-06-02) — BuildOrchestrator: C++23 multithreaded Bereitstellung der Tier-Binaries VOR den
+// Experimenten, RAM-gewahr + inkrementell-resumierbar.
 //
-// Architektur (messarchitektur_v5_design §2, bindend): „Profil baut ZUERST den HOST → permutiert die Tier-Binary-
-// Config → BAUT ZUERST ALLE DLLs → MISST DANACH (Build vor Mess-Phase)." Doc 26 §0: Build+Messen = Aufgabe der
-// Bibliothek (CacheEngineBuilder = das WIE). Dieser Orchestrator realisiert das „baut zuerst alle DLLs" in C++23
-// (KEIN Python — ersetzt die Rolle der CMake-Glob-Loop `comdare_build_adhoc_modules` für die Experiment-Baum-Binaries).
+// Architektur (messarchitektur_v5_design §2): „Profil baut ZUERST den HOST → BAUT ZUERST ALLE DLLs → MISST DANACH".
+// Doc 26 §0: Build = Aufgabe der Bibliothek (CacheEngineBuilder = WIE). Realisiert „baut zuerst alle DLLs" in C++23
+// (kein Python; ersetzt die CMake-Glob-Loop comdare_build_adhoc_modules für die Experiment-Baum-Binaries).
 //
-// Eingabe: der STATISCHE Teilbaum als `StaticBinaryView` (indizierter Iterator, KF-16/experiment_tree). Je Binary
-// wird der KF-8-Perm-Source generiert + zu einem perm_<id>.dll kompiliert.
-// MULTITHREADING (User 2026-06-02): Default 2 Kerne je parallelem DLL-Build, ALLE CPU-Kerne nutzen →
-//   parallel_jobs = max(1, total_cores / cores_per_build). `cores_per_build` ist zugleich der Parallelitäts-Divisor
-//   UND der {cores}-Wert im Compile-Kommando (MSVC /MP<cores>).
-// Der Compiler-Aufruf ist INJIZIERBAR (`CompileFn`) → Orchestrierung deterministisch testbar (Stub) + realer
-// Subprozess-Build (make_system_compile_fn). Header-only, C++23.
+// KF-16b (User 2026-06-02): (1) INKREMENTELL/RESUMIERBAR — nur fehlende/veraltete DLLs neu bauen; eine bestehende
+// DLL wird ÜBERSPRUNGEN, wenn ihr Versions-Sidecar der build_version genügt (überlebt Absturz). (2) RAM-ADMISSION —
+// freien RAM überwachen; weiteren Build (je cores_per_build Threads) nur starten, wenn genug RAM frei (mind. 1 läuft
+// immer → Fortschritt); RAM-Low-Water-Mark wird gemessen. (3) Default cores_per_build = 4, KEINE Oversubscription
+// über den CPU-Kern-Pool (parallel_jobs × cores_per_build ≤ Kerne; ein einzelner Build nutzt nie mehr als alle Kerne).
+//
+// Compiler-Aufruf + RAM-Abfrage sind INJIZIERBAR (CompileFn / FreeRamFn) → deterministisch testbar. Header-only, C++23.
+// Die reale OS-RAM-Abfrage (GlobalMemoryStatusEx/sysinfo) liegt in system_ram.hpp (hält diesen Header windows.h-frei).
 
 #include "../experiment_tree/experiment_tree.hpp"
 
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <condition_variable>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <iterator>
+#include <limits>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -34,10 +40,14 @@ namespace comdare::cache_engine::builder::experiment {
 
 // ── Konfiguration des Builds ──────────────────────────────────────────────────
 struct BuildConfig {
-    std::size_t           cores_per_build = 2;  // Default 2 Kerne je parallelem DLL-Build (User 2026-06-02)
+    std::size_t           cores_per_build = 4;  // KF-16b: Default 4 Threads je parallelem DLL-Build (war 2)
     std::size_t           total_cores     = 0;  // 0 → std::thread::hardware_concurrency() (ALLE Kerne)
     std::filesystem::path source_dir;           // perm_<id>.cpp (KF-8-Ausgabe)
     std::filesystem::path output_dir;           // perm_<id>.dll (Build-Ausgabe)
+    // KF-16b:
+    std::uint64_t         ram_per_build_bytes    = 0;  // RAM-Budget je Build; 0 = RAM-Gate AUS (nur CPU-Cap)
+    std::uint64_t         ram_safety_margin_bytes = 0; // Reserve, die immer frei bleiben muss
+    std::string           build_version;               // Versions-/Anforderungs-Signatur; leer = nie überspringen
 
     /// Effektive Gesamtkern-Zahl (0 → Hardware-Concurrency, Fallback 1).
     [[nodiscard]] std::size_t effective_total() const noexcept {
@@ -45,10 +55,14 @@ struct BuildConfig {
         unsigned const hc = std::thread::hardware_concurrency();
         return hc == 0 ? std::size_t{1} : static_cast<std::size_t>(hc);
     }
-    /// Parallele Build-Jobs = ALLE Kerne / Kerne-je-Build (mind. 1).
-    [[nodiscard]] std::size_t parallel_jobs() const noexcept {
+    /// Threads je Build, GEKAPPT auf die Gesamtkerne (verhindert Oversubscription, wenn cores_per_build > Kerne).
+    [[nodiscard]] std::size_t effective_cores_per_build() const noexcept {
         std::size_t const cpb = (cores_per_build == 0) ? std::size_t{1} : cores_per_build;
-        std::size_t const j   = effective_total() / cpb;
+        return std::min(cpb, effective_total());
+    }
+    /// Parallele Build-Jobs = Kerne / Threads-je-Build (mind. 1). Garantiert jobs × cpb ≤ Kerne (KEINE Oversubscription).
+    [[nodiscard]] std::size_t parallel_jobs() const noexcept {
+        std::size_t const j = effective_total() / effective_cores_per_build();
         return j == 0 ? std::size_t{1} : j;
     }
 };
@@ -59,28 +73,38 @@ struct BuildJob {
     std::string           binary_id;
     std::filesystem::path source;
     std::filesystem::path output;
-    std::size_t           cores = 2;  // Kerne, die dieser Build nutzen darf ({cores}-Token, z.B. /MP<cores>)
+    std::size_t           cores = 4;  // Threads, die dieser Build nutzen darf ({cores}-Token, z.B. /MP<cores>)
 };
 
 // ── Ergebnis je Tier-Binary (indiziert) ───────────────────────────────────────
 struct BuildResult {
-    std::size_t           index  = 0;
+    std::size_t           index   = 0;
     std::string           binary_id;
-    int                   status = -1;  // 0 = Erfolg
+    int                   status  = -1;     // 0 = Erfolg
+    bool                  skipped = false;  // KF-16b: bestehende DLL war versions-aktuell → nicht neu gebaut
     std::filesystem::path output;
     std::string           message;
     [[nodiscard]] bool ok() const noexcept { return status == 0; }
 };
 
 struct BuildStats {
-    std::size_t total_jobs       = 0;
-    std::size_t peak_concurrency = 0;  // beobachtete maximale gleichzeitige Builds (≤ parallel_jobs)
-    std::size_t succeeded        = 0;
-    std::size_t failed           = 0;
+    std::size_t   total_jobs        = 0;
+    std::size_t   peak_concurrency  = 0;   // beobachtete max. gleichzeitige Builds (≤ parallel_jobs ∩ RAM-Limit)
+    std::size_t   succeeded         = 0;
+    std::size_t   failed            = 0;
+    std::size_t   skipped           = 0;   // KF-16b: versions-aktuelle DLLs (resumiert)
+    std::size_t   built             = 0;   // tatsächlich (neu) kompiliert
+    std::uint64_t min_free_ram_bytes = (std::numeric_limits<std::uint64_t>::max)();  // RAM-Low-Water-Mark
 };
 
 using CompileFn   = std::function<int(BuildJob const&)>;            // 0 = Erfolg
 using SourceGenFn = std::function<std::string(std::string const&)>; // binary_id → perm-Source (KF-8)
+using FreeRamFn   = std::function<std::uint64_t()>;                 // freier physischer RAM in Bytes
+
+/// Default-FreeRamFn: „unbegrenzt" → RAM-Gate effektiv aus, wenn keine reale Abfrage injiziert ist.
+[[nodiscard]] inline std::uint64_t free_ram_unlimited() noexcept {
+    return (std::numeric_limits<std::uint64_t>::max)();
+}
 
 /// Bezeichner-Sanitisierung identisch zu KF-8 (perm_<sanitized>.cpp/.dll).
 [[nodiscard]] inline std::string orch_sanitize(std::string_view s) {
@@ -90,15 +114,35 @@ using SourceGenFn = std::function<std::string(std::string const&)>; // binary_id
     return out;
 }
 
+// ── KF-16b: Versions-Sidecar (Inkrement/Resume) ──────────────────────────────
+[[nodiscard]] inline std::filesystem::path version_sidecar_path(std::filesystem::path const& output) {
+    return std::filesystem::path{output.string() + ".version"};
+}
+/// true, wenn die DLL existiert UND ihr Sidecar exakt der geforderten Version entspricht (→ überspringen).
+[[nodiscard]] inline bool dll_is_current(std::filesystem::path const& output, std::string const& version) {
+    if (version.empty()) return false;                       // ohne Versions-Anforderung nie überspringen
+    std::error_code ec;
+    if (!std::filesystem::exists(output, ec)) return false;  // DLL fehlt → bauen
+    std::ifstream f{version_sidecar_path(output), std::ios::binary};
+    if (!f) return false;
+    std::string content((std::istreambuf_iterator<char>(f)), {});
+    return content == version;
+}
+inline void write_version_sidecar(std::filesystem::path const& output, std::string const& version) {
+    if (version.empty()) return;
+    std::ofstream f{version_sidecar_path(output), std::ios::binary | std::ios::trunc};
+    if (f) f << version;
+}
+
 // ── Der Orchestrator ──────────────────────────────────────────────────────────
 class BuildOrchestrator {
 public:
-    BuildOrchestrator(BuildConfig cfg, CompileFn compile, SourceGenFn gen)
-        : cfg_{std::move(cfg)}, compile_{std::move(compile)}, gen_{std::move(gen)} {}
+    BuildOrchestrator(BuildConfig cfg, CompileFn compile, SourceGenFn gen, FreeRamFn free_ram = free_ram_unlimited)
+        : cfg_{std::move(cfg)}, compile_{std::move(compile)}, gen_{std::move(gen)}, free_ram_{std::move(free_ram)} {}
 
     /// Stellt ALLE Tier-Binaries des statischen Teilbaums bereit: je Binary Source generieren (KF-8) + DLL
-    /// kompilieren — MULTITHREADED (parallel_jobs Worker, je cores_per_build Kerne). Liefert je Binary ein
-    /// indiziertes Ergebnis (results[i] gehört zu view[i]). Befüllt optional BuildStats (Peak-Parallelität).
+    /// kompilieren — INKREMENTELL (versions-aktuelle DLLs überspringen), RAM-gewahr (Admission), MULTITHREADED
+    /// (parallel_jobs Worker, je cores_per_build Threads, keine Oversubscription). Liefert indizierte Ergebnisse.
     std::vector<BuildResult> provision_all(StaticBinaryView const& view, BuildStats* stats = nullptr) {
         if (view.empty()) { if (stats) *stats = BuildStats{}; return {}; }
 
@@ -108,19 +152,23 @@ public:
 
         std::vector<BuildResult> results(view.size());
         std::atomic<std::size_t> next{0};
-        std::atomic<std::size_t> active{0};
-        std::atomic<std::size_t> peak{0};
+
+        std::mutex              mtx;             // schützt active/peak/min_free + CV-Prädikat
+        std::condition_variable cv;
+        std::size_t             active = 0;
+        std::size_t             peak   = 0;
+        std::uint64_t           min_free = (std::numeric_limits<std::uint64_t>::max)();
 
         std::size_t const n_workers = std::min(cfg_.parallel_jobs(), view.size());
+        std::size_t const cores     = cfg_.effective_cores_per_build();
+        // RAM-Baseline EINMAL zu Beginn messen (= jetzt frei verfügbar). Die Admission reserviert dagegen
+        // (active+1)×Budget — deterministisch + OOM-sicher, unabhängig vom Ramp-Lag des OS-free_ram.
+        std::uint64_t const baseline_free = (cfg_.ram_per_build_bytes != 0) ? free_ram_() : 0;
 
         auto worker = [&] {
             for (;;) {
                 std::size_t const i = next.fetch_add(1);
                 if (i >= view.size()) return;
-
-                std::size_t const cur = active.fetch_add(1) + 1;  // Eintritt: Parallelität +1
-                std::size_t pk = peak.load();
-                while (cur > pk && !peak.compare_exchange_weak(pk, cur)) { /* CAS-max */ }
 
                 BinarySpec const& spec = view[i];
                 std::string const id   = orch_sanitize(spec.binary_id);
@@ -130,41 +178,70 @@ public:
                 job.binary_id = spec.binary_id;
                 job.source    = cfg_.source_dir / ("perm_" + id + ".cpp");
                 job.output    = cfg_.output_dir / ("perm_" + id + ".dll");
-                job.cores     = (cfg_.cores_per_build == 0) ? std::size_t{1} : cfg_.cores_per_build;
+                job.cores     = cores;
 
                 BuildResult r;
-                r.index     = spec.index;
-                r.binary_id = spec.binary_id;
-                r.output    = job.output;
+                r.index = spec.index; r.binary_id = spec.binary_id; r.output = job.output;
 
-                // 1) KF-8-Source generieren + schreiben
+                // (A) INKREMENTELL: bestehende, versions-aktuelle DLL überspringen (Resume nach Absturz).
+                if (dll_is_current(job.output, cfg_.build_version)) {
+                    r.status = 0; r.skipped = true; r.message = "übersprungen (Version aktuell)";
+                    results[i] = std::move(r);
+                    continue;
+                }
+
+                // (B) RAM-ADMISSION: warten, bis genug freier RAM (mind. 1 Build läuft immer → Fortschritt).
+                {
+                    std::unique_lock<std::mutex> lk(mtx);
+                    cv.wait(lk, [&] {
+                        if (cfg_.ram_per_build_bytes == 0) return true;     // RAM-Gate aus
+                        if (active == 0) return true;                       // Fortschritt garantieren (mind. 1)
+                        // Reservierung: die RAM aller gleichzeitigen Builds (inkl. des neuen) darf das
+                        // Start-Baseline nicht übersteigen → deterministischer Cap floor(baseline/Budget), kein OOM.
+                        if ((active + 1) * cfg_.ram_per_build_bytes + cfg_.ram_safety_margin_bytes > baseline_free)
+                            return false;
+                        // Dynamische Verschärfung: aktueller freier RAM muss für EINEN weiteren Build reichen.
+                        return free_ram_() >= cfg_.ram_per_build_bytes + cfg_.ram_safety_margin_bytes;
+                    });
+                    ++active;
+                    peak = std::max(peak, active);
+                    std::uint64_t const fr = free_ram_();
+                    if (fr < min_free) min_free = fr;
+                }
+
+                // (C) Source generieren (KF-8) + kompilieren — OHNE Lock (echt parallel).
                 {
                     std::ofstream f{job.source, std::ios::binary | std::ios::trunc};
                     if (!f) { r.status = -2; r.message = "Quelle nicht schreibbar"; }
                     else    { f << gen_(spec.binary_id); }
                 }
-                // 2) DLL kompilieren (injizierte CompileFn)
                 if (r.status != -2) {
                     r.status  = compile_(job);
                     r.message = (r.status == 0) ? "ok" : ("compile-exit " + std::to_string(r.status));
+                    if (r.status == 0) write_version_sidecar(job.output, cfg_.build_version);  // Resume-Marke
                 }
-
                 results[i] = std::move(r);
-                active.fetch_sub(1);  // Austritt: Parallelität -1
+
+                { std::lock_guard<std::mutex> lk(mtx); --active; }
+                cv.notify_all();
             }
         };
 
-        {  // Thread-Pool; jthread-Destruktor joint am Blockende → danach sind alle Builds fertig
+        {  // Thread-Pool; jthread-Destruktor joint am Blockende
             std::vector<std::jthread> pool;
             pool.reserve(n_workers);
             for (std::size_t w = 0; w < n_workers; ++w) pool.emplace_back(worker);
         }
 
         if (stats) {
-            stats->total_jobs       = results.size();
-            stats->peak_concurrency = peak.load();
-            stats->succeeded = stats->failed = 0;
-            for (auto const& r : results) (r.ok() ? stats->succeeded : stats->failed)++;
+            stats->total_jobs        = results.size();
+            stats->peak_concurrency  = peak;
+            stats->min_free_ram_bytes = min_free;
+            stats->succeeded = stats->failed = stats->skipped = stats->built = 0;
+            for (auto const& r : results) {
+                (r.ok() ? stats->succeeded : stats->failed)++;
+                if (r.skipped) ++stats->skipped; else if (r.ok()) ++stats->built;
+            }
         }
         return results;
     }
@@ -175,10 +252,11 @@ private:
     BuildConfig cfg_;
     CompileFn   compile_;
     SourceGenFn gen_;
+    FreeRamFn   free_ram_;
 };
 
 /// Default-CompileFn: realer MSVC-Subprozess, baut perm_<id>.cpp → perm_<id>.dll (SHARED). {cores} → /MP<cores>.
-/// Host-Werkzeug (ruft den Compiler via std::system; cl muss im PATH/Env sein, z.B. vcvars64). Ausgabe unterdrückt.
+/// Host-Werkzeug (ruft cl via std::system; cl muss im PATH/Env sein, z.B. vcvars64). Ausgabe unterdrückt.
 [[nodiscard]] inline CompileFn make_system_compile_fn(std::vector<std::string> include_dirs = {},
                                                       std::string std_flag = "/std:c++latest") {
     return [include_dirs = std::move(include_dirs), std_flag = std::move(std_flag)](BuildJob const& job) -> int {
