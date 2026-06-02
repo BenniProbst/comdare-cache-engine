@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- comdare_thesis_profile — Diplomarbeit Cache-Line-Konfigurator (KF-2, 2026-06-02)
+     Schema-Doku: SCHEMA.md (gleicher Ordner). Baut additiv auf:
+       - permutation_axes.xml (11 Achsen-Wertebereiche, ../permutation_axes.xml)
+       - sota/*.profile.xml    (Paper-Originale = statische Achsen-Tupel)
+     Design: docs/sessions/20260602-cacheline-konfigurator-design-und-hw-recherche.md
+     KEINE bestehende Datei wird geaendert (Rueckwaerts-Kompatibilitaet). -->
+<comdare_thesis_profile id="cacheline_study" schema_version="1">
+
+  <!-- (a) BASIS-TIERE = Paper-Originale in Standardkonfig (statische Achsen-Tupel).
+       Jedes Tier liefert die Werte der NICHT-permutierten (statischen) Achsen.
+       Als EINE gekreuzte Dimension behandelt (inverse Auswertungslogik §7-B): ein Grossexperiment. -->
+  <base_tiers>
+    <tier id="art"      profile_ref="../sota/art.profile.xml"       paper_ref="P01"/>
+    <tier id="hot"      profile_ref="../sota/hot.profile.xml"       paper_ref="P02"/>
+    <tier id="masstree" profile_ref="../sota/masstree.profile.xml"  paper_ref="P03"/>
+    <tier id="coco"     profile_ref="../sota/coco_trie.profile.xml" paper_ref="P04"/>
+    <tier id="start"    profile_ref="../sota/start.profile.xml"     paper_ref="P05"/>
+    <tier id="b2tree"   profile_ref="../sota/b2tree.profile.xml"    paper_ref="P06"/>
+    <tier id="wormhole" profile_ref="../sota/wormhole.profile.xml"  paper_ref="P07"/>
+    <tier id="surf"     profile_ref="../sota/surf.profile.xml"      paper_ref="P10"/>
+  </base_tiers>
+
+  <!-- (b) PERMUTIERTE (dynamische) ACHSEN = cache-line-relevant, COMPILE-TIME.
+       Kein <value> => volle Liste aus permutation_axes.xml; mit <value> => Teilmenge. -->
+  <permute_axes>
+    <axis ref="layout"/>
+    <axis ref="isa"><value>X86_SSE42</value><value>X86_AVX2</value><value>X86_AVX512</value></axis>
+    <axis ref="traversal"/>
+    <axis ref="node"/>
+    <axis ref="page"/>
+    <axis ref="prefetch"/>
+    <axis ref="allocator"><value>SYSTEM_MALLOC</value><value>JEMALLOC</value><value>MIMALLOC</value></axis>
+
+    <!-- NEUE per-Organ Cache-Line-Unterachse (KF-3, Kernthema §4.3): JEDES benannte Organ
+         traegt eine EIGENE, unabhaengige Cache-Line-Einstellung -> bis 45^4 (beabsichtigt). -->
+    <axis ref="cacheline" per_organ="page node traversal allocator">
+      <line_size>64</line_size>
+      <line_size>128</line_size>
+      <line_size>256</line_size>
+      <alignment>none</alignment>
+      <alignment>cacheline_aligned</alignment>
+      <alignment>padded</alignment>
+      <sw_prefetch_hint>none</sw_prefetch_hint>
+      <sw_prefetch_hint>T0</sw_prefetch_hint>
+      <sw_prefetch_hint>T1</sw_prefetch_hint>
+      <sw_prefetch_hint>T2</sw_prefetch_hint>
+      <sw_prefetch_hint>NTA</sw_prefetch_hint>
+    </axis>
+  </permute_axes>
+
+  <!-- (c) COMPILE-TIME Mess-Dimensionen (je Binary gebacken, kein Runtime-Switch). -->
+  <compile_dims>
+    <workloads>A B C D E F</workloads>
+    <telemetry mode="on" silent="true"/>   <!-- §8: AN + silent-mode (Snapshot-Diff, unverfaelscht) -->
+  </compile_dims>
+
+  <!-- (d) DYNAMISCHE OS-Laufzeit-Dimensionen — der CacheEngineBuilder durchlaeuft sie am Pruef-Dock
+       zur Laufzeit in Env-/Ressourcengrenzen (Faustregel §7; KF-7). -->
+  <runtime_dynamic>
+    <thread_count>1 2 4</thread_count>                          <!-- via Algorithm_Resource_Control (KF-4) -->
+    <hw_prefetcher>all_on adjacent_off all_off</hw_prefetcher>  <!-- via MSR 0x1A4 (Launcher KF-12) -->
+  </runtime_dynamic>
+
+  <!-- (e) FIXE reproduzierbare Bedingungen (Launcher, konstant fuer ALLE Laeufe). -->
+  <fixed_conditions turbo="off" smt="off" aslr="off" numa="local" governor="performance"/>
+
+  <!-- (f) WIEDERHOLUNGEN — alle Laeufe vollstaendig + separat, NIE interpoliert (§9, KF-10). -->
+  <repetitions count="3" interpolate="false" overlay_in_chart="true"/>
+
+  <!-- (g) 3 PERMUTATIONSMODI, je auf Achsen-Teilmenge beschraenkt (pruefling_merge.hpp; KF-9). -->
+  <modes>
+    <mode name="ce_only"           merge="Stufe1_CeOnly"
+          active_axes="layout isa traversal node page prefetch allocator cacheline"/>
+    <mode name="pruefling_replace" merge="Stufe2_PrueflingReplace"
+          pruefling="prtart" replaces_axes="page node traversal value_handle allocator prefetch layout"
+          active_axes="isa cacheline"/>
+    <mode name="full_join"         merge="Stufe3_FullJoin"
+          active_axes="layout isa traversal node page prefetch allocator cacheline"/>
+  </modes>
+
+  <!-- (h) STATISCHE Achsen kommen aus dem jeweiligen base_tier (Paper-Tupel); Cross-Constraints. -->
+  <static_axes from="base_tier"/>   <!-- value_handle, concurrency-Mechanismus, reclamation, telemetry-Basis -->
+  <constraints>
+    <require axis="isa" host_supported="true"/>
+    <!-- thread_count>1 nur sinnvoll, wenn das Tier eine nebenlaeufige concurrency-Mechanik traegt;
+         der CacheEngineBuilder begrenzt den Durchlauf entsprechend (KF-7). -->
+  </constraints>
+
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_thesis_profile>
