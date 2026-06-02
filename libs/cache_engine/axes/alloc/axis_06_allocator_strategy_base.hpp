@@ -23,6 +23,7 @@
 #include "concepts/axis_06_allocator_cache_engine_permutation_concept.hpp"
 #include "axis_06_allocator_subaxes_aa1_to_aa7.hpp"
 #include <topics/axis_base.hpp>
+#include <axes/cacheline/cacheline_config.hpp>  // KF-5: per-Organ Cache-Line-Unterachse
 
 #include <concepts>
 #include <cstddef>
@@ -49,8 +50,15 @@ namespace comdare::cache_engine::alloc {
  * allocate/deallocate-API der Strategie weiterleiten — KEINE Basis-Datenmember (Empty-Base-
  * Optimization + Wrapper-Groesse bleiben erhalten; der Adapter haelt nur einen Derived*).
  */
-template <typename Derived>
-class AllocatorStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
+// KF-5 (2026-06-02): zusätzlicher defaulted NTTP CacheLineCfg + Erbe von CacheLineAware<Cfg> — macht JEDEN
+// Allokator-Wrapper cacheline-fähig (cacheline_config/cacheline_alignment/cacheline_prefetch). Default {} =
+// B64/None/None = unverändertes Verhalten (nicht-brechend, ODR-sicher: Default ist ein Literal, kein Makro).
+// Die per-Binary-Bäckung wählt der Codegen über eine DISTINKTE Organ-Instanz (KF-6/KF-8), nicht über den Default.
+template <typename Derived,
+          ::comdare::cache_engine::cacheline::CacheLineConfig CacheLineCfg = ::comdare::cache_engine::cacheline::CacheLineConfig{}>
+class AllocatorStrategyBase
+    : public ::comdare::cache_engine::topics::AxisBase
+    , public ::comdare::cache_engine::cacheline::CacheLineAware<CacheLineCfg> {
 public:
     /// Concept-Check im Konstruktor: Pflicht-Set AllocatorStrategy + CacheEnginePermutationStrategy + AxisBase
     constexpr AllocatorStrategyBase() noexcept {

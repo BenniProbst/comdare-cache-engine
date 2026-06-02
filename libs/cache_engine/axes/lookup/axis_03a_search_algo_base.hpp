@@ -5,6 +5,7 @@
 
 #include "concepts/axis_03a_search_algo_concept.hpp"
 #include <topics/axis_base.hpp>
+#include <axes/cacheline/cacheline_config.hpp>  // KF-5: per-Organ Cache-Line-Unterachse
 
 #include <type_traits>
 
@@ -19,8 +20,13 @@ namespace comdare::cache_engine::lookup {
  * Erbt von ::topics::AxisBase fuer cross-axis Pflicht-Property get_compiler()
  * (Default "original", per Wrapper ueberschreibbar).
  */
-template <typename Derived>
-class SearchAlgoBase : public ::comdare::cache_engine::topics::AxisBase {
+// KF-5 (2026-06-02): defaulted NTTP CacheLineCfg + CacheLineAware<Cfg> → jeder Such-Algo-Organ ist
+// cacheline-fähig. Default {} = unverändert (nicht-brechend, ODR-sicher).
+template <typename Derived,
+          ::comdare::cache_engine::cacheline::CacheLineConfig CacheLineCfg = ::comdare::cache_engine::cacheline::CacheLineConfig{}>
+class SearchAlgoBase
+    : public ::comdare::cache_engine::topics::AxisBase
+    , public ::comdare::cache_engine::cacheline::CacheLineAware<CacheLineCfg> {
 protected:
     SearchAlgoBase() noexcept {
         static_assert(concepts::SearchAlgoVariant<Derived>,

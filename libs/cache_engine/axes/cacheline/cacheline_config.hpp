@@ -104,6 +104,24 @@ struct CacheLineAware {
     return out;
 }
 
+/// Compile-Time-Factory aus Integer-Werten (KF-5 — Brücke für Codegen/Tests). line∈{64,128,256} (sonst→64),
+/// align∈{0,1,2}=None/CacheLineAligned/Padded, hint∈{0..4}=None/T0/T1/T2/NTA. Out-of-range → konservativer Default.
+[[nodiscard]] constexpr CacheLineConfig make_config(unsigned line, unsigned align, unsigned hint) noexcept {
+    CacheLineConfig c;
+    c.line_size = (line == 256) ? CacheLineSize::B256
+                : (line == 128) ? CacheLineSize::B128
+                                : CacheLineSize::B64;
+    c.alignment = (align == 2) ? CacheLineAlignment::Padded
+                : (align == 1) ? CacheLineAlignment::CacheLineAligned
+                               : CacheLineAlignment::None;
+    c.sw_hint   = (hint == 4) ? SwPrefetchHint::NTA
+                : (hint == 3) ? SwPrefetchHint::T2
+                : (hint == 2) ? SwPrefetchHint::T1
+                : (hint == 1) ? SwPrefetchHint::T0
+                              : SwPrefetchHint::None;
+    return c;
+}
+
 inline constexpr std::uint32_t kCacheLineSubaxisVersion = 1;
 
 }  // namespace comdare::cache_engine::cacheline
