@@ -44,20 +44,22 @@ struct GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm> {
     }
 };
 
-/// Adapter (Container/Queue) — die 2. Gattungs-Instanz (queuing q1/q2). Minimal: 1 Slot (Q1 buffer_strategy);
-/// erweiterbar um Q2 (flush_policy). EIGENE Komposition/Anatomie + eigener Container-Observer (Cross-Genus
-/// type-unmöglich → getrennt von SearchAlgorithm). Belegt: der EINE Baum bindet auch die Container-Gattung.
+/// Adapter (Container/Queue) — die 2. Gattungs-Instanz (queuing q1/q2). D4/L-75: 2 Slots — Q1 (buffer_strategy)
+/// + Q2 (flush_policy). EIGENE Komposition/Anatomie + eigener Container-Observer (Cross-Genus type-unmöglich →
+/// getrennt von SearchAlgorithm). Belegt: der EINE Baum bindet auch die Mehr-Achsen-Container-Gattung.
 template <>
 struct GenusBindingTraits<cea::AnatomyGenus::Adapter> {
     static constexpr cea::AnatomyGenus genus = cea::AnatomyGenus::Adapter;
-    static constexpr std::size_t       slot_count = 1;   // Q1 buffer_strategy (minimal; Q2 flush_policy = Folge)
+    static constexpr std::size_t       slot_count = 2;   // Q1 buffer_strategy + Q2 flush_policy
     static constexpr std::string_view  name = "Container";
 
-    template <class Q1Buffer> using CompositionFor = cea::ContainerComposition<Q1Buffer>;
-    template <class Comp>     using AnatomyFor     = cea::ContainerAnatomy<Comp>;
+    /// 2-Slot-Komposition (Q2 defaultet auf ContainerNoFlushPolicy → 1-arg-Aufrufe bleiben gültig).
+    template <class Q1Buffer, class Q2Flush = cea::ContainerNoFlushPolicy>
+    using CompositionFor = cea::ContainerComposition<Q1Buffer, Q2Flush>;
+    template <class Comp> using AnatomyFor = cea::ContainerAnatomy<Comp>;
 
-    [[nodiscard]] static constexpr std::array<std::string_view, 1> const& axis_names() noexcept {
-        static constexpr std::array<std::string_view, 1> kNames = {"queuing_q1"};
+    [[nodiscard]] static constexpr std::array<std::string_view, 2> const& axis_names() noexcept {
+        static constexpr std::array<std::string_view, 2> kNames = {"queuing_q1", "queuing_q2"};
         return kNames;
     }
 };
