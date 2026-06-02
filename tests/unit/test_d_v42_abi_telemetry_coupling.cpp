@@ -52,6 +52,14 @@ int main() {
     assert(v2.serialization_serialize_count == 1u);
     assert(v2.serialization_records_serialized == v2.tier_fill_level);
 
+    // V42 node_type-Auto-Kopplung: observe_node_find ueber die ECHTEN Tier-Keys (self-query) → checksum =
+    // sum der gefundenen Key-Bytes; bei keys 0..19 (alle present) = 0+1+..+19 = 190.
+    std::cout << "  node_type ueber Slot-Backing: find_count=" << v2.node_find_count
+              << " keys=" << v2.node_keys_stored << " checksum=" << v2.node_last_checksum << "\n";
+    assert(v2.node_find_count == 1u);
+    assert(v2.node_keys_stored == v2.tier_fill_level);   // alle Tier-Keys als stored
+    assert(v2.node_last_checksum == 190u);               // sum(0..19) self-query (alle present)
+
     // KERN-BEWEIS 2: derselbe V2-POD über das EIGENSTÄNDIGE Sub-Interface IObservableTierV2 (ABI-robust —
     // wie der Host ihn über die DLL-Grenze zieht: dynamic_cast<IObservableTierV2*>; alte Module → nullptr →
     // Degrade auf V1, KEIN vtable-Append-Crash). Hier gelingt der Cast (der neue Adapter erbt IObservableTierV2).

@@ -104,6 +104,17 @@ public:
         return org.observe_serialize(reinterpret_cast<unsigned char const*>(slots_.data()), slots_.size(), sizeof(slot_t));
     }
 
+    // V42 L-74c node_type-Auto-Kopplung: extrahiert die niederwertigsten Key-Bytes (ART-Node256-Direkt-
+    // Adressierung) aus dem Slot-Backing als `stored` + self-query (alle gespeicherten Keys nachschlagen) →
+    // das node_type-Organ misst den Format-divergenten Lookup ueber die ECHTEN Tier-Keys. Templated.
+    template <class NodeOrgan>
+    std::uint64_t organ_observe_node_type(NodeOrgan& org) const {
+        std::vector<std::uint8_t> kb;
+        kb.reserve(slots_.size());
+        for (auto const& s : slots_) kb.push_back(static_cast<std::uint8_t>(s.first & 0xFFu));
+        return org.observe_node_find(kb.data(), kb.size(), kb.data(), kb.size());
+    }
+
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     // Saeule-2 (Doku 24 §2.2): Durchgriff auf die Allocator-Achsen-Statistik. NICHT-Vertrags-Methode
     // (StorageOrgan fordert statistics() bewusst nicht); A::statistics() ist unter STATISTICS Pflicht-API

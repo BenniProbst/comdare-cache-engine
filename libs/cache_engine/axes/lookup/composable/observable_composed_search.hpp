@@ -105,6 +105,11 @@ public:
     std::uint64_t store_observe_serialization(SerOrgan& org) const
         requires requires(Store const& s, SerOrgan& o) { s.organ_observe_serialization(o); }
     { return search_.store().organ_observe_serialization(org); }
+
+    template <class NodeOrgan>
+    std::uint64_t store_observe_node_type(NodeOrgan& org) const
+        requires requires(Store const& s, NodeOrgan& o) { s.organ_observe_node_type(o); }
+    { return search_.store().organ_observe_node_type(org); }
 #endif
 
     // ── V5-I6-SUBSTANZ (#44) — MementoAxis (per-Achsen-Memento, inkl. Observer-Stats) ──────────────────
