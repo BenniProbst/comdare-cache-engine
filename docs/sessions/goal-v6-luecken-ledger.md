@@ -126,6 +126,12 @@
 | K-B | Sequence 9 vs 10 | Doku 14 §32.2 = 9 | Doku 14 §28-Tabelle = 10 ✓ | vor D-3: genaues §28-Lesen |
 | K-C | View 7 vs 4 geteilt | Doc 28 + §32.2 = 7 | Doku 14 §28-Plant = 4 ✓ | „7 = 4 geteilt + 3 eigen" (plausibelst); vor D-4 verifizieren |
 
+## §2.5 Phase-D-Fortschritt + Verifikations-Build-Rezeptur (Kontinuität)
+
+**Erledigt (literal grün, committet):** D1 L-SEL (BuildSelection) · D2 L-73 (provision_all O(K)) · D3 L-77 (ceb_generator generate_all_real) · D4 L-75 (Container q2-Slot + DLL-Pfad). **Offen:** D6–D8 L-74a/b/c (#74 page_type/09b/12 Build-Varianten + Definition + R5.B-Operativität) · D9–D11 L-76a/b/c (Set/Sequence/View) · D12 L-76d (Viren) · D13 L-MEAS · D14/D15 L-CLUSTER.
+
+**Verifikations-Build (header-only Standalone-Tests, RAM-Watchdog):** `build/scratch_compile_test.ps1 -Test <name> [-Boost] [-Extra @("libs\cache_engine\src","build\generated")]` (cl via vcvars64+vswhere, response-file wegen Pfad-Spaces, cl-Kill < 2.5 GB frei). Include-Roots-Default: `libs/cache_engine`, `libs/cache_engine/include`, `libs/common`. Achsen-Tests (q1/q2 etc.) brauchen `-Boost` + `-Extra src,generated`. DLL-Round-Trip (3-Phasen) = `build/scratch_d4b_dll.ps1` (DLL `/LD /DCOMDARE_ANATOMY_MODULE_BUILD`; Loader-Test linkt `anatomy_module_loader.cpp`; /Fo-Verzeichnis braucht `\\"`). Scratch-Skripte sind git-ignoriert (build/), bei Verlust aus dieser Rezeptur reproduzierbar.
+
 ## §3 Verdikt Phase B
 
 Gegenüber Doc 28 §6 ist das Ledger nun **lückenlos granular** (L-73, L-SEL, L-77, L-75, L-74a/b/c, L-76a/b/c/d, L-CLUSTER, L-MEAS, L-BACKLOG), je mit literalem IST-Code-Stand (Datei:Zeile) + Verifikations-Kriterium. **Solide grün** bleiben Gate-1/2/5/6 + SearchAlgorithm-BR-4 (Pilot). **„ABSOLUTE Vollständigkeit"** = Schließung aller obigen Lücken (Phase D), bestätigt durch Phase E (finaler adversarialer Audit). Reihenfolge/Sprints: → Planungssession.
