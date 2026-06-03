@@ -1,4 +1,12 @@
-# 28 — Vollständigkeits-Kartographie: SOLL-Zustand für ALLE 22 Achsen + 5 Gattungen + 4 Brücken + Skalierung (2026-06-02)
+# 28 — Vollständigkeits-Kartographie: SOLL-Zustand für ALLE 22 Achsen + 5 Tier-Unterklassen + 4 Brücken + Skalierung (2026-06-02)
+
+> ⚠️ **KORREKTUR (korr. 2026-06-03, s. Doc 30 §8.0):** Im gesamten Dokument bezeichnet „Gattung" an vielen Stellen
+> fälschlich die Ebene mit dem FESTEN Achsen-Satz (z.B. „5 Gattungen", „SearchAlgorithm-Gattung", „Adapter-Gattung",
+> „Set/Sequence/View-Gattung"). Verbindliches 3-Ebenen-Modell (Doc 30 §8.0; Doc 24 §8.8 + Doku 14 §25):
+> (1) **GATTUNG = ein INTERFACE für die Außenwelt (= ein Prüf-Dock)** — es gibt nur **3**: **SearchAlgorithm / Container / Graph**.
+> (2) **TIER-UNTERKLASSE = liegt UNTER dem Gattungs-Interface und verwendet einen FESTEN Achsen-Satz.** SearchAlgorithm (std::map-ähnlich, 17/19-Achsen) ist die einzige bisher gebaute Tier-Unterklasse (unter dem SearchAlgorithm-**Interface**); Set/Sequence/Adapter/View sind Tier-Unterklassen UNTER dem **Container-Interface**.
+> (3) **ACHSEN = Organe der Tier-Unterklasse**, keine ist optional (Durchreich-Algorithmus statt Weglassen).
+> Daher: „5 Gattungen" = **5 Tier-Unterklassen** (verteilt auf 2 Interfaces SearchAlgorithm + Container); die feste Slot-/Achsen-Zahl pro Zeile lebt auf der Tier-Unterklassen-Ebene. Wo „Gattung" das **Außen-Interface/Prüf-Dock** meint (z.B. „Prüf-Dock je Gattung", „Interface der Gattung", „ABI-Interface der API der Gattung"), ist es KORREKT und bleibt. Die Gattungs-Invariante (feste Slot-Zahl, `AdHocComposition<17>` als ABI-Identität) bleibt sachlich richtig — sie ist eine **Tier-Unterklassen**-Invariante.
 
 > ⚠️ **KORREKTUR (2026-06-03, maßgeblich: `30_audit_achsen_delegation_pflichtachsen.md` §8):** Die Einordnung der Achsen
 > 21/22 (axis_q1/q2_queuing) als „EIGENE Container-Gattung (Adapter), Slot 1/2" (Tabelle §1 + §2 + §67) ist ein
@@ -16,8 +24,8 @@
 ## §0 Provenienz + Achsen-/Gattungs-Grundgesetz
 
 - **Doku-Orte:** `docs/architecture/15..27` + `messarchitektur_v5_*` + `abhaengigkeitskette_*` liegen im **cache-engine-Repo**. **Doku 11/14** (Achsen-vs-Strategien / Organ-Metapher + Gattungen) liegen im **Diplomarbeit-Hauptrepo** `docs/architektur/14_achsen_komposition_organ_metapher.md` (§25-§40 Gattungen/Viren).
-- **Autoritative Gesamtzahl (Doc 27 §0/§0.1):** **15 Topics / 22 Achsen** (frühere „18" verworfen). „17" = NUR die SearchAlgorithm-Gattungs-Komposition (`AdHocComposition<17>`/`ObserverAggregate<17>`, Gattungs-Invariante) — NIEMALS als Gesamtzahl missverstehen (kein Wegschrumpfen).
-- **Gattungs-Constraint (Doku 14 §32):** Cross-Genus-Joins sind type-system-mathematisch unmöglich (disjunkte Achsen-Sets, inkompatible Concepts). Jede Gattung = eigene Komposition/Anatomie/ABI-Adapter/Observer/Prüf-Dock + eigene `PermutationEngine`-Subklasse (Doku 14 §29.2/§32.6).
+- **Autoritative Gesamtzahl (Doc 27 §0/§0.1):** **15 Topics / 22 Achsen** (frühere „18" verworfen). „17" = NUR die SearchAlgorithm-Komposition (`AdHocComposition<17>`/`ObserverAggregate<17>`, Invariante der SearchAlgorithm-**Tier-Unterklasse** — korr. 2026-06-03, s. Doc 30 §8.0: feste Achsen-Zahl lebt auf der Tier-Unterklassen-Ebene, NICHT auf der Gattungs-/Interface-Ebene) — NIEMALS als Gesamtzahl missverstehen (kein Wegschrumpfen).
+- **Achsen-Set-Constraint (vormals „Gattungs-Constraint", Doku 14 §32; korr. 2026-06-03, s. Doc 30 §8.0):** Joins zwischen disjunkten Tier-Unterklassen sind type-system-mathematisch unmöglich (disjunkte Achsen-Sets, inkompatible Concepts). Jede **Tier-Unterklasse** = eigene Komposition/Anatomie/ABI-Adapter/Observer + eigene `PermutationEngine`-Subklasse; das **Prüf-Dock + ABI-Interface der API** liegt auf der **Gattungs-(Interface-)Ebene** (SearchAlgorithm/Container/Graph), Doku 14 §29.2/§32.6.
 
 ## §1 Die 22 Achsen (15 Topics) — SOLL je Achse
 
@@ -46,32 +54,34 @@ Quelle: Doc 27 §0, Doc 15-18/22/23, Doku 14, die 22 `axis_*_registry.hpp` + Con
 | 16 | axis_migration | migration | EnabledMigrations | T15 | uniform | passiv |
 | 17 | axis_filter | filter | EnabledFilters | T16 | achsenspez. (Bloom/Cuckoo/Xor/RangeSurf) | passiv |
 
-**5 Achsen AUSSERHALB der 17-Slot-Komposition (eigene Ebene + Observer/Definition):**
+**5 Achsen außerhalb der 17 composition_factory-Slots (T0..T16) — alle weiterhin Achsen der SearchAlgorithm-Tier-Unterklasse:** 3 Build-Achsen (page_type/09b/12 = Build-/Definition-Variante) + 2 reguläre mandatorische SearchAlgorithm-Achsen (q1/q2_queuing). Zusammen mit den 17 Slot-Achsen = **19 SearchAlgorithm-Achsen** (+ 3 Build-Achsen = 22). Weder eigene Gattung (Interface) noch eigene Tier-Unterklasse (korr. 2026-06-03, s. Doc 30 §8.0).
 
 | # | axis-id | Topic | Enabled-Liste | Pflicht-API | Observer-SOLL | Build/Definition-SOLL |
 |---|---------|-------|---------------|-------------|---------------|------------------------|
 | 18 | axis_01_page_type | nodes | EnabledPageTypes | PageTypeStrategy: page_kind() (6 Pflichttypen DenseByte/ExtendedDense/SparsePatricia/Redirect/CustomCache/BPlus), is_branch/is_leaf | eigener Observer SOLL (#74); heute nur DefinitionOnly | **Build-/Codegen-Variante** DERSELBEN SearchAlgorithm-Binary (nodes-Sub) |
 | 19 | axis_09b_simd_extension | hardware | EnabledExtensions | uniform + provides_sse/avx/avx512*() (15+ Sub-Flags), units_per_socket(), accessible_from_efficiency_cores() | Definition (Build-Konstante) | **Build-/Codegen-Variante**; Schichten-Modell+Sub-Flags = Backlog (Doc 15 §4-5) |
 | 20 | axis_12_general_hardware | hardware | EnabledPlatforms | uniform (X86_64/Aarch64/Generic HW-Profile) | Definition (Build-Konstante) | **Build-/Codegen-Variante**; Cross-Constraint mit 09/09b (96→~25, R5.C.3) |
-| 21 | axis_q1_queuing | queuing | EnabledStrategies | BufferStrategy: put/get/emplace/peek_front/peek_back/size/is_empty/clear | **ContainerObserver** (put/get/peak_occupancy) | **EIGENE Container-Gattung** (Adapter), Slot 1; Cross-Genus getrennt |
-| 22 | axis_q2_queuing | queuing | EnabledPolicies | FlushPolicy: should_flush()→{NoFlush/Partial/Full}, on_flush_complete() | **ContainerObserver** | **EIGENE Container-Gattung**, Slot 2 (#75) |
+| 21 | axis_q1_queuing | queuing | EnabledStrategies | BufferStrategy: put/get/emplace/peek_front/peek_back/size/is_empty/clear | **ObservableAxis** (put/get/peak_occupancy) | **reguläre mandatorische Achse der SearchAlgorithm-Tier-Unterklasse** (queuing-Organ; nicht-pufferndes Tier wählt `NoBuffer`, durchreichend); Achse — weder Gattung noch Tier-Unterklasse |
+| 22 | axis_q2_queuing | queuing | EnabledPolicies | FlushPolicy: should_flush()→{NoFlush/Partial/Full}, on_flush_complete() | **ObservableAxis** | **reguläre mandatorische Achse der SearchAlgorithm-Tier-Unterklasse** (queuing-Organ; nicht-flushendes Tier wählt `NoFlush`, durchreichend); Achse — weder Gattung noch Tier-Unterklasse (#75) |
 
 **is_original-Linking-Klassen (Doc 17 §4.5):** A (echtes Linking) = allocator/search_algo/q1_queuing (20 eligible; 6 Allocators aktiv: mimalloc/jemalloc/snmalloc/rpmalloc/dlmalloc/lrmalloc; Original*SearchAlgo = s2-Stubs, echtes Linking SOLL s4). B-E (Re-Impl + is_original=false ehrlich): prefetch/value_handle/memory_layout/index_organization/telemetry/migration/io. axis_06 separat in `ext/allocator/A01-A23`.
 
-## §2 Die 5 Gattungen (+ Viren) — SOLL je Gattung
+## §2 Die 5 Tier-Unterklassen (+ Viren) — SOLL je Tier-Unterklasse
 
-Quelle: `anatomy_base.hpp:44-50` (AnatomyGenus), Doku 14 §26-§40, Doc 24 §8.8, abhaengigkeitskette.
+> **(korr. 2026-06-03, s. Doc 30 §8.0):** Diese Tabelle listet **5 Tier-Unterklassen** (NICHT „5 Gattungen"), verteilt auf **2 Gattungen/Interfaces**: SearchAlgorithm-Zeile = einzige Tier-Unterklasse unter dem **SearchAlgorithm-Interface**; Adapter/Set/Sequence/View = Tier-Unterklassen unter dem **Container-Interface**. Viren liegen außerhalb (Graph-Interface bzw. Nicht-Lebewesen). Die Spalten „Slots SOLL / Eigene Achsen / Anatomie / ABI / Observer" beschreiben die jeweilige **Tier-Unterklasse**; nur das **Dock** (+ ABI-Interface der API) gehört zur Gattungs-/Interface-Ebene. „AnatomyGenus" im Code ist die historische Bezeichnung dieser Tier-Unterklassen-Aufzählung.
 
-| Gattung | Tier (Doku 14 §27) | K/V-Modell | Slots SOLL | Eigene Achsen | Anatomie / ABI / Observer / Dock | IST |
-|---------|--------------------|-----------|-----------|---------------|----------------------------------|-----|
-| **SearchAlgorithm** | Säugetier (map) | K→V | **17** | — | SearchAlgorithmAnatomy ✓ / SearchAlgorithmAbiAdapter ✓ / ObserverAggregate<17> ✓ / SearchAlgorithmDock ✓ | **voll** (BR-1..4) |
-| **Adapter (Container)** | Wirbelloses (queue/stack) | Wrapper über Inner | **2** (q1 buffer + q2 flush) + axis_inner | axis_inner | ContainerAnatomy ✓ / ABI [FUTURE] / ContainerObserverSnapshot ✓ / ContainerDock ✓ (in-process) | **teilw.** (q1 + Dock; q2+DLL offen #75) |
-| **Set** | Vogel (set) | K-only (K=V) | **15** (ohne mapping/value_handle; §28-Zählung, K-A aufgelöst) | — | — | **FUTURE** (#76) |
-| **Sequence** | Reptil (vector/list) | V-indexed | **10** geteilte + axis_growth (§28, K-B aufgelöst) | axis_growth | — | **FUTURE** (#76) |
-| **View** | Pflanze (span/mdspan) | non-owning (kein insert/erase/alloc/concurrency) | **7** + axis_extent/layout/accessor | axis_extent/layout/accessor | — | **FUTURE** (#76) |
-| (Viren) | Nicht-Lebewesen (Graph/FFT/Crypto) | keine Achsen | 0 (Kapsel) | — | IVirusExecutionEngine (Schwester von AnatomyBase an Wurzel IExecutionEngine); Graph-Dock | **FUTURE** (nur Test-Stub; R6/V42) |
+Quelle: `anatomy_base.hpp:44-50` (AnatomyGenus — historischer Name der Tier-Unterklassen-Enum), Doku 14 §26-§40, Doc 24 §8.8, abhaengigkeitskette.
 
-**queuing-Einordnung (präzise):** q1/q2 sind KEINE der 17 SearchAlgorithm-Slots, sondern Organe der **eigenen Container-Gattung** (auf `AnatomyGenus::Adapter` abgebildet, container_anatomy.hpp:50). Historische Doku-14-§7-Sicht („q1/q2 = stabile Organe") ist durch Doc 27 §0.1 präzisiert. Grep-verifiziert: **kein** Set/Sequence/View-Anatomy/Composition/Dock im Code (0 Treffer) → 3 Rest-Gattungen + produktiver Viren-Pfad sind nur Doku-SOLL.
+| Tier-Unterklasse | Gattung/Interface | Tier (Doku 14 §27) | K/V-Modell | Slots SOLL | Eigene Achsen | Anatomie / ABI / Observer / Dock | IST |
+|---------|---------|--------------------|-----------|-----------|---------------|----------------------------------|-----|
+| **SearchAlgorithm** | **SearchAlgorithm** (eigenes Interface) | Säugetier (map) | K→V | **17** | — | SearchAlgorithmAnatomy ✓ / SearchAlgorithmAbiAdapter ✓ / ObserverAggregate<17> ✓ / SearchAlgorithmDock ✓ (Dock = Interface-Ebene) | **voll** (BR-1..4) |
+| **Adapter** | **Container** (gemeinsames Interface) | Wirbelloses (queue/stack/priority_queue) | Wrapper über Inner | **axis_inner + ordering** (FIFO/LIFO/Priority) + delegierte Achsen | axis_inner, ordering | ContainerAnatomy ✓ / ABI [FUTURE] / ContainerObserverSnapshot ✓ / ContainerDock ✓ (in-process; Dock = Interface-Ebene) | **teilw.** (Dock; DLL offen #75). Nutzt queuing NICHT — queuing (q1/q2) sind SearchAlgorithm-Achsen, keine Adapter-Organe |
+| **Set** | **Container** (gemeinsames Interface) | Vogel (set) | K-only (K=V) | **15** (ohne mapping/value_handle; §28-Zählung, K-A aufgelöst) | — | — | **FUTURE** (#76) |
+| **Sequence** | **Container** (gemeinsames Interface) | Reptil (vector/list) | V-indexed | **10** geteilte + axis_growth (§28, K-B aufgelöst) | axis_growth | — | **FUTURE** (#76) |
+| **View** | **Container** (gemeinsames Interface) | Pflanze (span/mdspan) | non-owning (kein insert/erase/alloc/concurrency) | **7** + axis_extent/layout/accessor | axis_extent/layout/accessor | — | **FUTURE** (#76) |
+| (Viren) | **Graph** (eigenes Interface) | Nicht-Lebewesen (Graph/FFT/Crypto) | keine Achsen | 0 (Kapsel) | — | IVirusExecutionEngine (Schwester von AnatomyBase an Wurzel IExecutionEngine); Graph-Dock | **FUTURE** (nur Test-Stub; R6/V42) |
+
+**queuing-Einordnung (präzise, korrigiert; verfeinert korr. 2026-06-03, s. Doc 30 §8.0):** q1/q2 sind reguläre **mandatorische SearchAlgorithm-Achsen** (Organe), nicht Organe einer eigenen Tier-Unterklasse/Gattung — sie liegen lediglich außerhalb der 17 composition_factory-Slots (T0..T16), gehören aber zur **SearchAlgorithm-Tier-Unterklasse** (unter dem SearchAlgorithm-**Interface**) und werden in JEDEM Tier-Binary uniform getrieben (nicht-pufferndes/-flushendes Tier wählt `NoBuffer`/`NoFlush`, durchreichend — keine Achse ist optional). Die **Doku-14-§7-Sicht („q1/q2 = stabile Organe") war KORREKT** (hiermit rehabilitiert); **nicht Doku 14, sondern Doc 27 §0.1 ist die revidierte Fehl-„Präzisierung"**, die queuing fälschlich zur Container-Gattung erhob. Die **Adapter-Tier-Unterklasse** (`std::queue/stack/priority_queue`, unter dem **Container-Interface**) besteht aus `axis_inner` + ordering + delegierten Achsen und nutzt queuing NICHT; §32 (Disjunkte-Achsen-Sets, vormals „Cross-Genus") verbietet den Join disjunkter Tier-Unterklassen, macht aber keine Achse zur Gattung/Tier-Unterklasse. Grep-verifiziert: **kein** Set/Sequence/View-Anatomy/Composition/Dock im Code (0 Treffer) → die 3 weiteren Container-Tier-Unterklassen (Set/Sequence/View) + produktiver Viren-Pfad (Graph-Interface) sind nur Doku-SOLL.
 
 ## §3 Die 4 Brücken — SOLL + Verifikations-Kriterium (Doc 27 §3)
 
@@ -101,15 +111,15 @@ Quelle: `anatomy_base.hpp:44-50` (AnatomyGenus), Doku 14 §26-§40, Doc 24 §8.8
 
 ## §6 SOLL-vs-IST-Synthese (Überleitung Phase B)
 
-**Solide IST (literal verifiziert, CE cbe3971):** Gate-1 (∏ mp_size==137.594.142.720.000), Gate-2 (22 Ebenen), Gate-5 (inverse Signatur), Gate-6 (Doku); SearchAlgorithm-Gattung voll (BR-1/2/3/4 + DLL-Round-Trip); KF-9..16b; lokaler BuildOrchestrator + SearchAlgorithm-Prüf-Dock.
+**Solide IST (literal verifiziert, CE cbe3971):** Gate-1 (∏ mp_size==137.594.142.720.000), Gate-2 (22 Ebenen), Gate-5 (inverse Signatur), Gate-6 (Doku); SearchAlgorithm-**Tier-Unterklasse** voll (korr. 2026-06-03, s. Doc 30 §8.0; BR-1/2/3/4 + DLL-Round-Trip); KF-9..16b; lokaler BuildOrchestrator + SearchAlgorithm-Prüf-Dock (Dock = Gattungs-/Interface-Ebene, korrekt).
 
 **Offene Lücken (SOLL gefordert, IST fehlt — Tasks):**
 - **#74 (Gate-4-real):** page_type/09b/12 = nur DefinitionOnly-Klassifikation → SOLL eigener Observer + gebaute Build-Variante DERSELBEN SearchAlgorithm-Binary; „22 Observer" real nur 4/17 operativ (R5.B → volle Achsen-Operativität).
-- **#75 (Container-Gattung):** q2-Slot (Mehr-Achsen ContainerComposition<Q1,Q2>) + Container-DLL-Pfad (ContainerAbiAdapter + COMDARE_DEFINE-Analogon + Loader + observe über DLL-Grenze).
-- **#76 (Gattungen):** Set (14 Achsen) / Sequence (9+axis_growth) / View (7+axis_extent/layout/accessor) je Anatomie+Composition+ABI+Observer+Dock+PermutationEngine + GenusBindingTraits-Spezialisierung; (Viren-Pfad IVirusExecutionEngine produktiv).
+- **#75 (Container-Gattung/Interface — Adapter-Tier-Unterklasse; korr. 2026-06-03, s. Doc 30 §8.0):** echte Container-Komposition (ContainerComposition der **Adapter-Tier-Unterklasse** aus `axis_inner` + ordering FIFO/LIFO/Priority + delegierten Achsen — NICHT queuing) + Container-DLL-Pfad (ContainerAbiAdapter + COMDARE_DEFINE-Analogon + Loader + observe über DLL-Grenze; Dock + ABI-Interface = Container-Gattungs-/Interface-Ebene). (queuing q1/q2 = SearchAlgorithm-Achsen, gehören nicht hierher → AdHocComposition 17→19.)
+- **#76 (weitere Container-Tier-Unterklassen; korr. 2026-06-03, s. Doc 30 §8.0):** Set (14 Achsen) / Sequence (9+axis_growth) / View (7+axis_extent/layout/accessor) — je eine **Tier-Unterklasse** unter dem Container-Interface — je Anatomie+Composition+ABI+Observer+PermutationEngine (+ gemeinsames Container-Dock auf Interface-Ebene) + GenusBindingTraits-Spezialisierung; (Viren-Pfad IVirusExecutionEngine produktiv, Graph-Interface).
 - **#77 (ceb_generator):** reale Anatomie via Name→Typ ODER Anspruch präzisieren (reale Binary läuft über adhoc_emitter).
 - **#73 (Tech-Debt):** provision_all results-Vektor batchen (O(K) statt O(∏)).
 - **Cluster (GATE-MAXIMAL):** KF-12/13-Skript-Emit erledigt; reale ZIH-Submission user-/termingebunden.
 - **Backlog (Doku-only):** Doc 16 axis_05-IMC-Wrapper; Doc 15 axis_09b-Schichten+15-AVX512-Sub-Flags; Original*SearchAlgo s4-Linking; R5.D PMC.
 
-**Gate-3/4 gelten heute nur unter Pilot- bzw. Klassifikations-Vorbehalt.** „ABSOLUTE VOLLSTÄNDIGKEIT gegen ALLE 22 Achsen + alle 5 Gattungen" = Phase D, bestätigt durch Phase E (finaler adversarialer Audit).
+**Gate-3/4 gelten heute nur unter Pilot- bzw. Klassifikations-Vorbehalt.** „ABSOLUTE VOLLSTÄNDIGKEIT gegen ALLE 22 Achsen + alle 5 Tier-Unterklassen (verteilt auf die Gattungen/Interfaces SearchAlgorithm + Container, plus Graph für Viren; korr. 2026-06-03, s. Doc 30 §8.0)" = Phase D, bestätigt durch Phase E (finaler adversarialer Audit).

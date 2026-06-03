@@ -1,5 +1,19 @@
 # Autoritative Referenz — Abhängigkeitskette LEBEWESEN → PRÜF-DOCK und der ABI-POD-Konvergenzpunkt (Vorlage für I1)
 
+> **KORREKTUR-BANNER (korr. 2026-06-03, s. Doc 30 §8.0; verbatim Doc 24 §8.8 + Doku 14 §25):** Dieses Dokument verwendete
+> „GATTUNG" durchgehend als Bezeichnung für die Ebene mit dem FESTEN 17-Achsen-Satz (`AnatomyGenus`-Enum, `SearchAlgorithmAnatomy<C>`).
+> Das ist gemäß dem verbindlichen 3-Ebenen-Modell die **TIER-UNTERKLASSEN-Ebene**, NICHT die Gattungs-Ebene. Klarstellung:
+> (1) **GATTUNG = ein INTERFACE für die Außenwelt = ein Prüf-Dock**: SearchAlgorithm / Container / Graph (Doc 24 §8.8 „Prüf-Dock
+> je Gattung", §8.6 „ABI-Interface der API der Gattung"). (2) **TIER-UNTERKLASSE = liegt UNTER dem Gattungs-Interface und
+> trägt den FESTEN Achsen-Satz** (Doku 14 §25/§26). Set/Sequence/Adapter/View sind Tier-Unterklassen UNTER dem **Container**-Interface;
+> die 17/19-Achsen-Komposition ist die **SearchAlgorithm-Tier-Unterklasse**. (3) **ACHSEN = Organe der Tier-Unterklasse, NIE optional** —
+> die Interfaces ALLER Achsen werden in JEDEM Tier-Binary uniform getrieben; ein nicht-pufferndes/nicht-prefetchendes Tier wählt
+> einen KONKRETEN Durchreich-Algorithmus (NoBuffer/NoFlush/NonePrefetch/NoMigration/None), es wird KEINE Achse weggelassen.
+> Wo „Gattung" das Außen-Interface / Prüf-Dock / den `genus()`-Dock-Diskriminator meint, ist es KORREKT und bleibt. **WICHTIGE
+> Nuance:** Aussagen wie „optionales Sub-Interface" / „nur 2 von 17 Achsen getrieben" / „dormant" beschreiben, WELCHE Achsen-Snapshots
+> die .dll-ABI-Grenze tatsächlich queren — NICHT, dass eine Achse im Tier fehlt. In-Process werden alle 17 Organe uniform getrieben.
+> Die **Invariante** (feste Slot-Zahl pro Tier-Unterklasse, `AdHocComposition<17>` als ABI-Identität) bleibt unverändert gültig.
+
 > **Provenienz:** Inventar-Workflow `w1fzdr47e` (5 Explore-Agenten je Schicht + Synthese, 2026-05-31). Alle Datei:Zeile-Angaben
 > aus dem Schicht-Inventar; Snapshot-Layout zusätzlich an der Quelle (`observable_tier.hpp:40-59`) verifiziert. Annahmen
 > als **[ANNAHME]** markiert. Geltungsbereich: `external/comdare-cache-engine/libs/cache_engine/`.
@@ -15,14 +29,18 @@
 ## 1. Zielbild
 
 Die **Observer+Tier-Schnittstelle** (`IObservableTier` + `ComdareTierObserverSnapshotV1`) ist keine eigenständige zweite
-ABI, sondern eine **gattungs-spezialisierte Erweiterung der Anatomy-ABI**: Ein Tier-Modul exportiert genau vier
+ABI, sondern eine **tier-unterklassen-spezialisierte Erweiterung der Anatomy-ABI** (korr. 2026-06-03, s. Doc 30 §8.0 — vorher
+„gattungs-spezialisiert"; die Spezialisierung sitzt auf der **Tier-Unterklassen**-Ebene, dem festen 17-Achsen-Satz, nicht auf der
+Gattungs-/Interface-Ebene): Ein Tier-Modul exportiert genau vier
 extern-`C`-Symbole (Factory/Destroy/Version/Magic, `anatomy_module_abi_v1_decl.hpp:61-74`) und liefert über
 `comdare_create_anatomy()` einen `IAnatomyBase*`. Erst *nach* dem Laden fragt der Host per `dynamic_cast<IObservableTier*>`
-ab, ob dieses konkrete Modul zusätzlich den Pfad-B-Antrieb (`tier_insert/lookup/erase/observe`) anbietet. Beide Teile —
-die unveränderliche Anatomy-Wurzel-vtable und das optionale Observer-Sub-Interface — **müssen zusammen über dieselbe
+ab, ob dieses konkrete Modul über die ABI-Grenze zusätzlich den Pfad-B-Antrieb (`tier_insert/lookup/erase/observe`) **exportiert** —
+das ist eine reine ABI-Exposure-Frage (welche Achsen-Treiber die .dll-Grenze queren), KEINE Aussage darüber, ob das Tier diese
+Achse besitzt; in-process trägt jedes Tier alle 17 Organe (korr. 2026-06-03, s. Doc 30 §8.0). Beide Teile —
+die unveränderliche Anatomy-Wurzel-vtable und das per `dynamic_cast` erreichbare Observer-Sub-Interface — **müssen zusammen über dieselbe
 Brücke laufen** (Tier-Binary → `AnatomyModuleLoader` → `IPruefDock`), weil der `CacheEngineBuilder` einen einzigen
-polymorphen Mess-Loop pro `AnatomyGenus` fährt: das Dock zieht aus *einem* geladenen Handle sowohl die Gattungs-Identität
-(`genus()`, ABI-fest) als auch die Mess-Observable (Snapshot-POD, optional). Trennte man beide ABIs, verlöre der Loader
+polymorphen Mess-Loop pro Gattungs-Prüf-Dock fährt: das Dock zieht aus *einem* geladenen Handle sowohl die Gattungs-Interface-Identität
+(`genus()`, ABI-fest — der Dock-Diskriminator; korrekt als Gattungs-Begriff) als auch die Mess-Observable (Snapshot-POD). Trennte man beide ABIs, verlöre der Loader
 die Garantie, dass Heap-Allokation (`comdare_create_anatomy`) und Heap-Freigabe (`comdare_destroy_anatomy`) im selben
 DLL-Kontext liegen, und der Snapshot-Transport würde von der Lebenszyklus-Verwaltung des Moduls entkoppelt.
 
@@ -40,11 +58,19 @@ DLL-Kontext liegen, und der Snapshot-Transport würde von der Lebenszyklus-Verwa
     test_v41_execution_engine.cpp:148 — NICHT abgeleitet)│            │
         │  erbt                                          │            │
         ▼                                                │            │
- GATTUNG    AnatomyGenus  (enum uint8, 5 Werte)          │            │
-   anatomy_base.hpp:44     SearchAlgorithm=0 (Mammal)    │            │
-        │  diskriminiert                                 │            │
+ GATTUNG/   AnatomyGenus  (enum uint8, 5 Werte)          │            │
+ TIER-UKL   anatomy_base.hpp:44     SearchAlgorithm=0    │            │
+ (gemischt) (korr. 2026-06-03, s. Doc 30 §8.0: dieser    │            │
+   Enum MISCHT 2 Modell-Ebenen — SearchAlgorithm/Container│           │
+   /Graph = GATTUNG=Interface=Prüf-Dock; Set/Sequence/   │            │
+   Adapter/View = TIER-UNTERKLASSEN unter Container;      │            │
+   genus()-Wert dient als Dock-Diskriminator [Gattung,    │            │
+   korrekt] UND nennt Tier-Unterklassen)                  │            │
+        │  diskriminiert (Dock-Wahl = Gattungs-Interface) │            │
         ▼                                                │            │
- TIERART    Composition  (17 using-Organ-Slots)          │            │
+ TIER-UKL   Composition  (17 using-Organ-Slots)          │            │
+ (TIERART)  (korr. 2026-06-03: „TIERART"=TIER-UNTERKLASSE,│           │
+            trägt den FESTEN 17-Achsen-Satz, Doku 14 §25) │            │
    z.B. ArtComposition  art_reference.hpp:58             │            │
    Contract: IsComposition  composition_concept.hpp:18   │            │
         │  Template-Parameter <IsComposition C>          │            │
@@ -101,13 +127,21 @@ DLL-Kontext liegen, und der Snapshot-Transport würde von der Lebenszyklus-Verwa
 
 ---
 
-### Schicht 2 — GATTUNG (AnatomyGenus)
+### Schicht 2 — GATTUNGS-INTERFACE + TIER-UNTERKLASSEN-DISKRIMINATOR (AnatomyGenus)
+
+> **(korr. 2026-06-03, s. Doc 30 §8.0):** Der `AnatomyGenus`-Enum MISCHT zwei Modell-Ebenen und ist daher kein reiner
+> „Gattungs"-Enum. **GATTUNG (= Interface für die Außenwelt = Prüf-Dock)** sind die drei Außen-Interfaces SearchAlgorithm /
+> Container / Graph. **Set / Sequence / Adapter / View sind TIER-UNTERKLASSEN UNTER dem Container-Interface** (Doku 14 §26 die
+> std-Familien), KEINE eigenen Gattungen. `SearchAlgorithm` ist hier zugleich Gattungs-Interface UND die einzige bisher gebaute
+> Tier-Unterklasse (std::map-ähnlich, 17 Achsen). Der `genus()`-Rückgabewert dient als **Dock-Diskriminator** — in dieser Rolle
+> ist „Gattung" korrekt (er wählt das Außen-Interface/Prüf-Dock). Die untenstehenden Code-Identifier (`AnatomyGenus`,
+> `SearchAlgorithmAnatomy`) bleiben unverändert; nur ihre Ebenen-Einordnung wird hier richtiggestellt.
 
 | Typ | Kind | Datei:Zeile | Rolle |
 |---|---|---|---|
-| `AnatomyGenus` | enum | `anatomy_base.hpp:44` | 5 Werte: SearchAlgorithm(0)/Set(1)/Sequence(2)/Adapter(3)/View(4) |
+| `AnatomyGenus` | enum | `anatomy_base.hpp:44` | 5 Werte: SearchAlgorithm(0)/Set(1)/Sequence(2)/Adapter(3)/View(4). **(korr. 2026-06-03)** Mischt Gattungs-Interface (SearchAlgorithm; Container/Graph noch nicht im Enum) mit Tier-Unterklassen unter Container (Set/Sequence/Adapter/View) |
 | `AnatomyConcept` | concept | `anatomy_base.hpp:76` | fordert `composition_t`, `composition_name()`, `paper_id()`, `organ_count()`, `genus()` |
-| `SearchAlgorithmAnatomy` | template | `search_algorithm_anatomy.hpp:31` | Mammal-Gattungs-Template, `genus()=SearchAlgorithm` |
+| `SearchAlgorithmAnatomy` | template | `search_algorithm_anatomy.hpp:31` | Mammal-**Tier-Unterklassen**-Template (korr. 2026-06-03, vorher „Gattungs-Template"; trägt den festen 17-Achsen-Satz, Doku 14 §25), `genus()=SearchAlgorithm` |
 | `AnatomyModuleLoader` | class | `anatomy_module_loader.hpp:149` | dlopen + 4-Symbol-Resolve + Version/Magic-Check |
 | `AnatomyModuleHandle` | class | `anatomy_module_loader.hpp:76` | RAII über Handle + `IAnatomyBase*` + `destroy_fn` |
 
@@ -116,12 +150,21 @@ DLL-Kontext liegen, und der Snapshot-Transport würde von der Lebenszyklus-Verwa
 - `AnatomyModuleHandle` kapselt `(void* native_handle, IAnatomyBase* anatomy_ptr, void(*destroy_fn))`
 
 **Metapher (Doku 14 §27.2):** Säugetier=SearchAlgorithm (K→V, 17 Achsen) / Vogel=Set (K-only) / Reptil=Sequence (V-indexed) / Wirbelloses=Adapter / Pflanze=View. Alle im `kingdom_name()='Animalia'`.
+> **(korr. 2026-06-03, s. Doc 30 §8.0):** Diese fünf Tier-Klassen sind **TIER-UNTERKLASSEN**, nicht fünf Gattungen. Säugetier = die
+> SearchAlgorithm-Tier-Unterklasse (auch das einzige Außen-Interface, das bisher gebaut ist). Vogel/Reptil/Wirbelloses/Pflanze
+> (Set/Sequence/Adapter/View) sind Tier-Unterklassen UNTER dem **Container**-Außen-Interface. „5 Gattungen" wäre falsch — Gattungen
+> (= Außen-Interfaces/Prüf-Docks) sind SearchAlgorithm / Container / Graph.
 
-**Gattungs-Constraint (Doku 14 §32):** Cross-Genus-Joins type-system-mathematisch unmöglich; `static_assert` im AbiAdapter (Zeile 78-81). `genus()` ist **doppelt** vorhanden: constexpr (Concept-Seite) + virtual `IAnatomyBase::genus()` (ABI-Seite).
+**Tier-Unterklassen-/Gattungs-Constraint (Doku 14 §32):** Cross-Genus-Joins (Mischen verschiedener Tier-Unterklassen bzw. verschiedener Gattungs-Interfaces) type-system-mathematisch unmöglich; `static_assert` im AbiAdapter (Zeile 78-81). `genus()` ist **doppelt** vorhanden: constexpr (Concept-Seite) + virtual `IAnatomyBase::genus()` (ABI-Seite — der Dock-Diskriminator; in dieser Rolle ist „Gattung" korrekt). *(korr. 2026-06-03: „Gattungs-Constraint" umfasst hier beide Ebenen-Schnitte; die Invariante selbst bleibt unverändert.)*
 
 ---
 
-### Schicht 3 — TIERART (Composition)
+### Schicht 3 — TIER-UNTERKLASSE / TIERART (Composition)
+
+> **(korr. 2026-06-03, s. Doc 30 §8.0):** „TIERART" ist hier die **TIER-UNTERKLASSEN-Ebene** des Modells (sie trägt den FESTEN
+> 17-Achsen-Satz; Doku 14 §25). Diese Ebene liegt UNTER dem Gattungs-Interface (hier: SearchAlgorithm). Die einzelnen
+> Compositions (`ArtComposition`, `HotComposition`, …) sind konkrete Permutationen DIESER einen Tier-Unterklasse. Die
+> 17-Slot-Invariante (`AdHocComposition<17>` als ABI-Identität) ist und bleibt korrekt.
 
 | Typ | Kind | Datei:Zeile | Rolle |
 |---|---|---|---|
@@ -135,7 +178,7 @@ DLL-Kontext liegen, und der Snapshot-Transport würde von der Lebenszyklus-Verwa
 
 **Slot-Reihenfolge (UNVERRÜCKBAR, T0..T16):** `search_algo, cache_traversal, mapping, path_compression, node_type, memory_layout, allocator, prefetch, concurrency, serialization, telemetry, value_handle, isa, index_organization, io_dispatch, migration_policy, filter` → 3 traversal + 2 nodes + 7 Einzel + 5 = **17**.
 
-**Metapher (Doku 14 §3):** Composition = konkrete TIERART (Permutation aller 17 Organe). Achse = Organ (z.B. search_algo = Atemapparat, allocator = Verdauungsapparat). `ArtComposition::search_algo = ObservableArtTrieOrgan = ObservableComposedContainer<ArtTrieOrgan>` (Observable-Hülle um Organ, #42 Umstufung-B).
+**Metapher (Doku 14 §3):** Composition = konkrete TIERART innerhalb der **Tier-Unterklasse** (Permutation aller 17 Organe; korr. 2026-06-03, s. Doc 30 §8.0). Achse = Organ (z.B. search_algo = Atemapparat, allocator = Verdauungsapparat) — **jedes der 17 Organe ist Pflicht**, keine Achse wird weggelassen; ein Tier ohne z.B. Pufferung wählt einen konkreten Durchreich-Algorithmus (NoBuffer/NoFlush/NonePrefetch/NoMigration/None), nicht „Organ fehlt". `ArtComposition::search_algo = ObservableArtTrieOrgan = ObservableComposedContainer<ArtTrieOrgan>` (Observable-Hülle um Organ, #42 Umstufung-B). *(Hinweis: `ObservableComposedContainer` ist ein Code-Identifier für die Organ-Hülle — kein Bezug zur Container-Gattung.)*
 
 ---
 
@@ -177,6 +220,13 @@ DLL-Kontext liegen, und der Snapshot-Transport würde von der Lebenszyklus-Verwa
 | `measure_genus_sequential` | fn | `pruef_dock_sequencer.hpp:44` | nein |
 | `drive_tier_observe_trace_abi` | fn | `tier_observe_trace_abi.hpp:77` | nein (treibt aber über ABI) |
 
+> **Begriffs-Klärung „optional" (korr. 2026-06-03, s. Doc 30 §8.0):** „optionales Sub-Interface" oben meint AUSSCHLIESSLICH die
+> C++-ABI-Mechanik — ob ein konkretes Modul `IObservableTier`/`IMeasurableWorkload` über `dynamic_cast` anbietet (Mess-Exposure
+> über die .dll-Grenze). Das ist **KEINE** „optionale Achse": Achsen sind nie optional. Alle 17 Organe der Tier-Unterklasse werden
+> in jedem Tier-Binary uniform getrieben; eine nicht-puffernde/nicht-prefetchende Tier-Unterklasse wählt einen konkreten
+> Durchreich-Algorithmus (NoBuffer/NoFlush/NonePrefetch/NoMigration/None), sie lässt die Achse nicht weg. `measure_genus_sequential`
+> / `…→genus()` referenzieren das **Gattungs-Interface/Prüf-Dock** (Dock-Diskriminator) — korrekter Gattungs-Gebrauch, bleibt.
+
 **Kern-Kante — Dreifach-Vererbung:**
 `SearchAlgorithmAbiAdapter<A> : public IAnatomyBase, public IMeasurableWorkload, public IObservableTier` (`abi_adapter.hpp:75`). `IAnatomyBase : public IExecutionEngine`. `IMeasurableWorkload` und `IObservableTier` hängen **bewusst NICHT** an `IAnatomyBase` — sonst würde sich dessen vtable-Layout ändern und alte DLLs brechen.
 
@@ -188,7 +238,11 @@ DLL-Kontext liegen, und der Snapshot-Transport würde von der Lebenszyklus-Verwa
 
 Zwei getrennte ABI-Ebenen treffen sich hier:
 - **module_abi_v1** = die 4 extern-`C`-Symbole + `IAnatomyBase`-vtable (Pflicht, „lebend" für *jedes* Modul).
-- **anatomy-ABI-Erweiterung** = die optionalen Sub-Interfaces + der Snapshot-POD (per `dynamic_cast` erreichbar; teils „dormant", weil nur die zwei getriebenen Achsen exportiert werden).
+- **anatomy-ABI-Erweiterung** = die per `dynamic_cast` erreichbaren Sub-Interfaces + der Snapshot-POD (teils „dormant", weil heute nur die Snapshots der zwei getriebenen Achsen über die .dll-Grenze exportiert werden).
+
+> **(korr. 2026-06-03, s. Doc 30 §8.0):** „dormant" / „2 getriebene Achsen" beschreibt, WELCHE Achsen-Snapshots heute die ABI-Grenze
+> queren — NICHT, dass die übrigen 15 Achsen im Tier fehlen oder optional sind. In-Process trägt die Tier-Unterklasse alle 17 Organe
+> uniform; die nicht-exportierten Achsen sind nur (noch) nicht über die ABI sichtbar. Keine Achse ist optional.
 
 | # | Name | Datei:Zeile | Heutiges Layout / Signatur | Ebene | Status |
 |---|---|---|---|---|---|
@@ -256,7 +310,7 @@ tragenden Mess-POD (`…SnapshotV2`) ersetzen und `ANATOMY_ABI_MAJOR` von 1 auf 
 
 3. **Dreifach-Vererbungs-Reihenfolge.** `: IAnatomyBase, IMeasurableWorkload, IObservableTier` (`abi_adapter.hpp:75`) bestimmt Sub-Object-Layout + `dynamic_cast`-Offsets. Reihenfolge-Änderung → alle gebauten DLLs binär inkompatibel, selbst bei gleichem Major. **[ANNAHME]:** Reihenfolge einfrieren, oder Änderung zwingt zu Major-Bump *und* Voll-Rebuild (ohnehin I1-Plan).
 
-4. **„Dormante" 15 Achsen.** Will I1 *alle* 17 über die Grenze tragen, wächst der POD; bei komposition-typisiertem Transport variierte das Layout je Composition → bräche `static_assert(standard_layout)`. **Empfehlung:** **fester `uint64`-Slot-Block je Achse** (V2, ABI-stabil, `trivially_copyable` erhalten) statt komposition-typisierter Transport. Pro-Achse-Slots können für nicht-getriebene Achsen 0 bleiben (wie heute Wall-Clock/Observer-Degradation).
+4. **„Dormante" 15 Achsen-Snapshots** (korr. 2026-06-03, s. Doc 30 §8.0: „dormant" = noch nicht über die ABI-Grenze exportiert, NICHT „Achse fehlt/optional" — alle 17 Organe sind in-process Pflicht). Will I1 die Snapshots *aller* 17 Achsen über die Grenze tragen, wächst der POD; bei komposition-typisiertem Transport variierte das Layout je Composition → bräche `static_assert(standard_layout)`. **Empfehlung:** **fester `uint64`-Slot-Block je Achse** (V2, ABI-stabil, `trivially_copyable` erhalten) statt komposition-typisierter Transport. Pro-Achse-Slots können für (noch) nicht über die ABI exportierte Achsen 0 bleiben (wie heute Wall-Clock/Observer-Degradation) — was die Pflicht-Existenz des Organs im Tier nicht berührt.
 
 ---
 
@@ -264,7 +318,7 @@ tragenden Mess-POD (`…SnapshotV2`) ersetzen und `ANATOMY_ABI_MAJOR` von 1 auf 
 - Snapshot/Sub-Interfaces: `libs/cache_engine/anatomy/observable_tier.hpp:40,67,80,105`
 - Workload-Sub-Interface: `libs/cache_engine/anatomy/measurable_workload.hpp:20`
 - Adapter (Dreifach-Vererbung): `libs/cache_engine/anatomy/abi_adapter.hpp:75,251`
-- Wurzel/Gattung: `libs/cache_engine/execution_engine/execution_engine_base.hpp:98` · `libs/cache_engine/anatomy/anatomy_base.hpp:44,76,99`
+- Wurzel/Gattungs-Interface + Tier-Unterklassen-Diskriminator (korr. 2026-06-03): `libs/cache_engine/execution_engine/execution_engine_base.hpp:98` · `libs/cache_engine/anatomy/anatomy_base.hpp:44,76,99`
 - ABI-Decl (4 Symbole + Version/Magic): `libs/cache_engine/include/cache_engine/abi/anatomy_module_abi_v1_decl.hpp:28,32,61,64,66,73,85`
 - Loader/Handle: `libs/cache_engine/builder/anatomy_module_loader/anatomy_module_loader.hpp:76,149`
 - Prüf-Dock: `libs/cache_engine/builder/pruef_dock/pruef_dock.hpp:51` · `search_algorithm_dock.hpp:22` · `pruef_dock_registry.hpp:22` · `pruef_dock_sequencer.hpp:44`

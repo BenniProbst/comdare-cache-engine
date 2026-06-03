@@ -4,6 +4,30 @@
 > Synthese, 2026-05-31). Alle Datei:Zeile literal nachgelesen. Annahmen als **[ANNAHME]**. Ergänzt
 > `messarchitektur_klarstellungen_und_entscheidungen.md` + `abhaengigkeitskette_lebewesen_pruefdock_abi_konvergenz.md`.
 
+> ⚠️ **BEGRIFFS-BANNER (korr. 2026-06-03, s. Doc 30 §8.0; verbatim Doc 24 §8.8 + Doku 14 §25):** Dieses Dokument
+> verwendet „**Gattung**" / „**Gattungs-Ops**" / „**Gattungs-Antrieb**" durchgängig für die **Außen-Interface-Ebene =
+> die SearchAlgorithm-Gattung** — also für die ABI-stabile Treiber-API `tier_insert/lookup/erase/clear/size`, mit der
+> die `CacheEngineBuilder` ein geladenes Tier-Modul durchtreibt (Quelle: `observable_tier.hpp:7-8` „über das ABI-stabile
+> **Interface der GATTUNG (SearchAlgorithm)** … testet die **Gattungs-API** durch (tier_insert/lookup/erase)"). **In
+> diesem Sinn ist „Gattung" KORREKT und bleibt** (3-Ebenen-Modell: **GATTUNG = ein INTERFACE / Prüf-Dock für die
+> Außenwelt = SearchAlgorithm / Container / Graph**). Zur Vermeidung der Kategorienfehler-Lesart, die andere Dokumente
+> betraf, hier die Verortung der in diesem Doc vorkommenden Begriffe in den drei Ebenen:
+> - **(1) GATTUNG = Außen-Interface / Prüf-Dock** (SearchAlgorithm / Container / Graph): die Treiber-Ops
+>   `tier_insert/lookup/erase` + `genus()` (Dock-Diskriminator) gehören HIERHER → „Gattungs-Ops"/„Gattungs-Antrieb"
+>   = korrekt.
+> - **(2) TIER-UNTERKLASSE** = liegt UNTER dem Gattungs-Interface und trägt den **FESTEN Achsen-Satz** (Doku 14 §25/§26).
+>   Was dieses Doc „**fixe Composition**" / „AxesList `<3,2,6,5,…>`" / „einkompilierter Observer" / `AdHocComposition<17>`
+>   nennt, sitzt auf DIESER Ebene (heute ist genau **EINE** Tier-Unterklasse gebaut — die std::map-ähnliche
+>   SearchAlgorithm-Tier-Unterklasse), **NICHT** auf der Gattungs-Ebene.
+> - **(3) ACHSEN = Organe der Tier-Unterklasse, NIE optional.** „**Optionales Sub-Interface**" (IObservableTier /
+>   IMeasurableWorkload) und „nur die zwei getriebenen Achsen" / `observable_axis_count==0` / „kollabiert auf Nullen"
+>   beschreiben, WELCHE **Observer-Snapshots** über die ABI-Grenze queren (Mess-Profil-Frage), **NICHT** dass eine Achse
+>   fehlt: jedes Tier-Binary trägt alle 17 Organe uniform; eine nicht-puffernde Komposition wählt einen KONKRETEN
+>   Durchreich-Algorithmus (NoBuffer/NoFlush/NonePrefetch/None/NoMigration), statt „eine Achse wegzulassen".
+> - Die **Invariante** (feste Slot-Zahl pro Tier-Unterklasse, `AdHocComposition<17>` als ABI-Identität) bleibt
+>   unverändert gültig — sie ist eine **Tier-Unterklassen**-Invariante. queuing q1/q2 (kommen in diesem Doc nicht vor)
+>   wären — wo sie aufträten — **Pflicht-Achsen dieser Tier-Unterklasse**, kein Interface, keine Gattung.
+
 ---
 
 ## 1. Wie ist es HEUTE gelöst?
@@ -16,7 +40,7 @@ class SearchAlgorithmAbiAdapter final : public IAnatomyBase, public IMeasurableW
 ```
 - **`IAnatomyBase`** (`anatomy_base.hpp:99`, erbt `IExecutionEngine`) = PFLICHT-Wurzel-vtable: `genus/composition_name/paper_id/organ_count` + Lifecycle. Nie ändern (alte DLLs).
 - **`IMeasurableWorkload`** (`measurable_workload.hpp:21`) = Pfad A (`run_workload`, Mess-Last IN der DLL).
-- **`IObservableTier`** (`observable_tier.hpp:80`) = Pfad B: Gattungs-Ops `tier_insert/lookup/erase/clear/size` (uint64) **UND** `tier_observe(Snapshot*)` — **Operation und Observer bereits in einer Schnittstelle vereint**.
+- **`IObservableTier`** (`observable_tier.hpp:80`) = Pfad B: Gattungs-Ops `tier_insert/lookup/erase/clear/size` (uint64) **UND** `tier_observe(Snapshot*)` — **Operation und Observer bereits in einer Schnittstelle vereint**. (Zu „Gattungs-Ops" = Treiber-API des SearchAlgorithm-**Außen-Interfaces**, nicht der fixen Achsen-Komposition: s. Begriffs-Banner oben, korr. 2026-06-03, Doc 30 §8.0.)
 
 Sub-Interfaces hängen **bewusst nicht** an `IAnatomyBase` (Kommentar `observable_tier.hpp:13-17`) → vtable-Stabilität; Host probt per `dynamic_cast`.
 

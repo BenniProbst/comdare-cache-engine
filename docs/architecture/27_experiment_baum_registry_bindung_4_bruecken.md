@@ -7,6 +7,24 @@
 > Algorithmus, kein „optional"); die Adapter-Gattung ist eine echte Container-Datenstruktur (axis_inner + ordering),
 > nutzt queuing NICHT. Alle „queuing = Container-Gattung"-Aussagen unten sind hierdurch revidiert.
 
+> ⚠️ **KORREKTUR — VERBINDLICHES 3-EBENEN-MODELL (korr. 2026-06-03, s. Doc 30 §8.0; Doc 24 §8.8 + Doku 14 §25):**
+> In diesem Dokument bezeichnet „Gattung" an vielen Stellen fälschlich die Ebene mit dem FESTEN Achsen-Satz (z.B.
+> „SearchAlgorithm-Gattung", „SearchAlgorithm-Gattungs-Komposition", „Gattungs-Invariante", „derselben Gattung",
+> „Adapter-Gattung", „2 Gattungen"). Verbindlich gelten DREI getrennte Ebenen:
+> 1. **GATTUNG = ein INTERFACE für die Außenwelt (= ein Prüf-Dock)** — es gibt nur **3**: **SearchAlgorithm / Container / Graph**.
+>    (Doc 24 §8.8 „Prüf-Dock je Gattung — für Search Algorithm oder Container oder Graphen"; §8.6 „ABI-Interface der API der Gattung".)
+> 2. **TIER-UNTERKLASSE = liegt UNTER dem Gattungs-Interface und verwendet einen FESTEN Achsen-Satz.** HIER lebt die
+>    feste Achsen-Konfiguration — NICHT auf der Gattungs-Ebene. Die 17/19-Achsen-Komposition (`AdHocComposition<17>`,
+>    std::map-ähnlich) ist die **SearchAlgorithm-Tier-Unterklasse** (die einzige bisher gebaute), UNTER dem SearchAlgorithm-
+>    **Interface**. Set/Sequence/Adapter/View sind **Tier-Unterklassen UNTER dem Container-Interface**.
+> 3. **ACHSEN = Organe der Tier-Unterklasse**; KEINE ist optional — ein nicht-pufferndes/nicht-prefetchendes Tier wählt
+>    einen KONKRETEN Durchreich-Algorithmus (`NoBuffer`/`NoFlush`/`NonePrefetch`/`NoMigration`/`None`), NICHT „Achse weglassen".
+> Folge: queuing q1/q2 = **Pflicht-Achsen der SearchAlgorithm-Tier-Unterklasse** (kein Interface, keine Gattung). Wo unten
+> „SearchAlgorithm-Gattung" die 17/19-Achsen-Komposition meint, ist die **SearchAlgorithm-Tier-Unterklasse** gemeint; wo
+> „Adapter-Gattung" steht, ist eine **Tier-Unterklasse der Container-Gattung** gemeint. Wo „Gattung" das Außen-Interface
+> bzw. „Prüf-Dock je Gattung" meint (z.B. Doc 24 §8.8), ist es KORREKT und bleibt. Die feste Slot-Zahl (`AdHocComposition<17>`
+> als ABI-Identität) bleibt als **Tier-Unterklassen-Invariante** korrekt.
+
 > **Companion zu Doc 26.** Doc 26 definiert das B+-Baum-Modell; dieses Dokument ist der verbindliche
 > Umsetzungsplan, der den heute STRING-getriebenen Baum **registry-getrieben + vollständig** gegen ALLE
 > realen Achsen + Observer + Definitionen macht (aktives /goal 2026-06-02, „absolute Vollständigkeit").
@@ -46,15 +64,22 @@ Doku 22 „15 Topics · 22 Achsen". Die User-Angabe „22/23" war korrekt; „18
 | 21 | axis_q1_queuing | queuing | `EnabledStrategies` | — (außerhalb) |
 | 22 | axis_q2_queuing | queuing | `EnabledPolicies` | — (außerhalb) |
 
-**17 Achsen = AdHocComposition-Slots T0..T16** (composition_factory.hpp:41-66, feste Reihenfolge) → bilden EIN
-baubares SearchAlgorithm-Tier-Binary. **5 Achsen außerhalb** (page_type, 09b, 12, q1, q2) sind separate
-Sub-Achsen/andere Gattungen (queuing = Container/Queue-Gattung; 09b/12 = Hardware-Sub; page_type = nodes-Sub).
+**17 Achsen = AdHocComposition-Slots T0..T16** (composition_factory.hpp:41-66, feste Reihenfolge) → bilden den
+Kern des SearchAlgorithm-Tier-Binary (= der SearchAlgorithm-**Tier-Unterklasse**, korr. 2026-06-03, s. Doc 30 §8.0).
+**5 Achsen außerhalb dieser 17 Slots** (page_type, 09b, 12, q1, q2)
+gliedern sich (korr. 2026-06-03, s. Doc 30 §8.0) so: **q1/q2 (queuing) sind reguläre, mandatorische
+SearchAlgorithm-Achsen** (Organe DERSELBEN Tier-Unterklasse; ein nicht-pufferndes Tier wählt `NoBuffer`/`NoFlush`, einen
+durchreichenden Algorithmus — analog NonePrefetch/NoMigration) — also zusammen mit den 17 Slots → **19
+SearchAlgorithm-Achsen**; **page_type/09b/12 = 3 Build-Achsen** (Codegen-/Build-Varianten der DERSELBEN
+SearchAlgorithm-Binary). queuing ist KEINE eigene Gattung (und kein Interface) — die Gattungen sind die 3 Außen-
+Interfaces SearchAlgorithm/Container/Graph, vgl. Top-Banner.
 
-### 0.1 AUTORITATIV: „22" ist die Gesamtzahl, „17" ist NUR die SearchAlgorithm-Gattung (User 2026-06-02)
+### 0.1 AUTORITATIV: „22" ist die Gesamtzahl, „17" ist NUR die SearchAlgorithm-Tier-Unterklasse (korr. 2026-06-03 — vorher „…SearchAlgorithm-Gattung", s. Doc 30 §8.0) (User 2026-06-02)
 
 > **Kritische Klarstellung (User 2026-06-02): die „17" darf die „22" NICHT wegschrumpfen.** „17" ist KEINE
-> Achsen-Gesamtzahl, sondern die **Slot-Zahl der SearchAlgorithm-Gattungs-Komposition** (`AdHocComposition<17>`,
-> `ObserverAggregate<17>`, `sizeof...(Vs)==17` — eine GATTUNGS-Invariante, bleibt). Wo Doku „15 Topics / 17 Achsen"
+> Achsen-Gesamtzahl, sondern die **Slot-Zahl der SearchAlgorithm-Tier-Unterklassen-Komposition** (`AdHocComposition<17>`,
+> `ObserverAggregate<17>`, `sizeof...(Vs)==17` — eine **Tier-Unterklassen-Invariante** [korr. 2026-06-03, vorher
+> „GATTUNGS-Invariante", s. Doc 30 §8.0 — die Gattung ist das Außen-Interface, nicht der feste Achsen-Satz], bleibt). Wo Doku „15 Topics / 17 Achsen"
 > o.ä. als Bibliotheks-GESAMTZAHL schreibt, ist das FALSCH → **22 Achsen / 15 Topics**. Verifiziert 2026-06-02:
 > 22 `axis_*_registry.hpp` (Liste in Session-Doku); `test_br1_full22_count` bindet alle 22 als Baum-Ebene.
 
@@ -62,21 +87,32 @@ Sub-Achsen/andere Gattungen (queuing = Container/Queue-Gattung; 09b/12 = Hardwar
 
 | Gruppe | Achsen | Bindung an Binary/Messung | Observer |
 |--------|--------|----------------------------|----------|
-| **SearchAlgorithm-Komposition (17)** | T0..T16 (search_algo … filter) | `AdHocComposition<17>` = EIN SearchAlgorithm-Tier-Binary (Gattungs-Invariante) | `ObserverAggregate<17>` |
-| **SearchAlgorithm-Sub/Build-Varianten (3)** | page_type/01 (nodes-Sub), simd_extension/09b + general_hardware/12 (Hardware) | modifizieren DIESELBE SearchAlgorithm-Binary (zusätzliche Baum-Ebene + Build-/Codegen-Variante je Wert) — NICHT eigene Gattung | je eigener Observer/Definition (BR-3-OBS-22) |
-| **Container-Gattung (2)** | queuing q1 + q2 | EIGENE Container-Gattungs-Komposition + eigenes **Container-Prüf-Dock** (Doku 24 §8.8) — NICHT in die SearchAlgorithm-17-Komposition (Cross-Genus type-unmöglich, Doku 14 §32) | eigener Container-Observer |
+| **SearchAlgorithm-Komposition (17)** | T0..T16 (search_algo … filter) | `AdHocComposition<17>` = Kern des SearchAlgorithm-Tier-Binary (Tier-Unterklassen-Invariante; korr. 2026-06-03 vorher „Gattungs-Invariante", s. Doc 30 §8.0) | `ObserverAggregate<17>` |
+| **SearchAlgorithm-Achsen queuing (2)** | queuing q1 + q2 | reguläre, **mandatorische SearchAlgorithm-Achsen** (Organe DERSELBEN Tier-Unterklasse — korr. 2026-06-03 vorher „derselben Gattung", s. Doc 30 §8.0); jedes Tier treibt ihr Interface — ein nicht-pufferndes wählt `NoBuffer`/`NoFlush` (durchreichender Algorithmus, analog NonePrefetch/NoMigration); zusammen mit den 17 Slots → **19 SearchAlgorithm-Achsen** | je eigener Achsen-Observer/Definition |
+| **SearchAlgorithm-Build-Varianten (3)** | page_type/01, simd_extension/09b + general_hardware/12 | modifizieren DIESELBE SearchAlgorithm-Binary (zusätzliche Baum-Ebene + Build-/Codegen-Variante je Wert) — KEINE eigene Gattung | je eigener Observer/Definition (BR-3-OBS-22) |
 
 > ✅ **Gattungs-Generik ERLEDIGT (2026-06-02, User-Option-B Schritt 2+3):** Die Bau-Brücke ist jetzt
 > gattungs-PARAMETRISCH (`genus_binding_traits.hpp` `GenusBindingTraits<G>`): SearchAlgorithm = verifizierter
-> Spezialfall (17 Slots, `test_genus_binding`), **Container-Gattung als 2. Instanz** (`container_anatomy.hpp`
-> `ContainerAnatomy<ContainerComposition<Q1>>`, genus()==Adapter; `test_container_genus`: FIFO-Queue real
-> getrieben put/get/size, EIGENER Container-Observer put_count/get_count/peak_occupancy, GenusBound<Adapter>==true).
-> Der EINE Experiment-Baum baut damit 2 Gattungen (Cross-Genus type-getrennt, Doku 14 §32). Folge: Container-
-> Prüf-Dock (dünner ABI-Wrapper analog SearchAlgorithmDock), q2-flush_policy als 2. Container-Slot, Graph-Gattung.
+> Spezialfall (17 Slots, `test_genus_binding`), **die Adapter-Tier-Unterklasse als 2. Instanz** (korr. 2026-06-03
+> vorher „Adapter-Gattung", s. Doc 30 §8.0 — Adapter ist eine **Tier-Unterklasse UNTER der Container-Gattung/dem
+> Container-Interface**, keine eigene Gattung) (`container_anatomy.hpp`,
+> genus()==Adapter; `test_container_genus`: real getriebener Inner-Container mit put/get/size, EIGENER
+> Adapter-Observer put_count/get_count/peak_occupancy, GenusBound<Adapter>==true).
+> ⚠️ **(korr. 2026-06-03, s. Doc 30 §8.0):** Die Adapter-Tier-Unterklasse ist eine **echte Container-Datenstruktur**
+> (`std::queue/stack/priority_queue`) = `axis_inner` (Inner-Container) + ordering/discipline (FIFO/LIFO/Priority) +
+> delegierte Standard-Achsen — sie nutzt die queuing-Achsen (q1/q2) NICHT. Die in der ursprünglichen Fassung als
+> Adapter-Instanz herangezogene `ContainerComposition<Q1>` (queuing-getrieben) war Ausdruck des Kategorienfehlers
+> (queuing ≠ Gattung); q1/q2 bleiben reguläre SearchAlgorithm-Achsen.
+> Der EINE Experiment-Baum baut damit Tier-Unterklassen unter 2 Gattungs-Interfaces (korr. 2026-06-03 vorher
+> „2 Gattungen", s. Doc 30 §8.0: SearchAlgorithm-Tier-Unterklasse unter dem SearchAlgorithm-Interface, Adapter-Tier-
+> Unterklasse unter dem Container-Interface; Cross-Genus type-getrennt, Doku 14 §32). Folge: Container-/Adapter-
+> Prüf-Dock (dünner ABI-Wrapper analog SearchAlgorithmDock), priority-Ordering als 2. Adapter-Variante, Graph-Gattung.
 
 **Konsequenz:** Alle **22** erscheinen als volle Baum-Ebene (BR-1 ✓, registry-getrieben). Die 17 SearchAlgorithm-
-Slots + die 3 Sub/Build-Achsen binden an die SearchAlgorithm-Tier-Binary; q1/q2 an eine getrennte Container-Tier-
-Binary (eigene Gattung). JEDE der 22 trägt einen eigenen Observer + eigene Definition (kein Wegschrumpfen). Die
+Slots + die 2 queuing-Achsen (q1/q2) + die 3 Build-Achsen binden alle an die SearchAlgorithm-Tier-Binary (= die
+SearchAlgorithm-Tier-Unterklasse); q1/q2
+sind reguläre SearchAlgorithm-Achsen (KEINE eigene Gattung, kein eigenes Interface — korr. 2026-06-03, s. Doc 30 §8.0). JEDE der 22 trägt
+einen eigenen Observer + eigene Definition (kein Wegschrumpfen). Die
 „17"-Stellen im Code/Doku, die `AdHocComposition`/`ObserverAggregate`/„17 Organe einer Komposition" meinen, sind
 KORREKT und bleiben; nur Bibliotheks-GESAMTZAHL-Angaben werden auf 22 korrigiert.
 
@@ -109,7 +145,10 @@ Listen (Anker: `TopicConfigSet::StaticAxisVariants_<id>` bzw. die `Enabled*` üb
 + die statische Sub-Achse cacheline (45/Organ) für die 5 betroffenen Achsen + die dynamischen Sub-Achsen
 (thread_count/hw_prefetcher) als `DynamicDim`. **Verifikation (Gate-1):** `tree.binary_count()` ==
 `PermutationEngine<…17 ConfigSets…>::count()` == `∏ mp_size(Enabled_i)` — exakte Gleichheit. Die 5 Achsen
-außerhalb werden als eigene Genus-/Sub-Achsen-Levels reflektiert (separater Teilbaum, NICHT im 17-Slot-Binary).
+außerhalb der 17 AdHoc-Slots werden als eigene Levels reflektiert (korr. 2026-06-03, s. Doc 30 §8.0): q1/q2 =
+reguläre SearchAlgorithm-Achsen (gehören zur SearchAlgorithm-Tier-Unterklasse [korr. 2026-06-03 vorher
+„SearchAlgorithm-Gattung", s. Doc 30 §8.0], KEIN getrennter Genus-Teilbaum),
+page_type/09b/12 = Build-/Codegen-Varianten derselben SearchAlgorithm-Binary.
 
 ### BR-2 — Baum ↔ AdHocComposition (Blatt → reale Komposition)
 **Neu:** `builder/experiment_tree/tree_to_anatomy_adapter.hpp` + `composition_registry.hpp`. Eine
@@ -147,12 +186,13 @@ realen Snapshot via `observe_all()`/`IObservableTier::tier_observe` und legt ihn
 > read-only via CompositionRegistry. **R5.B-Grenze EHRLICH:** `observable_axis_count` macht transparent, wie viele
 > Achsen real beobachtet sind (operativ search_algo + allocator; Rest passive Compile-Time-Deskriptoren → Default 0).
 > ✅ **BR-3-OBS-22 ERLEDIGT + VERIFIZIERT (2026-06-02, `test_br3_obs22`, Voll-22-Include, RAM-Watchdog 11.7 GB):**
-> `axis_observer_classification.hpp` klassifiziert ALLE 22 Achsen gattungs-korrekt (kein Wegschrumpfen): **17
-> SearchAlgorithmObserver** (ObserverAggregate<17>, BR-3 real) + **3 DefinitionOnly** (page_type/09b/12 = Build-
-> Konstanten → read-only Definition statt Laufzeit-Observer, EHRLICH) + **2 ContainerObserver** (queuing q1/q2 =
-> eigene Container-Gattung, eigenes Dock = Gattungs-Generik-Folgeschritt) = 22. Literal belegt gegen die ECHTEN
+> `axis_observer_classification.hpp` klassifiziert ALLE 22 Achsen (kein Wegschrumpfen): **19
+> SearchAlgorithmObserver** (die 17 ObserverAggregate<17>-Slots BR-3 real + die 2 queuing-Achsen q1/q2 als reguläre
+> SearchAlgorithm-Achsen-Observer — korr. 2026-06-03, s. Doc 30 §8.0: q1/q2 sind Organe DERSELBEN Tier-Unterklasse
+> [vorher „derselben Gattung"], KEINE Container-Gattung und keine eigene Gattung) + **3 DefinitionOnly** (page_type/09b/12 = Build-Konstanten → read-only Definition statt
+> Laufzeit-Observer, EHRLICH) = 22. Literal belegt gegen die ECHTEN
 > 22 Achsen (BR-1 `build_all_axis_levels`): jede der 22 ist observer-klassifiziert UND trägt ihre read-only
-> Definition (reale Wrapper-Namen via reflect_names); Summe 17+3+2==22 (keine doppelt/fehlend).
+> Definition (reale Wrapper-Namen via reflect_names); Summe 19+3==22 (keine doppelt/fehlend).
 
 > **AUDIT-TODO BR-3-OBS-22 (User 2026-06-02):** `ObserverAggregate<C>` (observer_aggregate.hpp) hat heute nur
 > **17 Snapshot-Slots** (= die 17 Komposition-Achsen T0..T16). Die 22-Achsen-Bindung (BR-1) braucht aber **22
@@ -162,11 +202,18 @@ realen Snapshot via `observe_all()`/`IObservableTier::tier_observe` und legt ihn
 > - **Hardware-Achsen (09b simd_extension, 12 general_hardware, sowie 09 isa):** sind reine Build-Time-Konstanten
 >   (Definition/Properties), evtl. KEIN Laufzeit-Observer → dann „Achsen-Definition statt Observer" je Knoten, aber
 >   EXPLIZIT dokumentiert (nicht implizit weggelassen).
-> - **queuing_q1/q2:** andere Gattung (Container/Queue, Doku 24 §8.8 → eigenes Prüf-Dock) → eigener Gattungs-
->   Observer-Aggregate (NICHT der SearchAlgorithm-`ObserverAggregate<17>`).
-> - **page_type/01:** nodes-Sub-Achse → entweder Teil des node-Observers oder eigener Slot.
-> Ergebnis: entweder ein erweiterter/parallel-gehaltener Observer je Gattung ODER eine dokumentierte
-> „Definition-statt-Observer"-Klassifikation je außerhalb-Achse. Bis dahin gilt zusätzlich die R5.B-Grenze
+> - **queuing_q1/q2:** reguläre, mandatorische SearchAlgorithm-Achsen (Organe DERSELBEN Tier-Unterklasse [korr.
+>   2026-06-03 vorher „derselben Gattung", s. Doc 30 §8.0]; `NoBuffer`/`NoFlush`
+>   = durchreichender Algorithmus bei nicht-pufferndem Tier) → SearchAlgorithm-Achsen-Observer; der
+>   `ObserverAggregate` wächst hier von 17 auf 19 Slots (korr. 2026-06-03, s. Doc 30 §8.0 — KEINE eigene Gattung,
+>   KEIN getrenntes Gattungs-Observer-Aggregate; die echte Adapter-Tier-Unterklasse [vorher „Adapter-Gattung";
+>   eine Tier-Unterklasse unter dem Container-Interface, keine eigene Gattung] = `std::queue/stack/priority_queue`
+>   = axis_inner + ordering, nutzt queuing NICHT).
+> - **page_type/01:** Build-Achse (Codegen-Variante der SearchAlgorithm-Binary, korr. 2026-06-03 s. Doc 30 §8.0) →
+>   entweder Teil des node-Observers oder eigener Slot bzw. „Definition-statt-Observer".
+> Ergebnis (korr. 2026-06-03, s. Doc 30 §8.0): der SearchAlgorithm-`ObserverAggregate` wird um die queuing-Achsen
+> q1/q2 auf 19 Slots erweitert (alle 19 Achsen DERSELBEN Tier-Unterklasse [vorher „derselben Gattung"]), und für die 3 Build-Achsen (page_type/09b/12) gilt eine
+> dokumentierte „Definition-statt-Observer"-Klassifikation. Bis dahin gilt zusätzlich die R5.B-Grenze
 > (Doku 21/24 §5.5: operativ misst real nur search_algo (+ allocator); die übrigen Komposition-Achsen sind
 > heute passive Compile-Time-Deskriptoren) — der „volle" 17-Observer-Snapshot ist selbst noch nicht voll
 > operativ. BR-3 muss BEIDE Grenzen (22-vs-17-Slots UND R5.B-Operativität) ehrlich abbilden.
@@ -197,13 +244,16 @@ BuildOrchestrator (KF-16) gebaut → via `AnatomyModuleLoader` geladen → `dyna
 ## 4. Vollständigkeits-Gate (Done-Bedingung, literal)
 
 1. `tree.binary_count() == PermutationEngine::count()` (exakt, über die 17 Komposition-Achsen).
-2. ALLE 22 Achsen erscheinen als Baum-Ebene mit vollem Enabled-Inventar (17 im SearchAlgorithm-Teilbaum +
-   5 in separaten Genus-/Sub-Achsen-Teilbäumen).
+2. ALLE 22 Achsen erscheinen als Baum-Ebene mit vollem Enabled-Inventar: 19 SearchAlgorithm-Achsen (17 AdHoc-Slots
+   + queuing q1/q2 als reguläre Achsen DERSELBEN Tier-Unterklasse [korr. 2026-06-03 vorher „derselben Gattung", s.
+   Doc 30 §8.0]) + 3 Build-Achsen (page_type/09b/12) als Codegen-Varianten
+   derselben SearchAlgorithm-Binary — KEIN getrennter Genus-Teilbaum für queuing (korr. 2026-06-03, s. Doc 30 §8.0).
 3. Jedes statische Blatt → reale `AdHocComposition`, als Tier-Binary baubar (BR-4).
 4. Jeder gemessene Knoten → realer `ObserverAggregate`-Snapshot + Achsen-Definition (BR-3). **22 Observer-
-   Strukturen, NICHT 17** (Audit-TODO BR-3-OBS-22, §3): die 5 außerhalb-Achsen (page_type/09b/12/q1/q2)
-   brauchen eigene Observer bzw. eine bewusst dokumentierte „Definition-statt-Observer"-Klassifikation —
-   keine stillschweigende Reduktion auf die 17 Komposition-Slots.
+   Strukturen, NICHT 17** (Audit-TODO BR-3-OBS-22, §3, korr. 2026-06-03, s. Doc 30 §8.0): die queuing-Achsen q1/q2
+   sind reguläre SearchAlgorithm-Achsen (Organe DERSELBEN Tier-Unterklasse) und erweitern den `ObserverAggregate`
+   von 17 auf 19 Slots (KEINE eigene Gattung, kein eigenes Interface); die 3 Build-Achsen (page_type/09b/12) tragen eine bewusst dokumentierte „Definition-statt-Observer"-
+   Klassifikation — keine stillschweigende Reduktion auf die 17 Komposition-Slots.
 5. Inverse Signatur-Projektion (KF-15) über die REALEN Kompositionen. ✅ **VERIFIZIERT (2026-06-02,
    `test_br_kf15_real`):** Baum aus ECHTEN Enabled-Listen (search_algo gepinnt = Paper-Signatur + 3 freigegebene
    Achsen → 8 Blätter); `ReadOnlyResultView` projiziert alle 8 realen Komposition-Pfade auf die gepinnte
@@ -213,7 +263,9 @@ BuildOrchestrator (KF-16) gebaut → via `AnatomyModuleLoader` geladen → `dyna
    (2026-06-02):** finaler Audit `docs/sessions/20260602-experiment-baum-4-bruecken-final-audit.md` konsolidiert
    die literalen Test-Belege + Commit-Refs aller 6 Gates. **Alle 6 Gates literal grün** (Gate-1 Gleichheit
    `binary_count==∏ mp_size==137.594.142.720.000` belegt). Verbleibend (NICHT in den 6 Gates): Gattungs-Generik
-   (Container-Bau-Brücke q1/q2) + #73 provision_all-Batching.
+   (Bau-Brücke der echten Adapter-Tier-Unterklasse [korr. 2026-06-03 vorher „Adapter-Gattung" — Tier-Unterklasse
+   unter dem Container-Interface, s. Doc 30 §8.0] = `std::queue/stack/priority_queue` via axis_inner + ordering — NICHT
+   queuing-getrieben) + #73 provision_all-Batching.
 
 ## 5. Reihenfolge + Risiken
 
