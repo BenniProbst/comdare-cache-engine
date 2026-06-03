@@ -20,8 +20,9 @@ namespace comdare::cache_engine::anatomy {
 /// ContainerAbiAdapter<A> — generischer Runtime-ABI-Adapter für die Container-Gattung (Adapter in Tier-Metapher).
 /// Vorbedingung: A erfüllt AnatomyConcept UND A::genus() == AnatomyGenus::Adapter (Compile-Zeit-Validierung).
 ///
-/// Der Adapter konstruiert die Container-Anatomie mit kCapacity > 0 → die Q2-Flush-Policy ist über die DLL-Grenze
-/// AKTIV (z.B. WatermarkFlush 75%); eine NoFlush-Komposition flusht trotzdem nie (policy-bestimmt, nicht cap).
+/// #87+#90 (2026-06-03, Doku 14 §28): die Adapter-Tier-Unterklasse hat 13 Achsen (12 geteilt/delegiert +
+/// inner_container), KEINE „ordering"-Achse. Der Adapter treibt put/get über die DLL-Grenze; get() == FIFO-
+/// Default (pop_front), die Disziplin FIFO/LIFO ist API-Nutzung (§26.4). Ein Adapter ist unbeschränkt.
 template <AnatomyConcept A>
 class ContainerAbiAdapter final : public IAnatomyBase, public IContainerTier {
     static_assert(A::genus() == AnatomyGenus::Adapter,
@@ -30,8 +31,6 @@ class ContainerAbiAdapter final : public IAnatomyBase, public IContainerTier {
 
 public:
     using element_type = typename A::element_type;
-    /// Flush-Bezugsgröße der eingebauten Q2-Policy über die DLL-Grenze (Watermark 75% → Flush bei ~12 von 16).
-    static constexpr std::size_t kCapacity = 16;
 
     // ── IExecutionEngine-Pflicht (Wurzel-Schicht; engine_kind() ist in IAnatomyBase final = Anatomy) ──
     [[nodiscard]] std::string_view engine_name() const noexcept override { return A::composition_name(); }
@@ -69,19 +68,18 @@ public:
         if (out == nullptr) return;
         ContainerObserverSnapshot const s = anatomy_.observe_all();
         ContainerObserverSnapshotV1 v{};
-        v.put_count                 = s.put_count;
-        v.get_count                 = s.get_count;
-        v.current_occupancy         = s.current_occupancy;
-        v.peak_occupancy            = s.peak_occupancy;
-        v.flush_decisions_evaluated = s.flush_decisions_evaluated;
-        v.full_flush_count          = s.full_flush_count;
-        v.flush_complete_count      = s.flush_complete_count;
-        v.organ_count               = A::organ_count();
+        v.push_count        = s.push_count;
+        v.pop_count         = s.pop_count;
+        v.front_reads       = s.front_reads;
+        v.back_reads        = s.back_reads;
+        v.current_occupancy = s.current_occupancy;
+        v.peak_occupancy    = s.peak_occupancy;
+        v.organ_count       = A::organ_count();     // 13 (12 geteilt/delegiert + inner_container)
         *out = v;
     }
 
 private:
-    A anatomy_{kCapacity};   // capacity > 0 → Q2-Flush-Policy über die DLL-Grenze aktiv
+    A anatomy_{};   // unbeschränkter Container-Adapter (13 Achsen, inner_container real getrieben; kein Capacity/Flush)
     ::comdare::cache_engine::execution_engine::EngineLifecycleState state_{
         ::comdare::cache_engine::execution_engine::EngineLifecycleState::Uninitialized};
 };

@@ -4,7 +4,7 @@
 // was eine Permutation in eine baubare Tier-Binary verwandelt, war bisher auf SearchAlgorithm (AdHocComposition
 // <17>) hartcodiert. Dieses Traits hebt die Bindung auf eine pro-Gattung-Spezialisierung: jede Gattung deklariert
 // ihre Slot-Zahl, Achsen-Namen, Composition-/Anatomie-Bindung. SearchAlgorithm ist der VERIFIZIERTE Spezialfall
-// (BR-2/BR-3/BR-4); weitere Gattungen (Container/queuing als Adapter/Sequence, Graph) docken als 2. Instanz an,
+// (BR-2/BR-3/BR-4); weitere Gattungen (Container=axis_inner+ordering als Adapter; Set/Sequence/View; Graph) docken an,
 // sobald ihre Komposition/Anatomie existiert (Cross-Genus type-unmöglich, Doku 14 §32 — daher GETRENNTE Traits).
 // C++23, header-only.
 
@@ -48,22 +48,30 @@ struct GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm> {
     }
 };
 
-/// Adapter (Container/Queue) — die 2. Gattungs-Instanz (queuing q1/q2). D4/L-75: 2 Slots — Q1 (buffer_strategy)
-/// + Q2 (flush_policy). EIGENE Komposition/Anatomie + eigener Container-Observer (Cross-Genus type-unmöglich →
-/// getrennt von SearchAlgorithm). Belegt: der EINE Baum bindet auch die Mehr-Achsen-Container-Gattung.
+/// Adapter — Tier-Unterklasse der CONTAINER-Gattung (std::stack/queue/priority_queue), #87+#90 / Doku 14 §28.
+/// 13 Achsen = 12 geteilt/delegiert (§28 Invertebrate) + inner_container (NEU axis_inner, spezifisch). KEINE
+/// „ordering"-Achse (§28 kennt keine; frühere inner+ordering-Version war geraten + verworfen). Gebaut analog
+/// SequenceComposition. name = Tier-Unterklasse "Adapter" (konsistent mit Set/Sequence/View); Gattung = Container
+/// (cea::gattung_of(Adapter)). Cross-Genus type-unmöglich → getrennte Komposition/Anatomie/Observer.
 template <>
 struct GenusBindingTraits<cea::AnatomyGenus::Adapter> {
-    static constexpr cea::AnatomyGenus genus = cea::AnatomyGenus::Adapter;
-    static constexpr std::size_t       slot_count = 2;   // Q1 buffer_strategy + Q2 flush_policy
-    static constexpr std::string_view  name = "Container";
+    static constexpr cea::AnatomyGenus   genus   = cea::AnatomyGenus::Adapter;            // Tier-Unterklasse (Ebene 2)
+    static constexpr cea::AnatomyGattung gattung = cea::AnatomyGattung::Container;         // Außen-Interface (Ebene 1)
+    static constexpr std::size_t         slot_count = 13;   // 12 geteilt/delegiert + inner_container
+    static constexpr std::string_view    name = "Adapter";
 
-    /// 2-Slot-Komposition (Q2 defaultet auf ContainerNoFlushPolicy → 1-arg-Aufrufe bleiben gültig).
-    template <class Q1Buffer, class Q2Flush = cea::ContainerNoFlushPolicy>
-    using CompositionFor = cea::ContainerComposition<Q1Buffer, Q2Flush>;
+    /// 12 geteilte/delegierte (§28) + inner_container (Inner defaultet auf DequeInner → stack/queue-Default, §26.4).
+    template <class T0, class T1, class T2, class T3, class T4, class T5,
+              class T6, class T7, class T8, class T9, class T10, class T11,
+              class Inner = cea::DequeInner<>>
+    using CompositionFor = cea::ContainerComposition<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, Inner>;
     template <class Comp> using AnatomyFor = cea::ContainerAnatomy<Comp>;
 
-    [[nodiscard]] static constexpr std::array<std::string_view, 2> const& axis_names() noexcept {
-        static constexpr std::array<std::string_view, 2> kNames = {"queuing_q1", "queuing_q2"};
+    [[nodiscard]] static constexpr std::array<std::string_view, 13> const& axis_names() noexcept {
+        static constexpr std::array<std::string_view, 13> kNames = {
+            "search_algo", "cache_traversal", "memory_layout", "allocator", "prefetch", "concurrency",
+            "serialization", "telemetry", "value_handle", "isa", "io_dispatch", "migration_policy",
+            "inner_container"};
         return kNames;
     }
 };

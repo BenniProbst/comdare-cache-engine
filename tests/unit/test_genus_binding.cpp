@@ -38,7 +38,8 @@ int main() {
     check_true("GenusBound<SearchAlgorithm> == true (verifizierte Bau-Brücke)", ex::GenusBound<cea::AnatomyGenus::SearchAlgorithm>);
     // KORREKTUR 2026-06-02 (Audit aa02ec9): Adapter ist seit Schritt 3 (GenusBindingTraits<Adapter>) GEBUNDEN.
     // Die frühere Assert „Adapter==false" war nach dem Hinzufügen der Spezialisierung stale → jetzt korrekt true.
-    check_true("GenusBound<Adapter> == true (Container/queuing seit Schritt 3 gebunden)", ex::GenusBound<cea::AnatomyGenus::Adapter>);
+    // #87+#90 (2026-06-03): Adapter = Tier-Unterklasse der Container-Gattung (13 Achsen: 12 geteilt/delegiert + inner_container, §28), KEIN queuing, KEINE ordering-Achse.
+    check_true("GenusBound<Adapter> == true (Container-Gattung seit Schritt 3 gebunden)", ex::GenusBound<cea::AnatomyGenus::Adapter>);
     // D9 (2026-06-02): Set ist jetzt GEBUNDEN (GenusBindingTraits<Set>, 15 Achsen) — frühere Assert „Set==false" stale.
     check_true("GenusBound<Set> == true (Set-Gattung seit D9 gebunden, 15 Achsen)", ex::GenusBound<cea::AnatomyGenus::Set>);
     check_eq("GenusBindingTraits<Set>::slot_count == 15", ex::GenusBindingTraits<cea::AnatomyGenus::Set>::slot_count, std::size_t{15});

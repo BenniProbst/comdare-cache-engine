@@ -2,12 +2,15 @@
 // Verifiziert die ABI-Adapter-Header (container_tier + container_abi_adapter + container_module_abi_v1-Bausteine)
 // OHNE DLL-Komplexität; der echte .dll-Round-Trip folgt in D4b.2 (test_d4b_container_dll via AnatomyModuleLoader).
 //
+// #87+#90 (2026-06-03, Doku 14 §28): die Adapter-Tier-Unterklasse hat 13 Achsen (12 geteilt/delegiert +
+// inner_container), KEINE „ordering"-Achse. Hier: DequeInner (queue-Default, FIFO via get/pop_front); die 12
+// geteilten sind im in-process-Test Platzhalter (DelegatedAxis). Ein Adapter ist unbeschränkt (kein Capacity/Flush).
+//
 // Build: cl /std:c++latest /EHsc /I libs/cache_engine /I libs/cache_engine/src /I build/generated /I <boost> ...
 
 #include "anatomy/container_abi_adapter.hpp"
 #include "anatomy/container_tier.hpp"
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_registry.hpp>
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_registry.hpp>
+#include "anatomy/container_anatomy.hpp"
 
 #include <cstdint>
 #include <iostream>
@@ -15,8 +18,10 @@
 
 namespace cea = comdare::cache_engine::anatomy;
 namespace eng = comdare::cache_engine::execution_engine;
-namespace q1  = comdare::cache_engine::queuing::axis_q1_queuing;
-namespace q2  = comdare::cache_engine::queuing::axis_q2_queuing;
+
+// Platzhalter für die 12 geteilten/delegierten §28-Achsen (analog test_container_genus.cpp); die Anatomie
+// treibt NUR die spezifische Achse inner_container real, die geteilten werden im Komposition-Typ getragen.
+struct DelegatedAxis {};
 
 static int g_fail = 0;
 static void check(bool cond, std::string const& msg) {
@@ -25,15 +30,16 @@ static void check(bool cond, std::string const& msg) {
 }
 
 int main() {
-    using Comp = cea::ContainerComposition<q1::FIFOQueueBuffer, q2::WatermarkFlush>;
+    using D    = DelegatedAxis;
+    using Comp = cea::ContainerComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>;  // 12 + inner
     using Anat = cea::ContainerAnatomy<Comp>;
-    cea::ContainerAbiAdapter<Anat> adapter;   // kCapacity=16 → Watermark 75% aktiv über die Adapter-Grenze
+    cea::ContainerAbiAdapter<Anat> adapter;   // unbeschränkter Container-Adapter (13 Achsen)
 
     std::cout << "==== D4b.1 ContainerAbiAdapter über IAnatomyBase ====\n";
     cea::IAnatomyBase* base = &adapter;
     check(base->genus() == cea::AnatomyGenus::Adapter, "genus() == Adapter");
     check(base->engine_kind() == eng::ExecutionEngineKind::Anatomy, "engine_kind() == Anatomy");
-    check(base->organ_count() == 2, "organ_count() == 2 (buffer + flush)");
+    check(base->organ_count() == 13, "organ_count() == 13 (§28: 12 geteilt/delegiert + inner_container)");
     check(std::string{base->composition_name()} == "ContainerComposition", "composition_name == ContainerComposition");
     base->warm_up(); base->run();
     check(base->lifecycle_state() == eng::EngineLifecycleState::Running, "lifecycle: warm_up→run → Running");
@@ -42,18 +48,21 @@ int main() {
     auto* ct = dynamic_cast<cea::IContainerTier*>(base);
     check(ct != nullptr, "dynamic_cast<IContainerTier*> != null (Container-Sub-Interface vorhanden)");
     if (ct != nullptr) {
-        for (std::uint64_t i = 0; i < 20; ++i) ct->tier_put(i);   // cap 16 → flush bei fill>=12
+        for (std::uint64_t i = 0; i < 20; ++i) ct->tier_put(i);   // unbeschränkt → alle 20 verbleiben
         cea::ContainerObserverSnapshotV1 obs{};
         ct->tier_observe_container(&obs);
-        check(obs.put_count == 20, "tier_observe_container: put_count == 20 (über Interface getrieben)");
-        check(obs.organ_count == 2, "tier_observe_container: organ_count == 2");
-        check(obs.flush_decisions_evaluated == 20, "tier_observe_container: flush_decisions_evaluated == 20");
-        check(obs.full_flush_count > 0, "tier_observe_container: full_flush_count > 0 (Q2 Watermark spülte über ABI)");
-        check(ct->tier_size() < 12, "tier_size() < 12 nach Spülungen");
+        check(obs.push_count == 20, "tier_observe_container: push_count == 20 (über Interface getrieben)");
+        check(obs.organ_count == 13, "tier_observe_container: organ_count == 13");
+        check(obs.peak_occupancy == 20, "tier_observe_container: peak_occupancy == 20 (unbeschränkter Adapter)");
+        check(ct->tier_size() == 20, "tier_size() == 20 (kein Flush — Container-Adapter unbeschränkt)");
         std::uint64_t out = 999;
-        // nach Spülungen ist evtl. etwas im Buffer (puts 12..19 → 8 Elemente, minus Spülung bei 12...)
         bool const got = ct->tier_get(&out);
-        check(got || ct->tier_size() == 0, "tier_get() konsistent mit tier_size()");
+        check(got, "tier_get() liefert ein Element (FIFO)");
+        check(out == 0, "FIFO: tier_get() liefert das vorderste Element (0)");
+        ct->tier_observe_container(&obs);
+        check(obs.pop_count == 1, "tier_observe_container: pop_count == 1 nach einem get");
+        check(obs.front_reads == 1, "tier_observe_container: front_reads == 1 (ein get == pop_front)");
+        check(obs.back_reads == 0, "tier_observe_container: back_reads == 0 (kein pop_back/top)");
         ct->tier_clear();
         check(ct->tier_size() == 0, "tier_clear() → tier_size() == 0");
     }
