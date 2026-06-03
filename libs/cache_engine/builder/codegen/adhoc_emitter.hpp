@@ -17,8 +17,9 @@
 
 namespace comdare::cache_engine::builder::codegen {
 
-/// adhoc_macro_args<C>() — die 17 FQ-Achsen-Typ-Namen einer Composition C als Komma-getrennter Block
-/// (Argument für COMDARE_DEFINE_ANATOMY_MODULE_ADHOC). Reihenfolge = AdHocComposition<T0..T16>.
+/// adhoc_macro_args<C>() — die 19 FQ-Achsen-Typ-Namen einer Composition C als Komma-getrennter Block
+/// (Argument für COMDARE_DEFINE_ANATOMY_MODULE_ADHOC). Reihenfolge = AdHocComposition<T0..T18>
+/// (17 Such-Achsen + queuing q1/q2, Doc 30 §8.0).
 template <class C>
 [[nodiscard]] std::string adhoc_macro_args() {
     std::string s;
@@ -40,6 +41,8 @@ template <class C>
     add(type_name<typename C::io_dispatch>());
     add(type_name<typename C::migration_policy>());
     add(type_name<typename C::filter>());
+    add(type_name<typename C::queuing_q1>());   // Doc 30 §8.0: queuing q1 (buffer_strategy)
+    add(type_name<typename C::queuing_q2>());   // Doc 30 §8.0: queuing q2 (flush_policy)
     return s;
 }
 

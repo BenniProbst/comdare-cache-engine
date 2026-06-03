@@ -1,5 +1,5 @@
 // L-74a — ADHOC-BUILDVARIANT-DLL: EINE DLL trägt SOWOHL die 17-Slot-SearchAlgorithm-Anatomie (4 ABI-Symbole,
-// genus()==SearchAlgorithm, organ_count()==17) ALS AUCH die Build-Identität der 3 Build-Achsen (page_type/09b/12)
+// genus()==SearchAlgorithm, organ_count()==19, Doc 30 §8.0) ALS AUCH die Build-Identität der 3 Build-Achsen (page_type/09b/12)
 // als extern-"C"-Inspection-Symbol. Beweist Doc 27 §0.1: die 3 Build-Achsen sind Build-Parameter DERSELBEN
 // 17-Slot-Binary (Sub/Build-Varianten DESSELBEN Algorithmus), NICHT eine eigene Gattung (KEINE AdHocComposition<20>).
 //
@@ -11,6 +11,9 @@
 #include <topics/nodes/axis_01_page_type/axis_01_page_type_dense_byte.hpp>          // PT
 #include <topics/hardware/axis_09b_simd_extension/axis_09b_simd_extension_avx512.hpp> // SE
 #include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_x86_64.hpp> // HW
+// Doc 30 §8.0: queuing q1/q2 als reguläre SA-Achsen T17/T18 — Durchreich-Defaults NoBuffer/LazyFlush.
+#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
+#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
 
 COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(
     // ── die 3 Build-Achsen ZUERST (named PT, SE, HW) ──
@@ -34,4 +37,7 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(
     ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization,
     ::comdare::cache_engine::io::axis_io::InMemoryOnly,
     ::comdare::cache_engine::migration::axis_migration::NoMigration,
-    ::comdare::cache_engine::filter::axis_filter::BloomFilter)
+    ::comdare::cache_engine::filter::axis_filter::BloomFilter,
+    // ── T17/T18 queuing (Doc 30 §8.0): explizit gewählter Durchreich-Algorithmus (kein „weglassen") ──
+    ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer,
+    ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush)

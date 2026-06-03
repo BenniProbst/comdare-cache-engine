@@ -23,6 +23,7 @@
 #include <topics/io/topic_io_config_set.hpp>
 #include <topics/migration/topic_migration_config_set.hpp>
 #include <topics/filter/topic_filter_config_set.hpp>
+#include <topics/queuing/topic_queuing_config_set.hpp>   // queuing q1/q2 (Doc 30 §8.0: SA-Achsen T17/T18)
 
 #include <boost/mp11.hpp>
 #include <fstream>
@@ -54,10 +55,13 @@ using L13 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants,
 using L14 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;
 using L15 = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;
 using L16 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;
+using L17 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>;   // queuing_q1 (Doc 30 §8.0)
+using L18 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>;   // queuing_q2 (Doc 30 §8.0)
 using PilotEngine = perm::PermutationEngine<
     PilotCfg<L0>,  PilotCfg<L1>,  PilotCfg<L2>,  PilotCfg<L3>,  PilotCfg<L4>,  PilotCfg<L5>,
     PilotCfg<L6>,  PilotCfg<L7>,  PilotCfg<L8>,  PilotCfg<L9>,  PilotCfg<L10>, PilotCfg<L11>,
-    PilotCfg<L12>, PilotCfg<L13>, PilotCfg<L14>, PilotCfg<L15>, PilotCfg<L16>>;
+    PilotCfg<L12>, PilotCfg<L13>, PilotCfg<L14>, PilotCfg<L15>, PilotCfg<L16>,
+    PilotCfg<L17>, PilotCfg<L18>>;
 
 int main(int argc, char** argv) {
     if (argc < 3) { std::cerr << "usage: br4_emit <out_perm.cpp> <out_path.txt>\n"; return 2; }

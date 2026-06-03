@@ -57,14 +57,14 @@ TEST(R5B_ExecutionContext, CompositionInspectionDurchgereicht) {
     using Ctx = bcmd::AnatomyExecutionContext<ce_compos::ArtComposition>;
     static_assert(Ctx::composition_name() == std::string_view{"ArtComposition"});
     static_assert(Ctx::paper_id().starts_with("P01"));
-    static_assert(Ctx::organ_count() == 17);
+    static_assert(Ctx::organ_count() == 19);
     SUCCEED();
 }
 
 TEST(R5B_ExecutionContext, ObserveAllDelegatesToAnatomy) {
     bcmd::AnatomyExecutionContext<ce_compos::HotComposition> ctx;
     auto agg = ctx.observe_all();
-    static_assert(decltype(agg)::total_slots() == 17);
+    static_assert(decltype(agg)::total_slots() == 19);
     SUCCEED();
 }
 
@@ -120,7 +120,7 @@ TEST(R5B_Commands, AnatomyObserveCommandSnapshot) {
     bcmd::AnatomyObserveCommand<ce_compos::ArtComposition> obs(ctx);
     EXPECT_EQ(obs.execute(), 0);
     auto const& snap = obs.last_snapshot();
-    static_assert(std::remove_cvref_t<decltype(snap)>::total_slots() == 17);
+    static_assert(std::remove_cvref_t<decltype(snap)>::total_slots() == 19);
     SUCCEED();
 }
 
@@ -173,7 +173,7 @@ TYPED_TEST(CompositionContextRoundtrip, FullInsertLookupEraseClearViaCommands) {
     // Observe via Command (R5.A Snapshot)
     bcmd::AnatomyObserveCommand<TypeParam> obs(ctx);
     EXPECT_EQ(obs.execute(), 0);
-    static_assert(std::remove_cvref_t<decltype(obs.last_snapshot())>::total_slots() == 17);
+    static_assert(std::remove_cvref_t<decltype(obs.last_snapshot())>::total_slots() == 19);
 
     // Clear via Command
     bcmd::AnatomyClearCommand<TypeParam> cl(ctx);
@@ -263,9 +263,9 @@ TEST(R5B_ObserveMultiAxes, SearchAlgoAndAllocatorBothDrivenFromOneWorkload) {
     // Zwei verschiedene Snapshot-Typen gleichzeitig aus EINEM observe_all().
     static_assert(!std::is_same_v<decltype(agg.search_algo), decltype(agg.allocator)>);
 
-    // >= 2 observable Achsen (search_algo + allocator); <= 17 gesamt.
+    // >= 2 observable Achsen (search_algo + allocator); <= 19 gesamt (Doc 30 §8.0).
     EXPECT_GE(decltype(agg)::observable_count(), 2u);
-    EXPECT_LE(decltype(agg)::observable_count(), 17u);
+    EXPECT_LE(decltype(agg)::observable_count(), 19u);
 
     // Idempotenz: observe_all ohne State-Aenderung liefert identische Zaehler (reiner Snapshot-Read).
     auto const agg2 = ctx.observe_all();

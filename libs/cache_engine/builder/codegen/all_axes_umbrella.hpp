@@ -1,15 +1,16 @@
 #pragma once
-// V41.F.6.1 R5.G — Umbrella-Header: bündelt ALLE 17 Anatomie-Achsen-Registries (+ Varianten) + die
+// V41.F.6.1 R5.G — Umbrella-Header: bündelt ALLE 19 Anatomie-Achsen-Registries (+ Varianten) + die
 // AdHoc-Composition + das ADHOC-Materialisierungs-Makro in EINEM Include.
 //
 // Zweck (Auto-Emitter-Plumbing): ein vom Auto-Emitter generiertes Permutations-Modul-.cpp muss alle
 // Achsen-Vendor-Typen JEDER Permutation auflösen können. Statt pro Modul die spezifischen Achsen-Header
-// zu kennen, inkludiert es nur diesen Umbrella-Header + ruft COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<17
+// zu kennen, inkludiert es nur diesen Umbrella-Header + ruft COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<19
 // FQ-Typ-Namen>) auf (die der Emitter via type_name<T>() aus for_each_composition_type ableitet).
 //
-// Reihenfolge der 17 Achsen (= AdHocComposition<T0..T16>): search_algo, cache_traversal, mapping,
-// path_compression, node_type, memory_layout, allocator, prefetch, concurrency, serialization,
-// telemetry, value_handle, isa, index_organization, io_dispatch, migration_policy, filter.
+// Reihenfolge der 19 Achsen (= AdHocComposition<T0..T18>, Doc 30 §8.0): search_algo, cache_traversal,
+// mapping, path_compression, node_type, memory_layout, allocator, prefetch, concurrency, serialization,
+// telemetry, value_handle, isa, index_organization, io_dispatch, migration_policy, filter,
+// queuing_q1 (buffer_strategy), queuing_q2 (flush_policy).
 
 // Materialisierungs-Makro + AdHocComposition
 #include <cache_engine/abi/anatomy_module_abi_v1.hpp>
@@ -33,3 +34,7 @@
 #include <topics/io/axis_io/axis_io_registry.hpp>                                           // T14 io_dispatch
 #include <topics/migration/axis_migration/axis_migration_registry.hpp>                      // T15 migration_policy
 #include <topics/filter/axis_filter/axis_filter_registry.hpp>                               // T16 filter
+// Doc 30 §8.0: queuing als reguläre SA-Achse (q1 buffer_strategy / q2 flush_policy). Die Registries ziehen
+// alle Varianten inkl. der Durchreich-Defaults NoBuffer (q1) / LazyFlush (q2), die ein nicht-pufferndes Tier wählt.
+#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_registry.hpp>                       // T17 queuing_q1
+#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_registry.hpp>                       // T18 queuing_q2

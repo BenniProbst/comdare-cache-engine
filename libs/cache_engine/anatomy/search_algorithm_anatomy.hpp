@@ -21,9 +21,9 @@ namespace comdare::cache_engine::anatomy {
 
 /// SearchAlgorithmAnatomy — zentrale Anatomie-Klasse fuer ALLE Suchalgorithmen.
 ///
-/// Template-Parameter Composition liefert die 17 Achsen-Auspraegungen. Konkrete
-/// Algorithmen (ART/HOT/Wormhole/SuRF/Masstree/START) sind reine Template-
-/// Instantiationen — siehe `anatomy::Art`, `anatomy::Hot` etc. unten.
+/// Template-Parameter Composition liefert die 19 Achsen-Auspraegungen (17 Such-Achsen
+/// + queuing q1/q2, Doc 30 §8.0). Konkrete Algorithmen (ART/HOT/Wormhole/SuRF/Masstree/
+/// START) sind reine Template-Instantiationen — siehe `anatomy::Art`, `anatomy::Hot` etc. unten.
 ///
 /// Phase R3 (Pilot): interner std::map<uint64_t,uint64_t> als Container.
 /// Phase R4+: Container wird durch Composition::node_type + Composition::allocator

@@ -1,8 +1,9 @@
 #pragma once
-// V41.F.6.1.R5.A — ObserverAggregate<Composition> (ABI-stabiler 17-Achsen-Snapshot)
+// V41.F.6.1.R5.A — ObserverAggregate<Composition> (ABI-stabiler 19-Achsen-Snapshot)
 //
-// Pro Composition wird ein POD-Struct definiert, der 17 Achsen-Snapshots
-// (einer pro Achse) sammelt. ABI-stabil durch standard_layout + trivially_copyable.
+// Pro Composition wird ein POD-Struct definiert, der 19 Achsen-Snapshots
+// (einer pro Achse) sammelt — 17 Such-Achsen + queuing q1/q2 (Doc 30 §8.0).
+// ABI-stabil durch standard_layout + trivially_copyable.
 // Achsen ohne statistics() liefern EmptyAxisSnapshot (= leerer POD).
 //
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §17.2 + §20
@@ -77,7 +78,7 @@ template <class A>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ObserverAggregate<Composition> — 17 named Snapshot-Members
+// ObserverAggregate<Composition> — 19 named Snapshot-Members (17 + queuing q1/q2)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// ObserverAggregate ist ABI-stabiler Snapshot-Container pro Composition.
@@ -110,6 +111,10 @@ struct ObserverAggregate {
     snapshot_of_t<typename Composition::io_dispatch>        io_dispatch;
     snapshot_of_t<typename Composition::migration_policy>   migration_policy;
     snapshot_of_t<typename Composition::filter>             filter;
+    // Doc 30 §8.0: queuing q1/q2 als reguläre SA-Achsen (BufferStatistics / FlushPolicyStatistics
+    // bei COMDARE_CE_ENABLE_STATISTICS; sonst EmptyAxisSnapshot via snapshot_of_t — wie alle anderen).
+    snapshot_of_t<typename Composition::queuing_q1>         queuing_q1;
+    snapshot_of_t<typename Composition::queuing_q2>         queuing_q2;
 
     /// Anzahl der "echten" (nicht-Empty) Snapshots — Diagnose fuer Mess-Treiber.
     [[nodiscard]] static constexpr std::size_t observable_count() noexcept {
@@ -131,11 +136,13 @@ struct ObserverAggregate {
         if constexpr (ObservableAxis<typename Composition::io_dispatch>)        ++n;
         if constexpr (ObservableAxis<typename Composition::migration_policy>)   ++n;
         if constexpr (ObservableAxis<typename Composition::filter>)             ++n;
+        if constexpr (ObservableAxis<typename Composition::queuing_q1>)         ++n;
+        if constexpr (ObservableAxis<typename Composition::queuing_q2>)         ++n;
         return n;
     }
 
-    /// Total Achsen-Slot-Anzahl (Pflicht: 17 fuer Vollausbau)
-    [[nodiscard]] static constexpr std::size_t total_slots() noexcept { return 17; }
+    /// Total Achsen-Slot-Anzahl (Pflicht: 19 fuer Vollausbau — 17 Such-Achsen + queuing q1/q2, Doc 30 §8.0)
+    [[nodiscard]] static constexpr std::size_t total_slots() noexcept { return 19; }
 };
 
 }  // namespace comdare::cache_engine::anatomy

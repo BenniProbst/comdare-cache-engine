@@ -36,7 +36,7 @@ TEST(R5G_AdHocDllLoad, AutoEmittedAdHocPermutationLoadsAsDllAndRuns) {
     auto* a = handles[0].anatomy();
     ASSERT_NE(a, nullptr);
     EXPECT_EQ(a->composition_name(), std::string_view{"AdHocComposition"});  // auto-enumerierte Komposition
-    EXPECT_EQ(a->organ_count(), 17u);
+    EXPECT_EQ(a->organ_count(), 19u);
     EXPECT_EQ(a->genus(), ana::AnatomyGenus::SearchAlgorithm);
 
     // Mess-Last (Stufe B) läuft auch in der auto-emittierten DLL.

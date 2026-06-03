@@ -526,6 +526,13 @@ private:
     mutable typename Composition::memory_layout ml_organ_;
     mutable typename Composition::serialization ser_organ_;
     mutable typename Composition::node_type     node_organ_;
+    // Doc 30 §8.0: queuing q1/q2 als reguläre SA-Achsen — in JEDEM Tier-Binary PRÄSENT (mindestens
+    // instanziiert, damit das Achsen-Interface uniform vorhanden ist). Default-konstruiert; das Treiben/
+    // Observieren (put/get bzw. should_flush in tier_insert/observe) ist ein Folge-Inkrement (Doc 30 §8.2).
+    // mutable: ein späteres Mit-Treiben im const tier_lookup/observe bleibt logisch nicht-const (analog
+    // telemetry_organ_/ml_organ_). MUSS für die 19-Slot-Composition kompilieren.
+    mutable typename Composition::queuing_q1    queuing_q1_organ_;
+    mutable typename Composition::queuing_q2    queuing_q2_organ_;
     // KF-4/L-MEAS: zuletzt angewandte Resource-Control (IMMER, auch Messung-aus) — vom RuntimeVariableLoop je dyn.
     // Einstellung gesetzt. Reiner Steuer-Zustand (quert die ABI nicht; der Host liest die Wirkung über den Observer).
     ComdareResourceControlV1 applied_rc_{};

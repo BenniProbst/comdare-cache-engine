@@ -49,13 +49,15 @@ int main() {
 
     check_eq("JEDE der 22 Achsen ist observer-klassifiziert (kein Wegschrumpfen)", classified, std::size_t{22});
     check_eq("JEDE der 22 Achsen trägt eine read-only Definition (values>0)", with_def, std::size_t{22});
-    check_eq("17 SearchAlgorithmObserver (ObserverAggregate<17>, BR-3)", sa, std::size_t{17});
+    // korr. 2026-06-03 (Doc 30 §8.0): queuing q1/q2 sind SA-Tier-Unterklasse-Achsen (Slots T17/T18) → 19/3/0=22,
+    // KEINE Container-Gattung. ContainerObserver ist reserviert für die echte Container-Gattung (#87) → aktuell 0.
+    check_eq("19 SearchAlgorithmObserver (ObserverAggregate<19>, inkl. queuing q1/q2)", sa, std::size_t{19});
     check_eq("3 DefinitionOnly (page_type/09b/12 = Build-Konstanten)", def_only, std::size_t{3});
-    check_eq("2 ContainerObserver (queuing q1/q2 = eigene Gattung)", cont, std::size_t{2});
+    check_eq("0 ContainerObserver (queuing→SA; ContainerObserver reserviert für echte Container-Gattung #87)", cont, std::size_t{0});
     // Konsistenz der constexpr-Klassifikation selbst:
-    check_eq("constexpr: 17 SearchAlgorithmObserver", ex::count_observer_kind(ex::AxisObserverKind::SearchAlgorithmObserver), std::size_t{17});
+    check_eq("constexpr: 19 SearchAlgorithmObserver", ex::count_observer_kind(ex::AxisObserverKind::SearchAlgorithmObserver), std::size_t{19});
     check_eq("constexpr: 3 DefinitionOnly", ex::count_observer_kind(ex::AxisObserverKind::DefinitionOnly), std::size_t{3});
-    check_eq("constexpr: 2 ContainerObserver", ex::count_observer_kind(ex::AxisObserverKind::ContainerObserver), std::size_t{2});
+    check_eq("constexpr: 0 ContainerObserver", ex::count_observer_kind(ex::AxisObserverKind::ContainerObserver), std::size_t{0});
     check_true("Summe == 22 (alle Achsen abgedeckt, keine doppelt/fehlend)", sa + def_only + cont == 22);
 
     std::cout << "\n==== BR-3-OBS-22 (22 Observer differenziert): "

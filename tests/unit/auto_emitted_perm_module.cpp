@@ -15,6 +15,9 @@
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_cache_line_aligned.hpp>
 #include <topics/serialization/axis_10_serialization/axis_10_serialization_raw_binary.hpp>
 #include <topics/nodes/axis_04_node_type/axis_04_node_type_node256.hpp>
+// Doc 30 §8.0: queuing q1/q2 als reguläre SA-Achsen T17/T18 — Durchreich-Defaults NoBuffer/LazyFlush.
+#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
+#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
 
 COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(
     ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256SearchAlgo,
@@ -40,4 +43,7 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(
     ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization,
     ::comdare::cache_engine::io::axis_io::InMemoryOnly,
     ::comdare::cache_engine::migration::axis_migration::NoMigration,
-    ::comdare::cache_engine::filter::axis_filter::BloomFilter)
+    ::comdare::cache_engine::filter::axis_filter::BloomFilter,
+    // ── T17/T18 queuing (Doc 30 §8.0): explizit gewählter Durchreich-Algorithmus (kein „weglassen") ──
+    ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer,
+    ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush)

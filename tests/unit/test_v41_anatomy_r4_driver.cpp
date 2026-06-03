@@ -37,6 +37,9 @@
 #include <topics/io/axis_io/axis_io_in_memory_only.hpp>
 #include <topics/migration/axis_migration/axis_migration_none.hpp>
 #include <topics/filter/axis_filter/axis_filter_bloom.hpp>
+// Doc 30 §8.0: queuing q1/q2 als reguläre SA-Achsen T17/T18 (Durchreich-Defaults NoBuffer/LazyFlush)
+#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
+#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
 
 #include <boost/mp11.hpp>
 
@@ -72,6 +75,8 @@ using IotIndexOrganization           = ::comdare::cache_engine::search_engine::a
 using InMemoryOnly         = ::comdare::cache_engine::io::axis_io::InMemoryOnly;
 using NoMigration          = ::comdare::cache_engine::migration::axis_migration::NoMigration;
 using BloomFilter          = ::comdare::cache_engine::filter::axis_filter::BloomFilter;
+using NoBuffer             = ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer;     // T17 queuing_q1 (Doc 30 §8.0)
+using LazyFlush            = ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush;    // T18 queuing_q2 (Doc 30 §8.0)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 17 Topic-Config-Sets fuer Pilot (3 × 2 × 1^15 = 6 Permutationen)
@@ -94,12 +99,14 @@ struct T13_IndexOrg      { using StaticAxisVariants = mp::mp_list<IotIndexOrgani
 struct T14_IoDispatch    { using StaticAxisVariants = mp::mp_list<InMemoryOnly>; };
 struct T15_Migration     { using StaticAxisVariants = mp::mp_list<NoMigration>; };
 struct T16_Filter        { using StaticAxisVariants = mp::mp_list<BloomFilter>; };
+struct T17_QueuingQ1     { using StaticAxisVariants = mp::mp_list<NoBuffer>; };   // Doc 30 §8.0
+struct T18_QueuingQ2     { using StaticAxisVariants = mp::mp_list<LazyFlush>; };  // Doc 30 §8.0
 
 using PilotDriver = ana::AnatomyPermutationDriver<
     T0_SearchAlgo, T1_CacheTraversal, T2_Mapping, T3_PathCompr, T4_NodeType,
     T5_MemoryLayout, T6_Allocator, T7_Prefetch, T8_Concurrency, T9_Serialization,
     T10_Telemetry, T11_ValueHandle, T12_Isa, T13_IndexOrg, T14_IoDispatch,
-    T15_Migration, T16_Filter
+    T15_Migration, T16_Filter, T17_QueuingQ1, T18_QueuingQ2
 >;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,7 +117,7 @@ using AdHocArt = ana::AdHocComposition<
     Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256NodeType,
     CacheLineAligned, MimallocAllocator, NonePrefetch, OlcOptimisticConcurrency, RawBinarySer,
     LeafOnlyCounter, InlineValueHandle, Amd64Isa, IotIndexOrganization, InMemoryOnly,
-    NoMigration, BloomFilter
+    NoMigration, BloomFilter, NoBuffer, LazyFlush
 >;
 
 TEST(AnatomyR4_Factory, AdHocCompositionConformsIsComposition) {
@@ -122,7 +129,7 @@ TEST(AnatomyR4_Factory, AdHocCompositionConformsIsComposition) {
 TEST(AnatomyR4_Factory, AdHocCompositionInstantiatesAnatomy) {
     [[maybe_unused]] ana::SearchAlgorithmAnatomy<AdHocArt> algo;
     // R5.B: Composition-Inspection statt Container-Ops
-    static_assert(ana::SearchAlgorithmAnatomy<AdHocArt>::organ_count() == 17);
+    static_assert(ana::SearchAlgorithmAnatomy<AdHocArt>::organ_count() == 19);
     static_assert(ana::SearchAlgorithmAnatomy<AdHocArt>::composition_name() ==
                   std::string_view{"AdHocComposition"});
     SUCCEED();
@@ -136,7 +143,7 @@ using SamplePermTuple = pe::PermTuple<
     Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256NodeType,
     CacheLineAligned, MimallocAllocator, NonePrefetch, OlcOptimisticConcurrency, RawBinarySer,
     LeafOnlyCounter, InlineValueHandle, Amd64Isa, IotIndexOrganization, InMemoryOnly,
-    NoMigration, BloomFilter
+    NoMigration, BloomFilter, NoBuffer, LazyFlush
 >;
 
 TEST(AnatomyR4_Factory, CompositionFromPermTupleProducesValidComposition) {
@@ -148,8 +155,8 @@ TEST(AnatomyR4_Factory, CompositionFromPermTupleProducesValidComposition) {
     SUCCEED();
 }
 
-TEST(AnatomyR4_Factory, IsPermTuple17ConceptValidatesArity) {
-    static_assert(ana::IsPermTuple17<SamplePermTuple>);
+TEST(AnatomyR4_Factory, IsPermTuple19ConceptValidatesArity) {
+    static_assert(ana::IsPermTuple19<SamplePermTuple>);
     SUCCEED();
 }
 
@@ -158,8 +165,8 @@ TEST(AnatomyR4_Factory, IsPermTuple17ConceptValidatesArity) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(AnatomyR4_Driver, PilotDriverArityAndCount) {
-    static_assert(PilotDriver::arity() == 17, "17 Topic-Achsen Pflicht");
-    static_assert(PilotDriver::count() == 6, "3 search_algo × 2 cache_traversal × 1^15 = 6");
+    static_assert(PilotDriver::arity() == 19, "19 Topic-Achsen Pflicht (17 + queuing q1/q2, Doc 30 §8.0)");
+    static_assert(PilotDriver::count() == 6, "3 search_algo × 2 cache_traversal × 1^17 = 6 (queuing ×1)");
     SUCCEED();
 }
 
@@ -170,7 +177,7 @@ TEST(AnatomyR4_Driver, ForEachAnimalIteratesAllSixTiere) {
         // R5.B Smoke-Test: Anatomie ist instantiiert + Composition-Inspection OK
         // Container-Ops sind in AnatomyExecutionContext (siehe test_v41_builder_anatomy_commands.cpp)
         using AnatomyT = std::remove_reference_t<decltype(anatomy)>;
-        EXPECT_EQ(AnatomyT::organ_count(), 17u);
+        EXPECT_EQ(AnatomyT::organ_count(), 19u);
     });
     EXPECT_EQ(visited_names.size(), 6u);
     // Alle 6 Tiere haben den Default-Namen AdHocComposition (kein paper_id Unterschied)
@@ -220,7 +227,7 @@ TEST(AnatomyR4_Driver, AllSixTiereInstantiateIndependently) {
     std::size_t instantiate_count = 0;
     PilotDriver::for_each_animal([&](auto& anatomy, std::string_view) {
         using AnatomyT = std::remove_reference_t<decltype(anatomy)>;
-        EXPECT_EQ(AnatomyT::organ_count(), 17u);
+        EXPECT_EQ(AnatomyT::organ_count(), 19u);
         ++instantiate_count;
     });
     EXPECT_EQ(instantiate_count, 6u);
@@ -232,7 +239,7 @@ TEST(AnatomyR4_Driver, AllSixTiereInstantiateIndependently) {
 
 // Minimal-Verifikation: zwei T0/T1 Compositions erlauben Vergleich (Tier-Variation)
 TEST(AnatomyR4_Driver, NonEmptyAxisCountMatchesArity) {
-    static_assert(PilotDriver::arity() == 17);
+    static_assert(PilotDriver::arity() == 19);
     // PermutationEngine::non_empty_axis_count ist intern bereits validiert per static_assert
     SUCCEED();
 }

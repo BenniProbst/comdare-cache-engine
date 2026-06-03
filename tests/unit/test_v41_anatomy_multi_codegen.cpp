@@ -121,7 +121,7 @@ TEST(R5D3_MultiCodegen, AllHandlesHaveSearchAlgorithmGenus) {
         auto* a = h.anatomy();
         ASSERT_NE(a, nullptr);
         EXPECT_EQ(a->genus(),       ana::AnatomyGenus::SearchAlgorithm);
-        EXPECT_EQ(a->organ_count(), 17u);
+        EXPECT_EQ(a->organ_count(), 19u);
         EXPECT_EQ(a->engine_kind(), ee::ExecutionEngineKind::Anatomy);
     }
 }

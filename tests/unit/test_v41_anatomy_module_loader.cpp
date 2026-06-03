@@ -111,7 +111,7 @@ TEST(R5E_AnatomyLoader, LoadedAnatomyIsWormholeComposition) {
     ASSERT_NE(anat, nullptr);
     EXPECT_EQ(anat->composition_name(), std::string_view{"WormholeComposition"});
     EXPECT_EQ(anat->genus(), ana::AnatomyGenus::SearchAlgorithm);
-    EXPECT_EQ(anat->organ_count(), 17u);
+    EXPECT_EQ(anat->organ_count(), 19u);
     EXPECT_EQ(anat->engine_kind(), ee::ExecutionEngineKind::Anatomy);
 }
 

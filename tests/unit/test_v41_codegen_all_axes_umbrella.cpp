@@ -29,16 +29,18 @@ using SampleAdHoc = ana::AdHocComposition<
     ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization,
     ::comdare::cache_engine::io::axis_io::InMemoryOnly,
     ::comdare::cache_engine::migration::axis_migration::NoMigration,
-    ::comdare::cache_engine::filter::axis_filter::BloomFilter>;
+    ::comdare::cache_engine::filter::axis_filter::BloomFilter,
+    ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer,    // T17 (Doc 30 §8.0)
+    ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush>;  // T18 (Doc 30 §8.0)
 
 static_assert(ana::IsComposition<SampleAdHoc>,
-              "Umbrella muss alle 17 Achsen-Typen für eine vollständige AdHoc-Composition liefern.");
+              "Umbrella muss alle 19 Achsen-Typen für eine vollständige AdHoc-Composition liefern (Doc 30 §8.0).");
 
 TEST(R5G_Umbrella, AllAxesResolveViaSingleIncludeAndComposeFullAnatomy) {
     using Anatomy = ana::SearchAlgorithmAnatomy<SampleAdHoc>;
     static_assert(ana::AnatomyConcept<Anatomy>);
     ana::SearchAlgorithmAbiAdapter<Anatomy> adapter;
     ana::IAnatomyBase* base = &adapter;
-    EXPECT_EQ(base->organ_count(), 17u);
+    EXPECT_EQ(base->organ_count(), 19u);
     EXPECT_EQ(base->genus(), ana::AnatomyGenus::SearchAlgorithm);
 }

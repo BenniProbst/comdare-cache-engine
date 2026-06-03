@@ -1,10 +1,11 @@
 #pragma once
 // V41.F.6.1.R3 — Composition-Concept fuer Saeugetier-Anatomie
 //
-// Validiert dass jede Composition alle 17 Pflicht-using-Aliases (15 Topics +
-// 2 zusaetzliche Achsen aus traversal/nodes) UND paper_id/name liefert.
+// Validiert dass jede Composition alle 19 Pflicht-using-Aliases (15 Topics +
+// 2 zusaetzliche Achsen aus traversal/nodes + queuing q1/q2) UND paper_id/name liefert.
 //
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §11.2
+// @doku docs/architecture/30_audit_achsen_delegation_pflichtachsen.md §8.0 (queuing = SA-Achse)
 
 #include <concepts>
 #include <string_view>
@@ -13,8 +14,8 @@ namespace comdare::cache_engine::anatomy {
 
 /// IsComposition — Pflicht-Concept fuer SearchAlgorithmAnatomy<C>.
 ///
-/// Saeugetier-Anatomie-Metapher: jede Composition muss ALLE 17 "Organe"
-/// nennen — auch wenn die Auspraegung NoMigration/PathCompressionNone etc. ist.
+/// Saeugetier-Anatomie-Metapher: jede Composition muss ALLE 19 "Organe"
+/// nennen — auch wenn die Auspraegung NoMigration/PathCompressionNone/NoBuffer etc. ist.
 template <typename C>
 concept IsComposition = requires {
     // Topic 3 traversal (3 Achsen)
@@ -48,16 +49,19 @@ concept IsComposition = requires {
     typename C::migration_policy;
     // Topic filter
     typename C::filter;
+    // Topic queuing (Doc 30 §8.0: q1 buffer_strategy + q2 flush_policy — reguläre SA-Achse)
+    typename C::queuing_q1;
+    typename C::queuing_q2;
     // Identifikation
     { C::name }     -> std::convertible_to<std::string_view>;
     { C::paper_id } -> std::convertible_to<std::string_view>;
 };
 
 /// Helper: zaehlt zur Compile-Zeit wie viele "Organe" eine Composition liefert.
-/// Pflicht: 17 (3 traversal + 2 nodes + 12 weitere Topics).
+/// Pflicht: 19 (3 traversal + 2 nodes + 12 weitere Topics + 2 queuing q1/q2, Doc 30 §8.0).
 template <typename C>
 struct composition_organ_count {
-    static constexpr std::size_t value = 17;  // 3 + 2 + 12
+    static constexpr std::size_t value = 19;  // 3 + 2 + 12 + 2 queuing
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

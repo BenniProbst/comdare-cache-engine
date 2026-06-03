@@ -18,6 +18,9 @@
 #include "../topics/io/axis_io/axis_io_in_memory_only.hpp"
 #include "../topics/migration/axis_migration/axis_migration_none.hpp"
 #include "../topics/filter/axis_filter/axis_filter_bloom.hpp"
+// Topic queuing (2 Achsen T17/T18, Doc 30 §8.0) — Durchreich-Defaults NoBuffer/LazyFlush (SuRF = in-memory)
+#include "../topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp"
+#include "../topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp"
 
 // R5.G
 #include "../anatomy/composition_concept.hpp"
@@ -51,6 +54,9 @@ struct SurfComposition {
     using io_dispatch        = io::axis_io::InMemoryOnly;
     using migration_policy   = migration::axis_migration::NoMigration;
     using filter             = filter::axis_filter::BloomFilter;  // SuRF kann mit BloomFilter ergaenzt werden
+    // Topic queuing T17/T18 (Doc 30 §8.0) — explizit gewaehlter Durchreich-Algorithmus (kein „weglassen")
+    using queuing_q1         = queuing::axis_q1_queuing::NoBuffer;
+    using queuing_q2         = queuing::axis_q2_queuing::LazyFlush;
 
     static constexpr std::string_view paper_id    = "P10 Zhang/Lim/Andersen SIGMOD 2018";
     static constexpr std::string_view paper_title = "SuRF: Practical Range Query Filtering with Fast Succinct Tries";

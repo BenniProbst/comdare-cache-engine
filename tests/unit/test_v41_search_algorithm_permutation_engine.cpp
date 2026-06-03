@@ -52,6 +52,9 @@
 #include <topics/io/axis_io/axis_io_in_memory_only.hpp>
 #include <topics/migration/axis_migration/axis_migration_none.hpp>
 #include <topics/filter/axis_filter/axis_filter_bloom.hpp>
+// Doc 30 §8.0: queuing q1/q2 als reguläre SA-Achsen T17/T18 (Durchreich-Defaults NoBuffer/LazyFlush)
+#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
+#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp>
 
 #include <boost/mp11.hpp>
 
@@ -97,9 +100,11 @@ using IotIndexOrganization           = ::comdare::cache_engine::search_engine::a
 using InMemoryOnly         = ::comdare::cache_engine::io::axis_io::InMemoryOnly;
 using NoMigration          = ::comdare::cache_engine::migration::axis_migration::NoMigration;
 using BloomFilter          = ::comdare::cache_engine::filter::axis_filter::BloomFilter;
+using NoBuffer             = ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer;     // T17 queuing_q1 (Doc 30 §8.0)
+using LazyFlush            = ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush;    // T18 queuing_q2 (Doc 30 §8.0)
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Pilot 17 Topic-Config-Sets (3 × 2 × 1^15 = 6 Permutationen, identisch zu R4-Test)
+// Pilot 19 Topic-Config-Sets (3 × 2 × 1^17 = 6 Permutationen, identisch zu R4-Test; Doc 30 §8.0: + q1/q2)
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct T0_SearchAlgo     { using StaticAxisVariants = mp::mp_list<Array256SearchAlgo, VectorU8U8SearchAlgo, VectorU16U16SearchAlgo>; };
@@ -119,12 +124,14 @@ struct T13_IndexOrg      { using StaticAxisVariants = mp::mp_list<IotIndexOrgani
 struct T14_IoDispatch    { using StaticAxisVariants = mp::mp_list<InMemoryOnly>; };
 struct T15_Migration     { using StaticAxisVariants = mp::mp_list<NoMigration>; };
 struct T16_Filter        { using StaticAxisVariants = mp::mp_list<BloomFilter>; };
+struct T17_QueuingQ1     { using StaticAxisVariants = mp::mp_list<NoBuffer>; };   // Doc 30 §8.0
+struct T18_QueuingQ2     { using StaticAxisVariants = mp::mp_list<LazyFlush>; };  // Doc 30 §8.0
 
 using PilotEngine = ana::SearchAlgorithmPermutationEngine<
     T0_SearchAlgo, T1_CacheTraversal, T2_Mapping, T3_PathCompr, T4_NodeType,
     T5_MemoryLayout, T6_Allocator, T7_Prefetch, T8_Concurrency, T9_Serialization,
     T10_Telemetry, T11_ValueHandle, T12_Isa, T13_IndexOrg, T14_IoDispatch,
-    T15_Migration, T16_Filter
+    T15_Migration, T16_Filter, T17_QueuingQ1, T18_QueuingQ2
 >;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -172,8 +179,8 @@ TEST(R5CB_SearchAlgoEngine, GenusIsSearchAlgorithm) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5CB_SearchAlgoEngine, ArityAndCountMatchPermutationEngine) {
-    static_assert(PilotEngine::arity() == 17, "17 Topic-Achsen Pflicht");
-    static_assert(PilotEngine::count() == 6, "3 search_algo × 2 cache_traversal × 1^15 = 6");
+    static_assert(PilotEngine::arity() == 19, "19 Topic-Achsen Pflicht (17 + queuing q1/q2, Doc 30 §8.0)");
+    static_assert(PilotEngine::count() == 6, "3 search_algo × 2 cache_traversal × 1^17 = 6 (queuing ×1)");
     SUCCEED();
 }
 
@@ -272,7 +279,7 @@ TEST(R5CB_VisitorApi, ForEachSearchAlgorithmIteratesAllPermutations) {
     PilotEngine::for_each_search_algorithm([&](auto& anatomy, std::string_view name) {
         visited_names.push_back(name);
         using AnatomyT = std::remove_reference_t<decltype(anatomy)>;
-        EXPECT_EQ(AnatomyT::organ_count(), 17u);
+        EXPECT_EQ(AnatomyT::organ_count(), 19u);
         EXPECT_EQ(AnatomyT::genus(), ana::AnatomyGenus::SearchAlgorithm);
     });
     EXPECT_EQ(visited_names.size(), 6u);
@@ -301,7 +308,7 @@ TEST(R5CB_AbiAdapterIteration, ForEachAbiAdapterProducesIAnatomyBasePerPermutati
         // Pro Permutation ein IAnatomyBase mit korrekter Gattung
         genera_seen.push_back(base.genus());
         names_seen.push_back(name);
-        EXPECT_EQ(base.organ_count(), 17u);
+        EXPECT_EQ(base.organ_count(), 19u);
         EXPECT_EQ(base.engine_kind(), ee::ExecutionEngineKind::Anatomy);
 
         // R5.C.A4: vollstaendiger Mess-Lifecycle (CacheEngineBuilder-Pattern R5.D)
@@ -332,8 +339,8 @@ TEST(R5CB_AbiAdapterIteration, ForEachAbiAdapterProducesIAnatomyBasePerPermutati
 namespace {
 namespace cg = ::comdare::cache_engine::builder::codegen;
 
-/// Baut den 17-Achsen-FQ-Typ-Namen-String einer Composition C (Komma-getrennt) — der
-/// Argument-Block für COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(...).
+/// Baut den 19-Achsen-FQ-Typ-Namen-String einer Composition C (Komma-getrennt) — der
+/// Argument-Block für COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(...). Doc 30 §8.0: + queuing q1/q2 (T17/T18).
 template <class C>
 std::string adhoc_macro_args() {
     std::string s;
@@ -355,6 +362,8 @@ std::string adhoc_macro_args() {
     add(cg::type_name<typename C::io_dispatch>());
     add(cg::type_name<typename C::migration_policy>());
     add(cg::type_name<typename C::filter>());
+    add(cg::type_name<typename C::queuing_q1>());   // Doc 30 §8.0: queuing q1 (buffer_strategy)
+    add(cg::type_name<typename C::queuing_q2>());   // Doc 30 §8.0: queuing q2 (flush_policy)
     return s;
 }
 }  // namespace
@@ -368,8 +377,8 @@ TEST(R5G_AutoEmitter, BuildsAdHocMacroArgsPerPermutation) {
     // Eine Argument-Zeile pro Permutation des gemergten Raums.
     ASSERT_EQ(emitted.size(), PilotEngine::count());           // 6
     for (auto const& s : emitted) {
-        // 17 FQ-Typ-Namen → 16 Kommas; reale Achsen-Namespaces vorhanden.
-        EXPECT_EQ(std::count(s.begin(), s.end(), ','), 16);
+        // 19 FQ-Typ-Namen → 18 Kommas (Doc 30 §8.0: + queuing q1/q2); reale Achsen-Namespaces vorhanden.
+        EXPECT_EQ(std::count(s.begin(), s.end(), ','), 18);
         EXPECT_NE(s.find("comdare::cache_engine::"), std::string::npos);
         EXPECT_EQ(s.find("class "), std::string::npos);        // codegen-nutzbar (kein Elaborated-Prefix)
     }

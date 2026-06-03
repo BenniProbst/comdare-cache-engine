@@ -21,14 +21,14 @@ namespace comdare::cache_engine::builder::experiment {
 
 namespace mp = boost::mp11;
 
-/// Die 17 Komposition-Achsen-Namen in AdHocComposition-Slot-Reihenfolge T0..T16 (composition_factory.hpp:41-66).
-/// IDENTISCH zu den ersten 17 Achsen-Namen in registry_to_axis_levels.hpp build_all_axis_levels() (BR-1) —
-/// das ist die zentrale Quelle, auf die beide verweisen.
-inline constexpr std::array<std::string_view, 17> kCompositionAxisNames = {
+/// Die 19 Komposition-Achsen-Namen in AdHocComposition-Slot-Reihenfolge T0..T18 (composition_factory.hpp:41-68;
+/// Doc 30 §8.0 erweitert um queuing_q1/queuing_q2). IDENTISCH zu den ersten 19 Achsen-Namen in
+/// registry_to_axis_levels.hpp build_all_axis_levels() (BR-1) — das ist die zentrale Quelle, auf die beide verweisen.
+inline constexpr std::array<std::string_view, 19> kCompositionAxisNames = {
     "search_algo",     "cache_traversal", "mapping",        "path_compression", "node_type",
     "memory_layout",   "allocator",       "prefetch",       "concurrency",      "serialization",
     "telemetry",       "value_handle",    "isa",            "index_organization", "io_dispatch",
-    "migration_policy","filter"
+    "migration_policy","filter",          "queuing_q1",     "queuing_q2"
 };
 
 /// Ein Achsen-Pfad-Segment: "axis=value" (= experiment_tree.hpp StaticAxisNode::serialize()).
@@ -60,13 +60,14 @@ template <class P>
 /// hat CompositionFromPermTuple die Slot-Reihenfolge T0..T16 KORREKT erhalten (P → Composition verlustfrei).
 template <class C>
 [[nodiscard]] inline std::string serialize_composition_from_slots() {
-    std::array<std::string_view, 17> const v = {
+    std::array<std::string_view, 19> const v = {
         C::search_algo::name(),      C::cache_traversal::name(), C::mapping::name(),
         C::path_compression::name(), C::node_type::name(),       C::memory_layout::name(),
         C::allocator::name(),        C::prefetch::name(),        C::concurrency::name(),
         C::serialization::name(),    C::telemetry::name(),       C::value_handle::name(),
         C::isa::name(),              C::index_organization::name(), C::io_dispatch::name(),
-        C::migration_policy::name(), C::filter::name()
+        C::migration_policy::name(), C::filter::name(),          C::queuing_q1::name(),
+        C::queuing_q2::name()
     };
     std::string out;
     for (std::size_t i = 0; i < v.size(); ++i) {
