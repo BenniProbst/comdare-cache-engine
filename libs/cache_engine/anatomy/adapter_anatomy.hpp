@@ -16,9 +16,11 @@
 
 #include "anatomy_base.hpp"   // AnatomyGenus (Tier-Unterklasse) / AnatomyGattung
 
+#include <algorithm>     // std::push_heap / std::pop_heap (HeapInner = priority_queue-Disziplin)
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <functional>    // std::less (HeapInner Default-Compare)
 #include <optional>
 #include <string_view>
 #include <vector>
@@ -61,6 +63,27 @@ struct VectorInner {
     void                       clear()                noexcept  { v_.clear(); }
 private:
     std::vector<element_type> v_{};
+};
+
+/// HeapInner — Inner-Substrat mit echter PRIORITY-Disziplin (std::priority_queue, §26.4: vector + Compare). Hält
+/// einen Max-Heap über std::vector via std::push_heap/std::pop_heap (Stand der Technik; Default-Compare std::less →
+/// Max-Heap, front()==Maximum). Die Priority-Disziplin lebt damit INNERHALB der inner_container-Achse (§28) — KEINE
+/// neue Achse. Priority-Nutzung: push + front()(=Max) + pop_front()(=Extract-Max). back()/pop_back() = Roh-Blatt
+/// (Heap bleibt gültig, da pop_back ein Blatt entfernt) — nicht priority-relevant.
+template <class T = std::uint64_t, class Compare = std::less<T>>
+struct HeapInner {
+    using element_type = T;
+    static constexpr std::string_view name = "HeapInner";
+    void                       push_back(element_type v)      { v_.push_back(v); std::push_heap(v_.begin(), v_.end(), comp_); }
+    [[nodiscard]] std::size_t  size()           const noexcept { return v_.size(); }
+    [[nodiscard]] element_type front()          const          { return v_.front(); }                 // Heap-Top = Maximum
+    [[nodiscard]] element_type back()           const          { return v_.back(); }                 // Blatt (nicht priority-relevant)
+    void                       pop_front()                     { std::pop_heap(v_.begin(), v_.end(), comp_); v_.pop_back(); }  // Extract-Max
+    void                       pop_back()                      { v_.pop_back(); }                    // entfernt ein Blatt (Heap bleibt gültig)
+    void                       clear()                noexcept  { v_.clear(); }
+private:
+    std::vector<element_type> v_{};
+    Compare                   comp_{};
 };
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════
