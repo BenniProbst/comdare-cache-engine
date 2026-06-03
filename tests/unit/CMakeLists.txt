@@ -1282,6 +1282,7 @@ set(COMDARE_GOALV6_LIGHT_DTESTS
     test_d9_set_adapter       # L-76a (SetAbiAdapter)
     test_d10_sequence         # L-76b (Sequence-Gattung)
     test_d11_view             # L-76c (View-Gattung)
+    test_genus_docks          # L-76a-c (Set/Sequence/View Pruef-Docks: Gattungs-API treiben + Observer + CSV)
     test_d12_virus            # L-76d (Viren IVirusExecutionEngine + GraphBfs)
     test_d13_runtime_measure  # L-MEAS (RuntimeMeasureVisitor)
     test_d14_result_ingest    # L-CLUSTER gate-frei (result_ingest)
@@ -1326,5 +1327,5 @@ foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     set_tests_properties(${_dt} PROPERTIES LABELS "goal_v6;phase_d")
 endforeach()
 
-message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 19 D-Tests CTest-registriert (12 leicht + 7 Container/Boost/V42). "
+message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 20 D-Tests CTest-registriert (13 leicht + 7 Container/Boost/V42). "
     "DLL-Round-Trip-Tests (test_d4b_container_dll/test_dgenus_dll, mehrstufig) bleiben scratch-verifiziert (Folge-Registrierung).")
