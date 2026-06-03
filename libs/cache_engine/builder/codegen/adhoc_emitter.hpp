@@ -17,13 +17,36 @@
 
 namespace comdare::cache_engine::builder::codegen {
 
+/// strip_all_elaborated (2026-06-03, L-LAZY-E2E) — entfernt ALLE (auch INNEN-liegenden) MSVC-Elaborated-Type-
+/// Keywords aus einem FQ-Typ-Namen. type_name<T>() schält nur den ÄUSSEREN "class "/"struct " (type_name.hpp);
+/// MSVC rendert in __FUNCSIG__ aber AUCH jedes verschachtelte Template-Argument so, z.B.
+/// `ObservableNodeType<class NS::Node4NodeType>`. Würde das innere `class ` in den emittierten C++-Quelltext
+/// geschrieben, ist es ein Syntaxfehler (C2760 „class hier nicht erwartet", Befund 2026-06-03 bei den
+/// Observable*<…>-Wrappern node/layout/serialization/telemetry). Da der Emitter den Namen als ECHTEN Quelltext
+/// schreibt, ist hier (host-seitig, std::string) der richtige Ort, die Tokens überall zu entfernen.
+/// SICHER: "class "/"struct "/"enum "/"union " (mit folgendem Trenner) sind in __FUNCSIG__ ausschließlich
+/// Elaborated-Specifier — ein Identifier kann kein Leerzeichen enthalten → keine Falsch-Treffer.
+[[nodiscard]] inline std::string strip_all_elaborated(std::string_view t) {
+    static constexpr std::string_view kws[] = {"class ", "struct ", "enum ", "union "};
+    std::string out;
+    out.reserve(t.size());
+    for (std::size_t i = 0; i < t.size();) {
+        bool matched = false;
+        for (std::string_view kw : kws)
+            if (i + kw.size() <= t.size() && t.substr(i, kw.size()) == kw) { i += kw.size(); matched = true; break; }
+        if (!matched) out += t[i++];
+    }
+    return out;
+}
+
 /// adhoc_macro_args<C>() — die 19 FQ-Achsen-Typ-Namen einer Composition C als Komma-getrennter Block
 /// (Argument für COMDARE_DEFINE_ANATOMY_MODULE_ADHOC). Reihenfolge = AdHocComposition<T0..T18>
-/// (17 Such-Achsen + queuing q1/q2, Doc 30 §8.0).
+/// (17 Such-Achsen + queuing q1/q2, Doc 30 §8.0). Jeder Name wird via strip_all_elaborated von INNEN-liegenden
+/// "class "/"struct "-Keywords befreit (sonst Syntaxfehler bei Wrapper<class Inner>-Slots).
 template <class C>
 [[nodiscard]] std::string adhoc_macro_args() {
     std::string s;
-    auto add = [&](std::string_view t) { if (!s.empty()) s += ",\n    "; s += t; };
+    auto add = [&](std::string_view t) { if (!s.empty()) s += ",\n    "; s += strip_all_elaborated(t); };
     add(type_name<typename C::search_algo>());
     add(type_name<typename C::cache_traversal>());
     add(type_name<typename C::mapping>());
