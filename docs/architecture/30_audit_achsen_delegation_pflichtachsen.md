@@ -214,9 +214,11 @@ je Achse." → tiefenlesender Agent (Doku 14 §7/§25/§27/§28/§32 + Code + Do
 **KORREKTES Modell (ersetzt §6-Q1 + §7; inkl. User-Korrekturen #3/#4 2026-06-03):**
 
 **0. DREI EBENEN (User-Präzisierung #4 — „damit der Punkt mit den Gattungen nicht falsch wird"; Doku 14 §25 verbatim + §26):**
-   - **(a) Gattung = Außen-Interface** — was die Außenwelt sieht: **SearchAlgorithm / Container / Graph** (Doc 24 „ABI-
-     stabiles Interface für die API der Gattung"; Doku 14 §25 „Suchalgorithmen und Container gehören zu unterschiedlichen
-     Gattungen"). Coarse, schnittstellen-definierend.
+   - **(a) Gattung = Außen-Interface** — was die Außenwelt sieht: **SearchAlgorithm / Container / Graph**. Verbatim-Quelle
+     (User): **Doc 24 §8.8** „wir nennen jede CacheEngineBuilder-Seite für eine Gattung ein **Prüf-Dock** (etwa für Search
+     Algorithm oder für Container oder für Graphen)" + **§8.6** „ABI-stabiles Interface für die API der Gattung eines
+     Algorithmus (etwa Suchalgorithmen)"; Doku 14 §25 „Suchalgorithmen und Container gehören zu unterschiedlichen Gattungen".
+     Coarse, schnittstellen-/Prüf-Dock-definierend.
    - **(b) Tier-Unterklasse** = liegt UNTER dem Interface und verwendet einen **FESTEN Achsen-Satz** (Doku 14 §25 „die
      Permutation Engine … durch Unterklassen … spezifiziert"; §26 die std-Familien A–F). Hier lebt die feste Achsen-
      Konfiguration — NICHT auf der Gattungs-Ebene.
