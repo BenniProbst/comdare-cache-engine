@@ -1329,5 +1329,61 @@ foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     set_tests_properties(${_dt} PROPERTIES LABELS "goal_v6;phase_d")
 endforeach()
 
-message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 26 D-Tests CTest-registriert (16 leicht + 10 Container/Boost/V42/Engines). "
-    "DLL-Round-Trip-Tests (test_d4b_container_dll/test_dgenus_dll, mehrstufig) bleiben scratch-verifiziert (Folge-Registrierung).")
+# ─────────────────────────────────────────────────────────────────────────────
+# Goal-V6 L-76/L-74a — DLL-Round-Trips als OFFIZIELLE CMake-Targets (vorher nur committete PS1-Skripte). Die 5
+# boost-freien Permutations-/Build-Varianten-DLLs (interne Organe) + ihre Loader-Tests. Die DLL-Pfade gehen via
+# $<TARGET_FILE:..> als add_test-Argumente → kein Lade-Ort-Rätselraten (Multi-Config-robust). C++23.
+# ─────────────────────────────────────────────────────────────────────────────
+set(_goalv6_dll_dir "${CMAKE_BINARY_DIR}/generated/goalv6_dll_modules")
+set(_src_perm_set_d9               genus_module_set.cpp)
+set(_src_perm_sequence_d10         genus_module_sequence.cpp)
+set(_src_perm_view_d11             genus_module_view.cpp)
+set(_src_perm_buildvariant_avx512  genus_buildvariant_avx512.cpp)
+set(_src_perm_buildvariant_avx2    genus_buildvariant_avx2.cpp)
+foreach(_dll IN ITEMS perm_set_d9 perm_sequence_d10 perm_view_d11 perm_buildvariant_avx512 perm_buildvariant_avx2)
+    add_library(${_dll} SHARED "${_src_${_dll}}")
+    target_include_directories(${_dll} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/common")
+    target_compile_features(${_dll} PRIVATE cxx_std_23)
+    target_compile_definitions(${_dll} PRIVATE COMDARE_ANATOMY_MODULE_BUILD=1)
+    set_target_properties(${_dll} PROPERTIES
+        POSITION_INDEPENDENT_CODE                ON
+        RUNTIME_OUTPUT_DIRECTORY                 "${_goalv6_dll_dir}"
+        RUNTIME_OUTPUT_DIRECTORY_RELEASE         "${_goalv6_dll_dir}"
+        RUNTIME_OUTPUT_DIRECTORY_DEBUG           "${_goalv6_dll_dir}"
+        RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO  "${_goalv6_dll_dir}"
+        LIBRARY_OUTPUT_DIRECTORY                 "${_goalv6_dll_dir}"
+        LIBRARY_OUTPUT_DIRECTORY_RELEASE         "${_goalv6_dll_dir}"
+        LIBRARY_OUTPUT_DIRECTORY_DEBUG           "${_goalv6_dll_dir}"
+        LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO  "${_goalv6_dll_dir}")
+    if(COMMAND comdare_set_platform_defines)
+        comdare_set_platform_defines(${_dll})
+    endif()
+endforeach()
+
+# Genus-DLL-Loader-Test (gattungs-agnostischer Loader → ISetTier/ISequenceTier/IViewTier über die .dll-Grenze).
+add_executable(test_dgenus_dll test_dgenus_dll.cpp)
+target_include_directories(test_dgenus_dll PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine" "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_compile_features(test_dgenus_dll PRIVATE cxx_std_23)
+target_link_libraries(test_dgenus_dll PRIVATE comdare::anatomy_module_loader)
+add_dependencies(test_dgenus_dll perm_set_d9 perm_sequence_d10 perm_view_d11)
+add_test(NAME test_dgenus_dll COMMAND test_dgenus_dll
+    "$<TARGET_FILE:perm_set_d9>" "$<TARGET_FILE:perm_sequence_d10>" "$<TARGET_FILE:perm_view_d11>")
+set_tests_properties(test_dgenus_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
+
+# Build-Varianten-DLL-Loader-Test (L-74a, win32 LoadLibrary/GetProcAddress — Avx512 vs Avx2 über die .dll-Grenze).
+add_executable(test_buildvariant_dll test_buildvariant_dll.cpp)
+target_include_directories(test_buildvariant_dll PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine" "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_compile_features(test_buildvariant_dll PRIVATE cxx_std_23)
+add_dependencies(test_buildvariant_dll perm_buildvariant_avx512 perm_buildvariant_avx2)
+add_test(NAME test_buildvariant_dll COMMAND test_buildvariant_dll
+    "$<TARGET_FILE:perm_buildvariant_avx512>" "$<TARGET_FILE:perm_buildvariant_avx2>")
+set_tests_properties(test_buildvariant_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
+
+message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 26 add_test-D-Tests (16 leicht + 10 Boost) + 2 DLL-Round-Trip-Tests "
+    "(test_dgenus_dll/test_buildvariant_dll) jetzt OFFIZIELLE CMake-Targets (5 SHARED-DLLs via $<TARGET_FILE>). "
+    "container_dll (test_d4b) bleibt scratch-verifiziert (Folge).")
