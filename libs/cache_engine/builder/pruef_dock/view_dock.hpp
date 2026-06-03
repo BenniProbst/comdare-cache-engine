@@ -1,6 +1,6 @@
 #pragma once
 // L-76c (2026-06-03, Doc 24 §8.8) — View-Gattungs-Prüf-Dock: die CacheEngineBuilder-Seite für die VIEW-Gattung
-// (Pflanze, genus()==View, non-owning), analog ContainerDock/SearchAlgorithmDock.
+// (Pflanze, genus()==View, non-owning), analog AdapterDock/SearchAlgorithmDock.
 //
 // Doc 24 §8.8: per-Gattung Mess-Übergang — (a) Tier über die Gattungs-API treiben, (b) Observer messen, (c)
 // persistieren. Hier in-process über die ViewAnatomy (bind/read-Workload → ViewObserverSnapshot → CSV). Die View

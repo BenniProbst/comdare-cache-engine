@@ -1,6 +1,6 @@
 #pragma once
 // D11-DLL / L-76c (2026-06-02) — View Module ABI v1 (Factory-Makro), MODUL-AUTOR-Seite der VIEW-Gattung.
-// Analog COMDARE_DEFINE_CONTAINER_MODULE: Factory liefert einen ViewAbiAdapter. 4 extern-"C"-Symbole + ABI-Version/
+// Analog COMDARE_DEFINE_ADAPTER_MODULE: Factory liefert einen ViewAbiAdapter. 4 extern-"C"-Symbole + ABI-Version/
 // Magic IDENTISCH → DERSELBE Loader; der View-Dock fragt dynamic_cast<IViewTier*> (Doc 24 §8.8).
 
 #include "anatomy_module_abi_v1_decl.hpp"

@@ -9,7 +9,7 @@
 // Build: cl /std:c++latest /EHsc /I<libs/cache_engine> /I<build/generated…>
 
 #include "builder/experiment_tree/genus_binding_traits.hpp"
-#include "anatomy/container_anatomy.hpp"
+#include "anatomy/adapter_anatomy.hpp"
 
 #include <cstdint>
 #include <iostream>
@@ -36,8 +36,8 @@ int main() {
     std::cout << "#87+#90: Adapter-Tier-Unterklasse der Container-Gattung (Doku 14 §28, 13 Achsen):\n";
 
     using D    = DelegatedAxis;
-    using Comp = cea::ContainerComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>;  // 12 + inner
-    cea::ContainerAnatomy<Comp> queue;
+    using Comp = cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>;  // 12 + inner
+    cea::AdapterAnatomy<Comp> queue;
 
     // ── Ebene 1+2: Gattung (Container) + Tier-Unterklasse (Adapter) ──
     check_true("gattung() == Container (Ebene 1, Außen-Interface)", queue.gattung() == cea::AnatomyGattung::Container);
@@ -45,7 +45,7 @@ int main() {
     check_true("gattung_of(Adapter) == Container (Ebenen-Abbildung)", cea::gattung_of(cea::AnatomyGenus::Adapter) == cea::AnatomyGattung::Container);
     check_eq("gattung_name(Container)", std::string{cea::gattung_name(cea::AnatomyGattung::Container)}, std::string{"Container"});
     check_eq("genus_name(Adapter)", std::string{cea::genus_name(cea::AnatomyGenus::Adapter)}, std::string{"Adapter"});
-    check_eq("composition_name", std::string{queue.composition_name()}, std::string{"ContainerComposition"});
+    check_eq("composition_name", std::string{queue.composition_name()}, std::string{"AdapterComposition"});
     check_eq("organ_count == 13 (§28: 12 geteilt/delegiert + inner_container)", queue.organ_count(), std::size_t{13});
 
     // ── Ebene 3 / §26.4-API: push/pop/front/back über inner_container; Disziplin = API-Nutzung ──
@@ -60,7 +60,7 @@ int main() {
     check_eq("size == 1", queue.size(), std::size_t{1});
 
     // ── EIGENER Adapter-Observer (getrennt von ObserverAggregate<19>) ──
-    cea::ContainerObserverSnapshot const obs = queue.observe_all();
+    cea::AdapterObserverSnapshot const obs = queue.observe_all();
     check_eq("Observer: push_count == 3", obs.push_count, std::uint64_t{3});
     check_eq("Observer: pop_count == 2", obs.pop_count, std::uint64_t{2});
     check_eq("Observer: front_reads == 1 (ein pop_front)", obs.front_reads, std::uint64_t{1});
@@ -70,7 +70,7 @@ int main() {
 
     // ── inner_container permutiert (die spezifische §28-Achse): VectorInner als 2. Organ ──
     std::cout << "\ninner_container = VectorInner (2. Organ der spezifischen Achse, §26.4 priority_queue-Substrat):\n";
-    cea::ContainerAnatomy<cea::ContainerComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::VectorInner<>>> vq;
+    cea::AdapterAnatomy<cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::VectorInner<>>> vq;
     vq.push(7); vq.push(9);
     check_true("VectorInner: pop_back() liefert 9", vq.pop_back().has_value());
     check_eq("VectorInner: organ_count == 13 (gleicher Achsen-Satz)", vq.organ_count(), std::size_t{13});

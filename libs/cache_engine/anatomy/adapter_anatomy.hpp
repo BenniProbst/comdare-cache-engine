@@ -11,8 +11,8 @@
 // (KEIN begin/end). Die Disziplin (FIFO/LIFO/Priority) liegt in der API-NUTZUNG (front vs back), NICHT in einer Achse —
 // §28 kennt KEINE „ordering"-Achse (frühere inner+ordering-Version war ein geratener Ebenen-/Achsen-Fehler, verworfen).
 //
-// HISTORISCHE NAMEN: Datei container_anatomy.hpp + Typen ContainerComposition/ContainerAnatomy → Rename auf
-// adapter_*.hpp / AdapterComposition / AdapterAnatomy ist Teil des #90-Sweeps (wie set_/sequence_/view_). C++23, header-only.
+// NAMEN (#90-Sweep abgeschlossen): Datei adapter_anatomy.hpp + Typen AdapterComposition/AdapterAnatomy
+// (konsistent mit set_/sequence_/view_; historisch container_anatomy.hpp / Container*). C++23, header-only.
 
 #include "anatomy_base.hpp"   // AnatomyGenus (Tier-Unterklasse) / AnatomyGattung
 
@@ -67,7 +67,7 @@ private:
 // Adapter-Observer (gattungs-eigen) — flacher uint64-POD, getrennt vom SearchAlgorithm-ObserverAggregate<19>.
 // Felder spiegeln den Antrieb des inner_container (die real getriebene spezifische Achse, §28).
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════
-struct ContainerObserverSnapshot {   // (= Adapter-Observer; Typ-Rename → AdapterObserverSnapshot via #90)
+struct AdapterObserverSnapshot {   // Adapter-Observer (gattungs-eigen, getrennt vom SearchAlgorithm-ObserverAggregate<19>)
     std::uint64_t push_count        = 0;   // push → inner_container
     std::uint64_t pop_count         = 0;   // erfolgreiche pop_front/pop_back
     std::uint64_t front_reads       = 0;   // front()-Zugriffe (FIFO-Disziplin)
@@ -76,12 +76,12 @@ struct ContainerObserverSnapshot {   // (= Adapter-Observer; Typ-Rename → Adap
     std::uint64_t peak_occupancy    = 0;   // maximale inner_container-Größe
 };
 
-/// AdapterComposition (= ContainerComposition, Name-Rename #90) — 12 geteilte/delegierte §28-Achsen + inner_container.
+/// AdapterComposition — 12 geteilte/delegierte §28-Achsen + inner_container.
 /// Reihenfolge T0..T11 = §28-Invertebrate (delegiert + aktiv), dann Inner (spezifisch). Analog SequenceComposition.
 template <class T0, class T1, class T2, class T3, class T4, class T5,
           class T6, class T7, class T8, class T9, class T10, class T11,
           class Inner = DequeInner<>>
-struct ContainerComposition {
+struct AdapterComposition {
     using search_algo       = T0;    // axis_03a (delegated an inner)
     using cache_traversal   = T1;    // axis_03b (delegated)
     using memory_layout     = T2;    // axis_05  (delegated)
@@ -97,7 +97,7 @@ struct ContainerComposition {
     using inner_container   = Inner; // NEU axis_inner (Adapter-spezifisch, §28)
 
     static constexpr std::size_t      slot_count = 13;   // 12 geteilt/delegiert + inner_container
-    static constexpr std::string_view name       = "ContainerComposition";
+    static constexpr std::string_view name       = "AdapterComposition";
     static constexpr std::string_view paper_id   = "P00 Adapter (Container-Tier-Unterklasse, Doku 14 §28 Invertebrate)";
 };
 
@@ -114,12 +114,12 @@ concept IsAdapterComposition = requires {
 
 inline constexpr std::size_t kAdapterCompositionSlotCount = 13;
 
-/// AdapterAnatomy (= ContainerAnatomy, Name-Rename #90) — die Container-Gattung, Adapter-Tier-Unterklasse
+/// AdapterAnatomy — die Container-Gattung, Adapter-Tier-Unterklasse
 /// (genus()==Adapter, gattung_of→Container). Treibt die spezifische Achse inner_container REAL über die
 /// §26.4-Adapter-API (push/pop/top/front/back); die 12 geteilten/delegierten Achsen werden getragen (im
 /// Komposition-Typ; analog SequenceAnatomy, die growth real treibt + die 10 geteilten trägt).
 template <class Composition>
-class ContainerAnatomy {
+class AdapterAnatomy {
 public:
     using composition_t = Composition;
     using inner_t       = typename Composition::inner_container;
@@ -131,9 +131,9 @@ public:
     static constexpr AnatomyGattung   gattung()          noexcept { return AnatomyGattung::Container; }   // Außen-Interface
     static constexpr std::size_t      organ_count()      noexcept { return Composition::slot_count; }     // 13
 
-    ContainerAnatomy() = default;
+    AdapterAnatomy() = default;
     /// capacity wird für ABI-ctor-Kompatibilität akzeptiert, aber ignoriert (unbeschränkter Adapter).
-    explicit ContainerAnatomy(std::size_t /*capacity*/) noexcept {}
+    explicit AdapterAnatomy(std::size_t /*capacity*/) noexcept {}
 
     // ── §26.4 Adapter-API (push/pop/top/front/back) — treibt das inner_container-Organ + Observer ──
     void put(element_type v) { push(v); }   // Alias (Bestands-Aufrufe); push = die §26.4-Operation
@@ -178,11 +178,11 @@ public:
     void clear() noexcept { inner_.clear(); obs_.current_occupancy = 0; }
 
     /// observe_all() — EIGENER Adapter-Observer (NICHT der SearchAlgorithm-ObserverAggregate<19>).
-    [[nodiscard]] ContainerObserverSnapshot observe_all() const noexcept { return obs_; }
+    [[nodiscard]] AdapterObserverSnapshot observe_all() const noexcept { return obs_; }
 
 private:
-    inner_t                   inner_{};
-    ContainerObserverSnapshot obs_{};
+    inner_t                 inner_{};
+    AdapterObserverSnapshot obs_{};
 };
 
 }  // namespace comdare::cache_engine::anatomy

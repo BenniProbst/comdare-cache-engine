@@ -3,8 +3,8 @@
 // #87+#90 (2026-06-03, Doku 14 §28): die Adapter-Tier-Unterklasse hat 13 Achsen (12 geteilt/delegiert +
 // inner_container), KEINE „ordering"-Achse. DequeInner = queue-Default (get == FIFO pop_front).
 
-#include "builder/pruef_dock/container_dock.hpp"
-#include "anatomy/container_anatomy.hpp"
+#include "builder/pruef_dock/adapter_dock.hpp"
+#include "anatomy/adapter_anatomy.hpp"
 
 #include <iostream>
 #include <string>
@@ -29,9 +29,9 @@ int main() {
     std::cout << "Container-Prüf-Dock (Doc 24 §8.8): treibt Container-Tier + misst Container-Observer:\n";
 
     using D       = DelegatedAxis;
-    using Comp    = cea::ContainerComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>;  // 12 + inner
-    using Anatomy = cea::ContainerAnatomy<Comp>;
-    pd::ContainerDock<Anatomy> dock;
+    using Comp    = cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>;  // 12 + inner
+    using Anatomy = cea::AdapterAnatomy<Comp>;
+    pd::AdapterDock<Anatomy> dock;
 
     check_true("Dock-Gattung == Adapter (Container)", dock.genus() == cea::AnatomyGenus::Adapter);
 

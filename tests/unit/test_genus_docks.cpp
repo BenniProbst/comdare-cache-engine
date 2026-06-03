@@ -1,6 +1,6 @@
 // test_genus_docks — L-76a-c (2026-06-03, Doc 24 §8.8): die per-Gattung Prüf-Docks für Set/Sequence/View treiben
 // je ein Tier der Gattung über die Gattungs-API + messen dessen eingebauten Observer + persistieren. Schließt die
-// in-process-Mess-Seite für 3 weitere Gattungen (analog ContainerDock für Adapter, SearchAlgorithmDock für
+// in-process-Mess-Seite für 3 weitere Gattungen (analog AdapterDock für Adapter, SearchAlgorithmDock für
 // SearchAlgorithm). Build: cl /I libs/cache_engine /std:c++latest (kein Boost). Erwartungswerte deterministisch.
 
 #include "builder/pruef_dock/set_dock.hpp"

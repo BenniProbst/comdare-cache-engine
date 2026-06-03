@@ -1,6 +1,6 @@
 #pragma once
 // D9 / L-76a (2026-06-02) — ISetTier: ABI-stabiles Antriebs-/Observer-Sub-Interface der SET-Gattung (Vogel,
-// K-only, Doku 14 §27.2/§28). Analog IObservableTier (SearchAlgorithm) / IContainerTier (Adapter), aber
+// K-only, Doku 14 §27.2/§28). Analog IObservableTier (SearchAlgorithm) / IAdapterTier (Adapter), aber
 // Mengen-Semantik: insert(key)/contains(key)/erase(key) — KEIN Value (K=V, Doku 14 §28 „— (K=V)").
 //
 // Doc 24 §8.8: neue Gattung = EIGENES Sub-Interface + EIGENER flacher V1-POD (IAnatomyBase NIE mutieren). Der

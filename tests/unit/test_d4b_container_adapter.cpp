@@ -1,4 +1,4 @@
-// D4b.1 (L-75) — ContainerAbiAdapter in-process: bridge ContainerAnatomy → IAnatomyBase + IContainerTier.
+// D4b.1 (L-75) — AdapterAbiAdapter in-process: bridge AdapterAnatomy → IAnatomyBase + IAdapterTier.
 // Verifiziert die ABI-Adapter-Header (container_tier + container_abi_adapter + container_module_abi_v1-Bausteine)
 // OHNE DLL-Komplexität; der echte .dll-Round-Trip folgt in D4b.2 (test_d4b_container_dll via AnatomyModuleLoader).
 //
@@ -8,9 +8,9 @@
 //
 // Build: cl /std:c++latest /EHsc /I libs/cache_engine /I libs/cache_engine/src /I build/generated /I <boost> ...
 
-#include "anatomy/container_abi_adapter.hpp"
-#include "anatomy/container_tier.hpp"
-#include "anatomy/container_anatomy.hpp"
+#include "anatomy/adapter_abi_adapter.hpp"
+#include "anatomy/adapter_tier.hpp"
+#include "anatomy/adapter_anatomy.hpp"
 
 #include <cstdint>
 #include <iostream>
@@ -31,25 +31,25 @@ static void check(bool cond, std::string const& msg) {
 
 int main() {
     using D    = DelegatedAxis;
-    using Comp = cea::ContainerComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>;  // 12 + inner
-    using Anat = cea::ContainerAnatomy<Comp>;
-    cea::ContainerAbiAdapter<Anat> adapter;   // unbeschränkter Container-Adapter (13 Achsen)
+    using Comp = cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>;  // 12 + inner
+    using Anat = cea::AdapterAnatomy<Comp>;
+    cea::AdapterAbiAdapter<Anat> adapter;   // unbeschränkter Container-Adapter (13 Achsen)
 
-    std::cout << "==== D4b.1 ContainerAbiAdapter über IAnatomyBase ====\n";
+    std::cout << "==== D4b.1 AdapterAbiAdapter über IAnatomyBase ====\n";
     cea::IAnatomyBase* base = &adapter;
     check(base->genus() == cea::AnatomyGenus::Adapter, "genus() == Adapter");
     check(base->engine_kind() == eng::ExecutionEngineKind::Anatomy, "engine_kind() == Anatomy");
     check(base->organ_count() == 13, "organ_count() == 13 (§28: 12 geteilt/delegiert + inner_container)");
-    check(std::string{base->composition_name()} == "ContainerComposition", "composition_name == ContainerComposition");
+    check(std::string{base->composition_name()} == "AdapterComposition", "composition_name == AdapterComposition");
     base->warm_up(); base->run();
     check(base->lifecycle_state() == eng::EngineLifecycleState::Running, "lifecycle: warm_up→run → Running");
 
-    std::cout << "\n==== D4b.1 Container-Antrieb über IContainerTier (dynamic_cast, ABI-Pfad) ====\n";
-    auto* ct = dynamic_cast<cea::IContainerTier*>(base);
-    check(ct != nullptr, "dynamic_cast<IContainerTier*> != null (Container-Sub-Interface vorhanden)");
+    std::cout << "\n==== D4b.1 Container-Antrieb über IAdapterTier (dynamic_cast, ABI-Pfad) ====\n";
+    auto* ct = dynamic_cast<cea::IAdapterTier*>(base);
+    check(ct != nullptr, "dynamic_cast<IAdapterTier*> != null (Container-Sub-Interface vorhanden)");
     if (ct != nullptr) {
         for (std::uint64_t i = 0; i < 20; ++i) ct->tier_put(i);   // unbeschränkt → alle 20 verbleiben
-        cea::ContainerObserverSnapshotV1 obs{};
+        cea::AdapterObserverSnapshotV1 obs{};
         ct->tier_observe_container(&obs);
         check(obs.push_count == 20, "tier_observe_container: push_count == 20 (über Interface getrieben)");
         check(obs.organ_count == 13, "tier_observe_container: organ_count == 13");

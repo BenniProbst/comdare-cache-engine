@@ -4,7 +4,8 @@
 // was eine Permutation in eine baubare Tier-Binary verwandelt, war bisher auf SearchAlgorithm (AdHocComposition
 // <17>) hartcodiert. Dieses Traits hebt die Bindung auf eine pro-Gattung-Spezialisierung: jede Gattung deklariert
 // ihre Slot-Zahl, Achsen-Namen, Composition-/Anatomie-Bindung. SearchAlgorithm ist der VERIFIZIERTE Spezialfall
-// (BR-2/BR-3/BR-4); weitere Gattungen (Container=axis_inner+ordering als Adapter; Set/Sequence/View; Graph) docken an,
+// (BR-2/BR-3/BR-4); die Container-Gattung dockt über ihre Tier-Unterklassen (Adapter §28 13 Achsen / Set / Sequence /
+// View) an, ebenso die Graph-Gattung, sobald ihre Komposition/Anatomie existiert
 // sobald ihre Komposition/Anatomie existiert (Cross-Genus type-unmöglich, Doku 14 §32 — daher GETRENNTE Traits).
 // C++23, header-only.
 
@@ -12,7 +13,7 @@
 #include "anatomy/anatomy_base.hpp"                      // AnatomyGenus
 #include "anatomy/composition_factory.hpp"               // CompositionFromPermTuple / AdHocComposition<17>
 #include "anatomy/search_algorithm_anatomy.hpp"          // SearchAlgorithmAnatomy
-#include "anatomy/container_anatomy.hpp"                 // ContainerAnatomy / ContainerComposition (Container-Gattung)
+#include "anatomy/adapter_anatomy.hpp"                   // AdapterAnatomy / AdapterComposition (Container-Gattung)
 #include "anatomy/set_anatomy.hpp"                       // SetAnatomy / SetComposition (Set-Gattung, D9)
 #include "anatomy/sequence_anatomy.hpp"                  // SequenceAnatomy / SequenceComposition (Sequence-Gattung, D10)
 #include "anatomy/view_anatomy.hpp"                      // ViewAnatomy / ViewComposition (View-Gattung, D11)
@@ -64,8 +65,8 @@ struct GenusBindingTraits<cea::AnatomyGenus::Adapter> {
     template <class T0, class T1, class T2, class T3, class T4, class T5,
               class T6, class T7, class T8, class T9, class T10, class T11,
               class Inner = cea::DequeInner<>>
-    using CompositionFor = cea::ContainerComposition<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, Inner>;
-    template <class Comp> using AnatomyFor = cea::ContainerAnatomy<Comp>;
+    using CompositionFor = cea::AdapterComposition<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, Inner>;
+    template <class Comp> using AnatomyFor = cea::AdapterAnatomy<Comp>;
 
     [[nodiscard]] static constexpr std::array<std::string_view, 13> const& axis_names() noexcept {
         static constexpr std::array<std::string_view, 13> kNames = {

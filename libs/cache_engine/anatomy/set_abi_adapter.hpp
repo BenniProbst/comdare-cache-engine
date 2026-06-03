@@ -1,6 +1,6 @@
 #pragma once
 // D9.2 / L-76a (2026-06-02) — SetAbiAdapter: Runtime-ABI-Adapter der SET-Gattung (Vogel), analog
-// SearchAlgorithmAbiAdapter / ContainerAbiAdapter. Bridge SetAnatomy<Composition> → IAnatomyBase + ISetTier.
+// SearchAlgorithmAbiAdapter / AdapterAbiAdapter. Bridge SetAnatomy<Composition> → IAnatomyBase + ISetTier.
 // Eine Set-Permutations-.dll exportiert genau EINEN solchen via comdare_create_anatomy() (gibt IAnatomyBase*;
 // der gattungs-agnostische Loader, der Set-Dock fragt dynamic_cast<ISetTier*>). static_assert genus()==Set (Doku 14 §32).
 
