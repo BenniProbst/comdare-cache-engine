@@ -211,8 +211,27 @@ je Achse." → tiefenlesender Agent (Doku 14 §7/§25/§27/§28/§32 + Code + Do
   (Doc-30-§3-Web-Befund: Pflicht-Kern = Such-Strategie/Mapping/Node/Value; ART/HOT/SuRF haben keinen Write-Buffer) und die
   legitime Adapter-Gattung darf nicht gelöscht werden.
 
-**KORREKTES Modell (ersetzt §6-Q1 + §7; inkl. User-Korrektur #3 2026-06-03 „Achsen sind nie optional"):**
-1. **Achsen einer Gattung sind NIE optional** (User-Korrektur — verwirft das „optional"-Framing des Agenten): JEDE Achse
+**KORREKTES Modell (ersetzt §6-Q1 + §7; inkl. User-Korrekturen #3/#4 2026-06-03):**
+
+**0. DREI EBENEN (User-Präzisierung #4 — „damit der Punkt mit den Gattungen nicht falsch wird"; Doku 14 §25 verbatim + §26):**
+   - **(a) Gattung = Außen-Interface** — was die Außenwelt sieht: **SearchAlgorithm / Container / Graph** (Doc 24 „ABI-
+     stabiles Interface für die API der Gattung"; Doku 14 §25 „Suchalgorithmen und Container gehören zu unterschiedlichen
+     Gattungen"). Coarse, schnittstellen-definierend.
+   - **(b) Tier-Unterklasse** = liegt UNTER dem Interface und verwendet einen **FESTEN Achsen-Satz** (Doku 14 §25 „die
+     Permutation Engine … durch Unterklassen … spezifiziert"; §26 die std-Familien A–F). Hier lebt die feste Achsen-
+     Konfiguration — NICHT auf der Gattungs-Ebene.
+   - **(c) Achsen** = Organe der Tier-Unterklasse; **alle Pflicht + in jedem Tier-Binary uniform getrieben** (User-Korr. #3);
+     je Achse ein austauschbarer Algorithmus (inkl. Durchreich-Algorithmen wie NoBuffer/NonePrefetch).
+   - **AKTUELLER STAND:** wir definieren erstmal **NUR EINE Tier-Unterklasse** (unter dem SearchAlgorithm-Interface,
+     std::map-ähnlich), für die ALLE Achsen Pflicht sind. (Die code-seitigen „5 AnatomyGenus" SearchAlgorithm/Set/Sequence/
+     Adapter/View bzw. Doku-14-§26 „Gattung A–F" benennen Container-Tier-Unterklassen lose als „Gattung" — per dieser
+     Präzisierung sind sie Tier-Unterklassen der Container-Gattung; nur die SearchAlgorithm-Tier-Unterklasse ist heute gebaut.)
+   - **Folge für queuing:** queuing ist eine **Pflicht-Achse der (aktuellen SearchAlgorithm-)Tier-Unterklasse** — kein
+     Interface, keine Gattung. Der „Adapter = queuing-Gattung"-Fehler war DOPPELT falsch: (i) queuing ist keine Gattung;
+     (ii) selbst die Container-Adapter (std::queue/stack/priority_queue, Doku 14 §26.4) wären eine **Tier-Unterklasse der
+     Container-GATTUNG** (axis_inner + ordering), nicht eine „queuing-Gattung".
+
+1. **Achsen einer Tier-Unterklasse sind NIE optional** (User-Korrektur #3 — verwirft das „optional"-Framing des Agenten): JEDE Achse
    ist in JEDEM Tier-Binary präsent, ihr Interface wird UNIFORM getrieben. queuing ist also eine **reguläre, mandatorische
    SA-Achse** — kein „optionaler Slot". Ein Tier, das nicht puffert, wählt den KONKRETEN Algorithmus `NoBuffer`/`NoFlush`
    („ein Algorithmus, der eigentlich nicht queued", durchreicht) — die Achse + ihr Interface bleiben present + uniform

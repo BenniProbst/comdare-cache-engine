@@ -243,8 +243,12 @@ UND funktionieren mit **weiten Keys >65535** → der Key-Type-Blocker (§5.5) is
 > Tiere als Achsen-Werte erlaubt — auch nicht „übergangsweise". Ein noch **nicht seziertes** Tier steht
 > **außerhalb des Systems** (Doku 14 §3.1: „ein Gesamtalgorithmus steht außerhalb des Systems; erst zerlegt
 > bringen wir seine Organe ein") — es wird **NICHT** als Achsen-Wert abgelegt. Erst nach Sezierung in
-> Organe tritt es als **Gattungs-Konfigurator** (Composition über alle, teils optional genutzten,
-> Organ-Achsen) ins System ein, den der CacheEngineBuilder metaprogrammiert zur exakten Wiederherstellung
+> Organe tritt es als **Gattungs-Konfigurator** (Composition über alle Organ-Achsen — ~~teils optional
+> genutzten~~ **[korr. 2026-06-03, s. Doc 30 §8: Achsen einer Gattung sind NIE optional; die Interfaces
+> ALLER Achsen werden in JEDEM Tier-Binary tatsächlich + uniform getrieben. Ein Tier, das ein Organ nicht
+> aktiv „nutzt", wählt dort den konkreten durchreichenden Algorithmus (z. B. NoBuffer/NoFlush analog
+> NonePrefetch/NoMigration) — „None" ist ein Algorithmus, keine Abwesenheit der Achse]**),
+> den der CacheEngineBuilder metaprogrammiert zur exakten Wiederherstellung
 > des Tieres aus seinen Organen.
 
 > **Konsequenz für den Ist-Stand:** Die heutigen monolithischen `axis_03a`-Wrapper (Array256/BST/Hash/…)
