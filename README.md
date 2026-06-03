@@ -45,7 +45,11 @@ und folgenden Phasen durchgefuehrt:
 | Bausteine-Matrix | `docs/bausteine/` |
 | Flag-System (CPUID-Vorbild) | `docs/architecture/flag_system.md` |
 
-## Build-Anleitung (Skelett — noch nicht funktionsfaehig)
+## Build-Anleitung (Kern + Mess-Pfad lauffähig; Voll-Permutations-Build skelettiert)
+
+> Der Kern-Build (`msvc-release`) + die lokale Mess-Kette (`perm_runner` + Tier-DLLs, s. „Messwerte erzeugen") sind
+> lauffähig. Der `-DCOMDARE_BUILD_PERMUTATIONS=ON`-Voll-Build (alle Vendor-Allokatoren + Massen-Permutationen) bleibt
+> teils skelettiert (s. `docs/sessions/20260601-19-vendor-allokatoren-beschaffungs-spec.md`).
 
 ```bash
 # Standard Build (Compile-Time SIMD-Detection)
@@ -83,6 +87,52 @@ und 2 `testPresets` (`msvc-release`, `gcc-release` mit `outputOnFailure`).
 
 > Hinweis: Die `condition`-Klauseln blenden nicht-passende Presets je Host automatisch aus
 > (`cmake --list-presets` zeigt nur die auf dem aktuellen System gültigen).
+
+## Messwerte erzeugen (Kommandozeile) — Schnellstart
+
+Diese Kette erzeugt **echte Messwerte aus echten SearchAlgorithm-DLL-„Tieren"** lokal (Windows/MSVC, gate-frei).
+Ein „Tier" = eine kompilierte Permutations-DLL (17 Anatomie-Achsen + 3 Build-Achsen); `perm_runner` lädt sie,
+treibt den Mess-Workload (`n` Inserts + `n` Lookups) und gibt eine `result_ingest`-Zeile aus.
+
+**0) Einmalig konfigurieren** (erzeugt `build/msvc-release/generated/` + baut `perm_runner.exe`):
+```powershell
+cmake --preset msvc-release
+cmake --build build/msvc-release --target perm_runner --config Release
+```
+
+**1) Mess-Lauf über mehrere Tiere** (baut 8 Tiere + misst, schreibt CSV):
+```powershell
+pwsh tests/unit/thesis_tiere/build_and_measure_thesis_tiere.ps1
+# Ergebnis: build/thesis_tiere/thesis_measurements.csv
+#   Spalten: organ;n_ops;search_lookup;hit;miss;insert;erase;peak;bytes_alloc;bytes_in_use;alloc_cnt;dealloc_cnt;fail;obs_axes;fill
+```
+
+**2) Ein einzelnes Tier messen** (direkt mit perm_runner):
+```powershell
+perm_runner <tier.dll> <binary_id> <n_ops>
+# z.B.: build/msvc-release/apps/perm_runner/Release/perm_runner.exe `
+#       build/thesis_tiere/thesis_sa_btree.dll thesis_sa_btree 2000
+# Ausgabe (1 Zeile): thesis_sa_btree;2000;2000;0;2000;0;2000;115200;38368;20;19;0;4;2000
+```
+Format = `binary_id` + 13 Observer-Felder (`builder/experiment_tree/result_ingest.hpp`):
+`search_lookup;hit;miss;insert;erase;peak_occupancy | bytes_alloc;bytes_in_use;alloc_cnt;dealloc_cnt;fail | observable_axes;fill`.
+
+**3) Eigenes Tier definieren:** eine `.cpp` mit dem Makro `COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(PT, SE, HW, <17 Achsen>)`
+anlegen (Vorlage: `tests/unit/thesis_tiere/thesis_sa_array256.cpp`), dann via `cl /LD /DCOMDARE_MEASUREMENT_ON=1`
++ vollem Include-Satz bauen (das Skript aus Schritt 1 zeigt den exakten Aufruf). **Wichtig:** ohne
+`/DCOMDARE_MEASUREMENT_ON=1` baut die DLL ohne `IObservableTier` → `perm_runner` meldet „keine Mess-Ebene" (exit 1).
+
+> ⚠️ **Architektur-Hinweis (ehrlich, Stand 2026-06-03):** Die aktuellen `axis_03a`-Such-Organe (Array256, BST, …) sind
+> noch **Monolithen mit Eigenspeicher** und delegieren NICHT an die Speicher-Achsen (node_type/layout/allocator) →
+> Variation von axis_04/05 ist derzeit wirkungslos. Details + Fix-Plan: `docs/architecture/30_audit_achsen_delegation_pflichtachsen.md`.
+> Der **korrekte, delegierende** Aufbau ist als vertikaler Beleg vorhanden und ausführbar:
+> ```powershell
+> pwsh tests/unit/thesis_tiere/build_node_delegation_proof.ps1
+> # zeigt: gleiche Semantik, aber chunk_count = ceil(n/node_capacity) je Node verschieden -> node_type wirkt
+> ```
+
+**Cluster-Skalierung (GATE-MAXIMAL, ZIH):** dieselbe Kette läuft via Apptainer + SLURM-Array über `perm_runner` →
+Webhook → `result_ingest`; siehe `deploy/comdare-ce.def` + den Wunsch-Katalog in der Infra-K78 (CE-D1…D5).
 
 ## Compiler-Anforderungen
 
