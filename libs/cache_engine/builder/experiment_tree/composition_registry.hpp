@@ -1,9 +1,9 @@
 #pragma once
-// BR-2 (2026-06-02, Doc 27 §3) — CompositionRegistry: Baum-Blatt-Pfad ↔ reale AdHocComposition<17>.
+// BR-2 (2026-06-02, Doc 27 §3) — CompositionRegistry: Baum-Blatt-Pfad ↔ reale AdHocComposition<19>.
 //
 // Bindet den Experiment-Baum an die ECHTEN Kompositionen: per PermutationEngine::for_each_permutation wird
 // JEDE Permutation eines PILOT-Engines (klein gehalten — das VOLLE Enabled-Produkt ist C1060-infeasible, Doc 27 §6)
-// zu einer realen AdHocComposition<17> materialisiert (CompositionFromPermTuple<P>) und unter ihrem serialisierten
+// zu einer realen AdHocComposition<19> materialisiert (CompositionFromPermTuple<P>) und unter ihrem serialisierten
 // Pfad (== Baum-`binary_id`, axis_path_serialization.hpp = DIE zentrale Konvention) abgelegt. Der Baum-Blatt-Pfad
 // schlägt so genau EINE reale Komposition nach.
 //
@@ -24,17 +24,18 @@
 
 namespace comdare::cache_engine::builder::experiment {
 
-/// Die read-only Achsen-Definition einer Komposition: (Achsen-Name, Wrapper-Name) je der 17 Slots T0..T16.
-/// Quelle für BR-3 „Achsen-Definition read-only je Knoten" (Wrapper-Identität pro Achse).
+/// Die read-only Achsen-Definition einer Komposition: (Achsen-Name, Wrapper-Name) je der 19 Slots T0..T18
+/// (17 Such-Achsen + queuing q1/q2, Doc 30 §8.0). Quelle für BR-3 „Achsen-Definition read-only je Knoten".
 template <class C>
 [[nodiscard]] inline std::vector<std::pair<std::string, std::string>> composition_definition() {
-    std::array<std::string_view, 17> const v = {
+    std::array<std::string_view, 19> const v = {
         C::search_algo::name(),      C::cache_traversal::name(),    C::mapping::name(),
         C::path_compression::name(), C::node_type::name(),          C::memory_layout::name(),
         C::allocator::name(),        C::prefetch::name(),           C::concurrency::name(),
         C::serialization::name(),    C::telemetry::name(),          C::value_handle::name(),
         C::isa::name(),              C::index_organization::name(), C::io_dispatch::name(),
-        C::migration_policy::name(), C::filter::name()
+        C::migration_policy::name(), C::filter::name(),             C::queuing_q1::name(),
+        C::queuing_q2::name()
     };
     std::vector<std::pair<std::string, std::string>> out;
     out.reserve(v.size());
@@ -54,12 +55,12 @@ struct CompositionRecord {
 /// CompositionRegistry — keyed über den serialisierten Static-Pfad (= Baum-`binary_id`).
 class CompositionRegistry {
 public:
-    /// Befüllt aus einem PILOT-PermutationEngine: jede Permutation → reale AdHocComposition<17>.
+    /// Befüllt aus einem PILOT-PermutationEngine: jede Permutation → reale AdHocComposition<19>.
     /// (Der Engine wird durch Flags/Pilot klein gehalten — sonst C1060; Doc 27 §5 R1 + §6.)
     template <class PilotEngine>
     void register_from_engine() {
         PilotEngine::for_each_permutation([this]<class P>() {
-            using Comp = anatomy::CompositionFromPermTuple<P>;  // materialisiert AdHocComposition<17> (compile-time)
+            using Comp = anatomy::CompositionFromPermTuple<P>;  // materialisiert AdHocComposition<19> (compile-time)
             CompositionRecord r;
             r.path         = serialize_composition_path<P>();
             r.slot_path    = serialize_composition_from_slots<Comp>();

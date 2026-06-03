@@ -26,11 +26,13 @@ int main() {
     std::cout << "Gattungs-Generik (Schritt 2): GenusBindingTraits<G> — Bau-Brücke gattungs-parametrisch:\n";
 
     using SA = ex::GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm>;
-    check_eq("SearchAlgorithm: slot_count == 17", SA::slot_count, std::size_t{17});
+    check_eq("SearchAlgorithm: slot_count == 19", SA::slot_count, std::size_t{19});
     check_eq("SearchAlgorithm: name", std::string{SA::name}, std::string{"SearchAlgorithm"});
-    check_eq("SearchAlgorithm: axis_names() size == 17", SA::axis_names().size(), std::size_t{17});
+    check_eq("SearchAlgorithm: axis_names() size == 19", SA::axis_names().size(), std::size_t{19});
     check_eq("axis_names[0] == search_algo", std::string{SA::axis_names()[0]}, std::string{"search_algo"});
     check_eq("axis_names[16] == filter", std::string{SA::axis_names()[16]}, std::string{"filter"});
+    check_eq("axis_names[17] == queuing_q1", std::string{SA::axis_names()[17]}, std::string{"queuing_q1"});  // Doc 30 §8.0
+    check_eq("axis_names[18] == queuing_q2", std::string{SA::axis_names()[18]}, std::string{"queuing_q2"});  // Doc 30 §8.0
 
     // Die Generik: SearchAlgorithm ist GEBUNDEN; die übrigen Gattungen sind definierte Erweiterungspunkte (noch nicht).
     check_true("GenusBound<SearchAlgorithm> == true (verifizierte Bau-Brücke)", ex::GenusBound<cea::AnatomyGenus::SearchAlgorithm>);

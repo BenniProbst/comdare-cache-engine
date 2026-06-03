@@ -4,7 +4,7 @@
 // 1. EmptyAxisSnapshot ist standard_layout + trivially_copyable
 // 2. ObservableAxis Concept funktioniert (Detection von statistics())
 // 3. snapshot_of_t graceful fallback fuer non-observable Achsen
-// 4. ObserverAggregate<Composition> hat 17 named Snapshot-Members
+// 4. ObserverAggregate<Composition> hat 19 named Snapshot-Members (17 + queuing q1/q2, Doc 30 §8.0)
 // 5. SearchAlgorithmAnatomy<C>::observe_all() liefert ObserverAggregate
 // 6. observable_axis_count() korrekte Compile-Time-Diagnose
 //
@@ -82,12 +82,12 @@ TEST(R5A_SnapshotAxis, EmptyForNonObservable) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// §3 — ObserverAggregate Komposition mit 17 Members
+// §3 — ObserverAggregate Komposition mit 19 Members (Doc 30 §8.0)
 // ─────────────────────────────────────────────────────────────────────────────
 
-TEST(R5A_ObserverAggregate, ArtCompositionHasSeventeenSlots) {
+TEST(R5A_ObserverAggregate, ArtCompositionHasNineteenSlots) {
     using Agg = ana::ObserverAggregate<ce_compos::ArtComposition>;
-    static_assert(Agg::total_slots() == 17);
+    static_assert(Agg::total_slots() == 19);
     SUCCEED();
 }
 
@@ -99,12 +99,12 @@ TEST(R5A_ObserverAggregate, AllSixCompositionsConformLayout) {
     using AggSurf     = ana::ObserverAggregate<ce_compos::SurfComposition>;
     using AggMasstree = ana::ObserverAggregate<ce_compos::MasstreeComposition>;
     using AggStart    = ana::ObserverAggregate<ce_compos::StartComposition>;
-    static_assert(AggArt::total_slots()      == 17);
-    static_assert(AggHot::total_slots()      == 17);
-    static_assert(AggWormhole::total_slots() == 17);
-    static_assert(AggSurf::total_slots()     == 17);
-    static_assert(AggMasstree::total_slots() == 17);
-    static_assert(AggStart::total_slots()    == 17);
+    static_assert(AggArt::total_slots()      == 19);
+    static_assert(AggHot::total_slots()      == 19);
+    static_assert(AggWormhole::total_slots() == 19);
+    static_assert(AggSurf::total_slots()     == 19);
+    static_assert(AggMasstree::total_slots() == 19);
+    static_assert(AggStart::total_slots()    == 19);
     SUCCEED();
 }
 
@@ -117,7 +117,7 @@ TEST(R5A_AnatomyObserveAll, ArtAnatomyProducesAggregate) {
     auto agg = anatomy.observe_all();
     // R5.A Pilot: Default-Aggregate (Achsen-Member-Aggregation R5.B pending)
     using AggT = decltype(agg);
-    static_assert(AggT::total_slots() == 17);
+    static_assert(AggT::total_slots() == 19);
     SUCCEED();
 }
 
@@ -134,8 +134,8 @@ TEST(R5A_AnatomyObserveAll, AllElevenAnatomiesProduceAggregate) {
     [[maybe_unused]] auto agg9  = ana::StartPaperBinding{}.observe_all();
     [[maybe_unused]] auto agg10 = ana::WormholePaperBinding{}.observe_all();
     [[maybe_unused]] auto agg11 = ana::SurfPaperBinding{}.observe_all();
-    static_assert(decltype(agg1)::total_slots()  == 17);
-    static_assert(decltype(agg11)::total_slots() == 17);
+    static_assert(decltype(agg1)::total_slots()  == 19);
+    static_assert(decltype(agg11)::total_slots() == 19);
     SUCCEED();
 }
 
@@ -148,7 +148,7 @@ TEST(R5A_ObservableAxisCount, ArtAnatomyDiagnoseIsCompileTime) {
     // COMDARE_CE_ENABLE_STATISTICS. Hier wird der Count zur Compile-Time geprueft —
     // wenn Statistics-Flag aus ist, sind 0 oder wenig Achsen observable.
     constexpr auto count = ana::Art::observable_axis_count();
-    static_assert(count <= 17);
+    static_assert(count <= 19);
     SUCCEED();
 }
 
@@ -175,6 +175,8 @@ struct AllEmptyComposition {
     using io_dispatch        = WithoutStatistics;
     using migration_policy   = WithoutStatistics;
     using filter             = WithoutStatistics;
+    using queuing_q1         = WithoutStatistics;   // Doc 30 §8.0: SA-Achse T17
+    using queuing_q2         = WithoutStatistics;   // Doc 30 §8.0: SA-Achse T18
     static constexpr std::string_view name     = "AllEmptyComposition";
     static constexpr std::string_view paper_id = "P00 EmptyTest";
 };
@@ -185,7 +187,7 @@ TEST(R5A_AbiStability, AllEmptyAggregateIsStandardLayoutPod) {
     static_assert(std::is_trivially_copyable_v<Agg>);
     static_assert(std::is_trivially_default_constructible_v<Agg>);
     static_assert(Agg::observable_count() == 0);
-    static_assert(Agg::total_slots()      == 17);
+    static_assert(Agg::total_slots()      == 19);
     SUCCEED();
 }
 

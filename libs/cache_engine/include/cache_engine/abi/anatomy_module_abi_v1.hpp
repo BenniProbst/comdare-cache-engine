@@ -69,21 +69,21 @@
     }
 
 /// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(...) — R5.G: Materialisiert eine AUTO-ENUMERIERTE Permutation
-/// (AdHocComposition) als Permutations-Binary, OHNE benannten Composition-Header. Nimmt die 17
-/// Achsen-Vendor-Typen VARIADISCH (T0..T16) und baut die Composition intern als Alias — das löst das
-/// Komma-im-Makro-Argument-Problem von AdHocComposition<A,B,…> (Komma = sonst mehrere Makro-Args).
+/// (AdHocComposition) als Permutations-Binary, OHNE benannten Composition-Header. Nimmt die 19
+/// Achsen-Vendor-Typen VARIADISCH (T0..T18 — 17 Such-Achsen + queuing q1/q2, Doc 30 §8.0) und baut die
+/// Composition intern als Alias — das löst das Komma-im-Makro-Argument-Problem von AdHocComposition<A,B,…>.
 #define COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(...)                                     \
     using ComdareAdHocPermutationComposition =                                      \
         ::comdare::cache_engine::anatomy::AdHocComposition<__VA_ARGS__>;            \
     COMDARE_DEFINE_ANATOMY_MODULE(ComdareAdHocPermutationComposition)
 
-/// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(PT, SE, HW, <17 Anatomie-Achsen>) — L-74a: EINE DLL trägt
-/// SOWOHL die 17-Slot-SearchAlgorithm-Anatomie (4 ABI-Symbole, genus()==SearchAlgorithm, organ_count()==17) ALS
-/// AUCH die Build-Identität der 3 Build-Achsen (page_type/09b/12) als extern-"C"-Inspection-Symbol
-/// (comdare_build_variant_inspect). Beweist Doc 27 §0.1: die 3 Build-Achsen sind Build-Parameter DERSELBEN
-/// 17-Slot-Binary (Sub/Build-Varianten DESSELBEN Algorithmus), NICHT eine eigene Gattung (KEINE AdHocComposition<20>).
-/// Reihenfolge: die 3 Build-Achsen ZUERST (named), dann die 17 Anatomie-Achsen variadisch (Komma-Problem von
-/// AdHocComposition<17>). Host: genus über den Loader + Build-Identität über GetProcAddress/dlsym aus DERSELBEN .dll.
+/// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(PT, SE, HW, <19 Anatomie-Achsen>) — L-74a: EINE DLL trägt
+/// SOWOHL die 19-Slot-SearchAlgorithm-Anatomie (4 ABI-Symbole, genus()==SearchAlgorithm, organ_count()==19 — 17
+/// Such-Achsen + queuing q1/q2, Doc 30 §8.0) ALS AUCH die Build-Identität der 3 Build-Achsen (page_type/09b/12)
+/// als extern-"C"-Inspection-Symbol (comdare_build_variant_inspect). Beweist Doc 27 §0.1: die 3 Build-Achsen sind
+/// Build-Parameter DERSELBEN Binary (Sub/Build-Varianten DESSELBEN Algorithmus), NICHT eine eigene Gattung.
+/// Reihenfolge: die 3 Build-Achsen ZUERST (named), dann die 19 Anatomie-Achsen variadisch (Komma-Problem von
+/// AdHocComposition<19>). Host: genus über den Loader + Build-Identität über GetProcAddress/dlsym aus DERSELBEN .dll.
 #define COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(PT, SE, HW, ...)             \
     COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(__VA_ARGS__)                                  \
     COMDARE_DEFINE_BUILD_VARIANT_INSPECTION(comdare_build_variant_inspect, PT, SE, HW)

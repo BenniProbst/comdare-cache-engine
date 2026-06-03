@@ -14,7 +14,7 @@
 #include "builder/experiment_tree/experiment_tree.hpp"
 #include <permutations/permutation_engine.hpp>                // PermutationEngine
 
-// Die 17 Komposition-Topic-ConfigSets (echte Wrapper):
+// Die 19 Komposition-Topic-ConfigSets (echte Wrapper; Doc 30 §8.0: + queuing q1/q2 als SA-Achsen T17/T18):
 #include <topics/traversal/topic_traversal_config_set.hpp>
 #include <topics/nodes/topic_nodes_config_set.hpp>
 #include <topics/memory_layout/topic_memory_layout_config_set.hpp>
@@ -29,6 +29,7 @@
 #include <topics/io/topic_io_config_set.hpp>
 #include <topics/migration/topic_migration_config_set.hpp>
 #include <topics/filter/topic_filter_config_set.hpp>
+#include <topics/queuing/topic_queuing_config_set.hpp>
 
 #include <boost/mp11.hpp>
 #include <iostream>
@@ -72,32 +73,35 @@ using L13 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants,
 using L14 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;                // io_dispatch
 using L15 = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;         // migration_policy
 using L16 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;            // filter
+using L17 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>;        // queuing_q1 ×1 (Doc 30 §8.0)
+using L18 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>;        // queuing_q2 ×1 (Doc 30 §8.0)
 
 using PilotEngine = perm::PermutationEngine<
     PilotCfg<L0>,  PilotCfg<L1>,  PilotCfg<L2>,  PilotCfg<L3>,  PilotCfg<L4>,  PilotCfg<L5>,
     PilotCfg<L6>,  PilotCfg<L7>,  PilotCfg<L8>,  PilotCfg<L9>,  PilotCfg<L10>, PilotCfg<L11>,
-    PilotCfg<L12>, PilotCfg<L13>, PilotCfg<L14>, PilotCfg<L15>, PilotCfg<L16>>;
+    PilotCfg<L12>, PilotCfg<L13>, PilotCfg<L14>, PilotCfg<L15>, PilotCfg<L16>,
+    PilotCfg<L17>, PilotCfg<L18>>;
 
 int main() {
-    std::cout << "BR-2 (Pilot, C1060-sicher): Baum-Blatt ↔ reale AdHocComposition<17> Round-Trip:\n";
+    std::cout << "BR-2 (Pilot, C1060-sicher): Baum-Blatt ↔ reale AdHocComposition<19> Round-Trip:\n";
 
-    // (1) CompositionRegistry aus dem PILOT-Engine: jede Permutation → reale AdHocComposition<17>.
+    // (1) CompositionRegistry aus dem PILOT-Engine: jede Permutation → reale AdHocComposition<19>.
     ex::CompositionRegistry reg;
     reg.register_from_engine<PilotEngine>();
     std::cout << "  PilotEngine::count() = " << PilotEngine::count() << "  reg.size() = " << reg.size() << "\n";
     check_eq("reg.size() == PilotEngine::count()", reg.size(), PilotEngine::count());
     check_true("∏ > 1 (echtes Fanout: node_type ×2 · memory_layout ×2)", reg.size() > 1);
 
-    // (2) Round-Trip P → CompositionFromPermTuple → AdHocComposition<17>: path (aus PermTuple) == slot_path
-    //     (aus den 17 named Slots) + materialisiert + 17-Achsen-Definition.
+    // (2) Round-Trip P → CompositionFromPermTuple → AdHocComposition<19>: path (aus PermTuple) == slot_path
+    //     (aus den 19 named Slots) + materialisiert + 19-Achsen-Definition.
     bool rt = true; std::size_t def_ok = 0;
     reg.for_each([&](ex::CompositionRecord const& r) {
         if (r.path != r.slot_path)        rt = false;   // P→Composition Slot-Reihenfolge verlustfrei
         if (!r.materialized)              rt = false;   // CompositionFromPermTuple<P> kompilierte
-        if (r.definition.size() == 17)    ++def_ok;     // reale Achsen-Definition je Slot
+        if (r.definition.size() == 19)    ++def_ok;     // reale Achsen-Definition je Slot (Doc 30 §8.0: 17 + queuing q1/q2)
     });
     check_true("Round-Trip: path == slot_path + materialized (alle)", rt);
-    check_eq("jede Komposition hat 17-Achsen-Definition", def_ok, reg.size());
+    check_eq("jede Komposition hat 19-Achsen-Definition", def_ok, reg.size());
 
     // (3) Baum über DIESELBEN Pilot-Listen + Achsen-Namen (= kCompositionAxisNames) → identische Pfade.
     std::vector<ex::AxisLevel> lv;
@@ -110,6 +114,7 @@ int main() {
     ex::push_static_axis<L12>(lv, "isa");                ex::push_static_axis<L13>(lv, "index_organization");
     ex::push_static_axis<L14>(lv, "io_dispatch");        ex::push_static_axis<L15>(lv, "migration_policy");
     ex::push_static_axis<L16>(lv, "filter");
+    ex::push_static_axis<L17>(lv, "queuing_q1");         ex::push_static_axis<L18>(lv, "queuing_q2");
 
     auto factory = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree tree{factory};

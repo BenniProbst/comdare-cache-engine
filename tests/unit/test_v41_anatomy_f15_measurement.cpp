@@ -137,7 +137,7 @@ TEST(F15Measurement, LoadsGeneratedPermutationDllsAndRunsLifecycle) {
         auto* a = h.anatomy();
         ASSERT_NE(a, nullptr);
         EXPECT_FALSE(a->composition_name().empty());   // Identität aus der DLL
-        EXPECT_EQ(a->organ_count(), 17u);              // volle Anatomie (17 Achsen)
+        EXPECT_EQ(a->organ_count(), 19u);              // volle Anatomie (19 Achsen, Doc 30 §8.0)
         // Lifecycle (state-Flips; keine Daten — s. Datei-Kopf): muss ohne Crash durchlaufen.
         a->warm_up();
         a->run();

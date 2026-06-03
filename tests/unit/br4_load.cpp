@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
 
     // Gattungs-API durchtesten (reale Anatomie über die DLL-Grenze).
     check_eq("composition_name == AdHocComposition", std::string{a->composition_name()}, std::string{"AdHocComposition"});
-    check_eq("organ_count == 17 (SearchAlgorithm-Komposition)", a->organ_count(), std::size_t{17});
+    check_eq("organ_count == 19 (SearchAlgorithm-Komposition, Doc 30 §8.0)", a->organ_count(), std::size_t{19});
     check_true("genus == SearchAlgorithm", a->genus() == ana::AnatomyGenus::SearchAlgorithm);
 
     // Pfad B: Observer über die DLL-Grenze ziehen (dynamic_cast → tier_insert → tier_observe).

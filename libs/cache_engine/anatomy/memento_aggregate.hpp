@@ -75,7 +75,7 @@ void restore_axis(A& a, memento_of_t<A> const& m) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MementoAggregate<Composition> — 17 named Memento-Members (binary-intern, rich)
+// MementoAggregate<Composition> — 19 named Memento-Members (17 + queuing q1/q2, Doc 30 §8.0)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Binary-interner Zustands-Halter pro Composition: je Achse 1 Memento (named nach Composition-Alias).
@@ -100,6 +100,9 @@ struct MementoAggregate {
     memento_of_t<typename Composition::io_dispatch>        io_dispatch;
     memento_of_t<typename Composition::migration_policy>   migration_policy;
     memento_of_t<typename Composition::filter>             filter;
+    // Doc 30 §8.0: queuing q1/q2 als reguläre SA-Achsen (EmptyMemento solange stateless via memento_of_t).
+    memento_of_t<typename Composition::queuing_q1>         queuing_q1;
+    memento_of_t<typename Composition::queuing_q2>         queuing_q2;
 
     /// Anzahl der stateful (nicht-Empty) Achsen — Diagnose für den Zwei-Phasen-Treiber.
     [[nodiscard]] static constexpr std::size_t stateful_count() noexcept {
@@ -121,10 +124,12 @@ struct MementoAggregate {
         if constexpr (MementoAxis<typename Composition::io_dispatch>)        ++n;
         if constexpr (MementoAxis<typename Composition::migration_policy>)   ++n;
         if constexpr (MementoAxis<typename Composition::filter>)             ++n;
+        if constexpr (MementoAxis<typename Composition::queuing_q1>)         ++n;
+        if constexpr (MementoAxis<typename Composition::queuing_q2>)         ++n;
         return n;
     }
 
-    [[nodiscard]] static constexpr std::size_t total_slots() noexcept { return 17; }
+    [[nodiscard]] static constexpr std::size_t total_slots() noexcept { return 19; }
 };
 
 }  // namespace comdare::cache_engine::anatomy

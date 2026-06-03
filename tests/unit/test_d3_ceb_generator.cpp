@@ -13,7 +13,8 @@
 
 using namespace comdare::cache_engine::builder::experiment;
 
-// Fake-Komposition mit den 17 von adhoc_macro_args erwarteten Member-Typen (type_name-fähig; Werte egal).
+// Fake-Komposition mit den 19 von adhoc_macro_args erwarteten Member-Typen (type_name-fähig; Werte egal).
+// Doc 30 §8.0: queuing q1/q2 sind reguläre SA-Achsen-Slots (T17/T18) → adhoc_macro_args liest sie ebenso.
 struct FakeComp {
     using search_algo = int; using cache_traversal = int; using mapping = int;
     using path_compression = int; using node_type = int; using memory_layout = int;
@@ -21,6 +22,7 @@ struct FakeComp {
     using serialization = int; using telemetry = int; using value_handle = int;
     using isa = int; using index_organization = int; using io_dispatch = int;
     using migration_policy = int; using filter = int;
+    using queuing_q1 = int; using queuing_q2 = int;
 };
 struct FakeEngine {
     template <class F> static void for_each_composition_type(F&& f) { f.template operator()<FakeComp>(); }

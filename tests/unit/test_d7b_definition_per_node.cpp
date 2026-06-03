@@ -61,15 +61,16 @@ int main() {
     tr("Avx512-Knoten != Avx2-Knoten (Build-Varianten-Definition unterscheidbar)",
        !(measured.build_def == measured_avx2.build_def));
 
-    // (c) 22-Vollständigkeit: 17 SearchAlgorithmObserver + 3 DefinitionOnly + 2 ContainerObserver == 22.
+    // (c) 22-Vollständigkeit (korr. 2026-06-03, Doc 30 §8.0): 19 SearchAlgorithmObserver (inkl. queuing q1/q2 = SA-Achsen
+    // T17/T18) + 3 DefinitionOnly + 0 ContainerObserver == 22. ContainerObserver reserviert für echte Container-Gattung (#87).
     std::cout << "\n-- 22-Vollständigkeit (keine Achse fällt weg) --\n";
     constexpr auto n_sa  = ex::count_observer_kind(ex::AxisObserverKind::SearchAlgorithmObserver);
     constexpr auto n_def = ex::count_observer_kind(ex::AxisObserverKind::DefinitionOnly);
     constexpr auto n_ctr = ex::count_observer_kind(ex::AxisObserverKind::ContainerObserver);
-    static_assert(n_sa + n_def + n_ctr == 22, "17 + 3 + 2 == 22");
-    eq("SearchAlgorithmObserver == 17", n_sa, std::size_t{17});
+    static_assert(n_sa + n_def + n_ctr == 22, "19 + 3 + 0 == 22");
+    eq("SearchAlgorithmObserver == 19 (inkl. queuing q1/q2)", n_sa, std::size_t{19});
     eq("DefinitionOnly (page_type/09b/12) == 3", n_def, std::size_t{3});
-    eq("ContainerObserver (q1/q2) == 2", n_ctr, std::size_t{2});
+    eq("ContainerObserver == 0 (queuing→SA; reserviert für echte Container-Gattung #87)", n_ctr, std::size_t{0});
     eq("Summe == 22 (kAxisObserverClasses)", ex::kAxisObserverClasses.size(), std::size_t{22});
 
     std::cout << "\n==== D7b / L-74b: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
