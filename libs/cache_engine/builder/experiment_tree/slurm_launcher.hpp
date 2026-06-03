@@ -36,7 +36,8 @@ struct ZihJobConfig {
     std::string  time_limit     = "01:00:00";
     std::size_t  array_size     = 1;                  // KF-13: ein Array-Task je Binary/Setting
     std::string  singularity_image = "comdare-ce.sif";
-    std::string  binary_dir     = "perms";            // Verzeichnis der perm_<id>.dll/.bin (KF-8/16)
+    std::string  binary_dir     = "perms";            // Verzeichnis der perm_<id>.dll (KF-8/16)
+    std::string  runner         = "perm_runner";      // L-CLUSTER: das Executable im Container, das die perm-DLL lädt
     std::string  webhook_url    = "";                 // VLAN-60 Build-Result-Webhook (leer = kein curl)
     std::string  job_name       = "comdare-ce-experiment";
 };
@@ -74,10 +75,11 @@ struct ZihJobConfig {
     s += "set -euo pipefail\n";
     s += "TASK=${SLURM_ARRAY_TASK_ID}\n\n";
     s += generate_arch_setup(a);                                   // KF-12
-    s += "\n# KF-13: ein perm-Binary je Array-Task über Singularity ausführen\n";
-    s += "BIN=$(ls " + z.binary_dir + "/perm_*.bin | sed -n \"$((TASK+1))p\")\n";
+    s += "\n# L-CLUSTER: ein perm_runner je Array-Task lädt EINE perm-DLL über Singularity (die Module sind .dll OHNE\n";
+    s += "# main() → der mitgebrachte perm_runner ist das Executable, das die DLL via AnatomyModuleLoader lädt + misst).\n";
+    s += "BIN=$(ls " + z.binary_dir + "/perm_*.dll | sed -n \"$((TASK+1))p\")\n";
     s += generate_exec_prefix(a) +                                 // KF-12 Lauf-Präfix
-         "singularity exec " + z.singularity_image + " \"$BIN\" > result_${TASK}.json\n";
+         "singularity exec " + z.singularity_image + " " + z.runner + " \"$BIN\" > result_${TASK}.json\n";
     if (!z.webhook_url.empty())                                    // KF-13 Webhook
         s += "curl -fsS -X POST --data-binary @result_${TASK}.json " + z.webhook_url + " || true\n";
     return s;
