@@ -251,6 +251,18 @@ UND funktionieren mit **weiten Keys >65535** → der Key-Type-Blocker (§5.5) is
 > den der CacheEngineBuilder metaprogrammiert zur exakten Wiederherstellung
 > des Tieres aus seinen Organen.
 
+> **[Begriffs-Korrektur 2026-06-03, s. Doc 30 §8.0 (gilt für „Gattungs-Konfigurator" im GANZEN Dokument —
+> hier, §7-`Korrektur`, §7-`Umstufungs-Programm`, §8.8):** Der „Composition-über-alle-Organ-Achsen"-Konfigurator
+> (`SearchAlgorithmAnatomy<Composition>`, der feste 17/19-Achsen-Satz) lebt auf der **TIER-UNTERKLASSEN-Ebene**,
+> NICHT auf der Gattungs-Ebene. Im 3-Ebenen-Modell ist die **GATTUNG = das Außen-INTERFACE / Prüf-Dock**
+> (Search / Container / Graph); die **TIER-UNTERKLASSE** liegt UNTER dem Gattungs-Interface und hält den festen
+> Achsen-Satz; die **ACHSEN** sind ihre Organe. „Gattungs-Konfigurator" meint also präzise einen
+> **Tier-Unterklassen-Konfigurator** unter dem SearchAlgorithm-Interface. Der etablierte Term bleibt als
+> Code-/Doku-Name stehen, ist aber so zu LESEN. Die Gattungs-Invariante (fester Achsen-/Slot-Satz pro
+> Tier-Unterklasse, `AdHocComposition<N>` als ABI-Identität) bleibt unverändert gültig — sie ist eine
+> Tier-Unterklassen-Invariante. Ebenso: queuing-Achsen (q1/q2) wären — wo sie vorkommen — **Pflicht-Achsen
+> dieser Tier-Unterklasse** (kein Interface, keine Gattung); KEINE Achse ist optional (s. korr.-Notiz oben).]**
+
 > **Konsequenz für den Ist-Stand:** Die heutigen monolithischen `axis_03a`-Wrapper (Array256/BST/Hash/…)
 > sind genau das zu behebende Anti-Pattern (Tiere als Achsen-Werte). Sie werden ausnahmslos seziert + aus
 > `EnabledStrategies` entfernt; bis ein Tier seziert ist, gehört es nicht als Achsen-Wert ins System.
@@ -547,6 +559,13 @@ KEINE ABI-Grenze) · `search_algorithm_dock.hpp` (`SearchAlgorithmDock` verkabel
 innerhalb erhalten). Test `test_v41_pruef_dock_search_algorithm` (3 gr). **Bewusst NICHT in den
 Legacy-ExperimentDriver-phase5 verdrahtet** (zwei Loader-Welten module_loader vs anatomy_module_loader —
 Folge-Charge); Set/Sequence/Adapter/View-Docks ab V42 (Gattungs-Implementierungen existieren noch nicht).
+> **[korr. 2026-06-03, s. Doc 30 §8.0:** Es gibt KEIN eigenes Set/Sequence/Adapter/View-Dock — die GATTUNG
+> ist das Außen-INTERFACE (= ein Prüf-Dock je Gattung: nur **SearchAlgorithm / Container / Graph**). Set,
+> Sequence, Adapter, View sind **Tier-Unterklassen UNTER dem Container-Interface**, NICHT je eine eigene
+> Gattung; sie teilen sich das EINE **Container-Dock**. „ab V42" gilt also für das **Container-Dock** (+ dessen
+> Tier-Unterklassen Set/Sequence/Adapter/View als feste Achsen-Sätze unter dem Container-Interface), nicht für
+> vier separate Docks. Das `SearchAlgorithm`-Dock (§8.8) bleibt korrekt = das eine Interface der heute einzigen
+> gebauten Tier-Unterklasse (std::map-ähnliche 17/19-Achsen-Komposition).]**
 
 ---
 
