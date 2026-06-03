@@ -29,6 +29,7 @@
 #include "observable_tier.hpp"       // R6/Pfad B: ABI-stabiler Observer-Zugriff (Doku 24 §8.6)
 #include "rollbackable_tier.hpp"     // V5-I6: memento_all-ABI-Sub-Interface (tier_save_all/tier_rollback_all)
 #include "scannable_tier.hpp"        // V5-#49-E: Range-Scan-ABI-Sub-Interface (tier_scan, YCSB-E)
+#include "resource_controllable_tier.hpp"  // KF-4/L-MEAS: Laufzeit-Steuer-Sub-Interface (IMMER, nicht messungs-gated)
 #include "observer_aggregate.hpp"    // ObservableAxis + ObserverAggregate (observable_count)
 #include "memento_aggregate.hpp"     // V5-I6-SUBSTANZ (#44): MementoAxis + save_axis/restore_axis (per-Achsen-Memento)
 #include "../execution_engine/execution_engine_base.hpp"
@@ -80,6 +81,7 @@ namespace comdare::cache_engine::anatomy {
 /// kommt mit R5.D (CacheEngineBuilder Workload-Treiber).
 template <AnatomyConcept A>
 class SearchAlgorithmAbiAdapter final : public IAnatomyBase,
+                                        public IResourceControllableTier,   // KF-4/L-MEAS: IMMER (auch Messung-aus), eigenständiges Sub-Interface (dynamic_cast)
 // V5-I2.2/I6: Antrieb ⊥ Observer ⊥ Memento compile-time disjunkt (kein Diamond — IObservableTier/IRollbackableTier IS-A nichts Gemeinsames; IDriveableTier kommt über IObservableTier).
 //   MESSUNG-AN  : IObservableTier (Antrieb + tier_observe/observer_all) + IMeasurableWorkload (Pfad-A, host-relokal. I9) + IRollbackableTier (memento_all, V5-I6) + IScannableTier (Range-Scan, V5-#49-E).
 //   MESSUNG-AUS : NUR IDriveableTier (funktionaler Antrieb) → Release-/funktional-only-DLL OHNE jeden Mess-Overhead (kein Observer-, kein Memento-, kein Scan-vtable-Slot).
@@ -126,6 +128,38 @@ public:
 
     void shutdown() override {
         state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Shutdown;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // KF-4 / L-MEAS — IResourceControllableTier (IMMER verfügbar, auch Messung-aus). Die SearchAlgorithm-Gattungs-
+    // Komposition trägt genau 5 laufzeit-steuerbare Achsen (concurrency/prefetch/allocator/traversal/value_handle);
+    // der Host-Loop (RuntimeVariableLoop) quert die Caps + wendet je dyn. Einstellung an (kein Reload). apply klammert
+    // an die Caps + merkt die zuletzt angewandte Steuerung (applied_rc_). Eigenständiges Sub-Interface (dynamic_cast).
+    // ─────────────────────────────────────────────────────────────────────
+    void tier_query_resource_caps(ComdareResourceControlV1* out_caps) const noexcept override {
+        if (out_caps == nullptr) return;
+        *out_caps = ComdareResourceControlV1{};
+        out_caps->thread_count            = 64;                          // concurrency (axis_08)
+        out_caps->prefetch_distance       = 64;                          // prefetch (axis_07), in Cache-Lines
+        out_caps->pool_budget_bytes       = (std::uint64_t{1} << 30);    // allocator (axis_06), 1 GiB Arena-Obergrenze
+        out_caps->batch_size              = 4096;                        // traversal (axis_03a) Working-Set
+        out_caps->inline_threshold_bytes  = 256;                         // value_handle (axis_14)
+        out_caps->controllable_axis_count = 5;                           // genus-invariant: 5 steuerbare Achsen
+    }
+    [[nodiscard]] std::uint64_t tier_apply_resource_control(ComdareResourceControlV1 const* in) noexcept override {
+        if (in == nullptr) return 0;
+        ComdareResourceControlV1 caps{};
+        tier_query_resource_caps(&caps);
+        std::uint64_t applied = 0;
+        auto apply1 = [&applied](std::uint64_t v, std::uint64_t cap, std::uint64_t& dst) noexcept {
+            if (v != 0) { dst = (cap != 0 && v > cap) ? cap : v; ++applied; }  // 0 = Default beibehalten; sonst an cap klammern
+        };
+        apply1(in->thread_count,           caps.thread_count,           applied_rc_.thread_count);
+        apply1(in->prefetch_distance,      caps.prefetch_distance,      applied_rc_.prefetch_distance);
+        apply1(in->pool_budget_bytes,      caps.pool_budget_bytes,      applied_rc_.pool_budget_bytes);
+        apply1(in->batch_size,             caps.batch_size,             applied_rc_.batch_size);
+        apply1(in->inline_threshold_bytes, caps.inline_threshold_bytes, applied_rc_.inline_threshold_bytes);
+        return applied;
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -491,6 +525,9 @@ private:
     mutable typename Composition::memory_layout ml_organ_;
     mutable typename Composition::serialization ser_organ_;
     mutable typename Composition::node_type     node_organ_;
+    // KF-4/L-MEAS: zuletzt angewandte Resource-Control (IMMER, auch Messung-aus) — vom RuntimeVariableLoop je dyn.
+    // Einstellung gesetzt. Reiner Steuer-Zustand (quert die ABI nicht; der Host liest die Wirkung über den Observer).
+    ComdareResourceControlV1 applied_rc_{};
 #if COMDARE_MEASUREMENT_ON
     // V5-#44 memento_all: Warmup-Vor-Zustand der getriebenen Organe. Lebt IN der Binary, quert die ABI NICHT.
     // PER-ACHSEN-Memento (bevorzugt, MementoAxis): memento_of_t<Organ> = Organ::memento_t (riche (key,value)-
