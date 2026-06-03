@@ -20,6 +20,8 @@
 // in einer SPARSE Map (key=binary_id → NodeValue) — NUR für tatsächlich GEMESSENE Binaries, nie für alle ∏.
 // Für Suche immer Bäume. C++23, header-only.
 
+#include "anatomy/build_variant_definition.hpp"   // L-74b: BuildVariantDefinitionV1 (flacher uint64-POD, umbrella-unabhängig)
+
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -55,6 +57,11 @@ struct NodeValue {
     // BR-3: ECHTER Per-Achsen-Observer-Snapshot (kein 4-uint64-Stub mehr), via observe_all/tier_observe.
     NodeObserverSnapshot observer{};
     bool                 observer_real = false;  // true = via realem observe_all einer Komposition gezogen
+    // L-74b (Doc 27 §3): die 3 Build-Achsen (page_type/09b/12) sind Build-KONSTANTEN (kein Laufzeit-Observer) →
+    // der Knoten trägt ihre reale, ABI-gezogene DEFINITION statt eines Pseudo-Observers. build_def_real=true wenn
+    // via read_build_variant gesetzt (gemessener Knoten), sonst false (SPARSE-Kontrast wie observer_real).
+    ::comdare::cache_engine::anatomy::BuildVariantDefinitionV1 build_def{};
+    bool                                                       build_def_real = false;
 };
 
 enum class NodeKind { Static, Dynamic };

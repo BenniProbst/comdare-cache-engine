@@ -1277,6 +1277,7 @@ set(COMDARE_GOALV6_LIGHT_DTESTS
     test_d3_ceb_generator     # L-77 (ceb_generator generate_all_real)
     test_d7_build_variant     # L-74b (BuildVariantDefinition)
     test_d7a_build_inspection # L-74a (Build-Variant-Inspection-ABI)
+    test_d7b_definition_per_node # L-74b (NodeValue build_def + build_def_real + 22-Vollstaendigkeit)
     test_d8_operability       # L-74c (R5.B-Operabilitaets-Klassifikation)
     test_d9_set               # L-76a (Set-Gattung Kern)
     test_d9_set_adapter       # L-76a (SetAbiAdapter)
@@ -1328,5 +1329,5 @@ foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     set_tests_properties(${_dt} PROPERTIES LABELS "goal_v6;phase_d")
 endforeach()
 
-message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 25 D-Tests CTest-registriert (15 leicht + 10 Container/Boost/V42/Engines). "
+message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 26 D-Tests CTest-registriert (16 leicht + 10 Container/Boost/V42/Engines). "
     "DLL-Round-Trip-Tests (test_d4b_container_dll/test_dgenus_dll, mehrstufig) bleiben scratch-verifiziert (Folge-Registrierung).")
