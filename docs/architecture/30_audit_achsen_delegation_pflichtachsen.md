@@ -155,8 +155,31 @@ standalone-Beleg `test_node_delegation_proof` (ComposedSearch über NodeChunkedS
 (peak/fill/lookup) kommen weiter aus dem Monolith `search_organ_`; die STORAGE-Achsen delegieren jetzt korrekt. Die
 restliche Vereinheitlichung (Such-Strategie ebenfalls als Traversal über DENSELBEN Store) ist der verbleibende Teil.
 
-**Q1 (22 uniform pro Tier) — SAUBERE Migration (User-Direktive 2026-06-03 „kein doppeltes Topic"):** `AdHocComposition<17>
-→<19>` mit queuing q1/q2 als ECHTE, explizite Slots 17/18 (dasselbe queuing-Topic axis_q1/axis_q2 — NICHT dupliziert,
-KEIN Auto-Anhängen von Default-Organen). Jedes Tier wählt q1/q2 explizit (wie die übrigen 17). Die bisherige separate
-Container/Adapter-Gattung (deren EINZIGER Zweck die 2 queuing-Slots waren) wird damit redundant → bereinigt, damit das
-queuing-Topic genau EINMAL existiert. Status s. Abschluss-Notiz.
+**Q1 (22 uniform pro Tier) — SAUBERE Migration (User-Direktiven 2026-06-03: „kein doppeltes Topic" + „keine Achse
+thematisch / kein Topic konzeptionell doppelt"):** `AdHocComposition<17>→<19>` mit queuing q1/q2 als ECHTE, explizite
+Slots 17/18 (dasselbe queuing-Topic axis_q1/axis_q2 — NICHT dupliziert, KEIN Auto-Anhängen). Jedes Tier wählt q1/q2
+explizit (wie die übrigen 17). **Die Adapter/Container-Gattung wird ENTFERNT** (ihr einziger Zweck = queuing-als-eigene-
+Gattung → würde das queuing-Konzept doppeln). So existiert queuing genau EINMAL (als SA-Slots).
+
+### §7 — Migrationsplan (atomar, ~30 Dateien)
+
+**A. Kern-Komposition 17→19:**
+- `anatomy/composition_factory.hpp` — AdHocComposition T0..T18 + `using queuing_q1=T17; queuing_q2=T18;`; Helper-static_assert ==19.
+- `anatomy/composition_concept.hpp` — IsComposition + `typename C::queuing_q1/queuing_q2`; `composition_organ_count = 19`.
+- `anatomy/search_algorithm_anatomy.hpp` — organ_count()-Bezug 17→19.
+- `anatomy/observer_aggregate.hpp` — 19 Achsen iterieren (falls 17 hartkodiert).
+- `builder/codegen/all_axes_umbrella.hpp` — Achsen-Typ-Liste/Makro 17→19 (+ queuing-Aliase).
+- `builder/experiment_tree/axis_path_serialization.hpp` — `kCompositionAxisNames` +`"queuing_q1","queuing_q2"` (→19).
+**B. Achsen-Klassifikation (22 bleibt: jetzt 19 SA-Composition + 3 Build, KEINE 2 Container):**
+- `builder/experiment_tree/axis_observer_classification.hpp` — 17→19 SearchAlgorithmObserver, 2 ContainerObserver entfallen.
+- `builder/experiment_tree/registry_to_axis_levels.hpp` — Baum-Ebenen 22 (19+3) statt 17+3+2.
+**C. Tier-Quellen (16, je +2 explizite queuing-Organe T17/T18):** `tests/unit/{genus_adhoc_buildvariant, genus_buildvariant_*,
+genus_module_*, thesis_tiere/thesis_*}.cpp` + `auto_emitted_perm_module.cpp`.
+**D. Registry/Codegen:** `builder/experiment_tree/composition_registry.hpp` (PermTuple<19>), `builder/codegen/adhoc_emitter.hpp` (emittiert 19).
+**E. Gattung-Generik:** `builder/experiment_tree/genus_binding_traits.hpp` — SA slot_count 19 + names; **Adapter-Spezialisierung
+ENTFERNT**; `test_genus_binding` 5→4 Gattungen.
+**F. Adapter/Container-Gattung ENTFERNEN (Absorption):** `anatomy/container_{anatomy,tier,abi_adapter,composition}.hpp`
+löschen/entkernen; `anatomy/anatomy_base.hpp` AnatomyGenus::Adapter (Enum-Wert) bereinigen; CMake-Targets
+`perm_container_*`/`test_d4b`/Container-Teil von `test_dgenus_dll` entfernen.
+**G. Tests anpassen:** `test_br3_obs22` (19+3, keine 2 Container), `test_br1_full22_count` (22 = 19+3), Container-Tests entfernen.
+**Verifikation:** Mess-Pfad `build_and_measure_thesis_tiere.ps1` (Tiere jetzt 19 Achsen) + `cmake --build` grün.
