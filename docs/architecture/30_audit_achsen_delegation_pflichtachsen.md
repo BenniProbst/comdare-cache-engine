@@ -270,7 +270,8 @@ Kategorienfehler UNABHÄNGIG + bleibt gültig (betrifft search↔node/layout/all
 - **aktiv (3):** serialization, telemetry, value_handle
 - **spezifisch (1):** `inner_container` (NEU axis_inner) — die EINZIGE Adapter-spezifische Achse.
 - §26.4: `std::stack/queue`→Inner `std::deque`, `priority_queue`→`std::vector`+Compare; Pflicht-API `push/pop/top/front/back`.
-  Die **Disziplin FIFO/LIFO ist API-Nutzung** (front vs back), KEINE Achse. (priority_queue mit Compare/Heap = §28-Folgeschritt.)
+  Die **Disziplin FIFO/LIFO ist API-Nutzung** (front vs back), KEINE Achse. priority_queue = das `HeapInner`-Organ
+  INNERHALB der inner_container-Achse (Max-Heap via std::push_heap/pop_heap + Compare) — keine neue Achse (s. „ERLEDIGT seither").
 
 **Code-Realisierung (3 Ebenen jetzt real):**
 - **Ebene 1 `AnatomyGattung {SearchAlgorithm, Container, Graph}`** + `gattung_of(AnatomyGenus)` + `gattung_name()` (`anatomy_base.hpp`). Container ist jetzt eine echte Gattung.
@@ -283,4 +284,6 @@ Kategorienfehler UNABHÄNGIG + bleibt gültig (betrifft search↔node/layout/all
 
 **Commits:** queuing-Teil (§8 Punkt 1-2: q1/q2 als mandatorische SA-Achsen, `AdHocComposition<17>→<19>`) = `c9f051b` (#88/#89). Adapter-§28 + 3-Ebenen-Kern = `18adc08`. Rename = `7d8130d`. Alle gepusht + submodul-synchron.
 
-**Status der §8-Korrektur:** Kategorienfehler **behoben** — queuing ist SA-Achse (nicht Gattung); Adapter ist echte Tier-Unterklasse der Container-Gattung mit §28-Achsen (nicht queuing-Hülle, nicht inner+ordering). VERBLEIBEND: Doku-Konsistenz in 27-29 (alte Typnamen/Adapter-Modell), priority_queue-Compare/Heap (§28-Folgeschritt).
+**Status der §8-Korrektur:** Kategorienfehler **behoben** — queuing ist SA-Achse (nicht Gattung); Adapter ist echte Tier-Unterklasse der Container-Gattung mit §28-Achsen (nicht queuing-Hülle, nicht inner+ordering).
+
+**ERLEDIGT seither:** (a) Doku-Konsistenz 27-29 — additive §8.1-Korrektur-Notizen (`76e24fd`). (b) **priority_queue umgesetzt** — `HeapInner`-Organ (Max-Heap über std::vector via std::push_heap/std::pop_heap + Compare, Default std::less) als 3. `inner_container`-Organ neben Deque/Vector; die Priority-Disziplin lebt INNERHALB der inner_container-Achse (§28), KEINE neue Achse. Verifiziert (`test_container_genus` exit 0): push 10/30/20 → front()==30 (Max), pop_front() → 30→20→10 (Extract-Max), organ_count==13. **Damit ist die §8-Korrektur (queuing + Adapter §28 + 3-Ebenen + priority) vollständig umgesetzt + verifiziert.**

@@ -68,12 +68,28 @@ int main() {
     check_eq("Observer: peak_occupancy == 3", obs.peak_occupancy, std::uint64_t{3});
     check_eq("Observer: current_occupancy == 1", obs.current_occupancy, std::uint64_t{1});
 
-    // ── inner_container permutiert (die spezifische §28-Achse): VectorInner als 2. Organ ──
-    std::cout << "\ninner_container = VectorInner (2. Organ der spezifischen Achse, §26.4 priority_queue-Substrat):\n";
+    // ── inner_container permutiert (die spezifische §28-Achse): VectorInner als 2. Organ (Roh-Vektor-Substrat) ──
+    std::cout << "\ninner_container = VectorInner (2. Organ der spezifischen Achse, kontiguierliches Substrat):\n";
     cea::AdapterAnatomy<cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::VectorInner<>>> vq;
     vq.push(7); vq.push(9);
     check_true("VectorInner: pop_back() liefert 9", vq.pop_back().has_value());
     check_eq("VectorInner: organ_count == 13 (gleicher Achsen-Satz)", vq.organ_count(), std::size_t{13});
+
+    // ── inner_container = HeapInner (3. Organ): ECHTE priority_queue-Disziplin (§26.4 vector+Compare, Max-Heap) ──
+    // Die Priority-Disziplin lebt INNERHALB der inner_container-Achse (§28) — KEINE neue Achse. Nutzung: push +
+    // front()(=Max) + pop_front()(=Extract-Max), via std::push_heap/pop_heap (Stand der Technik).
+    std::cout << "\ninner_container = HeapInner (3. Organ, §26.4 priority_queue: Max-Heap + Compare):\n";
+    cea::AdapterAnatomy<cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::HeapInner<>>> pq;
+    pq.push(10); pq.push(30); pq.push(20);
+    auto const pmax = pq.front();
+    check_true("HeapInner: front() == 30 (Maximum, echte Heap-Disziplin)", pmax.has_value() && *pmax == 30u);
+    auto const x1 = pq.pop_front();
+    check_true("HeapInner: pop_front() == 30 (Extract-Max)", x1.has_value() && *x1 == 30u);
+    auto const x2 = pq.pop_front();
+    check_true("HeapInner: nächstes pop_front() == 20 (zweitgrößtes)", x2.has_value() && *x2 == 20u);
+    auto const x3 = pq.pop_front();
+    check_true("HeapInner: letztes pop_front() == 10 (kleinstes zuletzt)", x3.has_value() && *x3 == 10u);
+    check_eq("HeapInner: organ_count == 13 (gleicher §28-Achsen-Satz)", pq.organ_count(), std::size_t{13});
 
     // ── Gattungs-Bindung: GenusBindingTraits<Adapter> (13 §28-Achsen) ──
     std::cout << "\nGattungs-Bindung (GenusBindingTraits<Adapter>):\n";
