@@ -1419,6 +1419,42 @@ add_test(NAME test_buildvariant_dll_real COMMAND test_buildvariant_dll
     "$<TARGET_FILE:perm_buildvariant_real_avx512>" "$<TARGET_FILE:perm_buildvariant_real_avx2>")
 set_tests_properties(test_buildvariant_dll_real PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
 
+# L-74a — ADHOC-BUILDVARIANT-DLL: EINE DLL traegt die 17-Slot-Anatomie (4 ABI-Symbole) UND die 3-Build-Achsen-
+# Inspection (comdare_build_variant_inspect). Heavy (Anatomie-Umbrella + Boost + generierte Dirs, wie comdare_r5g).
+add_library(perm_adhoc_buildvariant SHARED genus_adhoc_buildvariant.cpp)
+target_include_directories(perm_adhoc_buildvariant PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(perm_adhoc_buildvariant PRIVATE Boost::mp11)
+target_compile_features(perm_adhoc_buildvariant PRIVATE cxx_std_23)
+target_compile_definitions(perm_adhoc_buildvariant PRIVATE COMDARE_ANATOMY_MODULE_BUILD=1)
+set_target_properties(perm_adhoc_buildvariant PROPERTIES
+    POSITION_INDEPENDENT_CODE                ON
+    RUNTIME_OUTPUT_DIRECTORY                 "${_goalv6_dll_dir}"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE         "${_goalv6_dll_dir}"
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG           "${_goalv6_dll_dir}"
+    RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO  "${_goalv6_dll_dir}"
+    LIBRARY_OUTPUT_DIRECTORY                 "${_goalv6_dll_dir}"
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE         "${_goalv6_dll_dir}"
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG           "${_goalv6_dll_dir}"
+    LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO  "${_goalv6_dll_dir}")
+if(COMMAND comdare_set_platform_defines)
+    comdare_set_platform_defines(perm_adhoc_buildvariant)
+endif()
+
+add_executable(test_adhoc_buildvariant_dll test_adhoc_buildvariant_dll.cpp)
+target_include_directories(test_adhoc_buildvariant_dll PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine" "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_compile_features(test_adhoc_buildvariant_dll PRIVATE cxx_std_23)
+target_link_libraries(test_adhoc_buildvariant_dll PRIVATE comdare::anatomy_module_loader)
+add_dependencies(test_adhoc_buildvariant_dll perm_adhoc_buildvariant)
+add_test(NAME test_adhoc_buildvariant_dll COMMAND test_adhoc_buildvariant_dll "$<TARGET_FILE:perm_adhoc_buildvariant>")
+set_tests_properties(test_adhoc_buildvariant_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
+
 message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 26 add_test-D-Tests (16 leicht + 10 Boost) + 2 DLL-Round-Trip-Tests "
     "(test_dgenus_dll/test_buildvariant_dll) jetzt OFFIZIELLE CMake-Targets (5 SHARED-DLLs via $<TARGET_FILE>). "
     "container_dll (test_d4b) bleibt scratch-verifiziert (Folge).")
