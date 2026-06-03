@@ -25,6 +25,16 @@
 > bzw. „Prüf-Dock je Gattung" meint (z.B. Doc 24 §8.8), ist es KORREKT und bleibt. Die feste Slot-Zahl (`AdHocComposition<17>`
 > als ABI-Identität) bleibt als **Tier-Unterklassen-Invariante** korrekt.
 
+> **Korrektur 2026-06-03 (Doc 30 §8.1):** Die in den Notizen oben + im Body wiederholte Formel „axis_inner + **ordering**
+> (FIFO/LIFO/Priority)" für die Adapter-Tier-Unterklasse war noch teilweise GERATEN und ist hiermit VERWORFEN. Autoritativ
+> (Doku 14 **§28 Invertebrate** + **§26.4**, in Doc 30 §8.1 real umgesetzt+verifiziert): die Adapter-Tier-Unterklasse hat
+> **KEINE „ordering"-Achse**, sondern **13 Achsen** = 9 delegiert + 3 aktiv (serialization/telemetry/value_handle) +
+> **1 spezifisch `inner_container`** (NEU axis_inner, die EINZIGE Adapter-spezifische Achse). Die **Disziplin FIFO/LIFO ist
+> API-Nutzung** (push/pop/top vs. front/back, §26.4), KEINE Achse. Code (Doc 30 §8.1): `AdapterComposition<T0..T11, Inner>`
+> + `AdapterAnatomy` + `AdapterObserverSnapshot`; die Typen/Dateien heißen seit dem Rename 2026-06-03 **`Adapter*`/`adapter_*`**
+> (vorher `Container*`/`container_*`) — `AnatomyGenus`/`AnatomyGattung::Container` bleiben. Wo unten „axis_inner + ordering"
+> oder `Container*`/`container_*.hpp` als AKTUELLE Architektur stehen, gilt stattdessen das §8.1-Modell.
+
 > **Companion zu Doc 26.** Doc 26 definiert das B+-Baum-Modell; dieses Dokument ist der verbindliche
 > Umsetzungsplan, der den heute STRING-getriebenen Baum **registry-getrieben + vollständig** gegen ALLE
 > realen Achsen + Observer + Definitionen macht (aktives /goal 2026-06-02, „absolute Vollständigkeit").
@@ -95,7 +105,7 @@ Interfaces SearchAlgorithm/Container/Graph, vgl. Top-Banner.
 > gattungs-PARAMETRISCH (`genus_binding_traits.hpp` `GenusBindingTraits<G>`): SearchAlgorithm = verifizierter
 > Spezialfall (17 Slots, `test_genus_binding`), **die Adapter-Tier-Unterklasse als 2. Instanz** (korr. 2026-06-03
 > vorher „Adapter-Gattung", s. Doc 30 §8.0 — Adapter ist eine **Tier-Unterklasse UNTER der Container-Gattung/dem
-> Container-Interface**, keine eigene Gattung) (`container_anatomy.hpp`,
+> Container-Interface**, keine eigene Gattung) (`container_anatomy.hpp` — jetzt `adapter_anatomy.hpp`, Rename 2026-06-03 s. Doc 30 §8.1,
 > genus()==Adapter; `test_container_genus`: real getriebener Inner-Container mit put/get/size, EIGENER
 > Adapter-Observer put_count/get_count/peak_occupancy, GenusBound<Adapter>==true).
 > ⚠️ **(korr. 2026-06-03, s. Doc 30 §8.0):** Die Adapter-Tier-Unterklasse ist eine **echte Container-Datenstruktur**
@@ -264,8 +274,9 @@ BuildOrchestrator (KF-16) gebaut → via `AnatomyModuleLoader` geladen → `dyna
    die literalen Test-Belege + Commit-Refs aller 6 Gates. **Alle 6 Gates literal grün** (Gate-1 Gleichheit
    `binary_count==∏ mp_size==137.594.142.720.000` belegt). Verbleibend (NICHT in den 6 Gates): Gattungs-Generik
    (Bau-Brücke der echten Adapter-Tier-Unterklasse [korr. 2026-06-03 vorher „Adapter-Gattung" — Tier-Unterklasse
-   unter dem Container-Interface, s. Doc 30 §8.0] = `std::queue/stack/priority_queue` via axis_inner + ordering — NICHT
-   queuing-getrieben) + #73 provision_all-Batching.
+   unter dem Container-Interface, s. Doc 30 §8.0] = `std::queue/stack/priority_queue` via axis_inner + ordering [korr.
+   2026-06-03 (Doc 30 §8.1): KEINE „ordering"-Achse — 13 §28-Achsen, `inner_container` die einzige spezifische; FIFO/LIFO =
+   API-Nutzung §26.4] — NICHT queuing-getrieben) + #73 provision_all-Batching.
 
 ## 5. Reihenfolge + Risiken
 

@@ -256,3 +256,31 @@ ist überholt"-Zeile UMKEHREN), `29_*.md`, dieses Doc §6-Q1+§7, `19_*` (prüfe
 
 **Hinweis:** Der Storage-Delegations-Fix (§6 Q2 Schritt 1-3, NodeChunkedStore → node_type wirksam) ist von diesem
 Kategorienfehler UNABHÄNGIG + bleibt gültig (betrifft search↔node/layout/allocator, nicht queuing/Gattung).
+
+---
+
+## §8.1 — UMGESETZT + VERIFIZIERT: §28-Adapter-Dissektion + 3-Ebenen-Code-Realisierung (2026-06-03)
+
+> **Korrektur zu §8 Punkt 3 (Z.246):** Die dortige Formel „axis_inner + delegierte + **ordering/discipline**" war noch
+> teilweise geraten. Der teure Doku-Lookup (Doku 14 **§28 Invertebrate-Spalte** + **§26.4** + Doc 30 §8.0, AUTORITATIV)
+> ergab: die Adapter-Tier-Unterklasse hat **KEINE „ordering"-Achse**. Memory `feedback_never_guess_always_lookup_state_of_art_and_docs`.
+
+**Autoritatives Adapter-Achsen-Set (Doku 14 §28, Invertebrate) = 13 Achsen:**
+- **delegiert (9):** search_algo, cache_traversal, memory_layout, allocator, prefetch, concurrency, isa, io_dispatch, migration_policy
+- **aktiv (3):** serialization, telemetry, value_handle
+- **spezifisch (1):** `inner_container` (NEU axis_inner) — die EINZIGE Adapter-spezifische Achse.
+- §26.4: `std::stack/queue`→Inner `std::deque`, `priority_queue`→`std::vector`+Compare; Pflicht-API `push/pop/top/front/back`.
+  Die **Disziplin FIFO/LIFO ist API-Nutzung** (front vs back), KEINE Achse. (priority_queue mit Compare/Heap = §28-Folgeschritt.)
+
+**Code-Realisierung (3 Ebenen jetzt real):**
+- **Ebene 1 `AnatomyGattung {SearchAlgorithm, Container, Graph}`** + `gattung_of(AnatomyGenus)` + `gattung_name()` (`anatomy_base.hpp`). Container ist jetzt eine echte Gattung.
+- **Ebene 2** `AnatomyGenus` (re-dokumentiert als Tier-Unterklasse; Identifier BLEIBT — Doku 14 §27.2 Z.1100). Adapter = Tier-Unterklasse unter Container, gleichrangig zu Set/Sequence/View.
+- **Ebene 3** `AdapterComposition<T0..T11, Inner>` (13 Achsen, gebaut EXAKT analog `SequenceComposition`) + `AdapterAnatomy` (§26.4-API, treibt `inner_container` real) + eigener `AdapterObserverSnapshot`.
+- `genus_binding_traits<Adapter>`: slot_count 13, name "Adapter", `gattung=Container`, §28-axis_names. `GenusBound<Adapter>` true.
+- **Rename** (Konsistenz mit set_/sequence_/view_): `container_*.hpp`→`adapter_*.hpp`, `Container*`→`Adapter*` (Composition/Anatomy/Observer/Tier/AbiAdapter/Dock/Module). `AnatomyGenus`/`AnatomyGattung::Container`/`gattung_name` unangetastet.
+
+**Verifiziert (literal):** `test_container_genus` exit 0 ALLE OK (Ebenen + 13 Achsen + §26.4-API + inner_container Deque/Vector + GenusBindingTraits); `test_container_dock`/`test_genus_docks`/`test_v41_anatomy_base` grün; d4b_*/genus_binding compile-only grün.
+
+**Commits:** queuing-Teil (§8 Punkt 1-2: q1/q2 als mandatorische SA-Achsen, `AdHocComposition<17>→<19>`) = `c9f051b` (#88/#89). Adapter-§28 + 3-Ebenen-Kern = `18adc08`. Rename = `7d8130d`. Alle gepusht + submodul-synchron.
+
+**Status der §8-Korrektur:** Kategorienfehler **behoben** — queuing ist SA-Achse (nicht Gattung); Adapter ist echte Tier-Unterklasse der Container-Gattung mit §28-Achsen (nicht queuing-Hülle, nicht inner+ordering). VERBLEIBEND: Doku-Konsistenz in 27-29 (alte Typnamen/Adapter-Modell), priority_queue-Compare/Heap (§28-Folgeschritt).
