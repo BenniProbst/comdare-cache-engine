@@ -18,6 +18,17 @@
 
 > ⚠️ **KORREKTUR (2026-06-03, s. Doc 30 §8):** Die hier als „Adapter/Container **2**" geführte Gattung war ein **Kategorienfehler** — die „2 Slots" sind in Wahrheit die **queuing-Achsen q1/q2** (`genus_binding_traits.hpp:50-57`), und **queuing ist eine Achse/ein Organ, KEINE Gattung**. Korrektes Modell: q1/q2 sind **reguläre, mandatorische SearchAlgorithm-Achsen** (Organe derselben Gattung; ein nicht-pufferndes Tier wählt `NoBuffer`/`NoFlush` = durchreichender Algorithmus, nie „optional") → die SearchAlgorithm-Gattung umfasst **19** Achsen (17 Slots + q1/q2), nicht 17. Die **echte Adapter-Gattung** ist eine reale Container-Datenstruktur (`axis_inner` Inner-Container + ordering/discipline + delegierte Standard-Achsen) und nutzt die queuing-Achsen NICHT; sie war hier nur mit der queuing-getriebenen `ContainerComposition<Q1>` als Adapter-Instanz herangezogen (= Ausdruck des Fehlers). Die Generizitäts-Aussage (EIN Baum-Kern bindet mehrere Gattungen unterschiedlicher Achsenzahl) bleibt davon UNBERÜHRT.
 
+> **Korrektur 2026-06-03 (Doc 30 §8.1):** Die in den Notizen oben genannte Formel „axis_inner + **ordering**/discipline" für die
+> echte Adapter-Tier-Unterklasse war noch teilweise GERATEN und ist hiermit VERWORFEN. Autoritativ (Doku 14 **§28 Invertebrate**
+> + **§26.4**, in Doc 30 §8.1 real umgesetzt+verifiziert): die Adapter-Tier-Unterklasse hat **KEINE „ordering"-Achse**, sondern
+> **13 Achsen** = 9 delegiert + 3 aktiv (serialization/telemetry/value_handle) + **1 spezifisch `inner_container`** (NEU axis_inner,
+> die EINZIGE Adapter-spezifische Achse). Die **Disziplin FIFO/LIFO ist API-Nutzung** (push/pop/top vs. front/back, §26.4), KEINE
+> Achse. Code (Doc 30 §8.1): `AdapterComposition<T0..T11, Inner>` (13 Achsen, gebaut analog `SequenceComposition`) + `AdapterAnatomy`
+> + `AdapterObserverSnapshot`; Typen/Dateien seit Rename 2026-06-03 **`Adapter*`/`adapter_*`** (`AnatomyGenus`/`AnatomyGattung::Container`
+> bleiben). Damit ist die Adapter-Tier-Unterklasse real gebaut+verifiziert (`test_container_genus`); die §2-Aussage „nur EINE
+> Tier-Unterklasse real gebaut" (SearchAlgorithm) ist auf diesen §8.1-Stand fortzuschreiben. Das in §3a/b/c als „Container **2**"
+> geführte Modell ist hierdurch ebenfalls überholt.
+
 ## §2 Grenze (bewusste Invariante, ehrlich)
 
 Die **Gattungs-Komposition + ObserverAggregate sind fest-N pro Gattung** (`observer_aggregate.hpp`: 17 named Member, `total_slots()==17`; `composition_factory.hpp`: `AdHocComposition<17>` mit `static_assert sizeof...(Vs)==17`). Das ist die **Gattungs-Invariante** (die N ist die Gattungs-Identität, Doku 14 §32) — KEIN variadisches N. Konsequenz:

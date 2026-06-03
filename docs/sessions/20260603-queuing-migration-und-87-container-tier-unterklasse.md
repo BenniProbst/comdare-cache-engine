@@ -103,6 +103,13 @@ Doku 14 §25 verbatim erhalten + 7 Schärfungs-Notizen. Memory: `project_axis03a
 **Bereits erledigt (verifiziert):** `anatomy_base.hpp` — `AnatomyGattung{SearchAlgorithm,Container,Graph}` + `gattung_of()` + `gattung_name()` eingeführt (nicht-brechend, kompiliert via test_v41_anatomy_base). AnatomyGenus als Tier-Unterklasse re-dokumentiert.
 
 **Noch zu tun:** (a) `ContainerComposition<Inner,Ordering>`→`AdapterComposition<T0..T11,Inner>` (13 Achsen, ordering raus); ContainerAnatomy→AdapterAnatomy (API push/pop/top/front/back); inner_container-Organe (Deque/Vector/List) behalten, Fifo/Lifo/Priority-Ordering-Organe VERWERFEN. (b) genus_binding_traits<Adapter> auf 13 Achsen (§28-Namen). (c) container_tier/abi_adapter/dock/module_abi nachziehen (Observer-Felder: inner-Belegung + delegierte; flush/ordering raus). (d) test_container_genus + 5 Tests neu. (e) #90: `AnatomyGenus`→`AnatomyTierSubclass` Rename-Sweep + Datei-Rename container_*→adapter_* + Doku-Sweep ab Doc 10. (f) Dateinamen container_*.hpp → adapter_*.hpp (wie set_/sequence_/view_).
+**STATUS 2026-06-03: #87 + #90-Kern + #90-Rename ERLEDIGT, verifiziert, committet + gepusht.**
+- `18adc08` cache-engine: #87+#90-Kern (AnatomyGattung-Ebene; AdapterComposition §28 13 Achsen; ABI/Dock/Tests). Super `1b0f626`.
+- `7d8130d` cache-engine: #90-Polish (container_*/Container* → adapter_*/Adapter*; 5 Header git-mv). Super `a03d2cf`.
+- Verifiziert (literal): `test_container_genus` exit 0 ALLE OK (Ebenen + 13 Achsen + §26.4-API + Deque/Vector + GenusBindingTraits); `test_container_dock`/`test_genus_docks`/`test_v41_anatomy_base` grün; d4b_*/genus_binding compile-only grün.
+- NICHT umbenannt (Doku 14 §27.2 Z.1100): `AnatomyGenus`-Enum + `::Adapter`, `AnatomyGattung::Container`, `gattung_name`.
+- VERBLEIBEND: (1) Doku-Konsistenz-Sweep — Architektur-Docs 27–30 + Doc 30 §8.1 auf §28-Adapter-Modell + adapter_*-Typnamen (Session-Logs = historisch, belassen). (2) priority_queue (vector+Compare/Heap) = §28-Folgeschritt (nicht als Achse modelliert).
+
 **ALTES (falsches) Design unten (§4.1–§4.5) ist HINFÄLLIG — nur als Fehler-Historie behalten.**
 
 ### 4.1 Exakte Umbaufläche (Dateien)
