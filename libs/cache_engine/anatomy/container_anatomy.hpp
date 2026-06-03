@@ -1,121 +1,187 @@
 #pragma once
-// Container-Gattung-Bau-Brücke (2026-06-02, User-Option-B Schritt 3) — minimale, ECHTE Container/Queue-Anatomie
-// über die queuing-Achse Q1 (buffer_strategy). Die 2. Gattungs-Instanz neben SearchAlgorithmAnatomy.
+// Adapter-Tier-Unterklasse der CONTAINER-Gattung (2026-06-03, #87+#90, AUTORITATIV Doku 14 §28 Invertebrate-Spalte
+// + §26.4 + Doc 30 §8.0/§8.1). Ebene 2 unter dem Container-Außen-Interface (Ebene 1, AnatomyGattung::Container),
+// gleichrangig zu Set/Sequence/View. Gebaut EXAKT analog SequenceComposition (10 geteilt + growth):
 //
-// 22-vs-17 (Doc 27 §0.1): queuing q1/q2 sind eine EIGENE Gattung (Container, Tier-Metapher Adapter = Wrapper über
-// Inner-Container, Doku 14 §27.2) — NICHT in die SearchAlgorithm-17-Komposition (Cross-Genus type-unmöglich,
-// Doku 14 §32). Diese Anatomie hält das echte Q1-Buffer-Organ, treibt es (put/get) und liefert einen EIGENEN
-// Container-Observer (NICHT ObserverAggregate<17>). So baut der EINE Experiment-Baum auch die Container-Gattung.
+//   AdapterComposition<T0..T11, Inner>  =  12 geteilte/delegierte Achsen (§28)  +  inner_container (NEU axis_inner).
 //
-// D4 / L-75 (2026-06-02): 2 Slots — Q1 (buffer_strategy) + Q2 (flush_policy). Erweiterbar um geteilte Organe.
-// C++23, header-only. ENTKOPPELT von der q2-Topic (kein Boost/generated-Include): FlushDecision wird gespiegelt
-// (ABI-Konvention 0/1/2), die ECHTE FlushPolicy (z.B. WatermarkFlush) setzt der Aufrufer als Q2Flush ein.
+// §28-Invertebrate-Achsen (13): delegiert (9) search_algo, cache_traversal, memory_layout, allocator, prefetch,
+// concurrency, isa, io_dispatch, migration_policy + aktiv (3) serialization, telemetry, value_handle + spezifisch (1)
+// inner_container. §26.4: stack/queue→deque, priority_queue→vector+Compare; Pflicht-API push/pop/top/front/back
+// (KEIN begin/end). Die Disziplin (FIFO/LIFO/Priority) liegt in der API-NUTZUNG (front vs back), NICHT in einer Achse —
+// §28 kennt KEINE „ordering"-Achse (frühere inner+ordering-Version war ein geratener Ebenen-/Achsen-Fehler, verworfen).
+//
+// HISTORISCHE NAMEN: Datei container_anatomy.hpp + Typen ContainerComposition/ContainerAnatomy → Rename auf
+// adapter_*.hpp / AdapterComposition / AdapterAnatomy ist Teil des #90-Sweeps (wie set_/sequence_/view_). C++23, header-only.
 
-#include "anatomy_base.hpp"   // AnatomyGenus
+#include "anatomy_base.hpp"   // AnatomyGenus (Tier-Unterklasse) / AnatomyGattung
 
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <optional>
 #include <string_view>
+#include <vector>
 
 namespace comdare::cache_engine::anatomy {
 
-/// Gespiegelt von queuing::axis_q2_queuing::concepts::FlushDecision — ENTKOPPELT (container_anatomy bleibt
-/// leichtgewichtig, kein q2-topic-Include). Numerische Werte IDENTISCH (ABI-Konvention): NoFlush=0/Partial=1/Full=2.
-/// ContainerAnatomy vergleicht den should_flush-Rückgabewert numerisch (static_cast<uint8_t>) → enum-agnostisch,
-/// funktioniert für die echte FlushPolicy (axis_q2) UND den internen Default. Konvention-Guard: Test prüft ==2.
-enum class ContainerFlushDecision : std::uint8_t { NoFlush = 0, PartialFlush = 1, FullFlush = 2 };
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════
+// axis_inner (die EINE Adapter-spezifische Achse, §28) — das dekorierte Inner-Substrat. Pflicht-Ops für die
+// §26.4-Adapter-API: push_back (ablegen), front/back (beide Enden lesen), pop_front/pop_back, size, clear.
+// FIFO (queue) nutzt front+pop_front; LIFO (stack) nutzt back+pop_back — die Disziplin ist die API-Nutzung.
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-/// Default-Q2 (kein Auto-Flush): erfüllt die FlushPolicy-Duck-API (should_flush + on_flush_complete) ohne
-/// q2-topic-Abhängigkeit. So bleibt ContainerComposition<Q1> rückwärtskompatibel (organ_count==2, aber nie Flush).
-struct ContainerNoFlushPolicy {
-    [[nodiscard]] ContainerFlushDecision should_flush(std::size_t /*fill*/, std::size_t /*cap*/) const noexcept {
-        return ContainerFlushDecision::NoFlush;
-    }
-    void on_flush_complete() noexcept {}
+/// DequeInner — Inner-Substrat über std::deque (Default für stack/queue, §26.4). Beide Enden O(1).
+template <class T = std::uint64_t>
+struct DequeInner {
+    using element_type = T;
+    static constexpr std::string_view name = "DequeInner";
+    void                       push_back(element_type v)      { d_.push_back(v); }
+    [[nodiscard]] std::size_t  size()           const noexcept { return d_.size(); }
+    [[nodiscard]] element_type front()          const          { return d_.front(); }
+    [[nodiscard]] element_type back()           const          { return d_.back(); }
+    void                       pop_front()                     { d_.pop_front(); }
+    void                       pop_back()                      { d_.pop_back(); }
+    void                       clear()                noexcept  { d_.clear(); }
+private:
+    std::deque<element_type> d_{};
 };
 
-/// Container-Observer (queuing-Gattung) — EIGENER flacher Observer-POD, getrennt vom SearchAlgorithm-
-/// ObserverAggregate<17> (gattungs-korrekt). Nur uint64 → standard_layout. D4: + Flush-Felder (Q2).
-struct ContainerObserverSnapshot {
-    std::uint64_t put_count                 = 0;
-    std::uint64_t get_count                 = 0;
-    std::uint64_t current_occupancy         = 0;
-    std::uint64_t peak_occupancy            = 0;
-    // ── Q2 flush_policy (D4) ──
-    std::uint64_t flush_decisions_evaluated = 0;
-    std::uint64_t full_flush_count          = 0;
-    std::uint64_t no_flush_count            = 0;
-    std::uint64_t flush_complete_count      = 0;
+/// VectorInner — Inner-Substrat über std::vector (Default für priority_queue-Substrat, §26.4). pop_back O(1).
+template <class T = std::uint64_t>
+struct VectorInner {
+    using element_type = T;
+    static constexpr std::string_view name = "VectorInner";
+    void                       push_back(element_type v)      { v_.push_back(v); }
+    [[nodiscard]] std::size_t  size()           const noexcept { return v_.size(); }
+    [[nodiscard]] element_type front()          const          { return v_.front(); }
+    [[nodiscard]] element_type back()           const          { return v_.back(); }
+    void                       pop_front()                     { v_.erase(v_.begin()); }
+    void                       pop_back()                      { v_.pop_back(); }
+    void                       clear()                noexcept  { v_.clear(); }
+private:
+    std::vector<element_type> v_{};
 };
 
-/// ContainerComposition<Q1Buffer, Q2Flush> — die Container-Gattungs-Komposition: Q1 (Buffer) + Q2 (Flush-Policy).
-/// Q2Flush defaultet auf ContainerNoFlushPolicy → bestehende ContainerComposition<Q1> bleibt gültig (kein Flush).
-template <class Q1Buffer, class Q2Flush = ContainerNoFlushPolicy>
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Adapter-Observer (gattungs-eigen) — flacher uint64-POD, getrennt vom SearchAlgorithm-ObserverAggregate<19>.
+// Felder spiegeln den Antrieb des inner_container (die real getriebene spezifische Achse, §28).
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════
+struct ContainerObserverSnapshot {   // (= Adapter-Observer; Typ-Rename → AdapterObserverSnapshot via #90)
+    std::uint64_t push_count        = 0;   // push → inner_container
+    std::uint64_t pop_count         = 0;   // erfolgreiche pop_front/pop_back
+    std::uint64_t front_reads       = 0;   // front()-Zugriffe (FIFO-Disziplin)
+    std::uint64_t back_reads        = 0;   // back()/top()-Zugriffe (LIFO-Disziplin)
+    std::uint64_t current_occupancy = 0;   // aktuelle inner_container-Größe
+    std::uint64_t peak_occupancy    = 0;   // maximale inner_container-Größe
+};
+
+/// AdapterComposition (= ContainerComposition, Name-Rename #90) — 12 geteilte/delegierte §28-Achsen + inner_container.
+/// Reihenfolge T0..T11 = §28-Invertebrate (delegiert + aktiv), dann Inner (spezifisch). Analog SequenceComposition.
+template <class T0, class T1, class T2, class T3, class T4, class T5,
+          class T6, class T7, class T8, class T9, class T10, class T11,
+          class Inner = DequeInner<>>
 struct ContainerComposition {
-    using buffer_strategy = Q1Buffer;
-    using flush_policy    = Q2Flush;
-    static constexpr std::string_view name     = "ContainerComposition";
-    static constexpr std::string_view paper_id = "P00 Container Gattung (Queue)";
+    using search_algo       = T0;    // axis_03a (delegated an inner)
+    using cache_traversal   = T1;    // axis_03b (delegated)
+    using memory_layout     = T2;    // axis_05  (delegated)
+    using allocator         = T3;    // axis_06  (delegated)
+    using prefetch          = T4;    // axis_07  (delegated)
+    using concurrency       = T5;    // axis_08  (delegated)
+    using serialization     = T6;    // axis_10  (aktiv)
+    using telemetry         = T7;    // axis_11  (aktiv)
+    using value_handle      = T8;    // axis_14  (aktiv)
+    using isa               = T9;    // axis_09  (delegated)
+    using io_dispatch       = T10;   // axis_io  (delegated)
+    using migration_policy  = T11;   // axis_migration (delegated)
+    using inner_container   = Inner; // NEU axis_inner (Adapter-spezifisch, §28)
+
+    static constexpr std::size_t      slot_count = 13;   // 12 geteilt/delegiert + inner_container
+    static constexpr std::string_view name       = "ContainerComposition";
+    static constexpr std::string_view paper_id   = "P00 Adapter (Container-Tier-Unterklasse, Doku 14 §28 Invertebrate)";
 };
 
-/// ContainerAnatomy<Composition> — die Container-GATTUNG (genus()==Adapter). Hält das echte Q1-Buffer-Organ
-/// UND das Q2-Flush-Organ, treibt beide über die Gattungs-API (put/get/size/clear; put→should_flush) und liefert
-/// observe_all → ContainerObserverSnapshot (inkl. Flush-Felder).
-///
-/// capacity_: Flush-Bezugsgröße für die Policy. Default 0 → should_flush(fill, 0) → NoFlush (kein Auto-Flush,
-/// rückwärtskompatibel). capacity_ > 0 (ctor) → die Policy entscheidet (z.B. Watermark 75% → FullFlush → clear()).
+/// IsAdapterComposition — Concept: 12 geteilte named Achsen + inner_container (§28 Invertebrate).
+template <class C>
+concept IsAdapterComposition = requires {
+    typename C::search_algo;       typename C::cache_traversal;  typename C::memory_layout;
+    typename C::allocator;         typename C::prefetch;         typename C::concurrency;
+    typename C::serialization;     typename C::telemetry;        typename C::value_handle;
+    typename C::isa;               typename C::io_dispatch;      typename C::migration_policy;
+    typename C::inner_container;
+    { C::slot_count } -> std::convertible_to<std::size_t>;
+};
+
+inline constexpr std::size_t kAdapterCompositionSlotCount = 13;
+
+/// AdapterAnatomy (= ContainerAnatomy, Name-Rename #90) — die Container-Gattung, Adapter-Tier-Unterklasse
+/// (genus()==Adapter, gattung_of→Container). Treibt die spezifische Achse inner_container REAL über die
+/// §26.4-Adapter-API (push/pop/top/front/back); die 12 geteilten/delegierten Achsen werden getragen (im
+/// Komposition-Typ; analog SequenceAnatomy, die growth real treibt + die 10 geteilten trägt).
 template <class Composition>
 class ContainerAnatomy {
 public:
     using composition_t = Composition;
-    using buffer_t      = typename Composition::buffer_strategy;
-    using flush_t       = typename Composition::flush_policy;
-    using element_type  = typename buffer_t::element_type;
+    using inner_t       = typename Composition::inner_container;
+    using element_type  = typename inner_t::element_type;
 
     static constexpr std::string_view composition_name() noexcept { return Composition::name; }
     static constexpr std::string_view paper_id()         noexcept { return Composition::paper_id; }
-    static constexpr AnatomyGenus     genus()            noexcept { return AnatomyGenus::Adapter; }  // Queue = Container-Adapter
-    static constexpr std::size_t      organ_count()      noexcept { return 2; }                      // buffer_strategy + flush_policy
+    static constexpr AnatomyGenus     genus()            noexcept { return AnatomyGenus::Adapter; }       // Tier-Unterklasse
+    static constexpr AnatomyGattung   gattung()          noexcept { return AnatomyGattung::Container; }   // Außen-Interface
+    static constexpr std::size_t      organ_count()      noexcept { return Composition::slot_count; }     // 13
 
     ContainerAnatomy() = default;
-    /// capacity > 0 aktiviert die Flush-Policy (Bezugsgröße fill/cap); 0 = nie auto-flushen.
-    explicit ContainerAnatomy(std::size_t capacity) noexcept : capacity_{capacity} {}
+    /// capacity wird für ABI-ctor-Kompatibilität akzeptiert, aber ignoriert (unbeschränkter Adapter).
+    explicit ContainerAnatomy(std::size_t /*capacity*/) noexcept {}
 
-    // ── Gattungs-API (Container/Queue) — treibt BEIDE Organe (Q1 buffer + Q2 flush) + aktualisiert den Observer ──
-    void put(element_type v) {
-        buffer_.put(v);
-        ++obs_.put_count;
-        obs_.current_occupancy = static_cast<std::uint64_t>(buffer_.size());
+    // ── §26.4 Adapter-API (push/pop/top/front/back) — treibt das inner_container-Organ + Observer ──
+    void put(element_type v) { push(v); }   // Alias (Bestands-Aufrufe); push = die §26.4-Operation
+    void push(element_type v) {
+        inner_.push_back(v);
+        ++obs_.push_count;
+        obs_.current_occupancy = static_cast<std::uint64_t>(inner_.size());
         if (obs_.current_occupancy > obs_.peak_occupancy) obs_.peak_occupancy = obs_.current_occupancy;
-        // Q2: die Flush-Policy entscheidet (numerischer Vergleich → enum-agnostisch, s. ContainerFlushDecision).
-        auto const raw = static_cast<std::uint8_t>(flush_.should_flush(buffer_.size(), capacity_));
-        ++obs_.flush_decisions_evaluated;
-        if (raw == static_cast<std::uint8_t>(ContainerFlushDecision::FullFlush)) {
-            buffer_.clear();
-            obs_.current_occupancy = 0;
-            flush_.on_flush_complete();
-            ++obs_.full_flush_count;
-            ++obs_.flush_complete_count;
-        } else {
-            ++obs_.no_flush_count;   // PartialFlush wird vorerst wie NoFlush behandelt (Teil-Spülung = Folge-Feature)
-        }
     }
-    [[nodiscard]] std::optional<element_type> get() {
-        auto r = buffer_.get();
-        if (r) { ++obs_.get_count; obs_.current_occupancy = static_cast<std::uint64_t>(buffer_.size()); }
-        return r;
+    /// FIFO-Entnahme (queue): vorderstes Element.
+    [[nodiscard]] std::optional<element_type> pop_front() {
+        if (inner_.size() == 0) return std::nullopt;
+        element_type const v = inner_.front();
+        ++obs_.front_reads;
+        inner_.pop_front();
+        ++obs_.pop_count;
+        obs_.current_occupancy = static_cast<std::uint64_t>(inner_.size());
+        return v;
     }
-    [[nodiscard]] std::size_t size() const noexcept { return buffer_.size(); }
-    void clear() noexcept { buffer_.clear(); obs_.current_occupancy = 0; }
+    /// LIFO-Entnahme (stack): hinterstes Element.
+    [[nodiscard]] std::optional<element_type> pop_back() {
+        if (inner_.size() == 0) return std::nullopt;
+        element_type const v = inner_.back();
+        ++obs_.back_reads;
+        inner_.pop_back();
+        ++obs_.pop_count;
+        obs_.current_occupancy = static_cast<std::uint64_t>(inner_.size());
+        return v;
+    }
+    /// Bestands-Alias: get() == FIFO-Entnahme (queue-Default, §26.4 Default-Inner deque).
+    [[nodiscard]] std::optional<element_type> get() { return pop_front(); }
+    [[nodiscard]] std::optional<element_type> front() const {
+        if (inner_.size() == 0) return std::nullopt;
+        return inner_.front();
+    }
+    [[nodiscard]] std::optional<element_type> back() const {
+        if (inner_.size() == 0) return std::nullopt;
+        return inner_.back();
+    }
+    [[nodiscard]] std::optional<element_type> top() const { return back(); }   // stack-top
+    [[nodiscard]] std::size_t size() const noexcept { return inner_.size(); }
+    void clear() noexcept { inner_.clear(); obs_.current_occupancy = 0; }
 
-    /// observe_all() — EIGENER Container-Gattungs-Observer (NICHT der 17-Achsen-SearchAlgorithm-Aggregate).
+    /// observe_all() — EIGENER Adapter-Observer (NICHT der SearchAlgorithm-ObserverAggregate<19>).
     [[nodiscard]] ContainerObserverSnapshot observe_all() const noexcept { return obs_; }
 
 private:
-    buffer_t                  buffer_{};
-    flush_t                   flush_{};
-    std::size_t               capacity_ = 0;   // 0 = kein Auto-Flush (rückwärtskompatibel)
+    inner_t                   inner_{};
     ContainerObserverSnapshot obs_{};
 };
 

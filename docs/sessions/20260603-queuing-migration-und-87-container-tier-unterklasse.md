@@ -88,12 +88,22 @@ Doku 14 §25 verbatim erhalten + 7 Schärfungs-Notizen. Memory: `project_axis03a
 
 ---
 
-## 4. #87 — IN ARBEIT: Container als ECHTE Tier-Unterklasse (WIEDERAUFSATZPUNKT)
+## 4. #87+#90 — Container-GATTUNG + Tier-Unterklassen (WIEDERAUFSATZPUNKT, korr. 2026-06-03)
 
-**Ziel (Doc 30 §8.0, vom User bestätigt):** die Container-Gattung (`AnatomyGenus::Adapter`) als echte
-Tier-Unterklasse neu definieren = **`axis_inner` (Inner-Container) + `ordering` (FIFO/LIFO/Priority) + delegierte Achsen**.
-Die **queuing-Hülle verwerfen** (queuing lebt jetzt als SA-Achse T17/T18; KEIN Doppel-Topic — die Container-`ordering`
-ist die DISZIPLIN eines Container-Adapters, NICHT der SA-Write-Buffer).
+> ⚠️ **ZWEI frühere Designs in dieser Doku waren FALSCH (User-Korrekturen):**
+> - „inner+ordering als Container-Gattung" — Ebenen-Fehler: Container ist die **Gattung**, Adapter eine **Tier-Unterklasse** darunter.
+> - „ordering"-Achse — **erfunden** (Raten), steht NICHT in §28. (Memory: `feedback_never_guess_always_lookup_state_of_art_and_docs`.)
+
+**AUTORITATIV (teuer nachgeschlagen, NICHT geraten):**
+- **Doku 14 §27.2/§28** (`…/Diplomarbeit - Datenbanken/docs/architektur/14_…md`) + **Doc 30 §8.0** + C++-Standard.
+- **3-Ebenen:** Gattung = Außen-Interface = **SearchAlgorithm | Container | Graph** (nur 3, neu `AnatomyGattung`-Enum). Darunter Tier-Unterklassen (`AnatomyGenus`-Enum, historischer Name): SA→MapLike(19 Achsen); **Container→{Set, Sequence, Adapter, View}**. Darunter Achsen (permutieren, keine optional).
+- **Adapter-Tier-Unterklasse = §28-Invertebrate-Spalte = 13 Achsen:** delegiert (9) `search_algo, cache_traversal, memory_layout, allocator, prefetch, concurrency, isa, io_dispatch, migration_policy` + aktiv (3) `serialization, telemetry, value_handle` + spezifisch (1) **`inner_container`** (NEU axis_inner). **KEINE „ordering"-Achse.** §26.4: stack/queue→deque, priority_queue→vector+Compare; API `push/pop/top/front/back` (Disziplin in der API-Nutzung, NICHT als Achse).
+- **Bau-Muster = exakt analog `SequenceComposition` (10 geteilt + growth)** → `AdapterComposition<T0..T11, Inner>` (12 geteilt + inner_container). Anatomie treibt `inner_container` real, delegiert/trägt den Rest.
+
+**Bereits erledigt (verifiziert):** `anatomy_base.hpp` — `AnatomyGattung{SearchAlgorithm,Container,Graph}` + `gattung_of()` + `gattung_name()` eingeführt (nicht-brechend, kompiliert via test_v41_anatomy_base). AnatomyGenus als Tier-Unterklasse re-dokumentiert.
+
+**Noch zu tun:** (a) `ContainerComposition<Inner,Ordering>`→`AdapterComposition<T0..T11,Inner>` (13 Achsen, ordering raus); ContainerAnatomy→AdapterAnatomy (API push/pop/top/front/back); inner_container-Organe (Deque/Vector/List) behalten, Fifo/Lifo/Priority-Ordering-Organe VERWERFEN. (b) genus_binding_traits<Adapter> auf 13 Achsen (§28-Namen). (c) container_tier/abi_adapter/dock/module_abi nachziehen (Observer-Felder: inner-Belegung + delegierte; flush/ordering raus). (d) test_container_genus + 5 Tests neu. (e) #90: `AnatomyGenus`→`AnatomyTierSubclass` Rename-Sweep + Datei-Rename container_*→adapter_* + Doku-Sweep ab Doc 10. (f) Dateinamen container_*.hpp → adapter_*.hpp (wie set_/sequence_/view_).
+**ALTES (falsches) Design unten (§4.1–§4.5) ist HINFÄLLIG — nur als Fehler-Historie behalten.**
 
 ### 4.1 Exakte Umbaufläche (Dateien)
 

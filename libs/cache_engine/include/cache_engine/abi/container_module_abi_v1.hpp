@@ -16,8 +16,9 @@
 #include <new>
 
 // ─────────────────────────────────────────────────────────────────────────────
-// COMDARE_DEFINE_CONTAINER_MODULE(Q1, Q2) — die 4 Pflicht-extern-C-Symbole einer Container-Permutations-.dll.
-// Variadisch (ContainerComposition<Q1,Q2> enthält ein Komma → sonst zwei Makro-Argumente).
+// COMDARE_DEFINE_CONTAINER_MODULE(T0..T11, Inner) — die 4 Pflicht-extern-C-Symbole einer Container-Permutations-.dll.
+// #87+#90 (2026-06-03, Doku 14 §28): Adapter-Tier-Unterklasse = 13 Achsen (12 geteilt/delegiert + inner_container),
+// KEINE „ordering"-Achse. Variadisch — ContainerComposition<T0..T11, Inner> enthält Kommata → ein __VA_ARGS__.
 // ─────────────────────────────────────────────────────────────────────────────
 #define COMDARE_DEFINE_CONTAINER_MODULE(...)                                         \
     using ComdareContainerPermutationComposition =                                  \

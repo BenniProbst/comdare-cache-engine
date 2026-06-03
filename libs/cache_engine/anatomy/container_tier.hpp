@@ -1,6 +1,7 @@
 #pragma once
-// D4b / L-75 (2026-06-02) — IContainerTier: ABI-stabiles Antriebs-/Observer-Sub-Interface der CONTAINER-Gattung
-// (Adapter), analog IObservableTier für SearchAlgorithm, aber Queue-Semantik (put/get statt insert/lookup/erase).
+// D4b / L-75 (2026-06-02; §28-Modell #87+#90 2026-06-03) — IContainerTier: ABI-stabiles Antriebs-/Observer-Sub-
+// Interface der CONTAINER-Gattung (Adapter-Tier-Unterklasse), analog IObservableTier für SearchAlgorithm, aber
+// Adapter-Semantik (put/get = push/pop_front auf dem inner_container statt insert/lookup/erase).
 //
 // Doc 24 §8.8 (User-Direktive): JEDE neue Gattung bekommt ein EIGENES Antriebs-Sub-Interface + einen EIGENEN
 // flachen V1-POD — `IAnatomyBase`/`ComdareTierObserverSnapshotV1` werden NIE mutiert (das bräche alte DLLs).
@@ -18,19 +19,20 @@ namespace comdare::cache_engine::anatomy {
 
 /// Komposition-UNABHÄNGIGER, ABI-stabiler Container-Observer-Snapshot (cross-boundary). FIXE Layout (V1):
 /// NUR uint64 → standard_layout + trivially_copyable, identisches Layout in Host + Modul-Binary. Spiegelt
-/// die Q1-Buffer- + Q2-Flush-Zähler von ContainerObserverSnapshot (container_anatomy.hpp).
+/// die inner_container-Antriebs-Zähler von ContainerObserverSnapshot (container_anatomy.hpp) 1:1.
+/// #87+#90 (2026-06-03, Doku 14 §28): die Adapter-Tier-Unterklasse hat 13 Achsen (12 geteilt/delegiert +
+/// inner_container) und KEINE „ordering"-Achse. Die Disziplin (FIFO/LIFO) ist API-Nutzung (front vs back),
+/// daher zählt der Observer Enden-Zugriffe (front_reads/back_reads) statt ordering-select/comparison.
 struct ContainerObserverSnapshotV1 {
-    // ── Q1 buffer_strategy ──
-    std::uint64_t put_count                 = 0;
-    std::uint64_t get_count                 = 0;
-    std::uint64_t current_occupancy         = 0;
-    std::uint64_t peak_occupancy            = 0;
-    // ── Q2 flush_policy ──
-    std::uint64_t flush_decisions_evaluated = 0;
-    std::uint64_t full_flush_count          = 0;
-    std::uint64_t flush_complete_count      = 0;
+    // ── inner_container (die spezifische §28-Achse, real getrieben) ──
+    std::uint64_t push_count        = 0;   // push → inner_container
+    std::uint64_t pop_count         = 0;   // erfolgreiche pop_front/pop_back
+    std::uint64_t front_reads       = 0;   // front()-Zugriffe (FIFO-Disziplin)
+    std::uint64_t back_reads        = 0;   // back()/top()-Zugriffe (LIFO-Disziplin)
+    std::uint64_t current_occupancy = 0;   // aktuelle inner_container-Größe
+    std::uint64_t peak_occupancy    = 0;   // maximale inner_container-Größe
     // ── Meta ──
-    std::uint64_t organ_count               = 0;   // == ContainerAnatomy::organ_count() (2: buffer + flush)
+    std::uint64_t organ_count       = 0;   // == ContainerAnatomy::organ_count() (13: 12 geteilt/delegiert + inner_container)
 
     [[nodiscard]] constexpr bool operator==(ContainerObserverSnapshotV1 const&) const noexcept = default;
 };
@@ -50,16 +52,17 @@ class IContainerTier {
 public:
     virtual ~IContainerTier() = default;
 
-    /// Legt ein Element ab (treibt das Q1-Buffer-Organ; löst danach die Q2-Flush-Policy-Entscheidung aus).
+    /// Legt ein Element ab (treibt das inner_container-Organ: Inner.push_back).
     virtual void tier_put(std::uint64_t value) noexcept = 0;
 
-    /// Entnimmt das nächste Element. Bei Erfolg wird *out_value gesetzt (falls out_value != nullptr) und true geliefert.
+    /// Entnimmt das nächste Element (get == FIFO-Default pop_front auf dem inner_container; die Disziplin
+    /// FIFO/LIFO ist API-Nutzung, §26.4). Bei Erfolg wird *out_value gesetzt (falls out_value != nullptr) und true geliefert.
     [[nodiscard]] virtual bool tier_get(std::uint64_t* out_value) noexcept = 0;
 
-    /// Aktuelle Belegung (Füllstand) des Buffers.
+    /// Aktuelle Belegung (Füllstand) des Inner-Substrats.
     [[nodiscard]] virtual std::uint64_t tier_size() const noexcept = 0;
 
-    /// Leert den Buffer-Zustand (Statistik-Reset ist separat über reset()).
+    /// Leert den Inner-Zustand (Statistik-Reset ist separat über reset()).
     virtual void tier_clear() noexcept = 0;
 
     /// Schreibt den aktuellen Container-Observer-Snapshot (observe_all → flacher POD) nach *out. out != nullptr.

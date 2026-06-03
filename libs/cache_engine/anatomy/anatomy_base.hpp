@@ -28,28 +28,51 @@
 namespace comdare::cache_engine::anatomy {
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AnatomyGenus — 5 Gattungen (Compile-Time Enum)
+// 3-EBENEN-MODELL (Doc 30 §8.0/§8.1, korr. 2026-06-03 — vorher fälschlich „5 Gattungen"):
+//   Ebene 1  AnatomyGattung    = Außen-Interface/Prüf-Dock: SearchAlgorithm | Container | Graph  (NUR 3)
+//   Ebene 2  AnatomyGenus      = TIER-UNTERKLASSE unter einem Gattungs-Interface (fester Achsen-Satz)
+//   Ebene 3  Achsen            = Organe der Tier-Unterklasse (permutieren; KEINE optional)
+// Set/Sequence/Adapter/View sind Tier-Unterklassen UNTER der Container-Gattung (Doc 24 Z.564 / Doc 27 §0),
+// NICHT je eine eigene Gattung. SearchAlgorithm ist eine Gattung MIT einer Tier-Unterklasse (std::map-artig, 19 Achsen).
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// AnatomyGenus — Klassifizierung der Anatomie-Auspraegung.
-///
-/// Tier-Metapher-Mapping (Doku 14 §27.2):
-/// | Tierwelt-Gattung | AnatomyGenus     | std::-Container Beispiele |
-/// |------------------|------------------|---------------------------|
-/// | Saeugetier       | SearchAlgorithm  | map, multimap, unordered_map, flat_map |
-/// | Vogel            | Set              | set, multiset, unordered_set, flat_set |
-/// | Reptil           | Sequence         | vector, list, deque, array |
-/// | Wirbelloses      | Adapter          | stack, queue, priority_queue |
-/// | Pflanze          | View             | span, mdspan, string_view |
-enum class AnatomyGenus : std::uint8_t {
-    SearchAlgorithm = 0,  ///< K → V, Mammal-Gattung (vollstaendige 17-Achsen-Anatomie)
-    Set             = 1,  ///< K only, Bird-Gattung
-    Sequence        = 2,  ///< V indexed, Reptile-Gattung
-    Adapter         = 3,  ///< Wrapper ueber Inner-Container, Invertebrate-Gattung
-    View            = 4   ///< non-owning, Plant-Gattung
+/// AnatomyGattung — Ebene 1: das Außen-Interface zur Welt (Prüf-Dock je Gattung, Doc 24 §8.8). NUR 3.
+enum class AnatomyGattung : std::uint8_t {
+    SearchAlgorithm = 0,  ///< K → V Schlüssel-Wert-Interface (std::map-artig); 1 Tier-Unterklasse gebaut
+    Container       = 1,  ///< Container-Interface; Tier-Unterklassen: Set/Sequence/Adapter/View
+    Graph           = 2   ///< Graph-Interface (Tier-Unterklassen TBD)
 };
 
-/// genus_name<G>() — Compile-Time-String pro Gattung.
+/// gattung_name() — Compile-Time-String pro Gattung (Ebene 1).
+[[nodiscard]] constexpr std::string_view gattung_name(AnatomyGattung g) noexcept {
+    switch (g) {
+        case AnatomyGattung::SearchAlgorithm: return "SearchAlgorithm";
+        case AnatomyGattung::Container:       return "Container";
+        case AnatomyGattung::Graph:           return "Graph";
+    }
+    return "Unknown";
+}
+
+/// AnatomyGenus — Ebene 2: die TIER-UNTERKLASSE (fester Achsen-Satz unter einem Gattungs-Interface).
+/// HISTORISCHER NAME „Genus" (Refactor zu AnatomyTierSubclass via #90); konzeptionell = Tier-Unterklasse.
+///
+/// Tier-Metapher-Mapping (Doku 14 §27.2) + Gattungs-Zuordnung (Ebene 1):
+/// | Tier-Metapher | AnatomyGenus (=Tier-Unterklasse) | Gattung (Ebene 1) | std::-Beispiele |
+/// |---------------|----------------------------------|-------------------|-----------------|
+/// | Saeugetier    | SearchAlgorithm                  | SearchAlgorithm   | map, multimap, unordered_map |
+/// | Vogel         | Set                              | Container         | set, multiset, unordered_set |
+/// | Reptil        | Sequence                         | Container         | vector, list, deque, array |
+/// | Wirbelloses   | Adapter                          | Container         | stack, queue, priority_queue |
+/// | Pflanze       | View                             | Container         | span, mdspan, string_view |
+enum class AnatomyGenus : std::uint8_t {
+    SearchAlgorithm = 0,  ///< Tier-Unterklasse der SearchAlgorithm-Gattung (vollst. 19-Achsen-Anatomie)
+    Set             = 1,  ///< Tier-Unterklasse der Container-Gattung (K only, Bird)
+    Sequence        = 2,  ///< Tier-Unterklasse der Container-Gattung (V indexed, Reptile)
+    Adapter         = 3,  ///< Tier-Unterklasse der Container-Gattung (Wrapper über Inner-Substrat, Invertebrate)
+    View            = 4   ///< Tier-Unterklasse der Container-Gattung (non-owning, Plant)
+};
+
+/// genus_name<G>() — Compile-Time-String pro Tier-Unterklasse (Ebene 2).
 [[nodiscard]] constexpr std::string_view genus_name(AnatomyGenus g) noexcept {
     switch (g) {
         case AnatomyGenus::SearchAlgorithm: return "SearchAlgorithm";
@@ -61,9 +84,22 @@ enum class AnatomyGenus : std::uint8_t {
     return "Unknown";
 }
 
-/// kingdom_name() — wie in der Taxonomie: alle Gattungen sind "Animalia" Lebewesen.
+/// gattung_of() — Ebene 2 → Ebene 1: die Gattung (Außen-Interface), zu der eine Tier-Unterklasse gehört.
+/// SearchAlgorithm → eigene Gattung; Set/Sequence/Adapter/View → Container-Gattung (Doc 30 §8.1).
+[[nodiscard]] constexpr AnatomyGattung gattung_of(AnatomyGenus tier_subclass) noexcept {
+    switch (tier_subclass) {
+        case AnatomyGenus::SearchAlgorithm: return AnatomyGattung::SearchAlgorithm;
+        case AnatomyGenus::Set:
+        case AnatomyGenus::Sequence:
+        case AnatomyGenus::Adapter:
+        case AnatomyGenus::View:            return AnatomyGattung::Container;
+    }
+    return AnatomyGattung::Container;
+}
+
+/// kingdom_name() — wie in der Taxonomie: alle Gattungen/Tier-Unterklassen sind "Animalia" Lebewesen.
 [[nodiscard]] constexpr std::string_view kingdom_name() noexcept {
-    return "Animalia";  // alle 5 Anatomie-Gattungen sind Lebewesen
+    return "Animalia";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

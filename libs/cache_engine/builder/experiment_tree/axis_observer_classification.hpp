@@ -10,7 +10,8 @@
 //     sind Build-Zeit-KONSTANTEN (kein Laufzeit-Zustand) → sie tragen eine read-only Achsen-DEFINITION
 //     (Wrapper-Identität/Properties), KEINEN Laufzeit-Observer. EHRLICH dokumentiert (nicht stillschweigend 0).
 //   • ContainerObserver       : RESERVIERT für die ECHTE Container-Gattung (std::queue/stack/priority_queue =
-//     axis_inner + ordering, #87) — NICHT für queuing (das war der korrigierte Kategorienfehler, Doc 30 §8.0). Aktuell 0 Einträge.
+//     Adapter-Tier-Unterklasse, 13 Achsen inkl. inner_container, §28, #87+#90) — NICHT für queuing (das war der
+//     korrigierte Kategorienfehler, Doc 30 §8.0). Aktuell 0 Einträge.
 //
 // So ist jede der 22 Achsen klassifiziert + trägt Observer ODER Definition — keine fällt weg. C++23, header-only,
 // umbrella-UNABHÄNGIG (nur Namen + Kind; die Definitionen liefert BR-1 build_all_axis_levels via reflect_names).
@@ -25,7 +26,7 @@ namespace comdare::cache_engine::builder::experiment {
 enum class AxisObserverKind {
     SearchAlgorithmObserver,  // 19 Komposition-Achsen (inkl. queuing q1/q2 T17/T18): ObserverAggregate<19> (BR-3)
     DefinitionOnly,           // page_type/09b/12: Build-Konstanten → Definition statt Laufzeit-Observer
-    ContainerObserver         // RESERVIERT: echte Container-Gattung (axis_inner+ordering, #87) — NICHT queuing (korr. 2026-06-03)
+    ContainerObserver         // RESERVIERT: echte Container-Gattung (Adapter, 13 Achsen inkl. inner_container, §28, #87+#90) — NICHT queuing (korr. 2026-06-03)
 };
 
 [[nodiscard]] inline constexpr std::string_view observer_kind_name(AxisObserverKind k) noexcept {

@@ -1,17 +1,15 @@
-// test_container_genus — Gattungs-Generik Schritt 3 (2026-06-02) — die CONTAINER-Gattung (queuing q1) ist
-// baubar + messbar, als 2. GenusBindingTraits-Instanz neben SearchAlgorithm. „Alle Gattungen bauen."
+// test_container_genus — #87+#90 (2026-06-03, AUTORITATIV Doku 14 §28 Invertebrate + §26.4 + Doc 30 §8.0/§8.1):
+// die Adapter-TIER-UNTERKLASSE der CONTAINER-GATTUNG, baubar + messbar.
 //
-// Belegt: ContainerAnatomy<ContainerComposition<FIFOQueueBuffer>> treibt das ECHTE Q1-Buffer-Organ (put/get),
-// liefert einen EIGENEN Container-Observer (NICHT ObserverAggregate<17>), genus()==Adapter; GenusBound<Adapter>
-// jetzt true. Cross-Genus type-getrennt (Doku 14 §32).
+// 3-Ebenen: Gattung(Container, Ebene 1) → Tier-Unterklasse(Adapter, Ebene 2, fester §28-Achsen-Satz) → Achsen(Ebene 3).
+// §28 Adapter = 13 Achsen: 12 geteilt/delegiert + inner_container (NEU axis_inner, spezifisch). KEINE „ordering"-Achse
+// (das war ein geratener Fehler). §26.4-API push/pop/top/front/back; Disziplin (FIFO/LIFO) = API-Nutzung, keine Achse.
+// inner_container permutiert (DequeInner/VectorInner) — gebaut analog SequenceComposition (10 geteilt + growth).
 //
-// Build: cl /std:c++latest /EHsc /I<…> /I<build/generated…> (queuing-Achse + container_anatomy)
+// Build: cl /std:c++latest /EHsc /I<libs/cache_engine> /I<build/generated…>
 
 #include "builder/experiment_tree/genus_binding_traits.hpp"
 #include "anatomy/container_anatomy.hpp"
-#include <topics/queuing/axis_q1_queuing/axis_q1_queuing_registry.hpp>   // FIFOQueueBuffer etc.
-#include <topics/queuing/axis_q2_queuing/axis_q2_queuing_registry.hpp>   // WatermarkFlush etc. (D4 q2-Slot)
-#include <topics/queuing/axis_q2_queuing/concepts/axis_q2_queuing_concept.hpp>  // FlushDecision (Konvention-Guard)
 
 #include <cstdint>
 #include <iostream>
@@ -19,15 +17,10 @@
 
 namespace ex  = comdare::cache_engine::builder::experiment;
 namespace cea = comdare::cache_engine::anatomy;
-namespace q1  = comdare::cache_engine::queuing::axis_q1_queuing;
-namespace q2  = comdare::cache_engine::queuing::axis_q2_queuing;
-namespace q2c = comdare::cache_engine::queuing::axis_q2_queuing::concepts;
 
-// D4-Konvention-Guard: der gespiegelte ContainerFlushDecision MUSS numerisch mit der echten q2-FlushDecision
-// uebereinstimmen (ContainerAnatomy vergleicht numerisch). Bricht der Build, wenn die Enums auseinanderlaufen.
-static_assert(static_cast<std::uint8_t>(q2c::FlushDecision::FullFlush)
-              == static_cast<std::uint8_t>(cea::ContainerFlushDecision::FullFlush),
-              "FlushDecision-Konvention (FullFlush) muss zwischen q2-Achse und container_anatomy identisch sein");
+// Die 12 geteilten/delegierten §28-Achsen: im in-process-Test Platzhalter. Die Anatomie treibt NUR die spezifische
+// Achse inner_container real; die geteilten werden getragen (analog SequenceAnatomy, die nur growth real treibt).
+struct DelegatedAxis {};
 
 static int g_fail = 0;
 template <typename A, typename B>
@@ -40,51 +33,59 @@ void check_eq(char const* what, A const& got, B const& want) {
 void check_true(char const* what, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n"; if (!c) ++g_fail; }
 
 int main() {
-    std::cout << "Gattungs-Generik Schritt 3: die CONTAINER-Gattung (queuing q1) baubar + messbar:\n";
+    std::cout << "#87+#90: Adapter-Tier-Unterklasse der Container-Gattung (Doku 14 §28, 13 Achsen):\n";
 
-    using Q1   = q1::FIFOQueueBuffer;                       // ein reales Q1-Buffer-Organ (FIFO)
-    using Comp = cea::ContainerComposition<Q1>;
+    using D    = DelegatedAxis;
+    using Comp = cea::ContainerComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>;  // 12 + inner
     cea::ContainerAnatomy<Comp> queue;
 
-    // Gattungs-Identität (eigene Gattung, NICHT SearchAlgorithm).
-    check_true("genus() == Adapter (Container/Queue)", queue.genus() == cea::AnatomyGenus::Adapter);
+    // ── Ebene 1+2: Gattung (Container) + Tier-Unterklasse (Adapter) ──
+    check_true("gattung() == Container (Ebene 1, Außen-Interface)", queue.gattung() == cea::AnatomyGattung::Container);
+    check_true("genus() == Adapter (Ebene 2, Tier-Unterklasse)", queue.genus() == cea::AnatomyGenus::Adapter);
+    check_true("gattung_of(Adapter) == Container (Ebenen-Abbildung)", cea::gattung_of(cea::AnatomyGenus::Adapter) == cea::AnatomyGattung::Container);
+    check_eq("gattung_name(Container)", std::string{cea::gattung_name(cea::AnatomyGattung::Container)}, std::string{"Container"});
+    check_eq("genus_name(Adapter)", std::string{cea::genus_name(cea::AnatomyGenus::Adapter)}, std::string{"Adapter"});
     check_eq("composition_name", std::string{queue.composition_name()}, std::string{"ContainerComposition"});
-    check_eq("organ_count == 2 (buffer_strategy + flush_policy)", queue.organ_count(), std::size_t{2});
+    check_eq("organ_count == 13 (§28: 12 geteilt/delegiert + inner_container)", queue.organ_count(), std::size_t{13});
 
-    // ECHTER Antrieb des Q1-Organs (put/get/size) — die Container-Gattungs-API.
-    queue.put(10); queue.put(20); queue.put(30);
-    check_eq("size == 3 nach 3× put", queue.size(), std::size_t{3});
-    auto const first = queue.get();
-    check_true("get() liefert 10 (FIFO-Reihenfolge, echtes Organ)", first.has_value() && *first == 10u);
-    check_eq("size == 2 nach get", queue.size(), std::size_t{2});
+    // ── Ebene 3 / §26.4-API: push/pop/front/back über inner_container; Disziplin = API-Nutzung ──
+    queue.push(10); queue.push(20); queue.push(30);   // inner: [10,20,30]
+    check_eq("size == 3 nach 3x push", queue.size(), std::size_t{3});
+    auto const f = queue.pop_front();                 // FIFO (queue): 10 → inner [20,30]
+    check_true("FIFO pop_front() liefert 10 (vorderstes)", f.has_value() && *f == 10u);
+    auto const b = queue.pop_back();                  // LIFO (stack): 30 → inner [20]
+    check_true("LIFO pop_back() liefert 30 (hinterstes)", b.has_value() && *b == 30u);
+    check_true("front()==20 (verbleibendes Element)", queue.front().has_value() && *queue.front() == 20u);
+    check_true("top()==back()==20", queue.top().has_value() && *queue.top() == 20u);
+    check_eq("size == 1", queue.size(), std::size_t{1});
 
-    // EIGENER Container-Observer (gattungs-korrekt, getrennt von ObserverAggregate<17>).
+    // ── EIGENER Adapter-Observer (getrennt von ObserverAggregate<19>) ──
     cea::ContainerObserverSnapshot const obs = queue.observe_all();
-    check_eq("Container-Observer: put_count == 3", obs.put_count, std::uint64_t{3});
-    check_eq("Container-Observer: get_count == 1", obs.get_count, std::uint64_t{1});
-    check_eq("Container-Observer: peak_occupancy == 3", obs.peak_occupancy, std::uint64_t{3});
-    check_eq("Container-Observer: current_occupancy == 2", obs.current_occupancy, std::uint64_t{2});
+    check_eq("Observer: push_count == 3", obs.push_count, std::uint64_t{3});
+    check_eq("Observer: pop_count == 2", obs.pop_count, std::uint64_t{2});
+    check_eq("Observer: front_reads == 1 (ein pop_front)", obs.front_reads, std::uint64_t{1});
+    check_eq("Observer: back_reads == 1 (ein pop_back)", obs.back_reads, std::uint64_t{1});
+    check_eq("Observer: peak_occupancy == 3", obs.peak_occupancy, std::uint64_t{3});
+    check_eq("Observer: current_occupancy == 1", obs.current_occupancy, std::uint64_t{1});
 
-    // Gattungs-Generik: die Container-Gattung ist jetzt als 2. Instanz GEBUNDEN.
-    check_true("GenusBound<Adapter> == true (Container-Gattung jetzt baubar)", ex::GenusBound<cea::AnatomyGenus::Adapter>);
+    // ── inner_container permutiert (die spezifische §28-Achse): VectorInner als 2. Organ ──
+    std::cout << "\ninner_container = VectorInner (2. Organ der spezifischen Achse, §26.4 priority_queue-Substrat):\n";
+    cea::ContainerAnatomy<cea::ContainerComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::VectorInner<>>> vq;
+    vq.push(7); vq.push(9);
+    check_true("VectorInner: pop_back() liefert 9", vq.pop_back().has_value());
+    check_eq("VectorInner: organ_count == 13 (gleicher Achsen-Satz)", vq.organ_count(), std::size_t{13});
+
+    // ── Gattungs-Bindung: GenusBindingTraits<Adapter> (13 §28-Achsen) ──
+    std::cout << "\nGattungs-Bindung (GenusBindingTraits<Adapter>):\n";
+    check_true("GenusBound<Adapter> == true", ex::GenusBound<cea::AnatomyGenus::Adapter>);
     check_true("GenusBound<SearchAlgorithm> == true (weiterhin)", ex::GenusBound<cea::AnatomyGenus::SearchAlgorithm>);
-    check_eq("GenusBindingTraits<Adapter>::name", std::string{ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::name}, std::string{"Container"});
-    check_eq("GenusBindingTraits<Adapter>::slot_count == 2 (Q1+Q2)", ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::slot_count, std::size_t{2});
+    check_eq("GenusBindingTraits<Adapter>::name == Adapter (Tier-Unterklasse)", std::string{ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::name}, std::string{"Adapter"});
+    check_true("GenusBindingTraits<Adapter>::gattung == Container", ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::gattung == cea::AnatomyGattung::Container);
+    check_eq("GenusBindingTraits<Adapter>::slot_count == 13", ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::slot_count, std::size_t{13});
+    check_eq("Adapter axis_names[0] == search_algo (delegiert)", std::string{ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::axis_names()[0]}, std::string{"search_algo"});
+    check_eq("Adapter axis_names[12] == inner_container (spezifisch)", std::string{ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::axis_names()[12]}, std::string{"inner_container"});
 
-    // ── D4 / L-75: Q2 flush_policy als ECHTES 2. Organ — WatermarkFlush (75%) + capacity 8 → flush bei fill>=6 ──
-    std::cout << "\nD4: Q2 flush_policy (WatermarkFlush 75%, capacity 8) treibt das 2. Organ:\n";
-    using CompF = cea::ContainerComposition<q1::FIFOQueueBuffer, q2::WatermarkFlush>;
-    cea::ContainerAnatomy<CompF> q2queue(/*capacity=*/8);
-    for (std::uint64_t i = 0; i < 20; ++i) q2queue.put(i);   // 20 puts; flush bei jedem 6. (size>=6)
-    cea::ContainerObserverSnapshot const f = q2queue.observe_all();
-    check_eq("Q2: flush_decisions_evaluated == 20 (je put eine Entscheidung)", f.flush_decisions_evaluated, std::uint64_t{20});
-    check_true("Q2: full_flush_count > 0 (Watermark hat real gespuelt)", f.full_flush_count > 0);
-    check_eq("Q2: flush_complete_count == full_flush_count (on_flush_complete je Spuelung)", f.flush_complete_count, f.full_flush_count);
-    check_true("Q2: current_occupancy < 6 nach Spuelungen (Buffer wurde geleert)", f.current_occupancy < 6);
-    // Default-NoFlush (capacity 0) spuelt NIE → rueckwaerts-kompatibles Verhalten:
-    check_eq("Default-NoFlush: full_flush_count == 0 (kein Auto-Flush bei capacity 0)", queue.observe_all().full_flush_count, std::uint64_t{0});
-
-    std::cout << "\n==== Container-Gattung (Schritt 3): "
+    std::cout << "\n==== Adapter-Tier-Unterklasse (#87+#90, §28): "
               << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }
