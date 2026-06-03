@@ -1,15 +1,15 @@
 #pragma once
-// D4b / L-75 (2026-06-02; §28-Modell #87+#90 2026-06-03) — IContainerTier: ABI-stabiles Antriebs-/Observer-Sub-
+// D4b / L-75 (2026-06-02; §28-Modell #87+#90 2026-06-03) — IAdapterTier: ABI-stabiles Antriebs-/Observer-Sub-
 // Interface der CONTAINER-Gattung (Adapter-Tier-Unterklasse), analog IObservableTier für SearchAlgorithm, aber
 // Adapter-Semantik (put/get = push/pop_front auf dem inner_container statt insert/lookup/erase).
 //
 // Doc 24 §8.8 (User-Direktive): JEDE neue Gattung bekommt ein EIGENES Antriebs-Sub-Interface + einen EIGENEN
 // flachen V1-POD — `IAnatomyBase`/`ComdareTierObserverSnapshotV1` werden NIE mutiert (das bräche alte DLLs).
-// Der host-seitige Container-Dock fragt eine geladene DLL via `dynamic_cast<IContainerTier*>(ianatomy_ptr)` ab;
-// SearchAlgorithm-DLLs (kein IContainerTier) → nullptr → sauberes Degradieren (kein ABI-Bruch).
+// Der host-seitige Container-Dock fragt eine geladene DLL via `dynamic_cast<IAdapterTier*>(ianatomy_ptr)` ab;
+// SearchAlgorithm-DLLs (kein IAdapterTier) → nullptr → sauberes Degradieren (kein ABI-Bruch).
 //
-// IContainerTier ist EIGENSTÄNDIG (erbt NICHT IDriveableTier — dessen K/V-insert/lookup/erase passt nicht zur
-// Queue). Der genus-typisierte ContainerAbiAdapter erbt IAnatomyBase (Gattungs-Meta + Lifecycle) + IContainerTier.
+// IAdapterTier ist EIGENSTÄNDIG (erbt NICHT IDriveableTier — dessen K/V-insert/lookup/erase passt nicht zur
+// Queue). Der genus-typisierte AdapterAbiAdapter erbt IAnatomyBase (Gattungs-Meta + Lifecycle) + IAdapterTier.
 // Der POD quert die .dll-Grenze als reine uint64-Felder (standard_layout + trivially_copyable → memcpy-fähig).
 
 #include <cstdint>
@@ -19,11 +19,11 @@ namespace comdare::cache_engine::anatomy {
 
 /// Komposition-UNABHÄNGIGER, ABI-stabiler Container-Observer-Snapshot (cross-boundary). FIXE Layout (V1):
 /// NUR uint64 → standard_layout + trivially_copyable, identisches Layout in Host + Modul-Binary. Spiegelt
-/// die inner_container-Antriebs-Zähler von ContainerObserverSnapshot (container_anatomy.hpp) 1:1.
+/// die inner_container-Antriebs-Zähler von AdapterObserverSnapshot (adapter_anatomy.hpp) 1:1.
 /// #87+#90 (2026-06-03, Doku 14 §28): die Adapter-Tier-Unterklasse hat 13 Achsen (12 geteilt/delegiert +
 /// inner_container) und KEINE „ordering"-Achse. Die Disziplin (FIFO/LIFO) ist API-Nutzung (front vs back),
 /// daher zählt der Observer Enden-Zugriffe (front_reads/back_reads) statt ordering-select/comparison.
-struct ContainerObserverSnapshotV1 {
+struct AdapterObserverSnapshotV1 {
     // ── inner_container (die spezifische §28-Achse, real getrieben) ──
     std::uint64_t push_count        = 0;   // push → inner_container
     std::uint64_t pop_count         = 0;   // erfolgreiche pop_front/pop_back
@@ -32,25 +32,25 @@ struct ContainerObserverSnapshotV1 {
     std::uint64_t current_occupancy = 0;   // aktuelle inner_container-Größe
     std::uint64_t peak_occupancy    = 0;   // maximale inner_container-Größe
     // ── Meta ──
-    std::uint64_t organ_count       = 0;   // == ContainerAnatomy::organ_count() (13: 12 geteilt/delegiert + inner_container)
+    std::uint64_t organ_count       = 0;   // == AdapterAnatomy::organ_count() (13: 12 geteilt/delegiert + inner_container)
 
-    [[nodiscard]] constexpr bool operator==(ContainerObserverSnapshotV1 const&) const noexcept = default;
+    [[nodiscard]] constexpr bool operator==(AdapterObserverSnapshotV1 const&) const noexcept = default;
 };
 
-static_assert(std::is_standard_layout_v<ContainerObserverSnapshotV1>,
+static_assert(std::is_standard_layout_v<AdapterObserverSnapshotV1>,
               "ABI-Pflicht: Container-Cross-Boundary-Snapshot muss standard_layout sein");
-static_assert(std::is_trivially_copyable_v<ContainerObserverSnapshotV1>,
+static_assert(std::is_trivially_copyable_v<AdapterObserverSnapshotV1>,
               "ABI-Pflicht: Container-Cross-Boundary-Snapshot muss memcpy-fähig (trivially_copyable) sein");
 
 /// ABI-Version des Container-Snapshot-Formats (eigene Versionierung; unabhängig vom SearchAlgorithm-Snapshot).
-inline constexpr std::uint32_t kContainerObserverSnapshotVersion = 1;
+inline constexpr std::uint32_t kAdapterObserverSnapshotVersion = 1;
 
-/// IContainerTier — Antriebs-/Observer-Sub-Interface der Container-Gattung (Queue-Semantik). Der Host treibt
+/// IAdapterTier — Antriebs-/Observer-Sub-Interface der Container-Gattung (Queue-Semantik). Der Host treibt
 /// eine geladene Container-DLL über put/get/size/clear (uint64-Element-Raum) und zieht den eingebauten Observer
 /// als flachen POD (tier_observe_container). Eigenständig (kein IDriveableTier).
-class IContainerTier {
+class IAdapterTier {
 public:
-    virtual ~IContainerTier() = default;
+    virtual ~IAdapterTier() = default;
 
     /// Legt ein Element ab (treibt das inner_container-Organ: Inner.push_back).
     virtual void tier_put(std::uint64_t value) noexcept = 0;
@@ -66,7 +66,7 @@ public:
     virtual void tier_clear() noexcept = 0;
 
     /// Schreibt den aktuellen Container-Observer-Snapshot (observe_all → flacher POD) nach *out. out != nullptr.
-    virtual void tier_observe_container(ContainerObserverSnapshotV1* out) const noexcept = 0;
+    virtual void tier_observe_container(AdapterObserverSnapshotV1* out) const noexcept = 0;
 };
 
 }  // namespace comdare::cache_engine::anatomy

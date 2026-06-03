@@ -1,6 +1,6 @@
 // D4b.2 (L-75, Doc 24 §8.8 + analog BR-4 §3) — Container-DLL-Round-Trip: lädt die real gebaute Container-
 // Permutations-DLL via AnatomyModuleLoader (gattungs-agnostisch), prüft die Gattungs-API (genus==Adapter,
-// organ_count==13), fragt das Container-Sub-Interface via dynamic_cast<IContainerTier*> ab und treibt put/get +
+// organ_count==13), fragt das Container-Sub-Interface via dynamic_cast<IAdapterTier*> ab und treibt put/get +
 // zieht tier_observe_container über die REALE .dll-Grenze. Beweist: die Container-Gattung ist DLL-baubar/-ladbar/
 // -observierbar wie SearchAlgorithm (BR-4), über DENSELBEN Loader (keine Loader-Änderung — Doc 24 §8.8).
 //
@@ -12,7 +12,7 @@
 
 #include <builder/anatomy_module_loader/anatomy_module_loader.hpp>
 #include <anatomy/anatomy_base.hpp>
-#include <anatomy/container_tier.hpp>   // IContainerTier + ContainerObserverSnapshotV1
+#include <anatomy/adapter_tier.hpp>   // IAdapterTier + AdapterObserverSnapshotV1
 
 #include <cstdint>
 #include <iostream>
@@ -32,7 +32,7 @@ template <class A, class B> static void check_eq(char const* w, A const& g, B co
 
 int main(int argc, char** argv) {
     if (argc < 2) { std::cerr << "usage: test_d4b_container_dll <perm_container.dll>\n"; return 2; }
-    std::cout << "D4b.2: Container-DLL → AnatomyModuleLoader (gattungs-agnostisch) → IContainerTier:\n";
+    std::cout << "D4b.2: Container-DLL → AnatomyModuleLoader (gattungs-agnostisch) → IAdapterTier:\n";
 
     loader::AnatomyModuleHandle handle;
     int const st = loader::AnatomyModuleLoader::load(argv[1], handle);
@@ -47,14 +47,14 @@ int main(int argc, char** argv) {
     // Gattungs-API über die DLL-Grenze: das ist eine CONTAINER-Gattung (NICHT SearchAlgorithm).
     check_true("genus == Adapter (Container über DLL)", a->genus() == ana::AnatomyGenus::Adapter);
     check_eq("organ_count == 13 (§28: 12 geteilt/delegiert + inner_container)", a->organ_count(), std::size_t{13});
-    check_eq("composition_name == ContainerComposition", std::string{a->composition_name()}, std::string{"ContainerComposition"});
+    check_eq("composition_name == AdapterComposition", std::string{a->composition_name()}, std::string{"AdapterComposition"});
 
     // Container-Antrieb über die DLL-Grenze: dynamic_cast auf das Container-Sub-Interface.
-    auto* ct = dynamic_cast<ana::IContainerTier*>(a);
-    check_true("dynamic_cast<IContainerTier*> != nullptr (Container-Sub-Interface über DLL)", ct != nullptr);
+    auto* ct = dynamic_cast<ana::IAdapterTier*>(a);
+    check_true("dynamic_cast<IAdapterTier*> != nullptr (Container-Sub-Interface über DLL)", ct != nullptr);
     if (ct) {
         for (std::uint64_t i = 0; i < 20; ++i) ct->tier_put(i);   // unbeschränkter Adapter → alle 20 verbleiben
-        ana::ContainerObserverSnapshotV1 pod{};
+        ana::AdapterObserverSnapshotV1 pod{};
         ct->tier_observe_container(&pod);
         std::cout << "    observe über DLL: push=" << pod.push_count << " pop=" << pod.pop_count
                   << " front=" << pod.front_reads << " back=" << pod.back_reads

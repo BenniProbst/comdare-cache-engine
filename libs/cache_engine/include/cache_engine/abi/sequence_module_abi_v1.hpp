@@ -1,6 +1,6 @@
 #pragma once
 // D10-DLL / L-76b (2026-06-02) — Sequence Module ABI v1 (Factory-Makro), MODUL-AUTOR-Seite der SEQUENCE-Gattung.
-// Analog COMDARE_DEFINE_CONTAINER_MODULE: die Factory liefert einen SequenceAbiAdapter. 4 extern-"C"-Symbole +
+// Analog COMDARE_DEFINE_ADAPTER_MODULE: die Factory liefert einen SequenceAbiAdapter. 4 extern-"C"-Symbole +
 // ABI-Version/Magic IDENTISCH zur SearchAlgorithm-Seite → DERSELBE gattungs-agnostische AnatomyModuleLoader; die
 // Gattung wird runtime über anatomy()->genus() erkannt, der Sequence-Dock fragt dynamic_cast<ISequenceTier*> (Doc 24 §8.8).
 

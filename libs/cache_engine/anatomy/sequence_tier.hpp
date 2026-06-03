@@ -1,6 +1,6 @@
 #pragma once
 // D10 / L-76b (2026-06-02) — ISequenceTier: ABI-stabiles Antriebs-/Observer-Sub-Interface der SEQUENCE-Gattung
-// (Reptil, V-indexed, Doku 14 §27.2/§28). Analog ISetTier/IContainerTier, aber Sequenz-Semantik: push_back(value)/
+// (Reptil, V-indexed, Doku 14 §27.2/§28). Analog ISetTier/IAdapterTier, aber Sequenz-Semantik: push_back(value)/
 // at(index)→value — V-only-indexiert (KEIN Key-Suchorgan). Doc 24 §8.8: eigenes Sub-Interface + eigener V1-POD.
 
 #include <cstdint>

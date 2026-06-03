@@ -1,15 +1,15 @@
 #pragma once
-// D4b / L-75 (2026-06-02) — ContainerAbiAdapter: Runtime-ABI-Adapter der CONTAINER-Gattung (Adapter/Wirbelloses),
-// analog SearchAlgorithmAbiAdapter für SearchAlgorithm. Bridge eine ContainerAnatomy<Composition> (Compile-Time-
-// Concept) zur Runtime-ABI-Schicht (IAnatomyBase → IExecutionEngine) + dem Container-Antrieb (IContainerTier).
+// D4b / L-75 (2026-06-02) — AdapterAbiAdapter: Runtime-ABI-Adapter der CONTAINER-Gattung (Adapter/Wirbelloses),
+// analog SearchAlgorithmAbiAdapter für SearchAlgorithm. Bridge eine AdapterAnatomy<Composition> (Compile-Time-
+// Concept) zur Runtime-ABI-Schicht (IAnatomyBase → IExecutionEngine) + dem Container-Antrieb (IAdapterTier).
 //
 // Eine generierte Container-Permutations-.dll exportiert EXAKT EINEN solchen Adapter via comdare_create_anatomy()
-// (gibt IAnatomyBase* — der Loader ist gattungs-agnostisch, der Container-Dock fragt dynamic_cast<IContainerTier*>).
+// (gibt IAnatomyBase* — der Loader ist gattungs-agnostisch, der Container-Dock fragt dynamic_cast<IAdapterTier*>).
 // Cross-Genus-Adapter sind type-system-mathematisch unmöglich (Doku 14 §32) → static_assert genus()==Adapter.
 
 #include "anatomy_base.hpp"        // IAnatomyBase + AnatomyConcept
-#include "container_anatomy.hpp"   // ContainerAnatomy / ContainerObserverSnapshot
-#include "container_tier.hpp"      // IContainerTier + ContainerObserverSnapshotV1
+#include "adapter_anatomy.hpp"   // AdapterAnatomy / AdapterObserverSnapshot
+#include "adapter_tier.hpp"      // IAdapterTier + AdapterObserverSnapshotV1
 #include "../execution_engine/execution_engine_base.hpp"
 
 #include <cstddef>
@@ -17,16 +17,16 @@
 
 namespace comdare::cache_engine::anatomy {
 
-/// ContainerAbiAdapter<A> — generischer Runtime-ABI-Adapter für die Container-Gattung (Adapter in Tier-Metapher).
+/// AdapterAbiAdapter<A> — generischer Runtime-ABI-Adapter für die Container-Gattung (Adapter in Tier-Metapher).
 /// Vorbedingung: A erfüllt AnatomyConcept UND A::genus() == AnatomyGenus::Adapter (Compile-Zeit-Validierung).
 ///
 /// #87+#90 (2026-06-03, Doku 14 §28): die Adapter-Tier-Unterklasse hat 13 Achsen (12 geteilt/delegiert +
 /// inner_container), KEINE „ordering"-Achse. Der Adapter treibt put/get über die DLL-Grenze; get() == FIFO-
 /// Default (pop_front), die Disziplin FIFO/LIFO ist API-Nutzung (§26.4). Ein Adapter ist unbeschränkt.
 template <AnatomyConcept A>
-class ContainerAbiAdapter final : public IAnatomyBase, public IContainerTier {
+class AdapterAbiAdapter final : public IAnatomyBase, public IAdapterTier {
     static_assert(A::genus() == AnatomyGenus::Adapter,
-                  "ContainerAbiAdapter erwartet eine Container-Gattung-Anatomie (AnatomyGenus::Adapter). "
+                  "AdapterAbiAdapter erwartet eine Container-Gattung-Anatomie (AnatomyGenus::Adapter). "
                   "Cross-Genus-Adapter sind type-system-mathematisch unmoeglich — Doku 14 §32.");
 
 public:
@@ -49,7 +49,7 @@ public:
     [[nodiscard]] AnatomyGenus     genus()            const noexcept override { return A::genus(); }
     [[nodiscard]] std::size_t      organ_count()      const noexcept override { return A::organ_count(); }
 
-    // ── IContainerTier-Pflicht (Container-Antrieb + Observer durch die ABI-Grenze) ──
+    // ── IAdapterTier-Pflicht (Container-Antrieb + Observer durch die ABI-Grenze) ──
     void tier_put(std::uint64_t value) noexcept override {
         anatomy_.put(static_cast<element_type>(value));
     }
@@ -64,10 +64,10 @@ public:
     }
     void tier_clear() noexcept override { anatomy_.clear(); }
 
-    void tier_observe_container(ContainerObserverSnapshotV1* out) const noexcept override {
+    void tier_observe_container(AdapterObserverSnapshotV1* out) const noexcept override {
         if (out == nullptr) return;
-        ContainerObserverSnapshot const s = anatomy_.observe_all();
-        ContainerObserverSnapshotV1 v{};
+        AdapterObserverSnapshot const s = anatomy_.observe_all();
+        AdapterObserverSnapshotV1 v{};
         v.push_count        = s.push_count;
         v.pop_count         = s.pop_count;
         v.front_reads       = s.front_reads;

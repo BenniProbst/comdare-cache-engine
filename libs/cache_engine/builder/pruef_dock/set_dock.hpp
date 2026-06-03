@@ -1,12 +1,12 @@
 #pragma once
 // L-76a (2026-06-03, Doc 24 §8.8) — Set-Gattungs-Prüf-Dock: die CacheEngineBuilder-Seite für die SET-Gattung
-// (Vogel, genus()==Set), analog ContainerDock für Adapter + SearchAlgorithmDock für SearchAlgorithm.
+// (Vogel, genus()==Set), analog AdapterDock für Adapter + SearchAlgorithmDock für SearchAlgorithm.
 //
 // Doc 24 §8.8: ein Prüf-Dock ist der per-Gattung Mess-Übergang — es (a) hält/treibt ein Tier der Gattung über die
 // Gattungs-API, (b) misst dessen eingebauten Observer, (c) persistiert. Hier in-process über die SetAnatomy
 // (insert/contains/erase-Workload → SetObserverSnapshot → CSV). Gattungs-Constraint: genus()==Set (Cross-Genus
 // type-unmöglich, Doku 14 §32). Der DLL-Pfad (AnatomyModuleLoader, analog BR-4 + IPruefDock+AnatomyModuleHandle)
-// ist ein Folgeschritt — exakt wie bei ContainerDock dokumentiert. C++23, header-only.
+// ist ein Folgeschritt — exakt wie bei AdapterDock dokumentiert. C++23, header-only.
 //
 // @related [[anatomie-gattungen]] [[gattungs-constraint-pruefling-merge]]
 

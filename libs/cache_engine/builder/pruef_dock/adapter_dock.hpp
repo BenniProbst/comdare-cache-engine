@@ -4,11 +4,11 @@
 //
 // Doc 24 §8.8: ein Prüf-Dock ist der per-Gattung ABI-stabile Mess-Übergang — es (a) hält/treibt ein Tier der
 // Gattung über die Gattungs-API, (b) misst dessen eingebaute Observer, (c) persistiert. Hier in-process über die
-// ContainerAnatomy (put/get-Workload → ContainerObserverSnapshot → CSV). Gattungs-Constraint: genus()==Adapter
+// AdapterAnatomy (put/get-Workload → AdapterObserverSnapshot → CSV). Gattungs-Constraint: genus()==Adapter
 // (Cross-Genus type-unmöglich, Doku 14 §32). Der DLL-Pfad (AnatomyModuleLoader) ist analog BR-4 ein Folgeschritt.
 // C++23, header-only.
 
-#include "anatomy/container_anatomy.hpp"   // ContainerAnatomy / ContainerObserverSnapshot
+#include "anatomy/adapter_anatomy.hpp"   // AdapterAnatomy / AdapterObserverSnapshot
 #include "anatomy/anatomy_base.hpp"        // AnatomyGenus
 
 #include <cstdint>
@@ -16,13 +16,13 @@
 
 namespace comdare::cache_engine::builder::pruef_dock {
 
-/// ContainerDock<ContainerAnatomyT> — treibt ein Container-Tier (Queue) über die Gattungs-API + misst den
+/// AdapterDock<AdapterAnatomyT> — treibt ein Container-Tier (Queue) über die Gattungs-API + misst den
 /// eingebauten Container-Observer + persistiert. Per-Gattung gebunden (genus()==Adapter).
-template <class ContainerAnatomyT>
-class ContainerDock {
+template <class AdapterAnatomyT>
+class AdapterDock {
 public:
     struct MeasureResult {
-        ::comdare::cache_engine::anatomy::ContainerObserverSnapshot observer{};
+        ::comdare::cache_engine::anatomy::AdapterObserverSnapshot observer{};
         std::uint64_t total_ops = 0;
     };
 
@@ -36,9 +36,9 @@ public:
     /// (push + get/pop_front). #87+#90: capacity wird für Aufruf-Kompatibilität akzeptiert, aber ignoriert (unbeschränkter Adapter).
     [[nodiscard]] MeasureResult measure(std::uint64_t n_puts, std::uint64_t n_gets,
                                         std::size_t capacity = 0) const {
-        ContainerAnatomyT tier(capacity);
+        AdapterAnatomyT tier(capacity);
         for (std::uint64_t i = 0; i < n_puts; ++i)
-            tier.put(static_cast<typename ContainerAnatomyT::element_type>(i));
+            tier.put(static_cast<typename AdapterAnatomyT::element_type>(i));
         for (std::uint64_t i = 0; i < n_gets; ++i) (void)tier.get();
         return MeasureResult{ tier.observe_all(), n_puts + n_gets };
     }
