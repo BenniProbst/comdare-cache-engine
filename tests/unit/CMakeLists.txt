@@ -1457,6 +1457,17 @@ add_dependencies(test_adhoc_buildvariant_dll perm_adhoc_buildvariant)
 add_test(NAME test_adhoc_buildvariant_dll COMMAND test_adhoc_buildvariant_dll "$<TARGET_FILE:perm_adhoc_buildvariant>")
 set_tests_properties(test_adhoc_buildvariant_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
 
-message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 28 add_test-D-Tests (16 leicht + 12 Boost) + 4 DLL-Round-Trip-Tests "
-    "(test_dgenus_dll/test_buildvariant_dll/test_buildvariant_dll_real/test_adhoc_buildvariant_dll) als OFFIZIELLE CMake-Targets (6 SHARED-DLLs via $<TARGET_FILE>). "
+# L-MEAS — RuntimeMeasureVisitor über die ECHTE geladene DLL (dynamic_cast IObservableTier + IResourceControllableTier
+# aus DEMSELBEN Tier → Host-Bridge → Mess-Schleife je dyn. Einstellung × repeats, kein Reload). Reuse perm_adhoc_buildvariant.
+add_executable(test_d13_dll_runtime_measure test_d13_dll_runtime_measure.cpp)
+target_include_directories(test_d13_dll_runtime_measure PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine" "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_compile_features(test_d13_dll_runtime_measure PRIVATE cxx_std_23)
+target_link_libraries(test_d13_dll_runtime_measure PRIVATE comdare::anatomy_module_loader)
+add_dependencies(test_d13_dll_runtime_measure perm_adhoc_buildvariant)
+add_test(NAME test_d13_dll_runtime_measure COMMAND test_d13_dll_runtime_measure "$<TARGET_FILE:perm_adhoc_buildvariant>")
+set_tests_properties(test_d13_dll_runtime_measure PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
+
+message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 28 add_test-D-Tests (16 leicht + 12 Boost) + 5 DLL-Round-Trip-Tests "
+    "(test_dgenus_dll/test_buildvariant_dll{,_real}/test_adhoc_buildvariant_dll/test_d13_dll_runtime_measure) als OFFIZIELLE CMake-Targets (6 SHARED-DLLs via $<TARGET_FILE>). "
     "container_dll (test_d4b) bleibt scratch-verifiziert (Folge).")
