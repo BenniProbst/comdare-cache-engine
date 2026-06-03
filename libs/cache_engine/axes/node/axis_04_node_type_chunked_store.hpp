@@ -91,6 +91,44 @@ public:
     }
     void clear() noexcept { chunks_.clear(); size_ = 0; chunk_allocs_ = 0; }
 
+    // --- Drop-in-Parität zu ComposedStore (von ObservableComposedSearch optional/requires-detektiert) ---
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    // Säule-2 Allocator-Durchgriff — hier NODE-WIRKSAM: allocation_count = Zahl der node-großen Chunks =
+    // ceil(size / N::max_capacity()) → hängt REAL von der node_type-Achse ab (Node4 viele, Node256 wenige).
+    using allocator_snapshot_t = typename A::snapshot_t;   // == allocator::…::AllocationStatistics
+    [[nodiscard]] allocator_snapshot_t allocator_statistics() const noexcept {
+        allocator_snapshot_t a{};
+        a.allocation_count      = chunk_allocs_;
+        a.deallocation_count    = 0;
+        a.failure_count         = 0;
+        a.total_bytes_allocated = chunk_allocs_ * cap_ * sizeof(slot_t);
+        a.total_bytes_in_use    = size_ * sizeof(slot_t);
+        return a;
+    }
+#endif
+    // V2-Auto-Kopplung node_type: low-Byte je gespeichertem Key → Format-divergenter Self-Lookup (mirror ComposedStore).
+    template <class NodeOrgan>
+    std::uint64_t organ_observe_node_type(NodeOrgan& org) const {
+        std::vector<std::uint8_t> kb; kb.reserve(size_);
+        for (auto const& c : chunks_) for (auto const& s : c) kb.push_back(static_cast<std::uint8_t>(s.first & 0xFFu));
+        return org.observe_node_find(kb.data(), kb.size(), kb.data(), kb.size());
+    }
+    // V2-Auto-Kopplung layout/serialization: Scan über das chunk-lokale Slot-Backing (kein toter Code).
+    template <class LayoutOrgan>
+    std::uint64_t organ_observe_layout(LayoutOrgan& org) const {
+        std::uint64_t acc = 0;
+        for (auto const& c : chunks_)
+            acc += org.observe_scan(reinterpret_cast<unsigned char const*>(c.data()), c.size(), sizeof(slot_t));
+        return acc;
+    }
+    template <class SerOrgan>
+    std::uint64_t organ_observe_serialization(SerOrgan& org) const {
+        std::uint64_t acc = 0;
+        for (auto const& c : chunks_)
+            acc += org.observe_serialize(reinterpret_cast<unsigned char const*>(c.data()), c.size(), sizeof(slot_t));
+        return acc;
+    }
+
 private:
     [[nodiscard]] std::vector<slot_t> flatten_() const {
         std::vector<slot_t> f; f.reserve(size_);
