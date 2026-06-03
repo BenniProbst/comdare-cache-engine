@@ -35,6 +35,10 @@ int main() {
     check_true("SLURM-Array 0-9 (10 Tasks)", has(sb, "#SBATCH --array=0-9"));
     check_true("partition barnard", has(sb, "#SBATCH --partition=barnard"));
     check_true("Singularity-Exec", has(sb, "singularity exec comdare-ce.sif"));
+    // L-CLUSTER: die Module sind .dll (kein main()) → der Container-perm_runner lädt sie (NICHT direkt perm_*.bin).
+    check_true("Module sind perm_*.dll (kein .bin)", has(sb, "perm_*.dll") && !has(sb, "perm_*.bin"));
+    check_true("perm_runner lädt die DLL (singularity exec … perm_runner \"$BIN\")",
+               has(sb, "singularity exec comdare-ce.sif perm_runner \"$BIN\""));
     check_true("Array-Task-Selektion (SLURM_ARRAY_TASK_ID)", has(sb, "SLURM_ARRAY_TASK_ID"));
     check_true("Webhook-curl an VLAN-60", has(sb, "curl -fsS -X POST") && has(sb, "10.0.60.1:8080/result"));
 

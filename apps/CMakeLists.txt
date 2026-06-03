@@ -17,3 +17,6 @@ add_subdirectory(adhoc_emitter)
 
 # V41.F.6.1.R5.D — CLI-Treiber fuer den F15-Messlauf ueber materialisierte Permutations-DLLs
 add_subdirectory(f15_compare)
+
+# L-CLUSTER (gate-frei) — lokaler Cluster-Mess-Runner je Binary (laedt 1 perm-DLL -> result_ingest-Zeile)
+add_subdirectory(perm_runner)

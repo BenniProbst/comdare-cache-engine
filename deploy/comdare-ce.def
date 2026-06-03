@@ -1,0 +1,46 @@
+Bootstrap: docker
+From: gcc:13
+
+# L-CLUSTER (gate-frei-TEXT) — Apptainer/Singularity-Definition für den ZIH-Mess-Container comdare-ce.sif.
+# Projekt p_llm_compile. Bringt den cache-engine-Quellbaum ein, baut perm_runner (gcc-13 C++23, Boost.MP11 vendored
+# OFFLINE → cmake/third_party, FortiGate-Egress-sicher) und enthält die perm_*.dll-Module. Entrypoint = perm_runner.
+#
+# ⚠️ AUSFÜHRUNG (apptainer build + ZIH-Upload + sbatch) IST GATE-MAXIMAL (User-Freigabe nötig, ZIH-Nutzungsbedingungen,
+# Strafen/Account-Sperre möglich — CLAUDE.md „Kritische Manöver"). Diese Datei ist das REZEPT-TEXT; sie wird hier
+# NICHT gebaut. Der gcc-13-Cross-Build der (bisher MSVC-gebauten) cache-engine ist der cluster-seitige Validierungs-
+# schritt — ggf. plattform-spezifische Anpassungen (MSVC-isms) nötig. Lokal verifiziert ist NUR perm_runner (MSVC) +
+# der slurm_launcher-Text (test_kf12_kf13_slurm_prepare).
+
+%labels
+    Maintainer  COMDARE Cache-Engine
+    Project     p_llm_compile (TU Dresden ZIH)
+    Component   perm_runner Mess-Runner (lädt 1 perm-DLL → result_ingest-Zeile)
+
+%files
+    # Der Repo-Quellbaum wird via --bind/SINGULARITY-Build-Kontext eingebracht (build_sif.sh übergibt /src).
+    # (Apptainer %files kopiert beim Bau; build_sif.sh bindet den Repo-Pfad als /src.)
+
+%post
+    set -eu
+    apt-get update
+    apt-get install -y --no-install-recommends cmake ninja-build ca-certificates
+    rm -rf /var/lib/apt/lists/*
+    # cache-engine bauen (Quellbaum unter /src, vendored Boost.MP11 offline → KEIN Netz). perm_runner + perm_*.dll.
+    cmake -S /src -B /opt/comdare-ce/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+    cmake --build /opt/comdare-ce/build --target comdare_perm_runner
+    install -D /opt/comdare-ce/build/apps/perm_runner/perm_runner /usr/local/bin/perm_runner
+    mkdir -p /opt/comdare-ce/perms
+
+%environment
+    export COMDARE_PERM_DIR=/opt/comdare-ce/perms
+
+%runscript
+    # Default-Entrypoint: perm_runner <perm.dll> [binary_id] [n_ops] → EINE result_ingest-Zeile nach stdout.
+    exec /usr/local/bin/perm_runner "$@"
+
+%apprun perm_runner
+    exec /usr/local/bin/perm_runner "$@"
+
+%test
+    # Container-interner Smoke-Test (läuft bei `apptainer test`): perm_runner ohne Argumente → Usage (exit 2).
+    /usr/local/bin/perm_runner || test $? -eq 2
