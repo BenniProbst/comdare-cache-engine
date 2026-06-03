@@ -211,12 +211,16 @@ je Achse." → tiefenlesender Agent (Doku 14 §7/§25/§27/§28/§32 + Code + Do
   (Doc-30-§3-Web-Befund: Pflicht-Kern = Such-Strategie/Mapping/Node/Value; ART/HOT/SuRF haben keinen Write-Buffer) und die
   legitime Adapter-Gattung darf nicht gelöscht werden.
 
-**KORREKTES Modell (Empfehlung, ersetzt §6-Q1 + §7):**
-1. **queuing = OPTIONALE Achse** (Default NoBuffer/NoFlush, `axis_q1_queuing_no_buffer.hpp` existiert), Write-Buffer-Organ
-   write-gepufferter K→V-Strukturen (LSM/Bw-Tree). Weder Gattung (Doc-27-Fehler) noch Pflicht-Slot (Doc-30-Fehler).
-2. **queuing als optionale SA-Achse(n)** führen — wie prefetch=None/filter=None/migration=None: jedes SA-Tier hat den Slot,
-   die meisten auf Default. Damit „uniform alle zugehörigen Achsen" ohne Erzwingung. (Ob 17→19 erfolgt, ist eine bewusste
-   Gattungs-ABI-Entscheidung des Users, kein Automatismus.)
+**KORREKTES Modell (ersetzt §6-Q1 + §7; inkl. User-Korrektur #3 2026-06-03 „Achsen sind nie optional"):**
+1. **Achsen einer Gattung sind NIE optional** (User-Korrektur — verwirft das „optional"-Framing des Agenten): JEDE Achse
+   ist in JEDEM Tier-Binary präsent, ihr Interface wird UNIFORM getrieben. queuing ist also eine **reguläre, mandatorische
+   SA-Achse** — kein „optionaler Slot". Ein Tier, das nicht puffert, wählt den KONKRETEN Algorithmus `NoBuffer`/`NoFlush`
+   („ein Algorithmus, der eigentlich nicht queued", durchreicht) — die Achse + ihr Interface bleiben present + uniform
+   getrieben. Exakt analog prefetch=`NonePrefetch`, filter=`None`, migration=`NoMigration`: das sind konkrete Algorithmen,
+   KEINE abwesenden/optionalen Achsen.
+2. **queuing q1/q2 als reguläre SA-Slots 17/18** — jedes Tier wählt EXPLIZIT einen Algorithmus (meist NoBuffer/NoFlush,
+   ein LSM/Bw-Tree-Tier einen echten Buffer). Das IST „22 uniform pro Tier", korrekt verstanden: alle Achsen-Interfaces in
+   jedem Tier-Binary, je Achse ein austauschbarer Algorithmus. `AdHocComposition<17>→<19>` (kein Auto-Anhängen — explizit).
 3. **Adapter-Gattung NICHT löschen, sondern RICHTIG definieren:** echte Container-Adapter (`std::queue/stack/priority_queue`)
    = `axis_inner` (Inner-Container) + delegierte Standard-Achsen + ordering/discipline (FIFO/LIFO/Priority). Die jetzige
    2-queuing-Slot-Hülle (`container_anatomy.hpp`) verwerfen/umbauen.
