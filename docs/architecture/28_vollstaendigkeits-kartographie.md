@@ -1,5 +1,12 @@
 # 28 — Vollständigkeits-Kartographie: SOLL-Zustand für ALLE 22 Achsen + 5 Gattungen + 4 Brücken + Skalierung (2026-06-02)
 
+> ⚠️ **KORREKTUR (2026-06-03, maßgeblich: `30_audit_achsen_delegation_pflichtachsen.md` §8):** Die Einordnung der Achsen
+> 21/22 (axis_q1/q2_queuing) als „EIGENE Container-Gattung (Adapter), Slot 1/2" (Tabelle §1 + §2 + §67) ist ein
+> **KATEGORIENFEHLER** — queuing ist eine **Achse**, keine Gattung. **§67 ist FALSCH herum:** Doku 14 §7 („q1/q2 =
+> stabile Organe") war KORREKT; nicht Doku 14, sondern Doc 27 §0.1 ist die (revidierte) Fehl-„Präzisierung". Korrektes
+> Modell: queuing = reguläre mandatorische SearchAlgorithm-Achse; Adapter-Gattung = echte Container-Datenstruktur
+> (axis_inner + ordering), NICHT queuing. „22" = 19 SA-Achsen (inkl. queuing) + 3 Build-Achsen, KEINE „2 Container-Gattungs-Slots".
+
 > **Goal-V6 Phase A (Kartographie).** Dieses Dokument konsolidiert den SOLL-Zustand des Permutations-B+-Experiment-
 > Baums aus den letzten 18 Architektur-Dokumentationen — gefunden, kartografiert, konsolidiert (NICHT neu erfunden).
 > Quelle je Aussage: Doc:§ bzw. Datei:Zeile. Provenienz via 3 paralleler adversarial-präziser Kartographie-Agenten

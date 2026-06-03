@@ -1,5 +1,12 @@
 # 27 — Experiment-B+-Baum: vollständige Registry-Bindung (die 4 Brücken) (2026-06-02)
 
+> ⚠️ **KORREKTUR (2026-06-03, maßgeblich: `30_audit_achsen_delegation_pflichtachsen.md` §8):** Die in §0.1 eingeführte
+> Einordnung „queuing q1/q2 = EIGENE Container-Gattung" ist ein **KATEGORIENFEHLER** — queuing ist eine **Achse/ein
+> Organ**, KEINE Gattung. Doku 14 §7 („q1/q2 = Organe") war KORREKT; §0.1 ist die Fehl-Reinterpretation (§32 Cross-Genus
+> zweckentfremdet). Korrektes Modell: queuing = reguläre, mandatorische SearchAlgorithm-Achse (`NoBuffer` = durchreichender
+> Algorithmus, kein „optional"); die Adapter-Gattung ist eine echte Container-Datenstruktur (axis_inner + ordering),
+> nutzt queuing NICHT. Alle „queuing = Container-Gattung"-Aussagen unten sind hierdurch revidiert.
+
 > **Companion zu Doc 26.** Doc 26 definiert das B+-Baum-Modell; dieses Dokument ist der verbindliche
 > Umsetzungsplan, der den heute STRING-getriebenen Baum **registry-getrieben + vollständig** gegen ALLE
 > realen Achsen + Observer + Definitionen macht (aktives /goal 2026-06-02, „absolute Vollständigkeit").
