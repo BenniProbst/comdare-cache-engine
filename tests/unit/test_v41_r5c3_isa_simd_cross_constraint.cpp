@@ -17,6 +17,9 @@
 
 #include <boost/mp11.hpp>
 
+#include <cstddef>
+#include <iostream>
+
 namespace mp   = boost::mp11;
 namespace hw   = ::comdare::cache_engine::hardware;
 namespace isa  = ::comdare::cache_engine::hardware::axis_09_isa;
@@ -118,5 +121,41 @@ TEST(R5C3IsaPlatformCrossConstraint, BothConstraintsApplied) {
     EXPECT_EQ(full_n, 12u);
     EXPECT_EQ(full_f, 6u) << "GENERIC×4 + X86_64×Amd64 + AARCH64×Aarch64";
     EXPECT_LE(mp::mp_size<FilteredPlat>::value, mp::mp_size<RawPlat>::value);
+    SUCCEED();
+}
+
+// ── (6) L-74a: DETERMINISTISCHER 3-Wege-Filter-Beweis über das VOLLE Achsen-Produkt (build-config-unabhängig) ──
+// AllIsas(4) × AllExtensions(8) × AllPlatforms(3) = 96 RAW. Nach BEIDEN verketteten Constraints (ISA×SIMD + ISA×
+// Plattform) bleibt die physisch-mögliche Teilmenge — das ist die L-74a-„(4 ISA × 8 SE × 3 HW)=96 → ~25"-Reduktion
+// DESSELBEN 17-Slot-Binary-Build-Raums (kein eigener Genus). Build-config-INVARIANT (volle AllXxx-Listen, nicht
+// die flag-abhängigen EnabledXxx) → der literale Reduktions-Faktor ist reproduzierbar (nicht flag-abhängig).
+using AllExtList = ext::AllExtensions;
+using Full3         = mp::mp_product<mp::mp_list, AllIsaList, AllExtList, AllPlatList>;
+using Full3Filtered = mp::mp_remove_if<
+    mp::mp_remove_if<Full3, hw::IsaSimdIncompatible>,
+    hw::IsaPlatformIncompatible3>;
+
+static_assert(mp::mp_size<Full3>::value == 96,                  "AllIsas(4) × AllExtensions(8) × AllPlatforms(3) = 96 RAW");
+static_assert(mp::mp_size<Full3Filtered>::value < 96,           "L-74a: der Cross-Constraint reduziert 96 deutlich");
+static_assert(mp::mp_size<Full3Filtered>::value > 0,            "Filter darf nicht ALLES entfernen");
+static_assert(mp::mp_all_of<Full3Filtered, IsCompatTuple>::value,    "Full3-Filtered: jedes Tupel ISA×SIMD-konsistent");
+static_assert(mp::mp_all_of<Full3Filtered, IsCompatIsaPlat3>::value, "Full3-Filtered: jedes Tupel ISA×Plattform-konsistent");
+// bekannte gültige/ungültige Tripel (die L-74a-Build-Achsen-Beispiele):
+static_assert(mp::mp_contains<Full3Filtered,
+    mp::mp_list<isa::Amd64Isa, ext::Avx2SimdExtension, plat::X86_64HardwareProfile>>::value,
+    "Amd64 + Avx2 + x86_64-Plattform ist physisch möglich (bleibt)");
+static_assert(!mp::mp_contains<Full3Filtered,
+    mp::mp_list<isa::Amd64Isa, ext::Avx512SimdExtension, plat::Aarch64HardwareProfile>>::value,
+    "Amd64 + Avx512 + aarch64-Plattform ist physisch unmöglich (SIMD-ok, aber plattform-fremd → raus)");
+
+TEST(R5C3IsaSimdCrossConstraint, Full3WayReductionLiteral) {
+    // L-74a literal via mp_size: 96 → N (build-config-unabhängig). Der exakte N ist die physisch-mögliche Teilmenge.
+    constexpr std::size_t raw96 = mp::mp_size<Full3>::value;
+    constexpr std::size_t flt   = mp::mp_size<Full3Filtered>::value;
+    std::cout << "[L-74a 3-Wege-Cross-Constraint] RAW(4 ISA × 8 SE × 3 HW) = " << raw96
+              << " → FILTERED (physisch möglich) = " << flt << "\n";
+    EXPECT_EQ(raw96, 96u);
+    EXPECT_LT(flt, 96u);
+    EXPECT_GT(flt, 0u);
     SUCCEED();
 }
