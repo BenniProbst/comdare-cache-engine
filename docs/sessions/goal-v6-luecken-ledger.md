@@ -150,6 +150,25 @@ L-74c-Kern · DLL-Round-Trips CMake-MODULE · L-MEAS-real-DLL · L-CLUSTER-gate-
 Enumeration bewusster CMake-4.2-Trade-off** — keiner autonom abschließbar; „erledigt" darauf wäre falsche Erfolgsmarke
 bzw. GATE-Verletzung. **Nächster nicht-autonomer Schritt: User-Absprache über GATE-MAXIMAL-ZIH**, dann apptainer/sbatch/PMC.
 
+## §2.7 L-MEAS-THESIS — echte E2E-Messung 8 SearchAlgorithm-DLL-Tiere (2026-06-03, User-Auftrag)
+
+**Auftrag (User 2026-06-03):** echter E2E-Build + Messung → echte Thesis-Werte + echte DLL-Tiere für die Gattung
+Suchalgorithmen. **DONE + committet (cache-engine 8fe7583, superproject 0599f47).** Vollbeleg: `docs/sessions/
+20260603-l-meas-thesis-searchalgo-tiere.md`. **8 echte SearchAlgorithm-DLL-Tiere** gebaut (cl /LD +
+`COMDARE_MEASUREMENT_ON=1` + voller ADHOC-Include-Satz) + **24 literale `result_ingest`-Messzeilen** via `perm_runner`
+(`run_observable_perm`: n_ops insert+lookup → tier_observe). **Befund A** (axis_03a variiert, 16 fix): reale 2-Regime-
+Taxonomie — kapazitätsgebunden (Array256/VectorU8U8: peak/fill=256) vs elementlinear (LinearScan/BST/BTree: =n).
+**Befund B** (axis_04 variiert, Array256 fix): Node256/48/16/4 messen identisch → ehrliche Null-Kontrolle (Achsen-
+Orthogonalität). Artefakte committet+reproduzierbar (`tests/unit/thesis_tiere/`). **Lektion (verankert):**
+`COMDARE_MEASUREMENT_ON=1` ist Pflicht-Define für die `IObservableTier`-Ebene (`abi_adapter.hpp:88`) — sonst baut die
+DLL „MESSUNG-AUS" (nur IDriveableTier) → perm_runner exit 1.
+
+**#84 Allokator-Real-Link — literaler IST (2026-06-03):** im `build/msvc-release`-Cache ALLE `COMDARE_HAVE_<vendor>` =
+**OFF** → axis_06-Wrapper im C++23-Re-Impl-Fallback (`is_original_module()=false`); deshalb sind `alloc_*` über alle
+Tiere gleich. Mechanik real bewiesen für **mimalloc/snmalloc/dlmalloc** (self-contained, lokal aktivierbar via
+`-DCOMDARE_BUILD_PERMUTATIONS=ON`); **4 harte Vendor** (jemalloc/tcmalloc/hoard/scalloc) brauchen vcpkg/MSYS2/ZIH-Linux
+→ **GOAL-K78 CE-D4** (an Infra-Agent delegiert, K78 §8). Spec unverändert gültig: `docs/sessions/20260601-19-...`.
+
 ## §2.5 Phase-D-Fortschritt + Verifikations-Build-Rezeptur (Kontinuität)
 
 **Erledigt (literal grün, committet):** D1 L-SEL · D2 L-73 · D3 L-77 · D4 L-75 (Container q2+DLL) · **#76 KOMPLETT: D9 Set (15) · D10 Sequence (10+axis_growth) · D11 View (7 non-owning) → ALLE 5 Anatomie-Gattungen GenusBound==true + in-process (test_genus_binding 5/5) + DLL-Round-Trip (test_dgenus_dll: Sequence/View/Set über gattungs-agnostischen Loader; Container via D4b; SearchAlgorithm via BR-4) · D12 L-76d Viren (IVirusExecutionEngine + GraphBfs, echte BFS, test_d12_virus).** Pre-Sprint K-A/B/C aufgelöst (§28 maßgeblich). **Tasks erledigt: #73, #75, #76, #77** (+ Phase A/B/C). **#74 TEIL-erledigt (ZURÜCKGESTUFT nach Phase-E-Zwischenaudit 20260602-goal-v6-phase-e-zwischenaudit.md):** **L-74b** ✅ (BuildVariantDefinitionV1 + Reader, test_d7) · **L-74c** ✅ (R5.B-Operabilitäts-Klassifikation 2+4+11==17, anti-Fake, test_d8) · **L-74a TEIL** (nur standalone `COMDARE_DEFINE_BUILD_VARIANT_INSPECTION`-Symbol, **stub-getestet** test_d7a — **OFFEN: `COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT` 17+3-DLL + hw_cross_constraint.hpp 96→~25 + build_variant_args + reale comdare_build_*-Symbole NICHT gebaut**). **L-MEAS** ✅-Mechanik (test_d13 — **Caveat: gegen MockTier, nicht geladene DLL**). **L-CLUSTER gate-frei NUR result_ingest** ✅ (test_d14 — **OFFEN: e2e_pipeline/apps/perm_runner/build_sif.sh/comdare-ce.def NICHT gebaut**, ~1/4 des gate-freien Teils).
