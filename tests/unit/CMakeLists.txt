@@ -1313,7 +1313,8 @@ set(COMDARE_GOALV6_BOOST_DTESTS
     test_d_v42_node_type_observable      # V42 L-74c ObservableNodeType-Driver-Baustein (N in ComposedStore)
     test_d_v42_telemetry_registry_observable  # V42 L-74c telemetry-Registry-Pfad (StaticAxisVariants -> Huellen)
     test_genus_permutation_engines            # L-76a-c per-Gattung PermutationEngines (Set/Sequence/View Factory+Engine)
-    test_axis_growth_policies)                # L-76b axis_growth Mehr-Policy-Achse (Doubling/GoldenRatio/FixedChunk/Exact + Registry)
+    test_axis_growth_policies                 # L-76b axis_growth Mehr-Policy-Achse (Doubling/GoldenRatio/FixedChunk/Exact + Registry)
+    test_axis_view_policies)                  # L-76c View-Achsen extent/layout/accessor (mdspan-Policies + Registries)
 foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
@@ -1456,6 +1457,6 @@ add_dependencies(test_adhoc_buildvariant_dll perm_adhoc_buildvariant)
 add_test(NAME test_adhoc_buildvariant_dll COMMAND test_adhoc_buildvariant_dll "$<TARGET_FILE:perm_adhoc_buildvariant>")
 set_tests_properties(test_adhoc_buildvariant_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
 
-message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 27 add_test-D-Tests (16 leicht + 11 Boost) + 4 DLL-Round-Trip-Tests "
+message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 28 add_test-D-Tests (16 leicht + 12 Boost) + 4 DLL-Round-Trip-Tests "
     "(test_dgenus_dll/test_buildvariant_dll/test_buildvariant_dll_real/test_adhoc_buildvariant_dll) als OFFIZIELLE CMake-Targets (6 SHARED-DLLs via $<TARGET_FILE>). "
     "container_dll (test_d4b) bleibt scratch-verifiziert (Folge).")
