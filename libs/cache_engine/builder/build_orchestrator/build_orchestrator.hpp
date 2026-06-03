@@ -115,6 +115,31 @@ using FreeRamFn   = std::function<std::uint64_t()>;                 // freier ph
     return out;
 }
 
+/// FNV-1a-Hash über den (vollen) binary_id — stabiler, kurzer Eindeutigkeits-Suffix (hex).
+[[nodiscard]] inline std::string orch_fnv1a_hex(std::string_view s) noexcept {
+    std::uint64_t h = 0xcbf29ce484222325ULL;
+    for (char c : s) { h ^= static_cast<std::uint64_t>(static_cast<unsigned char>(c)); h *= 0x100000001b3ULL; }
+    static constexpr char hexd[] = "0123456789abcdef";
+    std::string out(16, '0');
+    for (int i = 15; i >= 0; --i) { out[i] = hexd[h & 0xF]; h >>= 4; }
+    return out;
+}
+
+/// L-LAZY-E2E (2026-06-03): der DATEI-STEM `perm_<…>` einer Tier-Binary — LÄNGEN-GEKAPPT gegen Windows-MAX_PATH (260).
+/// Der volle, sanitisierte 19-Achsen-binary_id ist ~520+ Zeichen → `source_dir/perm_<id>.cpp` sprengt MAX_PATH →
+/// `std::ofstream::open` schlägt still fehl (Befund 2026-06-03: built=0, src-Dir leer). Lösung: ist der sanitisierte
+/// Pfad lang, wird er auf ein lesbares Präfix + `_<index>_<fnv1a-hex>` gekürzt (stabil + kollisionsfrei je Pfad).
+/// Kurze IDs (z.B. Tests/handbenannte Tiere) bleiben unverändert (rückwärtskompatibel). `kStemMax` lässt Raum für
+/// das source_dir-Präfix + ".dll.version"-Suffix unter 260.
+inline constexpr std::size_t kStemMax = 120;
+[[nodiscard]] inline std::string orch_make_stem(std::string_view binary_id, std::size_t index) {
+    std::string san = orch_sanitize(binary_id);
+    if (san.size() <= kStemMax) return san;                       // kurz genug → unverändert (rückwärtskompatibel)
+    std::string suffix = "_" + std::to_string(index) + "_" + orch_fnv1a_hex(binary_id);
+    std::size_t const keep = (kStemMax > suffix.size()) ? (kStemMax - suffix.size()) : 0;
+    return san.substr(0, keep) + suffix;                          // Präfix (lesbar) + index + Hash (eindeutig)
+}
+
 // ── KF-16b: Versions-Sidecar (Inkrement/Resume) ──────────────────────────────
 [[nodiscard]] inline std::filesystem::path version_sidecar_path(std::filesystem::path const& output) {
     return std::filesystem::path{output.string() + ".version"};
@@ -203,7 +228,7 @@ private:
                 }
 
                 BinarySpec const spec = view[i];           // by value (operator[] dekodiert on-demand)
-                std::string const id  = orch_sanitize(spec.binary_id);
+                std::string const id  = orch_make_stem(spec.binary_id, spec.index);  // MAX_PATH-sicher (gekappt+Hash)
 
                 BuildJob job;
                 job.index     = spec.index;

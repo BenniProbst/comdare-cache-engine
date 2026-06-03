@@ -32,6 +32,11 @@ inline constexpr std::size_t      kPrefixLen = kProbePos;
 inline constexpr std::size_t      kSuffixLen = kProbe.size() - kProbePos - 6;  // 6 == len("double")
 
 /// Entfernt ein führendes Elaborated-Type-Specifier-Keyword (MSVC: "class "/"struct "/"enum ").
+/// HINWEIS (2026-06-03): schält NUR den ÄUSSEREN Specifier. MSVC rendert in __FUNCSIG__ auch verschachtelte
+/// Template-Argumente mit "class "/"struct "-Prefix (z.B. `Outer<class NS::Inner>`); die INNEN-liegenden Keywords
+/// bleiben hier stehen und werden host-seitig vom Emitter entfernt (adhoc_emitter.hpp strip_all_elaborated, der
+/// einzige Konsument, der den Namen in echten C++-Quelltext schreibt). type_name() selbst bleibt unverändert
+/// (constexpr-string_view, kein Heap/Lifetime-Risiko).
 [[nodiscard]] constexpr std::string_view strip_elaborated(std::string_view s) noexcept {
     for (std::string_view kw : {std::string_view{"class "}, std::string_view{"struct "},
                                 std::string_view{"enum "}, std::string_view{"union "}}) {
@@ -42,7 +47,7 @@ inline constexpr std::size_t      kSuffixLen = kProbe.size() - kProbePos - 6;  /
 
 }  // namespace detail
 
-/// type_name<T>() — fully-qualified Typ-Name von T (Compile-Time, ohne "class/struct"-Prefix).
+/// type_name<T>() — fully-qualified Typ-Name von T (Compile-Time, ohne FÜHRENDEN "class/struct"-Prefix).
 template <class T>
 [[nodiscard]] constexpr std::string_view type_name() noexcept {
     std::string_view s = detail::raw_signature<T>();

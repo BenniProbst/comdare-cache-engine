@@ -38,3 +38,13 @@
 // alle Varianten inkl. der Durchreich-Defaults NoBuffer (q1) / LazyFlush (q2), die ein nicht-pufferndes Tier wählt.
 #include <topics/queuing/axis_q1_queuing/axis_q1_queuing_registry.hpp>                       // T17 queuing_q1
 #include <topics/queuing/axis_q2_queuing/axis_q2_queuing_registry.hpp>                       // T18 queuing_q2
+
+// V42 L-74c (2026-06-03, L-LAZY-E2E): die ObservableXxx<Inner>-HÜLLEN. Die TopicConfigSets (BR-1) dekorieren
+// node_type/memory_layout/serialization/telemetry via mp_transform<make_observable_*, Enabled*> → die realen
+// Komposition-Slots SIND `ObservableNodeType<…>` etc. Der TYP-getriebene Emitter (adhoc_macro_args) schreibt
+// genau diese dekorierten FQ-Namen in den Modul-Quelltext → die Hüllen-Header MÜSSEN über den Umbrella sichtbar
+// sein, sonst „ObservableSerialization ist kein Member" (C3878, Befund 2026-06-03 beim ersten realen perm-DLL-Build).
+#include <axes/node/axis_04_node_type_observable.hpp>             // ObservableNodeType<S>
+#include <axes/layout/axis_05_memory_layout_observable.hpp>       // ObservableMemoryLayout<S>
+#include <axes/serialization_axis/axis_10_serialization_observable.hpp>  // ObservableSerialization<S>
+#include <axes/telemetry_axis/axis_11_telemetry_observable.hpp>   // ObservableTelemetry<S>
