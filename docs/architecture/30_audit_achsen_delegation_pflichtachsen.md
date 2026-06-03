@@ -1,0 +1,131 @@
+# 30 — Audit: Achsen-Delegation + Pflicht-Achsen pro Tier (2026-06-03)
+
+**Anlass (User-Einwand 2026-06-03):** „Ich bin davon ausgegangen, dass jedes Tier durchgängig alle und immer dieselben
+Achsen-Interfaces verwendet wie alle anderen Tiere, also Pflicht immer alle 17 plus die externen 5. Jeder Tier-Binary-
+Algorithmus besteht IMMER aus den klassischen Bestandteilen eines Suchalgorithmus. Ich sehe hier einen Verstoß gegen
+sorgfältig geplante Architektur und Experiment-Ablauf."
+
+**Methode:** drei tiefenlesende Agenten (Pflicht-Achsen-Vollständigkeit · Sezierungs-/Delegations-Audit · Web-Recherche
+kanonischer Suchalgorithmus-Bestandteile) + eigene Code-Verifikation der Kernstelle. **Ergebnis: der User hat in der
+Substanz recht — es liegt ein echter Architektur-Verstoß vor, aber an anderer Stelle als die reine Achsen-Zählung.**
+
+---
+
+## Befund 1 — Achsen-ZAHL pro SearchAlgorithm-Tier: 17 Organe + 3 Build = 20 (nicht 22)
+
+Belegt (Agent 1, file:line): das Makro `COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT` (`abi/anatomy_module_abi_v1.hpp:87-89`)
+expandiert zu `AdHocComposition<__VA_ARGS__>` — **hart auf exakt 17 Slots fixiert** (`composition_factory.hpp:41-85`,
+`static_assert sizeof...(Vs)==17`; `composition_concept.hpp:18-61`) — PLUS einem separaten Inspektions-Symbol für die
+3 Build-Achsen (page_type/simd_extension/general_hardware; `build_variant_inspection.hpp:17-22`).
+
+Die „22" (`axis_observer_classification.hpp:42-66`, literal getestet `test_br3_obs22.cpp`) = **17 SearchAlgorithm-Slots
++ 3 Definition (Build) + 2 Container (queuing q1/q2)**. Die 2 Container-Achsen gehören per `genus_binding_traits.hpp:53-68`
+zur **eigenständigen Container/Adapter-Gattung** (eigene Tier-Binary, 2 Slots), NICHT zu SearchAlgorithm — Cross-Genus-
+Joins sind „type-system-mathematisch unmöglich" (Doc 28 §0). Per-Gattung-Slots: SearchAlgorithm 17, Container 2, Set 15,
+Sequence 11, View 7.
+
+**Teil-Ergebnis:** Auf der reinen ZÄHLUNG ist das aktuelle Makro (17+3) für ein SearchAlgorithm-Tier vollständig; „22
+pro Tier" widerspricht der code-erzwungenen Gattungs-Invariante. **ABER das ist nur die strukturelle Hälfte der Frage —
+und nicht die, die der eigentliche Verstoß betrifft.** Ob queuing/Pufferung (q1/q2) konzeptionell in ein Suchalgorithmus-
+Tier gehört (User-Sicht: ja — vgl. LSM-/B-Tree-Insert-Buffer) oder in eine getrennte Gattung (aktueller Stand) ist eine
+**offene Design-Entscheidung** (s. §4 Q1).
+
+---
+
+## Befund 2 — ECHTER VERSTOSS: die Such-Organe umgehen die Speicher-Achsen (Monolithen)
+
+Belegt (Agent 2 + eigene Verifikation an `abi_adapter.hpp:504-517`):
+
+Der `SearchAlgorithmAbiAdapter` hält **zwei getrennte, unverbundene Speicher**:
+- `SearchAlgo search_organ_{};` (`:516`) — das **monolithische Such-Organ** (z. B. `Array256SearchAlgo` mit eigenem
+  `std::array<…,256> data_`, `axis_03a_search_algo_array256.hpp:134`, eigener `uint8`-Key `:46`). Es nimmt KEINEN
+  node_type/layout/allocator-Slot, delegiert an NICHTS.
+- `container_t container_{};` (`:517`) — ein **separater** `ObservableComposedSearch<SortedBinaryTraversal, ComposedStore<…>>`
+  mit **hart verdrahtetem** `SortedBinaryTraversal` (`:508`, NICHT dem `Composition::search_algo`!), nur da, „um die
+  ALLOCATOR-Achse über die ABI-Grenze zu messen".
+
+`tier_insert` treibt BEIDE getrennt (`:279-280`, Doppel-Buchführung). Die Such-Metriken (`peak_occupancy`,
+`tier_fill_level`) kommen aus dem **Monolith** (`search_organ_.statistics()`, `:313-334`); nur `alloc_*` kommt aus dem
+ComposedStore. Zusätzlich verwendet `ComposedStore` `node_type` nur als constexpr-Deko (`N::max_capacity()`,
+`axis_04_node_type_composed_store.hpp:67`), der reale Speicher ist ein unbounded `std::vector` (`:143`) → node-Kapazität
+ohne Laufzeitwirkung. Und der V1-Mess-POD (`observable_tier.hpp:42-61`, von `perm_runner` genutzt) trägt **kein einziges
+node_*-Feld** (die existieren nur im nie aufgerufenen V2-POD).
+
+**Konsequenz:** Die Tiere durchlaufen **NICHT uniform alle 17 Organ-Interfaces**. Das Such-Organ beschattet node_type/
+memory_layout. Das Sezierungs-Prinzip (Doku 14 §3.1: „Achse = Organ; ein Such-/Traversal-Organ besitzt KEINEN eigenen
+Speicher; Algorithmus = Komposition") ist im aktiven Mess-Pfad **verletzt**. Der Task-#42-Anspruch („Umstufung-B: ALLE
+axis_03a-Tiere seziert → Gattungs-Konfiguratoren") ist als Gerüst vorhanden (`composable_search.hpp`), aber im gemessenen
+Pfad **nicht verdrahtet** — die Monolithen sind unverändert in Gebrauch.
+
+**Korrektur der Mess-Doku:** Mein „Befund B = ehrliche Null-Kontrolle / reale Achsen-Orthogonalität"
+(`docs/sessions/20260603-l-meas-thesis-searchalgo-tiere.md`) war eine **Fehldeutung** — die node-Invarianz ist der
+Abdruck dieses Verstoßes (Tautologie), kein empirischer Befund. Auch Befund A misst die *interne Eigenspeicher-Struktur
+der Monolithen*, nicht ein in node/layout/allocator zerlegtes Organ-System.
+
+---
+
+## Befund 3 — Web-Validierung: die 17-Achsen-Zerlegung ist literatur-treu (mit 2 Lücken)
+
+Belegt (Agent 3, Quellen: Knuth TAOCP Vol. 3; CLRS; Hellerstein et al. „GiST" VLDB 1995; Leis et al. „Adaptive Radix
+Tree" ICDE 2013; Graefe „Modern B-Tree Techniques" 2011 + „B-Tree Locking Survey" TODS 2010; Kim et al. „FAST" SIGMOD
+2010; Kraska et al. „Learned Index Structures" SIGMOD 2018; Petrov „Database Internals" 2019; Ross/Rao „CSB+-Trees"
+SIGMOD 2000; Broneske et al. „SIMD for Index Structures" 2018; Garcia-Molina/Ullman/Widom; Ramakrishnan/Gehrke):
+
+- **14 von 16 kanonischen Bausteinen** sind 1:1 als Achse abgebildet. Das GiST-Theorem („common search-tree skeleton +
+  trennbare typ-spezifische Methoden") liefert das **theoretische Fundament** für die Achsen-Zerlegbarkeit überhaupt.
+- **Minimale Pflicht-Organe (nicht-degenerierbar):** (C1) Such-/Navigations-Strategie · (C3) Schlüssel→Position-Mapping ·
+  (C4) Knoten-/Speicher-Organisation · (C5) Wert-/Payload-Handling. Alle übrigen (Layout, Allokation, Prefetch,
+  Concurrency, Serialisierung/IO, SIMD/ISA, Telemetrie, Filter, Migration) sind **Pflicht-Dimensionen mit erlaubtem
+  Trivial-Default** — aber sie dürfen NICHT durch einen Monolith *umgangen* werden.
+- **2 echte Lücken:** (G1) **Key-Normalisierung/-Transformation** (order-preserving key transform; bei ART/Graefe ein
+  erstklassiger Baustein) hat keine saubere eigene Achse. (G2) **Struktur-Erhaltung/Split-Merge-Policy** — `axis_02`
+  deckt nur Pfad-Kompression, nicht das kanonische Reorganisations-Organ (B-Tree-Split/Merge, GiST-PickSplit/Penalty).
+- **Über-Zerlegungs-Hinweis:** `axis_03b`/Prefetch/Memory-Layout sind in FAST drei Facetten EINER Latenz-Optimierung
+  (eng gekoppelt); „Hardware-Profil" + „Telemetrie" sind Kontext/Querschnitt, keine Such-Organe.
+
+**Teil-Ergebnis:** Die User-Intuition „jeder Suchalgorithmus besteht aus klassischen Bestandteilen" ist literatur-
+gestützt. Die 17-Zerlegung ist treu und sogar reicher als die Lehrbuch-Sicht; minimal müssen C1/C3/C4/C5 **echt** (nicht
+umgangen) sein — genau das verletzt Befund 2.
+
+---
+
+## §4 — Synthese: zwei Lesarten von „Pflicht-Achsen" + zwei offene Entscheidungen
+
+Der User meint die **operative** Lesart, die Architektur erfüllt nur die **strukturelle**:
+
+| Lesart | Aussage | Status |
+|---|---|---|
+| **strukturell** | jedes SA-Tier *instanziiert* die 17 Slots (+3 Build) | ✅ erfüllt (Makro) |
+| **operativ** | jedes Tier *routet durch* alle 17 Organ-Interfaces (kein Eigenspeicher-Bypass) | ❌ **verletzt** (Befund 2) |
+
+**Offene Entscheidung Q1 (Design, Achsen-Zahl):** Sollen queuing/Puffer-Organe (q1/q2) Teil JEDES SearchAlgorithm-Tiers
+sein (User-Sicht „17+5=22 uniform", literatur-plausibel via Write-Buffer/LSM) — oder bleibt die aktuelle Gattungs-
+Trennung (q1/q2 = eigene Container-Gattung)? Ersteres bräuchte einen Bruch der `AdHocComposition<17>`-Invariante
+(→ `<22>` o. ä.) ODER eine Neudefinition, was „SearchAlgorithm-Anatomie" umfasst. **User-Entscheidung.**
+
+**Offene Entscheidung Q2 (Bug-Fix, der eigentliche Verstoß):** echte Delegation der Such-Organe an die Speicher-Achsen
+herstellen. Fix-Plan (Agent 2, 4 Schritte):
+1. **Such-Organe als Traversal-Organe rekonstruieren** (statische `insert_into`/`lookup_in`/`erase_from` auf einem
+   übergebenen `Store`), Vorbild `composable_search.hpp:65-112` (`LinearScanTraversal`/`SortedBinaryTraversal`). Array256
+   wird ein Direkt-Adress-Traversal über `ComposedStore<Node256,…>`; die „256" stammt dann aus dem node-Organ.
+2. **Adapter auf EINEN Speicher** (`search_organ_` entfällt; `container_` trägt das ECHTE `Composition::search_algo`-
+   Traversal statt des hart verdrahteten `SortedBinaryTraversal`). Such- UND Speicher-Metriken aus DEMSELBEN Objekt.
+3. **ComposedStore bounded** (`N::max_capacity()` als hartes Limit / node-getragene Slot-Anordnung), damit node_type
+   Laufzeitwirkung erhält.
+4. **perm_runner auf V2-POD** (`tier_observe_v2` mit node_*-Feldern), sonst bleibt der node-Effekt unsichtbar.
+
+**Habich-Konflikt (zu beachten):** Die Direktive „Original-Paper-Code immer wenn vorhanden" (`feedback_paper_original_code_pattern`)
+könnte verlangen, dass manche Organe ihren Original-Algorithmus monolithisch behalten. Dann braucht es eine Brücke
+(Original-Organ AS-A Traversal-Adapter über den Store) statt Neuimplementierung — Klärung mit User.
+
+---
+
+## §5 — Empfehlung
+
+1. **Q2 ist ein Bug, kein Geschmack** — die echte Delegation sollte hergestellt werden, sonst ist das Experiment
+   (Achsen einzeln messbar) für axis_04/05 nicht aussagekräftig. Empfohlener Einstieg: **vertikaler Beweis-Schnitt** —
+   EIN echtes delegierendes Tier (ComposedSearch über node_type) bauen + messen, das zeigt „node_type wirkt jetzt",
+   bevor alle 5 Organe + der Adapter umgebaut werden.
+2. **Q1 ist eine echte Design-Frage** für den User (Gattungs-Trennung beibehalten vs. queuing in jedes SA-Tier).
+3. **Mess-Doku** ist bereits ehrlich korrigiert (Befund B = Verstoß-Abdruck, nicht Orthogonalität).
+4. **Lücken G1/G2** (Key-Normalisierung, Split-Merge-Policy) als Achsen-Kandidaten vormerken (separat von Q2).
