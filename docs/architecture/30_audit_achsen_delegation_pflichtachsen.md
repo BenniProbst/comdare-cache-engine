@@ -163,6 +163,9 @@ Gattung → würde das queuing-Konzept doppeln). So existiert queuing genau EINM
 
 ### §7 — Migrationsplan (atomar, ~30 Dateien)
 
+> ⚠️ **DIESER §7-PLAN IST REVIDIERT/VERWORFEN — s. §8 (Gattungs-Kategorienfehler-Audit 2026-06-03).** Er ruht auf einem
+> Kategorienfehler (queuing-Achse als Gattung bzw. als Pflicht-Slot). NICHT ausführen. Korrektes Modell in §8.
+
 **A. Kern-Komposition 17→19:**
 - `anatomy/composition_factory.hpp` — AdHocComposition T0..T18 + `using queuing_q1=T17; queuing_q2=T18;`; Helper-static_assert ==19.
 - `anatomy/composition_concept.hpp` — IsComposition + `typename C::queuing_q1/queuing_q2`; `composition_organ_count = 19`.
@@ -183,3 +186,48 @@ löschen/entkernen; `anatomy/anatomy_base.hpp` AnatomyGenus::Adapter (Enum-Wert)
 `perm_container_*`/`test_d4b`/Container-Teil von `test_dgenus_dll` entfernen.
 **G. Tests anpassen:** `test_br3_obs22` (19+3, keine 2 Container), `test_br1_full22_count` (22 = 19+3), Container-Tests entfernen.
 **Verifikation:** Mess-Pfad `build_and_measure_thesis_tiere.ps1` (Tiere jetzt 19 Achsen) + `cmake --build` grün.
+
+---
+
+## §8 — KORREKTUR: Gattungs-Kategorienfehler (Agenten-Audit 2026-06-03, User-Einwand)
+
+**Anlass (User 2026-06-03):** „Wie kann ein Modulbaustein wie queuing eine Gattung sein? Gattungen waren die Ebene von
+Suchalgorithmen oder Container, jeweils eine statische Konfiguration an Achsen-Compounds mit austauschbaren Algorithmen
+je Achse." → tiefenlesender Agent (Doku 14 §7/§25/§27/§28/§32 + Code + Doc 27-30). **Verdikt: Kategorienfehler bestätigt;
+§6-Q1 + §7 (oben) sind die falsche Auflösung.**
+
+**Befund (mit Belegen):**
+- **Gattung = Datenstruktur-ART mit festem Achsen-Satz** (Doku 14 §32.1 `:1249`: „Gattungen verwenden die exakt selben
+  permutativen Achsen"). 5 Gattungen (Tier-Metapher): SearchAlgorithm(17)/Set(15)/Sequence(11)/**Adapter**/View(7).
+- **`AnatomyGenus::Adapter` ist im IST ein Kategorienfehler:** `ContainerComposition` hat nur 2 Slots = q1 buffer + q2
+  flush (`container_anatomy.hpp:54-79`); `put/get/size/clear` sind 1:1-Pass-Through auf das q1-Organ `FIFOQueueBuffer`,
+  das bereits die volle Container-API + eigenen `std::deque` hat (`axis_q1_queuing_fifo.hpp:56-108`). Die „Gattung" ist
+  also nur eine Hülle um EINE Achse — **queuing-Achse zur Gattung erhoben.** Das WAHRE Adapter-Wesen (Doku 14 §28 `:1122`,
+  §32.2 `:1264`) = Decorator über **`axis_inner`** (Inner-Container) + delegierte Standard-Achsen + ordering — fehlt komplett.
+- **Ursprung des Fehlers:** Doc 27 §0.1 (2026-06-02) re-interpretierte eine User-Aussage fälschlich zu „queuing = eigene
+  Gattung", unter Zweckentfremdung von §32 (Cross-Genus verbietet das KREUZEN von Gattungen — macht aber keine Achse zur
+  Gattung). **Doku 14 §7 (`:270-271`) sagte korrekt „q1/q2 = Organe" — das ist REHABILITIERT.**
+- **Mein §7-Plan (queuing→Pflicht-SA-Slots + Adapter löschen) ist ebenfalls falsch:** queuing ist KEIN Pflicht-Organ
+  (Doc-30-§3-Web-Befund: Pflicht-Kern = Such-Strategie/Mapping/Node/Value; ART/HOT/SuRF haben keinen Write-Buffer) und die
+  legitime Adapter-Gattung darf nicht gelöscht werden.
+
+**KORREKTES Modell (Empfehlung, ersetzt §6-Q1 + §7):**
+1. **queuing = OPTIONALE Achse** (Default NoBuffer/NoFlush, `axis_q1_queuing_no_buffer.hpp` existiert), Write-Buffer-Organ
+   write-gepufferter K→V-Strukturen (LSM/Bw-Tree). Weder Gattung (Doc-27-Fehler) noch Pflicht-Slot (Doc-30-Fehler).
+2. **queuing als optionale SA-Achse(n)** führen — wie prefetch=None/filter=None/migration=None: jedes SA-Tier hat den Slot,
+   die meisten auf Default. Damit „uniform alle zugehörigen Achsen" ohne Erzwingung. (Ob 17→19 erfolgt, ist eine bewusste
+   Gattungs-ABI-Entscheidung des Users, kein Automatismus.)
+3. **Adapter-Gattung NICHT löschen, sondern RICHTIG definieren:** echte Container-Adapter (`std::queue/stack/priority_queue`)
+   = `axis_inner` (Inner-Container) + delegierte Standard-Achsen + ordering/discipline (FIFO/LIFO/Priority). Die jetzige
+   2-queuing-Slot-Hülle (`container_anatomy.hpp`) verwerfen/umbauen.
+4. **Keine Doppelung:** mit (2)+(3) existiert queuing genau EINMAL (optionale SA-Achse); die Adapter-Gattung nutzt
+   axis_inner+ordering, NICHT queuing.
+
+**Zu revidierende Falschaussagen (Agenten-Liste, `[[never-delete-documentation]]` → Korrektur-Vermerke, nicht löschen):**
+Code: `container_anatomy.hpp:2-8,78`, `genus_binding_traits.hpp:7-8,50-68`, `axis_observer_classification.hpp:11-12,64-65`,
+`container_tier.hpp`, `container_abi_adapter.hpp`. Doku: `27_*.md:44,46-74,60`, `28_*.md:49-50,61,67` (insb. die „Doku-14-§7
+ist überholt"-Zeile UMKEHREN), `29_*.md`, dieses Doc §6-Q1+§7, `19_*` (prüfen). Sessions (historisch markieren):
+`20260602-experiment-baum-4-bruecken-final-audit.md`, ggf. weitere mit „Container-Gattung q1/q2".
+
+**Hinweis:** Der Storage-Delegations-Fix (§6 Q2 Schritt 1-3, NodeChunkedStore → node_type wirksam) ist von diesem
+Kategorienfehler UNABHÄNGIG + bleibt gültig (betrifft search↔node/layout/allocator, nicht queuing/Gattung).
