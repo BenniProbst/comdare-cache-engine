@@ -87,21 +87,21 @@
 - **IST (literal):** 0 Treffer für SetAnatomy/SetComposition/SetDock im Code.
 - **Pre-Sprint-Klärung K-A:** Doku 14 §32.2 + Doc 28 = 14; Doku 14 §28-Tabelle = 15 ✓ (filter strittig). Vor D-2 durch genaues Doku-14-Lesen auflösen (NICHT User fragen — „bei Unklarheit Planrunde").
 - **Verifikations-Kriterium:** `IsSetComposition<…>` + `SetAnatomy::organ_count()==14` + `binary_count()==∏ mp_size(14 Enabled)` + DLL-Round-Trip (`genus()==Set`, `dynamic_cast<ISetTier*>≠null`, `contains` nach `insert`==true).
-- **Neue Dateien:** `anatomy/set_{composition_concept,composition_factory,observer_aggregate,anatomy,tier,abi_adapter,permutation_engine}.hpp` + `GenusBindingTraits<Set>` + `pruef_dock/set_dock.hpp`. **Status:** OFFEN.
+- **Neue Dateien:** `anatomy/set_{composition_concept,composition_factory,observer_aggregate,anatomy,tier,abi_adapter,permutation_engine}.hpp` + `GenusBindingTraits<Set>` + `pruef_dock/set_dock.hpp`. **Status (2026-06-03):** GROSSTEILS DONE — `set_anatomy.hpp`/`set_composition.hpp`/`set_tier.hpp`/`set_abi_adapter.hpp` + `GenusBindingTraits<Set>` existieren; **in-process `pruef_dock/set_dock.hpp` (NEU) + Verifikationstest `test_genus_docks` literal grün** (measure(1000,1500,400): insert=1000, contains=1500/hit=1000/miss=500, erase=400, size=600, peak=1000 — über das echte K-only-Such-Organ). VERBLEIBT: DLL-Round-Trip per Gattung (Folgeschritt analog ContainerDock/BR-4) + K-A-Slot-Zahl-Klärung (15 vs 14).
 
 ### L-76b — Sequence-Gattung (Reptil, V-indexed, 9 + axis_growth)  · Task #76 · Aufwand: L (6–9 Tage)
 - **SOLL:** Doc 28 §2 (Sequence: 9 + axis_growth), Doku 14 §26.1/§28/§32.2.
 - **IST (literal):** 0 Treffer; `axis_growth` existiert NICHT (muss als NEUE Achse nach Goldstandard-Checkliste angelegt werden, Vorlage axis_06_allocator).
 - **Pre-Sprint-Klärung K-B:** 9 (§32.2) vs 10 (§28-Tabelle). Vor D-3 auflösen.
 - **Verifikations-Kriterium:** `GrowthPolicy<DoublingGrowth>` + `SequenceAnatomy::genus()==Sequence` + DLL-Round-Trip (`push_back` N → `tier_size()==N`, `tier_at(i)` korrekt).
-- **Neue Achse:** `topics/sequence/axis_growth/…` (10 Pflicht-Komponenten: GrowthPolicy-Concept `next_capacity/growth_factor`, Wrapper Doubling/GoldenRatio/FixedChunk/Exact, Registry, flags.hpp.in). + Sequence-Gattungs-Kette. **Status:** OFFEN.
+- **Neue Achse:** `topics/sequence/axis_growth/…` (10 Pflicht-Komponenten: GrowthPolicy-Concept `next_capacity/growth_factor`, Wrapper Doubling/GoldenRatio/FixedChunk/Exact, Registry, flags.hpp.in). + Sequence-Gattungs-Kette. **Status (2026-06-03):** TEIL DONE — `sequence_anatomy.hpp`/`sequence_composition.hpp` (mit `DoublingGrowth` + `GrowthPolicy`-Concept) + `sequence_tier.hpp`/`sequence_abi_adapter.hpp` existieren; **in-process `pruef_dock/sequence_dock.hpp` (NEU) + `test_genus_docks` literal grün** (measure(1000,1200): push=1000, at=1200/oob=200, size=1000, peak=1000, **growth_events=11** = axis_growth-Policy REAL getrieben). VERBLEIBT: `axis_growth` als Goldstandard-Topic (weitere Policies GoldenRatio/FixedChunk/Exact + Registry) + DLL-Round-Trip per Gattung.
 
 ### L-76c — View-Gattung (Pflanze, non-owning, 7 + axis_extent/layout/accessor)  · Task #76 · Aufwand: L (7–10 Tage)
 - **SOLL:** Doc 28 §2 (View: 7 + axis_extent/layout/accessor; non-owning kein insert/erase/alloc/concurrency), Doku 14 §26.6/§28/§32.2.
 - **IST (literal):** 0 Treffer; 3 neue Achsen (extent/layout/accessor) nötig (mdspan-Bezug).
 - **Pre-Sprint-Klärung K-C:** 7 (Doc 28/§32.2) vs 4 geteilt (§28-Plant). Plausibelste Lesart: 7 = 4 geteilte (memory_layout/telemetry/value_handle/isa) + 3 eigene. Vor D-4 auflösen.
 - **Verifikations-Kriterium:** `genus()==View` + Compile-Fehler-Test dass `tier_insert` NICHT existiert (API-Asymmetrie) + DLL-Round-Trip (`bind(extern_buf)`→`tier_read(i)`==extern_buf[i]).
-- **Risiko:** non-owning-Lifetime über DLL-Grenze (Dock muss Puffer-Owner sein, Lebensdauer > View). **Status:** OFFEN.
+- **Risiko:** non-owning-Lifetime über DLL-Grenze (Dock muss Puffer-Owner sein, Lebensdauer > View). **Status (2026-06-03):** TEIL DONE — `view_anatomy.hpp`/`view_composition.hpp` (mit `LayoutRight`/`DefaultAccessor`/`DynamicExtent` + Layout/Accessor/Extent-Concepts) + `view_tier.hpp`/`view_abi_adapter.hpp` existieren; **in-process `pruef_dock/view_dock.hpp` (NEU) + `test_genus_docks` literal grün** (measure(500,700): read=700/oob=200, bound_size=500, bind_count=1; **das Dock IST der Puffer-Owner** während der Messung → Lifetime-Risiko in-process gelöst). VERBLEIBT: extent/layout/accessor als Goldstandard-Topics + DLL-Round-Trip per Gattung (non-owning-Lifetime über die DLL-Grenze).
 
 ### L-76d — Viren produktiv (IVirusExecutionEngine, Graph-Algos ohne Achsen)  · Task #76-Umfeld · Aufwand: M–L (5–7 Tage)
 - **SOLL:** Doc 28 §2 (Viren: 0 Achsen, Kapsel, Schwester von AnatomyBase an Wurzel IExecutionEngine; Graph-Dock), Doku 14 §33-§40.
