@@ -129,3 +129,34 @@ könnte verlangen, dass manche Organe ihren Original-Algorithmus monolithisch be
 2. **Q1 ist eine echte Design-Frage** für den User (Gattungs-Trennung beibehalten vs. queuing in jedes SA-Tier).
 3. **Mess-Doku** ist bereits ehrlich korrigiert (Befund B = Verstoß-Abdruck, nicht Orthogonalität).
 4. **Lücken G1/G2** (Key-Normalisierung, Split-Merge-Policy) als Achsen-Kandidaten vormerken (separat von Q2).
+
+---
+
+## §6 — Umsetzung (2026-06-03, User-Auftrag „beide Punkte durchführen")
+
+**Q2 Schritt 1–3 UMGESETZT + im echten Mess-Pfad VERIFIZIERT (literal):** Der `container_` im `SearchAlgorithmAbiAdapter`
+ist von der unbounded `ComposedStore` auf die node-wirksame **`NodeChunkedStore<N,L,A>`** umgestellt (`abi_adapter.hpp`
+container_t + Include `axes/node/axis_04_node_type_chunked_store.hpp`). `NodeChunkedStore` speichert in node-großen
+Chunks (cap=`N::max_capacity()`) und meldet `allocator_statistics().allocation_count = ceil(size/cap)` → node-abhängig.
+Belegt (perm_runner, alle 8 thesis-Tiere neu gebaut + gemessen, `build/thesis_tiere/thesis_measurements.csv`):
+
+| node_type (axis_04, Such-Organ fix Array256) | alloc_cnt @ n=1000 | @ n=2000 | @ n=4000 |
+|---|---|---|---|
+| Node4   | 250 | 500 | 1000 |
+| Node16  | 63  | 125 | 250  |
+| Node48  | 21  | 42  | 84   |
+| Node256 | 4   | 8   | 16   |
+
+**Vorher (Befund 2):** alloc_cnt über alle Node-Varianten identisch (18) — node_type inert. **Jetzt:** `ceil(n/node_cap)`,
+node-abhängig → die Speicher-Achsen node_type/layout/allocator sind im gemessenen Pfad real wirksam. Zusätzlich
+standalone-Beleg `test_node_delegation_proof` (ComposedSearch über NodeChunkedStore, PROOF_OK).
+
+**Q2 Schritt 4 (perm_runner→V2-POD) + volle Such-Organ-Delegation (search_organ_ entfällt):** OFFEN — die SEARCH-Zähler
+(peak/fill/lookup) kommen weiter aus dem Monolith `search_organ_`; die STORAGE-Achsen delegieren jetzt korrekt. Die
+restliche Vereinheitlichung (Such-Strategie ebenfalls als Traversal über DENSELBEN Store) ist der verbleibende Teil.
+
+**Q1 (22 uniform pro Tier) — SAUBERE Migration (User-Direktive 2026-06-03 „kein doppeltes Topic"):** `AdHocComposition<17>
+→<19>` mit queuing q1/q2 als ECHTE, explizite Slots 17/18 (dasselbe queuing-Topic axis_q1/axis_q2 — NICHT dupliziert,
+KEIN Auto-Anhängen von Default-Organen). Jedes Tier wählt q1/q2 explizit (wie die übrigen 17). Die bisherige separate
+Container/Adapter-Gattung (deren EINZIGER Zweck die 2 queuing-Slots waren) wird damit redundant → bereinigt, damit das
+queuing-Topic genau EINMAL existiert. Status s. Abschluss-Notiz.

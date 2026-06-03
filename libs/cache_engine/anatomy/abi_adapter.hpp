@@ -39,6 +39,7 @@
 // belasten diese topics/-Includes nur die Voll-Header-Konsumenten (DLLs/Tests, die die Pfade ohnehin haben).
 #include "../topics/traversal/axis_03a_search_algo/composable/observable_composed_search.hpp"
 #include "../topics/nodes/axis_04_node_type/axis_04_node_type_composed_store.hpp"
+#include "../axes/node/axis_04_node_type_chunked_store.hpp"   // Audit-30 Fix Q2: node-WIRKSamer Store (Delegation)
 
 #include <algorithm>     // V5-#49-E: std::sort für den geordneten Range-Scan (tier_scan)
 #include <array>
@@ -506,7 +507,7 @@ private:
     // die Composition-Achsen → dessen Vector-Growth treibt die Allocator-Statistik real.
     using container_t = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::ObservableComposedSearch<
         ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::SortedBinaryTraversal,
-        ::comdare::cache_engine::nodes::axis_04_node_type::ComposedStore<
+        ::comdare::cache_engine::node::NodeChunkedStore<
             typename Composition::node_type, typename Composition::memory_layout, typename Composition::allocator>>;
 
     ::comdare::cache_engine::execution_engine::EngineLifecycleState state_{
