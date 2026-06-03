@@ -1384,6 +1384,41 @@ add_test(NAME test_buildvariant_dll COMMAND test_buildvariant_dll
     "$<TARGET_FILE:perm_buildvariant_avx512>" "$<TARGET_FILE:perm_buildvariant_avx2>")
 set_tests_properties(test_buildvariant_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
 
+# L-74a — Build-Varianten-DLLs mit den ECHTEN axis_01/09b/12-Wrapper-KLASSEN (DenseBytePageType/Avx512SimdExtension/
+# X86_64HardwareProfile) statt real-geformter Stubs. Brauchen die generierten flags.hpp-Dirs + Boost::mp11 → eigene
+# Registrierung (nicht in der boost-freien Schleife oben). Beweist: die REALEN Library-Wrapper sind DLL-einbaubar.
+set(_rsrc_perm_buildvariant_real_avx512 genus_buildvariant_real_avx512.cpp)
+set(_rsrc_perm_buildvariant_real_avx2   genus_buildvariant_real_avx2.cpp)
+foreach(_rdll IN ITEMS perm_buildvariant_real_avx512 perm_buildvariant_real_avx2)
+    add_library(${_rdll} SHARED "${_rsrc_${_rdll}}")
+    target_include_directories(${_rdll} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${CMAKE_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    target_link_libraries(${_rdll} PRIVATE Boost::mp11)
+    target_compile_features(${_rdll} PRIVATE cxx_std_23)
+    target_compile_definitions(${_rdll} PRIVATE COMDARE_ANATOMY_MODULE_BUILD=1)
+    set_target_properties(${_rdll} PROPERTIES
+        POSITION_INDEPENDENT_CODE                ON
+        RUNTIME_OUTPUT_DIRECTORY                 "${_goalv6_dll_dir}"
+        RUNTIME_OUTPUT_DIRECTORY_RELEASE         "${_goalv6_dll_dir}"
+        RUNTIME_OUTPUT_DIRECTORY_DEBUG           "${_goalv6_dll_dir}"
+        RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO  "${_goalv6_dll_dir}"
+        LIBRARY_OUTPUT_DIRECTORY                 "${_goalv6_dll_dir}"
+        LIBRARY_OUTPUT_DIRECTORY_RELEASE         "${_goalv6_dll_dir}"
+        LIBRARY_OUTPUT_DIRECTORY_DEBUG           "${_goalv6_dll_dir}"
+        LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO  "${_goalv6_dll_dir}")
+    if(COMMAND comdare_set_platform_defines)
+        comdare_set_platform_defines(${_rdll})
+    endif()
+endforeach()
+add_dependencies(test_buildvariant_dll perm_buildvariant_real_avx512 perm_buildvariant_real_avx2)
+add_test(NAME test_buildvariant_dll_real COMMAND test_buildvariant_dll
+    "$<TARGET_FILE:perm_buildvariant_real_avx512>" "$<TARGET_FILE:perm_buildvariant_real_avx2>")
+set_tests_properties(test_buildvariant_dll_real PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
+
 message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 26 add_test-D-Tests (16 leicht + 10 Boost) + 2 DLL-Round-Trip-Tests "
     "(test_dgenus_dll/test_buildvariant_dll) jetzt OFFIZIELLE CMake-Targets (5 SHARED-DLLs via $<TARGET_FILE>). "
     "container_dll (test_d4b) bleibt scratch-verifiziert (Folge).")
