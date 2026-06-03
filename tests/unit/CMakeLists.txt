@@ -1310,7 +1310,8 @@ set(COMDARE_GOALV6_BOOST_DTESTS
     test_d_v42_memory_layout_observable  # V42 L-74c ObservableMemoryLayout-Driver-Baustein (static+observe_scan)
     test_d_v42_serialization_observable  # V42 L-74c ObservableSerialization-Driver-Baustein
     test_d_v42_node_type_observable      # V42 L-74c ObservableNodeType-Driver-Baustein (N in ComposedStore)
-    test_d_v42_telemetry_registry_observable) # V42 L-74c telemetry-Registry-Pfad (StaticAxisVariants -> Huellen)
+    test_d_v42_telemetry_registry_observable  # V42 L-74c telemetry-Registry-Pfad (StaticAxisVariants -> Huellen)
+    test_genus_permutation_engines)           # L-76a-c per-Gattung PermutationEngines (Set/Sequence/View Factory+Engine)
 foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
@@ -1327,5 +1328,5 @@ foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     set_tests_properties(${_dt} PROPERTIES LABELS "goal_v6;phase_d")
 endforeach()
 
-message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 20 D-Tests CTest-registriert (13 leicht + 7 Container/Boost/V42). "
+message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 25 D-Tests CTest-registriert (15 leicht + 10 Container/Boost/V42/Engines). "
     "DLL-Round-Trip-Tests (test_d4b_container_dll/test_dgenus_dll, mehrstufig) bleiben scratch-verifiziert (Folge-Registrierung).")
