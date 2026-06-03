@@ -38,8 +38,22 @@ inline constexpr std::uint64_t kBuildSimdPresent = 2;
 inline constexpr std::uint64_t kBuildHwPresent   = 4;
 inline constexpr std::uint32_t kBuildVariantDefinitionVersion = 1;
 
+namespace detail {
+/// detect_avx512<SE>() — AVX-512-Fähigkeit tolerant aus der simd_extension-Achse ableiten, kompatibel sowohl zum
+/// schlanken Stub-API (`provides_avx512()`) als auch zur ECHTEN axis_09b-Wrapper-API (`provides_avx512f()` —
+/// Avx512SimdExtension hat KEIN provides_avx512(), sondern die granularen provides_avx512f/cd/bw/… Flags). Fallback:
+/// Breite >= 512 bit. So füllt build_variant_definition den POD aus den realen Wrappern OHNE Achsen-Änderung.
+template <class SE>
+[[nodiscard]] constexpr std::uint64_t detect_avx512() noexcept {
+    if constexpr (requires { SE::provides_avx512(); })       return SE::provides_avx512()  ? 1u : 0u;  // Stub-/Legacy-API
+    else if constexpr (requires { SE::provides_avx512f(); })  return SE::provides_avx512f() ? 1u : 0u;  // echte axis_09b-API
+    else                                                      return SE::vector_width_bits() >= 512u ? 1u : 0u;  // Fallback
+}
+}  // namespace detail
+
 /// build_variant_definition<PT,SE,HW>() — compile-time Reader: füllt den POD aus den static-constexpr-Properties
-/// der 3 Build-Achsen (KEIN Treiben — reine Definition). PT/SE/HW erfüllen die page_type/simd/hw-Property-API.
+/// der 3 Build-Achsen (KEIN Treiben — reine Definition). PT/SE/HW erfüllen die page_type/simd/hw-Property-API
+/// (Stub ODER echter Wrapper — die simd-avx512-Erkennung ist via detail::detect_avx512 tolerant).
 template <class PT, class SE, class HW>
 [[nodiscard]] constexpr BuildVariantDefinitionV1 build_variant_definition() noexcept {
     BuildVariantDefinitionV1 v{};
@@ -47,7 +61,7 @@ template <class PT, class SE, class HW>
     v.page_is_branch  = PT::is_branch() ? 1u : 0u;
     v.page_is_leaf    = PT::is_leaf() ? 1u : 0u;
     v.simd_width_bits = static_cast<std::uint64_t>(SE::vector_width_bits());
-    v.simd_avx512     = SE::provides_avx512() ? 1u : 0u;
+    v.simd_avx512     = detail::detect_avx512<SE>();
     v.hw_cache_line   = static_cast<std::uint64_t>(HW::cache_line_size());
     v.hw_numa_capable = HW::numa_capable() ? 1u : 0u;
     v.present_mask    = kBuildPagePresent | kBuildSimdPresent | kBuildHwPresent;
