@@ -6,6 +6,7 @@
 #include "concepts/axis_08_concurrency_cache_engine_permutation_concept.hpp"
 #include <axes/concurrency_axis/axis_08_concurrency_flags.hpp>
 #include <topics/concurrency/concepts/topic_concurrency_concept.hpp>
+#include <mutex>
 #include <string_view>
 #include <type_traits>
 
@@ -28,6 +29,21 @@ public:
     [[nodiscard]] static constexpr std::string_view name()        noexcept { return "concurrency_blocking"; }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "BlockingConcurrency (coarse-grained mutex, pessimistic)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "BLOCKING"; }
+
+    // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). Blocking = pessimistisch:
+    // ECHTER std::mutex lock()/unlock(). Reale, strategie-abhaengige Laufzeit (Mutex-Bahn auch
+    // unkontendiert = teuerster Wrapper, Obergrenze des Locking-Overheads). Das Lock-Primitiv ist
+    // thread_local-static (EINE Instanz via lock_(), von acquire UND release geteilt), damit der
+    // Wrapper-Typ leer/trivial bleibt (keine Kopier-/ABI-Regression) — die Op exerziert ehrlich
+    // genau EINE Lock/Unlock-Bahn (unkontendiert, single-thread-Pfad-A; korrekt gepaart).
+    static void acquire() noexcept { lock_().lock(); }
+    static void release() noexcept { lock_().unlock(); }
+
+private:
+    [[nodiscard]] static std::mutex& lock_() noexcept {
+        static thread_local std::mutex m;
+        return m;
+    }
 };
 
 }  // namespace

@@ -25,6 +25,7 @@
 // Header-only, C++23.
 
 #include "experiment_tree.hpp"            // ExperimentTree / StaticBinaryView / NodeObserverSnapshot
+#include "axis_path_serialization.hpp"    // (X) kCompositionAxisNames[19] — Single-Source der 19 seg_*-Spaltennamen
 #include "coverage_selection.hpp"         // BuildSelection
 #include "runtime_variable_loop.hpp"      // RuntimeVariableLoop / RuntimeSetting (gefiltert-dynamisch)
 #include "perm_runner.hpp"                // run_observable_perm / format_perm_result
@@ -32,7 +33,7 @@
 #include "../build_orchestrator/build_orchestrator.hpp"             // BuildOrchestrator / BuildConfig / *Fn
 #include "../anatomy_module_loader/anatomy_module_loader.hpp"       // AnatomyModuleLoader / AnatomyModuleHandle
 #include "../../anatomy/observable_tier.hpp"                         // IObservableTier
-#include "../../anatomy/measurable_workload.hpp"                     // (C-2): IMeasurableWorkloadV2 + ComdareSegmentLatencyV1
+#include "../../anatomy/measurable_workload.hpp"                     // (X): IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
 #include "../../anatomy/resource_controllable_tier.hpp"             // IResourceControllableTier
 
 #include <cstddef>
@@ -64,7 +65,7 @@ struct LazyRunConfig {
     // (build_pilot_levels(..., n_repeats)); hier dokumentiert/durchgereicht. Default 3 (0 → 1 normalisiert).
     std::uint32_t         n_repeats = 3;
     // (C-2): per-Segment-Workload-Parameter (run_workload_segmented). seg_batches=0 → kein Segment-Timing (n/a).
-    std::uint64_t         seg_ops_per_batch = 4000;  // Operationen je Batch im 4-Segment-Workload
+    std::uint64_t         seg_ops_per_batch = 4000;  // Operationen je Batch im 19-Segment-Workload (X)
     std::uint64_t         seg_batches       = 32;    // gemessene Batches (Warmup verworfen); 0 = Segment-Timing aus
     std::uint64_t         seg_seed          = 0xB15u; // deterministischer Seed
     // Laufzeit-Obergrenze (System-Limits) für die dyn-Variation (RuntimeVariableLoop clamp gegen caps∩env).
@@ -81,23 +82,28 @@ struct LazyMeasuredRow {
     // (B): Host-Gesamt-Wall-Clock DIESER Messung (insert+lookup) + Eingabe-n_ops → ns_per_op = total_ns/(2*n_ops).
     std::int64_t         total_ns = 0;
     std::uint64_t        n_ops    = 0;
-    // (C-2): die 4 ECHT gemessenen per-Segment-ns (search_algo/allocator/memory_layout/serialization).
-    // seg_real=false → das Modul exponiert IMeasurableWorkloadV2 nicht → ehrlich n/a in der CSV (NICHT 0).
-    anatomy::ComdareSegmentLatencyV1 seg{};
+    // (X): die 19 ECHT gemessenen per-Segment-ns ALLER SearchAlgorithm-Achsen (T0..T18, seg_ns[19]).
+    // seg_real=false → das Modul exponiert IMeasurableWorkloadV3 nicht → ehrlich n/a in der CSV (NICHT 0).
+    anatomy::ComdareSegmentLatencyV2 seg{};
     bool                 seg_real = false;
 };
 
-// ── (B/C/D) EINHEITLICHES CSV-Schema (global + per-Binary identisch) ──────────────────────────────────
-//   binary_id;setting;repetition;n_ops;total_ns;ns_per_op;seg_search_algo_ns;seg_allocator_ns;
-//   seg_memory_layout_ns;seg_serialization_ns;<die 4 differenzierten Observer-Counter>;applied_axes
-// Die 15 NICHT instrumentierten Deskriptor-Achsen tragen KEINE Zeit → sie sind in der Notiz-Spalte
-// `na_axes` ehrlich als n/a benannt (NICHT 0, NICHT erfunden). seg_*-Spalten = "n/a", wenn das Modul
-// kein IMeasurableWorkloadV2 exponiert (seg_real=false).
+// ── (B/C/D/X) EINHEITLICHES CSV-Schema (global + per-Binary identisch) ──────────────────────────────────
+//   binary_id;setting;repetition;n_ops;total_ns;ns_per_op;
+//   seg_<T0>_ns;…;seg_<T18>_ns;   (19 per-Achsen-Timer-Spalten, kCompositionAxisNames-Reihenfolge)
+//   <die 13 differenzierten Observer-Counter>;applied_axes
+// (X) Die frühere `na_axes`-Notiz-Spalte ist ENTFALLEN: ALLE 19 Achsen tragen jetzt einen echten per-Achsen-
+// Timer (kein „15 Deskriptor-Achsen ohne Timer" mehr). Die 19 seg_*-Spalten = "n/a", wenn das Modul kein
+// IMeasurableWorkloadV3 exponiert (seg_real=false) — ehrlich n/a, NICHT 0. Die Spaltennamen werden aus der
+// EINEN Single-Source kCompositionAxisNames (axis_path_serialization.hpp) generiert → keine Namens-Drift.
 [[nodiscard]] inline std::string lazy_csv_header() {
-    return "binary_id;setting;repetition;n_ops;total_ns;ns_per_op;"
-           "seg_search_algo_ns;seg_allocator_ns;seg_memory_layout_ns;seg_serialization_ns;"
-           "search_lookup;hit;miss;insert;erase;peak;bytes_alloc;bytes_in_use;alloc_cnt;dealloc_cnt;fail;"
-           "obs_axes;fill;applied_axes;na_axes\n";
+    std::string h = "binary_id;setting;repetition;n_ops;total_ns;ns_per_op;";
+    for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) {  // 19 seg_<axis>_ns-Spalten, single-source
+        h += "seg_"; h += kCompositionAxisNames[i]; h += "_ns;";
+    }
+    h += "search_lookup;hit;miss;insert;erase;peak;bytes_alloc;bytes_in_use;alloc_cnt;dealloc_cnt;fail;"
+         "obs_axes;fill;applied_axes\n";
+    return h;
 }
 
 /// Extrahiert den repetition_index aus dem setting_label (Segment "repetition.repetition_index=N");
@@ -129,12 +135,10 @@ struct LazyMeasuredRow {
     { char buf[48]; int const n = std::snprintf(buf, sizeof(buf), "%.3f", ns_per_op);
       out.append(buf, (n > 0) ? static_cast<std::size_t>(n) : 0); }
     out += ';';
-    // (C-2) per-Segment-ns — echt wenn seg_real, sonst ehrlich n/a (NICHT 0).
+    // (X) die 19 per-Segment-ns (T0..T18) — echt wenn seg_real, sonst ehrlich n/a (NICHT 0). Geschleift über
+    // seg_ns[19] in derselben Reihenfolge wie die Header-Spalten (kCompositionAxisNames) — single-source, keine Drift.
     auto seg_field = [&](std::int64_t v) { out += (row.seg_real ? std::to_string(v) : std::string{"n/a"}); out += ';'; };
-    seg_field(row.seg.seg_search_algo_ns);
-    seg_field(row.seg.seg_allocator_ns);
-    seg_field(row.seg.seg_memory_layout_ns);
-    seg_field(row.seg.seg_serialization_ns);
+    for (int i = 0; i < 19; ++i) seg_field(row.seg.seg_ns[i]);
     // die 4 differenzierten Observer-Counter (search_algo + allocator) — DELTA je Messung (A).
     out += std::to_string(o.search_lookup_count);      out += ';';
     out += std::to_string(o.search_hit_count);         out += ';';
@@ -149,9 +153,7 @@ struct LazyMeasuredRow {
     out += std::to_string(o.alloc_failure_count);      out += ';';
     out += std::to_string(o.observable_axis_count);    out += ';';
     out += std::to_string(o.tier_fill_level);          out += ';';
-    out += std::to_string(row.applied_axis_count);     out += ';';
-    // na_axes: Notiz-Spalte — die 15 passiven Deskriptor-Achsen ohne Laufzeit-Timer (ehrlich n/a).
-    out += "15_descriptor_axes_no_runtime_timer=n/a";
+    out += std::to_string(row.applied_axis_count);     // (X) applied_axes ist jetzt die LETZTE Spalte (na_axes entfallen)
     out += '\n';
     return out;
 }
@@ -233,8 +235,8 @@ struct LazyRunResult {
         anatomy::IAnatomyBase* base = handle.anatomy();
         auto* obs  = (base != nullptr) ? dynamic_cast<anatomy::IObservableTier*>(base) : nullptr;
         auto* ctrl = (base != nullptr) ? dynamic_cast<anatomy::IResourceControllableTier*>(base) : nullptr;
-        // (C-2): das per-Segment-Timer-Sub-Interface (alte/ohne-V2 DLL → nullptr → ehrlich n/a, kein Crash).
-        auto* segw = (base != nullptr) ? dynamic_cast<anatomy::IMeasurableWorkloadV2*>(base) : nullptr;
+        // (X): das 19-Segment-Timer-Sub-Interface (alte/ohne-V3 DLL → nullptr → ehrlich n/a, kein Crash).
+        auto* segw = (base != nullptr) ? dynamic_cast<anatomy::IMeasurableWorkloadV3*>(base) : nullptr;
         if (obs == nullptr) { ++result.load_failed; continue; }  // keine Mess-Ebene (kein COMDARE_MEASUREMENT_ON-Build)
         ++result.loaded;
 
@@ -259,9 +261,9 @@ struct LazyRunResult {
                 s.setting_label.empty() ? binary_id : (binary_id + "#" + s.setting_label);
             PermResult const pr = run_observable_perm(*obs, setting_id, cfg.n_ops);
 
-            // (C-2): echter per-Segment-Timer (4 instrumentierte Achsen) — n/a, wenn das Modul kein
-            // IMeasurableWorkloadV2 exponiert (segw==nullptr) ODER seg_batches==0 (Segment-Timing aus).
-            anatomy::ComdareSegmentLatencyV1 seg{};
+            // (X): echter per-Segment-Timer (ALLE 19 instrumentierten Achsen) — n/a, wenn das Modul kein
+            // IMeasurableWorkloadV3 exponiert (segw==nullptr) ODER seg_batches==0 (Segment-Timing aus).
+            anatomy::ComdareSegmentLatencyV2 seg{};
             std::uint64_t seg_batches_done = 0;
             if (segw != nullptr && cfg.seg_batches != 0) {
                 seg_batches_done = drive_segment_latencies(segw, cfg.seg_ops_per_batch, cfg.seg_batches,

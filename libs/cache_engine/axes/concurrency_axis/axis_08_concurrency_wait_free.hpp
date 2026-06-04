@@ -6,6 +6,7 @@
 #include "concepts/axis_08_concurrency_cache_engine_permutation_concept.hpp"
 #include <axes/concurrency_axis/axis_08_concurrency_flags.hpp>
 #include <topics/concurrency/concepts/topic_concurrency_concept.hpp>
+#include <atomic>
 #include <string_view>
 #include <type_traits>
 
@@ -27,6 +28,21 @@ public:
     [[nodiscard]] static constexpr std::string_view name()        noexcept { return "concurrency_wait_free"; }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "WaitFreeConcurrency (bounded per-thread steps, strongest guarantee)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "WAIT_FREE"; }
+
+    // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). WaitFree = beschraenkte
+    // Schrittzahl OHNE Retry (staerkste Garantie, im Ggs. zu LockFree's CAS-Retry-Schleife):
+    // acquire() = EIN atomares fetch_add (acquire-Order), release() = EIN atomares fetch_sub
+    // (release-Order). Genau eine RMW pro Op, garantiert in 1 Schritt fertig. Reale, strategie-
+    // abhaengige Laufzeit: distinkt billiger als LockFree (kein Spin/compare_exchange-Loop), aber
+    // echte atomare RMW. Zaehler thread_local-static (via counter_()).
+    static void acquire() noexcept { (void) counter_().fetch_add(1u, std::memory_order_acquire); }
+    static void release() noexcept { (void) counter_().fetch_sub(1u, std::memory_order_release); }
+
+private:
+    [[nodiscard]] static std::atomic<unsigned>& counter_() noexcept {
+        static thread_local std::atomic<unsigned> c{0u};
+        return c;
+    }
 };
 
 }  // namespace

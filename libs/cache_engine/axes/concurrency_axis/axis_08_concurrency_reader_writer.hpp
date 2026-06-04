@@ -6,6 +6,7 @@
 #include "concepts/axis_08_concurrency_cache_engine_permutation_concept.hpp"
 #include <axes/concurrency_axis/axis_08_concurrency_flags.hpp>
 #include <topics/concurrency/concepts/topic_concurrency_concept.hpp>
+#include <shared_mutex>
 #include <string_view>
 #include <type_traits>
 
@@ -27,6 +28,20 @@ public:
     [[nodiscard]] static constexpr std::string_view name()        noexcept { return "concurrency_reader_writer"; }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "ReaderWriterConcurrency (std::shared_mutex, single-writer/multi-reader)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "READER_WRITER"; }
+
+    // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). ReaderWriter = ECHTER
+    // std::shared_mutex im SHARED (Reader-)Modus: lock_shared()/unlock_shared(). Reale,
+    // strategie-abhaengige Laufzeit (shared_mutex-Reader-Bahn ist teurer als atomic, billiger als
+    // exclusive-Mutex → distinkter Mittelwert ggü. Blocking). Lock-Primitiv thread_local-static (EINE
+    // Instanz via lock_(), von acquire UND release geteilt) → Wrapper-Typ bleibt leer/trivial.
+    static void acquire() noexcept { lock_().lock_shared(); }
+    static void release() noexcept { lock_().unlock_shared(); }
+
+private:
+    [[nodiscard]] static std::shared_mutex& lock_() noexcept {
+        static thread_local std::shared_mutex m;
+        return m;
+    }
 };
 
 }  // namespace

@@ -6,6 +6,9 @@
 #include "concepts/axis_migration_cache_engine_permutation_concept.hpp"
 #include <axes/migration_policy/axis_migration_flags.hpp>
 #include <topics/migration/concepts/topic_migration_concept.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -24,6 +27,17 @@ public:
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "migration_none"; }
     [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "NoMigration (static placement, no migration baseline)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "NONE"; }
+
+    // V41.F.6.1 — verhaltens-tragende Mess-Op (migration_policy F15-operativ): Entscheidungs-Scan.
+    // EHRLICHKEIT: Migration ohne 2. Tier nicht ausfuehrbar -> gemessen werden ausschliesslich die
+    // "Entscheidungslogik-Kosten ohne 2. Tier". KEINE konstante Zeit: jede Strategie traegt eine reale,
+    // strategie-abhaengige Entscheidungslogik ueber denselben strided 4-Byte-Scan.
+    // NoMigration = static placement: per Definition KEINE Entscheidung -> return 0 (echte Baseline,
+    // bewusst leerer Pfad, nicht n/a). buf/n/record_size bleiben absichtlich ungenutzt.
+    [[nodiscard]] static std::uint64_t migration_decide_scan(unsigned char const* /*buf*/, std::size_t /*n*/,
+                                                             std::size_t /*record_size*/) noexcept {
+        return 0;
+    }
 };
 
 }  // namespace

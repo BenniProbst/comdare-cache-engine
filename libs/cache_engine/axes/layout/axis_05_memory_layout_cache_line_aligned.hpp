@@ -30,16 +30,23 @@ public:
     [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "CacheLineAlignedMemoryLayout (64-byte AoS, standard cache architectures)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()     noexcept { return "CACHE_LINE_ALIGNED"; }
 
-    // V41.F.6.1 R5.B — verhaltens-tragende Laufzeit-API (macht die Layout-Achse F15-operativ):
-    // summiert je Datensatz ein 4-Byte-Feld aus `buf` (>= n*record_size Bytes) im AoS-PATTERN
-    // (Feld i bei i*record_size, Stride = record_size) → STRIDED-Zugriff, je Datensatz eine eigene
-    // Cache-Line, geringe Cache-Line-Auslastung. Kontrast zu SoA (contiguous). Echter Cache-Effekt.
+    // V41.F.6.1 R5.B — verhaltens-tragende Laufzeit-API (macht die Layout-Achse F15-operativ).
+    // LAYOUT-FIX (X-§4, 2026-06-04): cache_line_aligned modelliert auf 64-Byte-Grenzen GEPADDETE Records →
+    // effektiver Stride = round_up(record_size, 64). Bei record_size < 64 (z.B. dem Mess-Build record_size=48)
+    // entsteht Padding (16 B) → größerer Stride als aos_strict (kompakt-gepackt, Stride = record_size) → MEHR
+    // Cache-Lines/Record → messbar höhere, vom Layout VERSCHIEDENE Latenz. (Frühere Fassung war byte-identisch
+    // zu aos_strict — der cache_line_size()-Wert ging nicht in den Scan ein; das war ein Duplikat-Bug.)
+    // Bei record_size==64 (oder jedem 64-Vielfachen) fällt aligned_stride==record_size → dann (korrekt) wieder
+    // identisch zu aos_strict; der Mess-Build wählt daher kRecordSize=48 (abi_adapter.hpp), damit die
+    // Layout-Achse aos_strict vs cache_line_aligned real differenziert. Echter Cache-Effekt, kein synthetischer Wert.
     [[nodiscard]] static std::uint64_t scan_field_sum(unsigned char const* buf, std::size_t n,
                                                       std::size_t record_size) noexcept {
+        constexpr std::size_t kCacheLine = 64;
+        std::size_t const aligned_stride = (record_size + kCacheLine - 1u) & ~(kCacheLine - 1u);  // round_up auf 64
         std::uint64_t s = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::uint32_t v;
-            std::memcpy(&v, buf + i * record_size, sizeof(v));   // AoS: strided
+            std::memcpy(&v, buf + i * aligned_stride, sizeof(v));   // CLA: cache-line-gepaddeter Stride
             s += v;
         }
         return s;

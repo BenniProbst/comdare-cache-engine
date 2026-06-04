@@ -27,6 +27,14 @@ public:
     [[nodiscard]] static constexpr std::string_view name()        noexcept { return "concurrency_none"; }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "NoneConcurrency (no synchronization, single-threaded baseline)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "NONE"; }
+
+    // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). NoneConcurrency =
+    // single-threaded Baseline: acquire/release sind BEWUSST no-ops (kein Synchronisations-Pattern).
+    // Ehrliche Mindest-Op: der Vergleichs-Nullpunkt (0-Overhead) ggü. den synchronisierenden
+    // Strategien. `volatile`-Stempel verhindert vollstaendiges Wegoptimieren, ohne eine Sperre
+    // vorzutaeuschen (die reale Op-Differenz entsteht in den anderen Wrappern, nicht hier).
+    static void acquire() noexcept { static volatile unsigned char sink = 0; sink = sink; }
+    static void release() noexcept { static volatile unsigned char sink = 0; sink = sink; }
 };
 
 }  // namespace

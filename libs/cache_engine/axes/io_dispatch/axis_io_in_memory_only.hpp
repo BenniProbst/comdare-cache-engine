@@ -6,6 +6,9 @@
 #include "concepts/axis_io_cache_engine_permutation_concept.hpp"
 #include <axes/io_dispatch/axis_io_flags.hpp>
 #include <topics/io/concepts/topic_io_concept.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -25,6 +28,23 @@ public:
     [[nodiscard]] static constexpr std::string_view name()              noexcept { return "io_in_memory_only"; }
     [[nodiscard]] static constexpr std::string_view family_name()       noexcept { return "InMemoryOnly (no IO, RAM-only baseline)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()       noexcept { return "IN_MEMORY_ONLY"; }
+
+    // V41.F.6.1 R5.B / T14 — verhaltens-tragende Mess-Op der io_dispatch-Achse (Pfad-A, F15-operativ).
+    // EHRLICHKEIT: reine IN-MEMORY-Dispatch-SIMULATION, KEIN echtes IO (echte Disk-IO im DRAM-
+    // Benchmark waere unsinnig). Die Op exerziert das Dispatch-Profil der Strategie und erzeugt
+    // eine reale, strategie-abhaengige Laufzeit (keine konstante/erfundene Zahl).
+    // InMemoryOnly = Baseline: direkter sequentieller Record-Zugriff ohne Dispatch-Overhead,
+    // analog read() aus dem RAM-Index. Schnellster Pfad (Vergleichs-Nullpunkt der Achse).
+    [[nodiscard]] static std::uint64_t io_dispatch_scan(unsigned char const* buf, std::size_t n,
+                                                        std::size_t record_size) noexcept {
+        std::uint64_t s = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::uint32_t v;
+            std::memcpy(&v, buf + i * record_size, sizeof(v));   // direct: RAM-only, kein Dispatch-Overhead
+            s += v;
+        }
+        return s;
+    }
 };
 
 }  // namespace

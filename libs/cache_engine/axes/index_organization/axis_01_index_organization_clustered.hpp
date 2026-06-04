@@ -6,6 +6,9 @@
 #include "concepts/axis_01_index_organization_cache_engine_permutation_concept.hpp"
 #include <axes/index_organization/axis_01_index_organization_flags.hpp>
 #include <topics/search_engine/concepts/topic_search_engine_concept.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -28,6 +31,21 @@ public:
     [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "index_org_clustered"; }
     [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "ClusteredIndexOrganization (Index-Order = Storage-Order, MySQL InnoDB)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "CLUSTERED"; }
+
+    // V41.F.6.1 — verhaltens-tragende Laufzeit-API (index_organization-Achse, Pfad-A-operativ, T13).
+    // Distinktes Zugriffsmuster je Strategie: Clustered = SEQUENTIAL — Index-Order == Storage-Order,
+    // Range-Scan liest Records linear vorwaerts (cache-freundlich, niedrige Latenz). Real distinkt
+    // gegenueber NonClustered (random) durch HW-Prefetch + L1/L2-Hit-Verhalten; KEINE konstante Zeit.
+    [[nodiscard]] static std::uint64_t index_org_scan(unsigned char const* buf, std::size_t n,
+                                                      std::size_t record_size) noexcept {
+        std::uint64_t s = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::uint32_t v;
+            std::memcpy(&v, buf + i * record_size, sizeof(v));   // Clustered: sequential, Storage-Order = Index-Order
+            s += v;
+        }
+        return s;
+    }
 };
 
 }  // namespace

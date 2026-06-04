@@ -6,6 +6,9 @@
 #include "concepts/axis_09_isa_cache_engine_permutation_concept.hpp"
 #include <axes/simd/axis_09_isa_flags.hpp>
 #include <topics/hardware/concepts/topic_hardware_concept.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -29,6 +32,22 @@ public:
     [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "isa_riscv"; }
     [[nodiscard]] static constexpr std::string_view family_name()          noexcept { return "RiscVIsa (RV64GC Open-Source ISA, SiFive/Alibaba Xuantie/ETH PULP, Forschungs-Boards)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()          noexcept { return "RISCV"; }
+
+    // V41.F.6.1 — verhaltens-tragende Laufzeit-API (ISA-Achse T12 F15-operativ, Goldstandard-Signatur).
+    // EHRLICHE KENNZEICHNUNG: RV64GC hat KEIN baseline-SIMD (supports_native_simd()==false, RVV ist
+    // optional). Daher bewusst ein PLAIN-Skalar-Pfad (NICHT entrollt) — modelliert die fehlende
+    // Vektoreinheit der Basis-ISA und erzeugt damit eine reale, gegenueber Amd64-SSE2 (vektor) UND
+    // Aarch64/PowerPc (entrollt) messbar abweichende, langsamere Laufzeit. KEINE erfundene Konstante.
+    [[nodiscard]] static std::uint64_t simd_field_sum(unsigned char const* buf,
+                                                      std::size_t n) noexcept {
+        std::uint64_t s = 0;
+        for (std::size_t i = 0; i < n; ++i) {  // plain scalar — kein baseline-SIMD auf RV64GC
+            std::uint32_t v;
+            std::memcpy(&v, buf + i * 4, sizeof(v));
+            s += v;
+        }
+        return s;
+    }
 };
 
 }  // namespace

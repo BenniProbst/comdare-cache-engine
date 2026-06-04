@@ -6,6 +6,9 @@
 #include "concepts/axis_01_index_organization_cache_engine_permutation_concept.hpp"
 #include <axes/index_organization/axis_01_index_organization_flags.hpp>
 #include <topics/search_engine/concepts/topic_search_engine_concept.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -29,6 +32,27 @@ public:
     [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "index_org_non_clustered"; }
     [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "NonClusteredIndexOrganization (Secondary Index, N-pro-Tabelle, SQL Server/PostgreSQL)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "NON_CLUSTERED"; }
+
+    // V41.F.6.1 — verhaltens-tragende Laufzeit-API (index_organization-Achse, Pfad-A-operativ, T13).
+    // Distinktes Zugriffsmuster je Strategie: NonClustered = RANDOM-STRIDE — Index-Order != Storage-Order,
+    // Lookup folgt einem Secondary-Index und springt per Pointer-Hop in unsortierter Storage-Order.
+    // Modelliert via deterministischem LCG-Index (kein externer RNG, reproduzierbar). Die durch den
+    // Random-Stride erzwungenen Cache-Misses (TLB/L2) erzeugen eine REALE, strategie-abhaengige
+    // Mehrlatenz gegenueber Clustered/IOT — KEINE konstante/erfundene Zeit. Der Index-Hop ist
+    // synthetisch (kein echter Secondary-B-Tree), die daraus folgende Speicher-Latenz aber real.
+    [[nodiscard]] static std::uint64_t index_org_scan(unsigned char const* buf, std::size_t n,
+                                                      std::size_t record_size) noexcept {
+        std::uint64_t s = 0;
+        std::uint64_t idx = 0x9E3779B97F4A7C15ull;   // Startzustand (Fibonacci-Hash), LCG-getrieben
+        for (std::size_t i = 0; i < n; ++i) {
+            idx = idx * 6364136223846793005ull + 1442695040888963407ull;   // LCG (Knuth MMIX)
+            std::size_t const r = (n == 0) ? 0 : static_cast<std::size_t>((idx >> 33) % n);
+            std::uint32_t v;
+            std::memcpy(&v, buf + r * record_size, sizeof(v));   // NonClustered: random Storage-Hop
+            s += v;
+        }
+        return s;
+    }
 };
 
 }  // namespace

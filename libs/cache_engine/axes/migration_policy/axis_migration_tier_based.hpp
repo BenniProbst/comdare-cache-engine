@@ -6,6 +6,9 @@
 #include "concepts/axis_migration_cache_engine_permutation_concept.hpp"
 #include <axes/migration_policy/axis_migration_flags.hpp>
 #include <topics/migration/concepts/topic_migration_concept.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -27,6 +30,24 @@ public:
     [[nodiscard]] static constexpr std::string_view name()         noexcept { return "migration_tier_based"; }
     [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "TierBasedMigration (RAM/SSD/HDD multi-tier, RocksDB-style)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "TIER_BASED"; }
+
+    // V41.F.6.1 — verhaltens-tragende Mess-Op (migration_policy F15-operativ): Entscheidungs-Scan.
+    // EHRLICHKEIT: Migration ohne 2. Tier nicht ausfuehrbar -> gemessen werden ausschliesslich die
+    // "Entscheidungslogik-Kosten ohne 2. Tier" (kein realer RAM->SSD->HDD-Move). KEINE konstante Zeit.
+    // TierBased = Tier-Zuordnung via Modulo: jeder Feldwert wird per Modulo auf kTiers (RAM/SSD/HDD)
+    // gemappt; pro Record summiert sich der Ziel-Tier-Index. Modulo-Division + datenabhaengiges Mapping
+    // -> reale, strategie-spezifische Laufzeit, distinkt zu HotCold (Branch-Vote) und Adaptive (Linearkomb.).
+    [[nodiscard]] static std::uint64_t migration_decide_scan(unsigned char const* buf, std::size_t n,
+                                                             std::size_t record_size) noexcept {
+        constexpr std::uint32_t kTiers = 3;  // RAM / SSD / HDD
+        std::uint64_t tier_index_sum = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::uint32_t v;
+            std::memcpy(&v, buf + i * record_size, sizeof(v));   // strided 4-Byte-Feld
+            tier_index_sum += (v % kTiers);   // Ziel-Tier per Modulo (0=RAM,1=SSD,2=HDD)
+        }
+        return tier_index_sum;
+    }
 };
 
 }  // namespace

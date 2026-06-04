@@ -17,10 +17,10 @@
 // Wirkung, je search_algo genau EIN Binary. Die Mess-/Reps-/Ordner-Infrastruktur bleibt UNVERÄNDERT (nur die
 // View-Index-Auswahl ändert sich). Der bisherige Index-Modus bleibt Default (rückwärtskompatibel).
 //
-// MESS-ARCHITEKTUR-UMBAU (2026-06-04): die CSV trägt jetzt total_ns + ns_per_op (B/C-1), 4 echte per-Segment-ns
-// (C-2, search_algo/allocator/memory_layout/serialization), eine repetition-Spalte (D, je Rep eine eigene Roh-
-// Zeile, Default 3 konfigurierbar via [n_repeats]) und die Observer-DELTA-Counter (A, kein kumulatives Artefakt).
-// Die 15 passiven Deskriptor-Achsen sind ehrlich als n/a in der na_axes-Notiz-Spalte gekennzeichnet (NICHT 0).
+// MESS-ARCHITEKTUR-UMBAU (2026-06-04): die CSV trägt jetzt total_ns + ns_per_op (B/C-1), 19 echte per-Segment-ns
+// (X, ALLE SearchAlgorithm-Achsen T0..T18 — kein n/a mehr; die frühere na_axes-Notiz-Spalte ist entfallen),
+// eine repetition-Spalte (D, je Rep eine eigene Roh-Zeile, Default 3 via [n_repeats]) und die Observer-DELTA-
+// Counter (A, kein kumulatives Artefakt). seg_*-Spalten = n/a nur, falls eine DLL kein IMeasurableWorkloadV3 trägt.
 // Die perm-DLLs + Source + .obj + .cl.log + .version + per-Binary-result.csv liegen je Binary in einem eigenen
 // Unterordner unter dll_dir/<stem>/ (E, per_binary_subdirs).
 
