@@ -42,7 +42,9 @@
 #include <topics/queuing/topic_queuing_config_set.hpp>
 
 #include <boost/mp11.hpp>
+#include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace comdare::cache_engine::thesis_lazy {
@@ -109,23 +111,34 @@ using FullPilot  = PilotAxes<4, 4, 5, 4>;
 using SmallPilot = PilotAxes<1, 2, 2, 1>;
 
 /// Die DYNAMISCHEN Dimensionen = virtuelle for-Schleifen auf der GELADENEN DLL (NICHT teil der binary_id).
-/// concurrency.thread_count ∈ {1,2,4} (axis_08) + prefetch.prefetch_distance ∈ {0,8} (axis_07) → 3·2 = 6 Settings.
-/// Variablen-Namen = ComdareResourceControlV1-Felder (runtime_variable_loop.hpp set_field) → real angewandt.
-[[nodiscard]] inline std::vector<ex::DynamicDim> pilot_dynamic_dims() {
+/// concurrency.thread_count ∈ {1,2,4} (axis_08) + prefetch.prefetch_distance ∈ {0,8} (axis_07) → 3·2 = 6 Settings,
+/// PLUS (D, KF-10) die Wiederholungs-Achse repetition.repetition_index ∈ {0..n_repeats-1} (Default 3) → ×n_repeats.
+/// Variablen-Namen der ersten beiden = ComdareResourceControlV1-Felder (runtime_variable_loop.hpp set_field) →
+/// real angewandt; `repetition_index` ist KEIN POD-Feld → set_field ignoriert es (architektonische Ausnahme),
+/// d.h. die Rep-Dim verändert den Tier NICHT, sie multipliziert nur die Mess-Wiederholungen (je Rep eine eigene
+/// Roh-CSV-Zeile, NIE interpoliert — strukturell durch die DynamicDim-Expansion garantiert).
+[[nodiscard]] inline std::vector<ex::DynamicDim> pilot_dynamic_dims(std::uint32_t n_repeats = 3) {
+    std::uint32_t const reps = (n_repeats == 0) ? 1u : n_repeats;   // 0 → 1 normalisieren (RepetitionPlan-Semantik)
+    std::vector<std::string> rep_vals;
+    rep_vals.reserve(reps);
+    for (std::uint32_t r = 0; r < reps; ++r) rep_vals.push_back(std::to_string(r));
     return {
-        ex::DynamicDim{"concurrency", "thread_count",      {"1", "2", "4"}, "concurrency"},
-        ex::DynamicDim{"prefetch",    "prefetch_distance", {"0", "8"},      "prefetch"},
+        ex::DynamicDim{"concurrency", "thread_count",      {"1", "2", "4"},        "concurrency"},
+        ex::DynamicDim{"prefetch",    "prefetch_distance", {"0", "8"},             "prefetch"},
+        ex::DynamicDim{"repetition",  "repetition_index",  std::move(rep_vals),    "repetition"},
     };
 }
 
 /// build_pilot_levels<Pilot>() — statische Achsen + dynamische Dimensionen zusammengeführt (= der Gesamt-Level-Satz
 /// für ExperimentTree::build). Der Baum filtert intern static_filter()/dynamic_filter() (static/dynamic = Knoten-
 /// Eigenschaft, gleichrangig). Mit `with_dynamic=false` nur statische Achsen (1 Mess-Punkt je Binary).
+/// `n_repeats` (Default 3) = Anzahl der Wiederholungs-Achsen-Werte (D/KF-10).
 template <class Pilot>
-[[nodiscard]] inline std::vector<ex::AxisLevel> build_pilot_levels(bool with_dynamic = true) {
+[[nodiscard]] inline std::vector<ex::AxisLevel> build_pilot_levels(bool with_dynamic = true,
+                                                                   std::uint32_t n_repeats = 3) {
     std::vector<ex::AxisLevel> lv = Pilot::static_levels();
     if (with_dynamic) {
-        for (auto const& d : pilot_dynamic_dims())
+        for (auto const& d : pilot_dynamic_dims(n_repeats))
             lv.push_back(ex::AxisLevel{d.axis, d.values, /*is_static=*/false, d.variable, d.block_id});
     }
     return lv;

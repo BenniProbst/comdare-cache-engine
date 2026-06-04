@@ -44,7 +44,7 @@ int main() {
     std::cout << "==== D14b perm_runner → result_ingest Round-Trip ====\n";
     MockObsTier tier;
     std::string const bid = "search_algo=Array256/allocator=mimalloc";
-    std::string const line = ex::run_observable_perm(tier, bid, /*n_ops=*/100);  // 100 insert + 100 lookup
+    std::string const line = ex::run_observable_perm(tier, bid, /*n_ops=*/100).line;  // 100 insert + 100 lookup (PermResult.line)
     std::cout << "    perm-Zeile: " << line << "\n";
     tr("Zeile beginnt mit binary_id", line.rfind(bid + ";", 0) == 0);
 

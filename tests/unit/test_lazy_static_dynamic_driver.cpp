@@ -98,7 +98,8 @@ int main() {
     ex::LazyRunConfig cfg;
     cfg.max_binaries   = N;
     cfg.n_ops          = 2000;
-    cfg.build_version  = "lazy-e2e-test-v2";   // v2: nach type_name-INNEN-class-Fix (Source-Inhalt geändert → neu bauen)
+    cfg.build_version  = "lazy-e2e-test-v3-measupgrade";   // v3: Mess-Umbau (seg-Timer/Delta-Reset → DLL-Source neu)
+    cfg.per_binary_subdirs = true;   // (E): je Tier-Binary ein eigener Ordner unter outDir/<stem>/
     cfg.source_dir     = srcDir;
     cfg.output_dir     = outDir;
     cfg.cores_per_build = 4;
@@ -141,9 +142,10 @@ int main() {
     check_eq("geladen == N (alle als IObservableTier nutzbar)", r.loaded, N);
     check_eq("load_failed == 0", r.load_failed, std::size_t{0});
 
-    std::size_t const expected_settings = 6;   // 3 (thread_count) × 2 (prefetch_distance)
-    check_eq("dyn_settings_total == N × 6", r.dynamic_settings_total, N * expected_settings);
-    check_eq("measured == N × 6 (jede Binary × dyn-Setting ge-ingestet)", r.measured, N * expected_settings);
+    // (D, KF-10): 3 (thread_count) × 2 (prefetch_distance) × 3 (repetition, Default) = 18 Settings je Binary.
+    std::size_t const expected_settings = 18;   // 3 × 2 × n_repeats(=3)
+    check_eq("dyn_settings_total == N × 18", r.dynamic_settings_total, N * expected_settings);
+    check_eq("measured == N × 18 (jede Binary × dyn-Setting × Rep ge-ingestet)", r.measured, N * expected_settings);
     check_eq("measured_node_count (sparse Baum) == measured", tree.measured_node_count(), r.measured);
 
     // Observer REAL + Werte > 0 (sonst „Nullen", d.h. kein Mess-Build): Summe über alle Zeilen.

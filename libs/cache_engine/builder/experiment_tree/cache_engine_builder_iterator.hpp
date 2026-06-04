@@ -32,13 +32,17 @@
 #include "../build_orchestrator/build_orchestrator.hpp"             // BuildOrchestrator / BuildConfig / *Fn
 #include "../anatomy_module_loader/anatomy_module_loader.hpp"       // AnatomyModuleLoader / AnatomyModuleHandle
 #include "../../anatomy/observable_tier.hpp"                         // IObservableTier
+#include "../../anatomy/measurable_workload.hpp"                     // (C-2): IMeasurableWorkloadV2 + ComdareSegmentLatencyV1
 #include "../../anatomy/resource_controllable_tier.hpp"             // IResourceControllableTier
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>      // (C-1) std::snprintf für ns_per_op-Formatierung
 #include <filesystem>
+#include <fstream>     // (E) per-Binary-Ergebnis-CSV schreiben
 #include <span>
 #include <string>
+#include <system_error>
 #include <vector>
 
 namespace comdare::cache_engine::builder::experiment {
@@ -53,6 +57,16 @@ struct LazyRunConfig {
     std::size_t           cores_per_build = 4;     // KF-16b Default (keine Oversubscription)
     std::uint64_t         ram_per_build_bytes    = 0;  // 0 = RAM-Gate aus (nur CPU-Cap)
     std::uint64_t         ram_safety_margin_bytes = 0;
+    // (E): je Tier-Binary ein eigener Unterordner output_dir/<stem>/ (DLL + Source + .obj + .cl.log + .version
+    // + per-Binary-Ergebnis-CSV). Default false = altes flaches Verhalten (rückwärtskompatibel, opt-in).
+    bool                  per_binary_subdirs = false;
+    // (D, KF-10): Anzahl der Wiederholungen je (Binary×Setting). Wirkt über die repetition-DynamicDim im Baum
+    // (build_pilot_levels(..., n_repeats)); hier dokumentiert/durchgereicht. Default 3 (0 → 1 normalisiert).
+    std::uint32_t         n_repeats = 3;
+    // (C-2): per-Segment-Workload-Parameter (run_workload_segmented). seg_batches=0 → kein Segment-Timing (n/a).
+    std::uint64_t         seg_ops_per_batch = 4000;  // Operationen je Batch im 4-Segment-Workload
+    std::uint64_t         seg_batches       = 32;    // gemessene Batches (Warmup verworfen); 0 = Segment-Timing aus
+    std::uint64_t         seg_seed          = 0xB15u; // deterministischer Seed
     // Laufzeit-Obergrenze (System-Limits) für die dyn-Variation (RuntimeVariableLoop clamp gegen caps∩env).
     anatomy::ComdareResourceControlV1 env_limits{};
 };
@@ -64,7 +78,83 @@ struct LazyMeasuredRow {
     std::string          setting_id;       // binary_id (+ "#" + setting_label) = eindeutiger Baum-Key
     NodeObserverSnapshot  observer{};       // die real gezogenen Observer-Werte (>0 bei echter Messung)
     std::uint64_t        applied_axis_count = 0;  // wie viele Achsen die Steuerung real annahmen
+    // (B): Host-Gesamt-Wall-Clock DIESER Messung (insert+lookup) + Eingabe-n_ops → ns_per_op = total_ns/(2*n_ops).
+    std::int64_t         total_ns = 0;
+    std::uint64_t        n_ops    = 0;
+    // (C-2): die 4 ECHT gemessenen per-Segment-ns (search_algo/allocator/memory_layout/serialization).
+    // seg_real=false → das Modul exponiert IMeasurableWorkloadV2 nicht → ehrlich n/a in der CSV (NICHT 0).
+    anatomy::ComdareSegmentLatencyV1 seg{};
+    bool                 seg_real = false;
 };
+
+// ── (B/C/D) EINHEITLICHES CSV-Schema (global + per-Binary identisch) ──────────────────────────────────
+//   binary_id;setting;repetition;n_ops;total_ns;ns_per_op;seg_search_algo_ns;seg_allocator_ns;
+//   seg_memory_layout_ns;seg_serialization_ns;<die 4 differenzierten Observer-Counter>;applied_axes
+// Die 15 NICHT instrumentierten Deskriptor-Achsen tragen KEINE Zeit → sie sind in der Notiz-Spalte
+// `na_axes` ehrlich als n/a benannt (NICHT 0, NICHT erfunden). seg_*-Spalten = "n/a", wenn das Modul
+// kein IMeasurableWorkloadV2 exponiert (seg_real=false).
+[[nodiscard]] inline std::string lazy_csv_header() {
+    return "binary_id;setting;repetition;n_ops;total_ns;ns_per_op;"
+           "seg_search_algo_ns;seg_allocator_ns;seg_memory_layout_ns;seg_serialization_ns;"
+           "search_lookup;hit;miss;insert;erase;peak;bytes_alloc;bytes_in_use;alloc_cnt;dealloc_cnt;fail;"
+           "obs_axes;fill;applied_axes;na_axes\n";
+}
+
+/// Extrahiert den repetition_index aus dem setting_label (Segment "repetition.repetition_index=N");
+/// "-" wenn die Rep-Dim nicht aktiv ist (kein Segment gefunden).
+[[nodiscard]] inline std::string lazy_extract_repetition(std::string const& setting_label) {
+    static constexpr char key[] = "repetition_index=";
+    std::size_t const p = setting_label.find(key);
+    if (p == std::string::npos) return "-";
+    std::size_t const b = p + (sizeof(key) - 1);
+    std::size_t e = b;
+    while (e < setting_label.size() && setting_label[e] != '/' ) ++e;
+    return setting_label.substr(b, e - b);
+}
+
+/// Formatiert EINE LazyMeasuredRow als CSV-Zeile (Schema lazy_csv_header). ns_per_op = total_ns/(2*n_ops)
+/// (insert+lookup). seg_*-Felder: echte ns wenn seg_real, sonst "n/a" (ehrlich, NICHT 0).
+[[nodiscard]] inline std::string format_csv_row(LazyMeasuredRow const& row) {
+    auto const& o = row.observer;
+    std::string out;
+    out.reserve(256);
+    out += row.binary_id; out += ';';
+    out += (row.setting_label.empty() ? std::string{"-"} : row.setting_label); out += ';';
+    out += lazy_extract_repetition(row.setting_label); out += ';';
+    out += std::to_string(row.n_ops); out += ';';
+    out += std::to_string(row.total_ns); out += ';';
+    // (C-1) ns_per_op abgeleitet: total_ns / (2*n_ops) — insert+lookup; n_ops==0 → 0.
+    double const ns_per_op = (row.n_ops != 0)
+        ? (static_cast<double>(row.total_ns) / (2.0 * static_cast<double>(row.n_ops))) : 0.0;
+    { char buf[48]; int const n = std::snprintf(buf, sizeof(buf), "%.3f", ns_per_op);
+      out.append(buf, (n > 0) ? static_cast<std::size_t>(n) : 0); }
+    out += ';';
+    // (C-2) per-Segment-ns — echt wenn seg_real, sonst ehrlich n/a (NICHT 0).
+    auto seg_field = [&](std::int64_t v) { out += (row.seg_real ? std::to_string(v) : std::string{"n/a"}); out += ';'; };
+    seg_field(row.seg.seg_search_algo_ns);
+    seg_field(row.seg.seg_allocator_ns);
+    seg_field(row.seg.seg_memory_layout_ns);
+    seg_field(row.seg.seg_serialization_ns);
+    // die 4 differenzierten Observer-Counter (search_algo + allocator) — DELTA je Messung (A).
+    out += std::to_string(o.search_lookup_count);      out += ';';
+    out += std::to_string(o.search_hit_count);         out += ';';
+    out += std::to_string(o.search_miss_count);        out += ';';
+    out += std::to_string(o.search_insert_count);      out += ';';
+    out += std::to_string(o.search_erase_count);       out += ';';
+    out += std::to_string(o.search_peak_occupancy);    out += ';';
+    out += std::to_string(o.alloc_bytes_allocated);    out += ';';
+    out += std::to_string(o.alloc_bytes_in_use);       out += ';';
+    out += std::to_string(o.alloc_allocation_count);   out += ';';
+    out += std::to_string(o.alloc_deallocation_count); out += ';';
+    out += std::to_string(o.alloc_failure_count);      out += ';';
+    out += std::to_string(o.observable_axis_count);    out += ';';
+    out += std::to_string(o.tier_fill_level);          out += ';';
+    out += std::to_string(row.applied_axis_count);     out += ';';
+    // na_axes: Notiz-Spalte — die 15 passiven Deskriptor-Achsen ohne Laufzeit-Timer (ehrlich n/a).
+    out += "15_descriptor_axes_no_runtime_timer=n/a";
+    out += '\n';
+    return out;
+}
 
 // ── Ergebnis des Lazy-E2E-Laufs (rein zählend + die Mess-Zeilen; kein ∏-Vektor) ──
 struct LazyRunResult {
@@ -114,6 +204,7 @@ struct LazyRunResult {
     bcfg.build_version           = cfg.build_version;
     bcfg.ram_per_build_bytes     = cfg.ram_per_build_bytes;
     bcfg.ram_safety_margin_bytes = cfg.ram_safety_margin_bytes;
+    bcfg.per_binary_subdirs      = cfg.per_binary_subdirs;   // (E): je Tier-Binary ein eigener Unterordner
 
     BuildOrchestrator orch{bcfg, std::move(compile), std::move(gen), std::move(ram)};
     std::vector<BuildResult> const builds =
@@ -142,10 +233,15 @@ struct LazyRunResult {
         anatomy::IAnatomyBase* base = handle.anatomy();
         auto* obs  = (base != nullptr) ? dynamic_cast<anatomy::IObservableTier*>(base) : nullptr;
         auto* ctrl = (base != nullptr) ? dynamic_cast<anatomy::IResourceControllableTier*>(base) : nullptr;
+        // (C-2): das per-Segment-Timer-Sub-Interface (alte/ohne-V2 DLL → nullptr → ehrlich n/a, kein Crash).
+        auto* segw = (base != nullptr) ? dynamic_cast<anatomy::IMeasurableWorkloadV2*>(base) : nullptr;
         if (obs == nullptr) { ++result.load_failed; continue; }  // keine Mess-Ebene (kein COMDARE_MEASUREMENT_ON-Build)
         ++result.loaded;
 
         std::string const binary_id = b.binary_id;
+        // (E): der per-Binary-Ordner (= Parent der DLL bei per_binary_subdirs). Für die per-Binary-Ergebnis-CSV.
+        std::filesystem::path const bin_dir = b.output.parent_path();
+        std::string per_binary_csv;   // (E): akkumulierte CSV-Zeilen DIESER Binary (geschrieben am Binary-Ende)
 
         // ════════════════════════════════════════════════════════════════════════════════════════════════
         // (3) GEFILTERT-DYNAMISCH-ITERATOR: LAZY über die virtuelle Kartesik des dynamischen Sub-Filterbaums
@@ -156,13 +252,23 @@ struct LazyRunResult {
         auto measure_under_setting = [&](RuntimeSetting const& s) {
             ++result.dynamic_settings_total;
 
-            // Messen UNTER dem angewandten Setting (Antrieb + Observer ziehen). run_observable_perm formatiert
-            // eine result_ingest-Zeile; die ID prefixen wir mit dem Setting → eindeutig je (Binary × Setting).
+            // Messen UNTER dem angewandten Setting (Antrieb + Observer ziehen). run_observable_perm RESETET den
+            // Tier (A), misst die Gesamt-Wall-Clock (B) und liefert die result_ingest-Zeile als Observer-DELTA.
+            // Die ID prefixen wir mit dem Setting → eindeutig je (Binary × Setting × Rep, da rep eine dyn-Dim ist).
             std::string const setting_id =
                 s.setting_label.empty() ? binary_id : (binary_id + "#" + s.setting_label);
-            std::string const line = run_observable_perm(*obs, setting_id, cfg.n_ops);
+            PermResult const pr = run_observable_perm(*obs, setting_id, cfg.n_ops);
 
-            if (ingest_result_line(tree, line)) {
+            // (C-2): echter per-Segment-Timer (4 instrumentierte Achsen) — n/a, wenn das Modul kein
+            // IMeasurableWorkloadV2 exponiert (segw==nullptr) ODER seg_batches==0 (Segment-Timing aus).
+            anatomy::ComdareSegmentLatencyV1 seg{};
+            std::uint64_t seg_batches_done = 0;
+            if (segw != nullptr && cfg.seg_batches != 0) {
+                seg_batches_done = drive_segment_latencies(segw, cfg.seg_ops_per_batch, cfg.seg_batches,
+                                                           cfg.seg_seed, seg);
+            }
+
+            if (ingest_result_line(tree, pr.line)) {
                 ++result.measured;
                 // CSV-Zeile aus dem ge-ingesteten Baum-Knoten ziehen (Round-Trip-konsistent: identischer POD).
                 NodeValue const nv = tree.node_value(setting_id);
@@ -172,6 +278,12 @@ struct LazyRunResult {
                 row.setting_id         = setting_id;
                 row.observer           = nv.observer;
                 row.applied_axis_count = s.applied_axis_count;
+                row.total_ns           = pr.total_ns;       // (B)
+                row.n_ops              = pr.n_ops;
+                row.seg                = seg;                // (C-2)
+                row.seg_real           = (seg_batches_done > 0);
+                // (E): die per-Binary-Ergebnis-CSV mit-akkumulieren (gleiches Schema wie die globale CSV).
+                if (cfg.per_binary_subdirs) per_binary_csv += format_csv_row(row);
                 result.csv_rows.push_back(std::move(row));
             }
         };
@@ -185,6 +297,14 @@ struct LazyRunResult {
             //  Fall ohne IResourceControllableTier ab — z.B. eine Nicht-Mess-/Alt-DLL, hier aber obs!=null.)
             RuntimeSetting s{};  // leeres Label → setting_id == binary_id
             measure_under_setting(s);
+        }
+
+        // (E): per-Binary-Ergebnis-CSV in den per-Binary-Ordner schreiben (Header + die Zeilen DIESER Binary).
+        if (cfg.per_binary_subdirs && !per_binary_csv.empty() && !bin_dir.empty()) {
+            std::error_code ec;
+            std::filesystem::create_directories(bin_dir, ec);   // existiert i.d.R. schon (Build legte ihn an)
+            std::ofstream pf{bin_dir / "result.csv", std::ios::trunc};
+            if (pf) { pf << lazy_csv_header() << per_binary_csv; }
         }
         // handle: RAII entlädt die DLL am Schleifenende (Pointer zuerst, dann FreeLibrary).
     }

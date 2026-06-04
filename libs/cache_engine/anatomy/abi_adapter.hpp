@@ -90,6 +90,7 @@ class SearchAlgorithmAbiAdapter final : public IAnatomyBase,
                                         public IObservableTier,
                                         public IObservableTierV2,   // V42 L-74c: eigenständiges V2-Sub-Interface (ABI-robust, kein vtable-Append)
                                         public IMeasurableWorkload,
+                                        public IMeasurableWorkloadV2,  // (C-2): eigenständiges V2-Sub-Interface — per-Segment-Timer (4 Achsen)
                                         public IRollbackableTier,
                                         public IScannableTier {
 #else
@@ -187,6 +188,9 @@ public:
     // IMeasurableWorkload-Override (F15 / Stufe B): Mess-Last DURCH die DLL
     // ─────────────────────────────────────────────────────────────────────
 
+    // (C-2): Akkumulator der 4 per-Segment-ns über die Batches (nur Mess-Hilfsstruktur, quert die ABI NICHT).
+    struct SegmentAccumulator { std::int64_t s1 = 0, s2 = 0, s3 = 0, s4 = 0; };
+
     /// KOMPOSIT-Mess-Last (R5.B, F15 Stufe B) — uebt DREI Achsen der geladenen Komposition aus:
     ///   Segment 1: insert/lookup auf A::composition_t::search_algo  (search_algo-Achse)
     ///   Segment 2: alloc/dealloc-Churn ueber A::composition_t::allocator (allocator-Achse)
@@ -229,14 +233,24 @@ public:
             unsigned char* lbuf = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
             for (std::size_t i = 0; i < kLbufBytes; ++i) lbuf[i] = static_cast<unsigned char>(i * 31u + 7u);
             std::mt19937_64 rng{seed};
-            auto do_batch = [&]() -> std::int64_t {
+            // (C-2): do_batch misst JE SEGMENT einen eigenen steady_clock-Timer. `seg`(!=nullptr) akkumuliert
+            // die 4 per-Segment-ns (für run_workload_segmented); der Batch-Gesamtwert (Σ der 4 Segmente) wird
+            // immer zurückgegeben (für das bestehende run_workload, ABI unverändert). Identische Arbeit in
+            // beiden Pfaden → der Segment-Split ist NICHT der Batch-Gesamtmessung gegenüber additiv verfälscht
+            // (nur 4 statt 1 now()-Paar je Batch — vernachlässigbar gegenüber den Segment-Schleifen).
+            auto do_batch = [&](SegmentAccumulator* seg) -> std::int64_t {
                 std::uint64_t sink = 0;
-                auto const t0 = std::chrono::steady_clock::now();
+                using clock = std::chrono::steady_clock;
+                auto seg_ns = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
+                    return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
+                };
                 // Segment 1: search_algo-Achse (Lookups auf der geladenen Such-Struktur)
+                auto const s1a = clock::now();
                 for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
                     auto v = algo.lookup(static_cast<K>(rng() & 0xFFu));
                     if (v) sink += *v;
                 }
+                auto const s1b = clock::now();
                 // Segment 2: allocator-Achse (alloc N → touch → dealloc N; Pool reused Free-Lists)
                 for (std::size_t j = 0; j < kChurn; ++j) {
                     void* p = alloc.allocate(churn_size(j), kAlign);
@@ -247,22 +261,107 @@ public:
                 for (std::size_t j = 0; j < kChurn; ++j) {
                     alloc.deallocate(blocks[j], churn_size(j), kAlign);
                 }
+                auto const s2b = clock::now();
                 // Segment 3: memory_layout-Achse (Feld-Scan im layout-charakteristischen Zugriffsmuster)
                 sink += MemLayout::scan_field_sum(lbuf, kRecords, kRecordSize);
+                auto const s3b = clock::now();
                 // Segment 4: serialization-Achse (Encode-Scan im strategie-charakteristischen CPU-Aufwand:
                 // raw=Byte-Sum < compressed=Delta+Zigzag < var_len=LEB128 < succinct=Bit-Packing). Doku 22 §4.
                 sink += Serializer::serialize_scan(lbuf, kRecords, kRecordSize);
-                auto const t1 = std::chrono::steady_clock::now();
-                auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+                auto const s4b = clock::now();
+                std::int64_t const seg1 = seg_ns(s1a, s1b);
+                std::int64_t const seg2 = seg_ns(s1b, s2b);
+                std::int64_t const seg3 = seg_ns(s2b, s3b);
+                std::int64_t const seg4 = seg_ns(s3b, s4b);
+                if (seg != nullptr) { seg->s1 += seg1; seg->s2 += seg2; seg->s3 += seg3; seg->s4 += seg4; }
+                std::int64_t const ns = seg1 + seg2 + seg3 + seg4;
                 return (sink == ~0ull) ? (ns ^ 1) : ns;  // sink-Nutzung gegen Wegoptimierung
             };
-            do_batch();  // Warmup (verworfen)
+            do_batch(nullptr);  // Warmup (verworfen)
             std::uint64_t const n = (batches < out_capacity) ? batches : out_capacity;
-            for (std::uint64_t b = 0; b < n; ++b) out_latencies_ns[b] = do_batch();
+            for (std::uint64_t b = 0; b < n; ++b) out_latencies_ns[b] = do_batch(nullptr);
             alloc.deallocate(lbuf, kLbufBytes, 64);   // Layout-Puffer freigeben
             return n;
         } catch (...) {
             return 0;  // noexcept-Vertrag: interne Exception (z.B. OOM) → 0 Samples
+        }
+    }
+
+    // (C-2): per-Segment-Timer-Variante. EXAKT derselbe 4-Segment-do_batch wie run_workload, aber je Segment
+    // ein eigener steady_clock-Timer, über die batches AUFSUMMIERT → echte per-Achsen-Zeit für genau die 4
+    // run_workload-getriebenen Achsen (search_algo/allocator/memory_layout/serialization). COMDARE_MEASUREMENT_ON-gegated.
+    [[nodiscard]] std::uint64_t run_workload_segmented(std::uint64_t ops_per_batch,
+                                                       std::uint64_t batches,
+                                                       std::uint64_t seed,
+                                                       ComdareSegmentLatencyV1* out) noexcept override {
+        if (out == nullptr) return 0;
+        *out = ComdareSegmentLatencyV1{};
+        if (batches == 0 || ops_per_batch == 0) return 0;
+        try {
+            using SearchAlgo = typename A::composition_t::search_algo;
+            using Allocator  = typename A::composition_t::allocator;
+            using MemLayout  = typename A::composition_t::memory_layout;
+            using Serializer = typename A::composition_t::serialization;
+            using K          = typename SearchAlgo::key_type;
+            SearchAlgo algo;
+            for (int k = 0; k < 256; ++k) {
+                algo.insert(static_cast<K>(k), static_cast<std::uint64_t>(k) * 7u + 1u);
+            }
+            Allocator alloc;
+            constexpr std::size_t kChurn = 2048;
+            constexpr std::size_t kAlign = 16;
+            std::array<void*, kChurn> blocks{};
+            auto const churn_size = [](std::size_t j) noexcept {
+                return std::size_t{16} + ((j * 16u) & 0xF0u);
+            };
+            constexpr std::size_t kRecords    = 16384;
+            constexpr std::size_t kRecordSize = 64;
+            constexpr std::size_t kLbufBytes  = kRecords * kRecordSize;
+            unsigned char* lbuf = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
+            for (std::size_t i = 0; i < kLbufBytes; ++i) lbuf[i] = static_cast<unsigned char>(i * 31u + 7u);
+            std::mt19937_64 rng{seed};
+            using clock = std::chrono::steady_clock;
+            auto seg_ns = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
+                return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
+            };
+            SegmentAccumulator acc{};
+            std::uint64_t sink = 0;
+            auto do_seg_batch = [&]() {
+                auto const s1a = clock::now();
+                for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
+                    auto v = algo.lookup(static_cast<K>(rng() & 0xFFu));
+                    if (v) sink += *v;
+                }
+                auto const s1b = clock::now();
+                for (std::size_t j = 0; j < kChurn; ++j) {
+                    void* p = alloc.allocate(churn_size(j), kAlign);
+                    *static_cast<unsigned char*>(p) = static_cast<unsigned char>(j);
+                    sink += *static_cast<unsigned char*>(p);
+                    blocks[j] = p;
+                }
+                for (std::size_t j = 0; j < kChurn; ++j) alloc.deallocate(blocks[j], churn_size(j), kAlign);
+                auto const s2b = clock::now();
+                sink += MemLayout::scan_field_sum(lbuf, kRecords, kRecordSize);
+                auto const s3b = clock::now();
+                sink += Serializer::serialize_scan(lbuf, kRecords, kRecordSize);
+                auto const s4b = clock::now();
+                acc.s1 += seg_ns(s1a, s1b); acc.s2 += seg_ns(s1b, s2b);
+                acc.s3 += seg_ns(s2b, s3b); acc.s4 += seg_ns(s3b, s4b);
+            };
+            do_seg_batch();        // Warmup (verworfen) — acc zurücksetzen
+            acc = SegmentAccumulator{};
+            for (std::uint64_t b = 0; b < batches; ++b) do_seg_batch();
+            alloc.deallocate(lbuf, kLbufBytes, 64);
+            out->seg_search_algo_ns   = (sink == ~0ull) ? (acc.s1 ^ 1) : acc.s1;  // sink-Nutzung gegen Wegoptimierung
+            out->seg_allocator_ns     = acc.s2;
+            out->seg_memory_layout_ns = acc.s3;
+            out->seg_serialization_ns = acc.s4;
+            out->total_ns             = acc.s1 + acc.s2 + acc.s3 + acc.s4;
+            out->batches_measured     = batches;
+            return batches;
+        } catch (...) {
+            *out = ComdareSegmentLatencyV1{};
+            return 0;
         }
     }
 #endif  // COMDARE_MEASUREMENT_ON (run_workload / Pfad A)

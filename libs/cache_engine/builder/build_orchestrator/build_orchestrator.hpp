@@ -49,6 +49,9 @@ struct BuildConfig {
     std::uint64_t         ram_per_build_bytes    = 0;  // RAM-Budget je Build; 0 = RAM-Gate AUS (nur CPU-Cap)
     std::uint64_t         ram_safety_margin_bytes = 0; // Reserve, die immer frei bleiben muss
     std::string           build_version;               // Versions-/Anforderungs-Signatur; leer = nie überspringen
+    // (E) 2026-06-04: je Tier-Binary ein eigener Unterordner output_dir/<stem>/ (DLL + Source + .obj + .cl.log
+    // + .version landen alle darin). Default false = altes flaches Verhalten (rückwärtskompatibel, opt-in).
+    bool                  per_binary_subdirs = false;
 
     /// Effektive Gesamtkern-Zahl (0 → Hardware-Concurrency, Fallback 1).
     [[nodiscard]] std::size_t effective_total() const noexcept {
@@ -233,8 +236,22 @@ private:
                 BuildJob job;
                 job.index     = spec.index;
                 job.binary_id = spec.binary_id;
-                job.source    = cfg_.source_dir / ("perm_" + id + ".cpp");
-                job.output    = cfg_.output_dir / ("perm_" + id + ".dll");
+                // (E): per-Binary-Ordner output_dir/<stem>/ (DLL+Source+.obj+.cl.log+.version teilen ihn) ODER
+                // altes flaches Layout (Source in source_dir, DLL in output_dir). Der Stem `id` ist MAX_PATH-sicher.
+                // KRITISCH (MAX_PATH): im Unterordner darf der Datei-Name den (langen) Stem NICHT wiederholen —
+                // `<stem>/perm_<stem>.dll` würde den Stem DOPPELT in den Pfad legen → >260 Zeichen (ofstream-open
+                // schlägt still fehl, .cl.log fehlt; Befund 2026-06-04). Der Ordnername `<stem>` disambiguiert
+                // bereits → die Dateien heißen schlicht `perm.cpp`/`perm.dll` (kurz, MAX_PATH-sicher).
+                if (cfg_.per_binary_subdirs) {
+                    std::error_code dec;
+                    std::filesystem::path const bin_dir = cfg_.output_dir / id;
+                    std::filesystem::create_directories(bin_dir, dec);
+                    job.source = bin_dir / "perm.cpp";
+                    job.output = bin_dir / "perm.dll";
+                } else {
+                    job.source = cfg_.source_dir / ("perm_" + id + ".cpp");
+                    job.output = cfg_.output_dir / ("perm_" + id + ".dll");
+                }
                 job.cores     = cores;
 
                 r.index = spec.index; r.binary_id = spec.binary_id; r.output = job.output;

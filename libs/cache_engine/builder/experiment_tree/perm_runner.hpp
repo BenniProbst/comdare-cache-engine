@@ -6,10 +6,22 @@
 // result_ingest (Format→Baum-NodeValue). LOKAL verifizierbar (Mock/in-process); echte Cluster-Submission = GATE-MAXIMAL.
 //
 // Format-Identität mit result_ingest.hpp garantiert den Round-Trip (Mess → Zeile → Ingest → identischer NodeValue).
+//
+// MESS-ARCHITEKTUR-UMBAU (2026-06-04, Anforderungen A/B/C):
+//   (A) Reset je Messung: run_observable_perm ruft ZUERST tier_clear() (frischer Zustand) und bildet die
+//       Observer-Werte als DELTA (post − pre) — die Statistik-Zähler im search_organ_ sind per ABI nicht
+//       resetbar, also eliminiert die Delta-Bildung das kumulative Artefakt (search_lookup 2000→4000→…).
+//   (B) Gesamt-Wall-Clock: steady_clock um insert+lookup → total_ns je Messung (Host-Messung, KEINE
+//       Baum-Knoten-Eigenschaft → reist NUR über PermResult/LazyMeasuredRow in die CSV, NICHT über ingest).
+//   (C-2) Echter per-Segment-Timer: drive_segment_latencies() ruft das ABI-Sub-Interface IMeasurableWorkloadV2
+//       (run_workload_segmented) → 4 aufsummierte per-Achsen-ns (search_algo/allocator/memory_layout/
+//       serialization). Die 15 NICHT instrumentierten Achsen bleiben in der CSV ehrlich n/a (NICHT 0).
 
 #include "experiment_tree.hpp"                      // NodeObserverSnapshot
 #include "../../anatomy/observable_tier.hpp"        // IObservableTier + ComdareTierObserverSnapshotV1
+#include "../../anatomy/measurable_workload.hpp"    // (C-2): IMeasurableWorkloadV2 + ComdareSegmentLatencyV1
 
+#include <chrono>
 #include <cstdint>
 #include <string>
 
@@ -29,15 +41,69 @@ namespace comdare::cache_engine::builder::experiment {
     return out;
 }
 
-/// Treibt ein geladenes IObservableTier (SearchAlgorithm-Mess-Pfad): n_ops insert + n_ops lookup, zieht
-/// tier_observe und liefert die result_ingest-Zeile. Der host-/cluster-seitige Unikat-Mess-Lauf je Binary.
-[[nodiscard]] inline std::string run_observable_perm(anatomy::IObservableTier& tier,
-                                                     std::string const& binary_id, std::uint64_t n_ops) {
+// ── (B): Ergebnis einer Mess-Last (result_ingest-Zeile + die Host-Wall-Clock) ─────────────────────────
+struct PermResult {
+    std::string  line;        // result_ingest-Zeile (binary_id + 13 Observer-Delta-Felder)
+    std::int64_t total_ns = 0;   // (B) steady_clock-Wall-Clock um insert+lookup DIESER Messung
+    std::uint64_t n_ops   = 0;   // Eingabe-n_ops (für ns_per_op = total_ns / (2*n_ops): insert+lookup)
+};
+
+/// (A)+(B) Treibt ein geladenes IObservableTier (SearchAlgorithm-Mess-Pfad): ZUERST tier_clear() (frischer
+/// Zustand → kein kumulatives Artefakt), pre-Observe (Baseline der absoluten Zähler), n_ops insert + n_ops
+/// lookup UNTER steady_clock-Messung (total_ns), post-Observe, und bildet die result_ingest-Zeile aus dem
+/// DELTA (post − pre) der getriebenen Zähler. Der host-/cluster-seitige Unikat-Mess-Lauf je Binary.
+[[nodiscard]] inline PermResult run_observable_perm(anatomy::IObservableTier& tier,
+                                                    std::string const& binary_id, std::uint64_t n_ops) {
+    // (A) Reset: frischer Datenstruktur-Zustand + Baseline der (nicht resetbaren) absoluten Statistik-Zähler.
+    tier.tier_clear();
+    anatomy::ComdareTierObserverSnapshotV1 pre{};
+    tier.tier_observe(&pre);
+
+    // (B) Gesamt-Wall-Clock um die GANZE Mess-Last (insert + lookup).
+    auto const t0 = std::chrono::steady_clock::now();
     for (std::uint64_t i = 0; i < n_ops; ++i) (void)tier.tier_insert(i, i * 7u + 1u);
     for (std::uint64_t i = 0; i < n_ops; ++i) { std::uint64_t v = 0; (void)tier.tier_lookup(i, &v); }
-    anatomy::ComdareTierObserverSnapshotV1 snap{};
-    tier.tier_observe(&snap);
-    return format_perm_result(binary_id, snap);
+    auto const t1 = std::chrono::steady_clock::now();
+
+    anatomy::ComdareTierObserverSnapshotV1 post{};
+    tier.tier_observe(&post);
+
+    // (A) Delta-Bildung: die getriebenen Zähler als (post − pre); Meta-Felder (observable_axis_count,
+    // tier_fill_level) sind Zustand zum Snapshot-Zeitpunkt → direkt aus post (keine Differenz).
+    anatomy::ComdareTierObserverSnapshotV1 d{};
+    auto sub = [](std::uint64_t a, std::uint64_t b) noexcept -> std::uint64_t { return (a >= b) ? (a - b) : 0u; };
+    d.search_lookup_count      = sub(post.search_lookup_count,      pre.search_lookup_count);
+    d.search_hit_count         = sub(post.search_hit_count,         pre.search_hit_count);
+    d.search_miss_count        = sub(post.search_miss_count,        pre.search_miss_count);
+    d.search_insert_count      = sub(post.search_insert_count,      pre.search_insert_count);
+    d.search_erase_count       = sub(post.search_erase_count,       pre.search_erase_count);
+    d.search_peak_occupancy    = post.search_peak_occupancy;   // Peak ist kein additiver Counter → post-Wert
+    d.alloc_bytes_allocated    = sub(post.alloc_bytes_allocated,    pre.alloc_bytes_allocated);
+    d.alloc_bytes_in_use       = post.alloc_bytes_in_use;      // Füllstand → post-Wert
+    d.alloc_allocation_count   = sub(post.alloc_allocation_count,   pre.alloc_allocation_count);
+    d.alloc_deallocation_count = sub(post.alloc_deallocation_count, pre.alloc_deallocation_count);
+    d.alloc_failure_count      = sub(post.alloc_failure_count,      pre.alloc_failure_count);
+    d.observable_axis_count    = post.observable_axis_count;   // Meta (Diagnose) → post-Wert
+    d.tier_fill_level          = post.tier_fill_level;          // Füllstand → post-Wert
+
+    PermResult r;
+    r.line    = format_perm_result(binary_id, d);
+    r.total_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+    r.n_ops   = n_ops;
+    return r;
+}
+
+/// (C-2) Treibt — falls das geladene Modul IMeasurableWorkloadV2 exponiert — den 4-Segment-Workload und liefert
+/// die ECHT gemessenen, über die Batches aufsummierten per-Achsen-ns (search_algo/allocator/memory_layout/
+/// serialization). `tier` ist das via dynamic_cast erhaltene Sub-Interface (nullptr → out bleibt 0, n/a).
+/// ops_per_batch/batches sind die Mess-Parameter; seed deterministisch. Gibt batches_measured zurück (>0 = real).
+[[nodiscard]] inline std::uint64_t drive_segment_latencies(anatomy::IMeasurableWorkloadV2* tier,
+                                                           std::uint64_t ops_per_batch, std::uint64_t batches,
+                                                           std::uint64_t seed,
+                                                           anatomy::ComdareSegmentLatencyV1& out) {
+    out = anatomy::ComdareSegmentLatencyV1{};
+    if (tier == nullptr) return 0;   // alte/ohne-V2 DLL → ehrlich n/a (out bleibt 0)
+    return tier->run_workload_segmented(ops_per_batch, batches, seed, &out);
 }
 
 }  // namespace comdare::cache_engine::builder::experiment
