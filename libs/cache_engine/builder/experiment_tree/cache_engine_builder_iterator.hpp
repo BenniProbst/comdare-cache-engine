@@ -175,10 +175,16 @@ struct LazyMeasuredRow {
     out += ';';
     // (X) die 19 per-Segment-ns (T0..T18) — echt wenn seg_real, sonst ehrlich n/a (NICHT 0). Geschleift über
     // seg_ns[19] in derselben Reihenfolge wie die Header-Spalten (kCompositionAxisNames) — single-source, keine Drift.
-    // KONSOLIDIERUNG (I-B): seg_<achse>_ns aus dem EINEN konsolidierten POD = Pfad-B-Timing (reale Komposition,
-    // User-Entscheid 2026-06-04). unified_real=false (alte DLL ohne die konsolidierte tier_observe) → ehrlich n/a.
-    auto seg_field = [&](std::int64_t v) { out += (row.unified_real ? std::to_string(v) : std::string{"n/a"}); out += ';'; };
-    for (int i = 0; i < 19; ++i) seg_field(row.unified.seg_ns[i]);
+    // KONSOLIDIERUNG (I-B): seg_<achse>_ns bevorzugt aus dem EINEN konsolidierten POD = Pfad-B-Timing (reale
+    // Komposition, User-Entscheid 2026-06-04). Fallback (additive Übergangsphase, entfällt in I-C): row.seg
+    // (Pfad A) für noch nicht migrierte Aufrufer; sonst ehrlich n/a (alte DLL ohne konsolidierte tier_observe).
+    auto seg_field = [&](int i) {
+        if (row.unified_real)   out += std::to_string(row.unified.seg_ns[i]);
+        else if (row.seg_real)  out += std::to_string(row.seg.seg_ns[i]);
+        else                    out += "n/a";
+        out += ';';
+    };
+    for (int i = 0; i < 19; ++i) seg_field(i);
     // die 4 differenzierten Observer-Counter (search_algo + allocator) — DELTA je Messung (A).
     out += std::to_string(o.search_lookup_count);      out += ';';
     out += std::to_string(o.search_hit_count);         out += ';';
@@ -199,11 +205,14 @@ struct LazyMeasuredRow {
     for (std::size_t t = 0; t < anatomy::kV3AxisCount; ++t) {
         for (std::size_t f = 0; f < anatomy::kV3FieldCount; ++f) {
             if (anatomy::kV3AxisSchema[t].names[f] == nullptr) continue;   // ungenutzt / Phase B → keine Spalte
-            out += (row.unified_real ? std::to_string(row.unified.axis_stats[t][f]) : std::string{"n/a"});
+            if (row.unified_real)   out += std::to_string(row.unified.axis_stats[t][f]);   // konsolidierter POD
+            else if (row.v3_real)   out += std::to_string(row.v3.axis_stats[t][f]);        // Fallback (entfällt I-C)
+            else                    out += "n/a";
             out += ';';
         }
     }
-    out += (row.unified_real ? std::to_string(row.unified.filled_axis_count) : std::string{"n/a"});   // v3_filled_axes (aus konsolidiertem POD)
+    out += (row.unified_real ? std::to_string(row.unified.filled_axis_count)
+            : (row.v3_real ? std::to_string(row.v3.filled_axis_count) : std::string{"n/a"}));   // v3_filled_axes (konsolidiert, Fallback V3)
     out += '\n';
     return out;
 }
