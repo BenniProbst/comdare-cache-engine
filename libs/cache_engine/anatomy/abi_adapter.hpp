@@ -40,6 +40,7 @@
 #include "../topics/traversal/axis_03a_search_algo/composable/observable_composed_search.hpp"
 #include "../topics/nodes/axis_04_node_type/axis_04_node_type_composed_store.hpp"
 #include "../axes/node/axis_04_node_type_chunked_store.hpp"   // Audit-30 Fix Q2: node-WIRKSamer Store (Delegation)
+#include "../axes/node/axis_04_node_type_layout_aware_store.hpp"  // Plan v2 S1: layout-honorierender Store (CLA-Stride echt, OOB behoben)
 // (X): ByteWiseKeyPrefix als kanonisches T3-Mess-Organ — IMMER deklariert (auch wenn die Composition
 // PatriciaPathCompression/PathCompressionNone trägt; der `else`-Zweig der T3-Treibe-Op qualifiziert den Namen).
 #include "../axes/path_compression/axis_02_path_compression_byte_wise.hpp"
@@ -120,6 +121,7 @@ class SearchAlgorithmAbiAdapter final : public IAnatomyBase,
                                         public IObservableTier,
                                         public IObservableTierV2,   // V42 L-74c: eigenständiges V2-Sub-Interface (ABI-robust, kein vtable-Append)
                                         public IObservableTierV3,   // Phase A (2026-06-04): generischer Per-Achsen-V3-POD (axis_stats[19][8]), eigenständig (kein vtable-Append)
+                                        public IObservableTierV4,   // (2026-06-04, Plan v2): Pfad-B Per-Achsen-Timing über die REALE composite-Struktur (eigenständig, kein vtable-Append)
                                         public IMeasurableWorkload,
                                         public IMeasurableWorkloadV2,  // (C-2): eigenständiges V2-Sub-Interface — per-Segment-Timer (4 Achsen)
                                         public IMeasurableWorkloadV3,  // (X): eigenständiges V3-Sub-Interface — per-Segment-Timer ALLER 19 Achsen
@@ -1069,6 +1071,160 @@ public:
     /// Phase A: IObservableTierV3-Override — der Host zieht den generischen Per-Achsen-V3-POD via
     /// dynamic_cast<IObservableTierV3*> + tier_observe_v3 (analog tier_observe_v2). Alte Module → nullptr.
     void tier_observe_v3(ComdareTierObserverSnapshotV3* out) const noexcept override { fill_observer_v3(out); }
+
+    /// Plan v2 (2026-06-04): IObservableTierV4-Override — Pfad-B Per-Achsen-TIMING. Der Host zieht via
+    /// dynamic_cast<IObservableTierV4*> + tier_observe_timed_v3 die seg_ns[19] der REALEN per-Achsen-Ops über
+    /// die schon befüllte composite-Struktur. Alte Module → nullptr → Degrade auf Pfad A (run_workload_segmented_v2).
+    void tier_observe_timed_v3(ComdareSegmentLatencyV2* out) const noexcept override { fill_segment_timing_v3(out); }
+
+    // Pfad-B Per-Achsen-TIMING-Kern (Plan v2): zeitet die 19 REALEN per-Achsen-Ops über die EINE schon
+    // befüllte composite-Tier-Struktur (search_organ_ + container_.chunks_ + Instanz-Organe) — KEIN
+    // synthetischer Puffer (Pfad A). Alle Ops lesend/idempotent (lookup/resolve/compress const; store_observe_*
+    // reset()+const-scan über chunks_); die per-op-getriebenen Zähler werden NACH dem Timing zurückgesetzt
+    // (der Host zieht V3-Observer ohnehin VOR V4-Timing → keine Verfälschung). Memento-neutral: keine
+    // Daten-Mutation an search_organ_/container_ (deren save_all/rollback_all-Substrat bleibt unberührt).
+    void fill_segment_timing_v3(ComdareSegmentLatencyV2* out) const noexcept {
+        if (out == nullptr) return;
+        *out = ComdareSegmentLatencyV2{};
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        try {
+            using clock = std::chrono::steady_clock;
+            auto dns = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
+                return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
+            };
+            // Reale gespeicherte Keys EINMAL beziehen (NICHT gemessen) — für die per-op-Achsen (T0/T1/T2/T3).
+            std::vector<std::uint64_t> keys;
+            if constexpr (MementoAxis<SearchAlgo>) {
+                auto snap = search_organ_.save_state();   // (key,value)-Liste der real gespeicherten Records
+                keys.reserve(snap.size());
+                for (auto const& kv : snap) keys.push_back(static_cast<std::uint64_t>(kv.first));
+            }
+            std::size_t const nk = keys.empty() ? std::size_t{1} : keys.size();
+            if (keys.empty()) keys.push_back(0);
+            std::uint64_t const n_ops = static_cast<std::uint64_t>(nk);
+            constexpr std::uint64_t kBatches = 8;
+            std::int64_t acc[19] = {};
+            std::uint64_t sink = 0;
+            using K = typename SearchAlgo::key_type;
+
+            auto do_batch = [&]() {
+                clock::time_point t0, t1;
+                // T0 search_algo: echte Lookups auf dem real befüllten Such-Organ (Baum-Traversierung).
+                t0 = clock::now();
+                for (std::uint64_t i = 0; i < n_ops; ++i) { auto v = search_organ_.lookup(static_cast<K>(keys[i % nk])); if (v) sink += static_cast<std::uint64_t>(*v); }
+                t1 = clock::now(); acc[0] += dns(t0, t1);
+                // T1 cache_traversal: resolve über die real registrierten Einträge.
+                t0 = clock::now();
+                if constexpr (requires { ct_organ_.resolve(typename Composition::cache_traversal::key_type{}); }) {
+                    for (std::uint64_t i = 0; i < n_ops; ++i) { auto v = ct_organ_.resolve(static_cast<typename Composition::cache_traversal::key_type>(keys[i % nk])); if (v) sink += static_cast<std::uint64_t>(*v); }
+                }
+                t1 = clock::now(); acc[1] += dns(t0, t1);
+                // T2 mapping: resolve_offset über die real registrierten Slots.
+                t0 = clock::now();
+                if constexpr (requires { map_organ_.resolve_offset(typename Composition::mapping::slot_index_type{}); }) {
+                    for (std::uint64_t i = 0; i < n_ops; ++i) { auto o = map_organ_.resolve_offset(static_cast<typename Composition::mapping::slot_index_type>(keys[i % nk])); if (o) sink += static_cast<std::uint64_t>(*o); }
+                }
+                t1 = clock::now(); acc[2] += dns(t0, t1);
+                // T3 path_compression: echte compress(key,0) über die real gespeicherten Keys.
+                t0 = clock::now();
+                if constexpr (requires { pc_organ_.compress(std::uint64_t{}, 0u); }) {
+                    for (std::uint64_t i = 0; i < n_ops; ++i) sink += static_cast<std::uint64_t>(pc_organ_.compress(keys[i % nk], 0u));
+                }
+                t1 = clock::now(); acc[3] += dns(t0, t1);
+                // T4 node_type: store_observe über das ECHTE container_-Slot-Backing (chunks_).
+                t0 = clock::now();
+                if constexpr (requires { container_.store_observe_node_type(node_organ_); }) { node_organ_.reset(); sink += container_.store_observe_node_type(node_organ_); }
+                t1 = clock::now(); acc[4] += dns(t0, t1);
+                // T5 memory_layout: store_observe über chunks_ (layout-honorierender Store → CLA-Stride echt).
+                t0 = clock::now();
+                if constexpr (requires { container_.store_observe_layout(ml_organ_); }) { ml_organ_.reset(); sink += container_.store_observe_layout(ml_organ_); }
+                t1 = clock::now(); acc[5] += dns(t0, t1);
+                // T6 allocator: O(1)-Stats-Read (Aufbau-Effekt, ehrliche kleine Baseline — kein erfundener Scan).
+                t0 = clock::now();
+                if constexpr (container_t::template store_has_allocator_stats<typename container_t::store_type>) { auto a = container_.store_allocator_statistics(); sink += a.total_bytes_in_use; }
+                t1 = clock::now(); acc[6] += dns(t0, t1);
+                // T7 prefetch: echte observe_prefetch über die real gespeicherten Keys.
+                t0 = clock::now();
+                if constexpr (requires { pf_organ_.observe_prefetch(std::uint64_t{}, (std::byte const*)nullptr, std::size_t{}); }) {
+                    for (std::uint64_t i = 0; i < n_ops; ++i) { K k = static_cast<K>(keys[i % nk]); pf_organ_.observe_prefetch(static_cast<std::uint64_t>(k), reinterpret_cast<std::byte const*>(&k), sizeof(k)); }
+                }
+                t1 = clock::now(); acc[7] += dns(t0, t1);
+                // T8 concurrency: echtes Sync-Primitiv-Paar (observe_critical_section).
+                t0 = clock::now();
+                if constexpr (requires { cc_organ_.observe_critical_section(); }) { for (std::uint64_t i = 0; i < n_ops; ++i) { cc_organ_.observe_critical_section(); sink += (i & 1u); } }
+                t1 = clock::now(); acc[8] += dns(t0, t1);
+                // T9 serialization: store_observe über chunks_.
+                t0 = clock::now();
+                if constexpr (requires { container_.store_observe_serialization(ser_organ_); }) { ser_organ_.reset(); sink += container_.store_observe_serialization(ser_organ_); }
+                t1 = clock::now(); acc[9] += dns(t0, t1);
+                // T10 telemetry: echtes record_node_touch.
+                t0 = clock::now();
+                if constexpr (requires { telemetry_organ_.record_node_touch(true); }) { for (std::uint64_t i = 0; i < n_ops; ++i) telemetry_organ_.record_node_touch((i & 1u) != 0u); sink += n_ops; }
+                t1 = clock::now(); acc[10] += dns(t0, t1);
+                // T11 value_handle: store_observe über chunks_.
+                t0 = clock::now();
+                if constexpr (requires { container_.store_observe_value_handle(vh_organ_); }) { vh_organ_.reset(); sink += container_.store_observe_value_handle(vh_organ_); }
+                t1 = clock::now(); acc[11] += dns(t0, t1);
+                // T12 isa: store_observe (SIMD-Feld-Reduktion) über chunks_.
+                t0 = clock::now();
+                if constexpr (requires { container_.store_observe_isa(isa_organ_); }) { isa_organ_.reset(); sink += container_.store_observe_isa(isa_organ_); }
+                t1 = clock::now(); acc[12] += dns(t0, t1);
+                // T13 index_organization: store_observe über chunks_.
+                t0 = clock::now();
+                if constexpr (requires { container_.store_observe_index_org(idx_organ_); }) { idx_organ_.reset(); sink += container_.store_observe_index_org(idx_organ_); }
+                t1 = clock::now(); acc[13] += dns(t0, t1);
+                // T14 io_dispatch: store_observe (In-Memory-Dispatch) über chunks_.
+                t0 = clock::now();
+                if constexpr (requires { container_.store_observe_io_dispatch(io_organ_); }) { io_organ_.reset(); sink += container_.store_observe_io_dispatch(io_organ_); }
+                t1 = clock::now(); acc[14] += dns(t0, t1);
+                // T15 migration_policy: store_observe (decide-only) über chunks_.
+                t0 = clock::now();
+                if constexpr (requires { container_.store_observe_migration(mig_organ_); }) { mig_organ_.reset(); sink += container_.store_observe_migration(mig_organ_); }
+                t1 = clock::now(); acc[15] += dns(t0, t1);
+                // T16 filter: store_observe (Probe über Key-Low-Bytes) über chunks_.
+                t0 = clock::now();
+                if constexpr (requires { container_.store_observe_filter(flt_organ_); }) { flt_organ_.reset(); sink += container_.store_observe_filter(flt_organ_); }
+                t1 = clock::now(); acc[16] += dns(t0, t1);
+                // T17 queuing_q1: put+get-Paar (bounded → kein Deque-Wachstum über die Batches).
+                t0 = clock::now();
+                if constexpr (requires { queuing_q1_organ_.put(typename Composition::queuing_q1::element_type{}); queuing_q1_organ_.get(); }) {
+                    for (std::uint64_t i = 0; i < n_ops; ++i) { queuing_q1_organ_.put(static_cast<typename Composition::queuing_q1::element_type>(i)); auto v = queuing_q1_organ_.get(); if (v) sink += static_cast<std::uint64_t>(*v); }
+                }
+                t1 = clock::now(); acc[17] += dns(t0, t1);
+                // T18 queuing_q2: should_flush + on_flush_complete.
+                t0 = clock::now();
+                if constexpr (requires { queuing_q2_organ_.should_flush(std::size_t{}, std::size_t{}); queuing_q2_organ_.on_flush_complete(); }) {
+                    for (std::uint64_t i = 0; i < n_ops; ++i) { sink += static_cast<std::uint64_t>(queuing_q2_organ_.should_flush(static_cast<std::size_t>(i & 0x3FFu), std::size_t{1024})); queuing_q2_organ_.on_flush_complete(); }
+                }
+                t1 = clock::now(); acc[18] += dns(t0, t1);
+            };
+
+            do_batch();                              // Warmup (verworfen)
+            for (auto& a : acc) a = 0;
+            for (std::uint64_t b = 0; b < kBatches; ++b) do_batch();
+
+            std::int64_t total = 0;
+            for (int i = 0; i < 19; ++i) { out->seg_ns[i] = acc[i]; total += acc[i]; }
+            if (sink == ~0ull) out->seg_ns[0] ^= 1;   // sink-Schutz gegen Wegoptimierung (verfälscht total NICHT)
+            out->total_ns         = total;
+            out->batches_measured = kBatches;
+
+            // Per-op-getriebene Zähler nach dem Timing zurücksetzen (memento-/observer-neutral; der Host zieht
+            // V3 VOR V4, daher sind die Observer schon erhoben — aber ein defensiver Reset hält die Member sauber).
+            if constexpr (requires { ct_organ_.reset(); })          ct_organ_.reset();
+            if constexpr (requires { map_organ_.reset(); })         map_organ_.reset();
+            if constexpr (requires { pc_organ_.reset(); })          pc_organ_.reset();
+            if constexpr (requires { pf_organ_.reset(); })          pf_organ_.reset();
+            if constexpr (requires { cc_organ_.reset(); })          cc_organ_.reset();
+            if constexpr (requires { telemetry_organ_.reset(); })   telemetry_organ_.reset();
+            if constexpr (requires { queuing_q1_organ_.clear(); })  queuing_q1_organ_.clear();
+            if constexpr (requires { queuing_q1_organ_.reset(); })  queuing_q1_organ_.reset();
+            if constexpr (requires { queuing_q2_organ_.reset(); })  queuing_q2_organ_.reset();
+        } catch (...) {
+            *out = ComdareSegmentLatencyV2{};
+        }
+#endif  // COMDARE_CE_ENABLE_STATISTICS
+    }
 #endif  // COMDARE_MEASUREMENT_ON (tier_observe / observer_all)
 
 #if COMDARE_MEASUREMENT_ON
@@ -1162,9 +1318,12 @@ private:
     using SearchAlgo  = typename Composition::search_algo;
     // allocator-messender Container (spiegelt builder/AnatomyExecutionContext): ComposedStore<N,L,A> über
     // die Composition-Achsen → dessen Vector-Growth treibt die Allocator-Statistik real.
+    // Plan v2 S1 (2026-06-04): layout-honorierender Store — speichert Records am layout-getriebenen eff_stride
+    // (CLA 64-B-gepaddet vs aos 16-B-packed) → die memory_layout-Achse ist ECHT, organ_observe_layout OOB-frei,
+    // allocator-Bytes layout-abhängig. Drop-in zu NodeChunkedStore (StorageOrgan-Concept), ersetzt es im Mess-Pfad.
     using container_t = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::ObservableComposedSearch<
         ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::SortedBinaryTraversal,
-        ::comdare::cache_engine::node::NodeChunkedStore<
+        ::comdare::cache_engine::node::LayoutAwareChunkedStore<
             typename Composition::node_type, typename Composition::memory_layout, typename Composition::allocator>>;
 
     ::comdare::cache_engine::execution_engine::EngineLifecycleState state_{
