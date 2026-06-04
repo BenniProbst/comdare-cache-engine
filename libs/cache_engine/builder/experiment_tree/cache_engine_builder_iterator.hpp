@@ -110,6 +110,16 @@ struct LazyMeasuredRow {
 // weitere Felder gedeckelt (Phase B füllt nur leere Schema-Slots, KEINE neue Spalte ausser tatsächlich benannt);
 // (3) Schema-Stabilität: kV3AxisSchema IST der Vertrag Schreiber(DLL)↔Spaltenname(Host) → keine Drift. Die
 // stat_*-Spalten sind „n/a", wenn die DLL kein IObservableTierV3 trägt (v3_real=false) — ehrlich n/a, NICHT 0.
+//
+// SEMANTIK der stat_*-Spalten (Konsistenz-Stand nach dem tier_clear-Reset-Fix 2026-06-04): PER-MESSUNG, WARMUP-FREI
+// — KEINE Cumulative-Absolut-Werte. perm_runner::run_observable_perm ruft tier_clear() VOR der Mess-Last; die auto-
+// gekoppelten Instanz-Achsen (T1/T2/T3/T7/T8/T10/T17/T18) werden dabei STATISTIK-zurückgesetzt (reset(), nicht nur
+// daten-clear()) → ihr V3-Wert = NUR die Op-Zähler DIESER Messung. WICHTIG (Defekt-Fix): vor dem Fix riefen T1/T2/T17
+// nur clear() (= nur Daten, stats_ blieb stehen) und T18/T10 gar nichts → ihre Zähler akkumulierten über die 3
+// Wiederholungen je (Binary×Setting); der Fix ergänzt reset() für diese 4+1 Organe. Die Scan-Achsen (T4/T5/T9/T11..T16)
+// sind in fill_observer_v3 idempotent (reset()+scan je Observe) → Zustand zum Observe-Zeitpunkt; T0/T6 tragen die V1-
+// Delta-Counter. Damit ist der stat_*-Block pro Zeile konsistent mit dem V1-Delta-Block (search_*/alloc_*): kein
+// doppeltes Zählen über Wiederholungen hinweg.
 [[nodiscard]] inline std::string lazy_csv_header() {
     std::string h = "binary_id;setting;repetition;n_ops;total_ns;ns_per_op;";
     for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) {  // 19 seg_<axis>_ns-Spalten, single-source
@@ -125,7 +135,7 @@ struct LazyMeasuredRow {
             h += "stat_"; h += kCompositionAxisNames[t]; h += '_'; h += fld; h += ';';
         }
     }
-    h += "v3_filled_axes\n";   // Diagnose: wie viele der 19 Achsen jetzt befüllt sind (Phase A erwartet 10)
+    h += "v3_filled_axes\n";   // Diagnose: wie viele der 19 Achsen jetzt befüllt sind (Phase B Abschluss: alle 19)
     return h;
 }
 

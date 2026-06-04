@@ -110,6 +110,44 @@ public:
     std::uint64_t store_observe_node_type(NodeOrgan& org) const
         requires requires(Store const& s, NodeOrgan& o) { s.organ_observe_node_type(o); }
     { return search_.store().organ_observe_node_type(org); }
+
+    // Phase B (2026-06-04) T11 value_handle / T12 isa scan-Achsen-Auto-Kopplung: reicht den Store-Slot-Zugriff
+    // durch, damit der abi_adapter die value_handle-/isa-Observer-Huellen ueber das ECHTE Slot-Backing treibt
+    // (organ_observe_value_handle/organ_observe_isa am NodeChunkedStore). if-constexpr-detektierbar (requires),
+    // kein Bruch fuer Stores ohne diese Nicht-Vertrags-Methoden.
+    template <class VhOrgan>
+    std::uint64_t store_observe_value_handle(VhOrgan& org) const
+        requires requires(Store const& s, VhOrgan& o) { s.organ_observe_value_handle(o); }
+    { return search_.store().organ_observe_value_handle(org); }
+
+    template <class IsaOrgan>
+    std::uint64_t store_observe_isa(IsaOrgan& org) const
+        requires requires(Store const& s, IsaOrgan& o) { s.organ_observe_isa(o); }
+    { return search_.store().organ_observe_isa(org); }
+
+    // Phase B (2026-06-04) T13/T14/T15/T16 scan-Achsen-Auto-Kopplung: reicht den Store-Slot-Zugriff durch, damit der
+    // abi_adapter die index_org-/io_dispatch-/migration-/filter-Observer-Huellen ueber das ECHTE Slot-Backing treibt
+    // (organ_observe_* am NodeChunkedStore). if-constexpr-detektierbar (requires), kein Bruch fuer Stores ohne diese
+    // Nicht-Vertrags-Methoden.
+    template <class IdxOrgan>
+    std::uint64_t store_observe_index_org(IdxOrgan& org) const
+        requires requires(Store const& s, IdxOrgan& o) { s.organ_observe_index_org(o); }
+    { return search_.store().organ_observe_index_org(org); }
+
+    template <class IoOrgan>
+    std::uint64_t store_observe_io_dispatch(IoOrgan& org) const
+        requires requires(Store const& s, IoOrgan& o) { s.organ_observe_io_dispatch(o); }
+    { return search_.store().organ_observe_io_dispatch(org); }
+
+    template <class MigOrgan>
+    std::uint64_t store_observe_migration(MigOrgan& org) const
+        requires requires(Store const& s, MigOrgan& o) { s.organ_observe_migration(o); }
+    { return search_.store().organ_observe_migration(org); }
+
+    template <class FltOrgan>
+    std::uint64_t store_observe_filter(FltOrgan& org) const
+        requires requires(Store const& s, FltOrgan& o) { s.organ_observe_filter(o); }
+    { return search_.store().organ_observe_filter(org); }
 #endif
 
     // ── V5-I6-SUBSTANZ (#44) — MementoAxis (per-Achsen-Memento, inkl. Observer-Stats) ──────────────────

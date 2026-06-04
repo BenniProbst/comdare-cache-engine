@@ -139,8 +139,9 @@ inline constexpr std::size_t kV3FieldCount = 8;
 /// V3 ist EIN generischer, schema-stabiler POD: statt je Achse eigene named Felder (V1/V2-Weg, der bei
 /// jeder neuen Achse einen NEUEN POD-Typ erzwingt) trägt V3 eine feste `axis_stats[19][8]`-Matrix — EXAKT
 /// das bereits etablierte `seg_ns[19]`-Muster (measurable_workload.hpp), nur 2-dimensional. axis_stats[T][f]
-/// = das f-te statistics()-Feld der Achse T (Feld-Reihenfolge: kV3AxisSchema, single-source). Achsen ohne
-/// jetzt-befüllten Observer (Phase B: T3,T7,T8,T11..T16) bleiben 0 (ehrlich, NICHT erfunden). NUR uint64 →
+/// = das f-te statistics()-Feld der Achse T (Feld-Reihenfolge: kV3AxisSchema, single-source). Seit Phase-B-Abschluss
+/// (2026-06-04) tragen ALLE 19 Achsen einen Observer; ehrliche Strategie-Baselines (PathCompressionNone, InMemoryOnly,
+/// NoMigration) liefern dort honest-0-Teilfelder (NICHT erfunden, der Zähler folgt der echten Op). NUR uint64 →
 /// standard_layout + trivially_copyable (memcpy über die DLL-Grenze). ADDITIV: V1/V2 + IObservableTier/V2
 /// bleiben unverändert; der Host fragt V3 via `dynamic_cast<IObservableTierV3*>` ab, alte Module → nullptr.
 struct ComdareTierObserverSnapshotV3 {
@@ -148,7 +149,7 @@ struct ComdareTierObserverSnapshotV3 {
     // ── Meta (analog V1/V2; KEINE Achsen-Daten) ──
     std::uint64_t observable_axis_count = 0;   // ObserverAggregate::observable_count() — Diagnose
     std::uint64_t tier_fill_level       = 0;   // tier_size() zum Snapshot-Zeitpunkt
-    std::uint64_t filled_axis_count     = 0;   // wie viele der 19 Achsen jetzt befüllt sind (Phase A: 10)
+    std::uint64_t filled_axis_count     = 0;   // wie viele der 19 Achsen jetzt befüllt sind (Phase A: 10, Phase B: alle 19)
 
     [[nodiscard]] constexpr bool operator==(ComdareTierObserverSnapshotV3 const&) const noexcept = default;
 };
@@ -162,9 +163,10 @@ inline constexpr std::uint32_t kTierObserverSnapshotVersionV3 = 3;
 
 // ── V3-Schema-Tabelle: (axis_idx, field_idx) → Feldname. SINGLE-SOURCE in kCompositionAxisNames-Reihenfolge.
 //    Leere Strings = (noch) nicht befülltes Feld; eine Achse, deren Felder alle "" sind, ist Phase-B (= 0).
-//    Diese Tabelle treibt die CSV-Spaltennamen (stat_<achse>_<feld>) → keine Namens-Drift. Die 10 jetzt
-//    befüllten Achsen (Phase A): T0 search_algo, T1 cache_traversal, T2 mapping, T4 node_type, T5 memory_layout,
-//    T6 allocator, T9 serialization, T10 telemetry, T17 queuing_q1, T18 queuing_q2. ───────────────────────────
+//    Diese Tabelle treibt die CSV-Spaltennamen (stat_<achse>_<feld>) → keine Namens-Drift. Seit Phase-B-Abschluss
+//    (2026-06-04) sind ALLE 19 Achsen befüllt (Phase A: T0,T1,T2,T4,T5,T6,T9,T10,T17,T18; Phase B ergänzt
+//    T3 path_compression, T7 prefetch, T8 concurrency, T11 value_handle, T12 isa, T13 index_org, T14 io_dispatch,
+//    T15 migration_policy, T16 filter). ─────────────────────────────────────────────────────────────────────────
 struct V3AxisFieldNames {
     char const* names[kV3FieldCount] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
 };
@@ -177,27 +179,36 @@ inline constexpr V3AxisFieldNames kV3AxisSchema[kV3AxisCount] = {
     /*T0  search_algo*/      {{"lookup", "hit", "miss", "insert", "erase", "peak", nullptr, nullptr}},
     /*T1  cache_traversal*/  {{"resolve", "resolve_hit", "resolve_miss", "register", "unregister", "peak_tracked", nullptr, nullptr}},
     /*T2  mapping*/          {{"register", "resolve", "resolve_hit", "resolve_miss", "reverse_lookup", "peak_mapped", nullptr, nullptr}},
-    /*T3  path_compression*/ {{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}},  // Phase B
+    /*T3  path_compression*/ {{"compress", "prefix_len", "bytes_saved", "cuts", "checksum", nullptr, nullptr, nullptr}},  // Phase B (T3)
     /*T4  node_type*/        {{"find", "keys_stored", "queries", "checksum", nullptr, nullptr, nullptr, nullptr}},
     /*T5  memory_layout*/    {{"scan", "records", "field_bytes", "cache_lines", "checksum", nullptr, nullptr, nullptr}},
     /*T6  allocator*/        {{"bytes_alloc", "bytes_in_use", "alloc_cnt", "dealloc_cnt", "fail", nullptr, nullptr, nullptr}},
-    /*T7  prefetch*/         {{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}},  // Phase B
-    /*T8  concurrency*/      {{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}},  // Phase B
+    /*T7  prefetch*/         {{"trigger", "suggestions", "hot_path_hints", "max_queue_depth", "addrs_enqueued", nullptr, nullptr, nullptr}},  // Phase B (T7)
+    /*T8  concurrency*/      {{"acquire", "release", "contention", "validation_fail", "pattern_id", nullptr, nullptr, nullptr}},  // Phase B (T8)
     /*T9  serialization*/    {{"serialize", "records", "bytes", "checksum", nullptr, nullptr, nullptr, nullptr}},
     /*T10 telemetry*/        {{"events", "leaf_updates", "node_updates", "peak_tracked", nullptr, nullptr, nullptr, nullptr}},
-    /*T11 value_handle*/     {{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}},  // Phase B
-    /*T12 isa*/              {{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}},  // Phase B
-    /*T13 index_org*/        {{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}},  // Phase B
-    /*T14 io_dispatch*/      {{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}},  // Phase B
-    /*T15 migration_policy*/ {{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}},  // Phase B
-    /*T16 filter*/           {{nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr}},  // Phase B
+    /*T11 value_handle*/     {{"access", "indirect_deref", "version_strips", "peak_chain_depth", nullptr, nullptr, nullptr, nullptr}},  // Phase B (T11)
+    /*T12 isa*/              {{"simd_calls", "elements", "simd_iters", "scalar_fallback", "checksum", nullptr, nullptr, nullptr}},  // Phase B (T12)
+    /*T13 index_org*/        {{"scan", "records", "predicate_evals", "indirect_lookups", "checksum", nullptr, nullptr, nullptr}},  // Phase B (T13)
+    /*T14 io_dispatch*/      {{"rounds", "bytes", "align_adjusts", "dispatch_cnt", "checksum", nullptr, nullptr, nullptr}},  // Phase B (T14)
+    /*T15 migration_policy*/ {{"decisions", "migrations", "hot_votes", "cold_votes", "tier_moves", nullptr, nullptr, nullptr}},  // Phase B (T15)
+    /*T16 filter*/           {{"probe", "pos", "neg", "hash_probes", "checksum", nullptr, nullptr, nullptr}},  // Phase B (T16)
     /*T17 queuing_q1*/       {{"put", "get", "overflow", "underflow", "peak_size", nullptr, nullptr, nullptr}},
     /*T18 queuing_q2*/       {{"decisions", "full_flush", "partial_flush", "no_flush", "flush_complete", nullptr, nullptr, nullptr}},
 };
 
-/// Phase A: genau diese 10 Achsen-Indizes sind im V3-POD befüllt (alle anderen = 0 = Phase B). Diagnose-/
-/// Test-Konstante (test_gate4_r5b_operative-Nachfolger, observable_axis_count-Erwartung). Single-source.
-inline constexpr std::size_t kV3FilledAxisCount = 10;
+/// Anzahl der im V3-POD befüllten Achsen = Achsen mit mindestens EINEM benannten Schema-Feld (single-source aus
+/// kV3AxisSchema abgeleitet, NICHT hartkodiert). So zieht diese Diagnose-/Test-Konstante automatisch mit, wenn
+/// eine Phase-B-Achse (T3/T7/T8/T11..T16) ihre Schema-Zeile befüllt — keine Drift, kein manuelles Nachziehen,
+/// kein Konflikt bei paralleler Achsen-Erweiterung. (Phase A waren das 10; Phase B T7+T8 → 12; usw.)
+[[nodiscard]] constexpr std::size_t v3_count_filled_axes() noexcept {
+    std::size_t n = 0;
+    for (std::size_t t = 0; t < kV3AxisCount; ++t) {
+        if (kV3AxisSchema[t].names[0] != nullptr) ++n;   // erste Spalte benannt ⇒ Achse trägt Observer-Felder
+    }
+    return n;
+}
+inline constexpr std::size_t kV3FilledAxisCount = v3_count_filled_axes();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IObservableTier — ABI-stabiles Observer-Zugriffs-Sub-Interface

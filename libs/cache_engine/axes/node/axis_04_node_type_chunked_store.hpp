@@ -128,6 +128,68 @@ public:
             acc += org.observe_serialize(reinterpret_cast<unsigned char const*>(c.data()), c.size(), sizeof(slot_t));
         return acc;
     }
+    // Phase B (2026-06-04) T11 value_handle Auto-Kopplung: Scan ueber das chunk-lokale Slot-Backing → die
+    // value_handle-Observer-Huelle treibt value_access_scan ueber die REAL gespeicherten Slots (record_size =
+    // sizeof(slot_t)); KEINE flache Roh-Puffer-Simulation mehr (der vom Spec geforderte „echte Weg"). Analog
+    // organ_observe_layout/_serialization. Jeder Chunk = ein Slot-Block der node_type-Kapazitaet.
+    template <class VhOrgan>
+    std::uint64_t organ_observe_value_handle(VhOrgan& org) const {
+        std::uint64_t acc = 0;
+        for (auto const& c : chunks_)
+            acc += org.observe_value_handle(reinterpret_cast<unsigned char const*>(c.data()), c.size(), sizeof(slot_t));
+        return acc;
+    }
+    // Phase B (2026-06-04) T12 isa Auto-Kopplung: SIMD-Feld-Reduktion ueber das chunk-lokale Slot-Backing → die
+    // isa-Observer-Huelle treibt simd_field_sum ueber die REAL gespeicherten Slot-Bytes als 32-bit-Wort-Strom
+    // (n = chunk_bytes / 4). simd_field_sum nimmt nur (buf, n) — kein record_size. Analog organ_observe_layout.
+    template <class IsaOrgan>
+    std::uint64_t organ_observe_isa(IsaOrgan& org) const {
+        std::uint64_t acc = 0;
+        for (auto const& c : chunks_) {
+            std::size_t const words = (c.size() * sizeof(slot_t)) / sizeof(std::uint32_t);
+            acc += org.observe_simd_field_sum(reinterpret_cast<unsigned char const*>(c.data()), words);
+        }
+        return acc;
+    }
+    // Phase B (2026-06-04) T13 index_organization Auto-Kopplung: Scan ueber das chunk-lokale Slot-Backing → die
+    // index_org-Observer-Huelle treibt index_org_scan ueber die REAL gespeicherten Slots (record_size =
+    // sizeof(slot_t)); strategie-divergentes Zugriffsmuster (Clustered sequential / Heap predicate / NonClustered
+    // indirect / IOT embedded). Analog organ_observe_layout. Jeder Chunk = ein Slot-Block der node_type-Kapazitaet.
+    template <class IdxOrgan>
+    std::uint64_t organ_observe_index_org(IdxOrgan& org) const {
+        std::uint64_t acc = 0;
+        for (auto const& c : chunks_)
+            acc += org.index_org_observe(reinterpret_cast<unsigned char const*>(c.data()), c.size(), sizeof(slot_t));
+        return acc;
+    }
+    // Phase B (2026-06-04) T14 io_dispatch Auto-Kopplung: Scan ueber das chunk-lokale Slot-Backing → die io_dispatch-
+    // Observer-Huelle treibt io_dispatch_scan ueber die REAL gespeicherten Slots (record_size = sizeof(slot_t)) als
+    // IN-MEMORY-Dispatch (kein Disk-IO, Hauptagent-Entscheid). Analog organ_observe_layout.
+    template <class IoOrgan>
+    std::uint64_t organ_observe_io_dispatch(IoOrgan& org) const {
+        std::uint64_t acc = 0;
+        for (auto const& c : chunks_)
+            acc += org.observe_dispatch(reinterpret_cast<unsigned char const*>(c.data()), c.size(), sizeof(slot_t));
+        return acc;
+    }
+    // Phase B (2026-06-04) T15 migration_policy Auto-Kopplung: Scan ueber das chunk-lokale Slot-Backing → die
+    // migration-Observer-Huelle treibt migration_decide_scan (record_size = sizeof(slot_t) ≥ 4 → der 4-Byte-Recency-
+    // Read im observe_decide ist OOB-sicher). decide-only, KEIN realer Block-Move (tier_moves honest 0). Analog layout.
+    template <class MigOrgan>
+    std::uint64_t organ_observe_migration(MigOrgan& org) const {
+        for (auto const& c : chunks_)
+            org.observe_decide(reinterpret_cast<unsigned char const*>(c.data()), c.size(), sizeof(slot_t));
+        return 0;   // observe_decide ist void (Treibe-Op exerziert, Wegopt-Schutz im seg19-Pfad)
+    }
+    // Phase B (2026-06-04) T16 filter Auto-Kopplung: die low-Bytes der gespeicherten Keys werden als Query-Strom UND
+    // als Filter-Backing-Bitmap an die filter-Observer-Huelle gegeben (filter_probe_scan(buf,n,queries,q)) — analog
+    // organ_observe_node_type (das ebenfalls die Key-Low-Bytes als Self-Lookup-Query nutzt). REALER In-Memory-Filter.
+    template <class FltOrgan>
+    std::uint64_t organ_observe_filter(FltOrgan& org) const {
+        std::vector<unsigned char> kb; kb.reserve(size_);
+        for (auto const& c : chunks_) for (auto const& s : c) kb.push_back(static_cast<unsigned char>(s.first & 0xFFu));
+        return org.observe_probe(kb.data(), kb.size(), kb.data(), kb.size());
+    }
 
 private:
     [[nodiscard]] std::vector<slot_t> flatten_() const {
