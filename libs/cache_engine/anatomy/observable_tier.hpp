@@ -212,6 +212,33 @@ inline constexpr V3AxisFieldNames kV3AxisSchema[kV3AxisCount] = {
 inline constexpr std::size_t kV3FilledAxisCount = v3_count_filled_axes();
 
 // ─────────────────────────────────────────────────────────────────────────────
+// KONSOLIDIERUNG (I1, 2026-06-04, User-Direktive „EINE konsistente Observer-Schnittstelle"):
+// EIN versionierter Observer-POD, der die getrennten V1/V2/V3-PODs + den seg_ns-Timing-POD ablöst.
+// Preflight-verifiziert (Workflow wkqt7a0il): axis_stats[19][8]+Meta subsumiert JEDES V1- (13) + V2-Feld (26)
+// — V1 search→[0][0..5], alloc→[6][0..4]; V2 telemetry→[10], layout→[5], serialization→[9], node_type→[4];
+// obs_axes/fill→Meta. seg_ns[19] = das Pfad-B-Per-Achsen-Timing (reale Komposition; User-Entscheid 2026-06-04).
+// Layout bitweise stabil (alle Member 8-B-Ints, kein Padding; sizeof==1400, alignof==8) → memcpy über die ABI-Grenze.
+// In I-A ADDITIV neben V1/V2/V3 (Major bleibt 2); in I-C werden V1/V2/V3 entfernt + Major 2→3.
+// ─────────────────────────────────────────────────────────────────────────────
+struct ComdareTierObserverSnapshot {
+    std::uint64_t axis_stats[kV3AxisCount][kV3FieldCount] = {};  // T0..T18 × 8 Felder (Schema = kV3AxisSchema)
+    std::int64_t  seg_ns[kV3AxisCount]                    = {};  // Pfad-B Per-Achsen-Timing (ns, je Achse)
+    std::uint64_t observable_axis_count                  = 0;    // Meta: # observable Achsen (in-process)
+    std::uint64_t tier_fill_level                        = 0;    // Meta: aktueller Füllstand (tier_size)
+    std::uint64_t filled_axis_count                      = 0;    // Meta: # Achsen mit Observer-Werten
+    std::uint64_t batches_measured                       = 0;    // Meta: # Timing-Batches (Warmup verworfen)
+
+    [[nodiscard]] constexpr bool operator==(ComdareTierObserverSnapshot const&) const noexcept = default;
+};
+static_assert(std::is_standard_layout_v<ComdareTierObserverSnapshot>,
+              "ABI-Pflicht: konsolidierter Observer-POD muss standard_layout sein (memcpy über DLL-Grenze)");
+static_assert(std::is_trivially_copyable_v<ComdareTierObserverSnapshot>,
+              "ABI-Pflicht: konsolidierter Observer-POD muss trivially_copyable sein");
+
+/// Version des konsolidierten Observer-POD (ersetzt kTierObserverSnapshotVersion V1/V2/V3 in I-C).
+inline constexpr std::uint32_t kTierObserverSnapshotVersionUnified = 4;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // IObservableTier — ABI-stabiles Observer-Zugriffs-Sub-Interface
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -234,6 +261,12 @@ public:
     /// Schreibt den aktuellen Observer-Snapshot (observe_all → flacher POD) nach *out. out != nullptr.
     /// noexcept (reines Auslesen von Zählern). Der Host stempelt das Resultat mit Wall-Clock + persistiert.
     virtual void tier_observe(ComdareTierObserverSnapshotV1* out) const noexcept = 0;
+
+    /// KONSOLIDIERUNG (I-A, 2026-06-04): die EINE Observer-Methode über den konsolidierten POD (axis_stats[19][8]
+    /// + seg_ns[19] + Meta). In I-A mit Default-Body (Null-POD), damit bestehende V1-Implementierer kompilieren;
+    /// der ABI-Adapter überschreibt sie real (fill_observer_unified, feste Sequenz Observer-READ → Timing → Reset).
+    /// In I-C wird DIESE Methode die EINZIGE pure-virtual + die V1-Overload + IObservableTierV2/V3/V4 entfernt.
+    virtual void tier_observe(ComdareTierObserverSnapshot* out) const noexcept { if (out) *out = ComdareTierObserverSnapshot{}; }
 };
 
 /// V42 L-74c — IObservableTierV2: EIGENSTÄNDIGES Sub-Interface für den erweiterten V2-Snapshot (V1-Achsen +
