@@ -32,6 +32,13 @@ struct MockObsTier final : ana::IObservableTier {
         o->search_insert_count = inserts; o->search_lookup_count = lookups; o->search_hit_count = hits;
         o->tier_fill_level = data.size(); o->observable_axis_count = 2;
     }
+    // KONSOLIDIERUNG (I-B.3): die EINE konsolidierte tier_observe — search-Stats nach axis_stats[0] (T0). Wird von
+    // run_observable_perm für das (jetzt volle-Matrix-)Wire-Format genutzt; ingest leitet die 13 Legacy-Felder daraus ab.
+    void tier_observe(ana::ComdareTierObserverSnapshot* o) const noexcept override {
+        if (!o) return;
+        o->axis_stats[0][0] = lookups; o->axis_stats[0][1] = hits; o->axis_stats[0][3] = inserts;  // T0 search lookup/hit/insert
+        o->tier_fill_level = data.size(); o->observable_axis_count = 2; o->filled_axis_count = 1;
+    }
 };
 
 static int g_fail = 0;
