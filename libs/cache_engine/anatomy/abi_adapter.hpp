@@ -43,6 +43,29 @@
 // (X): ByteWiseKeyPrefix als kanonisches T3-Mess-Organ — IMMER deklariert (auch wenn die Composition
 // PatriciaPathCompression/PathCompressionNone trägt; der `else`-Zweig der T3-Treibe-Op qualifiziert den Namen).
 #include "../axes/path_compression/axis_02_path_compression_byte_wise.hpp"
+// Phase B (2026-06-04): Per-Achsen-Observer-Hüllen für T7 prefetch + T8 concurrency. Diese Hüllen halten ein
+// Mess-Organ (ObservablePrefetch<Strategy>/ObservableConcurrency<Strategy>) um die NACKTE Composition-Strategie
+// (anders als telemetry/memory_layout/… trägt die Composition für prefetch/concurrency die rohe Strategie, s.
+// art_reference.hpp). Der abi_adapter koppelt sie in tier_insert/lookup an die Tier-Op (Pfad-B Auto-Kopplung).
+#include "../axes/prefetch_axis/axis_07_prefetch_observable.hpp"
+#include "../axes/concurrency_axis/axis_08_concurrency_observable.hpp"
+// Phase B (2026-06-04): die value_handle- (T11) + isa- (T12) Observer-HÜLLEN. Analog T7/T8: gehalten als
+// EXPLIZITE Member-Organe über Composition::value_handle/isa (die — anders als memory_layout/telemetry — NICHT
+// per Registry-make_observable_* vorab dekoriert sind), getrieben über das ECHTE container_-Slot-Backing
+// (store_observe_value_handle/store_observe_isa → NodeChunkedStore::organ_observe_*, analog layout/serialization).
+#include "../axes/value_handle_axis/axis_14_value_handle_observable.hpp"
+#include "../axes/simd/axis_09_isa_observable.hpp"
+// Phase B (2026-06-04) Abschluss: die 5 verbleibenden Observer-HÜLLEN. T3 path_compression (Instanz-Driver compress(),
+// auto-gekoppelt in tier_insert/lookup wie T1/T2) + T13 index_org / T14 io_dispatch / T15 migration_policy / T16 filter
+// (scan-Achsen, getrieben über das ECHTE container_-Slot-Backing in fill_observer_v3, store_observe_* → NodeChunkedStore::
+// organ_observe_*, idempotenter reset()+scan, analog value_handle/isa/memory_layout/serialization). Anders als
+// telemetry/q1/q2 trägt die Composition für T3/T13/T14/T15/T16 die NACKTE Strategie (kein statistics()) → die Hülle hält
+// das Mess-Organ.
+#include "../axes/path_compression/axis_02_path_compression_observable.hpp"
+#include "../axes/index_organization/axis_01_index_organization_observable.hpp"
+#include "../axes/io_dispatch/axis_io_dispatch_observable.hpp"
+#include "../axes/migration_policy/axis_migration_observable.hpp"
+#include "../axes/filter_axis/axis_filter_observable.hpp"
 
 #include <algorithm>     // V5-#49-E: std::sort für den geordneten Range-Scan (tier_scan)
 #include <array>
@@ -634,6 +657,16 @@ public:
             (void)queuing_q2_organ_.should_flush(static_cast<std::size_t>(search_organ_.occupied_count()), std::size_t{1024});
             queuing_q2_organ_.on_flush_complete();
         }
+        // Phase B (2026-06-04) Auto-Kopplung T7/T8 (Pfad B): ein insert berührt eine Adresse (key) → die
+        // prefetch-Achse reiht sie in die Pfad-Trajektorie ein (PathOriented treibt echten Tracker; None/Hardware
+        // = 0-Baseline) inkl. Hot-Path-Hint aus den rohen key-Bytes; die concurrency-Achse exerziert ein echtes
+        // Sync-Primitiv-Paar (acquire→release; strategie-distinkt: None=no-op, Blocking=mutex, LockFree=CAS, …).
+        pf_organ_.observe_prefetch(key, reinterpret_cast<std::byte const*>(&key), sizeof(key));
+        cc_organ_.observe_critical_section();
+        // Phase B Abschluss T3 (Pfad B): ein insert ordnet den Schlüssel in den Trie ein → die path_compression-Achse
+        // misst die gemeinsame Byte-Prefix-Länge / cut() am ECHTEN ByteWiseKeyPrefix-Organ (PathCompressionNone =
+        // ehrliche niedrige Kompressions-Aktivität, Patricia/ByteWise höher). depth=0 = Trie-Wurzel-Abstieg.
+        (void)pc_organ_.compress(key, 0u);
         return search_organ_.occupied_count() > before;
     }
 
@@ -653,6 +686,15 @@ public:
         if constexpr (requires { queuing_q1_organ_.get(); }) {
             (void)queuing_q1_organ_.get();
         }
+        // Phase B Auto-Kopplung T7/T8 (Pfad B): ein lookup folgt einem Such-Pfad → prefetch reiht die Adresse
+        // (key) ein (PathOriented treibt den echten Tracker, suggest_next erzeugt die Next-Empfehlung); concurrency
+        // exerziert das echte Sync-Primitiv-Paar. pf_organ_/cc_organ_ mutable (Tracking im const lookup nicht-const).
+        pf_organ_.observe_prefetch(key, reinterpret_cast<std::byte const*>(&key), sizeof(key));
+        cc_organ_.observe_critical_section();
+        // Phase B Abschluss T3 (Pfad B): ein lookup folgt einem komprimierten Trie-Pfad → die path_compression-Achse
+        // misst die gemeinsame Byte-Prefix-Länge des gesuchten Schlüssels am ECHTEN ByteWiseKeyPrefix-Organ. pc_organ_
+        // mutable (Tracking im const lookup nicht-const). depth=0 = Trie-Wurzel.
+        (void)pc_organ_.compress(key, 0u);
         return v.has_value();
     }
 
@@ -665,12 +707,36 @@ public:
 
     void tier_clear() noexcept override {
         search_organ_.clear(); container_.clear();
-        // Phase A: die auto-gekoppelten Achsen-Organe mit-leeren (Daten + ggf. Statistik), damit der
-        // Delta-Mess-Pfad (perm_runner: tier_clear → pre-Observe → ops → post-Observe) einen sauberen
-        // Vor-Zustand hat und q1 (std::deque) nicht über Messungen hinweg unbegrenzt wächst.
+        // Phase A: die auto-gekoppelten Achsen-Organe mit-leeren (Daten UND kumulative Statistik), damit der
+        // Mess-Pfad (perm_runner: tier_clear → pre-Observe → ops → post-Observe) einen sauberen Vor-Zustand hat
+        // und q1 (std::deque) nicht über Messungen hinweg unbegrenzt wächst.
+        //
+        // KORREKTUR (2026-06-04, Defekt-Fix): clear() leert NUR die Daten (entries_/mappings_/Puffer); die
+        // statistics()-Zähler dieser Organe (LinearFanout/DirectPlacement/NoBuffer/LazyFlush) leben in einem
+        // SEPARATEN stats_ und werden ausschließlich von reset() genullt. Ohne reset() akkumulierte deren
+        // V3-axis_stats über die 3 Wiederholungen je (Binary×Setting) (kumulatives Artefakt: 1000→2000→3000).
+        // q2 (LazyFlush) besitzt gar kein clear() → wurde zuvor NIE zurückgesetzt. Daher hier zusätzlich reset()
+        // für ALLE vier auto-gekoppelten Instanz-Achsen (T1/T2/T17/T18), if-constexpr-geschützt (AdHoc-Strategien
+        // ohne reset()/clear() überspringen den jeweiligen Aufruf). Ziel: nach tier_clear() sind ALLE 19 Achsen-
+        // statistics bei 0 → je Messung frisch, konsistent mit dem V1-Delta-Block.
         if constexpr (requires { ct_organ_.clear(); })          ct_organ_.clear();
+        if constexpr (requires { ct_organ_.reset(); })          ct_organ_.reset();   // T1: stats_ nullen (clear()=nur Daten)
         if constexpr (requires { map_organ_.clear(); })         map_organ_.clear();
+        if constexpr (requires { map_organ_.reset(); })         map_organ_.reset();  // T2: stats_ nullen
         if constexpr (requires { queuing_q1_organ_.clear(); })  queuing_q1_organ_.clear();
+        if constexpr (requires { queuing_q1_organ_.reset(); })  queuing_q1_organ_.reset();  // T17: stats_ nullen
+        if constexpr (requires { queuing_q2_organ_.reset(); })  queuing_q2_organ_.reset();  // T18: KEIN clear() vorhanden → nur reset()
+        // T10 telemetry: ebenfalls über tier_insert/lookup auto-gekoppelt (record_node_touch) und in fill_observer_v3
+        // DIREKT (kein Delta, kein idempotenter Scan) gelesen → akkumulierte ohne reset() identisch zu T1/T2/T17/T18.
+        // ObservableTelemetry::reset() nullt stats_ (axes/telemetry_axis :76). Damit ist auch T10 je Messung frisch.
+        if constexpr (requires { telemetry_organ_.reset(); })   telemetry_organ_.reset();
+        // Phase B: T7/T8-Mess-Organe zurücksetzen (Statistik + prefetch-Tracker-Pfad), damit der Mess-Pfad
+        // (perm_runner: tier_clear → pre-Observe → ops → post-Observe) einen sauberen Vor-Zustand hat.
+        if constexpr (requires { pf_organ_.reset(); })          pf_organ_.reset();
+        if constexpr (requires { cc_organ_.reset(); })          cc_organ_.reset();
+        // Phase B Abschluss: T3-Mess-Organ zurücksetzen (die scan-Achsen T13/T14/T15/T16 sind idempotent — sie
+        // reset()+scan je fill_observer_v3-Aufruf, brauchen hier kein Clear). Sauberer Vor-Zustand.
+        if constexpr (requires { pc_organ_.reset(); })          pc_organ_.reset();
     }
 
     [[nodiscard]] std::uint64_t tier_size() const noexcept override {
@@ -853,6 +919,26 @@ public:
             r[3] = a.deallocation_count;    r[4] = a.failure_count;
             ++filled;
         }
+        // ── T7 prefetch (Phase B neu, AUTO-gekoppelt via tier_insert/lookup observe_prefetch) ─────────────
+        //    ObservablePrefetch-Hülle (pf_organ_) IMMER ObservableAxis → das Schema-Slot ist befüllt; bei
+        //    None/Hardware-Strategie bleiben die Tracker-Zähler 0 (ehrliche Baseline), bei PathOriented >0.
+        if constexpr (ObservableAxis<decltype(pf_organ_)>) {
+            auto const pf = pf_organ_.statistics();
+            auto* r = s.axis_stats[7];
+            r[0] = pf.trigger_count;   r[1] = pf.suggestions_made;         r[2] = pf.hot_path_hints;
+            r[3] = pf.max_queue_depth; r[4] = pf.total_addresses_enqueued;
+            ++filled;
+        }
+        // ── T8 concurrency (Phase B neu, AUTO-gekoppelt via tier_insert/lookup observe_critical_section) ──
+        //    ObservableConcurrency-Hülle (cc_organ_) treibt das echte Sync-Primitiv (acquire/release) + zählt;
+        //    contention/validation_failure im single-thread-Pfad ehrlich 0 (s. axis_08_concurrency_observable.hpp).
+        if constexpr (ObservableAxis<decltype(cc_organ_)>) {
+            auto const cc = cc_organ_.statistics();
+            auto* r = s.axis_stats[8];
+            r[0] = cc.acquire_count;            r[1] = cc.release_count; r[2] = cc.contention_count;
+            r[3] = cc.validation_failure_count; r[4] = cc.pattern_id;
+            ++filled;
+        }
         // ── T9 serialization (Pfad-B Zustand-Scan über container_) ───────────────────────────────────────
         if constexpr (ObservableAxis<typename Composition::serialization>
                    && requires { container_.store_observe_serialization(ser_organ_); }) {
@@ -868,6 +954,93 @@ public:
             auto const t = telemetry_organ_.statistics();
             auto* r = s.axis_stats[10];
             r[0] = t.total_events; r[1] = t.leaf_updates; r[2] = t.node_updates; r[3] = t.peak_tracked;
+            ++filled;
+        }
+        // ── T11 value_handle (Phase B neu, Pfad-B Zustand-Scan über container_-Slot-Backing) ──────────────
+        //    ECHTER Weg (Spec §3): vh_organ_ (ObservableValueHandle-Hülle) treibt value_access_scan über die
+        //    REAL gespeicherten Slots (store_observe_value_handle → NodeChunkedStore::organ_observe_value_handle),
+        //    KEINE flache Roh-Puffer-Simulation. idempotenter reset()+scan je Observe (wie ser/ml).
+        if constexpr (requires { container_.store_observe_value_handle(vh_organ_); }) {
+            vh_organ_.reset();
+            (void)container_.store_observe_value_handle(vh_organ_);
+            auto const vh = vh_organ_.statistics();
+            auto* r = s.axis_stats[11];
+            r[0] = vh.total_access_count; r[1] = vh.indirect_deref_count;
+            r[2] = vh.version_tag_strips; r[3] = vh.peak_chain_depth;
+            ++filled;
+        }
+        // ── T12 isa (Phase B neu, Pfad-B Zustand-Scan über container_-Slot-Backing) ───────────────────────
+        //    isa_organ_ (ObservableIsa-Hülle) treibt simd_field_sum über die REAL gespeicherten Slot-Bytes als
+        //    32-bit-Wort-Strom (store_observe_isa → NodeChunkedStore::organ_observe_isa). idempotenter reset()+scan.
+        if constexpr (requires { container_.store_observe_isa(isa_organ_); }) {
+            isa_organ_.reset();
+            (void)container_.store_observe_isa(isa_organ_);
+            auto const is = isa_organ_.statistics();
+            auto* r = s.axis_stats[12];
+            r[0] = is.simd_calls;            r[1] = is.elements_processed; r[2] = is.simd_iterations;
+            r[3] = is.scalar_fallback_count; r[4] = is.last_checksum;
+            ++filled;
+        }
+        // ── T3 path_compression (Phase B Abschluss, AUTO-gekoppelt via tier_insert/lookup compress) ────────
+        //    pc_organ_ (ObservablePathCompression-Hülle) treibt das ECHTE ByteWiseKeyPrefix-Organ je Tier-Op; bei
+        //    PathCompressionNone ehrlich niedrige Kompressions-Aktivität (kein Sonderfall), bei Patricia/ByteWise höher.
+        if constexpr (requires { pc_organ_.statistics(); }) {
+            auto const pc = pc_organ_.statistics();
+            auto* r = s.axis_stats[3];
+            r[0] = pc.compress_calls; r[1] = pc.prefix_len_total;  r[2] = pc.bytes_saved_total;
+            r[3] = pc.cuts_performed; r[4] = pc.last_checksum;
+            ++filled;
+        }
+        // ── T13 index_organization (Phase B Abschluss, Pfad-B Zustand-Scan über container_-Slot-Backing) ────
+        //    idx_organ_ (ObservableIndexOrg-Hülle) treibt index_org_scan über die REAL gespeicherten Slots
+        //    (store_observe_index_org → NodeChunkedStore::organ_observe_index_org). predicate_evals/indirect_lookups
+        //    folgen den static-deklarierten Strategie-Eigenschaften (is_clustered/has_secondary_indexes). reset()+scan.
+        if constexpr (requires { container_.store_observe_index_org(idx_organ_); }) {
+            idx_organ_.reset();
+            (void)container_.store_observe_index_org(idx_organ_);
+            auto const ix = idx_organ_.statistics();
+            auto* r = s.axis_stats[13];
+            r[0] = ix.scan_count;       r[1] = ix.records_scanned; r[2] = ix.predicate_evals;
+            r[3] = ix.indirect_lookups; r[4] = ix.last_checksum;
+            ++filled;
+        }
+        // ── T14 io_dispatch (Phase B Abschluss, Pfad-B Zustand-Scan über container_-Slot-Backing) ───────────
+        //    io_organ_ (ObservableIoDispatch-Hülle) treibt io_dispatch_scan über die REAL gespeicherten Slots als
+        //    IN-MEMORY-Dispatch (store_observe_io_dispatch → NodeChunkedStore::organ_observe_io_dispatch); KEIN Disk-IO
+        //    (Hauptagent-Entscheid). alignment_adjusts honest 0 für InMemoryOnly. reset()+scan.
+        if constexpr (requires { container_.store_observe_io_dispatch(io_organ_); }) {
+            io_organ_.reset();
+            (void)container_.store_observe_io_dispatch(io_organ_);
+            auto const io = io_organ_.statistics();
+            auto* r = s.axis_stats[14];
+            r[0] = io.dispatch_rounds;     r[1] = io.bytes_dispatched; r[2] = io.alignment_adjusts;
+            r[3] = io.total_dispatch_count; r[4] = io.last_checksum;
+            ++filled;
+        }
+        // ── T15 migration_policy (Phase B Abschluss, Pfad-B Zustand-Scan über container_-Slot-Backing) ───────
+        //    mig_organ_ (ObservableMigration-Hülle) treibt migration_decide_scan über die REAL gespeicherten Slots
+        //    (store_observe_migration → NodeChunkedStore::organ_observe_migration). decide-only, KEIN 2. Tier →
+        //    tier_moves honest 0; migrations/hot/cold honest 0 für NoMigration (is_active()==false). reset()+scan.
+        if constexpr (requires { container_.store_observe_migration(mig_organ_); }) {
+            mig_organ_.reset();
+            (void)container_.store_observe_migration(mig_organ_);
+            auto const mg = mig_organ_.statistics();
+            auto* r = s.axis_stats[15];
+            r[0] = mg.total_decisions; r[1] = mg.migrations_triggered; r[2] = mg.hot_votes;
+            r[3] = mg.cold_votes;      r[4] = mg.tier_moves;
+            ++filled;
+        }
+        // ── T16 filter (Phase B Abschluss, Pfad-B Zustand-Scan über container_-Slot-Backing) ─────────────────
+        //    flt_organ_ (ObservableFilter-Hülle) treibt filter_probe_scan über die low-Bytes der REAL gespeicherten
+        //    Keys als Query-Strom (store_observe_filter → NodeChunkedStore::organ_observe_filter). REALER In-Memory-
+        //    Filter, keine Strategie-Internas (positive/negative je öffentliches Einzel-Query-Ergebnis). reset()+scan.
+        if constexpr (requires { container_.store_observe_filter(flt_organ_); }) {
+            flt_organ_.reset();
+            (void)container_.store_observe_filter(flt_organ_);
+            auto const fl = flt_organ_.statistics();
+            auto* r = s.axis_stats[16];
+            r[0] = fl.probe_count;       r[1] = fl.queries_positive; r[2] = fl.queries_negative;
+            r[3] = fl.hash_probes_total; r[4] = fl.last_checksum;
             ++filled;
         }
         // ── T17 queuing_q1 (Phase A neu, AUTO-gekoppelt via tier_insert/lookup put/get) ──────────────────
@@ -1022,6 +1195,31 @@ private:
     // nicht-const (analog telemetry_organ_/queuing_*). Ihre statistics() liefert fill_observer_v3 (Pfad B).
     mutable typename Composition::cache_traversal ct_organ_;
     mutable typename Composition::mapping         map_organ_;
+    // Phase B (2026-06-04): T7 prefetch (ObservablePrefetch-Hülle um die rohe Composition::prefetch-Strategie)
+    // + T8 concurrency (ObservableConcurrency-Hülle um Composition::concurrency). Anders als telemetry/q1/q2
+    // trägt die Composition für T7/T8 die NACKTE Strategie (kein statistics()) → die Hülle hält das Mess-Organ.
+    // mutable: das observe_*-Tracking im const tier_lookup ist logisch nicht-const (analog telemetry_organ_).
+    // Ihre statistics() liefert fill_observer_v3 (Pfad B). Default-konstruiert; auto-gekoppelt in tier_insert/lookup.
+    mutable ::comdare::cache_engine::prefetch_axis::ObservablePrefetch<typename Composition::prefetch>       pf_organ_{};
+    mutable ::comdare::cache_engine::concurrency_axis::ObservableConcurrency<typename Composition::concurrency> cc_organ_{};
+    // Phase B (2026-06-04): T11 value_handle (ObservableValueHandle-Hülle um die rohe Composition::value_handle-
+    // Strategie) + T12 isa (ObservableIsa-Hülle um Composition::isa). Anders als telemetry/q1/q2 trägt die
+    // Composition für T11/T12 die NACKTE Strategie (kein statistics()) → die Hülle hält das Mess-Organ. Getrieben
+    // NICHT in tier_insert/lookup, sondern als Pfad-B Zustand-Scan über das ECHTE container_-Slot-Backing in
+    // fill_observer_v3 (store_observe_value_handle/store_observe_isa, idempotenter reset()+scan, analog ml/ser).
+    // mutable: der Observe-Scan im const fill_observer_v3 ist logisch nicht-const (analog ml_organ_/ser_organ_).
+    mutable ::comdare::cache_engine::value_handle_axis::ObservableValueHandle<typename Composition::value_handle> vh_organ_{};
+    mutable ::comdare::cache_engine::simd::ObservableIsa<typename Composition::isa>                               isa_organ_{};
+    // Phase B (2026-06-04) Abschluss: die 5 verbleibenden Observer-Hüllen als Member-Organe.
+    //  • T3 path_compression: Instanz-Driver compress(key,depth), AUTO-gekoppelt in tier_insert/lookup (wie T1/T2).
+    //  • T13/T14/T15/T16 (index_org/io_dispatch/migration/filter): scan-Achsen, getrieben als Pfad-B Zustand-Scan über
+    //    das ECHTE container_-Slot-Backing in fill_observer_v3 (store_observe_*, idempotenter reset()+scan, wie ml/ser/vh).
+    // mutable: das Tracking im const tier_lookup / const fill_observer_v3 ist logisch nicht-const (analog telemetry_organ_).
+    mutable ::comdare::cache_engine::path_compression::ObservablePathCompression<typename Composition::path_compression> pc_organ_{};
+    mutable ::comdare::cache_engine::index_organization::ObservableIndexOrg<typename Composition::index_organization>     idx_organ_{};
+    mutable ::comdare::cache_engine::io_dispatch::ObservableIoDispatch<typename Composition::io_dispatch>                 io_organ_{};
+    mutable ::comdare::cache_engine::migration_policy::ObservableMigration<typename Composition::migration_policy>        mig_organ_{};
+    mutable ::comdare::cache_engine::filter_axis::ObservableFilter<typename Composition::filter>                          flt_organ_{};
     // KF-4/L-MEAS: zuletzt angewandte Resource-Control (IMMER, auch Messung-aus) — vom RuntimeVariableLoop je dyn.
     // Einstellung gesetzt. Reiner Steuer-Zustand (quert die ABI nicht; der Host liest die Wirkung über den Observer).
     ComdareResourceControlV1 applied_rc_{};

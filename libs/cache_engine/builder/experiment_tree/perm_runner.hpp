@@ -96,11 +96,20 @@ struct PermResult {
     r.line    = format_perm_result(binary_id, d);
     r.total_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
     r.n_ops   = n_ops;
-    // Phase A (2026-06-04): den generischen Per-Achsen-V3-Snapshot NACH der Mess-Last ziehen (Pfad B). tier_clear
-    // (oben) hat die auto-gekoppelten Phase-A-Organe (ct/map/q1) frisch gesetzt → der post-Workload-Snapshot trägt
-    // genau die Op-Zähler DIESER Messung für die neu verdrahteten Achsen; die Pfad-B-Scan-/cumulative-Achsen
-    // (node/layout/serialization/search/alloc/telemetry) tragen ihren Zustand zum Observe-Zeitpunkt. Kein Delta
-    // nötig (anders als V1: die V3-Per-Achsen-Demonstration braucht den absoluten post-Zustand, alle >0 sichtbar).
+    // Phase A+B (2026-06-04): den generischen Per-Achsen-V3-Snapshot NACH der Mess-Last ziehen (Pfad B).
+    //
+    // KONSISTENZ-STAND (nach dem tier_clear-Reset-Fix 2026-06-04, abi_adapter.hpp tier_clear()): die auto-
+    // gekoppelten Instanz-Organe T1 ct / T2 map / T10 telemetry / T17 q1 / T18 q2 (+ Phase B T3 pc / T7 pf /
+    // T8 cc) werden in tier_clear() jetzt NICHT NUR daten-geleert (clear()) SONDERN auch STATISTIK-genullt
+    // (reset()) → der post-Workload-Snapshot trägt genau die Op-Zähler DIESER Messung. ZUVOR (Defekt) riefen
+    // T1/T2/T17 nur clear() (= nur Daten) und T18/T10 gar nichts → ihre kumulativen statistics() akkumulierten
+    // über die 3 Wiederholungen je (Binary×Setting) (1000→2000→3000). Mit dem Reset-Fix gilt für diese Organe
+    // jetzt wieder: Reset-bei-Start == post (warmup-frei). Die Pfad-B-Scan-Achsen (T4 node / T5 layout / T9 ser /
+    // T11 value_handle / T12 isa / T13 index_org / T14 io_dispatch / T15 migration / T16 filter) sind in
+    // fill_observer_v3 IDEMPOTENT (reset()+scan je Observe) → Zustand zum Observe-Zeitpunkt, KEIN Warmup-Doppel-
+    // zähler. T0 search_algo + T6 allocator (V1-POD) tragen ABI-seitig nicht resetbare Zähler → für SIE bildet
+    // der Block oben das echte post−pre-Delta. Netto: ALLE 19 Achsen sind pro Zeile warmup-frei + konsistent mit
+    // dem V1-Delta-Block (kein kumulatives Artefakt), seit der Reset-Fix die Instanz-/telemetry-Organe nullt.
     if (v3 != nullptr) { v3->tier_observe_v3(&r.v3); r.v3_real = true; }
     return r;
 }

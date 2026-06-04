@@ -3,11 +3,12 @@
 //   SA-Kompositionen (in-process Stand-in: identische vtable/POD-Layout wie über die .dll-Grenze; das
 //   dynamic_cast<IObservableTierV3*> ist exakt der Host-Pfad). Emittiert die WIDE-Schema-CSV via die ECHTEN
 //   Writer (lazy_csv_header/format_csv_row) nach build/thesis_tiere/obs_phaseA_pilot.csv und prüft literal:
-//     (1) die 10 Phase-A-Achsen (T0 search_algo, T1 cache_traversal, T2 mapping, T4 node_type, T5 memory_layout,
-//         T6 allocator, T9 serialization, T10 telemetry, T17 queuing_q1, T18 queuing_q2) tragen je >0 statistics;
-//     (2) die 4 NEU verdrahteten (T1/T2/T17/T18) sind > 0;
-//     (3) die 9 Phase-B-Achsen (T3,T7,T8,T11..T16) sind 0 (erwartet — noch nicht implementiert);
-//     (4) filled_axis_count == 10.
+//     (1) die Schema-befüllten Achsen tragen Observer (seit Phase-B-Abschluss 2026-06-04 = alle 19);
+//     (2) die 4 in Phase A neu verdrahteten Instanz-Achsen (T1/T2/T17/T18) sind > 0;
+//     (3) Schema-LEERE Achsen (falls noch vorhanden) sind exakt 0 — seit Phase-B-Abschluss ist KEINE Achse mehr leer;
+//     (4) filled_axis_count == kV3FilledAxisCount (schema-abgeleitet, Phase B: 19).
+//   Die Prüflogik ist VOLLSTÄNDIG schema-getrieben (kV3AxisSchema, single-source) → zog automatisch von Phase A (10)
+//   auf Phase B (19) mit, als die Phase-B-Achsen ihre Schema-Zeilen befüllten (kein manuelles Test-Nachziehen).
 //
 // Build: cl /std:c++latest /EHsc /DCOMDARE_MEASUREMENT_ON=1 /DCOMDARE_CE_ENABLE_STATISTICS=1 + voller ADHOC-Include-Satz.
 
@@ -33,9 +34,12 @@ namespace ex   = ::comdare::cache_engine::builder::experiment;
 static int g_fail = 0;
 static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
 
-// Phase-A: genau diese 10 Achsen-Indizes sind befüllt; alle anderen müssen 0 sein (Phase B).
-static constexpr int kFilled[10] = {0, 1, 2, 4, 5, 6, 9, 10, 17, 18};
-static bool is_filled(int t) { for (int x : kFilled) if (x == t) return true; return false; }
+// Welche Achsen-Indizes sind befüllt = aus dem V3-Schema abgeleitet (single-source kV3AxisSchema), NICHT
+// hartkodiert. So zieht der Test automatisch mit, wenn eine Phase-B-Achse ihre Schema-Zeile befüllt (parallele
+// Achsen-Erweiterung ohne Test-Drift). Phase A = {0,1,2,4,5,6,9,10,17,18}; Phase B fügt T7/T8/… hinzu.
+static bool is_filled(int t) {
+    return t >= 0 && t < static_cast<int>(an::kV3AxisCount) && an::kV3AxisSchema[t].names[0] != nullptr;
+}
 
 // Summe aller 8 Felder einer Achsen-Zeile (>0 ⇔ Achse trägt echte Werte).
 static std::uint64_t row_sum(an::ComdareTierObserverSnapshotV3 const& s, int t) {
@@ -72,21 +76,26 @@ static an::ComdareTierObserverSnapshotV3 measure_v3(char const* name, std::strin
 
 template <class C>
 static void check_one(char const* name, an::ComdareTierObserverSnapshotV3 const& s) {
-    // (1) alle 10 Phase-A-Achsen > 0; (3) alle 9 Phase-B-Achsen == 0.
-    bool filled_ok = true, phaseb_zero = true;
+    // EHRLICHE Semantik: (a) Schema-LEERE Achsen (noch nicht implementiert) MÜSSEN exakt 0 sein. (b) Schema-
+    // BEFÜLLTE (observable) Achsen werden beobachtet, ihr Wert darf aber strategie-abhängig 0 sein (z.B. T7
+    // prefetch mit NonePrefetch = ehrliche 0-Baseline, KEIN enqueue-Pfad; T8 pattern_id=0 bei NoneConcurrency).
+    // Daher KEINE pauschale „filled > 0"-Annahme — das wäre für Baseline-Strategien falsch.
+    bool phaseb_zero = true;
     for (int t = 0; t < 19; ++t) {
-        std::uint64_t const sum = row_sum(s, t);
-        if (is_filled(t)) { if (sum == 0) filled_ok = false; }
-        else              { if (sum != 0) phaseb_zero = false; }
+        if (!is_filled(t) && row_sum(s, t) != 0) phaseb_zero = false;
     }
-    tr((std::string{name} + ": alle 10 Phase-A-Achsen > 0").c_str(), filled_ok);
-    tr((std::string{name} + ": alle 9 Phase-B-Achsen == 0 (erwartet)").c_str(), phaseb_zero);
-    tr((std::string{name} + ": filled_axis_count == 10").c_str(), s.filled_axis_count == an::kV3FilledAxisCount);
-    // (2) die 4 NEU verdrahteten Achsen (T1/T2/T17/T18) explizit > 0.
+    tr((std::string{name} + ": alle Schema-leeren (noch nicht implementierten) Achsen == 0").c_str(), phaseb_zero);
+    tr((std::string{name} + ": filled_axis_count == kV3FilledAxisCount").c_str(),
+       s.filled_axis_count == an::kV3FilledAxisCount);
+    // Die explizit über die Tier-Op getriebenen Achsen MÜSSEN > 0 sein (echte Auto-Kopplung verifiziert).
     tr((std::string{name} + ": T1 cache_traversal > 0").c_str(), row_sum(s, 1) > 0);
     tr((std::string{name} + ": T2 mapping > 0").c_str(),         row_sum(s, 2) > 0);
     tr((std::string{name} + ": T17 queuing_q1 > 0").c_str(),     row_sum(s, 17) > 0);
     tr((std::string{name} + ": T18 queuing_q2 > 0").c_str(),     row_sum(s, 18) > 0);
+    // Phase B (T8): concurrency wird über observe_critical_section() getrieben → acquire/release > 0 (auch bei
+    // NoneConcurrency: die Op läuft, nur pattern_id=0). T7 prefetch ist mit NonePrefetch ehrlich 0 (Baseline) →
+    // NICHT auf > 0 prüfen; die Beobachtbarkeit ist über filled_axis_count + is_filled(7) bereits abgedeckt.
+    if (is_filled(8)) tr((std::string{name} + ": T8 concurrency acquire/release > 0").c_str(), row_sum(s, 8) > 0);
 }
 
 int main() {

@@ -45,3 +45,58 @@ k_ary 16,58M → linear_scan 25,09M ns (Faktor ~6,7×); Layout-Fix CLA(64) ≠ a
 **Prinzip:** nach der Nacharbeit ist KEINE Achse mehr „Simulation"; jede misst ihren echten Organ-Algorithmus. Bis dahin
 bleiben die Werte ehrlich als reale (organ-bestimmte) Laufzeiten der jeweiligen Mindest-Op gekennzeichnet — kein erfundener Wert.
 Pro Achse Goldstandard-konform + verifiziert (per-Achsen-Differenzierung in der CSV nachweisen). Planung-vor-Bau Pflicht.
+
+---
+
+## Adversarial-Fix (2026-06-04, später): zwei Defekte im Phase-B-Per-Achsen-Observer
+
+Zwei adversarial gefundene Defekte am Per-Achsen-Observer-Pfad (Phase B, `axis_stats[19][8]`) behoben. **NICHT committet** (nur `libs/` + `tests/thesis_tiere`; Modul-Kopien sind tot).
+
+### DEFEKT 1 (Konsistenz) — `tier_clear()` resettet die kumulativen statistics der auto-gekoppelten Instanz-Achsen
+
+**Befund:** `abi_adapter.hpp tier_clear()` rief für die auto-gekoppelten Instanz-Achsen T1 cache_traversal (`ct_organ_`), T2 mapping (`map_organ_`), T17 queuing_q1 (`queuing_q1_organ_`) nur `clear()` (= nur DATEN: `entries_`/`mappings_`/Puffer) — NICHT das separate `reset()` (= `stats_ = {}`). T18 queuing_q2 (`queuing_q2_organ_`, `LazyFlush`) hat gar kein `clear()` → wurde NIE zurückgesetzt. Folge: deren `statistics()` und damit die V3-`axis_stats` AKKUMULIERTEN über die 3 Wiederholungen je (Binary×Setting) — ein kumulatives Artefakt, das der V1-Delta-Block (search_algo/allocator via post−pre) eliminiert, der V3-Block aber NICHT.
+
+**Mit-Befund (über den Auftrag hinaus, für „alle 19 Achsen bei 0" nötig):** T10 telemetry (`telemetry_organ_`, `ObservableTelemetry`) wird ebenfalls per `tier_insert/lookup` (`record_node_touch`) auto-gekoppelt und in `fill_observer_v3` DIREKT gelesen → akkumulierte identisch. `ObservableTelemetry::reset()` existiert (`axes/telemetry_axis/axis_11_telemetry_observable.hpp:76`), wurde aber nicht aufgerufen.
+
+**Fix (`libs/cache_engine/anatomy/abi_adapter.hpp`, `tier_clear()`):** zusätzlich zu den bestehenden `clear()`-Aufrufen jetzt `reset()` für `ct_organ_` (T1), `map_organ_` (T2), `queuing_q1_organ_` (T17), `queuing_q2_organ_` (T18) **und** `telemetry_organ_` (T10), alle if-constexpr-geschützt. T7/T8/T3 riefen `reset()` bereits. Ziel erreicht: nach `tier_clear()` sind ALLE 19 Achsen-statistics bei 0 → je Messung frisch, konsistent mit dem V1-Delta.
+
+**Doku-Korrektur (ehrlich, [[no-success-marks-without-literal-output]]):** die falsche „warmup-frei/delta-äquivalent/konsistent"-Behauptung in `perm_runner.hpp` (run_observable_perm-Kommentar) und `cache_engine_builder_iterator.hpp` (stat_*-Semantik) auf den TATSÄCHLICHEN Stand korrigiert: vor dem Fix akkumulierten T1/T2/T17 (clear-only) + T18/T10 (gar nicht); seit dem Fix gilt die Behauptung wieder.
+
+**Verifikation (literal, in-process, 3 Reps je Binary):**
+```
+T1 cache_traversal reps=[4000,4000,4000]
+T2 mapping          reps=[4000,4000,4000]
+T17 queuing_q1      reps=[2000,2000,2000]
+T18 queuing_q2      reps=[3000,3000,3000]
+```
+→ über die 3 Reps GLEICH (kein 1000→2000→3000-Artefakt). Vor dem Fix wären es 4000→8000→12000 gewesen.
+
+### DEFEKT 2 (Sichtbarkeit) — die Differenzierung der 18 Nicht-search-Achsen im Pilot nicht sichtbar
+
+**Befund:** die `statistics()` differenzieren real je STRATEGIE (belegt), aber der `search_algo_grid`-Pilot (run_lazy_150 / test_obs_phaseA) variiert NUR `search_algo`; alle FullPilot-Referenz-Kompositionen (Art/Hot/Masstree/Start/Surf/Wormhole) tragen IDENTISCHE Nicht-search-Achsen (Node256·CacheLineAligned·PathCompressionNone·BloomFilter·…) → die 18 anderen stat_*-Spalten sind über die Binaries KONSTANT.
+
+**Demonstration (`tests/unit/thesis_tiere/tier150_axis_grid.cpp` + `build/scratch_compile_tier150_grid.ps1`):** ein Multi-Achsen-Grid (Art-Basis, NUR node_type × path_compression × filter variiert), je Binary 3 Reps, schreibt die WIDE-Schema-CSV nach `build/thesis_tiere/tier150_measurements.csv` (+ committe-bare Kopie `tests/unit/thesis_tiere/tier150_measurements.csv`). Kuratiertes 7-Binary-1-wise-Grid (alle 3 Werte jeder Achse), node256/none/bloom = Anker.
+
+**Verifikation (literal, per-Achsen-stat-Summe je Binary):**
+```
+node_type   T4: node256=125973  node4=6949   node48=130277   (stat_node_type_keys: 256/4/48)
+path_comp   T3: none=32007      bytewise=32007  patricia=34007 (stat_path_compression_prefix_len: 14000/14000/16000)
+filter      T16: bloom=2329     cuckoo=2025  xor=2009         (stat_filter_pos: 71/12/4)
+```
+→ ALLE DREI nicht-search-Achsen differenzieren über die Binaries (Auftrag: ≥2). (T3 none==bytewise im Zähler ist korrekt — beide erzeugen denselben `common_prefix_len`-Aufwand; nur Patricia addiert die 1-Bit-Descent-Schritte.)
+
+**Mess-Architektur-Doku (ehrlich, im CSV-Kopf-Kommentar + hier):** Op-ZÄHLER-statistics differenzieren je STRATEGIE (algorithmus-internes Verhalten: prefix_len, find/keys, probe/pos …). ALGORITHMEN unter IDENTISCHER deterministischer Last (z.B. Art vs Hot, beide 1000 lookups) differenzieren NICHT im Zähler, sondern in der ZEIT (`seg_*_ns`, geliefert von `test_all19_segment_timer` → `all19_pilot.csv`). Beide Dimensionen zusammen = das vollständige per-Achsen-Bild (F15-Hybrid).
+
+**Scope-Hinweis (ehrlich):** das volle 3·3·3=27-Kreuzprodukt trifft im in-process-Stand-in einen latenten, allokations-historie-abhängigen Heap-Engpass (reproduzierbar layout-abhängig, NICHT durch eine einzelne Komposition; jede Komposition läuft isoliert sauber). GETRENNTES Problem, NICHT Teil dieser zwei Defekte; über die echte .dll-Grenze (run_lazy_150, je Binary ein eigener Prozess) entfällt es. Das kuratierte 1-wise-Grid (7 Binaries, alle Achsen-Werte abgedeckt) genügt für den Beleg.
+
+### Geänderte Dateien (NICHT committet)
+- `libs/cache_engine/anatomy/abi_adapter.hpp` — `tier_clear()`: reset() für T1/T2/T17/T18 + T10
+- `libs/cache_engine/builder/experiment_tree/perm_runner.hpp` — run_observable_perm-Kommentar ehrlich korrigiert
+- `libs/cache_engine/builder/experiment_tree/cache_engine_builder_iterator.hpp` — stat_*-Semantik-Kommentar ehrlich korrigiert
+- `tests/unit/thesis_tiere/tier150_axis_grid.cpp` (neu) + `build/scratch_compile_tier150_grid.ps1` (neu)
+- `build/thesis_tiere/tier150_measurements.csv` + `tests/unit/thesis_tiere/tier150_measurements.csv` (Beleg-CSV)
+
+### Bestehende Tests weiter grün (literal)
+- `test_obs_phaseA` → `==== Phase A Per-Achsen-Observer-V3: ALLE OK ====` (run_exit=0)
+- `test_all19_segment_timer` → `==== 19-Segment-Timer + Layout-Fix: ALLE OK ====` (run_exit=0)
+- `test_d_v42_abi_telemetry_coupling` → `OK: abi_adapter ... koppelt telemetry AUTOMATISCH` (run_exit=0)
