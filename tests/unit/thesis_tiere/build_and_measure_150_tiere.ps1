@@ -15,7 +15,12 @@ param(
     [int]$MaxBinaries = 150,
     [double]$MinFreeGB = 2.0,
     [int]$NOps = 2000,
+    [int]$NRepeats = 3,                       # (D, KF-10): Wiederholungen je (Binary×Setting), Default 3
     [string]$BuildVersion = "tier150-v1",
+    # Selektions-Modus (2026-06-04): "index" (Default, rückwärtskompatibel — erste N Blätter, search_algo konstant)
+    # ODER "search_algo_grid" (F15-Grid — variiert NUR search_algo → die CSV zeigt die per-Achsen-Differenzierung).
+    [ValidateSet("index","search_algo_grid")]
+    [string]$SelectMode = "index",
     [switch]$RunTest,
     [switch]$RebuildHost
 )
@@ -24,10 +29,16 @@ $repo   = "C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\exter
 $gen    = Join-Path $repo "build\msvc-release\generated"
 $srcDir = Join-Path $repo "tests\unit\thesis_tiere"
 $out    = Join-Path $repo "build\thesis_tiere"
-$work   = Join-Path $env:TEMP "comdare_lazy150"
-$permSrc = Join-Path $work "perm_src"      # generierte perm_<id>.cpp
-$permDll = Join-Path $work "perm_dll"      # gebaute perm_<id>.dll (+ .version Resume-Sidecar)
-New-Item -ItemType Directory -Force $out, $work, $permSrc, $permDll | Out-Null
+$work   = Join-Path $env:TEMP "comdare_lazy150"   # nur Host-Exe + .rsp/.bat-Hilfsdateien (NICHT die Tiere)
+# (E) 2026-06-04: je Tier-Binary ein eigener Ordner UNTER dem Repo-Build-Baum (weg von flachem %TEMP%):
+#     build/thesis_tiere/tiere/<stem>/perm_<stem>.{cpp,dll,dll.obj,dll.cl.log,dll.version} + result.csv.
+# Der Host-Treiber (cfg.per_binary_subdirs=true) legt je Binary den Unterordner unter $permDll an; $permSrc
+# wird im per_binary_subdirs-Pfad NICHT mehr benutzt (Source teilt den per-Binary-Ordner), bleibt aber als
+# Fallback-Arg gesetzt (rückwärtskompatibel, falls per_binary_subdirs aus).
+$permBase = Join-Path $out "tiere"
+$permSrc = $permBase                          # (E): Source + DLL teilen den per-Binary-Ordner unter tiere/<stem>/
+$permDll = $permBase
+New-Item -ItemType Directory -Force $out, $work, $permBase | Out-Null
 if (!(Test-Path $gen)) { Write-Output "generated/ fehlt (CMake configure): $gen"; exit 3 }
 
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -98,8 +109,8 @@ $exe = Build-HostExe "run_lazy_150" (Join-Path $srcDir "run_lazy_150.cpp")
 if (-not $exe) { exit 1 }
 
 $csv = Join-Path $out "tier150_measurements.csv"
-Write-Host ("=== Lazy-E2E: erste {0} DLLs bauen+messen (resumierbar, version={1}) — innerhalb vcvars ===" -f $MaxBinaries, $BuildVersion)
-$code = Run-InVcvars $exe @($csv, $MaxBinaries, $NOps, $BuildVersion, $permSrc, $permDll, $MinFreeGB, 4)
+Write-Host ("=== Lazy-E2E: {0} DLLs bauen+messen (resumierbar, version={1}, n_repeats={2}, select_mode={3}) — innerhalb vcvars ===" -f $MaxBinaries, $BuildVersion, $NRepeats, $SelectMode)
+$code = Run-InVcvars $exe @($csv, $MaxBinaries, $NOps, $BuildVersion, $permSrc, $permDll, $MinFreeGB, 4, $NRepeats, $SelectMode)
 if (Test-Path $csv) {
     Copy-Item $csv (Join-Path $srcDir "tier150_measurements.csv") -Force   # committe-bare Snapshot-Kopie
     Write-Host ("CSV: {0}  ({1} Daten-Zeilen)" -f $csv, ((Get-Content $csv).Count - 1))

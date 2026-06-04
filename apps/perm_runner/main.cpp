@@ -39,6 +39,9 @@ int main(int argc, char** argv) {
         return 1;
     }
     // Mess-Lauf + EINE result_ingest-Zeile nach stdout (der Cluster-Webhook/Ingest liest exakt dieses Format).
-    std::cout << ex::run_observable_perm(*tier, binary_id, n_ops) << "\n";
+    // run_observable_perm liefert jetzt ein PermResult{line,total_ns,n_ops}; nach stdout geht die .line (das
+    // ingest-Format ist unverändert — total_ns ist Host-Telemetrie und reist NICHT über die ingest-Zeile).
+    ex::PermResult const pr = ex::run_observable_perm(*tier, binary_id, n_ops);
+    std::cout << pr.line << "\n";
     return 0;
 }
