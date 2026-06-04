@@ -51,6 +51,11 @@ struct PermResult {
     // das Modul exponiert IObservableTierV3 nicht (alte DLL) → ehrlich „n/a" in der CSV.
     anatomy::ComdareTierObserverSnapshotV3 v3{};
     bool         v3_real  = false;
+    // KONSOLIDIERUNG (I-B, 2026-06-04): der EINE konsolidierte Observer-Snapshot (axis_stats[19][8] + seg_ns[19] +
+    // Meta) aus dem EINEN tier_observe. Trägt Observer-Stats UND das Pfad-B-Per-Achsen-Timing (reale Komposition) in
+    // EINEM POD. Wird in I-B die maßgebliche CSV-Quelle (ersetzt v3 + den Pfad-A-Segment-Timer); V1/V3 entfallen in I-C.
+    anatomy::ComdareTierObserverSnapshot unified{};
+    bool         unified_real = false;
 };
 
 /// (A)+(B) Treibt ein geladenes IObservableTier (SearchAlgorithm-Mess-Pfad): ZUERST tier_clear() (frischer
@@ -111,6 +116,12 @@ struct PermResult {
     // der Block oben das echte post−pre-Delta. Netto: ALLE 19 Achsen sind pro Zeile warmup-frei + konsistent mit
     // dem V1-Delta-Block (kein kumulatives Artefakt), seit der Reset-Fix die Instanz-/telemetry-Organe nullt.
     if (v3 != nullptr) { v3->tier_observe_v3(&r.v3); r.v3_real = true; }
+    // KONSOLIDIERUNG (I-B): den EINEN konsolidierten Snapshot ziehen (axis_stats + Pfad-B-seg_ns in EINEM POD).
+    // NACH dem V3-Observe (der V3-Pfad ist additiv noch da, bis I-C ihn entfernt). Der EINE tier_observe hält
+    // intern die fixe Sequenz (axis_stats-READ → seg_ns-Timing → per-op-Reset) → keine Doppelzählung. Da tier_clear
+    // jetzt search_organ_.reset() ruft, ist axis_stats[0] frisch (kein post−pre-Delta nötig).
+    tier.tier_observe(&r.unified);
+    r.unified_real = true;
     return r;
 }
 
