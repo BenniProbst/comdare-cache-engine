@@ -16,6 +16,9 @@
 #include "concepts/axis_filter_cache_engine_permutation_concept.hpp"
 #include <axes/filter_axis/axis_filter_flags.hpp>
 #include <topics/filter/concepts/topic_filter_concept.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -37,6 +40,35 @@ public:
     [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "filter_range_surf"; }
     [[nodiscard]] static constexpr std::string_view family_name()          noexcept { return "RangeSurfFilter (Zhang SIGMOD 2018, succinct LOUDS-Trie, range-query)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()          noexcept { return "RANGE_SURF"; }
+
+    // F15-Pfad-A Treibe-Op (Spec §5 T16, Goldstandard analog axis_05 scan_field_sum / axis_10
+    // serialize_scan / axis_04 node_find_scan). SYNTHETISCHE Mindest-Op (ehrlich deklariert): es
+    // existiert in diesem Wrapper KEIN persistenter LOUDS-Trie, daher wird `buf` als Pseudo-Trie-
+    // Knotenarray (1 Byte = 1 Branch-Label) der Länge `n` interpretiert und je Query ein Prefix-Pfad
+    // BYTE-WEISE deszendiert. Der Aufwand ist REAL und strategie-abhängig (SuRF: mehrstufiger Trie-
+    // Prefix-Abstieg mit succinct-LOUDS-Navigation nach Zhang SIGMOD 2018, daher pro Query mehrere
+    // abhängige Level-Schritte statt eines Hash-Tests), KEINE erfundene Zahl. EINZIGE Filter-Strategie
+    // mit Range-Semantik: liefert lower_bound-artige Prefix-Treffer (kein exakter Punkt-Test) → die
+    // Prefix-Länge bestimmt die Latenz. Mehrere benachbarte Query-Bytes bilden den abgefragten Prefix.
+    [[nodiscard]] static std::uint64_t filter_probe_scan(unsigned char const* buf, std::size_t n,
+                                                         unsigned char const* queries, std::size_t q) noexcept {
+        if (n == 0 || q == 0) return 0;
+        constexpr std::size_t kMaxDepth = 6;               // SuRF: succinct-Trie-Höhe (bounded suffix)
+        std::uint64_t matched = 0;
+        for (std::size_t i = 0; i < q; ++i) {
+            std::size_t node = (static_cast<std::uint8_t>(queries[i]) * 131u) % n;   // LOUDS-Wurzel-Position
+            std::size_t depth = 0;
+            // BYTE-WEISER Prefix-Abstieg: vergleiche aufeinanderfolgende Query-Bytes gegen Branch-Labels
+            for (; depth < kMaxDepth; ++depth) {
+                std::uint8_t const label = static_cast<std::uint8_t>(queries[(i + depth) % q]);
+                if (buf[node] != label) break;             // Prefix endet → range-bound erreicht
+                // LOUDS-child: nächste Knotenposition aus aktuellem Label deterministisch ableiten
+                node = (node * 31u + label + 1u) % n;
+            }
+            matched += depth;                              // Prefix-Länge = strategie-bestimmte Treffer-Tiefe
+        }
+        return matched;
+    }
 };
 
 }  // namespace

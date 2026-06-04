@@ -13,6 +13,9 @@
 #include "concepts/axis_filter_cache_engine_permutation_concept.hpp"
 #include <axes/filter_axis/axis_filter_flags.hpp>
 #include <topics/filter/concepts/topic_filter_concept.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -32,6 +35,39 @@ public:
     [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "filter_bloom"; }
     [[nodiscard]] static constexpr std::string_view family_name()          noexcept { return "BloomFilter (Bloom 1970, k-hash bitmap, point-query)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()          noexcept { return "BLOOM"; }
+
+    // F15-Pfad-A Treibe-Op (Spec §5 T16, Goldstandard analog axis_05 scan_field_sum / axis_10
+    // serialize_scan / axis_04 node_find_scan). SYNTHETISCHE Mindest-Op (ehrlich deklariert): es
+    // existiert in diesem Wrapper KEINE persistente Bitmap-Instanz, daher wird `buf` als Pseudo-Bitmap
+    // der Länge `n` Bytes interpretiert und je Query strategie-charakteristisch geprobt. Der Aufwand ist
+    // REAL und strategie-abhängig (Bloom probt k unabhängige Hash-Positionen → k Bit-Tests/Query), KEINE
+    // erfundene konstante Zahl. Bloom 1970: k=4 Hash-Funktionen (double-hashing Kirsch/Mitzenmacher 2006:
+    // h_i = h1 + i*h2), m-bit Bitmap = n*8 Bits. Liefert query-order-sensitive Treffer-Prüfsumme
+    // (Anti-Wegoptimierung). Punkt-Query only (kein Range).
+    [[nodiscard]] static std::uint64_t filter_probe_scan(unsigned char const* buf, std::size_t n,
+                                                         unsigned char const* queries, std::size_t q) noexcept {
+        if (n == 0) return 0;
+        constexpr std::size_t kHashes = 4;                 // Bloom 1970: k unabhängige Hash-Funktionen
+        std::size_t const mBits = n * 8u;                  // Pseudo-Bitmap m = n Bytes * 8 Bit
+        std::uint64_t hits = 0;
+        for (std::size_t i = 0; i < q; ++i) {
+            std::uint32_t const key = queries[i];           // 1 Byte je Query als Schlüssel
+            // double-hashing (Kirsch/Mitzenmacher 2006): h1 = FNV-artig, h2 = Rotation
+            std::uint32_t h1 = key * 2654435761u + 0x9E3779B9u;
+            std::uint32_t h2 = (key << 5) ^ (key >> 2) ^ 0x85EBCA6Bu;
+            bool all_set = true;
+            for (std::size_t k = 0; k < kHashes; ++k) {     // k Hash-Positionen prüfen
+                std::size_t const bitpos = (h1 + k * h2) % mBits;
+                unsigned char const byte = buf[bitpos >> 3];
+                if ((byte & (1u << (bitpos & 7u))) == 0) {  // ein 0-Bit → definitiv NICHT enthalten
+                    all_set = false;
+                    break;                                   // Bloom: früher Abbruch (echte Latenz-Divergenz)
+                }
+            }
+            if (all_set) hits += 1u + (key & 7u);           // order-sensitive Akkumulation
+        }
+        return hits;
+    }
 };
 
 }  // namespace

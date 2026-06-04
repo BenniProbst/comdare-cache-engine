@@ -6,6 +6,9 @@
 #include "concepts/axis_02_path_compression_cache_engine_permutation_concept.hpp"
 #include <axes/path_compression/axis_02_path_compression_flags.hpp>
 #include <topics/nodes/concepts/topic_nodes_concept.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -27,6 +30,48 @@ public:
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "PATRICIA"; }
 
     [[nodiscard]] double compression_ratio() const noexcept { return 0.3; }  // typisch ~3x kompakter
+
+    // T3-Treibe-Op (2026-06-04): ByteWise traegt sein echtes Prefix-Organ (ByteWiseKeyPrefix::common_prefix_len);
+    // Patricia hatte bis hier KEINE operative, treibbare Op und waere im Per-Achsen-Timer als n/a gelandet.
+    // Die folgenden zwei Ops machen die Patricia-Strategie F15-operativ (analog axis_05 scan_field_sum /
+    // axis_10 serialize_scan / axis_04 node_find_scan), OHNE einen erfundenen konstanten Wert.
+    //
+    // key_split_bit(key, depth): das verhaltens-tragende KERN-Primitiv eines Patricia-Trie (Single-Bit-Split,
+    // Morrison 1968 / HOT Binna PVLDB 2018 / Wormhole Wu EuroSys 2019): extrahiert das EINE signifikante Bit an
+    // Tiefe `depth`, radix-trie-konventionell MSB-first (depth 0 = hoechstwertiges Bit). Reine, branch-freie
+    // Bit-Extraktion — die Operation, durch die sich Patricia (1-Bit-Descent) von ByteWise (8-Bit-Descent)
+    // unterscheidet.
+    [[nodiscard]] static constexpr std::uint8_t key_split_bit(std::uint64_t key, unsigned depth) noexcept {
+        return static_cast<std::uint8_t>((key >> (63U - (depth & 63U))) & 1U);
+    }
+
+    // path_descend_scan(buf, n, record_size): goldstandard-foermige `_scan`-Treibe-Op (statische
+    // _scan(buf,n,record_size)-Signatur wie scan_field_sum/serialize_scan/node_find_scan). Pro Record wird der
+    // 64-Bit-Schluessel gelesen und ein Patricia-Descent SIMULIERT: bitweiser Single-Bit-Split via key_split_bit
+    // ueber bis zu 64 Ebenen, mit Fruehabbruch sobald ein 0-Bit gefunden wird (modelliert die variable, vom
+    // Schluessel ABHAENGIGE Trie-Tiefe von Patricia — KEINE konstante Anzahl Schritte). Die Laufzeit ist damit
+    // real und strategie-charakteristisch (1-Bit-Schritte statt ByteWise-8-Bit-Schritte) und schluessel-daten-
+    // abhaengig.
+    //
+    // EHRLICHKEIT (Pflicht-Deklaration, [[no-success-marks-without-literal-output]]): dies ist eine SYNTHETISCHE
+    // Mindest-Op. Patricia haelt hier KEINEN echten materialisierten Trie wie ByteWiseKeyPrefix; der Descent wird
+    // ueber den rohen Record-Puffer simuliert. Der Aufwand ist NICHT erfunden/konstant, sondern ergibt sich aus
+    // dem Single-Bit-Split-Verhalten ueber die tatsaechlichen Schluesselbits — er erzeugt eine reale, von der
+    // Strategie und den Daten abhaengige Laufzeit.
+    [[nodiscard]] static std::uint64_t path_descend_scan(unsigned char const* buf, std::size_t n,
+                                                         std::size_t record_size) noexcept {
+        std::uint64_t sum = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::uint64_t key = 0;
+            std::memcpy(&key, buf + i * record_size, sizeof(key));   // 64-Bit-Schluessel je Record
+            for (unsigned depth = 0; depth < 64U; ++depth) {         // Patricia: Single-Bit-Descent
+                std::uint8_t const bit = key_split_bit(key, depth);
+                sum += bit;
+                if (bit == 0U) break;                                // variable, schluessel-abhaengige Tiefe
+            }
+        }
+        return sum;
+    }
 };
 
 }  // namespace

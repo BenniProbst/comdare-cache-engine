@@ -40,10 +40,17 @@
 #include "../topics/traversal/axis_03a_search_algo/composable/observable_composed_search.hpp"
 #include "../topics/nodes/axis_04_node_type/axis_04_node_type_composed_store.hpp"
 #include "../axes/node/axis_04_node_type_chunked_store.hpp"   // Audit-30 Fix Q2: node-WIRKSamer Store (Delegation)
+// (X): ByteWiseKeyPrefix als kanonisches T3-Mess-Organ — IMMER deklariert (auch wenn die Composition
+// PatriciaPathCompression/PathCompressionNone trägt; der `else`-Zweig der T3-Treibe-Op qualifiziert den Namen).
+#include "../axes/path_compression/axis_02_path_compression_byte_wise.hpp"
 
 #include <algorithm>     // V5-#49-E: std::sort für den geordneten Range-Scan (tier_scan)
 #include <array>
 #include <chrono>
+#include <cstring>       // (X) std::memcpy in den 19-Segment-Treibe-Ops
+#if defined(_M_X64) || defined(__x86_64__)
+#include <xmmintrin.h>   // (X) _mm_prefetch für das T7-Prefetch-Segment (MSVC/x86_64-Mess-Build)
+#endif
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -91,6 +98,7 @@ class SearchAlgorithmAbiAdapter final : public IAnatomyBase,
                                         public IObservableTierV2,   // V42 L-74c: eigenständiges V2-Sub-Interface (ABI-robust, kein vtable-Append)
                                         public IMeasurableWorkload,
                                         public IMeasurableWorkloadV2,  // (C-2): eigenständiges V2-Sub-Interface — per-Segment-Timer (4 Achsen)
+                                        public IMeasurableWorkloadV3,  // (X): eigenständiges V3-Sub-Interface — per-Segment-Timer ALLER 19 Achsen
                                         public IRollbackableTier,
                                         public IScannableTier {
 #else
@@ -225,11 +233,15 @@ public:
             auto const churn_size = [](std::size_t j) noexcept {
                 return std::size_t{16} + ((j * 16u) & 0xF0u);  // 16..256 Bytes, deterministisch
             };
-            // Layout-Scan-Puffer (Segment 3): 16384 Datensaetze × 64 B = 1 MB (> L1/L2). EINMAL via
-            // Komposition-Allocator alloziert (Setup, NICHT gemessen); pro Batch nur der Scan.
+            // Layout-Scan-Puffer (Segment 3): 16384 Datensaetze. LAYOUT-FIX (X-§4, 2026-06-04): kRecordSize=48
+            // (NICHT 64) — sonst fiele cache_line_aligned (aligned_stride=round_up(48,64)=64) mit aos_strict
+            // (Stride 48) zusammen und die Layout-Achse differenzierte nicht. Damit liest aos_strict bei Stride 48,
+            // cache_line_aligned bei Stride 64. PFLICHT-OOB-SCHUTZ: der Puffer wird nach dem GRÖSSTMÖGLICHEN Stride
+            // (64) dimensioniert (kLbufBytes = kRecords*64 >= jeder Layout-Stride), sonst läse der CLA-Scan bei
+            // (kRecords-1)*64+4 über das Ende hinaus. EINMAL via Komposition-Allocator alloziert (Setup, NICHT gemessen).
             constexpr std::size_t kRecords    = 16384;
-            constexpr std::size_t kRecordSize = 64;
-            constexpr std::size_t kLbufBytes  = kRecords * kRecordSize;
+            constexpr std::size_t kRecordSize = 48;
+            constexpr std::size_t kLbufBytes  = kRecords * 64;   // OOB-Schutz: größtmöglicher Layout-Stride (64), nicht kRecordSize
             unsigned char* lbuf = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
             for (std::size_t i = 0; i < kLbufBytes; ++i) lbuf[i] = static_cast<unsigned char>(i * 31u + 7u);
             std::mt19937_64 rng{seed};
@@ -314,9 +326,12 @@ public:
             auto const churn_size = [](std::size_t j) noexcept {
                 return std::size_t{16} + ((j * 16u) & 0xF0u);
             };
+            // LAYOUT-FIX (X-§4): kRecordSize=48 + kLbufBytes nach größtmöglichem Layout-Stride (64) dimensioniert
+            // (OOB-Schutz), identisch zu run_workload. So differenziert die memory_layout-Achse aos_strict(48) vs
+            // cache_line_aligned(64).
             constexpr std::size_t kRecords    = 16384;
-            constexpr std::size_t kRecordSize = 64;
-            constexpr std::size_t kLbufBytes  = kRecords * kRecordSize;
+            constexpr std::size_t kRecordSize = 48;
+            constexpr std::size_t kLbufBytes  = kRecords * 64;   // OOB-Schutz: größtmöglicher Layout-Stride (64)
             unsigned char* lbuf = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
             for (std::size_t i = 0; i < kLbufBytes; ++i) lbuf[i] = static_cast<unsigned char>(i * 31u + 7u);
             std::mt19937_64 rng{seed};
@@ -361,6 +376,226 @@ public:
             return batches;
         } catch (...) {
             *out = ComdareSegmentLatencyV1{};
+            return 0;
+        }
+    }
+
+    // (X): per-Segment-Timer-Variante auf ALLE 19 SearchAlgorithm-Achsen ausgeweitet. Je Achse ein eigener
+    // steady_clock-Timer, über die batches AUFSUMMIERT → echte per-Achsen-ns für T0..T18 (kein n/a mehr).
+    // Seg-Index = kCompositionAxisNames-Reihenfolge (axis_path_serialization.hpp): 0 search_algo … 18 queuing_q2.
+    // Setup je Achse EINMAL vor der Batch-Schleife (Instanz + register/fill), gemessen wird nur die Op-Schleife.
+    // sink-Akkumulation gegen Wegoptimierung. COMDARE_MEASUREMENT_ON-gegated (wie run_workload_segmented).
+    //
+    // EHRLICHKEIT [[no-success-marks-without-literal-output]]: jede Achse treibt eine REALE, strategie-abhängige
+    // Op (die in §5 der Spec deklarierten synthetischen Mindest-Ops sind in den jeweiligen Wrapper-Doc-Kommentaren
+    // als SIMULATION gekennzeichnet — keine konstanten/erfundenen Werte). None-artige Strategien (prefetch_none,
+    // concurrency_none, migration_none) sind bewusste 0-Overhead-Baselines (so deklariert), KEINE n/a.
+    [[nodiscard]] std::uint64_t run_workload_segmented_v2(std::uint64_t ops_per_batch,
+                                                          std::uint64_t batches,
+                                                          std::uint64_t seed,
+                                                          ComdareSegmentLatencyV2* out) noexcept override {
+        if (out == nullptr) return 0;
+        *out = ComdareSegmentLatencyV2{};
+        if (batches == 0 || ops_per_batch == 0) return 0;
+        try {
+            using SearchAlgo      = typename A::composition_t::search_algo;
+            using CacheTraversal  = typename A::composition_t::cache_traversal;
+            using Mapping         = typename A::composition_t::mapping;
+            using PathCompression = typename A::composition_t::path_compression;
+            using NodeType        = typename A::composition_t::node_type;
+            using MemLayout       = typename A::composition_t::memory_layout;
+            using Allocator       = typename A::composition_t::allocator;
+            using Prefetch        = typename A::composition_t::prefetch;
+            using Concurrency     = typename A::composition_t::concurrency;
+            using Serializer      = typename A::composition_t::serialization;
+            using Telemetry       = typename A::composition_t::telemetry;
+            using ValueHandle     = typename A::composition_t::value_handle;
+            using Isa             = typename A::composition_t::isa;
+            using IndexOrg        = typename A::composition_t::index_organization;
+            using IoDispatch      = typename A::composition_t::io_dispatch;
+            using Migration       = typename A::composition_t::migration_policy;
+            using Filter          = typename A::composition_t::filter;
+            using QueuingQ1       = typename A::composition_t::queuing_q1;
+            using QueuingQ2       = typename A::composition_t::queuing_q2;
+            using K               = typename SearchAlgo::key_type;
+
+            // ── Setup (EINMAL, NICHT gemessen) ───────────────────────────────────────────────────────────
+            SearchAlgo algo;
+            for (int k = 0; k < 256; ++k) algo.insert(static_cast<K>(k), static_cast<std::uint64_t>(k) * 7u + 1u);
+
+            CacheTraversal traversal;           // T1: register K Einträge → resolve N-fach
+            using TV = typename CacheTraversal::value_type;
+            constexpr std::size_t kTrav = 256;
+            for (std::size_t k = 0; k < kTrav; ++k)
+                traversal.register_entry(static_cast<typename CacheTraversal::key_type>(k),
+                                         static_cast<TV>(k * 7u + 1u));
+
+            Mapping mapping;                    // T2: register K Slots → resolve_offset N-fach
+            constexpr std::size_t kSlots = 256;
+            for (std::size_t s = 0; s < kSlots; ++s)
+                mapping.register_slot(static_cast<typename Mapping::slot_index_type>(s),
+                                      static_cast<typename Mapping::offset_type>(s * 64u));
+
+            Allocator alloc;
+            constexpr std::size_t kChurn = 2048;
+            constexpr std::size_t kAlign = 16;
+            std::array<void*, kChurn> blocks{};
+            auto const churn_size = [](std::size_t j) noexcept { return std::size_t{16} + ((j * 16u) & 0xF0u); };
+
+            // LAYOUT-FIX (X-§4): kRecordSize=48; Lbuf nach größtmöglichem Stride (64) dimensioniert (OOB-Schutz).
+            // path_descend_scan (T3 Patricia) liest 8 B/Record → record_size>=8 sicher (letzter Read (kRecords-1)*48+8).
+            constexpr std::size_t kRecords    = 16384;
+            constexpr std::size_t kRecordSize = 48;
+            constexpr std::size_t kLbufBytes  = kRecords * 64;
+            unsigned char* lbuf = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
+            for (std::size_t i = 0; i < kLbufBytes; ++i) lbuf[i] = static_cast<unsigned char>(i * 31u + 7u);
+
+            // Query-Puffer für T16 filter_probe_scan (1 Byte je Query).
+            constexpr std::size_t kQueries = 4096;
+            std::array<unsigned char, kQueries> qbuf{};
+            for (std::size_t i = 0; i < kQueries; ++i) qbuf[i] = static_cast<unsigned char>(i * 53u + 11u);
+
+            Telemetry  telemetry_local;         // T10: eigenes Segment (entkoppelt vom Cross-ABI-Auto-Coupling)
+            QueuingQ1  q1_local;                 // T17: put/get-Churn
+            QueuingQ2  q2_local;                 // T18: should_flush/on_flush_complete
+            using QElem = typename QueuingQ1::element_type;
+
+            std::mt19937_64 rng{seed};
+            using clock = std::chrono::steady_clock;
+            auto seg_ns = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
+                return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
+            };
+            std::int64_t acc[19] = {};
+            std::uint64_t sink = 0;
+
+            // ── EIN Batch: die 19 Achsen-Segmente, jedes einzeln gezeitet (Index = Seg-Map T0..T18) ─────────
+            auto do_seg19 = [&]() {
+                clock::time_point t0, t1;
+                // T0 search_algo: Lookups auf der geladenen Such-Struktur.
+                t0 = clock::now();
+                for (std::uint64_t i = 0; i < ops_per_batch; ++i) { auto v = algo.lookup(static_cast<K>(rng() & 0xFFu)); if (v) sink += *v; }
+                t1 = clock::now(); acc[0] += seg_ns(t0, t1);
+                // T1 cache_traversal: resolve N-fach.
+                t0 = clock::now();
+                for (std::uint64_t i = 0; i < ops_per_batch; ++i) { auto v = traversal.resolve(static_cast<typename CacheTraversal::key_type>(rng() % kTrav)); if (v) sink += static_cast<std::uint64_t>(*v); }
+                t1 = clock::now(); acc[1] += seg_ns(t0, t1);
+                // T2 mapping: resolve_offset N-fach.
+                t0 = clock::now();
+                for (std::uint64_t i = 0; i < ops_per_batch; ++i) { auto o = mapping.resolve_offset(static_cast<typename Mapping::slot_index_type>(rng() % kSlots)); if (o) sink += static_cast<std::uint64_t>(*o); }
+                t1 = clock::now(); acc[2] += seg_ns(t0, t1);
+                // T3 path_compression: Patricia → path_descend_scan; sonst (ByteWise/None) → kanonisches
+                // ByteWiseKeyPrefix::common_prefix_len-Organ über den Record-Puffer (echtes Mess-Organ der Achse).
+                t0 = clock::now();
+                if constexpr (requires { PathCompression::path_descend_scan(lbuf, kRecords, kRecordSize); }) {
+                    sink += PathCompression::path_descend_scan(lbuf, kRecords, kRecordSize);
+                } else {
+                    for (std::size_t i = 0; i < kRecords; ++i) {
+                        std::uint64_t key; std::memcpy(&key, lbuf + i * kRecordSize, sizeof(key));
+                        auto const prefix = ::comdare::cache_engine::path_compression::ByteWiseKeyPrefix::from_bytes(key, 7u);
+                        sink += prefix.common_prefix_len(key >> 8U);
+                    }
+                }
+                t1 = clock::now(); acc[3] += seg_ns(t0, t1);
+                // T4 node_type: node_find_scan (KF-6 Pflicht-API, order-sensitiver Probe-Scan).
+                t0 = clock::now();
+                sink += NodeType::node_find_scan(lbuf, kRecords, qbuf.data(), kQueries);
+                t1 = clock::now(); acc[4] += seg_ns(t0, t1);
+                // T5 memory_layout: scan_field_sum (layout-charakteristischer Stride; aos_strict 48 vs CLA 64).
+                t0 = clock::now();
+                sink += MemLayout::scan_field_sum(lbuf, kRecords, kRecordSize);
+                t1 = clock::now(); acc[5] += seg_ns(t0, t1);
+                // T6 allocator: alloc → touch → dealloc-Churn (Pool reused Free-Lists).
+                t0 = clock::now();
+                for (std::size_t j = 0; j < kChurn; ++j) { void* p = alloc.allocate(churn_size(j), kAlign); *static_cast<unsigned char*>(p) = static_cast<unsigned char>(j); sink += *static_cast<unsigned char*>(p); blocks[j] = p; }
+                for (std::size_t j = 0; j < kChurn; ++j) alloc.deallocate(blocks[j], churn_size(j), kAlign);
+                t1 = clock::now(); acc[6] += seg_ns(t0, t1);
+                // T7 prefetch: aktiv (HW/PathOriented, is_active()==true) → SW-Prefetch-Hint-Loop über lbuf + Re-Scan;
+                // None (is_active()==false) → reiner Re-Scan OHNE Hints (echte, kleinere Latenz, ehrliche Baseline).
+                // is_active() ist eine static constexpr Eigenschaft → kein Prefetch-Instanz-Bedarf (CRTP-Base hat
+                // protected ctor; die Strategie ist eine statische Prefetch-API, kein zu konstruierendes Organ).
+                t0 = clock::now();
+                if constexpr (Prefetch::is_active()) {
+#if defined(_M_X64) || defined(__x86_64__)
+                    for (std::size_t i = 0; i < kRecords; ++i) _mm_prefetch(reinterpret_cast<char const*>(lbuf + i * kRecordSize), _MM_HINT_T0);
+#else
+                    for (std::size_t i = 0; i < kRecords; ++i) { volatile unsigned char hint = lbuf[i * kRecordSize]; (void)hint; }
+#endif
+                }
+                sink += MemLayout::scan_field_sum(lbuf, kRecords, kRecordSize);   // Re-Scan (Prefetch-Hint-Wirkung)
+                t1 = clock::now(); acc[7] += seg_ns(t0, t1);
+                // T8 concurrency: acquire/release um eine Mini-Critical-Section N-fach (strategie-charakteristisches
+                // Sync-Primitiv: None=no-op, Blocking=mutex, LockFree=CAS, …). if-constexpr-detektiert (optionale Op).
+                t0 = clock::now();
+                if constexpr (requires { Concurrency::acquire(); Concurrency::release(); }) {
+                    for (std::uint64_t i = 0; i < ops_per_batch; ++i) { Concurrency::acquire(); sink += (i & 1u); Concurrency::release(); }
+                } else {
+                    for (std::uint64_t i = 0; i < ops_per_batch; ++i) sink += (i & 1u);   // ehrlicher No-Sync-Baseline-Fall
+                }
+                t1 = clock::now(); acc[8] += seg_ns(t0, t1);
+                // T9 serialization: serialize_scan (strategie-charakteristischer Encode-CPU-Aufwand).
+                t0 = clock::now();
+                sink += Serializer::serialize_scan(lbuf, kRecords, kRecordSize);
+                t1 = clock::now(); acc[9] += seg_ns(t0, t1);
+                // T10 telemetry: record_node_touch N-fach (eigenes Segment, lokales Organ).
+                t0 = clock::now();
+                if constexpr (requires { telemetry_local.record_node_touch(true); }) {
+                    for (std::uint64_t i = 0; i < ops_per_batch; ++i) { telemetry_local.record_node_touch((i & 1u) != 0u); }
+                    sink += static_cast<std::uint64_t>(ops_per_batch);
+                } else { sink += static_cast<std::uint64_t>(ops_per_batch); }
+                t1 = clock::now(); acc[10] += seg_ns(t0, t1);
+                // T11 value_handle: value_access_scan (strategie-charakteristische Deref-Last).
+                t0 = clock::now();
+                sink += ValueHandle::value_access_scan(lbuf, kRecords, kRecordSize);
+                t1 = clock::now(); acc[11] += seg_ns(t0, t1);
+                // T12 isa: simd_field_sum (SSE2 bei Amd64 / Scalar-Fallback sonst). Nur (buf,n) — kein record_size.
+                t0 = clock::now();
+                sink += Isa::simd_field_sum(lbuf, kRecords);
+                t1 = clock::now(); acc[12] += seg_ns(t0, t1);
+                // T13 index_organization: index_org_scan (sequential/random/embedded/unordered je Strategie).
+                t0 = clock::now();
+                sink += IndexOrg::index_org_scan(lbuf, kRecords, kRecordSize);
+                t1 = clock::now(); acc[13] += seg_ns(t0, t1);
+                // T14 io_dispatch: io_dispatch_scan (in-memory-Dispatch-Simulation je Strategie).
+                t0 = clock::now();
+                sink += IoDispatch::io_dispatch_scan(lbuf, kRecords, kRecordSize);
+                t1 = clock::now(); acc[14] += seg_ns(t0, t1);
+                // T15 migration_policy: migration_decide_scan (Entscheidungslogik-Kosten ohne 2. Tier).
+                t0 = clock::now();
+                sink += Migration::migration_decide_scan(lbuf, kRecords, kRecordSize);
+                t1 = clock::now(); acc[15] += seg_ns(t0, t1);
+                // T16 filter: filter_probe_scan (Bloom/Cuckoo/SuRF/Xor-Probe; buf,n,queries,q).
+                t0 = clock::now();
+                sink += Filter::filter_probe_scan(lbuf, kRecords, qbuf.data(), kQueries);
+                t1 = clock::now(); acc[16] += seg_ns(t0, t1);
+                // T17 queuing_q1: put N + get N (Buffer-Strategy).
+                t0 = clock::now();
+                for (std::uint64_t i = 0; i < ops_per_batch; ++i) q1_local.put(static_cast<QElem>(i));
+                for (std::uint64_t i = 0; i < ops_per_batch; ++i) { auto v = q1_local.get(); if (v) sink += static_cast<std::uint64_t>(*v); }
+                t1 = clock::now(); acc[17] += seg_ns(t0, t1);
+                // T18 queuing_q2: should_flush N + on_flush_complete (Flush-Policy).
+                t0 = clock::now();
+                for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
+                    auto const d = q2_local.should_flush(static_cast<std::size_t>(i & 0x3FFu), std::size_t{1024});
+                    sink += static_cast<std::uint64_t>(d);
+                    q2_local.on_flush_complete();
+                }
+                t1 = clock::now(); acc[18] += seg_ns(t0, t1);
+            };
+
+            do_seg19();                                    // Warmup (verworfen)
+            for (auto& a : acc) a = 0;
+            for (std::uint64_t b = 0; b < batches; ++b) do_seg19();
+            alloc.deallocate(lbuf, kLbufBytes, 64);
+
+            std::int64_t total = 0;
+            for (int i = 0; i < 19; ++i) { out->seg_ns[i] = acc[i]; total += acc[i]; }
+            // sink-Nutzung gegen Wegoptimierung (verfälscht total NICHT — nur ein 1-bit-XOR im unmöglichen Fall).
+            if (sink == ~0ull) out->seg_ns[0] ^= 1;
+            out->total_ns         = total;
+            out->batches_measured = batches;
+            return batches;
+        } catch (...) {
+            *out = ComdareSegmentLatencyV2{};
             return 0;
         }
     }

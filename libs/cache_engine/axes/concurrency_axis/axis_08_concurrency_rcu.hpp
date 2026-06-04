@@ -7,6 +7,7 @@
 #include "concepts/axis_08_concurrency_cache_engine_permutation_concept.hpp"
 #include <axes/concurrency_axis/axis_08_concurrency_flags.hpp>
 #include <topics/concurrency/concepts/topic_concurrency_concept.hpp>
+#include <atomic>
 #include <string_view>
 #include <type_traits>
 
@@ -28,6 +29,22 @@ public:
     [[nodiscard]] static constexpr std::string_view name()        noexcept { return "concurrency_rcu"; }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "RcuConcurrency (Read-Copy-Update, deferred grace-period reclamation)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "RCU"; }
+
+    // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). RCU = Read-Copy-Update
+    // (McKenney OLS 2001): die Read-Side ist EXTREM billig — rcu_read_lock()/rcu_read_unlock()
+    // sind nur ein per-Thread Nesting-Zaehler-Bump (RELAXED-Order, KEINE atomare RMW-Sperre, KEIN
+    // Memory-Barrier auf der Read-Side). acquire() inkrementiert, release() dekrementiert den
+    // Read-Side-Nesting-Zaehler. Reale, strategie-abhaengige Laufzeit: der billigste
+    // synchronisierende Wrapper (nur relaxed-Counter), distinkt von WaitFree (acq/rel-Order) und
+    // den Mutex-Wrappern. Zaehler thread_local-static (via read_nesting_()).
+    static void acquire() noexcept { read_nesting_().fetch_add(1u, std::memory_order_relaxed); }
+    static void release() noexcept { read_nesting_().fetch_sub(1u, std::memory_order_relaxed); }
+
+private:
+    [[nodiscard]] static std::atomic<unsigned>& read_nesting_() noexcept {
+        static thread_local std::atomic<unsigned> n{0u};
+        return n;
+    }
 };
 
 }  // namespace

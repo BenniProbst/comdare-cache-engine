@@ -6,6 +6,9 @@
 #include "concepts/axis_01_index_organization_cache_engine_permutation_concept.hpp"
 #include <axes/index_organization/axis_01_index_organization_flags.hpp>
 #include <topics/search_engine/concepts/topic_search_engine_concept.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -29,6 +32,27 @@ public:
     [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "index_org_index_organized_table"; }
     [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "IotIndexOrganization (Oracle IOT, Daten in B+Tree-Leaves, ART/HOT-style)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "INDEX_ORGANIZED_TABLE"; }
+
+    // V41.F.6.1 — verhaltens-tragende Laufzeit-API (index_organization-Achse, Pfad-A-operativ, T13).
+    // Distinktes Zugriffsmuster je Strategie: IOT = EMBEDDED — Daten direkt in den Index-Leaf-Pages,
+    // KEIN Pointer-Hop (data_embedded_in_leaf()==true). Der Scan liest pro Record sequentiell SOWOHL
+    // den eingebetteten Index-Key ALS AUCH das Daten-Feld (zwei Felder/Record), modelliert die
+    // hoehere Per-Record-Touch-Last des fetten Leaf-Layouts. Sequentiell wie Clustered, aber mit
+    // realer Zusatz-Last durch das zweite eingebettete Feld — KEINE konstante Zeit. Bei record_size<8
+    // faellt der embedded Key auf Feld-0 zurueck (kein OOB).
+    [[nodiscard]] static std::uint64_t index_org_scan(unsigned char const* buf, std::size_t n,
+                                                      std::size_t record_size) noexcept {
+        std::size_t const key_off = (record_size >= 2u * sizeof(std::uint32_t)) ? sizeof(std::uint32_t) : 0u;
+        std::uint64_t s = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::uint32_t key;
+            std::uint32_t data;
+            std::memcpy(&key,  buf + i * record_size,           sizeof(key));    // IOT: eingebetteter Index-Key
+            std::memcpy(&data, buf + i * record_size + key_off, sizeof(data));   // IOT: Daten im selben Leaf-Slot
+            s += key + data;
+        }
+        return s;
+    }
 };
 
 }  // namespace

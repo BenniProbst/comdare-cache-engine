@@ -13,13 +13,13 @@
 //       resetbar, also eliminiert die Delta-Bildung das kumulative Artefakt (search_lookup 2000→4000→…).
 //   (B) Gesamt-Wall-Clock: steady_clock um insert+lookup → total_ns je Messung (Host-Messung, KEINE
 //       Baum-Knoten-Eigenschaft → reist NUR über PermResult/LazyMeasuredRow in die CSV, NICHT über ingest).
-//   (C-2) Echter per-Segment-Timer: drive_segment_latencies() ruft das ABI-Sub-Interface IMeasurableWorkloadV2
-//       (run_workload_segmented) → 4 aufsummierte per-Achsen-ns (search_algo/allocator/memory_layout/
-//       serialization). Die 15 NICHT instrumentierten Achsen bleiben in der CSV ehrlich n/a (NICHT 0).
+//   (X) Echter per-Segment-Timer auf ALLE 19 Achsen: drive_segment_latencies() ruft das ABI-Sub-Interface
+//       IMeasurableWorkloadV3 (run_workload_segmented_v2) → 19 aufsummierte per-Achsen-ns (T0..T18). KEINE Achse
+//       n/a mehr (jede treibt eine reale, strategie-abhängige Op); nur eine DLL OHNE V3-Interface → CSV n/a.
 
 #include "experiment_tree.hpp"                      // NodeObserverSnapshot
 #include "../../anatomy/observable_tier.hpp"        // IObservableTier + ComdareTierObserverSnapshotV1
-#include "../../anatomy/measurable_workload.hpp"    // (C-2): IMeasurableWorkloadV2 + ComdareSegmentLatencyV1
+#include "../../anatomy/measurable_workload.hpp"    // (X): IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
 
 #include <chrono>
 #include <cstdint>
@@ -93,17 +93,17 @@ struct PermResult {
     return r;
 }
 
-/// (C-2) Treibt — falls das geladene Modul IMeasurableWorkloadV2 exponiert — den 4-Segment-Workload und liefert
-/// die ECHT gemessenen, über die Batches aufsummierten per-Achsen-ns (search_algo/allocator/memory_layout/
-/// serialization). `tier` ist das via dynamic_cast erhaltene Sub-Interface (nullptr → out bleibt 0, n/a).
-/// ops_per_batch/batches sind die Mess-Parameter; seed deterministisch. Gibt batches_measured zurück (>0 = real).
-[[nodiscard]] inline std::uint64_t drive_segment_latencies(anatomy::IMeasurableWorkloadV2* tier,
+/// (X) Treibt — falls das geladene Modul IMeasurableWorkloadV3 exponiert — den 19-Segment-Workload und liefert
+/// die ECHT gemessenen, über die Batches aufsummierten per-Achsen-ns ALLER 19 SearchAlgorithm-Achsen
+/// (T0..T18, kein n/a mehr). `tier` ist das via dynamic_cast erhaltene Sub-Interface (nullptr → out bleibt 0,
+/// → CSV ehrlich n/a). ops_per_batch/batches sind die Mess-Parameter; seed deterministisch. Gibt batches_measured (>0 = real).
+[[nodiscard]] inline std::uint64_t drive_segment_latencies(anatomy::IMeasurableWorkloadV3* tier,
                                                            std::uint64_t ops_per_batch, std::uint64_t batches,
                                                            std::uint64_t seed,
-                                                           anatomy::ComdareSegmentLatencyV1& out) {
-    out = anatomy::ComdareSegmentLatencyV1{};
-    if (tier == nullptr) return 0;   // alte/ohne-V2 DLL → ehrlich n/a (out bleibt 0)
-    return tier->run_workload_segmented(ops_per_batch, batches, seed, &out);
+                                                           anatomy::ComdareSegmentLatencyV2& out) {
+    out = anatomy::ComdareSegmentLatencyV2{};
+    if (tier == nullptr) return 0;   // alte/ohne-V3 DLL → ehrlich n/a (out bleibt 0)
+    return tier->run_workload_segmented_v2(ops_per_batch, batches, seed, &out);
 }
 
 }  // namespace comdare::cache_engine::builder::experiment
