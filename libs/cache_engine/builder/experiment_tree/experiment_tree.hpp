@@ -40,12 +40,23 @@ namespace comdare::cache_engine::builder::experiment {
 /// R5.B-Grenze (ehrlich): real getrieben werden search_algo + allocator; `observable_axis_count` macht
 /// transparent, wie viele der Achsen real beobachtet sind (Rest = passive Compile-Time-Deskriptoren / Default 0).
 struct NodeObserverSnapshot {
+    // Legacy-V1-Projektion (Übergang, entfällt I-C): 13 benannte Felder = Sicht auf axis_stats[0] (search) /
+    // axis_stats[6] (allocator) + Meta. Bleiben für die (noch nicht migrierten) 13-Feld-Konsumenten (CSV-o.*-
+    // Spalten, runtime_measure_visitor, test_d14b/d14c). Auf ingest aus der vollen Matrix abgeleitet.
     std::uint64_t search_lookup_count    = 0, search_hit_count        = 0, search_miss_count   = 0,
                   search_insert_count    = 0, search_erase_count      = 0, search_peak_occupancy = 0;
     std::uint64_t alloc_bytes_allocated  = 0, alloc_bytes_in_use      = 0, alloc_allocation_count = 0,
                   alloc_deallocation_count = 0, alloc_failure_count   = 0;
     std::uint64_t observable_axis_count  = 0;  // ObserverAggregate::observable_count() — wie viele Achsen real
     std::uint64_t tier_fill_level        = 0;  // tier_size() zum Snapshot-Zeitpunkt
+    // KONSOLIDIERUNG (I-B.3, 2026-06-04, User-Fork „voll auf axis_stats[19][8] migrieren"): die VOLLE Per-Achsen-
+    // Matrix + das Pfad-B-Per-Achsen-Timing. Das Wire-Format (format_perm_result↔ingest_result_line) trägt sie,
+    // der Baum persistiert sie. FLACHE uint64/int64-Felder (experiment_tree bleibt umbrella-/anatomy-unabhängig,
+    // layout-identisch zu anatomy::ComdareTierObserverSnapshot ohne den Typ zu importieren). 19×8 = kV3-Schema.
+    std::uint64_t axis_stats[19][8] = {};   // T0..T18 × 8 Felder (Schema = kV3AxisSchema)
+    std::int64_t  seg_ns[19]        = {};   // Pfad-B Per-Achsen-Timing (ns)
+    std::uint64_t filled_axis_count = 0;    // # Achsen mit Observer-Werten
+    std::uint64_t batches_measured  = 0;    // # Timing-Batches (Warmup verworfen)
 };
 
 // ── Per-node Value (§2): Observer-Statistics + Mess-Auswertung der Ebene ──

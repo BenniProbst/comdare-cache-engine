@@ -31,19 +31,30 @@ namespace comdare::cache_engine::builder::experiment {
         if (sc == std::string_view::npos) break;
         i = sc + 1;
     }
-    if (f.size() < 14 || f[0].empty()) return false;
+    // KONSOLIDIERUNG (I-B.3, 2026-06-04): volle Matrix = binary_id + axis_stats[19][8] (152) + seg_ns[19] (19)
+    // + Meta (observable_axis_count, tier_fill_level, filled_axis_count, batches_measured) = 175 Felder → ≥176 total.
+    if (f.size() < 176 || f[0].empty()) return false;
 
     auto u64 = [](std::string_view s) -> std::uint64_t {
         std::uint64_t v = 0; std::from_chars(s.data(), s.data() + s.size(), v); return v;
     };
+    auto i64 = [](std::string_view s) -> std::int64_t {
+        std::int64_t v = 0; std::from_chars(s.data(), s.data() + s.size(), v); return v;
+    };
     NodeObserverSnapshot o{};
-    o.search_lookup_count      = u64(f[1]);  o.search_hit_count          = u64(f[2]);
-    o.search_miss_count        = u64(f[3]);  o.search_insert_count       = u64(f[4]);
-    o.search_erase_count       = u64(f[5]);  o.search_peak_occupancy     = u64(f[6]);
-    o.alloc_bytes_allocated    = u64(f[7]);  o.alloc_bytes_in_use        = u64(f[8]);
-    o.alloc_allocation_count   = u64(f[9]);  o.alloc_deallocation_count  = u64(f[10]);
-    o.alloc_failure_count      = u64(f[11]); o.observable_axis_count     = u64(f[12]);
-    o.tier_fill_level          = u64(f[13]);
+    std::size_t idx = 1;
+    for (std::size_t t = 0; t < 19; ++t) for (std::size_t fi = 0; fi < 8; ++fi) o.axis_stats[t][fi] = u64(f[idx++]);
+    for (std::size_t t = 0; t < 19; ++t) o.seg_ns[t] = i64(f[idx++]);
+    o.observable_axis_count = u64(f[idx++]); o.tier_fill_level   = u64(f[idx++]);
+    o.filled_axis_count     = u64(f[idx++]); o.batches_measured  = u64(f[idx++]);
+    // Legacy-V1-Projektion (Übergang, entfällt I-C): 13 benannte Felder = Sicht auf axis_stats[0] (search) /
+    // axis_stats[6] (allocator) → die noch nicht migrierten 13-Feld-Konsumenten (CSV-o.*, test_d14b/d14c).
+    o.search_lookup_count    = o.axis_stats[0][0]; o.search_hit_count       = o.axis_stats[0][1];
+    o.search_miss_count      = o.axis_stats[0][2]; o.search_insert_count    = o.axis_stats[0][3];
+    o.search_erase_count     = o.axis_stats[0][4]; o.search_peak_occupancy  = o.axis_stats[0][5];
+    o.alloc_bytes_allocated  = o.axis_stats[6][0]; o.alloc_bytes_in_use     = o.axis_stats[6][1];
+    o.alloc_allocation_count = o.axis_stats[6][2]; o.alloc_deallocation_count = o.axis_stats[6][3];
+    o.alloc_failure_count    = o.axis_stats[6][4];
 
     NodeValue nv{};
     nv.has_result     = true;

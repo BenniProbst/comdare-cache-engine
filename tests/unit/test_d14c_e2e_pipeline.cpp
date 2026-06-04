@@ -40,10 +40,10 @@ int main() {
     std::atomic<int> measure_calls{0};
     ex::MeasureFn measure = [&](std::string const& bid) -> std::string {
         ++measure_calls;
-        ana::ComdareTierObserverSnapshotV1 snap{};
-        snap.search_insert_count = 42; snap.search_lookup_count = 42;
+        ana::ComdareTierObserverSnapshot snap{};   // KONSOLIDIERUNG (I-B.3): EIN POD, search-Stats nach axis_stats[0]
+        snap.axis_stats[0][3] = 42; snap.axis_stats[0][0] = 42;   // T0 search insert/lookup
         snap.tier_fill_level = 42; snap.observable_axis_count = 2;
-        return ex::format_perm_result(bid, snap);   // exakt wie perm_runner
+        return ex::format_perm_result(bid, snap);   // exakt wie perm_runner (volle Matrix)
     };
 
     ex::ExperimentTree tree{std::make_shared<ex::ExperimentNodeFactory>()};

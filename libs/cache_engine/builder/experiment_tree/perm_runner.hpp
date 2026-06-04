@@ -27,17 +27,18 @@
 
 namespace comdare::cache_engine::builder::experiment {
 
-/// Formatiert einen Observer-Snapshot als result_ingest-Zeile (binary_id + 13 ';'-Felder, NodeObserverSnapshot-
-/// Reihenfolge). EXAKT das von ingest_result_line erwartete Format → Round-Trip-Garant.
+/// KONSOLIDIERUNG (I-B.3, 2026-06-04, User-Fork „voll auf axis_stats[19][8]"): formatiert den EINEN konsolidierten
+/// Observer-POD als result_ingest-Zeile = binary_id + die VOLLE Matrix: axis_stats[19][8] (152) + seg_ns[19] (19)
+/// + Meta (observable_axis_count, tier_fill_level, filled_axis_count, batches_measured) = 175 Felder. EXAKT das von
+/// ingest_result_line erwartete Format → Round-Trip-Garant (Cluster: perm_runner→Zeile→ingest→Baum-NodeValue).
 [[nodiscard]] inline std::string format_perm_result(std::string const& binary_id,
-                                                    anatomy::ComdareTierObserverSnapshotV1 const& s) {
+                                                    anatomy::ComdareTierObserverSnapshot const& s) {
     std::string out = binary_id;
-    auto add = [&](std::uint64_t v) { out += ';'; out += std::to_string(v); };
-    add(s.search_lookup_count);   add(s.search_hit_count);       add(s.search_miss_count);
-    add(s.search_insert_count);   add(s.search_erase_count);     add(s.search_peak_occupancy);
-    add(s.alloc_bytes_allocated); add(s.alloc_bytes_in_use);     add(s.alloc_allocation_count);
-    add(s.alloc_deallocation_count); add(s.alloc_failure_count); add(s.observable_axis_count);
-    add(s.tier_fill_level);
+    auto addu = [&](std::uint64_t v) { out += ';'; out += std::to_string(v); };
+    auto addi = [&](std::int64_t v)  { out += ';'; out += std::to_string(v); };
+    for (std::size_t t = 0; t < 19; ++t) for (std::size_t f = 0; f < 8; ++f) addu(s.axis_stats[t][f]);
+    for (std::size_t t = 0; t < 19; ++t) addi(s.seg_ns[t]);
+    addu(s.observable_axis_count); addu(s.tier_fill_level); addu(s.filled_axis_count); addu(s.batches_measured);
     return out;
 }
 
@@ -65,10 +66,10 @@ struct PermResult {
 [[nodiscard]] inline PermResult run_observable_perm(anatomy::IObservableTier& tier,
                                                     std::string const& binary_id, std::uint64_t n_ops,
                                                     anatomy::IObservableTierV3* v3 = nullptr) {
-    // (A) Reset: frischer Datenstruktur-Zustand + Baseline der (nicht resetbaren) absoluten Statistik-Zähler.
+    // (A) Reset: frischer Datenstruktur-Zustand. tier_clear() ruft jetzt search_organ_.reset() (I-B.1) → auch die
+    // T0-search-Statistik wird je Messung genullt → KEIN post−pre-Delta mehr nötig (axis_stats warmup-frei aus
+    // EINEM Post-Observe). Die result_ingest-Zeile entsteht unten aus dem EINEN konsolidierten POD (volle Matrix).
     tier.tier_clear();
-    anatomy::ComdareTierObserverSnapshotV1 pre{};
-    tier.tier_observe(&pre);
 
     // (B) Gesamt-Wall-Clock um die GANZE Mess-Last (insert + lookup).
     auto const t0 = std::chrono::steady_clock::now();
@@ -76,29 +77,7 @@ struct PermResult {
     for (std::uint64_t i = 0; i < n_ops; ++i) { std::uint64_t v = 0; (void)tier.tier_lookup(i, &v); }
     auto const t1 = std::chrono::steady_clock::now();
 
-    anatomy::ComdareTierObserverSnapshotV1 post{};
-    tier.tier_observe(&post);
-
-    // (A) Delta-Bildung: die getriebenen Zähler als (post − pre); Meta-Felder (observable_axis_count,
-    // tier_fill_level) sind Zustand zum Snapshot-Zeitpunkt → direkt aus post (keine Differenz).
-    anatomy::ComdareTierObserverSnapshotV1 d{};
-    auto sub = [](std::uint64_t a, std::uint64_t b) noexcept -> std::uint64_t { return (a >= b) ? (a - b) : 0u; };
-    d.search_lookup_count      = sub(post.search_lookup_count,      pre.search_lookup_count);
-    d.search_hit_count         = sub(post.search_hit_count,         pre.search_hit_count);
-    d.search_miss_count        = sub(post.search_miss_count,        pre.search_miss_count);
-    d.search_insert_count      = sub(post.search_insert_count,      pre.search_insert_count);
-    d.search_erase_count       = sub(post.search_erase_count,       pre.search_erase_count);
-    d.search_peak_occupancy    = post.search_peak_occupancy;   // Peak ist kein additiver Counter → post-Wert
-    d.alloc_bytes_allocated    = sub(post.alloc_bytes_allocated,    pre.alloc_bytes_allocated);
-    d.alloc_bytes_in_use       = post.alloc_bytes_in_use;      // Füllstand → post-Wert
-    d.alloc_allocation_count   = sub(post.alloc_allocation_count,   pre.alloc_allocation_count);
-    d.alloc_deallocation_count = sub(post.alloc_deallocation_count, pre.alloc_deallocation_count);
-    d.alloc_failure_count      = sub(post.alloc_failure_count,      pre.alloc_failure_count);
-    d.observable_axis_count    = post.observable_axis_count;   // Meta (Diagnose) → post-Wert
-    d.tier_fill_level          = post.tier_fill_level;          // Füllstand → post-Wert
-
     PermResult r;
-    r.line    = format_perm_result(binary_id, d);
     r.total_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
     r.n_ops   = n_ops;
     // Phase A+B (2026-06-04): den generischen Per-Achsen-V3-Snapshot NACH der Mess-Last ziehen (Pfad B).
@@ -122,6 +101,8 @@ struct PermResult {
     // jetzt search_organ_.reset() ruft, ist axis_stats[0] frisch (kein post−pre-Delta nötig).
     tier.tier_observe(&r.unified);
     r.unified_real = true;
+    // KONSOLIDIERUNG (I-B.3): die result_ingest-Zeile aus dem EINEN POD = volle Matrix (axis_stats + seg_ns + Meta).
+    r.line = format_perm_result(binary_id, r.unified);
     return r;
 }
 
