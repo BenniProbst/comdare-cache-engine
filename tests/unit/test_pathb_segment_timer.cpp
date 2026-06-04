@@ -72,11 +72,42 @@ static an::ComdareSegmentLatencyV2 measure(char const* name) {
     return seg;
 }
 
+// KONSOLIDIERUNG I-A: prüft die EINE tier_observe(ComdareTierObserverSnapshot*) — Stats UND seg_ns in EINEM POD,
+// und die Q1-Invariante: axis_stats werden VOR dem Timing gelesen → identisch zum reinen V3-Observer (kein Inflate).
+template <class C>
+static void measure_unified(char const* name) {
+    using Anatomy = an::SearchAlgorithmAnatomy<C>;
+    constexpr std::uint64_t kN = 16384;
+    // Referenz-Instanz: reiner V3-Observer (ohne Timing).
+    an::SearchAlgorithmAbiAdapter<Anatomy> ref;
+    auto* refd = dynamic_cast<an::IObservableTier*>(static_cast<an::IAnatomyBase*>(&ref));
+    auto* refv3 = dynamic_cast<an::IObservableTierV3*>(static_cast<an::IAnatomyBase*>(&ref));
+    for (std::uint64_t i = 0; i < kN; ++i) (void)refd->tier_insert(i, i * 7u + 1u);
+    an::ComdareTierObserverSnapshotV3 v3{}; refv3->tier_observe_v3(&v3);
+    // Unified-Instanz: identisch befüllt, EIN tier_observe(unified).
+    an::SearchAlgorithmAbiAdapter<Anatomy> uni;
+    auto* unid = dynamic_cast<an::IObservableTier*>(static_cast<an::IAnatomyBase*>(&uni));
+    for (std::uint64_t i = 0; i < kN; ++i) (void)unid->tier_insert(i, i * 7u + 1u);
+    an::ComdareTierObserverSnapshot s{}; unid->tier_observe(&s);
+    // (Q1) axis_stats == reiner V3 (Timing-Pass hat die Observer-Zähler NICHT inflationiert).
+    bool stats_eq = (s.observable_axis_count == v3.observable_axis_count && s.tier_fill_level == v3.tier_fill_level && s.filled_axis_count == v3.filled_axis_count);
+    for (int t = 0; t < 19 && stats_eq; ++t) for (int f = 0; f < 8; ++f) if (s.axis_stats[t][f] != v3.axis_stats[t][f]) { stats_eq = false; break; }
+    tr(std::string(name) + ": unified axis_stats == reiner V3 (Q1: kein Timing-Inflate)", stats_eq);
+    // seg_ns alle > 0 im selben POD.
+    bool seg_pos = true; for (int t = 0; t < 19; ++t) if (s.seg_ns[t] <= 0) seg_pos = false;
+    tr(std::string(name) + ": unified seg_ns[0..18] alle > 0 (Pfad-B-Timing im EINEN POD)", seg_pos);
+}
+
 int main() {
     std::cout << "==== Pfad-B Per-Achsen-Timer (IObservableTierV4) ====\n";
     auto a = measure<comp::ArtComposition>("Art");
     auto h = measure<comp::HotComposition>("Hot");
     auto m = measure<comp::MasstreeComposition>("Masstree");
+
+    std::cout << "---- KONSOLIDIERUNG I-A: EINE tier_observe(ComdareTierObserverSnapshot) ----\n";
+    measure_unified<comp::ArtComposition>("Art");
+    measure_unified<comp::HotComposition>("Hot");
+    measure_unified<comp::MasstreeComposition>("Masstree");
 
     // (4) Tier-Variation: mind. EINE Achse differiert über die 3 Tiere (sonst misst der Timer nichts Tier-Spezifisches).
     bool varied = false;

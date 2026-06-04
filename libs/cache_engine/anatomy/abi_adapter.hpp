@@ -1225,6 +1225,32 @@ public:
         }
 #endif  // COMDARE_CE_ENABLE_STATISTICS
     }
+
+    // KONSOLIDIERUNG (I-A, 2026-06-04): die EINE Observer-Methode über den konsolidierten POD. Vereint Observer-
+    // Stats (axis_stats[19][8]+Meta) UND Pfad-B-Timing (seg_ns[19]) in EINEN Snapshot. FIXE SEQUENZ (Q1-Blocker-
+    // Mitigation, Preflight wkqt7a0il): (1) axis_stats VOR dem Timing aus den akkumulierten Real-Workload-Zählern
+    // lesen, (2) DANN seg_ns timen (fill_segment_timing_v3 treibt die per-op-Organe + resettet sie an seinem Ende
+    // = SCHRITT 3) → die in (1) gelesenen Stats sind unverfälscht. In I-A delegiert sie an die bestehenden,
+    // getesteten Bodies (fill_observer_v3 + fill_segment_timing_v3); in I-C werden diese hier hineingemergt.
+    void tier_observe(ComdareTierObserverSnapshot* out) const noexcept override {
+        if (out == nullptr) return;
+        *out = ComdareTierObserverSnapshot{};
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        // SCHRITT 1 — Observer-READ (vor dem Timing).
+        ComdareTierObserverSnapshotV3 v3{};
+        fill_observer_v3(&v3);
+        for (std::size_t t = 0; t < kV3AxisCount; ++t)
+            for (std::size_t f = 0; f < kV3FieldCount; ++f) out->axis_stats[t][f] = v3.axis_stats[t][f];
+        out->observable_axis_count = v3.observable_axis_count;
+        out->tier_fill_level       = v3.tier_fill_level;
+        out->filled_axis_count     = v3.filled_axis_count;
+        // SCHRITT 2 — Pfad-B-Timing (nach dem Observer-READ; resettet die per-op-Organe an seinem Ende = SCHRITT 3).
+        ComdareSegmentLatencyV2 seg{};
+        fill_segment_timing_v3(&seg);
+        for (std::size_t t = 0; t < kV3AxisCount; ++t) out->seg_ns[t] = seg.seg_ns[t];
+        out->batches_measured = seg.batches_measured;
+#endif  // COMDARE_CE_ENABLE_STATISTICS
+    }
 #endif  // COMDARE_MEASUREMENT_ON (tier_observe / observer_all)
 
 #if COMDARE_MEASUREMENT_ON
