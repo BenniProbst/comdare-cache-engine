@@ -35,7 +35,14 @@ Alle Commits in `comdare-cache-engine` (main); Superprojekt-Submodul je gebumpt+
 **User-Forks entschieden:** seg_ns = **Pfad B** (reale Struktur; Thesis-seg_* werden neu baseliniert). Baum/Wire-Format **VOLL** auf axis_stats[19][8] (bricht 13-Feld-Cluster-Protokoll bewusst). **Klein entschieden:** V2-Tests auf axis_stats-Indizes umschreiben (Coverage halten); Schema-Konstanten kV3*-Namen behalten.
 
 ## 3. VERBLEIBEND (all-or-nothing, je cmake-verifiziert) — file:line in tasks/wkqt7a0il.output
-### I-B.3 — Tree/Wire-Format VOLL auf axis_stats[19][8] (~8 Host-Dateien SYNCHRON)
+
+> **I-B.3 DONE** (ce `3ceddf4`): Tree/Wire-Format voll auf axis_stats[19][8] (minimal-Ripple: NodeObserverSnapshot
+> bekam die volle Matrix als FLACHE Felder + behielt die 13 Legacy-Felder als Projektion → nur experiment_tree +
+> perm_runner (format_perm_result volle Matrix, run_observable_perm OHNE V1-Delta) + result_ingest (parse 175 + 13
+> ableiten) + test_d14b/d14c-Mocks geändert). Verifiziert cmake: test_d14b exit 0, test_d14c exit 0, test_obs_phaseA exit 0.
+> **Letzter V1-Blocker (format_perm_result) entfernt → I-C unblocked.**
+
+### I-B.3 — Tree/Wire-Format VOLL auf axis_stats[19][8] (~8 Host-Dateien SYNCHRON) [DONE]
 - `experiment_tree.hpp`: `NodeObserverSnapshot` (heute 13 V1-Felder Z.42-49) → `using NodeObserverSnapshot = anatomy::ComdareTierObserverSnapshot;` (+ `#include observable_tier.hpp` — leichter ABI-Header, ok).
 - `perm_runner.hpp` `format_perm_result` (heute 13 ';'-Felder aus V1) + `result_ingest.hpp` `ingest_result_line` (heute 13 Felder parsen, `f.size()<14`-Check) → **volle Matrix** (axis_stats 152 + seg_ns 19 + Meta 4 = 175 Felder). **SYNCHRON ändern, sonst Round-Trip-Bruch** (test_d14b/d14c).
 - Konsumenten der 13 Felder auf `axis_stats[0]/[6]`+Meta: `cache_engine_builder_iterator.hpp` (13 `o.*`-CSV-Spalten Z.181-193), `runtime_measure_visitor.hpp`, `node_value_measurement.hpp`, `workload_orchestrator.hpp`, `tier_observe_trace_abi.hpp` (Emitter Z.267-312).
@@ -43,6 +50,8 @@ Alle Commits in `comdare-cache-engine` (main); Superprojekt-Submodul je gebumpt+
 - **Verifikation:** cmake `test_d14b_perm_runner` + `test_d14c_e2e_pipeline` grün.
 
 ### I-C — Entfernung + ABI-Major-Bump
+> **KRITISCHE Intricacy:** Die EINE `tier_observe(unified)` RUFT heute `fill_observer_v3(&v3)` (V3-POD) + `fill_segment_timing_v3(&seg)` (SegV2) und KOPIERT in den unified POD. Vor dem Löschen von V3-POD: `fill_observer_v3` auf `ComdareTierObserverSnapshot*` umstellen (schreibt `out->axis_stats`/Meta DIREKT — identisches Layout) + `fill_segment_timing_v3` schreibt `out->seg_ns` direkt. `ComdareSegmentLatencyV2` BLEIBT (Pfad A `run_workload_segmented_v2` nutzt sie). DANN V3-POD + V2/V3/V4-Interfaces löschen.
+> **~12 verbleibende Test-Mocks** mit `tier_observe(ComdareTierObserverSnapshotV1*)`-Override → auf `tier_observe(ComdareTierObserverSnapshot*)` + axis_stats[0]/[6] umstellen (Muster wie test_d14b: search→[0], alloc→[6]). Liste: test_d13_runtime_measure, test_d13_dll_runtime_measure, test_v5_two_phase_driver, test_v5_workload_orchestrator, test_v5_ycsb_op_set, br4_load, test_v41_anatomy_f15_measurement(+memcpy), test_v41_anatomy_observer, test_v41_anatomy_adhoc_dll_load. V3/V4-Tests (test_obs_phaseA/B*, test_pathb, tier150_axis_grid) auf EINEN POD. Fallback in format_csv_row entfernen.
 - `observable_tier.hpp`: ComdareTierObserverSnapshotV1/V2/V3 + IObservableTierV2/V3/V4 + kTierObserverSnapshotVersion(V2/V3) löschen; `tier_observe(unified)` als EINZIGE pure-virtual (V1-Overload weg).
 - `abi_adapter.hpp`: IObservableTierV2/V3/V4 aus Vererbung (Z.120-124); fill_observer_v2/tier_observe_v2 (Z.783-854), fill_observer_v3/tier_observe_v3 (Body in unified gemergt), fill_segment_timing_v3/tier_observe_timed_v3 löschen. (IMeasurableWorkload*-Vererbung = Pfad A, BLEIBT.)
 - `tier_observer_v2_bridge.hpp` LÖSCHEN (0 Includer verifiziert).
