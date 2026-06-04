@@ -46,6 +46,11 @@ struct PermResult {
     std::string  line;        // result_ingest-Zeile (binary_id + 13 Observer-Delta-Felder)
     std::int64_t total_ns = 0;   // (B) steady_clock-Wall-Clock um insert+lookup DIESER Messung
     std::uint64_t n_ops   = 0;   // Eingabe-n_ops (für ns_per_op = total_ns / (2*n_ops): insert+lookup)
+    // Phase A (2026-06-04): der GENERISCHE Per-Achsen-V3-Snapshot (axis_stats[19][8]) NACH der Mess-Last —
+    // die 10 Phase-A-Achsen tragen echte statistics()-Werte (>0), die 9 Phase-B-Achsen 0. v3_real=false →
+    // das Modul exponiert IObservableTierV3 nicht (alte DLL) → ehrlich „n/a" in der CSV.
+    anatomy::ComdareTierObserverSnapshotV3 v3{};
+    bool         v3_real  = false;
 };
 
 /// (A)+(B) Treibt ein geladenes IObservableTier (SearchAlgorithm-Mess-Pfad): ZUERST tier_clear() (frischer
@@ -53,7 +58,8 @@ struct PermResult {
 /// lookup UNTER steady_clock-Messung (total_ns), post-Observe, und bildet die result_ingest-Zeile aus dem
 /// DELTA (post − pre) der getriebenen Zähler. Der host-/cluster-seitige Unikat-Mess-Lauf je Binary.
 [[nodiscard]] inline PermResult run_observable_perm(anatomy::IObservableTier& tier,
-                                                    std::string const& binary_id, std::uint64_t n_ops) {
+                                                    std::string const& binary_id, std::uint64_t n_ops,
+                                                    anatomy::IObservableTierV3* v3 = nullptr) {
     // (A) Reset: frischer Datenstruktur-Zustand + Baseline der (nicht resetbaren) absoluten Statistik-Zähler.
     tier.tier_clear();
     anatomy::ComdareTierObserverSnapshotV1 pre{};
@@ -90,6 +96,12 @@ struct PermResult {
     r.line    = format_perm_result(binary_id, d);
     r.total_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
     r.n_ops   = n_ops;
+    // Phase A (2026-06-04): den generischen Per-Achsen-V3-Snapshot NACH der Mess-Last ziehen (Pfad B). tier_clear
+    // (oben) hat die auto-gekoppelten Phase-A-Organe (ct/map/q1) frisch gesetzt → der post-Workload-Snapshot trägt
+    // genau die Op-Zähler DIESER Messung für die neu verdrahteten Achsen; die Pfad-B-Scan-/cumulative-Achsen
+    // (node/layout/serialization/search/alloc/telemetry) tragen ihren Zustand zum Observe-Zeitpunkt. Kein Delta
+    // nötig (anders als V1: die V3-Per-Achsen-Demonstration braucht den absoluten post-Zustand, alle >0 sichtbar).
+    if (v3 != nullptr) { v3->tier_observe_v3(&r.v3); r.v3_real = true; }
     return r;
 }
 
