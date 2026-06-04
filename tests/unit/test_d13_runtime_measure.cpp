@@ -37,6 +37,12 @@ struct MockTier final : ana::IObservableTier, ana::IResourceControllableTier {
         out->tier_fill_level       = data.size();
         out->observable_axis_count = 2;
     }
+    // KONSOLIDIERUNG (I-C): die EINE konsolidierte tier_observe — search → axis_stats[0].
+    void tier_observe(ana::ComdareTierObserverSnapshot* out) const noexcept override {
+        if (!out) return;
+        out->axis_stats[0][3] = inserts; out->axis_stats[0][0] = lookups;   // T0 search insert/lookup
+        out->tier_fill_level = data.size(); out->observable_axis_count = 2;
+    }
     // IResourceControllableTier
     void tier_query_resource_caps(ana::ComdareResourceControlV1* o) const noexcept override {
         if (!o) return; o->thread_count = 8; o->controllable_axis_count = 1; }
