@@ -709,6 +709,12 @@ public:
 
     void tier_clear() noexcept override {
         search_organ_.clear(); container_.clear();
+        // KONSOLIDIERUNG (2026-06-04): T0 search_algo-Statistik je Messung nullen. Der frühere perm_runner-
+        // Kommentar „search_organ_ per ABI nicht resetbar" war VERALTET — ObservableComposedContainer/
+        // ObservableComposedSearch tragen reset() (stats_={}). Damit ist axis_stats[0] pro (Binary×Setting×Rep)
+        // frisch (kein kumulatives 2000→4000→…-Artefakt) → der konsolidierte tier_observe braucht KEIN post−pre-
+        // Delta mehr (alle 19 Achsen warmup-frei aus EINEM Post-Observe). if-constexpr: AdHoc-Strategien ohne reset().
+        if constexpr (requires { search_organ_.reset(); }) search_organ_.reset();
         // Phase A: die auto-gekoppelten Achsen-Organe mit-leeren (Daten UND kumulative Statistik), damit der
         // Mess-Pfad (perm_runner: tier_clear → pre-Observe → ops → post-Observe) einen sauberen Vor-Zustand hat
         // und q1 (std::deque) nicht über Messungen hinweg unbegrenzt wächst.
