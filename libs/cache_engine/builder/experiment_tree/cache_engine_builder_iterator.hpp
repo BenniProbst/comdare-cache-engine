@@ -91,6 +91,11 @@ struct LazyMeasuredRow {
     // IObservableTierV3 nicht (alte DLL) → die stat_*-Spalten = ehrlich „n/a" (NICHT 0).
     anatomy::ComdareTierObserverSnapshotV3 v3{};
     bool                 v3_real = false;
+    // KONSOLIDIERUNG (I-B, 2026-06-04): der EINE konsolidierte Observer-POD (axis_stats[19][8] + seg_ns[19] + Meta).
+    // Maßgebliche CSV-Quelle: stat_*-Spalten aus unified.axis_stats, seg_*-Spalten aus unified.seg_ns (Pfad B, reale
+    // Komposition — User-Entscheid 2026-06-04, ersetzt den Pfad-A-Segment-Timer). V3/seg entfallen in I-C.
+    anatomy::ComdareTierObserverSnapshot unified{};
+    bool                 unified_real = false;
 };
 
 // ── (B/C/D/X) EINHEITLICHES CSV-Schema (global + per-Binary identisch) ──────────────────────────────────
@@ -170,8 +175,10 @@ struct LazyMeasuredRow {
     out += ';';
     // (X) die 19 per-Segment-ns (T0..T18) — echt wenn seg_real, sonst ehrlich n/a (NICHT 0). Geschleift über
     // seg_ns[19] in derselben Reihenfolge wie die Header-Spalten (kCompositionAxisNames) — single-source, keine Drift.
-    auto seg_field = [&](std::int64_t v) { out += (row.seg_real ? std::to_string(v) : std::string{"n/a"}); out += ';'; };
-    for (int i = 0; i < 19; ++i) seg_field(row.seg.seg_ns[i]);
+    // KONSOLIDIERUNG (I-B): seg_<achse>_ns aus dem EINEN konsolidierten POD = Pfad-B-Timing (reale Komposition,
+    // User-Entscheid 2026-06-04). unified_real=false (alte DLL ohne die konsolidierte tier_observe) → ehrlich n/a.
+    auto seg_field = [&](std::int64_t v) { out += (row.unified_real ? std::to_string(v) : std::string{"n/a"}); out += ';'; };
+    for (int i = 0; i < 19; ++i) seg_field(row.unified.seg_ns[i]);
     // die 4 differenzierten Observer-Counter (search_algo + allocator) — DELTA je Messung (A).
     out += std::to_string(o.search_lookup_count);      out += ';';
     out += std::to_string(o.search_hit_count);         out += ';';
@@ -192,11 +199,11 @@ struct LazyMeasuredRow {
     for (std::size_t t = 0; t < anatomy::kV3AxisCount; ++t) {
         for (std::size_t f = 0; f < anatomy::kV3FieldCount; ++f) {
             if (anatomy::kV3AxisSchema[t].names[f] == nullptr) continue;   // ungenutzt / Phase B → keine Spalte
-            out += (row.v3_real ? std::to_string(row.v3.axis_stats[t][f]) : std::string{"n/a"});
+            out += (row.unified_real ? std::to_string(row.unified.axis_stats[t][f]) : std::string{"n/a"});
             out += ';';
         }
     }
-    out += (row.v3_real ? std::to_string(row.v3.filled_axis_count) : std::string{"n/a"});   // v3_filled_axes
+    out += (row.unified_real ? std::to_string(row.unified.filled_axis_count) : std::string{"n/a"});   // v3_filled_axes (aus konsolidiertem POD)
     out += '\n';
     return out;
 }
@@ -331,6 +338,8 @@ struct LazyRunResult {
                 row.n_ops              = pr.n_ops;
                 row.seg                = seg;                // (C-2)
                 row.seg_real           = (seg_batches_done > 0);
+                row.unified            = pr.unified;         // KONSOLIDIERUNG (I-B): maßgebliche CSV-Quelle (Stats + Pfad-B-seg_ns)
+                row.unified_real       = pr.unified_real;
                 row.v3                 = pr.v3;              // Phase A: generischer Per-Achsen-V3-Snapshot
                 row.v3_real            = pr.v3_real;
                 // (E): die per-Binary-Ergebnis-CSV mit-akkumulieren (gleiches Schema wie die globale CSV).

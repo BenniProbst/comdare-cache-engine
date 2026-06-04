@@ -65,7 +65,15 @@ static an::ComdareTierObserverSnapshotV3 measure_v3(char const* name, std::strin
     row.total_ns      = pr.total_ns;
     row.v3            = pr.v3;
     row.v3_real       = pr.v3_real;
+    row.unified       = pr.unified;       // KONSOLIDIERUNG (I-B): format_csv_row liest stat_*/seg_* aus dem EINEN POD
+    row.unified_real  = pr.unified_real;
     csv_out += ex::format_csv_row(row);
+    // KONSOLIDIERUNG-Verifikation: der konsolidierte POD trägt dieselben axis_stats wie der reine V3-Observer
+    // (Q1: Timing-Pass hat die Observer-Zähler NICHT inflationiert) + seg_ns sind real (Pfad B).
+    {
+        bool eq = true; for (int t = 0; t < 19 && eq; ++t) for (int f = 0; f < 8; ++f) if (pr.unified.axis_stats[t][f] != pr.v3.axis_stats[t][f]) { eq = false; break; }
+        tr((std::string{name} + ": unified axis_stats == V3 (Q1 kein Inflate)").c_str(), eq && pr.unified_real);
+    }
 
     std::cout << "  " << name << ": v3_real=" << (pr.v3_real ? 1 : 0)
               << " filled_axis_count=" << pr.v3.filled_axis_count << "\n    T0..T18 row_sum=";
