@@ -50,6 +50,13 @@ struct MockTier final : an::IObservableTier, an::IRollbackableTier {
         t.tier_fill_level = data_.size();
         *o = t;
     }
+    // KONSOLIDIERUNG (I-C): die EINE konsolidierte tier_observe — search → axis_stats[0].
+    void tier_observe(an::ComdareTierObserverSnapshot* o) const noexcept override {
+        if (!o) return;
+        o->axis_stats[0][3] = ins_; o->axis_stats[0][0] = lk_;  o->axis_stats[0][1] = hit_;
+        o->axis_stats[0][2] = miss_; o->axis_stats[0][4] = ers_; o->axis_stats[0][5] = peak_;
+        o->tier_fill_level = data_.size();
+    }
     void tier_save_all() noexcept override { saved_ = Snap{data_, ins_, ers_, peak_, lk_, hit_, miss_}; }
     void tier_rollback_all() noexcept override {
         if (saved_) {
