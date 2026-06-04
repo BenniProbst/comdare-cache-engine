@@ -91,6 +91,23 @@ public:
         if constexpr (ObservableAxis<typename Composition::node_type>) {
             agg.node_type = axis_node_type_.statistics();
         }
+        // Per-Achsen-Vervollständigung Phase A (2026-06-04): T1 cache_traversal + T2 mapping + T17 queuing_q1 +
+        // T18 queuing_q2 als real gehaltene Organe (statistics() existierte je Wrapper schon — nur fehlte der
+        // observe_all-Slot). Identischer Mechanismus wie oben (ObservableAxis-Concept-Guard, STATISTICS-Build).
+        // Der Builder/abi_adapter koppelt sie an die Tier-Op (resolve/register bzw. put/should_flush) → ihre
+        // statistics() fliessen via observe_all() in den Per-Achsen-Trace (Pfad B).
+        if constexpr (ObservableAxis<typename Composition::cache_traversal>) {
+            agg.cache_traversal = axis_cache_traversal_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::mapping>) {
+            agg.mapping = axis_mapping_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::queuing_q1>) {
+            agg.queuing_q1 = axis_queuing_q1_.statistics();
+        }
+        if constexpr (ObservableAxis<typename Composition::queuing_q2>) {
+            agg.queuing_q2 = axis_queuing_q2_.statistics();
+        }
         return agg;
     }
 
@@ -118,6 +135,18 @@ public:
     /// observe_node_find(stored,n,queries,q) → die Node-Lookup-Statistik fliesst via observe_all().
     [[nodiscard]] typename Composition::node_type&       node_type_organ()       noexcept { return axis_node_type_; }
     [[nodiscard]] typename Composition::node_type const& node_type_organ() const noexcept { return axis_node_type_; }
+
+    /// Phase A (2026-06-04): Zugriff auf die 4 neu verdrahteten Achsen-Organe (T1/T2/T17/T18). Der Builder/
+    /// abi_adapter koppelt sie an die Tier-Op (register_entry/resolve, register_slot/resolve_offset, put/get,
+    /// should_flush/on_flush_complete) → ihre statistics() fliessen via observe_all() in den Per-Achsen-Trace.
+    [[nodiscard]] typename Composition::cache_traversal&       cache_traversal_organ()       noexcept { return axis_cache_traversal_; }
+    [[nodiscard]] typename Composition::cache_traversal const& cache_traversal_organ() const noexcept { return axis_cache_traversal_; }
+    [[nodiscard]] typename Composition::mapping&              mapping_organ()              noexcept { return axis_mapping_; }
+    [[nodiscard]] typename Composition::mapping const&        mapping_organ()        const noexcept { return axis_mapping_; }
+    [[nodiscard]] typename Composition::queuing_q1&           queuing_q1_organ()           noexcept { return axis_queuing_q1_; }
+    [[nodiscard]] typename Composition::queuing_q1 const&     queuing_q1_organ()     const noexcept { return axis_queuing_q1_; }
+    [[nodiscard]] typename Composition::queuing_q2&           queuing_q2_organ()           noexcept { return axis_queuing_q2_; }
+    [[nodiscard]] typename Composition::queuing_q2 const&     queuing_q2_organ()     const noexcept { return axis_queuing_q2_; }
 
     /// Diagnose: wie viele Achsen liefern echte Snapshots? (Rest = EmptyAxisSnapshot)
     [[nodiscard]] static constexpr std::size_t observable_axis_count() noexcept {
@@ -157,6 +186,14 @@ private:
 
     // V42 L-74c: node_type-Huelle als 5. Organ.
     typename Composition::node_type axis_node_type_;
+
+    // Phase A (2026-06-04): die 4 neu verdrahteten Achsen-Organe (T1/T2/T17/T18). Default-konstruiert; vom
+    // Builder/abi_adapter ueber die Organ-Accessoren getrieben. statistics() fliesst via observe_all() (nur
+    // STATISTICS-Build). KEIN `{}` (wie axis_telemetry_): die nackte Strategie kann ein Aggregat sein.
+    typename Composition::cache_traversal axis_cache_traversal_;
+    typename Composition::mapping         axis_mapping_;
+    typename Composition::queuing_q1      axis_queuing_q1_;
+    typename Composition::queuing_q2      axis_queuing_q2_;
 };
 
 }  // namespace comdare::cache_engine::anatomy
