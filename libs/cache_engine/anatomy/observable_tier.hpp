@@ -22,6 +22,7 @@
 // @related [[feedback_zwei_dimensionen_messmodell]] [[execution-engine-als-wurzel]]
 
 #include "idriveable_tier.hpp"   // V5-I2: IObservableTier erbt den funktionalen Antrieb (immer einkompiliert)
+#include "measurable_workload.hpp"  // ComdareSegmentLatencyV2 (seg_ns[19]) für IObservableTierV4 (Pfad-B-Timing)
 
 #include <cstdint>
 #include <type_traits>
@@ -263,6 +264,24 @@ public:
 
     /// Schreibt den generischen V3-Per-Achsen-Snapshot nach *out. out != nullptr. noexcept (reines Auslesen).
     virtual void tier_observe_v3(ComdareTierObserverSnapshotV3* out) const noexcept = 0;
+};
+
+/// Pfad-B Per-Achsen-TIMING (2026-06-04, Plan dynamic-frolicking-truffle) — IObservableTierV4: EIGENSTÄNDIGES
+/// Sub-Interface, das das per-Achsen-Timing NICHT mehr über einen synthetischen Mikrobenchmark-Puffer (Pfad A,
+/// run_workload_segmented_v2) erhebt, sondern über die EINE REALE, vom Host befüllte composite-Tier-Struktur
+/// (search_organ_ + container_.chunks_ + Instanz-Organe). `tier_observe_timed_v3` zeitet je Achse deren REALE
+/// Operation über diese reale Struktur (steady_clock) und schreibt `seg_ns[19]` (ComdareSegmentLatencyV2,
+/// wiederverwendet). KEIN synthetischer Puffer ([[always-use-trees-for-search]] / Doc 24 §8.1 Pfad B).
+/// ABI-ROBUST exakt wie IObservableTier/V2/V3 (hängt NICHT an V1/V2/V3/IAnatomyBase → kein vtable-Bruch); der
+/// Host fragt via `dynamic_cast<IObservableTierV4*>(ianatomy_ptr)`, alte Module → nullptr → sauberer Degrade.
+/// Reines Auslesen/Timing über die schon befüllte Struktur (const, memento-neutral) — KEINE Daten-Mutation.
+class IObservableTierV4 {
+public:
+    virtual ~IObservableTierV4() = default;
+
+    /// Zeitet die 19 realen per-Achsen-Ops über die schon befüllte composite-Tier-Struktur und schreibt die
+    /// aufsummierten per-Segment-ns nach *out (out != nullptr). noexcept (interne Exception → out bleibt 0).
+    virtual void tier_observe_timed_v3(ComdareSegmentLatencyV2* out) const noexcept = 0;
 };
 
 }  // namespace comdare::cache_engine::anatomy
