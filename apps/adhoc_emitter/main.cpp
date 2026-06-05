@@ -74,6 +74,8 @@ using IO  = ce::search_engine::axis_01_index_organization::IotIndexOrganization;
 using IOD = ce::io::axis_io::InMemoryOnly;
 using MG  = ce::migration::axis_migration::NoMigration;
 using FL  = ce::filter::axis_filter::BloomFilter;
+using Q1  = ce::queuing::axis_q1_queuing::NoBuffer;   // T17 queuing_q1 (Doc 30 §8.0: mandatorische SA-Achse, 19-Slot)
+using Q2  = ce::queuing::axis_q2_queuing::LazyFlush;  // T18 queuing_q2
 
 // Pilot-Raum (R5.B 3-Achsen): search_algo (12) × allocator (2) × memory_layout (2) = 48 Permutationen.
 struct C0  { using StaticAxisVariants = mp::mp_list<SA0, SA1, SA2, SA3, SA4, SA5, SA6, SA7, SA8, SA9, SA10, SA11>; };
@@ -93,9 +95,11 @@ struct C13 { using StaticAxisVariants = mp::mp_list<IO>;  };
 struct C14 { using StaticAxisVariants = mp::mp_list<IOD>; };
 struct C15 { using StaticAxisVariants = mp::mp_list<MG>;  };
 struct C16 { using StaticAxisVariants = mp::mp_list<FL>;  };
+struct C17 { using StaticAxisVariants = mp::mp_list<Q1>;  };  // T17 queuing_q1 (19-Slot-Composition, Doc 30 §8.0)
+struct C18 { using StaticAxisVariants = mp::mp_list<Q2>;  };  // T18 queuing_q2
 
 using PilotEngine = ana::SearchAlgorithmPermutationEngine<
-    C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16>;
+    C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16, C17, C18>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // V41.F.6.1 R5.D — VOLL-COVERAGE-Modus (--full-coverage): 1-wise-Ueberdeckungs-Stichprobe ueber die
@@ -119,7 +123,8 @@ using SampledComposition = ana::AdHocComposition<
     CT, MP, PC, NT,                             // T1..T4
     mp::mp_at_c<LayoutList, R::value % kNl>,    // T5  memory_layout
     mp::mp_at_c<AllocList,  R::value % kNa>,    // T6  allocator
-    PF, CC, SE, TM, VH, IS, IO, IOD, MG, FL>;   // T7..T16
+    PF, CC, SE, TM, VH, IS, IO, IOD, MG, FL,     // T7..T16
+    Q1, Q2>;                                     // T17 queuing_q1, T18 queuing_q2 (19-Slot, Doc 30 §8.0)
 
 using SampleList = mp::mp_transform<SampledComposition, mp::mp_iota_c<kMax>>;
 

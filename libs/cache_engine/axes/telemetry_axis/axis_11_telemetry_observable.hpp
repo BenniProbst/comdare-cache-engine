@@ -51,6 +51,8 @@ public:
         noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
     [[nodiscard]] static constexpr std::string_view flag_suffix()
         noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
+    [[nodiscard]] static constexpr std::string_view get_compiler()
+        noexcept requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
 
     /// Mess-Kopplung (der eigentliche „Driver", Doc 29 §3 Schritt 3): der Tier-insert/lookup ruft dies bei
     /// jedem Knoten-Touch. `is_leaf`=true fuer Blatt-Knoten. Leaf-only-Strategien verwerfen Inner-Touches.
