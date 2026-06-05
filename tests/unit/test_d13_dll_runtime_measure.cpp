@@ -34,8 +34,7 @@ struct DllTierBridge final : ana::IResourceControllableTier {
     [[nodiscard]] bool tier_erase(std::uint64_t k) noexcept { return obs->tier_erase(k); }
     void tier_clear() noexcept { obs->tier_clear(); }
     [[nodiscard]] std::uint64_t tier_size() const noexcept { return obs->tier_size(); }
-    void tier_observe(ana::ComdareTierObserverSnapshotV1* o) const noexcept { obs->tier_observe(o); }
-    void tier_observe(ana::ComdareTierObserverSnapshot* o) const noexcept { obs->tier_observe(o); }   // KONSOLIDIERUNG (I-C)
+    void tier_observe(ana::ComdareTierObserverSnapshot* o) const noexcept { obs->tier_observe(o); }   // I1: die EINE Observer-Methode
     // IResourceControllableTier (override → forward an rc, damit loop.run den Upcast nehmen kann):
     void tier_query_resource_caps(ana::ComdareResourceControlV1* o) const noexcept override { rc->tier_query_resource_caps(o); }
     [[nodiscard]] std::uint64_t tier_apply_resource_control(ana::ComdareResourceControlV1 const* i) noexcept override {

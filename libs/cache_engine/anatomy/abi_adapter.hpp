@@ -118,10 +118,7 @@ class SearchAlgorithmAbiAdapter final : public IAnatomyBase,
 //   MESSUNG-AN  : IObservableTier (Antrieb + tier_observe/observer_all) + IMeasurableWorkload (Pfad-A, host-relokal. I9) + IRollbackableTier (memento_all, V5-I6) + IScannableTier (Range-Scan, V5-#49-E).
 //   MESSUNG-AUS : NUR IDriveableTier (funktionaler Antrieb) → Release-/funktional-only-DLL OHNE jeden Mess-Overhead (kein Observer-, kein Memento-, kein Scan-vtable-Slot).
 #if COMDARE_MEASUREMENT_ON
-                                        public IObservableTier,
-                                        public IObservableTierV2,   // V42 L-74c: eigenständiges V2-Sub-Interface (ABI-robust, kein vtable-Append)
-                                        public IObservableTierV3,   // Phase A (2026-06-04): generischer Per-Achsen-V3-POD (axis_stats[19][8]), eigenständig (kein vtable-Append)
-                                        public IObservableTierV4,   // (2026-06-04, Plan v2): Pfad-B Per-Achsen-Timing über die REALE composite-Struktur (eigenständig, kein vtable-Append)
+                                        public IObservableTier,   // I1: GENAU EINE Observer-Schnittstelle (V2/V3/V4 konsolidiert, s. docs/architecture/31_*)
                                         public IMeasurableWorkload,
                                         public IMeasurableWorkloadV2,  // (C-2): eigenständiges V2-Sub-Interface — per-Segment-Timer (4 Achsen)
                                         public IMeasurableWorkloadV3,  // (X): eigenständiges V3-Sub-Interface — per-Segment-Timer ALLER 19 Achsen
@@ -643,7 +640,7 @@ public:
         if constexpr (requires { telemetry_organ_.record_node_touch(true); }) telemetry_organ_.record_node_touch(true);
         // Phase A (2026-06-04) Auto-Kopplung der 4 neu verdrahteten Achsen (Pfad B): ein insert registriert den
         // Eintrag in der cache_traversal-/mapping-Indirektion (T1/T2) und puffert ihn in q1 + befragt die
-        // q2-Flush-Policy (T17/T18) → ihre statistics() reflektieren die echte Tier-Op beim tier_observe_v3.
+        // q2-Flush-Policy (T17/T18) → ihre statistics() reflektieren die echte Tier-Op beim Observer-Read (tier_observe).
         if constexpr (requires { ct_organ_.register_entry(typename Composition::cache_traversal::key_type{}, typename Composition::cache_traversal::value_type{}); }) {
             ct_organ_.register_entry(static_cast<typename Composition::cache_traversal::key_type>(key),
                                      static_cast<typename Composition::cache_traversal::value_type>(value));
@@ -752,125 +749,22 @@ public:
     }
 
 #if COMDARE_MEASUREMENT_ON   // V5-I2.2: tier_observe (observer_all) NUR bei Messung-AN
-    void tier_observe(ComdareTierObserverSnapshotV1* out) const noexcept override {
-        if (out == nullptr) return;
-        ComdareTierObserverSnapshotV1 snap{};
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-        if constexpr (ObservableAxis<SearchAlgo>) {
-            auto const s = search_organ_.statistics();   // SearchAlgoStatistics (echtes getriebenes Organ)
-            snap.search_lookup_count   = s.total_lookup_count;
-            snap.search_hit_count      = s.total_hit_count;
-            snap.search_miss_count     = s.total_miss_count;
-            snap.search_insert_count   = s.total_insert_count;
-            snap.search_erase_count    = s.total_erase_count;
-            snap.search_peak_occupancy = s.peak_occupancy;
-        }
-        // Achse 2 (allocator) — der innere ComposedStore-Vector treibt die Allocator-Achse REAL (Doppeltes
-        // Gate wie AnatomyExecutionContext: Composition::allocator observable UND Store bietet allocator-Stats).
-        if constexpr (ObservableAxis<typename Composition::allocator>
-                   && container_t::template store_has_allocator_stats<typename container_t::store_type>) {
-            auto const a = container_.store_allocator_statistics();   // AllocationStatistics
-            snap.alloc_bytes_allocated    = a.total_bytes_allocated;
-            snap.alloc_bytes_in_use       = a.total_bytes_in_use;
-            snap.alloc_allocation_count   = a.allocation_count;
-            snap.alloc_deallocation_count = a.deallocation_count;
-            snap.alloc_failure_count      = a.failure_count;
-        }
-#endif
-        snap.observable_axis_count = ObserverAggregate<Composition>::observable_count();
-        snap.tier_fill_level       = tier_size();
-        *out = snap;
-    }
+    // I1 (2026-06-05): der frühere V1-Observe + die V2-Observer-Fill/Override-Methoden (eigenes V2-Sub-Interface)
+    // sind ENTFERNT. Ihre Felder sind im konsolidierten POD subsumiert (V1 search→axis_stats[0], alloc→[6]; V2
+    // telemetry→[10], layout→[5], serialization→[9], node_type→[4]). Rationale: docs/architecture/31_observer_interface_konsolidierung_i1.md.
 
-    // V42 L-74c: Cross-ABI-Observe in den erweiterten V2-POD (observable_tier.hpp) — V1-Achsen (search_algo +
-    // allocator) PLUS die per tier_insert/lookup AUTO-GEKOPPELTE telemetry-Achse. Non-virtual + additiv (kein
-    // IObservableTier-vtable-Bruch). Die scan-Achsen (memory_layout/serialization/node_type) sind run_workload-
-    // getrieben (Pfad A) und folgen in einem späteren Inkrement über die echte DLL-Grenze.
-    void fill_observer_v2(ComdareTierObserverSnapshotV2* out) const noexcept {
+    // I1: fill_observer_v3 — schreibt die Per-Achsen-Observer DIREKT in den konsolidierten POD (out->axis_stats[T][f]
+    // + Meta; Reihenfolge JE Achse = kV3AxisSchema, single-source observable_tier.hpp). Quellen je Achse: T0 search_algo
+    // + T6 allocator + T10 telemetry = getriebene Organe; T4 node_type / T5 memory_layout / T9 serialization / T11..T16
+    // = Pfad-B Zustand-Scan über das ECHTE container_-Slot-Backing (store_observe_*, idempotenter reset()+scan je Aufruf);
+    // T1 cache_traversal / T2 mapping / T3 path_compression / T7 prefetch / T8 concurrency / T17 q1 / T18 q2 = in
+    // tier_insert/lookup AUTO-gekoppelte Member-Organe. Honest-0 für Baseline-Strategien (echte 0-Teilfelder).
+    // STATISTICS-gegated. Der Aufrufer (tier_observe) hat *out bereits genullt (Q1-Sequenz: vor dem Timing).
+    void fill_observer_v3(ComdareTierObserverSnapshot* out) const noexcept {
         if (out == nullptr) return;
-        ComdareTierObserverSnapshotV2 s{};
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-        if constexpr (ObservableAxis<SearchAlgo>) {
-            auto const ss = search_organ_.statistics();
-            s.search_lookup_count   = ss.total_lookup_count;
-            s.search_hit_count      = ss.total_hit_count;
-            s.search_miss_count     = ss.total_miss_count;
-            s.search_insert_count   = ss.total_insert_count;
-            s.search_erase_count    = ss.total_erase_count;
-            s.search_peak_occupancy = ss.peak_occupancy;
-        }
-        if constexpr (ObservableAxis<typename Composition::allocator>
-                   && container_t::template store_has_allocator_stats<typename container_t::store_type>) {
-            auto const a = container_.store_allocator_statistics();
-            s.alloc_bytes_allocated    = a.total_bytes_allocated;
-            s.alloc_bytes_in_use       = a.total_bytes_in_use;
-            s.alloc_allocation_count   = a.allocation_count;
-            s.alloc_deallocation_count = a.deallocation_count;
-            s.alloc_failure_count      = a.failure_count;
-        }
-        if constexpr (ObservableAxis<typename Composition::telemetry>) {
-            auto const t = telemetry_organ_.statistics();   // AUTO-gekoppelt via tier_insert/lookup
-            s.telemetry_total_events = t.total_events;
-            s.telemetry_leaf_updates = t.leaf_updates;
-            s.telemetry_node_updates = t.node_updates;
-            s.telemetry_peak_tracked = t.peak_tracked;
-        }
-        // V42 L-74c scan-Achsen-Auto-Kopplung (Pfad-B Zustand-Scan): treibt memory_layout/serialization über das
-        // ECHTE Slot-Backing des container_ (organ_observe_layout/serialization am ComposedStore) → ihre
-        // statistics() reflektieren die realen Tier-Daten zum Observe-Zeitpunkt. if-constexpr-geschützt.
-        if constexpr (ObservableAxis<typename Composition::memory_layout>
-                   && requires { container_.store_observe_layout(ml_organ_); }) {
-            ml_organ_.reset();   // idempotenter Observe: frischer Zustand-Scan je tier_observe_v2-Aufruf
-            (void)container_.store_observe_layout(ml_organ_);
-            auto const ml = ml_organ_.statistics();
-            s.layout_scan_count          = ml.scan_count;
-            s.layout_records_scanned     = ml.records_scanned;
-            s.layout_field_bytes_read    = ml.field_bytes_read;
-            s.layout_cache_lines_touched = ml.cache_lines_touched;
-            s.layout_last_checksum       = ml.last_checksum;
-        }
-        if constexpr (ObservableAxis<typename Composition::serialization>
-                   && requires { container_.store_observe_serialization(ser_organ_); }) {
-            ser_organ_.reset();   // idempotenter Observe
-            (void)container_.store_observe_serialization(ser_organ_);
-            auto const sr = ser_organ_.statistics();
-            s.serialization_serialize_count    = sr.serialize_count;
-            s.serialization_records_serialized = sr.records_serialized;
-            s.serialization_bytes_serialized   = sr.bytes_serialized;
-            s.serialization_last_checksum      = sr.last_checksum;
-        }
-        if constexpr (ObservableAxis<typename Composition::node_type>
-                   && requires { container_.store_observe_node_type(node_organ_); }) {
-            node_organ_.reset();   // idempotenter Observe
-            (void)container_.store_observe_node_type(node_organ_);
-            auto const nt = node_organ_.statistics();
-            s.node_find_count    = nt.find_count;
-            s.node_keys_stored   = nt.keys_stored;
-            s.node_queries_run   = nt.queries_run;
-            s.node_last_checksum = nt.last_checksum;
-        }
-#endif
-        s.observable_axis_count = ObserverAggregate<Composition>::observable_count();
-        s.tier_fill_level       = tier_size();
-        *out = s;
-    }
-
-    /// V42 L-74c: IObservableTier-Override — macht den V2-POD über die echte Gattungs-ABI verfügbar
-    /// (der Host zieht ihn via dynamic_cast<IObservableTier*> + tier_observe_v2, analog tier_observe-V1).
-    void tier_observe_v2(ComdareTierObserverSnapshotV2* out) const noexcept override { fill_observer_v2(out); }
-
-    // Phase A (2026-06-04): fill_observer_v3 — schreibt die 10 jetzt befüllten Achsen in den GENERISCHEN
-    // axis_stats[19][8]-POD (Reihenfolge JE Achse = kV3AxisSchema, single-source observable_tier.hpp). Die 9
-    // Phase-B-Achsen (T3,T7,T8,T11..T16) bleiben 0 (ehrlich, NICHT erfunden). Quellen:
-    //   • T0 search_algo + T6 allocator + T10 telemetry: dieselben getriebenen Organe wie fill_observer_v2.
-    //   • T4 node_type + T5 memory_layout + T9 serialization: Pfad-B Zustand-Scan über das ECHTE container_-
-    //     Slot-Backing (store_observe_*), identisch zu fill_observer_v2 (idempotenter reset()+scan je Aufruf).
-    //   • T1 cache_traversal + T2 mapping + T17 queuing_q1 + T18 queuing_q2: die in tier_insert/lookup AUTO-
-    //     gekoppelten Member-Organe (ct_organ_/map_organ_/queuing_q1_organ_/queuing_q2_organ_).
-    // Additiv (kein V1/V2/IObservableTier-vtable-Bruch). STATISTICS-gegated (sonst bleiben die Zeilen 0).
-    void fill_observer_v3(ComdareTierObserverSnapshotV3* out) const noexcept {
-        if (out == nullptr) return;
-        ComdareTierObserverSnapshotV3 s{};
+        auto& s = *out;                    // I1: direkt in den konsolidierten POD schreiben (kein V3-Zwischen-POD)
+        for (auto& row : s.axis_stats) for (auto& v : row) v = 0;   // nur Observer-Felder nullen (seg_ns/batches: tier_observe)
+        s.observable_axis_count = 0; s.tier_fill_level = 0; s.filled_axis_count = 0;
         std::uint64_t filled = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         // ── T0 search_algo ──────────────────────────────────────────────────────────────────────────────
@@ -897,7 +791,7 @@ public:
             r[3] = mp.total_resolve_miss_count; r[4] = mp.total_reverse_lookup_count; r[5] = mp.peak_mapped;
             ++filled;
         }
-        // ── T4 node_type (Pfad-B Zustand-Scan über container_, wie fill_observer_v2) ─────────────────────
+        // ── T4 node_type (Pfad-B Zustand-Scan über container_, wie der frühere V2-Pfad) ─────────────────────
         if constexpr (ObservableAxis<typename Composition::node_type>
                    && requires { container_.store_observe_node_type(node_organ_); }) {
             node_organ_.reset();
@@ -918,7 +812,7 @@ public:
             r[3] = ml.cache_lines_touched; r[4] = ml.last_checksum;
             ++filled;
         }
-        // ── T6 allocator (dasselbe getriebene container_-Allocator-Organ wie fill_observer_v2) ───────────
+        // ── T6 allocator (dasselbe getriebene container_-Allocator-Organ wie der frühere V2-Pfad) ───────────
         if constexpr (ObservableAxis<typename Composition::allocator>
                    && container_t::template store_has_allocator_stats<typename container_t::store_type>) {
             auto const a = container_.store_allocator_statistics();
@@ -957,7 +851,7 @@ public:
             r[0] = sr.serialize_count; r[1] = sr.records_serialized; r[2] = sr.bytes_serialized; r[3] = sr.last_checksum;
             ++filled;
         }
-        // ── T10 telemetry (AUTO-gekoppelt via tier_insert/lookup, wie fill_observer_v2) ──────────────────
+        // ── T10 telemetry (AUTO-gekoppelt via tier_insert/lookup, wie der frühere V2-Pfad) ──────────────────
         if constexpr (ObservableAxis<typename Composition::telemetry>) {
             auto const t = telemetry_organ_.statistics();
             auto* r = s.axis_stats[10];
@@ -1071,17 +965,10 @@ public:
         s.observable_axis_count = ObserverAggregate<Composition>::observable_count();
         s.tier_fill_level       = tier_size();
         s.filled_axis_count     = filled;
-        *out = s;
     }
 
-    /// Phase A: IObservableTierV3-Override — der Host zieht den generischen Per-Achsen-V3-POD via
-    /// dynamic_cast<IObservableTierV3*> + tier_observe_v3 (analog tier_observe_v2). Alte Module → nullptr.
-    void tier_observe_v3(ComdareTierObserverSnapshotV3* out) const noexcept override { fill_observer_v3(out); }
-
-    /// Plan v2 (2026-06-04): IObservableTierV4-Override — Pfad-B Per-Achsen-TIMING. Der Host zieht via
-    /// dynamic_cast<IObservableTierV4*> + tier_observe_timed_v3 die seg_ns[19] der REALEN per-Achsen-Ops über
-    /// die schon befüllte composite-Struktur. Alte Module → nullptr → Degrade auf Pfad A (run_workload_segmented_v2).
-    void tier_observe_timed_v3(ComdareSegmentLatencyV2* out) const noexcept override { fill_segment_timing_v3(out); }
+    // I1: die früheren V2/V3/V4-Observer-Override-Methoden (eigene Sub-Interfaces) sind ENTFERNT — die EINE
+    // tier_observe(ComdareTierObserverSnapshot*) unten vereint Observer-Stats + Pfad-B-Timing (s. Doc 31).
 
     // Pfad-B Per-Achsen-TIMING-Kern (Plan v2): zeitet die 19 REALEN per-Achsen-Ops über die EINE schon
     // befüllte composite-Tier-Struktur (search_organ_ + container_.chunks_ + Instanz-Organe) — KEIN
@@ -1139,11 +1026,11 @@ public:
                 t1 = clock::now(); acc[3] += dns(t0, t1);
                 // T4 node_type: store_observe über das ECHTE container_-Slot-Backing (chunks_).
                 t0 = clock::now();
-                if constexpr (requires { container_.store_observe_node_type(node_organ_); }) { node_organ_.reset(); sink += container_.store_observe_node_type(node_organ_); }
+                if constexpr (ObservableAxis<typename Composition::node_type> && requires { container_.store_observe_node_type(node_organ_); }) { if constexpr (requires { node_organ_.reset(); }) node_organ_.reset(); sink += container_.store_observe_node_type(node_organ_); }
                 t1 = clock::now(); acc[4] += dns(t0, t1);
                 // T5 memory_layout: store_observe über chunks_ (layout-honorierender Store → CLA-Stride echt).
                 t0 = clock::now();
-                if constexpr (requires { container_.store_observe_layout(ml_organ_); }) { ml_organ_.reset(); sink += container_.store_observe_layout(ml_organ_); }
+                if constexpr (ObservableAxis<typename Composition::memory_layout> && requires { container_.store_observe_layout(ml_organ_); }) { if constexpr (requires { ml_organ_.reset(); }) ml_organ_.reset(); sink += container_.store_observe_layout(ml_organ_); }
                 t1 = clock::now(); acc[5] += dns(t0, t1);
                 // T6 allocator: O(1)-Stats-Read (Aufbau-Effekt, ehrliche kleine Baseline — kein erfundener Scan).
                 t0 = clock::now();
@@ -1161,7 +1048,7 @@ public:
                 t1 = clock::now(); acc[8] += dns(t0, t1);
                 // T9 serialization: store_observe über chunks_.
                 t0 = clock::now();
-                if constexpr (requires { container_.store_observe_serialization(ser_organ_); }) { ser_organ_.reset(); sink += container_.store_observe_serialization(ser_organ_); }
+                if constexpr (ObservableAxis<typename Composition::serialization> && requires { container_.store_observe_serialization(ser_organ_); }) { if constexpr (requires { ser_organ_.reset(); }) ser_organ_.reset(); sink += container_.store_observe_serialization(ser_organ_); }
                 t1 = clock::now(); acc[9] += dns(t0, t1);
                 // T10 telemetry: echtes record_node_touch.
                 t0 = clock::now();
@@ -1232,24 +1119,17 @@ public:
 #endif  // COMDARE_CE_ENABLE_STATISTICS
     }
 
-    // KONSOLIDIERUNG (I-A, 2026-06-04): die EINE Observer-Methode über den konsolidierten POD. Vereint Observer-
-    // Stats (axis_stats[19][8]+Meta) UND Pfad-B-Timing (seg_ns[19]) in EINEN Snapshot. FIXE SEQUENZ (Q1-Blocker-
-    // Mitigation, Preflight wkqt7a0il): (1) axis_stats VOR dem Timing aus den akkumulierten Real-Workload-Zählern
-    // lesen, (2) DANN seg_ns timen (fill_segment_timing_v3 treibt die per-op-Organe + resettet sie an seinem Ende
-    // = SCHRITT 3) → die in (1) gelesenen Stats sind unverfälscht. In I-A delegiert sie an die bestehenden,
-    // getesteten Bodies (fill_observer_v3 + fill_segment_timing_v3); in I-C werden diese hier hineingemergt.
+    // KONSOLIDIERUNG (I1, 2026-06-05): die EINZIGE Observer-Methode über den konsolidierten POD. Vereint Observer-
+    // Stats (axis_stats[19][8]+Meta) UND Pfad-B-Timing (seg_ns[19]) in EINEN Snapshot. FIXE Q1-SEQUENZ (Preflight
+    // wkqt7a0il): (1) axis_stats VOR dem Timing lesen (fill_observer_v3 schreibt sie DIREKT in *out), (2) DANN seg_ns
+    // timen (fill_segment_timing_v3 treibt die per-op-Organe + resettet sie an seinem Ende = SCHRITT 3) → die in (1)
+    // gelesenen Stats bleiben unverfälscht. Rationale-Historie: docs/architecture/31_observer_interface_konsolidierung_i1.md.
     void tier_observe(ComdareTierObserverSnapshot* out) const noexcept override {
         if (out == nullptr) return;
         *out = ComdareTierObserverSnapshot{};
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        // SCHRITT 1 — Observer-READ (vor dem Timing).
-        ComdareTierObserverSnapshotV3 v3{};
-        fill_observer_v3(&v3);
-        for (std::size_t t = 0; t < kV3AxisCount; ++t)
-            for (std::size_t f = 0; f < kV3FieldCount; ++f) out->axis_stats[t][f] = v3.axis_stats[t][f];
-        out->observable_axis_count = v3.observable_axis_count;
-        out->tier_fill_level       = v3.tier_fill_level;
-        out->filled_axis_count     = v3.filled_axis_count;
+        // SCHRITT 1 — Observer-READ (fill_observer_v3 schreibt axis_stats + Meta direkt in *out, vor dem Timing).
+        fill_observer_v3(out);
         // SCHRITT 2 — Pfad-B-Timing (nach dem Observer-READ; resettet die per-op-Organe an seinem Ende = SCHRITT 3).
         ComdareSegmentLatencyV2 seg{};
         fill_segment_timing_v3(&seg);
@@ -1369,7 +1249,7 @@ private:
     // OHNE {} (Aggregat-Strategie UND Huelle beide default-init-fähig, test_d_v42_probe2). mutable: das Tracking
     // im const tier_lookup ist logisch nicht-const (analog observer-notify-Muster, observable_composed_search.hpp).
     mutable typename Composition::telemetry telemetry_organ_;
-    // V42 L-74c scan-Achsen-Auto-Kopplung: memory_layout + serialization Observer-Organe. In fill_observer_v2
+    // V42 L-74c scan-Achsen-Auto-Kopplung: memory_layout + serialization Observer-Organe. Im Observer-Fill (fill_observer_v3)
     // ueber das ECHTE Slot-Backing des container_ getrieben (Pfad-B Zustand-Scan). mutable (const-Methode).
     mutable typename Composition::memory_layout ml_organ_;
     mutable typename Composition::serialization ser_organ_;

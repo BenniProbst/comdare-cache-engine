@@ -128,58 +128,44 @@ TEST(R8RestA_DockMeasuresRealDll, ObserveTraceGuardCapsOverCapacityFillNoHang) {
 #endif
 }
 
-// V42 L-74c — DLL-ROUND-TRIP für tier_observe_v2 ZURÜCKGESTELLT (2026-06-03, ehrlicher Befund):
-// Ein erster Versuch (TEST V2ObserverSnapshotOverRealDllBoundary) crashte mit SEH 0xc0000005 — NICHT wegen
-// fehlerhaften V2-Codes (der In-Process-Beweis test_d_v42_abi_telemetry_coupling ist grün), sondern wegen
-// einer vtable-ABI-Subtilität über die REALE .dll-Grenze: `tier_observe_v2` ist eine NEUE virtuelle Methode
-// am vtable-Ende von IObservableTier. Die per Codegen erzeugte comdare_r5g_adhoc_perm-DLL wurde NICHT
-// zuverlässig mit dem neuen Header neu gebaut (auto_emitted_perm_module.cpp wird vom Emitter regeneriert,
-// ein Datei-Touch erzwingt den DLL-Rebuild nicht) → Host-vtable (mit dem neuen Slot) vs. DLL-vtable (alt) →
-// der Aufruf springt über das vtable-Ende → Crash. LEHRE (Doc 29-würdig): eine vtable-additive Methode ist
-// über eine DLL-Grenze nur sicher, wenn DLL UND Host SYNCHRON aus demselben Header gebaut werden; der saubere
-// Weg ist entweder ein erzwungener Clean-DLL-Rebuild im CMake-Graph ODER — ABI-robuster — ein SEPARATES
-// Sub-Interface IObservableTierV2 (per dynamic_cast abgefragt, alte DLLs → nullptr, kein vtable-Slap).
-// Nächster Sprint: IObservableTierV2 als eigenständiges Sub-Interface (analog wie IObservableTier selbst
-// NICHT an IAnatomyBase hängt) + Codegen-DLL-Rebuild-Dependency. Der In-Process-V2-Pfad bleibt verifiziert.
-
-// V42 L-74c — DLL-ROUND-TRIP über das ABI-ROBUSTE IObservableTierV2-Sub-Interface (2026-06-03, Nachzug).
-// Anders als die vtable-additive Variante (die crashte) fragt der Host das V2-Sub-Interface via dynamic_cast
-// ab: gelingt er (DLL mit IObservableTierV2 gebaut) → tier_observe_v2 trägt den V2-POD über die reale
-// .dll-Grenze; schlägt er fehl (alte DLL) → nullptr → sauberer Degrade auf V1, KEIN Crash. Genau das
-// Designprinzip von IObservableTier selbst. Beweist die ABI-Robustheit des V2-Pfads über die echte DLL.
-TEST(R8RestA_DockMeasuresRealDll, V2SubInterfaceOverRealDllBoundaryOrGracefulDegrade) {
+// V42 L-74c / I1 — DLL-ROUND-TRIP des Observers über die reale .dll-Grenze (Major-3-DLL). Historie: ein früher
+// Versuch über eine vtable-additive Methode crashte mit SEH 0xc0000005 (Host-vtable mit neuem Slot vs. alt
+// gebauter DLL-vtable, die per Codegen erzeugte DLL wurde nicht zuverlässig synchron neu gebaut). Die Lösung war
+// ein eigenständiges Observer-Sub-Interface (per dynamic_cast abgefragt, alte DLLs → nullptr, kein vtable-Slap).
+// Mit der I1-Konsolidierung gibt es GENAU EINE IObservableTier::tier_observe(ComdareTierObserverSnapshot*), und
+// der ABI-Major-Bump (2→3) erzwingt den synchronen DLL-Rebuild — der Loader lehnt alt gebaute Major-2-DLLs per
+// Major-Mismatch ab. Vollständige Rationale: docs/architecture/31_observer_interface_konsolidierung_i1.md.
+TEST(R8RestA_DockMeasuresRealDll, ObserverOverRealDllBoundaryOrGracefulDegrade) {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     std::filesystem::path const dir{COMDARE_R5G_ADHOC_DLL_DIR};
     std::vector<loader::AnatomyModuleHandle> handles;
     ASSERT_EQ(loader::AnatomyModuleLoader::load_all(dir, handles), loader::status_ok);
     ASSERT_GE(handles.size(), 1u);
 
-    auto* obs2 = dynamic_cast<ana::IObservableTierV2*>(handles[0].anatomy());
-    if (obs2 == nullptr) {
-        // Alte DLL ohne IObservableTierV2 → sauberer Degrade (KEIN Crash). Die ABI-Robustheit IST der Beweis.
-        GTEST_SKIP() << "DLL ohne IObservableTierV2 (nicht synchron neu gebaut) — Host degradiert sauber auf V1.";
+    auto* obs = dynamic_cast<ana::IObservableTier*>(handles[0].anatomy());
+    if (obs == nullptr) {
+        // DLL ohne Mess-Interface (kein COMDARE_MEASUREMENT_ON-Build) → sauberer Degrade (KEIN Crash).
+        GTEST_SKIP() << "DLL ohne IObservableTier (kein Mess-Build) — Host degradiert sauber.";
     }
-    // Neue DLL: V2-POD über die reale .dll-Grenze ziehen.
+    // I1: den EINEN konsolidierten Observer-POD über die reale .dll-Grenze ziehen.
     for (int i = 0; i < 30; ++i) {
         auto* drv = dynamic_cast<ana::IDriveableTier*>(handles[0].anatomy());
         ASSERT_NE(drv, nullptr);
         (void)drv->tier_insert(static_cast<std::uint64_t>(i), static_cast<std::uint64_t>(i) * 2u);
     }
-    ana::ComdareTierObserverSnapshotV2 v2{};
-    obs2->tier_observe_v2(&v2);
-    EXPECT_GE(v2.search_insert_count, 1u);
-    EXPECT_GE(v2.observable_axis_count, 1u);
-    EXPECT_GT(v2.tier_fill_level, 0u);
-    // V42 L-74c: die DLL-Composition traegt jetzt die 4 OperativeCapable-Huellen (auto_emitted_perm_module.cpp).
-    // telemetry + scan-Achsen tragen ueber die ECHTE .dll-Grenze REALE Werte — WENN die geladene DLL synchron
-    // mit dem Header gebaut ist. Bei Build-System-Versions-Drift (Multi-Config-Subdir vs Lade-Ort, ohne
-    // cmake-Re-Configure des OUTPUT_DIRECTORY_DEBUG-Fix) bleiben sie 0 → nur informativ ausgeben, kein harter
-    // Fail (der In-Process-Pfad in test_d_v42_abi_telemetry_coupling beweist alle 4 Achsen literal).
-    std::cout << "    [V2-DLL 4-Achsen] telemetry=" << v2.telemetry_total_events
-              << " layout=" << v2.layout_records_scanned
-              << " serialization=" << v2.serialization_records_serialized
-              << " node=" << v2.node_keys_stored
-              << "  (>0 = synchron gebaute Huellen-DLL; 0 = Versions-Drift)\n";
+    ana::ComdareTierObserverSnapshot u{};
+    obs->tier_observe(&u);
+    EXPECT_GE(u.axis_stats[0][3], 1u);   // search_insert
+    EXPECT_GE(u.observable_axis_count, 1u);
+    EXPECT_GT(u.tier_fill_level, 0u);
+    // Die DLL-Composition traegt die OperativeCapable-Huellen (auto_emitted_perm_module.cpp): telemetry + scan-
+    // Achsen tragen ueber die ECHTE .dll-Grenze REALE Werte, WENN die geladene DLL synchron mit dem Header gebaut
+    // ist (der ABI-Major-Bump 2→3 erzwingt das). Nur informativ ausgeben.
+    std::cout << "    [DLL 4-Achsen] telemetry=" << u.axis_stats[10][0]
+              << " layout=" << u.axis_stats[5][1]
+              << " serialization=" << u.axis_stats[9][1]
+              << " node=" << u.axis_stats[4][1]
+              << "  (>0 = synchron gebaute Huellen-DLL)\n";
 #else
     GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus";
 #endif

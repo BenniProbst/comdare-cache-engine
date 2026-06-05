@@ -25,23 +25,23 @@
 // ABI-Version + Magic-Number (Compile-Time-Konstanten fuer Module-Loader-Check)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Anatomy-Module ABI Version. Major: 2 (V5-I2.2). Minor: 1 (V5-I6).
+/// Anatomy-Module ABI Version. Major: 3 (I1 Observer-Konsolidierung). Minor: 0.
 /// V5-I2.2 ABI-Bruch (Major 1→2): IObservableTier→IDriveableTier-Split + konditionale Adapter-Vererbung
-/// (observer_all nur bei MESSUNG-AN compile-time einkompiliert). Alt-gebaute DLLs (major 1) werden vom Loader
-/// (`AnatomyAbiVersion::host_compatible_with`) sauber abgelehnt → alle Permutations-DLLs neu zu bauen.
-/// V5-I6 (Minor 0→1): der IMMER-präsente IDriveableTier-Kontrakt (= Major) bleibt UNVERÄNDERT; die MESSUNG-AN-
-/// Variante gewinnt ZUSÄTZLICH IRollbackableTier (memento_all, tier_save_all/tier_rollback_all). Minor-Bump:
-/// ein neuerer Host akzeptiert ältere Module (minor 0, ohne Rollback) weiterhin — der Loader-`dynamic_cast` auf
-/// IRollbackableTier liefert dort null → der Zwei-Phasen-Treiber (I7) fällt graziös auf Kalt-Messung zurück.
-/// V5-#49-E (Minor 1→2): die MESSUNG-AN-Variante gewinnt ZUSÄTZLICH IScannableTier (tier_scan, YCSB-E-Range-Scan).
-/// Wieder rein additiv: Major (IDriveableTier) unverändert; ältere Module (minor ≤ 1, ohne Scan) bleiben kompatibel
-/// (host_compatible_with: minor 1 ≤ 2), der `dynamic_cast<IScannableTier*>` liefert dort null → YCSB-E-Profile
-/// fallen für solche Module ehrlich aus. (Magic kodiert nur Major → durch den Minor-Bump UNVERÄNDERT.)
-#define COMDARE_ANATOMY_ABI_MAJOR 2
-#define COMDARE_ANATOMY_ABI_MINOR 2
+/// (observer_all nur bei MESSUNG-AN compile-time einkompiliert).
+/// I1 Observer-Konsolidierung (Major 2→3, Minor→0, User-Direktive 2026-06-04 „EINE konsistente Observer-
+/// Schnittstelle", Historie docs/architecture/31_observer_interface_konsolidierung_i1.md): die früheren
+/// getrennten Observer-Sub-Interfaces + die früheren mehrfach versionierten Observer-PODs ENTFALLEN; es gibt
+/// GENAU EINE `IObservableTier::tier_observe(ComdareTierObserverSnapshot*)` + EINEN versionierten POD
+/// (axis_stats[19][8] + seg_ns[19]/Pfad B + Meta).
+/// Echter ABI-Bruch (vtable + POD-Layout) → Loader (`AnatomyAbiVersion::host_compatible_with`) lehnt alle
+/// alt-gebauten Major-2-DLLs per Major-Mismatch ab → ALLE Permutations-DLLs neu zu bauen. Minor auf 0 zurück-
+/// gesetzt (die V5-I6/#49-E-Minor-Stufen sind im Major-Bump aufgegangen; IRollbackableTier/IScannableTier
+/// bleiben additive Sub-Interfaces der MESSUNG-AN-Variante). Magic kodiert den Major → von .A2. auf .A3. bewegt.
+#define COMDARE_ANATOMY_ABI_MAJOR 3
+#define COMDARE_ANATOMY_ABI_MINOR 0
 
-/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA·A2·" als big-endian uint64_t (V5-I2.2).
-#define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141322EULL
+/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA·A3·" als big-endian uint64_t (I1 Major 3).
+#define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141332EULL
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Export/Import Macros (Cross-Plattform)

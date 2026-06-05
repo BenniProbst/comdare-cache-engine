@@ -42,13 +42,7 @@ struct MockTier final : an::IObservableTier, an::IRollbackableTier {
     bool tier_erase(std::uint64_t k) noexcept override { bool const e = data_.erase(k) != 0; if (e) ++ers_; return e; }
     void tier_clear() noexcept override { data_.clear(); }
     [[nodiscard]] std::uint64_t tier_size() const noexcept override { return data_.size(); }
-    void tier_observe(an::ComdareTierObserverSnapshotV1* o) const noexcept override {
-        if (!o) return; an::ComdareTierObserverSnapshotV1 t{};
-        t.search_insert_count = ins_; t.search_lookup_count = lk_; t.search_hit_count = hit_;
-        t.search_miss_count = miss_; t.search_erase_count = ers_; t.search_peak_occupancy = peak_;
-        t.tier_fill_level = data_.size(); *o = t;
-    }
-    void tier_observe(an::ComdareTierObserverSnapshot* o) const noexcept override {   // KONSOLIDIERUNG (I-C): search → axis_stats[0]
+    void tier_observe(an::ComdareTierObserverSnapshot* o) const noexcept override {   // search → axis_stats[0]
         if (!o) return;
         o->axis_stats[0][3] = ins_; o->axis_stats[0][0] = lk_;  o->axis_stats[0][1] = hit_;
         o->axis_stats[0][2] = miss_; o->axis_stats[0][4] = ers_; o->axis_stats[0][5] = peak_;

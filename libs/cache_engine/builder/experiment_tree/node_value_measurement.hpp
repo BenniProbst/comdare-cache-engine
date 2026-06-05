@@ -4,7 +4,7 @@
 //
 // Pfad B in-process (Doku 24 §8.6): instanziiert den realen genus-ABI-Adapter SearchAlgorithmAbiAdapter<
 // SearchAlgorithmAnatomy<Comp>>, treibt das ECHTE Such-Organ (tier_insert/tier_lookup) + den allocator-
-// ComposedStore, zieht tier_observe → ComdareTierObserverSnapshotV1 (search_algo + allocator REAL), flacht ihn
+// ComposedStore, zieht tier_observe → den konsolidierten Observer-POD (search_algo + allocator REAL), flacht ihn
 // in NodeValue.observer. Der Knoten trägt damit den echten Per-Achsen-Observer + (via CompositionRegistry) die
 // read-only Achsen-Definition.
 //
@@ -23,7 +23,7 @@
 #include "anatomy/composition_factory.hpp" // CompositionFromPermTuple
 #include "anatomy/search_algorithm_anatomy.hpp"
 #include "anatomy/abi_adapter.hpp"         // SearchAlgorithmAbiAdapter (treibt + tier_observe)
-#include "anatomy/observable_tier.hpp"     // ComdareTierObserverSnapshotV1
+#include "anatomy/observable_tier.hpp"     // ComdareTierObserverSnapshot (I1)
 
 #include <cstdint>
 
@@ -49,21 +49,29 @@ template <class P>
     nv.sum_op_count           = 2u * n_keys;
 
 #if COMDARE_MEASUREMENT_ON
-    an::ComdareTierObserverSnapshotV1 pod{};
-    adapter.tier_observe(&pod);   // observe_all → flacher POD (search_algo + allocator real)
-    nv.observer.search_lookup_count      = pod.search_lookup_count;
-    nv.observer.search_hit_count         = pod.search_hit_count;
-    nv.observer.search_miss_count        = pod.search_miss_count;
-    nv.observer.search_insert_count      = pod.search_insert_count;
-    nv.observer.search_erase_count       = pod.search_erase_count;
-    nv.observer.search_peak_occupancy    = pod.search_peak_occupancy;
-    nv.observer.alloc_bytes_allocated    = pod.alloc_bytes_allocated;
-    nv.observer.alloc_bytes_in_use       = pod.alloc_bytes_in_use;
-    nv.observer.alloc_allocation_count   = pod.alloc_allocation_count;
-    nv.observer.alloc_deallocation_count = pod.alloc_deallocation_count;
-    nv.observer.alloc_failure_count      = pod.alloc_failure_count;
+    an::ComdareTierObserverSnapshot pod{};
+    adapter.tier_observe(&pod);   // observe_all → konsolidierter POD (search_algo + allocator real)
+    // I1: V1-Projektion aus dem konsolidierten POD (search→axis_stats[0], alloc→axis_stats[6]).
+    nv.observer.search_lookup_count      = pod.axis_stats[0][0];
+    nv.observer.search_hit_count         = pod.axis_stats[0][1];
+    nv.observer.search_miss_count        = pod.axis_stats[0][2];
+    nv.observer.search_insert_count      = pod.axis_stats[0][3];
+    nv.observer.search_erase_count       = pod.axis_stats[0][4];
+    nv.observer.search_peak_occupancy    = pod.axis_stats[0][5];
+    nv.observer.alloc_bytes_allocated    = pod.axis_stats[6][0];
+    nv.observer.alloc_bytes_in_use       = pod.axis_stats[6][1];
+    nv.observer.alloc_allocation_count   = pod.axis_stats[6][2];
+    nv.observer.alloc_deallocation_count = pod.axis_stats[6][3];
+    nv.observer.alloc_failure_count      = pod.axis_stats[6][4];
     nv.observer.observable_axis_count    = pod.observable_axis_count;
     nv.observer.tier_fill_level          = pod.tier_fill_level;
+    // I1: zusätzlich die volle Per-Achsen-Matrix + Pfad-B-seg_ns in den Knoten (NodeObserverSnapshot trägt sie).
+    for (std::size_t t = 0; t < 19; ++t) {
+        for (std::size_t f = 0; f < 8; ++f) nv.observer.axis_stats[t][f] = pod.axis_stats[t][f];
+        nv.observer.seg_ns[t] = pod.seg_ns[t];
+    }
+    nv.observer.filled_axis_count = pod.filled_axis_count;
+    nv.observer.batches_measured  = pod.batches_measured;
     nv.observer_real                     = true;
 #else
     // Kein Mess-Build (COMDARE_MEASUREMENT_ON aus) → kein echter Observer. observable_count() ist dennoch

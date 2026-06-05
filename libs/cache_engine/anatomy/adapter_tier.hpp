@@ -4,7 +4,7 @@
 // Adapter-Semantik (put/get = push/pop_front auf dem inner_container statt insert/lookup/erase).
 //
 // Doc 24 §8.8 (User-Direktive): JEDE neue Gattung bekommt ein EIGENES Antriebs-Sub-Interface + einen EIGENEN
-// flachen V1-POD — `IAnatomyBase`/`ComdareTierObserverSnapshotV1` werden NIE mutiert (das bräche alte DLLs).
+// flachen POD — `IAnatomyBase`/der konsolidierte Observer-POD werden NIE mutiert (das bräche alte DLLs).
 // Der host-seitige Container-Dock fragt eine geladene DLL via `dynamic_cast<IAdapterTier*>(ianatomy_ptr)` ab;
 // SearchAlgorithm-DLLs (kein IAdapterTier) → nullptr → sauberes Degradieren (kein ABI-Bruch).
 //

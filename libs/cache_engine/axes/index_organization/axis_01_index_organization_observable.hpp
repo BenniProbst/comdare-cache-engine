@@ -35,7 +35,7 @@
 namespace comdare::cache_engine::index_organization {
 
 /// ABI-taugliches Index-Organisation-Snapshot (standard_layout + trivially_copyable → spaeter in den generischen
-/// Cross-ABI-POD ComdareTierObserverSnapshotV3 axis_stats[13] mappbar). NUR uint64-Felder.
+/// Cross-ABI-Observer-POD axis_stats[13] mappbar). NUR uint64-Felder.
 struct IndexOrgStatistics {
     std::uint64_t scan_count       = 0;   ///< Anzahl index_org_observe-Aufrufe
     std::uint64_t records_scanned  = 0;   ///< kumulierte Datensatz-Zahl ueber alle Scans

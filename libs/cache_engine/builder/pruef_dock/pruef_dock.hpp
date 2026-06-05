@@ -10,7 +10,7 @@
 // IPruefDock ist KEINE ABI-Grenze (lebt nur im Builder-Binary, eine vtable, NICHT im Hot-Path — der Hot-Path
 // ist das compile-time-monomorphisierte Adapter-Tier IN der DLL). Die ABI-Grenze bleibt das gattungs-eigene
 // Antriebs-Sub-Interface (für SearchAlgorithm: anatomy::IObservableTier) + der POD-Snapshot
-// (ComdareTierObserverSnapshotV1). Neue Gattung = neues Dock + neues Sub-Interface + neuer V1-POD — NIE eine
+// (der konsolidierte Observer-POD). Neue Gattung = neues Dock + neues Sub-Interface + neuer flacher POD — NIE eine
 // Mutation von IAnatomyBase oder dem bestehenden Snapshot (vtable-/Layout-Bruch alter DLLs).
 //
 // @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md §8.8

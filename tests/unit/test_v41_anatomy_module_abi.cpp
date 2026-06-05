@@ -46,15 +46,15 @@ COMDARE_DEFINE_ANATOMY_MODULE(::comdare::cache_engine::compositions::ArtComposit
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5D_AnatomyAbi, MacroDefinesVersionAndMagic) {
-    static_assert(COMDARE_ANATOMY_ABI_MAJOR == 2);   // V5-I2.2: ABI-Bruch (IDriveableTier-Split + konditionale Vererbung)
-    static_assert(COMDARE_ANATOMY_ABI_MINOR == 2);   // V5-#49-E: +IScannableTier (Range-Scan); zuvor Minor 1 = +IRollbackableTier (V5-I6)
-    static_assert(COMDARE_ANATOMY_ABI_MAGIC == 0x434F4D444141322EULL);  // "COMDA·A2·" (Magic kodiert Major, Minor-Bump ändert es nicht)
+    static_assert(COMDARE_ANATOMY_ABI_MAJOR == 3);   // I1: ABI-Bruch (Observer-Schnittstellen-Konsolidierung auf EINE IObservableTier + EINEN POD)
+    static_assert(COMDARE_ANATOMY_ABI_MINOR == 0);   // I1: Minor auf 0 zurückgesetzt beim Major-Bump
+    static_assert(COMDARE_ANATOMY_ABI_MAGIC == 0x434F4D444141332EULL);  // "COMDA·A3·" (Magic kodiert Major, Minor-Bump ändert es nicht)
     SUCCEED();
 }
 
 TEST(R5D_AnatomyAbi, HostAbiVersionMatchesMacro) {
-    static_assert(abi::kHostAnatomyAbiVersion.major == 2);   // V5-I2.2
-    static_assert(abi::kHostAnatomyAbiVersion.minor == 2);   // V5-#49-E (+IScannableTier)
+    static_assert(abi::kHostAnatomyAbiVersion.major == 3);   // I1
+    static_assert(abi::kHostAnatomyAbiVersion.minor == 0);   // I1
     SUCCEED();
 }
 

@@ -23,7 +23,7 @@
 namespace comdare::cache_engine::telemetry_axis {
 
 /// ABI-taugliches Telemetrie-Snapshot (standard_layout + trivially_copyable -> spaeter append-only in den
-/// Cross-ABI-POD ComdareTierObserverSnapshotV1 mappbar, Doc 29 §3 Schritt 4).
+/// Cross-ABI-Observer-POD mappbar, Doc 29 §3 Schritt 4).
 struct TelemetrySnapshot {
     std::uint64_t total_events = 0;   ///< alle Mess-Ereignisse (insert/lookup/erase-Knoten-Touches)
     std::uint64_t leaf_updates = 0;   ///< gezaehlte Blatt-Knoten-Zaehler-Updates

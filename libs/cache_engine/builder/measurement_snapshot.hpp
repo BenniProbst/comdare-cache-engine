@@ -2,7 +2,7 @@
 // V5-I1-SUBSTANZ (Task #50) — ComdareMeasurementSnapshotV1: der EINE autoritative Mess-POD (16+6 Spalten).
 //
 // /goal-I1 (Re-Audit-Blocker, w2s7ckovj): „EIN autoritativer Mess-POD volle 16+6-Spalten." Vorher existierten
-// ≥4 inkompatible Schemata (ComdareTierObserverSnapshotV1=13 / 16-col-Pipeline-CSV / 24-col-Workload-CSV /
+// ≥4 inkompatible Schemata (Observer-POD-13 / 16-col-Pipeline-CSV / 24-col-Workload-CSV /
 // 16-col-Binary-Record). Dieser POD vereinheitlicht sie: EINE Struktur trägt
 //   • 16 PERFORMANCE/META-Spalten (Pipeline-kanonisch, speist die LaTeX-Diagramme 04/05/06):
 //       [meta] fingerprint, succeeded, op_count  +  [perf] total_cycles
@@ -92,14 +92,15 @@ measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, st
     m.op_count              = r.op_count;
     m.total_cycles          = static_cast<std::uint64_t>(detail::merged_p50_ns(r));   // repräsentative ns
     m.pmc_available         = 0;                                                       // PMC nicht angebunden
-    m.bytes_allocated       = r.observer.alloc_bytes_allocated;                        // ECHT aus Observer
-    m.bytes_in_use_peak     = r.observer.alloc_bytes_in_use;                           // ECHT aus Observer
-    m.search_insert         = r.observer.search_insert_count;
-    m.search_lookup         = r.observer.search_lookup_count;
-    m.search_hit            = r.observer.search_hit_count;
-    m.search_miss           = r.observer.search_miss_count;
-    m.search_erase          = r.observer.search_erase_count;
-    m.search_peak_occupancy = r.observer.search_peak_occupancy;
+    // I1: aus dem konsolidierten Observer-POD (search→axis_stats[0], alloc→axis_stats[6]).
+    m.bytes_allocated       = r.observer.axis_stats[6][0];                             // ECHT aus Observer
+    m.bytes_in_use_peak     = r.observer.axis_stats[6][1];                             // ECHT aus Observer
+    m.search_insert         = r.observer.axis_stats[0][3];
+    m.search_lookup         = r.observer.axis_stats[0][0];
+    m.search_hit            = r.observer.axis_stats[0][1];
+    m.search_miss           = r.observer.axis_stats[0][2];
+    m.search_erase          = r.observer.axis_stats[0][4];
+    m.search_peak_occupancy = r.observer.axis_stats[0][5];
     return m;
 }
 

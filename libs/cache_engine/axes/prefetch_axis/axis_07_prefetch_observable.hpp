@@ -19,7 +19,7 @@
 //
 // Gating exakt nach ObservableTelemetry/ObservableComposedSearch-Präzedenz: snapshot_t/statistics()/reset()
 // unter COMDARE_CE_ENABLE_STATISTICS. Bei OFF: observe_*() = no-op (0 Footprint), ObservableAxis<...> = false
-// → observe_all()/fill_observer_v3 fällt auf EmptyAxisSnapshot/0 zurück (Release-Pfad, korrekt).
+// → observe_all()/die Observer-Befüllung fällt auf EmptyAxisSnapshot/0 zurück (Release-Pfad, korrekt).
 //
 // @related [[feedback_zwei_dimensionen_messmodell]] [[reference_axis_gold_standard_checklist]]
 
@@ -32,7 +32,7 @@
 namespace comdare::cache_engine::prefetch_axis {
 
 /// ABI-taugliches Prefetch-Snapshot (NUR uint64 → standard_layout + trivially_copyable; mappbar in den
-/// generischen Cross-ABI-POD ComdareTierObserverSnapshotV3, axis_stats[7][...], observable_tier.hpp).
+/// generischen Cross-ABI-Observer-POD, axis_stats[7][...], observable_tier.hpp).
 struct PrefetchStatistics {
     std::uint64_t trigger_count             = 0;  ///< Anzahl Prefetch-Trigger (observe_prefetch-Aufrufe, die treiben)
     std::uint64_t suggestions_made          = 0;  ///< Anzahl erzeugter Next-Adress-Empfehlungen (suggest_next-Aufrufe)

@@ -23,7 +23,7 @@
 //
 // Emittiert die WIDE-Schema-CSV via die ECHTEN Writer (lazy_csv_header/format_csv_row) nach
 // build/thesis_tiere/tier150_measurements.csv. In-process Stand-in: identische vtable/POD-Layout wie über die
-// .dll-Grenze (dynamic_cast<IObservableTierV3*> ist exakt der Host-Pfad).
+// .dll-Grenze (dynamic_cast<IObservableTier*> ist exakt der Host-Pfad).
 //
 // SCOPE-NOTE (ehrlich): die Demonstration nutzt ein KURATIERTES 1-wise-Grid (7 Binaries), das ALLE 3 Werte JEDER
 // der drei variierten Achsen abdeckt (node4/48/256 + none/bytewise/patricia + bloom/cuckoo/xor) — NICHT das volle
@@ -106,14 +106,14 @@ struct GridComposition {
 // auto-gekoppelter Instanz-Achse (T1/T2/T17/T18) für den Reset-Fix-Beleg.
 struct Cell {
     std::string id;
-    an::ComdareTierObserverSnapshotV3 v3{};
+    an::ComdareTierObserverSnapshot v3{};
     std::vector<std::uint64_t> reps[4];   // [0]=T1 [1]=T2 [2]=T17 [3]=T18, je Rep ein Eintrag
 };
 
 static std::vector<Cell> g_cells;
 static std::string        g_csv;
 
-static std::uint64_t axis_sum(an::ComdareTierObserverSnapshotV3 const& s, int t) {
+static std::uint64_t axis_sum(an::ComdareTierObserverSnapshot const& s, int t) {
     std::uint64_t v = 0; for (std::size_t f = 0; f < an::kV3FieldCount; ++f) v += s.axis_stats[t][f]; return v;
 }
 
@@ -126,13 +126,12 @@ static void run_cell(std::string const& id, std::uint32_t n_repeats) {
     auto tier_ptr = std::make_unique<an::SearchAlgorithmAbiAdapter<Anatomy>>();
     auto* base = static_cast<an::IAnatomyBase*>(tier_ptr.get());
     auto* obs  = dynamic_cast<an::IObservableTier*>(base);
-    auto* obs3 = dynamic_cast<an::IObservableTierV3*>(base);
 
     Cell c;
     c.id = id;
     for (std::uint32_t r = 0; r < n_repeats; ++r) {
         // run_observable_perm ruft INTERN tier_clear() (Reset-Fix-Pfad!) → 1000 insert + 1000 lookup → V3.
-        ex::PermResult const pr = ex::run_observable_perm(*obs, id, /*n_ops=*/1000, obs3);
+        ex::PermResult const pr = ex::run_observable_perm(*obs, id, /*n_ops=*/1000);
         ex::LazyMeasuredRow row;
         row.binary_id     = id;
         row.setting_label = "repetition.repetition_index=" + std::to_string(r);
