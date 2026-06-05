@@ -7,7 +7,7 @@
 
 #include <builder/anatomy_module_loader/anatomy_module_loader.hpp>
 #include <anatomy/anatomy_base.hpp>
-#include <anatomy/observable_tier.hpp>   // IObservableTier + ComdareTierObserverSnapshotV1
+#include <anatomy/observable_tier.hpp>   // IObservableTier + ComdareTierObserverSnapshot
 
 #include <cstdint>
 #include <filesystem>
@@ -50,12 +50,12 @@ int main(int argc, char** argv) {
     if (obs) {
         for (std::uint64_t k = 0; k < 256; ++k) (void)obs->tier_insert(k, k * 7u + 1u);
         for (std::uint64_t k = 0; k < 256; ++k) { std::uint64_t v = 0; (void)obs->tier_lookup(k, &v); }
-        ana::ComdareTierObserverSnapshotV1 pod{};
+        ana::ComdareTierObserverSnapshot pod{};
         obs->tier_observe(&pod);
-        std::cout << "    observe_all über DLL: search_insert=" << pod.search_insert_count
-                  << " lookup=" << pod.search_lookup_count << " fill=" << pod.tier_fill_level
+        std::cout << "    observe_all über DLL: search_insert=" << pod.axis_stats[0][3]
+                  << " lookup=" << pod.axis_stats[0][0] << " fill=" << pod.tier_fill_level
                   << " observable_axes=" << pod.observable_axis_count << "\n";
-        check_true("observe_all über REALE DLL: search_insert_count > 0 (echt getrieben)", pod.search_insert_count > 0);
+        check_true("observe_all über REALE DLL: search_insert_count > 0 (echt getrieben)", pod.axis_stats[0][3] > 0);
         check_true("observe_all über REALE DLL: tier_fill_level > 0", pod.tier_fill_level > 0);
         check_true("observable_axis_count >= 1 (R5.B)", pod.observable_axis_count >= 1);
     }

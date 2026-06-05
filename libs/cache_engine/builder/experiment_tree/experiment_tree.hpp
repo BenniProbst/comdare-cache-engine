@@ -34,7 +34,8 @@
 namespace comdare::cache_engine::builder::experiment {
 
 // ── BR-3 (Doc 27 §3): flacher, komposition-UNABHÄNGIGER Per-Achsen-Observer-Snapshot ──
-/// Layout-identisch zu anatomy::ComdareTierObserverSnapshotV1 (NUR uint64 → standard_layout); der Mess-Treiber
+/// Layout-identisch zur search/allocator-Projektion des konsolidierten anatomy-Observer-PODs (NUR uint64 →
+/// standard_layout); der Mess-Treiber
 /// (node_value_measurement.hpp) flacht `observe_all()`/`tier_observe` einer REALEN Komposition hier hinein.
 /// KEIN komposition-typisiertes Member → experiment_tree.hpp bleibt umbrella-unabhängig (Doc 27 §3 BR-3).
 /// R5.B-Grenze (ehrlich): real getrieben werden search_algo + allocator; `observable_axis_count` macht

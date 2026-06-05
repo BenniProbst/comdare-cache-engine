@@ -82,18 +82,9 @@ struct LazyMeasuredRow {
     // (B): Host-Gesamt-Wall-Clock DIESER Messung (insert+lookup) + Eingabe-n_ops → ns_per_op = total_ns/(2*n_ops).
     std::int64_t         total_ns = 0;
     std::uint64_t        n_ops    = 0;
-    // (X): die 19 ECHT gemessenen per-Segment-ns ALLER SearchAlgorithm-Achsen (T0..T18, seg_ns[19]).
-    // seg_real=false → das Modul exponiert IMeasurableWorkloadV3 nicht → ehrlich n/a in der CSV (NICHT 0).
-    anatomy::ComdareSegmentLatencyV2 seg{};
-    bool                 seg_real = false;
-    // Phase A (2026-06-04): der generische Per-Achsen-V3-Observer-Snapshot (axis_stats[19][8]) — die 10 Phase-A-
-    // Achsen tragen echte statistics()-Werte (>0), die 9 Phase-B-Achsen 0. v3_real=false → das Modul exponiert
-    // IObservableTierV3 nicht (alte DLL) → die stat_*-Spalten = ehrlich „n/a" (NICHT 0).
-    anatomy::ComdareTierObserverSnapshotV3 v3{};
-    bool                 v3_real = false;
-    // KONSOLIDIERUNG (I-B, 2026-06-04): der EINE konsolidierte Observer-POD (axis_stats[19][8] + seg_ns[19] + Meta).
+    // KONSOLIDIERUNG (I1): der EINE konsolidierte Observer-POD (axis_stats[19][8] + seg_ns[19]/Pfad B + Meta).
     // Maßgebliche CSV-Quelle: stat_*-Spalten aus unified.axis_stats, seg_*-Spalten aus unified.seg_ns (Pfad B, reale
-    // Komposition — User-Entscheid 2026-06-04, ersetzt den Pfad-A-Segment-Timer). V3/seg entfallen in I-C.
+    // Komposition). Ersetzt den früheren V3-Snapshot + den Pfad-A-Segment-Timer.
     anatomy::ComdareTierObserverSnapshot unified{};
     bool                 unified_real = false;
 };
@@ -114,7 +105,7 @@ struct LazyMeasuredRow {
 // generisch [19][8], ABER nur die im Schema BENANNTEN (non-null) Felder werden zu Spalten → die Breite ist gegen
 // weitere Felder gedeckelt (Phase B füllt nur leere Schema-Slots, KEINE neue Spalte ausser tatsächlich benannt);
 // (3) Schema-Stabilität: kV3AxisSchema IST der Vertrag Schreiber(DLL)↔Spaltenname(Host) → keine Drift. Die
-// stat_*-Spalten sind „n/a", wenn die DLL kein IObservableTierV3 trägt (v3_real=false) — ehrlich n/a, NICHT 0.
+// stat_*-Spalten sind „n/a", wenn die DLL kein Mess-Interface trägt (unified_real=false) — ehrlich n/a, NICHT 0.
 //
 // SEMANTIK der stat_*-Spalten (Konsistenz-Stand nach dem tier_clear-Reset-Fix 2026-06-04): PER-MESSUNG, WARMUP-FREI
 // — KEINE Cumulative-Absolut-Werte. perm_runner::run_observable_perm ruft tier_clear() VOR der Mess-Last; die auto-
@@ -179,9 +170,8 @@ struct LazyMeasuredRow {
     // Komposition, User-Entscheid 2026-06-04). Fallback (additive Übergangsphase, entfällt in I-C): row.seg
     // (Pfad A) für noch nicht migrierte Aufrufer; sonst ehrlich n/a (alte DLL ohne konsolidierte tier_observe).
     auto seg_field = [&](int i) {
-        if (row.unified_real)   out += std::to_string(row.unified.seg_ns[i]);
-        else if (row.seg_real)  out += std::to_string(row.seg.seg_ns[i]);
-        else                    out += "n/a";
+        if (row.unified_real) out += std::to_string(row.unified.seg_ns[i]);   // Pfad-B-Timing aus dem EINEN POD
+        else                  out += "n/a";                                    // alte/Nicht-Mess-DLL → ehrlich n/a
         out += ';';
     };
     for (int i = 0; i < 19; ++i) seg_field(i);
@@ -201,18 +191,16 @@ struct LazyMeasuredRow {
     out += std::to_string(o.tier_fill_level);          out += ';';
     out += std::to_string(row.applied_axis_count);     out += ';';   // applied_axes
     // Phase A: die per-Achsen-Observer-Werte stat_<achse>_<feld> (WIDE, generisch aus kV3AxisSchema). Echt wenn
-    // v3_real (Modul trägt IObservableTierV3), sonst ehrlich „n/a" (NICHT 0). Reihenfolge IDENTISCH zum Header.
+    // unified_real (Modul trägt das Mess-Interface), sonst ehrlich „n/a" (NICHT 0). Reihenfolge IDENTISCH zum Header.
     for (std::size_t t = 0; t < anatomy::kV3AxisCount; ++t) {
         for (std::size_t f = 0; f < anatomy::kV3FieldCount; ++f) {
             if (anatomy::kV3AxisSchema[t].names[f] == nullptr) continue;   // ungenutzt / Phase B → keine Spalte
-            if (row.unified_real)   out += std::to_string(row.unified.axis_stats[t][f]);   // konsolidierter POD
-            else if (row.v3_real)   out += std::to_string(row.v3.axis_stats[t][f]);        // Fallback (entfällt I-C)
-            else                    out += "n/a";
+            if (row.unified_real) out += std::to_string(row.unified.axis_stats[t][f]);   // konsolidierter POD
+            else                  out += "n/a";                                           // alte/Nicht-Mess-DLL → ehrlich n/a
             out += ';';
         }
     }
-    out += (row.unified_real ? std::to_string(row.unified.filled_axis_count)
-            : (row.v3_real ? std::to_string(row.v3.filled_axis_count) : std::string{"n/a"}));   // v3_filled_axes (konsolidiert, Fallback V3)
+    out += (row.unified_real ? std::to_string(row.unified.filled_axis_count) : std::string{"n/a"});   // filled_axes
     out += '\n';
     return out;
 }
@@ -294,10 +282,6 @@ struct LazyRunResult {
         anatomy::IAnatomyBase* base = handle.anatomy();
         auto* obs  = (base != nullptr) ? dynamic_cast<anatomy::IObservableTier*>(base) : nullptr;
         auto* ctrl = (base != nullptr) ? dynamic_cast<anatomy::IResourceControllableTier*>(base) : nullptr;
-        // (X): das 19-Segment-Timer-Sub-Interface (alte/ohne-V3 DLL → nullptr → ehrlich n/a, kein Crash).
-        auto* segw = (base != nullptr) ? dynamic_cast<anatomy::IMeasurableWorkloadV3*>(base) : nullptr;
-        // Phase A: das generische Per-Achsen-V3-Observer-Sub-Interface (alte DLL ohne V3 → nullptr → stat_*=n/a).
-        auto* obs3 = (base != nullptr) ? dynamic_cast<anatomy::IObservableTierV3*>(base) : nullptr;
         if (obs == nullptr) { ++result.load_failed; continue; }  // keine Mess-Ebene (kein COMDARE_MEASUREMENT_ON-Build)
         ++result.loaded;
 
@@ -320,18 +304,8 @@ struct LazyRunResult {
             // Die ID prefixen wir mit dem Setting → eindeutig je (Binary × Setting × Rep, da rep eine dyn-Dim ist).
             std::string const setting_id =
                 s.setting_label.empty() ? binary_id : (binary_id + "#" + s.setting_label);
-            // Phase A: obs3 (IObservableTierV3*, ggf. nullptr) wird durchgereicht → run_observable_perm zieht
-            // nach der Mess-Last den generischen Per-Achsen-V3-Snapshot (oder lässt v3_real=false → CSV n/a).
-            PermResult const pr = run_observable_perm(*obs, setting_id, cfg.n_ops, obs3);
-
-            // (X): echter per-Segment-Timer (ALLE 19 instrumentierten Achsen) — n/a, wenn das Modul kein
-            // IMeasurableWorkloadV3 exponiert (segw==nullptr) ODER seg_batches==0 (Segment-Timing aus).
-            anatomy::ComdareSegmentLatencyV2 seg{};
-            std::uint64_t seg_batches_done = 0;
-            if (segw != nullptr && cfg.seg_batches != 0) {
-                seg_batches_done = drive_segment_latencies(segw, cfg.seg_ops_per_batch, cfg.seg_batches,
-                                                           cfg.seg_seed, seg);
-            }
+            // KONSOLIDIERUNG (I1): EINE tier_observe liefert Observer-Stats + Pfad-B-seg_ns in EINEM POD.
+            PermResult const pr = run_observable_perm(*obs, setting_id, cfg.n_ops);
 
             if (ingest_result_line(tree, pr.line)) {
                 ++result.measured;
@@ -345,12 +319,8 @@ struct LazyRunResult {
                 row.applied_axis_count = s.applied_axis_count;
                 row.total_ns           = pr.total_ns;       // (B)
                 row.n_ops              = pr.n_ops;
-                row.seg                = seg;                // (C-2)
-                row.seg_real           = (seg_batches_done > 0);
-                row.unified            = pr.unified;         // KONSOLIDIERUNG (I-B): maßgebliche CSV-Quelle (Stats + Pfad-B-seg_ns)
+                row.unified            = pr.unified;         // KONSOLIDIERUNG (I1): maßgebliche CSV-Quelle (Stats + Pfad-B-seg_ns)
                 row.unified_real       = pr.unified_real;
-                row.v3                 = pr.v3;              // Phase A: generischer Per-Achsen-V3-Snapshot
-                row.v3_real            = pr.v3_real;
                 // (E): die per-Binary-Ergebnis-CSV mit-akkumulieren (gleiches Schema wie die globale CSV).
                 if (cfg.per_binary_subdirs) per_binary_csv += format_csv_row(row);
                 result.csv_rows.push_back(std::move(row));

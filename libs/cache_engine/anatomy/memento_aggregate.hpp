@@ -4,7 +4,7 @@
 // User-Direktive 2026-05-31: memento_all rollt den GESAMTEN Zustand einer Tier-Binary nach Warmup über ALLE
 // stateful Achsen zurück (Memento-Pattern). Einheitliche Memento-Hilfsfunktionen je stateful Achsen-Interface;
 // IO/Disk-Persistenz möglich → „ein einfacher Snapshot reicht NICHT" ⇒ memento ist eine RICHE, binary-INTERNE
-// Struktur (kein flacher ABI-POD wie ComdareTierObserverSnapshotV1). Der Host sieht den Memento NIE; er triggert
+// Struktur (kein flacher ABI-POD wie der konsolidierte Observer-POD). Der Host sieht den Memento NIE; er triggert
 // nur tier_save_all()/tier_rollback_all() (IRollbackableTier, V5-I6) — der Zustand lebt IN der Binary.
 //
 // Spiegelt observer_aggregate.hpp exakt: ObservableAxis ⟺ „hat statistics()" → hier MementoAxis ⟺ „hat

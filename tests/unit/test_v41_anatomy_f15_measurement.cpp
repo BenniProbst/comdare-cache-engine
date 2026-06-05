@@ -286,21 +286,21 @@ TEST(F15Measurement, R6_HostSideObserverPullViaAbiInterface) {
     EXPECT_EQ(obs->tier_size(), N - 1u);
 
     // (2) Observer durch die ABI-Grenze ZIEHEN (flacher POD).
-    an::ComdareTierObserverSnapshotV1 snap{};
+    an::ComdareTierObserverSnapshot snap{};
     obs->tier_observe(&snap);
-    EXPECT_EQ(snap.search_insert_count, N);                     // alle Inserts beim getriebenen ECHTEN Organ
-    EXPECT_GE(snap.search_lookup_count, 502u);                  // 1 Hit + 1 Miss + 500 explizite Lookups
-    EXPECT_GT(snap.search_peak_occupancy, 0u);
+    EXPECT_EQ(snap.axis_stats[0][3], N);                        // alle Inserts beim getriebenen ECHTEN Organ
+    EXPECT_GE(snap.axis_stats[0][0], 502u);                     // 1 Hit + 1 Miss + 500 explizite Lookups
+    EXPECT_GT(snap.axis_stats[0][5], 0u);
     EXPECT_EQ(snap.tier_fill_level, obs->tier_size());          // korrelierter Fuellstand (§8.7)
     EXPECT_GT(snap.observable_axis_count, 0u);                  // mind. die search_algo-Achse observable
     // R6 Inkrement 2b: die allocator-Achse wird JETZT AUCH über die ABI-Grenze gemessen (2. Mess-Achse,
     // ComposedStore-Vector-Growth) — sofern die Composition-allocator-Achse observable ist.
-    EXPECT_GT(snap.alloc_bytes_allocated, 0u);
-    EXPECT_GT(snap.alloc_allocation_count, 0u);
+    EXPECT_GT(snap.axis_stats[6][0], 0u);
+    EXPECT_GT(snap.axis_stats[6][2], 0u);
 
     // (3) ABI-Stabilität: der Snapshot ist memcpy-fähig (Cross-Boundary-Pflicht).
-    static_assert(std::is_trivially_copyable_v<an::ComdareTierObserverSnapshotV1>);
-    an::ComdareTierObserverSnapshotV1 copy{};
+    static_assert(std::is_trivially_copyable_v<an::ComdareTierObserverSnapshot>);
+    an::ComdareTierObserverSnapshot copy{};
     std::memcpy(&copy, &snap, sizeof(snap));
     EXPECT_EQ(copy, snap);
     SUCCEED();
@@ -335,10 +335,10 @@ TEST(F15Measurement, R6_AbiTierObserveTraceCorrelatesWallClockAndObservers) {
         EXPECT_EQ(cp.observer.tier_fill_level, cfg.fill_checkpoints[i]);   // Observer korreliert zum Füllstand
         EXPECT_FALSE(cp.write_ns.empty());                                 // Tier-Wall-Clock erhoben (write)
         EXPECT_EQ(cp.read_ns.size(), 500u);                               // r/w/d getrennt (read-Kurve)
-        EXPECT_GT(cp.observer.search_insert_count, prev_inserts);         // Inserts wachsen monoton
-        EXPECT_GT(cp.observer.search_lookup_count, 0u);
+        EXPECT_GT(cp.observer.axis_stats[0][3], prev_inserts);            // Inserts wachsen monoton
+        EXPECT_GT(cp.observer.axis_stats[0][0], 0u);
         EXPECT_GT(cp.observe_wall_ns, prev_wall_ns);                      // §8.7: Wall-Clock-Stempel monoton
-        prev_inserts = cp.observer.search_insert_count;
+        prev_inserts = cp.observer.axis_stats[0][3];
         prev_wall_ns = cp.observe_wall_ns;
     }
     EXPECT_EQ(trace.checkpoints.back().observer.tier_fill_level, 1000u);

@@ -50,7 +50,7 @@ struct WorkloadRunResult {
     std::vector<std::int64_t> scan_ns{};            ///< V5-#49-E: Range-Scan-Latenzen (leer wenn Tier nicht scanbar)
     std::vector<std::int64_t> rmw_ns{};             ///< V5-#49-F: Read-Modify-Write-Latenzen
     std::uint64_t             read_sink = 0;        ///< Anti-Wegoptimierungs-Senke (gemessene Lookups + Scans)
-    an::ComdareTierObserverSnapshotV1 observer{};   ///< EIN Observer-POD am Lauf-Ende (korreliert)
+    an::ComdareTierObserverSnapshot observer{};   ///< EIN konsolidierter Observer-POD am Lauf-Ende (korreliert, I1)
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -235,9 +235,9 @@ run_measurement_plan(an::IObservableTier& tier,
            << r.clear_ns.size()  << ',' << ac::detail::nearest_rank_p(r.clear_ns,  0.5) << ',' << ac::detail::nearest_rank_p(r.clear_ns,  0.99) << ','
            << r.scan_ns.size()   << ',' << ac::detail::nearest_rank_p(r.scan_ns,   0.5) << ',' << ac::detail::nearest_rank_p(r.scan_ns,   0.99) << ','
            << r.rmw_ns.size()    << ',' << ac::detail::nearest_rank_p(r.rmw_ns,    0.5) << ',' << ac::detail::nearest_rank_p(r.rmw_ns,    0.99) << ','
-           << o.search_insert_count << ',' << o.search_lookup_count << ',' << o.search_hit_count << ','
-           << o.search_miss_count << ',' << o.search_erase_count << ',' << o.search_peak_occupancy << ','
-           << o.alloc_bytes_in_use << ',' << o.alloc_allocation_count << ',' << o.observable_axis_count << '\n';
+           << o.axis_stats[0][3] << ',' << o.axis_stats[0][0] << ',' << o.axis_stats[0][1] << ','
+           << o.axis_stats[0][2] << ',' << o.axis_stats[0][4] << ',' << o.axis_stats[0][5] << ','
+           << o.axis_stats[6][1] << ',' << o.axis_stats[6][2] << ',' << o.observable_axis_count << '\n';
     }
     return os.str();
 }

@@ -1,7 +1,7 @@
-// Phase A (2026-06-04) BUILD-VERIFIKATION der Per-Achsen-Observer-Vervollständigung:
-//   IObservableTierV3::tier_observe_v3 → ComdareTierObserverSnapshotV3.axis_stats[19][8] über mehrere reale
-//   SA-Kompositionen (in-process Stand-in: identische vtable/POD-Layout wie über die .dll-Grenze; das
-//   dynamic_cast<IObservableTierV3*> ist exakt der Host-Pfad). Emittiert die WIDE-Schema-CSV via die ECHTEN
+// Phase A (2026-06-04) / I1 (2026-06-05) BUILD-VERIFIKATION der Per-Achsen-Observer-Vervollständigung:
+//   die EINE tier_observe(ComdareTierObserverSnapshot*).axis_stats[19][8] über mehrere reale SA-Kompositionen
+//   (in-process Stand-in: identisches vtable/POD-Layout wie über die .dll-Grenze; das dynamic_cast<IObservableTier*>
+//   ist exakt der Host-Pfad). Emittiert die WIDE-Schema-CSV via die ECHTEN
 //   Writer (lazy_csv_header/format_csv_row) nach build/thesis_tiere/obs_phaseA_pilot.csv und prüft literal:
 //     (1) die Schema-befüllten Achsen tragen Observer (seit Phase-B-Abschluss 2026-06-04 = alle 19);
 //     (2) die 4 in Phase A neu verdrahteten Instanz-Achsen (T1/T2/T17/T18) sind > 0;
@@ -42,20 +42,20 @@ static bool is_filled(int t) {
 }
 
 // Summe aller 8 Felder einer Achsen-Zeile (>0 ⇔ Achse trägt echte Werte).
-static std::uint64_t row_sum(an::ComdareTierObserverSnapshotV3 const& s, int t) {
+static std::uint64_t row_sum(an::ComdareTierObserverSnapshot const& s, int t) {
     std::uint64_t v = 0; for (std::size_t f = 0; f < an::kV3FieldCount; ++f) v += s.axis_stats[t][f]; return v;
 }
 
 template <class C>
-static an::ComdareTierObserverSnapshotV3 measure_v3(char const* name, std::string& csv_out) {
+static an::ComdareTierObserverSnapshot measure_v3(char const* name, std::string& csv_out) {
     using Anatomy = an::SearchAlgorithmAnatomy<C>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
     auto* base = static_cast<an::IAnatomyBase*>(&tier);
-    auto* obs  = dynamic_cast<an::IObservableTier*>(base);
-    auto* obs3 = dynamic_cast<an::IObservableTierV3*>(base);   // der echte Host-Abfrage-Pfad
+    auto* obs  = dynamic_cast<an::IObservableTier*>(base);   // I1: EINE Schnittstelle (Antrieb + Observer)
 
-    // run_observable_perm treibt tier_clear → 1000 insert + 1000 lookup (koppelt T1/T2/T17/T18 auto) → zieht V3.
-    ex::PermResult const pr = ex::run_observable_perm(*obs, name, /*n_ops=*/1000, obs3);
+    // run_observable_perm treibt tier_clear → 1000 insert + 1000 lookup (koppelt T1/T2/T17/T18 auto) → zieht den
+    // EINEN konsolidierten Observer-POD (axis_stats + Pfad-B-seg_ns).
+    ex::PermResult const pr = ex::run_observable_perm(*obs, name, /*n_ops=*/1000);
 
     // Echte CSV-Zeile via format_csv_row (identisches WIDE-Schema wie der E2E-Treiber).
     ex::LazyMeasuredRow row;
@@ -63,27 +63,21 @@ static an::ComdareTierObserverSnapshotV3 measure_v3(char const* name, std::strin
     row.setting_label = "-";
     row.n_ops         = pr.n_ops;
     row.total_ns      = pr.total_ns;
-    row.v3            = pr.v3;
-    row.v3_real       = pr.v3_real;
-    row.unified       = pr.unified;       // KONSOLIDIERUNG (I-B): format_csv_row liest stat_*/seg_* aus dem EINEN POD
+    row.unified       = pr.unified;       // KONSOLIDIERUNG (I1): format_csv_row liest stat_*/seg_* aus dem EINEN POD
     row.unified_real  = pr.unified_real;
     csv_out += ex::format_csv_row(row);
-    // KONSOLIDIERUNG-Verifikation: der konsolidierte POD trägt dieselben axis_stats wie der reine V3-Observer
-    // (Q1: Timing-Pass hat die Observer-Zähler NICHT inflationiert) + seg_ns sind real (Pfad B).
-    {
-        bool eq = true; for (int t = 0; t < 19 && eq; ++t) for (int f = 0; f < 8; ++f) if (pr.unified.axis_stats[t][f] != pr.v3.axis_stats[t][f]) { eq = false; break; }
-        tr((std::string{name} + ": unified axis_stats == V3 (Q1 kein Inflate)").c_str(), eq && pr.unified_real);
-    }
+    // KONSOLIDIERUNG-Verifikation: der konsolidierte POD ist real gezogen (axis_stats + seg_ns Pfad B in EINEM POD).
+    tr((std::string{name} + ": unified observer real (axis_stats + Pfad-B-seg_ns in EINEM POD)").c_str(), pr.unified_real);
 
-    std::cout << "  " << name << ": v3_real=" << (pr.v3_real ? 1 : 0)
-              << " filled_axis_count=" << pr.v3.filled_axis_count << "\n    T0..T18 row_sum=";
-    for (int t = 0; t < 19; ++t) std::cout << row_sum(pr.v3, t) << (t < 18 ? "," : "");
+    std::cout << "  " << name << ": unified_real=" << (pr.unified_real ? 1 : 0)
+              << " filled_axis_count=" << pr.unified.filled_axis_count << "\n    T0..T18 row_sum=";
+    for (int t = 0; t < 19; ++t) std::cout << row_sum(pr.unified, t) << (t < 18 ? "," : "");
     std::cout << "\n";
-    return pr.v3;
+    return pr.unified;
 }
 
 template <class C>
-static void check_one(char const* name, an::ComdareTierObserverSnapshotV3 const& s) {
+static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s) {
     // EHRLICHE Semantik: (a) Schema-LEERE Achsen (noch nicht implementiert) MÜSSEN exakt 0 sein. (b) Schema-
     // BEFÜLLTE (observable) Achsen werden beobachtet, ihr Wert darf aber strategie-abhängig 0 sein (z.B. T7
     // prefetch mit NonePrefetch = ehrliche 0-Baseline, KEIN enqueue-Pfad; T8 pattern_id=0 bei NoneConcurrency).

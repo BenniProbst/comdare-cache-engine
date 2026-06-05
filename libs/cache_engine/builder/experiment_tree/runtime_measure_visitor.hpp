@@ -8,7 +8,7 @@
 
 #include "runtime_variable_loop.hpp"                    // RuntimeVariableLoop / RuntimeSetting / DynamicDim
 #include "experiment_tree.hpp"                          // NodeObserverSnapshot
-#include "../../anatomy/observable_tier.hpp"            // IObservableTier + ComdareTierObserverSnapshotV1
+#include "../../anatomy/observable_tier.hpp"            // IObservableTier + ComdareTierObserverSnapshot (I1)
 
 #include <cstdint>
 #include <string>
@@ -41,25 +41,26 @@ public:
                 // Workload je Einstellung (RAM-resident, <1s): insert + lookup über die geladene Binary (kein Reload).
                 for (std::uint64_t i = 0; i < n_ops; ++i) (void)tier.tier_insert(i, i * 7u + 1u);
                 for (std::uint64_t i = 0; i < n_ops; ++i) { std::uint64_t v = 0; (void)tier.tier_lookup(i, &v); }
-                anatomy::ComdareTierObserverSnapshotV1 pod{};
+                anatomy::ComdareTierObserverSnapshot pod{};
                 tier.tier_observe(&pod);   // echter Observer-Snapshot (korreliert mit der Einstellung)
                 RuntimeMeasurePoint p;
                 p.setting_label      = s.setting_label;
                 p.repeat_index       = r;
                 p.applied_axis_count = s.applied_axis_count;
-                p.observer.search_lookup_count     = pod.search_lookup_count;
-                p.observer.search_hit_count        = pod.search_hit_count;
-                p.observer.search_miss_count       = pod.search_miss_count;
-                p.observer.search_insert_count     = pod.search_insert_count;
-                p.observer.search_erase_count      = pod.search_erase_count;
-                p.observer.search_peak_occupancy   = pod.search_peak_occupancy;
-                p.observer.alloc_bytes_allocated   = pod.alloc_bytes_allocated;
-                p.observer.alloc_bytes_in_use      = pod.alloc_bytes_in_use;
-                p.observer.alloc_allocation_count  = pod.alloc_allocation_count;
-                p.observer.alloc_deallocation_count = pod.alloc_deallocation_count;
-                p.observer.alloc_failure_count     = pod.alloc_failure_count;
-                p.observer.observable_axis_count   = pod.observable_axis_count;
-                p.observer.tier_fill_level         = pod.tier_fill_level;
+                // I1: V1-Projektion aus dem konsolidierten POD (search→axis_stats[0], alloc→axis_stats[6]).
+                p.observer.search_lookup_count      = pod.axis_stats[0][0];
+                p.observer.search_hit_count         = pod.axis_stats[0][1];
+                p.observer.search_miss_count        = pod.axis_stats[0][2];
+                p.observer.search_insert_count      = pod.axis_stats[0][3];
+                p.observer.search_erase_count       = pod.axis_stats[0][4];
+                p.observer.search_peak_occupancy    = pod.axis_stats[0][5];
+                p.observer.alloc_bytes_allocated    = pod.axis_stats[6][0];
+                p.observer.alloc_bytes_in_use       = pod.axis_stats[6][1];
+                p.observer.alloc_allocation_count   = pod.axis_stats[6][2];
+                p.observer.alloc_deallocation_count = pod.axis_stats[6][3];
+                p.observer.alloc_failure_count      = pod.axis_stats[6][4];
+                p.observer.observable_axis_count    = pod.observable_axis_count;
+                p.observer.tier_fill_level          = pod.tier_fill_level;
                 points.push_back(std::move(p));
             }
         });

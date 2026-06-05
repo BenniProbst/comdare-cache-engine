@@ -1,5 +1,5 @@
 // Phase B Abschluss (2026-06-04) — search_algo_grid-Lauf der VOLLSTÄNDIGEN Per-Achsen-Observer-Vervollständigung:
-//   IObservableTierV3::tier_observe_v3 → ComdareTierObserverSnapshotV3.axis_stats[19][8] über mehrere reale SA-
+//   IObservableTier::tier_observe → ComdareTierObserverSnapshot.axis_stats[19][8] über mehrere reale SA-
 //   Kompositionen (in-process Stand-in: identische vtable/POD-Layout wie über die .dll-Grenze). Emittiert die WIDE-
 //   Schema-CSV via die ECHTEN Writer (lazy_csv_header/format_csv_row) nach build/thesis_tiere/obs_phaseB_pilot.csv
 //   und prüft literal:
@@ -49,18 +49,17 @@ static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] 
 static bool is_filled(int t) {
     return t >= 0 && t < static_cast<int>(an::kV3AxisCount) && an::kV3AxisSchema[t].names[0] != nullptr;
 }
-static std::uint64_t row_sum(an::ComdareTierObserverSnapshotV3 const& s, int t) {
+static std::uint64_t row_sum(an::ComdareTierObserverSnapshot const& s, int t) {
     std::uint64_t v = 0; for (std::size_t f = 0; f < an::kV3FieldCount; ++f) v += s.axis_stats[t][f]; return v;
 }
 
 template <class C>
-static an::ComdareTierObserverSnapshotV3 measure_v3(char const* name, std::string& csv_out) {
+static an::ComdareTierObserverSnapshot measure_v3(char const* name, std::string& csv_out) {
     using Anatomy = an::SearchAlgorithmAnatomy<C>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
     auto* base = static_cast<an::IAnatomyBase*>(&tier);
     auto* obs  = dynamic_cast<an::IObservableTier*>(base);
-    auto* obs3 = dynamic_cast<an::IObservableTierV3*>(base);
-    ex::PermResult const pr = ex::run_observable_perm(*obs, name, /*n_ops=*/1000, obs3);
+    ex::PermResult const pr = ex::run_observable_perm(*obs, name, /*n_ops=*/1000);
 
     ex::LazyMeasuredRow row;
     row.binary_id = name; row.setting_label = "-"; row.n_ops = pr.n_ops; row.total_ns = pr.total_ns;
@@ -74,7 +73,7 @@ static an::ComdareTierObserverSnapshotV3 measure_v3(char const* name, std::strin
 }
 
 template <class C>
-static void check_one(char const* name, an::ComdareTierObserverSnapshotV3 const& s) {
+static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s) {
     // (1) alle 19 Achsen befüllt
     tr((std::string{name} + ": filled_axis_count == 19").c_str(), s.filled_axis_count == 19u);
     tr((std::string{name} + ": filled_axis_count == kV3FilledAxisCount").c_str(),

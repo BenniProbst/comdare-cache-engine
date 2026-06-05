@@ -1,28 +1,36 @@
 #pragma once
-// V41.F.6.1.R6 — IObservableTier: ABI-stabiles Observer-Zugriffs-Sub-Interface (Pfad B über die
-// Modul-Binary-Grenze).
+// V41.F.6.1.R6 / I1 — IObservableTier: ABI-stabiles Observer-Zugriffs-Sub-Interface (Pfad B über die
+// Modul-Binary-Grenze), KONSOLIDIERT auf GENAU EINE Schnittstelle + EINEN POD.
 //
-// Doku 24 §8.6/§8.7 (HYBRID-Mess-Modell, User-Direktive 2026-05-30): Der composite Tier wird als
-// separates, dynamisch ladbares C++23-Modul (.so/.dll) gebaut; die CacheEngineBuilder kommuniziert mit
-// ihm AUSSCHLIESSLICH über das ABI-stabile Interface der GATTUNG (SearchAlgorithm). Der Builder
+// Doku 24 §8.6/§8.7 (HYBRID-Mess-Modell, User-Direktive 2026-05-30): Der composite Tier wird als separates,
+// dynamisch ladbares C++23-Modul (.so/.dll) gebaut; die CacheEngineBuilder kommuniziert mit ihm AUSSCHLIESSLICH
+// über das ABI-stabile Interface der GATTUNG (SearchAlgorithm). Der Builder
 //   (1) testet die Gattungs-API durch (tier_insert/lookup/erase),
 //   (2) misst die IM Tier eingebauten Observer (tier_observe → Snapshot),
 //   (3) zieht den Snapshot als flachen POD durch die Schnittstelle, und
 //   (4) persistiert die korrelierten (wall_clock ↔ Observer)-Ergebnisse.
 //
+// I1 KONSOLIDIERUNG (User-Direktive 2026-06-04 „EINE konsistente Observer-Schnittstelle"): Es gibt GENAU EINE
+// versionierte `IObservableTier` mit GENAU EINER `tier_observe(ComdareTierObserverSnapshot*)` + GENAU EINEM
+// versionierten POD (axis_stats[19][8] + seg_ns[19]/Pfad B + Meta). Die früheren parallelen Observer-Sub-
+// Interfaces + die früheren mehrfach versionierten Observer-PODs sind ENTFERNT; die Versionierung läuft
+// jetzt über ABI-Major (anatomy_module_abi_v1_decl.hpp, Major 2→3) — der Loader lehnt inkompatible Alt-DLLs per
+// Major-Mismatch ab (KEINE per-Version-Sub-Interface-Vermehrung mit dynamic_cast-Degrade mehr). Historie:
+// docs/architecture/31_observer_interface_konsolidierung_i1.md.
+//
 // ABI-SICHER nach demselben Designprinzip wie IMeasurableWorkload (measurable_workload.hpp):
-//   - IObservableTier hängt NICHT an IAnatomyBase (das änderte dessen vtable-Layout, bräche alte DLLs),
-//     sondern ist ein eigenständiges Sub-Interface, das der genus-typisierte ABI-Adapter ZUSÄTZLICH erbt.
-//   - Der Host fragt es via `dynamic_cast<IObservableTier*>(ianatomy_ptr)` ab; alte DLLs → nullptr →
-//     Host degradiert sauber (kein ABI-Bruch).
-//   - Der Observer-Snapshot quert die Grenze als FLACHER, komposition-UNABHÄNGIGER POD (nur uint64-Felder,
+//   - IObservableTier hängt NICHT an IAnatomyBase (das änderte dessen vtable-Layout), sondern ist ein
+//     eigenständiges Sub-Interface, das der genus-typisierte ABI-Adapter ZUSÄTZLICH erbt.
+//   - Der Host fragt es via `dynamic_cast<IObservableTier*>(ianatomy_ptr)` ab (1× kalt je Modul, nie im Hot-Loop;
+//     messarchitektur_design_observer_handle_no_dynamic_cast.md); alte DLLs → nullptr → Host degradiert sauber.
+//   - Der Observer-Snapshot quert die Grenze als FLACHER, komposition-UNABHÄNGIGER POD (nur uint64/int64-Felder,
 //     fixe Layout, keine STL/vtable) → memcpy-fähig zwischen Host und Modul-Binary.
 //
 // @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md §8.6/§8.7
-// @related [[feedback_zwei_dimensionen_messmodell]] [[execution-engine-als-wurzel]]
+// @related [[feedback_zwei_dimensionen_messmodell]] [[feedback_one_consistent_observer_interface_pruefdock]]
 
 #include "idriveable_tier.hpp"   // V5-I2: IObservableTier erbt den funktionalen Antrieb (immer einkompiliert)
-#include "measurable_workload.hpp"  // ComdareSegmentLatencyV2 (seg_ns[19]) für IObservableTierV4 (Pfad-B-Timing)
+#include "measurable_workload.hpp"  // ComdareSegmentLatencyV2 (seg_ns[19]) für das Pfad-B-Timing im konsolidierten POD
 
 #include <cstdint>
 #include <type_traits>
@@ -30,139 +38,18 @@
 namespace comdare::cache_engine::anatomy {
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ComdareTierObserverSnapshotV1 — flacher, ABI-stabiler Observer-Snapshot
+// Achsen-Schema-Konstanten des konsolidierten Observer-POD (kV3*-Namen bewusst beibehalten = Single-Source
+// Schreiber↔CSV-Spaltenname; I1-Konsolidierung lässt diese unverändert, nur die Alt-PODs V1/V2/V3 entfallen).
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Komposition-UNABHÄNGIGER POD-Snapshot, der die Per-Achsen-Observer eines composite Tiers über die
-/// Modul-Binary-ABI-Grenze trägt. Anders als ObserverAggregate<Composition> (dessen Layout je Composition
-/// variiert) hat dieser eine FIXE, versionierte Layout (V1) — Voraussetzung für memcpy über die .dll-Grenze.
-/// NUR uint64-Felder → garantiert standard_layout + trivially_copyable, identisches Layout in Host + Modul.
-///
-/// V1 trägt die beiden bereits real getriebenen Achsen (search_algo + allocator, Doku 24 §5.4/§8.5) plus
-/// Meta. Erweiterung um weitere Achsen = NEUE Snapshot-Version (V2…), das Interface bleibt ABI-stabil.
-struct ComdareTierObserverSnapshotV1 {
-    // ── Achse search_algo (axis_03a) — SearchAlgoStatistics, gespiegelt ──
-    std::uint64_t search_lookup_count   = 0;
-    std::uint64_t search_hit_count      = 0;
-    std::uint64_t search_miss_count     = 0;
-    std::uint64_t search_insert_count   = 0;
-    std::uint64_t search_erase_count    = 0;
-    std::uint64_t search_peak_occupancy = 0;
-    // ── Achse allocator (axis_06) — AllocationStatistics, gespiegelt ──
-    std::uint64_t alloc_bytes_allocated = 0;
-    std::uint64_t alloc_bytes_in_use    = 0;
-    std::uint64_t alloc_allocation_count   = 0;
-    std::uint64_t alloc_deallocation_count = 0;
-    std::uint64_t alloc_failure_count   = 0;
-    // ── Meta ──
-    std::uint64_t observable_axis_count = 0;   // ObserverAggregate::observable_count() — Diagnose
-    std::uint64_t tier_fill_level       = 0;   // tier_size() zum Snapshot-Zeitpunkt
-
-    [[nodiscard]] constexpr bool operator==(ComdareTierObserverSnapshotV1 const&) const noexcept = default;
-};
-
-static_assert(std::is_standard_layout_v<ComdareTierObserverSnapshotV1>,
-              "ABI-Pflicht: Cross-Boundary-Snapshot muss standard_layout sein");
-static_assert(std::is_trivially_copyable_v<ComdareTierObserverSnapshotV1>,
-              "ABI-Pflicht: Cross-Boundary-Snapshot muss memcpy-fähig (trivially_copyable) sein");
-
-/// ABI-Version des Snapshot-Formats. Major-Bump bei Layout-Änderung (neue Achse = neuer Snapshot-Typ V2).
-inline constexpr std::uint32_t kTierObserverSnapshotVersion = 1;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ComdareTierObserverSnapshotV2 — erweitert V1 um die 4 OperativeCapable-Achsen (V42 L-74c)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// V2 trägt die V1-Achsen (search_algo + allocator) UND die 4 in V42 voll observable+getriebenen
-/// OperativeCapable-Achsen (telemetry/memory_layout/serialization/node_type, Doc 29 §3c–§3f). Nach der
-/// POD-Design-Regel (oben) = NEUER versionierter Typ statt append-only an V1 — V1 bleibt ABI-stabil für
-/// bestehende Konsumenten. NUR uint64 → standard_layout + trivially_copyable (memcpy über die DLL-Grenze).
-/// Die ersten 13 Felder sind layout-identisch zu V1 (bewusst, erleichtert die Migration host-seitig).
-struct ComdareTierObserverSnapshotV2 {
-    // ── V1-Block (layout-identisch zu ComdareTierObserverSnapshotV1) ──
-    std::uint64_t search_lookup_count   = 0;
-    std::uint64_t search_hit_count      = 0;
-    std::uint64_t search_miss_count     = 0;
-    std::uint64_t search_insert_count   = 0;
-    std::uint64_t search_erase_count    = 0;
-    std::uint64_t search_peak_occupancy = 0;
-    std::uint64_t alloc_bytes_allocated = 0;
-    std::uint64_t alloc_bytes_in_use    = 0;
-    std::uint64_t alloc_allocation_count   = 0;
-    std::uint64_t alloc_deallocation_count = 0;
-    std::uint64_t alloc_failure_count   = 0;
-    std::uint64_t observable_axis_count = 0;
-    std::uint64_t tier_fill_level       = 0;
-    // ── Achse telemetry (axis_11) — TelemetrySnapshot, gespiegelt ──
-    std::uint64_t telemetry_total_events = 0;
-    std::uint64_t telemetry_leaf_updates = 0;
-    std::uint64_t telemetry_node_updates = 0;
-    std::uint64_t telemetry_peak_tracked = 0;
-    // ── Achse memory_layout (axis_05) — MemoryLayoutSnapshot, gespiegelt ──
-    std::uint64_t layout_scan_count          = 0;
-    std::uint64_t layout_records_scanned     = 0;
-    std::uint64_t layout_field_bytes_read    = 0;
-    std::uint64_t layout_cache_lines_touched = 0;
-    std::uint64_t layout_last_checksum       = 0;
-    // ── Achse serialization (axis_10) — SerializationSnapshot, gespiegelt ──
-    std::uint64_t serialization_serialize_count    = 0;
-    std::uint64_t serialization_records_serialized = 0;
-    std::uint64_t serialization_bytes_serialized   = 0;
-    std::uint64_t serialization_last_checksum      = 0;
-    // ── Achse node_type (axis_04) — NodeTypeSnapshot, gespiegelt ──
-    std::uint64_t node_find_count    = 0;
-    std::uint64_t node_keys_stored   = 0;
-    std::uint64_t node_queries_run   = 0;
-    std::uint64_t node_last_checksum = 0;
-
-    [[nodiscard]] constexpr bool operator==(ComdareTierObserverSnapshotV2 const&) const noexcept = default;
-};
-
-static_assert(std::is_standard_layout_v<ComdareTierObserverSnapshotV2>,
-              "ABI-Pflicht: V2-Snapshot muss standard_layout sein");
-static_assert(std::is_trivially_copyable_v<ComdareTierObserverSnapshotV2>,
-              "ABI-Pflicht: V2-Snapshot muss memcpy-fähig (trivially_copyable) sein");
-
-inline constexpr std::uint32_t kTierObserverSnapshotVersionV2 = 2;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ComdareTierObserverSnapshotV3 — GENERISCHER schema-stabiler Per-Achsen-Observer-POD
-// (Hauptagent-Entscheidung 2026-06-04, analog dem seg_ns[19]-Muster aus measurable_workload.hpp)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Anzahl der Achsen-Slots im V3-POD = die 19 SearchAlgorithm-Achsen (T0..T18, kCompositionAxisNames-
+/// Anzahl der Achsen-Slots im Observer-POD = die 19 SearchAlgorithm-Achsen (T0..T18, kCompositionAxisNames-
 /// Reihenfolge, identisch zu seg_ns[19]).
 inline constexpr std::size_t kV3AxisCount  = 19;
-/// Feld-Spalten je Achse (K). 8 deckt die breiteste jetzt-befüllte statistics()-Struktur (search_algo: 6,
+/// Feld-Spalten je Achse (K). 8 deckt die breiteste befüllte statistics()-Struktur (search_algo: 6,
 /// alloc: 5, cache_traversal/mapping: 6, q1/q2: 5) mit Reserve; schema-stabil gegen weitere Felder (Phase B).
 inline constexpr std::size_t kV3FieldCount = 8;
 
-/// V3 ist EIN generischer, schema-stabiler POD: statt je Achse eigene named Felder (V1/V2-Weg, der bei
-/// jeder neuen Achse einen NEUEN POD-Typ erzwingt) trägt V3 eine feste `axis_stats[19][8]`-Matrix — EXAKT
-/// das bereits etablierte `seg_ns[19]`-Muster (measurable_workload.hpp), nur 2-dimensional. axis_stats[T][f]
-/// = das f-te statistics()-Feld der Achse T (Feld-Reihenfolge: kV3AxisSchema, single-source). Seit Phase-B-Abschluss
-/// (2026-06-04) tragen ALLE 19 Achsen einen Observer; ehrliche Strategie-Baselines (PathCompressionNone, InMemoryOnly,
-/// NoMigration) liefern dort honest-0-Teilfelder (NICHT erfunden, der Zähler folgt der echten Op). NUR uint64 →
-/// standard_layout + trivially_copyable (memcpy über die DLL-Grenze). ADDITIV: V1/V2 + IObservableTier/V2
-/// bleiben unverändert; der Host fragt V3 via `dynamic_cast<IObservableTierV3*>` ab, alte Module → nullptr.
-struct ComdareTierObserverSnapshotV3 {
-    std::uint64_t axis_stats[kV3AxisCount][kV3FieldCount] = {};
-    // ── Meta (analog V1/V2; KEINE Achsen-Daten) ──
-    std::uint64_t observable_axis_count = 0;   // ObserverAggregate::observable_count() — Diagnose
-    std::uint64_t tier_fill_level       = 0;   // tier_size() zum Snapshot-Zeitpunkt
-    std::uint64_t filled_axis_count     = 0;   // wie viele der 19 Achsen jetzt befüllt sind (Phase A: 10, Phase B: alle 19)
-
-    [[nodiscard]] constexpr bool operator==(ComdareTierObserverSnapshotV3 const&) const noexcept = default;
-};
-
-static_assert(std::is_standard_layout_v<ComdareTierObserverSnapshotV3>,
-              "ABI-Pflicht: V3-Snapshot muss standard_layout sein");
-static_assert(std::is_trivially_copyable_v<ComdareTierObserverSnapshotV3>,
-              "ABI-Pflicht: V3-Snapshot muss memcpy-fähig (trivially_copyable) sein");
-
-inline constexpr std::uint32_t kTierObserverSnapshotVersionV3 = 3;
-
-// ── V3-Schema-Tabelle: (axis_idx, field_idx) → Feldname. SINGLE-SOURCE in kCompositionAxisNames-Reihenfolge.
+// ── Schema-Tabelle: (axis_idx, field_idx) → Feldname. SINGLE-SOURCE in kCompositionAxisNames-Reihenfolge.
 //    Leere Strings = (noch) nicht befülltes Feld; eine Achse, deren Felder alle "" sind, ist Phase-B (= 0).
 //    Diese Tabelle treibt die CSV-Spaltennamen (stat_<achse>_<feld>) → keine Namens-Drift. Seit Phase-B-Abschluss
 //    (2026-06-04) sind ALLE 19 Achsen befüllt (Phase A: T0,T1,T2,T4,T5,T6,T9,T10,T17,T18; Phase B ergänzt
@@ -198,10 +85,9 @@ inline constexpr V3AxisFieldNames kV3AxisSchema[kV3AxisCount] = {
     /*T18 queuing_q2*/       {{"decisions", "full_flush", "partial_flush", "no_flush", "flush_complete", nullptr, nullptr, nullptr}},
 };
 
-/// Anzahl der im V3-POD befüllten Achsen = Achsen mit mindestens EINEM benannten Schema-Feld (single-source aus
+/// Anzahl der im POD befüllten Achsen = Achsen mit mindestens EINEM benannten Schema-Feld (single-source aus
 /// kV3AxisSchema abgeleitet, NICHT hartkodiert). So zieht diese Diagnose-/Test-Konstante automatisch mit, wenn
-/// eine Phase-B-Achse (T3/T7/T8/T11..T16) ihre Schema-Zeile befüllt — keine Drift, kein manuelles Nachziehen,
-/// kein Konflikt bei paralleler Achsen-Erweiterung. (Phase A waren das 10; Phase B T7+T8 → 12; usw.)
+/// eine Phase-B-Achse (T3/T7/T8/T11..T16) ihre Schema-Zeile befüllt — keine Drift, kein manuelles Nachziehen.
 [[nodiscard]] constexpr std::size_t v3_count_filled_axes() noexcept {
     std::size_t n = 0;
     for (std::size_t t = 0; t < kV3AxisCount; ++t) {
@@ -212,14 +98,16 @@ inline constexpr V3AxisFieldNames kV3AxisSchema[kV3AxisCount] = {
 inline constexpr std::size_t kV3FilledAxisCount = v3_count_filled_axes();
 
 // ─────────────────────────────────────────────────────────────────────────────
-// KONSOLIDIERUNG (I1, 2026-06-04, User-Direktive „EINE konsistente Observer-Schnittstelle"):
-// EIN versionierter Observer-POD, der die getrennten V1/V2/V3-PODs + den seg_ns-Timing-POD ablöst.
-// Preflight-verifiziert (Workflow wkqt7a0il): axis_stats[19][8]+Meta subsumiert JEDES V1- (13) + V2-Feld (26)
-// — V1 search→[0][0..5], alloc→[6][0..4]; V2 telemetry→[10], layout→[5], serialization→[9], node_type→[4];
-// obs_axes/fill→Meta. seg_ns[19] = das Pfad-B-Per-Achsen-Timing (reale Komposition; User-Entscheid 2026-06-04).
-// Layout bitweise stabil (alle Member 8-B-Ints, kein Padding; sizeof==1400, alignof==8) → memcpy über die ABI-Grenze.
-// In I-A ADDITIV neben V1/V2/V3 (Major bleibt 2); in I-C werden V1/V2/V3 entfernt + Major 2→3.
+// ComdareTierObserverSnapshot — der EINE konsolidierte, versionierte Observer-POD (I1)
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Komposition-UNABHÄNGIGER, flacher, versionierter Observer-POD über die Modul-Binary-ABI-Grenze. EIN POD für
+/// ALLES: `axis_stats[19][8]` = die Per-Achsen-Observer-Felder (Schema = kV3AxisSchema, single-source);
+/// `seg_ns[19]` = das Pfad-B-Per-Achsen-Timing über die REALE Komposition (User-Entscheid 2026-06-04); + Meta.
+/// Ersetzt die getrennten V1/V2/V3-Observer-PODs + den seg_ns-Timing-POD (Preflight wkqt7a0il: axis_stats+Meta
+/// subsumiert JEDES frühere V1- (13) + V2-Feld (26) — V1 search→[0][0..5], alloc→[6][0..4]; V2 telemetry→[10],
+/// layout→[5], serialization→[9], node_type→[4]; obs_axes/fill→Meta). Layout bitweise stabil (alle Member 8-B-
+/// Ints, kein Padding; sizeof==1400, alignof==8) → memcpy über die ABI-Grenze. Versionierung jetzt über ABI-Major.
 struct ComdareTierObserverSnapshot {
     std::uint64_t axis_stats[kV3AxisCount][kV3FieldCount] = {};  // T0..T18 × 8 Felder (Schema = kV3AxisSchema)
     std::int64_t  seg_ns[kV3AxisCount]                    = {};  // Pfad-B Per-Achsen-Timing (ns, je Achse)
@@ -235,11 +123,12 @@ static_assert(std::is_standard_layout_v<ComdareTierObserverSnapshot>,
 static_assert(std::is_trivially_copyable_v<ComdareTierObserverSnapshot>,
               "ABI-Pflicht: konsolidierter Observer-POD muss trivially_copyable sein");
 
-/// Version des konsolidierten Observer-POD (ersetzt kTierObserverSnapshotVersion V1/V2/V3 in I-C).
+/// Format-Version des konsolidierten Observer-POD (die Loader-Kompatibilität läuft über ABI-Major, s.
+/// anatomy_module_abi_v1_decl.hpp; diese Konstante dient der Diagnose/Tests).
 inline constexpr std::uint32_t kTierObserverSnapshotVersionUnified = 4;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// IObservableTier — ABI-stabiles Observer-Zugriffs-Sub-Interface
+// IObservableTier — die EINE ABI-stabile Observer-Schnittstelle (I1)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// IObservableTier — optionales Sub-Interface einer geladenen Tier-Anatomie (Pfad B, Doku 24 §8.6).
@@ -256,65 +145,11 @@ class IObservableTier : public IDriveableTier {
 public:
     ~IObservableTier() override = default;
 
-    // ── Observer-Zugriff: die IM Tier eingebauten Observer als flachen POD durch die ABI-Grenze ziehen ──
-
-    /// Schreibt den aktuellen Observer-Snapshot (observe_all → flacher POD) nach *out. out != nullptr.
-    /// noexcept (reines Auslesen von Zählern). Der Host stempelt das Resultat mit Wall-Clock + persistiert.
-    virtual void tier_observe(ComdareTierObserverSnapshotV1* out) const noexcept = 0;
-
-    /// KONSOLIDIERUNG (I-A, 2026-06-04): die EINE Observer-Methode über den konsolidierten POD (axis_stats[19][8]
-    /// + seg_ns[19] + Meta). In I-A mit Default-Body (Null-POD), damit bestehende V1-Implementierer kompilieren;
-    /// der ABI-Adapter überschreibt sie real (fill_observer_unified, feste Sequenz Observer-READ → Timing → Reset).
-    /// In I-C wird DIESE Methode die EINZIGE pure-virtual + die V1-Overload + IObservableTierV2/V3/V4 entfernt.
-    virtual void tier_observe(ComdareTierObserverSnapshot* out) const noexcept { if (out) *out = ComdareTierObserverSnapshot{}; }
-};
-
-/// V42 L-74c — IObservableTierV2: EIGENSTÄNDIGES Sub-Interface für den erweiterten V2-Snapshot (V1-Achsen +
-/// die 4 OperativeCapable telemetry/memory_layout/serialization/node_type). ABI-ROBUST nach exakt demselben
-/// Prinzip wie IObservableTier selbst (hängt NICHT an IObservableTier/IAnatomyBase → ändert deren vtable
-/// NICHT): der Host fragt es via `dynamic_cast<IObservableTierV2*>(ianatomy_ptr)`; alte Module → nullptr →
-/// sauberer Degrade auf tier_observe-V1. Das vermeidet den vtable-Append-Crash über die DLL-Grenze (SEH
-/// 0xc0000005, Befund 2026-06-03: eine neue virtuelle Methode AM vtable-Ende von IObservableTier ist nur
-/// bei synchronem DLL+Host-Rebuild sicher; ein eigenständiges Interface ist es IMMER, weil der dynamic_cast
-/// fehlschlägt statt über eine fremde vtable zu springen).
-class IObservableTierV2 {
-public:
-    virtual ~IObservableTierV2() = default;
-
-    /// Schreibt den erweiterten V2-Observer-Snapshot nach *out. out != nullptr. noexcept (reines Auslesen).
-    virtual void tier_observe_v2(ComdareTierObserverSnapshotV2* out) const noexcept = 0;
-};
-
-/// Per-Achsen-Vervollständigung Phase A (2026-06-04) — IObservableTierV3: EIGENSTÄNDIGES Sub-Interface für den
-/// GENERISCHEN, schema-stabilen V3-Snapshot (`axis_stats[19][8]`, alle 19 SearchAlgorithm-Achsen in EINEM POD).
-/// ABI-ROBUST nach exakt demselben Prinzip wie IObservableTier/V2 (hängt NICHT an V1/V2/IAnatomyBase → ändert
-/// deren vtable NICHT): der Host fragt es via `dynamic_cast<IObservableTierV3*>(ianatomy_ptr)`; alte Module →
-/// nullptr → sauberer Degrade auf V2/V1. Damit ist die Per-Achsen-Erweiterung um die 9 Phase-B-Achsen ein
-/// reines Befüllen weiterer axis_stats-Zeilen — OHNE neuen POD-Typ und OHNE ABI-Bruch (Hauptagent-Entscheid).
-class IObservableTierV3 {
-public:
-    virtual ~IObservableTierV3() = default;
-
-    /// Schreibt den generischen V3-Per-Achsen-Snapshot nach *out. out != nullptr. noexcept (reines Auslesen).
-    virtual void tier_observe_v3(ComdareTierObserverSnapshotV3* out) const noexcept = 0;
-};
-
-/// Pfad-B Per-Achsen-TIMING (2026-06-04, Plan dynamic-frolicking-truffle) — IObservableTierV4: EIGENSTÄNDIGES
-/// Sub-Interface, das das per-Achsen-Timing NICHT mehr über einen synthetischen Mikrobenchmark-Puffer (Pfad A,
-/// run_workload_segmented_v2) erhebt, sondern über die EINE REALE, vom Host befüllte composite-Tier-Struktur
-/// (search_organ_ + container_.chunks_ + Instanz-Organe). `tier_observe_timed_v3` zeitet je Achse deren REALE
-/// Operation über diese reale Struktur (steady_clock) und schreibt `seg_ns[19]` (ComdareSegmentLatencyV2,
-/// wiederverwendet). KEIN synthetischer Puffer ([[always-use-trees-for-search]] / Doc 24 §8.1 Pfad B).
-/// ABI-ROBUST exakt wie IObservableTier/V2/V3 (hängt NICHT an V1/V2/V3/IAnatomyBase → kein vtable-Bruch); der
-/// Host fragt via `dynamic_cast<IObservableTierV4*>(ianatomy_ptr)`, alte Module → nullptr → sauberer Degrade.
-/// Reines Auslesen/Timing über die schon befüllte Struktur (const, memento-neutral) — KEINE Daten-Mutation.
-class IObservableTierV4 {
-public:
-    virtual ~IObservableTierV4() = default;
-
-    /// Zeitet die 19 realen per-Achsen-Ops über die schon befüllte composite-Tier-Struktur und schreibt die
-    /// aufsummierten per-Segment-ns nach *out (out != nullptr). noexcept (interne Exception → out bleibt 0).
-    virtual void tier_observe_timed_v3(ComdareSegmentLatencyV2* out) const noexcept = 0;
+    /// Die EINE Observer-Methode (I1): schreibt den konsolidierten Snapshot (axis_stats[19][8] + seg_ns[19] +
+    /// Meta) nach *out. out != nullptr. noexcept (reines Auslesen + lesendes Pfad-B-Timing). Der Host stempelt
+    /// das Resultat mit Wall-Clock + persistiert. Der ABI-Adapter implementiert die feste Sequenz Observer-READ
+    /// → Pfad-B-Timing → per-op-Reset (gegen Doppelzählung).
+    virtual void tier_observe(ComdareTierObserverSnapshot* out) const noexcept = 0;
 };
 
 }  // namespace comdare::cache_engine::anatomy

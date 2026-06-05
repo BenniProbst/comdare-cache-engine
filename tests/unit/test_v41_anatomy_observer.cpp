@@ -16,10 +16,10 @@
 #include <anatomy/observer_aggregate.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <anatomy/known_algorithms.hpp>
-#include <anatomy/tier_observer_v2_bridge.hpp>   // V42 L-74c: Cross-ABI-Bruecke ObserverAggregate -> V2-POD
+#include <anatomy/observable_tier.hpp>   // I1: Cross-ABI-Bruecke ObserverAggregate -> konsolidierter Observer-POD
 
 #include <type_traits>
-#include <cstring>   // V42 L-74c: std::memcpy im memory_layout-Test
+#include <cstring>   // std::memcpy im memory_layout-Test
 #include <cstdint>
 #include <cstddef>
 
@@ -315,9 +315,10 @@ TEST(Saeule2_ObserveAllReal, DrivenNodeTypeOrganFlowsIntoAggregate) {
     }
 }
 
-// V42 L-74c Cross-ABI-Bruecke: alle 5 getriebenen Achsen fliessen aus dem Composition-abhaengigen
-// ObserverAggregate in den FLACHEN, versionierten ComdareTierObserverSnapshotV2 (memcpy-faehig ueber die
-// DLL-Grenze). Beweist den ersten Cross-ABI-Schritt (Doc 29 §3 Schritt 4): Aggregate -> flacher POD.
+// V42 L-74c / I1: alle 5 getriebenen Achsen fliessen aus dem Composition-abhaengigen ObserverAggregate; der
+// flache, memcpy-faehige Cross-ABI-POD ist der konsolidierte ComdareTierObserverSnapshot (axis_stats-Matrix:
+// telemetry→[10], memory_layout→[5], serialization→[9], node_type→[4]). Die frühere flache-POD-Bruecke ist in
+// I1 entfallen → hier direkt auf dem Aggregate geprüft. Beweist den Cross-ABI-Schritt (Doc 29 §3 Schritt 4).
 TEST(V2Bridge_FlatPod, AllDrivenAxesFlowIntoV2Snapshot) {
     ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
     if constexpr (ana::ObservableAxis<ce_compos::ArtComposition::telemetry>) {
@@ -339,25 +340,25 @@ TEST(V2Bridge_FlatPod, AllDrivenAxesFlowIntoV2Snapshot) {
         std::uint8_t const queries[3] = {2u, 4u, 9u};
         (void)anat.node_type_organ().observe_node_find(stored, 4, queries, 3);
 
-        // Aggregate -> flacher V2-POD
+        // observe_all() → komposition-abhängiger ObserverAggregate; I1: die früher per flacher-POD-Bruecke
+        // übertragenen Felder werden hier direkt auf dem Aggregate geprüft (search→axis_stats[0], telemetry→[10],
+        // memory_layout→[5], serialization→[9], node_type→[4] im konsolidierten ComdareTierObserverSnapshot).
         auto const agg = anat.observe_all();
-        ana::ComdareTierObserverSnapshotV2 v2{};
-        ana::fill_tier_observer_v2(agg, &v2);
 
-        EXPECT_EQ(v2.search_insert_count, 10u);
-        EXPECT_GE(v2.search_lookup_count, 10u);
-        EXPECT_EQ(v2.telemetry_total_events, 2u);
-        EXPECT_EQ(v2.telemetry_node_updates, 0u);             // leaf-only
-        EXPECT_EQ(v2.layout_scan_count, 1u);
-        EXPECT_EQ(v2.layout_last_checksum, 100u);
-        EXPECT_EQ(v2.serialization_serialize_count, 1u);
-        EXPECT_EQ(v2.serialization_bytes_serialized, 32u);
-        EXPECT_EQ(v2.node_find_count, 1u);
-        EXPECT_EQ(v2.node_last_checksum, 6u);
-        EXPECT_GE(v2.observable_axis_count, 5u);
-        // ABI-Pflicht des flachen POD.
-        static_assert(std::is_standard_layout_v<ana::ComdareTierObserverSnapshotV2>);
-        static_assert(std::is_trivially_copyable_v<ana::ComdareTierObserverSnapshotV2>);
+        EXPECT_EQ(agg.search_algo.total_insert_count, 10u);
+        EXPECT_GE(agg.search_algo.total_lookup_count, 10u);
+        EXPECT_EQ(agg.telemetry.total_events, 2u);
+        EXPECT_EQ(agg.telemetry.node_updates, 0u);             // leaf-only
+        EXPECT_EQ(agg.memory_layout.scan_count, 1u);
+        EXPECT_EQ(agg.memory_layout.last_checksum, 100u);
+        EXPECT_EQ(agg.serialization.serialize_count, 1u);
+        EXPECT_EQ(agg.serialization.bytes_serialized, 32u);
+        EXPECT_EQ(agg.node_type.find_count, 1u);
+        EXPECT_EQ(agg.node_type.last_checksum, 6u);
+        EXPECT_GE((ana::ObserverAggregate<ce_compos::ArtComposition>::observable_count()), 5u);
+        // ABI-Pflicht des flachen Cross-ABI-POD (konsolidiert).
+        static_assert(std::is_standard_layout_v<ana::ComdareTierObserverSnapshot>);
+        static_assert(std::is_trivially_copyable_v<ana::ComdareTierObserverSnapshot>);
     } else {
         GTEST_SKIP() << "OperativeCapable-Achsen nicht observable (STATISTICS=OFF)";
     }

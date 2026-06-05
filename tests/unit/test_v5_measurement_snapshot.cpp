@@ -23,14 +23,14 @@ wd::WorkloadRunResult make_result() {
     r.op_count     = 300;
     r.two_phase    = true;
     r.lookup_ns    = {100, 200, 300};   // merged p50 = 200
-    r.observer.search_insert_count    = 822;
-    r.observer.search_lookup_count    = 1088;
-    r.observer.search_hit_count       = 236;
-    r.observer.search_miss_count      = 852;
-    r.observer.search_erase_count     = 255;
-    r.observer.search_peak_occupancy  = 157;
-    r.observer.alloc_bytes_allocated  = 4096;
-    r.observer.alloc_bytes_in_use     = 3376;
+    r.observer.axis_stats[0][3] = 822;    // search_insert_count
+    r.observer.axis_stats[0][0] = 1088;   // search_lookup_count
+    r.observer.axis_stats[0][1] = 236;    // search_hit_count
+    r.observer.axis_stats[0][2] = 852;    // search_miss_count
+    r.observer.axis_stats[0][4] = 255;    // search_erase_count
+    r.observer.axis_stats[0][5] = 157;    // search_peak_occupancy
+    r.observer.axis_stats[6][0] = 4096;   // alloc_bytes_allocated
+    r.observer.axis_stats[6][1] = 3376;   // alloc_bytes_in_use
     return r;
 }
 

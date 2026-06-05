@@ -27,13 +27,8 @@ struct MockObsTier final : ana::IObservableTier {
     [[nodiscard]] bool tier_erase(std::uint64_t k) noexcept override { return data.erase(k) > 0; }
     void tier_clear() noexcept override { data.clear(); }
     [[nodiscard]] std::uint64_t tier_size() const noexcept override { return data.size(); }
-    void tier_observe(ana::ComdareTierObserverSnapshotV1* o) const noexcept override {
-        if (!o) return;
-        o->search_insert_count = inserts; o->search_lookup_count = lookups; o->search_hit_count = hits;
-        o->tier_fill_level = data.size(); o->observable_axis_count = 2;
-    }
-    // KONSOLIDIERUNG (I-B.3): die EINE konsolidierte tier_observe — search-Stats nach axis_stats[0] (T0). Wird von
-    // run_observable_perm für das (jetzt volle-Matrix-)Wire-Format genutzt; ingest leitet die 13 Legacy-Felder daraus ab.
+    // Die EINE konsolidierte tier_observe — search-Stats nach axis_stats[0] (T0). Wird von run_observable_perm
+    // für das (volle-Matrix-)Wire-Format genutzt; ingest leitet die benannten Legacy-Felder daraus ab.
     void tier_observe(ana::ComdareTierObserverSnapshot* o) const noexcept override {
         if (!o) return;
         o->axis_stats[0][0] = lookups; o->axis_stats[0][1] = hits; o->axis_stats[0][3] = inserts;  // T0 search lookup/hit/insert

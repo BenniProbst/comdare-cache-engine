@@ -44,7 +44,7 @@
 namespace comdare::cache_engine::path_compression {
 
 /// ABI-taugliches Path-Compression-Snapshot (standard_layout + trivially_copyable → in den generischen Cross-ABI-
-/// POD ComdareTierObserverSnapshotV3 axis_stats[3] mappbar). NUR uint64-Felder.
+/// Observer-POD axis_stats[3] mappbar). NUR uint64-Felder.
 struct PathCompressionStatistics {
     std::uint64_t compress_calls     = 0;   ///< Anzahl compress()-Driver-Aufrufe
     std::uint64_t prefix_len_total   = 0;   ///< kumulierte gemeinsame Prefix-Laenge (Bytes bei ByteWise, +Bits bei Patricia)

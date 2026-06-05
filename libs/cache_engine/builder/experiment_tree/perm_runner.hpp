@@ -18,8 +18,8 @@
 //       n/a mehr (jede treibt eine reale, strategie-abhängige Op); nur eine DLL OHNE V3-Interface → CSV n/a.
 
 #include "experiment_tree.hpp"                      // NodeObserverSnapshot
-#include "../../anatomy/observable_tier.hpp"        // IObservableTier + ComdareTierObserverSnapshotV1
-#include "../../anatomy/measurable_workload.hpp"    // (X): IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
+#include "../../anatomy/observable_tier.hpp"        // IObservableTier + ComdareTierObserverSnapshot (I1: EINE Schnittstelle/EIN POD)
+#include "../../anatomy/measurable_workload.hpp"    // Pfad A: IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
 
 #include <chrono>
 #include <cstdint>
@@ -44,17 +44,12 @@ namespace comdare::cache_engine::builder::experiment {
 
 // ── (B): Ergebnis einer Mess-Last (result_ingest-Zeile + die Host-Wall-Clock) ─────────────────────────
 struct PermResult {
-    std::string  line;        // result_ingest-Zeile (binary_id + 13 Observer-Delta-Felder)
+    std::string  line;        // result_ingest-Zeile (binary_id + volle Observer-Matrix)
     std::int64_t total_ns = 0;   // (B) steady_clock-Wall-Clock um insert+lookup DIESER Messung
     std::uint64_t n_ops   = 0;   // Eingabe-n_ops (für ns_per_op = total_ns / (2*n_ops): insert+lookup)
-    // Phase A (2026-06-04): der GENERISCHE Per-Achsen-V3-Snapshot (axis_stats[19][8]) NACH der Mess-Last —
-    // die 10 Phase-A-Achsen tragen echte statistics()-Werte (>0), die 9 Phase-B-Achsen 0. v3_real=false →
-    // das Modul exponiert IObservableTierV3 nicht (alte DLL) → ehrlich „n/a" in der CSV.
-    anatomy::ComdareTierObserverSnapshotV3 v3{};
-    bool         v3_real  = false;
-    // KONSOLIDIERUNG (I-B, 2026-06-04): der EINE konsolidierte Observer-Snapshot (axis_stats[19][8] + seg_ns[19] +
-    // Meta) aus dem EINEN tier_observe. Trägt Observer-Stats UND das Pfad-B-Per-Achsen-Timing (reale Komposition) in
-    // EINEM POD. Wird in I-B die maßgebliche CSV-Quelle (ersetzt v3 + den Pfad-A-Segment-Timer); V1/V3 entfallen in I-C.
+    // KONSOLIDIERUNG (I1): der EINE konsolidierte Observer-Snapshot (axis_stats[19][8] + seg_ns[19]/Pfad B + Meta)
+    // aus dem EINEN tier_observe. Trägt Observer-Stats UND das Pfad-B-Per-Achsen-Timing (reale Komposition) in EINEM
+    // POD — die maßgebliche CSV-Quelle.
     anatomy::ComdareTierObserverSnapshot unified{};
     bool         unified_real = false;
 };
@@ -64,8 +59,7 @@ struct PermResult {
 /// lookup UNTER steady_clock-Messung (total_ns), post-Observe, und bildet die result_ingest-Zeile aus dem
 /// DELTA (post − pre) der getriebenen Zähler. Der host-/cluster-seitige Unikat-Mess-Lauf je Binary.
 [[nodiscard]] inline PermResult run_observable_perm(anatomy::IObservableTier& tier,
-                                                    std::string const& binary_id, std::uint64_t n_ops,
-                                                    anatomy::IObservableTierV3* v3 = nullptr) {
+                                                    std::string const& binary_id, std::uint64_t n_ops) {
     // (A) Reset: frischer Datenstruktur-Zustand. tier_clear() ruft jetzt search_organ_.reset() (I-B.1) → auch die
     // T0-search-Statistik wird je Messung genullt → KEIN post−pre-Delta mehr nötig (axis_stats warmup-frei aus
     // EINEM Post-Observe). Die result_ingest-Zeile entsteht unten aus dem EINEN konsolidierten POD (volle Matrix).
@@ -80,25 +74,12 @@ struct PermResult {
     PermResult r;
     r.total_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
     r.n_ops   = n_ops;
-    // Phase A+B (2026-06-04): den generischen Per-Achsen-V3-Snapshot NACH der Mess-Last ziehen (Pfad B).
-    //
-    // KONSISTENZ-STAND (nach dem tier_clear-Reset-Fix 2026-06-04, abi_adapter.hpp tier_clear()): die auto-
-    // gekoppelten Instanz-Organe T1 ct / T2 map / T10 telemetry / T17 q1 / T18 q2 (+ Phase B T3 pc / T7 pf /
-    // T8 cc) werden in tier_clear() jetzt NICHT NUR daten-geleert (clear()) SONDERN auch STATISTIK-genullt
-    // (reset()) → der post-Workload-Snapshot trägt genau die Op-Zähler DIESER Messung. ZUVOR (Defekt) riefen
-    // T1/T2/T17 nur clear() (= nur Daten) und T18/T10 gar nichts → ihre kumulativen statistics() akkumulierten
-    // über die 3 Wiederholungen je (Binary×Setting) (1000→2000→3000). Mit dem Reset-Fix gilt für diese Organe
-    // jetzt wieder: Reset-bei-Start == post (warmup-frei). Die Pfad-B-Scan-Achsen (T4 node / T5 layout / T9 ser /
-    // T11 value_handle / T12 isa / T13 index_org / T14 io_dispatch / T15 migration / T16 filter) sind in
-    // fill_observer_v3 IDEMPOTENT (reset()+scan je Observe) → Zustand zum Observe-Zeitpunkt, KEIN Warmup-Doppel-
-    // zähler. T0 search_algo + T6 allocator (V1-POD) tragen ABI-seitig nicht resetbare Zähler → für SIE bildet
-    // der Block oben das echte post−pre-Delta. Netto: ALLE 19 Achsen sind pro Zeile warmup-frei + konsistent mit
-    // dem V1-Delta-Block (kein kumulatives Artefakt), seit der Reset-Fix die Instanz-/telemetry-Organe nullt.
-    if (v3 != nullptr) { v3->tier_observe_v3(&r.v3); r.v3_real = true; }
-    // KONSOLIDIERUNG (I-B): den EINEN konsolidierten Snapshot ziehen (axis_stats + Pfad-B-seg_ns in EINEM POD).
-    // NACH dem V3-Observe (der V3-Pfad ist additiv noch da, bis I-C ihn entfernt). Der EINE tier_observe hält
-    // intern die fixe Sequenz (axis_stats-READ → seg_ns-Timing → per-op-Reset) → keine Doppelzählung. Da tier_clear
-    // jetzt search_organ_.reset() ruft, ist axis_stats[0] frisch (kein post−pre-Delta nötig).
+    // KONSOLIDIERUNG (I1): den EINEN konsolidierten Snapshot ziehen (axis_stats + Pfad-B-seg_ns in EINEM POD).
+    // Der EINE tier_observe hält intern die fixe Q1-Sequenz (axis_stats-READ → seg_ns-Timing → per-op-Reset) → keine
+    // Doppelzählung. Da tier_clear() jetzt search_organ_.reset() ruft, sind ALLE 19 Achsen pro Zeile warmup-frei
+    // (kein post−pre-Delta nötig): die auto-gekoppelten Instanz-Organe (T1/T2/T3/T7/T8/T10/T17/T18) werden in
+    // tier_clear() statistik-genullt, die Scan-Achsen (T4/T5/T9/T11..T16) sind in fill_observer_v3 idempotent
+    // (reset()+scan je Observe), T0 search_algo + T6 allocator werden über search_organ_.reset() frisch.
     tier.tier_observe(&r.unified);
     r.unified_real = true;
     // KONSOLIDIERUNG (I-B.3): die result_ingest-Zeile aus dem EINEN POD = volle Matrix (axis_stats + seg_ns + Meta).

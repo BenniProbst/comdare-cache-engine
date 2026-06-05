@@ -21,7 +21,7 @@
 //
 // Gating exakt nach ObservableTelemetry-Präzedenz: snapshot_t/statistics()/reset() unter
 // COMDARE_CE_ENABLE_STATISTICS. Bei OFF: acquire()/release() = reine Delegation ohne Zähler (0 Footprint),
-// ObservableAxis<...> = false → fill_observer_v3 fällt auf 0 zurück (Release-Pfad, korrekt).
+// ObservableAxis<...> = false → die Observer-Befüllung fällt auf 0 zurück (Release-Pfad, korrekt).
 //
 // @related [[feedback_zwei_dimensionen_messmodell]] [[reference_axis_gold_standard_checklist]]
 
@@ -33,7 +33,7 @@
 namespace comdare::cache_engine::concurrency_axis {
 
 /// ABI-taugliches Concurrency-Snapshot (NUR uint64 → standard_layout + trivially_copyable; mappbar in den
-/// generischen Cross-ABI-POD ComdareTierObserverSnapshotV3, axis_stats[8][...], observable_tier.hpp).
+/// generischen Cross-ABI-Observer-POD, axis_stats[8][...], observable_tier.hpp).
 struct ConcurrencyStatistics {
     std::uint64_t acquire_count            = 0;  ///< Anzahl getriebener acquire()-Ops (Lock/CAS/Validate-Eintritt)
     std::uint64_t release_count            = 0;  ///< Anzahl getriebener release()-Ops (Austritt; gepaart)

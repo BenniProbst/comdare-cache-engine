@@ -1,5 +1,5 @@
 // Phase B (2026-06-04) BUILD-VERIFIKATION der Per-Achsen-Observer T11 value_handle + T12 isa:
-//   IObservableTierV3::tier_observe_v3 → ComdareTierObserverSnapshotV3.axis_stats[11]/[12] über mehrere reale
+//   IObservableTier::tier_observe → ComdareTierObserverSnapshot.axis_stats[11]/[12] über mehrere reale
 //   SA-Kompositionen. Treibt den Tier (tier_clear → insert/lookup) und prüft, dass die per-Pfad-B store-slot-
 //   gescannten Observer-Hüllen (vh_organ_/isa_organ_) NICHT-leere Statistik liefern:
 //     (1) T11 value_handle row_sum > 0 (total_access_count + indirect_deref_count + ...);
@@ -31,7 +31,7 @@ namespace comp = ::comdare::cache_engine::compositions;
 static int g_fail = 0;
 static void tr(std::string const& w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
 
-static std::uint64_t row_sum(an::ComdareTierObserverSnapshotV3 const& s, int t) {
+static std::uint64_t row_sum(an::ComdareTierObserverSnapshot const& s, int t) {
     std::uint64_t v = 0; for (std::size_t f = 0; f < an::kV3FieldCount; ++f) v += s.axis_stats[t][f]; return v;
 }
 
@@ -41,9 +41,9 @@ static void check_one(char const* name) {
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
     auto* base = static_cast<an::IAnatomyBase*>(&tier);
     auto* drv  = dynamic_cast<an::IDriveableTier*>(base);
-    auto* obs3 = dynamic_cast<an::IObservableTierV3*>(base);   // der echte Host-Abfrage-Pfad
+    auto* obs  = dynamic_cast<an::IObservableTier*>(base);   // der echte Host-Abfrage-Pfad
 
-    if (drv == nullptr || obs3 == nullptr) { tr(std::string{name} + ": IDriveableTier/IObservableTierV3 verfügbar", false); return; }
+    if (drv == nullptr || obs == nullptr) { tr(std::string{name} + ": IDriveableTier/IObservableTier verfügbar", false); return; }
 
     // Tier treiben: clear → 1000 insert (füllt den container_-Slot-Backing) + 1000 lookup.
     drv->tier_clear();
@@ -51,8 +51,8 @@ static void check_one(char const* name) {
     std::uint64_t out_v = 0;
     for (std::uint64_t k = 0; k < 1000; ++k) (void)drv->tier_lookup(k, &out_v);
 
-    an::ComdareTierObserverSnapshotV3 v3{};
-    obs3->tier_observe_v3(&v3);
+    an::ComdareTierObserverSnapshot v3{};
+    obs->tier_observe(&v3);
 
     std::uint64_t const vh = row_sum(v3, 11);
     std::uint64_t const isa = row_sum(v3, 12);

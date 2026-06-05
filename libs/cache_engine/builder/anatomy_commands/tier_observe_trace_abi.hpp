@@ -49,7 +49,7 @@ struct AbiFillLevelSnapshot {
     std::vector<std::int64_t> write_ns{};
     std::vector<std::int64_t> delete_ns{};
     std::uint64_t             read_sink = 0;       // Anti-Wegoptimierungs-Senke
-    an::ComdareTierObserverSnapshotV1 observer{};  // §8.7: EIN Observer-POD je Checkpoint, korreliert
+    an::ComdareTierObserverSnapshot observer{};  // §8.7: EIN konsolidierter Observer-POD je Checkpoint, korreliert (I1)
     std::int64_t              observe_wall_ns = 0;  // §8.7: Wall-Clock-Zeitstempel (relativ zum Trace-Start)
                                                     // im Moment des tier_observe → explizite (t ↔ Observer)-Korrelation
 };
@@ -274,9 +274,9 @@ drive_two_phase_tier_trace_abi(an::IObservableTier& tier,
         auto const& o  = cp.observer;
         os << i << ',' << cp.observe_wall_ns << ',' << cp.fill_level << ','
            << cp.write_ns.size() << ',' << cp.read_ns.size() << ',' << cp.delete_ns.size() << ','
-           << o.search_insert_count << ',' << o.search_lookup_count << ',' << o.search_hit_count << ','
-           << o.search_miss_count << ',' << o.search_erase_count << ',' << o.search_peak_occupancy << ','
-           << o.alloc_bytes_in_use << ',' << o.alloc_allocation_count << ',' << o.observable_axis_count << '\n';
+           << o.axis_stats[0][3] << ',' << o.axis_stats[0][0] << ',' << o.axis_stats[0][1] << ','
+           << o.axis_stats[0][2] << ',' << o.axis_stats[0][4] << ',' << o.axis_stats[0][5] << ','
+           << o.axis_stats[6][1] << ',' << o.axis_stats[6][2] << ',' << o.observable_axis_count << '\n';
     }
     return os.str();
 }
@@ -299,12 +299,12 @@ drive_two_phase_tier_trace_abi(an::IObservableTier& tier,
            << ",\"read_p50_ns\":"   << detail::nearest_rank_p(cp.read_ns,   0.5)
            << ",\"read_p99_ns\":"   << detail::nearest_rank_p(cp.read_ns,   0.99)
            << ",\"delete_p50_ns\":" << detail::nearest_rank_p(cp.delete_ns, 0.5)
-           << ",\"search_insert\":" << o.search_insert_count
-           << ",\"search_lookup\":" << o.search_lookup_count
-           << ",\"search_hit\":"    << o.search_hit_count
-           << ",\"search_miss\":"   << o.search_miss_count
-           << ",\"search_peak_occupancy\":" << o.search_peak_occupancy
-           << ",\"alloc_bytes_in_use\":"    << o.alloc_bytes_in_use
+           << ",\"search_insert\":" << o.axis_stats[0][3]
+           << ",\"search_lookup\":" << o.axis_stats[0][0]
+           << ",\"search_hit\":"    << o.axis_stats[0][1]
+           << ",\"search_miss\":"   << o.axis_stats[0][2]
+           << ",\"search_peak_occupancy\":" << o.axis_stats[0][5]
+           << ",\"alloc_bytes_in_use\":"    << o.axis_stats[6][1]
            << ",\"observable_axes\":"       << o.observable_axis_count << '}';
     }
     os << ']';
