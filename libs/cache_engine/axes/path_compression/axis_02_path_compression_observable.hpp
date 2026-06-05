@@ -78,6 +78,11 @@ public:
         noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
     [[nodiscard]] static constexpr std::string_view flag_suffix()
         noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
+    /// Transparenter Pass-Through der AxisBase-Eigenschaft get_compiler() (Default "original") — die rohe
+    /// Strategie traegt sie, die Huelle reicht sie durch (test_v41_compositions ruft C::path_compression::get_compiler()).
+    /// SFINAE-sicher: existiert nur, wenn die Strategie das Primitiv traegt (kein Bruch sonst).
+    [[nodiscard]] static constexpr std::string_view get_compiler() noexcept
+        requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
 
     /// STATIC Pass-Through (Drop-in): Patricia-Strategien tragen path_descend_scan (seg19-Timer abi_adapter:490).
     /// SFINAE-detektiert (nur Patricia hat sie) → die Huelle reicht sie unveraendert durch. Trackt NICHT (static).

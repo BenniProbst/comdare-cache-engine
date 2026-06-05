@@ -53,6 +53,11 @@ public:
         noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
     [[nodiscard]] static constexpr std::string_view flag_suffix()
         noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
+    // AxisBase-Eigenschaft (Default "original") transparent durchgereicht: test_v41_compositions ruft
+    // C::memory_layout::get_compiler() auf der gewrappten Achse. SFINAE-sicher (Methode existiert nur,
+    // wenn die Strategie sie traegt).
+    [[nodiscard]] static constexpr std::string_view get_compiler()
+        noexcept requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
 
     /// STATIC Pass-Through (Drop-in-Kompatibilität): die Strategie-Methode wird unveraendert durchgereicht,
     /// damit die Huelle als memory_layout-Slot die bestehenden static-Aufrufer NICHT bricht

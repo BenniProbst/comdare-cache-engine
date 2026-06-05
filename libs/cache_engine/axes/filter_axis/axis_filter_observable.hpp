@@ -64,6 +64,10 @@ public:
         noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
     [[nodiscard]] static constexpr std::string_view flag_suffix()
         noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
+    // get_compiler() ist eine AxisBase-Eigenschaft (Default "original"), die die RAW-Strategie traegt —
+    // transparent durchgereicht (SFINAE-sicher: existiert nur, falls die Strategie sie hat).
+    [[nodiscard]] static constexpr std::string_view get_compiler()
+        noexcept requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
 
     /// STATIC Pass-Through (Drop-in-Kompatibilität): die Strategie-Methode unveraendert durchgereicht, damit die
     /// Huelle als filter-Slot die bestehenden seg19-Aufrufer NICHT bricht (abi_adapter.hpp T16

@@ -67,6 +67,8 @@ public:
         noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
     [[nodiscard]] static constexpr std::string_view flag_suffix()
         noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
+    [[nodiscard]] static constexpr std::string_view get_compiler() noexcept
+        requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
 
     /// STATIC Pass-Through (Drop-in-Kompatibilitaet): die verhaltens-tragende Treibe-Op wird unveraendert
     /// durchgereicht, damit die Huelle als index_organization-Slot den seg19-Timer NICHT bricht
