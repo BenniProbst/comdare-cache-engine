@@ -52,11 +52,19 @@ namespace detail {
 /// Constructor, sie ist eine rein statische API. Daher hält die Hülle das Tracker-ORGAN, nicht die Strategie.)
 struct NoPrefetchTracker {};
 
-/// Erkennt die instanz-stateful PathOriented-Tracker-API (PathOrientedPrefetch trägt `impl_type` = der echte
-/// PathOrientedImpl-Tracker, axis_07_prefetch_path_oriented_impl.hpp). None/Hardware erfüllen dies NICHT →
-/// NoPrefetchTracker → kein Treiben → 0-Baseline (ehrlich).
+/// Erkennt einen instanz-stateful, TREIBBAREN Tracker (PathOrientedPrefetch trägt `impl_type` = der echte
+/// PathOrientedImpl-Tracker mit enqueue(addr)-Treib-API, axis_07_prefetch_path_oriented_impl.hpp).
+/// Kriterium ist NICHT bloß „hat impl_type", sondern „hat einen impl_type mit der enqueue()-Treib-Op":
+///   - None/Hardware tragen gar keinen impl_type → erfüllen dies NICHT.
+///   - DistanceEstimator trägt ZWAR einen impl_type (DistanceEstimatorImpl), aber der ist ein STATELESS
+///     constexpr-Heuristik-Organ (nur estimate()/clamp(), KEIN enqueue, kein Queue-State) → erfüllt dies
+///     ebenfalls NICHT → NoPrefetchTracker → 0-Baseline (ehrlich: keine per-op-Trajektorie zu beobachten).
+/// Nur PathOriented (echter stateful Tracker mit enqueue) erfüllt das Concept → wird getrieben.
 template <class S>
-concept HasPrefetchTracker = requires { typename S::impl_type; };
+concept HasPrefetchTracker = requires {
+    typename S::impl_type;
+    requires requires(typename S::impl_type tracker, std::uint64_t addr) { tracker.enqueue(addr); };
+};
 
 /// tracker_type_t<S> = der echte Tracker-Typ (PathOriented) bzw. NoPrefetchTracker (None/Hardware).
 template <class S> struct tracker_type { using type = NoPrefetchTracker; };
