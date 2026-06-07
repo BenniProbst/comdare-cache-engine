@@ -60,6 +60,9 @@ Write-Host ("Include-Dirs: {0}" -f $allInc.Count)
 
 # Der AnatomyModuleLoader ist NICHT header-only (load/unload in .cpp) → mitkompilieren+linken (wie perm_runner-Target).
 $loaderCpp = Join-Path $repo "libs\cache_engine\builder\anatomy_module_loader\anatomy_module_loader.cpp"
+# Achse 2 (INC-3): WorkloadGenerator (workload_driver::run_workload_profile-Interpreter) ist NICHT header-only
+# (generate_all/Konstruktor in .cpp) → in den Host-Exe-Build mitkompilieren+linken (analog loaderCpp).
+$wgCpp = Join-Path $repo "libs\cache_engine\builder\workload_driver\workload_generator.cpp"
 
 function Build-HostExe([string]$Tag, [string]$Src) {
     $exe = Join-Path $work "$Tag.exe"
@@ -73,7 +76,7 @@ function Build-HostExe([string]$Tag, [string]$Src) {
     # nur die per-DLL-Tiere bauen mit /O2. /bigobj: 320 Permutationen × 19 type_name → >2^16 Sektionen
     # (C1128 beobachtet 2026-06-03 bei FullPilot). /Fo: weggelassen (2 Quellen) → cl legt .obj im work-CWD ab.
     $rsp = @("/nologo", "/std:c++latest", "/EHsc", "/Od", "/bigobj", "/DWIN32", "/D_WINDOWS",
-             "/Fe:`"$exe`"") + $allInc + @("`"$Src`"", "`"$loaderCpp`"")
+             "/Fe:`"$exe`"") + $allInc + @("`"$Src`"", "`"$loaderCpp`"", "`"$wgCpp`"")
     $rspF = Join-Path $work "$Tag.rsp"; $bat = Join-Path $work "$Tag.bat"; $log = Join-Path $out "$Tag.host.log"
     Set-Content -Path $rspF -Value $rsp -Encoding ASCII
     Set-Content -Path $bat -Value @("@echo off", "cd /d `"$work`"", "call `"$vcvars`" >nul 2>&1", "cl @`"$rspF`" > `"$log`" 2>&1") -Encoding ASCII
