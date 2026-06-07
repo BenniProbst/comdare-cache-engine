@@ -20,10 +20,16 @@
 #include "experiment_tree.hpp"                      // NodeObserverSnapshot
 #include "../../anatomy/observable_tier.hpp"        // IObservableTier + ComdareTierObserverSnapshot (I1: EINE Schnittstelle/EIN POD)
 #include "../../anatomy/measurable_workload.hpp"    // Pfad A: IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
+#include "../../anatomy/rollbackable_tier.hpp"      // Achse 2 (INC-1): IRollbackableTier (Zwei-Phasen-Cache-Warmup, PFLICHT für Gültigkeit)
+#include "../../anatomy/scannable_tier.hpp"         // Achse 2 (INC-1): IScannableTier (YCSB-E Range-Scan)
+#include "../workload_driver/workload_orchestrator.hpp"  // Achse 2 (INC-1): run_workload_profile-Interpreter + WorkloadGenerator
+#include "../workload_driver/workload_profiles.hpp"      // Achse 2 (INC-1): Single-Source profile_by_name
 
 #include <chrono>
 #include <cstdint>
 #include <string>
+#include <string_view>
+#include <vector>
 
 namespace comdare::cache_engine::builder::experiment {
 
@@ -52,6 +58,10 @@ struct PermResult {
     // POD — die maßgebliche CSV-Quelle.
     anatomy::ComdareTierObserverSnapshot unified{};
     bool         unified_real = false;
+    // Achse 2 (INC-1): Lastprofil-Metadaten + Mess-GÜLTIGKEIT.
+    std::string  profile_name{};            // Lastprofil-Name (z.B. "YCSB_C_read_only"); leer = alter fixer Workload
+    bool         two_phase_valid = false;   // Zwei-Phasen-Cache-Warmup aktiv+empirisch-exakt → Messung GÜLTIG
+                                            // (false = ungültig: KEINE stille Kalt-Messung als gültiges Ergebnis)
 };
 
 /// (A)+(B) Treibt ein geladenes IObservableTier (SearchAlgorithm-Mess-Pfad): ZUERST tier_clear() (frischer
@@ -84,6 +94,56 @@ struct PermResult {
     r.unified_real = true;
     // KONSOLIDIERUNG (I-B.3): die result_ingest-Zeile aus dem EINEN POD = volle Matrix (axis_stats + seg_ns + Meta).
     r.line = format_perm_result(binary_id, r.unified);
+    return r;
+}
+
+// ── Achse 2 (INC-1): Lastprofil-Mess-Lauf über den BEREITS implementierten Interpreter (workload_driver) ──
+namespace wd  = ::comdare::cache_engine::builder::workload_driver;
+namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
+
+/// run_workload_perm — treibt EIN Lastprofil (workload_id) über `workload_driver::run_workload_profile` statt
+/// des hartgecodeten insert/lookup-Loops (run_observable_perm). Die Op-Sequenz wird host-seitig reproduzierbar
+/// materialisiert (gleiche Config+Seed ⇒ bit-identische Sequenz über alle Binaries). Jede gemessene Op läuft
+/// über den Zwei-Phasen-Cache-Warmup (save→warmup→rollback→measure), der für die Mess-GÜLTIGKEIT PFLICHT ist
+/// ([[feedback_two_phase_warmup_mandatory_validity]]): Ohne exakten Rollback ist die Messung UNGÜLTIG — wir
+/// markieren das (two_phase_valid=false) und erzeugen KEINE stille Kalt-Messung als gültiges Ergebnis.
+/// Unbekanntes Profil → Rückwärts-Kompat-Fallback auf den alten fixen Workload (run_observable_perm).
+[[nodiscard]] inline PermResult run_workload_perm(anatomy::IObservableTier& tier,
+                                                  anatomy::IRollbackableTier* rollback,
+                                                  anatomy::IScannableTier*    scan,
+                                                  std::string const& binary_id,
+                                                  std::string_view   workload_id,
+                                                  std::uint64_t      n_ops,
+                                                  std::uint64_t      seed) {
+    wd::WorkloadConfig cfg = wd::profile_by_name(workload_id, seed, static_cast<std::size_t>(n_ops));
+    if (cfg.name.empty()) {                       // unbekanntes Profil → alter fixer Workload (Rückwärts-Kompat)
+        return run_observable_perm(tier, binary_id, n_ops);
+    }
+    cfg.num_operations = static_cast<std::size_t>(n_ops);
+
+    PermResult r;
+    // GÜLTIGKEIT: Zwei-Phasen-Warmup Pflicht. Rollback-Exaktheit empirisch prüfen (einmal, auf frischem Zustand).
+    tier.tier_clear();
+    bool const rb_exact = (rollback != nullptr) && acd::rollback_is_empirically_exact(tier, rollback);
+    r.two_phase_valid = rb_exact;
+
+    tier.tier_clear();                            // frischer Start für den eigentlichen Mess-Lauf
+    wd::WorkloadGenerator gen{cfg};               // gleiche Config+Seed ⇒ bit-identische Op-Sequenz je Binary
+    std::vector<wd::WorkloadOp> const ops = gen.generate_all();
+    wd::WorkloadRunResult const res =
+        wd::run_workload_profile(tier, rb_exact ? rollback : nullptr, ops, cfg.name, scan);
+
+    std::int64_t total = 0;                       // total_ns = Summe der getrennt erhobenen Op-Latenzen
+    for (auto const* v : {&res.insert_ns, &res.lookup_ns, &res.erase_ns,
+                          &res.clear_ns,  &res.scan_ns,   &res.rmw_ns})
+        for (std::int64_t ns : *v) total += ns;
+
+    r.total_ns     = total;
+    r.n_ops        = res.op_count;
+    r.unified      = res.observer;                // EIN konsolidierter Observer-POD (axis_stats[19][8]+seg_ns[19])
+    r.unified_real = true;
+    r.profile_name = std::string(cfg.name);
+    r.line         = format_perm_result(binary_id, res.observer);
     return r;
 }
 

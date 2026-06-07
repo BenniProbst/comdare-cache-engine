@@ -25,6 +25,7 @@
 #include <builder/pruef_dock/conformance_gate.hpp>            // V5: std::map-Konformitäts-Gate vor Messung
 // V5-I9/I10: host-seitiger Lastprofil-Orchestrator (mehrere Lastprofile je Binary, Zwei-Phasen-Messung).
 #include <builder/workload_driver/workload_orchestrator.hpp>
+#include <builder/workload_driver/workload_profiles.hpp>   // INC-0: Single-Source profile_by_name (geteilt mit perm_runner)
 #include <builder/measurement_snapshot.hpp>   // V5-I1 (#50): EIN autoritativer 16+6-Mess-POD + Pipeline-16-Serializer
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/rollbackable_tier.hpp>
@@ -55,19 +56,9 @@ namespace bld    = ::comdare::cache_engine::builder;   // V5-I1 (#50): ComdareMe
 namespace {
 
 /// Bildet einen Lastprofil-Namen (CLI-Token) auf eine WorkloadConfig ab. Unbekannt → name leer (Skip).
-/// Deckt YCSB-A/B/C/D + Insert/Lookup-Heavy ab (V5-I9). E/F bewusst nicht (kein Scan/RMW-Op-Kind).
-[[nodiscard]] wd::WorkloadConfig profile_by_name(std::string_view tok, std::uint64_t seed, std::size_t ops) {
-    if (tok == "A"  || tok == "mixed_a")      return wd::make_mixed_a(seed, ops);
-    if (tok == "B"  || tok == "mixed_b")      return wd::make_mixed_b(seed, ops);
-    if (tok == "C"  || tok == "ycsb_c")       return wd::make_ycsb_c(seed, ops);
-    if (tok == "D"  || tok == "ycsb_d")       return wd::make_ycsb_d(seed, ops);
-    if (tok == "E"  || tok == "ycsb_e")       return wd::make_ycsb_e(seed, ops);   // V5-#49-E (Range-Scan)
-    if (tok == "F"  || tok == "ycsb_f")       return wd::make_ycsb_f(seed, ops);   // V5-#49-F (Read-Modify-Write)
-    if (tok == "IH" || tok == "insert_heavy") return wd::make_insert_heavy(seed, ops);
-    if (tok == "LH" || tok == "lookup_heavy") return wd::make_lookup_heavy(seed, ops);
-    wd::WorkloadConfig empty; empty.name = "";  // Marker: unbekannt
-    return empty;
-}
+/// INC-0 (2026-06-07): NICHT mehr lokal dupliziert — Single-Source workload_driver::profile_by_name
+/// (builder/workload_driver/workload_profiles.hpp), geteilt mit dem FullPilot-B+-Baum-Mess-Pfad (perm_runner).
+using wd::profile_by_name;
 
 void print_usage() {
     std::cerr

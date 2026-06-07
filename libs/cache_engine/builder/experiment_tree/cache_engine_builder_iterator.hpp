@@ -68,6 +68,10 @@ struct LazyRunConfig {
     std::uint64_t         seg_ops_per_batch = 4000;  // Operationen je Batch im 19-Segment-Workload (X)
     std::uint64_t         seg_batches       = 32;    // gemessene Batches (Warmup verworfen); 0 = Segment-Timing aus
     std::uint64_t         seg_seed          = 0xB15u; // deterministischer Seed
+    // Achse 2 (INC-3): fester Seed für die Workload-Op-Sequenz-Materialisierung. Hängt NUR vom Profil ab (via
+    // profile_by_name), NICHT von Binary/Setting/Rep → dieselbe Workload erzeugt bit-identische Sequenzen über
+    // ALLE Binaries (Cross-Binary-Vergleichbarkeit = Spalte des kartesischen Kreuzes). [[feedback_two_phase_warmup_mandatory_validity]]
+    std::uint64_t         workload_seed     = 42u;
     // Laufzeit-Obergrenze (System-Limits) für die dyn-Variation (RuntimeVariableLoop clamp gegen caps∩env).
     anatomy::ComdareResourceControlV1 env_limits{};
 };
@@ -87,6 +91,10 @@ struct LazyMeasuredRow {
     // Komposition). Ersetzt den früheren V3-Snapshot + den Pfad-A-Segment-Timer.
     anatomy::ComdareTierObserverSnapshot unified{};
     bool                 unified_real = false;
+    // Achse 2 (INC-3): Lastprofil + Mess-GÜLTIGKEIT (Zwei-Phasen-Cache-Warmup exakt). profile_name leer/"-" =
+    // alter fixer Workload (kein Achse-2-Profil). two_phase_valid=false ⇒ Messung UNGÜLTIG (nicht als valide werten).
+    std::string          profile_name;
+    bool                 two_phase_valid = false;
 };
 
 // ── (B/C/D/X) EINHEITLICHES CSV-Schema (global + per-Binary identisch) ──────────────────────────────────
@@ -131,7 +139,7 @@ struct LazyMeasuredRow {
             h += "stat_"; h += kCompositionAxisNames[t]; h += '_'; h += fld; h += ';';
         }
     }
-    h += "v3_filled_axes\n";   // Diagnose: wie viele der 19 Achsen jetzt befüllt sind (Phase B Abschluss: alle 19)
+    h += "v3_filled_axes;workload;two_phase_valid\n";   // Diagnose 19 Achsen befüllt + Achse 2 (Lastprofil + Mess-Gültigkeit)
     return h;
 }
 
@@ -141,6 +149,18 @@ struct LazyMeasuredRow {
     static constexpr char key[] = "repetition_index=";
     std::size_t const p = setting_label.find(key);
     if (p == std::string::npos) return "-";
+    std::size_t const b = p + (sizeof(key) - 1);
+    std::size_t e = b;
+    while (e < setting_label.size() && setting_label[e] != '/' ) ++e;
+    return setting_label.substr(b, e - b);
+}
+
+/// Achse 2 (INC-3): extrahiert die workload_id aus dem setting_label (Segment "workload.workload_id=X"); leer
+/// wenn die Workload-Dim nicht aktiv ist (kein Segment) → Aufrufer fällt auf den alten fixen Workload zurück.
+[[nodiscard]] inline std::string lazy_extract_workload_id(std::string const& setting_label) {
+    static constexpr char key[] = "workload_id=";
+    std::size_t const p = setting_label.find(key);
+    if (p == std::string::npos) return {};
     std::size_t const b = p + (sizeof(key) - 1);
     std::size_t e = b;
     while (e < setting_label.size() && setting_label[e] != '/' ) ++e;
@@ -201,6 +221,8 @@ struct LazyMeasuredRow {
         }
     }
     out += (row.unified_real ? std::to_string(row.unified.filled_axis_count) : std::string{"n/a"});   // filled_axes
+    out += ';'; out += (row.profile_name.empty() ? std::string{"-"} : row.profile_name);              // workload (Achse 2)
+    out += ';'; out += (row.two_phase_valid ? "1" : "0");                                             // Mess-Gültigkeit (Cache-Warmup)
     out += '\n';
     return out;
 }
@@ -282,6 +304,10 @@ struct LazyRunResult {
         anatomy::IAnatomyBase* base = handle.anatomy();
         auto* obs  = (base != nullptr) ? dynamic_cast<anatomy::IObservableTier*>(base) : nullptr;
         auto* ctrl = (base != nullptr) ? dynamic_cast<anatomy::IResourceControllableTier*>(base) : nullptr;
+        // Achse 2 (INC-3): Sub-Interfaces für den Interpreter — IRollbackableTier (Zwei-Phasen-Cache-Warmup,
+        // PFLICHT für Mess-Gültigkeit) + IScannableTier (YCSB-E Range-Scan). Alte DLLs → nullptr (Skip/Fallback).
+        auto* rbk  = (base != nullptr) ? dynamic_cast<anatomy::IRollbackableTier*>(base) : nullptr;
+        auto* scn  = (base != nullptr) ? dynamic_cast<anatomy::IScannableTier*>(base) : nullptr;
         if (obs == nullptr) { ++result.load_failed; continue; }  // keine Mess-Ebene (kein COMDARE_MEASUREMENT_ON-Build)
         ++result.loaded;
 
@@ -305,7 +331,13 @@ struct LazyRunResult {
             std::string const setting_id =
                 s.setting_label.empty() ? binary_id : (binary_id + "#" + s.setting_label);
             // KONSOLIDIERUNG (I1): EINE tier_observe liefert Observer-Stats + Pfad-B-seg_ns in EINEM POD.
-            PermResult const pr = run_observable_perm(*obs, setting_id, cfg.n_ops);
+            // Achse 2 (INC-3): ist die Workload-Dim aktiv (workload_id im Label), treibt der bereits implementierte
+            // Interpreter (run_workload_perm) EIN Lastprofil mit Pflicht-Zwei-Phasen-Cache-Warmup über die
+            // map-Interfaces; sonst der alte fixe Workload (run_observable_perm, rückwärtskompatibel).
+            std::string const workload_id = lazy_extract_workload_id(s.setting_label);
+            PermResult const pr = workload_id.empty()
+                ? run_observable_perm(*obs, setting_id, cfg.n_ops)
+                : run_workload_perm(*obs, rbk, scn, setting_id, workload_id, cfg.n_ops, cfg.workload_seed);
 
             if (ingest_result_line(tree, pr.line)) {
                 ++result.measured;
@@ -321,6 +353,8 @@ struct LazyRunResult {
                 row.n_ops              = pr.n_ops;
                 row.unified            = pr.unified;         // KONSOLIDIERUNG (I1): maßgebliche CSV-Quelle (Stats + Pfad-B-seg_ns)
                 row.unified_real       = pr.unified_real;
+                row.profile_name       = pr.profile_name;     // Achse 2: Lastprofil-Name (leer = alter fixer Workload)
+                row.two_phase_valid    = pr.two_phase_valid;  // Achse 2: Mess-Gültigkeit (Zwei-Phasen-Cache-Warmup exakt)
                 // (E): die per-Binary-Ergebnis-CSV mit-akkumulieren (gleiches Schema wie die globale CSV).
                 if (cfg.per_binary_subdirs) per_binary_csv += format_csv_row(row);
                 result.csv_rows.push_back(std::move(row));
