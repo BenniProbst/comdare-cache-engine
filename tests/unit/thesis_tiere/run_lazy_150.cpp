@@ -170,6 +170,10 @@ int main(int argc, char** argv) {
     ex::LazyRunConfig cfg;
     cfg.max_binaries   = N;
     cfg.n_ops          = n_ops;
+    // Achse 2 (INC-3c): YCSB-Load-Records (Sätze, die VOR der gemessenen Run-Phase befüllt werden) aus env
+    // COMDARE_WORKLOAD_RECORDS; 0/ungesetzt → records = n_ops. Key-Verteilung wird auf [1, records] ausgerichtet.
+    if (char const* lr = std::getenv("COMDARE_WORKLOAD_RECORDS"); lr != nullptr)
+        cfg.workload_records = std::strtoull(lr, nullptr, 10);
     cfg.build_version  = build_version;
     cfg.source_dir     = src_dir;
     cfg.output_dir     = dll_dir;

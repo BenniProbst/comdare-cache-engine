@@ -72,6 +72,9 @@ struct LazyRunConfig {
     // profile_by_name), NICHT von Binary/Setting/Rep → dieselbe Workload erzeugt bit-identische Sequenzen über
     // ALLE Binaries (Cross-Binary-Vergleichbarkeit = Spalte des kartesischen Kreuzes). [[feedback_two_phase_warmup_mandatory_validity]]
     std::uint64_t         workload_seed     = 42u;
+    // Achse 2 (INC-3c): YCSB-Load-Phase. Anzahl der VOR der gemessenen Run-Phase befüllten Sätze (records). 0 →
+    // records = n_ops. Key-Verteilung des Profils wird auf [1, records] ausgerichtet (read-heavy/scan treffen Keys).
+    std::uint64_t         workload_records  = 0u;
     // Laufzeit-Obergrenze (System-Limits) für die dyn-Variation (RuntimeVariableLoop clamp gegen caps∩env).
     anatomy::ComdareResourceControlV1 env_limits{};
 };
@@ -337,7 +340,8 @@ struct LazyRunResult {
             std::string const workload_id = lazy_extract_workload_id(s.setting_label);
             PermResult const pr = workload_id.empty()
                 ? run_observable_perm(*obs, setting_id, cfg.n_ops)
-                : run_workload_perm(*obs, rbk, scn, setting_id, workload_id, cfg.n_ops, cfg.workload_seed);
+                : run_workload_perm(*obs, rbk, scn, setting_id, workload_id, cfg.n_ops,
+                                    cfg.workload_seed, cfg.workload_records);
 
             if (ingest_result_line(tree, pr.line)) {
                 ++result.measured;
