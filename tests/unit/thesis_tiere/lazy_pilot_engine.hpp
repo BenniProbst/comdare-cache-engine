@@ -117,16 +117,27 @@ using SmallPilot = PilotAxes<1, 2, 2, 1>;
 /// real angewandt; `repetition_index` ist KEIN POD-Feld → set_field ignoriert es (architektonische Ausnahme),
 /// d.h. die Rep-Dim verändert den Tier NICHT, sie multipliziert nur die Mess-Wiederholungen (je Rep eine eigene
 /// Roh-CSV-Zeile, NIE interpoliert — strukturell durch die DynamicDim-Expansion garantiert).
-[[nodiscard]] inline std::vector<ex::DynamicDim> pilot_dynamic_dims(std::uint32_t n_repeats = 3) {
+/// Achse 2 (INC-2, 2026-06-07): `workload_values` (z.B. {"A","C","E","F"}) ergänzt eine VIERTE, INNERSTE
+/// dynamische Dimension `workload.workload_id` NACH repetition. Leer (Default) ⇒ keine Workload-Dim
+/// (rückwärtskompatibel = alter fixer Workload). `workload_id` ist KEIN ComdareResourceControlV1-POD-Feld →
+/// set_field ignoriert es (architektonische Ausnahme wie repetition_index); der Iterator dispatcht das Label
+/// an perm_runner::run_workload_perm (= der bereits implementierte Interpreter). Workload variiert die Op-Sequenz
+/// auf der GELADENEN DLL ohne Neu-Bau → dasselbe Binary gegen alle Workloads = Achse 2 des kartesischen Kreuzes.
+[[nodiscard]] inline std::vector<ex::DynamicDim> pilot_dynamic_dims(
+    std::uint32_t n_repeats = 3,
+    std::vector<std::string> workload_values = {}) {
     std::uint32_t const reps = (n_repeats == 0) ? 1u : n_repeats;   // 0 → 1 normalisieren (RepetitionPlan-Semantik)
     std::vector<std::string> rep_vals;
     rep_vals.reserve(reps);
     for (std::uint32_t r = 0; r < reps; ++r) rep_vals.push_back(std::to_string(r));
-    return {
+    std::vector<ex::DynamicDim> dims = {
         ex::DynamicDim{"concurrency", "thread_count",      {"1", "2", "4"},        "concurrency"},
         ex::DynamicDim{"prefetch",    "prefetch_distance", {"0", "8"},             "prefetch"},
         ex::DynamicDim{"repetition",  "repetition_index",  std::move(rep_vals),    "repetition"},
     };
+    if (!workload_values.empty())   // Achse 2: innerste dynamische Ebene (nach repetition)
+        dims.push_back(ex::DynamicDim{"workload", "workload_id", std::move(workload_values), "workload"});
+    return dims;
 }
 
 /// build_pilot_levels<Pilot>() — statische Achsen + dynamische Dimensionen zusammengeführt (= der Gesamt-Level-Satz
@@ -135,10 +146,11 @@ using SmallPilot = PilotAxes<1, 2, 2, 1>;
 /// `n_repeats` (Default 3) = Anzahl der Wiederholungs-Achsen-Werte (D/KF-10).
 template <class Pilot>
 [[nodiscard]] inline std::vector<ex::AxisLevel> build_pilot_levels(bool with_dynamic = true,
-                                                                   std::uint32_t n_repeats = 3) {
+                                                                   std::uint32_t n_repeats = 3,
+                                                                   std::vector<std::string> workload_values = {}) {
     std::vector<ex::AxisLevel> lv = Pilot::static_levels();
     if (with_dynamic) {
-        for (auto const& d : pilot_dynamic_dims(n_repeats))
+        for (auto const& d : pilot_dynamic_dims(n_repeats, std::move(workload_values)))
             lv.push_back(ex::AxisLevel{d.axis, d.values, /*is_static=*/false, d.variable, d.block_id});
     }
     return lv;
