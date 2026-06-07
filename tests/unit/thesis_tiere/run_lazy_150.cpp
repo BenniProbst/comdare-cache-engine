@@ -93,6 +93,24 @@ int main(int argc, char** argv) {
     if (select_mode.empty()) { char const* e = std::getenv("COMDARE_SELECT_MODE"); if (e != nullptr) select_mode = e; }
     if (select_mode.empty()) select_mode = "index";
 
+    // Achse 2 (INC-3, 2026-06-07): Workload-Set aus env COMDARE_WORKLOADS (Komma-getrennt, z.B. "A,C,E,F" oder
+    // "A,B,C,D,E,F,OP1,OP2,OP3,OP4,OP5,OP6,IH,LH"). Leer → keine Workload-Dim (alter fixer Workload, rückwärtskompat).
+    // Jede ID muss profile_by_name kennen. Die Workload-Dim wird die innerste dynamische B+-Baum-Ebene (Achse 2).
+    std::vector<std::string> workload_values;
+    if (char const* w = std::getenv("COMDARE_WORKLOADS"); w != nullptr) {
+        std::string const s{w};
+        std::size_t b = 0;
+        while (b <= s.size()) {
+            std::size_t const e = s.find(',', b);
+            std::string tok = s.substr(b, (e == std::string::npos ? s.size() : e) - b);
+            while (!tok.empty() && tok.front() == ' ') tok.erase(tok.begin());
+            while (!tok.empty() && tok.back()  == ' ') tok.pop_back();
+            if (!tok.empty()) workload_values.push_back(tok);
+            if (e == std::string::npos) break;
+            b = e + 1;
+        }
+    }
+
     std::vector<std::string> const defs = {
         "/DCOMDARE_ANATOMY_MODULE_BUILD=1", "/DCOMDARE_MEASUREMENT_ON=1", "/DCOMDARE_CE_ENABLE_STATISTICS=1",
         "/DCOMDARE_EXPERIMENT_MODE_ON=1",   "/DCOMDARE_OS_WINDOWS=1",     "/DCOMDARE_ARCH_X86_64=1",
@@ -105,7 +123,7 @@ int main(int argc, char** argv) {
     // EIGENE setting_id → je Rep eine eigene Roh-CSV-Zeile (nie interpoliert).
     auto factory = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree tree{factory};
-    tree.build(tlz::build_pilot_levels<tlz::FullPilot>(/*with_dynamic=*/true, n_repeats));
+    tree.build(tlz::build_pilot_levels<tlz::FullPilot>(/*with_dynamic=*/true, n_repeats, workload_values));
 
     std::cout << "FullPilot::Engine::count() = " << tlz::FullPilot::Engine::count()
               << "  tree.binary_count() = " << tree.binary_count()
@@ -113,6 +131,11 @@ int main(int argc, char** argv) {
               << "  n_repeats = " << n_repeats
               << "  max_binaries = " << max_binaries
               << "  select_mode = " << select_mode << "\n";
+    {
+        std::cout << "  workloads (Achse 2) = " << workload_values.size() << " [";
+        for (std::size_t i = 0; i < workload_values.size(); ++i) std::cout << (i ? "," : "") << workload_values[i];
+        std::cout << "]\n";
+    }
 
     // Selektion: ZWEI Modi (Mess-/Reps-/Ordner-Infra IDENTISCH; nur die View-Index-Auswahl unterscheidet sich).
     //   • "search_algo_grid" (F15): variiert NUR die search_algo-Ebene (Ebene 0), alle übrigen statisch gepinnt →
