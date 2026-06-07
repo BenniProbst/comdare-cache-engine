@@ -114,20 +114,30 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
                                                   std::string const& binary_id,
                                                   std::string_view   workload_id,
                                                   std::uint64_t      n_ops,
-                                                  std::uint64_t      seed) {
+                                                  std::uint64_t      seed,
+                                                  std::uint64_t      load_records = 0) {
     wd::WorkloadConfig cfg = wd::profile_by_name(workload_id, seed, static_cast<std::size_t>(n_ops));
     if (cfg.name.empty()) {                       // unbekanntes Profil → alter fixer Workload (Rückwärts-Kompat)
         return run_observable_perm(tier, binary_id, n_ops);
     }
     cfg.num_operations = static_cast<std::size_t>(n_ops);
+    // YCSB Load-/Run-Phasen-Trennung (INC-3c): `records` Sätze werden VOR der gemessenen Run-Phase befüllt (load),
+    // und die Key-Verteilung wird auf [1, records] ausgerichtet → Lookups/Scans treffen befüllte Keys. Ohne diese
+    // Load-Phase wären read-heavy/scan-Profile (C/E) auf leerem Tier 100% Miss = ungültig. Default records = n_ops.
+    std::uint64_t const records = (load_records > 0) ? load_records : n_ops;
+    cfg.key_min = 1;
+    cfg.key_max = (records > 1) ? records : 2;    // key_max>key_min Pflicht (WorkloadConfig::is_valid)
 
     PermResult r;
-    // GÜLTIGKEIT: Zwei-Phasen-Warmup Pflicht. Rollback-Exaktheit empirisch prüfen (einmal, auf frischem Zustand).
+    // GÜLTIGKEIT: Zwei-Phasen-Warmup Pflicht. Rollback-Exaktheit (Adapter-strukturell) auf leerem Tier prüfen (billig).
     tier.tier_clear();
     bool const rb_exact = (rollback != nullptr) && acd::rollback_is_empirically_exact(tier, rollback);
     r.two_phase_valid = rb_exact;
 
-    tier.tier_clear();                            // frischer Start für den eigentlichen Mess-Lauf
+    // LOAD-Phase (UNGEMESSEN): records Sätze einfügen → befülltes Tier für die gemessene Run-Phase (YCSB-Load).
+    tier.tier_clear();
+    for (std::uint64_t i = 1; i <= records; ++i) (void)tier.tier_insert(i, i * 7u + 1u);
+
     wd::WorkloadGenerator gen{cfg};               // gleiche Config+Seed ⇒ bit-identische Op-Sequenz je Binary
     std::vector<wd::WorkloadOp> const ops = gen.generate_all();
     wd::WorkloadRunResult const res =
