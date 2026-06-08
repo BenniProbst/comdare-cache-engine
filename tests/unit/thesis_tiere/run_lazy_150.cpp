@@ -93,21 +93,34 @@ int main(int argc, char** argv) {
     if (select_mode.empty()) { char const* e = std::getenv("COMDARE_SELECT_MODE"); if (e != nullptr) select_mode = e; }
     if (select_mode.empty()) select_mode = "index";
 
-    // Achse 2 (INC-3, 2026-06-07): Workload-Set aus env COMDARE_WORKLOADS (Komma-getrennt, z.B. "A,C,E,F" oder
-    // "A,B,C,D,E,F,OP1,OP2,OP3,OP4,OP5,OP6,IH,LH"). Leer → keine Workload-Dim (alter fixer Workload, rückwärtskompat).
-    // Jede ID muss profile_by_name kennen. Die Workload-Dim wird die innerste dynamische B+-Baum-Ebene (Achse 2).
+    // Achse 2 (#135, 2026-06-08): Lastprofile = Werte der dynamischen Workload-Achse. PRIMÄR via XML-Discovery aus
+    // COMDARE_LOAD_PROFILE_DIR (runtime-interpretierte comdare_load_profile-XMLs → WorkloadConfig-Registry; op-mix/
+    // dist/negative_query_pct aus dem XML). FALLBACK: COMDARE_WORKLOADS env-String (hartcodierte make_* via profile_by_name).
+    namespace wd = ::comdare::cache_engine::builder::workload_driver;
     std::vector<std::string> workload_values;
-    if (char const* w = std::getenv("COMDARE_WORKLOADS"); w != nullptr) {
-        std::string const s{w};
-        std::size_t b = 0;
-        while (b <= s.size()) {
-            std::size_t const e = s.find(',', b);
-            std::string tok = s.substr(b, (e == std::string::npos ? s.size() : e) - b);
-            while (!tok.empty() && tok.front() == ' ') tok.erase(tok.begin());
-            while (!tok.empty() && tok.back()  == ' ') tok.pop_back();
-            if (!tok.empty()) workload_values.push_back(tok);
-            if (e == std::string::npos) break;
-            b = e + 1;
+    std::map<std::string, wd::WorkloadConfig> workload_registry;
+    if (char const* lpd = std::getenv("COMDARE_LOAD_PROFILE_DIR"); lpd != nullptr && *lpd != '\0') {
+        for (auto const& idp : wd::discover_load_profiles(lpd)) {
+            if (auto lp = wd::parse_load_profile(idp.second)) {
+                workload_registry[idp.first] = lp->config;
+                workload_values.push_back(idp.first);
+            }
+        }
+        std::cout << "  load_profiles (XML, Achse 2) entdeckt: " << workload_values.size() << " aus " << lpd << "\n";
+    }
+    if (workload_values.empty()) {   // Fallback: env-String (hartcodierte Profile via profile_by_name)
+        if (char const* w = std::getenv("COMDARE_WORKLOADS"); w != nullptr) {
+            std::string const s{w};
+            std::size_t b = 0;
+            while (b <= s.size()) {
+                std::size_t const e = s.find(',', b);
+                std::string tok = s.substr(b, (e == std::string::npos ? s.size() : e) - b);
+                while (!tok.empty() && tok.front() == ' ') tok.erase(tok.begin());
+                while (!tok.empty() && tok.back()  == ' ') tok.pop_back();
+                if (!tok.empty()) workload_values.push_back(tok);
+                if (e == std::string::npos) break;
+                b = e + 1;
+            }
         }
     }
 
@@ -174,6 +187,7 @@ int main(int argc, char** argv) {
     // COMDARE_WORKLOAD_RECORDS; 0/ungesetzt → records = n_ops. Key-Verteilung wird auf [1, records] ausgerichtet.
     if (char const* lr = std::getenv("COMDARE_WORKLOAD_RECORDS"); lr != nullptr)
         cfg.workload_records = std::strtoull(lr, nullptr, 10);
+    cfg.workload_configs = std::move(workload_registry);   // Achse 2 (#135): XML-Lastprofil-Registry → Iterator
     cfg.build_version  = build_version;
     cfg.source_dir     = src_dir;
     cfg.output_dir     = dll_dir;

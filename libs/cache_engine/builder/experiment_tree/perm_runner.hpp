@@ -23,10 +23,12 @@
 #include "../../anatomy/rollbackable_tier.hpp"      // Achse 2 (INC-1): IRollbackableTier (Zwei-Phasen-Cache-Warmup, PFLICHT für Gültigkeit)
 #include "../../anatomy/scannable_tier.hpp"         // Achse 2 (INC-1): IScannableTier (YCSB-E Range-Scan)
 #include "../workload_driver/workload_orchestrator.hpp"  // Achse 2 (INC-1): run_workload_profile-Interpreter + WorkloadGenerator
-#include "../workload_driver/workload_profiles.hpp"      // Achse 2 (INC-1): Single-Source profile_by_name
+#include "../workload_driver/workload_profiles.hpp"      // Achse 2 (INC-1): Single-Source profile_by_name (Fallback)
+#include "../workload_driver/load_profile_parser.hpp"    // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig)
 
 #include <chrono>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -115,10 +117,19 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
                                                   std::string_view   workload_id,
                                                   std::uint64_t      n_ops,
                                                   std::uint64_t      seed,
-                                                  std::uint64_t      load_records = 0) {
-    wd::WorkloadConfig cfg = wd::profile_by_name(workload_id, seed, static_cast<std::size_t>(n_ops));
-    if (cfg.name.empty()) {                       // unbekanntes Profil → alter fixer Workload (Rückwärts-Kompat)
-        return run_observable_perm(tier, binary_id, n_ops);
+                                                  std::uint64_t      load_records = 0,
+                                                  std::map<std::string, wd::WorkloadConfig> const* registry = nullptr) {
+    // Achse 2 (#135): workload_id zuerst aus der XML-Lastprofil-Registry (Charakteristik aus dem XML); sonst aus
+    // dem hartcodierten profile_by_name (env-String-Rückwärts-Kompat). Skala (records/n_ops) setzt der Aufrufer.
+    wd::WorkloadConfig cfg{};
+    bool resolved = false;
+    if (registry != nullptr) {
+        auto const it = registry->find(std::string(workload_id));
+        if (it != registry->end()) { cfg = it->second; resolved = true; }
+    }
+    if (!resolved) {
+        cfg = wd::profile_by_name(workload_id, seed, static_cast<std::size_t>(n_ops));
+        if (cfg.name.empty()) return run_observable_perm(tier, binary_id, n_ops);  // unbekannt → alter fixer Workload
     }
     cfg.num_operations = static_cast<std::size_t>(n_ops);
     // YCSB Load-/Run-Phasen-Trennung (INC-3c): `records` Sätze werden VOR der gemessenen Run-Phase befüllt (load),
@@ -152,7 +163,7 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
     r.n_ops        = res.op_count;
     r.unified      = res.observer;                // EIN konsolidierter Observer-POD (axis_stats[19][8]+seg_ns[19])
     r.unified_real = true;
-    r.profile_name = std::string(cfg.name);
+    r.profile_name = std::string(workload_id);    // Achsen-Wert (XML-Profil-id ODER hartcodiertes Token)
     r.line         = format_perm_result(binary_id, res.observer);
     return r;
 }
