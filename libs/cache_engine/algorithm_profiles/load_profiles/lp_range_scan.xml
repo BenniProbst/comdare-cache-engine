@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Range-scan-heavy — Lastprofil (Doc 32 Lastprofil-Katalog, Achse-2-Wert). Workload-Charakteristik; Skala (records/n_ops) vom Harness. -->
+<comdare_load_profile id="lp_range_scan" paper_ref="P01" schema_version="1">
+  <metadata>
+    <name>Range-scan-heavy</name>
+    <source>ART iter_scan; SuRF range; CSB/CSS table-scan</source>
+    <methodology>Doc 32 Lastprofil-Katalog (33-Paper-Analyse); op-mix/dist auf uint64-Op-Modell gemappt</methodology>
+  </metadata>
+  <workload>
+    <seed>42</seed>
+    <records>10000</records>
+    <num_operations>10000</num_operations>
+    <op_mix insert="0" lookup="0" erase="0" clear="0" scan="1.0" rmw="0"/>
+    <key_distribution>uniform</key_distribution>
+    <zipfian_theta>0.99</zipfian_theta>
+    <negative_query_pct>0</negative_query_pct>
+    <scan_length_max>1000</scan_length_max>
+  </workload>
+</comdare_load_profile>
