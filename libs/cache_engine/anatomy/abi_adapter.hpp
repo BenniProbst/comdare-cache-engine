@@ -1160,12 +1160,18 @@ public:
     // restore_state der Organe — der vom /goal geforderte „je stateful Achsen-Interface"); nur Organe OHNE
     // MementoAxis fallen auf die In-Memory-Tiefkopie zurück. Die produktiven Such-Organe (ComposedSearch /
     // ObservableComposedSearch) SIND MementoAxis (test_v5_organ_memento) → hier läuft der echte per-Achsen-Pfad.
+    // KOSTEN-FIX (2026-06-08, User „Kopie jetzt"): Der COPY-Memento (organ-Vollkopie, O(n)) wird BEVORZUGT vor dem
+    // MementoAxis-Pfad (save_state()-Liste + restore_state()-RE-INSERT = O(n²) je Op bei O(n)-Insert-Organen wie
+    // k_ary/sorted/linear → O(n_ops·n²)/Messung → Voll-Lauf 11× über ZIH-Kontingent). Die Vollkopie restauriert den
+    // EXAKTEN Vor-Zustand (Daten UND Observer-Zähler UND physisches Layout) in O(n) statt O(n²) — gleiche
+    // Zwei-Phasen-Gültigkeit, sogar exakter als der Re-Insert-Wiederaufbau. MementoAxis nur noch Fallback für
+    // NICHT-kopierbare Organe. (Undo-Log-Memento O(1)/Op = spätere Optimierung, GOAL/K78-Backlog.)
     void tier_save_all() noexcept override {
         try {
-            if constexpr (MementoAxis<SearchAlgo>)                        saved_search_m_    = search_organ_.save_state();
-            else if constexpr (std::is_copy_constructible_v<SearchAlgo>)  saved_search_.emplace(search_organ_);
-            if constexpr (MementoAxis<container_t>)                       saved_container_m_ = container_.save_state();
-            else if constexpr (std::is_copy_constructible_v<container_t>) saved_container_.emplace(container_);
+            if constexpr (std::is_copy_constructible_v<SearchAlgo>)  saved_search_.emplace(search_organ_);
+            else if constexpr (MementoAxis<SearchAlgo>)              saved_search_m_    = search_organ_.save_state();
+            if constexpr (std::is_copy_constructible_v<container_t>) saved_container_.emplace(container_);
+            else if constexpr (MementoAxis<container_t>)             saved_container_m_ = container_.save_state();
         } catch (...) {
             saved_search_.reset();      // OOM beim Kapseln → Kopie-Fallback-Memento verwerfen (Mess-Robustheit)
             saved_container_.reset();
@@ -1174,10 +1180,10 @@ public:
 
     void tier_rollback_all() noexcept override {
         try {
-            if constexpr (MementoAxis<SearchAlgo>)                       search_organ_.restore_state(saved_search_m_);
-            else if constexpr (std::is_copy_assignable_v<SearchAlgo>)  { if (saved_search_)    search_organ_ = *saved_search_; }
-            if constexpr (MementoAxis<container_t>)                      container_.restore_state(saved_container_m_);
-            else if constexpr (std::is_copy_assignable_v<container_t>) { if (saved_container_) container_    = *saved_container_; }
+            if constexpr (std::is_copy_assignable_v<SearchAlgo>)  { if (saved_search_)    search_organ_ = *saved_search_; }
+            else if constexpr (MementoAxis<SearchAlgo>)             search_organ_.restore_state(saved_search_m_);
+            if constexpr (std::is_copy_assignable_v<container_t>) { if (saved_container_) container_    = *saved_container_; }
+            else if constexpr (MementoAxis<container_t>)            container_.restore_state(saved_container_m_);
         } catch (...) {
             // noexcept-Vertrag: ein Rollback-Fehler darf den Mess-Lauf nicht abreißen.
         }
