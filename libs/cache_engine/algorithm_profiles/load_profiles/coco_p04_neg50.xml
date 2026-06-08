@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CoCo-Trie-Lastprofil (P04). Mess-Direktive aus benchmark.cpp + utils.hpp get_queries: statischer Build
+     (alle Records einfügen) + read-only look_up, gesweept über QUERY_NOT_IN_SET_PERCENTAGE. Dies ist die
+     50%-Negativ-Variante; der volle Sweep {0,25,50,75,100} steht als coco_p04_neg{0,25,50,75,100}.xml. -->
+<comdare_load_profile id="coco_p04_neg50" paper_ref="P04" schema_version="1">
+  <metadata>
+    <name>CoCo-trie negative-query sweep 50%</name>
+    <source>Boffa A., Ferragina P., Tosoni F., Vinciguerra G.: CoCo-trie — Data-aware compression and indexing of strings. VLDB 2024, doi:10.14778/3681954.3681996</source>
+    <methodology>Statischer Build + read-only look_up; Sweep QUERY_NOT_IN_SET_PERCENTAGE (benchmark.cpp:97-121, utils.hpp:367 get_queries)</methodology>
+  </metadata>
+  <workload>
+    <seed>42</seed>
+    <records>10000</records>
+    <num_operations>10000</num_operations>
+    <op_mix insert="0.0" lookup="1.0" erase="0.0" clear="0.0" scan="0.0" rmw="0.0"/>
+    <key_distribution>zipfian</key_distribution>
+    <zipfian_theta>0.99</zipfian_theta>
+    <negative_query_pct>50</negative_query_pct>
+    <scan_length_max>100</scan_length_max>
+  </workload>
+</comdare_load_profile>

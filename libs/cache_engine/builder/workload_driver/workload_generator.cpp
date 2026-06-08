@@ -145,7 +145,17 @@ std::uint64_t WorkloadGenerator::sample_key() noexcept {
 
 WorkloadOp WorkloadGenerator::next() noexcept {
     auto const kind  = sample_op_kind();
-    auto const k     = sample_key();
+    auto       k     = sample_key();
+    // CoCo-Trie-Direktive (P04, QUERY_NOT_IN_SET_PERCENTAGE): mit Wahrsch. negative_query_pct zielt ein
+    // Lookup/Scan auf einen NICHT-geladenen Key ([key_max+1, 2*key_max]) → garantierter Miss (Negativ-Query).
+    // Nur Read-Queries (Insert/Erase/RMW betreffen den Schreib-Pfad). Deterministisch je (Config, Seed).
+    if (config_.negative_query_pct > 0.0 &&
+        (kind == WorkloadOpKind::Lookup || kind == WorkloadOpKind::Scan)) {
+        if (next_unit() < (config_.negative_query_pct / 100.0)) {
+            auto const range = config_.key_max - config_.key_min + 1ULL;
+            k = config_.key_max + 1ULL + (next_random() % range);   // außerhalb [key_min, key_max] = nie geladen
+        }
+    }
     auto const v_raw = next_random();  // value (immer gezogen, hält den PRNG-State synchron / reproduzierbar)
     // V5-#49-E: für Scan-Ops kodiert `value` die Scan-Länge in [1, scan_length_max] (YCSB-E, uniform).
     std::uint64_t const v = (kind == WorkloadOpKind::Scan)

@@ -124,6 +124,11 @@ struct WorkloadConfig {
     KeyDistribution key_distribution = KeyDistribution::Uniform;
     double          zipfian_theta    = 0.99;
 
+    /// CoCo-Trie-Direktive (P04, get_queries/QUERY_NOT_IN_SET_PERCENTAGE): Anteil [0,100] der Lookup-/Scan-Queries,
+    /// die auf einen NICHT-geladenen Key ([key_max+1, 2*key_max]) zielen → garantierter Miss. Erlaubt den
+    /// vergleichbaren Negativ-Query-Sweep {0,25,50,75,100}. Default 0 = alle Queries treffen geladene Keys.
+    double          negative_query_pct = 0.0;
+
     /// Identifikation fuer Mess-Protokoll-Ausgaben.
     std::string_view name = "DefaultMixedWorkload";
 
@@ -136,6 +141,7 @@ struct WorkloadConfig {
             pct_erase  < 0.0 || pct_clear  < 0.0 ||
             pct_scan   < 0.0 || pct_rmw    < 0.0) return false;
         if ((pct_insert + pct_lookup + pct_erase + pct_clear + pct_scan + pct_rmw) <= 0.0) return false;
+        if (negative_query_pct < 0.0 || negative_query_pct > 100.0) return false;
         return true;
     }
 };
