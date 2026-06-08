@@ -75,6 +75,10 @@ struct LazyRunConfig {
     // Achse 2 (INC-3c): YCSB-Load-Phase. Anzahl der VOR der gemessenen Run-Phase befüllten Sätze (records). 0 →
     // records = n_ops. Key-Verteilung des Profils wird auf [1, records] ausgerichtet (read-heavy/scan treffen Keys).
     std::uint64_t         workload_records  = 0u;
+    // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig: op-mix/dist/negative_query_pct aus dem XML).
+    // Leer → run_workload_perm fällt auf hartcodiertes profile_by_name (env-String) zurück. Befüllt von run_lazy_150
+    // via discover_load_profiles(load_profiles/). Die ids sind die Werte der dynamischen Workload-Achse.
+    std::map<std::string, wd::WorkloadConfig> workload_configs{};
     // Laufzeit-Obergrenze (System-Limits) für die dyn-Variation (RuntimeVariableLoop clamp gegen caps∩env).
     anatomy::ComdareResourceControlV1 env_limits{};
 };
@@ -341,7 +345,7 @@ struct LazyRunResult {
             PermResult const pr = workload_id.empty()
                 ? run_observable_perm(*obs, setting_id, cfg.n_ops)
                 : run_workload_perm(*obs, rbk, scn, setting_id, workload_id, cfg.n_ops,
-                                    cfg.workload_seed, cfg.workload_records);
+                                    cfg.workload_seed, cfg.workload_records, &cfg.workload_configs);
 
             if (ingest_result_line(tree, pr.line)) {
                 ++result.measured;
