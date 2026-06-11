@@ -114,6 +114,13 @@ int main(int argc, char** argv) {
             }
         }
         std::cout << "  load_profiles (XML, Achse 2) entdeckt: " << workload_values.size() << " aus " << lpd << "\n";
+        // GOAL-M1.3 (Audit-Blocker „stiller Voll-Lauf OHNE Lastprofil-Achse"): Verzeichnis gesetzt, aber
+        // keine gültigen Profile → ABBRUCH statt stillem Fallback (der fertige Ergebnisse überschreiben könnte).
+        if (workload_values.empty()) {
+            std::cerr << "run_lazy_150: COMDARE_LOAD_PROFILE_DIR gesetzt, aber 0 gueltige Profile in '" << lpd
+                      << "' — Abbruch (Achse 2 darf nicht still entfallen).\n";
+            return 4;
+        }
     }
     if (workload_values.empty()) {   // Fallback: env-String (hartcodierte Profile via profile_by_name)
         if (char const* w = std::getenv("COMDARE_WORKLOADS"); w != nullptr) {

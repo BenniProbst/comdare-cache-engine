@@ -14,9 +14,14 @@
 param(
     [int]$MaxBinaries = 150,
     [double]$MinFreeGB = 2.0,
-    [int]$NOps = 2000,
+    # GOAL-M1.3 (Audit: Harness-Re-Entry-Drift): Defaults = VOLL-LAUF-Konfiguration, damit ein argloser
+    # Resume-Relaunch nach Reboot NIE eine falsche Matrix misst/überschreibt.
+    [int]$NOps = 10000,
     [int]$NRepeats = 3,                       # (D, KF-10): Wiederholungen je (Binary×Setting), Default 3
-    [string]$BuildVersion = "tier150-v1",
+    [string]$BuildVersion = "cowmem-v1",      # = aktueller DLL-Stand auf Disk (Resume-kompatibel)
+    # GOAL-M1.3: das Harness PINNT die Workload-Achse selbst (statt volatiler Session-ENV — Audit-Blocker):
+    [string]$LoadProfileDir = "",             # leer → <repo>\libs\cache_engine\algorithm_profiles\load_profiles
+    [int]$WorkloadRecords = 10000,
     # Selektions-Modus (2026-06-04): "index" (Default, rückwärtskompatibel — erste N Blätter, search_algo konstant)
     # ODER "search_algo_grid" (F15-Grid — variiert NUR search_algo → die CSV zeigt die per-Achsen-Differenzierung).
     [ValidateSet("index","search_algo_grid")]
@@ -44,6 +49,17 @@ $permSrc = $permBase                          # (E): Source + DLL teilen den per
 $permDll = $permBase
 New-Item -ItemType Directory -Force $out, $work, $permBase | Out-Null
 if (!(Test-Path $gen)) { Write-Output "generated/ fehlt (CMake configure): $gen"; exit 3 }
+
+# GOAL-M1.3 (Audit: Re-Entry-Drift + unvalidiertes env): Workload-Achse HIER pinnen + validieren.
+if ([string]::IsNullOrEmpty($LoadProfileDir)) {
+    $LoadProfileDir = Join-Path $repo "libs\cache_engine\algorithm_profiles\load_profiles"
+}
+$lpCount = (Get-ChildItem $LoadProfileDir -Filter "*.xml" -File -EA SilentlyContinue | Measure-Object).Count
+if ($lpCount -lt 1) { Write-Output "ABBRUCH: Lastprofil-Verzeichnis leer/fehlt: $LoadProfileDir (Achse 2 wuerde still entfallen)"; exit 3 }
+$env:COMDARE_LOAD_PROFILE_DIR = $LoadProfileDir
+$env:COMDARE_WORKLOAD_RECORDS = "$WorkloadRecords"
+Remove-Item Env:COMDARE_WORKLOADS -EA SilentlyContinue   # XML-Discovery ist die Quelle, kein env-String-Fallback
+Write-Host ("Workload-Achse gepinnt: {0} Profile aus {1}, records={2}" -f $lpCount, $LoadProfileDir, $WorkloadRecords)
 
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 if (!(Test-Path $vswhere)) { Write-Output "vswhere fehlt"; exit 3 }

@@ -36,6 +36,7 @@
 #include "../../anatomy/measurable_workload.hpp"                     // (X): IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
 #include "../../anatomy/resource_controllable_tier.hpp"             // IResourceControllableTier
 
+#include <array>       // GOAL-L1: LazyMeasuredRow::op_lat (per-Interface-Funktions-Latenzen)
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>      // (C-1) std::snprintf für ns_per_op-Formatierung
@@ -98,9 +99,13 @@ struct LazyMeasuredRow {
     std::string          setting_id;       // binary_id (+ "#" + setting_label) = eindeutiger Baum-Key
     NodeObserverSnapshot  observer{};       // die real gezogenen Observer-Werte (>0 bei echter Messung)
     std::uint64_t        applied_axis_count = 0;  // wie viele Achsen die Steuerung real annahmen
-    // (B): Host-Gesamt-Wall-Clock DIESER Messung (insert+lookup) + Eingabe-n_ops → ns_per_op = total_ns/(2*n_ops).
-    std::int64_t         total_ns = 0;
-    std::uint64_t        n_ops    = 0;
+    // (B): Host-Gesamt-Wall-Clock DIESER Messung + Eingabe-n_ops; GOAL-M1.1 (Audit K2): ns_per_op =
+    // total_ns/timed_ops (Workload-Pfad: Σ getimte Samples; Legacy: 2*n_ops). timed_ops==0 → ns_per_op=0.
+    std::int64_t         total_ns  = 0;
+    std::uint64_t        n_ops     = 0;
+    std::uint64_t        timed_ops = 0;
+    // GOAL-L1: per-Interface-Funktions-Latenzen (Reihenfolge kOpKindNames) — z-Achsen-Quelle der 3D-Auswertung.
+    std::array<OpKindLatency, 6> op_lat{};
     // KONSOLIDIERUNG (I1): der EINE konsolidierte Observer-POD (axis_stats[19][8] + seg_ns[19]/Pfad B + Meta).
     // Maßgebliche CSV-Quelle: stat_*-Spalten aus unified.axis_stats, seg_*-Spalten aus unified.seg_ns (Pfad B, reale
     // Komposition). Ersetzt den früheren V3-Snapshot + den Pfad-A-Segment-Timer.
@@ -141,6 +146,14 @@ struct LazyMeasuredRow {
 // doppeltes Zählen über Wiederholungen hinweg.
 [[nodiscard]] inline std::string lazy_csv_header() {
     std::string h = "binary_id;setting;repetition;n_ops;total_ns;ns_per_op;";
+    // GOAL-L1 (2026-06-12): per-Interface-Funktions-Spalten op_<art>_{n,p50_ns,p99_ns} (Reihenfolge
+    // kOpKindNames, single-source perm_runner) — Verarbeitungsdauer je Testdatensatz-Operation GETRENNT
+    // je Interface-Funktion (z-Achse der 3D-Diagramme; Ausgabe = Testdaten-Konfig × Tier).
+    for (char const* k : kOpKindNames) {
+        h += "op_"; h += k; h += "_n;";
+        h += "op_"; h += k; h += "_p50_ns;";
+        h += "op_"; h += k; h += "_p99_ns;";
+    }
     for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) {  // 19 seg_<axis>_ns-Spalten, single-source
         h += "seg_"; h += kCompositionAxisNames[i]; h += "_ns;";
     }
@@ -193,12 +206,20 @@ struct LazyMeasuredRow {
     out += lazy_extract_repetition(row.setting_label); out += ';';
     out += std::to_string(row.n_ops); out += ';';
     out += std::to_string(row.total_ns); out += ';';
-    // (C-1) ns_per_op abgeleitet: total_ns / (2*n_ops) — insert+lookup; n_ops==0 → 0.
-    double const ns_per_op = (row.n_ops != 0)
-        ? (static_cast<double>(row.total_ns) / (2.0 * static_cast<double>(row.n_ops))) : 0.0;
+    // GOAL-M1.1 (Audit K2): ns_per_op = total_ns / timed_ops (tatsächlich getimte Einzel-Ops; Workload-Pfad
+    // = Σ Samples inkl. Scan-Skips, Legacy = 2*n_ops). Der frühere fixe 2*n_ops-Divisor halbierte alle
+    // Lastprofil-Zeilen. timed_ops==0 → 0.
+    double const ns_per_op = (row.timed_ops != 0)
+        ? (static_cast<double>(row.total_ns) / static_cast<double>(row.timed_ops)) : 0.0;
     { char buf[48]; int const n = std::snprintf(buf, sizeof(buf), "%.3f", ns_per_op);
       out.append(buf, (n > 0) ? static_cast<std::size_t>(n) : 0); }
     out += ';';
+    // GOAL-L1: per-Interface-Funktions-Latenzen (Reihenfolge identisch zum Header / kOpKindNames).
+    for (auto const& ol : row.op_lat) {
+        out += std::to_string(ol.n);      out += ';';
+        out += std::to_string(ol.p50_ns); out += ';';
+        out += std::to_string(ol.p99_ns); out += ';';
+    }
     // (X) die 19 per-Segment-ns (T0..T18) — echt wenn seg_real, sonst ehrlich n/a (NICHT 0). Geschleift über
     // seg_ns[19] in derselben Reihenfolge wie die Header-Spalten (kCompositionAxisNames) — single-source, keine Drift.
     // KONSOLIDIERUNG (I-B): seg_<achse>_ns bevorzugt aus dem EINEN konsolidierten POD = Pfad-B-Timing (reale
@@ -423,6 +444,7 @@ struct LazyRunResult {
         std::string per_binary_csv;   // (E): akkumulierte CSV-Zeilen DIESER Binary (geschrieben am Binary-Ende)
         std::size_t per_binary_rows     = 0;   // #139: geschriebene Zeilen DIESER Binary (für den Stamp)
         std::size_t per_binary_settings = 0;   // #139: besuchte dyn-Settings DIESER Binary (Vollständigkeits-Gate)
+        bool per_binary_all_valid       = true; // GOAL-M1.4: Stamp nur wenn JEDE Zeile two_phase_valid (Audit)
 
         // ════════════════════════════════════════════════════════════════════════════════════════════════
         // (3) GEFILTERT-DYNAMISCH-ITERATOR: LAZY über die virtuelle Kartesik des dynamischen Sub-Filterbaums
@@ -461,11 +483,14 @@ struct LazyRunResult {
                 row.applied_axis_count = s.applied_axis_count;
                 row.total_ns           = pr.total_ns;       // (B)
                 row.n_ops              = pr.n_ops;
+                row.timed_ops          = pr.timed_ops;      // GOAL-M1.1: korrekte ns_per_op-Basis
+                row.op_lat             = pr.op_lat;         // GOAL-L1: per-Interface-Funktions-Latenzen
                 row.unified            = pr.unified;         // KONSOLIDIERUNG (I1): maßgebliche CSV-Quelle (Stats + Pfad-B-seg_ns)
                 row.unified_real       = pr.unified_real;
                 row.profile_name       = pr.profile_name;     // Achse 2: Lastprofil-Name (leer = alter fixer Workload)
                 row.two_phase_valid    = pr.two_phase_valid;  // Achse 2: Mess-Gültigkeit (Zwei-Phasen-Cache-Warmup exakt)
                 // (E): die per-Binary-Ergebnis-CSV mit-akkumulieren (gleiches Schema wie die globale CSV).
+                per_binary_all_valid = per_binary_all_valid && row.two_phase_valid;   // GOAL-M1.4 Gültigkeits-Gate
                 if (cfg.per_binary_subdirs) { per_binary_csv += format_csv_row(row); ++per_binary_rows; }
                 result.csv_rows.push_back(std::move(row));
             }
@@ -486,14 +511,17 @@ struct LazyRunResult {
         if (cfg.per_binary_subdirs && !per_binary_csv.empty() && !bin_dir.empty()) {
             std::error_code ec;
             std::filesystem::create_directories(bin_dir, ec);   // existiert i.d.R. schon (Build legte ihn an)
+            bool csv_write_ok = false;   // GOAL-M1.4 (Audit M7): Stamp nur nach VERIFIZIERTEM Write
             {
                 std::ofstream pf{bin_dir / "result.csv", std::ios::trunc};
-                if (pf) { pf << lazy_csv_header() << per_binary_csv; }
+                if (pf) { pf << lazy_csv_header() << per_binary_csv; pf.flush(); csv_write_ok = pf.good(); }
             }
-            // Mess-RESUME (#139): den Config-Stempel NUR bei VOLLSTÄNDIGER Binary schreiben (jede besuchte
-            // Einstellung lieferte eine Zeile). Unvollständige Binaries (Ingest-Fehler/Abbruch) bleiben
-            // ungestempelt → der nächste Lauf misst sie komplett neu (Binary = Resume-Granularität).
-            if (per_binary_rows == per_binary_settings && per_binary_rows > 0) {
+            // Mess-RESUME (#139 + GOAL-M1.4): den Config-Stempel NUR schreiben, wenn (a) der CSV-Write
+            // stream-verifiziert gelang, (b) JEDE besuchte Einstellung eine Zeile lieferte (Vollständigkeit)
+            // und (c) JEDE Zeile two_phase_valid ist (Gültigkeit — ungültige Messungen nie als „fertig"
+            // einfrieren, Audit). Sonst Stempel entfernen → der nächste Lauf misst die Binary komplett neu.
+            if (csv_write_ok && per_binary_rows == per_binary_settings && per_binary_rows > 0
+                && per_binary_all_valid) {
                 std::ofstream sf{bin_dir / "result.csv.stamp", std::ios::trunc};
                 if (sf) { sf << resume_stamp_prefix << "|rows=" << per_binary_rows << "\n"; }
             } else {

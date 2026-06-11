@@ -13,8 +13,9 @@
     <records>10000</records>
     <num_operations>10000</num_operations>
     <op_mix insert="0.0" lookup="1.0" erase="0.0" clear="0.0" scan="0.0" rmw="0.0"/>
-    <key_distribution>zipfian</key_distribution>
-    <zipfian_theta>0.99</zipfian_theta>
+    <!-- GOAL-M1.2 (Audit M6/K7a, 2026-06-12): uniform wie die 4 Sweep-Geschwister — die frühere
+         zipfian-Belegung konfundierte den Negativ-Sweep an der 50%-Stufe (Verteilung ≠ ceteris paribus). -->
+    <key_distribution>uniform</key_distribution>
     <negative_query_pct>50</negative_query_pct>
     <scan_length_max>100</scan_length_max>
   </workload>
