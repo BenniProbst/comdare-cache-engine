@@ -1,8 +1,8 @@
-// #133 Undo-Log-Memento (2026-06-11) — SEMANTIK-VERIFIKATION in-process über reale Referenz-Kompositionen.
+// #133 Rev. 2 Copy-on-Write-Memento (2026-06-11) — SEMANTIK-VERIFIKATION in-process über reale Referenz-Kompositionen.
 //
 // Belegt literal (je Komposition Art/Hot/Masstree):
-//   (1) AKTIV:        der O(1)-Undo-Log-Pfad ist compile-time aktiv (tier_memento_is_undo_log()), kein
-//                     stiller Rückfall auf die Organ-Vollkopie.
+//   (1) AKTIV:        der lazy CoW-Pfad ist compile-time aktiv (tier_memento_is_copy_on_write()): save=O(1)-
+//                     Stat-Snapshots, Daten-Vollkopie erst bei der ersten Warmup-Mutation (Writes/clear).
 //   (2) DATEN-EXAKT:  save → {insert-neu | insert-update | erase | lookup | tier_clear} → rollback stellt
 //                     tier_size UND Inhalte exakt wieder her (tier_clear über die Eskalations-Vollkopie).
 //   (3) IDEMPOTENT:   doppeltes tier_rollback_all → derselbe Stand (IRollbackableTier-Vertrag).
@@ -72,10 +72,10 @@ static void check_composition(char const* name) {
     using Adapter = an::SearchAlgorithmAbiAdapter<Anatomy>;
     std::cout << "== " << name << " ==\n";
 
-    // (1) Undo-Log-Pfad compile-time AKTIV (kein stiller Vollkopie-Rückfall).
-    static_assert(Adapter::tier_memento_is_undo_log(),
-                  "#133: Referenz-Komposition muss den O(1)-Undo-Log-Memento-Pfad nutzen");
-    tr(std::string(name) + ": tier_memento_is_undo_log() == true (compile-time)", Adapter::tier_memento_is_undo_log());
+    // (1) CoW-Pfad compile-time AKTIV (kein stiller Rückfall auf das eager Copy-Memento je Op).
+    static_assert(Adapter::tier_memento_is_copy_on_write(),
+                  "#133 Rev. 2: Referenz-Komposition muss den lazy Copy-on-Write-Memento-Pfad nutzen");
+    tr(std::string(name) + ": tier_memento_is_copy_on_write() == true (compile-time)", Adapter::tier_memento_is_copy_on_write());
 
     // ── (4) COUNTER-CLEAN: Einphasen-Lauf vs Zwei-Phasen-Lauf derselben Sequenz ───────────────────────
     Adapter one_phase, two_phase;
@@ -140,7 +140,7 @@ static void check_composition(char const* name) {
     r->tier_save_all(); t->tier_clear(); r->tier_rollback_all();                                // clear → Eskalation
     v = 0; bool const clear_ok = (t->tier_size() == 80) && t->tier_lookup(1u, &v) && v == 3u;
     std::uint64_t v80 = 0; bool const clear_ok2 = t->tier_lookup(80u, &v80) && v80 == 240u;
-    tr(std::string(name) + ": rollback nach tier_clear (Eskalations-Vollkopie: 80 Einträge zurück)",
+    tr(std::string(name) + ": rollback nach tier_clear (CoW-Vollkopie: 80 Einträge zurück)",
        clear_ok && clear_ok2);
 
     r->tier_save_all(); (void)t->tier_insert(201u, 1u); r->tier_rollback_all(); r->tier_rollback_all();   // Idempotenz
@@ -163,7 +163,7 @@ int main() {
     check_composition<comp::ArtComposition>("ArtComposition");
     check_composition<comp::HotComposition>("HotComposition");
     check_composition<comp::MasstreeComposition>("MasstreeComposition");
-    std::cout << (g_fail == 0 ? "==== #133 Undo-Log-Memento: ALLE OK ====" : "==== #133 Undo-Log-Memento: FEHLER ====")
+    std::cout << (g_fail == 0 ? "==== #133 CoW-Memento: ALLE OK ====" : "==== #133 CoW-Memento: FEHLER ====")
               << " (fails=" << g_fail << ")\n";
     return g_fail == 0 ? 0 : 1;
 }

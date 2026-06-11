@@ -1,4 +1,26 @@
-# 33 — Undo-Log-Memento (O(1)/Op) + Mess-Resume (2026-06-11)
+# 33 — Memento-Kosten-Refactoring (Rev. 2: Copy-on-Write) + Mess-Resume (2026-06-11)
+
+> **⚠️ REVISION 2 (2026-06-11 nachmittags, AUTORITATIV):** Das in §1 beschriebene Undo-Log (Rev. 1,
+> Einzel-Key-Organ-Inverse) wurde nach dem 2-Tier-Smoke EMPIRISCH VERWORFEN und durch ein **lazy
+> Copy-on-Write-Memento** ersetzt: `tier_save_all` = O(1) (nur die 2 Stat-POD-Snapshots, wie Rev. 1);
+> die Daten-Vollkopie materialisiert LAZY erst die ERSTE mutierende Warmup-Op (`tier_insert`/`tier_erase`/
+> `tier_clear` → `cow_materialize_copy_`, VOR der Mutation → Kopie ≡ save-Stand); `tier_rollback_all` =
+> materialisierte Kopie zurückspielen (Read-Perioden: nichts) + Stat-Restore. **Begründung (Smoke literal):**
+> Rev. 1 war auf der k_ary-Klasse ~2× LANGSAMER als das Copy-Memento (Tier 0 ~52 min, Tier 1 54 min vs
+> ~25 min/Tier) — die Write-Inverse läuft als Organ-Op und kostet auf Rebuild-Substraten (SortedBinary
+> `insert_slot_at`/`erase_slot_at` = flatten+rebuild MIT Allokationen; trifft über `container_` JEDE
+> Komposition) mehr als die memcpy-artige Vollkopie. CoW = Read-Perioden O(1) (der Hebel; das eager
+> Copy-Memento zahlte hier 2×O(n)/Op), Write-Perioden = EINE Vollkopie (exakt Copy-Memento-Niveau) →
+> **strikt ≤ Copy-Memento auf jeder Tier-Klasse**. Determinismus-/Semantik-Beweise von Rev. 1 gelten
+> unverändert (Vollkopie+Stat-Restore-Pfad war durch den clear-Fall bereits literal getestet);
+> `test_undolog_memento` → **`test_cow_memento`** (42/42 OK, EXIT=0), Diagnose `tier_memento_is_undo_log()`
+> → **`tier_memento_is_copy_on_write()`**, Adapter-Terminologie `undo_*` → `cow_*`, Log/Replay/UndoEntry
+> ENTFERNT. BuildVersion des Voll-Laufs: **`cowmem-v1`**. §1 bleibt als Rev.-1-Historie (wissenschaftlich
+> dokumentierter Irrweg mit empirischer Widerlegung) erhalten; §2-§6 gelten für Rev. 2 unverändert
+> (identische Abdeckung/Counter-Semantik/Eskalations-Mechanik — CoW ist die Verallgemeinerung der
+> Rev.-1-Eskalation auf ALLE Mutationen).
+
+## §0 (Rev. 1, HISTORISCH) — ursprünglicher Titel: Undo-Log-Memento (O(1)/Op) + Mess-Resume
 
 > **Kontext:** Der Zwei-Phasen-Cache-Warmup (`save_all → op-warmup → rollback_all → op-measure`, je Op;
 > messarchitektur_v5_design §4, PFLICHT für Mess-Gültigkeit) lief bis copymem-v1 über eine **Organ-Vollkopie
