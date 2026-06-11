@@ -7,7 +7,12 @@
 // Die CompileFn baut mit den MESS-Defines (COMDARE_MEASUREMENT_ON …) + dem Include-Satz aus COMDARE_PILOT_INCLUDES
 // (';'-getrennt, vom Harness gesetzt). vcvars64 muss aktiv sein (cl im PATH).
 //
-// argv: run_lazy_150 <out_csv> <max_binaries> <n_ops> <build_version> <src_dir> <dll_dir> [min_free_gb] [cores_per_build] [n_repeats] [select_mode]
+// argv: run_lazy_150 <out_csv> <max_binaries> <n_ops> <build_version> <src_dir> <dll_dir> [min_free_gb] [cores_per_build] [n_repeats] [select_mode] [resume=1|0]
+//
+// Mess-RESUME (#139, 2026-06-11): Default AN (argv[11]=1). Binaries mit vollständiger+konfigurations-aktueller
+// per-Binary result.csv (result.csv.stamp == aktueller Config-Stempel) werden übersprungen; ihre Zeilen fließen
+// unverändert in die globale CSV. Stale Ergebnisse (anderer BuildVersion/n_ops/Workload-Set) matchen nicht →
+// Neu-Messung (Zwei-Phasen-Cache-Warmup intrinsisch je Op). Überlebt damit Reboots/Abbrüche auf Binary-Granularität.
 //
 // SELEKTIONS-MODI (2026-06-04, adversarial-Fix): die DEMONSTRATION der per-Achsen-Differenzierung braucht ≥3
 // VERSCHIEDENE search_algo-Werte in der CSV. Im Default-Index-Modus ("index": select_explicit({0..N-1})) variiert
@@ -92,6 +97,8 @@ int main(int argc, char** argv) {
     std::string select_mode = (argc >= 11) ? std::string{argv[10]} : std::string{};
     if (select_mode.empty()) { char const* e = std::getenv("COMDARE_SELECT_MODE"); if (e != nullptr) select_mode = e; }
     if (select_mode.empty()) select_mode = "index";
+    // Mess-RESUME (#139): argv[11] (1=an Default / 0=aus → alles neu messen, Stamps werden überschrieben).
+    bool const resume = (argc >= 12) ? (std::strtoul(argv[11], nullptr, 10) != 0) : true;
 
     // Achse 2 (#135, 2026-06-08): Lastprofile = Werte der dynamischen Workload-Achse. PRIMÄR via XML-Discovery aus
     // COMDARE_LOAD_PROFILE_DIR (runtime-interpretierte comdare_load_profile-XMLs → WorkloadConfig-Registry; op-mix/
@@ -193,6 +200,7 @@ int main(int argc, char** argv) {
     cfg.output_dir     = dll_dir;
     cfg.cores_per_build = cpb;
     cfg.per_binary_subdirs = true;      // (E): je Tier-Binary ein eigener Ordner unter dll_dir/<stem>/
+    cfg.resume_completed_binaries = resume;   // #139: vollständige+aktuelle Binaries überspringen (Stamp-Match)
     cfg.n_repeats          = n_repeats; // (D): dokumentiert/durchgereicht (Wirkung über die Baum-repetition-Dim)
     cfg.env_limits.thread_count = 16;   // System-Obergrenze für die dyn. thread_count-Variation (clamp)
     if (min_free_gb > 0.0) {
@@ -207,17 +215,24 @@ int main(int argc, char** argv) {
 
     std::cout << "  selected=" << r.selected << " built=" << r.built << " (new=" << r.built_new
               << " skip=" << r.built_skip << ") loaded=" << r.loaded << " load_failed=" << r.load_failed
-              << " measured=" << r.measured << " dyn_settings_total=" << r.dynamic_settings_total
+              << " measured=" << r.measured << " resumed_binaries=" << r.resumed_binaries
+              << " dyn_settings_total=" << r.dynamic_settings_total
               << " min_free_ram_MB=" << (r.min_free_ram_bytes / (1024 * 1024)) << "\n";
 
     // CSV: eine Zeile je (Binary × dyn-Setting × Rep). EINHEITLICHES Schema (lazy_csv_header/format_csv_row,
     // identisch zur per-Binary-result.csv): total_ns + ns_per_op (B/C-1), 4 echte per-Segment-ns (C-2),
     // repetition-Spalte (D), Observer-DELTA-Counter (A), na_axes-Notiz für die 15 passiven Achsen.
+    // Mess-RESUME (#139): zuerst die unverändert übernommenen Zeilen der resumierten Binaries (Schema header-
+    // identisch verifiziert), dann die in DIESEM Lauf frisch gemessenen.
     std::ofstream csv{out_csv, std::ios::trunc};
     csv << ex::lazy_csv_header();
+    csv << r.resumed_csv_rows;
     for (auto const& row : r.csv_rows) csv << ex::format_csv_row(row);
-    std::cout << "CSV geschrieben: " << out_csv << "  (" << r.csv_rows.size() << " Zeilen)\n";
+    std::size_t resumed_rows = 0;
+    for (char c : r.resumed_csv_rows) if (c == '\n') ++resumed_rows;
+    std::cout << "CSV geschrieben: " << out_csv << "  (" << (resumed_rows + r.csv_rows.size())
+              << " Zeilen = " << resumed_rows << " resumiert + " << r.csv_rows.size() << " frisch)\n";
 
-    // Exit 0 = mind. 1 (Binary × Setting) real gebaut+gemessen+ingestet (echte Werte > 0 erwartet).
-    return (r.measured > 0) ? 0 : 1;
+    // Exit 0 = mind. 1 (Binary × Setting) real gemessen ODER resumiert (Voll-Resume = gültiger Lauf).
+    return (r.measured > 0 || r.resumed_binaries > 0) ? 0 : 1;
 }

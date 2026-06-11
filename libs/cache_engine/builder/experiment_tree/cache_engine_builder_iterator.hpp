@@ -81,6 +81,14 @@ struct LazyRunConfig {
     std::map<std::string, wd::WorkloadConfig> workload_configs{};
     // Laufzeit-Obergrenze (System-Limits) für die dyn-Variation (RuntimeVariableLoop clamp gegen caps∩env).
     anatomy::ComdareResourceControlV1 env_limits{};
+    // Mess-RESUME (#139, User 2026-06-10 „Wiedereinstieg bei einem bestimmten nicht fertigen Tier"): Binaries,
+    // deren per-Binary result.csv VOLLSTÄNDIG + KONFIGURATIONS-AKTUELL ist (result.csv.stamp == aktueller
+    // Config-Stempel: build_version/n_ops/seed/records/ALLE dyn-Dimensionen inkl. Workload-Set + Zeilenzahl;
+    // Schema via Header-Identität), werden ÜBERSPRUNGEN — ihre Zeilen fließen unverändert in die globale CSV
+    // (LazyRunResult::resumed_csv_rows). Unfertige/stale (z.B. anderer n_ops-Testlauf, andere BuildVersion)
+    // werden NEU gemessen — der Zwei-Phasen-Cache-Warmup gilt auf Re-Entry intrinsisch je Op (Mess-Gültigkeit,
+    // [[feedback_two_phase_warmup_mandatory_validity]]). Nur wirksam mit per_binary_subdirs.
+    bool resume_completed_binaries = true;
 };
 
 // ── Eine gemessene CSV-Zeile (Binary × dyn-Setting) ───────────────────────────
@@ -247,7 +255,79 @@ struct LazyRunResult {
     std::uint64_t                min_free_ram_bytes = 0;      // RAM-Low-Water-Mark des Build-Schritts
     std::vector<LazyMeasuredRow> csv_rows;          // je gemessene (Binary × dyn-Setting)-Zeile (für CSV)
     BuildStats                   build_stats{};      // Roh-Statistik des Build-Schritts (peak_concurrency, …)
+    // Mess-RESUME (#139): Binaries, die per vollständiger+aktueller result.csv übersprungen wurden. Ihre
+    // Daten-Zeilen (ohne Header, Schema header-identisch verifiziert) stehen UNVERÄNDERT in resumed_csv_rows —
+    // der globale CSV-Schreiber hängt sie VOR den frisch formatierten csv_rows an (Spalten identisch).
+    // HINWEIS: resumierte Zeilen werden NICHT erneut in den Experiment-Baum ge-ingestet (die Auswertung läuft
+    // über die globale CSV; der Baum trägt nur die in DIESEM Lauf frisch gemessenen Knoten).
+    std::size_t                  resumed_binaries = 0;
+    std::string                  resumed_csv_rows;
 };
+
+// ── Mess-RESUME (#139): Config-Stempel + Vollständigkeits-Prüfung der per-Binary result.csv ───────────────
+// Der Stempel kodiert ALLES, was die Mess-Matrix einer Binary bestimmt: BuildVersion (Memento-/Code-Stand der
+// DLL — copymem-v1-Ergebnisse sind mit undolog-v1 NICHT mischbar), n_ops/seed/records (Workload-Skala) und
+// JEDE dynamische Dimension mit ihrer vollen Werte-Liste (deckt repetition/n_repeats, das Workload-Set aus den
+// XML-Lastprofilen und alle Resource-Control-Dims ab). Schema-Drift fängt der Header-Vergleich (lazy_csv_header).
+[[nodiscard]] inline std::string lazy_resume_stamp_prefix(LazyRunConfig const& cfg,
+                                                          std::vector<DynamicDim> const& dims) {
+    std::string s = "resume-v1|build=" + cfg.build_version
+                  + "|n_ops=" + std::to_string(cfg.n_ops)
+                  + "|seed=" + std::to_string(cfg.workload_seed)
+                  + "|records=" + std::to_string(cfg.workload_records)
+                  + "|dims=";
+    for (DynamicDim const& d : dims) {
+        s += d.axis; s += '.'; s += d.variable; s += ':';
+        for (std::size_t i = 0; i < d.values.size(); ++i) { if (i) s += ','; s += d.values[i]; }
+        s += ';';
+    }
+    return s;
+}
+
+/// Prüft, ob `dir/result.csv` für den aktuellen Lauf VOLLSTÄNDIG + AKTUELL ist (Stamp-Match + Header-Identität
+/// + Zeilenzahl), und liefert bei Erfolg die Daten-Zeilen (ohne Header) in *out_rows. Jede Abweichung → false
+/// (Binary wird normal gemessen — keine stillen Teil-Übernahmen).
+[[nodiscard]] inline bool lazy_try_resume_binary(std::filesystem::path const& dir,
+                                                 std::string const& stamp_prefix,
+                                                 std::string* out_rows) {
+    std::error_code ec;
+    std::filesystem::path const csv_p   = dir / "result.csv";
+    std::filesystem::path const stamp_p = dir / "result.csv.stamp";
+    if (!std::filesystem::exists(csv_p, ec) || !std::filesystem::exists(stamp_p, ec)) return false;
+
+    std::ifstream sf{stamp_p};
+    std::string stamp;
+    if (!sf || !std::getline(sf, stamp)) return false;
+    std::string const rows_key = "|rows=";
+    if (stamp.size() <= stamp_prefix.size() + rows_key.size()) return false;
+    if (stamp.compare(0, stamp_prefix.size(), stamp_prefix) != 0) return false;            // Config weicht ab
+    if (stamp.compare(stamp_prefix.size(), rows_key.size(), rows_key) != 0) return false;  // Format weicht ab
+    std::uint64_t expected_rows = 0;
+    try { expected_rows = std::stoull(stamp.substr(stamp_prefix.size() + rows_key.size())); }
+    catch (...) { return false; }
+    if (expected_rows == 0) return false;
+
+    std::ifstream cf{csv_p};
+    if (!cf) return false;
+    std::string header_line;
+    if (!std::getline(cf, header_line)) return false;
+    std::string expected_header = lazy_csv_header();
+    while (!expected_header.empty() && (expected_header.back() == '\n' || expected_header.back() == '\r'))
+        expected_header.pop_back();
+    while (!header_line.empty() && header_line.back() == '\r') header_line.pop_back();
+    if (header_line != expected_header) return false;                                      // Schema-Drift → neu messen
+
+    std::string rows, line;
+    std::uint64_t n = 0;
+    while (std::getline(cf, line)) {
+        while (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.empty()) continue;
+        rows += line; rows += '\n'; ++n;
+    }
+    if (n != expected_rows) return false;                                                  // unvollständig/abgeschnitten
+    if (out_rows != nullptr) *out_rows = std::move(rows);
+    return true;
+}
 
 /// run_lazy_static_then_dynamic — DIE EINE fehlende Host-Treiber-Funktion. Verdrahtet die volle Lazy-Kette:
 /// (1) Haupt/statisch-Iterator über view+selection → BuildOrchestrator (STATISCHE Kompilierung, resumierbar/RAM-gated),
@@ -295,9 +375,28 @@ struct LazyRunResult {
 
     RuntimeVariableLoop const loop{cfg.env_limits};
 
+    // Mess-RESUME (#139): EIN Config-Stempel je Lauf (BuildVersion + Skala + volle dyn-Dimensions-Signatur).
+    std::string const resume_stamp_prefix = lazy_resume_stamp_prefix(cfg, dyn_dims);
+
     // ── Je erfolgreich bereitgestellte DLL: laden + die zwei Lazy-Sub-Iteratoren fahren ──
     for (BuildResult const& b : builds) {
         if (!b.ok()) continue;  // Build-Fehler → kein Mess-Eintrag (ehrlicher Sparse-Kontrast)
+
+        // ════════════════════════════════════════════════════════════════════════════════════════════════
+        // Mess-RESUME (#139): ist die per-Binary result.csv für DIESE Konfiguration vollständig+aktuell
+        // (Stamp+Header+Zeilenzahl), wird die Binary KOMPLETT übersprungen (kein Laden, kein Messen) und
+        // ihre Zeilen unverändert in die globale CSV übernommen. Stale Ergebnisse (anderer BuildVersion-/
+        // n_ops-/Workload-Stand — z.B. copymem-v1-Testlauf) matchen den Stempel NICHT → Neu-Messung mit
+        // Zwei-Phasen-Cache-Warmup (intrinsisch je Op).
+        // ════════════════════════════════════════════════════════════════════════════════════════════════
+        if (cfg.resume_completed_binaries && cfg.per_binary_subdirs) {
+            std::string resumed_rows;
+            if (lazy_try_resume_binary(b.output.parent_path(), resume_stamp_prefix, &resumed_rows)) {
+                result.resumed_csv_rows += resumed_rows;
+                ++result.resumed_binaries;
+                continue;
+            }
+        }
 
         // ════════════════════════════════════════════════════════════════════════════════════════════════
         // (2) LADEN: DLL → IAnatomyBase* → die zwei ABI-Sub-Interfaces via dynamic_cast.
@@ -322,6 +421,8 @@ struct LazyRunResult {
         // (E): der per-Binary-Ordner (= Parent der DLL bei per_binary_subdirs). Für die per-Binary-Ergebnis-CSV.
         std::filesystem::path const bin_dir = b.output.parent_path();
         std::string per_binary_csv;   // (E): akkumulierte CSV-Zeilen DIESER Binary (geschrieben am Binary-Ende)
+        std::size_t per_binary_rows     = 0;   // #139: geschriebene Zeilen DIESER Binary (für den Stamp)
+        std::size_t per_binary_settings = 0;   // #139: besuchte dyn-Settings DIESER Binary (Vollständigkeits-Gate)
 
         // ════════════════════════════════════════════════════════════════════════════════════════════════
         // (3) GEFILTERT-DYNAMISCH-ITERATOR: LAZY über die virtuelle Kartesik des dynamischen Sub-Filterbaums
@@ -331,6 +432,7 @@ struct LazyRunResult {
         // ════════════════════════════════════════════════════════════════════════════════════════════════
         auto measure_under_setting = [&](RuntimeSetting const& s) {
             ++result.dynamic_settings_total;
+            ++per_binary_settings;   // #139: jede besuchte Einstellung zählt (auch wenn der Ingest scheitert)
 
             // Messen UNTER dem angewandten Setting (Antrieb + Observer ziehen). run_observable_perm RESETET den
             // Tier (A), misst die Gesamt-Wall-Clock (B) und liefert die result_ingest-Zeile als Observer-DELTA.
@@ -364,7 +466,7 @@ struct LazyRunResult {
                 row.profile_name       = pr.profile_name;     // Achse 2: Lastprofil-Name (leer = alter fixer Workload)
                 row.two_phase_valid    = pr.two_phase_valid;  // Achse 2: Mess-Gültigkeit (Zwei-Phasen-Cache-Warmup exakt)
                 // (E): die per-Binary-Ergebnis-CSV mit-akkumulieren (gleiches Schema wie die globale CSV).
-                if (cfg.per_binary_subdirs) per_binary_csv += format_csv_row(row);
+                if (cfg.per_binary_subdirs) { per_binary_csv += format_csv_row(row); ++per_binary_rows; }
                 result.csv_rows.push_back(std::move(row));
             }
         };
@@ -384,8 +486,19 @@ struct LazyRunResult {
         if (cfg.per_binary_subdirs && !per_binary_csv.empty() && !bin_dir.empty()) {
             std::error_code ec;
             std::filesystem::create_directories(bin_dir, ec);   // existiert i.d.R. schon (Build legte ihn an)
-            std::ofstream pf{bin_dir / "result.csv", std::ios::trunc};
-            if (pf) { pf << lazy_csv_header() << per_binary_csv; }
+            {
+                std::ofstream pf{bin_dir / "result.csv", std::ios::trunc};
+                if (pf) { pf << lazy_csv_header() << per_binary_csv; }
+            }
+            // Mess-RESUME (#139): den Config-Stempel NUR bei VOLLSTÄNDIGER Binary schreiben (jede besuchte
+            // Einstellung lieferte eine Zeile). Unvollständige Binaries (Ingest-Fehler/Abbruch) bleiben
+            // ungestempelt → der nächste Lauf misst sie komplett neu (Binary = Resume-Granularität).
+            if (per_binary_rows == per_binary_settings && per_binary_rows > 0) {
+                std::ofstream sf{bin_dir / "result.csv.stamp", std::ios::trunc};
+                if (sf) { sf << resume_stamp_prefix << "|rows=" << per_binary_rows << "\n"; }
+            } else {
+                std::filesystem::remove(bin_dir / "result.csv.stamp", ec);   // stale Stempel nie stehen lassen
+            }
         }
         // handle: RAII entlädt die DLL am Schleifenende (Pointer zuerst, dann FreeLibrary).
     }
