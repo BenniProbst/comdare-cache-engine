@@ -26,6 +26,7 @@
 #include "../workload_driver/workload_profiles.hpp"      // Achse 2 (INC-1): Single-Source profile_by_name (Fallback)
 #include "../workload_driver/load_profile_parser.hpp"    // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig)
 
+#include <array>     // GOAL-L1: kOpKindNames + PermResult::op_lat (per-Interface-Funktions-Latenzen)
 #include <chrono>
 #include <cstdint>
 #include <map>
@@ -50,11 +51,30 @@ namespace comdare::cache_engine::builder::experiment {
     return out;
 }
 
+// ── GOAL-M/L1 (2026-06-12): per-Interface-Funktions-Latenzen für die Konfig×Tier-Auswertung ───────────
+/// Aggregat der getimten Latenzen EINER Interface-Funktion (Op-Art) dieser Messung: Sample-Zahl +
+/// Nearest-Rank-Perzentile (konsistent zu serialize_workload_run_results_csv). n==0 = Op-Art im Profil
+/// nicht vorhanden (bzw. Scan auf nicht-scanbarem Tier ehrlich übersprungen).
+struct OpKindLatency {
+    std::uint64_t n      = 0;
+    std::int64_t  p50_ns = 0;
+    std::int64_t  p99_ns = 0;
+};
+/// Single-Source der Op-Art-Reihenfolge (CSV-Spalten ↔ PermResult::op_lat ↔ WorkloadRunResult-Vektoren).
+inline constexpr std::array<char const*, 6> kOpKindNames{"insert", "lookup", "erase", "clear", "scan", "rmw"};
+
 // ── (B): Ergebnis einer Mess-Last (result_ingest-Zeile + die Host-Wall-Clock) ─────────────────────────
 struct PermResult {
     std::string  line;        // result_ingest-Zeile (binary_id + volle Observer-Matrix)
-    std::int64_t total_ns = 0;   // (B) steady_clock-Wall-Clock um insert+lookup DIESER Messung
-    std::uint64_t n_ops   = 0;   // Eingabe-n_ops (für ns_per_op = total_ns / (2*n_ops): insert+lookup)
+    std::int64_t total_ns = 0;   // (B) steady_clock-Wall-Clock-Summe ALLER getimten Ops DIESER Messung
+    std::uint64_t n_ops   = 0;   // Eingabe-n_ops (Skala des Profils)
+    // GOAL-M1.1 (Audit K2): Anzahl der TATSÄCHLICH getimten Einzel-Ops → ns_per_op = total_ns/timed_ops.
+    // Workload-Pfad: Σ der per-Op-Art-Samples (deckt Scan-Skips ehrlich ab); Legacy-Pfad: 2*n_ops
+    // (n_ops Inserts + n_ops Lookups). Ersetzt den fehlerhaften fixen 2*n_ops-Divisor für Profil-Zeilen.
+    std::uint64_t timed_ops = 0;
+    // GOAL-L1: per-Interface-Funktions-Latenzen (Reihenfolge kOpKindNames) — die z-Achsen-Quelle der
+    // 3D-Diagramme (Verarbeitungsdauer je Testdatensatz-Operation, getrennt je Interface-Funktion).
+    std::array<OpKindLatency, 6> op_lat{};
     // KONSOLIDIERUNG (I1): der EINE konsolidierte Observer-Snapshot (axis_stats[19][8] + seg_ns[19]/Pfad B + Meta)
     // aus dem EINEN tier_observe. Trägt Observer-Stats UND das Pfad-B-Per-Achsen-Timing (reale Komposition) in EINEM
     // POD — die maßgebliche CSV-Quelle.
@@ -86,6 +106,7 @@ struct PermResult {
     PermResult r;
     r.total_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
     r.n_ops   = n_ops;
+    r.timed_ops = 2u * n_ops;   // GOAL-M1.1: Legacy-Fix-Workload = n_ops Inserts + n_ops Lookups getimt
     // KONSOLIDIERUNG (I1): den EINEN konsolidierten Snapshot ziehen (axis_stats + Pfad-B-seg_ns in EINEM POD).
     // Der EINE tier_observe hält intern die fixe Q1-Sequenz (axis_stats-READ → seg_ns-Timing → per-op-Reset) → keine
     // Doppelzählung. Da tier_clear() jetzt search_organ_.reset() ruft, sind ALLE 19 Achsen pro Zeile warmup-frei
@@ -154,10 +175,18 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
     wd::WorkloadRunResult const res =
         wd::run_workload_profile(tier, rb_exact ? rollback : nullptr, ops, cfg.name, scan);
 
-    std::int64_t total = 0;                       // total_ns = Summe der getrennt erhobenen Op-Latenzen
-    for (auto const* v : {&res.insert_ns, &res.lookup_ns, &res.erase_ns,
-                          &res.clear_ns,  &res.scan_ns,   &res.rmw_ns})
-        for (std::int64_t ns : *v) total += ns;
+    // total_ns + GOAL-M1.1/L1: per-Op-Art-Aggregate (n/p50/p99, Reihenfolge kOpKindNames) + timed_ops als
+    // Σ der Samples — die korrekte ns_per_op-Basis (Audit K2: der fixe 2*n_ops-Divisor galt nur dem Legacy-Pfad).
+    std::int64_t total = 0;
+    std::array<std::vector<std::int64_t> const*, 6> const per_kind{
+        &res.insert_ns, &res.lookup_ns, &res.erase_ns, &res.clear_ns, &res.scan_ns, &res.rmw_ns};
+    for (std::size_t k = 0; k < per_kind.size(); ++k) {
+        auto const& v = *per_kind[k];
+        for (std::int64_t ns : v) total += ns;
+        r.op_lat[k] = OpKindLatency{static_cast<std::uint64_t>(v.size()),
+                                    acd::nearest_rank_p(v, 0.5), acd::nearest_rank_p(v, 0.99)};
+        r.timed_ops += static_cast<std::uint64_t>(v.size());
+    }
 
     r.total_ns     = total;
     r.n_ops        = res.op_count;
