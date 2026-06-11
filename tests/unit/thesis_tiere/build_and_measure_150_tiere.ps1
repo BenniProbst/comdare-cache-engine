@@ -21,6 +21,10 @@ param(
     # ODER "search_algo_grid" (F15-Grid — variiert NUR search_algo → die CSV zeigt die per-Achsen-Differenzierung).
     [ValidateSet("index","search_algo_grid")]
     [string]$SelectMode = "index",
+    # Mess-RESUME (#139, Default AN): Binaries mit vollständiger+konfigurations-aktueller result.csv (Stamp-Match:
+    # BuildVersion/n_ops/Workload-Set/dyn-Dims) überspringen + ihre Zeilen in die globale CSV übernehmen.
+    # -Resume:$false → alles neu messen (Stamps werden überschrieben).
+    [bool]$Resume = $true,
     [switch]$RunTest,
     [switch]$RebuildHost
 )
@@ -112,8 +116,8 @@ $exe = Build-HostExe "run_lazy_150" (Join-Path $srcDir "run_lazy_150.cpp")
 if (-not $exe) { exit 1 }
 
 $csv = Join-Path $out "tier150_measurements.csv"
-Write-Host ("=== Lazy-E2E: {0} DLLs bauen+messen (resumierbar, version={1}, n_repeats={2}, select_mode={3}) — innerhalb vcvars ===" -f $MaxBinaries, $BuildVersion, $NRepeats, $SelectMode)
-$code = Run-InVcvars $exe @($csv, $MaxBinaries, $NOps, $BuildVersion, $permSrc, $permDll, $MinFreeGB, 4, $NRepeats, $SelectMode)
+Write-Host ("=== Lazy-E2E: {0} DLLs bauen+messen (resumierbar, version={1}, n_repeats={2}, select_mode={3}, mess-resume={4}) — innerhalb vcvars ===" -f $MaxBinaries, $BuildVersion, $NRepeats, $SelectMode, $Resume)
+$code = Run-InVcvars $exe @($csv, $MaxBinaries, $NOps, $BuildVersion, $permSrc, $permDll, $MinFreeGB, 4, $NRepeats, $SelectMode, $(if ($Resume) { "1" } else { "0" }))
 if (Test-Path $csv) {
     Copy-Item $csv (Join-Path $srcDir "tier150_measurements.csv") -Force   # committe-bare Snapshot-Kopie
     Write-Host ("CSV: {0}  ({1} Daten-Zeilen)" -f $csv, ((Get-Content $csv).Count - 1))

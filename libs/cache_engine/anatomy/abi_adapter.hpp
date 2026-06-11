@@ -75,12 +75,14 @@
 #if defined(_M_X64) || defined(__x86_64__)
 #include <xmmintrin.h>   // (X) _mm_prefetch für das T7-Prefetch-Segment (MSVC/x86_64-Mess-Build)
 #endif
+#include <concepts>      // #133 Undo-Log: std::convertible_to im organ_undo_capable_v-Requires
 #include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <random>
 #include <string_view>
 #include <type_traits>   // V5-I6: is_copy_constructible/assignable-Guards für die In-Memory-Memento-Kopie
+#include <utility>       // #133 Undo-Log: std::declval im OrganStatsSnap-Typ-Extrakt
 #include <vector>        // V5-#49-E: save_state()-Snapshot-Liste für den Range-Scan
 
 namespace comdare::cache_engine::anatomy {
@@ -631,6 +633,12 @@ public:
     // ─────────────────────────────────────────────────────────────────────
 
     [[nodiscard]] bool tier_insert(std::uint64_t key, std::uint64_t value) noexcept override {
+#if COMDARE_MEASUREMENT_ON
+        // Undo-Log-Memento (#133): in der Warmup-Phase (save→rollback) die Inverse VOR der Mutation erfassen.
+        // Der interne old-Lookup laeuft DIREKT am search_organ_ (nicht tier_lookup) → beruehrt NUR die T0-Stats,
+        // die tier_rollback_all exakt restauriert; die auto-gekoppelten Mess-Organe sehen ihn NICHT.
+        if (undo_armed_) record_undo_(key);
+#endif
         // Neu-Flag ueber occupied_count-Delta (NICHT ueber einen internen lookup — der wuerde sonst die
         // lookup_count-Observer-Statistik verfaelschen; manche Organe insert()->void).
         auto const before = search_organ_.occupied_count();
@@ -698,6 +706,9 @@ public:
     }
 
     [[nodiscard]] bool tier_erase(std::uint64_t key) noexcept override {
+#if COMDARE_MEASUREMENT_ON
+        if (undo_armed_) record_undo_(key);   // Undo-Log (#133): Inverse VOR der Mutation erfassen (s. tier_insert)
+#endif
         auto const before = search_organ_.occupied_count();
         search_organ_.erase(key);            // Rueckgabe-Typ organ-abhaengig → ueber Delta bestimmen
         container_.erase(key);
@@ -705,6 +716,12 @@ public:
     }
 
     void tier_clear() noexcept override {
+#if COMDARE_MEASUREMENT_ON
+        // Undo-Log (#133): clear ist NICHT O(1)-invertierbar (vernichtet alle n Eintraege) → fuer DIESE
+        // save-Periode auf die Vollkopie eskalieren (Zustand wird VOR dem Leeren gekapselt). Greift nur in
+        // der Warmup-Phase (undo_armed_); das tier_clear des Mess-Protokolls (zwischen Profilen) ist unberuehrt.
+        if (undo_armed_) escalate_undo_to_copy_();
+#endif
         search_organ_.clear(); container_.clear();
         // KONSOLIDIERUNG (2026-06-04): T0 search_algo-Statistik je Messung nullen. Der frühere perm_runner-
         // Kommentar „search_organ_ per ABI nicht resetbar" war VERALTET — ObservableComposedContainer/
@@ -1162,11 +1179,41 @@ public:
     // ObservableComposedSearch) SIND MementoAxis (test_v5_organ_memento) → hier läuft der echte per-Achsen-Pfad.
     // KOSTEN-FIX (2026-06-08, User „Kopie jetzt"): Der COPY-Memento (organ-Vollkopie, O(n)) wird BEVORZUGT vor dem
     // MementoAxis-Pfad (save_state()-Liste + restore_state()-RE-INSERT = O(n²) je Op bei O(n)-Insert-Organen wie
-    // k_ary/sorted/linear → O(n_ops·n²)/Messung → Voll-Lauf 11× über ZIH-Kontingent). Die Vollkopie restauriert den
-    // EXAKTEN Vor-Zustand (Daten UND Observer-Zähler UND physisches Layout) in O(n) statt O(n²) — gleiche
-    // Zwei-Phasen-Gültigkeit, sogar exakter als der Re-Insert-Wiederaufbau. MementoAxis nur noch Fallback für
-    // NICHT-kopierbare Organe. (Undo-Log-Memento O(1)/Op = spätere Optimierung, GOAL/K78-Backlog.)
+    // k_ary/sorted/linear → O(n_ops·n²)/Messung → Voll-Lauf 11× über ZIH-Kontingent).
+    //
+    // UNDO-LOG-MEMENTO (#133, 2026-06-11, User „das geplante Refactoring"): O(1)/Op statt Copy-Memento O(n)/Op.
+    // save_all kapselt NICHT mehr die Daten, sondern (a) die Stat-PODs von search_organ_ + container_ (O(1)-
+    // Snapshot; die T6-Allocator-Statistik des Stores ist aus dem Datenzustand DERIVIERT → kein eigener Snapshot
+    // nötig) und (b) armt das Undo-Log: tier_insert/tier_erase zeichnen VOR der Mutation die Einzel-Key-Inverse
+    // auf ({key, old_value} via direktem Organ-Lookup). rollback_all spielt das Log RÜCKWÄRTS über die Organ-API
+    // ab (Delegationskette node/layout/allocator bleibt gewahrt, Doc 30) und restauriert dann die Stat-PODs →
+    // Daten UND Observer-Zähler exakt auf dem save-Stand (zwei_phase-Vertrag tier_observe_trace_abi.hpp:84:
+    // „End-Zustand + Observer-Zähler identisch zur Einphasen-Messung"). Read-only-Ops (lookup/scan) mutieren
+    // weder search_organ_ noch container_ → Log bleibt leer, save+rollback sind reine POD-Kopien (der große
+    // Hebel: die 21 Lastprofile sind großteils read-heavy). VERFAHRENS-NUANCE (dokumentiert, Doc 24-Anhang):
+    // Nach dem inversen Replay ist der Zustand LOGISCH identisch (gleiche key→value-Map, gleiche Zähler);
+    // physische Substrat-Details (z.B. nicht zurückgeschrumpfte Knoten-Splits) bleiben „warm" — konsistent über
+    // alle Tiere/Profile und im Sinne des Cache-Warmup-Zwecks. ESKALATION: tier_clear in der Warmup-Phase (nicht
+    // O(1)-invertierbar) sowie OOM beim Log eskalieren für DIE Periode auf die Vollkopie (escalate_undo_to_copy_).
+    // Organe ohne lookup/insert/erase/restore_statistics (requires-detektiert) → unverändert Copy/MementoAxis.
     void tier_save_all() noexcept override {
+        if constexpr (undo_log_capable_) {
+            try {
+                if (undo_log_.capacity() < 16) undo_log_.reserve(16);   // einmalig; danach realloc-frei (noexcept-faktisch)
+                saved_search_stats_    = search_organ_.statistics();    // O(1) POD-Snapshot (T0)
+                saved_container_stats_ = container_.statistics();       // O(1) POD-Snapshot (container-/T6-Pfad)
+                undo_log_.clear();
+                saved_search_.reset();                                  // alte Eskalations-Vollkopie freigeben
+                saved_container_.reset();
+                undo_escalated_ = false;
+                undo_session_   = true;
+                undo_armed_     = true;
+                return;
+            } catch (...) {
+                // OOM bei reserve → für DIESE Periode auf den Vollkopie-Pfad unten ausweichen (Mess-Robustheit).
+                undo_session_ = false; undo_escalated_ = false; undo_armed_ = false;
+            }
+        }
         try {
             if constexpr (std::is_copy_constructible_v<SearchAlgo>)  saved_search_.emplace(search_organ_);
             else if constexpr (MementoAxis<SearchAlgo>)              saved_search_m_    = search_organ_.save_state();
@@ -1179,6 +1226,25 @@ public:
     }
 
     void tier_rollback_all() noexcept override {
+        if constexpr (undo_log_capable_) {
+            if (undo_session_) {
+                undo_armed_ = false;   // Mess-Phase: nicht mehr aufzeichnen (Mess-Op bleibt die REINE Op, 0 Log-Overhead)
+                try {
+                    if (undo_escalated_) {   // clear-/OOM-Eskalation: Vollkopie des save-Stands zurückspielen
+                        if (saved_search_)    search_organ_ = *saved_search_;
+                        if (saved_container_) container_    = *saved_container_;
+                    } else {
+                        replay_undo_log_();  // Einzel-Key-Inversen RÜCKWÄRTS über die Organ-API (O(#writes), meist 0-1)
+                    }
+                    // Stats NACH dem Daten-Replay restaurieren (Replay/old-Lookup haben Zähler berührt) → exakt save-Stand.
+                    search_organ_.restore_statistics(saved_search_stats_);
+                    container_.restore_statistics(saved_container_stats_);
+                } catch (...) {
+                    // noexcept-Vertrag: ein Rollback-Fehler darf den Mess-Lauf nicht abreißen.
+                }
+                return;   // idempotent: erneuter Aufruf → Log leer/Eskalations-Kopie unverändert → derselbe Stand
+            }
+        }
         try {
             if constexpr (std::is_copy_assignable_v<SearchAlgo>)  { if (saved_search_)    search_organ_ = *saved_search_; }
             else if constexpr (MementoAxis<SearchAlgo>)             search_organ_.restore_state(saved_search_m_);
@@ -1188,6 +1254,10 @@ public:
             // noexcept-Vertrag: ein Rollback-Fehler darf den Mess-Lauf nicht abreißen.
         }
     }
+
+    /// Diagnose (#133, compile-time): läuft das Zwei-Phasen-Memento dieser Komposition über den O(1)-Undo-Log
+    /// (statt Organ-Vollkopie O(n))? Literal-prüfbar im Test (test_undolog_memento) — keine ABI-Fläche (statisch).
+    [[nodiscard]] static constexpr bool tier_memento_is_undo_log() noexcept { return undo_log_capable_; }
 
     /// Diagnose für den Zwei-Phasen-Treiber (I7): exakter Rollback, wenn jedes Organ ENTWEDER MementoAxis ODER
     /// kopierbar ist. Sonst muss der Treiber Kalt-Messung wählen (empirische Probe in tier_observe_trace_abi.hpp).
@@ -1306,9 +1376,87 @@ private:
     // Liste + Stats) bzw. EmptyMemento wenn das Organ KEIN MementoAxis ist (dann greift der Kopie-Fallback).
     memento_of_t<SearchAlgo>   saved_search_m_{};
     memento_of_t<container_t>  saved_container_m_{};
-    // Kopie-Fallback NUR für Organe ohne MementoAxis (std::optional → leer bis save_all; reset bei Kapsel-OOM).
+    // Kopie-Fallback für Organe ohne MementoAxis (std::optional → leer bis save_all; reset bei Kapsel-OOM).
+    // Im Undo-Log-Pfad (#133) zusätzlich der ESKALATIONS-Träger (tier_clear-Warmup / Log-OOM → Vollkopie).
     std::optional<SearchAlgo>  saved_search_{};
     std::optional<container_t> saved_container_{};
+
+    // ── Undo-Log-Memento (#133) — O(1)/Op statt Organ-Vollkopie O(n)/Op ─────────────────────────────────
+    // Fähigkeits-Detektion (requires): das Organ trägt die map-äquivalente API (lookup/insert/erase) UND den
+    // O(1)-Stat-Snapshot/-Restore (statistics()/restore_statistics(), ObservableComposedSearch/-Container).
+    // Copy-Konstruierbarkeit bleibt Pflicht (Eskalations-Vollkopie bei tier_clear-Warmup / OOM).
+    template <class S>
+    static constexpr bool organ_undo_capable_v = requires(S& s, S const& cs) {
+        { cs.lookup(std::uint64_t{}).has_value() } -> std::convertible_to<bool>;
+        { *cs.lookup(std::uint64_t{}) }            -> std::convertible_to<std::uint64_t>;
+        s.insert(std::uint64_t{}, std::uint64_t{});
+        s.erase(std::uint64_t{});
+        s.restore_statistics(cs.statistics());
+    };
+    static constexpr bool undo_log_capable_ =
+        organ_undo_capable_v<SearchAlgo> && organ_undo_capable_v<container_t>
+        && std::is_copy_constructible_v<SearchAlgo>  && std::is_copy_assignable_v<SearchAlgo>
+        && std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>;
+
+    /// Ein Log-Eintrag = die Einzel-Key-Inverse EINER Warmup-Mutation: hatte der Key vor der Mutation den
+    /// Wert old_value (had_old) → beim Rollback (k → old_value) setzen; sonst → k entfernen. Map-äquivalent
+    /// korrekt für insert (insert_or_assign-Semantik) UND erase; LIFO-Replay deckt Mehrfach-Mutationen ab.
+    struct UndoEntry { std::uint64_t key; std::uint64_t old_value; bool had_old; };
+
+    /// Stat-POD-Typ eines undo-fähigen Organs (sonst leerer Platzhalter — Member existiert immer).
+    struct EmptyStatsSnap {};
+    template <class S, bool Cap = organ_undo_capable_v<S>>
+    struct OrganStatsSnap { using type = EmptyStatsSnap; };
+    template <class S>
+    struct OrganStatsSnap<S, true> { using type = decltype(std::declval<S const&>().statistics()); };
+
+    /// Inverse VOR der Mutation erfassen (tier_insert/tier_erase, nur Warmup-Phase). Der old-Lookup läuft
+    /// DIREKT am search_organ_ (berührt NUR dessen Stat-POD, der beim Rollback restauriert wird) — search_organ_
+    /// und container_ halten dieselbe logische Map (identische Op-Folge), EIN old-Wert deckt beide Inversen.
+    void record_undo_(std::uint64_t key) noexcept {
+        if (undo_escalated_) return;                  // Periode bereits Vollkopie-gesichert
+        try {
+            auto const old = search_organ_.lookup(key);
+            undo_log_.push_back(UndoEntry{key, old.has_value() ? static_cast<std::uint64_t>(*old) : 0u,
+                                          old.has_value()});
+        } catch (...) { escalate_undo_to_copy_(); }   // Log-OOM → Vollkopie-Eskalation für diese Periode
+    }
+
+    /// Log RÜCKWÄRTS über die Organ-API abspielen (Delegationskette gewahrt); danach ist der DATEN-Zustand
+    /// exakt der save-Stand. Die dabei berührten Stat-Zähler restauriert tier_rollback_all im Anschluss.
+    void replay_undo_log_() {
+        for (auto it = undo_log_.rbegin(); it != undo_log_.rend(); ++it) {
+            if (it->had_old) { (void)search_organ_.insert(it->key, it->old_value);
+                               (void)container_.insert(it->key, it->old_value); }
+            else             { (void)search_organ_.erase(it->key);
+                               (void)container_.erase(it->key); }
+        }
+        undo_log_.clear();
+    }
+
+    /// Eskalation auf die Vollkopie für DIESE save-Periode (tier_clear-Warmup ist nicht O(1)-invertierbar;
+    /// Log-OOM). Zuerst das bisherige Log zurückspielen (→ Organe wieder auf dem save-Stand), DANN kapseln —
+    /// die Kopie trägt damit exakt den save-Daten-Stand (die Stats stellt der Rollback aus den Snapshots her).
+    void escalate_undo_to_copy_() noexcept {
+        if (undo_escalated_) return;
+        try {
+            replay_undo_log_();
+            saved_search_.emplace(search_organ_);
+            saved_container_.emplace(container_);
+            undo_escalated_ = true;
+        } catch (...) {
+            saved_search_.reset(); saved_container_.reset();
+            // Eskalation gescheitert (OOM): Rollback dieser Periode degradiert (Status-quo-äquivalente
+            // Mess-Robustheit; die empirische rb_exact-Probe deckt strukturelle Fälle je Binary ab).
+        }
+    }
+
+    typename OrganStatsSnap<SearchAlgo>::type  saved_search_stats_{};    // O(1)-Stat-Snapshot (save-Stand, T0)
+    typename OrganStatsSnap<container_t>::type saved_container_stats_{}; // O(1)-Stat-Snapshot (container/T6-Pfad)
+    std::vector<UndoEntry> undo_log_{};       // Inversen der Warmup-Mutationen (typisch 0-2 Einträge/Periode)
+    bool undo_session_   = false;             // save_all lief über den Undo-Pfad (Routing in rollback_all)
+    bool undo_armed_     = false;             // Recording AN (nur save→rollback; Mess-Op läuft log-frei)
+    bool undo_escalated_ = false;             // diese Periode per Vollkopie gesichert (clear/OOM)
 #endif
 };
 
