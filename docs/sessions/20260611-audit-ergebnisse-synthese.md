@@ -1,4 +1,24 @@
-# Audit-Ergebnisse 2026-06-11 abends — Synthese beider Voll-Audits (PERSISTENT)
+# Audit-Ergebnisse 2026-06-11/12 — Synthese beider Voll-Audits (PERSISTENT)
+
+> **✅ END-VERDIKT MESS-AUDIT (2026-06-12 früh, Workflow KOMPLETT, 71 Agenten):** **62 Befunde → 62
+> adversarial verifiziert → 57 BESTÄTIGT (24 blocker / 24 major / 9 minor), 5 widerlegt.** Vollständige
+> konsolidierte Texte (je Befund claim/evidence/consequence/fix + Verifizierer-reasoning):
+> **`20260612-messaudit-endergebnis.json`** (314 KB — ersetzt die Rohdaten-Datei als autoritative Quelle;
+> die Rohdaten bleiben als Zwischenstand-Beleg). Die 24 Blocker verdichten sich auf die §2-Cluster M1-M8;
+> gegenüber der Vorab-Synthese HOCHGESTUFT auf blocker: Zipfian-ohne-Scrambling, Konformitäts-Gate-nie-
+> gerufen, seg_ns-n=1-Degeneration (320), prefetch-Pseudo-Adressen-Achse, **Harness-Re-Entry-Drift**
+> (build_and_measure_150_tiere.ps1 pinnt COMDARE_LOAD_PROFILE_DIR/WORKLOAD_RECORDS nicht und hat
+> Voll-Lauf-fremde Defaults NOps=2000/BuildVersion=tier150-v1 → ein argloser Resume-Relaunch nach Reboot
+> überschreibt fertige Ergebnisse mit falscher Matrix). **Die 5 Widerlegten:** 2× BuildVersion-Drift-
+> Varianten, tier_scan-sort-Variante (für die 320 gilt stattdessen der No-Op-Blocker; sort betrifft nur
+> Referenz-Kompositionen — dort vom Pattern-Audit als P2 bestätigt), Doc-33-§3-Split-Äquivalenz +
+> escalate-Fehlerpfad (beide durch CoW Rev. 2 gegenstandslos). **Wichtige Ehrlichkeits-Notiz des
+> Verifizierers zu M3 (CoW tot für die 320):** Die MESSWERTE des copymem-Pfads sind NICHT verfälscht
+> (verifizierter Status quo, rb_exact true) — gebrochen sind Kosten-Annahme, Doku-/Test-Behauptung und
+> die als undolog-v1/cowmem-v1 gestempelten Label (auf Copy-Pfad-DLLs „verbrannt" → nächste BuildVersion
+> nach dem echten Fix MUSS neu sein, z.B. `cowfix-v1`); mein 0-Zellen-Determinismus-Diff war strukturell
+> blind (beide Läufe = identischer Copy-Pfad). Der Fix-Plan §4 bleibt gültig und ist jetzt vollständig
+> durch konsolidierte Verdicts unterlegt.
 
 > **Provenienz/Kosten:** Zwei Multi-Agent-Audit-Workflows (User-Auftrag „besseres Modell → Design-Fehler
 > suchen" + Pattern-Direktive), zusammen ~70 Agenten / >3 Mio Subagent-Tokens (>300 € — diese Doku + die
