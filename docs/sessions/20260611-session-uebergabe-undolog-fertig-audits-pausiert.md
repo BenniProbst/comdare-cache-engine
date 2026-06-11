@@ -47,17 +47,22 @@ DLL-Neubau via BuildVersion `undolog-v1`.
   Observer-Counter, two_phase_valid, Op-Mix) zwischen `result.copymem-v1.csv` und undolog-v1-`result.csv`.
   Header identisch. ns-/seg_ns-Spalten (21) erwartungsgemäß abweichend (Timing).
 
-**⚠️ OFFENER KOSTEN-BEFUND (ehrlich):** Tier 0 (k_ary) brauchte mit undolog **~52 min** (10:34→11:26) vs
-**~25 min** copymem — ABER unter massiver Parallel-Last (2 Audit-Workflows + Agenten liefen gleichzeitig);
-NICHT belastbar. Hypothese für k_ary-artige Tiere: Die WRITE-Inverse läuft als Organ-Op (SortedBinary →
-`insert_slot_at`/`erase_slot_at` = flatten+rebuild O(n) mit Allokationen) und ist damit TEURER als die
-copymem-memcpy-Vollkopie; bei READ-Ops (Mehrheit der Profile) ist undolog dagegen klar überlegen (0 statt
-2 Kopien). **NÄCHSTER SCHRITT:** lastfreie Kosten-Neubewertung (Tier 1-Zeit nach Smoke-Ende ablesen:
-Prozess lief weiter, PID 3576; result.csv-mtime Tier 1 minus 11:26 = saubere lastärmere Messung) und dann
-entscheiden: (a) undolog für alle behalten (wenn netto ≤ copymem), (b) HYBRID (Inverse nur für read-only-
-dominierte Perioden = eigentlicher Hebel; Write-Perioden per Vollkopie — im Adapter trivial: record_undo_
-könnte bei Write-Op direkt eskalieren), (c) Store-direkte Slot-Inverse (Vorsicht Doc-30-Delegation!).
-Entscheidung VOR dem (C)-Voll-Lauf treffen.
+**⚠️ KOSTEN-BEFUND (FINAL, Smoke komplett — Exit 0, 756/756 Zeilen, two_phase_valid=1 durchweg,
+Negativ-Sweep monoton):** **BEIDE Tiere ~2× LANGSAMER als copymem auf der k_ary-Klasse**: Tier 0 ~52 min
+(10:34→11:26, teils unter Audit-Last), Tier 1 **54 min** (11:26→12:20, ab 12:06 lastfrei) vs copymem
+~25 min/Tier. **Determinismus dafür PERFEKT: auch Tier-1-Diff = 0 abweichende Nicht-ns-Zellen** (beide
+Tiere, 756 Zeilen × 115 Spalten identisch zu copymem). URSACHE (Code-validiert): Die WRITE-Inverse läuft
+als Organ-Op — bei k_ary/SortedBinary heißt das `insert_slot_at`/`erase_slot_at` = flatten+rebuild
+**O(n) MIT Vektor-Allokationen** auf BEIDEN Strukturen (search_organ_ + container_), teurer als die zwei
+memcpy-artigen Vollkopien des copymem; zusätzlich zahlt der old-Lookup je Write. Read-Ops sind dagegen
+klar überlegen (O(1) statt 2×O(n)-Kopie) — reicht bei k_ary netto aber nicht.
+**EMPFOHLENER FIX (VOR C umsetzen, ~10 Zeilen + Re-Test): HYBRID-Eskalation für Writes** — `record_undo_`
+ruft statt Log-push direkt `escalate_undo_to_copy_()` (Vollkopie der Periode, Mechanik existiert + ist
+durch den clear-Fall in test_undolog_memento bereits bewiesen). Damit: READS = O(1)-Stat-Snapshots (der
+große Gewinn — Mehrheit der 21 Profile), WRITES = Vollkopie (exakt copymem-Niveau, KEINE teure Inverse)
+→ **strikt ≤ copymem auf JEDER Tier-Klasse** (BuildVersion dann `undolog-v2` o.ä.; Unit-Test-Erwartungen
+prüfen: die Einzelfall-Checks insert/erase laufen dann über den Eskalations-Pfad — Semantik identisch).
+Alternativ (komplexer, NICHT empfohlen): Store-direkte Slot-Inverse (Doc-30-Delegations-Risiko).
 
 ## 2. (B) Mess-Resume #139 — FERTIG (Code), Doppellauf-Beweis OFFEN
 **Design + Code:** Doc 33 §5. `result.csv.stamp` = `resume-v1|build=<BuildVersion>|n_ops|seed|records|
