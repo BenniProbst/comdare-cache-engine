@@ -1014,9 +1014,16 @@ public:
                 return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
             };
             // Reale gespeicherte Keys EINMAL beziehen (NICHT gemessen) — für die per-op-Achsen (T0/T1/T2/T3).
+            // (Befund-2-Weg-A / K9-b): store-traversierbare Tiere ernten die Keys aus dem container_-STORE (nicht aus
+            // search_organ_) — denn (a) der Such-Algo ist evtl. KEIN MementoAxis (z.B. LinearScan: kein save_state)
+            // → sonst nk=1-Degeneration (seg_ns einzelner per-op-Achsen = 0), und (b) search_organ_ entfällt in M8.
             std::vector<std::uint64_t> keys;
-            if constexpr (MementoAxis<SearchAlgo>) {
-                auto snap = search_organ_.save_state();   // (key,value)-Liste der real gespeicherten Records
+            if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
+                auto snap = container_.save_state().data;   // ObservableComposedSearch::save_state → (key,value)-Liste im Store
+                keys.reserve(snap.size());
+                for (auto const& kv : snap) keys.push_back(static_cast<std::uint64_t>(kv.first));
+            } else if constexpr (MementoAxis<SearchAlgo>) {
+                auto snap = search_organ_.save_state();   // (key,value)-Liste der real gespeicherten Records (Weg-B)
                 keys.reserve(snap.size());
                 for (auto const& kv : snap) keys.push_back(static_cast<std::uint64_t>(kv.first));
             }
