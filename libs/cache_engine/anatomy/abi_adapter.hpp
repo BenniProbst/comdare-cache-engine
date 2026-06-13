@@ -1248,6 +1248,15 @@ public:
     /// Copy-on-Write (save=O(1)-Stat-Snapshots, Daten-Kopie erst bei der ersten Warmup-Mutation) statt der
     /// eager Organ-Vollkopie je Op? Literal-prüfbar im Test (test_cow_memento) — keine ABI-Fläche (statisch).
     [[nodiscard]] static constexpr bool tier_memento_is_copy_on_write() noexcept { return cow_capable_; }
+    // (E-Welle-A2 · Befund-2/Q2-Schritt-4 · Meta-Lehre #3 — Schritt 3 des de-risked Pfads) Diagnose: routet der
+    // GEMESSENE Such-Pfad (T0) durch den EINEN container_-Store (node/layout/allocator wirken REAL auf die Suche)
+    // ODER liefert der separate search_organ_-Monolith die Such-Metrik (= Befund-2-Schatten)? AKTUELL: false —
+    // fill_observer_v3 zieht das search-Feld aus search_organ_.statistics() (:788), nicht aus container_. A2.5 macht
+    // dies conditional `StoreTraversableSearchAlgo<Composition::search_algo>` (Array-Such-Algo-Familie → true; Tree/
+    // Trie/Hash = eigener NodePoolStore → Weg-B false, ehrliche Appendix-Limitierung; G3 code-bestätigt). Ohne true
+    // sind die Achsen-Austauschbarkeits-Belege für dieses Tier teils Apparat-Artefakt (Doc 34 §9.1 SOLL-Regel 3 +
+    // A3 Meta-Lehre #3: Diff-Beweise brauchen NACHWEISLICH verschiedene Organ-Pfade). Verifikations-Hook für A2.5.
+    [[nodiscard]] static constexpr bool tier_search_routes_through_store() noexcept { return false; }
 
     /// Diagnose für den Zwei-Phasen-Treiber (I7): exakter Rollback, wenn jedes Organ ENTWEDER MementoAxis ODER
     /// kopierbar ist. Sonst muss der Treiber Kalt-Messung wählen (empirische Probe in tier_observe_trace_abi.hpp).
