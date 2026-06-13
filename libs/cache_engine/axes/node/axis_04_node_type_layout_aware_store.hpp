@@ -174,29 +174,29 @@ public:
     std::uint64_t organ_observe_layout(LayoutOrgan& org) const {
         std::uint64_t acc = 0;
         for (auto const& c : chunks_)
-            acc += org.observe_scan(c.data(), c.size() / eff_stride, eff_stride);
+            acc += org.observe_scan(c.data, c.used / eff_stride, eff_stride);
         return acc;
     }
     template <class SerOrgan>
     std::uint64_t organ_observe_serialization(SerOrgan& org) const {
         std::uint64_t acc = 0;
         for (auto const& c : chunks_)
-            acc += org.observe_serialize(c.data(), c.size() / eff_stride, eff_stride);
+            acc += org.observe_serialize(c.data, c.used / eff_stride, eff_stride);
         return acc;
     }
     template <class VhOrgan>
     std::uint64_t organ_observe_value_handle(VhOrgan& org) const {
         std::uint64_t acc = 0;
         for (auto const& c : chunks_)
-            acc += org.observe_value_handle(c.data(), c.size() / eff_stride, eff_stride);
+            acc += org.observe_value_handle(c.data, c.used / eff_stride, eff_stride);
         return acc;
     }
     template <class IsaOrgan>
     std::uint64_t organ_observe_isa(IsaOrgan& org) const {
         std::uint64_t acc = 0;
         for (auto const& c : chunks_) {
-            std::size_t const words = c.size() / sizeof(std::uint32_t);
-            acc += org.observe_simd_field_sum(c.data(), words);
+            std::size_t const words = c.used / sizeof(std::uint32_t);
+            acc += org.observe_simd_field_sum(c.data, words);
         }
         return acc;
     }
@@ -204,20 +204,20 @@ public:
     std::uint64_t organ_observe_index_org(IdxOrgan& org) const {
         std::uint64_t acc = 0;
         for (auto const& c : chunks_)
-            acc += org.index_org_observe(c.data(), c.size() / eff_stride, eff_stride);
+            acc += org.index_org_observe(c.data, c.used / eff_stride, eff_stride);
         return acc;
     }
     template <class IoOrgan>
     std::uint64_t organ_observe_io_dispatch(IoOrgan& org) const {
         std::uint64_t acc = 0;
         for (auto const& c : chunks_)
-            acc += org.observe_dispatch(c.data(), c.size() / eff_stride, eff_stride);
+            acc += org.observe_dispatch(c.data, c.used / eff_stride, eff_stride);
         return acc;
     }
     template <class MigOrgan>
     std::uint64_t organ_observe_migration(MigOrgan& org) const {
         for (auto const& c : chunks_)
-            org.observe_decide(c.data(), c.size() / eff_stride, eff_stride);
+            org.observe_decide(c.data, c.used / eff_stride, eff_stride);
         return 0;   // observe_decide ist void (Treibe-Op exerziert)
     }
     template <class FltOrgan>
