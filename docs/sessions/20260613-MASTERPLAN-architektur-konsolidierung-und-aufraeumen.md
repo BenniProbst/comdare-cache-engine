@@ -71,6 +71,19 @@ Session-Start ist verloren.
 **✓ Kriterium:** Jedes Dokument vollständig gelesen (kein Überfliegen); SUPERSEDED-Banner + Widersprüche notiert
 (für B2). Lese-Fortschritt in dieser Liste abgehakt.
 
+**A1-BEFUND (2026-06-13, Docs 00 + 02 gelesen ✅):** Die Thesis-Basis-Docs **00–14 tragen durchgehend
+SUPERSEDED-Banner (2026-05-31)** (überholter Planungs-/V31-Stand: axis-zentrische Restruktur, Plugin-Prüfling,
+DLL-F15-Pipeline). Die **IST-treue Single-Source-of-Truth** ist laut Banner:
+`docs/sessions/architektur-ziele-offene-punkte-ledger.md` + `docs/sessions/20260531-e2e-abnahme-audit-und-
+entscheidungen.md` (cache-engine). **KONSEQUENZ für B:** Phase B konsolidiert ONTO diese zwei IST-Docs als Basis;
+die 00–33 liefern Begriffs-/Historien-/Konzept-Kontext (3-Säulen, 4-Subsystem, 3-Stufen, Organ-Metapher,
+B+-Baum), sind aber NICHT der IST-Stand. **A1-PFLICHT-ZUSATZ (höchste Prio):** `architektur-ziele-offene-punkte-
+ledger.md` + `20260531-e2e-abnahme-audit-und-entscheidungen.md` zusätzlich vollständig lesen — sie sind die
+eigentliche Konsolidierungs-Grundlage. (Damit erweitert sich die A1-Liste; viele 00–14-Docs sind „lesen für
+Kontext + Banner notieren", nicht „IST".)
+**A1-Fortschritt:** ✅ 00, 02 · ✅ (frühere Session) 09, 10, 11_axes_vs_strategies · ◐ 11_extension_visitor (½),
+14_organ (§0–20) · ⬜ Rest.
+
 ### A2 — Pflicht-Code-Pre-Read (die Architektur IM Code)
 `builder/experiment_tree/experiment_tree.hpp` ✅ · `…/registry_to_axis_levels.hpp` ⬜ · `…/profile_to_tree.hpp` ⬜ ·
 `…/composition_registry.hpp` ⬜ · `anatomy/composition_concept.hpp` ✅ · `anatomy/composition_factory.hpp` ◐ ·
