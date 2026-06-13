@@ -182,13 +182,21 @@ int main(int argc, char** argv) {
     std::cout << "Selektion: provenance=" << sel.provenance << "  indices=" << sel.size() << "\n";
 
     ex::CompileFn compile = [defs, incs](ex::BuildJob const& job) -> int {
-        std::string cmd = "cl /nologo /std:c++latest /EHsc /O2 /LD /MP" + std::to_string(job.cores);
-        for (auto const& d : defs) cmd += " " + d;
-        for (auto const& i : incs) cmd += " /I\"" + i + "\"";
-        cmd += " \"" + job.source.string() + "\"";
-        cmd += " /Fe:\"" + job.output.string() + "\"";
-        cmd += " /Fo:\"" + job.output.string() + ".obj\"";
-        cmd += " > \"" + job.output.string() + ".cl.log\" 2>&1";
+        // (A2.8-Fix 2026-06-13) Response-File statt Inline-cl: die 50+ Include-Dirs (generated/-Unterordner wuchsen
+        // seit #138) sprengen sonst cmd.exe's 8191-Zeichen-Limit -> "Die Befehlszeile ist zu lang" -> JEDER DLL-Build
+        // scheitert -> 0 Mess-Zeilen. cl @rsp hat KEIN Laengen-Limit (identisch zu den scratch_compile_*-Skripten).
+        // Eine .rsp je Binary im per-Binary-Unterordner; das eigentliche system()-Kommando ist nun kurz.
+        std::filesystem::path const rsp = job.output.string() + ".rsp";
+        {
+            std::ofstream rf{rsp};
+            rf << "/nologo /std:c++latest /EHsc /O2 /LD /MP" << job.cores << "\n";
+            for (auto const& d : defs) rf << d << "\n";
+            for (auto const& i : incs) rf << "/I\"" << i << "\"\n";
+            rf << "\"" << job.source.string() << "\"\n";
+            rf << "/Fe:\"" << job.output.string() << "\"\n";
+            rf << "/Fo:\"" << job.output.string() << ".obj\"\n";
+        }
+        std::string const cmd = "cl @\"" + rsp.string() + "\" > \"" + job.output.string() + ".cl.log\" 2>&1";
         return std::system(cmd.c_str());
     };
     ex::SourceGenFn gen = tlz::make_pilot_source_gen<tlz::FullPilot>();
