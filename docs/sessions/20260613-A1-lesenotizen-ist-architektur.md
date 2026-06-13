@@ -114,13 +114,44 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 - **P-Status:** P1 (Pipeline) ✅ · P2 (Organ-F15) ✅ · P3 (i7-Realmessung) ✅ · P4 Vendor lokal-baubar (Quellen
   vendored, nur HAVE-Flags nicht gesetzt)/PMC extern · P5 Doku-Drift+op_type_filter teils.
 
+## 4d. Doc 30 (audit_achsen_delegation_pflichtachsen — AUTORITÄT des 3-Ebenen-Modells + DER ECHTE VERSTOSS)
+
+- **3-Ebenen-Modell (§8.0, AUTORITATIV, verbatim):** (a) **Gattung = Außen-Interface** SearchAlgorithm/Container/Graph
+  (= Prüf-Dock, Doc 24 §8.8/§8.6) · (b) **Tier-Unterklasse = unter dem Interface, FESTER Achsen-Satz** (5 code-Genera
+  SearchAlgorithm/Set/Sequence/Adapter/View; aktuell NUR die SearchAlgorithm-Tier-Unterklasse gebaut) · (c) **Achsen =
+  Organe, ALLE Pflicht, in JEDEM Tier-Binary uniform getrieben** (NoBuffer/NonePrefetch/NoMigration = konkrete Durchreich-
+  Algorithmen, NICHT abwesende Achsen). Per-Gattung-Slots: **SearchAlgorithm 17(+3 Build), Container/Adapter 13, Set 15,
+  Sequence 11, View 7**. queuing q1/q2 = **Pflicht-SA-Achsen** (AdHocComposition **17→19**, `c9f051b`); Adapter-Gattung =
+  echte Tier-Unterklasse (`AdapterComposition<T0..T11,Inner>` 13 Achsen: 9 delegiert + 3 aktiv + 1 inner_container; `18adc08`).
+- **🔴 BEFUND 2 — DER ECHTE ARCHITEKTUR-VERSTOSS (kritisch, = Audit-K5/K6, Kontext meiner A2a-Arbeit):** Der
+  `SearchAlgorithmAbiAdapter` hält **ZWEI getrennte, unverbundene Speicher**: `search_organ_` = monolithisches Such-Organ
+  (`Composition::search_algo`, z.B. KArySearchAlgo mit eigenem Substrat, nimmt KEINEN node/layout/allocator-Slot) +
+  `container_` = SEPARATER `ObservableComposedSearch<SortedBinaryTraversal[hart-verdrahtet, NICHT Composition::search_algo!],
+  Store>` nur „um die Allocator-Achse zu messen". `tier_insert` treibt BEIDE (Doppel-Buchführung); Such-Metriken aus dem
+  Monolith, alloc_* aus dem Store. ⇒ **Tiere routen NICHT uniform durch alle 17 Organe; Such-Organ beschattet node_type/
+  memory_layout** (Sezierungs-Prinzip Doku 14 §3.1 im Mess-Pfad verletzt).
+  - **§6 Q2 Schritt 1–3 GEFIXT+verifiziert:** `container_` von unbounded ComposedStore → **`NodeChunkedStore<N,L,A>`**
+    (cap=N::max_capacity()) → node_type wirkt real (alloc_cnt = ceil(n/node_cap): Node4=250/Node256=4 @n=1000; vorher
+    konstant 18). **§6 Q2 Schritt 4 OFFEN:** SEARCH-Zähler kommen WEITER aus dem Monolith `search_organ_`; volle
+    Such-Organ-Delegation (search_organ_ entfällt, Such-Strategie ALS Traversal über DENSELBEN Store) + perm_runner→V2-POD
+    (node_*-Felder) = verbleibend. **Das ist die SOLL-Korrektur für die Achsen-Echtheit (C1/C3/C4/C5 müssen ECHT, nicht umgangen).**
+- **Befund 3 (Literatur-Treue):** 17-Zerlegung GiST-fundiert; Pflicht-Kern C1 Such/Navigation · C3 Key→Position-Mapping ·
+  C4 Node/Storage · C5 Value/Payload (dürfen NICHT umgangen werden); Rest = Pflicht-Dim mit Trivial-Default. 2 Lücken:
+  G1 Key-Normalisierung (keine eigene Achse), G2 Split-Merge/Reorganisations-Policy (axis_02 deckt nur Pfad-Kompression).
+- **Verknüpfung Original-Mission/Audit:** Befund 2 = K5 (Apparat dominiert) + K6 (Phantom-Allocator) der teuren Audits.
+  Meine A2a/K3-Arbeit (restore_statistics in die Wrapper) betraf `search_organ_`/`container_`-Memento — orthogonal, aber
+  im selben Adapter. Der Q2-Schritt-4-Fix (volle Such-Delegation) ist ein Kandidat für eine E-Aufgabe (Mess-Echtheit).
+
 ## 5. A1-Lese-Fortschritt (Checklist)
 - ✅ Thesis-Basis: 00_INDEX · 02_master_REV7_7 · 09_taxonomien · 10_schichten_modell_M · 11_axes_vs_strategies
 - ◐ 11_konzept_extension_visitor (§1–§11 von §… ; 4 Patterns + 3-Stufen + CRTP+Concept + Prüfling-Namespace gelesen)
 - ◐ 14_organ_metapher (§0–§20 von §53; Organ-Metapher + 3-Schichten + Verantwortlichkeit + ObserverAggregate)
 - ✅ IST-Ledger (vollständig, 226 Z.; §a/§a.V5/§a.P/§b/§c/§d/§e)
 - ✅ `20260531-e2e-abnahme-audit-und-entscheidungen.md` (2. IST-Doc, vollständig)
-- ⬜ OFFEN: Thesis 01,03,04,05,06,07,08,12,13 + Rest 11/14 · cache-engine **24 (Messmodell) · 26 (B+-Baum) ·
-  27 (Baum-4-Brücken) · 29 (Baum-Generik) · 30 (Audit-Pflichtachsen=3-Ebenen-Autorität) · 31 (Observer-Konsol.) ·
-  33 (Memento/Resume) · abhaengigkeitskette · messarchitektur_design_observer · messarchitektur_v5_*** + 15–23/25/28/32 ·
-  A2 Code-Pre-Read · A3 Audits. (Beide IST-Docs ✅ — die Konsolidierungs-Basis B steht; Rest = Konzept-/Detail-Kontext.)
+- ✅ cache-engine **Doc 30** (audit_achsen_delegation_pflichtachsen — 3-Ebenen-Autorität + Befund-2-Verstoß)
+- ✅ (Code, frühere Session) `experiment_tree.hpp` (= Substanz von Doc 26/27/29 B+-Baum) · `abi_adapter.hpp` (CoW-Teil)
+- ⬜ OFFEN: Thesis 01,03,04,05,06,07,08,12,13 + Rest 11/14 · cache-engine **24 (Messmodell 2-Dim) · 26 (B+-Baum-Prosa) ·
+  27 (Baum-4-Brücken) · 29 (Baum-Generik) · 31 (Observer-Konsol.) · 33 (Memento/Resume) · abhaengigkeitskette ·
+  messarchitektur_design_observer · messarchitektur_v5_design/_entscheidungen/_drei_profile/_i8** + 15–23/25/28/32 ·
+  A2 Rest-Code-Pre-Read (anatomy/composition/permutation_engine/perm_runner/iterator) · A3 Audits-Soll-Abgleich.
+  (Beide IST-Docs + Doc 30 ✅ — die Konsolidierungs-Basis B steht; Rest = Konzept-/Detail-Kontext.)
