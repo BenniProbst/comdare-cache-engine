@@ -59,11 +59,42 @@ verankert (I1-EIN-POD, Q1-Sequenz, Pfad-A/B-Koexistenz, CoW-Memento, q1/q2-SA-Ac
 verbleibende Echtheits-Defekt = Q2-Schritt-4 (Such-Organ beschattet node/layout via search_organ_-Monolith)** — bestätigt,
 präzise lokalisiert, E-Aufgaben-Kandidat (K5/K6). Keine Doku-↔-Code-Drift im Mess-Kern festgestellt.
 
+## A2.2 — `anatomy/observable_tier.hpp` (EIN konsolidierter POD + IDriveableTier-Split) — verifiziert 2026-06-13
+
+- **EIN POD `ComdareTierObserverSnapshot` (`:111`):** `axis_stats[19][8]` + `seg_ns[19]` + 4 Meta (`observable_axis_count`,
+  `tier_fill_level`, `filled_axis_count`, `batches_measured`); `static_assert standard_layout + trivially_copyable`;
+  **sizeof==1400, alignof==8** (Kommentar). EXAKT Doc 31. V1/V2/V3-PODs + Sub-IFs ENTFERNT; Versionierung via ABI-Major.
+  `kTierObserverSnapshotVersionUnified=4`.
+- **🔴 SCHEMA VOLLSTÄNDIG (über Doc-30-Snapshot HINAUS):** `kV3AxisSchema[19]` (`:66–86`, single-source Schreiber↔CSV-Spalte)
+  ist für **ALLE 19 Achsen befüllt** — Phase A (T0/T1/T2/T4/T5/T6/T9/T10/T17/T18) + **Phase B abgeschlossen (2026-06-04):**
+  T3 path_compression/T7 prefetch/T8 concurrency/T11 value_handle/T12 isa/T13 index_org/T14 io_dispatch/T15 migration/T16 filter.
+  `v3_count_filled_axes()` zählt single-source aus dem Schema (kein Hardcode). ⇒ die „R5.B operativ nur 2 Achsen"-Grenze (Doc 30 §b)
+  ist im POD-Schema überholt — alle 19 Achsen tragen benannte Observer-Felder.
+- **B1-Split (`:144`):** `class IObservableTier : public IDriveableTier` — `IDriveableTier` = funktionaler Antrieb (IMMER
+  einkompiliert), `IObservableTier` ergänzt NUR `tier_observe` (nur unter `COMDARE_MEASUREMENT_ON` vererbt). EINE `tier_observe(
+  ComdareTierObserverSnapshot*)`. Hängt NICHT an IAnatomyBase (vtable-Stabilität), `dynamic_cast` 1× kalt. Doc 31/v5_design §7 = IST.
+
+## A2.3 — `anatomy/search_algorithm_anatomy.hpp` (Composition-Driver-Stand, Doc 29) — verifiziert 2026-06-13
+
+- **Container-API ENTFERNT (`:156–168`):** insert/lookup/erase/clear/size → `builder::anatomy_commands::AnatomyExecutionContext`
+  (Doc 14 §17.2/§24: „Anatomie = nur Achsen + Observer"). `observe_all()→ObserverAggregate<C>`; `genus()==SearchAlgorithm`.
+- **🔴 observe_all hält jetzt 9 reale Achsen-Organe (über Doc 29 §3e „2./3." HINAUS):** `:62–112` sammelt via ObservableAxis-Guard
+  search_algo + telemetry + memory_layout + serialization + node_type (5 OperativeCapable via `ObservableXxx`-Hüllen, Doc 29 §3c/e)
+  **+ Phase A (2026-06-04): cache_traversal/mapping/queuing_q1/queuing_q2** (T1/T2/T17/T18). 9 Member-Organe (`:173–196`,
+  default-init OHNE `{}` wg. Aggregat-Brace-ill-formed-Befund Doc 29 §3c). Der protected-CRTP-ctor-Block ist via Hüllen gelöst.
+- **🔴 ZWEI getrennte Observe-Mechanismen (KLÄREN in B):** (1) `SearchAlgorithmAnatomy::observe_all()` = in-process-Pfad, hält die
+  9 Achsen-Organe (AnatomyExecutionContext-Pfad). (2) `SearchAlgorithmAbiAdapter::fill_observer_v3` (A2.1) füllt den ABI-POD
+  `axis_stats[19][8]` aus seinem EIGENEN `search_organ_` + `container_`(NodeChunkedStore::organ_observe_*) — NICHT aus der Anatomie-
+  observe_all. ⇒ Der gemessene ABI-Pfad (abi_adapter) und der Anatomie-observe_all sind zwei verschiedene Observe-Wege; ihr Verhältnis
+  + die Befund-2-Q2-Schritt-4-Korrektur (search_organ_ entfällt) sind in B/E konsolidiert zu adressieren.
+
 ## A2-Lese-Fortschritt (Checklist)
 - ✅ `anatomy/abi_adapter.hpp` (Mess-Kern, Befund-2, I1-POD, Q1-Sequenz, Pfad-A/B, CoW — am Code gegen Doc 24/30/31/33 verifiziert)
 - ✅ (A1, frühere Session) `anatomy/composition_concept.hpp` · `builder/experiment_tree/experiment_tree.hpp` (B+-Baum-Substanz)
-- ⬜ OFFEN: `composition_factory.hpp` (AdHocComposition<17> + CompositionFromPermTuple) · `search_algorithm_anatomy.hpp`
-  (observe_all + Organ-Member, Composition-Driver-Stand Doc 29) · `observable_tier.hpp` (EIN POD + IObservableTier/
-  IDriveableTier-Split) · `perm_runner.hpp` + `cache_engine_builder_iterator.hpp` (Host-Treiber + Resume/Stamp Doc 33 §5) ·
-  `registry_to_axis_levels.hpp`/`profile_to_tree.hpp`/`composition_registry.hpp` (BR-1/BR-2) · `permutation_engine.hpp` ·
-  `genus_binding_traits.hpp`. Dann **A3** (85-Audit-Soll-Abgleich) → **B** (Konsolidierung).
+- ✅ `anatomy/observable_tier.hpp` (EIN konsolidierter POD axis_stats[19][8]+seg_ns[19]+Meta, sizeof 1400; Schema ALLE 19 befüllt;
+  IObservableTier:public IDriveableTier B1-Split — gegen Doc 31 verifiziert; → A2.2)
+- ✅ `anatomy/search_algorithm_anatomy.hpp` (Container-API entfernt; observe_all hält 9 reale Achsen-Organe via ObservableXxx-Hüllen;
+  ZWEI Observe-Mechanismen [Anatomie-observe_all vs abi_adapter-fill_observer_v3] — gegen Doc 14/29 verifiziert; → A2.3)
+- ⬜ OFFEN: `composition_factory.hpp` (AdHocComposition<17> + CompositionFromPermTuple) · `perm_runner.hpp` +
+  `cache_engine_builder_iterator.hpp` (Host-Treiber + Resume/Stamp Doc 33 §5) · `registry_to_axis_levels.hpp`/`profile_to_tree.hpp`/
+  `composition_registry.hpp` (BR-1/BR-2) · `permutation_engine.hpp` · `genus_binding_traits.hpp`. Dann **A3** (85-Audit-Soll-Abgleich) → **B**.
