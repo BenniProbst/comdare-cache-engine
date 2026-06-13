@@ -363,6 +363,20 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 - **Doc 23a (io-dispatch-Migrations-Pilot, SUPERSEDED):** mechanische Move-Schablone für den physischen Achsen-Rename (git mv→axes/<axis>/,
   Namespace-Rename, Forwarder, configure_file+Glob-APPEND, Rückwärts-Alias, Rollback-Tag); Muster für die übrigen 16 Achsen (klein zuerst).
 
+## 4f. Thesis-Basis-Kontext 12/13 (SUPERSEDED — Kern in Memory)
+
+- **Doc 12 (queuing-Topic-Achsen-Eigenschaften):** `axis_q1_queuing` (BufferStrategy: put/get/emplace/peek/size/clear — 13 Strategien Q01–Q13:
+  NoBuffer/FIFO/LIFO/BoundedRing/AppendOnly/PriorityHeap/DeltaChain/Skiplist/Tombstone/CoW/Epoch/Batched/LockFree-SPSC+MPMC) × `axis_q2_queuing`
+  (FlushPolicy: should_flush→{NoFlush/Partial/Full} — 5 Policies F01–F05: Eager/Watermark/Timed/Lazy/AdaptiveLsm) = Cartesian 65. **q1/q2 = Pflicht-
+  SA-Achsen** (NoBuffer/LazyFlush = Durchreich; korr. 3-Ebenen). `ProgressGuarantee`-enum (Blocking<ObstructionFree<LockFree<WaitFree). Allocator-Goldstandard-Naming.
+- **Doc 13 (Paper-Legacy-Code-Architektur, Habich-Compliance):** 4 Schichten — (1) C++23-Concept-System unverändert · (2) C-Interface-Adapter
+  (`extern "C"` um Paper-API) · (3) `legacy_code/paper_<id>_<name>/` (Original-Source + LICENSE + manifest.txt + sha256_locked.txt) · (4) Compiler-
+  Cache (on-demand fetch+build, `compiler_info.txt` „gcc-9.5 -O3"). **AxisBase-Wurzel** (`topics/axis_base.hpp`, `get_compiler()="original"`-Default,
+  Wrapper überschreibt). **`is_original_validator` Pre-Build-Tool** (NICHT Runtime — `[[compile-time-only-no-runtime]]`): Regex+Brace-Balancer
+  Function-Body-Extraktion → SHA256 → `sha256_locked.txt` (First-Build lockt, später Match→is_original=true/Mismatch→false) → `OriginalCodeMixin`
+  (1 Inheritance-Zeile = alle Pflicht-API). **User-Korrektur (Teil C):** `has_original_paper_code` ≡ `is_original_module` redundant → EINE genügt;
+  generische Template-Tests statt hardcoded-Defaults. (Memory: `paper_original_code_pattern`/`axis_base_pattern`/`legacy_code_sha256_validation`.)
+
 ## 5. A1-Lese-Fortschritt (Checklist)
 - ✅ Thesis-Basis: 00_INDEX · 02_master_REV7_7 · 09_taxonomien · 10_schichten_modell_M · 11_axes_vs_strategies
 - ◐ 11_konzept_extension_visitor (§1–§11 von §… ; 4 Patterns + 3-Stufen + CRTP+Concept + Prüfling-Namespace gelesen)
@@ -398,8 +412,10 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 - ✅ cache-engine historischer Kontext **Doc 16(IMC-Doku-only) + 18(autoritative Paper-Code-Map 110/21 + 31 Korrekturen + BatchedInsertBuffer-
   erfunden) + 20(Plugin-Controller-Lade-Richtung) + 23+23a(Namespace-Migration done/Pilot) + 25×2(STATIC-SHARED-Achse + Submodule-Entscheidung)**; → §4e
   ⇒ **ALLE cache-engine-Architektur-Docs (15–33 + benannte) VOLLSTÄNDIG gelesen.**
-- ⬜ OFFEN (nur noch Thesis-Basis-SUPERSEDED-Kontext): Thesis **01(REV-Historie)/05(UML)/06(ER)/07(Cross-Ref)/08(drawio)/12(queuing-Topic)/
-  13(Paper-Legacy-Architektur)** + Rest 11_extension_visitor/14_organ · dann **A2** Code-Pre-Read (registry_to_axis_levels/profile_to_tree/
+- ✅ Thesis **12 (queuing-Topic q1/q2-Achsen-Eigenschaften)** + **13 (Paper-Legacy-Code-Architektur: 4-Schichten + AxisBase + is_original-
+  Pre-Build-Tool, ½ gelesen — Architektur vollständig, Teil-C-Refactor-Detail Rest)**; → §4f
+- ⬜ OFFEN (nur noch Thesis-Basis-SUPERSEDED-Kontext): Thesis **01(REV-Historie)/05(UML)/06(ER)/07(Cross-Ref)/08(drawio)** + Rest
+  13-Teil-C + 11_extension_visitor/14_organ · dann **A2** Code-Pre-Read (registry_to_axis_levels/profile_to_tree/
   composition_registry/composition_factory/search_algorithm_anatomy/observable_tier/perm_runner/iterator/permutation_engine/genus_binding_traits)
   · **A3** Audits-Soll-Abgleich.
   (Beide IST-Docs + cache-engine 15–33 + alle benannten (abhaengigkeitskette/design_observer/klarstellungen/alle v5_*) ✅ — die GESAMTE IST-
