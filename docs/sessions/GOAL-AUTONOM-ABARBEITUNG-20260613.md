@@ -166,6 +166,26 @@ mit-erledigt ODER als Limitierung ausgewiesen.
 ehrlich als Daten-Vorbehalt (RC nominal, ycsb_e/lp_range_scan invalide, Insert=Upsert, stat_* enthält Load,
 cowmem=Copy-Pfad, Second-Execution) — so erfüllt selbst ein Interim-Stand das §2.5-Done-Kriterium (b).
 
+### §2.5.6 Gesicherte Audit-Rohdaten — vollständiges Manifest (alles git-getrackt, in jedem Clone da)
+
+> Die >300-€-Audit-Investition ist **dauerhaft im Repo gesichert** (die `.claude`-Workflow-/Temp-Verzeichnisse
+> sind flüchtig — diese Dateien sind die einzige belastbare Quelle). Pfade repo-relativ ab cache-engine-Root.
+
+| Datei | Größe | Inhalt | Audit |
+|---|---|---|---|
+| `docs/sessions/audit-sicherung-20260612/messaudit-workflow-output.json` | 316 KB | **ROHESTE** Quelle: kompletter Mess-Audit-Workflow-Output (Summary + Logs + konsolidiertes Result, alle 57+5 Volltexte) | Mess `wf_a013b73f-aea` |
+| `docs/sessions/audit-sicherung-20260612/patternaudit-workflow-output.json` | 195 KB | **ROHESTE** Quelle: kompletter Pattern-Audit-Workflow-Output (28+12 Volltexte + Web-Referenzen) | Pattern `wf_86936298-e41` |
+| `docs/sessions/audit-sicherung-20260612/ERKENNTNISSE.md` | 15 KB | Konsolidierte Erkenntnis-Doku (K1-K10, Major/Minor-Listen, 8 Meta-Lehren, Manifest) | beide |
+| `docs/sessions/20260612-messaudit-endergebnis.json` | 314 KB | Konsolidiertes Mess-Endergebnis (57 Befunde, je claim/evidence/consequence/fix + Verifizierer-reasoning) | Mess |
+| `docs/sessions/20260611-patternaudit-ergebnis.json` | 194 KB | Konsolidiertes Pattern-Ergebnis (28 Befunde + 12 Widerlegungen + Web-Belege) | Pattern |
+| `docs/sessions/20260611-messaudit-rohdaten.json` | 348 KB | Zwischenstand-Beleg (9 Finder = 62 Roh-Befunde + 73 Einzel-Verdicts vor End-Konsolidierung) | Mess |
+| `docs/sessions/20260611-audit-ergebnisse-synthese.md` | 14 KB | Synthese beider Audits + 4-Wellen-Fix-Plan §4 + End-Verdikt-Kopf (Triage-Einstieg) | beide |
+
+**Lese-Reihenfolge zum Wiederfinden:** Einstieg = `ERKENNTNISSE.md` (Überblick) → `20260611-audit-ergebnisse-synthese.md`
+(Fix-Plan) → für Volltext eines Einzelbefunds die JSON-Endergebnisse (Mess: `20260612-messaudit-endergebnis.json`,
+Pattern: `20260611-patternaudit-ergebnis.json`); die `…-workflow-output.json` + `…-rohdaten.json` sind die
+roheste Beweis-Ebene (Logs/Zwischenstände). Gesamtumfang Rohdaten ≈ 1,37 MB, vollständig versioniert.
+
 ## §3 Stop-Bedingungen (NUR hier den User einbeziehen — sonst autonom)
 
 - **A3-RC-Entscheid** (RC-Organ-Hooks bauen ODER RC-Dimension ehrlich entfernen): bis zur User-Antwort
@@ -200,6 +220,7 @@ cowmem=Copy-Pfad, Second-Execution) — so erfüllt selbst ein Interim-Stand das
 | Audit-Synthese + Fix-Plan §4 | `docs/sessions/20260611-audit-ergebnisse-synthese.md` |
 | Mess-Audit Volltexte (57 Befunde) | `docs/sessions/20260612-messaudit-endergebnis.json` |
 | Pattern-Audit Volltexte (28 Befunde) | `docs/sessions/20260611-patternaudit-ergebnis.json` |
+| **Gesicherte Audit-Rohdaten (vollständiges Manifest, 6 Dateien, ~1,37 MB)** | **§2.5.6 dieses Dokuments** + Verzeichnis `docs/sessions/audit-sicherung-20260612/` |
 | Memento Rev.2 (CoW) + Resume | `docs/architecture/33_undolog_memento_und_mess_resume.md` |
 | Letzte Übergabe (Einstieg) | `docs/sessions/20260612-session-uebergabe-m2-laeuft-phase-l.md` |
 | Bestehender Appendix-Orchestrator | `thesis/diplomarbeit/generate_measurement_appendix.ps1` |
