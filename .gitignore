@@ -92,3 +92,9 @@ prerequisites/*.zip
 !prerequisites/README.md
 # Build-Zeit-Extraktions-Temp des Prerequisite-Mechanismus
 cmake/third_party/_mp11_extract/
+
+# 2026-06-13: Basisarchitektur-Docs (Thesis-Thema, Docs 00-14) liegen kanonisch im Diplomarbeit-Root
+# (../../../docs/architektur/) und sind hier per Verzeichnis-Junction `docs/architektur` lokal eingehaengt,
+# damit die @doku-Referenzen (docs/architektur/14_...) aufloesen. Sie gehoeren NICHT ins Code-Submodul-Git
+# (Duplikation der Thesis-Quellen) -> ignorieren. Der Junction-Link selbst wird nicht versioniert.
+docs/architektur/
