@@ -191,6 +191,29 @@ GenusBindingTraits-Binding-Instanzen (`test_genus_binding` 5/5). queuing ist ein
 - **V110/120/130-Merge (CLAUDE.md-Block)** betrifft das COMDARE-CLUSTER (anderer Workstream), NICHT diese Thesis-Architektur.
 - **Monolith-AdHoc-48-DLL-Pilot** = SUPERSEDED (autoritative F15-Quelle = 6 named Organ-Compositions). **Undo-Log Rev.1** = verworfen (CoW Rev.2).
 
-> **Status:** B1 (dieses Doc) + B2 (SUPERSEDED-Auflösung §11) erfüllt. **VERBLEIBT in Phase B:** B3 (Original-Mission gegen dieses Modell
-> re-formulieren — WO jede Teilaufgabe verankert ist; v.a. Achsen-Austauschbarkeit = im Baum §3, nicht flach) + B4 (Goal-Doc re-grounden).
-> Phase D erweitert §9 um die vollständige 85-Befund-SOLL-Korrektur-Tabelle. Ein neuer Bearbeiter kann aus §1–§11 korrekt arbeiten.
+## §12 Original-Mission gegen dieses Modell verankert (Masterplan B3)
+
+Die Original-Mission (Goal-A0: **Bias-Bruch-Matrix Messung → Audit-Abarbeitung → interpretierbarer LaTeX-Appendix**) — jede Teilaufgabe
+hat einen architektur-konformen SOLL-Ort:
+
+| Mission-Teilaufgabe (User-Detail) | Architektur-Soll-Ort (dieses Doc) | Direktiven-Korrektur |
+|---|---|---|
+| **Ausgabe = Testdaten-Konfig × Tier** (Matrix 320 Tiere × 18 dyn × 21 Lastprofile) | **Build ⊥ Lastenprofil = kartesisches Kreuz (§5)** über den **B+-Baum (§3)**: Tier = Static-Pfad/binary_id, Lastprofil = dynamische Achse 2 (DynamicVariableNode, FOR-Schleife auf geladener Binary) | NICHT flach im Eval-Tool — die Matrix lebt im Baum |
+| **Je Interface-Funktion Verarbeitungsdauer (ns/op) auf z-Achse eines 3D-Diagramms** | **`seg_ns[19]` Pfad-B-Per-Achsen-Timing (§6)** + Tier-Wall-Clock r/w/d (§5 §2.1); Diagramm-Gen Stufe 05 (§4-Pipeline) | z = ns/op je Achse/Interface-Fn aus dem konsolidierten POD |
+| **🎯 Achsen-Austauschbarkeits-Belege** (Wechsel EINER Achse → Diff gegen alle anderen Tiere als Tabelle) | **B+-Baum-Ziffernwechsel (§3): `flat_index`-Diff in genau einer Achse = Geschwister-Tier.** Diff-Auswertung = inverse Signatur-Projektion (KF-15 multimap) über die REALEN Compositions | **DIE Session-Kern-Lehre: gehört IN DEN BAUM, NIE flache Tupel-Kombinatorik** (L1/L2-Fehler, Phase C revert). **Cross-Achsen-Constraint (§3/e2e-Abnahme): `AdHoc<Organ,Default>` ill-formed — Organe brauchen kompatible Begleit-Achsen (named Compositions)** |
+| **Belege müssen ECHT sein (nicht Apparat-Artefakt)** | **Meta-Lehre #3 (A3): Diff-Beweise brauchen Nachweis VERSCHIEDENER Pfade.** ⇒ blockiert auf **Befund-2/Q2-Schritt-4 (§9):** solange `search_organ_`-Monolith node/layout beschattet, sind Achsen-Diffs teils Apparat-Artefakt | **Mission-kritischer E-Kern: Q2-Schritt-4 (volle Such-Delegation) MUSS vor den finalen Austauschbarkeits-Belegen** |
+| **Appendix IMMER alle Werte + ehrliche Limitierungs-Tabelle** | sparse `value_map_` (§3, nur gemessene Knoten) → Stufe 04 csv→latex (§4); **ehrliche Mess-Limits (§8): WC nicht bit-reprod., layout sub-noise→PMC, RC nominal/K1, cowmem=Copy-Pfad** als Daten-Vorbehalte | Done-Kriterium (b): jeder ungefixte Audit-Befund (A3/§9) als Limitierung ausgewiesen |
+| **ZIH-diplominf-Vorlage · NUR relative Pfade · EIN Experiment → fertige bilinguale PDF** | 6-Stufen-Pipeline (§4) `comdare_pipeline_e2e` → thesis `build.ps1 -Lang` (EN≡DE); ZIH `zihpub.cls` unangetastet | Goal §0.4 — git-clone-fest |
+
+**E-Auslegung (B3→E1, audit-fundiert A3 §4):** Die Mission ist EINE geordnete E-Aufgaben-Liste, jede gegen Doc 34 + die 85 Befunde
+verankert: **E-Welle-A2 (Apparat-Reinheit: Q2-Schritt-4 §9 + K5/K6 + CoW-für-320/K3 + seg_ns-n>1/K9 → cowfix-v1, DLL-Neubau) = das
+Herzstück** (ohne echte Achsen-Pfade keine gültigen Austauschbarkeits-Belege). Dann E-Welle-A1 (Resume/Stamp/K8), E-Welle-A3 (RC/
+Scrambling/Gate/SelectMode), E-Welle-A4 (Pattern-Hygiene/K10). Reihenfolge Goal §2.5.5. **Jede E-Aufgabe = eine 1M-Session, gegen
+beide teuren Audits gegengeprüft, Achsen-Austausch IM Baum.**
+
+---
+
+> **Status:** Phase B erfüllt — **B1** (dieses Doc §1–§10) + **B2** (SUPERSEDED-Auflösung §11) + **B3** (Mission-Verankerung §12) +
+> **B4** (Goal-Doc verweist auf dieses Doc 34, separat). **Phase D** erweitert §9 um die vollständige 85-Befund-SOLL-Korrektur-Tabelle.
+> Ein neuer Bearbeiter kann aus §1–§12 korrekt arbeiten, OHNE die 48 Quell-Docs einzeln zu lesen. **Nächste Masterplan-Phasen: C
+> (Aufräumen: L1/L2 revert + A2a-re-eval + Memory-Clean) → D (85 Audit-Befunde Befund-für-Befund) → E (Mission, 1 Aufgabe/1M-Session).**

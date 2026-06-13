@@ -4,6 +4,13 @@
 >
 > **Dieses /goal steuert ab jetzt AUSSCHLIESSLICH über den Masterplan**
 > `docs/sessions/20260613-MASTERPLAN-architektur-konsolidierung-und-aufraeumen.md` (Tasks #143–#150).
+>
+> **⭐ B4-UPDATE (2026-06-13 spät) — Phase A+B (B1–B4) ERLEDIGT:** Der konsolidierte IST-Architektur-Stand (Masterplan B1) liegt jetzt als
+> **Single-Source `docs/architecture/34_KONSOLIDIERTER_MASTER_IST_STAND.md`** vor (§1–§12: 3-Ebenen/Organ/B+-Baum/4-Subsystem/3-Stufen/
+> Mess-Modell/Observer-I1/Memento-CoW/Pflicht-Achsen-19/F15+Bias-Matrix/Befund-2-Mess-Echtheit/SUPERSEDED-Auflösung/Mission-Verankerung).
+> **Jede künftige K/L/E-Aufgabe liest Doc 34 (statt der 48 Quell-Docs) + prüft gegen die 85 Audit-Befunde (`20260613-A3-audit-soll-abgleich.md`).**
+> Die A0–A3-Lese-/Code-/Audit-Destillate (`20260613-A1-lesenotizen…` / `…-A2-code-pre-read…` / `…-A3-audit-soll-abgleich`) sind die
+> agent-verifizierten Belege darunter. **VERBLEIBEND:** Masterplan C (Aufräumen) → D (85 Befunde Befund-für-Befund) → E (Mission, 1 Aufgabe/Session).
 > Das /goal zu setzen bedeutet: die Masterplan-Phasen **A→B→B4→C→D→E→F in STRIKTER Reihenfolge** autonom
 > abarbeiten —
 > **A** (ALLE Architektur-Docs ab Doc 00 lesen + Pflicht-Code-Pre-Read + Audit-Überblick) →
