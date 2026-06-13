@@ -38,6 +38,9 @@
 // host-seitige Loader jetzt das LEICHTE anatomy_module_abi_v1_decl.hpp nutzt (NICHT mehr abi_adapter.hpp),
 // belasten diese topics/-Includes nur die Voll-Header-Konsumenten (DLLs/Tests, die die Pfade ohnehin haben).
 #include "../topics/traversal/axis_03a_search_algo/composable/observable_composed_search.hpp"
+// (E-Welle-A2 / Befund-2 / A2.5) Klassifikation + Mapping store-traversierbarer Such-Algos (für die container_t-Traversal-Wahl)
+#include <axes/lookup/composable/store_traversable_search_algo.hpp>
+#include <axes/lookup/composable/traversal_for_search_algo.hpp>
 #include "../topics/nodes/axis_04_node_type/axis_04_node_type_composed_store.hpp"
 #include "../axes/node/axis_04_node_type_chunked_store.hpp"   // Audit-30 Fix Q2: node-WIRKSamer Store (Delegation)
 #include "../axes/node/axis_04_node_type_layout_aware_store.hpp"  // Plan v2 S1: layout-honorierender Store (CLA-Stride echt, OOB behoben)
@@ -785,7 +788,16 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         // ── T0 search_algo ──────────────────────────────────────────────────────────────────────────────
         if constexpr (ObservableAxis<SearchAlgo>) {
-            auto const ss = search_organ_.statistics();
+            // (E-Welle-A2 / Befund-2 / Q2-Schritt-4 / A2.5) T0-Such-Metrik QUELLE: store-traversierbare Algos liefern sie
+            // aus dem container_-Store (die Suche routet jetzt via traversal_for_search_algo über node/layout/allocator —
+            // KEIN search_organ_-Schatten mehr → node/layout-Wechsel ändern T0 = Meta-Lehre #3). Weg-B-Algos (k-ary/eytzinger/
+            // Tree/Trie/Hash): weiter aus search_organ_ (ehrlich, tier_search_routes_through_store()==false). Felder identisch.
+            auto const ss = [&]() {
+                if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>)
+                    return container_.statistics();
+                else
+                    return search_organ_.statistics();
+            }();
             auto* r = s.axis_stats[0];
             r[0] = ss.total_lookup_count; r[1] = ss.total_hit_count;  r[2] = ss.total_miss_count;
             r[3] = ss.total_insert_count; r[4] = ss.total_erase_count; r[5] = ss.peak_occupancy;
@@ -1256,7 +1268,11 @@ public:
     // Trie/Hash = eigener NodePoolStore → Weg-B false, ehrliche Appendix-Limitierung; G3 code-bestätigt). Ohne true
     // sind die Achsen-Austauschbarkeits-Belege für dieses Tier teils Apparat-Artefakt (Doc 34 §9.1 SOLL-Regel 3 +
     // A3 Meta-Lehre #3: Diff-Beweise brauchen NACHWEISLICH verschiedene Organ-Pfade). Verifikations-Hook für A2.5.
-    [[nodiscard]] static constexpr bool tier_search_routes_through_store() noexcept { return false; }
+    [[nodiscard]] static constexpr bool tier_search_routes_through_store() noexcept {
+        // (A2.5) Jetzt EHRLICH conditional: store-traversierbare Algos (LinearScan/Interpolation) liefern T0 aus container_
+        // (Suche über node/layout/allocator) → true; Weg-B-Algos (k-ary/eytzinger/Tree/Trie/Hash) → false (search_organ_-Quelle).
+        return ::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>;
+    }
 
     /// Diagnose für den Zwei-Phasen-Treiber (I7): exakter Rollback, wenn jedes Organ ENTWEDER MementoAxis ODER
     /// kopierbar ist. Sonst muss der Treiber Kalt-Messung wählen (empirische Probe in tier_observe_trace_abi.hpp).
@@ -1308,8 +1324,15 @@ private:
     // Plan v2 S1 (2026-06-04): layout-honorierender Store — speichert Records am layout-getriebenen eff_stride
     // (CLA 64-B-gepaddet vs aos 16-B-packed) → die memory_layout-Achse ist ECHT, organ_observe_layout OOB-frei,
     // allocator-Bytes layout-abhängig. Drop-in zu NodeChunkedStore (StorageOrgan-Concept), ersetzt es im Mess-Pfad.
+    // (E-Welle-A2 / Befund-2 / Q2-Schritt-4 / A2.5) Such-Strategie ÜBER den Store: store-traversierbare Algos
+    // (LinearScan/Interpolation) parametrisieren container_ mit ihrem TREUEN Traversal-Organ → die search_algo-Achse
+    // sucht über DENSELBEN node/layout/allocator-getriebenen Store (Befund-2-SOLL); Weg-B-Algos: SortedBinary-Fallback.
+    using container_traversal_t = std::conditional_t<
+        ::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>,
+        ::comdare::cache_engine::lookup::composable::traversal_for_search_algo_t<SearchAlgo>,
+        ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::SortedBinaryTraversal>;
     using container_t = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::ObservableComposedSearch<
-        ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::SortedBinaryTraversal,
+        container_traversal_t,
         ::comdare::cache_engine::node::LayoutAwareChunkedStore<
             typename Composition::node_type, typename Composition::memory_layout, typename Composition::allocator>>;
 
