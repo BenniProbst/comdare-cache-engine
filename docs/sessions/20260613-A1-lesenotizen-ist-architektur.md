@@ -72,6 +72,57 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 - **F15-Mission:** schnellste Rekombination im Permutations-Raum finden + alle Achsen-Permutationen studieren;
   V1–V4 Engine-Choice-Dimension (NO-CE/Static/Informed/Adaptive).
 
+## 3a. VERTIEFUNG Mess-Modell (Doc 24 vollständig, gelesen 2026-06-13) — das HYBRID + Prüf-Dock + Prüfling
+
+- **HYBRID = ZWEI Mess-Pfade über DIESELBE Modul-Binary** (Doc 24 §8.1, User-verbatim-tragend). Gemeinsame Basis:
+  jede Permutation wird als SHARED-DLL gebaut (`adhoc_emitter` → `comdare_build_adhoc_modules` → `AnatomyModuleLoader`).
+  Die **Mess-KONFIGURATION** wählt den Pfad:
+  - **Pfad A — isolierte Achsen-Algos gegeneinander:** läuft **IN der DLL selbst** via `IMeasurableWorkload::run_workload`
+    (DLL fährt eigenen Mess-Workload, liefert Batch-Latenzen) → host-seitige Aggregation + Statistik (`f15_compare`,
+    Welch/MWU/Cliff's δ). Dimension §2.3 (Achsen-Vergleich). **NICHT verworfen** (Korrektur einer früheren Fehlaussage).
+  - **Pfad B — composite Tier:** läuft **zentral host-seitig über CacheEngineBuilder** via ABI-stabilen **Observer-Zugriff**
+    (`IObservableTier::tier_observe` → flacher POD über DLL-Grenze). Dimensionen §2.1 (Tier-Wall-Clock: Füllstand-Kurven,
+    r/w/d getrennt, RAM/Disk) **+** §2.2 (Per-Achsen-`observe_all` → ObserverAggregate). **Zeit-/zustands-KORRELIERT**
+    (§8.7): jeder Observer-Snapshot trägt Wall-Clock-Stempel → Zeitreihe `[(t,ObserverAggregate)]`; 2 Trigger-Modi
+    (a Zeitschritt-Sync / b Zustands-Manipulation = Füllstands-Checkpoints). R6 done-verified (`R8RestA_DockMeasuresRealDll`).
+- **3 Mess-DIMENSIONEN (Doc 24 §2.4):** §2.1 Tier-Wall-Clock (CacheEngineBuilder) · §2.2 Achsen-Observer (`observe_all`,
+  Anatomie) · §2.3 Achsen-Vergleich (Unit-Tests gegen vereinheitlichtes Interface vs. bekannte Algos, z.B. std::map) —
+  **welche Achsen-Variante „besser" ist, entscheidet §2.3, NICHT der Latenz-Benchmark.**
+- **PRÜF-DOCK (Doc 24 §8.8):** = die CacheEngineBuilder-SEITE für GENAU EINE Gattung (= Außen-Interface) — lädt +
+  treibt Gattungs-API durch + misst Observer + persistiert. EIN Dock je Gattung: **SearchAlgorithm / Container / Graph**
+  (NICHT je Tier-Unterklasse — Set/Sequence/Adapter/View teilen das EINE Container-Dock). **KEIN Neubau** — nur Benennung
+  der vorhandenen `IObservableTier`+`AnatomyModuleLoader`+`drive_tier_observe_trace_abi`-Verdrahtung (`pruef_dock/`).
+- **PRÜFLING-Integration (Doc 24 §8.9/§8.9.1) = CMake + Metaprog-Join, NICHT Header-Kopie:** prt-art = abstrakte
+  Tier-Permutation, liefert für EINIGE Achsen neue Algos, per C++23-Metaprog mit CE-Achsen gejoint (`optional_prt_art_impl`-
+  Slot, ERSETZT-mit-Fallback). **3 Join-Stufen, EIN Dock misst alle:** Stufe1 `comdare_perms_ce` (A) · Stufe2
+  `comdare_perms_<pf>` (B) · Stufe3 `comdare_perms_full_join` (A⋈B, dedupliziert = „Schnabeltier"-Hybrid). **Regel der
+  abstrakt-leeren Achse:** leere Prüfling-Achse reust ALLE CE-Algos → Stufe-2-Raum = kartesisches Produkt ÜBER die leeren
+  Achsen (`B = 1^|belegt| × ∏_j|A_j|`), NICHT eine Komposition; Dock misst alle, um die schnellste Prototyp-Rekombination zu finden.
+- **§5.5-Key-Type-Blocker (historisch, AUFGELÖST):** Such-Organe hatten schmale Keys (Array256=uint8 etc.) → durch
+  Umstufung-A/B alle auf gemeinsamen **uint64** → Builder treibt Composition-Organ verlustfrei (Pfad B).
+
+## 2a. VERTIEFUNG B+-Baum (Doc 26 + 27 vollständig, gelesen 2026-06-13) — 22 Achsen, 4 Brücken, Gate-1
+
+- **22 Achsen / 15 Topics (Doc 27 §0, AUTORITATIV; „17"≠Gesamtzahl):** **17 AdHocComposition-Slots T0–T16** (search_algo…
+  filter) = Kern der **SearchAlgorithm-Tier-Unterklasse** · **q1/q2 queuing = reguläre mandatorische SA-Achsen** (→ **19**;
+  NoBuffer/NoFlush = Durchreich-Algo) · **page_type/09b/12 = 3 Build-/Codegen-Achsen** DERSELBEN SA-Binary. KEIN getrennter
+  Genus-Teilbaum für queuing. Adapter-Tier-Unterklasse (unter Container-Interface) = 13 Achsen (9 delegiert + 3 aktiv +
+  `inner_container`; KEINE „ordering"-Achse — FIFO/LIFO = API-Nutzung §26.4); nutzt queuing NICHT.
+- **4 BRÜCKEN (Doc 27, alle DONE+verifiziert):** **BR-1** registry→`AxisLevel`s (`registry_to_axis_levels.hpp`, alle 22
+  als Baum-Ebene) · **BR-2** Blatt-Pfad↔reale `AdHocComposition<17>` (`composition_registry.hpp` + EINE zentrale
+  `serialize_composition_path<P>()`) · **BR-3** `NodeValue`→echter `NodeObserverSnapshot` (flacher uint64-POD ==
+  `ComdareTierObserverSnapshotV1`, sparse value_map nur GEMESSENE Knoten; `node_value_measurement.hpp` treibt realen
+  Adapter) · **BR-4** generierte Binary→reale Anatomie (`render_adhoc_module_source` → `COMDARE_DEFINE_ANATOMY_MODULE_ADHOC`
+  → DLL → Loader → `dynamic_cast<IObservableTier*>`). Reihenfolge BR-1→2→4→3.
+- **Gate-1 (literal verifiziert):** `tree.binary_count() == ∏ mp_size(Enabled_i) == PermutationEngine::count() ==
+  137.594.142.720.000` — REIN ARITHMETISCH (Kardinalitäts-Identität `mp_size<mp_product<L…>>=∏|L|`), OHNE den Typ-Baum.
+- **🔴 C1060 (empirisch, Doc 27 §6):** Voll-`mp_product` über 17 Achsen sprengt den Compiler-Heap (eager `tree.build`
+  zog ~21 GB) ⇒ Voll-Typ-Baum INFEASIBLE. ⇒ **nur EIN Blatt compile-time materialisiert** (on-demand BR-2/BR-4);
+  Laufzeit-Baum-Manager zählt/strukturiert den Raum, **per-Achse CRTP-Deskriptor-Klassen** (typsicher) + **AxisBlock**
+  (typsicherer Teilbaum, Wurzel-an-Tail-Verkettung). Iteration = lazy Mixed-Radix-Odometer (O(Tiefe)); Build = nur K Pfade
+  parallel (`StaticBinaryView::operator[](i)` dekodiert EINEN Pfad). **§b R5.B-Operativität-Grenze ehrlich:** operativ
+  misst real nur search_algo (+ allocator), Rest passive Compile-Time-Deskriptoren (`observable_axis_count` macht es transparent).
+
 ## 4. Offene Punkte / Vorbehalte aus dem IST-Ledger (für D/E relevant)
 - Vendor-Allokatoren (#19, jemalloc/tcmalloc/hoard/scalloc) + reale PMC (#26) = **extern/toolchain-gated**
   (lokal nicht baubar; Beschaffungs-Specs geliefert; erst ZIH/Cluster). Mechanik an mimalloc/snmalloc/dlmalloc bewiesen.
@@ -160,11 +211,16 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   T0+T6; Zwei-Phasen-Warmup PFLICHT; Resume je Tier-Binary via Config-Stamp [BuildVersion+dims+rows]; CoW =
   Rev.1-Eskalation generalisiert auf alle Mutationen, Read-Perioden O(1))
 - ✅ (Code, frühere Session) `experiment_tree.hpp` (= Substanz von Doc 26/27/29 B+-Baum) · `abi_adapter.hpp` (CoW-Teil)
+- ✅ cache-engine **Doc 24** (Mess-Modell 2-Dim — vollständig: HYBRID Pfad A/B + §8.7 korrelierte Erhebung + §8.8 Prüf-Dock
+  + §8.9/§8.9.1 Prüfling-3-Join + leere-Achse-Regel; → §3a)
+- ✅ cache-engine **Doc 26** (B+-Baum-Prosa, vollständig) + **Doc 27** (4 Brücken BR-1..4 + 22-Achsen-Inventar + Gate-1
+  137.594.142.720.000 + C1060-Infeasibility; → §2a)
 - ✅ Thesis **03_konzepte_saeule_a + 04_konzepte_saeule_b** (SUPERSEDED-Konzept-Vokabular: F1–F29 / 4-Ebenen-Strategie
   A-B-C-D / 33-Paper-Map / Säule-B Plattform-Auto-Discovery [Discover→Measure→Classify→Publish→Bind] + 28 Concept-Klassen
   + ~80 Heuristiken + Block-AO-Maschinen Ryzen-9950X3D/i9-14900KS — Kontext, NICHT IST)
-- ⬜ OFFEN: Thesis 01,05,06,07,08,12,13 + Rest 11/14 · cache-engine **24 (Messmodell 2-Dim) · 26 (B+-Baum-Prosa) ·
-  27 (Baum-4-Brücken) · 29 (Baum-Generik) · 31 (Observer-Konsol.) · abhaengigkeitskette · messarchitektur_design_observer ·
-  messarchitektur_v5_design/_entscheidungen/_drei_profile/_i8** + 15–23/25/28/32 · A2 Rest-Code-Pre-Read
-  (anatomy/composition/permutation_engine/perm_runner/iterator) · A3 Audits-Soll-Abgleich.
-  (Beide IST-Docs + Doc 30 + Doc 33 ✅ — die Konsolidierungs-Basis B steht; Rest = Konzept-/Detail-Kontext.)
+- ⬜ OFFEN: Thesis 01,05,06,07,08,12,13 + Rest 11/14 · cache-engine **29 (Baum-Generik/Composition-Driver) ·
+  28 (Vollständigkeits-Kartographie) · 31 (Observer-Konsol. I1) · abhaengigkeitskette · messarchitektur_design_observer ·
+  messarchitektur_klarstellungen · messarchitektur_v5_design/_entscheidungen/_drei_profile/_i8** + 15–23/23a/25(×2)/32 ·
+  A2 Rest-Code-Pre-Read (registry_to_axis_levels/profile_to_tree/composition_registry/composition_factory/
+  search_algorithm_anatomy/observable_tier/perm_runner/iterator/permutation_engine/genus_binding_traits) · A3 Audits-Soll-Abgleich.
+  (Beide IST-Docs + Doc 24/26/27/30/33 ✅ — die Konsolidierungs-Basis B steht solide; Rest = Generik-/Detail-/Konzept-Kontext.)
