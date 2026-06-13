@@ -25,6 +25,13 @@ ArtComposition vs ArtPaperBindingComposition = unterscheiden sich in GENAU `sear
 II CE-Sub-Engines C1-C12 (CE-interne Services) · III Cache-Strategien F1-F29 (Impl. der Sub-Engines) ·
 IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-Strategie ≠ S-Familie.
 
+> **⚠️ SUPERSEDED-KONZEPT-VOKABULAR (Docs 03/04/09, alle 2026-05-31-Banner):** Das **29-ICacheStrategy-Familien-
+> (F1–F29) / 30-Such-Engine-Familien- (S1–S30) / 4-Ebenen-Strategie- (A IPattern/B IPlural/C ISingular/D ICommand) /
+> 12-CE-Sub-Engine-(C1–C12)-Modell** ist der ALTE Planungsstand (Säule A/B, Doc 02 REV7.7). Es ist NICHT das aktuelle
+> Achsen/Organ-IST (= 17/19-Achsen-Komposition, B+-Baum, 3-Stufen-Prüfling, V5-Mess-Architektur). **Für B NICHT
+> vermischen** — das IST ist das Achsen-Organ-Modell (§1 oben + Doc 30); F1–F29 etc. dienen nur als Begriffs-/
+> Paper-Mapping-Historie (33-Paper → Familien). 33 Paper P01–P33 sind den Achsen/Compositions zugeordnet.
+
 **4-Subsystem-Modell (Doc 10):** messung_driver (OUTER LOOP/Auswertung, Diplomarbeit/Code) → **CacheEngineBuilder**
 (autonomes Plattform-Ausmess-System, App) → **CacheEngine** (Werkzeug-Bibliothek) ↔ **Prüfling (prt-art)**
 (bidirektional: CE bindet Prüfling als Permutations-Struktur + Prüfling nutzt CE-Services). CEB+CE im selben Repo,
@@ -153,7 +160,8 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   T0+T6; Zwei-Phasen-Warmup PFLICHT; Resume je Tier-Binary via Config-Stamp [BuildVersion+dims+rows]; CoW =
   Rev.1-Eskalation generalisiert auf alle Mutationen, Read-Perioden O(1))
 - ✅ (Code, frühere Session) `experiment_tree.hpp` (= Substanz von Doc 26/27/29 B+-Baum) · `abi_adapter.hpp` (CoW-Teil)
-- ⬜ OFFEN: Thesis 01,03,04,05,06,07,08,12,13 + Rest 11/14 · cache-engine **24 (Messmodell 2-Dim) · 26 (B+-Baum-Prosa) ·
+- ✅ Thesis **03_konzepte_saeule_a** (SUPERSEDED-Konzept-Vokabular: F1–F29 / 4-Ebenen-Strategie / 33-Paper-Map)
+- ⬜ OFFEN: Thesis 01,04,05,06,07,08,12,13 + Rest 11/14 · cache-engine **24 (Messmodell 2-Dim) · 26 (B+-Baum-Prosa) ·
   27 (Baum-4-Brücken) · 29 (Baum-Generik) · 31 (Observer-Konsol.) · abhaengigkeitskette · messarchitektur_design_observer ·
   messarchitektur_v5_design/_entscheidungen/_drei_profile/_i8** + 15–23/25/28/32 · A2 Rest-Code-Pre-Read
   (anatomy/composition/permutation_engine/perm_runner/iterator) · A3 Audits-Soll-Abgleich.
