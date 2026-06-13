@@ -169,6 +169,13 @@ WorkloadOp WorkloadGenerator::next() noexcept {
             k = config_.key_max + 1ULL + (next_random() % range);   // außerhalb [key_min, key_max] = nie geladen
         }
     }
+    // (Audit K7b) Insert-Ops fuegen ECHTE NEUE Keys ein (KEIN Upsert): die Load-Phase fuellt [key_min,key_max] voll,
+    // daher waere sample_key() fuer einen Insert IMMER ein existierender Key (Upsert, kein Wachstum). Neue Keys OBERHALB
+    // der Negativ-Query-Range [key_max+1, 2*key_max] → eindeutig + wachsend + kollidieren NICHT mit Negativ-Queries;
+    // generated_ (monoton, deterministisch) garantiert Eindeutigkeit + Reproduzierbarkeit. (RMW bleibt Upsert, Doc 32.)
+    if (kind == WorkloadOpKind::Insert) {
+        k = (config_.key_max * 2ULL) + 2ULL + generated_;
+    }
     auto const v_raw = next_random();  // value (immer gezogen, hält den PRNG-State synchron / reproduzierbar)
     // V5-#49-E: für Scan-Ops kodiert `value` die Scan-Länge in [1, scan_length_max] (YCSB-E, uniform).
     std::uint64_t const v = (kind == WorkloadOpKind::Scan)
