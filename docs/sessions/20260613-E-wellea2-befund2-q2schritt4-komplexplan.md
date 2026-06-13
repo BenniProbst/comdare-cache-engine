@@ -210,3 +210,18 @@ werden als nicht-store-geroutet ausgewiesen (kein Apparat-Artefakt-Vortäuschen)
   Traversal, sonst SortedBinary-Fallback) -> **A2.5** (`search_organ_`-Entfernung im store-Zweig + T0 aus container_ +
   Diagnose-Flag conditional) -> **A2.6** perm_runner->V2-POD -> **A2.7** Begleit (K3/K4/K9) -> **A2.8** cowfix-v1-Neubau +
   Meta-#3-node-Wechsel-Test.
+
+### §11.1 A2.4-Schritt-2 DONE + S1-Ehrlich-Korrektur (verifiziert gruen, ce 6ab2e0e)
+
+- **A2.4-Schritt 2** (Mapping) DONE: `composable/traversal_for_search_algo.hpp` — `traversal_for_search_algo_t<S>` mappt
+  store-traversierbare Such-Algos auf ihr TREUES Traversal-Organ: LinearScan->LinearScanTraversal,
+  Interpolation->InterpolationTraversalOrgan; primaeres Template `void` (= Weg-B). static_assert verifiziert.
+- **A2.4-S1 EHRLICH-KORREKTUR:** am Code verifiziert (composable_search.hpp bietet nur LinearScan+SortedBinary,
+  KEIN k-ary-Traversal) -> **KAry-Marker entfernt** (k-ary = k-Wege-SIMD-Partition, kein treues Organ -> Weg-B; sonst
+  Fidelitaets-Defekt). **Store-traversierbar = NUR LinearScan + Interpolation** (die 2 mit treuem dedizierten Traversal).
+  Registry-static_assert entsprechend korrigiert. Kein Raten (Meta-Lehre #1/#2). VERIFIZIERT: test_v41_compositions 25/25.
+- **NAECHSTER = A2.5 (Integration, der Kern-Eingriff):** in `abi_adapter.hpp` `container_t` = `ObservableComposedSearch<
+  std::conditional_t<StoreTraversableSearchAlgo<SearchAlgo>, traversal_for_search_algo_t<SearchAlgo>, SortedBinaryTraversal>,
+  LayoutAwareChunkedStore<...>>` + T0-Metrik aus container_ (statt search_organ_) im store-Zweig + `search_organ_` nur noch
+  Weg-B (if constexpr) + `tier_search_routes_through_store()` = `StoreTraversableSearchAlgo<SearchAlgo>` (ehrlich erst wenn
+  T0 wirklich aus container_). = der eigentliche Befund-2-Fix; danach A2.6 (perm_runner-POD) -> A2.8 (cowfix-v1-Neubau).
