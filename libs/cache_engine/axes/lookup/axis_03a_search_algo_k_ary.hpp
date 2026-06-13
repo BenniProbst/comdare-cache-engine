@@ -56,9 +56,10 @@ namespace comdare::cache_engine::lookup {
 class KArySearchAlgo : public SearchAlgoBase<KArySearchAlgo> {
 public:
     static constexpr bool enabled = flags::k_ary_enabled;
-    // (E-Welle-A2 / Befund-2 / A2.4-S1) Array-Familie (k-ary-Suche über sortiert-aufsteigenden flachen Slot-Store) →
-    // store-traversierbar: Suche über DENSELBEN LayoutAwareChunkedStore (node/layout/allocator wirken real). G3-klassifiziert.
-    static constexpr bool axis_03a_store_traversable = true;
+    // (E-Welle-A2 / Befund-2 / A2.4-S1, KORRIGIERT 2026-06-13) k-ary ist zwar Array-Familie (flacher Store), hat aber KEIN
+    // treues dediziertes Traversal-Organ (composable_search.hpp bietet nur LinearScan + SortedBinary; k-ary = k-Wege-SIMD-
+    // Partition, NICHT 2-Wege-Binär) → konservativ KEIN axis_03a_store_traversable-Marker (Weg-B), bis ein treues KAryTraversal-
+    // Organ existiert. Sonst maesse die k_ary-Achse SortedBinary-Verhalten (Fidelitäts-Defekt). Kein Raten (Meta-Lehre #1/#2).
 
     using key_type   = std::uint16_t;
     using value_type = std::uint64_t;
