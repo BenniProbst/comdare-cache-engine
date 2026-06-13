@@ -165,3 +165,34 @@ Danach A2.2→A2.8 strikt der Reihe nach, je grün + commit + Submodul-Bump. Der
 A2.2/A2.4/A2.5** (Traversal-Vereinheitlichung: `search_organ_` entfällt, Such-Strategie ÜBER den Store via `StoreTraversalAdapter`
 = GoF-Adapter, Cross-Achsen-Constraint G3 + Weg-B-Rückfall + Meta-Lehre-#3-Diagnose-Flag) — der größte/riskanteste Umbau des
 Mess-Kerns, eigener frischer Voll-Kontext; danach A2.6 (perm_runner→V2-POD) → A2.7 (Begleit K3/K4/K9) → A2.8 (cowfix-v1-Neubau).
+
+## §10 A2.4 Design-Auflösung (code-verifiziert 2026-06-13) — G3 ist FUNDAMENTAL, nicht inzidentell
+
+**Code-Befund (`composable/` + `tier_to_organ_mapping.hpp` #40):** Es existiert eine vollständige **Traversal-Organ-Familie**
+(LinearScan/SortedBinary/Interpolation/Galloping/BST/Hash/SkipList/ArtTrie/HotPatricia/Masstree/Start/Surf/Wormhole) +
+ein Rekonstruktions-Mapping, das JEDEN Such-Algorithmus bereits als `ComposedSearch<Traversal, Store>` ausdrückt:
+- **Array-Familie** (LinearScan/SortedBinary/Interpolation/Galloping) → `ComposedSearch<Traversal, RawSlotStore>` = FLACHER
+  Slot-Store → **store-traversierbar** (LayoutAwareChunkedStore ist flach-slot-kompatibel, StorageOrgan-Concept).
+- **Tree/Trie/Hash-Familie** (BST/BTree/Hash/SkipList/ArtTrie/HotPatricia/Wormhole/Surf/Start/Masstree) → je eigener
+  `*NodePoolStore` (Knoten-/Bucket-Pool) → **NICHT flach-store-traversierbar** (das Pool-Substrat IST der Algorithmus).
+
+⇒ **A2.4-AUFLÖSUNG (der zentrale Design-Entscheid des Herzstücks):** Die Befund-2-Vereinheitlichung (Such ÜBER den
+LayoutAwareChunkedStore, sodass node/layout/allocator real auf den Such-Pfad wirken) ist **NUR für die Array-Such-Algo-Familie
+möglich**. Für sie: `container_t`-Traversal = das zu `Composition::search_algo` passende **Array-Traversal-Organ** (statt
+hart-verdrahtetem SortedBinary), `search_organ_` entfällt. Die **Tree/Trie/Hash-Tiere sind inhärent NICHT flach-store-
+traversierbar** → **Weg-B** (Plan §3): `search_organ_` bleibt für sie, `tier_search_routes_through_store()==false`, ehrliche
+Appendix-Limitierung (ihre node/layout-Achsen beschreiben den separaten Mess-Store, nicht den Such-Pfad). Das ist EXAKT der
+Cross-Achsen-Constraint G3 (Doc 34 §3/§12 + e2e-Abnahme `AdHoc<Organ,Default>` ill-formed) — **jetzt am Code bestätigt, nicht
+nur vermutet.** Meta-Lehre #3 wird damit ehrlich erfüllbar: store-geroutete Tiere liefern echte Achsen-Diffs, Weg-B-Tiere
+werden als nicht-store-geroutet ausgewiesen (kein Apparat-Artefakt-Vortäuschen).
+
+**A2.4/A2.5-Implementierungs-Pfad (durch diese Auflösung DE-RISKED, nächster frischer Voll-Kontext):**
+1. Trait `StoreTraversableSearchAlgo<S>` (Concept: ist S ein Array-Such-Algo? — via `tier_to_organ_mapping`-Klassifikation
+   bzw. ob S über einen flachen Slot-Store statt Pool-Store komponiert) + `TraversalForSearchAlgo<S>` (Array-Algo → Traversal-Organ).
+2. `container_t` = `ObservableComposedSearch<TraversalForSearchAlgo<Composition::search_algo>, LayoutAwareChunkedStore<…>>`
+   für store-traversierbare; sonst SortedBinary-Fallback (Weg-B). Per `if constexpr` an `StoreTraversableSearchAlgo`.
+3. `abi_adapter`: `tier_search_routes_through_store()`-Diagnose-Flag (Meta-#3); bei true T0-Metrik aus `container_` statt
+   `search_organ_`; `search_organ_` nur noch im Weg-B-Zweig instanziiert (`if constexpr`, zero-cost im store-Zweig).
+4. `static_assert` über die ZIEL-Population (welche der 320 store-traversierbar — Meta-Lehre #1/#2; ehrlich ausgewiesen).
+5. `perm_runner`→V2-POD (node_*-Felder aus dem EINEN Store). 6. cowfix-v1-Neubau + Meta-#3-node-Wechsel-Test (node4 vs
+   node256 → verschiedene Such-seg_ns für store-geroutete Tiere = Beleg verschiedener Pfade).
