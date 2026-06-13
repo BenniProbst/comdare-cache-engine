@@ -152,5 +152,16 @@ Danach A2.2→A2.8 strikt der Reihe nach, je grün + commit + Submodul-Bump. Der
   Inkrement; A2.2 in den zusammenhängenden Kern-Block A2.2/A2.4/A2.5 (Traversal-Vereinheitlichung) ziehen — EIN tiefer
   Kern-Inkrement statt zweier sich überschreibender. Begründung: vermeidet Flach-Shortcut/Rework (Goal „maximale Tiefe").
 
-**Stand:** A2.1 verifiziert-erledigt; A2.3 + der Kern-Block A2.2/A2.4/A2.5 als nächste eigenständige Inkremente (je frischer
-Kontext für die geforderte Tiefe), Reihenfolge A2.3 → Kern-Block → A2.6 (POD) → A2.7 (Begleit) → A2.8 (cowfix-v1-Neubau).
+- **A2.3 ✅ AUSGEFÜHRT + VERIFIZIERT GRÜN** (ce `6f719be`/super `b96b72e`): `LayoutAwareChunkedStore` alloziert die Chunks
+  jetzt REAL über Policy A (`alloc_.allocate(cap_*eff_stride, kChunkAlign=64)`) statt `std::allocator`; `allocator_statistics()`
+  = `alloc_.statistics()` (A's echte Zählung) statt fabriziert. `Chunk={data,used,capacity}` + **Rule-of-5** (CoW-isoliert:
+  `copy_from_` rekonstruiert byte-genau über `this->alloc_`; `free_chunks_`/dtor/clear → `alloc_.deallocate`). Die Layout→
+  Allocator-Kopplung (CLA 64 vs aos 16) ist jetzt ECHT (A alloziert die layout-stride-Buffer). **Literal:** test_v41_anatomy_observer
+  **18/18** + test_v5_organ_memento **2/2** (CoW-Store-Kopie via Rule-of-5) + test_d_v42_{memory_layout,node_type}_observable
+  build+run exit=0; `test_layout_aware_store`-Assertions analytisch erhalten (kN=4096 % cap_=4 == 0 → A-Kapazität == size_*eff_stride).
+  = Audit K6/P6 erledigt (a).
+
+**Stand:** **A2.1 ✅ + A2.3 ✅** verifiziert-exekutiert (K5b + K6/P6, je literal grün). **NÄCHSTER = der HOCH-Risiko-Kern-Block
+A2.2/A2.4/A2.5** (Traversal-Vereinheitlichung: `search_organ_` entfällt, Such-Strategie ÜBER den Store via `StoreTraversalAdapter`
+= GoF-Adapter, Cross-Achsen-Constraint G3 + Weg-B-Rückfall + Meta-Lehre-#3-Diagnose-Flag) — der größte/riskanteste Umbau des
+Mess-Kerns, eigener frischer Voll-Kontext; danach A2.6 (perm_runner→V2-POD) → A2.7 (Begleit K3/K4/K9) → A2.8 (cowfix-v1-Neubau).
