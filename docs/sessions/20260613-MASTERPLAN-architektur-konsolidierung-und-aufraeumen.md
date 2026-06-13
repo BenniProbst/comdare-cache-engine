@@ -107,6 +107,18 @@ Die Bias-Matrix-Mess-/Audit-/Appendix-Mission gegen das konsolidierte Modell re-
 nicht im Eval-Tool).
 **✓ Kriterium:** Jede Original-Teilaufgabe hat einen architektur-konformen Soll-Ort.
 
+### B4 — Goal-Dokument grundlegend überarbeiten (auf den Masterplan + Steuerung umstellen) [User-Ergänzung]
+Das am Session-Anfang erstellte `GOAL-AUTONOM-ABARBEITUNG-20260613.md` wird grundlegend re-grounded: die alte
+M/L-Ausführungs-Reihenfolge (§2, L1–L8-Flach-Pipeline = Architektur-Fehler) wird verworfen; das Goal verweist als
+**schlanke Steuerung auf DIESEN Masterplan** (Phasen A→F) + den konsolidierten Architektur-Stand (B1); der
+Audit-Backlog §2.5 + das Rohdaten-Manifest §2.5.6 bleiben als Referenz (Phase D). So ist das /goal sauber setzbar
+und der Masterplan autonom abarbeitbar.
+*(Eine schlanke Sofort-Fassung dieses Verweises wurde bereits 2026-06-13 spät als Kopf-Banner ins Goal-Doc
+eingetragen, damit das /goal SOFORT setzbar ist; B4 ist die gründliche Re-Grounding nach Existenz von B1 —
+inkl. Entfernen/Archivieren der überholten §2-Inhalte.)*
+**✓ Kriterium:** Goal-Doc trägt keine überholte L-Pipeline-Steuerung mehr; verweist sauber auf Masterplan + B1;
+das /goal ist gesetzt und treibt die autonome Abarbeitung.
+
 ---
 
 ## PHASE C — Aufräumen ALLER falsch umgesetzten Session-Änderungen
