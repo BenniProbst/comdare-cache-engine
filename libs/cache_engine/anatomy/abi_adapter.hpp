@@ -1297,8 +1297,22 @@ public:
         std::uint64_t visited = 0;
         std::uint64_t sum     = 0;
         try {
-            if constexpr (MementoAxis<SearchAlgo>) {
-                auto snapshot = search_organ_.save_state();   // vollständige (key,value)-Liste des Substrats
+            // (E-Welle-A2 / Audit K4 / A2.5-konsistent) store-traversierbare Tiere: Scan ueber den container_-Store
+            // (= die A2.5-Daten-Quelle), funktioniert auch wenn SearchAlgo selbst KEIN MementoAxis ist → KEIN No-Op mehr
+            // fuer die store-traversierbaren 320 (Audit-K4-Kern: "scan>0"). container_.save_state().data = (key,value)-Liste
+            // in Store-Slot-Reihenfolge. [Refinement (O(scan_len) statt O(n)+sort): lower_bound ueber sortierte Stores.]
+            if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
+                auto snapshot = container_.save_state().data;
+                std::sort(snapshot.begin(), snapshot.end(),
+                          [](auto const& a, auto const& b) noexcept { return a.first < b.first; });
+                for (auto const& kv : snapshot) {
+                    if (static_cast<std::uint64_t>(kv.first) < start_key) continue;
+                    if (visited >= max_count) break;
+                    sum += static_cast<std::uint64_t>(kv.second);
+                    ++visited;
+                }
+            } else if constexpr (MementoAxis<SearchAlgo>) {
+                auto snapshot = search_organ_.save_state();   // Weg-B (k-ary/eytzinger/Tree/Trie): Memento-Snapshot + Sort
                 std::sort(snapshot.begin(), snapshot.end(),
                           [](auto const& a, auto const& b) noexcept { return a.first < b.first; });
                 for (auto const& kv : snapshot) {
@@ -1308,6 +1322,7 @@ public:
                     ++visited;
                 }
             }
+            // else (z.B. Hash ohne MementoAxis, nicht store-traversierbar): ehrlich No-Op = nicht-scanbar (Audit K4).
         } catch (...) {
             return 0;   // noexcept-Vertrag: interne Störung (z.B. OOM beim Snapshot) → 0 Records
         }
