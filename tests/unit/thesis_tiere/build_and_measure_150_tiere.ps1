@@ -22,10 +22,15 @@ param(
     # GOAL-M1.3: das Harness PINNT die Workload-Achse selbst (statt volatiler Session-ENV — Audit-Blocker):
     [string]$LoadProfileDir = "",             # leer → <repo>\libs\cache_engine\algorithm_profiles\load_profiles
     [int]$WorkloadRecords = 10000,
-    # Selektions-Modus (2026-06-04): "index" (Default, rückwärtskompatibel — erste N Blätter, search_algo konstant)
-    # ODER "search_algo_grid" (F15-Grid — variiert NUR search_algo → die CSV zeigt die per-Achsen-Differenzierung).
+    # Selektions-Modus. (Audit K9 / Index-Selektion-ENTKONFUNDIERT, 2026-06-13): DEFAULT = "search_algo_grid", weil der
+    # F15-KERN-Vergleich (Suchalgorithmen auf der EINEN std::map-Schnittstelle, Thesis-Kernbeitrag) NUR die search_algo-
+    # Ebene variieren darf und ALLE übrigen Achsen FIX halten muss — sonst ist die per-search_algo-Mess-Zeile durch die
+    # mitvariierenden Nicht-search-Achsen KONFUNDIERT (= der Audit-Befund). "index" (rückwärtskompatibel — erste N Blätter,
+    # search_algo konstant) bleibt explizit wählbar für die ergänzende Nicht-search-Achsen-Differenzierung (analog
+    # tier150_axis_grid). Die zweite Facette „Index-Selektion-konfundiert" (search-organ↔store-Entkopplung, Befund 2) ist
+    # in der E-Welle-A2 (A2.5) separat behoben.
     [ValidateSet("index","search_algo_grid")]
-    [string]$SelectMode = "index",
+    [string]$SelectMode = "search_algo_grid",
     # Mess-RESUME (#139, Default AN): Binaries mit vollständiger+konfigurations-aktueller result.csv (Stamp-Match:
     # BuildVersion/n_ops/Workload-Set/dyn-Dims) überspringen + ihre Zeilen in die globale CSV übernehmen.
     # -Resume:$false → alles neu messen (Stamps werden überschrieben).
