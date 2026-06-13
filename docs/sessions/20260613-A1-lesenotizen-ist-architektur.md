@@ -149,9 +149,12 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 - ✅ IST-Ledger (vollständig, 226 Z.; §a/§a.V5/§a.P/§b/§c/§d/§e)
 - ✅ `20260531-e2e-abnahme-audit-und-entscheidungen.md` (2. IST-Doc, vollständig)
 - ✅ cache-engine **Doc 30** (audit_achsen_delegation_pflichtachsen — 3-Ebenen-Autorität + Befund-2-Verstoß)
+- ✅ cache-engine **Doc 33** (Memento Rev.2 CoW + Resume — bestätigt §3: Memento deckt search_organ_+container_ =
+  T0+T6; Zwei-Phasen-Warmup PFLICHT; Resume je Tier-Binary via Config-Stamp [BuildVersion+dims+rows]; CoW =
+  Rev.1-Eskalation generalisiert auf alle Mutationen, Read-Perioden O(1))
 - ✅ (Code, frühere Session) `experiment_tree.hpp` (= Substanz von Doc 26/27/29 B+-Baum) · `abi_adapter.hpp` (CoW-Teil)
 - ⬜ OFFEN: Thesis 01,03,04,05,06,07,08,12,13 + Rest 11/14 · cache-engine **24 (Messmodell 2-Dim) · 26 (B+-Baum-Prosa) ·
-  27 (Baum-4-Brücken) · 29 (Baum-Generik) · 31 (Observer-Konsol.) · 33 (Memento/Resume) · abhaengigkeitskette ·
-  messarchitektur_design_observer · messarchitektur_v5_design/_entscheidungen/_drei_profile/_i8** + 15–23/25/28/32 ·
-  A2 Rest-Code-Pre-Read (anatomy/composition/permutation_engine/perm_runner/iterator) · A3 Audits-Soll-Abgleich.
-  (Beide IST-Docs + Doc 30 ✅ — die Konsolidierungs-Basis B steht; Rest = Konzept-/Detail-Kontext.)
+  27 (Baum-4-Brücken) · 29 (Baum-Generik) · 31 (Observer-Konsol.) · abhaengigkeitskette · messarchitektur_design_observer ·
+  messarchitektur_v5_design/_entscheidungen/_drei_profile/_i8** + 15–23/25/28/32 · A2 Rest-Code-Pre-Read
+  (anatomy/composition/permutation_engine/perm_runner/iterator) · A3 Audits-Soll-Abgleich.
+  (Beide IST-Docs + Doc 30 + Doc 33 ✅ — die Konsolidierungs-Basis B steht; Rest = Konzept-/Detail-Kontext.)
