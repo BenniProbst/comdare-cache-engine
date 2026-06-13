@@ -341,6 +341,27 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   Param (kein Runtime-Switch). **Kern-Motivation (§0):** Forscher steckt EINE neue Achse ein, Framework liefert alle anderen als Defaults
   → sofort vergleichbarer Algorithmus. **F15 Dim1/Dim2 (frühe Stufe-A-Belege):** Achsen-Wahl (Array256 vs VectorU8U8, p≈2.8e-128) UND
   Algorithmus-Wahl (Art vs Hot, p≈1.3e-143) je ~9× messbar. (Mechanik deckt Doc 24 §8.9 — bereits in §3a erfasst.)
+- **Doc 16 (axis_05 IMC-Runtime-Heuristik):** reines Doku-only-Backlog (Intel CMT-CAT/RAPL/MBM, AMD HSMP/NPS, Linux msr-tools/perf-PMU/
+  hwloc; 6 vorgeschlagene Wrapper `AdaptiveChannelInterleaving`/`NumaPageColoring`/… NICHT implementiert) → motiviert R5.D (PMC), extern-gated.
+- **Doc 20 (Plugin-Controller-Anforderung):** verbindliche Lade-Richtung **cache-engine → lädt → Prüfling(e)** (NICHT umgekehrt; nested-CE in
+  prt-art = Legacy/entfernt). Multi-Prüfling per `COMDARE_CE_PRUEFLINGE`-Liste; jeder liefert nur `optional_prt_art_impl` je Achse; Controller
+  merged 3-Stufen. Bestätigt Doc 21/24-§8.9-Mechanik.
+- **Doc 23 (F.2/F.3 Namespace-Migration, done-verified 2112/2112):** axen-zentrische Namespaces (`cache_engine::lookup/node/layout/alloc/…`
+  als Aliase auf `topic::axis_NN`) + 17 F.3-Concepts (`concepts::*Axis`) + `optional_prt_art_impl`-Slot je Achse. STRUKTUR done; physischer
+  Rename (Stufe 2) = mechanisch-verbleibend, via Aliase grün-haltbar.
+- **Doc 25 (E10 STATIC/SHARED-Achse, done):** `COMDARE_BUILD_SHARED_LIBS` global + `COMDARE_<KEY>_BUILD_SHARED_LIBS` per-Projekt (Default
+  STATIC; SHARED für Cluster/Plugin); `comdare_add_library`-Helper (11 STATIC-Ziele); per-Permutations-DLLs IMMER SHARED.
+- **Doc 25 (Submodule vs DependencyManager, ENTSCHIEDEN):** 6 modules/-Repos als kuratierte Header-Spiegel befüllt (Option A, non-destruktiv —
+  NICHT im Build-Graph); **Option B (echte Konsumptions-Migration via DependencyManager/curl-Bootstrap) gated auf GitLab/Cluster-Reife**;
+  cache-engine = dokumentierte Aggregator-Ausnahme zur „keine-Git-Submodule"-Direktive.
+- **Doc 18 (AUTORITATIVE Achsen↔Algorithmus↔Paper↔Code-Map, 110 Wrapper/21 Achsen, web-verifiziert):** 62 paper_found, 20 is_original_
+  eligible (echtes Linking: 6 Allokatoren aktiv + OLC + 3 Filter + ART/HOT/START/SuRF + LZ4/Snappy/SuRF-Succinct/Protobuf-VarLen +
+  HdrHistogram + 2 MPMC-Queues). **§4 = 31 korrigierte Falsch-Attributionen** in Code-Kommentaren (Wormhole=GPL-3 NICHT BSD-2 → blockiert
+  Linking; SuRF=Apache NICHT BSD-3; div. Venue/Autor-Fehler). **§5: BatchedInsertBuffer-Zitat unverifizierbar/erfunden (low-conf)**; SoA/
+  Watermark/Tombstone = kein kanonisches Ursprungspaper. ⇒ Vor JEDER Paper-Referenz Doc 18 konsultieren (NICHT aus Gedächtnis) — deckt
+  Memory `reference_achsen_algorithmus_paper_code_map`. Allocator-Achse separat (`ext/allocator/A01–A23`, nicht im P01–P33-Katalog).
+- **Doc 23a (io-dispatch-Migrations-Pilot, SUPERSEDED):** mechanische Move-Schablone für den physischen Achsen-Rename (git mv→axes/<axis>/,
+  Namespace-Rename, Forwarder, configure_file+Glob-APPEND, Rückwärts-Alias, Rollback-Tag); Muster für die übrigen 16 Achsen (klein zuerst).
 
 ## 5. A1-Lese-Fortschritt (Checklist)
 - ✅ Thesis-Basis: 00_INDEX · 02_master_REV7_7 · 09_taxonomien · 10_schichten_modell_M · 11_axes_vs_strategies
@@ -374,9 +395,12 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   (F15-Statistik-Triade Median/MWU/Cliff's-δ + ehrliche Mess-Limits: WC nicht bit-reprod./layout sub-noise→PMC + 18,5–119×-Pilot); → §3e
 - ✅ cache-engine historischer Kontext **Doc 15 (ISA-Schichten/AVX512-Sub-Flags/Cross-Constraint-Filter) + Doc 17 (Paper-Kartografie
   33 P-IDs + is_original-Klassen A–E) + Doc 19 (prt-art-Migration 44 Header) + Doc 21 (Plugin-Controller+3-Stufen bewiesen+F15-Dim1/2)**; → §4e
-- ⬜ OFFEN: Thesis 01,05,06,07,08,12,13 + Rest 11/14 · cache-engine historischer Kontext **16(IMC)/18(Paper-Code-Map)/
-  20(Plugin-Controller-Anf.)/23+23a(Namespace-Migration)/25×2(static-shared/Submodule)** ·
-  A2 Rest-Code-Pre-Read (registry_to_axis_levels/profile_to_tree/composition_registry/composition_factory/
-  search_algorithm_anatomy/observable_tier/perm_runner/iterator/permutation_engine/genus_binding_traits) · A3 Audits-Soll-Abgleich.
-  (Beide IST-Docs + Doc 24/26/27/28/29/30/31/32/33 + abhaengigkeitskette + design_observer + alle v5_* ✅ — die GESAMTE Mess-/Baum-/
-  Observer-/Lastprofil-/Vollständigkeits-Architektur ist erfasst; Konsolidierungs-Basis B steht; Rest = klarstellungen + historischer Kontext 15–25 + thesis-SUPERSEDED.)
+- ✅ cache-engine historischer Kontext **Doc 16(IMC-Doku-only) + 18(autoritative Paper-Code-Map 110/21 + 31 Korrekturen + BatchedInsertBuffer-
+  erfunden) + 20(Plugin-Controller-Lade-Richtung) + 23+23a(Namespace-Migration done/Pilot) + 25×2(STATIC-SHARED-Achse + Submodule-Entscheidung)**; → §4e
+  ⇒ **ALLE cache-engine-Architektur-Docs (15–33 + benannte) VOLLSTÄNDIG gelesen.**
+- ⬜ OFFEN (nur noch Thesis-Basis-SUPERSEDED-Kontext): Thesis **01(REV-Historie)/05(UML)/06(ER)/07(Cross-Ref)/08(drawio)/12(queuing-Topic)/
+  13(Paper-Legacy-Architektur)** + Rest 11_extension_visitor/14_organ · dann **A2** Code-Pre-Read (registry_to_axis_levels/profile_to_tree/
+  composition_registry/composition_factory/search_algorithm_anatomy/observable_tier/perm_runner/iterator/permutation_engine/genus_binding_traits)
+  · **A3** Audits-Soll-Abgleich.
+  (Beide IST-Docs + cache-engine 15–33 + alle benannten (abhaengigkeitskette/design_observer/klarstellungen/alle v5_*) ✅ — die GESAMTE IST-
+  Architektur ist erfasst; Konsolidierungs-Basis B steht solide. Verbleibend = thesis-SUPERSEDED-Kontext (Begriffs-/Diagramm-Historie) + A2/A3.)
