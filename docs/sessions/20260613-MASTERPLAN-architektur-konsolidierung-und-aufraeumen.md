@@ -140,24 +140,55 @@ Audit-Wellen ODER als Interim weiterlaufen. **User-Entscheid.** ✓ Klarer Statu
 
 ---
 
-## PHASE D — (= deine (b)) Saubere Wiederaufnahme, EINE Aufgabe pro Session
+## PHASE D — Die zwei teuren Code-Audits vollständig durcharbeiten (PFLICHT, vor E)
 
-### D1 — Original-Mission gegen B1 neu planen
-Die Bias-Matrix-Mess-/Audit-/Appendix-Mission (A0/B3) in eine geordnete, architektur-konforme Aufgaben-Liste
-gießen — jede Aufgabe explizit gegen das konsolidierte Modell + die 85 Audit-Befunde verankert.
+> **User-Ergänzung 2026-06-13:** Die zwei sündhaft teuren Audits der letzten Session (Mess-Audit 57 +
+> Pattern-Audit 28 = **85 bestätigt, >300 €**, K1–K10 + 8 Meta-Lehren) werden hier NICHT nur referenziert (A3),
+> sondern **vollständig, als Pflicht, Befund für Befund durchgearbeitet** — denn das (1) **erweitert das
+> konsolidierte Master-Architektur-Doc (B) umfassend** (jeder Befund = ein IST-Defekt + SOLL-Korrektur am
+> Architektur-Modell) und (2) **bestimmt die Aufgaben-Auslegung von Phase E maßgeblich** (viele E-Aufgaben SIND
+> Audit-Fix-Wellen). Quellen: `messaudit-endergebnis.json` / `patternaudit-ergebnis.json` / `ERKENNTNISSE.md` /
+> `20260611-audit-ergebnisse-synthese.md` (Manifest in `GOAL-AUTONOM-ABARBEITUNG-20260613.md` §2.5.6).
+
+### D1 — Jeden der 85 Befunde gegen den konsolidierten Stand (B) durcharbeiten
+Pro Befund: claim ⇄ aktueller Code ⇄ konsolidiertes Architektur-Soll (B) → **Disposition** (real / durch
+zwischenzeitliche Umbauten gegenstandslos / User-Entscheid) + **architektonische Implikation** (was ändert sich am
+Soll-Modell?) + **Aufgaben-Implikation** (welche E-Aufgabe folgt?). Keine Abkürzung, jeder Befund einzeln.
+**✓ Kriterium:** Tabelle aller 85 Befunde mit Disposition + Architektur-Bezug + E-Aufgaben-Bezug.
+
+### D2 — Konsolidiertes Architektur-Doc (B) um die Audit-Erkenntnisse erweitern
+Die K1–K10-Kern-Defekte + die 8 Meta-Lehren + die SOLL-Korrekturen als eigenen Abschnitt ins Master-Doc (B1)
+einarbeiten — so trägt das Doc dauerhaft auch die teuer erkauften Defekt-/Korrektur-Einsichten, nicht nur den
+IST-Stand.
+**✓ Kriterium:** B-Doc um „Audit-IST-Defekte + SOLL-Korrekturen" erweitert; jede Meta-Lehre als bindende Regel.
+
+### D3 — Aufgaben-Auslegung für Phase E aus den Audits ableiten
+Aus den Befunden + Fix-Wellen (Synthese §4) die architektur-konforme E-Aufgaben-Liste mitformen: welche Fix-Welle
+= welche E-Aufgabe, in welcher Reihenfolge, mit welchem Soll-Ort im 3-Ebenen-/Baum-Modell. Ohne D ist die
+E-Auslegung unvollständig.
+**✓ Kriterium:** Audit-fundierter E-Aufgaben-Entwurf liegt vor (Input für E1).
+
+---
+
+## PHASE E — (= deine (b)) Saubere Wiederaufnahme, EINE Aufgabe pro Session
+
+### E1 — Original-Mission gegen B (inkl. D-Erweiterung) neu planen
+Die Bias-Matrix-Mess-/Audit-/Appendix-Mission (A0/B3) + den audit-fundierten Entwurf (D3) in eine geordnete,
+architektur-konforme Aufgaben-Liste gießen — jede Aufgabe explizit gegen das konsolidierte Modell + die 85
+Audit-Befunde verankert.
 **✓ Kriterium:** Aufgaben-Liste, jede mit Soll-Ort im 3-Ebenen-/Baum-Modell + Audit-Bezug.
 
-### D2 — Abarbeitung: EINE Aufgabe pro 1M-Session, maximale Präzision/Tiefe
-Pro Aufgabe: gegen das Voll-Audit gegenprüfen, gegen B1 verankern, literal verifizieren, committen. Keine
-Parallel-Hast, kein Flach-Shortcut. (Reihenfolge wird in D1 festgelegt.)
+### E2 — Abarbeitung: EINE Aufgabe pro 1M-Session, maximale Präzision/Tiefe
+Pro Aufgabe: gegen das Voll-Audit gegenprüfen, gegen B1 (inkl. D) verankern, literal verifizieren, committen.
+Keine Parallel-Hast, kein Flach-Shortcut. (Reihenfolge wird in E1 festgelegt.)
 **✓ Kriterium:** Je Aufgabe ein nachvollziehbarer, architektur-konformer, verifizierter Abschluss.
 
 ---
 
-## PHASE E — Persistenz / Disziplin (laufend)
-- **E1:** Dieser Masterplan ist die Session-Steuerung; bei jedem Session-Start zuerst hierher + B1.
-- **E2:** Memory-Pointer auf diesen Masterplan + B1.
-- **E3:** 3-Repo-Disziplin (ce/super committen+pushen+bump) NUR für architektur-konforme, gegen B geprüfte Änderungen.
+## PHASE F — Persistenz / Disziplin (laufend)
+- **F1:** Dieser Masterplan ist die Session-Steuerung; bei jedem Session-Start zuerst hierher + B1.
+- **F2:** Memory-Pointer auf diesen Masterplan + B1.
+- **F3:** 3-Repo-Disziplin (ce/super committen+pushen+bump) NUR für architektur-konforme, gegen B geprüfte Änderungen.
 
 ---
 
