@@ -76,6 +76,96 @@ brauchen Daten, in denen Achsen-Unterschiede ECHT sind, nicht Apparat-Artefakt. 
 dominierte Wall-Clock). Darum: Tools gegen das Interim-Schema bauen (richtige Form), aber die
 **interpretierbaren Endbelege aus cowfix-v1 (M3)** ziehen. Das Interim dient L-Entwicklung + Generalprobe.
 
+## §2.5 AUDIT-ZIELE — verbindlicher Pflicht-Backlog der zwei teuren Audits
+
+> **Provenienz (User-Direktive 2026-06-13: „nimm die Ziele des Design-Audits und Voll-Audits mit ins Goal"):**
+> Zwei Multi-Agent-Audit-Workflows, ~116 Agenten, >4,3 Mio Subagent-Tokens, **>300 € Token-Kosten** —
+> beide zweistufig (unabhängige Prüf-Linsen → adversariale Widerlegungs-Verifikation je Befund):
+> - **Mess-Architektur-/Voll-Audit** (`wf_a013b73f-aea`, 71 Agenten, 9 Linsen): **57 bestätigt** (24 blocker /
+>   24 major / 9 minor), 5 widerlegt. Volltexte: `docs/sessions/20260612-messaudit-endergebnis.json`.
+> - **Design-/Pattern-Audit** (`wf_86936298-e41`, 45 Agenten, 4 Linsen, web-verifizierte Pattern-Definitionen):
+>   **28 bestätigt** (8 blocker / 12 major / 8 minor), 12 widerlegt. Volltexte:
+>   `docs/sessions/20260611-patternaudit-ergebnis.json`.
+> - **Summe: 85 bestätigt** (32 blocker / 36 major / 17 minor) + 17 saubere Widerlegungen.
+>   Konsolidierung: `audit-sicherung-20260612/ERKENNTNISSE.md`; Fix-Plan: `20260611-audit-ergebnisse-synthese.md` §4.
+>
+> **Done-Kriterium für JEDEN der 85 Befunde (eines von drei):** (a) GEFIXT mit literaler Tool-Ausgabe, ODER
+> (b) bewusst als **Daten-Limitierung im Appendix** ehrlich ausgewiesen (z.B. Second-Execution-Effekt), ODER
+> (c) **User-Entscheid pending**, markiert + nicht-blockierend mit Default-Verhalten. Kein Befund verfällt still.
+
+### §2.5.1 Die 10 Kern-Defekte (K1-K10) → Welle → Done-Kriterium
+
+| K | Defekt (Audit-Kurzform) | Welle | Done-Kriterium (literal) | Status |
+|---|---|---|---|---|
+| **K1** | RC = write-only Null Object: `applied_rc_` nie gelesen, KF-5-§7-A-Organ-API nie gebaut → ×18-Dynamik degeneriert zu ×3 (nur repetition), RC-Spalten = Rauschen | A3 | RC-Organ-Hooks wirken real (concurrency/prefetch ergeben messbar verschiedene Werte) ODER RC-Dims entfernt + caps=0; bis dahin RC **nominal** ausgewiesen | ⏳ needs_user |
+| **K2** | ns_per_op systematisch HALBIERT (Divisor `2*n_ops` aus Legacy-Workload; Workload-Pfad liefert n_ops Ops) | A1 | Smoke: `ns_per_op == total_ns/timed_ops` | ✅ M1.1 (timed_ops) |
+| **K3** | Memento/CoW-Capability **compile-time TOT für alle 320**: die produktiven `search_algo`-Wrapper haben kein `restore_statistics` → stiller copymem-Rückfall; 42/42-Test prüfte nur Referenz-Kompositionen (Test-Pop ≠ Ziel-Pop) | A2 | `restore_statistics` in die produktiven search_algo-Wrapper + **`static_assert` über ≥1 echte Pilot-AdHoc-Komposition**; `tier_memento_is_copy_on_write()==true` für ein Pilot-Tier; Build = `cowfix-v1` | ⏳ offen (Kern) |
+| **K4** | `tier_scan` No-Op für die 320 (kein MementoAxis) / Vollkopie+sort für Referenz → ycsb_e+lp_range_scan messen Aufruf-Latenz | A2 | GoF-**Iterator** als Organ-API; 1-Tier-Smoke `scan>0`; Hash-Organe ehrlich nicht-scanbar | ⏳ offen |
+| **K5** | Mess-Apparat dominiert Wall-Clock: (a) verdeckter Doppel-Lookup (is_new), (b) `std::function`-notify ohne Subscriber, (c) `container_` O(n)-flatten+rebuild je Op, (d) T1/T2-Buchführung | A2 | (a) is_new via `occupied_count()`-Delta; (b) compile-time NotifyPolicy (NullNotify, zero-cost); (c) `container_`→LinearScan/Append; Wall-Clock-Abfall belegt | ⏳ offen |
+| **K6** | Phantom-Allocator: Stores constrainen Policy A, allozieren via `std::allocator` + FABRIZIEREN `allocator_statistics()` → T6-Achse misst A nie | A2 | Chunk-Speicher real über A (`A::StdAllocatorAdapter`) + `A::statistics()` durchgereicht; alloc-Bytes layout-/policy-abhängig | ⏳ offen |
+| **K7** | Workload-Treue: (a) coco_neg50=zipfian (Sweep konfundiert), (b) Run-Phase=nur-Upserts, (c) Zipfian/Latest ohne Key-Scrambling | A1+A3 | (a) 5 Sweep-XMLs identische Verteilung; (b) Load-/Insert-Key-Räume getrennt; (c) Splitmix64-Scrambling, Histogramm gestreut | ✅(a) M1.2 · ⏳(b,c) |
+| **K8** | Resume-/Re-Entry-Härte: Stamp ohne XML-INHALT (nur id-Liste; seed wirkungslos; env_limits fehlen); Stamp trotz Write-Fehler; gated Vollständigkeit≠Gültigkeit; Resume-Check nach b.ok(); Harness pinnt env/Params nicht | A1 | Stamp trägt XML-Inhalts-Hash + env_limits + effektiven Seed; pf.good()-Gate + two_phase-Gate; Resume-Check vor b.ok(); Harness-Pinning. Negativ-Proben literal | ✅ Stamp-Gate/env-Guard/Harness-Pinning (M1.3/1.4) · ⏳ XML-Hash/env_limits/Resume-vor-b.ok (**batch_for_m3**) |
+| **K9** | Validitäts-Pfade: Konformitäts-Gate nie gerufen; seg_ns n=1 für 320; prefetch misst Key-Werte als Pseudo-Adressen; uint16-Keys trunkieren uint64 (records>32767 bricht Negativ-Garantie); Index-Selektion konfundiert search_algo | A2+A3 | Gate im Voll-Lauf-Pfad (import→GATE→messen); seg_ns n>1 via CoW-Key-Ernte; prefetch ehrlich ausgewiesen; uint16→uint64-Entscheid; SelectMode=search_algo_grid für M3 | ⏳ offen |
+| **K10** | Pattern-/Etiketten-Integrität (12 Major): Adapter ohne Adaptee; Memento-Etikett gebrochen + tote MementoAggregate; „Hybrider Visitor" existiert nicht; Command tote Parallelstruktur; MeasurableObserver≠Observer; „B+-Baum"≠B+-Baum; degenerierte Abstract Factory; Release-DLL zahlt Mess-Kopplungen | A4 | Je Etikett: kanonisches Pattern umgesetzt ODER ehrlich umbenannt/entfernt (grep-Beweis); Release-DLL zero-overhead (Mess-Kopplungen unter `COMDARE_MEASUREMENT_ON`) | ⏳ offen |
+
+### §2.5.2 Vollständige Major-Liste (36 = 24 Mess + 12 Pattern) → Welle
+
+**Mess (24, in K1-K9 verdichtet + einzeln):** Stamp-trotz-Write-Fehler (A1✅) · Stempel-ohne-XML-Inhalt
+(A1, batch_m3) · Resume-Check-nach-b.ok() (A1) · XML-`<records>`-geparst-aber-verworfen (A1) · XML-ohne-
+Validierung (op_mix-Pflicht; A1) · stat_*-Spalten enthalten Load-Phase (A2: Observer-Reset nach Load) ·
+fill_segment_timing-T0-Stats aufgebläht (A2) · Doc-33-§2-„exakt-2×"-Zusicherung falsch für Schwellen-Stats
+(A4-Doku) · keine Separator-/ID-Validierung der Wire-/CSV-Kette (A1) · globale CSV ohne Stream-Fehlerprüfung
+(A1) · Doc-32-Katalog ≠ 21 XMLs (LP11-Sweep fehlt, LP02; A1) · **Second-Execution-Grundsatzeinwand** (A5 —
+NUR Diskussion, Zwei-Phasen ist Pflicht) · uint16-Keys (A2) · Index-Selektion konfundiert (A3).
+**Pattern (12, alle A4):** Adapter-ohne-Adaptee · Memento-Etikett ×3 (memento_all/MementoAggregate/save_axis)
+· Visitor-existiert-nicht ×3-Fund · Release-DLL-Mess-Kopplung · „B+-Baum"-Benennung · degenerierte Abstract
+Factory (bool-Flag) · Command-tote-Parallelstruktur · MeasurableObserver≠Observer ×2.
+
+### §2.5.3 Minor (17) — Sammelabarbeitung in der jeweiligen Welle
+
+env_limits-im-Stempel/requested-vs-applied · Vollständigkeits-Gate zählt besuchte statt Matrix-Größe ·
+rb_exact-Probe zertifiziert zu wenig · 2× Kommentar-Drift (two_phase-Vertrag / IRollbackableTier-Header) ·
+clock::now()-Overhead additiv · Load-Phase in stat_*-Spalten · uint16-Aliasing-Reste (Replay ersetzt) · OOM-
+Degradationspfade unmarkiert · 8 Pattern-Minor (Naming-Konventions-Fälle, im Pattern-JSON). Done: je Welle
+mit-erledigt ODER als Limitierung ausgewiesen.
+
+### §2.5.4 Die 8 Meta-Lehren des Audits (DAUERHAFT anwenden — die teuersten Erkenntnisse)
+
+1. **Capability-Detection darf nie still degradieren** — jede `if constexpr(capable)`-Pfadwahl braucht
+   `static_assert` über die ZIEL-Population (K3-Lehre; gilt für A2a + alle künftigen requires-Kaskaden).
+2. **Test-Population ≠ Ziel-Population** — Verifikation muss ≥1 echten Vertreter jeder Ziel-Klasse (die 320
+   Pilot-Wrapper) instanziieren, nicht nur Referenz-Kompositionen.
+3. **Differenz-Beweise können strukturell blind sein** — ein Äquivalenz-/Diff-Beweis braucht den Nachweis
+   VERSCHIEDENER Pfade (Diagnose-Flag im Output). Gilt direkt für die Phase-L-Austauschbarkeits-Belege!
+4. **Etiketten-Drift ist messbar gefährlich** = die User-Pattern-Direktive: Name/Pattern nur tragen, wenn die
+   kanonische Semantik erfüllt ist (`applied_axis_count>0` wurde als Erfolg gefeiert, ohne dass etwas wirkte).
+5. **Dokumentierte Semantik gehört in Tests, nicht in Kommentare** (mehrere Majors = Kommentar-Realität-Drift).
+6. **Mess-Apparat-Reinheit ist eine eigene Disziplin** — zero-cost-Metaprog-Direktive systematisch auf den
+   Hot-Pfad (K5).
+7. **env-/Parameter-Volatilität ist ein Daten-Integritätsrisiko** — Resume pinnt die GESAMTE Konfiguration
+   oder bricht ab (K8).
+8. **Adversariale Mehrfach-Linsen funktionieren** — der Audit-Aufbau (Skripte resume-fähig) ist
+   wiederverwendbar; bei Unsicherheit erneut anwenden statt raten.
+
+### §2.5.5 Welle→Befund-Abarbeitungs-Matrix (= Phase A, autonom)
+
+- **Welle 1 (A1, billig + mess-kritisch):** K2✅ · K6/coco✅(K7a) · Stamp-Gate✅ · Harness-Pinning✅ · env-Guard✅
+  | OFFEN (batch_for_m3): Stamp-XML-Inhalts-Hash+env_limits+Seed · Resume-Check-vor-b.ok() · XML-Validierung
+  (op_mix/`<records>`) · CSV-Stream-Fehlercheck · Separator-/ID-Validierung · Doc-32↔21-XML-Abgleich · K5/M5
+  Load-/Insert-Key-Räume.
+- **Welle 2 (A2, Apparat-Reinheit + cowfix-v1, DLL-Neubau):** K3 (restore_statistics→Pilot-Wrapper +
+  static_assert) · K4 (Iterator-Scan) · K5 (is_new/NotifyPolicy/container_-LinearScan) · K6 (echter
+  Policy-Allocator) · stat_*-Load-Reset · seg_ns-n>1 · uint16→uint64.
+- **Welle 3 (A3, Dimension/Validität):** K1 (RC-Hooks-oder-raus, needs_user) · K7c (Scrambling) · K9
+  (Konformitäts-Gate, SelectMode=search_algo_grid) · K7b (Insert-Key-Räume).
+- **Welle 4 (A4, Pattern-Hygiene, kein Mess-Einfluss):** K10 komplett (Adapter/Memento/Visitor/Command/
+  Observer-Etiketten + „B+-Baum" + Abstract-Factory + Release-Zero-Overhead).
+- **A5 (NUR Diskussion, nicht-blockierend):** Second-Execution vs Zwei-Phasen-Pflicht — Optionen dem User.
+
+**Verknüpfung Phase L:** Die Limitierungs-Tabelle des Appendix (L4) listet JEDEN noch nicht gefixten Befund
+ehrlich als Daten-Vorbehalt (RC nominal, ycsb_e/lp_range_scan invalide, Insert=Upsert, stat_* enthält Load,
+cowmem=Copy-Pfad, Second-Execution) — so erfüllt selbst ein Interim-Stand das §2.5-Done-Kriterium (b).
+
 ## §3 Stop-Bedingungen (NUR hier den User einbeziehen — sonst autonom)
 
 - **A3-RC-Entscheid** (RC-Organ-Hooks bauen ODER RC-Dimension ehrlich entfernen): bis zur User-Antwort
@@ -96,6 +186,10 @@ dominierte Wall-Clock). Darum: Tools gegen das Interim-Schema bauen (richtige Fo
   Mess-Appendix aus der finalen Matrix; frischer git-clone baut identisch (relative Pfade); ZIH-Vorlage
   unverändert; Achsen-Austauschbarkeits-Belege interpretierbar (3D-Surfaces + Diff-longtables).
 - **G4:** Welle 4 Pattern-Hygiene abgeschlossen; Session-Doku + Memory + 3-Repo-Sync nach jeder Phase.
+- **G5 (Audit-Backlog, §2.5):** ALLE 85 Audit-Befunde (K1-K10 + 36 Major + 17 Minor) stehen in genau einem
+  Zustand: (a) gefixt mit literalem Beleg, (b) als Daten-Limitierung im Appendix ausgewiesen, oder (c)
+  User-Entscheid pending (markiert). Ein abschließender Audit-Abgleich (Befund-Liste ⇄ Code-Ist) bestätigt:
+  kein Befund still offen. Die 8 Meta-Lehren (§2.5.4) sind auf jeden neuen Fix angewandt.
 
 ## §5 Referenz-Dokumente (autoritativ)
 
