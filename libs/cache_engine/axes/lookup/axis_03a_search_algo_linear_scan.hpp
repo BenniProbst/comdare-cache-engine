@@ -40,6 +40,9 @@ namespace comdare::cache_engine::lookup {
 class LinearScanSearchAlgo : public SearchAlgoBase<LinearScanSearchAlgo> {
 public:
     static constexpr bool enabled = flags::linear_scan_enabled;
+    // (E-Welle-A2 / Befund-2 / A2.4-S1) Array-Familie (unsortierter Scan über flachen KV-Slot-Store) → store-traversierbar:
+    // die Suche kann über DENSELBEN LayoutAwareChunkedStore laufen (node/layout/allocator wirken real). G3-klassifiziert.
+    static constexpr bool axis_03a_store_traversable = true;
 
     using key_type   = std::uint16_t;
     using value_type = std::uint64_t;
