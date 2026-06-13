@@ -91,11 +91,36 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   Audit-Befunde (D) sind Korrekturen AM bestehenden Mess-Pfad, keine Neubauten. Achsen-Austausch-Auswertung
   gehört in Baum/CEB (nicht Eval-Tool).
 
+## 4c. IST-Doc `20260531-e2e-abnahme-audit-und-entscheidungen.md` (vollständig) — Mess-Pfad-Architektur
+
+- **3-Repo-Modell code-verifiziert korrekt:** cache-engine = Achsen-Bibliothek (15 Topics / **22 Achsen** [„17" = NUR
+  SearchAlgorithm-Komposition-Slots; 5 außerhalb: page_type/09b/12/q1/q2]) + Anatomie-Generator (`AdHocComposition<T0..T16>`
+  → PermutationEngine → `adhoc_emitter` → je Permutation eine SHARED-DLL) + EINHEITLICHES Prüf-Dock
+  (`SearchAlgorithmDock`, `dynamic_cast<IObservableTier*>` über reale DLL-Grenze; Pfad A `run_workload`+`f15_compare`
+  / Pfad B `IObservableTier`-POD). prt-art = Prüfling-Plugin. Diplomarbeit = 6-Stufen-LaTeX-Pipeline.
+- **6-Stufen-Pipeline (kanonisch 16-Spalten-CSV, `workload_used`@idx3):** `01 sample → 02 messung_driver →
+  03 binary→csv → 04 csv→latex → 05 diagram → 06 latex→pdf`. P1 done (E2E-Target `comdare_pipeline_e2e` → PDF).
+- **🔴 ZENTRALER ARCHITEKTUR-CONSTRAINT (G3/P2-Planrunden-Befund, hart verifiziert):** Der naive Achsen-Tausch
+  **`AdHoc<Organ, Default-Achsen>` ist ILL-FORMED** (SearchAlgorithmAbiAdapter-CTAD scheitert C2780/C2514) — sezierte
+  Organe (Art/Hot/Start/Surf/Wormhole/Masstree) brauchen ihre **KOMPATIBLEN Begleit-Achsen** (node_type/path_compression/…
+  wie in `*_reference.hpp`), NICHT beliebige Defaults. ⇒ **Achsen-Austausch ist CROSS-ACHSEN-CONSTRAINT-behaftet**
+  (Doc 14 §4.3 Rekombinations-Test); freie Permutation aller Achsen ist NICHT uneingeschränkt gültig. **Kritisch für
+  die Original-Mission (Achsen-Austauschbarkeits-Belege): der Austausch muss Organ-Begleit-Achsen-Kompatibilität
+  respektieren** — exakt das, was im B+-Baum/named-Compositions modelliert ist, NICHT in einer flachen Tupel-Kombinatorik.
+- **Autoritative F15-Mess-Quelle = 6 named Observable-Organ-Compositions** (via `comdare_codegen_anatomy_module_list`,
+  `test_v41_anatomy_multi_codegen` 7/7); der **Monolith-AdHoc-48-DLL-Pilot ist SUPERSEDED**. F15 real auf i7-1270P
+  erhoben (p50 479–653 ns). **NB:** Die spätere 320-FullPilot-Bias-Matrix (Original-Mission/M-Lauf) ist ein
+  SEPARATER, größerer Mess-Aufbau — Verhältnis zu dieser 6-Organ-F15-Quelle ist in B zu klären.
+- **P-Status:** P1 (Pipeline) ✅ · P2 (Organ-F15) ✅ · P3 (i7-Realmessung) ✅ · P4 Vendor lokal-baubar (Quellen
+  vendored, nur HAVE-Flags nicht gesetzt)/PMC extern · P5 Doku-Drift+op_type_filter teils.
+
 ## 5. A1-Lese-Fortschritt (Checklist)
 - ✅ Thesis-Basis: 00_INDEX · 02_master_REV7_7 · 09_taxonomien · 10_schichten_modell_M · 11_axes_vs_strategies
 - ◐ 11_konzept_extension_visitor (§1–§11 von §… ; 4 Patterns + 3-Stufen + CRTP+Concept + Prüfling-Namespace gelesen)
 - ◐ 14_organ_metapher (§0–§20 von §53; Organ-Metapher + 3-Schichten + Verantwortlichkeit + ObserverAggregate)
 - ✅ IST-Ledger (vollständig, 226 Z.; §a/§a.V5/§a.P/§b/§c/§d/§e)
-- ⬜ OFFEN: `20260531-e2e-abnahme-audit-und-entscheidungen.md` (2. IST-Doc) · Thesis 01,03,04,05,06,07,08,12,13
-  + Rest 11/14 · cache-engine 15–33 + benannte (abhaengigkeitskette, messarchitektur_design_observer,
-  messarchitektur_v5_*) · A2 Code-Pre-Read · A3 Audits.
+- ✅ `20260531-e2e-abnahme-audit-und-entscheidungen.md` (2. IST-Doc, vollständig)
+- ⬜ OFFEN: Thesis 01,03,04,05,06,07,08,12,13 + Rest 11/14 · cache-engine **24 (Messmodell) · 26 (B+-Baum) ·
+  27 (Baum-4-Brücken) · 29 (Baum-Generik) · 30 (Audit-Pflichtachsen=3-Ebenen-Autorität) · 31 (Observer-Konsol.) ·
+  33 (Memento/Resume) · abhaengigkeitskette · messarchitektur_design_observer · messarchitektur_v5_*** + 15–23/25/28/32 ·
+  A2 Code-Pre-Read · A3 Audits. (Beide IST-Docs ✅ — die Konsolidierungs-Basis B steht; Rest = Konzept-/Detail-Kontext.)
