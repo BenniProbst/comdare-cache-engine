@@ -1,4 +1,26 @@
-# GOAL 2026-06-13 — Autonome Abarbeitung: Messung + Audit-Wellen + interpretierbarer LaTeX-Appendix
+# GOAL 2026-06-13 — Autonome Abarbeitung: gesteuert durch den MASTERPLAN
+
+> ## ⭐ NEU-FASSUNG (2026-06-13 spät, User-Direktive) — dieses /goal = den MASTERPLAN autonom abarbeiten
+>
+> **Dieses /goal steuert ab jetzt AUSSCHLIESSLICH über den Masterplan**
+> `docs/sessions/20260613-MASTERPLAN-architektur-konsolidierung-und-aufraeumen.md` (Tasks #143–#150).
+> Das /goal zu setzen bedeutet: die Masterplan-Phasen **A→B→B4→C→D→E→F in STRIKTER Reihenfolge** autonom
+> abarbeiten —
+> **A** (ALLE Architektur-Docs ab Doc 00 lesen + Pflicht-Code-Pre-Read + Audit-Überblick) →
+> **B** (EIN konsolidiertes Master-Architektur-Doc, Single-Source) →
+> **B4** (dieses Goal-Doc gründlich re-grounden) →
+> **C** (falsch umgesetzte Session-Änderungen aufräumen: L1/L2 revert, A2a/K3 re-eval) →
+> **D** (die 85 teuren Audit-Befunde vollständig durcharbeiten) →
+> **E** (= das ursprüngliche (b): Original-Mission, EINE Aufgabe pro 1M-Session) →
+> **F** (Persistenz/Disziplin). **NICHT mit Code/(b)=E beginnen vor A+B+C+D.** Phase A startet in frischer
+> Session. **M2-Mess-Lauf ist PAUSIERT** (cowmem-v1, un-gefixte Mess-Architektur; wird ohnehin von cowfix-v1 abgelöst).
+>
+> **Was unten noch GILT (Referenz):** die Autonomie-Leitplanken **§0** (Zwei-Phasen-Pflicht, Pattern-Direktive,
+> relative Pfade, 3-Repo-Disziplin, destruktive Ops in den 3 Repos mit Tag+Commit+Push) UND der **Audit-Backlog
+> §2.5 + das Rohdaten-Manifest §2.5.6** (Phase D arbeitet sie Befund für Befund durch). **ÜBERHOLT/FALSCH:** die
+> alte Ausführungs-Reihenfolge **§2** (M/L-Pipeline, L1–L8) — die L-Flach-Tupel-Auswertung war ein
+> Architektur-Fehler; der korrekte Ort des Achsen-Austauschs ist der **B+-Experiment-Baum** (Masterplan +
+> `20260613-ARCHITEKTUR-KORREKTUR-achsenaustausch-im-baum.md`).
 
 > **Auftrag (User, 2026-06-13, verbatim-sinngemäß):** „Vielleicht lassen wir den Voll-Lauf auch
 > einfach laufen, aber machen gleich mit den übrigen Aufgaben autonom weiter. Bitte formuliere ein
