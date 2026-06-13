@@ -319,6 +319,29 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   Meine A2a/K3-Arbeit (restore_statistics in die Wrapper) betraf `search_organ_`/`container_`-Memento — orthogonal, aber
   im selben Adapter. Der Q2-Schritt-4-Fix (volle Such-Delegation) ist ein Kandidat für eine E-Aufgabe (Mess-Echtheit).
 
+## 4e. Historischer/Referenz-Kontext cache-engine 15–25 (NICHT IST-tragend — Paper-/ISA-/Migrations-Referenz)
+
+- **Doc 15 (ISA-Schichten + Paper-Backlog R7.5–7.7):** SSE→AVX→AVX-512-Schichten rückwärts-kompatibel (15+ AVX-512-Sub-Flags:
+  VNNI/BF16/FP16 = DBMS/ML-relevant); axis_09b geschichtetes Properties-Modell (`provides_sse/avx/avx512*`); P/E-Cores-Topologie
+  (`units_per_socket/accessible_from_efficiency_cores` — Intel Alder/Raptor Lake P-Cores KEIN AVX-512, AMD Zen4+ ja). Cross-Constraint-
+  Filter R5.C.3: `mp_remove_if`-Compat-Predicate reduziert ISA×09b×12 von 96 → ~25 gültige Permutationen. Großteils Doku-only-Backlog.
+- **Doc 17 (Paper-Kartografie R7.6.b):** 33 Paper-Code-Quellen (P01–P33): 11 Open-Source-Repos (ART/unodb Apache · HOT ISC · Masstree MIT ·
+  CoCo GPL3 · START MIT · Wormhole GPL3 · SuRF Apache · LeanStore MIT · prefetching no-license · RCU LGPL · HazPtr no-license) · 14 alt-ohne-
+  Repo (Re-Impl) · 6 institution-intern · 2 Konzept-only. **§4.5 is_original-Klassifikation (autoritativ, deckt §3c):** Klasse A=echtes Linking
+  (allocator/search_algo/q1 — isolierte Funktionen) · B=embedded/macro (prefetch) · C=lizenz-blockiert (value_handle RCU/HazPtr) · D=pseudocode
+  (memory_layout/index_org) · E=engineering-pattern (telemetry/migration/io) → B–E = Re-Impl + `is_original=false` ehrlich (Habich-konform).
+  Lizenz-Sonderfälle: P04 CoCo GPL-3 (viral, User-„OK"), P30 HazPtr no-license (→ eigene Re-Impl), P29 RCU LGPL (→ eigene Impl).
+- **Doc 19 (prt-art→CE-Migrations-Plan, F.6-Reaudit):** 44 prt-art-Header klassifiziert: already_covered(10)/basis_missing(14→additiv
+  migriert, Phase-A DONE)/spezifisch(11→`optional_prt_art_impl`)/deprecated(9→löschen, gated auf F.2). Phase-A-Basis-Ports DONE
+  (status_code/signaling_bits/Array65535/distance_estimator+path_oriented/OLC); B+/Redirect = PAGE-TYPES (axis_01, NICHT axis_04).
+- **Doc 21 (Plugin-Controller + 3-Stufen BEWIESEN, Kern-Motivation):** Die thesis-zentrale Kette — CE lädt prt-art als Plugin (E11,
+  `COMDARE_CE_PRUEFLINGE`) → prt-art füllt CE-Achsen-Slots (4 bewiesen: axis_07 PrtArtRedirectPrefetch/axis_01 BPlusPageType/axis_14
+  ChainRefHandle/axis_11 PerNodeCounter=F15-Anti-Pattern) → 3-Stufen `pruefling_merge.hpp` (Stufe1 `StufeOneAxis`=Default · Stufe2
+  `std::conditional_t<has_pruefling,Variants,Default>` ERSETZT-mit-Fallback · Stufe3 `mp_unique<mp_append>` Union) via Non-Type-Template-
+  Param (kein Runtime-Switch). **Kern-Motivation (§0):** Forscher steckt EINE neue Achse ein, Framework liefert alle anderen als Defaults
+  → sofort vergleichbarer Algorithmus. **F15 Dim1/Dim2 (frühe Stufe-A-Belege):** Achsen-Wahl (Array256 vs VectorU8U8, p≈2.8e-128) UND
+  Algorithmus-Wahl (Art vs Hot, p≈1.3e-143) je ~9× messbar. (Mechanik deckt Doc 24 §8.9 — bereits in §3a erfasst.)
+
 ## 5. A1-Lese-Fortschritt (Checklist)
 - ✅ Thesis-Basis: 00_INDEX · 02_master_REV7_7 · 09_taxonomien · 10_schichten_modell_M · 11_axes_vs_strategies
 - ◐ 11_konzept_extension_visitor (§1–§11 von §… ; 4 Patterns + 3-Stufen + CRTP+Concept + Prüfling-Namespace gelesen)
@@ -349,8 +372,10 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   (Lastprofil-Katalog 14 LP + Paper-Bias = wissenschaftliche Mission-Rechtfertigung + 21-XML-Audit-Lücke); → §3d
 - ✅ cache-engine **messarchitektur_klarstellungen** (Matching-Matrix Prüf-Dock↔Gattung/Workload↔Tierart/Observer↔cmake) + **Doc 22**
   (F15-Statistik-Triade Median/MWU/Cliff's-δ + ehrliche Mess-Limits: WC nicht bit-reprod./layout sub-noise→PMC + 18,5–119×-Pilot); → §3e
-- ⬜ OFFEN: Thesis 01,05,06,07,08,12,13 + Rest 11/14 · cache-engine historischer Kontext **15(ISA)/16(IMC)/17(Paper-Kartografie)/
-  18(Paper-Code-Map)/19(prtart-Migration)/20+21(Plugin-Controller/Slot-Merge)/23+23a(Namespace-Migration)/25×2(static-shared/Submodule)** ·
+- ✅ cache-engine historischer Kontext **Doc 15 (ISA-Schichten/AVX512-Sub-Flags/Cross-Constraint-Filter) + Doc 17 (Paper-Kartografie
+  33 P-IDs + is_original-Klassen A–E) + Doc 19 (prt-art-Migration 44 Header) + Doc 21 (Plugin-Controller+3-Stufen bewiesen+F15-Dim1/2)**; → §4e
+- ⬜ OFFEN: Thesis 01,05,06,07,08,12,13 + Rest 11/14 · cache-engine historischer Kontext **16(IMC)/18(Paper-Code-Map)/
+  20(Plugin-Controller-Anf.)/23+23a(Namespace-Migration)/25×2(static-shared/Submodule)** ·
   A2 Rest-Code-Pre-Read (registry_to_axis_levels/profile_to_tree/composition_registry/composition_factory/
   search_algorithm_anatomy/observable_tier/perm_runner/iterator/permutation_engine/genus_binding_traits) · A3 Audits-Soll-Abgleich.
   (Beide IST-Docs + Doc 24/26/27/28/29/30/31/32/33 + abhaengigkeitskette + design_observer + alle v5_* ✅ — die GESAMTE Mess-/Baum-/
