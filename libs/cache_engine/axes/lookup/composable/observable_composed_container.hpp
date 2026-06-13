@@ -50,7 +50,8 @@ public:
         ++stats_.total_insert_count;
         if (container_.occupied_count() > stats_.peak_occupancy)
             stats_.peak_occupancy = container_.occupied_count();
-        observer_.notify(stats_);
+        // (Audit P5/P8 · E-Welle-A2 Inkr. A2.1) observer_.notify aus dem Mess-Hot-Pfad ENTFERNT (toter std::function-
+        // Push-Branch je Op, über extern-C nie subscribed); Transport ist PULL via statistics(). observer() bleibt (Concept).
 #endif
         return is_new;
     }
@@ -59,8 +60,7 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_lookup_count;
         auto const r = container_.lookup(k);
-        if (r) ++stats_.total_hit_count; else ++stats_.total_miss_count;
-        observer_.notify(stats_);
+        if (r) ++stats_.total_hit_count; else ++stats_.total_miss_count;  // (A2.1) kein observer_.notify im Hot-Pfad
         return r;
 #else
         return container_.lookup(k);
@@ -70,8 +70,7 @@ public:
     bool erase(key_type k) {
         bool const ok = container_.erase(k);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        if (ok) ++stats_.total_erase_count;
-        observer_.notify(stats_);
+        if (ok) ++stats_.total_erase_count;  // (A2.1) kein observer_.notify im Hot-Pfad
 #endif
         return ok;
     }
@@ -87,11 +86,11 @@ public:
     using snapshot_t = ce_concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    void reset() noexcept { stats_ = {}; }   // (A2.1) notify entfernt — Pull-Transport via statistics()
     // Undo-Log-Memento (#133): O(1)-Restore der Statistik auf einen zuvor via statistics() gezogenen Snapshot.
     // Gegenstueck zu reset() (={}): stellt im Zwei-Phasen-Rollback die Zaehler EXAKT auf den save-Stand zurueck,
     // nachdem das Daten-Substrat per op-inversem Replay wiederhergestellt wurde (abi_adapter::tier_rollback_all).
-    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; observer_.notify(stats_); }
+    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; }   // (A2.1) notify entfernt
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
 #endif
