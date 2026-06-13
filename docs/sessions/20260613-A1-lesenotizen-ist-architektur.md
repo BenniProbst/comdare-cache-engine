@@ -123,6 +123,44 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   parallel (`StaticBinaryView::operator[](i)` dekodiert EINEN Pfad). **§b R5.B-Operativität-Grenze ehrlich:** operativ
   misst real nur search_algo (+ allocator), Rest passive Compile-Time-Deskriptoren (`observable_axis_count` macht es transparent).
 
+## 3b. VERTIEFUNG Observer/ABI-Konvergenz (Doc 29/31 + abhaengigkeitskette + messarchitektur_design_observer, gelesen 2026-06-13)
+
+- **LEBEWESEN→PRÜF-DOCK-Kette (abhaengigkeitskette, 8 Schichten):** `IExecutionEngine` (Wurzel; Schwester `IVirusExecutionEngine`
+  = Graphen-Algos ohne Anatomie) → `AnatomyGenus` (Dock-Diskriminator) → `Composition` (17 using-Slots) → `SearchAlgorithmAnatomy<C>`
+  (`observe_all`→`ObserverAggregate<C>`) → **`SearchAlgorithmAbiAdapter<A>` = DREIFACH-Vererbung `: IAnatomyBase, IMeasurableWorkload,
+  IObservableTier`** → 4 extern-C-Symbole (create/destroy/version/magic) → Snapshot-POD (memcpy) → `AnatomyModuleLoader` → Prüf-Dock.
+  Slot-Reihenfolge T0..T16 UNVERRÜCKBAR (search_algo, cache_traversal, mapping, path_compression, node_type, memory_layout, allocator,
+  prefetch, concurrency, serialization, telemetry, value_handle, isa, index_organization, io_dispatch, migration_policy, filter).
+- **🔴 ABI-Grund-Invariante (warum Sub-Interfaces):** Eine neue Mess-Fähigkeit darf NIE als virtuelle Methode ans vtable-Ende von
+  `IAnatomyBase`/`IObservableTier` — alte DLL gegen neuen Host springt über fremde vtable → **SEH 0xc0000005**. Stattdessen:
+  jede Fähigkeit als eigenes Sub-Interface, das der Adapter ZUSÄTZLICH erbt (NICHT unter IAnatomyBase → dessen vtable bleibt stabil);
+  Host fragt via `dynamic_cast<…*>` ab. **Dreifach-Vererbungs-REIHENFOLGE eingefroren** (bestimmt Sub-Object-Layout + cast-Offsets).
+  `destroy_fn` VOR `dlclose` (sonst UAF). `host_compatible_with = major==host.major && module.minor<=host.minor` (Modul alt erlaubt, nie zukünftig).
+- **🔴 dynamic_cast ist KALT, nicht heiß (verifiziert):** 1× pro `measure()`/Modul, gecacht + per Referenz; Hot-Loop
+  (`drive_tier_observe_trace_abi`) nimmt `IObservableTier&` → NULL cast, nur Virtual-Calls. ⇒ **Die „no-dynamic-cast-im-Hot-Pfad"-
+  Direktive ist im IST-Code bereits ERFÜLLT** (kein Fix nötig — nur dokumentieren). Op+Param+Observer in EINER Schnittstelle vereint.
+- **I1-Observer-KONSOLIDIERUNG (Doc 31, DONE 2026-06-05, ABI-Major 2→3):** GENAU EINE `IObservableTier::tier_observe(
+  ComdareTierObserverSnapshot*)` (pure virtual) + EIN versionierter POD = **`axis_stats[19][8] + seg_ns[19] + Meta`**. Subsumiert
+  V1(13)+V2(26)-Felder verlustfrei (search→[0][0..5], alloc→[6][0..4], telemetry→[10], memory_layout→[5], serialization→[9],
+  node_type→[4], Timing→seg_ns[0..18]). **V3 = konzeptionelle Wende** (generische schema-stabile `axis_stats[T][f]`-Matrix,
+  `kV3AxisSchema` single-source → neue Achse = nur weitere Zeile, kein neuer POD); V4 ergänzte orthogonal `seg_ns` (Pfad-B-Timing
+  über die REALE Komposition, KEIN synthetischer Puffer). V1/V2/V3/V4-Sub-Interfaces + Bridge ENTFERNT; Versionierung jetzt auf
+  ABI-Major-Ebene (Loader-Reject per Major-Mismatch = der saubere Ort für einen echten Layout-Bruch). I1 erzwang Neubau ALLER Perm-DLLs.
+- **🔴 Q1-SEQUENZ in der EINEN `tier_observe` (gegen Doppelzählung, ZWINGEND):** (1) `axis_stats`-READ → (2) `seg_ns`-TIMING
+  (`fill_segment_timing_v3` treibt per-op-Organe) → (3) per-op-RESET. Sonst T0/T1/T2/T3/T7/T8/T10/T17/T18 doppelt.
+- **Composition-Driver-Stand (Doc 29, R5.B-Grenze):** Anatomie hält real nur `axis_search_algo_` als Member; weitere Organe blockt der
+  **protected CRTP-Base-ctor** (`{}`-Aggregat-Init spricht die protected Base an). LÖSUNG = **`ObservableXxx`-Hülle pro Achse** (Option H,
+  search_algo-Vorbild `ObservableComposedSearch`): trägt die Mess-Mechanik (`statistics()/snapshot_t/reset()`, gegated), kein Aggregat
+  → als Member `{}`-haltbar + transparenter `name()`-Decorator. **telemetry + memory_layout als 2./3. voll getriebene Achse verdrahtet**
+  (`test_v41_anatomy_observer` 15/15 grün). VERBLEIBT (E-Kandidat): Auto-Kopplung am echten Tier-insert + restliche Reference-/AdHoc-
+  Compositions + serialization/node_type nach demselben Hüllen-Muster.
+- **Baum-Generik (Doc 29 §1):** Baum-KERN voll generisch (`build(vector<AxisLevel>)`, mixed-radix beliebig viele Ebenen, `genus_binding_traits`
+  parametrisch); **fest-N pro Tier-Unterklasse = bewusste Invariante** (neue Achse INNERHALB = Composition + ObserverAggregate anfassen,
+  NICHT generisch — sonst verliert die Tier-Unterklasse ihre ABI-Identität).
+- **B1-Split (messarchitektur_design_observer, auf Major-Bump mitgeritten):** `IObservableTier` → `IDrivableTier` (Ops, Pflicht) +
+  `IObservableTier` (nur `tier_observe`); 2 Build-Profile MESS (STATISTICS=ON) vs REIN (=OFF). Ledger §a.V5 listet `IDriveableTier`/
+  `IObservableTier`/`IRollbackableTier`/`IScannableTier` als existent → B1 umgesetzt.
+
 ## 4. Offene Punkte / Vorbehalte aus dem IST-Ledger (für D/E relevant)
 - Vendor-Allokatoren (#19, jemalloc/tcmalloc/hoard/scalloc) + reale PMC (#26) = **extern/toolchain-gated**
   (lokal nicht baubar; Beschaffungs-Specs geliefert; erst ZIH/Cluster). Mechanik an mimalloc/snmalloc/dlmalloc bewiesen.
@@ -215,12 +253,15 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   + §8.9/§8.9.1 Prüfling-3-Join + leere-Achse-Regel; → §3a)
 - ✅ cache-engine **Doc 26** (B+-Baum-Prosa, vollständig) + **Doc 27** (4 Brücken BR-1..4 + 22-Achsen-Inventar + Gate-1
   137.594.142.720.000 + C1060-Infeasibility; → §2a)
+- ✅ cache-engine **Doc 29** (Baum-Generik + Composition-Driver-Stand: ObservableXxx-Hülle, telemetry+memory_layout getrieben)
+  + **Doc 31** (Observer-Konsolidierung I1, EIN POD axis_stats[19][8]+seg_ns[19], ABI-Major 2→3, Q1-Sequenz) + **abhaengigkeitskette**
+  (8-Schicht-Kette + Dreifach-Vererbung + SEH-vtable-Invariante) + **messarchitektur_design_observer** (dynamic_cast KALT, B1-Split); → §3b
 - ✅ Thesis **03_konzepte_saeule_a + 04_konzepte_saeule_b** (SUPERSEDED-Konzept-Vokabular: F1–F29 / 4-Ebenen-Strategie
   A-B-C-D / 33-Paper-Map / Säule-B Plattform-Auto-Discovery [Discover→Measure→Classify→Publish→Bind] + 28 Concept-Klassen
   + ~80 Heuristiken + Block-AO-Maschinen Ryzen-9950X3D/i9-14900KS — Kontext, NICHT IST)
-- ⬜ OFFEN: Thesis 01,05,06,07,08,12,13 + Rest 11/14 · cache-engine **29 (Baum-Generik/Composition-Driver) ·
-  28 (Vollständigkeits-Kartographie) · 31 (Observer-Konsol. I1) · abhaengigkeitskette · messarchitektur_design_observer ·
+- ⬜ OFFEN: Thesis 01,05,06,07,08,12,13 + Rest 11/14 · cache-engine **28 (Vollständigkeits-Kartographie) ·
   messarchitektur_klarstellungen · messarchitektur_v5_design/_entscheidungen/_drei_profile/_i8** + 15–23/23a/25(×2)/32 ·
   A2 Rest-Code-Pre-Read (registry_to_axis_levels/profile_to_tree/composition_registry/composition_factory/
   search_algorithm_anatomy/observable_tier/perm_runner/iterator/permutation_engine/genus_binding_traits) · A3 Audits-Soll-Abgleich.
-  (Beide IST-Docs + Doc 24/26/27/30/33 ✅ — die Konsolidierungs-Basis B steht solide; Rest = Generik-/Detail-/Konzept-Kontext.)
+  (Beide IST-Docs + Doc 24/26/27/29/30/31/33 + abhaengigkeitskette + design_observer ✅ — die Mess-/Baum-/Observer-Architektur ist
+  jetzt VOLLSTÄNDIG erfasst; Konsolidierungs-Basis B steht solide; Rest = v5-Mess-Profile/Vollständigkeits-Karte/Detail-/Konzept-Kontext.)
