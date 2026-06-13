@@ -127,3 +127,30 @@ Code lokalisiert, SOLL + Kern-Challenge + 8 Inkremente + Verifikation + Rückfal
 kontained-sicher, kein search_organ_-Eingriff) — `observable_composed_search.hpp`/`observable_composed_container.hpp`
 `std::function`-notify → compile-time `NotifyPolicy`; Pilot array256, Unit-Test in `build/msvc-release`, dann ausrollen.
 Danach A2.2→A2.8 strikt der Reihe nach, je grün + commit + Submodul-Bump. Der HOCH-Risiko-Kern A2.4/A2.5 erst nach A2.1–A2.3.
+
+## §9 Ausführungs-Fortschritt (live)
+
+- **A2.1 ✅ AUSGEFÜHRT + VERIFIZIERT GRÜN** (ce `38b1374`/super `4645844`): `observer_.notify` aus den beiden mess-kritischen
+  Hüllen (`observable_composed_search.hpp` + `observable_composed_container.hpp`) entfernt (toter `std::function`-Push je Op,
+  über extern-C nie subscribed); Pull-Transport via `statistics()` + `observer()`/Concept + getestete Allocator/Queuing/
+  Traversal-Wrapper unberührt. **Literal:** test_d_v42_probe2 build+run exit=0 · `test_v41_anatomy_observer` **18/18 PASSED**
+  (Observer-Pull) · `test_v5_memento_axis` **4/4 PASSED** (`restore_statistics`-Pfad). = Audit K5b/P5/P8 erledigt (a).
+
+- **A2.3 (K6/P6) — CODE-ASSESSMENT (`axis_04_node_type_layout_aware_store.hpp`, 2026-06-13):** Defekt verifiziert: `A` (`:73
+  allocator_type`) wird NUR für `A::name()`/`A::snapshot_t` genutzt; Chunks liegen in `std::vector<unsigned char>` über dem
+  **Default-`std::allocator`** (`:99 chunks_.back().reserve`), und `allocator_statistics()` (`:125-133`) **fabriziert**
+  (`allocation_count=chunk_allocs_`, `total_bytes_allocated=chunk_allocs_*cap_*eff_stride`). **SOLL:** `mutable A alloc_{}`-Member
+  + Chunk-Byte-Buffer real über `alloc_.allocate(size, align)` beziehen (A bietet `allocate`/`statistics`, vgl. run_workload
+  `abi_adapter.hpp:269`) + `allocator_statistics()` → `alloc_.statistics()`. **⚠️ KEIN 10-Zeilen-Edit:** Store-Speicher-
+  Management-Refaktor (`chunks_` von `std::vector<unsigned char>` auf A-allozierte Buffer ODER `StdAllocatorAdapter<A>` als
+  Vector-Allocator) + Dealloc in `clear()`/Destruktor → eigenes Inkrement mit frischem Kontext (maximale Tiefe; Teil-Fix
+  [Stats ohne Alloc] wäre FALSCH = Nullwerte). **Beide Hälften (Allokation über A + Stats aus A) müssen zusammen.**
+
+- **A2.2 (K5c/P4) — INTERPLAY-BEFUND:** `container_`-Traversierung SortedBinary→LinearScan/Append berührt die `container_t`-
+  Definition (`abi_adapter.hpp:1303`), die der A2.4/A2.5-Kern ohnehin auf `Composition::search_algo` umstellt. ⇒ A2.2 wäre
+  durch A2.4 überschrieben (Rework). **REVIDIERTE REIHENFOLGE:** A2.3 (isoliert, Allocator) als nächstes eigenständiges
+  Inkrement; A2.2 in den zusammenhängenden Kern-Block A2.2/A2.4/A2.5 (Traversal-Vereinheitlichung) ziehen — EIN tiefer
+  Kern-Inkrement statt zweier sich überschreibender. Begründung: vermeidet Flach-Shortcut/Rework (Goal „maximale Tiefe").
+
+**Stand:** A2.1 verifiziert-erledigt; A2.3 + der Kern-Block A2.2/A2.4/A2.5 als nächste eigenständige Inkremente (je frischer
+Kontext für die geforderte Tiefe), Reihenfolge A2.3 → Kern-Block → A2.6 (POD) → A2.7 (Begleit) → A2.8 (cowfix-v1-Neubau).
