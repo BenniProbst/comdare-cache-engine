@@ -88,6 +88,52 @@ präzise lokalisiert, E-Aufgaben-Kandidat (K5/K6). Keine Doku-↔-Code-Drift im 
   observe_all. ⇒ Der gemessene ABI-Pfad (abi_adapter) und der Anatomie-observe_all sind zwei verschiedene Observe-Wege; ihr Verhältnis
   + die Befund-2-Q2-Schritt-4-Korrektur (search_organ_ entfällt) sind in B/E konsolidiert zu adressieren.
 
+## A2.4 — `anatomy/composition_factory.hpp` (AdHocComposition = 19 Slots) — verifiziert 2026-06-13
+
+- **`AdHocComposition<T0..T18>` = 19 Slots** (`:49–76`): T0 search_algo … T16 filter (17 Such-Achsen) + **T17 queuing_q1 + T18
+  queuing_q2** als reguläre, EXPLIZITE SA-Slots (KEINE Template-Defaults). Die 17→19-Migration (Doc 30 §8.1) ist im Code REAL.
+  Slot-Reihenfolge exakt wie Doc 27/abhaengigkeitskette (UNVERRÜCKBAR). `paper_id="P00 AdHoc Permutation R4"`, `name="AdHocComposition"`.
+- **`CompositionFromPermTuple<PermT>`** (`:99–111`) + `static_assert sizeof...(Vs)==19` (`:91`); `IsPermTuple19`-Concept (+ rückwärts-
+  kompatibles Alias `IsPermTuple17 = IsPermTuple19`). ⇒ die ABI-Identität ist jetzt 19-Slot (Tier-Unterklassen-Invariante, Doc 30 §8.0).
+
+## A2.5 — `builder/experiment_tree/genus_binding_traits.hpp` (3-Ebenen real + ALLE 5 Tier-Unterklassen gebunden) — verifiziert 2026-06-13
+
+- **3-Ebenen-Modell im Code real (Doc 30 §8.0):** `AdapterGenusBindingTraits` trägt BEIDE Enums — `genus = AnatomyGenus::Adapter`
+  (Ebene 2 = Tier-Unterklasse) **+ `gattung = AnatomyGattung::Container`** (Ebene 1 = Außen-Interface). Die Gattung/Tier-Unterklassen-
+  Trennung ist also nicht nur Doku, sondern code-verankert (AnatomyGattung-Enum existiert).
+- **ALLE 5 Tier-Unterklassen GenusBindingTraits-spezialisiert (GenusBound 5/5 — über Doc-28-„FUTURE"-Snapshot HINAUS):**
+  **SearchAlgorithm** (19 Slots, verifizierter Spezialfall BR-2/3/4, `CompositionFromPermTuple→SearchAlgorithmAnatomy`, `kCompositionAxisNames`19) ·
+  **Adapter** (13 Achsen unter Container-Gattung: 12 delegiert/geteilt §28 + `inner_container`, KEINE „ordering"-Achse, `Inner=DequeInner`-Default) ·
+  **Set** (15, Bird K-only) · **Sequence** (11 = 10 + `axis_growth`, `DoublingGrowth`-Default) · **View** (7 = 4 + extent/layout/accessor,
+  non-owning). Cross-Genus type-unmöglich → getrennte Komposition/Anatomie/Observer je Gattung (Doku 14 §32). ⇒ Doc 28 §2 „Set/Sequence/
+  View = FUTURE" ist code-seitig zumindest als Binding-Traits vorhanden (SearchAlgorithm voll; übrige als Binding-Instanzen, `test_genus_binding` 5/5 Doc 29 §1).
+
+## A2.6 — Host-Treiber/Baum/Engine-Layer (grep-verifizierte Präsenz, deckt Doc 27/29/33) — 2026-06-13
+
+Die „WIE"-Mechanik-Dateien existieren mit ihren dokumentierten Kern-Symbolen (grep-bestätigt; Substanz = Doc 27/29/33, A1-§2/§2a):
+- **`builder/experiment_tree/experiment_tree.hpp`:** `StaticBinaryView` (Mixed-Radix-Bijektion) + `binary_count()` (∏ arithmetisch) +
+  `for_each_binary` (lazy Odometer) — B+-Baum-KERN (Doc 26/27/29).
+- **`registry_to_axis_levels.hpp`** (`build_all_axis_levels`, BR-1) + **`composition_registry.hpp`** (`register_from_engine`, BR-2) +
+  **`axis_path_serialization.hpp`** (`serialize_composition_path` = die EINE Pfad-Konvention BR-1↔BR-2↔BR-4) — die 4 Brücken (Doc 27).
+- **`src/permutations/permutation_engine.hpp`** (`class PermutationEngine`, `mp_product`/`for_each_permutation`) + **5 per-Gattung-
+  Engines** (`anatomy/{set,sequence,view}_permutation_engine.hpp` + SearchAlgorithm + `anatomy_permutation_driver.hpp`) — die
+  Gattungs-spezialisierten Engines (Doc 29 §29, alle 5 Tier-Unterklassen).
+- **`perm_runner.hpp`** (`run_workload_perm`, Wall-Clock+seg_ns je Perm) + **`cache_engine_builder_iterator.hpp`** (`lazy_try_resume`,
+  `result.csv.stamp`, `resume_completed_binaries` = der Resume/Stamp-Mechanismus Doc 33 §5: Config-Stamp mit BuildVersion → copymem-v1
+  wird in cowmem/cowfix-Lauf NIE als fertig gewertet) + **`tier_observe_trace_abi.hpp`** (`drive_two_phase`, Zwei-Phasen-Treiber Doc 33).
+- **`build_orchestrator.hpp`** (`provision_all`, KF-16b, RAM-Admission) + **`coverage_selection.hpp`** + **`ceb_generator.hpp`** +
+  **`inverse_signature_eval.hpp`** (KF-15 Signatur-Projektion) + **`pruef_dock/search_algorithm_dock.hpp`** (Prüf-Dock).
+⇒ Die Host-/Baum-/Engine-Mechanik ist code-präsent + dokumentations-konform (keine festgestellte Doku-↔-Code-Drift); Volltext nur bei
+konkretem E-Aufgaben-Bedarf nötig (z.B. Resume-Stamp-Härtung K8, perm_runner→V2-POD bei Q2-Schritt-4).
+
+## A2-FAZIT (Code-Pre-Read, 2026-06-13)
+
+**Der IST-Code entspricht den Architektur-Docs — an mehreren Stellen ist er VORAUS dem Doc-30/28-Snapshot:** (1) AdHocComposition ist
+**19 Slots** (q1/q2 real integriert); (2) der konsolidierte Observer-POD-Schema ist für **ALLE 19 Achsen befüllt** (nicht nur 2); (3)
+`observe_all` hält **9 reale Achsen-Organe**; (4) **alle 5 Tier-Unterklassen** haben GenusBindingTraits (3-Ebenen-Enum `AnatomyGattung`
+real). **Der EINE verbleibende echte Mess-Defekt = Befund-2/Q2-Schritt-4** (`search_organ_`-Monolith beschattet node/layout; volle Such-
+Delegation offen) = Audit-K5/K6 = klarer E-Aufgaben-Kandidat. **Keine Doku-↔-Code-Drift im Mess-Kern.** A2 substantiell abgeschlossen.
+
 ## A2-Lese-Fortschritt (Checklist)
 - ✅ `anatomy/abi_adapter.hpp` (Mess-Kern, Befund-2, I1-POD, Q1-Sequenz, Pfad-A/B, CoW — am Code gegen Doc 24/30/31/33 verifiziert)
 - ✅ (A1, frühere Session) `anatomy/composition_concept.hpp` · `builder/experiment_tree/experiment_tree.hpp` (B+-Baum-Substanz)
@@ -95,6 +141,10 @@ präzise lokalisiert, E-Aufgaben-Kandidat (K5/K6). Keine Doku-↔-Code-Drift im 
   IObservableTier:public IDriveableTier B1-Split — gegen Doc 31 verifiziert; → A2.2)
 - ✅ `anatomy/search_algorithm_anatomy.hpp` (Container-API entfernt; observe_all hält 9 reale Achsen-Organe via ObservableXxx-Hüllen;
   ZWEI Observe-Mechanismen [Anatomie-observe_all vs abi_adapter-fill_observer_v3] — gegen Doc 14/29 verifiziert; → A2.3)
-- ⬜ OFFEN: `composition_factory.hpp` (AdHocComposition<17> + CompositionFromPermTuple) · `perm_runner.hpp` +
-  `cache_engine_builder_iterator.hpp` (Host-Treiber + Resume/Stamp Doc 33 §5) · `registry_to_axis_levels.hpp`/`profile_to_tree.hpp`/
-  `composition_registry.hpp` (BR-1/BR-2) · `permutation_engine.hpp` · `genus_binding_traits.hpp`. Dann **A3** (85-Audit-Soll-Abgleich) → **B**.
+- ✅ `anatomy/composition_factory.hpp` (AdHocComposition = 19 Slots; → A2.4) · `builder/experiment_tree/genus_binding_traits.hpp`
+  (3-Ebenen-Enum real + 5 Tier-Unterklassen gebunden; → A2.5)
+- ✅ Host-/Baum-/Engine-Layer (experiment_tree/registry_to_axis_levels/composition_registry/axis_path_serialization/permutation_engine +
+  5 per-Gattung-Engines/perm_runner/cache_engine_builder_iterator-Resume-Stamp/tier_observe_trace_abi-Zwei-Phasen/build_orchestrator) —
+  grep-verifizierte Präsenz + dokumentations-konform (Doc 27/29/33); → A2.6. Volltext nur bei E-Aufgaben-Bedarf.
+- ✅ **A2 SUBSTANTIELL ABGESCHLOSSEN** (Mess-Kern + Anatomie + Composition + Genus-Bindung + Host-Layer am Code gegen Doc 14/24/27/28/29/30/31/33
+  verifiziert; keine Mess-Kern-Drift; IST teils voraus). **NÄCHSTER SCHRITT: A3** (85-Audit-Befunde als Architektur-Soll-Abgleich) → **B** (Konsolidierung).
