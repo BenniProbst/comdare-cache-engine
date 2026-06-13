@@ -72,10 +72,30 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 - V5-I-Drive-Vollausbau (IDriveableTier auf volle std::map/std::vector-API) = offener Strang (Voraussetzung volle Gate-Äquivalenz).
 - YCSB A–F treu+zitiert done; ehrliche Lücke „update=Upsert" dokumentiert.
 
+## 4b. IST-Ledger §b/c/d/e (vollständig gelesen, Z.148–226) — Status-Landkarte für C/D/E
+
+- **§e VERIFIZIERT-ERLEDIGT (der Großteil!):** V5 I1–I10 · F.2 17/17 Achsen · F.3 17 Concepts · F.4 Tools-Facade ·
+  R6.1–6.5 (IObservableTier+POD, Wall-Clock+Observer-Trace, Loader, Pfad-B-2D, Prüf-Dock) · R7.2/7.3/7.4-Body ·
+  R8 (Prüfling 3-Stufen) · Umstufung-A/B · s4 · Cross-Constraints · G.1 (messung_driver axis_tree) · E10.x ·
+  **#42-Phase-2: `EnabledStrategies = mp_filter<is_enabled, AllStrategies>` = 4 Such-ORGANE (K_ARY/INTERPOLATION/
+  EYTZINGER/LINEAR_SCAN, USE=1), 13 Monolith-Tiere USE=0 deregistriert** (konfig. Flags-Header; Direktive
+  no_whole_tier_axes auf EnabledStrategies-Ebene erfüllt). ⇒ Architektur-Substanz steht; Mess-Pfad real.
+- **§b EXTERN/TOOLCHAIN-GATED:** A1/A2.1 Vendor-Allokatoren (jemalloc/tcmalloc/hoard/scalloc — lokal nicht baubar) ·
+  R5.D/#26 PMC-HW-Counter (Intel PCM/MSR) · C1/C2 Cluster/Grace-Hopper · E10.6/7 ZIH-Verteilung ·
+  E11-Facade-Impl (gated auf #22/V42) · F.6-Phase-C (23 Legacy-Header erst NACH Habich-Termin löschen) ·
+  **Doku-11/14-Verif „nicht im Repo" — HEUTE AUFGELÖST: per Junction `docs/architektur` (Thesis-Basis 00–14) zugänglich.**
+- **§c USER-MANUELL:** D1 (Diplomarbeit-Kapitel-Text) · D2 (Bausteine-Matrix-Update) — User schreibt.
+- **§d V42-FUTURE:** Gattungs-Docks Set/Sequence/Adapter/View (Blueprint=SearchAlgorithmDock) · R7.6.c is_original-
+  Linking · Naming-Refactor-Backlog (axis_12/04/03a/q1q2/08) · E9 raw-string · #22 Submodule-Option-B.
+- **Implikation für E:** Die Original-Mission (Bias-Matrix-Messung) baut AUF dieser fertigen Substanz auf; die
+  Audit-Befunde (D) sind Korrekturen AM bestehenden Mess-Pfad, keine Neubauten. Achsen-Austausch-Auswertung
+  gehört in Baum/CEB (nicht Eval-Tool).
+
 ## 5. A1-Lese-Fortschritt (Checklist)
 - ✅ Thesis-Basis: 00_INDEX · 02_master_REV7_7 · 09_taxonomien · 10_schichten_modell_M · 11_axes_vs_strategies
 - ◐ 11_konzept_extension_visitor (§1–§11 von §… ; 4 Patterns + 3-Stufen + CRTP+Concept + Prüfling-Namespace gelesen)
 - ◐ 14_organ_metapher (§0–§20 von §53; Organ-Metapher + 3-Schichten + Verantwortlichkeit + ObserverAggregate)
-- ◐ IST-Ledger (Z.1–147 von 226; §a + §a.V5 + §a.P gelesen)
-- ⬜ OFFEN: Ledger-Rest (§b/c/d/e) · 20260531-e2e-abnahme · Thesis 01,03,04,05,06,07,08,12,13 + Rest 11/14 ·
-  cache-engine 15–33 + benannte (abhaengigkeitskette, messarchitektur_*) · A2 Code-Pre-Read · A3 Audits.
+- ✅ IST-Ledger (vollständig, 226 Z.; §a/§a.V5/§a.P/§b/§c/§d/§e)
+- ⬜ OFFEN: `20260531-e2e-abnahme-audit-und-entscheidungen.md` (2. IST-Doc) · Thesis 01,03,04,05,06,07,08,12,13
+  + Rest 11/14 · cache-engine 15–33 + benannte (abhaengigkeitskette, messarchitektur_design_observer,
+  messarchitektur_v5_*) · A2 Code-Pre-Read · A3 Audits.
