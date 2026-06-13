@@ -292,11 +292,32 @@ struct LazyRunResult {
 // XML-Lastprofilen und alle Resource-Control-Dims ab). Schema-Drift fängt der Header-Vergleich (lazy_csv_header).
 [[nodiscard]] inline std::string lazy_resume_stamp_prefix(LazyRunConfig const& cfg,
                                                           std::vector<DynamicDim> const& dims) {
-    std::string s = "resume-v1|build=" + cfg.build_version
+    // resume-v2 (Audit K8): zusätzlich zur Skala+dyn-Dims jetzt (a) der INHALT der XML-Lastprofile (op-mix/dist/theta/
+    // neg/scan je id) — sonst bliebe ein Lauf mit GLEICHER Profil-id aber GEÄNDERTEM XML-Inhalt fälschlich resume-fähig
+    // (stale Messung als gültig übernommen); (b) die env_limits (Resource-Control-Caps) — sonst würde ein Lauf mit anderen
+    // Limits stale resumed. Format-Bump v1→v2 invalidiert Alt-Stamps via Prefix-Mismatch → ehrliche Neu-Messung.
+    std::string s = "resume-v2|build=" + cfg.build_version
                   + "|n_ops=" + std::to_string(cfg.n_ops)
                   + "|seed=" + std::to_string(cfg.workload_seed)
                   + "|records=" + std::to_string(cfg.workload_records)
-                  + "|dims=";
+                  + "|env=" + std::to_string(cfg.env_limits.thread_count)
+                  + ',' + std::to_string(cfg.env_limits.prefetch_distance)
+                  + ',' + std::to_string(cfg.env_limits.pool_budget_bytes)
+                  + ',' + std::to_string(cfg.env_limits.batch_size)
+                  + ',' + std::to_string(cfg.env_limits.inline_threshold_bytes)
+                  + "|wlcfg=";
+    // std::map → deterministische id-Sortierung. Je Profil die mess-bestimmenden XML-INHALTSfelder (NICHT seed/n_ops/
+    // key_range — die sind Harness-Skala, schon oben). std::to_string(double) ist deterministisch (6 Nachkommastellen).
+    for (auto const& [id, c] : cfg.workload_configs) {
+        s += id; s += ':';
+        s += std::to_string(c.pct_insert) + '/' + std::to_string(c.pct_lookup) + '/' + std::to_string(c.pct_erase)
+           + '/' + std::to_string(c.pct_clear) + '/' + std::to_string(c.pct_scan) + '/' + std::to_string(c.pct_rmw)
+           + '/' + std::to_string(static_cast<int>(c.key_distribution))
+           + '/' + std::to_string(c.zipfian_theta) + '/' + std::to_string(c.negative_query_pct)
+           + '/' + std::to_string(c.scan_length_max);
+        s += ';';
+    }
+    s += "|dims=";
     for (DynamicDim const& d : dims) {
         s += d.axis; s += '.'; s += d.variable; s += ':';
         for (std::size_t i = 0; i < d.values.size(); ++i) { if (i) s += ','; s += d.values[i]; }
@@ -401,14 +422,14 @@ struct LazyRunResult {
 
     // ── Je erfolgreich bereitgestellte DLL: laden + die zwei Lazy-Sub-Iteratoren fahren ──
     for (BuildResult const& b : builds) {
-        if (!b.ok()) continue;  // Build-Fehler → kein Mess-Eintrag (ehrlicher Sparse-Kontrast)
-
         // ════════════════════════════════════════════════════════════════════════════════════════════════
-        // Mess-RESUME (#139): ist die per-Binary result.csv für DIESE Konfiguration vollständig+aktuell
-        // (Stamp+Header+Zeilenzahl), wird die Binary KOMPLETT übersprungen (kein Laden, kein Messen) und
-        // ihre Zeilen unverändert in die globale CSV übernommen. Stale Ergebnisse (anderer BuildVersion-/
-        // n_ops-/Workload-Stand — z.B. copymem-v1-Testlauf) matchen den Stempel NICHT → Neu-Messung mit
-        // Zwei-Phasen-Cache-Warmup (intrinsisch je Op).
+        // Mess-RESUME (#139 + Audit K8): Resume-Check VOR dem b.ok()-Gate. Ist die per-Binary result.csv für DIESE
+        // Konfiguration vollständig+aktuell (Stamp+Header+Zeilenzahl), wird die Binary übersprungen und ihre Zeilen
+        // unverändert in die globale CSV übernommen — AUCH wenn der aktuelle Build fehlschlägt (sonst stille CSV-Lücke
+        // bei Exit 0, obwohl ein gültiges Ergebnis bereits vorliegt). b.output ist die INTENDIERTE Pfad-Angabe
+        // (build_orchestrator:257, vor dem Build gesetzt) → der per-Binary-Unterordner steht auch bei Build-Fehler fest;
+        // lazy_try_resume_binary prüft exists() → fehlender Pfad scheitert sauber. Stale (Stamp-Mismatch, z.B. andere
+        // BuildVersion/n_ops/Workload/env/XML-Inhalt) → Neu-Messung mit Zwei-Phasen-Cache-Warmup (intrinsisch je Op).
         // ════════════════════════════════════════════════════════════════════════════════════════════════
         if (cfg.resume_completed_binaries && cfg.per_binary_subdirs) {
             std::string resumed_rows;
@@ -418,6 +439,7 @@ struct LazyRunResult {
                 continue;
             }
         }
+        if (!b.ok()) continue;  // Build-Fehler UND nicht resumebar → kein Mess-Eintrag (ehrlicher Sparse-Kontrast)
 
         // ════════════════════════════════════════════════════════════════════════════════════════════════
         // (2) LADEN: DLL → IAnatomyBase* → die zwei ABI-Sub-Interfaces via dynamic_cast.

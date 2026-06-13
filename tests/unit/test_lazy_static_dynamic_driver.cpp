@@ -105,6 +105,26 @@ int main() {
     cfg.cores_per_build = 4;
     cfg.env_limits.thread_count = 8;   // System-Obergrenze für die dyn. thread_count-Variation (clamp)
 
+    // ── (Audit K8) Resume-Stamp-Härtung: env_limits + XML-Lastprofil-INHALT invalidieren den Stamp ──────────
+    // Beweis, dass ein Lauf mit anderen Resource-Caps ODER geändertem XML-Inhalt (GLEICHE Profil-id) NICHT mehr
+    // fälschlich resumed wird (sonst würde eine stale Messung als gültig übernommen). Stamp-Format = resume-v2.
+    {
+        namespace wd = comdare::cache_engine::builder::workload_driver;
+        std::vector<ex::DynamicDim> const no_dims;
+        std::string const base = ex::lazy_resume_stamp_prefix(cfg, no_dims);
+        check_true("K8: Stamp-Format = resume-v2", base.rfind("resume-v2|", 0) == 0);
+        ex::LazyRunConfig cfg_env = cfg; cfg_env.env_limits.prefetch_distance = 7;
+        check_true("K8: env_limits-Aenderung invalidiert den Stamp",
+                   ex::lazy_resume_stamp_prefix(cfg_env, no_dims) != base);
+        ex::LazyRunConfig cfg_x1 = cfg; { wd::WorkloadConfig c{}; c.pct_insert = 0.5; c.pct_lookup = 0.5; cfg_x1.workload_configs["LP01"] = c; }
+        ex::LazyRunConfig cfg_x2 = cfg; { wd::WorkloadConfig c{}; c.pct_insert = 0.9; c.pct_lookup = 0.1; cfg_x2.workload_configs["LP01"] = c; }
+        std::string const sx1 = ex::lazy_resume_stamp_prefix(cfg_x1, no_dims);
+        check_true("K8: XML-Profil-id im Stamp (wlcfg)", sx1.find("LP01:") != std::string::npos);
+        check_true("K8: XML-Inhalts-Aenderung (gleiche id) invalidiert den Stamp",
+                   sx1 != ex::lazy_resume_stamp_prefix(cfg_x2, no_dims));
+        std::cout << "  [K8] Resume-Stamp-Haertung verifiziert (env_limits + XML-Inhalt + resume-v2).\n";
+    }
+
     // Vorab-Diagnose: Source-Gen liefert für das erste Blatt reale Anatomie? (flush vor dem Build-Loop)
     {
         auto v0 = tree.static_binary_view();
