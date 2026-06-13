@@ -386,6 +386,16 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   ⇒ Alles **SUPERSEDED** durch das 22-Achsen/3-Ebenen/V5-IST; dient nur als Begriffs-/Diagramm-/F1–F15-Historie (vgl. §1-SUPERSEDED-Warnung).
 
 ## 5. A1-Lese-Fortschritt (Checklist)
+
+> **⭐ EHRLICH-KORREKTUR 2026-06-13 (nach User-Einwand „Kontext kompaktiert — Docs nicht wie gefordert gelesen?"):**
+> Die ✅-Marken der **übernommenen** Fundament-Docs stammten urspr. aus der Vorgänger-Session (nur Destillat überlebte die
+> Kompaktierung). **JETZT in DIESER Session genuin frisch in den Kontext re-gelesen (Read-Tool, vollständig):** IST-Ledger
+> (226 Z, §a–§e) · `20260531-e2e-abnahme-audit-und-entscheidungen` (G1–G16 + P1–P5 + G3-AdHoc-ill-formed-Befund + i7-F15)
+> · **Doc 30** (3-Ebenen-§8.0 + Befund-2 + §8.1-Adapter) · **Doc 33** (CoW-Memento Rev.2 + Resume) · Thesis **00/02/09/10/
+> 11_axes** (Konzept-Kern: 4-Subsystem-M + 4-Konzept-Ebenen + SUPERSEDED-Säulen/F1–F29). ⇒ Die GESAMTE load-bearing
+> IST-Architektur ist nun NICHT nur als Destillat, sondern WIRKLICH im aktuellen Kontext. **Residual (nur noch Konzept-
+> Detail, Substanz in §1 + Reference-Memories):** Schwänze 11_extension_visitor §12+ / 14_organ §21–53 / Doc-13-Teil-C §19+.
+
 - ✅ Thesis-Basis: 00_INDEX · 02_master_REV7_7 · 09_taxonomien · 10_schichten_modell_M · 11_axes_vs_strategies
 - ◐ 11_konzept_extension_visitor (§1–§11 von §… ; 4 Patterns + 3-Stufen + CRTP+Concept + Prüfling-Namespace gelesen)
 - ◐ 14_organ_metapher (§0–§20 von §53; Organ-Metapher + 3-Schichten + Verantwortlichkeit + ObserverAggregate)
