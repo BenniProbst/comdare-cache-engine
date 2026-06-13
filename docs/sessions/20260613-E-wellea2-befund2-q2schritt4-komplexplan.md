@@ -225,3 +225,19 @@ werden als nicht-store-geroutet ausgewiesen (kein Apparat-Artefakt-Vortäuschen)
   LayoutAwareChunkedStore<...>>` + T0-Metrik aus container_ (statt search_organ_) im store-Zweig + `search_organ_` nur noch
   Weg-B (if constexpr) + `tier_search_routes_through_store()` = `StoreTraversableSearchAlgo<SearchAlgo>` (ehrlich erst wenn
   T0 wirklich aus container_). = der eigentliche Befund-2-Fix; danach A2.6 (perm_runner-POD) -> A2.8 (cowfix-v1-Neubau).
+
+### §11.2 A2.5 — Befund-2/Q2-Schritt-4 KERN-FIX DONE (verifiziert gruen, ce 9ce0ba7)
+
+**Der dominante, mission-kritische Mess-Echtheits-Defekt ist behoben** (fuer die store-traversierbaren Tiere). In abi_adapter.hpp:
+- `container_traversal_t = std::conditional_t<StoreTraversableSearchAlgo<SearchAlgo>, traversal_for_search_algo_t<SearchAlgo>,
+  SortedBinaryTraversal>` → container_ nutzt fuer LinearScan/Interpolation ihr TREUES Traversal-Organ ueber den
+  LayoutAwareChunkedStore (node/layout/allocator wirken auf den Such-Pfad); Weg-B-Algos: SortedBinary-Fallback.
+- `fill_observer_v3` T0-Such-Metrik-QUELLE conditional: store-traversierbar -> `container_.statistics()` (Store) statt
+  `search_organ_.statistics()` (Monolith-Schatten) → **node/layout-Wechsel aendern jetzt T0 = Meta-Lehre #3 erfuellbar**.
+- `tier_search_routes_through_store()` jetzt EHRLICH `StoreTraversableSearchAlgo<SearchAlgo>` (true fuer store-geroutete Tiere).
+VERIFIZIERT: test_v41_anatomy_observer 18/18 + test_v5_organ_memento 2/2 (CoW mit neuem container_t) + probe2 exit=0.
+
+**Wirkung:** Die Befund-2-Entkopplung (Such-Achse vs Storage-Achsen) ist fuer LinearScan/Interpolation aufgehoben — ihre
+Achsen-Austauschbarkeits-Belege sind kein Apparat-Artefakt mehr (Meta-Lehre #3). Voll wirksam im cowfix-v1-Neubau (A2.8).
+**Verbleibend (Verfeinerung, kein Blocker mehr fuer den Kern):** search_organ_-Voll-Entfernung im store-Zweig (M8-Doppel-Store-
+Reinheit, koppelt an A2.2) + KAry/Eytzinger-Traversal-Organe (mehr store-geroutete Tiere) + A2.6 perm_runner-POD + A2.8 Neubau.
