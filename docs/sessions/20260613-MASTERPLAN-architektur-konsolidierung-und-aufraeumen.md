@@ -32,6 +32,23 @@
 **✓ Kriterium:** Eine Referenz-Liste „Original-Aufgaben + ihre Quell-Dokumente" liegt vor; nichts vom
 Session-Start ist verloren.
 
+**A0-ERGEBNIS (2026-06-13 ✅ Enumeration):**
+- **Original-Mission (letzte Session) = `GOAL-MESSUNG-AUDIT-APPENDIX-20260612.md`:** Bias-Bruch-Matrix
+  Messung → Audit-Abarbeitung → interpretierbarer LaTeX-Appendix. Detail: Ausgabe = Testdaten-Konfig × Tier;
+  je Interface-Funktion Verarbeitungsdauer (ns/op) auf z-Achse eines 3D-Diagramms; **Achsen-Austauschbarkeits-
+  Belege** (Wechsel EINER Achse → Diff gegen alle anderen Tiere als Tabelle) — **PRÄZISIERUNG (B+-Baum, nicht
+  flach!)**; Appendix IMMER alle Werte; TU-/ZIH-diplominf-Vorlage; NUR relative Pfade; EIN Experiment → fertige PDF.
+- **Letzte 15 Session-Docs (cache-engine `docs/sessions/`):** 20260613-MASTERPLAN · GOAL-AUTONOM-20260613 ·
+  20260613-ARCHITEKTUR-KORREKTUR-achsenaustausch-im-baum · 20260613-autonom-A2a-done · 20260612-uebergabe-m2/L ·
+  **GOAL-MESSUNG-AUDIT-APPENDIX-20260612** · 20260611-audit-ergebnisse-synthese · 20260611/10-undolog-uebergaben ·
+  20260605-observer-konsolidierung-START · 20260604-observer-konsolidierung + mess-architektur-19-achsen-timer ·
+  20260603-queuing-migration-87-container-tier-unterklasse · 20260603-gattungs-kategorienfehler-3-ebenen-modell.
+- **Thesis-Masterpläne:** `Diplomarbeit-Root/docs/MASTERPLAN_KONSOLIDIERUNG_TERMINE.md` (K-A…K-J, 10 Phasen,
+  Memory `reference_konsolidierungs_masterplan`) + DIESER Masterplan. **(Cluster/Products/Research-Masterpläne
+  in `OneDrive/Desktop/Projekte/**` = ANDERE Workstreams, NICHT thesis-relevant.)**
+- **Offen in A0 (vor B):** die 15 Session-Docs + `MASTERPLAN_KONSOLIDIERUNG_TERMINE.md` inhaltlich lesen
+  (zusammen mit A1; viele sind ohnehin Architektur-/Mess-Docs).
+
 ### A1 — ALLE Architektur-Dokumente lesen, ab Doc 00
 **Thesis-Basis** `docs/architektur/` (Diplomarbeit-Root, jetzt per Junction in der cache-engine verlinkt):
 - 00_INDEX · 01_REV_Historie · 02_aktueller_master_REV7_7 · 03_konzepte_saeule_a · 04_konzepte_saeule_b ·
