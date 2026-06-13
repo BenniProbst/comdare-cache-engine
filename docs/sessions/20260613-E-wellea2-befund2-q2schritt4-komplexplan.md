@@ -241,3 +241,16 @@ VERIFIZIERT: test_v41_anatomy_observer 18/18 + test_v5_organ_memento 2/2 (CoW mi
 Achsen-Austauschbarkeits-Belege sind kein Apparat-Artefakt mehr (Meta-Lehre #3). Voll wirksam im cowfix-v1-Neubau (A2.8).
 **Verbleibend (Verfeinerung, kein Blocker mehr fuer den Kern):** search_organ_-Voll-Entfernung im store-Zweig (M8-Doppel-Store-
 Reinheit, koppelt an A2.2) + KAry/Eytzinger-Traversal-Organe (mehr store-geroutete Tiere) + A2.6 perm_runner-POD + A2.8 Neubau.
+
+### §11.3 A2.6 GEGENSTANDSLOS nach A2.5 (verifiziert am Code)
+
+Der perm_runner zieht bereits den EINEN konsolidierten Observer-POD via `tier.tier_observe(&r.unified)` (perm_runner.hpp:116)
+und emittiert die VOLLE Matrix `axis_stats[19][8]+seg_ns[19]` (:40-48,:118). A2.5s Korrektur (axis_stats[0]=T0 aus container_
+fuer store-traversierbare Tiere via fill_observer_v3) fliesst AUTOMATISCH durch diese I1-Pipeline (keine perm_runner-Aenderung
+noetig). ⇒ **A2.6 (perm_runner->V2-POD) ist durch die I1-Konsolidierung + A2.5 bereits erfuellt = gegenstandslos.**
+
+**BEFUND-2/Q2-SCHRITT-4-KOMPLEXAUFGABE ABGESCHLOSSEN** (A2.1+A2.3+A2.4-S1/S2/S3+A2.5, A2.6 gegenstandslos): der dominante,
+mission-kritische Mess-Echtheits-Defekt ist im Source behoben + unit-test-gruen verifiziert. **Verbleibend (eigene Inkremente/
+Wellen, kein Befund-2-Kern-Blocker mehr):** A2.7 Begleit (K4 Iterator-Scan, K9 seg_ns-n>1/Gate) · search_organ_-Voll-Entfernung
+(M8-Doppel-Store-Reinheit) · KAry/Eytzinger-Traversal-Organe · Wellen A1 (Resume/Stamp K8) · A3 (RC K1/Scrambling K7c/Gate K9) ·
+A4 (Pattern K10) · A2.8 cowfix-v1-320-DLL-Neubau + M3 (macht alle A2.x-Fixes in den Abgabe-Daten wirksam).
