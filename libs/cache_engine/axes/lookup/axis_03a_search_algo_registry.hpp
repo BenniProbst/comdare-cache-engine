@@ -33,6 +33,8 @@
 #include "axis_03a_search_algo_bst.hpp"
 // V41.F.6.1.R7.2 (2026-05-29) S17 B-tree (balancierter block-orientierter Mehrwege-Baum, Bayer/McCreight 1972)
 #include "axis_03a_search_algo_btree.hpp"
+// (E-Welle-A2 / Befund-2 / A2.4-S1) Klassifikations-Concept store-traversierbarer Such-Algorithmen (Array vs Pool, G3)
+#include "composable/store_traversable_search_algo.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
@@ -78,5 +80,22 @@ using EnabledStrategies = mp::mp_filter<is_enabled, AllStrategies>;
 
 static_assert(mp::mp_size<EnabledStrategies>::value > 0,
     "axis_03a_search_algo: at least one strategy must be enabled");
+
+// (E-Welle-A2 / Befund-2 / A2.4-S1) Verifikation der store-traversierbaren Klassifikation über die ZIEL-Population
+// (Meta-Lehre #1/#2: echte Registry-Typen, nicht nur Referenz-Kompositionen). Array-Familie → store-traversierbar
+// (Suche über DENSELBEN node/layout/allocator-getriebenen LayoutAwareChunkedStore); Tree/Trie/Hash + Eytzinger
+// (BFS-Layout) → Weg-B (G3-Cross-Achsen-Constraint, Doc 34 §3/§9.1). A2.5 nutzt dies für die container_t-if-constexpr-Umstellung.
+static_assert(composable::StoreTraversableSearchAlgo<KArySearchAlgo>,
+    "A2.4-S1: k-ary = Array-Familie -> store-traversierbar");
+static_assert(composable::StoreTraversableSearchAlgo<InterpolationSearchAlgo>,
+    "A2.4-S1: interpolation = Array-Familie -> store-traversierbar");
+static_assert(composable::StoreTraversableSearchAlgo<LinearScanSearchAlgo>,
+    "A2.4-S1: linear_scan = Array-Familie -> store-traversierbar");
+static_assert(!composable::StoreTraversableSearchAlgo<EytzingerSearchAlgo>,
+    "A2.4-S1: eytzinger = BFS-Layout -> konservativ Weg-B (kein Marker)");
+static_assert(!composable::StoreTraversableSearchAlgo<HashSearchAlgo>,
+    "A2.4-S1: hash = Pool-Familie (ungeordnet) -> Weg-B (G3)");
+static_assert(!composable::StoreTraversableSearchAlgo<BinarySearchTreeSearchAlgo>,
+    "A2.4-S1: BST = Pool-Familie (Knoten-Pool) -> Weg-B (G3)");
 
 }  // namespace

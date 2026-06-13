@@ -56,6 +56,9 @@ namespace comdare::cache_engine::lookup {
 class KArySearchAlgo : public SearchAlgoBase<KArySearchAlgo> {
 public:
     static constexpr bool enabled = flags::k_ary_enabled;
+    // (E-Welle-A2 / Befund-2 / A2.4-S1) Array-Familie (k-ary-Suche über sortiert-aufsteigenden flachen Slot-Store) →
+    // store-traversierbar: Suche über DENSELBEN LayoutAwareChunkedStore (node/layout/allocator wirken real). G3-klassifiziert.
+    static constexpr bool axis_03a_store_traversable = true;
 
     using key_type   = std::uint16_t;
     using value_type = std::uint64_t;
