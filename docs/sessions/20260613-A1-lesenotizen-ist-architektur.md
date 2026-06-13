@@ -195,6 +195,33 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   Backlog Doku-only (Doc 16 IMC, Doc 15 09b-Schichten/AVX512-Sub-Flags, Original*SearchAlgo s4-Linking, R5.D PMC).
 - **is_original-Klassen (Doc 17/28):** A=echtes Linking (allocator [6 aktiv: mimalloc/jemalloc/snmalloc/rpmalloc/dlmalloc/lrmalloc]/search_algo/
   q1) · B–E=Re-Impl + `is_original=false` ehrlich (prefetch/value_handle/memory_layout/index_org/telemetry/migration/io).
+- **Reproduzierbarkeit + Voll-Container-Hülle (v5_entscheidungen §8 / v5_drei_profile):** Lastenprofil = `WorkloadConfig`+`WorkloadGenerator`
+  (xorshift64, gleicher Seed → BIT-IDENTISCHE Op-Sequenz je Binary = faire Spalten-Vergleichbarkeit); persistiert via `serialize_workload_config`.
+  **ABI Major 2 / Minor 1** (Minor 1 = MEASUREMENT-ON-Variante mit `IRollbackableTier`). **IDriveableTier-Voll-Ausbau (offener E-Strang):**
+  die Drive-Hülle soll die VOLLE Standard-Container-API ihres Repräsentanten anbieten (SearchAlgorithm↔std::map: operator[]/at/find/count/
+  contains/begin-end/lower_bound/equal_range/emplace/…; Sequence↔std::vector; Set↔std::set) — die heutigen 5 Ops (insert/lookup/erase/clear/size)
+  = verifizierter Startpunkt; Voll-API ermöglicht erst das volle Konformitäts-Gate (`std_map`-Oracle über ALLE Methoden).
+
+## 3d. Lastprofil-Katalog + Paper-Bias (Doc 32 — DIE wissenschaftliche Rechtfertigung der Mission) + v5_i8
+
+- **🎯 PAPER-BIAS = der Kern-Befund der Mission (User-Direktive 2026-06-08):** Jedes Paper wählt ein Lastprofil, das SEINEN
+  Algorithmus gut dastehen lässt. **Um den Bann zu brechen, müssen ALLE Lastprofile über ALLE Achsen/Tiere laufen** (Workload =
+  dynamische Achse 2 im B+-Baum). Das IST die „Bias-Bruch-Matrix" der Original-Mission. 5 Bias-Kategorien: (1) static-read-only-Trie
+  (HOT/CoCo/START/SuRF — „build-once, 100% positive Lookups", meidet Updates) · (2) Negativ-Query-Sweep als Heimspiel (CoCo/B2tree/SuRF
+  — neg% als Primär-Achse, komprimierte Tries brechen bei Miss früh ab) · (3) Zipfian/Cache-Heimspiel (LeanStore/Kuehn) · (4) Write/Update-
+  Heimspiel (ART/Masstree/Wormhole, Thread-Scaling 1..128) · (5) Prefetch/HW-Heimspiel (CSB/Chen). **FAZIT: jedes Profil MUSS über ALLE Tiere laufen.**
+- **14 Lastprofile (LP01–LP14, → `load_profiles/*.xml`):** bulk-insert-dense/sparse · value-length-sweep · static-read-positive/zipfian ·
+  **LP06 static-read-negsweep (neg% {0,25,50,75,100})** · real-string-corpus · range-scan-heavy · insert-lookup-5050 · delete-heavy ·
+  **LP11 mixed-ycsb-oltp (read_ratio-Sweep)** · concurrent-rmw · concurrent-read-scaling · dynamic-trace. **21 Profile = 14 Basis + profil-
+  DEFINIERENDE Sweeps** (LP06 neg% ×5 [+ LP11 read_ratio]). ⚠️ **Bekannte Audit-Lücke (Mess-Major): „Doc-32-Katalog ≠ 21 XMLs (LP11-Sweep
+  fehlt, LP02)"** — in Phase D zu klären (K7a coco_neg50=zipfian-Konfundierung war Teil davon, M1.2 gefixt).
+- **Scope (uint64-B+-Baum, vorab aufgelöst):** real-string-Corpora (LP07) AUSSER Scope (uint64-keys); key_dist {uniform,zipfian,latest};
+  RMW=lookup→modify→insert-overwrite; threads (LP12/13) falten in concurrency.thread_count-Dim (KEINE eigene Workload-Variante);
+  value_length später (Space-Observer); 14 N/A-Paper liefern Achsen-KONZEPTE (LOUDS/cache-oblivious/prefetch), kein eigenes Profil.
+- **v5_i8 (Memento-Disk-Vollständigkeit, IST-verifiziert):** **I8 gegenstandslos** — KEIN echtes Disk-I/O im Achsen-Code; die „Disk"-Achsen
+  (io_dispatch/serialization/migration) sind reine Compile-Time-Strategie-Deskriptoren (0 nicht-statische Member); der Adapter hält als
+  Laufzeit-State nur `search_organ_` + `container_`(ComposedStore) → `memento_all` ist für die aktuellen Achsen VOLLSTÄNDIG+EXAKT
+  (stateless-Achsen = `EmptyMemento` no-op = korrekt). Vorwärts-Kontrakt (MementoAxis-Erweiterungspunkt) gebaut für künftiges echtes mmap/Disk (V42).
 
 ## 4. Offene Punkte / Vorbehalte aus dem IST-Ledger (für D/E relevant)
 - Vendor-Allokatoren (#19, jemalloc/tcmalloc/hoard/scalloc) + reale PMC (#26) = **extern/toolchain-gated**
@@ -297,9 +324,12 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 - ✅ Thesis **03_konzepte_saeule_a + 04_konzepte_saeule_b** (SUPERSEDED-Konzept-Vokabular: F1–F29 / 4-Ebenen-Strategie
   A-B-C-D / 33-Paper-Map / Säule-B Plattform-Auto-Discovery [Discover→Measure→Classify→Publish→Bind] + 28 Concept-Klassen
   + ~80 Heuristiken + Block-AO-Maschinen Ryzen-9950X3D/i9-14900KS — Kontext, NICHT IST)
-- ⬜ OFFEN: Thesis 01,05,06,07,08,12,13 + Rest 11/14 · cache-engine **messarchitektur_klarstellungen ·
-  messarchitektur_v5_entscheidungen/_drei_profile/_i8** + 32 (Lastprofil-Katalog) + 15–23/23a/25(×2) ·
+- ✅ cache-engine **messarchitektur_v5_entscheidungen** (bindendes Entscheidungs-Log: IDriveableTier-Voll-Container-Hülle §8)
+  + **messarchitektur_v5_drei_profile** (Build⊥Lasten-Kartesik + xorshift64-Reproduzierbarkeit + ABI Major2/Minor1); → §3c
+- ✅ cache-engine **messarchitektur_v5_i8** (Memento-Disk-Vollständigkeit: I8 gegenstandslos, kein Disk-State) + **Doc 32**
+  (Lastprofil-Katalog 14 LP + Paper-Bias = wissenschaftliche Mission-Rechtfertigung + 21-XML-Audit-Lücke); → §3d
+- ⬜ OFFEN: Thesis 01,05,06,07,08,12,13 + Rest 11/14 · cache-engine **messarchitektur_klarstellungen** + 15–23/23a/25(×2) ·
   A2 Rest-Code-Pre-Read (registry_to_axis_levels/profile_to_tree/composition_registry/composition_factory/
   search_algorithm_anatomy/observable_tier/perm_runner/iterator/permutation_engine/genus_binding_traits) · A3 Audits-Soll-Abgleich.
-  (Beide IST-Docs + Doc 24/26/27/28/29/30/31/33 + abhaengigkeitskette + design_observer + v5_design ✅ — die Mess-/Baum-/Observer-/
-  Vollständigkeits-Architektur ist jetzt VOLLSTÄNDIG erfasst; Konsolidierungs-Basis B steht solide; Rest = v5-Profil-Details/Lastprofile/historischer Kontext.)
+  (Beide IST-Docs + Doc 24/26/27/28/29/30/31/32/33 + abhaengigkeitskette + design_observer + alle v5_* ✅ — die GESAMTE Mess-/Baum-/
+  Observer-/Lastprofil-/Vollständigkeits-Architektur ist erfasst; Konsolidierungs-Basis B steht; Rest = klarstellungen + historischer Kontext 15–25 + thesis-SUPERSEDED.)
