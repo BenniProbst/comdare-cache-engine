@@ -166,7 +166,23 @@ GenusBindingTraits-Binding-Instanzen (`test_genus_binding` 5/5). queuing ist ein
   `abi_adapter::fill_observer_v3` (ABI-POD aus search_organ_+container_) — der gemessene ABI-Pfad nutzt NICHT die Anatomie-observe_all.
 - **85 Audit-Befunde** (K1–K10 + 36 Major + 17 Minor + 8 Meta-Lehren) sind in `20260613-A3-audit-soll-abgleich.md` je Architektur-Konzept
   + IST-Status (K2/K5a/K7a code-gefixt) + E-Wellen-Saat verankert. **Phase D arbeitet sie Befund-für-Befund gegen die JSONs durch +
-  erweitert dieses §9 um die vollständige SOLL-Korrektur-Tabelle.**
+  erweitert dieses §9 um die vollständige SOLL-Korrektur-Tabelle — **erledigt in `docs/sessions/20260613-D-audit-85-befunde-durcharbeitung.md`** (D1 Disposition aller 85 in genau einem Zustand + D3 audit-fundierte E-Auslegung). Die SOLL-Korrektur-Kernregeln (D2):**
+
+### §9.1 Audit-SOLL-Korrekturen (Phase D2 — bleibende Regeln aus den 85 Befunden)
+
+1. **Apparat-Reinheit ist Teil der Mess-Echtheit (K5/K6/P3–P8):** der Hot-Pfad jeder getimten Op trägt KEINE Apparat-Kosten —
+   kein verdeckter Doppel-Lookup (✅ occupied_count-Delta), kein `std::function`-notify ohne Subscriber, kein O(n)-Rebuild-
+   `container_`, keine Auto-Kopplungs-Buchführung; zero-cost-Metaprog systematisch auf den Hot-Pfad. Soll-Ort = Q2-Schritt-4-Komplex.
+2. **Capability nie still degradieren (K3):** jede `if constexpr(capable)`-Pfadwahl braucht `static_assert` über die ZIEL-
+   Population (die 320), nicht nur Referenz-Kompositionen (Präzedenz: A2a/K3 `4a64bc8`, C3-behalten).
+3. **Differenz-Beweise brauchen VERSCHIEDENE Pfade (MISSION-KRITISCH):** ein Achsen-Austauschbarkeits-Beleg gilt nur, wenn die
+   verglichenen Tiere nachweislich verschiedene Organ-Pfade durchlaufen (Diagnose-Flag im Output). ⇒ die finalen Belege
+   BLOCKIEREN auf Befund-2/Q2-Schritt-4 (E-Welle-A2) — solange `search_organ_` node/layout beschattet, sind Diffs teils Apparat-Artefakt.
+4. **Etiketten-Drift = Pattern-Direktive (K10):** Name/Pattern nur tragen, wenn die kanonische Semantik erfüllt ist (Adapter↔Adaptee,
+   Observer=one-to-many, Visitor=Double-Dispatch, „B+-Baum"-Benennung präzise) — sonst ehrlich umbenennen (grep-Beweis).
+5. **env-/Parameter-Volatilität = Daten-Integritätsrisiko (K8):** Resume pinnt die GESAMTE Konfiguration (XML-Inhalts-Hash +
+   env_limits + effektiver Seed) oder bricht ab — nie still mit Defaults weiterlaufen.
+6. **Dokumentierte Semantik gehört in Tests, nicht Kommentare (Meta #5).** Die 8 Audit-Meta-Lehren (A3 §3) sind bindende Architektur-Regeln für jeden E-Fix.
 
 ## §10 IST-Substanz-Landkarte (Ledger §e/§b/§c/§d) + offene/gated Punkte
 
