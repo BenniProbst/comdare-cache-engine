@@ -196,3 +196,17 @@ werden als nicht-store-geroutet ausgewiesen (kein Apparat-Artefakt-Vortäuschen)
 4. `static_assert` über die ZIEL-Population (welche der 320 store-traversierbar — Meta-Lehre #1/#2; ehrlich ausgewiesen).
 5. `perm_runner`→V2-POD (node_*-Felder aus dem EINEN Store). 6. cowfix-v1-Neubau + Meta-#3-node-Wechsel-Test (node4 vs
    node256 → verschiedene Such-seg_ns für store-geroutete Tiere = Beleg verschiedener Pfade).
+
+## §11 Exekutions-Stand A2.4 (verifiziert gruen, 2026-06-13)
+
+- **A2.4-Schritt 3** (Meta-#3-Diagnose-Flag `tier_search_routes_through_store()`, ehrlich false = Ist) DONE, ce `599e312` (probe2 exit=0).
+- **A2.4-Schritt 1** (Klassifikation) DONE, ce `a0b0d65`: `composable/store_traversable_search_algo.hpp` (Concept
+  `StoreTraversableSearchAlgo`, marker-basiert `axis_03a_store_traversable`, kein Raten) + Marker an die **3 Array-Familie-
+  Wrapper** (linear_scan/k_ary/interpolation); **Eytzinger BEWUSST Weg-B** (BFS-Layout != sortiert-aufsteigend); Registry-
+  `static_assert` ueber die ZIEL-Population (Meta-Lehre #1/#2): KAry/Interpolation/LinearScan=true, Eytzinger/Hash/BST=false.
+  VERIFIZIERT: test_v41_compositions 25/25 PASSED.
+- **VERBLEIBEND:** **Schritt 2** = `TraversalForSearchAlgo<S>`-Mapping (Array-Algo -> Traversal-Organ via tier_to_organ_mapping)
+  + `container_t` = `ObservableComposedSearch<if-constexpr-Traversal, LayoutAwareChunkedStore>` (store-traversable -> Array-
+  Traversal, sonst SortedBinary-Fallback) -> **A2.5** (`search_organ_`-Entfernung im store-Zweig + T0 aus container_ +
+  Diagnose-Flag conditional) -> **A2.6** perm_runner->V2-POD -> **A2.7** Begleit (K3/K4/K9) -> **A2.8** cowfix-v1-Neubau +
+  Meta-#3-node-Wechsel-Test.
