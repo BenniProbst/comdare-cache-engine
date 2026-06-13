@@ -88,6 +88,30 @@ public:
     [[nodiscard]] std::size_t chunk_count()       const noexcept { return chunks_.size(); }
     [[nodiscard]] std::size_t chunk_alloc_count() const noexcept { return chunk_allocs_; }
 
+    // (E-Welle-A2 Inkr. A2.3 · Audit K6/P6) Rule-of-5: die Chunks sind über die Policy A REAL allozierte Roh-Buffer
+    // (vorher std::vector<unsigned char> = Default-std::allocator → A nie benutzt, allocator_statistics() fabriziert).
+    // copy_from_ rekonstruiert die Chunks über THIS->alloc_ (CoW-isoliert: die Snapshot-Kopie hat frische A-Stats,
+    // teilt KEIN Allokations-Konto mit dem Live-Store — sonst inflationierte die Memento-Kopie T6 doppelt).
+    LayoutAwareChunkedStore() = default;
+    ~LayoutAwareChunkedStore() { free_chunks_(); }
+    LayoutAwareChunkedStore(LayoutAwareChunkedStore const& o) { copy_from_(o); }
+    LayoutAwareChunkedStore& operator=(LayoutAwareChunkedStore const& o) {
+        if (this != &o) { free_chunks_(); chunks_.clear(); size_ = 0; chunk_allocs_ = 0; alloc_ = A{}; copy_from_(o); }
+        return *this;
+    }
+    LayoutAwareChunkedStore(LayoutAwareChunkedStore&& o) noexcept
+        : alloc_(std::move(o.alloc_)), chunks_(std::move(o.chunks_)), size_(o.size_), chunk_allocs_(o.chunk_allocs_) {
+        o.chunks_.clear(); o.size_ = 0; o.chunk_allocs_ = 0;
+    }
+    LayoutAwareChunkedStore& operator=(LayoutAwareChunkedStore&& o) noexcept {
+        if (this != &o) {
+            free_chunks_();
+            alloc_ = std::move(o.alloc_); chunks_ = std::move(o.chunks_); size_ = o.size_; chunk_allocs_ = o.chunk_allocs_;
+            o.chunks_.clear(); o.size_ = 0; o.chunk_allocs_ = 0;
+        }
+        return *this;
+    }
+
     // --- StorageOrgan-Concept: 8 Methoden über logischem Flach-Index (Chunk c=i/cap_, Offset=(i%cap_)*eff_stride) ---
     [[nodiscard]] std::size_t slot_count()            const noexcept { return size_; }
     [[nodiscard]] key_type    key_at(std::size_t i)   const noexcept { return load_key_(slot_ptr_(i)); }
@@ -95,13 +119,18 @@ public:
     void set_value_at(std::size_t i, value_type v)          noexcept { store_value_(slot_ptr_(i), v); }
 
     void append_slot(key_type k, value_type v) {
-        if (chunks_.empty() || (chunks_.back().size() / eff_stride) == cap_) {
-            chunks_.emplace_back(); chunks_.back().reserve(cap_ * eff_stride); ++chunk_allocs_;
+        if (chunks_.empty() || (chunks_.back().used / eff_stride) == cap_) {
+            Chunk c;                                           // (A2.3) neuer Chunk REAL über Policy A
+            c.capacity = cap_ * eff_stride;
+            c.data     = static_cast<unsigned char*>(alloc_.allocate(c.capacity, kChunkAlign));
+            std::memset(c.data, 0, c.capacity);                // Padding 0 → deterministische Checksum (wie vorher resize(.,0))
+            c.used     = 0;
+            chunks_.push_back(c);
+            ++chunk_allocs_;
         }
-        auto& c = chunks_.back();
-        std::size_t const off = c.size();
-        c.resize(off + eff_stride, static_cast<unsigned char>(0));   // Padding 0 → deterministische Checksum
-        store_record_(c.data() + off, k, v);
+        Chunk& c = chunks_.back();
+        store_record_(c.data + c.used, k, v);
+        c.used += eff_stride;
         ++size_;
     }
     // concept-vollständig (SortedBinary): logisch an Position i einfügen/löschen über Flatten-Rebuild (O(n)).
@@ -115,7 +144,7 @@ public:
         flat.erase(flat.begin() + static_cast<std::ptrdiff_t>(i));
         rebuild_(flat);
     }
-    void clear() noexcept { chunks_.clear(); size_ = 0; chunk_allocs_ = 0; }
+    void clear() noexcept { free_chunks_(); chunks_.clear(); size_ = 0; chunk_allocs_ = 0; }
 
     // --- Drop-in-Parität zu ComposedStore/NodeChunkedStore (von ObservableComposedSearch requires-detektiert) ---
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -123,13 +152,11 @@ public:
     // Aufschlag (eff_stride 64 statt 16) verteuert total_bytes layout-abhängig (gewünschte Layout→allocator-Kopplung).
     using allocator_snapshot_t = typename A::snapshot_t;
     [[nodiscard]] allocator_snapshot_t allocator_statistics() const noexcept {
-        allocator_snapshot_t a{};
-        a.allocation_count      = chunk_allocs_;
-        a.deallocation_count    = 0;
-        a.failure_count         = 0;
-        a.total_bytes_allocated = chunk_allocs_ * cap_ * eff_stride;
-        a.total_bytes_in_use    = size_ * eff_stride;
-        return a;
+        // (E-Welle-A2 Inkr. A2.3 · Audit K6/P6) ECHTE Policy-A-Statistik statt fabriziert: alloc_ hat die Chunk-Buffer
+        // real alloziert (append_slot → alloc_.allocate; clear/dtor → alloc_.deallocate). total_bytes_in_use ist jetzt
+        // die von A real gehaltene Chunk-Kapazität (cap_*eff_stride je Chunk) — layout-abhängig (eff_stride 64 vs 16),
+        // honest statt size_*eff_stride. allocation_count/total_bytes_allocated = A's reale Zählung (== chunk_allocs_).
+        return alloc_.statistics();
     }
 #endif
 
@@ -203,11 +230,19 @@ public:
 private:
     using slot_t = std::pair<std::uint64_t, std::uint64_t>;
 
+    // (A2.3 · K6/P6) Chunk = EIN über die Policy A real allozierter Byte-Buffer (capacity Bytes, davon used belegt).
+    static constexpr std::size_t kChunkAlign = 64;   // Cache-Line; deckt jeden eff_stride/uint64-Zugriff (rein memcpy-basiert)
+    struct Chunk {
+        unsigned char* data     = nullptr;
+        std::size_t    used     = 0;     // belegte Bytes (== Records * eff_stride)
+        std::size_t    capacity = 0;     // über A allozierte Bytes (== cap_ * eff_stride)
+    };
+
     [[nodiscard]] unsigned char const* slot_ptr_(std::size_t i) const noexcept {
-        return chunks_[i / cap_].data() + (i % cap_) * eff_stride;
+        return chunks_[i / cap_].data + (i % cap_) * eff_stride;
     }
     [[nodiscard]] unsigned char* slot_ptr_(std::size_t i) noexcept {
-        return chunks_[i / cap_].data() + (i % cap_) * eff_stride;
+        return chunks_[i / cap_].data + (i % cap_) * eff_stride;
     }
     static void store_record_(unsigned char* dst, key_type k, value_type v) noexcept {
         std::memcpy(dst, &k, sizeof(k)); std::memcpy(dst + sizeof(k), &v, sizeof(v));
@@ -219,8 +254,8 @@ private:
     template <class F>
     void for_each_slot_(F&& f) const {
         for (auto const& c : chunks_) {
-            std::size_t const n = c.size() / eff_stride;
-            for (std::size_t j = 0; j < n; ++j) f(c.data() + j * eff_stride);
+            std::size_t const n = c.used / eff_stride;
+            for (std::size_t j = 0; j < n; ++j) f(c.data + j * eff_stride);
         }
     }
 
@@ -234,7 +269,28 @@ private:
         for (auto const& s : flat) append_slot(s.first, s.second);
     }
 
-    std::vector<std::vector<unsigned char>> chunks_{};
+    // (A2.3) gibt alle A-allozierten Chunk-Buffer über DIESELBE Policy-Instanz frei (deallocation_count zählt real).
+    void free_chunks_() noexcept {
+        for (auto& c : chunks_) if (c.data) { alloc_.deallocate(c.data, c.capacity, kChunkAlign); c.data = nullptr; }
+    }
+    // (A2.3) tiefe Kopie über THIS->alloc_: identische Chunk-Struktur (gleiche capacity/used) byte-genau rekonstruiert,
+    // aber frisch über die EIGENE Policy-Instanz alloziert → CoW-Snapshot teilt kein Allokations-Konto mit dem Live-Store.
+    void copy_from_(LayoutAwareChunkedStore const& o) {
+        chunks_.reserve(o.chunks_.size());
+        for (auto const& oc : o.chunks_) {
+            Chunk c;
+            c.capacity = oc.capacity;
+            c.data     = static_cast<unsigned char*>(alloc_.allocate(c.capacity, kChunkAlign));
+            std::memcpy(c.data, oc.data, oc.capacity);
+            c.used     = oc.used;
+            chunks_.push_back(c);
+        }
+        size_         = o.size_;
+        chunk_allocs_ = o.chunk_allocs_;
+    }
+
+    mutable A           alloc_{};        // (A2.3) echte Policy-Instanz: alloziert + misst die Chunk-Buffer
+    std::vector<Chunk>  chunks_{};
     std::size_t size_         = 0;
     std::size_t chunk_allocs_ = 0;
 };
