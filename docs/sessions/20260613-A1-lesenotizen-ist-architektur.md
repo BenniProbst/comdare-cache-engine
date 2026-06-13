@@ -160,8 +160,10 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   T0+T6; Zwei-Phasen-Warmup PFLICHT; Resume je Tier-Binary via Config-Stamp [BuildVersion+dims+rows]; CoW =
   Rev.1-Eskalation generalisiert auf alle Mutationen, Read-Perioden O(1))
 - ✅ (Code, frühere Session) `experiment_tree.hpp` (= Substanz von Doc 26/27/29 B+-Baum) · `abi_adapter.hpp` (CoW-Teil)
-- ✅ Thesis **03_konzepte_saeule_a** (SUPERSEDED-Konzept-Vokabular: F1–F29 / 4-Ebenen-Strategie / 33-Paper-Map)
-- ⬜ OFFEN: Thesis 01,04,05,06,07,08,12,13 + Rest 11/14 · cache-engine **24 (Messmodell 2-Dim) · 26 (B+-Baum-Prosa) ·
+- ✅ Thesis **03_konzepte_saeule_a + 04_konzepte_saeule_b** (SUPERSEDED-Konzept-Vokabular: F1–F29 / 4-Ebenen-Strategie
+  A-B-C-D / 33-Paper-Map / Säule-B Plattform-Auto-Discovery [Discover→Measure→Classify→Publish→Bind] + 28 Concept-Klassen
+  + ~80 Heuristiken + Block-AO-Maschinen Ryzen-9950X3D/i9-14900KS — Kontext, NICHT IST)
+- ⬜ OFFEN: Thesis 01,05,06,07,08,12,13 + Rest 11/14 · cache-engine **24 (Messmodell 2-Dim) · 26 (B+-Baum-Prosa) ·
   27 (Baum-4-Brücken) · 29 (Baum-Generik) · 31 (Observer-Konsol.) · abhaengigkeitskette · messarchitektur_design_observer ·
   messarchitektur_v5_design/_entscheidungen/_drei_profile/_i8** + 15–23/25/28/32 · A2 Rest-Code-Pre-Read
   (anatomy/composition/permutation_engine/perm_runner/iterator) · A3 Audits-Soll-Abgleich.
