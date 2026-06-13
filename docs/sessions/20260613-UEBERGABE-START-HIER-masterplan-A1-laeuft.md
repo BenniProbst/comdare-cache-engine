@@ -3,6 +3,21 @@
 > Kontext endete mitten in **Masterplan-Phase A1** (Architektur-Vollektüre). Diese Übergabe ist der
 > Wiedereinstieg. Aktives **/goal** (Stop-Hook) = den Masterplan A→F abarbeiten.
 
+## ⭐ STATUS-UPDATE 2026-06-13 (spät) — A0✅ · A1✅ AGENT-VERIFIZIERT · A2 begonnen
+
+> **Seit Erstellung dieser Übergabe deutlich weiter:**
+> - **MP-A1 = AGENT-VERIFIZIERT ABGESCHLOSSEN.** ALLE Architektur-Docs (48: Thesis 00–14 + cache-engine 15–33 + benannte +
+>   2 IST-Single-Sources) genuin gelesen + ins durable `20260613-A1-lesenotizen-ist-architektur.md` destilliert. 3 parallele
+>   Verifikations-Agenten: Coverage=**VOLLSTÄNDIG** (keine Lücke), Treue=**DESTILLAT-TREU** (7 Kern-Behauptungen bestätigt),
+>   Residual-Tails=**SICHER ERFASST**. (Ehrlich-Korrektur: die Vorgänger-Session-✅ der Fundament-Docs wurden in DIESER
+>   Session frisch re-gelesen — IST-Ledger + e2e-Abnahme + Doc 30 + Doc 33 + Thesis 00/02/09/10/11_axes — sind jetzt WIRKLICH im Kontext.)
+> - **MP-A2 begonnen** → durable `20260613-A2-code-pre-read-notizen.md`. **A2.1 abi_adapter.hpp** am Code gegen Doc 24/30/31/33
+>   verifiziert (Befund-2 zwei-Speicher REAL, Q2-Schritt-4 OFFEN = E-Kandidat; I1-EIN-POD+Q1-Sequenz, Pfad-A/B, CoW-Memento, q1/q2-SA-Achsen, K5(a)-Fix — keine Mess-Kern-Drift).
+> - **1 Phase-B/D-Prüfpunkt offen:** 11_extension §12.D.2 „Multi-Prüfling Stufe-3 = Aggregator vs echtes Kartesik" gegen #76 bestätigen.
+> - **NÄCHSTER SCHRITT (frischer Kontext empfohlen):** A2-Rest (composition_factory/search_algorithm_anatomy/observable_tier/
+>   perm_runner/iterator/permutation_engine/genus_binding_traits) → **A3** (85-Audit-Soll-Abgleich) → **B** (Konsolidierung) → B4/C/D/E.
+> - Einstieg jetzt: **A2-Notizen-Doc + A1-Notizen-Doc** (beide durable, committet) lesen, dann A2-Rest.
+
 ## 0. SOFORT beim Session-Start — Lese-Reihenfolge (gründlich, in dieser Folge)
 1. **Diesen Übergabe-Text** (Überblick + Fahrplan).
 2. **`docs/sessions/20260613-MASTERPLAN-architektur-konsolidierung-und-aufraeumen.md`** — die Steuerung (Phasen A→F, Disposition).
