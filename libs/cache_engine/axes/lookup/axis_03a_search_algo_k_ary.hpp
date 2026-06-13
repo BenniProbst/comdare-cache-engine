@@ -193,6 +193,8 @@ public:
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
     [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
     void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    // CoW-Memento (#142/Audit-K3): Stat-POD-Restore -> organ_cow_capable_v aktiv (spiegelt Observable-Huelle).
+    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; observer_.notify(stats_); }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
 #endif
