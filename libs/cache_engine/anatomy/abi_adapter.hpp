@@ -644,9 +644,19 @@ public:
 #endif
         // Neu-Flag ueber occupied_count-Delta (NICHT ueber einen internen lookup — der wuerde sonst die
         // lookup_count-Observer-Statistik verfaelschen; manche Organe insert()->void).
-        auto const before = search_organ_.occupied_count();
-        search_organ_.insert(key, value);
-        container_.insert(key, value);       // treibt + MISST die allocator-Achse (ComposedStore-Vector-Growth)
+        // (M8 / Befund-2-Weg-A) store-traversierbare Tiere fuehren NUR container_ (EIN Speicher, keine Doppel-
+        // Buchfuehrung): das Neu-Flag = container_.insert-bool (insert_or_assign), search_organ_ wird NICHT getrieben
+        // (bleibt leer; uint64-Keys statt search_organ_-uint16 = behebt zugleich K9-(d) fuer diese Tiere). Weg-B
+        // (Trie/Pool): search_organ_ = Such-Speicher + container_ treibt zusaetzlich die Storage-Achsen.
+        bool m8_new_flag;
+        if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
+            m8_new_flag = container_.insert(key, value);
+        } else {
+            auto const before = search_organ_.occupied_count();
+            search_organ_.insert(key, value);
+            container_.insert(key, value);       // treibt + MISST die allocator-Achse (ComposedStore-Vector-Growth)
+            m8_new_flag = search_organ_.occupied_count() > before;
+        }
         // V42 L-74c Cross-ABI-Auto-Kopplung: jeder insert berührt einen Blatt-Knoten → telemetry mit-treiben.
         if constexpr (requires { telemetry_organ_.record_node_touch(true); }) telemetry_organ_.record_node_touch(true);
         // Phase A (2026-06-04) Auto-Kopplung der 4 neu verdrahteten Achsen (Pfad B): ein insert registriert den
@@ -664,7 +674,7 @@ public:
             queuing_q1_organ_.put(static_cast<typename Composition::queuing_q1::element_type>(value));
         }
         if constexpr (requires { queuing_q2_organ_.should_flush(std::size_t{}, std::size_t{}); queuing_q2_organ_.on_flush_complete(); }) {
-            (void)queuing_q2_organ_.should_flush(static_cast<std::size_t>(search_organ_.occupied_count()), std::size_t{1024});
+            (void)queuing_q2_organ_.should_flush(static_cast<std::size_t>(container_.occupied_count()), std::size_t{1024});
             queuing_q2_organ_.on_flush_complete();
         }
         // Phase B (2026-06-04) Auto-Kopplung T7/T8 (Pfad B): ein insert berührt eine Adresse (key) → die
@@ -677,12 +687,21 @@ public:
         // misst die gemeinsame Byte-Prefix-Länge / cut() am ECHTEN ByteWiseKeyPrefix-Organ (PathCompressionNone =
         // ehrliche niedrige Kompressions-Aktivität, Patricia/ByteWise höher). depth=0 = Trie-Wurzel-Abstieg.
         (void)pc_organ_.compress(key, 0u);
-        return search_organ_.occupied_count() > before;
+        return m8_new_flag;
     }
 
     [[nodiscard]] bool tier_lookup(std::uint64_t key, std::uint64_t* out_value) const noexcept override {
-        auto const v = search_organ_.lookup(key);
-        if (v.has_value() && out_value != nullptr) *out_value = *v;
+        // (M8 / Befund-2-Weg-A) store-traversierbare Tiere lesen aus container_ (EIN Speicher, uint64-Keys); Weg-B aus search_organ_.
+        bool m8_hit;
+        if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
+            auto const cv = container_.lookup(key);
+            m8_hit = cv.has_value();
+            if (m8_hit && out_value != nullptr) *out_value = static_cast<std::uint64_t>(*cv);
+        } else {
+            auto const v = search_organ_.lookup(key);
+            m8_hit = v.has_value();
+            if (m8_hit && out_value != nullptr) *out_value = static_cast<std::uint64_t>(*v);
+        }
         // V42 L-74c: lookup berührt ebenfalls einen Knoten → telemetry mit-treiben (telemetry_organ_ mutable).
         if constexpr (requires { telemetry_organ_.record_node_touch(true); }) telemetry_organ_.record_node_touch(true);
         // Phase A Auto-Kopplung (Pfad B): ein lookup löst die cache_traversal-/mapping-Indirektion auf (T1/T2)
@@ -705,17 +724,22 @@ public:
         // misst die gemeinsame Byte-Prefix-Länge des gesuchten Schlüssels am ECHTEN ByteWiseKeyPrefix-Organ. pc_organ_
         // mutable (Tracking im const lookup nicht-const). depth=0 = Trie-Wurzel.
         (void)pc_organ_.compress(key, 0u);
-        return v.has_value();
+        return m8_hit;
     }
 
     [[nodiscard]] bool tier_erase(std::uint64_t key) noexcept override {
 #if COMDARE_MEASUREMENT_ON
         if (cow_armed_) cow_materialize_copy_();   // CoW (#133 Rev. 2): Vollkopie VOR der Mutation (s. tier_insert)
 #endif
-        auto const before = search_organ_.occupied_count();
-        search_organ_.erase(key);            // Rueckgabe-Typ organ-abhaengig → ueber Delta bestimmen
-        container_.erase(key);
-        return search_organ_.occupied_count() < before;
+        // (M8 / Befund-2-Weg-A) store-traversierbare Tiere loeschen NUR in container_ (EIN Speicher); Weg-B: beide.
+        if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
+            return container_.erase(key);
+        } else {
+            auto const before = search_organ_.occupied_count();
+            search_organ_.erase(key);            // Rueckgabe-Typ organ-abhaengig → ueber Delta bestimmen
+            container_.erase(key);
+            return search_organ_.occupied_count() < before;
+        }
     }
 
     void tier_clear() noexcept override {
@@ -764,7 +788,8 @@ public:
     }
 
     [[nodiscard]] std::uint64_t tier_size() const noexcept override {
-        return static_cast<std::uint64_t>(search_organ_.occupied_count());
+        // (M8) EIN Speicher: container_ haelt fuer ALLE Tiere (Weg-A store-traversierbar + Weg-B) jeden Insert → Groesse korrekt.
+        return static_cast<std::uint64_t>(container_.occupied_count());
     }
 
 #if COMDARE_MEASUREMENT_ON   // V5-I2.2: tier_observe (observer_all) NUR bei Messung-AN
@@ -1039,7 +1064,13 @@ public:
                 clock::time_point t0, t1;
                 // T0 search_algo: echte Lookups auf dem real befüllten Such-Organ (Baum-Traversierung).
                 t0 = clock::now();
-                for (std::uint64_t i = 0; i < n_ops; ++i) { auto v = search_organ_.lookup(static_cast<K>(keys[i % nk])); if (v) sink += static_cast<std::uint64_t>(*v); }
+                for (std::uint64_t i = 0; i < n_ops; ++i) {
+                    if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
+                        auto v = container_.lookup(keys[i % nk]); if (v) sink += static_cast<std::uint64_t>(*v);   // (M8) store-geroutete Suche
+                    } else {
+                        auto v = search_organ_.lookup(static_cast<K>(keys[i % nk])); if (v) sink += static_cast<std::uint64_t>(*v);
+                    }
+                }
                 t1 = clock::now(); acc[0] += dns(t0, t1);
                 // T1 cache_traversal: resolve über die real registrierten Einträge.
                 t0 = clock::now();
