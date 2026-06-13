@@ -377,6 +377,14 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   (1 Inheritance-Zeile = alle Pflicht-API). **User-Korrektur (Teil C):** `has_original_paper_code` ≡ `is_original_module` redundant → EINE genügt;
   generische Template-Tests statt hardcoded-Defaults. (Memory: `paper_original_code_pattern`/`axis_base_pattern`/`legacy_code_sha256_validation`.)
 
+- **Thesis 01/05/06/07/08 (SUPERSEDED-Planungs-Historie/Diagramme — KEIN IST, nur Lineage):** **01** REV-Historie REV3→REV7.7
+  (7 Iterationen: 3-Säulen IExecutingEngine→Säule-A/B → V31-Code-Stand). **05** UML-Klassen (alte IPage/INode/ITraversal/IValueHandle/
+  IMemoryLayout/IAllocator/IPrefetch + CacheEngine-Singleton + 8 Concurrency-Disziplinen + ConcurrencyManager + MeasurementMatrix +
+  CacheEngineBuilder-7-Phasen). **06** ER-Modell (ExperimentRun/MeasurementRecord/DatasetMetadata/**PermutationFlags 9 Banken**/BuildArtefakt
+  + Persistenz InMemoryBuffer→Binary→CSV→LaTeX→PDF). **07** Cross-Reference (alte **11-Achsen** PAGE/NODE/TRAVERSAL/VALUEHANDLE/MEMORY/
+  ALLOCATOR/PREFETCH/CONCURRENCY/ISA/MEASUREMENT/TELEMETRY ↔ F1–F15-ADRs ↔ 33-Paper-V31-Adapter). **08** drawio-Export (45 Tabs).
+  ⇒ Alles **SUPERSEDED** durch das 22-Achsen/3-Ebenen/V5-IST; dient nur als Begriffs-/Diagramm-/F1–F15-Historie (vgl. §1-SUPERSEDED-Warnung).
+
 ## 5. A1-Lese-Fortschritt (Checklist)
 - ✅ Thesis-Basis: 00_INDEX · 02_master_REV7_7 · 09_taxonomien · 10_schichten_modell_M · 11_axes_vs_strategies
 - ◐ 11_konzept_extension_visitor (§1–§11 von §… ; 4 Patterns + 3-Stufen + CRTP+Concept + Prüfling-Namespace gelesen)
