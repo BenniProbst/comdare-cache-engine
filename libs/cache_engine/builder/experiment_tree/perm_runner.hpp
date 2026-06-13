@@ -25,6 +25,7 @@
 #include "../workload_driver/workload_orchestrator.hpp"  // Achse 2 (INC-1): run_workload_profile-Interpreter + WorkloadGenerator
 #include "../workload_driver/workload_profiles.hpp"      // Achse 2 (INC-1): Single-Source profile_by_name (Fallback)
 #include "../workload_driver/load_profile_parser.hpp"    // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig)
+#include "../pruef_dock/conformance_gate.hpp"             // (Audit K9 / V5-I4): Konformitäts-Gate VOR der Messung (import→GATE→messen)
 
 #include <array>     // GOAL-L1: kOpKindNames + PermResult::op_lat (per-Interface-Funktions-Latenzen)
 #include <chrono>
@@ -84,7 +85,35 @@ struct PermResult {
     std::string  profile_name{};            // Lastprofil-Name (z.B. "YCSB_C_read_only"); leer = alter fixer Workload
     bool         two_phase_valid = false;   // Zwei-Phasen-Cache-Warmup aktiv+empirisch-exakt → Messung GÜLTIG
                                             // (false = ungültig: KEINE stille Kalt-Messung als gültiges Ergebnis)
+    // (Audit K9 / V5-I4) Konformitäts-Gate-Ergebnis (import→GATE→messen): die Hülle wurde VOR der Messung gegen
+    // std::map<uint64,uint64> als Oracle getrieben. conformance_passed=false ⇒ NICHT std::map-konform → es gibt
+    // KEINE gültige Performance-Zeile (gated≠gültig; der Mess-Block wird übersprungen, Zeile = genullte Matrix).
+    // Reist host-seitig (wie two_phase_valid), NICHT im 175-Feld-Wire-Format → Round-Trip unverändert.
+    bool          conformance_passed      = false;   ///< cases_total>0 && alle Zusicherungen bestanden
+    std::uint64_t conformance_cases_total  = 0;      ///< Anzahl geprüfter Einzel-Zusicherungen (0 = Gate nicht gelaufen)
+    std::uint64_t conformance_cases_passed = 0;      ///< davon bestanden
+    std::uint64_t conformance_first_fail   = 0;      ///< 1-basierter Index der ersten Verletzung (0 = keine)
 };
+
+// ── (Audit K9 / V5-I4) Konformitäts-Gate VOR der Messung — Reihenfolge bindend: import → GATE → (nur bei pass) messen ──
+/// Treibt das funktionale IDriveableTier-Sub-Interface (IMMER vorhanden, auch in Release-/funktional-only-DLLs) gegen
+/// std::map<uint64,uint64> als Oracle (Randfälle RF1–7 + 2000 deterministische Zufalls-Ops). Schreibt die Konformitäts-
+/// Quoten in r. passed()=false ⇒ die Hülle ist NICHT std::map-konform → der Aufrufer überspringt die Messung.
+inline void apply_conformance_gate_(anatomy::IDriveableTier& tier, PermResult& r) noexcept {
+    auto const cg = ::comdare::cache_engine::builder::pruef_dock::run_conformance_gate(tier);
+    r.conformance_cases_total  = cg.cases_total;
+    r.conformance_cases_passed = cg.cases_passed;
+    r.conformance_first_fail   = cg.first_fail;
+    r.conformance_passed       = cg.passed();
+}
+/// Gate-Fehlschlag: ehrliche genullte Matrix-Zeile, KEINE Performance-Messung (gated≠gültig). two_phase_valid/unified_real
+/// bleiben false → der Iterator emittiert KEINE gültige Mess-Zeile für eine nicht-konforme Hülle.
+[[nodiscard]] inline PermResult gate_failed_result_(PermResult r, std::string const& binary_id) {
+    r.two_phase_valid = false;
+    r.unified_real    = false;
+    r.line            = format_perm_result(binary_id, r.unified);   // genullter POD → ehrlich „nicht gemessen"
+    return r;
+}
 
 /// (A)+(B) Treibt ein geladenes IObservableTier (SearchAlgorithm-Mess-Pfad): ZUERST tier_clear() (frischer
 /// Zustand → kein kumulatives Artefakt), pre-Observe (Baseline der absoluten Zähler), n_ops insert + n_ops
@@ -92,6 +121,12 @@ struct PermResult {
 /// DELTA (post − pre) der getriebenen Zähler. Der host-/cluster-seitige Unikat-Mess-Lauf je Binary.
 [[nodiscard]] inline PermResult run_observable_perm(anatomy::IObservableTier& tier,
                                                     std::string const& binary_id, std::uint64_t n_ops) {
+    PermResult r;
+    // (Audit K9 / V5-I4) import → GATE → (nur bei pass) messen: nicht-std::map-konforme Hüllen erzeugen KEINE gültige
+    // Performance-Zeile. Das Gate leert das Tier selbst (RF1+RF7) → der folgende tier_clear() ist idempotent.
+    apply_conformance_gate_(tier, r);
+    if (!r.conformance_passed) return gate_failed_result_(std::move(r), binary_id);
+
     // (A) Reset: frischer Datenstruktur-Zustand. tier_clear() ruft jetzt search_organ_.reset() (I-B.1) → auch die
     // T0-search-Statistik wird je Messung genullt → KEIN post−pre-Delta mehr nötig (axis_stats warmup-frei aus
     // EINEM Post-Observe). Die result_ingest-Zeile entsteht unten aus dem EINEN konsolidierten POD (volle Matrix).
@@ -103,7 +138,6 @@ struct PermResult {
     for (std::uint64_t i = 0; i < n_ops; ++i) { std::uint64_t v = 0; (void)tier.tier_lookup(i, &v); }
     auto const t1 = std::chrono::steady_clock::now();
 
-    PermResult r;
     r.total_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
     r.n_ops   = n_ops;
     r.timed_ops = 2u * n_ops;   // GOAL-M1.1: Legacy-Fix-Workload = n_ops Inserts + n_ops Lookups getimt
@@ -161,6 +195,12 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
     cfg.key_max = (records > 1) ? records : 2;    // key_max>key_min Pflicht (WorkloadConfig::is_valid)
 
     PermResult r;
+    r.profile_name = std::string(workload_id);    // schon hier (Gate-Früh-Return + CSV nutzen den Achsen-Wert)
+    // (Audit K9 / V5-I4) import → GATE → (nur bei pass) messen: nicht-std::map-konforme Hülle erzeugt KEINE gültige
+    // Performance-Zeile (gated≠gültig). Das Gate läuft VOR Load-/Run-Phase (es leert das Tier selbst).
+    apply_conformance_gate_(tier, r);
+    if (!r.conformance_passed) return gate_failed_result_(std::move(r), binary_id);
+
     // GÜLTIGKEIT: Zwei-Phasen-Warmup Pflicht. Rollback-Exaktheit (Adapter-strukturell) auf leerem Tier prüfen (billig).
     tier.tier_clear();
     bool const rb_exact = (rollback != nullptr) && acd::rollback_is_empirically_exact(tier, rollback);
@@ -192,8 +232,7 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
     r.n_ops        = res.op_count;
     r.unified      = res.observer;                // EIN konsolidierter Observer-POD (axis_stats[19][8]+seg_ns[19])
     r.unified_real = true;
-    r.profile_name = std::string(workload_id);    // Achsen-Wert (XML-Profil-id ODER hartcodiertes Token)
-    r.line         = format_perm_result(binary_id, res.observer);
+    r.line         = format_perm_result(binary_id, res.observer);   // profile_name bereits oben gesetzt (Gate-Früh-Return)
     return r;
 }
 
