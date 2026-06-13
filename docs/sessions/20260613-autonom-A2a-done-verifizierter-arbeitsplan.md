@@ -1,5 +1,13 @@
 # 2026-06-13 — Autonome Abarbeitung: A2a (K3) ERLEDIGT + verifizierter Arbeitsplan (Mapping-Workflow)
 
+> ## ⚠️ TEIL-SUPERSEDED (Masterplan-Phase C4, 2026-06-13 spät)
+> **§1 (A2a/K3 CoW-Fix `4a64bc8`) GILT WEITER** — C3-verifiziert: behalten, Memento-konform (Doc 33). Die **Audit-Fix-
+> Arbeitspakete §2 (A2b/A2c/A1a–d/A3a–d/A4)** bleiben gültige **E-Wellen-Vorlage** (jetzt geführt über Goal §2.5.5 + A3 +
+> Doc 34 §12). **ÜBERHOLT ist allein die §2-Ausführungs-Reihenfolge „L1→L7 zuerst" (Appendix als Flach-Auswertung):** der
+> Achsen-Austausch lebt im **B+-Experiment-Baum** (Doc 34 §3/§12 + `20260613-ARCHITEKTUR-KORREKTUR-achsenaustausch-im-baum.md`),
+> NICHT in flachen L-Tools (L1/L2 in C2 revertet, L3-WIP gestasht). **Autoritativ jetzt:** Doc 34 (Single-Source) +
+> GOAL-AUTONOM (B4-Fassung) + MASTERPLAN (Phasen A–F).
+>
 > Kontext: Aktives /goal `GOAL-AUTONOM-ABARBEITUNG-20260613.md`. M2-cowmem-v1-Voll-Lauf läuft im Hintergrund
 > (63/320 gestempelt, Resume an). Eine Mapping-Workflow (`wf_03ac2361-0ca`, 20 Agenten, 1,64 Mio Tokens)
 > hat die Phase-A-Wellen + Phase-L-Lücken gegen den AKTUELLEN Code verifiziert + adversarial geprüft.
