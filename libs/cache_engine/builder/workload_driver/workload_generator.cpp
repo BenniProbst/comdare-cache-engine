@@ -121,15 +121,28 @@ double WorkloadGenerator::next_unit() noexcept {
     return static_cast<double>(next_random()) / (static_cast<double>(static_cast<std::uint64_t>(-1)) + 1.0);
 }
 
+// (Audit K7c) Splitmix64 — deterministischer Bit-Mix (Steele/Lea, JDK SplittableRandom): streut den Zipf-Rang
+// pseudo-zufällig über den Keyspace (YCSB-ScrambledZipfian-Treue). REINE Funktion → Reproduzierbarkeit + PRNG-State unberührt.
+static constexpr std::uint64_t splitmix64_scramble_(std::uint64_t x) noexcept {
+    x += 0x9E3779B97F4A7C15ULL;
+    x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9ULL;
+    x = (x ^ (x >> 27)) * 0x94D049BB133111EBULL;
+    return x ^ (x >> 31);
+}
+
 std::uint64_t WorkloadGenerator::sample_key() noexcept {
     auto const range = config_.key_max - config_.key_min + 1ULL;
     switch (config_.key_distribution) {
         case KeyDistribution::Zipfian: {
-            // Zipf-Rang [0,n) → Key. Heißester Rang 0 ↦ key_min (stabile, reproduzierbare Zuordnung).
-            return config_.key_min + (sample_zipf_rank() % range);
+            // (Audit K7c) YCSB-treue ScrambledZipfian: der Zipf-Rang wird per Splitmix64 GEHASHT, bevor er auf einen
+            // Key gemappt wird → die heißen Keys sind über [key_min, key_max] GESTREUT statt als zusammenhängender
+            // Block am unteren Rand (bricht den Doc-32-Bias; deterministisch → Reproduzierbarkeit + PRNG-State unberührt).
+            return config_.key_min + (splitmix64_scramble_(sample_zipf_rank()) % range);
         }
         case KeyDistribution::Latest: {
-            // YCSB-D „read latest": Zipf-Skew auf die HÖCHSTEN Keys (zuletzt eingefügt) → key_max - rang.
+            // YCSB-D „read latest": Zipf-Skew auf die HÖCHSTEN (zuletzt eingefügten) Keys → key_max - rang. Die
+            // Kontiguität am oberen Rand ist hier INTENTIONAL (temporale Lokalität = YCSB-D-Semantik), KEIN Scrambling-
+            // Defekt (anders als Zipfian) — die „latest"-Eigenschaft beruht auf der Einfüge-Reihenfolge (Audit K7c-Abgrenzung).
             return config_.key_max - (sample_zipf_rank() % range);
         }
         case KeyDistribution::Uniform:
