@@ -161,6 +161,41 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   `IObservableTier` (nur `tier_observe`); 2 Build-Profile MESS (STATISTICS=ON) vs REIN (=OFF). Ledger §a.V5 listet `IDriveableTier`/
   `IObservableTier`/`IRollbackableTier`/`IScannableTier` als existent → B1 umgesetzt.
 
+## 3c. VERTIEFUNG V5-Mess-Spezifikation + Vollständigkeits-Karte (messarchitektur_v5_design + Doc 28, gelesen 2026-06-13)
+
+- **ZWEI Seiten, EINE ABI-Grenze (v5_design §1, bindend):** HOST = CacheEngineBuilder-Binary (Builder-vtable erlaubt, NICHT
+  Hot-Path) · TIER-BINARY = geladene .dll (compile-time monomorph, Hot-Path, kein virtual/dynamic_cast). **State lebt IN der Binary**
+  (`search_organ_`, `ComposedStore<N,L,A>`, Disk-Files), NICHT host-seitig; der Host hält nur Latenz-ns-Vektoren + Op-Protokoll.
+  **Release-DLL (MEASUREMENT_OFF):** observer_all + memento_all COMPILE-TIME entfernt (`#if COMDARE_MEASUREMENT_ON`) → vtable-Slots
+  existieren nicht, KEIN Overhead, an Forschung auslieferbar (kein dynamic_cast zur Entfernung — die Typen sind schlicht nicht da).
+- **🔴 3 PROFILE orthogonal (v5_design §2 / Doc 28 §5):** (1) **BUILD-PROFIL** (statisch, configure-time: welche Binaries, Achsen-
+  Vendor, Cartesian, smoke/medium/full, = `static_filter`) ⊥ (2) **LASTENPROFIL** (runtime host-seitig: Testdaten + Op-Mix + Pausen,
+  YCSB A–F, KEINE CMake-Flags = dyn. loops) ⊥ (3) **COMPILE-RELEASE-PROFIL** (ob observe/memento einkompiliert; `COMDARE_MEASUREMENT_MODE`
+  Default ON; ABI-Major). **Build ⊥ Lasten = kartesisches Kreuz** (1 Binary × N Lastprofile OHNE Rekompilation) — die zwei Haupt-Experiment-Achsen.
+- **🔴 ZWEI-PHASEN-OP-SCHLEIFE (v5_design §4, PFLICHT für Mess-Gültigkeit, = Goal §0.2):** pro Op GENAU 2×: (1) `tier_save_all()` →
+  (2) op (erste Ausführung, warmt) → (3) `tier_rollback_all()` (Tier-State inkl. Disk auf Vor-Zustand) → (4) op (op-measure, JETZT
+  Wall-Clock-umklammert + Observer). Eliminiert die Pfad-Abhängigkeit der Latenz vom akkumulierten Zustand. `drive_two_phase_op_loop`.
+- **memento_all-System (v5_design §3, parallel zu observe_all):** **HYBRIDER VISITOR** (Tier-Binary-Rollback-Klassen besuchen den Host
+  — weil der State drüben lebt); `MementoAxis`-Concept (`save_state/restore_state/memento_persist`); **9 stateful** Achsen (search_algo/
+  node_type/allocator/concurrency/serialization/value_handle/filter/io_dispatch/migration) / **8 stateless** (`EmptyMemento`). Sub-IF
+  `IRollbackableTier` (nicht an IAnatomyBase). **Disk-Sonderfall ehrlich:** kein generisches Format (axis_06 ~20 Allokatoren) → Memento
+  pro-Wrapper-spezifisch; R1 = höchstes Risiko. (Ledger: memento via CoW Rev.2 umgesetzt, Doc 33.)
+- **🔴 KONFORMITÄTS-GATE gegen std::map je Gattung (v5_design §6):** Reihenfolge ZWINGEND **import → GATE → (nur bei pass) messen**.
+  `conformance_gate.hpp` = Runtime-Host-Oracle über `IDriveableTier`: deterministische Randfall-Sequenz (leer/single/Doppel-Insert/
+  Update/erase-nichtvorhanden/clear-dann-lookup/full-sweep) gegen `std::map<uint64,uint64>`; jede Binary muss gattungs-konform speichern+wiedergeben.
+- **5 TIER-UNTERKLASSEN SOLL/IST (Doc 28 §2):** **SearchAlgorithm** (17, unter SearchAlgorithm-Interface — **VOLL** BR-1..4) · **Adapter**
+  (13 Achsen unter Container-Interface — **teilw.**: Dock+in-process, DLL offen #75; KEINE „ordering"-Achse, `inner_container` die einzige
+  spezifische, FIFO/LIFO=API-Nutzung) · **Set** (15) / **Sequence** (10+axis_growth) / **View** (7+axis_extent/layout/accessor) = **FUTURE**
+  (#76, je unter Container-Interface) · **Viren** (Graph-Interface, `IVirusExecutionEngine` Schwester an IExecutionEngine — FUTURE-Stub).
+- **Skalierungs-Architektur (Doc 28 §5):** lokal ZÄHLEN (∏ arithmetisch) / ZIH BAUEN (SLURM-Array + Singularity, GATE-MAXIMAL, nur
+  Skript-Emit kein Submit) / Prüf-Dock MESSEN (gleiche Gattung sequentiell). `binary_count` = distinkte Static-Pfade; dyn. Kartesik NICHT
+  aufgefächert (`experiment_setting_count = binary_count × ∏ dyn`). Reale Cluster-Build-Menge ≪ ∏ (Coverage/Enabled-Flags wählt).
+- **SOLL-vs-IST offene Lücken (Doc 28 §6, für D/E):** #74 (page_type/09b/12 real-Observer + Build-Variante; „22 Observer" real nur 4/17
+  operativ = R5.B) · #75 (Adapter-DLL-Pfad) · #76 (Set/Sequence/View + Viren produktiv) · #77 (ceb_generator) · Cluster GATE-MAXIMAL ·
+  Backlog Doku-only (Doc 16 IMC, Doc 15 09b-Schichten/AVX512-Sub-Flags, Original*SearchAlgo s4-Linking, R5.D PMC).
+- **is_original-Klassen (Doc 17/28):** A=echtes Linking (allocator [6 aktiv: mimalloc/jemalloc/snmalloc/rpmalloc/dlmalloc/lrmalloc]/search_algo/
+  q1) · B–E=Re-Impl + `is_original=false` ehrlich (prefetch/value_handle/memory_layout/index_org/telemetry/migration/io).
+
 ## 4. Offene Punkte / Vorbehalte aus dem IST-Ledger (für D/E relevant)
 - Vendor-Allokatoren (#19, jemalloc/tcmalloc/hoard/scalloc) + reale PMC (#26) = **extern/toolchain-gated**
   (lokal nicht baubar; Beschaffungs-Specs geliefert; erst ZIH/Cluster). Mechanik an mimalloc/snmalloc/dlmalloc bewiesen.
@@ -256,12 +291,15 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 - ✅ cache-engine **Doc 29** (Baum-Generik + Composition-Driver-Stand: ObservableXxx-Hülle, telemetry+memory_layout getrieben)
   + **Doc 31** (Observer-Konsolidierung I1, EIN POD axis_stats[19][8]+seg_ns[19], ABI-Major 2→3, Q1-Sequenz) + **abhaengigkeitskette**
   (8-Schicht-Kette + Dreifach-Vererbung + SEH-vtable-Invariante) + **messarchitektur_design_observer** (dynamic_cast KALT, B1-Split); → §3b
+- ✅ cache-engine **Doc 28** (Vollständigkeits-Kartographie: 22-Achsen-SOLL + 5 Tier-Unterklassen + 6 Gates + Skalierung + Lücken
+  #74/75/76/77) + **messarchitektur_v5_design** (bindende V5-Spec: 2 Seiten/1 ABI, 3 Profile, Zwei-Phasen-Op-Schleife PFLICHT,
+  memento_all hybrider Visitor, Konformitäts-Gate import→GATE→messen, compile-time-Removal); → §3c
 - ✅ Thesis **03_konzepte_saeule_a + 04_konzepte_saeule_b** (SUPERSEDED-Konzept-Vokabular: F1–F29 / 4-Ebenen-Strategie
   A-B-C-D / 33-Paper-Map / Säule-B Plattform-Auto-Discovery [Discover→Measure→Classify→Publish→Bind] + 28 Concept-Klassen
   + ~80 Heuristiken + Block-AO-Maschinen Ryzen-9950X3D/i9-14900KS — Kontext, NICHT IST)
-- ⬜ OFFEN: Thesis 01,05,06,07,08,12,13 + Rest 11/14 · cache-engine **28 (Vollständigkeits-Kartographie) ·
-  messarchitektur_klarstellungen · messarchitektur_v5_design/_entscheidungen/_drei_profile/_i8** + 15–23/23a/25(×2)/32 ·
+- ⬜ OFFEN: Thesis 01,05,06,07,08,12,13 + Rest 11/14 · cache-engine **messarchitektur_klarstellungen ·
+  messarchitektur_v5_entscheidungen/_drei_profile/_i8** + 32 (Lastprofil-Katalog) + 15–23/23a/25(×2) ·
   A2 Rest-Code-Pre-Read (registry_to_axis_levels/profile_to_tree/composition_registry/composition_factory/
   search_algorithm_anatomy/observable_tier/perm_runner/iterator/permutation_engine/genus_binding_traits) · A3 Audits-Soll-Abgleich.
-  (Beide IST-Docs + Doc 24/26/27/29/30/31/33 + abhaengigkeitskette + design_observer ✅ — die Mess-/Baum-/Observer-Architektur ist
-  jetzt VOLLSTÄNDIG erfasst; Konsolidierungs-Basis B steht solide; Rest = v5-Mess-Profile/Vollständigkeits-Karte/Detail-/Konzept-Kontext.)
+  (Beide IST-Docs + Doc 24/26/27/28/29/30/31/33 + abhaengigkeitskette + design_observer + v5_design ✅ — die Mess-/Baum-/Observer-/
+  Vollständigkeits-Architektur ist jetzt VOLLSTÄNDIG erfasst; Konsolidierungs-Basis B steht solide; Rest = v5-Profil-Details/Lastprofile/historischer Kontext.)
