@@ -223,6 +223,25 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   Laufzeit-State nur `search_organ_` + `container_`(ComposedStore) → `memento_all` ist für die aktuellen Achsen VOLLSTÄNDIG+EXAKT
   (stateless-Achsen = `EmptyMemento` no-op = korrekt). Vorwärts-Kontrakt (MementoAxis-Erweiterungspunkt) gebaut für künftiges echtes mmap/Disk (V42).
 
+## 3e. F15-Statistik-Maschinerie + ehrliche Mess-Limits (Doc 22 + klarstellungen, gelesen 2026-06-13)
+
+- **F15-ROBUSTE-STATISTIK-TRIADE (`apps/f15_compare`, `builder/commands/stats/`, mission-relevant für die Auswertung):**
+  (1) **Median-(p50)-Ranking** (statt mean — ausreisser-robust) · (2) **Mann-Whitney-U** (rang-basiert, Tie-korrigiert, Normalapprox,
+  Holm-FWER) als robuste Signifikanz-Gegenprobe zum **Welch-t** (markiert `[DISKREPANZ]`, wo Welch wg. Varianz-Inflation zu konservativ
+  ist) · (3) **Cliff's δ** (`1−2·U_a/(n_a·n_b)` ∈ [−1,+1], Romano-2006-Magnitude negligible/small/medium/large) als robustes Effektmaß
+  = das thesis-zentrale „WIE VIEL bringt die Achse?". `summarize` → win_rate = F15-Headline.
+- **🔴 EHRLICHE MESS-LIMITS (Doc 22 §3.1–§3.3, kritisch für den Appendix):** (a) **Wall-Clock NICHT bit-reproduzierbar** — Seed steuert
+  die Keys, NICHT das CPU-Timing → absolute ns variieren, ABER Signifikanz-Aussage + Extrem-Ordnung STABIL. (b) **allocator-Achse
+  wall-clock-auflösbar** (~2–3× Pool-vs-System konsistent). (c) **memory_layout-Achse SUB-NOISE** (AoS/SoA-Effekt unter Wall-Clock-
+  Rausch-Schwelle, 0,07×–9,18× ohne konsistentes Vorzeichen) → ehrliches **Negativ-/Limit-Ergebnis, KEIN Layout-Nachweis** → motiviert
+  **R5.D PMC/Cache-Miss-Counter** (extern-gated). ⇒ grob-granulare Achsen (µs-ms-Overhead) wall-clock-messbar, fein-granulare brauchen PMC.
+- **F15-Pilot-Ergebnisse (frühe Belege, i7):** search-Paradigmen-Spanne ~18,5×–119× (dense Arrays dominieren kleinen uint8/16-Keyraum;
+  Interpolation/Eytzinger schlagen naive sorted-vector; BST schlägt B-Baum bei klein-random-in-memory — B-Baum-Vorteil erst block/disk/groß).
+  search_algo-Achse = 14 Paradigmen (direct-address/sorted-vector/SIMD-kary/interpolation/eytzinger/skiplist/hash/trie), 12 CE-native gemessen.
+- **MATCHING-MATRIX (klarstellungen §5):** Prüf-Dock ↔ **Gattung** (`genus()`) · `IMeasurableWorkload`-Lastprofil ↔ **Tierart/Anatomie**
+  (MEHRERE Profile je Binary = Profil-Schleife) · Observer-Erhebung ↔ **cmake-Messmodus**. Voll-Durchlauf je Binary: `genus()`→Dock→
+  Schleife über alle passenden Lastprofile→je Profil Op-Folge treiben + (Messmodus) `observe_all` korreliert ziehen.
+
 ## 4. Offene Punkte / Vorbehalte aus dem IST-Ledger (für D/E relevant)
 - Vendor-Allokatoren (#19, jemalloc/tcmalloc/hoard/scalloc) + reale PMC (#26) = **extern/toolchain-gated**
   (lokal nicht baubar; Beschaffungs-Specs geliefert; erst ZIH/Cluster). Mechanik an mimalloc/snmalloc/dlmalloc bewiesen.
@@ -328,7 +347,10 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   + **messarchitektur_v5_drei_profile** (Build⊥Lasten-Kartesik + xorshift64-Reproduzierbarkeit + ABI Major2/Minor1); → §3c
 - ✅ cache-engine **messarchitektur_v5_i8** (Memento-Disk-Vollständigkeit: I8 gegenstandslos, kein Disk-State) + **Doc 32**
   (Lastprofil-Katalog 14 LP + Paper-Bias = wissenschaftliche Mission-Rechtfertigung + 21-XML-Audit-Lücke); → §3d
-- ⬜ OFFEN: Thesis 01,05,06,07,08,12,13 + Rest 11/14 · cache-engine **messarchitektur_klarstellungen** + 15–23/23a/25(×2) ·
+- ✅ cache-engine **messarchitektur_klarstellungen** (Matching-Matrix Prüf-Dock↔Gattung/Workload↔Tierart/Observer↔cmake) + **Doc 22**
+  (F15-Statistik-Triade Median/MWU/Cliff's-δ + ehrliche Mess-Limits: WC nicht bit-reprod./layout sub-noise→PMC + 18,5–119×-Pilot); → §3e
+- ⬜ OFFEN: Thesis 01,05,06,07,08,12,13 + Rest 11/14 · cache-engine historischer Kontext **15(ISA)/16(IMC)/17(Paper-Kartografie)/
+  18(Paper-Code-Map)/19(prtart-Migration)/20+21(Plugin-Controller/Slot-Merge)/23+23a(Namespace-Migration)/25×2(static-shared/Submodule)** ·
   A2 Rest-Code-Pre-Read (registry_to_axis_levels/profile_to_tree/composition_registry/composition_factory/
   search_algorithm_anatomy/observable_tier/perm_runner/iterator/permutation_engine/genus_binding_traits) · A3 Audits-Soll-Abgleich.
   (Beide IST-Docs + Doc 24/26/27/28/29/30/31/32/33 + abhaengigkeitskette + design_observer + alle v5_* ✅ — die GESAMTE Mess-/Baum-/
