@@ -27,7 +27,7 @@
 | K | Befund (verdichtet, Audit) | IST-Code-Status (A2-verifiziert) | Disposition | Arch-Anker (Doc 34) | E-Welle |
 |---|---|---|---|---|---|
 | **K1** | RC = write-only Null Object: `applied_rc_` nie gelesen; KF-5-§7-A-Organ-API nie gebaut; Caps hartkodiert 5 → thread×prefetch = 6 identische Settings → ×18 degeneriert zu ×3; RC-Spalten = Rauschen; ×6 Mess-Verschwendung | RC-Dim wirkt nicht (Audit, 6× konvergent) | **[USER]** + bis dahin **[LIMIT]** (RC nominal) | Lastenprofil §5 / Algorithm_Resource_Control (KF-4) | A3 (needs_user, Goal §3) |
-| **K2** | ns_per_op systematisch HALBIERT (Divisor `2*n_ops` aus Legacy-Fix-Workload; Workload-Pfad liefert n_ops) | **GEFIXT** (M1.1 `timed_ops`, Smoke `ns_per_op==total_ns/timed_ops`) | **[FIX-DONE]** | Tier-Wall-Clock §5 / perm_runner | — (A1✅) |
+| **K2** | ns_per_op systematisch HALBIERT (Divisor `2*n_ops` aus Legacy-Fix-Workload; Workload-Pfad liefert n_ops) | **GEFIXT** (M1.1 `timed_ops`, Smoke `ns_per_op==total_ns/timed_ops`) | **[FIX-DONE]** | Lebewesen-Wall-Clock §5 / perm_runner | — (A1✅) |
 | **K3** | Memento/CoW compile-time TOT für die 320: produktive search_algo-Wrapper ohne `restore_statistics` → stiller copymem-Rückfall; 42/42-Test prüfte nur Referenz-Komp. (Test-Pop≠Ziel-Pop) | restore_statistics in 13 lookup-Wrappern + grüner static_assert über Ziel-Pop (ce `4a64bc8`, C3-behalten); Adapter-CoW real (A2.1 :1158) | **[FIX-E]** (Kern; cowfix-v1-Neubau aktiviert es real) | Memento Rev.2 CoW §7 / Meta-Lehre #1/#2 | A2 |
 | **K4** | tier_scan No-Op für die 320 / Vollkopie+sort für Referenz → ycsb_e/lp_range_scan messen Aufruf-Latenz | IScannableTier additiv da; tier_scan über save_state-Snapshot (A2.1) | **[FIX-E]** (+ bis dahin **[LIMIT]** 2/21 Profile invalide) | GoF-Iterator-Organ / „Für Suche IMMER Bäume" | A2 |
 | **K5** | Apparat dominiert Wall-Clock: (a) verdeckter Doppel-Lookup, (b) `std::function`-notify ohne Subscriber, (c) `container_` O(n)-flatten+rebuild/Op, (d) T1/T2-Buchführung | **(a) GEFIXT** (A2.1 :644/:677 occupied_count-Delta); (b)/(c)/(d) offen | **(a) [FIX-DONE]** · (b)(c)(d) **[FIX-E]** | **Befund 2 §9** + Apparat-Reinheit (Meta #6, zero-cost Hot-Pfad) | A2 |
@@ -97,7 +97,7 @@ Die teuer erkauften Defekt-Einsichten als bleibende SOLL-Regeln (werden in Doc 3
    `static_assert` über die ZIEL-Population (die 320), nicht nur Referenz-Komp. = bindende Regel für ALLE
    requires-Kaskaden (A2a/K3 ist der Präzedenzfall: `4a64bc8`).
 3. **Differenz-Beweise brauchen verschiedene Pfade (Meta #3) — MISSION-KRITISCH:** ein Achsen-Austauschbarkeits-
-   Beleg ist nur gültig, wenn die verglichenen Tiere nachweislich VERSCHIEDENE Organ-Pfade durchlaufen
+   Beleg ist nur gültig, wenn die verglichenen Lebewesen nachweislich VERSCHIEDENE Organ-Pfade durchlaufen
    (Diagnose-Flag im Output). Solange `search_organ_`-Monolith node/layout beschattet (Q2-Schritt-4 offen),
    sind Achsen-Diffs teils Apparat-Artefakt → die finalen Belege blockieren auf E-Welle-A2.
 4. **Etiketten-Drift = Pattern-Direktive (K10, Meta #4):** Name/Pattern nur tragen, wenn die kanonische Semantik

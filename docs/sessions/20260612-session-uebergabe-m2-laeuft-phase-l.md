@@ -14,19 +14,19 @@
   Stufe-04-WIDE `561e1df` (Superprojekt).
 
 ## 1. WAS LÄUFT: M2.1-Voll-Lauf (Hintergrund-Task `bmmeyjobt`, gestartet 2026-06-12 mittags)
-- **320 Tiere × 18 dyn-Settings × 21 XML-Lastprofile**, n_ops=10000, records=10000, n_repeats=3,
+- **320 Lebewesen × 18 dyn-Settings × 21 XML-Lastprofile**, n_ops=10000, records=10000, n_repeats=3,
   BuildVersion **cowmem-v1** (DLLs lagen vor — KEIN Neubau; Copy-Memento-Pfad, Messwerte laut
   Audit-Verifizierern VALIDE), **neue 154-Spalten-CSV** (18 op_*-Spalten!), Resume an.
 - Start via gehärtetem Harness (pinnt env selbst): `pwsh tests\unit\thesis_tiere\build_and_measure_150_tiere.ps1 -MaxBinaries 320`
   (alle übrigen Defaults = Voll-Lauf: NOps=10000, BuildVersion=cowmem-v1, LoadProfileDir+Records intern).
-- **Erwartung:** ~12 min/Tier Schnitt → ~2,5-3 Tage Gesamt; für MORGEN zählt der Teilstand (~60-100 Tiere).
+- **Erwartung:** ~12 min/Lebewesen Schnitt → ~2,5-3 Tage Gesamt; für MORGEN zählt der Teilstand (~60-100 Lebewesen).
 - **Fortschritt prüfen (stört den Lauf nicht):**
-  `pwsh scripts/collect_partial_results.ps1` → zählt+konkateniert alle gestempelt-fertigen Tiere
+  `pwsh scripts/collect_partial_results.ps1` → zählt+konkateniert alle gestempelt-fertigen Lebewesen
   (Default-Filter build=cowmem-v1|n_ops=10000) zu `build/thesis_tiere/partial_snapshot_<stamp>.csv`.
   Stamps zählen: `(Get-ChildItem build\thesis_tiere\tiere -Recurse -Filter result.csv.stamp | ? { (gc $_.FullName -Raw) -match 'cowmem-v1\|n_ops=10000' }).Count`
 - **NICHT stören:** kein -RebuildHost/kein zweiter Harness-Lauf parallel (Host-Exe-Lock %TEMP%\comdare_lazy150);
   Audits/Agenten parallel ok (nur CPU-Konkurrenz → Timings minimal lauter).
-- Falls der Lauf stirbt (Reboot): EINFACH DENSELBEN Befehl erneut — Resume überspringt fertige Tiere
+- Falls der Lauf stirbt (Reboot): EINFACH DENSELBEN Befehl erneut — Resume überspringt fertige Lebewesen
   (Stamps sind jetzt write-verifiziert + Gültigkeits-gegated; Harness pinnt die Konfiguration selbst).
 
 ## 2. HEUTE ERLEDIGT (alle literal verifiziert)
@@ -61,13 +61,13 @@ einen bilingualen Appendix-Orchestrator:
 **Restplan Phase L (Reihenfolge):**
 1. **Stufe-05-CLI ansehen** (`Code/05_diagram_generator/` — main/Optionen): heutige Fähigkeiten; dann
    **WIDE-3D-Modus** ergänzen: je Interface-Funktion ein pgfplots-`\addplot3`-Surface
-   (x=Workload-Index [21, legendiert], y=Tier-Index [sortiert nach Achsen-Lexikografie], z=op_<art>_p50_ns);
+   (x=Workload-Index [21, legendiert], y=Lebewesen-Index [sortiert nach Achsen-Lexikografie], z=op_<art>_p50_ns);
    Daten aus Stufe-04-`parse_wide_csv` (existiert) — ggf. teilt Stufe 05 den Parser via Include.
    ⚠️ Bekannt: Stufe-04/05-gtest-_deps-Build (CLion-MinGW) ist VORBESTEHEND defekt — die EXES bauen ggf.
    über msvc-g1 (wie der Orchestrator erwartet) ODER ad-hoc per cl (Muster: Session 2026-06-11,
    verify_wide_04 — MSVC-cl gegen die echte CSV, funktionierte einwandfrei).
 2. **Achsen-Austauschbarkeits-Difftabellen (L3, Kern-Beleg!):** in Stufe 04 neue Funktion: binary_id →
-   19-Achsen-Tupel parsen; für jede Achse alle Tier-Paare, die sich in GENAU dieser Achse unterscheiden;
+   19-Achsen-Tupel parsen; für jede Achse alle Lebewesen-Paare, die sich in GENAU dieser Achse unterscheiden;
    je Paar × Workload: Δns/op je Interface-Funktion (+relativ); Aggregat je (Achse, v→v′): Median/IQR.
    Ausgabe longtable (egal wie lang) unter dem jeweiligen Diagramm.
 3. **`generate_biasmatrix_appendix.ps1`** (NEU, neben dem alten — bestehenden Flow nicht riskieren):

@@ -12,13 +12,13 @@
   **nur dort das Framework anzusiedeln**." → Der Achsen-Austausch-Framework gehört AUSSCHLIESSLICH in die cache-engine.
 
 ## 2. Die korrekte non-flache Semantik (verifiziert an `builder/experiment_tree/experiment_tree.hpp`)
-- Die **Achsen sind die Baum-Ebenen** (`AxisLevel{axis, values[]}`); ein Pfad Wurzel→Blatt = ein `binary_id` = ein Tier.
+- Die **Achsen sind die Baum-Ebenen** (`AxisLevel{axis, values[]}`); ein Pfad Wurzel→Blatt = ein `binary_id` = ein Lebewesen.
 - `StaticBinaryView` = **Mixed-Radix-Odometer**: `operator[](i)` (Z.244) und `flat_index(tuple)` (Z.237) sind
   **inverse Bijektionen**; `level_count()`/`level_size(d)` geben die Ebenen-Geometrie.
-- **Achsen-Austausch ist tree-nativ**: nimm `tuple` eines Tiers, ändere **nur `tuple[d]`** (Ebene d = Achse a)
-  von k→k', `flat_index` → das Geschwister-Tier, das sich in **GENAU** Achse a unterscheidet. O(Geschwister),
+- **Achsen-Austausch ist tree-nativ**: nimm `tuple` eines Lebewesens, ändere **nur `tuple[d]`** (Ebene d = Achse a)
+  von k→k', `flat_index` → das Geschwister-Lebewesen, das sich in **GENAU** Achse a unterscheidet. O(Geschwister),
   kein quadratischer Flach-Scan. Doc 26.
-- Mess-Werte je Tier liegen sparse in `value_map_` (`set_node_value`/`node_value`, key=`binary_id` → `NodeValue`).
+- Mess-Werte je Lebewesen liegen sparse in `value_map_` (`set_node_value`/`node_value`, key=`binary_id` → `NodeValue`).
 
 ## 3. User-ENTSCHEIDUNG (AskUserQuestion, 2026-06-13): **Option A — cache-engine-Stage erzeugt die Diff-Tabellen**
 ```
@@ -46,7 +46,7 @@ Mess-Werten; Aggregat Median/IQR; LaTeX-longtable-Emitter (relative Pfade, de/en
 **BEHALTEN (L1, korrekt — betrifft Mess-WERTE, nicht Achsen-Struktur):** `parse_wide_csv` header-getrieben,
 `TestdataConfig` (workload/dyn-dims/n_ops), `array<OpLatency,6>` (18 op_-Spalten, Single-Source `kOpKindNames`),
 `aggregate_tier_workload_per_op` (Median p50_ns je Interface-Fn, two_phase_valid).
-**L2 (3D-Surfaces) BEHALTEN**, aber die **Tier-y-Ordnung** vom Flach-Tupel-Lexikografie-Komparator auf den
+**L2 (3D-Surfaces) BEHALTEN**, aber die **Lebewesen-y-Ordnung** vom Flach-Tupel-Lexikografie-Komparator auf den
 **Baum-Index** (`StaticBinaryView`-Reihenfolge) umstellen, sobald die Stage den Index liefert.
 
 ## 5. Was KORREKT + committet ist (NICHT anfassen)

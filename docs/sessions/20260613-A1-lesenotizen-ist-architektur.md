@@ -10,15 +10,15 @@
 
 **3-Ebenen-Modell (Doc 30 §8.0 / Doc 14 §0, AUTORITATIV):**
 - **GATTUNG = ein INTERFACE / Prüf-Dock:** `SearchAlgorithm` / `Container` / `Graph` (die Außen-API, je Gattung ein Dock).
-- **TIER-UNTERKLASSE = unter dem Gattungs-Interface, FESTER Achsen-Satz:** die 5 Klassen SearchAlgorithm/Set/
-  Sequence/Adapter/View (Säugetier/Vogel/Reptil/Wirbelloses/Pflanze) sind **Tier-Unterklassen, KEINE Gattungen**.
-- **ACHSEN = Organe der Tier-Unterklasse. KEINE Achse optional** — jede in JEDEM Tier-Binary uniform getrieben;
+- **LEBEWESEN-UNTERKLASSE = unter dem Gattungs-Interface, FESTER Achsen-Satz:** die 5 Klassen SearchAlgorithm/Set/
+  Sequence/Adapter/View (Säugetier/Vogel/Reptil/Wirbelloses/Pflanze) sind **Lebewesen-Unterklassen, KEINE Gattungen**.
+- **ACHSEN = Organe der Lebewesen-Unterklasse. KEINE Achse optional** — jede in JEDEM Lebewesen-Binary uniform getrieben;
   „kein Puffer/Prefetch" = konkreter Durchreich-Algorithmus (NoBuffer/NonePrefetch/…), NICHT „Achse weggelassen".
-- **queuing q1/q2 = Pflicht-Achsen** der SearchAlgorithm-Tier-Unterklasse (→ AdHocComposition 17→**19**).
+- **queuing q1/q2 = Pflicht-Achsen** der SearchAlgorithm-Lebewesen-Unterklasse (→ AdHocComposition 17→**19**).
 
 **Organ-Metapher (Doc 14 §1/§9, Master-Statement):** Achse=Organ · Algorithmus=Permutations-Konfiguration ALLER
-Achsen · **Permutation = genetisches Experiment am Tier (Organe testweise gegeneinander tauschen)** · Bottom-Up:
-abstrahiere vom Algorithmus (Tier) zum Organ. Original-Algorithmen = Reference-Compositions (1 Punkt im Raum).
+Achsen · **Permutation = genetisches Experiment am Lebewesen (Organe testweise gegeneinander tauschen)** · Bottom-Up:
+abstrahiere vom Algorithmus (Lebewesen) zum Organ. Original-Algorithmen = Reference-Compositions (1 Punkt im Raum).
 ArtComposition vs ArtPaperBindingComposition = unterscheiden sich in GENAU `search_algo`, 16 Achsen identisch.
 
 **4 Konzept-Ebenen (Doc 11 axes_vs_strategies — Anti-Vermischung):** I Bausteine-Achsen (Permutations-Dim) ·
@@ -40,12 +40,12 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 ## 2. B+-Experiment-Baum (Doc 26/27/29 + `builder/experiment_tree/experiment_tree.hpp` — KERN für Achsen-Austausch)
 
 - Achsen = **Baum-Ebenen** (`AxisLevel{axis, values[]}`, static/dynamic gleichrangig als Knoten-Eigenschaft).
-  Ein Pfad Wurzel→Blatt = ein `binary_id` = eine Tier-Binary (statische Rekombination). Blatt + dyn. Belegung
+  Ein Pfad Wurzel→Blatt = ein `binary_id` = eine Lebewesen-Binary (statische Rekombination). Blatt + dyn. Belegung
   = eine ExperimentSetting.
 - **Nie voll materialisiert** (∏ astronomisch): lazy Mixed-Radix-Odometer, O(Tiefe) Speicher. `binary_count()` =
   ∏ arithmetisch. `StaticBinaryView`: `operator[](i)` ⇄ `flat_index(tuple)` = **inverse Bijektionen**.
 - **ACHSEN-AUSTAUSCH = tree-nativ:** `tuple`, NUR `tuple[d]` (Ebene d=Achse a) k→k' ändern, `flat_index` →
-  Geschwister-Tier (diff in genau a). O(Geschwister), NICHT flach-quadratisch. ⇒ **Achsen-Struktur/-Austausch
+  Geschwister-Lebewesen (diff in genau a). O(Geschwister), NICHT flach-quadratisch. ⇒ **Achsen-Struktur/-Austausch
   gehört in den Baum (cache-engine), NIE flach im Eval-Tool** ([[feedback_axis_exchange_belongs_in_bplus_tree]]).
 - Mess-Werte sparse in `value_map_` (key=binary_id → NodeValue mit axis_stats[19][8]+seg_ns[19]). KF-15 inverse
   Auswertung = multimap pinned_signature→binary_id. Knoten via Abstract Factory (Static/Dynamic).
@@ -80,20 +80,20 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   - **Pfad A — isolierte Achsen-Algos gegeneinander:** läuft **IN der DLL selbst** via `IMeasurableWorkload::run_workload`
     (DLL fährt eigenen Mess-Workload, liefert Batch-Latenzen) → host-seitige Aggregation + Statistik (`f15_compare`,
     Welch/MWU/Cliff's δ). Dimension §2.3 (Achsen-Vergleich). **NICHT verworfen** (Korrektur einer früheren Fehlaussage).
-  - **Pfad B — composite Tier:** läuft **zentral host-seitig über CacheEngineBuilder** via ABI-stabilen **Observer-Zugriff**
-    (`IObservableTier::tier_observe` → flacher POD über DLL-Grenze). Dimensionen §2.1 (Tier-Wall-Clock: Füllstand-Kurven,
+  - **Pfad B — composite Lebewesen:** läuft **zentral host-seitig über CacheEngineBuilder** via ABI-stabilen **Observer-Zugriff**
+    (`IObservableTier::tier_observe` → flacher POD über DLL-Grenze). Dimensionen §2.1 (Lebewesen-Wall-Clock: Füllstand-Kurven,
     r/w/d getrennt, RAM/Disk) **+** §2.2 (Per-Achsen-`observe_all` → ObserverAggregate). **Zeit-/zustands-KORRELIERT**
     (§8.7): jeder Observer-Snapshot trägt Wall-Clock-Stempel → Zeitreihe `[(t,ObserverAggregate)]`; 2 Trigger-Modi
     (a Zeitschritt-Sync / b Zustands-Manipulation = Füllstands-Checkpoints). R6 done-verified (`R8RestA_DockMeasuresRealDll`).
-- **3 Mess-DIMENSIONEN (Doc 24 §2.4):** §2.1 Tier-Wall-Clock (CacheEngineBuilder) · §2.2 Achsen-Observer (`observe_all`,
+- **3 Mess-DIMENSIONEN (Doc 24 §2.4):** §2.1 Lebewesen-Wall-Clock (CacheEngineBuilder) · §2.2 Achsen-Observer (`observe_all`,
   Anatomie) · §2.3 Achsen-Vergleich (Unit-Tests gegen vereinheitlichtes Interface vs. bekannte Algos, z.B. std::map) —
   **welche Achsen-Variante „besser" ist, entscheidet §2.3, NICHT der Latenz-Benchmark.**
 - **PRÜF-DOCK (Doc 24 §8.8):** = die CacheEngineBuilder-SEITE für GENAU EINE Gattung (= Außen-Interface) — lädt +
   treibt Gattungs-API durch + misst Observer + persistiert. EIN Dock je Gattung: **SearchAlgorithm / Container / Graph**
-  (NICHT je Tier-Unterklasse — Set/Sequence/Adapter/View teilen das EINE Container-Dock). **KEIN Neubau** — nur Benennung
+  (NICHT je Lebewesen-Unterklasse — Set/Sequence/Adapter/View teilen das EINE Container-Dock). **KEIN Neubau** — nur Benennung
   der vorhandenen `IObservableTier`+`AnatomyModuleLoader`+`drive_tier_observe_trace_abi`-Verdrahtung (`pruef_dock/`).
 - **PRÜFLING-Integration (Doc 24 §8.9/§8.9.1) = CMake + Metaprog-Join, NICHT Header-Kopie:** prt-art = abstrakte
-  Tier-Permutation, liefert für EINIGE Achsen neue Algos, per C++23-Metaprog mit CE-Achsen gejoint (`optional_prt_art_impl`-
+  Lebewesen-Permutation, liefert für EINIGE Achsen neue Algos, per C++23-Metaprog mit CE-Achsen gejoint (`optional_prt_art_impl`-
   Slot, ERSETZT-mit-Fallback). **3 Join-Stufen, EIN Dock misst alle:** Stufe1 `comdare_perms_ce` (A) · Stufe2
   `comdare_perms_<pf>` (B) · Stufe3 `comdare_perms_full_join` (A⋈B, dedupliziert = „Schnabeltier"-Hybrid). **Regel der
   abstrakt-leeren Achse:** leere Prüfling-Achse reust ALLE CE-Algos → Stufe-2-Raum = kartesisches Produkt ÜBER die leeren
@@ -104,9 +104,9 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 ## 2a. VERTIEFUNG B+-Baum (Doc 26 + 27 vollständig, gelesen 2026-06-13) — 22 Achsen, 4 Brücken, Gate-1
 
 - **22 Achsen / 15 Topics (Doc 27 §0, AUTORITATIV; „17"≠Gesamtzahl):** **17 AdHocComposition-Slots T0–T16** (search_algo…
-  filter) = Kern der **SearchAlgorithm-Tier-Unterklasse** · **q1/q2 queuing = reguläre mandatorische SA-Achsen** (→ **19**;
+  filter) = Kern der **SearchAlgorithm-Lebewesen-Unterklasse** · **q1/q2 queuing = reguläre mandatorische SA-Achsen** (→ **19**;
   NoBuffer/NoFlush = Durchreich-Algo) · **page_type/09b/12 = 3 Build-/Codegen-Achsen** DERSELBEN SA-Binary. KEIN getrennter
-  Genus-Teilbaum für queuing. Adapter-Tier-Unterklasse (unter Container-Interface) = 13 Achsen (9 delegiert + 3 aktiv +
+  Genus-Teilbaum für queuing. Adapter-Lebewesen-Unterklasse (unter Container-Interface) = 13 Achsen (9 delegiert + 3 aktiv +
   `inner_container`; KEINE „ordering"-Achse — FIFO/LIFO = API-Nutzung §26.4); nutzt queuing NICHT.
 - **4 BRÜCKEN (Doc 27, alle DONE+verifiziert):** **BR-1** registry→`AxisLevel`s (`registry_to_axis_levels.hpp`, alle 22
   als Baum-Ebene) · **BR-2** Blatt-Pfad↔reale `AdHocComposition<17>` (`composition_registry.hpp` + EINE zentrale
@@ -155,8 +155,8 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   (`test_v41_anatomy_observer` 15/15 grün). VERBLEIBT (E-Kandidat): Auto-Kopplung am echten Tier-insert + restliche Reference-/AdHoc-
   Compositions + serialization/node_type nach demselben Hüllen-Muster.
 - **Baum-Generik (Doc 29 §1):** Baum-KERN voll generisch (`build(vector<AxisLevel>)`, mixed-radix beliebig viele Ebenen, `genus_binding_traits`
-  parametrisch); **fest-N pro Tier-Unterklasse = bewusste Invariante** (neue Achse INNERHALB = Composition + ObserverAggregate anfassen,
-  NICHT generisch — sonst verliert die Tier-Unterklasse ihre ABI-Identität).
+  parametrisch); **fest-N pro Lebewesen-Unterklasse = bewusste Invariante** (neue Achse INNERHALB = Composition + ObserverAggregate anfassen,
+  NICHT generisch — sonst verliert die Lebewesen-Unterklasse ihre ABI-Identität).
 - **B1-Split (messarchitektur_design_observer, auf Major-Bump mitgeritten):** `IObservableTier` → `IDrivableTier` (Ops, Pflicht) +
   `IObservableTier` (nur `tier_observe`); 2 Build-Profile MESS (STATISTICS=ON) vs REIN (=OFF). Ledger §a.V5 listet `IDriveableTier`/
   `IObservableTier`/`IRollbackableTier`/`IScannableTier` als existent → B1 umgesetzt.
@@ -164,7 +164,7 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 ## 3c. VERTIEFUNG V5-Mess-Spezifikation + Vollständigkeits-Karte (messarchitektur_v5_design + Doc 28, gelesen 2026-06-13)
 
 - **ZWEI Seiten, EINE ABI-Grenze (v5_design §1, bindend):** HOST = CacheEngineBuilder-Binary (Builder-vtable erlaubt, NICHT
-  Hot-Path) · TIER-BINARY = geladene .dll (compile-time monomorph, Hot-Path, kein virtual/dynamic_cast). **State lebt IN der Binary**
+  Hot-Path) · LEBEWESEN-BINARY = geladene .dll (compile-time monomorph, Hot-Path, kein virtual/dynamic_cast). **State lebt IN der Binary**
   (`search_organ_`, `ComposedStore<N,L,A>`, Disk-Files), NICHT host-seitig; der Host hält nur Latenz-ns-Vektoren + Op-Protokoll.
   **Release-DLL (MEASUREMENT_OFF):** observer_all + memento_all COMPILE-TIME entfernt (`#if COMDARE_MEASUREMENT_ON`) → vtable-Slots
   existieren nicht, KEIN Overhead, an Forschung auslieferbar (kein dynamic_cast zur Entfernung — die Typen sind schlicht nicht da).
@@ -173,9 +173,9 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   YCSB A–F, KEINE CMake-Flags = dyn. loops) ⊥ (3) **COMPILE-RELEASE-PROFIL** (ob observe/memento einkompiliert; `COMDARE_MEASUREMENT_MODE`
   Default ON; ABI-Major). **Build ⊥ Lasten = kartesisches Kreuz** (1 Binary × N Lastprofile OHNE Rekompilation) — die zwei Haupt-Experiment-Achsen.
 - **🔴 ZWEI-PHASEN-OP-SCHLEIFE (v5_design §4, PFLICHT für Mess-Gültigkeit, = Goal §0.2):** pro Op GENAU 2×: (1) `tier_save_all()` →
-  (2) op (erste Ausführung, warmt) → (3) `tier_rollback_all()` (Tier-State inkl. Disk auf Vor-Zustand) → (4) op (op-measure, JETZT
+  (2) op (erste Ausführung, warmt) → (3) `tier_rollback_all()` (Lebewesen-State inkl. Disk auf Vor-Zustand) → (4) op (op-measure, JETZT
   Wall-Clock-umklammert + Observer). Eliminiert die Pfad-Abhängigkeit der Latenz vom akkumulierten Zustand. `drive_two_phase_op_loop`.
-- **memento_all-System (v5_design §3, parallel zu observe_all):** **HYBRIDER VISITOR** (Tier-Binary-Rollback-Klassen besuchen den Host
+- **memento_all-System (v5_design §3, parallel zu observe_all):** **HYBRIDER VISITOR** (Lebewesen-Binary-Rollback-Klassen besuchen den Host
   — weil der State drüben lebt); `MementoAxis`-Concept (`save_state/restore_state/memento_persist`); **9 stateful** Achsen (search_algo/
   node_type/allocator/concurrency/serialization/value_handle/filter/io_dispatch/migration) / **8 stateless** (`EmptyMemento`). Sub-IF
   `IRollbackableTier` (nicht an IAnatomyBase). **Disk-Sonderfall ehrlich:** kein generisches Format (axis_06 ~20 Allokatoren) → Memento
@@ -183,7 +183,7 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 - **🔴 KONFORMITÄTS-GATE gegen std::map je Gattung (v5_design §6):** Reihenfolge ZWINGEND **import → GATE → (nur bei pass) messen**.
   `conformance_gate.hpp` = Runtime-Host-Oracle über `IDriveableTier`: deterministische Randfall-Sequenz (leer/single/Doppel-Insert/
   Update/erase-nichtvorhanden/clear-dann-lookup/full-sweep) gegen `std::map<uint64,uint64>`; jede Binary muss gattungs-konform speichern+wiedergeben.
-- **5 TIER-UNTERKLASSEN SOLL/IST (Doc 28 §2):** **SearchAlgorithm** (17, unter SearchAlgorithm-Interface — **VOLL** BR-1..4) · **Adapter**
+- **5 LEBEWESEN-UNTERKLASSEN SOLL/IST (Doc 28 §2):** **SearchAlgorithm** (17, unter SearchAlgorithm-Interface — **VOLL** BR-1..4) · **Adapter**
   (13 Achsen unter Container-Interface — **teilw.**: Dock+in-process, DLL offen #75; KEINE „ordering"-Achse, `inner_container` die einzige
   spezifische, FIFO/LIFO=API-Nutzung) · **Set** (15) / **Sequence** (10+axis_growth) / **View** (7+axis_extent/layout/accessor) = **FUTURE**
   (#76, je unter Container-Interface) · **Viren** (Graph-Interface, `IVirusExecutionEngine` Schwester an IExecutionEngine — FUTURE-Stub).
@@ -205,11 +205,11 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 ## 3d. Lastprofil-Katalog + Paper-Bias (Doc 32 — DIE wissenschaftliche Rechtfertigung der Mission) + v5_i8
 
 - **🎯 PAPER-BIAS = der Kern-Befund der Mission (User-Direktive 2026-06-08):** Jedes Paper wählt ein Lastprofil, das SEINEN
-  Algorithmus gut dastehen lässt. **Um den Bann zu brechen, müssen ALLE Lastprofile über ALLE Achsen/Tiere laufen** (Workload =
+  Algorithmus gut dastehen lässt. **Um den Bann zu brechen, müssen ALLE Lastprofile über ALLE Achsen/Lebewesen laufen** (Workload =
   dynamische Achse 2 im B+-Baum). Das IST die „Bias-Bruch-Matrix" der Original-Mission. 5 Bias-Kategorien: (1) static-read-only-Trie
   (HOT/CoCo/START/SuRF — „build-once, 100% positive Lookups", meidet Updates) · (2) Negativ-Query-Sweep als Heimspiel (CoCo/B2tree/SuRF
   — neg% als Primär-Achse, komprimierte Tries brechen bei Miss früh ab) · (3) Zipfian/Cache-Heimspiel (LeanStore/Kuehn) · (4) Write/Update-
-  Heimspiel (ART/Masstree/Wormhole, Thread-Scaling 1..128) · (5) Prefetch/HW-Heimspiel (CSB/Chen). **FAZIT: jedes Profil MUSS über ALLE Tiere laufen.**
+  Heimspiel (ART/Masstree/Wormhole, Thread-Scaling 1..128) · (5) Prefetch/HW-Heimspiel (CSB/Chen). **FAZIT: jedes Profil MUSS über ALLE Lebewesen laufen.**
 - **14 Lastprofile (LP01–LP14, → `load_profiles/*.xml`):** bulk-insert-dense/sparse · value-length-sweep · static-read-positive/zipfian ·
   **LP06 static-read-negsweep (neg% {0,25,50,75,100})** · real-string-corpus · range-scan-heavy · insert-lookup-5050 · delete-heavy ·
   **LP11 mixed-ycsb-oltp (read_ratio-Sweep)** · concurrent-rmw · concurrent-read-scaling · dynamic-trace. **21 Profile = 14 Basis + profil-
@@ -238,7 +238,7 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 - **F15-Pilot-Ergebnisse (frühe Belege, i7):** search-Paradigmen-Spanne ~18,5×–119× (dense Arrays dominieren kleinen uint8/16-Keyraum;
   Interpolation/Eytzinger schlagen naive sorted-vector; BST schlägt B-Baum bei klein-random-in-memory — B-Baum-Vorteil erst block/disk/groß).
   search_algo-Achse = 14 Paradigmen (direct-address/sorted-vector/SIMD-kary/interpolation/eytzinger/skiplist/hash/trie), 12 CE-native gemessen.
-- **MATCHING-MATRIX (klarstellungen §5):** Prüf-Dock ↔ **Gattung** (`genus()`) · `IMeasurableWorkload`-Lastprofil ↔ **Tierart/Anatomie**
+- **MATCHING-MATRIX (klarstellungen §5):** Prüf-Dock ↔ **Gattung** (`genus()`) · `IMeasurableWorkload`-Lastprofil ↔ **Lebewesen-Art/Anatomie**
   (MEHRERE Profile je Binary = Profil-Schleife) · Observer-Erhebung ↔ **cmake-Messmodus**. Voll-Durchlauf je Binary: `genus()`→Dock→
   Schleife über alle passenden Lastprofile→je Profil Op-Folge treiben + (Messmodus) `observe_all` korreliert ziehen.
 
@@ -255,7 +255,7 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   R6.1–6.5 (IObservableTier+POD, Wall-Clock+Observer-Trace, Loader, Pfad-B-2D, Prüf-Dock) · R7.2/7.3/7.4-Body ·
   R8 (Prüfling 3-Stufen) · Umstufung-A/B · s4 · Cross-Constraints · G.1 (messung_driver axis_tree) · E10.x ·
   **#42-Phase-2: `EnabledStrategies = mp_filter<is_enabled, AllStrategies>` = 4 Such-ORGANE (K_ARY/INTERPOLATION/
-  EYTZINGER/LINEAR_SCAN, USE=1), 13 Monolith-Tiere USE=0 deregistriert** (konfig. Flags-Header; Direktive
+  EYTZINGER/LINEAR_SCAN, USE=1), 13 Monolith-Lebewesen USE=0 deregistriert** (konfig. Flags-Header; Direktive
   no_whole_tier_axes auf EnabledStrategies-Ebene erfüllt). ⇒ Architektur-Substanz steht; Mess-Pfad real.
 - **§b EXTERN/TOOLCHAIN-GATED:** A1/A2.1 Vendor-Allokatoren (jemalloc/tcmalloc/hoard/scalloc — lokal nicht baubar) ·
   R5.D/#26 PMC-HW-Counter (Intel PCM/MSR) · C1/C2 Cluster/Grace-Hopper · E10.6/7 ZIH-Verteilung ·
@@ -294,18 +294,18 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 ## 4d. Doc 30 (audit_achsen_delegation_pflichtachsen — AUTORITÄT des 3-Ebenen-Modells + DER ECHTE VERSTOSS)
 
 - **3-Ebenen-Modell (§8.0, AUTORITATIV, verbatim):** (a) **Gattung = Außen-Interface** SearchAlgorithm/Container/Graph
-  (= Prüf-Dock, Doc 24 §8.8/§8.6) · (b) **Tier-Unterklasse = unter dem Interface, FESTER Achsen-Satz** (5 code-Genera
-  SearchAlgorithm/Set/Sequence/Adapter/View; aktuell NUR die SearchAlgorithm-Tier-Unterklasse gebaut) · (c) **Achsen =
-  Organe, ALLE Pflicht, in JEDEM Tier-Binary uniform getrieben** (NoBuffer/NonePrefetch/NoMigration = konkrete Durchreich-
+  (= Prüf-Dock, Doc 24 §8.8/§8.6) · (b) **Lebewesen-Unterklasse = unter dem Interface, FESTER Achsen-Satz** (5 code-Genera
+  SearchAlgorithm/Set/Sequence/Adapter/View; aktuell NUR die SearchAlgorithm-Lebewesen-Unterklasse gebaut) · (c) **Achsen =
+  Organe, ALLE Pflicht, in JEDEM Lebewesen-Binary uniform getrieben** (NoBuffer/NonePrefetch/NoMigration = konkrete Durchreich-
   Algorithmen, NICHT abwesende Achsen). Per-Gattung-Slots: **SearchAlgorithm 17(+3 Build), Container/Adapter 13, Set 15,
   Sequence 11, View 7**. queuing q1/q2 = **Pflicht-SA-Achsen** (AdHocComposition **17→19**, `c9f051b`); Adapter-Gattung =
-  echte Tier-Unterklasse (`AdapterComposition<T0..T11,Inner>` 13 Achsen: 9 delegiert + 3 aktiv + 1 inner_container; `18adc08`).
+  echte Lebewesen-Unterklasse (`AdapterComposition<T0..T11,Inner>` 13 Achsen: 9 delegiert + 3 aktiv + 1 inner_container; `18adc08`).
 - **🔴 BEFUND 2 — DER ECHTE ARCHITEKTUR-VERSTOSS (kritisch, = Audit-K5/K6, Kontext meiner A2a-Arbeit):** Der
   `SearchAlgorithmAbiAdapter` hält **ZWEI getrennte, unverbundene Speicher**: `search_organ_` = monolithisches Such-Organ
   (`Composition::search_algo`, z.B. KArySearchAlgo mit eigenem Substrat, nimmt KEINEN node/layout/allocator-Slot) +
   `container_` = SEPARATER `ObservableComposedSearch<SortedBinaryTraversal[hart-verdrahtet, NICHT Composition::search_algo!],
   Store>` nur „um die Allocator-Achse zu messen". `tier_insert` treibt BEIDE (Doppel-Buchführung); Such-Metriken aus dem
-  Monolith, alloc_* aus dem Store. ⇒ **Tiere routen NICHT uniform durch alle 17 Organe; Such-Organ beschattet node_type/
+  Monolith, alloc_* aus dem Store. ⇒ **Lebewesen routen NICHT uniform durch alle 17 Organe; Such-Organ beschattet node_type/
   memory_layout** (Sezierungs-Prinzip Doku 14 §3.1 im Mess-Pfad verletzt).
   - **§6 Q2 Schritt 1–3 GEFIXT+verifiziert:** `container_` von unbounded ComposedStore → **`NodeChunkedStore<N,L,A>`**
     (cap=N::max_capacity()) → node_type wirkt real (alloc_cnt = ceil(n/node_cap): Node4=250/Node256=4 @n=1000; vorher
@@ -414,7 +414,7 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 - ✅ `20260531-e2e-abnahme-audit-und-entscheidungen.md` (2. IST-Doc, vollständig)
 - ✅ cache-engine **Doc 30** (audit_achsen_delegation_pflichtachsen — 3-Ebenen-Autorität + Befund-2-Verstoß)
 - ✅ cache-engine **Doc 33** (Memento Rev.2 CoW + Resume — bestätigt §3: Memento deckt search_organ_+container_ =
-  T0+T6; Zwei-Phasen-Warmup PFLICHT; Resume je Tier-Binary via Config-Stamp [BuildVersion+dims+rows]; CoW =
+  T0+T6; Zwei-Phasen-Warmup PFLICHT; Resume je Lebewesen-Binary via Config-Stamp [BuildVersion+dims+rows]; CoW =
   Rev.1-Eskalation generalisiert auf alle Mutationen, Read-Perioden O(1))
 - ✅ (Code, frühere Session) `experiment_tree.hpp` (= Substanz von Doc 26/27/29 B+-Baum) · `abi_adapter.hpp` (CoW-Teil)
 - ✅ cache-engine **Doc 24** (Mess-Modell 2-Dim — vollständig: HYBRID Pfad A/B + §8.7 korrelierte Erhebung + §8.8 Prüf-Dock
@@ -424,7 +424,7 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
 - ✅ cache-engine **Doc 29** (Baum-Generik + Composition-Driver-Stand: ObservableXxx-Hülle, telemetry+memory_layout getrieben)
   + **Doc 31** (Observer-Konsolidierung I1, EIN POD axis_stats[19][8]+seg_ns[19], ABI-Major 2→3, Q1-Sequenz) + **abhaengigkeitskette**
   (8-Schicht-Kette + Dreifach-Vererbung + SEH-vtable-Invariante) + **messarchitektur_design_observer** (dynamic_cast KALT, B1-Split); → §3b
-- ✅ cache-engine **Doc 28** (Vollständigkeits-Kartographie: 22-Achsen-SOLL + 5 Tier-Unterklassen + 6 Gates + Skalierung + Lücken
+- ✅ cache-engine **Doc 28** (Vollständigkeits-Kartographie: 22-Achsen-SOLL + 5 Lebewesen-Unterklassen + 6 Gates + Skalierung + Lücken
   #74/75/76/77) + **messarchitektur_v5_design** (bindende V5-Spec: 2 Seiten/1 ABI, 3 Profile, Zwei-Phasen-Op-Schleife PFLICHT,
   memento_all hybrider Visitor, Konformitäts-Gate import→GATE→messen, compile-time-Removal); → §3c
 - ✅ Thesis **03_konzepte_saeule_a + 04_konzepte_saeule_b** (SUPERSEDED-Konzept-Vokabular: F1–F29 / 4-Ebenen-Strategie
@@ -434,7 +434,7 @@ IV Such-Engine-Familien S1-S30 (Impl. der Achsen). Achse ≠ C-Sub-Engine ≠ F-
   + **messarchitektur_v5_drei_profile** (Build⊥Lasten-Kartesik + xorshift64-Reproduzierbarkeit + ABI Major2/Minor1); → §3c
 - ✅ cache-engine **messarchitektur_v5_i8** (Memento-Disk-Vollständigkeit: I8 gegenstandslos, kein Disk-State) + **Doc 32**
   (Lastprofil-Katalog 14 LP + Paper-Bias = wissenschaftliche Mission-Rechtfertigung + 21-XML-Audit-Lücke); → §3d
-- ✅ cache-engine **messarchitektur_klarstellungen** (Matching-Matrix Prüf-Dock↔Gattung/Workload↔Tierart/Observer↔cmake) + **Doc 22**
+- ✅ cache-engine **messarchitektur_klarstellungen** (Matching-Matrix Prüf-Dock↔Gattung/Workload↔Lebewesen-Art/Observer↔cmake) + **Doc 22**
   (F15-Statistik-Triade Median/MWU/Cliff's-δ + ehrliche Mess-Limits: WC nicht bit-reprod./layout sub-noise→PMC + 18,5–119×-Pilot); → §3e
 - ✅ cache-engine historischer Kontext **Doc 15 (ISA-Schichten/AVX512-Sub-Flags/Cross-Constraint-Filter) + Doc 17 (Paper-Kartografie
   33 P-IDs + is_original-Klassen A–E) + Doc 19 (prt-art-Migration 44 Header) + Doc 21 (Plugin-Controller+3-Stufen bewiesen+F15-Dim1/2)**; → §4e

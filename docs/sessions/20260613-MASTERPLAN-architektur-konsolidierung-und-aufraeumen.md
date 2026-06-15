@@ -27,16 +27,16 @@
   Masterpläne).
 - Das **ursprüngliche Goal/Aufgaben-Set der letzten Session** verbatim sichern: das war die Bias-Bruch-Matrix-
   Mess-/Audit-/Appendix-Mission (`GOAL-MESSUNG-AUDIT-APPENDIX-20260612.md` + die User-Detailanforderungen:
-  Ausgabe = Testdaten-Konfig × Tier; 3D-Diagramme z=ns/op je Interface-Funktion; Achsen-Austauschbarkeits-Diffs;
+  Ausgabe = Testdaten-Konfig × Lebewesen; 3D-Diagramme z=ns/op je Interface-Funktion; Achsen-Austauschbarkeits-Diffs;
   Appendix immer ALLE Werte; ZIH-Vorlage; relative Pfade; ein Experiment → PDF).
 **✓ Kriterium:** Eine Referenz-Liste „Original-Aufgaben + ihre Quell-Dokumente" liegt vor; nichts vom
 Session-Start ist verloren.
 
 **A0-ERGEBNIS (2026-06-13 ✅ Enumeration):**
 - **Original-Mission (letzte Session) = `GOAL-MESSUNG-AUDIT-APPENDIX-20260612.md`:** Bias-Bruch-Matrix
-  Messung → Audit-Abarbeitung → interpretierbarer LaTeX-Appendix. Detail: Ausgabe = Testdaten-Konfig × Tier;
+  Messung → Audit-Abarbeitung → interpretierbarer LaTeX-Appendix. Detail: Ausgabe = Testdaten-Konfig × Lebewesen;
   je Interface-Funktion Verarbeitungsdauer (ns/op) auf z-Achse eines 3D-Diagramms; **Achsen-Austauschbarkeits-
-  Belege** (Wechsel EINER Achse → Diff gegen alle anderen Tiere als Tabelle) — **PRÄZISIERUNG (B+-Baum, nicht
+  Belege** (Wechsel EINER Achse → Diff gegen alle anderen Lebewesen als Tabelle) — **PRÄZISIERUNG (B+-Baum, nicht
   flach!)**; Appendix IMMER alle Werte; TU-/ZIH-diplominf-Vorlage; NUR relative Pfade; EIN Experiment → fertige PDF.
 - **Letzte 15 Session-Docs (cache-engine `docs/sessions/`):** 20260613-MASTERPLAN · GOAL-AUTONOM-20260613 ·
   20260613-ARCHITEKTUR-KORREKTUR-achsenaustausch-im-baum · 20260613-autonom-A2a-done · 20260612-uebergabe-m2/L ·
@@ -109,10 +109,10 @@ zugeordnet — Grundlage der Konsolidierung B.
 konsolidiert. Vorschlag Ort/Name: `docs/architektur/15_KONSOLIDIERTER_MASTER_IST_STAND.md` (Thesis-Basis,
 durchgehende Nummer nach 14) — Ort beim Erstellen final mit User bestätigen.
 **Pflicht-Inhalt (mind.):**
-- **3-Ebenen-Modell** (Doc 30 §8.0 / Doc 14 §0): Gattung = Interface/Prüf-Dock · Tier-Unterklasse = fester
+- **3-Ebenen-Modell** (Doc 30 §8.0 / Doc 14 §0): Gattung = Interface/Prüf-Dock · Lebewesen-Unterklasse = fester
   Achsen-Satz (SearchAlgorithm/Set/Sequence/Adapter/View) · Achsen = Organe (keine optional, alle uniform getrieben).
 - **Organ-Metapher + Permutation = Organ-Tausch** (Doc 14 §1/§9) + Reference-/Composition-Templates (§11/§13).
-- **B+-Experiment-Baum** (Doc 26/27/29 + `experiment_tree.hpp`): Achsen = Baum-Ebenen, Pfad = binary_id = Tier,
+- **B+-Experiment-Baum** (Doc 26/27/29 + `experiment_tree.hpp`): Achsen = Baum-Ebenen, Pfad = binary_id = Lebewesen,
   Mixed-Radix-Bijektion (`StaticBinaryView`), Achsen-Austausch = Ziffernwechsel; lazy, nie ∏-materialisiert.
 - **4-Subsystem-Modell** (Doc 10): messung_driver / CacheEngineBuilder / CacheEngine / Prüfling (bidirektional).
 - **3-Stufen-Prüfung** (Doc 11/14 §18): CE-only / Prüfling-einzeln (ERSETZT-mit-Fallback) / Full-Join.
@@ -165,7 +165,7 @@ das /goal ist gesetzt und treibt die autonome Abarbeitung.
 | `3c296df` | ce | Architektur-Korrektur-Doc (Achsen-Austausch im Baum) | behalten (korrekt) ODER in B1 überführen |
 | `915297f` | ce | Basisarchitektur-Junction + gitignore | behalten (deine Anweisung) |
 | `c610354` | **super** | **L1** csv_to_latex Flach-Achsen-Tupel | **REVERT** |
-| `1ec5cfd` | **super** | **L2** Stufe-05 3D-Surfaces | **REVERT** (oder Tier-Ordnung auf Baum-Index, nach B) |
+| `1ec5cfd` | **super** | **L2** Stufe-05 3D-Surfaces | **REVERT** (oder Lebewesen-Ordnung auf Baum-Index, nach B) |
 | Submodul-Bumps | super | Pointer | mit den ce-Reverts synchronisieren |
 **✓ Kriterium:** Tabelle vollständig (auch ich-übersehene Commits via `git log --since` beider Repos); je Zeile
 eine begründete Disposition.
