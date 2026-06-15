@@ -87,14 +87,14 @@ Cross-Genus-Joins sind typsystem-mathematisch ausgeschlossen ([[gattungs-constra
 > ⚠️ **(korr. 2026-06-03, s. Doc 30 §8.0):** Begriffs-Präzisierung der obigen Zeile nach dem
 > verbindlichen 3-Ebenen-Modell. **Gattung = Außen-Interface** (SearchAlgorithm / Container /
 > Graph; je Gattung ein Prüf-Dock, Doc 24 §8.8). Der hier beschriebene Achsen-Merge findet aber
-> auf der Ebene des **FESTEN Achsen-Satzes** statt — und das ist die **Tier-Unterklassen**-Ebene,
-> nicht die Gattungs-Ebene. Konkret: Der Merge erfolgt innerhalb **derselben SearchAlgorithm-Tier-
+> auf der Ebene des **FESTEN Achsen-Satzes** statt — und das ist die **Lebewesen-Unterklassen**-Ebene,
+> nicht die Gattungs-Ebene. Konkret: Der Merge erfolgt innerhalb **derselben SearchAlgorithm-Lebewesen-
 > Unterklasse** (die 17/19-Achsen-Komposition unter dem SearchAlgorithm-Interface; aktuell ist
-> genau diese eine Tier-Unterklasse gebaut). Korrekt bleibt: Merge nur bei identischer Slot-Signatur
+> genau diese eine Lebewesen-Unterklasse gebaut). Korrekt bleibt: Merge nur bei identischer Slot-Signatur
 > (gleicher Achsen-Satz); Cross-Genus-Joins (z.B. SearchAlgorithm × Container) sind weiterhin
 > typsystem-mathematisch ausgeschlossen, da unterschiedliche Außen-Interfaces unterschiedliche
 > Prüf-Docks + Slot-Sätze haben. Lies „derselben Gattung (SearchAlgorithm)" oben daher als
-> „derselben Tier-Unterklasse unter dem SearchAlgorithm-Interface".
+> „derselben Lebewesen-Unterklasse unter dem SearchAlgorithm-Interface".
 
 ---
 

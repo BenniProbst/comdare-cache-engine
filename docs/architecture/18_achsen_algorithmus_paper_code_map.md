@@ -133,7 +133,7 @@
 |---------|-------------|---------------|------------|---------|------------|--------|-----------|-------------|-------|
 | NoMigration | Static placement / No migration (baseline) | — | — | — | nein | none | — | ✗ | high |
 | HotColdMigration | Hot/Cold-Daten-Separation | Anti-Caching: A New Approach to DBMS Architecture | PVLDB 6(14) 2013 | 10.14778/2556549.2556575 | OSS | GPL-3.0 | — | ✗ | high |
-| TierBasedMigration | Multi-Tier-Migration RAM→NVM→SSD→HDD | Managing Non-Volatile Memory in Database Systems | SIGMOD 2018 | 10.1145/3183713.3196897 | ? | Apache-2.0 OR GPL-2.0 (RocksDB) | — | ✗ | high |
+| TierBasedMigration | Multi-Ebenen-Migration RAM→NVM→SSD→HDD | Managing Non-Volatile Memory in Database Systems | SIGMOD 2018 | 10.1145/3183713.3196897 | ? | Apache-2.0 OR GPL-2.0 (RocksDB) | — | ✗ | high |
 | AdaptiveMigration | ML-driven adaptive Migration (Online-Learning) | Driving Cache Replacement with ML-based LeCaR | USENIX HotStorage 2018 | usenix.org/.../vietri | OSS | LeCaR: none ; CacheLib: Apache-2.0 | — | ✗ | high |
 
 ### axis_02_path_compression

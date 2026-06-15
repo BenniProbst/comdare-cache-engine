@@ -13,9 +13,9 @@
 
 ## §1 Worum es geht (Pfad B, Doku 24 §8.6)
 
-Der host-seitige `CacheEngineBuilder` kommuniziert mit einer geladenen Tier-Binary (`.so`/`.dll`) AUSSCHLIESSLICH über das
+Der host-seitige `CacheEngineBuilder` kommuniziert mit einer geladenen Lebewesen-Binary (`.so`/`.dll`) AUSSCHLIESSLICH über das
 ABI-stabile Gattungs-Interface. Im Mess-Modell (HYBRID, Doku 24 §8.1) ist das **Pfad B**: der Host treibt die Gattungs-API
-(`tier_insert/lookup/erase/clear/size` über `uint64`) und zieht die **IM Tier eingebauten Observer** als flachen POD über die
+(`tier_insert/lookup/erase/clear/size` über `uint64`) und zieht die **IM Lebewesen eingebauten Observer** als flachen POD über die
 Modul-Binary-Grenze (`tier_observe`). Der POD quert die Grenze als **komposition-UNABHÄNGIGER, memcpy-fähiger POD** (nur
 `uint64`/`int64`, fixes Layout, keine STL/vtable). **Pfad A** (`IMeasurableWorkload::run_workload*`, isolierter Achsen-Bench
 in der DLL selbst) ist davon getrennt und bleibt unverändert.

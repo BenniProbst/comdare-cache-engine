@@ -139,7 +139,7 @@ Recherche-Agent fuer R7.6.b axis_migration noch nicht gestartet.
 
 **Vermutete Papers:**
 - HotColdMigration: HotStore VLDB?
-- TierBasedMigration: DRAM-NVM-Disk Tiering (Stoica VLDB 2013? Kuehn DAMON 2023 = P28)
+- TierBasedMigration: DRAM-NVM-Disk-Schichtung (Stoica VLDB 2013? Kuehn DAMON 2023 = P28)
 - AdaptiveMigration: Self-Tuning DBs (Chaudhuri SIGMOD 2007?)
 
 ### §3.10 axis_io (4 Wrappers, ~6 SP — Web-Recherche AUSSTEHEND)

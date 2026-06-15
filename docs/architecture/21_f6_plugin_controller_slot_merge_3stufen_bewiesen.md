@@ -75,7 +75,7 @@ struct Slot {
     static constexpr AnatomyGenus genus = AnatomyGenus::SearchAlgorithm;  // Gattungs-Constraint
 };
 ```
-> **(korr. 2026-06-03, s. Doc 30 §8.0):** `AnatomyGenus::SearchAlgorithm` bezeichnet hier die **GATTUNG = das Außen-INTERFACE / Prüf-Dock** (Search / Container / Graph). Diese eine, hier real gebaute Tier-Unterklasse (std::map-ähnlich) liegt UNTER dem SearchAlgorithm-Interface und trägt den FESTEN Achsen-Satz (axis_07/01/14/11 …). Die `genus`-Marke ist das korrekte Gattungs-(Interface-)Constraint und bleibt; sie ist NICHT die Ebene des festen Achsen-Satzes (das ist die Tier-Unterklasse). axis_07/01/14/11 sind Pflicht-ACHSEN (Organe) DIESER Tier-Unterklasse, keine Gattungen.
+> **(korr. 2026-06-03, s. Doc 30 §8.0):** `AnatomyGenus::SearchAlgorithm` bezeichnet hier die **GATTUNG = das Außen-INTERFACE / Prüf-Dock** (Search / Container / Graph). Diese eine, hier real gebaute Lebewesen-Unterklasse (std::map-ähnlich) liegt UNTER dem SearchAlgorithm-Interface und trägt den FESTEN Achsen-Satz (axis_07/01/14/11 …). Die `genus`-Marke ist das korrekte Gattungs-(Interface-)Constraint und bleibt; sie ist NICHT die Ebene des festen Achsen-Satzes (das ist die Lebewesen-Unterklasse). axis_07/01/14/11 sind Pflicht-ACHSEN (Organe) DIESER Lebewesen-Unterklasse, keine Gattungen.
 
 | Achse | prt-art-Wrapper | CE-Concept | prt-art-Logik |
 |-------|-----------------|------------|---------------|
@@ -105,7 +105,7 @@ Dispatch via `MergeAxis<MergeStrategy S, ...>` — `S` ist **Non-Type-Template-P
 Runtime-Switch). Genus-Constraint (`assert_pruefling_slot_genus<Slot>`) verhindert Cross-Genus-Joins
 zur Compile-Time (`search_algorithm_permutation_engine.hpp`).
 
-> **(korr. 2026-06-03, s. Doc 30 §8.0):** „Genus"/„Cross-Genus-Join" meint hier die **GATTUNGS-(=Interface-/Prüf-Dock-)Ebene** (Search / Container / Graph) — der Constraint verhindert, dass Achsen-Slots zweier verschiedener Außen-Interfaces gemischt werden. Das ist korrekt und bleibt. Die Permutation/der Merge findet UNTERHALB davon, INNERHALB der einen SearchAlgorithm-Tier-Unterklasse über deren feste Achsen statt.
+> **(korr. 2026-06-03, s. Doc 30 §8.0):** „Genus"/„Cross-Genus-Join" meint hier die **GATTUNGS-(=Interface-/Prüf-Dock-)Ebene** (Search / Container / Graph) — der Constraint verhindert, dass Achsen-Slots zweier verschiedener Außen-Interfaces gemischt werden. Das ist korrekt und bleibt. Die Permutation/der Merge findet UNTERHALB davon, INNERHALB der einen SearchAlgorithm-Lebewesen-Unterklasse über deren feste Achsen statt.
 
 **Permutations-Raum (Binary-Set-Größe), bewiesen über die 4 echten Slots:**
 - Stufe 1 = `n07·n01·n14·n11` (kartesisches Produkt der CE-Defaults)
@@ -122,14 +122,14 @@ materialisieren würden, ist metaprogrammatisch bestimmt, bevor irgendein Binary
 
 ## 4a. Das einheitliche `std::map<key,value>`-Interface + F15-Mess-Treiber (Kernziel)
 
-**Konzept (Anatomie-Metapher, [[std-map-unified-interface]]):** Die Tier-Metapher dient dazu,
+**Konzept (Anatomie-Metapher, [[std-map-unified-interface]]):** Die Lebewesen-Metapher dient dazu,
 Algorithmen zu DEFINIEREN + ZERLEGEN, damit sie überhaupt VERGLEICHBAR werden. Jeder Such-Algorithmus
 wird auf EIN einheitliches Interface zusammengeschnitten — bei (key,value) ist das **immer
 `std::map<key,value>`** (der „Körperbau", der Vergleichbarkeit herstellt). Die 17 Achsen (Organe)
 beschreiben, **WIE sich das Innere** dieser `std::map` verhält (dense-Array / sortierter Vektor / ART /
 B+ / Patricia / …) — und das bestimmt die Performance.
 
-> **(korr. 2026-06-03, s. Doc 30 §8.0):** Ebenen-Schärfung: `std::map<key,value>` ist hier die feste API der **GATTUNG SearchAlgorithm** (= Außen-Interface / Prüf-Dock). Die **17 Achsen-Komposition** (der hier gemeinte „Such-Algorithmus") ist NICHT die Gattung selbst, sondern die eine, real gebaute **TIER-UNTERKLASSE** UNTER diesem Interface (std::map-ähnlich), die den festen 17-Achsen-Satz trägt. Alle 17 Achsen-Interfaces werden in JEDEM Tier-Binary tatsächlich + uniform getrieben; KEINE Achse ist optional — eine nicht-puffernde/nicht-prefetchende Tier-Unterklasse wählt einen konkreten Durchreich-Algorithmus (NoBuffer/NonePrefetch/NoMigration/…), statt eine Achse wegzulassen.
+> **(korr. 2026-06-03, s. Doc 30 §8.0):** Ebenen-Schärfung: `std::map<key,value>` ist hier die feste API der **GATTUNG SearchAlgorithm** (= Außen-Interface / Prüf-Dock). Die **17 Achsen-Komposition** (der hier gemeinte „Such-Algorithmus") ist NICHT die Gattung selbst, sondern die eine, real gebaute **LEBEWESEN-UNTERKLASSE** UNTER diesem Interface (std::map-ähnlich), die den festen 17-Achsen-Satz trägt. Alle 17 Achsen-Interfaces werden in JEDEM Lebewesen-Binary tatsächlich + uniform getrieben; KEINE Achse ist optional — eine nicht-puffernde/nicht-prefetchende Lebewesen-Unterklasse wählt einen konkreten Durchreich-Algorithmus (NoBuffer/NonePrefetch/NoMigration/…), statt eine Achse wegzulassen.
 
 **Daraus folgt das KERNZIEL (F15):** Zwei `std::map<key,value>` zu vergleichen ist **nicht hohl**,
 sondern die Operationalisierung der Diplomarbeit-Frage. Identisches Interface, unterschiedliches
