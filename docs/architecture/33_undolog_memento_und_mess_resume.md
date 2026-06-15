@@ -1,17 +1,17 @@
 # 33 — Memento-Kosten-Refactoring (Rev. 2: Copy-on-Write) + Mess-Resume (2026-06-11)
 
 > **⚠️ REVISION 2 (2026-06-11 nachmittags, AUTORITATIV):** Das in §1 beschriebene Undo-Log (Rev. 1,
-> Einzel-Key-Organ-Inverse) wurde nach dem 2-Tier-Smoke EMPIRISCH VERWORFEN und durch ein **lazy
+> Einzel-Key-Organ-Inverse) wurde nach dem 2-Lebewesen-Smoke EMPIRISCH VERWORFEN und durch ein **lazy
 > Copy-on-Write-Memento** ersetzt: `tier_save_all` = O(1) (nur die 2 Stat-POD-Snapshots, wie Rev. 1);
 > die Daten-Vollkopie materialisiert LAZY erst die ERSTE mutierende Warmup-Op (`tier_insert`/`tier_erase`/
 > `tier_clear` → `cow_materialize_copy_`, VOR der Mutation → Kopie ≡ save-Stand); `tier_rollback_all` =
 > materialisierte Kopie zurückspielen (Read-Perioden: nichts) + Stat-Restore. **Begründung (Smoke literal):**
-> Rev. 1 war auf der k_ary-Klasse ~2× LANGSAMER als das Copy-Memento (Tier 0 ~52 min, Tier 1 54 min vs
-> ~25 min/Tier) — die Write-Inverse läuft als Organ-Op und kostet auf Rebuild-Substraten (SortedBinary
+> Rev. 1 war auf der k_ary-Klasse ~2× LANGSAMER als das Copy-Memento (Lebewesen 0 ~52 min, Lebewesen 1 54 min vs
+> ~25 min/Lebewesen) — die Write-Inverse läuft als Organ-Op und kostet auf Rebuild-Substraten (SortedBinary
 > `insert_slot_at`/`erase_slot_at` = flatten+rebuild MIT Allokationen; trifft über `container_` JEDE
 > Komposition) mehr als die memcpy-artige Vollkopie. CoW = Read-Perioden O(1) (der Hebel; das eager
 > Copy-Memento zahlte hier 2×O(n)/Op), Write-Perioden = EINE Vollkopie (exakt Copy-Memento-Niveau) →
-> **strikt ≤ Copy-Memento auf jeder Tier-Klasse**. Determinismus-/Semantik-Beweise von Rev. 1 gelten
+> **strikt ≤ Copy-Memento auf jeder Lebewesen-Klasse**. Determinismus-/Semantik-Beweise von Rev. 1 gelten
 > unverändert (Vollkopie+Stat-Restore-Pfad war durch den clear-Fall bereits literal getestet);
 > `test_undolog_memento` → **`test_cow_memento`** (42/42 OK, EXIT=0), Diagnose `tier_memento_is_undo_log()`
 > → **`tier_memento_is_copy_on_write()`**, Adapter-Terminologie `undo_*` → `cow_*`, Log/Replay/UndoEntry
@@ -36,7 +36,7 @@
 **Unverändert:** das ABI (`IRollbackableTier::tier_save_all()/tier_rollback_all()`, vtable/POD identisch →
 KEIN ABI-Major-Bump), das Host-Protokoll (`two_phase_measure`, tier_observe_trace_abi.hpp) und der Vertrag
 („End-Zustand + Observer-Zähler identisch zur Einphasen-Messung"). Es ändert sich NUR die Implementierung im
-Adapter → alle Tier-DLLs werden mit neuer BuildVersion (`undolog-v1`) neu gebaut.
+Adapter → alle Lebewesen-DLLs werden mit neuer BuildVersion (`undolog-v1`) neu gebaut.
 
 **Mechanik (abi_adapter.hpp):**
 1. `tier_save_all()` = **O(1)**: Stat-POD-Snapshots von `search_organ_` (T0) und `container_` (Allocator-
@@ -70,7 +70,7 @@ identisch im Einphasen-Vergleich, test_undolog_memento).
 
 Das Memento deckte SCHON IMMER genau `search_organ_` + `container_` ab (T0 + T6/Allocator-Pfad). Die
 auto-gekoppelten Instanz-Achsen (T1/T2/T3/T7/T8/T10/T17/T18) sehen Warmup- UND Mess-Op (systematisch exakt
-2× je Op, deterministisch identisch über alle Tiere/Profile — Ratios/Vergleiche unverzerrt); die Scan-Achsen
+2× je Op, deterministisch identisch über alle Lebewesen/Profile — Ratios/Vergleiche unverzerrt); die Scan-Achsen
 (T4/T5/T9/T11..T16) sind idempotent (reset+scan je Observe). Der Undo-Log repliziert diese Abdeckung EXAKT —
 die CSV-Semantik aller 19 stat_*-Blöcke ist mit copymem-v1 identisch (Determinismus-Beweis: stat_*-Spalten-
 Diff copymem-v1 ↔ undolog-v1 bei gleichen Seeds, §4).
@@ -81,7 +81,7 @@ Nach dem inversen Replay ist der Zustand **logisch exakt** der save-Stand (gleic
 Zähler), das **physische Substrat** bleibt „warm": z.B. schrumpfen Knoten-Splits oder gewachsene Kapazitäten
 des Warmup-Inserts nicht zurück (das Copy-Memento via copy-assign behielt die Ziel-Kapazitäten ebenfalls).
 Die Mess-Op läuft damit auf logisch identischem, physisch warm-strukturiertem Zustand — konsistent über alle
-Tiere/Profile und im Sinne des Cache-Warmup-Zwecks (die Op wurde unmittelbar zuvor einmal gespielt). Diese
+Lebewesen/Profile und im Sinne des Cache-Warmup-Zwecks (die Op wurde unmittelbar zuvor einmal gespielt). Diese
 Nuance ist inhärent im vom User gewählten Verfahren (Einzel-Key-Inverse, 2026-06-08) und gilt gleichermaßen
 für jede Komposition.
 
@@ -92,15 +92,15 @@ für jede Komposition.
    (Periode-Disziplin); **Counter-Clean**: Einphasen-Lauf == Zwei-Phasen-Lauf in tier_size + T0/T6
    elementweise; `rollback_is_empirically_exact == true`.
 2. **Bestandstests:** test_v5_two_phase_driver (3/3), test_v5_organ_memento (2/2) grün.
-3. **E2E/Kosten:** 2 FullPilot-Tiere (Index 0/1, k_ary) als undolog-v1-DLLs neu gebaut + mit der
+3. **E2E/Kosten:** 2 FullPilot-Lebewesen (Index 0/1, k_ary) als undolog-v1-DLLs neu gebaut + mit der
    Voll-Lauf-Konfiguration gemessen (n_ops=10k, records=10k, n_repeats=3, 21 XML-Profile = 378 Messungen je
-   Tier); Determinismus-Diff der stat_*-Spalten gegen die gesicherten copymem-v1-result.csv derselben Tiere
-   (`result.copymem-v1.csv`); Kosten copymem ~25 min/Tier als Referenz (Zeitstempel 2026-06-08 14:00→14:25).
+   Lebewesen); Determinismus-Diff der stat_*-Spalten gegen die gesicherten copymem-v1-result.csv derselben Lebewesen
+   (`result.copymem-v1.csv`); Kosten copymem ~25 min/Lebewesen als Referenz (Zeitstempel 2026-06-08 14:00→14:25).
    → Ergebnisse in der Session-Doku.
 
 ## §5 Mess-Resume (#139) — Design
 
-**Granularität = Tier-Binary** (User: „Wiedereinstieg bei einem bestimmten nicht fertigen Tier"). Der
+**Granularität = Lebewesen-Binary** (User: „Wiedereinstieg bei einem bestimmten nicht fertigen Tier"). Der
 Zwei-Phasen-Cache-Warmup gilt auf Re-Entry intrinsisch je Op (er ist Teil jeder Messung, nicht des Laufs).
 
 **Mechanik (cache_engine_builder_iterator.hpp + run_lazy_150.cpp + Harness):**
@@ -116,7 +116,7 @@ Zwei-Phasen-Cache-Warmup gilt auf Re-Entry intrinsisch je Op (er ist Teil jeder 
    rows-Angabe. Alles erfüllt → Binary komplett übersprungen (kein DLL-Load, keine Messung), die Zeilen
    fließen UNVERÄNDERT in die globale CSV (`LazyRunResult::resumed_csv_rows`, vor den frischen Zeilen).
    Jede Abweichung → Neu-Messung (keine stillen Teil-Übernahmen). Unvollständige Binaries (Reboot mitten im
-   Tier) haben keinen/inkonsistenten Stamp → komplett neu.
+   Lebewesen) haben keinen/inkonsistenten Stamp → komplett neu.
 3. **Steuerung:** `LazyRunConfig::resume_completed_binaries` (Default AN), CLI argv[11] (`1|0`), Harness
    `-Resume` (Default `$true`; `-Resume:$false` = alles neu messen).
 4. **Bewusste Grenze:** resumierte Zeilen werden NICHT erneut in den Experiment-B+-Baum ge-ingestet (die

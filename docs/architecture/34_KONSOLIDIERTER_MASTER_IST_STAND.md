@@ -18,26 +18,26 @@ Drei strikt getrennte Ebenen (jede „Gattung"-Aussage in den Alt-Docs ist hiern
 
 1. **GATTUNG = ein Außen-INTERFACE = ein Prüf-Dock.** Es gibt **3**: **SearchAlgorithm / Container / Graph** (Doc 24 §8.8).
    Code: `AnatomyGattung`-Enum (real, A2.5 genus_binding_traits `gattung = AnatomyGattung::Container`).
-2. **TIER-UNTERKLASSE = unter dem Interface, FESTER Achsen-Satz.** Hier lebt die feste Achsen-Konfiguration. 5 Tier-Unterklassen
-   (Tier-Metapher): **SearchAlgorithm** (Säugetier, std::map-ähnlich, unter SearchAlgorithm-Interface) · **Set/Sequence/Adapter/
-   View** (Vogel/Reptil/Wirbelloses/Pflanze, unter Container-Interface). Code: `AnatomyGenus`-Enum (historischer Name der Tier-
-   Unterklassen-Aufzählung). **Invariante:** feste Slot-Zahl = ABI-Identität der Tier-Unterklasse (`AdHocComposition<19>`).
-3. **ACHSEN = Organe der Tier-Unterklasse. KEINE Achse ist optional.** Die Interfaces ALLER Achsen werden in JEDEM Tier-Binary
-   uniform getrieben; ein nicht-pufferndes/-prefetchendes Tier wählt einen KONKRETEN Durchreich-Algorithmus (NoBuffer/NoFlush/
+2. **TIER-UNTERKLASSE = unter dem Interface, FESTER Achsen-Satz.** Hier lebt die feste Achsen-Konfiguration. 5 Lebewesen-Unterklassen
+   (Lebewesen-Metapher): **SearchAlgorithm** (Säugetier, std::map-ähnlich, unter SearchAlgorithm-Interface) · **Set/Sequence/Adapter/
+   View** (Vogel/Reptil/Wirbelloses/Pflanze, unter Container-Interface). Code: `AnatomyGenus`-Enum (historischer Name der Lebewesen-
+   Unterklassen-Aufzählung). **Invariante:** feste Slot-Zahl = ABI-Identität der Lebewesen-Unterklasse (`AdHocComposition<19>`).
+3. **ACHSEN = Organe der Lebewesen-Unterklasse. KEINE Achse ist optional.** Die Interfaces ALLER Achsen werden in JEDEM Lebewesen-Binary
+   uniform getrieben; ein nicht-pufferndes/-prefetchendes Lebewesen wählt einen KONKRETEN Durchreich-Algorithmus (NoBuffer/NoFlush/
    NonePrefetch/NoMigration/None) — KEIN „Achse weglassen".
 
-**Per-Tier-Unterklassen-Slots (A2.5, code-verifiziert, GenusBound 5/5):** SearchAlgorithm **19** (17 Such-Achsen T0–T16 + queuing
+**Per-Lebewesen-Unterklassen-Slots (A2.5, code-verifiziert, GenusBound 5/5):** SearchAlgorithm **19** (17 Such-Achsen T0–T16 + queuing
 q1/q2 T17/T18) (+3 Build-Achsen page_type/09b/12 außerhalb der Komposition) · Adapter **13** (12 delegiert/geteilt §28 + `inner_container`;
 KEINE „ordering"-Achse, FIFO/LIFO = API-Nutzung §26.4) · Set **15** · Sequence **11** (10 + axis_growth) · View **7** (4 + extent/
-layout/accessor). **Aktuell voll gebaut + verifiziert (BR-1..4): NUR die SearchAlgorithm-Tier-Unterklasse;** die übrigen 4 sind
+layout/accessor). **Aktuell voll gebaut + verifiziert (BR-1..4): NUR die SearchAlgorithm-Lebewesen-Unterklasse;** die übrigen 4 sind
 GenusBindingTraits-Binding-Instanzen (`test_genus_binding` 5/5). queuing ist eine ACHSE (kein Interface, keine Gattung; Doku-14-§7
 „q1/q2 = Organe" rehabilitiert, Doc-27-§0.1-Fehl-Präzisierung verworfen). **Befund 1 (Doc 30):** „22 Achsen" = 19 SA-Achsen + 3 Build.
 
 ## §2 Organ-Metapher + Permutation = Organ-Tausch (Doc 14, AUTORITATIV)
 
-- **Achse = Organ** (Sub-Aufgabe jedes Algorithmus) · **Algorithmus (Tier) = Permutations-Konfiguration ALLER Achsen** ·
-  **Permutation = genetisches Experiment** (Organe testweise gegeneinander tauschen). Bottom-Up: vom Tier (Algorithmus) zum Organ
-  abstrahieren. Ein nicht-seziertes Tier steht AUSSERHALB des Systems (Doku 14 §3.1) — erst zerlegt bringt es seine Organe ein.
+- **Achse = Organ** (Sub-Aufgabe jedes Algorithmus) · **Algorithmus (Lebewesen) = Permutations-Konfiguration ALLER Achsen** ·
+  **Permutation = genetisches Experiment** (Organe testweise gegeneinander tauschen). Bottom-Up: vom Lebewesen (Algorithmus) zum Organ
+  abstrahieren. Ein nicht-seziertes Lebewesen steht AUSSERHALB des Systems (Doku 14 §3.1) — erst zerlegt bringt es seine Organe ein.
 - **Reference-/Composition-Templates:** Original-Algorithmen = benannte Compositions = je 1 Punkt im Permutations-Raum
   (ArtComposition/HotComposition/…). `ArtComposition` vs `ArtPaperBindingComposition` unterscheiden sich in GENAU `search_algo`
   (16 Achsen identisch). Code: `AdHocComposition<T0..T18>` (A2.4, 19 named using-Slots, KEINE Template-Defaults).
@@ -47,14 +47,14 @@ GenusBindingTraits-Binding-Instanzen (`test_genus_binding` 5/5). queuing ist ein
   Permutation) · `SearchAlgorithmAnatomy<C>` = Organ-Container + `observe_all()`→ObserverAggregate (KEIN insert/lookup — die sind
   CEB-Commands via `AnatomyExecutionContext`) · CacheEngineBuilder = Mess-Orchestrierung + ABI-Loader + CMake-je-Permutation.
 - **Technische-Identifier-Direktive (Doc 14 §41):** Code-Identifier technisch (`SearchAlgorithmAbiAdapter`, NICHT `MammalAbiAdapter`);
-  Tier-Metapher NUR in Kommentaren/Doku.
+  Lebewesen-Metapher NUR in Kommentaren/Doku.
 
 ## §3 B+-Experiment-Baum (Doc 26/27/29 + `experiment_tree.hpp`) — KERN des Achsen-Austauschs
 
 - **Achsen = Baum-Ebenen** (`AxisLevel{axis, values[], is_static, …}`, static/dynamic gleichrangig). Pfad Wurzel→Blatt = `binary_id`
-  = eine Tier-Binary (statische Rekombination). Blatt + dyn. Belegung = eine `ExperimentSetting` (Binary × eine dyn. Kombination).
+  = eine Lebewesen-Binary (statische Rekombination). Blatt + dyn. Belegung = eine `ExperimentSetting` (Binary × eine dyn. Kombination).
 - **Mixed-Radix-Bijektion `StaticBinaryView`:** `operator[](i)` ⇄ `flat_index(tuple)` = inverse Bijektionen. **ACHSEN-AUSTAUSCH =
-  Ziffernwechsel:** im `tuple` NUR `tuple[d]` (Ebene d = Achse a) k→k' ändern → Geschwister-Tier (Diff in genau a), O(Geschwister).
+  Ziffernwechsel:** im `tuple` NUR `tuple[d]` (Ebene d = Achse a) k→k' ändern → Geschwister-Lebewesen (Diff in genau a), O(Geschwister).
   ⇒ **Achsen-Struktur/-Austausch gehört IN DEN BAUM (cache-engine), NIE flach im Eval-Tool** (zentrale Session-Lehre).
 - **🔴 NIE voll materialisiert (C1060, empirisch):** Voll-`mp_product` über 19 Achsen sprengt den Compiler-Heap (eager build ~21 GB)
   → **nur EIN Blatt compile-time materialisiert** (on-demand BR-2/BR-4); Laufzeit-Baum zählt/strukturiert; Iteration = lazy Mixed-
@@ -88,14 +88,14 @@ GenusBindingTraits-Binding-Instanzen (`test_genus_binding` 5/5). queuing ist ein
 
 - **HYBRID, ZWEI Pfade über DIESELBE Modul-Binary:** **Pfad A** = isolierte Achsen-Algos gegeneinander, IN der DLL via
   `IMeasurableWorkload::run_workload` (Synthetik-`lbuf`, A2.1 `do_seg19` :490) → host-seitige Aggregation + `f15_compare`. **Pfad B**
-  = composite Tier, zentral host-seitig via ABI-Observer-Zugriff (`IObservableTier::tier_observe`, A2.1 :1143), zeit-/zustands-
+  = composite Lebewesen, zentral host-seitig via ABI-Observer-Zugriff (`IObservableTier::tier_observe`, A2.1 :1143), zeit-/zustands-
   korreliert (Wall-Clock-Stempel je Snapshot). Mess-Konfiguration wählt den Pfad.
-- **3 Mess-Dimensionen (Doc 24 §2.4):** §2.1 Tier-Wall-Clock (Füllstand-Kurven, r/w/d, RAM/Disk) · §2.2 Per-Achsen-Observer
+- **3 Mess-Dimensionen (Doc 24 §2.4):** §2.1 Lebewesen-Wall-Clock (Füllstand-Kurven, r/w/d, RAM/Disk) · §2.2 Per-Achsen-Observer
   (`observe_all`) · §2.3 Achsen-Vergleich (Unit-Tests gegen vereinheitlichtes Interface vs. bekannte Algos, z.B. std::map). **Welche
   Achsen-Variante „besser" ist, entscheidet §2.3, NICHT der Latenz-Benchmark.**
 - **PRÜF-DOCK (§8.8):** CacheEngineBuilder-SEITE für GENAU EINE Gattung — lädt + treibt Gattungs-API durch + misst Observer +
   persistiert. EIN Dock je Gattung (SearchAlgorithm/Container/Graph; KEIN Neubau, nur Benennung der `IObservableTier`+`Loader`+
-  `drive_tier_observe_trace_abi`-Verdrahtung). MATCHING: Prüf-Dock↔Gattung (`genus()`) · Lastprofil↔Tierart (MEHRERE je Binary) ·
+  `drive_tier_observe_trace_abi`-Verdrahtung). MATCHING: Prüf-Dock↔Gattung (`genus()`) · Lastprofil↔Lebewesen-Art (MEHRERE je Binary) ·
   Observer↔cmake-Messmodus.
 - **3 PROFILE orthogonal:** (1) BUILD (statisch, configure-time: welche Binaries) ⊥ (2) LASTENPROFIL (runtime host-seitig: Testdaten+
   Op-Mix, YCSB A–F, KEINE CMake-Flags) ⊥ (3) COMPILE-RELEASE (`COMDARE_MEASUREMENT_MODE`, ob observe/memento einkompiliert). Build ⊥
@@ -128,7 +128,7 @@ GenusBindingTraits-Binding-Instanzen (`test_genus_binding` 5/5). queuing ist ein
   Snapshots); **lazy Vollkopie materialisiert VOR der ersten mutierenden Warmup-Op** (`cow_materialize_copy_`, A2.1 :640/:710/:722);
   `tier_rollback_all` = Kopie zurückspielen + Stat-Restore; Read-Perioden O(1). Deckt `search_organ_` + `container_` (T0+T6; T6-Allocator
   aus Datenzustand DERIVIERT). Sub-IF `IRollbackableTier` (nur Messung-AN). BuildVersion **cowmem-v1** (→ cowfix-v1 nächster Voll-Lauf).
-- **Mess-Resume (Doc 33 §5; A2.6):** Granularität = Tier-Binary. Config-Stamp `result.csv.stamp` (BuildVersion + n_ops + seed + records +
+- **Mess-Resume (Doc 33 §5; A2.6):** Granularität = Lebewesen-Binary. Config-Stamp `result.csv.stamp` (BuildVersion + n_ops + seed + records +
   dims + rows) NUR wenn Binary VOLLSTÄNDIG gemessen. **BuildVersion im Stamp ⇒ copymem-v1-Ergebnisse werden im cowmem/cowfix-Lauf NIE als
   fertig gewertet** (Stale-Falle vermieden). Skip-Check vor Laden; Header-Schema-Drift-Schutz. `resume_completed_binaries` (Default AN).
 - **memento_all-Vollständigkeit (v5_i8):** I8 gegenstandslos — KEIN echtes Disk-I/O im Achsen-Code; „Disk"-Achsen (io/serialization/
@@ -147,7 +147,7 @@ GenusBindingTraits-Binding-Instanzen (`test_genus_binding` 5/5). queuing ist ein
   Verhältnis zur 6-Organ-F15-Quelle in E zu klären.
 - **🎯 Bias-Bruch-Matrix (Original-Mission, Doc 32):** jedes Paper wählt ein Heimspiel-Lastprofil → um den Bann zu brechen, ALLE
   Lastprofile (14 LP01–LP14 → 21 XMLs: 14 + LP06-neg%×5 [+ LP11-read_ratio]; ⚠️ Audit-Lücke „Katalog ≠ 21 XMLs" in D klären) über ALLE
-  Tiere (320). Workload = dynamische Achse 2 im Baum. 5 Bias-Kategorien (static-read-Trie/negsweep/zipfian-cache/write-update/prefetch-HW).
+  Lebewesen (320). Workload = dynamische Achse 2 im Baum. 5 Bias-Kategorien (static-read-Trie/negsweep/zipfian-cache/write-update/prefetch-HW).
 - **F15-Statistik-Triade (Doc 22, `f15_compare`):** Median-(p50)-Ranking + Mann-Whitney-U (robust, Holm-FWER, markiert `[DISKREPANZ]` vs
   Welch-t) + Cliff's δ (Effektmaß = „WIE VIEL bringt die Achse?"). **Ehrliche Mess-Limits:** Wall-Clock NICHT bit-reproduzierbar (Seed
   steuert Keys nicht CPU-Timing; Signifikanz+Extrem-Ordnung STABIL); allocator wall-clock-auflösbar (~2–3×); memory_layout SUB-NOISE
@@ -158,7 +158,7 @@ GenusBindingTraits-Binding-Instanzen (`test_genus_binding` 5/5). queuing ist ein
 - **Befund 2 (Doc 30, code-verifiziert A2.1):** `SearchAlgorithmAbiAdapter` hält ZWEI getrennte Speicher — `search_organ_` (Monolith
   `Composition::search_algo`, liefert SEARCH-Metriken A2.1 :788) + `container_` (NodeChunkedStore, liefert STORAGE-Achsen via
   `organ_observe_*` A2.1 :879). **Q2-Schritt-1-3 GEFIXT** (NodeChunkedStore → node-abhängig, `alloc_cnt=ceil(n/cap)`); **Q2-Schritt-4
-  OFFEN:** SEARCH-Zähler kommen weiter aus dem Monolith → Such-Organ beschattet node_type/memory_layout, Tiere routen NICHT uniform
+  OFFEN:** SEARCH-Zähler kommen weiter aus dem Monolith → Such-Organ beschattet node_type/memory_layout, Lebewesen routen NICHT uniform
   durch alle Organe. **Das ist der dominante Mess-Echtheits-Defekt (Audit-K5+K6); Meta-Lehre #3 macht ihn mission-kritisch** (Achsen-
   Austauschbarkeits-Belege dürfen nicht Apparat-Artefakt sein). SOLL: search_organ_ entfällt; Such-Strategie ALS Traversal über DENSELBEN
   container_-Store; perm_runner→V2-POD (node_*-Felder). = E-Kern-Aufgabe (cowfix-v1, DLL-Neubau).
@@ -176,7 +176,7 @@ GenusBindingTraits-Binding-Instanzen (`test_genus_binding` 5/5). queuing ist ein
 2. **Capability nie still degradieren (K3):** jede `if constexpr(capable)`-Pfadwahl braucht `static_assert` über die ZIEL-
    Population (die 320), nicht nur Referenz-Kompositionen (Präzedenz: A2a/K3 `4a64bc8`, C3-behalten).
 3. **Differenz-Beweise brauchen VERSCHIEDENE Pfade (MISSION-KRITISCH):** ein Achsen-Austauschbarkeits-Beleg gilt nur, wenn die
-   verglichenen Tiere nachweislich verschiedene Organ-Pfade durchlaufen (Diagnose-Flag im Output). ⇒ die finalen Belege
+   verglichenen Lebewesen nachweislich verschiedene Organ-Pfade durchlaufen (Diagnose-Flag im Output). ⇒ die finalen Belege
    BLOCKIEREN auf Befund-2/Q2-Schritt-4 (E-Welle-A2) — solange `search_organ_` node/layout beschattet, sind Diffs teils Apparat-Artefakt.
 4. **Etiketten-Drift = Pattern-Direktive (K10):** Name/Pattern nur tragen, wenn die kanonische Semantik erfüllt ist (Adapter↔Adaptee,
    Observer=one-to-many, Visitor=Double-Dispatch, „B+-Baum"-Benennung präzise) — sonst ehrlich umbenennen (grep-Beweis).
@@ -202,7 +202,7 @@ GenusBindingTraits-Binding-Instanzen (`test_genus_binding` 5/5). queuing ist ein
 - **Thesis-Basis 00–14 (SUPERSEDED-Banner 2026-05-31):** das **F1–F29-ICacheStrategy- / S1–S30-Such-Engine- / C1–C12-Sub-Engine- /
   4-Ebenen-Strategie-(A/B/C/D)- / alte-11-Achsen- (PAGE/NODE/…/TELEMETRY) / 3-Säulen-(IExecutingEngine/Säule-A/B)-Vokabular** ist ALTER
   Planungsstand. IST = das Achsen/Organ-Modell (§1–§9). F1–F29 etc. dienen nur als Begriffs-/Paper-Mapping-Historie. In keiner B-/E-Arbeit vermischen.
-- **„5 Gattungen" (Doc 27/28/29/14 alt)** = 5 **Tier-Unterklassen** (Gattung = Interface, §1). **„queuing = Container-Gattung" (Doc 27
+- **„5 Gattungen" (Doc 27/28/29/14 alt)** = 5 **Lebewesen-Unterklassen** (Gattung = Interface, §1). **„queuing = Container-Gattung" (Doc 27
   §0.1)** = KATEGORIENFEHLER, verworfen (queuing = SA-Achse). **„Adapter = inner+ordering"** = verworfen (13 §28-Achsen, KEINE ordering).
 - **V110/120/130-Merge (CLAUDE.md-Block)** betrifft das COMDARE-CLUSTER (anderer Workstream), NICHT diese Thesis-Architektur.
 - **Monolith-AdHoc-48-DLL-Pilot** = SUPERSEDED (autoritative F15-Quelle = 6 named Organ-Compositions). **Undo-Log Rev.1** = verworfen (CoW Rev.2).
@@ -214,9 +214,9 @@ hat einen architektur-konformen SOLL-Ort:
 
 | Mission-Teilaufgabe (User-Detail) | Architektur-Soll-Ort (dieses Doc) | Direktiven-Korrektur |
 |---|---|---|
-| **Ausgabe = Testdaten-Konfig × Tier** (Matrix 320 Tiere × 18 dyn × 21 Lastprofile) | **Build ⊥ Lastenprofil = kartesisches Kreuz (§5)** über den **B+-Baum (§3)**: Tier = Static-Pfad/binary_id, Lastprofil = dynamische Achse 2 (DynamicVariableNode, FOR-Schleife auf geladener Binary) | NICHT flach im Eval-Tool — die Matrix lebt im Baum |
-| **Je Interface-Funktion Verarbeitungsdauer (ns/op) auf z-Achse eines 3D-Diagramms** | **`seg_ns[19]` Pfad-B-Per-Achsen-Timing (§6)** + Tier-Wall-Clock r/w/d (§5 §2.1); Diagramm-Gen Stufe 05 (§4-Pipeline) | z = ns/op je Achse/Interface-Fn aus dem konsolidierten POD |
-| **🎯 Achsen-Austauschbarkeits-Belege** (Wechsel EINER Achse → Diff gegen alle anderen Tiere als Tabelle) | **B+-Baum-Ziffernwechsel (§3): `flat_index`-Diff in genau einer Achse = Geschwister-Tier.** Diff-Auswertung = inverse Signatur-Projektion (KF-15 multimap) über die REALEN Compositions | **DIE Session-Kern-Lehre: gehört IN DEN BAUM, NIE flache Tupel-Kombinatorik** (L1/L2-Fehler, Phase C revert). **Cross-Achsen-Constraint (§3/e2e-Abnahme): `AdHoc<Organ,Default>` ill-formed — Organe brauchen kompatible Begleit-Achsen (named Compositions)** |
+| **Ausgabe = Testdaten-Konfig × Lebewesen** (Matrix 320 Lebewesen × 18 dyn × 21 Lastprofile) | **Build ⊥ Lastenprofil = kartesisches Kreuz (§5)** über den **B+-Baum (§3)**: Lebewesen = Static-Pfad/binary_id, Lastprofil = dynamische Achse 2 (DynamicVariableNode, FOR-Schleife auf geladener Binary) | NICHT flach im Eval-Tool — die Matrix lebt im Baum |
+| **Je Interface-Funktion Verarbeitungsdauer (ns/op) auf z-Achse eines 3D-Diagramms** | **`seg_ns[19]` Pfad-B-Per-Achsen-Timing (§6)** + Lebewesen-Wall-Clock r/w/d (§5 §2.1); Diagramm-Gen Stufe 05 (§4-Pipeline) | z = ns/op je Achse/Interface-Fn aus dem konsolidierten POD |
+| **🎯 Achsen-Austauschbarkeits-Belege** (Wechsel EINER Achse → Diff gegen alle anderen Lebewesen als Tabelle) | **B+-Baum-Ziffernwechsel (§3): `flat_index`-Diff in genau einer Achse = Geschwister-Lebewesen.** Diff-Auswertung = inverse Signatur-Projektion (KF-15 multimap) über die REALEN Compositions | **DIE Session-Kern-Lehre: gehört IN DEN BAUM, NIE flache Tupel-Kombinatorik** (L1/L2-Fehler, Phase C revert). **Cross-Achsen-Constraint (§3/e2e-Abnahme): `AdHoc<Organ,Default>` ill-formed — Organe brauchen kompatible Begleit-Achsen (named Compositions)** |
 | **Belege müssen ECHT sein (nicht Apparat-Artefakt)** | **Meta-Lehre #3 (A3): Diff-Beweise brauchen Nachweis VERSCHIEDENER Pfade.** ⇒ blockiert auf **Befund-2/Q2-Schritt-4 (§9):** solange `search_organ_`-Monolith node/layout beschattet, sind Achsen-Diffs teils Apparat-Artefakt | **Mission-kritischer E-Kern: Q2-Schritt-4 (volle Such-Delegation) MUSS vor den finalen Austauschbarkeits-Belegen** |
 | **Appendix IMMER alle Werte + ehrliche Limitierungs-Tabelle** | sparse `value_map_` (§3, nur gemessene Knoten) → Stufe 04 csv→latex (§4); **ehrliche Mess-Limits (§8): WC nicht bit-reprod., layout sub-noise→PMC, RC nominal/K1, cowmem=Copy-Pfad** als Daten-Vorbehalte | Done-Kriterium (b): jeder ungefixte Audit-Befund (A3/§9) als Limitierung ausgewiesen |
 | **ZIH-diplominf-Vorlage · NUR relative Pfade · EIN Experiment → fertige bilinguale PDF** | 6-Stufen-Pipeline (§4) `comdare_pipeline_e2e` → thesis `build.ps1 -Lang` (EN≡DE); ZIH `zihpub.cls` unangetastet | Goal §0.4 — git-clone-fest |
