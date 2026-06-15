@@ -4,15 +4,15 @@
 **Workflow:** `wvnzp8jkp` / Run `wf_c7dd6b30-9ac` (7 Agenten, 604k Subagent-Tokens, 122 Tool-Calls, ~468 s)
 **Auftrag:** „Understand+Design: Hash/SkipList/B-Baum (axis_03a-Monolithen) in komponierbare
 Organ-Familien sezieren (Pool/Store-Concept + Traversal-Organ + ComposedXSearch + Äquivalenz-Beleg,
-analog TreeNodePool/BST). Erklärte Ordnung: Tier nur seziert."
+analog TreeNodePool/BST). Erklärte Ordnung: Lebewesen nur seziert."
 **Bezug:** Doku 14 §1–§3 (Organ-Metapher), §3.1 (Gesamt-Algorithmus außerhalb des Systems bis zerlegt),
-Doku 24 §6/§7 (erklärte Ordnung), `[[feedback_no_whole_tier_axes_genus_configurator]]` (NIE Ganz-Tiere).
+Doku 24 §6/§7 (erklärte Ordnung), `[[feedback_no_whole_tier_axes_genus_configurator]]` (NIE Ganz-Lebewesen).
 
 > **Einordnung in die erklärte Ordnung:** Diese Charge (#41) belegt NUR die *Rekonstruierbarkeit*
-> (Brücke). Sie entfernt NICHTS aus `EnabledStrategies`/Registry und legt KEINE Ganz-Tier-Achsen an.
+> (Brücke). Sie entfernt NICHTS aus `EnabledStrategies`/Registry und legt KEINE Ganz-Lebewesen-Achsen an.
 > Das tatsächliche Entfernen + Rekonstruktion als Gattungs-Konfiguratoren ist **#42 (Umstufung-B)**.
 > Hash/SkipList/B-Baum sind `[[pseudocode-papers-fallback]]` (`is_original=false`); echtes Paper-Code-
-> Linking der OriginalXxx-Tiere ist eine spätere Charge.
+> Linking der OriginalXxx-Lebewesen ist eine spätere Charge.
 
 ---
 
@@ -52,7 +52,7 @@ Das BST-Muster (`TreeNodePool → TreeNodePoolStore → BSTTraversalOrgan → Co
   (seed 2654435761, 86% insert `v=k*11+1`, 14% erase `i%7==0`, Lookup-Sweep) gegen `std::map`; latenzfrei.
 - `verify_variants_equivalent<Anchor,Others...>(key_mod,query_max)` — horizontal: identischer Op-Stream,
   Vergleich `occupied_count()` + Lookup-Sweep. **Duck-typed** (keine gemeinsame Basis nötig).
-- Transitivität: `Organ≡Monolith ∧ Monolith≡std::map ⇒ Organ≡std::map`. Key-Mod uint16-Tiere = **1000/1000**.
+- Transitivität: `Organ≡Monolith ∧ Monolith≡std::map ⇒ Organ≡std::map`. Key-Mod uint16-Lebewesen = **1000/1000**.
 
 ---
 
@@ -197,7 +197,7 @@ da-Pointer zuletzt `57b2bed` → ce `d914a6e`. 12 neue Header in `composable/` +
 `BTreeTraversalOrgan`. **B-Baum-Inc3:** `inc_size()`/`dec_size()` zum Concept ergänzt (logische
 Schlüsselzahl ≠ Knotenzahl — Blueprint-Lücke geschlossen). `alignas(64)`-Node erhalten (F15-Merkmal).
 
-## 7 OFFEN #41-Schritt-A — OriginalXxx-Tiere (eigene Design-Runde nötig)
+## 7 OFFEN #41-Schritt-A — OriginalXxx-Lebewesen (eigene Design-Runde nötig)
 
 Ist-State (`axis_03a_search_algo_registry.hpp:45-72`): von 17 `AllStrategies` sind nach Inc1-3 **nur noch
 5 unseziert** — die paper-gebundenen Radix-Tries:
@@ -216,7 +216,7 @@ existieren bereits (Doku 14 §11.2/§14.2 R3.2) — vor der Sezierung Ist-State 
 (`[[feedback_verify_ist_state_before_gross_tasks]]`): WAS an Organ-Zerlegung existiert schon, was fehlt.
 
 **Nächster Schritt (Planrunde):** eigene Understand+Design-Runde für die OriginalXxx-Sezierung — pro
-Tier die vorhandene Composition/Anatomie + die fehlenden Traversal-Organe kartografieren, dann je Tier
-ein build-grüner Sezier-Increment mit Rekonstruktions-Beleg. **Erst danach #42** (Entfernung aller Tiere
+Lebewesen die vorhandene Composition/Anatomie + die fehlenden Traversal-Organe kartografieren, dann je Lebewesen
+ein build-grüner Sezier-Increment mit Rekonstruktions-Beleg. **Erst danach #42** (Entfernung aller Lebewesen
 aus `EnabledStrategies` → Gattungs-Konfiguratoren), gemäß Option 3 (erst ALLE sezieren, dann umstufen).
 Erklärte Ordnung: auch OriginalXxx müssen seziert werden — KEINES bleibt monolithisch.

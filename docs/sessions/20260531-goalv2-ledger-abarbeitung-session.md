@@ -24,7 +24,7 @@ Jeder mit Commit-Ref + literaler Test-Evidenz im Ledger §(a)/§(e):
 
 **8 davon waren Audit-„offen"-Marken, die durch IST-Verifikation widerlegt wurden** (real bereits erledigt) — bestätigt [[feedback_verify_ist_state_before_gross_tasks]].
 
-**Neu entdeckt + gefixt:** Fill-Guard (`max_insert_stagnation`) gegen Endlosschleife in `drive_tier_observe_trace_abi` bei Fill > Tier-Kapazität (entdeckt via `--observe`, AdHoc-Tier = 256 Slots; Default-Config {10,100,1000} war betroffen). Regressionstest grün. Commit cfb2826.
+**Neu entdeckt + gefixt:** Fill-Guard (`max_insert_stagnation`) gegen Endlosschleife in `drive_tier_observe_trace_abi` bei Fill > Lebewesen-Kapazität (entdeckt via `--observe`, AdHoc-Lebewesen = 256 Slots; Default-Config {10,100,1000} war betroffen). Regressionstest grün. Commit cfb2826.
 
 **Reklassifiziert (getrennt geführt):** R5.D + E2 → §(b) extern-blockiert (PMC braucht Intel PCM/Admin; Vendor-Cache an A1 gekoppelt).
 

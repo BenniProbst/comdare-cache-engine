@@ -19,7 +19,7 @@
 - **G2 keine E2E-Orchestrierung:** kein Target verkettet die 6 CLIs; kein Cross-Stage-Test → der Schema-Bruch blieb unentdeckt.
 
 **WISSENSCHAFTLICHER VORBEHALT:**
-- **G3 Umstufung-B im Mess-Pfad nicht vollzogen:** `axis_03a::EnabledStrategies` + `adhoc_emitter` (SA0..SA11) fahren weiterhin 17 monolithische Tiere (Array256..BTree) als search_algo-Achsenwert, KEINE sezierten Organe — entgegen der Direktive „Achsen = NUR Organe". #42 ist „completed" markiert, im Mess-Pfad aber NICHT umgesetzt → F15-Headline-Resultate basieren auf dem Anti-Pattern.
+- **G3 Umstufung-B im Mess-Pfad nicht vollzogen:** `axis_03a::EnabledStrategies` + `adhoc_emitter` (SA0..SA11) fahren weiterhin 17 monolithische Lebewesen (Array256..BTree) als search_algo-Achsenwert, KEINE sezierten Organe — entgegen der Direktive „Achsen = NUR Organe". #42 ist „completed" markiert, im Mess-Pfad aber NICHT umgesetzt → F15-Headline-Resultate basieren auf dem Anti-Pattern.
 
 **EXTERN/TERMIN/USER-GATED:**
 - G4 reale HW-Messreihe (V21.2, nur Sample-Daten) · G5 prt-art `run()` = `std::unordered_map`-Platzhalter (TODO E6) · G6 PMU-Felder hart 0 / `total_cycles` approximiert · G7 2 real / 5 Vendor-Allokatoren std-Fallback · G8 zwei parallele Plugin-ABIs (alt `comdare_perm_descriptor` von Stufe 02 / neu `comdare_anatomy_perm_*` CE-intern) · G9 `observe_all` real ~2/17 Achsen · G10 `op_type_filter` fehlt · G11 WorkloadKind `Custom_BulkInsert` fehlt · G12 **massive Doku-Drift** (Docs 00–09, Y/Z, prt-art-5-Doks, REV7.7, Doku 23/23a vom Code überholt; nur /goal-V2-Ledger IST-treu) · G13 alte PrtArtSearchEngine koexistiert ungenutzt · G14 Slot-Abdeckung 4/~10 · G15 K-H/K-I-Doku · G16 F.6-Phase-C deprecated (termin-gated).
@@ -67,7 +67,7 @@
 - **Verbleibend P3:** die synthetischen 10-Perm-Sample-Daten durch reale i7-1270P-Messung ersetzen (nach P2).
 
 ### P2 — Mess-Pfad-Korrektur (Umstufung-B, cache-engine) — IN ARBEIT (Investigation)
-Audit-Gap G3: `axis_03a::EnabledStrategies`/`AllStrategies` + `adhoc_emitter` SA0..SA11 fahren weiterhin 17 monolithische Tiere (Array256..BTree) als search_algo-Achsenwert statt sezierter Organe.
+Audit-Gap G3: `axis_03a::EnabledStrategies`/`AllStrategies` + `adhoc_emitter` SA0..SA11 fahren weiterhin 17 monolithische Lebewesen (Array256..BTree) als search_algo-Achsenwert statt sezierter Organe.
 
 **IST verifiziert** (`axis_03a_search_algo_registry.hpp:45-77`): `AllStrategies = mp_list<Array256SearchAlgo, …17 Monolith-Wrapper… BTreeSearchAlgo>`; `EnabledStrategies = mp_filter<is_enabled, AllStrategies>`. Diese 17 Wrapper werden BREIT referenziert (perm_engine, named Compositions, adhoc_emitter SA0..SA11, equivalence-Tests).
 
