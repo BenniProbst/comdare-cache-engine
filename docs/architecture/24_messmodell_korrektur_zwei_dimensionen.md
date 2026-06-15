@@ -1,4 +1,4 @@
-# Doku 24 — Mess-Modell-Korrektur: zwei Dimensionen (Tier-Wall-Clock vs. Achsen-Observer)
+# Doku 24 — Mess-Modell-Korrektur: zwei Dimensionen (Lebewesen-Wall-Clock vs. Achsen-Observer)
 
 **Stand:** 2026-05-29 · **Auslöser:** User-Kritik an Säule 1 (ganze Algorithmen als Achse) + Säule 2
 (nur 3 Achsen per Wall-Clock statt Per-Achsen-Observer). **Bezug:** Doku 14 (Organ-Metapher §1–§3,
@@ -15,9 +15,9 @@ In der vorherigen Session wurden zwei dokumentierte Architektur-Prinzipien verle
 
 1. **Säule 1 — Achse-statt-Organ:** `axis_03a_search_algo` wurde um weitere *self-contained*
    Such-Strukturen erweitert (BST, B-Baum, SkipList, Hash, …), jede mit eigenem `std::vector<Node>`-
-   Speicher + eigener Allokation + eigenem Layout. Das sind monolithische **„Tiere"**, keine
+   Speicher + eigener Allokation + eigenem Layout. Das sind monolithische **„Lebewesen"**, keine
    komponierbaren **„Organe"** — sie konsumieren axis_04 (node_type), axis_05 (layout), axis_06
-   (allocator) NICHT. Doku 14 §2.3/§7 markiert genau das als **REFACTORING-PFLICHT** („Tiere statt
+   (allocator) NICHT. Doku 14 §2.3/§7 markiert genau das als **REFACTORING-PFLICHT** („Lebewesen statt
    Organe"). Ein ganzer Algorithmus MUSS eine **Composition** über alle 17 Organe sein (Doku 14 §3).
 
 2. **Säule 2 — Wall-Clock-3-Achsen statt Per-Achsen-Observer:** Der F15-Treiber maß Wall-Clock-Latenz
@@ -33,7 +33,7 @@ In der vorherigen Session wurden zwei dokumentierte Architektur-Prinzipien verle
 
 Die Messung hat **zwei getrennte Dimensionen** plus eine separate Vergleichs-Dimension:
 
-### §2.1 Tier-Ebene — der ganze Suchalgorithmus (CacheEngineBuilder, Wall-Clock + Ressourcen)
+### §2.1 Lebewesen-Ebene — der ganze Suchalgorithmus (CacheEngineBuilder, Wall-Clock + Ressourcen)
 
 > „das 'Tier' also der Suchalgorithmus über die AKKUMULATION der Details der Latenz (Kurve über
 > Element-Füllstand, read/write/delete), Speicherplatz/RAM, Speicherplatz disk und so weiter
@@ -44,7 +44,7 @@ Die Messung hat **zwei getrennte Dimensionen** plus eine separate Vergleichs-Dim
 - **Was:** Wall-Clock als **Akkumulation von Detail-Kurven** — Latenz **über den Element-Füllstand**,
   getrennt nach **read / write / delete**; **RAM**-Verbrauch; **Disk**-Platz; weitere festgelegte
   Gesamt-Metriken.
-- **Status:** Wall-Clock bleibt hier (war als Tier-Metrik NICHT falsch — nur zu eng: nur 3 Achsen,
+- **Status:** Wall-Clock bleibt hier (war als Lebewesen-Metrik NICHT falsch — nur zu eng: nur 3 Achsen,
   Einzel-Batch statt Füllstands-Kurve, read/write/delete nicht getrennt). → anzureichern.
 
 ### §2.2 Achsen-Ebene — Per-Achsen-Statistics-Observer (Anatomie, observe_all)
@@ -76,7 +76,7 @@ Die Messung hat **zwei getrennte Dimensionen** plus eine separate Vergleichs-Dim
 
 | Dimension | Misst | Mechanismus | Ort |
 |-----------|-------|-------------|-----|
-| **Tier** (ganzer Algorithmus) | Latenz-Kurven (Füllstand, r/w/d) + RAM + Disk | Wall-Clock + Ressourcen | CacheEngineBuilder |
+| **Lebewesen** (ganzer Algorithmus) | Latenz-Kurven (Füllstand, r/w/d) + RAM + Disk | Wall-Clock + Ressourcen | CacheEngineBuilder |
 | **Achsen-Statistik** | je Achse `statistics()` → Gesamt-Trace | `observe_all()` → ObserverAggregate | Anatomie |
 | **Achsen-Vergleich** | welche Variante je Achse besser | Tests vs. vereinheitlichtes Interface vs. bekannte Algos | Unit-Tests |
 
@@ -90,9 +90,9 @@ Die Messung hat **zwei getrennte Dimensionen** plus eine separate Vergleichs-Dim
    sodass der Per-Achsen-Statistics-Trace real entsteht (mind. die getriebenen Achsen; Rest folgt mit
    Säule 1). Blocker (protected CRTP-Ctor) über die Builder-`AnatomyExecutionContext` lösen, die die
    Achsen real hält + treibt.
-2. Mess-Pfad (`run_workload`/CLI) so erweitern, dass er pro Permutation ZUSÄTZLICH zur Tier-Wall-Clock
+2. Mess-Pfad (`run_workload`/CLI) so erweitern, dass er pro Permutation ZUSÄTZLICH zur Lebewesen-Wall-Clock
    das `observe_all()`-Aggregat erhebt + als Statistics-Trace ausgibt/loggt.
-3. Tier-Wall-Clock (CacheEngineBuilder) bleibt + wird angereichert (Füllstands-Kurven, read/write/delete
+3. Lebewesen-Wall-Clock (CacheEngineBuilder) bleibt + wird angereichert (Füllstands-Kurven, read/write/delete
    getrennt, RAM/Disk) — als eigene Dimension, NICHT als Achsen-Vergleich.
 
 ### Säule 1 DANACH — axis_03a entschärfen (Doku 14 §6)
@@ -112,7 +112,7 @@ Die Messung hat **zwei getrennte Dimensionen** plus eine separate Vergleichs-Dim
 - Organ-Composition-Fundament existiert: `AdHocComposition<17>`, `SearchAlgorithmAnatomy`,
   `AnatomyPermutationDriver`, Reference-Compositions, `ObserverAggregate`/`observe_all`-Gerüst.
 - Die robuste Statistik-Schicht (Median/MWU/Cliff's δ) + Coverage-Sampling bleiben gültige Werkzeuge
-  der **Tier-Dimension** (Wall-Clock-Auswertung), sind aber NICHT der Achsen-Vergleich (§2.3).
+  der **Lebewesen-Dimension** (Wall-Clock-Auswertung), sind aber NICHT der Achsen-Vergleich (§2.3).
 
 ---
 
@@ -218,7 +218,7 @@ das Modell aus Doku 14 §11.3:
 - **Storage-Organ** `RawSlotStore` (Pilot) — indizierte Slots ueber GEMEINSAMEM **uint64**-Key
   (vertritt das node_type/layout/allocator-getriebene Substrat).
 - **Traversal-Organ-Concept** `TraversalOrgan<T,Store>` — statische `insert_into/lookup_in/erase_from`
-  auf einem Storage-Organ, KEIN eigener Speicher (Organ, nicht Tier).
+  auf einem Storage-Organ, KEIN eigener Speicher (Organ, nicht Lebewesen).
 - **2 Pilot-Traversal-Organe**: `LinearScanTraversal` (ART-Node4) + `SortedBinaryTraversal` (Binärsuche).
 - **`ComposedSearch<Traversal, Store>`** — Such-Algorithmus = Traversal ⊕ Storage, std::map-Interface.
 
@@ -229,14 +229,14 @@ UND funktionieren mit **weiten Keys >65535** → der Key-Type-Blocker (§5.5) is
 **Folge-Increments (Säule 1, Mehr-Session):**
 1. node_type/layout/allocator als ECHTE Storage-Organe (statt trait-only) → `RawSlotStore` durch
    organ-getriebenen Speicher ersetzen.
-2. Bestehende monolithische Tier-Wrapper (Array256/BST/B-Baum/Original*…) als **Reference-Compositions /
+2. Bestehende monolithische Lebewesen-Wrapper (Array256/BST/B-Baum/Original*…) als **Reference-Compositions /
    Stufe-2-Prüfling-Referenzen** umstufen (Doku 14 §6) statt als axis_03a-Organe.
 3. SearchAlgorithmAnatomy + AnatomyExecutionContext auf `ComposedSearch` (gemeinsamer uint64-Key)
    umstellen → schliesst die §5.2-Lücke (observe_all real im Mess-Pfad) + vereinheitlicht die 3 Pfade.
 
 ---
 
-## §7 Tier→Organ-Rekonstruktions-Beleg + die ERKLÄRTE Ordnung (Korrektur 2026-05-29)
+## §7 Lebewesen→Organ-Rekonstruktions-Beleg + die ERKLÄRTE Ordnung (Korrektur 2026-05-29)
 
 **Erklärte Ordnung (User-Direktive, autoritativ — korrigiert eine frühere Fehlrichtung):**
 > Achsen enthalten **ausschließlich Organe**, **niemals** ganze Tiere. Es sind **NIE** monolithische
@@ -267,31 +267,31 @@ UND funktionieren mit **weiten Keys >65535** → der Key-Type-Blocker (§5.5) is
 > sind genau das zu behebende Anti-Pattern (Tiere als Achsen-Werte). Sie werden ausnahmslos seziert + aus
 > `EnabledStrategies` entfernt; bis ein Tier seziert ist, gehört es nicht als Achsen-Wert ins System.
 
-**Korrektur:** Die zuvor erwogene Lesart „Tier-Wrapper als Achsen-Werte BEHALTEN + nur dokumentieren"
+**Korrektur:** Die zuvor erwogene Lesart „Lebewesen-Wrapper als Achsen-Werte BEHALTEN + nur dokumentieren"
 (gestützt auf Doku 14 §14.2 „PROMOTION") ist damit **falsch**. §14.2 bedeutet „nicht ersatzlos löschen",
-**nicht** „als Achse behalten". Korrekt: die sezierten Tier-Wrapper werden aus `axis_03a::EnabledStrategies`
+**nicht** „als Achse behalten". Korrekt: die sezierten Lebewesen-Wrapper werden aus `axis_03a::EnabledStrategies`
 **entfernt** und als Gattungs-Konfigurator (`SearchAlgorithmAnatomy<Composition>` über Organ-Achsen,
 Doku 14 §3.3/§11.3/§27-§29) rekonstruiert. axis_03a hält dann nur noch **Traversal-Organe**.
 
 **Dieser Increment (Rekonstruktions-Beleg, Brücke):** `composable/tier_to_organ_mapping.hpp` ordnet jedem
-bereits sezierten Tier-Wrapper seine äquivalente Organ-Komposition zu; `test_v41_axis_03a_tier_organ_equivalence.cpp`
-**belegt** Tier ≡ Organ-Komposition ≡ std::map (key-type-sicher). Damit ist bewiesen, dass die Tiere exakt aus
+bereits sezierten Lebewesen-Wrapper seine äquivalente Organ-Komposition zu; `test_v41_axis_03a_tier_organ_equivalence.cpp`
+**belegt** Lebewesen ≡ Organ-Komposition ≡ std::map (key-type-sicher). Damit ist bewiesen, dass die Lebewesen exakt aus
 Organen wiederherstellbar sind — die Voraussetzung für die Umstufung. **Bewusst KEINE „mp_size==17 muss bleiben"-
 Invariante** (würde die Umstufung blockieren).
 
-**Grundprinzip (User 2026-05-29):** Ein Tier darf **nur seziert** vorliegen — d. h. ausschließlich als
+**Grundprinzip (User 2026-05-29):** Ein Lebewesen darf **nur seziert** vorliegen — d. h. ausschließlich als
 Organ-Komposition (Gattungs-Konfigurator). Es gibt **keine** monolithische Form im System, weder dauerhaft
-noch übergangsweise. Folglich müssen **ALLE** Tiere seziert werden (auch OriginalXxx-Paper-Baselines);
+noch übergangsweise. Folglich müssen **ALLE** Lebewesen seziert werden (auch OriginalXxx-Paper-Baselines);
 keines bleibt monolithisch.
 
-**Umstufungs-Programm (Reihenfolge per User 2026-05-29 — „erst restliche Tiere sezieren, dann ALLE umstufen"):**
-1. **ALLE** noch nicht sezierten Tiere in Organe sezieren: Hash → Bucket-Pool+Probe-Organ, SkipList →
+**Umstufungs-Programm (Reihenfolge per User 2026-05-29 — „erst restliche Lebewesen sezieren, dann ALLE umstufen"):**
+1. **ALLE** noch nicht sezierten Lebewesen in Organe sezieren: Hash → Bucket-Pool+Probe-Organ, SkipList →
    SkipList-Pool+Walk-Organ, B-Baum → BTree-Pool+Walk-Organ (analog TreeNodePool/BST aus Roadmap-2 INC-2b);
    OriginalXxx (S04-S08) als paper-gebundene Organ-Kompositionen (Habich-Original-Code pro Organ).
-2. DANN ALLE Tiere gemeinsam umstufen: aus `EnabledStrategies` entfernen → ausschließlich als Gattungs-
+2. DANN ALLE Lebewesen gemeinsam umstufen: aus `EnabledStrategies` entfernen → ausschließlich als Gattungs-
    Konfiguratoren (Compositions über Organe) rekonstruieren → Anatomie/Compositions/Tests umverdrahten
    (Doku 24 §6 Folge-Increment 1+3). End-Zustand: `axis_03a::EnabledStrategies` enthält **nur Traversal-Organe**,
-   die Tiere existieren nur noch als Compositions.
+   die Lebewesen existieren nur noch als Compositions.
 
 **Bezug Memory:** `[[feedback_no_whole_tier_axes_genus_configurator]]` (kritische Ordnung + Pflicht-Pre-Read Doku 14).
 
@@ -313,19 +313,19 @@ Doku 24 (§2 die drei Dimensionen), Doku 22 (F15-Mess-Pipeline) und den Säulen-
 > „Die Messung läuft bei Konfiguration der Messung von **isolierten Achsen-Algorithmen gegeneinander** auf
 > der **DLL selbst**, aber im **Composite zentral über die CacheEngineBuilder**. Es ist ein **Hybrid-Modell**."
 
-Gemeinsame Grundlage BEIDER Pfade: Der **composite Tier** (ein ganzer Suchalgorithmus = Komposition über
+Gemeinsame Grundlage BEIDER Pfade: Das **composite Lebewesen** (ein ganzer Suchalgorithmus = Komposition über
 die 17 Achsen) wird vom **CacheEngineBuilder + Submodulen** als **Modul-Binary** (.so/.dll) gebaut
 (`apps/adhoc_emitter` enumeriert den Permutationsraum → CMake `comdare_build_adhoc_modules` baut JEDE
 Permutation als SHARED-DLL → `AnatomyModuleLoader` lädt sie host-seitig). Die **Mess-KONFIGURATION**
 entscheidet dann, WELCHER der beiden Mess-Pfade läuft:
 
-| | **Pfad A — Isolierte Achsen-Algorithmen** | **Pfad B — Composite Tier** |
+| | **Pfad A — Isolierte Achsen-Algorithmen** | **Pfad B — Composite Lebewesen** |
 |---|---|---|
-| **Mess-Konfiguration** | Achsen-Algorithmus-Varianten **gegeneinander** isoliert vergleichen (z. B. welche `search_algo`-Variante / welcher Allocator je Achse schneller) | Den GANZEN Suchalgorithmus (alle 17 Achsen komponiert) als Tier durchmessen |
+| **Mess-Konfiguration** | Achsen-Algorithmus-Varianten **gegeneinander** isoliert vergleichen (z. B. welche `search_algo`-Variante / welcher Allocator je Achse schneller) | Den GANZEN Suchalgorithmus (alle 17 Achsen komponiert) als Lebewesen durchmessen |
 | **WO läuft die Messung** | **auf der DLL selbst** (in-Modul) | **zentral host-seitig über die CacheEngineBuilder** |
-| **Mechanismus** | `IMeasurableWorkload::run_workload` — die DLL fährt ihren eigenen Mess-Workload und liefert Batch-Latenzen | ABI-stabiler **Observer-Zugriff**: der Host treibt das Tier-Modul + liest dessen **Observer** (`observe_all` → `ObserverAggregate`) über die ABI-Grenze |
-| **Was wird gemessen** | Wall-Clock-Vergleich der isolierten Achsen-Variante (Doku 22 §3.1–§3.3: 18,5×/85× Spannen, Holm/MWU/Cliff's δ) | Tier-Wall-Clock (Füllstand-Kurven, r/w/d getrennt, RAM/Disk, §2.1) **+** Per-Achsen-Statistik-Trace (`observe_all`, §2.2) des composite Tiers |
-| **Dimension (§2)** | §2.3 Achsen-Vergleich (+ Tier-Wall-Clock je isolierter Achse) | §2.1 Tier + §2.2 Achsen-Observer, zentral |
+| **Mechanismus** | `IMeasurableWorkload::run_workload` — die DLL fährt ihren eigenen Mess-Workload und liefert Batch-Latenzen | ABI-stabiler **Observer-Zugriff**: der Host treibt das Lebewesen-Modul + liest dessen **Observer** (`observe_all` → `ObserverAggregate`) über die ABI-Grenze |
+| **Was wird gemessen** | Wall-Clock-Vergleich der isolierten Achsen-Variante (Doku 22 §3.1–§3.3: 18,5×/85× Spannen, Holm/MWU/Cliff's δ) | Lebewesen-Wall-Clock (Füllstand-Kurven, r/w/d getrennt, RAM/Disk, §2.1) **+** Per-Achsen-Statistik-Trace (`observe_all`, §2.2) des composite Lebewesens |
+| **Dimension (§2)** | §2.3 Achsen-Vergleich (+ Lebewesen-Wall-Clock je isolierter Achse) | §2.1 Lebewesen + §2.2 Achsen-Observer, zentral |
 
 **KORREKTUR einer früheren Fehlformulierung (dieser Doku, 2026-05-30):** `IMeasurableWorkload::run_workload`
 ist **NICHT verworfen**. Es ist der **Pfad A** (isolierte Achsen-Messung auf der DLL selbst) des Hybrids —
@@ -339,28 +339,28 @@ zentral über die **Observer** (Pfad B).
   Permutation kompilierte DLL die natürliche Mess-Einheit — die Variante lebt + läuft IN ihrer DLL, und der
   Vergleich ist „eine DLL vs. die andere" (host-seitige Aggregation der DLL-gelieferten Samples + Statistik).
   Der Mess-Code läuft IN der DLL, weil nur dort die konkrete Achsen-Variante einkompiliert ist.
-- **Composite → zentral CacheEngineBuilder:** Den GANZEN Tier durchzumessen heißt, seine 17 Achsen-Observer
+- **Composite → zentral CacheEngineBuilder:** Das GANZE Lebewesen durchzumessen heißt, seine 17 Achsen-Observer
   als EINEN Statistics-Trace zu erheben (`observe_all`). Das gehört zentral in den Builder (er hält/treibt
-  das Tier + liest dessen Observer über das ABI-stabile Interface), damit ALLE Achsen eines Tiers in EINEM
+  das Lebewesen + liest dessen Observer über das ABI-stabile Interface), damit ALLE Achsen eines Lebewesens in EINEM
   Lauf konsistent getract werden — unabhängig davon, welche Achse gerade „interessiert".
 
 ### §8.3 Abbildung auf die existierende Implementierung
 
 | Baustein | Rolle im Hybrid | Datei | Status |
 |----------|-----------------|-------|--------|
-| `adhoc_emitter` + `comdare_build_adhoc_modules` | baut composite Tier als Modul-Binary (Grundlage beider Pfade) | `apps/adhoc_emitter`, CMake | ✅ |
-| `AnatomyModuleLoader` | lädt die Tier-Modul-Binaries host-seitig | `abi/module_loader.hpp` | ✅ |
+| `adhoc_emitter` + `comdare_build_adhoc_modules` | baut composite Lebewesen als Modul-Binary (Grundlage beider Pfade) | `apps/adhoc_emitter`, CMake | ✅ |
+| `AnatomyModuleLoader` | lädt die Lebewesen-Modul-Binaries host-seitig | `abi/module_loader.hpp` | ✅ |
 | `IMeasurableWorkload::run_workload` | **Pfad A** — isolierte Achsen-Messung IN der DLL | `anatomy/measurable_workload.hpp`, `anatomy/abi_adapter.hpp` | ✅ |
 | `f15_compare` / Welch+MWU+Cliff's δ | **Pfad A** Auswertung (host-seitige Aggregation der DLL-Samples) | `apps/f15_compare`, `builder/commands/stats/*` | ✅ |
 | `AnatomyExecutionContext::observe_all()` | **Pfad B** — treibt echtes Composition-Organ + liest Observer (search_algo+allocator real, uint64-Key) | `builder/anatomy_commands/anatomy_execution_context.hpp` | ✅ in-process |
-| `drive_tier_observe_trace` | **Pfad B** — Füllstand-Treiber: Tier-Wall-Clock (r/w/d) + observe_all + RAM | `builder/anatomy_commands/tier_observe_trace.hpp` | ✅ in-process |
-| **`IObservableTier` (ABI)** | **Pfad B über die Modul-Binary-Grenze** — Host treibt geladenes Tier + liest dessen Observer als POD | `abi/observable_tier.hpp` (R6) | **✅ erledigt** (R6.1–R6.4 done-verified; reale DLL via `R8RestA_DockMeasuresRealDll` 2/2 grün) |
+| `drive_tier_observe_trace` | **Pfad B** — Füllstand-Treiber: Lebewesen-Wall-Clock (r/w/d) + observe_all + RAM | `builder/anatomy_commands/tier_observe_trace.hpp` | ✅ in-process |
+| **`IObservableTier` (ABI)** | **Pfad B über die Modul-Binary-Grenze** — Host treibt geladenes Lebewesen + liest dessen Observer als POD | `abi/observable_tier.hpp` (R6) | **✅ erledigt** (R6.1–R6.4 done-verified; reale DLL via `R8RestA_DockMeasuresRealDll` 2/2 grün) |
 
 ### §8.4 §5.5-Blocker AUFGELÖST
 
 Der in §5.5 als „BLOCKIERT (Säule-1-Verschränkung, Organ-Key-Typen)" markierte Zustand ist durch
 **Umstufung-A/B (erledigt 2026-05-30)** behoben: ALLE Such-Organe laufen über den gemeinsamen **uint64-Key**
-(die schmal-key Tiere Array256=uint8 etc. sind deregistriert). Damit ist **Option (A)** aus §5.5 de facto
+(die schmal-key Lebewesen Array256=uint8 etc. sind deregistriert). Damit ist **Option (A)** aus §5.5 de facto
 umgesetzt — der Builder treibt das echte Composition-Organ verlustfrei (Pfad B). Die zuvor
 „USER-zu-bestätigende Entscheidung" ist mit „nach Plan umsetzen" (User 2026-05-30) **freigegeben**.
 
@@ -368,7 +368,7 @@ umgesetzt — der Builder treibt das echte Composition-Organ verlustfrei (Pfad B
 
 | Dimension | Pfad A (DLL-selbst, isolierte Achse) | Pfad B in-process (Composite) | Pfad B über Modul-Binary-ABI |
 |-----------|--------------------------------------|-------------------------------|------------------------------|
-| §2.1 Tier-Wall-Clock | ✅ run_workload + f15_compare | ✅ tier_observe_trace (Füllstand, r/w/d, RAM) | ✅ **erledigt** (R6, reale DLL `R8RestA_DockMeasuresRealDll` 2/2) |
+| §2.1 Lebewesen-Wall-Clock | ✅ run_workload + f15_compare | ✅ tier_observe_trace (Füllstand, r/w/d, RAM) | ✅ **erledigt** (R6, reale DLL `R8RestA_DockMeasuresRealDll` 2/2) |
 | §2.2 Achsen-`observe_all` | (n/a — Pfad A misst isoliert) | ✅ AnatomyExecutionContext::observe_all (search_algo+allocator real) | ✅ **erledigt** (R6, `IObservableTier` über ABI-Grenze) |
 | §2.3 Achsen-Vergleich | ✅ Welch+MWU+Cliff's δ (Doku 22 §3) | ✅ verify_matches_std_map (Compile-Time-Korrektheit) | n/a |
 
@@ -387,19 +387,19 @@ umgesetzt — der Builder treibt das echte Composition-Organ verlustfrei (Pfad B
 > durch und **zieht diese durch die Schnittstelle** zwischen CacheEngineBuilder und Tier-Binary hindurch,
 > um als CacheEngineBuilder die **Messergebnisse der Observer zu persistieren**."
 
-**Grundprinzip:** Tier-Binaries sind **separate, dynamisch ladbare C++23-Module** (.so/.dll) — NICHT in den
+**Grundprinzip:** Lebewesen-Binaries sind **separate, dynamisch ladbare C++23-Module** (.so/.dll) — NICHT in den
 Builder einkompiliert. Die CacheEngineBuilder baut sie dynamisch und kommuniziert mit ihnen **ausschließlich
 über das ABI-stabile Interface der GATTUNG** (Gattungs-typisiert: für die SearchAlgorithm-Gattung die
 insert/lookup/erase-API; vgl. `SearchAlgorithmAbiAdapter`/`IAnatomyBase::genus()`). Der vollständige
-host-seitige Mess-Ablauf je Tier-Modul:
+host-seitige Mess-Ablauf je Lebewesen-Modul:
 
 1. **Bauen (dynamisch):** Builder/`adhoc_emitter`+CMake materialisiert die Permutation als ladbares Modul.
 2. **Laden:** `AnatomyModuleLoader` (dlopen/LoadLibrary) → `comdare_create_anatomy()` → `IAnatomyBase*`;
    ABI-Version/Magic geprüft.
 3. **Gattungs-API DURCHTESTEN:** Builder treibt die Gattungs-API (insert/lookup/erase) über das ABI gegen
-   das Tier-Modul und verifiziert sie (Korrektheit der API durch die Grenze — Gattungs-Vertrag).
+   das Lebewesen-Modul und verifiziert sie (Korrektheit der API durch die Grenze — Gattungs-Vertrag).
 4. **Eingebaute Observer MESSEN:** Builder triggert Observer-Updates (Zeitschritt/Zustands-Manipulation,
-   §8.7) — die Observer leben IM Tier-Modul.
+   §8.7) — die Observer leben IM Lebewesen-Modul.
 5. **Durch die Schnittstelle ZIEHEN:** der Observer-Snapshot wird als **flacher POD** über die ABI-Grenze
    gezogen (`ComdareTierObserverSnapshotV1` bzw. der `ObserverAggregate` ist bereits `standard_layout` +
    `trivially_copyable` → memcpy-fähig; nur uint64-Felder, keine STL/vtable über die Grenze).
@@ -422,7 +422,7 @@ belegt host-seitig (via `dynamic_cast<IObservableTier*>`): Gattungs-API-Durchtes
 
 **✅ R6 Inkrement 2a (erledigt 2026-05-30):** `builder/anatomy_commands/tier_observe_trace_abi.hpp` —
 `drive_tier_observe_trace_abi(IObservableTier&, cfg)` generalisiert den in-process-Füllstands-Treiber auf
-das ABI-Interface: der Builder treibt das Tier-Modul über Füllstand-Checkpoints (Trigger-Modus
+das ABI-Interface: der Builder treibt das Lebewesen-Modul über Füllstand-Checkpoints (Trigger-Modus
 Zustands-Manipulation §8.7b), erhebt pro Checkpoint r/w/d-Wall-Clock-Roh-Samples (§2.1) UND einen
 `tier_observe`-POD (§2.2), Wall-Clock-korreliert — OHNE den Composition-Typ zu kennen (nur das Gattungs-ABI).
 Test `R6_AbiTierObserveTraceCorrelatesWallClockAndObservers` (3 Checkpoints 10/100/1000): pro Stufe
@@ -439,7 +439,7 @@ f15 29/29, alle Adapter-Tests grün, Pfad A unberührt.
   Damit ist die Pfad-B-Schleife geschlossen: **bauen → laden → Gattungs-API durchtesten → Observer ziehen →
   Wall-Clock-korrelieren → persistieren**.
 - **✅ JSON-Export + Perzentile (erledigt):** `serialize_abi_tier_trace_json` — JSON-Array (Objekt je Checkpoint)
-  mit p50/p99 der r/w/d-Roh-ns-Kurven (Tier-Wall-Clock-Detail-Auswertung §2.1, ausreisser-robust via p50
+  mit p50/p99 der r/w/d-Roh-ns-Kurven (Lebewesen-Wall-Clock-Detail-Auswertung §2.1, ausreisser-robust via p50
   vgl. Doku 22 §3.3) korreliert mit den Observer-Zählern + `observe_wall_ns`. `detail::nearest_rank_p`
   Nearest-Rank-Perzentil. Test: JSON-Form + p50/p99-Felder + 3 Checkpoint-Objekte. f15 29/29.
 - **✅ Allocator-Achse in den Cross-ABI-POD (erledigt 2026-05-30):** Zwei Schritte:
@@ -468,10 +468,10 @@ f15 29/29, alle Adapter-Tests grün, Pfad A unberührt.
 > sync nach Zeitschritten oder nach Manipulation des Suchalgorithmus-Zustandes ein update der Observer
 > getriggert werden, die dann einer wall clock time zugeordnet werden können."
 
-Im **Composite-Pfad (B)** sind Tier-Wall-Clock (§2.1) und Achsen-Observer (§2.2) **NICHT zwei getrennte
+Im **Composite-Pfad (B)** sind Lebewesen-Wall-Clock (§2.1) und Achsen-Observer (§2.2) **NICHT zwei getrennte
 Läufe**, sondern werden vom CacheEngineBuilder in EINEM Lauf **gemeinsam + korreliert** erhoben:
 
-1. **Vollständigkeit:** Der Builder erhebt **beide** — die allgemeinen Tier-Metriken (Wall-Clock, später
+1. **Vollständigkeit:** Der Builder erhebt **beide** — die allgemeinen Lebewesen-Metriken (Wall-Clock, später
    RAM/Disk) UND die **vollständigen** Achsen-Observer-Statistics (`observe_all()` → `ObserverAggregate`
    über ALLE 17 Achsen, nicht nur die getriebenen — die nicht-getriebenen liefern ihre Default-Snapshots).
 2. **Zwei Trigger-Modi für Observer-Updates** (Mess-Konfiguration wählt):
@@ -488,7 +488,7 @@ Läufe**, sondern werden vom CacheEngineBuilder in EINEM Lauf **gemeinsam + korr
    einer Wall-Clock-Zeit (und damit einer Latenz-Phase) ZUORDNEN — die zwei Composite-Dimensionen sind
    über die Zeit/den Zustand **verschränkt auswertbar**, nicht nur nebeneinander.
 
-**Konsequenz für die Datenstruktur (Pfad B):** Ein Tier-Mess-Resultat ist eine Sequenz korrelierter
+**Konsequenz für die Datenstruktur (Pfad B):** Ein Lebewesen-Mess-Resultat ist eine Sequenz korrelierter
 Samples `{ wall_clock_ns, op_type∈{read,write,delete}, fill_level, ObserverAggregate }` — `tier_observe_trace.hpp`
 realisiert die in-process-Variante (Trigger-Modus (b), Füllstands-Checkpoints; pro Checkpoint r/w/d-Wall-Clock
 + ein observe_all). R6 generalisiert genau diese korrelierte Erhebung über die **Modul-Binary-ABI-Grenze**
@@ -521,18 +521,18 @@ realisiert die in-process-Variante (Trigger-Modus (b), Füllstands-Checkpoints; 
 > schwere neue Abstraktion und KEIN Rückbau des Bestehenden.
 
 **Definition.** Ein **Prüf-Dock** ist die **CacheEngineBuilder-SEITE für genau EINE Gattung** (Anatomie-Genus):
-ein **per-Gattung ABI-stabiler Mess-Übergang**, der ein als **Binary-Tier-Modul** kompiliertes Tier DIESER
+ein **per-Gattung ABI-stabiler Mess-Übergang**, der ein als **Binary-Lebewesen-Modul** kompiliertes Lebewesen DIESER
 Gattung (a) laedt, (b) ueber die **Gattungs-API** treibt und (c) dessen **Observer** durchmisst + persistiert.
 Es gibt ein Prüf-Dock je Gattung: `SearchAlgorithm`-Dock, `Container`-Dock, `Graph`-Dock, … — entsprechend
-der Tier-Metapher (Lebewesen→Tiere-Gattungen vs Viren = Graphen-Algos ohne Anatomie, Doku 14 §33-§40,
+der Lebewesen-Metapher (Lebewesen-Gattungen vs Viren = Graphen-Algos ohne Anatomie, Doku 14 §33-§40,
 `[[execution-engine-als-wurzel]]` `[[anatomie-gattungen]]`). **Dies ist die heutige Architektur unter neuem
 Namen** — `IObservableTier` IST der SearchAlgorithm-Gattungs-Antrieb, der Loader IST der Lade-Mechanismus.
 
 **Die CacheEngineBuilder besitzt den vollen Lebenszyklus** (alles INNERHALB der cache-engine):
 1. **Anatomie-Konfiguration** — welche Achsen-Permutation (Gattungs-Konfigurator) gemessen wird.
-2. **Compile** — die Anatomie-Permutation einer Gattung wird als **Binary-Tier-Modul** (.so/.dll) kompiliert
+2. **Compile** — die Anatomie-Permutation einer Gattung wird als **Binary-Lebewesen-Modul** (.so/.dll) kompiliert
    (`adhoc_emitter` + `comdare_build_adhoc_modules`).
-3. **Prüf-Dock** — das per-Gattung passende Mess-Dock laedt + treibt + misst das Binary-Tier-Modul.
+3. **Prüf-Dock** — das per-Gattung passende Mess-Dock laedt + treibt + misst das Binary-Lebewesen-Modul.
 
 **Gattungs-Constraint.** Ein Prüf-Dock ist an seine Gattung gebunden (cross-genus type-system-mathematisch
 unmoeglich, Doku 14 §32, `[[gattungs-constraint-pruefling-merge]]`). Der Loader liest `IAnatomyBase::genus()`
@@ -580,7 +580,7 @@ Folge-Charge); Set/Sequence/Adapter/View-Docks ab V42 (Gattungs-Implementierunge
 > der Metaprogrammierung durchzumessen. Einen Prüfling (oder MEHRERE gleichzeitig) einzubinden ist also eine
 > **CMake + Metaprogrammierung**-Aufgabe."
 
-**Was PRT-ART ist.** Ein **Prüfling** ist eine **abstrakte Tier-Permutation** (Konzept analog einer abstrakten
+**Was PRT-ART ist.** Ein **Prüfling** ist eine **abstrakte Lebewesen-Permutation** (Konzept analog einer abstrakten
 Klasse): er liefert für EINIGE Achsen **neue/unbekannte Algorithmen**, die zur **Compile-Zeit per C++23-
 Metaprogrammierung** mit dem Wissensstand der jeweiligen cache-engine-Achse **gejoint** werden (Prüflings-Slot
 `optional_prt_art_impl` je Achse — ERSETZT-mit-Fallback, `[[feedback_pruefling_replace_not_extend]]`). Achsen
@@ -630,23 +630,23 @@ Build-Welten: sie sind **zwei Anatomie-Generatoren EINER Gattung** (z.B. SearchA
 Generator ist identisch; nur die je-Achse-Liste unterscheidet die Stufe/Klassifizierung. Die cache-engine
 funktioniert dabei IMMER unter ihrer eigenen Konfiguration (Stufe 1) — der Prüfling ist additiv eingeklinkt.
 
-**(2) EIN Prüf-Dock misst alle.** Weil beide Generatoren Tiere DERSELBEN Gattung erzeugen, gehen ALLE ihre
+**(2) EIN Prüf-Dock misst alle.** Weil beide Generatoren Lebewesen DERSELBEN Gattung erzeugen, gehen ALLE ihre
 Binaries — Stufe 1 (CE), Stufe 2 (Prüfling), Stufe 3 (Hybrid) — durch **exakt dasselbe Prüf-Dock** (§8.8;
 für Suchalgorithmen `SearchAlgorithmDock`). `PruefDockRegistry::select_for` wählt nach `genus()`, **NICHT**
-nach CE-vs-Prüfling — die Tier-Klassifizierung ist mess-transparent; identische ABI-Schnittstelle, identischer
+nach CE-vs-Prüfling — die Lebewesen-Klassifizierung ist mess-transparent; identische ABI-Schnittstelle, identischer
 Mess-Treiber, identische Observer-Persistierung.
 
-**(3) Mengenlehre der Tier-Klassifizierungen.** Innerhalb der Gattung sind CE und Prüfling **zwei
-Tier-Klassifizierungen** (Metapher: Säugetier `A` vs. Reptil `B`) mit im Schnitt gleichen, austauschbaren
+**(3) Mengenlehre der Lebewesen-Klassifizierungen.** Innerhalb der Gattung sind CE und Prüfling **zwei
+Lebewesen-Klassifizierungen** (Metapher: Säugetier `A` vs. Reptil `B`) mit im Schnitt gleichen, austauschbaren
 Organen (Achsen). Die 3 Join-Muster (§8.9) sind die mengentheoretischen Operationen:
 
-| Stufe | Mengenlehre | Tier-Metapher |
+| Stufe | Mengenlehre | Lebewesen-Metapher |
 |-------|-------------|---------------|
 | Stufe 1 `comdare_perms_ce` | `A` | reine CE-Klasse (Säugetier) |
 | Stufe 2 `comdare_perms_<pruefling>` | `B` | reine Prüfling-Klasse (Reptil) |
 | Stufe 3 `comdare_perms_full_join` | `A ⋈ B` (full join, dedupliziert) | **Schnabeltier** — Hybrid, der ALLE Organe beider Klassen vereint |
 
-**(4) Die Regel der abstrakt-leeren Achse — der „Tierklassen-Prototyp".** Ein Prüfling liefert NUR für EINIGE
+**(4) Die Regel der abstrakt-leeren Achse — der „Lebewesen-Klassen-Prototyp".** Ein Prüfling liefert NUR für EINIGE
 Achsen eigene Algorithmen. Für jede Achse, die er NICHT belegt (Slot **abstrakt leer**, `has_pruefling == false`),
 gilt: er **reust ALLE CE-Algorithmen dieser Achse als Default** und der Generator **permutiert sie voll aus**.
 Type-Mechanik (`pruefling_merge.hpp`): `StufeTwoAxis<DefaultList, EmptyPrueflingSlot> == DefaultList`
