@@ -7,7 +7,7 @@
 > ⚠️ **BEGRIFFS-BANNER (korr. 2026-06-03, s. Doc 30 §8.0; verbatim Doc 24 §8.8 + Doku 14 §25):** Dieses Dokument
 > verwendet „**Gattung**" / „**Gattungs-Ops**" / „**Gattungs-Antrieb**" durchgängig für die **Außen-Interface-Ebene =
 > die SearchAlgorithm-Gattung** — also für die ABI-stabile Treiber-API `tier_insert/lookup/erase/clear/size`, mit der
-> die `CacheEngineBuilder` ein geladenes Tier-Modul durchtreibt (Quelle: `observable_tier.hpp:7-8` „über das ABI-stabile
+> die `CacheEngineBuilder` ein geladenes Lebewesen-Modul durchtreibt (Quelle: `observable_tier.hpp:7-8` „über das ABI-stabile
 > **Interface der GATTUNG (SearchAlgorithm)** … testet die **Gattungs-API** durch (tier_insert/lookup/erase)"). **In
 > diesem Sinn ist „Gattung" KORREKT und bleibt** (3-Ebenen-Modell: **GATTUNG = ein INTERFACE / Prüf-Dock für die
 > Außenwelt = SearchAlgorithm / Container / Graph**). Zur Vermeidung der Kategorienfehler-Lesart, die andere Dokumente
@@ -15,18 +15,18 @@
 > - **(1) GATTUNG = Außen-Interface / Prüf-Dock** (SearchAlgorithm / Container / Graph): die Treiber-Ops
 >   `tier_insert/lookup/erase` + `genus()` (Dock-Diskriminator) gehören HIERHER → „Gattungs-Ops"/„Gattungs-Antrieb"
 >   = korrekt.
-> - **(2) TIER-UNTERKLASSE** = liegt UNTER dem Gattungs-Interface und trägt den **FESTEN Achsen-Satz** (Doku 14 §25/§26).
+> - **(2) LEBEWESEN-UNTERKLASSE** = liegt UNTER dem Gattungs-Interface und trägt den **FESTEN Achsen-Satz** (Doku 14 §25/§26).
 >   Was dieses Doc „**fixe Composition**" / „AxesList `<3,2,6,5,…>`" / „einkompilierter Observer" / `AdHocComposition<17>`
->   nennt, sitzt auf DIESER Ebene (heute ist genau **EINE** Tier-Unterklasse gebaut — die std::map-ähnliche
->   SearchAlgorithm-Tier-Unterklasse), **NICHT** auf der Gattungs-Ebene.
-> - **(3) ACHSEN = Organe der Tier-Unterklasse, NIE optional.** „**Optionales Sub-Interface**" (IObservableTier /
+>   nennt, sitzt auf DIESER Ebene (heute ist genau **EINE** Lebewesen-Unterklasse gebaut — die std::map-ähnliche
+>   SearchAlgorithm-Lebewesen-Unterklasse), **NICHT** auf der Gattungs-Ebene.
+> - **(3) ACHSEN = Organe der Lebewesen-Unterklasse, NIE optional.** „**Optionales Sub-Interface**" (IObservableTier /
 >   IMeasurableWorkload) und „nur die zwei getriebenen Achsen" / `observable_axis_count==0` / „kollabiert auf Nullen"
 >   beschreiben, WELCHE **Observer-Snapshots** über die ABI-Grenze queren (Mess-Profil-Frage), **NICHT** dass eine Achse
->   fehlt: jedes Tier-Binary trägt alle 17 Organe uniform; eine nicht-puffernde Komposition wählt einen KONKRETEN
+>   fehlt: jedes Lebewesen-Binary trägt alle 17 Organe uniform; eine nicht-puffernde Komposition wählt einen KONKRETEN
 >   Durchreich-Algorithmus (NoBuffer/NoFlush/NonePrefetch/None/NoMigration), statt „eine Achse wegzulassen".
-> - Die **Invariante** (feste Slot-Zahl pro Tier-Unterklasse, `AdHocComposition<17>` als ABI-Identität) bleibt
->   unverändert gültig — sie ist eine **Tier-Unterklassen**-Invariante. queuing q1/q2 (kommen in diesem Doc nicht vor)
->   wären — wo sie aufträten — **Pflicht-Achsen dieser Tier-Unterklasse**, kein Interface, keine Gattung.
+> - Die **Invariante** (feste Slot-Zahl pro Lebewesen-Unterklasse, `AdHocComposition<17>` als ABI-Identität) bleibt
+>   unverändert gültig — sie ist eine **Lebewesen-Unterklassen**-Invariante. queuing q1/q2 (kommen in diesem Doc nicht vor)
+>   wären — wo sie aufträten — **Pflicht-Achsen dieser Lebewesen-Unterklasse**, kein Interface, keine Gattung.
 
 ---
 
@@ -97,7 +97,7 @@ Nach der einmaligen Resolution treibt der Hot-Loop nur Virtual-Calls auf der gec
 > - **`IDrivableTier`** (NEU, Pflicht): `tier_insert/lookup/erase/clear/size` — funktionaler Gattungs-Antrieb.
 > - **`IObservableTier`** (Rest, optional): nur `tier_observe()`; erbt `IDrivableTier` ODER separat geprobt.
 >
-> So exportiert ein „reines Tier" (STATISTICS=OFF) `IDrivableTier`, aber kein `tier_observe`. Heute wird das umgangen (Observer kollabiert bei OFF auf Nullen) — funktional ok, aber nicht „vollkommen disjunkt". Dieser Split ist die EINZIGE strukturelle Änderung, die die Vision wörtlich einlöst.
+> So exportiert ein „reines Lebewesen" (STATISTICS=OFF) `IDrivableTier`, aber kein `tier_observe`. Heute wird das umgangen (Observer kollabiert bei OFF auf Nullen) — funktional ok, aber nicht „vollkommen disjunkt". Dieser Split ist die EINZIGE strukturelle Änderung, die die Vision wörtlich einlöst.
 
 ### 3.2 OPTIONALE Observer-Schnittstelle (cmake-gated, bei Anwesenheit Pflicht-Export)
 `tier_observe(ComdareTierObserverSnapshotV1*)` (`observable_tier.hpp:105`) · Snapshot-POD (`:40-64`) · Observer-Body (`abi_adapter.hpp:251-279`, unter `#ifdef`) · `observable_axis_count` (`:276`).

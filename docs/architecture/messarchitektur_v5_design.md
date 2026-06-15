@@ -6,19 +6,19 @@
 >
 > Korrigiert ggü. V3 zwei Designfehler: (a) `IMeasurableWorkload`/Pfad A war fälschlich reine In-DLL-Last — Pfad A war
 > **immer** host-seitig im Prüfdock geplant, wird **nicht** gestrichen, sondern host-seitig **relokalisiert**; (b) eine reine
-> Tier-Binary ist **nicht generisch** auslieferbar — das generische Mess-Interface gehört **host-seitig in die CacheEngineBuilder**.
+> Lebewesen-Binary ist **nicht generisch** auslieferbar — das generische Mess-Interface gehört **host-seitig in die CacheEngineBuilder**.
 
 ---
 
 ## 1. Zielbild + ASCII-Diagramm der zwei Seiten
 
 Genau **zwei Seiten**, getrennt durch **eine** ABI-Grenze (die `.dll`/`.so`-Modul-Grenze). Oberhalb: Builder-Binary (eine vtable
-erlaubt, NICHT Hot-Path). Unterhalb: Tier-Binary, compile-time-monomorphisiert (Hot-Path, kein `virtual`/`dynamic_cast`).
+erlaubt, NICHT Hot-Path). Unterhalb: Lebewesen-Binary, compile-time-monomorphisiert (Hot-Path, kein `virtual`/`dynamic_cast`).
 
 ```
 ╔══════════════════════════════════════════════════════════════════════════════════════╗
 ║  HOST-SEITE  —  CacheEngineBuilder-Binary  (Builder-vtable erlaubt, NICHT Hot-Path)    ║
-║   ┌───────────────────────────── Lebenszyklus je Tier-Binary ──────────────────────┐  ║
+║   ┌───────────────────────────── Lebenszyklus je Lebewesen-Binary ──────────────────────┐  ║
 ║   │  import (dlopen/LoadLibrary)  →  KONFORMITÄTS-GATE  →  MESSEN  →  abstoßen       │  ║
 ║   └─────────────────────────────────────────────────────────────────────────────────┘  ║
 ║   PruefDockRegistry::select_for(handle)  ── pro GATTUNG genau 1 Dock ──┐               ║
@@ -40,7 +40,7 @@ erlaubt, NICHT Hot-Path). Unterhalb: Tier-Binary, compile-time-monomorphisiert (
                   ║  ABI-GRENZE (die einzige)                                   ║
                   ║  Übergang: IDriveableTier  [+ observer_all + memento_all NUR Messung-AN]
 ╔═════════════════╪═══════════════════════════════════════════════════════════╪═════════╗
-║  TIER-BINARY-SEITE  —  geladene .dll/.so  (compile-time monomorph, Hot-Path) ║         ║
+║  LEBEWESEN-BINARY-SEITE  —  geladene .dll/.so  (compile-time monomorph, Hot-Path) ║         ║
 ║                                                                              ▼         ║
 ║   SearchAlgorithmAbiAdapter<A>  (abi_adapter.hpp:75-77)  — final, exportiert:          ║
 ║     ├─ IAnatomyBase           (Lifecycle: warm_up()/run(), abi_adapter.hpp:97-104)     ║
@@ -52,13 +52,13 @@ erlaubt, NICHT Hot-Path). Unterhalb: Tier-Binary, compile-time-monomorphisiert (
 ║           save_all()/rollback_all() über ALLE stateful Achsen (9 von 17)               ║
 ║   STATE LEBT HIER, NICHT HOST-SEITIG: search_organ_ · ComposedStore<N,L,A> · Disk      ║
 ║   RELEASE-DLL (Messung-AUS): observer_all+memento_all COMPILE-TIME ENTFERNT            ║
-║     → reine funktional-getriebene Tier-Binary OHNE Overhead, an Forschung auslieferbar ║
+║     → reine funktional-getriebene Lebewesen-Binary OHNE Overhead, an Forschung auslieferbar ║
 ╚════════════════════════════════════════════════════════════════════════════════════════╝
 ```
 
-**Asymmetrie des State (bindend):** Der Tier-Binary-State lebt **in** der Binary (`search_organ_`, `ComposedStore`, Disk-Files),
+**Asymmetrie des State (bindend):** Der Lebewesen-Binary-State lebt **in** der Binary (`search_organ_`, `ComposedStore`, Disk-Files),
 nicht host-seitig. Der Host hält nur (a) Latenz-Mess-State (ns-Vektoren) + (b) Operations-Protokoll + Ergebnisse. Daher der
-hybride Visitor (§3): Da der State drüben lebt, **besuchen** die Tier-Binary-Rollback-Klassen den Host zur Steuerung.
+hybride Visitor (§3): Da der State drüben lebt, **besuchen** die Lebewesen-Binary-Rollback-Klassen den Host zur Steuerung.
 
 ---
 
@@ -69,16 +69,16 @@ Streng getrennte, orthogonale Dimensionen. Build-Profil ⊥ Lastenprofil = die z
 
 | Profil | Definition | Inhalt | Wo gesetzt | Wer liefert |
 |---|---|---|---|---|
-| **(1) BUILD-PROFIL (statisch)** | Parameter der zu erzeugenden Tier-Binaries + Permutations-Gesetzmäßigkeiten interner+externer abstrakter Tiere | Achsen-Vendor aktiv; Cartesian-Expansion; Profile-Filter (smoke/medium/full); Codegen-Modus; Prüflinge | `CMakeLists.txt`, `cmake/permutations.cmake`, prt-art | Diplomarbeit/User (Achse 1) |
+| **(1) BUILD-PROFIL (statisch)** | Parameter der zu erzeugenden Lebewesen-Binaries + Permutations-Gesetzmäßigkeiten interner+externer abstrakter Lebewesen | Achsen-Vendor aktiv; Cartesian-Expansion; Profile-Filter (smoke/medium/full); Codegen-Modus; Prüflinge | `CMakeLists.txt`, `cmake/permutations.cmake`, prt-art | Diplomarbeit/User (Achse 1) |
 | **(2) LASTENPROFIL** | Testdaten UND Operationsabläufe + Pausen+Testzeiten, je Gattung über das ABI-stabile Interface; host-seitig generisch | YCSB A–F, record/operation_count, seed, OP-1..6, Pausen, Checkpoints | **Runtime host-seitig** `workload.hpp:34-40`, `tier_observe_trace_abi.hpp:32-42`, `op_type_filter.hpp` | Diplomarbeit/User (Achse 2) |
 | **(3) COMPILE-RELEASE-PROFIL** | Build-Flags (Messung-bauen vs Release ohne), cmake-Config IN der Cache Engine, **DEFAULT = Messung eingebaut** | Master-Messschalter, ISA-Detection, STATIC/SHARED, Experiment-Mode | `CMakeLists.txt`, `cmake/comdare_add_library.cmake`, `cmake/anatomy_codegen.cmake` | Cache Engine selbst |
 
-**Ablauf (bindend):** Profil baut **zuerst den HOST** (`COMDARE_BUILD_BUILDER=ON`) → Host permutiert eine Tier-Binary-Config →
+**Ablauf (bindend):** Profil baut **zuerst den HOST** (`COMDARE_BUILD_BUILDER=ON`) → Host permutiert eine Lebewesen-Binary-Config →
 **baut zuerst alle DLLs** → **misst danach** (Build vor Mess-Phase, nicht verschränkt).
 
 ### 2.2 Alle gefundenen CMake-Flags → 3 Profile (Auszug; Vollliste im Workflow-Inventar)
 
-- **(1) Build:** `COMDARE_BUILD_BUILDER` (CMakeLists:30, Pflicht zuerst), `_BENCHMARKS`/`_TESTS`/`_PERMUTATIONS` (31-33), `COMDARE_CE_PRUEFLINGE` (41, externe Tiere), `COMDARE_AXIS_06_ENABLE_*` (62-93, 23×), `_Q1_*` (97-116), `_Q2_*` (118-123), `_03A_*` (140-159, 17× #42), `_03B_*`/`_03M_*`/`_12_*` (162-171), `COMDARE_TARGET_ISA`/`_PERMUTATION_PROFILE`/`_MODE` (permutations.cmake:10-42), prt-art-Pendants, `COMDARE_V32_ENABLE`, `COMDARE_DA_BUILD_TESTS`.
+- **(1) Build:** `COMDARE_BUILD_BUILDER` (CMakeLists:30, Pflicht zuerst), `_BENCHMARKS`/`_TESTS`/`_PERMUTATIONS` (31-33), `COMDARE_CE_PRUEFLINGE` (41, externe Lebewesen), `COMDARE_AXIS_06_ENABLE_*` (62-93, 23×), `_Q1_*` (97-116), `_Q2_*` (118-123), `_03A_*` (140-159, 17× #42), `_03B_*`/`_03M_*`/`_12_*` (162-171), `COMDARE_TARGET_ISA`/`_PERMUTATION_PROFILE`/`_MODE` (permutations.cmake:10-42), prt-art-Pendants, `COMDARE_V32_ENABLE`, `COMDARE_DA_BUILD_TESTS`.
 - **(3) Compile-Release:** `COMDARE_CE_ENABLE_STATISTICS` (51-55, **heutiger Mess-Master-Annäherung**), `COMDARE_DETECTION_MODE` (23-25), `COMDARE_EXPERIMENT_MODE` (285-289), `COMDARE_BUILD_SHARED_LIBS` (comdare_add_library:20-21), `COMDARE_<PROJECT>_BUILD_SHARED_LIBS` (38-41), `COMDARE_LIBRARY_TYPE` (anatomy_codegen:12,55-61).
 - **(sonstiges):** `COMDARE_PERMUTATION_CODEGEN_BACKEND`, `_USE_COMPILER_CACHE`, `_FETCHCONTENT_USER_CACHE`, `_QUIET_SUBMODULE_CHECK`, `_BUILD_LEGACY_REIMPL`/`_BUILD_DEPRECATED`.
 
@@ -97,9 +97,9 @@ Streng getrennte, orthogonale Dimensionen. Build-Profil ⊥ Lastenprofil = die z
 
 ## 3. Memento_all-System (parallel zu observe_all)
 
-**Grundsatz (bindend):** `memento_all` ist Tier-Binary-**einkompiliert**, nur bei Messung-AN (zusammen mit der IO/memory-Achse).
+**Grundsatz (bindend):** `memento_all` ist Lebewesen-Binary-**einkompiliert**, nur bei Messung-AN (zusammen mit der IO/memory-Achse).
 Rollt den **gesamten** Zustand nach Warmup über **alle stateful Achsen** via einkompiliertes Memento-Pattern zurück + wiederholt
-die Op. **Parallel** zu observe_all, nach dem Observer-Pattern = **hybrider Visitor**: die Tier-Binary-Rollback-Klassen
+die Op. **Parallel** zu observe_all, nach dem Observer-Pattern = **hybrider Visitor**: die Lebewesen-Binary-Rollback-Klassen
 **besuchen den Host**. **Einfacher Snapshot reicht NICHT**, weil IO-Disk-Persistenz der Such-Algorithmen möglich ist
 (`ComdareTierObserverSnapshotV1` = nur uint64-Counter → unzureichend).
 
@@ -107,7 +107,7 @@ die Op. **Parallel** zu observe_all, nach dem Observer-Pattern = **hybrider Visi
 
 | | observe_all (IST, teilweise) | memento_all **[NEU]** |
 |---|---|---|
-| Richtung | Host **zieht** POD (read-only) | Tier-Binary-Klassen **besuchen** Host (hybrider Visitor) |
+| Richtung | Host **zieht** POD (read-only) | Lebewesen-Binary-Klassen **besuchen** Host (hybrider Visitor) |
 | Zweck | Per-Achsen-Counter | Gesamt-State **speichern + zurückrollen** |
 | Daten | uint64-Counter (in-process) | vollständiger Achsen-State **inkl. Disk** |
 | Datei | observer_aggregate.hpp, observe_all() search_algorithm_anatomy.hpp:53-72 | **[NEU]** memento_aggregate.hpp, memento_all(), AnatomyMementoCommand |
@@ -143,7 +143,7 @@ concept MementoAxis = requires(A& a, typename A::memento_t m) {
 ### 3.4 Hybrider Visitor (Memento-Klassen besuchen Host)
 
 Das heute **leere** `algorithm_visitor`-Modul (nur `.gitkeep`) wird gefüllt. **[NEU]** `memento_visitor.hpp`:
-- Tier-Binary: `MementoAggregate<Composition>` **[NEU]** (analog ObserverAggregate, 17 Slots, conditional via `MementoAxis`); `memento_all()`/`rollback_all(m)` in `SearchAlgorithmAnatomy`.
+- Lebewesen-Binary: `MementoAggregate<Composition>` **[NEU]** (analog ObserverAggregate, 17 Slots, conditional via `MementoAxis`); `memento_all()`/`rollback_all(m)` in `SearchAlgorithmAnatomy`.
 - Hybrider Visitor: einkompilierte Rollback-Klassen erhalten beim Übergang einen Host-Steuerungs-Handle (`accept(HostSink&)`), besuchen den Host (z.B. „rollback fertig, Op wiederholbar"). Host iteriert NICHT in die Achsen.
 - ABI-Übergang: `memento_all` quert als eigenständiges Sub-IF `IRollbackableTier` **[NEU]** (wie IMeasurableWorkload/IObservableTier — **nicht** an IAnatomyBase → kein vtable-Bruch). Disk-State wird **nicht** als POD kopiert, sondern in der Binary referenziert; Host steuert nur save/rollback.
 ```cpp
@@ -166,22 +166,22 @@ public:
 ```
 für jede Op im Lastenprofil:
    1) tier_save_all()          [memento-save-all, IRollbackableTier]
-   2) op  (erste Ausführung)   [echte Last-Op, echte Daten, echter Tier-State]
-   3) tier_rollback_all()      [rollback-all: Tier-State inkl. Disk auf Stand vor (2)]
+   2) op  (erste Ausführung)   [echte Last-Op, echte Daten, echter Lebewesen-State]
+   3) tier_rollback_all()      [rollback-all: Lebewesen-State inkl. Disk auf Stand vor (2)]
    4) op  (op-measure)         [zweite Ausführung, JETZT Wall-Clock-umklammert + Observer]
 ```
 Zweite Ausführung misst gegen **denselben** Vor-Zustand → eliminiert Pfad-Abhängigkeit der Latenz vom akkumulierten Zustand.
 **Host-Verdrahtung:** [NEU] `drive_two_phase_op_loop()` ersetzt die heute **harte** WRITE/READ/DELETE-Schleife in
 `tier_observe_trace_abi.hpp:82-137`; Wall-Clock-Umklammerung (`detail::abi_dur_ns`, :132-133) auf Schritt (4).
 **Mess-OFF (Release-DLL):** observer_all+memento_all compile-time entfernt → Op läuft **einmal**, ohne save/rollback; Host misst
-nackte Op-Latenz via Wall-Clock; Tier-Binary trägt **keinen** Overhead.
+nackte Op-Latenz via Wall-Clock; Lebewesen-Binary trägt **keinen** Overhead.
 
 ---
 
 ## 5. Host-seitiges IMeasurableWorkload (Pfad A relokalisiert) + IDriveableTier-Handle
 
-**V3-Designfehler-Korrektur:** `IMeasurableWorkload` als Orchestrator ist **rein generisch host-seitig** (reine Tier-Binary
-nicht generisch auslieferbar). Pfad A **nicht gestrichen**, war immer host-seitig geplant. — **Bleibt in DLL:** tierart-
+**V3-Designfehler-Korrektur:** `IMeasurableWorkload` als Orchestrator ist **rein generisch host-seitig** (reine Lebewesen-Binary
+nicht generisch auslieferbar). Pfad A **nicht gestrichen**, war immer host-seitig geplant. — **Bleibt in DLL:** lebewesen-art-
 angepasstes `run_workload()` (DLL-interne Ausführung der eigenen Such-Struktur). — **[NEU] host-seitig:**
 `IMeasurableWorkloadHost`-Orchestrator (mehrere Lastprofile je Binary, YCSB A–F × OP-1..6 aus `op_type_filter.hpp:62-113`).
 
@@ -198,7 +198,7 @@ zieht künftig `IDriveableTier*` + (nur Messung-AN) observer_all/memento_all. Ei
 
 ## 6. Konformitäts-Gate gegen std::map je Gattung (NEU)
 
-Jede Tier-Binary **bei Verwendung zuerst** durch dieselben std::map-Hüllen-Tests (alle Randfälle valide, egal wie die Hülle
+Jede Lebewesen-Binary **bei Verwendung zuerst** durch dieselben std::map-Hüllen-Tests (alle Randfälle valide, egal wie die Hülle
 gebaut ist). Experiment misst nur Performance, aber jede Binary muss nach ihrer Gattung Testdaten konform speichern+wiedergeben.
 
 **IST-Lücke:** Compile-Time-Konformität existiert (`verify_matches_std_map` std_map_equivalence_harness.hpp:28-52, 3-Stufen-Tests),
@@ -275,12 +275,12 @@ allein wären additiv; der **Split** ist der Bump-Auslöser.)
 11. **I10** `measure_genus_sequential()` in `V32Orchestrator` verdrahten (heute nur CLI `--observe`).
 
 ### Risiken (ehrlich)
-- **R1 Memento IO/Disk (höchstes):** kein generisches Format. Optionen: (a) pro-Wrapper-Memento (vollständig, teuer) vs (b) [ANNAHME] Tier-weiter Disk-Checkpoint (gesamtes Backing-File kopieren) — umgeht per-Allokator-Serialisierung, kostet Disk-IO pro Op.
+- **R1 Memento IO/Disk (höchstes):** kein generisches Format. Optionen: (a) pro-Wrapper-Memento (vollständig, teuer) vs (b) [ANNAHME] Lebewesen-weiter Disk-Checkpoint (gesamtes Backing-File kopieren) — umgeht per-Allokator-Serialisierung, kostet Disk-IO pro Op.
 - **R2 ×2 + save/rollback pro Op:** bei Disk-Achsen Größenordnungen Overhead → ggf. sample-basiert statt jede Op.
 - **R3 Visitor-ABI-Stabilität:** `IRollbackableTier` POD-frei + schmal; Visitor lebt IN der DLL; Host-Sink als Funktionszeiger-POD (ABI-sicher), nicht vtable.
 - **R4 Gate-Umfang:** „alle Randfälle" begrenzt halten (läuft vor jeder Binary); Kern-Set + optional `--exhaustive`; zunächst nur SearchAlgorithm-Gattung.
 - **R5 axis_08 RCU/HP Rollback-Leak:** retired nodes nach restore; GC-Safe-Point-Bewusstsein nötig.
-- **R6 Pfad A↔B Konsistenz:** nach Relokalisierung sollte Pfad A host-seitig dasselbe Tier treiben → Konsistenz-Assertion [NEU].
+- **R6 Pfad A↔B Konsistenz:** nach Relokalisierung sollte Pfad A host-seitig dasselbe Lebewesen treiben → Konsistenz-Assertion [NEU].
 - **R7 STATISTICS vs MEASUREMENT_MODE:** MEASUREMENT_MODE = Master; STATISTICS Sub/ersetzt; RELEASE_MODE erzwingt beide OFF.
 
 **Vollständige Datei-Referenzen + neu-anzulegende Header:** s. Workflow-Ausgabe `wlw1w69eg` (im Transkript) — alle [NEU]-Header
