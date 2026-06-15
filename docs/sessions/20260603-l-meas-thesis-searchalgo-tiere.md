@@ -30,7 +30,7 @@ thesis_<fam>_<organ>.cpp           (1 ADHOC-BUILDVARIANT-Anatomie, 16 Achsen FIX
 - **Isolierter Achsen-Vergleich (F15):** in JEDER Familie sind 16 der 17 Anatomie-Achsen IDENTISCH; variiert wird genau
   EINE Achse → der gemessene Unterschied ist dieser Achse zurechenbar.
 
-**Host/Lauf:** Windows 11, MSVC `cl /std:c++latest`, n_ops ∈ {1000, 2000, 4000}, je Tier eine Wiederholung (die 13
+**Host/Lauf:** Windows 11, MSVC `cl /std:c++latest`, n_ops ∈ {1000, 2000, 4000}, je Lebewesen eine Wiederholung (die 13
 Observer-Felder sind STRUKTURELL/deterministisch — nicht Wall-Clock; Wiederholungs-Streuung betrifft nur Timing = PMC,
 s. §6). 8/8 Lebewesen gebaut (exit 0, min. ~9 GB RAM frei), 24/24 Messungen exit 0.
 
@@ -97,7 +97,7 @@ pwsh "tests/unit/thesis_tiere/build_and_measure_thesis_tiere.ps1"
 # → build/thesis_tiere/thesis_measurements.csv  (organ;n_ops;<13 Observer-Felder>)
 ```
 
-Einzel-Tier:  `perm_runner build/thesis_tiere/thesis_sa_btree.dll thesis_sa_btree 2000`.
+Einzel-Lebewesen:  `perm_runner build/thesis_tiere/thesis_sa_btree.dll thesis_sa_btree 2000`.
 
 ---
 
@@ -113,7 +113,7 @@ Einzel-Tier:  `perm_runner build/thesis_tiere/thesis_sa_btree.dll thesis_sa_btre
   user-gebunden — NICHT autonom).
 - **Allokator-Real-Link (#84, literaler IST-Stand 2026-06-03):** im `build/msvc-release`-Cache sind ALLE
   `COMDARE_HAVE_<vendor>` = **OFF** → alle axis_06-Wrapper laufen aktuell im C++23-Re-Impl-Fallback
-  (`is_original_module()=false`); deshalb ist `alloc_cnt`/`bytes_alloc` über alle Tiere gleich (derselbe Fallback-
+  (`is_original_module()=false`); deshalb ist `alloc_cnt`/`bytes_alloc` über alle Lebewesen gleich (derselbe Fallback-
   Allokator). Mechanik (ENABLE/HAVE/USE) ist real bewiesen für **mimalloc/snmalloc/dlmalloc** (self-contained, lokal
   aktivierbar via `-DCOMDARE_BUILD_PERMUTATIONS=ON`); die **4 harten Vendor** (jemalloc/tcmalloc/hoard/scalloc) brauchen
   vcpkg/MSYS2/ZIH-Linux → **GOAL-K78 CE-D4**. Spec: `docs/sessions/20260601-19-vendor-allokatoren-beschaffungs-spec.md`.
