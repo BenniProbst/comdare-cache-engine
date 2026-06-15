@@ -102,7 +102,7 @@ Auf der jetzt konsistenten Modell-Grundlage:
 
 ## 7. Commit-Trail (cache-engine main, diese Session)
 
-`808a1f9`/`0628e21` (K78 §8 + Aufräumen) · `8fe7583` (Thesis-Mess-Tiere) · `bab6406` (NodeChunkedStore node-wirksam) ·
+`808a1f9`/`0628e21` (K78 §8 + Aufräumen) · `8fe7583` (Thesis-Mess-Lebewesen) · `bab6406` (NodeChunkedStore node-wirksam) ·
 `d386409`/`97f86dc`/`6c6f514`/`bf930c4`/`3b2bd19` (Audit-30 §8 Kategorienfehler + 3-Ebenen-Modell, iterativ) ·
 `a35c82c` (3-Ebenen-Konsistenz-Sweep 12 Docs). Superprojekt-Pointer jeweils gebumpt.
 
