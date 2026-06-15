@@ -14,7 +14,7 @@
 
 ## 1. A2a (Audit-K3: CoW real für die 320) — ERLEDIGT + VERIFIZIERT + COMMITTET
 
-**Befund K3:** Die 320 FullPilot-Tiere tragen im `search_algo`-Slot die ROHEN Registry-Wrapper
+**Befund K3:** Die 320 FullPilot-Lebewesen tragen im `search_algo`-Slot die ROHEN Registry-Wrapper
 (`comdare::cache_engine::lookup::{KAry,Interpolation,Eytzinger,LinearScan,…}SearchAlgo`, enumeriert in
 `axis_03a_search_algo_registry.hpp`; `AdHocComposition::search_algo = T0` = ein Registry-Typ). Diese hatten
 `statistics()/reset()`, aber **kein `restore_statistics`** → `abi_adapter::organ_cow_capable_v` false →
@@ -35,7 +35,7 @@ Messwerte bleiben gültig (Copy-Pfad war rb_exact); gefixt sind Kosten/Label/Tes
 **Lektion (Audit-Methodik bestätigt):** Der Mapping-Agent (mapA) identifizierte FÄLSCHLICH
 `ComposedHotPatriciaSearch` (= internes Organ der Referenz-HOT-Komposition) als FullPilot-`search_algo`. Die
 **adversariale Verify-A-Stufe korrigierte das** („KArySearchAlgo … korrekt, passt zu organ_cow_capable_v")
-und ich verifizierte die Grundwahrheit direkt über Registry + Tiername + Audit-Cross-Check. → Subagenten-Karten
+und ich verifizierte die Grundwahrheit direkt über Registry + Lebewesen-Name + Audit-Cross-Check. → Subagenten-Karten
 IMMER gegen die Grundwahrheit prüfen.
 
 ## 2. Verifizierter Arbeitsplan (Mapping-Workflow-Synthese) — autoritativ für den Rest
@@ -68,9 +68,9 @@ Harness-env-Pinning+Abbruch · Stamp-`pf.good()`-Gate · **K5a is_new = bereits 
 | A3c | K9 Konformitäts-Gate (import→GATE→messen) in Voll-Lauf-Pfad + Selektions-Guard (search_algo-balanciert statt erste-N) | iterator.hpp, run_lazy_150.cpp | batch | M | — |
 | A3d | P1/K1 RC-Dimension Organ-Hooks ODER ehrlich entfernen | abi_adapter.hpp, resource_controllable_tier.hpp, algorithm_resource_control.hpp | batch | L | **JA** |
 | A4 | K10 Pattern-Hygiene (Adapter/Memento/Visitor/Command/Observer-Etiketten, „B+-Baum", Release-Zero-Overhead) | abi_adapter.hpp, algorithm_visitor/, anatomy/, docs/ | batch | L | — |
-| L1 | Ausgabe=Konfig×Tier: Stufe 04 trennt Konfig-Tupel von Tier (binary_id→19 Achsen), ns/op je Interface-Fn aus 18 op_-Spalten; ns_per_op aus total_ns/timed_ops neu | Code/04_csv_to_latex/ | safe | M | — |
-| L2 | 3D-Surfaces je Interface-Fn (x=Workload, y=Tier, z=ns/op), relative Pfade; ycsb_e/lp_range_scan ausschließen | Code/05_diagram_generator/ | safe | M | — |
-| L3 | Achsen-Austauschbarkeits-Diffs: Tier-Paare die sich NUR in Achse a unterscheiden, Δns/op longtable je Diagramm | Code/04+05 | safe | L | — |
+| L1 | Ausgabe=Konfig×Lebewesen: Stufe 04 trennt Konfig-Tupel von Lebewesen (binary_id→19 Achsen), ns/op je Interface-Fn aus 18 op_-Spalten; ns_per_op aus total_ns/timed_ops neu | Code/04_csv_to_latex/ | safe | M | — |
+| L2 | 3D-Surfaces je Interface-Fn (x=Workload, y=Lebewesen, z=ns/op), relative Pfade; ycsb_e/lp_range_scan ausschließen | Code/05_diagram_generator/ | safe | M | — |
+| L3 | Achsen-Austauschbarkeits-Diffs: Lebewesen-Paare die sich NUR in Achse a unterscheiden, Δns/op longtable je Diagramm | Code/04+05 | safe | L | — |
 | L4 | appendix_messwerte.tex (§A Konfig+ehrliche Limitierungen, §B 3D, §C Diff, §D Roh-Aggregate) | Code/06+04 | safe | M | — |
 | L5 | Thesis-Integration (relative Pfade, diplominf, EN≡DE, Vorlage unangetastet) | thesis/diplomarbeit/ | safe | M | — |
 | L6 | Generalprobe: M2-Teil-CSV → L1-L5 → Test-PDF | Code/04-06 + thesis | safe | S | — |

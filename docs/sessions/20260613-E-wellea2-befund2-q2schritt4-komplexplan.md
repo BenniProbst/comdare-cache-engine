@@ -25,7 +25,7 @@ Die zwei getrennten Speicher (Code-präzise, über die Doku-Kurzform hinaus):
 **🔴 Der präzise Defekt (schärfer als Doc-30-Kurzform):** Die `container_`-**Traversierung ist fix `SortedBinaryTraversal`,
 NICHT `Composition::search_algo`** (`:1303`). ⇒ Ein `search_algo`-Achsenwechsel (k_ary→eytzinger→interpolation) ändert
 NUR `search_organ_` (T0); die node/layout/allocator-Messung läuft über `container_` mit IMMER demselben SortedBinary-
-Traversal. Die Such-Achse und die Storage-Achsen sind **entkoppelt** — Tiere routen NICHT uniform durch alle Organe
+Traversal. Die Such-Achse und die Storage-Achsen sind **entkoppelt** — Lebewesen routen NICHT uniform durch alle Organe
 (Sezierungs-Prinzip Doku 14 §3.1 im Mess-Pfad verletzt; Doc 34 §9). **= Audit K5+K6 + Pattern-P3/P4/P6 + Mess-M8.**
 **Q2-Schritt-1-3 (GEFIXT):** der Store ist node-abhängig (`LayoutAwareChunkedStore<node,layout,alloc>`, alloc_cnt=ceil(n/cap)).
 **Q2-Schritt-4 (OFFEN, = diese Aufgabe):** die Such-Strategie über DENSELBEN Store statt eigenem Substrat.
@@ -60,7 +60,7 @@ nicht jede search_algo×node×layout-Kombination ist wohlgeformt. Das ist exakt 
   die search_algo-Positionierung auf das Store-Slot-Backing. Hash/Trie-Organe, die KEIN sortiertes Array-Substrat
   positionieren, sind nicht store-traversierbar → ehrlich als nicht-uniform ausgewiesen (Cross-Achsen-Constraint).
 - **Weg B (Rückfall, falls Weg A für eine Organ-Klasse ill-formed):** search_organ_ bleibt für diese Klasse, ABER mit
-  Diagnose-Flag `tier_search_routes_through_store()==false` → der Appendix weist die betroffenen Tiere ehrlich als
+  Diagnose-Flag `tier_search_routes_through_store()==false` → der Appendix weist die betroffenen Lebewesen ehrlich als
   „Such-Pfad NICHT store-geroutet" aus (Meta-Lehre #3: Diff-Beweis nur mit nachgewiesen verschiedenen Pfaden).
 
 ## §4 Inkrement-Sequenz (je einzeln grün + verifizierbar; cowfix-v1-DLL-Neubau erst am Ende)
@@ -78,12 +78,12 @@ nicht jede search_algo×node×layout-Kombination ist wohlgeformt. Das ist exakt 
 | **A2.5** | **search_organ_ ENTFÄLLT:** tier_insert/lookup/erase + T0-Metrik (`:644-715`, `:788`) auf `container_` umrouten; `search_organ_`-Member + alle Referenzen (CoW `:1382`, save_state `:1007`) entfernen | `abi_adapter.hpp` (~20 Stellen) | Befund-2/M3 | **HOCH** |
 | **A2.6** | **perm_runner → V2-POD:** node_*-Felder aus dem EINEN Store; `axis_stats[0]`(search) = `container_.observe_search()` | `builder/experiment_tree/perm_runner.hpp` | K9/seg_ns | M |
 | **A2.7** | **Begleit-Inkremente:** K3 CoW-Aktivierung (greift beim Neubau, `4a64bc8`) · K4/P2 GoF-Iterator-Scan-Organ · K9 seg_ns n>1 via Store-Key-Ernte · stat_*-Load-Reset · uint16→uint64-Entscheid (`array256/65535`) | abi_adapter/perm_runner/03a-Wrapper | K3/K4/K9 | M |
-| **A2.8** | **cowfix-v1 DLL-Neubau** der 320 + realer Smoke-Lauf (1-Tier) → Belege literal | Harness `BuildVersion=cowfix-v1` | G2 | — |
+| **A2.8** | **cowfix-v1 DLL-Neubau** der 320 + realer Smoke-Lauf (1-Lebewesen) → Belege literal | Harness `BuildVersion=cowfix-v1` | G2 | — |
 
 ## §5 Verifikation (die 3 mission-kritischen Meta-Lehren + Gate)
 
 1. **Meta-Lehre #1/#2 (Capability über die ZIEL-Population):** `static_assert` über ≥1 echte Pilot-AdHoc-Komposition der
-   320 (nicht nur Referenz-Komp.) — dass `StoreTraversalAdapter<Composition::search_algo>` für die produktiven Tiere
+   320 (nicht nur Referenz-Komp.) — dass `StoreTraversalAdapter<Composition::search_algo>` für die produktiven Lebewesen
    wohlgeformt ist ODER per Cross-Achsen-Constraint ehrlich als nicht-uniform fällt (Weg B). Vorbild: `test_cow_capable_wrappers` (`4a64bc8`).
 2. **🎯 Meta-Lehre #3 (Diff-Beweis = VERSCHIEDENE Pfade) — der mission-kritische Beleg:** ein Diagnose-Flag
    `tier_search_routes_through_store()` + ein Test, der zeigt, dass ein **node_type-Wechsel den gemessenen Such-Pfad
@@ -179,11 +179,11 @@ ein Rekonstruktions-Mapping, das JEDEN Such-Algorithmus bereits als `ComposedSea
 ⇒ **A2.4-AUFLÖSUNG (der zentrale Design-Entscheid des Herzstücks):** Die Befund-2-Vereinheitlichung (Such ÜBER den
 LayoutAwareChunkedStore, sodass node/layout/allocator real auf den Such-Pfad wirken) ist **NUR für die Array-Such-Algo-Familie
 möglich**. Für sie: `container_t`-Traversal = das zu `Composition::search_algo` passende **Array-Traversal-Organ** (statt
-hart-verdrahtetem SortedBinary), `search_organ_` entfällt. Die **Tree/Trie/Hash-Tiere sind inhärent NICHT flach-store-
+hart-verdrahtetem SortedBinary), `search_organ_` entfällt. Die **Tree/Trie/Hash-Lebewesen sind inhärent NICHT flach-store-
 traversierbar** → **Weg-B** (Plan §3): `search_organ_` bleibt für sie, `tier_search_routes_through_store()==false`, ehrliche
 Appendix-Limitierung (ihre node/layout-Achsen beschreiben den separaten Mess-Store, nicht den Such-Pfad). Das ist EXAKT der
 Cross-Achsen-Constraint G3 (Doc 34 §3/§12 + e2e-Abnahme `AdHoc<Organ,Default>` ill-formed) — **jetzt am Code bestätigt, nicht
-nur vermutet.** Meta-Lehre #3 wird damit ehrlich erfüllbar: store-geroutete Tiere liefern echte Achsen-Diffs, Weg-B-Tiere
+nur vermutet.** Meta-Lehre #3 wird damit ehrlich erfüllbar: store-geroutete Lebewesen liefern echte Achsen-Diffs, Weg-B-Lebewesen
 werden als nicht-store-geroutet ausgewiesen (kein Apparat-Artefakt-Vortäuschen).
 
 **A2.4/A2.5-Implementierungs-Pfad (durch diese Auflösung DE-RISKED, nächster frischer Voll-Kontext):**
@@ -195,7 +195,7 @@ werden als nicht-store-geroutet ausgewiesen (kein Apparat-Artefakt-Vortäuschen)
    `search_organ_`; `search_organ_` nur noch im Weg-B-Zweig instanziiert (`if constexpr`, zero-cost im store-Zweig).
 4. `static_assert` über die ZIEL-Population (welche der 320 store-traversierbar — Meta-Lehre #1/#2; ehrlich ausgewiesen).
 5. `perm_runner`→V2-POD (node_*-Felder aus dem EINEN Store). 6. cowfix-v1-Neubau + Meta-#3-node-Wechsel-Test (node4 vs
-   node256 → verschiedene Such-seg_ns für store-geroutete Tiere = Beleg verschiedener Pfade).
+   node256 → verschiedene Such-seg_ns für store-geroutete Lebewesen = Beleg verschiedener Pfade).
 
 ## §11 Exekutions-Stand A2.4 (verifiziert gruen, 2026-06-13)
 
@@ -228,25 +228,25 @@ werden als nicht-store-geroutet ausgewiesen (kein Apparat-Artefakt-Vortäuschen)
 
 ### §11.2 A2.5 — Befund-2/Q2-Schritt-4 KERN-FIX DONE (verifiziert gruen, ce 9ce0ba7)
 
-**Der dominante, mission-kritische Mess-Echtheits-Defekt ist behoben** (fuer die store-traversierbaren Tiere). In abi_adapter.hpp:
+**Der dominante, mission-kritische Mess-Echtheits-Defekt ist behoben** (fuer die store-traversierbaren Lebewesen). In abi_adapter.hpp:
 - `container_traversal_t = std::conditional_t<StoreTraversableSearchAlgo<SearchAlgo>, traversal_for_search_algo_t<SearchAlgo>,
   SortedBinaryTraversal>` → container_ nutzt fuer LinearScan/Interpolation ihr TREUES Traversal-Organ ueber den
   LayoutAwareChunkedStore (node/layout/allocator wirken auf den Such-Pfad); Weg-B-Algos: SortedBinary-Fallback.
 - `fill_observer_v3` T0-Such-Metrik-QUELLE conditional: store-traversierbar -> `container_.statistics()` (Store) statt
   `search_organ_.statistics()` (Monolith-Schatten) → **node/layout-Wechsel aendern jetzt T0 = Meta-Lehre #3 erfuellbar**.
-- `tier_search_routes_through_store()` jetzt EHRLICH `StoreTraversableSearchAlgo<SearchAlgo>` (true fuer store-geroutete Tiere).
+- `tier_search_routes_through_store()` jetzt EHRLICH `StoreTraversableSearchAlgo<SearchAlgo>` (true fuer store-geroutete Lebewesen).
 VERIFIZIERT: test_v41_anatomy_observer 18/18 + test_v5_organ_memento 2/2 (CoW mit neuem container_t) + probe2 exit=0.
 
 **Wirkung:** Die Befund-2-Entkopplung (Such-Achse vs Storage-Achsen) ist fuer LinearScan/Interpolation aufgehoben — ihre
 Achsen-Austauschbarkeits-Belege sind kein Apparat-Artefakt mehr (Meta-Lehre #3). Voll wirksam im cowfix-v1-Neubau (A2.8).
 **Verbleibend (Verfeinerung, kein Blocker mehr fuer den Kern):** search_organ_-Voll-Entfernung im store-Zweig (M8-Doppel-Store-
-Reinheit, koppelt an A2.2) + KAry/Eytzinger-Traversal-Organe (mehr store-geroutete Tiere) + A2.6 perm_runner-POD + A2.8 Neubau.
+Reinheit, koppelt an A2.2) + KAry/Eytzinger-Traversal-Organe (mehr store-geroutete Lebewesen) + A2.6 perm_runner-POD + A2.8 Neubau.
 
 ### §11.3 A2.6 GEGENSTANDSLOS nach A2.5 (verifiziert am Code)
 
 Der perm_runner zieht bereits den EINEN konsolidierten Observer-POD via `tier.tier_observe(&r.unified)` (perm_runner.hpp:116)
 und emittiert die VOLLE Matrix `axis_stats[19][8]+seg_ns[19]` (:40-48,:118). A2.5s Korrektur (axis_stats[0]=T0 aus container_
-fuer store-traversierbare Tiere via fill_observer_v3) fliesst AUTOMATISCH durch diese I1-Pipeline (keine perm_runner-Aenderung
+fuer store-traversierbare Lebewesen via fill_observer_v3) fliesst AUTOMATISCH durch diese I1-Pipeline (keine perm_runner-Aenderung
 noetig). ⇒ **A2.6 (perm_runner->V2-POD) ist durch die I1-Konsolidierung + A2.5 bereits erfuellt = gegenstandslos.**
 
 **BEFUND-2/Q2-SCHRITT-4-KOMPLEXAUFGABE ABGESCHLOSSEN** (A2.1+A2.3+A2.4-S1/S2/S3+A2.5, A2.6 gegenstandslos): der dominante,
