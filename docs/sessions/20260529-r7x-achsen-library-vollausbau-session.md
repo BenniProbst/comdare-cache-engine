@@ -143,11 +143,11 @@ Goldstandard-Vorlage für neue axis_03a-Wrapper: `axis_03a_search_algo_skip_list
 **Kontext:** Nach den Einheiten 1–40 (Such-Bibliothek + F15 + robuste Statistik + Coverage + F.2/F.3-Fassade) hat der User ZWEI fundamentale Architektur-Abweichungen festgestellt und eine Kurs-Korrektur gesteuert. Dieser Block hält den Stand bei der Pause fest. **Repo:** ce `3d3a41a` (v34-final-231) · da `27e3b70` · pa `35d1143` — 3-Repo-synchron.
 
 ### A. Festgestellte Abweichungen (User 2026-05-29) — beide bestätigt + dokumentiert
-1. **Säule 1 — „Tiere statt Organe":** axis_03a wurde um monolithische self-contained Such-Strukturen (BST/B-Baum/SkipList/Hash, eigener Speicher, schmaler uint8/uint16-Key) erweitert. Widerspricht Doku 14 §1–§3 (Achse=Organ, Algorithmus=Komposition über 17 Organe) + §7 (axis_03a REFACTORING-PFLICHT).
+1. **Säule 1 — „Lebewesen statt Organe":** axis_03a wurde um monolithische self-contained Such-Strukturen (BST/B-Baum/SkipList/Hash, eigener Speicher, schmaler uint8/uint16-Key) erweitert. Widerspricht Doku 14 §1–§3 (Achse=Organ, Algorithmus=Komposition über 17 Organe) + §7 (axis_03a REFACTORING-PFLICHT).
 2. **Säule 2 — Wall-Clock-3-Achsen statt Per-Achsen-Observer:** F15 maß Wall-Clock über 3 künstlich variierte Achsen + umging `observe_all()` (den Per-Achsen-`ObserverAggregate`, Doku 14 §17.2/§20).
 
 ### B. Korrigiertes Mess-Modell (Doku 24, autoritativ) — drei getrennte Aspekte
-1. **Tier-Ebene (ganzer Algorithmus):** CacheEngineBuilder misst Wall-Clock als Akkumulation von Detail-Kurven (Latenz über Füllstand, read/write/delete getrennt) + RAM + Disk. (Wall-Clock bleibt hier.)
+1. **Lebewesen-Ebene (ganzer Algorithmus):** CacheEngineBuilder misst Wall-Clock als Akkumulation von Detail-Kurven (Latenz über Füllstand, read/write/delete getrennt) + RAM + Disk. (Wall-Clock bleibt hier.)
 2. **Achsen-Ebene:** `observe_all()` → `ObserverAggregate` sammelt je Achse `statistics()` → Gesamt-Statistics-Trace.
 3. **Achsen-VERGLEICH:** Tests gegen die vereinheitlichten Achsen-Interfaces vs. bekannte Algorithmen (z. B. `verify_matches_std_map`), NICHT die Latenz-Benchmark.
 
@@ -160,9 +160,9 @@ Goldstandard-Vorlage für neue axis_03a-Wrapper: `axis_03a_search_algo_skip_list
 
 ### D. RESUME-PLAN (Reihenfolge, wenn der User fortsetzt) — Doku 24 §6 Folge-Increments
 1. **node_type/layout/allocator als ECHTE Storage-Organe** (statt trait-only) → `RawSlotStore` durch organ-getriebenen Speicher ersetzen (axis_04/05/06 bekommen ein echtes Slot/Storage-API).
-2. **Tier-Wrapper umstufen:** Array256/BST/B-Baum/Original*… als **Reference-Compositions / Stufe-2-Prüfling-Referenzen** (Doku 14 §6), NICHT als axis_03a-Organe.
+2. **Lebewesen-Wrapper umstufen:** Array256/BST/B-Baum/Original*… als **Reference-Compositions / Stufe-2-Prüfling-Referenzen** (Doku 14 §6), NICHT als axis_03a-Organe.
 3. **Anatomie + AnatomyExecutionContext auf `ComposedSearch`** (gemeinsamer uint64-Key) umstellen → schliesst die §5.2-NULL-Lücke (observe_all real im Mess-Pfad) + vereinheitlicht die 3 Pfade.
-4. **Säule 2 vollenden:** Mess-Pfad (abi_adapter/CLI) erhebt pro Permutation den Per-Achsen-`observe_all`-Trace ZUSÄTZLICH zur Tier-Wall-Clock; Tier-Metriken anreichern (Füllstands-Kurven, r/w/d, RAM/Disk).
+4. **Säule 2 vollenden:** Mess-Pfad (abi_adapter/CLI) erhebt pro Permutation den Per-Achsen-`observe_all`-Trace ZUSÄTZLICH zur Lebewesen-Wall-Clock; Lebewesen-Metriken anreichern (Füllstands-Kurven, r/w/d, RAM/Disk).
 5. **Achsen-Vergleich** (Doku 24 §2.3) als Interface-Tests-vs-bekannte-Algos ausbauen.
 
 ### E. Restore-Tags dieser Phase (alle gepusht)
@@ -179,7 +179,7 @@ Goldstandard-Vorlage für neue axis_03a-Wrapper: `axis_03a_search_algo_skip_list
 ### Implementiert (ce `a703cfc`, Tag `v41-saeule1-inc1-nodetype-storage-organ`)
 - **`storage_organ_concept.hpp`** (neu): `StorageOrgan<S>`-Concept, aus `RawSlotStore` extrahiert (keine erfundene Abstraktion), gemeinsamer **uint64**-Key. `static_assert(StorageOrgan<RawSlotStore>)` als Selbstbeweis in `composable_search.hpp`.
 - **`axis_04_node_type_slot_store.hpp`** (neu): `NodeTypeSlotStore<N>` macht den node_type zum echten Storage-Organ (bounded `std::array` der Kapazität `N::max_capacity()`, uint64-Key) → von `ComposedSearch` konsumierbar. Compile-Selbstbeweis StorageOrgan + beide Traversal-Organe.
-- **Pilot-Test** `Saeule1_NodeTypeStorageOrgan.Node4DrivesBothTraversalOrgansAsStdMap`: Node4 ⊕ LinearScan/SortedBinary = std::map-äquivalent (key_mod=3 ≤ cap 4). node_type ist damit austauschbares Organ, kein „Tier".
+- **Pilot-Test** `Saeule1_NodeTypeStorageOrgan.Node4DrivesBothTraversalOrgansAsStdMap`: Node4 ⊕ LinearScan/SortedBinary = std::map-äquivalent (key_mod=3 ≤ cap 4). node_type ist damit austauschbares Organ, kein „Lebewesen".
 - **Anatomie/`AnatomyExecutionContext` (std::map) UNANGETASTET** (Folge-Increment, Doku 24 §6.3) — die 21 Builder-Tests bleiben grün.
 
 ### Build-Unblock (Boost.MP11-Prerequisite-Mechanismus)
@@ -198,4 +198,4 @@ ce `a703cfc` → GitHub + Tag gepusht · da `1bae82f` Submodule-Pointer auf `a70
 `pre-saeule1-nodetype-storage-organ-20260529` (= Stand `4d2369a` vor Increment 1).
 
 ### Offen (RESUME-PLAN-Schritte 2–5, Doku 24 §6) — unverändert
-2. node_type→**layout/allocator** als Storage-Organe (NodeTypeSlotStore<N,L,A>) · 3. Tier-Wrapper zu Reference-Compositions umstufen · 4. Anatomie/Context auf `ComposedSearch` · 5. Säule-2-Mess-Pfad + Achsen-Vergleichs-Tests.
+2. node_type→**layout/allocator** als Storage-Organe (NodeTypeSlotStore<N,L,A>) · 3. Lebewesen-Wrapper zu Reference-Compositions umstufen · 4. Anatomie/Context auf `ComposedSearch` · 5. Säule-2-Mess-Pfad + Achsen-Vergleichs-Tests.

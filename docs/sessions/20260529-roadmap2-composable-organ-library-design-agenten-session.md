@@ -3,7 +3,7 @@
 **Stand:** 2026-05-29 · **Typ:** Understand→Design→Synthesize-Workflow · **Task:** #37 (User-Roadmap Schritt 2, Pflicht)
 **Workflow:** `wc38kta4o` / Run `wf_6e998f70-415` — 7 Agenten, ~604k Subagent-Tokens, 137 Tool-Uses.
 **Zweck:** Agenten-Ergebnisse für spätere Konsultation festhalten, BEVOR implementiert wird.
-**Bezug:** Doku 14 §1-§3/§11.3 (Organ-Metapher), Doku 24 §6 (entblockt Tier-Wrapper-Umstufung #40). Vorgänger: Roadmap-1 (ce `d26c5de`).
+**Bezug:** Doku 14 §1-§3/§11.3 (Organ-Metapher), Doku 24 §6 (entblockt Lebewesen-Wrapper-Umstufung #40). Vorgänger: Roadmap-1 (ce `d26c5de`).
 
 > **Frage:** Wie nehmen wir Hash/BST-Baum/B-Baum als komponierbare Organe ins composable-Modell auf —
 > additiv, build-grün, ohne das flache StorageOrgan zu brechen?
@@ -12,7 +12,7 @@
 
 ## 1. Understand-Phase (3 Reader, code-verifiziert)
 
-### 1.1 Tier-Wrapper-Struktur (was zu zerlegen ist)
+### 1.1 Lebewesen-Wrapper-Struktur (was zu zerlegen ist)
 - **BST** (`bst.hpp:163-193`): `Node{key,val,left,right}` (uint32-Kind-Indizes) + `vector<Node> nodes_` + Free-List + `root_`. uint16-Key. Hibbard-Deletion.
 - **B-Baum** (`btree.hpp:164-170`): `alignas(64) Node{n,leaf,key[7],val[7],child[8]}` + nodes_ + Free-List. t=4 (CLRS).
 - **Hash** (`hash_search.hpp:167-207`): `Slot{key,val,state}` + `buckets_` + mask + tombstones + Rehash (Fibonacci-Hash, load 0.7).
@@ -58,8 +58,8 @@ Das flache `StorageOrgan` (`storage_organ_concept.hpp:40-48`) bietet pro Slot nu
 ## 4. Build-grüne Reihenfolge
 INC-2a Header (je static_assert) → INC-2a Tests (RawSlotStore + Node4 + ComposedStore, verify_matches_std_map) → **Build+ctest grün** → INC-2b Header (Pool-Concept → Pool-Store → BSTTraversalOrgan → ComposedTreeSearch, je static_assert) → INC-2b Tests (BST über Pool: std::map + degenerierter sortierter Input + Hibbard-3-Fälle) → **Build+ctest grün**. Rein additiv.
 
-## 5. Entblockt #40 (Tier-Wrapper-Umstufung)
+## 5. Entblockt #40 (Lebewesen-Wrapper-Umstufung)
 Nach diesem Increment existiert das Organ-Pendant pro Such-METHODE: VectorU16U16/InterpolationSearchAlgo → `ComposedSearch<{Sorted|Interpolation}TraversalOrgan>`; BST/B-Baum → `ComposedTreeSearch<BSTTraversalOrgan, TreeNodePoolStore>`. Erst danach ist #40 (BST/B-Baum) durchführbar. Liefert nur die Voraussetzung, führt die EnabledStrategies-Umstufung NICHT aus.
 
 ## 6. Scope-Grenze (Folge-Increments)
-Hash als O(1)-Bucket-Organ (eigene `HashBucketPool`+`ProbeTraversalOrgan`-Familie); SkipList; Eytzinger/k-ary; voller CLRS-B-Baum-Delete falls zu groß; observable_composed_tree_search (Säule-2-Durchgriff für Pool-Organe); abi_adapter/Tier-Wall-Clock (#38); tatsächliche EnabledStrategies-Umstufung (#40). KEINE StorageOrgan/TraversalOrgan-Änderung, KEINE Infrastruktur.
+Hash als O(1)-Bucket-Organ (eigene `HashBucketPool`+`ProbeTraversalOrgan`-Familie); SkipList; Eytzinger/k-ary; voller CLRS-B-Baum-Delete falls zu groß; observable_composed_tree_search (Säule-2-Durchgriff für Pool-Organe); abi_adapter/Lebewesen-Wall-Clock (#38); tatsächliche EnabledStrategies-Umstufung (#40). KEINE StorageOrgan/TraversalOrgan-Änderung, KEINE Infrastruktur.
