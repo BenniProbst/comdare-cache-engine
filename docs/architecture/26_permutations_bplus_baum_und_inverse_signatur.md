@@ -9,13 +9,13 @@
 > Grundsatz (merken): **Für Suche werden IMMER Bäume verwendet** — lineare Baum-Traversierung, NICHT quadratische
 > Scans. (Thematisch konsequent: die Diplomarbeit IST eine Studie über Such-/Baum-Algorithmen.)
 
-## 0. Schicht-Trennung — Experiment-Manager vs. Tiere/Organe vs. Diplomarbeit (User 2026-06-02)
+## 0. Schicht-Trennung — Experiment-Manager vs. Lebewesen/Organe vs. Diplomarbeit (User 2026-06-02)
 
 **Diese Ergänzung betrifft AUSSCHLIESSLICH die Organisation/Verarbeitung des Experiments (erhobene Permutationen +
 Ergebnisse). Sie ersetzt nur Bestandteile des MESS-Systems IN der `CacheEngineBuilder` (die das Prüf-Dock fährt) —
-die Tiere und Organe bleiben UNVERÄNDERT.** Tier/Organ-Metapher (Doku 14): Organ = Achse/Sub-Aufgabe eines Algorithmus;
-Tier = volle Achsen-Komposition; ein Tier liegt nur SEZIERT als Organ-Komposition vor. Der B+-Baum strukturiert + liest
-die Messungen ÜBER die Tiere/Organe, **greift aber nicht in sie ein**. Annahme: die aktuelle Cache Engine funktioniert
+die Lebewesen und Organe bleiben UNVERÄNDERT.** Lebewesen/Organ-Metapher (Doku 14): Organ = Achse/Sub-Aufgabe eines Algorithmus;
+Lebewesen = volle Achsen-Komposition; ein Lebewesen liegt nur SEZIERT als Organ-Komposition vor. Der B+-Baum strukturiert + liest
+die Messungen ÜBER die Lebewesen/Organe, **greift aber nicht in sie ein**. Annahme: die aktuelle Cache Engine funktioniert
 einwandfrei + ist perfekt aufgebaut — diese Ergänzung ändert nur die Mess-Organisation, nicht die Engine-Interna.
 
 **WER macht WAS:**
@@ -53,7 +53,7 @@ EIN großer B+-Baum repräsentiert das GESAMTE Experiment (alle Paper + alle Per
 - **Eingeschobene dynamische Variablenebene UNTER einer Achse:** jede Achse, die ZUSÄTZLICH dynamische Variablen
   durchläuft (z.B. die per-Organ-`cacheline`-Werte, oder thread_count unter concurrency), erzeugt unter ihrer
   Achsen-Ebene eine WEITERE dynamische Baumebene (mit eigenem Fanout über die dynamischen Werte).
-- **Blatt = Pointer auf das erzeugte optionale Resultat** (das Tier-Binary / der Mess-Eintrag; „optional", weil es
+- **Blatt = Pointer auf das erzeugte optionale Resultat** (das Lebewesen-Binary / der Mess-Eintrag; „optional", weil es
   bis zum Bau/zur Messung fehlen darf).
 - **JEDE node hält ein Key-Value (nicht nur die Blätter):**
   - **key** = die **serialisierte Signatur der Kind-Permutationen**, die der Knoten durch seine bloße Existenz
@@ -64,7 +64,7 @@ EIN großer B+-Baum repräsentiert das GESAMTE Experiment (alle Paper + alle Per
   Granularität (z. B. „alle Messungen unter traversal=ART" am ART-Knoten aggregiert) per reiner Baum-Traversierung.
 
 **Ausführungssemantik am Prüf-Dock (User 2026-06-02) — Kern der Trennung:**
-- **STATISCHE Knoten = je distinkter Static-Pfad lädt EINE NEUE Tier-Binary ins Prüf-Dock** (compile-time-Identität,
+- **STATISCHE Knoten = je distinkter Static-Pfad lädt EINE NEUE Lebewesen-Binary ins Prüf-Dock** (compile-time-Identität,
   inkl. der compile-time-Cache-Line-Sub-Properties line_size/alignment/sw_hint, die in die Binary gebacken sind).
 - **DYNAMISCHE Knoten = eine FOR-SCHLEIFE auf EINER bereits geladenen Binary**, die nacheinander die Test-Einstellungen
   über die Variablen-Schnittstelle (`Algorithm_Resource_Control`, KF-4) durchprobiert (thread_count, hw_prefetcher, …)
@@ -96,7 +96,7 @@ Teilbaum (Iterations-Schleifen je Binary). Das **BLATT (`ExperimentSetting`) akk
 als EXAKT EINE Experiment-Einstellung** (Binary × eine dyn. Kombination). Implementiert in
 `libs/cache_engine/builder/experiment_tree/` (KF-9, verifiziert).
 - **Pfad Wurzel→Blatt = die serialisierte, eindeutige Verifikation/Signatur** eines (gemischt statisch/dynamischen)
-  Tier-Binary-Experiments. Die Pfadabfolge ERSETZT den FNV1a-Fingerprint als eindeutige Binary-ID.
+  Lebewesen-Binary-Experiments. Die Pfadabfolge ERSETZT den FNV1a-Fingerprint als eindeutige Binary-ID.
 
 ```
                 (Wurzel)
@@ -114,9 +114,9 @@ als EXAKT EINE Experiment-Einstellung** (Binary × eine dyn. Kombination). Imple
 
 ## 3. Paper-Wiedererkennung über die statische Signatur (NICHT Hash)
 
-- **Ein Paper-Tier = statische Rekombination aus B+-Baum-Ebenen** — ein bestimmter Pfad über die GEPINNTEN Achsen.
+- **Ein Paper-Lebewesen = statische Rekombination aus B+-Baum-Ebenen** — ein bestimmter Pfad über die GEPINNTEN Achsen.
 - Die **statische Signatur** = das **Array der gepinnten Achsen-Werte** (die Ebenen, die sich für dieses Paper NICHT
-  ändern). Genau diese Signatur ist der **Wiedererkennungswert** für genau diesen Paper/Tier-Suchalgorithmus.
+  ändern). Genau diese Signatur ist der **Wiedererkennungswert** für genau diesen Paper/Lebewesen-Suchalgorithmus.
 - **Filterung der für ein Paper-Teilexperiment relevanten Mess-Einträge:** alle Blätter, deren Pfad auf den GEPINNTEN
   Ebenen die statische Signatur des Papers trägt (die freigegebenen/dynamischen Ebenen variieren frei).
 - **Doppelerkennung via multimap:** mehrere Paper können dieselbe statische Signatur teilen → `multimap<Signatur,
@@ -154,7 +154,7 @@ Serialisierung) → getrennte Typen + Factory (Typsicherheit + Erweiterbarkeit).
 
 ## 5. Komplexität
 
-- Aufbau + Traversierung des Baums = **linear** in der Zahl der Blätter (= Zahl der Tier-Binaries).
+- Aufbau + Traversierung des Baums = **linear** in der Zahl der Blätter (= Zahl der Lebewesen-Binaries).
 - Paper-Projektion = lineare Traversierung + Signatur-Filter (multimap-Lookup O(log) je Signatur).
 - KEINE quadratische All-gegen-all-Suche. **Für Suche immer Bäume.**
 
@@ -173,7 +173,7 @@ Serialisierung) → getrennte Typen + Factory (Typsicherheit + Erweiterbarkeit).
 
 - **KF-9** (Enumeration): NICHT flaches kartesisches Nested-Loop, sondern **B+-Baum bauen** (aus dem
   `comdare_thesis_profile`: gepinnt vs. freigegeben je Achse + dynamische Sub-Ebenen) und **traversieren**; jedes
-  Blatt = ein Tier-Binary, sein serialisierter Pfad = seine eindeutige ID. Statische Signatur je Blatt mitführen.
+  Blatt = ein Lebewesen-Binary, sein serialisierter Pfad = seine eindeutige ID. Statische Signatur je Blatt mitführen.
 - **KF-15** (inverse Auswertung): KEINE Hash-Dedup, sondern **`multimap<statische Signatur, Paper>`** +
   Projektion der gemessenen Blätter auf die Paper-Sichten per Signatur-Filter (linear).
 - **KF-8** (CEB-Generator): ZWEI getrennte Pfade (D3/L-77, 2026-06-02): (1) `ceb_generator::generate_all` = STRING-
@@ -186,7 +186,7 @@ Serialisierung) → getrennte Typen + Factory (Typsicherheit + Erweiterbarkeit).
 ## 8. Entscheidungen (Stand 2026-06-02, vom User bestätigt)
 
 - ✅ **Schicht-Trennung (§0):** B+-Baum/`CacheEngineBuilder` = Experiment-Manager (das WIE); Diplomarbeit = das WAS +
-  read-only-Traversal. Tiere/Organe unverändert (cacheline-Achse KF-3/5 = separate Bibliotheks-Achsen-Erweiterung).
+  read-only-Traversal. Lebewesen/Organe unverändert (cacheline-Achse KF-3/5 = separate Bibliotheks-Achsen-Erweiterung).
 - ✅ **Zwei Knotenarten** (`StaticAxisNode` / `DynamicVariableNode`), als Einzelklassen je Achseneigenschaft;
   compile-time vs. runtime als Attribut am dynamischen Knoten (keine dritte Art).
 - ✅ **Jede node hält key+value** (serialisierte Signatur → Observer-Statistics/Mess-Auswertung der Ebene).

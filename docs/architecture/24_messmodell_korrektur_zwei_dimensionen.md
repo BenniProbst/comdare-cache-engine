@@ -561,11 +561,11 @@ Legacy-ExperimentDriver-phase5 verdrahtet** (zwei Loader-Welten module_loader vs
 Folge-Charge); Set/Sequence/Adapter/View-Docks ab V42 (Gattungs-Implementierungen existieren noch nicht).
 > **[korr. 2026-06-03, s. Doc 30 §8.0:** Es gibt KEIN eigenes Set/Sequence/Adapter/View-Dock — die GATTUNG
 > ist das Außen-INTERFACE (= ein Prüf-Dock je Gattung: nur **SearchAlgorithm / Container / Graph**). Set,
-> Sequence, Adapter, View sind **Tier-Unterklassen UNTER dem Container-Interface**, NICHT je eine eigene
+> Sequence, Adapter, View sind **Lebewesen-Unterklassen UNTER dem Container-Interface**, NICHT je eine eigene
 > Gattung; sie teilen sich das EINE **Container-Dock**. „ab V42" gilt also für das **Container-Dock** (+ dessen
-> Tier-Unterklassen Set/Sequence/Adapter/View als feste Achsen-Sätze unter dem Container-Interface), nicht für
+> Lebewesen-Unterklassen Set/Sequence/Adapter/View als feste Achsen-Sätze unter dem Container-Interface), nicht für
 > vier separate Docks. Das `SearchAlgorithm`-Dock (§8.8) bleibt korrekt = das eine Interface der heute einzigen
-> gebauten Tier-Unterklasse (std::map-ähnliche 17/19-Achsen-Komposition).]**
+> gebauten Lebewesen-Unterklasse (std::map-ähnliche 17/19-Achsen-Komposition).]**
 
 ---
 
