@@ -32,12 +32,12 @@
 ## §1 Ausgangslage (verifiziert, 2026-06-12 früh)
 
 - **320 cowmem-v1-DLLs gebaut** (laufen real auf dem Copy-Memento-Pfad — Audit K3: Label verbrannt, aber
-  **MESSWERTE NICHT verfälscht**, rb_exact true). 9/320 Tiere tragen gültige 10k-Stamps; der gestoppte
+  **MESSWERTE NICHT verfälscht**, rb_exact true). 9/320 Lebewesen tragen gültige 10k-Stamps; der gestoppte
   C-Lauf ist via Resume fortsetzbar.
 - **Beide Audits komplett:** 85 bestätigte Befunde (32 blocker/36 major/17 minor), konsolidiert als
   Kern-Defekte K1-K10 + 4-Wellen-Fix-Plan (`20260611-audit-ergebnisse-synthese.md` §4, Task #142).
 - **Bekannte Daten-Limitierungen eines SOFORT-Laufs** (ohne Welle 2): RC-Subdimension = 6 Pseudo-Replikate
-  (für tier×workload-Auswertung nutzbar als zusätzliche Wiederholungen — ehrlich ausweisen); 2/21
+  (für Lebewesen×workload-Auswertung nutzbar als zusätzliche Wiederholungen — ehrlich ausweisen); 2/21
   Scan-Profile (ycsb_e, lp_range_scan) invalide (No-Op) → aus der Auswertung ausschließen;
   Insert-Profile messen Upserts (ausweisen); stat_*-Spalten enthalten die Load-Phase (ausweisen);
   ns_per_op-Spalte vor M1-Fix halbiert.
@@ -52,12 +52,12 @@
 HEUTE (2026-06-12):  M1 Quick-Fixes (NUR Host/XML/Harness — DLLs unangetastet!) → M2 Lauf-START (Resume)
                      ║ parallel (CPU-leicht):  L1-L5 Auswertungs-/Appendix-Pipeline bauen
 ABEND/NACHT:         Lauf misst; L6 Teilstand-Generalprobe: Teil-CSV → Appendix → Thesis-PDF
-MORGEN (Termin):     L7 Professor-Paket aus dem Teilstand (so viele Tiere wie fertig)
+MORGEN (Termin):     L7 Professor-Paket aus dem Teilstand (so viele Lebewesen wie fertig)
 NACH DEM TERMIN:     A1-A4 Audit-Wellen autonom (inkl. cowfix-v1-DLL-Neubau) → M3 finaler Voll-Lauf
 FINAL:               L8 End-to-End: EIN Experiment-Aufruf → komplette Matrix → Appendix → fertige PDF
 ```
 Begründung der Parallelität: Der Termin braucht die AUSWERTUNG dringender als die Voll-Matrix; der Lauf
-liefert über Resume kontinuierlich per-Tier-Ergebnisse, die die Pipeline jederzeit einsammeln kann.
+liefert über Resume kontinuierlich per-Lebewesen-Ergebnisse, die die Pipeline jederzeit einsammeln kann.
 
 ---
 
@@ -78,38 +78,38 @@ liefert über Resume kontinuierlich per-Tier-Ergebnisse, die die Pipeline jederz
 - [ ] **M1.4 Stamp-Write-Gate (K8):** Stamp nur nach `pf.good()`-verifiziertem result.csv-Write; Gültigkeits-
       Gate (kein Stamp, wenn eine Zeile two_phase_valid=0 enthält — Audit „Stempel gated nicht Gültigkeit").
       ✓ Negativ-Probe: erzwungener Schreibfehler hinterlässt KEINEN Stamp.
-- [ ] **M1.5 Host-Rebuild + Mini-Smoke** (1 Tier, n_ops=1000): ✓ Exit 0, ns_per_op-Stichprobe korrekt,
+- [ ] **M1.5 Host-Rebuild + Mini-Smoke** (1 Lebewesen, n_ops=1000): ✓ Exit 0, ns_per_op-Stichprobe korrekt,
       Stamp entsteht.
-- [ ] **M2.1 Voll-Lauf STARTEN** (Hintergrund, tokenfrei): 320 Tiere, **BuildVersion `cowmem-v1`
+- [ ] **M2.1 Voll-Lauf STARTEN** (Hintergrund, tokenfrei): 320 Lebewesen, **BuildVersion `cowmem-v1`
       UNVERÄNDERT** (kein DLL-Neubau — Copy-Pfad-Messwerte sind valide; Audit-Label-Problem ist
       dokumentiert und für die DATEN irrelevant), n_ops=10000, records=10000, n_repeats=3, 21 Profile,
-      Resume an (9 fertige Tiere werden übersprungen — deren ns_per_op wird in der Auswertung neu aus
+      Resume an (9 fertige Lebewesen werden übersprungen — deren ns_per_op wird in der Auswertung neu aus
       total_ns abgeleitet, NICHT aus der CSV-Spalte: deckt M1.1 rückwirkend). ✓ Prozess läuft; Stamps
       wachsen.
 - [ ] **M2.2 Fortschritts-Snapshot-Skript:** kleiner PowerShell-Einzeiler (Stamps zählen + Teil-CSV aus
       allen fertigen result.csv konkatenieren — Header einmal) für jederzeitige Auswertungs-Stände.
-      ✓ Teil-CSV mit N fertigen Tieren entsteht reproduzierbar.
+      ✓ Teil-CSV mit N fertigen Lebewesen entsteht reproduzierbar.
 - [ ] **M3 (NACH Phase A) finaler Voll-Lauf** mit `cowfix-v1` (echtes CoW, Apparat-bereinigt, alle 21
       Profile inkl. Scans valide) → ersetzt die M2-Daten für die finale Abgabe. ✓ 120.960 Zeilen, 0
       Fehlmessungen, NAS-Ablage verifiziert.
 
 ### Phase L — Auswertung/Appendix/PDF (parallel zu M2 bauen; kritischer Pfad für MORGEN)
 
-- [ ] **L1 Datenmodell „Ausgabe = Testdaten-Konfig × Tier":** Stufe 04 erweitern: aus `setting`+`workload`
+- [ ] **L1 Datenmodell „Ausgabe = Testdaten-Konfig × Lebewesen":** Stufe 04 erweitern: aus `setting`+`workload`
       die VOLLE Testdaten-Konfig extrahieren (workload_id, n_ops, records, repetition, thread/prefetch-Label
-      [als „nominal" ausgewiesen, K1]) und vom Tier (binary_id → 19 Achsen-Belegungen geparst) TRENNEN;
+      [als „nominal" ausgewiesen, K1]) und vom Lebewesen (binary_id → 19 Achsen-Belegungen geparst) TRENNEN;
       je INTERFACE-FUNKTION (insert/lookup/erase/scan/rmw/clear) eigene Kennzahl: Median-ns je Op-Art aus
       den per-Op-Latenz-Spalten… **Achtung Datenlage:** die globale CSV trägt total_ns je Zeile, die
       per-Op-Art-Aufschlüsselung (insert_p50/lookup_p50/…) existiert im WorkloadRunResult — prüfen, ob sie
       in der WIDE-CSV ankommt; falls nein → M1-Nachtrag: per-Op-Art-Spalten in lazy_csv_header/format_csv_row
-      ergänzen (Host-only, vor M2.1!). ✓ Parser liefert je Zeile (Konfig-Tupel, Tier-Tupel, {op_art → ns/op}).
+      ergänzen (Host-only, vor M2.1!). ✓ Parser liefert je Zeile (Konfig-Tupel, Lebewesen-Tupel, {op_art → ns/op}).
 - [ ] **L2 3D-Diagramme:** je Interface-Funktion EIN pgfplots-`\addplot3`-Surface: x = Testdaten-Konfig
-      (Workload-Index, sortiert+legendiert), y = Tier (Index über die 320, sortiert nach Achsen-Lexikografie),
+      (Workload-Index, sortiert+legendiert), y = Lebewesen (Index über die 320, sortiert nach Achsen-Lexikografie),
       **z = Verarbeitungsdauer je Testdatensatz-Operation (ns/op)**; zusätzlich je search_algo-Familie ein
       Detail-Surface. Generator in Stufe 05 (`05_diagram_generator`), Ausgabe = standalone .tex-Bausteine
       mit RELATIVEN Pfaden. ✓ Test-PDF zeigt ≥1 Surface mit echten Smoke-Daten.
 - [ ] **L3 Achsen-Austauschbarkeits-Diffs (Kern-Beleg für den Professor):** für jede Achse a und jedes
-      Werte-Paar (v→v′): alle Tier-Paare, die sich NUR in a unterscheiden (vollständige Rekombination ⇒
+      Werte-Paar (v→v′): alle Lebewesen-Paare, die sich NUR in a unterscheiden (vollständige Rekombination ⇒
       systematische Paarbildung über die binary_id-Tupel); je Paar und Workload: Δns/op je Interface-
       Funktion + relatives Δ; Aggregat je (a, v→v′): Median/IQR über alle Paare×Workloads. **Ausgabe: unter
       jedem Diagramm eine longtable (Länge egal — Vollständigkeit zählt).** ✓ Für eine Stichproben-Achse
@@ -117,7 +117,7 @@ liefert über Resume kontinuierlich per-Tier-Ergebnisse, die die Pipeline jederz
 - [ ] **L4 Appendix-Generator (IMMER ALLE Werte):** Stufe-04/05-Ausgaben zu EINEM `appendix_messwerte.tex`
       komponieren: §A Mess-Konfiguration (Profile, Seeds, Maschinen-Daten, Lauf-Metadaten, bekannte
       Limitierungen aus §1 EHRLICH tabelliert) · §B 3D-Diagramme je Interface-Funktion · §C Austauschbar-
-      keits-Difftabellen je Achse · §D Roh-Aggregat-Tabellen (alle Konfig×Tier-Zellen). ✓ .tex kompiliert
+      keits-Difftabellen je Achse · §D Roh-Aggregat-Tabellen (alle Konfig×Lebewesen-Zellen). ✓ .tex kompiliert
       standalone.
 - [ ] **L5 Thesis-Integration (relative Pfade, diplominf):** Appendix in `thesis/diplomarbeit` einhängen
       (\input mit RELATIVEM Pfad vom Thesis-Root; Anhang-Kapitel gemäß TU/ZIH-Vorlage; KEINE Vorlagen-
@@ -147,7 +147,7 @@ liefert über Resume kontinuierlich per-Tier-Ergebnisse, die die Pipeline jederz
       + static_assert über mind. eine echte Pilot-AdHoc-Komposition (Lehre #1/#2) · Iterator-Scan als
       Organ-API (K4; Hash-Organe ehrlich nicht-scanbar) · uint16→uint64-Key-Entscheid der 03a-Organe ·
       Load-Phase aus stat_*-Spalten heraushalten (Observer-Reset nach Load) · fill_segment_timing-T0-Restore.
-      ✓ test_cow_memento erweitert (Pilot-Typen!) grün; 1-Tier-Smoke zeigt CoW-Diagnose aktiv + Scan-Werte >0.
+      ✓ test_cow_memento erweitert (Pilot-Typen!) grün; 1-Lebewesen-Smoke zeigt CoW-Diagnose aktiv + Scan-Werte >0.
 - [ ] **A3 Welle 3 — Dimension/Validität:** RC-Organ-Hooks gemäß §7-A ODER RC-Dims ehrlich entfernen
       (User-Entscheid einholen; bis dahin Auswertung markiert sie als nominal) · Zipfian/Latest-Key-
       Scrambling (z.B. Splitmix64-Hash) · Konformitäts-Gate in den Voll-Lauf-Pfad (import→GATE→messen) ·

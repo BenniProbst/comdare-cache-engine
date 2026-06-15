@@ -50,7 +50,7 @@ Workload-Pfad (Achse 2) liefert aber GENAU n_ops getimte Ops. `total_ns` ist kor
 abgeleitete Spalte ist falsch. Trivialer Fix, aber jede bisherige ns_per_op-Interpretation der
 Profil-Zeilen war 2× zu optimistisch.
 
-**K3 — Memento-Capability für ALLE 320 Voll-Lauf-Tiere compile-time tot (3× gefunden).**
+**K3 — Memento-Capability für ALLE 320 Voll-Lauf-Lebewesen compile-time tot (3× gefunden).**
 `organ_*_capable_v` verlangt `restore_statistics` — das existiert NUR in den zwei Observable-Hüllen. Die
 320 FullPilot-DLLs tragen im search_algo-Slot die ROHEN Registry-Wrapper (KAry/Interpolation/Eytzinger/
 LinearScanSearchAlgo: statistics()/reset() ja, restore_statistics nein) → Capability false → stiller
@@ -74,7 +74,7 @@ In JEDER getimten Op stecken: (a) verdeckter Doppel-Lookup (is_new-Rekonstruktio
 Ergebnis verworfen), (b) `std::function`-basiertes `observer_.notify()` ohne je setzbaren Subscriber,
 (c) der Schatten-Container `container_` = SortedBinaryTraversal über LayoutAwareChunkedStore →
 `insert_slot_at`/`erase_slot_at` = flatten+rebuild **O(n) mit Re-Allokationen** je tier_insert/tier_erase,
-(d) T1/T2-Auto-Kopplungs-Buchführung. Die „Tier-Latenz" misst damit überwiegend Apparat, nicht Such-Organ.
+(d) T1/T2-Auto-Kopplungs-Buchführung. Die „Lebewesen-Latenz" misst damit überwiegend Apparat, nicht Such-Organ.
 
 **K6 — Phantom-Allocator: die T6-Achse misst den Policy-Allokator NIE (Pattern-Audit).**
 NodeChunkedStore/LayoutAwareChunkedStore constrainen die Allocator-Policy A, allozieren aber über den
