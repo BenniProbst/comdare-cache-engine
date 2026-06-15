@@ -34,7 +34,7 @@ aller 3 Repos nach jedem Schritt.
 | KF-14 | Thesis-Anbindung (Profil → Mess-Anhang, 3-Wdh-Overlay) | ✅ | `anhang/{de,en}/A_measurements.tex`, verifizierte E2E-Kette (PDF 0 Fehler) |
 | **KF-9** | **Experiment-B+-Baum (Experiment-Manager) + per-node Key-Value** | ✅ **12/12** | `builder/experiment_tree/experiment_tree.hpp` + `profile_to_tree.hpp` (CE cb21be4) |
 | **KF-8** | **C++23/CEB-Generator (kein Python) — Baum → `perm_<id>.cpp`** | ✅ **11/11 + gen. Source kompiliert** | `builder/experiment_tree/ceb_generator.hpp` (CE 56a6931, DA c1b0a9d) |
-| KF-5 | Cache-Line-Support in betroffene Tier-Algorithmen einweben (4 Achsen) | ⏳ offen | — |
+| KF-5 | Cache-Line-Support in betroffene Lebewesen-Algorithmen einweben (4 Achsen) | ⏳ offen | — |
 | KF-6 | node-Achse echt verdrahten (Run-Body-Divergenz je Node-Format) | ⏳ offen | — |
 | KF-7 | Dynamischer Laufzeit-Durchlauf am Prüf-Dock (`Algorithm_Resource_Control` + MSR) | ⏳ offen | — |
 | KF-10 | Wiederholungen Default 3 — separat, nie interpoliert | ⏳ offen | — |
@@ -50,7 +50,7 @@ aller 3 Repos nach jedem Schritt.
 - **EIN zusammenhängender Permutations-B+-Baum** = das Gesamt-Experiment. Jede Ebene = Achsen-Entscheidung.
   Gepinnte Achse → Fanout 1; freigegebene Achse → Fanout N.
 - **STATISCHE Knoten** (compile-time, inkl. cacheline size/align/hint): je distinkter Static-Pfad **lädt EINE neue
-  Tier-Binary** ins Prüf-Dock. **DYNAMISCHE Knoten** (thread_count, hw_prefetcher): **virtuelle for-Schleife** auf
+  Lebewesen-Binary** ins Prüf-Dock. **DYNAMISCHE Knoten** (thread_count, hw_prefetcher): **virtuelle for-Schleife** auf
   EINER geladenen Binary via `Algorithm_Resource_Control` (KF-4). Erzeugen KEINE neue Binary.
 - **Materialisierung:** nur die statischen Ebenen werden materialisiert (→ Binary-Blätter); dyn. Variablen sind
   virtuell geschachtelte Schleifen → `binary_count` ≠ dyn. Kartesik. `static_filter()`/`dynamic_filter()`.
@@ -73,7 +73,7 @@ aller 3 Repos nach jedem Schritt.
 > Build Prozess unter Verwendung aller CPU Kerne**."
 
 **Architektur-Einordnung (Pre-Read-Beleg):**
-- `messarchitektur_v5_design.md` §2: „Profil baut **zuerst den HOST** → Host permutiert eine Tier-Binary-Config →
+- `messarchitektur_v5_design.md` §2: „Profil baut **zuerst den HOST** → Host permutiert eine Lebewesen-Binary-Config →
   **baut zuerst alle DLLs** → **misst danach** (Build vor Mess-Phase, nicht verschränkt)." → KF-16 ist die
   **C++23-Realisierung dieses „baut zuerst alle DLLs"**, getrieben vom statischen Teilbaum.
 - Doc 26 §0: Build+Messen = Aufgabe der Bibliothek (`CacheEngineBuilder`, das WIE). → KF-16 sitzt korrekt im Builder.
@@ -86,7 +86,7 @@ aller 3 Repos nach jedem Schritt.
 1. **`StaticBinaryView`** (in `experiment_tree.hpp`, erweitert KF-9 `static_filter`/`for_each_binary`): **indizierter,
    iterierbarer** Blick auf den statischen Teilbaum — `size()`, `operator[](i)`, `begin()/end()`, je Element
    `BinarySpec{index, binary_id, pinned_signature, axes[(achse,wert)…]}`. Das ist exakt das geforderte „Interface,
-   um die statischen Eigenschaften zur Kompilation aller Tier-Binaries indexiert mit einem Iterator zu durchlaufen".
+   um die statischen Eigenschaften zur Kompilation aller Lebewesen-Binaries indexiert mit einem Iterator zu durchlaufen".
 2. **`BuildOrchestrator`** (`builder/build_orchestrator/build_orchestrator.hpp`, C++23, header-only): nimmt die
    `StaticBinaryView` + KF-8-`generate_perm_source` → erzeugt/kompiliert je Binary ein `perm_<id>.dll`.
    **Multithreading:** `parallel_jobs = max(1, total_cores / cores_per_build)`, Default `cores_per_build = 2`,
@@ -104,7 +104,7 @@ aller 3 Repos nach jedem Schritt.
 - **Cache-Engine-Bibliothek = WIE:** Profilverwaltung + Permutation (Baum-Aufbau/-Traversal) + Organe/Achsen + Messen
   am Prüf-Dock + **Build-Orchestrierung (KF-16)** = immer Builder-Aufgabe.
 - **Diplomarbeit = WAS:** liefert `comdare_thesis_profile`, liest Ergebnisse **read-only über Baum-Traversal**.
-- **Tiere/Organe UNVERÄNDERT** durch den Experiment-Manager. AUSNAHME (User-mandatiert): die per-Organ-`cacheline`-
+- **Lebewesen/Organe UNVERÄNDERT** durch den Experiment-Manager. AUSNAHME (User-mandatiert): die per-Organ-`cacheline`-
   Unterachse (KF-3/KF-5) ist eine **separate Bibliotheks-Achsen-Erweiterung** (erweitert Organ-Algorithmen, damit
   sie die untersuchte Cache-Line-Eigenschaft tragen) — NICHT Teil des Managers.
 
@@ -132,7 +132,7 @@ Deutsch (Diakritika); KEINE Erfolgsmarken ohne literale Tool-Ausgabe; keine Quic
 Doku nie löschen (nur `git mv`); destruktive Ops in den 3 Thesis-Repos OHNE Rückfrage NUR mit Tag+Commit+Push;
 Submodul-Sync nach jedem ce/pa-Push (DA-Pointer bumpen); Keys nie committen; Algorithmus-Korrektheit bei
 Namensanspruch; KEIN Python in der Buildchain; Compile-Time-Only / kein Runtime-Switch im Hot-Path; FÜR SUCHE
-IMMER BÄUME (linear); Tiere/Organe bleiben durch den Manager UNVERÄNDERT; Bibliothek = WIE / Diplomarbeit = WAS.
+IMMER BÄUME (linear); Lebewesen/Organe bleiben durch den Manager UNVERÄNDERT; Bibliothek = WIE / Diplomarbeit = WAS.
 
 ---
 

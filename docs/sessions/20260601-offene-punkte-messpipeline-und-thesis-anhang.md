@@ -1,4 +1,4 @@
-# Offene Punkte — Mess-Pipeline, Custom-Permutations-Tiere & bilinguale Thesis-Anhang-Integration
+# Offene Punkte — Mess-Pipeline, Custom-Permutations-Lebewesen & bilinguale Thesis-Anhang-Integration
 
 > **Stand: 2026-06-01.** Elaborierte Bestandsaufnahme (User-Auftrag) für die drei Arbeitsfronten rund um die
 > automatische, bilinguale Einbindung von Messergebnissen (Tabellen + Diagramme je Tier/Permutation aller Achsen)
@@ -68,14 +68,14 @@ Channel-Interleaving offen (R7.7, 32 SP). Erst sinnvoll NACH PMC-KPIs.
 
 ---
 
-## Gruppe B — Custom-Permutations-Tiere (V5-Mess-Architektur)
+## Gruppe B — Custom-Permutations-Lebewesen (V5-Mess-Architektur)
 
 > User-Bild: „zuerst vorkonfigurierte Tiere analysieren, dann CUSTOM Permutationstiere, die ALLE Achsen gegeneinander
 > permutieren, Tier-Binaries kompilieren, am Prüf-Dock durchmessen". IST: vorkonfiguriert + Kompilations-/Prüf-Dock-
 > Kette stehen; die VOLLpermutation aller Achsen ist eine Stichprobe.
 
-**B1 [P0] adhoc_emitter ist SUPERSEDED — „Achse=Organ"-Klarstellung.** Der Ad-hoc-Pilot variiert MONOLITHISCHE Tiere
-(Array256..BTree) mit Default-Achsen → verletzt „Achse=Organ, NIE ganze Tiere" (Doku 14 §3.1) und darf NICHT die
+**B1 [P0] adhoc_emitter ist SUPERSEDED — „Achse=Organ"-Klarstellung.** Der Ad-hoc-Pilot variiert MONOLITHISCHE Lebewesen
+(Array256..BTree) mit Default-Achsen → verletzt „Achse=Organ, NIE ganze Lebewesen" (Doku 14 §3.1) und darf NICHT die
 autoritative F15-Quelle sein. Im Emitter selbst bereits als superseded markiert (`apps/adhoc_emitter/main.cpp:13-21`).
 - *Nächster Schritt:* Autoritative Quelle = die sezierten Observable-Organ-Compositions via
   `comdare_codegen_anatomy_module_list` + `f15_compare --pipeline-csv`; Emitter nur diagnostisch (R5.G) führen.
@@ -151,8 +151,8 @@ HM1–HM4-Subaxes. **F15 Pfad-A** ruft den Layout-Scan real auf (`abi_adapter.hp
 **Mess-Lauf durchgeführt + ehrlich dokumentiert:** 48 Permutations-DLLs (12 search × 2 alloc × 2 layout) gebaut; allocator
 auflösbar (2,7×), Layout-Negativ ehrlich ausgewiesen (Doku 22 §3.3); i7-1270P-Session git-getrackt.
 
-**Permutations-/Tier-Pipeline:** 11 vorkonfigurierte Reference-Compositions (`known_compositions_list.hpp`, static_assert
-count==11); kartesischer mp_product-Permutations-Raum; Gattungs-Specialization-PermutationEngine; CMake-2-Pass-Tier-Binary-
+**Permutations-/Lebewesen-Pipeline:** 11 vorkonfigurierte Reference-Compositions (`known_compositions_list.hpp`, static_assert
+count==11); kartesischer mp_product-Permutations-Raum; Gattungs-Specialization-PermutationEngine; CMake-2-Pass-Lebewesen-Binary-
 Kompilation (`cmake/adhoc_emitter.cmake`); **Prüf-Dock REAL** (IPruefDock gattungs-sicher + Conformance-Gate V5 +
 `measure_genus_sequential`); Mess-Output `--pipeline-csv`/`--observe`/`--measurement-plan`.
 

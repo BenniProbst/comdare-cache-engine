@@ -8,7 +8,7 @@
 
 Umstellung der bisher in `tools/permutation_codegen/codegen.cmake` **hartcodierten** Permutations-Profile
 (smoke/medium/full) auf einen **Diplomarbeit-ansteuerbaren XML-Profil-Konfigurator**. Kern: das Cache-Line-aware
-Experiment — bekannte Paper-Suchalgorithmen als Basis-Tiere in Originalkonfiguration, gegen die nur die
+Experiment — bekannte Paper-Suchalgorithmen als Basis-Lebewesen in Originalkonfiguration, gegen die nur die
 cache-line-relevanten Achsen permutiert werden.
 
 ## 1. Leit-Prinzipien (User-Direktiven 2026-06-01/02) — VERBINDLICH
@@ -16,7 +16,7 @@ cache-line-relevanten Achsen permutiert werden.
 1. **Alle physischen Achsen/Organe bleiben erhalten.** Der Konfigurator ist eine reine **Konfigurations-Auswahlschicht**;
    nichts wird entfernt/abgeschaltet. Das Experiment bleibt generisch für andere Fachbereiche nutzbar (andere Aspekte
    bestehender Paper-Algorithmen).
-2. **Basis-Permutationen = Paper-Originale per Konfiguration.** Jedes Basis-Tier fixiert alle Achsen auf die
+2. **Basis-Permutationen = Paper-Originale per Konfiguration.** Jedes Basis-Lebewesen fixiert alle Achsen auf die
    Paper-Standardwerte → die Originale entstehen per Definition der Konfiguration.
 3. **Nur cache-line-relevante Achsen werden permutiert** (+ die neue Cache-Line-Unterachse, §4).
 4. **3 Permutationsmodi pro Achsen-Teilmenge beschränkbar** (Stufe 1 ce-only / Stufe 2 Prüfling-Replace / Stufe 3 Full-Join).
@@ -45,7 +45,7 @@ cache-line-relevanten Achsen permutiert werden.
 | **traversal** | axis_03a_search_algo (19 SOTA) | 5 | HIGH | Algorithmus + Besuchssequenz |
 | **prefetch** | axis_07_prefetch | 6 | HIGH | L1/L2-Platzierung vor Nutzung |
 | **isa** | axis_09/09b SIMD | 6 | HIGH | AVX-512 = 64 B = 1 Line; real divergierend |
-| value_handle | axis_14_value_handle | 5 | MEDIUM | fixiert (Tier-Original) |
+| value_handle | axis_14_value_handle | 5 | MEDIUM | fixiert (Lebewesen-Original) |
 | **allocator** | axis_06_allocator | 16 | MEDIUM | **Teilmenge std/jemalloc/mimalloc (×3)** permutiert |
 | **concurrency** | axis_08_concurrency | 9 | NONE→**Mess-Dim** | **1/2/4 Kerne** (User) |
 | telemetry | axis_11_telemetry | 4 | NONE | konfigurierbar (§8) |
@@ -65,7 +65,7 @@ cache-line-relevanten Achsen permutiert werden.
 ## 4. NEUE Cache-Line-Unterachse (Kern der Anlage)
 
 **User-Auftrag:** Eine neue Unterachse bei **allocator, page, traversal, node**, die die Cache-Line-Einstellung
-permutierbar macht; **ALLE betroffenen Tier-Achsen-Algorithmen werden erweitert**, diese Einstellung zu unterstützen.
+permutierbar macht; **ALLE betroffenen Lebewesen-Achsen-Algorithmen werden erweitert**, diese Einstellung zu unterstützen.
 
 ### 4.1 HW-Recherche: einstellbare Cache-Line-Settings je Architektur (Web, 2026-06-02)
 
@@ -159,7 +159,7 @@ flags.hpp.in + Registry, vgl. `axis_06_allocator`). KF-5.
 </comdare_thesis_profile>
 ```
 
-## 6. Paper-Basis-Tiere (Originalkonfig, aus `sota/*.profile.xml`)
+## 6. Paper-Basis-Lebewesen (Originalkonfig, aus `sota/*.profile.xml`)
 
 ART (P01), HOT (P02), Masstree (P03), CoCo-Trie (P04), START (P05), B2Tree (P06), Wormhole (P07), SuRF (P10)
 + **PRT-ART** (Prüfling, nur Stufe 2/3). Beispiel ART:
@@ -175,7 +175,7 @@ compile-time in distinkte Binaries gebacken** — inkl. workload-Typ, telemetry-
 limitierender Faktor mehr (anders als das reguläre 20.000-core-h-Kontingent).
 
 **Faustregel (User 2026-06-02):** Betrifft eine Variable eine **betriebssystemseitige Einstellbarkeit der Plattform**
-UND NICHT die **Tier-Architektur-Eigenschaften** → sie läuft **dynamisch zur Laufzeit**: das Prüf-Dock /
+UND NICHT die **Lebewesen-Architektur-Eigenschaften** → sie läuft **dynamisch zur Laufzeit**: das Prüf-Dock /
 **CacheEngineBuilder** durchläuft ihre einstellbaren Möglichkeiten in den Grenzen der System-Umgebungsvariablen +
 Ressourcenlimits. Betrifft sie eine **Architektur-Entscheidung** (in Paper-Algorithmen auffindbar) → **compile-time**
 gebacken. (Cache-Line-Größe je Organ = Architektur → compile-time §4.3; HW-Prefetcher-MSR = OS-seitig → runtime.)
@@ -263,7 +263,7 @@ Dies ist die DRITTE Property-Kategorie neben (1) compile-time-gebacken (§3/§7)
 
 ## 8. Telemetrie — Default AN + Silent-Mode (Snapshot-Diff)
 
-**Klarstellung (User 2026-06-02):** Telemetrie-Default bleibt **AN** — host-seitig UND in den Tier-Binaries. Der
+**Klarstellung (User 2026-06-02):** Telemetrie-Default bleibt **AN** — host-seitig UND in den Lebewesen-Binaries. Der
 Heisenberg-Einwand (per-Operation-Overhead verfälscht die Latenz) wird NICHT durch Abschalten gelöst, sondern durch
 einen **`silent-mode`**: die Statistics-Observer werden **VOR** der Operation latenzfrei ausgelesen (Snapshot) und
 **NACH** der Operation erneut; die Messung ist die **Differenz** beider Snapshots. Die Operation selbst läuft OHNE
@@ -287,7 +287,7 @@ CSV-Schema um `repetition_index` erweitern, Diagramm-Generator Overlay-Modus. (K
    `Code/experiment_config/`; KEINE `sota/*.profile.xml` ändern (Rückwärts-Kompatibilität).
 1. **tinyxml2-Migration** des `XmlConfigParser` (verschachtelte Elemente: modes>active_axes, constraints, cacheline).
 2. **Cache-Line-Unterachse** anlegen (Goldstandard-Vorlage) — Concept/CEPS/Subaxes/Wrapper/Registry.
-3. **Betroffene Tier-Algorithmen** (allocator/page/traversal/node) um Cache-Line-Support erweitern.
+3. **Betroffene Lebewesen-Algorithmen** (allocator/page/traversal/node) um Cache-Line-Support erweitern.
 4. **node** echt verdrahten (Run-Body-Divergenz je Node-Format statt String-`#define`).
 5. **Algorithm_Resource_Control** (§7-A): Laufzeit-Steuerschnittstelle am Prüf-Dock + Sub-Structs je Achse; alle Organe
    einer Achse implementieren die Control-Ops (additives ABI-Sub-Interface).
@@ -306,7 +306,7 @@ CSV-Schema um `repetition_index` erweitern, Diagramm-Generator Overlay-Modus. (K
 
 - ✅ **Cacheline-Werte-Set:** `line_size{64,128,256} × alignment{none,aligned,padded} × sw_prefetch_hint{none,T0,T1,T2,NTA}`
   (compile-time, =45) PLUS `hw_prefetcher_state` als eigene Permutations-Unterdimension (runtime-MSR) für betroffene Achsen.
-- ✅ **Tier-Modell:** EIN Großexperiment = dynamisches Hauptset × Paper-Static-Tupel-Dimension (8 Tupel); statische Achsen
+- ✅ **Lebewesen-Modell:** EIN Großexperiment = dynamisches Hauptset × Paper-Static-Tupel-Dimension (8 Tupel); statische Achsen
   NICHT unabhängig permutiert, sondern aus den Paper-Konfigs (§7). Kein 8×-Separatlauf.
 - ✅ **Telemetrie-Default:** AN (host + binary) + `silent-mode` Snapshot-Diff (§8) — NICHT off.
 - ✅ **Cacheline PER-ORGAN (Kernthema):** jede betroffene Achse trägt eine EIGENE Cache-Line-Einstellung (45 Werte),

@@ -9,7 +9,7 @@
 
 Der Experiment-Baum war **string-getrieben** (`profile_to_tree` las `std::map<string,vector<string>>` aus XML),
 `NodeValue` ein 4-uint64-**Stub**, KEINE Bindung an die echten Registries/PermutationEngine/ObserverAggregate.
-Ziel (/goal V5): registry-getrieben gegen ALLE **22** Achsen, jedes Blatt → reale baubare Tier-Binary, jeder
+Ziel (/goal V5): registry-getrieben gegen ALLE **22** Achsen, jedes Blatt → reale baubare Lebewesen-Binary, jeder
 gemessene Knoten → echter Observer + Definition.
 
 ## Kritische Architektur-Korrekturen dieser Session (User-Direktiven)
@@ -55,7 +55,7 @@ gemessene Knoten → echter Observer + Definition.
 
 Der Permutations-B+-Experiment-Baum permutiert **registry-getrieben** über ALLE **22** realen Achsen; die
 Kardinalitäts-Identität (Gate-1) ist literal belegt (1.4e14, OOM-sicher gezählt statt materialisiert); jedes Blatt
-bildet auf eine reale, baubare, ladbare, observierbare `AdHocComposition<17>`-Tier-Binary ab; jeder gemessene
+bildet auf eine reale, baubare, ladbare, observierbare `AdHocComposition<17>`-Lebewesen-Binary ab; jeder gemessene
 Knoten trägt einen echten Observer; alle 22 Achsen sind gattungs-korrekt observer-differenziert (kein
 Wegschrumpfen); die inverse Signatur projiziert über reale Kompositionen.
 

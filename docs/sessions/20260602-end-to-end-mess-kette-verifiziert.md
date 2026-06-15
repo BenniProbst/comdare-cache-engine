@@ -26,7 +26,7 @@ gebaute Perm-DLLs (43 smoke: SIMD×Layout×Allocator)
 ```
 
 **Verifiziert:** Thesis EN+DE je **50 Seiten, 0 fatale LaTeX-Fehler**; `.lot`→Table A.2 „Measurement series
-cartesian\_smoke43", `.lof`→Figure A.2 „Cycles per tier permutation"; alle cartesian-Refs aufgelöst. Commit DA `d78f437`.
+cartesian\_smoke43", `.lof`→Figure A.2 „Cycles per organism permutation"; alle cartesian-Refs aufgelöst. Commit DA `d78f437`.
 
 **Integrations-Befund:** Die Kette war NICHT gebrochen — `binary-to-csv.exe` war lediglich stale (status 11 gegen ein
 älteres Record-Layout). Frischer Build löst die Konvertierung; Treiber (`MeasurementWriter`) + Stufe 03 nutzen
