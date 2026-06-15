@@ -5,9 +5,9 @@ der Resume-Plan ist unten eindeutig. Aktives `/goal` (autonome Fortsetzung bis a
 
 ---
 
-## 0. PFLICHT-PRE-READ (vor jeder Tier/Organ/Achsen-Arbeit ZUERST lesen)
+## 0. PFLICHT-PRE-READ (vor jeder Lebewesen/Organ/Achsen-Arbeit ZUERST lesen)
 1. **`docs/architektur/14_achsen_komposition_organ_metapher.md` (Doku 14) — VOLLSTÄNDIG, Teil 1–7 / §1–§42.** AUTORITATIV. Organ-Metapher, Gattungen, ExecutionEngine-Wurzel, Konfigurator. Bei jeder Unklarheit hier nachsehen, NICHT aus Gedächtnis/Workflow-Befund ableiten.
-2. **`docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md` (Doku 24)** — 2-Dimensionen-Messmodell + §6 RESUME-PLAN + **§7 (Tier→Organ-Umstufung + die erklärte Ordnung)**.
+2. **`docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md` (Doku 24)** — 2-Dimensionen-Messmodell + §6 RESUME-PLAN + **§7 (Lebewesen→Organ-Umstufung + die erklärte Ordnung)**.
 3. **`docs/architektur/10_schichten_modell_M.md`** (4-Subsystem-Modell) + **`11_konzept_achsen_extension_visitor_pattern.md`** + `11_axes_vs_strategies_disambiguation.md`.
 4. Die 7 Design-Session-Doks dieser Serie: `20260529-saeule1-inc2-…`, `…-saeule2-observable-…`, `…-roadmap1-…`, `…-roadmap2-…`, `…-roadmap3-…`, `…-roadmap4-…`, `…-roadmap40-tier-wrapper-umstufung-…` (alle in docs/sessions/).
 5. Memory `MEMORY.md` (Kritische Direktiven) — besonders die unten gelisteten.
@@ -60,10 +60,10 @@ Alle uint64-Key, std::map-äquivalent (verify_matches_std_map). Säulen 1+2+3 su
 
 **Hintergrund-Build `boz2ruzht`** (2× configure + build + ctest) lief beim Schnitt noch. Er verifiziert den
 **korrekt gerahmten** #40-Rekonstruktions-Beleg:
-- NEU `composable/tier_to_organ_mapping.hpp` — Tier→Organ-Pendant-Aliase (LinearScanOrgan/SortedBinaryOrgan/
+- NEU `composable/tier_to_organ_mapping.hpp` — Lebewesen→Organ-Pendant-Aliase (LinearScanOrgan/SortedBinaryOrgan/
   InterpolationOrgan/BstTreeOrgan) + TierOrganPair-Doku. **KEINE** „mp_size==17 muss bleiben"-Invariante (die
   würde die Umstufung blockieren).
-- NEU `tests/unit/test_v41_axis_03a_tier_organ_equivalence.cpp` — belegt Tier ≡ Organ-Komposition ≡ std::map
+- NEU `tests/unit/test_v41_axis_03a_tier_organ_equivalence.cpp` — belegt Lebewesen ≡ Organ-Komposition ≡ std::map
   (key-type-sicher: uint8→200/255, uint16→1000/1000). 3 Tests.
 - GEÄNDERT `tests/unit/CMakeLists.txt` (+ Test-Block) + `docs/architecture/24_…md` (§7, korrekt gerahmt).
 
@@ -77,22 +77,22 @@ Bei rot: Root-Cause (frühere identische Logik war grün bei exit 0 — bjl2ldaq
 
 ## 4. RESUME-PLAN (User-Wahl „Option 3": erst ALLE sezieren, dann ALLE umstufen)
 
-**Schritt A — restliche Tiere sezieren** (additiv, je build-grün, Design-Runde + Doku + Tag pro Schritt, wie INC-2b):
+**Schritt A — restliche Lebewesen sezieren** (additiv, je build-grün, Design-Runde + Doku + Tag pro Schritt, wie INC-2b):
 - **Hash** (HashSearchAlgo, Fibonacci-Open-Addressing) → neue Organ-Familie `HashBucketPool`-Concept + `BucketHashStore` + `ProbeTraversalOrgan` + `ComposedHashSearch` (analog TreeNodePool/BST).
 - **SkipList** (SkipListSearchAlgo) → `SkipListPool` + Forward-Walk-Organ + `ComposedSkipSearch`.
 - **B-Baum** (BTreeSearchAlgo, t=4 CLRS) → `BTreeNodePool` (Multiway, key[7]/child[8]) + B-Tree-Walk-Organ + `ComposedBTreeSearch`.
 - **OriginalXxx (S04–S08, Paper-Bindung)** → paper-gebundene Organ-Kompositionen (Habich-Original-Code pro Organ, ext/-Struktur). Auch diese MÜSSEN seziert werden (keines bleibt monolithisch).
-- Pro seziertem Tier: Äquivalenz-Beleg (Tier ≡ Organ-Komposition ≡ std::map) ergänzen.
+- Pro seziertem Lebewesen: Äquivalenz-Beleg (Lebewesen ≡ Organ-Komposition ≡ std::map) ergänzen.
 
-**Schritt B — ALLE Tiere gemeinsam umstufen** (der große, kaskadierende Refactor, tag-gesichert, gestaffelt):
+**Schritt B — ALLE Lebewesen gemeinsam umstufen** (der große, kaskadierende Refactor, tag-gesichert, gestaffelt):
 1. `axis_03a::EnabledStrategies` auf **nur Traversal-Organe** reduzieren (alle Monolith-Wrapper raus).
-2. Jedes Tier als Gattungs-Konfigurator rekonstruieren: `Composition` (node_type ⊕ traversal ⊕ storage ⊕ …)
+2. Jedes Lebewesen als Gattungs-Konfigurator rekonstruieren: `Composition` (node_type ⊕ traversal ⊕ storage ⊕ …)
    → `SearchAlgorithmAnatomy<Composition>`. Die 11 anatomy-Compositions (`compositions/*_reference.hpp`)
    `search_algo`-Slot von Monolith (Array256 etc.) auf die Organ-Komposition umverdrahten.
 3. Harte Tests/Asserts anpassen: `test_v41_topic_traversal.cpp:73` (TYPED_TEST über AllStrategies),
    `:1213/1220` (SimdSubset==6/DenseSubset==2), `test_v41_search_algorithm_permutation_engine.cpp:476-497`
    (kSearch==17), `known_compositions_list.hpp:81-83` (==11). Diese Zahlen ändern sich → bewusst aktualisieren.
-4. Verifizieren: alle Tests grün; jedes Tier weiterhin std::map-äquivalent (jetzt als Composition).
+4. Verifizieren: alle Tests grün; jedes Lebewesen weiterhin std::map-äquivalent (jetzt als Composition).
 
 **Konsumenten, die beim Entfernen brechen** (alle in Schritt B mitziehen): PermutationEngine /
 `topic_traversal_config_set.hpp:23` (StaticAxisVariants_03a) + `mp_all_of`-min-1-Vendor-Invariante;
@@ -101,9 +101,9 @@ Bei rot: Root-Cause (frühere identische Logik war grün bei exit 0 — bjl2ldaq
 ---
 
 ## 5. DIREKTIVEN (Memory — immer beachten)
-- `[[feedback_no_whole_tier_axes_genus_configurator]]` — **NIE monolithische Tiere; Tier nur seziert; Gattungs-Konfigurator; PFLICHT-Pre-Read Doku 14.** (oberste Priorität)
+- `[[feedback_no_whole_tier_axes_genus_configurator]]` — **NIE monolithische Lebewesen; Lebewesen nur seziert; Gattungs-Konfigurator; PFLICHT-Pre-Read Doku 14.** (oberste Priorität)
 - `[[feedback_achsen_komposition_organ_metapher]]` — Achse=Organ, Algorithmus=Permutation aller Achsen.
-- `[[feedback_zwei_dimensionen_messmodell]]` — 3 Mess-Aspekte (Tier-Wall-Clock / observe_all / Achsen-Vergleich).
+- `[[feedback_zwei_dimensionen_messmodell]]` — 3 Mess-Aspekte (Lebewesen-Wall-Clock / observe_all / Achsen-Vergleich).
 - `[[std_map_unified_interface]]` — std::map ist das einheitliche Vergleichs-Interface.
 - `[[reference_anatomie_gattungen]]` + `[[feedback_execution_engine_als_wurzel]]` + `[[feedback_gattungs_constraint_pruefling_merge]]` — Gattungen + ExecutionEngine-Wurzel + Cross-Genus verboten.
 - `[[reference_boost_mp11_offline_prerequisite]]` — Build offline via vendored mp11 (FortiGate-Egress-Block).
