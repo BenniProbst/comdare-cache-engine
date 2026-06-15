@@ -1,7 +1,7 @@
 # Lastprofil-Katalog (33-Paper-Analyse) + Paper-Bias
 
 **Direktive (User 2026-06-08):** Jedes Paper wählt ein Lastprofil, das SEINEN Algorithmus gut dastehen lässt.
-Um diesen Bann zu brechen, müssen **ALLE Lastprofile über ALLE Achsen/Tiere** laufen (Workload = dynamische
+Um diesen Bann zu brechen, müssen **ALLE Lastprofile über ALLE Achsen/Lebewesen** laufen (Workload = dynamische
 Achse 2 im B+-Baum). Quelle: 33-Paper-Workflow (`wn7b2fu44`, 34 Agenten), Roh-Befunde je Paper im Workflow-Output.
 Bezug Memory `feedback_all_papers_loadprofiles_xml_all_axes`.
 
@@ -51,7 +51,7 @@ real-string-corpus-lookup · dynamic-mixed-trace · not-applicable (Survey/Theor
    (Survey/Theorie/HW-Prefetch/Reclamation) — liefern Achsen-KONZEPTE (LOUDS, cache-oblivious, prefetch-distance),
    KEIN eigenes Lastprofil.
 
-**FAZIT:** Jedes der 14 Profile MUSS über ALLE Tiere laufen. Besonders: read-only-Trie-Algorithmen auch unter
+**FAZIT:** Jedes der 14 Profile MUSS über ALLE Lebewesen laufen. Besonders: read-only-Trie-Algorithmen auch unter
 LP01/LP10/LP11/LP12 (insert/delete/rmw/concurrent); dynamische Engines auch unter LP04/LP06/LP07 (static-read,
 neg-sweep, real-corpus) — sonst bleibt jeder „Sieger nur im selbstgewählten Heimprofil".
 

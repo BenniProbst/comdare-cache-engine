@@ -6,7 +6,7 @@
 
 ## §1 Kontext
 
-User-Direktive 2026-05-27 fuer die Achsen-Reifung nach R7.5 (historisch "Optional-Topics" genannt — korr. 2026-06-03, s. Doc 30 §8.0: KEINE Achse ist optional; es handelt sich durchweg um **Pflicht-Achsen** der einzigen aktuell gebauten Tier-Unterklasse unter dem SearchAlgorithm-Interface — ein nicht-puffernde/nicht-prefetchende Tier-Unterklasse wählt einen konkreten Durchreich-Algorithmus wie NoBuffer/NonePrefetch, statt eine Achse wegzulassen) erfasst vier Pflicht-Themen, die nach R7.5 noch nicht abgedeckt sind und in spaeteren Sprints (R7.6 / R7.7 / R7.8) implementiert werden muessen.
+User-Direktive 2026-05-27 fuer die Achsen-Reifung nach R7.5 (historisch "Optional-Topics" genannt — korr. 2026-06-03, s. Doc 30 §8.0: KEINE Achse ist optional; es handelt sich durchweg um **Pflicht-Achsen** der einzigen aktuell gebauten Lebewesen-Unterklasse unter dem SearchAlgorithm-Interface — ein nicht-puffernde/nicht-prefetchende Lebewesen-Unterklasse wählt einen konkreten Durchreich-Algorithmus wie NoBuffer/NonePrefetch, statt eine Achse wegzulassen) erfasst vier Pflicht-Themen, die nach R7.5 noch nicht abgedeckt sind und in spaeteren Sprints (R7.6 / R7.7 / R7.8) implementiert werden muessen.
 
 ## §2 R7.6 — Paper-Identifikation + Original-Code-Validation fuer ALLE R7.5-Achsen
 
@@ -160,7 +160,7 @@ class Avx512Extension {
 ### §5.4 Implementierungs-Hinweis
 
 - Per-Wrapper static constexpr accessor functions
-- Composition mit `axis_12_general_hardware` (NUMA-Topologie + CPU-Klassen) — betrifft nur, ob die accessor-Werte aus der axis_12-Topologie *abgeleitet* werden; axis_09b und axis_12 sind beide **Pflicht-Achsen** und in jedem Tier-Binary vorhanden, niemals weglassbar (korr. 2026-06-03, s. Doc 30 §8.0)
+- Composition mit `axis_12_general_hardware` (NUMA-Topologie + CPU-Klassen) — betrifft nur, ob die accessor-Werte aus der axis_12-Topologie *abgeleitet* werden; axis_09b und axis_12 sind beide **Pflicht-Achsen** und in jedem Lebewesen-Binary vorhanden, niemals weglassbar (korr. 2026-06-03, s. Doc 30 §8.0)
 
 **Aufwand:** 8-13 SP. **Task:** #725
 
@@ -186,7 +186,7 @@ using ValidPermutations = mp_remove_if<CartesianIsa09xExt09bxPlatform12, mp_not_
 ## §7 Cross-Refs
 
 - Doku 13 — Paper-Legacy-Architektur (4-Schichten)
-- Doku 14 — Achsen-Komposition Organ-Metapher (§25/§26 — die dort beschriebenen "Gattungen"/std-Familien sind die **TIER-UNTERKLASSEN-Ebene** unter dem jeweiligen Gattungs-Interface, NICHT die Gattung selbst; korr. 2026-06-03, s. Doc 30 §8.0. Gattung = ein Außen-Interface/Prüf-Dock = SearchAlgorithm / Container / Graph; Set/Sequence/Adapter/View = Tier-Unterklassen unter dem Container-Interface; die 17/19-Achsen-Komposition = die SearchAlgorithm-Tier-Unterklasse.)
+- Doku 14 — Achsen-Komposition Organ-Metapher (§25/§26 — die dort beschriebenen "Gattungen"/std-Familien sind die **LEBEWESEN-UNTERKLASSEN-Ebene** unter dem jeweiligen Gattungs-Interface, NICHT die Gattung selbst; korr. 2026-06-03, s. Doc 30 §8.0. Gattung = ein Außen-Interface/Prüf-Dock = SearchAlgorithm / Container / Graph; Set/Sequence/Adapter/View = Lebewesen-Unterklassen unter dem Container-Interface; die 17/19-Achsen-Komposition = die SearchAlgorithm-Lebewesen-Unterklasse.)
 - axis_06_allocator — Goldstandard fuer alle Achsen-Implementierungen
 - mimalloc-Pilot — einziger aktueller Wrapper mit echtem Original-Code-Linking
 

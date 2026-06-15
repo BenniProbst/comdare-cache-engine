@@ -2,15 +2,15 @@
 
 > ⚠️ **KORREKTUR-HINWEIS (2026-05-29, siehe Doku 24):** Die hier beschriebene F15-Messung mischt
 > zwei Dimensionen, die getrennt gehören. Das Wall-Clock-Ranking über 3 Achsen (§3.1–§3.3) ist eine
-> **Tier-Metrik** (ganzer Algorithmus, CacheEngineBuilder) — es ist NICHT der Achsen-Vergleich und
+> **Lebewesen-Metrik** (ganzer Algorithmus, CacheEngineBuilder) — es ist NICHT der Achsen-Vergleich und
 > umgeht den vorgesehenen Per-Achsen-`ObserverAggregate` (`observe_all`). Korrektes Modell + Korrektur-
-> Plan: **Doku 24** (Tier-Wall-Clock vs. Achsen-Observer vs. Achsen-Vergleich-per-Test). Die robusten
-> Statistik-Werkzeuge (Median/MWU/Cliff's δ, §3.1–§3.3) bleiben für die Tier-Dimension gültig.
+> Plan: **Doku 24** (Lebewesen-Wall-Clock vs. Achsen-Observer vs. Achsen-Vergleich-per-Test). Die robusten
+> Statistik-Werkzeuge (Median/MWU/Cliff's δ, §3.1–§3.3) bleiben für die Lebewesen-Dimension gültig.
 >
 > 🔁 **PRÄZISIERUNG (2026-05-30, Doku 24 §8 — HYBRID-Modell):** Das hier beschriebene DLL-seitige
 > `IMeasurableWorkload::run_workload` ist **nicht falsch**, sondern **Pfad A** des Hybrid-Mess-Modells:
 > es misst **isolierte Achsen-Algorithmen gegeneinander** (auf der DLL selbst) — genau die §3-Resultate.
-> Der **composite Tier** dagegen wird **zentral host-seitig über die CacheEngineBuilder** gemessen, durch
+> Das **composite Lebewesen** dagegen wird **zentral host-seitig über die CacheEngineBuilder** gemessen, durch
 > **ABI-stabilen Observer-Zugriff** (`observe_all`, Pfad B). Beide Pfade koexistieren; die Mess-Konfiguration
 > wählt. Vollständige Doku: **Doku 24 §8**.
 
