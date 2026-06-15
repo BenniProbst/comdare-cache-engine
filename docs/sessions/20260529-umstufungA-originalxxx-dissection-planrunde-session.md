@@ -2,8 +2,8 @@
 
 **Stand:** 2026-05-29
 **Workflow:** `wjy6nix6j` / Run `wf_b2b0dedc-aff` (7 Agenten, 697k Subagent-Tokens, 112 Tool-Calls, ~448 s)
-**Auftrag:** Planrunde — 5 OriginalXxx-Tiere (ART/HOT/START/Wormhole/SuRF, S04–S08) in Organe sezieren.
-**Bezug:** Doku 14 §11.2/§13/§14.2, `[[feedback_no_whole_tier_axes_genus_configurator]]` (JEDES Tier — auch
+**Auftrag:** Planrunde — 5 OriginalXxx-Lebewesen (ART/HOT/START/Wormhole/SuRF, S04–S08) in Organe sezieren.
+**Bezug:** Doku 14 §11.2/§13/§14.2, `[[feedback_no_whole_tier_axes_genus_configurator]]` (JEDES Lebewesen — auch
 OriginalXxx — muss seziert werden), `[[feedback_web_research_per_algorithm_pflicht]]`.
 
 ---
@@ -18,7 +18,7 @@ C++23-Re-Impl-Body; **keiner ruft den Paper-Original-Code auf**. `is_original=tr
 Paper-Codes in `legacy_code/paper_pXX/`), NICHT ein Beleg, dass Paper-Code im Body läuft (echtes
 `extern "C"`-Linking ist erst „s4" geplant).
 
-| Tier | Strategy (Reg.) | key_type | s2-IST-Body (verifiziert) | is_original_module | Paper-Code (physisch) | Lizenz |
+| Lebewesen | Strategy (Reg.) | key_type | s2-IST-Body (verifiziert) | is_original_module | Paper-Code (physisch) | Lizenz |
 |---|---|---|---|---|---|---|
 | ART | S04 (P01) | uint8 | `std::array<optional<u64>,256>` direct-addressed (== Array256) | **4/4 TRUE** | art.hpp 2108 Z. | Apache-2.0 |
 | HOT | S05 (P02) | uint8 | `vector<k>+vector<v>+lower_bound` (== VectorU8U8) | 2/4 (ins+lkp) | HOTRowex.hpp 435 Z. | ISC |
@@ -56,7 +56,7 @@ cache_traversal {LinearFanout/HashLookup}, mapping {DirectPlacement/PoolRelative
 
 ## 2 GEWÄHLTER ANSATZ: Linse C (pragmatisch gestaffelt, Rekonstruktions-Beleg-first)
 
-**Verworfen Linse B** (Voll-Pool-Familie je Tier): da 4/5 Bodies identischer sorted-vector-Code sind, wäre
+**Verworfen Linse B** (Voll-Pool-Familie je Lebewesen): da 4/5 Bodies identischer sorted-vector-Code sind, wäre
 eine eigene `RadixNodePool`/`HotNodePool`/… nur eine umbenannte Kopie von `RawSlotStore+SortedBinary` →
 **null neue Organ-Semantik, reine Duplikation** (`[[feedback_no_quick_fixes]]`, `[[cross-axis-defaults-no-bloat]]`)
 + würde die existierenden Achsen axis_04/axis_02 duplizieren und die Permutierbarkeit (Kern-Beitrag)
@@ -66,7 +66,7 @@ zerstören. **Linse A ≈ C** im Endzustand; C gewählt wegen Increment-Diszipli
 Habich bleibt am Wrapper (Bodies unangetastet); das composable-Organ ist provenienz-frei und seziert nur
 das IST-Such-Verhalten.
 
-### 2.1 Tier→Organ-Mapping (rein additiv, KEINE neuen Pool-Dateien)
+### 2.1 Lebewesen→Organ-Mapping (rein additiv, KEINE neuen Pool-Dateien)
 
 ```cpp
 using OriginalArtOrgan      = LinearScanOrgan;    // S04 ART  (array<optional,256> == LinearScan), uint8 → 200/255
@@ -75,10 +75,10 @@ using OriginalStartOrgan    = SortedBinaryOrgan;  // S06 START (sorted-vector, k
 using OriginalWormholeOrgan = SortedBinaryOrgan;  // S07 Wormhole (sorted-vector, KEIN Hash im Body), uint8 → 200/255
 using OriginalSurfOrgan     = SortedBinaryOrgan;  // S08 SuRF (sorted-vector, exaktes K→V im Body), uint8 → 200/255
 ```
-Beleg je Tier: horizontal `verify_variants_equivalent<Organ, Tier>(key_mod, query_max)`; vertikal
+Beleg je Lebewesen: horizontal `verify_variants_equivalent<Organ, Tier>(key_mod, query_max)`; vertikal
 (`Organ ≡ std::map`) ist über die identischen Organ-Typen (Array256/VectorU16U16-Zeilen) transitiv erfüllt.
-**KRITISCH:** START ist das EINZIGE uint16-Tier → `key_mod=1000` (sonst Key-Cast-Kollision); die 4 uint8-
-Tiere → `200/255`.
+**KRITISCH:** START ist das EINZIGE uint16-Lebewesen → `key_mod=1000` (sonst Key-Cast-Kollision); die 4 uint8-
+Lebewesen → `200/255`.
 
 **SuRF-Range-Filter-Semantik:** Der IST-Body ist KEIN Approximate-Filter (er hält parallele Vektoren +
 liefert exaktes K→V), daher ist der Doppel-Beleg gültig. Die LOUDS-Bitmap-Range-Filter-Semantik (bool) des
@@ -86,7 +86,7 @@ Papers ist s4-Thema (axis_filter RangeSurfFilter + axis_05 PackedBitmap + axis_1
 
 ---
 
-## 3 DRAUSSEN (#41) — Pflicht-Folge-Tasks (damit „JEDES Tier seziert" NICHT verloren geht)
+## 3 DRAUSSEN (#41) — Pflicht-Folge-Tasks (damit „JEDES Lebewesen seziert" NICHT verloren geht)
 
 - **#42 Umstufung-B:** OriginalXxx S04–S08 aus `AllStrategies`/`EnabledStrategies` entfernen + Composition-
   search_algo von `OriginalXxxSearchAlgo` auf Organ-Komposition umstellen.
@@ -94,7 +94,7 @@ Papers ist s4-Thema (axis_filter RangeSurfFilter + axis_05 PackedBitmap + axis_1
   Die wahre Anatomie der 5 Original-Algorithmen — adaptive Node4/16/48/256 (ART/START), Patricia/k-constrained
   Path-Compression (HOT), LOUDS-dense/sparse + Succinct (SuRF), wormmeta-Hash-Anchor + B+-Leaf (Wormhole) —
   als **node_type × path_compression × Trie-Traversal Mehr-Achsen-Modell** original-getreu sezieren + echtes
-  `extern "C"`-Paper-Code-Linking (s4). Erst damit sind die Original-Tiere VOLL in ihre charakteristischen
+  `extern "C"`-Paper-Code-Linking (s4). Erst damit sind die Original-Lebewesen VOLL in ihre charakteristischen
   Organe zerlegt (heute sind die Wrapper-Bodies nur flache Re-Impl-Platzhalter). Die §13-SOLL-Organe in den
   Compositions umsetzen (statt überall Node256/None). Lizenz-Blocker beachten: Wormhole GPL-3.0.
 

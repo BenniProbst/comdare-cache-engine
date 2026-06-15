@@ -59,4 +59,4 @@
 Dateien 1→2→3→4→5 (Datei 4 = Container-Wechsel = riskantester Schritt, erst nach 1-3 grün). STATISTICS=ON ist Default (`CMakeLists.txt:53`) → der neue `#ifdef`-Test läuft. Zusätzlich ein OFF-Lauf als Negativ-Beweis. Nur `>0`/`>=` asserten (vector-Growth-abhängig), keine exakten Byte-Zahlen.
 
 ## 5. Scope-Grenze (Folge-Increments)
-Die übrigen 15 Achsen observable machen (axis_05/04 bräuchten statistics()-API); `statistics()` in StorageOrgan/TraversalOrgan-Kernvertrag ziehen (verboten); Anatomie/ObserverAggregate-Layout; bounded ComposedArrayStore; echte Layout-Slot-Anordnung; abi_adapter/Tier-Wall-Clock (Task #38); Tier-Wrapper-Umstufung (#40).
+Die übrigen 15 Achsen observable machen (axis_05/04 bräuchten statistics()-API); `statistics()` in StorageOrgan/TraversalOrgan-Kernvertrag ziehen (verboten); Anatomie/ObserverAggregate-Layout; bounded ComposedArrayStore; echte Layout-Slot-Anordnung; abi_adapter/Lebewesen-Wall-Clock (Task #38); Lebewesen-Wrapper-Umstufung (#40).

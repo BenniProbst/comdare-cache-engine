@@ -94,7 +94,7 @@ seit Inc1 `COMDARE_ALL_AXIS_GENERATED_DIRS`; nodes-Achse header-only).
 1. **Echte Layout-Wirkung** (`L::slot_index`/AoS-SoA-AoSoA-Interleaving) → braucht saubere Layout-Concept-Erweiterung (eigener Increment, gegen Goldstandard-Checkliste).
 2. **Bounded `ComposedArrayStore<N,L,A>`** (N::max_capacity() als hartes Limit via Allocator) — Pilot nutzt unbounded vector.
 3. **observe_all / statistics() / snapshot_t / ObservableAxis** (Doku 24 §2.2) — bleibt aus dem StorageOrgan-Vertrag; `COMDARE_CE_ENABLE_STATISTICS` AUS.
-4. **Tier-Wrapper-Umstufung** (Array256/BST/B-Baum → Reference-Compositions, Doku 14 §6, R7.2).
+4. **Lebewesen-Wrapper-Umstufung** (Array256/BST/B-Baum → Reference-Compositions, Doku 14 §6, R7.2).
 5. **Anatomie/abi_adapter/Composition-Anbindung** (art_reference.hpp, F15-Mess-Integration).
 6. **Registry-Eintrag + PermutationEngine** (ComposedStore noch nicht vom CacheEngineBuilder konsumiert).
 7. **TYPED_TEST-Vollmatrix** (4 NodeTypes × 5 Layouts × 27 Allokatoren) + echte externe Vendor-Allokatoren (jemalloc/tcmalloc/hoard).

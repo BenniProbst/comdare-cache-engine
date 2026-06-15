@@ -11,7 +11,7 @@
 ---
 
 ## 1. Understand-Phase (3 Reader, code-verifiziert)
-- **Harness** `verify_matches_std_map<Wrapper>(key_mod, query_max)` (`test_v41_topic_traversal.cpp:543-567`): template (K=Wrapper::key_type), 600 gemischte Ops (Konstante 2654435761u, i%7==0→erase, v=k·11+1), Lookup-Sweep, occupied_count==size. **22 bestehende Aufrufe** (12 schmale Tier-Wrapper uint8/uint16 + 10 composable Organ-Kombinationen).
+- **Harness** `verify_matches_std_map<Wrapper>(key_mod, query_max)` (`test_v41_topic_traversal.cpp:543-567`): template (K=Wrapper::key_type), 600 gemischte Ops (Konstante 2654435761u, i%7==0→erase, v=k·11+1), Lookup-Sweep, occupied_count==size. **22 bestehende Aufrufe** (12 schmale Lebewesen-Wrapper uint8/uint16 + 10 composable Organ-Kombinationen).
 - **Was fehlt für §2.3:** (1) **Cross-Varianten-Äquivalenz** (alle Varianten EINER Achse über DENSELBEN Op-Stream == untereinander, nicht nur einzeln == std::map); (2) explizite „welche Variante je Achse"-Dimension (geordnet/range); (3) systematischer typed-Vergleich.
 - **Varianten-Inventar (composable, key=uint64):** 5 Traversal-Organe (LinearScan/SortedBinary/Interpolation/Galloping über RawSlotStore/ComposedStore + BST über TreeNodePoolStore). Alle key_type==uint64 → teilen EINEN Op-Stream → Cross-Varianten strukturell möglich (anders als schmale uint8/uint16-Wrapper).
 - **§2.3-Soll:** std::map = einheitliches Vergleichs-Interface; Achsen beschreiben INNEN-Verhalten; „welche Variante besser" auf DIESER Dimension = Korrektheit/Eigenschaften (geordnet, range), NICHT Latenz.
@@ -39,4 +39,4 @@
 
 ## 5. Scope-Grenze
 **DRIN:** Korrektheits-/Interface-Dimension der composable axis_03a-Organe (vertikal == std::map + horizontal == untereinander + Eigenschaftstabelle), rein additiv, latenzfrei.
-**DRAUSSEN:** echte Performance-Rangfolge („welche schneller") = Tier-Wall-Clock-Dimension (Roadmap-3/V42, NULL Latenz-Felder hier); horizontaler Vergleich der schmalen Tier-Wrapper (Key-Type-Normalisierung nötig; vertikal bereits abgedeckt); property-gefilterte Sub-Suiten + kartesisches 03a×03b×03m-Produkt (Roadmap-4b); Observer/Statistics-Gleichheit (Innen-Verhalten DARF abweichen).
+**DRAUSSEN:** echte Performance-Rangfolge („welche schneller") = Lebewesen-Wall-Clock-Dimension (Roadmap-3/V42, NULL Latenz-Felder hier); horizontaler Vergleich der schmalen Lebewesen-Wrapper (Key-Type-Normalisierung nötig; vertikal bereits abgedeckt); property-gefilterte Sub-Suiten + kartesisches 03a×03b×03m-Produkt (Roadmap-4b); Observer/Statistics-Gleichheit (Innen-Verhalten DARF abweichen).
