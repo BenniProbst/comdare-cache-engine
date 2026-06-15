@@ -59,7 +59,7 @@ tier_observe verdrahtet.
    Operative-Liste nachziehen (von 2 auf die neu-verdrahteten). **KEINE Marke ohne Delta-vor/nach-Treiben-Test.**
 4. **R5.D-Grenze dokumentieren:** memory_layout-Wall-Clock ist sub-noise → als „operativ-PMC-pending" markieren,
    NICHT als voll-gemessen (Doc 28 §1 #6).
-- **Verifikations-Kriterium:** ein getriebenes Tier → tier_observe POD-Felder >0 für telemetry (+ ggf. layout/serial/node), Delta vor/nach Treiben; `observable_axis_count` == literal getriebene Zahl. Schwerer Compile (Umbrella + Boost + `${COMDARE_ALL_AXIS_GENERATED_DIRS}`); Test analog `test_v41_tier_observe_trace` registrieren.
+- **Verifikations-Kriterium:** ein getriebenes Lebewesen → tier_observe POD-Felder >0 für telemetry (+ ggf. layout/serial/node), Delta vor/nach Treiben; `observable_axis_count` == literal getriebene Zahl. Schwerer Compile (Umbrella + Boost + `${COMDARE_ALL_AXIS_GENERATED_DIRS}`); Test analog `test_v41_tier_observe_trace` registrieren.
 - **Risiken:** (R1) Umbrella-Compile RAM-intensiv → RAM-Watchdog Pflicht, ggf. einzelne Achse pro Commit. (R2) observe_all hält heute 1 Organ; mehr Organe → Key-Type-Mismatch-Reaktivierung (uint64 erzwingen). (R3) ABI nur append-only (Minor), sonst alle Permutations-DLLs neu.
 
 ### §3.2 L-74a-Voll: BUILDVARIANT-DLL + Cross-Constraint (PRIORITÄT 2)

@@ -1,7 +1,7 @@
 # Goal V6 — Phase E: finaler adversarialer Abschluss-Audit (2026-06-03)
 
 **Zweck (Goal V6 Phase E):** deliberative Gesamtbewertung des Permutations-B+-Experiment-Baums gegen ALLE 22 Achsen
-+ ALLE 5 Tier-Gattungen — registry-getrieben, jedes statische Blatt → baubares Tier-Binary, jeder gemessene Knoten →
++ ALLE 5 Lebewesen-Gattungen — registry-getrieben, jedes statische Blatt → baubares Lebewesen-Binary, jeder gemessene Knoten →
 realer per-Achsen-Observer. Methode: (a) konsolidierte Re-Verifikation der akkumulierten Arbeit (literal, nicht
 autor-behauptet), (b) cluster-weise adversariale Klassifikation DONE / inhärent-blockiert / gated, (c) definitive
 Schlussfolgerung über den autonom-abschließbaren Umfang.
@@ -40,7 +40,7 @@ Increments diese Session) + die Vorsessions-Cluster (D1–D14, BR-1…4, KF-1…
 | **DLL-Round-Trips** | ✅ | 6 SHARED-DLLs + 5 Loader-Tests als OFFIZIELLE CMake-`add_library(MODULE)`+`add_test`-Targets ($<TARGET_FILE>) |
 | **L-MEAS real-DLL** | ✅ | RuntimeMeasureVisitor über die echte geladene DLL (Adapter erbt `IResourceControllableTier`; 9 Punkte, kein Reload) |
 | **L-CLUSTER gate-frei** | ✅ | `apps/perm_runner` CLI (verifiziert: DLL→result_ingest-Zeile) · slurm_launcher `.bin`→`.dll`+perm_runner-Fix · `deploy/comdare-ce.def`+`build_sif.sh` (Rezept-TEXT, bash-verifiziert) |
-| **Vorsessions** | ✅ | D1–D14 · BR-1…4 (Registry→Baum→Komposition→Binary) · KF-1…16 (B+-Baum-Experiment-Manager, Mess-Kette) · Umstufung (Tiere→Organe) · V5-I* (memento/Zwei-Phasen-Mess) |
+| **Vorsessions** | ✅ | D1–D14 · BR-1…4 (Registry→Baum→Komposition→Binary) · KF-1…16 (B+-Baum-Experiment-Manager, Mess-Kette) · Umstufung (Lebewesen→Organe) · V5-I* (memento/Zwei-Phasen-Mess) |
 
 ## 3. Residual — AUSSCHLIESSLICH inhärent-blockiert / gated (NICHT autonom abschließbar)
 
@@ -63,7 +63,7 @@ er erfordert Hardware, eine User-Freigabe oder ist ein bewusster Infrastruktur-T
 
 ## 4. Definitive Schlussfolgerung (Phase E)
 
-**Der AUTONOM abschließbare Umfang von Goal V6 ist VOLLSTÄNDIG + literal verifiziert.** Alle 5 Tier-Gattungen sind
+**Der AUTONOM abschließbare Umfang von Goal V6 ist VOLLSTÄNDIG + literal verifiziert.** Alle 5 Lebewesen-Gattungen sind
 baubar/ladbar/observierbar; die 22-Achsen-Klassifikation (17 Observer + 3 Definition + 2 Container) ist belegt; die
 4 operativ-fähigen Achsen sind real auto-gekoppelt + über die DLL-Grenze gezogen; die Build-Varianten-Achsen
 (page_type/09b/12) modifizieren dieselbe 17-Slot-Binary (ADHOC_BUILDVARIANT) mit angewandtem Cross-Constraint

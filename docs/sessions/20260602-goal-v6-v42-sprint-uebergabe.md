@@ -6,7 +6,7 @@
 
 ## 0 — Identität + aktiver Auftrag (UNVERÄNDERT, Stop-Hook-erzwungen)
 
-- Aktives `/goal`: **Goal V6** (`C:\Users\benja\OneDrive\Desktop\goal-v6-permutations-baum.txt`) — Permutations-B+-Experiment-Baum auf ABSOLUTE, literal-belegte Vollständigkeit gegen ALLE 22 Achsen + ALLE 5 Tier-Gattungen bringen. Phasen A-Kartographie → B-Lücken-Ledger → C-Planungssession → D-Umsetzung → E-finaler adversarialer Audit.
+- Aktives `/goal`: **Goal V6** (`C:\Users\benja\OneDrive\Desktop\goal-v6-permutations-baum.txt`) — Permutations-B+-Experiment-Baum auf ABSOLUTE, literal-belegte Vollständigkeit gegen ALLE 22 Achsen + ALLE 5 Lebewesen-Gattungen bringen. Phasen A-Kartographie → B-Lücken-Ledger → C-Planungssession → D-Umsetzung → E-finaler adversarialer Audit.
 - **Phasen A/B/C sind abgeschlossen** (Tasks #78/#79 completed). Wir sind in **Phase D (Umsetzung)**.
 - **User-Scope-Erweiterung (autorisiert):** „V42-Scope jetzt autonom angehen" → **Task #80 in_progress**: #74-Composition-Driver-Voll-Verdrahtung + L-74a-BUILDVARIANT-DLL + per-Gattung Docks/PermutationEngines.
 - **Single-Source-of-Truth:** `docs/sessions/goal-v6-luecken-ledger.md` (§2.5 = Fortschritt; je Lücke literaler IST-Stand Datei:Zeile + Verifikations-Kriterium). Bei Widerspruch schlägt das Ledger jede ältere Doku.

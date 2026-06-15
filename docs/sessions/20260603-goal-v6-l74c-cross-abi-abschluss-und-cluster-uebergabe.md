@@ -5,7 +5,7 @@
 > Schritt je verbleibendem Cluster fest. Single-Source bleibt das Ledger §2.5.
 
 ## 0 — Aktiver Auftrag (unverändert)
-Goal V6 (Stop-Hook): Permutations-B+-Experiment-Baum auf absolute, literal-belegte Vollständigkeit gegen alle 22 Achsen + 5 Tier-Gattungen. **Phase D (Umsetzung) läuft.** Goal V6 ist — wie die Planungssession (#79) es anlegte — ein **Mehr-Cluster-/Mehr-Session-Programm**; kein einzelner Kontext schließt es. Disziplin: pro Zyklus den nächsten Cluster **real, abgegrenzt, literal verifiziert**; NIE Erfolgsmarke ohne literale Ausgabe.
+Goal V6 (Stop-Hook): Permutations-B+-Experiment-Baum auf absolute, literal-belegte Vollständigkeit gegen alle 22 Achsen + 5 Lebewesen-Gattungen. **Phase D (Umsetzung) läuft.** Goal V6 ist — wie die Planungssession (#79) es anlegte — ein **Mehr-Cluster-/Mehr-Session-Programm**; kein einzelner Kontext schließt es. Disziplin: pro Zyklus den nächsten Cluster **real, abgegrenzt, literal verifiziert**; NIE Erfolgsmarke ohne literale Ausgabe.
 
 ## 1 — DIESER ZYKLUS ERLEDIGT: L-74c Composition-Driver + Cross-ABI (20 verifizierte Commits)
 Von 1/4 OperativeCapable-Achsen bis zum realen DLL-Round-Trip — jeder Schritt mit literaler Ausgabe, alle regress-verifiziert:

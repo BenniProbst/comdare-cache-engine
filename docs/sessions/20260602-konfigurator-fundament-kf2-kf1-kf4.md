@@ -21,7 +21,7 @@ gitignored (Commit DA `89c46b4`).
 **per-Organ `cacheline`-Unterachse**, compile_dims, runtime_dynamic, fixed_conditions, repetitions(3, nie interpoliert),
 3 modes mit active_axes-Maske, static_axes=base_tier, constraints. KEINE bestehende Datei geändert.
 
-**Verifiziert:** XML wohlgeformt, 8 Tiere/8 Achsen/3 Modi, alle 8 `profile_ref` lösen auf, cacheline per_organ=4 /
+**Verifiziert:** XML wohlgeformt, 8 Lebewesen/8 Achsen/3 Modi, alle 8 `profile_ref` lösen auf, cacheline per_organ=4 /
 line_sizes=3 / alignments=3 / sw_hints=5. (Commit ce `6de0b14`.)
 
 ## KF-1 — Self-contained XML-DOM-Reader + `parse_thesis_profile` ✅

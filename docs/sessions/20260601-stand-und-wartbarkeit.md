@@ -28,7 +28,7 @@ Beschaffungs-Specs (reale Umsetzung extern-gated). **Alle Repos synchron auf Git
 | **#22 Befüllung** | 6 Submodule-Repos mit kuratiertem Public-Header-Set (120 Header) befüllt | `ce32e84`; Workflow `wvwn8ntln`; Smoke 5/5 |
 
 **Lektion #49 (wichtig):** NIE `IObservableTier` in-place erweitern (brach vtable geladener DLLs → SEH 0xc0000005);
-neue Tier-Fähigkeiten als **separates optionales Sub-Interface** + `dynamic_cast` (wie IRollbackableTier/IScannableTier).
+neue Lebewesen-Fähigkeiten als **separates optionales Sub-Interface** + `dynamic_cast` (wie IRollbackableTier/IScannableTier).
 
 ---
 
