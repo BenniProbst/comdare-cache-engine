@@ -15,7 +15,7 @@
 4. Preflight-Workflow-Output (file:line-Edit-Liste, evtl. ephemer): `…\AppData\Local\Temp\claude\C--WINDOWS-system32\<sess>\tasks\wkqt7a0il.output` — falls weg: §4 hier ist die Essenz.
 
 **B. Architektur-Dokumente (autoritativ für die Mess-/ABI-Architektur) — `docs/architecture/`:**
-- **`24_messmodell_korrektur_zwei_dimensionen.md`** §8.1 — das **HYBRID-Modell**: **Pfad A** = isolierte Achsen-Algorithmen (run_workload, DLL-selbst); **Pfad B** = composite Tier über die REALE Komposition (observe_all/tier_observe). **seg_ns im EINEN POD = Pfad B** (User-Entscheid).
+- **`24_messmodell_korrektur_zwei_dimensionen.md`** §8.1 — das **HYBRID-Modell**: **Pfad A** = isolierte Achsen-Algorithmen (run_workload, DLL-selbst); **Pfad B** = composite Lebewesen über die REALE Komposition (observe_all/tier_observe). **seg_ns im EINEN POD = Pfad B** (User-Entscheid).
 - **`messarchitektur_design_observer_handle_no_dynamic_cast.md`** — „kein **per-Op**-dynamic_cast" (1× kalt/Modul = ok); I1-Konsolidierungs-Richtung.
 - **`abhaengigkeitskette_lebewesen_pruefdock_abi_konvergenz.md`** §5 — der EINE Mess-POD + ABI-Major-Bump (I1); Loader-Major-Reject; **alle 4 extern-C-Symbole + dynamic_cast-Stellen**.
 - **`30_audit_achsen_delegation_pflichtachsen.md`** — Befund 2 (Such-Organe umgehen Speicher-Achsen) + §8.0/§8.1 (3-Ebenen-Modell: Gattung=Interface/Prüf-Dock; Achsen Pflicht/uniform).
@@ -115,4 +115,4 @@ Arbeitsweise: Planung-vor-Bau; je Increment grün baubar → committen (ce) + Su
 - Je grünem Increment: `git add` (ce) + commit + `git push` + Superprojekt `git add Code/external/comdare-cache-engine` + commit + push. CSVs ggf. force-add (gitignored).
 
 ## §7 NACH I-C/I-D — die verbleibenden offenen Mess-Echtheits-Punkte (separat, niedrigere Prio)
-migration 2-Tier (`tier_moves>0`, memento-sensibel) · filter Train-then-Probe · io echtes Fixture · lazy DLL-Bibliothek (Content-Hash) · finaler realer Multi-Achsen-DLL-Lauf. Details: Plan-Datei „Danach"-Abschnitt.
+migration 2-Ebenen (`tier_moves>0`, memento-sensibel) · filter Train-then-Probe · io echtes Fixture · lazy DLL-Bibliothek (Content-Hash) · finaler realer Multi-Achsen-DLL-Lauf. Details: Plan-Datei „Danach"-Abschnitt.

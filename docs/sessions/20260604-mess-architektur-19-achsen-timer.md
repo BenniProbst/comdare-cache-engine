@@ -3,7 +3,7 @@
 ## Stand: UMGESETZT + verifiziert + committet
 
 Der per-Achsen-Timer (F15-Hybrid Pfad A) deckt jetzt **alle 19 SearchAlgorithm-Achsen** ab (Direktive
-[[feedback_all_axes_driven_and_timed_per_tier_binary]]: jede Achse je Tier-Binary getrieben + gemessen, **kein `n/a`**).
+[[feedback_all_axes_driven_and_timed_per_tier_binary]]: jede Achse je Lebewesen-Binary getrieben + gemessen, **kein `n/a`**).
 
 **Verankert (Pflicht-Planungssession gegen Architektur+Doku+Ist, kein Raten) → implementiert (Ultracode-Workflow:
 8 Achsen-Ops parallel → Kern → 3 adversariale Skeptiker, alle PASS) → finaler Lauf.**
@@ -37,7 +37,7 @@ k_ary 16,58M → linear_scan 25,09M ns (Faktor ~6,7×); Layout-Fix CLA(64) ≠ a
 | T11 value_handle (ExternalPool/Versioned/ChainRef/Immutable) | Zugriffs-**Simulation** auf lbuf | echten Pool-/Version-/Chain-Deref gegen die reale Value-Handle-Struktur |
 | T13 index_organization (NonClustered/IOT/Heap) | synthetischer LCG-Random-Hop | echten Index-Org-Zugriff über die reale Index-Struktur |
 | T14 io_dispatch (Buffered/Direct/Mmap) | reine In-Memory-Dispatch-**Simulation** (kein echtes IO) | echten IO-Dispatch-Pfad (mmap/buffered) — ggf. gegen tmp-Datei/echtes mmap |
-| T15 migration_policy (HotCold/TierBased/Adaptive) | Entscheidungs-Scan ohne 2. Tier | echte Migration über eine reale 2-Tier-Struktur |
+| T15 migration_policy (HotCold/TierBased/Adaptive) | Entscheidungs-Scan ohne 2. Ebene | echte Migration über eine reale 2-Ebenen-Struktur |
 | T16 filter (Bloom/Cuckoo/SuRF/Xor) | Probe-**Simulation** auf Pseudo-Bitmap | echte Filter-Probe gegen einen real aus den Daten gebauten Filter |
 | T7 prefetch (None/Hardware) | Hint-Loop (kann near-no-op sein) | mikroarchitektur-wirksame Prefetch-Op mit messbarer Divergenz |
 | T8 concurrency (None) | bewusste 0-Overhead-Baseline | (None bleibt Baseline; Blocking/RW/LockFree sind bereits ECHT — std::mutex/shared_mutex/atomic-CAS) |

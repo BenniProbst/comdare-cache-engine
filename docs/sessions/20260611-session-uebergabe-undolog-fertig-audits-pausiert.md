@@ -11,8 +11,8 @@
 - 320 copymem-v1-DLLs + **233/320 vollständige copymem-result.csv** (379 Z, `LastWriteTime > 2026-06-08
   13:32`) liegen unter `build/thesis_tiere/tiere/<stem>/` (ungetrackt, überlebten den Reboot). Die frühere
   „161"-Zählung der Vorgänger-Übergabe war zu konservativ.
-- Tiere Index 0+1 (k_ary): DLLs jetzt **undolog-v1** (neu gebaut 2026-06-11 10:34); ihre copymem-Ergebnisse
-  sind je als `result.copymem-v1.csv` im Tier-Ordner GESICHERT (Diff-Referenz).
+- Lebewesen Index 0+1 (k_ary): DLLs jetzt **undolog-v1** (neu gebaut 2026-06-11 10:34); ihre copymem-Ergebnisse
+  sind je als `result.copymem-v1.csv` im Lebewesen-Ordner GESICHERT (Diff-Referenz).
 
 ## 1. (A) Undo-Log-Memento #133 — FERTIG + LITERAL BEWIESEN
 **Design + Code:** s. **Doc 33** `docs/architecture/33_undolog_memento_und_mess_resume.md` (autoritativ).
@@ -27,7 +27,7 @@ DLL-Neubau via BuildVersion `undolog-v1`.
 **Schlüssel-Erkenntnisse (lösten die offene Sub-Entscheidung der Vorgänger-Übergabe auf):**
 1. Das Memento deckte SCHON IMMER nur `search_organ_` + `container_` ab (abi_adapter Memento-Block) — die
    auto-gekoppelten Achsen T1/T2/T3/T7/T8/T10/T17/T18 zählten auch unter copymem Warmup+Messung (exakt 2×,
-   systematisch identisch über alle Tiere/Profile). Der Undo-Log repliziert die Abdeckung EXAKT →
+   systematisch identisch über alle Lebewesen/Profile). Der Undo-Log repliziert die Abdeckung EXAKT →
    Status-quo-äquivalente Counter-Semantik, keine User-Abstimmung nötig.
 2. Die Stats beider Hüllen sind separate PODs (`stats_`-Member) → O(1)-Snapshot/Restore (der Falls-JA-Pfad).
 3. Die T6-Allocator-Statistik des `LayoutAwareChunkedStore` ist aus dem Datenzustand DERIVIERT
@@ -42,16 +42,16 @@ DLL-Neubau via BuildVersion `undolog-v1`.
   Zwei-Phasen-Lauf in tier_size + T0/T6 ELEMENTWEISE; `rollback_is_empirically_exact == true`.
   Build-Kommando steht im Datei-Kopf (cl standalone, ADHOC-Include-Satz wie Harness).
 - Bestandstests: `test_v5_two_phase_driver` 3/3, `test_v5_organ_memento` 2/2 (cmake msvc-release).
-- **E2E-Determinismus-Diff (Tier 0, echte DLL, Voll-Lauf-Konfiguration n_ops=10k/records=10k/n_repeats=3/
+- **E2E-Determinismus-Diff (Lebewesen 0, echte DLL, Voll-Lauf-Konfiguration n_ops=10k/records=10k/n_repeats=3/
   21 XML-Profile): 0 abweichende Zellen** über 378 Zeilen × 115 Nicht-ns-Spalten (alle stat_*-Blöcke,
   Observer-Counter, two_phase_valid, Op-Mix) zwischen `result.copymem-v1.csv` und undolog-v1-`result.csv`.
   Header identisch. ns-/seg_ns-Spalten (21) erwartungsgemäß abweichend (Timing).
 
 **⚠️ KOSTEN-BEFUND (FINAL, Smoke komplett — Exit 0, 756/756 Zeilen, two_phase_valid=1 durchweg,
-Negativ-Sweep monoton):** **BEIDE Tiere ~2× LANGSAMER als copymem auf der k_ary-Klasse**: Tier 0 ~52 min
-(10:34→11:26, teils unter Audit-Last), Tier 1 **54 min** (11:26→12:20, ab 12:06 lastfrei) vs copymem
-~25 min/Tier. **Determinismus dafür PERFEKT: auch Tier-1-Diff = 0 abweichende Nicht-ns-Zellen** (beide
-Tiere, 756 Zeilen × 115 Spalten identisch zu copymem). URSACHE (Code-validiert): Die WRITE-Inverse läuft
+Negativ-Sweep monoton):** **BEIDE Lebewesen ~2× LANGSAMER als copymem auf der k_ary-Klasse**: Lebewesen 0 ~52 min
+(10:34→11:26, teils unter Audit-Last), Lebewesen 1 **54 min** (11:26→12:20, ab 12:06 lastfrei) vs copymem
+~25 min/Lebewesen. **Determinismus dafür PERFEKT: auch Lebewesen-1-Diff = 0 abweichende Nicht-ns-Zellen** (beide
+Lebewesen, 756 Zeilen × 115 Spalten identisch zu copymem). URSACHE (Code-validiert): Die WRITE-Inverse läuft
 als Organ-Op — bei k_ary/SortedBinary heißt das `insert_slot_at`/`erase_slot_at` = flatten+rebuild
 **O(n) MIT Vektor-Allokationen** auf BEIDEN Strukturen (search_organ_ + container_), teurer als die zwei
 memcpy-artigen Vollkopien des copymem; zusätzlich zahlt der old-Lookup je Write. Read-Ops sind dagegen
@@ -60,7 +60,7 @@ klar überlegen (O(1) statt 2×O(n)-Kopie) — reicht bei k_ary netto aber nicht
 ruft statt Log-push direkt `escalate_undo_to_copy_()` (Vollkopie der Periode, Mechanik existiert + ist
 durch den clear-Fall in test_undolog_memento bereits bewiesen). Damit: READS = O(1)-Stat-Snapshots (der
 große Gewinn — Mehrheit der 21 Profile), WRITES = Vollkopie (exakt copymem-Niveau, KEINE teure Inverse)
-→ **strikt ≤ copymem auf JEDER Tier-Klasse** (BuildVersion dann `undolog-v2` o.ä.; Unit-Test-Erwartungen
+→ **strikt ≤ copymem auf JEDER Lebewesen-Klasse** (BuildVersion dann `undolog-v2` o.ä.; Unit-Test-Erwartungen
 prüfen: die Einzelfall-Checks insert/erase laufen dann über den Eskalations-Pfad — Semantik identisch).
 Alternativ (komplexer, NICHT empfohlen): Store-direkte Slot-Inverse (Doc-30-Delegations-Risiko).
 
@@ -106,16 +106,16 @@ Design = benanntes Pattern + Konvention (Web-Verifikation erwünscht); musterlos
 verwenden; Metaprogrammierung frei, aber zero runtime cost.
 
 ## 4. SMOKE-Lauf (lokal, tokenfrei — lief beim Abbruch weiter)
-PowerShell-Task `bta00xknl`, Prozess run_lazy_150 PID 3576 (Start 10:33): misst Tiere 0+1 als undolog-v1
-(n_ops=10k, n_repeats=3, 21 XML-Profile, je 378 Messungen). **Tier 0 FERTIG 11:26** (Diff-Beweis s. §1).
-Tier 1 lief noch — endet selbstständig; result.csv-mtime von Tier 1 gibt die lastärmere Kosten-Referenz.
-Falls der Prozess vorzeitig starb: kein Schaden (Tier-0-Beweis steht; Tier 1 wird in (C) eh neu gemessen).
-WICHTIG: Die undolog-result.csv von Tier 0/1 haben KEINEN Stamp (Smoke-Host ohne Resume-Code) → der
+PowerShell-Task `bta00xknl`, Prozess run_lazy_150 PID 3576 (Start 10:33): misst Lebewesen 0+1 als undolog-v1
+(n_ops=10k, n_repeats=3, 21 XML-Profile, je 378 Messungen). **Lebewesen 0 FERTIG 11:26** (Diff-Beweis s. §1).
+Lebewesen 1 lief noch — endet selbstständig; result.csv-mtime von Lebewesen 1 gibt die lastärmere Kosten-Referenz.
+Falls der Prozess vorzeitig starb: kein Schaden (Lebewesen-0-Beweis steht; Lebewesen 1 wird in (C) eh neu gemessen).
+WICHTIG: Die undolog-result.csv von Lebewesen 0/1 haben KEINEN Stamp (Smoke-Host ohne Resume-Code) → der
 (C)-Lauf misst sie korrekt neu.
 
 ## 5. NÄCHSTE SCHRITTE (Reihenfolge)
-1. **Smoke-Nachlese:** Tier-1-Zeit ablesen (`(Get-Item …_1_…\result.csv).LastWriteTime` minus 11:26) +
-   optional Diff Tier 1 (gleiches PowerShell-Snippet wie §1 — liegt in dieser Session-Historie) →
+1. **Smoke-Nachlese:** Lebewesen-1-Zeit ablesen (`(Get-Item …_1_…\result.csv).LastWriteTime` minus 11:26) +
+   optional Diff Lebewesen 1 (gleiches PowerShell-Snippet wie §1 — liegt in dieser Session-Historie) →
    **Kosten-Entscheid** (§1: behalten / Hybrid / Store-Inverse) — VOR (C).
 2. **Audits fortsetzen** (Resume-Kommandos §3) → Triage nach Regel §3 → Blocker fixen.
 3. **Resume-Doppellauf-Beweis** (§2, ~15 min + Host-Build).
@@ -128,11 +128,11 @@ WICHTIG: Die undolog-result.csv von Tier 0/1 haben KEINEN Stamp (Smoke-Host ohne
    pwsh tests\unit\thesis_tiere\build_and_measure_150_tiere.ps1 -MaxBinaries 320 -BuildVersion undolog-v1 `
         -NOps 10000 -NRepeats 3 -RebuildHost     # -Resume ist Default an
    ```
-   Crash-sicher: Resume (B) überspringt jetzt fertige+gestempelte Tiere automatisch. Danach: benannte
+   Crash-sicher: Resume (B) überspringt jetzt fertige+gestempelte Lebewesen automatisch. Danach: benannte
    lokale Kopie `biasmatrix_320x18x21_nops10k_<stamp>.csv` + **NAS-Ablage via
    `bash scripts/copy_results_to_nas.sh <datei>`** (NEU: Retry+Größen-Verify, lokale Kopie bleibt) +
    `git checkout` der getrackten CSVs.
-5. **Auswertung:** `04_csv_to_latex` (Superprojekt) auf das tier×workload-Schema anpassen (offen aus der
+5. **Auswertung:** `04_csv_to_latex` (Superprojekt) auf das Lebewesen×workload-Schema anpassen (offen aus der
    Vorgänger-Übergabe §5).
 
 ## 6. Geänderte/neue Dateien dieser Session (alle in DIESEM Commit)
