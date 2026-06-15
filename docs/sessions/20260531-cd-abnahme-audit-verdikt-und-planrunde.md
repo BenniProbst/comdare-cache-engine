@@ -49,12 +49,12 @@ aber zur Ambiguitäts-Beseitigung **harmonisiert** → Banner enthält jetzt zus
 ### 3.3 Task #42 Phase 2 — **AUDIT-FALSCH-BEFUND, literal widerlegt → done-verified**
 
 Der Audit meldete als C(b)-Vorbehalt + blocking_issue: „axis_03a `EnabledStrategies` enthält weiterhin 17
-monolithische Ganz-Tier-Wrapper". **On-Disk-Nachprüfung 2026-05-31 widerlegt das — der Agent hat
+monolithische Ganz-Lebewesen-Wrapper". **On-Disk-Nachprüfung 2026-05-31 widerlegt das — der Agent hat
 `AllStrategies` (physisch 17, für `kSearch=mp_size==17` erhalten) mit dem GEFILTERTEN `EnabledStrategies`
 verwechselt und den `is_enabled`-Filter nicht ausgewertet.**
 
 **Literaler Beleg (konfigurierter Flags-Header `build/.../axes/lookup/axis_03a_search_algo_flags.hpp`):**
-- **13 Monolith-Tiere `USE=0` (deregistriert):** Array256, VectorU8U8, VectorU16U16, Array65535, OriginalART,
+- **13 Monolith-Lebewesen `USE=0` (deregistriert):** Array256, VectorU8U8, VectorU16U16, Array65535, OriginalART,
   OriginalHOT, OriginalSTART, OriginalWormhole, OriginalSURF, SkipList, Hash, BST, BTree.
 - **4 primitive Such-Organe `USE=1` (aktiv):** K_ARY, INTERPOLATION, EYTZINGER, LINEAR_SCAN.
 - `CMakeLists.txt:140-159`: `option(COMDARE_AXIS_03A_ENABLE_<tier> "… -> deregistriert #42" OFF)` für alle 13.

@@ -17,7 +17,7 @@ Doku 14 §17.2/§20 (Anatomie = Organe + Observer). Vorgänger: Inc1 (`176c60b`)
 ### 1.1 Builder-Mess-Pfad + die NULL-Lücke
 - **Defekt-Ort:** `anatomy_execution_context.hpp:83` hält `std::map<uint64,uint64> container_` (R5.B-Pilot); `:48-66` treiben **ihn**; `:69-71` `observe_all()` delegiert aber an `anatomy_.observe_all()` → liest das **ungetriebene** Anatomie-Organ → alle Zähler 0.
 - **WICHTIGE KORREKTUR (Synthese):** Die Anatomie ist **nicht** inert — `search_algorithm_anatomy.hpp:101` hält `Composition::search_algo axis_search_algo_{}` real, und `:62-72` ruft bereits `axis_search_algo_.statistics()` unter `if constexpr (ObservableAxis<…>)`. Die Säule-2-Verdrahtung ist dort **schon eingebaut**; der einzige Defekt ist, dass der Context dieses Organ **nie treibt** (er fährt sein eigenes std::map).
-- **Root-Cause (Doku 24 §5.5):** schmale Organ-Keys (Array256=uint8, BST/BTree=uint16) → das Anatomie-Organ als allgemeiner uint64-Container ist verlustbehaftet. Lösung: ein **eigener uint64-Container** im Context (ComposedSearch), getrennt vom narrow-key-Tier-Wrapper.
+- **Root-Cause (Doku 24 §5.5):** schmale Organ-Keys (Array256=uint8, BST/BTree=uint16) → das Anatomie-Organ als allgemeiner uint64-Container ist verlustbehaftet. Lösung: ein **eigener uint64-Container** im Context (ComposedSearch), getrennt vom narrow-key-Lebewesen-Wrapper.
 
 ### 1.2 Observer-Infrastruktur
 - **`ObservableAxis`-Concept** (`observer_aggregate.hpp:40-44`): `typename A::snapshot_t; { a.statistics() } -> same_as<snapshot_t>`.
@@ -71,9 +71,9 @@ Doku 14 §17.2/§20 (Anatomie = Organe + Observer). Vorgänger: Inc1 (`176c60b`)
 - Verifikation: ctest beide Konfigurationen; 21 + 1 grün, 0 Regressionen.
 
 ## 5. Scope-Grenze (Folge-Increments)
-- Tier-Wrapper-Umstufung (search_algo bleibt narrow-key Tier-Wrapper, vom Context NICHT getrieben).
+- Lebewesen-Wrapper-Umstufung (search_algo bleibt narrow-key Lebewesen-Wrapper, vom Context NICHT getrieben).
 - Übrige 16 Observer-Slots bleiben Default/EmptyAxisSnapshot — nur `search_algo` echt.
-- abi_adapter/run_workload-Mess-Last + Tier-Wall-Clock-Anreicherung (eigene Säule).
+- abi_adapter/run_workload-Mess-Last + Lebewesen-Wall-Clock-Anreicherung (eigene Säule).
 - ComposedStore<N,L,A> als Context-Store (Allocator-Lifetime) — bewusst RawSlotStore-Pilot.
 - `statistics()` in StorageOrgan/TraversalOrgan-Kernvertrag ziehen — bleibt verboten (Observable nur auf Wrapper-Ebene).
 

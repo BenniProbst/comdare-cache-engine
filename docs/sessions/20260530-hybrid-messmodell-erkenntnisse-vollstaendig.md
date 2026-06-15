@@ -11,7 +11,7 @@ Erkenntnisse vollständig"). Volltext der Diplomarbeit schreibt der Autor (`[[us
 
 ## 1. Das HYBRID-Mess-Modell (Kern-Erkenntnis)
 
-Der **composite Tier** (ein ganzer Suchalgorithmus = Komposition über die 17 Achsen) wird vom
+Der **composite Lebewesen** (ein ganzer Suchalgorithmus = Komposition über die 17 Achsen) wird vom
 **CacheEngineBuilder + Submodulen** als **Modul-Binary** (.so/.dll) gebaut (adhoc_emitter →
 `comdare_build_adhoc_modules` → `AnatomyModuleLoader`). Die **Mess-Konfiguration** wählt dann einen von
 ZWEI Mess-Pfaden — es ist ein **Hybrid**:
@@ -25,17 +25,17 @@ ZWEI Mess-Pfaden — es ist ein **Hybrid**:
   Welch-t, Mann-Whitney-U, Cliff's δ) — die Doku-22-§3-Resultate (18,5×/85× Spannen).
 - **NICHT verworfen:** run_workload ist korrekt + produktiv — es ist diese Hälfte des Hybrids.
 
-### Pfad B — composite Tier (zentral über die CacheEngineBuilder)
-- **Wann:** den GANZEN Tier (alle 17 Achsen komponiert) durchmessen.
+### Pfad B — composite Lebewesen (zentral über die CacheEngineBuilder)
+- **Wann:** den GANZEN Lebewesen (alle 17 Achsen komponiert) durchmessen.
 - **Wo:** **zentral host-seitig über die CacheEngineBuilder**, durch **ABI-stabilen Zugriff auf die
-  Observer** des Tier-Moduls (`observe_all()` → `ObserverAggregate`).
+  Observer** des Lebewesen-Moduls (`observe_all()` → `ObserverAggregate`).
 - **Was:** BEIDE Dimensionen gemeinsam + korreliert (siehe §2).
 
 ---
 
 ## 2. Pfad B im Detail: BEIDE Dimensionen, zeit-/zustands-KORRELIERT
 
-Die CacheEngineBuilder erhebt im Composite-Pfad **SOWOHL** die allgemeinen Tier-Metriken (Wall-Clock,
+Die CacheEngineBuilder erhebt im Composite-Pfad **SOWOHL** die allgemeinen Lebewesen-Metriken (Wall-Clock,
 später RAM/Disk) **ALS AUCH** die **vollständigen** Achsen-Observer-Statistics (`observe_all` über ALLE
 17 Achsen) — in EINEM Lauf, nicht zwei getrennte.
 
@@ -58,7 +58,7 @@ auswertbar.
 
 | Dimension | Pfad A (DLL-selbst, isolierte Achse) | Pfad B in-process (Composite) | Pfad B über Modul-Binary-ABI |
 |-----------|--------------------------------------|-------------------------------|------------------------------|
-| §2.1 Tier-Wall-Clock (Füllstand, r/w/d, RAM) | ✅ run_workload + f15_compare | ✅ `tier_observe_trace.hpp` | ✅ **R6 Ink.2a** `drive_tier_observe_trace_abi` (r/w/d) |
+| §2.1 Lebewesen-Wall-Clock (Füllstand, r/w/d, RAM) | ✅ run_workload + f15_compare | ✅ `tier_observe_trace.hpp` | ✅ **R6 Ink.2a** `drive_tier_observe_trace_abi` (r/w/d) |
 | §2.2 Achsen-`observe_all` | (n/a, isoliert) | ✅ `AnatomyExecutionContext::observe_all` (search_algo+allocator real, uint64) | ✅ **R6 Ink.1+2b** `IObservableTier::tier_observe` (search_algo **+ allocator**, 2-dimensional) |
 | §2.3 Achsen-Vergleich (Interface vs std::map) | ✅ Welch+MWU+Cliff's δ | ✅ `verify_matches_std_map` (Compile-Time) | n/a |
 

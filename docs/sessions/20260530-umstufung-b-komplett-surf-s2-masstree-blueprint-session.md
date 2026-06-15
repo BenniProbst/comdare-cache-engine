@@ -17,7 +17,7 @@
 | `v41-s4-inc7b-start-verifiziert` | `5c1698d` | START adversarial verifiziert (0 Bugs) + Coverage-Härtung (span-3, hohe Bytes, add_child-Assert) |
 | `v41-42-phase1-rewiring` | `e31541a` | #42 Phase 1: alle 11 Konfiguratoren auf sezierte Organe (ObservableComposedContainer + paper_source) |
 | `v41-surf-s2-inc1-louds` / `…-inc1b-oob-fix` | `05f12cb`/`ccdedf6` | SuRF S2 Inkrement 1: echtes LOUDS-Sparse-Filter-Organ (+ 2 Bug-Fixes) |
-| `v41-42-phase2-deregistrierung` | `8bcbd7e` | #42 Phase 2: 13 Tiere via Flag-Gating deregistriert (EnabledStrategies 17→4) |
+| `v41-42-phase2-deregistrierung` | `8bcbd7e` | #42 Phase 2: 13 Lebewesen via Flag-Gating deregistriert (EnabledStrategies 17→4) |
 | *(Doc-Commit)* | `c82d151` | dieser Session-Doc (Blueprint-Stand) — danach folgten die untenstehenden Charges |
 | — | `f9de770` | Masstree-Organ Fundament: Concept + Store + verifizierter kpermuter (S1/S2/S9) |
 | — | `539e64f` | **Masstree-Organ KOMPLETT** — letzter Platzhalter-Konfigurator seziert (S3–S8) |
@@ -34,14 +34,14 @@ da-Pointer zuletzt: `15ca2cc` (→ ce `185f038`). Baseline-Tag `pre-42-umstufung
 
 ## 1. #42 Umstufung-B — VOLLSTÄNDIG (kritische Direktive erfüllt)
 
-**Direktive (Doku 14 §3.1):** Achsen enthalten NUR Organe (Sub-Tasks), NIEMALS ganze Tiere.
+**Direktive (Doku 14 §3.1):** Achsen enthalten NUR Organe (Sub-Tasks), NIEMALS ganze Lebewesen.
 
-- **Phase 1 (Composition-Rewiring):** Alle 11 Gattungs-Konfiguratoren (`compositions/*_reference.hpp` + `*_paper_binding_reference.hpp`) führen im `search_algo`-Slot das SEZIERTE Organ statt eines Tier-Wrappers.
-  - NEU `composable/observable_composed_container.hpp`: tier-agnostische ObservableAxis-Hülle um die Container-Organe (verhindert stille Säule-2-Regression auf EmptyAxisSnapshot — die rohen `ComposedXxxSearch` sind nicht observable).
+- **Phase 1 (Composition-Rewiring):** Alle 11 Gattungs-Konfiguratoren (`compositions/*_reference.hpp` + `*_paper_binding_reference.hpp`) führen im `search_algo`-Slot das SEZIERTE Organ statt eines Lebewesen-Wrappers.
+  - NEU `composable/observable_composed_container.hpp`: Lebewesen-agnostische ObservableAxis-Hülle um die Container-Organe (verhindert stille Säule-2-Regression auf EmptyAxisSnapshot — die rohen `ComposedXxxSearch` sind nicht observable).
   - Paper-Bindings: `search_algo`→Organ + neuer `paper_source`-Slot (trägt is_original/SHA256/Habich, KEIN Achsen-Wert).
-  - Test-Migration: `test_v41_anatomy` (ArtVsArtPaperBinding: jetzt gleiches Organ, Unterscheidung via paper_source) + `test_v41_compositions` (SearchAlgoVariant→IsDissectedSearchOrgan; „Shares"-Theoreme invertiert: jedes Tier hat sein EIGENES distinktes Organ).
-- **Phase 2 (Deregistrierung):** CMakeLists option()-Defaults der 13 Tier-Flags → OFF. `EnabledStrategies = mp_filter<is_enabled, AllStrategies>` schrumpft 17→4. ENABLED bleiben NUR echte elementare Such-METHODEN: K-ary(S10), Interpolation(S11), Eytzinger(S12), LinearScan(S15).
-  - **User-Entscheidung 2026-05-30:** die 4 flachen Tier-Platzhalter (Array256/VectorU8U8/VectorU16U16/Array65535) AUCH deregistrieren.
+  - Test-Migration: `test_v41_anatomy` (ArtVsArtPaperBinding: jetzt gleiches Organ, Unterscheidung via paper_source) + `test_v41_compositions` (SearchAlgoVariant→IsDissectedSearchOrgan; „Shares"-Theoreme invertiert: jedes Lebewesen hat sein EIGENES distinktes Organ).
+- **Phase 2 (Deregistrierung):** CMakeLists option()-Defaults der 13 Lebewesen-Flags → OFF. `EnabledStrategies = mp_filter<is_enabled, AllStrategies>` schrumpft 17→4. ENABLED bleiben NUR echte elementare Such-METHODEN: K-ary(S10), Interpolation(S11), Eytzinger(S12), LinearScan(S15).
+  - **User-Entscheidung 2026-05-30:** die 4 flachen Lebewesen-Platzhalter (Array256/VectorU8U8/VectorU16U16/Array65535) AUCH deregistrieren.
   - **Non-breaking + reversibel:** AllStrategies (mp_list) + Wrapper-Header + Direkt-Referenzen physisch erhalten. kSearch==17 / SimdSubset==6 / DenseSubset==2 (über AllStrategies) bleiben grün; count()/Cartesian (über EnabledStrategies) tautologisch grün. Reaktivierung via `-DCOMDARE_AXIS_03A_ENABLE_<X>=ON`.
   - **Stub-Subtilität:** deregistrierte OriginalXxx-Wrapper sind per Design No-op-Stubs (`if constexpr (enabled)` im Body). Runtime-Tests skippen sie (`if (!TypeParam::enabled) GTEST_SKIP()` in topic_traversal; `if constexpr (Tier::enabled)` in equivalence). Compile-time-Conformance läuft weiter über ALLE 17.
 
@@ -111,7 +111,7 @@ Planrunde `wxciy2wjk` (paper-verifiziert, `blocked: false`). `masstree_reference
 
 Methodik je Charge: (Planrunde bei Unklarheit →) Implementierung → adversariale Verifikation → Commit+Tag+Push+da-Bump.
 
-1. **Masstree-Organ KOMPLETT** (`f9de770`/`539e64f`/`1a2b12a`) — §3-Blueprint ausgeführt; letzter Tier-Platzhalter seziert. Damit ist die Umstufung-B-Direktive (Achsen enthalten NUR Organe) restlos erfüllt: KEIN monolithisches Tier mehr in `axis_03a`.
+1. **Masstree-Organ KOMPLETT** (`f9de770`/`539e64f`/`1a2b12a`) — §3-Blueprint ausgeführt; letzter Lebewesen-Platzhalter seziert. Damit ist die Umstufung-B-Direktive (Achsen enthalten NUR Organe) restlos erfüllt: KEIN monolithisches Lebewesen mehr in `axis_03a`.
 2. **Cross-Constraint ISA×SIMD (#704)** (`f9b6303`) — physisch unmögliche SIMD/ISA-Paare (Neon auf x86_64 etc.) aus dem Permutationsraum gefiltert (`mp_remove_if`); Roh-Produkt diagnostisch erhalten.
 3. **Säule-2 Mess-Pfad real** (`4f499cd`/`ce262d7`) — der F15-Mess-Treiber misst das ECHTE Composition-Organ pro Achse (`observe_all`-Statistik-Trace), statt generisch SortedBinary. Zweite Mess-Dimension operativ.
 4. **ART-Node-Shrink beim Erase** (`65f3102`) — adaptiver Knoten schrumpft N256→N48→N16→N4 (Leis ICDE 2013, beide Richtungen), std::map-treu via Equivalence-Test.

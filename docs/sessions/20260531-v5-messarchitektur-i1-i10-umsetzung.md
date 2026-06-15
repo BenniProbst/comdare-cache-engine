@@ -11,7 +11,7 @@ Erhalt der E2E-Abnahme. Fahre autonom fort, bis umgesetzt + Audit-Workflow-best�
 abgenommenen P1–P5 (V3/V4)."
 
 GRUNDMODELL (zwei Seiten):
-- **TIER-BINARY (.dll):** exportiert IMMER `IDriveableTier` (funktionaler Gattungs-Antrieb, ABI-stabil);
+- **LEBEWESEN-BINARY (.dll):** exportiert IMMER `IDriveableTier` (funktionaler Gattungs-Antrieb, ABI-stabil);
   `observer_all` + `memento_all` NUR bei Messung-AN compile-time einkompiliert (reine Metaprogrammierung,
   KEIN dynamic_cast zur Entfernung). Messung-OFF = funktional-only, auslieferbar, kein Overhead. KEINE
   Workloads in der DLL (run_workload-in-DLL war V3-Designfehler → host-seitig relokalisiert).

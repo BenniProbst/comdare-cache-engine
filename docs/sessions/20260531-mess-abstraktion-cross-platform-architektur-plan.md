@@ -81,7 +81,7 @@ paralleles ABI — der Kanal existiert, er ist nur nie befüllt worden.
 ### 2.2 Interface-Skizze `IMeasurementSource` / `IPmcSource`
 
 Neuer Header `ce/libs/cache_engine/include/cache_engine/measurement/i_measurement_source.hpp`. Bewusst **host-seitig**
-(nicht über die DLL-Grenze): PMC-Zugriff braucht OS-Privilegien/Treiber, die ein Tier-Modul nicht haben soll. Das Tier
+(nicht über die DLL-Grenze): PMC-Zugriff braucht OS-Privilegien/Treiber, die ein Lebewesen-Modul nicht haben soll. Das Lebewesen
 liefert nur seinen In-Modul-Roh-Counter via `pull_live_counters`; die echte PMC-Erhebung umklammert host-seitig den
 `run_workload`/`tier_*`-Aufruf am Dock.
 
@@ -182,7 +182,7 @@ kombiniert — nichts neu erfunden:
 - Eingang 3: `core_layout.hpp` (`CoreClass` P/E, `has_hybrid_cores()`, `PinningPolicyId`) + `axis_09b_simd_extension_*` (`units_per_socket`, `accessible_from_efficiency_cores`).
 
 `ArchEvaluator::evaluate()` liefert ein `ArchVerdict`:
-- **Effizienz-Quotient** = gemessene L3-Misses / vom `cost_model` erwartete Misses für diese ISA → „nutzt das Tier die Architektur aus?"
+- **Effizienz-Quotient** = gemessene L3-Misses / vom `cost_model` erwartete Misses für diese ISA → „nutzt das Lebewesen die Architektur aus?"
 - **SIMD-Ausnutzung**: erfüllt die Binary die `provides_avx*`-Versprechen des Wrappers vs. `cpuid_probe` Ist? (Lücke „promised vs actual").
 - **Hybrid-Gate**: lief der Messlauf auf P- oder E-Core (Pinning-Empfehlung aus `PinningPolicyId::HotPathOnHighIpc`).
 - **Vendor-Einordnung**: AMD vs Intel vs ARM relative Bewertung über `COMDARE_BLOCK_AO_PLATFORM`.
@@ -220,7 +220,7 @@ isa_baseline, vendor_affinity, library_type, sha256}`. Das ABI-Feld `comdare_pla
 ```
 if(NOT EXISTS plat_fingerprint.stamp)            → erster Build
 elseif(stored_plat_fingerprint != COMDARE_PLAT_FINGERPRINT)
-     message(STATUS "Plattform geändert → CacheEngineBuilder + Tier-Binaries werden NEU gebaut")
+     message(STATUS "Plattform geändert → CacheEngineBuilder + Lebewesen-Binaries werden NEU gebaut")
      → invalidiere .build_complete.marker der betroffenen Targets, trigger Rebuild
 else  → Binaries passen, kein Rebuild
 ```
@@ -237,7 +237,7 @@ Neues Modul `ce/cmake/precompile_mode.cmake` mit drei Modi (eine CMake-Konfigura
 | Modus | Was passiert | Wo |
 |---|---|---|
 | `NORMAL` | Build + Run + Measure am selben Host (heute) | Entwicklungs-Laptop |
-| `PRECOMPILE` | nur kompilieren für `COMDARE_PRECOMPILE_FOR_TARGET_TRIPLE` (z.B. `x86_64-linux-gnu` Barnard, `aarch64-linux-gnu` GH200), exportiert **CacheEngineBuilder + ALLE Tier-Binaries** + `.lib`/`.so` + `manifest.json` (mit `plat_fingerprint` + sha256) nach `COMDARE_PRECOMPILE_TARGETS_DIR/precompiled_dist/` | Laptop/CI baut FÜR ZIH |
+| `PRECOMPILE` | nur kompilieren für `COMDARE_PRECOMPILE_FOR_TARGET_TRIPLE` (z.B. `x86_64-linux-gnu` Barnard, `aarch64-linux-gnu` GH200), exportiert **CacheEngineBuilder + ALLE Lebewesen-Binaries** + `.lib`/`.so` + `manifest.json` (mit `plat_fingerprint` + sha256) nach `COMDARE_PRECOMPILE_TARGETS_DIR/precompiled_dist/` | Laptop/CI baut FÜR ZIH |
 | `PRECOMPILED` | **kein Compile** — importiert Binaries aus `manifest.json`, validiert `plat_fingerprint` gegen Live-Host, dann nur `load + measure` | ZIH-Rechenknoten |
 
 Treiber-CLI `ce/apps/precompile_batch_builder` (Inventar-Andock 10): `--target-triples x86_64-linux-gnu,aarch64-linux-gnu`
@@ -263,7 +263,7 @@ validiert vor `dlopen` + fällt auf `LD_LIBRARY_PATH` zurück (behebt die „Pfa
 | **I3** | Dock-Verkabelung: `IMeasurementSource*`-DI in `SearchAlgorithmDock` + `drive_tier_observe_trace_abi` HW-Klammer; `pull_live_counters` im `abi_adapter.hpp` implementiert | `--observe` schreibt korrelierte Observer+HW-Spalten; FK konsistent |
 | **I4** | `result_aggregator` 16+6 CSV + `measurement_writer::make_record_from_snapshot`; P5-Konsolidierung (Sub-Interface-Status-Enum, `MeasurementResolution`) | end-to-end: `f15_compare --pipeline-csv` → `binary_to_csv` mit realen Feldern 7-11 |
 | **I5** | `IntelPcmSource` ODER `ArmPmuPapiSource` (eine echte HW-Quelle) + Compile-Time-Selektor `COMDARE_MEASUREMENT_VENDOR` | auf i7-1270P: echte L1/L3-Misses ≠ 0; Vendor-Event-Codes **vorher web-verifiziert** |
-| **I6** | `ArchEvaluator` + `ArchVerdict` am Dock (R3) | Verdict-CSV-Spalte: Effizienz-Quotient + SIMD-promised-vs-actual plausibel auf 2 Tieren |
+| **I6** | `ArchEvaluator` + `ArchVerdict` am Dock (R3) | Verdict-CSV-Spalte: Effizienz-Quotient + SIMD-promised-vs-actual plausibel auf 2 Lebewesen |
 | **I7** | `COMDARE_PLAT_FINGERPRINT` + `platform_fit_check.cmake` + Manifest-Stempelung (R5) | Build A, Plattform-Var ändern → Configure meldet „Rebuild nötig"; `runtime_compatibility_check` skippt inkompatible DLL |
 | **I8** | `precompile_mode.cmake` 3 Modi + `precompile_batch_builder` CLI + `ModuleLoader::load_precompiled` (R6) | `PRECOMPILE` exportiert dist-Tarball; `PRECOMPILED` auf zweitem Host: nur load+measure, kein Compile |
 | **I9** | restliche Vendor-Sources (AMD uProf, ARM PAPI, ggf. PikaJobMonitorSource) + Set/Sequence/Adapter/View-Docks | je Source `needs_admin`-Gate korrekt; Multiplex bei >4 Events |
