@@ -1,11 +1,11 @@
-# Session — #40 (Tier-Wrapper-Umstufung, Doku 24 §6.2): Agenten-Design-Ergebnisse
+# Session — #40 (Lebewesen-Wrapper-Umstufung, Doku 24 §6.2): Agenten-Design-Ergebnisse
 
 **Stand:** 2026-05-29 · **Typ:** Understand→Design→Synthesize-Workflow · **Task:** #40 (letzter Doku-24-Punkt)
 **Workflow:** `wfuczshtl` / Run `wf_1e76c197-487` — 7 Agenten, ~708k Subagent-Tokens, 201 Tool-Uses.
 **Zweck:** Agenten-Ergebnisse für spätere Konsultation festhalten, BEVOR implementiert wird.
 **Bezug:** Doku 24 §6.2 (umstufen) ↔ Doku 14 §14.2 (PROMOTION, keine Löschung). Vorgänger: Roadmap-4 (ce `f81ea2a`).
 
-> **Frage:** Wie stufen wir die monolithischen Tier-Wrapper (Array256/BST/…) zu Reference-Compositions/
+> **Frage:** Wie stufen wir die monolithischen Lebewesen-Wrapper (Array256/BST/…) zu Reference-Compositions/
 > Stufe-2-Referenzen um — ohne Algorithmus/Test-Verlust und ohne die Doku-Spannung zu verletzen?
 
 ---
@@ -20,19 +20,19 @@
 - B — EnabledStrategies reduzieren + Wrapper in Stufe-2-Schicht: **verworfen** (editiert `test:1172`, berührt min-1-Vendor-Invariante → Risiko).
 - **C — verifizierbarer Mapping-Beleg (additiv-dokumentarisch): GEWÄHLT** + Graft aus A.
 
-**Korrektur:** Roadmap-4-Äquivalenz-Setup existiert bereits (`test_v41_axis_03a_cross_variant_equivalence.cpp`) → die Organe sind schon als ==std::map zertifiziert; der neue Beleg prüft nur das **Tier↔Organ-Paar**.
+**Korrektur:** Roadmap-4-Äquivalenz-Setup existiert bereits (`test_v41_axis_03a_cross_variant_equivalence.cpp`) → die Organe sind schon als ==std::map zertifiziert; der neue Beleg prüft nur das **Lebewesen↔Organ-Paar**.
 
 ## 3. Gewählter Blueprint — „Vollständigkeit vor Radikalität"
 **Reclassification = Rollen-Umklassifizierung, KEINE Mengen-Reduktion. An Registry/EnabledStrategies/Compositions ändert sich NICHTS.**
 
-**NEU** `composable/tier_to_organ_mapping.hpp`: deklariert pro monolithischem Tier-Wrapper sein komponierbares Organ-Pendant (Stufe-1) + trägt `static_assert(mp_contains<AllStrategies, tier>)` pro Eintrag → **beweist zur Compile-Zeit, dass kein Wrapper entfernt wurde** (kodiert Doku 14 §14.2 im Code) + markiert den Tier maschinenlesbar als Stufe-2-/Reference-Baseline (Doku 24 §6.2).
+**NEU** `composable/tier_to_organ_mapping.hpp`: deklariert pro monolithischem Lebewesen-Wrapper sein komponierbares Organ-Pendant (Stufe-1) + trägt `static_assert(mp_contains<AllStrategies, tier>)` pro Eintrag → **beweist zur Compile-Zeit, dass kein Wrapper entfernt wurde** (kodiert Doku 14 §14.2 im Code) + markiert das Lebewesen maschinenlesbar als Stufe-2-/Reference-Baseline (Doku 24 §6.2).
 
-**NEU** `tests/unit/test_v41_axis_03a_tier_organ_equivalence.cpp`: pro Mapping-Eintrag `verify_matches_std_map<tier>` + `verify_variants_equivalent<organ, tier>` (Roadmap-4-Harness) → Tier ≡ Organ-Pendant ≡ std::map. **KORREKTUR (key-type-sicher):** key_mod/query_max INNERHALB der schmalen Tier-Key-Breite (uint8 → 200/255; uint16 → 1000/1000), sonst kollidieren Keys beim Cast.
+**NEU** `tests/unit/test_v41_axis_03a_tier_organ_equivalence.cpp`: pro Mapping-Eintrag `verify_matches_std_map<tier>` + `verify_variants_equivalent<organ, tier>` (Roadmap-4-Harness) → Lebewesen ≡ Organ-Pendant ≡ std::map. **KORREKTUR (key-type-sicher):** key_mod/query_max INNERHALB der schmalen Lebewesen-Key-Breite (uint8 → 200/255; uint16 → 1000/1000), sonst kollidieren Keys beim Cast.
 
-**EDIT** `tests/unit/CMakeLists.txt` (additiver Test-Block) + **Doku 24 §7** (Tier→Organ-Mapping-Abschnitt).
+**EDIT** `tests/unit/CMakeLists.txt` (additiver Test-Block) + **Doku 24 §7** (Lebewesen→Organ-Mapping-Abschnitt).
 
-**Mapping-Tabelle (nur Tiere mit bereits ==std::map-bewiesenem Organ-Pendant):**
-| Tier (Sn) | key_type | Organ-Pendant |
+**Mapping-Tabelle (nur Lebewesen mit bereits ==std::map-bewiesenem Organ-Pendant):**
+| Lebewesen (Sn) | key_type | Organ-Pendant |
 |---|---|---|
 | Array256(S01), VectorU8U8(S02) | uint8 | `ComposedSearch<LinearScanTraversal, RawSlotStore>` |
 | VectorU16U16(S03), Array65535(S09), KAry(S10), Eytzinger(S12), LinearScan(S15) | uint16 | `ComposedSearch<{Linear|SortedBinary}Traversal, RawSlotStore>` |
