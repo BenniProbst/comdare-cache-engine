@@ -4,7 +4,7 @@
 **Planrunde-Workflow:** `w82140m0g` / Run `wf_322187fc-330` (8 Agenten, 1,08M Subagent-Tokens, 251 Tool-Calls, ~29 min)
 **Auftrag:** echte Trie-Anatomie der 5 OriginalXxx (ART/HOT/START/Wormhole/SuRF) in `node_type × path_compression
 × Trie-Traversal`-Organe sezieren — über die IST-Body-Rekonstruktion (#41) hinaus.
-**Bezug:** `[[feedback_no_whole_tier_axes_genus_configurator]]` (JEDES Tier — auch Original — in seine ECHTEN
+**Bezug:** `[[feedback_no_whole_tier_axes_genus_configurator]]` (JEDES Lebewesen — auch Original — in seine ECHTEN
 Organe), Doku 14 §13, `[[feedback_web_research_per_algorithm_pflicht]]`, `[[feedback_no_runtime_switch]]`.
 
 ---
@@ -46,7 +46,7 @@ path_compression bleiben orthogonale Achsen (Permutierbarkeit = Kern-Beitrag). G
 
 - **Verworfen Linse A** (reines Multi-Achsen, high): 3 riskante Umbauten an static_assert-geschützten Achsen
   gleichzeitig — zu breit.
-- **Verworfen Linse B** (per-Tier-Pool als Monolith, high): opfert die Achsen-Orthogonalität.
+- **Verworfen Linse B** (per-Lebewesen-Pool als Monolith, high): opfert die Achsen-Orthogonalität.
 
 **Staffelung:** ART (P01, Apache, 4/4) zuerst → START (P05, recyclet ART-Pool, Span-Param + uint16)
 opportunistisch → HOT (P02, Bit-Patricia + SparsePartialKey-AVX-512) eigene Charge → Wormhole (GPL-Re-Impl)
@@ -94,13 +94,13 @@ MIT User-Abstimmung VOR Code**); neue Achse `axis_03t_node_tuning` (STARTs Cost-
 node_type-Achse formal von Ein-Typ zu Growth-Policy extrahieren; echtes is_original-Linking (R7.6.c/#4, MSVC-
 Intrinsic-Risiko); **#42 Umstufung-B** (Entfernung aus EnabledStrategies) — diese Charge SEZIERT nur.
 
-**Web-Recherche-Pflicht je Tier** (vor jeweiliger Implementierung, Doku 18 autoritativ): ART Leis ICDE 2013
+**Web-Recherche-Pflicht je Lebewesen** (vor jeweiliger Implementierung, Doku 18 autoritativ): ART Leis ICDE 2013
 Apache-2.0; START Fent et al. ICDEW 2020; HOT Binna SIGMOD 2018 MIT; Wormhole Wu et al. EuroSys 2019 **GPL-3
 bestätigen**; SuRF Zhang SIGMOD 2018 Apache-2.0 (Range-Filter-Semantik).
 
 ---
 
-## 4b LIEFERSTAND ART (2026-05-29) — erstes Original-Tier voll seziert
+## 4b LIEFERSTAND ART (2026-05-29) — erstes Original-Lebewesen voll seziert
 
 | Inc | Lieferung | Tag | Test |
 |---|---|---|---|
@@ -115,10 +115,10 @@ std::map, gnadenlos): uint8 (ART≡OriginalArtSearchAlgo) + uint64 Multi-Byte + 
 (N256-Growth, Prefix-Split, Erase, Clear, Re-Insert). is_original=false (Re-Impl); SIMD-`find_child` +
 Node-Shrink/Kollaps + echtes extern-C-Linking = Folge-Increments.
 
-**Verbleibende s4-Tiere (Folge-Chargen):** START (recyclet ART-Pool + Span-Param + uint16 + Cost-DP-Achse
+**Verbleibende s4-Lebewesen (Folge-Chargen):** START (recyclet ART-Pool + Span-Param + uint16 + Cost-DP-Achse
 `axis_03t_node_tuning`); HOT (Bit-Patricia + SparsePartialKey-AVX-512); Wormhole (GPL-Re-Impl Hash-Anchor,
 ext leer); SuRF (LOUDS Range-Filter — Gattungs-Designentscheidung axis_filter MIT User-Abstimmung). Diese
-Tiere sind heute weiter auf `SortedBinaryOrgan` gemappt (IST-Body-Rekonstruktion #41) bis zu ihrer Deep-Charge.
+Lebewesen sind heute weiter auf `SortedBinaryOrgan` gemappt (IST-Body-Rekonstruktion #41) bis zu ihrer Deep-Charge.
 
 ## 5 Verweise
 - Planrunde-Output (vollständig): `tasks/w82140m0g.output` (82k+ chars; understanding[4] + designs[3] + blueprint).
