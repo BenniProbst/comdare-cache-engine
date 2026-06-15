@@ -225,7 +225,7 @@ welche Quellen direkt verwendbar sind und welche nur konzeptuell.
 | Status      | 5 | Aktiv 2025 |
 | License     | 5 | MIT |
 | Build       | 5 | CMake modern |
-| **Gesamt**  | **5.0** | **Empfehlung: Direkter Adapter — Top-Tier** |
+| **Gesamt**  | **5.0** | **Empfehlung: Direkter Adapter — Top-Rang** |
 
 ### A05-jemalloc (Facebook/Evans)
 
@@ -251,7 +251,7 @@ welche Quellen direkt verwendbar sind und welche nur konzeptuell.
 | Status      | 5 | aktiv 2025 |
 | License     | 5 | Apache 2.0 |
 | Build       | 5 | Bazel + CMake |
-| **Gesamt**  | **4.9** | **Empfehlung: Direkter Adapter — Top-Tier** |
+| **Gesamt**  | **4.9** | **Empfehlung: Direkter Adapter — Top-Rang** |
 
 ### A07-snmalloc (Microsoft Research)
 
@@ -324,9 +324,9 @@ welche Quellen direkt verwendbar sind und welche nur konzeptuell.
 
 | Rank | Quelle | Gesamt | Empfehlung |
 |---|---|---|---|
-| 1 | A04-mimalloc                 | 5.0 | Direkter Adapter — Top-Tier |
+| 1 | A04-mimalloc                 | 5.0 | Direkter Adapter — Top-Rang |
 | 2 | P29-RCU (userspace-rcu)      | 4.9 | Ersetzt durch eigene C++23-RCU (#104) |
-| 2 | A06-tcmalloc                 | 4.9 | Direkter Adapter — Top-Tier |
+| 2 | A06-tcmalloc                 | 4.9 | Direkter Adapter — Top-Rang |
 | 4 | A10-rpmalloc                 | 4.7 | Direkter Adapter |
 | 5 | A05-jemalloc                 | 4.3 | Direkter Adapter |
 | 5 | P20-B-Trees-Are-Back         | 4.3 | Direkter Adapter |
@@ -351,13 +351,13 @@ welche Quellen direkt verwendbar sind und welche nur konzeptuell.
 
 ## Konsequenzen fuer die Implementation
 
-1. **Tier 1 (Score >= 4.5) — Direkter Adapter** (5 Quellen):
+1. **Rang 1 (Score >= 4.5) — Direkter Adapter** (5 Quellen):
    - mimalloc, tcmalloc, rpmalloc, userspace-rcu (ersetzt), B-Trees-Are-Back
-2. **Tier 2 (Score 4.0–4.4) — Direkter Adapter mit Bedacht** (7 Quellen):
+2. **Rang 2 (Score 4.0–4.4) — Direkter Adapter mit Bedacht** (7 Quellen):
    - jemalloc, CoCo-Trie, Mahling, snmalloc, HOT, SuRF
-3. **Tier 3 (Score 3.0–3.9) — Eigene C++23-Re-Implementation** (5 Quellen):
+3. **Rang 3 (Score 3.0–3.9) — Eigene C++23-Re-Implementation** (5 Quellen):
    - ART, START, Wormhole, dlmalloc, MichaelLockfree
-4. **Tier 4 (Score < 3.0) — Nur konzeptuell** (5 Quellen):
+4. **Rang 4 (Score < 3.0) — Nur konzeptuell** (5 Quellen):
    - Hoard (GPL2), lrmalloc, HazardPointers, Masstree, B²-Tree (Lizenz),
      scalloc
 
@@ -366,8 +366,8 @@ welche Quellen direkt verwendbar sind und welche nur konzeptuell.
 - Die 23 Allokator-Familien-Adapter A01–A23 in
   `cache_engine/include/cache_engine/allocators/families/` wurden bereits
   als **abstrakte Mock-Adapter** angelegt (Phase 6.2.E).
-- Pro Quelle gilt die Empfehlung oben: Tier-1/2 sollten einen ECHTEN
-  Bind an die `ext/`-Sources haben; Tier-3/4 sollten weiterhin Mock bleiben,
+- Pro Quelle gilt die Empfehlung oben: Rang-1/2 sollten einen ECHTEN
+  Bind an die `ext/`-Sources haben; Rang-3/4 sollten weiterhin Mock bleiben,
   bis eine eigene Re-Implementation oder ein lizenz-sauberer Workaround
   vorliegt.
 - **GPL2-Problem (A01-Hoard):** Comdare ist Apache 2.0 — GPL2-Linking
@@ -378,6 +378,6 @@ welche Quellen direkt verwendbar sind und welche nur konzeptuell.
 
 - Bausteine_Matrix.txt: `Diplomarbeit/20260508 Termin 7/Bausteine_Matrix.txt`
 - 23 Allokator-Adapter: `comdare-cache-engine/cache_engine/include/cache_engine/allocators/families/`
-- 14 LEGACY_REIMPL-Skelette: `comdare-cache-engine/prt_art/legacy_reimpl/P{11..27}/` (Tier-3-Re-Impl-Stubs)
+- 14 LEGACY_REIMPL-Skelette: `comdare-cache-engine/prt_art/legacy_reimpl/P{11..27}/` (Rang-3-Re-Impl-Stubs)
 - eigene RCU: `comdare-cache-engine/cache_engine/reclamation/rcu_reclaim/` (#104)
 - Email-Anfragen (P06/P28/P31/P32/P33): siehe Task #74
