@@ -31,7 +31,7 @@
 >   reasoning-Texte; Workflow-Synthese/restliche Verifies offen — Resume:
 >   `Workflow({scriptPath: "C:\\Users\\benja\\.claude\\projects\\C--WINDOWS-system32\\78cf67f8-571e-4fcd-a907-1556dbc5be72\\workflows\\scripts\\mess-architektur-voll-audit-wf_a013b73f-aea.js", resumeFromRunId: "wf_a013b73f-aea"})`)
 >
-> **⛔ KONSEQUENZ SOFORT VOLLZOGEN:** Der (C)-Voll-Lauf (`bb8fz587k`, cowmem-v1) wurde bei 9/320 Tieren
+> **⛔ KONSEQUENZ SOFORT VOLLZOGEN:** Der (C)-Voll-Lauf (`bb8fz587k`, cowmem-v1) wurde bei 9/320 Lebewesen
 > GESTOPPT — mehrere bestätigte Blocker hätten Teile der 120.960 Messungen invalidiert/verzerrt. Die 320
 > cowmem-v1-DLLs + 9 Stamps bleiben liegen (Resume macht den Neustart nach den Fixes billig; nach
 > DLL-relevanten Fixes ohnehin neue BuildVersion).
@@ -40,7 +40,7 @@
 
 | # | Art | Befund (Kurzform) | Kern-Fix (Details im JSON) |
 |---|---|---|---|
-| P1 | pattern_violation | **Resource-Control ist ein unausgewiesenes Null Object:** `tier_apply_resource_control` klammert nur und schreibt ins repo-weit WRITE-ONLY `applied_rc_`; kein Organ-Hook existiert (KF-5-§7-A-API nie gebaut); Caps melden hartkodiert 5. **⇒ thread_count{1,2,4}×prefetch_distance{0,8} = 6 physisch identische Settings je Tier — die ×18-Dynamik degeneriert zu ×3 (nur repetition), RC-Spalten = Rauschen, ×6 Messzeit-Verschwendung.** | Organ-Hooks gemäß Design-Doc 20260602-§7-A (set_thread_count/set_prefetch_distance/…, CRTP-No-op-Defaults) ODER ehrlich: 0/caps=0 melden + RC-Dims aus dem Lauf nehmen |
+| P1 | pattern_violation | **Resource-Control ist ein unausgewiesenes Null Object:** `tier_apply_resource_control` klammert nur und schreibt ins repo-weit WRITE-ONLY `applied_rc_`; kein Organ-Hook existiert (KF-5-§7-A-API nie gebaut); Caps melden hartkodiert 5. **⇒ thread_count{1,2,4}×prefetch_distance{0,8} = 6 physisch identische Settings je Lebewesen — die ×18-Dynamik degeneriert zu ×3 (nur repetition), RC-Spalten = Rauschen, ×6 Messzeit-Verschwendung.** | Organ-Hooks gemäß Design-Doc 20260602-§7-A (set_thread_count/set_prefetch_distance/…, CRTP-No-op-Defaults) ODER ehrlich: 0/caps=0 melden + RC-Dims aus dem Lauf nehmen |
 | P2 | runtime_cost | **tier_scan = `save_state()` (O(n)-Vollkopie ALLER Records) + `std::sort` (O(n·log n)) PRO gemessener Scan-Op** (×2 durch two_phase) — misst memcpy+sort statt Scan-Fähigkeit; verletzt „Für Suche IMMER Bäume" | GoF-Iterator als Organ-API (in-order/lower_bound+next), tier_scan O(scan_len + log n); save_state nur Memento/Diagnose |
 | P3 | runtime_cost | **Verdeckter Doppel-Lookup pro insert in BEIDEN Observable-Hüllen** (`is_new`-Rekonstruktion via lookup; Ergebnis vom Adapter verworfen) — volle zweite Traversierung in jeder gemessenen Insert-Op | is_new via O(1)-`occupied_count()`-Delta (exakt das abi_adapter-eigene Muster) |
 | P4 | runtime_cost | **container_ (Allocator-Messpfad) = SortedBinaryTraversal über LayoutAwareChunkedStore → `insert_slot_at`/`erase_slot_at` = flatten+rebuild O(n) MIT Re-Allokationen in JEDEM gemessenen tier_insert/tier_erase** — der Mess-Apparat dominiert die Wall-Clock (deckungsgleich mit Mess-Audit M8) | LinearScanTraversal für container_ (Append-Pfad; Allocator-/Layout-Treibung identisch) oder Append-basierte Slot-Ops |
@@ -70,12 +70,12 @@ Mehrfach unabhängig gefundene, teils bereits einzel-verifizierte Kern-Befunde (
 |---|---|---|---|
 | M1 | RC-Placebo | = P1 (von 3 Mess-Linsen ebenfalls gefunden) | ×18→×3 degeneriert |
 | M2 | **ns_per_op-Faktor 2** | Divisor `2*n_ops` stammt aus dem Legacy-Fix-Workload (insert+lookup); der Workload-Pfad liefert aber GENAU n_ops getimte Ops → **ns_per_op aller Lastprofil-Zeilen systematisch HALBIERT** (7× gefunden; total_ns korrekt) | CSV-Spalte falsch; trivialer Fix |
-| M3 | **CoW/Undo tot für die 320** | Die 4 produktiven FullPilot-search_algo-Wrapper haben **kein `restore_statistics`** → `cow_capable_`(wie zuvor `undo_log_capable_`) = false → **stiller Rückfall auf eager copymem** für ALLE 320 Voll-Lauf-Tiere (NUR die Referenz-Kompositionen Art/Hot/Masstree haben die Hüllen — der 42/42-Test prüfte genau diese, der Voll-Lauf nutzt andere!) | erklärt den cowmem-Smoke ≈ copymem; Fix: restore_statistics in die 4 Wrapper (Goldstandard-API) ODER Hüllen auch im FullPilot |
+| M3 | **CoW/Undo tot für die 320** | Die 4 produktiven FullPilot-search_algo-Wrapper haben **kein `restore_statistics`** → `cow_capable_`(wie zuvor `undo_log_capable_`) = false → **stiller Rückfall auf eager copymem** für ALLE 320 Voll-Lauf-Lebewesen (NUR die Referenz-Kompositionen Art/Hot/Masstree haben die Hüllen — der 42/42-Test prüfte genau diese, der Voll-Lauf nutzt andere!) | erklärt den cowmem-Smoke ≈ copymem; Fix: restore_statistics in die 4 Wrapper (Goldstandard-API) ODER Hüllen auch im FullPilot |
 | M4 | **tier_scan No-Op für die 320** | Dieselben 4 Wrapper sind kein MementoAxis → `if constexpr` macht tier_scan zum **leeren Aufruf** → ycsb_e/lp_range_scan messen Funktionsaufruf-Latenz als „Scan" (für Referenz-Kompositionen gilt stattdessen P2: sort-dominiert) | 2/21 Profile invalide; Fix = P2-Iterator |
 | M5 | **Run-Phase = nur Upserts** | Load-Phase füllt exakt [1, records] VOLL → jede „Insert"-Op der Run-Phase trifft einen existierenden Key = **Upsert**; Insert-lastige Profile messen nie echtes Einfügen/Wachstum | Profile-Semantik; Fix: Key-Räume Load/Insert trennen |
 | M6 | **CoCo-neg50 konfundiert** | `coco_p04_neg50.xml` nutzt **zipfian**, die 4 Sweep-Geschwister uniform → der Negativ-Sweep ist an der 50%-Stufe konfundiert (XML-Tippfehler) | 1-Zeilen-XML-Fix |
 | M7 | **Stamp trotz Write-Fehler** | `result.csv.stamp` wird auch geschrieben, wenn der result.csv-Write fehlschlug (`if (pf)` prüft nur open) → stale Zeilen dauerhaft als aktuell zertifizierbar | kleiner Fix (pf.good() nach Schreiben + rows-Gate koppeln) |
-| M8 | **Apparat dominiert Wall-Clock** | In JEDER getimten Op: container_-O(n)-Rebuild (=P4) + T1/T2-Auto-Kopplungs-Linear-Scans → die gemessene „Tier-Latenz" misst überwiegend den Mess-Apparat, nicht das Such-Organ | = P3/P4/P5-Fix-Paket |
+| M8 | **Apparat dominiert Wall-Clock** | In JEDER getimten Op: container_-O(n)-Rebuild (=P4) + T1/T2-Auto-Kopplungs-Linear-Scans → die gemessene „Lebewesen-Latenz" misst überwiegend den Mess-Apparat, nicht das Such-Organ | = P3/P4/P5-Fix-Paket |
 
 **Wichtige MAJOR-Cluster (Auswahl; alle im JSON):** Resume-Stempel deckt **XML-Profil-INHALT** nicht
 (nur id-Liste; gestempelter seed ≠ effektiver XML-Seed; env_limits fehlen) — Profil-Edit mischt still alte/

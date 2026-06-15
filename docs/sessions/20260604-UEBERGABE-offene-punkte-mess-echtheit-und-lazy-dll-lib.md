@@ -26,20 +26,20 @@ Alle 19 SearchAlgorithm-Achsen sind in **beiden** Dimensionen real gemessen (kei
 - **memento/rollback (V5-I6/I7):** `tier_save_all`/`tier_rollback_all` (abi_adapter.hpp:1095-1116) sichern HEUTE nur `search_organ_` + `container_`. Jede NEUE persistente Struktur (migration tier1!) MUSS dort mitgesichert werden, sonst I6-Bruch.
 
 ## 3. DIE 7 OFFENEN PUNKTE
-1. **migration_policy** → echter 2-Tier-Store + `migrate_step()` (tier_moves real >0), memento-sicher.
+1. **migration_policy** → echter 2-Ebenen-Store + `migrate_step()` (tier_moves real >0), memento-sicher.
 2. **io_dispatch** → echtes IO als **Fixture** (NICHT Mess-Pfad; Portabilität + DRAM-Bench-Sauberkeit).
 3. **value_handle / filter / path_compression(Patricia)** → echter Pool/Chain-Deref · real aus Daten gebauter Filter · materialisierter Patricia-Trie.
 4. **prefetch** → mikroarchitektur-wirksam mit messbarer Divergenz.
 5. **realer Multi-Achsen-DLL-Mess-Lauf** → Timing+Observer in EINER CSV, viele Achsen variiert (DLL-Prozess-Isolation).
 6. (= Teil von 5)
-7. **inhalts-abgeleitete Versionierung je Tier → lazy DLL-Bibliothek** (NEU, User-Hinweis): Version ändert sich nur, wenn der für ≥1 Achse gewählte Algorithmus im CODE aktualisiert wird → nur betroffene Tiere neu bauen.
+7. **inhalts-abgeleitete Versionierung je Lebewesen → lazy DLL-Bibliothek** (NEU, User-Hinweis): Version ändert sich nur, wenn der für ≥1 Achse gewählte Algorithmus im CODE aktualisiert wird → nur betroffene Lebewesen neu bauen.
 
 ## 4. VERANKERTE PLÄNE (gerade fertig — Essenz hier gesichert; volle Specs in den Temp-Task-Outputs)
 **Plan-Temp-Dateien (evtl. ephemer — Essenz unten):**
 - 6-Achsen+DLL-Lauf: `…/tasks/wdbx72gu1.output` (JSON `result`).
 - Lazy-DLL-Bibliothek: Agent `affb40fd6cc4d2724` (im Transcript).
 
-### 4.1 migration 2-Tier (VOLL verankert, §1 der wdbx72gu1-Spec)
+### 4.1 migration 2-Ebenen (VOLL verankert, §1 der wdbx72gu1-Spec)
 - `axis_migration_observable.hpp`: neues **stateless Prädikat** `bool should_migrate_record(rec, record_size)` (if constexpr je Strategie: HotCold cold-Vote/TierBased %/Adaptive score&1/None false) — KEIN stats_-Inkrement.
 - `axis_04_node_type_chunked_store.hpp`: `organ_migrate_step<MigOrgan>(org, NodeChunkedStore& tier1)` via verifiziertes `flatten_()`/`rebuild_()`-Pattern (2-Phasen: markieren → markierte in `tier1.append_slot`, Rest rebuilden; löst R4 Iteration-während-Mutation). `append_slot` = einzige Append-API; tier1 = voller Store via `container_.store()`.
 - `abi_adapter.hpp`: Member `container_t container_tier1_{}` (nach ~Z.1175); neues Sub-Interface **`IMigratableTier { tier_migrate_step(max_moves)->uint64 }`** (additiv, dynamic_cast-Degrade); Impl: `mig_organ_.reset()` → `organ_migrate_step` → `add_tier_moves(n)` an der Hülle (stats_ privat → friend/Methode). **KRITISCH: NICHT in fill_observer_v3** (Observer muss idempotent bleiben) — echter Move im Treibe-Pfad.
@@ -57,7 +57,7 @@ Echter Weg je Achse: value_handle echter Pool/Version/Chain-Deref gegen reale Sl
 - **Realer DLL-Lauf:** neuer SelectMode in `run_lazy_150.cpp` (z.B. `one_wise` via `coverage_selection::select_one_wise` ODER Multi-Achsen-Grid) → variiert viele Achsen über REALE DLLs (Prozess-Isolation, kein In-Process-Heap-Issue); Timing(seg_ns[19])+Observer(axis_stats[19][8]) in EINER CSV. Harness `-SelectMode` erweitern.
 
 ### 4.5 LAZY DLL-BIBLIOTHEK (Punkt 7 — VOLL verankert)
-**Ziel:** per-Tier-Version = `hash(schema_version || content_hash(W0) || … || content_hash(W18))`; ändert sich nur bei Code-Update einer GENUTZTEN Achse → nur betroffene Tiere rebuilden.
+**Ziel:** per-Lebewesen-Version = `hash(schema_version || content_hash(W0) || … || content_hash(W18))`; ändert sich nur bei Code-Update einer GENUTZTEN Achse → nur betroffene Lebewesen rebuilden.
 - **Heute:** `build_orchestrator.hpp` `dll_is_current(output, build_version)` + `write_version_sidecar` nutzen EINEN GLOBALEN String (`-BuildVersion`); `orch_fnv1a_hex` hasht nur den binary_id (Wahl, nicht Inhalt). SHA256-System (`src/sha256/ctsha.hpp`, `is_original`-Makro) ist nur Habich-Paper-Validierung, KEIN Build-Versions-Hash.
 - **Empfohlen (Option A, Build-Zeit-Datei-Hash):**
   1. Codegen (CMake Custom Target, **kein Python**): SHA256 je Wrapper-Header in `topics/`+`axes/` → `build/msvc-release/generated/axis_content_hashes.hpp` (`constexpr kAxisContentHash_<wrapper_name> = "..."`).
@@ -68,7 +68,7 @@ Echter Weg je Achse: value_handle echter Pool/Version/Chain-Deref gegen reale Sl
 
 ## 5. RESUME-REIHENFOLGE (NÄCHSTE SESSION)
 1. Volle Specs lesen: `…/tasks/wdbx72gu1.output` (§1-§6) + Agent affb40fd (lazy DLL). Falls Temp weg: §4 hier ist die Essenz.
-2. Implementieren (je Punkt eigener Implementierungs-Workflow, memento-sicher, adversarial verifiziert, je Schritt grün baubar): **Reihenfolge** = (a) lazy DLL-Bibliothek (Infra, beschleunigt alle Folge-Builds) → (b) value_handle/filter/patricia/prefetch (Wrapper-lokal, parallelisierbar) → (c) migration 2-Tier (memento-sensibel, einzeln) → (d) io-Fixture (eigenständig) → (e) realer Multi-Achsen-DLL-Lauf (SelectMode one_wise) als FINALE Messung.
+2. Implementieren (je Punkt eigener Implementierungs-Workflow, memento-sicher, adversarial verifiziert, je Schritt grün baubar): **Reihenfolge** = (a) lazy DLL-Bibliothek (Infra, beschleunigt alle Folge-Builds) → (b) value_handle/filter/patricia/prefetch (Wrapper-lokal, parallelisierbar) → (c) migration 2-Ebenen (memento-sensibel, einzeln) → (d) io-Fixture (eigenständig) → (e) realer Multi-Achsen-DLL-Lauf (SelectMode one_wise) als FINALE Messung.
 3. Je Punkt: unabhängig verifizieren (literal), committen+pushen, Superprojekt-Submodul-Bump.
 4. Bestehende Tests grün halten: `test_obs_phaseA`, `test_all19_segment_timer`, `test_d_v42_abi_telemetry_coupling`, `test_segment_timer_differentiation`.
 5. ABI-Regel: jede neue Fähigkeit als EIGENSTÄNDIGES Sub-Interface (dynamic_cast-Degrade), V1/V2/V3 nie append-mutieren.
