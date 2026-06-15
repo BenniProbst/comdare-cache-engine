@@ -1,4 +1,4 @@
-# 30 — Audit: Achsen-Delegation + Pflicht-Achsen pro Tier (2026-06-03)
+# 30 — Audit: Achsen-Delegation + Pflicht-Achsen pro Lebewesen (2026-06-03)
 
 **Anlass (User-Einwand 2026-06-03):** „Ich bin davon ausgegangen, dass jedes Tier durchgängig alle und immer dieselben
 Achsen-Interfaces verwendet wie alle anderen Tiere, also Pflicht immer alle 17 plus die externen 5. Jeder Tier-Binary-
@@ -11,7 +11,7 @@ Substanz recht — es liegt ein echter Architektur-Verstoß vor, aber an anderer
 
 ---
 
-## Befund 1 — Achsen-ZAHL pro SearchAlgorithm-Tier: 17 Organe + 3 Build = 20 (nicht 22)
+## Befund 1 — Achsen-ZAHL pro SearchAlgorithm-Lebewesen: 17 Organe + 3 Build = 20 (nicht 22)
 
 Belegt (Agent 1, file:line): das Makro `COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT` (`abi/anatomy_module_abi_v1.hpp:87-89`)
 expandiert zu `AdHocComposition<__VA_ARGS__>` — **hart auf exakt 17 Slots fixiert** (`composition_factory.hpp:41-85`,
@@ -20,14 +20,14 @@ expandiert zu `AdHocComposition<__VA_ARGS__>` — **hart auf exakt 17 Slots fixi
 
 Die „22" (`axis_observer_classification.hpp:42-66`, literal getestet `test_br3_obs22.cpp`) = **17 SearchAlgorithm-Slots
 + 3 Definition (Build) + 2 Container (queuing q1/q2)**. Die 2 Container-Achsen gehören per `genus_binding_traits.hpp:53-68`
-zur **eigenständigen Container/Adapter-Gattung** (eigene Tier-Binary, 2 Slots), NICHT zu SearchAlgorithm — Cross-Genus-
+zur **eigenständigen Container/Adapter-Gattung** (eigene Lebewesen-Binary, 2 Slots), NICHT zu SearchAlgorithm — Cross-Genus-
 Joins sind „type-system-mathematisch unmöglich" (Doc 28 §0). Per-Gattung-Slots: SearchAlgorithm 17, Container 2, Set 15,
 Sequence 11, View 7.
 
-**Teil-Ergebnis:** Auf der reinen ZÄHLUNG ist das aktuelle Makro (17+3) für ein SearchAlgorithm-Tier vollständig; „22
-pro Tier" widerspricht der code-erzwungenen Gattungs-Invariante. **ABER das ist nur die strukturelle Hälfte der Frage —
+**Teil-Ergebnis:** Auf der reinen ZÄHLUNG ist das aktuelle Makro (17+3) für ein SearchAlgorithm-Lebewesen vollständig; „22
+pro Lebewesen" widerspricht der code-erzwungenen Gattungs-Invariante. **ABER das ist nur die strukturelle Hälfte der Frage —
 und nicht die, die der eigentliche Verstoß betrifft.** Ob queuing/Pufferung (q1/q2) konzeptionell in ein Suchalgorithmus-
-Tier gehört (User-Sicht: ja — vgl. LSM-/B-Tree-Insert-Buffer) oder in eine getrennte Gattung (aktueller Stand) ist eine
+Lebewesen gehört (User-Sicht: ja — vgl. LSM-/B-Tree-Insert-Buffer) oder in eine getrennte Gattung (aktueller Stand) ist eine
 **offene Design-Entscheidung** (s. §4 Q1).
 
 ---
@@ -51,10 +51,10 @@ ComposedStore. Zusätzlich verwendet `ComposedStore` `node_type` nur als constex
 ohne Laufzeitwirkung. Und der V1-Mess-POD (`observable_tier.hpp:42-61`, von `perm_runner` genutzt) trägt **kein einziges
 node_*-Feld** (die existieren nur im nie aufgerufenen V2-POD).
 
-**Konsequenz:** Die Tiere durchlaufen **NICHT uniform alle 17 Organ-Interfaces**. Das Such-Organ beschattet node_type/
+**Konsequenz:** Die Lebewesen durchlaufen **NICHT uniform alle 17 Organ-Interfaces**. Das Such-Organ beschattet node_type/
 memory_layout. Das Sezierungs-Prinzip (Doku 14 §3.1: „Achse = Organ; ein Such-/Traversal-Organ besitzt KEINEN eigenen
 Speicher; Algorithmus = Komposition") ist im aktiven Mess-Pfad **verletzt**. Der Task-#42-Anspruch („Umstufung-B: ALLE
-axis_03a-Tiere seziert → Gattungs-Konfiguratoren") ist als Gerüst vorhanden (`composable_search.hpp`), aber im gemessenen
+axis_03a-Lebewesen seziert → Gattungs-Konfiguratoren") ist als Gerüst vorhanden (`composable_search.hpp`), aber im gemessenen
 Pfad **nicht verdrahtet** — die Monolithen sind unverändert in Gebrauch.
 
 **Korrektur der Mess-Doku:** Mein „Befund B = ehrliche Null-Kontrolle / reale Achsen-Orthogonalität"
@@ -95,10 +95,10 @@ Der User meint die **operative** Lesart, die Architektur erfüllt nur die **stru
 
 | Lesart | Aussage | Status |
 |---|---|---|
-| **strukturell** | jedes SA-Tier *instanziiert* die 17 Slots (+3 Build) | ✅ erfüllt (Makro) |
-| **operativ** | jedes Tier *routet durch* alle 17 Organ-Interfaces (kein Eigenspeicher-Bypass) | ❌ **verletzt** (Befund 2) |
+| **strukturell** | jedes SA-Lebewesen *instanziiert* die 17 Slots (+3 Build) | ✅ erfüllt (Makro) |
+| **operativ** | jedes Lebewesen *routet durch* alle 17 Organ-Interfaces (kein Eigenspeicher-Bypass) | ❌ **verletzt** (Befund 2) |
 
-**Offene Entscheidung Q1 (Design, Achsen-Zahl):** Sollen queuing/Puffer-Organe (q1/q2) Teil JEDES SearchAlgorithm-Tiers
+**Offene Entscheidung Q1 (Design, Achsen-Zahl):** Sollen queuing/Puffer-Organe (q1/q2) Teil JEDES SearchAlgorithm-Lebewesens
 sein (User-Sicht „17+5=22 uniform", literatur-plausibel via Write-Buffer/LSM) — oder bleibt die aktuelle Gattungs-
 Trennung (q1/q2 = eigene Container-Gattung)? Ersteres bräuchte einen Bruch der `AdHocComposition<17>`-Invariante
 (→ `<22>` o. ä.) ODER eine Neudefinition, was „SearchAlgorithm-Anatomie" umfasst. **User-Entscheidung.**
@@ -124,9 +124,9 @@ könnte verlangen, dass manche Organe ihren Original-Algorithmus monolithisch be
 
 1. **Q2 ist ein Bug, kein Geschmack** — die echte Delegation sollte hergestellt werden, sonst ist das Experiment
    (Achsen einzeln messbar) für axis_04/05 nicht aussagekräftig. Empfohlener Einstieg: **vertikaler Beweis-Schnitt** —
-   EIN echtes delegierendes Tier (ComposedSearch über node_type) bauen + messen, das zeigt „node_type wirkt jetzt",
+   EIN echtes delegierendes Lebewesen (ComposedSearch über node_type) bauen + messen, das zeigt „node_type wirkt jetzt",
    bevor alle 5 Organe + der Adapter umgebaut werden.
-2. **Q1 ist eine echte Design-Frage** für den User (Gattungs-Trennung beibehalten vs. queuing in jedes SA-Tier).
+2. **Q1 ist eine echte Design-Frage** für den User (Gattungs-Trennung beibehalten vs. queuing in jedes SA-Lebewesen).
 3. **Mess-Doku** ist bereits ehrlich korrigiert (Befund B = Verstoß-Abdruck, nicht Orthogonalität).
 4. **Lücken G1/G2** (Key-Normalisierung, Split-Merge-Policy) als Achsen-Kandidaten vormerken (separat von Q2).
 
@@ -138,7 +138,7 @@ könnte verlangen, dass manche Organe ihren Original-Algorithmus monolithisch be
 ist von der unbounded `ComposedStore` auf die node-wirksame **`NodeChunkedStore<N,L,A>`** umgestellt (`abi_adapter.hpp`
 container_t + Include `axes/node/axis_04_node_type_chunked_store.hpp`). `NodeChunkedStore` speichert in node-großen
 Chunks (cap=`N::max_capacity()`) und meldet `allocator_statistics().allocation_count = ceil(size/cap)` → node-abhängig.
-Belegt (perm_runner, alle 8 thesis-Tiere neu gebaut + gemessen, `build/thesis_tiere/thesis_measurements.csv`):
+Belegt (perm_runner, alle 8 thesis-Lebewesen neu gebaut + gemessen, `build/thesis_tiere/thesis_measurements.csv`):
 
 | node_type (axis_04, Such-Organ fix Array256) | alloc_cnt @ n=1000 | @ n=2000 | @ n=4000 |
 |---|---|---|---|
@@ -155,9 +155,9 @@ standalone-Beleg `test_node_delegation_proof` (ComposedSearch über NodeChunkedS
 (peak/fill/lookup) kommen weiter aus dem Monolith `search_organ_`; die STORAGE-Achsen delegieren jetzt korrekt. Die
 restliche Vereinheitlichung (Such-Strategie ebenfalls als Traversal über DENSELBEN Store) ist der verbleibende Teil.
 
-**Q1 (22 uniform pro Tier) — SAUBERE Migration (User-Direktiven 2026-06-03: „kein doppeltes Topic" + „keine Achse
+**Q1 (22 uniform pro Lebewesen) — SAUBERE Migration (User-Direktiven 2026-06-03: „kein doppeltes Topic" + „keine Achse
 thematisch / kein Topic konzeptionell doppelt"):** `AdHocComposition<17>→<19>` mit queuing q1/q2 als ECHTE, explizite
-Slots 17/18 (dasselbe queuing-Topic axis_q1/axis_q2 — NICHT dupliziert, KEIN Auto-Anhängen). Jedes Tier wählt q1/q2
+Slots 17/18 (dasselbe queuing-Topic axis_q1/axis_q2 — NICHT dupliziert, KEIN Auto-Anhängen). Jedes Lebewesen wählt q1/q2
 explizit (wie die übrigen 17). **Die Adapter/Container-Gattung wird ENTFERNT** (ihr einziger Zweck = queuing-als-eigene-
 Gattung → würde das queuing-Konzept doppeln). So existiert queuing genau EINMAL (als SA-Slots).
 
@@ -176,7 +176,7 @@ Gattung → würde das queuing-Konzept doppeln). So existiert queuing genau EINM
 **B. Achsen-Klassifikation (22 bleibt: jetzt 19 SA-Composition + 3 Build, KEINE 2 Container):**
 - `builder/experiment_tree/axis_observer_classification.hpp` — 17→19 SearchAlgorithmObserver, 2 ContainerObserver entfallen.
 - `builder/experiment_tree/registry_to_axis_levels.hpp` — Baum-Ebenen 22 (19+3) statt 17+3+2.
-**C. Tier-Quellen (16, je +2 explizite queuing-Organe T17/T18):** `tests/unit/{genus_adhoc_buildvariant, genus_buildvariant_*,
+**C. Lebewesen-Quellen (16, je +2 explizite queuing-Organe T17/T18):** `tests/unit/{genus_adhoc_buildvariant, genus_buildvariant_*,
 genus_module_*, thesis_tiere/thesis_*}.cpp` + `auto_emitted_perm_module.cpp`.
 **D. Registry/Codegen:** `builder/experiment_tree/composition_registry.hpp` (PermTuple<19>), `builder/codegen/adhoc_emitter.hpp` (emittiert 19).
 **E. Gattung-Generik:** `builder/experiment_tree/genus_binding_traits.hpp` — SA slot_count 19 + names; **Adapter-Spezialisierung
@@ -185,7 +185,7 @@ ENTFERNT**; `test_genus_binding` 5→4 Gattungen.
 löschen/entkernen; `anatomy/anatomy_base.hpp` AnatomyGenus::Adapter (Enum-Wert) bereinigen; CMake-Targets
 `perm_container_*`/`test_d4b`/Container-Teil von `test_dgenus_dll` entfernen.
 **G. Tests anpassen:** `test_br3_obs22` (19+3, keine 2 Container), `test_br1_full22_count` (22 = 19+3), Container-Tests entfernen.
-**Verifikation:** Mess-Pfad `build_and_measure_thesis_tiere.ps1` (Tiere jetzt 19 Achsen) + `cmake --build` grün.
+**Verifikation:** Mess-Pfad `build_and_measure_thesis_tiere.ps1` (Lebewesen jetzt 19 Achsen) + `cmake --build` grün.
 
 ---
 
@@ -198,7 +198,7 @@ je Achse." → tiefenlesender Agent (Doku 14 §7/§25/§27/§28/§32 + Code + Do
 
 **Befund (mit Belegen):**
 - **Gattung = Datenstruktur-ART mit festem Achsen-Satz** (Doku 14 §32.1 `:1249`: „Gattungen verwenden die exakt selben
-  permutativen Achsen"). 5 Gattungen (Tier-Metapher): SearchAlgorithm(17)/Set(15)/Sequence(11)/**Adapter**/View(7).
+  permutativen Achsen"). 5 Gattungen (Lebewesen-Metapher): SearchAlgorithm(17)/Set(15)/Sequence(11)/**Adapter**/View(7).
 - **`AnatomyGenus::Adapter` ist im IST ein Kategorienfehler:** `ContainerComposition` hat nur 2 Slots = q1 buffer + q2
   flush (`container_anatomy.hpp:54-79`); `put/get/size/clear` sind 1:1-Pass-Through auf das q1-Organ `FIFOQueueBuffer`,
   das bereits die volle Container-API + eigenen `std::deque` hat (`axis_q1_queuing_fifo.hpp:56-108`). Die „Gattung" ist
@@ -219,29 +219,29 @@ je Achse." → tiefenlesender Agent (Doku 14 §7/§25/§27/§28/§32 + Code + Do
      Algorithm oder für Container oder für Graphen)" + **§8.6** „ABI-stabiles Interface für die API der Gattung eines
      Algorithmus (etwa Suchalgorithmen)"; Doku 14 §25 „Suchalgorithmen und Container gehören zu unterschiedlichen Gattungen".
      Coarse, schnittstellen-/Prüf-Dock-definierend.
-   - **(b) Tier-Unterklasse** = liegt UNTER dem Interface und verwendet einen **FESTEN Achsen-Satz** (Doku 14 §25 „die
+   - **(b) Lebewesen-Unterklasse** = liegt UNTER dem Interface und verwendet einen **FESTEN Achsen-Satz** (Doku 14 §25 „die
      Permutation Engine … durch Unterklassen … spezifiziert"; §26 die std-Familien A–F). Hier lebt die feste Achsen-
      Konfiguration — NICHT auf der Gattungs-Ebene.
-   - **(c) Achsen** = Organe der Tier-Unterklasse; **alle Pflicht + in jedem Tier-Binary uniform getrieben** (User-Korr. #3);
+   - **(c) Achsen** = Organe der Lebewesen-Unterklasse; **alle Pflicht + in jedem Lebewesen-Binary uniform getrieben** (User-Korr. #3);
      je Achse ein austauschbarer Algorithmus (inkl. Durchreich-Algorithmen wie NoBuffer/NonePrefetch).
-   - **AKTUELLER STAND:** wir definieren erstmal **NUR EINE Tier-Unterklasse** (unter dem SearchAlgorithm-Interface,
+   - **AKTUELLER STAND:** wir definieren erstmal **NUR EINE Lebewesen-Unterklasse** (unter dem SearchAlgorithm-Interface,
      std::map-ähnlich), für die ALLE Achsen Pflicht sind. (Die code-seitigen „5 AnatomyGenus" SearchAlgorithm/Set/Sequence/
-     Adapter/View bzw. Doku-14-§26 „Gattung A–F" benennen Container-Tier-Unterklassen lose als „Gattung" — per dieser
-     Präzisierung sind sie Tier-Unterklassen der Container-Gattung; nur die SearchAlgorithm-Tier-Unterklasse ist heute gebaut.)
-   - **Folge für queuing:** queuing ist eine **Pflicht-Achse der (aktuellen SearchAlgorithm-)Tier-Unterklasse** — kein
+     Adapter/View bzw. Doku-14-§26 „Gattung A–F" benennen Container-Lebewesen-Unterklassen lose als „Gattung" — per dieser
+     Präzisierung sind sie Lebewesen-Unterklassen der Container-Gattung; nur die SearchAlgorithm-Lebewesen-Unterklasse ist heute gebaut.)
+   - **Folge für queuing:** queuing ist eine **Pflicht-Achse der (aktuellen SearchAlgorithm-)Lebewesen-Unterklasse** — kein
      Interface, keine Gattung. Der „Adapter = queuing-Gattung"-Fehler war DOPPELT falsch: (i) queuing ist keine Gattung;
-     (ii) selbst die Container-Adapter (std::queue/stack/priority_queue, Doku 14 §26.4) wären eine **Tier-Unterklasse der
+     (ii) selbst die Container-Adapter (std::queue/stack/priority_queue, Doku 14 §26.4) wären eine **Lebewesen-Unterklasse der
      Container-GATTUNG** (axis_inner + ordering), nicht eine „queuing-Gattung".
 
-1. **Achsen einer Tier-Unterklasse sind NIE optional** (User-Korrektur #3 — verwirft das „optional"-Framing des Agenten): JEDE Achse
-   ist in JEDEM Tier-Binary präsent, ihr Interface wird UNIFORM getrieben. queuing ist also eine **reguläre, mandatorische
-   SA-Achse** — kein „optionaler Slot". Ein Tier, das nicht puffert, wählt den KONKRETEN Algorithmus `NoBuffer`/`NoFlush`
+1. **Achsen einer Lebewesen-Unterklasse sind NIE optional** (User-Korrektur #3 — verwirft das „optional"-Framing des Agenten): JEDE Achse
+   ist in JEDEM Lebewesen-Binary präsent, ihr Interface wird UNIFORM getrieben. queuing ist also eine **reguläre, mandatorische
+   SA-Achse** — kein „optionaler Slot". Ein Lebewesen, das nicht puffert, wählt den KONKRETEN Algorithmus `NoBuffer`/`NoFlush`
    („ein Algorithmus, der eigentlich nicht queued", durchreicht) — die Achse + ihr Interface bleiben present + uniform
    getrieben. Exakt analog prefetch=`NonePrefetch`, filter=`None`, migration=`NoMigration`: das sind konkrete Algorithmen,
    KEINE abwesenden/optionalen Achsen.
-2. **queuing q1/q2 als reguläre SA-Slots 17/18** — jedes Tier wählt EXPLIZIT einen Algorithmus (meist NoBuffer/NoFlush,
-   ein LSM/Bw-Tree-Tier einen echten Buffer). Das IST „22 uniform pro Tier", korrekt verstanden: alle Achsen-Interfaces in
-   jedem Tier-Binary, je Achse ein austauschbarer Algorithmus. `AdHocComposition<17>→<19>` (kein Auto-Anhängen — explizit).
+2. **queuing q1/q2 als reguläre SA-Slots 17/18** — jedes Lebewesen wählt EXPLIZIT einen Algorithmus (meist NoBuffer/NoFlush,
+   ein LSM/Bw-Tree-Lebewesen einen echten Buffer). Das IST „22 uniform pro Lebewesen", korrekt verstanden: alle Achsen-Interfaces in
+   jedem Lebewesen-Binary, je Achse ein austauschbarer Algorithmus. `AdHocComposition<17>→<19>` (kein Auto-Anhängen — explizit).
 3. **Adapter-Gattung NICHT löschen, sondern RICHTIG definieren:** echte Container-Adapter (`std::queue/stack/priority_queue`)
    = `axis_inner` (Inner-Container) + delegierte Standard-Achsen + ordering/discipline (FIFO/LIFO/Priority). Die jetzige
    2-queuing-Slot-Hülle (`container_anatomy.hpp`) verwerfen/umbauen.
@@ -263,7 +263,7 @@ Kategorienfehler UNABHÄNGIG + bleibt gültig (betrifft search↔node/layout/all
 
 > **Korrektur zu §8 Punkt 3 (Z.246):** Die dortige Formel „axis_inner + delegierte + **ordering/discipline**" war noch
 > teilweise geraten. Der teure Doku-Lookup (Doku 14 **§28 Invertebrate-Spalte** + **§26.4** + Doc 30 §8.0, AUTORITATIV)
-> ergab: die Adapter-Tier-Unterklasse hat **KEINE „ordering"-Achse**. Memory `feedback_never_guess_always_lookup_state_of_art_and_docs`.
+> ergab: die Adapter-Lebewesen-Unterklasse hat **KEINE „ordering"-Achse**. Memory `feedback_never_guess_always_lookup_state_of_art_and_docs`.
 
 **Autoritatives Adapter-Achsen-Set (Doku 14 §28, Invertebrate) = 13 Achsen:**
 - **delegiert (9):** search_algo, cache_traversal, memory_layout, allocator, prefetch, concurrency, isa, io_dispatch, migration_policy
@@ -275,7 +275,7 @@ Kategorienfehler UNABHÄNGIG + bleibt gültig (betrifft search↔node/layout/all
 
 **Code-Realisierung (3 Ebenen jetzt real):**
 - **Ebene 1 `AnatomyGattung {SearchAlgorithm, Container, Graph}`** + `gattung_of(AnatomyGenus)` + `gattung_name()` (`anatomy_base.hpp`). Container ist jetzt eine echte Gattung.
-- **Ebene 2** `AnatomyGenus` (re-dokumentiert als Tier-Unterklasse; Identifier BLEIBT — Doku 14 §27.2 Z.1100). Adapter = Tier-Unterklasse unter Container, gleichrangig zu Set/Sequence/View.
+- **Ebene 2** `AnatomyGenus` (re-dokumentiert als Lebewesen-Unterklasse; Identifier BLEIBT — Doku 14 §27.2 Z.1100). Adapter = Lebewesen-Unterklasse unter Container, gleichrangig zu Set/Sequence/View.
 - **Ebene 3** `AdapterComposition<T0..T11, Inner>` (13 Achsen, gebaut EXAKT analog `SequenceComposition`) + `AdapterAnatomy` (§26.4-API, treibt `inner_container` real) + eigener `AdapterObserverSnapshot`.
 - `genus_binding_traits<Adapter>`: slot_count 13, name "Adapter", `gattung=Container`, §28-axis_names. `GenusBound<Adapter>` true.
 - **Rename** (Konsistenz mit set_/sequence_/view_): `container_*.hpp`→`adapter_*.hpp`, `Container*`→`Adapter*` (Composition/Anatomy/Observer/Tier/AbiAdapter/Dock/Module). `AnatomyGenus`/`AnatomyGattung::Container`/`gattung_name` unangetastet.
@@ -284,6 +284,6 @@ Kategorienfehler UNABHÄNGIG + bleibt gültig (betrifft search↔node/layout/all
 
 **Commits:** queuing-Teil (§8 Punkt 1-2: q1/q2 als mandatorische SA-Achsen, `AdHocComposition<17>→<19>`) = `c9f051b` (#88/#89). Adapter-§28 + 3-Ebenen-Kern = `18adc08`. Rename = `7d8130d`. Alle gepusht + submodul-synchron.
 
-**Status der §8-Korrektur:** Kategorienfehler **behoben** — queuing ist SA-Achse (nicht Gattung); Adapter ist echte Tier-Unterklasse der Container-Gattung mit §28-Achsen (nicht queuing-Hülle, nicht inner+ordering).
+**Status der §8-Korrektur:** Kategorienfehler **behoben** — queuing ist SA-Achse (nicht Gattung); Adapter ist echte Lebewesen-Unterklasse der Container-Gattung mit §28-Achsen (nicht queuing-Hülle, nicht inner+ordering).
 
 **ERLEDIGT seither:** (a) Doku-Konsistenz 27-29 — additive §8.1-Korrektur-Notizen (`76e24fd`). (b) **priority_queue umgesetzt** — `HeapInner`-Organ (Max-Heap über std::vector via std::push_heap/std::pop_heap + Compare, Default std::less) als 3. `inner_container`-Organ neben Deque/Vector; die Priority-Disziplin lebt INNERHALB der inner_container-Achse (§28), KEINE neue Achse. Verifiziert (`test_container_genus` exit 0): push 10/30/20 → front()==30 (Max), pop_front() → 30→20→10 (Extract-Max), organ_count==13. **Damit ist die §8-Korrektur (queuing + Adapter §28 + 3-Ebenen + priority) vollständig umgesetzt + verifiziert.**
