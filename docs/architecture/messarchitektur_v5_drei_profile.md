@@ -9,7 +9,7 @@
 
 | # | Profil | Wann fixiert | Was es bestimmt | Code-Mechanismus (IST) |
 |---|--------|--------------|-----------------|------------------------|
-| 1 | **BUILD-PROFIL** | Compile-Time (configure) | WELCHE Tier-Binaries (Kompositionen) + Permutations-Gesetzmäßigkeiten gebaut werden | configure-Zeit-Codegen: `r5i_perm_list.cmake`, `comdare_perms_pa_list.cmake`, `f15_perm_list.cmake`, `anatomy_modules_multi` → je eine `.dll`/`.so` pro Komposition |
+| 1 | **BUILD-PROFIL** | Compile-Time (configure) | WELCHE Lebewesen-Binaries (Kompositionen) + Permutations-Gesetzmäßigkeiten gebaut werden | configure-Zeit-Codegen: `r5i_perm_list.cmake`, `comdare_perms_pa_list.cmake`, `f15_perm_list.cmake`, `anatomy_modules_multi` → je eine `.dll`/`.so` pro Komposition |
 | 2 | **LASTENPROFIL** | Runtime (host-seitig) | Testdaten-Range + Operationsabläufe (Op-Mix) + Umfang + (Pausen/Zeiten je Gattung) | `WorkloadConfig` + `WorkloadGenerator` (xorshift64, reproduzierbar) + `MeasurementPlan`/`run_measurement_plan` (V5-I9, `workload_orchestrator.hpp`) |
 | 3 | **COMPILE-RELEASE-PROFIL** | Compile-Time (cmake-Option) | OB die DLL Messung (observer_all + memento_all) einkompiliert hat oder funktional-only/auslieferbar ist | `COMDARE_MEASUREMENT_MODE` / `COMDARE_RELEASE_MODE` → `COMDARE_MEASUREMENT_ON` (V5-I1, `CMakeLists.txt`) |
 
