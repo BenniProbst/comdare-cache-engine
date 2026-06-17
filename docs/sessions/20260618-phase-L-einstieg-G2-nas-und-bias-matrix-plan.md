@@ -32,8 +32,10 @@ Header `:46–85`, Stand 2026-06-11):
   leere Zelle `--`) = **der Achsen-Austauschbarkeits-Beleg (G3-Kern)**, bilingual (de/en Eckkopf).
 
 **Die Lücke (G1/G3) ist damit präzise:**
-- (L-a) Das **CLI-main** von `csv_to_latex` ruft noch den **alten 16-Spalten `write_latex`** auf, nicht den WIDE-Pfad
-  (`parse_wide_csv → aggregate_tier_workload → write_bias_matrix_latex`). CLI-main lokalisieren + WIDE-Subkommando ergänzen.
+- (L-a) ✅ **GRÖSSTENTEILS ERLEDIGT** (verifiziert 2026-06-18 per grep): Das CLI-main `Code/04_csv_to_latex/main_cli.cpp:33–37`
+  ruft BEREITS den WIDE-Pfad auf (`parse_wide_csv → aggregate_tier_workload → write_bias_matrix_latex`); Test
+  `tests/test_04_csv_to_latex_cached_fixtures.cpp:133–167` deckt ihn ab. VERBLEIBT nur: das CLI gegen die reale
+  159-MB-M3-Matrix laufen lassen (Korrektheit/Performance bei 120.960 Zeilen) + Orchestrator (L-b) darauf richten.
 - (L-b) Der **Orchestrator** `thesis/diplomarbeit/generate_measurement_appendix.ps1` ist Stand **C1 (16-Spalten,
   `ComdareMeasurementSnapshotV1`, Default-Csv `…/pipeline_real_organ/measurements.csv`)** → auf die M3-WIDE-Matrix + Bias-Matrix-Aufruf umstellen.
 - (L-c) **3D-Surfaces je Interface-Funktion** (`diagram_generator` erweitern: Achse = search_algo × workload × ns/op; ggf. seg_*-Achsen-Profile).
@@ -43,6 +45,35 @@ Header `:46–85`, Stand 2026-06-11):
   (K1 RC nominal, K9-c prefetch-Pseudo-Adressen, K9-d uint16 für Weg-B, A5 Second-Execution) — erfüllt §2.5-Done-Kriterium (b).
 - (L-f) **Bilinguale PDF** (`thesis/diplomarbeit/build.ps1 -Lang de|en`, EN≡DE) mit eingebundenem Mess-Appendix; frischer
   git-clone baut identisch (relative Pfade); ZIH `zihpub.cls` unangetastet.
+
+## 2b. ⚠️ NEUER VALIDITÄTS-BEFUND (User 2026-06-18) — TODO L-g: Spalten-Realitäts-Audit der M3-Matrix
+
+**User-Beobachtung (PFLICHT-PRÜFUNG vor der finalen Abgabe-PDF):** Beim Durchgehen ALLER Spalten fällt auf, dass
+**einige Messergebnisse unmöglich real gemessen worden sein können** — mehrere Testdurchläufe (Repetitionen × Workloads)
+liefern **exakt glatte UND identische Werte**. Echte Messungen (v. a. Zeit-/Timing- und last-abhängige Zähler) müssten
+über Wiederholungen rauschen bzw. über verschiedene Lastprofile divergieren; bit-identische, runde Werte deuten auf
+**nicht-real-gemessene (fabrizierte / deterministisch-konstante / Phantom-) Spalten** hin.
+
+**Stichproben-Bestätigung (b3i763gc1-Output, k_ary-Lebewesen über coco_p04_neg0/25/50/75/100):** zahlreiche `stat_*`- und
+Allokator-Spalten sind über die 5 verschiedenen Workloads BIT-IDENTISCH (`bytes_alloc=3201280000`, `bytes_in_use=640000`,
+`alloc_cnt=12505000`, `peak`, diverse runde `stat_*=10000/20000/30000/210000`) — bei unterschiedlichen Lastprofilen verdächtig.
+
+**TODO L-g (hochpriorisiert, VOR L-e/L-f — speist die Limitierungs-Tabelle):**
+1. **Systematischer Spalten-Realitäts-Audit** ALLER 154 Spalten: je Spalte über (Repetition × Workload × dyn-Setting)
+   prüfen, ob die Werte variieren, wo sie variieren MÜSSTEN. Metriken: distinct-Werte/Spalte über N Durchläufe ·
+   Null-Varianz über Repetitionen · Glattheit (Vielfache von 10^k).
+2. **Je Spalte klassifizieren:** (a) legitim deterministisch (z. B. `bytes_alloc` bei fixer Datenmenge/fixem Seed = real,
+   aber invariant), (b) **fabriziert/Phantom** (Validitäts-Defekt → fixen ODER aus den Thesis-Tabellen ausschließen +
+   ehrlich in der Limitierungs-Tabelle L-e ausweisen). Gegenprüfung gegen Audit-Befunde **K6 (Phantom-Allocator:
+   `allocator_statistics()` fabriziert)** + **K9 (Validitäts-Pfade)** — evtl. besteht ein K-Befund trotz Fix-Welle fort.
+3. **Nur real-variable, gültige Spalten** dürfen in die Achsen-Austauschbarkeits-Belege (L-c/L-d). `two_phase_valid=1`
+   sichert NUR den Cache-Warmup, NICHT die Spalten-Realität — dieser Audit ist orthogonal + zusätzlich nötig.
+4. **Verifikation:** literaler Spalten-Varianz-Report (Spalte → distinct-Werte über N Durchläufe → Verdikt real/Phantom).
+   Erst danach ist die Daten-Grundlage für die Abgabe-PDF freigegeben.
+
+> Eingereiht nach **User-Direktive 2026-06-18** („als weiteres TODO einreihen und nach Abschluss der aktuellen Aufgabe
+> prüfen"). Reihenfolge: **nach** dem laufenden Phase-L-Einstieg, aber **vor** der finalen Appendix-/PDF-Generierung —
+> die Spalten-Realität bestimmt die zulässigen Tabellen-Spalten und die ehrliche Limitierungs-Tabelle.
 
 ## 3. Pflicht-Lese-Reihenfolge für die Phase-L-Umsetzungs-Session (frischer Kontext)
 
