@@ -118,6 +118,20 @@ public:
     [[nodiscard]] value_type  value_at(std::size_t i) const noexcept { return load_value_(slot_ptr_(i)); }
     void set_value_at(std::size_t i, value_type v)          noexcept { store_value_(slot_ptr_(i), v); }
 
+    // K9-Fix (User §4.4 / 2026-06-18, prefetch REAL): die ECHTE Speicheradresse des Slots i im allozierten Chunk-
+    // Backing (chunks_[i/cap_].data + (i%cap_)*eff_stride). Damit kann die prefetch-Achse `_mm_prefetch` auf REALE
+    // Traversal-Adressen absetzen — die Adresse stammt aus der echten Store-Allokation (kein Schlüssel-als-Adresse,
+    // kein OOB: i<slot_count() ⇒ Slot existiert real). Liefert die NUR-LESE-Adresse für den Descent-Prefetch.
+    [[nodiscard]] unsigned char const* slot_address(std::size_t i) const noexcept {
+        return (i < size_) ? slot_ptr_(i) : nullptr;
+    }
+    // Untere/obere Grenze des real allozierten Backings (für den Adress-Range-Check des Tests: liegt die geprefetchte
+    // Adresse im realen Store-Speicher?). Bei mehreren Chunks ist das Backing nicht kontiguierlich → der Test prüft je
+    // Chunk; diese Helfer geben das erste Chunk-Intervall für den Single-Chunk-Fall (N ≤ cap_) zurück.
+    [[nodiscard]] unsigned char const* backing_begin() const noexcept { return chunks_.empty() ? nullptr : chunks_.front().data; }
+    [[nodiscard]] unsigned char const* backing_end()   const noexcept { return chunks_.empty() ? nullptr : chunks_.front().data + chunks_.front().capacity; }
+    [[nodiscard]] std::size_t          chunk_capacity_bytes() const noexcept { return chunks_.empty() ? 0u : chunks_.front().capacity; }
+
     void append_slot(key_type k, value_type v) {
         if (chunks_.empty() || (chunks_.back().used / eff_stride) == cap_) {
             Chunk c;                                           // (A2.3) neuer Chunk REAL über Policy A
