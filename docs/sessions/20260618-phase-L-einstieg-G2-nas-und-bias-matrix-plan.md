@@ -94,10 +94,15 @@ KEIN Phantom**. Phantom-Verdacht für die Timing-/Performance-Spalten **widerleg
   - (i) `stat_path_compression_checksum=1`: die Index-Auswahl enthält NUR `path_compression_none` (1/1 Ausprägung) →
     Konstanz **legitim**, aber **Coverage-Lücke** (die Index-Matrix liefert KEINE path_compression-Austauschbarkeitsdaten
     → ehrlich in Limitierungs-Tabelle L-e).
-  - (ii) **`stat_node_type_find=1`: ECHTER PHANTOM-BEFUND** — `node_type` variiert real über 4 Ausprägungen
-    (node4/16/48/256), aber `find` ist konstant `1` über ALLE → der Find-Counter zählt NICHT real (Stub/Single-Probe).
-    → Code-Prüfung `organ_observe`(node_type) + **Ausschluss aus Thesis-Tabellen** + Limitierungs-Tabelle. Verwandt mit
-    Audit-Befund-Familie K6/K9 (Observer-Counter nicht real verdrahtet).
+  - (ii) **`stat_node_type_find=1`: SINGLE-PROBE-OBSERVER-ZÄHLER (kein fabrizierter Phantom)** — Code-geprüft
+    `axis_04_node_type_observable.hpp:57–68`: `observe_node_find` inkrementiert REAL `++find_count`, wird aber **genau
+    einmal pro Messung als Observer-Probe** getrieben → konstant `1` *by design*; es ist KEINE Workload-Operationszahl.
+    Die node_type-Achse IST real observiert — über **`seg_node_type_ns` (Wall-Clock, variiert real)** + **`node_type_checksum`
+    (38 distinct, echtes format-divergentes `node_find_scan`-Ergebnis; Header §12: „der Format-Latenz-Unterschied bleibt
+    Wall-Clock, Pfad B")**. **SELBSTKORREKTUR** meiner voreiligen „ECHTER PHANTOM"-Marke (datengetriebener Verdacht →
+    Code-Prüfung verfeinert ihn). **VERALLGEMEINERUNG (wichtig für L-d):** Observer-Proben-Zähler (`*_find`/`*_count`)
+    sind by-design Proben-Zähler (≈1), NICHT als variierende Mess-Größe geeignet — die Achsen-Austauschbarkeits-Belege
+    fußen auf **`seg_*_ns` + `ns_per_op` (real)**; die Proben-Zähler-Semantik gehört in die Limitierungs-Tabelle (L-e).
   - (iii) `stat_node_type_checksum`: **38 distinct → REAL** (variiert mit node_type + Daten). ✓
 
 **VERBLEIBENDE L-g-Detailarbeit (nächste Session):** (1) **Workload-Varianz-Test** der ~90 mittel-Spalten: variieren die
