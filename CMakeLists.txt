@@ -33,6 +33,41 @@ option(COMDARE_BUILD_TESTS         "Build Google-Tests (generic + specific)"   O
 option(COMDARE_BUILD_PERMUTATIONS  "Pre-Build aller Modul-Permutationen"       OFF)
 option(COMDARE_MICROBENCH_CONTINUOUS "Continuous Mikrobenchmarks (Builder-Modus)" OFF)
 
+# ─────────────────────────────────────────────────────────────────────────────
+# V5-#26 / Task #153 — Intel-PCM Windows-Cache-Miss-Quelle (WindowsPcmPmcSource)
+# ─────────────────────────────────────────────────────────────────────────────
+# Default OFF → der Build ist UNVERÄNDERT: es wird KEIN cpucounters.h gesucht, KEIN msr.sys gebraucht,
+# die Factory (pmc_source_factory.hpp) liefert NullPmcSource (available=false, HW-Spalten ehrlich 0).
+# ON → reale L2/L3-Cache-Miss-Messung über Intel PCM (BSD-3). Benötigt PCM-Header+Lib (COMDARE_PCM_DIR)
+#      sowie ein signiertes msr.sys + Admin zur Laufzeit (System-Schritt, NICHT im Build).
+#      Doku: docs/sessions/2026-06-18-windows-pcm-pmc-source-integration.md
+option(COMDARE_ENABLE_PMC "Intel PCM Windows cache-miss source (WindowsPcmPmcSource, BSD-3)" OFF)
+set(COMDARE_PCM_DIR "" CACHE PATH "Wurzel der Intel-PCM-Installation (enthält cpucounters.h + PCM-Lib)")
+if(COMDARE_ENABLE_PMC)
+    if(NOT WIN32)
+        message(WARNING "COMDARE_ENABLE_PMC=ON, aber Ziel ist nicht Windows — WindowsPcmPmcSource ist Windows-only. "
+                        "Flag effektiv AUS (NullPmcSource). Für Linux: LinuxPerfPmcSource (Infra-Agent, CE-DL2).")
+    else()
+        find_path(COMDARE_PCM_INCLUDE_DIR cpucounters.h
+            HINTS "${COMDARE_PCM_DIR}" "${COMDARE_PCM_DIR}/src" "${COMDARE_PCM_DIR}/include")
+        find_library(COMDARE_PCM_LIBRARY
+            NAMES pcm PCM libpcm
+            HINTS "${COMDARE_PCM_DIR}" "${COMDARE_PCM_DIR}/lib" "${COMDARE_PCM_DIR}/build/lib")
+        if(COMDARE_PCM_INCLUDE_DIR AND COMDARE_PCM_LIBRARY)
+            message(STATUS "COMDARE_ENABLE_PMC: Intel PCM gefunden — Header=${COMDARE_PCM_INCLUDE_DIR} Lib=${COMDARE_PCM_LIBRARY}")
+            # Global definieren + global verfügbar machen: die Quelle ist header-only (pmc_source_factory.hpp /
+            # windows_pcm_pmc_source.hpp), daher COMDARE_ENABLE_PMC + PCM-Include für ALLE Targets, die sie ziehen.
+            add_compile_definitions(COMDARE_ENABLE_PMC)
+            include_directories("${COMDARE_PCM_INCLUDE_DIR}")
+            link_libraries("${COMDARE_PCM_LIBRARY}")
+        else()
+            message(WARNING "COMDARE_ENABLE_PMC=ON, aber Intel PCM NICHT gefunden "
+                            "(cpucounters.h / PCM-Lib). Setze -DCOMDARE_PCM_DIR=<pcm-root>. "
+                            "Flag effektiv AUS (NullPmcSource, Build bleibt grün).")
+        endif()
+    endif()
+endif()
+
 # V41.E11 Plugin-Controller: per Konfiguration geladene Prüfling-Repos (Doku 20).
 # Semikolon-Liste von Prüfling-Verzeichnissen (parallel zur cache-engine-Wurzel), die die
 # cache-engine als CE-konforme Plugins laedt. Default leer = nur CE-Permutation (Stufe 1).
