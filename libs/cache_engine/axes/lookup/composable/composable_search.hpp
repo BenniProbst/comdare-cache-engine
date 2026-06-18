@@ -129,6 +129,9 @@ public:
     void clear()                                          noexcept { store_.clear(); }
     // Saeule-2: read-only Zugriff auf das Storage-Organ (z.B. fuer den Allocator-Statistik-Durchgriff).
     [[nodiscard]] Store const& store()              const noexcept { return store_; }
+    // P4 (#123): MUTABLER Store-Zugriff fuer den ECHTEN 2-Ebenen-Migrations-Schritt (organ_migrate_step bewegt
+    // Records aus diesem Store in den 2.-Ebenen-Store). Additiv, der const-Zugriff oben bleibt unveraendert.
+    [[nodiscard]] Store&       store_mut()                noexcept { return store_; }
 
     // ── V5-I6-SUBSTANZ (#44) — MementoAxis: per-Achsen-Zustands-Kapselung (statt Adapter-Pauschalkopie) ──
     // Das /goal verlangt „einheitliche Memento-Hilfsfunktionen JE STATEFUL ACHSEN-INTERFACE" (kein einfacher

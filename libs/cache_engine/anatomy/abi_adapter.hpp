@@ -127,6 +127,7 @@ class SearchAlgorithmAbiAdapter final : public IAnatomyBase,
                                         public IMeasurableWorkloadV2,  // (C-2): eigenständiges V2-Sub-Interface — per-Segment-Timer (4 Achsen)
                                         public IMeasurableWorkloadV3,  // (X): eigenständiges V3-Sub-Interface — per-Segment-Timer ALLER 19 Achsen
                                         public IRollbackableTier,
+                                        public IMigratableTier,   // P4 (#123): ECHTER 2-Ebenen-Migrations-Schritt (tier_moves real > 0)
                                         public IScannableTier {
 #else
                                         public IDriveableTier {
@@ -749,6 +750,9 @@ public:
         if (cow_armed_) cow_materialize_copy_();
 #endif
         search_organ_.clear(); container_.clear();
+        // P4 (#123): die kalte 2. Ebene mit-leeren — nach tier_clear ist der GANZE Tier-Zustand (heiss + kalt) frisch
+        // (sonst akkumulierten migrierte Records ueber Mess-Profile hinweg). Fuer None nie befuellt → no-op-aequivalent.
+        container_tier1_.clear();
         // KONSOLIDIERUNG (2026-06-04): T0 search_algo-Statistik je Messung nullen. Der frühere perm_runner-
         // Kommentar „search_organ_ per ABI nicht resetbar" war VERALTET — ObservableComposedContainer/
         // ObservableComposedSearch tragen reset() (stats_={}). Damit ist axis_stats[0] pro (Binary×Setting×Rep)
@@ -1245,6 +1249,9 @@ public:
     // über container_ JEDE Komposition) mehr als die memcpy-artige Vollkopie → verworfen (Doc 33 §1).
     // Organe ohne restore_statistics/Copy (requires-detektiert) → unverändert Copy/MementoAxis-Fallback.
     void tier_save_all() noexcept override {
+        // P4 (#123, R1): die kalte 2. Ebene IMMER eager mitsichern (beide Pfade) — symmetrisch zum Rollback unten.
+        // container_tier1_ ist copy-constructible (== container_t) → emplace ist exakt; bei OOM verwerfen (Robustheit).
+        try { saved_tier1_.emplace(container_tier1_); } catch (...) { saved_tier1_.reset(); }
         if constexpr (cow_capable_) {
             saved_search_stats_    = search_organ_.statistics();    // O(1) POD-Snapshot (T0)
             saved_container_stats_ = container_.statistics();       // O(1) POD-Snapshot (container-/T6-Pfad)
@@ -1275,6 +1282,11 @@ public:
                         if (saved_search_)    search_organ_ = *saved_search_;
                         if (saved_container_) container_    = *saved_container_;
                     }
+                    // P4 (#123, R1): die kalte 2. Ebene + den migration-Zaehler exakt auf den save-Stand zurueck.
+                    // IMMER (nicht nur Write-Periode): ein migrierender Warmup-Op ist gerade die Write-Mutation, die
+                    // container_tier1_ befuellte → ohne Restore bliebe sie befuellt (Memento-Bruch). idempotent.
+                    if (saved_tier1_) container_tier1_ = *saved_tier1_;
+                    mig_organ_.reset();   // tier_moves/Entscheidungs-Zaehler auf 0 (save-Stand: vor jedem Migrate-Op)
                     // Stats restaurieren (Warmup-Op hat Zähler berührt — auch read-only) → exakt save-Stand.
                     search_organ_.restore_statistics(saved_search_stats_);
                     container_.restore_statistics(saved_container_stats_);
@@ -1289,6 +1301,9 @@ public:
             else if constexpr (MementoAxis<SearchAlgo>)             search_organ_.restore_state(saved_search_m_);
             if constexpr (std::is_copy_assignable_v<container_t>) { if (saved_container_) container_    = *saved_container_; }
             else if constexpr (MementoAxis<container_t>)            container_.restore_state(saved_container_m_);
+            // P4 (#123, R1): kalte 2. Ebene + migration-Zaehler symmetrisch zum save zuruecksetzen (Fallback-Pfad).
+            if (saved_tier1_) container_tier1_ = *saved_tier1_;
+            mig_organ_.reset();
         } catch (...) {
             // noexcept-Vertrag: ein Rollback-Fehler darf den Mess-Lauf nicht abreißen.
         }
@@ -1319,7 +1334,10 @@ public:
             || (std::is_copy_constructible_v<SearchAlgo>  && std::is_copy_assignable_v<SearchAlgo>);
         constexpr bool cont_ok = MementoAxis<container_t>
             || (std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>);
-        return search_ok && cont_ok;
+        // P4 (#123, R1): die kalte 2. Ebene wird via std::optional<container_t>-Eager-Kopie exakt zurueckgerollt →
+        // exakt gdw. container_t kopierbar ist (== dieselbe Bedingung wie cont_ok; container_t ist beidseitig kopierbar).
+        constexpr bool tier1_ok = std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>;
+        return search_ok && cont_ok && tier1_ok;
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -1367,7 +1385,46 @@ public:
         if (out_checksum != nullptr) *out_checksum += sum;
         return visited;
     }
-#endif  // COMDARE_MEASUREMENT_ON (tier_save_all / tier_rollback_all / memento_all / tier_scan)
+
+    // ─────────────────────────────────────────────────────────────────────
+    // IMigratableTier-Override (P4, #123): ECHTER 2-Ebenen-Migrations-Schritt — KEINE Simulation mehr.
+    // Treibt den realen Block-Move ÜBER den container_-Store (store_migrate_step → LayoutAwareChunkedStore::
+    // organ_migrate_step): die von mig_organ_.should_migrate_record markierten (kalten) Records wandern aus
+    // container_ (heisse 1. Ebene) in container_tier1_ (kalte 2. Ebene), und container_ wird aus den überlebenden
+    // Records neu aufgebaut. mig_organ_.add_tier_moves(n) bucht die REAL bewegten Records → tier_moves > 0 bei
+    // aktiver Strategie (Observer T15 r[4] zieht es im naechsten tier_observe). NoMigration: das Praedikat liefert
+    // nie true → store_migrate_step gibt 0 → add_tier_moves(0) → tier_moves bleibt 0 (None-Pin unveraendert).
+    // mig_organ_.reset() VOR dem Move: tier_moves zaehlt je Schritt frisch (keine Akkumulation ueber Schritte
+    // hinweg), konsistent zum reset()+scan-Muster der Observer-Achsen. NICHT im Observer-Pfad (fill_observer_v3
+    // bleibt idempotent/lesend) — der Move gehoert ausschliesslich in diesen TREIBE-Pfad.
+    // ─────────────────────────────────────────────────────────────────────
+    /// P4 (#123) Diagnose (KEINE ABI-Flaeche — plain const-Methode wie tier_rollback_is_exact): Fuellstand der KALTEN
+    /// 2. Ebene (container_tier1_). 0 fuer alle 320 None-Lebewesen (nie befuellt); > 0 nach einem aktiven Migrate-Schritt.
+    /// Literal-prueffbar im Test (test_migration_two_tier), erlaubt die Verifikation „tier1 enthaelt die bewegten Records".
+    [[nodiscard]] std::uint64_t tier1_fill_level() const noexcept {
+        return static_cast<std::uint64_t>(container_tier1_.occupied_count());
+    }
+
+    [[nodiscard]] std::uint64_t tier_migrate_step(std::uint64_t max_moves) noexcept override {
+        // CoW (#133 Rev. 2 / R1): ein Migrate-Schritt MUTIERT container_ (+ container_tier1_) — wie tier_insert/
+        // erase/clear MUSS er daher in der Warmup-Phase die CoW-Vollkopie des save-Stands VOR der Mutation
+        // materialisieren, sonst rollte tier_rollback_all container_ NICHT zurueck (cow_materialized_ blieb false →
+        // Memento-Bruch). container_tier1_ selbst wird ueber saved_tier1_ (eager) zurueckgerollt; diese Materialisierung
+        // sichert die HEISSE Ebene (container_/search_organ_).
+        if (cow_armed_) cow_materialize_copy_();
+        std::uint64_t moved = 0;
+        try {
+            if constexpr (requires { container_.store_migrate_step(mig_organ_, container_tier1_.store_mut(), max_moves); }) {
+                mig_organ_.reset();   // tier_moves je Schritt frisch (analog Observer-reset()+scan)
+                moved = container_.store_migrate_step(mig_organ_, container_tier1_.store_mut(), max_moves);
+                mig_organ_.add_tier_moves(moved);   // ECHTE Buchung der bewegten Records (stats_ privat → diese API)
+            }
+        } catch (...) {
+            return 0;   // noexcept-Vertrag: interne Stoerung (z.B. OOM beim Append) → 0 (Mess-Robustheit)
+        }
+        return moved;
+    }
+#endif  // COMDARE_MEASUREMENT_ON (tier_save_all / tier_rollback_all / memento_all / tier_scan / tier_migrate_step)
 
 private:
     using Composition = typename A::composition_t;
@@ -1395,6 +1452,11 @@ private:
     // Default-konstruierbar + ObservableAxis garantiert durch #42 (ObservableComposedContainer-Huelle).
     SearchAlgo  search_organ_{};
     container_t container_{};   // R6 Inkrement 2b: misst die ALLOCATOR-Achse über die ABI-Grenze
+    // P4 (#123, 2026-06-04): die KALTE 2. Ebene des ECHTEN 2-Ebenen-Migrations-Schritts. Identischer container_t-Typ
+    // (gleicher node/layout/allocator-getriebener Store) — tier_migrate_step bewegt markierte Records aus container_
+    // (heiss) hierher. Bleibt leer, solange tier_migrate_step nicht gerufen wird (alle 320 None-Lebewesen tasten ihn
+    // NIE an). MUSS im Memento (tier_save_all/tier_rollback_all) symmetrisch mitgesichert werden (R1, kritisch).
+    container_t container_tier1_{};
     // V42 L-74c: telemetry-Organ für die Cross-ABI-Auto-Kopplung. Bei tier_insert/lookup wird record_node_touch
     // getrieben (if-constexpr-geschützt: AdHoc-Compositions tragen die nackte Strategie ohne record_node_touch).
     // OHNE {} (Aggregat-Strategie UND Huelle beide default-init-fähig, test_d_v42_probe2). mutable: das Tracking
@@ -1455,6 +1517,12 @@ private:
     // Im CoW-Pfad (#133 Rev. 2) der Träger der LAZY materialisierten Daten-Vollkopie (Write-/clear-Perioden).
     std::optional<SearchAlgo>  saved_search_{};
     std::optional<container_t> saved_container_{};
+    // P4 (#123, R1 — KRITISCH): symmetrischer Memento der KALTEN 2. Ebene. container_tier1_ ist eine NEUE persistente
+    // Struktur → ohne sie hier zu sichern bräche der Zwei-Phasen-Warmup (V5-I6/I7), sobald ein Warmup-Op migrierte
+    // (Daten in container_tier1_, die rollback_all nicht zuruecknaehme). EAGER (nicht CoW-lazy), weil tier1 zum
+    // save-Zeitpunkt fast immer LEER ist (Kopie ~O(1)) und ein Migrations-Op selten gegen-gemessen wird → kein
+    // Kosten-Hebel. Wird in BEIDEN Pfaden (CoW + Fallback) gesichert/zurueckgespielt → uniform exakt.
+    std::optional<container_t> saved_tier1_{};
 
     // ── Copy-on-Write-Memento (#133 Rev. 2) — save O(1), Daten-Kopie lazy bei der ersten Warmup-Mutation ──
     // Fähigkeits-Detektion (requires): das Organ trägt den O(1)-Stat-Snapshot/-Restore (statistics()/

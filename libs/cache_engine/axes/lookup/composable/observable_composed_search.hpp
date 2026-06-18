@@ -73,6 +73,23 @@ public:
 
     using store_type = Store;   // fuer den optionalen Allocator-Statistik-Durchgriff (Saeule-2)
 
+    // P4 (#123, 2026-06-04): ECHTER 2-Ebenen-Migrations-Schritt — reicht den MUTABLEN Store-Zugriff durch, damit der
+    // abi_adapter den realen Block-Move (organ_migrate_step) ueber das ECHTE Slot-Backing treibt: markierte Records
+    // wandern aus diesem (heissen) Store in den uebergebenen 2.-Ebenen-Store `tier1`. if-constexpr-detektierbar
+    // (requires), kein Bruch fuer Stores ohne organ_migrate_step. Anders als store_observe_* MUTIEREND (drive-Pfad,
+    // NICHT Observer) → KEIN const. Rueckgabe = Zahl der real bewegten Records (NoMigration → 0). NICHT unter
+    // COMDARE_CE_ENABLE_STATISTICS gegated: der Move selbst ist funktional, nur das tier_moves-Buchen ist gegated.
+    template <class MigOrgan>
+    std::uint64_t store_migrate_step(MigOrgan const& org, Store& tier1, std::uint64_t max_moves = 0)
+        requires requires(Store& s, MigOrgan const& o, Store& t) { s.organ_migrate_step(o, t, max_moves); }
+    { return search_.store_mut().organ_migrate_step(org, tier1, max_moves); }
+
+    // P4 (#123): MUTABLER + read-only Zugriff auf das innere Storage-Organ — der abi_adapter braucht den 2.-Ebenen-
+    // Store (container_tier1_) als Roh-Store-Referenz fuer store_migrate_step(org, tier1) UND fuer die Memento-
+    // Verifikation (tier1-Fuellstand). Additiv, bestehende Schnittstelle unveraendert.
+    [[nodiscard]] Store&       store_mut()       noexcept { return search_.store_mut(); }
+    [[nodiscard]] Store const& store()     const noexcept { return search_.store(); }
+
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = ce_concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
