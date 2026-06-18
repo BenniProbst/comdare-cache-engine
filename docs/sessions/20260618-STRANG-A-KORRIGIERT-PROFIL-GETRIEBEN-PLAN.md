@@ -6,9 +6,9 @@
 ## AUSFÜHRUNGS-STAND (je Increment round-trip-verifiziert + committet)
 - ✅ **Inc 1 (S3-Kern, `bc1f7a3`):** Naht gezogen — profile_runner → offizielle `build_axis_levels`; base_pilot.profile.xml + test_profile_roundtrip → binary_ids byte-identisch zum Code-Pfad (Diff leer). Additiv, nichts entfernt.
 - ✅ **Inc 2 (S1+S2, `57961f1`):** Schema +4 Felder (working_set_sweep/axis_sweep/sota_series/run_options, rückwärts-kompatibel) + dyn-Dim EINE Quelle + `m3v2_study.profile.xml` (volle Selektion). Basis-320 POSITIONS-IDENTISCH zu FullPilot + full[0] matcht reale `tier150_measurements.csv`.
-- ⏭️ **Inc 3 (S3-complete):** Treiber konsumiert die 4 neuen Felder (working_set-Sweep-Loop / axis_sweep / sota_series / run_options + tier-Level für Basis-320 ignorieren) → profil-getriebener Lauf == Code-Lauf.
-- ⏭️ **Inc 4 (S4+S5):** SourceGen aus Profil + **Code-Selektion ENTFERNEN** (PilotAxes/SelectMode/m3v2_select_profile).
-- ⏭️ **Inc 5 (S6+S7):** SOTA/PRT-ART real (#162) + `CEB::run_profile`. ⏭️ **Inc 6 (S8+S9):** Voll-Verifikation + Doku + Bump.
+- ✅ **Inc 3 (S3-complete, `037d773`):** Treiber konsumiert working_set_sweep/axis_sweep/run_options + tier-drop; Profil-Lauf == Code-Lauf (profile_select == m3::make_basis/make_axis_sweep, Tags identisch). + Build-Rezept-Fix (libs\common\serialization).
+- ✅ **Inc 4 (S4+S5, `f7561b4`+`c3e2d56`):** **Code-Selektion ENTFERNT** — `lazy_pilot_engine.hpp` + `m3v2_select_profile.hpp` gelöscht (git rm); SelectMode/axis_to_level/COMDARE_SELECT_MODE raus; SourceGen profil-getrieben (`make_catalog_source_gen`/source_catalog.hpp, reine Materialisierungs-Domäne); Golden-Referenz `golden_fullpilot_320_binary_ids.txt` gepinnt. **Grep = 0 Treffer, Profil-Pfad == Golden, Build grün.** Die Selektion kommt jetzt AUSSCHLIESSLICH aus dem Diplomarbeit-Profil — die User-Korrektur ist erfüllt.
+- ⏭️ **Inc 5 (S6+S7):** sota_series-Konsum real (#162, SOTA-DLLs) + `CEB::run_profile`-Eintritts-API. ⏭️ **Inc 6 (S8+S9):** Doku-Sync (Doc 34/Spec auf profil-getrieben) + finaler G5-Audit.
 
 ## DIE KORREKTUR (warum der alte Plan falsch war)
 Mein alter Plan reparierte die **Anatomie-Naht-Fabrik** (PilotAxes→genus-Engine, sota_*-Strings→MergeAxis) und ließ die Code-
