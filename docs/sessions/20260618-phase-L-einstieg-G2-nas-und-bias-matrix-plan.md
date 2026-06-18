@@ -115,6 +115,29 @@ Achsen-Austauschbarkeits-Belege entscheidende `ns_per_op`-Messung ist real. Die 
 Meta-Felder + ehrliche Null-Aktivität inaktiver Achsen; nur 2–3 Counter sind echt aufklärungsbedürftig. **Keine Blockade
 der Bias-Matrix**, aber die Limitierungs-Tabelle (L-e) muss die konstanten/inaktiven Spalten ehrlich ausweisen.
 
+## 2d. L-g — EMPIRISCHER SCHLUSSSTEIN + WHITELIST (2026-06-18, literal über alle 154 Spalten)
+
+**Workload-Bias EMPIRISCH BELEGT (= F15-Kernaussage):** für `search_algo=k_ary` spannt `ns_per_op` über die 21 Lastprofile
+von **26,1 (lp_range_scan)** bis **363.925,6 ns/op (lp_bulk_insert)** = **Faktor ~13.954×**. Verschiedene Lasten → drastisch
+verschiedene Performance, real gemessen → die Achsen-Austauschbarkeits-/Bias-Matrix ist substanziell aussagekräftig.
+
+**Vollständiger Distinct-Report (gekappt @4000):** 33 Spalten distinct=1 · 1× (2) · 2× (3) · … · **19 Spalten ≥4000**.
+
+**WHITELIST für die Thesis-Tabellen (real-variabel, code-konsistent):**
+- **Performance/F15 (Primär):** `ns_per_op` (≥4000, 13.954×-Spanne) · `total_ns` (≥4000) · **19× `seg_<achse>_ns`** (per-Achsen-
+  Wall-Clock; 14 davon >1000 distinct; `seg_allocator_ns`=172 = dokumentierte O(1)-Stats-Read-Baseline; `seg_migration_policy`=764) ·
+  `op_<op>_p50/p99_ns` Latenz-Quantile (insert/lookup/erase/scan/rmw).
+- **Korrektheit/Daten-Treue (variabel, NICHT Performance):** `*_checksum` (node_type=38, memory_layout=87, serialization=26,
+  isa=28, index_org=26, io=26, filter=10) · `search_algo` hit/miss/insert/erase/lookup (381–389, last-abhängig).
+- **LIMITIERUNG (L-e — NICHT als variierende Mess-Größe):** 33 Spalten distinct=1 = (a) strukturell (`n_ops`,
+  `two_phase_valid`, `obs_axes`, `fail`, `op_clear_*`), (b) **Observer-Proben-Zähler** (`*_find`/`*_probe`/`*_get` ≈1 by design,
+  s. §2c-Selbstkorrektur), (c) **inaktive-Achsen-0** (`concurrency=none`/`migration=none`/`io=in_memory`/`value_handle=inline`).
+- **Pairing-Befund:** die V1-Spalten (idx 43–55: search_lookup/hit/…/alloc_cnt/bytes_alloc) sind distinct-identische
+  Duplikate ihrer `stat_*`-Gegenstücke (z. B. `bytes_alloc`=`stat_allocator_bytes_alloc`=105) → in den Tabellen nur EINE Quelle.
+
+**Code-Verifikation der Klassifikation** (dass kein „inaktive-Achse-0" in Wahrheit ein Phantom ist, das variieren MÜSSTE) +
+**Phase-L-Erdung** laufen als Workflow (Per-Achsen-Observer-Lektüre + Pipeline-/Spec-Lektüre, adversarial verifiziert).
+
 ## 3. Pflicht-Lese-Reihenfolge für die Phase-L-Umsetzungs-Session (frischer Kontext)
 
 1. `docs/architecture/34_KONSOLIDIERTER_MASTER_IST_STAND.md` — §F15-Pipeline + Mess-Modell + Bias-Matrix.
