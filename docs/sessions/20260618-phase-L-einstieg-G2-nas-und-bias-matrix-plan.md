@@ -196,6 +196,19 @@ System/Admin-gebunden; Code-Pfad mache ich Windows-seitig fertig.**
 PDF) ist voll Windows-machbar und unblockiert → wird priorisiert. Der WindowsPcmPmcSource ist eigene Task; reale Cache-Miss-
 Zahlen entstehen primär auf Linux (Infra-Agent, CE-DL2/DL3), Windows-PCM als zweiter Beleg.
 
+## L-b ✅ ERLEDIGT (2026-06-18, literal verifiziert) — reale Bias-Bruch-Matrix aus M3
+
+- **L-b.0** Rebuild `csv-to-latex.exe` (Jun-1-Binary kannte `--schema=wide` nicht) → grün, Usage zeigt `--schema=wide`.
+- **L-b.1** Smoke (Head-2000) → `2000 rows -> 84 Zellen`, EXIT 0, booktabs-Matrix korrekt.
+- **L-b.2/3** Voll-Lauf gegen `tier150_measurements.csv` (120.960 Zeilen) → **`120960 rows -> 84 Zellen`** (4 search_algo × 21
+  Lastprofile), Median ns/op nur `two_phase_valid`, **5–6 s** (RAM/Performance-Risiko widerlegt), bilingual de+en →
+  `thesis/diplomarbeit/anhang/{de,en}/tabellen/bias_matrix_table.tex` (Kopf `Suchverfahren`/`Search method`, EN≡DE-symmetrisch).
+- **Bias-Bruch sichtbar:** z. B. `linear_scan` auf `ih` (insert-heavy) **schneller** als die Bäume (36676 vs eytzinger 218259 ns/op).
+- **⚠️ Overleaf-Push HÄLT (User-Entscheid nötig):** das `thesis/diplomarbeit`-Repo ist Overleaf-synchron (`20260931-Overleaf-
+  Diplomarbeit`); die generierten `.tex` liegen lokal, werden für den PDF-Build genutzt, aber NICHT autonom nach Overleaf gepusht.
+- **Befund Orchestrator:** der alte `generate_measurement_appendix.ps1` (16-Spalten-C1) wird durch den direkten `csv-to-latex
+  --schema=wide`-Aufruf ersetzt — ein neuer Mini-Orchestrator (de+en in einem Lauf) folgt in L-f.
+
 ## 3. Pflicht-Lese-Reihenfolge für die Phase-L-Umsetzungs-Session (frischer Kontext)
 
 1. `docs/architecture/34_KONSOLIDIERTER_MASTER_IST_STAND.md` — §F15-Pipeline + Mess-Modell + Bias-Matrix.
