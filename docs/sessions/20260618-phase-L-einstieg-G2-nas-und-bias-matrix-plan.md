@@ -172,6 +172,30 @@ op-Quantile. Die Cache-Miss-Felder leben ausschließlich im **separaten 16-Spalt
 > Eingereiht nach User-Direktive 2026-06-18. Reihenfolge: **vor** der finalen Appendix-/PDF-Generierung — bestimmt die
 > ehrliche Kern-Limitierung + eine mögliche Hardware-/needs_user-Entscheidung. Verwandt: K1/A5 (needs_user), #26/P4 (HW-gated).
 
+### L-h ENTSCHEIDUNG (User 2026-06-18): Option (b) Windows-Intel-PCM + Linux-Delegation
+
+**User wählt (b)** — Windows lokal versuchen; **(a) ZIH-PAPI erst nach stabiler Linux-Version**; **Linux = uneingeschränkte
+Umgebung** (Infra-Agent baut sie); zusätzlich **lokaler comdare-GitLab als 2. Remote + CI**. Handover geschrieben:
+`docs/sessions/2026-06-18-HANDOVER-an-infra-agent-linux-pmc-gitlab-ci.md` (CE-DL1…DL5).
+
+**Web-recherchierter Windows-PMC-Pfad (Option b, machbar):** Intel PCM = **BSD-3-Lizenz** (vendorbar wie mimalloc/Boost.MP11/
+googletest), C++-API **`getL2CacheMisses()`/`getL3CacheMisses()`/`getL2CacheHits()`/`getL3CacheHits()`**. Windows-Hürde
+(anders als Linux mit MSR-Kernelmodul): der **`msr.sys`-Treiber** muss **signiert** (Win7+: self-signed Cert via PowerShell)
+nach `c:\windows\system32` + die Messung **als Administrator** laufen — sonst lädt Windows den Treiber nicht. = das
+freigegebene kritische Manöver (einmaliger System-Schritt, Admin).
+> Quellen: github.com/intel/pcm (doc/WINDOWS_HOWTO.md) · Intel-PCM-API (classPCM) · PCM-LICENSE (BSD-3).
+
+**Umsetzungs-Pfad Windows (was ICH implementierungsseitig erledige):** (1) Intel PCM offline vendoren; (2)
+`WindowsPcmPmcSource : IPmcSource` (begin/end → `getL2/L3CacheMisses`-Delta, `available()` = Treiber geladen?); (3) CMake-
+Flag `COMDARE_ENABLE_PMC` + OS-Guard (`if(WIN32 AND COMDARE_ENABLE_PMC)`) → der PMC-Backend ist **optional**, Fallback
+`NullPmcSource` → **Build bleibt grün** ohne Treiber/PCM (= das „auskommentieren beim Build" sauber als Feature-/OS-Guard);
+(4) System-Schritt (Admin): `msr.sys` signieren+installieren → dann `available()==true` + reale Cache-Misses. **Verbleibt
+System/Admin-gebunden; Code-Pfad mache ich Windows-seitig fertig.**
+
+**Fokus jetzt (User: „alle Elemente, die wir hier auf Windows schon erledigen können"):** Phase L (Bias-Matrix → bilinguale
+PDF) ist voll Windows-machbar und unblockiert → wird priorisiert. Der WindowsPcmPmcSource ist eigene Task; reale Cache-Miss-
+Zahlen entstehen primär auf Linux (Infra-Agent, CE-DL2/DL3), Windows-PCM als zweiter Beleg.
+
 ## 3. Pflicht-Lese-Reihenfolge für die Phase-L-Umsetzungs-Session (frischer Kontext)
 
 1. `docs/architecture/34_KONSOLIDIERTER_MASTER_IST_STAND.md` — §F15-Pipeline + Mess-Modell + Bias-Matrix.
