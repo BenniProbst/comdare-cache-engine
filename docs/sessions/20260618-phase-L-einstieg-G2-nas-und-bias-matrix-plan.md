@@ -75,6 +75,34 @@ Allokator-Spalten sind über die 5 verschiedenen Workloads BIT-IDENTISCH (`bytes
 > prüfen"). Reihenfolge: **nach** dem laufenden Phase-L-Einstieg, aber **vor** der finalen Appendix-/PDF-Generierung —
 > die Spalten-Realität bestimmt die zulässigen Tabellen-Spalten und die ehrliche Limitierungs-Tabelle.
 
+## 2c. L-g — ERSTE BEFUNDE (2026-06-18, literal über die 120.960-Zeilen-M3-Matrix)
+
+**Test 1 — Repetitions-Identität (schärfster Phantom-Test): TIMINGS SIND REAL.** Über die 40.320 rep-normalisierten
+Gruppen (alle mit genau 3 echten Repetitionen) sind die Wall-Clock-Werte praktisch nie bit-identisch: `total_ns` **0 %**,
+`seg_cache_traversal_ns` 0 %, `seg_search_algo_ns` 0,8 %, `seg_allocator_ns` 3,5 %. `total_ns`/`ns_per_op` haben
+**117.934/120.960 = 97,5 % distinct**. → Die kern-entscheidende Bias-Matrix-Größe **`ns_per_op` ist echte Messung,
+KEIN Phantom**. Phantom-Verdacht für die Timing-/Performance-Spalten **widerlegt**.
+
+**Test 2 — Spalten-distinct über alle 154 Spalten:** 27 voll-variabel (>1000 distinct, real) · 90 mittel (4–1000) ·
+**37 stark konstant (distinct ≤ 3)**. Klassifikation der 37:
+- **~10 strukturell-legitim:** `n_ops=1` (fixe Workload-Größe), `repetition=3`, `two_phase_valid=1`, `obs_axes`/
+  `applied_axes`/`v3_filled_axes` (Achsen-Meta), `fail=1` (0 Allok-Fehler), `op_clear_*` (clear nicht im Workload).
+- **~24 ehrliche Null-Aktivität** (inaktive Achse der Komposition → Counter legitim 0): `concurrency=none`→
+  contention/validation/pattern · `migration=none`→migrations/hot/cold/tier_moves · `io=in_memory`→align_adjusts ·
+  `value_handle=inline`→indirect_deref/version_strips · q1/q2-Sub-Counter. **Kein Mess-Defekt** — korrekte 0-Darstellung.
+- **3 echt prüfbedürftig:** `stat_path_compression_checksum=1`, `stat_node_type_find=1` (eine Checksumme/Find-Zahl,
+  die über 320 verschiedene Lebewesen variieren MÜSSTE — distinct=1 = inaktive Achse ODER fabriziert → K6/K9-Einzelprüfung).
+
+**VERBLEIBENDE L-g-Detailarbeit (nächste Session):** (1) **Workload-Varianz-Test** der ~90 mittel-Spalten: variieren die
+last-abhängigen `stat_*`/`op_*`-Counter über die 21 Workloads, wo sie es müssten? (2) Einzelklassifikation der 3
+checksum/find-Kandidaten gegen den Achsen-Code (K6 Phantom-Allocator / K9). (3) **Finale Spalten-Whitelist** —
+nur real-variable + legitim-deterministische Spalten dürfen in die Thesis-Tabellen; alle übrigen in die Limitierungs-Tabelle (L-e).
+
+**Fazit Zwischenstand:** Der User-Befund ist **differenziert bestätigt** — es gibt konstante Spalten, ABER die für die
+Achsen-Austauschbarkeits-Belege entscheidende `ns_per_op`-Messung ist real. Die Konstanz betrifft fast nur strukturelle
+Meta-Felder + ehrliche Null-Aktivität inaktiver Achsen; nur 2–3 Counter sind echt aufklärungsbedürftig. **Keine Blockade
+der Bias-Matrix**, aber die Limitierungs-Tabelle (L-e) muss die konstanten/inaktiven Spalten ehrlich ausweisen.
+
 ## 3. Pflicht-Lese-Reihenfolge für die Phase-L-Umsetzungs-Session (frischer Kontext)
 
 1. `docs/architecture/34_KONSOLIDIERTER_MASTER_IST_STAND.md` — §F15-Pipeline + Mess-Modell + Bias-Matrix.
