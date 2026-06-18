@@ -37,14 +37,17 @@ namespace comdare::cache_engine::measurement {
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * @brief MeasurableObserver<Snapshot> - Template Pattern fuer externes Auslesen
+ * @brief MeasurableObserver<Snapshot> - Template-parametrisierter Single-Slot-Notify-Hook (KEIN GoF-one-to-many)
  *
  * Jede Achse instanziiert dieses Template mit ihrer konkreten Snapshot-Struktur
  * (z.B. AllocationStatistics fuer allocator-Topic, BufferStats fuer queuing, ...).
  *
- * Observer abonniert Snapshot-Updates via on_event-Callback. Cache-engine-Builder
- * kann mehrere Observer pro Achse registrieren (z.B. einer fuer Welch-Test, einer
- * fuer LaTeX-Report, einer fuer Live-Telemetry-Dashboard).
+ * MUSTER-EHRLICHKEIT (K10-PMAJOR-08, 2026-06-18, code-verifiziert): Dies ist ein SINGLE-SLOT-Notify-Hook
+ * (NotifyPolicy-Sink) — EIN einziger callback_ (s.u.), den `on_event` ERSETZT (kein subscriber-Container,
+ * kein Multicast). Es ist daher NICHT das klassische GoF-Observer-Muster (one-to-many subject↔observers).
+ * Frühere Behauptung „der Builder kann MEHRERE Observer pro Achse registrieren" war falsch und wurde entfernt:
+ * ein zweiter `on_event`-Aufruf überschreibt den ersten. Wer Fan-out braucht (Welch-Test + LaTeX-Report +
+ * Live-Telemetry), setzt EINEN Callback, der intern fan-out't — oder migriert bewusst auf einen Subscriber-Vektor.
  */
 template <typename Snapshot>
 class MeasurableObserver {

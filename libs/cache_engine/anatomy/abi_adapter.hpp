@@ -682,6 +682,13 @@ public:
             container_.insert(key, value);       // treibt + MISST die allocator-Achse (ComposedStore-Vector-Growth)
             m8_new_flag = search_organ_.occupied_count() > before;
         }
+#if COMDARE_MEASUREMENT_ON
+        // ── K10-PMAJOR-04 (2026-06-18): ALLE Observer-feeding Auto-Kopplungen NUR im Mess-Build ──────────────
+        // Diese Kopplungen (telemetry/ct/map/q1/q2/cc/pf/pc/flt/vh) speisen AUSSCHLIESSLICH den Observer
+        // (fill_observer_v3, selbst #if COMDARE_MEASUREMENT_ON) — kein funktionaler Beitrag zum Daten-Pfad
+        // (container_/search_organ_ oben sind unkonditional). In der funktional-only DLL (Messung-AUS) waren sie
+        // reiner Overhead. Symmetrisch zu tier_lookup + dem bereits geklammerten CoW-Block oben. Mess-Build
+        // identisch (kein M3-Effekt: derselbe Code lief vorher, nur jetzt explizit gegated).
         // V42 L-74c Cross-ABI-Auto-Kopplung: jeder insert berührt einen Blatt-Knoten → telemetry mit-treiben.
         if constexpr (requires { telemetry_organ_.record_node_touch(true); }) telemetry_organ_.record_node_touch(true);
         // Phase A (2026-06-04) Auto-Kopplung der 4 neu verdrahteten Achsen (Pfad B): ein insert registriert den
@@ -730,6 +737,7 @@ public:
         // if-constexpr-geguarded: NUR Patricia (PatriciaTrie traegt insert_key) baut den Trie inkrementell auf;
         // `none` (M3-Pin, EmptyPatriciaTrie ohne insert_key) bleibt EXAKT No-Op — kein Trie, kein Build-Effekt.
         if constexpr (requires { pc_organ_.insert_key(key); }) pc_organ_.insert_key(key);
+#endif  // COMDARE_MEASUREMENT_ON (K10-PMAJOR-04: Observer-feeding Auto-Kopplungen tier_insert)
         return m8_new_flag;
     }
 
@@ -745,6 +753,8 @@ public:
             m8_hit = v.has_value();
             if (m8_hit && out_value != nullptr) *out_value = static_cast<std::uint64_t>(*v);
         }
+#if COMDARE_MEASUREMENT_ON
+        // ── K10-PMAJOR-04 (2026-06-18): ALLE Observer-feeding Auto-Kopplungen NUR im Mess-Build (s. tier_insert) ──
         // V42 L-74c: lookup berührt ebenfalls einen Knoten → telemetry mit-treiben (telemetry_organ_ mutable).
         if constexpr (requires { telemetry_organ_.record_node_touch(true); }) telemetry_organ_.record_node_touch(true);
         // Phase A Auto-Kopplung (Pfad B): ein lookup löst die cache_traversal-/mapping-Indirektion auf (T1/T2)
@@ -775,6 +785,7 @@ public:
         // misst die gemeinsame Byte-Prefix-Länge des gesuchten Schlüssels am ECHTEN ByteWiseKeyPrefix-Organ. pc_organ_
         // mutable (Tracking im const lookup nicht-const). depth=0 = Trie-Wurzel.
         (void)pc_organ_.compress(key, 0u);
+#endif  // COMDARE_MEASUREMENT_ON (K10-PMAJOR-04: Observer-feeding Auto-Kopplungen tier_lookup)
         return m8_hit;
     }
 

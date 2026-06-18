@@ -1,5 +1,13 @@
 #pragma once
-// KF-9 (2026-06-02) — Experiment-B+-Baum (Experiment-Manager der Cache-Engine-Bibliothek).
+// KF-9 (2026-06-02) — Experiment-Permutations-/Kompositions-Präfixbaum (Experiment-Manager der Cache-Engine-Bibliothek).
+//
+// BENENNUNGS-EHRLICHKEIT (K10-PMAJOR/Naming, 2026-06-18): Die Struktur ist ein ACHSEN-GESCHICHTETER
+// PRÄFIXBAUM (je Ebene 1 Achse, Blätter = Kompositionen, per-node Key-Value) — NICHT ein textbook-B+-Baum
+// (keine balancierten block-orientierten Mehrwege-Knoten mit blatt-verketteten geordneten Schlüsseln). Der
+// historische „B+-Baum"-Name (KF-9, auch in ceb_generator/cache_engine_builder_iterator/profile_to_tree) ist
+// lose/aspirational; die korrekte Bezeichnung ist „Permutations-/Kompositions-Präfixbaum" (Doc 26 §4-§7).
+// Kein Code-Rename erzwungen (kein Mess-Einfluss) — diese Klarstellung am Definitions-Ort terminalisiert das
+// Etikett ehrlich.
 //
 // Ersetzt die flache mp_product/4-fach-for-Enumeration + FNV1a-compute_fingerprint. Doc architecture/26.
 //
@@ -16,7 +24,15 @@
 //   • Das BLATT ist eine Akkumulation der dynamischen Variablen als EXAKT EINE Experiment-Einstellung
 //     (= eine Binary × eine vollständige dynamische Belegung).
 //
-// Knoten static/dynamic via ABSTRACT FACTORY (zwei Einzelklassen). Die per-node Observer-Statistics (§2) leben
+// Knoten static/dynamic = ZWEI distinkte Produkt-TYPEN (StaticAxisNode/DynamicVariableNode, beide INodeDescription)
+// erzeugt über einen abstrakten Creator (AbstractNodeFactory). Lehrbuch-Muster-Klarstellung (K10-PMAJOR-06,
+// 2026-06-18): das realisierte Muster ist die GoF-FACTORY-METHOD-Variante (EIN Creator ExperimentNodeFactory mit
+// zwei Factory-Methoden make_static/make_dynamic), NICHT die Zwei-Fabriken-Abstract-Factory aus Doc 26 §4
+// (StaticAxisNodeFactory/DynamicVariableNodeFactory als getrennte Klassen). Die Produkt-Art ist der TYP + der
+// NodeKind-Selbstauskunfts-Enum — KEIN degeneriertes bool-Flag (das `bool is_static` in AxisLevel unten ist eine
+// flache Reflektions-Zeilen-Markierung der StaticBinaryView-Ebenen, NICHT die Knoten-Fabrik). Doc 26 §4 ist
+// entsprechend als „Factory Method (zwei Produkt-Typen), ein Creator" zu lesen.
+// Die per-node Observer-Statistics (§2) leben
 // in einer SPARSE Map (key=binary_id → NodeValue) — NUR für tatsächlich GEMESSENE Binaries, nie für alle ∏.
 // Für Suche immer Bäume. C++23, header-only.
 

@@ -10,7 +10,10 @@
 // Der Zustand lebt IN der Binary (search_organ_/ComposedStore/Disk-Files); der Host sieht den Memento NIE —
 // er steuert nur save/rollback (hybrider Visitor: die einkompilierten Memento-Klassen besuchen den Host zur
 // Steuerung). „Einfacher Snapshot reicht NICHT" → memento_all kapselt ALLE stateful Achsen (inkl. IO/Disk-
-// Persistenz) via MementoAggregate + save_axis/restore_axis (memento_aggregate.hpp, V5-I5).
+// Persistenz). Realisiert im abi_adapter über Copy-on-Write Rev.2 (cow_materialize_copy_) + den per-Achsen-
+// MementoAxis-Fallback (save_axis/restore_axis, memento_aggregate.hpp, V5-I5). (K10-PMAJOR-02, 2026-06-18:
+// der frühere 19-Slot-Aggregat-Halter MementoAggregate war toter Rev.1-Apparat und wurde entfernt — der
+// kanonische Pfad lief nie über ihn.)
 //
 // ABI-SICHER nach demselben Designprinzip wie IDriveableTier/IObservableTier/IMeasurableWorkload: eigenständiges
 // Sub-Interface, das der ABI-Adapter NUR bei COMDARE_MEASUREMENT_ON zusätzlich erbt; in der Release-/funktional-
