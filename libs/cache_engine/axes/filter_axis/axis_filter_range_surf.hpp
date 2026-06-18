@@ -16,6 +16,7 @@
 #include "concepts/axis_filter_cache_engine_permutation_concept.hpp"
 #include <axes/filter_axis/axis_filter_flags.hpp>
 #include <topics/filter/concepts/topic_filter_concept.hpp>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -35,6 +36,56 @@ public:
     using family_id = std::integral_constant<int, 3>;
 
     static constexpr bool enabled = flags::range_surf_enabled;
+
+    // ── P5 (#124, 2026-06-04, User §4.3) — REALE, aus den eingefuegten Keys gebaute Prefix-Trie-Bitmap ────────
+    // Eine ECHTE persistente succinct-Trie-artige Prefix-Markierungs-Bitmap (vereinfachte LOUDS-Idee nach Zhang
+    // SIGMOD 2018): insert_key markiert die kDepth Byte-Prefix-Knoten des Keys (Most-Significant-Byte zuerst) in
+    // einer gehashten Knoten-Bitmap; probe_key deszendiert denselben Prefix-Pfad BYTE-WEISE und zaehlt die Tiefe
+    // bis zum ersten unmarkierten Knoten (Range-Semantik: gemeinsame Prefix-Laenge, kein exakter Punkt-Test).
+    // probe_key(key) == true gdw. der VOLLE kDepth-Prefix-Pfad markiert ist. kBytes=8192 → 65536 Knoten-Bits,
+    // L1-resident (messneutral: mehrstufiger Trie-Abstieg = gleiche Latenz-Signatur). Voll-uint64-Key-Domain.
+    static constexpr std::size_t kNodeBytes = 8192;            // 8 KiB Knoten-Bitmap → 65536 Knoten
+    static constexpr std::size_t kDepth     = 6;               // SuRF: succinct-Trie-Hoehe (bounded suffix)
+
+    /// Knoten-Position fuer (laufender Pfad-Hash, Byte-Label, Tiefe) → Bit-Index in der Knoten-Bitmap.
+    [[nodiscard]] static constexpr std::size_t node_bit_(std::uint64_t path, std::uint8_t label, std::size_t depth) noexcept {
+        std::uint64_t h = path ^ (static_cast<std::uint64_t>(label) << (depth * 3u % 40u));
+        h = h * 2654435761ull + 0x9E3779B97F4A7C15ull + depth;
+        return static_cast<std::size_t>(h % (kNodeBytes * 8ull));
+    }
+
+    /// Build-Op (Setup, NICHT gemessen): markiert die kDepth Prefix-Knoten des Keys (MSB-zuerst).
+    void insert_key(std::uint64_t key) noexcept {
+        std::uint64_t path = 0;
+        for (std::size_t d = 0; d < kDepth; ++d) {
+            std::uint8_t const label = static_cast<std::uint8_t>((key >> (56u - d * 8u)) & 0xFFu);
+            std::size_t const bp = node_bit_(path, label, d);
+            nodes_[bp >> 3] |= static_cast<unsigned char>(1u << (bp & 7u));
+            path = path * 131u + label + 1u;                  // LOUDS-child: Pfad-Hash fortschreiben
+        }
+    }
+
+    /// Prefix-Abstieg: gemeinsame markierte Prefix-Laenge (0..kDepth). Range-Semantik.
+    [[nodiscard]] std::size_t common_prefix_depth(std::uint64_t key) const noexcept {
+        std::uint64_t path = 0;
+        std::size_t depth = 0;
+        for (; depth < kDepth; ++depth) {
+            std::uint8_t const label = static_cast<std::uint8_t>((key >> (56u - depth * 8u)) & 0xFFu);
+            std::size_t const bp = node_bit_(path, label, depth);
+            if ((nodes_[bp >> 3] & static_cast<unsigned char>(1u << (bp & 7u))) == 0) break;
+            path = path * 131u + label + 1u;
+        }
+        return depth;
+    }
+
+    /// Membership (voller Prefix-Pfad markiert). Punkt-aequivalenter Sonderfall der Range-Abfrage.
+    [[nodiscard]] bool probe_key(std::uint64_t key) const noexcept { return common_prefix_depth(key) == kDepth; }
+
+    void clear() noexcept { nodes_.fill(0); }
+    [[nodiscard]] bool operator==(RangeSurfFilter const& o) const noexcept { return nodes_ == o.nodes_; }
+
+    /// Probe-Multiplizitaet je Query (bis kDepth Trie-Level-Schritte) — ehrlich deklariert fuer hash_probes_total.
+    [[nodiscard]] static constexpr std::uint64_t probe_multiplicity() noexcept { return kDepth; }
 
     [[nodiscard]] static constexpr bool             supports_range_query() noexcept { return true; }
     [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "filter_range_surf"; }
@@ -69,6 +120,10 @@ public:
         }
         return matched;
     }
+
+private:
+    // REALE persistente Prefix-Knoten-Bitmap (P5 #124). succinct-Trie-artige Markierung der Key-Byte-Prefixe.
+    std::array<unsigned char, kNodeBytes> nodes_{};
 };
 
 }  // namespace

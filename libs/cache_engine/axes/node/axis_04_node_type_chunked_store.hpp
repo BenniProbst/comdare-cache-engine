@@ -186,9 +186,18 @@ public:
     // organ_observe_node_type (das ebenfalls die Key-Low-Bytes als Self-Lookup-Query nutzt). REALER In-Memory-Filter.
     template <class FltOrgan>
     std::uint64_t organ_observe_filter(FltOrgan& org) const {
-        std::vector<unsigned char> kb; kb.reserve(size_);
-        for (auto const& c : chunks_) for (auto const& s : c) kb.push_back(static_cast<unsigned char>(s.first & 0xFFu));
-        return org.observe_probe(kb.data(), kb.size(), kb.data(), kb.size());
+        // P5 (#124, 2026-06-04, User §4.3): bevorzugt den REALEN Filter ueber die VOLLEN gespeicherten Keys proben
+        // (observe_probe_keys → strat_.probe_key) — gleiche uint64-Key-Domain wie der insert_key-Build. Fallback
+        // (synthetische Strategien ohne observe_probe_keys): der bisherige 1-Byte-Puffer-Pfad (unveraendert).
+        if constexpr (requires { org.observe_probe_keys(static_cast<std::uint64_t const*>(nullptr), std::size_t{}); }) {
+            std::vector<std::uint64_t> ks; ks.reserve(size_);
+            for (auto const& c : chunks_) for (auto const& s : c) ks.push_back(static_cast<std::uint64_t>(s.first));
+            return org.observe_probe_keys(ks.data(), ks.size());
+        } else {
+            std::vector<unsigned char> kb; kb.reserve(size_);
+            for (auto const& c : chunks_) for (auto const& s : c) kb.push_back(static_cast<unsigned char>(s.first & 0xFFu));
+            return org.observe_probe(kb.data(), kb.size(), kb.data(), kb.size());
+        }
     }
 
 private:

@@ -13,6 +13,7 @@
 #include "concepts/axis_filter_cache_engine_permutation_concept.hpp"
 #include <axes/filter_axis/axis_filter_flags.hpp>
 #include <topics/filter/concepts/topic_filter_concept.hpp>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -30,6 +31,45 @@ public:
     using family_id = std::integral_constant<int, 1>;
 
     static constexpr bool enabled = flags::bloom_enabled;
+
+    // ── P5 (#124, 2026-06-04, User §4.3) — REALE, aus den eingefuegten Keys gebaute Bloom-Bitmap ──────────────
+    // Eine ECHTE persistente m-bit-Bitmap (kein Pseudo-Puffer mehr): insert_key(key) setzt die k Hash-Bits beim
+    // Einfuegen (Build-Phase, in tier_insert — NICHT gemessen), probe_key(key) prueft die k Hash-Bits gegen die
+    // REALE Bitmap. Klassisches Bloom 1970 (k=4 Hash-Funktionen via double-hashing Kirsch/Mitzenmacher 2006).
+    // kBytes=8192 (8 KiB) → L1-resident (messneutral: gleiche Cache-Stufe wie der frühere Pseudo-Puffer; die
+    // gemessene Probe-Kost = k Bit-Tests bleibt unveraendert). Voll-uint64-Key-Domain (kein 1-Byte-Truncate).
+    static constexpr std::size_t kBitmapBytes = 8192;          // 8 KiB Bitmap → m = 65536 Bit
+    static constexpr std::size_t kHashes      = 4;             // Bloom 1970: k unabhaengige Hash-Funktionen
+
+    /// Bit-Positionen-Paar (double-hashing): liefert h1 + i*h2 mod m fuer i=0..k-1.
+    [[nodiscard]] static constexpr std::size_t bit_pos_(std::uint64_t key, std::size_t i) noexcept {
+        std::uint64_t const h1 = key * 2654435761ull + 0x9E3779B97F4A7C15ull;
+        std::uint64_t const h2 = (key << 7) ^ (key >> 3) ^ 0x85EBCA6B12345678ull;
+        return static_cast<std::size_t>((h1 + static_cast<std::uint64_t>(i) * h2) % (kBitmapBytes * 8ull));
+    }
+
+    /// Build-Op (Setup, NICHT gemessen): setzt die k Bits des Keys in der REALEN Bitmap.
+    void insert_key(std::uint64_t key) noexcept {
+        for (std::size_t i = 0; i < kHashes; ++i) {
+            std::size_t const bp = bit_pos_(key, i);
+            bitmap_[bp >> 3] |= static_cast<unsigned char>(1u << (bp & 7u));
+        }
+    }
+
+    /// Probe der REALEN Bitmap: alle k Bits gesetzt → "moeglicherweise enthalten" (Bloom: false-positive only).
+    [[nodiscard]] bool probe_key(std::uint64_t key) const noexcept {
+        for (std::size_t i = 0; i < kHashes; ++i) {
+            std::size_t const bp = bit_pos_(key, i);
+            if ((bitmap_[bp >> 3] & static_cast<unsigned char>(1u << (bp & 7u))) == 0) return false;
+        }
+        return true;
+    }
+
+    void clear() noexcept { bitmap_.fill(0); }
+    [[nodiscard]] bool operator==(BloomFilter const& o) const noexcept { return bitmap_ == o.bitmap_; }
+
+    /// Probe-Multiplizitaet je Query (k Bit-Tests) — ehrlich deklariert fuer hash_probes_total.
+    [[nodiscard]] static constexpr std::uint64_t probe_multiplicity() noexcept { return kHashes; }
 
     [[nodiscard]] static constexpr bool             supports_range_query() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "filter_bloom"; }
@@ -68,6 +108,10 @@ public:
         }
         return hits;
     }
+
+private:
+    // REALE persistente Bloom-Bitmap (P5 #124). std::array → trivially copyable → Strategie kopierbar (Memento).
+    std::array<unsigned char, kBitmapBytes> bitmap_{};
 };
 
 }  // namespace

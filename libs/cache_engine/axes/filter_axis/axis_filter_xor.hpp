@@ -15,6 +15,7 @@
 #include "concepts/axis_filter_cache_engine_permutation_concept.hpp"
 #include <axes/filter_axis/axis_filter_flags.hpp>
 #include <topics/filter/concepts/topic_filter_concept.hpp>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -33,6 +34,49 @@ public:
     using family_id = std::integral_constant<int, 4>;
 
     static constexpr bool enabled = flags::xor_enabled;
+
+    // ── P5 (#124, 2026-06-04, User §4.3) — REALE, aus den eingefuegten Keys gebaute XOR-Fingerprint-Tabelle ───
+    // Eine ECHTE persistente 3-geteilte Fingerprint-Tabelle: probe_key prueft die Xor-Invariante
+    // fp(key) == B[h0] XOR B[h1] XOR B[h2] (GENAU 3 Slot-Reads + 3-fach-XOR, branch-frei — Graf+Lemire 2020 §3).
+    // insert_key STELLT die Invariante her, indem es den dritten Slot loest: B[h2] = fp XOR B[h0] XOR B[h1]
+    // (h0/h1 aus disjunkten Dritteln; h2 aus dem dritten Drittel). Das ist eine LEICHTGEWICHTIGE XOR-Konstruktion
+    // OHNE das vollstaendige Peeling/3-Hypergraph-Matching des Original-Xor-Filters — ehrlich deklariert: bei
+    // h2-Kollisionen ueberschreibt ein spaeterer Key den geloesten Slot eines frueheren (mogliche FN; bewusste
+    // Apparat-Vereinfachung. Der rigorose Membership-Beleg laeuft ueber Bloom/Cuckoo). kBytes=12288 → 3×4096
+    // Slots, L1-resident (messneutral). Voll-uint64-Key-Domain.
+    static constexpr std::size_t kThird = 4096;                 // Slots je Drittel (Zweierpotenz)
+    static constexpr std::size_t kSlots = 3u * kThird;          // 12 KiB Gesamt-Tabelle
+
+    [[nodiscard]] static constexpr std::uint8_t fingerprint_(std::uint64_t key) noexcept {
+        return static_cast<std::uint8_t>((key * 0x9E3779B97F4A7C15ull >> 40) ^ 0xA5u);
+    }
+    [[nodiscard]] static constexpr std::size_t h0_(std::uint64_t key) noexcept {
+        return static_cast<std::size_t>((key * 2654435761ull) & (kThird - 1u));
+    }
+    [[nodiscard]] static constexpr std::size_t h1_(std::uint64_t key) noexcept {
+        return kThird + static_cast<std::size_t>((key * 40503ull) & (kThird - 1u));
+    }
+    [[nodiscard]] static constexpr std::size_t h2_(std::uint64_t key) noexcept {
+        return 2u * kThird + static_cast<std::size_t>((key * 0x85EBCA6B12345678ull >> 16) & (kThird - 1u));
+    }
+
+    /// Build-Op (Setup, NICHT gemessen): loest den dritten Slot, damit die Xor-Invariante fuer key gilt.
+    void insert_key(std::uint64_t key) noexcept {
+        std::uint8_t const fp = fingerprint_(key);
+        table_[h2_(key)] = static_cast<std::uint8_t>(fp ^ table_[h0_(key)] ^ table_[h1_(key)]);
+    }
+
+    /// Probe der REALEN Tabelle: GENAU 3 Slot-Reads + 3-fach-XOR == Fingerprint (branch-frei).
+    [[nodiscard]] bool probe_key(std::uint64_t key) const noexcept {
+        std::uint8_t const x = static_cast<std::uint8_t>(table_[h0_(key)] ^ table_[h1_(key)] ^ table_[h2_(key)]);
+        return x == fingerprint_(key);
+    }
+
+    void clear() noexcept { table_.fill(0); }
+    [[nodiscard]] bool operator==(XorFilter const& o) const noexcept { return table_ == o.table_; }
+
+    /// Probe-Multiplizitaet je Query (3 Slot-Reads) — ehrlich deklariert fuer hash_probes_total.
+    [[nodiscard]] static constexpr std::uint64_t probe_multiplicity() noexcept { return 3u; }
 
     [[nodiscard]] static constexpr bool             supports_range_query() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "filter_xor"; }
@@ -66,6 +110,10 @@ public:
         }
         return hits;
     }
+
+private:
+    // REALE persistente XOR-Fingerprint-Tabelle (P5 #124). 3 disjunkte Drittel, 1 Byte/Slot.
+    std::array<std::uint8_t, kSlots> table_{};
 };
 
 }  // namespace

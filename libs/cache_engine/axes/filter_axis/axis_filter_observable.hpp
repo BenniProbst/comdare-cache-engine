@@ -25,6 +25,7 @@
 
 #include "concepts/axis_filter_concept.hpp"
 #include "concepts/axis_filter_cache_engine_permutation_concept.hpp"
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -71,10 +72,64 @@ public:
 
     /// STATIC Pass-Through (Drop-in-Kompatibilität): die Strategie-Methode unveraendert durchgereicht, damit die
     /// Huelle als filter-Slot die bestehenden seg19-Aufrufer NICHT bricht (abi_adapter.hpp T16
-    /// `Filter::filter_probe_scan`). Diese Variante trackt NICHT (static, kein Instanz-State).
+    /// `Filter::filter_probe_scan`). Diese Variante trackt NICHT (static, kein Instanz-State). Pfad-A
+    /// (run_workload_segmented_v2) ruft GENAU diese static Signatur ueber einen synthetischen Record-Puffer →
+    /// die gemessene Probe-Kost (k Hash-Positionen) bleibt EXAKT erhalten (messneutral, P5 #124 unberuehrt).
     [[nodiscard]] static std::uint64_t filter_probe_scan(unsigned char const* buf, std::size_t n,
                                                          unsigned char const* queries, std::size_t q) noexcept {
         return Strategy::filter_probe_scan(buf, n, queries, q);
+    }
+
+    // ── P5 (#124, 2026-06-04, User §4.3) — REALER, aus den eingefuegten Keys gebauter Filter ───────────────────
+    // Die Huelle haelt die ECHTE Filter-Struktur-Instanz (strat_). Build-Op (Setup, NICHT gemessen) wird in
+    // abi_adapter::tier_insert via `if constexpr (requires{...})` getrieben (analog pc_organ_.compress). Voll-
+    // uint64-Key-Domain. Diese Methoden existieren NUR, wenn die Strategie die reale Struktur traegt (None-artige/
+    // synthetische Strategien ohne insert_key bleiben unberuehrt — kein Build, leere Struktur).
+
+    /// Build: fuegt den Key in die REALE Filter-Struktur ein (Bloom-Bit / Cuckoo-Bucket / Xor-Slot / SuRF-Prefix).
+    void insert_key(std::uint64_t key) noexcept
+        requires requires (Strategy s) { s.insert_key(key); }
+    { strat_.insert_key(key); }
+
+    /// Leert die REALE Filter-Struktur (Memento/tier_clear-Symmetrie).
+    void clear_filter() noexcept
+        requires requires (Strategy s) { s.clear(); }
+    { strat_.clear(); }
+
+    /// Lesezugriff auf die reale Struktur-Instanz (Test-Verifikation + Memento-Snapshot/Restore).
+    [[nodiscard]] Strategy const& strategy_instance() const noexcept { return strat_; }
+    [[nodiscard]] Strategy&       strategy_instance()       noexcept { return strat_; }
+
+    /// Bit-exakter Vergleich der REALEN Filter-Struktur (Memento-Verifikation, P5 #124). Vergleicht NUR die
+    /// Struktur (strat_), NICHT die diagnostischen Stats — der Memento-Vertrag betrifft die Filter-Membership.
+    /// Nur verfuegbar, wenn die Strategie operator== traegt (reale Strukturen; synthetische ohne == unberuehrt).
+    [[nodiscard]] bool operator==(ObservableFilter const& o) const noexcept
+        requires requires (Strategy const a, Strategy const b) { { a == b } -> std::convertible_to<bool>; }
+    { return strat_ == o.strat_; }
+
+    /// Pfad-B Real-Filter-Driver: probt die REALE Struktur (strat_.probe_key) ueber die echten, in container_
+    /// gespeicherten Keys als Query-Strom. queries_positive/negative je Key ueber das ECHTE Struktur-Ergebnis
+    /// (probe_key) — keine Strategie-Internas. last_checksum = order-sensitive Treffer-Pruefsumme. Getrennt von
+    /// der static filter_probe_scan (Pfad-A bleibt buf-basiert). Nur verfuegbar, wenn die Strategie real ist.
+    [[nodiscard]] std::uint64_t observe_probe_keys(std::uint64_t const* keys, std::size_t nk) noexcept
+        requires requires (Strategy const cs, std::uint64_t k) { { cs.probe_key(k) } -> std::convertible_to<bool>; }
+    {
+        std::uint64_t checksum = 0;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        ++stats_.probe_count;
+        stats_.hash_probes_total += static_cast<std::uint64_t>(nk) * probe_multiplicity();
+#endif
+        for (std::size_t i = 0; i < nk; ++i) {
+            bool const hit = strat_.probe_key(keys[i]);
+            if (hit) checksum += 1u + (keys[i] & 7u);          // order-sensitive Akkumulation (Anti-Wegopt)
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            if (hit) ++stats_.queries_positive; else ++stats_.queries_negative;
+#endif
+        }
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_.last_checksum = checksum;
+#endif
+        return checksum;
     }
 
     /// Mess-Kopplung (der eigentliche „Driver", Instanz): treibt den Probe-Scan + trackt. Der Observer-Treiber
@@ -117,6 +172,13 @@ private:
 
     snapshot_t stats_{};
 #endif
+
+private:
+    // ── P5 (#124) — REALE Filter-Struktur-Instanz (IMMER vorhanden, auch ohne Statistics-Define) ──────────────
+    // Traegt die echte Bitmap/Bucket-/Xor-/Prefix-Struktur. Default-konstruiert = leer (None-aequivalente
+    // Baseline, bevor ein Key eingefuegt wurde). std::array-basiert → trivially copyable → ObservableFilter
+    // kopierbar → fuer den symmetrischen Memento (tier_save_all/tier_rollback_all) snapshot-faehig.
+    Strategy strat_{};
 };
 
 }  // namespace comdare::cache_engine::filter_axis
