@@ -31,6 +31,7 @@
 
 #include "lazy_pilot_engine.hpp"                         // FullPilot/build_pilot_levels/make_pilot_source_gen
 #include "m3v2_select_profile.hpp"                       // M3v2-SELEKTION (Task #156): Basis/Sweep/SOTA-Reihen + Tags
+#include "profile_runner.hpp"                             // STRANG-A Inc1 (ADDITIV): build_profile_levels (build_axis_levels live)
 #include <builder/build_orchestrator/system_ram.hpp>     // make_system_free_ram_fn (real)
 
 #include <cstdint>
@@ -149,9 +150,30 @@ int main(int argc, char** argv) {
     // Baum: FullPilot statische Achsen (320 ≥150) + dyn. Dimensionen (thread_count × prefetch_distance ×
     // repetition = 3·2·n_repeats Settings je Binary). Die repetition-Achse (D) erzeugt je Wiederholung eine
     // EIGENE setting_id → je Rep eine eigene Roh-CSV-Zeile (nie interpoliert).
+    // STRANG-A Inc1 (ADDITIV, gate-frei): select_mode "profile:<pfad>" baut den Baum DEKLARATIV aus einem
+    // comdare_thesis_profile (parse_thesis_profile → build_axis_levels → tree.build) — die offizielle, bisher
+    // verwaiste Kette (Doc 10 §2.2). Der Code-Pfad (FullPilot, build_pilot_levels) bleibt UNANGETASTET der
+    // Default; das Profil ersetzt NUR die AxisLevels-Quelle. ENV COMDARE_THESIS_PROFILE als Alternative zum
+    // select_mode-Suffix. Der Round-Trip-Beleg (test_profile_roundtrip) garantiert binary_id-Identität.
+    std::string profile_path;
+    if (select_mode.rfind("profile:", 0) == 0) profile_path = select_mode.substr(std::string("profile:").size());
+    if (profile_path.empty()) { char const* e = std::getenv("COMDARE_THESIS_PROFILE"); if (e != nullptr) profile_path = e; }
+    bool const profile_mode = !profile_path.empty();
+
     auto factory = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree tree{factory};
-    tree.build(tlz::build_pilot_levels<tlz::FullPilot>(/*with_dynamic=*/true, n_repeats, workload_values));
+    if (profile_mode) {
+        auto tp = tlz::load_thesis_profile(profile_path);
+        if (!tp) { std::cerr << "run_lazy_150: COMDARE_THESIS_PROFILE/'" << profile_path
+                             << "' nicht lesbar (parse_thesis_profile=nullopt) — Abbruch.\n"; return 5; }
+        std::string const mode_name = tp->modes.empty() ? std::string{"pilot_base"} : tp->modes.front().name;
+        tree.build(tlz::build_profile_levels(*tp, mode_name, /*with_dynamic=*/true));
+        std::cout << "PROFIL-MODUS: " << profile_path << "  (id=" << tp->id << " mode=" << mode_name
+                  << ")  tree.binary_count() = " << tree.binary_count()
+                  << "  dyn_dims = " << tree.dynamic_filter().size() << "\n";
+    } else {
+        tree.build(tlz::build_pilot_levels<tlz::FullPilot>(/*with_dynamic=*/true, n_repeats, workload_values));
+    }
 
     std::cout << "FullPilot::Engine::count() = " << tlz::FullPilot::Engine::count()
               << "  tree.binary_count() = " << tree.binary_count()
