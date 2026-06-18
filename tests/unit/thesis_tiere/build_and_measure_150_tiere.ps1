@@ -22,6 +22,16 @@ param(
     # GOAL-M1.3: das Harness PINNT die Workload-Achse selbst (statt volatiler Session-ENV — Audit-Blocker):
     [string]$LoadProfileDir = "",             # leer → <repo>\libs\cache_engine\algorithm_profiles\load_profiles
     [int]$WorkloadRecords = 10000,
+    # M3v2-SELEKTION (Task #156, Design-Spec §3d, P-MD7): Working-Set-Sweep. N (Record-Zahl) ist die Mess-Dimension,
+    # die festlegt, wie viele Sätze VOR der gemessenen Run-Phase befüllt werden (= Key-Range [1,N]). Default-Set
+    # {2^14, 2^17, 2^20, 2^23} = {16384, 131072, 1048576, 8388608} (Infra-Agent passt an die reale LLC an). Je N-Wert
+    # ein eigener Treiber-Lauf (eigener COMDARE_WORKLOAD_RECORDS) → die CSV-Spalte working_set_n trennt sie. Leer →
+    # einmaliger Lauf mit -WorkloadRecords (rückwärtskompatibel).
+    [int[]]$WorkingSetN = @(),
+    # M3v2-Tags (Task #156): platform/build_version reisen als CSV-Tag-Spalten (Auswertungs-Trennung der Plattform-
+    # /Build-Reihen). Default win-x86_64 / m3v2; der Infra-Agent setzt -Platform je ZIH-Plattform-Reihe.
+    [string]$Platform = "win-x86_64",
+    [string]$M3BuildVersionTag = "m3v2",
     # Selektions-Modus. (Audit K9 / Index-Selektion-ENTKONFUNDIERT, 2026-06-13): DEFAULT = "search_algo_grid", weil der
     # F15-KERN-Vergleich (Suchalgorithmen auf der EINEN std::map-Schnittstelle, Thesis-Kernbeitrag) NUR die search_algo-
     # Ebene variieren darf und ALLE übrigen Achsen FIX halten muss — sonst ist die per-search_algo-Mess-Zeile durch die
@@ -29,8 +39,11 @@ param(
     # search_algo konstant) bleibt explizit wählbar für die ergänzende Nicht-search-Achsen-Differenzierung (analog
     # tier150_axis_grid). Die zweite Facette „Index-Selektion-konfundiert" (search-organ↔store-Entkopplung, Befund 2) ist
     # in der E-Welle-A2 (A2.5) separat behoben.
-    [ValidateSet("index","search_algo_grid")]
-    [string]$SelectMode = "search_algo_grid",
+    # M3v2-SELEKTION (Task #156): die ValidateSet ist entfernt, weil die Sweep-/SOTA-Modi PARAMETRISCH sind
+    # ("axis_sweep:<achse>" / "sota:<A|B|C>"). Gültige Werte: index (=BASIS-320 voll-faktoriell) | search_algo_grid
+    # (F15-Grid) | basis (Alias zu index) | axis_sweep:<search_algo|node_type|memory_layout|prefetch|path_compression>
+    # | sota:<A|B|C>. Default index = die BASIS-320-Selektion (Design-Spec §3a).
+    [string]$SelectMode = "index",
     # Mess-RESUME (#139, Default AN): Binaries mit vollständiger+konfigurations-aktueller result.csv (Stamp-Match:
     # BuildVersion/n_ops/Workload-Set/dyn-Dims) überspringen + ihre Zeilen in die globale CSV übernehmen.
     # -Resume:$false → alles neu messen (Stamps werden überschrieben).
@@ -137,12 +150,40 @@ $exe = Build-HostExe "run_lazy_150" (Join-Path $srcDir "run_lazy_150.cpp")
 if (-not $exe) { exit 1 }
 
 $csv = Join-Path $out "tier150_measurements.csv"
-Write-Host ("=== Lazy-E2E: {0} DLLs bauen+messen (resumierbar, version={1}, n_repeats={2}, select_mode={3}, mess-resume={4}) — innerhalb vcvars ===" -f $MaxBinaries, $BuildVersion, $NRepeats, $SelectMode, $Resume)
-$code = Run-InVcvars $exe @($csv, $MaxBinaries, $NOps, $BuildVersion, $permSrc, $permDll, $MinFreeGB, 4, $NRepeats, $SelectMode, $(if ($Resume) { "1" } else { "0" }))
-if (Test-Path $csv) {
-    Copy-Item $csv (Join-Path $srcDir "tier150_measurements.csv") -Force   # committe-bare Snapshot-Kopie
-    Write-Host ("CSV: {0}  ({1} Daten-Zeilen)" -f $csv, ((Get-Content $csv).Count - 1))
-    Write-Host "--- erste 8 Zeilen ---"
-    Get-Content $csv -TotalCount 9 | ForEach-Object { Write-Host "  $_" }
+
+# M3v2-Tags (Task #156): platform + build_version reisen via env in den Treiber (→ CSV-Tag-Spalten).
+$env:COMDARE_PLATFORM      = $Platform
+$env:COMDARE_BUILD_VERSION = $M3BuildVersionTag
+
+# M3v2-SELEKTION (Task #156): Working-Set-Sweep. Ist -WorkingSetN gesetzt, läuft der Treiber je N-Wert (eigenes
+# COMDARE_WORKLOAD_RECORDS); die per-N-CSVs werden zur Gesamt-CSV zusammengeführt (Header einmal, Tag-Spalte
+# working_set_n trennt). Leer → ein einziger Lauf mit -WorkloadRecords (rückwärtskompatibel).
+$nSet = if ($WorkingSetN.Count -gt 0) { $WorkingSetN } else { @($WorkloadRecords) }
+Write-Host ("=== Lazy-E2E (m3v2): {0} DLLs bauen+messen | select_mode={1} | platform={2} | build_tag={3} | working_set_n=[{4}] | resume={5} ===" -f $MaxBinaries, $SelectMode, $Platform, $M3BuildVersionTag, ($nSet -join ","), $Resume)
+
+$lastCode = 0
+$partCsvs = @()
+foreach ($n in $nSet) {
+    $env:COMDARE_WORKLOAD_RECORDS = "$n"
+    $partCsv = Join-Path $out ("tier150_measurements_N{0}.csv" -f $n)
+    Write-Host ("--- Working-Set-N = {0} ---" -f $n)
+    $lastCode = Run-InVcvars $exe @($partCsv, $MaxBinaries, $NOps, $BuildVersion, $permSrc, $permDll, $MinFreeGB, 4, $NRepeats, $SelectMode, $(if ($Resume) { "1" } else { "0" }))
+    if (Test-Path $partCsv) { $partCsvs += $partCsv }
 }
-exit $code
+
+# Gesamt-CSV aus den per-N-Teilen zusammenführen (Header genau einmal aus dem ersten Teil).
+if ($partCsvs.Count -gt 0) {
+    $first = $true
+    $allLines = New-Object System.Collections.Generic.List[string]
+    foreach ($p in $partCsvs) {
+        $lines = Get-Content $p
+        if ($first) { $allLines.AddRange([string[]]$lines); $first = $false }
+        else        { if ($lines.Count -gt 1) { $allLines.AddRange([string[]]($lines | Select-Object -Skip 1)) } }
+    }
+    Set-Content -Path $csv -Value $allLines -Encoding UTF8
+    Copy-Item $csv (Join-Path $srcDir "tier150_measurements.csv") -Force   # committe-bare Snapshot-Kopie
+    Write-Host ("CSV (m3v2, alle N zusammengeführt): {0}  ({1} Daten-Zeilen)" -f $csv, ($allLines.Count - 1))
+    Write-Host "--- Header + erste 6 Zeilen ---"
+    Get-Content $csv -TotalCount 7 | ForEach-Object { Write-Host "  $_" }
+}
+exit $lastCode
