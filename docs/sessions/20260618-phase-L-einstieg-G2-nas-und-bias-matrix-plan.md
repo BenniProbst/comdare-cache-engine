@@ -258,6 +258,12 @@ User-Befund: die Mess-Appendix-Tabellen erscheinen korrekt, ABER es gibt einen F
 `p{}`-Spalten zu schmal. Fix in den Generatoren (csv_to_latex `write_bias_matrix_latex`/`write_exchange_longtables`) verankern:
 Workload-Kürzel + Legende, Rotation/`sidewaystable`, `p{}`-Breiten, oder Matrix transponieren. **Bewusst NICHT in dieser Session.**
 
+## G3-REPRODUZIERBARKEIT ✅ LITERAL VERIFIZIERT (2026-06-18)
+
+Depth-1-`git clone` des Overleaf-Thesis-Repos (`20260931-Overleaf-Diplomarbeit`) in frisches Temp-Verzeichnis → `build_all.ps1`
+baut **beide PDFs in 69 s, byte-identisch** zum In-Place-Build (`diplomarbeit-de.pdf` 774,5 KB / `-en.pdf` 746,8 KB, 132/128 S.,
+0 undefined/fatal). → „frischer git-clone baut identisch (relative Pfade)" = **erfüllt**. **G1·G2·G3·G4 lückenlos geschlossen.**
+
 ## 3. Pflicht-Lese-Reihenfolge für die Phase-L-Umsetzungs-Session (frischer Kontext)
 
 1. `docs/architecture/34_KONSOLIDIERTER_MASTER_IST_STAND.md` — §F15-Pipeline + Mess-Modell + Bias-Matrix.
