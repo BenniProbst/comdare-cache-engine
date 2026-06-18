@@ -27,6 +27,14 @@ public:
 
     [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return 1; }  // strict packed, kein alignment
     [[nodiscard]] static constexpr std::string_view name()            noexcept { return "memory_layout_aos_strict"; }
+
+    // REALE Repraesentation (P-MD1-ERDUNG #167): strict-packed AoS — der Store legt [key|value] adjazent am
+    // 16-B-Stride an (kein Padding). Der Key-only-Scan beruehrt jeden 16-B-Block → MEHR Lines als SoA, aber
+    // weniger als das 64-B-gepaddete cache_line_aligned. CLU aus dem ECHTEN Store-Footprint (≈100 % der
+    // beruehrten Linien sind durch Nutzdaten belegt). Die span ist die Nutzlast, kein Padding/Spread.
+    [[nodiscard]] static constexpr RepresentationKind representation_kind() noexcept {
+        return RepresentationKind::aos_interleaved_packed;
+    }
     [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "AoSStrictMemoryLayout (strict packed, no cache-line alignment, dense)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()     noexcept { return "AOS_STRICT"; }
 

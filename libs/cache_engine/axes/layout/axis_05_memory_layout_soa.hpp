@@ -27,6 +27,15 @@ public:
 
     [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return 64; }
     [[nodiscard]] static constexpr std::string_view name()            noexcept { return "memory_layout_soa"; }
+
+    // REALE Repraesentation (P-MD1-ERDUNG #167): columnar — der Store legt PRO Chunk zwei getrennte Arrays an
+    // (keys[]-Spalte gefolgt von values[]-Spalte). Der Key-only-Scan liest NUR die keys-Spalte (n*8 B
+    // KONTIGUIERLICH statt strided ueber 16-B-Records) → die WENIGSTEN Linien aller dichten Layouts (ceil(n*8/64)
+    // statt ceil(n*16/64)), volle Auslastung der beruehrten Key-Linien → die HOECHSTE CLU. Distinkt von AoS,
+    // weil der Spalten-Split den Value-Ballast aus dem Key-Scan-Footprint entfernt (kanonischer SoA-Vorteil).
+    [[nodiscard]] static constexpr RepresentationKind representation_kind() noexcept {
+        return RepresentationKind::soa_split_columns;
+    }
     [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "SoAMemoryLayout (Struct-of-Arrays, SIMD-friendly, column-scan optimal)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()     noexcept { return "SOA"; }
 
