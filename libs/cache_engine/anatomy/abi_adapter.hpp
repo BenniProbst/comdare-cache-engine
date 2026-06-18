@@ -692,6 +692,11 @@ public:
         // gemessen — gehoert zur Insert/Setup-Phase wie pc_organ_.compress). if-constexpr-geguarded: nur Strategien
         // mit echter Struktur (Bloom/Cuckoo/SuRF/Xor via insert_key) bauen; None-artige bleiben unberuehrt.
         if constexpr (requires { flt_organ_.insert_key(key); }) flt_organ_.insert_key(key);
+        // §4.3 (User 2026-06-04): den (key,value) in die REALE value_handle-Slot-Struktur legen (Pool/Version/Chain-
+        // Backing, Build-Phase NICHT gemessen — gehoert zur Insert/Setup-Phase wie flt_organ_.insert_key). if-constexpr-
+        // geguarded: NUR Nicht-Inline-Strategien (ExternalPool/ImmutableSharedRef/VersionedPointer/ChainRef) tragen
+        // store_value (EmptyRealSlot fuer Inline traegt es NICHT → Inline-M3-Pin bleibt EXAKT unveraendert + messneutral).
+        if constexpr (requires { vh_organ_.store_value(key, value); }) vh_organ_.store_value(key, value);
         return m8_new_flag;
     }
 
@@ -760,6 +765,10 @@ public:
         // P5 (#124, R1): den REALEN Filter mit-leeren — symmetrisch zum Daten-clear (sonst truege der Filter Keys
         // ueber Mess-Profile hinweg → Membership-Inkonsistenz). if-constexpr: None-artige ohne clear() = no-op.
         if constexpr (requires { flt_organ_.clear_filter(); }) flt_organ_.clear_filter();
+        // §4.3 (User 2026-06-04, R1): die REALE value_handle-Slot-Struktur mit-leeren — symmetrisch zum Daten-clear
+        // (sonst truege das Pool/Chain-Backing Keys ueber Mess-Profile hinweg → Deref-Inkonsistenz). if-constexpr:
+        // Inline (EmptyRealSlot ohne real Pool/Chain) traegt clear() als no-op — der requires greift, 0-Footprint bleibt.
+        if constexpr (requires { vh_organ_.clear_slots(); }) vh_organ_.clear_slots();
         // KONSOLIDIERUNG (2026-06-04): T0 search_algo-Statistik je Messung nullen. Der frühere perm_runner-
         // Kommentar „search_organ_ per ABI nicht resetbar" war VERALTET — ObservableComposedContainer/
         // ObservableComposedSearch tragen reset() (stats_={}). Damit ist axis_stats[0] pro (Binary×Setting×Rep)
@@ -1262,6 +1271,10 @@ public:
         // P5 (#124, R1): den REALEN Filter IMMER eager mitsichern (beide Pfade) — symmetrisch zum Rollback unten.
         // flt_organ_ ist copy-constructible (std::array-basiert) → emplace ist bit-exakt; bei OOM verwerfen.
         try { saved_flt_.emplace(flt_organ_); } catch (...) { saved_flt_.reset(); }
+        // §4.3 (User 2026-06-04, R1): die REALE value_handle-Slot-Struktur IMMER eager mitsichern (beide Pfade) —
+        // symmetrisch zum Rollback unten. vh_organ_ ist copy-constructible (std::vector-/EmptyRealSlot-basiert) →
+        // emplace ist bit-exakt; bei OOM verwerfen. Fuer Inline (EmptyRealSlot) ist die Kopie O(1)-leer.
+        try { saved_vh_.emplace(vh_organ_); } catch (...) { saved_vh_.reset(); }
         if constexpr (cow_capable_) {
             saved_search_stats_    = search_organ_.statistics();    // O(1) POD-Snapshot (T0)
             saved_container_stats_ = container_.statistics();       // O(1) POD-Snapshot (container-/T6-Pfad)
@@ -1299,6 +1312,10 @@ public:
                     // P5 (#124, R1): den REALEN Filter bit-exakt auf den save-Stand zuruecksetzen (IMMER, nicht nur
                     // Write-Periode: ein Warmup-Insert hat flt_organ_ via insert_key inkrementell mutiert). idempotent.
                     if (saved_flt_) flt_organ_ = *saved_flt_;
+                    // §4.3 (User 2026-06-04, R1): die REALE value_handle-Slot-Struktur bit-exakt auf den save-Stand
+                    // zuruecksetzen (IMMER, nicht nur Write-Periode: ein Warmup-Insert hat vh_organ_ via store_value
+                    // inkrementell mutiert). idempotent. Fuer Inline (EmptyRealSlot) ist die Zuweisung O(1)-leer.
+                    if (saved_vh_) vh_organ_ = *saved_vh_;
                     mig_organ_.reset();   // tier_moves/Entscheidungs-Zaehler auf 0 (save-Stand: vor jedem Migrate-Op)
                     // Stats restaurieren (Warmup-Op hat Zähler berührt — auch read-only) → exakt save-Stand.
                     search_organ_.restore_statistics(saved_search_stats_);
@@ -1318,6 +1335,8 @@ public:
             if (saved_tier1_) container_tier1_ = *saved_tier1_;
             // P5 (#124, R1): REALEN Filter bit-exakt auf den save-Stand zuruecksetzen (Fallback-Pfad, symmetrisch).
             if (saved_flt_) flt_organ_ = *saved_flt_;
+            // §4.3 (User 2026-06-04, R1): REALE value_handle-Slot-Struktur bit-exakt auf den save-Stand (Fallback-Pfad).
+            if (saved_vh_) vh_organ_ = *saved_vh_;
             mig_organ_.reset();
         } catch (...) {
             // noexcept-Vertrag: ein Rollback-Fehler darf den Mess-Lauf nicht abreißen.
@@ -1425,6 +1444,12 @@ public:
     /// Verifikation „Filter REAL befuellt" + „Memento bit-exakt" (test_filter_real_from_keys). flt_organ_ ist
     /// mutable → const-Methode liefert const&.
     [[nodiscard]] auto const& filter_instance() const noexcept { return flt_organ_; }
+
+    /// §4.3 (User 2026-06-04) Diagnose (KEINE ABI-Flaeche — plain const-Methode): Lesezugriff auf das REALE
+    /// value_handle-Organ (ObservableValueHandle, traegt seit §4.3 die echte Pool/Version/Chain-Slot-Struktur).
+    /// Erlaubt dem Test die Verifikation „Pool/Chain REAL befuellt + dereferenziert" + „Memento bit-exakt" +
+    /// „inline unveraendert" (test_value_handle_real). vh_organ_ ist mutable → const-Methode liefert const&.
+    [[nodiscard]] auto const& value_handle_instance() const noexcept { return vh_organ_; }
 
     [[nodiscard]] std::uint64_t tier_migrate_step(std::uint64_t max_moves) noexcept override {
         // CoW (#133 Rev. 2 / R1): ein Migrate-Schritt MUTIERT container_ (+ container_tier1_) — wie tier_insert/
@@ -1552,6 +1577,14 @@ private:
     // Wird — analog saved_tier1_ — in BEIDEN Pfaden (CoW + Fallback) gesichert/zurueckgespielt → uniform exakt.
     using flt_organ_t = ::comdare::cache_engine::filter_axis::ObservableFilter<typename Composition::filter>;
     std::optional<flt_organ_t> saved_flt_{};
+    // §4.3 (User 2026-06-04, R1 — KRITISCH): symmetrischer Memento der REALEN value_handle-Slot-Struktur. vh_organ_
+    // traegt seit §4.3 eine echte, INKREMENTELL in tier_insert via store_value befuellte Pool/Version/Chain-Struktur
+    // (Nicht-Inline) bzw. EmptyRealSlot (Inline, leer/messneutral). Ohne diesen Snapshot bliebe ein Warmup-store_value
+    // nach rollback_all im Slot-Backing stehen (Deref-Drift gegen den save-Stand). EAGER (nicht CoW-lazy): die Struktur
+    // ist klein (std::vector, ~KiB) → Kopie ~O(1), KEIN Kosten-Hebel; bit-exakt via operator==. In BEIDEN Pfaden
+    // (CoW + Fallback) gesichert/zurueckgespielt → uniform exakt (analog saved_flt_/saved_tier1_).
+    using vh_organ_t = ::comdare::cache_engine::value_handle_axis::ObservableValueHandle<typename Composition::value_handle>;
+    std::optional<vh_organ_t> saved_vh_{};
 
     // ── Copy-on-Write-Memento (#133 Rev. 2) — save O(1), Daten-Kopie lazy bei der ersten Warmup-Mutation ──
     // Fähigkeits-Detektion (requires): das Organ trägt den O(1)-Stat-Snapshot/-Restore (statistics()/

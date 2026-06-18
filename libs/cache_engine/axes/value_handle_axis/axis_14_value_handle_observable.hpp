@@ -30,6 +30,8 @@
 
 #include "concepts/axis_14_value_handle_concept.hpp"
 #include "concepts/axis_14_value_handle_cache_engine_permutation_concept.hpp"
+#include "axis_14_value_handle_real_slot.hpp"   // §4.3: REALE Pool/Version/Chain-Slot-Struktur (additiv, messneutral)
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -78,6 +80,43 @@ public:
         return Strategy::value_access_scan(buf, n, record_size);
     }
 
+    // ── §4.3 (User 2026-06-04) — REALER Pool/Version/Chain-Deref gegen die echte Slot-Struktur ──────────────────
+    // Die Huelle haelt die ECHTE Slot-Struktur-Instanz (real_slot_), compile-zeit-selektiert je Strategie
+    // (axis_14_value_handle_real_slot.hpp): Inline → EmptyRealSlot (leer, 0 Footprint, messneutral); ExternalPool/
+    // ImmutableSharedRef → PoolValueSlot<false> (1 abh. Deref); VersionedPointer → PoolValueSlot<true> (MVCC-Tag-Strip);
+    // ChainRef → ChainValueSlot (2 abh. Derefs). store_value/deref_value/clear_slots existieren NUR, wenn die
+    // Strategie real ist (EmptyRealSlot traegt KEIN store_value → der abi_adapter-Build-Hook greift nicht → Inline
+    // bleibt EXAKT unveraendert + messneutral, Leitplanke 1). EXAKT analog axis_filter (P5 #124) strat_/insert_key.
+
+    using real_slot_type = real_slot_t<Strategy>;
+
+    /// Build (Setup, NICHT gemessen): den (key,value) in die REALE Slot-Struktur legen (Pool-Indirektion / Chain-
+    /// Knoten / versioniertem Pool-Eintrag). Existiert NUR fuer Nicht-Inline-Strategien (EmptyRealSlot ohne store_value).
+    void store_value(std::uint64_t key, std::uint64_t value) noexcept
+        requires requires (real_slot_type s) { s.store_value(key, value); }
+    { real_slot_.store_value(key, value); }
+
+    /// REALER Deref gegen die echte Slot-Struktur: Slot → Pool-Index/Chain-Head → Value (1 bzw. 2 abh. Indirektionen,
+    /// VersionedPointer mit MVCC-Tag-Strip). Liefert true + *out_value gdw. der Key real gespeichert ist. Existiert
+    /// NUR fuer Nicht-Inline-Strategien (Inline = direkter Slot-Read, KEINE Indirektion → kein Deref-Organ noetig).
+    [[nodiscard]] bool deref_value(std::uint64_t key, std::uint64_t* out_value) const noexcept
+        requires requires (real_slot_type const cs) { { cs.deref_value(key, out_value) } -> std::convertible_to<bool>; }
+    { return real_slot_.deref_value(key, out_value); }
+
+    /// Leert die REALE Slot-Struktur (Memento/tier_clear-Symmetrie). NUR fuer Nicht-Inline (EmptyRealSlot::clear
+    /// ist no-op, traegt aber clear() → der requires greift; Inline bleibt 0-Footprint).
+    void clear_slots() noexcept
+        requires requires (real_slot_type s) { s.clear(); }
+    { real_slot_.clear(); }
+
+    /// Lesezugriff auf die reale Slot-Struktur (Test-Verifikation + Diagnose: slot_count/pool_size/chain_nodes).
+    [[nodiscard]] real_slot_type const& real_slot() const noexcept { return real_slot_; }
+    [[nodiscard]] real_slot_type&       real_slot()       noexcept { return real_slot_; }
+
+    /// Bit-exakter Vergleich der REALEN Slot-Struktur (Memento-Verifikation, §4.3, analog ObservableFilter). Vergleicht
+    /// NUR die Struktur (real_slot_), NICHT die diagnostischen Stats — der Memento-Vertrag betrifft das Value-Backing.
+    [[nodiscard]] bool operator==(ObservableValueHandle const& o) const noexcept { return real_slot_ == o.real_slot_; }
+
 private:
     // Compile-Time Indirektions-Charakteristik je Strategie (statisch, [[no-runtime-switch]]):
     //   depth   = Tiefe der Deref-Kette je Zugriff (Inline=1; 1-Deref=2; ChainRef=3)
@@ -120,6 +159,14 @@ public:
 private:
     snapshot_t stats_{};
 #endif
+
+private:
+    // ── §4.3 — REALE Slot-Struktur-Instanz (IMMER vorhanden, auch ohne Statistics-Define) ──────────────────────
+    // Traegt das echte Pool-/Versioned-Pool-/Chain-Slot-Backing (Nicht-Inline) bzw. EmptyRealSlot (Inline, 0
+    // Footprint). std::vector-basiert (Pool/Chain) bzw. leer → copy-constructible + copy-assignable + operator==
+    // → ObservableValueHandle kopierbar/vergleichbar → fuer den symmetrischen Memento (saved_vh_ in tier_save_all/
+    // tier_rollback_all) snapshot-faehig (R1, Leitplanke 3). Default-konstruiert = leer (None-aequivalente Baseline).
+    real_slot_type real_slot_{};
 };
 
 }  // namespace comdare::cache_engine::value_handle_axis
