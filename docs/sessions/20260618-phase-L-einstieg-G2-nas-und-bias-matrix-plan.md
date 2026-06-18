@@ -138,6 +138,40 @@ verschiedene Performance, real gemessen → die Achsen-Austauschbarkeits-/Bias-M
 **Code-Verifikation der Klassifikation** (dass kein „inaktive-Achse-0" in Wahrheit ein Phantom ist, das variieren MÜSSTE) +
 **Phase-L-Erdung** laufen als Workflow (Per-Achsen-Observer-Lektüre + Pipeline-/Spec-Lektüre, adversarial verifiziert).
 
+## 2e. ⚠️⚠️ PRÜFPUNKT L-h: CACHE-MISSES (KERNMETRIK) = 0 / FEHLEN IN M3 (User-Befund 2026-06-18)
+
+**User-Beobachtung (KRITISCH, höchste Priorität):** bei der Messung der **Cache-Misses regelmäßig Nullen** gesehen — „aber das
+sind ja genau die interessanten Werte". Für eine **Cache-Engine** (CELM) sind die Cache-Misses die **Kernmetrik** schlechthin;
+0-Werte hier wiegen schwerer als jeder konstante Observer-Zähler (§2c/§2d).
+
+**Code-verifizierte Ursache (`libs/cache_engine/builder/pmc_source.hpp:19-47`):** Die 6 HW-Counter
+(`cache_misses_l1/l2/l3`, `dtlb_misses`, `coherence_invalidations`, `energy_micro_joules`) werden von einer **`IPmcSource`**
+gespeist. Aktiv ist **`NullPmcSource`** → `end()` liefert `PmcCounters{}` mit **`available=false`** → **alle Cache-Misses = 0**.
+Das ist BEWUSST ehrlich (kein Schein-0, sondern „nicht real gemessen"-Flag, behebt Re-Audit-Blocker 2). Reale Werte brauchen
+**Intel PCM / RDPMC / RAPL-MSR + Admin/MSR-Treiber auf der i7-1270P** = **#26 / P4**, extern/HW-gated (Memory
+[[project_thesis_19_26_22_deferred_until_cluster]]).
+
+**Zweiter, schwererwiegender Befund (literal):** Die **M3-WIDE-Matrix (154 Spalten) enthält die PMC-Cache-Miss-Spalten GAR
+NICHT** — der WIDE-Schema-Header (run_lazy_150 / lazy_csv_header) führt nur `seg_*_ns` (Wall-Clock) + `stat_*` (Observer) +
+op-Quantile. Die Cache-Miss-Felder leben ausschließlich im **separaten 16-Spalten-PMC-Pfad** (`ComdareMeasurementSnapshotV1`,
+`measurement_snapshot.hpp`; genutzt von `f15_compare --pipeline-csv` → `pipeline_demo.pdf`), wo sie via `NullPmcSource` 0 sind.
+→ Die **120.960-Zeilen-Hauptmatrix kann Cache-Verhalten aktuell NUR INDIREKT** über Wall-Clock zeigen (`seg_memory_layout_ns`,
+`ns_per_op` — real, aber Proxy; Cache-Misses kosten Zeit, daher korreliert, aber nicht der direkte Zähler).
+
+**TODO L-h (PFLICHT, vor der finalen Abgabe-PDF — die zentrale Daten-Limitierung der Cache-Engine-Thesis):**
+1. **Ehrliche Ausweisung (L-e, Spitzenplatz):** Cache-Misses = 0 / nicht erhoben ist die **wichtigste** Limitierung; die
+   direkten Cache-Metriken fehlen, die Cache-Effekte werden über Wall-Clock-Proxy (seg_*_ns) belegt. `available`-Flag zitieren.
+2. **Optionen dem User vorlegen (needs_user / kritisches Manöver):** (a) **ZIH/Cluster** reale PMC via **PAPI** (perf
+   paranoid level / `-C hwperf`) — Cluster-gated; (b) **lokal Intel PCM / WinRing0 + Admin** auf der i7-1270P — kritisches
+   Manöver (Treiber/Recht), User-Freigabe nötig; (c) als Limitierung belassen + Wall-Clock-Proxy dokumentieren.
+3. **Mess-Pfad-Kohärenz prüfen:** soll der M3-WIDE-Lauf die PMC-Felder überhaupt mit-erfassen (Schema-Erweiterung), damit sie
+   — sobald HW verfügbar — im Hauptdatensatz landen, statt im getrennten 16-Spalten-Pfad? (Architektur-Entscheid; IPmcSource
+   ist Drop-in laut `pmc_source.hpp:6-9`, KEINE POD/Pipeline/PDF-Änderung nötig.)
+4. **Verifikation:** literal belegen, welche Cache-/HW-Spalten in welchem Pfad existieren und welchen `available`-Status sie tragen.
+
+> Eingereiht nach User-Direktive 2026-06-18. Reihenfolge: **vor** der finalen Appendix-/PDF-Generierung — bestimmt die
+> ehrliche Kern-Limitierung + eine mögliche Hardware-/needs_user-Entscheidung. Verwandt: K1/A5 (needs_user), #26/P4 (HW-gated).
+
 ## 3. Pflicht-Lese-Reihenfolge für die Phase-L-Umsetzungs-Session (frischer Kontext)
 
 1. `docs/architecture/34_KONSOLIDIERTER_MASTER_IST_STAND.md` — §F15-Pipeline + Mess-Modell + Bias-Matrix.
