@@ -90,8 +90,15 @@ KEIN Phantom**. Phantom-Verdacht für die Timing-/Performance-Spalten **widerleg
 - **~24 ehrliche Null-Aktivität** (inaktive Achse der Komposition → Counter legitim 0): `concurrency=none`→
   contention/validation/pattern · `migration=none`→migrations/hot/cold/tier_moves · `io=in_memory`→align_adjusts ·
   `value_handle=inline`→indirect_deref/version_strips · q1/q2-Sub-Counter. **Kein Mess-Defekt** — korrekte 0-Darstellung.
-- **3 echt prüfbedürftig:** `stat_path_compression_checksum=1`, `stat_node_type_find=1` (eine Checksumme/Find-Zahl,
-  die über 320 verschiedene Lebewesen variieren MÜSSTE — distinct=1 = inaktive Achse ODER fabriziert → K6/K9-Einzelprüfung).
+- **3 prüfbedürftig — JETZT GEKLÄRT (2026-06-18, datengetrieben):**
+  - (i) `stat_path_compression_checksum=1`: die Index-Auswahl enthält NUR `path_compression_none` (1/1 Ausprägung) →
+    Konstanz **legitim**, aber **Coverage-Lücke** (die Index-Matrix liefert KEINE path_compression-Austauschbarkeitsdaten
+    → ehrlich in Limitierungs-Tabelle L-e).
+  - (ii) **`stat_node_type_find=1`: ECHTER PHANTOM-BEFUND** — `node_type` variiert real über 4 Ausprägungen
+    (node4/16/48/256), aber `find` ist konstant `1` über ALLE → der Find-Counter zählt NICHT real (Stub/Single-Probe).
+    → Code-Prüfung `organ_observe`(node_type) + **Ausschluss aus Thesis-Tabellen** + Limitierungs-Tabelle. Verwandt mit
+    Audit-Befund-Familie K6/K9 (Observer-Counter nicht real verdrahtet).
+  - (iii) `stat_node_type_checksum`: **38 distinct → REAL** (variiert mit node_type + Daten). ✓
 
 **VERBLEIBENDE L-g-Detailarbeit (nächste Session):** (1) **Workload-Varianz-Test** der ~90 mittel-Spalten: variieren die
 last-abhängigen `stat_*`/`op_*`-Counter über die 21 Workloads, wo sie es müssten? (2) Einzelklassifikation der 3
