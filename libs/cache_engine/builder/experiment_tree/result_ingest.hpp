@@ -32,12 +32,12 @@ namespace comdare::cache_engine::builder::experiment {
         i = sc + 1;
     }
     // KONSOLIDIERUNG (I-B.3, 2026-06-04): volle Matrix = binary_id + axis_stats[19][8] (152) + seg_ns[19] (19)
-    // + Meta (observable_axis_count, tier_fill_level, filled_axis_count, batches_measured) = 175 Felder = 176 total.
-    // MAJOR-MESS-09 (Audit A1): EXAKT ==176 prüfen (nicht ≥176). Ein ';'/Newline in der binary_id (oder ein
-    // angehängtes/verschmolzenes Feld) erzeugt eine Zeile ≠176 → die axis_stats wären gegen ihre Slots verschoben.
-    // format_perm_result lehnt verletzende IDs bereits ab; diese Schranke ist die zweite, lese-seitige Verteidigung:
-    // eine nicht-exakt-176-feldrige Zeile wird verworfen (kein stiller Slot-Versatz in den Baum-NodeValue).
-    if (f.size() != 176 || f[0].empty()) return false;
+    // + Meta (observable_axis_count, tier_fill_level, filled_axis_count, batches_measured) + P-MD3 (seg_framework_ns,
+    // seg_run_total_ns) = 177 Felder = 178 total. MAJOR-MESS-09 (Audit A1): EXAKT ==178 prüfen (nicht ≥178). Ein
+    // ';'/Newline in der binary_id (oder ein angehängtes/verschmolzenes Feld) erzeugt eine Zeile ≠178 → die axis_stats
+    // wären gegen ihre Slots verschoben. format_perm_result lehnt verletzende IDs bereits ab; diese Schranke ist die
+    // zweite, lese-seitige Verteidigung: eine nicht-exakt-178-feldrige Zeile wird verworfen (kein stiller Slot-Versatz).
+    if (f.size() != 178 || f[0].empty()) return false;
 
     auto u64 = [](std::string_view s) -> std::uint64_t {
         std::uint64_t v = 0; std::from_chars(s.data(), s.data() + s.size(), v); return v;
@@ -51,6 +51,8 @@ namespace comdare::cache_engine::builder::experiment {
     for (std::size_t t = 0; t < 19; ++t) o.seg_ns[t] = i64(f[idx++]);
     o.observable_axis_count = u64(f[idx++]); o.tier_fill_level   = u64(f[idx++]);
     o.filled_axis_count     = u64(f[idx++]); o.batches_measured  = u64(f[idx++]);
+    // P-MD3 (2026-06-18): die 2 additiven Coverage-Versöhnungs-Meta-Felder (Reihenfolge = format_perm_result).
+    o.seg_framework_ns      = i64(f[idx++]); o.seg_run_total_ns  = i64(f[idx++]);
     // Legacy-V1-Projektion (Übergang, entfällt I-C): 13 benannte Felder = Sicht auf axis_stats[0] (search) /
     // axis_stats[6] (allocator) → die noch nicht migrierten 13-Feld-Konsumenten (CSV-o.*, test_d14b/d14c).
     o.search_lookup_count    = o.axis_stats[0][0]; o.search_hit_count       = o.axis_stats[0][1];

@@ -157,6 +157,11 @@ struct LazyMeasuredRow {
     for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) {  // 19 seg_<axis>_ns-Spalten, single-source
         h += "seg_"; h += kCompositionAxisNames[i]; h += "_ns;";
     }
+    // P-MD3 (2026-06-18): die kommensurable Coverage-Versöhnung des Pfad-B-Segment-Laufs. seg_framework_ns = benannter
+    // Rest (Loop-/Instrumentierungs-Overhead), seg_run_total_ns = äußere Wall-Clock des Segment-Laufs (Coverage-Nenner),
+    // seg_coverage = Σseg_ns / seg_run_total_ns (gegen die EIGENE Wall-Clock → ~100%; NICHT mehr gegen die
+    // unkommensurable Real-Workload-total_ns, was die irreführende ~33,6%-Quote erzeugte).
+    h += "seg_framework_ns;seg_run_total_ns;seg_coverage;";
     h += "search_lookup;hit;miss;insert;erase;peak;bytes_alloc;bytes_in_use;alloc_cnt;dealloc_cnt;fail;"
          "obs_axes;fill;applied_axes;";
     // Phase A: die per-Achsen-Observer-Spalten stat_<achse>_<feld>, generisch aus dem V3-Schema (single-source).
@@ -231,6 +236,20 @@ struct LazyMeasuredRow {
         out += ';';
     };
     for (int i = 0; i < 19; ++i) seg_field(i);
+    // P-MD3 (2026-06-18): die Coverage-Versöhnung. seg_framework_ns/seg_run_total_ns ehrlich n/a, wenn keine Mess-DLL;
+    // seg_coverage = Σseg_ns / seg_run_total_ns (gegen die KOMMENSURABLE eigene Wall-Clock des Segment-Laufs → ~1.0,
+    // NICHT gegen die unkommensurable Real-Workload-total_ns). seg_run_total_ns==0 → coverage n/a (kein Div-by-0).
+    if (row.unified_real) {
+        std::int64_t seg_sum = 0; for (int i = 0; i < 19; ++i) seg_sum += row.unified.seg_ns[i];
+        out += std::to_string(row.unified.seg_framework_ns); out += ';';
+        out += std::to_string(row.unified.seg_run_total_ns); out += ';';
+        if (row.unified.seg_run_total_ns > 0) {
+            double const cov = static_cast<double>(seg_sum) / static_cast<double>(row.unified.seg_run_total_ns);
+            char buf[48]; int const nb = std::snprintf(buf, sizeof(buf), "%.6f", cov);
+            out.append(buf, (nb > 0) ? static_cast<std::size_t>(nb) : 0);
+        } else { out += "n/a"; }
+        out += ';';
+    } else { out += "n/a;n/a;n/a;"; }
     // die 4 differenzierten Observer-Counter (search_algo + allocator) — DELTA je Messung (A).
     out += std::to_string(o.search_lookup_count);      out += ';';
     out += std::to_string(o.search_hit_count);         out += ';';
