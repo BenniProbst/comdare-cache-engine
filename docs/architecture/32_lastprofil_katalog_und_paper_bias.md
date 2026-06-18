@@ -19,14 +19,21 @@ Bezug Memory `feedback_all_papers_loadprofiles_xml_all_axes`.
 | LP08 | range-scan-heavy | 0/0/0/100/0 | uniform-seq | 0 | 16M/16M | records 128..256M | P01,P10,P12/14,P32 |
 | LP09 | insert-lookup-balanced-5050 | 50/50/0/0/0 | uniform | 0 | 10M/20M | — | P03-Masstree,P29 |
 | LP10 | delete-heavy-post-build | 50/0/50/0/0 | uniform-rand | 0 | 1M/1M | (erase=100 Variante) | P01,P08 |
-| LP11 | mixed-ycsb-oltp | 25/50/0/0/25 | zipfian(.99) | 0 | 10M/60M | read_ratio {0..100} | P20,P10,P19 |
+| LP11 | mixed-ycsb-oltp | 25/50/0/0/25 | zipfian(.99) | 0 | 10M/60M | — (kein read\_ratio-Sweep, s. Korrektur) | P20,P10,P19 |
 | LP12 | concurrent-rmw-stresstest | 25/9/36/9/9 | uniform | 0 | 100K/10M | threads {1..16} | P07-Wormhole,P29 |
 | LP13 | concurrent-read-scaling | 0/100/0/0/0 | uniform | 0 | 10M/200M | threads {1..128} | P07,P08,P25,P28 |
 | LP14 | dynamic-realistic-trace | 9/91/0/0/0 | tpcc-nonuniform | 0 | 1M/100K | tree_size | P19,P20 |
 
 > Sweeps mit Bezug zu BESTEHENDEN dynamischen Achsen falten dorthin: `threads` (LP12/13) → bestehende
 > concurrency.thread_count-Dim; `node_size`/`value_len` → Layout-/Allocator-Achse. Die **Workload-Achse 2** trägt
-> die 14 Basis-Profile + die profil-DEFINIERENDEN Sweeps (LP06 neg% ×5, LP11 read_ratio ×5).
+> die 14 Basis-Profile + den profil-DEFINIERENDEN Sweep (**LP06 neg% ×5**) = 19 logische + ycsb_a/ycsb_b-Aliase.
+>
+> **KORREKTUR (Audit A1 / MAJOR-MESS-11, 2026-06-18):** Der zuvor hier gelistete „LP11 read_ratio ×5"-Sweep
+> **existiert NICHT** als realisierte XML-Reihe. Verifiziert: `grep read_ratio load_profiles/*.xml` → **0 Treffer**;
+> der reale Katalog hat **21 XML-Dateien**, davon die **5 `coco_p04_neg{0,25,50,75,100}.xml`** = der **LP06**-neg-Sweep
+> (static-read-negsweep), NICHT LP11. LP11 (`lp_mixed_oltp.xml`) ist EIN einzelnes Profil ohne read\_ratio-Achse.
+> Die ursprüngliche „×5"-Zusage war eine Doc-Phantom-Spalte und ist hiermit entfernt; LP11 bleibt sweep-frei.
+> (Ein echter read\_ratio-Sweep wäre additiv über 5 neue `lp11_rr*.xml` möglich, ist aber NICHT Teil des Ist-Katalogs.)
 
 ## 13 Archetypen
 static-build-read-positive · static-read-negsweep · point-lookup-zipfian · range-scan-heavy · write-heavy-bulk ·
