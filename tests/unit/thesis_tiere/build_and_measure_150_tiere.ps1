@@ -86,6 +86,7 @@ if (!(Test-Path $vcvars)) { Write-Output "vcvars64 fehlt"; exit 3 }
 
 # Include-Satz = statische Dirs + ALLE generated-Leaf-Dirs (rekursiv) + Boost.MP11 (identisch thesis_tiere).
 $staticInc = @("libs\cache_engine", "libs\cache_engine\include", "libs\cache_engine\src", "libs\common",
+               "libs\common\serialization",
                "tests\unit", "tests\unit\thesis_tiere") |
     ForEach-Object { Join-Path $repo $_ }
 $genInc  = @($gen) + (Get-ChildItem -Path $gen -Recurse -Directory | Select-Object -ExpandProperty FullName)
