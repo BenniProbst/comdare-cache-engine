@@ -222,9 +222,19 @@ public:
     }
     template <class FltOrgan>
     std::uint64_t organ_observe_filter(FltOrgan& org) const {
-        std::vector<unsigned char> kb; kb.reserve(size_);
-        for_each_slot_([&](unsigned char const* p) { kb.push_back(static_cast<unsigned char>(load_key_(p) & 0xFFu)); });
-        return org.observe_probe(kb.data(), kb.size(), kb.data(), kb.size());
+        // P5 (#124, 2026-06-04, User §4.3): bevorzugt den REALEN Filter ueber die VOLLEN, in container_ gespeicherten
+        // Keys proben (observe_probe_keys → strat_.probe_key) — gleiche uint64-Key-Domain wie der insert_key-Build →
+        // die eingefuegten Keys proben positiv. Fallback (synthetische Strategien ohne observe_probe_keys): der
+        // bisherige 1-Byte-Puffer-Pfad ueber filter_probe_scan (unveraendert, kein Verhaltensbruch).
+        if constexpr (requires { org.observe_probe_keys(static_cast<std::uint64_t const*>(nullptr), std::size_t{}); }) {
+            std::vector<std::uint64_t> ks; ks.reserve(size_);
+            for_each_slot_([&](unsigned char const* p) { ks.push_back(static_cast<std::uint64_t>(load_key_(p))); });
+            return org.observe_probe_keys(ks.data(), ks.size());
+        } else {
+            std::vector<unsigned char> kb; kb.reserve(size_);
+            for_each_slot_([&](unsigned char const* p) { kb.push_back(static_cast<unsigned char>(load_key_(p) & 0xFFu)); });
+            return org.observe_probe(kb.data(), kb.size(), kb.data(), kb.size());
+        }
     }
 
     // P4 (#123, 2026-06-04) — ECHTER 2-Ebenen-Migrations-Schritt (KEINE Simulation mehr): markiere die zu kalten

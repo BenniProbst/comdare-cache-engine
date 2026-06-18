@@ -688,6 +688,10 @@ public:
         // misst die gemeinsame Byte-Prefix-Länge / cut() am ECHTEN ByteWiseKeyPrefix-Organ (PathCompressionNone =
         // ehrliche niedrige Kompressions-Aktivität, Patricia/ByteWise höher). depth=0 = Trie-Wurzel-Abstieg.
         (void)pc_organ_.compress(key, 0u);
+        // P5 (#124, 2026-06-04, User §4.3): den REALEN Filter aus dem eingefuegten Key bauen (Build-Phase, NICHT
+        // gemessen — gehoert zur Insert/Setup-Phase wie pc_organ_.compress). if-constexpr-geguarded: nur Strategien
+        // mit echter Struktur (Bloom/Cuckoo/SuRF/Xor via insert_key) bauen; None-artige bleiben unberuehrt.
+        if constexpr (requires { flt_organ_.insert_key(key); }) flt_organ_.insert_key(key);
         return m8_new_flag;
     }
 
@@ -753,6 +757,9 @@ public:
         // P4 (#123): die kalte 2. Ebene mit-leeren — nach tier_clear ist der GANZE Tier-Zustand (heiss + kalt) frisch
         // (sonst akkumulierten migrierte Records ueber Mess-Profile hinweg). Fuer None nie befuellt → no-op-aequivalent.
         container_tier1_.clear();
+        // P5 (#124, R1): den REALEN Filter mit-leeren — symmetrisch zum Daten-clear (sonst truege der Filter Keys
+        // ueber Mess-Profile hinweg → Membership-Inkonsistenz). if-constexpr: None-artige ohne clear() = no-op.
+        if constexpr (requires { flt_organ_.clear_filter(); }) flt_organ_.clear_filter();
         // KONSOLIDIERUNG (2026-06-04): T0 search_algo-Statistik je Messung nullen. Der frühere perm_runner-
         // Kommentar „search_organ_ per ABI nicht resetbar" war VERALTET — ObservableComposedContainer/
         // ObservableComposedSearch tragen reset() (stats_={}). Damit ist axis_stats[0] pro (Binary×Setting×Rep)
@@ -1252,6 +1259,9 @@ public:
         // P4 (#123, R1): die kalte 2. Ebene IMMER eager mitsichern (beide Pfade) — symmetrisch zum Rollback unten.
         // container_tier1_ ist copy-constructible (== container_t) → emplace ist exakt; bei OOM verwerfen (Robustheit).
         try { saved_tier1_.emplace(container_tier1_); } catch (...) { saved_tier1_.reset(); }
+        // P5 (#124, R1): den REALEN Filter IMMER eager mitsichern (beide Pfade) — symmetrisch zum Rollback unten.
+        // flt_organ_ ist copy-constructible (std::array-basiert) → emplace ist bit-exakt; bei OOM verwerfen.
+        try { saved_flt_.emplace(flt_organ_); } catch (...) { saved_flt_.reset(); }
         if constexpr (cow_capable_) {
             saved_search_stats_    = search_organ_.statistics();    // O(1) POD-Snapshot (T0)
             saved_container_stats_ = container_.statistics();       // O(1) POD-Snapshot (container-/T6-Pfad)
@@ -1286,6 +1296,9 @@ public:
                     // IMMER (nicht nur Write-Periode): ein migrierender Warmup-Op ist gerade die Write-Mutation, die
                     // container_tier1_ befuellte → ohne Restore bliebe sie befuellt (Memento-Bruch). idempotent.
                     if (saved_tier1_) container_tier1_ = *saved_tier1_;
+                    // P5 (#124, R1): den REALEN Filter bit-exakt auf den save-Stand zuruecksetzen (IMMER, nicht nur
+                    // Write-Periode: ein Warmup-Insert hat flt_organ_ via insert_key inkrementell mutiert). idempotent.
+                    if (saved_flt_) flt_organ_ = *saved_flt_;
                     mig_organ_.reset();   // tier_moves/Entscheidungs-Zaehler auf 0 (save-Stand: vor jedem Migrate-Op)
                     // Stats restaurieren (Warmup-Op hat Zähler berührt — auch read-only) → exakt save-Stand.
                     search_organ_.restore_statistics(saved_search_stats_);
@@ -1303,6 +1316,8 @@ public:
             else if constexpr (MementoAxis<container_t>)            container_.restore_state(saved_container_m_);
             // P4 (#123, R1): kalte 2. Ebene + migration-Zaehler symmetrisch zum save zuruecksetzen (Fallback-Pfad).
             if (saved_tier1_) container_tier1_ = *saved_tier1_;
+            // P5 (#124, R1): REALEN Filter bit-exakt auf den save-Stand zuruecksetzen (Fallback-Pfad, symmetrisch).
+            if (saved_flt_) flt_organ_ = *saved_flt_;
             mig_organ_.reset();
         } catch (...) {
             // noexcept-Vertrag: ein Rollback-Fehler darf den Mess-Lauf nicht abreißen.
@@ -1404,6 +1419,12 @@ public:
     [[nodiscard]] std::uint64_t tier1_fill_level() const noexcept {
         return static_cast<std::uint64_t>(container_tier1_.occupied_count());
     }
+
+    /// P5 (#124) Diagnose (KEINE ABI-Flaeche — plain const-Methode): Lesezugriff auf das REALE Filter-Organ
+    /// (ObservableFilter, traegt seit P5 die echte aus den Keys gebaute Struktur). Erlaubt dem Test die
+    /// Verifikation „Filter REAL befuellt" + „Memento bit-exakt" (test_filter_real_from_keys). flt_organ_ ist
+    /// mutable → const-Methode liefert const&.
+    [[nodiscard]] auto const& filter_instance() const noexcept { return flt_organ_; }
 
     [[nodiscard]] std::uint64_t tier_migrate_step(std::uint64_t max_moves) noexcept override {
         // CoW (#133 Rev. 2 / R1): ein Migrate-Schritt MUTIERT container_ (+ container_tier1_) — wie tier_insert/
@@ -1523,6 +1544,14 @@ private:
     // save-Zeitpunkt fast immer LEER ist (Kopie ~O(1)) und ein Migrations-Op selten gegen-gemessen wird → kein
     // Kosten-Hebel. Wird in BEIDEN Pfaden (CoW + Fallback) gesichert/zurueckgespielt → uniform exakt.
     std::optional<container_t> saved_tier1_{};
+    // P5 (#124, R1 — KRITISCH): symmetrischer Memento des REALEN Filters. flt_organ_ traegt seit P5 eine echte,
+    // INKREMENTELL in tier_insert befuellte Struktur (Bloom-Bitmap/Cuckoo-Buckets/Xor-/SuRF-Trie). Ohne diesen
+    // Snapshot bliebe ein Warmup-Insert nach rollback_all im Filter stehen (Membership-Drift gegen den save-Stand
+    // → Probe in der Mess-Phase ueber einen falsch-befuellten Filter). EAGER (nicht CoW-lazy): die Struktur ist
+    // klein (KiB, std::array trivially copyable) → Kopie ~O(1), KEIN Kosten-Hebel; bit-exakt via operator==.
+    // Wird — analog saved_tier1_ — in BEIDEN Pfaden (CoW + Fallback) gesichert/zurueckgespielt → uniform exakt.
+    using flt_organ_t = ::comdare::cache_engine::filter_axis::ObservableFilter<typename Composition::filter>;
+    std::optional<flt_organ_t> saved_flt_{};
 
     // ── Copy-on-Write-Memento (#133 Rev. 2) — save O(1), Daten-Kopie lazy bei der ersten Warmup-Mutation ──
     // Fähigkeits-Detektion (requires): das Organ trägt den O(1)-Stat-Snapshot/-Restore (statistics()/
