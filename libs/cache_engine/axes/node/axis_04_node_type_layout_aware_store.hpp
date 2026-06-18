@@ -227,6 +227,41 @@ public:
         return org.observe_probe(kb.data(), kb.size(), kb.data(), kb.size());
     }
 
+    // P4 (#123, 2026-06-04) — ECHTER 2-Ebenen-Migrations-Schritt (KEINE Simulation mehr): markiere die zu kalten
+    // Records via org.should_migrate_record (TREIBE-Praedikat, NICHT Observer), bewege die markierten in den
+    // 2.-Ebenen-Store `tier1` (ueber die EINZIGE Append-API append_slot), und baue diese Ebene (tier0) aus den
+    // ueberlebenden Records neu auf. 2-PHASEN flatten/rebuild loest R4 (Iteration waehrend Mutation): zuerst
+    // vollstaendig flach lesen + klassifizieren, DANN den Store neu aufbauen — der laufende Scan liest nie ueber
+    // ein gerade mutiertes Backing. `max_moves` deckelt die bewegten Records (0 = unbegrenzt). Rueckgabe = Zahl der
+    // REAL bewegten Records (== Zuwachs von tier1.slot_count); fuer NoMigration immer 0 (Praedikat liefert nie true).
+    // record_size == eff_stride (layout-getriebener Stride) → das 4-Byte-Recency-Feld bei Offset 0 ist OOB-sicher.
+    template <class MigOrgan>
+    std::uint64_t organ_migrate_step(MigOrgan const& org, LayoutAwareChunkedStore& tier1,
+                                     std::uint64_t max_moves = 0) {
+        // Phase 1: vollstaendiger Flach-Snapshot (key,value) IN Slot-Reihenfolge (kein Mutations-Overlap).
+        auto const flat = flatten_();
+        std::vector<slot_t> survivors;
+        survivors.reserve(flat.size());
+        std::uint64_t moved = 0;
+        std::uint32_t prev_recency = 0;                 // vorheriger Recency-Feldwert (fuer cross-record-Familien)
+        unsigned char rec[sizeof(key_type) + sizeof(value_type)] = {};  // 16-B-Record-Bild (Recency = Key-Low-4-Byte)
+        for (auto const& s : flat) {
+            // Recency-Feld = die ersten 4 Bytes des Records, identisch zur Speicher-Codierung (Key 0..8): den Key
+            // byte-genau spiegeln, damit das Praedikat denselben strided Feldwert sieht wie organ_observe_migration.
+            std::memcpy(rec, &s.first, sizeof(s.first));
+            std::memcpy(rec + sizeof(s.first), &s.second, sizeof(s.second));
+            std::uint32_t cur = 0; std::memcpy(&cur, rec, sizeof(cur));
+            bool const migrate = (max_moves == 0 || moved < max_moves)
+                              && org.should_migrate_record(rec, eff_stride, prev_recency);
+            if (migrate) { tier1.append_slot(s.first, s.second); ++moved; }   // einzige Append-API
+            else         { survivors.push_back(s); }
+            prev_recency = cur;
+        }
+        // Phase 2: tier0 (dieser Store) aus den ueberlebenden Records neu aufbauen (rebuild_ = clear + append_slot).
+        if (moved != 0) rebuild_(survivors);
+        return moved;
+    }
+
 private:
     using slot_t = std::pair<std::uint64_t, std::uint64_t>;
 

@@ -75,6 +75,55 @@ public:
         return Strategy::migration_decide_scan(buf, n, record_size);
     }
 
+    /// P4 (#123, 2026-06-04) — STATELESS Migrations-Praedikat fuer den ECHTEN 2-Ebenen-Move (TREIBE-Pfad, NICHT
+    /// Observer). Entscheidet pro Record (eff_stride-Byte-Slot, 4-Byte-Recency-Feld bei Offset 0 — identisch zum
+    /// kanonischen strided Scan in migration_decide_scan), ob er in die kalte 2. Ebene (tier1) zu bewegen ist.
+    /// `if constexpr` je Strategie-Familie (zero-cost, keine vtable): KEIN stats_-Inkrement hier (Praedikat ⊥ Zaehler;
+    /// das tier_moves-Buchen erfolgt EINMAL via add_tier_moves nach dem Move). family_id ist die kanonische, gegen
+    /// Strategie-Umbenennung robuste Diskriminante (None=0/HotCold=1/TierBased=2/Adaptive=3).
+    ///   • None (0):      static placement → NIE migrieren (haelt tier_moves==0 fuer alle 320 None-Lebewesen).
+    ///   • HotCold (1):   binaere Hot/Cold-Klassifikation pro Record am Recency-Feld — Cold = geradzahlige Recency
+    ///                    ((v & 1)==0) → Demotion in die kalte Ebene. SELBST-ENTHALTEN (NICHT cross-record), damit
+    ///                    die Klassifikation deterministisch + reihenfolge-UNABHAENGIG ist (der container_-Store ist
+    ///                    fuer Weg-B-Algos wie HOT/ART per SortedBinary KEY-SORTIERT → eine fallende-Recency-Regel
+    ///                    `v<prev` degenerierte bei monoton steigenden Keys auf 0 Moves). Die observe_decide-Hot/Cold-
+    ///                    VOTES (Statistik-Pfad) bleiben unveraendert die kanonische cross-record-LRU-Regel.
+    ///   • TierBased (2): Ziel-Tier per Modulo (v % 3) != 0 → nicht-RAM-Tier → migrieren (SSD/HDD).
+    ///   • Adaptive (3):  ML-Score-Bit (score & 1) → datenabhaengige Migrations-Entscheidung.
+    /// `prev_recency` traegt den vorherigen Feldwert (fuer evtl. kuenftige cross-record-Familien); aktuell ungenutzt.
+    [[nodiscard]] static bool should_migrate_record(unsigned char const* rec, std::size_t record_size,
+                                                    std::uint32_t prev_recency) noexcept {
+        constexpr int kFamily = Strategy::family_id::value;
+        if constexpr (kFamily == 0) {
+            (void)rec; (void)record_size; (void)prev_recency;
+            return false;   // NoMigration: static placement, NIE bewegen (None-Pin)
+        } else {
+            (void)prev_recency;
+            std::uint32_t v = 0;
+            if (record_size >= sizeof(v)) std::memcpy(&v, rec, sizeof(v));   // strided 4-Byte-Recency-Feld (OOB-sicher)
+            if constexpr (kFamily == 1) {                 // HotCold: geradzahlige Recency = cold = demotion
+                return (v & 1u) == 0u;
+            } else if constexpr (kFamily == 2) {          // TierBased: Modulo-Ziel-Tier != RAM(0) → migrieren
+                return (v % 3u) != 0u;
+            } else {                                      // Adaptive (3): ML-Score-Bit datenabhaengig
+                std::uint64_t const score = 3u * static_cast<std::uint64_t>(v) + 1u;
+                return (score & 0x1u) != 0u;
+            }
+        }
+    }
+
+    /// P4 (#123) — bucht die ECHT bewegten Records in den migration-Snapshot (tier_moves). Vom abi_adapter NACH dem
+    /// realen organ_migrate_step gerufen (stats_ ist privat → diese Methode ist der einzige Schreibpfad fuer
+    /// tier_moves). Gegated: bei OFF/Stats-aus no-op. tier_moves bleibt fuer NoMigration 0, weil das Praedikat dort
+    /// nie true liefert → der adapter ruft add_tier_moves(0) (bzw. der Move-Loop bewegt 0).
+    void add_tier_moves(std::uint64_t moved) noexcept {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_.tier_moves += moved;
+#else
+        (void)moved;
+#endif
+    }
+
     /// Mess-Kopplung (der eigentliche „Driver", Instanz): treibt den Entscheidungs-Scan + trackt. Der Observer-
     /// Treiber (abi_adapter::fill_observer_v3 / tier_insert-Kopplung) ruft dies → die Entscheidungs-Aktivitaet wird
     /// observable. hot/cold-Votes ueber den KANONISCHEN strided 4-Byte-Recency-Scan (identische Regel wie

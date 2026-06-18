@@ -152,4 +152,28 @@ public:
     virtual void tier_observe(ComdareTierObserverSnapshot* out) const noexcept = 0;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// IMigratableTier — additives Sub-Interface fuer den ECHTEN 2-Ebenen-Migrations-Schritt (P4, #123)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// IMigratableTier — optionales Sub-Interface einer geladenen Tier-Anatomie: triggert EINEN ECHTEN (nicht
+/// simulierten) Migrations-Schritt der aktiven migration_policy-Strategie. Der Host (oder ein Mess-Treiber) ruft
+/// tier_migrate_step → die markierten (kalten) Records wandern REAL aus der heissen 1. Ebene in die kalte 2.
+/// Ebene (container_tier1_ im ABI-Adapter); der migration-Observer bucht die bewegten Records (tier_moves > 0 bei
+/// aktiver Strategie). Fuer NoMigration (das gepinnte Verhalten aller 320 None-Lebewesen) bewegt der Schritt NIE
+/// einen Record → tier_moves bleibt 0 (Rueckgabe 0), die Mess-Pfad-Semantik aendert sich fuer None NICHT.
+///
+/// ABI-SICHER nach demselben Designprinzip wie IObservableTier/IRollbackableTier: eigenstaendiges Sub-Interface,
+/// das der ABI-Adapter NUR bei COMDARE_MEASUREMENT_ON zusaetzlich erbt; Host-Abfrage via dynamic_cast (1× kalt).
+/// Quert die Grenze als reine vtable (uint64-Parameter/-Rueckgabe, kein STL/POD-by-value) → ABI-stabil.
+class IMigratableTier {
+public:
+    virtual ~IMigratableTier() = default;
+
+    /// Fuehrt EINEN echten Migrations-Schritt aus: bewegt bis zu `max_moves` markierte Records (0 = unbegrenzt) aus
+    /// der heissen in die kalte Ebene. Rueckgabe = Zahl der REAL bewegten Records (NoMigration → stets 0). noexcept
+    /// (Mess-Robustheit: eine interne Stoerung darf den Lauf nicht abreissen → 0).
+    [[nodiscard]] virtual std::uint64_t tier_migrate_step(std::uint64_t max_moves) noexcept = 0;
+};
+
 }  // namespace comdare::cache_engine::anatomy
