@@ -82,6 +82,17 @@ struct LazyRunConfig {
     std::map<std::string, wd::WorkloadConfig> workload_configs{};
     // Laufzeit-Obergrenze (System-Limits) für die dyn-Variation (RuntimeVariableLoop clamp gegen caps∩env).
     anatomy::ComdareResourceControlV1 env_limits{};
+    // M3v2-SELEKTION (2026-06-18, Task #156): Lauf-weite Tags je Mess-Zeile, damit die Auswertung die drei
+    // Mess-Klassen (Basis-320 / Per-Achsen-Sweep / SOTA-Reihen A/B/C) UND die Working-Set-N-Dimension UND die
+    // Plattform/Build-Version trennen kann. NUR Metadaten (kein Mess-Einfluss) — sie reisen rein über die
+    // LazyMeasuredRow/CSV-Tag-Spalten (series/sweep_axis/working_set_n/platform/build_version), NICHT in die binary_id
+    // (die binary_id bleibt die reine Achsen-Rekombination — keine Tag-Verschmutzung der Round-Trip-Identität).
+    // Quelle: der reproduzierbare m3v2_select_profile (Harness setzt diese 5 Felder je SelectMode/Sweep-Pass).
+    std::string row_series       = "-";     // SOTA-Reihe ∈ {A,B,C} bzw. "-" (Basis/Sweep, keine Reihe)
+    std::string row_sweep_axis   = "-";     // gesweepte Achse (z.B. "migration_policy") bzw. "-" (Basis/SOTA)
+    std::string row_platform     = "win-x86_64";  // Plattform-Tag (Infra-Agent überschreibt für ZIH-Reihen)
+    std::string row_build_version = "m3v2"; // Build-Version-Tag (= BuildVersion-Marke; Default m3v2)
+    // working_set_n je Zeile = cfg.workload_records (der N-Sweep ruft den Treiber je N-Wert mit gesetztem records).
     // Mess-RESUME (#139, User 2026-06-10 „Wiedereinstieg bei einem bestimmten nicht fertigen Tier"): Binaries,
     // deren per-Binary result.csv VOLLSTÄNDIG + KONFIGURATIONS-AKTUELL ist (result.csv.stamp == aktueller
     // Config-Stempel: build_version/n_ops/seed/records/ALLE dyn-Dimensionen inkl. Workload-Set + Zeilenzahl;
@@ -115,6 +126,14 @@ struct LazyMeasuredRow {
     // alter fixer Workload (kein Achse-2-Profil). two_phase_valid=false ⇒ Messung UNGÜLTIG (nicht als valide werten).
     std::string          profile_name;
     bool                 two_phase_valid = false;
+    // M3v2-SELEKTION (Task #156): die 5 Lauf-/Selektions-Tags je Zeile (aus LazyRunConfig durchgereicht). Reine
+    // Metadaten (kein Mess-Einfluss) → ermöglichen die Trennung Basis vs Per-Achsen-Sweep vs SOTA-Reihe A/B/C
+    // sowie die Working-Set-N- und Plattform/Build-Version-Achsen in der Auswertung.
+    std::string          series        = "-";            // SOTA-Reihe {A,B,C} oder "-"
+    std::string          sweep_axis    = "-";            // gesweepte Achse oder "-"
+    std::uint64_t        working_set_n = 0;              // N (Record-Zahl) dieser Mess-Zeile (= workload_records)
+    std::string          platform      = "win-x86_64";   // Plattform-Tag
+    std::string          build_version = "m3v2";         // Build-Version-Tag
 };
 
 // ── (B/C/D/X) EINHEITLICHES CSV-Schema (global + per-Binary identisch) ──────────────────────────────────
@@ -172,7 +191,10 @@ struct LazyMeasuredRow {
             h += "stat_"; h += kCompositionAxisNames[t]; h += '_'; h += fld; h += ';';
         }
     }
-    h += "v3_filled_axes;workload;two_phase_valid\n";   // Diagnose 19 Achsen befüllt + Achse 2 (Lastprofil + Mess-Gültigkeit)
+    h += "v3_filled_axes;workload;two_phase_valid;";   // Diagnose 19 Achsen befüllt + Achse 2 (Lastprofil + Mess-Gültigkeit)
+    // M3v2-SELEKTION (Task #156): die 5 Selektions-/Lauf-Tag-Spalten ANS ENDE (Positionen aller bestehenden
+    // Spalten unverändert → header-getriebene Auswertung + Resume-Schema-Vergleich bleiben rückwärtskompatibel).
+    h += "series;sweep_axis;working_set_n;platform;build_version\n";
     return h;
 }
 
@@ -278,6 +300,12 @@ struct LazyMeasuredRow {
     out += (row.unified_real ? std::to_string(row.unified.filled_axis_count) : std::string{"n/a"});   // filled_axes
     out += ';'; out += (row.profile_name.empty() ? std::string{"-"} : row.profile_name);              // workload (Achse 2)
     out += ';'; out += (row.two_phase_valid ? "1" : "0");                                             // Mess-Gültigkeit (Cache-Warmup)
+    // M3v2-SELEKTION (Task #156): die 5 Selektions-/Lauf-Tags (Reihenfolge IDENTISCH zum Header).
+    out += ';'; out += (row.series.empty()     ? std::string{"-"} : row.series);
+    out += ';'; out += (row.sweep_axis.empty() ? std::string{"-"} : row.sweep_axis);
+    out += ';'; out += std::to_string(row.working_set_n);
+    out += ';'; out += (row.platform.empty()      ? std::string{"-"} : row.platform);
+    out += ';'; out += (row.build_version.empty() ? std::string{"-"} : row.build_version);
     out += '\n';
     return out;
 }
@@ -315,7 +343,13 @@ struct LazyRunResult {
     // neg/scan je id) — sonst bliebe ein Lauf mit GLEICHER Profil-id aber GEÄNDERTEM XML-Inhalt fälschlich resume-fähig
     // (stale Messung als gültig übernommen); (b) die env_limits (Resource-Control-Caps) — sonst würde ein Lauf mit anderen
     // Limits stale resumed. Format-Bump v1→v2 invalidiert Alt-Stamps via Prefix-Mismatch → ehrliche Neu-Messung.
-    std::string s = "resume-v2|build=" + cfg.build_version
+    // resume-v3 (Task #156): zusätzlich die m3v2-Selektions-Tags (series/sweep_axis/platform/build_version). Sonst
+    // würde ein anderer Sweep-Pass (z.B. sweep_axis=migration_policy vs Basis) ODER eine andere SOTA-Reihe mit
+    // GLEICHER binary_id+Skala fälschlich resume-fähig — und die getaggte Zeile aus dem falschen Pass übernommen.
+    // working_set_n ist bereits über cfg.workload_records (records) im Stamp; die 4 Tags ergänzen die Selektions-Klasse.
+    std::string s = "resume-v3|build=" + cfg.build_version
+                  + "|series=" + cfg.row_series + "|sweep=" + cfg.row_sweep_axis
+                  + "|plat=" + cfg.row_platform + "|bv=" + cfg.row_build_version
                   + "|n_ops=" + std::to_string(cfg.n_ops)
                   + "|seed=" + std::to_string(cfg.workload_seed)
                   + "|records=" + std::to_string(cfg.workload_records)
@@ -530,6 +564,12 @@ struct LazyRunResult {
                 row.unified_real       = pr.unified_real;
                 row.profile_name       = pr.profile_name;     // Achse 2: Lastprofil-Name (leer = alter fixer Workload)
                 row.two_phase_valid    = pr.two_phase_valid;  // Achse 2: Mess-Gültigkeit (Zwei-Phasen-Cache-Warmup exakt)
+                // M3v2-SELEKTION (Task #156): die 5 Lauf-/Selektions-Tags je Zeile (aus der Config durchgereicht).
+                row.series             = cfg.row_series;
+                row.sweep_axis         = cfg.row_sweep_axis;
+                row.working_set_n      = cfg.workload_records;   // N = befüllte Sätze (= Working-Set-Achse, P-MD7)
+                row.platform           = cfg.row_platform;
+                row.build_version      = cfg.row_build_version;
                 // (E): die per-Binary-Ergebnis-CSV mit-akkumulieren (gleiches Schema wie die globale CSV).
                 per_binary_all_valid = per_binary_all_valid && row.two_phase_valid;   // GOAL-M1.4 Gültigkeits-Gate
                 if (cfg.per_binary_subdirs) { per_binary_csv += format_csv_row(row); ++per_binary_rows; }

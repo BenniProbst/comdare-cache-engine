@@ -30,6 +30,7 @@
 // Unterordner unter dll_dir/<stem>/ (E, per_binary_subdirs).
 
 #include "lazy_pilot_engine.hpp"                         // FullPilot/build_pilot_levels/make_pilot_source_gen
+#include "m3v2_select_profile.hpp"                       // M3v2-SELEKTION (Task #156): Basis/Sweep/SOTA-Reihen + Tags
 #include <builder/build_orchestrator/system_ram.hpp>     // make_system_free_ram_fn (real)
 
 #include <cstdint>
@@ -171,15 +172,56 @@ int main(int argc, char** argv) {
     //     (Ebene 0 höchstwertig). Rückwärtskompatibel.
     ex::StaticBinaryView const view = tree.static_binary_view();
     std::size_t const N = (std::min)(max_binaries, tree.binary_count());
+
+    // M3v2-SELEKTION (Task #156): die 5 Lauf-/Selektions-Tags. series/sweep_axis kommen aus dem SelectMode (s.u.);
+    // working_set_n = workload_records (vom Harness via COMDARE_WORKLOAD_RECORDS gesetzt → je N-Sweep-Pass ein Lauf);
+    // platform/build_version aus env (Infra-Agent setzt sie je Plattform-Reihe), sonst Defaults.
+    namespace m3 = ::comdare::cache_engine::thesis_lazy::m3v2;
+    m3::RowTags row_tags;   // Default: series="-" sweep_axis="-" platform="win-x86_64" build_version="m3v2"
+    if (char const* p = std::getenv("COMDARE_PLATFORM");      p != nullptr && *p != '\0') row_tags.platform = p;
+    if (char const* bv = std::getenv("COMDARE_BUILD_VERSION"); bv != nullptr && *bv != '\0') row_tags.build_version = bv;
+    else row_tags.build_version = build_version;   // ohne expliziten Tag = die BuildVersion-Marke (m3v2)
+
+    // SELEKTIONS-MODI (m3v2): die reproduzierbare m3v2_select_profile-Quelle erzeugt je Modus den getaggten Pass.
+    //   • "index"            : BASIS (voll-faktoriell, ersten N) — make_basis. series/sweep="-".
+    //   • "search_algo_grid" : F15-Grid (NUR search_algo) — rückwärtskompatibel.
+    //   • "axis_sweep:<axis>": PER-ACHSEN-SWEEP gegen die feste Baseline (eine Achse über ihre Ausprägungen).
+    //   • "sota:<A|B|C>"     : SOTA-REIHE — Stufe-1/2/3-Tag. Im Pilot über die Basis-Binaries getaggt (SOTA-Engine HELD).
+    // Achsen-Namen→Level-Index für axis_sweep (FullPilot-static_levels-Reihenfolge): search_algo=0, node_type=4,
+    // memory_layout=5, prefetch=7, path_compression=3 (im FullPilot gepinnt → 1 Binary = Baseline). Single-Source.
+    auto axis_to_level = [](std::string const& a) -> std::size_t {
+        if (a == "search_algo")      return 0;
+        if (a == "path_compression") return 3;
+        if (a == "node_type")        return 4;
+        if (a == "memory_layout")    return 5;
+        if (a == "prefetch")         return 7;
+        return static_cast<std::size_t>(-1);   // unbekannt → make_axis_sweep verweigert (provenance-Marker)
+    };
+
     ex::BuildSelection sel;
     if (select_mode == "search_algo_grid") {
         sel = select_search_algo_grid(view, N);          // je search_algo ein Binary (≤ K_search Binaries)
-    } else {
-        std::vector<std::size_t> first_n; first_n.reserve(N);
-        for (std::size_t i = 0; i < N; ++i) first_n.push_back(i);
-        sel = ex::select_explicit(std::move(first_n));   // ersten N (Default-Index-Modus)
+    } else if (select_mode.rfind("axis_sweep:", 0) == 0) {
+        std::string const axis = select_mode.substr(std::string("axis_sweep:").size());
+        m3::TaggedSelection const tsel = m3::make_axis_sweep(view, axis_to_level(axis), axis, N);
+        sel = tsel.selection;
+        row_tags.series = tsel.tags.series; row_tags.sweep_axis = tsel.tags.sweep_axis;
+    } else if (select_mode.rfind("sota:", 0) == 0) {
+        // SOTA-Reihe (A/B/C): die SOTA-/PRT-ART-Engine-Erweiterung ist HELD → der Pilot belegt den A/B/C-Tag-Apparat
+        // über die Basis-Binaries (Reihe-Repräsentanten). series=<A|B|C>; sweep_axis trägt den Reihen-Marker "sota".
+        std::string const series = select_mode.substr(std::string("sota:").size());
+        m3::TaggedSelection const tsel = m3::make_basis(view, N);
+        sel = tsel.selection;
+        row_tags.series = series; row_tags.sweep_axis = "sota";
+    } else {   // "index" / "basis" (Default): BASIS-320 (voll-faktoriell, ersten N)
+        m3::TaggedSelection const tsel = m3::make_basis(view, N);
+        sel = tsel.selection;
+        row_tags.series = tsel.tags.series; row_tags.sweep_axis = tsel.tags.sweep_axis;
     }
-    std::cout << "Selektion: provenance=" << sel.provenance << "  indices=" << sel.size() << "\n";
+    std::cout << "Selektion: provenance=" << sel.provenance << "  indices=" << sel.size()
+              << "  [m3v2 tags: series=" << row_tags.series << " sweep_axis=" << row_tags.sweep_axis
+              << " platform=" << row_tags.platform << " build_version=" << row_tags.build_version
+              << " working_set_n=via-records]\n";
 
     ex::CompileFn compile = [defs, incs](ex::BuildJob const& job) -> int {
         // (A2.8-Fix 2026-06-13) Response-File statt Inline-cl: die 50+ Include-Dirs (generated/-Unterordner wuchsen
@@ -211,6 +253,12 @@ int main(int argc, char** argv) {
         cfg.workload_records = std::strtoull(lr, nullptr, 10);
     cfg.workload_configs = std::move(workload_registry);   // Achse 2 (#135): XML-Lastprofil-Registry → Iterator
     cfg.build_version  = build_version;
+    // M3v2-SELEKTION (Task #156): die 5 Lauf-/Selektions-Tags je Mess-Zeile (CSV-Spalten series/sweep_axis/
+    // working_set_n/platform/build_version). working_set_n = cfg.workload_records (s.o.); die 4 übrigen aus row_tags.
+    cfg.row_series        = row_tags.series;
+    cfg.row_sweep_axis    = row_tags.sweep_axis;
+    cfg.row_platform      = row_tags.platform;
+    cfg.row_build_version = row_tags.build_version;
     cfg.source_dir     = src_dir;
     cfg.output_dir     = dll_dir;
     cfg.cores_per_build = cpb;
