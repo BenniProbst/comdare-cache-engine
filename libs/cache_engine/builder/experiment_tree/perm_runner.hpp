@@ -41,8 +41,21 @@ namespace comdare::cache_engine::builder::experiment {
 /// Observer-POD als result_ingest-Zeile = binary_id + die VOLLE Matrix: axis_stats[19][8] (152) + seg_ns[19] (19)
 /// + Meta (observable_axis_count, tier_fill_level, filled_axis_count, batches_measured) = 175 Felder. EXAKT das von
 /// ingest_result_line erwartete Format → Round-Trip-Garant (Cluster: perm_runner→Zeile→ingest→Baum-NodeValue).
+/// MAJOR-MESS-09 (Mess-Validität, Audit A1): binary_id ist das ERSTE ';'-Feld der result_ingest-Zeile (= Baum-Key).
+/// Enthielte es selbst ein ';' oder einen Zeilenumbruch, verschöbe es beim Re-Parse ALLE 175 nachfolgenden Felder
+/// (axis_stats/seg_ns landeten im falschen Slot) — eine stille Mess-Verfälschung. Da der Wert ein Datei-Stem/Label ist
+/// (keine ';'/Newline by-construction), lehnen wir einen verletzenden Wert HART ab (leere Zeile → ingest verwirft sie),
+/// statt zu escapen: das hält das ';'-Wire-Format 1:1 feldzählbar (exaktes ==176, s. ingest_result_line).
+[[nodiscard]] inline bool binary_id_is_wire_safe(std::string_view binary_id) noexcept {
+    return !binary_id.empty()
+        && binary_id.find(';')  == std::string_view::npos
+        && binary_id.find('\n') == std::string_view::npos
+        && binary_id.find('\r') == std::string_view::npos;
+}
+
 [[nodiscard]] inline std::string format_perm_result(std::string const& binary_id,
                                                     anatomy::ComdareTierObserverSnapshot const& s) {
+    if (!binary_id_is_wire_safe(binary_id)) return std::string{};   // ungültige ID → leere Zeile (ingest verwirft)
     std::string out = binary_id;
     auto addu = [&](std::uint64_t v) { out += ';'; out += std::to_string(v); };
     auto addi = [&](std::int64_t v)  { out += ';'; out += std::to_string(v); };
@@ -206,33 +219,51 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
     bool const rb_exact = (rollback != nullptr) && acd::rollback_is_empirically_exact(tier, rollback);
     r.two_phase_valid = rb_exact;
 
-    // LOAD-Phase (UNGEMESSEN): records Sätze einfügen → befülltes Tier für die gemessene Run-Phase (YCSB-Load).
-    tier.tier_clear();
-    for (std::uint64_t i = 1; i <= records; ++i) (void)tier.tier_insert(i, i * 7u + 1u);
+    // MINOR-MESS-02 (Mess-Validität, Audit A1): LOAD + Run liegen NACH der bestandenen rb_exact-Probe. Wirft eine
+    // Kapsel-Op hier (z.B. std::bad_alloc/OOM beim Befüllen großer `records` oder beim CoW-Memento), so wäre der bis
+    // dahin gesetzte r.two_phase_valid=rb_exact eine GEFÄLSCHTE Gültigkeit über einer abgebrochenen Mess-Last
+    // (Teil-/Nullzähler). Darum: die ganze Mess-Region kapseln und bei JEDER Ausnahme die Messung ehrlich als
+    // UNGÜLTIG markieren (two_phase_valid=false, genullte Matrix-Zeile) statt sie als valide einzuspielen.
+    // (Hinweis: ein vom Tier INTERN via catch(...) verschluckter OOM bleibt eine ehrliche Restlimitierung — s.
+    //  le_limitierung-Zeile „Kapsel-internes OOM"; diese Schranke deckt den nach außen propagierten Fall ab.)
+    try {
+        // LOAD-Phase (UNGEMESSEN): records Sätze einfügen → befülltes Tier für die gemessene Run-Phase (YCSB-Load).
+        tier.tier_clear();
+        for (std::uint64_t i = 1; i <= records; ++i) (void)tier.tier_insert(i, i * 7u + 1u);
 
-    wd::WorkloadGenerator gen{cfg};               // gleiche Config+Seed ⇒ bit-identische Op-Sequenz je Binary
-    std::vector<wd::WorkloadOp> const ops = gen.generate_all();
-    wd::WorkloadRunResult const res =
-        wd::run_workload_profile(tier, rb_exact ? rollback : nullptr, ops, cfg.name, scan);
+        wd::WorkloadGenerator gen{cfg};               // gleiche Config+Seed ⇒ bit-identische Op-Sequenz je Binary
+        std::vector<wd::WorkloadOp> const ops = gen.generate_all();
+        wd::WorkloadRunResult const res =
+            wd::run_workload_profile(tier, rb_exact ? rollback : nullptr, ops, cfg.name, scan);
 
-    // total_ns + GOAL-M1.1/L1: per-Op-Art-Aggregate (n/p50/p99, Reihenfolge kOpKindNames) + timed_ops als
-    // Σ der Samples — die korrekte ns_per_op-Basis (Audit K2: der fixe 2*n_ops-Divisor galt nur dem Legacy-Pfad).
-    std::int64_t total = 0;
-    std::array<std::vector<std::int64_t> const*, 6> const per_kind{
-        &res.insert_ns, &res.lookup_ns, &res.erase_ns, &res.clear_ns, &res.scan_ns, &res.rmw_ns};
-    for (std::size_t k = 0; k < per_kind.size(); ++k) {
-        auto const& v = *per_kind[k];
-        for (std::int64_t ns : v) total += ns;
-        r.op_lat[k] = OpKindLatency{static_cast<std::uint64_t>(v.size()),
-                                    acd::nearest_rank_p(v, 0.5), acd::nearest_rank_p(v, 0.99)};
-        r.timed_ops += static_cast<std::uint64_t>(v.size());
+        // total_ns + GOAL-M1.1/L1: per-Op-Art-Aggregate (n/p50/p99, Reihenfolge kOpKindNames) + timed_ops als
+        // Σ der Samples — die korrekte ns_per_op-Basis (Audit K2: der fixe 2*n_ops-Divisor galt nur dem Legacy-Pfad).
+        std::int64_t total = 0;
+        std::array<std::vector<std::int64_t> const*, 6> const per_kind{
+            &res.insert_ns, &res.lookup_ns, &res.erase_ns, &res.clear_ns, &res.scan_ns, &res.rmw_ns};
+        for (std::size_t k = 0; k < per_kind.size(); ++k) {
+            auto const& v = *per_kind[k];
+            for (std::int64_t ns : v) total += ns;
+            r.op_lat[k] = OpKindLatency{static_cast<std::uint64_t>(v.size()),
+                                        acd::nearest_rank_p(v, 0.5), acd::nearest_rank_p(v, 0.99)};
+            r.timed_ops += static_cast<std::uint64_t>(v.size());
+        }
+
+        r.total_ns     = total;
+        r.n_ops        = res.op_count;
+        r.unified      = res.observer;                // EIN konsolidierter Observer-POD (axis_stats[19][8]+seg_ns[19])
+        r.unified_real = true;
+        r.line         = format_perm_result(binary_id, res.observer);   // profile_name bereits oben gesetzt (Gate-Früh-Return)
+    } catch (...) {
+        // Kapsel-OOM/Exception NACH bestandener rb_exact-Probe: KEINE gültige Mess-Zeile. Ehrlich entwerten.
+        r.two_phase_valid = false;
+        r.unified         = anatomy::ComdareTierObserverSnapshot{};
+        r.unified_real    = false;
+        r.op_lat          = std::array<OpKindLatency, 6>{};
+        r.total_ns        = 0;
+        r.timed_ops       = 0;
+        r.line            = format_perm_result(binary_id, r.unified);   // genullter POD → ehrlich „nicht gemessen"
     }
-
-    r.total_ns     = total;
-    r.n_ops        = res.op_count;
-    r.unified      = res.observer;                // EIN konsolidierter Observer-POD (axis_stats[19][8]+seg_ns[19])
-    r.unified_real = true;
-    r.line         = format_perm_result(binary_id, res.observer);   // profile_name bereits oben gesetzt (Gate-Früh-Return)
     return r;
 }
 

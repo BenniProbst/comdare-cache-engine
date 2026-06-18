@@ -82,14 +82,21 @@ namespace detail {
     if (c.seed == 0) c.seed = 42;
     lp.records        = detail::lp_text_u(wl->child("records"), 0);
     lp.num_operations = detail::lp_text_u(wl->child("num_operations"), 0);
-    if (auto const* om = wl->child("op_mix")) {
-        c.pct_insert = detail::lp_attr_d(om, "insert", 0.0);
-        c.pct_lookup = detail::lp_attr_d(om, "lookup", 0.0);
-        c.pct_erase  = detail::lp_attr_d(om, "erase",  0.0);
-        c.pct_clear  = detail::lp_attr_d(om, "clear",  0.0);
-        c.pct_scan   = detail::lp_attr_d(om, "scan",   0.0);
-        c.pct_rmw    = detail::lp_attr_d(om, "rmw",    0.0);
-    }
+    // MAJOR-MESS-05 (Mess-Validität, Audit A1): <op_mix> ist die Workload-DEFINITION (Achse 2). Fehlt der Knoten,
+    // würde der WorkloadConfig-Default (50/40/9/1 inkl. 1% Clear) STILL eingesetzt → ein anderes Profil gemessen als
+    // dokumentiert. Darum HART ablehnen statt still defaulten: kein <op_mix> ⇒ kein gültiges Lastprofil (nullopt).
+    auto const* om = wl->child("op_mix");
+    if (om == nullptr) return std::nullopt;
+    c.pct_insert = detail::lp_attr_d(om, "insert", 0.0);
+    c.pct_lookup = detail::lp_attr_d(om, "lookup", 0.0);
+    c.pct_erase  = detail::lp_attr_d(om, "erase",  0.0);
+    c.pct_clear  = detail::lp_attr_d(om, "clear",  0.0);
+    c.pct_scan   = detail::lp_attr_d(om, "scan",   0.0);
+    c.pct_rmw    = detail::lp_attr_d(om, "rmw",    0.0);
+    // …und ein LEERES op_mix (alle Anteile 0 / keine Op-Attribute) ist ebenso ungültig — sonst liefe ein Profil ohne
+    // jede Operation (Summe 0 → WorkloadConfig::is_valid()==false ⇒ Generator normalisiert nicht). Ehrlich ablehnen.
+    if ((c.pct_insert + c.pct_lookup + c.pct_erase + c.pct_clear + c.pct_scan + c.pct_rmw) <= 0.0)
+        return std::nullopt;
     auto const* kd = wl->child("key_distribution");
     c.key_distribution   = detail::lp_keydist(kd != nullptr ? kd->text : std::string{"uniform"});
     c.zipfian_theta      = detail::lp_text_d(wl->child("zipfian_theta"), 0.99);

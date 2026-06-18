@@ -32,8 +32,12 @@ namespace comdare::cache_engine::builder::experiment {
         i = sc + 1;
     }
     // KONSOLIDIERUNG (I-B.3, 2026-06-04): volle Matrix = binary_id + axis_stats[19][8] (152) + seg_ns[19] (19)
-    // + Meta (observable_axis_count, tier_fill_level, filled_axis_count, batches_measured) = 175 Felder → ≥176 total.
-    if (f.size() < 176 || f[0].empty()) return false;
+    // + Meta (observable_axis_count, tier_fill_level, filled_axis_count, batches_measured) = 175 Felder = 176 total.
+    // MAJOR-MESS-09 (Audit A1): EXAKT ==176 prüfen (nicht ≥176). Ein ';'/Newline in der binary_id (oder ein
+    // angehängtes/verschmolzenes Feld) erzeugt eine Zeile ≠176 → die axis_stats wären gegen ihre Slots verschoben.
+    // format_perm_result lehnt verletzende IDs bereits ab; diese Schranke ist die zweite, lese-seitige Verteidigung:
+    // eine nicht-exakt-176-feldrige Zeile wird verworfen (kein stiller Slot-Versatz in den Baum-NodeValue).
+    if (f.size() != 176 || f[0].empty()) return false;
 
     auto u64 = [](std::string_view s) -> std::uint64_t {
         std::uint64_t v = 0; std::from_chars(s.data(), s.data() + s.size(), v); return v;
