@@ -12,7 +12,8 @@
 //   test_profile_roundtrip.cpp <xml_config_parser.cpp>  (parse_thesis_profile ist NICHT header-only)
 
 #include "lazy_pilot_engine.hpp"   // build_pilot_levels<SmallPilot/FullPilot> (Vergleichs-Referenz, UNVERAENDERT)
-#include "profile_runner.hpp"      // build_profile_levels (die neue Naht: build_axis_levels live)
+#include "profile_runner.hpp"      // build_profile_levels + Inc3-Konsumenten (build_axis_levels live)
+#include "m3v2_select_profile.hpp" // m3::make_basis/make_axis_sweep + RowTags (der HEUTIGE Code-Selektions-Pfad)
 
 #include <builder/experiment_tree/axis_path_serialization.hpp>   // kCompositionAxisNames (19 Slot-Namen, Single-Source)
 
@@ -217,7 +218,99 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::cout << "\n==== STRANG-A Inc1 Round-Trip-Gate: "
+    // ════════════════════════════════════════════════════════════════════════════════════════════════════
+    // (7) STRANG-A Inc3 — DIE HARTE GATE des TREIBER-KONSUMS: der profil-getriebene Treiber-Pfad
+    //     (tlz::profile_select über das m3v2-Profil) erzeugt DIESELBE Selektion (binary_ids) UND DIESELBEN
+    //     CSV-Tags (series/sweep_axis + working_set_n + platform/build_version) wie der HEUTIGE Code-Pfad
+    //     (m3::make_basis / m3::make_axis_sweep + axis_to_level-Map + COMDARE_*-env). Klein-Ausschnitt
+    //     (cap=12), KEIN 320-Voll-Bau — reine String-/Index-Rekombination über den StaticBinaryView.
+    // ════════════════════════════════════════════════════════════════════════════════════════════════════
+    {
+        std::cout << "\n--- (7) Inc3: profil-getriebene Selektion + Tags == Code-Pfad (Klein-Ausschnitt cap=12) ---\n";
+        fs::path const m3v2_xml = profile_xml.parent_path() / "m3v2_study.profile.xml";
+        auto m3 = tlz::load_thesis_profile(m3v2_xml);
+        check_true("Inc3: m3v2-Profil lesbar", m3.has_value());
+        if (m3) {
+            namespace m3sel = comdare::cache_engine::thesis_lazy::m3v2;
+            // Der tier-freie Basis-Baum (DERSELBE, den der Treiber baut: build_profile_basis_levels) → StaticBinaryView.
+            std::vector<ex::AxisLevel> const basis_levels =
+                tlz::build_profile_basis_levels(*m3, "m3v2_base", /*with_dynamic=*/false);
+            auto factory7 = std::make_shared<ex::ExperimentNodeFactory>();
+            ex::ExperimentTree tree7{factory7};
+            tree7.build(basis_levels);
+            ex::StaticBinaryView const view7 = tree7.static_binary_view();
+            std::size_t const cap = 12;
+
+            // Hilfsfunktion: View-Index-Liste → binary_id-Liste (positions-treu).
+            auto ids_of = [&](std::vector<std::size_t> const& idx) {
+                std::vector<std::string> out; out.reserve(idx.size());
+                for (auto i : idx) out.push_back(view7[i].binary_id);
+                return out;
+            };
+
+            // ── (7a) BASIS-320: profile_select("") == m3::make_basis ──
+            {
+                tlz::ProfileTaggedSelection const pf = tlz::profile_select(*m3, basis_levels, view7, "", cap);
+                m3sel::TaggedSelection   const cd = m3sel::make_basis(view7, cap);
+                bool idx_same = (pf.selection.indices == cd.selection.indices);
+                check_true("Inc3/Basis: profile_select indices == m3::make_basis indices", idx_same);
+                check_eq ("Inc3/Basis: indices count", pf.selection.indices.size(), cd.selection.indices.size());
+                bool ids_same = (ids_of(pf.selection.indices) == ids_of(cd.selection.indices));
+                check_true("Inc3/Basis: binary_ids identisch (profile == code)", ids_same);
+                // Tags: series/sweep_axis aus dem Profil-Pass == Code (make_basis: "-"/"-").
+                check_eq ("Inc3/Basis: series tag",     pf.series,     cd.tags.series);
+                check_eq ("Inc3/Basis: sweep_axis tag", pf.sweep_axis, cd.tags.sweep_axis);
+                std::cout << "  Basis[0] binary_id (profile) = " << ids_of(pf.selection.indices).front() << "\n";
+            }
+
+            // ── (7b) PER-ACHSEN-SWEEP node_type: profile_select("node_type") == m3::make_axis_sweep(level=4) ──
+            //   Die hartkodierte axis_to_level-Map (run_lazy_150.cpp) liefert node_type=4; profile_axis_level
+            //   loest dieselbe Position PROFIL-GETRIEBEN aus den tier-freien Basis-Levels auf — MUSS gleich sein.
+            {
+                std::size_t const lvl = tlz::profile_axis_level(basis_levels, "node_type");
+                check_eq ("Inc3/Sweep: profile_axis_level(node_type) == 4 (== axis_to_level-Map)", lvl, std::size_t{4});
+                tlz::ProfileTaggedSelection const pf = tlz::profile_select(*m3, basis_levels, view7, "node_type", cap);
+                m3sel::TaggedSelection   const cd = m3sel::make_axis_sweep(view7, /*level_d=*/4, "node_type", cap);
+                bool idx_same = (pf.selection.indices == cd.selection.indices);
+                check_true("Inc3/Sweep: profile_select indices == m3::make_axis_sweep indices", idx_same);
+                bool ids_same = (ids_of(pf.selection.indices) == ids_of(cd.selection.indices));
+                check_true("Inc3/Sweep: binary_ids identisch (profile == code)", ids_same);
+                check_eq ("Inc3/Sweep: sweep_axis tag (profile == code)", pf.sweep_axis, cd.tags.sweep_axis);
+                check_eq ("Inc3/Sweep: sweep_axis tag == 'node_type'",     pf.sweep_axis, std::string{"node_type"});
+                for (std::size_t i = 0; i < pf.selection.indices.size() && i < 4; ++i)
+                    std::cout << "  Sweep[node_type][" << i << "] binary_id = " << view7[pf.selection.indices[i]].binary_id << "\n";
+            }
+
+            // ── (7c) PROFIL-WHITELIST: eine NICHT als <axis_sweep> deklarierte Achse wird VERWEIGERT (profil-getrieben). ──
+            {
+                tlz::ProfileTaggedSelection const pf = tlz::profile_select(*m3, basis_levels, view7, "allocator", cap);
+                check_true("Inc3/Whitelist: nicht-deklarierte Achse 'allocator' verweigert (REFUSED-Provenance)",
+                           pf.selection.provenance.rfind("axis_sweep-REFUSED", 0) == 0);
+            }
+
+            // ── (7d) run_options: cap/platform/build_version/resume == die heutigen env/argv-Defaults. ──
+            {
+                tlz::ProfileRunOptions const ro = tlz::profile_run_options(*m3);
+                check_eq ("Inc3/run_options: cap == 320",                 ro.cap,           std::size_t{320});
+                check_eq ("Inc3/run_options: platform == win-x86_64",     ro.platform,      std::string{"win-x86_64"});
+                check_eq ("Inc3/run_options: build_version == m3v2",      ro.build_version, std::string{"m3v2"});
+                check_true("Inc3/run_options: resume == true",            ro.resume);
+            }
+
+            // ── (7e) working_set_sweep: die N-Liste ersetzt die PS-foreach (build_and_measure_150_tiere.ps1:166). ──
+            {
+                std::vector<std::uint64_t> const ns = tlz::profile_working_set_sweep(*m3);
+                check_eq ("Inc3/working_set_sweep: 4 N-Werte", ns.size(), std::size_t{4});
+                bool const exact = (ns == std::vector<std::uint64_t>{16384u, 131072u, 1048576u, 8388608u});
+                check_true("Inc3/working_set_sweep: == {16384,131072,1048576,8388608} (P-MD7)", exact);
+                std::cout << "  working_set_sweep N = [";
+                for (std::size_t i = 0; i < ns.size(); ++i) std::cout << (i ? "," : "") << ns[i];
+                std::cout << "]\n";
+            }
+        }
+    }
+
+    std::cout << "\n==== STRANG-A Inc1/Inc2/Inc3 Round-Trip+Konsum-Gate: "
               << (g_fail == 0 ? "ALLE OK (Diff leer)" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }
