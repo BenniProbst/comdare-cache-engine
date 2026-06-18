@@ -3,6 +3,13 @@
 > **ERSETZT** den zu flachen `20260618-STRANG-A-ABSTRACTFACTORY-RUECKBAU-PLAN.md` (der die Code-Selektions-Schicht als „Factory-
 > Konsument" bestehen ließ). User-Korrektur 2026-06-18, am Code BESTÄTIGT (5 Agenten, file:line). **HÖCHSTE PRIO.** Deckt #168/#162/#156.
 
+## AUSFÜHRUNGS-STAND (je Increment round-trip-verifiziert + committet)
+- ✅ **Inc 1 (S3-Kern, `bc1f7a3`):** Naht gezogen — profile_runner → offizielle `build_axis_levels`; base_pilot.profile.xml + test_profile_roundtrip → binary_ids byte-identisch zum Code-Pfad (Diff leer). Additiv, nichts entfernt.
+- ✅ **Inc 2 (S1+S2, `57961f1`):** Schema +4 Felder (working_set_sweep/axis_sweep/sota_series/run_options, rückwärts-kompatibel) + dyn-Dim EINE Quelle + `m3v2_study.profile.xml` (volle Selektion). Basis-320 POSITIONS-IDENTISCH zu FullPilot + full[0] matcht reale `tier150_measurements.csv`.
+- ⏭️ **Inc 3 (S3-complete):** Treiber konsumiert die 4 neuen Felder (working_set-Sweep-Loop / axis_sweep / sota_series / run_options + tier-Level für Basis-320 ignorieren) → profil-getriebener Lauf == Code-Lauf.
+- ⏭️ **Inc 4 (S4+S5):** SourceGen aus Profil + **Code-Selektion ENTFERNEN** (PilotAxes/SelectMode/m3v2_select_profile).
+- ⏭️ **Inc 5 (S6+S7):** SOTA/PRT-ART real (#162) + `CEB::run_profile`. ⏭️ **Inc 6 (S8+S9):** Voll-Verifikation + Doku + Bump.
+
 ## DIE KORREKTUR (warum der alte Plan falsch war)
 Mein alter Plan reparierte die **Anatomie-Naht-Fabrik** (PilotAxes→genus-Engine, sota_*-Strings→MergeAxis) und ließ die Code-
 Selektions-Schicht als „Factory-Adapter" stehen. **Das ist der vom User benannte Blödsinn.** Die **WHAT-Konfiguration** (welche
