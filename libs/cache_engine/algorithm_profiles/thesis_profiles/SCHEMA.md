@@ -25,6 +25,17 @@ Beispiel: `cacheline_study.profile.xml` (gleicher Ordner).
 | `<static_axes from="base_tier"/>` | ja | Die nicht-permutierten Achsen nehmen die Werte des jeweiligen `base_tier` (Paper-Tupel). |
 | `<constraints>` / `<require>` `<pin>` | nein | Cross-Constraints (z.B. `isa host_supported`, algorithmus-gebundene Pins) — kappen unsinnige Kombinationen vor der Enumeration. |
 | `<key_value_signature>` | nein | `key_types`/`value_types` (wie `sota/*.profile.xml`). |
+| `<working_set_sweep>{N-Liste}` | nein | **(S1-a, Increment 2)** Whitespace-getrennte Working-Set-Record-Zahlen der **äußeren Lauf-Iteration** (P-MD7). Ersetzt `COMDARE_WORKLOAD_RECORDS` + die PS-`foreach` in `build_and_measure_150_tiere.ps1`. Leer = einmaliger Lauf (rückwärtskompatibel). |
+| `<axis_sweeps>` / `<axis_sweep axis baseline>` | nein | **(S1-b)** Per-Achsen-Sweep: variiert GENAU EINE Achse gegen eine **feste Baseline** (alle Ebenen Index 0, via `StaticBinaryView::flat_index`). Ersetzt `make_axis_sweep` + die `axis_to_level`-Map (`run_lazy_150.cpp`). `baseline="index0"` (aktuell einziger Marker). |
+| `<sota_series_set>` / `<sota_series id lebewesen merge>` | nein | **(S1-c)** SOTA-/PRT-ART-**Reihe** A/B/C: `merge` ∈ {`Stufe1_CeOnly`,`Stufe2_PrueflingReplace`,`Stufe3_FullJoin`} (die 3 Kompositionalen Joins, `pruefling_merge.hpp`). Ersetzt `sota_lebewesen_names`/`sota_series_ids`. Nutzt die bestehenden `merge`-Felder. |
+| `<run_options cap platform build_version resume>` | nein | **(S1-d)** Lauf-Steuerungs-Defaults, die heute aus `argv`/`env` von `run_lazy_150` kommen (`cap`=max_binaries, `platform`/`build_version`=CSV-Tags, `resume`=Mess-Resume #139). Deklarativ; `argv`/`env` darf weiterhin übersteuern. |
+
+> **Rückwärts-Kompatibilität (Increment 2):** Alle vier Konstrukte sind **additiv** — fehlen sie (wie in
+> `base_pilot`/`cacheline_study`), bleiben die `ThesisProfile`-Felder leer/Default; der binary_id-Round-Trip ist
+> davon unberührt. Sie sind **Selektions-/Lauf-Konstrukte** (vom Treiber konsumiert), KEINE statischen
+> Achsen-Ebenen → sie ändern die `binary_id` nicht. Die `runtime_dynamic`-Dimensionen (thread_count/hw_prefetcher)
+> + die Wiederholungs-Achse emittiert seit Increment 2 **ausschließlich** `build_axis_levels` (Einzelquelle;
+> die frühere Doppelquelle in `profile_runner.hpp` ist entfernt).
 
 ## Compile-time vs. Runtime (Faustregel)
 

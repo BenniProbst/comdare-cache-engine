@@ -73,10 +73,13 @@ int main() {
     auto levels = ex::build_axis_levels(tp, "ce_only", ex::AxisRegistry{});
     ex::ExperimentTree tree2{factory};
     tree2.build(levels);
-    // statisch: tier(2) x isa(2) x cl_line(2) x cl_align(1) = 8 Binaries; dynamisch: thread_count(2)
+    // statisch: tier(2) x isa(2) x cl_line(2) x cl_align(1) = 8 Binaries (UNVERAENDERT — die binary_id-Quelle).
     check_eq("Adapter: binary_count (2x2x2x1)", tree2.binary_count(), std::size_t{8});
-    check_eq("Adapter: experiment_setting_count (8 x 2)", tree2.experiment_setting_count(), std::size_t{16});
-    check_eq("Adapter: dynamic_filter (thread_count)", tree2.dynamic_filter().size(), std::size_t{1});
+    // dynamisch (Inc2 dyn-Dim-Konsolidierung, 2026-06-18): build_axis_levels ist jetzt die EINZIGE Quelle der
+    // runtime_dynamic-Dimensionen UND emittiert die Wiederholungs-Achse (D, KF-10) SELBST. tp hat thread_counts
+    // (concurrency) gesetzt + repetitions=Default 3 (repetition) → 2 dynamische Dimensionen; je 2 bzw. 3 Werte.
+    check_eq("Adapter: dynamic_filter (thread_count + repetition)", tree2.dynamic_filter().size(), std::size_t{2});
+    check_eq("Adapter: experiment_setting_count (8 x 2 x 3)", tree2.experiment_setting_count(), std::size_t{48});
 
     std::cout << "\n==== KF-9 Experiment-B+-Baum + Adapter: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;

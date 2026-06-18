@@ -34,36 +34,22 @@ namespace comdare::cache_engine::thesis_lazy {
 namespace ex = ::comdare::cache_engine::builder::experiment;
 namespace cx = ::comdare::builder::xml;
 
-/// Die DYNAMISCHEN Dimensionen aus runtime_dynamic des Profils (= virtuelle for-Schleifen auf der GELADENEN DLL,
-/// NICHT teil der binary_id). thread_count → concurrency.thread_count; hw_prefetcher → prefetch.hw_prefetcher.
-/// PLUS die Wiederholungs-Achse (D, KF-10): repetition.repetition_index ∈ {0..repetitions-1}. KEIN POD-Feld →
-/// set_field ignoriert es (architektonische Ausnahme), es multipliziert nur die Mess-Wiederholungen.
-[[nodiscard]] inline std::vector<ex::DynamicDim> profile_dynamic_dims(cx::ThesisProfile const& tp) {
-    std::vector<ex::DynamicDim> dims;
-    if (!tp.thread_counts.empty())
-        dims.push_back(ex::DynamicDim{"concurrency", "thread_count", tp.thread_counts, "concurrency"});
-    if (!tp.hw_prefetcher.empty())
-        dims.push_back(ex::DynamicDim{"prefetch", "hw_prefetcher", tp.hw_prefetcher, "prefetch"});
-    std::uint32_t const reps = (tp.repetitions <= 0) ? 1u : static_cast<std::uint32_t>(tp.repetitions);
-    std::vector<std::string> rep_vals;
-    rep_vals.reserve(reps);
-    for (std::uint32_t r = 0; r < reps; ++r) rep_vals.push_back(std::to_string(r));
-    dims.push_back(ex::DynamicDim{"repetition", "repetition_index", std::move(rep_vals), "repetition"});
-    return dims;
-}
-
-/// build_profile_levels(tp, mode) — der GESAMT-Level-Satz (statische Ebenen via build_axis_levels + dynamische
-/// Dimensionen) fuer ExperimentTree::build. `with_dynamic=false` ⇒ nur die statischen Ebenen (= die reine
-/// binary_id-Quelle fuer die Round-Trip-Gate). Die AxisRegistry expandiert leere <axis>-Listen (hier leer ⇒ die
-/// explizit deklarierten <value> aus dem Basis-Profil gewinnen, was die Pilot-Identitaet garantiert).
+/// build_profile_levels(tp, mode) — der GESAMT-Level-Satz fuer ExperimentTree::build, AUSSCHLIESSLICH aus der
+/// offiziellen Bruecke ex::build_axis_levels (Inc2 dyn-Dim-Konsolidierung, 2026-06-18): build_axis_levels emittiert
+/// die runtime_dynamic-Dimensionen (concurrency.thread_count / prefetch.hw_prefetcher / repetition.repetition_index)
+/// jetzt SELBST als is_static=false-Ebenen — die fruehere Doppelquelle (profile_runner haengt sie ein ZWEITES Mal an)
+/// ist ENTFERNT. `with_dynamic=false` ⇒ es werden nur die STATISCHEN Ebenen zurueckgegeben (die dynamischen werden
+/// herausgefiltert) = die reine binary_id-Quelle fuer die Round-Trip-Gate. Die AxisRegistry expandiert leere
+/// <axis>-Listen (hier leer ⇒ die explizit deklarierten <value> aus dem Profil gewinnen → Pilot-Identitaet).
 [[nodiscard]] inline std::vector<ex::AxisLevel> build_profile_levels(
         cx::ThesisProfile const& tp, std::string const& mode_name,
         bool with_dynamic = true, ex::AxisRegistry const& registry = {}) {
-    std::vector<ex::AxisLevel> lv = ex::build_axis_levels(tp, mode_name, registry);  // OFFIZIELLE Bruecke
-    if (with_dynamic)
-        for (auto const& d : profile_dynamic_dims(tp))
-            lv.push_back(ex::AxisLevel{d.axis, d.values, /*is_static=*/false, d.variable, d.block_id});
-    return lv;
+    std::vector<ex::AxisLevel> lv = ex::build_axis_levels(tp, mode_name, registry);  // EINZIGE Quelle (statisch+dyn)
+    if (with_dynamic) return lv;
+    std::vector<ex::AxisLevel> static_only;
+    static_only.reserve(lv.size());
+    for (auto& l : lv) if (l.is_static) static_only.push_back(std::move(l));   // dyn-Dims herausfiltern
+    return static_only;
 }
 
 /// load_thesis_profile — kleiner Convenience-Wrapper um den offiziellen Parser (KF-1). nullopt bei Fehler.

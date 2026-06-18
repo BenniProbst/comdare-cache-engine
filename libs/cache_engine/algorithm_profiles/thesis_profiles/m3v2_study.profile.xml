@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- comdare_thesis_profile — STRANG A KORRIGIERT, Increment 2 / S2 (2026-06-18, profil-getrieben).
+     Plan: docs/sessions/20260618-STRANG-A-KORRIGIERT-PROFIL-GETRIEBEN-PLAN.md (S2-Autoring).
+
+     ZWECK: drueckt die HEUTIGE m3v2-Code-Selektion (m3v2_select_profile.hpp + run_lazy_150.cpp + die
+     PS-foreach in build_and_measure_150_tiere.ps1) VOLLSTAENDIG DEKLARATIV aus. Der CacheEngineBuilder
+     fuehrt aus (Doc architektur/10_schichten_modell_M.md §2.2: die Diplomarbeit konfiguriert, der CEB misst).
+
+     DIE BASIS-320 (search_algo × node_type × memory_layout × prefetch = 4×4×5×4 = 320) traegt die EXAKTEN
+     FullPilot-Wrapper-name()-Werte in der FullPilot-mp_take_c-Reihenfolge (verifiziert von
+     tests/unit/thesis_tiere/test_profile_roundtrip.cpp Abschnitt (6), Mismatch=0) — damit
+     build_axis_levels(profile) BYTE-IDENTISCHE binary_ids erzeugt wie build_pilot_levels<FullPilot>
+     (HARTE Round-Trip-Gate, Plan-Risiko #1 / Resume #139). Die 15 uebrigen
+     Slots sind je 1 Wert gepinnt (identisch ueber alle Tiere → der gemessene Unterschied ist den 4 variierten
+     Achsen zurechenbar; die binary_id pinnt die 15 mit).
+
+     KEINE <axis ref="cacheline"> (der KF-3-Sonderzweig bleibt unberuehrt; memory_layout ist eine generische
+     Achse). runtime_dynamic (concurrency/prefetch-hw/repetition) leben als DynamicDims (build_axis_levels
+     emittiert sie selbst — Inc2 dyn-Dim-Konsolidierung) → sie veraendern die binary_id NICHT. -->
+<comdare_thesis_profile id="m3v2_study" schema_version="1">
+
+  <!-- (a) BASIS-TIERE: PRT-ART + die 6 SOTA-Kompositionen = die 7 Lebewesen je Reihe. profile_ref → sota/*.xml.
+       (Im gate-freien Pilot wird der A/B/C-Tag-Apparat ueber die Basis-Binaries belegt; die SOTA-/PRT-ART-DLLs
+       kommen mit der Engine-Erweiterung [HELD]. Single-Source 1:1 zu sota_lebewesen_names.) -->
+  <base_tiers>
+    <tier id="prt_art"  profile_ref="../sota/art.profile.xml"       paper_ref="PRT"/>
+    <tier id="art"      profile_ref="../sota/art.profile.xml"       paper_ref="P01"/>
+    <tier id="hot"      profile_ref="../sota/hot.profile.xml"       paper_ref="P02"/>
+    <tier id="masstree" profile_ref="../sota/masstree.profile.xml"  paper_ref="P03"/>
+    <tier id="surf"     profile_ref="../sota/surf.profile.xml"      paper_ref="P10"/>
+    <tier id="start"    profile_ref="../sota/start.profile.xml"     paper_ref="P05"/>
+    <tier id="wormhole" profile_ref="../sota/wormhole.profile.xml"  paper_ref="P07"/>
+  </base_tiers>
+
+  <!-- (b) DIE 19 SLOTS in FullPilot-Reihenfolge (T0..T18). Die 4 VARIIERTEN Achsen (Fanout) tragen ihre VOLLE
+       FullPilot-Werteliste in mp_take_c-Reihenfolge; die 15 GEPINNTEN je 1 Wert. permute_axes-Reihenfolge =
+       kCompositionAxisNames (axis_path_serialization.hpp:27) → garantiert FullPilot-binary_id-Identitaet. -->
+  <permute_axes>
+    <!-- VARIIERT search_algo (4): k_ary interpolation eytzinger linear_scan -->
+    <axis ref="search_algo">
+      <value>k_ary</value><value>interpolation</value><value>eytzinger</value><value>linear_scan</value>
+    </axis>
+    <axis ref="cache_traversal"><value>linear_fanout</value></axis>
+    <axis ref="mapping"><value>direct_placement</value></axis>
+    <axis ref="path_compression"><value>path_compression_none</value></axis>
+    <!-- VARIIERT node_type (4): node4 node16 node48 node256 -->
+    <axis ref="node_type">
+      <value>node4</value><value>node16</value><value>node48</value><value>node256</value>
+    </axis>
+    <!-- VARIIERT memory_layout (5): cache_line_aligned aos_strict soa packed_bitmap aosoa -->
+    <axis ref="memory_layout">
+      <value>memory_layout_cache_line_aligned</value><value>memory_layout_aos_strict</value>
+      <value>memory_layout_soa</value><value>memory_layout_packed_bitmap</value><value>memory_layout_aosoa</value>
+    </axis>
+    <axis ref="allocator"><value>std_malloc</value></axis>
+    <!-- VARIIERT prefetch (4): none distance_estimator hardware path_oriented -->
+    <axis ref="prefetch">
+      <value>prefetch_none</value><value>prefetch_distance_estimator</value>
+      <value>prefetch_hardware</value><value>prefetch_path_oriented</value>
+    </axis>
+    <axis ref="concurrency"><value>concurrency_none</value></axis>
+    <axis ref="serialization"><value>serialization_raw_binary</value></axis>
+    <axis ref="telemetry"><value>telemetry_leaf_only_counter</value></axis>
+    <axis ref="value_handle"><value>value_handle_inline</value></axis>
+    <axis ref="isa"><value>isa_amd64</value></axis>
+    <axis ref="index_organization"><value>index_org_heap</value></axis>
+    <axis ref="io_dispatch"><value>io_in_memory_only</value></axis>
+    <axis ref="migration_policy"><value>migration_none</value></axis>
+    <axis ref="filter"><value>filter_bloom</value></axis>
+    <axis ref="queuing_q1"><value>no_buffer</value></axis>
+    <axis ref="queuing_q2"><value>eager_flush</value></axis>
+  </permute_axes>
+
+  <!-- (b') S1 (b) — PER-ACHSEN-SWEEP: gegen die FESTE Baseline (alle Ebenen Index 0) variiert GENAU EINE Achse
+       ueber ihre Ausprägungen (via StaticBinaryView::flat_index). Ersetzt make_axis_sweep + axis_to_level-Map.
+       Die 4 Basis-Achsen + die im FullPilot vertretenen vertieften Achsen (path_compression ist hier gepinnt =
+       Baseline-Repraesentant). Deklarativ: nur Achsen-Name + Baseline-Marker. -->
+  <axis_sweeps>
+    <axis_sweep axis="search_algo"      baseline="index0"/>
+    <axis_sweep axis="node_type"        baseline="index0"/>
+    <axis_sweep axis="memory_layout"    baseline="index0"/>
+    <axis_sweep axis="prefetch"         baseline="index0"/>
+    <axis_sweep axis="path_compression" baseline="index0"/>
+  </axis_sweeps>
+
+  <!-- (c) S1 (c) — SOTA-REIHEN A/B/C: PRT-ART + die 6 SOTA-Lebewesen unter Stufe-1 ce-only (A) / Stufe-2
+       Pruefling-ersetzt-mit-Fallback (B) / Stufe-3 full-join (C) — die 3 Kompositionalen Joins (pruefling_merge).
+       Ersetzt sota_lebewesen_names/sota_series_ids. `merge` nutzt die bestehenden ThesisMode-merge-Felder. -->
+  <sota_series_set>
+    <sota_series id="A" lebewesen="prt_art"  merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="art"      merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="hot"      merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="masstree" merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="surf"     merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="start"    merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="wormhole" merge="Stufe1_CeOnly"/>
+    <sota_series id="B" lebewesen="prt_art"  merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="B" lebewesen="art"      merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="B" lebewesen="hot"      merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="B" lebewesen="masstree" merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="B" lebewesen="surf"     merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="B" lebewesen="start"    merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="B" lebewesen="wormhole" merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="C" lebewesen="prt_art"  merge="Stufe3_FullJoin"/>
+    <sota_series id="C" lebewesen="art"      merge="Stufe3_FullJoin"/>
+    <sota_series id="C" lebewesen="hot"      merge="Stufe3_FullJoin"/>
+    <sota_series id="C" lebewesen="masstree" merge="Stufe3_FullJoin"/>
+    <sota_series id="C" lebewesen="surf"     merge="Stufe3_FullJoin"/>
+    <sota_series id="C" lebewesen="start"    merge="Stufe3_FullJoin"/>
+    <sota_series id="C" lebewesen="wormhole" merge="Stufe3_FullJoin"/>
+  </sota_series_set>
+
+  <!-- (a-S1) WORKING-SET-SWEEP: die N-Liste der aeusseren Lauf-Iteration (Record-Zahlen, P-MD7). Ersetzt
+       COMDARE_WORKLOAD_RECORDS + PS-foreach. {2^14, 2^17, 2^20, 2^23} (Infra-Agent passt an die reale LLC an). -->
+  <working_set_sweep>16384 131072 1048576 8388608</working_set_sweep>
+
+  <!-- (c-1) COMPILE-TIME Mess-Dimensionen (je Binary gebacken). Workloads = YCSB A..F. -->
+  <compile_dims>
+    <workloads>A B C D E F</workloads>
+    <telemetry mode="on" silent="true"/>
+  </compile_dims>
+
+  <!-- (d-1) DYNAMISCHE OS-Laufzeit-Dimensionen — build_axis_levels expandiert sie zu DynamicDims (NICHT teil
+       der binary_id). thread_count → concurrency.thread_count; hw_prefetcher → prefetch.hw_prefetcher. -->
+  <runtime_dynamic>
+    <thread_count>1 2 4</thread_count>
+    <hw_prefetcher>all_on adjacent_off all_off</hw_prefetcher>
+  </runtime_dynamic>
+
+  <!-- (f) WIEDERHOLUNGEN — Default 3, separat, nie interpoliert (KF-10). -->
+  <repetitions count="3" interpolate="false" overlay_in_chart="true"/>
+
+  <!-- (d-S1) RUN-OPTIONS: die Lauf-Steuerung, die heute aus argv/env von run_lazy_150 kommt. Deklarativ;
+       argv/env darf weiterhin uebersteuern (Rueckwaerts-Kompatibilitaet). -->
+  <run_options cap="320" platform="win-x86_64" build_version="m3v2" resume="true"/>
+
+  <!-- (g) EIN Basis-Modus (Stufe-1 ce-only): alle 19 Slots aktiv in FullPilot-Reihenfolge. Die 3 SOTA-Reihen
+       A/B/C leben in <sota_series_set> (s.o.) und nutzen die merge-Felder. -->
+  <modes>
+    <mode name="m3v2_base" merge="Stufe1_CeOnly"
+          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization telemetry value_handle isa index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2"/>
+  </modes>
+
+  <static_axes from="base_tier"/>
+
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_thesis_profile>

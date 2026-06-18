@@ -64,11 +64,25 @@ using AxisRegistry = std::map<std::string, std::vector<std::string>>;
         if (!vals.empty()) levels.push_back(AxisLevel{ax.ref, std::move(vals), true, ""});
     }
 
-    // 3. runtime_dynamic → dynamische Ebenen (Laufzeit-for-Schleife).
+    // 3. runtime_dynamic → dynamische Ebenen (Laufzeit-for-Schleife). DIE EINZIGE Quelle dieser Dimensionen
+    //    (Inc2 dyn-Dim-Konsolidierung, 2026-06-18): vorher hingen profile_runner::profile_dynamic_dims dieselben
+    //    Dimensionen ein ZWEITES Mal an (Doppelquelle). Jetzt emittiert build_axis_levels sie selbst — vollstaendig
+    //    + mit den Mess-Pfad-Konventionen (concurrency.thread_count / prefetch.hw_prefetcher + Wiederholungs-Achse
+    //    repetition.repetition_index, KF-10). Die binary_id wird davon NICHT beruehrt (is_static=false → der Baum
+    //    filtert sie via static_filter() raus; Round-Trip bewiesen). variable/block_id = ComdareResourceControlV1-
+    //    Feldname bzw. architektonische Ausnahme (repetition_index ist KEIN POD-Feld → set_field ignoriert es).
     if (!tp.thread_counts.empty())
-        levels.push_back(AxisLevel{"concurrency", tp.thread_counts, false, "thread_count"});
+        levels.push_back(AxisLevel{"concurrency", tp.thread_counts, false, "thread_count", "concurrency"});
     if (!tp.hw_prefetcher.empty())
-        levels.push_back(AxisLevel{"cacheline", tp.hw_prefetcher, false, "hw_prefetcher"});
+        levels.push_back(AxisLevel{"prefetch", tp.hw_prefetcher, false, "hw_prefetcher", "prefetch"});
+    // Wiederholungs-Achse (D, KF-10): immer vorhanden (Default 3, separat, nie interpoliert). repetitions<=0 → 1.
+    {
+        int const reps = (tp.repetitions <= 0) ? 1 : tp.repetitions;
+        std::vector<std::string> rep_vals;
+        rep_vals.reserve(static_cast<std::size_t>(reps));
+        for (int r = 0; r < reps; ++r) rep_vals.push_back(std::to_string(r));
+        levels.push_back(AxisLevel{"repetition", std::move(rep_vals), false, "repetition_index", "repetition"});
+    }
 
     return levels;
 }
