@@ -221,6 +221,20 @@ Zahlen entstehen primär auf Linux (Infra-Agent, CE-DL2/DL3), Windows-PCM als zw
   op_erase_p50_ns,op_scan_p50_ns,op_rmw_p50_ns}.tex` — alle `\addplot3`+`viridis`. (Overleaf-Push hält, wie L-b.)
 - **Offen (User-Entscheid):** 2D-Heatmap (Default, druckfertig) vs. echte 3D-`surf` für die Thesis — beide verfügbar.
 
+## L-d ✅ + L-e ✅ ERLEDIGT (2026-06-18, Impl-Agent + selbst-verifiziert)
+
+- **L-d (`Code/04_csv_to_latex/`):** `parse_axis_tuple` (binary_id→19-Achsen-Map) + Geschwister-Paarbildung je variabler Achse +
+  abs/rel-Delta je (Paar×Workload×Interface-Fn) + Median/IQR-Aggregat (nearest-rank, nur two_phase_valid, scan-No-Op-Exclude).
+  **Pair-Counts literal: search_algo=480, node_type=480, memory_layout=640, prefetch=480** (exakt SOLL). Diagnose-Flag je
+  Diff-Zeile (verschiedener Organ-Pfad, Meta-Lehre 3). **Vorbehalt-Marker NUR node_type+memory_layout** (Q2-Schritt-4-Beschattung);
+  **search_algo+prefetch = „am wenigsten konfundiert".** Artefakte: `anhang/{de,en}/tabellen/ld_exchange_{search_algo,node_type,
+  memory_layout,prefetch}.tex`.
+- **L-e:** `le_limitierung.tex` (de+en) — **Zeile 1 = Cache-Misses (Kernmetrik, fett)**, Zeile 2 = alle 15 gepinnten Achsen
+  namentlich, + 9 weitere Vorbehalte (Proben-Zähler/Honest-0/Wall-Clock/RC-K1/Scan-No-Op/Upsert/prefetch-K9/Q2/sub-noise).
+- **Build EXIT 0** · CLI-Modi `--exchange` + `--limitierung` (legacy/wide intakt) · **echter MiKTeX-Build der 10 Tabellen = 9-S.-PDF,
+  0 Fehler/Warnings** · longtable 10/10 balanciert · 0 absolute Pfade · de==en symmetrisch (Labels `tab:ld:exchange:*`, `tab:le:limitierung`).
+- **Overleaf-Push:** vom User **freigegeben** (2026-06-18) → erfolgt als kohärentes Update nach L-f.
+
 ## 3. Pflicht-Lese-Reihenfolge für die Phase-L-Umsetzungs-Session (frischer Kontext)
 
 1. `docs/architecture/34_KONSOLIDIERTER_MASTER_IST_STAND.md` — §F15-Pipeline + Mess-Modell + Bias-Matrix.
