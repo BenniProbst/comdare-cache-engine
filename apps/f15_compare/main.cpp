@@ -27,6 +27,7 @@
 #include <builder/workload_driver/workload_orchestrator.hpp>
 #include <builder/workload_driver/workload_profiles.hpp>   // INC-0: Single-Source profile_by_name (geteilt mit perm_runner)
 #include <builder/measurement_snapshot.hpp>   // V5-I1 (#50): EIN autoritativer 16+6-Mess-POD + Pipeline-16-Serializer
+#include <builder/pmc_source_factory.hpp>     // V5-#26 / Task #153: make_pmc_source() (Windows-Intel-PCM o. NullPmcSource)
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/rollbackable_tier.hpp>
 #include <anatomy/scannable_tier.hpp>   // V5-#49-E: Range-Scan-Sub-Interface (YCSB-E)
@@ -245,6 +246,10 @@ int main(int argc, char** argv) {
         // V5-I1 (#50): autoritative 16+6-Mess-POD-Zeilen sammeln (eine je Komposition×Lastprofil) → Pipeline-Bridge.
         std::vector<bld::ComdareMeasurementSnapshotV1> snaps;
         std::vector<std::string>                       snap_ids, snap_wls;
+        // V5-#26 / Task #153: die EINE PMC-Quelle (Factory wählt build-/OS-abhängig: Windows-Intel-PCM unter
+        // COMDARE_ENABLE_PMC, sonst NullPmcSource → available=false → HW-Spalten ehrlich 0). begin()/end()
+        // klammern den gemessenen Lauf je Komposition; das Counter-Delta speist die +6 HW-Spalten.
+        std::unique_ptr<bld::IPmcSource> pmc = bld::make_pmc_source();
         int ok = 0;
         for (std::size_t i = 0; i < handles.size(); ++i) {
             auto* base = handles[i].anatomy();
@@ -258,7 +263,9 @@ int main(int argc, char** argv) {
             }
             auto* rb = dynamic_cast<ana::IRollbackableTier*>(base);   // nullptr → Kalt-Messung (kein Rollback)
             auto* sc = dynamic_cast<ana::IScannableTier*>(base);      // V5-#49-E: nullptr → YCSB-E-Scan-Ops übersprungen
-            auto const results = wd::run_measurement_plan(*tier, rb, plan, sc);
+            pmc->begin();                                             // V5-#26: HW-Counter-Snapshot vor dem Mess-Lauf
+            auto const results   = wd::run_measurement_plan(*tier, rb, plan, sc);
+            auto const pmc_delta = pmc->end();                        // Delta (available=false bei NullPmcSource)
             auto const csv     = wd::serialize_workload_run_results_csv(results);
             std::filesystem::path const csv_p = out_dir / (nm + ".plan.csv");
             if (write_text_file(csv_p.string(), csv)) {
@@ -269,9 +276,10 @@ int main(int argc, char** argv) {
                 std::cerr << "  [" << i << "] " << nm << "  CSV-Schreiben fehlgeschlagen.\n";
             }
             // POD je (Komposition × Lastprofil): echte Observer-Daten in die 16 Kern-Spalten; workload_used =
-            // Profil-Name (steuert die PDF-Diagramm-Gruppierung). Die +6 Observer-Spalten + pmc_available=0 (ehrlich).
+            // Profil-Name (steuert die PDF-Diagramm-Gruppierung). Die +6 Observer-Spalten + pmc_available
+            // EHRLICH aus der PMC-Quelle: reale L2/L3-Cache-Misses unter COMDARE_ENABLE_PMC, sonst 0.
             for (auto const& res : results) {
-                snaps.push_back(bld::measurement_from_workload_result(res, nm));
+                snaps.push_back(bld::measurement_from_workload_result(res, nm, pmc_delta));
                 snap_ids.push_back(nm);
                 snap_wls.push_back(res.profile_name);
             }
