@@ -107,7 +107,8 @@ inline constexpr std::size_t kV3FilledAxisCount = v3_count_filled_axes();
 /// Ersetzt die getrennten V1/V2/V3-Observer-PODs + den seg_ns-Timing-POD (Preflight wkqt7a0il: axis_stats+Meta
 /// subsumiert JEDES frühere V1- (13) + V2-Feld (26) — V1 search→[0][0..5], alloc→[6][0..4]; V2 telemetry→[10],
 /// layout→[5], serialization→[9], node_type→[4]; obs_axes/fill→Meta). Layout bitweise stabil (alle Member 8-B-
-/// Ints, kein Padding; sizeof==1400, alignof==8) → memcpy über die ABI-Grenze. Versionierung jetzt über ABI-Major.
+/// Ints, kein Padding; sizeof==1416 nach P-MD3 (war 1400; +2×int64 seg_framework_ns/seg_run_total_ns, additiv hinten),
+/// alignof==8) → memcpy über die ABI-Grenze. Versionierung jetzt über ABI-Major.
 struct ComdareTierObserverSnapshot {
     std::uint64_t axis_stats[kV3AxisCount][kV3FieldCount] = {};  // T0..T18 × 8 Felder (Schema = kV3AxisSchema)
     std::int64_t  seg_ns[kV3AxisCount]                    = {};  // Pfad-B Per-Achsen-Timing (ns, je Achse)
@@ -115,6 +116,14 @@ struct ComdareTierObserverSnapshot {
     std::uint64_t tier_fill_level                        = 0;    // Meta: aktueller Füllstand (tier_size)
     std::uint64_t filled_axis_count                      = 0;    // Meta: # Achsen mit Observer-Werten
     std::uint64_t batches_measured                       = 0;    // Meta: # Timing-Batches (Warmup verworfen)
+    // P-MD3 (Coverage-Versöhnung, 2026-06-18): der kommensurable Nenner + benannte Rest des Pfad-B-Per-Achsen-Timings.
+    // seg_run_total_ns = äußere Wall-Clock des Segment-Mess-Laufs (fill_segment_timing_v3); seg_framework_ns =
+    // seg_run_total_ns − Σseg_ns[0..18] (NICHT-segmentierter Loop-/Instrumentierungs-Overhead). Damit gilt
+    // Σseg_ns + seg_framework_ns ≡ seg_run_total_ns → Coverage gegen die EIGENE Wall-Clock ~100% (Rest EXPLIZIT benannt),
+    // statt die irreführende sum(seg)/total_ns-Quote gegen die unkommensurable Real-Workload-Wall-Clock (war ~33,6%).
+    // REIN ADDITIV (hinten angehängt) → ABI-Layout aller bestehenden Felder/Slots unberührt.
+    std::int64_t  seg_framework_ns                       = 0;    // Meta: benannter Rest des Segment-Laufs
+    std::int64_t  seg_run_total_ns                       = 0;    // Meta: äußere Wall-Clock des Segment-Laufs (Coverage-Nenner)
 
     [[nodiscard]] constexpr bool operator==(ComdareTierObserverSnapshot const&) const noexcept = default;
 };
@@ -125,7 +134,7 @@ static_assert(std::is_trivially_copyable_v<ComdareTierObserverSnapshot>,
 
 /// Format-Version des konsolidierten Observer-POD (die Loader-Kompatibilität läuft über ABI-Major, s.
 /// anatomy_module_abi_v1_decl.hpp; diese Konstante dient der Diagnose/Tests).
-inline constexpr std::uint32_t kTierObserverSnapshotVersionUnified = 4;
+inline constexpr std::uint32_t kTierObserverSnapshotVersionUnified = 5;   // P-MD3: +seg_framework_ns/+seg_run_total_ns (additiv)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IObservableTier — die EINE ABI-stabile Observer-Schnittstelle (I1)

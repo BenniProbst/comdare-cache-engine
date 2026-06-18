@@ -99,9 +99,18 @@ public:
 /// · 11 value_handle · 12 isa · 13 index_organization · 14 io_dispatch · 15 migration_policy · 16 filter
 /// · 17 queuing_q1 · 18 queuing_q2. KEINE Achse n/a — jede treibt eine reale, strategie-abhängige Op.
 struct ComdareSegmentLatencyV2 {
-    std::int64_t  seg_ns[19] = {};   // Index T0..T18 == kCompositionAxisNames-Reihenfolge
+    std::int64_t  seg_ns[19] = {};   // Index T0..T18 == kCompositionAxisNames-Reihenfolge (ALGORITHMISCHE Organ-Zeit)
     std::int64_t  total_ns   = 0;    // Σ seg_ns[0..18] über alle gemessenen Batches (Konsistenz-Diagnose)
     std::uint64_t batches_measured = 0;  // wie viele Batches einflossen (Warmup verworfen)
+    // P-MD3 (Coverage-Versöhnung, 2026-06-18): die Attribution der Per-Achsen-Zeit braucht einen EIGENEN, kommensurablen
+    // Nenner. seg_run_total_ns = die GESAMTE Wall-Clock des gemessenen Batch-Laufs DIESES Timers (äußere steady_clock
+    // um die Nicht-Warmup-Batches). seg_framework_ns = seg_run_total_ns − Σseg_ns = der NICHT-segmentierte Rest (rng,
+    // Schleifen-/Branch-/Aufruf-Overhead ZWISCHEN den Segment-Timern) — der bisher UNSICHTBARE Rest, der die Coverage
+    // gegen total_ns (Real-Workload-Wall-Clock) auf ~33% drückte. Mit diesen 2 Feldern versöhnt sich die Per-Achsen-
+    // Attribution gegen IHRE EIGENE Wall-Clock: Σseg_ns + seg_framework_ns ≡ seg_run_total_ns (Coverage ~100% per
+    // Konstruktion, Rest EXPLIZIT benannt). REIN ADDITIV (hinten angehängt) → ABI-Layout der bestehenden Felder unberührt.
+    std::int64_t  seg_framework_ns  = 0;  // benannter Rest = seg_run_total_ns − Σseg_ns (Instrumentierungs-/Loop-Overhead)
+    std::int64_t  seg_run_total_ns  = 0;  // äußere Wall-Clock des Segment-Mess-Laufs (kommensurabler Nenner der Coverage)
 
     [[nodiscard]] constexpr bool operator==(ComdareSegmentLatencyV2 const&) const noexcept = default;
 };

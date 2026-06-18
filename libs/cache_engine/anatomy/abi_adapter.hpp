@@ -636,7 +636,11 @@ public:
 
             do_seg19();                                    // Warmup (verworfen)
             for (auto& a : acc) a = 0;
+            // P-MD3 (Coverage-Versöhnung, Pfad A analog Pfad B): äußere Wall-Clock um die gemessenen Batches → der
+            // kommensurable Nenner; seg_framework_ns = run_total − Σseg_ns (Loop-/Instrumentierungs-Rest).
+            clock::time_point const run_t0 = clock::now();
             for (std::uint64_t b = 0; b < batches; ++b) do_seg19();
+            clock::time_point const run_t1 = clock::now();
             alloc.deallocate(lbuf, kLbufBytes, 64);
 
             std::int64_t total = 0;
@@ -645,6 +649,9 @@ public:
             if (sink == ~0ull) out->seg_ns[0] ^= 1;
             out->total_ns         = total;
             out->batches_measured = batches;
+            std::int64_t const run_total = seg_ns(run_t0, run_t1);
+            out->seg_run_total_ns = run_total;
+            out->seg_framework_ns = (run_total > total) ? (run_total - total) : 0;
             return batches;
         } catch (...) {
             *out = ComdareSegmentLatencyV2{};
@@ -1243,13 +1250,25 @@ public:
 
             do_batch();                              // Warmup (verworfen)
             for (auto& a : acc) a = 0;
+            // P-MD3 (Coverage-Versöhnung): ÄUSSERE Wall-Clock um die gemessenen (Nicht-Warmup-)Batches. Sie erfasst
+            // ALLES — die 19 Segment-Timer UND den Rest dazwischen (rng, Schleifen-/Branch-/if-constexpr-Overhead,
+            // die Lücken zwischen aufeinanderfolgenden clock::now()-Paaren). seg_run_total_ns ist damit der
+            // KOMMENSURABLE Nenner für die Coverage des Segment-Laufs; seg_framework_ns der explizite, benannte Rest.
+            clock::time_point const run_t0 = clock::now();
             for (std::uint64_t b = 0; b < kBatches; ++b) do_batch();
+            clock::time_point const run_t1 = clock::now();
 
             std::int64_t total = 0;
             for (int i = 0; i < 19; ++i) { out->seg_ns[i] = acc[i]; total += acc[i]; }
             if (sink == ~0ull) out->seg_ns[0] ^= 1;   // sink-Schutz gegen Wegoptimierung (verfälscht total NICHT)
             out->total_ns         = total;
             out->batches_measured = kBatches;
+            // P-MD3: Σseg_ns + seg_framework_ns ≡ seg_run_total_ns. seg_framework_ns >= 0 by-construction (die äußere
+            // Wall-Clock umschließt alle inneren Segment-Spannen); ein theoretischer Mess-Jitter (innere Summe knapp
+            // über äußere) wird auf 0 geklemmt, damit der benannte Rest nie negativ in die Coverage geht.
+            std::int64_t const run_total = dns(run_t0, run_t1);
+            out->seg_run_total_ns = run_total;
+            out->seg_framework_ns = (run_total > total) ? (run_total - total) : 0;
 
             // Per-op-getriebene Zähler nach dem Timing zurücksetzen (memento-/observer-neutral; der Host zieht
             // V3 VOR V4, daher sind die Observer schon erhoben — aber ein defensiver Reset hält die Member sauber).
@@ -1284,6 +1303,9 @@ public:
         fill_segment_timing_v3(&seg);
         for (std::size_t t = 0; t < kV3AxisCount; ++t) out->seg_ns[t] = seg.seg_ns[t];
         out->batches_measured = seg.batches_measured;
+        // P-MD3: kommensurabler Coverage-Nenner + benannter Rest des Pfad-B-Segment-Laufs in den EINEN POD übertragen.
+        out->seg_framework_ns = seg.seg_framework_ns;
+        out->seg_run_total_ns = seg.seg_run_total_ns;
 #endif  // COMDARE_CE_ENABLE_STATISTICS
     }
 #endif  // COMDARE_MEASUREMENT_ON (tier_observe / observer_all)
