@@ -488,6 +488,22 @@ public:
             QueuingQ2  q2_local;                 // T18: should_flush/on_flush_complete
             using QElem = typename QueuingQ1::element_type;
 
+            // GAP #2 Re-Grounding (P5d-Rest, User-Plan dynamic-frolicking-truffle Step 3, 2026-06-18): das T7-Segment
+            // (Pfad-A, isolierte Achsen-Zeit seg_prefetch_ns) misst NICHT MEHR nur synthetisches lbuf-Prefetch, sondern
+            // den REALEN Descent-Prefetch auf einen lokalen LayoutAwareChunkedStore mit echten Records — STRATEGIE-DISTINKT
+            // via der bereits committeten PrefetchDescentPolicy<Prefetch> / observe_prefetch_descent (K9-Fix). Damit ist
+            // seg_prefetch_ns real + per-Strategie differenziert (none=0 _mm_prefetch / hardware/distance/path>0), genau
+            // wie der Pfad-B-Hot-Path (Z.1150 ff). Setup EINMAL (NICHT gemessen), gleicher Store-Typ wie container_:
+            // LayoutAwareChunkedStore<node_type, memory_layout, allocator> der Composition. Die anderen 18 Segmente
+            // bleiben UNVERAENDERT (rein additiv im T7). @related [[reference_thesis_core_contribution_axis_library]]
+            using PfStore = ::comdare::cache_engine::node::LayoutAwareChunkedStore<NodeType, MemLayout, Allocator>;
+            PfStore pf_store;                                            // T7: lokaler realer Store (echte Slot-Adressen)
+            constexpr std::size_t kPfSlots = 4096;                       // genug echte Records fuer Distance/Path-Voraus
+            for (std::size_t i = 0; i < kPfSlots; ++i)
+                pf_store.append_slot(static_cast<typename PfStore::key_type>(i * 2654435761ull + 1u),
+                                     static_cast<typename PfStore::value_type>(i * 7u + 1u));
+            ::comdare::cache_engine::prefetch_axis::ObservablePrefetch<Prefetch> pf_seg_organ{};  // T7-Mess-Organ
+
             std::mt19937_64 rng{seed};
             using clock = std::chrono::steady_clock;
             auto seg_ns = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
@@ -537,19 +553,27 @@ public:
                 for (std::size_t j = 0; j < kChurn; ++j) { void* p = alloc.allocate(churn_size(j), kAlign); *static_cast<unsigned char*>(p) = static_cast<unsigned char>(j); sink += *static_cast<unsigned char*>(p); blocks[j] = p; }
                 for (std::size_t j = 0; j < kChurn; ++j) alloc.deallocate(blocks[j], churn_size(j), kAlign);
                 t1 = clock::now(); acc[6] += seg_ns(t0, t1);
-                // T7 prefetch: aktiv (HW/PathOriented, is_active()==true) → SW-Prefetch-Hint-Loop über lbuf + Re-Scan;
-                // None (is_active()==false) → reiner Re-Scan OHNE Hints (echte, kleinere Latenz, ehrliche Baseline).
-                // is_active() ist eine static constexpr Eigenschaft → kein Prefetch-Instanz-Bedarf (CRTP-Base hat
-                // protected ctor; die Strategie ist eine statische Prefetch-API, kein zu konstruierendes Organ).
+                // T7 prefetch: GAP #2 Re-Grounding (P5d-Rest, 2026-06-18) — der isolierte Pfad-A-Achsen-Timer misst jetzt
+                // den REALEN Descent-Prefetch auf den lokalen pf_store (echte Slot-Adressen), STRATEGIE-DISTINKT via der
+                // committeten PrefetchDescentPolicy<Prefetch> / observe_prefetch_descent (identisch zum Pfad-B-Hot-Path):
+                //   • none      → 0 reale _mm_prefetch (0-Overhead-Baseline; kleinste Latenz, ehrlich).
+                //   • hardware  → 1 _mm_prefetch je Op auf den aktuellen realen Slot.
+                //   • distance  → 1 _mm_prefetch auf den realen Slot i+N voraus.
+                //   • path      → MEHRERE _mm_prefetch (Bundle entlang des Pfads).
+                // Damit ist seg_prefetch_ns REAL + per-Strategie differenziert statt synthetisches-lbuf-Prefetch. Der
+                // descent-Slot je Op ist eine echte (geklemmte) Position im realen Backing (kein OOB, descent_for_pf_).
+                // is_active() statisch → kein zusaetzlicher Instanz-Bedarf der Strategie selbst (pf_seg_organ haelt die Huelle).
                 t0 = clock::now();
-                if constexpr (Prefetch::is_active()) {
-#if defined(_M_X64) || defined(__x86_64__)
-                    for (std::size_t i = 0; i < kRecords; ++i) _mm_prefetch(reinterpret_cast<char const*>(lbuf + i * kRecordSize), _MM_HINT_T0);
-#else
-                    for (std::size_t i = 0; i < kRecords; ++i) { volatile unsigned char hint = lbuf[i * kRecordSize]; (void)hint; }
-#endif
+                {
+                    std::size_t const pf_n = pf_store.slot_count();
+                    if (pf_n != 0) {
+                        for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
+                            std::size_t const slot = static_cast<std::size_t>(rng()) % pf_n;   // echter, in-range Descent-Slot
+                            pf_seg_organ.observe_prefetch_descent(pf_store, slot);             // REALES _mm_prefetch (strat-distinkt)
+                        }
+                    }
                 }
-                sink += MemLayout::scan_field_sum(lbuf, kRecords, kRecordSize);   // Re-Scan (Prefetch-Hint-Wirkung)
+                sink += MemLayout::scan_field_sum(lbuf, kRecords, kRecordSize);   // Re-Scan (Prefetch-Hint-Wirkung auf den Layout-Scan)
                 t1 = clock::now(); acc[7] += seg_ns(t0, t1);
                 // T8 concurrency: acquire/release um eine Mini-Critical-Section N-fach (strategie-charakteristisches
                 // Sync-Primitiv: None=no-op, Blocking=mutex, LockFree=CAS, …). if-constexpr-detektiert (optionale Op).
@@ -1517,15 +1541,25 @@ public:
 #endif  // COMDARE_MEASUREMENT_ON (tier_save_all / tier_rollback_all / memento_all / tier_scan / tier_migrate_step)
 
 private:
-    // K9-Fix (User §4.4 / 2026-06-18): bestimmt den REAL beruehrten Descent-Slot-Index fuer `key` im container_-Store —
-    // die Position, die ein Lower-Bound-Descent (binaer auf sortiertem / linear auf unsortiertem Store) ansteuert.
-    // Liefert IMMER einen Index < slot_count() (auf slot_count()-1 geklemmt) ODER 0 bei leerem Store → die daraus
-    // abgeleitete slot_address() liegt garantiert im real allozierten Backing (kein OOB, echte Traversal-Adresse).
+    // K9-Fix (User §4.4 / 2026-06-18) + GAP #3 Exaktheits-Dokumentation (P5d-Rest, 2026-06-18):
+    // bestimmt den REAL beruehrten Descent-Slot-Index fuer `key` im container_-Store — die Position, die ein
+    // Lower-Bound-Descent ansteuert (gleiche Descent-Geometrie wie SortedBinaryTraversal::lower_bound_index).
+    //
+    // le_limitierung (DE): Die zurueckgegebene prefetch-Zieladresse ist IMMER real + liegt im Store-Backing
+    //   (Index < slot_count(), auf slot_count()-1 geklemmt; 0 bei leerem Store → kein OOB). Fuer SORTIERTE Stores
+    //   (SortedBinary-/order-erhaltende Traversierung) ist sie ORGAN-EXAKT die naechste beruehrte Descent-Position
+    //   (Binaer-Lower-Bound). Fuer UNSORTIERTE Stores (append-only/spread, lineare Traversierung) ist sie die naechste
+    //   GESCHAETZTE statt organ-exakte Descent-Position — real + in-range, aber nicht zwingend der exakte next-touch.
+    // restriction (EN): The returned prefetch target address is ALWAYS real + inside the store backing (index <
+    //   slot_count(), clamped to slot_count()-1; 0 for an empty store → no OOB). For SORTED stores it is the
+    //   ORGAN-EXACT next-touched descent position (binary lower bound); for UNSORTED stores (append-only/spread)
+    //   it is the next ESTIMATED (not organ-exact) descent position — real + in-range, yet not necessarily the
+    //   exact next touch.
     [[nodiscard]] std::size_t descent_slot_for_(std::uint64_t key) const noexcept {
         auto const& st = container_.store();
         std::size_t const n = st.slot_count();
         if (n == 0) return 0;
-        // Lower-Bound ueber die realen Store-Keys (gleiche Descent-Geometrie wie SortedBinaryTraversal::lower_bound_index).
+        // Lower-Bound ueber die realen Store-Keys. SORTIERT → exakte next-touch-Position; UNSORTIERT → in-range Schaetzung.
         std::size_t lo = 0, hi = n;
         while (lo < hi) { std::size_t const m = lo + (hi - lo) / 2; if (st.key_at(m) < key) lo = m + 1; else hi = m; }
         return (lo < n) ? lo : (n - 1);
