@@ -286,6 +286,10 @@ die zeigen: der aktuelle M3-Lauf beantwortet die Forschungsfragen FF0–FF4 **no
    memento-sicher, adversarial verifiziert; Commits s. Masterplan §1).
 2. **Audit-Restwellen:** **A1** (7 Mess-Validitäts-Befunde) **ERLEDIGT** · **K10** (11 Pattern-Integritäts-Befunde) — am Code-Ort
    terminalisieren, je GENAU EIN Weg (fixen ODER Etikett ehrlich entwerten mit grep-Beleg). Verschärft Meta-Lehre §2.5.4 #4.
+   **PMAJOR-04-PRÄZISIERUNG (User 2026-06-18, KEIN out-of-scope):** Release-zero-overhead (§2.5 K10) gilt über die GANZE Pflicht-
+   `std::map`+`std::vector`-Prüfdock-Schnittstelle — Observer-Kopplungen unter `#if COMDARE_MEASUREMENT_ON` auch in
+   **tier_clear/tier_erase/tier_scan** (+ alle weiteren Interface-Methoden), nicht nur insert/lookup; Doppel-Build OFF =
+   **Wall-Clock-Optimierung ohne Observer**, ON = Observer/Messung (Mess-Build identisch). Task **#166**; PMAJOR-04 erst dann terminal.
 3. **Neumessungs-Qualität (P-MD1…9):** CLU-Instrumentierung fixen (**P-MD1, BLOCKER** — zentrale Cache-Line-Metrik) · seg-Timing
    attributiv (**P-MD3**) · PRT-ART + ≥8 Rang-1-SOTA + Messreihen A/B/C (**P-MD6** — sonst ist **FF3 gar nicht adressiert**) ·
    SIMD/ISA + Allokator + ≥2 Plattformen (**P-MD5**) · Working-Set > LLC (**P-MD7**) · quiesziertes Experiment-OS + Quality-Flag +
