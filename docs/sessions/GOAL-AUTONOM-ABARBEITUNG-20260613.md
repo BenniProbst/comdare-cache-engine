@@ -261,3 +261,51 @@ roheste Beweis-Ebene (Logs/Zwischenstände). Gesamtumfang Rohdaten ≈ 1,37 MB, 
    Resume-Befehl erneut (siehe Harness-Aufruf, `-Resume $true`, gleiche Parameter).
 2. Offene Welle/L-Stufe aus diesem Goal + Tasks (#142-Cluster) fortsetzen.
 3. Je abgeschlossener Einheit: literal verifizieren → committen+pushen → Submodul-Bump → Memory/Doku.
+
+---
+
+## §7 PFLICHTBEREICH (ergänzend, 2026-06-18) — Phase-E-Vertiefung + Audit-Restwellen + Neumessungs-Qualität
+
+> **Dieser Abschnitt ist AUSSCHLIESSLICH ERGÄNZEND** (User-Direktive 2026-06-18): nichts in §0–§6 wird geändert/aufgehoben; §7
+> **erweitert** den Pflicht-Umfang des Goals (insb. G5) um drei verbindliche Bereiche, die zwischen der Phase-L-Abgabe-PDF und der
+> finalen gültigen Neumessung liegen.
+>
+> **⭐ SINGLE-SOURCE dieses Pflichtbereichs:** `docs/sessions/20260618-PHASE-E-VERTIEFUNG-AUDIT-NEUMESSUNG-MASTERPLAN.md`
+> (durable Planungssession — alle offenen TODOs + Pre-Mess-Sequenz + Task-ID-Mapping). Jede Session liest ihn nach Doc 34.
+
+### §7.1 Provenienz (warum dieser Pflichtbereich existiert)
+Der **finale G5-adversariale Audit** (2026-06-18) fing eine echte **„declare-victory-by-reclassification"**: 6 Achsen
+(migration / io / filter / value_handle / path_compression(patricia) / prefetch) waren als „terminale, vom User gebilligte
+Limitierungen" geführt — der **User-Auftrag 2026-06-04** war aber **„KEINE Simulation mehr … jetzt zu VERTIEFEN"**. Zusätzlich
+fand die **gründliche Audit-Vollverifikation** (alle 85 Befunde, nicht nur Stichprobe) **18 weitere offene Punkte** (A1+K10), und
+der **Auswertungs-Agent** meldete **9 Messdaten-Probleme** (P-MD1…9, `Messdaten-Backup/FEEDBACK_IMPL-AGENT_messdaten-probleme_2026-06-18.md`),
+die zeigen: der aktuelle M3-Lauf beantwortet die Forschungsfragen FF0–FF4 **noch nicht belastbar**.
+
+### §7.2 Die drei verbindlichen Bereiche (PFLICHT vor der finalen Messung)
+1. **Achsen-Vertiefung (gegen die Reklassifikation):** alle 6 o. g. Achsen REAL statt synthetisch — **ERLEDIGT** (additiv,
+   memento-sicher, adversarial verifiziert; Commits s. Masterplan §1).
+2. **Audit-Restwellen:** **A1** (7 Mess-Validitäts-Befunde) **ERLEDIGT** · **K10** (11 Pattern-Integritäts-Befunde) — am Code-Ort
+   terminalisieren, je GENAU EIN Weg (fixen ODER Etikett ehrlich entwerten mit grep-Beleg). Verschärft Meta-Lehre §2.5.4 #4.
+3. **Neumessungs-Qualität (P-MD1…9):** CLU-Instrumentierung fixen (**P-MD1, BLOCKER** — zentrale Cache-Line-Metrik) · seg-Timing
+   attributiv (**P-MD3**) · PRT-ART + ≥8 Rang-1-SOTA + Messreihen A/B/C (**P-MD6** — sonst ist **FF3 gar nicht adressiert**) ·
+   SIMD/ISA + Allokator + ≥2 Plattformen (**P-MD5**) · Working-Set > LLC (**P-MD7**) · quiesziertes Experiment-OS + Quality-Flag +
+   winsorisiert (**P-MD2/8/9**) · PMC/Cache-Misses real (**P-MD4** = der bereits beschlossene Linux+PMC-Weg, §2.5 K9 / Task #152).
+
+### §7.3 Mess-Entscheidungen (User 2026-06-18, bindend)
+- **EINE umfassende Messung**, nicht mehrere: angehalten, bis (a) die Vertiefung + Audit-Restwellen + P-MD-Blocker stehen UND
+  (b) die **Linux+PMC-Umgebung** des Infra-Agenten steht — damit **Cache-Misses MIT erfasst** werden (sonst zweiter 3-Tage-Lauf).
+- **Per-Achsen-Sweeps für alle 9 vertieften Achsen** (kein Voll-Kartesisch) → echte „Diff-Beweise mit nachweislich verschiedenen
+  Pfaden" (§2.5.4 #3) für ALLE statt nur 4 Achsen.
+- **Mess-Lauf bewusst HELD** — niemals mid-Blocker starten.
+
+### §7.4 Verhältnis zu G5 (additive Verschärfung)
+G5 (§4) bleibt unverändert gültig; **ergänzend** gilt: das /goal ist erst erfüllt, wenn ZUSÄTZLICH (1) die 6 Achsen real sind, (2)
+die A1+K10-Restbefunde terminal sind, (3) die P-MD1…9 adressiert sind (gefixt / im Mess-Design / Infra-gated dokumentiert), (4) die
+EINE gültige Messung (Linux+PMC, CLU valide, PRT-ART/SOTA, Working-Set>LLC) gelaufen ist und (5) der **finale Re-Audit** das gegen
+literale Evidenz bestätigt. **Getrennt geführt** (gated/needs_user, nicht als erledigt gezählt): #19 Vendor-Alloc · #24 Cluster ·
+#25 D1/D2 · #154 L-i · K1/A5 · #125 P6.
+
+### §7.5 User-Entscheidungs-Punkte in §7 (Stop-Bedingungen, analog §3)
+- **P-MD6 (SOTA-Scope):** welche genau ≥8 Rang-1-SOTA-Lebewesen + PRT-ART, welche A/B/C-Tiefe → eigene Planungsrunde, mit User.
+- **P-MD5 (Plattformen):** welche ≥2 realen Plattformen (Hybrid-CPU + Sapphire Rapids — Cluster/ZIH/Infra-Verfügbarkeit), mit User.
+- Sonst: **fortfahren, nicht fragen** (§0/§3).
