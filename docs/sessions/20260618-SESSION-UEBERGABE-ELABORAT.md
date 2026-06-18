@@ -13,10 +13,12 @@ Architektur" planen, sie wieder ausbauen, und ALLE gefundenen Lösungen auf die 
 separate Struktur als **Abstract-Factory-Implementierung der ANATOMIE** ausprägen — die die Achsen aus dem System (Registry/
 TopicConfigSet) zusammenführt und über **Metaprogrammierung den sezierten Gesamt-Algorithmus ORIGINAL wieder zusammennäht** (statt
 einer parallelen PilotAxes/m3v2-Konfig).
-- **STATUS:** Elaborate Planungssession LÄUFT als Workflow **`wuz2dbsnu`** (4 Ground-Linsen → Synthese-Plan mit Deviation-Map +
-  AbstractFactory-of-Anatomy-Design + per-Lösung-Anwendung + Schritte). **→ Result aus `tasks/wuz2dbsnu.output` (JSON `result.plan`)
-  in der Folge-Session ABHOLEN, durabel persistieren, dem User vorlegen, DANN umsetzen.** (Falls der Workflow nicht fertig wurde:
-  via `Workflow({scriptPath: workflows/scripts/plan-abstractfactory-anatomie-rueckbau-wf_f582122b-64d.js, resumeFromRunId: wf_f582122b-64d})`.)
+- **STATUS:** Planungssession FERTIG (Workflow `wuz2dbsnu`, 5 Agenten, code-verifiziert). **→ Ausführbarer Plan persistiert in
+  `docs/sessions/20260618-STRANG-A-ABSTRACTFACTORY-RUECKBAU-PLAN.md` (S0–S9 + Deviation-Map + Factory-Design + Risiken). VERDIKT:
+  Rückbau KLEIN/chirurgisch — die offizielle Abstract-Factory-Ausprägung der Anatomie EXISTIERT BEREITS vollständig (AdHocComposition<19>
+  + CompositionFromPermTuple + genus-Engine + pruefling_merge + composition_registry + adhoc_emitter); umgebaut wird NUR die dünne
+  Selektions-Schicht (~3 Dateien: lazy_pilot_engine.hpp / m3v2_select_profile.hpp / run_lazy_150.cpp), die zum Konsumenten der EINEN
+  Factory wird. Gate-frei vor dem HELD-Voll-Lauf. Folge-Session: Plan-Doc lesen → S0–S9 umsetzen.**
 - **MEINE VORLÄUFIGE EINSCHÄTZUNG (vom Plan zu verifizieren):** Der Rückbau ist VORAUSSICHTLICH FOKUSSIERT, nicht wholesale. Die
   6 Achsen-Vertiefungen (migration/io/filter/value_handle/patricia/prefetch), Phase-2-5-Layouts, seg-Coverage, CLU haben die
   OFFIZIELLEN Strukturen verändert (die offiziellen Achsen-Organe via `ce::*::TopicConfigSet`, `abi_adapter.hpp`, `LayoutAware
