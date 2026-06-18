@@ -682,8 +682,12 @@ public:
         // prefetch-Achse reiht sie in die Pfad-Trajektorie ein (PathOriented treibt echten Tracker; None/Hardware
         // = 0-Baseline) inkl. Hot-Path-Hint aus den rohen key-Bytes; die concurrency-Achse exerziert ein echtes
         // Sync-Primitiv-Paar (acquire→release; strategie-distinkt: None=no-op, Blocking=mutex, LockFree=CAS, …).
-        pf_organ_.observe_prefetch(key, reinterpret_cast<std::byte const*>(&key), sizeof(key));
         cc_organ_.observe_critical_section();
+        // K9-Fix (User §4.4 / 2026-06-18): T7 prefetch REAL — ein insert hat den (key,value) real in container_
+        // gelegt; die prefetch-Achse setzt strategie-distinkt `_mm_prefetch` auf die TATSAECHLICHEN Slot-Adressen
+        // des Stores ab (NICHT key-als-Adresse). descent_slot = die Lower-Bound-Position des Keys im real
+        // allozierten Store-Backing → echte Traversal-Adresse, kein OOB (descent_slot_for_ klemmt auf slot_count()).
+        if (container_.store().slot_count() != 0) pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(key));
         // Phase B Abschluss T3 (Pfad B): ein insert ordnet den Schlüssel in den Trie ein → die path_compression-Achse
         // misst die gemeinsame Byte-Prefix-Länge / cut() am ECHTEN ByteWiseKeyPrefix-Organ (PathCompressionNone =
         // ehrliche niedrige Kompressions-Aktivität, Patricia/ByteWise höher). depth=0 = Trie-Wurzel-Abstieg.
@@ -730,11 +734,19 @@ public:
         if constexpr (requires { queuing_q1_organ_.get(); }) {
             (void)queuing_q1_organ_.get();
         }
-        // Phase B Auto-Kopplung T7/T8 (Pfad B): ein lookup folgt einem Such-Pfad → prefetch reiht die Adresse
-        // (key) ein (PathOriented treibt den echten Tracker, suggest_next erzeugt die Next-Empfehlung); concurrency
-        // exerziert das echte Sync-Primitiv-Paar. pf_organ_/cc_organ_ mutable (Tracking im const lookup nicht-const).
-        pf_organ_.observe_prefetch(key, reinterpret_cast<std::byte const*>(&key), sizeof(key));
+        // Phase B Auto-Kopplung T8 (Pfad B): ein lookup exerziert das echte Sync-Primitiv-Paar. cc_organ_ mutable.
         cc_organ_.observe_critical_section();
+        // K9-Fix (User §4.4 / 2026-06-18): T7 prefetch REAL — der lookup folgt einem Such-Descent über das ECHTE
+        // container_-Slot-Backing; die prefetch-Achse setzt strategie-distinkt `_mm_prefetch` auf die TATSAECHLICHEN
+        // Slot-Adressen ab (NICHT mehr key-als-Adresse). `descent_slot` = der real beruehrte Slot des Descents
+        // (Lower-Bound-Position des Keys im store, geklemmt auf slot_count()) → echte Traversal-Adresse, kein OOB.
+        if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
+            pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(key));
+        } else {
+            // Weg-B (Trie/Pool, search_organ_ = Such-Speicher): container_ traegt die Storage-Achsen-Records → die
+            // realen Slot-Adressen liegen dort. Existiert mind. ein realer Slot, prefetcht der Descent dessen Backing.
+            if (container_.store().slot_count() != 0) pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(key));
+        }
         // Phase B Abschluss T3 (Pfad B): ein lookup folgt einem komprimierten Trie-Pfad → die path_compression-Achse
         // misst die gemeinsame Byte-Prefix-Länge des gesuchten Schlüssels am ECHTEN ByteWiseKeyPrefix-Organ. pc_organ_
         // mutable (Tracking im const lookup nicht-const). depth=0 = Trie-Wurzel.
@@ -903,14 +915,18 @@ public:
             r[3] = a.deallocation_count;    r[4] = a.failure_count;
             ++filled;
         }
-        // ── T7 prefetch (Phase B neu, AUTO-gekoppelt via tier_insert/lookup observe_prefetch) ─────────────
-        //    ObservablePrefetch-Hülle (pf_organ_) IMMER ObservableAxis → das Schema-Slot ist befüllt; bei
-        //    None/Hardware-Strategie bleiben die Tracker-Zähler 0 (ehrliche Baseline), bei PathOriented >0.
+        // ── T7 prefetch (K9-Fix, User §4.4 / 2026-06-18: REALER _mm_prefetch auf Store-Adressen) ──────────
+        //    ObservablePrefetch-Hülle (pf_organ_) IMMER ObservableAxis → das Schema-Slot ist befüllt. Die
+        //    Spalten r[0]/r[5..7] tragen jetzt die REALE Prefetch-Telemetrie (kein Schluessel-als-Adresse mehr):
+        //    None bleibt 0 (0-Overhead-Baseline), Hardware/Distance setzen 1 _mm_prefetch je Descent (distinkte
+        //    last_distance: HW=0, Distance=N), PathOriented mehrere (Bundle). r[1..4] = die alten Tracker-Felder
+        //    (jetzt 0, da PathOriented nicht mehr enqueue-getrieben wird → ehrlich, kein Phantom).
         if constexpr (ObservableAxis<decltype(pf_organ_)>) {
             auto const pf = pf_organ_.statistics();
             auto* r = s.axis_stats[7];
-            r[0] = pf.trigger_count;   r[1] = pf.suggestions_made;         r[2] = pf.hot_path_hints;
-            r[3] = pf.max_queue_depth; r[4] = pf.total_addresses_enqueued;
+            r[0] = pf.trigger_count;          r[1] = pf.suggestions_made;     r[2] = pf.hot_path_hints;
+            r[3] = pf.max_queue_depth;        r[4] = pf.total_addresses_enqueued;
+            r[5] = pf.real_prefetches_issued; r[6] = pf.last_prefetch_distance; r[7] = pf.last_real_address;
             ++filled;
         }
         // ── T8 concurrency (Phase B neu, AUTO-gekoppelt via tier_insert/lookup observe_critical_section) ──
@@ -1131,10 +1147,13 @@ public:
                 t0 = clock::now();
                 if constexpr (container_t::template store_has_allocator_stats<typename container_t::store_type>) { auto a = container_.store_allocator_statistics(); sink += a.total_bytes_in_use; }
                 t1 = clock::now(); acc[6] += dns(t0, t1);
-                // T7 prefetch: echte observe_prefetch über die real gespeicherten Keys.
+                // T7 prefetch: K9-Fix (User §4.4 / 2026-06-18) — REALER _mm_prefetch auf die TATSAECHLICHEN Slot-
+                // Adressen des Stores (strategie-distinkt via PrefetchDescentPolicy), NICHT mehr key-als-Adresse.
+                // descent_slot_for_(k) = der real beruehrte Slot je Op → reale Traversal-Adresse, kein OOB.
                 t0 = clock::now();
-                if constexpr (requires { pf_organ_.observe_prefetch(std::uint64_t{}, (std::byte const*)nullptr, std::size_t{}); }) {
-                    for (std::uint64_t i = 0; i < n_ops; ++i) { K k = static_cast<K>(keys[i % nk]); pf_organ_.observe_prefetch(static_cast<std::uint64_t>(k), reinterpret_cast<std::byte const*>(&k), sizeof(k)); }
+                if constexpr (requires { pf_organ_.observe_prefetch_descent(container_.store(), std::size_t{}); }) {
+                    if (container_.store().slot_count() != 0)
+                        for (std::uint64_t i = 0; i < n_ops; ++i) { K k = static_cast<K>(keys[i % nk]); pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(static_cast<std::uint64_t>(k))); }
                 }
                 t1 = clock::now(); acc[7] += dns(t0, t1);
                 // T8 concurrency: echtes Sync-Primitiv-Paar (observe_critical_section).
@@ -1498,6 +1517,20 @@ public:
 #endif  // COMDARE_MEASUREMENT_ON (tier_save_all / tier_rollback_all / memento_all / tier_scan / tier_migrate_step)
 
 private:
+    // K9-Fix (User §4.4 / 2026-06-18): bestimmt den REAL beruehrten Descent-Slot-Index fuer `key` im container_-Store —
+    // die Position, die ein Lower-Bound-Descent (binaer auf sortiertem / linear auf unsortiertem Store) ansteuert.
+    // Liefert IMMER einen Index < slot_count() (auf slot_count()-1 geklemmt) ODER 0 bei leerem Store → die daraus
+    // abgeleitete slot_address() liegt garantiert im real allozierten Backing (kein OOB, echte Traversal-Adresse).
+    [[nodiscard]] std::size_t descent_slot_for_(std::uint64_t key) const noexcept {
+        auto const& st = container_.store();
+        std::size_t const n = st.slot_count();
+        if (n == 0) return 0;
+        // Lower-Bound ueber die realen Store-Keys (gleiche Descent-Geometrie wie SortedBinaryTraversal::lower_bound_index).
+        std::size_t lo = 0, hi = n;
+        while (lo < hi) { std::size_t const m = lo + (hi - lo) / 2; if (st.key_at(m) < key) lo = m + 1; else hi = m; }
+        return (lo < n) ? lo : (n - 1);
+    }
+
     using Composition = typename A::composition_t;
     using SearchAlgo  = typename Composition::search_algo;
     // allocator-messender Container (spiegelt builder/AnatomyExecutionContext): ComposedStore<N,L,A> über

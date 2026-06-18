@@ -24,6 +24,7 @@
 // @related [[feedback_zwei_dimensionen_messmodell]] [[reference_axis_gold_standard_checklist]]
 
 #include "concepts/axis_07_prefetch_concept.hpp"
+#include "axis_07_prefetch_real_descent.hpp"   // K9-Fix: REALER _mm_prefetch auf Store-Slot-Adressen (PrefetchDescentPolicy)
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -39,6 +40,11 @@ struct PrefetchStatistics {
     std::uint64_t hot_path_hints            = 0;  ///< V11.1 Hot-Path-Hints aus rohen Schlüssel-Bytes (Tracker-real)
     std::uint64_t max_queue_depth           = 0;  ///< Höchststand der Pfad-Trajektorien-Tiefe (Tracker-real)
     std::uint64_t total_addresses_enqueued  = 0;  ///< gesamt eingereihte Pfad-Adressen (Tracker total_enqueued())
+    // K9-Fix (User §4.4 / 2026-06-18): REALE _mm_prefetch-Telemetrie auf TATSAECHLICHE Store-Adressen (kein
+    // Schluessel-als-Adresse mehr). Jeder Zaehler folgt einer echten PrefetchDescentPolicy<Strategy>::drive-Op.
+    std::uint64_t real_prefetches_issued    = 0;  ///< Summe real abgesetzter _mm_prefetch-Instruktionen (None=0)
+    std::uint64_t last_real_address         = 0;  ///< letzte REAL geprefetchte Slot-Adresse (uint64 des Pointers, Store-Backing)
+    std::uint64_t last_prefetch_distance    = 0;  ///< zuletzt genutzte Voraus-Distanz in Slots (HW=0/Distance=N/Path=Bundle)
 
     [[nodiscard]] bool operator==(PrefetchStatistics const&) const noexcept = default;
 };
@@ -113,6 +119,24 @@ public:
         }
 #else
         (void)addr; (void)raw_bytes; (void)n;
+#endif
+    }
+
+    /// K9-Fix (User §4.4 / 2026-06-18) — der ECHTE hot-path Descent-Prefetch-Treiber: setzt REALE `_mm_prefetch`
+    /// auf die TATSAECHLICHEN Slot-Adressen des Stores ab (NICHT Schluessel-als-Adresse), strategie-distinkt via
+    /// PrefetchDescentPolicy<Strategy> (None=0, Hardware=aktueller Slot, Distance=i+N voraus, Path=Bundle). `i` =
+    /// der gerade beruehrte Slot-Index aus der echten Traversierung. Die _mm_prefetch-Instruktion wird IMMER
+    /// abgesetzt (mikroarch-Effekt, auch im /O2-Mess-Build); die Telemetrie-Zaehler nur unter Statistik gepflegt.
+    template <class Store>
+    void observe_prefetch_descent(Store const& store, std::size_t i) noexcept {
+        auto const res = PrefetchDescentPolicy<Strategy>::drive(store, i);   // REALE _mm_prefetch auf Store-Adressen
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        stats_.real_prefetches_issued += res.prefetches_issued;
+        if (res.last_address != nullptr) stats_.last_real_address = reinterpret_cast<std::uintptr_t>(res.last_address);
+        stats_.last_prefetch_distance = res.last_distance;
+        if (res.prefetches_issued != 0) ++stats_.trigger_count;   // ein realer Descent-Trigger (auch None bleibt 0)
+#else
+        (void)res;
 #endif
     }
 
