@@ -821,6 +821,13 @@ public:
         // P4 (#123): die kalte 2. Ebene mit-leeren — nach tier_clear ist der GANZE Tier-Zustand (heiss + kalt) frisch
         // (sonst akkumulierten migrierte Records ueber Mess-Profile hinweg). Fuer None nie befuellt → no-op-aequivalent.
         container_tier1_.clear();
+#if COMDARE_MEASUREMENT_ON
+        // ── K10-PMAJOR-04 (#166, 2026-06-18): ALLE Observer-feeding Auto-Kopplungen NUR im Mess-Build ───────────
+        // Symmetrisch zu tier_insert/tier_lookup. Der DATEN-Pfad oben (search_organ_/container_/container_tier1_)
+        // bleibt unkonditional; ALLES darunter leert/resettet AUSSCHLIESSLICH die Observer-Organe (flt/vh/pc-DATEN
+        // + search/ct/map/q1/q2/telemetry/pf/cc-STATISTIK), die in der funktional-only-DLL (Messung-AUS) NIE befuellt
+        // werden (ihre Treib-Kopplungen in tier_insert/lookup sind selbst #if-gegated). Mess-Build identisch (kein
+        // M3-Effekt: derselbe Code lief vorher, nur jetzt explizit gegated — Observer-Felder pro Messung weiterhin frisch).
         // P5 (#124, R1): den REALEN Filter mit-leeren — symmetrisch zum Daten-clear (sonst truege der Filter Keys
         // ueber Mess-Profile hinweg → Membership-Inkonsistenz). if-constexpr: None-artige ohne clear() = no-op.
         if constexpr (requires { flt_organ_.clear_filter(); }) flt_organ_.clear_filter();
@@ -868,6 +875,7 @@ public:
         // Phase B Abschluss: T3-Mess-Organ zurücksetzen (die scan-Achsen T13/T14/T15/T16 sind idempotent — sie
         // reset()+scan je fill_observer_v3-Aufruf, brauchen hier kein Clear). Sauberer Vor-Zustand.
         if constexpr (requires { pc_organ_.reset(); })          pc_organ_.reset();
+#endif  // COMDARE_MEASUREMENT_ON (#166 K10-PMAJOR-04: Observer-feeding Auto-Kopplungen tier_clear)
     }
 
     [[nodiscard]] std::uint64_t tier_size() const noexcept override {

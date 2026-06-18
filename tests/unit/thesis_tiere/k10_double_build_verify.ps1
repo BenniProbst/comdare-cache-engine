@@ -1,9 +1,12 @@
-# K10-PMAJOR-04 Doppel-Build-Verifikation (2026-06-18) — terminalisiert befund (2):
-#   Die Observer-feeding Auto-Kopplungen in abi_adapter.hpp::tier_insert/tier_lookup sind jetzt unter
-#   #if COMDARE_MEASUREMENT_ON geklammert. Diese Skript verifiziert LITERAL:
+# K10-PMAJOR-04 Doppel-Build-Verifikation (2026-06-18) — terminalisiert befund (2) + #166-Vollendung:
+#   Die Observer-feeding Auto-Kopplungen in abi_adapter.hpp sind jetzt ueber die GANZE IDriveableTier-
+#   Pruefdock-Schnittstelle (tier_insert/tier_lookup/tier_erase/tier_clear/tier_size) unter
+#   #if COMDARE_MEASUREMENT_ON geklammert (tier_clear war der verbliebene #166-Punkt). Diese Skript
+#   verifiziert LITERAL ueber die GANZE Methoden-Menge:
 #     (A) MEASUREMENT_ON  → die 4 Mess-Pfad-/Vertiefungs-Tests bauen + laufen grün (Mess-Build UNVERAENDERT).
-#     (B) MEASUREMENT_OFF → eine funktional-only-TU baut + die Kopplungs-Symbole sind im Objekt NICHT mehr
-#                            referenziert (Kopplungen compile-time entfernt).
+#     (B) MEASUREMENT_OFF → eine funktional-only-TU, die ALLE 5 IDriveableTier-Methoden ruft, baut + die
+#                            Kopplungs-Symbole (insert/lookup + tier_clear: clear_filter/clear_slots/clear_trie)
+#                            sind im Objekt NICHT mehr referenziert (Kopplungen compile-time entfernt).
 # Modell: build_node_delegation_proof.ps1 (gleicher Include-Satz, ad-hoc cl.exe).
 param([double]$MinFreeGB = 1.5)
 $ErrorActionPreference = "Stop"
@@ -73,9 +76,11 @@ Write-Host "================= (B) MEASUREMENT_OFF: funktional-only-TU + Kopplung
 # Eine kleine TU, die den ABI-Adapter ueber eine reale Komposition instanziiert + tier_insert/tier_lookup ruft.
 $probe = Join-Path $tmp "k10_release_probe.cpp"
 Set-Content -Path $probe -Encoding ASCII -Value @'
-// K10-PMAJOR-04 funktional-only-Probe: instanziiert den ABI-Adapter OHNE COMDARE_MEASUREMENT_ON.
+// K10-PMAJOR-04 / #166 funktional-only-Probe: instanziiert den ABI-Adapter OHNE COMDARE_MEASUREMENT_ON
+// und ruft ALLE 5 IDriveableTier-Pruefdock-Methoden (tier_insert/tier_lookup/tier_erase/tier_clear/tier_size).
 // Muss kompilieren; die Observer-feeding Kopplungen (register_entry/register_slot/observe_critical_section/
-// observe_prefetch_descent/compress/record_node_touch) duerfen NICHT mehr referenziert sein.
+// observe_prefetch_descent/compress/record_node_touch + tier_clear: clear_filter/clear_slots/clear_trie)
+// duerfen NICHT mehr referenziert sein.
 #include <anatomy/abi_adapter.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
@@ -89,7 +94,9 @@ extern "C" int k10_probe_main() {
     bool ok = tier.tier_insert(42u, 4242u);
     std::uint64_t v = 0;
     ok = tier.tier_lookup(42u, &v) && ok;
-    tier.tier_clear();
+    ok = (tier.tier_size() >= 1u) && ok;        // #166: tier_size (Daten-Pfad, immer da)
+    ok = tier.tier_erase(42u) && ok;            // #166: tier_erase (CoW-#if + Daten-erase)
+    tier.tier_clear();                          // #166: tier_clear (jetzt vollstaendig #if-geklammert)
     return ok ? static_cast<int>(v & 1u) : 7;
 }
 '@
@@ -104,7 +111,8 @@ Write-Host "funktional-only TU kompiliert: OK"
 $vswhereDump = Join-Path (& $vswhere -latest -property installationPath) "VC\Tools\MSVC"
 $dumpbinDir = Get-ChildItem $vswhereDump -Directory | Sort-Object Name -Descending | Select-Object -First 1
 $dumpbin = Join-Path $dumpbinDir.FullName "bin\Hostx64\x64\dumpbin.exe"
-$coupSyms = @("register_entry", "register_slot", "observe_critical_section", "observe_prefetch_descent", "record_node_touch")
+# #166: insert/lookup-Kopplungen + tier_clear-spezifische Observer-Organ-Clear/Reset-Kopplungen.
+$coupSyms = @("register_entry", "register_slot", "observe_critical_section", "observe_prefetch_descent", "record_node_touch", "clear_filter", "clear_slots", "clear_trie")
 $batD = Join-Path $tmp "dump.bat"
 $dumpOut = Join-Path $out "k10_release_probe.symbols.txt"
 Set-Content -Path $batD -Value @("@echo off", "call `"$vcvars`" >nul 2>&1", "`"$dumpbin`" /SYMBOLS `"$obj`"") -Encoding ASCII
