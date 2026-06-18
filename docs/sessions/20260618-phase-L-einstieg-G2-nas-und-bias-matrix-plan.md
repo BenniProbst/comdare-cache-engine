@@ -235,6 +235,21 @@ Zahlen entstehen primär auf Linux (Infra-Agent, CE-DL2/DL3), Windows-PCM als zw
   0 Fehler/Warnings** · longtable 10/10 balanciert · 0 absolute Pfade · de==en symmetrisch (Labels `tab:ld:exchange:*`, `tab:le:limitierung`).
 - **Overleaf-Push:** vom User **freigegeben** (2026-06-18) → erfolgt als kohärentes Update nach L-f.
 
+## L-f ✅ ERLEDIGT (2026-06-18) — bilinguale Abgabe-PDF mit Mess-Appendix → **G1/G3 ERREICHT**
+
+- **Integration (`thesis/diplomarbeit/anhang/{de,en}/A_measurements.tex`):** je 4 `\section` + 16 `\input` symmetrisch
+  (Bias-Matrix + 6 Surfaces + 4 Austauschbarkeits-longtables + Limitierung), identische `\label`. `diplomarbeit.tex`:
+  `\usepgfplotslibrary{colormaps}` ergänzt (pgfplots/compat schon da). `zihpub.cls` UNANGETASTET.
+- **`build_all.ps1`** (neu): EIN Kommando → `build.ps1 -Lang de` + `-Lang en`. **Beide PDFs bauen in 103 s:
+  diplomarbeit-de.pdf (132 S.) + -en.pdf (128 S.), 0 undefined refs / 0 fatal.** `\ref`-Auflösung A.3–A.8.
+- **2 Generator-Bugs DAUERHAFT gefixt (Reproduzierbarkeit G3):** (1) `diagram_generator.cpp` `write_heatmap` → `mesh/cols=<nx>`
+  in `\addplot3[matrix plot*]` (sonst pgfplots „matrix input=image unsupported"); (2) Bias-Matrix-Caption ASCII statt rohem
+  `×`-Latin-1-Byte (UTF-8-Fehler). Tabellen NEU generiert (6/6 Surfaces mit mesh/cols, 0 0xD7-Byte) → bauen out-of-the-box.
+- **Overleaf-Push:** vom User freigegeben (2026-06-18) → erfolgt.
+
+**PHASE-L-GESAMTSTAND: L-a…L-f ✅ erledigt.** Verbleibend: L-h-Umsetzung (WindowsPcmPmcSource #153 + Linux via Infra-Agent)
+für die realen Cache-Miss-Zahlen (aktuell ehrlich als Kern-Limitierung ausgewiesen). G2/G4 ✅. **G5 finaler Audit** ausstehend.
+
 ## 3. Pflicht-Lese-Reihenfolge für die Phase-L-Umsetzungs-Session (frischer Kontext)
 
 1. `docs/architecture/34_KONSOLIDIERTER_MASTER_IST_STAND.md` — §F15-Pipeline + Mess-Modell + Bias-Matrix.
