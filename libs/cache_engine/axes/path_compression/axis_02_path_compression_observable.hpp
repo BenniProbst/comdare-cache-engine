@@ -35,7 +35,9 @@
 // compression_ratio() werden als Drop-in fuer den seg19-Timer (abi_adapter do_seg19:490) durchgereicht.
 
 #include "axis_02_path_compression_byte_wise.hpp"   // ByteWiseKeyPrefix (das echte Prefix-Organ)
+#include "axis_02_path_compression_real_trie.hpp"   // §4.3: MATERIALISIERTER Patricia-Trie (additiv, none = leer/No-Op)
 #include "concepts/axis_02_path_compression_concept.hpp"
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -100,6 +102,45 @@ public:
         return S::key_split_bit(key, depth);
     }
 
+    // ── §4.3 (User 2026-06-04) — MATERIALISIERTER Patricia-Trie + ECHTER Descent (additiv, none = leer/No-Op) ──────
+    // Die Huelle haelt die ECHTE Trie-Struktur-Instanz (real_trie_), compile-zeit-selektiert je Strategie
+    // (axis_02_path_compression_real_trie.hpp): Patricia (traegt static key_split_bit) → PatriciaTrie (echter
+    // Single-Bit-Split-Descent); none (+ ByteWise, das sein eigenes Byte-Prefix-Organ traegt) → EmptyPatriciaTrie
+    // (leer, 0 Footprint). insert_key/descend/clear_trie existieren NUR, wenn die Strategie real ist (EmptyPatriciaTrie
+    // traegt KEIN insert_key → der abi_adapter-Build-Hook greift nicht → `none` bleibt EXAKT No-Op + messneutral,
+    // Leitplanke 1). EXAKT analog axis_14_value_handle_real_slot (§4.3) real_slot_/store_value/deref_value.
+
+    using real_trie_type = real_trie_t<Strategy>;
+
+    /// Build (Setup, NICHT gemessen): den Schluessel inkrementell in den materialisierten Patricia-Trie einordnen
+    /// (crit-bit-Trie-Insert, Set-Semantik). Existiert NUR fuer Patricia (EmptyPatriciaTrie ohne insert_key →
+    /// `none`-Build-Hook greift nicht → M3-Pin bleibt EXAKT No-Op).
+    void insert_key(std::uint64_t key) noexcept
+        requires requires (real_trie_type t) { t.insert_key(key); }
+    { real_trie_.insert_key(key); }
+
+    /// ECHTER bit-weiser Descent gegen den materialisierten Trie: ab Wurzel je innerem Knoten das crit_bit lesen →
+    /// left/right → bis Blatt, am Blatt voller Schluesselvergleich. Liefert true gdw. der Key real im Trie steht.
+    /// Existiert NUR fuer Patricia (none traegt KEINEN Trie → kein Descent-Organ noetig).
+    [[nodiscard]] bool descend(std::uint64_t key) const noexcept
+        requires requires (real_trie_type const ct) { { ct.descend(key) } -> std::convertible_to<bool>; }
+    { return real_trie_.descend(key); }
+
+    /// Leert den materialisierten Trie (Memento/tier_clear-Symmetrie). NUR fuer Patricia (EmptyPatriciaTrie::clear
+    /// ist no-op, traegt aber clear() → der requires greift; `none` bleibt 0-Footprint).
+    void clear_trie() noexcept
+        requires requires (real_trie_type t) { t.clear(); }
+    { real_trie_.clear(); }
+
+    /// Lesezugriff auf den materialisierten Trie (Test-Verifikation + Diagnose: node_count/key_count/last_descent_depth).
+    [[nodiscard]] real_trie_type const& real_trie() const noexcept { return real_trie_; }
+    [[nodiscard]] real_trie_type&       real_trie()       noexcept { return real_trie_; }
+
+    /// Bit-exakter Vergleich des MATERIALISIERTEN Trie (Memento-Verifikation, §4.3, analog ObservableValueHandle).
+    /// Vergleicht NUR die persistente Trie-Struktur (real_trie_), NICHT die diagnostischen Stats — der Memento-
+    /// Vertrag betrifft das Trie-Backing.
+    [[nodiscard]] bool operator==(ObservablePathCompression const& o) const noexcept { return real_trie_ == o.real_trie_; }
+
     /// Mess-Kopplung (der eigentliche „Driver", Instanz): treibt das ECHTE ByteWiseKeyPrefix-Organ. Der
     /// Observer-Treiber (abi_adapter fill_observer_v3, Pfad B) ruft dies je registriertem Schluessel. `depth` =
     /// aktuelle Trie-Tiefe (Byte-Position), modelliert die Descent-Position. Liefert die gemessene gemeinsame
@@ -145,6 +186,14 @@ public:
 private:
     snapshot_t stats_{};
 #endif
+
+private:
+    // ── §4.3 — MATERIALISIERTER Patricia-Trie-Instanz (IMMER vorhanden, auch ohne Statistics-Define) ─────────────
+    // Traegt den echten Single-Bit-Split-Trie (Patricia) bzw. EmptyPatriciaTrie (none/ByteWise, leer, 0 Footprint).
+    // std::vector-basiert (Patricia) bzw. leer → copy-constructible + copy-assignable + operator== → Observable-
+    // PathCompression kopierbar/vergleichbar → fuer den symmetrischen Memento (saved_pc_ in tier_save_all/
+    // tier_rollback_all) snapshot-faehig (R1, Leitplanke 3). Default-konstruiert = leer (none-aequivalente Baseline).
+    real_trie_type real_trie_{};
 };
 
 }  // namespace comdare::cache_engine::path_compression
