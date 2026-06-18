@@ -1,5 +1,5 @@
 # L-LAZY-E2E (gate-frei, lokal) — Harness für den LAZY Ende-zu-Ende-Treiber (run_lazy_static_then_dynamic):
-#   erst STATISCHE Kompilierung der Tier-Binary-DLLs (FullPilot = 320 reale SA-Kompositionen ≥150), dann je DLL
+#   erst STATISCHE Kompilierung der Tier-Binary-DLLs (PROFIL-getrieben = 320 reale SA-Kompositionen ≥150), dann je DLL
 #   geladen + DYNAMISCHE Variablen-Variation (thread_count × prefetch_distance) auf der geladenen Binary, messen
 #   (Observer real), ingest in den Experiment-B+-Baum → eine Mess-Zeile je (Binary × dyn-Setting).
 #
@@ -32,18 +32,11 @@ param(
     # /Build-Reihen). Default win-x86_64 / m3v2; der Infra-Agent setzt -Platform je ZIH-Plattform-Reihe.
     [string]$Platform = "win-x86_64",
     [string]$M3BuildVersionTag = "m3v2",
-    # Selektions-Modus. (Audit K9 / Index-Selektion-ENTKONFUNDIERT, 2026-06-13): DEFAULT = "search_algo_grid", weil der
-    # F15-KERN-Vergleich (Suchalgorithmen auf der EINEN std::map-Schnittstelle, Thesis-Kernbeitrag) NUR die search_algo-
-    # Ebene variieren darf und ALLE übrigen Achsen FIX halten muss — sonst ist die per-search_algo-Mess-Zeile durch die
-    # mitvariierenden Nicht-search-Achsen KONFUNDIERT (= der Audit-Befund). "index" (rückwärtskompatibel — erste N Blätter,
-    # search_algo konstant) bleibt explizit wählbar für die ergänzende Nicht-search-Achsen-Differenzierung (analog
-    # tier150_axis_grid). Die zweite Facette „Index-Selektion-konfundiert" (search-organ↔store-Entkopplung, Befund 2) ist
-    # in der E-Welle-A2 (A2.5) separat behoben.
-    # M3v2-SELEKTION (Task #156): die ValidateSet ist entfernt, weil die Sweep-/SOTA-Modi PARAMETRISCH sind
-    # ("axis_sweep:<achse>" / "sota:<A|B|C>"). Gültige Werte: index (=BASIS-320 voll-faktoriell) | search_algo_grid
-    # (F15-Grid) | basis (Alias zu index) | axis_sweep:<search_algo|node_type|memory_layout|prefetch|path_compression>
-    # | sota:<A|B|C>. Default index = die BASIS-320-Selektion (Design-Spec §3a).
-    [string]$SelectMode = "index",
+    # STRANG A Inc4/S5 (2026-06-18): PROFIL-GETRIEBEN. Der Treiber baut Baum + Selektion AUS DEM PROFIL
+    # (parse_thesis_profile -> build_axis_levels -> profile_select). -Profile = der Profil-Pfad; -SweepAxis = ein im
+    # Profil als <axis_sweep> DEKLARIERTER Per-Achsen-Sweep (leer = Basis-Selektion). argv[10] = "profile:<pfad>[@<achse>]".
+    [string]$Profile = "",                    # leer -> <repo>\libs\cache_engine\algorithm_profiles\thesis_profiles\m3v2_study.profile.xml
+    [string]$SweepAxis = "",                  # leer = Basis-Selektion; sonst search_algo|node_type|memory_layout|prefetch|path_compression
     # Mess-RESUME (#139, Default AN): Binaries mit vollständiger+konfigurations-aktueller result.csv (Stamp-Match:
     # BuildVersion/n_ops/Workload-Set/dyn-Dims) überspringen + ihre Zeilen in die globale CSV übernehmen.
     # -Resume:$false → alles neu messen (Stamps werden überschrieben).
@@ -102,6 +95,8 @@ $loaderCpp = Join-Path $repo "libs\cache_engine\builder\anatomy_module_loader\an
 # Achse 2 (INC-3): WorkloadGenerator (workload_driver::run_workload_profile-Interpreter) ist NICHT header-only
 # (generate_all/Konstruktor in .cpp) → in den Host-Exe-Build mitkompilieren+linken (analog loaderCpp).
 $wgCpp = Join-Path $repo "libs\cache_engine\builder\workload_driver\workload_generator.cpp"
+# STRANG A Inc4/S5: der Treiber ist profil-getrieben → parse_thesis_profile (NICHT header-only) mitlinken.
+$xmlCpp = Join-Path $repo "libs\common\serialization\xml_config_parser\xml_config_parser.cpp"
 
 function Build-HostExe([string]$Tag, [string]$Src) {
     $exe = Join-Path $work "$Tag.exe"
@@ -113,9 +108,9 @@ function Build-HostExe([string]$Tag, [string]$Src) {
     # KRITISCH: /Od (KEIN /O2) — der Host-TU instanziiert die 320er Pilot-Typ-Map (mp11-schwer); /O2 hängt den
     # MSVC-Optimizer auf dieser Template-Tiefe (beobachtet 2026-06-03: cl wedged). Der Host braucht keine Perf;
     # nur die per-DLL-Tiere bauen mit /O2. /bigobj: 320 Permutationen × 19 type_name → >2^16 Sektionen
-    # (C1128 beobachtet 2026-06-03 bei FullPilot). /Fo: weggelassen (2 Quellen) → cl legt .obj im work-CWD ab.
+    # (C1128 beobachtet 2026-06-03 beim Voll-Katalog). /Fo: weggelassen (2 Quellen) → cl legt .obj im work-CWD ab.
     $rsp = @("/nologo", "/std:c++latest", "/EHsc", "/Od", "/bigobj", "/DWIN32", "/D_WINDOWS",
-             "/Fe:`"$exe`"") + $allInc + @("`"$Src`"", "`"$loaderCpp`"", "`"$wgCpp`"")
+             "/Fe:`"$exe`"") + $allInc + @("`"$Src`"", "`"$loaderCpp`"", "`"$wgCpp`"", "`"$xmlCpp`"")
     $rspF = Join-Path $work "$Tag.rsp"; $bat = Join-Path $work "$Tag.bat"; $log = Join-Path $out "$Tag.host.log"
     Set-Content -Path $rspF -Value $rsp -Encoding ASCII
     Set-Content -Path $bat -Value @("@echo off", "cd /d `"$work`"", "call `"$vcvars`" >nul 2>&1", "cl @`"$rspF`" > `"$log`" 2>&1") -Encoding ASCII
@@ -160,7 +155,14 @@ $env:COMDARE_BUILD_VERSION = $M3BuildVersionTag
 # COMDARE_WORKLOAD_RECORDS); die per-N-CSVs werden zur Gesamt-CSV zusammengeführt (Header einmal, Tag-Spalte
 # working_set_n trennt). Leer → ein einziger Lauf mit -WorkloadRecords (rückwärtskompatibel).
 $nSet = if ($WorkingSetN.Count -gt 0) { $WorkingSetN } else { @($WorkloadRecords) }
-Write-Host ("=== Lazy-E2E (m3v2): {0} DLLs bauen+messen | select_mode={1} | platform={2} | build_tag={3} | working_set_n=[{4}] | resume={5} ===" -f $MaxBinaries, $SelectMode, $Platform, $M3BuildVersionTag, ($nSet -join ","), $Resume)
+
+# STRANG A Inc4/S5: das PROFIL ist die Selektions-/Achsen-Quelle (kein Code-Selektor mehr). argv[10] = profile:<pfad>[@<achse>].
+if ([string]::IsNullOrEmpty($Profile)) {
+    $Profile = Join-Path $repo "libs\cache_engine\algorithm_profiles\thesis_profiles\m3v2_study.profile.xml"
+}
+if (!(Test-Path $Profile)) { Write-Output "ABBRUCH: Profil fehlt: $Profile"; exit 3 }
+$profileArg = "profile:" + $Profile + $(if ($SweepAxis) { "@" + $SweepAxis } else { "" })
+Write-Host ("=== Lazy-E2E (m3v2, PROFIL-getrieben): {0} DLLs bauen+messen | profil={1} | sweep={2} | platform={3} | build_tag={4} | working_set_n=[{5}] | resume={6} ===" -f $MaxBinaries, $Profile, $(if ($SweepAxis) { $SweepAxis } else { "basis" }), $Platform, $M3BuildVersionTag, ($nSet -join ","), $Resume)
 
 $lastCode = 0
 $partCsvs = @()
@@ -168,7 +170,7 @@ foreach ($n in $nSet) {
     $env:COMDARE_WORKLOAD_RECORDS = "$n"
     $partCsv = Join-Path $out ("tier150_measurements_N{0}.csv" -f $n)
     Write-Host ("--- Working-Set-N = {0} ---" -f $n)
-    $lastCode = Run-InVcvars $exe @($partCsv, $MaxBinaries, $NOps, $BuildVersion, $permSrc, $permDll, $MinFreeGB, 4, $NRepeats, $SelectMode, $(if ($Resume) { "1" } else { "0" }))
+    $lastCode = Run-InVcvars $exe @($partCsv, $MaxBinaries, $NOps, $BuildVersion, $permSrc, $permDll, $MinFreeGB, 4, $NRepeats, $profileArg, $(if ($Resume) { "1" } else { "0" }))
     if (Test-Path $partCsv) { $partCsvs += $partCsv }
 }
 

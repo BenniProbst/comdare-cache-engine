@@ -1,6 +1,6 @@
 // #142 Welle 2 / Audit-K3 — VERIFIKATION der Ziel-Population (NICHT nur Referenz-Kompositionen).
 //
-// Audit-Befund K3: die 320 FullPilot-Tiere tragen im search_algo-Slot die ROHEN Registry-Wrapper
+// Audit-Befund K3: die 320 Basis-Tiere (Profil-Basis-Selektion) tragen im search_algo-Slot die ROHEN Registry-Wrapper
 // (KArySearchAlgo etc.). Diese hatten KEIN restore_statistics → abi_adapter::organ_cow_capable_v war fuer
 // sie false → stiller if-constexpr-Rueckfall auf das eager Copy-Memento; der 42/42-Test pruefte nur die
 // Referenz-Kompositionen Art/Hot/Masstree (deren Slot die Observable-Huelle ist) — Test-Pop != Ziel-Pop.
@@ -45,7 +45,7 @@ concept OrganCowCapable = requires(S& s, S const& cs) { s.restore_statistics(cs.
 
 // Volle CoW-Faehigkeit am search_algo-Slot = organ_cow_capable_v PLUS Kopierbarkeit (cow_capable_ verlangt
 // beides). Nur kopierbare Wrapper aktivieren den lazy CoW-Pfad real; nicht-kopierbare bleiben korrekt auf
-// dem Fallback (self-gating). KArySearchAlgo = das aktuelle FullPilot-search_algo (SelectMode=index).
+// dem Fallback (self-gating). KArySearchAlgo = das aktuelle Profil-Basis-search_algo (Basis-Selektion).
 template <class S>
 concept SearchAlgoFullyCowCapable =
     OrganCowCapable<S> && std::is_copy_constructible_v<S> && std::is_copy_assignable_v<S>;
@@ -71,9 +71,9 @@ K3_CHECK(VectorU16U16SearchAlgo)
 K3_CHECK(VectorU8U8SearchAlgo)
 #undef K3_CHECK
 
-// Ziel-Population end-to-end: das produktive FullPilot-search_algo aktiviert CoW vollstaendig.
+// Ziel-Population end-to-end: das produktive Profil-Basis-search_algo aktiviert CoW vollstaendig.
 static_assert(SearchAlgoFullyCowCapable<lk::KArySearchAlgo>,
-              "KArySearchAlgo (FullPilot-search_algo) muss den CoW-Pfad real aktivieren (K3-Ziel-Population)");
+              "KArySearchAlgo (Profil-Basis-search_algo) muss den CoW-Pfad real aktivieren (K3-Ziel-Population)");
 
 int main() {
     std::cout << "Audit-K3 VERIFIKATION (compile-time bestanden): alle 17 produktiven search_algo-Wrapper\n"

@@ -1,7 +1,7 @@
 // tier150_axis_grid — Mehr-Achsen-Mess-Lauf (2026-06-04, adversarial-Fix DEFEKT 2 + Reset-Fix-Beleg DEFEKT 1).
 //
-// PROBLEM (DEFEKT 2): der search_algo_grid-Pilot (run_lazy_150 / test_obs_phaseA) variiert NUR search_algo. Alle
-// FullPilot-Referenz-Kompositionen (Art/Hot/Masstree/Start/Surf/Wormhole) tragen IDENTISCHE Nicht-search-Achsen
+// PROBLEM (DEFEKT 2): ein reiner search_algo-Sweep (run_lazy_150 / test_obs_phaseA) variiert NUR search_algo. Alle
+// Voll-Referenz-Kompositionen (Art/Hot/Masstree/Start/Surf/Wormhole) tragen IDENTISCHE Nicht-search-Achsen
 // (Node256 · CacheLineAligned · PathCompressionNone · BloomFilter · …). Folge: die 18 anderen per-Achsen-stat_*-
 // Spalten sind über die Binaries KONSTANT — die echte, je-Strategie differenzierende statistics() wird im Pilot
 // nicht SICHTBAR (obwohl sie real differenziert, s. abi_adapter fill_observer_v3).

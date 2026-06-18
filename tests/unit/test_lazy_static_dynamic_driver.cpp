@@ -14,7 +14,10 @@
 //
 // Build: pwsh tests/unit/thesis_tiere/build_and_measure_150_tiere.ps1 -RunTest   (oder analoger cl-Aufruf).
 
-#include "thesis_tiere/lazy_pilot_engine.hpp"   // FullPilot/SmallPilot/build_pilot_levels/make_pilot_source_gen
+// STRANG A Inc4/S5 (2026-06-18): die Code-Selektions-Schicht ist ENTFERNT. Dieser isolierte E2E-Treiber-Test nutzt
+// jetzt den profil-agnostischen Anatomie-Quell-KATALOG (source_catalog.hpp): SmallSourceCatalog (4 Kompositionen) +
+// catalog_levels (Baum-Levels) + make_catalog_source_gen (SourceGenFn). KEIN Pilot-Selektor mehr.
+#include "thesis_tiere/source_catalog.hpp"   // SmallSourceCatalog / catalog_levels / make_catalog_source_gen
 
 #include <builder/build_orchestrator/system_ram.hpp>   // free physical RAM (real)
 
@@ -70,12 +73,13 @@ int main() {
 
     auto factory = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree tree{factory};
-    tree.build(tlz::build_pilot_levels<tlz::SmallPilot>(/*with_dynamic=*/true));
+    tree.build(tlz::catalog_levels<tlz::SmallSourceCatalog>(/*with_dynamic=*/true));
 
-    std::cout << "SmallPilot::Engine::count() = " << tlz::SmallPilot::Engine::count()
+    std::cout << "SmallSourceCatalog::Engine::count() = " << tlz::SmallSourceCatalog::Engine::count()
               << "  tree.binary_count() = " << tree.binary_count()
               << "  dyn_dims = " << tree.dynamic_filter().size() << "\n";
-    check_eq("tree.binary_count() == SmallPilot::count()", tree.binary_count(), tlz::SmallPilot::Engine::count());
+    check_eq("tree.binary_count() == SmallSourceCatalog::count()", tree.binary_count(),
+             tlz::SmallSourceCatalog::Engine::count());
 
     std::size_t const N = tree.binary_count();   // 4
     std::vector<std::size_t> first_n; for (std::size_t i = 0; i < N; ++i) first_n.push_back(i);
@@ -92,7 +96,7 @@ int main() {
         cmd += " > \"" + job.output.string() + ".cl.log\" 2>&1";
         return std::system(cmd.c_str());
     };
-    ex::SourceGenFn gen = tlz::make_pilot_source_gen<tlz::SmallPilot>();
+    ex::SourceGenFn gen = tlz::make_catalog_source_gen<tlz::SmallSourceCatalog>();
     ex::FreeRamFn   ram = ex::make_system_free_ram_fn();   // reale OS-RAM-Abfrage (system_ram.hpp)
 
     ex::LazyRunConfig cfg;
