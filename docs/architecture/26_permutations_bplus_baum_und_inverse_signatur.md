@@ -127,14 +127,25 @@ die Paper sind überlappende Pfad-Mengen, die sich ihre gepinnten Ebenen teilen,
 Die „inverse Auswertung" = Projektion der real gemessenen Blätter auf die Paper-Sichten per Signatur-Filter
 (lineare Traversierung) — exakte Zuordnung, keine Interpolation, keine Doppelmessung.
 
-## 4. Statische vs. dynamische Knoten — Abstract Factory (KEIN enum-Flag)
+## 4. Statische vs. dynamische Knoten — zwei Produkt-Typen via Factory Method (KEIN degeneriertes bool-Flag)
 
-GENAU ZWEI Knotenarten, **per Abstract-Factory-Muster** als **Einzelklassen** (ein `struct`-`enum`-Flag genügt NICHT):
+> **Muster-Klarstellung (K10-PMAJOR-06, 2026-06-18, code-verifiziert):** Die realisierte Schnittstelle in
+> `experiment_tree.hpp` ist die GoF-**Factory-Method**-Variante — **EIN** abstrakter Creator
+> (`AbstractNodeFactory`) mit **zwei Factory-Methoden** (`make_static`/`make_dynamic`), die **zwei distinkte
+> Produkt-Typen** (`StaticAxisNode`/`DynamicVariableNode`, beide `INodeDescription`) erzeugen. Die früher hier
+> beschriebenen **getrennten Fabrik-Klassen** `StaticAxisNodeFactory`/`DynamicVariableNodeFactory` (klassische
+> Zwei-Fabriken-Abstract-Factory) sind **NICHT** implementiert; der Anspruch ist auf das tatsächlich realisierte
+> Factory-Method-Muster zurückgeführt. Die Produkt-Art trägt ein `NodeKind`-Enum als **legitime
+> Selbstauskunft** (GoF-konformer Produkt-Diskriminator), **kein** „degeneriertes bool-Flag" — das `bool
+> is_static` in `AxisLevel` ist eine flache Reflektions-Zeilen-Markierung der `StaticBinaryView`-Ebenen,
+> nicht die Knoten-Fabrik.
 
-- `AbstractNodeFactory` (Schnittstelle) → erzeugt `INodeDescription`-Instanzen.
-- `StaticAxisNodeFactory` → `StaticAxisNode` — bildet eine **statische Achseneigenschaft eines Organ-Algorithmus** ab
+GENAU ZWEI Knotenarten als **distinkte Produkt-Einzelklassen** (ein nacktes Enum-Flag OHNE eigene Typen genügt NICHT):
+
+- `AbstractNodeFactory` (Schnittstelle) → erzeugt `INodeDescription`-Instanzen über `make_static`/`make_dynamic`.
+- `StaticAxisNode` (via `make_static`) — bildet eine **statische Achseneigenschaft eines Organ-Algorithmus** ab
   (die fixe Algorithmus-Wahl der Achse; trägt die Paper-Signatur).
-- `DynamicVariableNodeFactory` → `DynamicVariableNode` — bildet eine **Organ-Algorithmus-Variable (dynamisch)** ab
+- `DynamicVariableNode` (via `make_dynamic`) — bildet eine **Organ-Algorithmus-Variable (dynamisch)** ab
   (eine einstellbare Variable unter einer Achse, z. B. cacheline-Wert, thread_count).
 
 **Zusätzlich werden beide Arten je konkreter Achseneigenschaft als EIGENE Einzelklasse ausgeprägt** (nicht generisch-

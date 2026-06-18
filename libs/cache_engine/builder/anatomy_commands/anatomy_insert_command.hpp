@@ -3,6 +3,12 @@
 //
 // Builder-Command der einen Insert auf AnatomyExecutionContext<C> ausfuehrt.
 // Implementiert ICommand fuer einheitliche Builder-Pipeline.
+//
+// LEBENDIG, NICHT TOT (K10-PMAJOR-07, 2026-06-18): Diese CRUD-Command-Struktur (Insert/Lookup/Erase/Clear/
+// Observe, alle ICommand) ist ein echtes GoF-Command-Muster und wird vom REGISTRIERTEN Test
+// `tests/unit/test_v41_builder_anatomy_commands.cpp` (tests/unit/CMakeLists.txt:383, comdare_add_test)
+// real instanziiert + round-trip-geprüft (AnatomyInsertCommandRoundtrip etc.). Der K10-Befund „grep tot"
+// schloss den Test-Konsumenten aus dem grep aus → falsch-positiv; hier KEINE Entfernung, Etikett bleibt gültig.
 
 #include "anatomy_execution_context.hpp"
 #include <libs/cache_engine/builder/commands/i_command.hpp>

@@ -1,5 +1,8 @@
 #pragma once
-// V5-I5 — MementoAggregate<Composition>: das Fundament für memento_all (parallel zu ObserverAggregate).
+// V5-I5 — Per-Achsen-Memento-Fundament für memento_all: MementoAxis-Concept + save_axis/restore_axis + EmptyMemento.
+// (K10-PMAJOR-02, 2026-06-18) Der frühere Aggregat-Halter MementoAggregate<Composition> wurde als toter Rev.1-
+// Apparat ENTFERNT — er hatte null Konsumenten; der kanonische Memento läuft im abi_adapter über CoW Rev.2 +
+// den per-Achsen-MementoAxis-Fallback. Dieser Header trägt nur noch die LEBENDIGEN per-Achsen-Bausteine.
 //
 // User-Direktive 2026-05-31: memento_all rollt den GESAMTEN Zustand einer Tier-Binary nach Warmup über ALLE
 // stateful Achsen zurück (Memento-Pattern). Einheitliche Memento-Hilfsfunktionen je stateful Achsen-Interface;
@@ -12,8 +15,8 @@
 //
 // @doku docs/architecture/messarchitektur_v5_design.md §3 (Memento_all, 9 stateful Achsen) + §8
 
-#include "composition_concept.hpp"
-
+// (K10-PMAJOR-02) composition_concept.hpp-Include entfernt — IsComposition wurde nur vom getilgten
+// MementoAggregate<Composition> gebraucht; die verbliebenen per-Achsen-Bausteine sind composition-unabhängig.
 #include <concepts>
 #include <cstddef>
 #include <type_traits>
@@ -75,61 +78,18 @@ void restore_axis(A& a, memento_of_t<A> const& m) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MementoAggregate<Composition> — 19 named Memento-Members (17 + queuing q1/q2, Doc 30 §8.0)
+// (K10-PMAJOR-02, 2026-06-18) MementoAggregate<Composition> ENTFERNT — toter Rev.1-Apparat.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/// Binary-interner Zustands-Halter pro Composition: je Achse 1 Memento (named nach Composition-Alias).
-/// Anders als ObserverAggregate NICHT trivially_copyable-pflichtig — er quert die ABI-Grenze NICHT, sondern
-/// lebt in der Tier-Binary (Host triggert nur tier_save_all/tier_rollback_all über IRollbackableTier, V5-I6).
-template <IsComposition Composition>
-struct MementoAggregate {
-    memento_of_t<typename Composition::search_algo>        search_algo;
-    memento_of_t<typename Composition::cache_traversal>    cache_traversal;
-    memento_of_t<typename Composition::mapping>            mapping;
-    memento_of_t<typename Composition::path_compression>   path_compression;
-    memento_of_t<typename Composition::node_type>          node_type;
-    memento_of_t<typename Composition::memory_layout>      memory_layout;
-    memento_of_t<typename Composition::allocator>          allocator;
-    memento_of_t<typename Composition::prefetch>           prefetch;
-    memento_of_t<typename Composition::concurrency>        concurrency;
-    memento_of_t<typename Composition::serialization>      serialization;
-    memento_of_t<typename Composition::telemetry>          telemetry;
-    memento_of_t<typename Composition::value_handle>       value_handle;
-    memento_of_t<typename Composition::isa>                isa;
-    memento_of_t<typename Composition::index_organization> index_organization;
-    memento_of_t<typename Composition::io_dispatch>        io_dispatch;
-    memento_of_t<typename Composition::migration_policy>   migration_policy;
-    memento_of_t<typename Composition::filter>             filter;
-    // Doc 30 §8.0: queuing q1/q2 als reguläre SA-Achsen (EmptyMemento solange stateless via memento_of_t).
-    memento_of_t<typename Composition::queuing_q1>         queuing_q1;
-    memento_of_t<typename Composition::queuing_q2>         queuing_q2;
-
-    /// Anzahl der stateful (nicht-Empty) Achsen — Diagnose für den Zwei-Phasen-Treiber.
-    [[nodiscard]] static constexpr std::size_t stateful_count() noexcept {
-        std::size_t n = 0;
-        if constexpr (MementoAxis<typename Composition::search_algo>)        ++n;
-        if constexpr (MementoAxis<typename Composition::cache_traversal>)    ++n;
-        if constexpr (MementoAxis<typename Composition::mapping>)            ++n;
-        if constexpr (MementoAxis<typename Composition::path_compression>)   ++n;
-        if constexpr (MementoAxis<typename Composition::node_type>)          ++n;
-        if constexpr (MementoAxis<typename Composition::memory_layout>)      ++n;
-        if constexpr (MementoAxis<typename Composition::allocator>)          ++n;
-        if constexpr (MementoAxis<typename Composition::prefetch>)           ++n;
-        if constexpr (MementoAxis<typename Composition::concurrency>)        ++n;
-        if constexpr (MementoAxis<typename Composition::serialization>)      ++n;
-        if constexpr (MementoAxis<typename Composition::telemetry>)          ++n;
-        if constexpr (MementoAxis<typename Composition::value_handle>)       ++n;
-        if constexpr (MementoAxis<typename Composition::isa>)                ++n;
-        if constexpr (MementoAxis<typename Composition::index_organization>) ++n;
-        if constexpr (MementoAxis<typename Composition::io_dispatch>)        ++n;
-        if constexpr (MementoAxis<typename Composition::migration_policy>)   ++n;
-        if constexpr (MementoAxis<typename Composition::filter>)             ++n;
-        if constexpr (MementoAxis<typename Composition::queuing_q1>)         ++n;
-        if constexpr (MementoAxis<typename Composition::queuing_q2>)         ++n;
-        return n;
-    }
-
-    [[nodiscard]] static constexpr std::size_t total_slots() noexcept { return 19; }
-};
+// Der frühere 19-Slot-Aggregat-Halter MementoAggregate<Composition> (+ stateful_count()/total_slots()) hatte
+// grep-bestätigt NULL Konsumenten (kein Mess-Pfad, kein Test, kein Adapter — verifiziert
+//   grep -rIn "MementoAggregate|stateful_count|total_slots" libs apps tests benchmarks → nur dieser Header).
+// Der kanonische Zwei-Phasen-Memento läuft im abi_adapter über (a) Copy-on-Write Rev.2 (cow_materialize_copy_,
+// O(1)-save + lazy Vollkopie) und (b) den PER-ACHSEN-MementoAxis-Fallback (saved_search_m_/saved_container_m_)
+// — NICHT über ein Aggregat aller 19 Slots. Der Aggregat-Halter wäre nur eine nie-instanziierte Parallel-
+// struktur gewesen → entfernt statt etikett-getragen (Lehrbuch-Pattern: kein toter Memento-Apparat).
+//
+// LEBENDIG BLEIBT (von abi_adapter + tests test_v5_memento_axis/test_v5_disk_memento/test_v5_organ_memento
+// real konsumiert, daher NICHT entfernt): das MementoAxis-Concept, memento_of_t<>, EmptyMemento sowie die
+// Hilfsfunktionen save_axis()/restore_axis() oben.
 
 }  // namespace comdare::cache_engine::anatomy
