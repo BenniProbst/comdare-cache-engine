@@ -209,6 +209,18 @@ Zahlen entstehen primär auf Linux (Infra-Agent, CE-DL2/DL3), Windows-PCM als zw
 - **Befund Orchestrator:** der alte `generate_measurement_appendix.ps1` (16-Spalten-C1) wird durch den direkten `csv-to-latex
   --schema=wide`-Aufruf ersetzt — ein neuer Mini-Orchestrator (de+en in einem Lauf) folgt in L-f.
 
+## L-c ✅ ERLEDIGT (2026-06-18, Impl-Agent + selbst-verifiziert) — Surfaces je Interface-Funktion
+
+- **Code (`Code/05_diagram_generator/`):** `WideMeasurementRow` + `parse_wide_csv` (header-getrieben ';', portiert aus
+  `csv_to_latex.cpp:158-201`) + `write_surface_search_algo_x_workload` (2D-Heatmap, ruft vorhandenes `write_heatmap`) +
+  `write_surface3d_...` (echte 3D-Surface `view={45}{30}` + `\addplot3[surf]` + `zmode=log`, Log-Floor 1e-3) + CLI-Modus
+  `--surface=<z_field> [--3d] [--body-only]`. Median = nearest-rank, NUR `two_phase_valid`; scan-Surface schließt `ycsb_e`+
+  `lp_range_scan` aus (19 statt 21 Spalten verifiziert).
+- **Build EXIT 0** · **Tests 8/8** (6 alt + 2 neu WIDE) · Voll-CSV 9,26 s · keine absoluten Pfade.
+- **Artefakte (de+en):** `thesis/diplomarbeit/anhang/{de,en}/tabellen/lc_surface_{ns_per_op,op_insert_p50_ns,op_lookup_p50_ns,
+  op_erase_p50_ns,op_scan_p50_ns,op_rmw_p50_ns}.tex` — alle `\addplot3`+`viridis`. (Overleaf-Push hält, wie L-b.)
+- **Offen (User-Entscheid):** 2D-Heatmap (Default, druckfertig) vs. echte 3D-`surf` für die Thesis — beide verfügbar.
+
 ## 3. Pflicht-Lese-Reihenfolge für die Phase-L-Umsetzungs-Session (frischer Kontext)
 
 1. `docs/architecture/34_KONSOLIDIERTER_MASTER_IST_STAND.md` — §F15-Pipeline + Mess-Modell + Bias-Matrix.
