@@ -104,6 +104,41 @@ struct ThesisMode {                           // einer der 3 Permutationsmodi
     std::vector<std::string> replaces_axes;   // optional (Stufe 2)
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// STRANG-A KORRIGIERT Increment 2 / S1 (2026-06-18) — die 4 deklarativen Konstrukte, die die heute in
+// Code/PS/env steckende m3v2-Selektion (m3v2_select_profile.hpp / run_lazy_150.cpp / build_and_measure_150_tiere.ps1)
+// als comdare_thesis_profile-Felder ausdrueckbar machen. ADDITIV (kein bestehendes Feld geaendert) → das base_pilot-
+// /cacheline_study-Profil und der Round-Trip bleiben byte-identisch (alle 4 Listen leer = Default). Plan §S1.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// (b) <axis_sweep axis=".." baseline="index0"/> — EINE Achse gegen eine feste Baseline (alle uebrigen Ebenen
+//     Index 0) variieren. Ersetzt make_axis_sweep + axis_to_level-Map (run_lazy_150.cpp:214). Deklarativ:
+//     nur Achsen-Name + Baseline-Marker; der Treiber loest die Achse via StaticBinaryView::flat_index auf.
+struct ThesisAxisSweep {
+    std::string axis;                  // z.B. "node_type" — gegen die Baseline variiert
+    std::string baseline = "index0";   // Baseline-Tier-Marker (alle Ebenen Index 0); aktuell nur "index0"
+};
+
+// (c) <sota_series id="A|B|C" lebewesen=".." merge=".."/> — eine SOTA-/PRT-ART-Reihe (Stufe 1/2/3 = die 3
+//     Kompositionalen Joins). Ersetzt sota_lebewesen_names/sota_series_ids (m3v2_select_profile.hpp:61-72).
+//     `merge` nutzt die BESTEHENDEN ThesisMode-merge-Felder (Stufe1_CeOnly/Stufe2_PrueflingReplace/Stufe3_FullJoin).
+struct ThesisSotaSeries {
+    std::string id;         // "A" / "B" / "C"
+    std::string lebewesen;  // Lebewesen-/Tier-Name (prt_art/art/hot/masstree/surf/start/wormhole)
+    std::string merge;      // Stufe1_CeOnly / Stufe2_PrueflingReplace / Stufe3_FullJoin
+};
+
+// (d) <run_options cap=".." platform=".." build_version=".." resume=".."/> — die Lauf-Steuerung, die heute aus
+//     argv/env von run_lazy_150 kommt. Deklarativ im Profil; der Treiber liest sie als Defaults (argv/env darf
+//     weiterhin uebersteuern — Rueckwaerts-Kompatibilitaet). cap=0 / leere Strings = "ungesetzt".
+struct ThesisRunOptions {
+    int         cap            = 0;      // max_binaries-Obergrenze (0 = ungesetzt → Treiber-Default)
+    std::string platform;                // CSV-Tag platform (z.B. "win-x86_64")
+    std::string build_version;           // CSV-Tag build_version (z.B. "m3v2")
+    bool        resume         = true;   // Mess-Resume an/aus (#139)
+    bool        resume_set     = false;  // true wenn <run_options resume=..> explizit gesetzt war
+};
+
 struct ThesisProfile {
     std::string id;
     int schema_version = 0;
@@ -125,6 +160,15 @@ struct ThesisProfile {
     std::vector<ThesisMode> modes;
     std::string             static_axes_from;     // "base_tier"
     std::string key_types, value_types;
+
+    // ── S1 (Increment 2, 2026-06-18): die 4 deklarativen m3v2-Selektions-Konstrukte (ADDITIV; leer = Default). ──
+    // (a) <working_set_sweep>{N-Liste}</working_set_sweep> — die Working-Set-N-Werte (Record-Zahlen) der aeusseren
+    //     Lauf-Iteration. Ersetzt COMDARE_WORKLOAD_RECORDS + PS-foreach (build_and_measure_150_tiere.ps1:166).
+    //     Leer = einmaliger Lauf (rueckwaerts-kompatibel). Als String-Liste (wie thread_counts) gehalten.
+    std::vector<std::string>      working_set_sweep;
+    std::vector<ThesisAxisSweep>  axis_sweeps;     // (b) <axis_sweep .../> — eine Achse gegen feste Baseline
+    std::vector<ThesisSotaSeries> sota_series;      // (c) <sota_series .../> — SOTA-/PRT-ART-Reihen A/B/C
+    ThesisRunOptions              run_options;      // (d) <run_options .../> — Lauf-Steuerung (cap/platform/...)
 };
 
 class XmlConfigParser {

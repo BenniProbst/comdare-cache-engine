@@ -269,6 +269,40 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(
         if (auto const* k = kv->child("key_types"))   tp.key_types   = k->text;
         if (auto const* v = kv->child("value_types")) tp.value_types = v->text;
     }
+
+    // ── S1 (Increment 2, 2026-06-18): die 4 deklarativen m3v2-Selektions-Konstrukte. ADDITIV — fehlen sie,
+    //    bleiben die Felder leer/Default (kein Einfluss auf base_pilot/cacheline_study oder den Round-Trip). ──
+    // (a) <working_set_sweep>{N-Liste}</working_set_sweep> — whitespace-getrennte Record-Zahlen (wie thread_count).
+    if (auto const* ws = root->child("working_set_sweep")) tp.working_set_sweep = ws->text_tokens();
+    // (b) <axis_sweeps>/<axis_sweep axis=".." baseline="index0"/> — je eine Achse gegen die feste Baseline.
+    if (auto const* sw = root->child("axis_sweeps")) {
+        for (auto const* a : sw->children_named("axis_sweep")) {
+            ThesisAxisSweep as;
+            as.axis     = a->attr("axis");
+            as.baseline = a->attr("baseline", "index0");
+            tp.axis_sweeps.push_back(std::move(as));
+        }
+    }
+    // (c) <sota_series_set>/<sota_series id=".." lebewesen=".." merge=".."/> — die SOTA-/PRT-ART-Reihen A/B/C.
+    if (auto const* ss = root->child("sota_series_set")) {
+        for (auto const* s : ss->children_named("sota_series")) {
+            ThesisSotaSeries sr;
+            sr.id        = s->attr("id");
+            sr.lebewesen = s->attr("lebewesen");
+            sr.merge     = s->attr("merge");
+            tp.sota_series.push_back(std::move(sr));
+        }
+    }
+    // (d) <run_options cap=".." platform=".." build_version=".." resume=".."/> — Lauf-Steuerungs-Defaults.
+    if (auto const* ro = root->child("run_options")) {
+        tp.run_options.cap           = to_int(ro->attr("cap", "0"), 0);
+        tp.run_options.platform      = ro->attr("platform");
+        tp.run_options.build_version = ro->attr("build_version");
+        if (ro->has_attr("resume")) {
+            tp.run_options.resume     = (ro->attr("resume") == "true" || ro->attr("resume") == "1");
+            tp.run_options.resume_set = true;
+        }
+    }
     return tp;
 }
 
