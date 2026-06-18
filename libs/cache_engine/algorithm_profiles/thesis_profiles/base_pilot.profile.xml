@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- comdare_thesis_profile — STRANG A KORRIGIERT, Increment 1 (2026-06-18, profil-getrieben).
+     Plan: docs/sessions/20260618-STRANG-A-KORRIGIERT-PROFIL-GETRIEBEN-PLAN.md (S3-Kern).
+
+     ZWECK: drueckt die HEUTIGE Code-Selektion des Klein-Pilots (SmallPilot, lazy_pilot_engine.hpp:111
+     = PilotAxes<1,2,2,1>) DEKLARATIV aus — als die 19 AdHocComposition-Slots in EXAKT der Pilot-Reihenfolge
+     (kCompositionAxisNames, axis_path_serialization.hpp:27). Damit der profil-getriebene Pfad
+     build_axis_levels(profile) IDENTISCHE binary_ids erzeugt wie build_pilot_levels<SmallPilot> (harte
+     Round-Trip-Gate, Plan-Risiko #1 / Resume #139), traegt JEDE Achse ihre Pilot-Auspraegung(en) als
+     EXPLIZITE <value> — die Werte sind die realen Wrapper-name()-Strings (probe-verifiziert 2026-06-18).
+
+     VARIIERT (Fanout, = die 4 Pilot-Variations-Achsen, SmallPilot-K = 1/2/2/1):
+       search_algo (1: k_ary) · node_type (2) · memory_layout (2) · prefetch (1: none).
+     GEPINNT (15 uebrige Achsen, je 1 Wert) — identisch ueber alle Tiere → der gemessene Unterschied ist
+     den variierten Achsen zurechenbar; die binary_id pinnt die 15 mit (Pilot-Semantik).
+
+     KEINE Schema-Erweiterung (S1) noetig fuer diesen Basis-Fall. KEINE base_tiers (→ build_axis_levels
+     emittiert KEIN tier-Level → die binary_id bleibt die reine 19-Slot-Rekombination wie im Pilot).
+     KEINE <axis ref="cacheline"> (der KF-3-Sonderzweig bleibt unberuehrt; memory_layout ist eine
+     normale generische Achse). Die runtime_dynamic-Dimensionen (concurrency/prefetch/repetition) leben
+     im profile_runner (DynamicDims), NICHT als statische Ebenen → sie veraendern die binary_id NICHT. -->
+<comdare_thesis_profile id="base_pilot" schema_version="1">
+
+  <!-- (b) DIE 19 SLOTS in Pilot-Reihenfolge (T0..T18). Jede mit EXPLIZITEN Wrapper-name()-Werten.
+       Reihenfolge + Werte = SmallPilot::static_levels() (probe_pilot_levels, verifiziert). -->
+  <permute_axes>
+    <axis ref="search_algo"><value>k_ary</value></axis>
+    <axis ref="cache_traversal"><value>linear_fanout</value></axis>
+    <axis ref="mapping"><value>direct_placement</value></axis>
+    <axis ref="path_compression"><value>path_compression_none</value></axis>
+    <axis ref="node_type"><value>node4</value><value>node16</value></axis>
+    <axis ref="memory_layout"><value>memory_layout_cache_line_aligned</value><value>memory_layout_aos_strict</value></axis>
+    <axis ref="allocator"><value>std_malloc</value></axis>
+    <axis ref="prefetch"><value>prefetch_none</value></axis>
+    <axis ref="concurrency"><value>concurrency_none</value></axis>
+    <axis ref="serialization"><value>serialization_raw_binary</value></axis>
+    <axis ref="telemetry"><value>telemetry_leaf_only_counter</value></axis>
+    <axis ref="value_handle"><value>value_handle_inline</value></axis>
+    <axis ref="isa"><value>isa_amd64</value></axis>
+    <axis ref="index_organization"><value>index_org_heap</value></axis>
+    <axis ref="io_dispatch"><value>io_in_memory_only</value></axis>
+    <axis ref="migration_policy"><value>migration_none</value></axis>
+    <axis ref="filter"><value>filter_bloom</value></axis>
+    <axis ref="queuing_q1"><value>no_buffer</value></axis>
+    <axis ref="queuing_q2"><value>eager_flush</value></axis>
+  </permute_axes>
+
+  <!-- (c) COMPILE-TIME Mess-Dimensionen (je Binary gebacken). -->
+  <compile_dims>
+    <telemetry mode="on" silent="true"/>
+  </compile_dims>
+
+  <!-- (d) DYNAMISCHE OS-Laufzeit-Dimensionen — der profile_runner expandiert sie zu DynamicDims
+       (NICHT teil der binary_id). thread_count → concurrency.thread_count; hw_prefetcher bleibt
+       als runtime_dynamic deklariert (der Pilot variiert prefetch.prefetch_distance + repetition;
+       fuer den Round-Trip-STATIK-Beleg sind die DynamicDims irrelevant — sie aendern die binary_id nicht). -->
+  <runtime_dynamic>
+    <thread_count>1 2 4</thread_count>
+    <hw_prefetcher>all_on all_off</hw_prefetcher>
+  </runtime_dynamic>
+
+  <!-- (f) WIEDERHOLUNGEN — Default 3, separat, nie interpoliert (KF-10). -->
+  <repetitions count="3" interpolate="false" overlay_in_chart="true"/>
+
+  <!-- (g) EIN Basis-Modus: alle 19 Slots aktiv in Pilot-Reihenfolge (Stufe-1 ce-only). -->
+  <modes>
+    <mode name="pilot_base" merge="Stufe1_CeOnly"
+          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization telemetry value_handle isa index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2"/>
+  </modes>
+
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_thesis_profile>
