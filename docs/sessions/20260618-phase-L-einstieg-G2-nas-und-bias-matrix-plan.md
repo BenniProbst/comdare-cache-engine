@@ -250,6 +250,14 @@ Zahlen entstehen primär auf Linux (Infra-Agent, CE-DL2/DL3), Windows-PCM als zw
 **PHASE-L-GESAMTSTAND: L-a…L-f ✅ erledigt.** Verbleibend: L-h-Umsetzung (WindowsPcmPmcSource #153 + Linux via Infra-Agent)
 für die realen Cache-Miss-Zahlen (aktuell ehrlich als Kern-Limitierung ausgewiesen). G2/G4 ✅. **G5 finaler Audit** ausstehend.
 
+## L-i ⏳ DEFERRED (User 2026-06-18) — Tabellen-Textüberlagerung (Task #154)
+
+User-Befund: die Mess-Appendix-Tabellen erscheinen korrekt, ABER es gibt einen Formatierungsfehler mit **Textüberlagerung
+(unleserlich)** — **später** zu fixen (User: „kannst du auch später noch fertig machen"). Wahrscheinlich: `bias_matrix_table`
+21 `\rotatebox{60}`-Köpfe in `\resizebox{\textwidth}` → rotierte Workload-Namen überlappen; ggf. `ld_exchange_*`-longtable
+`p{}`-Spalten zu schmal. Fix in den Generatoren (csv_to_latex `write_bias_matrix_latex`/`write_exchange_longtables`) verankern:
+Workload-Kürzel + Legende, Rotation/`sidewaystable`, `p{}`-Breiten, oder Matrix transponieren. **Bewusst NICHT in dieser Session.**
+
 ## 3. Pflicht-Lese-Reihenfolge für die Phase-L-Umsetzungs-Session (frischer Kontext)
 
 1. `docs/architecture/34_KONSOLIDIERTER_MASTER_IST_STAND.md` — §F15-Pipeline + Mess-Modell + Bias-Matrix.
