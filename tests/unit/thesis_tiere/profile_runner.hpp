@@ -1,24 +1,23 @@
 #pragma once
 // STRANG A KORRIGIERT — Increment 1 (2026-06-18, profil-getrieben). profile_runner: die EINE fehlende NAHT.
 //
-// Plan: docs/sessions/20260618-STRANG-A-KORRIGIERT-PROFIL-GETRIEBEN-PLAN.md (S3-Kern).
+// Plan: docs/sessions/20260618-STRANG-A-KORRIGIERT-PROFIL-GETRIEBEN-PLAN.md (S3-Kern, mit Inc4/S5 vollendet).
 // SOLL (Doc architektur/10_schichten_modell_M.md §2.2): die Diplomarbeit konfiguriert die Messung ueber ein
-// DEKLARATIVES comdare_thesis_profile; der CacheEngineBuilder fuehrt aus. Heute ist die offizielle Kette
-// (ThesisProfile → parse_thesis_profile → build_axis_levels → tree.build) VORHANDEN, aber im Lauf-Treiber
-// ORPHANED — die Produktiv-Harness selektiert hartkodiert ueber build_pilot_levels<FullPilot>.
+// DEKLARATIVES comdare_thesis_profile; der CacheEngineBuilder fuehrt aus. Die offizielle Kette
+// (ThesisProfile → parse_thesis_profile → build_axis_levels → tree.build) ist seit Inc4/S5 der EINZIGE Lauf-Pfad
+// des Treibers (die fruehere hartkodierte Code-Selektions-Schicht ist ENTFERNT).
 //
-// DIESER HEADER zieht GENAU diese fehlende Naht — ADDITIV (PilotAxes/SelectMode bleiben unangetastet daneben):
-//   COMDARE_THESIS_PROFILE → parse_thesis_profile → build_axis_levels(tp, mode, registry) → AxisLevels
-//   (+ DynamicDims aus runtime_dynamic) → tree.build(levels) → run_lazy_static_then_dynamic (UNVERAENDERT).
+// DIESER HEADER ist die Naht selbst: COMDARE_THESIS_PROFILE → parse_thesis_profile → build_axis_levels(tp, mode,
+// registry) → AxisLevels (+ DynamicDims aus runtime_dynamic) → tree.build(levels) → run_lazy_static_then_dynamic.
 //
 // HARTE ROUND-TRIP-GATE (Plan-Risiko #1, Resume #139): die ueber build_axis_levels(Profil) erzeugten binary_ids
-// MUESSEN EXAKT IDENTISCH sein zu denen aus build_pilot_levels<SmallPilot/FullPilot> (gleiche 19 Slot-Namen-
-// Reihenfolge + gleiche W::name()-Werte + serialize_composition_path-Format). Belegt LITERAL in
+// MUESSEN EXAKT IDENTISCH sein zur committeten golden-Liste (golden_fullpilot_320_binary_ids.txt; gleiche 19
+// Slot-Namen-Reihenfolge + gleiche W::name()-Werte + serialize_composition_path-Format). Belegt LITERAL in
 // test_profile_roundtrip.cpp (StaticBinaryView-binary_id-Listen-Diff == leer). Die binary_id nutzt NUR die
 // STATISCHEN Ebenen (axis=value); DynamicDims aendern sie NICHT.
 //
-// LEITPLANKEN: nichts entfernen/degradieren; Lazy-Compile (1 DLL=1 TU) bleibt (SourceGen unveraendert vom
-// Caller injiziert); Two-Phasen-Warmup intakt (liegt im perm_runner). C++23, header-only.
+// LEITPLANKEN: Lazy-Compile (1 DLL=1 TU) bleibt (SourceGen kommt aus dem profil-agnostischen source_catalog,
+// vom Caller injiziert); Two-Phasen-Warmup intakt (liegt im perm_runner). C++23, header-only.
 
 #include <builder/experiment_tree/experiment_tree.hpp>      // AxisLevel / DynamicDim / ExperimentTree / StaticBinaryView
 #include <builder/experiment_tree/profile_to_tree.hpp>       // build_axis_levels (die offizielle Bruecke)
@@ -69,16 +68,16 @@ namespace cx = ::comdare::builder::xml;
 // profil-getriebenen Lauf (run_lazy_150 im PROFIL-MODUS) FUNKTIONAL identisch zum heutigen Code-Lauf
 // (PS-foreach + SelectMode + COMDARE_*-env): working_set_sweep ersetzt die PS-foreach + COMDARE_WORKLOAD_RECORDS;
 // axis_sweeps ersetzt SelectMode "axis_sweep:<a>" + axis_to_level-Map; run_options ersetzt argv/env; die
-// tier-Level-Behandlung haelt den binary_id-Raum stabil (Basis-320 == FullPilot, Resume #139).
+// tier-Level-Behandlung haelt den binary_id-Raum stabil (Basis-320 == golden-Liste, Resume #139).
 //
-// LEITPLANKE: NICHTS aus der Code-Selektion (PilotAxes/SelectMode/m3v2_select_profile) wird ENTFERNT (das ist
-// Inc4/S5); diese Helfer stehen ADDITIV daneben. sota_series wird HIER NICHT konsumiert (Inc5/#162).
+// STAND Inc4/S5: die fruehere hartkodierte Code-Selektions-Schicht ist ENTFERNT — diese Helfer SIND der einzige
+// Selektions-/Lauf-Steuer-Pfad des Treibers. sota_series wird HIER NICHT konsumiert (Inc5/#162).
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 // ── tier-Level-Behandlung (Basis-320): build_axis_levels emittiert ein "tier"-Level OBEN (SOTA-Reihen-Dimension
 //    aus base_tiers). Fuer den reinen 4-Achsen-Permutations-Lauf (Basis-320) zieht der Treiber diese Ebene ab —
-//    so erzeugt der StaticBinaryView DENSELBEN binary_id-Raum wie build_pilot_levels<FullPilot> (KEIN tier-Level).
-//    Round-Trip-belegt in test_profile_roundtrip.cpp Abschnitt (6) (drop_tier → Mismatch 0). Single-Source. ──
+//    so erzeugt der StaticBinaryView DENSELBEN binary_id-Raum wie die committete golden-Liste (KEIN tier-Level).
+//    Round-Trip-belegt in test_profile_roundtrip.cpp (drop_tier → Mismatch 0 gegen golden). Single-Source. ──
 [[nodiscard]] inline std::vector<ex::AxisLevel> drop_tier_level(std::vector<ex::AxisLevel> levels) {
     std::vector<ex::AxisLevel> out;
     out.reserve(levels.size());

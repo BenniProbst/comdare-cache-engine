@@ -1,37 +1,37 @@
-// run_lazy_150 — L-LAZY-E2E (gate-frei, 2026-06-03): das HOST-EXECUTABLE des Lazy-E2E-Treibers für den ≥150-Lauf.
-// Baut den ExperimentTree aus dem FullPilot (320 reale SA-Kompositionen ≥150) + dyn. Dimensionen, ruft
-// run_lazy_static_then_dynamic (3 Lazy-Iteratoren: statische Kompilierung → laden → dyn-Variation → messen →
-// ingest) für die ersten -MaxBinaries Blätter und schreibt eine CSV. RESUMIERBAR über build_version (.version-
-// Sidecar je DLL): ein erneuter Lauf überspringt versions-aktuelle DLLs (überlebt Absturz/Teil-Lauf).
+// run_lazy_150 — L-LAZY-E2E: das HOST-EXECUTABLE des Lazy-E2E-Treibers fuer den >=150-Lauf. PROFIL-GETRIEBEN
+// (STRANG A KORRIGIERT, Inc4/S5, 2026-06-18): baut den ExperimentTree DEKLARATIV aus einem comdare_thesis_profile
+// (parse_thesis_profile -> build_axis_levels -> tree.build, die offizielle Kette Doc 10 §2.2), ruft
+// run_lazy_static_then_dynamic (3 Lazy-Iteratoren: statische Kompilierung -> laden -> dyn-Variation -> messen ->
+// ingest) fuer die profil-selektierten Blaetter und schreibt eine CSV. RESUMIERBAR ueber build_version (.version-
+// Sidecar je DLL): ein erneuter Lauf ueberspringt versions-aktuelle DLLs (ueberlebt Absturz/Teil-Lauf).
 //
 // Die CompileFn baut mit den MESS-Defines (COMDARE_MEASUREMENT_ON …) + dem Include-Satz aus COMDARE_PILOT_INCLUDES
 // (';'-getrennt, vom Harness gesetzt). vcvars64 muss aktiv sein (cl im PATH).
 //
-// argv: run_lazy_150 <out_csv> <max_binaries> <n_ops> <build_version> <src_dir> <dll_dir> [min_free_gb] [cores_per_build] [n_repeats] [select_mode] [resume=1|0]
+// argv: run_lazy_150 <out_csv> <max_binaries> <n_ops> <build_version> <src_dir> <dll_dir> [min_free_gb]
+//       [cores_per_build] [n_repeats] [profile:<pfad>[@<achse>]] [resume=1|0]
+//   • argv[10] = der PROFIL-PFAD (optional "profile:"-Praefix; optional "@<achse>" = ein im Profil als
+//     <axis_sweep> DEKLARIERTER Per-Achsen-Sweep, sonst die Basis-Selektion). Alternativ env COMDARE_THESIS_PROFILE.
 //
-// Mess-RESUME (#139, 2026-06-11): Default AN (argv[11]=1). Binaries mit vollständiger+konfigurations-aktueller
-// per-Binary result.csv (result.csv.stamp == aktueller Config-Stempel) werden übersprungen; ihre Zeilen fließen
-// unverändert in die globale CSV. Stale Ergebnisse (anderer BuildVersion/n_ops/Workload-Set) matchen nicht →
-// Neu-Messung (Zwei-Phasen-Cache-Warmup intrinsisch je Op). Überlebt damit Reboots/Abbrüche auf Binary-Granularität.
+// Mess-RESUME (#139, 2026-06-11): Default AN (argv[11]=1). Binaries mit vollstaendiger+konfigurations-aktueller
+// per-Binary result.csv (result.csv.stamp == aktueller Config-Stempel) werden uebersprungen; ihre Zeilen fliessen
+// unveraendert in die globale CSV. Stale Ergebnisse (anderer BuildVersion/n_ops/Workload-Set) matchen nicht →
+// Neu-Messung (Zwei-Phasen-Cache-Warmup intrinsisch je Op). Ueberlebt damit Reboots/Abbrueche auf Binary-Granularitaet.
 //
-// SELEKTIONS-MODI (2026-06-04, adversarial-Fix): die DEMONSTRATION der per-Achsen-Differenzierung braucht ≥3
-// VERSCHIEDENE search_algo-Werte in der CSV. Im Default-Index-Modus ("index": select_explicit({0..N-1})) variiert
-// search_algo NICHT (Ebene 0 = höchstwertig → die ersten N Blätter teilen denselben search_algo). Daher ein
-// zweiter, KONFIGURIERBARER Modus "search_algo_grid" (argv[10] ODER env COMDARE_SELECT_MODE): F15-Grid, das NUR die
-// search_algo-Ebene (Ebene 0) variiert und ALLE übrigen statischen Ebenen auf Index 0 pinnt → reine search_algo-
-// Wirkung, je search_algo genau EIN Binary. Die Mess-/Reps-/Ordner-Infrastruktur bleibt UNVERÄNDERT (nur die
-// View-Index-Auswahl ändert sich). Der bisherige Index-Modus bleibt Default (rückwärtskompatibel).
+// SELEKTION (PROFIL-GETRIEBEN, S5): die frueheren hartkodierten Code-Modi + die Selektions-Mode-Env + die
+// hartkodierte Achsen->Level-Map sind ENTFERNT. Die Auswahl kommt jetzt aus tlz::profile_select: entweder die
+// Basis-Selektion (ersten N View-Indizes) oder ein im Profil DEKLARIERTER Per-Achsen-Sweep. Eine nicht-deklarierte
+// Achse wird verweigert (profil-getriebene Whitelist). Mess-/Reps-/Ordner-Infrastruktur unveraendert.
 //
-// MESS-ARCHITEKTUR-UMBAU (2026-06-04): die CSV trägt jetzt total_ns + ns_per_op (B/C-1), 19 echte per-Segment-ns
-// (X, ALLE SearchAlgorithm-Achsen T0..T18 — kein n/a mehr; die frühere na_axes-Notiz-Spalte ist entfallen),
+// MESS-ARCHITEKTUR-UMBAU (2026-06-04): die CSV traegt total_ns + ns_per_op (B/C-1), 19 echte per-Segment-ns
+// (X, ALLE SearchAlgorithm-Achsen T0..T18 — kein n/a mehr; die fruehere na_axes-Notiz-Spalte ist entfallen),
 // eine repetition-Spalte (D, je Rep eine eigene Roh-Zeile, Default 3 via [n_repeats]) und die Observer-DELTA-
-// Counter (A, kein kumulatives Artefakt). seg_*-Spalten = n/a nur, falls eine DLL kein IMeasurableWorkloadV3 trägt.
+// Counter (A, kein kumulatives Artefakt). seg_*-Spalten = n/a nur, falls eine DLL kein IMeasurableWorkloadV3 traegt.
 // Die perm-DLLs + Source + .obj + .cl.log + .version + per-Binary-result.csv liegen je Binary in einem eigenen
-// Unterordner unter dll_dir/<stem>/ (E, per_binary_subdirs).
-
-#include "lazy_pilot_engine.hpp"                         // FullPilot/build_pilot_levels/make_pilot_source_gen
-#include "m3v2_select_profile.hpp"                       // M3v2-SELEKTION (Task #156): Basis/Sweep/SOTA-Reihen + Tags
-#include "profile_runner.hpp"                             // STRANG-A Inc1 (ADDITIV): build_profile_levels (build_axis_levels live)
+// Unterordner unter dll_dir/<stem>/ (E, per_binary_subdirs). Die SourceGenFn kommt aus dem profil-agnostischen
+// Anatomie-Quell-KATALOG (source_catalog.hpp, make_catalog_source_gen) — binary_id -> reale Modul-Quelle, lazy.
+#include "source_catalog.hpp"                             // make_catalog_source_gen (profil-getriebene SourceGenFn)
+#include "profile_runner.hpp"                             // build_profile_basis_levels / profile_select / profile_* (Inc3)
 #include <builder/build_orchestrator/system_ram.hpp>     // make_system_free_ram_fn (real)
 
 #include <cstdint>
@@ -57,31 +57,10 @@ static std::vector<std::string> env_includes() {
     return inc;
 }
 
-// F15-Grid (2026-06-04): die EINE search_algo-variierende, alle-anderen-statisch-pinnende Selektion. Setzt die
-// search_algo-Ebene (Ebene 0, höchstwertig) auf 0..K-1 und ALLE übrigen statischen Ebenen auf Index 0 → je
-// search_algo GENAU ein Binary, identische sonstige Achsen (reine search_algo-Wirkung; analog dem ABI-Test). Reine
-// Wiederverwendung der bestehenden StaticBinaryView::flat_index/level_size — KEINE neue Baum-/Mess-Logik. Liefert
-// bis zu `cap` View-Indizes. Pinnt search_algo (Ebene 0) NICHT (Fanout K) → die binary_ids tragen search_algo als
-// freie Achse; jeder Index ist ein gültiges View-Tupel (∈ FullPilot-Source-Map → baubar).
-static ex::BuildSelection select_search_algo_grid(ex::StaticBinaryView const& view, std::size_t cap) {
-    ex::BuildSelection sel;
-    sel.provenance = "search_algo_grid";
-    if (view.level_count() == 0) return sel;
-    std::size_t const k_search = view.level_size(0);              // Anzahl search_algo-Varianten (Ebene 0)
-    std::vector<std::size_t> tuple(view.level_count(), 0);        // alle übrigen Ebenen auf Index 0 gepinnt
-    std::size_t const n = (std::min)(cap, k_search);
-    sel.indices.reserve(n);
-    for (std::size_t s = 0; s < n; ++s) {
-        tuple[0] = s;                                            // NUR die search_algo-Ebene variieren
-        sel.indices.push_back(view.flat_index(tuple));
-    }
-    return sel;
-}
-
 int main(int argc, char** argv) {
     if (argc < 7) {
         std::cerr << "usage: run_lazy_150 <out_csv> <max_binaries> <n_ops> <build_version> <src_dir> <dll_dir>"
-                     " [min_free_gb] [cores_per_build] [n_repeats] [select_mode=index|search_algo_grid]\n";
+                     " [min_free_gb] [cores_per_build] [n_repeats] [profile:<pfad>[@<achse>]] [resume=1|0]\n";
         return 2;
     }
     std::string const out_csv      = argv[1];
@@ -95,11 +74,10 @@ int main(int argc, char** argv) {
     // (D, KF-10): Wiederholungen je (Binary×Setting), Default 3, konfigurierbar via argv[9].
     std::uint32_t const n_repeats = (argc >= 10)
         ? static_cast<std::uint32_t>(std::strtoul(argv[9], nullptr, 10)) : 3u;
-    // Selektions-Modus (2026-06-04): "index" (Default, rückwärtskompatibel) ODER "search_algo_grid" (F15-Grid,
-    // variiert NUR search_algo). Quelle: argv[10], sonst env COMDARE_SELECT_MODE, sonst "index".
-    std::string select_mode = (argc >= 11) ? std::string{argv[10]} : std::string{};
-    if (select_mode.empty()) { char const* e = std::getenv("COMDARE_SELECT_MODE"); if (e != nullptr) select_mode = e; }
-    if (select_mode.empty()) select_mode = "index";
+    // STRANG A Inc4/S5 (2026-06-18): die hartkodierten Code-Selektions-Modi + die Selektions-Mode-Env sind ENTFERNT.
+    // Der Treiber ist NUR noch profil-getrieben. argv[10] ist jetzt der PROFIL-PFAD (optional mit "@<achse>"-Sweep-
+    // Selektor) bzw. das "profile:<pfad>"-Präfix (rückwärts-kompatibel).
+    std::string profile_arg = (argc >= 11) ? std::string{argv[10]} : std::string{};
     // Mess-RESUME (#139): argv[11] (1=an Default / 0=aus → alles neu messen, Stamps werden überschrieben).
     // STRANG-A Inc3: ist argv[11] NICHT gesetzt, darf <run_options resume=..> aus dem Profil den Default liefern
     // (s.u., nach dem Profil-Parse). argv hat Vorrang (Rueckwaerts-Kompatibilitaet).
@@ -151,151 +129,86 @@ int main(int argc, char** argv) {
     };
     std::vector<std::string> const incs = env_includes();
 
-    // Baum: FullPilot statische Achsen (320 ≥150) + dyn. Dimensionen (thread_count × prefetch_distance ×
-    // repetition = 3·2·n_repeats Settings je Binary). Die repetition-Achse (D) erzeugt je Wiederholung eine
-    // EIGENE setting_id → je Rep eine eigene Roh-CSV-Zeile (nie interpoliert).
-    // STRANG-A Inc1 (ADDITIV, gate-frei): select_mode "profile:<pfad>" baut den Baum DEKLARATIV aus einem
-    // comdare_thesis_profile (parse_thesis_profile → build_axis_levels → tree.build) — die offizielle, bisher
-    // verwaiste Kette (Doc 10 §2.2). Der Code-Pfad (FullPilot, build_pilot_levels) bleibt UNANGETASTET der
-    // Default; das Profil ersetzt NUR die AxisLevels-Quelle. ENV COMDARE_THESIS_PROFILE als Alternative zum
-    // select_mode-Suffix. Der Round-Trip-Beleg (test_profile_roundtrip) garantiert binary_id-Identität.
-    // STRANG-A Inc3 (S3-complete, 2026-06-18): das select_mode-Suffix nach "profile:" ist der PROFIL-PFAD, optional
-    // mit einem "@<achse>"-Sub-Selektor fuer einen PER-ACHSEN-SWEEP (sonst BASIS-320). Ersetzt die SelectMode-
-    // Branches ("axis_sweep:<a>" + "sota:<s>") fuer den profil-getriebenen Weg: die Sweep-Achse muss als
-    // <axis_sweep> im Profil DEKLARIERT sein (profil-getriebene Whitelist statt hartkodierter axis_to_level-Map).
-    std::string profile_path, profile_select_axis;
-    if (select_mode.rfind("profile:", 0) == 0) profile_path = select_mode.substr(std::string("profile:").size());
+    // STRANG A Inc4/S5 (2026-06-18): der Baum kommt AUSSCHLIESSLICH aus dem comdare_thesis_profile
+    // (parse_thesis_profile → build_axis_levels → tree.build, die offizielle Kette Doc 10 §2.2). Der frühere
+    // frueher hartkodierte Code-Pfad ist ENTFERNT (Inc4/S5). Quelle des Profil-Pfads: argv[10]
+    // ("profile:<pfad>" oder direkt "<pfad>", optional "@<achse>"-Sweep-Selektor) bzw. env COMDARE_THESIS_PROFILE.
+    // Die binary_ids sind golden-belegt identisch zur eingefrorenen golden_fullpilot_320_binary_ids.txt (Resume #139).
+    std::string profile_path = profile_arg, profile_select_axis;
+    if (profile_path.rfind("profile:", 0) == 0) profile_path = profile_path.substr(std::string("profile:").size());
     if (profile_path.empty()) { char const* e = std::getenv("COMDARE_THESIS_PROFILE"); if (e != nullptr) profile_path = e; }
-    if (auto at = profile_path.rfind('@'); at != std::string::npos) {   // "profile:<pfad>@<achse>" → Sweep-Achse
+    if (auto at = profile_path.rfind('@'); at != std::string::npos) {   // "<pfad>@<achse>" → Sweep-Achse
         profile_select_axis = profile_path.substr(at + 1);
         profile_path.erase(at);
     }
     // Alternativ via env (ueberschreibt das @-Suffix), z.B. fuer die PS-Sweep-Schleife.
     if (char const* e = std::getenv("COMDARE_PROFILE_SELECT"); e != nullptr && *e != '\0') profile_select_axis = e;
-    bool const profile_mode = !profile_path.empty();
-
-    // Profil EINMAL parsen (Inc3 konsumiert daraus working_set_sweep / axis_sweeps / run_options).
-    std::optional<comdare::builder::xml::ThesisProfile> tp_opt;
-    if (profile_mode) {
-        tp_opt = tlz::load_thesis_profile(profile_path);
-        if (!tp_opt) { std::cerr << "run_lazy_150: COMDARE_THESIS_PROFILE/'" << profile_path
-                             << "' nicht lesbar (parse_thesis_profile=nullopt) — Abbruch.\n"; return 5; }
+    if (profile_path.empty()) {
+        std::cerr << "run_lazy_150: kein Profil angegeben (argv[10]=profile:<pfad> ODER env COMDARE_THESIS_PROFILE)."
+                     " Der Treiber ist profil-getrieben (STRANG A Inc4/S5) — Abbruch.\n";
+        return 5;
     }
+
+    // Profil EINMAL parsen (konsumiert daraus working_set_sweep / axis_sweeps / run_options / Selektion).
+    std::optional<comdare::builder::xml::ThesisProfile> const tp_opt = tlz::load_thesis_profile(profile_path);
+    if (!tp_opt) { std::cerr << "run_lazy_150: Profil '" << profile_path
+                         << "' nicht lesbar (parse_thesis_profile=nullopt) — Abbruch.\n"; return 5; }
+    auto const& tp = *tp_opt;
+    std::string const mode_name = tp.modes.empty() ? std::string{"m3v2_base"} : tp.modes.front().name;
 
     auto factory = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree tree{factory};
-    std::vector<ex::AxisLevel> profile_static_basis;   // tier-frei (fuer profile_axis_level), Inc3
-    if (profile_mode) {
-        auto const& tp = *tp_opt;
-        std::string const mode_name = tp.modes.empty() ? std::string{"pilot_base"} : tp.modes.front().name;
-        // tier-Level-Handling (Inc3): build_axis_levels emittiert ein "tier"-Level oben (base_tiers). Fuer den
-        // BASIS-320-Lauf (reine 4-Achsen-Permutation) wird es abgezogen → DERSELBE binary_id-Raum wie FullPilot
-        // (Resume #139 stabil; Round-Trip belegt in test_profile_roundtrip.cpp (6)).
-        std::vector<ex::AxisLevel> const lv = tlz::build_profile_basis_levels(tp, mode_name, /*with_dynamic=*/true);
-        profile_static_basis = lv;
-        tree.build(lv);
-        std::cout << "PROFIL-MODUS: " << profile_path << "  (id=" << tp.id << " mode=" << mode_name
-                  << " select_axis=" << (profile_select_axis.empty() ? "basis" : profile_select_axis)
-                  << ")  tree.binary_count() = " << tree.binary_count()
-                  << "  dyn_dims = " << tree.dynamic_filter().size() << "\n";
-    } else {
-        tree.build(tlz::build_pilot_levels<tlz::FullPilot>(/*with_dynamic=*/true, n_repeats, workload_values));
-    }
+    // build_axis_levels emittiert ein "tier"-Level oben (base_tiers). Fuer den reinen Achsen-Permutations-Lauf
+    // (Basis-320) wird es abgezogen → DERSELBE binary_id-Raum wie die GOLDEN-Liste (Resume #139 stabil).
+    std::vector<ex::AxisLevel> const profile_static_basis =
+        tlz::build_profile_basis_levels(tp, mode_name, /*with_dynamic=*/true);
+    tree.build(profile_static_basis);
 
-    std::cout << "FullPilot::Engine::count() = " << tlz::FullPilot::Engine::count()
+    std::cout << "PROFIL-MODUS: " << profile_path << "  (id=" << tp.id << " mode=" << mode_name
+              << " select_axis=" << (profile_select_axis.empty() ? "basis" : profile_select_axis) << ")"
               << "  tree.binary_count() = " << tree.binary_count()
               << "  dyn_dims = " << tree.dynamic_filter().size()
               << "  n_repeats = " << n_repeats
-              << "  max_binaries = " << max_binaries
-              << "  select_mode = " << select_mode << "\n";
+              << "  max_binaries = " << max_binaries << "\n";
     {
         std::cout << "  workloads (Achse 2) = " << workload_values.size() << " [";
         for (std::size_t i = 0; i < workload_values.size(); ++i) std::cout << (i ? "," : "") << workload_values[i];
         std::cout << "]\n";
     }
 
-    // Selektion: ZWEI Modi (Mess-/Reps-/Ordner-Infra IDENTISCH; nur die View-Index-Auswahl unterscheidet sich).
-    //   • "search_algo_grid" (F15): variiert NUR die search_algo-Ebene (Ebene 0), alle übrigen statisch gepinnt →
-    //     je search_algo GENAU ein Binary; die CSV zeigt die per-search_algo-Differenzierung (Demonstration).
-    //   • "index" (Default): die ersten N View-Indizes (select_explicit) — search_algo konstant über die ersten N
-    //     (Ebene 0 höchstwertig). Rückwärtskompatibel.
+    // Selektion (PROFIL-GETRIEBEN, S5): Basis-Selektion (ersten N View-Indizes) ODER ein im Profil als <axis_sweep>
+    // deklarierter Per-Achsen-Sweep (variiert GENAU eine Achse gegen die Index-0-Baseline). Mess-/Reps-/Ordner-Infra
+    // IDENTISCH; nur die View-Index-Auswahl unterscheidet sich. Quelle = tlz::profile_select.
     ex::StaticBinaryView const view = tree.static_binary_view();
 
-    // STRANG-A Inc3 (run_options): cap aus <run_options cap=..> als max_binaries-Default, wenn argv[2] nicht
-    // gesetzt war (argv hat Vorrang). Hier wird der EFFEKTIVE Cap bestimmt; max_binaries (argv) bleibt unangetastet.
+    // STRANG-A Inc4/S5 (run_options, PROFIL-GETRIEBEN): cap/resume/platform/build_version aus <run_options> als
+    // Defaults; argv/env darf weiterhin uebersteuern (Rueckwaerts-Kompatibilitaet). cap greift, wenn argv[2]=0.
+    tlz::ProfileRunOptions const ro = tlz::profile_run_options(tp);
     std::size_t eff_cap = max_binaries;
-    if (profile_mode) {
-        tlz::ProfileRunOptions const ro = tlz::profile_run_options(*tp_opt);
-        if (ro.cap > 0 && max_binaries == 0) eff_cap = ro.cap;   // argv[2]=0 ⇒ Profil-cap greift
-        // resume aus <run_options resume=..>, falls argv[11] NICHT gesetzt war (argv hat Vorrang).
-        if (!resume_from_argv) resume = ro.resume;
-    }
+    if (ro.cap > 0 && max_binaries == 0) eff_cap = ro.cap;
+    if (!resume_from_argv) resume = ro.resume;
     std::size_t const N = (std::min)(eff_cap, tree.binary_count());
 
-    // M3v2-SELEKTION (Task #156): die 5 Lauf-/Selektions-Tags. series/sweep_axis kommen aus dem SelectMode (s.u.);
-    // working_set_n = workload_records (vom Harness via COMDARE_WORKLOAD_RECORDS gesetzt → je N-Sweep-Pass ein Lauf);
-    // platform/build_version aus env (Infra-Agent setzt sie je Plattform-Reihe), sonst Defaults.
-    // STRANG-A Inc3 (run_options): platform/build_version-Defaults aus <run_options> (env hat Vorrang).
-    namespace m3 = ::comdare::cache_engine::thesis_lazy::m3v2;
-    m3::RowTags row_tags;   // Default: series="-" sweep_axis="-" platform="win-x86_64" build_version="m3v2"
-    if (profile_mode) {     // Profil-Defaults zuerst (env darf gleich darauf uebersteuern)
-        tlz::ProfileRunOptions const ro = tlz::profile_run_options(*tp_opt);
-        if (!ro.platform.empty())      row_tags.platform      = ro.platform;
-        if (!ro.build_version.empty()) row_tags.build_version = ro.build_version;
-    }
-    if (char const* p = std::getenv("COMDARE_PLATFORM");      p != nullptr && *p != '\0') row_tags.platform = p;
-    if (char const* bv = std::getenv("COMDARE_BUILD_VERSION"); bv != nullptr && *bv != '\0') row_tags.build_version = bv;
-    else if (!profile_mode) row_tags.build_version = build_version;   // ohne Tag = die BuildVersion-Marke (m3v2)
+    // Die 4 Lauf-/Selektions-Tag-Spalten (series/sweep_axis/platform/build_version) je Mess-Zeile. series/sweep_axis
+    // kommen PROFIL-GETRIEBEN aus tlz::profile_select (s.u.); platform/build_version aus <run_options> (env Vorrang).
+    // working_set_n = cfg.workload_records (separate N-Sweep-Achse, s.u.). KEINE hartkodierte Selektions-Quelle mehr.
+    std::string tag_series = "-", tag_sweep_axis = "-";
+    std::string tag_platform      = ro.platform.empty()      ? std::string{"win-x86_64"} : ro.platform;
+    std::string tag_build_version = ro.build_version.empty() ? std::string{"m3v2"}       : ro.build_version;
+    if (char const* p = std::getenv("COMDARE_PLATFORM");      p != nullptr && *p != '\0') tag_platform = p;
+    if (char const* bv = std::getenv("COMDARE_BUILD_VERSION"); bv != nullptr && *bv != '\0') tag_build_version = bv;
 
-    // SELEKTIONS-MODI (m3v2): die reproduzierbare m3v2_select_profile-Quelle erzeugt je Modus den getaggten Pass.
-    //   • "index"            : BASIS (voll-faktoriell, ersten N) — make_basis. series/sweep="-".
-    //   • "search_algo_grid" : F15-Grid (NUR search_algo) — rückwärtskompatibel.
-    //   • "axis_sweep:<axis>": PER-ACHSEN-SWEEP gegen die feste Baseline (eine Achse über ihre Ausprägungen).
-    //   • "sota:<A|B|C>"     : SOTA-REIHE — Stufe-1/2/3-Tag. Im Pilot über die Basis-Binaries getaggt (SOTA-Engine HELD).
-    // Achsen-Namen→Level-Index für axis_sweep (FullPilot-static_levels-Reihenfolge): search_algo=0, node_type=4,
-    // memory_layout=5, prefetch=7, path_compression=3 (im FullPilot gepinnt → 1 Binary = Baseline). Single-Source.
-    auto axis_to_level = [](std::string const& a) -> std::size_t {
-        if (a == "search_algo")      return 0;
-        if (a == "path_compression") return 3;
-        if (a == "node_type")        return 4;
-        if (a == "memory_layout")    return 5;
-        if (a == "prefetch")         return 7;
-        return static_cast<std::size_t>(-1);   // unbekannt → make_axis_sweep verweigert (provenance-Marker)
-    };
-
-    ex::BuildSelection sel;
-    if (profile_mode) {
-        // STRANG-A Inc3 (axis_sweeps): die Selektion kommt PROFIL-GETRIEBEN aus tlz::profile_select — entweder
-        // BASIS-320 (profile_select_axis leer) oder ein im Profil als <axis_sweep> DEKLARIERTER Per-Achsen-Sweep.
-        // Der level_d wird ueber profile_axis_level aus den tier-freien Basis-Levels aufgeloest (KEINE hartkodierte
-        // axis_to_level-Map). Funktional == m3::make_basis/make_axis_sweep, nur die Auswahl ist deklarativ.
-        tlz::ProfileTaggedSelection const pts =
-            tlz::profile_select(*tp_opt, profile_static_basis, view, profile_select_axis, N);
-        sel = pts.selection;
-        row_tags.series = pts.series; row_tags.sweep_axis = pts.sweep_axis;
-        std::cout << "PROFIL-SELEKTION: label=" << pts.label << "  provenance=" << sel.provenance << "\n";
-    } else if (select_mode == "search_algo_grid") {
-        sel = select_search_algo_grid(view, N);          // je search_algo ein Binary (≤ K_search Binaries)
-    } else if (select_mode.rfind("axis_sweep:", 0) == 0) {
-        std::string const axis = select_mode.substr(std::string("axis_sweep:").size());
-        m3::TaggedSelection const tsel = m3::make_axis_sweep(view, axis_to_level(axis), axis, N);
-        sel = tsel.selection;
-        row_tags.series = tsel.tags.series; row_tags.sweep_axis = tsel.tags.sweep_axis;
-    } else if (select_mode.rfind("sota:", 0) == 0) {
-        // SOTA-Reihe (A/B/C): die SOTA-/PRT-ART-Engine-Erweiterung ist HELD → der Pilot belegt den A/B/C-Tag-Apparat
-        // über die Basis-Binaries (Reihe-Repräsentanten). series=<A|B|C>; sweep_axis trägt den Reihen-Marker "sota".
-        std::string const series = select_mode.substr(std::string("sota:").size());
-        m3::TaggedSelection const tsel = m3::make_basis(view, N);
-        sel = tsel.selection;
-        row_tags.series = series; row_tags.sweep_axis = "sota";
-    } else {   // "index" / "basis" (Default): BASIS-320 (voll-faktoriell, ersten N)
-        m3::TaggedSelection const tsel = m3::make_basis(view, N);
-        sel = tsel.selection;
-        row_tags.series = tsel.tags.series; row_tags.sweep_axis = tsel.tags.sweep_axis;
-    }
-    std::cout << "Selektion: provenance=" << sel.provenance << "  indices=" << sel.size()
-              << "  [m3v2 tags: series=" << row_tags.series << " sweep_axis=" << row_tags.sweep_axis
-              << " platform=" << row_tags.platform << " build_version=" << row_tags.build_version
+    // SELEKTION (PROFIL-GETRIEBEN, S5): entweder BASIS-320 (profile_select_axis leer) oder ein im Profil als
+    // <axis_sweep> DEKLARIERTER Per-Achsen-Sweep. Der level_d wird ueber profile_axis_level aus den tier-freien
+    // Basis-Levels aufgeloest (KEINE hartkodierte axis_to_level-Map; nicht-deklarierte Achse → REFUSED-Provenance).
+    tlz::ProfileTaggedSelection const pts =
+        tlz::profile_select(tp, profile_static_basis, view, profile_select_axis, N);
+    ex::BuildSelection const sel = pts.selection;
+    tag_series = pts.series; tag_sweep_axis = pts.sweep_axis;
+    std::cout << "PROFIL-SELEKTION: label=" << pts.label << "  provenance=" << sel.provenance
+              << "  indices=" << sel.size()
+              << "  [tags: series=" << tag_series << " sweep_axis=" << tag_sweep_axis
+              << " platform=" << tag_platform << " build_version=" << tag_build_version
               << " working_set_n=via-records]\n";
 
     ex::CompileFn compile = [defs, incs](ex::BuildJob const& job) -> int {
@@ -316,7 +229,10 @@ int main(int argc, char** argv) {
         std::string const cmd = "cl @\"" + rsp.string() + "\" > \"" + job.output.string() + ".cl.log\" 2>&1";
         return std::system(cmd.c_str());
     };
-    ex::SourceGenFn gen = tlz::make_pilot_source_gen<tlz::FullPilot>();
+    // SourceGenFn = der profil-agnostische Anatomie-Quell-KATALOG (S4b): binary_id → reale Modul-Quelle. Der Treiber
+    // hat den Baum + die Selektion AUS DEM PROFIL gebaut; der Katalog liefert NUR die Quelle je selektiertem binary_id
+    // (kein Code-Selektor, kein String→Typ-Dispatch). Lazy-Compile (1 DLL = 1 TU) bleibt erhalten.
+    ex::SourceGenFn gen = tlz::make_catalog_source_gen();
     ex::FreeRamFn   ram = ex::make_system_free_ram_fn();
 
     // STRANG-A Inc3 (working_set_sweep): die N-Liste der AEUSSEREN Lauf-Iteration. ERSETZT die PS-foreach
@@ -328,7 +244,7 @@ int main(int argc, char** argv) {
     // Die per-N-Zeilen werden in EINE Gesamt-CSV zusammengefuehrt (Header genau EINMAL).
     std::vector<std::uint64_t> n_sweep;
     bool const env_records_set = (std::getenv("COMDARE_WORKLOAD_RECORDS") != nullptr);
-    if (profile_mode && !env_records_set) n_sweep = tlz::profile_working_set_sweep(*tp_opt);
+    if (!env_records_set) n_sweep = tlz::profile_working_set_sweep(tp);
     if (n_sweep.empty()) {   // kein Profil-Sweep (oder env hat Vorrang) → EIN Pass mit dem env-Wert (0=Default)
         std::uint64_t rec = 0;
         if (char const* lr = std::getenv("COMDARE_WORKLOAD_RECORDS"); lr != nullptr) rec = std::strtoull(lr, nullptr, 10);
@@ -336,8 +252,7 @@ int main(int argc, char** argv) {
     }
     std::cout << "WORKING-SET-SWEEP (aeussere Iteration): [";
     for (std::size_t i = 0; i < n_sweep.size(); ++i) std::cout << (i ? "," : "") << n_sweep[i];
-    std::cout << "]  Quelle=" << ((profile_mode && !env_records_set && !tp_opt->working_set_sweep.empty())
-                                  ? "profil" : "env/default") << "\n";
+    std::cout << "]  Quelle=" << ((!env_records_set && !tp.working_set_sweep.empty()) ? "profil" : "env/default") << "\n";
 
     std::ofstream csv{out_csv, std::ios::trunc};
     csv << ex::lazy_csv_header();          // Header GENAU EINMAL (alle N-Teile darunter)
@@ -353,12 +268,12 @@ int main(int argc, char** argv) {
         cfg.workload_records = ws_n;
         cfg.workload_configs = workload_registry;   // Achse 2 (#135): XML-Lastprofil-Registry → Iterator (Kopie je N)
         cfg.build_version  = build_version;
-        // M3v2-SELEKTION (Task #156): die 5 Lauf-/Selektions-Tags je Mess-Zeile (CSV-Spalten series/sweep_axis/
-        // working_set_n/platform/build_version). working_set_n = cfg.workload_records (= ws_n); 4 übrige aus row_tags.
-        cfg.row_series        = row_tags.series;
-        cfg.row_sweep_axis    = row_tags.sweep_axis;
-        cfg.row_platform      = row_tags.platform;
-        cfg.row_build_version = row_tags.build_version;
+        // Die 5 Lauf-/Selektions-Tags je Mess-Zeile (CSV-Spalten series/sweep_axis/working_set_n/platform/
+        // build_version). working_set_n = cfg.workload_records (= ws_n); die 4 uebrigen profil-getrieben (S5).
+        cfg.row_series        = tag_series;
+        cfg.row_sweep_axis    = tag_sweep_axis;
+        cfg.row_platform      = tag_platform;
+        cfg.row_build_version = tag_build_version;
         cfg.source_dir     = src_dir;
         cfg.output_dir     = dll_dir;
         cfg.cores_per_build = cpb;
