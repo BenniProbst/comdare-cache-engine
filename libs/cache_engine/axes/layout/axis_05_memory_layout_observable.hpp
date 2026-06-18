@@ -27,8 +27,8 @@ namespace comdare::cache_engine::layout {
 struct MemoryLayoutSnapshot {
     std::uint64_t scan_count         = 0;   ///< Anzahl scan_field_sum-Aufrufe
     std::uint64_t records_scanned    = 0;   ///< kumulierte Datensatz-Zahl ueber alle Scans
-    std::uint64_t field_bytes_read   = 0;   ///< gelesene Feld-Bytes (records * sizeof(uint32))
-    std::uint64_t cache_lines_touched = 0;  ///< record_size-basierte AoS-Strided-Schaetzung
+    std::uint64_t field_bytes_read   = 0;   ///< P-MD1: REAL belegte Nutzbytes je Layout (n * useful, LAYOUT-ABHAENGIG)
+    std::uint64_t cache_lines_touched = 0;  ///< P-MD1: REAL beruehrte 64-B-Lines je Layout (ceil(n*span/64), LAYOUT-ABHAENGIG)
     std::uint64_t last_checksum      = 0;   ///< letztes scan_field_sum-Ergebnis (Korrektheits-Anker)
 
     [[nodiscard]] bool operator==(MemoryLayoutSnapshot const&) const noexcept = default;
@@ -49,6 +49,14 @@ public:
     // rufen C::memory_layout::name()).
     [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return Strategy::cache_line_size(); }
     [[nodiscard]] static constexpr std::string_view name()            noexcept { return Strategy::name(); }
+    // P-MD1-ERDUNG (#167): die REALE Repraesentation der gewrappten Strategie transparent durchreichen, damit die
+    // Huelle als L im LayoutAwareChunkedStore (z.B. via ArtComposition/observable_composed_search) denselben
+    // physischen Store-Footprint erzeugt wie die nackte Strategie.
+    [[nodiscard]] static constexpr ::comdare::cache_engine::layout::RepresentationKind representation_kind() noexcept {
+        return Strategy::representation_kind();
+    }
+    [[nodiscard]] static constexpr std::size_t block_width()
+        noexcept requires requires { Strategy::block_width(); } { return Strategy::block_width(); }
     [[nodiscard]] static constexpr std::string_view family_name()
         noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
     [[nodiscard]] static constexpr std::string_view flag_suffix()
@@ -77,11 +85,36 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.scan_count;
         stats_.records_scanned  += static_cast<std::uint64_t>(n);
-        stats_.field_bytes_read += static_cast<std::uint64_t>(n) * sizeof(std::uint32_t);
-        std::size_t const line = Strategy::cache_line_size();
-        std::size_t const lines_per_record = (line == 0) ? 1 : ((record_size + line - 1) / line);
-        stats_.cache_lines_touched += static_cast<std::uint64_t>(n) * (lines_per_record == 0 ? 1 : lines_per_record);
+        // GENERISCHER Footprint (Raw-Buffer-Pfad ohne realen Store, z.B. abi_adapter/Anatomie-Test): voller
+        // Record-Stride. Die LAYOUT-DISTINKTE, REALE CLU kommt aus observe_real_footprint() (P-MD1-ERDUNG #167),
+        // das vom LayoutAwareChunkedStore mit dem ECHTEN, representation-spezifischen Key-Scan-Footprint gefuettert
+        // wird — NICHT mehr aus einem entkoppelten record_useful_bytes/record_line_span-Deskriptor.
+        constexpr std::size_t kKeyBytes  = sizeof(std::uint64_t);
+        constexpr std::size_t kLineBytes = 64u;
+        std::size_t const rs = (record_size == 0) ? (2u * kKeyBytes) : record_size;
+        std::uint64_t const touched_bytes = static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(rs);
+        stats_.field_bytes_read    += static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(kKeyBytes);
+        stats_.cache_lines_touched += (touched_bytes + (kLineBytes - 1u)) / kLineBytes;
         stats_.last_checksum = checksum;
+#endif
+        return checksum;
+    }
+
+    /// observe_real_footprint (P-MD1-ERDUNG #167): der REALE, vom LayoutAwareChunkedStore representation-genau
+    /// vermessene Key-Scan-Footprint EINES Chunks. `field_bytes` = real beruehrte NUTZ-Key-Bytes, `cache_lines` =
+    /// real beruehrte DISTINKTE 64-B-Linien aus dem echten Byte-Layout der Repraesentation. CLU =
+    /// field_bytes/(cache_lines*64) folgt damit aus dem ECHTEN Store-Footprint, nicht aus einem Modell. Der
+    /// Store ruft dies pro Chunk; die Werte werden akkumuliert (`records` = Chunk-Record-Zahl als Anker).
+    [[nodiscard]] std::uint64_t observe_real_footprint(std::uint64_t checksum, std::size_t records,
+                                                       std::uint64_t field_bytes, std::uint64_t cache_lines) noexcept {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        ++stats_.scan_count;
+        stats_.records_scanned     += static_cast<std::uint64_t>(records);
+        stats_.field_bytes_read    += field_bytes;
+        stats_.cache_lines_touched += cache_lines;
+        stats_.last_checksum        = checksum;
+#else
+        (void)records; (void)field_bytes; (void)cache_lines;
 #endif
         return checksum;
     }

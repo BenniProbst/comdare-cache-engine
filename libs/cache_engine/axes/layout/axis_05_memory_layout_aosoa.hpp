@@ -42,6 +42,16 @@ public:
 
     [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return 64; }
     [[nodiscard]] static constexpr std::size_t      block_width()     noexcept { return kBlockWidth; }
+
+    // REALE Repraesentation (P-MD1-ERDUNG #167): Block-tiled (W=8 Lanes/Block, gedeckelt auf die Node-Kapazitaet).
+    // Der Store legt pro Block B keys KONTIGUIERLICH (SoA-artige Key-Lane, B*8 B) an, dann B values, die Bloecke
+    // als Array hintereinander (AoS ueber Bloecke). Der Key-only-Scan liest die Key-Lanes (B*8 B dicht) mit einem
+    // Block-Stride-Gap (die uebersprungene Value-Lane) → MEHR Lines als das durchgehend dichte SoA, aber WENIGER
+    // als 16-B-strided AoS. CLU damit ZWISCHEN SoA und AoS, byte-distinkt von beiden — aus dem ECHTEN
+    // Block-Stride des Stores (KEIN entkoppeltes payload+payload/4-Modell mehr).
+    [[nodiscard]] static constexpr RepresentationKind representation_kind() noexcept {
+        return RepresentationKind::aosoa_blocked_columns;
+    }
     [[nodiscard]] static constexpr std::string_view name()            noexcept { return "memory_layout_aosoa"; }
     [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "AoSoAMemoryLayout (Array-of-Structures-of-Arrays, Block-SoA + Block-AoS Hybrid, SIMD-tiled)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()     noexcept { return "AOSOA"; }

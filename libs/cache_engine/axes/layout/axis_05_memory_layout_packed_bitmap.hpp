@@ -27,6 +27,16 @@ public:
 
     [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return 8; }  // 64 bit = 1 word
     [[nodiscard]] static constexpr std::string_view name()            noexcept { return "memory_layout_packed_bitmap"; }
+
+    // REALE Repraesentation (P-MD1-ERDUNG #167): succinct hot/cold column-split (succinct data structures,
+    // LOUDS/SuRF-Geist). Der Store legt PRO Chunk drei Regionen an: eine 2-B-HOT-Key-Spalte (low16 jedes Keys),
+    // eine 6-B-COLD-Residue-Spalte (high48) und die values. Der Key-only-Scan beruehrt NUR die 2-B-Hot-Spalte
+    // (n*2 B KONTIGUIERLICH) → der WENIGSTE Byte-/Line-Footprint aller 5 Reps (ceil(n*2/64) statt ceil(n*8/64)).
+    // load_key rekonstruiert VERLUSTFREI low16|(high48<<16) (voller uint64-Round-Trip) — Decode beim Load. CLU
+    // damit byte-distinkt + plausibel aus dem ECHTEN Hot-Spalten-Footprint (kein 3/8-Deskriptor-Modell mehr).
+    [[nodiscard]] static constexpr RepresentationKind representation_kind() noexcept {
+        return RepresentationKind::succinct_hot_cold_split;
+    }
     [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "PackedBitmapMemoryLayout (bit-packed succinct, LOUDS/SuRF, n*lg(sigma) bits)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()     noexcept { return "PACKED_BITMAP"; }
 

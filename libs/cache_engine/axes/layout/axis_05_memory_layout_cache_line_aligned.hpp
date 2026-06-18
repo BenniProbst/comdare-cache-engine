@@ -27,6 +27,14 @@ public:
 
     [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return 64; }
     [[nodiscard]] static constexpr std::string_view name()            noexcept { return "memory_layout_cache_line_aligned"; }
+
+    // REALE Repraesentation (P-MD1-ERDUNG #167): jeder Record ist im Store auf eine VOLLE 64-B-Cache-Line
+    // gepaddet ([key|value|48 B pad], Stride 64). Der Key-only-Scan beruehrt damit PRO Record eine eigene
+    // Linie, von der nur 8 Key-Bytes nuetzlich sind → die NIEDRIGSTE CLU der 5 Layouts (bewusstes
+    // False-Sharing-Vermeidungs-Padding kostet Cache-Line-Effizienz). CLU aus dem ECHTEN 64-B-Store-Stride.
+    [[nodiscard]] static constexpr RepresentationKind representation_kind() noexcept {
+        return RepresentationKind::aos_interleaved_padded;
+    }
     [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "CacheLineAlignedMemoryLayout (64-byte AoS, standard cache architectures)"; }
     [[nodiscard]] static constexpr std::string_view flag_suffix()     noexcept { return "CACHE_LINE_ALIGNED"; }
 
