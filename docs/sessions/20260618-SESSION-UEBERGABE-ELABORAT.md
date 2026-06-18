@@ -13,12 +13,15 @@ Architektur" planen, sie wieder ausbauen, und ALLE gefundenen Lösungen auf die 
 separate Struktur als **Abstract-Factory-Implementierung der ANATOMIE** ausprägen — die die Achsen aus dem System (Registry/
 TopicConfigSet) zusammenführt und über **Metaprogrammierung den sezierten Gesamt-Algorithmus ORIGINAL wieder zusammennäht** (statt
 einer parallelen PilotAxes/m3v2-Konfig).
-- **STATUS:** Planungssession FERTIG (Workflow `wuz2dbsnu`, 5 Agenten, code-verifiziert). **→ Ausführbarer Plan persistiert in
-  `docs/sessions/20260618-STRANG-A-ABSTRACTFACTORY-RUECKBAU-PLAN.md` (S0–S9 + Deviation-Map + Factory-Design + Risiken). VERDIKT:
-  Rückbau KLEIN/chirurgisch — die offizielle Abstract-Factory-Ausprägung der Anatomie EXISTIERT BEREITS vollständig (AdHocComposition<19>
-  + CompositionFromPermTuple + genus-Engine + pruefling_merge + composition_registry + adhoc_emitter); umgebaut wird NUR die dünne
-  Selektions-Schicht (~3 Dateien: lazy_pilot_engine.hpp / m3v2_select_profile.hpp / run_lazy_150.cpp), die zum Konsumenten der EINEN
-  Factory wird. Gate-frei vor dem HELD-Voll-Lauf. Folge-Session: Plan-Doc lesen → S0–S9 umsetzen.**
+- **STATUS:** Plan FERTIG + **2× korrigiert** (User steuerte die Tiefe). **AUTORITATIV: `docs/sessions/20260618-STRANG-A-KORRIGIERT-
+  PROFIL-GETRIEBEN-PLAN.md`** (Workflow w3jvelwr3, code-verifiziert, claim BESTÄTIGT). KERN: die Testlauf-Konfiguration (welche
+  Lebewesen/Achsen/Sweeps/SOTA/Working-Set) gehört in ein **deklaratives Diplomarbeit-Mess-Profil** (`comdare_thesis_profile`-XML),
+  das der **CacheEngineBuilder** über das Prüf-Dock fährt — NICHT in Code (4-Subsystem-Modell M). Der Mechanismus EXISTIERT schon
+  (ThesisProfile + parse_thesis_profile + build_axis_levels `profile_to_tree.hpp:25` + Vorlage `cacheline_study.profile.xml` +
+  KF-1/2/7/8/9 done), ist aber ORPHANED (Grep thesis_tiere/ = 0 Treffer) + hat 4 Schema-Lücken. Rückbau = die EINE fehlende Naht
+  ziehen (Harness→build_axis_levels) + Schema +4 Felder + `run_profile`-Eintritts-API + **PilotAxes/SelectMode/m3v2_select_profile
+  ENTFERNEN** (nicht degradieren). Hartes Gate: binary_id-Round-Trip (Resume #139). Salvage→Profil: Working-Set/Sweep/A-B-C/Tags.
+  Der alte `…-ABSTRACTFACTORY-RUECKBAU-PLAN.md` ist ÜBERHOLT (zu flach). Folge-Session: korrigierten Plan lesen → S0–S9.**
 - **MEINE VORLÄUFIGE EINSCHÄTZUNG (vom Plan zu verifizieren):** Der Rückbau ist VORAUSSICHTLICH FOKUSSIERT, nicht wholesale. Die
   6 Achsen-Vertiefungen (migration/io/filter/value_handle/patricia/prefetch), Phase-2-5-Layouts, seg-Coverage, CLU haben die
   OFFIZIELLEN Strukturen verändert (die offiziellen Achsen-Organe via `ce::*::TopicConfigSet`, `abi_adapter.hpp`, `LayoutAware

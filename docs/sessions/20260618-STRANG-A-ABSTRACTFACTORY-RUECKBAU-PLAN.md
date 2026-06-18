@@ -1,5 +1,11 @@
 # Strang A — AbstractFactory-of-Anatomy-Rückbau: ausführbarer Plan (Workflow wuz2dbsnu)
 
+> ⛔ **ÜBERHOLT / ZU FLACH (User-Korrektur 2026-06-18) — NICHT umsetzen.** Dieser Plan reparierte nur die Anatomie-Naht-Fabrik und
+> ließ die Code-Selektions-Schicht (PilotAxes/m3v2_select_profile/SelectMode) als „Factory-Konsument" bestehen. Das ist der vom User
+> benannte Architektur-Blödsinn: die Testlauf-Konfiguration gehört in ein **deklaratives Diplomarbeit-Mess-Profil**, das der
+> CacheEngineBuilder fährt — NICHT in Code. **AUTORITATIV: `20260618-STRANG-A-KORRIGIERT-PROFIL-GETRIEBEN-PLAN.md`.** Dieser hier
+> bleibt nur als Historie (die Anatomie-Naht-Fabrik-Befunde darin sind korrekt + fließen in den korrigierten Plan ein).
+
 > **Ergebnis der elaboraten Planungssession 2026-06-18** (5 Agenten, 10 Dateien code-verifiziert). Steuert die User-Direktive:
 > die Mess-Selektion als Abstract Factory der Anatomie ausprägen, alle Session-Lösungen auf die offizielle Architektur anwenden.
 > **HÖCHSTE PRIO der Folge-Session.** Deckt Tasks #168 + #162. Voller Workflow-Output: `tasks/wuz2dbsnu.output`.
