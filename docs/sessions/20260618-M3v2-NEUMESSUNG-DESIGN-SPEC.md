@@ -60,23 +60,22 @@ Layout, Working-Set-Sweep) → bilinguale PDF → Overleaf → **finaler G5-Re-A
 ## 8. Pre-Run-Checkliste
 - [x] 6 Achsen real · A1 · K10+PMAJOR-04 · prefetch-Pfad-A · CLU/5-Reps · seg-Coverage — committet.
 - [ ] #155 CMake-Reg + Suite grün (beim m3v2-Build).
-- [x] Sweep-/SOTA-/Working-Set-/Plattform-/Workload-Selektion als SelectMode/Profil im Harness (Implementierungs-Agent, gate-frei).
-      **UMGESETZT 2026-06-18** (Klein-Pilot verifiziert): reproduzierbare Selektions-Quelle
-      `tests/unit/thesis_tiere/m3v2_select_profile.hpp` (engine-agnostisch, umbrella-frei): make_basis (BASIS-320, voll-
-      faktoriell) · make_axis_sweep (PER-ACHSEN-SWEEP gegen feste Baseline via StaticBinaryView::flat_index — Achsen-
-      Austausch IM Präfixbaum, NIE Flach-Tupel) · sota_row_tags (PRT-ART + 6 SOTA × Reihen A/B/C = 21 getaggte Reihen-
-      Einträge; die SOTA-/PRT-ART-DLL-Engine-Erweiterung bleibt HELD, der A/B/C-Tag-Apparat ist reproduzierbar definiert).
-      SelectMode-Werte (run_lazy_150 argv[10] / -SelectMode): `index|basis` · `search_algo_grid` · `axis_sweep:<achse>`
-      · `sota:<A|B|C>`. **Working-Set-N als Sweep-Achse:** der Harness (`-WorkingSetN @(16384,131072,1048576,8388608)`)
-      ruft den Treiber je N-Wert (eigenes COMDARE_WORKLOAD_RECORDS = records = Key-Range [1,N], YCSB-Load) → die per-N-
-      CSVs werden header-einmal zusammengeführt. **Tags je Zeile (5 neue CSV-Endspalten, Positionen aller bestehenden
-      Spalten unverändert):** `series;sweep_axis;working_set_n;platform;build_version`. Two-Phasen-Warmup unverändert
-      (run_workload_perm). Resume-Stamp v2→v3 (series/sweep/platform/build_version ergänzt → kein stale Cross-Pass-Resume).
-      Pilot-Beleg (3 Lebewesen × axis_sweep:node_type × N∈{4096,16384}): node_type variiert {node4,node16,node48},
-      ALLE übrigen Achsen inkl. search_algo=k_ary FEST (Baseline); CSV-Tags `series=- sweep_axis=node_type
-      working_set_n=4096 platform=win-x86_64 build_version=m3v2`.
+- [x] Selektion = **DIPLOMARBEIT-MESS-PROFIL** (Strang A, 2026-06-19 — die Code-Selektion ist ENTFERNT, NICHT mehr SelectMode/Code).
+      **REVIDIERT durch Strang A** (User-Korrektur 2026-06-18, Plan `20260618-STRANG-A-KORRIGIERT-PROFIL-GETRIEBEN-PLAN.md`, Inc 1–6
+      `bc1f7a3..52e9428`): Die alte Code-Selektion (`m3v2_select_profile.hpp` + `lazy_pilot_engine.hpp` PilotAxes + `-SelectMode`/
+      axis_to_level) wurde **GELÖSCHT** (Inc 4, `git rm`). Die WHAT-Konfiguration (Lebewesen/Achsen/Sweeps/SOTA/Working-Set) steht jetzt
+      DEKLARATIV in `libs/cache_engine/algorithm_profiles/thesis_profiles/m3v2_study.profile.xml` (comdare_thesis_profile-XML); der
+      **`CacheEngineBuilder::run_profile`** (`tests/unit/thesis_tiere/profile_run_entry.hpp`, vom messung_driver der Diplomarbeit
+      getriggert, Doc 10 §2.2) liest das Profil via `parse_thesis_profile` → `build_axis_levels` und fährt aus EINEM Profil **beide
+      Subsets in EINE CSV**: Basis-320 (`source_catalog`, `search_algo=…/…`) + SOTA-Reihen A/B/C (`sota_catalog` via `pruefling_merge`
+      Stufe1/2/3, `sota_tier=sota::A|B|C::…`), vereint über EINE `make_union_source_gen`-SourceGenFn. **HARTE Gate:** Basis-320-binary_ids
+      POSITIONS-IDENTISCH zu `golden_fullpilot_320_binary_ids.txt` (Round-Trip, Resume #139). **Working-Set-N** + Tags
+      `series;sweep_axis;working_set_n;platform;build_version` kommen aus `<working_set_sweep>`/`<sota_series>`/`<axis_sweep>`/
+      `<run_options>` des Profils (nicht mehr env/PS). Two-Phasen-Warmup unverändert. Beleg: Klein-Profil `m3v2_smoke.profile.xml` →
+      2 Basis + 3 SOTA-Zeilen, 5 reale DLLs gebaut+geladen+GEMESSEN (Inc 6, adversarial refuted=false).
 - [ ] Linux+PMC-Umgebung + Plattformen (Infra-Agent) — Handover erweitert.
 - [ ] einheitlicher m3v2-Re-Build aller Lebewesen-DLLs.
 
-> **Bottleneck v2:** (a) Sweep-/SOTA-/Working-Set-Harness-Selektion (Implementierungs-Agent, nächster gate-freier Code-Schritt) +
-> (b) Linux+PMC + ZIH-Plattformen (Infra-Agent). Erst dann der EINE Lauf.
+> **Bottleneck v2 (aktualisiert 2026-06-19):** (a) Selektion ✅ ERLEDIGT — profil-getrieben über `CEB::run_profile` (Strang A Inc 1–6,
+> `52e9428`); die WHAT-Konfiguration ist ein Diplomarbeit-Profil. Verbleibend: (b) **Linux+PMC + ZIH-Plattformen (Infra-Agent)** +
+> (c) #155 CMake-Reg (inkl. vorbestehender `test_pressure_state[1]`-include-Bug, eckige Klammer). Erst dann der EINE teure Voll-Lauf.
