@@ -52,3 +52,30 @@ Beispiel: `cacheline_study.profile.xml` (gleicher Ordner).
 3. **CEB-Generator** (KF-8) erzeugt je Unique-`PermutationDescriptor` ein `perm_<id>.cpp` → SHARED-DLL.
 4. **CacheEngineBuilder/Prüf-Dock** misst je DLL × `runtime_dynamic` × Wiederholungen (silent-mode Snapshot-Diff).
 5. **Inverse Projektion** (KF-15) + **Thesis-Anbindung** (KF-14): Ergebnisse → bilingualer Mess-Anhang.
+
+## Validierung VOR dem Bau (`--validate`, #169(A), 2026-06-19)
+
+Ein **rein-lesendes** Validat prüft das Profil gegen die AxisRegistry/EnabledStrategies, **BEVOR** teuer gebaut/
+gemessen wird — so fällt ein getippter `<value>` (z.B. `node_4` statt `node4`) oder eine unbekannte
+`<axis ref="…">` SOFORT auf, statt erst nach langer Bau-/Mess-Wartezeit als „falsche Matrix"/„DLL nicht baubar".
+
+```powershell
+# Harness-Schalter (kein DLL-Bau, keine Messung):
+pwsh tests/unit/thesis_tiere/build_and_measure_150_tiere.ps1 -Validate -Profile <pfad>
+# ODER direkt am Host:
+run_lazy_150 --validate <pfad>
+```
+
+**Geprüft** (`validate_profile.hpp` / `tests/unit/thesis_tiere/test_validate_profile.cpp`):
+1. jeder `<axis ref="X">` in `<permute_axes>` ist ein bekannter Achsen-Name (Registry-Key /
+   `kCompositionAxisNames`; `cacheline` = KF-3-Sonderzweig, separat).
+2. jeder `<value>Y</value>` ist ein **`name()` der EnabledStrategies dieser Achse** — die Fehlermeldung nennt die
+   Achse + den ungültigen Wert + die gültigen Werte.
+3. jeder `<axis_sweep axis=>` + jede `<sota_series lebewesen=>` referenziert eine deklarierte Achse / ein
+   deklariertes `<base_tier>`.
+
+**Quelle der gültigen Werte = der CODE, nicht hartkodiert:** die Registry kommt aus `build_all_axis_levels()`
+(`registry_to_axis_levels.hpp`), die die realen `TopicConfigSet::StaticAxisVariants*`-Listen reflektiert
+(`reflect_names`, `axis_reflect.hpp`). **Exit 0** + Zusammenfassung bei OK; **Exit != 0** + klare Meldung bei
+Fehler. Garantiert rein-lesend: der `--validate`-Zweig kehrt VOR jeder `CompileFn`/`BuildOrchestrator`-Logik
+zurück, es entsteht KEINE `perm_<id>.cpp/.dll`.
