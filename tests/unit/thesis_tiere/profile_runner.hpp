@@ -22,6 +22,9 @@
 #include <builder/experiment_tree/experiment_tree.hpp>      // AxisLevel / DynamicDim / ExperimentTree / StaticBinaryView
 #include <builder/experiment_tree/profile_to_tree.hpp>       // build_axis_levels (die offizielle Bruecke)
 #include <builder/experiment_tree/coverage_selection.hpp>    // BuildSelection / select_explicit
+#include <builder/build_orchestrator/build_orchestrator.hpp> // ex::SourceGenFn (make_union_source_gen-Signatur; war
+                                                             //   bisher nur transitiv via cache_engine_builder_iterator
+                                                             //   sichtbar → fehlte im profil-only-Include-Satz, #168)
 #include "xml_config_parser/xml_config_parser.hpp"           // ThesisProfile / XmlConfigParser::parse_thesis_profile
 
 #include <algorithm>

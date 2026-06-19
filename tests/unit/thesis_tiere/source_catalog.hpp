@@ -159,4 +159,126 @@ template <class Catalog>
     return lv;
 }
 
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// STRANG A — Increment 7 / FF (#168, 2026-06-19): die 4 VERTIEFTEN Achsen sweep-faehig machen.
+//
+// PROBLEM (G5-Audit): FullSourceCatalog = CatalogAxes<4,4,5,4> PINNT path_compression(L03)/value_handle(L11)/
+// migration_policy(L15)/filter(L16) je auf mp_take_c<…,1> → ihr Achsen-kartesischer Raum ist im Basis-320-Katalog
+// genau 1 Wert. Das m3v2-Profil deklariert zwar <axis_sweep axis="…">, aber build_axis_levels(Profil) gibt diese
+// Ebenen mit level_size==1 zurueck (im permute_axes je 1 <value> gepinnt) → profile_make_axis_sweep kann hoechstens
+// die Baseline-DLL liefern, KEINE reale Achsen-Variation. FF (9-Achsen-Austauschbarkeit) fehlt damit real.
+//
+// LOESUNG (Plan-Direktive, KEINE Compile-Explosion): NICHT den Basis-320-Katalog auf das volle Kartesisch der 4
+// vertieften Achsen freigeben (das waere 320×|mig|×|flt|×|vh|×|pc| compile-time → C1060). STATTDESSEN je vertiefte
+// Achse EINE KLEINE, separate Sweep-Source-Map: die BASELINE-Komposition (alle 4 Basis-Achsen + 15 uebrige Slots
+// auf Index 0 == take<…,1>) mit NUR DIESER EINEN vertieften Achse ueber ihre VOLLE Enabled-Liste variiert. Das sind
+// |Achsen-Werte| Eintraege je Achse (migration 4, filter 4, value_handle 5, path_compression 3 = 16 zusaetzliche
+// Typ-Materialisierungen, NICHT 320·…). Die per-Achse-Map wird mit der Basis-320-Map VEREINIGT (make_*-union); der
+// axis_sweep waehlt aus der Union. binary_id = serialize_composition_path<P> (19 Achsen, voll), distinkt je
+// Auspraegung (z.B. migration_policy=migration_hot_cold ≠ migration_none = ANDERE DLL). Lazy-Compile (1 DLL=1 TU)
+// bleibt — die Union waehlt nur die richtige Quelle je binary_id.
+//
+// COMPILE-FEASIBILITY: jede Sweep-Engine materialisiert NUR |Achsen-Werte| Typ-NAMEN (build_pilot_source_map →
+// type_name<T>, KEINE Anatomie-Instanz) — winzig. Die schwere Anatomie-Instanz passiert je separat emittiertem
+// perm_<id>.cpp (cl), genau wie bei der Basis-320.
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+// ── Je vertiefte Achse ein Sweep-Katalog: identisch zur Baseline (CatalogAxes<1,1,1,1> → alle 4 Basis-Achsen +
+//    15 uebrige Slots auf Index 0), ABER genau EINE vertiefte Achsen-Slot-Liste = die VOLLE Enabled-Liste. Die
+//    mp_take_c-Konvention + Slot-Reihenfolge bleibt identisch zu CatalogAxes → der binary_id der Baseline-Auspraegung
+//    (Index 0 dieser Achse) ist BYTE-IDENTISCH zur Basis-320-Baseline (= drop_tier-Baseline des Profils). ──
+template <class SweepListL03, class SweepListL11, class SweepListL15, class SweepListL16>
+struct AxisSweepCatalog {
+    using L00 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03a, 1>;     // search_algo (Baseline)
+    using L01 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03b, 1>;     // cache_traversal
+    using L02 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03m, 1>;     // mapping
+    using L03 = SweepListL03;                                                                // path_compression (sweep|Baseline)
+    using L04 = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_04, 1>;          // node_type (Baseline)
+    using L05 = mp::mp_take_c<ce::memory_layout::TopicConfigSet::StaticAxisVariants, 1>;     // memory_layout (Baseline)
+    using L06 = mp::mp_take_c<ce::allocator::TopicConfigSet::StaticAxisVariants, 1>;         // allocator
+    using L07 = mp::mp_take_c<ce::prefetch::TopicConfigSet::StaticAxisVariants, 1>;          // prefetch (Baseline)
+    using L08 = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, 1>;       // concurrency
+    using L09 = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, 1>;     // serialization
+    using L10 = mp::mp_take_c<ce::telemetry::TopicConfigSet::StaticAxisVariants, 1>;         // telemetry
+    using L11 = SweepListL11;                                                                // value_handle (sweep|Baseline)
+    using L12 = mp::mp_take_c<ce::hardware::TopicConfigSet::StaticAxisVariants_09, 1>;        // isa
+    using L13 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants, 1>;     // index_organization
+    using L14 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;                // io_dispatch
+    using L15 = SweepListL15;                                                                // migration_policy (sweep|Baseline)
+    using L16 = SweepListL16;                                                                // filter (sweep|Baseline)
+    using L17 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>;        // queuing_q1
+    using L18 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>;        // queuing_q2
+
+    using Engine = perm::PermutationEngine<
+        CatalogCfg<L00>, CatalogCfg<L01>, CatalogCfg<L02>, CatalogCfg<L03>, CatalogCfg<L04>, CatalogCfg<L05>,
+        CatalogCfg<L06>, CatalogCfg<L07>, CatalogCfg<L08>, CatalogCfg<L09>, CatalogCfg<L10>, CatalogCfg<L11>,
+        CatalogCfg<L12>, CatalogCfg<L13>, CatalogCfg<L14>, CatalogCfg<L15>, CatalogCfg<L16>, CatalogCfg<L17>,
+        CatalogCfg<L18>>;
+};
+
+// Die 4 Baseline-Slot-Listen (Index 0 == take<…,1>) — fuer die je 3 NICHT gesweepten der 4 vertieften Achsen.
+using Pc1  = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_02, 1>;
+using Vh1  = mp::mp_take_c<ce::value_handle::TopicConfigSet::StaticAxisVariants, 1>;
+using Mg1  = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;
+using Flt1 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;
+// Die 4 VOLLEN Enabled-Listen (alle Auspraegungen) — die jeweils GESWEEPTE Achse.
+using PcAll  = ce::nodes::TopicConfigSet::StaticAxisVariants_02;        // path_compression (none/patricia/byte_wise)
+using VhAll  = ce::value_handle::TopicConfigSet::StaticAxisVariants;    // value_handle (inline/external_pool/…)
+using MgAll  = ce::migration::TopicConfigSet::StaticAxisVariants;       // migration_policy (none/hot_cold/tier_based/adaptive)
+using FltAll = ce::filter::TopicConfigSet::StaticAxisVariants;          // filter (bloom/cuckoo/range_surf/xor)
+
+// Je 1 Sweep-Katalog: genau die eine vertiefte Achse voll, die anderen 3 vertieften + alle 4 Basis-Achsen Baseline.
+using MigrationSweepCatalog        = AxisSweepCatalog<Pc1,   Vh1,  MgAll, Flt1>;
+using FilterSweepCatalog           = AxisSweepCatalog<Pc1,   Vh1,  Mg1,   FltAll>;
+using ValueHandleSweepCatalog      = AxisSweepCatalog<Pc1,   VhAll, Mg1,  Flt1>;
+using PathCompressionSweepCatalog  = AxisSweepCatalog<PcAll, Vh1,  Mg1,   Flt1>;
+
+/// axis_sweep_source_map(axis_name) — die KLEINE per-Achse Sweep-Quellen-map (binary_id → reale Modul-Quelle) der
+/// gesweepten vertieften Achse. |Achsen-Werte| Eintraege; jeder ist eine reale AdHocComposition (Baseline + nur
+/// diese Achse variiert). Unbekannte Achse → leere map (Caller faellt auf Basis-320 zurueck). KEINE Selektion —
+/// reine Materialisierungs-Domaene EINER vertieften Achse.
+[[nodiscard]] inline std::map<std::string, std::string> axis_sweep_source_map(std::string const& axis_name) {
+    if (axis_name == "migration_policy")
+        return ex::build_pilot_source_map<typename MigrationSweepCatalog::Engine>();
+    if (axis_name == "filter")
+        return ex::build_pilot_source_map<typename FilterSweepCatalog::Engine>();
+    if (axis_name == "value_handle")
+        return ex::build_pilot_source_map<typename ValueHandleSweepCatalog::Engine>();
+    if (axis_name == "path_compression")
+        return ex::build_pilot_source_map<typename PathCompressionSweepCatalog::Engine>();
+    return {};
+}
+
+/// axis_sweep_levels(axis_name) — die 19 STATISCHEN AxisLevels des Sweep-Baums der gesweepten vertieften Achse:
+/// 18 Baseline-Ebenen je 1 Wert (Index 0) + die gesweepte Achse mit ihrer VOLLEN Werteliste. Single-Source mit
+/// axis_sweep_source_map (gleiche Slot-Listen → gleiche W::name()-Werte → die View-binary_ids treffen die map-Keys).
+/// Die DynamicDims haengt der Treiber an (wie beim Basis-/SOTA-Baum). Leere Liste fuer unbekannte Achse.
+[[nodiscard]] inline std::vector<ex::AxisLevel> axis_sweep_levels(std::string const& axis_name) {
+    if (axis_name == "migration_policy")   return catalog_static_levels<MigrationSweepCatalog>();
+    if (axis_name == "filter")             return catalog_static_levels<FilterSweepCatalog>();
+    if (axis_name == "value_handle")       return catalog_static_levels<ValueHandleSweepCatalog>();
+    if (axis_name == "path_compression")   return catalog_static_levels<PathCompressionSweepCatalog>();
+    return {};
+}
+
+/// is_deepened_axis(axis_name) — true fuer die 4 vertieften Achsen, die eine eigene Sweep-Source-Map brauchen
+/// (weil der Basis-320-Katalog sie pinnt). Die 4 Basis-Achsen (search_algo/node_type/memory_layout/prefetch) sind
+/// im Basis-320-Katalog voll vertreten → ihr Sweep laeuft ueber die Basis-View (KEINE Zusatz-Map noetig).
+[[nodiscard]] inline bool is_deepened_axis(std::string const& axis_name) {
+    return axis_name == "migration_policy" || axis_name == "filter"
+        || axis_name == "value_handle"   || axis_name == "path_compression";
+}
+
+/// make_all_axis_sweeps_source_map() — die VEREINIGTE Sweep-Quellen-map ueber ALLE 4 vertieften Achsen (disjunkte
+/// binary_id-Pfade, da je Achse nur sie selbst von der Baseline abweicht; die Baseline-Auspraegung jeder Achse ist
+/// die GLEICHE Baseline-DLL → identischer binary_id → idempotente emplace, kein Konflikt). ~16 Eintraege gesamt.
+[[nodiscard]] inline std::map<std::string, std::string> make_all_axis_sweeps_source_map() {
+    std::map<std::string, std::string> all;
+    for (char const* ax : {"migration_policy", "filter", "value_handle", "path_compression"}) {
+        auto m = axis_sweep_source_map(ax);
+        for (auto& [k, v] : m) all.emplace(k, std::move(v));   // Baseline-Key kollidiert idempotent
+    }
+    return all;
+}
+
 }  // namespace comdare::cache_engine::thesis_lazy
