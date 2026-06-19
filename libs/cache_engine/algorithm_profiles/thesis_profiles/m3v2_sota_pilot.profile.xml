@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- comdare_thesis_profile — SOTA-/Sweep-KLEIN-PILOT (Pilot Teil 2, 2026-06-19).
+     ZWECK: beweist gate-frei, dass die zwei RESTLICHEN Subsets der 3-Subset-Kette (SOTA-Reihen A/B/C +
+     axis_sweep der vertieften Achsen) via Profil REAL bauen+messen — OHNE den teuren Voll-Lauf (alle 21
+     SOTA-Lebewesen × 4 N). Identisch zu m3v2_study.profile.xml in der BASIS-320-Deklaration (gleiche
+     binary_ids = golden, kein Drift), ABER:
+       • <sota_series_set> auf 3 Pilot-Reihen GEKAPPT: A/prt_art + A/art (Stufe1_CeOnly) + B/prt_art
+         (Stufe2_PrueflingReplace) → Reihe A (Stufe1) + 1 Pruefling-Replace (Stufe2), wie Aufgabe vorgibt.
+       • <working_set_sweep> = EIN N (16384) → 1 aeussere N-Iteration (bezahlbar).
+       • cap klein (das Harness uebersteuert mit -MaxBinaries).
+     Die <axis_sweeps>-Deklaration bleibt voll (der Sweep-Pilot waehlt via @<achse> einen Eintrag). -->
+<comdare_thesis_profile id="m3v2_sota_pilot" schema_version="1">
+
+  <base_tiers>
+    <tier id="prt_art"  profile_ref="../sota/art.profile.xml"       paper_ref="PRT"/>
+    <tier id="art"      profile_ref="../sota/art.profile.xml"       paper_ref="P01"/>
+    <tier id="hot"      profile_ref="../sota/hot.profile.xml"       paper_ref="P02"/>
+  </base_tiers>
+
+  <permute_axes>
+    <axis ref="search_algo">
+      <value>k_ary</value><value>interpolation</value><value>eytzinger</value><value>linear_scan</value>
+    </axis>
+    <axis ref="cache_traversal"><value>linear_fanout</value></axis>
+    <axis ref="mapping"><value>direct_placement</value></axis>
+    <axis ref="path_compression"><value>path_compression_none</value></axis>
+    <axis ref="node_type">
+      <value>node4</value><value>node16</value><value>node48</value><value>node256</value>
+    </axis>
+    <axis ref="memory_layout">
+      <value>memory_layout_cache_line_aligned</value><value>memory_layout_aos_strict</value>
+      <value>memory_layout_soa</value><value>memory_layout_packed_bitmap</value><value>memory_layout_aosoa</value>
+    </axis>
+    <axis ref="allocator"><value>std_malloc</value></axis>
+    <axis ref="prefetch">
+      <value>prefetch_none</value><value>prefetch_distance_estimator</value>
+      <value>prefetch_hardware</value><value>prefetch_path_oriented</value>
+    </axis>
+    <axis ref="concurrency"><value>concurrency_none</value></axis>
+    <axis ref="serialization"><value>serialization_raw_binary</value></axis>
+    <axis ref="telemetry"><value>telemetry_leaf_only_counter</value></axis>
+    <axis ref="value_handle"><value>value_handle_inline</value></axis>
+    <axis ref="isa"><value>isa_amd64</value></axis>
+    <axis ref="index_organization"><value>index_org_heap</value></axis>
+    <axis ref="io_dispatch"><value>io_in_memory_only</value></axis>
+    <axis ref="migration_policy"><value>migration_none</value></axis>
+    <axis ref="filter"><value>filter_bloom</value></axis>
+    <axis ref="queuing_q1"><value>no_buffer</value></axis>
+    <axis ref="queuing_q2"><value>eager_flush</value></axis>
+  </permute_axes>
+
+  <axis_sweeps>
+    <axis_sweep axis="search_algo"      baseline="index0"/>
+    <axis_sweep axis="node_type"        baseline="index0"/>
+    <axis_sweep axis="memory_layout"    baseline="index0"/>
+    <axis_sweep axis="prefetch"         baseline="index0"/>
+    <axis_sweep axis="path_compression" baseline="index0"/>
+    <axis_sweep axis="migration_policy" baseline="index0"/>
+    <axis_sweep axis="filter"           baseline="index0"/>
+    <axis_sweep axis="value_handle"     baseline="index0"/>
+  </axis_sweeps>
+
+  <!-- KLEIN: nur Reihe A (Stufe1) prt_art + art + 1 Pruefling-Replace (Stufe2) prt_art. -->
+  <sota_series_set>
+    <sota_series id="A" lebewesen="prt_art"  merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="art"      merge="Stufe1_CeOnly"/>
+    <sota_series id="B" lebewesen="prt_art"  merge="Stufe2_PrueflingReplace"/>
+  </sota_series_set>
+
+  <working_set_sweep>16384</working_set_sweep>
+
+  <compile_dims>
+    <workloads>A B C D E F</workloads>
+    <telemetry mode="on" silent="true"/>
+  </compile_dims>
+
+  <runtime_dynamic>
+    <thread_count>1 2 4</thread_count>
+    <hw_prefetcher>all_on adjacent_off all_off</hw_prefetcher>
+  </runtime_dynamic>
+
+  <repetitions count="3" interpolate="false" overlay_in_chart="true"/>
+
+  <run_options cap="4" platform="win-x86_64" build_version="m3v2" resume="true"/>
+
+  <modes>
+    <mode name="m3v2_base" merge="Stufe1_CeOnly"
+          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization telemetry value_handle isa index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2"/>
+  </modes>
+
+  <static_axes from="base_tier"/>
+
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_thesis_profile>

@@ -27,14 +27,17 @@
 #include <builder/workload_driver/load_profile_parser.hpp>   // discover_load_profiles / parse_load_profile (Achse 2)
 #include <builder/experiment_tree/registry_to_axis_levels.hpp>  // #169(A): build_all_axis_levels (EnabledStrategies-Quelle)
 
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace ex  = comdare::cache_engine::builder::experiment;
@@ -56,6 +59,45 @@ static std::string strip_profile_token(std::string s) {
     if (s.rfind("profile:", 0) == 0) s = s.substr(std::string("profile:").size());
     if (auto at = s.rfind('@'); at != std::string::npos) s.erase(at);
     return s;
+}
+
+// ── C1083-RETRY (Build-Haertung, gate-frei) ──────────────────────────────────────────────────────────────
+// PROBLEM (Teil 1, traf 1/6 DLLs): der OneDrive-Cloud-Sync sperrt die soeben vom BuildOrchestrator geschriebene
+// perm.cpp (write/read-Race), WAEHREND cl sie zu lesen versucht → `cl : Command line error D8003` bzw.
+// haeufiger `fatal error C1083: Cannot open source file: 'perm.cpp': Permission denied`. Das ist KEIN echter
+// Quell-/Code-Defekt, sondern ein transienter Datei-Lock des Sync-Daemons → ein kurzes Backoff + Wiederholung
+// des CL-Aufrufs (die perm.cpp liegt unveraendert auf Disk) baut beim 2./3. Versuch durch.
+//
+// WARUM RETRY (und nicht „ausserhalb OneDrive schreiben"): die perm.cpp/perm.dll MUESSEN im per-Binary-Ordner
+// unter dem Repo-Build-Baum (build/thesis_tiere/tiere/<stem>/, OneDrive-synchronisiert) liegen, weil (a) der
+// Resume-.version-Sidecar + die per-Binary-result.csv (#139) dort erwartet werden und (b) der Pfad in der
+// committe-baren CSV/Doku referenziert ist. Ein Auslagern nach %TEMP% wuerde Resume #139 + die Ordner-
+// Konvention (E) brechen (NICHT gate-frei). Der Retry ist die minimale, lokale, benannte Haertung.
+[[nodiscard]] inline bool cl_log_has_transient_lock(std::filesystem::path const& log) {
+    std::ifstream f{log, std::ios::binary};
+    if (!f) return false;
+    std::string const content((std::istreambuf_iterator<char>(f)), {});
+    // C1083 = "Cannot open source file ... Permission denied"; D8003 = fehlende Quelle (Sync-Rename-Fenster).
+    return content.find("C1083") != std::string::npos
+        || content.find("Permission denied") != std::string::npos
+        || content.find("D8003") != std::string::npos;
+}
+
+/// run_cl_with_c1083_retry — fuehrt den CL-Befehl aus; bei Exit != 0 UND C1083/Permission-denied im .cl.log
+/// wird nach kurzem Backoff (50ms, 150ms, 400ms) erneut versucht (max kRetries). Ein echter Compile-Fehler
+/// (kein Lock-Marker im Log) wird SOFORT durchgereicht (kein Maskieren echter Defekte — Ehrlichkeit).
+[[nodiscard]] inline int run_cl_with_c1083_retry(std::string const& cmd, std::filesystem::path const& log) {
+    constexpr int kRetries = 3;
+    constexpr int kBackoffMs[kRetries] = {50, 150, 400};
+    int rc = std::system(cmd.c_str());
+    for (int attempt = 0; attempt < kRetries && rc != 0; ++attempt) {
+        if (!cl_log_has_transient_lock(log)) break;   // echter Fehler → nicht wiederholen
+        std::cerr << "  [C1083-retry] transienter Datei-Lock (OneDrive-Sync) erkannt — Versuch "
+                  << (attempt + 2) << "/" << (kRetries + 1) << " nach " << kBackoffMs[attempt] << "ms Backoff\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(kBackoffMs[attempt]));
+        rc = std::system(cmd.c_str());
+    }
+    return rc;
 }
 
 int main(int argc, char** argv) {
@@ -188,8 +230,10 @@ int main(int argc, char** argv) {
             rf << "/Fe:\"" << job.output.string() << "\"\n";
             rf << "/Fo:\"" << job.output.string() << ".obj\"\n";
         }
-        std::string const cmd = "cl @\"" + rsp.string() + "\" > \"" + job.output.string() + ".cl.log\" 2>&1";
-        return std::system(cmd.c_str());
+        std::filesystem::path const log = job.output.string() + ".cl.log";
+        std::string const cmd = "cl @\"" + rsp.string() + "\" > \"" + log.string() + "\" 2>&1";
+        // C1083-Haertung (Build-Haertung, gate-frei): transienter OneDrive-Sync-Lock der perm.cpp → Backoff+Retry.
+        return run_cl_with_c1083_retry(cmd, log);
     };
 
     // ── DIE EINE deklarative CEB-Eintritts-API (S7c). Die WHAT-Konfiguration kommt komplett aus dem Profil. ──
