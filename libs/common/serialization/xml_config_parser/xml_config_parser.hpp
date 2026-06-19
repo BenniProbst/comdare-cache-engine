@@ -105,14 +105,14 @@ struct ThesisMode {                           // einer der 3 Permutationsmodi
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STRANG-A KORRIGIERT Increment 2 / S1 (2026-06-18) — die 4 deklarativen Konstrukte, die die heute in
-// Code/PS/env steckende m3v2-Selektion (m3v2_select_profile.hpp / run_lazy_150.cpp / build_and_measure_150_tiere.ps1)
-// als comdare_thesis_profile-Felder ausdrueckbar machen. ADDITIV (kein bestehendes Feld geaendert) → das base_pilot-
+// STRANG-A KORRIGIERT Increment 2 / S1 (2026-06-18) — die 4 deklarativen Konstrukte, die die m3v2-Selektion als
+// comdare_thesis_profile-Felder ausdruecken. (Die fruehere Code-Selektion m3v2_select_profile.hpp/SelectMode wurde in
+// Strang A Inc 4 ENTFERNT — diese Profil-Felder sind jetzt die EINZIGE Quelle.) ADDITIV (kein bestehendes Feld geaendert) → das base_pilot-
 // /cacheline_study-Profil und der Round-Trip bleiben byte-identisch (alle 4 Listen leer = Default). Plan §S1.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // (b) <axis_sweep axis=".." baseline="index0"/> — EINE Achse gegen eine feste Baseline (alle uebrigen Ebenen
-//     Index 0) variieren. Ersetzt make_axis_sweep + axis_to_level-Map (run_lazy_150.cpp:214). Deklarativ:
+//     Index 0) variieren. Ersetzt die fruehere make_axis_sweep + axis_to_level-Map (Strang A Inc 4 entfernt). Deklarativ:
 //     nur Achsen-Name + Baseline-Marker; der Treiber loest die Achse via StaticBinaryView::flat_index auf.
 struct ThesisAxisSweep {
     std::string axis;                  // z.B. "node_type" — gegen die Baseline variiert
@@ -120,7 +120,7 @@ struct ThesisAxisSweep {
 };
 
 // (c) <sota_series id="A|B|C" lebewesen=".." merge=".."/> — eine SOTA-/PRT-ART-Reihe (Stufe 1/2/3 = die 3
-//     Kompositionalen Joins). Ersetzt sota_lebewesen_names/sota_series_ids (m3v2_select_profile.hpp:61-72).
+//     Kompositionalen Joins). Ersetzt die fruehere sota_lebewesen_names/sota_series_ids (Strang A Inc 4 entfernt).
 //     `merge` nutzt die BESTEHENDEN ThesisMode-merge-Felder (Stufe1_CeOnly/Stufe2_PrueflingReplace/Stufe3_FullJoin).
 struct ThesisSotaSeries {
     std::string id;         // "A" / "B" / "C"

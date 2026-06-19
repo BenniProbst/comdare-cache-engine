@@ -63,7 +63,7 @@ struct LazyRunConfig {
     // + per-Binary-Ergebnis-CSV). Default false = altes flaches Verhalten (rückwärtskompatibel, opt-in).
     bool                  per_binary_subdirs = false;
     // (D, KF-10): Anzahl der Wiederholungen je (Binary×Setting). Wirkt über die repetition-DynamicDim im Baum
-    // (build_pilot_levels(..., n_repeats)); hier dokumentiert/durchgereicht. Default 3 (0 → 1 normalisiert).
+    // (repetition-DynamicDim aus dem Profil-<runtime_dynamic>; hier durchgereicht). Default 3 (0 → 1 normalisiert).
     std::uint32_t         n_repeats = 3;
     // (C-2): per-Segment-Workload-Parameter (run_workload_segmented). seg_batches=0 → kein Segment-Timing (n/a).
     std::uint64_t         seg_ops_per_batch = 4000;  // Operationen je Batch im 19-Segment-Workload (X)
@@ -87,7 +87,7 @@ struct LazyRunConfig {
     // Plattform/Build-Version trennen kann. NUR Metadaten (kein Mess-Einfluss) — sie reisen rein über die
     // LazyMeasuredRow/CSV-Tag-Spalten (series/sweep_axis/working_set_n/platform/build_version), NICHT in die binary_id
     // (die binary_id bleibt die reine Achsen-Rekombination — keine Tag-Verschmutzung der Round-Trip-Identität).
-    // Quelle: der reproduzierbare m3v2_select_profile (Harness setzt diese 5 Felder je SelectMode/Sweep-Pass).
+    // Quelle: das Diplomarbeit-Mess-Profil (profile_run_entry/run_profile setzt diese 5 Felder je Basis-/Sweep-/SOTA-Pass).
     std::string row_series       = "-";     // SOTA-Reihe ∈ {A,B,C} bzw. "-" (Basis/Sweep, keine Reihe)
     std::string row_sweep_axis   = "-";     // gesweepte Achse (z.B. "migration_policy") bzw. "-" (Basis/SOTA)
     std::string row_platform     = "win-x86_64";  // Plattform-Tag (Infra-Agent überschreibt für ZIH-Reihen)
