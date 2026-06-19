@@ -115,8 +115,20 @@ struct RunProfileResult {
     // ── (1) Der BASIS-Baum (build_profile_basis_levels = build_axis_levels OHNE tier-Ebene). ──
     auto factory = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree basis_tree{factory};
-    std::vector<ex::AxisLevel> const basis_levels =
+    std::vector<ex::AxisLevel> basis_levels =
         build_profile_basis_levels(tp, mode_name, /*with_dynamic=*/true);
+    // ── (1b) ACHSE 2 (Lastprofil) als DYNAMISCHE Ebene injizieren (STRANG-A-Wiring-Luecke, 2026-06-19).
+    //    build_axis_levels emittiert die runtime_dynamic-DynDims (concurrency.thread_count / prefetch.hw_prefetcher /
+    //    repetition.repetition_index), aber NICHT die Lastprofil-Achse (die wird separat ueber discover_load_profiles
+    //    entdeckt → a.workload_values). Ohne diese Ebene fehlt im setting_label das Segment "workload.workload_id=X";
+    //    der Iterator faellt dann auf run_observable_perm (fixer Workload, KEIN Zwei-Phasen-Cache-Warmup) zurueck →
+    //    JEDE Zeile two_phase_valid=0 (Mess-UNGUELTIG). Mit der Ebene laeuft run_workload_perm mit Pflicht-Rollback
+    //    → two_phase_valid=1. Gleiche Konvention wie die uebrigen DynDims (block_id.variable=value): block_id
+    //    "workload", variable "workload_id" (lazy_extract_workload_id sucht genau "workload_id="). is_static=false ⇒
+    //    veraendert die binary_id NICHT (Round-Trip-Gate unberuehrt).
+    if (!a.workload_values.empty())
+        basis_levels.push_back(ex::AxisLevel{"workload", a.workload_values, /*is_static=*/false,
+                                             "workload_id", "workload"});
     basis_tree.build(basis_levels);
     ex::StaticBinaryView const basis_view = basis_tree.static_binary_view();
 
