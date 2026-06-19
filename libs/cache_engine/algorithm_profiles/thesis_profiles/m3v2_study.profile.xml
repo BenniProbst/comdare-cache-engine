@@ -80,7 +80,15 @@
     <axis_sweep axis="node_type"        baseline="index0"/>
     <axis_sweep axis="memory_layout"    baseline="index0"/>
     <axis_sweep axis="prefetch"         baseline="index0"/>
+    <!-- FF(#168) — die 4 VERTIEFTEN Achsen (im Basis-320 je 1 Wert gepinnt). Ihr Sweep laeuft NICHT ueber die
+         Basis-View, sondern ueber einen eigenen Sweep-Baum (axis_sweep_levels) + die per-Achse Sweep-Source-Map
+         (axis_sweep_source_map), vereinigt mit der Basis-320 → je Auspraegung eine REALE distinkte Lebewesen-DLL
+         (z.B. migration_policy=migration_hot_cold ≠ migration_none). KEINE Compile-Explosion (je Achse nur
+         |Auspraegungen| Eintraege). -->
     <axis_sweep axis="path_compression" baseline="index0"/>
+    <axis_sweep axis="migration_policy" baseline="index0"/>
+    <axis_sweep axis="filter"           baseline="index0"/>
+    <axis_sweep axis="value_handle"     baseline="index0"/>
   </axis_sweeps>
 
   <!-- (c) S1 (c) — SOTA-REIHEN A/B/C: PRT-ART + die 6 SOTA-Lebewesen unter Stufe-1 ce-only (A) / Stufe-2

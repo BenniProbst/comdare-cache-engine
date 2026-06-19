@@ -101,7 +101,9 @@ int main(int argc, char** argv) {
     // S1-Felder (Increment 2): die 4 deklarativen Konstrukte sind geparst.
     check_eq("m3v2: base_tiers (7 SOTA+PRT-ART)", m3->base_tiers.size(), std::size_t{7});
     check_eq("m3v2: working_set_sweep (4 N)",     m3->working_set_sweep.size(), std::size_t{4});
-    check_eq("m3v2: axis_sweeps (5)",             m3->axis_sweeps.size(), std::size_t{5});
+    // FF(#168): 4 Basis-Achsen-Sweeps + 4 vertiefte Achsen-Sweeps (path_compression/migration_policy/filter/
+    // value_handle) = 8 deklarierte <axis_sweep> (die vertieften laufen ueber eigene Sweep-Baeume, nicht die Basis-View).
+    check_eq("m3v2: axis_sweeps (8)",             m3->axis_sweeps.size(), std::size_t{8});
     check_eq("m3v2: sota_series (3x7=21)",        m3->sota_series.size(), std::size_t{21});
     check_eq("m3v2: run_options.cap",             m3->run_options.cap, 320);
 

@@ -131,9 +131,15 @@ struct RunProfileResult {
     std::string tag_build_version = a.build_version_tag_override.empty()
         ? (ro.build_version.empty() ? std::string{"m3v2"} : ro.build_version) : a.build_version_tag_override;
 
-    // ── (3) S7a: die EINE vereinigte SourceGenFn (Basis-320 ∪ SOTA-Reihen). ──
+    // ── (3) S7a + FF(#168): die EINE vereinigte SourceGenFn (Basis-320 ∪ 4 Achsen-Sweeps ∪ SOTA-Reihen).
+    //    Reihenfolge unkritisch: Basis-320 ("search_algo=…/migration_policy=migration_none/…"-Pfade) und die
+    //    Achsen-Sweep-Map (gleicher 19-Achsen-Pfad-Namensraum, ABER andere Auspraegungen wie
+    //    …/migration_policy=migration_hot_cold/…, die im Basis-320 NICHT vorkommen) sind ueberlappungsfrei (bis auf
+    //    die Baseline-DLL, die identisch ist → idempotent). SOTA liegt im disjunkten "sota_tier=…"-Raum.
+    std::map<std::string, std::string> fused = make_all_axis_sweeps_source_map();   // ~16 vertiefte-Achsen-Eintraege
+    for (auto& [k, v] : build_sota_view_source_map(tp)) fused.emplace(k, std::move(v));  // + SOTA-Reihen (disjunkt)
     ex::SourceGenFn const union_gen =
-        make_union_source_gen(make_catalog_source_gen<FullSourceCatalog>(), build_sota_view_source_map(tp));
+        make_union_source_gen(make_catalog_source_gen<FullSourceCatalog>(), std::move(fused));
     ex::FreeRamFn ram = ex::make_system_free_ram_fn();
 
     // ── (4) Working-Set-Sweep = die aeussere N-Liste (gilt fuer BEIDE Subsets identisch). Override ⇒ EIN N. ──
@@ -188,8 +194,39 @@ struct RunProfileResult {
 
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
     // S7b — PASS 1: BASIS (permute_axes → source_catalog). Selektion = Basis-320 ODER ein deklarierter Sweep.
+    //
+    // FF(#168) — VERTIEFTE-ACHSEN-SWEEP: ist `a.sweep_axis` eine der 4 vertieften Achsen (migration_policy/filter/
+    // value_handle/path_compression), kann der Basis-320-Baum sie NICHT variieren (im Profil je 1 Wert gepinnt →
+    // level_size==1). Statt der Basis-View baut der Treiber dann einen EIGENEN Sweep-Baum aus axis_sweep_levels(axis)
+    // — 18 Baseline-Ebenen + die gesweepte Achse VOLL — dessen 19-Achsen-binary_ids die axis_sweep_source_map-Keys
+    // treffen (in der union_gen). So entsteht je Auspraegung eine REALE distinkte Lebewesen-DLL (z.B. migration_none
+    // vs migration_hot_cold). Die 4 BASIS-Achsen-Sweeps laufen weiter ueber die Basis-View (dort voll vertreten).
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
-    {
+    if (is_deepened_axis(a.sweep_axis)) {
+        std::vector<ex::AxisLevel> sweep_levels = axis_sweep_levels(a.sweep_axis);
+        // Dieselben DynamicDims wie der Basis-Baum anhaengen (gleiche thread_count×prefetch×repetition-Variation).
+        for (auto const& dd : basis_tree.dynamic_filter())
+            sweep_levels.push_back(ex::AxisLevel{dd.axis, dd.values, /*is_static=*/false, dd.variable, dd.block_id});
+        auto sweep_factory = std::make_shared<ex::ExperimentNodeFactory>();
+        ex::ExperimentTree sweep_tree{sweep_factory};
+        sweep_tree.build(sweep_levels);
+        ex::StaticBinaryView const sweep_view = sweep_tree.static_binary_view();
+        std::size_t const sweep_n = sweep_tree.binary_count();    // == |Achsen-Auspraegungen|
+        std::vector<std::size_t> ids; ids.reserve(sweep_n);
+        for (std::size_t i = 0; i < sweep_n; ++i) ids.push_back(i);   // ALLE Auspraegungen (volle Achse)
+        ex::BuildSelection const sel = ex::select_explicit(std::move(ids));
+        res.basis_binary_ids = sel.indices.size();
+        std::cout << "  [BASIS/deep-sweep] axis=" << a.sweep_axis << " auspraegungen=" << sweep_n
+                  << " (eigener Sweep-Baum, NICHT Basis-View)\n";
+        for (std::size_t i = 0; i < sweep_n; ++i)
+            std::cout << "      sweep binary_id[" << i << "] = " << sweep_view[i].binary_id << "\n";
+        for (std::uint64_t const ws_n : n_sweep) {
+            ex::LazyRunConfig cfg = make_cfg(ws_n, sweep_n, /*series=*/"-", a.sweep_axis);
+            ex::LazyRunResult const r =
+                ex::run_lazy_static_then_dynamic(sweep_tree, sel, a.compile, union_gen, ram, cfg);
+            emit(r, &res.basis_rows);
+        }
+    } else {
         ProfileTaggedSelection const pts = profile_select(tp, basis_levels, basis_view, a.sweep_axis, N);
         ex::BuildSelection const sel = pts.selection;
         res.basis_binary_ids = sel.indices.size();
