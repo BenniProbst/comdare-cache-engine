@@ -12,9 +12,21 @@ Layout-Strides, kein PMC (P-MD4), kein PRT-ART/SOTA (P-MD6), Working-Set in-cach
 Code-Befunde sind gefixt** (s. Masterplan §1); v2 erhebt die Daten gegen den korrigierten Apparat.
 
 ## 2. Build (gate-frei, Implementierungs-Agent — vor dem Lauf)
-- **BuildVersion `m3v2`.** Einheitlicher **Neu-Build ALLER Lebewesen-DLLs** (ABI-Bump Snapshot-Version 4→5 wg. #161 seg_framework_ns/
-  seg_run_total_ns; +5 reale Layout-Reps #167; prefetch-real #159; +2 Wire-Felder, 178-Feld-Schema). Alte cowfix-v1-DLLs sind
-  inkompatibel (Loader-Reject / seg_coverage=n/a) — kompletter Re-Build Pflicht.
+- **BuildVersion `m3v2`.** Einheitlicher **Neu-Build ALLER Lebewesen-DLLs** (Anatomie-ABI-Major-Bump, Snapshot-Version 4→5 wg.
+  #161 seg_framework_ns/seg_run_total_ns; +5 reale Layout-Reps #167; prefetch-real #159). **„Inkompatibel" betrifft AUSSCHLIESSLICH
+  die DLL-Binärartefakte:** der Loader (`anatomy_module_loader.cpp`, nur `.dll/.so/.dylib`) lehnt alte `comdare_anatomy_perm_*.dll`
+  per Major-Mismatch ab → `FreeLibrary`/`dlclose` → **kompletter Re-Build Pflicht**. Kein CSV-Pfad ist je betroffen.
+- **⚠️ DATENERHALTUNG (User-Direktive 2026-06-19, HART):** Die cowfix-v1-Messdaten werden **NIE gelöscht/ersetzt**. Das ABI/Schema
+  *darf* brechen (nicht nur additiv) — die EINZIGE harte Grenze ist: alte Messdaten bleiben erhalten. IST-Stand (verifiziert,
+  Workflow wxiof8a4t): das CSV-WIDE-Schema ist faktisch sogar **strikt additiv** — m3v2 = **162 Spalten** = die **154 cowfix-v1-
+  Spalten namens-/reihenfolge-identisch** + 3 (`seg_framework_ns`/`seg_run_total_ns`/`seg_coverage`) + 5 Tags (`series`/`sweep_axis`/
+  `working_set_n`/`platform`/`build_version`); KEINE Umbenennung/Löschung (`lazy_csv_header()` cache_engine_builder_iterator.hpp:166-199).
+  PMC/Cache-Misses leben im **getrennten** 22-Spalten-POD (`ComdareMeasurementSnapshotV1`), NICHT im WIDE-Schema. Die Analyse-Pipeline
+  ist **header-getrieben** (`parse_wide_csv`, Name→Index) und liest cowfix-v1 (154) UND m3v2 (162+) unverändert. **Regeln für den Lauf:**
+  (1) m3v2 schreibt in eine **SEPARATE** Datei (Default `build_version=m3v2`), NIE in die cowfix-v1-Backup-Datei resumen/appenden;
+  (2) `Messdaten-Backup/tier150_measurements_INDEX320_cowfix-v1_2026-06-18.csv` (166 MB, LFS + NAS) bleibt unveränderlich;
+  (3) cowfix-v1 bleibt **valide Baseline + Vergleichs-Kontribution**, vereint mit m3v2 über die `build_version`-Spalte. **„ersetzt"
+  ist eine verbotene Formulierung für die CSV-Matrix** — sie tritt als zweite Messung daneben, ersetzt sie nicht.
 - **#155 CMake-Registrierung** der ~10 neuen Tests beim Build mitziehen (Suite grün vor dem Lauf).
 - Mess-Build = `COMDARE_MEASUREMENT_ON`; Release/Funktional-only-Build = OHNE Define (PMAJOR-04 #166: Wall-Clock-pur, 0 Observer-
   Kopplungen über die ganze std::map-Schnittstelle — der Doppel-Build belegt die Zero-Overhead-Variante).
