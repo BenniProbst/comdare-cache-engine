@@ -177,12 +177,39 @@ inline constexpr char const* kSotaTierAxis = "sota_tier";
     return std::string{kSotaTierAxis} + "=" + sota_bid;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// #171 (Text-Agent AP-X2/TODO-2, 2026-06-20) — die Pruefling-Auspraegung "full" vs "abstract" als 1:1-Sicht auf
+//   die BESTEHENDE MergeStrategy/sota_series-Mechanik (KEINE neue Achse, KEINE neue Selektion):
+//     • full     == "Originalkonfiguration"/self-contained == Reihe A == merge=Stufe1_CeOnly: das Lebewesen
+//                   fuellt ALLE 19 Achsen mit EIGENEN Organen (PrtArtComposition / die 6 SOTA isoliert).
+//                   Beleg: pruefling_merge.hpp:93-95 StufeOneAxis=DefaultList; prt_art_reference.hpp:61-80.
+//     • abstract == Teilmenge + Host-Fallback == Reihe B/C == merge=Stufe2_PrueflingReplace / Stufe3_FullJoin:
+//                   der Pruefling fuellt NUR einen Slot (path_compression), 18 Achsen via Host-Fallback.
+//                   Beleg: pruefling_merge.hpp:113-118 conditional_t Ersetzt-mit-Fallback; prt_art_merge_reference.hpp.
+//   Quelle der cacheline-doc §0 Z.11 / §1.2 Z.19 ("Paper-Algorithmen als Basis-Lebewesen in Originalkonfiguration").
+//   Die Ableitung ist DETERMINISTISCH aus merge (bzw. series-id als Fallback); ein explizites
+//   <sota_series pruefling_type=".."/> uebersteuert sie. Single-Source hier → kein verstreuter String-Vergleich.
+[[nodiscard]] inline std::string derive_pruefling_type(std::string const& series_id,
+                                                       std::string const& merge,
+                                                       std::string const& explicit_override) {
+    if (!explicit_override.empty()) return explicit_override;   // Forscher-Override gewinnt
+    // Primaer aus merge (die mechanische Wahrheit): Stufe1 = self-contained = full; Stufe2/3 = Teilmenge = abstract.
+    if (merge == "Stufe1_CeOnly")          return "full";
+    if (merge == "Stufe2_PrueflingReplace") return "abstract";
+    if (merge == "Stufe3_FullJoin")         return "abstract";
+    // Fallback wenn merge leer/unbekannt: aus der Reihen-id (A=full, B/C=abstract) — kongruent zur merge-Map.
+    if (series_id == "A") return "full";
+    if (series_id == "B" || series_id == "C") return "abstract";
+    return "-";   // weder ableitbar noch gesetzt (kein Phantom-Typ)
+}
+
 // Ein profil-deklariertes SOTA-Reihen-Lebewesen, aufbereitet als EIN Treiber-Pass (Reihe-Tag + view-binary_id).
 struct SotaPass {
     std::string series;       // "A" / "B" / "C" (CSV-Tag row_series)
     std::string lebewesen;    // Profil-Lebewesen-Name (Doku/Log)
     std::string sota_bid;     // der rohe sota::S::name (AxisLevel-Wert der einwertigen "sota_tier"-Ebene)
     std::string view_binary_id;  // == "sota_tier=<sota::S::name>" (== StaticBinaryView-binary_id dieses Passes)
+    std::string pruefling_type;  // #171: "full" (Reihe A self-contained) / "abstract" (Reihe B/C Teilmenge+Fallback)
 };
 
 /// build_sota_passes(profile) — die Liste der SOTA-Reihen-Pässe AUS DEM PROFIL (1 Eintrag je real baubarem
@@ -194,7 +221,8 @@ struct SotaPass {
     out.reserve(tp.sota_series.size());
     for (auto const& s : tp.sota_series) {
         if (auto m = sota_module_for(s.id, s.lebewesen))
-            out.push_back(SotaPass{s.id, s.lebewesen, m->binary_id, sota_view_binary_id(m->binary_id)});
+            out.push_back(SotaPass{s.id, s.lebewesen, m->binary_id, sota_view_binary_id(m->binary_id),
+                                   derive_pruefling_type(s.id, s.merge, s.pruefling_type)});  // #171: full/abstract
     }
     return out;
 }

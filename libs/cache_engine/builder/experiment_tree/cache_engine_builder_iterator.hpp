@@ -89,6 +89,11 @@ struct LazyRunConfig {
     // (die binary_id bleibt die reine Achsen-Rekombination — keine Tag-Verschmutzung der Round-Trip-Identität).
     // Quelle: das Diplomarbeit-Mess-Profil (profile_run_entry/run_profile setzt diese 5 Felder je Basis-/Sweep-/SOTA-Pass).
     std::string row_series       = "-";     // SOTA-Reihe ∈ {A,B,C} bzw. "-" (Basis/Sweep, keine Reihe)
+    // #171 (2026-06-20): die Pruefling-Auspraegung "full" (Reihe A self-contained / Originalkonfiguration) vs
+    // "abstract" (Reihe B/C Teilmenge + Host-Fallback) — abgeleitet aus merge (sota_catalog::derive_pruefling_type),
+    // getaggt je SOTA-Pass; "-" fuer Basis/Sweep/cowfix-v1 (kein Pruefling). REINE Metadaten (kein Mess-Einfluss),
+    // reist wie series rein in der CSV-Tag-Spalte — NICHT in die binary_id (binary_id-Drift vermieden).
+    std::string row_pruefling_type = "-";   // "full" / "abstract" / "-" (Basis/Sweep)
     std::string row_sweep_axis   = "-";     // gesweepte Achse (z.B. "migration_policy") bzw. "-" (Basis/SOTA)
     std::string row_platform     = "win-x86_64";  // Plattform-Tag (Infra-Agent überschreibt für ZIH-Reihen)
     std::string row_build_version = "m3v2"; // Build-Version-Tag (= BuildVersion-Marke; Default m3v2)
@@ -130,6 +135,7 @@ struct LazyMeasuredRow {
     // Metadaten (kein Mess-Einfluss) → ermöglichen die Trennung Basis vs Per-Achsen-Sweep vs SOTA-Reihe A/B/C
     // sowie die Working-Set-N- und Plattform/Build-Version-Achsen in der Auswertung.
     std::string          series        = "-";            // SOTA-Reihe {A,B,C} oder "-"
+    std::string          pruefling_type = "-";           // #171: "full" (Reihe A self-contained) / "abstract" (B/C) / "-"
     std::string          sweep_axis    = "-";            // gesweepte Achse oder "-"
     std::uint64_t        working_set_n = 0;              // N (Record-Zahl) dieser Mess-Zeile (= workload_records)
     std::string          platform      = "win-x86_64";   // Plattform-Tag
@@ -194,7 +200,11 @@ struct LazyMeasuredRow {
     h += "v3_filled_axes;workload;two_phase_valid;";   // Diagnose 19 Achsen befüllt + Achse 2 (Lastprofil + Mess-Gültigkeit)
     // M3v2-SELEKTION (Task #156): die 5 Selektions-/Lauf-Tag-Spalten ANS ENDE (Positionen aller bestehenden
     // Spalten unverändert → header-getriebene Auswertung + Resume-Schema-Vergleich bleiben rückwärtskompatibel).
-    h += "series;sweep_axis;working_set_n;platform;build_version\n";
+    // #171 (2026-06-20): pruefling_type GANZ ANS ENDE (additiv, gleiches lazy_csv_header-Muster wie series/sweep_axis):
+    // "full" (Reihe A = Originalkonfiguration/self-contained), "abstract" (Reihe B/C = Teilmenge+Host-Fallback),
+    // "-" für Basis/Sweep/cowfix-v1 (die alte cowfix-v1-CSV hatte die Spalte nicht → die Auswertung liest sie leer/n-a,
+    // Datenerhaltung). Trennt in der Auswertung Original- vs rekombinierte Konfiguration je Messreihe.
+    h += "series;sweep_axis;working_set_n;platform;build_version;pruefling_type\n";
     return h;
 }
 
@@ -306,6 +316,8 @@ struct LazyMeasuredRow {
     out += ';'; out += std::to_string(row.working_set_n);
     out += ';'; out += (row.platform.empty()      ? std::string{"-"} : row.platform);
     out += ';'; out += (row.build_version.empty() ? std::string{"-"} : row.build_version);
+    // #171 (2026-06-20): pruefling_type GANZ ANS ENDE (Reihenfolge IDENTISCH zum Header). "-" für Basis/Sweep.
+    out += ';'; out += (row.pruefling_type.empty() ? std::string{"-"} : row.pruefling_type);
     out += '\n';
     return out;
 }
@@ -347,8 +359,13 @@ struct LazyRunResult {
     // würde ein anderer Sweep-Pass (z.B. sweep_axis=migration_policy vs Basis) ODER eine andere SOTA-Reihe mit
     // GLEICHER binary_id+Skala fälschlich resume-fähig — und die getaggte Zeile aus dem falschen Pass übernommen.
     // working_set_n ist bereits über cfg.workload_records (records) im Stamp; die 4 Tags ergänzen die Selektions-Klasse.
-    std::string s = "resume-v3|build=" + cfg.build_version
-                  + "|series=" + cfg.row_series + "|sweep=" + cfg.row_sweep_axis
+    // resume-v4 (#171, 2026-06-20): zusätzlich pruefling_type (full/abstract). Sonst würden eine "full"- (Reihe A,
+    // self-contained) und eine "abstract"-Reihe (B/C, Teilmenge) mit GLEICHER view-binary_id+Skala fälschlich
+    // gegenseitig resume-fähig — und die getaggte Zeile aus dem falschen Pruefling-Pass übernommen. Format-Bump
+    // v3→v4 invalidiert Alt-Stamps via Prefix-Mismatch → ehrliche Neu-Messung (kein stilles Stale-Resume).
+    std::string s = "resume-v4|build=" + cfg.build_version
+                  + "|series=" + cfg.row_series + "|ptype=" + cfg.row_pruefling_type
+                  + "|sweep=" + cfg.row_sweep_axis
                   + "|plat=" + cfg.row_platform + "|bv=" + cfg.row_build_version
                   + "|n_ops=" + std::to_string(cfg.n_ops)
                   + "|seed=" + std::to_string(cfg.workload_seed)
@@ -566,6 +583,7 @@ struct LazyRunResult {
                 row.two_phase_valid    = pr.two_phase_valid;  // Achse 2: Mess-Gültigkeit (Zwei-Phasen-Cache-Warmup exakt)
                 // M3v2-SELEKTION (Task #156): die 5 Lauf-/Selektions-Tags je Zeile (aus der Config durchgereicht).
                 row.series             = cfg.row_series;
+                row.pruefling_type     = cfg.row_pruefling_type;  // #171: full/abstract/- (aus dem SOTA-/Pruefling-Pass)
                 row.sweep_axis         = cfg.row_sweep_axis;
                 row.working_set_n      = cfg.workload_records;   // N = befüllte Sätze (= Working-Set-Achse, P-MD7)
                 row.platform           = cfg.row_platform;
