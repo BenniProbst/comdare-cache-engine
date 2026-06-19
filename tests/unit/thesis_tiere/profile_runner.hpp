@@ -28,14 +28,44 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
+#include <map>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace comdare::cache_engine::thesis_lazy {
 
 namespace ex = ::comdare::cache_engine::builder::experiment;
 namespace cx = ::comdare::builder::xml;
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// STRANG A KORRIGIERT — Increment 6 / S7a (2026-06-19): SourceGen-VEREINIGUNG (source_catalog ∪ sota_catalog).
+//
+// Der Treiber fährt aus EINEM Profil zwei DISJUNKTE binary_id-Namensräume: die Basis-320 ("search_algo=.../..."
+// via source_catalog/make_catalog_source_gen) UND die SOTA-Reihen ("sota_tier=sota::S::name" via sota_catalog/
+// build_sota_view_source_map). make_union_source_gen verbindet die beiden zu EINER SourceGenFn: je binary_id
+// zuerst die Basis-Quelle (catalog_gen) abfragen; ist sie LEER (= kein Basis-id), die SOTA-map konsultieren.
+// Da die Namensräume disjunkt sind, ist die Reihenfolge unkritisch — es kann nie ein Schlüssel-Konflikt geben.
+// Lazy-Compile (1 DLL = 1 TU) bleibt: die Vereinigung wählt NUR die richtige Quelle je binary_id, sie ändert
+// nichts an der per-Binary-Kompilierung. C++23, header-only, engine-agnostisch (keine schweren Katalog-Includes).
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+/// make_union_source_gen — DIE EINE vereinigte SourceGenFn (S7a). `catalog_gen` = die Basis-320-SourceGenFn
+/// (make_catalog_source_gen, source_catalog.hpp); `sota_by_view_id` = die SOTA-Reihen-Quellen, GEKEYT auf den
+/// VIEW-binary_id ("sota_tier=…", build_sota_view_source_map). Ein binary_id, der in KEINER der beiden Quellen
+/// liegt, liefert eine leere Quelle → der BuildOrchestrator markiert die DLL als nicht baubar (ehrlich sichtbar).
+[[nodiscard]] inline ex::SourceGenFn
+make_union_source_gen(ex::SourceGenFn catalog_gen, std::map<std::string, std::string> sota_by_view_id) {
+    return [catalog_gen = std::move(catalog_gen), sota = std::move(sota_by_view_id)]
+           (std::string const& binary_id) -> std::string {
+        std::string src = catalog_gen ? catalog_gen(binary_id) : std::string{};  // (1) Basis-320 (disjunkt)
+        if (!src.empty()) return src;
+        auto it = sota.find(binary_id);                                          // (2) SOTA-Reihen (disjunkt)
+        return it == sota.end() ? std::string{} : it->second;
+    };
+}
 
 /// build_profile_levels(tp, mode) — der GESAMT-Level-Satz fuer ExperimentTree::build, AUSSCHLIESSLICH aus der
 /// offiziellen Bruecke ex::build_axis_levels (Inc2 dyn-Dim-Konsolidierung, 2026-06-18): build_axis_levels emittiert

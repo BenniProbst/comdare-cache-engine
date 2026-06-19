@@ -160,4 +160,58 @@ build_sota_source_map(cx::ThesisProfile const& tp) {
     return by_id;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// S7 (Inc6) — die VERDRAHTUNG der SOTA-Reihen in den profil-getriebenen Treiber.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Der STATISCHE Achsen-Name, unter dem ein SOTA-Lebewesen als (einwertiger) Tier-Baum dem Treiber-View
+// vorgelegt wird. Eine SOTA-Reihe = EIN binary_id = EINE einwertige AxisLevel "sota_tier=<sota::S::name>".
+// Der StaticBinaryView::operator[] serialisiert das zu binary_id == "sota_tier=<sota::S::name>" — ein
+// EIGENER, disjunkter Namensraum gegen die Basis-320 ("search_algo=.../..."). Damit ist die Quellen-
+// Vereinigung (S7a) eine einfache disjunkte UNION (kein Schlüssel-Konflikt).
+inline constexpr char const* kSotaTierAxis = "sota_tier";
+
+/// sota_view_binary_id — der binary_id, den der StaticBinaryView eines SOTA-Einzel-Tier-Baums erzeugt
+/// (== "sota_tier=<sota::S::name>"). Single-Source mit build_sota_view_source_map (gleiche Key-Bildung).
+[[nodiscard]] inline std::string sota_view_binary_id(std::string const& sota_bid) {
+    return std::string{kSotaTierAxis} + "=" + sota_bid;
+}
+
+// Ein profil-deklariertes SOTA-Reihen-Lebewesen, aufbereitet als EIN Treiber-Pass (Reihe-Tag + view-binary_id).
+struct SotaPass {
+    std::string series;       // "A" / "B" / "C" (CSV-Tag row_series)
+    std::string lebewesen;    // Profil-Lebewesen-Name (Doku/Log)
+    std::string sota_bid;     // der rohe sota::S::name (AxisLevel-Wert der einwertigen "sota_tier"-Ebene)
+    std::string view_binary_id;  // == "sota_tier=<sota::S::name>" (== StaticBinaryView-binary_id dieses Passes)
+};
+
+/// build_sota_passes(profile) — die Liste der SOTA-Reihen-Pässe AUS DEM PROFIL (1 Eintrag je real baubarem
+/// <sota_series>). Reihenfolge = Profil-Reihenfolge (stabil/resumierbar). Ein nicht baubares (Reihe,Lebewesen)-
+/// Paar (sota_module_for == nullopt) wird ausgelassen (ehrlich: kein Phantom-Pass). KEINE Selektion — das
+/// Profil bestimmt, WELCHE Reihen/Lebewesen laufen.
+[[nodiscard]] inline std::vector<SotaPass> build_sota_passes(cx::ThesisProfile const& tp) {
+    std::vector<SotaPass> out;
+    out.reserve(tp.sota_series.size());
+    for (auto const& s : tp.sota_series) {
+        if (auto m = sota_module_for(s.id, s.lebewesen))
+            out.push_back(SotaPass{s.id, s.lebewesen, m->binary_id, sota_view_binary_id(m->binary_id)});
+    }
+    return out;
+}
+
+/// build_sota_view_source_map(profile) — wie build_sota_source_map, ABER der Schlüssel ist der VIEW-binary_id
+/// ("sota_tier=<sota::S::name>") statt des rohen sota::S::name. Das ist GENAU die Form, die der Treiber-View
+/// (einwertige AxisLevel "sota_tier") je SOTA-Pass erzeugt → die SourceGenFn-Vereinigung (S7a) findet die Quelle
+/// direkt über den View-binary_id (kein Re-Mapping im Treiber). Disjunkt zum Basis-320-Schlüsselraum.
+[[nodiscard]] inline std::map<std::string, std::string>
+build_sota_view_source_map(cx::ThesisProfile const& tp) {
+    std::map<std::string, std::string> by_id;
+    for (auto const& s : tp.sota_series) {
+        if (auto m = sota_module_for(s.id, s.lebewesen))
+            by_id.emplace(sota_view_binary_id(m->binary_id),
+                          render_sota_module_source(m->composition_type, m->header));
+    }
+    return by_id;
+}
+
 }  // namespace comdare::cache_engine::thesis_lazy
