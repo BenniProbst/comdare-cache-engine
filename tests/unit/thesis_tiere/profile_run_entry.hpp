@@ -171,8 +171,11 @@ struct RunProfileResult {
     csv << ex::lazy_csv_header();
 
     // Gemeinsame Lauf-Config-Vorlage (je Pass kopiert + getaggt). 1 DLL = 1 TU bleibt.
+    // #171 (2026-06-20): make_cfg traegt zusaetzlich pruefling_type (full/abstract/-). Basis/Sweep uebergeben
+    // leer ("-"); die SOTA-Paesse uebergeben den aus merge abgeleiteten Typ (sota_catalog::derive_pruefling_type).
     auto make_cfg = [&](std::uint64_t ws_n, std::size_t cap_for_pass,
-                        std::string const& series, std::string const& sweep_axis) {
+                        std::string const& series, std::string const& sweep_axis,
+                        std::string const& pruefling_type) {
         ex::LazyRunConfig cfg;
         cfg.max_binaries   = cap_for_pass;
         cfg.n_ops          = a.n_ops;
@@ -180,6 +183,7 @@ struct RunProfileResult {
         cfg.workload_configs = a.workload_registry;
         cfg.build_version  = a.build_version;
         cfg.row_series        = series.empty()     ? std::string{"-"} : series;
+        cfg.row_pruefling_type = pruefling_type.empty() ? std::string{"-"} : pruefling_type;
         cfg.row_sweep_axis    = sweep_axis.empty()  ? std::string{"-"} : sweep_axis;
         cfg.row_platform      = tag_platform;
         cfg.row_build_version = tag_build_version;
@@ -233,7 +237,7 @@ struct RunProfileResult {
         for (std::size_t i = 0; i < sweep_n; ++i)
             std::cout << "      sweep binary_id[" << i << "] = " << sweep_view[i].binary_id << "\n";
         for (std::uint64_t const ws_n : n_sweep) {
-            ex::LazyRunConfig cfg = make_cfg(ws_n, sweep_n, /*series=*/"-", a.sweep_axis);
+            ex::LazyRunConfig cfg = make_cfg(ws_n, sweep_n, /*series=*/"-", a.sweep_axis, /*pruefling_type=*/"-");
             ex::LazyRunResult const r =
                 ex::run_lazy_static_then_dynamic(sweep_tree, sel, a.compile, union_gen, ram, cfg);
             emit(r, &res.basis_rows);
@@ -245,7 +249,7 @@ struct RunProfileResult {
         std::cout << "  [BASIS] label=" << pts.label << " provenance=" << sel.provenance
                   << " indices=" << sel.size() << " series=" << pts.series << " sweep=" << pts.sweep_axis << "\n";
         for (std::uint64_t const ws_n : n_sweep) {
-            ex::LazyRunConfig cfg = make_cfg(ws_n, N, pts.series, pts.sweep_axis);
+            ex::LazyRunConfig cfg = make_cfg(ws_n, N, pts.series, pts.sweep_axis, /*pruefling_type=*/"-");
             ex::LazyRunResult const r =
                 ex::run_lazy_static_then_dynamic(basis_tree, sel, a.compile, union_gen, ram, cfg);
             emit(r, &res.basis_rows);
@@ -275,10 +279,11 @@ struct RunProfileResult {
             // EIN Lebewesen je Reihe = view-Index 0. binary_id == p.view_binary_id ("sota_tier=…").
             ex::BuildSelection const sel = ex::select_explicit({0});
             ++res.sota_binary_ids;
-            std::cout << "    SOTA-Pass series=" << p.series << " lebewesen=" << p.lebewesen
+            std::cout << "    SOTA-Pass series=" << p.series << " pruefling_type=" << p.pruefling_type
+                      << " lebewesen=" << p.lebewesen
                       << " binary_id=" << (sota_view.empty() ? std::string{"<leer>"} : sota_view[0].binary_id) << "\n";
             for (std::uint64_t const ws_n : n_sweep) {
-                ex::LazyRunConfig cfg = make_cfg(ws_n, 1, p.series, /*sweep_axis=*/"");
+                ex::LazyRunConfig cfg = make_cfg(ws_n, 1, p.series, /*sweep_axis=*/"", p.pruefling_type);  // #171: full/abstract
                 ex::LazyRunResult const r =
                     ex::run_lazy_static_then_dynamic(sota_tree, sel, a.compile, union_gen, ram, cfg);
                 emit(r, &res.sota_rows);

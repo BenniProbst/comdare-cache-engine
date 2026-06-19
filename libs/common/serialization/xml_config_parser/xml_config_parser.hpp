@@ -126,6 +126,13 @@ struct ThesisSotaSeries {
     std::string id;         // "A" / "B" / "C"
     std::string lebewesen;  // Lebewesen-/Tier-Name (prt_art/art/hot/masstree/surf/start/wormhole)
     std::string merge;      // Stufe1_CeOnly / Stufe2_PrueflingReplace / Stufe3_FullJoin
+    // #171 (Text-Agent AP-X2/TODO-2, 2026-06-20): die Pruefling-Auspraegung "full" vs "abstract" (Doc 14
+    // §18-§19 Pruefling-Slot-Pattern + cacheline-doc §0/§1.2 "Originalkonfiguration"). ADDITIV + OPTIONAL —
+    // leer = aus `merge` ABGELEITET (Stufe1_CeOnly == self-contained == "full"; Stufe2/Stufe3 == Teilmenge +
+    // Host-Fallback == "abstract"). Ein explizites <sota_series pruefling_type=".."/> uebersteuert die
+    // Ableitung (z.B. Forscher-eigene Reihe). Die Ableitung lebt in sota_catalog::derive_pruefling_type
+    // (Single-Source) — KEIN neues Selektions-Konzept, nur eine 1:1-Sicht auf die bestehende MergeStrategy.
+    std::string pruefling_type;  // "" (ableiten) / "full" / "abstract"
 };
 
 // (d) <run_options cap=".." platform=".." build_version=".." resume=".."/> — die Lauf-Steuerung, die heute aus

@@ -290,6 +290,7 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(
             sr.id        = s->attr("id");
             sr.lebewesen = s->attr("lebewesen");
             sr.merge     = s->attr("merge");
+            sr.pruefling_type = s->attr("pruefling_type");  // #171: optional; leer ⇒ aus merge abgeleitet
             tp.sota_series.push_back(std::move(sr));
         }
     }
