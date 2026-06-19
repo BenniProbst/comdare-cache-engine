@@ -314,3 +314,60 @@ literale Evidenz bestätigt. **Getrennt geführt** (gated/needs_user, nicht als 
 - **P-MD6 (SOTA-Scope):** welche genau ≥8 Rang-1-SOTA-Lebewesen + PRT-ART, welche A/B/C-Tiefe → eigene Planungsrunde, mit User.
 - **P-MD5 (Plattformen):** welche ≥2 realen Plattformen (Hybrid-CPU + Sapphire Rapids — Cluster/ZIH/Infra-Verfügbarkeit), mit User.
 - Sonst: **fortfahren, nicht fragen** (§0/§3).
+
+---
+
+## §8 PFLICHTBEREICH (ergänzend, 2026-06-19) — Text-Agent-Handout AP-X2 (Profil/Prüfling-Ziele + Tabellenbreite)
+
+> **AUSSCHLIESSLICH ERGÄNZEND** (User-Direktive 2026-06-19): nichts in §0–§7 wird geändert/aufgehoben; §8 erweitert den Pflicht-
+> Umfang (insb. G5) um vier **code-/generator-seitige** Arbeitspakete, die der **Text-Agent** (Diplomarbeit) beim Cross-Check der
+> geschärften Thesis-Front-Matter gegen den Code (Code = Primärquelle, für den Text-Agenten read-only) an den Implementierungsagenten
+> übergibt. **⭐ SINGLE-SOURCE:** `docs/sessions/20260619-HANDOUT-impl-agent-profile-pruefling-ziele-tabellenbreite.md` (Thesis-Task AP-X2).
+
+### §8.1 TODO-1 — SOTA-Profile auf Paper-Vollabdeckung ausbauen
+**Ist (verifiziert):** `algorithm_profiles/sota/*.profile.xml` = **30** Profile; `compositions/*_reference.hpp` = 13 Referenz-
+Kompositionen (8 Rang-1). Thesis nennt jetzt konsistent „dreißig" (DE-Abstract „mehr als vierzig" war Autor-Schätzung, korrigiert).
+**Ziel (Autor 2026-06-19):** jedes in Kap. 3 analysierte Paper (**P01–P33**) liefert **≥1 neuen Algorithmus für ≥1 Achse**, zwei Typen:
+(1) **abstrakter Achsen-Satz** (nur einzelne Achsen-Algos, wie PRT-ART → Achsen-Varianten in den Baustein-Katalog) bzw.
+(2) **Voll-Algorithmus** (erfüllt die Mindest-Achsenzahl → eigenes vollständiges SOTA-Profil).
+**Auftrag:** Lücke 30 → ≥ Paperzahl schließen; je Paper Typ bestimmen + fehlende Profile/Achsen-Konfigurationen anlegen. Mapping =
+Doc 18 (Algo↔Paper↔Code↔Lizenz) + `kap3-instanz-mapping-survey` (Thesis-Seite).
+
+### §8.2 TODO-2 — Prüflinge: abstrakte UND vollständige Variante + „Originalkonfiguration" + Typ-Kennzeichnung
+**Prüfling** (Doc 14 §18–§19, 3 kompositionale Joins): das zu testende Kandidaten-Lebewesen (z.B. PRT-ART), das Achsen-Slots gegen
+den CE-Standard ersetzt/füllt (Stufe 1 ce-only / Stufe 2 Prüfling-Replace+Fallback / Stufe 3 Full-Join).
+**Auftrag:** je Prüfling **BEIDE** Ausprägungen existieren + gemessen:
+- **abstrakt** — füllt nur eine Teilmenge der Achsen, Rest via ce-Fallback.
+- **vollständig = „Originalkonfiguration"** — mindestens **EINMAL** wird das Verfahren **NUR** mit den **eigenen** Achsen-Algorithmen
+  *self-contained* gemessen (vgl. `20260602-cacheline-konfigurator-design-und-hw-recherche.md` §0/§1.2 „Paper-Algorithmen als Basis-
+  Lebewesen in Originalkonfiguration").
+**NEU (Pflicht):** in der **Profil-Erzeugung UND den Messungen** je Messreihe den Typ **`abstract`/`full`** explizit setzen + ausgeben
+(eigenes Feld/Spalte) → Auswertung trennt Original- vs. rekombinierte Konfiguration. (Als **additive** CSV-Spalte — Datenerhaltung,
+s. `20260618-M3v2-NEUMESSUNG-DESIGN-SPEC.md` §2; alte cowfix-v1-Zeilen tragen sie ehrlich leer.)
+
+### §8.3 TODO-3 — Drei noch nicht umgesetzte Ziel-Versprechen (in der Thesis ehrlich als Ausblick; Code-Umsetzung = Impl-Agent)
+1. **Automatische Auswahl + Versand der besten Binary** — aus den feingliedrigen Messergebnissen post-hoc die beste Permutation
+   wählen + als eigenständige, ABI-stabile Binary ausliefern (Rangbildung liefert die Mess-Pipeline; Auswahl+Versand fehlen).
+2. **Laufzeit-dynamische Cache-Line-Anpassung** — anhand eines ausgewerteten Profils zur Laufzeit die korrekten cache-line-aware
+   Einstellungen je Last/Operation wählen (statische heuristische System-Richtlinie).
+3. **XML-Heuristik-/Lastprofil-Export** — die „Extraktion" als wiederverwendbares XML-Lastprofil-Ergebnis je Architekturfokus ablegen
+   (Heuristiken automatisch erzeugen).
+
+### §8.4 TODO-4 — Tabellen-/Diagramm-Generator: Breite auf `\textwidth` zwingen (Layout-Bug; verschärft #154 L-i)
+**Befund (Thesis-Build 2026-06-19):** **184 Overfull-Boxen** (134 > 10 pt), DE≡EN, ausschließlich aus `anhang/{de,en}/tabellen/`
+(auto-generiert): `lc_surface_*` (TikZ-Heatmap, `width=0.95\textwidth` + `scale only axis` + `colorbar` + Y-Label > `\textwidth`),
+`cartesian_smoke43_diagram_body` (ybar, 43 x-Koords, `bar width=10pt`), `ld_exchange_*` (~35 pt), `bias_matrix_table` (21-Spalten-WIDE).
+**Ursache:** bei `scale only axis` gilt `width=` nur für die **Achsenfläche**; Titel/Achsenbeschriftung/Tick-Labels/**Colorbar** kommen
+**zusätzlich** → Box > `\textwidth`. **Auftrag (`diagram_generator` REV 7.6 / `csv_to_latex`):** Plots mit Colorbar/Y-Label
+`width≈0.72–0.78\textwidth` **oder** das `tikzpicture` in `\resizebox{\textwidth}{!}{…}` kapseln (bzw. `figure` mit
+`\centering\makebox[\textwidth]{\resizebox{\textwidth}{!}{…}}`); sehr breite WIDE-Tabellen (≥~15 Spalten) `\scriptsize` +
+`\setlength{\tabcolsep}{2pt}` + ggf. `sidewaystable`/Landscape **oder** Spaltensplit. **Ziel: 0 echte (> 10 pt) Overfull-Boxen aus
+`tabellen/`.** **Hinweis:** der Text-Agent patcht die auto-generierten Dateien bewusst NICHT (würden bei der nächsten Generierung
+überschrieben; smoke43 = Demo/Platzhalter) — bei den echten Kap-7-Messläufen mit der korrigierten Breiten-Logik **neu erzeugen**.
+
+### §8.5 Verhältnis zu G5 (additive Verschärfung)
+G5 (§4) + §7.4 bleiben unverändert gültig; **ergänzend** gilt: §8.1–§8.4 sind Teil des Pflicht-Backlogs (Done-Kriterium §2.5: gefixt-
+mit-Beleg / Appendix-Limitierung / User-Entscheid-pending). §8.1/§8.2 betreffen den Mess-**Inhalt** (vor/in der finalen Messung),
+§8.3 sind Architektur-Ausblick-**Implementierungen**, §8.4 ist **Auswertungs-Pipeline** (Phase L / G3, verschärft #154 L-i). Task-
+Mapping: **#170** (TODO-1 SOTA-Vollabdeckung) · **#171** (TODO-2 Prüfling abstract/full + Typ-Spalte) · **#172** (TODO-3 drei Ziel-
+Versprechen) · **#173** (TODO-4 Tabellenbreite). Quer-Referenzen: Thesis AP-X1 (Text erledigt), AP-X2 (= dieses Handout), AP-X4 (Layout).
