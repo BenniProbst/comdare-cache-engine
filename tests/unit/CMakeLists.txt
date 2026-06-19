@@ -1333,6 +1333,44 @@ foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
 endforeach()
 
 # ─────────────────────────────────────────────────────────────────────────────
+# #155 Phase-E-Standalone-Tests CTest-registrieren (vorher NICHT in CMake/ctest — nur als Quelle im Tree).
+# Identisches Muster wie die GoalV6-D-Tests darueber: plain `int main()`-Standalone (KEIN gtest, daher add_test
+# direkt, NICHT comdare_add_test), Return 0/1. KEIN DLL-/ADHOC-Bau — sie nutzen die normale cache-engine-Anatomie-
+# Header (anatomy/ compositions/ axes/ builder/experiment_tree/), also den boost/generated-Include-Satz.
+#   * test_migration_two_tier (#123, P4): 2-Tier IMigratableTier + organ_migrate_step + memento-parallel.
+#   * test_seg_coverage       (P-MD3): seg_*_ns-Attributions-Coverage ueber perm_runner (ART/HOT/Masstree).
+# test_v5_io_real_fixture ist leichter (nur std + Win32-API, kein Anatomie-Header) → eigener Block darunter.
+set(COMDARE_PHASE_E_BOOST_TESTS
+    test_migration_two_tier   # #123 P4 — 2-Tier-Migration (IMigratableTier + Memento parallel)
+    test_seg_coverage)        # P-MD3 — seg_*_ns-Attributions-Coverage (Mess-Pfad-Organzeit)
+foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
+    add_executable(${_dt} "${_dt}.cpp")
+    target_compile_features(${_dt} PRIVATE cxx_std_23)
+    target_include_directories(${_dt} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${CMAKE_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    target_link_libraries(${_dt} PRIVATE Boost::mp11)
+    comdare_set_platform_defines(${_dt})
+    add_test(NAME ${_dt} COMMAND ${_dt})
+    set_tests_properties(${_dt} PROPERTIES LABELS "phase_e;standalone")
+endforeach()
+
+# #155 — leichtes Phase-E-Fixture: nur std + Win32-API (CreateFileW/CreateFileMappingW/VirtualAlloc), KEIN
+# Anatomie-/Boost-/generated-Include. Auf Non-Win32 kompiliert die #else-Branch zu einem sauberen SKIP (Exit 0).
+add_executable(test_v5_io_real_fixture "test_v5_io_real_fixture.cpp")
+target_compile_features(test_v5_io_real_fixture PRIVATE cxx_std_23)
+comdare_set_platform_defines(test_v5_io_real_fixture)
+if(WIN32)
+    target_link_libraries(test_v5_io_real_fixture PRIVATE psapi)
+endif()
+add_test(NAME test_v5_io_real_fixture COMMAND test_v5_io_real_fixture)
+set_tests_properties(test_v5_io_real_fixture PROPERTIES LABELS "phase_e;standalone;io")
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Goal-V6 L-76/L-74a — DLL-Round-Trips als OFFIZIELLE CMake-Targets (vorher nur committete PS1-Skripte). Die 5
 # boost-freien Permutations-/Build-Varianten-DLLs (interne Organe) + ihre Loader-Tests. Die DLL-Pfade gehen via
 # $<TARGET_FILE:..> als add_test-Argumente → kein Lade-Ort-Rätselraten (Multi-Config-robust). C++23.

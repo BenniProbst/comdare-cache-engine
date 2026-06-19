@@ -51,14 +51,37 @@ function(COMDARE_add_test name)
         gtest_main
         ${ARG_LIBRARIES})
 
-    # ctest-Discovery
-    # V41.E1: DISCOVERY_MODE PRE_TEST — Test-Enumeration zur ctest-Laufzeit statt POST_BUILD.
-    # POST_BUILD (Default) fuehrt jede Test-.exe direkt nach dem Link aus; bei Tests mit DLL-Runtime-Deps
-    # (z.B. R5G-AdHoc-DLL-Loader) oder im Sandbox-/CI-Lauf wirft MSBuild dabei MSB3073, obwohl Build+Test
-    # spaeter passieren. PRE_TEST entkoppelt Discovery vom Build → kein Post-Build-Exe-Lauf, keine MSB3073.
-    include(GoogleTest)
-    gtest_discover_tests(${name}
-        DISCOVERY_MODE PRE_TEST
-        DISCOVERY_TIMEOUT 30
-        PROPERTIES TIMEOUT 60)
+    # ctest-Registrierung — Pattern: "ein add_test je gtest-Binary" (Command-Objekt, GoF Command).
+    #
+    # HISTORIE & ROOT-CAUSE (warum NICHT gtest_discover_tests):
+    #   V41.E1 nutzte gtest_discover_tests(DISCOVERY_MODE PRE_TEST). Beide gtest_discover_tests-Modi
+    #   sind in dieser Toolchain-Kombination (CMake 4.2 + Visual-Studio-17-Multi-Config-Generator)
+    #   unbrauchbar fuer eine reine `ctest -N`-Enumeration:
+    #     * POST_BUILD fuehrt jede Test-.exe per add_custom_command bereits zur BUILD-Zeit aus
+    #       (--gtest_list_tests). Bei DLL-Runtime-Dep-Tests (R5G-AdHoc-DLL-Loader) → MSB3073 im
+    #       `cmake --build`. (= der Default-Build-Bruch, den E1 vermeiden wollte.)
+    #     * PRE_TEST verschiebt den Exe-Lauf in die ctest-Laufzeit und erzeugt im Multi-Config-Pfad
+    #       eine Defer-Datei `<target>[<n>]_include.cmake`, die `include("<...>_include-${CTEST_
+    #       CONFIGURATION_TYPE}.cmake")` macht. Ein blankes `ctest -N` (ohne `-C`) laesst
+    #       CTEST_CONFIGURATION_TYPE leer → CMake sucht `<...>_include-.cmake` → "could not find
+    #       requested file" → Exit 8, 0 Tests enumeriert (das gemeldete Symptom).
+    #     * Selbst MIT `-C Release` enumeriert PRE_TEST nicht: es ruft jede Binary mit
+    #       `--gtest_list_tests --gtest_output=json:<dir-mit-leerzeichen>/...` auf; einzelne Tiere
+    #       (z.B. test_v41_anatomy) HAENGEN unter dieser json-Discovery → DISCOVERY_TIMEOUT → Exit 8.
+    #
+    # SAUBERE LOESUNG (CMake-Primitiv `add_test`, kein Hack):
+    #   Wir registrieren je Test-Binary GENAU EINEN ctest-Eintrag. Vorteile:
+    #     * Enumeration zur CONFIGURE-Zeit, OHNE eine einzige Test-.exe auszufuehren → `ctest -N`
+    #       (auch ohne `-C`) listet die gesamte Suite (>0), Exit 0; kein `[n]`-Defer, kein json-Hang.
+    #     * Default-Build (`cmake --build`) unveraendert: kein POST_BUILD-Exe-Lauf → keine MSB3073.
+    #     * Test-SEMANTIK unveraendert: `ctest` startet weiterhin die volle gtest-Binary; gtest_main
+    #       fuehrt ALLE enthaltenen Faelle aus (gleiche Assertions, gleiche Exit-Bedeutung).
+    #   Einziger Unterschied zu vorher: ctest-GRANULARITAET ist pro Binary statt pro gtest-Fall.
+    #   Keine Stelle im Repo filtert ctest per einzelnem gtest-Fall (`ctest -R test_<case>`), daher
+    #   ohne funktionalen Verlust. Pro-Fall-Aufschluesselung bleibt via `--gtest_filter` auf der
+    #   Binary moeglich.
+    add_test(
+        NAME ${name}
+        COMMAND ${name})
+    set_tests_properties(${name} PROPERTIES TIMEOUT 60)
 endfunction()
