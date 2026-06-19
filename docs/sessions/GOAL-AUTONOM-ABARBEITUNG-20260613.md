@@ -92,8 +92,9 @@ Disk. Daraus folgt für die parallele autonome Arbeit:
        L1✓(Spalten da) · L2 3D-Surfaces je Interface-Fn · L3 Achsen-Austauschbarkeits-longtables
        L4 Appendix (ALLE Werte + ehrliche Limitierungs-Tabelle) · L5 thesis-Integration (relativ, EN≡DE)
        L6 Generalprobe (Teil-CSV → Test-PDF)
-↓ nach Phase A komplett + M2 fertig/abgelöst:
-M3 finaler Voll-Lauf (cowfix-v1, alle 21 Profile valide) → ersetzt M2-Daten
+↓ nach Phase A komplett + M2 fertig (M2 bleibt als Baseline ERHALTEN, NIE gelöscht):
+M3 finaler Voll-Lauf (cowfix-v1, alle 21 Profile valide) → wird Arbeits-Datensatz; KOEXISTIERT mit älteren Gens
+  (NIE „ersetzt"/gelöscht — Mess-Daten-Erhaltungs-Direktive User 2026-06-19; Generationen via build_version unterschieden)
 ↓
 L7/L8 Finale: EIN Experiment-Kommando → Aggregat → Appendix → build.ps1 beide Sprachen → fertige PDF
               + NAS-Ablage der Roh-Matrix
