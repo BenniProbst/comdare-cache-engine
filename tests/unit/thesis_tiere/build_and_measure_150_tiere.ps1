@@ -42,7 +42,11 @@ param(
     # -Resume:$false → alles neu messen (Stamps werden überschrieben).
     [bool]$Resume = $true,
     [switch]$RunTest,
-    [switch]$RebuildHost
+    [switch]$RebuildHost,
+    # #169(A) Nutzerfreundlichkeit (User 2026-06-19): REIN-LESENDES Validat. -Validate prueft das -Profile gegen die
+    # AxisRegistry/EnabledStrategies (run_lazy_150 --validate) und BRICHT VOR dem teuren DLL-Bau/der Messung ab. Exit
+    # 0 + Zusammenfassung bei OK; Exit != 0 + klare Meldung (Achse + ungueltiger Wert) bei einem getippten Profil.
+    [switch]$Validate
 )
 $ErrorActionPreference = "Stop"
 $repo   = "C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine"
@@ -162,6 +166,19 @@ if ([string]::IsNullOrEmpty($Profile)) {
 }
 if (!(Test-Path $Profile)) { Write-Output "ABBRUCH: Profil fehlt: $Profile"; exit 3 }
 $profileArg = "profile:" + $Profile + $(if ($SweepAxis) { "@" + $SweepAxis } else { "" })
+
+# #169(A) — REIN-LESENDES Validat VOR dem Bau. -Validate ruft run_lazy_150 --validate <profil> (kein DLL-Bau, keine
+# Messung) und beendet das Harness mit dem Validat-Exit-Code (0 = OK, != 0 = getipptes/ungueltiges Profil). So faellt
+# ein <value>node_4</value>-Tippfehler SOFORT auf, statt nach langer Bau-/Mess-Wartezeit eine falsche Matrix.
+if ($Validate) {
+    Write-Host "=== --validate (rein-lesend; KEIN DLL-Bau, KEINE Messung): $Profile ==="
+    # Run-InVcvars streamt die cmd-Ausgabe UND haengt $LASTEXITCODE an → das letzte Element ist der numerische Exit.
+    $vOut  = @(Run-InVcvars $exe @("--validate", $Profile))
+    $vOut | ForEach-Object { Write-Host $_ }
+    $vCode = [int]$vOut[-1]
+    Write-Host ("=== Validat-Exit = {0} ({1}) ===" -f $vCode, $(if ($vCode -eq 0) { "OK" } else { "FEHLER — Profil NICHT baubar" }))
+    exit $vCode
+}
 Write-Host ("=== Lazy-E2E (m3v2, PROFIL-getrieben): {0} DLLs bauen+messen | profil={1} | sweep={2} | platform={3} | build_tag={4} | working_set_n=[{5}] | resume={6} ===" -f $MaxBinaries, $Profile, $(if ($SweepAxis) { $SweepAxis } else { "basis" }), $Platform, $M3BuildVersionTag, ($nSet -join ","), $Resume)
 
 $lastCode = 0

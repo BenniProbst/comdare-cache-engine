@@ -31,6 +31,10 @@ pwsh tests/unit/thesis_tiere/build_and_measure_150_tiere.ps1 `
 pwsh tests/unit/thesis_tiere/build_and_measure_150_tiere.ps1 -SweepAxis migration_policy
 # Schneller Funktions-Smoke (4 Binaries):
 pwsh tests/unit/thesis_tiere/build_and_measure_150_tiere.ps1 -RunTest
+# #169(A) REIN-LESENDES Profil-Validat VOR dem teuren Bau (kein DLL-Bau, keine Messung):
+pwsh tests/unit/thesis_tiere/build_and_measure_150_tiere.ps1 -Validate `
+    -Profile "libs\cache_engine\algorithm_profiles\thesis_profiles\m3v2_study.profile.xml"
+#   → Exit 0 + Zusammenfassung bei OK; Exit != 0 + klare Meldung (Achse + ungueltiger Wert) bei Tippfehler.
 ```
 - Default-Profil, falls `-Profile` leer: `m3v2_study.profile.xml`
   (`build_and_measure_150_tiere.ps1:160-161`).
@@ -48,21 +52,28 @@ pwsh tests/unit/thesis_tiere/build_and_measure_150_tiere.ps1 -RunTest
 4. **Profil → Baum** `build_axis_levels` (`profile_to_tree.hpp:25`); **Profil-Parser**
    `parse_thesis_profile` (`xml_config_parser.cpp:209`).
 
-### Ehrliche Lücken für Nutzerfreundlichkeit (benannt, nicht beschönigt)
-- **Kein eigenständiges Schema-Validierungs-Kommando.** Ein fehlerhaftes Profil fällt erst zur Laufzeit auf
-  (`parse_thesis_profile` → `nullopt` → `run_profile` Exit 5, `profile_run_entry.hpp:106-110`). Wünschenswert:
-  ein `--validate`-Modus, der Achsen-`ref`/`value`-Namen gegen die Registry prüft, BEVOR gebaut wird.
-- **Profil-Werte sind Magic-Strings.** Die `<value>`-Strings (z.B. `k_ary`, `node4`) müssen exakt die
-  `W::name()` der Wrapper treffen; ein Tippfehler liefert eine leere Quelle (DLL „nicht baubar", ehrlich
-  sichtbar, aber spät). Es gibt keine zentrale, generierte „gültige Werte je Achse"-Liste für den Autor.
-- **Mehrere ENV-Hebel** (`COMDARE_RUN_SOTA`, `COMDARE_WORKLOAD_RECORDS`, `COMDARE_PLATFORM` …,
-  `run_lazy_150.cpp:160-170`) übersteuern das Profil — mächtig, aber für Einsteiger intransparent. Sie sind
-  im SCHEMA.md / hier dokumentiert, aber nicht im Kommando selbst sichtbar.
+### Schema-Validierung VOR dem Bau (#169(A), UMGESETZT 2026-06-19)
+- **Eigenständiges, rein-lesendes `--validate`-Kommando.** Ein getipptes Profil (z.B. `<value>node_4</value>`
+  statt `node4`, oder eine unbekannte `<axis ref="…">`) fällt jetzt SOFORT auf — VOR dem teuren DLL-Bau, ohne
+  Wartezeit. Aufruf: `-Validate` am Harness (`build_and_measure_150_tiere.ps1`, `param :Validate`) ODER direkt
+  `run_lazy_150 --validate <profil>` (`run_lazy_150.cpp:main`, der `--validate`-Zweig VOR der Mess-Argv-Prüfung).
+- **Die gültigen Werte kommen aus dem CODE, nicht aus einer hartkodierten Liste.** Der Host baut die
+  `AxisRegistry` (axis → gültige Werte) aus `build_all_axis_levels()` (`registry_to_axis_levels.hpp:72`), die die
+  REALEN EnabledStrategies reflektiert (`reflect_names<TopicConfigSet::StaticAxisVariants*>`, `axis_reflect.hpp:24`)
+  — über alle 22 Achsen. Die Pruef-Logik `validate_profile(tp, registry)` (`validate_profile.hpp`) prüft:
+  (1) jeder `<axis ref>` ist ein bekannter Achsen-Name (Registry-Key / `kCompositionAxisNames`,
+  `axis_path_serialization.hpp:27`; `cacheline` = KF-3-Sonderzweig), (2) jeder `<value>` ist ein `name()` der
+  EnabledStrategies dieser Achse — die Fehlermeldung NENNT die Achse + den ungültigen Wert + die gültigen Werte,
+  (3) jeder `<axis_sweep axis=>` + jede `<sota_series lebewesen=>` referenziert eine deklarierte Achse / ein
+  deklariertes `<base_tier>`.
+- **Rein-lesend, garantiert kein Bau.** Der `--validate`-Zweig ruft NUR `parse_thesis_profile` + `validate_profile`
+  und kehrt mit dem Exit-Code zurück (`0` = OK + Zusammenfassung; `!= 0` = Fehler), BEVOR irgendeine `CompileFn`/
+  `run_lazy_static_then_dynamic`/`BuildOrchestrator`-Logik läuft — keine `perm_<id>.cpp/.dll` werden materialisiert.
+  Belegt LITERAL in `test_validate_profile.cpp` (a: m3v2 ok / b: Typo gefangen mit Achse+Wert / c: kein Artefakt).
 
-> Kleiner Usage-Doc-Vorschlag: ein `--validate`-Flag am Host (`run_lazy_150`) ergänzen, das das Profil parst
-> und JEDEN `<value>` gegen `AxisRegistry` (`profile_to_tree.hpp:22`) prüft und die Treffer/Fehlschläge
-> auflistet, ohne zu bauen. Reine Lese-Operation, kein DLL-Build — würde die häufigste Fehlerklasse
-> (Magic-String-Tippfehler) vor dem teuren Build abfangen.
+> Verbleibende ENV-Hebel (`COMDARE_RUN_SOTA`, `COMDARE_WORKLOAD_RECORDS`, `COMDARE_PLATFORM` …,
+> `run_lazy_150.cpp`) übersteuern das Profil weiterhin — mächtig, aber für Einsteiger intransparent; im SCHEMA.md
+> dokumentiert, nicht im Kommando selbst sichtbar.
 
 ---
 

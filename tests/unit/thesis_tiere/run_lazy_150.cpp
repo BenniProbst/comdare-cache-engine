@@ -22,8 +22,10 @@
 // Spalte (D, Default 3) und die Observer-DELTA-Counter (A). Die perm-DLLs + Source + .obj + .cl.log + .version +
 // per-Binary-result.csv liegen je Binary in einem eigenen Unterordner unter dll_dir/<stem>/ (E).
 #include "profile_run_entry.hpp"   // tlz::run_profile / RunProfileArgs (S7c CEB-Eintritts-API)
+#include "validate_profile.hpp"    // #169(A): validate_profile / axis_registry_from_levels (rein-lesend, kein Bau)
 
 #include <builder/workload_driver/load_profile_parser.hpp>   // discover_load_profiles / parse_load_profile (Achse 2)
+#include <builder/experiment_tree/registry_to_axis_levels.hpp>  // #169(A): build_all_axis_levels (EnabledStrategies-Quelle)
 
 #include <cstdint>
 #include <cstdlib>
@@ -31,6 +33,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -48,7 +51,57 @@ static std::vector<std::string> env_includes() {
     return inc;
 }
 
+// #169(A) — Profil-Pfad aus einem rohen Argument extrahieren ("profile:"-Praefix + "@<achse>"-Suffix entfernen).
+static std::string strip_profile_token(std::string s) {
+    if (s.rfind("profile:", 0) == 0) s = s.substr(std::string("profile:").size());
+    if (auto at = s.rfind('@'); at != std::string::npos) s.erase(at);
+    return s;
+}
+
 int main(int argc, char** argv) {
+    // ── #169(A) NUTZERFREUNDLICHKEIT: das REIN-LESENDE --validate-Kommando. Prueft ein comdare_thesis_profile gegen
+    //    die AxisRegistry/EnabledStrategies, BEVOR teuer gebaut/gemessen wird. KEIN DLL-Bau, KEINE Messung, kein
+    //    Tree-/Source-Materialisieren — nur parse_thesis_profile + validate_profile gegen build_all_axis_levels().
+    //    Aufruf:  run_lazy_150 --validate <profil-pfad>   (ODER --validate + env COMDARE_THESIS_PROFILE).
+    //    Exit 0 + Zusammenfassung bei OK; Exit != 0 + klare Meldung (Achse + ungueltiger Wert) bei Fehler. ──
+    {
+        bool want_validate = false;
+        std::string validate_path;
+        for (int i = 1; i < argc; ++i) {
+            std::string const arg = argv[i];
+            if (arg == "--validate" || arg == "-validate" || arg == "--check") { want_validate = true; continue; }
+            // Ein nachfolgendes Nicht-Flag-Argument = der Profil-Pfad (auch "profile:<pfad>[@<achse>]"-Form).
+            if (want_validate && validate_path.empty() && !arg.empty() && arg[0] != '-')
+                validate_path = strip_profile_token(arg);
+        }
+        if (want_validate) {
+            if (validate_path.empty()) {
+                if (char const* e = std::getenv("COMDARE_THESIS_PROFILE"); e != nullptr && *e != '\0')
+                    validate_path = strip_profile_token(e);
+            }
+            if (validate_path.empty()) {
+                std::cerr << "run_lazy_150 --validate: kein Profil-Pfad (Aufruf: --validate <pfad> ODER env "
+                             "COMDARE_THESIS_PROFILE). KEIN Bau ausgefuehrt.\n";
+                return 6;
+            }
+            std::optional<comdare::builder::xml::ThesisProfile> const tp =
+                tlz::load_thesis_profile(validate_path);
+            if (!tp) {
+                std::cerr << "run_lazy_150 --validate: Profil '" << validate_path
+                          << "' nicht lesbar (parse_thesis_profile=nullopt). KEIN Bau ausgefuehrt.\n";
+                return 5;
+            }
+            // Die gueltigen Achsen-Werte kommen aus den REALEN EnabledStrategies (build_all_axis_levels reflektiert
+            // die TopicConfigSet::StaticAxisVariants*-Listen) — NICHT aus einer hartkodierten Liste.
+            ex::AxisRegistry const registry =
+                tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+            tlz::ProfileValidationResult const vr = tlz::validate_profile(*tp, registry);
+            tlz::print_validation_report(vr, *tp, std::cout);
+            std::cout << "(--validate: rein-lesend — es wurde KEINE DLL gebaut und KEINE Messung durchgefuehrt.)\n";
+            return vr.ok ? 0 : 1;
+        }
+    }
+
     if (argc < 7) {
         std::cerr << "usage: run_lazy_150 <out_csv> <max_binaries> <n_ops> <build_version> <src_dir> <dll_dir>"
                      " [min_free_gb] [cores_per_build] [n_repeats] [profile:<pfad>[@<achse>]] [resume=1|0]\n";
