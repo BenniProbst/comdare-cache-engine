@@ -167,7 +167,16 @@ struct RunProfileResult {
               << "  working_set_n=" << n_sweep.size() << "\n";
 
     // ── EINE CSV; Header GENAU EINMAL; darunter Basis-Pass + SOTA-Paesse (alle N). ──
+    // M11 (G5-Audit w289llo0o): Stream-Fehlerpruefung. Liess der open() scheitern (Pfad nicht
+    // schreibbar / Platte voll), waere die CSV stillschweigend leer geblieben → exit_code haette
+    // faelschlich Erfolg gemeldet. Open-Erfolg jetzt hart geprueft; Schreib-/Flush-Fehler fliessen
+    // unten (csv.good() nach flush) in den exit_code ein.
     std::ofstream csv{a.out_csv.string(), std::ios::trunc};
+    if (!csv) {
+        std::cout << "RUN_PROFILE FEHLER: CSV nicht oeffenbar → " << a.out_csv.string() << "\n";
+        res.exit_code = 1;
+        return res;
+    }
     csv << ex::lazy_csv_header();
 
     // Gemeinsame Lauf-Config-Vorlage (je Pass kopiert + getaggt). 1 DLL = 1 TU bleibt.
@@ -292,13 +301,19 @@ struct RunProfileResult {
     }
 
     csv.flush();
+    // M11 (G5-Audit w289llo0o): nach dem Flush das Stream-Ergebnis pruefen. Ein waehrend des
+    // Schreibens/Flushens aufgetretener Fehler (Platte voll, IO-Fehler) setzt failbit/badbit und
+    // wuerde sonst eine still abgeschnittene CSV als Erfolg ausgeben.
+    bool const csv_ok = csv.good();
     std::cout << "RUN_PROFILE fertig: basis_rows=" << res.basis_rows << " sota_rows=" << res.sota_rows
               << " (basis_ids=" << res.basis_binary_ids << " sota_ids=" << res.sota_binary_ids << ")"
               << " measured=" << res.any_measured << " resumed=" << res.any_resumed
+              << " csv_ok=" << (csv_ok ? "1" : "0")
               << " → " << a.out_csv.string() << "\n";
 
-    // Exit 0 = mind. 1 (Binary × Setting) real gemessen ODER resumiert (Voll-Resume = gueltiger Lauf).
-    res.exit_code = (res.any_measured > 0 || res.any_resumed > 0) ? 0 : 1;
+    // Exit 0 = mind. 1 (Binary × Setting) real gemessen ODER resumiert (Voll-Resume = gueltiger Lauf)
+    // UND die CSV fehlerfrei geschrieben+geflusht (M11). Ein Stream-Schreib-/Flush-Fehler erzwingt exit!=0.
+    res.exit_code = ((res.any_measured > 0 || res.any_resumed > 0) && csv_ok) ? 0 : 1;
     return res;
 }
 
