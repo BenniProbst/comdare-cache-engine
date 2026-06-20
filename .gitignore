@@ -42,6 +42,11 @@ datasets/*
 *.binarydump
 measurements/
 spool/
+# Ausnahme: GETRACKTE Test-Fixtures (kleine, deterministische CSVs fuer ctest-Reproduzierbarkeit, G5).
+# Ohne diese Negation wuerde *.csv die Fixture verschlucken -> frischer git-clone haette sie nicht ->
+# test_load_profile_writer faende arg2 nicht. Nur das fixtures/-Verzeichnis ist ausgenommen, nicht Mess-Dumps.
+!tests/unit/fixtures/
+!tests/unit/fixtures/*.csv
 
 # IDE
 .vscode/

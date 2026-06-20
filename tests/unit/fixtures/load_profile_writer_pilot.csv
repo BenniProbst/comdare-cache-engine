@@ -1,0 +1,7 @@
+binary_id;op_insert_n;op_lookup_n;op_erase_n;op_clear_n;op_scan_n;op_rmw_n;working_set_n
+search_algo=k_ary/cache_traversal=linear_fanout/node_type=node4;1000;9000;0;0;0;0;16384
+search_algo=k_ary/cache_traversal=linear_fanout/node_type=node4;500;9500;0;0;0;0;16384
+sota_tier=sota::A::ArtComposition;0;10000;0;0;0;0;16384
+sota_tier=sota::A::ArtComposition;0;10000;0;0;0;0;16384
+sota_tier=sota::A::PrtArtComposition;0;10000;0;0;0;0;16384
+sota_tier=sota::B::HotPrtStufe2ReplaceComposition;0;8000;0;0;0;0;16384
