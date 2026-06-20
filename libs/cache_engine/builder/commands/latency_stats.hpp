@@ -56,4 +56,34 @@ namespace comdare::cache_engine::builder::commands::stats {
     return static_cast<double>(sum / static_cast<long double>(s.size()));
 }
 
+// ── #165-A (P-MD9, 2026-06-20): WINSORIZED MEAN — Lehrbuch-Robust-Statistik ─────────────────────────────────
+// Benanntes Muster: "Winsorized Mean" (Winsorizing nach C. P. Winsor; siehe Dixon & Tukey 1968, "Approximate
+// Behavior of the Distribution of Winsorized t", Technometrics 10(1):83–98). ABGRENZUNG zum getrimmten Mittel:
+// das getrimmte Mittel ENTFERNT die Extrem-Samples; das winsorisierte Mittel BEHÄLT alle n Samples, CLAMPt aber
+// die unteren/oberen Ausreißer auf die jeweilige Perzentil-Grenze [P(trim_q), P(1-trim_q)] und mittelt dann über
+// ALLE n geklemmten Werte. Robust gegen einzelne System-Störungs-Spitzen (Scheduler/IRQ), ohne die Stichprobengröße
+// zu verkleinern → ein stabilerer zentraler Lagewert als das arithmetische Mittel für die Latenz-Auswertung.
+//
+// NON-MUTIEREND (kopiert intern, identisch zu percentile_ns): die Roh-Samples bleiben in Original-Reihenfolge für
+// Welch's t-Test/Perzentile erhalten. trim_q wird auf [0, 0.5) geklemmt (symmetrischer Trim je Flanke); trim_q<=0
+// ⇒ kein Clamping ⇒ exakt latency_mean_ns. Leere Eingabe ⇒ 0.0.
+//
+// Grenzen via percentile_ns (Nearest-Rank, dieselbe Single-Source-Perzentil-Definition) → keine Methoden-Drift.
+[[nodiscard]] inline double winsorized_mean_ns(std::span<const std::int64_t> samples, double trim_q) {
+    if (samples.empty()) return 0.0;
+    if (trim_q <= 0.0) return latency_mean_ns(samples);   // kein Trim → arithmetisches Mittel über alle n
+    if (trim_q >= 0.5) trim_q = 0.5 - 1e-9;               // symmetrischer Trim < halbe Stichprobe (kein Kollaps)
+    std::int64_t const lo = percentile_ns(samples, trim_q).count();          // untere Winsor-Grenze P(trim_q)
+    std::int64_t const hi = percentile_ns(samples, 1.0 - trim_q).count();    // obere  Winsor-Grenze P(1-trim_q)
+    // Robust gegen lo>hi (degenerierte/winzige Stichprobe): in geordnete [min(lo,hi), max(lo,hi)] normalisieren.
+    std::int64_t const clamp_lo = (lo <= hi) ? lo : hi;
+    std::int64_t const clamp_hi = (lo <= hi) ? hi : lo;
+    long double sum = 0.0L;
+    for (auto v : samples) {
+        std::int64_t const w = (v < clamp_lo) ? clamp_lo : (v > clamp_hi ? clamp_hi : v);  // auf [lo,hi] winsorisieren
+        sum += static_cast<long double>(w);
+    }
+    return static_cast<double>(sum / static_cast<long double>(samples.size()));   // Mittel über ALLE n (behalten!)
+}
+
 }  // namespace comdare::cache_engine::builder::commands::stats

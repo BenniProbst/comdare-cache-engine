@@ -212,8 +212,14 @@ struct RunProfileResult {
 
     auto emit = [&](ex::LazyRunResult const& r, std::size_t* row_sink) {
         csv << r.resumed_csv_rows;
-        for (auto const& row : r.csv_rows) csv << ex::format_csv_row(row);
-        *row_sink += count_lines(r.resumed_csv_rows) + r.csv_rows.size();
+        // #165-B (P-MD8, 2026-06-20): den statistischen Ausreißer-Flag VOR der Emission je Pass befüllen. Lokale,
+        // mutierbare Kopie der frisch gemessenen Zeilen (LazyRunResult bleibt unberührt); annotate_quality_flags
+        // setzt nur das additive quality_flag-Feld (0/1) je (binary_id, profile_name)-Gruppe — gate-frei, keine
+        // bestehende Spalte/kein Messwert berührt. resumed_csv_rows (Alt-Zeilen) bleiben unangetastet (Datenerhaltung).
+        std::vector<ex::LazyMeasuredRow> rows = r.csv_rows;
+        ex::annotate_quality_flags(rows);
+        for (auto const& row : rows) csv << ex::format_csv_row(row);
+        *row_sink += count_lines(r.resumed_csv_rows) + rows.size();
         res.any_measured += r.measured; res.any_resumed += r.resumed_binaries;
     };
 
