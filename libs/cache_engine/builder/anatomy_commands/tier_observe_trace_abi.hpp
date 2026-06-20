@@ -82,6 +82,10 @@ namespace detail {
 /// Rollback ZWEIMAL gerufen (Warmup verworfen, Messung behalten), sonst EINMAL (Kalt-Messung, Fallback
 /// für alte Module / nicht-kopierbare Organe). Da jede Phase 1 exakt zurückgerollt wird, macht NUR die
 /// gemessene Phase-2-Op logischen Fortschritt ⇒ End-Zustand + Observer-Zähler identisch zur Einphasen-Messung.
+/// QUALIFIZIERUNG (G5-Audit w289llo0o): „identisch" gilt für die nicht-auto-gekoppelten Achsen-Zähler (z.B. T0/T6).
+/// Die 8 auto-gekoppelten Sekundär-Achsen zählen je logischer Op ZWEIMAL (Warmup-Op + Mess-Op tragen je in deren
+/// gekoppelte Zähler ein, da der Rollback nur den materialisierten search_organ_/container_-Zustand zurückrollt, nicht
+/// die gekoppelten Observer-Counter) → für sie ist der Zählerstand NICHT bit-identisch zur Einphasen-Messung. Vgl. Doc 33 §2.
 /// V5-Audit-Härtung: EMPIRISCHE Rollback-Exaktheits-Probe über das ABI (KEINE Interface-Erweiterung nötig).
 /// save-all(leer) → Mutation → rollback-all → ist der leere Zustand exakt wiederhergestellt? Adressiert die
 /// Audit-Lücke „two_phase_measure prüft nur rb!=nullptr, nicht Exaktheit": nicht-exakt-rollbackbare Organe
@@ -181,7 +185,9 @@ drive_tier_observe_trace_abi(an::IObservableTier& tier, AbiTierTraceConfig const
 /// (save-all → op-warmup [verworfen] → rollback-all → op-measure), sofern `rollback != nullptr`. Dadurch wird
 /// jeder gemessene Op warm (Cache/Branch-Predictor geheizt durch den Warmup), aber logisch gegen DENSELBEN
 /// Vor-Zustand gemessen wie der Warmup. Da jede Warmup-Phase exakt zurückgerollt wird, macht nur die Mess-Op
-/// logischen Fortschritt ⇒ End-Füllstand + Observer-Zähler IDENTISCH zu drive_tier_observe_trace_abi.
+/// logischen Fortschritt ⇒ End-Füllstand IDENTISCH zu drive_tier_observe_trace_abi. (G5-Audit w289llo0o: „Observer-Zähler
+/// IDENTISCH" gilt nur für die nicht-auto-gekoppelten Achsen, z.B. T0/T6 — die 8 auto-gekoppelten Sekundär-Achsen zählen
+/// je logischer Op ZWEIMAL [Warmup + Messung], da der Rollback ihre gekoppelten Counter nicht zurückrollt; vgl. Doc 33 §2.)
 ///
 /// `rollback`: das memento_all-Sub-Interface der GLEICHEN Tier-Instanz (Loader-`dynamic_cast`; nullptr ⇒ altes
 /// Modul / nicht-exakt-rollbackbares Organ ⇒ graziöser Fallback auf Einphasen-Kalt-Messung pro Op). Die

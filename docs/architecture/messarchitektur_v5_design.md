@@ -48,7 +48,8 @@ erlaubt, NICHT Hot-Path). Unterhalb: Lebewesen-Binary, compile-time-monomorphisi
 ║     │     tier_insert/lookup/erase/clear/size  (uint64-Key-Raum)                       ║
 ║     ├─ observer_all  [Sub-IF, nur Messung-AN einkompiliert]  ── tier_observe(POD V…)   ║
 ║     │     observe_all() (search_algorithm_anatomy.hpp:53-72) → ObserverAggregate       ║
-║     └─ memento_all   [NEU Sub-IF, nur Messung-AN einkompiliert]  ── HYBRIDER VISITOR    ║
+║     └─ memento_all   [NEU Sub-IF, nur Messung-AN einkompiliert]  (Etikett "hybrider Visitor"  ║
+║          NICHT umgesetzt: kein accept()/HostSink-Besuch; reines save/rollback-vtable)         ║
 ║           save_all()/rollback_all() über ALLE stateful Achsen (9 von 17)               ║
 ║   STATE LEBT HIER, NICHT HOST-SEITIG: search_organ_ · ComposedStore<N,L,A> · Disk      ║
 ║   RELEASE-DLL (Messung-AUS): observer_all+memento_all COMPILE-TIME ENTFERNT            ║
@@ -57,8 +58,13 @@ erlaubt, NICHT Hot-Path). Unterhalb: Lebewesen-Binary, compile-time-monomorphisi
 ```
 
 **Asymmetrie des State (bindend):** Der Lebewesen-Binary-State lebt **in** der Binary (`search_organ_`, `ComposedStore`, Disk-Files),
-nicht host-seitig. Der Host hält nur (a) Latenz-Mess-State (ns-Vektoren) + (b) Operations-Protokoll + Ergebnisse. Daher der
-hybride Visitor (§3): Da der State drüben lebt, **besuchen** die Lebewesen-Binary-Rollback-Klassen den Host zur Steuerung.
+nicht host-seitig. Der Host hält nur (a) Latenz-Mess-State (ns-Vektoren) + (b) Operations-Protokoll + Ergebnisse.
+
+> **[G5-Audit-Korrektur, w289llo0o] „hybrider Visitor" ist NICHT umgesetzt — Etikett gestrichen.** Der real implementierte
+> Pfad ist **kein** Visitor: `IRollbackableTier` (`rollbackable_tier.hpp`) exponiert nur zwei void-Methoden
+> `tier_save_all()`/`tier_rollback_all()` als reine ABI-vtable; es gibt **kein** `accept()`, **keinen** `HostSink`/Element-Besuch
+> und die Rollback-Klassen „besuchen" den Host nicht. Es ist ein klassisches **Memento** (Capture/Restore über die Modulgrenze),
+> kein hybrider Visitor. Die folgenden „hybrider Visitor"-Erwähnungen sind als historisches Entwurfs-Etikett zu lesen, nicht als Ist.
 
 ---
 
@@ -99,15 +105,16 @@ Streng getrennte, orthogonale Dimensionen. Build-Profil ⊥ Lastenprofil = die z
 
 **Grundsatz (bindend):** `memento_all` ist Lebewesen-Binary-**einkompiliert**, nur bei Messung-AN (zusammen mit der IO/memory-Achse).
 Rollt den **gesamten** Zustand nach Warmup über **alle stateful Achsen** via einkompiliertes Memento-Pattern zurück + wiederholt
-die Op. **Parallel** zu observe_all, nach dem Observer-Pattern = **hybrider Visitor**: die Lebewesen-Binary-Rollback-Klassen
-**besuchen den Host**. **Einfacher Snapshot reicht NICHT**, weil IO-Disk-Persistenz der Such-Algorithmen möglich ist
-(`ComdareTierObserverSnapshotV1` = nur uint64-Counter → unzureichend).
+die Op. **Parallel** zu observe_all. (~~nach dem Observer-Pattern = **hybrider Visitor**: die Lebewesen-Binary-Rollback-Klassen
+**besuchen den Host**~~ — **dieses „hybrider Visitor"-Etikett ist NICHT umgesetzt, gestrichen [G5-Audit w289llo0o]**: real ist es
+ein **Memento** über zwei void-vtable-Methoden, ohne `accept()`/Host-Besuch.) **Einfacher Snapshot reicht NICHT**, weil
+IO-Disk-Persistenz der Such-Algorithmen möglich ist (`ComdareTierObserverSnapshotV1` = nur uint64-Counter → unzureichend).
 
 ### 3.2 observe_all ↔ memento_all
 
 | | observe_all (IST, teilweise) | memento_all **[NEU]** |
 |---|---|---|
-| Richtung | Host **zieht** POD (read-only) | Lebewesen-Binary-Klassen **besuchen** Host (hybrider Visitor) |
+| Richtung | Host **zieht** POD (read-only) | Host **ruft** save/rollback-vtable (Memento; KEIN Host-Besuch — „hybrider Visitor" gestrichen, G5-Audit w289llo0o) |
 | Zweck | Per-Achsen-Counter | Gesamt-State **speichern + zurückrollen** |
 | Daten | uint64-Counter (in-process) | vollständiger Achsen-State **inkl. Disk** |
 | Datei | observer_aggregate.hpp, observe_all() search_algorithm_anatomy.hpp:53-72 | **[NEU]** memento_aggregate.hpp, memento_all(), AnatomyMementoCommand |
@@ -140,9 +147,14 @@ concept MementoAxis = requires(A& a, typename A::memento_t m) {
 | axis_migration_policy | **JA** | capture_tier_placement + heat_metadata | RAM/NVM/SSD-Checkpoint-Konsistenz |
 | 03b/03m/05/07/09/09b/11/12 | nein | `EmptyMemento` (Ausnahmen: HashLookup probe-chain, prefetch Stride-Kalibrierung) | — |
 
-### 3.4 Hybrider Visitor (Memento-Klassen besuchen Host)
+### 3.4 Hybrider Visitor (Memento-Klassen besuchen Host) — **[G5-Audit w289llo0o: NICHT umgesetzt, Entwurf verworfen]**
 
-Das heute **leere** `algorithm_visitor`-Modul (nur `.gitkeep`) wird gefüllt. **[NEU]** `memento_visitor.hpp`:
+> **NICHT umgesetzt (Entwurf, kein Ist).** Das Modul `builder/algorithm_visitor/` ist **bis heute leer** (`.gitkeep`); ein
+> `memento_visitor.hpp` mit `accept(HostSink&)`/Host-Besuch **existiert nicht** (grep-belegt). Der real gebaute Pfad ist ein
+> **Memento** über `IRollbackableTier::tier_save_all()/tier_rollback_all()` (zwei void-vtable-Methoden, kein Visitor). Der
+> folgende Abschnitt beschreibt einen **verworfenen Entwurf** und ist nicht als Ist zu lesen.
+
+Das heute **leere** `algorithm_visitor`-Modul (nur `.gitkeep`) **bleibt leer (NICHT umgesetzt)**. ~~wird gefüllt. **[NEU]** `memento_visitor.hpp`:~~
 - Lebewesen-Binary: `MementoAggregate<Composition>` **[NEU]** (analog ObserverAggregate, 17 Slots, conditional via `MementoAxis`); `memento_all()`/`rollback_all(m)` in `SearchAlgorithmAnatomy`.
 - Hybrider Visitor: einkompilierte Rollback-Klassen erhalten beim Übergang einen Host-Steuerungs-Handle (`accept(HostSink&)`), besuchen den Host (z.B. „rollback fertig, Op wiederholbar"). Host iteriert NICHT in die Achsen.
 - ABI-Übergang: `memento_all` quert als eigenständiges Sub-IF `IRollbackableTier` **[NEU]** (wie IMeasurableWorkload/IObservableTier — **nicht** an IAnatomyBase → kein vtable-Bruch). Disk-State wird **nicht** als POD kopiert, sondern in der Binary referenziert; Host steuert nur save/rollback.
@@ -246,7 +258,7 @@ nur Probing-Pfad bei Messung-AN. Hot-Path bleibt compile-time-monomorph.
 | **Dock** Probing umstellen | `builder/pruef_dock/search_algorithm_dock.hpp:42-45` | `dynamic_cast<IDriveableTier*>` + Messung-AN-Zweige; Gate vor measure() |
 | **[NEU]** conformance_gate | `builder/pruef_dock/conformance_gate.hpp` | §6 |
 | **[NEU]** Zwei-Phasen-Treiber | `builder/anatomy_commands/two_phase_op_loop.hpp` | §4, ersetzt harte Schleife tier_observe_trace_abi.hpp:82-137 |
-| **[NEU]** memento_visitor | `builder/algorithm_visitor/` (heute leer) | hybrider Visitor |
+| ~~**[NEU]** memento_visitor~~ | `builder/algorithm_visitor/` (**bis heute leer, NICHT umgesetzt** — G5-Audit w289llo0o) | ~~hybrider Visitor~~ (verworfen; real = Memento-vtable) |
 | **[NEU]** Host-Workload-Orchestrator | `builder/workload_driver/measurable_workload_host.hpp` | §5 |
 | **[NEU]** Master-Flags | `CMakeLists.txt`, `cmake/*` | `COMDARE_MEASUREMENT_MODE`/`_RELEASE_MODE` + axis_05/10/14/filter/io/migration/ARM64 |
 
