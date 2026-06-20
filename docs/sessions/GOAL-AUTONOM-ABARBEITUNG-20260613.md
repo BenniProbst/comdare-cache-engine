@@ -371,3 +371,61 @@ mit-Beleg / Appendix-Limitierung / User-Entscheid-pending). §8.1/§8.2 betreffe
 §8.3 sind Architektur-Ausblick-**Implementierungen**, §8.4 ist **Auswertungs-Pipeline** (Phase L / G3, verschärft #154 L-i). Task-
 Mapping: **#170** (TODO-1 SOTA-Vollabdeckung) · **#171** (TODO-2 Prüfling abstract/full + Typ-Spalte) · **#172** (TODO-3 drei Ziel-
 Versprechen) · **#173** (TODO-4 Tabellenbreite). Quer-Referenzen: Thesis AP-X1 (Text erledigt), AP-X2 (= dieses Handout), AP-X4 (Layout).
+
+---
+
+## §9 PFLICHTBEREICH (ergänzend, 2026-06-20) — Offener-Stand-Register nach adversarialem Voll-Audit `wt287nyq0`
+
+> **AUSSCHLIESSLICH ERGÄNZEND** (analog §7/§8): §0–§8 bleiben unverändert gültig. §9 ist das **autoritative Wiedereinstiegs-Register
+> des aktuellen Ist-Stands** — wer hier nachliest, kennt jede noch offene/nicht-vollständig-abgeschlossene Aufgabe und ihren Grund.
+> **Single-Source-Vorrang:** §9 > frühere Abschluss-Docs (`20260620-G5-…`, `20260620-ABSCHLUSS-…`) bei Widerspruch.
+
+### §9.1 Provenienz + Methodik-Lehre (die teuerste Erkenntnis dieser Runde)
+Auf User-Frage „ist WIRKLICH alles erledigt?" lief ein **adversarialer 6-Quellen-Voll-Audit** (`wt287nyq0`, 20 Agenten: Goal/85-Befunde/
+Ledger/Open-TODOs/Architektur-SOLL/§8 + Vollständigkeits-Kritiker + Re-Verifikation). **Ergebnis:** die vorige Behauptung „gate-freier
+Ledger LEER" war **überzogen** (declare-victory-by-reclassification, §7.1-Warnung) — **2 echte gate-freie Lücken** waren fälschlich
+unter HELD/#156 gebucket. **KEIN Phantom:** kein als „gefixt" geführter K1-K10/Major/#170-175-Punkt war im Code unbelegbar.
+**→ DAUER-LEHRE (9. Meta-Lehre, ergänzt §2.5.4): Niemals „gate-frei leer/fertig" behaupten ohne adversarialen Voll-Audit gegen ALLE
+autoritativen Quellen (Goal+Ledger+Open-TODOs+Architektur), Befund-für-Befund grep-belegt.**
+
+### §9.2 Gate-freier Stand = 0 offen (die 2 enttarnten Lücken sind GESCHLOSSEN)
+| Ex-Lücke | Schließung (literal verifiziert, `refuted=False`) | Commit |
+|---|---|---|
+| **#155-Rest** — 6 reale Phase-E-Tests in keiner CMakeLists (Task deckte nur 2/8) | registriert → `ctest #130-135` **100% Passed** | ce `d60f7b0` |
+| **#165-Code** — Winsorisierung (P-MD9) + `quality_flag`-Plumbing (P-MD8) | `winsorized_mean_ns` (8-Check-Test grün) + additive `quality_flag`-Spalte (datenerhaltend) | ce `d60f7b0` |
+
+Falsch-Positive vom Audit selbst aussortiert: #156-Prep-LaTeX (m3v2-Pipeline im Super-Repo `Code/04_csv_to_latex` `6cfc2d9` erledigt;
+`tools/latex_anhang` = totes Generik-Relikt) · #163-SIMD-Sweep + Strang-A-AbstractFactory (HELD bzw. erledigt). Audit-Belegdoc:
+`docs/sessions/20260620-G5-CODE-ABSCHLUSS-und-gate-frei-leer.md` (Audit-Korrektur-Abschnitt). **Damit: gate-frei = 0 actionable.**
+
+### §9.3 Verbleibendes Aufgaben-Register (je mit Grund warum NICHT gate-frei + was es bräuchte)
+
+**A) HELD — extern blockiert (Hardware/PMC/ZIH), NICHT lokal machbar:**
+| ID | Aufgabe | Warum HELD | Was es bräuchte |
+|---|---|---|---|
+| **#156** | M3v2-Voll-Mess-Lauf (§7.4-G5: 320 + ≥21 SOTA inkl. Reihe C × Two-Phasen × Working-Set-Sweep) | reale Mess-Daten nur mit echten Cache-Misses sinnvoll | Intel-PCM **oder** Linux+PMC + quiesziertes OS |
+| **#152 / P-MD4** | reale Cache-Misses (Kernmetrik) statt NullPmcSource=0 | `WindowsPcmPmcSource` code-da (#153), aber Counter brauchen Treiber | **Intel PCM** (User lädt — FortiGate blockt) + msr.sys + Admin, **oder** Linux `perf_event_open` via Infra-Agent |
+| **#163 / P-MD5** | ≥2 Plattformen (Hybrid-CPU + Sapphire Rapids) | reale Fremd-Hardware | **ZIH** (absprache-/penalty-pflichtig) |
+| **#162 / P-MD6** (in_progress) | PRT-ART + ≥8 SOTA + Reihen A/B/**C** IN DEN Voll-Lauf | Apparat (Tag-/Selektion + Reihen A/B + axis_sweep) code-seitig REAL gebaut+probe-gemessen; **Reihe C + Voll-Skalierung** an #156 | = #156 |
+| **#165 HELD-Teil** (P-MD2 / AP-M1) | quiesziertes Experiment-OS + `system_disturbed`-Provenienz des quality_flag | OS-Quiescing = Infra; nur die statistische Flag-Hälfte war gate-frei (erledigt §9.2) | quiesced-OS-Setup (Infra/ZIH) |
+
+**B) NEEDS_USER — User-Entscheid (nicht-blockierend, nominal weitergeführt):**
+- **K1** (RC-Dimension): `applied_rc_` gesetzt+geklammert, aber Caps identisch → RC mess-technisch wirkungslos. Entscheid: **Organ-Hooks bauen ODER ehrlich entfernen.**
+- **A5** (Second-Execution vs. Zwei-Phasen-Pflicht): nur Optionen dokumentiert; **Zwei-Phasen bleibt Pflicht bis User entscheidet.**
+
+**C) DEFERRED / extern (bewusst zurückgestellt, je begründet):**
+- **#125** (P6 lazy-DLL Content-Hash-Versionierung) — niedrige Prio, bewusst deferred.
+- **#19** (Vendor-Allokatoren jemalloc/tcmalloc/hoard/scalloc echt linken) — toolchain-gated (lokal verifiziert-negativ baubar; Beschaffungs-Spec geliefert).
+- **#10** (V42-Infra), **#24** (Cluster C1/C2) — extern/Termin-gebunden.
+- **#25 / D1+D2** (Diplomarbeit-Volltext + Bausteine-Matrix) — **User schreibt manuell.**
+- **P33** (VAMPIR/NFP Thesis-Survey) — **Text-Agent** (Handout `20260620-HANDOUT-impl-an-text-agent-…P33.md`), nicht Impl-Agent.
+
+**D) Appendix-limitiert (ehrlich ausgewiesen, kein offener actionable):** Befund-2/K6 (`search_organ_`-Monolith bleibt T0-Quelle für k-ary/eytzinger/Tree/Trie/Hash; nur Array-Algos routen durch `container_`/Store — im Code-Kommentar `abi_adapter.hpp:680-826` ehrlich deklariert; volle Entfernung = „spätere Arbeit").
+
+### §9.4 Abschluss-Definition — aktualisierter Stand (G5 + §7.4)
+- **Code-seitig:** G1/G2/G3/G4 ✓ gegen cowfix-v1; G5 (alle 85 Befunde je 1 Done-Zustand) ✓ adversarial bestätigt; **gate-frei = 0**.
+- **VOLL erfüllt ist G5+§7.4 erst nach #156** (die EINE gültige Messung mit realen Cache-Misses + Reihe C + ≥2 Plattformen). Bis dahin
+  ist alles Verbleibende legitim HELD/needs_user/deferred — **kein still-offener gate-freier Punkt.**
+- **Nächster auslösender Schritt:** sobald der User **Intel PCM bereitstellt** (Win-PMC-Vendoring-Slot via Boost.MP11-Muster) bzw. der
+  Infra-Agent **Linux+PMC** stellt → §7.2-Pre-Mess-Sequenz + #156-Voll-Lauf (OneDrive-Pause, M2-Sicherheitsregeln §1). **ZIH bleibt
+  absprache-pflichtig (§3-Stop-Bedingung).** Parallel jederzeit einholbar: K1/A5-Entscheide.
