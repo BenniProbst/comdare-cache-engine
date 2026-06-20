@@ -87,7 +87,58 @@ ohnehin neu zu erzeugen, dann bitte mit der korrigierten Breiten-Logik.
 
 ---
 
+## TODO-5 — Architektur-Klärung: `search_engine` (Klasse) ↔ Anatomie — KEIN blinder Umbau
+
+**Anlass:** Cross-Check (Workflow `we4xlbb23`, 5 Trace + 3 adversariale Linsen, Konsens). Die Frage
+„besitzt die Such-API-Klasse `search_engine` eine Anatomie (Kette Gattung→Lebewesen→Achsen)?" lautet
+**`not_realized`**. Frühere Formulierung „orthogonal" war irreführend → korrekt: **getrennte
+Parallel-Hierarchien mit gemeinsamer Wurzel**.
+
+**Ist-Stand (code-belegt):**
+- `search_engine<Collection, ConfigPermutation>` (`abi/search_engine.hpp:19-21`) erbt NUR von
+  `execution_engine<…>`, trägt KEINE Anatomie/Composition/Achsen; einzige Collection-Links
+  `key_t/value_t/binary_key_t` (Z.26-28); reine virtuelle Such-API (lookup/insert/erase/size/empty).
+- Die 19 Achsen + die Kette leben im PARALLELEN Baum: `IExecutionEngine → IAnatomyBase →
+  SearchAlgorithmAbiAdapter<A>` (`abi_adapter.hpp:118-138`), der die 19 Organe als private Member hält
+  (`abi_adapter.hpp:1609-1685`); `A = SearchAlgorithmAnatomy<Composition>`
+  (`search_algorithm_anatomy.hpp:31`), `Composition` = 19 `using`-Achsen (`composition_concept.hpp:20-58`).
+- KEINE Verbindung zwischen beiden Bäumen außer der Wurzel `execution_engine`/`IExecutionEngine`;
+  `search_engine` erscheint in `abi_adapter.hpp` nur im Metapher-Kommentar (Z.9/109). Zusammenführung
+  erst zur Laufzeit über Builder/`AnatomyExecutionContext` + `AnatomyModuleLoader`.
+- **Namens-Kollision (wichtig):** `search_engine` ist ZWEIERLEI — (a) die *dormant* ABI-Klasse
+  `search_engine<>`, (b) ein *lebendiger Namespace* `comdare::cache_engine::search_engine::axis_01_…`
+  (Achsen-Topics). Nicht verwechseln.
+
+**Vorbedingung (zuerst klären, NICHT raten):** Ist die KLASSE `search_engine<>` lebend/geplant oder
+überholt? Evidenz spricht für **überholt**: (1) keine Instanziierung/Ableitung der Klasse gefunden
+(`grep -rn "search_engine<" libs/ tests/` liefert nur Namespace-Treffer); (2)
+`identity/prt_art_search_engine_adapter.hpp` ist `deprecated`, „aktueller Adapter =
+prt_art_execution_engine_adapter.hpp" (`docs/architecture/19_f6_prtart_migration_plan.md:191`); (3)
+Thesis-Intro: „in früheren Entwürfen … ExecutionEngine→SearchEngine→SearchEngineType". → Definitiv via
+Git-History/Sessions bestätigen.
+
+**Option A (wahrscheinlich) — Klasse überholt → KEIN Umbau, nur bereinigen:** Falls keine produktiven
+Instanzen: `abi/search_engine.hpp` deprecaten bzw. den „Stufe-3/hält-Anatomie"-Kommentar (Z.2-7) tilgen;
+in Doku/Thesis die Beziehung als „getrennte Parallel-Hierarchien" führen. Sauberster Weg, kein ABI-Risiko.
+
+**Option B — Klasse SOLL Such-Fassade der Anatomie werden → Kopplung OHNE ABI-Bruch:** NICHT
+`search_engine` mit Achsen-Membern aufblähen (verletzt Mess-Pfad-A/B + Observer-Konsolidierung I1).
+Stattdessen `SearchAlgorithmAbiAdapter<A>` ZUSÄTZLICH von `search_engine<Collection,ConfigPermutation>`
+ableiten (neben `IAnatomyBase`), `Collection`/`ConfigPermutation` aus `A::composition_t` ableiten, die
+virtuelle Such-API auf die bestehenden `tier_*`-Ops über `search_organ_`/`container_` mappen. Anatomie
+dann von der Such-API via `dynamic_cast<IAnatomyBase*>` auf denselben Adapter erreichbar — kein neuer
+Member, kein ABI-Major-Bump (`search_engine` header-only, überquert die `extern "C"`-Factory NICHT).
+`static_assert`, dass abgeleitete `key_t/value_t` == `Collection::key_t/value_t`.
+
+**Verbot:** Keine Achsen-Member in `search_engine` selbst (Organe leben genau EINMAL im Adapter — I1).
+Kein Quick-Bypass.
+
+**Rückmeldung erbeten:** Welche Option gilt (A/B), bestimmt auch die Thesis-Formulierung in Kap. 4 +
+ob das Abstract-Framing „CacheEngine→ExecutionEngine→SearchEngine" angepasst wird.
+
+---
+
 ### Quer-Referenzen
-- Thesis-Tasks: AP-X1 (Text erledigt), AP-X2 (= dieses Handout), AP-X4 (Layout → TODO-4).
+- Thesis-Tasks: AP-X1 (Text erledigt), AP-X2 (= dieses Handout), AP-X4 (Layout → TODO-4), AP-X5 (Architektur-Verifikation → TODO-5).
 - Frühere Handouts: `20260617-HANDOUT-impl-agent-io-achse-tpie-mehlhorn.md`,
   `20260617-HANDOUT-impl-agent-CE1-funchops-CE2-dataloader.md`.
