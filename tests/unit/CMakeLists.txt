@@ -1390,6 +1390,29 @@ comdare_set_platform_defines(test_winsorized_mean)
 add_test(NAME test_winsorized_mean COMMAND test_winsorized_mean)
 set_tests_properties(test_winsorized_mean PROPERTIES LABELS "phase_e;standalone;stats")
 
+# P5 (#156-De-Risk, 2026-06-20) — Smoke fuer die PMC-WIDE-Naht: make_pmc_source()/IPmcSource im LAZY WIDE-Mess-Pfad
+# (perm_runner) + 7 additive pmc_*-Spalten in lazy_csv_header. Standalone (plain int main, baut KEINE DLLs), zieht
+# aber den schweren iterator-/pmc_source_factory-Kontext -> derselbe anatomy/axes/Boost::mp11-Include-Satz wie
+# COMDARE_PHASE_E_BOOST_TESTS + die Mess-Mode-Defines (COMDARE_MEASUREMENT_ON/STATISTICS/EXPERIMENT_MODE_ON), unter
+# denen perm_runner die PMC-Naht aktiviert. OFFIZIELLE CMake/ctest-Registrierung (ersetzt das fruehere Scratch-
+# Build-Skript). NullPmcSource (COMDARE_ENABLE_PMC OFF) -> alle 7 Spalten 0/available=0 (ehrliche Null).
+add_executable(m3v2_pmc_smoke "thesis_tiere/m3v2_pmc_smoke.cpp")
+target_compile_features(m3v2_pmc_smoke PRIVATE cxx_std_23)
+target_include_directories(m3v2_pmc_smoke PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(m3v2_pmc_smoke PRIVATE Boost::mp11)
+comdare_set_platform_defines(m3v2_pmc_smoke)
+target_compile_definitions(m3v2_pmc_smoke PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME m3v2_pmc_smoke COMMAND m3v2_pmc_smoke)
+set_tests_properties(m3v2_pmc_smoke PROPERTIES LABELS "phase_e;standalone;pmc")
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Goal-V6 L-76/L-74a — DLL-Round-Trips als OFFIZIELLE CMake-Targets (vorher nur committete PS1-Skripte). Die 5
 # boost-freien Permutations-/Build-Varianten-DLLs (interne Organe) + ihre Loader-Tests. Die DLL-Pfade gehen via
