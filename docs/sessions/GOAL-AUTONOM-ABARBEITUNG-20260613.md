@@ -412,6 +412,10 @@ Falsch-Positive vom Audit selbst aussortiert: #156-Prep-LaTeX (m3v2-Pipeline im 
 **B) NEEDS_USER — User-Entscheid (nicht-blockierend, nominal weitergeführt):**
 - **K1** (RC-Dimension): `applied_rc_` gesetzt+geklammert, aber Caps identisch → RC mess-technisch wirkungslos. Entscheid: **Organ-Hooks bauen ODER ehrlich entfernen.**
 - **A5** (Second-Execution vs. Zwei-Phasen-Pflicht): nur Optionen dokumentiert; **Zwei-Phasen bleibt Pflicht bis User entscheidet.**
+- **c1 — Benennung „B+-Baum" vs „Präfixbaum"** (aus Architektur-Audit `wvv3y1y0b`): die Datenstruktur heißt im Code ehrlich „achsen-geschichteter Präfixbaum" (`experiment_tree.hpp:4-10`: „B+ lose/aspirational, **kein** Rename erzwungen, kein Mess-Einfluss"), während das Etikett „Permutations-B+-Baum" eine **User-Direktive 2026-06-02** ist (`docs/architecture/26_…bplus_baum…md` + CLAUDE.md). Beibehalten ODER Doku/Kommentare/Tasks auf „Präfixbaum" angleichen = **User-Entscheid** (Namens-Direktive: bei Widerspruch User; nicht unilateral umbenennen).
+- **c2 — Mess-Scope „9 vertiefte Achsen" vs aktuell 4** (aus `wvv3y1y0b`): die „9" ist der **User-Mess-Scope für #156** (§7.3, bindend 2026-06-18); code-seitig sind aktuell **4 vertiefte + 4 Basis = 8** sweep-bar (`is_deepened_axis`, `source_catalog.hpp:267-270`; io_dispatch = separate Fixture). Die Lücke 4→9 schließt sich **mit dem #156-Voll-Lauf** (Vertiefung weiterer Achsen) — **HELD/User-Scope, kein lokaler Code-Gap**; Spec-Zahl erst beim Lauf festzuziehen.
+
+**Register-Vollständigkeit (Meta, kein actionable):** **#149 / MP-E** ist ein **Dauerauftrag** („eine Aufgabe pro Session gegen Audit" — der laufende Mechanismus dieser autonomen Strecke selbst, `20260618-OFFENE-TODOS-LEDGER.md:20`), kein Einzel-TODO mit gate-freiem Inhalt; bleibt `in_progress` als Prozess.
 
 **C) DEFERRED / extern (bewusst zurückgestellt, je begründet):**
 - **#125** (P6 lazy-DLL Content-Hash-Versionierung) — niedrige Prio, bewusst deferred.
