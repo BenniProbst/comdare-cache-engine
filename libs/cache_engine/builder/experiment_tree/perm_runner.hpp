@@ -26,6 +26,7 @@
 #include "../workload_driver/workload_profiles.hpp"      // Achse 2 (INC-1): Single-Source profile_by_name (Fallback)
 #include "../workload_driver/load_profile_parser.hpp"    // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig)
 #include "../pruef_dock/conformance_gate.hpp"             // (Audit K9 / V5-I4): Konformitäts-Gate VOR der Messung (import→GATE→messen)
+#include "../pmc_source_factory.hpp"                      // #156-De-Risk: make_pmc_source() (IPmcSource/PmcCounters) — PMC in den WIDE-Mess-Pfad
 
 #include <array>     // GOAL-L1: kOpKindNames + PermResult::op_lat (per-Interface-Funktions-Latenzen)
 #include <chrono>
@@ -97,6 +98,11 @@ struct PermResult {
     // POD — die maßgebliche CSV-Quelle.
     anatomy::ComdareTierObserverSnapshot unified{};
     bool         unified_real = false;
+    // #156-De-Risk (2026-06-20): die HW-Performance-Counter (PMC) DIESER Messung = Delta über den getimten Batch.
+    // EINMAL pro Treiber-Lauf via make_pmc_source() erzeugt (KEIN Hot-Loop-Overhead), begin() unmittelbar VOR
+    // t0=steady_clock, end() unmittelbar NACH t1. Default = PmcCounters{} (alle 0, available=false) → lokal mit
+    // NullPmcSource (COMDARE_ENABLE_PMC=OFF) ehrlich 0/available=0; mit Intel-PCM (Montag, Linux/Win+Treiber) real.
+    builder::PmcCounters pmc{};
     // Achse 2 (INC-1): Lastprofil-Metadaten + Mess-GÜLTIGKEIT.
     std::string  profile_name{};            // Lastprofil-Name (z.B. "YCSB_C_read_only"); leer = alter fixer Workload
     bool         two_phase_valid = false;   // Zwei-Phasen-Cache-Warmup aktiv+empirisch-exakt → Messung GÜLTIG
@@ -135,8 +141,13 @@ inline void apply_conformance_gate_(anatomy::IDriveableTier& tier, PermResult& r
 /// Zustand → kein kumulatives Artefakt), pre-Observe (Baseline der absoluten Zähler), n_ops insert + n_ops
 /// lookup UNTER steady_clock-Messung (total_ns), post-Observe, und bildet die result_ingest-Zeile aus dem
 /// DELTA (post − pre) der getriebenen Zähler. Der host-/cluster-seitige Unikat-Mess-Lauf je Binary.
+/// #156-De-Risk (2026-06-20): `pmc` ist die EINE, vom Aufrufer pro Treiber-Lauf via make_pmc_source() erzeugte
+/// HW-Counter-Quelle (Strategy: NullPmcSource/WindowsPcmPmcSource hinter IPmcSource). nullptr = kein PMC (Default
+/// → r.pmc bleibt 0/available=false, exakt das alte Verhalten; KEIN Mess-Overhead). begin()/end() klammern NUR
+/// den getimten Batch (NICHT je Op), parallel zur steady_clock-Wall-Clock.
 [[nodiscard]] inline PermResult run_observable_perm(anatomy::IObservableTier& tier,
-                                                    std::string const& binary_id, std::uint64_t n_ops) {
+                                                    std::string const& binary_id, std::uint64_t n_ops,
+                                                    builder::IPmcSource* pmc = nullptr) {
     PermResult r;
     // (Audit K9 / V5-I4) import → GATE → (nur bei pass) messen: nicht-std::map-konforme Hüllen erzeugen KEINE gültige
     // Performance-Zeile. Das Gate leert das Tier selbst (RF1+RF7) → der folgende tier_clear() ist idempotent.
@@ -149,10 +160,14 @@ inline void apply_conformance_gate_(anatomy::IDriveableTier& tier, PermResult& r
     tier.tier_clear();
 
     // (B) Gesamt-Wall-Clock um die GANZE Mess-Last (insert + lookup).
+    // #156-De-Risk: PMC begin() UNMITTELBAR VOR t0, end() UNMITTELBAR NACH t1 → das Counter-Delta deckt exakt den
+    // getimten Batch (kein Hot-Loop-Overhead). pmc==nullptr → r.pmc bleibt Default (0/available=false).
+    if (pmc != nullptr) pmc->begin();
     auto const t0 = std::chrono::steady_clock::now();
     for (std::uint64_t i = 0; i < n_ops; ++i) (void)tier.tier_insert(i, i * 7u + 1u);
     for (std::uint64_t i = 0; i < n_ops; ++i) { std::uint64_t v = 0; (void)tier.tier_lookup(i, &v); }
     auto const t1 = std::chrono::steady_clock::now();
+    if (pmc != nullptr) r.pmc = pmc->end();
 
     r.total_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
     r.n_ops   = n_ops;
@@ -189,7 +204,8 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
                                                   std::uint64_t      n_ops,
                                                   std::uint64_t      seed,
                                                   std::uint64_t      load_records = 0,
-                                                  std::map<std::string, wd::WorkloadConfig> const* registry = nullptr) {
+                                                  std::map<std::string, wd::WorkloadConfig> const* registry = nullptr,
+                                                  builder::IPmcSource* pmc = nullptr) {
     // Achse 2 (#135): workload_id zuerst aus der XML-Lastprofil-Registry (Charakteristik aus dem XML); sonst aus
     // dem hartcodierten profile_by_name (env-String-Rückwärts-Kompat). Skala (records/n_ops) setzt der Aufrufer.
     wd::WorkloadConfig cfg{};
@@ -200,7 +216,7 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
     }
     if (!resolved) {
         cfg = wd::profile_by_name(workload_id, seed, static_cast<std::size_t>(n_ops));
-        if (cfg.name.empty()) return run_observable_perm(tier, binary_id, n_ops);  // unbekannt → alter fixer Workload
+        if (cfg.name.empty()) return run_observable_perm(tier, binary_id, n_ops, pmc);  // unbekannt → alter fixer Workload
     }
     cfg.num_operations = static_cast<std::size_t>(n_ops);
     // YCSB Load-/Run-Phasen-Trennung (INC-3c): `records` Sätze werden VOR der gemessenen Run-Phase befüllt (load),
@@ -236,8 +252,12 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
 
         wd::WorkloadGenerator gen{cfg};               // gleiche Config+Seed ⇒ bit-identische Op-Sequenz je Binary
         std::vector<wd::WorkloadOp> const ops = gen.generate_all();
+        // #156-De-Risk: PMC klammert NUR die gemessene Run-Phase (run_workload_profile) — die LOAD-Phase oben ist
+        // ungemessen, also bewusst AUSSERHALB des begin()/end()-Intervalls. EINMAL pro Treiber-Lauf erzeugte Quelle.
+        if (pmc != nullptr) pmc->begin();
         wd::WorkloadRunResult const res =
             wd::run_workload_profile(tier, rb_exact ? rollback : nullptr, ops, cfg.name, scan);
+        if (pmc != nullptr) r.pmc = pmc->end();
 
         // total_ns + GOAL-M1.1/L1: per-Op-Art-Aggregate (n/p50/p99, Reihenfolge kOpKindNames) + timed_ops als
         // Σ der Samples — die korrekte ns_per_op-Basis (Audit K2: der fixe 2*n_ops-Divisor galt nur dem Legacy-Pfad).

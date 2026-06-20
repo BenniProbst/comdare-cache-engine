@@ -149,6 +149,11 @@ struct LazyMeasuredRow {
     // ableitbar, ohne Infra/Gate). Die OS-quiesced `system_disturbed`-Provenienz (AP-M1/P-MD2) ist eine GETRENNTE,
     // HELD/Infra-gebundene Sache und NICHT Teil dieser Spalte.
     std::uint32_t        quality_flag  = 0;              // statistischer Ausreißer-Flag (1) / kein Ausreißer (0)
+    // #156-De-Risk (2026-06-20): die HW-Performance-Counter (PMC) DIESER Mess-Zeile (aus PermResult::pmc). Default
+    // PmcCounters{} = alle 0, available=false → lokal mit NullPmcSource (COMDARE_ENABLE_PMC=OFF) ehrlich 0/available=0;
+    // mit Intel-PCM=ON real (Montag Linux+PMC). Die 7 PMC-Felder werden ADDITIV als LETZTE CSV-Spalten emittiert
+    // (lazy_csv_header single-source) — bestehende Spalten unberührt → cowfix-v1/tier150-Leser bleiben kompatibel.
+    builder::PmcCounters pmc{};
 };
 
 // ── (B/C/D/X) EINHEITLICHES CSV-Schema (global + per-Binary identisch) ──────────────────────────────────
@@ -218,7 +223,15 @@ struct LazyMeasuredRow {
     // Alte CSVs (z.B. cowfix-v1/tier150) hatten die Spalte NICHT → die header-getriebene Auswertung liest sie dort
     // leer/n-a (Datenerhaltung, kein cowfix-v1-Leser bricht). NICHT zu verwechseln mit der OS-quiesced
     // system_disturbed-Provenienz (AP-M1/P-MD2) — die bleibt HELD/Infra und ist KEINE Spalte hier.
-    h += "series;sweep_axis;working_set_n;platform;build_version;pruefling_type;quality_flag\n";
+    h += "series;sweep_axis;working_set_n;platform;build_version;pruefling_type;quality_flag";
+    // #156-De-Risk (2026-06-20): die 7 PMC/HW-Counter-Spalten GANZ ANS ENDE (additiv, header-getrieben, gleiches
+    // Muster wie series/pruefling_type/quality_flag). EXAKT die realen PmcCounters-Feldnamen (pmc_source.hpp) in
+    // identischer Reihenfolge zu format_csv_row. Default 0 / pmc_available=0 bei NullPmcSource (COMDARE_ENABLE_PMC=OFF);
+    // mit Intel-PCM=ON real (Montag Linux+PMC). Alte CSVs (cowfix-v1/tier150) hatten die Spalten NICHT → die header-
+    // getriebene Auswertung liest sie dort leer/n-a (Datenerhaltung, kein cowfix-v1-Leser bricht). KEINE bestehende
+    // Spalte umbenannt/verschoben. Schließt die #156-WIDE-Naht (perm_runner→IPmcSource→CSV).
+    h += ";pmc_cache_misses_l1;pmc_cache_misses_l2;pmc_cache_misses_l3;pmc_dtlb_misses;"
+         "pmc_coherence_invalidations;pmc_energy_micro_joules;pmc_available\n";
     return h;
 }
 
@@ -335,6 +348,16 @@ struct LazyMeasuredRow {
     // #165-B (P-MD8, 2026-06-20): quality_flag ALS LETZTE Spalte (Reihenfolge IDENTISCH zum Header). 0 = kein
     // Ausreißer / nicht annotiert (Default); 1 = statistischer Ausreißer (s. annotate_quality_flags). Gate-frei.
     out += ';'; out += std::to_string(row.quality_flag);
+    // #156-De-Risk (2026-06-20): die 7 PMC/HW-Counter ALS LETZTE Spalten (Reihenfolge IDENTISCH zum Header). Mit
+    // NullPmcSource (COMDARE_ENABLE_PMC=OFF) sind alle Werte 0 und pmc_available=0 (ehrlich „nicht real gemessen");
+    // mit Intel-PCM=ON real. Additiv → cowfix-v1/tier150-Leser unberührt (leere PMC-Spalten dort = n-a).
+    out += ';'; out += std::to_string(row.pmc.cache_misses_l1);
+    out += ';'; out += std::to_string(row.pmc.cache_misses_l2);
+    out += ';'; out += std::to_string(row.pmc.cache_misses_l3);
+    out += ';'; out += std::to_string(row.pmc.dtlb_misses);
+    out += ';'; out += std::to_string(row.pmc.coherence_invalidations);
+    out += ';'; out += std::to_string(row.pmc.energy_micro_joules);
+    out += ';'; out += (row.pmc.available ? "1" : "0");
     out += '\n';
     return out;
 }
@@ -549,6 +572,13 @@ struct LazyRunResult {
 
     RuntimeVariableLoop const loop{cfg.env_limits};
 
+    // #156-De-Risk (2026-06-20): die EINE PMC-Quelle für den GANZEN Treiber-Lauf (Strategy+Factory; build-/OS-abhängig:
+    // Windows-Intel-PCM unter COMDARE_ENABLE_PMC, sonst NullPmcSource → available=false). EINMAL erzeugt — NICHT je Op,
+    // NICHT je Binary — und per Referenz in den WIDE-Mess-Pfad (run_observable_perm/run_workload_perm) gereicht; dort
+    // klammert begin()/end() nur den getimten Batch. Schließt die #156-Naht: die WIDE-CSV trägt jetzt reale PMC-Counter
+    // (lokal 0/available=0 mit NullPmcSource; Montag Linux+PMC=ON real). Identisches Muster wie f15_compare/main.cpp:252.
+    std::unique_ptr<IPmcSource> pmc = make_pmc_source();
+
     // Mess-RESUME (#139): EIN Config-Stempel je Lauf (BuildVersion + Skala + volle dyn-Dimensions-Signatur).
     std::string const resume_stamp_prefix = lazy_resume_stamp_prefix(cfg, dyn_dims);
 
@@ -621,9 +651,9 @@ struct LazyRunResult {
             // map-Interfaces; sonst der alte fixe Workload (run_observable_perm, rückwärtskompatibel).
             std::string const workload_id = lazy_extract_workload_id(s.setting_label);
             PermResult const pr = workload_id.empty()
-                ? run_observable_perm(*obs, setting_id, cfg.n_ops)
+                ? run_observable_perm(*obs, setting_id, cfg.n_ops, pmc.get())
                 : run_workload_perm(*obs, rbk, scn, setting_id, workload_id, cfg.n_ops,
-                                    cfg.workload_seed, cfg.workload_records, &cfg.workload_configs);
+                                    cfg.workload_seed, cfg.workload_records, &cfg.workload_configs, pmc.get());
 
             if (ingest_result_line(tree, pr.line)) {
                 ++result.measured;
@@ -643,6 +673,7 @@ struct LazyRunResult {
                 row.unified_real       = pr.unified_real;
                 row.profile_name       = pr.profile_name;     // Achse 2: Lastprofil-Name (leer = alter fixer Workload)
                 row.two_phase_valid    = pr.two_phase_valid;  // Achse 2: Mess-Gültigkeit (Zwei-Phasen-Cache-Warmup exakt)
+                row.pmc                = pr.pmc;               // #156-De-Risk: die HW-PMC-Counter DIESER Messung → CSV-Endspalten
                 // M3v2-SELEKTION (Task #156): die 5 Lauf-/Selektions-Tags je Zeile (aus der Config durchgereicht).
                 row.series             = cfg.row_series;
                 row.pruefling_type     = cfg.row_pruefling_type;  // #171: full/abstract/- (aus dem SOTA-/Pruefling-Pass)
