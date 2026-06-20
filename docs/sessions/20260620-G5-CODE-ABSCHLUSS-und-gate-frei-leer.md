@@ -34,3 +34,10 @@ verifizierbar) und (b) deklarierte „gate-frei saturiert" zu früh — es meint
 - **deferred/HW-gated:** #125 P6 (lazy-DLL Content-Hash), #19 Vendor-Allokatoren, P33 (Thesis-Survey/Text-Agent).
 
 **Das /goal ist code-seitig erfüllt; die volle G5-Erfüllung wartet ausschließlich auf die eine gültige Messung (#156), die User-/Infra-Freigabe braucht.**
+
+## ⚠️ KORREKTUR durch adversarialen Voll-Audit `wt287nyq0` (2026-06-20, User-Auftrag „ist wirklich alles erledigt?")
+Der oben behauptete „gate-freier Ledger LEER"-Stand war **überzogen** (nicht Phantom — die Substanz war echt, kein als gefixt geführter K1-K10/Major-Punkt war unbelegbar). Der 6-Quellen-Audit + Kritiker + Re-Verifikation enttarnten **2 echte gate-freie, lokal-machbare, NICHT-erledigte Punkte**, die ich fälschlich unter HELD/#156 gebucket hatte (declare-victory-by-reclassification):
+1. **#155-Rest** — 6 reale Phase-E-Verifikationstests (test_filter_real_from_keys/test_patricia_real/test_value_handle_real/test_prefetch_real/test_prefetch_adversarial_verify/test_prefetch_patha_t7) git-tracked aber in **keiner** CMakeLists; Task #155 „completed" deckte nur 2 von 8.
+2. **#165-Code-Anteil** — Winsorisierung (P-MD9) + Per-Zeilen-quality_flag-Plumbing (P-MD8 statistischer Teil); 0 Code, vom eigenen Ledger `20260618-OFFENE-TODOS-LEDGER.md:33` selbst als „mein Bereich"=gate-frei klassifiziert.
+
+**BEIDE geschlossen + adversarial verifiziert (`refuted=False`), committet `d60f7b0` (super `aaaddd5`):** #155 → alle 6 registriert, ctest #130-135 100% Passed; #165 → `winsorized_mean_ns` (latency_stats.hpp, 8-Check-Test grün) + additive `quality_flag`-Spalte (Median-Multiplikator-Ausreißer, datenerhaltend, OS-quiesced-Provenienz bleibt HELD). **Korrekt aussortierte Falsch-Positive:** #156-Prep-LaTeX (echte m3v2-Pipeline im Super-Repo `Code/04_csv_to_latex` `6cfc2d9` erledigt; `tools/latex_anhang` = totes Generik-Relikt) · #163-SIMD-Sweep (legitim HELD) · Strang-A-AbstractFactory (erledigt). **JETZT ist der gate-freie Bereich wirklich leer** — verbleibend nur #156-Messung (Intel-PCM/Linux+PMC/ZIH) + needs_user (K1/A5) + deferred (#125/#19/#10).
