@@ -433,3 +433,20 @@ Falsch-Positive vom Audit selbst aussortiert: #156-Prep-LaTeX (m3v2-Pipeline im 
 - **Nächster auslösender Schritt:** sobald der User **Intel PCM bereitstellt** (Win-PMC-Vendoring-Slot via Boost.MP11-Muster) bzw. der
   Infra-Agent **Linux+PMC** stellt → §7.2-Pre-Mess-Sequenz + #156-Voll-Lauf (OneDrive-Pause, M2-Sicherheitsregeln §1). **ZIH bleibt
   absprache-pflichtig (§3-Stop-Bedingung).** Parallel jederzeit einholbar: K1/A5-Entscheide.
+
+### §9.5 PAUSE-STATUS + Montag-Wiedereinstieg (2026-06-20)
+**User-Rahmen 2026-06-20:** #156 entriegelt erst **Montag 2026-06-22 mit Bare-Metal-Ubuntu (Linux+PMC)**; bis dahin Goal pausieren,
+sofern keine sinnvolle gate-freie Arbeit übrig. **Gate-freie Montag-Vorbereitung ausgeführt (Planrunde `w2a621cam`):**
+- ✅ **P5 — PMC-WIDE-Naht (der kritische Enabler), committet `b285002`:** `make_pmc_source()`/`IPmcSource` ist jetzt in den LAZY
+  WIDE-Mess-Pfad verdrahtet (`perm_runner` begin/end um den getimten Batch) + **7 cache_misses-Spalten additiv** am Ende von
+  `lazy_csv_header` (`pmc_cache_misses_l1/l2/l3;pmc_dtlb_misses;pmc_coherence_invalidations;pmc_energy_micro_joules;pmc_available`).
+  **Ohne diese Naht hätte der Montag-Lauf NIE cache_misses getragen** (KERNMETRIK vergeudet). Mit NullPmcSource lokal 0/available=0
+  (Smoke `SMOKE_OK`, getrackter `build_m3v2_pmc_smoke.ps1`); mit `COMDARE_ENABLE_PMC=ON` am Montag **automatisch real (Drop-in)**.
+  Damit ist **#152/P-MD4 code-seitig vorbereitet** (Naht ready; nur die realen Counter sind Montag-Linux+PMC).
+- **Verbleibende gate-freie Prep = NICHT Montag-relevant** (Windows-zweites-Plattform-Bein, niedrige Prio, daher NICHT vor Pause
+  gemacht): **P1** Intel-PCM-Vendoring-Slot (analog Boost.MP11, nur Windows-Intel-PCM) · **P-onedrive** Out-of-OneDrive-Build-Pfad
+  (nur Windows; Bare-Metal-Ubuntu hat kein OneDrive). **Linux-PmcSource (PAPI/perf)** = **Infra-Agent** (delegiert, nicht ce-Scope).
+- **MONTAG-WIEDEREINSTIEG:** (1) Bare-Metal-Ubuntu/Linux+PMC bereit → §7.2-Pre-Mess-Sequenz; (2) `COMDARE_ENABLE_PMC=ON` + Linux-
+  PmcSource (Infra-Agent) → #156-Voll-Lauf (320 + ≥21 SOTA inkl. Reihe C × Two-Phasen × Working-Set-Sweep), M2-Safety §1; (3) die
+  PMC-WIDE-Naht trägt die realen cache_misses ohne weitere Code-Änderung; (4) → m3v2-Auswertung → bilinguale PDF → finaler G5+§7.4-
+  Re-Audit. **GOAL HIER PAUSIERT** (User-freigegeben) bis Montag bzw. bis User K1/A5/c1/c2 entscheidet.
