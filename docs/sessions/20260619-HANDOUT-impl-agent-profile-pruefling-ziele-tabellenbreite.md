@@ -89,6 +89,11 @@ ohnehin neu zu erzeugen, dann bitte mit der korrigierten Breiten-Logik.
 
 ## TODO-5 — Architektur-Klärung: `search_engine` (Klasse) ↔ Anatomie — KEIN blinder Umbau
 
+> ⚠️ **REVIDIERT durch TODO-6 (User 2026-06-20):** Die „Option A/B"-Lesart unten (parallel belassen
+> als zulässiges Design) ist VERWORFEN. Es gibt nur EINE Architektur (`Lebewesen ≡ SearchAlgorithm`;
+> die Anatomie ist sein Körper). Der Code-Ist mit zwei Bäumen ist ein **Defekt**, kein Design.
+> Maßgeblich ist **TODO-6** (Vereinheitlichung). TODO-5 bleibt nur als Befund-Dokumentation stehen.
+
 **Anlass:** Cross-Check (Workflow `we4xlbb23`, 5 Trace + 3 adversariale Linsen, Konsens). Die Frage
 „besitzt die Such-API-Klasse `search_engine` eine Anatomie (Kette Gattung→Lebewesen→Achsen)?" lautet
 **`not_realized`**. Frühere Formulierung „orthogonal" war irreführend → korrekt: **getrennte
@@ -138,7 +143,66 @@ ob das Abstract-Framing „CacheEngine→ExecutionEngine→SearchEngine" angepas
 
 ---
 
+## TODO-6 — Es darf nur EINE Architektur geben (vereinheitlichen: `search_engine<>` ⇆ `SearchAlgorithmAnatomy`/`SearchAlgorithmAbiAdapter`)
+
+> **Revidiert TODO-5:** Die frühere Lesart „Option A/B parallel belassen" ist VERWORFEN. Es gibt keine
+> zwei zulässigen Hierarchien. `Lebewesen ≡ SearchAlgorithm` (Metapher vs. technischer Begriff =
+> dasselbe Ding; Doc 14 / anatomy_base.hpp:62 „Saeugetier | SearchAlgorithm"). Die Anatomie ist sein
+> Körper, kein zweites Modell. Ziel: EINE Hierarchie, KEIN Achsen-Duplikat (I1).
+
+### Befund (Code-Ist = Defekt, zwei getrennte Bäume desselben Dings)
+1. `search_engine<Collection, ConfigPermutation> : public execution_engine<typename ConfigPermutation::strategy_t>`
+   (`libs/cache_engine/include/cache_engine/abi/search_engine.hpp:19-21`) — trägt Container-API
+   (`lookup/insert/erase`, Z.36-38), aber KEINE 19 Achsen, KEINE Observer-Statistik.
+2. `SearchAlgorithmAnatomy<Composition>` (`anatomy/search_algorithm_anatomy.hpp:32`) — der echte Körper:
+   19 Organe + `observe_all()` (Z.46/62).
+3. `SearchAlgorithmAbiAdapter<A> final : public IAnatomyBase` (`anatomy/abi_adapter.hpp:119`,
+   `static_assert(A::genus()==AnatomyGenus::SearchAlgorithm)`, „I1: GENAU EINE Observer-Schnittstelle"
+   Z.124-125) — die Runtime-ABI-SICHT desselben Lebewesens.
+4. Wurzel `IExecutionEngine` (`execution_engine/execution_engine_base.hpp:98`); `IAnatomyBase :
+   IExecutionEngine` (Doc 14 §33-§40).
+
+**Problem:** (2)/(3) erben von `IAnatomyBase`→`IExecutionEngine` (virtuelle Runtime-Wurzel); (1) erbt von
+`execution_engine<>` (C++-Template-Ebene). Kein gemeinsamer Code, duplizierte Achsen-/Slot-Verwaltung,
+Observability nur auf der Anatomie-Seite, drei „Container"-Instanzen desselben Lebewesens (Anatomie-Organ
+/ Builder-`container_` / lokales `run_workload`-SearchAlgo — Doc 24 §-Tabelle). Das ist eine I1-Verletzung.
+
+### Soll (EINE Hierarchie)
+```
+IExecutionEngine                       (Wurzel, alles Ausmessbare; Virus = Geschwister)
+  └─ IAnatomyBase : IExecutionEngine   (Lebewesen-Spezialisierung)
+       └─ SearchAlgorithmAnatomy<Composition>   (Körper; 19 Organe + observe_all)
+            └─ SearchAlgorithmAbiAdapter<A>      (ABI-Laufzeit-SICHT desselben Lebewesens)
+                 ↓ extern "C"  →  .dll-Grenze  →  Prüf-Dock (Gattungs-Interface, Host)
+```
+Achsen existieren GENAU EINMAL: in `Composition` / den Organ-Membern der Anatomie. NICHT zusätzlich in
+`ConfigPermutation::strategy_t` / `search_engine<>`-Template-Parametern.
+
+### Sauberster Weg (minimal, keine Achsen-Duplikate — I1)
+1. **`search_engine<>` ist KEINE eigene Lebewesen-/Achsen-Hierarchie mehr.** Entweder (a) **entfernen**,
+   oder (b) **umbenennen** zu `search_composition_template<>` und ausschließlich als reinen
+   Compile-Time-Kompositions-Helfer nutzen (KEINE virtuelle Klasse, KEINE eigenen Achsen).
+   (`search_engine.hpp:19-71`).
+2. **Achsen-Single-Source:** Alle 19 Slots leben nur in `Composition` / `SearchAlgorithmAnatomy`.
+3. **Observability konsolidieren (I1 + Doc 24/34 §6):** `observe_all()` real über alle 19 Achsen,
+   ausschließlich aus der Anatomie; EIN POD über die Grenze (`ComdareTierObserverSnapshot`, V3, 19 Achsen);
+   genau EINE `IObservableTier` (bereits abi_adapter.hpp:124-125).
+4. **Eine Container-Instanz:** Die drei „Container"-Instanzen auf das Anatomie-Organ reduzieren.
+5. **Invariante (Code-Kommentar + Doc):** „Lebewesen ≡ SearchAlgorithm; Anatomie = sein Körper;
+   ‚SearchEngine' = nur ABI-Sicht desselben Lebewesens. KEINE Parallel-Hierarchie." `static_assert(genus()==SearchAlgorithm)` bleibt.
+
+### Nicht tun
+- KEINE separate Vererbungs-Schicht zwischen `ExecutionEngine` und der Anatomie wieder einführen.
+- `search_engine<>` NICHT als zweite virtuelle Lebewesen-Klasse mit eigenen Achsen behalten (= der TODO-5-Fehler).
+
+### Akzeptanzkriterium
+Grep findet keine zweite, achsentragende „Engine"-Hierarchie außerhalb von
+`IAnatomyBase`/`SearchAlgorithmAnatomy`. `observe_all()` liefert 19 reale Achsen-Snapshots aus genau EINER
+Composition-Instanz. Build grün; ABI-Major unverändert oder bewusst gebumpt + dokumentiert.
+
+---
+
 ### Quer-Referenzen
-- Thesis-Tasks: AP-X1 (Text erledigt), AP-X2 (= dieses Handout), AP-X4 (Layout → TODO-4), AP-X5 (Architektur-Verifikation → TODO-5).
+- Thesis-Tasks: AP-X1 (Text erledigt), AP-X2 (= dieses Handout), AP-X4 (Layout → TODO-4), AP-X5 (Architektur-Verifikation → TODO-5), AP-X6 (EINE Architektur → TODO-6).
 - Frühere Handouts: `20260617-HANDOUT-impl-agent-io-achse-tpie-mehlhorn.md`,
   `20260617-HANDOUT-impl-agent-CE1-funchops-CE2-dataloader.md`.
