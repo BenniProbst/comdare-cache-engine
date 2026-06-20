@@ -1510,3 +1510,67 @@ set_tests_properties(test_d13_dll_runtime_measure PROPERTIES LABELS "goal_v6;pha
 message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 28 add_test-D-Tests (16 leicht + 12 Boost) + 5 DLL-Round-Trip-Tests "
     "(test_dgenus_dll/test_buildvariant_dll{,_real}/test_adhoc_buildvariant_dll/test_d13_dll_runtime_measure) als OFFIZIELLE CMake-Targets (6 SHARED-DLLs via $<TARGET_FILE>). "
     "container_dll (test_d4b) bleibt scratch-verifiziert (Folge).")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# #172/#174/#175 LEICHTE Werkzeug-Tests CTest-registrieren (vorher NUR via ad-hoc build_*.bat/.ps1 baubar).
+# Selbe Begründung + selbes Muster wie der #155-Block + die GoalV6-D-Tests: plain `int main()`-Standalone
+# (KEIN gtest → add_test DIREKT, NICHT comdare_add_test), Return 0/1. KEIN DLL-/ADHOC-Bau, KEIN Boost/mp11
+# und KEIN rekursiver generated/-Include nötig — die zugehörigen Werkzeug-Header haben einen schlanken,
+# stabilen Include-Satz (verifiziert: nur std + libs/cache_engine{,/builder/...} + libs/common).
+#
+#   * test_cacheline_policy_selector (#174, Versprechen 2): CacheLinePolicySelector (GoF Strategy). Inkludiert
+#       anatomy/resource_controllable_tier.hpp + builder/cacheline_policy/cacheline_policy_selector.hpp
+#       (zieht builder/algorithm_resource_control.hpp) → Include-Root libs/cache_engine. Liegt direkt unter
+#       tests/unit/. Optionales CSV-Argument: der Test SKIPt sauber (Exit 0), wenn die untracked Pilot-CSV
+#       fehlt — der Heuristik-Kern-Beleg ist davon unabhängig, daher reproduzierbar ohne Fixture.
+#   * test_load_profile_writer (#175, Versprechen 3): write_load_profile_xml + extract_load_profile_from_
+#       measurements. Quelle liegt in libs/cache_engine/builder/workload_driver/. Inkludiert load_profile_
+#       parser.hpp (→ <serialization/.../xml_reader.hpp> aus libs/common, header-only/inline) + load_profile_
+#       writer.hpp. BRAUCHT Fixtures: ein LP-XML-Verzeichnis (getracktes algorithm_profiles/load_profiles)
+#       + eine Mess-CSV. Die echte Pilot-CSV ist untracked (build/) → für die G5-Reproduzierbarkeit wird
+#       eine schlanke, GETRACKTE Fixture-CSV (tests/unit/fixtures/load_profile_writer_pilot.csv) als Argument
+#       verdrahtet; Output landet im Build-Tree. So baut + läuft der Test aus einem frischen git-clone grün.
+
+# Output-Wurzel für die Test-Schreibvorgänge: bevorzugt das OS-Temp-Verzeichnis (TMPDIR/TEMP/TMP),
+# sonst der Build-Tree. Grund: wenn der Build-Tree unter einem synchronisierenden Ordner (OneDrive)
+# liegt, blockiert der Datei-Sync jeden geschriebenen Roundtrip-/Extract-XML minutenlang (verifiziert:
+# 478 s im OneDrive-Build-Tree vs 1 s im OS-Temp). Das ist umgebungs-, nicht code-bedingt; der Test
+# bleibt korrekt, aber wir halten ihn schnell + suite-tauglich, indem wir ins Temp schreiben.
+set(_comdare_test_out_root "${CMAKE_CURRENT_BINARY_DIR}")
+foreach(_tmpvar TMPDIR TEMP TMP)
+    if(DEFINED ENV{${_tmpvar}} AND IS_DIRECTORY "$ENV{${_tmpvar}}")
+        set(_comdare_test_out_root "$ENV{${_tmpvar}}")
+        break()
+    endif()
+endforeach()
+
+# (a) test_cacheline_policy_selector — Quelle unter tests/unit/, std-only Include-Satz.
+add_executable(test_cacheline_policy_selector "test_cacheline_policy_selector.cpp")
+target_compile_features(test_cacheline_policy_selector PRIVATE cxx_std_23)
+target_include_directories(test_cacheline_policy_selector PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+comdare_set_platform_defines(test_cacheline_policy_selector)
+# Optionales CSV-Arg (echte Pilot-CSV, falls vorhanden) — fehlt sie, SKIPt der Test diesen Teil sauber.
+add_test(NAME test_cacheline_policy_selector COMMAND test_cacheline_policy_selector
+    "${CMAKE_SOURCE_DIR}/build/thesis_tiere/m3v2_sota_pilot_measurements.csv")
+set_tests_properties(test_cacheline_policy_selector PROPERTIES
+    LABELS "tools;cacheline;strategy" TIMEOUT 60)
+
+# (b) test_load_profile_writer — Quelle in libs/.../workload_driver/, header-only Chain + getrackte Fixtures.
+add_executable(test_load_profile_writer
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/workload_driver/test_load_profile_writer.cpp")
+target_compile_features(test_load_profile_writer PRIVATE cxx_std_23)
+target_include_directories(test_load_profile_writer PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/workload_driver"  # load_profile_parser/_writer.hpp
+    "${PROJECT_SOURCE_DIR}/libs/common")                                # serialization/.../xml_reader.hpp
+comdare_set_platform_defines(test_load_profile_writer)
+add_test(NAME test_load_profile_writer COMMAND test_load_profile_writer
+    "${CMAKE_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/load_profiles"   # arg1: getracktes LP-XML-Verzeichnis
+    "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/load_profile_writer_pilot.csv"        # arg2: getrackte Fixture-Mess-CSV
+    "${_comdare_test_out_root}/comdare_load_profile_writer_out")                # arg3: Output (Temp, nicht OneDrive)
+# TIMEOUT großzügig: 1 s im OS-Temp, aber Sync-/AV-Umgebungen können Datei-Writes verzögern.
+set_tests_properties(test_load_profile_writer PROPERTIES
+    LABELS "tools;workload_driver;xml_export" TIMEOUT 300)
+
+message(STATUS "tools-tests: test_cacheline_policy_selector (#174) + test_load_profile_writer (#175) "
+    "als add_test registriert (best_binary_selector-Tool = tools/best_binary_selector add_executable).")

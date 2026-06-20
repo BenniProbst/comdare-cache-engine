@@ -1,6 +1,6 @@
 # `thesis_tiere/` — ADHOC-Standalone-Tests & Mess-Treiber (Reproduktion)
 
-Stand: 2026-06-19 (#155). Dieses Verzeichnis enthält **Standalone-Tests und Mess-Treiber**, die
+Stand: 2026-06-20 (#155 + #171). Dieses Verzeichnis enthält **Standalone-Tests und Mess-Treiber**, die
 bewusst **NICHT** über den normalen CMake-/CTest-Pfad (`comdare_add_test` in `tests/unit/CMakeLists.txt`)
 gebaut werden, sondern über committete PowerShell-Skripte mit einem **eigenen, schweren ADHOC-Include-Satz**.
 
@@ -46,6 +46,7 @@ gelaufen sein (erzeugt `build/msvc-release/generated/`). Dann je Test:
 | `test_sota_series_pilot`    | `build_sota_pilot.ps1`           | SOTA-Mess-Serie (A/B/C-Reihen-Pilot) | nein |
 | `test_node_delegation_proof`| `build_node_delegation_proof.ps1`| node-Achse delegiert echt (alloc_cnt node-abhängig) | nein |
 | `test_layout_aware_store`   | (kein eigenes Skript)            | LayoutAwareChunkedStore (soa/aosoa/packed) — siehe `build_and_measure_thesis_tiere.ps1` | nein |
+| `test_pruefling_type_pilot` | `build_pruefling_type_pilot.ps1` | #171 additive `pruefling_type`-Spalte (full/abstract/-) durch die REALE `lazy_csv_header`/`format_csv_row`/`build_sota_passes`-Kette; PRT-ART in BEIDEN Ausprägungen | nein |
 
 Beispiel:
 
@@ -73,11 +74,16 @@ sie gehören in den Mess-Workflow (lokal / ZIH-SLURM), nicht in die Unit-Test-Su
 
 ## NICHT als ctest registriert — Begründung (Audit-ehrlich)
 
-- **7 ADHOC-Tests** (`test_validate_profile`, `test_profile_roundtrip`, `test_run_profile_union`,
-  `test_axis_sweep_pilot`, `test_sota_series_pilot`, `test_node_delegation_proof`, `test_layout_aware_store`):
-  brauchen den schweren rekursiven-`generated/`-Include-Satz + `cl /Od /bigobj` + manuelle Nicht-Header-
-  Quellen. Reproduzierbar via die committeten `build_*.ps1`. → **dokumentiert, nicht registriert**
-  (ctest-Eintrag wäre langsam + vcvars/pwsh-gebunden + nicht ZIH-portabel).
+- **8 ADHOC-Tests** (`test_validate_profile`, `test_profile_roundtrip`, `test_run_profile_union`,
+  `test_axis_sweep_pilot`, `test_sota_series_pilot`, `test_node_delegation_proof`, `test_layout_aware_store`,
+  `test_pruefling_type_pilot`): brauchen den schweren rekursiven-`generated/`-Include-Satz + `cl /Od /bigobj`
+  + manuelle Nicht-Header-Quellen. Reproduzierbar via die committeten `build_*.ps1`. → **dokumentiert, nicht
+  registriert** (ctest-Eintrag wäre langsam + vcvars/pwsh-gebunden + nicht ZIH-portabel).
+  - `test_pruefling_type_pilot` (#171) baut zwar KEINE DLL, zieht aber `sota_catalog.hpp` + `profile_runner.hpp`
+    + `builder/experiment_tree/cache_engine_builder_iterator.hpp` MIT dem vollen rekursiven `generated/`-Tree
+    + `Boost::mp11` + dem manuell mitkompilierten `xml_config_parser.cpp` (s. `build_pruefling_type_pilot.ps1`
+    Z. 19/24) — identischer schwerer Include-Satz wie die SOTA-Pilot-Harness, daher ctest-untauglich (gehört
+    zur ADHOC-Reproduktion, NICHT in die schlanke ctest-Suite). Reproduktion: `pwsh build_pruefling_type_pilot.ps1`.
 - **Mess-Treiber** (`run_lazy_150`, `tier150_axis_grid`, `thesis_sa_*`, `thesis_nt_*`,
   `measure_adapter_tiere`, `gen_golden_fullpilot`): echter DLL-/Tier-Bau, Laufzeit Minuten–Stunden.
   → **bewusst kein Test**; gehören in den Mess-Workflow.
