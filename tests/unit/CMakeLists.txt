@@ -1342,7 +1342,14 @@ endforeach()
 # test_v5_io_real_fixture ist leichter (nur std + Win32-API, kein Anatomie-Header) → eigener Block darunter.
 set(COMDARE_PHASE_E_BOOST_TESTS
     test_migration_two_tier   # #123 P4 — 2-Tier-Migration (IMigratableTier + Memento parallel)
-    test_seg_coverage)        # P-MD3 — seg_*_ns-Attributions-Coverage (Mess-Pfad-Organzeit)
+    test_seg_coverage         # P-MD3 — seg_*_ns-Attributions-Coverage (Mess-Pfad-Organzeit)
+    # #155-Rest — 6 git-tracked aber bisher unregistrierte Phase-E-Verifikationstests (gleiche anatomy/axes-Kette).
+    test_filter_real_from_keys        # Filter-Achse (Bloom/Cuckoo/Xor/RangeSURF) real aus echten Keys
+    test_patricia_real                # path_compression-Achse (Patricia/None/RealTrie) real ersetzt
+    test_value_handle_real            # value_handle-Achse (inline/external_pool/immutable/versioned/chain) real
+    test_prefetch_real                # prefetch-Achse (RealDescent/HW/None/...) real ueber layout_aware_store
+    test_prefetch_adversarial_verify  # prefetch-Achse adversarial-Verifikation
+    test_prefetch_patha_t7)           # prefetch Pfad-A T7 (measurable_workload)
 foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
@@ -1369,6 +1376,19 @@ if(WIN32)
 endif()
 add_test(NAME test_v5_io_real_fixture COMMAND test_v5_io_real_fixture)
 set_tests_properties(test_v5_io_real_fixture PROPERTIES LABELS "phase_e;standalone;io")
+
+# #165-C (P-MD9, 2026-06-20) — Unit-Test fuer winsorized_mean_ns (latency_stats.hpp). Leichter Standalone-Test
+# (plain int main, KEIN gtest → add_test direkt; KEIN Anatomie-/Boost-/generated-Include). Braucht nur den
+# cache_engine-Include-Root, weil latency_stats.hpp via "builder/commands/latency_stats.hpp" inkludiert wird und
+# selbst rein std-basiert ist (<algorithm>/<chrono>/<cstdint>/<span>/<vector>). Additiv neben den #155-Tests.
+add_executable(test_winsorized_mean "test_winsorized_mean.cpp")
+target_compile_features(test_winsorized_mean PRIVATE cxx_std_23)
+target_include_directories(test_winsorized_mean PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+comdare_set_platform_defines(test_winsorized_mean)
+add_test(NAME test_winsorized_mean COMMAND test_winsorized_mean)
+set_tests_properties(test_winsorized_mean PROPERTIES LABELS "phase_e;standalone;stats")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Goal-V6 L-76/L-74a — DLL-Round-Trips als OFFIZIELLE CMake-Targets (vorher nur committete PS1-Skripte). Die 5

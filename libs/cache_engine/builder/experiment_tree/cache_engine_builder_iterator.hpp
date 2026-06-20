@@ -36,8 +36,10 @@
 #include "../../anatomy/measurable_workload.hpp"                     // (X): IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
 #include "../../anatomy/resource_controllable_tier.hpp"             // IResourceControllableTier
 
+#include <algorithm>   // #165-B: std::nth_element (Gruppen-Median im quality_flag)
 #include <array>       // GOAL-L1: LazyMeasuredRow::op_lat (per-Interface-Funktions-Latenzen)
 #include <cstddef>
+#include <map>         // #165-B: Gruppen-Buckets (binary_id|profile_name) im annotate_quality_flags
 #include <cstdint>
 #include <cstdio>      // (C-1) std::snprintf für ns_per_op-Formatierung
 #include <filesystem>
@@ -140,6 +142,13 @@ struct LazyMeasuredRow {
     std::uint64_t        working_set_n = 0;              // N (Record-Zahl) dieser Mess-Zeile (= workload_records)
     std::string          platform      = "win-x86_64";   // Plattform-Tag
     std::string          build_version = "m3v2";         // Build-Version-Tag
+    // #165-B (P-MD8, 2026-06-20): STATISTISCHER Ausreißer-Flag je Zeile (gate-frei). 1 = ns_per_op dieser Zeile
+    // ist ein Ausreißer relativ zum Median der (binary_id, workload/profile_name)-Gruppe (Heuristik s.u.); 0 = nicht.
+    // Default 0 (kein Flag) → bestehende Aufrufer unverändert; befüllt OPT-IN durch annotate_quality_flags(rows) VOR
+    // der CSV-Emission. WICHTIG (Klarstellung): dies ist NUR der statistische Ausreißer-Flag (rein aus den Mess-Werten
+    // ableitbar, ohne Infra/Gate). Die OS-quiesced `system_disturbed`-Provenienz (AP-M1/P-MD2) ist eine GETRENNTE,
+    // HELD/Infra-gebundene Sache und NICHT Teil dieser Spalte.
+    std::uint32_t        quality_flag  = 0;              // statistischer Ausreißer-Flag (1) / kein Ausreißer (0)
 };
 
 // ── (B/C/D/X) EINHEITLICHES CSV-Schema (global + per-Binary identisch) ──────────────────────────────────
@@ -204,7 +213,12 @@ struct LazyMeasuredRow {
     // "full" (Reihe A = Originalkonfiguration/self-contained), "abstract" (Reihe B/C = Teilmenge+Host-Fallback),
     // "-" für Basis/Sweep/cowfix-v1 (die alte cowfix-v1-CSV hatte die Spalte nicht → die Auswertung liest sie leer/n-a,
     // Datenerhaltung). Trennt in der Auswertung Original- vs rekombinierte Konfiguration je Messreihe.
-    h += "series;sweep_axis;working_set_n;platform;build_version;pruefling_type\n";
+    // #165-B (P-MD8, 2026-06-20): quality_flag GANZ ANS ENDE (additiv, gleiches header-getriebenes Muster wie
+    // series/pruefling_type). STATISTISCHER Ausreißer-Flag (1/0) — rein aus den Mess-Werten ableitbar, gate-frei.
+    // Alte CSVs (z.B. cowfix-v1/tier150) hatten die Spalte NICHT → die header-getriebene Auswertung liest sie dort
+    // leer/n-a (Datenerhaltung, kein cowfix-v1-Leser bricht). NICHT zu verwechseln mit der OS-quiesced
+    // system_disturbed-Provenienz (AP-M1/P-MD2) — die bleibt HELD/Infra und ist KEINE Spalte hier.
+    h += "series;sweep_axis;working_set_n;platform;build_version;pruefling_type;quality_flag\n";
     return h;
 }
 
@@ -318,8 +332,56 @@ struct LazyMeasuredRow {
     out += ';'; out += (row.build_version.empty() ? std::string{"-"} : row.build_version);
     // #171 (2026-06-20): pruefling_type GANZ ANS ENDE (Reihenfolge IDENTISCH zum Header). "-" für Basis/Sweep.
     out += ';'; out += (row.pruefling_type.empty() ? std::string{"-"} : row.pruefling_type);
+    // #165-B (P-MD8, 2026-06-20): quality_flag ALS LETZTE Spalte (Reihenfolge IDENTISCH zum Header). 0 = kein
+    // Ausreißer / nicht annotiert (Default); 1 = statistischer Ausreißer (s. annotate_quality_flags). Gate-frei.
+    out += ';'; out += std::to_string(row.quality_flag);
     out += '\n';
     return out;
+}
+
+// ── #165-B (P-MD8, 2026-06-20): annotate_quality_flags — der GATE-FREIE statistische Ausreißer-Flag ────────────
+// Heuristik (benannt): MEDIAN-MULTIPLIKATOR-AUSREISSER (eng verwandt mit dem "k×Median"-Robust-Filter; der Median
+// ist gegen Ausreißer unempfindlich, anders als das arithmetische Mittel). Eine Mess-Zeile gilt als Ausreißer,
+// wenn ihr ns_per_op das kQualityOutlierK-fache des Gruppen-MEDIANS überschreitet. GRUPPE = (binary_id, profile_name)
+// — d.h. dieselbe Tier-Binary unter demselben Lastprofil; so wird nur gegen vergleichbare Messpunkte verglichen
+// (Wiederholungen + dyn-Settings derselben (Binary×Workload)-Zelle), nicht quer über inkommensurable Workloads.
+// k = 3.0 (kQualityOutlierK): grob "3× über dem Median" — robuste, konservative Schwelle (analog zur verbreiteten
+// 3-fach-MAD/3-Sigma-Daumenregel, hier aber multiplikativ auf den Median, da Latenzen rechtsschief sind).
+//
+// REIN STATISTISCH + DATENERHALTEND: setzt ausschließlich das additive row.quality_flag-Feld (0/1), berührt KEINE
+// bestehende Spalte/keinen Messwert. ns_per_op wird identisch zu format_csv_row berechnet (total_ns/timed_ops;
+// timed_ops==0 → 0, fließt nicht in die Median-Basis ein und wird nie geflaggt). Gruppen mit < kQualityMinGroup
+// Messpunkten werden NICHT geflaggt (zu wenig Evidenz für eine Ausreißer-Aussage → konservativ 0).
+inline constexpr double      kQualityOutlierK = 3.0;   // Median-Multiplikator-Schwelle (benannt/dokumentiert)
+inline constexpr std::size_t kQualityMinGroup = 3;     // min. Messpunkte je Gruppe für eine Ausreißer-Aussage
+
+inline void annotate_quality_flags(std::vector<LazyMeasuredRow>& rows) {
+    // ns_per_op je Zeile (konsistent mit format_csv_row); -1.0 = nicht messbar (timed_ops==0) → nie Flag/Median.
+    auto ns_per_op_of = [](LazyMeasuredRow const& r) -> double {
+        return (r.timed_ops != 0) ? (static_cast<double>(r.total_ns) / static_cast<double>(r.timed_ops)) : -1.0;
+    };
+    // (1) Gruppen-Buckets (binary_id|profile_name) → Indizes der zugehörigen Zeilen sammeln.
+    std::map<std::string, std::vector<std::size_t>> groups;
+    for (std::size_t i = 0; i < rows.size(); ++i) {
+        rows[i].quality_flag = 0;   // Reset (idempotent — Mehrfachaufruf sicher)
+        groups[rows[i].binary_id + "|" + rows[i].profile_name].push_back(i);
+    }
+    // (2) je Gruppe: Median der gültigen ns_per_op (Nearest-Rank, nth_element) → Zeilen > k×Median flaggen.
+    for (auto const& [key, idxs] : groups) {
+        std::vector<double> vals;
+        vals.reserve(idxs.size());
+        for (std::size_t i : idxs) { double const v = ns_per_op_of(rows[i]); if (v >= 0.0) vals.push_back(v); }
+        if (vals.size() < kQualityMinGroup) continue;   // zu wenig Evidenz → konservativ kein Flag
+        std::size_t const mid = vals.size() / 2;
+        std::nth_element(vals.begin(), vals.begin() + static_cast<std::ptrdiff_t>(mid), vals.end());
+        double const median = vals[mid];
+        if (median <= 0.0) continue;                    // degenerierter Median → kein sinnvoller Multiplikator
+        double const thr = kQualityOutlierK * median;
+        for (std::size_t i : idxs) {
+            double const v = ns_per_op_of(rows[i]);
+            if (v >= 0.0 && v > thr) rows[i].quality_flag = 1;   // statistischer Ausreißer
+        }
+    }
 }
 
 // ── Ergebnis des Lazy-E2E-Laufs (rein zählend + die Mess-Zeilen; kein ∏-Vektor) ──
