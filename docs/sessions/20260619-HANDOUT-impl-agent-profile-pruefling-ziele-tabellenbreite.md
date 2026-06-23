@@ -202,7 +202,63 @@ Composition-Instanz. Build grün; ABI-Major unverändert oder bewusst gebumpt + 
 
 ---
 
+## TODO-7 — Cross-Achsen-Delegation vollständig: Thesis-Claim §3.3 „verteilte Interfaces" überall einlösen
+
+**Anlass (Autor-Schärfung 2026-06-23):** Kap. 3 §3.3 („Achsen-Sezierung der Suchverfahren",
+`\label{sec:sota-axes}`) sagt jetzt: „viele Achsen sind in Sub-Achsen verfeinert **und liefern anderen
+Achsen verteilt interfaces für die Durchführung und Optimierung ihrer Detail-Operationen**." Text-Agent
+hat das gegen den Code auditiert (read-only, alle Funde selbst per grep/Read verifiziert).
+
+**Ist-Stand (verifiziert) — der Claim trifft im KERN zu und ist NICHT zu entschärfen:** Der
+distributed-interface-Mechanismus ist real. Der Storage-Organ exportiert **9** `organ_observe_<achse>`-
+Methoden (`libs/cache_engine/axes/node/axis_04_node_type_chunked_store.hpp:110-201`: node_type, layout,
+serialization, value_handle, isa, index_org, io_dispatch, migration, filter), je Achse über die ECHTEN
+gespeicherten Slots getrieben; `observable_composed_search.hpp:120-171` reicht sie als `store_observe_*`
+durch; `anatomy/abi_adapter.hpp` (`fill_observer_v3`) orchestriert alle 19 Slots. T7 prefetch konsumiert
+die Store-Adressen direkt (`axis_07_prefetch_observable.hpp:131-132`, `drive(store,i)`). Bilanz: **≈9
+Konsumenten + ≈4 Provider** (T4/T5/T6 + StorageOrgan-Contract); Sub-Achsen-Verfeinerung **17/19** Achsen
+(`_subaxes_`-Tag-Dateien). „viele Achsen" ist damit belegt.
+
+**Lücken, wo der Claim NICHT überall gilt (schließen, damit „überall" ehrlich wird):**
+
+1. **HART (bereits als OFFEN dokumentiert) — T0 search_algo, Nicht-Store-Pfad.** Store-traversierbare
+   Algos (LinearScan/SortedBinary über den Chunked-Store) delegieren korrekt; **Tree/Trie/Hash/k-ary/
+   Eytzinger melden ihre Such-Metriken weiter aus einem monolithischen `search_organ_`** statt über die
+   Speicher-Achsen T4/T5/T6 (`anatomy/abi_adapter.hpp:910-916`, Guard
+   `tier_search_routes_through_store()==false` bei `:1461`). Identisch zu
+   `docs/architecture/30_audit_achsen_delegation_pflichtachsen.md:154` („Q2 Schritt 4 … volle
+   Such-Organ-Delegation, `search_organ_` entfällt: **OFFEN**"). **Auftrag:** restliche Such-Organe wie
+   den composed-Pfad über die Storage-Achsen führen; `search_organ_`-Sonderpfad entfernen → ALLE
+   Such-Algos delegieren ihre Storage-Detail-Ops an node/layout/allocator.
+
+2. **REVIEW — T1 cache_traversal & T2 mapping: redundanter Eigen-Zustand.** Beide führen eine eigene
+   interne Lookup-Tabelle (`ct_organ_.register_entry`, `map_organ_.register_slot`) PARALLEL zum echten
+   Store, statt ihn zu konsumieren (`anatomy/abi_adapter.hpp:704-710, 769-773`). **Entscheiden +
+   umsetzen ODER bewusst als self-contained-by-design dokumentieren:** soll T2 (key→Position) die
+   Store-Resolution treiben (dann Doppel-Zustand entfernen), oder ist der Eigen-Index gewollt? Falls
+   gewollt → in Thesis/Doc als Ausnahme benennen, damit „verteilt interfaces" nicht als ausnahmslos
+   gelesen wird.
+
+3. **PARTIELL — T15 migration_policy.** Decide-Scan läuft über den Store; der echte 2-Tier-Blockmove
+   (`organ_migrate_step`, `axis_04_node_type_layout_aware_store.hpp:273`) ist nur über `container_tier1_`
+   verdrahtet und liefert für `NoMigration` 0 (`anatomy/abi_adapter.hpp:1528-1574`). Zweite Tier-
+   Delegation des reicheren LayoutAware-Pfads für die Default-Tiere nachziehen.
+
+**Self-contained-by-design (KEINE Lücke, zur Klarstellung):** T8 concurrency (treibt echtes
+Sync-Primitive), T10 telemetry (querschnittlich), T17/T18 queuing (eigener Puffer) delegieren
+korrekterweise NICHT an den Store; der Claim „viele" (nicht „alle") deckt das ab.
+
+**Akzeptanzkriterium:** Nach (1) bezieht jeder Such-Algo (auch Tree/Trie/Hash) seine Storage-Detail-Ops
+über die Speicher-Achsen (kein `search_organ_`-Sonderpfad); Doc 30 Q2 Schritt 4 OFFEN → erledigt.
+(2)/(3) umgesetzt oder als bewusste Ausnahme dokumentiert. Damit gilt die §3.3-Schärfung nachweisbar
+„überall", wo eine Achse eine delegierbare Detail-Operation hat. **Thesis bleibt unverändert** („viele"
+ist bereits ehrlich); dieses TODO bringt nur den Code auf „überall".
+
+**Thesis-Anker:** Kap. 3 §3.3 erster Absatz (`thesis/diplomarbeit/kapitel/{de,en}/03_state_of_the_art.tex`, `sec:sota-axes`).
+
+---
+
 ### Quer-Referenzen
-- Thesis-Tasks: AP-X1 (Text erledigt), AP-X2 (= dieses Handout), AP-X4 (Layout → TODO-4), AP-X5 (Architektur-Verifikation → TODO-5), AP-X6 (EINE Architektur → TODO-6).
+- Thesis-Tasks: AP-X1 (Text erledigt), AP-X2 (= dieses Handout), AP-X4 (Layout → TODO-4), AP-X5 (Architektur-Verifikation → TODO-5), AP-X6 (EINE Architektur → TODO-6). **Neu: §3.3-Delegations-Audit → TODO-7** (Cross-Achsen-Interfaces; Bezug Doc 30 Q2 Schritt 4).
 - Frühere Handouts: `20260617-HANDOUT-impl-agent-io-achse-tpie-mehlhorn.md`,
   `20260617-HANDOUT-impl-agent-CE1-funchops-CE2-dataloader.md`.
