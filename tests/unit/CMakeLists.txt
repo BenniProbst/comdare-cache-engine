@@ -1413,6 +1413,31 @@ target_compile_definitions(m3v2_pmc_smoke PRIVATE
 add_test(NAME m3v2_pmc_smoke COMMAND m3v2_pmc_smoke)
 set_tests_properties(m3v2_pmc_smoke PROPERTIES LABELS "phase_e;standalone;pmc")
 
+# CE-DL2 (Task #152) — LINUX-PMC-Smoke fuer die LinuxPerfPmcSource (perf_event_open). Spiegel von m3v2_pmc_smoke,
+# aber LINUX-CONDITIONAL registriert: nur unter (UNIX AND NOT APPLE) — der Windows-/MSVC-Build sieht dieses Target
+# NIE (kein add_executable, keine Linux-Header). make_pmc_source() liefert auf Linux+COMDARE_ENABLE_PMC eine
+# LinuxPerfPmcSource; der Smoke klammert begin()/end() um eine speicherruehrende Pointer-Chasing-Schleife und
+# prueft LITERAL: Zugriff -> available==1 UND >=1 Counter != 0; kein Zugriff (paranoid/EACCES/Container) ->
+# sauberer Skip (Exit 0, available==0), KEIN Crash, KEINE erfundenen Werte. counter!=0 ist HW-/Policy-abhaengig
+# (prod-Runner) und wird NICHT auf jedem Runner garantiert. Standalone (plain int main, baut KEINE DLLs).
+if(UNIX AND NOT APPLE)
+    add_executable(linux_perf_pmc_smoke "thesis_tiere/linux_perf_pmc_smoke.cpp")
+    target_compile_features(linux_perf_pmc_smoke PRIVATE cxx_std_23)
+    target_include_directories(linux_perf_pmc_smoke PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${CMAKE_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    comdare_set_platform_defines(linux_perf_pmc_smoke)
+    target_compile_definitions(linux_perf_pmc_smoke PRIVATE
+        COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+    add_test(NAME linux_perf_pmc_smoke COMMAND linux_perf_pmc_smoke)
+    set_tests_properties(linux_perf_pmc_smoke PROPERTIES LABELS "phase_e;standalone;pmc;linux")
+endif()
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Goal-V6 L-76/L-74a — DLL-Round-Trips als OFFIZIELLE CMake-Targets (vorher nur committete PS1-Skripte). Die 5
 # boost-freien Permutations-/Build-Varianten-DLLs (interne Organe) + ihre Loader-Tests. Die DLL-Pfade gehen via
