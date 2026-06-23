@@ -29,6 +29,30 @@ prod-Cluster** statt ZIH als Mess-Plattform.
 - **Gate-frei = 0** (Re-Audit `wvxmwhvlx`), 85 Audit-Befunde je 1 Done-Zustand, G1-G4 grün gegen cowfix-v1. #156 ist der einzige
   Rest zur vollen G5+§7.4 (§9.4).
 
+## §2b Infra-Stand-Bewertung (Workflow `wkdvwe9fj`, 2026-06-23) — GO/NO-GO
+Der Infra-Agent ist bei den prod-Runnern angekommen (NOCH NICHT fertig). Bewertung gegen sein Single-Source-Ledger
+`C:\Users\benja\cluster_development\docs\sessions\architektur-ziele-offene-punkte-ledger.md` + `K78-GOAL-CUTOVER-READY.md` §8b (CE-DL1..DL5):
+- **KORREKTUREN am Plan oben:** (1) GitLab ist `gitlab.comdare.de` = **DEV** — KEIN eigener prod-GitLab; die prod-Runner registrieren
+  AN den dev-GitLab (CI läuft auf dev-GitLab, **executet auf prod-Runnern**). (2) Die erwarteten **Docker-Debian/Fedora-Runner
+  existieren NOCH NICHT** (Fleet 3/17 gebaut; 6 Linux-VM + 2 Win-VM offen). (3) Begriffs-Kollision: „#156" im Infra-Ledger Z.613 =
+  DB-Backups-NAS, **NICHT** der Mess-Lauf (= Impl-Task #156). (4) prod-Egress am 2026-06-23 **GELÖST** (Z.17).
+- **LIVE + sofort nutzbar:** GitLab-DEV `https://gitlab.comdare.de` (P0=200, LDAP) · **2 Bare-Metal-Shell-Runner id=16 (prod1,
+  tags `prod,baremetal,amd`) + id=17 (prod2, tags `prod,baremetal,intel`)** = root-Ubuntu, uneingeschränktes perf_event/PAPI =
+  **exakt die ≥2 Plattformen (Intel+AMD) + der EINZIGE gesicherte PMC-Pfad heute** · prod-K8s komplett (3/3, etcd-HA, KubeVirt+CDI) ·
+  Harbor live · 1 K8s/Talos-Container-Runner id=15 (tags=prod, run_untagged=false).
+- **NOCH NICHT ready:** kein verifizierter PMC-fähiger Container/VM-Runner (CE-DL2 offen: perf_event_paranoid≤2/CAP_PERFMON+PAPI) ·
+  GitLab-CI-Mess-Pipeline für die 3 Repos nicht gebaut (CE-DL4 offen) · **Handoff (Token/Namespace/Tags) NICHT ausgeführt** ·
+  CE-DL-Strang im Infra-Plan NACH der aktuellen Cluster-Queue priorisiert.
+- **GO/NO-GO je Phase:** **Phase B (LinuxPmcSource) = GO SOFORT** (infra-unabhängig; perf_event_open-Wrapper jetzt schreibbar,
+  finale Validierung später auf id=16/17). **Phase A (Dual-Remote) = bedingt GO**, blockiert auf Namespace + Push-/Deploy-Token-Handoff.
+  **Phase C (Voll-CI) = NO-GO** (CE-DL4 + Runner-Image im Air-Gap).
+- **⭐ PRAGMATISCHER SOFORT-WEG (Empfehlung statt voller CI):** #156 **direkt auf id=16/17** (Bare-Metal-Shell-Runner, Tags
+  `prod,baremetal,intel|amd`) bauen+messen — deckt **PMC + die 2 Plattformen (Intel+AMD)** ab und umgeht den ungebauten VM-Fleet +
+  Air-Gap-Image-Bau. → **Plan-Phase D vereinfacht sich:** kein Docker/Talos-PMC nötig, die 2 Bare-Metal-Runner SIND die Matrix.
+- **VOM Infra-Agent/User VOR dem Lauf einfordern (§3-Stop):** GitLab-Projekt-Namespace + 3 Repo-Pfade · Push-/Runner-Registration-
+  Token · schriftliche Freigabe des Bare-Metal-shell-Wegs auf prod1/prod2 · `perf_event_paranoid`-Wert dort. Parallel impl-seitig
+  abarbeiten: **#162/#163/#165** (Mess-Vorbedingungen, infra-unabhängig).
+
 ## §3 Der Plan in Phasen (jede: offizieller Weg, adversarial verifiziert, Commit+Push+3-Repo-Sync)
 
 ### Phase A — Dual-Remote-Sync (GitLab + GitHub)
