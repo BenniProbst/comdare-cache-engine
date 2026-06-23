@@ -1,117 +1,81 @@
-# comdare-cache-engine — GitLab CI Pipeline (REV 7.6 V11.7)
-# PRIMAERE CI (User-Direktive 2026-05-14: GitLab hauptsaechlich + synchron GitHub Actions)
-# Synchron mit .github/workflows/ci.yml.
+# comdare-cache-engine — GitLab CI/CD (REV 8, 2026-06-24): Production-Bare-Metal-Mess-Flow
+# ─────────────────────────────────────────────────────────────────────────────
+# Baut + misst die cache-engine auf den prod-Bare-Metal-Runnern (prod1/AMD = id=16, prod2/Intel = id=17,
+# shell-Executor, echte HW-Performance-Counter via perf_event_open). Ergebnis-Artefakte konsumiert die
+# Diplomarbeit (Super-Repo) als LOSE externe Abhaengigkeit (cache-engine = Submodul, separat gebaut+gemessen).
+#
+# Designentscheidungen (Fix der vorherigen REV-7.6-Probleme):
+#  - workflow-Regeln: KEINE Pipeline pro Tag (verhindert die Tag-Push-Flut) — nur Branch/MR/Web/cross-project.
+#  - Jobs ENTKOPPELT via `needs` (kein Blockieren hinter untagged Docker-Stages, die es nicht mehr gibt).
+#  - GIT_SUBMODULE_STRATEGY: none beim Smoke (prt-art-Pruefling wird erst fuer den Voll-Mess-Lauf gezogen;
+#    .gitmodules-URLs muessen dafuer erst auf GitLab/relativ zeigen — Air-Gap, separater Schritt).
+#  - Kein Docker-`image:` in den Bare-Metal-Jobs (shell-Executor) → echte HW-PMC.
+
+workflow:
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_PIPELINE_SOURCE == "pipeline"'        # cross-project-Trigger (Super → cache-engine)
+    - if: '$CI_COMMIT_BRANCH'
 
 stages:
-  - lint
-  - configure
-  - test
-  - baremetal-pmc
-
-# Wartbarkeits-Lint (2026-06-01): generierte *_flags.hpp müssen über ihren echten Generierungs-Ort
-# inkludiert werden (axes/ vs topics/) — verhindert die latente Bug-Klasse (stale-Artefakt-maskiert).
-lint:flags_includes:
-  image: debian:bookworm
-  stage: lint
-  variables:
-    GIT_SUBMODULE_STRATEGY: none
-  script:
-    - bash scripts/lint_flags_includes.sh
+  - build
+  - measure
 
 variables:
-  GIT_SUBMODULE_STRATEGY: recursive
-  CMAKE_BUILD_PARALLEL_LEVEL: "4"
+  GIT_SUBMODULE_STRATEGY: none
+  CMAKE_BUILD_PARALLEL_LEVEL: "8"
 
-.linux_base:
-  image: debian:bookworm
+# Gemeinsame Bare-Metal-Diagnose: zeigt bei JEDEM Lauf CPU-Vendor / perf_event_paranoid / Toolchain →
+# ein Fehlschlag weist CE-DL1 (Toolchain) bzw. CE-DL2 (perf-Rechte: paranoid<=1 ODER CAP_PERFMON) direkt aus.
+.bare_metal:
   before_script:
-    - apt-get update -qq
-    - DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends
-        build-essential cmake ninja-build git ca-certificates
-    - cmake --version
-    - g++ --version
+    - 'echo "== Host =="; uname -a; (lscpu | grep -E "Vendor ID|Model name") || true'
+    - 'echo "== perf_event_paranoid =="; cat /proc/sys/kernel/perf_event_paranoid || true'
+    - 'echo "== Toolchain =="; cmake --version; (g++ --version || c++ --version || echo "KEIN C++-Compiler"); (ninja --version || echo "kein ninja")'
 
-configure:default:
-  extends: .linux_base
-  stage: configure
+# ── Stage build: konfigurieren + linux_perf_pmc_smoke bauen (PMC AN) ──
+.build:
+  extends: .bare_metal
+  stage: build
+  needs: []
   script:
-    - cmake -B build-default -G Ninja
-        -DCOMDARE_BUILD_TESTS=ON
-        -DCOMDARE_BUILD_BENCHMARKS=OFF
-    - cmake --build build-default --target comdare_builder_codegen comdare_builder_xml_config_parser comdare_builder_experiment_driver
+    - cmake -B build -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_ENABLE_PMC=ON
+    - cmake --build build --target linux_perf_pmc_smoke -j "$(nproc)"
   artifacts:
-    paths:
-      - build-default/CMakeCache.txt
-      - build-default/CMakeFiles/CMakeOutput.log
+    paths: [build/]
     expire_in: 1 day
-    when: always
-
-configure:experiment_mode:
-  extends: .linux_base
-  stage: configure
-  script:
-    - cmake -B build-experiment -G Ninja
-        -DCOMDARE_BUILD_TESTS=ON
-        -DCOMDARE_BUILD_BENCHMARKS=OFF
-        -DCOMDARE_EXPERIMENT_MODE=ON
-    - cmake --build build-experiment --target comdare_builder_experiment_driver
-  artifacts:
-    paths:
-      - build-experiment/CMakeCache.txt
-    expire_in: 1 day
-    when: always
-
-test:codegen_from_profile:
-  extends: .linux_base
-  stage: test
-  needs: ["configure:default"]
-  script:
-    - cmake -B build-test -G Ninja
-        -DCOMDARE_BUILD_TESTS=ON
-        -DCOMDARE_BUILD_BENCHMARKS=OFF
-    - cmake --build build-test --target test_codegen_from_profile test_builder_codegen test_experiment_driver_v13
-    # REV 7.6 V14.3 — Direkt-Ausfuehrung umgeht gtest_discover_tests MSB3073
-    - ./build-test/tests/unit/test_codegen_from_profile
-    - ./build-test/tests/unit/test_builder_codegen
-    - ./build-test/tests/unit/test_experiment_driver_v13
-  artifacts:
-    paths:
-      - build-test/Testing/
-    expire_in: 1 week
-    when: always
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CE-DL2/DL3 (Task #156) — BARE-METAL-PMC-Mess-Stage: reale Cache-Misses auf prod1(AMD, Runner id=16)
-# + prod2(Intel, id=17). shell-Executor (KEIN Docker-image) → echte HW-Performance-Counter via
-# perf_event_open. Baut + faehrt den LinuxPerfPmcSource-Smoke mit COMDARE_ENABLE_PMC=ON. before_script =
-# Umgebungs-Diagnose (CPU-Vendor / perf_event_paranoid / Toolchain), damit ein Fehlschlag direkt zeigt, was der
-# Runner noch braucht (CE-DL1 Toolchain bzw. CE-DL2 perf-Rechte: paranoid<=1 ODER CAP_PERFMON).
-.baremetal_pmc:
-  stage: baremetal-pmc
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  before_script:
-    - echo "== Host =="; uname -a; (lscpu | grep -E 'Vendor ID|Model name') || true
-    - echo "== perf_event_paranoid =="; cat /proc/sys/kernel/perf_event_paranoid || true
-    - echo "== Toolchain =="; cmake --version; (g++ --version || c++ --version); (ninja --version || true)
-  script:
-    - cmake -B build-pmc -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_ENABLE_PMC=ON
-    - cmake --build build-pmc --target linux_perf_pmc_smoke -j "$(nproc)"
-    - ctest --test-dir build-pmc -R '^linux_perf_pmc_smoke$' --output-on-failure -V
   cache:
-    key: "ce-pmc-$CI_JOB_NAME"
-    paths:
-      - build-pmc/
-  artifacts:
-    when: always
-    paths:
-      - build-pmc/Testing/
-    expire_in: 1 week
+    key: "ce-build-$CI_JOB_NAME"
+    paths: [build/]
 
-baremetal-pmc:amd:
-  extends: .baremetal_pmc
+build:amd:
+  extends: .build
   tags: [baremetal, amd]
 
-baremetal-pmc:intel:
-  extends: .baremetal_pmc
+build:intel:
+  extends: .build
   tags: [baremetal, intel]
+
+# ── Stage measure: PMC-Smoke ausfuehren (reale Cache-Misses bzw. ehrlicher Skip) ──
+.measure:
+  extends: .bare_metal
+  stage: measure
+  script:
+    - ctest --test-dir build -R '^linux_perf_pmc_smoke$' --output-on-failure -V
+  artifacts:
+    when: always
+    paths: [build/Testing/]
+    expire_in: 1 week
+
+measure:amd:
+  extends: .measure
+  tags: [baremetal, amd]
+  needs: ["build:amd"]
+
+measure:intel:
+  extends: .measure
+  tags: [baremetal, intel]
+  needs: ["build:intel"]
