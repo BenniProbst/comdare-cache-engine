@@ -44,9 +44,33 @@ option(COMDARE_MICROBENCH_CONTINUOUS "Continuous Mikrobenchmarks (Builder-Modus)
 option(COMDARE_ENABLE_PMC "Intel PCM Windows cache-miss source (WindowsPcmPmcSource, BSD-3)" OFF)
 set(COMDARE_PCM_DIR "" CACHE PATH "Wurzel der Intel-PCM-Installation (enthält cpucounters.h + PCM-Lib)")
 if(COMDARE_ENABLE_PMC)
-    if(NOT WIN32)
-        message(WARNING "COMDARE_ENABLE_PMC=ON, aber Ziel ist nicht Windows — WindowsPcmPmcSource ist Windows-only. "
-                        "Flag effektiv AUS (NullPmcSource). Für Linux: LinuxPerfPmcSource (Infra-Agent, CE-DL2).")
+    if(UNIX AND NOT APPLE)
+        # ── Linux-Zweig (CE-DL2): LinuxPerfPmcSource via perf_event_open(2) ──
+        # perf_event_open ist ein KERNEL-Syscall (kein glibc-Wrapper, KEINE Vendor-Lib) → das Compile-Makro
+        # COMDARE_ENABLE_PMC genügt; der Header linux_perf_pmc_source.hpp ist selbst auf
+        #   #if defined(COMDARE_ENABLE_PMC) && defined(__linux__)
+        # geguardet, die OS-Wahl macht die Factory. Daher GLOBAL definieren (header-only Quelle, alle Targets).
+        message(STATUS "COMDARE_ENABLE_PMC: Linux — LinuxPerfPmcSource (perf_event_open, keine Vendor-Lib).")
+        add_compile_definitions(COMDARE_ENABLE_PMC)
+        # Optionaler sekundärer PAPI-Pfad (perf bleibt primär): nur aktivieren, wenn explizit gewünscht UND
+        # papi.h + libpapi gefunden. Sonst still aus (perf-only) — kein Build-Bruch.
+        option(COMDARE_ENABLE_PAPI "Optionaler PAPI-Fallback für LinuxPerfPmcSource (perf_event_open bleibt primär)" OFF)
+        if(COMDARE_ENABLE_PAPI)
+            find_path(COMDARE_PAPI_INCLUDE_DIR papi.h)
+            find_library(COMDARE_PAPI_LIBRARY NAMES papi)
+            if(COMDARE_PAPI_INCLUDE_DIR AND COMDARE_PAPI_LIBRARY)
+                message(STATUS "COMDARE_ENABLE_PAPI: PAPI gefunden — Header=${COMDARE_PAPI_INCLUDE_DIR} Lib=${COMDARE_PAPI_LIBRARY}")
+                add_compile_definitions(COMDARE_ENABLE_PAPI)
+                include_directories("${COMDARE_PAPI_INCLUDE_DIR}")
+                link_libraries("${COMDARE_PAPI_LIBRARY}")
+            else()
+                message(WARNING "COMDARE_ENABLE_PAPI=ON, aber PAPI NICHT gefunden (papi.h / libpapi). "
+                                "PAPI-Fallback effektiv AUS — perf_event_open bleibt das (primäre) Backend.")
+            endif()
+        endif()
+    elseif(NOT WIN32)
+        message(WARNING "COMDARE_ENABLE_PMC=ON, aber Ziel ist weder Windows noch Linux — keine reale PMC-Quelle. "
+                        "Flag effektiv AUS (NullPmcSource).")
     else()
         find_path(COMDARE_PCM_INCLUDE_DIR cpucounters.h
             HINTS "${COMDARE_PCM_DIR}" "${COMDARE_PCM_DIR}/src" "${COMDARE_PCM_DIR}/include")
