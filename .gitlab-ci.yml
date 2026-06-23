@@ -6,6 +6,7 @@ stages:
   - lint
   - configure
   - test
+  - baremetal-pmc
 
 # Wartbarkeits-Lint (2026-06-01): generierte *_flags.hpp müssen über ihren echten Generierungs-Ort
 # inkludiert werden (axes/ vs topics/) — verhindert die latente Bug-Klasse (stale-Artefakt-maskiert).
@@ -78,3 +79,39 @@ test:codegen_from_profile:
       - build-test/Testing/
     expire_in: 1 week
     when: always
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CE-DL2/DL3 (Task #156) — BARE-METAL-PMC-Mess-Stage: reale Cache-Misses auf prod1(AMD, Runner id=16)
+# + prod2(Intel, id=17). shell-Executor (KEIN Docker-image) → echte HW-Performance-Counter via
+# perf_event_open. Baut + faehrt den LinuxPerfPmcSource-Smoke mit COMDARE_ENABLE_PMC=ON. before_script =
+# Umgebungs-Diagnose (CPU-Vendor / perf_event_paranoid / Toolchain), damit ein Fehlschlag direkt zeigt, was der
+# Runner noch braucht (CE-DL1 Toolchain bzw. CE-DL2 perf-Rechte: paranoid<=1 ODER CAP_PERFMON).
+.baremetal_pmc:
+  stage: baremetal-pmc
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  before_script:
+    - echo "== Host =="; uname -a; (lscpu | grep -E 'Vendor ID|Model name') || true
+    - echo "== perf_event_paranoid =="; cat /proc/sys/kernel/perf_event_paranoid || true
+    - echo "== Toolchain =="; cmake --version; (g++ --version || c++ --version); (ninja --version || true)
+  script:
+    - cmake -B build-pmc -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_ENABLE_PMC=ON
+    - cmake --build build-pmc --target linux_perf_pmc_smoke -j "$(nproc)"
+    - ctest --test-dir build-pmc -R '^linux_perf_pmc_smoke$' --output-on-failure -V
+  cache:
+    key: "ce-pmc-$CI_JOB_NAME"
+    paths:
+      - build-pmc/
+  artifacts:
+    when: always
+    paths:
+      - build-pmc/Testing/
+    expire_in: 1 week
+
+baremetal-pmc:amd:
+  extends: .baremetal_pmc
+  tags: [baremetal, amd]
+
+baremetal-pmc:intel:
+  extends: .baremetal_pmc
+  tags: [baremetal, intel]
