@@ -1,15 +1,16 @@
-# comdare-cache-engine — GitLab CI/CD (REV 8, 2026-06-24): Production-Bare-Metal-Mess-Flow
+# comdare-cache-engine — GitLab CI/CD (REV 9, 2026-06-25): ci-templates-Lint/Contract + PMC-Mess-Flow
 # ─────────────────────────────────────────────────────────────────────────────
-# Baut + misst die cache-engine auf den prod-Bare-Metal-Runnern (prod1/AMD = id=16, prod2/Intel = id=17,
-# shell-Executor, echte HW-Performance-Counter via perf_event_open). Ergebnis-Artefakte konsumiert die
-# Diplomarbeit (Super-Repo) als LOSE externe Abhaengigkeit (cache-engine = Submodul, separat gebaut+gemessen).
+# Bindet die wiederverwendbaren Stage-Templates (EPIC #186) ein und bewahrt den bewiesenen
+# Production-Bare-Metal-PMC-Mess-Flow (prod1/AMD id=16, prod2/Intel id=17, shell, perf_event_open).
 #
-# Designentscheidungen (Fix der vorherigen REV-7.6-Probleme):
-#  - workflow-Regeln: KEINE Pipeline pro Tag (verhindert die Tag-Push-Flut) — nur Branch/MR/Web/cross-project.
-#  - Jobs ENTKOPPELT via `needs` (kein Blockieren hinter untagged Docker-Stages, die es nicht mehr gibt).
-#  - GIT_SUBMODULE_STRATEGY: none beim Smoke (prt-art-Pruefling wird erst fuer den Voll-Mess-Lauf gezogen;
-#    .gitmodules-URLs muessen dafuer erst auf GitLab/relativ zeigen — Air-Gap, separater Schritt).
-#  - Kein Docker-`image:` in den Bare-Metal-Jobs (shell-Executor) → echte HW-PMC.
+# WICHTIG: Die lokalen PMC-Jobs heißen `.ce_build`/`.ce_measure` (NICHT `.build`/`.measure`),
+# um Namens-Kollision mit dem Template-`.build` aus base-pipeline.yml zu vermeiden.
+# Lint: gitleaks HART · clang-format/cppcheck ADVISORY (allow_failure) bis zum #179-Format-Pass.
+
+include:
+  - project: 'comdare/cluster/ci-templates'
+    ref: development
+    file: '/base-pipeline.yml'
 
 workflow:
   rules:
@@ -21,23 +22,40 @@ workflow:
     - if: '$CI_COMMIT_BRANCH'
 
 stages:
+  - lint
   - build
   - measure
+  - contract
 
 variables:
   GIT_SUBMODULE_STRATEGY: none
   CMAKE_BUILD_PARALLEL_LEVEL: "8"
+  # cache-engine-eigene Quellpfade (ext/, build/, modules/ schließt das Template-Regex aus)
+  COMDARE_LINT_PATHS: "libs apps tests adapters benchmark_suite benchmarks"
+  # contract: ABI-Contract-Smoke (test_abi_interface) eigenständig konfigurieren+bauen+prüfen
+  COMDARE_CONTRACT_CMD: "cmake -B build-contract -G Ninja -DCOMDARE_BUILD_TESTS=ON && cmake --build build-contract --target test_abi_interface && ctest --test-dir build-contract -R 'abi' --output-on-failure -V"
 
-# Gemeinsame Bare-Metal-Diagnose: zeigt bei JEDEM Lauf CPU-Vendor / perf_event_paranoid / Toolchain →
-# ein Fehlschlag weist CE-DL1 (Toolchain) bzw. CE-DL2 (perf-Rechte: paranoid<=1 ODER CAP_PERFMON) direkt aus.
+# ── Stufe 1: Lint (aus ci-templates) ──
+lint:secrets:
+  extends: .lint-secrets
+  tags: [baremetal]
+lint:format:
+  extends: .lint-format
+  tags: [baremetal]
+  allow_failure: true        # advisory bis #179-Format-Pass (.clang-format-Einführung)
+lint:static:
+  extends: .lint-static
+  tags: [baremetal]
+  allow_failure: true
+
+# ── Bare-Metal-PMC-Mess-Flow (BEWAHRT, lokal — wegen perf_event_open NICHT aus dem Template) ──
 .bare_metal:
   before_script:
     - 'echo "== Host =="; uname -a; (lscpu | grep -E "Vendor ID|Model name") || true'
     - 'echo "== perf_event_paranoid =="; cat /proc/sys/kernel/perf_event_paranoid || true'
     - 'echo "== Toolchain =="; cmake --version; (g++ --version || c++ --version || echo "KEIN C++-Compiler"); (ninja --version || echo "kein ninja")'
 
-# ── Stage build: konfigurieren + linux_perf_pmc_smoke bauen (PMC AN) ──
-.build:
+.ce_build:
   extends: .bare_metal
   stage: build
   needs: []
@@ -52,15 +70,14 @@ variables:
     paths: [build/]
 
 build:amd:
-  extends: .build
+  extends: .ce_build
   tags: [baremetal, amd]
 
 build:intel:
-  extends: .build
+  extends: .ce_build
   tags: [baremetal, intel]
 
-# ── Stage measure: PMC-Smoke ausfuehren (reale Cache-Misses bzw. ehrlicher Skip) ──
-.measure:
+.ce_measure:
   extends: .bare_metal
   stage: measure
   script:
@@ -71,11 +88,17 @@ build:intel:
     expire_in: 1 week
 
 measure:amd:
-  extends: .measure
+  extends: .ce_measure
   tags: [baremetal, amd]
   needs: ["build:amd"]
 
 measure:intel:
-  extends: .measure
+  extends: .ce_measure
   tags: [baremetal, intel]
   needs: ["build:intel"]
+
+# ── Stufe 4: Contract (aus ci-templates; ABI-Smoke eigenständig) ──
+contract:
+  extends: .contract
+  tags: [baremetal]
+  needs: []
