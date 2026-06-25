@@ -1,11 +1,13 @@
-# comdare-cache-engine — GitLab CI/CD (REV 9, 2026-06-25): ci-templates-Lint/Contract + PMC-Mess-Flow
+# comdare-cache-engine — GitLab CI/CD (REV 10, 2026-06-25): ci-templates-Lint + PMC-Smoke + Contract
 # ─────────────────────────────────────────────────────────────────────────────
-# Bindet die wiederverwendbaren Stage-Templates (EPIC #186) ein und bewahrt den bewiesenen
-# Production-Bare-Metal-PMC-Mess-Flow (prod1/AMD id=16, prod2/Intel id=17, shell, perf_event_open).
-#
-# WICHTIG: Die lokalen PMC-Jobs heißen `.ce_build`/`.ce_measure` (NICHT `.build`/`.measure`),
-# um Namens-Kollision mit dem Template-`.build` aus base-pipeline.yml zu vermeiden.
-# Lint: gitleaks HART · clang-format/cppcheck ADVISORY (allow_failure) bis zum #179-Format-Pass.
+# REV 10 (Debug-Befunde Pipeline 6948):
+#  - lint:secrets GRÜN (hermetischer gitleaks-Bootstrap real bewiesen).
+#  - Artefakt-Object-Storage wirft nach dem Secret-Swap HTTP 500 „invalid argument" auf großen Uploads
+#    (das `build/`-Artefakt der cache-engine ist riesig) → build+measure zu EINEM `pmc`-Job gemergt,
+#    KEIN build/-Artefakt-Upload (Smoke-Beleg = ctest-Log). [Storage-Fix = Infra, Handoff geschrieben.]
+#  - pmc:intel bis zum prod2-Runner-Fix per Variable gegatet (Infra spielt meinen SSH-Key auf prod2).
+#  - contract: baut die ABI-Smoke-Tests + exakte ctest-Regex (vorher matchte 'abi' ungebaute Tests).
+# measure-PMC bleibt erhalten (perf_event_open, bare-metal); der mehrtägige Voll-Mess-Lauf ist separat.
 
 include:
   - project: 'comdare/cluster/ci-templates'
@@ -18,22 +20,20 @@ workflow:
       when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
-    - if: '$CI_PIPELINE_SOURCE == "pipeline"'        # cross-project-Trigger (Super → cache-engine)
+    - if: '$CI_PIPELINE_SOURCE == "pipeline"'
     - if: '$CI_COMMIT_BRANCH'
 
 stages:
   - lint
   - build
-  - measure
   - contract
 
 variables:
   GIT_SUBMODULE_STRATEGY: none
   CMAKE_BUILD_PARALLEL_LEVEL: "8"
-  # cache-engine-eigene Quellpfade (ext/, build/, modules/ schließt das Template-Regex aus)
   COMDARE_LINT_PATHS: "libs apps tests adapters benchmark_suite benchmarks"
-  # contract: ABI-Contract-Smoke (test_abi_interface) eigenständig konfigurieren+bauen+prüfen
-  COMDARE_CONTRACT_CMD: "cmake -B build-contract -G Ninja -DCOMDARE_BUILD_TESTS=ON && cmake --build build-contract --target test_abi_interface && ctest --test-dir build-contract -R 'abi' --output-on-failure -V"
+  # contract: ABI-Contract-Smoke — die geprüften Tests AUCH bauen + exakte Regex (kein "Not Run")
+  COMDARE_CONTRACT_CMD: "cmake -B build-contract -G Ninja -DCOMDARE_BUILD_TESTS=ON && cmake --build build-contract --target test_abi_interface test_v41_anatomy_module_abi && ctest --test-dir build-contract -R '^(test_abi_interface|test_v41_anatomy_module_abi)$' --output-on-failure -V"
 
 # ── Stufe 1: Lint (aus ci-templates) ──
 lint:secrets:
@@ -42,65 +42,46 @@ lint:secrets:
 lint:format:
   extends: .lint-format
   tags: [baremetal]
-  allow_failure: true        # advisory bis #179-Format-Pass (.clang-format-Einführung)
+  allow_failure: true
 lint:static:
   extends: .lint-static
   tags: [baremetal]
   allow_failure: true
 
-# ── Bare-Metal-PMC-Mess-Flow (BEWAHRT, lokal — wegen perf_event_open NICHT aus dem Template) ──
+# ── Bare-Metal-PMC-Smoke (build+measure in EINEM Job; KEIN großes Artefakt) ──
 .bare_metal:
   before_script:
     - 'echo "== Host =="; uname -a; (lscpu | grep -E "Vendor ID|Model name") || true'
     - 'echo "== perf_event_paranoid =="; cat /proc/sys/kernel/perf_event_paranoid || true'
     - 'echo "== Toolchain =="; cmake --version; (g++ --version || c++ --version || echo "KEIN C++-Compiler"); (ninja --version || echo "kein ninja")'
 
-.ce_build:
+.pmc:
   extends: .bare_metal
   stage: build
   needs: []
   script:
     - cmake -B build -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_ENABLE_PMC=ON
-    # KEIN -j nproc (User 2026-06-25): Build-Parallelität = CMAKE_BUILD_PARALLEL_LEVEL (8 = halbes
-    # Ubuntu-16-Kern-Budget); Runner-cgroup + concurrent=2 erzwingen die echte Aufteilung (Infra #189).
+    # Build-Parallelität via CMAKE_BUILD_PARALLEL_LEVEL=8 (Runner-Core-Budget, User 2026-06-25), NICHT -j nproc
     - cmake --build build --target linux_perf_pmc_smoke
-  artifacts:
-    paths: [build/]
-    expire_in: 1 day
-  cache:
-    key: "ce-build-$CI_JOB_NAME"
-    paths: [build/]
-
-build:amd:
-  extends: .ce_build
-  tags: [baremetal, amd]
-
-build:intel:
-  extends: .ce_build
-  tags: [baremetal, intel]
-
-.ce_measure:
-  extends: .bare_metal
-  stage: measure
-  script:
     - ctest --test-dir build -R '^linux_perf_pmc_smoke$' --output-on-failure -V
-  artifacts:
-    when: always
-    paths: [build/Testing/]
-    expire_in: 1 week
+  # KEINE Artefakte: das build/-Tree-Artefakt scheiterte am Object-Storage-500 (post-swap). Beleg = ctest-Log.
 
-measure:amd:
-  extends: .ce_measure
+pmc:amd:
+  extends: .pmc
   tags: [baremetal, amd]
-  needs: ["build:amd"]
 
-measure:intel:
-  extends: .ce_measure
+pmc:intel:
+  extends: .pmc
   tags: [baremetal, intel]
-  needs: ["build:intel"]
+  # prod2-Runner pullt seit Secret-Swap nicht (Infra spielt meinen SSH-Key auf .212 → dann Runner-Fix).
+  # Reaktivieren: CI-Variable COMDARE_PROD2_AVAILABLE="true" setzen.
+  rules:
+    - if: '$COMDARE_PROD2_AVAILABLE == "true"'
 
-# ── Stufe 4: Contract (aus ci-templates; ABI-Smoke eigenständig) ──
+# ── Stufe 4: Contract (aus ci-templates; ABI-Smoke eigenständig, kein großes Artefakt) ──
 contract:
   extends: .contract
   tags: [baremetal]
   needs: []
+  artifacts:
+    paths: []     # Override: kein build/Testing/-Artefakt (Storage-500 + Pfad-Mismatch zu build-contract)
