@@ -86,4 +86,11 @@ GitLab-Gruppen spiegeln `Desktop/Projekte/`: `comdare/{modules,products,research
 9. **GitLab-Auth-Recipe** (s. §3) — sonst scheitert jeder Push/jede API.
 
 ---
+
+## 7. ⭐ USER-ENTSCHEIDUNGEN (2026-06-25, Kontext-Ende) — für die nächste Session bindend
+
+1. **START nächste Session = #176 (I1)** — `search_engine<>` → EINE Lebewesen-Hierarchie. NICHT mit B2/B3 starten. Vorgehen: **zuerst Grounding-/Plan-Runde** (re-grep `abi/search_engine.hpp:19-21`, `anatomy/abi_adapter.hpp:119`, `search_algorithm_anatomy.hpp:32` gegen aktuellen Stand + Doc 36 §4), Bruchstellen kartieren, DANN inkrementell umbauen + nach jeder Einheit Build grün + Commit. #177 (variadisches `SearchEngine`) als Abschluss von #176.
+2. **GitLab-Auth-ZIEL = SSH-Deploy-Key** (`keys/id_ed25519_gitlab`/`id_ed25519_gitlab_user`) statt HTTPS-OAuth. ⚠️ **Voraussetzung:** ein **SSH-Präsentations-VIP im V10** für gitlab-shell (`→ 10.0.40.5:22`, mode tcp Passthrough) — der existiert noch NICHT (war als optionaler Teil in CE-DL6-§B). **Bis der Infra-Agent den SSH-VIP gebaut hat, bleibt der HTTPS-OAuth-Recipe aus §3 der EINZIGE funktionierende Push-Weg.** → Neuer Infra-Wunsch: „CE-DL6b: SSH-Deploy-Key-Pfad (V10-SSH-VIP zu gitlab-shell + Deploy-Keys in den 4 Projekten hinterlegen)". Übergangsweise weiter HTTPS-OAuth; sobald SSH steht, `gitlab`-Remotes auf `git@gitlab-push:comdare/research/<projekt>.git` (ProxyJump entfällt, wenn V10-VIP direkt) umstellen.
+
+---
 *Geschrieben 2026-06-25, Kontext-Ende-Übergabe. Verifiziert im Code: `search_engine.hpp:19-21` + `sota_catalog.hpp:18-24` noch im Defekt-Zustand. Vorgänger-Übergaben: `20260623-PIVOT-PLAN-156-…`, `20260625-UEBERGABE-impl-agent-ch4-grounding-codelag.md`. Konsolidierte TODOs: `(super) 20260625-IMPL-AGENT-KONSOLIDIERTE-…`.*
