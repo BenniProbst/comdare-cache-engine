@@ -6,6 +6,11 @@ title = "comdare-cache-engine gitleaks"
 
 [extend]
 useDefault = true
+# `generic-api-key` ist entropie-basiert und wirft auf C++-Doku-Kommentaren systematische
+# False-Positives (z.B. `// std::queue-API: peek_front=oldest` → "Secret" peek_front=oldest).
+# Deaktiviert; die 100+ spezifischen High-Confidence-Regeln (aws/github/gcp/azure/private-key/
+# slack/stripe/…) bleiben aktiv → echte Secret-Erkennung erhalten, Rausch-Regel entfernt.
+disabledRules = ["generic-api-key"]
 
 [[allowlists]]
 description = "Nicht-Quell-/Vendored-/Build-/Doku-Pfade (keine echten Secrets)"

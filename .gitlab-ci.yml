@@ -61,7 +61,9 @@ lint:static:
   needs: []
   script:
     - cmake -B build -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_ENABLE_PMC=ON
-    - cmake --build build --target linux_perf_pmc_smoke -j "$(nproc)"
+    # KEIN -j nproc (User 2026-06-25): Build-Parallelität = CMAKE_BUILD_PARALLEL_LEVEL (8 = halbes
+    # Ubuntu-16-Kern-Budget); Runner-cgroup + concurrent=2 erzwingen die echte Aufteilung (Infra #189).
+    - cmake --build build --target linux_perf_pmc_smoke
   artifacts:
     paths: [build/]
     expire_in: 1 day
