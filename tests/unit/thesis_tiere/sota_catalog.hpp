@@ -15,16 +15,27 @@
 //   derselbe Modul-Quelltext, den der CMake-Codegen (comdare_codegen_anatomy_module) für hot/wormhole
 //   bereits emittiert (build/.../generated/anatomy_modules/). Lazy-Compile (1 DLL = 1 TU) bleibt.
 //
-// S6b — sota_series A/B/C via pruefling_merge: je (Reihe × Lebewesen) eine reale Lebewesen-DLL:
-//   • Reihe A = Stufe1_CeOnly         → das Lebewesen ISOLIERT (PrtArtComposition / die 6 SOTA selbst).
-//   • Reihe B = Stufe2_PrueflingReplace → PRT-ART ERSETZT den path_compression-Slot einer SOTA-Host-
-//                                         Komposition (HotPrtStufe2ReplaceComposition). Fallback via
-//                                         HasPruefling_v (pruefling_merge.hpp).
-//   • Reihe C = Stufe3_FullJoin        → Union (non-redundant); je 1 Punkt = Pruefling-Repräsentant der
-//                                         Union (MasstreePrtStufe3FullJoinComposition).
-//   Die Slot-Auswahl folgt mechanisch aus MergeStrategy (KEINE Code-Selektion); die Gattung ist via
-//   assert_pruefling_slot_genus garantiert (prt_art_merge_reference.hpp). PRT-ART wird über die
-//   IPrueflingFactory-Form (Abstract-Factory-Slot, i_pruefling_factory.hpp) als Slot eingebracht.
+// S6b — sota_series via pruefling_merge: je (Stufe × Lebewesen) eine reale Lebewesen-DLL. Die 3 Stufen
+//   (MergeStrategy) sind die mechanische Slot-Wahl (KEINE Code-Selektion); die Gattung ist via
+//   assert_pruefling_slot_genus garantiert (prt_art_merge_reference.hpp); PRT-ART kommt über die
+//   IPrueflingFactory-Form (Abstract-Factory-Slot, i_pruefling_factory.hpp) in den Slot:
+//   • Stufe1_CeOnly           → das Lebewesen ISOLIERT (PrtArtComposition / die 6 SOTA selbst).
+//   • Stufe2_PrueflingReplace → PRT-ART ERSETZT den path_compression-Slot einer SOTA-Host-Komposition
+//                               (HotPrtStufe2ReplaceComposition); Fallback via HasPruefling_v.
+//   • Stufe3_FullJoin         → Union (non-redundant); je 1 Punkt = Pruefling-Repräsentant (MasstreePrt…).
+//
+//   STUFE→REIHE-ZUORDNUNG — EINGEFROREN per Thesis ch4 §4.8 / Tab. tab:stage-series
+//   (kapitel/de/04_concept_architecture.tex Z.314-331) + Treiber-Enum MessreiheKind (02_messung_driver/
+//   main.cpp:108-118 — der ist BEREITS korrekt):
+//     Stufe1 ∪ Stufe2 → Reihe A (Prüfling vs SOTA) · Stufe3 → Reihe B (systematische Variation) ·
+//     Reihe C (Merge/Regression alt↔neu) = BUILD-ÜBERGREIFEND, an KEINE Stufe gebunden.
+//   ⚠️ CODE-RÜCKSTAND #178 (noch offen): sota_module_for() unten + die Profil-XMLs (<sota_series id=..>)
+//   bilden derzeit 1:1 ab (A=Stufe1, B=Stufe2, C=Stufe3) — das WIDERSPRICHT ch4 §4.8 UND dem eigenen
+//   Treiber-Enum. SOLL-Fix (auszuführen MIT dem gehaltenen Mess-Lauf #162 + ch6-Quervergleich des
+//   Text-Agenten, Decision-3-Direktive): (1) sota_module_for auf `merge` (Stufe) statt `series` umstellen;
+//   (2) Reihe via stufe_to_reihe(merge) ableiten (Stufe1/Stufe2→"A", Stufe3→"B"); (3) Profile
+//   m3v2_study/_sota_pilot/_smoke angleichen (Stufe2-Einträge id="A", Stufe3 id="B", kein id="C"); (4) den
+//   externen Aufrufer test_sota_series_pilot.cpp:123 nachziehen. Bis dahin bleibt das 1:1-Verhalten aktiv.
 //
 // EHRLICHKEIT (Plan-Direktive): falls ein Lebewesen real NICHT baubar ist, liefert der Katalog für sein
 // (Reihe,Lebewesen)-Paar eine LEERE Quelle → der Orchestrator markiert die DLL als nicht baubar (sichtbar,
