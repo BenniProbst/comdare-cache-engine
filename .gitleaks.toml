@@ -1,0 +1,28 @@
+# gitleaks-Konfiguration — comdare-cache-engine (CI-Stufe lint:secrets, HART)
+# Erweitert die offiziellen Default-Regeln; allowlistet Nicht-Quell-/Vendored-/Doku-Pfade,
+# damit der harte Secret-Gate keine False-Positives wirft. In CI sind ext/-Submodule wegen
+# GIT_SUBMODULE_STRATEGY:none ohnehin absent — diese Allowlist deckt die restlichen FP-Quellen.
+title = "comdare-cache-engine gitleaks"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Nicht-Quell-/Vendored-/Build-/Doku-Pfade (keine echten Secrets)"
+paths = [
+  '''(^|/)ext/''',
+  '''(^|/)build/''',
+  '''(^|/)build-[^/]+/''',
+  '''(^|/)cmake-build-[^/]*/''',
+  '''(^|/)modules/''',
+  '''(^|/)_archive_code_pre_migration/''',
+  '''(^|/)\.citools/''',
+  '''(^|/)docs/''',
+]
+
+[[allowlists]]
+description = "Test-Fixtures mit absichtlichen Pseudo-Schlüsseln (deterministische Testdaten, keine echten Secrets)"
+regexTarget = "match"
+regexes = [
+  '''(?i)(example|dummy|sample|test|fake|placeholder)[-_]?(key|token|secret|pw|password)''',
+]
