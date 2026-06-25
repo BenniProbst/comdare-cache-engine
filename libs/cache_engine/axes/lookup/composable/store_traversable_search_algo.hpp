@@ -10,8 +10,16 @@
 // **Autoritative Klassifikations-Grundlage (G3, code-bestätigt via `tier_to_organ_mapping.hpp` #40 +
 // `axis_03a_search_algo_registry.hpp`):**
 //   • Array-Familie → ComposedSearch<Traversal, RawSlotStore> (flach) → STORE-TRAVERSIERBAR.
-//   • Tree/Trie/Hash-Familie → Composed*Search<Traversal, *NodePoolStore> → NICHT flach-traversierbar (das
-//     Pool-Substrat IST der Algorithmus); diese Tiere bleiben Weg-B (search_organ_ bleibt, ehrliche Limitierung).
+//   • Tree/Trie/Hash-Familie → Composed*Search<Traversal, *NodePoolStore> → (noch) NICHT flach-traversierbar
+//     (das Pool-Substrat IST der Algorithmus); diese Tiere laufen DERZEIT über search_organ_ (Weg-B).
+//
+// ⚠️ ARCHITEKTUR-SOLL (Doc 30 §6 Q2 + User-Direktive A10, 2026-06-25, Task #188): die separate
+// search_organ_/container_-Aufteilung ist ein BUG, KEIN gewolltes Design — „Q2 ist ein Bug, kein Geschmack"
+// (Doc 30:125). Der Soll (Doc 30:111) ist EIN Speicher: `container_` trägt das ECHTE
+// `Composition::search_algo` für ALLE Familien, `search_organ_` ENTFÄLLT (Q2 Schritt 4 = OFFEN). Die hiesige
+// Weg-B-Klassifikation ist ein TEMPORÄRER Stopgap bis zum container_-ComposedSearch-Substrat-Umbau
+// (#188 Inkremente 4a k-ary/Eytzinger-Traversal-Organe · 4b Pool-Familie über node/layout/allocator ·
+// 4c search_organ_-Entfernung) — KEINE dauerhafte „ehrliche Limitierung".
 //
 // **Marker-basiert (KEIN Raten, Meta-Lehre #1/#2):** jeder store-traversierbare search_algo-Wrapper trägt
 // `static constexpr bool axis_03a_store_traversable = true;` — je Wrapper am Code verifiziert, NICHT pauschal.
