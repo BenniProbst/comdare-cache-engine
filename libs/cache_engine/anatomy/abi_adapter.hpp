@@ -97,6 +97,15 @@ namespace comdare::cache_engine::anatomy {
 /// SearchAlgorithmAbiAdapter<A> — generischer Runtime-ABI-Adapter fuer die
 /// SearchAlgorithm-Gattung (Mammal in Tier-Metapher).
 ///
+/// I1-Vereinheitlichung (Doc 36 §2.5/§4, TODO-6, 2026-06-25): DIES ist die EINE
+/// ABI-Laufzeit-SICHT des SearchAlgorithm-Lebewesens — in der Thesis (ch4 fig:abi)
+/// „SearchEngine" genannt. Es gibt KEINE zweite, achsentragende Engine-Hierarchie:
+/// die frueheren Legacy-Klassen comdare::search_engine<> / comdare::execution_engine<>
+/// (REV-7-„Drei-Schichten") waren ein toter Parallel-Baum und wurden ENTFERNT. Die 19
+/// Organe leben GENAU EINMAL in SearchAlgorithmAnatomy<A::composition_t>; die variadische
+/// Hybrid-Kollektion (1=>vector / 2=>map / N=>map<K,tuple>) lebt in search_algorithm_type_collection.
+/// Lebewesen == SearchAlgorithm; Anatomie = sein Koerper; „SearchEngine" = nur diese Sicht.
+///
 /// Vorbedingung: `A` erfuellt `AnatomyConcept` UND `A::genus() ==
 /// AnatomyGenus::SearchAlgorithm`. Der `static_assert` im Klassen-Body validiert
 /// die Gattung zur Compile-Zeit (Doku 14 §32 Gattungs-Constraint).
@@ -1450,6 +1459,28 @@ public:
     /// Copy-on-Write (save=O(1)-Stat-Snapshots, Daten-Kopie erst bei der ersten Warmup-Mutation) statt der
     /// eager Organ-Vollkopie je Op? Literal-prüfbar im Test (test_cow_memento) — keine ABI-Fläche (statisch).
     [[nodiscard]] static constexpr bool tier_memento_is_copy_on_write() noexcept { return cow_capable_; }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // §3.3-DELEGATIONS-STATUS (Thesis ch3 sec:sota-axes „verteilte interfaces"; TODO-7/#182, 2026-06-25).
+    // Die Anatomie = Verdrahtung ZWISCHEN den Organen (ch3 §3.6.3 / ch4 §4.1): viele Achsen reichen anderen
+    // Achsen Detail-Interfaces durch (StorageOrgan → 9× organ_observe_<achse>; T7 konsumiert Store-Adressen).
+    // Die Thesis sagt bewusst „VIELE" (nicht „alle") — das ist ehrlich. Es bleiben GENAU DREI bewusste,
+    // by-design bzw. zurückgestellte Ausnahmen (Doc 30 Q2-Schritt-4):
+    //   (1) T0 search_algo — Weg-B (Tree/Trie/Hash/k-ary/eytzinger): Such-Metrik aus dem search_organ_-Monolith
+    //       statt über die Speicher-Achsen T4/T5/T6 (s. tier_search_routes_through_store()==false unten + :918).
+    //       Voll-Delegation = Mess-Pfad-Umbau (T0-Quelle) → ZURÜCKGESTELLT (braucht explizite Mess-Semantik-
+    //       Freigabe; Weg-A LinearScan/Interpolation routet bereits durch den Store == true).
+    //   (2) T1 cache_traversal + T2 mapping — eigener register_entry/register_slot-Index (:713-719) PARALLEL zum
+    //       Store: SELF-CONTAINED BY DESIGN. Beide Organe modellieren eine ANDERE Entscheidung als das Store-
+    //       Layout (Algorithmus↔Cache-Abbildung bzw. Key→Position), nicht Store-Daten → eigener Zustand ist
+    //       der Organ-Zustand, kein redundanter Schatten. (Kein Eingriff; bewusste Ausnahme.)
+    //   (3) T15 migration_policy — decide-scan delegiert an den Store (:625/:1080); der reiche 2-Tier-Blockmove
+    //       (organ_migrate_step, axes/node/axis_04_node_type_layout_aware_store.hpp) feuert NUR wo eine 2. Ebene
+    //       existiert (container_tier1_); single-tier/NoMigration → ehrlich 0 (es gibt kein Migrationsziel).
+    //       Korrekt by-design (Reichtum gilt dort, wo es 2 Tiers gibt). (Kein Eingriff; bewusste Ausnahme.)
+    // → Damit ist die §3.3-Schärfung NACHWEISBAR „überall, wo eine Achse eine delegierbare Detail-Op hat",
+    //   und die 3 Nicht-Delegationen sind explizit als bewusst/zurückgestellt ausgewiesen. Thesis unverändert.
+    // ─────────────────────────────────────────────────────────────────────────────
     // (E-Welle-A2 · Befund-2/Q2-Schritt-4 · Meta-Lehre #3 — Schritt 3 des de-risked Pfads) Diagnose: routet der
     // GEMESSENE Such-Pfad (T0) durch den EINEN container_-Store (node/layout/allocator wirken REAL auf die Suche)
     // ODER liefert der separate search_organ_-Monolith die Such-Metrik (= Befund-2-Schatten)? AKTUELL: false —
