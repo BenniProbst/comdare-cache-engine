@@ -1,6 +1,8 @@
 // Tests fuer ABI-stabiles C++23-Modul-Interface (Phase 6.3)
 // type_collection_traits + search_algorithm_type_collection + fingerprint +
-// execution_engine + search_engine + resolve_baustein + module_abi_v1
+// processing_strategy + configuration_permutation + resolve_baustein + module_abi_v1
+// (Hinweis: die Legacy-ABI-Klassen execution_engine/search_engine wurden mit der
+//  I1-Vereinheitlichung 2026-06-25 entfernt — Doc 36 §2.5/§4; ABI-Sicht = SearchAlgorithmAbiAdapter.)
 
 #include <cache_engine/abi/type_collection_traits.hpp>
 #include <cache_engine/abi/search_algorithm_type_collection.hpp>
