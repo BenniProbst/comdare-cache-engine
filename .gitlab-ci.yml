@@ -32,8 +32,10 @@ variables:
   GIT_SUBMODULE_STRATEGY: none
   CMAKE_BUILD_PARALLEL_LEVEL: "8"
   COMDARE_LINT_PATHS: "libs apps tests adapters benchmark_suite benchmarks"
-  # contract: ABI-Contract-Smoke — die geprüften Tests AUCH bauen + exakte Regex (kein "Not Run")
-  COMDARE_CONTRACT_CMD: "cmake -B build-contract -G Ninja -DCOMDARE_BUILD_TESTS=ON && cmake --build build-contract --target test_abi_interface test_v41_anatomy_module_abi && ctest --test-dir build-contract -R '^(test_abi_interface|test_v41_anatomy_module_abi)$' --output-on-failure -V"
+  # contract: ABI-Contract-Smoke = test_abi_interface (std::map/ABI-Interface-Kontrakt). test_v41_anatomy_module_abi
+  # ist der schwerere anatomy-MODULE-Test (eigener Linux-Build) -> gehoert in den vollen Test-Stage/#179-Sweep,
+  # NICHT in den Contract-Smoke. (REV 11: vorher zog er den mimalloc-Kettel-Include-Bug rein, jetzt gefixt.)
+  COMDARE_CONTRACT_CMD: "cmake -B build-contract -G Ninja -DCOMDARE_BUILD_TESTS=ON && cmake --build build-contract --target test_abi_interface && ctest --test-dir build-contract -R '^test_abi_interface$' --output-on-failure -V"
 
 # ── Stufe 1: Lint (aus ci-templates) ──
 lint:secrets:
