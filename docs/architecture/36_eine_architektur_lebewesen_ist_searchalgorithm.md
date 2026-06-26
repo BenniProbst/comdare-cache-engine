@@ -167,6 +167,15 @@ lokales `run_workload`-SearchAlgo — Doc 24 §-Tabelle). Das verletzt die Obser
   Kap. 4 breitet die eine Architektur formal aus (diese Doc 36 als Grundlage).
 - **Code** (Impl-Agent): Vereinheitlichung gemäß Übergabe-Dokument / Handout TODO-6 (cache-engine
   `f60799e`). Die frühere „Option A/B parallel belassen"-Lesart (Handout TODO-5) ist **verworfen**.
+- **Code-Vereinheitlichung DURCHGEFÜHRT (Impl-Agent, 2026-06-25):** Der tote Parallel-Baum
+  `comdare::search_engine<>` + `comdare::execution_engine<>`
+  (`include/cache_engine/abi/{search_engine,execution_engine}.hpp`) + der von keinem `#include`
+  konsumierte Waisen-Adapter `prt-art …/identity/prt_art_search_engine_adapter.hpp` wurden **entfernt**.
+  Es verbleibt EINE Hierarchie `IExecutionEngine→IAnatomyBase→SearchAlgorithmAnatomy<C>→SearchAlgorithmAbiAdapter<A>`
+  (= ABI-Sicht „SearchEngine"; Invariante als Code-Kommentar in `anatomy/abi_adapter.hpp`). Die reale
+  prt-art-Kopplung (`optional_prt_art_impl`-Slots + CMake-`COMDARE_CE_PRUEFLINGE`,
+  `axes/axis_centric_namespaces.hpp:145-172`) bleibt **unberührt**. ABI-Major unverändert (Header-only,
+  überquert die `extern "C"`-Factory nicht). Build grün (`test_abi_interface`, `test_v41_anatomy_module_abi`).
 
 ---
 
