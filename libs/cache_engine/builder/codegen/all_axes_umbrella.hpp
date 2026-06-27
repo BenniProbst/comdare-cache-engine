@@ -16,7 +16,7 @@
 #include <cache_engine/abi/anatomy_module_abi_v1.hpp>
 #include <anatomy/composition_factory.hpp>
 
-// Die 17 Achsen-Registries (jede inkludiert alle Varianten ihrer Achse)
+// Die 17 Kern-Achsen-Registries T0..T16 (jede inkludiert alle Varianten ihrer Achse; q1/q2 + build-Achsen folgen)
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_registry.hpp>          // T0  search_algo
 #include <topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_registry.hpp>  // T1  cache_traversal
 #include <topics/traversal/axis_03m_mapping/axis_03m_mapping_registry.hpp>                  // T2  mapping
