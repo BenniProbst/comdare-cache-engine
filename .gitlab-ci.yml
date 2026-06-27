@@ -105,3 +105,22 @@ contract:
   needs: ["lint:secrets"]   # Codex-Review 06-27: hart auf den Secrets-Gate warten (sonst läuft Build trotz Leak)
   artifacts:
     paths: []     # Override: kein build/Testing/-Artefakt (Storage-500 + Pfad-Mismatch zu build-contract)
+
+# ── Stufe 4b: Contract config-durability-Gate (#195, Pipeline P0 / EPIC #186) ──
+# Müll-/kaputte Config-XMLs duerfen die Parser (cx::parse_document + wd::parse_load_profile) NICHT
+# crashen (Segfault/UB), sondern muessen sauber nullopt liefern. Eigenstaendiger Bau des GTest-
+# Negativtests test_config_durability (kein grosses Artefakt). Crash an einer Müll-Config = Prozess
+# stirbt = ctest FAILED = CI rot → das Gate faengt eine Robustheits-Regression VOR dem Mess-/Deploy-
+# Pfad ab. Mirror der .pmc-/contract-Konventionen (eigener Build, kein Artefakt, lint:secrets-Gate).
+contract:durability:
+  extends: .bare_metal
+  stage: contract
+  tags: [baremetal]
+  needs: ["lint:secrets"]   # hart auf den Secrets-Gate warten (Konvention wie .pmc/contract)
+  script:
+    # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
+    - cmake -B build-dur -G Ninja -DCOMDARE_BUILD_TESTS=ON
+    - cmake --build build-dur --target test_config_durability
+    - ctest --test-dir build-dur -R '^test_config_durability$' --output-on-failure -V
+  artifacts:
+    paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
