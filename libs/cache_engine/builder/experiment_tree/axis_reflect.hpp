@@ -1,9 +1,9 @@
 #pragma once
 // BR-1 (2026-06-02, Doc 27 §3) — GENERISCHE Registry→Baum-Reflektions-Helfer (umbrella-UNABHÄNGIG).
 //
-// Getrennt von registry_to_axis_levels.hpp (das die 17 Komposition-ConfigSets inkludiert = umbrella-schwer),
+// Getrennt von registry_to_axis_levels.hpp (das die ConfigSets aller 22 Achsen (15 Topics) inkludiert = umbrella-schwer),
 // damit der Reflektions-MECHANISMUS gegen eine ECHTE Achsen-Teilmenge schnell + robust verifizierbar ist
-// (der volle 17-Achsen-Einzel-TU ist compiler-heap-schwer). Reflektiert eine Enabled-mp_list je Achse in einen
+// (der volle 22-Achsen-Einzel-TU ist compiler-heap-schwer). Reflektiert eine Enabled-mp_list je Achse in einen
 // statischen AxisLevel (block_id-getaggt → Knoten-Rück-Referenz, Bidirektionalität). C++23, header-only.
 
 #include "experiment_tree.hpp"
