@@ -7,7 +7,7 @@
 // ab — so ist der Baum-Blatt-`binary_id` GARANTIERT gleich dem CompositionRegistry-Key (Round-Trip-Garant).
 //
 // Format (identisch zum Baum: experiment_tree.hpp StaticAxisNode::serialize() = "axis=value", "/"-join):
-//   "search_algo=<W0::name()>/cache_traversal=<W1::name()>/.../filter=<W16::name()>"
+//   "search_algo=<W0::name()>/cache_traversal=<W1::name()>/.../queuing_q2=<W18::name()>"
 // C++23, header-only, KEINE Achsen-Includes (umbrella-unabhängig; nimmt das PermTuple als Template-Param entgegen).
 
 #include <boost/mp11.hpp>
@@ -36,8 +36,8 @@ inline constexpr std::array<std::string_view, 19> kCompositionAxisNames = {
     std::string s{axis}; s += '='; s += value; return s;
 }
 
-/// serialize_composition_path<P>() — der serialisierte Static-Pfad EINER 17-Achsen-Permutation (PermTuple<V0..V16>).
-/// Baut "search_algo=<V0::name()>/.../filter=<V16::name()>" — exakt der `binary_id`, den der Experiment-Baum für
+/// serialize_composition_path<P>() — der serialisierte Static-Pfad EINER 19-Achsen-Permutation (PermTuple<V0..V18>).
+/// Baut "search_algo=<V0::name()>/.../queuing_q2=<V18::name()>" — exakt der `binary_id`, den der Experiment-Baum für
 /// dasselbe Tupel erzeugt (gleiche Achsen-Namen, gleiche W::name()-Werte, gleiche Reihenfolge, gleiches Format).
 template <class P>
 [[nodiscard]] inline std::string serialize_composition_path() {
@@ -54,10 +54,10 @@ template <class P>
     return out;
 }
 
-/// serialize_composition_from_slots<C>() — derselbe Pfad, aber aus den 17 NAMED using-Slots einer
+/// serialize_composition_from_slots<C>() — derselbe Pfad, aber aus den 19 NAMED using-Slots einer
 /// AdHocComposition<…> (C::search_algo::name() … C::filter::name()). Round-Trip-Beleg (BR-2): wenn
 /// serialize_composition_from_slots<CompositionFromPermTuple<P>>() == serialize_composition_path<P>(),
-/// hat CompositionFromPermTuple die Slot-Reihenfolge T0..T16 KORREKT erhalten (P → Composition verlustfrei).
+/// hat CompositionFromPermTuple die Slot-Reihenfolge T0..T18 KORREKT erhalten (P → Composition verlustfrei).
 template <class C>
 [[nodiscard]] inline std::string serialize_composition_from_slots() {
     std::array<std::string_view, 19> const v = {
