@@ -3,7 +3,7 @@
 //
 // Brueckenkopf zwischen PermutationEngine (PermTuple<V...>) und
 // SearchAlgorithmAnatomy<Composition>. Materialisiert pro Cartesian-Produkt-
-// Punkt eine konkrete Composition-Struct mit 17 named using-Aliases.
+// Punkt eine konkrete Composition-Struct mit 19 named using-Aliases (17 Such-Achsen + queuing q1/q2).
 //
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §11.3+§14.3
 // @task V41.F.6.1.R4

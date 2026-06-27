@@ -11,7 +11,7 @@
 //
 //   (2) generate_all_real<Engine> = REALER BR-4-ANATOMIE-PFAD. Delegiert an codegen::emit_adhoc_modules<Engine>
 //       (TYP-getrieben via Engine::for_each_composition_type): je Komposition-TYP ein Modul-.cpp mit
-//       #include all_axes_umbrella.hpp + COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<17 FQ-Typen>). DAS ist der reale,
+//       #include all_axes_umbrella.hpp + COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<19 FQ-Typen>). DAS ist der reale,
 //       baubare, ladbare Anatomie-Emitter (Gate-3/BR-4). Schreibt zusätzlich das Pfad/Index-Manifest dazu.
 //
 // Merksatz: Der String-Pfad (1) kennt nur Namen, kann daraus keinen C++-TYP auflösen → bewusst KEIN
@@ -114,7 +114,7 @@ namespace comdare::cache_engine::builder::experiment {
 
 /// (2) REALER BR-4-ANATOMIE-PFAD (D3 / L-77): delegiert TYP-getrieben an codegen::emit_adhoc_modules<Engine>
 /// (Engine::for_each_composition_type) — je Komposition-TYP ein Modul-.cpp mit #include all_axes_umbrella.hpp +
-/// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<17 FQ-Typen>). DIESE Module sind baubar/ladbar/observierbar (Gate-3/BR-4).
+/// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<19 FQ-Typen>). DIESE Module sind baubar/ladbar/observierbar (Gate-3/BR-4).
 /// Schreibt zusätzlich ein anatomy_manifest.txt (idx → Dateiname). Liefert die geschriebenen .cpp-Pfade.
 /// Damit erfüllt KF-8 den realen-Anatomie-Anspruch an EINER Stelle (der String-Pfad (1) bleibt Diagnose).
 template <class Engine>
