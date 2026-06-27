@@ -92,7 +92,7 @@ concept HasCompositionLocation = IsComposition<C> && requires {
 ///
 /// ```cpp
 /// struct ArtComposition {
-///     // ... 17 using-axes ...
+///     // ... 19 using-axes (17 Such-Achsen + queuing q1/q2) ...
 ///     static constexpr std::string_view name     = "ArtComposition";
 ///     static constexpr std::string_view paper_id = "P01 ...";
 ///     COMDARE_DEFINE_COMPOSITION_LOCATION(
