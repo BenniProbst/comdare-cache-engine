@@ -158,7 +158,7 @@ public:
     /// Anatomie-Gattung (Saeugetier/Vogel/Reptil/Wirbelloses/Pflanze)
     [[nodiscard]] virtual AnatomyGenus     genus() const noexcept = 0;
 
-    /// Anzahl Achsen (Pflicht 17 fuer Mammal, weniger fuer andere Gattungen)
+    /// Anzahl Achsen (Pflicht 19 fuer Mammal = 17 Such-Achsen + queuing q1/q2; weniger fuer andere Gattungen)
     [[nodiscard]] virtual std::size_t      organ_count() const noexcept = 0;
 };
 
