@@ -69,6 +69,7 @@ if (!(Test-Path $gen)) { Write-Output "generated/ fehlt (CMake configure): $gen"
 if ([string]::IsNullOrEmpty($LoadProfileDir)) {
     $LoadProfileDir = Join-Path $repo "libs\cache_engine\algorithm_profiles\load_profiles"
 }
+if (Test-Path $LoadProfileDir) { $LoadProfileDir = (Resolve-Path -LiteralPath $LoadProfileDir).Path }   # ABSOLUT: wird als env COMDARE_LOAD_PROFILE_DIR an run_lazy_150 (anderer CWD) gereicht
 $lpCount = (Get-ChildItem $LoadProfileDir -Filter "*.xml" -File -EA SilentlyContinue | Measure-Object).Count
 if ($lpCount -lt 1) { Write-Output "ABBRUCH: Lastprofil-Verzeichnis leer/fehlt: $LoadProfileDir (Achse 2 wuerde still entfallen)"; exit 3 }
 $env:COMDARE_LOAD_PROFILE_DIR = $LoadProfileDir
@@ -165,6 +166,7 @@ if ([string]::IsNullOrEmpty($Profile)) {
     $Profile = Join-Path $repo "libs\cache_engine\algorithm_profiles\thesis_profiles\m3v2_study.profile.xml"
 }
 if (!(Test-Path $Profile)) { Write-Output "ABBRUCH: Profil fehlt: $Profile"; exit 3 }
+$Profile = (Resolve-Path -LiteralPath $Profile).Path   # auf ABSOLUT aufloesen: run_lazy_150 laeuft mit anderem CWD (%TEMP%) -> Relativpfade (.\libs\...) brechen sonst (parse_thesis_profile=nullopt)
 $profileArg = "profile:" + $Profile + $(if ($SweepAxis) { "@" + $SweepAxis } else { "" })
 
 # #169(A) — REIN-LESENDES Validat VOR dem Bau. -Validate ruft run_lazy_150 --validate <profil> (kein DLL-Bau, keine
