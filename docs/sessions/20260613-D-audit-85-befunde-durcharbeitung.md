@@ -9,6 +9,16 @@
 > `20260611-patternaudit-ergebnis.json`). **Done-Kriterium je Befund (Goal §2.5):** (a) gefixt mit literalem
 > Beleg / (b) Daten-Limitierung im Appendix / (c) User-Entscheid pending. **Re-gegroundet 2026-06-13:** Doc 34 +
 > A1/A2/A3 + GOAL + MASTERPLAN genuin im Kontext gelesen.
+>
+> **NACHTRAG 2026-06-27 (Impl-Agent, User-Auftrag „alle Audit-Befunde in die sichtbare TODO-Liste"):** Die noch
+> OFFENEN Befunde dieses Fable-Voll-Audits (Disposition **[FIX-E]/[USER]/[DOC]/[LIMIT]**) sind jetzt als einzelne
+> sichtbare Tasks **#211–#226** eingereiht. Mapping: **A2 Apparat-Reinheit** (Mess-Echtheits-Herzstück) = #211
+> (container_→LinearScan, K5c/P4) · #212 (NullNotify, K5b/P5/P8) · #213 (Policy-Allocator, K6/P6) · #214 (tier_scan
+> Iterator-Organ, K4/P2) · #215 (CoW-320 cowfix-v1, K3) · #216 (seg_ns n>1 + stat_*-Reset, K9) · #217 (uint16→uint64,
+> K9). **A1-Rest** = #218 (Resume-Härte K8) · #219 (Pipeline-Integrität) · #220 (Load/Insert-Key-Räume K7b). **A3** =
+> #221 (RC Null-Object K1/P1, USER) · #222 (Key-Scrambling K7c) · #223 (Konformitäts-Gate + SelectMode K9). **A4**
+> Pattern-Hygiene = #224 (K10, überschneidet #179). **A5** = #225 (Second-Execution, USER). **LIMIT** = #226 (Appendix).
+> Die **[FIX-DONE]/[GEGENSTANDSLOS]**-Befunde bleiben unter #140-142/#157/#158/#160-165/#133 getrackt (nicht doppelt).
 
 ## §0 Zähl-Abgleich + Disposition-Schema
 
