@@ -23,6 +23,22 @@
 // @task #702 V41.F.6.1.R5.C.A3
 // @related [[execution-engine-als-wurzel]] [[anatomie-gattungen]]
 //          [[anatomie-nur-achsen-und-observer]]
+//
+// ── DATEI-NAVIGATION (god-header ~1805 Z.: EIN Adapter, viele ABI-Belange; bei Anker-Drift den
+//    jeweiligen `// ───`-Banner greppen — Zeilen-Anker sind approximativ) ──────────────────────────
+//   • SearchAlgorithmAbiAdapter<A>    — Klassen-Doku + Vererbungs-Matrix (MESSUNG-AN vs -AUS)     (~:127)
+//   • IExecutionEngine-Override       — Lifecycle warm_up/run/reset/shutdown + engine_name        (~:150)
+//   • IResourceControllableTier (KF-4)— tier_query_resource_caps / tier_apply_resource_control    (~:180)
+//        IMMER verfuegbar; 5 steuerbare Achsen (concurrency/prefetch/allocator/traversal/value_handle)
+//   • IAnatomyBase-Override           — composition_name / paper_id / genus / organ_count          (~:212)
+//   • IMeasurableWorkload (Pfad A)    — run_workload / _segmented (4 Seg) / _segmented_v2 (19 Seg)  (~:232)
+//   • IDriveableTier-Antrieb (IMMER)  — tier_insert/lookup/erase/clear/size (Pfad-B Observer-Auto-Kopplung)(~:672)
+//        + Observer (MESSUNG-AN)      — fill_observer_v3 (~:907) · fill_segment_timing_v3 (~:1136) · tier_observe (~:1312)
+//   • IRollbackableTier (MESSUNG-AN)  — memento_all: tier_save_all / tier_rollback_all (CoW)        (~:1331)
+//   • §3.3-Delegations-Diagnose       — const-Diagnosen, KEINE ABI-Flaeche (tier_rollback_is_exact …)(~:1463)
+//   • IScannableTier (MESSUNG-AN)     — tier_scan (YCSB-E Range-Scan)                               (~:1511)
+//   • IMigratableTier (MESSUNG-AN)    — tier_migrate_step (echter 2-Ebenen-Move, P4 #123)           (~:1557)
+//   • private Member (~:1631)         — container_ (LayoutAwareChunkedStore<N,L,A>, ~:1680) + Mess-Organe + state_
 
 #include "anatomy_base.hpp"
 #include "measurable_workload.hpp"   // F15/Stufe B: optionales Mess-Sub-Interface (ABI-sicher)
@@ -121,9 +137,9 @@ namespace comdare::cache_engine::anatomy {
 /// ```
 ///
 /// Lifecycle-Implementierung: der interne `state_` reflektiert die Pflicht-
-/// Phasen `Uninitialized → Warming → Running → Idle → Shutdown`. Pilot R5.C.A3
-/// setzt state_ in den entsprechenden Hooks. Echte Cache-Preheat/Bulk-Load
-/// kommt mit R5.D (CacheEngineBuilder Workload-Treiber).
+/// Phasen `Uninitialized → Warming → Running → Idle → Shutdown`; die Lifecycle-Hooks
+/// (warm_up/run/reset/shutdown) setzen NUR `state_` (kein eigener Preheat). Die echte
+/// Mess-Last/Bulk-Load laeuft separat ueber den Workload-Treiber (run_workload, s.u. IMeasurableWorkload).
 template <AnatomyConcept A>
 class SearchAlgorithmAbiAdapter final : public IAnatomyBase,
                                         public IResourceControllableTier,   // KF-4/L-MEAS: IMMER (auch Messung-aus), eigenständiges Sub-Interface (dynamic_cast)
@@ -236,12 +252,14 @@ public:
     // (C-2): Akkumulator der 4 per-Segment-ns über die Batches (nur Mess-Hilfsstruktur, quert die ABI NICHT).
     struct SegmentAccumulator { std::int64_t s1 = 0, s2 = 0, s3 = 0, s4 = 0; };
 
-    /// KOMPOSIT-Mess-Last (R5.B, F15 Stufe B) — uebt DREI Achsen der geladenen Komposition aus:
+    /// KOMPOSIT-Mess-Last (R5.B, F15 Stufe B) — uebt VIER Achsen der geladenen Komposition aus:
     ///   Segment 1: insert/lookup auf A::composition_t::search_algo  (search_algo-Achse)
     ///   Segment 2: alloc/dealloc-Churn ueber A::composition_t::allocator (allocator-Achse)
     ///   Segment 3: Feld-Scan ueber A::composition_t::memory_layout (memory_layout-Achse; AoS-strided
     ///              vs SoA-contiguous → echter Cache-Effekt)
-    /// Alle drei kompiliert IN der DLL; die Batch-Latenz misst die GANZE Komposition entlang der
+    ///   Segment 4: Encode-Scan ueber A::composition_t::serialization (serialization-Achse; raw <
+    ///              compressed < var_len < succinct CPU-Aufwand, Doku 22 §4)
+    /// Alle vier kompiliert IN der DLL; die Batch-Latenz misst die GANZE Komposition entlang der
     /// variierten Achsen. F15s paarweiser Holm-Test isoliert jede Achse (Paare, die sich nur in einer
     /// Achse unterscheiden) — Dominanz/Balance der Segmente ist dafuer irrelevant.
 #if COMDARE_MEASUREMENT_ON   // V5-I2.2: Pfad-A run_workload NUR bei Messung-AN (V3-Designfehler; host-relokalisiert in I9)
@@ -893,6 +911,10 @@ public:
     }
 
 #if COMDARE_MEASUREMENT_ON   // V5-I2.2: tier_observe (observer_all) NUR bei Messung-AN
+    // ─────────────────────────────────────────────────────────────────────
+    // IObservableTier / Observer (MESSUNG-AN) — liegt physisch im IDriveableTier-Block: fill_observer_v3 +
+    // fill_segment_timing_v3 + tier_observe (Q1-Sequenz: Observer-READ → Pfad-B-Timing → per-op-Organ-Reset).
+    // ─────────────────────────────────────────────────────────────────────
     // I1 (2026-06-05): der frühere V1-Observe + die V2-Observer-Fill/Override-Methoden (eigenes V2-Sub-Interface)
     // sind ENTFERNT. Ihre Felder sind im konsolidierten POD subsumiert (V1 search→axis_stats[0], alloc→[6]; V2
     // telemetry→[10], layout→[5], serialization→[9], node_type→[4]). Rationale: docs/architecture/31_observer_interface_konsolidierung_i1.md.
@@ -1335,8 +1357,9 @@ public:
     //
     // IN-MEMORY-Memento (search_organ_ + container_ leben komplett im RAM): eine Tiefkopie IST der vollständige,
     // korrekte Memento für die RAM-residenten Achsen (search_algo/node_type/memory_layout/allocator-Arena, die
-    // alle im ComposedStore liegen). Für die DISK-residenten Achsen (io_dispatch/serialization/migration) ist
-    // „ein einfacher Snapshot reicht NICHT" → explizites Checkpoint-save_state je Achse folgt in V5-I8.
+    // alle im ComposedStore liegen). Für die DISK-/zustandsreichen Achsen (io_dispatch/serialization/migration),
+    // wo „ein einfacher Snapshot NICHT reicht", greift das per-Achsen-Checkpoint via MementoAxis::save_state/
+    // restore_state (V5-I8 umgesetzt; s. memento_all unten, das BEVORZUGT über den per-Achsen-Memento läuft).
     //
     // if-constexpr-Kopierbarkeits-Guards: kompiliert für JEDE Komposition. Nicht-kopierbare Organe (selten;
     // z.B. Allocator mit OS-Handle) degradieren zu no-op-Rollback — der Treiber (I7) muss diese via
@@ -1483,9 +1506,9 @@ public:
     // ─────────────────────────────────────────────────────────────────────────────
     // (E-Welle-A2 · Befund-2/Q2-Schritt-4 · Meta-Lehre #3 — Schritt 3 des de-risked Pfads) Diagnose: routet der
     // GEMESSENE Such-Pfad (T0) durch den EINEN container_-Store (node/layout/allocator wirken REAL auf die Suche)
-    // ODER liefert der separate search_organ_-Monolith die Such-Metrik (= Befund-2-Schatten)? AKTUELL: false —
-    // fill_observer_v3 zieht das search-Feld aus search_organ_.statistics() (:788), nicht aus container_. A2.5 macht
-    // dies conditional `StoreTraversableSearchAlgo<Composition::search_algo>` (Array-Such-Algo-Familie → true; Tree/
+    // ODER liefert der separate search_organ_-Monolith die Such-Metrik (= Befund-2-Schatten)? AKTUELL per-Komposition
+    // CONDITIONAL (A2.5): fill_observer_v3 (s.o.) zieht das search-Feld via `StoreTraversableSearchAlgo<SearchAlgo>`
+    // aus container_.statistics() (Array-Such-Algo-Familie → true) bzw. sonst aus search_organ_.statistics() (Tree/
     // Trie/Hash = eigener NodePoolStore → Weg-B false, ehrliche Appendix-Limitierung; G3 code-bestätigt). Ohne true
     // sind die Achsen-Austauschbarkeits-Belege für dieses Tier teils Apparat-Artefakt (Doc 34 §9.1 SOLL-Regel 3 +
     // A3 Meta-Lehre #3: Diff-Beweise brauchen NACHWEISLICH verschiedene Organ-Pfade). Verifikations-Hook für A2.5.
