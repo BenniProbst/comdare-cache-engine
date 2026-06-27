@@ -26,6 +26,7 @@ workflow:
 stages:
   - lint
   - build
+  - sanitize
   - contract
 
 variables:
@@ -83,6 +84,19 @@ pmc:intel:
   # Reaktivieren: CI-Variable COMDARE_PROD2_AVAILABLE="true" setzen.
   rules:
     - if: '$COMDARE_PROD2_AVAILABLE == "true"'
+
+# ── Stufe 3b: Sanitize (ASan+UBSan, 10-Stufen-Prinzip P1b) — fängt Memory-/UB-Bugs ──
+# advisory (allow_failure) bis #179-Bereinigung, danach HART. Eigener Debug+Sanitizer-Build, kein Artefakt.
+sanitize:asan-ubsan:
+  extends: .bare_metal
+  stage: sanitize
+  tags: [baremetal]
+  needs: []
+  allow_failure: true
+  script:
+    - cmake -B build-san -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+    - cmake --build build-san --target test_abi_interface
+    - 'ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1 ctest --test-dir build-san -R "^test_abi_interface$" --output-on-failure -V'
 
 # ── Stufe 4: Contract (aus ci-templates; ABI-Smoke eigenständig, kein großes Artefakt) ──
 contract:
