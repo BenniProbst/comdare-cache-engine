@@ -30,7 +30,7 @@ stages:
 
 variables:
   GIT_SUBMODULE_STRATEGY: none
-  CMAKE_BUILD_PARALLEL_LEVEL: "8"
+  CMAKE_BUILD_PARALLEL_LEVEL: "4"          # A-Folge (User 2026-06-26): 8 Kern-cgroup / concurrent=2 = 4 (keine Oversubscription)
   COMDARE_LINT_PATHS: "libs apps tests adapters benchmark_suite benchmarks"
   # contract: ABI-Contract-Smoke = test_abi_interface (std::map/ABI-Interface-Kontrakt). test_v41_anatomy_module_abi
   # ist der schwerere anatomy-MODULE-Test (eigener Linux-Build) -> gehoert in den vollen Test-Stage/#179-Sweep,
@@ -45,10 +45,14 @@ lint:format:
   extends: .lint-format
   tags: [baremetal]
   allow_failure: true
+  rules:                          # B (User 2026-06-26): bis #179-Format-Pass MANUELL (raus aus jedem Push; harte Gates bleiben)
+    - when: manual
 lint:static:
   extends: .lint-static
   tags: [baremetal]
   allow_failure: true
+  rules:
+    - when: manual
 
 # ── Bare-Metal-PMC-Smoke (build+measure in EINEM Job; KEIN großes Artefakt) ──
 .bare_metal:
