@@ -8,11 +8,12 @@ Lizenz: Apache 2.0 · BEP Venture UG / Marke Comdare
 
 ---
 
-## Derzeitiger Status: Phase 4.B Skelett (Implementierung ausstehend)
+## Derzeitiger Status: Kern + Mess-Pfad lauffähig; Voll-Permutations-Build teils skelettiert
 
-Dieses Repository enthaelt die **strukturelle Vorbereitung** der Diplomarbeit-
-Implementation. Die eigentliche Implementation wird in Phase 5 (drawio UML)
-und folgenden Phasen durchgefuehrt:
+Dieses Repository enthaelt die Cache-Engine-Implementation: der Kern (Such-/Anatomie-/
+Komposition + Cross-ABI) und der lokale Mess-Pfad (`perm_runner` + Tier-DLLs, s. „Messwerte
+erzeugen") sind lauffähig; der Voll-Permutations-Build (alle Vendor-Allokatoren + Massen-
+Permutationen) und die ZIH-Skalierung folgen phasenweise.
 
 ## Projekt-Domaenen (gem. Domaenenmodell v3 + v4)
 
@@ -91,7 +92,7 @@ und 2 `testPresets` (`msvc-release`, `gcc-release` mit `outputOnFailure`).
 ## Messwerte erzeugen (Kommandozeile) — Schnellstart
 
 Diese Kette erzeugt **echte Messwerte aus echten SearchAlgorithm-DLL-„Tieren"** lokal (Windows/MSVC, gate-frei).
-Ein „Tier" = eine kompilierte Permutations-DLL (17 Anatomie-Achsen + 3 Build-Achsen); `perm_runner` lädt sie,
+Ein „Tier" = eine kompilierte Permutations-DLL (19 SearchAlgorithm-Slots T0..T18 = 17 Kern-Achsen + queuing q1/q2, plus 3 Build-Achsen); `perm_runner` lädt sie,
 treibt den Mess-Workload (`n` Inserts + `n` Lookups) und gibt eine `result_ingest`-Zeile aus.
 
 **0) Einmalig konfigurieren** (erzeugt `build/msvc-release/generated/` + baut `perm_runner.exe`):
@@ -173,7 +174,7 @@ Siehe `ext/STATUS_UEBERSICHT.md` und parallel:
 
 **11 Repos geklont:** P01, P02, P03, P04, P05, P07, P10, P20, P25, P29, P30
 **14 Re-Implementations noetig:** P11-P14, P16-P19, P21-P24, P26, P27
-**6 Email-Anfragen noetig:** P06, P28, P31, P32, P33 (siehe `docs/email/20260508-1800-email_kontakte.md`)
+**6 Email-Anfragen noetig:** P06, P08, P28, P31, P32, P33 (siehe `docs/email/20260508-1800-email_kontakte.md`)
 **2 Originalpaper-Konzept:** P09 (LOUDS, SDSL als Referenz), P15 (Survey)
 
 ## Naechste Phasen
