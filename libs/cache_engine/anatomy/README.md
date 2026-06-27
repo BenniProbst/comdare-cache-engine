@@ -26,7 +26,7 @@ Template-Instantiationen mit konkreter Composition.
 
 ## Dateien
 
-- `composition_concept.hpp` — `IsComposition` Pflicht-Concept mit 17 using-Aliases
+- `composition_concept.hpp` — `IsComposition` Pflicht-Concept mit 19 using-Aliases (17 Such-Achsen + queuing q1/q2)
 - `search_algorithm_anatomy.hpp` — `SearchAlgorithmAnatomy<C>` Template (R3 Pilot mit std::map Container)
 - `known_algorithms.hpp` — 6 Template-Instantiationen (Art/Hot/Wormhole/SuRF/Masstree/Start)
 
