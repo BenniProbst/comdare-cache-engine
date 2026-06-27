@@ -1,7 +1,7 @@
 #pragma once
 // BR-3-OBS-22 (2026-06-02, Doc 27 §0.1/§3) — Observer-Klassifikation je der 22 Achsen ("kein Wegschrumpfen").
 //
-// User-Direktive 2026-06-02: ALLE 22 Achsen tragen einen EIGENEN Observer — NICHT nur die 17 SearchAlgorithm-
+// User-Direktive 2026-06-02: ALLE 22 Achsen tragen einen EIGENEN Observer — NICHT nur die 19 SearchAlgorithm-
 // Komposition-Slots. Die Differenzierung ist GATTUNGS-KORREKT (Doc 27 §0.1, User-Entscheidung „differenziert"):
 //   • SearchAlgorithmObserver : die 19 Komposition-Achsen → ObserverAggregate<19> (real für ObservableAxis,
 //     R5.B: search_algo + allocator + ... operativ; Rest Default-Snapshot). Träger: NodeObserverSnapshot (BR-3).
@@ -40,7 +40,7 @@ enum class AxisObserverKind {
 
 struct AxisObserverClass { std::string_view axis; AxisObserverKind kind; };
 
-/// ALLE 22 Achsen klassifiziert (Reihenfolge = registry_to_axis_levels build_all_axis_levels: 17 Komposition, dann 5 außerhalb).
+/// ALLE 22 Achsen klassifiziert (Reihenfolge = registry_to_axis_levels build_all_axis_levels: 17 Kern-Achsen, dann 3 build-only + q1/q2 = 19 Komposition + 3 DefinitionOnly).
 inline constexpr std::array<AxisObserverClass, 22> kAxisObserverClasses = {{
     {"search_algo",        AxisObserverKind::SearchAlgorithmObserver},
     {"cache_traversal",    AxisObserverKind::SearchAlgorithmObserver},
