@@ -1,8 +1,8 @@
 #pragma once
-// D8 / L-74c (2026-06-02) — R5.B-Operabilitäts-Klassifikation der 17 SearchAlgorithm-Komposition-Achsen.
+// D8 / L-74c (2026-06-02) — R5.B-Operabilitäts-Klassifikation der 17 SearchAlgorithm-Kern-Achsen T0..T16.
 //
 // EHRLICHE Transparenz statt Fake-Observer (Memory feedback_no_success_marks_without_literal_output): NICHT jede
-// der 17 Achsen wird real getrieben. Diese constexpr-Tabelle macht literal abrufbar, welche Achse heute (a) REAL
+// der 17 Kern-Achsen T0..T16 wird real getrieben. Diese constexpr-Tabelle macht literal abrufbar, welche Achse heute (a) REAL
 // OPERATIV gemessen ist, (b) operativ-FÄHIG (Organ + statistics vorhanden, Verdrahtung in tier_observe = Composition-
 // Driver-Folge), (c) DESKRIPTOR (passive Build-/Compile-Konstante, kein Mess-Zustand). `observable_axis_count` im
 // Cross-ABI-POD (observable_tier.hpp) zählt die real getriebenen — diese Tabelle ist die ehrliche Grund-Klassifikation.
@@ -16,7 +16,7 @@
 
 namespace comdare::cache_engine::builder::experiment {
 
-/// R5.B-Operabilität einer SearchAlgorithm-Komposition-Achse (T0..T16).
+/// R5.B-Operabilität einer SearchAlgorithm-Kern-Achse (T0..T16).
 enum class AxisOperability {
     Operative        = 0,  ///< heute REAL getrieben + im Cross-ABI-POD beobachtet (search_algo, allocator)
     OperativeCapable = 1,  ///< Organ + statistics vorhanden; Verdrahtung in tier_observe = Composition-Driver-Folge
@@ -29,8 +29,8 @@ struct AxisOperabilityEntry {
     std::string_view note;
 };
 
-/// Die 17 Komposition-Achsen (Reihenfolge T0..T16, = composition_factory/axis_path_serialization) mit ehrlichem
-/// R5.B-Status. 2 Operative + 4 OperativeCapable + 11 Descriptor == 17 (kein Achsen-Wegschrumpfen).
+/// Die 17 Kern-Achsen T0..T16 (Reihenfolge = composition_factory/axis_path_serialization; queuing_q1/q2 @ T17/T18 separat)
+/// mit ehrlichem R5.B-Status. 2 Operative + 4 OperativeCapable + 11 Descriptor == 17 (kein Achsen-Wegschrumpfen).
 inline constexpr std::array<AxisOperabilityEntry, 17> kAxisOperability = {{
     {"search_algo",        AxisOperability::Operative,        "real getrieben (SearchAlgoStatistics im POD)"},
     {"cache_traversal",    AxisOperability::Descriptor,       "observable-faehig; nicht in tier_observe verdrahtet"},

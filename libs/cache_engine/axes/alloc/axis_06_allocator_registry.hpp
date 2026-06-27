@@ -1,9 +1,9 @@
 #pragma once
-// V41.F.6.1.C Stufe 1 Zentrale Topic-Registry fuer Allocator-Achse 6 (W6-Pattern)
+// V41.F.6.1.C Zentrale Topic-Registry fuer Allocator-Achse 6 (W6-Pattern)
 //
 // @topic allocator
 // @achse 6
-// @stand V41.F.6.1.C Stufe 1
+// @stand V41.F.6.1.C Stufe 2 (enabled-Filter aktiv, s. (2))
 //
 // **Zweck:** Zentrale Stelle fuer Vendor-Klassen-Liste + Compile-Time-Filter via
 // Boost.MP11. Konsolidiert alle Vendor-Wrapper-Klassen in einer mp_list und
@@ -15,11 +15,11 @@
 // Dead-Code-Elimination aus dem Binary entfernt (`-ffunction-sections -fdata-sections
 // -Wl,--gc-sections` auf GCC/Clang, `/OPT:REF /OPT:ICF` auf MSVC).
 //
-// **HINWEIS:** Stufe 1 hat noch die Wrapper im alten Stand (#ifdef-basiert).
-// Die `enabled` Konstante in jedem Wrapper wird in Stufe 2 ergaenzt — bis dahin
-// ist `is_enabled<T>` ein Dummy-Predicate, das alle includierten Vendor true zurueck gibt.
+// **HINWEIS:** Jeder Wrapper traegt `static constexpr bool enabled` (gesetzt ueber den
+// zentralen Flags-Header); `is_enabled<T>` wertet dieses `T::enabled` aus (s. (2) unten).
+// `EnabledVendors` (3) enthaelt daher genau die Vendor mit enabled==true.
 
-// V41.F.6.1.C Stufe 1: Flags-Header ist CMake-generiert in ${BUILD}/generated/...
+// Flags-Header ist CMake-generiert in ${BUILD}/generated/... (Achse-6 enabled-Flags)
 #include <axes/alloc/axis_06_allocator_flags.hpp>
 
 // Vendor-Wrapper-Includes (alle bekannten Allocator-Wrapper)
@@ -112,10 +112,10 @@ using AllVendors = mp::mp_list<
 >;
 
 // ───────────────────────────────────────────────────────────────────────────
-// (2) is_enabled - Compile-Time-Predicate ueber Vendor-Klasse (Stufe 2 LIVE)
+// (2) is_enabled - Compile-Time-Predicate ueber Vendor-Klasse (Stufe 2)
 // ───────────────────────────────────────────────────────────────────────────
 //
-// V41.F.6.1.C Stufe 2 (HEUTE): jeder Wrapper hat `static constexpr bool enabled`
+// V41.F.6.1.C Stufe 2: jeder Wrapper hat `static constexpr bool enabled`
 // als Compile-Time-Konstante, die ueber den zentralen Flags-Header gesetzt wird.
 // Vendor wird nur dann in EnabledVendors aufgenommen wenn T::enabled true ist.
 
