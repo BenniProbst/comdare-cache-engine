@@ -4,8 +4,9 @@
 // Ersetzt die externe XML-String-AxisRegistry (profile_to_tree) als Quelle der Wahrheit.
 //
 // User-Korrektur 2026-06-02: KEINE 17-Achsen-Bindung, sondern ALLE 22 (15 Topics). 17 davon sind AdHocComposition-
-// Slots T0..T16; die 5 außerhalb (page_type/01, simd_extension/09b, general_hardware/12, queuing q1/q2) sind
-// eigenständige Permutations-Achsen (andere Gattung / Sub-Aspekt), die der Baum EBENFALLS bindet.
+// Slots T0..T16; die übrigen 5 Registry-Achsen = 3 build-only-Achsen (page_type/01, simd_extension/09b,
+// general_hardware/12; DefinitionOnly) + die 2 queuing-KOMPOSITION-Achsen q1/q2 (gehören zur 19-Slot-Komposition
+// als T17/T18, NICHT „andere Gattung" — nur spät in der Registry-Reihenfolge), die der Baum EBENFALLS bindet.
 // Anker (namespace-sicher): TopicConfigSet::StaticAxisVariants_* (+ axis_01_page_type::EnabledPageTypes).
 //
 // ⚠️ OOM-HINWEIS: dieser Header inkludiert ALLE Achsen-Registries → in EINEM TU compiler-heap-schwer (Windows-OOM
@@ -41,7 +42,7 @@ namespace comdare::cache_engine::builder::experiment {
 // ── Die 22 realen Achsen-Enabled-Listen, namespace-sicher via TopicConfigSet (+ page_type-Registry) ──
 namespace axes22 {
 namespace ce = ::comdare::cache_engine;
-// 17 AdHocComposition-Slots T0..T16:
+// 17 Kern-Komposition-Achsen T0..T16 (die AdHocComposition hat 19 = diese 17 + q1/q2 @ T17/T18):
 using T00_search_algo        = ce::traversal::TopicConfigSet::StaticAxisVariants_03a;
 using T01_cache_traversal    = ce::traversal::TopicConfigSet::StaticAxisVariants_03b;
 using T02_mapping            = ce::traversal::TopicConfigSet::StaticAxisVariants_03m;
@@ -59,7 +60,7 @@ using T13_index_organization = ce::search_engine::TopicConfigSet::StaticAxisVari
 using T14_io_dispatch        = ce::io::TopicConfigSet::StaticAxisVariants;
 using T15_migration_policy   = ce::migration::TopicConfigSet::StaticAxisVariants;
 using T16_filter             = ce::filter::TopicConfigSet::StaticAxisVariants;
-// 5 Achsen AUSSERHALB der 17-Slot-Komposition:
+// 5 weitere Registry-Achsen: 3 build-only (page_type/simd_extension/general_hardware) + 2 queuing-Komposition (q1/q2, gehoeren zur Komposition):
 using T17_page_type          = ce::nodes::axis_01_page_type::EnabledPageTypes;
 using T18_simd_extension     = ce::hardware::TopicConfigSet::StaticAxisVariants_09b;
 using T19_general_hardware   = ce::hardware::TopicConfigSet::StaticAxisVariants_12;
@@ -68,7 +69,7 @@ using T21_queuing_q2         = ce::queuing::TopicConfigSet::StaticAxisVariants_Q
 }  // namespace axes22
 
 /// Baut ALLE 22 Achsen als statische AxisLevels aus den REALEN Enabled-Listen (Fanout = volles Enabled-Inventar,
-/// block_id-getaggt → Knoten-Rück-Referenz). Die 17 Komposition-Achsen zuerst (T0..T16), dann die 5 außerhalb.
+/// block_id-getaggt → Knoten-Rück-Referenz). Die 17 Kern-Achsen zuerst (T0..T16), dann 3 build-only (page_type/simd/hw) + die 2 queuing-Komposition-Achsen (q1/q2).
 [[nodiscard]] inline std::vector<AxisLevel> build_all_axis_levels() {
     std::vector<AxisLevel> lv;
     lv.reserve(22);
