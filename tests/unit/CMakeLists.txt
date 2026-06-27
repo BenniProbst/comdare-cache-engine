@@ -165,6 +165,19 @@ comdare_add_test(test_abi_interface
     SOURCES test_abi_interface.cpp
     LIBRARIES comdare::cache_engine_concepts)
 
+# #195 contract config-durability-Gate (Pipeline P0, EPIC #186): Müll-/kaputte Config-XMLs
+# duerfen die Parser (cx::parse_document + wd::parse_load_profile) NICHT crashen (Segfault/UB),
+# sondern muessen sauber nullopt liefern. GTest-Negativtest als hartes CI-Gate
+# (.gitlab-ci.yml: Job contract:durability). Header-only Parser → keine LIBRARIES noetig;
+# Include-Roots gespiegelt von test_a1_load_profile_opmix (load_profile_parser.hpp + transitiv
+# serialization/xml_config_parser/xml_reader.hpp).
+comdare_add_test(test_config_durability
+    SOURCES test_config_durability.cpp)
+target_include_directories(test_config_durability PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+
 # Phase 6.5 (REV 7, 2026-05-13): TestDataSetAccumulationEngine
 comdare_add_test(test_test_data_accumulation
     SOURCES test_test_data_accumulation.cpp
