@@ -178,6 +178,18 @@ target_include_directories(test_config_durability PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/common")
 
+# #197 chaos drift-gate (Pipeline P0, EPIC #186, Stufe 6): Mess-Drift-Detektor + Rerun-Gate.
+# Deterministischer Mechanismus-Test (Stage `chaos`, Job chaos:drift in .gitlab-ci.yml): assess_drift
+# klassifiziert stabile/instabile Wiederholungs-Gruppen + run_with_drift_gate heilt sich selbst (Rerun
+# + Warn-Log) bzw. gibt advisory die stabilste Gruppe zurueck. Header-only
+# (builder/commands/drift_detector.hpp → builder/commands/latency_stats.hpp) → keine LIBRARIES; Include-
+# Root libs/cache_engine wie #195. (Anwendung auf reale PMC-Messungen + Schwellen-Kalibrierung = #156.)
+comdare_add_test(test_chaos_drift_gate
+    SOURCES test_chaos_drift_gate.cpp)
+target_include_directories(test_chaos_drift_gate PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+
 # Phase 6.5 (REV 7, 2026-05-13): TestDataSetAccumulationEngine
 comdare_add_test(test_test_data_accumulation
     SOURCES test_test_data_accumulation.cpp

@@ -28,6 +28,7 @@ stages:
   - build
   - sanitize
   - contract
+  - chaos          # Stufe 6 (#197, EPIC #186): Mess-Drift-Detektor + Rerun-Gate (Selbstheilung)
 
 variables:
   GIT_SUBMODULE_STRATEGY: none
@@ -124,3 +125,24 @@ contract:durability:
     - ctest --test-dir build-dur -R '^test_config_durability$' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
+
+# ── Stufe 6: chaos Mess-Drift-Gate (#197, Pipeline P0 / EPIC #186) ──
+# Diplomarbeit-Kern: wissenschaftlich belastbare Messung statt driftverseuchter Werte. >5%
+# Wiederholungs-Abweichung (Median-relativ) ueber die N (Default 3) 2-Phasen-Wiederholungen → die
+# ganze Gruppe wird neu gemessen (bis max_reruns) + Warn-Log; erschoepft sich das Budget, wird advisory
+# die stabilste Gruppe behalten (Selbstheilung statt stiller Korruption). Dieser Job verifiziert den
+# MECHANISMUS deterministisch hart (Detektor + Rerun-Controller + Warn-Log via test_chaos_drift_gate);
+# die ANWENDUNG auf reale PMC-Messungen + die Schwellen-Kalibrierung sind #156-gegatet (mehrtaegiger
+# Voll-Lauf). Mirror der .pmc-/contract-Konventionen (eigener Build, kein Artefakt, lint:secrets-Gate).
+chaos:drift:
+  extends: .bare_metal
+  stage: chaos
+  tags: [baremetal]
+  needs: ["lint:secrets"]   # hart auf den Secrets-Gate warten (Konvention wie .pmc/contract/durability)
+  script:
+    # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
+    - cmake -B build-chaos -G Ninja -DCOMDARE_BUILD_TESTS=ON
+    - cmake --build build-chaos --target test_chaos_drift_gate
+    - ctest --test-dir build-chaos -R '^test_chaos_drift_gate$' --output-on-failure -V
+  artifacts:
+    paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen Smoke-Jobs)
