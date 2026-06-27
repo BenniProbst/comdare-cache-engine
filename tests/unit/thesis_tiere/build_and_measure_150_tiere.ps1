@@ -49,7 +49,7 @@ param(
     [switch]$Validate
 )
 $ErrorActionPreference = "Stop"
-$repo   = "C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine"
+$repo   = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path  # repo-relativ (Script: tests\unit\thesis_tiere -> comdare-cache-engine) statt hartkodiertem Absolutpfad; macht den manuellen Lauf portabel
 $gen    = Join-Path $repo "build\msvc-release\generated"
 $srcDir = Join-Path $repo "tests\unit\thesis_tiere"
 $out    = Join-Path $repo "build\thesis_tiere"
