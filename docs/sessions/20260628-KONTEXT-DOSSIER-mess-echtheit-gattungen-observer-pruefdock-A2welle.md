@@ -320,6 +320,20 @@ Container-Gattung (array-als-Speicher) und die SearchAlgorithm-Gattung (array-al
 der **node_type-Achse** + **#188** (Such-über-Store). ⟹ **#217 = USER-Entscheid, nicht autonom.** Bis dahin:
 Array256/Array65535 ehrlich als Narrow-Diskriminator-Pilots mit Range-Limit führen ([LIMIT], Goal §2.5-b).
 
+**RESOLUTION (User-Entscheid 2026-06-28) — #217 GEKLÄRT, KEIN uint16→uint64:** Ein **Array ist grundsätzlich ein
+Container** (Container-Gattung). Jede Achse hat ein **einheitliches, zur Compile-Zeit per Metaprogrammierung
+gebautes Interface** = gekapseltes Modul ihrer Ebene, das seine Dienste der Implementierung **anderer** Achsen
+anbietet. Es kann eine **Container-Achse** geben, die als „Algorithmus" verschiedene Container-Algorithmen (das
+Array über die Container-Gattung) unter der Haube aufruft; **diese Achse wird dann in den Fanout der Bäume
+(node_type) integriert**, sofern der Originalalgorithmus es bestimmt = **Metaprogrammierung-Rekursion** (eine
+Gattung rekursiv als Sub-Komponente einer anderen über das uniforme Achsen-Interface). ⟹ Das Array steht damit
+**Fanout + standalone-Container + search_algo** zur Verfügung — je Konfiguration, **OHNE Key-Width-Änderung**
+(`uint16` = Fanout-Diskriminator/Container-Index, korrekt). Die Trunkierung existiert NUR im falschen Framing
+(array-als-standalone-search_algo mit vollem Key); im korrekten Modell (Container-Achse → ggf. Baum-Fanout)
+nicht. **Entscheid steht** (array-is-Container + Metaprog-Rekursion); die volle **Container-Achsen→Fanout-
+Rekursions-Implementierung** ist Architektur-Arbeit mit der node_type-Achse (verwandt mit #188). Bis dahin
+standalone-getriebene Array256/65535 als Narrow-Diskriminator-Pilots ([LIMIT]).
+
 ## §11 Reconciliation-Befund: der #211–#226-NACHTRAG ist teils STALE (2026-06-28)
 
 Beim Abarbeiten code-verifiziert: **#220 (K7b Load/Insert-Key-Räume) + #222 (K7c Zipfian-Scrambling) sind
