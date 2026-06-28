@@ -25,7 +25,12 @@ ob wir uns verrannt haben. Dieses Dossier hält das Ergebnis fest (= Task **#227
 
 ---
 
-## §1 Das Drei-Ebenen-Modell (Gattung / Unterklasse / Organe) — Soll = Diplomarbeit
+## §1 Das Drei-Ebenen-Modell der ANATOMIE (A1 Gattung / A2 Unterklasse / A3 Organe) — Soll = Diplomarbeit
+
+> **⚠️ ZWEI orthogonale „Ebenen"-Systeme — Konvention ab 2026-06-28 (NICHT verwechseln; die alte Nummern-Kollision ist hiermit aufgelöst):**
+> - **A-Ebenen = ANATOMIE-Struktur EINES Lebewesens (dieser §1):** **A1** Gattung (außen, Prüf-Dock-Interface) · **A2** Gattungs-Unterklasse (fixer Achsen-Satz) · **A3** Organe/Achsen (innen). Außen→innen.
+> - **E-Ebenen = EXPERIMENT-Maschinerie / Mess-Pipeline (§13):** **E4** XML-Experiment-Definition + Messwert-Extraktion/Auswertung (Superprojekt) · **E3** Permutations-B+-Baum pro Gattung · **E2** Tier-Binaries (StaticAxisNode) · **E1** RC-Laufzeit (DynamicVariableNode). Oben→unten.
+> - **Beziehung:** die E-Pipeline permutiert + misst die A-Strukturen — **E2** materialisiert je EINE vollständige Anatomie (A1+A2+A3) als statische Tier-Binary; **E3** (B+-Baum *pro Gattung* = pro A1) permutiert die Organe/Achsen (A3) der Unterklasse (A2). **Die TODO-Ebenen-Notizen (§15) referenzieren stets die E-Ebenen.** Die folgenden §1-Bullets „Ebene 1/2/3" SIND A1/A2/A3.
 
 Quelle (autoritativ): `thesis/diplomarbeit/anhang/de/C_glossary.tex` (Definitionen) + `…/kapitel/de/04_concept_architecture.tex`
 (`ssec:three-levels`).
@@ -412,3 +417,25 @@ Zwei Präzisierungen zu §12: (1) Der Permutations-B+-Baum ist die **Gesamtmasch
 ### Befund-/Fix-Log (chronologisch, je Ebene — wird beim Durchgehen fortgeschrieben)
 
 **B4-1 (Ebene 4, 2026-06-28) — runtime_dynamic-Abdeckung.** Verlustfreiheit für die GENUTZTEN Dims bestätigt: `build_axis_levels` (`profile_to_tree.hpp:74-85`) emittiert `concurrency.thread_count`, `prefetch.hw_prefetcher`, `repetition.repetition_index` als dynamische Ebenen (`is_static=false`; `set_field` mappt thread_count auf das POD-Feld, hw_prefetcher/repetition_index sind architektonische Ausnahmen ohne POD-Feld). ABER: `ThesisProfile` trägt für runtime_dynamic NUR `thread_counts` + `hw_prefetcher`; die 4 algorithmus-internen RC-POD-Felder (prefetch_distance/pool_budget/batch_size/inline_threshold) haben **keinen XML-Eingang, kein ThesisProfile-Feld, keinen SCHEMA-Eintrag, kein build_axis_levels-Emit** → aktuell **gar nicht XML-definierbar** (verletzt die ZIEL-Invariante „nur XML ändern"). Der `RuntimeVariableLoop::set_field` (runtime_variable_loop.hpp:53-60) KÖNNTE sie zwar setzen (mappt alle 5) — es fehlt also nur die Ebene-4-Eingangsseite. **FIX-Richtung (entscheidet sich an Ebene 2):** die 4 Felder als Achsen-Parameter (Ebene 2, analog cacheline-Sub-Achsen in `permute_axes`) XML-definierbar machen — der User verortet sie in Ebene 2 (die Achse konsumiert den Wert), RC variiert ihn zur Laufzeit. Konkreter Fix nach Ebene-2-Prüfung (Frage: tragen prefetch/allocator/traversal/value_handle überhaupt diese Parameter-Slots?). **Status: identifiziert, Fix Ebene-2-abhängig — NICHT isoliert in Ebene 4 fixbar (top-down korrekt).**
+
+## §15 EBENEN-EINTEILUNG aller offenen TODOs (teile-und-herrsche je E-Ebene, 2026-06-28)
+
+**Zweck (User):** jedes offene TODO einer **E-Ebene** zuordnen → später je Ebene filtern + gezielt abarbeiten, nichts vergessen. Primär-Ebene + (Sekundär). **E0 = Querschnitt** (Infra/CI/Meta/Usability — NICHT Teil der Experiment-Pipeline). Reihenfolge: erst einteilen (diese Tabelle), dann Zusammenhänge/Widersprüche abwägen (s.u.) → verkleinert den Entwurfsraum durch sauber getrennte APIs je Ebene.
+
+### E4 — XML-Experiment-Definition + Messwert-Extraktion/Auswertung (Superprojekt-Kette)
+#25 Diplomarbeit-Text/Bausteine-Matrix (User) · #156 M3-Neumessung (Gesamt-Lauf-Def) · #162 PRT-ART+SOTA-Reihen A/B/C in den Lauf · #184 Dataset-Loader Nicht-YCSB · #219 Pipeline-Integrität XML-records/CSV-Auswertung · #226 Appendix-Daten-LIMITs · #152 Cache-Misses-Metrik in M3-Auswertung (E4/E1) · #187 PMC-Auto-Adaption Mess+Tabellen (E4/E1) · #165 Quality-Flag/Perzentil-Ausgabe (E4/E1) · #178 sota_catalog Stufe→Reihe (E4/E3).
+### E3 — Permutations-B+-Baum PRO GATTUNG (Abstract Factory)
+#223 Konformitäts-Gate import→GATE→messen in den Voll-Lauf (E3/E2) · #188 Experiment-B+-Baum zentral (T0-Such-Delegation) (E3/E2, Kern).
+### E2 — Tier-Binaries / Achsen-Organe / Bau (StaticAxisNode)
+#188 T0-Such-Delegation über Speicher-Achsen (Kern-Anatomie A3) · #19 Allokatoren echt linken · #211 container_→LinearScan/Append · #213 echter Policy-Allocator (T6) · #214 tier_scan GoF-Iterator (Scan-Achse) · #215 CoW real 320-DLL-Bau (Wirksamkeits-Schleuse) · #216 seg_ns n>1 + stat-Reset (E2/E1) · #217 Array-Gattung-Achse (Container-Metaprog-Rekursion) · #163 SIMD/ISA+Allokator als variierte Achsen · #185 TPIE/EM-BFS io_dispatch-Achse · #125 lazy DLL-Bibliothek (Content-Hash) · #224 GoF-Etiketten-Hygiene (Achsen-Namen, E2/E0).
+### E1 — RC-Laufzeit / DynamicVariableNode / Mess-Durchführung
+#221 RC Null-Object → DynamicVariableNode VOLLENDEN (Kern) · #225 Second-Execution vs Zwei-Phasen-Pflicht · #216 seg_ns (s.E2).
+### E0 — Querschnitt (Infra/CI/Meta/Usability — NICHT Experiment-Pipeline)
+#10 V42-Infra · #24 Cluster-Tasks · #149 MP-E Meta-Mission · #179 Wartbarkeits-Sweep · #186 CI/CD-Pipelines · #189 Infra-Handoff Runner · #193 manuell-bedienbar (Usability) · #199–#205 Pipeline-Stufen · #206–#210 Infra/Runner-EOF (#210 = Mess-Blocker) · #228 sslverify-Security · #229 Top-Down-Audit-Strecke (Meta).
+
+### Querbezüge / Widersprüche (Anfang — wird beim Top-Down vertieft)
+1. **#188 ist die E2/E3-Wurzel; #214/#211/#216 sind Teil-Aspekte derselben Achsen-Verdrahtung** → gemeinsam planen (isoliert = Doppelarbeit/Konflikt; #214 ist schon code-complete, muss zu #188 konsistent bleiben).
+2. **E1 (#221-RC) setzt E2 voraus:** die RC-POD-Felder verdrahten an Achsen, die in E2 erst real KONSUMIEREN müssen → E2-Achsen-Konsum zuerst, dann E1-RC-Override (top-down: E4→E3→E2→E1 ist auch die korrekte FIX-Reihenfolge).
+3. **#215 (E2, 320-DLL-Neubau) = Wirksamkeits-Schleuse:** alle E2-Achsen-Fixes (#188/#211/#213/#214/#216/#217) werden erst durch #215 in den Messdaten wirksam → #215 NACH den E2-Fixes, EINMAL gemeinsam.
+4. **E4 #156/#162 (Gesamt-Lauf) ist letztes Glied** — gated durch E1/E2/E3 + #210 (Runner-Infra). 
+5. **E4-Auswertungs-Kette im Superprojekt = offener blinder Fleck** (User-Hinweis): die XML ist nur ein kleiner Teil von E4; die Messwert-Extraktion/Auswertung/Thesis-Anbindung im Superprojekt ist noch NICHT vollständig auditiert → erster inhaltlicher E4-Schritt.
