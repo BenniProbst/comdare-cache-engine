@@ -49,12 +49,20 @@ namespace comdare::cache_engine::measurement {
  * ein zweiter `on_event`-Aufruf überschreibt den ersten. Wer Fan-out braucht (Welch-Test + LaTeX-Report +
  * Live-Telemetry), setzt EINEN Callback, der intern fan-out't — oder migriert bewusst auf einen Subscriber-Vektor.
  */
+// AUDIT #212 / K5b (P5/P8, 2026-06-28): Der Push-Sink (std::function callback_ + on_event/notify/has_callback)
+// ist jetzt OPT-IN ueber `COMDARE_CE_ENABLE_OBSERVER_PUSH`. Default AUS => zero-cost NullNotify: KEIN
+// std::function-Member (kein ~32-B-Slot je Achse) und KEIN per-Op-Branch im Mess-/Produktiv-Hot-Pfad
+// (Apparat-Reinheit Meta #6). Ueber die extern-C-Modulgrenze wird NIE ein Subscriber gesetzt -- die Auswertung
+// laeuft rein PULL (snapshot()/statistics() + observer()/Concept). NUR die Observer-Mechanik-Unit-Tests
+// (test_v41_topic_allocator_axis_06/_queuing/_traversal) setzen das Flag, um den Push zu pruefen. Das
+// `callback_ (s.u.)` im Kommentar oben existiert daher nur im Opt-in-Push-Build.
 template <typename Snapshot>
 class MeasurableObserver {
 public:
     using snapshot_t = Snapshot;
     using callback_t = std::function<void(snapshot_t const&)>;
 
+#ifdef COMDARE_CE_ENABLE_OBSERVER_PUSH
     void on_event(callback_t cb) { callback_ = std::move(cb); }
 
     void notify(snapshot_t const& snap) const {
@@ -67,6 +75,13 @@ public:
 
 private:
     callback_t callback_{};
+#else
+public:   // explizit: der private:-Block oben liegt im #ifdef-Zweig und entfaellt im Default-Build => notify ist public.
+    // DEFAULT: NullNotify -- notify() ist ein leerer NullObject (der Compiler elidiert ihn vollstaendig); KEIN
+    // std::function-Member, KEIN per-Op-Branch. Die Achsen-Call-Sites `observer_.notify(stats_)` bleiben
+    // UNVERAENDERT und kompilieren hier zu nichts. on_event/has_callback existieren nur im Push-Build (s.o.).
+    void notify(snapshot_t const&) const noexcept {}
+#endif
 };
 
 namespace concepts {

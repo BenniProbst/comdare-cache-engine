@@ -313,6 +313,10 @@ target_include_directories(test_v41_topic_allocator_axis_06 PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"  # V41.F.6.1 Stufe 3: measurement/measurable_concept.hpp
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_topic_allocator_axis_06 PRIVATE Boost::mp11)
+# Audit #212/K5b (2026-06-28): die drei Topic-Observer-Mechanik-Tests pruefen den per-Achsen-PUSH
+# (observer().on_event/notify/has_callback). Der Push ist projektweit Default-OFF (zero-cost NullNotify,
+# s. Root-CMakeLists.txt COMDARE_CE_ENABLE_OBSERVER_PUSH); diese Targets schalten ihn lokal AN.
+target_compile_definitions(test_v41_topic_allocator_axis_06 PRIVATE COMDARE_CE_ENABLE_OBSERVER_PUSH)
 
 # V41.F.6.1 Topic queuing Pilot (2026-05-26)
 comdare_add_test(test_v41_topic_queuing
@@ -323,6 +327,7 @@ target_include_directories(test_v41_topic_queuing PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_v41_topic_queuing PRIVATE Boost::mp11)
+target_compile_definitions(test_v41_topic_queuing PRIVATE COMDARE_CE_ENABLE_OBSERVER_PUSH)  # #212/K5b: s.o.
 
 # V41.F.6.1 Topic traversal Pilot (2026-05-26)
 comdare_add_test(test_v41_topic_traversal
@@ -337,6 +342,7 @@ target_include_directories(test_v41_topic_traversal PRIVATE
     # Flags aller Achsen (wie compositions/anatomy-Tests). Folge-Increments (layout/allocator) inklusive.
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_topic_traversal PRIVATE Boost::mp11)
+target_compile_definitions(test_v41_topic_traversal PRIVATE COMDARE_CE_ENABLE_OBSERVER_PUSH)  # #212/K5b: s.o.
 
 # V41.F.6.1.P1 Phase B Paper-Legacy-Code Pattern (ctsha + Sub-Concept + Macro)
 comdare_add_test(test_v41_paper_legacy_code
