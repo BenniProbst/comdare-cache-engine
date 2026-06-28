@@ -1,0 +1,297 @@
+# KONTEXT-DOSSIER — Mess-Echtheit · Gattungen · Observer-Aufbau durch das Prüf-Dock (A2/Audit-Welle #211–#226 + #188)
+
+> **Zweck.** Abgesicherter, durable Kontext-Anker, der VOR jeder Bearbeitung der Audit-Welle (#211–#226) und
+> des Befund-2-Kerns (#188) gelesen wird. Er erdet das konzeptionelle Fundament (Gattungen/Anatomie),
+> den Observer-Aufbau durch das Prüf-Dock, die Apparat-Reinheit + Meta-Lehre #3, das **code-verifizierte
+> Audit-Verdikt** (haben wir uns verrannt?) und die **eng angelegte Aufgabe #212** in elaborierter Form.
+> Erstellt 2026-06-28 (Impl-Agent), nachdem die Session mit genau diesem Problem begann (s. §0).
+> **Single-Source-Vorrang:** bei Widerspruch schlägt die Diplomarbeit (`thesis/diplomarbeit`) jeden Code-/Doc-Stand.
+
+---
+
+## §0 Warum dieses Dossier (das Problem, mit dem die Session begann) — die „fünfte Aufgabe" (#227)
+
+Die Session sollte die Audit-Welle **#211–#226** abarbeiten, beginnend mit **#212 (NullNotify)**. Beim Einstieg
+zeigte sich eine **Verständnis-Lücke**, die größer war als der Einzel-Fix: die Verwechslung von
+
+- der **Gattung „Suchalgorithmus"** (Ebene-1-Außen-Interface) ⇄
+- dem **internen `container_`-Member** der SearchAlgorithm-Anatomie (der `LayoutAwareChunkedStore`, der die Records hält) ⇄
+- der **Container-Gattung** (eine eigene Ebene-1-Gattung neben SearchAlgorithm/Graph).
+
+Diese Namens-/Konzept-Kollision (`container_` ≠ Container-Gattung) hätte einen falsch gerahmten Eingriff
+ermöglicht. Daher wurde — auf User-Direktive — erst das **gesamte Observer-/Gattungs-Konzept im Kontext des
+Gesamt-Compiles** durchdrungen, die Diplomarbeit + alle relevanten Sessions gelesen, und ein **Audit** gefahren,
+ob wir uns verrannt haben. Dieses Dossier hält das Ergebnis fest (= Task **#227**).
+
+---
+
+## §1 Das Drei-Ebenen-Modell (Gattung / Unterklasse / Organe) — Soll = Diplomarbeit
+
+Quelle (autoritativ): `thesis/diplomarbeit/anhang/de/C_glossary.tex` (Definitionen) + `…/kapitel/de/04_concept_architecture.tex`
+(`ssec:three-levels`).
+
+- **Ebene 1 — Gattung** = „das **nach außen sichtbare Algorithmus-Interface (das Prüf-Dock)**". Drei anatomie-tragende
+  Gattungen als **Geschwister** unter der Wurzel `IExecutionEngine`/`IAnatomyBase` (+ achsenlose **Viren**):
+  - **SearchAlgorithm** — Schlüssel-Wert-Interface (`std::map`-artig). Fokus der Arbeit; „das fokale Lebewesen (Säugetier)".
+  - **Container** — **schlüsselloser** Speicher.
+  - **Graph** — eigener, **andersartiger Organsatz**.
+- **Ebene 2 — Gattungs-Unterklasse** (Code: `AnatomyGenus`) = „legt einen **festen Achsen-Satz** fest":
+  - unter **SearchAlgorithm**: die **volle 19-Achsen-Anatomie** (das „Säugetier").
+  - unter **Container**: **Set · Sequence · Adapter · View** („Vogel/Reptil/Wirbelloses/Pflanze").
+  - **Graph**: eigener Organsatz.
+- **Ebene 3 — Organe/Achsen** = die einzelnen Achsen (SearchAlgorithm: T0–T18), die *innerhalb* der Unterklasse permutiert werden.
+
+**Was die Gattungen unterscheidet — der Basis-Achsen-Satz** (`04_concept…` Z.27–37 / `03_state_of_the_art.tex` §3.1):
+> „Nicht-baumartige Suchverfahren — etwa eine Hash-Tabelle — … belegen [baum-spezifische Achsen] als **Durchreich-Varianten**
+> und tragen nur das gemeinsame Achsen-Subset; sie bleiben **dieselbe Gattung mit eingeschränktem Profil**. Eine **eigene
+> Gattung entstünde erst, wenn sich der Basis-Achsen-Satz grundlegend unterschiede.**"
+
+⟹ Eine Gattung = **Interface-Kategorie + fixer Basis-/Minimal-Achsen-Satz (Organsatz)**. Pass-through-Varianten bleiben dieselbe
+Gattung; ein **fundamental anderer Basis-Achsen-Satz ⟹ neue Gattung**.
+
+| Gattung | Außen-Interface | Basis-Organsatz (Wesen des Unterschieds) |
+|---|---|---|
+| **SearchAlgorithm** | Schlüssel→Wert (`std::map`) | die 19 Such-Achsen; der Schlüssel ist Ordnungsprinzip (search_algo T0 lokalisiert Keys; mapping/path-compression/node-type … = keyed Baum-Anatomie) |
+| **Container** | schlüssellos | fundamental anderer Satz: Mitgliedschaft/Ordnung/Position — Set (kein Wert), Sequence (positionsindexiert + `axis_growth`), Adapter (umhüllt `inner_container`), View (non-owning: extent/layout/accessor) |
+| **Graph** | Graph | eigener Organsatz (Kanten/Knoten/Adjazenz/Graph-Traversal) |
+
+---
+
+## §2 Anatomie = Verdrahtung = Feature-Interaktion (der wissenschaftliche Kern)
+
+`04_concept_architecture.tex` Z.239–248:
+> „Die … Anatomie ist mehr als die bloße Aufzählung dieser Organe: sie ist ihre **Verdrahtung**. Jedes Organ exportiert ein
+> generalisiertes Interface, über das die übrigen Organe seine Dienste nutzen, **ohne dessen konkrete Belegung zu kennen**."
+
+`03_state_of_the_art.tex` §3.6.3 (`ssec:sota-design-contribution`, Z.579–603) erdet das in der **Feature-orientierten
+Software-Komposition** (Aßmann „invasive Komposition" TU Dresden; Czarnecki „generative Programmierung"; FOSD-Produktlinien):
+> „eine **Achse** ≙ **Feature** · ein **Lebewesen** ≙ **Feature-Komposition** · ein **Lebewesen-Typ** ≙ **Feature-Set-statische-Definition**
+> · eine **Gattung** ≙ **(Such-)Algorithmus-Interface-Kategorie** · die **Anatomie** ≙ **Verdrahtung zwischen den Organen = Feature-Interaktion**."
+
+⟹ **Die Achsen-Bibliothek ist eine Feature-Bibliothek; sie wird erst durch die Verdrahtung (Feature-Interaktion) — also
+die Metaprogrammierung der jeweiligen Gattung — zur Anatomie.** „Fixer Minimalsatz, erweiterbar" = die Feature-Set-Definition
+der Gattungs-Unterklasse, erweiterbar über N-Phasen/Sub-Achsen/Pass-through. **Kein Monolith** — gerade weil die Anatomie die
+Verschaltung generischer Organ-Interfaces ist.
+
+**Provenienz** (§3.6.3 Z.598–603): das Achsen-Konzept stammt aus einer Vorarbeit des Autors (Comdare/BEP Venture, UltiHash —
+Deduplikation); die Arbeit überträgt es auf cache-bewusste Suchstrukturen.
+
+---
+
+## §3 Observer-Aufbau durch das Prüf-Dock (= Pfad B; die in dieser Session re-gegroundete Aufgabe)
+
+**Prüf-Dock** (`libs/cache_engine/builder/pruef_dock/search_algorithm_dock.hpp`, je Gattung ein Dock): host-seitige Andock-Station,
+die EIN Lebewesen (Permutations-DLL) lädt und **nur über die ABI-stabile Gattungs-Schnittstelle** behandelt: **import →
+Konformität (`conformance_gate.hpp`, std::map-Orakel) → messen → abstoßen**.
+
+**Hybrid-Messmodell — ZWEI Pfade** (Doc 24 §8; Session `20260530-hybrid-messmodell-erkenntnisse-vollstaendig.md`):
+- **Pfad A** — isolierte Achsen-Algorithmen gegeneinander, IN der DLL (`IMeasurableWorkload::run_workload`, synthetischer lbuf). Bleibt.
+- **Pfad B** — das GANZE Lebewesen zentral über das Dock: **BEIDE Dimensionen korreliert** — Wall-Clock + Per-Achsen-Observer.
+
+**I1-Konsolidierung (DONE; Doc 31; Sessions `20260604`/`20260605`):**
+- **EIN POD** `ComdareTierObserverSnapshot` (`anatomy/observable_tier.hpp:112-129`): `axis_stats[19][8]` + `seg_ns[19]` (Pfad B) +
+  Meta; `sizeof==1416`, `static_assert standard_layout + trivially_copyable` (memcpy über DLL-Grenze).
+- **EINE Schnittstelle** `IObservableTier::tier_observe(ComdareTierObserverSnapshot*)` (`observable_tier.hpp:153-162`), erbt
+  `IDriveableTier`; nur unter `COMDARE_MEASUREMENT_ON` vererbt; Host-Abfrage `dynamic_cast` 1× kalt.
+- **Versionierung über ABI-Major** (Loader-Reject). **Offen geblieben (I-C.2/I-D):** Alt-PODs V1/V2/V3 + IObservableTierV2/V3/V4
+  löschen + Major 2→3 + DLL-Neubau (atomarer ~15–20-Datei-Block; Plan in `20260605-…`).
+- **Q1-Sequenz (bindende Invariante)** in `tier_observe`: **axis_stats-READ → seg_ns-Timing → per-op-Reset** (gegen Doppelzählung).
+- **PULL, nicht PUSH** (Soll der Arbeit): das Dock zieht Snapshots; KEIN per-Op-Notify-Callback im Hot-Pfad (= #212-Gegenstand).
+- **Aggregation entkoppelt vom Push:** `ObserverAggregate<Composition>` (`anatomy/observer_aggregate.hpp:95-146`) sammelt
+  `snapshot_of_t<Axis>` via `a.statistics()` — hält **keine** Observer-Instanzen; `ObservableAxis`-Concept (:41-45) verlangt nur
+  `snapshot_t`+`statistics()`.
+
+**Zwei Modi** (`CMakeLists.txt:103-138`): Experiment = `COMDARE_MEASUREMENT_MODE=ON`→`COMDARE_MEASUREMENT_ON=1`+`COMDARE_CE_ENABLE_STATISTICS=1`;
+Produktiv = `COMDARE_RELEASE_MODE=ON`→MEASUREMENT_MODE OFF→**STATISTICS OFF** (Observer restlos raus, null Overhead).
+
+---
+
+## §4 Apparat-Reinheit + Meta-Lehre #3 (das „Warum" der A2-Welle)
+
+Diplomarbeit (Impl 5.6): „Per-Node-Zähler verursachen Cache-Line-Ping-Pong, **was genau jene Messung verfälscht, die sie
+erheben**" → die Arbeit mitigiert Apparat-Verfälschung bewusst (Leaf-Only-Zähler etc.). Aufgaben-Fairnessregel: „fehlende
+Fähigkeiten **als N/A, nicht verdeckt emuliert**" (`aufgabenstellung/de.tex`).
+
+**🎯 Meta-Lehre #3 (mission-kritisch):** Ein **Achsen-Austauschbarkeits-Beleg ist nur gültig, wenn verschiedene Achsen-Wahlen
+nachweislich verschiedene Organ-Pfade durchlaufen.** Sonst ist der gemessene Unterschied ein **Apparat-Artefakt**. Der gesamte
+Observer-Aufbau durch das Prüf-Dock existiert, um **wissenschaftlich gültige** Per-Achsen-Messung herzustellen (Datengrundlage für
+FF1–FF4). Die A2-Apparat-Reinheits-Welle (#211–#217) ist das Fundament dieser Gültigkeit (kein Doppel-Lookup, kein
+`std::function`-notify, kein O(n)-Rebuild-Container, kein Phantom-Allocator, echte Such-über-Store-Traversierung).
+
+---
+
+## §5 AUDIT (code-verifiziert 2026-06-28): „Haben wir uns verrannt?"
+
+**Ursprüngliche Aufgabe** = Diplomarbeit-Aufgabenstellung (`thesis/diplomarbeit/aufgabenstellung/de.tex`): Kern = **Trennbarkeit**
+der Algorithmus-Bestandteile via **Achsen-Framework (Kap.4) + 3-granulare Mess-Methodik (Kap.6)**; Messung **pro Stelle UND gesamt**,
+austauschbar/systematisch/fair; SOTA als explizite Konfigurationen (Teilaufgabe 2: ART/HOT/Masstree/CoCo/START/B²/Wormhole/SuRF);
+3 Messreihen A/B/C × 3 Granularitäten (Micro/Macro/Overall).
+
+**Code-Befund (`anatomy/abi_adapter.hpp` `fill_observer_v3`:929; Quellen-Kommentar :922-927; Daten-Pfad :781-838):**
+Woraus die Achsen-Werte eines **Baum-Lebewesens (Weg-B)** stammen:
+- **T0 search** (:937-947): Weg-A → `container_.statistics()`; **Weg-B (Bäume/Tries/Hash) → `search_organ_.statistics()`** (echtes Lebewesen). ✓ real
+- **T4 node_type · T5 memory_layout · T6 allocator · T9 serialization · T11–T16** → **aus dem `container_`-Store** (`store_observe_*`).
+- **T1/T2/T3/T7/T8/T17/T18** → **auto-gekoppelte Member-Organe** (`ct_organ_`/`map_organ_`/`pc_organ_`/`pf_organ_`/`cc_organ_`/q1/q2), parallel getrieben (:793-821).
+- Daten-Pfad Weg-B (:786, :834-837): jeder Record liegt **doppelt** (echter `search_organ_` + Spiegel-`container_`).
+
+⟹ Für die **SOTA-Bäume (genau Teilaufgabe 2)** beschreiben **T1–T18 (außer T0) einen PARALLELEN Apparat**, nicht die echten
+Baum-Organe. Die A2.4/A2.5-Vereinheitlichung (`StoreTraversalAdapter`) wirkt **nur für die Array-Familie** (LinearScan/Interpolation;
+`axes/lookup/composable/store_traversable_search_algo.hpp` + `traversal_for_search_algo.hpp`).
+
+**Verdikt: NICHT verrannt — aber der Haupthebel liegt woanders.**
+- Richtung korrekt: Apparat-Reinheit + I1 sind das Fundament der fairen Per-Stelle-Messung; die Weg-B-Grenze ist via
+  `tier_search_routes_through_store()==false` **ehrlich geflaggt** (Fairnessregel „N/A statt verdeckt emuliert"), nicht versteckt.
+- ABER: Mess-Echtheit (Meta-Lehre #3) ist **nur für die triviale Array-Familie** erreicht — **nicht für die SOTA-Bäume**, die das
+  Forschungsobjekt sind. Dort messen die Achsen einen Neben-Apparat.
+- **Bereits getrackt als Architektur-Fix #188** („T0-Such-Delegation über Speicher-Achsen, Experiment-B+-Baum zentral") = die
+  *eigentliche* Befund-2-Vollendung für ALLE Lebewesen. Die Apparat-Reinheits-Welle (#211–217) ist **valide, aber nachgelagert**;
+  der große Hebel ist **#188** + der `cowfix-v1`-320-DLL-Neubau (**#215 / A2.8**, der die A2-Fixes erst in die Abgabe-Daten bringt).
+
+---
+
+## §6 Die eng angelegte Aufgabe **#212 — NullNotify** (elaborierte Genau-Beschreibung)
+
+**Audit-Tag:** A2 · K5b/P5/P8 · Disposition **[FIX-E] „compile-time NullNotify (zero-cost)"** · Arch-Anker Apparat-Reinheit Meta #6.
+
+### 6.1 Der exakte Defekt
+`MeasurableObserver<Snapshot>` (`libs/cache_engine/src/measurement/measurable_concept.hpp:52-70`) hält
+`std::function<void(snapshot_t const&)> callback_` als Member in **jeder** Achse (`mutable observer_t observer_{}`); `notify()` macht
+je Op `if (callback_) callback_(snap)`. Im Mess-Build wird **nie ein Subscriber gesetzt** (nur 8 Test-Assertions, s. 6.4) → jedes
+`observer_.notify(stats_)` = `std::function`-Indirektion + Branch + 32-B-Member **ohne Wirkung** = Apparat-Overhead auf der
+Wall-Clock. Die Stats-Zähler (`++stats_.…`) sind NICHT betroffen — sie speisen den **PULL**-Pfad (`statistics()`); nur der tote
+**PUSH** ist Müll. Alles unter `#ifdef COMDARE_CE_ENABLE_STATISTICS`.
+
+Call-Sites (Beispiele, je `observer_.notify(stats_)` in Organ-Ops): `axes/cache_traversal/axis_03b_cache_traversal_*.hpp`
+(z.B. `…_linear_fanout.hpp:74/85/98/111`), `axes/mapping/axis_03m_mapping_*.hpp`, `axes/alloc/axis_06_allocator_*.hpp`. Erreicht
+werden sie im Mess-Build über die **Auto-Kopplung** des Adapters (tier_insert/lookup treibt die Organe, :793-821).
+
+### 6.2 ⚠️ Reconciliation mit A2.1 (NICHT doppelt fixen!)
+**A2.1 (ce `38b1374`, 2026-06-13) hat K5b BEREITS für die zwei mess-kritischen Hüllen** `axes/lookup/composable/observable_composed_search.hpp`
++ `observable_composed_container.hpp` erledigt (Notify **gelöscht**, Pull via `statistics()` erhalten). **#212 = der verbleibende
+per-Achsen-Rest** in den Einzel-Organen (cache_traversal/mapping/alloc), den A2.1 NICHT berührt hat.
+
+### 6.3 Gewählter Ansatz (User-Entscheid 2026-06-28): Opt-in-Compile-Flag — Single-Source
+Neues `COMDARE_CE_ENABLE_OBSERVER_PUSH`, **Default AUS**, genistet UNTER `COMDARE_CE_ENABLE_STATISTICS`. In `measurable_concept.hpp`:
+`std::function callback_` + `on_event` + `has_callback` hinter `#ifdef COMDARE_CE_ENABLE_OBSERVER_PUSH`; im Default-Zweig
+`void notify(snapshot_t const&) const noexcept {}` (No-Op, **kein Member**). **Typ `MeasurableObserver` bleibt** → das Concept
+`MeasurableComponent` (`measurable_concept.hpp:99-106`, `same_as<observer_t, MeasurableObserver<snapshot_t>>`) **bleibt erfüllt,
+KEIN Concept-Edit**, **0 Call-Site-Änderungen** (alle `observer_.notify(stats_)` bleiben, kompilieren zu nichts).
+- **Begründung Flag statt Policy-Template:** ein Policy-Template mit nicht-Default-Tag würde den Typ ändern → Concept-`same_as`
+  bricht (verifiziert). Der Flag behält Typidentität → saubere, concept-erhaltende Realisierung der „NullNotify-Policy"-Disposition.
+
+### 6.4 Tests (bleiben grün, opt-in)
+3 Push-Tests rufen `axis.observer().on_event(...)` + `has_callback()`: `test_v41_topic_allocator_axis_06.cpp` (:253/256/668/689/710/726/728),
+`test_v41_topic_traversal.cpp:174`, `test_v41_topic_queuing.cpp:454/469`. Diese Targets erhalten `target_compile_definitions(… PRIVATE
+COMDARE_CE_ENABLE_OBSERVER_PUSH)` → unverändert grün. **Getrennte Familie, NICHT anfassen:** das `on_event(event)` der
+**concurrency disciplines** (`include/cache_engine/concepts/i_observer.hpp:36`, `…/concurrency_manager.hpp:25`,
+`test_concurrency_disciplines.cpp:50`) ist ein ANDERES Interface (nimmt ein Event, keinen Callback).
+
+### 6.5 Blast-Radius: **NULL ABI** (Agent-1 + eigene Lektüre verifiziert)
+`MeasurableObserver` ist von `ObserverAggregate` (pull, liest `statistics()`) und der ABI-POD `ComdareTierObserverSnapshot`
+(enthält nur uint64/int64, KEINE Achsen-Objekte) **entkoppelt** → **kein Major-Bump, kein erzwungener 320-DLL-Rebuild für
+Kompatibilität**, kein Concept-Edit. Nur die interne Achsen-Objektgröße schrumpft (Default: leere Klasse). DLLs profitieren beim
+nächsten Neubau (Teil von #215/A2.8).
+
+### 6.6 Verifikations-Plan (Pipeline, NICHT Laptop)
+Doppel-Build: (a) Mess-Build/Push-AUS → zero-cost No-Op; (b) Test-Target/Push-AN → 8 Assertions grün. Dann Codex-Review (nur Code-Repo,
+Token maskiert) → commit cache-engine **MIT** `Co-Authored-By: Claude Opus 4.8 (1M context)` + Submodul-Bump super → push beide Remotes
+(GitLab + GitHub) → grün auf prod-Runner via Pipeline-ID-Poller (Voll-SHA). **Keine Erfolgsmarke ohne literale Tool-Ausgabe.**
+
+### 6.7 Thesis-Konformität + Verhältnis zu #188
+Stützt das Pull-Modell (§3.6.3 / Glossar), die Apparat-Reinheit (Impl 5.6), Produktiv-zero-overhead (Conclusion FF2). **Unabhängig
+von und kompatibel mit #188** — #212 ist ein kleines, sauberes Apparat-Reinheits-Stück, NICHT der Haupthebel (das ist #188).
+
+---
+
+## §7 Welche Aufgaben brauchen diesen Kontext (VOR Bearbeitung dieses Dossier lesen)
+
+| Task | Inhalt | Bezug zu diesem Dossier |
+|---|---|---|
+| **#211** | container_→LinearScan/Append (K5c/P4) | Befund-2 §5; gehört in den Kern-Block A2.2/A2.4/A2.5 (Traversal-Vereinheitlichung) |
+| **#212** | NullNotify-Rest (K5b) | §6 (elaboriert) |
+| **#213** | echter Policy-Allocator (K6/P6) | **A2.3 ✅ bereits exekutiert** (ce `6f719be`) — prüfen, ggf. nur Verifikation/Doku |
+| **#214** | tier_scan GoF-Iterator-Organ (K4/P2) | Apparat-Reinheit; Scan-Achsen §3/§5 |
+| **#215** | CoW real für 320 (K3) = **cowfix-v1-DLL-Neubau** | A2.8 — macht ALLE A2-Fixes erst in den Abgabe-Daten wirksam |
+| **#216** | seg_ns n>1 + stat_*-Reset NACH Load (K9) | Q1-Sequenz §3; Store-Key-Ernte |
+| **#217** | uint16→uint64-Entscheid axis_03a-Pilot-Organe (K9) | Key-Raum-Treue |
+| **#218–#220** | A1-Rest (Resume-Härte K8 · Pipeline-Integrität · Load/Insert-Key-Räume K7b) | Mess-Validität, nachgelagert |
+| **#221–#223** | A3 (RC Null-Object K1 USER · Key-Scrambling K7c · Konformitäts-Gate K9) | Meta-Lehre #3 / Gate §5 |
+| **#224** | A4 GoF-Etiketten-Hygiene (K10) | überlappt #179-Sweep |
+| **#225** | A5 Second-Execution vs Zwei-Phasen (NUR Diskussion, USER) | §3 Q1/Zwei-Phasen |
+| **#226** | Appendix-Daten-Limitierungen ehrlich führen | §5 Weg-B-Limitierung |
+| **#188** | **T0-Such-Delegation über Speicher-Achsen (Experiment-B+-Baum zentral)** | **§5 — der eigentliche Befund-2-Kern für die SOTA-Bäume; größter Hebel** |
+| #156/#162 | M3-Neumessung + PRT-ART/SOTA-Reihen A/B/C | hängt an #215/A2.8 + #188 |
+
+---
+
+## §8 ALLE Referenz-Doc-Pfade (absolut, Repo-Wurzel `C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken`)
+
+### Diplomarbeit (Soll, Vorrang) — `thesis\diplomarbeit\`
+- `aufgabenstellung\de.tex` — die ursprüngliche Aufgabe (Zielsetzung i–iv; 7 Teilaufgaben; Trennbarkeit via Achsen-Framework+3-granular; two-mode).
+- `kapitel\de\01_introduction.tex` … `08_conclusion.tex` — FF0–FF4, Grundlagen, SOTA, Konzept, Implementierung, Methodik, Ergebnisse, FF-Antworten.
+- `kapitel\de\03_state_of_the_art.tex` — §3.1 Z.27–37 (Gattungs-Kriterium); §3.6.3 `ssec:sota-design-contribution` Z.579–603 (FOSD-Mapping); §3.7 `sec:gap` Z.605–629.
+- `kapitel\de\04_concept_architecture.tex` — `ssec:three-levels` Z.228–237; eine-Architektur-Abb. Z.172–203; Anatomie=Verdrahtung Z.239–248; `sec:axes` Z.276–285; `sec:abi` Z.250–272.
+- `anhang\de\C_glossary.tex` — Anatomie :18-22 · Drei-Ebenen-Modell :35-38 · Gattung :40-41 · Gattungs-Unterklasse :42-46 · Organ :59-60 · Prüf-Dock :62-63 · Lebewesen :51-52.
+- `anhang\de\D_building_block_matrix.tex` — Bausteine-/Achsen-Matrix je Gattung.
+
+### Architektur-Docs — `Code\external\comdare-cache-engine\docs\architecture\`
+- `24_messmodell_korrektur_zwei_dimensionen.md` — Hybrid Pfad A/B (§8.1/§8.6/§8.7). **Autoritativ Mess-Modell.**
+- `31_observer_interface_konsolidierung_i1.md` — I1 (EIN POD + EINE Schnittstelle + ABI-Major).
+- `30_audit_achsen_delegation_pflichtachsen.md` — Befund 2 + 3-Ebenen §8.0/§8.1.
+- `34_KONSOLIDIERTER_MASTER_IST_STAND.md` — Doc 34 (Master-IST; §9 Befund-2, §6 Observer, §3 Baum).
+- `33_undolog_memento_und_mess_resume.md` — CoW Rev.2 + Resume-Stamp (#215/K3, K8).
+- `messarchitektur_design_observer_handle_no_dynamic_cast.md` — „kein per-Op-dynamic_cast".
+- `abhaengigkeitskette_lebewesen_pruefdock_abi_konvergenz.md` — §5 EIN Mess-POD + ABI-Major + 4 extern-C-Symbole.
+- `messarchitektur_v5_design.md` (§2.3 Flags / §7 compile-time-Removal) · `messarchitektur_v5_drei_profile.md` · `messarchitektur_v5_entscheidungen.md`.
+- `28_vollstaendigkeits-kartographie.md` (22 Achsen + kV3AxisSchema) · `36_eine_architektur_lebewesen_ist_searchalgorithm.md` (eine Architektur).
+- `26_permutations_bplus_baum_und_inverse_signatur.md` · `27_…4_bruecken.md` · `29_…composition_driver.md` · `32_lastprofil_katalog_und_paper_bias.md` · `INDEX.md`.
+
+### Session-/Ledger-Docs — `Code\external\comdare-cache-engine\docs\sessions\`
+- `20260529-saeule2-observable-anatomy-context-design-agenten-session.md` — observe_all real für search_algo (Säule 2).
+- `20260530-hybrid-messmodell-erkenntnisse-vollstaendig.md` — Pfad A/B formalisiert.
+- `20260531-v5-messarchitektur-i1-i10-umsetzung.md` — Dock/ABI-Split/Zwei-Phasen/Konformitäts-Gate/ABI-Major 2.
+- `20260604-observer-konsolidierung-und-mess-echtheit.md` + `20260605-UEBERGABE-START-HIER-observer-konsolidierung.md` — I1 (EIN POD/EINE tier_observe/Q1) + I-C.2/I-D-Restplan.
+- `20260613-A2-code-pre-read-notizen.md` — As-built ⇄ Doc verifiziert; Befund-2 lokalisiert.
+- `20260613-E-wellea2-befund2-q2schritt4-komplexplan.md` — **A2.1–A2.8 Komplexplan + §9–§11 Exekutions-Stand (A2.1/A2.3/A2.4/A2.5 done)**.
+- `20260613-D-audit-85-befunde-durcharbeitung.md` — Disposition K1–K10 + #211–#226-Mapping.
+- `20260613-A3-audit-soll-abgleich.md` · `20260618-PHASE-E-VERTIEFUNG-AUDIT-NEUMESSUNG-MASTERPLAN.md` (A1–A5-Priorisierung).
+- **dieses Dossier:** `20260628-KONTEXT-DOSSIER-mess-echtheit-gattungen-observer-pruefdock-A2welle.md`.
+
+### Schlüssel-Code — `Code\external\comdare-cache-engine\libs\cache_engine\`
+- `src\measurement\measurable_concept.hpp` — `MeasurableObserver` :52-70 (**#212**); Concept `MeasurableComponent` :99-106; NULL-Variante :110-125.
+- `anatomy\observable_tier.hpp` — `kV3AxisSchema` :66-86; `ComdareTierObserverSnapshot` :112-129 (sizeof 1416); `IObservableTier` :153-162; `IMigratableTier` :178-186.
+- `anatomy\observer_aggregate.hpp` — `ObservableAxis` :41-45; `snapshot_of_t` :48-65; `ObserverAggregate` :95-146.
+- `anatomy\abi_adapter.hpp` — Vererbung :116-121; Pfad-A run_workload :234; tier_insert :696; Weg-A/B lookup :781-789; Auto-Kopplung :793-821; tier_erase :826-838; tier_clear :841-906; `fill_observer_v3` :929 (Quellen :922-927; T0 :937-947); `fill_segment_timing_v3` :990; `tier_observe`/Q1 ~:1143-1151; `search_organ_` :1296/:1311; `container_` :1302-1305; CoW :1158-1203.
+- `anatomy\search_algorithm_anatomy.hpp` — `observe_all` :62-112 (9 reale Achsen-Organe); `observer_aggregate_t` :37.
+- `anatomy\composition_factory.hpp` — `AdHocComposition<T0..T18>` 19 Slots.
+- `axes\lookup\composable\store_traversable_search_algo.hpp` + `traversal_for_search_algo.hpp` — A2.4 (Weg-A-Klassifikation/Mapping).
+- `axes\lookup\composable\observable_composed_search.hpp` + `observable_composed_container.hpp` — die A2.1-Hüllen (Notify bereits entfernt).
+  ⚠️ **Duplikat-Befund (2026-06-28):** dieselben zwei Hüllen liegen AUCH unter `topics\traversal\axis_03a_search_algo\composable\` —
+  #212 muss zuerst klären, welche Kopie der reale Build (`abi_adapter.hpp`-Includes / `container_t`/`search_organ_`) zieht
+  (axis-zentrische Restrukturierung V41.F.2 → `axes\lookup\` ist vermutlich kanonisch; `topics\…` evtl. Alt-Stand). Beide prüfen.
+- `builder\pruef_dock\search_algorithm_dock.hpp` (+ `adapter_dock`/`set_dock`/`sequence_dock`/`view_dock` je Gattung) · `conformance_gate.hpp` (std::map-Orakel).
+- `builder\experiment_tree\perm_runner.hpp` (tier_observe→POD→CSV) · `cache_engine_builder_iterator.hpp` (Resume/Stamp).
+- `CMakeLists.txt` :112 MEASUREMENT_MODE · :118 MEASUREMENT_ON · :113 RELEASE_MODE · :133-138 STATISTICS-option (**#212-Flag hier nisten**).
+- Per-Achsen-Notify-Call-Sites: `axes\cache_traversal\axis_03b_cache_traversal_*.hpp` · `axes\mapping\axis_03m_mapping_*.hpp` · `axes\alloc\axis_06_allocator_*.hpp`.
+- **`modules\*` = TOTE Spiegel — NIE anfassen** (realer Build inkludiert NUR `libs\cache_engine`).
+
+### Memory-Direktiven (Host `…\.claude\projects\C--WINDOWS-system32\memory\`)
+- `feedback_one_consistent_observer_interface_pruefdock` · `feedback_zwei_dimensionen_messmodell` · `project_observer_konsolidierung_resume_ic2`
+- `feedback_always_use_trees_for_search` · `feedback_infra_cleanest_not_easiest` · `feedback_no_success_marks_without_literal_output` · `feedback_codex_mcp_review_before_code_complete`.
+
+### Plan-Datei (Host, nicht im Repo)
+- `C:\Users\benja\.claude\plans\dynamic-frolicking-truffle.md` — Pfad-B-Timing + layout-honorierender Store + Observer-Konsolidierung (S2.5).
+
+---
+
+## §9 Invarianten (must_not_break)
+
+1. **modules/* = tote Spiegel** — nie anfassen; realer Build = nur `libs/cache_engine`.
+2. **Q1-Sequenz** in `tier_observe`: axis_stats-READ → seg_ns-Timing → per-op-Reset (sonst Doppelzählung T0/T1/T2/T3/T7/T8/T10/T17/T18).
+3. **Pfad A bleibt** (`IMeasurableWorkload`/`run_workload` + `ComdareSegmentLatencyV2`) — isolierter Achsen-Bench; `seg_ns` im POD = **Pfad B**.
+4. **kV3AxisSchema** = Single-Source Schreiber↔CSV-Spaltenname (Namen kV3* bewusst behalten); **Honest-0** (Baseline echte 0, kein „Fehler").
+5. **ABI-POD** `is_standard_layout && is_trivially_copyable` (memcpy über DLL-Grenze).
+6. **Wire-Format-Symmetrie** `format_perm_result`↔`ingest_result_line` (175 Felder) synchron (test_d14b/d14c).
+7. **Capability nie still degradieren** (Meta #1/#2): `static_assert` über die ZIEL-Population (die 320), nicht nur Referenz-Komp.
+8. **Mess-Echtheit ehrlich** (Meta #3 + Fairnessregel): nicht-store-geroutete Lebewesen als solche ausweisen (`tier_search_routes_through_store()`), nie verdeckt.
+9. **Keine Erfolgsmarke ohne literale Tool-Ausgabe**; Verifikation NUR auf der Pipeline (Laptop zu langsam).
