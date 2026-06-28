@@ -20,6 +20,7 @@
 // Folge-Increments: node_type/layout/allocator als echte Storage-Organe; Migration der Tier-Wrapper
 // zu Reference-Compositions (Doku 14 §6); Anatomie-Anbindung.
 
+#include <algorithm>   // #214 GoF-Iterator: std::partial_sort fuer den geordneten LinearScan-Range-Scan
 #include <cstddef>
 #include <cstdint>
 #include <concepts>
@@ -61,6 +62,18 @@ concept TraversalOrgan = requires(Store& s, Store const& cs,
     { T::template erase_from<Store>(s, k) }      -> std::same_as<bool>;
 };
 
+/// Additives Capability-Concept (analog ObservableAxis zum StorageOrgan-Kernvertrag, observable_composed_search.hpp:7):
+/// ein Traversal-Organ, das einen GEORDNETEN Range-Scan ab start_key beherrscht (GoF-Iterator, YCSB-E #214). Bewusst
+/// NICHT im TraversalOrgan-Kernvertrag (insert/lookup/erase) — additiv getrennt geprueft. `sink` ist aufrufbar mit
+/// (key,value); Rueckgabe = Anzahl in Key-Reihenfolge besuchter Records (<= max_count). Im Concept mit einem
+/// Funktionspointer-Sink geprueft (ein gueltiger Sink-Typ); die Methode selbst bleibt Template-parametrisiert (zero-cost).
+template <class T, class Store>
+concept ScannableTraversalOrgan = TraversalOrgan<T, Store> &&
+    requires(Store const& cs, typename Store::key_type k, std::size_t n,
+             void (*sink)(typename Store::key_type, typename Store::value_type)) {
+        { T::template scan_into<Store>(cs, k, n, sink) } -> std::same_as<std::size_t>;
+    };
+
 /// Traversal-Organ 1: unsortierter linearer Scan (ART-Node4-Strategie). Store bleibt unsortiert.
 struct LinearScanTraversal {
     template <class Store>
@@ -80,6 +93,27 @@ struct LinearScanTraversal {
         for (std::size_t i = 0; i < s.slot_count(); ++i)
             if (s.key_at(i) == k) { s.erase_slot_at(i); return true; }
         return false;
+    }
+    /// GoF-Iterator (YCSB-E #214): geordneter Range-Scan ab start_key. Der Store ist UNSORTIERT, daher MUSS ein
+    /// geordneter Scan alle Slots ansehen (O(n)) — die wahre Kosten fehlender Ordnung, KEIN Apparat-Artefakt
+    /// (Meta-Lehre #3: LinearScan durchlaeuft einen anderen Organ-Pfad als die sortierten Organe). Sammelt die
+    /// qualifizierenden (key>=start_key), ordnet die kleinsten max_count nach Key (partial_sort) und gibt sie der
+    /// Senke (aufrufbar mit (key,value)) IN KEY-REIHENFOLGE. Rueckgabe = Anzahl besuchter Records. KEIN save_state.
+    template <class Store, class Sink>
+    static std::size_t scan_into(Store const& s, typename Store::key_type start_key,
+                                 std::size_t max_count, Sink&& sink) {
+        if (max_count == 0) return 0;
+        std::vector<std::pair<typename Store::key_type, typename Store::value_type>> hits;
+        std::size_t const n = s.slot_count();
+        for (std::size_t i = 0; i < n; ++i) {
+            typename Store::key_type const k = s.key_at(i);
+            if (k >= start_key) hits.emplace_back(k, s.value_at(i));
+        }
+        std::size_t const out = (hits.size() < max_count) ? hits.size() : max_count;
+        std::partial_sort(hits.begin(), hits.begin() + static_cast<std::ptrdiff_t>(out), hits.end(),
+                          [](auto const& a, auto const& b) noexcept { return a.first < b.first; });
+        for (std::size_t i = 0; i < out; ++i) sink(hits[i].first, hits[i].second);
+        return out;
     }
 };
 
@@ -109,6 +143,19 @@ struct SortedBinaryTraversal {
         if (i < s.slot_count() && s.key_at(i) == k) { s.erase_slot_at(i); return true; }
         return false;
     }
+    /// GoF-Iterator (YCSB-E #214): geordneter Range-Scan ab start_key. Der Store ist SORTIERT → lower_bound (O(log n))
+    /// auf den ersten Key >= start_key, dann sequenzieller Walk (O(scan_len)). KEIN save_state()-O(n)-Kopie + std::sort
+    /// je Op (Audit K4). Gibt bis max_count Records IN KEY-REIHENFOLGE an die Senke (aufrufbar mit (key,value)).
+    /// Rueckgabe = Anzahl besuchter Records.
+    template <class Store, class Sink>
+    static std::size_t scan_into(Store const& s, typename Store::key_type start_key,
+                                 std::size_t max_count, Sink&& sink) {
+        std::size_t const n = s.slot_count();
+        std::size_t visited = 0;
+        for (std::size_t i = lower_bound_index(s, start_key); i < n && visited < max_count; ++i, ++visited)
+            sink(s.key_at(i), s.value_at(i));
+        return visited;
+    }
 };
 
 /// KOMPOSITION: ein Such-Algorithmus = Traversal-Organ ⊕ Storage-Organ, mit std::map-Interface.
@@ -125,6 +172,15 @@ public:
     void insert(key_type k, value_type v)                 { Traversal::template insert_into<Store>(store_, k, v); }
     [[nodiscard]] std::optional<value_type> lookup(key_type k) const { return Traversal::template lookup_in<Store>(store_, k); }
     bool erase(key_type k)                                { return Traversal::template erase_from<Store>(store_, k); }
+
+    /// GoF-Iterator (YCSB-E #214): geordneter Range-Scan ab start_key. Delegiert an das Traversal-Organ — O(log n +
+    /// scan_len) fuer sortierte Organe (SortedBinary/Interpolation/Galloping), ehrlicher O(n) fuer LinearScan. const +
+    /// KEIN Substrat-/Statistik-Effekt (reines Lesen). Ersetzt das save_state()-O(n)+std::sort je Scan-Op (Audit K4).
+    /// `sink` ist aufrufbar mit (key,value); Rueckgabe = Anzahl in Key-Reihenfolge besuchter Records (<= max_count).
+    template <class Sink>
+    [[nodiscard]] std::size_t scan_range(key_type start_key, std::size_t max_count, Sink&& sink) const {
+        return Traversal::template scan_into<Store>(store_, start_key, max_count, std::forward<Sink>(sink));
+    }
     [[nodiscard]] std::size_t occupied_count()      const noexcept { return store_.slot_count(); }
     void clear()                                          noexcept { store_.clear(); }
     // Saeule-2: read-only Zugriff auf das Storage-Organ (z.B. fuer den Allocator-Statistik-Durchgriff).
@@ -161,5 +217,10 @@ private:
 // (Vertrag == Ist-Implementierung, keine erfundene Abstraktion). Bricht dieser static_assert, ist das
 // Concept falsch (z.B. faelschlich gefordertes noexcept), NICHT die Implementierung.
 static_assert(StorageOrgan<RawSlotStore>);
+
+// #214: Selbstbeweis, dass die beiden Kern-Traversal-Organe den additiven Scan-Vertrag erfuellen (GoF-Iterator).
+// Interpolation/Galloping delegieren ihr scan_into an SortedBinary → ihr Selbstbeweis steht in ihren Organ-Dateien.
+static_assert(ScannableTraversalOrgan<LinearScanTraversal,   RawSlotStore>);
+static_assert(ScannableTraversalOrgan<SortedBinaryTraversal, RawSlotStore>);
 
 }  // namespace comdare::cache_engine::lookup::composable

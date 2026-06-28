@@ -1147,6 +1147,13 @@ target_include_directories(test_v5_ycsb_op_set PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 target_link_libraries(test_v5_ycsb_op_set PRIVATE comdare::workload_driver)
 
+# #214 — GoF-Iterator-Organ: scan_range auf den vier Flach-Store-Traversal-Organen (header-only, std::map-Orakel).
+comdare_add_test(test_v41_scan_range_organ
+    SOURCES test_v41_scan_range_organ.cpp)
+target_include_directories(test_v41_scan_range_organ PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+
 # V5-I6-SUBSTANZ (#44) — echte produktive MementoAxis auf den Such-Organen (ComposedSearch + Observable-Wrapper).
 comdare_add_test(test_v5_organ_memento
     SOURCES test_v5_organ_memento.cpp)

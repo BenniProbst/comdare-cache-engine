@@ -71,6 +71,15 @@ public:
     void clear()                                     noexcept { search_.clear(); }
     [[nodiscard]] std::size_t occupied_count() const noexcept { return search_.occupied_count(); }
 
+    /// GoF-Iterator (YCSB-E #214): reicht den geordneten Range-Scan an das innere ComposedSearch durch (O(log n +
+    /// scan_len) fuer sortierte Traversal-Organe, ehrlicher O(n) fuer LinearScan). const + KEIN Statistik-Touch
+    /// (reines Lesen des Substrats — der Scan veraendert weder Daten noch Observer-Zaehler). `sink` aufrufbar mit
+    /// (key,value); Rueckgabe = Anzahl in Key-Reihenfolge besuchter Records (<= max_count).
+    template <class Sink>
+    [[nodiscard]] std::size_t scan_range(key_type start_key, std::size_t max_count, Sink&& sink) const {
+        return search_.scan_range(start_key, max_count, std::forward<Sink>(sink));
+    }
+
     using store_type = Store;   // fuer den optionalen Allocator-Statistik-Durchgriff (Saeule-2)
 
     // P4 (#123, 2026-06-04): ECHTER 2-Ebenen-Migrations-Schritt — reicht den MUTABLEN Store-Zugriff durch, damit der
