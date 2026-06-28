@@ -72,14 +72,16 @@ int main(int argc, char** argv) {
     std::cout << "\n--- (2) build_sota_passes = " << passes.size() << " getaggte Paesse ---\n";
     check("mind. ein Pass real baubar", !passes.empty());
 
-    tlz::SotaPass const* prt_full     = nullptr;   // PRT-ART Reihe A = full
-    tlz::SotaPass const* prt_abstract = nullptr;   // PRT-ART Reihe B/C = abstract
+    tlz::SotaPass const* prt_full     = nullptr;   // PRT-ART Stufe1 = full (Reihe A, self-contained)
+    tlz::SotaPass const* prt_abstract = nullptr;   // PRT-ART Stufe2/3 = abstract (Reihe A/B, Teilmenge + Fallback)
     for (auto const& p : passes) {
-        if (p.lebewesen == "prt_art" && p.series == "A" && p.pruefling_type == "full")     prt_full = &p;
-        if (p.lebewesen == "prt_art" && p.series != "A" && p.pruefling_type == "abstract") prt_abstract = &p;
+        // #178: pruefling_type ist die mechanische Wahrheit (aus merge) — NICHT mehr an die Reihe gekoppelt
+        // (Stufe2-abstract liegt jetzt in Reihe A, Stufe3-abstract in Reihe B).
+        if (p.lebewesen == "prt_art" && p.pruefling_type == "full")     prt_full = &p;
+        if (p.lebewesen == "prt_art" && p.pruefling_type == "abstract") prt_abstract = &p;
     }
-    check("PRT-ART als FULL (Reihe A, self-contained / Originalkonfiguration) vorhanden", prt_full != nullptr);
-    check("PRT-ART als ABSTRACT (Reihe B/C, Teilmenge + Host-Fallback) vorhanden",         prt_abstract != nullptr);
+    check("PRT-ART als FULL (Stufe1 self-contained / Originalkonfiguration, Reihe A) vorhanden", prt_full != nullptr);
+    check("PRT-ART als ABSTRACT (Stufe2/3 Teilmenge + Host-Fallback) vorhanden",                 prt_abstract != nullptr);
 
     // ── (3) lazy_csv_header endet auf pruefling_type. ──
     std::string const hdr = ex::lazy_csv_header();
@@ -102,7 +104,7 @@ int main(int argc, char** argv) {
         return r;
     };
     ex::LazyMeasuredRow const row_full     = make_row(prt_full,     "sota_tier=sota::A::prt_art");
-    ex::LazyMeasuredRow const row_abstract = make_row(prt_abstract, "sota_tier=sota::B::prt_art");
+    ex::LazyMeasuredRow const row_abstract = make_row(prt_abstract, "sota_tier=sota::A::prt_art");  // #178: abstract (Stufe2) liegt in Reihe A
     ex::LazyMeasuredRow       row_basis    = make_row(nullptr,      "search_algo=art/path_compression=none");  // leer → "-"
 
     std::string const csv_full     = ex::format_csv_row(row_full);

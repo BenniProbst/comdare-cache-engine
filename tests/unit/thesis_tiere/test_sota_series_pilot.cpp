@@ -1,11 +1,12 @@
 // test_sota_series_pilot — STRANG A KORRIGIERT, Increment 5 / S6 (Klein-Pilot). Die HARTE GATE (1):
-// baut je Reihe A/B/C >=1 REALE SOTA/PRT-ART-Lebewesen-DLL (echter cl-Bau, distinkte binary_id).
+// baut je Stufe 1/2/3 >=1 REALE SOTA/PRT-ART-Lebewesen-DLL (echter cl-Bau, distinkte binary_id). #178: die Reihe
+// (A/B) wird aus der Stufe abgeleitet (Stufe1∪Stufe2→A, Stufe3→B); Reihe C ist build-übergreifend (keine Stufe).
 //
 // BEWEIST LITERAL:
 //   • S6a: die benannten SOTA + PRT-ART sind im Katalog materialisierbar (binary_id → reale Modul-Quelle).
-//   • S6b: die 3 Kompositionalen Joins A/B/C (pruefling_merge) erzeugen je eine reale, distinkte Lebewesen-DLL.
-//   • Distinktheit: die 3 binary_ids (A/B/C) sind paarweise verschieden UND verschieden voneinander.
-//   • EHRLICH: falls ein cl-Bau scheitert, wird das per Reihe LITERAL gemeldet (Log-Tail), nicht versteckt.
+//   • S6b: die 3 Stufen (pruefling_merge: Stufe1/Stufe2/Stufe3) erzeugen je eine reale, distinkte Lebewesen-DLL.
+//   • Distinktheit: die 3 Stufen-binary_ids sind paarweise verschieden (distinkte Kompositionen, nicht nur Tag).
+//   • EHRLICH: falls ein cl-Bau scheitert, wird das per Stufe LITERAL gemeldet (Log-Tail), nicht versteckt.
 //
 // Dieser Test RUFT cl SELBST auf (innerhalb vcvars64): er rendert je Reihe das Modul-.cpp aus dem Katalog
 // (render_sota_module_source) und baut es real zu einer DLL — kein „nur Tag". KEIN 320/voller SOTA-Sturm:
@@ -107,45 +108,58 @@ int main(int argc, char** argv) {
     std::cout << "  cl-Includes (env COMDARE_PILOT_INCLUDES) = " << incs.size()
               << (have_toolchain ? "" : "  (LEER → nur Katalog-Beleg, KEIN cl-Bau)") << "\n";
 
-    struct Pick { std::string series, lebewesen; };
-    // je Reihe das ERSTE im Profil deklarierte Lebewesen (profil-getrieben, keine Code-Selektion).
-    std::map<std::string, std::string> first_of_series;     // series → lebewesen
+    // #178: je STUFE (merge) das ERSTE im Profil deklarierte Lebewesen (profil-getrieben). Die Stufe ist die
+    // mechanische Wahrheit; die Reihe wird daraus abgeleitet (Thesis ch4 §4.8: Stufe1∪Stufe2→A, Stufe3→B;
+    // Reihe C ist build-übergreifend und an KEINE Stufe gebunden → hier nicht vertreten).
+    struct StufeCase { char const* merge; char const* expect_reihe; };
+    StufeCase const stufen[] = {
+        {"Stufe1_CeOnly",           "A"},
+        {"Stufe2_PrueflingReplace", "A"},
+        {"Stufe3_FullJoin",         "B"},
+    };
+    std::map<std::string, std::string> first_of_merge;      // merge → lebewesen
     for (auto const& s : tp->sota_series)
-        if (!first_of_series.count(s.id)) first_of_series[s.id] = s.lebewesen;
-    check("Profil deklariert die Reihen A, B und C", first_of_series.count("A") && first_of_series.count("B") && first_of_series.count("C"));
+        if (!first_of_merge.count(s.merge)) first_of_merge[s.merge] = s.lebewesen;
+    check("Profil deklariert die Stufen 1, 2 und 3",
+          first_of_merge.count("Stufe1_CeOnly") && first_of_merge.count("Stufe2_PrueflingReplace")
+              && first_of_merge.count("Stufe3_FullJoin"));
 
-    std::map<std::string, std::string> built_binary_id;     // series → binary_id (für Distinktheits-Check)
+    std::map<std::string, std::string> built_binary_id;     // merge → binary_id (für Distinktheits-Check)
     int real_built = 0;
-    for (char sr : {'A', 'B', 'C'}) {
-        std::string const series(1, sr);
-        auto it = first_of_series.find(series);
-        if (it == first_of_series.end()) continue;
-        auto mod = tlz::sota_module_for(series, it->second);
-        std::cout << "\n--- Reihe " << series << " (Lebewesen=" << it->second << "): ";
-        check(("Reihe " + series + ": Katalog liefert ein reales Lebewesen-Modul").c_str(), mod.has_value());
+    for (auto const& sc : stufen) {
+        auto it = first_of_merge.find(sc.merge);
+        if (it == first_of_merge.end()) continue;
+        std::string const reihe = tlz::stufe_to_reihe(sc.merge);
+        auto mod = tlz::sota_module_for(sc.merge, it->second);   // #178: dispatch auf die Stufe (merge)
+        std::cout << "\n--- Stufe " << sc.merge << " → Reihe " << reihe
+                  << " (Lebewesen=" << it->second << "): ";
+        check((std::string{"Stufe "} + sc.merge + ": Katalog liefert ein reales Lebewesen-Modul").c_str(),
+              mod.has_value());
+        check((std::string{"Stufe "} + sc.merge + " → Reihe " + sc.expect_reihe + " (stufe_to_reihe)").c_str(),
+              reihe == sc.expect_reihe);
         if (!mod) continue;
         std::cout << "       binary_id = " << mod->binary_id.substr(0, 110) << "...\n";
         std::cout << "       type      = " << mod->composition_type << "\n";
-        built_binary_id[series] = mod->binary_id;
+        built_binary_id[sc.merge] = mod->binary_id;
         if (have_toolchain) {
             bool const ok = build_one_dll(mod->composition_type, mod->header, work,
-                                          "sota_" + series + "_" + it->second, defs, incs);
-            check(("Reihe " + series + ": REALE Lebewesen-DLL via cl gebaut (echter Bau)").c_str(), ok);
+                                          std::string{"sota_"} + reihe + "_" + it->second, defs, incs);
+            check((std::string{"Stufe "} + sc.merge + ": REALE Lebewesen-DLL via cl gebaut (echter Bau)").c_str(), ok);
             if (ok) ++real_built;
         }
     }
 
-    // ── HARTE GATE (1) Teil 2: die 3 binary_ids A/B/C sind paarweise DISTINKT ──
-    std::cout << "\n--- Distinktheit der 3 Reihen-binary_ids ---\n";
+    // ── HARTE GATE (1) Teil 2: die 3 Stufen-binary_ids sind paarweise DISTINKT (distinkte Kompositionen) ──
+    std::cout << "\n--- Distinktheit der 3 Stufen-binary_ids ---\n";
     bool distinct = built_binary_id.size() == 3;
     if (distinct) {
-        distinct = (built_binary_id["A"] != built_binary_id["B"]) &&
-                   (built_binary_id["A"] != built_binary_id["C"]) &&
-                   (built_binary_id["B"] != built_binary_id["C"]);
+        distinct = (built_binary_id["Stufe1_CeOnly"]           != built_binary_id["Stufe2_PrueflingReplace"]) &&
+                   (built_binary_id["Stufe1_CeOnly"]           != built_binary_id["Stufe3_FullJoin"]) &&
+                   (built_binary_id["Stufe2_PrueflingReplace"] != built_binary_id["Stufe3_FullJoin"]);
     }
-    check("A/B/C binary_ids paarweise distinkt (distinkte Lebewesen, nicht nur Tag)", distinct);
+    check("Stufe1/2/3 binary_ids paarweise distinkt (distinkte Kompositionen, nicht nur Tag)", distinct);
 
-    if (have_toolchain) check("Klein-Pilot: je Reihe A/B/C >=1 reale DLL gebaut (3 real)", real_built == 3);
+    if (have_toolchain) check("Klein-Pilot: je Stufe 1/2/3 >=1 reale DLL gebaut (3 real)", real_built == 3);
     else std::cout << "  (cl-Toolchain nicht gesetzt → Katalog-/Distinktheits-Beleg ohne realen Bau; die "
                       "build_sota_pilot.ps1-Harness setzt die Includes und baut real)\n";
 
