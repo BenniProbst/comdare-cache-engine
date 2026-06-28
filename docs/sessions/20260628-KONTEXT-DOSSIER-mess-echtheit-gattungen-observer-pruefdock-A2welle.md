@@ -295,3 +295,39 @@ von und kompatibel mit #188** — #212 ist ein kleines, sauberes Apparat-Reinhei
 7. **Capability nie still degradieren** (Meta #1/#2): `static_assert` über die ZIEL-Population (die 320), nicht nur Referenz-Komp.
 8. **Mess-Echtheit ehrlich** (Meta #3 + Fairnessregel): nicht-store-geroutete Lebewesen als solche ausweisen (`tier_search_routes_through_store()`), nie verdeckt.
 9. **Keine Erfolgsmarke ohne literale Tool-Ausgabe**; Verifikation NUR auf der Pipeline (Laptop zu langsam).
+
+---
+
+## §10 Die Array-Achse über ZWEI Gattungen — #217 ist kein Key-Width-Fix (User-Hinweis 2026-06-28)
+
+**User-Hinweis:** „ein array ist möglicherweise ein Container, kann aber auch für den Fanout in einem Baum
+konfiguriert werden — die Trennung oder gemeinsame Nutzung zweier Gattungen derselben Achse ist hier
+notwendig." Untersuchung bestätigt:
+
+- **`Array65535SearchAlgo`** (`axes/lookup/axis_03a_search_algo_array65535.hpp`) = „**ART-artige direkte
+  Adressierung**", `key_type = std::uint16_t` = **Fanout-Diskriminator** (2-Byte-Radix-Chunk), `kCapacity=65536`,
+  `max_fanout()=65536`. Analog `Array256SearchAlgo` (1-Byte). Das ist **kein Container-Key**, sondern der
+  Radix-Index eines (Ein-Knoten-)ART-Fanouts.
+- Dieselbe Array-Fanout-Struktur existiert in **zwei Achsen/Rollen**: (1) **search_algo (T0)** als standalone
+  „Ein-Knoten-ART" (Array256/Array65535) **und** (2) **node_type** als echte ART-Fanout-Knoten
+  (`axis_04_node_type_node256/48/16/4.hpp`).
+
+**Konsequenz für #217:** „uint16→uint64" ist KEIN mechanischer Key-Width-Fix (ein 2^64-Fanout ist absurd).
+Die Trunkierung >65535 tritt NUR auf, wenn das Array **als standalone search_algo mit dem vollen Key** getrieben
+wird; **als Baum-Fanout-Knoten** sieht es nur einen Radix-Chunk (voller uint64-Key über den Baum-Pfad → keine
+Trunkierung). Die echte Frage = **Trennung vs. gemeinsame Nutzung der Array-(Fanout-)Achse über die
+Container-Gattung (array-als-Speicher) und die SearchAlgorithm-Gattung (array-als-Baum-Fanout)** — entangelt mit
+der **node_type-Achse** + **#188** (Such-über-Store). ⟹ **#217 = USER-Entscheid, nicht autonom.** Bis dahin:
+Array256/Array65535 ehrlich als Narrow-Diskriminator-Pilots mit Range-Limit führen ([LIMIT], Goal §2.5-b).
+
+## §11 Reconciliation-Befund: der #211–#226-NACHTRAG ist teils STALE (2026-06-28)
+
+Beim Abarbeiten code-verifiziert: **#220 (K7b Load/Insert-Key-Räume) + #222 (K7c Zipfian-Scrambling) sind
+BEREITS ERLEDIGT** (`workload_generator.cpp` splitmix64_scramble_ :126/:140 + neue-Key-Inserts :172-177) — via
+einer Audit-Restwelle vor dieser Session, OBWOHL die durcharbeitung-Disposition sie „offen" listet. ⟹ Die
+durcharbeitung (und damit der #211–#226-NACHTRAG vom 27.06.) ist **unzuverlässig/stale**; mehrere „offene"
+Befunde sind im Code schon gefixt. **Direktive für künftige A2/A3-Arbeit:** JEDEN #21x-Task ZUERST gegen den
+realen Code verifizieren (nicht der Disposition vertrauen), sonst „verrennt" man sich an bereits Erledigtem.
+**Verbleibende ECHTE Arbeit konzentriert sich auf:** #188 (Befund-2-Kern für SOTA-Bäume) + #215/A2.8
+(cowfix-v1-320-DLL-Neubau, macht alles wirksam) + USER-Entscheide (#217 Array-Gattung · #221 RC · #225
+Second-Execution) + Doku (#226 Appendix-LIMIT). Die übrigen sind großteils #188-entangelt oder bereits erledigt.
