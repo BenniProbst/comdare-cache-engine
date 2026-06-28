@@ -137,6 +137,18 @@ if(COMDARE_CE_ENABLE_STATISTICS)
     add_compile_definitions(COMDARE_CE_ENABLE_STATISTICS=1)
 endif()
 
+# Audit #212 / K5b (2026-06-28) — per-Achsen-Observer-PUSH (std::function notify) als OPT-IN.
+# DEFAULT OFF = zero-cost NullNotify in Mess- UND Produktiv-DLL (Apparat-Reinheit Meta #6; ueber die
+# extern-C-Modulgrenze wird NIE ein Subscriber gesetzt -> der per-Op-notify ist toter Apparat-Overhead).
+# Nur die Observer-Mechanik-Unit-Tests (tests/unit) schalten ihn per target_compile_definitions AN.
+# Genistet unter STATISTICS (der MeasurableObserver existiert nur, wenn Statistics an sind).
+option(COMDARE_CE_ENABLE_OBSERVER_PUSH
+    "Audit #212/K5b: per-Achsen-Observer std::function-PUSH einkompilieren (Default OFF = zero-cost; nur Mechanik-Tests AN)"
+    OFF)
+if(COMDARE_CE_ENABLE_STATISTICS AND COMDARE_CE_ENABLE_OBSERVER_PUSH)
+    add_compile_definitions(COMDARE_CE_ENABLE_OBSERVER_PUSH=1)
+endif()
+
 # V41.F.6.1.C Stufe 1 (2026-05-25): Zentrale Vendor-Aktivierungs-Flags pro Topic-Achse
 # (W6-Pattern: konfigurierte Vendor in mp_list akkumuliert, Compiler verwirft Rest)
 # Default ON wenn Vendor-Source im ext/ vorhanden; spaeter dynamisch durch
