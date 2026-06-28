@@ -56,9 +56,17 @@ struct InterpolationTraversalOrgan {
         }
         return std::nullopt;
     }
+    /// GoF-Iterator (YCSB-E #214): der Store ist sortiert (insert/erase delegieren an SortedBinary) → der geordnete
+    /// Range-Scan delegiert ebenfalls an SortedBinaryTraversal::scan_into (lower_bound + Walk, O(log n + scan_len)).
+    template <class Store, class Sink>
+    static std::size_t scan_into(Store const& s, typename Store::key_type start_key,
+                                 std::size_t max_count, Sink&& sink) {
+        return SortedBinaryTraversal::template scan_into<Store>(s, start_key, max_count, std::forward<Sink>(sink));
+    }
 };
 
-// Selbstbeweis: erfuellt das TraversalOrgan-Concept ueber dem Pilot-Storage-Organ.
+// Selbstbeweis: erfuellt das TraversalOrgan-Concept + den additiven Scan-Vertrag (#214) ueber dem Pilot-Storage-Organ.
 static_assert(TraversalOrgan<InterpolationTraversalOrgan, RawSlotStore>);
+static_assert(ScannableTraversalOrgan<InterpolationTraversalOrgan, RawSlotStore>);
 
 }  // namespace comdare::cache_engine::lookup::composable

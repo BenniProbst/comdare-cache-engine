@@ -87,7 +87,7 @@
 #include "../axes/migration_policy/axis_migration_observable.hpp"
 #include "../axes/filter_axis/axis_filter_observable.hpp"
 
-#include <algorithm>     // V5-#49-E: std::sort für den geordneten Range-Scan (tier_scan)
+#include <algorithm>     // STL-Algorithmen (transitiv von Achsen-/Composition-Headern; #214 verlagerte std::sort aus tier_scan nach composable_search.hpp::scan_into)
 #include <array>
 #include <chrono>
 #include <cstring>       // (X) std::memcpy in den 19-Segment-Treibe-Ops
@@ -101,7 +101,7 @@
 #include <string_view>
 #include <type_traits>   // V5-I6: is_copy_constructible/assignable-Guards für die In-Memory-Memento-Kopie
 #include <utility>       // #133 CoW-Memento: std::declval im OrganStatsSnap-Typ-Extrakt
-#include <vector>        // V5-#49-E: save_state()-Snapshot-Liste für den Range-Scan
+#include <vector>        // keys-Ernte (Per-Achsen-Seg-Timing) + Memento-Snapshot-Listen (save_state)
 
 namespace comdare::cache_engine::anatomy {
 
@@ -1532,46 +1532,33 @@ public:
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // IScannableTier-Override (V5-#49-E): YCSB-E Range-Scan über das getriebene Such-Organ.
-    // Liest ab dem kleinsten gespeicherten Key >= start_key bis zu max_count Records IN KEY-REIHENFOLGE.
-    // Implementierung über den MementoAxis-Snapshot (save_state() = vollständige (key,value)-Liste, in JEDEM
-    // produktiven Such-Organ vorhanden) → sortieren → ab start_key bis max_count akkumulieren. Organe OHNE
-    // MementoAxis sind nicht scanbar → 0 (ehrlich, kein Fake). const + noexcept (Mess-Robustheit: jede
-    // interne Störung → 0). Der Scan verändert weder Daten noch Observer-Zähler (reines Lesen des Substrats).
+    // IScannableTier-Override (V5-#49-E): YCSB-E Range-Scan. Liest ab dem kleinsten gespeicherten Key >= start_key
+    // bis zu max_count Records IN KEY-REIHENFOLGE.
+    // (#214 / Audit K4 — GoF-Iterator-Organ, Option A) Uniform über container_.scan_range: das Traversal-Organ
+    // iteriert geordnet ab start_key — O(log n + scan_len) für sortierte Organe, ehrlicher O(n) für LinearScan
+    // (unsortiert). Ersetzt das frühere save_state()-O(n)-Kopie + std::sort JE Scan-Op (der K4-Apparat-Defekt, der
+    // bei YCSB-E die Scan-Messung dominierte). const + noexcept (Mess-Robustheit: jede interne Störung → 0). Der
+    // Scan verändert weder Daten noch Observer-Zähler (reines Lesen des Substrats).
     // ─────────────────────────────────────────────────────────────────────
     [[nodiscard]] std::uint64_t tier_scan(std::uint64_t start_key, std::uint64_t max_count,
                                           std::uint64_t* out_checksum) const noexcept override {
         std::uint64_t visited = 0;
         std::uint64_t sum     = 0;
         try {
-            // (E-Welle-A2 / Audit K4 / A2.5-konsistent) store-traversierbare Tiere: Scan ueber den container_-Store
-            // (= die A2.5-Daten-Quelle), funktioniert auch wenn SearchAlgo selbst KEIN MementoAxis ist → KEIN No-Op mehr
-            // fuer die store-traversierbaren 320 (Audit-K4-Kern: "scan>0"). container_.save_state().data = (key,value)-Liste
-            // in Store-Slot-Reihenfolge. [Refinement (O(scan_len) statt O(n)+sort): lower_bound ueber sortierte Stores.]
-            if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
-                auto snapshot = container_.save_state().data;
-                std::sort(snapshot.begin(), snapshot.end(),
-                          [](auto const& a, auto const& b) noexcept { return a.first < b.first; });
-                for (auto const& kv : snapshot) {
-                    if (static_cast<std::uint64_t>(kv.first) < start_key) continue;
-                    if (visited >= max_count) break;
-                    sum += static_cast<std::uint64_t>(kv.second);
-                    ++visited;
-                }
-            } else if constexpr (MementoAxis<SearchAlgo>) {
-                auto snapshot = search_organ_.save_state();   // Weg-B (k-ary/eytzinger/Tree/Trie): Memento-Snapshot + Sort
-                std::sort(snapshot.begin(), snapshot.end(),
-                          [](auto const& a, auto const& b) noexcept { return a.first < b.first; });
-                for (auto const& kv : snapshot) {
-                    if (static_cast<std::uint64_t>(kv.first) < start_key) continue;   // vor dem Scan-Fenster
-                    if (visited >= max_count) break;                                   // Fenster gefüllt
-                    sum += static_cast<std::uint64_t>(kv.second);
-                    ++visited;
-                }
-            }
-            // else (z.B. Hash ohne MementoAxis, nicht store-traversierbar): ehrlich No-Op = nicht-scanbar (Audit K4).
+            // container_ trägt für ALLE Familien die Records (tier_insert :712 store-traversierbar / :716 Weg-B), in
+            // der vom container_traversal_t bestimmten Ordnung: Array-Familie über ihr treues Traversal-Organ
+            // (LinearScan/Interpolation), Weg-B über den SortedBinary-Spiegel. EIN uniformer Pfad, kein if-constexpr,
+            // kein save_state()/std::sort je Op mehr.
+            // [LIMIT #226] Weg-B: der Scan misst den container_-SortedBinary-Spiegel, NICHT das native Baum-Organ
+            // (search_organ_) — volle Per-Achsen-Scan-Echtheit der SOTA-Bäume erst mit #188 (search_organ_-Entfall).
+            visited = static_cast<std::uint64_t>(container_.scan_range(
+                static_cast<typename container_t::key_type>(start_key),
+                static_cast<std::size_t>(max_count),
+                [&sum](typename container_t::key_type /*k*/, typename container_t::value_type v) noexcept {
+                    sum += static_cast<std::uint64_t>(v);
+                }));
         } catch (...) {
-            return 0;   // noexcept-Vertrag: interne Störung (z.B. OOM beim Snapshot) → 0 Records
+            return 0;   // noexcept-Vertrag: interne Störung (z.B. OOM beim Sammeln in LinearScan) → 0 Records
         }
         if (out_checksum != nullptr) *out_checksum += sum;
         return visited;
