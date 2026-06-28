@@ -55,6 +55,16 @@ Gattung; ein **fundamental anderer Basis-Achsen-Satz ⟹ neue Gattung**.
 | **Container** | schlüssellos | fundamental anderer Satz: Mitgliedschaft/Ordnung/Position — Set (kein Wert), Sequence (positionsindexiert + `axis_growth`), Adapter (umhüllt `inner_container`), View (non-owning: extent/layout/accessor) |
 | **Graph** | Graph | eigener Organsatz (Kanten/Knoten/Adjazenz/Graph-Traversal) |
 
+### §1.1 Das Gattungs-Außen-Interface ist eine KONKRETE STL-Schnittstellen-Hülle (User-Präzisierung 2026-06-28)
+
+Das „Außen-Interface" einer Gattung ist nicht bloß „artig", sondern eine **konkrete STL-Schnittstellen-Hülle, die JEDES Lebewesen der Gattung ableitet/erfüllt** (das Prüf-Dock behandelt es ausschließlich über diese Hülle):
+
+- **SearchAlgorithm-Gattung ⟹ `std::map`-Interface-Hülle.** ALLE Suchalgorithmen **leiten die `std::map`-Hülle ab**; das Gattungsinterface bietet **genau das `std::map`-Interface** an (schlüssel-geordnete Map: `insert`/`lookup`/`erase` + geordnete Iteration via `lower_bound`/`begin`/`end`). Das Konformitäts-Gate prüft jedes Lebewesen gegen das `std::map`-Orakel (`conformance_gate.hpp`).
+- **Container-Gattung ⟹ `std::vector`-Interface-Hülle** (positions-/index-basiert, schlüssellos).
+- **Graph-Gattung ⟹ eigene Graph-Schnittstelle.**
+
+**Konsequenz für #214 (tier_scan, 2026-06-28 umgesetzt):** Der YCSB-E-Range-Scan IST eine native `std::map`-Interface-Operation (`lower_bound(start) → geordnete Iteration`). Der GoF-Iterator (`scan_range` → `Traversal::scan_into`) realisiert damit nichts Fremdes/Aufgesetztes, sondern **genau die geordnete-Iterations-Fähigkeit, die das `std::map`-Gattungsinterface ohnehin trägt** — der Scan ist eine Methode der SearchAlgorithm-Gattung, kein Mess-Apparat. Das `std::map`-Orakel im YCSB-E-Test (`test_v5_ycsb_op_set.cpp`) nutzt exakt `data_.lower_bound(start)` — dieselbe Semantik, an der der neue `scan_range` (`test_v41_scan_range_organ.cpp`) gemessen wird.
+
 ---
 
 ## §2 Anatomie = Verdrahtung = Feature-Interaktion (der wissenschaftliche Kern)
