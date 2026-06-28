@@ -126,6 +126,26 @@ contract:durability:
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
+# ── Stufe 4c: Contract Konformitaets-Gate-Regression (#223, Pipeline P0 / EPIC #186) ──
+# Das std::map-Konformitaets-Gate (import->GATE->messen, builder/pruef_dock/conformance_gate.hpp) MUSS
+# nicht-konforme Tier-Huellen FANGEN — sonst rutschten ungueltige Lebewesen als gueltige Mess-Zeilen durch
+# (Meta-Lehre #3). test_conformance_gate treibt eine konforme std::map-Huelle (muss bestehen) + gezielt
+# defekte Huellen (muessen gefangen werden) durch run_conformance_gate; faengt das Gate eine Nicht-Konformitaet
+# NICHT, ist der Test rot = CI rot. Reines C++/std::map (Linux-g++), kein cl/thesis_tiere-Harness -> schliesst
+# die Harness-CI-Verifikationsluecke fuer genau diesen Konformitaets-Contract. Mirror der .pmc-/contract-Konv.
+contract:conformance:
+  extends: .bare_metal
+  stage: contract
+  tags: [baremetal]
+  needs: ["lint:secrets"]   # hart auf den Secrets-Gate warten (Konvention wie .pmc/contract/durability)
+  script:
+    # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
+    - cmake -B build-conf -G Ninja -DCOMDARE_BUILD_TESTS=ON
+    - cmake --build build-conf --target test_conformance_gate
+    - ctest --test-dir build-conf -R '^test_conformance_gate$' --output-on-failure -V
+  artifacts:
+    paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
+
 # ── Stufe 6: chaos Mess-Drift-Gate (#197, Pipeline P0 / EPIC #186) ──
 # Diplomarbeit-Kern: wissenschaftlich belastbare Messung statt driftverseuchter Werte. >5%
 # Wiederholungs-Abweichung (Median-relativ) ueber die N (Default 3) 2-Phasen-Wiederholungen → die
