@@ -1428,6 +1428,21 @@ comdare_set_platform_defines(test_winsorized_mean)
 add_test(NAME test_winsorized_mean COMMAND test_winsorized_mean)
 set_tests_properties(test_winsorized_mean PROPERTIES LABELS "phase_e;standalone;stats")
 
+# #223 (AUDIT-A3 K9, 2026-06-28) — Regressions-Test, der das Konformitaets-Gate (run_conformance_gate,
+# builder/pruef_dock/conformance_gate.hpp) FESTNAGELT: eine konforme std::map-Huelle besteht, gezielt defekte
+# Huellen (Lookup-Miss / falsches insert-NEU-Flag / size==0) werden GEFANGEN (Meta-Lehre #3 — nur konform-
+# verifizierte Lebewesen liefern gueltige Mess-Daten). Standalone (plain int main, KEIN gtest/Boost/Anatomie-
+# generated); zieht nur den cache_engine-Include-Root (conformance_gate.hpp -> <anatomy/idriveable_tier.hpp> +
+# std). CI-erzwungen ueber die contract-Stage (contract:conformance, .gitlab-ci.yml) auf Linux-g++.
+add_executable(test_conformance_gate "test_conformance_gate.cpp")
+target_compile_features(test_conformance_gate PRIVATE cxx_std_23)
+target_include_directories(test_conformance_gate PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+comdare_set_platform_defines(test_conformance_gate)
+add_test(NAME test_conformance_gate COMMAND test_conformance_gate)
+set_tests_properties(test_conformance_gate PROPERTIES LABELS "contract;standalone;gate")
+
 # P5 (#156-De-Risk, 2026-06-20) — Smoke fuer die PMC-WIDE-Naht: make_pmc_source()/IPmcSource im LAZY WIDE-Mess-Pfad
 # (perm_runner) + 7 additive pmc_*-Spalten in lazy_csv_header. Standalone (plain int main, baut KEINE DLLs), zieht
 # aber den schweren iterator-/pmc_source_factory-Kontext -> derselbe anatomy/axes/Boost::mp11-Include-Satz wie
