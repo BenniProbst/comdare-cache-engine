@@ -481,3 +481,33 @@ Alle vier Experiment-Ebenen auditiert (B4-1/B4-2 · B3-1/B3-2 · B2-1/B2-2 · B1
 **⚠️ VERIFIKATIONS-LÜCKE (NEU, 2026-06-28, → E0-Task):** Die cache-engine-CI (`.gitlab-ci.yml` REV 10) baut NUR 4 isolierte Linux-g++-Targets (`linux_perf_pmc_smoke` / `test_abi_interface` / `test_config_durability` / `test_chaos_drift_gate`) — KEINES inkludiert `sota_catalog.hpp` bzw. die **thesis_tiere-Harness** (Windows/cl, nur PS-Harness/#162-Lauf). ⟹ **Pipeline-grün für E4-Harness-Änderungen = NICHT-Regression, NICHT Compile-Verifikation.** Gilt für ALLE E4-Harness-Arbeit. #178 daher Codex-SHIP + **Pipeline 7109 non-regression-grün** (literal: `=== FINAL 7109: success ===`); echte Compile-Verifikation **harness-gated (mit #162)**. **User-Entscheid 2026-06-28: harness-gated akzeptiert**; CI-Compile-Gate für die Harness = neue E0-Aufgabe (ggf. Windows-Runner, #189-gated). (Kontrast: #214s Kern-Änderung lag in `abi_adapter.hpp`/`composable_search.hpp` = via `test_abi_interface` CI-mitkompiliert; #178s Harness-Header nicht.)
 
 **Nächster Schritt (top-down E4):** #226 (Appendix-Daten-Limitierungen ehrlich führen — Writer fertig `csv_to_latex.cpp:629-788`, offen = Reconciliation der bis-M3-ungefixten A2-Befunde #211/#213-Status in die ausgelieferte cowfix-v1-Limitierungs-Tabelle).
+
+**Nachtrag E4/E3 ABGESCHLOSSEN (2026-06-28):** #226 (#211-Zeile, super dc6b34a) · #165 (verifiziert code-complete, kein Plain-Mean zu winsorisieren) · #223 (Gate-Regressions-Test + CI-`contract:conformance`-Job, cache-engine d0dd6a5; Gate-Verdrahtung selbst-verifiziert, B3-2 war stale). E4+E3 damit top-down abgearbeitet (Rest gated/low). **Nächster Block = E2 #188** — Plan s. §17.
+
+---
+
+## §17 #188 IMPLEMENTIERUNGS-PLAN (Wurzel-Hebel, ausführungsreif für Frisch-Kontext-Session) — 2026-06-28
+
+> **Warum dieser Plan:** #188 (search_organ_-Entfall, `container_` trägt echtes `Composition::search_algo` für ALLE Familien) ist der größte Mess-Echtheits-Hebel, aber ein tiefer Kern-Umbau mit Korrektheits-Risiko (Konformitäts-Gate!). Diesen Plan VOR der Implementierung lesen; je Inkrement frischer Kontext + Codex + Konformitäts-Gate.
+
+**SOLL (Doc 30 §6 Q2 „Bug, kein Geschmack", Doc 30:111):** EIN Speicher — `container_` = `ObservableComposedSearch<traversal_for_search_algo_t<Composition::search_algo>, LayoutAwareChunkedStore<N,L,A>>` für ALLE Familien; `search_organ_` ENTFÄLLT. Damit messen ALLE Achsen (node/layout/alloc/T0–T18) über DENSELBEN realen Store (Meta-Lehre #3 erfüllt — auch für die SOTA-Bäume).
+
+**Mechanik (verifiziert):** ein store-traversierbarer Wrapper trägt `static constexpr bool axis_03a_store_traversable = true;` (`store_traversable_search_algo.hpp:25`) + ein TREUES Traversal-Organ via `traversal_for_search_algo<S>::type` (`traversal_for_search_algo.hpp:28-32`; heute nur LinearScan→LinearScanTraversal, Interpolation→InterpolationTraversalOrgan; k-ary/Eytzinger/Tree/Trie/Hash = `void` = Weg-B-Spiegel).
+
+### Inkrement 4a — k-ary + Eytzinger als StoreTraversable (Array-Familie vervollständigen)
+1. **KAryTraversal-Organ** schreiben (`axes/lookup/composable/`, Muster: `composable_search.hpp` LinearScanTraversal + `interpolation_traversal_organ.hpp`). MUSS das TraversalOrgan-Interface erfüllen, das `ComposedSearch`/`ObservableComposedSearch` nutzt: `insert_into` · `lookup` · `lower_bound_index` · **`scan_into`** (#214-Concept `ScannableTraversalOrgan`, schon vorhanden) — k-Wege-Partition über den sortierten Flach-Store.
+2. **EytzingerTraversal-Organ** — ⚠️ **DESIGN-ENTSCHEIDUNG (User-Rückfrage wert):** Eytzinger = BFS-Layout; der `LayoutAwareChunkedStore` hält Slots sortiert-linear, NICHT BFS. Optionen: (a) Organ hält internen Eytzinger-/BFS-Index über die sortierten Slots (Store unverändert); (b) der Store wird via memory_layout-Achse Eytzinger-arrangiert (größer, layout-gekoppelt). Empfehlung (a) (organ-lokal, store-unabhängig, mirror der anderen Organe). VOR Code entscheiden.
+3. **Marker + Mapping:** `axis_03a_store_traversable=true` an die k-ary/Eytzinger-search_algo-Wrapper + `traversal_for_search_algo`-Spezialisierungen + `static_assert` (mirror `traversal_for_search_algo.hpp:35-38`).
+4. **KONFORMITÄTS-BAR (kritisch):** `ComposedSearch<KAry/Eytzinger, LayoutAwareChunkedStore>` MUSS `run_conformance_gate` (std::map-Orakel, RF1–7 + 2000 Ops) bestehen → exakte std::map-Semantik. Der #223-`test_conformance_gate` + ein scan-Test (Muster `test_v41_scan_range_organ.cpp`: KAry==Eytzinger==LinearScan==std::map-Orakel) sind die Gates.
+5. **Bounded:** 4a fasst die harten Pool-Familien (4b) NICHT an — nur die Array-Familie wird vervollständigt.
+
+### Inkrement 4b — Pool-Familie (Tree/Trie/Hash) über node/layout/allocator (der HARTE Teil)
+Das Knoten-Pool-Substrat IST der Algorithmus (`store_traversable_search_algo.hpp:13`). SOLL: die Pool-Familie über den `node/layout/allocator`-getriebenen `LayoutAwareChunkedStore` führen (statt `*NodePoolStore`), sodass auch sie store-traversierbar wird. Eigene Tiefen-Planung + Frisch-Kontext (größtes Stück; ggf. pro Pool-Art ein Organ).
+
+### Inkrement 4c — search_organ_-Entfall (erst nach 4a+4b GRÜN)
+`abi_adapter.hpp`-Berührungspunkte (B2-1): `container_traversal_t`-Weg-B-Zweig (~:1660-1673, SortedBinary-Spiegel) → `traversal_for_search_algo_t<…>`; `search_organ_`-Member (~:1673) ENTFERNEN; `fill_observer_v3` T0 (~:942-947) aus `container_` statt `search_organ_`; `tier_search_routes_through_store()` (~:1515-1519) → true für alle; `tier_scan` (~:1552-1553) über echtes `container_` (schließt #226-[LIMIT]); Memento save/rollback (~:1170-1197) nur über `container_`. ⟹ #211 (SortedBinary-Spiegel-Rebuild) + #216 (seg_ns-Key-Ernte aus 2 Speichern) fallen WEG (kein Spiegel mehr).
+
+### Schleuse + Sequenz + Risk
+- **Sequenz:** 4a → 4b → 4c → **#215** (320-DLL-Neubau = Wirksamkeits-Schleuse, bringt alles in die Daten) → #156/#162-Lauf.
+- **Verifikation je Inkrement:** compile + `contract:conformance` (CI, #223) + scan-Test; Codex; commit+Submodul-Bump+beide Remotes. Harness-Voll-Verifik. via #162.
+- **Risk:** 4a-Korrektheit (k-ary/Eytzinger exakt std::map-konform) · 4b-Tiefe (Pool-Substrat) · 4c-ABI-Berührung (Observer/Memento) → je frischer Kontext, NIE halb committen.
