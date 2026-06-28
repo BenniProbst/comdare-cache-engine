@@ -511,3 +511,34 @@ Das Knoten-Pool-Substrat IST der Algorithmus (`store_traversable_search_algo.hpp
 - **Sequenz:** 4a → 4b → 4c → **#215** (320-DLL-Neubau = Wirksamkeits-Schleuse, bringt alles in die Daten) → #156/#162-Lauf.
 - **Verifikation je Inkrement:** compile + `contract:conformance` (CI, #223) + scan-Test; Codex; commit+Submodul-Bump+beide Remotes. Harness-Voll-Verifik. via #162.
 - **Risk:** 4a-Korrektheit (k-ary/Eytzinger exakt std::map-konform) · 4b-Tiefe (Pool-Substrat) · 4c-ABI-Berührung (Observer/Memento) → je frischer Kontext, NIE halb committen.
+
+---
+
+## §18 E4/E3-COMPLETENESS-GATE — Cross-Review (Workflow ⨉ Codex ⨉ Spot-Check), 2026-06-28
+
+**Auslöser (User):** VOR dem Übergang zu E2 #188 verifizieren, ob E4 und E3 wirklich gegen die in §15 genannten Aufgaben abgearbeitet sind — per ultracode-Workflow UND elaboratem Codex-Cross-Review (Rohdatei-Pfade, jeder Punkt einzeln gegengeprüft).
+
+**Read-only Workflows gefahren:**
+- **`wtn62cmzm`** (wf_c90fe6fb-a8f, E4/E3-Completeness-Gate, 6 Finder + Synthese, 7 Agenten, ~484k tok) → e4=e3=**ACHIEVED-WITH-CAVEATS**, blocking_gaps=**KEINE**, **PROCEED-TO-E2**.
+- **`wn6ml6xsh`** (wf_d5eafe31-29f, E2-#188-4a-Vorbereitung, read-only Staging) → TraversalOrgan-Kontrakt + LayoutAwareChunkedStore-Mechanik + Eytzinger-Designraum für den E2-Einstieg vorgehalten (Output im tasks-Ordner; für #188-4a-Start zu lesen).
+
+**Codex-Cross-Review** (mcp__codex__codex, read-only, xhigh, cwd=super, Rohdatei-Pfade je Punkt): #223 + #218/#219 = **AGREE**; #178/#226/#165/Level-Goal = **PARTIAL**; Codex-Gesamt = „PROCEED-TO-E2: **NO**".
+
+**Rekonsolidierte Per-Punkt-Verdikte (Workflow ⨉ Codex ⨉ eigener Spot-Check):**
+
+| Punkt | Verdikt | Evidenz / Auflösung |
+|---|---|---|
+| **#178** | **DONE** | Mapping korrekt: `sota_catalog.hpp:74-78` (St1∪St2→A/St3→B/else „-"), `:148-170` merge-Dispatch, `:246-249` series. Caveats (KEIN Mapping-Defekt): Harness-CI-Gap (#230); `m3v2_sota_pilot.profile.xml:66-68` ist A-only → B-Coverage erst im Voll-Lauf (m3v2_study/#162). |
+| **#226** | **DONE** (#211-Zeile) | de `csv_to_latex.cpp:696-707` + en `:771-778`, Codex-Wortlaut korrekt, kein #213. Doku-Nit: kein literaler „PARTIAL"-Marker (Kommentar „bis-M3 ungefixt" trägt die M3-Gating-Aussage). |
+| **#165** | **DONE-VERIFIED** (selbst geprüft) | `annotate_quality_flags()` läuft im REALEN Ausgabepfad `profile_run_entry.hpp:213-224` (emit: `:219` Kopie → `:220` annotate → `:221` format). Gruppen-Post-Pass (`:381-408`, `binary_id\|profile_name`, ≥3 Pkt, k×Median) MUSS nach der Zeilen-Sammlung laufen → Orchestrator-Sitz korrekt, KEIN Gap. `winsorized_mean_ns` `latency_stats.hpp:72`; Appendix nur Perzentil-robust (kein Plain-/Winsor-Mean). |
+| **#223** | **DONE-VERIFIED** | `conformance_gate.hpp:32-108` (RF1-7 + 2000 Ops), Test 4 Hüllen, CI `:136-145` Linux-g++ (echt kompiliert+läuft), Gate feuert vor beiden Mess-Pfaden `perm_runner:154-155/233-234`, `gate_failed_result_:133-137`. B3-2 STALE/FALSE bestätigt. |
+| **#218/#219** | **DONE-VERIFIED** | resume-v4 `iterator:451-463/596-604`; Pipeline-Integrität `csv_to_latex:172-200` + stamp-gated Write `iterator:706-718`. |
+| **Level-Goal** | **DONE** (Named-Tasks) | E3: 5 Gattungen GenusBindingTraits-gebunden (SearchAlgorithm 19-slot grün) + Gate verdrahtet. E4-Tooling grün. Split NUR wegen #221. |
+
+**Der gesamte Workflow-vs-Codex-Split reduziert sich auf #221 (E1, NICHT E4/E3):** beide Werkzeuge faktisch einig — `applied_rc_` write-only (`abi_adapter.hpp:220-224/:1729`), `hw_prefetcher` nicht über POD-Pfad (`runtime_variable_loop.hpp:53-60`) ⟹ künftige **#156**-Runtime-dynamic-Zeilen sind **label-level/phantom bis #221 landet**. Codex zog „PROCEED: NO" (wissenschaftliche Daten-Vorsicht), Workflow „E1-scope, blockiert E2 nicht".
+
+**VERDIKT (rekonsolidiert):** Die **E4/E3-Named-Tasks SIND erreicht** (alle doppelt-verifiziert + #165 selbst-spot-geprüft). Die zwei Carry-forward-Caveats sind KEINE E4/E3-Falschansprüche:
+1. **HARNESS-CI-GAP (#230, bekannt):** #178/#226-Harness-Seite = Codex-SHIP + non-regression; echte cl-Compile-Verifikation gated mit #162. #223 IST echt CI-kompiliert.
+2. **#221 RC-NULL-OBJECT = HARD-GATE VOR #156 (E1, nicht E4/E3):** Runtime-dynamic-Dimension phantom bis #221. Top-down kommt #221 NACH E2 #188 (§9-Entscheid). #188 ist unabhängig von #221 startbar.
+
+**Reihenfolge-Konsequenz:** E2 #188 bleibt der nächste Schritt (top-down + §9); **#221 wird als zwingendes Gate VOR dem #156-Finallauf protokolliert** (sonst Phantom-Zeilen); #230 (Harness-CI) in der E0-Schlussphase. **Minor (nicht-blockierend):** sota_pilot A-only · #226 literaler „PARTIAL"-Kommentar optional · Konformitäts-Gate deckt die 5 Kern-IDriveableTier-Ops ab (Voll-API-Erweiterung später).
