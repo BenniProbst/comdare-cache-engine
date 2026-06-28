@@ -91,9 +91,11 @@
     <axis_sweep axis="value_handle"     baseline="index0"/>
   </axis_sweeps>
 
-  <!-- (c) S1 (c) — SOTA-REIHEN A/B/C: PRT-ART + die 6 SOTA-Lebewesen unter Stufe-1 ce-only (A) / Stufe-2
-       Pruefling-ersetzt-mit-Fallback (B) / Stufe-3 full-join (C) — die 3 Kompositionalen Joins (pruefling_merge).
-       Ersetzt sota_lebewesen_names/sota_series_ids. `merge` nutzt die bestehenden ThesisMode-merge-Felder. -->
+  <!-- (c) S1 (c) — SOTA-REIHEN (Thesis ch4 §4.8 / tab:stage-series, #178): PRT-ART + die 6 SOTA-Lebewesen unter
+       Stufe-1 ce-only ∪ Stufe-2 Pruefling-ersetzt-mit-Fallback → Reihe A / Stufe-3 full-join → Reihe B — die
+       3 Kompositionalen Joins (pruefling_merge). Reihe C (Merge/Regression alt↔neu) ist BUILD-ÜBERGREIFEND,
+       an KEINE Stufe gebunden (kein id="C"). `merge` (Stufe) ist die mechanische Wahrheit; `id` ist die daraus
+       konsistente Reihen-Selbst-Doku (der Code leitet die Reihe via stufe_to_reihe(merge) ab). -->
   <sota_series_set>
     <sota_series id="A" lebewesen="prt_art"  merge="Stufe1_CeOnly"/>
     <sota_series id="A" lebewesen="art"      merge="Stufe1_CeOnly"/>
@@ -102,20 +104,20 @@
     <sota_series id="A" lebewesen="surf"     merge="Stufe1_CeOnly"/>
     <sota_series id="A" lebewesen="start"    merge="Stufe1_CeOnly"/>
     <sota_series id="A" lebewesen="wormhole" merge="Stufe1_CeOnly"/>
-    <sota_series id="B" lebewesen="prt_art"  merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="B" lebewesen="art"      merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="B" lebewesen="hot"      merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="B" lebewesen="masstree" merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="B" lebewesen="surf"     merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="B" lebewesen="start"    merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="B" lebewesen="wormhole" merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="C" lebewesen="prt_art"  merge="Stufe3_FullJoin"/>
-    <sota_series id="C" lebewesen="art"      merge="Stufe3_FullJoin"/>
-    <sota_series id="C" lebewesen="hot"      merge="Stufe3_FullJoin"/>
-    <sota_series id="C" lebewesen="masstree" merge="Stufe3_FullJoin"/>
-    <sota_series id="C" lebewesen="surf"     merge="Stufe3_FullJoin"/>
-    <sota_series id="C" lebewesen="start"    merge="Stufe3_FullJoin"/>
-    <sota_series id="C" lebewesen="wormhole" merge="Stufe3_FullJoin"/>
+    <sota_series id="A" lebewesen="prt_art"  merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="art"      merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="hot"      merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="masstree" merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="surf"     merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="start"    merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="wormhole" merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="B" lebewesen="prt_art"  merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="art"      merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="hot"      merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="masstree" merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="surf"     merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="start"    merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="wormhole" merge="Stufe3_FullJoin"/>
   </sota_series_set>
 
   <!-- (a-S1) WORKING-SET-SWEEP: die N-Liste der aeusseren Lauf-Iteration (Record-Zahlen, P-MD7). Ersetzt

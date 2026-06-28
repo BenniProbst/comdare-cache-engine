@@ -50,11 +50,12 @@
     <axis_sweep axis="node_type"   baseline="index0"/>
   </axis_sweeps>
 
-  <!-- EINE SOTA-Reihe je A/B/C (Klein-Smoke): je 1 reale SOTA/PRT-ART-DLL über die Union-SourceGenFn. -->
+  <!-- SOTA-Reihen (Klein-Smoke, #178/ch4 §4.8): Stufe1 ∪ Stufe2 → Reihe A, Stufe3 → Reihe B (Reihe C ist
+       build-übergreifend, keine Stufe). Je 1 reale SOTA/PRT-ART-DLL über die Union-SourceGenFn. -->
   <sota_series_set>
     <sota_series id="A" lebewesen="prt_art" merge="Stufe1_CeOnly"/>
-    <sota_series id="B" lebewesen="hot"     merge="Stufe2_PrueflingReplace"/>
-    <sota_series id="C" lebewesen="masstree" merge="Stufe3_FullJoin"/>
+    <sota_series id="A" lebewesen="hot"     merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="B" lebewesen="masstree" merge="Stufe3_FullJoin"/>
   </sota_series_set>
 
   <!-- EIN kleiner Working-Set-Wert (Smoke; der Voll-Sweep bleibt im m3v2_study-Profil). -->

@@ -4,8 +4,8 @@
      axis_sweep der vertieften Achsen) via Profil REAL bauen+messen — OHNE den teuren Voll-Lauf (alle 21
      SOTA-Lebewesen × 4 N). Identisch zu m3v2_study.profile.xml in der BASIS-320-Deklaration (gleiche
      binary_ids = golden, kein Drift), ABER:
-       • <sota_series_set> auf 3 Pilot-Reihen GEKAPPT: A/prt_art + A/art (Stufe1_CeOnly) + B/prt_art
-         (Stufe2_PrueflingReplace) → Reihe A (Stufe1) + 1 Pruefling-Replace (Stufe2), wie Aufgabe vorgibt.
+       • <sota_series_set> auf 3 Pilot-Reihen GEKAPPT: A/prt_art + A/art (Stufe1_CeOnly) + A/prt_art
+         (Stufe2_PrueflingReplace) — #178: Stufe1 ∪ Stufe2 → Reihe A (kein id="C"; Reihe C build-übergreifend).
        • <working_set_sweep> = EIN N (16384) → 1 aeussere N-Iteration (bezahlbar).
        • cap klein (das Harness uebersteuert mit -MaxBinaries).
      Die <axis_sweeps>-Deklaration bleibt voll (der Sweep-Pilot waehlt via @<achse> einen Eintrag). -->
@@ -60,11 +60,12 @@
     <axis_sweep axis="value_handle"     baseline="index0"/>
   </axis_sweeps>
 
-  <!-- KLEIN: nur Reihe A (Stufe1) prt_art + art + 1 Pruefling-Replace (Stufe2) prt_art. -->
+  <!-- KLEIN (#178/ch4 §4.8): Reihe A = Stufe1 (prt_art + art) ∪ Stufe2 (prt_art Pruefling-Replace). Kein id="C"
+       (Reihe C ist build-übergreifend, an keine Stufe gebunden). -->
   <sota_series_set>
     <sota_series id="A" lebewesen="prt_art"  merge="Stufe1_CeOnly"/>
     <sota_series id="A" lebewesen="art"      merge="Stufe1_CeOnly"/>
-    <sota_series id="B" lebewesen="prt_art"  merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="prt_art"  merge="Stufe2_PrueflingReplace"/>
   </sota_series_set>
 
   <working_set_sweep>16384</working_set_sweep>

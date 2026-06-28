@@ -82,13 +82,15 @@ int main(int argc, char** argv) {
     std::vector<tlz::SotaPass> const passes = tlz::build_sota_passes(*tp);
     std::cout << "\n--- S7b: SOTA-Reihen-Paesse (build_sota_passes) = " << passes.size() << " ---\n";
     check("build_sota_passes liefert >=1 Pass", passes.size() >= 1);
-    bool series_abc = false;
+    bool series_ab = false;
     {
-        bool a = false, b = false, c = false;
-        for (auto const& p : passes) { if (p.series == "A") a = true; if (p.series == "B") b = true; if (p.series == "C") c = true; }
-        series_abc = a && b && c;
+        bool a = false, b = false;
+        for (auto const& p : passes) { if (p.series == "A") a = true; if (p.series == "B") b = true; }
+        series_ab = a && b;
     }
-    check("SOTA-Paesse decken die Reihen A, B und C ab", series_abc);
+    // #178 (Thesis ch4 §4.8): die Stufen speisen Reihe A (Stufe1∪Stufe2) + Reihe B (Stufe3). Reihe C
+    // (Regression alt↔neu) ist BUILD-ÜBERGREIFEND und wird von KEINER Stufe erzeugt → hier nicht erwartet.
+    check("SOTA-Paesse decken die stufen-gespeisten Reihen A (St1+St2) und B (St3) ab", series_ab);
     std::string const sota_bid0 = passes.empty() ? std::string{} : passes.front().view_binary_id;
     std::cout << "  SOTA-Pass[0]: series=" << (passes.empty() ? "-" : passes.front().series)
               << " view_binary_id=" << sota_bid0 << "\n";
