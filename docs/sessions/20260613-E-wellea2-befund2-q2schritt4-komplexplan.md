@@ -254,3 +254,20 @@ mission-kritische Mess-Echtheits-Defekt ist im Source behoben + unit-test-gruen 
 Wellen, kein Befund-2-Kern-Blocker mehr):** A2.7 Begleit (K4 Iterator-Scan, K9 seg_ns-n>1/Gate) · search_organ_-Voll-Entfernung
 (M8-Doppel-Store-Reinheit) · KAry/Eytzinger-Traversal-Organe · Wellen A1 (Resume/Stamp K8) · A3 (RC K1/Scrambling K7c/Gate K9) ·
 A4 (Pattern K10) · A2.8 cowfix-v1-320-DLL-Neubau + M3 (macht alle A2.x-Fixes in den Abgabe-Daten wirksam).
+
+## §12 #212 NullNotify per-Achsen-REST DONE (verifiziert gruen, 2026-06-28)
+
+A2.1 (38b1374) entfernte den std::function-notify bereits aus den 2 mess-kritischen Huellen
+(observable_composed_{search,container}.hpp). #212 vollendet K5b fuer den **per-Achsen-Rest**: der
+`MeasurableObserver<Snapshot>`-Push (callback_/on_event/notify/has_callback) in measurable_concept.hpp
+ist jetzt OPT-IN hinter `COMDARE_CE_ENABLE_OBSERVER_PUSH` (CMake-Option Default AUS, genistet unter
+STATISTICS). Default => zero-cost NullNotify (notify() = leerer NullObject; KEIN std::function-Member,
+KEIN per-Op-Branch; Apparat-Reinheit Meta #6). Typ unveraendert => Concept MeasurableComponent (same_as)
+erfuellt; 0 Call-Site-Aenderungen; NULL ABI-Blast-Radius (Observer entkoppelt von ObserverAggregate/POD).
+Die 3 Observer-Mechanik-Tests (allocator_axis_06/queuing/traversal) schalten den Push per
+target_compile_definitions AN -> unveraendert gruen. Codex-Cross-Review: 1 Befund (notify im OFF private)
+als False Positive verifiziert (private: liegt im #ifdef-Push-Zweig -> im Default-Build entfernt -> notify
+public) + defensiv explizites public: ergaenzt; uebrige 4 Punkte bestaetigt.
+**Verifikation:** ce 6e484c6 -> GitLab-Pipeline id=7054 = **success** (baut alle DLLs zero-cost + die 3
+Push-Tests mit Flag). Super-Submodul 2c48b65 (bump -> 6e484c6, holt Stale-ef6ecd6 mit). Kontext-Dossier:
+docs/sessions/20260628-KONTEXT-DOSSIER-mess-echtheit-gattungen-observer-pruefdock-A2welle.md (Abschnitt 6).
