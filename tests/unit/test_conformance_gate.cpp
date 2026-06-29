@@ -17,7 +17,6 @@
 
 #include <builder/pruef_dock/conformance_gate.hpp>
 #include <anatomy/idriveable_tier.hpp>
-#include <anatomy/iterable_aspect_tier.hpp>   // #188-4a-C: der NEUE separate iterable-Aspekt-ABI-Kanal
 // #188-4a: das reale KAryTraversal-Organ ueber den Pilot-Store (RawSlotStore) — reine lib-Header (CI-tauglich, kein
 // cl/anatomy/boost/generated, exakt der #223-Standalone-Stil) → beweist KAryTraversal == std::map-konform (Weg-A).
 #include <axes/lookup/composable/composable_search.hpp>
@@ -111,13 +110,14 @@ private:
     std::map<std::uint64_t, std::uint64_t> m_;
 };
 
-// ── #188-4a KONFORM: KAryTraversal ueber den realen Pilot-Store (ComposedSearch<KAryTraversal, RawSlotStore>).
-//    Treibt das ECHTE neue k-Wege-Such-Organ durch dasselbe std::map-Orakel → beweist Weg-A-Store-Traversierbarkeit
-//    + std::map-Konformitaet (lookup_in bit-identisch zu SortedBinary auf dem sortierten Store). MUSS bestehen. ──
+// ── #188-4a / #188-4a-C: KAryTraversal<Arity> ueber den realen Pilot-Store (ComposedSearch<KAryTraversal<Arity>,
+//    RawSlotStore>). K = COMPILE-TIME-Permutation (StaticAxisNode — eigene Tier-Binary je Arity; User-Entscheid
+//    2026-06-29), KEIN Laufzeit-Kanal. Je Arity ein DISTINKTER Organ-Typ. Treibt das ECHTE k-Wege-Organ durch das
+//    std::map-Orakel → beweist Weg-A-Store-Traversierbarkeit + std::map-Konformitaet (lookup_in bit-identisch zu
+//    SortedBinary auf dem sortierten Store) fuer JEDE compile-time Arity. MUSS bestehen. ──
+template <unsigned Arity>
 class KAryComposedTier final : public anat::IDriveableTier {
 public:
-    KAryComposedTier() = default;
-    explicit KAryComposedTier(unsigned arity) { s_.set_iterable_aspect(arity); }   // #188-4a-C: K (iterable_aspect) je Lauf
     [[nodiscard]] bool tier_insert(std::uint64_t k, std::uint64_t v) noexcept override {
         bool const was_new = !s_.lookup(k).has_value();   // NEU-Flag wie tier_insert-Vertrag (true = neuer Key)
         s_.insert(k, v);
@@ -133,31 +133,27 @@ public:
     void tier_clear() noexcept override { s_.clear(); }
     [[nodiscard]] std::uint64_t tier_size() const noexcept override { return s_.occupied_count(); }
 private:
-    cmp::ComposedSearch<cmp::KAryTraversal, cmp::RawSlotStore> s_;
+    cmp::ComposedSearch<cmp::KAryTraversal<Arity>, cmp::RawSlotStore> s_;
 };
 
-// ── #188-4a-C ITERABLE-KANAL: Huelle, die BEIDE ABI-Interfaces traegt (IDriveableTier + der NEUE
-//    IIterableAspectTier). Beweist end-to-end: Host-dynamic_cast auf den iterable-Kanal -> tier_apply_iterable_aspect
-//    setzt K am Container (set_iterable_aspect) -> K-bewusste lookup -> std::map-konform. ──
-class KAryIterableTier final : public anat::IDriveableTier, public anat::IIterableAspectTier {
-public:
-    [[nodiscard]] bool tier_insert(std::uint64_t k, std::uint64_t v) noexcept override {
-        bool const was_new = !s_.lookup(k).has_value(); s_.insert(k, v); return was_new;
-    }
-    [[nodiscard]] bool tier_lookup(std::uint64_t k, std::uint64_t* out) const noexcept override {
-        auto const r = s_.lookup(k); if (!r) return false; if (out != nullptr) *out = *r; return true;
-    }
-    [[nodiscard]] bool tier_erase(std::uint64_t k) noexcept override { return s_.erase(k); }
-    void tier_clear() noexcept override { s_.clear(); }
-    [[nodiscard]] std::uint64_t tier_size() const noexcept override { return s_.occupied_count(); }
-    // Der NEUE separate iterable-Kanal (#188-4a-C3): setzt K am Container; Organ bleibt stateless.
-    bool tier_apply_iterable_aspect(std::uint64_t axis_id, std::uint64_t value) noexcept override {
-        if (axis_id == anat::kIterableAxisSearchAlgo) { s_.set_iterable_aspect(static_cast<unsigned>(value)); return true; }
-        return false;
-    }
-private:
-    cmp::ComposedSearch<cmp::KAryTraversal, cmp::RawSlotStore> s_;
-};
+// Compile-time per-Arity-Gate: jede Arity ist ein eigener Organ-Typ (StaticAxisNode) -> eigener Konformitaets-Lauf
+// gegen das std::map-Orakel. Beweist, dass die k-ary-Achse fuer JEDE compile-time gewaehlte Arity std::map-konform ist.
+template <unsigned Arity>
+void run_kary_arity_gate() {
+    KAryComposedTier<Arity> t;
+    auto const r = dock::run_conformance_gate(t);
+    char lbl[96];
+    std::snprintf(lbl, sizeof(lbl), "k_ary<Arity=%u> (compile-time KAryTraversal<%u>/RawSlotStore): passed()==true", Arity, Arity);
+    check(lbl, r.passed());
+    std::snprintf(lbl, sizeof(lbl), "k_ary<Arity=%u>: cases_total > 0 (Gate lief wirklich)", Arity);
+    check(lbl, r.cases_total > 0);
+    std::snprintf(lbl, sizeof(lbl), "k_ary<Arity=%u>: first_fail == 0 (keine Verletzung)", Arity);
+    check(lbl, r.first_fail == 0);
+    std::printf("    k_ary<Arity=%u>: cases=%llu/%llu first_fail=%llu\n", Arity,
+                static_cast<unsigned long long>(r.cases_passed),
+                static_cast<unsigned long long>(r.cases_total),
+                static_cast<unsigned long long>(r.first_fail));
+}
 
 }  // namespace
 
@@ -207,64 +203,14 @@ int main() {
         check("size-defekt: first_fail > 0", r.first_fail > 0);
     }
 
-    // (5) #188-4a KONFORM (Default-K): das REALE KAryTraversal-Organ ueber RawSlotStore MUSS das std::map-Orakel
-    //     bestehen (RF1-7 + 2000 Zufalls-Ops) → k_ary-search_algo-Achse store-traversierbar + std::map-konform.
-    {
-        KAryComposedTier t;
-        auto const r = dock::run_conformance_gate(t);
-        check("k_ary default-K (KAryTraversal/RawSlotStore): passed()==true", r.passed());
-        check("k_ary default-K: cases_total > 0 (Gate lief wirklich)", r.cases_total > 0);
-        check("k_ary default-K: first_fail == 0 (keine Verletzung)", r.first_fail == 0);
-        std::printf("    k_ary default-K: cases=%llu/%llu first_fail=%llu\n",
-                    static_cast<unsigned long long>(r.cases_passed),
-                    static_cast<unsigned long long>(r.cases_total),
-                    static_cast<unsigned long long>(r.first_fail));
-    }
-
-    // (6) #188-4a-C K-BEWUSST: je K in {2,4,8,16} (iterable_aspect, separater iterable-Kanal via Container-State
-    //     ComposedSearch::set_iterable_aspect) MUSS das k-ary-Organ das std::map-Orakel bestehen → die K-Variation ist
-    //     REAL (anderer Separator-Pfad in lookup_in) UND korrekt (kein Phantom, Meta-Lehre #3). Organ bleibt stateless.
-    {
-        unsigned const Ks[] = {2u, 4u, 8u, 16u};
-        for (unsigned const K : Ks) {
-            KAryComposedTier t{K};
-            auto const r = dock::run_conformance_gate(t);
-            char lbl[72];
-            std::snprintf(lbl, sizeof(lbl), "k_ary K=%u: passed()==true", K);
-            check(lbl, r.passed());
-            std::snprintf(lbl, sizeof(lbl), "k_ary K=%u: first_fail == 0", K);
-            check(lbl, r.first_fail == 0);
-            std::printf("    k_ary K=%u: cases=%llu/%llu first_fail=%llu\n", K,
-                        static_cast<unsigned long long>(r.cases_passed),
-                        static_cast<unsigned long long>(r.cases_total),
-                        static_cast<unsigned long long>(r.first_fail));
-        }
-    }
-
-    // (7) #188-4a-C ITERABLE-KANAL: K ueber den NEUEN IIterableAspectTier-ABI-Kanal setzen (dynamic_cast wie der Host,
-    //     search_algorithm_dock-Muster), NICHT via Ctor -> beweist Interface + RTTI-Cross-Cast + Container-Forwarding
-    //     (tier_apply_iterable_aspect -> set_iterable_aspect) end-to-end; je K MUSS das std::map-Orakel bestehen.
-    {
-        unsigned const Ks[] = {2u, 4u, 8u, 16u};
-        for (unsigned const K : Ks) {
-            KAryIterableTier t;
-            anat::IDriveableTier* base = &t;                              // wie der Host die Binary haelt
-            auto* ich = dynamic_cast<anat::IIterableAspectTier*>(base);   // RTTI-Cross-Cast (Dock-Probing)
-            char lbl[96];
-            std::snprintf(lbl, sizeof(lbl), "iterable-Kanal K=%u: dynamic_cast<IIterableAspectTier> != null", K);
-            check(lbl, ich != nullptr);
-            bool const applied = (ich != nullptr) && ich->tier_apply_iterable_aspect(anat::kIterableAxisSearchAlgo, K);
-            std::snprintf(lbl, sizeof(lbl), "iterable-Kanal K=%u: apply(search_algo, K) angenommen", K);
-            check(lbl, applied);
-            auto const r = dock::run_conformance_gate(t);
-            std::snprintf(lbl, sizeof(lbl), "iterable-Kanal K=%u: passed()==true", K);
-            check(lbl, r.passed());
-            std::printf("    iterable-Kanal K=%u: cases=%llu/%llu first_fail=%llu\n", K,
-                        static_cast<unsigned long long>(r.cases_passed),
-                        static_cast<unsigned long long>(r.cases_total),
-                        static_cast<unsigned long long>(r.first_fail));
-        }
-    }
+    // (5) #188-4a / #188-4a-C COMPILE-TIME ARITY: je Arity in {2,4,8,16} ist ein DISTINKTER, compile-time-spezialisierter
+    //     KAryTraversal<Arity>-Organ-Typ (StaticAxisNode — eigene Tier-Binary; User-Entscheid 2026-06-29: k-ary-Arity =
+    //     compile-time-Permutation, KEIN Laufzeit-Kanal). Jeder MUSS das std::map-Orakel bestehen → die Arity-Variation
+    //     ist REAL (anderer compile-time-Separator-Pfad in lookup_in) UND korrekt (Meta-Lehre #3). Organ stateless.
+    run_kary_arity_gate<2u>();
+    run_kary_arity_gate<4u>();
+    run_kary_arity_gate<8u>();
+    run_kary_arity_gate<16u>();
 
     std::printf("== test_conformance_gate: %s ==\n", g_fail == 0 ? "ALLE OK" : "FEHLER");
     return g_fail == 0 ? 0 : 1;

@@ -33,7 +33,7 @@ namespace composable {
 template <class S> struct traversal_for_search_algo { using type = void; };
 template <> struct traversal_for_search_algo<::comdare::cache_engine::lookup::LinearScanSearchAlgo>    { using type = LinearScanTraversal;        };
 template <> struct traversal_for_search_algo<::comdare::cache_engine::lookup::InterpolationSearchAlgo> { using type = InterpolationTraversalOrgan; };
-template <> struct traversal_for_search_algo<::comdare::cache_engine::lookup::KArySearchAlgo>          { using type = KAryTraversal;              };
+template <> struct traversal_for_search_algo<::comdare::cache_engine::lookup::KArySearchAlgo>          { using type = KAryTraversal<4u>;          };
 
 template <class S> using traversal_for_search_algo_t = typename traversal_for_search_algo<S>::type;
 
@@ -42,8 +42,8 @@ static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine
     "A2.4-S2: linear_scan -> LinearScanTraversal");
 static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::InterpolationSearchAlgo>, InterpolationTraversalOrgan>,
     "A2.4-S2: interpolation -> InterpolationTraversalOrgan");
-static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgo>,          KAryTraversal>,
-    "A2.4-S2 / #188-4a: k_ary -> KAryTraversal");
+static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgo>,          KAryTraversal<4u>>,
+    "A2.4-S2 / #188-4a: k_ary -> KAryTraversal<4> (Default-Arity; per-K = StaticAxisNode-Build-Permutation, harness-gated)");
 
 }  // namespace composable
 }  // namespace comdare::cache_engine::lookup
