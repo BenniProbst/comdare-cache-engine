@@ -71,6 +71,12 @@ public:
     void clear()                                     noexcept { search_.clear(); }
     [[nodiscard]] std::size_t occupied_count() const noexcept { return search_.occupied_count(); }
 
+    // #188-4a-C: Laufzeit-Aspekt (iterable_aspect, z.B. k-ary-Arity K) an das innere ComposedSearch durchreichen
+    // (Container-State; Organ bleibt stateless). lookup() delegiert ohnehin an search_.lookup -> K wird dort gereicht.
+    // 0 = Organ-Default (z.B. kArity); nur fuer ConfigurableTraversalOrgan wirksam.
+    void set_iterable_aspect(unsigned value)        noexcept { search_.set_iterable_aspect(value); }
+    [[nodiscard]] unsigned iterable_aspect()  const noexcept { return search_.iterable_aspect(); }
+
     /// GoF-Iterator (YCSB-E #214): reicht den geordneten Range-Scan an das innere ComposedSearch durch (O(log n +
     /// scan_len) fuer sortierte Traversal-Organe, ehrlicher O(n) fuer LinearScan). const + KEIN Statistik-Touch
     /// (reines Lesen des Substrats — der Scan veraendert weder Daten noch Observer-Zaehler). `sink` aufrufbar mit

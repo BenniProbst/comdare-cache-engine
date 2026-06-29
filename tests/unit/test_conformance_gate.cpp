@@ -17,6 +17,7 @@
 
 #include <builder/pruef_dock/conformance_gate.hpp>
 #include <anatomy/idriveable_tier.hpp>
+#include <anatomy/iterable_aspect_tier.hpp>   // #188-4a-C: der NEUE separate iterable-Aspekt-ABI-Kanal
 // #188-4a: das reale KAryTraversal-Organ ueber den Pilot-Store (RawSlotStore) — reine lib-Header (CI-tauglich, kein
 // cl/anatomy/boost/generated, exakt der #223-Standalone-Stil) → beweist KAryTraversal == std::map-konform (Weg-A).
 #include <axes/lookup/composable/composable_search.hpp>
@@ -135,6 +136,29 @@ private:
     cmp::ComposedSearch<cmp::KAryTraversal, cmp::RawSlotStore> s_;
 };
 
+// ── #188-4a-C ITERABLE-KANAL: Huelle, die BEIDE ABI-Interfaces traegt (IDriveableTier + der NEUE
+//    IIterableAspectTier). Beweist end-to-end: Host-dynamic_cast auf den iterable-Kanal -> tier_apply_iterable_aspect
+//    setzt K am Container (set_iterable_aspect) -> K-bewusste lookup -> std::map-konform. ──
+class KAryIterableTier final : public anat::IDriveableTier, public anat::IIterableAspectTier {
+public:
+    [[nodiscard]] bool tier_insert(std::uint64_t k, std::uint64_t v) noexcept override {
+        bool const was_new = !s_.lookup(k).has_value(); s_.insert(k, v); return was_new;
+    }
+    [[nodiscard]] bool tier_lookup(std::uint64_t k, std::uint64_t* out) const noexcept override {
+        auto const r = s_.lookup(k); if (!r) return false; if (out != nullptr) *out = *r; return true;
+    }
+    [[nodiscard]] bool tier_erase(std::uint64_t k) noexcept override { return s_.erase(k); }
+    void tier_clear() noexcept override { s_.clear(); }
+    [[nodiscard]] std::uint64_t tier_size() const noexcept override { return s_.occupied_count(); }
+    // Der NEUE separate iterable-Kanal (#188-4a-C3): setzt K am Container; Organ bleibt stateless.
+    bool tier_apply_iterable_aspect(std::uint64_t axis_id, std::uint64_t value) noexcept override {
+        if (axis_id == anat::kIterableAxisSearchAlgo) { s_.set_iterable_aspect(static_cast<unsigned>(value)); return true; }
+        return false;
+    }
+private:
+    cmp::ComposedSearch<cmp::KAryTraversal, cmp::RawSlotStore> s_;
+};
+
 }  // namespace
 
 int main() {
@@ -211,6 +235,31 @@ int main() {
             std::snprintf(lbl, sizeof(lbl), "k_ary K=%u: first_fail == 0", K);
             check(lbl, r.first_fail == 0);
             std::printf("    k_ary K=%u: cases=%llu/%llu first_fail=%llu\n", K,
+                        static_cast<unsigned long long>(r.cases_passed),
+                        static_cast<unsigned long long>(r.cases_total),
+                        static_cast<unsigned long long>(r.first_fail));
+        }
+    }
+
+    // (7) #188-4a-C ITERABLE-KANAL: K ueber den NEUEN IIterableAspectTier-ABI-Kanal setzen (dynamic_cast wie der Host,
+    //     search_algorithm_dock-Muster), NICHT via Ctor -> beweist Interface + RTTI-Cross-Cast + Container-Forwarding
+    //     (tier_apply_iterable_aspect -> set_iterable_aspect) end-to-end; je K MUSS das std::map-Orakel bestehen.
+    {
+        unsigned const Ks[] = {2u, 4u, 8u, 16u};
+        for (unsigned const K : Ks) {
+            KAryIterableTier t;
+            anat::IDriveableTier* base = &t;                              // wie der Host die Binary haelt
+            auto* ich = dynamic_cast<anat::IIterableAspectTier*>(base);   // RTTI-Cross-Cast (Dock-Probing)
+            char lbl[96];
+            std::snprintf(lbl, sizeof(lbl), "iterable-Kanal K=%u: dynamic_cast<IIterableAspectTier> != null", K);
+            check(lbl, ich != nullptr);
+            bool const applied = (ich != nullptr) && ich->tier_apply_iterable_aspect(anat::kIterableAxisSearchAlgo, K);
+            std::snprintf(lbl, sizeof(lbl), "iterable-Kanal K=%u: apply(search_algo, K) angenommen", K);
+            check(lbl, applied);
+            auto const r = dock::run_conformance_gate(t);
+            std::snprintf(lbl, sizeof(lbl), "iterable-Kanal K=%u: passed()==true", K);
+            check(lbl, r.passed());
+            std::printf("    iterable-Kanal K=%u: cases=%llu/%llu first_fail=%llu\n", K,
                         static_cast<unsigned long long>(r.cases_passed),
                         static_cast<unsigned long long>(r.cases_total),
                         static_cast<unsigned long long>(r.first_fail));
