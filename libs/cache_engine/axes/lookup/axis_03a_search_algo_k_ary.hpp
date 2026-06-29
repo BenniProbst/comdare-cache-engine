@@ -56,12 +56,15 @@ namespace comdare::cache_engine::lookup {
 class KArySearchAlgo : public SearchAlgoBase<KArySearchAlgo> {
 public:
     static constexpr bool enabled = flags::k_ary_enabled;
-    // (E-Welle-A2 / Befund-2 / #188-4a, 2026-06-28/29) k-ary ist Array-Familie (flacher SORTIERTER Store). Das TREUE
-    // Traversal-Organ KAryTraversal (axes/lookup/composable/k_ary_traversal_organ.hpp) EXISTIERT bereits (lookup_in =
-    // k-Wege-Partition, std::map-konform via test_conformance_gate). ABER die AKTIVIERUNG (axis_03a_store_traversable =
-    // true -> Weg-A) ist ZURUECKGESTELLT bis ein K-BEWUSSTES Organ existiert (#188-4a-C, User-Entscheid 2026-06-29):
-    // das fixe-K=4-Organ wuerde sonst die iterierbare K-Variation (iterable_aspect K in {2,4,8,16}) stummschalten =
-    // Phantom gegen Meta-Lehre #3. Bis dahin bleibt k-ary Weg-B (search_organ_ = K-bewusstes KArySearchAlgo). KEIN Marker.
+    // (E-Welle-A2 / Befund-2 / #188-4a-C5, 2026-06-29) k-ary ist Array-Familie (flacher SORTIERTER Store). Das TREUE
+    // Traversal-Organ KAryTraversal<Arity> (axes/lookup/composable/k_ary_traversal_organ.hpp) ist compile-time +
+    // std::map-konform (test_conformance_gate, k_ary<Arity=2/4/8/16> alle grün). AKTIVIERT (Weg-A): container_ führt
+    // k-ary über DENSELBEN node/layout/allocator-LayoutAwareChunkedStore statt SortedBinary-Spiegel via search_organ_
+    // (Meta-Lehre #3 erfüllt). K-Variation = COMPILE-TIME-Permutation (User-Entscheid SE-13, KEIN Runtime-Kanal — der
+    // wurde verworfen): der per-K-StaticAxisNode-Build (profile_to_tree) emittiert K∈{2,4,8,16} als EIGENE Binaries
+    // (je KAryTraversal<K>). Default-Mapping = KAryTraversal<4u> (traversal_for_search_algo); per-K-Build = Folgestufe
+    // (harness-gated #162). Greift in die Daten erst beim #215-320-DLL-Neubau.
+    static constexpr bool axis_03a_store_traversable = true;
 
     using key_type   = std::uint16_t;
     using value_type = std::uint64_t;
@@ -70,9 +73,9 @@ public:
     using axis_tag   = subaxes::sparse_access_tag;
     using family_id  = std::integral_constant<int, 10>; // S10
 
-    /// iterable_aspect_t = Arität K (Such-METHODE). PermutationEngine erkennt HasIterableAspect<V>
-    /// und generiert 1 Binary mit Runtime-Loop ueber kIterableArities statt 4 separate Binaries.
-    /// K=2 ist die Binärsuch-Baseline; K∈{4,8,16} die echten k-ary-Varianten.
+    /// iterable_aspect_t = Arität K (Such-METHODE). K-Variation = COMPILE-TIME-Permutation (SE-13): der
+    /// per-K-StaticAxisNode-Build (profile_to_tree) emittiert je K aus kIterableArities eine EIGENE Tier-Binary
+    /// (je KAryTraversal<K>) — KEIN Runtime-Loop (der wurde verworfen). K=2 = Binärsuch-Baseline; K∈{4,8,16} = echte k-ary-Varianten.
     using iterable_aspect_t = unsigned;
     static constexpr std::array<unsigned, 4>                 kIterableArities{2u, 4u, 8u, 16u};
     [[nodiscard]] static constexpr std::span<unsigned const> iterable_values() noexcept {
