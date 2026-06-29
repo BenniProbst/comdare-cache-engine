@@ -16,6 +16,7 @@
 #include <axes/lookup/composable/composable_search.hpp>
 #include <axes/lookup/composable/interpolation_traversal_organ.hpp>
 #include <axes/lookup/composable/galloping_traversal_organ.hpp>
+#include <axes/lookup/composable/k_ary_traversal_organ.hpp>        // #188-4a
 #include <axes/lookup/composable/observable_composed_search.hpp>
 
 #include <gtest/gtest.h>
@@ -83,6 +84,7 @@ TEST(V41ScanRangeOrgan, SortedBinaryMatchesOracle)  { expect_matches_oracle<cmp:
 TEST(V41ScanRangeOrgan, LinearScanMatchesOracle)    { expect_matches_oracle<cmp::LinearScanTraversal>(make_data()); }
 TEST(V41ScanRangeOrgan, InterpolationMatchesOracle) { expect_matches_oracle<cmp::InterpolationTraversalOrgan>(make_data()); }
 TEST(V41ScanRangeOrgan, GallopingMatchesOracle)     { expect_matches_oracle<cmp::GallopingTraversalOrgan>(make_data()); }
+TEST(V41ScanRangeOrgan, KAryMatchesOracle)          { expect_matches_oracle<cmp::KAryTraversal>(make_data()); }   // #188-4a
 
 // Meta-Lehre #3: das UNSORTIERTE LinearScan-Organ und das sortierte SortedBinary-Organ durchlaufen verschiedene
 // Organ-Pfade, liefern aber DIESELBE korrekte geordnete Scan-Ausgabe (der Apparat verfälscht das Ergebnis nicht).

@@ -17,6 +17,10 @@
 
 #include <builder/pruef_dock/conformance_gate.hpp>
 #include <anatomy/idriveable_tier.hpp>
+// #188-4a: das reale KAryTraversal-Organ ueber den Pilot-Store (RawSlotStore) — reine lib-Header (CI-tauglich, kein
+// cl/anatomy/boost/generated, exakt der #223-Standalone-Stil) → beweist KAryTraversal == std::map-konform (Weg-A).
+#include <axes/lookup/composable/composable_search.hpp>
+#include <axes/lookup/composable/k_ary_traversal_organ.hpp>
 
 #include <cstdint>
 #include <cstdio>
@@ -24,6 +28,7 @@
 
 namespace dock = comdare::cache_engine::builder::pruef_dock;
 namespace anat = comdare::cache_engine::anatomy;
+namespace cmp  = comdare::cache_engine::lookup::composable;
 
 namespace {
 
@@ -105,6 +110,29 @@ private:
     std::map<std::uint64_t, std::uint64_t> m_;
 };
 
+// ── #188-4a KONFORM: KAryTraversal ueber den realen Pilot-Store (ComposedSearch<KAryTraversal, RawSlotStore>).
+//    Treibt das ECHTE neue k-Wege-Such-Organ durch dasselbe std::map-Orakel → beweist Weg-A-Store-Traversierbarkeit
+//    + std::map-Konformitaet (lookup_in bit-identisch zu SortedBinary auf dem sortierten Store). MUSS bestehen. ──
+class KAryComposedTier final : public anat::IDriveableTier {
+public:
+    [[nodiscard]] bool tier_insert(std::uint64_t k, std::uint64_t v) noexcept override {
+        bool const was_new = !s_.lookup(k).has_value();   // NEU-Flag wie tier_insert-Vertrag (true = neuer Key)
+        s_.insert(k, v);
+        return was_new;
+    }
+    [[nodiscard]] bool tier_lookup(std::uint64_t k, std::uint64_t* out) const noexcept override {
+        auto const r = s_.lookup(k);
+        if (!r) return false;
+        if (out != nullptr) *out = *r;
+        return true;
+    }
+    [[nodiscard]] bool tier_erase(std::uint64_t k) noexcept override { return s_.erase(k); }
+    void tier_clear() noexcept override { s_.clear(); }
+    [[nodiscard]] std::uint64_t tier_size() const noexcept override { return s_.occupied_count(); }
+private:
+    cmp::ComposedSearch<cmp::KAryTraversal, cmp::RawSlotStore> s_;
+};
+
 }  // namespace
 
 int main() {
@@ -151,6 +179,21 @@ int main() {
         auto const r = dock::run_conformance_gate(t);
         check("size-defekt: passed()==false", !r.passed());
         check("size-defekt: first_fail > 0", r.first_fail > 0);
+    }
+
+    // (5) #188-4a KONFORM: das REALE KAryTraversal-Organ ueber RawSlotStore MUSS das std::map-Orakel bestehen
+    //     (RF1-7 + 2000 Zufalls-Ops) → beweist die k_ary-search_algo-Achse store-traversierbar + std::map-konform.
+    {
+        KAryComposedTier t;
+        auto const r = dock::run_conformance_gate(t);
+        check("k_ary (KAryTraversal/RawSlotStore): passed()==true", r.passed());
+        check("k_ary: cases_total > 0 (Gate lief wirklich)", r.cases_total > 0);
+        check("k_ary: cases_passed == cases_total", r.cases_passed == r.cases_total);
+        check("k_ary: first_fail == 0 (keine Verletzung)", r.first_fail == 0);
+        std::printf("    k_ary: cases=%llu/%llu first_fail=%llu\n",
+                    static_cast<unsigned long long>(r.cases_passed),
+                    static_cast<unsigned long long>(r.cases_total),
+                    static_cast<unsigned long long>(r.first_fail));
     }
 
     std::printf("== test_conformance_gate: %s ==\n", g_fail == 0 ? "ALLE OK" : "FEHLER");
