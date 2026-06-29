@@ -84,7 +84,7 @@ TEST(V41ScanRangeOrgan, SortedBinaryMatchesOracle)  { expect_matches_oracle<cmp:
 TEST(V41ScanRangeOrgan, LinearScanMatchesOracle)    { expect_matches_oracle<cmp::LinearScanTraversal>(make_data()); }
 TEST(V41ScanRangeOrgan, InterpolationMatchesOracle) { expect_matches_oracle<cmp::InterpolationTraversalOrgan>(make_data()); }
 TEST(V41ScanRangeOrgan, GallopingMatchesOracle)     { expect_matches_oracle<cmp::GallopingTraversalOrgan>(make_data()); }
-TEST(V41ScanRangeOrgan, KAryMatchesOracle)          { expect_matches_oracle<cmp::KAryTraversal>(make_data()); }   // #188-4a
+TEST(V41ScanRangeOrgan, KAryMatchesOracle)          { expect_matches_oracle<cmp::KAryTraversal<4u>>(make_data()); }   // #188-4a (compile-time Default-Arity 4)
 
 // Meta-Lehre #3: das UNSORTIERTE LinearScan-Organ und das sortierte SortedBinary-Organ durchlaufen verschiedene
 // Organ-Pfade, liefern aber DIESELBE korrekte geordnete Scan-Ausgabe (der Apparat verfälscht das Ergebnis nicht).
