@@ -16,9 +16,10 @@
 // Konformitaet) per Konstruktion identisch zu SortedBinaryTraversal (run_conformance_gate-Bar, test_conformance_gate.cpp)
 // und es entsteht KEIN neuer O(n)-Rebuild (kein #211-Konflikt; gleiche flatten/rebuild-Kosten wie SortedBinary).
 //
-// **Arity K:** organ-lokale Konstante kArity = 4 (= KArySearchAlgo::kDefaultArity, "5-Wege-Partition", Paper-Beispiel).
-// Die Laufzeit-Variation von K (iterable_aspect, K in {2,4,8,16}) bleibt der search_algo-Wrapper-Ebene vorbehalten;
-// das Mess-Organ bildet die Such-METHODE ab, nicht die K-Permutation.
+// **Arity K (#188-4a-C):** lookup_in nimmt K als Laufzeit-Parameter (Default kArity = 4 = KArySearchAlgo::kDefaultArity,
+// "5-Wege-Partition", Paper-Beispiel; clamp >=2). K ist eine DYNAMISCHE SUBACHSE (iterable_aspect, K in {2,4,8,16}):
+// der State wohnt im Container (ComposedSearch::set_iterable_aspect), das Organ bleibt STATELESS (reine Funktion von
+// (Store, K)). Geliefert wird K ueber den separaten iterable-Kanal (tier_apply_iterable_aspect, #188-4a-C3, harness-gated).
 //
 // **lookup_in = bit-identisch zur erprobten KArySearchAlgo::lookup (axis_03a_search_algo_k_ary.hpp:119-153), nur auf
 // der StorageOrgan-API (key_at/value_at statt keys_/values_).** Halb-offenes Intervall [lo,hi); je Iteration bis zu K
@@ -50,16 +51,17 @@ struct KAryTraversal {
     /// Segmente; Restbreite <= K -> linearer Scan. Auf dem SORTIERTEN Store ist das Ergebnis bit-identisch zu
     /// SortedBinaryTraversal::lookup_in (Wert iff Key vorhanden, sonst nullopt) = std::map-konform.
     template <class Store>
-    static std::optional<typename Store::value_type> lookup_in(Store const& s, typename Store::key_type k) {
+    static std::optional<typename Store::value_type> lookup_in(Store const& s, typename Store::key_type k,
+                                                               unsigned arity = kArity) {
         std::size_t const n = s.slot_count();
         std::size_t lo = 0, hi = n;                  // halb-offenes Intervall [lo, hi)
-        std::size_t const K = kArity;
+        std::size_t const K = (arity < 2u ? 2u : arity);   // #188-4a-C: K = dynamische Subachse (Default kArity); clamp >=2 (wie KArySearchAlgo)
         while (hi - lo > K) {
             std::size_t const width = hi - lo;
             std::size_t new_lo = lo, new_hi = hi;
             bool narrowed = false;
             for (std::size_t j = 1; j <= K; ++j) {
-                std::size_t const pos = lo + (width * j) / (K + 1);    // Separator-Position in (lo, hi)
+                std::size_t const pos = lo + (width * j) / (K + 1);    // Separator in (lo,hi); Formel identisch zur Referenz KArySearchAlgo::lookup (Fidelitaet); width<=slot_count -> kein realer Overflow
                 typename Store::key_type const sep = s.key_at(pos);
                 if (sep == k) return s.value_at(pos);                  // Direkt-Treffer auf Separator
                 if (k < sep) { new_hi = pos; narrowed = true; break; } // Ziel im Segment vor pos
@@ -81,8 +83,10 @@ struct KAryTraversal {
     }
 };
 
-// Selbstbeweis: erfuellt das TraversalOrgan-Concept + den additiven Scan-Vertrag (#214) ueber dem Pilot-Storage-Organ.
+// Selbstbeweis: erfuellt TraversalOrgan + den additiven Scan-Vertrag (#214) + den K-Aspekt-Vertrag
+// (#188-4a-C ConfigurableTraversalOrgan) ueber dem Pilot-Storage-Organ.
 static_assert(TraversalOrgan<KAryTraversal, RawSlotStore>);
 static_assert(ScannableTraversalOrgan<KAryTraversal, RawSlotStore>);
+static_assert(ConfigurableTraversalOrgan<KAryTraversal, RawSlotStore>);
 
 }  // namespace comdare::cache_engine::lookup::composable
