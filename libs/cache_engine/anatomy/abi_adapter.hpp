@@ -990,7 +990,7 @@ public:
         if constexpr (ObservableAxis<SearchAlgo>) {
             // (E-Welle-A2 / Befund-2 / Q2-Schritt-4 / A2.5) T0-Such-Metrik QUELLE: store-traversierbare Algos liefern sie
             // aus dem container_-Store (die Suche routet jetzt via traversal_for_search_algo über node/layout/allocator —
-            // KEIN search_organ_-Schatten mehr → node/layout-Wechsel ändern T0 = Meta-Lehre #3). Weg-B-Algos (k-ary/eytzinger/
+            // KEIN search_organ_-Schatten mehr → node/layout-Wechsel ändern T0 = Meta-Lehre #3). Weg-B-Algos (eytzinger/
             // Tree/Trie/Hash): weiter aus search_organ_ (ehrlich, tier_search_routes_through_store()==false). Felder identisch.
             auto const ss = [&]() {
                 if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>)
@@ -1712,10 +1712,10 @@ public:
     // Achsen Detail-Interfaces durch (StorageOrgan → 9× organ_observe_<achse>; T7 konsumiert Store-Adressen).
     // Die Thesis sagt bewusst „VIELE" (nicht „alle") — das ist ehrlich. Es bleiben GENAU DREI bewusste,
     // by-design bzw. zurückgestellte Ausnahmen (Doc 30 Q2-Schritt-4):
-    //   (1) T0 search_algo — Weg-B (Tree/Trie/Hash/k-ary/eytzinger): Such-Metrik aus dem search_organ_-Monolith
+    //   (1) T0 search_algo — Weg-B (Tree/Trie/Hash/eytzinger): Such-Metrik aus dem search_organ_-Monolith
     //       statt über die Speicher-Achsen T4/T5/T6 (s. tier_search_routes_through_store()==false unten + :918).
     //       Voll-Delegation = Mess-Pfad-Umbau (T0-Quelle) → ZURÜCKGESTELLT (braucht explizite Mess-Semantik-
-    //       Freigabe; Weg-A LinearScan/Interpolation routet bereits durch den Store == true).
+    //       Freigabe; Weg-A LinearScan/Interpolation/k-ary (#188-4a-C5) routet bereits durch den Store == true).
     //   (2) T1 cache_traversal + T2 mapping — eigener register_entry/register_slot-Index (:713-719) PARALLEL zum
     //       Store: SELF-CONTAINED BY DESIGN. Beide Organe modellieren eine ANDERE Entscheidung als das Store-
     //       Layout (Algorithmus↔Cache-Abbildung bzw. Key→Position), nicht Store-Daten → eigener Zustand ist
@@ -1736,8 +1736,8 @@ public:
     // sind die Achsen-Austauschbarkeits-Belege für dieses Tier teils Apparat-Artefakt (Doc 34 §9.1 SOLL-Regel 3 +
     // A3 Meta-Lehre #3: Diff-Beweise brauchen NACHWEISLICH verschiedene Organ-Pfade). Verifikations-Hook für A2.5.
     [[nodiscard]] static constexpr bool tier_search_routes_through_store() noexcept {
-        // (A2.5) Jetzt EHRLICH conditional: store-traversierbare Algos (LinearScan/Interpolation) liefern T0 aus container_
-        // (Suche über node/layout/allocator) → true; Weg-B-Algos (k-ary/eytzinger/Tree/Trie/Hash) → false (search_organ_-Quelle).
+        // (A2.5/#188-4a-C5) Jetzt EHRLICH conditional: store-traversierbare Algos (LinearScan/Interpolation/k-ary) liefern T0 aus
+        // container_ (Suche über node/layout/allocator) → true; Weg-B-Algos (eytzinger/Tree/Trie/Hash) → false (search_organ_-Quelle).
         return ::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>;
     }
 
@@ -1884,8 +1884,8 @@ private:
     // Plan v2 S1 (2026-06-04): layout-honorierender Store — speichert Records am layout-getriebenen eff_stride
     // (CLA 64-B-gepaddet vs aos 16-B-packed) → die memory_layout-Achse ist ECHT, organ_observe_layout OOB-frei,
     // allocator-Bytes layout-abhängig. Drop-in zu NodeChunkedStore (StorageOrgan-Concept), ersetzt es im Mess-Pfad.
-    // (E-Welle-A2 / Befund-2 / Q2-Schritt-4 / A2.5) Such-Strategie ÜBER den Store: store-traversierbare Algos
-    // (LinearScan/Interpolation) parametrisieren container_ mit ihrem TREUEN Traversal-Organ → die search_algo-Achse
+    // (E-Welle-A2 / Befund-2 / Q2-Schritt-4 / A2.5 / #188-4a-C5) Such-Strategie ÜBER den Store: store-traversierbare Algos
+    // (LinearScan/Interpolation/k-ary) parametrisieren container_ mit ihrem TREUEN Traversal-Organ → die search_algo-Achse
     // sucht über DENSELBEN node/layout/allocator-getriebenen Store (Befund-2-SOLL); Weg-B-Algos: SortedBinary-Fallback.
     using container_traversal_t =
         std::conditional_t<::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>,
