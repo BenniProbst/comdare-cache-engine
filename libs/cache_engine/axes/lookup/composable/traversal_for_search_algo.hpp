@@ -9,18 +9,23 @@
 // node/layout/allocator-getriebenen Store (Befund-2-SOLL).
 //
 // **TREUE (kein Fidelitäts-Defekt):** nur Algos mit einem dedizierten, sie korrekt abbildenden Traversal-Organ werden
-// gemappt: LinearScan→LinearScanTraversal, Interpolation→InterpolationTraversalOrgan. k-ary (k-Wege-SIMD-Partition) +
-// Eytzinger (BFS-Layout) haben KEIN treues Flach-Store-Traversal → primäres Template `void` (= Weg-B; A2.4-S1-konsistent).
-// Tree/Trie/Hash (Pool-Substrat) ebenso `void`. Ein künftiges KAryTraversal/EytzingerTraversal-Organ macht sie nachträglich mapbar.
+// gemappt: LinearScan→LinearScanTraversal, Interpolation→InterpolationTraversalOrgan, k-ary→KAryTraversal (#188-4a:
+// k-Wege-Partition über den sortierten Flach-Store; lookup_in bit-identisch zur k_ary-Suche, insert/erase/scan an
+// SortedBinary). Eytzinger (BFS-Layout) hat (noch) KEIN treues Flach-Store-Traversal → primäres Template `void`
+// (= Weg-B; #188-4a-Eytzinger offen: User-Entscheid Mutations-Strategie). Tree/Trie/Hash (Pool-Substrat) ebenso `void` (#188-4b).
 
 #include "composable_search.hpp"               // LinearScanTraversal, SortedBinaryTraversal
 #include "interpolation_traversal_organ.hpp"   // InterpolationTraversalOrgan
+#include "k_ary_traversal_organ.hpp"           // KAryTraversal (#188-4a)
+
+#include <type_traits>                          // std::is_same_v (A2.4-S2-static_asserts; vorher nur transitiv)
 
 namespace comdare::cache_engine::lookup {
 
 // Vorwärts-Deklaration der gemappten Such-Algo-Wrapper (vermeidet Voll-Include der Wrapper → keine Zirkularität).
 class LinearScanSearchAlgo;
 class InterpolationSearchAlgo;
+class KArySearchAlgo;   // #188-4a: store-traversierbar via KAryTraversal
 
 namespace composable {
 
@@ -28,14 +33,17 @@ namespace composable {
 template <class S> struct traversal_for_search_algo { using type = void; };
 template <> struct traversal_for_search_algo<::comdare::cache_engine::lookup::LinearScanSearchAlgo>    { using type = LinearScanTraversal;        };
 template <> struct traversal_for_search_algo<::comdare::cache_engine::lookup::InterpolationSearchAlgo> { using type = InterpolationTraversalOrgan; };
+template <> struct traversal_for_search_algo<::comdare::cache_engine::lookup::KArySearchAlgo>          { using type = KAryTraversal;              };
 
 template <class S> using traversal_for_search_algo_t = typename traversal_for_search_algo<S>::type;
 
-// Verifikation (kein Raten): die 2 store-traversierbaren Algos mappen auf ihr treues Organ; nicht-gemappte → void.
+// Verifikation (kein Raten): die store-traversierbaren Algos mappen auf ihr treues Organ; nicht-gemappte → void.
 static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::LinearScanSearchAlgo>,    LinearScanTraversal>,
     "A2.4-S2: linear_scan -> LinearScanTraversal");
 static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::InterpolationSearchAlgo>, InterpolationTraversalOrgan>,
     "A2.4-S2: interpolation -> InterpolationTraversalOrgan");
+static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::KArySearchAlgo>,          KAryTraversal>,
+    "A2.4-S2 / #188-4a: k_ary -> KAryTraversal");
 
 }  // namespace composable
 }  // namespace comdare::cache_engine::lookup

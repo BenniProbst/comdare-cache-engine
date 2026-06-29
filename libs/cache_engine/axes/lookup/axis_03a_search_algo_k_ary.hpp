@@ -56,10 +56,12 @@ namespace comdare::cache_engine::lookup {
 class KArySearchAlgo : public SearchAlgoBase<KArySearchAlgo> {
 public:
     static constexpr bool enabled = flags::k_ary_enabled;
-    // (E-Welle-A2 / Befund-2 / A2.4-S1, KORRIGIERT 2026-06-13) k-ary ist zwar Array-Familie (flacher Store), hat aber KEIN
-    // treues dediziertes Traversal-Organ (composable_search.hpp bietet nur LinearScan + SortedBinary; k-ary = k-Wege-SIMD-
-    // Partition, NICHT 2-Wege-Binär) → konservativ KEIN axis_03a_store_traversable-Marker (Weg-B), bis ein treues KAryTraversal-
-    // Organ existiert. Sonst maesse die k_ary-Achse SortedBinary-Verhalten (Fidelitäts-Defekt). Kein Raten (Meta-Lehre #1/#2).
+    // (E-Welle-A2 / Befund-2 / #188-4a, 2026-06-28/29) k-ary ist Array-Familie (flacher SORTIERTER Store). Das TREUE
+    // Traversal-Organ KAryTraversal (axes/lookup/composable/k_ary_traversal_organ.hpp) EXISTIERT bereits (lookup_in =
+    // k-Wege-Partition, std::map-konform via test_conformance_gate). ABER die AKTIVIERUNG (axis_03a_store_traversable =
+    // true -> Weg-A) ist ZURUECKGESTELLT bis ein K-BEWUSSTES Organ existiert (#188-4a-C, User-Entscheid 2026-06-29):
+    // das fixe-K=4-Organ wuerde sonst die iterierbare K-Variation (iterable_aspect K in {2,4,8,16}) stummschalten =
+    // Phantom gegen Meta-Lehre #3. Bis dahin bleibt k-ary Weg-B (search_organ_ = K-bewusstes KArySearchAlgo). KEIN Marker.
 
     using key_type   = std::uint16_t;
     using value_type = std::uint64_t;
