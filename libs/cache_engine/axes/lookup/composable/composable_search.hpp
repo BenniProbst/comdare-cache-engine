@@ -74,6 +74,17 @@ concept ScannableTraversalOrgan = TraversalOrgan<T, Store> &&
         { T::template scan_into<Store>(cs, k, n, sink) } -> std::same_as<std::size_t>;
     };
 
+/// Additives Capability-Concept (#188-4a-C): ein Traversal-Organ, dessen Lokalisierung (lookup_in) zusaetzlich einen
+/// LAUFZEIT-Aspekt-Wert annimmt (z.B. die k-ary-Arity K) — eine "dynamische Subachse" (iterable_aspect), deren State
+/// im Container wohnt, NICHT im stateless Organ. Bewusst additiv getrennt vom TraversalOrgan-Kernvertrag: nur k-ary
+/// erfuellt es; LinearScan/SortedBinary/Interpolation NICHT (deren lookup_in ist rein 2-arg). Aspekt-Typ = unsigned
+/// (= KArySearchAlgo::iterable_aspect_t); ComposedSearch reicht ihn nur fuer konfigurierbare Organe durch.
+template <class T, class Store>
+concept ConfigurableTraversalOrgan = TraversalOrgan<T, Store> &&
+    requires(Store const& cs, typename Store::key_type k, unsigned aspect) {
+        { T::template lookup_in<Store>(cs, k, aspect) } -> std::same_as<std::optional<typename Store::value_type>>;
+    };
+
 /// Traversal-Organ 1: unsortierter linearer Scan (ART-Node4-Strategie). Store bleibt unsortiert.
 struct LinearScanTraversal {
     template <class Store>
@@ -170,8 +181,22 @@ public:
     using value_type = typename Store::value_type;
 
     void insert(key_type k, value_type v)                 { Traversal::template insert_into<Store>(store_, k, v); }
-    [[nodiscard]] std::optional<value_type> lookup(key_type k) const { return Traversal::template lookup_in<Store>(store_, k); }
+    [[nodiscard]] std::optional<value_type> lookup(key_type k) const {
+        // #188-4a-C: K-bewusste Lokalisierung — fuer ein ConfigurableTraversalOrgan (k-ary) den Laufzeit-Aspekt (K)
+        // durchreichen; sonst (Default 0 / nicht-konfigurierbar) der 2-arg-Pfad (Organ-Default). State im Container,
+        // Organ bleibt stateless. if constexpr → fuer nicht-konfigurierbare Organe ZERO-Overhead (Zweig wegkompiliert).
+        if constexpr (ConfigurableTraversalOrgan<Traversal, Store>) {
+            if (iterable_aspect_ != 0u) return Traversal::template lookup_in<Store>(store_, k, iterable_aspect_);
+        }
+        return Traversal::template lookup_in<Store>(store_, k);
+    }
     bool erase(key_type k)                                { return Traversal::template erase_from<Store>(store_, k); }
+
+    /// #188-4a-C: Laufzeit-Aspekt-Wert der dynamischen Subachse (z.B. k-ary-Arity K) setzen — geliefert ueber den
+    /// SEPARATEN iterable-Kanal (tier_apply_iterable_aspect, #188-4a-C3). 0 = Default (Organ nutzt seinen eigenen
+    /// Default, z.B. kArity). Nur fuer ConfigurableTraversalOrgan wirksam (sonst gehaltener-aber-ungenutzter Wert).
+    void set_iterable_aspect(unsigned value)        noexcept { iterable_aspect_ = value; }
+    [[nodiscard]] unsigned iterable_aspect()  const noexcept { return iterable_aspect_; }
 
     /// GoF-Iterator (YCSB-E #214): geordneter Range-Scan ab start_key. Delegiert an das Traversal-Organ — O(log n +
     /// scan_len) fuer sortierte Organe (SortedBinary/Interpolation/Galloping), ehrlicher O(n) fuer LinearScan. const +
@@ -210,7 +235,8 @@ public:
     }
 
 private:
-    Store store_;
+    Store    store_;
+    unsigned iterable_aspect_ = 0u;   // #188-4a-C: dynamische-Subachsen-State (0 = Organ-Default); nur ConfigurableTraversalOrgan
 };
 
 // Selbstbeweis: die Pilot-Klasse RawSlotStore erfuellt das neu extrahierte StorageOrgan-Concept exakt

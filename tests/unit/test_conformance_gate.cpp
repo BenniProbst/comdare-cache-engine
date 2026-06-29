@@ -115,6 +115,8 @@ private:
 //    + std::map-Konformitaet (lookup_in bit-identisch zu SortedBinary auf dem sortierten Store). MUSS bestehen. ──
 class KAryComposedTier final : public anat::IDriveableTier {
 public:
+    KAryComposedTier() = default;
+    explicit KAryComposedTier(unsigned arity) { s_.set_iterable_aspect(arity); }   // #188-4a-C: K (iterable_aspect) je Lauf
     [[nodiscard]] bool tier_insert(std::uint64_t k, std::uint64_t v) noexcept override {
         bool const was_new = !s_.lookup(k).has_value();   // NEU-Flag wie tier_insert-Vertrag (true = neuer Key)
         s_.insert(k, v);
@@ -181,19 +183,38 @@ int main() {
         check("size-defekt: first_fail > 0", r.first_fail > 0);
     }
 
-    // (5) #188-4a KONFORM: das REALE KAryTraversal-Organ ueber RawSlotStore MUSS das std::map-Orakel bestehen
-    //     (RF1-7 + 2000 Zufalls-Ops) → beweist die k_ary-search_algo-Achse store-traversierbar + std::map-konform.
+    // (5) #188-4a KONFORM (Default-K): das REALE KAryTraversal-Organ ueber RawSlotStore MUSS das std::map-Orakel
+    //     bestehen (RF1-7 + 2000 Zufalls-Ops) → k_ary-search_algo-Achse store-traversierbar + std::map-konform.
     {
         KAryComposedTier t;
         auto const r = dock::run_conformance_gate(t);
-        check("k_ary (KAryTraversal/RawSlotStore): passed()==true", r.passed());
-        check("k_ary: cases_total > 0 (Gate lief wirklich)", r.cases_total > 0);
-        check("k_ary: cases_passed == cases_total", r.cases_passed == r.cases_total);
-        check("k_ary: first_fail == 0 (keine Verletzung)", r.first_fail == 0);
-        std::printf("    k_ary: cases=%llu/%llu first_fail=%llu\n",
+        check("k_ary default-K (KAryTraversal/RawSlotStore): passed()==true", r.passed());
+        check("k_ary default-K: cases_total > 0 (Gate lief wirklich)", r.cases_total > 0);
+        check("k_ary default-K: first_fail == 0 (keine Verletzung)", r.first_fail == 0);
+        std::printf("    k_ary default-K: cases=%llu/%llu first_fail=%llu\n",
                     static_cast<unsigned long long>(r.cases_passed),
                     static_cast<unsigned long long>(r.cases_total),
                     static_cast<unsigned long long>(r.first_fail));
+    }
+
+    // (6) #188-4a-C K-BEWUSST: je K in {2,4,8,16} (iterable_aspect, separater iterable-Kanal via Container-State
+    //     ComposedSearch::set_iterable_aspect) MUSS das k-ary-Organ das std::map-Orakel bestehen → die K-Variation ist
+    //     REAL (anderer Separator-Pfad in lookup_in) UND korrekt (kein Phantom, Meta-Lehre #3). Organ bleibt stateless.
+    {
+        unsigned const Ks[] = {2u, 4u, 8u, 16u};
+        for (unsigned const K : Ks) {
+            KAryComposedTier t{K};
+            auto const r = dock::run_conformance_gate(t);
+            char lbl[72];
+            std::snprintf(lbl, sizeof(lbl), "k_ary K=%u: passed()==true", K);
+            check(lbl, r.passed());
+            std::snprintf(lbl, sizeof(lbl), "k_ary K=%u: first_fail == 0", K);
+            check(lbl, r.first_fail == 0);
+            std::printf("    k_ary K=%u: cases=%llu/%llu first_fail=%llu\n", K,
+                        static_cast<unsigned long long>(r.cases_passed),
+                        static_cast<unsigned long long>(r.cases_total),
+                        static_cast<unsigned long long>(r.first_fail));
+        }
     }
 
     std::printf("== test_conformance_gate: %s ==\n", g_fail == 0 ? "ALLE OK" : "FEHLER");
