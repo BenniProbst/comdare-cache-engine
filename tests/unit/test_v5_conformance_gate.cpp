@@ -11,11 +11,12 @@ namespace an = comdare::cache_engine::anatomy;
 // Korrekte std::map-Hülle (Referenz-konform).
 class GoodTier : public an::IDriveableTier {
     std::map<std::uint64_t, std::uint64_t> m_;
+
 public:
     bool tier_insert(std::uint64_t k, std::uint64_t v) noexcept override {
         auto const r = m_.insert({k, v});
         if (!r.second) { r.first->second = v; }
-        return r.second;  // true = NEUER Key
+        return r.second; // true = NEUER Key
     }
     bool tier_lookup(std::uint64_t k, std::uint64_t* o) const noexcept override {
         auto const it = m_.find(k);
@@ -23,8 +24,8 @@ public:
         if (o != nullptr) { *o = it->second; }
         return true;
     }
-    bool tier_erase(std::uint64_t k) noexcept override { return m_.erase(k) > 0; }
-    void tier_clear() noexcept override { m_.clear(); }
+    bool          tier_erase(std::uint64_t k) noexcept override { return m_.erase(k) > 0; }
+    void          tier_clear() noexcept override { m_.clear(); }
     std::uint64_t tier_size() const noexcept override { return m_.size(); }
 };
 
@@ -33,18 +34,18 @@ class BrokenInsertTier : public GoodTier {
 public:
     bool tier_insert(std::uint64_t k, std::uint64_t v) noexcept override {
         (void)GoodTier::tier_insert(k, v);
-        return true;  // BUG: Update wird faelschlich als "neu" gemeldet
+        return true; // BUG: Update wird faelschlich als "neu" gemeldet
     }
 };
 
 // Defekte Hülle: size immer +1 (Off-by-one) → Größen-Konsistenz-Bruch.
 class BrokenSizeTier : public GoodTier {
 public:
-    std::uint64_t tier_size() const noexcept override { return GoodTier::tier_size() + 1; }  // BUG
+    std::uint64_t tier_size() const noexcept override { return GoodTier::tier_size() + 1; } // BUG
 };
 
 TEST(V5ConformanceGate, GoodTierPassesAllCases) {
-    GoodTier t;
+    GoodTier   t;
     auto const r = pd::run_conformance_gate(t);
     EXPECT_TRUE(r.passed());
     EXPECT_GT(r.cases_total, 0u);
@@ -54,7 +55,7 @@ TEST(V5ConformanceGate, GoodTierPassesAllCases) {
 
 TEST(V5ConformanceGate, BrokenInsertDetected) {
     BrokenInsertTier t;
-    auto const r = pd::run_conformance_gate(t);
+    auto const       r = pd::run_conformance_gate(t);
     EXPECT_FALSE(r.passed());
     EXPECT_GT(r.first_fail, 0u);
     EXPECT_LT(r.cases_passed, r.cases_total);
@@ -62,14 +63,14 @@ TEST(V5ConformanceGate, BrokenInsertDetected) {
 
 TEST(V5ConformanceGate, BrokenSizeDetected) {
     BrokenSizeTier t;
-    auto const r = pd::run_conformance_gate(t);
+    auto const     r = pd::run_conformance_gate(t);
     EXPECT_FALSE(r.passed());
     EXPECT_GT(r.first_fail, 0u);
 }
 
 // Determinismus: gleicher Seed → identisches Ergebnis (reproduzierbares Gate).
 TEST(V5ConformanceGate, Deterministic) {
-    GoodTier a, b;
+    GoodTier   a, b;
     auto const ra = pd::run_conformance_gate(a, 1234, 500);
     auto const rb = pd::run_conformance_gate(b, 1234, 500);
     EXPECT_EQ(ra.cases_total, rb.cases_total);

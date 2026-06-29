@@ -20,34 +20,41 @@ using ObsOrgan = cs::ObservableComposedSearch<cs::SortedBinaryTraversal, cs::Raw
 TEST(V5OrganMemento, ComposedSearchIsMementoAxisAndRoundTrips) {
     static_assert(an::MementoAxis<Organ>, "ComposedSearch MUSS MementoAxis sein (#44 Substanz)");
     Organ o;
-    o.insert(5, 50); o.insert(3, 30); o.insert(7, 70);
-    auto const saved = o.save_state();          // Warmup-Vor-Zustand (3 Einträge)
-    o.insert(9, 90); (void)o.erase(3);          // Warmup-Mutation
-    o.restore_state(saved);                     // rollback-all
+    o.insert(5, 50);
+    o.insert(3, 30);
+    o.insert(7, 70);
+    auto const saved = o.save_state(); // Warmup-Vor-Zustand (3 Einträge)
+    o.insert(9, 90);
+    (void)o.erase(3);       // Warmup-Mutation
+    o.restore_state(saved); // rollback-all
     EXPECT_EQ(o.occupied_count(), 3u);
-    EXPECT_EQ(o.lookup(3).value_or(0), 30u);    // erase zurückgerollt
+    EXPECT_EQ(o.lookup(3).value_or(0), 30u); // erase zurückgerollt
     EXPECT_EQ(o.lookup(5).value_or(0), 50u);
     EXPECT_EQ(o.lookup(7).value_or(0), 70u);
-    EXPECT_FALSE(o.lookup(9).has_value());      // Warmup-insert zurückgerollt
+    EXPECT_FALSE(o.lookup(9).has_value()); // Warmup-insert zurückgerollt
 }
 
 // Der Observable-Wrapper ist eine MementoAxis + rollt Daten UND Observer-Stats zurück (Zwei-Phasen-Invariante).
 TEST(V5OrganMemento, ObservableComposedSearchIsMementoAxis) {
     static_assert(an::MementoAxis<ObsOrgan>, "ObservableComposedSearch MUSS MementoAxis sein (#44 Substanz)");
     ObsOrgan o;
-    (void)o.insert(1, 10); (void)o.insert(2, 20); (void)o.lookup(1);
+    (void)o.insert(1, 10);
+    (void)o.insert(2, 20);
+    (void)o.lookup(1);
     auto const saved = o.save_state();
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     auto const stats_before = o.statistics();
 #endif
-    (void)o.insert(3, 30); (void)o.lookup(2); (void)o.lookup(99);   // Warmup: Daten + Stats mutiert
-    o.restore_state(saved);                                         // rollback (KEIN Op danach vor dem Check)
-    EXPECT_EQ(o.occupied_count(), 2u);                              // Daten zurückgerollt
+    (void)o.insert(3, 30);
+    (void)o.lookup(2);
+    (void)o.lookup(99);                // Warmup: Daten + Stats mutiert
+    o.restore_state(saved);            // rollback (KEIN Op danach vor dem Check)
+    EXPECT_EQ(o.occupied_count(), 2u); // Daten zurückgerollt
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     auto const stats_after = o.statistics();
-    EXPECT_EQ(stats_after.total_insert_count, stats_before.total_insert_count);   // Stats zurückgerollt
+    EXPECT_EQ(stats_after.total_insert_count, stats_before.total_insert_count); // Stats zurückgerollt
     EXPECT_EQ(stats_after.total_lookup_count, stats_before.total_lookup_count);
-    EXPECT_EQ(stats_after.total_hit_count,    stats_before.total_hit_count);
+    EXPECT_EQ(stats_after.total_hit_count, stats_before.total_hit_count);
 #endif
-    EXPECT_EQ(o.lookup(1).value_or(0), 10u);                        // (dieser lookup zählt wieder — nach dem Check)
+    EXPECT_EQ(o.lookup(1).value_or(0), 10u); // (dieser lookup zählt wieder — nach dem Check)
 }

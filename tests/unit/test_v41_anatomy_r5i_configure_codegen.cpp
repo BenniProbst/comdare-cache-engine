@@ -33,18 +33,16 @@ namespace ee     = ::comdare::cache_engine::execution_engine;
 namespace loader = ::comdare::cache_engine::builder::anatomy_loader;
 
 #ifndef COMDARE_R5I_PILOT_DIR
-  #error "COMDARE_R5I_PILOT_DIR must be defined via CMake (target_compile_definitions). "
-         "Run 2-Pass-Build: 1) cmake -B build, 2) cmake --build build --target comdare_anatomy_codegen_cli, "
-         "3) cmake -B build (re-configure)."
+#error "COMDARE_R5I_PILOT_DIR must be defined via CMake (target_compile_definitions). "
+"Run 2-Pass-Build: 1) cmake -B build, 2) cmake --build build --target comdare_anatomy_codegen_cli, "
+    "3) cmake -B build (re-configure)."
 #endif
 
-namespace {
+    namespace {
 
-[[nodiscard]] std::filesystem::path pilot_dir() {
-    return std::filesystem::path{COMDARE_R5I_PILOT_DIR};
-}
+    [[nodiscard]] std::filesystem::path pilot_dir() { return std::filesystem::path{COMDARE_R5I_PILOT_DIR}; }
 
-}  // anonymous
+} // anonymous
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §1 — Pilot-Verzeichnis enthaelt die 3 Tool-erzeugten DLLs
@@ -52,18 +50,14 @@ namespace {
 
 TEST(R5I_ConfigureCodegen, PilotDirectoryContainsThreeDlls) {
     auto const dir = pilot_dir();
-    ASSERT_TRUE(std::filesystem::is_directory(dir))
-        << "Pilot-Verzeichnis: " << dir.string();
+    ASSERT_TRUE(std::filesystem::is_directory(dir)) << "Pilot-Verzeichnis: " << dir.string();
 
-    auto const suffix = loader::AnatomyModuleLoader::platform_suffix();
-    std::size_t count = 0;
+    auto const  suffix = loader::AnatomyModuleLoader::platform_suffix();
+    std::size_t count  = 0;
     for (auto const& entry : std::filesystem::directory_iterator{dir}) {
         if (!entry.is_regular_file()) continue;
         auto const& p = entry.path();
-        if (p.filename().string().find("comdare_anatomy_perm_") == 0 &&
-            p.extension() == suffix) {
-            ++count;
-        }
+        if (p.filename().string().find("comdare_anatomy_perm_") == 0 && p.extension() == suffix) { ++count; }
     }
     EXPECT_EQ(count, 3u) << "Erwartet 3 DLLs (art/hot/wormhole) in " << dir.string();
 }
@@ -74,13 +68,10 @@ TEST(R5I_ConfigureCodegen, PilotDirectoryContainsThreeDlls) {
 
 TEST(R5I_ConfigureCodegen, LoadAllReturnsThreeHandles) {
     std::vector<loader::AnatomyModuleHandle> handles;
-    int const status = loader::AnatomyModuleLoader::load_all(pilot_dir(), handles);
-    ASSERT_EQ(status, loader::status_ok)
-        << "load_all status: " << loader::status_name(status);
+    int const                                status = loader::AnatomyModuleLoader::load_all(pilot_dir(), handles);
+    ASSERT_EQ(status, loader::status_ok) << "load_all status: " << loader::status_name(status);
     EXPECT_EQ(handles.size(), 3u);
-    for (auto const& h : handles) {
-        EXPECT_TRUE(h.valid());
-    }
+    for (auto const& h : handles) { EXPECT_TRUE(h.valid()); }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -89,8 +80,7 @@ TEST(R5I_ConfigureCodegen, LoadAllReturnsThreeHandles) {
 
 TEST(R5I_ConfigureCodegen, LoadedCompositionsMatchToolSelection) {
     std::vector<loader::AnatomyModuleHandle> handles;
-    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles),
-              loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles), loader::status_ok);
     ASSERT_EQ(handles.size(), 3u);
 
     std::set<std::string> seen;
@@ -99,8 +89,8 @@ TEST(R5I_ConfigureCodegen, LoadedCompositionsMatchToolSelection) {
         seen.insert(std::string{h.anatomy()->composition_name()});
     }
 
-    EXPECT_TRUE(seen.contains("ArtComposition"))      << "ArtComposition fehlt";
-    EXPECT_TRUE(seen.contains("HotComposition"))      << "HotComposition fehlt";
+    EXPECT_TRUE(seen.contains("ArtComposition")) << "ArtComposition fehlt";
+    EXPECT_TRUE(seen.contains("HotComposition")) << "HotComposition fehlt";
     EXPECT_TRUE(seen.contains("WormholeComposition")) << "WormholeComposition fehlt";
 }
 
@@ -110,8 +100,7 @@ TEST(R5I_ConfigureCodegen, LoadedCompositionsMatchToolSelection) {
 
 TEST(R5I_ConfigureCodegen, LifecyclePerModuleFromToolGeneratedSnippet) {
     std::vector<loader::AnatomyModuleHandle> handles;
-    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles),
-              loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles), loader::status_ok);
 
     for (auto& h : handles) {
         auto* a = h.anatomy();

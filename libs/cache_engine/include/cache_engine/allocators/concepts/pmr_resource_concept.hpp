@@ -39,4 +39,4 @@ private:
     Strategy* strategy_ = nullptr;
 };
 
-}  // namespace comdare::cache_engine::allocator
+} // namespace comdare::cache_engine::allocator

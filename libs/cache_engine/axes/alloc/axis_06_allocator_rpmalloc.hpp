@@ -52,9 +52,7 @@ struct RPMallocInitGuard {
     static void ensure_initialized() noexcept {
         if constexpr (flags::rpmalloc_enabled) {
             static std::atomic_flag process_inited = ATOMIC_FLAG_INIT;
-            if (!process_inited.test_and_set(std::memory_order_acquire)) {
-                ::rpmalloc_initialize();
-            }
+            if (!process_inited.test_and_set(std::memory_order_acquire)) { ::rpmalloc_initialize(); }
             thread_local bool thread_inited = false;
             if (!thread_inited) {
                 ::rpmalloc_thread_initialize();
@@ -64,11 +62,10 @@ struct RPMallocInitGuard {
     }
 };
 
-}  // namespace detail
+} // namespace detail
 
-class RPMallocAllocator
-    : public AllocatorStrategyBase<RPMallocAllocator>,
-      public generated::a10_rpmalloc::OriginalCodeMixin {  // V41.F.6.1.P2.D Batch 2
+class RPMallocAllocator : public AllocatorStrategyBase<RPMallocAllocator>,
+                          public generated::a10_rpmalloc::OriginalCodeMixin { // V41.F.6.1.P2.D Batch 2
 public:
     using generated::a10_rpmalloc::OriginalCodeMixin::get_compiler;
     using generated::a10_rpmalloc::OriginalCodeMixin::is_original_allocate;
@@ -83,13 +80,16 @@ public:
     using axis_tag   = subaxes::thread_locality_tag;
     using family_id  = std::integral_constant<int, 10>;
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()  noexcept { return true; }
-    [[nodiscard]] static constexpr bool        supports_pmr()    noexcept { return true; }
-    [[nodiscard]] static constexpr std::size_t max_alignment()   noexcept { return alignof(std::max_align_t); }
+    [[nodiscard]] static constexpr bool        is_thread_safe() noexcept { return true; }
+    [[nodiscard]] static constexpr bool        supports_pmr() noexcept { return true; }
+    [[nodiscard]] static constexpr std::size_t max_alignment() noexcept { return alignof(std::max_align_t); }
 
     [[nodiscard]] static constexpr std::string_view name() noexcept {
-        if constexpr (enabled) { return "rpmalloc"; }
-        else                   { return "rpmalloc(real=std)"; }
+        if constexpr (enabled) {
+            return "rpmalloc";
+        } else {
+            return "rpmalloc(real=std)";
+        }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "RPMalloc Per-Thread Spans (Mattias Jansson 2017)";
@@ -97,11 +97,17 @@ public:
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "RPMALLOC"; }
 
     // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
-    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // rpaligned_alloc
-    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return true; }   // SONDERFALL: rpmalloc_initialize + thread_initialize
-    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return true; }   // namesgebend: per-thread spans
-    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept { return concepts::ProgressGuarantee::Blocking; }
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc() noexcept { return true; } // rpaligned_alloc
+    [[nodiscard]] static constexpr bool requires_explicit_init() noexcept {
+        return true;
+    } // SONDERFALL: rpmalloc_initialize + thread_initialize
+    [[nodiscard]] static constexpr bool supports_numa_node_hint() noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept {
+        return true;
+    } // namesgebend: per-thread spans
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
+        return concepts::ProgressGuarantee::Blocking;
+    }
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
 
     [[nodiscard]] bool operator==(RPMallocAllocator const&) const noexcept { return true; }
@@ -110,14 +116,17 @@ public:
         // SONDERFALL: rpmalloc verlangt Init vor erstem Aufruf
         detail::RPMallocInitGuard::ensure_initialized();
         void* p;
-        if constexpr (enabled) { p = ::rpaligned_alloc(alignment, bytes); }
-        else                   { p = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, bytes); }
+        if constexpr (enabled) {
+            p = ::rpaligned_alloc(alignment, bytes);
+        } else {
+            p = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, bytes);
+        }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         if (p != nullptr) {
             ++stats_.allocation_count;
             stats_.total_bytes_allocated += aligned_bytes;
-            stats_.total_bytes_in_use    += aligned_bytes;
+            stats_.total_bytes_in_use += aligned_bytes;
         } else {
             ++stats_.failure_count;
         }
@@ -128,16 +137,22 @@ public:
 
     void deallocate(void* p, std::size_t bytes, std::size_t alignment) noexcept {
         if (p == nullptr) return;
-        if constexpr (enabled) { ::rpfree(p); }
-        else                   { ::comdare::cache_engine::allocator::portable_aligned_free(p); }
+        if constexpr (enabled) {
+            ::rpfree(p);
+        } else {
+            ::comdare::cache_engine::allocator::portable_aligned_free(p);
+        }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         ++stats_.deallocation_count;
-        if (aligned_bytes <= stats_.total_bytes_in_use) stats_.total_bytes_in_use -= aligned_bytes;
-        else stats_.total_bytes_in_use = 0;
+        if (aligned_bytes <= stats_.total_bytes_in_use)
+            stats_.total_bytes_in_use -= aligned_bytes;
+        else
+            stats_.total_bytes_in_use = 0;
         observer_.notify(stats_);
 #else
-        (void)bytes; (void)alignment;
+        (void)bytes;
+        (void)alignment;
 #endif
     }
 
@@ -146,23 +161,29 @@ public:
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
 
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
     [[nodiscard]] void* zero_allocate(std::size_t n, std::size_t size) {
         detail::RPMallocInitGuard::ensure_initialized();
         std::size_t bytes = n * size;
-        void* p;
-        if constexpr (enabled) { p = ::rpcalloc(n, size); }
-        else                   { p = std::calloc(n, size); }
+        void*       p;
+        if constexpr (enabled) {
+            p = ::rpcalloc(n, size);
+        } else {
+            p = std::calloc(n, size);
+        }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         if (p != nullptr) {
             ++stats_.allocation_count;
             stats_.total_bytes_allocated += bytes;
-            stats_.total_bytes_in_use    += bytes;
+            stats_.total_bytes_in_use += bytes;
         } else {
             ++stats_.failure_count;
         }
@@ -171,8 +192,7 @@ public:
         return p;
     }
 
-    [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes,
-                                   std::size_t alignment) {
+    [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes, std::size_t alignment) {
         detail::RPMallocInitGuard::ensure_initialized();
         void* np;
         if constexpr (enabled) {
@@ -187,13 +207,17 @@ public:
             }
         }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        if (np == nullptr) { ++stats_.failure_count; observer_.notify(stats_); return nullptr; }
+        if (np == nullptr) {
+            ++stats_.failure_count;
+            observer_.notify(stats_);
+            return nullptr;
+        }
         if (p != nullptr) {
             if (old_bytes <= stats_.total_bytes_in_use) stats_.total_bytes_in_use -= old_bytes;
             ++stats_.deallocation_count;
         }
         std::size_t aligned_new = ((new_bytes + alignment - 1) / alignment) * alignment;
-        stats_.total_bytes_in_use    += aligned_new;
+        stats_.total_bytes_in_use += aligned_new;
         stats_.total_bytes_allocated += aligned_new;
         ++stats_.allocation_count;
         observer_.notify(stats_);
@@ -202,23 +226,27 @@ public:
     }
 
     [[nodiscard]] std::size_t usable_size(void* p) const noexcept {
-        if constexpr (enabled) { return ::rpmalloc_usable_size(p); }
-        else                   { (void)p; return 0; }
+        if constexpr (enabled) {
+            return ::rpmalloc_usable_size(p);
+        } else {
+            (void)p;
+            return 0;
+        }
     }
 
 private:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::AllocationStatistics stats_{};
-    observer_t observer_{};
+    observer_t                     observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::alloc
 
 namespace comdare::cache_engine::alloc {
-    static_assert(concepts::AllocatorStrategy<RPMallocAllocator>);
-    static_assert(concepts::CacheEnginePermutationStrategy<RPMallocAllocator>);
-    static_assert(concepts::ZeroingStrategy<RPMallocAllocator>);
-    static_assert(concepts::ReallocatingStrategy<RPMallocAllocator>);
-    static_assert(concepts::IntrospectableStrategy<RPMallocAllocator>);
-}
+static_assert(concepts::AllocatorStrategy<RPMallocAllocator>);
+static_assert(concepts::CacheEnginePermutationStrategy<RPMallocAllocator>);
+static_assert(concepts::ZeroingStrategy<RPMallocAllocator>);
+static_assert(concepts::ReallocatingStrategy<RPMallocAllocator>);
+static_assert(concepts::IntrospectableStrategy<RPMallocAllocator>);
+} // namespace comdare::cache_engine::alloc

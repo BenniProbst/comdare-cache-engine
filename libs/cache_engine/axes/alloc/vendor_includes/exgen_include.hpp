@@ -10,12 +10,12 @@
 #include <cstdlib>
 
 #if COMDARE_AXIS_06_USE_EXGEN
-#  include <exgen_malloc.h>
+#include <exgen_malloc.h>
 #else
 extern "C" {
-    inline void* exgen_alloc(std::size_t /*size*/, std::size_t /*alignment*/) noexcept { return nullptr; }
-    inline void  exgen_free(void* /*p*/) noexcept {}
-    inline void* exgen_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
-    inline void* exgen_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
+inline void* exgen_alloc(std::size_t /*size*/, std::size_t /*alignment*/) noexcept { return nullptr; }
+inline void  exgen_free(void* /*p*/) noexcept {}
+inline void* exgen_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
+inline void* exgen_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
 }
 #endif

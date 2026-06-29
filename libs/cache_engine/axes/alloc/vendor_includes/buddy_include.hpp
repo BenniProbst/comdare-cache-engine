@@ -9,12 +9,12 @@
 #include <cstdlib>
 
 #if COMDARE_AXIS_06_USE_BUDDY
-#  include <buddy_alloc.h>
+#include <buddy_alloc.h>
 #else
 extern "C" {
-    inline void* buddy_alloc(std::size_t /*size*/, std::size_t /*alignment*/) noexcept { return nullptr; }
-    inline void  buddy_free(void* /*p*/) noexcept {}
-    inline void* buddy_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
-    inline void* buddy_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
+inline void* buddy_alloc(std::size_t /*size*/, std::size_t /*alignment*/) noexcept { return nullptr; }
+inline void  buddy_free(void* /*p*/) noexcept {}
+inline void* buddy_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
+inline void* buddy_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
 }
 #endif

@@ -74,8 +74,8 @@ TEST(SearchAlgorithmTypeCollection, OneParamGeneratesImplicitKeys) {
 TEST(SearchAlgorithmTypeCollection, ToBinaryWorksForSimpleKey) {
     using col = comdare::search_algorithm_type_collection<std::uint64_t, std::string>;
     static_assert(!col::key_is_implicit);
-    std::uint64_t const k = 42;
-    auto binary = col::to_binary(k);
+    std::uint64_t const k      = 42;
+    auto                binary = col::to_binary(k);
     EXPECT_EQ(binary.size(), comdare::fingerprint::kFixedKeyBytes);
 }
 
@@ -84,18 +84,18 @@ TEST(SearchAlgorithmTypeCollection, ToBinaryWorksForSimpleKey) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(Fingerprint, SimpleTypeBinaryCast) {
-    std::uint64_t const k = 0xDEADBEEFCAFEBABE;
-    auto binary = comdare::fingerprint::to_binary_string(k);
+    std::uint64_t const k      = 0xDEADBEEFCAFEBABE;
+    auto                binary = comdare::fingerprint::to_binary_string(k);
     EXPECT_EQ(binary.size(), 16u);
 }
 
 TEST(Fingerprint, StringIsCappedAtFixedLength) {
-    std::string const s = "Hello, World! This is a long string > 16 bytes";
-    auto binary = comdare::fingerprint::to_binary_string(s);
+    std::string const s      = "Hello, World! This is a long string > 16 bytes";
+    auto              binary = comdare::fingerprint::to_binary_string(s);
     EXPECT_EQ(binary.size(), 16u);
     // First 16 bytes should match s.data() — count: "Hello, World! Th" = 16 chars
-    EXPECT_EQ(static_cast<char>(binary[0]),  'H');
-    EXPECT_EQ(static_cast<char>(binary[7]),  'W');
+    EXPECT_EQ(static_cast<char>(binary[0]), 'H');
+    EXPECT_EQ(static_cast<char>(binary[7]), 'W');
     EXPECT_EQ(static_cast<char>(binary[14]), 'T');
     EXPECT_EQ(static_cast<char>(binary[15]), 'h');
 }
@@ -107,23 +107,23 @@ TEST(Fingerprint, ComplexTypeUsesHash) {
         std::uint64_t c;
     };
     ComplexKey k{1, 2, 3};
-    auto binary = comdare::fingerprint::to_binary_string(k);
+    auto       binary = comdare::fingerprint::to_binary_string(k);
     EXPECT_EQ(binary.size(), 16u);
 }
 
 TEST(Fingerprint, FixedLengthFingerprintDeterministic) {
-    std::uint64_t k = 12345;
-    auto h1 = comdare::fingerprint::FixedLengthFingerprint<16>::hash(k);
-    auto h2 = comdare::fingerprint::FixedLengthFingerprint<16>::hash(k);
-    EXPECT_EQ(h1, h2);  // same input → same output
+    std::uint64_t k  = 12345;
+    auto          h1 = comdare::fingerprint::FixedLengthFingerprint<16>::hash(k);
+    auto          h2 = comdare::fingerprint::FixedLengthFingerprint<16>::hash(k);
+    EXPECT_EQ(h1, h2); // same input → same output
 }
 
 TEST(Fingerprint, DifferentInputsDifferentHash) {
     std::uint64_t k1 = 100;
     std::uint64_t k2 = 200;
-    auto h1 = comdare::fingerprint::FixedLengthFingerprint<16>::hash(k1);
-    auto h2 = comdare::fingerprint::FixedLengthFingerprint<16>::hash(k2);
-    EXPECT_NE(h1, h2);  // different input → likely different output
+    auto          h1 = comdare::fingerprint::FixedLengthFingerprint<16>::hash(k1);
+    auto          h2 = comdare::fingerprint::FixedLengthFingerprint<16>::hash(k2);
+    EXPECT_NE(h1, h2); // different input → likely different output
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -134,7 +134,9 @@ struct TestBausteineTag {};
 
 struct AlgoWithBaustein {
     template <typename Tag>
-    struct baustein_t { int value = 42; };
+    struct baustein_t {
+        int value = 42;
+    };
 };
 
 struct AlgoWithoutBaustein {};
@@ -159,7 +161,7 @@ TEST(ProcessingStrategy, DefaultConstructible) {
 
 TEST(ProcessingStrategy, LimitsConfigurable) {
     comdare::processing_strategy<> strategy;
-    strategy.limits.max_cache_pages = 1024;
+    strategy.limits.max_cache_pages       = 1024;
     strategy.limits.prefetch_distance_max = 8;
     EXPECT_EQ(strategy.limits.max_cache_pages, 1024u);
     EXPECT_EQ(strategy.limits.prefetch_distance_max, 8u);
@@ -169,9 +171,7 @@ TEST(ProcessingStrategy, LimitsConfigurable) {
 // module_abi_v1 - C-API POD-Structs (REV 6 §5.28.4)
 // ─────────────────────────────────────────────────────────────────────────────
 
-TEST(ModuleAbi, AbiVersionConstantSet) {
-    EXPECT_EQ(COMDARE_ABI_VERSION, 1);
-}
+TEST(ModuleAbi, AbiVersionConstantSet) { EXPECT_EQ(COMDARE_ABI_VERSION, 1); }
 
 TEST(ModuleAbi, AllStructsArePod) {
     static_assert(std::is_standard_layout_v<comdare_workload_descriptor_v1>);
@@ -207,12 +207,12 @@ TEST(ModuleAbi, SymbolNameIsExpected) {
 TEST(ConfigurationPermutation, AggregatesTypes) {
     using strategy_t = comdare::processing_strategy<>;
     struct DummyConcurrency {};
-    struct DummyScheduler  {};
-    struct DummyHeuristic  {};
-    struct DummyAllocator  {};
+    struct DummyScheduler {};
+    struct DummyHeuristic {};
+    struct DummyAllocator {};
 
-    using config = comdare::configuration_permutation<
-        strategy_t, DummyConcurrency, DummyScheduler, DummyHeuristic, DummyAllocator>;
+    using config = comdare::configuration_permutation<strategy_t, DummyConcurrency, DummyScheduler, DummyHeuristic,
+                                                      DummyAllocator>;
     static_assert(std::is_same_v<config::strategy_t, strategy_t>);
     static_assert(std::is_same_v<config::concurrency_t, DummyConcurrency>);
     SUCCEED();

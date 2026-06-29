@@ -35,10 +35,11 @@ public:
     /// Die Signatur(en) eines Papers (rückwärts; i.d.R. genau eine).
     [[nodiscard]] std::vector<std::string> signatures_for(std::string const& paper_id) const {
         std::vector<std::string> out;
-        for (auto const& [sig, pid] : sig_to_paper_) if (pid == paper_id) out.push_back(sig);
+        for (auto const& [sig, pid] : sig_to_paper_)
+            if (pid == paper_id) out.push_back(sig);
         return out;
     }
-    [[nodiscard]] std::size_t size() const noexcept { return sig_to_paper_.size(); }
+    [[nodiscard]] std::size_t                                    size() const noexcept { return sig_to_paper_.size(); }
     [[nodiscard]] std::multimap<std::string, std::string> const& raw() const noexcept { return sig_to_paper_; }
 
 private:
@@ -69,8 +70,8 @@ public:
 
     /// INVERSE AUSWERTUNG: projiziert die gemessenen Blätter auf die Sicht EINES Papers — alle Binaries, deren
     /// Signatur einer der Paper-Signaturen entspricht (Doc 26 §3). Dedupliziert.
-    [[nodiscard]] std::vector<std::string> binaries_for_paper(
-        std::string const& paper_id, PaperSignatureIndex const& papers) const {
+    [[nodiscard]] std::vector<std::string> binaries_for_paper(std::string const&         paper_id,
+                                                              PaperSignatureIndex const& papers) const {
         std::set<std::string> bins;
         for (auto const& sig : papers.signatures_for(paper_id))
             for (auto const& b : binaries_with_signature(sig)) bins.insert(b);
@@ -84,16 +85,16 @@ public:
         tree_.for_each_binary([&](std::string const&, std::string const& pin, TreeNode const& leaf) {
             if (pin != signature) return;
             agg.measured_setting_count += (leaf.value.has_result ? leaf.value.measured_setting_count : 1);
-            agg.sum_total_cycles       += leaf.value.sum_total_cycles;
-            agg.sum_op_count           += leaf.value.sum_op_count;
-            agg.has_result              = agg.has_result || leaf.value.has_result;
+            agg.sum_total_cycles += leaf.value.sum_total_cycles;
+            agg.sum_op_count += leaf.value.sum_op_count;
+            agg.has_result = agg.has_result || leaf.value.has_result;
         });
         return agg;
     }
 
 private:
-    ExperimentTree const&                    tree_;
-    std::multimap<std::string, std::string>  sig_to_binary_;  // Signatur → binary_id (Doc 26 §3)
+    ExperimentTree const&                   tree_;
+    std::multimap<std::string, std::string> sig_to_binary_; // Signatur → binary_id (Doc 26 §3)
 };
 
-}  // namespace comdare::cache_engine::builder::experiment
+} // namespace comdare::cache_engine::builder::experiment

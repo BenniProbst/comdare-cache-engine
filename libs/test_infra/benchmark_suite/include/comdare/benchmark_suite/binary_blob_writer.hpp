@@ -17,15 +17,13 @@
 
 namespace comdare::benchmark_suite {
 
-inline constexpr std::uint32_t kBlobMagic    = 0x31424443;  // "CDB1"
+inline constexpr std::uint32_t kBlobMagic    = 0x31424443; // "CDB1"
 inline constexpr std::uint32_t kBlobVersion  = 1;
-inline constexpr std::uint32_t kBlobMagicEnd = 0x21444E45;  // "END!"
+inline constexpr std::uint32_t kBlobMagicEnd = 0x21444E45; // "END!"
 
 class BinaryBlobWriter {
 public:
-    void write(std::filesystem::path const& path,
-               BenchmarkRunner const& runner) const
-    {
+    void write(std::filesystem::path const& path, BenchmarkRunner const& runner) const {
         std::ofstream out{path, std::ios::binary};
         if (!out) throw std::runtime_error{"Could not open " + path.string()};
 
@@ -54,15 +52,11 @@ public:
     }
 
 private:
-    static void write_u32(std::ostream& os, std::uint32_t v) {
-        os.write(reinterpret_cast<char const*>(&v), sizeof(v));
-    }
-    static void write_u64(std::ostream& os, std::uint64_t v) {
-        os.write(reinterpret_cast<char const*>(&v), sizeof(v));
-    }
+    static void write_u32(std::ostream& os, std::uint32_t v) { os.write(reinterpret_cast<char const*>(&v), sizeof(v)); }
+    static void write_u64(std::ostream& os, std::uint64_t v) { os.write(reinterpret_cast<char const*>(&v), sizeof(v)); }
 };
 
-}  // namespace comdare::benchmark_suite
+} // namespace comdare::benchmark_suite
 
 namespace comdare::benchmark_suite {
 
@@ -71,4 +65,4 @@ inline void BenchmarkRunner::flush_to_binary_blob(std::filesystem::path const& o
     writer.write(output, *this);
 }
 
-}
+} // namespace comdare::benchmark_suite

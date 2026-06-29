@@ -75,41 +75,25 @@ namespace mp = boost::mp11;
 
 using AllVendors = mp::mp_list<
     // Batch 1 (Pilot, 2026-05-25)
-    StdMalloc,
-    MimallocAllocator,
-    SnmallocAllocator,
-    PmrResourceAllocator,
+    StdMalloc, MimallocAllocator, SnmallocAllocator, PmrResourceAllocator,
     // Batch 2 (2026-05-26)
-    JemallocAllocator,
-    TCMallocAllocator,
-    DlmallocAllocator,
+    JemallocAllocator, TCMallocAllocator, DlmallocAllocator,
     // Batch 3 (2026-05-26)
-    HoardAllocator,
-    SlabAllocator,
-    MichaelLockFreeAllocator,
+    HoardAllocator, SlabAllocator, MichaelLockFreeAllocator,
     // Batch 4 (2026-05-26)
-    ScallocAllocator,
-    NUMAllocAllocator,
-    RPMallocAllocator,
+    ScallocAllocator, NUMAllocAllocator, RPMallocAllocator,
     // Batch 5 (2026-05-26)
-    LRMallocAllocator,
-    CAMAAllocator,
-    StarMallocAllocator,
+    LRMallocAllocator, CAMAAllocator, StarMallocAllocator,
     // Batch 6 (2026-05-26)
-    TCMallocWarehouseAllocator,
-    HMallocAllocator,
-    PIMMallocAllocator,
+    TCMallocWarehouseAllocator, HMallocAllocator, PIMMallocAllocator,
     // Batch 7 (2026-05-26)
-    CrystallineAllocator,
-    ExgenAllocator,
-    BuddyAllocator,
+    CrystallineAllocator, ExgenAllocator, BuddyAllocator,
     // Batch 8 (2026-05-26) — VOLLAUSBAU-Abschluss A21+A23
-    PtMalloc2Allocator,
-    VmemMagazinesAllocator,
+    PtMalloc2Allocator, VmemMagazinesAllocator,
     // V41.F.6.1 R5.B (2026-05-29) — eigener std::pmr::unsynchronized_pool_resource (F15-operativ)
     PoolResourceAllocator
     // Allocator-Achse 6 KOMPLETT (25 Vendor: Batch 1-8 + R5.B Pool)
->;
+    >;
 
 // ───────────────────────────────────────────────────────────────────────────
 // (2) is_enabled - Compile-Time-Predicate ueber Vendor-Klasse (Stufe 2)
@@ -130,6 +114,6 @@ using EnabledVendors = mp::mp_filter<is_enabled, AllVendors>;
 
 // Compile-Time-Sanity: mindestens 1 Vendor muss aktiviert sein.
 static_assert(mp::mp_size<EnabledVendors>::value > 0,
-    "Axis 06 Allocator: at least one vendor must be enabled (alle COMDARE_AXIS_06_ENABLE_* OFF?)");
+              "Axis 06 Allocator: at least one vendor must be enabled (alle COMDARE_AXIS_06_ENABLE_* OFF?)");
 
-}  // namespace comdare::cache_engine::alloc
+} // namespace comdare::cache_engine::alloc

@@ -17,10 +17,10 @@ namespace comdare::cache_engine::allocator::families::a01_hoard {
 
 // Hoard-Permutationsparameter (REV 7 §1.3 + Hoard-Paper §3.1):
 struct HoardParams {
-    std::size_t superblock_bytes      = 8 * 1024;  // S = 8 KiB default
-    double      empty_fraction        = 0.25;       // f = 1/4 default
-    std::size_t empty_threshold_k     = 4;          // K default
-    double      size_class_base       = 1.2;        // b = 1.2 → internal frag ≤ 20%
+    std::size_t superblock_bytes  = 8 * 1024; // S = 8 KiB default
+    double      empty_fraction    = 0.25;     // f = 1/4 default
+    std::size_t empty_threshold_k = 4;        // K default
+    double      size_class_base   = 1.2;      // b = 1.2 → internal frag ≤ 20%
 };
 
 // Stub-Adapter: leitet aktuell an malloc/free durch.
@@ -30,7 +30,7 @@ template <LockingStrategy Lock = locking::SharedMutexLock>
 class HoardAdapter {
 public:
     using axis_tag  = axes::freelist_topology_tag;
-    using family_id = std::integral_constant<int, 1>;  // A01
+    using family_id = std::integral_constant<int, 1>; // A01
     using locking_t = Lock;
 
     explicit HoardAdapter(HoardParams params = {}) noexcept : params_{params} {}
@@ -41,7 +41,7 @@ public:
         void* p = portable_aligned_alloc(alignment, bytes);
         if (p) {
             stats_.total_bytes_allocated += bytes;
-            stats_.total_bytes_in_use     += bytes;
+            stats_.total_bytes_in_use += bytes;
         } else {
             stats_.failure_count++;
         }
@@ -66,11 +66,11 @@ public:
     [[nodiscard]] HoardParams const& params() const noexcept { return params_; }
 
 private:
-    HoardParams           params_;
-    AllocationStatistics  stats_;
-    Lock                  lock_;
+    HoardParams          params_;
+    AllocationStatistics stats_;
+    Lock                 lock_;
 };
 
 static_assert(IAllocationStrategy<HoardAdapter<>>);
 
-}  // namespace comdare::cache_engine::allocator::families::a01_hoard
+} // namespace comdare::cache_engine::allocator::families::a01_hoard

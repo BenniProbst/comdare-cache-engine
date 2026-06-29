@@ -20,9 +20,7 @@ public:
     explicit AnatomyObserveCommand(AnatomyExecutionContext<Composition> const& ctx) noexcept
         : ctx_(ctx), last_snapshot_{} {}
 
-    [[nodiscard]] std::string_view command_name() const noexcept override {
-        return "AnatomyObserveCommand";
-    }
+    [[nodiscard]] std::string_view command_name() const noexcept override { return "AnatomyObserveCommand"; }
 
     int execute() override {
         last_snapshot_ = ctx_.observe_all();
@@ -33,7 +31,7 @@ public:
 
 private:
     AnatomyExecutionContext<Composition> const& ctx_;
-    snapshot_t last_snapshot_;
+    snapshot_t                                  last_snapshot_;
 };
 
-}  // namespace comdare::cache_engine::builder::anatomy_commands
+} // namespace comdare::cache_engine::builder::anatomy_commands

@@ -20,12 +20,10 @@ public:
         bytes_consumed_ += sizeof(MeasurementRecord);
     }
 
-    [[nodiscard]] std::thread::id thread_id() const noexcept { return thread_id_; }
-    [[nodiscard]] std::size_t     size()       const noexcept { return records_.size(); }
-    [[nodiscard]] std::size_t     bytes()      const noexcept { return bytes_consumed_; }
-    [[nodiscard]] std::vector<MeasurementRecord> const& records() const noexcept {
-        return records_;
-    }
+    [[nodiscard]] std::thread::id                       thread_id() const noexcept { return thread_id_; }
+    [[nodiscard]] std::size_t                           size() const noexcept { return records_.size(); }
+    [[nodiscard]] std::size_t                           bytes() const noexcept { return bytes_consumed_; }
+    [[nodiscard]] std::vector<MeasurementRecord> const& records() const noexcept { return records_; }
 
     void reset() noexcept {
         records_.clear();
@@ -33,9 +31,9 @@ public:
     }
 
 private:
-    std::thread::id              thread_id_{};
+    std::thread::id                thread_id_{};
     std::vector<MeasurementRecord> records_{};
-    std::size_t                  bytes_consumed_ = 0;
+    std::size_t                    bytes_consumed_ = 0;
 };
 
-}  // namespace comdare::cache_engine::measurement
+} // namespace comdare::cache_engine::measurement

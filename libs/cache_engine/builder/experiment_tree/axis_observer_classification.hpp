@@ -24,61 +24,73 @@ namespace comdare::cache_engine::builder::experiment {
 
 /// Die drei Observer-Naturen der 22 Achsen (gattungs-korrekt, Doc 27 §0.1).
 enum class AxisObserverKind {
-    SearchAlgorithmObserver,  // 19 Komposition-Achsen (inkl. queuing q1/q2 T17/T18): ObserverAggregate<19> (BR-3)
-    DefinitionOnly,           // page_type/09b/12: Build-Konstanten → Definition statt Laufzeit-Observer
-    ContainerObserver         // RESERVIERT: echte Container-Gattung (Adapter, 13 Achsen inkl. inner_container, §28, #87+#90) — NICHT queuing (korr. 2026-06-03)
+    SearchAlgorithmObserver, // 19 Komposition-Achsen (inkl. queuing q1/q2 T17/T18): ObserverAggregate<19> (BR-3)
+    DefinitionOnly,          // page_type/09b/12: Build-Konstanten → Definition statt Laufzeit-Observer
+    ContainerObserver // RESERVIERT: echte Container-Gattung (Adapter, 13 Achsen inkl. inner_container, §28, #87+#90) — NICHT queuing (korr. 2026-06-03)
 };
 
 [[nodiscard]] inline constexpr std::string_view observer_kind_name(AxisObserverKind k) noexcept {
     switch (k) {
         case AxisObserverKind::SearchAlgorithmObserver: return "SearchAlgorithmObserver";
-        case AxisObserverKind::DefinitionOnly:          return "DefinitionOnly";
-        case AxisObserverKind::ContainerObserver:       return "ContainerObserver";
+        case AxisObserverKind::DefinitionOnly: return "DefinitionOnly";
+        case AxisObserverKind::ContainerObserver: return "ContainerObserver";
     }
     return "?";
 }
 
-struct AxisObserverClass { std::string_view axis; AxisObserverKind kind; };
+struct AxisObserverClass {
+    std::string_view axis;
+    AxisObserverKind kind;
+};
 
 /// ALLE 22 Achsen klassifiziert (Reihenfolge = registry_to_axis_levels build_all_axis_levels: 17 Kern-Achsen, dann 3 build-only + q1/q2 = 19 Komposition + 3 DefinitionOnly).
 inline constexpr std::array<AxisObserverClass, 22> kAxisObserverClasses = {{
-    {"search_algo",        AxisObserverKind::SearchAlgorithmObserver},
-    {"cache_traversal",    AxisObserverKind::SearchAlgorithmObserver},
-    {"mapping",            AxisObserverKind::SearchAlgorithmObserver},
-    {"path_compression",   AxisObserverKind::SearchAlgorithmObserver},
-    {"node_type",          AxisObserverKind::SearchAlgorithmObserver},
-    {"memory_layout",      AxisObserverKind::SearchAlgorithmObserver},
-    {"allocator",          AxisObserverKind::SearchAlgorithmObserver},
-    {"prefetch",           AxisObserverKind::SearchAlgorithmObserver},
-    {"concurrency",        AxisObserverKind::SearchAlgorithmObserver},
-    {"serialization",      AxisObserverKind::SearchAlgorithmObserver},
-    {"telemetry",          AxisObserverKind::SearchAlgorithmObserver},
-    {"value_handle",       AxisObserverKind::SearchAlgorithmObserver},
-    {"isa",                AxisObserverKind::SearchAlgorithmObserver},
+    {"search_algo", AxisObserverKind::SearchAlgorithmObserver},
+    {"cache_traversal", AxisObserverKind::SearchAlgorithmObserver},
+    {"mapping", AxisObserverKind::SearchAlgorithmObserver},
+    {"path_compression", AxisObserverKind::SearchAlgorithmObserver},
+    {"node_type", AxisObserverKind::SearchAlgorithmObserver},
+    {"memory_layout", AxisObserverKind::SearchAlgorithmObserver},
+    {"allocator", AxisObserverKind::SearchAlgorithmObserver},
+    {"prefetch", AxisObserverKind::SearchAlgorithmObserver},
+    {"concurrency", AxisObserverKind::SearchAlgorithmObserver},
+    {"serialization", AxisObserverKind::SearchAlgorithmObserver},
+    {"telemetry", AxisObserverKind::SearchAlgorithmObserver},
+    {"value_handle", AxisObserverKind::SearchAlgorithmObserver},
+    {"isa", AxisObserverKind::SearchAlgorithmObserver},
     {"index_organization", AxisObserverKind::SearchAlgorithmObserver},
-    {"io_dispatch",        AxisObserverKind::SearchAlgorithmObserver},
-    {"migration_policy",   AxisObserverKind::SearchAlgorithmObserver},
-    {"filter",             AxisObserverKind::SearchAlgorithmObserver},
+    {"io_dispatch", AxisObserverKind::SearchAlgorithmObserver},
+    {"migration_policy", AxisObserverKind::SearchAlgorithmObserver},
+    {"filter", AxisObserverKind::SearchAlgorithmObserver},
     // ── die 3 Build-Achsen (DefinitionOnly) + queuing q1/q2 (korr. 2026-06-03: jetzt Komposition-Slots T17/T18) ──
-    {"page_type",          AxisObserverKind::DefinitionOnly},      // nodes-Sub, Build-Variante
-    {"simd_extension",     AxisObserverKind::DefinitionOnly},      // 09b Hardware, Build-Konstante
-    {"general_hardware",   AxisObserverKind::DefinitionOnly},      // 12 Hardware, Build-Konstante
-    {"queuing_q1",         AxisObserverKind::SearchAlgorithmObserver},  // korr. 2026-06-03 (Doc 30 §8.0): SA-Tier-Unterklasse-Achse T17 (buffer_strategy) — KEINE Gattung
-    {"queuing_q2",         AxisObserverKind::SearchAlgorithmObserver},  // korr. 2026-06-03 (Doc 30 §8.0): SA-Tier-Unterklasse-Achse T18 (flush_policy) — KEINE Gattung
+    {"page_type", AxisObserverKind::DefinitionOnly},        // nodes-Sub, Build-Variante
+    {"simd_extension", AxisObserverKind::DefinitionOnly},   // 09b Hardware, Build-Konstante
+    {"general_hardware", AxisObserverKind::DefinitionOnly}, // 12 Hardware, Build-Konstante
+    {"queuing_q1",
+     AxisObserverKind::
+         SearchAlgorithmObserver}, // korr. 2026-06-03 (Doc 30 §8.0): SA-Tier-Unterklasse-Achse T17 (buffer_strategy) — KEINE Gattung
+    {"queuing_q2",
+     AxisObserverKind::
+         SearchAlgorithmObserver}, // korr. 2026-06-03 (Doc 30 §8.0): SA-Tier-Unterklasse-Achse T18 (flush_policy) — KEINE Gattung
 }};
 
 /// Observer-Kind einer Achse (per Name). Liefert SearchAlgorithmObserver als Default (für die 17), aber der
 /// Lookup deckt alle 22 ab; unbekannte Achse → false über found.
 [[nodiscard]] inline constexpr bool observer_kind_of(std::string_view axis, AxisObserverKind& out) noexcept {
-    for (auto const& e : kAxisObserverClasses) if (e.axis == axis) { out = e.kind; return true; }
+    for (auto const& e : kAxisObserverClasses)
+        if (e.axis == axis) {
+            out = e.kind;
+            return true;
+        }
     return false;
 }
 
 /// Anzahl Achsen je Observer-Natur (Diagnose: 17 / 3 / 2 = 22).
 [[nodiscard]] inline constexpr std::size_t count_observer_kind(AxisObserverKind k) noexcept {
     std::size_t n = 0;
-    for (auto const& e : kAxisObserverClasses) if (e.kind == k) ++n;
+    for (auto const& e : kAxisObserverClasses)
+        if (e.kind == k) ++n;
     return n;
 }
 
-}  // namespace comdare::cache_engine::builder::experiment
+} // namespace comdare::cache_engine::builder::experiment

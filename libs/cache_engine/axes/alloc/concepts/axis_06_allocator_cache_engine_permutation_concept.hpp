@@ -29,8 +29,8 @@
 #include "axis_06_allocator_concept.hpp"
 #include "../axis_06_allocator_subaxes_aa1_to_aa7.hpp"
 
-#include <measurement/measurable_concept.hpp>   // V41.F.6.1 Stufe 3 LIVE: MeasurableObserver Template
-#include <concepts/legacy_original_code_strategy_concept.hpp>   // V41.F.6.1.P2.C Habich-Compliance Pflicht-API
+#include <measurement/measurable_concept.hpp>                 // V41.F.6.1 Stufe 3 LIVE: MeasurableObserver Template
+#include <concepts/legacy_original_code_strategy_concept.hpp> // V41.F.6.1.P2.C Habich-Compliance Pflicht-API
 
 #include <concepts>
 #include <cstddef>
@@ -75,10 +75,10 @@ struct AllocationStatistics {
  * mehrere bools synchron halten zu muessen.
  */
 enum class ProgressGuarantee : int {
-    Blocking        = 0,  // Mainstream: Mutex/Lock, kein Progress-Guarantee
-    ObstructionFree = 1,  // Herlihy/Luchangco/Moir 2003: progress nur ohne contention
-    LockFree        = 2,  // klassisch: mindestens 1 Thread garantiert progress
-    WaitFree        = 3,  // Herlihy 1991: ALLE Threads garantiert progress in endlicher Zeit
+    Blocking        = 0, // Mainstream: Mutex/Lock, kein Progress-Guarantee
+    ObstructionFree = 1, // Herlihy/Luchangco/Moir 2003: progress nur ohne contention
+    LockFree        = 2, // klassisch: mindestens 1 Thread garantiert progress
+    WaitFree        = 3, // Herlihy 1991: ALLE Threads garantiert progress in endlicher Zeit
     // Reserve: BoundedWaitFree=4, AmortizedWaitFree=5, ...
 };
 
@@ -102,9 +102,9 @@ enum class ProgressGuarantee : int {
  * angibt (nur POOL=Owned, PMR=Borrowed, malloc-Familie=None).
  */
 enum class ResourceOwnership : int {
-    None     = 0,  // kein eigenes/geborgtes memory_resource-Objekt (Default, malloc-Familie)
-    Owned    = 1,  // eigene memory_resource (Lebensdauer an die Wrapper-Instanz gebunden)
-    Borrowed = 2,  // externe memory_resource durchgereicht (Lebensdauer beim Aufrufer)
+    None     = 0, // kein eigenes/geborgtes memory_resource-Objekt (Default, malloc-Familie)
+    Owned    = 1, // eigene memory_resource (Lebensdauer an die Wrapper-Instanz gebunden)
+    Borrowed = 2, // externe memory_resource durchgereicht (Lebensdauer beim Aufrufer)
 };
 
 /**
@@ -156,24 +156,24 @@ enum class ResourceOwnership : int {
  */
 template <typename A>
 concept CacheEnginePermutationStrategy =
-    ::comdare::cache_engine::allocator::concepts::AllocatorComponent<A>
-    && requires {
+    ::comdare::cache_engine::allocator::concepts::AllocatorComponent<A> &&
+    requires {
         typename A::axis_tag;
         typename A::family_id;
         { A::is_thread_safe() } -> std::convertible_to<bool>;
-        { A::supports_pmr()   } -> std::convertible_to<bool>;
-        { A::max_alignment()  } -> std::convertible_to<std::size_t>;
-        { A::name()           } -> std::convertible_to<std::string_view>;
-        { A::family_name()    } -> std::convertible_to<std::string_view>;
+        { A::supports_pmr() } -> std::convertible_to<bool>;
+        { A::max_alignment() } -> std::convertible_to<std::size_t>;
+        { A::name() } -> std::convertible_to<std::string_view>;
+        { A::family_name() } -> std::convertible_to<std::string_view>;
         // V41.F.6.1 Batch 4 Konsolidierung 2026-05-26 (User-Direktive
         // [[vendor-sonderfaelle-als-pflicht-property]]):
         // Sonderfaelle der Vendors als abfragbare static-constexpr-Properties.
         // Jeder Wrapper muss antworten — der Wert kann negativ sein (false), aber
         // die Methode MUSS existieren. CacheEngineBuilder kann pro Permutation
         // daraus Constraints + Pruefling-Filter ableiten.
-        { A::has_native_aligned_alloc()    } -> std::convertible_to<bool>;
-        { A::requires_explicit_init()      } -> std::convertible_to<bool>;
-        { A::supports_numa_node_hint()     } -> std::convertible_to<bool>;
+        { A::has_native_aligned_alloc() } -> std::convertible_to<bool>;
+        { A::requires_explicit_init() } -> std::convertible_to<bool>;
+        { A::supports_numa_node_hint() } -> std::convertible_to<bool>;
         { A::supports_thread_local_cache() } -> std::convertible_to<bool>;
         { A::requires_specialized_hardware() } -> std::convertible_to<bool>;
         // V41.F.6.1 Batch 7 Refactoring (User-Direktive 2026-05-26 Stufen-Pattern):
@@ -193,22 +193,22 @@ concept CacheEnginePermutationStrategy =
     // Bei STATISTICS=ON ist variadische Statistik-Observer-Auswertungsklasse Pflicht.
     // observer_t = MeasurableObserver<snapshot_t> ueber die achs-spezifische
     // Statistics-Struktur (z.B. AllocationStatistics fuer Allocator-Achse).
-    && requires(A a, A const& ac) {
+    &&
+    requires(A a, A const& ac) {
         { ac.statistics() } noexcept;
-        { a.reset() }      noexcept;
-    }
-    && requires {
+        { a.reset() } noexcept;
+    } &&
+    requires {
         typename A::snapshot_t;
         typename A::observer_t;
-    }
-    && std::same_as<typename A::observer_t,
-                    ::comdare::cache_engine::measurement::MeasurableObserver<typename A::snapshot_t>>
-    && requires(A const& ac) {
+    } &&
+    std::same_as<typename A::observer_t,
+                 ::comdare::cache_engine::measurement::MeasurableObserver<typename A::snapshot_t>> &&
+    requires(A const& ac) {
         { ac.observer() } noexcept -> std::same_as<typename A::observer_t const&>;
     }
 #endif
     // V41.F.6.1.P2.C Habich-Compliance Pflicht: get_compiler + has_original_paper_code + is_original_module
-    && ::comdare::cache_engine::concepts::LegacyOriginalCodePflicht<A>
-    ;
+    && ::comdare::cache_engine::concepts::LegacyOriginalCodePflicht<A>;
 
-}  // namespace comdare::cache_engine::alloc::concepts
+} // namespace comdare::cache_engine::alloc::concepts

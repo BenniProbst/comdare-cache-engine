@@ -35,10 +35,8 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts {
  * CopyOnWriteBuffer, EpochBuffer, BatchedInsertBuffer, NoBuffer.
  */
 template <typename B>
-concept BoundedBufferStrategy =
-    BufferStrategy<B>
-    && requires(B const& bc) {
-        { bc.capacity() } noexcept -> std::convertible_to<std::size_t>;
-    };
+concept BoundedBufferStrategy = BufferStrategy<B> && requires(B const& bc) {
+    { bc.capacity() } noexcept -> std::convertible_to<std::size_t>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts

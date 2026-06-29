@@ -24,7 +24,7 @@
 // @related [[feedback_zwei_dimensionen_messmodell]] [[reference_axis_gold_standard_checklist]]
 
 #include "concepts/axis_07_prefetch_concept.hpp"
-#include "axis_07_prefetch_real_descent.hpp"   // K9-Fix: REALER _mm_prefetch auf Store-Slot-Adressen (PrefetchDescentPolicy)
+#include "axis_07_prefetch_real_descent.hpp" // K9-Fix: REALER _mm_prefetch auf Store-Slot-Adressen (PrefetchDescentPolicy)
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -35,16 +35,17 @@ namespace comdare::cache_engine::prefetch_axis {
 /// ABI-taugliches Prefetch-Snapshot (NUR uint64 → standard_layout + trivially_copyable; mappbar in den
 /// generischen Cross-ABI-Observer-POD, axis_stats[7][...], observable_tier.hpp).
 struct PrefetchStatistics {
-    std::uint64_t trigger_count             = 0;  ///< Anzahl Prefetch-Trigger (observe_prefetch-Aufrufe, die treiben)
-    std::uint64_t suggestions_made          = 0;  ///< Anzahl erzeugter Next-Adress-Empfehlungen (suggest_next-Aufrufe)
-    std::uint64_t hot_path_hints            = 0;  ///< V11.1 Hot-Path-Hints aus rohen Schlüssel-Bytes (Tracker-real)
-    std::uint64_t max_queue_depth           = 0;  ///< Höchststand der Pfad-Trajektorien-Tiefe (Tracker-real)
-    std::uint64_t total_addresses_enqueued  = 0;  ///< gesamt eingereihte Pfad-Adressen (Tracker total_enqueued())
+    std::uint64_t trigger_count            = 0; ///< Anzahl Prefetch-Trigger (observe_prefetch-Aufrufe, die treiben)
+    std::uint64_t suggestions_made         = 0; ///< Anzahl erzeugter Next-Adress-Empfehlungen (suggest_next-Aufrufe)
+    std::uint64_t hot_path_hints           = 0; ///< V11.1 Hot-Path-Hints aus rohen Schlüssel-Bytes (Tracker-real)
+    std::uint64_t max_queue_depth          = 0; ///< Höchststand der Pfad-Trajektorien-Tiefe (Tracker-real)
+    std::uint64_t total_addresses_enqueued = 0; ///< gesamt eingereihte Pfad-Adressen (Tracker total_enqueued())
     // K9-Fix (User §4.4 / 2026-06-18): REALE _mm_prefetch-Telemetrie auf TATSAECHLICHE Store-Adressen (kein
     // Schluessel-als-Adresse mehr). Jeder Zaehler folgt einer echten PrefetchDescentPolicy<Strategy>::drive-Op.
-    std::uint64_t real_prefetches_issued    = 0;  ///< Summe real abgesetzter _mm_prefetch-Instruktionen (None=0)
-    std::uint64_t last_real_address         = 0;  ///< letzte REAL geprefetchte Slot-Adresse (uint64 des Pointers, Store-Backing)
-    std::uint64_t last_prefetch_distance    = 0;  ///< zuletzt genutzte Voraus-Distanz in Slots (HW=0/Distance=N/Path=Bundle)
+    std::uint64_t real_prefetches_issued = 0; ///< Summe real abgesetzter _mm_prefetch-Instruktionen (None=0)
+    std::uint64_t last_real_address = 0; ///< letzte REAL geprefetchte Slot-Adresse (uint64 des Pointers, Store-Backing)
+    std::uint64_t last_prefetch_distance =
+        0; ///< zuletzt genutzte Voraus-Distanz in Slots (HW=0/Distance=N/Path=Bundle)
 
     [[nodiscard]] bool operator==(PrefetchStatistics const&) const noexcept = default;
 };
@@ -73,10 +74,17 @@ concept HasPrefetchTracker = requires {
 };
 
 /// tracker_type_t<S> = der echte Tracker-Typ (PathOriented) bzw. NoPrefetchTracker (None/Hardware).
-template <class S> struct tracker_type { using type = NoPrefetchTracker; };
-template <HasPrefetchTracker S> struct tracker_type<S> { using type = typename S::impl_type; };
-template <class S> using tracker_type_t = typename tracker_type<S>::type;
-}  // namespace detail
+template <class S>
+struct tracker_type {
+    using type = NoPrefetchTracker;
+};
+template <HasPrefetchTracker S>
+struct tracker_type<S> {
+    using type = typename S::impl_type;
+};
+template <class S>
+using tracker_type_t = typename tracker_type<S>::type;
+} // namespace detail
 
 /// ObservableAxis-Hülle: prefetch-Strategie + Per-Achsen-Mess-Mechanik (gegated). KEIN Aggregat (private
 /// member + Methoden) → direkt als Anatomie-/abi_adapter-Member `ObservablePrefetch<S> m;` haltbar.
@@ -88,14 +96,23 @@ public:
 
     // Transparenter Decorator: die statische Strategie-Inspektion wird durchgereicht, damit die Hülle überall
     // als prefetch-Slot funktioniert (Composition-Inspektoren rufen C::prefetch::name()/is_active()).
-    [[nodiscard]] static constexpr bool             is_active()   noexcept { return Strategy::is_active(); }
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return Strategy::name(); }
-    [[nodiscard]] static constexpr std::string_view family_name()
-        noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()
-        noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
-    [[nodiscard]] static constexpr std::string_view get_compiler()
-        noexcept requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return Strategy::is_active(); }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept
+        requires requires { Strategy::family_name(); }
+    {
+        return Strategy::family_name();
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept
+        requires requires { Strategy::flag_suffix(); }
+    {
+        return Strategy::flag_suffix();
+    }
+    [[nodiscard]] static constexpr std::string_view get_compiler() noexcept
+        requires requires { Strategy::get_compiler(); }
+    {
+        return Strategy::get_compiler();
+    }
 
     /// Mess-Kopplung (der eigentliche „Driver"): der Tier-insert/lookup reicht die berührte Adresse herein.
     /// Bei einer Tracking-Strategie (PathOriented) wird der echte Tracker getrieben (enqueue + suggest_next),
@@ -115,10 +132,14 @@ public:
             }
             sync_from_tracker_();
         } else {
-            (void)addr; (void)raw_bytes; (void)n;   // None/Hardware: kein Software-Tracker → 0-Baseline (ehrlich)
+            (void)addr;
+            (void)raw_bytes;
+            (void)n; // None/Hardware: kein Software-Tracker → 0-Baseline (ehrlich)
         }
 #else
-        (void)addr; (void)raw_bytes; (void)n;
+        (void)addr;
+        (void)raw_bytes;
+        (void)n;
 #endif
     }
 
@@ -129,12 +150,12 @@ public:
     /// abgesetzt (mikroarch-Effekt, auch im /O2-Mess-Build); die Telemetrie-Zaehler nur unter Statistik gepflegt.
     template <class Store>
     void observe_prefetch_descent(Store const& store, std::size_t i) noexcept {
-        auto const res = PrefetchDescentPolicy<Strategy>::drive(store, i);   // REALE _mm_prefetch auf Store-Adressen
+        auto const res = PrefetchDescentPolicy<Strategy>::drive(store, i); // REALE _mm_prefetch auf Store-Adressen
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         stats_.real_prefetches_issued += res.prefetches_issued;
         if (res.last_address != nullptr) stats_.last_real_address = reinterpret_cast<std::uintptr_t>(res.last_address);
         stats_.last_prefetch_distance = res.last_distance;
-        if (res.prefetches_issued != 0) ++stats_.trigger_count;   // ein realer Descent-Trigger (auch None bleibt 0)
+        if (res.prefetches_issued != 0) ++stats_.trigger_count; // ein realer Descent-Trigger (auch None bleibt 0)
 #else
         (void)res;
 #endif
@@ -171,4 +192,4 @@ private:
 #endif
 };
 
-}  // namespace comdare::cache_engine::prefetch_axis
+} // namespace comdare::cache_engine::prefetch_axis

@@ -29,11 +29,12 @@ namespace ce_topics   = ::comdare::cache_engine::topics;
 namespace ce_concepts = ::comdare::cache_engine::concepts;
 
 // Phase F1 Type-Aliases
-using PathCompressionNone   = ::comdare::cache_engine::nodes::axis_02_path_compression::PathCompressionNone;
-using Node256NodeType           = ::comdare::cache_engine::nodes::axis_04_node_type::Node256NodeType;
-using CacheLineAlignedMemoryLayout = ::comdare::cache_engine::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
-using OlcOptimisticConcurrency         = ::comdare::cache_engine::concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
-using NonePrefetch          = ::comdare::cache_engine::prefetch::axis_07_prefetch::NonePrefetch;
+using PathCompressionNone = ::comdare::cache_engine::nodes::axis_02_path_compression::PathCompressionNone;
+using Node256NodeType     = ::comdare::cache_engine::nodes::axis_04_node_type::Node256NodeType;
+using CacheLineAlignedMemoryLayout =
+    ::comdare::cache_engine::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
+using OlcOptimisticConcurrency = ::comdare::cache_engine::concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
+using NonePrefetch             = ::comdare::cache_engine::prefetch::axis_07_prefetch::NonePrefetch;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase F1 — 5 Achsen × 3 Pflicht-Checks (AxisBaseConcept + LegacyOriginalCodePflicht + Concept-Specific)
@@ -102,8 +103,8 @@ TEST(PhaseF1_CrossTopic, AllUseAxisBaseDefaultIsOriginalModule) {
 
 using LeafOnlyCounter        = ::comdare::cache_engine::telemetry::axis_11_telemetry::LeafOnlyCounter;
 using RawBinarySerialization = ::comdare::cache_engine::serialization::axis_10_serialization::RawBinarySerialization;
-using InlineValueHandle           = ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle;
-using Amd64Isa              = ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa;
+using InlineValueHandle      = ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle;
+using Amd64Isa               = ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa;
 
 TEST(PhaseF2_Telemetry, LeafOnlyCounterAxisBase) {
     static_assert(ce_topics::AxisBaseConcept<LeafOnlyCounter>);
@@ -122,7 +123,7 @@ TEST(PhaseF2_ValueHandle, InlineHandleAxisBase) {
 }
 TEST(PhaseF2_Hardware, IsaAmd64AxisBase) {
     static_assert(ce_topics::AxisBaseConcept<Amd64Isa>);
-    static_assert(Amd64Isa::supports_native_simd());  // x86_64 ABI hat SSE2 als Baseline
+    static_assert(Amd64Isa::supports_native_simd()); // x86_64 ABI hat SSE2 als Baseline
     SUCCEED();
 }
 
@@ -130,10 +131,10 @@ TEST(PhaseF2_Hardware, IsaAmd64AxisBase) {
 // Phase F3 — search_engine + io + migration + filter
 // ─────────────────────────────────────────────────────────────────────────────
 
-using IotIndexOrganization   = ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization;
-using InMemoryOnly = ::comdare::cache_engine::io::axis_io::InMemoryOnly;
-using NoMigration  = ::comdare::cache_engine::migration::axis_migration::NoMigration;
-using BloomFilter  = ::comdare::cache_engine::filter::axis_filter::BloomFilter;
+using IotIndexOrganization = ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization;
+using InMemoryOnly         = ::comdare::cache_engine::io::axis_io::InMemoryOnly;
+using NoMigration          = ::comdare::cache_engine::migration::axis_migration::NoMigration;
+using BloomFilter          = ::comdare::cache_engine::filter::axis_filter::BloomFilter;
 
 TEST(PhaseF3_SearchEngine, IotIndexOrganizationAxisBase) {
     static_assert(ce_topics::AxisBaseConcept<IotIndexOrganization>);

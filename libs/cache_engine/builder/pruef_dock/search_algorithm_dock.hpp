@@ -33,30 +33,29 @@ public:
         return h.anatomy() != nullptr && h.anatomy()->genus() == dock_genus();
     }
 
-    [[nodiscard]] int measure(anatomy_loader::AnatomyModuleHandle& h,
-                              PruefDockMeasureOptions const& opts,
+    [[nodiscard]] int measure(anatomy_loader::AnatomyModuleHandle& h, PruefDockMeasureOptions const& opts,
                               std::string& out_csv, std::string& out_json) override {
         auto* base = h.anatomy();
-        if (base == nullptr)                  return dock_status_no_anatomy;
-        if (base->genus() != dock_genus())    return dock_status_wrong_genus;
+        if (base == nullptr) return dock_status_no_anatomy;
+        if (base->genus() != dock_genus()) return dock_status_wrong_genus;
         // Pfad-B-Probing (bewährtes Muster, vgl. IMeasurableWorkload): das gattungs-eigene Antriebs-
         // Sub-Interface aus IAnatomyBase ziehen. nullptr = altes Modul ohne Pfad B → sauber degradieren.
         auto* tier = dynamic_cast<anatomy::IObservableTier*>(base);
-        if (tier == nullptr)                  return dock_status_subinterface_missing;
+        if (tier == nullptr) return dock_status_subinterface_missing;
         // V5-I4: Konformitäts-Gate gegen std::map VOR der Messung — eine nicht-konforme Hülle wird NICHT gemessen
         // (Reihenfolge import → GATE → messen). tier IS-A IDriveableTier (Split); das Gate leert den Tier am Ende
         // → saubere Ausgangslage für die anschließende Füllstands-Messung.
-        if (!run_conformance_gate(*tier).passed())  return dock_status_conformance_failed;
+        if (!run_conformance_gate(*tier).passed()) return dock_status_conformance_failed;
         // V5-I6/I7: memento_all-Sub-Interface derselben Tier-Instanz ziehen (nullbar). Vorhanden → der Treiber
         // misst je Op ZWEI-PHASIG (save→warmup→rollback→measure, Mess-Architektur §4 Default); nullptr (altes
         // Modul / nicht-rollbackbares Organ) → der Treiber fällt intern auf Einphasen-Kalt-Messung zurück =
         // exakt das bisherige Verhalten. Eine RAII-untaugliche Slot-Aliasing-Gefahr besteht nicht (gleiche Instanz).
-        auto* rollback = dynamic_cast<anatomy::IRollbackableTier*>(base);
-        auto const trace = anatomy_cmds::drive_two_phase_tier_trace_abi(*tier, rollback, opts);
-        out_csv  = anatomy_cmds::serialize_abi_tier_trace_csv(trace);
-        out_json = anatomy_cmds::serialize_abi_tier_trace_json(trace);
+        auto*      rollback = dynamic_cast<anatomy::IRollbackableTier*>(base);
+        auto const trace    = anatomy_cmds::drive_two_phase_tier_trace_abi(*tier, rollback, opts);
+        out_csv             = anatomy_cmds::serialize_abi_tier_trace_csv(trace);
+        out_json            = anatomy_cmds::serialize_abi_tier_trace_json(trace);
         return dock_status_ok;
     }
 };
 
-}  // namespace comdare::cache_engine::builder::pruef_dock
+} // namespace comdare::cache_engine::builder::pruef_dock

@@ -48,7 +48,7 @@ namespace mp = boost::mp11;
 
 template <class... Vs>
 struct PermTuple {
-    using variants = mp::mp_list<Vs...>;
+    using variants                     = mp::mp_list<Vs...>;
     static constexpr std::size_t arity = sizeof...(Vs);
 
     /**
@@ -58,14 +58,14 @@ struct PermTuple {
      * Pro Permutation eine eindeutige uint64_t als Build-Verzeichnis-Suffix.
      */
     [[nodiscard]] static constexpr std::uint64_t hash() noexcept {
-        std::uint64_t h = 0xcbf29ce484222325ULL;  // FNV-1a offset basis
-        auto hash_one = [&h](std::string_view s) constexpr {
+        std::uint64_t h        = 0xcbf29ce484222325ULL; // FNV-1a offset basis
+        auto          hash_one = [&h](std::string_view s) constexpr {
             for (char c : s) {
                 h ^= static_cast<std::uint64_t>(static_cast<unsigned char>(c));
                 h *= 0x100000001b3ULL;
             }
             // Separator zwischen Vendor-Namen damit "abc"+"def" != "ab"+"cdef"
-            h ^= 0x7CULL;  // '|'
+            h ^= 0x7CULL; // '|'
             h *= 0x100000001b3ULL;
         };
         (hash_one(Vs::name()), ...);
@@ -79,9 +79,7 @@ struct PermTuple {
 
 /// Compile-Time-Predicate: TopicConfigSet hat min. 1 Vendor in StaticAxisVariants
 template <class TopicConfig>
-using has_non_empty_axis = mp::mp_bool<
-    (mp::mp_size<typename TopicConfig::StaticAxisVariants>::value > 0)
->;
+using has_non_empty_axis = mp::mp_bool<(mp::mp_size<typename TopicConfig::StaticAxisVariants>::value > 0)>;
 
 // ───────────────────────────────────────────────────────────────────────────
 // (3) PermutationEngine<TopicConfigSets...>
@@ -99,30 +97,22 @@ public:
     // F.6.1.H Pflicht (Doku §15.9, User-Direktive 2026-05-26):
     // Pro Topic-Achse muss min. 1 Vendor enabled sein.
     // MP11-Idiom: mp_all_of statt Fold-Pattern (idiomatisch + Diagnose-tauglich).
-    static_assert(
-        mp::mp_all_of<Topics, has_non_empty_axis>::value,
-        "PermutationEngine: jede Topic-Achse muss min. 1 enabled Vendor haben. "
-        "Pruefe COMDARE_AXIS_<NN>_ENABLE_<VENDOR> CMake-Flags pro Achse — "
-        "sonst kann CacheEngineBuilder eine 0-Achsen-Permutation starten."
-    );
+    static_assert(mp::mp_all_of<Topics, has_non_empty_axis>::value,
+                  "PermutationEngine: jede Topic-Achse muss min. 1 enabled Vendor haben. "
+                  "Pruefe COMDARE_AXIS_<NN>_ENABLE_<VENDOR> CMake-Flags pro Achse — "
+                  "sonst kann CacheEngineBuilder eine 0-Achsen-Permutation starten.");
 
     /// Anzahl der Topic-Achsen (statische Compile-Time-Konstante)
     static constexpr std::size_t arity = sizeof...(TopicConfigSets);
 
     /// Diagnose-Helper: Anzahl der NICHT-leeren Achsen (entweder == arity oder Static-Assert greift)
-    static constexpr std::size_t non_empty_axis_count =
-        mp::mp_count_if<Topics, has_non_empty_axis>::value;
+    static constexpr std::size_t non_empty_axis_count = mp::mp_count_if<Topics, has_non_empty_axis>::value;
 
     /// Vollstaendige Cartesian-Product-Liste aller Permutationen (mp_list von PermTuple)
-    using AllPermutations = mp::mp_product<
-        PermTuple,
-        typename TopicConfigSets::StaticAxisVariants...
-    >;
+    using AllPermutations = mp::mp_product<PermTuple, typename TopicConfigSets::StaticAxisVariants...>;
 
     /// Anzahl der Permutationen (Compile-Time-Konstante)
-    [[nodiscard]] static constexpr std::size_t count() noexcept {
-        return mp::mp_size<AllPermutations>::value;
-    }
+    [[nodiscard]] static constexpr std::size_t count() noexcept { return mp::mp_size<AllPermutations>::value; }
 
     /**
      * @brief Compile-Time-Iteration ueber alle Permutationen
@@ -138,9 +128,7 @@ public:
      */
     template <class Visitor>
     static constexpr void for_each_permutation(Visitor&& v) {
-        mp::mp_for_each<AllPermutations>([&]<class P>(P){
-            std::forward<Visitor>(v).template operator()<P>();
-        });
+        mp::mp_for_each<AllPermutations>([&]<class P>(P) { std::forward<Visitor>(v).template operator()<P>(); });
     }
 
     /**
@@ -158,9 +146,7 @@ public:
     template <template <class> class Predicate, class Visitor>
     static constexpr void for_each_filtered(Visitor&& v) {
         using Filtered = mp::mp_filter<Predicate, AllPermutations>;
-        mp::mp_for_each<Filtered>([&]<class P>(P){
-            std::forward<Visitor>(v).template operator()<P>();
-        });
+        mp::mp_for_each<Filtered>([&]<class P>(P) { std::forward<Visitor>(v).template operator()<P>(); });
     }
 
     /**
@@ -173,9 +159,7 @@ public:
     template <class QuotedPredicate, class Visitor>
     static constexpr void for_each_filtered_q(Visitor&& v) {
         using Filtered = mp::mp_filter_q<QuotedPredicate, AllPermutations>;
-        mp::mp_for_each<Filtered>([&]<class P>(P){
-            std::forward<Visitor>(v).template operator()<P>();
-        });
+        mp::mp_for_each<Filtered>([&]<class P>(P) { std::forward<Visitor>(v).template operator()<P>(); });
     }
 
     /// Diagnose: Anzahl Permutationen die ein Predicate erfuellen (ohne Iteration)
@@ -208,8 +192,7 @@ public:
 template <class V>
 concept HasIterableAspect = requires {
     typename V::iterable_aspect_t;
-    { V::iterable_values() } -> std::convertible_to<
-        std::span<typename V::iterable_aspect_t const>>;
+    { V::iterable_values() } -> std::convertible_to<std::span<typename V::iterable_aspect_t const>>;
 };
 
 /**
@@ -226,15 +209,11 @@ concept HasIterableAspect = requires {
 template <class V, class Visitor>
 constexpr void for_each_aspect(Visitor&& visitor) {
     if constexpr (HasIterableAspect<V>) {
-        for (auto const& val : V::iterable_values()) {
-            std::forward<Visitor>(visitor)(val);
-        }
+        for (auto const& val : V::iterable_values()) { std::forward<Visitor>(visitor)(val); }
     } else {
         // Keine Iteration — Vendor hat keinen iterable_aspect_t
         // Visitor wird genau einmal aufgerufen, optional ohne Argument
-        if constexpr (std::is_invocable_v<Visitor>) {
-            std::forward<Visitor>(visitor)();
-        }
+        if constexpr (std::is_invocable_v<Visitor>) { std::forward<Visitor>(visitor)(); }
         // sonst: kein Aufruf (Visitor erwartet Argument, Vendor liefert keins)
     }
 }
@@ -271,9 +250,7 @@ template <class V>
  * @tparam PrueflingLists mp_list je Pruefling (eine pro Pruefling-Repo)
  */
 template <class DefaultList, class... PrueflingLists>
-using AxisFullJoin = mp::mp_unique<
-    mp::mp_append<DefaultList, PrueflingLists...>
->;
+using AxisFullJoin = mp::mp_unique<mp::mp_append<DefaultList, PrueflingLists...>>;
 
 // ───────────────────────────────────────────────────────────────────────────
 // (5) Default-Predicates (Helper)
@@ -285,4 +262,4 @@ using AlwaysTrue = mp::mp_true;
 template <class /*Perm*/>
 using AlwaysFalse = mp::mp_false;
 
-}  // namespace comdare::cache_engine::permutations
+} // namespace comdare::cache_engine::permutations

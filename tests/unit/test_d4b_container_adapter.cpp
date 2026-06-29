@@ -23,7 +23,7 @@ namespace eng = comdare::cache_engine::execution_engine;
 // treibt NUR die spezifische Achse inner_container real, die geteilten werden im Komposition-Typ getragen.
 struct DelegatedAxis {};
 
-static int g_fail = 0;
+static int  g_fail = 0;
 static void check(bool cond, std::string const& msg) {
     std::cout << (cond ? "  [OK]  " : "  [FAIL] ") << msg << "\n";
     if (!cond) ++g_fail;
@@ -31,9 +31,9 @@ static void check(bool cond, std::string const& msg) {
 
 int main() {
     using D    = DelegatedAxis;
-    using Comp = cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>;  // 12 + inner
+    using Comp = cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>; // 12 + inner
     using Anat = cea::AdapterAnatomy<Comp>;
-    cea::AdapterAbiAdapter<Anat> adapter;   // unbeschränkter Container-Adapter (13 Achsen)
+    cea::AdapterAbiAdapter<Anat> adapter; // unbeschränkter Container-Adapter (13 Achsen)
 
     std::cout << "==== D4b.1 AdapterAbiAdapter über IAnatomyBase ====\n";
     cea::IAnatomyBase* base = &adapter;
@@ -41,14 +41,15 @@ int main() {
     check(base->engine_kind() == eng::ExecutionEngineKind::Anatomy, "engine_kind() == Anatomy");
     check(base->organ_count() == 13, "organ_count() == 13 (§28: 12 geteilt/delegiert + inner_container)");
     check(std::string{base->composition_name()} == "AdapterComposition", "composition_name == AdapterComposition");
-    base->warm_up(); base->run();
+    base->warm_up();
+    base->run();
     check(base->lifecycle_state() == eng::EngineLifecycleState::Running, "lifecycle: warm_up→run → Running");
 
     std::cout << "\n==== D4b.1 Container-Antrieb über IAdapterTier (dynamic_cast, ABI-Pfad) ====\n";
     auto* ct = dynamic_cast<cea::IAdapterTier*>(base);
     check(ct != nullptr, "dynamic_cast<IAdapterTier*> != null (Container-Sub-Interface vorhanden)");
     if (ct != nullptr) {
-        for (std::uint64_t i = 0; i < 20; ++i) ct->tier_put(i);   // unbeschränkt → alle 20 verbleiben
+        for (std::uint64_t i = 0; i < 20; ++i) ct->tier_put(i); // unbeschränkt → alle 20 verbleiben
         cea::AdapterObserverSnapshotV1 obs{};
         ct->tier_observe_container(&obs);
         check(obs.push_count == 20, "tier_observe_container: push_count == 20 (über Interface getrieben)");
@@ -56,7 +57,7 @@ int main() {
         check(obs.peak_occupancy == 20, "tier_observe_container: peak_occupancy == 20 (unbeschränkter Adapter)");
         check(ct->tier_size() == 20, "tier_size() == 20 (kein Flush — Container-Adapter unbeschränkt)");
         std::uint64_t out = 999;
-        bool const got = ct->tier_get(&out);
+        bool const    got = ct->tier_get(&out);
         check(got, "tier_get() liefert ein Element (FIFO)");
         check(out == 0, "FIFO: tier_get() liefert das vorderste Element (0)");
         ct->tier_observe_container(&obs);

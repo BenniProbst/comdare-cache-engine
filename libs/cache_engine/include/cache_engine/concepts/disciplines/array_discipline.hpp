@@ -7,10 +7,8 @@ namespace comdare::cache_engine {
 
 class ArrayDiscipline final : public IConcurrencyDiscipline {
 public:
-    [[nodiscard]] ConcurrencyDisciplineKind kind() const noexcept override {
-        return ConcurrencyDisciplineKind::Array;
-    }
-    void on_event(Event const&) noexcept override {}
+    [[nodiscard]] ConcurrencyDisciplineKind kind() const noexcept override { return ConcurrencyDisciplineKind::Array; }
+    void                                    on_event(Event const&) noexcept override {}
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

@@ -26,9 +26,7 @@ namespace comdare::cache_engine::anatomy {
 /// Stufe-A-Wrappers ohne COMDARE_CE_ENABLE_STATISTICS bekommen diesen.
 struct EmptyAxisSnapshot {
     // explicitly empty — standard_layout + trivially_copyable garantiert
-    [[nodiscard]] constexpr bool operator==(EmptyAxisSnapshot const&) const noexcept {
-        return true;
-    }
+    [[nodiscard]] constexpr bool operator==(EmptyAxisSnapshot const&) const noexcept { return true; }
 };
 
 static_assert(std::is_standard_layout_v<EmptyAxisSnapshot>);
@@ -49,14 +47,14 @@ template <class A>
 struct snapshot_of {
     using type = std::conditional_t<
         ObservableAxis<A>,
-        typename std::conditional_t<
-            ObservableAxis<A>, A, void  // ObservableAxis-Pfad: A::snapshot_t verfuegbar
-        >::snapshot_t,  // (Achtung: nur gueltig wenn ObservableAxis<A>)
+        typename std::conditional_t<ObservableAxis<A>, A, void // ObservableAxis-Pfad: A::snapshot_t verfuegbar
+                                    >::snapshot_t,             // (Achtung: nur gueltig wenn ObservableAxis<A>)
         EmptyAxisSnapshot>;
 };
 
 // Specialization fuer Non-ObservableAxis — vermeidet snapshot_t-Lookup-Fehler
-template <class A> requires (!ObservableAxis<A>)
+template <class A>
+    requires(!ObservableAxis<A>)
 struct snapshot_of<A> {
     using type = EmptyAxisSnapshot;
 };
@@ -113,31 +111,31 @@ struct ObserverAggregate {
     snapshot_of_t<typename Composition::filter>             filter;
     // Doc 30 §8.0: queuing q1/q2 als reguläre SA-Achsen (BufferStatistics / FlushPolicyStatistics
     // bei COMDARE_CE_ENABLE_STATISTICS; sonst EmptyAxisSnapshot via snapshot_of_t — wie alle anderen).
-    snapshot_of_t<typename Composition::queuing_q1>         queuing_q1;
-    snapshot_of_t<typename Composition::queuing_q2>         queuing_q2;
+    snapshot_of_t<typename Composition::queuing_q1> queuing_q1;
+    snapshot_of_t<typename Composition::queuing_q2> queuing_q2;
 
     /// Anzahl der "echten" (nicht-Empty) Snapshots — Diagnose fuer Mess-Treiber.
     [[nodiscard]] static constexpr std::size_t observable_count() noexcept {
         std::size_t n = 0;
-        if constexpr (ObservableAxis<typename Composition::search_algo>)        ++n;
-        if constexpr (ObservableAxis<typename Composition::cache_traversal>)    ++n;
-        if constexpr (ObservableAxis<typename Composition::mapping>)            ++n;
-        if constexpr (ObservableAxis<typename Composition::path_compression>)   ++n;
-        if constexpr (ObservableAxis<typename Composition::node_type>)          ++n;
-        if constexpr (ObservableAxis<typename Composition::memory_layout>)      ++n;
-        if constexpr (ObservableAxis<typename Composition::allocator>)          ++n;
-        if constexpr (ObservableAxis<typename Composition::prefetch>)           ++n;
-        if constexpr (ObservableAxis<typename Composition::concurrency>)        ++n;
-        if constexpr (ObservableAxis<typename Composition::serialization>)      ++n;
-        if constexpr (ObservableAxis<typename Composition::telemetry>)          ++n;
-        if constexpr (ObservableAxis<typename Composition::value_handle>)       ++n;
-        if constexpr (ObservableAxis<typename Composition::isa>)                ++n;
+        if constexpr (ObservableAxis<typename Composition::search_algo>) ++n;
+        if constexpr (ObservableAxis<typename Composition::cache_traversal>) ++n;
+        if constexpr (ObservableAxis<typename Composition::mapping>) ++n;
+        if constexpr (ObservableAxis<typename Composition::path_compression>) ++n;
+        if constexpr (ObservableAxis<typename Composition::node_type>) ++n;
+        if constexpr (ObservableAxis<typename Composition::memory_layout>) ++n;
+        if constexpr (ObservableAxis<typename Composition::allocator>) ++n;
+        if constexpr (ObservableAxis<typename Composition::prefetch>) ++n;
+        if constexpr (ObservableAxis<typename Composition::concurrency>) ++n;
+        if constexpr (ObservableAxis<typename Composition::serialization>) ++n;
+        if constexpr (ObservableAxis<typename Composition::telemetry>) ++n;
+        if constexpr (ObservableAxis<typename Composition::value_handle>) ++n;
+        if constexpr (ObservableAxis<typename Composition::isa>) ++n;
         if constexpr (ObservableAxis<typename Composition::index_organization>) ++n;
-        if constexpr (ObservableAxis<typename Composition::io_dispatch>)        ++n;
-        if constexpr (ObservableAxis<typename Composition::migration_policy>)   ++n;
-        if constexpr (ObservableAxis<typename Composition::filter>)             ++n;
-        if constexpr (ObservableAxis<typename Composition::queuing_q1>)         ++n;
-        if constexpr (ObservableAxis<typename Composition::queuing_q2>)         ++n;
+        if constexpr (ObservableAxis<typename Composition::io_dispatch>) ++n;
+        if constexpr (ObservableAxis<typename Composition::migration_policy>) ++n;
+        if constexpr (ObservableAxis<typename Composition::filter>) ++n;
+        if constexpr (ObservableAxis<typename Composition::queuing_q1>) ++n;
+        if constexpr (ObservableAxis<typename Composition::queuing_q2>) ++n;
         return n;
     }
 
@@ -145,4 +143,4 @@ struct ObserverAggregate {
     [[nodiscard]] static constexpr std::size_t total_slots() noexcept { return 19; }
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

@@ -47,4 +47,4 @@ using StartPaperBinding    = SearchAlgorithmAnatomy<compositions::StartPaperBind
 using WormholePaperBinding = SearchAlgorithmAnatomy<compositions::WormholePaperBindingComposition>;
 using SurfPaperBinding     = SearchAlgorithmAnatomy<compositions::SurfPaperBindingComposition>;
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

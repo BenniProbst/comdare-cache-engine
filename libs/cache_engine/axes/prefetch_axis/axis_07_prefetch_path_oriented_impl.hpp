@@ -35,14 +35,13 @@ public:
     void enqueue(std::uint64_t addr) {
         recent_path_.push_back(addr);
         if (recent_path_.size() > kMaxTrackedSlots) {
-            recent_path_.erase(recent_path_.begin(),
-                               recent_path_.begin() + (recent_path_.size() - kMaxTrackedSlots));
+            recent_path_.erase(recent_path_.begin(), recent_path_.begin() + (recent_path_.size() - kMaxTrackedSlots));
         }
         ++total_enqueued_;
     }
 
-    [[nodiscard]] std::uint64_t total_enqueued() const noexcept { return total_enqueued_; }
-    [[nodiscard]] std::size_t   queue_depth()    const noexcept { return recent_path_.size(); }
+    [[nodiscard]] std::uint64_t                     total_enqueued() const noexcept { return total_enqueued_; }
+    [[nodiscard]] std::size_t                       queue_depth() const noexcept { return recent_path_.size(); }
     [[nodiscard]] std::vector<std::uint64_t> const& path() const noexcept { return recent_path_; }
 
     /// Empfehlung fuer die naechste Prefetch-Adresse via linearer Schritt-Extrapolation.
@@ -73,7 +72,7 @@ public:
 private:
     std::vector<std::uint64_t> recent_path_{};
     std::uint64_t              total_enqueued_       = 0;
-    std::uint64_t              total_hot_path_hints_ = 0;  // V11.1
+    std::uint64_t              total_hot_path_hints_ = 0; // V11.1
 };
 
-}  // namespace comdare::cache_engine::prefetch_axis::impl
+} // namespace comdare::cache_engine::prefetch_axis::impl

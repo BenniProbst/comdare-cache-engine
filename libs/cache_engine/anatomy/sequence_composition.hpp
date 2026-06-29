@@ -32,19 +32,19 @@ struct DoublingGrowth {
 template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9,
           class Growth = DoublingGrowth>
 struct SequenceComposition {
-    using memory_layout    = T0;   // axis_05
-    using allocator        = T1;   // axis_06
-    using prefetch         = T2;   // axis_07
-    using concurrency      = T3;   // axis_08
-    using serialization    = T4;   // axis_10
-    using telemetry        = T5;   // axis_11
-    using value_handle     = T6;   // axis_14
-    using isa              = T7;   // axis_09
-    using io_dispatch      = T8;   // axis_io
-    using migration_policy = T9;   // axis_migration
-    using growth_policy    = Growth;  // NEU axis_growth (eigene Sequence-Achse)
+    using memory_layout    = T0;     // axis_05
+    using allocator        = T1;     // axis_06
+    using prefetch         = T2;     // axis_07
+    using concurrency      = T3;     // axis_08
+    using serialization    = T4;     // axis_10
+    using telemetry        = T5;     // axis_11
+    using value_handle     = T6;     // axis_14
+    using isa              = T7;     // axis_09
+    using io_dispatch      = T8;     // axis_io
+    using migration_policy = T9;     // axis_migration
+    using growth_policy    = Growth; // NEU axis_growth (eigene Sequence-Achse)
 
-    static constexpr std::size_t      slot_count = 11;   // 10 geteilte + axis_growth
+    static constexpr std::size_t      slot_count = 11; // 10 geteilte + axis_growth
     static constexpr std::string_view name       = "SequenceComposition";
     static constexpr std::string_view paper_id   = "P00 Sequence Gattung (Reptil, V-indexed)";
 };
@@ -52,13 +52,20 @@ struct SequenceComposition {
 /// IsSequenceComposition — Concept: 10 geteilte named Achsen + growth_policy. Kein search_algo (V-indexed).
 template <class C>
 concept IsSequenceComposition = requires {
-    typename C::memory_layout;  typename C::allocator;       typename C::prefetch;
-    typename C::concurrency;    typename C::serialization;   typename C::telemetry;
-    typename C::value_handle;   typename C::isa;             typename C::io_dispatch;
-    typename C::migration_policy; typename C::growth_policy;
+    typename C::memory_layout;
+    typename C::allocator;
+    typename C::prefetch;
+    typename C::concurrency;
+    typename C::serialization;
+    typename C::telemetry;
+    typename C::value_handle;
+    typename C::isa;
+    typename C::io_dispatch;
+    typename C::migration_policy;
+    typename C::growth_policy;
     { C::slot_count } -> std::convertible_to<std::size_t>;
 };
 
 inline constexpr std::size_t kSequenceCompositionSlotCount = 11;
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

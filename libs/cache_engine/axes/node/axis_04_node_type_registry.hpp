@@ -15,19 +15,13 @@ namespace comdare::cache_engine::node {
 
 namespace mp = boost::mp11;
 
-using AllNodeTypes = mp::mp_list<
-    Node4NodeType,
-    Node16NodeType,
-    Node48NodeType,
-    Node256NodeType
->;
+using AllNodeTypes = mp::mp_list<Node4NodeType, Node16NodeType, Node48NodeType, Node256NodeType>;
 
 template <typename T>
 using is_enabled = mp::mp_bool<T::enabled>;
 
 using EnabledNodeTypes = mp::mp_filter<is_enabled, AllNodeTypes>;
 
-static_assert(mp::mp_size<EnabledNodeTypes>::value > 0,
-    "Axis 04 NodeType: at least one node-type must be enabled");
+static_assert(mp::mp_size<EnabledNodeTypes>::value > 0, "Axis 04 NodeType: at least one node-type must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::node

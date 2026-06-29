@@ -53,19 +53,19 @@ TEST(CacheTopology, AllAbstractInterfacesArePolymorphic) {
 }
 
 TEST(CacheLineState, FiveMesiOesiStatesExist) {
-    EXPECT_EQ(static_cast<int>(cep::CacheLineState::Modified),  0);
+    EXPECT_EQ(static_cast<int>(cep::CacheLineState::Modified), 0);
     EXPECT_EQ(static_cast<int>(cep::CacheLineState::Exclusive), 1);
-    EXPECT_EQ(static_cast<int>(cep::CacheLineState::Shared),    2);
-    EXPECT_EQ(static_cast<int>(cep::CacheLineState::Invalid),   3);
-    EXPECT_EQ(static_cast<int>(cep::CacheLineState::Owned),     4);
+    EXPECT_EQ(static_cast<int>(cep::CacheLineState::Shared), 2);
+    EXPECT_EQ(static_cast<int>(cep::CacheLineState::Invalid), 3);
+    EXPECT_EQ(static_cast<int>(cep::CacheLineState::Owned), 4);
 }
 
 TEST(CacheResidencyTier, FiveTiersExist) {
-    EXPECT_EQ(static_cast<int>(cep::CacheResidencyTier::L1Cached),     0);
+    EXPECT_EQ(static_cast<int>(cep::CacheResidencyTier::L1Cached), 0);
     EXPECT_EQ(static_cast<int>(cep::CacheResidencyTier::HeaderCached), 1);
-    EXPECT_EQ(static_cast<int>(cep::CacheResidencyTier::L2Cached),     2);
-    EXPECT_EQ(static_cast<int>(cep::CacheResidencyTier::L3Cached),     3);
-    EXPECT_EQ(static_cast<int>(cep::CacheResidencyTier::Uncached),     4);
+    EXPECT_EQ(static_cast<int>(cep::CacheResidencyTier::L2Cached), 2);
+    EXPECT_EQ(static_cast<int>(cep::CacheResidencyTier::L3Cached), 3);
+    EXPECT_EQ(static_cast<int>(cep::CacheResidencyTier::Uncached), 4);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -73,19 +73,19 @@ TEST(CacheResidencyTier, FiveTiersExist) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(CoreClass, FourGenericClassesExist) {
-    EXPECT_EQ(static_cast<int>(cep::CoreClass::Generic),     0);
-    EXPECT_EQ(static_cast<int>(cep::CoreClass::HighIpc),     1);  // generisch fuer P-Cores/V-Cache
-    EXPECT_EQ(static_cast<int>(cep::CoreClass::LowIpc),      2);  // generisch fuer E-Cores
-    EXPECT_EQ(static_cast<int>(cep::CoreClass::Specialized), 3);  // generisch fuer PEs
+    EXPECT_EQ(static_cast<int>(cep::CoreClass::Generic), 0);
+    EXPECT_EQ(static_cast<int>(cep::CoreClass::HighIpc), 1);     // generisch fuer P-Cores/V-Cache
+    EXPECT_EQ(static_cast<int>(cep::CoreClass::LowIpc), 2);      // generisch fuer E-Cores
+    EXPECT_EQ(static_cast<int>(cep::CoreClass::Specialized), 3); // generisch fuer PEs
 }
 
 TEST(PinningPolicyId, FiveGenericPoliciesExist) {
     // REV 3 K3.2: Largest-L3-CCD (statt X3DAware), HotPath-on-HighIpc (statt IntelHybrid)
-    EXPECT_EQ(static_cast<int>(cep::PinningPolicyId::None),             0);
-    EXPECT_EQ(static_cast<int>(cep::PinningPolicyId::LargestL3Ccd),     1);
+    EXPECT_EQ(static_cast<int>(cep::PinningPolicyId::None), 0);
+    EXPECT_EQ(static_cast<int>(cep::PinningPolicyId::LargestL3Ccd), 1);
     EXPECT_EQ(static_cast<int>(cep::PinningPolicyId::HotPathOnHighIpc), 2);
-    EXPECT_EQ(static_cast<int>(cep::PinningPolicyId::NumaLocal),        3);
-    EXPECT_EQ(static_cast<int>(cep::PinningPolicyId::RoundRobin),       4);
+    EXPECT_EQ(static_cast<int>(cep::PinningPolicyId::NumaLocal), 3);
+    EXPECT_EQ(static_cast<int>(cep::PinningPolicyId::RoundRobin), 4);
 }
 
 TEST(CoreLayoutInterfaces, AllAbstract) {
@@ -105,12 +105,12 @@ TEST(IsaFeatureSet, AbstractInterfaceIsPolymorphic) {
 }
 
 TEST(HardwareExtensionFamily, SevenFamiliesExist) {
-    EXPECT_EQ(static_cast<int>(cep::HardwareExtensionFamily::BaseISA),          0);
-    EXPECT_EQ(static_cast<int>(cep::HardwareExtensionFamily::SimdExtension),    1);
-    EXPECT_EQ(static_cast<int>(cep::HardwareExtensionFamily::BitManipulation),  2);
-    EXPECT_EQ(static_cast<int>(cep::HardwareExtensionFamily::MemoryHints),      3);
-    EXPECT_EQ(static_cast<int>(cep::HardwareExtensionFamily::Synchronization),  4);
-    EXPECT_EQ(static_cast<int>(cep::HardwareExtensionFamily::Security),         5);
+    EXPECT_EQ(static_cast<int>(cep::HardwareExtensionFamily::BaseISA), 0);
+    EXPECT_EQ(static_cast<int>(cep::HardwareExtensionFamily::SimdExtension), 1);
+    EXPECT_EQ(static_cast<int>(cep::HardwareExtensionFamily::BitManipulation), 2);
+    EXPECT_EQ(static_cast<int>(cep::HardwareExtensionFamily::MemoryHints), 3);
+    EXPECT_EQ(static_cast<int>(cep::HardwareExtensionFamily::Synchronization), 4);
+    EXPECT_EQ(static_cast<int>(cep::HardwareExtensionFamily::Security), 5);
     EXPECT_EQ(static_cast<int>(cep::HardwareExtensionFamily::DatabaseSpecific), 6);
 }
 
@@ -119,38 +119,38 @@ TEST(HardwareExtensionFamily, SevenFamiliesExist) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(StorageMediumKind, SixMediaKindsExist) {
-    EXPECT_EQ(static_cast<int>(cep::StorageMediumKind::Dram),        0);
-    EXPECT_EQ(static_cast<int>(cep::StorageMediumKind::Hbm),         1);
-    EXPECT_EQ(static_cast<int>(cep::StorageMediumKind::Nvram),       2);
-    EXPECT_EQ(static_cast<int>(cep::StorageMediumKind::Cxl),         3);
-    EXPECT_EQ(static_cast<int>(cep::StorageMediumKind::SsdNvme),     4);
+    EXPECT_EQ(static_cast<int>(cep::StorageMediumKind::Dram), 0);
+    EXPECT_EQ(static_cast<int>(cep::StorageMediumKind::Hbm), 1);
+    EXPECT_EQ(static_cast<int>(cep::StorageMediumKind::Nvram), 2);
+    EXPECT_EQ(static_cast<int>(cep::StorageMediumKind::Cxl), 3);
+    EXPECT_EQ(static_cast<int>(cep::StorageMediumKind::SsdNvme), 4);
     EXPECT_EQ(static_cast<int>(cep::StorageMediumKind::HddSpinning), 5);
 }
 
 TEST(RcuFlavor, SixFlavorsExist) {
     // REV 5 K08: 6-Flavor-RCU-Klassifikation
-    EXPECT_EQ(static_cast<int>(cep::RcuFlavor::Classic),    0);
-    EXPECT_EQ(static_cast<int>(cep::RcuFlavor::Qsbr),       1);
-    EXPECT_EQ(static_cast<int>(cep::RcuFlavor::Bp),         2);
+    EXPECT_EQ(static_cast<int>(cep::RcuFlavor::Classic), 0);
+    EXPECT_EQ(static_cast<int>(cep::RcuFlavor::Qsbr), 1);
+    EXPECT_EQ(static_cast<int>(cep::RcuFlavor::Bp), 2);
     EXPECT_EQ(static_cast<int>(cep::RcuFlavor::Membarrier), 3);
-    EXPECT_EQ(static_cast<int>(cep::RcuFlavor::Signal),     4);
-    EXPECT_EQ(static_cast<int>(cep::RcuFlavor::Sysmemb),    5);
+    EXPECT_EQ(static_cast<int>(cep::RcuFlavor::Signal), 4);
+    EXPECT_EQ(static_cast<int>(cep::RcuFlavor::Sysmemb), 5);
 }
 
 TEST(RebuildTrigger, FiveTriggersExist) {
-    EXPECT_EQ(static_cast<int>(cep::RebuildTrigger::OfflineSelfTuning),      0);
+    EXPECT_EQ(static_cast<int>(cep::RebuildTrigger::OfflineSelfTuning), 0);
     EXPECT_EQ(static_cast<int>(cep::RebuildTrigger::OnlineProbabilityBased), 1);
-    EXPECT_EQ(static_cast<int>(cep::RebuildTrigger::OnEveryStructureMod),    2);
-    EXPECT_EQ(static_cast<int>(cep::RebuildTrigger::PeriodicGlobal),         3);
-    EXPECT_EQ(static_cast<int>(cep::RebuildTrigger::BulkLoadLevelByLevel),   4);
+    EXPECT_EQ(static_cast<int>(cep::RebuildTrigger::OnEveryStructureMod), 2);
+    EXPECT_EQ(static_cast<int>(cep::RebuildTrigger::PeriodicGlobal), 3);
+    EXPECT_EQ(static_cast<int>(cep::RebuildTrigger::BulkLoadLevelByLevel), 4);
 }
 
 TEST(WorkloadDistribution, SevenDistributionsExist) {
-    EXPECT_EQ(static_cast<int>(cep::WorkloadDistribution::Uniform),     0);
-    EXPECT_EQ(static_cast<int>(cep::WorkloadDistribution::Zipfian),     1);
-    EXPECT_EQ(static_cast<int>(cep::WorkloadDistribution::Pareto),      2);
+    EXPECT_EQ(static_cast<int>(cep::WorkloadDistribution::Uniform), 0);
+    EXPECT_EQ(static_cast<int>(cep::WorkloadDistribution::Zipfian), 1);
+    EXPECT_EQ(static_cast<int>(cep::WorkloadDistribution::Pareto), 2);
     EXPECT_EQ(static_cast<int>(cep::WorkloadDistribution::PrefixHeavy), 5);
-    EXPECT_EQ(static_cast<int>(cep::WorkloadDistribution::Sequential),  6);
+    EXPECT_EQ(static_cast<int>(cep::WorkloadDistribution::Sequential), 6);
 }
 
 TEST(WorkloadOpMix, IncludesYcsbVariants) {
@@ -164,12 +164,12 @@ TEST(WorkloadOpMix, IncludesYcsbVariants) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(InterconnectClass, SixLinkClassesExist) {
-    EXPECT_EQ(static_cast<int>(cep::InterconnectClass::IntraCcd),  0);
-    EXPECT_EQ(static_cast<int>(cep::InterconnectClass::InterCcd),  1);
+    EXPECT_EQ(static_cast<int>(cep::InterconnectClass::IntraCcd), 0);
+    EXPECT_EQ(static_cast<int>(cep::InterconnectClass::InterCcd), 1);
     EXPECT_EQ(static_cast<int>(cep::InterconnectClass::MemoryBus), 2);
-    EXPECT_EQ(static_cast<int>(cep::InterconnectClass::NumaLink),  3);
-    EXPECT_EQ(static_cast<int>(cep::InterconnectClass::PcIe),      4);
-    EXPECT_EQ(static_cast<int>(cep::InterconnectClass::NvLink),    5);
+    EXPECT_EQ(static_cast<int>(cep::InterconnectClass::NumaLink), 3);
+    EXPECT_EQ(static_cast<int>(cep::InterconnectClass::PcIe), 4);
+    EXPECT_EQ(static_cast<int>(cep::InterconnectClass::NvLink), 5);
 }
 
 TEST(InterconnectInterfaces, AllAbstract) {

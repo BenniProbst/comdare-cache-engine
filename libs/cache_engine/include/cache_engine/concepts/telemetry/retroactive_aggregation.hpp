@@ -24,9 +24,9 @@ public:
     // Iterativer Walk; sammelt Blatt-Counter zu inneren Knoten.
     // Wir nehmen hier eine simple Bottom-Up-Aggregation an: Summe der Blatt-Counter.
     AggregatedHistogram run_aggregation(std::vector<std::uint64_t> const& leaf_counts,
-                                         std::vector<std::size_t> const& leaf_to_inner) {
+                                        std::vector<std::size_t> const&   leaf_to_inner) {
         AggregatedHistogram h{};
-        std::uint64_t inner_max = 0;
+        std::uint64_t       inner_max = 0;
         for (auto idx : leaf_to_inner) {
             if (idx >= inner_max) inner_max = idx + 1;
         }
@@ -47,8 +47,8 @@ public:
     [[nodiscard]] std::uint64_t barrier_triggers() const noexcept { return barrier_triggers_; }
 
 private:
-    std::uint64_t total_runs_ = 0;
+    std::uint64_t total_runs_       = 0;
     std::uint64_t barrier_triggers_ = 0;
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

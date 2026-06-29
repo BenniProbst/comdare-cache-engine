@@ -28,9 +28,6 @@ namespace comdare::cache_engine::alloc::concepts {
  *   - force=false -> opportunistische Bereinigung
  */
 template <typename A>
-concept ReclaimableStrategy = AllocatorStrategy<A>
-    && requires(A a, bool force) {
-        a.collect(force);
-    };
+concept ReclaimableStrategy = AllocatorStrategy<A> && requires(A a, bool force) { a.collect(force); };
 
-}  // namespace comdare::cache_engine::alloc::concepts
+} // namespace comdare::cache_engine::alloc::concepts

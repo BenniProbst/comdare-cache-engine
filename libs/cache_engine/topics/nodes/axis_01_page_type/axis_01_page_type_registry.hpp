@@ -17,21 +17,14 @@ namespace comdare::cache_engine::nodes::axis_01_page_type {
 
 namespace mp = boost::mp11;
 
-using AllPageTypes = mp::mp_list<
-    DenseBytePageType,
-    ExtendedDensePageType,
-    SparsePatriciaPageType,
-    RedirectPageType,
-    CustomCachePageType,
-    BPlusPageType
->;
+using AllPageTypes = mp::mp_list<DenseBytePageType, ExtendedDensePageType, SparsePatriciaPageType, RedirectPageType,
+                                 CustomCachePageType, BPlusPageType>;
 
 template <typename T>
 using is_enabled = mp::mp_bool<T::enabled>;
 
 using EnabledPageTypes = mp::mp_filter<is_enabled, AllPageTypes>;
 
-static_assert(mp::mp_size<EnabledPageTypes>::value > 0,
-    "Axis 01 PageType: at least one page type must be enabled");
+static_assert(mp::mp_size<EnabledPageTypes>::value > 0, "Axis 01 PageType: at least one page type must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::nodes::axis_01_page_type

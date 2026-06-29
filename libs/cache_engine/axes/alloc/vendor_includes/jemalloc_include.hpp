@@ -11,14 +11,14 @@
 #include <cstdlib>
 
 #if COMDARE_AXIS_06_USE_JEMALLOC
-#  include <jemalloc/jemalloc.h>
+#include <jemalloc/jemalloc.h>
 #else
 // Forward-Stubs fuer if constexpr (false)-Zweig
 extern "C" {
-    inline void* je_aligned_alloc(std::size_t /*alignment*/, std::size_t /*size*/) noexcept { return nullptr; }
-    inline void  je_free(void* /*p*/) noexcept {}
-    inline void* je_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
-    inline void* je_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
-    inline std::size_t je_malloc_usable_size(const void* /*p*/) noexcept { return 0; }
+inline void*       je_aligned_alloc(std::size_t /*alignment*/, std::size_t /*size*/) noexcept { return nullptr; }
+inline void        je_free(void* /*p*/) noexcept {}
+inline void*       je_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
+inline void*       je_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
+inline std::size_t je_malloc_usable_size(const void* /*p*/) noexcept { return 0; }
 }
 #endif

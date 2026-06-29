@@ -15,4 +15,4 @@ struct synchronization_pattern_tag {};
 // CC2: Reclamation-Schema (RCU / Hazard-Pointer) — orthogonal zum Pattern
 struct reclamation_scheme_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::concurrency_axis::subaxes

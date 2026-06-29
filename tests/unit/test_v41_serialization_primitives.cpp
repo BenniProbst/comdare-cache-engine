@@ -29,9 +29,9 @@ TEST(F6_SerPrimitives, VarLenRoundTripSmall) {
 TEST(F6_SerPrimitives, VarLenRoundTripMax9Byte) {
     // Encoder ist per Design 1..9 Bytes (= max 63 Bit, 9*7). Genuegt fuer Payload-Groessen
     // (size_t < 2^63). Voll-64-Bit braeuchte 10 Bytes — bewusst NICHT unterstuetzt.
-    std::byte buf[9];
-    std::uint64_t v = 0x7FFFFFFFFFFFFFFFull;  // 2^63 - 1 = groesster 9-Byte-VarInt
-    std::size_t n = s10::VarLenEncoder::encode(v, buf, sizeof(buf));
+    std::byte     buf[9];
+    std::uint64_t v = 0x7FFFFFFFFFFFFFFFull; // 2^63 - 1 = groesster 9-Byte-VarInt
+    std::size_t   n = s10::VarLenEncoder::encode(v, buf, sizeof(buf));
     ASSERT_EQ(n, 9u);
     auto dec = s10::VarLenEncoder::decode(std::span<std::byte const>(buf, n));
     EXPECT_EQ(dec.value, v);
@@ -39,15 +39,15 @@ TEST(F6_SerPrimitives, VarLenRoundTripMax9Byte) {
 }
 
 TEST(F6_SerPrimitives, SignalingStreamRoundTrip) {
-    s10::SignalingStream st;
+    s10::SignalingStream     st;
     std::array<std::byte, 3> p1{std::byte{1}, std::byte{2}, std::byte{3}};
     std::array<std::byte, 2> p2{std::byte{9}, std::byte{8}};
-    st.append(s10::SignalKind::Normal,  std::span<std::byte const>(p1.data(), p1.size()));
+    st.append(s10::SignalKind::Normal, std::span<std::byte const>(p1.data(), p1.size()));
     st.append(s10::SignalKind::Special, std::span<std::byte const>(p2.data(), p2.size()));
     EXPECT_EQ(st.entry_count(), 2u);
 
     auto raw = st.raw();
-    auto e1 = s10::SignalingStream::decode_one(raw, 0);
+    auto e1  = s10::SignalingStream::decode_one(raw, 0);
     EXPECT_EQ(e1.signal, s10::SignalKind::Normal);
     ASSERT_EQ(e1.payload.size(), 3u);
     EXPECT_EQ(static_cast<std::uint8_t>(e1.payload[0]), 1u);
@@ -60,7 +60,7 @@ TEST(F6_SerPrimitives, SignalingStreamRoundTrip) {
 }
 
 TEST(F6_SerPrimitives, ClearResets) {
-    s10::SignalingStream st;
+    s10::SignalingStream     st;
     std::array<std::byte, 1> p{std::byte{7}};
     st.append(s10::SignalKind::Normal, std::span<std::byte const>(p.data(), p.size()));
     st.clear();

@@ -54,34 +54,36 @@ public:
     using size_type    = std::size_t;
     using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag     = subaxes::versioned_access_tag;
-    using family_id    = std::integral_constant<int, 11>;  // Q11
+    using family_id    = std::integral_constant<int, 11>; // Q11
 
     /// iterable_aspect_t (F.6.1.E hybride Laufzeit-Permutation, [[no-runtime-switch]] Ausnahme)
     /// PermutationEngine erkennt via HasIterableAspect<V> und generiert
     /// 1 Binary mit Runtime-Loop ueber kIterableEpochThresholds.
     using iterable_aspect_t = std::size_t;
-    static constexpr std::array<std::size_t, 5> kIterableEpochThresholds{2u, 4u, 8u, 16u, 64u};
+    static constexpr std::array<std::size_t, 5>                 kIterableEpochThresholds{2u, 4u, 8u, 16u, 64u};
     [[nodiscard]] static constexpr std::span<std::size_t const> iterable_values() noexcept {
         return std::span<std::size_t const>{kIterableEpochThresholds.data(), kIterableEpochThresholds.size()};
     }
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "epoch_buffer"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "EpochBuffer (QSBR — McKenney OLS 2001, SMART ART OSDI 2023, Masstree EuroSys 2012)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "EPOCH_BUFFER"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "epoch_buffer"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "EpochBuffer (QSBR — McKenney OLS 2001, SMART ART OSDI 2023, Masstree EuroSys 2012)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "EPOCH_BUFFER"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_concurrent_consumers() noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_priority_ordering()    noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_priority_ordering() noexcept { return false; }
     /// SONDERFALL: 4. Strategie mit Versionierung=TRUE (Reclamation-Window-Versioning).
-    [[nodiscard]] static constexpr bool is_versioned()                  noexcept { return true; }
+    [[nodiscard]] static constexpr bool                        is_versioned() noexcept { return true; }
     [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
         return concepts::ProgressGuarantee::Blocking;
     }
 
-    EpochBuffer() : epoch_threshold_(kIterableEpochThresholds[2]) {}  // Default = 8
+    EpochBuffer() : epoch_threshold_(kIterableEpochThresholds[2]) {} // Default = 8
     explicit EpochBuffer(std::size_t threshold) : epoch_threshold_(threshold == 0 ? 1u : threshold) {}
 
     [[nodiscard]] bool operator==(EpochBuffer const& other) const noexcept {
@@ -133,9 +135,12 @@ public:
         return v;
     }
 
-    [[nodiscard]] size_type size()     const noexcept { return current_epoch_.size() + retired_epoch_.size(); }
+    [[nodiscard]] size_type size() const noexcept { return current_epoch_.size() + retired_epoch_.size(); }
     [[nodiscard]] bool      is_empty() const noexcept { return current_epoch_.empty() && retired_epoch_.empty(); }
-    void                    clear()          noexcept { current_epoch_.clear(); retired_epoch_.clear(); }
+    void                    clear() noexcept {
+        current_epoch_.clear();
+        retired_epoch_.clear();
+    }
 
     // std::queue-API: peek_front=erstes aus retired (oder current), peek_back=letztes current.
     [[nodiscard]] std::optional<element_type> peek_front() const noexcept {
@@ -165,28 +170,31 @@ public:
     using snapshot_t = concepts::BufferStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
     std::vector<element_type> current_epoch_;
     std::vector<element_type> retired_epoch_;
-    std::size_t epoch_threshold_;
-    std::uint64_t epoch_id_ = 0;
+    std::size_t               epoch_threshold_;
+    std::uint64_t             epoch_id_ = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
-    observer_t observer_{};
+    observer_t                 observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<EpochBuffer>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<EpochBuffer>);
-    static_assert(concepts::VersionedBufferStrategy<EpochBuffer>);
-    static_assert(concepts::IterableAspectStrategy<EpochBuffer>);
-}
+static_assert(concepts::BufferStrategy<EpochBuffer>);
+static_assert(concepts::CacheEngineBufferPermutationStrategy<EpochBuffer>);
+static_assert(concepts::VersionedBufferStrategy<EpochBuffer>);
+static_assert(concepts::IterableAspectStrategy<EpochBuffer>);
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing

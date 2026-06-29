@@ -14,15 +14,14 @@ namespace comdare::cache_engine::strategy_command {
 
 class HybridCompositionCommand final : public IStrategyCommand {
 public:
-    explicit HybridCompositionCommand(std::string label,
-                                      std::unique_ptr<ICompositionRule> rule)
+    explicit HybridCompositionCommand(std::string label, std::unique_ptr<ICompositionRule> rule)
         : label_(std::move(label)), rule_(std::move(rule)) {}
 
     void add_part(IStrategyCommand* part) {
         if (part) parts_.push_back(part);
     }
 
-    [[nodiscard]] std::size_t part_count() const noexcept { return parts_.size(); }
+    [[nodiscard]] std::size_t             part_count() const noexcept { return parts_.size(); }
     [[nodiscard]] ICompositionRule const* rule() const noexcept { return rule_.get(); }
 
     [[nodiscard]] std::string name() const override { return label_; }
@@ -59,4 +58,4 @@ private:
     std::vector<IStrategyCommand*>    parts_{};
 };
 
-}  // namespace comdare::cache_engine::strategy_command
+} // namespace comdare::cache_engine::strategy_command

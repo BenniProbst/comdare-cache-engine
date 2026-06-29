@@ -18,9 +18,9 @@ namespace comdare::cache_engine::allocator::families::a12_cama {
 
 struct CamaParams {
     std::size_t cache_line_bytes  = 64;
-    std::size_t cache_set_count    = 64;       // Typ. L1 D-Cache Sets
-    std::size_t cache_index_mask  = 0xFC0;     // (set_count - 1) << log2(cache_line_bytes)
-    bool         enforce_wcet_mode  = true;
+    std::size_t cache_set_count   = 64;    // Typ. L1 D-Cache Sets
+    std::size_t cache_index_mask  = 0xFC0; // (set_count - 1) << log2(cache_line_bytes)
+    bool        enforce_wcet_mode = true;
 };
 
 using cache_set_t = std::uint16_t;
@@ -35,11 +35,10 @@ public:
     explicit CamaAdapter(CamaParams params = {}) noexcept : params_{params} {}
 
     [[nodiscard]] void* raw_allocate(std::size_t bytes, std::size_t alignment) {
-        return raw_allocate_for_set(bytes, alignment, 0);  // default Set 0
+        return raw_allocate_for_set(bytes, alignment, 0); // default Set 0
     }
 
-    [[nodiscard]] void* raw_allocate_for_set(std::size_t bytes, std::size_t alignment,
-                                              cache_set_t target_set) {
+    [[nodiscard]] void* raw_allocate_for_set(std::size_t bytes, std::size_t alignment, cache_set_t target_set) {
         lock_.write_lock_acquire();
         stats_.allocation_count++;
         last_target_set_ = target_set;
@@ -48,10 +47,10 @@ public:
         // (target_set << cache_line_bits). Skelett: align to cache_line_bytes
         // and ensure set-specific offset.
         std::size_t const effective_align = (std::max)(alignment, params_.cache_line_bytes);
-        void* p = portable_aligned_alloc(effective_align, bytes);
+        void*             p               = portable_aligned_alloc(effective_align, bytes);
         if (p) {
             stats_.total_bytes_allocated += bytes;
-            stats_.total_bytes_in_use     += bytes;
+            stats_.total_bytes_in_use += bytes;
         } else {
             stats_.failure_count++;
         }
@@ -69,10 +68,10 @@ public:
     }
 
     [[nodiscard]] AllocationStatistics statistics() const noexcept { return stats_; }
-    [[nodiscard]] CamaParams const& params() const noexcept { return params_; }
-    [[nodiscard]] cache_set_t last_target_set() const noexcept { return last_target_set_; }
+    [[nodiscard]] CamaParams const&    params() const noexcept { return params_; }
+    [[nodiscard]] cache_set_t          last_target_set() const noexcept { return last_target_set_; }
 
-    static constexpr bool is_constant_time = true;
+    static constexpr bool is_constant_time   = true;
     static constexpr bool is_wcet_analysable = true;
 
 private:
@@ -84,4 +83,4 @@ private:
 
 static_assert(IAllocationStrategy<CamaAdapter<>>);
 
-}  // namespace comdare::cache_engine::allocator::families::a12_cama
+} // namespace comdare::cache_engine::allocator::families::a12_cama

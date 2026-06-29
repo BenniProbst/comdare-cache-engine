@@ -18,7 +18,7 @@
 
 using namespace comdare::cache_engine::builder::experiment;
 
-static int g_fail = 0;
+static int  g_fail = 0;
 static void check(bool cond, std::string const& msg) {
     std::cout << (cond ? "  [OK]  " : "  [FAIL] ") << msg << "\n";
     if (!cond) ++g_fail;
@@ -30,8 +30,8 @@ int main() {
     // Pilot-View: 3 statische Ebenen 4 x 3 x 2 -> Produkt 24; max(level) = 4.
     std::vector<AxisLevel> levels = {
         {"axisA", {"a0", "a1", "a2", "a3"}, true, "", "blkA"},
-        {"axisB", {"b0", "b1", "b2"},       true, "", "blkB"},
-        {"axisC", {"c0", "c1"},             true, "", "blkC"},
+        {"axisB", {"b0", "b1", "b2"}, true, "", "blkB"},
+        {"axisC", {"c0", "c1"}, true, "", "blkC"},
     };
     StaticBinaryView view{levels};
     check(view.size() == 24, "Pilot-View size() == 24 (4*3*2)");
@@ -49,19 +49,22 @@ int main() {
     for (auto idx : sel_ow.indices) {
         auto spec = view[idx];
         for (auto const& [ax, val] : spec.axes) {
-            if (ax == "axisA") covA.insert(val);
-            else if (ax == "axisB") covB.insert(val);
-            else if (ax == "axisC") covC.insert(val);
+            if (ax == "axisA")
+                covA.insert(val);
+            else if (ax == "axisB")
+                covB.insert(val);
+            else if (ax == "axisC")
+                covC.insert(val);
         }
     }
     check(covA.size() == 4 && covB.size() == 3 && covC.size() == 2,
           "1-wise deckt JEDE Variante JEDER Achse >=1x ab (A=4,B=3,C=2)");
 
     // flat_index Round-Trip: operator[](flat_index(tuple)) trifft genau das Tupel.
-    std::vector<std::size_t> tup = {2, 1, 0};  // a2 / b1 / c0
-    auto rt_spec = view[view.flat_index(tup)];
-    bool rt = rt_spec.axes.size() == 3 && rt_spec.axes[0].second == "a2" &&
-              rt_spec.axes[1].second == "b1" && rt_spec.axes[2].second == "c0";
+    std::vector<std::size_t> tup     = {2, 1, 0}; // a2 / b1 / c0
+    auto                     rt_spec = view[view.flat_index(tup)];
+    bool rt = rt_spec.axes.size() == 3 && rt_spec.axes[0].second == "a2" && rt_spec.axes[1].second == "b1" &&
+              rt_spec.axes[2].second == "c0";
     check(rt, "flat_index Round-Trip: operator[](flat_index({2,1,0})) == a2/b1/c0");
 
     std::cout << "\n==== D1 OOM-Sicherheit: 1e12-View, Selektion bleibt klein ====\n";
@@ -84,33 +87,40 @@ int main() {
     std::cout << "\n==== D2 provision_all O(K) (L-73) ====\n";
     std::atomic<int> compile_calls{0};
     std::atomic<int> gen_calls{0};
-    BuildConfig cfg;
+    BuildConfig      cfg;
     cfg.source_dir      = std::filesystem::temp_directory_path() / "comdare_d2_src";
     cfg.output_dir      = std::filesystem::temp_directory_path() / "comdare_d2_out";
     cfg.cores_per_build = 1;
     cfg.total_cores     = 2;
     // ram_per_build_bytes == 0 -> RAM-Gate aus (deterministisch testbar).
-    CompileFn   comp = [&](BuildJob const&) -> int { ++compile_calls; return 0; };
-    SourceGenFn gen  = [&](std::string const&) -> std::string { ++gen_calls; return "// stub\n"; };
+    CompileFn comp = [&](BuildJob const&) -> int {
+        ++compile_calls;
+        return 0;
+    };
+    SourceGenFn gen = [&](std::string const&) -> std::string {
+        ++gen_calls;
+        return "// stub\n";
+    };
     BuildOrchestrator orch{cfg, comp, gen};
 
     // KERN-BEWEIS L-73: 100 selektierte Binaries aus 1e12-View -> results O(100), NICHT O(1e12).
-    compile_calls = 0; gen_calls = 0;
+    compile_calls = 0;
+    gen_calls     = 0;
     BuildStats stats;
-    auto res = orch.provision_all(bigv, sel_big_ow.indices, &stats);
+    auto       res = orch.provision_all(bigv, sel_big_ow.indices, &stats);
     check(res.size() == 100, "provision_all(big, selection) results.size() == 100 (O(K), NICHT 1e12 -> kein OOM)");
     check(compile_calls.load() == 100, "CompileFn nur 100x aufgerufen (nicht 1e12)");
     check(stats.total_jobs == 100 && stats.succeeded == 100, "stats: total_jobs==100, succeeded==100");
 
     // Rückwärts-kompatibler Overload (alle Binaries einer handhabbaren View).
     compile_calls = 0;
-    auto res2 = orch.provision_all(view, &stats);
+    auto res2     = orch.provision_all(view, &stats);
     check(res2.size() == 24 && compile_calls.load() == 24, "provision_all(view) rueckwaerts-kompatibel: 24 Builds");
 
     // explizite Selektion.
-    auto sel_exp = select_explicit({0, 5, 23});
+    auto sel_exp  = select_explicit({0, 5, 23});
     compile_calls = 0;
-    auto res3 = orch.provision_all(view, sel_exp.indices, &stats);
+    auto res3     = orch.provision_all(view, sel_exp.indices, &stats);
     check(res3.size() == 3 && compile_calls.load() == 3, "select_explicit({0,5,23}) -> genau 3 Builds");
     bool idx_ok = res3.size() == 3 && res3[0].index == 0 && res3[1].index == 5 && res3[2].index == 23;
     check(idx_ok, "BuildResult.index traegt View-Index (0/5/23), Reihenfolge selektions-relativ");

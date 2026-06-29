@@ -44,13 +44,14 @@ public:
     // bis zum ersten unmarkierten Knoten (Range-Semantik: gemeinsame Prefix-Laenge, kein exakter Punkt-Test).
     // probe_key(key) == true gdw. der VOLLE kDepth-Prefix-Pfad markiert ist. kBytes=8192 → 65536 Knoten-Bits,
     // L1-resident (messneutral: mehrstufiger Trie-Abstieg = gleiche Latenz-Signatur). Voll-uint64-Key-Domain.
-    static constexpr std::size_t kNodeBytes = 8192;            // 8 KiB Knoten-Bitmap → 65536 Knoten
-    static constexpr std::size_t kDepth     = 6;               // SuRF: succinct-Trie-Hoehe (bounded suffix)
+    static constexpr std::size_t kNodeBytes = 8192; // 8 KiB Knoten-Bitmap → 65536 Knoten
+    static constexpr std::size_t kDepth     = 6;    // SuRF: succinct-Trie-Hoehe (bounded suffix)
 
     /// Knoten-Position fuer (laufender Pfad-Hash, Byte-Label, Tiefe) → Bit-Index in der Knoten-Bitmap.
-    [[nodiscard]] static constexpr std::size_t node_bit_(std::uint64_t path, std::uint8_t label, std::size_t depth) noexcept {
+    [[nodiscard]] static constexpr std::size_t node_bit_(std::uint64_t path, std::uint8_t label,
+                                                         std::size_t depth) noexcept {
         std::uint64_t h = path ^ (static_cast<std::uint64_t>(label) << (depth * 3u % 40u));
-        h = h * 2654435761ull + 0x9E3779B97F4A7C15ull + depth;
+        h               = h * 2654435761ull + 0x9E3779B97F4A7C15ull + depth;
         return static_cast<std::size_t>(h % (kNodeBytes * 8ull));
     }
 
@@ -59,19 +60,19 @@ public:
         std::uint64_t path = 0;
         for (std::size_t d = 0; d < kDepth; ++d) {
             std::uint8_t const label = static_cast<std::uint8_t>((key >> (56u - d * 8u)) & 0xFFu);
-            std::size_t const bp = node_bit_(path, label, d);
+            std::size_t const  bp    = node_bit_(path, label, d);
             nodes_[bp >> 3] |= static_cast<unsigned char>(1u << (bp & 7u));
-            path = path * 131u + label + 1u;                  // LOUDS-child: Pfad-Hash fortschreiben
+            path = path * 131u + label + 1u; // LOUDS-child: Pfad-Hash fortschreiben
         }
     }
 
     /// Prefix-Abstieg: gemeinsame markierte Prefix-Laenge (0..kDepth). Range-Semantik.
     [[nodiscard]] std::size_t common_prefix_depth(std::uint64_t key) const noexcept {
-        std::uint64_t path = 0;
-        std::size_t depth = 0;
+        std::uint64_t path  = 0;
+        std::size_t   depth = 0;
         for (; depth < kDepth; ++depth) {
             std::uint8_t const label = static_cast<std::uint8_t>((key >> (56u - depth * 8u)) & 0xFFu);
-            std::size_t const bp = node_bit_(path, label, depth);
+            std::size_t const  bp    = node_bit_(path, label, depth);
             if ((nodes_[bp >> 3] & static_cast<unsigned char>(1u << (bp & 7u))) == 0) break;
             path = path * 131u + label + 1u;
         }
@@ -81,16 +82,18 @@ public:
     /// Membership (voller Prefix-Pfad markiert). Punkt-aequivalenter Sonderfall der Range-Abfrage.
     [[nodiscard]] bool probe_key(std::uint64_t key) const noexcept { return common_prefix_depth(key) == kDepth; }
 
-    void clear() noexcept { nodes_.fill(0); }
+    void               clear() noexcept { nodes_.fill(0); }
     [[nodiscard]] bool operator==(RangeSurfFilter const& o) const noexcept { return nodes_ == o.nodes_; }
 
     /// Probe-Multiplizitaet je Query (bis kDepth Trie-Level-Schritte) — ehrlich deklariert fuer hash_probes_total.
     [[nodiscard]] static constexpr std::uint64_t probe_multiplicity() noexcept { return kDepth; }
 
     [[nodiscard]] static constexpr bool             supports_range_query() noexcept { return true; }
-    [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "filter_range_surf"; }
-    [[nodiscard]] static constexpr std::string_view family_name()          noexcept { return "RangeSurfFilter (Zhang SIGMOD 2018, succinct LOUDS-Trie, range-query)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()          noexcept { return "RANGE_SURF"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "filter_range_surf"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "RangeSurfFilter (Zhang SIGMOD 2018, succinct LOUDS-Trie, range-query)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "RANGE_SURF"; }
 
     // F15-Pfad-A Treibe-Op (Spec §5 T16, Goldstandard analog axis_05 scan_field_sum / axis_10
     // serialize_scan / axis_04 node_find_scan). SYNTHETISCHE Mindest-Op (ehrlich deklariert): es
@@ -104,19 +107,19 @@ public:
     [[nodiscard]] static std::uint64_t filter_probe_scan(unsigned char const* buf, std::size_t n,
                                                          unsigned char const* queries, std::size_t q) noexcept {
         if (n == 0 || q == 0) return 0;
-        constexpr std::size_t kMaxDepth = 6;               // SuRF: succinct-Trie-Höhe (bounded suffix)
-        std::uint64_t matched = 0;
+        constexpr std::size_t kMaxDepth = 6; // SuRF: succinct-Trie-Höhe (bounded suffix)
+        std::uint64_t         matched   = 0;
         for (std::size_t i = 0; i < q; ++i) {
-            std::size_t node = (static_cast<std::uint8_t>(queries[i]) * 131u) % n;   // LOUDS-Wurzel-Position
+            std::size_t node  = (static_cast<std::uint8_t>(queries[i]) * 131u) % n; // LOUDS-Wurzel-Position
             std::size_t depth = 0;
             // BYTE-WEISER Prefix-Abstieg: vergleiche aufeinanderfolgende Query-Bytes gegen Branch-Labels
             for (; depth < kMaxDepth; ++depth) {
                 std::uint8_t const label = static_cast<std::uint8_t>(queries[(i + depth) % q]);
-                if (buf[node] != label) break;             // Prefix endet → range-bound erreicht
+                if (buf[node] != label) break; // Prefix endet → range-bound erreicht
                 // LOUDS-child: nächste Knotenposition aus aktuellem Label deterministisch ableiten
                 node = (node * 31u + label + 1u) % n;
             }
-            matched += depth;                              // Prefix-Länge = strategie-bestimmte Treffer-Tiefe
+            matched += depth; // Prefix-Länge = strategie-bestimmte Treffer-Tiefe
         }
         return matched;
     }
@@ -126,9 +129,9 @@ private:
     std::array<unsigned char, kNodeBytes> nodes_{};
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::filter_axis
 
 namespace comdare::cache_engine::filter_axis {
-    static_assert(concepts::FilterStrategy<RangeSurfFilter>);
-    static_assert(concepts::CacheEnginePermutationStrategy<RangeSurfFilter>);
-}
+static_assert(concepts::FilterStrategy<RangeSurfFilter>);
+static_assert(concepts::CacheEnginePermutationStrategy<RangeSurfFilter>);
+} // namespace comdare::cache_engine::filter_axis

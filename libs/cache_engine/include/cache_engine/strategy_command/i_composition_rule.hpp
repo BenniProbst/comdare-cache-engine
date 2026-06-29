@@ -17,7 +17,7 @@ enum class CompositionRuleKind : std::uint8_t {
 };
 
 struct ExecutionPlan {
-    std::vector<std::size_t> ordered_indices;   // Reihenfolge der parts[i]
+    std::vector<std::size_t> ordered_indices; // Reihenfolge der parts[i]
     bool                     parallelizable = false;
 };
 
@@ -28,19 +28,15 @@ public:
     [[nodiscard]] virtual CompositionRuleKind kind() const noexcept = 0;
 
     // Plant Ausfuehrungsreihenfolge der Sub-Commands.
-    [[nodiscard]] virtual ExecutionPlan
-    applies(std::vector<IStrategyCommand*> const& parts,
-            StrategyContext const& ctx) const = 0;
+    [[nodiscard]] virtual ExecutionPlan applies(std::vector<IStrategyCommand*> const& parts,
+                                                StrategyContext const&                ctx) const = 0;
 };
 
 class SequentialRule final : public ICompositionRule {
 public:
-    [[nodiscard]] CompositionRuleKind kind() const noexcept override {
-        return CompositionRuleKind::Sequential;
-    }
-    [[nodiscard]] ExecutionPlan
-    applies(std::vector<IStrategyCommand*> const& parts,
-            StrategyContext const&) const override {
+    [[nodiscard]] CompositionRuleKind kind() const noexcept override { return CompositionRuleKind::Sequential; }
+    [[nodiscard]] ExecutionPlan       applies(std::vector<IStrategyCommand*> const& parts,
+                                              StrategyContext const&) const override {
         ExecutionPlan p{};
         p.parallelizable = false;
         p.ordered_indices.reserve(parts.size());
@@ -51,12 +47,9 @@ public:
 
 class ParallelRule final : public ICompositionRule {
 public:
-    [[nodiscard]] CompositionRuleKind kind() const noexcept override {
-        return CompositionRuleKind::Parallel;
-    }
-    [[nodiscard]] ExecutionPlan
-    applies(std::vector<IStrategyCommand*> const& parts,
-            StrategyContext const&) const override {
+    [[nodiscard]] CompositionRuleKind kind() const noexcept override { return CompositionRuleKind::Parallel; }
+    [[nodiscard]] ExecutionPlan       applies(std::vector<IStrategyCommand*> const& parts,
+                                              StrategyContext const&) const override {
         ExecutionPlan p{};
         p.parallelizable = true;
         p.ordered_indices.reserve(parts.size());
@@ -71,18 +64,15 @@ public:
 
     explicit ConditionalRule(Predicate pred) : predicate_(pred) {}
 
-    [[nodiscard]] CompositionRuleKind kind() const noexcept override {
-        return CompositionRuleKind::Conditional;
-    }
-    [[nodiscard]] ExecutionPlan
-    applies(std::vector<IStrategyCommand*> const& parts,
-            StrategyContext const& ctx) const override {
+    [[nodiscard]] CompositionRuleKind kind() const noexcept override { return CompositionRuleKind::Conditional; }
+    [[nodiscard]] ExecutionPlan       applies(std::vector<IStrategyCommand*> const& parts,
+                                              StrategyContext const&                ctx) const override {
         ExecutionPlan p{};
         p.parallelizable = false;
         if (parts.empty()) return p;
         // Bei wahrem Praedikat: erstes Command, sonst zweites (falls vorhanden)
-        bool cond = predicate_ ? predicate_(ctx) : true;
-        std::size_t idx = (cond || parts.size() == 1) ? 0u : 1u;
+        bool        cond = predicate_ ? predicate_(ctx) : true;
+        std::size_t idx  = (cond || parts.size() == 1) ? 0u : 1u;
         if (idx < parts.size()) p.ordered_indices.push_back(idx);
         return p;
     }
@@ -95,12 +85,9 @@ class RecursiveRule final : public ICompositionRule {
 public:
     explicit RecursiveRule(std::size_t depth_limit = 4) : depth_limit_(depth_limit) {}
 
-    [[nodiscard]] CompositionRuleKind kind() const noexcept override {
-        return CompositionRuleKind::Recursive;
-    }
-    [[nodiscard]] ExecutionPlan
-    applies(std::vector<IStrategyCommand*> const& parts,
-            StrategyContext const&) const override {
+    [[nodiscard]] CompositionRuleKind kind() const noexcept override { return CompositionRuleKind::Recursive; }
+    [[nodiscard]] ExecutionPlan       applies(std::vector<IStrategyCommand*> const& parts,
+                                              StrategyContext const&) const override {
         ExecutionPlan p{};
         p.parallelizable = false;
         // Rekursive Komposition: jedes Command ggf. mehrfach (vereinfacht: depth_limit-mal)
@@ -116,4 +103,4 @@ private:
     std::size_t depth_limit_;
 };
 
-}  // namespace comdare::cache_engine::strategy_command
+} // namespace comdare::cache_engine::strategy_command

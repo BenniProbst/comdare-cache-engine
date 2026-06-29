@@ -27,17 +27,16 @@ namespace ana  = ::comdare::cache_engine::anatomy;
 
 // MAKRO UNTER TEST: definiert comdare_anatomy_abi_version/magic/create/destroy für eine AdHoc-Permutation
 // (= ArtCompositions 19 Achsen-Typen, variadisch übergeben — löst das Komma-im-Template-Arg-Problem; Doc 30 §8.0).
-COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(
-    comp::ArtComposition::search_algo,        comp::ArtComposition::cache_traversal,
-    comp::ArtComposition::mapping,            comp::ArtComposition::path_compression,
-    comp::ArtComposition::node_type,          comp::ArtComposition::memory_layout,
-    comp::ArtComposition::allocator,          comp::ArtComposition::prefetch,
-    comp::ArtComposition::concurrency,        comp::ArtComposition::serialization,
-    comp::ArtComposition::telemetry,          comp::ArtComposition::value_handle,
-    comp::ArtComposition::isa,                comp::ArtComposition::index_organization,
-    comp::ArtComposition::io_dispatch,        comp::ArtComposition::migration_policy,
-    comp::ArtComposition::filter,             comp::ArtComposition::queuing_q1,
-    comp::ArtComposition::queuing_q2)
+COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(comp::ArtComposition::search_algo, comp::ArtComposition::cache_traversal,
+                                    comp::ArtComposition::mapping, comp::ArtComposition::path_compression,
+                                    comp::ArtComposition::node_type, comp::ArtComposition::memory_layout,
+                                    comp::ArtComposition::allocator, comp::ArtComposition::prefetch,
+                                    comp::ArtComposition::concurrency, comp::ArtComposition::serialization,
+                                    comp::ArtComposition::telemetry, comp::ArtComposition::value_handle,
+                                    comp::ArtComposition::isa, comp::ArtComposition::index_organization,
+                                    comp::ArtComposition::io_dispatch, comp::ArtComposition::migration_policy,
+                                    comp::ArtComposition::filter, comp::ArtComposition::queuing_q1,
+                                    comp::ArtComposition::queuing_q2)
 
 TEST(R5G_AdHocCodegenMacro, MacroProducesWorkingAdHocAnatomyFactory) {
     // ABI-Probe-Symbole (vom Makro definiert).
@@ -48,7 +47,7 @@ TEST(R5G_AdHocCodegenMacro, MacroProducesWorkingAdHocAnatomyFactory) {
     // Factory (vom Makro definiert) → AdHoc-Anatomie.
     ana::IAnatomyBase* base = comdare_create_anatomy();
     ASSERT_NE(base, nullptr);
-    EXPECT_EQ(base->organ_count(), 19u);                                  // volle 19-Achsen-Anatomie (Doc 30 §8.0)
+    EXPECT_EQ(base->organ_count(), 19u); // volle 19-Achsen-Anatomie (Doc 30 §8.0)
     EXPECT_EQ(base->composition_name(), std::string_view{"AdHocComposition"});
     EXPECT_EQ(base->genus(), ana::AnatomyGenus::SearchAlgorithm);
 
@@ -56,10 +55,10 @@ TEST(R5G_AdHocCodegenMacro, MacroProducesWorkingAdHocAnatomyFactory) {
     auto* mw = dynamic_cast<ana::IMeasurableWorkload*>(base);
     ASSERT_NE(mw, nullptr);
     std::vector<std::int64_t> samples(10);
-    auto const n = mw->run_workload(/*ops_per_batch=*/1000, /*batches=*/10, /*seed=*/7u,
-                                    samples.data(), samples.size());
+    auto const                n =
+        mw->run_workload(/*ops_per_batch=*/1000, /*batches=*/10, /*seed=*/7u, samples.data(), samples.size());
     EXPECT_EQ(n, 10u);
     EXPECT_GT(samples[0], 0);
 
-    comdare_destroy_anatomy(base);  // Gegenstück zur Factory
+    comdare_destroy_anatomy(base); // Gegenstück zur Factory
 }

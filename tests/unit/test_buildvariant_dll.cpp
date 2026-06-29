@@ -20,29 +20,51 @@ namespace cea = comdare::cache_engine::anatomy;
 using InspectFn = void (*)(cea::BuildVariantDefinitionV1*);
 
 static int g_fail = 0;
-template <class A, class B> static void eq(char const* w, A const& g, B const& e) {
-    bool ok = (g == e); std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
-    if (!ok) { std::cout << " (erwartet " << e << ")"; ++g_fail; } std::cout << "\n"; }
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+template <class A, class B>
+static void eq(char const* w, A const& g, B const& e) {
+    bool ok = (g == e);
+    std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
+    if (!ok) {
+        std::cout << " (erwartet " << e << ")";
+        ++g_fail;
+    }
+    std::cout << "\n";
+}
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 // Lädt eine DLL, zieht das Inspection-Symbol und füllt die Build-Identität (errno-style: false = Lade-/Symbol-Fehler).
 static bool pull_build_variant(char const* dll_path, cea::BuildVariantDefinitionV1& out) {
     HMODULE h = LoadLibraryA(dll_path);
-    if (h == nullptr) { std::cout << "  [ERR] LoadLibraryA fehlgeschlagen: " << dll_path << "\n"; ++g_fail; return false; }
+    if (h == nullptr) {
+        std::cout << "  [ERR] LoadLibraryA fehlgeschlagen: " << dll_path << "\n";
+        ++g_fail;
+        return false;
+    }
     auto fn = reinterpret_cast<InspectFn>(reinterpret_cast<void*>(GetProcAddress(h, "comdare_build_variant_inspect")));
-    if (fn == nullptr) { std::cout << "  [ERR] GetProcAddress(comdare_build_variant_inspect) == null: " << dll_path << "\n"; ++g_fail; FreeLibrary(h); return false; }
-    fn(&out);                  // Build-Identität über die ECHTE .dll-Grenze ziehen
+    if (fn == nullptr) {
+        std::cout << "  [ERR] GetProcAddress(comdare_build_variant_inspect) == null: " << dll_path << "\n";
+        ++g_fail;
+        FreeLibrary(h);
+        return false;
+    }
+    fn(&out); // Build-Identität über die ECHTE .dll-Grenze ziehen
     FreeLibrary(h);
     return true;
 }
 
 int main(int argc, char** argv) {
-    if (argc < 3) { std::cerr << "usage: test_buildvariant_dll <avx512.dll> <avx2.dll>\n"; return 2; }
+    if (argc < 3) {
+        std::cerr << "usage: test_buildvariant_dll <avx512.dll> <avx2.dll>\n";
+        return 2;
+    }
     std::cout << "==== L-74a Build-Varianten-DLL-Round-Trip (echter ABI-Pull über die .dll-Grenze) ====\n";
 
     cea::BuildVariantDefinitionV1 a512{}, b256{};
     tr("Avx512-Variante-DLL geladen + Symbol gezogen", pull_build_variant(argv[1], a512));
-    tr("Avx2-Variante-DLL geladen + Symbol gezogen",   pull_build_variant(argv[2], b256));
+    tr("Avx2-Variante-DLL geladen + Symbol gezogen", pull_build_variant(argv[2], b256));
 
     std::cout << "-- Avx512-Variante (über die DLL-Grenze) --\n";
     eq("simd_width_bits == 512", a512.simd_width_bits, std::uint64_t{512});
@@ -59,8 +81,10 @@ int main(int argc, char** argv) {
 
     // KERN-BEWEIS: 2 Build-Varianten DERSELBEN page/hw, über die echte .dll-Grenze literal unterscheidbar.
     tr("a512 != b256 (Build-Varianten cross-.dll unterscheidbar)", a512 != b256);
-    tr("nur simd differiert: page/hw identisch", a512.page_kind == b256.page_kind && a512.hw_cache_line == b256.hw_cache_line);
+    tr("nur simd differiert: page/hw identisch",
+       a512.page_kind == b256.page_kind && a512.hw_cache_line == b256.hw_cache_line);
 
-    std::cout << "\n==== L-74a Build-Varianten-DLL: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== L-74a Build-Varianten-DLL: "
+              << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

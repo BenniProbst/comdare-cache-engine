@@ -30,7 +30,7 @@ namespace mp = boost::mp11;
 
 /// EmptyPrueflingSlot — Fallback wenn kein Pruefling fuer die Achse existiert.
 struct EmptyPrueflingSlot {
-    using PrueflingVariants = mp::mp_list<>;
+    using PrueflingVariants             = mp::mp_list<>;
     static constexpr bool has_pruefling = false;
     // R5.C.B: Default-Gattung ist SearchAlgorithm (Mammal in Tier-Metapher).
     // Andere Gattungen muessen Slot::genus explizit ueberschreiben.
@@ -67,7 +67,7 @@ concept HasExplicitGenus = requires {
 /// slot_genus_v<Slot> — liefert die Gattung des Slots.
 /// Default: SearchAlgorithm (Mammal-Gattung) wenn Slot::genus nicht deklariert.
 template <class Slot>
-constexpr AnatomyGenus slot_genus_v = []{
+constexpr AnatomyGenus slot_genus_v = [] {
     if constexpr (HasExplicitGenus<Slot>) {
         return Slot::genus;
     } else {
@@ -82,9 +82,7 @@ constexpr bool IsSlotOfGenus_v = (slot_genus_v<Slot> == G);
 
 /// IsSearchAlgorithmSlot<Slot> — Concept fuer Mammal-Slot-Validierung.
 template <class Slot>
-concept IsSearchAlgorithmSlot =
-    PrueflingSlotConcept<Slot> &&
-    IsSlotOfGenus_v<Slot, AnatomyGenus::SearchAlgorithm>;
+concept IsSearchAlgorithmSlot = PrueflingSlotConcept<Slot> && IsSlotOfGenus_v<Slot, AnatomyGenus::SearchAlgorithm>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // (2) Stufe 1 — comdare_perms_ce (CE-only, KEINE Pruefling-Beteiligung)
@@ -111,11 +109,7 @@ using StufeOneAxis = DefaultList;
 ///   using Stufe2 = StufeTwoAxis<ce::axis_03a::DefaultVariants, prt_art::axis_03a::Slot>;
 ///   // → Stufe2 = mp::mp_list<PrtArtRadix512>  (CE-Defaults ueberschrieben)
 template <class DefaultList, class Slot>
-using StufeTwoAxis = std::conditional_t<
-    HasPruefling_v<Slot>,
-    typename Slot::PrueflingVariants,
-    DefaultList
->;
+using StufeTwoAxis = std::conditional_t<HasPruefling_v<Slot>, typename Slot::PrueflingVariants, DefaultList>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // (4) Stufe 3 — comdare_perms_full_join (Union non-redundant)
@@ -127,9 +121,7 @@ using StufeTwoAxis = std::conditional_t<
 /// Identisch zu permutations::AxisFullJoin aber mit Slot-Detection statt
 /// raw PrueflingLists.
 template <class DefaultList, class... Slots>
-using StufeThreeAxis = mp::mp_unique<
-    mp::mp_append<DefaultList, typename Slots::PrueflingVariants...>
->;
+using StufeThreeAxis = mp::mp_unique<mp::mp_append<DefaultList, typename Slots::PrueflingVariants...>>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // (5) MergeStrategy enum + dispatched Helper
@@ -142,27 +134,27 @@ enum class MergeStrategy {
 };
 
 namespace detail {
-    template <MergeStrategy S, class Default, class... Slots>
-    struct MergeImpl;
+template <MergeStrategy S, class Default, class... Slots>
+struct MergeImpl;
 
-    template <class Default, class... Slots>
-    struct MergeImpl<MergeStrategy::Stufe1_CeOnly, Default, Slots...> {
-        using type = StufeOneAxis<Default>;
-    };
+template <class Default, class... Slots>
+struct MergeImpl<MergeStrategy::Stufe1_CeOnly, Default, Slots...> {
+    using type = StufeOneAxis<Default>;
+};
 
-    template <class Default, class Slot>
-    struct MergeImpl<MergeStrategy::Stufe2_PrueflingReplace, Default, Slot> {
-        using type = StufeTwoAxis<Default, Slot>;
-    };
+template <class Default, class Slot>
+struct MergeImpl<MergeStrategy::Stufe2_PrueflingReplace, Default, Slot> {
+    using type = StufeTwoAxis<Default, Slot>;
+};
 
-    template <class Default, class... Slots>
-    struct MergeImpl<MergeStrategy::Stufe3_FullJoin, Default, Slots...> {
-        using type = StufeThreeAxis<Default, Slots...>;
-    };
-}  // namespace detail
+template <class Default, class... Slots>
+struct MergeImpl<MergeStrategy::Stufe3_FullJoin, Default, Slots...> {
+    using type = StufeThreeAxis<Default, Slots...>;
+};
+} // namespace detail
 
 /// MergeAxis<Strategy, Default, Slots...> — disambiguated dispatch zu Stufe 1/2/3.
 template <MergeStrategy S, class Default, class... Slots>
 using MergeAxis = typename detail::MergeImpl<S, Default, Slots...>::type;
 
-}  // namespace comdare::cache_engine::anatomy::pruefling
+} // namespace comdare::cache_engine::anatomy::pruefling

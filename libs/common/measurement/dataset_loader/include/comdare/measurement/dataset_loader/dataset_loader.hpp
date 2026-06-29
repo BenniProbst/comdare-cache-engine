@@ -43,8 +43,8 @@ public:
     /// @param dataset_id loader-spezifischer Bezeichner (Pfad, Tabelle, Trace-Name ...)
     /// @param seed       Reproduzierbarkeits-Schluessel (falls Shuffle/Sampling noetig)
     /// @return Operation-Folge, oder std::nullopt bei Fehler (Aufrufer faellt auf YCSB zurueck).
-    [[nodiscard]] virtual std::optional<std::vector<wg::Operation>>
-    load(std::string_view dataset_id, std::uint64_t seed) = 0;
+    [[nodiscard]] virtual std::optional<std::vector<wg::Operation>> load(std::string_view dataset_id,
+                                                                         std::uint64_t    seed) = 0;
 
     /// Optionale Kurzbeschreibung (Quelle, Version) fuer Logs.
     [[nodiscard]] virtual std::string metadata() const { return {}; }
@@ -103,11 +103,10 @@ private:
  * @param seed          Reproduzierbarkeits-Schluessel fuer den Loader
  * @return Operation-Folge (nie leer im Fehlerfall — Fallback erzeugt YCSB).
  */
-[[nodiscard]] inline std::vector<wg::Operation>
-load_or_generate_ycsb(std::string_view loader_source,
-                      std::string_view dataset_id,
-                      wg::WorkloadConfig const& config,
-                      std::uint64_t seed) {
+[[nodiscard]] inline std::vector<wg::Operation> load_or_generate_ycsb(std::string_view          loader_source,
+                                                                      std::string_view          dataset_id,
+                                                                      wg::WorkloadConfig const& config,
+                                                                      std::uint64_t             seed) {
     if (!loader_source.empty()) {
         auto loaded = DatasetLoaderRegistry::instance().try_load(loader_source, dataset_id, seed);
         if (loaded && !loaded->empty()) return std::move(*loaded);
@@ -116,4 +115,4 @@ load_or_generate_ycsb(std::string_view loader_source,
     return gen.generate_ycsb(parse_ycsb_letter(dataset_id));
 }
 
-}  // namespace comdare::measurement::dataset_loader
+} // namespace comdare::measurement::dataset_loader

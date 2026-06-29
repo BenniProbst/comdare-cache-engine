@@ -14,12 +14,12 @@
 #include <string_view>
 
 #if defined(_WIN32)
-  #ifndef WIN32_LEAN_AND_MEAN
-    #define WIN32_LEAN_AND_MEAN
-  #endif
-  #include <windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 #else
-  #include <dlfcn.h>
+#include <dlfcn.h>
 #endif
 
 namespace comdare::cache_engine::builder::anatomy_loader {
@@ -66,7 +66,7 @@ using PfnAbiMagic   = std::uint64_t (*)();
 using PfnCreate     = ana::IAnatomyBase* (*)();
 using PfnDestroy    = void (*)(ana::IAnatomyBase*);
 
-}  // anonymous namespace
+} // anonymous namespace
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AnatomyModuleHandle::unload — RAII-Cleanup in korrekter Reihenfolge
@@ -74,9 +74,7 @@ using PfnDestroy    = void (*)(ana::IAnatomyBase*);
 
 void AnatomyModuleHandle::unload() noexcept {
     // 1. Anatomie-Pointer ZUERST freigeben (Pflicht: gleiche .so/.dll-Heap)
-    if (anatomy_ && destroy_) {
-        destroy_(anatomy_);
-    }
+    if (anatomy_ && destroy_) { destroy_(anatomy_); }
     anatomy_ = nullptr;
     destroy_ = nullptr;
 
@@ -105,18 +103,12 @@ std::string AnatomyModuleLoader::platform_suffix() {
 // AnatomyModuleLoader::load — Single-File Load mit Version-Validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-int AnatomyModuleLoader::load(std::filesystem::path const& dll_path,
-                               AnatomyModuleHandle& handle_out) noexcept
-{
+int AnatomyModuleLoader::load(std::filesystem::path const& dll_path, AnatomyModuleHandle& handle_out) noexcept {
     std::error_code ec;
-    if (!std::filesystem::exists(dll_path, ec)) {
-        return status_file_not_found;
-    }
+    if (!std::filesystem::exists(dll_path, ec)) { return status_file_not_found; }
 
     void* native = native_load(dll_path);
-    if (!native) {
-        return status_load_failed;
-    }
+    if (!native) { return status_load_failed; }
 
     // 4 Pflicht-Symbole resolven
     auto* sym_version = native_symbol(native, "comdare_anatomy_abi_version");
@@ -141,8 +133,7 @@ int AnatomyModuleLoader::load(std::filesystem::path const& dll_path,
     }
 
     // Version-Check (Major-Match + Modul-Minor <= Host-Minor)
-    auto const module_version =
-        abi::AnatomyAbiVersion::unpack(pfn_version());
+    auto const module_version = abi::AnatomyAbiVersion::unpack(pfn_version());
 
     if (module_version.major != abi::kHostAnatomyAbiVersion.major) {
         native_unload(native);
@@ -169,23 +160,19 @@ int AnatomyModuleLoader::load(std::filesystem::path const& dll_path,
 // AnatomyModuleLoader::load_all — Bulk-Load aus Directory
 // ─────────────────────────────────────────────────────────────────────────────
 
-int AnatomyModuleLoader::load_all(std::filesystem::path const& dir,
-                                   std::vector<AnatomyModuleHandle>& out_handles)
-{
+int AnatomyModuleLoader::load_all(std::filesystem::path const& dir, std::vector<AnatomyModuleHandle>& out_handles) {
     std::error_code ec;
-    if (!std::filesystem::is_directory(dir, ec)) {
-        return status_file_not_found;
-    }
+    if (!std::filesystem::is_directory(dir, ec)) { return status_file_not_found; }
 
-    auto const suffix = platform_suffix();
+    auto const                         suffix = platform_suffix();
     std::vector<std::filesystem::path> candidates;
     for (auto const& entry : std::filesystem::directory_iterator{dir, ec}) {
         if (!entry.is_regular_file()) continue;
-        auto const& p = entry.path();
-        auto const fn = p.filename().string();
+        auto const& p  = entry.path();
+        auto const  fn = p.filename().string();
         // Pattern aus anatomy_codegen.cmake: comdare_anatomy_perm_<fingerprint>.so/.dll
         if (fn.find("comdare_anatomy_perm_") != 0) continue;
-        if (p.extension() != suffix)                continue;
+        if (p.extension() != suffix) continue;
         candidates.push_back(p);
     }
     // NUMERISCHE Sortierung nach dem Zahl-Suffix (..._auto_<N>), NICHT lexikographisch:
@@ -200,26 +187,26 @@ int AnatomyModuleLoader::load_all(std::filesystem::path const& dir,
         return std::pair<std::string, long long>{s.substr(0, i), num};
     };
     std::sort(candidates.begin(), candidates.end(),
-        [&](std::filesystem::path const& a, std::filesystem::path const& b) {
-            auto const [pa, na] = split_stem(a);
-            auto const [pb, nb] = split_stem(b);
-            if (pa != pb) return pa < pb;
-            return na < nb;
-        });
+              [&](std::filesystem::path const& a, std::filesystem::path const& b) {
+                  auto const [pa, na] = split_stem(a);
+                  auto const [pb, nb] = split_stem(b);
+                  if (pa != pb) return pa < pb;
+                  return na < nb;
+              });
 
     int last_status = status_ok;
     for (auto const& p : candidates) {
         AnatomyModuleHandle h;
-        int const s = load(p, h);
+        int const           s = load(p, h);
         if (s == status_ok) {
             out_handles.push_back(std::move(h));
         } else {
-            std::cerr << "AnatomyModuleLoader: failed to load " << p.string()
-                      << " (status=" << s << " " << status_name(s) << ")\n";
+            std::cerr << "AnatomyModuleLoader: failed to load " << p.string() << " (status=" << s << " "
+                      << status_name(s) << ")\n";
             last_status = s;
         }
     }
     return last_status;
 }
 
-}  // namespace comdare::cache_engine::builder::anatomy_loader
+} // namespace comdare::cache_engine::builder::anatomy_loader

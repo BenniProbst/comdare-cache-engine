@@ -51,9 +51,9 @@ struct PermutationFlagsV32 {
     std::uint8_t node_bank : 5 {0};
 
     // Bank 3 TRAVERSAL gesplittet (8 bit)
-    std::uint8_t traversal_3a : 3 {0};   ///< SearchAlgo-Traversal (8 Sub-Bausteine)
-    std::uint8_t traversal_3b : 3 {0};   ///< Cache-Memory-Traversal (6 Sub-Bausteine)
-    std::uint8_t traversal_3m : 2 {0};   ///< Mapping (4 Sub-Bausteine)
+    std::uint8_t traversal_3a : 3 {0}; ///< SearchAlgo-Traversal (8 Sub-Bausteine)
+    std::uint8_t traversal_3b : 3 {0}; ///< Cache-Memory-Traversal (6 Sub-Bausteine)
+    std::uint8_t traversal_3m : 2 {0}; ///< Mapping (4 Sub-Bausteine)
 
     // Bank 4 VALUEHANDLE (3 bit)
     std::uint8_t value_handle_bank : 3 {0};
@@ -62,18 +62,18 @@ struct PermutationFlagsV32 {
     std::uint8_t memory_layout_bank : 3 {0};
 
     // Bank 6 ALLOCATOR gesplittet (11 bit)
-    std::uint8_t allocator_6_1 : 3 {0};  ///< Allocation-Strategy
-    std::uint8_t allocator_6_2 : 2 {0};  ///< Reclamation-Policy
-    std::uint8_t allocator_6_3 : 2 {0};  ///< NUMA-Affinity
-    std::uint8_t allocator_6_4 : 2 {0};  ///< Huge-Page-Policy
-    std::uint8_t allocator_6_5 : 2 {0};  ///< Free-List-Strategy
+    std::uint8_t allocator_6_1 : 3 {0}; ///< Allocation-Strategy
+    std::uint8_t allocator_6_2 : 2 {0}; ///< Reclamation-Policy
+    std::uint8_t allocator_6_3 : 2 {0}; ///< NUMA-Affinity
+    std::uint8_t allocator_6_4 : 2 {0}; ///< Huge-Page-Policy
+    std::uint8_t allocator_6_5 : 2 {0}; ///< Free-List-Strategy
 
     // Bank 7 PREFETCH (3 bit)
     std::uint8_t prefetch_bank : 3 {0};
 
     // Bank 8 CONCURRENCY gesplittet (5 bit)
-    std::uint8_t concurrency_8_1 : 3 {0};  ///< Pattern (7 Patterns)
-    std::uint8_t concurrency_8_2 : 2 {0};  ///< Locking-Mode (4 Modes)
+    std::uint8_t concurrency_8_1 : 3 {0}; ///< Pattern (7 Patterns)
+    std::uint8_t concurrency_8_2 : 2 {0}; ///< Locking-Mode (4 Modes)
 
     // Bank 9 ISA (4 bit)
     std::uint8_t isa_bank : 4 {0};
@@ -85,18 +85,18 @@ struct PermutationFlagsV32 {
     std::uint8_t telemetry_bank : 3 {0};
 
     // Bank 12 HARDWARE-STRATEGY (NEU, 11 bit)
-    std::uint8_t hw_12_1 : 3 {0};   ///< SIMD-Family
-    std::uint8_t hw_12_2 : 2 {0};   ///< Cache-Level-Targeting
-    std::uint8_t hw_12_3 : 2 {0};   ///< NUMA-Strategy
-    std::uint8_t hw_12_4 : 2 {0};   ///< Prefetch-Hardware
-    std::uint8_t hw_12_5 : 2 {0};   ///< Atomic-Instruction-Family
+    std::uint8_t hw_12_1 : 3 {0}; ///< SIMD-Family
+    std::uint8_t hw_12_2 : 2 {0}; ///< Cache-Level-Targeting
+    std::uint8_t hw_12_3 : 2 {0}; ///< NUMA-Strategy
+    std::uint8_t hw_12_4 : 2 {0}; ///< Prefetch-Hardware
+    std::uint8_t hw_12_5 : 2 {0}; ///< Atomic-Instruction-Family
 
     // Bank 13 SCHEDULING-STRATEGY (NEU, 12 bit)
-    std::uint8_t sched_13_1 : 3 {0};  ///< Worker-Pool-Layout
-    std::uint8_t sched_13_2 : 3 {0};  ///< SIMD-Worker-Count-Limit
-    std::uint8_t sched_13_3 : 2 {0};  ///< Hetero-Core-Dispatch
-    std::uint8_t sched_13_4 : 2 {0};  ///< Co-Routine-Strategy
-    std::uint8_t sched_13_5 : 2 {0};  ///< Batch-Granularity
+    std::uint8_t sched_13_1 : 3 {0}; ///< Worker-Pool-Layout
+    std::uint8_t sched_13_2 : 3 {0}; ///< SIMD-Worker-Count-Limit
+    std::uint8_t sched_13_3 : 2 {0}; ///< Hetero-Core-Dispatch
+    std::uint8_t sched_13_4 : 2 {0}; ///< Co-Routine-Strategy
+    std::uint8_t sched_13_5 : 2 {0}; ///< Batch-Granularity
 
     // Bank 14 ENGINE-CHOICE (2 bit, V1-V4 Meta-Achse)
     std::uint8_t engine_choice_bank : 2 {0};
@@ -105,7 +105,6 @@ struct PermutationFlagsV32 {
     [[nodiscard]] constexpr bool operator==(const PermutationFlagsV32&) const noexcept = default;
 };
 
-static_assert(sizeof(PermutationFlagsV32) <= 16,
-              "PermutationFlagsV32 muss in 16 bytes passen");
+static_assert(sizeof(PermutationFlagsV32) <= 16, "PermutationFlagsV32 muss in 16 bytes passen");
 
-}  // namespace comdare::cache_engine::concepts
+} // namespace comdare::cache_engine::concepts

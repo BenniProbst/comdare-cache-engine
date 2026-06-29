@@ -26,42 +26,58 @@ namespace pe  = comdare::cache_engine::permutations;
 namespace mp  = boost::mp11;
 
 static int g_fail = 0;
-template <class A, class B> static void eq(char const* w, A const& g, B const& e) {
-    bool ok = (g == e); std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
-    if (!ok) { std::cout << " (erwartet " << e << ")"; ++g_fail; } std::cout << "\n";
+template <class A, class B>
+static void eq(char const* w, A const& g, B const& e) {
+    bool ok = (g == e);
+    std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
+    if (!ok) {
+        std::cout << " (erwartet " << e << ")";
+        ++g_fail;
+    }
+    std::cout << "\n";
 }
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 // ── Dummy-Achsen-Varianten (die Permutations-Maschinerie schiebt nur Typen in die Composition-Slots; die
 //    IsGenusComposition-Concepts prüfen die named Aliase, NICHT die Organ-API → Dummy-Typen genügen) ──
-struct V_a1 {}; struct V_a2 {}; struct V_a3 {};   // 3 Varianten für Slot 0
-struct V_b1 {}; struct V_b2 {};                   // 2 Varianten für Slot 1
-struct V_x  {};                                   // Single-Filler
+struct V_a1 {};
+struct V_a2 {};
+struct V_a3 {}; // 3 Varianten für Slot 0
+struct V_b1 {};
+struct V_b2 {}; // 2 Varianten für Slot 1
+struct V_x {};  // Single-Filler
 
 // TopicConfigSets (Pflicht-Interface: StaticAxisVariants = mp_list<...>).
-struct Cfg3 { using StaticAxisVariants = mp::mp_list<V_a1, V_a2, V_a3>; };  // 3
-struct Cfg2 { using StaticAxisVariants = mp::mp_list<V_b1, V_b2>; };        // 2
-struct Cfg1 { using StaticAxisVariants = mp::mp_list<V_x>; };               // 1 (Filler)
+struct Cfg3 {
+    using StaticAxisVariants = mp::mp_list<V_a1, V_a2, V_a3>;
+}; // 3
+struct Cfg2 {
+    using StaticAxisVariants = mp::mp_list<V_b1, V_b2>;
+}; // 2
+struct Cfg1 {
+    using StaticAxisVariants = mp::mp_list<V_x>;
+}; // 1 (Filler)
 
 // ── Set-Engine: 15 Slots, Slot0=3 × Slot1=2 × 1^13 = 6 ──
-using SetEngine = ana::SetPermutationEngine<
-    Cfg3, Cfg2, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1>;
+using SetEngine =
+    ana::SetPermutationEngine<Cfg3, Cfg2, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1>;
 // ── Sequence-Engine: 11 Slots, Slot0=2 × 1^10 = 2 ──
-using SeqEngine = ana::SequencePermutationEngine<
-    Cfg2, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1>;
+using SeqEngine = ana::SequencePermutationEngine<Cfg2, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1>;
 // ── View-Engine: 7 Slots, Slot0=3 × 1^6 = 3 ──
-using ViewEngine = ana::ViewPermutationEngine<
-    Cfg3, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1>;
+using ViewEngine = ana::ViewPermutationEngine<Cfg3, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1>;
 
 // Compile-Time-Marker + Arität
-static_assert(SetEngine::genus  == ana::AnatomyGenus::Set);
-static_assert(SeqEngine::genus  == ana::AnatomyGenus::Sequence);
+static_assert(SetEngine::genus == ana::AnatomyGenus::Set);
+static_assert(SeqEngine::genus == ana::AnatomyGenus::Sequence);
 static_assert(ViewEngine::genus == ana::AnatomyGenus::View);
-static_assert(SetEngine::arity()  == 15);
-static_assert(SeqEngine::arity()  == 11);
+static_assert(SetEngine::arity() == 15);
+static_assert(SeqEngine::arity() == 11);
 static_assert(ViewEngine::arity() == 7);
-static_assert(SetEngine::count()  == 6, "3 × 2 × 1^13 = 6");
-static_assert(SeqEngine::count()  == 2, "2 × 1^10 = 2");
+static_assert(SetEngine::count() == 6, "3 × 2 × 1^13 = 6");
+static_assert(SeqEngine::count() == 2, "2 × 1^10 = 2");
 static_assert(ViewEngine::count() == 3, "3 × 1^6 = 3");
 
 // Factory-Materialisierung direkt (synthetisches PermTuple → korrekte Slots)
@@ -76,15 +92,15 @@ static_assert(SetComp::slot_count == 15);
 using SeqPerm = pe::PermTuple<V_a1, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_b2>;
 using SeqComp = ana::SequenceCompositionFromPermTuple<SeqPerm>;
 static_assert(ana::IsSequenceComposition<SeqComp>);
-static_assert(std::is_same_v<SeqComp::memory_layout, V_a1>);   // Slot 0
-static_assert(std::is_same_v<SeqComp::growth_policy, V_b2>);    // Slot 10 (axis_growth, überschreibt Default)
+static_assert(std::is_same_v<SeqComp::memory_layout, V_a1>); // Slot 0
+static_assert(std::is_same_v<SeqComp::growth_policy, V_b2>); // Slot 10 (axis_growth, überschreibt Default)
 static_assert(SeqComp::slot_count == 11);
 
 using ViewPerm = pe::PermTuple<V_a2, V_x, V_x, V_x, V_x, V_x, V_b1>;
 using ViewComp = ana::ViewCompositionFromPermTuple<ViewPerm>;
 static_assert(ana::IsViewComposition<ViewComp>);
-static_assert(std::is_same_v<ViewComp::memory_layout, V_a2>);    // Slot 0
-static_assert(std::is_same_v<ViewComp::accessor_policy, V_b1>);  // Slot 6 (axis_accessor, überschreibt Default)
+static_assert(std::is_same_v<ViewComp::memory_layout, V_a2>);   // Slot 0
+static_assert(std::is_same_v<ViewComp::accessor_policy, V_b1>); // Slot 6 (axis_accessor, überschreibt Default)
 static_assert(ViewComp::slot_count == 7);
 
 int main() {
@@ -96,7 +112,8 @@ int main() {
     eq("arity() == 15", SetEngine::arity(), std::size_t{15});
     eq("count() == 6 (3×2×1^13)", SetEngine::count(), std::size_t{6});
     {
-        std::size_t visited = 0; bool all_conform = true;
+        std::size_t visited     = 0;
+        bool        all_conform = true;
         SetEngine::for_each_composition_type([&]<class C>() {
             ++visited;
             if (!ana::IsSetComposition<C>) all_conform = false;
@@ -111,7 +128,8 @@ int main() {
     eq("arity() == 11", SeqEngine::arity(), std::size_t{11});
     eq("count() == 2 (2×1^10)", SeqEngine::count(), std::size_t{2});
     {
-        std::size_t visited = 0; bool all_conform = true;
+        std::size_t visited     = 0;
+        bool        all_conform = true;
         SeqEngine::for_each_composition_type([&]<class C>() {
             ++visited;
             if (!ana::IsSequenceComposition<C>) all_conform = false;
@@ -126,7 +144,8 @@ int main() {
     eq("arity() == 7", ViewEngine::arity(), std::size_t{7});
     eq("count() == 3 (3×1^6)", ViewEngine::count(), std::size_t{3});
     {
-        std::size_t visited = 0; bool all_conform = true;
+        std::size_t visited     = 0;
+        bool        all_conform = true;
         ViewEngine::for_each_composition_type([&]<class C>() {
             ++visited;
             if (!ana::IsViewComposition<C>) all_conform = false;

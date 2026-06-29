@@ -14,7 +14,7 @@
 // (LinearScan) ist der getriebene Pfad; insert_slot_at/erase_slot_at sind concept-vollständig (shift-basiert) für die
 // SortedBinary-Kompatibilität. A/L fließen als Provenienz + (A) realer Chunk-Allokator ein.
 
-#include "axis_04_node_type_node4.hpp"                 // Pilot-NodeType (Selbstbeweis)
+#include "axis_04_node_type_node4.hpp" // Pilot-NodeType (Selbstbeweis)
 #include "concepts/axis_04_node_type_concept.hpp"
 #include <topics/memory_layout/axis_05_memory_layout/concepts/axis_05_memory_layout_concept.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_cache_line_aligned.hpp>
@@ -37,9 +37,8 @@ namespace _al_ck = ::comdare::cache_engine::allocator::axis_06_allocator;
 /// node-gechunktes 3-Achsen-Storage-Organ: Slots liegen in Chunks der Kapazität N::max_capacity().
 /// chunk_count() = Zahl der node-großen Blöcke = REALE Laufzeitwirkung der node_type-Achse.
 template <class N, class L, class A>
-    requires concepts::NodeTypeStrategy<N>
-          && _ml_ck::concepts::MemoryLayoutStrategy<L>
-          && _al_ck::concepts::AllocatorStrategy<A>
+    requires concepts::NodeTypeStrategy<N> && _ml_ck::concepts::MemoryLayoutStrategy<L> &&
+             _al_ck::concepts::AllocatorStrategy<A>
 class NodeChunkedStore {
 private:
     using slot_t = std::pair<std::uint64_t, std::uint64_t>;
@@ -47,7 +46,7 @@ private:
     static constexpr std::size_t cap_ = (N::max_capacity() == 0 ? std::size_t{1} : N::max_capacity());
 
 public:
-    using key_type       = std::uint64_t;   // GEMEINSAMER breiter Key (Doku-24-§5.5)
+    using key_type       = std::uint64_t; // GEMEINSAMER breiter Key (Doku-24-§5.5)
     using value_type     = std::uint64_t;
     using node_type      = N;
     using layout_type    = L;
@@ -56,24 +55,28 @@ public:
     static constexpr std::size_t node_capacity_v = cap_;
     static constexpr std::size_t cache_line_size = L::cache_line_size();
 
-    [[nodiscard]] static constexpr std::size_t      node_capacity()  noexcept { return cap_; }
-    [[nodiscard]] static constexpr std::string_view organ_name()     noexcept { return "node_chunked"; }
-    [[nodiscard]] static constexpr std::string_view node_name()      noexcept { return N::name(); }
-    [[nodiscard]] static constexpr std::string_view layout_name()    noexcept { return L::name(); }
+    [[nodiscard]] static constexpr std::size_t      node_capacity() noexcept { return cap_; }
+    [[nodiscard]] static constexpr std::string_view organ_name() noexcept { return "node_chunked"; }
+    [[nodiscard]] static constexpr std::string_view node_name() noexcept { return N::name(); }
+    [[nodiscard]] static constexpr std::string_view layout_name() noexcept { return L::name(); }
     [[nodiscard]] static constexpr std::string_view allocator_name() noexcept { return A::name(); }
 
     // node-WIRKSAME Observables (der eigentliche Beweis): #aktive Chunks + #je angelegter Chunks (Node-Allokationen).
-    [[nodiscard]] std::size_t chunk_count()       const noexcept { return chunks_.size(); }
+    [[nodiscard]] std::size_t chunk_count() const noexcept { return chunks_.size(); }
     [[nodiscard]] std::size_t chunk_alloc_count() const noexcept { return chunk_allocs_; }
 
     // --- StorageOrgan-Concept: 8 Methoden über logischem Flach-Index (Chunk c=i/cap_, Offset=i%cap_) ---
-    [[nodiscard]] std::size_t slot_count()            const noexcept { return size_; }
-    [[nodiscard]] key_type    key_at(std::size_t i)   const noexcept { return chunks_[i / cap_][i % cap_].first; }
+    [[nodiscard]] std::size_t slot_count() const noexcept { return size_; }
+    [[nodiscard]] key_type    key_at(std::size_t i) const noexcept { return chunks_[i / cap_][i % cap_].first; }
     [[nodiscard]] value_type  value_at(std::size_t i) const noexcept { return chunks_[i / cap_][i % cap_].second; }
-    void set_value_at(std::size_t i, value_type v)          noexcept { chunks_[i / cap_][i % cap_].second = v; }
+    void set_value_at(std::size_t i, value_type v) noexcept { chunks_[i / cap_][i % cap_].second = v; }
 
     void append_slot(key_type k, value_type v) {
-        if (chunks_.empty() || chunks_.back().size() == cap_) { chunks_.emplace_back(); chunks_.back().reserve(cap_); ++chunk_allocs_; }
+        if (chunks_.empty() || chunks_.back().size() == cap_) {
+            chunks_.emplace_back();
+            chunks_.back().reserve(cap_);
+            ++chunk_allocs_;
+        }
         chunks_.back().emplace_back(k, v);
         ++size_;
     }
@@ -89,13 +92,17 @@ public:
         flat.erase(flat.begin() + static_cast<std::ptrdiff_t>(i));
         rebuild_(flat);
     }
-    void clear() noexcept { chunks_.clear(); size_ = 0; chunk_allocs_ = 0; }
+    void clear() noexcept {
+        chunks_.clear();
+        size_         = 0;
+        chunk_allocs_ = 0;
+    }
 
     // --- Drop-in-Parität zu ComposedStore (von ObservableComposedSearch optional/requires-detektiert) ---
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     // Säule-2 Allocator-Durchgriff — hier NODE-WIRKSAM: allocation_count = Zahl der node-großen Chunks =
     // ceil(size / N::max_capacity()) → hängt REAL von der node_type-Achse ab (Node4 viele, Node256 wenige).
-    using allocator_snapshot_t = typename A::snapshot_t;   // == allocator::…::AllocationStatistics
+    using allocator_snapshot_t = typename A::snapshot_t; // == allocator::…::AllocationStatistics
     [[nodiscard]] allocator_snapshot_t allocator_statistics() const noexcept {
         allocator_snapshot_t a{};
         a.allocation_count      = chunk_allocs_;
@@ -109,8 +116,10 @@ public:
     // V2-Auto-Kopplung node_type: low-Byte je gespeichertem Key → Format-divergenter Self-Lookup (mirror ComposedStore).
     template <class NodeOrgan>
     std::uint64_t organ_observe_node_type(NodeOrgan& org) const {
-        std::vector<std::uint8_t> kb; kb.reserve(size_);
-        for (auto const& c : chunks_) for (auto const& s : c) kb.push_back(static_cast<std::uint8_t>(s.first & 0xFFu));
+        std::vector<std::uint8_t> kb;
+        kb.reserve(size_);
+        for (auto const& c : chunks_)
+            for (auto const& s : c) kb.push_back(static_cast<std::uint8_t>(s.first & 0xFFu));
         return org.observe_node_find(kb.data(), kb.size(), kb.data(), kb.size());
     }
     // V2-Auto-Kopplung layout/serialization: Scan über das chunk-lokale Slot-Backing (kein toter Code).
@@ -179,7 +188,7 @@ public:
     std::uint64_t organ_observe_migration(MigOrgan& org) const {
         for (auto const& c : chunks_)
             org.observe_decide(reinterpret_cast<unsigned char const*>(c.data()), c.size(), sizeof(slot_t));
-        return 0;   // observe_decide ist void (Treibe-Op exerziert, Wegopt-Schutz im seg19-Pfad)
+        return 0; // observe_decide ist void (Treibe-Op exerziert, Wegopt-Schutz im seg19-Pfad)
     }
     // Phase B (2026-06-04) T16 filter Auto-Kopplung: die low-Bytes der gespeicherten Keys werden als Query-Strom UND
     // als Filter-Backing-Bitmap an die filter-Observer-Huelle gegeben (filter_probe_scan(buf,n,queries,q)) — analog
@@ -190,20 +199,26 @@ public:
         // (observe_probe_keys → strat_.probe_key) — gleiche uint64-Key-Domain wie der insert_key-Build. Fallback
         // (synthetische Strategien ohne observe_probe_keys): der bisherige 1-Byte-Puffer-Pfad (unveraendert).
         if constexpr (requires { org.observe_probe_keys(static_cast<std::uint64_t const*>(nullptr), std::size_t{}); }) {
-            std::vector<std::uint64_t> ks; ks.reserve(size_);
-            for (auto const& c : chunks_) for (auto const& s : c) ks.push_back(static_cast<std::uint64_t>(s.first));
+            std::vector<std::uint64_t> ks;
+            ks.reserve(size_);
+            for (auto const& c : chunks_)
+                for (auto const& s : c) ks.push_back(static_cast<std::uint64_t>(s.first));
             return org.observe_probe_keys(ks.data(), ks.size());
         } else {
-            std::vector<unsigned char> kb; kb.reserve(size_);
-            for (auto const& c : chunks_) for (auto const& s : c) kb.push_back(static_cast<unsigned char>(s.first & 0xFFu));
+            std::vector<unsigned char> kb;
+            kb.reserve(size_);
+            for (auto const& c : chunks_)
+                for (auto const& s : c) kb.push_back(static_cast<unsigned char>(s.first & 0xFFu));
             return org.observe_probe(kb.data(), kb.size(), kb.data(), kb.size());
         }
     }
 
 private:
     [[nodiscard]] std::vector<slot_t> flatten_() const {
-        std::vector<slot_t> f; f.reserve(size_);
-        for (auto const& c : chunks_) for (auto const& s : c) f.push_back(s);
+        std::vector<slot_t> f;
+        f.reserve(size_);
+        for (auto const& c : chunks_)
+            for (auto const& s : c) f.push_back(s);
         return f;
     }
     void rebuild_(std::vector<slot_t> const& flat) {
@@ -212,15 +227,16 @@ private:
     }
 
     std::vector<std::vector<slot_t>> chunks_{};
-    std::size_t size_        = 0;
-    std::size_t chunk_allocs_ = 0;
+    std::size_t                      size_         = 0;
+    std::size_t                      chunk_allocs_ = 0;
 };
 
 // Compile-Time-Selbstbeweis: node-gechunktes Organ erfüllt StorageOrgan UND ist von beiden Traversal-Organen nutzbar.
 namespace _ck_cmp = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable;
-using PilotChunkedStore = NodeChunkedStore<Node4NodeType, _ml_ck::CacheLineAlignedMemoryLayout, _al_ck::MimallocAllocator>;
+using PilotChunkedStore =
+    NodeChunkedStore<Node4NodeType, _ml_ck::CacheLineAlignedMemoryLayout, _al_ck::MimallocAllocator>;
 static_assert(_ck_cmp::StorageOrgan<PilotChunkedStore>);
-static_assert(_ck_cmp::TraversalOrgan<_ck_cmp::LinearScanTraversal,   PilotChunkedStore>);
+static_assert(_ck_cmp::TraversalOrgan<_ck_cmp::LinearScanTraversal, PilotChunkedStore>);
 static_assert(_ck_cmp::TraversalOrgan<_ck_cmp::SortedBinaryTraversal, PilotChunkedStore>);
 
-}  // namespace comdare::cache_engine::node
+} // namespace comdare::cache_engine::node

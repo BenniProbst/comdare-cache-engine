@@ -17,10 +17,10 @@
 namespace comdare::cache_engine::allocator::families::a17_crystalline {
 
 struct CrystallineParams {
-    std::size_t retired_list_capacity   = 256;
+    std::size_t retired_list_capacity    = 256;
     std::size_t cross_thread_batch_size  = 32;
-    bool         enable_async_reclamation  = true;
-    bool         balanced_workload          = true;
+    bool        enable_async_reclamation = true;
+    bool        balanced_workload        = true;
 };
 
 template <LockingStrategy Lock = locking::SharedMutexLock>
@@ -38,7 +38,7 @@ public:
         void* p = portable_aligned_alloc(alignment, bytes);
         if (p) {
             stats_.total_bytes_allocated.fetch_add(bytes, std::memory_order_relaxed);
-            stats_.total_bytes_in_use   .fetch_add(bytes, std::memory_order_relaxed);
+            stats_.total_bytes_in_use.fetch_add(bytes, std::memory_order_relaxed);
         } else {
             stats_.failure_count.fetch_add(1, std::memory_order_relaxed);
         }
@@ -57,35 +57,35 @@ public:
     [[nodiscard]] AllocationStatistics statistics() const noexcept {
         AllocationStatistics s{};
         s.total_bytes_allocated = stats_.total_bytes_allocated.load(std::memory_order_relaxed);
-        s.total_bytes_in_use     = stats_.total_bytes_in_use   .load(std::memory_order_relaxed);
-        s.allocation_count       = stats_.allocation_count     .load(std::memory_order_relaxed);
-        s.deallocation_count     = stats_.deallocation_count   .load(std::memory_order_relaxed);
-        s.failure_count           = stats_.failure_count       .load(std::memory_order_relaxed);
+        s.total_bytes_in_use    = stats_.total_bytes_in_use.load(std::memory_order_relaxed);
+        s.allocation_count      = stats_.allocation_count.load(std::memory_order_relaxed);
+        s.deallocation_count    = stats_.deallocation_count.load(std::memory_order_relaxed);
+        s.failure_count         = stats_.failure_count.load(std::memory_order_relaxed);
         return s;
     }
 
     [[nodiscard]] CrystallineParams const& params() const noexcept { return params_; }
-    [[nodiscard]] std::uint64_t retired_count() const noexcept {
+    [[nodiscard]] std::uint64_t            retired_count() const noexcept {
         return retired_count_.load(std::memory_order_relaxed);
     }
 
-    static constexpr bool is_wait_free          = true;
-    static constexpr bool is_lock_free          = true;
-    static constexpr bool memory_bounded         = true;
-    static constexpr bool is_async_signal_safe  = true;
+    static constexpr bool is_wait_free         = true;
+    static constexpr bool is_lock_free         = true;
+    static constexpr bool memory_bounded       = true;
+    static constexpr bool is_async_signal_safe = true;
 
 private:
     CrystallineParams          params_;
     std::atomic<std::uint64_t> retired_count_{0};
     struct AtomicStats {
         std::atomic<std::size_t> total_bytes_allocated{0};
-        std::atomic<std::size_t> total_bytes_in_use    {0};
-        std::atomic<std::size_t> allocation_count      {0};
-        std::atomic<std::size_t> deallocation_count    {0};
-        std::atomic<std::size_t> failure_count          {0};
+        std::atomic<std::size_t> total_bytes_in_use{0};
+        std::atomic<std::size_t> allocation_count{0};
+        std::atomic<std::size_t> deallocation_count{0};
+        std::atomic<std::size_t> failure_count{0};
     } stats_;
 };
 
 static_assert(IAllocationStrategy<CrystallineAdapter<>>);
 
-}  // namespace comdare::cache_engine::allocator::families::a17_crystalline
+} // namespace comdare::cache_engine::allocator::families::a17_crystalline

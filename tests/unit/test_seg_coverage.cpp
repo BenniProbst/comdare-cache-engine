@@ -22,8 +22,8 @@
 #include <anatomy/abi_adapter.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
-#include <builder/experiment_tree/perm_runner.hpp>                    // run_observable_perm (treibt den Mess-Pfad)
-#include <builder/experiment_tree/cache_engine_builder_iterator.hpp>  // format_csv_row / LazyMeasuredRow
+#include <builder/experiment_tree/perm_runner.hpp>                   // run_observable_perm (treibt den Mess-Pfad)
+#include <builder/experiment_tree/cache_engine_builder_iterator.hpp> // format_csv_row / LazyMeasuredRow
 
 #include <compositions/art_reference.hpp>
 #include <compositions/hot_reference.hpp>
@@ -37,50 +37,52 @@ namespace an   = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;
 namespace ex   = ::comdare::cache_engine::builder::experiment;
 
-static int g_fail = 0;
-static void tr(std::string const& w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+static int  g_fail = 0;
+static void tr(std::string const& w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 template <class C>
 static void check_coverage(char const* name) {
     using Anatomy = an::SearchAlgorithmAnatomy<C>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
     auto* obs = dynamic_cast<an::IObservableTier*>(static_cast<an::IAnatomyBase*>(&tier));
-    if (!obs) { tr(std::string(name) + ": IObservableTier via dynamic_cast vorhanden", false); return; }
+    if (!obs) {
+        tr(std::string(name) + ": IObservableTier via dynamic_cast vorhanden", false);
+        return;
+    }
 
     // Der reale Host-Mess-Pfad: tier_clear → n_ops insert + n_ops lookup (total_ns) → EIN konsolidierter Observer-POD
     // (axis_stats + seg_ns[19] + seg_framework_ns + seg_run_total_ns).
-    ex::PermResult const pr = ex::run_observable_perm(*obs, name, /*n_ops=*/4000);
-    an::ComdareTierObserverSnapshot const& s = pr.unified;
+    ex::PermResult const                   pr = ex::run_observable_perm(*obs, name, /*n_ops=*/4000);
+    an::ComdareTierObserverSnapshot const& s  = pr.unified;
     tr(std::string(name) + ": unified observer real", pr.unified_real);
 
     std::int64_t seg_sum = 0;
     for (int t = 0; t < 19; ++t) seg_sum += s.seg_ns[t];
 
-    std::int64_t const run_total  = s.seg_run_total_ns;
-    std::int64_t const framework  = s.seg_framework_ns;
+    std::int64_t const run_total = s.seg_run_total_ns;
+    std::int64_t const framework = s.seg_framework_ns;
 
     // (1) exakte Identität: Σseg_ns + framework ≡ run_total (by-construction, klemmt nur theoretischen Jitter auf 0).
     bool const identity = (run_total > 0) && (seg_sum + framework == run_total);
     tr(std::string(name) + ": Σseg_ns + seg_framework_ns == seg_run_total_ns (exakte Identität)", identity);
 
-    double const cov_own   = (run_total > 0) ? (static_cast<double>(seg_sum) / static_cast<double>(run_total)) : 0.0;
-    double const fw_share  = (run_total > 0) ? (static_cast<double>(framework) / static_cast<double>(run_total)) : 0.0;
-    double const cov_total = (pr.total_ns > 0) ? (static_cast<double>(seg_sum) / static_cast<double>(pr.total_ns)) : 0.0;
+    double const cov_own  = (run_total > 0) ? (static_cast<double>(seg_sum) / static_cast<double>(run_total)) : 0.0;
+    double const fw_share = (run_total > 0) ? (static_cast<double>(framework) / static_cast<double>(run_total)) : 0.0;
+    double const cov_total =
+        (pr.total_ns > 0) ? (static_cast<double>(seg_sum) / static_cast<double>(pr.total_ns)) : 0.0;
 
     // LITERAL-Ausgabe: kommensurable Coverage vs. das alte irreführende sum(seg)/total_ns.
-    std::cout << "    " << name
-              << "  seg_sum=" << seg_sum
-              << "  seg_run_total_ns=" << run_total
+    std::cout << "    " << name << "  seg_sum=" << seg_sum << "  seg_run_total_ns=" << run_total
               << "  seg_framework_ns=" << framework << "\n"
-              << "      coverage(seg_sum/seg_run_total)=" << cov_own
-              << "  framework_share=" << fw_share
+              << "      coverage(seg_sum/seg_run_total)=" << cov_own << "  framework_share=" << fw_share
               << "  (coverage+framework=" << (cov_own + fw_share) << ")\n"
               << "      [Diagnose alt] sum(seg)/total_ns=" << cov_total
               << "  (inkommensurabel: total_ns=" << pr.total_ns << " ist ein ANDERER Lauf)\n"
-              << "      Top-Organe: seg[T0 search_algo]=" << s.seg_ns[0]
-              << "  seg[T4 node_type]=" << s.seg_ns[4]
-              << "  seg[T5 memory_layout]=" << s.seg_ns[5]
-              << "  seg[T2 mapping]=" << s.seg_ns[2]
+              << "      Top-Organe: seg[T0 search_algo]=" << s.seg_ns[0] << "  seg[T4 node_type]=" << s.seg_ns[4]
+              << "  seg[T5 memory_layout]=" << s.seg_ns[5] << "  seg[T2 mapping]=" << s.seg_ns[2]
               << "  seg[T1 cache_traversal]=" << s.seg_ns[1] << "\n";
 
     // (2) ABNAHME (echter Regressions-Waechter): die Identitaet MUSS gelten (Rest exakt benannt, kein verlorener Anteil)
@@ -90,8 +92,8 @@ static void check_coverage(char const* name) {
     tr(std::string(name) + ": Identitaet (Rest benannt) UND Coverage > 0.90 (P-MD3-Abnahme, scharf)", accept);
 
     // (3) die latenz-dominanten Organe tragen plausible, NICHT-verschwindende Zeit (algorithmische Organ-Zeit, nicht 0).
-    tr(std::string(name) + ": seg[T0 search_algo] > 0 (algorithmische Organ-Zeit, nicht 0)",   s.seg_ns[0] > 0);
-    tr(std::string(name) + ": seg[T4 node_type] > 0 (algorithmische Organ-Zeit, nicht 0)",     s.seg_ns[4] > 0);
+    tr(std::string(name) + ": seg[T0 search_algo] > 0 (algorithmische Organ-Zeit, nicht 0)", s.seg_ns[0] > 0);
+    tr(std::string(name) + ": seg[T4 node_type] > 0 (algorithmische Organ-Zeit, nicht 0)", s.seg_ns[4] > 0);
     tr(std::string(name) + ": seg[T5 memory_layout] > 0 (algorithmische Organ-Zeit, nicht 0)", s.seg_ns[5] > 0);
 }
 
@@ -101,7 +103,9 @@ int main() {
     check_coverage<comp::HotComposition>("Hot");
     check_coverage<comp::MasstreeComposition>("Masstree");
 
-    if (g_fail == 0) std::cout << "==== P-MD3 Segment-Coverage: ALLE OK ====\n";
-    else             std::cout << "==== P-MD3 Segment-Coverage: " << g_fail << " FEHLER ====\n";
+    if (g_fail == 0)
+        std::cout << "==== P-MD3 Segment-Coverage: ALLE OK ====\n";
+    else
+        std::cout << "==== P-MD3 Segment-Coverage: " << g_fail << " FEHLER ====\n";
     return g_fail == 0 ? 0 : 1;
 }

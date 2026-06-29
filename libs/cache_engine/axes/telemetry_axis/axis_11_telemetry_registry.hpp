@@ -15,19 +15,13 @@ namespace comdare::cache_engine::telemetry_axis {
 
 namespace mp = boost::mp11;
 
-using AllTelemetries = mp::mp_list<
-    LeafOnlyCounter,
-    DensityTracker,
-    InsertCounter,
-    LatencyHistogram
->;
+using AllTelemetries = mp::mp_list<LeafOnlyCounter, DensityTracker, InsertCounter, LatencyHistogram>;
 
 template <typename T>
 using is_enabled = mp::mp_bool<T::enabled>;
 
 using EnabledTelemetries = mp::mp_filter<is_enabled, AllTelemetries>;
 
-static_assert(mp::mp_size<EnabledTelemetries>::value > 0,
-    "Axis 11 Telemetry: at least one telemetry must be enabled");
+static_assert(mp::mp_size<EnabledTelemetries>::value > 0, "Axis 11 Telemetry: at least one telemetry must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::telemetry_axis

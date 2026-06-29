@@ -29,8 +29,8 @@
 // @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md §8.6/§8.7
 // @related [[feedback_zwei_dimensionen_messmodell]] [[feedback_one_consistent_observer_interface_pruefdock]]
 
-#include "idriveable_tier.hpp"   // V5-I2: IObservableTier erbt den funktionalen Antrieb (immer einkompiliert)
-#include "measurable_workload.hpp"  // ComdareSegmentLatencyV2 (seg_ns[19]) für das Pfad-B-Timing im konsolidierten POD
+#include "idriveable_tier.hpp"     // V5-I2: IObservableTier erbt den funktionalen Antrieb (immer einkompiliert)
+#include "measurable_workload.hpp" // ComdareSegmentLatencyV2 (seg_ns[19]) für das Pfad-B-Timing im konsolidierten POD
 
 #include <cstdint>
 #include <type_traits>
@@ -44,7 +44,7 @@ namespace comdare::cache_engine::anatomy {
 
 /// Anzahl der Achsen-Slots im Observer-POD = die 19 SearchAlgorithm-Achsen (T0..T18, kCompositionAxisNames-
 /// Reihenfolge, identisch zu seg_ns[19]).
-inline constexpr std::size_t kV3AxisCount  = 19;
+inline constexpr std::size_t kV3AxisCount = 19;
 /// Feld-Spalten je Achse (K). 8 deckt die breiteste befüllte statistics()-Struktur (search_algo: 6,
 /// alloc: 5, cache_traversal/mapping: 6, q1/q2: 5) mit Reserve; schema-stabil gegen weitere Felder (Phase B).
 inline constexpr std::size_t kV3FieldCount = 8;
@@ -64,25 +64,40 @@ struct V3AxisFieldNames {
 /// IST der Vertrag zwischen Schreiber (DLL) und CSV-Spaltennamen (Host). Nur uint64-Felder der jeweiligen
 /// statistics()-Struct (die double-Felder wie avg_occupancy/avg_collision_chain_length sind bewusst weggelassen).
 inline constexpr V3AxisFieldNames kV3AxisSchema[kV3AxisCount] = {
-    /*T0  search_algo*/      {{"lookup", "hit", "miss", "insert", "erase", "peak", nullptr, nullptr}},
-    /*T1  cache_traversal*/  {{"resolve", "resolve_hit", "resolve_miss", "register", "unregister", "peak_tracked", nullptr, nullptr}},
-    /*T2  mapping*/          {{"register", "resolve", "resolve_hit", "resolve_miss", "reverse_lookup", "peak_mapped", nullptr, nullptr}},
-    /*T3  path_compression*/ {{"compress", "prefix_len", "bytes_saved", "cuts", "checksum", nullptr, nullptr, nullptr}},  // Phase B (T3)
-    /*T4  node_type*/        {{"find", "keys_stored", "queries", "checksum", nullptr, nullptr, nullptr, nullptr}},
-    /*T5  memory_layout*/    {{"scan", "records", "field_bytes", "cache_lines", "checksum", nullptr, nullptr, nullptr}},
-    /*T6  allocator*/        {{"bytes_alloc", "bytes_in_use", "alloc_cnt", "dealloc_cnt", "fail", nullptr, nullptr, nullptr}},
-    /*T7  prefetch*/         {{"trigger", "suggestions", "hot_path_hints", "max_queue_depth", "addrs_enqueued", nullptr, nullptr, nullptr}},  // Phase B (T7)
-    /*T8  concurrency*/      {{"acquire", "release", "contention", "validation_fail", "pattern_id", nullptr, nullptr, nullptr}},  // Phase B (T8)
-    /*T9  serialization*/    {{"serialize", "records", "bytes", "checksum", nullptr, nullptr, nullptr, nullptr}},
-    /*T10 telemetry*/        {{"events", "leaf_updates", "node_updates", "peak_tracked", nullptr, nullptr, nullptr, nullptr}},
-    /*T11 value_handle*/     {{"access", "indirect_deref", "version_strips", "peak_chain_depth", nullptr, nullptr, nullptr, nullptr}},  // Phase B (T11)
-    /*T12 isa*/              {{"simd_calls", "elements", "simd_iters", "scalar_fallback", "checksum", nullptr, nullptr, nullptr}},  // Phase B (T12)
-    /*T13 index_org*/        {{"scan", "records", "predicate_evals", "indirect_lookups", "checksum", nullptr, nullptr, nullptr}},  // Phase B (T13)
-    /*T14 io_dispatch*/      {{"rounds", "bytes", "align_adjusts", "dispatch_cnt", "checksum", nullptr, nullptr, nullptr}},  // Phase B (T14)
-    /*T15 migration_policy*/ {{"decisions", "migrations", "hot_votes", "cold_votes", "tier_moves", nullptr, nullptr, nullptr}},  // Phase B (T15)
-    /*T16 filter*/           {{"probe", "pos", "neg", "hash_probes", "checksum", nullptr, nullptr, nullptr}},  // Phase B (T16)
-    /*T17 queuing_q1*/       {{"put", "get", "overflow", "underflow", "peak_size", nullptr, nullptr, nullptr}},
-    /*T18 queuing_q2*/       {{"decisions", "full_flush", "partial_flush", "no_flush", "flush_complete", nullptr, nullptr, nullptr}},
+    /*T0  search_algo*/ {{"lookup", "hit", "miss", "insert", "erase", "peak", nullptr, nullptr}},
+    /*T1  cache_traversal*/
+    {{"resolve", "resolve_hit", "resolve_miss", "register", "unregister", "peak_tracked", nullptr, nullptr}},
+    /*T2  mapping*/
+    {{"register", "resolve", "resolve_hit", "resolve_miss", "reverse_lookup", "peak_mapped", nullptr, nullptr}},
+    /*T3  path_compression*/
+    {{"compress", "prefix_len", "bytes_saved", "cuts", "checksum", nullptr, nullptr, nullptr}}, // Phase B (T3)
+    /*T4  node_type*/ {{"find", "keys_stored", "queries", "checksum", nullptr, nullptr, nullptr, nullptr}},
+    /*T5  memory_layout*/ {{"scan", "records", "field_bytes", "cache_lines", "checksum", nullptr, nullptr, nullptr}},
+    /*T6  allocator*/ {{"bytes_alloc", "bytes_in_use", "alloc_cnt", "dealloc_cnt", "fail", nullptr, nullptr, nullptr}},
+    /*T7  prefetch*/
+    {{"trigger", "suggestions", "hot_path_hints", "max_queue_depth", "addrs_enqueued", nullptr, nullptr,
+      nullptr}}, // Phase B (T7)
+                 /*T8  concurrency*/
+    {{"acquire", "release", "contention", "validation_fail", "pattern_id", nullptr, nullptr, nullptr}}, // Phase B (T8)
+    /*T9  serialization*/ {{"serialize", "records", "bytes", "checksum", nullptr, nullptr, nullptr, nullptr}},
+    /*T10 telemetry*/ {{"events", "leaf_updates", "node_updates", "peak_tracked", nullptr, nullptr, nullptr, nullptr}},
+    /*T11 value_handle*/
+    {{"access", "indirect_deref", "version_strips", "peak_chain_depth", nullptr, nullptr, nullptr,
+      nullptr}}, // Phase B (T11)
+                 /*T12 isa*/
+    {{"simd_calls", "elements", "simd_iters", "scalar_fallback", "checksum", nullptr, nullptr,
+      nullptr}}, // Phase B (T12)
+                 /*T13 index_org*/
+    {{"scan", "records", "predicate_evals", "indirect_lookups", "checksum", nullptr, nullptr,
+      nullptr}},                                                                                   // Phase B (T13)
+                                                                                                   /*T14 io_dispatch*/
+    {{"rounds", "bytes", "align_adjusts", "dispatch_cnt", "checksum", nullptr, nullptr, nullptr}}, // Phase B (T14)
+    /*T15 migration_policy*/
+    {{"decisions", "migrations", "hot_votes", "cold_votes", "tier_moves", nullptr, nullptr, nullptr}}, // Phase B (T15)
+    /*T16 filter*/ {{"probe", "pos", "neg", "hash_probes", "checksum", nullptr, nullptr, nullptr}},    // Phase B (T16)
+    /*T17 queuing_q1*/ {{"put", "get", "overflow", "underflow", "peak_size", nullptr, nullptr, nullptr}},
+    /*T18 queuing_q2*/
+    {{"decisions", "full_flush", "partial_flush", "no_flush", "flush_complete", nullptr, nullptr, nullptr}},
 };
 
 /// Anzahl der im POD befüllten Achsen = Achsen mit mindestens EINEM benannten Schema-Feld (single-source aus
@@ -91,7 +106,7 @@ inline constexpr V3AxisFieldNames kV3AxisSchema[kV3AxisCount] = {
 [[nodiscard]] constexpr std::size_t v3_count_filled_axes() noexcept {
     std::size_t n = 0;
     for (std::size_t t = 0; t < kV3AxisCount; ++t) {
-        if (kV3AxisSchema[t].names[0] != nullptr) ++n;   // erste Spalte benannt ⇒ Achse trägt Observer-Felder
+        if (kV3AxisSchema[t].names[0] != nullptr) ++n; // erste Spalte benannt ⇒ Achse trägt Observer-Felder
     }
     return n;
 }
@@ -110,20 +125,20 @@ inline constexpr std::size_t kV3FilledAxisCount = v3_count_filled_axes();
 /// Ints, kein Padding; sizeof==1416 nach P-MD3 (war 1400; +2×int64 seg_framework_ns/seg_run_total_ns, additiv hinten),
 /// alignof==8) → memcpy über die ABI-Grenze. Versionierung jetzt über ABI-Major.
 struct ComdareTierObserverSnapshot {
-    std::uint64_t axis_stats[kV3AxisCount][kV3FieldCount] = {};  // T0..T18 × 8 Felder (Schema = kV3AxisSchema)
-    std::int64_t  seg_ns[kV3AxisCount]                    = {};  // Pfad-B Per-Achsen-Timing (ns, je Achse)
-    std::uint64_t observable_axis_count                  = 0;    // Meta: # observable Achsen (in-process)
-    std::uint64_t tier_fill_level                        = 0;    // Meta: aktueller Füllstand (tier_size)
-    std::uint64_t filled_axis_count                      = 0;    // Meta: # Achsen mit Observer-Werten
-    std::uint64_t batches_measured                       = 0;    // Meta: # Timing-Batches (Warmup verworfen)
+    std::uint64_t axis_stats[kV3AxisCount][kV3FieldCount] = {}; // T0..T18 × 8 Felder (Schema = kV3AxisSchema)
+    std::int64_t  seg_ns[kV3AxisCount]                    = {}; // Pfad-B Per-Achsen-Timing (ns, je Achse)
+    std::uint64_t observable_axis_count                   = 0;  // Meta: # observable Achsen (in-process)
+    std::uint64_t tier_fill_level                         = 0;  // Meta: aktueller Füllstand (tier_size)
+    std::uint64_t filled_axis_count                       = 0;  // Meta: # Achsen mit Observer-Werten
+    std::uint64_t batches_measured                        = 0;  // Meta: # Timing-Batches (Warmup verworfen)
     // P-MD3 (Coverage-Versöhnung, 2026-06-18): der kommensurable Nenner + benannte Rest des Pfad-B-Per-Achsen-Timings.
     // seg_run_total_ns = äußere Wall-Clock des Segment-Mess-Laufs (fill_segment_timing_v3); seg_framework_ns =
     // seg_run_total_ns − Σseg_ns[0..18] (NICHT-segmentierter Loop-/Instrumentierungs-Overhead). Damit gilt
     // Σseg_ns + seg_framework_ns ≡ seg_run_total_ns → Coverage gegen die EIGENE Wall-Clock ~100% (Rest EXPLIZIT benannt),
     // statt die irreführende sum(seg)/total_ns-Quote gegen die unkommensurable Real-Workload-Wall-Clock (war ~33,6%).
     // REIN ADDITIV (hinten angehängt) → ABI-Layout aller bestehenden Felder/Slots unberührt.
-    std::int64_t  seg_framework_ns                       = 0;    // Meta: benannter Rest des Segment-Laufs
-    std::int64_t  seg_run_total_ns                       = 0;    // Meta: äußere Wall-Clock des Segment-Laufs (Coverage-Nenner)
+    std::int64_t seg_framework_ns = 0; // Meta: benannter Rest des Segment-Laufs
+    std::int64_t seg_run_total_ns = 0; // Meta: äußere Wall-Clock des Segment-Laufs (Coverage-Nenner)
 
     [[nodiscard]] constexpr bool operator==(ComdareTierObserverSnapshot const&) const noexcept = default;
 };
@@ -134,7 +149,8 @@ static_assert(std::is_trivially_copyable_v<ComdareTierObserverSnapshot>,
 
 /// Format-Version des konsolidierten Observer-POD (die Loader-Kompatibilität läuft über ABI-Major, s.
 /// anatomy_module_abi_v1_decl.hpp; diese Konstante dient der Diagnose/Tests).
-inline constexpr std::uint32_t kTierObserverSnapshotVersionUnified = 5;   // P-MD3: +seg_framework_ns/+seg_run_total_ns (additiv)
+inline constexpr std::uint32_t kTierObserverSnapshotVersionUnified =
+    5; // P-MD3: +seg_framework_ns/+seg_run_total_ns (additiv)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IObservableTier — die EINE ABI-stabile Observer-Schnittstelle (I1)
@@ -185,4 +201,4 @@ public:
     [[nodiscard]] virtual std::uint64_t tier_migrate_step(std::uint64_t max_moves) noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

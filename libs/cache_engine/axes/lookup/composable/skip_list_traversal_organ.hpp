@@ -12,7 +12,7 @@
 // set_node_live(false) + Listen-Hoehe schrumpfen. [[no-runtime-switch]]: rein statische Templates.
 
 #include "skip_list_node_pool_concept.hpp"
-#include "skip_list_node_pool_store.hpp"   // fuer den Selbstbeweis am Dateiende
+#include "skip_list_node_pool_store.hpp" // fuer den Selbstbeweis am Dateiende
 
 #include <array>
 #include <concepts>
@@ -23,12 +23,14 @@ namespace comdare::cache_engine::lookup::composable {
 
 /// SKIP-LIST-TRAVERSAL-Organ-Concept: statische insert_into/lookup_in/erase_from auf einem SkipListNodePool.
 template <class T, class Pool>
-concept SkipListTraversal = SkipListNodePool<Pool> && requires(Pool& p, Pool const& cp,
-                                  typename Pool::key_type k, typename Pool::value_type v) {
-    { T::template insert_into<Pool>(p, k, v) } -> std::same_as<void>;
-    { T::template lookup_in<Pool>(cp, k) }     -> std::same_as<std::optional<typename Pool::value_type>>;
-    { T::template erase_from<Pool>(p, k) }     -> std::same_as<bool>;
-};
+concept SkipListTraversal = SkipListNodePool<Pool> &&
+                            requires(Pool& p, Pool const& cp, typename Pool::key_type k, typename Pool::value_type v) {
+                                { T::template insert_into<Pool>(p, k, v) } -> std::same_as<void>;
+                                {
+                                    T::template lookup_in<Pool>(cp, k)
+                                } -> std::same_as<std::optional<typename Pool::value_type>>;
+                                { T::template erase_from<Pool>(p, k) } -> std::same_as<bool>;
+                            };
 
 /// Skip-List-Traversal-Organ: Multi-Level-Walk von oben nach unten + vorwaerts. Navigiert ueber Pool-Forward-API.
 struct SkipListTraversalOrgan {
@@ -37,11 +39,14 @@ struct SkipListTraversalOrgan {
     [[nodiscard]] static std::size_t find_update(Pool const& p, typename Pool::key_type k,
                                                  std::array<std::size_t, Pool::kMaxLevel>& update) {
         std::size_t const NIL = Pool::kNil;
-        std::size_t x = p.head();
+        std::size_t       x   = p.head();
         for (int i = p.list_level() - 1; i >= 0; --i) {
             std::size_t const lvl = static_cast<std::size_t>(i);
-            std::size_t nxt = p.forward_at(x, lvl);
-            while (nxt != NIL && p.node_key(nxt) < k) { x = nxt; nxt = p.forward_at(x, lvl); }
+            std::size_t       nxt = p.forward_at(x, lvl);
+            while (nxt != NIL && p.node_key(nxt) < k) {
+                x   = nxt;
+                nxt = p.forward_at(x, lvl);
+            }
             update[lvl] = x;
         }
         return p.forward_at(x, 0);
@@ -50,10 +55,10 @@ struct SkipListTraversalOrgan {
     template <class Pool>
     static void insert_into(Pool& p, typename Pool::key_type k, typename Pool::value_type v) {
         std::array<std::size_t, Pool::kMaxLevel> update{};
-        std::size_t const NIL  = Pool::kNil;
-        std::size_t const cand = find_update<Pool>(p, k, update);
+        std::size_t const                        NIL  = Pool::kNil;
+        std::size_t const                        cand = find_update<Pool>(p, k, update);
         if (cand != NIL && p.node_key(cand) == k && p.node_live(cand)) {
-            p.set_node_value(cand, v);   // Update vorhandener Key
+            p.set_node_value(cand, v); // Update vorhandener Key
             return;
         }
         int const lvl = p.draw_level();
@@ -73,11 +78,14 @@ struct SkipListTraversalOrgan {
     template <class Pool>
     static std::optional<typename Pool::value_type> lookup_in(Pool const& p, typename Pool::key_type k) {
         std::size_t const NIL = Pool::kNil;
-        std::size_t x = p.head();
+        std::size_t       x   = p.head();
         for (int i = p.list_level() - 1; i >= 0; --i) {
             std::size_t const lvl = static_cast<std::size_t>(i);
-            std::size_t nxt = p.forward_at(x, lvl);
-            while (nxt != NIL && p.node_key(nxt) < k) { x = nxt; nxt = p.forward_at(x, lvl); }
+            std::size_t       nxt = p.forward_at(x, lvl);
+            while (nxt != NIL && p.node_key(nxt) < k) {
+                x   = nxt;
+                nxt = p.forward_at(x, lvl);
+            }
         }
         std::size_t const cand = p.forward_at(x, 0);
         if (cand != NIL && p.node_key(cand) == k && p.node_live(cand)) return p.node_value(cand);
@@ -87,15 +95,15 @@ struct SkipListTraversalOrgan {
     template <class Pool>
     static bool erase_from(Pool& p, typename Pool::key_type k) {
         std::array<std::size_t, Pool::kMaxLevel> update{};
-        std::size_t const NIL  = Pool::kNil;
-        std::size_t const cand = find_update<Pool>(p, k, update);
+        std::size_t const                        NIL  = Pool::kNil;
+        std::size_t const                        cand = find_update<Pool>(p, k, update);
         if (cand == NIL || p.node_key(cand) != k || !p.node_live(cand)) return false;
         for (int i = 0; i < p.list_level(); ++i) {
             std::size_t const lvl  = static_cast<std::size_t>(i);
             std::size_t const pred = update[lvl];
             if (p.forward_at(pred, lvl) == cand) p.set_forward_at(pred, lvl, p.forward_at(cand, lvl));
         }
-        p.set_node_live(cand, false);   // Tombstone (unverlinkt → unerreichbar)
+        p.set_node_live(cand, false); // Tombstone (unverlinkt → unerreichbar)
         while (p.list_level() > 1 && p.forward_at(p.head(), static_cast<std::size_t>(p.list_level() - 1)) == NIL)
             p.set_list_level(p.list_level() - 1);
         p.dec_live();
@@ -106,4 +114,4 @@ struct SkipListTraversalOrgan {
 // Selbstbeweis: SkipListTraversalOrgan erfuellt das SkipListTraversal-Concept ueber dem Pilot-Pool.
 static_assert(SkipListTraversal<SkipListTraversalOrgan, SkipListNodePoolStore>);
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

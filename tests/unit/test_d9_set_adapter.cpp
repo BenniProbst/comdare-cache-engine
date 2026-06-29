@@ -18,22 +18,33 @@ namespace eng = comdare::cache_engine::execution_engine;
 
 struct TestKeySet {
     using key_type = std::uint64_t;
-    std::set<std::uint64_t> s;
-    void insert(std::uint64_t k, std::uint64_t) { s.insert(k); }
+    std::set<std::uint64_t>                    s;
+    void                                       insert(std::uint64_t k, std::uint64_t) { s.insert(k); }
     [[nodiscard]] std::optional<std::uint64_t> lookup(std::uint64_t k) const {
-        return s.count(k) ? std::optional<std::uint64_t>{k} : std::nullopt; }
-    void erase(std::uint64_t k) { s.erase(k); }
+        return s.count(k) ? std::optional<std::uint64_t>{k} : std::nullopt;
+    }
+    void                      erase(std::uint64_t k) { s.erase(k); }
     [[nodiscard]] std::size_t occupied_count() const { return s.size(); }
-    void clear() { s.clear(); }
+    void                      clear() { s.clear(); }
 };
 using SC    = cea::SetComposition<TestKeySet, int, int, int, int, int, int, int, int, int, int, int, int, int, int>;
 using SAnat = cea::SetAnatomy<SC>;
 
 static int g_fail = 0;
-template <class A, class B> static void eq(char const* w, A const& g, B const& e) {
-    bool ok = (g == e); std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
-    if (!ok) { std::cout << " (erwartet " << e << ")"; ++g_fail; } std::cout << "\n"; }
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+template <class A, class B>
+static void eq(char const* w, A const& g, B const& e) {
+    bool ok = (g == e);
+    std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
+    if (!ok) {
+        std::cout << " (erwartet " << e << ")";
+        ++g_fail;
+    }
+    std::cout << "\n";
+}
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 int main() {
     cea::SetAbiAdapter<SAnat> adapter;
@@ -43,7 +54,8 @@ int main() {
     tr("engine_kind() == Anatomy", base->engine_kind() == eng::ExecutionEngineKind::Anatomy);
     eq("organ_count() == 15", base->organ_count(), std::size_t{15});
     eq("composition_name", std::string{base->composition_name()}, std::string{"SetComposition"});
-    base->warm_up(); base->run();
+    base->warm_up();
+    base->run();
     tr("lifecycle Running", base->lifecycle_state() == eng::EngineLifecycleState::Running);
 
     std::cout << "\n==== D9.2 Set-Antrieb über ISetTier (dynamic_cast) ====\n";
@@ -65,6 +77,7 @@ int main() {
         eq("observe: organ_count == 15", pod.organ_count, std::uint64_t{15});
         eq("observe: erase_count == 1", pod.erase_count, std::uint64_t{1});
     }
-    std::cout << "\n==== D9.2 SetAbiAdapter: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== D9.2 SetAbiAdapter: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

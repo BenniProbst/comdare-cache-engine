@@ -26,10 +26,12 @@ public:
 
     static constexpr bool enabled = flags::tier_based_enabled;
 
-    [[nodiscard]] static constexpr bool             is_active()    noexcept { return true; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "migration_tier_based"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "TierBasedMigration (RAM/SSD/HDD multi-tier, RocksDB-style)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "TIER_BASED"; }
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return true; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "migration_tier_based"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "TierBasedMigration (RAM/SSD/HDD multi-tier, RocksDB-style)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "TIER_BASED"; }
 
     // V41.F.6.1 — verhaltens-tragende Mess-Op (migration_policy F15-operativ): Entscheidungs-Scan.
     // EHRLICHKEIT: Migration ohne 2. Tier nicht ausfuehrbar -> gemessen werden ausschliesslich die
@@ -39,20 +41,20 @@ public:
     // -> reale, strategie-spezifische Laufzeit, distinkt zu HotCold (Branch-Vote) und Adaptive (Linearkomb.).
     [[nodiscard]] static std::uint64_t migration_decide_scan(unsigned char const* buf, std::size_t n,
                                                              std::size_t record_size) noexcept {
-        constexpr std::uint32_t kTiers = 3;  // RAM / SSD / HDD
-        std::uint64_t tier_index_sum = 0;
+        constexpr std::uint32_t kTiers         = 3; // RAM / SSD / HDD
+        std::uint64_t           tier_index_sum = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::uint32_t v;
-            std::memcpy(&v, buf + i * record_size, sizeof(v));   // strided 4-Byte-Feld
-            tier_index_sum += (v % kTiers);   // Ziel-Tier per Modulo (0=RAM,1=SSD,2=HDD)
+            std::memcpy(&v, buf + i * record_size, sizeof(v)); // strided 4-Byte-Feld
+            tier_index_sum += (v % kTiers);                    // Ziel-Tier per Modulo (0=RAM,1=SSD,2=HDD)
         }
         return tier_index_sum;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::migration_policy
 
 namespace comdare::cache_engine::migration_policy {
-    static_assert(concepts::MigrationStrategy<TierBasedMigration>);
-    static_assert(concepts::CacheEnginePermutationStrategy<TierBasedMigration>);
-}
+static_assert(concepts::MigrationStrategy<TierBasedMigration>);
+static_assert(concepts::CacheEnginePermutationStrategy<TierBasedMigration>);
+} // namespace comdare::cache_engine::migration_policy

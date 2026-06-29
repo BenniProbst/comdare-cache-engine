@@ -25,14 +25,14 @@ namespace comdare::cache_engine::anatomy {
 /// daher zählt der Observer Enden-Zugriffe (front_reads/back_reads) statt ordering-select/comparison.
 struct AdapterObserverSnapshotV1 {
     // ── inner_container (die spezifische §28-Achse, real getrieben) ──
-    std::uint64_t push_count        = 0;   // push → inner_container
-    std::uint64_t pop_count         = 0;   // erfolgreiche pop_front/pop_back
-    std::uint64_t front_reads       = 0;   // front()-Zugriffe (FIFO-Disziplin)
-    std::uint64_t back_reads        = 0;   // back()/top()-Zugriffe (LIFO-Disziplin)
-    std::uint64_t current_occupancy = 0;   // aktuelle inner_container-Größe
-    std::uint64_t peak_occupancy    = 0;   // maximale inner_container-Größe
+    std::uint64_t push_count        = 0; // push → inner_container
+    std::uint64_t pop_count         = 0; // erfolgreiche pop_front/pop_back
+    std::uint64_t front_reads       = 0; // front()-Zugriffe (FIFO-Disziplin)
+    std::uint64_t back_reads        = 0; // back()/top()-Zugriffe (LIFO-Disziplin)
+    std::uint64_t current_occupancy = 0; // aktuelle inner_container-Größe
+    std::uint64_t peak_occupancy    = 0; // maximale inner_container-Größe
     // ── Meta ──
-    std::uint64_t organ_count       = 0;   // == AdapterAnatomy::organ_count() (13: 12 geteilt/delegiert + inner_container)
+    std::uint64_t organ_count = 0; // == AdapterAnatomy::organ_count() (13: 12 geteilt/delegiert + inner_container)
 
     [[nodiscard]] constexpr bool operator==(AdapterObserverSnapshotV1 const&) const noexcept = default;
 };
@@ -69,4 +69,4 @@ public:
     virtual void tier_observe_container(AdapterObserverSnapshotV1* out) const noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

@@ -5,7 +5,7 @@
 
 #include "concepts/axis_03a_search_algo_concept.hpp"
 #include <topics/axis_base.hpp>
-#include <axes/cacheline/cacheline_config.hpp>  // KF-5: per-Organ Cache-Line-Unterachse
+#include <axes/cacheline/cacheline_config.hpp> // KF-5: per-Organ Cache-Line-Unterachse
 
 #include <type_traits>
 
@@ -22,20 +22,20 @@ namespace comdare::cache_engine::lookup {
  */
 // KF-5 (2026-06-02): defaulted NTTP CacheLineCfg + CacheLineAware<Cfg> → jeder Such-Algo-Organ ist
 // cacheline-fähig. Default {} = unverändert (nicht-brechend, ODR-sicher).
-template <typename Derived,
-          ::comdare::cache_engine::cacheline::CacheLineConfig CacheLineCfg = ::comdare::cache_engine::cacheline::CacheLineConfig{}>
-class SearchAlgoBase
-    : public ::comdare::cache_engine::topics::AxisBase
-    , public ::comdare::cache_engine::cacheline::CacheLineAware<CacheLineCfg> {
+template <typename Derived, ::comdare::cache_engine::cacheline::CacheLineConfig CacheLineCfg =
+                                ::comdare::cache_engine::cacheline::CacheLineConfig{}>
+class SearchAlgoBase : public ::comdare::cache_engine::topics::AxisBase,
+                       public ::comdare::cache_engine::cacheline::CacheLineAware<CacheLineCfg> {
 protected:
     SearchAlgoBase() noexcept {
         static_assert(concepts::SearchAlgoVariant<Derived>,
-            "Pflicht: Derived muss SearchAlgoVariant erfuellen "
-            "(insert/lookup/erase/occupied_count/density_percent/clear)");
+                      "Pflicht: Derived muss SearchAlgoVariant erfuellen "
+                      "(insert/lookup/erase/occupied_count/density_percent/clear)");
         static_assert(::comdare::cache_engine::topics::AxisBaseConcept<Derived>,
-            "Pflicht: Derived erfuellt AxisBaseConcept (get_compiler() Default 'original' + is_original_module = false via AxisBase)");
+                      "Pflicht: Derived erfuellt AxisBaseConcept (get_compiler() Default 'original' + "
+                      "is_original_module = false via AxisBase)");
     }
     // V41.F.6.1.P2.C ENTFERNT: Defaults kommen via AxisBase (cross-axis generisch).
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup

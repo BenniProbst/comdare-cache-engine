@@ -36,7 +36,7 @@
 #include "../axis_q1_queuing_subaxes_qs1_to_qs6.hpp"
 
 #include <measurement/measurable_concept.hpp>
-#include <concepts/legacy_original_code_strategy_concept.hpp>   // V41.F.6.1.P2.C Habich-Compliance Pflicht-API
+#include <concepts/legacy_original_code_strategy_concept.hpp> // V41.F.6.1.P2.C Habich-Compliance Pflicht-API
 
 #include <concepts>
 #include <cstddef>
@@ -51,12 +51,12 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts {
  * Welch's t-Test (V41.B3) auslesbar pro Buffer-Vendor.
  */
 struct BufferStatistics {
-    std::uint64_t total_put_count   = 0;
-    std::uint64_t total_get_count   = 0;
-    std::uint64_t overflow_count    = 0;
-    std::uint64_t underflow_count   = 0;
-    std::uint64_t peak_size         = 0;
-    double        avg_occupancy     = 0.0;
+    std::uint64_t total_put_count = 0;
+    std::uint64_t total_get_count = 0;
+    std::uint64_t overflow_count  = 0;
+    std::uint64_t underflow_count = 0;
+    std::uint64_t peak_size       = 0;
+    double        avg_occupancy   = 0.0;
 };
 
 /**
@@ -77,40 +77,40 @@ enum class ProgressGuarantee : int {
  */
 template <typename B>
 concept CacheEngineBufferPermutationStrategy =
-    ::comdare::cache_engine::queuing::concepts::QueuingComponent<B>
-    && requires {
+    ::comdare::cache_engine::queuing::concepts::QueuingComponent<B> &&
+    requires {
         typename B::axis_tag;
         typename B::family_id;
-        { B::is_thread_safe()       } -> std::convertible_to<bool>;
-        { B::is_bounded()           } -> std::convertible_to<bool>;
-        { B::default_capacity()     } -> std::convertible_to<std::size_t>;
-        { B::name()                 } -> std::convertible_to<std::string_view>;
-        { B::family_name()          } -> std::convertible_to<std::string_view>;
-        { B::flag_suffix()          } -> std::convertible_to<std::string_view>;
+        { B::is_thread_safe() } -> std::convertible_to<bool>;
+        { B::is_bounded() } -> std::convertible_to<bool>;
+        { B::default_capacity() } -> std::convertible_to<std::size_t>;
+        { B::name() } -> std::convertible_to<std::string_view>;
+        { B::family_name() } -> std::convertible_to<std::string_view>;
+        { B::flag_suffix() } -> std::convertible_to<std::string_view>;
         // Sonderfall-Properties Pflicht ([[vendor-sonderfaelle-als-pflicht-property]])
         { B::supports_concurrent_producers() } -> std::convertible_to<bool>;
         { B::supports_concurrent_consumers() } -> std::convertible_to<bool>;
-        { B::supports_priority_ordering()    } -> std::convertible_to<bool>;
-        { B::is_versioned()                  } -> std::convertible_to<bool>;
-        { B::progress_guarantee()            } -> std::convertible_to<ProgressGuarantee>;
+        { B::supports_priority_ordering() } -> std::convertible_to<bool>;
+        { B::is_versioned() } -> std::convertible_to<bool>;
+        { B::progress_guarantee() } -> std::convertible_to<ProgressGuarantee>;
     }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-    && requires(B b, B const& bc) {
+    &&
+    requires(B b, B const& bc) {
         { bc.statistics() } noexcept;
-        { b.reset()       } noexcept;
-    }
-    && requires {
+        { b.reset() } noexcept;
+    } &&
+    requires {
         typename B::snapshot_t;
         typename B::observer_t;
-    }
-    && std::same_as<typename B::observer_t,
-                    ::comdare::cache_engine::measurement::MeasurableObserver<typename B::snapshot_t>>
-    && requires(B const& bc) {
+    } &&
+    std::same_as<typename B::observer_t,
+                 ::comdare::cache_engine::measurement::MeasurableObserver<typename B::snapshot_t>> &&
+    requires(B const& bc) {
         { bc.observer() } noexcept -> std::same_as<typename B::observer_t const&>;
     }
 #endif
     // V41.F.6.1.P2.C Habich-Compliance: get_compiler + is_original_module (cross-axis via AxisBase Default)
-    && ::comdare::cache_engine::concepts::LegacyOriginalCodePflicht<B>
-    ;
+    && ::comdare::cache_engine::concepts::LegacyOriginalCodePflicht<B>;
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts

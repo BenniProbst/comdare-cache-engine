@@ -41,11 +41,11 @@ public:
     // ist ein 1-Byte-Fingerprint, jeder Bucket fasst kSlotsPerBucket Fingerprints. insert_key setzt den
     // Fingerprint in einen der ZWEI Kandidaten-Buckets i1 / i2 = i1 XOR hash(fp); probe_key sucht den
     // Fingerprint in beiden. kBuckets=4096 → 8 KiB (L1-resident, messneutral). Voll-uint64-Key-Domain.
-    static constexpr std::size_t kBuckets        = 4096;       // Anzahl Buckets (Zweierpotenz → schnelles mod)
-    static constexpr std::size_t kSlotsPerBucket = 4;          // Fan 2014: b=4 Slots/Bucket (Standard)
+    static constexpr std::size_t kBuckets        = 4096; // Anzahl Buckets (Zweierpotenz → schnelles mod)
+    static constexpr std::size_t kSlotsPerBucket = 4;    // Fan 2014: b=4 Slots/Bucket (Standard)
 
     [[nodiscard]] static constexpr std::uint8_t fingerprint_(std::uint64_t key) noexcept {
-        return static_cast<std::uint8_t>(((key * 0x1B873593ull) >> 24) | 1u);   // !=0 (0 = leerer Slot)
+        return static_cast<std::uint8_t>(((key * 0x1B873593ull) >> 24) | 1u); // !=0 (0 = leerer Slot)
     }
     [[nodiscard]] static constexpr std::size_t bucket1_(std::uint64_t key) noexcept {
         return static_cast<std::size_t>((key * 2654435761ull) & (kBuckets - 1u));
@@ -59,8 +59,8 @@ public:
     /// vollen Buckets bleibt der Key dennoch via i1-Sticky-Slot auffindbar, Fan §3 Kuckucks-Verdraengung optional.)
     void insert_key(std::uint64_t key) noexcept {
         std::uint8_t const fp = fingerprint_(key);
-        std::size_t const i1 = bucket1_(key);
-        std::size_t const i2 = bucket2_(i1, fp);
+        std::size_t const  i1 = bucket1_(key);
+        std::size_t const  i2 = bucket2_(i1, fp);
         if (place_in_bucket_(i1, fp)) return;
         if (place_in_bucket_(i2, fp)) return;
         // Beide Kandidaten voll → sticky in i1-Slot 0 ueberschreiben (Membership-Erhalt; konservativ).
@@ -70,21 +70,23 @@ public:
     /// Probe der REALEN Bucket-Tabelle: Fingerprint in i1 ODER i2 → "moeglicherweise enthalten".
     [[nodiscard]] bool probe_key(std::uint64_t key) const noexcept {
         std::uint8_t const fp = fingerprint_(key);
-        std::size_t const i1 = bucket1_(key);
-        std::size_t const i2 = bucket2_(i1, fp);
+        std::size_t const  i1 = bucket1_(key);
+        std::size_t const  i2 = bucket2_(i1, fp);
         return in_bucket_(i1, fp) || in_bucket_(i2, fp);
     }
 
-    void clear() noexcept { table_.fill(0); }
+    void               clear() noexcept { table_.fill(0); }
     [[nodiscard]] bool operator==(CuckooFilter const& o) const noexcept { return table_ == o.table_; }
 
     /// Probe-Multiplizitaet je Query (2 Bucket-Lookups) — ehrlich deklariert fuer hash_probes_total.
     [[nodiscard]] static constexpr std::uint64_t probe_multiplicity() noexcept { return 2u; }
 
     [[nodiscard]] static constexpr bool             supports_range_query() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "filter_cuckoo"; }
-    [[nodiscard]] static constexpr std::string_view family_name()          noexcept { return "CuckooFilter (Fan CoNEXT 2014, supports delete + counting)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()          noexcept { return "CUCKOO"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "filter_cuckoo"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "CuckooFilter (Fan CoNEXT 2014, supports delete + counting)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "CUCKOO"; }
 
     // F15-Pfad-A Treibe-Op (Spec §5 T16, Goldstandard analog axis_05 scan_field_sum / axis_10
     // serialize_scan / axis_04 node_find_scan). SYNTHETISCHE Mindest-Op (ehrlich deklariert): es
@@ -100,14 +102,14 @@ public:
         std::uint64_t hits = 0;
         for (std::size_t i = 0; i < q; ++i) {
             std::uint32_t const key = queries[i];
-            std::uint8_t const fp = static_cast<std::uint8_t>((key * 0x1Bu) | 1u);   // 1-Byte-Fingerprint (≠0)
-            std::uint32_t const h  = key * 2654435761u;                              // Basis-Hash
-            std::size_t const i1 = h % n;                                            // erster Bucket
-            std::size_t const i2 = (i1 ^ (fp * 0x5BD1E995u)) % n;                    // partial-key: i2 = i1 XOR hash(fp)
+            std::uint8_t const  fp  = static_cast<std::uint8_t>((key * 0x1Bu) | 1u); // 1-Byte-Fingerprint (≠0)
+            std::uint32_t const h   = key * 2654435761u;                             // Basis-Hash
+            std::size_t const   i1  = h % n;                                         // erster Bucket
+            std::size_t const   i2  = (i1 ^ (fp * 0x5BD1E995u)) % n; // partial-key: i2 = i1 XOR hash(fp)
             // ZWEI Bucket-Lookups + Fingerprint-Vergleich (Cuckoo-charakteristisch)
             if (buf[i1] == fp) {
                 hits += 1u + (key & 3u);
-            } else if (buf[i2] == fp) {                                              // Fallback-Bucket
+            } else if (buf[i2] == fp) { // Fallback-Bucket
                 hits += 2u + (key & 1u);
             }
         }
@@ -118,8 +120,11 @@ private:
     /// Plaziere fp in den ersten freien Slot (==0) des Buckets b; true bei Erfolg.
     bool place_in_bucket_(std::size_t b, std::uint8_t fp) noexcept {
         for (std::size_t s = 0; s < kSlotsPerBucket; ++s) {
-            if (table_[b * kSlotsPerBucket + s] == 0) { table_[b * kSlotsPerBucket + s] = fp; return true; }
-            if (table_[b * kSlotsPerBucket + s] == fp) return true;   // bereits vorhanden (idempotent)
+            if (table_[b * kSlotsPerBucket + s] == 0) {
+                table_[b * kSlotsPerBucket + s] = fp;
+                return true;
+            }
+            if (table_[b * kSlotsPerBucket + s] == fp) return true; // bereits vorhanden (idempotent)
         }
         return false;
     }
@@ -132,9 +137,9 @@ private:
     std::array<std::uint8_t, kBuckets * kSlotsPerBucket> table_{};
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::filter_axis
 
 namespace comdare::cache_engine::filter_axis {
-    static_assert(concepts::FilterStrategy<CuckooFilter>);
-    static_assert(concepts::CacheEnginePermutationStrategy<CuckooFilter>);
-}
+static_assert(concepts::FilterStrategy<CuckooFilter>);
+static_assert(concepts::CacheEnginePermutationStrategy<CuckooFilter>);
+} // namespace comdare::cache_engine::filter_axis

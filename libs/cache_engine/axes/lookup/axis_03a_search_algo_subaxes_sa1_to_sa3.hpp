@@ -23,4 +23,4 @@ struct multilevel_access_tag {};
 /// mittlerer (statt hoher) Density — daher eigene Subaxis.
 struct direct_multibyte_access_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup::subaxes

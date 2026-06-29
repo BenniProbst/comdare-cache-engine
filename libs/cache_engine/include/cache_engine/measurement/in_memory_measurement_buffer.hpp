@@ -18,26 +18,26 @@ enum class SerializationFormat : std::uint8_t {
 };
 
 struct DumpHeader {
-    char          magic[24]      = {'C','O','M','D','A','R','E','-','M','E','A','S','U','R','E','M','E','N','T','-','V','1','\0','\0'};
-    std::uint32_t version        = 1;
-    std::uint64_t run_id         = 0;
-    std::uint64_t timestamp_ns   = 0;
-    std::uint64_t platform_sig   = 0;
-    std::uint64_t record_count   = 0;
-    std::uint32_t record_size    = sizeof(MeasurementRecord);
+    char          magic[24]    = {'C', 'O', 'M', 'D', 'A', 'R', 'E', '-', 'M', 'E', 'A',  'S',
+                                  'U', 'R', 'E', 'M', 'E', 'N', 'T', '-', 'V', '1', '\0', '\0'};
+    std::uint32_t version      = 1;
+    std::uint64_t run_id       = 0;
+    std::uint64_t timestamp_ns = 0;
+    std::uint64_t platform_sig = 0;
+    std::uint64_t record_count = 0;
+    std::uint32_t record_size  = sizeof(MeasurementRecord);
 };
 
 struct DumpFooter {
     std::uint64_t checksum       = 0;
-    char          end_marker[12] = {'E','N','D','-','C','O','M','D','A','R','E','\0'};
+    char          end_marker[12] = {'E', 'N', 'D', '-', 'C', 'O', 'M', 'D', 'A', 'R', 'E', '\0'};
 };
 
 using RunId = std::uint64_t;
 
 class InMemoryMeasurementBuffer {
 public:
-    explicit InMemoryMeasurementBuffer(SerializationFormat fmt = SerializationFormat::Binary)
-        : format_(fmt) {}
+    explicit InMemoryMeasurementBuffer(SerializationFormat fmt = SerializationFormat::Binary) : format_(fmt) {}
 
     // Hot-Path: pro-Thread-Arena, kein Lock
     void append_record(MeasurementRecord const& record) noexcept {
@@ -64,12 +64,12 @@ public:
 
     [[nodiscard]] DumpHeader make_dump_header(std::uint64_t platform_sig) const noexcept {
         DumpHeader h{};
-        h.run_id = run_id_;
+        h.run_id       = run_id_;
         h.platform_sig = platform_sig;
         h.record_count = total_records();
         h.timestamp_ns = static_cast<std::uint64_t>(
-            std::chrono::duration_cast<std::chrono::nanoseconds>(
-                std::chrono::system_clock::now().time_since_epoch()).count());
+            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch())
+                .count());
         return h;
     }
 
@@ -78,23 +78,19 @@ public:
         std::thread::id tid = std::this_thread::get_id();
         {
             std::lock_guard<std::mutex> g(arena_map_mutex_);
-            auto it = arenas_.find(tid);
-            if (it == arenas_.end()) {
-                it = arenas_.emplace(tid, ThreadArena{tid}).first;
-            }
+            auto                        it = arenas_.find(tid);
+            if (it == arenas_.end()) { it = arenas_.emplace(tid, ThreadArena{tid}).first; }
             return it->second;
         }
     }
 
-    [[nodiscard]] std::map<std::thread::id, ThreadArena> const& arenas() const noexcept {
-        return arenas_;
-    }
+    [[nodiscard]] std::map<std::thread::id, ThreadArena> const& arenas() const noexcept { return arenas_; }
 
 private:
-    SerializationFormat                   format_;
-    RunId                                 run_id_ = 0;
+    SerializationFormat                    format_;
+    RunId                                  run_id_ = 0;
     std::map<std::thread::id, ThreadArena> arenas_{};
-    mutable std::mutex                    arena_map_mutex_{};
+    mutable std::mutex                     arena_map_mutex_{};
 };
 
-}  // namespace comdare::cache_engine::measurement
+} // namespace comdare::cache_engine::measurement

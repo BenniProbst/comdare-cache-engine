@@ -52,46 +52,42 @@ public:
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::hash_access_tag;
-    using family_id  = std::integral_constant<int, 2>;  // CT02
+    using family_id  = std::integral_constant<int, 2>; // CT02
 
     /// iterable_aspect_t (F.6.1.E hybride Laufzeit-Permutation):
     /// initial_capacity als Power-of-2. PermutationEngine erkennt via
     /// HasIterableAspect<V> und generiert 1 Binary mit Runtime-Loop.
     using iterable_aspect_t = std::size_t;
-    static constexpr std::array<std::size_t, 5> kIterableInitialCapacities{8u, 16u, 64u, 256u, 1024u};
+    static constexpr std::array<std::size_t, 5>                 kIterableInitialCapacities{8u, 16u, 64u, 256u, 1024u};
     [[nodiscard]] static constexpr std::span<std::size_t const> iterable_values() noexcept {
         return std::span<std::size_t const>{kIterableInitialCapacities.data(), kIterableInitialCapacities.size()};
     }
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "hash_lookup"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "HashLookup (Fibonacci-Hash open-addressing, prt-art LinearProbeHashSet-Pattern)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "HASH_LOOKUP"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "hash_lookup"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "HashLookup (Fibonacci-Hash open-addressing, prt-art LinearProbeHashSet-Pattern)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "HASH_LOOKUP"; }
 
-    [[nodiscard]] static constexpr bool is_hashed()            noexcept { return true; }
-    [[nodiscard]] static constexpr bool has_collision_chains() noexcept { return true; }  // Linear Probing
-    [[nodiscard]] static constexpr bool amortized_o1()         noexcept { return true; }
+    [[nodiscard]] static constexpr bool is_hashed() noexcept { return true; }
+    [[nodiscard]] static constexpr bool has_collision_chains() noexcept { return true; } // Linear Probing
+    [[nodiscard]] static constexpr bool amortized_o1() noexcept { return true; }
 
-    static constexpr std::uint64_t kFibonacciMul = 11400714819323198485ULL;
-    static constexpr std::size_t   kInitialCapacity = 16;  // Power-of-2 Default
+    static constexpr std::uint64_t kFibonacciMul    = 11400714819323198485ULL;
+    static constexpr std::size_t   kInitialCapacity = 16; // Power-of-2 Default
 
     HashLookup() : HashLookup(kInitialCapacity) {}
     /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 wirft std::invalid_argument
     /// (Mask-Modulo waere Division-By-Zero). cap MUSS Power-of-2 sein.
     explicit HashLookup(std::size_t initial_capacity)
-        : capacity_mask_(validate_capacity(initial_capacity) - 1)
-        , buckets_(initial_capacity)
-        , size_(0) {}
+        : capacity_mask_(validate_capacity(initial_capacity) - 1), buckets_(initial_capacity), size_(0) {}
 
-    [[nodiscard]] bool operator==(HashLookup const& other) const noexcept {
-        return size_ == other.size_;
-    }
+    [[nodiscard]] bool operator==(HashLookup const& other) const noexcept { return size_ == other.size_; }
 
     /// SONDERFALL [[allocation-failure-exception]]: rehash kann std::bad_alloc werfen.
     void register_entry(key_type k, value_type v) {
-        if ((size_ * 10) >= (capacity_mask_ + 1) * 7) {
-            rehash((capacity_mask_ + 1) * 2);
-        }
+        if ((size_ * 10) >= (capacity_mask_ + 1) * 7) { rehash((capacity_mask_ + 1) * 2); }
         std::size_t idx = hash_index(k);
         for (std::size_t i = 0; i < (capacity_mask_ + 1); ++i) {
             std::size_t pos = (idx + i) & capacity_mask_;
@@ -190,10 +186,13 @@ public:
     using snapshot_t = concepts::CacheTraversalStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
@@ -217,9 +216,9 @@ private:
         std::vector<std::optional<std::pair<key_type, value_type>>> old_buckets;
         old_buckets.swap(buckets_);
         buckets_.assign(new_capacity, std::nullopt);
-        capacity_mask_ = new_capacity - 1;
+        capacity_mask_       = new_capacity - 1;
         std::size_t old_size = size_;
-        size_ = 0;
+        size_                = 0;
         for (auto const& slot : old_buckets) {
             if (slot.has_value()) {
                 std::size_t idx = hash_index(slot->first);
@@ -236,20 +235,20 @@ private:
         (void)old_size;
     }
 
-    std::size_t capacity_mask_;
+    std::size_t                                                 capacity_mask_;
     std::vector<std::optional<std::pair<key_type, value_type>>> buckets_;
-    std::size_t size_;
+    std::size_t                                                 size_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::CacheTraversalStatistics stats_{};
-    mutable observer_t                          observer_{};
+    mutable observer_t                         observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::cache_traversal
 
 namespace comdare::cache_engine::cache_traversal {
-    static_assert(concepts::CacheTraversalVariant<HashLookup>);
-    static_assert(concepts::CacheEngineCacheTraversalPermutationStrategy<HashLookup>);
-    static_assert(concepts::HashedTraversalStrategy<HashLookup>);
-    static_assert(concepts::IterableAspectCacheTraversalStrategy<HashLookup>);
-}
+static_assert(concepts::CacheTraversalVariant<HashLookup>);
+static_assert(concepts::CacheEngineCacheTraversalPermutationStrategy<HashLookup>);
+static_assert(concepts::HashedTraversalStrategy<HashLookup>);
+static_assert(concepts::IterableAspectCacheTraversalStrategy<HashLookup>);
+} // namespace comdare::cache_engine::cache_traversal

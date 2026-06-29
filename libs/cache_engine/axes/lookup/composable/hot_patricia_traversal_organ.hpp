@@ -17,9 +17,9 @@
 // [[no-runtime-switch]]: rein statische Templates.
 
 #include "hot_patricia_node_pool_concept.hpp"
-#include "hot_patricia_node_pool_store.hpp"   // fuer den Selbstbeweis am Dateiende
+#include "hot_patricia_node_pool_store.hpp" // fuer den Selbstbeweis am Dateiende
 
-#include <bit>          // std::countl_zero
+#include <bit> // std::countl_zero
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -29,11 +29,11 @@ namespace comdare::cache_engine::lookup::composable {
 
 /// HOT-PATRICIA-TRAVERSAL-Organ-Concept: statische insert_into/lookup_in/erase_from auf einem HotPatriciaNodePool.
 template <class T, class Pool>
-concept HotPatriciaTraversal = HotPatriciaNodePool<Pool> && requires(Pool& p, Pool const& cp,
-                                  typename Pool::key_type k, typename Pool::value_type v) {
+concept HotPatriciaTraversal = HotPatriciaNodePool<Pool> && requires(Pool& p, Pool const& cp, typename Pool::key_type k,
+                                                                     typename Pool::value_type v) {
     { T::template insert_into<Pool>(p, k, v) } -> std::same_as<void>;
-    { T::template lookup_in<Pool>(cp, k) }     -> std::same_as<std::optional<typename Pool::value_type>>;
-    { T::template erase_from<Pool>(p, k) }     -> std::same_as<bool>;
+    { T::template lookup_in<Pool>(cp, k) } -> std::same_as<std::optional<typename Pool::value_type>>;
+    { T::template erase_from<Pool>(p, k) } -> std::same_as<bool>;
 };
 
 /// Binary crit-bit-Patricia-Traversal-Organ. Navigiert + transformiert ausschliesslich ueber die Pool-API.
@@ -50,14 +50,20 @@ struct HotPatriciaTraversalOrgan {
 
     template <class Pool>
     static void link_parent(Pool& p, std::size_t parent, unsigned parent_dir, std::size_t new_ref) {
-        if (parent == Pool::kNil) p.set_root(new_ref);
-        else                      p.set_child(parent, parent_dir, new_ref);
+        if (parent == Pool::kNil)
+            p.set_root(new_ref);
+        else
+            p.set_child(parent, parent_dir, new_ref);
     }
 
     template <class Pool>
     static void insert_into(Pool& p, typename Pool::key_type key, typename Pool::value_type value) {
         std::size_t const NIL = Pool::kNil;
-        if (p.root() == NIL) { p.set_root(p.new_leaf(key, value)); p.inc_size(); return; }
+        if (p.root() == NIL) {
+            p.set_root(p.new_leaf(key, value));
+            p.inc_size();
+            return;
+        }
 
         // Phase 1: Leaf-Descent OHNE Zwischenvergleich (Patricia ueberspringt nicht-diskriminative Bits).
         std::size_t ref = p.root();
@@ -65,22 +71,27 @@ struct HotPatriciaTraversalOrgan {
 
         // Phase 2: Kandidat-Pruefung (a==b-Schutz vor first_diff_bit).
         typename Pool::key_type const ek = p.leaf_key(ref);
-        if (ek == key) { p.set_leaf_value(ref, value); return; }   // Update, KEIN inc_size
+        if (ek == key) {
+            p.set_leaf_value(ref, value);
+            return;
+        } // Update, KEIN inc_size
 
-        unsigned const newbit = first_diff_bit(ek, key);           // garantiert 0..63
+        unsigned const newbit = first_diff_bit(ek, key); // garantiert 0..63
 
         // Phase 3: Re-Descent, Einfuegepunkt suchen (STRIKT `<` — siehe I2).
-        std::size_t parent = NIL;
+        std::size_t parent     = NIL;
         unsigned    parent_dir = 0;
-        ref = p.root();
+        ref                    = p.root();
         while (!p.is_leaf(ref) && p.crit_bit(ref) < newbit) {
-            parent = ref; parent_dir = dir(key, p.crit_bit(ref)); ref = p.child(ref, parent_dir);
+            parent     = ref;
+            parent_dir = dir(key, p.crit_bit(ref));
+            ref        = p.child(ref, parent_dir);
         }
 
         // Internal einziehen: bisheriger Teilbaum `ref` auf Seite (1-nd), neuer Leaf auf Seite nd.
-        unsigned const nd = dir(key, newbit);
+        unsigned const    nd      = dir(key, newbit);
         std::size_t const newleaf = p.new_leaf(key, value);
-        std::size_t const newint  = (nd == 1U) ? p.new_internal(newbit, /*c0=*/ref,     /*c1=*/newleaf)
+        std::size_t const newint  = (nd == 1U) ? p.new_internal(newbit, /*c0=*/ref, /*c1=*/newleaf)
                                                : p.new_internal(newbit, /*c0=*/newleaf, /*c1=*/ref);
         link_parent(p, parent, parent_dir, newint);
         p.inc_size();
@@ -89,40 +100,51 @@ struct HotPatriciaTraversalOrgan {
     template <class Pool>
     static std::optional<typename Pool::value_type> lookup_in(Pool const& p, typename Pool::key_type key) {
         std::size_t const NIL = Pool::kNil;
-        std::size_t ref = p.root();
+        std::size_t       ref = p.root();
         if (ref == NIL) return std::nullopt;
         while (!p.is_leaf(ref)) ref = p.child(ref, dir(key, p.crit_bit(ref)));
         return (p.leaf_key(ref) == key) ? std::optional<typename Pool::value_type>{p.leaf_value(ref)}
-                                        : std::nullopt;   // EIN voller Full-Key-Vergleich, zwingend (Kandidat!)
+                                        : std::nullopt; // EIN voller Full-Key-Vergleich, zwingend (Kandidat!)
     }
 
     template <class Pool>
     static bool erase_from(Pool& p, typename Pool::key_type key) {
         std::size_t const NIL = Pool::kNil;
-        std::size_t ref = p.root();
+        std::size_t       ref = p.root();
         if (ref == NIL) return false;
 
         // Sonderfall: Wurzel ist Leaf (Einzel-Element).
         if (p.is_leaf(ref)) {
             if (p.leaf_key(ref) != key) return false;
-            p.free_node(ref); p.set_root(NIL); p.dec_size(); return true;
+            p.free_node(ref);
+            p.set_root(NIL);
+            p.dec_size();
+            return true;
         }
 
         // Descent mit grandparent/parent/dir-Tracking.
-        std::size_t gp = NIL;  unsigned gp_dir = 0;
-        std::size_t par = ref; unsigned par_dir = dir(key, p.crit_bit(ref));
-        std::size_t cur = p.child(ref, par_dir);
+        std::size_t gp      = NIL;
+        unsigned    gp_dir  = 0;
+        std::size_t par     = ref;
+        unsigned    par_dir = dir(key, p.crit_bit(ref));
+        std::size_t cur     = p.child(ref, par_dir);
         while (!p.is_leaf(cur)) {
-            gp = par; gp_dir = par_dir;
-            par = cur; par_dir = dir(key, p.crit_bit(cur)); cur = p.child(cur, par_dir);
+            gp      = par;
+            gp_dir  = par_dir;
+            par     = cur;
+            par_dir = dir(key, p.crit_bit(cur));
+            cur     = p.child(cur, par_dir);
         }
         if (p.leaf_key(cur) != key) return false;
 
         // Collapse: par hat GENAU 2 Kinder (I1) -> Geschwister-Kind ersetzt par.
         std::size_t const sibling = p.child(par, 1U - par_dir);
-        if (gp == NIL) p.set_root(sibling);                 // par IST root
-        else           p.set_child(gp, gp_dir, sibling);
-        p.free_node(cur); p.free_node(par);                 // Doppel-free (Leaf + kollabierter Internal)
+        if (gp == NIL)
+            p.set_root(sibling); // par IST root
+        else
+            p.set_child(gp, gp_dir, sibling);
+        p.free_node(cur);
+        p.free_node(par); // Doppel-free (Leaf + kollabierter Internal)
         p.dec_size();
         return true;
     }
@@ -131,4 +153,4 @@ struct HotPatriciaTraversalOrgan {
 // Selbstbeweis: HotPatriciaTraversalOrgan erfuellt das HotPatriciaTraversal-Concept ueber dem Pilot-Pool.
 static_assert(HotPatriciaTraversal<HotPatriciaTraversalOrgan, HotPatriciaNodePoolStore>);
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

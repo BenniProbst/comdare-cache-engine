@@ -11,10 +11,10 @@
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §29.2 + §32.3
 // @related [[anatomie-gattungen]] [[gattungs-constraint-pruefling-merge]]
 
-#include "anatomy_base.hpp"       // AnatomyGenus
-#include "view_composition.hpp"   // ViewComposition / IsViewComposition / Layout/Accessor/Extent-Policies
-#include "view_anatomy.hpp"       // ViewAnatomy
-#include "pruefling_merge.hpp"    // PrueflingSlotConcept / IsSlotOfGenus_v
+#include "anatomy_base.hpp"     // AnatomyGenus
+#include "view_composition.hpp" // ViewComposition / IsViewComposition / Layout/Accessor/Extent-Policies
+#include "view_anatomy.hpp"     // ViewAnatomy
+#include "pruefling_merge.hpp"  // PrueflingSlotConcept / IsSlotOfGenus_v
 
 #include <src/permutations/permutation_engine.hpp>
 
@@ -28,14 +28,15 @@ namespace pf = ::comdare::cache_engine::anatomy::pruefling;
 
 // ── (1) Composition-Factory: PermTuple<V0..V6> → ViewComposition (View-Gattungs-Arität = 7) ──
 namespace detail {
-template <class PermT> struct ViewCompositionFromPermTupleImpl;
+template <class PermT>
+struct ViewCompositionFromPermTupleImpl;
 template <template <class...> class PermTupleTmpl, class... Vs>
 struct ViewCompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
     static_assert(sizeof...(Vs) == 7,
-        "View-PermTuple muss exakt 7 Achsen-Werte enthalten (4 geteilte + extent/layout/accessor).");
+                  "View-PermTuple muss exakt 7 Achsen-Werte enthalten (4 geteilte + extent/layout/accessor).");
     using type = ViewComposition<Vs...>;
 };
-}  // namespace detail
+} // namespace detail
 
 /// ViewCompositionFromPermTuple<PermT> — materialisiert eine ViewComposition aus einem 7-Slot-PermTuple.
 template <class PermT>
@@ -50,7 +51,7 @@ class ViewPermutationEngine {
 
 public:
     static constexpr AnatomyGenus genus = AnatomyGenus::View;
-    using all_permutations = typename Engine::AllPermutations;
+    using all_permutations              = typename Engine::AllPermutations;
 
     [[nodiscard]] static constexpr std::size_t count() noexcept { return Engine::count(); }
     [[nodiscard]] static constexpr std::size_t arity() noexcept { return Engine::arity; }
@@ -71,7 +72,7 @@ public:
     /// for_each_view — iteriert über alle Permutationen, instantiiert ViewAnatomy<ViewComp> + Visitor(anatomy, name).
     template <class Visitor>
     static constexpr void for_each_view(Visitor&& v) {
-        Engine::for_each_permutation([&]<class P>(){
+        Engine::for_each_permutation([&]<class P>() {
             using ViewComp = ViewCompositionFromPermTuple<P>;
             ViewAnatomy<ViewComp> anatomy;
             std::forward<Visitor>(v)(anatomy, ViewComp::name);
@@ -81,11 +82,11 @@ public:
     /// for_each_composition_type — Compile-Time-Visitor pro View-Composition-Type (für CacheEngineBuilder-Codegen).
     template <class Visitor>
     static constexpr void for_each_composition_type(Visitor&& v) {
-        Engine::for_each_permutation([&]<class P>(){
+        Engine::for_each_permutation([&]<class P>() {
             using ViewComp = ViewCompositionFromPermTuple<P>;
             std::forward<Visitor>(v).template operator()<ViewComp>();
         });
     }
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

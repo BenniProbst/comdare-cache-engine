@@ -59,12 +59,12 @@ namespace comdare::cache_engine::builder::cacheline_policy {
 // Heuristik bildet daraus ausschließlich Brüche, daher ist die absolute Skala irrelevant.
 // ─────────────────────────────────────────────────────────────────────────────
 struct WorkloadProfileAggregate {
-    std::uint64_t op_insert_n  = 0;   // axis_03a/value_handle (Schreib-Pfad)
-    std::uint64_t op_lookup_n  = 0;   // Punkt-Lese-Pfad
-    std::uint64_t op_erase_n   = 0;   // Schreib-Pfad (Punkt)
-    std::uint64_t op_scan_n    = 0;   // Range/sequenziell (axis_03a traversal, prefetch-affin)
-    std::uint64_t op_rmw_n     = 0;   // Read-Modify-Write (sequenziell, schreib-affin)
-    std::uint64_t working_set_n = 0;  // Anzahl Records bzw. key-range-Breite (axis_06 Arena / axis_03a Batch)
+    std::uint64_t op_insert_n   = 0; // axis_03a/value_handle (Schreib-Pfad)
+    std::uint64_t op_lookup_n   = 0; // Punkt-Lese-Pfad
+    std::uint64_t op_erase_n    = 0; // Schreib-Pfad (Punkt)
+    std::uint64_t op_scan_n     = 0; // Range/sequenziell (axis_03a traversal, prefetch-affin)
+    std::uint64_t op_rmw_n      = 0; // Read-Modify-Write (sequenziell, schreib-affin)
+    std::uint64_t working_set_n = 0; // Anzahl Records bzw. key-range-Breite (axis_06 Arena / axis_03a Batch)
 
     /// Summe aller op-Zählwerte (Normierungs-Basis). 0 → leeres Profil (Heuristik setzt dann nichts).
     [[nodiscard]] constexpr std::uint64_t op_total() const noexcept {
@@ -87,13 +87,14 @@ struct WorkloadProfileAggregate {
 
     /// Aus den Anteils-Brüchen (z.B. WorkloadConfig.pct_*) + num_operations ein Aggregat bauen.
     /// num_operations skaliert die Brüche auf Zählwerte; die Heuristik nutzt nur die Verhältnisse.
-    [[nodiscard]] static constexpr WorkloadProfileAggregate from_shares(
-        double pct_insert, double pct_lookup, double pct_erase, double pct_scan, double pct_rmw,
-        std::uint64_t num_operations, std::uint64_t working_set) noexcept {
+    [[nodiscard]] static constexpr WorkloadProfileAggregate from_shares(double pct_insert, double pct_lookup,
+                                                                        double pct_erase, double pct_scan,
+                                                                        double pct_rmw, std::uint64_t num_operations,
+                                                                        std::uint64_t working_set) noexcept {
         auto q = [num_operations](double p) -> std::uint64_t {
             if (p <= 0.0) return 0;
             double v = p * static_cast<double>(num_operations);
-            return v < 0.0 ? 0u : static_cast<std::uint64_t>(v + 0.5);  // round-to-nearest
+            return v < 0.0 ? 0u : static_cast<std::uint64_t>(v + 0.5); // round-to-nearest
         };
         WorkloadProfileAggregate a{};
         a.op_insert_n   = q(pct_insert);
@@ -112,20 +113,20 @@ struct WorkloadProfileAggregate {
 //   Die Caps (64/64/1 GiB/4096/256) liegen im Tier (abi_adapter.hpp:177-186); die Heuristik darf
 //   ungeklammert wünschen — clamp() im Prüf-Dock erzwingt die Cap-/Env-Grenze.
 // ─────────────────────────────────────────────────────────────────────────────
-inline constexpr std::uint64_t kHwCacheLineBytes = 64;   // HW-Linie (Quelle hw_cache_line)
+inline constexpr std::uint64_t kHwCacheLineBytes = 64; // HW-Linie (Quelle hw_cache_line)
 
 // Schwellen für die scan/punkt/gemischt-Klassifikation (rein über scan_share; transparent).
-inline constexpr double kScanHeavyThreshold = 0.50;  // ≥ 50 % sequenziell ⇒ scan-lastig
-inline constexpr double kScanMixedThreshold = 0.10;  // 10–50 % ⇒ gemischt; < 10 % ⇒ punkt-lastig
+inline constexpr double kScanHeavyThreshold = 0.50; // ≥ 50 % sequenziell ⇒ scan-lastig
+inline constexpr double kScanMixedThreshold = 0.10; // 10–50 % ⇒ gemischt; < 10 % ⇒ punkt-lastig
 
 // Prefetch-Distanz-Stützstellen (Cache-Lines, Zweier-Potenzen unter Cap 64; monoton mit scan_share).
-inline constexpr std::uint64_t kPrefetchScan  = 16;  // tiefer Prefetch-Strom für Range-Scan
+inline constexpr std::uint64_t kPrefetchScan  = 16; // tiefer Prefetch-Strom für Range-Scan
 inline constexpr std::uint64_t kPrefetchMixed = 8;
-inline constexpr std::uint64_t kPrefetchPoint = 2;   // flach — Pointer-Chase profitiert kaum
+inline constexpr std::uint64_t kPrefetchPoint = 2; // flach — Pointer-Chase profitiert kaum
 
 // inline_threshold-Stützstellen (Bytes; Teiler/Vielfache der HW-Linie, unter Cap 256).
-inline constexpr std::uint64_t kInlineWrite = 64;    // bis 1 Cache-Line inline (Schreib-Pfad)
-inline constexpr std::uint64_t kInlineRead  = 16;    // kleinere Schwelle bei Lese-Dominanz
+inline constexpr std::uint64_t kInlineWrite         = 64; // bis 1 Cache-Line inline (Schreib-Pfad)
+inline constexpr std::uint64_t kInlineRead          = 16; // kleinere Schwelle bei Lese-Dominanz
 inline constexpr double        kWriteHeavyThreshold = 0.50;
 
 // pool_budget: angenommene Record-Größe = 1 HW-Linie (transparent, linear in ws).
@@ -141,31 +142,29 @@ struct ScanOptimizing {
     [[nodiscard]] static constexpr anatomy::ComdareResourceControlV1
     derive(WorkloadProfileAggregate const& a) noexcept {
         anatomy::ComdareResourceControlV1 d{};
-        double const scan = a.scan_share();
-        double const wr   = a.write_share();
-        std::uint64_t const ws = a.working_set_n;
+        double const                      scan = a.scan_share();
+        double const                      wr   = a.write_share();
+        std::uint64_t const               ws   = a.working_set_n;
 
         // (1) prefetch_distance (Cache-Lines) — monoton mit scan_share.
-        d.prefetch_distance = (scan >= kScanHeavyThreshold) ? kPrefetchScan
-                            : (scan >= kScanMixedThreshold) ? kPrefetchMixed
-                                                            : kPrefetchPoint;
+        d.prefetch_distance = (scan >= kScanHeavyThreshold)   ? kPrefetchScan
+                              : (scan >= kScanMixedThreshold) ? kPrefetchMixed
+                                                              : kPrefetchPoint;
 
         // (2) batch_size — Working-Set-Achse (axis_03a). scan: großer Batch (ws); gemischt: ws/4;
         //     punkt: 1 HW-Linie (kHwCacheLineBytes als Elementzahl). clamp im Prüf-Dock kappt an Cap 4096.
         if (ws == 0) {
-            d.batch_size = 0;  // kein Working-Set bekannt → nicht setzen (Default beibehalten)
+            d.batch_size = 0; // kein Working-Set bekannt → nicht setzen (Default beibehalten)
         } else if (scan >= kScanHeavyThreshold) {
             d.batch_size = ws;
         } else if (scan >= kScanMixedThreshold) {
             d.batch_size = std::max<std::uint64_t>(ws / 4, 1);
         } else {
-            d.batch_size = kHwCacheLineBytes;  // kleiner Batch — eine Cache-Line je Punkt-Op
+            d.batch_size = kHwCacheLineBytes; // kleiner Batch — eine Cache-Line je Punkt-Op
         }
 
         // (3) pool_budget_bytes — linear: ws * Record-Größe (Default 1 HW-Linie). clamp kappt an 1 GiB.
-        if (ws != 0) {
-            d.pool_budget_bytes = ws * kApproxRecordBytes;
-        }
+        if (ws != 0) { d.pool_budget_bytes = ws * kApproxRecordBytes; }
 
         // (4) inline_threshold_bytes — write-lastig → 1 Cache-Line inline; sonst kleinere Schwelle.
         d.inline_threshold_bytes = (wr >= kWriteHeavyThreshold) ? kInlineWrite : kInlineRead;
@@ -173,7 +172,7 @@ struct ScanOptimizing {
         // (5) thread_count — ehrlich 0 (Default), solange kein Nebenläufigkeits-Signal vorliegt.
         d.thread_count = 0;
 
-        d.controllable_axis_count = 0;  // Meta: Host/Tier füllt; vom Selektor nicht gesetzt.
+        d.controllable_axis_count = 0; // Meta: Host/Tier füllt; vom Selektor nicht gesetzt.
         return d;
     }
 };
@@ -183,9 +182,9 @@ struct LatencyOptimizing {
     derive(WorkloadProfileAggregate const& a) noexcept {
         // Start von der scan-optimierenden Regel, dann latenz-betont nach unten ziehen:
         // gemischte Last wird wie punkt-lastig behandelt (flacher Prefetch, kleiner Batch).
-        anatomy::ComdareResourceControlV1 d = ScanOptimizing::derive(a);
-        double const scan = a.scan_share();
-        if (scan < kScanHeavyThreshold) {                 // alles unter „echt scan-lastig" → Punkt-Profil
+        anatomy::ComdareResourceControlV1 d    = ScanOptimizing::derive(a);
+        double const                      scan = a.scan_share();
+        if (scan < kScanHeavyThreshold) { // alles unter „echt scan-lastig" → Punkt-Profil
             d.prefetch_distance = kPrefetchPoint;
             if (a.working_set_n != 0) d.batch_size = kHwCacheLineBytes;
         }
@@ -207,14 +206,12 @@ public:
         : env_limits_(env_limits) {}
 
     /// Reine Heuristik: Profil → gewünschte (ungeklammerte) Steuerung. constexpr/zero-cost.
-    [[nodiscard]] constexpr anatomy::ComdareResourceControlV1
-    select(WorkloadProfileAggregate const& a) const noexcept {
+    [[nodiscard]] constexpr anatomy::ComdareResourceControlV1 select(WorkloadProfileAggregate const& a) const noexcept {
         return Objective::derive(a);
     }
 
     /// Baut den Controller (desired = select(a), env_limits = gesetzte System-Grenzen).
-    [[nodiscard]] constexpr AlgorithmResourceControl
-    make_control(WorkloadProfileAggregate const& a) const noexcept {
+    [[nodiscard]] constexpr AlgorithmResourceControl make_control(WorkloadProfileAggregate const& a) const noexcept {
         AlgorithmResourceControl c{};
         c.desired    = select(a);
         c.env_limits = env_limits_;
@@ -223,8 +220,8 @@ public:
 
     /// Wendet die abgeleitete Steuerung am Prüf-Dock an (clamp gegen tier-caps + env). tier==nullptr → 0.
     /// Liefert die Zahl real angenommener Achsen (≤ controllable_axis_count des Tiers).
-    [[nodiscard]] std::uint64_t
-    apply(WorkloadProfileAggregate const& a, anatomy::IResourceControllableTier* tier) const noexcept {
+    [[nodiscard]] std::uint64_t apply(WorkloadProfileAggregate const&     a,
+                                      anatomy::IResourceControllableTier* tier) const noexcept {
         return make_control(a).apply_to(tier);
     }
 
@@ -232,7 +229,7 @@ public:
     void set_env_limits(anatomy::ComdareResourceControlV1 e) noexcept { env_limits_ = e; }
 
 private:
-    anatomy::ComdareResourceControlV1 env_limits_{};  // 0 = keine zusätzliche Env-Grenze
+    anatomy::ComdareResourceControlV1 env_limits_{}; // 0 = keine zusätzliche Env-Grenze
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -251,21 +248,20 @@ namespace detail {
 [[nodiscard]] inline std::string extract_search_algo(std::string_view binary_id) {
     // binary_id-Form: "search_algo=<name>/<weitere achsen>". Token bis zum ersten '/'.
     constexpr std::string_view key = "search_algo=";
-    auto pos = binary_id.find(key);
+    auto                       pos = binary_id.find(key);
     if (pos == std::string_view::npos) return std::string(binary_id);
     auto start = pos + key.size();
     auto slash = binary_id.find('/', start);
-    return std::string(binary_id.substr(start, slash == std::string_view::npos ? std::string_view::npos
-                                                                               : slash - start));
+    return std::string(
+        binary_id.substr(start, slash == std::string_view::npos ? std::string_view::npos : slash - start));
 }
 
-}  // namespace detail
+} // namespace detail
 
 /// Aggregiert eine WIDE-Mess-CSV je search_algo. Gibt Anzahl gelesener Datenzeilen zurück, -1 bei Fehler.
 /// out wird (search_algo → WorkloadProfileAggregate) gefüllt: op-Zählwerte summiert, working_set_n gemittelt.
-[[nodiscard]] inline int
-aggregate_csv_by_search_algo(std::filesystem::path const& csv,
-                             std::map<std::string, WorkloadProfileAggregate>& out) {
+[[nodiscard]] inline int aggregate_csv_by_search_algo(std::filesystem::path const&                     csv,
+                                                      std::map<std::string, WorkloadProfileAggregate>& out) {
     std::ifstream in(csv);
     if (!in) return -1;
     std::string header_line;
@@ -275,63 +271,63 @@ aggregate_csv_by_search_algo(std::filesystem::path const& csv,
     std::map<std::string, std::size_t> col;
     {
         std::stringstream hs(header_line);
-        std::string field;
-        std::size_t idx = 0;
+        std::string       field;
+        std::size_t       idx = 0;
         while (std::getline(hs, field, ';')) col[field] = idx++;
     }
     auto need = [&](char const* name) -> long {
         auto it = col.find(name);
         return it == col.end() ? -1L : static_cast<long>(it->second);
     };
-    long ci_bin    = need("binary_id");
-    long ci_ins    = need("op_insert_n");
-    long ci_lk     = need("op_lookup_n");
-    long ci_er     = need("op_erase_n");
-    long ci_sc     = need("op_scan_n");
-    long ci_rmw    = need("op_rmw_n");
-    long ci_ws     = need("working_set_n");
-    if (ci_bin < 0 || ci_ins < 0 || ci_lk < 0 || ci_er < 0 || ci_sc < 0 || ci_rmw < 0 || ci_ws < 0)
-        return -1;
+    long ci_bin = need("binary_id");
+    long ci_ins = need("op_insert_n");
+    long ci_lk  = need("op_lookup_n");
+    long ci_er  = need("op_erase_n");
+    long ci_sc  = need("op_scan_n");
+    long ci_rmw = need("op_rmw_n");
+    long ci_ws  = need("working_set_n");
+    if (ci_bin < 0 || ci_ins < 0 || ci_lk < 0 || ci_er < 0 || ci_sc < 0 || ci_rmw < 0 || ci_ws < 0) return -1;
 
     std::map<std::string, std::uint64_t> ws_sum, ws_cnt;
-    int rows = 0;
-    std::string line;
+    int                                  rows = 0;
+    std::string                          line;
     while (std::getline(in, line)) {
         if (line.empty()) continue;
         std::vector<std::string> cells;
         cells.reserve(col.size());
         std::stringstream ls(line);
-        std::string cell;
+        std::string       cell;
         while (std::getline(ls, cell, ';')) cells.push_back(cell);
         auto at = [&](long i) -> std::string const& {
             static std::string const empty;
-            return (i >= 0 && static_cast<std::size_t>(i) < cells.size()) ? cells[static_cast<std::size_t>(i)]
-                                                                          : empty;
+            return (i >= 0 && static_cast<std::size_t>(i) < cells.size()) ? cells[static_cast<std::size_t>(i)] : empty;
         };
         auto to_u64 = [](std::string const& s) -> std::uint64_t {
             if (s.empty()) return 0;
-            try { return static_cast<std::uint64_t>(std::stoull(s)); } catch (...) { return 0; }
+            try {
+                return static_cast<std::uint64_t>(std::stoull(s));
+            } catch (...) { return 0; }
         };
 
-        std::string algo = detail::extract_search_algo(at(ci_bin));
-        WorkloadProfileAggregate& a = out[algo];
+        std::string               algo = detail::extract_search_algo(at(ci_bin));
+        WorkloadProfileAggregate& a    = out[algo];
         a.op_insert_n += to_u64(at(ci_ins));
         a.op_lookup_n += to_u64(at(ci_lk));
-        a.op_erase_n  += to_u64(at(ci_er));
-        a.op_scan_n   += to_u64(at(ci_sc));
-        a.op_rmw_n    += to_u64(at(ci_rmw));
-        ws_sum[algo]  += to_u64(at(ci_ws));
-        ws_cnt[algo]  += 1;
+        a.op_erase_n += to_u64(at(ci_er));
+        a.op_scan_n += to_u64(at(ci_sc));
+        a.op_rmw_n += to_u64(at(ci_rmw));
+        ws_sum[algo] += to_u64(at(ci_ws));
+        ws_cnt[algo] += 1;
         ++rows;
     }
     // working_set_n je Gruppe mitteln.
     for (auto& [algo, agg] : out) {
-        auto c = ws_cnt[algo];
+        auto c            = ws_cnt[algo];
         agg.working_set_n = (c == 0) ? 0 : (ws_sum[algo] / c);
     }
     return rows;
 }
 
-}  // namespace comdare::cache_engine::builder::cacheline_policy
+} // namespace comdare::cache_engine::builder::cacheline_policy
 
-#endif  // COMDARE_CACHE_ENGINE_CACHELINE_POLICY_SELECTOR_HPP
+#endif // COMDARE_CACHE_ENGINE_CACHELINE_POLICY_SELECTOR_HPP

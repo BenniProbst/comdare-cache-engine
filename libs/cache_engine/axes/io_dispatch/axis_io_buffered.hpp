@@ -26,9 +26,11 @@ public:
     static constexpr bool enabled = flags::buffered_enabled;
 
     [[nodiscard]] static constexpr bool             is_in_memory_only() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()              noexcept { return "io_buffered"; }
-    [[nodiscard]] static constexpr std::string_view family_name()       noexcept { return "BufferedIo (OS page-cache, read-ahead + write-back, default)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()       noexcept { return "BUFFERED"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "io_buffered"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "BufferedIo (OS page-cache, read-ahead + write-back, default)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "BUFFERED"; }
 
     // V41.F.6.1 R5.B / T14 — verhaltens-tragende Mess-Op der io_dispatch-Achse (Pfad-A, F15-operativ).
     // EHRLICHKEIT: reine IN-MEMORY-Dispatch-SIMULATION, KEIN echtes IO. Die Op exerziert das
@@ -41,23 +43,23 @@ public:
     [[nodiscard]] static std::uint64_t io_dispatch_scan(unsigned char const* buf, std::size_t n,
                                                         std::size_t record_size) noexcept {
         constexpr std::size_t kPageSize = 4096;
-        std::uint64_t s = 0;
+        std::uint64_t         s         = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::size_t const offset = i * record_size;
-            std::uint32_t v;
-            std::memcpy(&v, buf + offset, sizeof(v));   // buffered: read via OS-Page-Cache (simuliert)
+            std::uint32_t     v;
+            std::memcpy(&v, buf + offset, sizeof(v)); // buffered: read via OS-Page-Cache (simuliert)
             // Page-Cache-Buchhaltung: Page-Grenz-Check (read-ahead/write-back-Pfad)
             std::size_t const page_start = offset / kPageSize;
             std::size_t const page_end   = (offset + sizeof(v) - 1) / kPageSize;
-            s += v + (page_end - page_start);           // page-crossing -> zusaetzlicher Page-Touch
+            s += v + (page_end - page_start); // page-crossing -> zusaetzlicher Page-Touch
         }
         return s;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::io_dispatch
 
 namespace comdare::cache_engine::io_dispatch {
-    static_assert(concepts::IoStrategy<BufferedIo>);
-    static_assert(concepts::CacheEnginePermutationStrategy<BufferedIo>);
-}
+static_assert(concepts::IoStrategy<BufferedIo>);
+static_assert(concepts::CacheEnginePermutationStrategy<BufferedIo>);
+} // namespace comdare::cache_engine::io_dispatch

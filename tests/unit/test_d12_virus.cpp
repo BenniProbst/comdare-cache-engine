@@ -13,20 +13,31 @@ namespace cv  = comdare::cache_engine::virus;
 namespace eng = comdare::cache_engine::execution_engine;
 
 static int g_fail = 0;
-template <class A, class B> static void eq(char const* w, A const& g, B const& e) {
-    bool ok = (g == e); std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
-    if (!ok) { std::cout << " (erwartet " << e << ")"; ++g_fail; } std::cout << "\n"; }
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+template <class A, class B>
+static void eq(char const* w, A const& g, B const& e) {
+    bool ok = (g == e);
+    std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
+    if (!ok) {
+        std::cout << " (erwartet " << e << ")";
+        ++g_fail;
+    }
+    std::cout << "\n";
+}
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 int main() {
     std::cout << "==== D12 GraphBfs als Virus (IVirusExecutionEngine) ====\n";
-    cv::GraphBfs bfs;
-    eng::IVirusExecutionEngine* v = &bfs;   // über die Virus-Wurzel
-    eng::IExecutionEngine*      e = &bfs;   // über die gemeinsame Wurzel
+    cv::GraphBfs                bfs;
+    eng::IVirusExecutionEngine* v = &bfs; // über die Virus-Wurzel
+    eng::IExecutionEngine*      e = &bfs; // über die gemeinsame Wurzel
     tr("engine_kind() == Virus (Nicht-Lebewesen)", e->engine_kind() == eng::ExecutionEngineKind::Virus);
     eq("engine_name == GraphBFS", std::string{e->engine_name()}, std::string{"GraphBFS"});
     eq("algorithm_family == GraphBFS", std::string{v->algorithm_family()}, std::string{"GraphBFS"});
-    e->warm_up(); e->run();
+    e->warm_up();
+    e->run();
     tr("lifecycle Running", e->lifecycle_state() == eng::EngineLifecycleState::Running);
 
     std::cout << "\n==== D12 ECHTE BFS-Korrektheit (CSR-Referenzgraph) ====\n";

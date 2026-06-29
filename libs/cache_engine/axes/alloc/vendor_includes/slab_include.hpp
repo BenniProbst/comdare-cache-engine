@@ -11,13 +11,13 @@
 #if COMDARE_AXIS_06_USE_SLAB
 // Userland-Slab-Implementation (z.B. tbb::scalable_allocator oder umem.h vom OpenSolaris).
 // Pragmatisch: ext/A02-slab/slab.h definiert die API.
-#  include <slab.h>
+#include <slab.h>
 #else
 // Forward-Stubs fuer if constexpr (false)-Zweig
 extern "C" {
-    inline void* slab_alloc(std::size_t /*size*/, std::size_t /*alignment*/) noexcept { return nullptr; }
-    inline void  slab_free(void* /*p*/, std::size_t /*size*/) noexcept {}
-    inline void* slab_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
-    inline void* slab_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
+inline void* slab_alloc(std::size_t /*size*/, std::size_t /*alignment*/) noexcept { return nullptr; }
+inline void  slab_free(void* /*p*/, std::size_t /*size*/) noexcept {}
+inline void* slab_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
+inline void* slab_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
 }
 #endif

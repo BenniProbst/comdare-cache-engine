@@ -6,10 +6,10 @@
 // Achsen-Belegung = Art-Default-Permutation (wie auto_emitted_perm_module.cpp); Build-Achsen = DenseByte/Avx512/X86_64.
 // Baut im CMake-Kontext (all_axes_umbrella braucht generierte flags.hpp-Dirs + Boost::mp11). cl /LD /DCOMDARE_ANATOMY_MODULE_BUILD.
 
-#include <cache_engine/abi/anatomy_module_abi_v1.hpp>          // COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT
-#include <builder/codegen/all_axes_umbrella.hpp>               // die 17 SearchAlgorithm-Achsen-Typen
-#include <topics/nodes/axis_01_page_type/axis_01_page_type_dense_byte.hpp>          // PT
-#include <topics/hardware/axis_09b_simd_extension/axis_09b_simd_extension_avx512.hpp> // SE
+#include <cache_engine/abi/anatomy_module_abi_v1.hpp> // COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT
+#include <builder/codegen/all_axes_umbrella.hpp>      // die 17 SearchAlgorithm-Achsen-Typen
+#include <topics/nodes/axis_01_page_type/axis_01_page_type_dense_byte.hpp>              // PT
+#include <topics/hardware/axis_09b_simd_extension/axis_09b_simd_extension_avx512.hpp>   // SE
 #include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_x86_64.hpp> // HW
 // Doc 30 §8.0: queuing q1/q2 als reguläre SA-Achsen T17/T18 — Durchreich-Defaults NoBuffer/LazyFlush.
 #include <topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp>
@@ -35,8 +35,7 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(
     ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle,
     ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa,
     ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization,
-    ::comdare::cache_engine::io::axis_io::InMemoryOnly,
-    ::comdare::cache_engine::migration::axis_migration::NoMigration,
+    ::comdare::cache_engine::io::axis_io::InMemoryOnly, ::comdare::cache_engine::migration::axis_migration::NoMigration,
     ::comdare::cache_engine::filter::axis_filter::BloomFilter,
     // ── T17/T18 queuing (Doc 30 §8.0): explizit gewählter Durchreich-Algorithmus (kein „weglassen") ──
     ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer,

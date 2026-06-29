@@ -11,10 +11,10 @@
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §29.2 + §32.3
 // @related [[anatomie-gattungen]] [[gattungs-constraint-pruefling-merge]]
 
-#include "anatomy_base.hpp"           // AnatomyGenus
-#include "sequence_composition.hpp"   // SequenceComposition / IsSequenceComposition / DoublingGrowth
-#include "sequence_anatomy.hpp"       // SequenceAnatomy
-#include "pruefling_merge.hpp"        // PrueflingSlotConcept / IsSlotOfGenus_v
+#include "anatomy_base.hpp"         // AnatomyGenus
+#include "sequence_composition.hpp" // SequenceComposition / IsSequenceComposition / DoublingGrowth
+#include "sequence_anatomy.hpp"     // SequenceAnatomy
+#include "pruefling_merge.hpp"      // PrueflingSlotConcept / IsSlotOfGenus_v
 
 #include <src/permutations/permutation_engine.hpp>
 
@@ -28,14 +28,15 @@ namespace pf = ::comdare::cache_engine::anatomy::pruefling;
 
 // ── (1) Composition-Factory: PermTuple<V0..V10> → SequenceComposition (Sequence-Gattungs-Arität = 11) ──
 namespace detail {
-template <class PermT> struct SequenceCompositionFromPermTupleImpl;
+template <class PermT>
+struct SequenceCompositionFromPermTupleImpl;
 template <template <class...> class PermTupleTmpl, class... Vs>
 struct SequenceCompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
     static_assert(sizeof...(Vs) == 11,
-        "Sequence-PermTuple muss exakt 11 Achsen-Werte enthalten (10 geteilte + axis_growth).");
+                  "Sequence-PermTuple muss exakt 11 Achsen-Werte enthalten (10 geteilte + axis_growth).");
     using type = SequenceComposition<Vs...>;
 };
-}  // namespace detail
+} // namespace detail
 
 /// SequenceCompositionFromPermTuple<PermT> — materialisiert eine SequenceComposition aus einem 11-Slot-PermTuple.
 template <class PermT>
@@ -50,7 +51,7 @@ class SequencePermutationEngine {
 
 public:
     static constexpr AnatomyGenus genus = AnatomyGenus::Sequence;
-    using all_permutations = typename Engine::AllPermutations;
+    using all_permutations              = typename Engine::AllPermutations;
 
     [[nodiscard]] static constexpr std::size_t count() noexcept { return Engine::count(); }
     [[nodiscard]] static constexpr std::size_t arity() noexcept { return Engine::arity; }
@@ -71,7 +72,7 @@ public:
     /// for_each_sequence — iteriert über alle Permutationen, instantiiert SequenceAnatomy<SeqComp> + Visitor(anatomy, name).
     template <class Visitor>
     static constexpr void for_each_sequence(Visitor&& v) {
-        Engine::for_each_permutation([&]<class P>(){
+        Engine::for_each_permutation([&]<class P>() {
             using SeqComp = SequenceCompositionFromPermTuple<P>;
             SequenceAnatomy<SeqComp> anatomy;
             std::forward<Visitor>(v)(anatomy, SeqComp::name);
@@ -81,11 +82,11 @@ public:
     /// for_each_composition_type — Compile-Time-Visitor pro Sequence-Composition-Type (für CacheEngineBuilder-Codegen).
     template <class Visitor>
     static constexpr void for_each_composition_type(Visitor&& v) {
-        Engine::for_each_permutation([&]<class P>(){
+        Engine::for_each_permutation([&]<class P>() {
             using SeqComp = SequenceCompositionFromPermTuple<P>;
             std::forward<Visitor>(v).template operator()<SeqComp>();
         });
     }
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

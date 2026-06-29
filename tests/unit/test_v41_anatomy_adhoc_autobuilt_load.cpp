@@ -29,13 +29,13 @@ namespace stats  = ::comdare::cache_engine::builder::commands::stats;
 
 TEST(R5G_AdHocAutoBuilt, AllEmittedPermutationsLoadAsDllsAndMeasure) {
     std::filesystem::path const dir{COMDARE_R5G_AUTOBUILT_DLL_DIR};
-    constexpr std::size_t expected = COMDARE_R5G_AUTOBUILT_COUNT;  // = Pilot-Raum-Permutations-Zahl
+    constexpr std::size_t       expected = COMDARE_R5G_AUTOBUILT_COUNT; // = Pilot-Raum-Permutations-Zahl
 
     std::vector<loader::AnatomyModuleHandle> handles;
-    int const st = loader::AnatomyModuleLoader::load_all(dir, handles);
+    int const                                st = loader::AnatomyModuleLoader::load_all(dir, handles);
     ASSERT_EQ(st, loader::status_ok) << "load_all: " << loader::status_name(st) << " (dir=" << dir << ")";
-    ASSERT_EQ(handles.size(), expected)
-        << "Erwartet " << expected << " auto-gebaute Permutations-DLLs, geladen: " << handles.size();
+    ASSERT_EQ(handles.size(), expected) << "Erwartet " << expected
+                                        << " auto-gebaute Permutations-DLLs, geladen: " << handles.size();
 
     std::size_t measured = 0;
     for (auto& h : handles) {
@@ -49,8 +49,8 @@ TEST(R5G_AdHocAutoBuilt, AllEmittedPermutationsLoadAsDllsAndMeasure) {
         auto* mw = dynamic_cast<ana::IMeasurableWorkload*>(a);
         ASSERT_NE(mw, nullptr);
         std::vector<std::int64_t> samples(5);
-        auto const n = mw->run_workload(/*ops_per_batch=*/500, /*batches=*/5, /*seed=*/7u,
-                                        samples.data(), samples.size());
+        auto const                n =
+            mw->run_workload(/*ops_per_batch=*/500, /*batches=*/5, /*seed=*/7u, samples.data(), samples.size());
         EXPECT_EQ(n, 5u);
         if (n == 5u) ++measured;
     }
@@ -62,20 +62,22 @@ TEST(R5G_AdHocAutoBuilt, AllEmittedPermutationsLoadAsDllsAndMeasure) {
 // Export. Demonstriert die ganze F15-Pipeline auf ECHTEN geladenen Kompositionen (nicht synthetisch).
 // Die R5.G-Pilot-DLLs variieren search_algo (Array256/VectorU8U8/VectorU16U16) → echt vergleichbar.
 TEST(R5G_AdHocAutoBuilt, FullF15DriverOverRealDlls) {
-    std::filesystem::path const dir{COMDARE_R5G_AUTOBUILT_DLL_DIR};
+    std::filesystem::path const              dir{COMDARE_R5G_AUTOBUILT_DLL_DIR};
     std::vector<loader::AnatomyModuleHandle> handles;
     ASSERT_EQ(loader::AnatomyModuleLoader::load_all(dir, handles), loader::status_ok);
     ASSERT_GE(handles.size(), 2u) << "fuer einen Vergleich werden >= 2 DLLs gebraucht.";
 
     // 1) Jede geladene DLL messen (Stufe B) → ExecutionResult. Namen stabil halten (string_view!).
-    std::vector<std::string>          names;     names.reserve(handles.size());
-    std::vector<cmd::ExecutionResult> results;   results.reserve(handles.size());
+    std::vector<std::string> names;
+    names.reserve(handles.size());
+    std::vector<cmd::ExecutionResult> results;
+    results.reserve(handles.size());
     for (std::size_t i = 0; i < handles.size(); ++i) {
         auto* mw = dynamic_cast<ana::IMeasurableWorkload*>(handles[i].anatomy());
         ASSERT_NE(mw, nullptr);
         std::vector<std::int64_t> samples(64);
-        auto const n = mw->run_workload(/*ops_per_batch=*/2000, /*batches=*/64, /*seed=*/11u,
-                                        samples.data(), samples.size());
+        auto const                n =
+            mw->run_workload(/*ops_per_batch=*/2000, /*batches=*/64, /*seed=*/11u, samples.data(), samples.size());
         ASSERT_GE(n, 2u);
         samples.resize(static_cast<std::size_t>(n));
         names.push_back("perm_" + std::to_string(i));
@@ -84,8 +86,8 @@ TEST(R5G_AdHocAutoBuilt, FullF15DriverOverRealDlls) {
 
     // 2) Baseline = results[0]; Kandidaten = Rest. Multi-Compare (Welch + Holm-FWER) + Summary.
     std::vector<cmd::ExecutionResult> candidates(results.begin() + 1, results.end());
-    auto rep = stats::multi_compare_against_baseline(
-        results.front(), std::span<const cmd::ExecutionResult>{candidates}, 0.05);
+    auto                              rep =
+        stats::multi_compare_against_baseline(results.front(), std::span<const cmd::ExecutionResult>{candidates}, 0.05);
     auto sum = stats::summarize(rep);
 
     // 3) Report ist WOHL-GEFORMT (kein bestimmter Verdict — der ist hardware-/last-abhaengig).
@@ -95,7 +97,7 @@ TEST(R5G_AdHocAutoBuilt, FullF15DriverOverRealDlls) {
     EXPECT_GE(sum.win_rate, 0.0);
     EXPECT_LE(sum.win_rate, 1.0);
     for (auto const& c : rep.comparisons) {
-        EXPECT_TRUE(c.welch.valid) << c.name;     // >= 64 Samples pro Gruppe → gueltig
+        EXPECT_TRUE(c.welch.valid) << c.name; // >= 64 Samples pro Gruppe → gueltig
         EXPECT_GE(c.adjusted_p, 0.0);
         EXPECT_LE(c.adjusted_p, 1.0);
     }

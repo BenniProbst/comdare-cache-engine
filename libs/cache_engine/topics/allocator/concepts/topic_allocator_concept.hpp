@@ -49,4 +49,4 @@ concept AllocatorComponent = requires {
     requires std::same_as<typename T::topic_tag, AllocatorTopicTag>;
 };
 
-}  // namespace comdare::cache_engine::allocator::concepts
+} // namespace comdare::cache_engine::allocator::concepts

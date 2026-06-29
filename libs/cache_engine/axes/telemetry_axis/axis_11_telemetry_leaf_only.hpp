@@ -24,14 +24,16 @@ public:
     static constexpr bool enabled = flags::leaf_only_counter_enabled;
 
     [[nodiscard]] static constexpr bool             is_leaf_only() noexcept { return true; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "telemetry_leaf_only_counter"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "LeafOnlyCounter (Kuehn DaMoN 2023 X1, leaf-scope only)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "LEAF_ONLY_COUNTER"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "telemetry_leaf_only_counter"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "LeafOnlyCounter (Kuehn DaMoN 2023 X1, leaf-scope only)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "LEAF_ONLY_COUNTER"; }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::telemetry_axis
 
 namespace comdare::cache_engine::telemetry_axis {
-    static_assert(concepts::TelemetryStrategy<LeafOnlyCounter>);
-    static_assert(concepts::CacheEnginePermutationStrategy<LeafOnlyCounter>);
-}
+static_assert(concepts::TelemetryStrategy<LeafOnlyCounter>);
+static_assert(concepts::CacheEnginePermutationStrategy<LeafOnlyCounter>);
+} // namespace comdare::cache_engine::telemetry_axis

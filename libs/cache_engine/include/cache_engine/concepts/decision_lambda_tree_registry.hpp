@@ -11,20 +11,14 @@ namespace comdare::cache_engine {
 
 class DecisionLambdaTreeRegistry {
 public:
-    void register_module_trees(ModuleId module, AnyDecisionTreeBundle bundle) {
-        trees_per_module_[module] = bundle;
-    }
+    void register_module_trees(ModuleId module, AnyDecisionTreeBundle bundle) { trees_per_module_[module] = bundle; }
 
-    void unregister_module(ModuleId module) noexcept {
-        trees_per_module_.erase(module);
-    }
+    void unregister_module(ModuleId module) noexcept { trees_per_module_.erase(module); }
 
     // Routing nach Event-Typ + Modul-Kontext.
     // Gibt EXECUTE zurueck, falls fuer das Event/Modul kein Tree registriert ist
     // (Defaultverhalten: nicht filtern).
-    [[nodiscard]] Decision dispatch(ModuleId module,
-                                    Event const& event,
-                                    DecisionContext const& ctx) const noexcept {
+    [[nodiscard]] Decision dispatch(ModuleId module, Event const& event, DecisionContext const& ctx) const noexcept {
         auto it = trees_per_module_.find(module);
         if (it == trees_per_module_.end()) return Decision::EXECUTE;
         AnyDecisionTreeBundle const& b = it->second;
@@ -58,27 +52,21 @@ public:
                 return Decision::EXECUTE;
             }
             case EventKind::Write: {
-                if (auto* t = b.coherence_aware_write)
-                    return t->evaluate(static_cast<WriteEvent const&>(event), ctx);
-                if (auto* t = b.concurrency_switch)
-                    return t->evaluate(static_cast<WriteEvent const&>(event), ctx);
+                if (auto* t = b.coherence_aware_write) return t->evaluate(static_cast<WriteEvent const&>(event), ctx);
+                if (auto* t = b.concurrency_switch) return t->evaluate(static_cast<WriteEvent const&>(event), ctx);
                 return Decision::EXECUTE;
             }
             case EventKind::Sampling: {
-                if (auto* t = b.sampling_rate)
-                    return t->evaluate(static_cast<SamplingEvent const&>(event), ctx);
+                if (auto* t = b.sampling_rate) return t->evaluate(static_cast<SamplingEvent const&>(event), ctx);
                 return Decision::EXECUTE;
             }
             case EventKind::ConsolidationBarrier:
             case EventKind::Error:
-            default:
-                return Decision::EXECUTE;
+            default: return Decision::EXECUTE;
         }
     }
 
-    [[nodiscard]] std::size_t module_count() const noexcept {
-        return trees_per_module_.size();
-    }
+    [[nodiscard]] std::size_t module_count() const noexcept { return trees_per_module_.size(); }
 
     [[nodiscard]] bool has_module(ModuleId module) const noexcept {
         return trees_per_module_.find(module) != trees_per_module_.end();
@@ -90,4 +78,4 @@ private:
     std::map<ModuleId, AnyDecisionTreeBundle> trees_per_module_{};
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

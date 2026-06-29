@@ -38,8 +38,8 @@ public:
     // REALE Bitmap. Klassisches Bloom 1970 (k=4 Hash-Funktionen via double-hashing Kirsch/Mitzenmacher 2006).
     // kBytes=8192 (8 KiB) → L1-resident (messneutral: gleiche Cache-Stufe wie der frühere Pseudo-Puffer; die
     // gemessene Probe-Kost = k Bit-Tests bleibt unveraendert). Voll-uint64-Key-Domain (kein 1-Byte-Truncate).
-    static constexpr std::size_t kBitmapBytes = 8192;          // 8 KiB Bitmap → m = 65536 Bit
-    static constexpr std::size_t kHashes      = 4;             // Bloom 1970: k unabhaengige Hash-Funktionen
+    static constexpr std::size_t kBitmapBytes = 8192; // 8 KiB Bitmap → m = 65536 Bit
+    static constexpr std::size_t kHashes      = 4;    // Bloom 1970: k unabhaengige Hash-Funktionen
 
     /// Bit-Positionen-Paar (double-hashing): liefert h1 + i*h2 mod m fuer i=0..k-1.
     [[nodiscard]] static constexpr std::size_t bit_pos_(std::uint64_t key, std::size_t i) noexcept {
@@ -65,16 +65,18 @@ public:
         return true;
     }
 
-    void clear() noexcept { bitmap_.fill(0); }
+    void               clear() noexcept { bitmap_.fill(0); }
     [[nodiscard]] bool operator==(BloomFilter const& o) const noexcept { return bitmap_ == o.bitmap_; }
 
     /// Probe-Multiplizitaet je Query (k Bit-Tests) — ehrlich deklariert fuer hash_probes_total.
     [[nodiscard]] static constexpr std::uint64_t probe_multiplicity() noexcept { return kHashes; }
 
     [[nodiscard]] static constexpr bool             supports_range_query() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "filter_bloom"; }
-    [[nodiscard]] static constexpr std::string_view family_name()          noexcept { return "BloomFilter (Bloom 1970, k-hash bitmap, point-query)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()          noexcept { return "BLOOM"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "filter_bloom"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "BloomFilter (Bloom 1970, k-hash bitmap, point-query)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "BLOOM"; }
 
     // F15-Pfad-A Treibe-Op (Spec §5 T16, Goldstandard analog axis_05 scan_field_sum / axis_10
     // serialize_scan / axis_04 node_find_scan). SYNTHETISCHE Mindest-Op (ehrlich deklariert): es
@@ -87,24 +89,24 @@ public:
     [[nodiscard]] static std::uint64_t filter_probe_scan(unsigned char const* buf, std::size_t n,
                                                          unsigned char const* queries, std::size_t q) noexcept {
         if (n == 0) return 0;
-        constexpr std::size_t kHashes = 4;                 // Bloom 1970: k unabhängige Hash-Funktionen
-        std::size_t const mBits = n * 8u;                  // Pseudo-Bitmap m = n Bytes * 8 Bit
-        std::uint64_t hits = 0;
+        constexpr std::size_t kHashes = 4;      // Bloom 1970: k unabhängige Hash-Funktionen
+        std::size_t const     mBits   = n * 8u; // Pseudo-Bitmap m = n Bytes * 8 Bit
+        std::uint64_t         hits    = 0;
         for (std::size_t i = 0; i < q; ++i) {
-            std::uint32_t const key = queries[i];           // 1 Byte je Query als Schlüssel
+            std::uint32_t const key = queries[i]; // 1 Byte je Query als Schlüssel
             // double-hashing (Kirsch/Mitzenmacher 2006): h1 = FNV-artig, h2 = Rotation
-            std::uint32_t h1 = key * 2654435761u + 0x9E3779B9u;
-            std::uint32_t h2 = (key << 5) ^ (key >> 2) ^ 0x85EBCA6Bu;
-            bool all_set = true;
-            for (std::size_t k = 0; k < kHashes; ++k) {     // k Hash-Positionen prüfen
-                std::size_t const bitpos = (h1 + k * h2) % mBits;
-                unsigned char const byte = buf[bitpos >> 3];
-                if ((byte & (1u << (bitpos & 7u))) == 0) {  // ein 0-Bit → definitiv NICHT enthalten
+            std::uint32_t h1      = key * 2654435761u + 0x9E3779B9u;
+            std::uint32_t h2      = (key << 5) ^ (key >> 2) ^ 0x85EBCA6Bu;
+            bool          all_set = true;
+            for (std::size_t k = 0; k < kHashes; ++k) { // k Hash-Positionen prüfen
+                std::size_t const   bitpos = (h1 + k * h2) % mBits;
+                unsigned char const byte   = buf[bitpos >> 3];
+                if ((byte & (1u << (bitpos & 7u))) == 0) { // ein 0-Bit → definitiv NICHT enthalten
                     all_set = false;
-                    break;                                   // Bloom: früher Abbruch (echte Latenz-Divergenz)
+                    break; // Bloom: früher Abbruch (echte Latenz-Divergenz)
                 }
             }
-            if (all_set) hits += 1u + (key & 7u);           // order-sensitive Akkumulation
+            if (all_set) hits += 1u + (key & 7u); // order-sensitive Akkumulation
         }
         return hits;
     }
@@ -114,9 +116,9 @@ private:
     std::array<unsigned char, kBitmapBytes> bitmap_{};
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::filter_axis
 
 namespace comdare::cache_engine::filter_axis {
-    static_assert(concepts::FilterStrategy<BloomFilter>);
-    static_assert(concepts::CacheEnginePermutationStrategy<BloomFilter>);
-}
+static_assert(concepts::FilterStrategy<BloomFilter>);
+static_assert(concepts::CacheEnginePermutationStrategy<BloomFilter>);
+} // namespace comdare::cache_engine::filter_axis

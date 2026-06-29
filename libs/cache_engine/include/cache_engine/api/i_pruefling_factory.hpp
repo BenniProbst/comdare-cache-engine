@@ -21,9 +21,9 @@ class IPruefling {
 public:
     virtual ~IPruefling() = default;
 
-    [[nodiscard]] virtual std::string_view name() const          = 0;  // z.B. "prt-art"
-    [[nodiscard]] virtual std::string_view version() const       = 0;  // z.B. "0.1.0"
-    [[nodiscard]] virtual std::string_view axes_signature() const = 0;  // z.B. "node=compact,pc=lazy,..."
+    [[nodiscard]] virtual std::string_view name() const           = 0; // z.B. "prt-art"
+    [[nodiscard]] virtual std::string_view version() const        = 0; // z.B. "0.1.0"
+    [[nodiscard]] virtual std::string_view axes_signature() const = 0; // z.B. "node=compact,pc=lazy,..."
 
     // Hot-Path: pro Run die Operation laufen lassen.
     // Returns 0 = ok, sonst Fehler. micros_per_op = Mikrosekunden pro Operation.
@@ -51,12 +51,12 @@ class IPrueflingRegistry {
 public:
     virtual ~IPrueflingRegistry() = default;
 
-    virtual void register_factory(std::unique_ptr<IPrueflingFactory> factory) = 0;
-    [[nodiscard]] virtual std::vector<IPrueflingFactory*> all_factories() = 0;
-    [[nodiscard]] virtual IPrueflingFactory* find(std::string_view pruefling_name) = 0;
+    virtual void register_factory(std::unique_ptr<IPrueflingFactory> factory)                   = 0;
+    [[nodiscard]] virtual std::vector<IPrueflingFactory*> all_factories()                       = 0;
+    [[nodiscard]] virtual IPrueflingFactory*              find(std::string_view pruefling_name) = 0;
 };
 
 // get_pruefling_registry() — konkrete Impl + Accessor in pruefling_registry.hpp
 // (V41.E11 2026-05-29, header-only inline-Singleton).
 
-}  // namespace comdare::cache_engine::api
+} // namespace comdare::cache_engine::api

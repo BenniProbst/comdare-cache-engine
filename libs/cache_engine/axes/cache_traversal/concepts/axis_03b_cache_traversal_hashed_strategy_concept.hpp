@@ -29,11 +29,9 @@ namespace comdare::cache_engine::cache_traversal::concepts {
  *   - load_factor()  — tracked_count() / bucket_count() in [0.0, 1.0]
  */
 template <typename T>
-concept HashedTraversalStrategy =
-    CacheTraversalVariant<T>
-    && requires(T const& tc) {
-        { tc.bucket_count() } noexcept -> std::convertible_to<std::size_t>;
-        { tc.load_factor() } noexcept -> std::convertible_to<double>;
-    };
+concept HashedTraversalStrategy = CacheTraversalVariant<T> && requires(T const& tc) {
+    { tc.bucket_count() } noexcept -> std::convertible_to<std::size_t>;
+    { tc.load_factor() } noexcept -> std::convertible_to<double>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::cache_traversal::concepts

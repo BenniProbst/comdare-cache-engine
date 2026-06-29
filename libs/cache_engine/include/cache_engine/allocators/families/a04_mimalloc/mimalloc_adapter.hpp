@@ -17,9 +17,9 @@
 namespace comdare::cache_engine::allocator::families::a04_mimalloc {
 
 struct MimallocParams {
-    std::size_t page_bytes          = 64 * 1024;       // mimalloc default
-    std::size_t segment_bytes       = 4  * 1024 * 1024; // 4 MiB segment alignment
-    bool        enable_secure_mode  = false;            // smimalloc-variant
+    std::size_t page_bytes           = 64 * 1024;       // mimalloc default
+    std::size_t segment_bytes        = 4 * 1024 * 1024; // 4 MiB segment alignment
+    bool        enable_secure_mode   = false;           // smimalloc-variant
     bool        enable_deferred_free = true;
 };
 
@@ -41,7 +41,7 @@ public:
         void* p = portable_aligned_alloc(alignment, bytes);
         if (p) {
             stats_.total_bytes_allocated.fetch_add(bytes, std::memory_order_relaxed);
-            stats_.total_bytes_in_use    .fetch_add(bytes, std::memory_order_relaxed);
+            stats_.total_bytes_in_use.fetch_add(bytes, std::memory_order_relaxed);
         } else {
             stats_.failure_count.fetch_add(1, std::memory_order_relaxed);
         }
@@ -58,10 +58,10 @@ public:
     [[nodiscard]] AllocationStatistics statistics() const noexcept {
         AllocationStatistics s{};
         s.total_bytes_allocated = stats_.total_bytes_allocated.load(std::memory_order_relaxed);
-        s.total_bytes_in_use     = stats_.total_bytes_in_use   .load(std::memory_order_relaxed);
-        s.allocation_count       = stats_.allocation_count     .load(std::memory_order_relaxed);
-        s.deallocation_count     = stats_.deallocation_count   .load(std::memory_order_relaxed);
-        s.failure_count           = stats_.failure_count       .load(std::memory_order_relaxed);
+        s.total_bytes_in_use    = stats_.total_bytes_in_use.load(std::memory_order_relaxed);
+        s.allocation_count      = stats_.allocation_count.load(std::memory_order_relaxed);
+        s.deallocation_count    = stats_.deallocation_count.load(std::memory_order_relaxed);
+        s.failure_count         = stats_.failure_count.load(std::memory_order_relaxed);
         return s;
     }
 
@@ -73,9 +73,7 @@ public:
     }
 
     void trigger_deferred_free() {
-        if (deferred_free_fn_ && params_.enable_deferred_free) {
-            deferred_free_fn_(deferred_free_data_);
-        }
+        if (deferred_free_fn_ && params_.enable_deferred_free) { deferred_free_fn_(deferred_free_data_); }
     }
 
     [[nodiscard]] MimallocParams const& params() const noexcept { return params_; }
@@ -86,10 +84,10 @@ private:
     // mimalloc-Synchronisation: atomic-counters statt lock (NoLocks-Modell)
     struct AtomicStats {
         std::atomic<std::size_t> total_bytes_allocated{0};
-        std::atomic<std::size_t> total_bytes_in_use    {0};
-        std::atomic<std::size_t> allocation_count      {0};
-        std::atomic<std::size_t> deallocation_count    {0};
-        std::atomic<std::size_t> failure_count          {0};
+        std::atomic<std::size_t> total_bytes_in_use{0};
+        std::atomic<std::size_t> allocation_count{0};
+        std::atomic<std::size_t> deallocation_count{0};
+        std::atomic<std::size_t> failure_count{0};
     } stats_;
 
     DeferredFreeFn deferred_free_fn_   = nullptr;
@@ -98,4 +96,4 @@ private:
 
 static_assert(IAllocationStrategy<MimallocAdapter<>>);
 
-}  // namespace comdare::cache_engine::allocator::families::a04_mimalloc
+} // namespace comdare::cache_engine::allocator::families::a04_mimalloc

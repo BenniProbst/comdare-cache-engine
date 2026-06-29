@@ -16,7 +16,7 @@
 #include <axes/lookup/composable/composable_search.hpp>
 #include <axes/lookup/composable/interpolation_traversal_organ.hpp>
 #include <axes/lookup/composable/galloping_traversal_organ.hpp>
-#include <axes/lookup/composable/k_ary_traversal_organ.hpp>        // #188-4a
+#include <axes/lookup/composable/k_ary_traversal_organ.hpp> // #188-4a
 #include <axes/lookup/composable/observable_composed_search.hpp>
 
 #include <gtest/gtest.h>
@@ -47,49 +47,57 @@ template <class Traversal>
 KvList collect_scan(std::map<std::uint64_t, std::uint64_t> const& data, std::uint64_t start, std::size_t max) {
     cmp::ComposedSearch<Traversal, cmp::RawSlotStore> s;
     for (auto const& kv : data) s.insert(kv.first, kv.second);
-    KvList got;
-    std::size_t const n = s.scan_range(start, max,
-        [&got](std::uint64_t k, std::uint64_t v) { got.emplace_back(k, v); });
-    EXPECT_EQ(n, got.size());   // Rückgabe == Zahl der gesink'ten Records
+    KvList            got;
+    std::size_t const n =
+        s.scan_range(start, max, [&got](std::uint64_t k, std::uint64_t v) { got.emplace_back(k, v); });
+    EXPECT_EQ(n, got.size()); // Rückgabe == Zahl der gesink'ten Records
     return got;
 }
 
 template <class Traversal>
 void expect_matches_oracle(std::map<std::uint64_t, std::uint64_t> const& data) {
     std::uint64_t const starts[] = {0u, 1u, 5u, 50u, 500u, 5000u, 99999u};
-    std::size_t  const maxes[]   = {0u, 1u, 3u, 10u, 1000u};
-    for (auto start : starts) for (auto mx : maxes) {
-        KvList const got  = collect_scan<Traversal>(data, start, mx);
-        KvList const want = oracle_scan(data, start, mx);
-        ASSERT_EQ(got.size(), want.size()) << "start=" << start << " max=" << mx;
-        for (std::size_t i = 0; i < got.size(); ++i) {
-            EXPECT_EQ(got[i].first,  want[i].first)  << "start=" << start << " max=" << mx << " i=" << i;
-            EXPECT_EQ(got[i].second, want[i].second) << "start=" << start << " max=" << mx << " i=" << i;
+    std::size_t const   maxes[]  = {0u, 1u, 3u, 10u, 1000u};
+    for (auto start : starts)
+        for (auto mx : maxes) {
+            KvList const got  = collect_scan<Traversal>(data, start, mx);
+            KvList const want = oracle_scan(data, start, mx);
+            ASSERT_EQ(got.size(), want.size()) << "start=" << start << " max=" << mx;
+            for (std::size_t i = 0; i < got.size(); ++i) {
+                EXPECT_EQ(got[i].first, want[i].first) << "start=" << start << " max=" << mx << " i=" << i;
+                EXPECT_EQ(got[i].second, want[i].second) << "start=" << start << " max=" << mx << " i=" << i;
+            }
+            for (std::size_t i = 1; i < got.size(); ++i) // strikt aufsteigend nach Key (geordneter Scan)
+                EXPECT_LT(got[i - 1].first, got[i].first);
         }
-        for (std::size_t i = 1; i < got.size(); ++i)   // strikt aufsteigend nach Key (geordneter Scan)
-            EXPECT_LT(got[i - 1].first, got[i].first);
-    }
 }
 
 std::map<std::uint64_t, std::uint64_t> make_data() {
     std::map<std::uint64_t, std::uint64_t> d;
-    std::mt19937_64 rng{12345u};
-    for (int i = 0; i < 200; ++i) { std::uint64_t const k = rng() % 10000u; d[k] = k * 7u + 1u; }
+    std::mt19937_64                        rng{12345u};
+    for (int i = 0; i < 200; ++i) {
+        std::uint64_t const k = rng() % 10000u;
+        d[k]                  = k * 7u + 1u;
+    }
     return d;
 }
 
-}  // namespace
+} // namespace
 
-TEST(V41ScanRangeOrgan, SortedBinaryMatchesOracle)  { expect_matches_oracle<cmp::SortedBinaryTraversal>(make_data()); }
-TEST(V41ScanRangeOrgan, LinearScanMatchesOracle)    { expect_matches_oracle<cmp::LinearScanTraversal>(make_data()); }
-TEST(V41ScanRangeOrgan, InterpolationMatchesOracle) { expect_matches_oracle<cmp::InterpolationTraversalOrgan>(make_data()); }
-TEST(V41ScanRangeOrgan, GallopingMatchesOracle)     { expect_matches_oracle<cmp::GallopingTraversalOrgan>(make_data()); }
-TEST(V41ScanRangeOrgan, KAryMatchesOracle)          { expect_matches_oracle<cmp::KAryTraversal<4u>>(make_data()); }   // #188-4a (compile-time Default-Arity 4)
+TEST(V41ScanRangeOrgan, SortedBinaryMatchesOracle) { expect_matches_oracle<cmp::SortedBinaryTraversal>(make_data()); }
+TEST(V41ScanRangeOrgan, LinearScanMatchesOracle) { expect_matches_oracle<cmp::LinearScanTraversal>(make_data()); }
+TEST(V41ScanRangeOrgan, InterpolationMatchesOracle) {
+    expect_matches_oracle<cmp::InterpolationTraversalOrgan>(make_data());
+}
+TEST(V41ScanRangeOrgan, GallopingMatchesOracle) { expect_matches_oracle<cmp::GallopingTraversalOrgan>(make_data()); }
+TEST(V41ScanRangeOrgan, KAryMatchesOracle) {
+    expect_matches_oracle<cmp::KAryTraversal<4u>>(make_data());
+} // #188-4a (compile-time Default-Arity 4)
 
 // Meta-Lehre #3: das UNSORTIERTE LinearScan-Organ und das sortierte SortedBinary-Organ durchlaufen verschiedene
 // Organ-Pfade, liefern aber DIESELBE korrekte geordnete Scan-Ausgabe (der Apparat verfälscht das Ergebnis nicht).
 TEST(V41ScanRangeOrgan, LinearScanEqualsSortedBinaryOutput) {
-    auto const d = make_data();
+    auto const          d        = make_data();
     std::uint64_t const starts[] = {0u, 37u, 5000u};
     for (auto start : starts) {
         KvList const a = collect_scan<cmp::LinearScanTraversal>(d, start, 25u);
@@ -113,14 +121,14 @@ TEST(V41ScanRangeOrgan, ObservableWrapperScanCorrectAndStatNeutral) {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     auto const before = s.statistics();
 #endif
-    std::uint64_t sum = 0;
+    std::uint64_t     sum = 0;
     std::size_t const cnt = s.scan_range(5u, 7u, [&sum](std::uint64_t, std::uint64_t v) { sum += v; });
-    EXPECT_EQ(cnt, 7u);                                   // Keys 5..11
+    EXPECT_EQ(cnt, 7u); // Keys 5..11
     EXPECT_EQ(sum, (5u + 6u + 7u + 8u + 9u + 10u + 11u) * 3u);
-    EXPECT_EQ(s.occupied_count(), occ_before);            // Scan verändert die Daten nicht
+    EXPECT_EQ(s.occupied_count(), occ_before); // Scan verändert die Daten nicht
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     auto const after = s.statistics();
-    EXPECT_EQ(before.total_lookup_count, after.total_lookup_count);   // Scan ist KEIN lookup
-    EXPECT_EQ(before.total_insert_count, after.total_insert_count);   // und kein insert
+    EXPECT_EQ(before.total_lookup_count, after.total_lookup_count); // Scan ist KEIN lookup
+    EXPECT_EQ(before.total_insert_count, after.total_insert_count); // und kein insert
 #endif
 }

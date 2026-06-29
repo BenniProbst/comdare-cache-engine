@@ -11,22 +11,25 @@
 namespace ex = comdare::cache_engine::builder::experiment;
 
 static int g_fail = 0;
-void check_true(char const* what, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n"; if (!c) ++g_fail; }
+void       check_true(char const* what, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n";
+    if (!c) ++g_fail;
+}
 static bool has(std::string const& h, std::string const& n) { return h.find(n) != std::string::npos; }
 
 int main() {
     std::cout << "KF-12/13: SLURM/ZIH-Skript-Generator (VORBEREITET, NICHT submittet):\n";
 
     ex::ZihJobConfig z;
-    z.array_size      = 10;                 // KF-13: 10 Array-Tasks (ein Binary je Task)
-    z.webhook_url     = "http://10.0.60.1:8080/result";
+    z.array_size  = 10; // KF-13: 10 Array-Tasks (ein Binary je Task)
+    z.webhook_url = "http://10.0.60.1:8080/result";
     ex::ArchRuntimeConfig a;
-    a.cpu_affinity         = "0-3";
-    a.hw_prefetcher_msr_hex = "0x0";        // KF-12: HW-Prefetcher via MSR 0x1A4
-    a.governor             = "performance";
-    a.smt                  = 0;             // SMT aus
-    a.aslr                 = 0;             // ASLR aus (reproduzierbar)
-    a.numa_node            = "0";
+    a.cpu_affinity          = "0-3";
+    a.hw_prefetcher_msr_hex = "0x0"; // KF-12: HW-Prefetcher via MSR 0x1A4
+    a.governor              = "performance";
+    a.smt                   = 0; // SMT aus
+    a.aslr                  = 0; // ASLR aus (reproduzierbar)
+    a.numa_node             = "0";
 
     std::string const sb = ex::generate_sbatch_script(z, a);
 
@@ -52,7 +55,7 @@ int main() {
 
     // Auslassung: leere Felder erzeugen KEINE Direktive (kein versehentliches Setzen).
     ex::ArchRuntimeConfig empty;
-    std::string const setup_empty = ex::generate_arch_setup(empty);
+    std::string const     setup_empty = ex::generate_arch_setup(empty);
     check_true("leere Arch-Config → kein wrmsr/cpupower", !has(setup_empty, "wrmsr") && !has(setup_empty, "cpupower"));
     check_true("leere Arch-Config → kein setarch/taskset im Prefix", ex::generate_exec_prefix(empty).empty());
 

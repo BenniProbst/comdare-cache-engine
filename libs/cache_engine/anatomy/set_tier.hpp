@@ -15,15 +15,15 @@ namespace comdare::cache_engine::anatomy {
 /// Komposition-UNABHÄNGIGER, ABI-stabiler Set-Observer-Snapshot (cross-boundary). FIXE Layout (V1): nur uint64
 /// → standard_layout + trivially_copyable (memcpy über die .dll-Grenze). K-only-Mengen-Statistik.
 struct SetObserverSnapshotV1 {
-    std::uint64_t insert_count          = 0;   // tier_set_insert-Aufrufe, die einen NEUEN Key erzeugten
-    std::uint64_t contains_count        = 0;   // tier_set_contains-Abfragen
-    std::uint64_t contains_hit_count    = 0;   // davon Treffer
-    std::uint64_t contains_miss_count   = 0;   // davon Fehlschläge
-    std::uint64_t erase_count           = 0;   // erfolgreiche Entfernungen
-    std::uint64_t current_size          = 0;   // aktuelle Kardinalität der Menge
-    std::uint64_t peak_size             = 0;   // maximale Kardinalität
-    std::uint64_t observable_axis_count = 0;   // wie viele der 15 Set-Achsen real beobachtet (R5.B, ehrlich)
-    std::uint64_t organ_count           = 0;   // == SetAnatomy::organ_count() (15)
+    std::uint64_t insert_count          = 0; // tier_set_insert-Aufrufe, die einen NEUEN Key erzeugten
+    std::uint64_t contains_count        = 0; // tier_set_contains-Abfragen
+    std::uint64_t contains_hit_count    = 0; // davon Treffer
+    std::uint64_t contains_miss_count   = 0; // davon Fehlschläge
+    std::uint64_t erase_count           = 0; // erfolgreiche Entfernungen
+    std::uint64_t current_size          = 0; // aktuelle Kardinalität der Menge
+    std::uint64_t peak_size             = 0; // maximale Kardinalität
+    std::uint64_t observable_axis_count = 0; // wie viele der 15 Set-Achsen real beobachtet (R5.B, ehrlich)
+    std::uint64_t organ_count           = 0; // == SetAnatomy::organ_count() (15)
 
     [[nodiscard]] constexpr bool operator==(SetObserverSnapshotV1 const&) const noexcept = default;
 };
@@ -60,4 +60,4 @@ public:
     virtual void tier_observe_set(SetObserverSnapshotV1* out) const noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

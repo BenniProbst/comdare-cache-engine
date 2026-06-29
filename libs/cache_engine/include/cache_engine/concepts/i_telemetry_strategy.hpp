@@ -9,12 +9,12 @@
 namespace comdare::cache_engine {
 
 enum class TelemetryStrategyKind : std::uint8_t {
-    PerNodeCounter        = 0,   // P28 Original (WARNING: Cache-Coherence-Anti-Pattern)
-    LeafOnlyCounter       = 1,   // Kuehn NEU 2026-05-08
-    LeafOnlySampledCounter= 2,   // Kuehn NEU 2026-05-08 (parametrisiert<N>)
-    RetroactiveAggregation= 3,   // Kuehn NEU 2026-05-08 (BARRIER)
-    PathReadCounter       = 4,   // P26 Zhang FGCS
-    ProbabilityHints      = 5,   // PRT-ART eigen T4
+    PerNodeCounter         = 0, // P28 Original (WARNING: Cache-Coherence-Anti-Pattern)
+    LeafOnlyCounter        = 1, // Kuehn NEU 2026-05-08
+    LeafOnlySampledCounter = 2, // Kuehn NEU 2026-05-08 (parametrisiert<N>)
+    RetroactiveAggregation = 3, // Kuehn NEU 2026-05-08 (BARRIER)
+    PathReadCounter        = 4, // P26 Zhang FGCS
+    ProbabilityHints       = 5, // PRT-ART eigen T4
 };
 
 class ITelemetryStrategy {
@@ -24,4 +24,4 @@ public:
     [[nodiscard]] virtual TelemetryStrategyKind kind() const noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

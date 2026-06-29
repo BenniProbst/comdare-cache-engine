@@ -9,7 +9,7 @@
 #include <topics/hardware/axis_09b_simd_extension/axis_09b_simd_extension_avx512.hpp>
 #include <topics/hardware/axis_12_general_hardware/axis_12_general_hardware_x86_64.hpp>
 
-COMDARE_DEFINE_BUILD_VARIANT_INSPECTION(comdare_build_variant_inspect,
-    ::comdare::cache_engine::nodes::axis_01_page_type::DenseBytePageType,
+COMDARE_DEFINE_BUILD_VARIANT_INSPECTION(
+    comdare_build_variant_inspect, ::comdare::cache_engine::nodes::axis_01_page_type::DenseBytePageType,
     ::comdare::cache_engine::hardware::axis_09b_simd_extension::Avx512SimdExtension,
     ::comdare::cache_engine::hardware::axis_12_general_hardware::X86_64HardwareProfile)

@@ -28,8 +28,10 @@ public:
     [[nodiscard]] static constexpr concepts::ConcurrencyPattern concurrency_pattern() noexcept {
         return concepts::ConcurrencyPattern::HazardPtr;
     }
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "concurrency_hazard_ptr"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "HazardPointerConcurrency (per-thread hazard pointers, safe reclamation)"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "concurrency_hazard_ptr"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "HazardPointerConcurrency (per-thread hazard pointers, safe reclamation)";
+    }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "HAZARD_PTR"; }
 
     // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). Hazard Pointers (Michael
@@ -43,9 +45,7 @@ public:
         // gepublishter Pseudo-Hazard-Zeiger (Slot-Selbst-Adresse als nicht-null in-use-Marker).
         slot_().store(reinterpret_cast<std::uintptr_t>(&slot_()), std::memory_order_seq_cst);
     }
-    static void release() noexcept {
-        slot_().store(0u, std::memory_order_release);
-    }
+    static void release() noexcept { slot_().store(0u, std::memory_order_release); }
 
 private:
     [[nodiscard]] static std::atomic<std::uintptr_t>& slot_() noexcept {
@@ -54,9 +54,9 @@ private:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::concurrency_axis
 
 namespace comdare::cache_engine::concurrency_axis {
-    static_assert(concepts::ConcurrencyStrategy<HazardPointerConcurrency>);
-    static_assert(concepts::CacheEnginePermutationStrategy<HazardPointerConcurrency>);
-}
+static_assert(concepts::ConcurrencyStrategy<HazardPointerConcurrency>);
+static_assert(concepts::CacheEnginePermutationStrategy<HazardPointerConcurrency>);
+} // namespace comdare::cache_engine::concurrency_axis

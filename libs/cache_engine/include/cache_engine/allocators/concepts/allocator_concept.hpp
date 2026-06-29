@@ -15,9 +15,9 @@ namespace comdare::cache_engine::allocator {
 template <typename T, IAllocationStrategy Strategy>
 class CacheEngineAllocator {
 public:
-    using value_type      = T;
-    using size_type       = std::size_t;
-    using difference_type = std::ptrdiff_t;
+    using value_type                             = T;
+    using size_type                              = std::size_t;
+    using difference_type                        = std::ptrdiff_t;
     using propagate_on_container_copy_assignment = std::false_type;
     using propagate_on_container_move_assignment = std::true_type;
     using propagate_on_container_swap            = std::true_type;
@@ -26,8 +26,7 @@ public:
     explicit CacheEngineAllocator(Strategy* s) noexcept : strategy_{s} {}
 
     template <typename U>
-    CacheEngineAllocator(CacheEngineAllocator<U, Strategy> const& other) noexcept
-        : strategy_{other.strategy_} {}
+    CacheEngineAllocator(CacheEngineAllocator<U, Strategy> const& other) noexcept : strategy_{other.strategy_} {}
 
     [[nodiscard]] T* allocate(size_type n) {
         auto* p = strategy_->raw_allocate(n * sizeof(T), alignof(T));
@@ -40,7 +39,9 @@ public:
     }
 
     template <typename U>
-    struct rebind { using other = CacheEngineAllocator<U, Strategy>; };
+    struct rebind {
+        using other = CacheEngineAllocator<U, Strategy>;
+    };
 
     [[nodiscard]] Strategy* strategy() const noexcept { return strategy_; }
 
@@ -60,4 +61,4 @@ private:
     Strategy* strategy_ = nullptr;
 };
 
-}  // namespace comdare::cache_engine::allocator
+} // namespace comdare::cache_engine::allocator

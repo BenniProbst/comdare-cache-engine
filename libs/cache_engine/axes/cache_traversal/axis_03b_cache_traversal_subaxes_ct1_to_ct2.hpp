@@ -11,4 +11,4 @@ struct linear_access_tag {};
 /// CT2 hash — Hash-basierte Lookup-Traversal (O(1) amortisiert)
 struct hash_access_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::cache_traversal::subaxes

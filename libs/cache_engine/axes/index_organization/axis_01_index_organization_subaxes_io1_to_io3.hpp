@@ -15,4 +15,4 @@ struct index_count_tag {};
 // IO3: Data-Embedding (separate / leaf-embedded)
 struct data_embedding_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::index_organization::subaxes

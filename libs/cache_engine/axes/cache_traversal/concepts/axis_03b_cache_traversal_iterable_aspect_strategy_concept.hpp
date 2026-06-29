@@ -24,16 +24,12 @@ namespace comdare::cache_engine::cache_traversal::concepts {
  * iterable Topic-Schablonen.
  */
 template <typename T>
-concept IterableAspectCacheTraversalStrategy =
-    CacheTraversalVariant<T>
-    && requires { typename T::iterable_aspect_t; }
-    && (!std::is_void_v<typename T::iterable_aspect_t>)
-    && requires {
-        { T::iterable_values() } noexcept
-            -> std::convertible_to<std::span<typename T::iterable_aspect_t const>>;
-    }
-    && requires(T t, typename T::iterable_aspect_t v) {
-        { t.set_iterable_aspect(v) };  // darf werfen (Rehash kann std::bad_alloc werfen)
-    };
+concept IterableAspectCacheTraversalStrategy = CacheTraversalVariant<T> && requires {
+    typename T::iterable_aspect_t;
+} && (!std::is_void_v<typename T::iterable_aspect_t>) && requires {
+    { T::iterable_values() } noexcept -> std::convertible_to<std::span<typename T::iterable_aspect_t const>>;
+} && requires(T t, typename T::iterable_aspect_t v) {
+    { t.set_iterable_aspect(v) }; // darf werfen (Rehash kann std::bad_alloc werfen)
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::cache_traversal::concepts

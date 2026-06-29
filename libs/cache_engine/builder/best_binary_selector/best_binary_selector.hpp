@@ -43,9 +43,9 @@ namespace comdare::cache_engine::best_binary {
 
 // ── ABI-Identität fürs Manifest (Quelle: anatomy_module_abi_v1_decl.hpp) ──────────────────────────
 // Hart gespiegelt (KEINE Build-Abhängigkeit aufs Engine-Target); muss mit dem Decl-Header übereinstimmen.
-inline constexpr std::uint32_t kAbiMajor = 3;                       // I1 Observer-Konsolidierung
+inline constexpr std::uint32_t kAbiMajor = 3; // I1 Observer-Konsolidierung
 inline constexpr std::uint32_t kAbiMinor = 0;
-inline constexpr std::uint64_t kAbiMagic = 0x434F4D444141332EULL;   // COMDARE_ANATOMY_ABI_MAGIC
+inline constexpr std::uint64_t kAbiMagic = 0x434F4D444141332EULL; // COMDARE_ANATOMY_ABI_MAGIC
 
 // ── orch_make_stem-Round-Trip (identisch BuildOrchestrator: sanitize + FNV-1a + kStemMax=120) ─────
 // Diese drei Funktionen sind eine 1:1-Spiegelung von build_orchestrator.hpp:114/122/138 — sie MÜSSEN
@@ -60,10 +60,16 @@ inline constexpr std::uint64_t kAbiMagic = 0x434F4D444141332EULL;   // COMDARE_A
 
 [[nodiscard]] inline std::string orch_fnv1a_hex(std::string_view s) noexcept {
     std::uint64_t h = 0xcbf29ce484222325ULL;
-    for (char c : s) { h ^= static_cast<std::uint64_t>(static_cast<unsigned char>(c)); h *= 0x100000001b3ULL; }
+    for (char c : s) {
+        h ^= static_cast<std::uint64_t>(static_cast<unsigned char>(c));
+        h *= 0x100000001b3ULL;
+    }
     static constexpr char hexd[] = "0123456789abcdef";
-    std::string out(16, '0');
-    for (int i = 15; i >= 0; --i) { out[i] = hexd[h & 0xF]; h >>= 4; }
+    std::string           out(16, '0');
+    for (int i = 15; i >= 0; --i) {
+        out[i] = hexd[h & 0xF];
+        h >>= 4;
+    }
     return out;
 }
 
@@ -71,14 +77,14 @@ inline constexpr std::size_t kStemMax = 120;
 
 // ── Mess-Zeile (header-getrieben; NUR die auswertungs-relevanten Felder) ──────────────────────────
 struct MeasurementRow {
-    std::string   binary_id;
-    bool          two_phase_valid = false;
-    double        ns_per_op       = 0.0;
-    double        op_insert_p50   = 0.0;
-    double        op_lookup_p50   = 0.0;
-    double        op_erase_p50    = 0.0;
-    double        op_scan_p50     = 0.0;
-    double        op_rmw_p50      = 0.0;
+    std::string binary_id;
+    bool        two_phase_valid = false;
+    double      ns_per_op       = 0.0;
+    double      op_insert_p50   = 0.0;
+    double      op_lookup_p50   = 0.0;
+    double      op_erase_p50    = 0.0;
+    double      op_scan_p50     = 0.0;
+    double      op_rmw_p50      = 0.0;
 };
 
 // ── Strategy: Ranking-Kriterium (austauschbar) ────────────────────────────────────────────────────
@@ -89,22 +95,22 @@ enum class Metric { ns_per_op, insert, lookup, erase, scan, rmw };
 [[nodiscard]] inline std::string metric_name(Metric m) {
     switch (m) {
         case Metric::ns_per_op: return "ns_per_op";
-        case Metric::insert:    return "insert";
-        case Metric::lookup:    return "lookup";
-        case Metric::erase:     return "erase";
-        case Metric::scan:      return "scan";
-        case Metric::rmw:       return "rmw";
+        case Metric::insert: return "insert";
+        case Metric::lookup: return "lookup";
+        case Metric::erase: return "erase";
+        case Metric::scan: return "scan";
+        case Metric::rmw: return "rmw";
     }
     return "ns_per_op";
 }
 
 [[nodiscard]] inline std::optional<Metric> metric_from_string(std::string_view s) {
     if (s == "ns_per_op") return Metric::ns_per_op;
-    if (s == "insert")    return Metric::insert;
-    if (s == "lookup")    return Metric::lookup;
-    if (s == "erase")     return Metric::erase;
-    if (s == "scan")      return Metric::scan;
-    if (s == "rmw")       return Metric::rmw;
+    if (s == "insert") return Metric::insert;
+    if (s == "lookup") return Metric::lookup;
+    if (s == "erase") return Metric::erase;
+    if (s == "scan") return Metric::scan;
+    if (s == "rmw") return Metric::rmw;
     return std::nullopt;
 }
 
@@ -115,11 +121,11 @@ struct RankingCriterion {
     [[nodiscard]] double value_of(MeasurementRow const& r) const {
         switch (metric) {
             case Metric::ns_per_op: return r.ns_per_op;
-            case Metric::insert:    return r.op_insert_p50;
-            case Metric::lookup:    return r.op_lookup_p50;
-            case Metric::erase:     return r.op_erase_p50;
-            case Metric::scan:      return r.op_scan_p50;
-            case Metric::rmw:       return r.op_rmw_p50;
+            case Metric::insert: return r.op_insert_p50;
+            case Metric::lookup: return r.op_lookup_p50;
+            case Metric::erase: return r.op_erase_p50;
+            case Metric::scan: return r.op_scan_p50;
+            case Metric::rmw: return r.op_rmw_p50;
         }
         return r.ns_per_op;
     }
@@ -128,19 +134,18 @@ struct RankingCriterion {
 // ── Aggregat je binary_id für ein Kriterium (Median nearest-rank über two_phase_valid) ────────────
 struct RankedBinary {
     std::string binary_id;
-    double      median_value = 0.0;   // ns (kleiner = besser)
-    std::size_t samples      = 0;     // Anzahl gültiger, nicht-n/a-Zeilen
+    double      median_value = 0.0; // ns (kleiner = besser)
+    std::size_t samples      = 0;   // Anzahl gültiger, nicht-n/a-Zeilen
 };
 
 /// CSV-Parser (header-getrieben, ';'-getrennt; Reihenfolge-/Breite-agnostisch wie csv_to_latex).
 /// Gibt Anzahl gelesener Datenzeilen zurück, -1 bei Fehler.
-[[nodiscard]] int parse_measurement_csv(std::filesystem::path const& in,
-                                        std::vector<MeasurementRow>& out_rows);
+[[nodiscard]] int parse_measurement_csv(std::filesystem::path const& in, std::vector<MeasurementRow>& out_rows);
 
 /// Rangbildung: je binary_id Median des Kriteriums über NUR two_phase_valid-Zeilen mit Wert>0.
 /// Aufsteigend sortiert (Index 0 = beste). Strategy = crit.
-[[nodiscard]] std::vector<RankedBinary>
-rank_binaries(std::vector<MeasurementRow> const& rows, RankingCriterion const& crit);
+[[nodiscard]] std::vector<RankedBinary> rank_binaries(std::vector<MeasurementRow> const& rows,
+                                                      RankingCriterion const&            crit);
 
 // ── Repository: binary_id → reale perm.dll im tiere/-Baum ────────────────────────────────────────
 /// Kapselt die Auflösung. tiere_dir = build/thesis_tiere/tiere. Liefert das Verzeichnis (mit perm.dll)
@@ -163,10 +168,10 @@ struct ShippedArtifact {
     std::string           metric;
     double                median_value = 0.0;
     std::size_t           samples      = 0;
-    std::filesystem::path source_dll;          // gefundene reale perm.dll
-    std::filesystem::path shipped_dll;          // Kopie im out_dir
-    std::filesystem::path manifest_path;        // geschriebenes Manifest
-    std::string           dll_build_version;    // Inhalt des .version-Sidecars (z.B. cowfix-v1)
+    std::filesystem::path source_dll;        // gefundene reale perm.dll
+    std::filesystem::path shipped_dll;       // Kopie im out_dir
+    std::filesystem::path manifest_path;     // geschriebenes Manifest
+    std::string           dll_build_version; // Inhalt des .version-Sidecars (z.B. cowfix-v1)
 };
 
 /// ShippedArtifactBuilder (Builder): validierter Zusammenbau (Kopie → Version → Manifest).
@@ -178,14 +183,13 @@ public:
 
     /// Baut + schreibt das Artefakt. error gefüllt bei Fehlschlag → nullopt.
     [[nodiscard]] std::optional<ShippedArtifact>
-    build(RankedBinary const& winner, Metric metric,
-          std::filesystem::path const& source_dir, std::string& error) const;
+    build(RankedBinary const& winner, Metric metric, std::filesystem::path const& source_dir, std::string& error) const;
 
 private:
     std::filesystem::path out_dir_;
     std::string           artifact_name_;
 };
 
-}  // namespace comdare::cache_engine::best_binary
+} // namespace comdare::cache_engine::best_binary
 
-#endif  // COMDARE_CACHE_ENGINE_BEST_BINARY_SELECTOR_HPP
+#endif // COMDARE_CACHE_ENGINE_BEST_BINARY_SELECTOR_HPP

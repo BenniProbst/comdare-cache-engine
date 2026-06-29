@@ -47,7 +47,7 @@ TEST(R5B_ExecutionContext, InsertLookupEraseClearRoundtrip) {
     EXPECT_EQ(*v1, 100u);
     EXPECT_FALSE(ctx.lookup(999).has_value());
     EXPECT_TRUE(ctx.erase(1));
-    EXPECT_FALSE(ctx.erase(1));  // already erased
+    EXPECT_FALSE(ctx.erase(1)); // already erased
     EXPECT_EQ(ctx.size(), 1u);
     ctx.clear();
     EXPECT_TRUE(ctx.empty());
@@ -63,7 +63,7 @@ TEST(R5B_ExecutionContext, CompositionInspectionDurchgereicht) {
 
 TEST(R5B_ExecutionContext, ObserveAllDelegatesToAnatomy) {
     bcmd::AnatomyExecutionContext<ce_compos::HotComposition> ctx;
-    auto agg = ctx.observe_all();
+    auto                                                     agg = ctx.observe_all();
     static_assert(decltype(agg)::total_slots() == 19);
     SUCCEED();
 }
@@ -74,7 +74,7 @@ TEST(R5B_ExecutionContext, ObserveAllDelegatesToAnatomy) {
 
 TEST(R5B_Commands, AnatomyInsertCommandRoundtrip) {
     bcmd::AnatomyExecutionContext<ce_compos::ArtComposition> ctx;
-    bcmd::AnatomyInsertCommand<ce_compos::ArtComposition> cmd(ctx, 42, 4242);
+    bcmd::AnatomyInsertCommand<ce_compos::ArtComposition>    cmd(ctx, 42, 4242);
     EXPECT_EQ(cmd.command_name(), std::string_view{"AnatomyInsertCommand"});
     EXPECT_EQ(cmd.execute(), 0);
     EXPECT_EQ(ctx.size(), 1u);
@@ -84,12 +84,12 @@ TEST(R5B_Commands, AnatomyLookupCommandResult) {
     bcmd::AnatomyExecutionContext<ce_compos::ArtComposition> ctx;
     ctx.insert(7, 77);
     bcmd::AnatomyLookupCommand<ce_compos::ArtComposition> cmd(ctx, 7);
-    EXPECT_EQ(cmd.execute(), 0);  // hit
+    EXPECT_EQ(cmd.execute(), 0); // hit
     ASSERT_TRUE(cmd.result().has_value());
     EXPECT_EQ(*cmd.result(), 77u);
 
     bcmd::AnatomyLookupCommand<ce_compos::ArtComposition> miss(ctx, 999);
-    EXPECT_EQ(miss.execute(), 1);  // miss
+    EXPECT_EQ(miss.execute(), 1); // miss
     EXPECT_FALSE(miss.result().has_value());
 }
 
@@ -117,7 +117,7 @@ TEST(R5B_Commands, AnatomyClearCommandResets) {
 
 TEST(R5B_Commands, AnatomyObserveCommandSnapshot) {
     bcmd::AnatomyExecutionContext<ce_compos::ArtComposition> ctx;
-    bcmd::AnatomyObserveCommand<ce_compos::ArtComposition> obs(ctx);
+    bcmd::AnatomyObserveCommand<ce_compos::ArtComposition>   obs(ctx);
     EXPECT_EQ(obs.execute(), 0);
     auto const& snap = obs.last_snapshot();
     static_assert(std::remove_cvref_t<decltype(snap)>::total_slots() == 19);
@@ -131,19 +131,12 @@ TEST(R5B_Commands, AnatomyObserveCommandSnapshot) {
 template <typename Composition>
 class CompositionContextRoundtrip : public ::testing::Test {};
 
-using All11Compositions = ::testing::Types<
-    ce_compos::ArtComposition,
-    ce_compos::HotComposition,
-    ce_compos::WormholeComposition,
-    ce_compos::SurfComposition,
-    ce_compos::MasstreeComposition,
-    ce_compos::StartComposition,
-    ce_compos::ArtPaperBindingComposition,
-    ce_compos::HotPaperBindingComposition,
-    ce_compos::StartPaperBindingComposition,
-    ce_compos::WormholePaperBindingComposition,
-    ce_compos::SurfPaperBindingComposition
->;
+using All11Compositions =
+    ::testing::Types<ce_compos::ArtComposition, ce_compos::HotComposition, ce_compos::WormholeComposition,
+                     ce_compos::SurfComposition, ce_compos::MasstreeComposition, ce_compos::StartComposition,
+                     ce_compos::ArtPaperBindingComposition, ce_compos::HotPaperBindingComposition,
+                     ce_compos::StartPaperBindingComposition, ce_compos::WormholePaperBindingComposition,
+                     ce_compos::SurfPaperBindingComposition>;
 TYPED_TEST_SUITE(CompositionContextRoundtrip, All11Compositions);
 
 TYPED_TEST(CompositionContextRoundtrip, FullInsertLookupEraseClearViaCommands) {
@@ -193,9 +186,8 @@ concept HasInsertMethod = requires(T t, std::uint64_t k, std::uint64_t v) {
 TEST(R5B_AnatomyApiStripped, SearchAlgorithmAnatomyHasNoInsert) {
     // Beweis: SearchAlgorithmAnatomy<C>::insert existiert NICHT mehr nach R5.B
     static_assert(!HasInsertMethod<ana::Art>,
-        "SearchAlgorithmAnatomy<C> darf KEINE insert() Methode mehr haben (R5.B)");
-    static_assert(!HasInsertMethod<ana::HotPaperBinding>,
-        "Auch PaperBinding-Variante darf keine insert() haben");
+                  "SearchAlgorithmAnatomy<C> darf KEINE insert() Methode mehr haben (R5.B)");
+    static_assert(!HasInsertMethod<ana::HotPaperBinding>, "Auch PaperBinding-Variante darf keine insert() haben");
     // ExecutionContext hat insert() — Pflicht
     static_assert(HasInsertMethod<bcmd::AnatomyExecutionContext<ce_compos::ArtComposition>>);
     SUCCEED();
@@ -218,14 +210,14 @@ TEST(R5B_ObserveReal, SearchAlgoCountersReflectDrivenOps) {
     EXPECT_TRUE(ctx.insert(3, 300));
     auto const s1 = ctx.observe_all().search_algo;
     EXPECT_EQ(s1.total_insert_count, 3u);
-    EXPECT_GE(s1.peak_occupancy,     3u);
+    EXPECT_GE(s1.peak_occupancy, 3u);
 
-    EXPECT_TRUE (ctx.lookup(2).has_value());    // hit
-    EXPECT_FALSE(ctx.lookup(999).has_value());  // miss (uint64 → kein narrow-key-Alias wie 999%256)
+    EXPECT_TRUE(ctx.lookup(2).has_value());    // hit
+    EXPECT_FALSE(ctx.lookup(999).has_value()); // miss (uint64 → kein narrow-key-Alias wie 999%256)
     auto const s2 = ctx.observe_all().search_algo;
     EXPECT_EQ(s2.total_lookup_count, 2u);
-    EXPECT_EQ(s2.total_hit_count,    1u);
-    EXPECT_EQ(s2.total_miss_count,   1u);
+    EXPECT_EQ(s2.total_hit_count, 1u);
+    EXPECT_EQ(s2.total_miss_count, 1u);
 
     EXPECT_TRUE(ctx.erase(2));
     auto const s3 = ctx.observe_all().search_algo;
@@ -254,10 +246,10 @@ TEST(R5B_ObserveMultiAxes, SearchAlgoAndAllocatorBothDrivenFromOneWorkload) {
     // Achse 1 (search_algo) — wie bisher.
     EXPECT_EQ(agg.search_algo.total_insert_count, 100u);
     EXPECT_EQ(agg.search_algo.total_lookup_count, 100u);
-    EXPECT_EQ(agg.search_algo.total_hit_count,    100u);
+    EXPECT_EQ(agg.search_algo.total_hit_count, 100u);
 
     // Achse 2 NEU (allocator) — aus dem Vector-Growth des inneren ComposedStore.
-    EXPECT_GT(agg.allocator.allocation_count,   0u);
+    EXPECT_GT(agg.allocator.allocation_count, 0u);
     EXPECT_GT(agg.allocator.total_bytes_in_use, 0u);
 
     // Zwei verschiedene Snapshot-Typen gleichzeitig aus EINEM observe_all().
@@ -269,7 +261,7 @@ TEST(R5B_ObserveMultiAxes, SearchAlgoAndAllocatorBothDrivenFromOneWorkload) {
 
     // Idempotenz: observe_all ohne State-Aenderung liefert identische Zaehler (reiner Snapshot-Read).
     auto const agg2 = ctx.observe_all();
-    EXPECT_EQ(agg.allocator.allocation_count,     agg2.allocator.allocation_count);
+    EXPECT_EQ(agg.allocator.allocation_count, agg2.allocator.allocation_count);
     EXPECT_EQ(agg.search_algo.total_insert_count, agg2.search_algo.total_insert_count);
 }
 #endif

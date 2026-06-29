@@ -33,8 +33,7 @@ struct TraversalTopicTag {};
  * Pflicht: jede Klasse die unter traversal/ liegt MUSS topic_tag == TraversalTopicTag haben.
  */
 template <typename T>
-concept TraversalComponent = requires {
-    typename T::topic_tag;
-} && std::same_as<typename T::topic_tag, TraversalTopicTag>;
+concept TraversalComponent =
+    requires { typename T::topic_tag; } && std::same_as<typename T::topic_tag, TraversalTopicTag>;
 
-}  // namespace
+} // namespace comdare::cache_engine::traversal::concepts

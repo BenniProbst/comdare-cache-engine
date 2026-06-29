@@ -8,12 +8,12 @@
 namespace comdare::cache_engine::strategy_command {
 
 struct StrategyContext {
-    std::uint64_t module_id = 0;
+    std::uint64_t module_id    = 0;
     void*         user_payload = nullptr;
 };
 
 struct CommandResult {
-    bool         success = true;
+    bool         success       = true;
     std::int64_t output_metric = 0;
     std::string  diagnostic;
 };
@@ -22,11 +22,11 @@ class IStrategyCommand {
 public:
     virtual ~IStrategyCommand() = default;
 
-    [[nodiscard]] virtual std::string name() const = 0;
+    [[nodiscard]] virtual std::string   name() const                  = 0;
     [[nodiscard]] virtual CommandResult execute(StrategyContext& ctx) = 0;
 
     // Composition-Vertraeglichkeit (z.B. CSS-PointerElimination + DenseLayout vertraeglich)
     [[nodiscard]] virtual bool can_compose_with(IStrategyCommand const& other) const noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::strategy_command
+} // namespace comdare::cache_engine::strategy_command

@@ -27,15 +27,15 @@ namespace loader = ::comdare::cache_engine::builder::anatomy_loader;
 namespace ana    = ::comdare::cache_engine::anatomy;
 
 TEST(R5G_AdHocDllLoad, AutoEmittedAdHocPermutationLoadsAsDllAndRuns) {
-    std::filesystem::path const dir{COMDARE_R5G_ADHOC_DLL_DIR};
+    std::filesystem::path const              dir{COMDARE_R5G_ADHOC_DLL_DIR};
     std::vector<loader::AnatomyModuleHandle> handles;
-    int const st = loader::AnatomyModuleLoader::load_all(dir, handles);
+    int const                                st = loader::AnatomyModuleLoader::load_all(dir, handles);
     ASSERT_EQ(st, loader::status_ok) << "load_all: " << loader::status_name(st) << " (dir=" << dir << ")";
     ASSERT_GE(handles.size(), 1u) << "auto-emittierte AdHoc-DLL nicht geladen.";
 
     auto* a = handles[0].anatomy();
     ASSERT_NE(a, nullptr);
-    EXPECT_EQ(a->composition_name(), std::string_view{"AdHocComposition"});  // auto-enumerierte Komposition
+    EXPECT_EQ(a->composition_name(), std::string_view{"AdHocComposition"}); // auto-enumerierte Komposition
     EXPECT_EQ(a->organ_count(), 19u);
     EXPECT_EQ(a->genus(), ana::AnatomyGenus::SearchAlgorithm);
 
@@ -43,8 +43,8 @@ TEST(R5G_AdHocDllLoad, AutoEmittedAdHocPermutationLoadsAsDllAndRuns) {
     auto* mw = dynamic_cast<ana::IMeasurableWorkload*>(a);
     ASSERT_NE(mw, nullptr);
     std::vector<std::int64_t> samples(10);
-    auto const n = mw->run_workload(/*ops_per_batch=*/1000, /*batches=*/10, /*seed=*/3u,
-                                    samples.data(), samples.size());
+    auto const                n =
+        mw->run_workload(/*ops_per_batch=*/1000, /*batches=*/10, /*seed=*/3u, samples.data(), samples.size());
     EXPECT_EQ(n, 10u);
     EXPECT_GT(samples[0], 0);
 }
@@ -62,7 +62,7 @@ TEST(R8RestA_DockMeasuresRealDll, RealAdHocDllObservedThroughSearchAlgorithmDock
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     namespace pd = ::comdare::cache_engine::builder::pruef_dock;
 
-    std::filesystem::path const dir{COMDARE_R5G_ADHOC_DLL_DIR};
+    std::filesystem::path const              dir{COMDARE_R5G_ADHOC_DLL_DIR};
     std::vector<loader::AnatomyModuleHandle> handles;
     ASSERT_EQ(loader::AnatomyModuleLoader::load_all(dir, handles), loader::status_ok);
     ASSERT_GE(handles.size(), 1u);
@@ -83,17 +83,17 @@ TEST(R8RestA_DockMeasuresRealDll, RealAdHocDllObservedThroughSearchAlgorithmDock
     opts.lookups_per_checkpoint = 200;
     opts.deletes_per_checkpoint = 20;
     std::string csv, json;
-    int const rc = dock->measure(handles[0], opts, csv, json);
+    int const   rc = dock->measure(handles[0], opts, csv, json);
     ASSERT_EQ(rc, pd::dock_status_ok) << pd::dock_status_name(rc);
 
     // (3) Persistierter Observer-Trace, ueber die DLL-Grenze gezogen: Header + ≥2 Checkpoint-Zeilen + Zaehler-Keys.
-    EXPECT_NE(csv.find("checkpoint,observe_wall_ns,fill_level"), std::string::npos);  // CSV-Header
-    EXPECT_GT(std::count(csv.begin(), csv.end(), '\n'), 2)                            // Header + 2 Checkpoints
+    EXPECT_NE(csv.find("checkpoint,observe_wall_ns,fill_level"), std::string::npos); // CSV-Header
+    EXPECT_GT(std::count(csv.begin(), csv.end(), '\n'), 2)                           // Header + 2 Checkpoints
         << "CSV hat keine Checkpoint-Zeilen — Mess-Loop lief nicht ueber die DLL.";
     ASSERT_FALSE(json.empty());
-    EXPECT_EQ(json.front(), '[');                                                     // JSON-Array
-    EXPECT_NE(json.find("\"search_insert\""), std::string::npos);                     // Observer-Zaehler korreliert
-    EXPECT_NE(json.find("\"fill_level\""), std::string::npos);                        // Tier-Fuellstand pro Checkpoint
+    EXPECT_EQ(json.front(), '[');                                 // JSON-Array
+    EXPECT_NE(json.find("\"search_insert\""), std::string::npos); // Observer-Zaehler korreliert
+    EXPECT_NE(json.find("\"fill_level\""), std::string::npos);    // Tier-Fuellstand pro Checkpoint
 #else
     GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus — e2e-Dock-Mess-Test n/a";
 #endif
@@ -107,7 +107,7 @@ TEST(R8RestA_DockMeasuresRealDll, RealAdHocDllObservedThroughSearchAlgorithmDock
 TEST(R8RestA_DockMeasuresRealDll, ObserveTraceGuardCapsOverCapacityFillNoHang) {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     namespace ac = ::comdare::cache_engine::builder::anatomy_commands;
-    std::filesystem::path const dir{COMDARE_R5G_ADHOC_DLL_DIR};
+    std::filesystem::path const              dir{COMDARE_R5G_ADHOC_DLL_DIR};
     std::vector<loader::AnatomyModuleHandle> handles;
     ASSERT_EQ(loader::AnatomyModuleLoader::load_all(dir, handles), loader::status_ok);
     ASSERT_GE(handles.size(), 1u);
@@ -115,14 +115,14 @@ TEST(R8RestA_DockMeasuresRealDll, ObserveTraceGuardCapsOverCapacityFillNoHang) {
     ASSERT_NE(obs, nullptr);
 
     ac::AbiTierTraceConfig cfg;
-    cfg.fill_checkpoints       = {1'000'000};   // WEIT über die 256-Slot-Kapazität
+    cfg.fill_checkpoints       = {1'000'000}; // WEIT über die 256-Slot-Kapazität
     cfg.lookups_per_checkpoint = 10;
     cfg.deletes_per_checkpoint = 0;
-    cfg.max_insert_stagnation  = 1024;          // schneller, bounded Abbruch
-    auto const trace = ac::drive_tier_observe_trace_abi(*obs, cfg);   // MUSS terminieren (ohne Guard = Hang)
+    cfg.max_insert_stagnation  = 1024;                                        // schneller, bounded Abbruch
+    auto const trace           = ac::drive_tier_observe_trace_abi(*obs, cfg); // MUSS terminieren (ohne Guard = Hang)
     ASSERT_EQ(trace.checkpoints.size(), 1u);
     EXPECT_GT(trace.checkpoints[0].fill_level, 0u);
-    EXPECT_LT(trace.checkpoints[0].fill_level, 1'000'000u);   // an der effektiven Kapazität gedeckelt
+    EXPECT_LT(trace.checkpoints[0].fill_level, 1'000'000u); // an der effektiven Kapazität gedeckelt
 #else
     GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus";
 #endif
@@ -137,7 +137,7 @@ TEST(R8RestA_DockMeasuresRealDll, ObserveTraceGuardCapsOverCapacityFillNoHang) {
 // Major-Mismatch ab. Vollständige Rationale: docs/architecture/31_observer_interface_konsolidierung_i1.md.
 TEST(R8RestA_DockMeasuresRealDll, ObserverOverRealDllBoundaryOrGracefulDegrade) {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-    std::filesystem::path const dir{COMDARE_R5G_ADHOC_DLL_DIR};
+    std::filesystem::path const              dir{COMDARE_R5G_ADHOC_DLL_DIR};
     std::vector<loader::AnatomyModuleHandle> handles;
     ASSERT_EQ(loader::AnatomyModuleLoader::load_all(dir, handles), loader::status_ok);
     ASSERT_GE(handles.size(), 1u);
@@ -155,16 +155,14 @@ TEST(R8RestA_DockMeasuresRealDll, ObserverOverRealDllBoundaryOrGracefulDegrade) 
     }
     ana::ComdareTierObserverSnapshot u{};
     obs->tier_observe(&u);
-    EXPECT_GE(u.axis_stats[0][3], 1u);   // search_insert
+    EXPECT_GE(u.axis_stats[0][3], 1u); // search_insert
     EXPECT_GE(u.observable_axis_count, 1u);
     EXPECT_GT(u.tier_fill_level, 0u);
     // Die DLL-Composition traegt die OperativeCapable-Huellen (auto_emitted_perm_module.cpp): telemetry + scan-
     // Achsen tragen ueber die ECHTE .dll-Grenze REALE Werte, WENN die geladene DLL synchron mit dem Header gebaut
     // ist (der ABI-Major-Bump 2→3 erzwingt das). Nur informativ ausgeben.
-    std::cout << "    [DLL 4-Achsen] telemetry=" << u.axis_stats[10][0]
-              << " layout=" << u.axis_stats[5][1]
-              << " serialization=" << u.axis_stats[9][1]
-              << " node=" << u.axis_stats[4][1]
+    std::cout << "    [DLL 4-Achsen] telemetry=" << u.axis_stats[10][0] << " layout=" << u.axis_stats[5][1]
+              << " serialization=" << u.axis_stats[9][1] << " node=" << u.axis_stats[4][1]
               << "  (>0 = synchron gebaute Huellen-DLL)\n";
 #else
     GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus";

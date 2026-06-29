@@ -61,32 +61,31 @@ public:
     static constexpr double      kDensityMinPercent = 25.0;
     static constexpr double      kDensityMaxPercent = 50.0;
 
-    using key_type   = std::uint16_t;  // Multi-Byte (2-Byte) Discriminator
+    using key_type   = std::uint16_t; // Multi-Byte (2-Byte) Discriminator
     using value_type = std::uint64_t;
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::direct_multibyte_access_tag;
-    using family_id  = std::integral_constant<int, 9>;  // S09
+    using family_id  = std::integral_constant<int, 9>; // S09
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t max_fanout()        noexcept { return 65536; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "array65535"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "Array65535SearchAlgo (prt-art REV6 §5.17 mid-density direct-addressed uint16)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "ARRAY65535"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "array65535"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "Array65535SearchAlgo (prt-art REV6 §5.17 mid-density direct-addressed uint16)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "ARRAY65535"; }
 
     /// SONDERFALL: kein SIMD — direkter O(1)-Index, kein Vektorisierungs-Vorteil.
-    [[nodiscard]] static constexpr bool supports_simd()            noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_range_scan()      noexcept { return true; }  // index-geordnet
-    [[nodiscard]] static constexpr bool is_dense()                 noexcept { return false; } // Mid-Density
+    [[nodiscard]] static constexpr bool supports_simd() noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_range_scan() noexcept { return true; } // index-geordnet
+    [[nodiscard]] static constexpr bool is_dense() noexcept { return false; }           // Mid-Density
     [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return true; }
 
     /// SONDERFALL [[allocation-failure-exception]]: zwei vector(kCapacity) koennen std::bad_alloc werfen.
-    Array65535SearchAlgo()
-        : data_(kCapacity), present_(kCapacity, 0u), count_(0) {}
+    Array65535SearchAlgo() : data_(kCapacity), present_(kCapacity, 0u), count_(0) {}
 
-    [[nodiscard]] bool operator==(Array65535SearchAlgo const& other) const noexcept {
-        return count_ == other.count_;
-    }
+    [[nodiscard]] bool operator==(Array65535SearchAlgo const& other) const noexcept { return count_ == other.count_; }
 
     void insert(key_type k, value_type v) {
         if (present_[k] == 0u) ++count_;
@@ -103,8 +102,10 @@ public:
         bool hit = (present_[k] != 0u);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_lookup_count;
-        if (hit) ++stats_.total_hit_count;
-        else      ++stats_.total_miss_count;
+        if (hit)
+            ++stats_.total_hit_count;
+        else
+            ++stats_.total_miss_count;
         observer_.notify(stats_);
 #endif
         if (!hit) return std::nullopt;
@@ -126,44 +127,48 @@ public:
     [[nodiscard]] double    density_percent() const noexcept {
         return 100.0 * static_cast<double>(count_) / static_cast<double>(kCapacity);
     }
-    void                    clear() noexcept {
+    void clear() noexcept {
         for (auto& p : present_) p = 0u;
         count_ = 0;
     }
 
     /// DensityClassifiedStrategy [[density-classified-strategy]]:
     /// Mid-Density-Tier (Zielband 25-50 %) — Balanced.
-    [[nodiscard]] concepts::DensityClass density_class() const noexcept {
-        return concepts::DensityClass::Balanced;
-    }
+    [[nodiscard]] concepts::DensityClass density_class() const noexcept { return concepts::DensityClass::Balanced; }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     // CoW-Memento (#142/Audit-K3): Stat-POD-Restore -> organ_cow_capable_v aktiv (spiegelt Observable-Huelle).
-    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; observer_.notify(stats_); }
+    void restore_statistics(snapshot_t const& s) noexcept {
+        stats_ = s;
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
-    std::vector<value_type>    data_;
-    std::vector<std::uint8_t>  present_;
-    std::size_t                count_;
+    std::vector<value_type>   data_;
+    std::vector<std::uint8_t> present_;
+    std::size_t               count_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::SearchAlgoStatistics stats_{};
-    mutable observer_t                      observer_{};
+    mutable observer_t                     observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup
 
 namespace comdare::cache_engine::lookup {
-    static_assert(concepts::SearchAlgoVariant<Array65535SearchAlgo>);
-    static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<Array65535SearchAlgo>);
-    static_assert(concepts::DensityClassifiedStrategy<Array65535SearchAlgo>);
-    // NICHT: SimdCapableStrategy (direkter O(1)-Index, kein SIMD-Vorteil)
-}
+static_assert(concepts::SearchAlgoVariant<Array65535SearchAlgo>);
+static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<Array65535SearchAlgo>);
+static_assert(concepts::DensityClassifiedStrategy<Array65535SearchAlgo>);
+// NICHT: SimdCapableStrategy (direkter O(1)-Index, kein SIMD-Vorteil)
+} // namespace comdare::cache_engine::lookup

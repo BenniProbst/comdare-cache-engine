@@ -50,4 +50,4 @@ public:
     virtual void tier_rollback_all() noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

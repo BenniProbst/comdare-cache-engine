@@ -15,9 +15,9 @@
 // @related [[execution-engine-als-wurzel]] [[anatomie-gattungen]]
 
 #include "../../../anatomy/anatomy_base.hpp"        // IAnatomyBase (Rückgabetyp der Factory)
-#include "../../../anatomy/measurable_workload.hpp"  // IMeasurableWorkload (Loader-dynamic_cast)
-#include "../../../anatomy/observable_tier.hpp"      // IObservableTier (Loader-dynamic_cast, R6 Pfad B)
-#include "../../../anatomy/rollbackable_tier.hpp"    // IRollbackableTier (Loader-dynamic_cast, V5-I6 memento_all)
+#include "../../../anatomy/measurable_workload.hpp" // IMeasurableWorkload (Loader-dynamic_cast)
+#include "../../../anatomy/observable_tier.hpp"     // IObservableTier (Loader-dynamic_cast, R6 Pfad B)
+#include "../../../anatomy/rollbackable_tier.hpp"   // IRollbackableTier (Loader-dynamic_cast, V5-I6 memento_all)
 
 #include <cstdint>
 
@@ -52,15 +52,15 @@
 //   - COMDARE_ANATOMY_MODULE_BUILD : SHARED-Lib Author-Side (dllexport)
 //   - (default Consumer-Side)      : SHARED-Lib Consumer-Side (dllimport)
 #if defined(_WIN32) || defined(__CYGWIN__)
-    #if defined(COMDARE_ANATOMY_ABI_STATIC)
-        #define COMDARE_ANATOMY_ABI_EXPORT
-    #elif defined(COMDARE_ANATOMY_MODULE_BUILD)
-        #define COMDARE_ANATOMY_ABI_EXPORT __declspec(dllexport)
-    #else
-        #define COMDARE_ANATOMY_ABI_EXPORT __declspec(dllimport)
-    #endif
+#if defined(COMDARE_ANATOMY_ABI_STATIC)
+#define COMDARE_ANATOMY_ABI_EXPORT
+#elif defined(COMDARE_ANATOMY_MODULE_BUILD)
+#define COMDARE_ANATOMY_ABI_EXPORT __declspec(dllexport)
 #else
-    #define COMDARE_ANATOMY_ABI_EXPORT __attribute__((visibility("default")))
+#define COMDARE_ANATOMY_ABI_EXPORT __declspec(dllimport)
+#endif
+#else
+#define COMDARE_ANATOMY_ABI_EXPORT __attribute__((visibility("default")))
 #endif
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ COMDARE_ANATOMY_ABI_EXPORT
 COMDARE_ANATOMY_ABI_EXPORT
 void comdare_destroy_anatomy(::comdare::cache_engine::anatomy::IAnatomyBase* ptr) noexcept;
 
-}  // extern "C"
+} // extern "C"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AnatomyAbiVersion Helper-Klasse (host-seitig im Module-Loader)
@@ -99,10 +99,8 @@ struct AnatomyAbiVersion {
     std::uint32_t minor;
 
     [[nodiscard]] static constexpr AnatomyAbiVersion unpack(std::uint64_t raw) noexcept {
-        return AnatomyAbiVersion{
-            static_cast<std::uint32_t>(raw >> 32),
-            static_cast<std::uint32_t>(raw & 0xFFFFFFFFULL)
-        };
+        return AnatomyAbiVersion{static_cast<std::uint32_t>(raw >> 32),
+                                 static_cast<std::uint32_t>(raw & 0xFFFFFFFFULL)};
     }
 
     [[nodiscard]] constexpr std::uint64_t pack() const noexcept {
@@ -116,9 +114,6 @@ struct AnatomyAbiVersion {
 };
 
 /// Compile-Time Host-Version (zur Build-Zeit der cache-engine eingebrannt).
-inline constexpr AnatomyAbiVersion kHostAnatomyAbiVersion{
-    COMDARE_ANATOMY_ABI_MAJOR,
-    COMDARE_ANATOMY_ABI_MINOR
-};
+inline constexpr AnatomyAbiVersion kHostAnatomyAbiVersion{COMDARE_ANATOMY_ABI_MAJOR, COMDARE_ANATOMY_ABI_MINOR};
 
-}  // namespace comdare::cache_engine::abi
+} // namespace comdare::cache_engine::abi

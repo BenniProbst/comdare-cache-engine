@@ -25,8 +25,10 @@ public:
     [[nodiscard]] static constexpr concepts::ConcurrencyPattern concurrency_pattern() noexcept {
         return concepts::ConcurrencyPattern::ReaderWriter;
     }
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "concurrency_reader_writer"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "ReaderWriterConcurrency (std::shared_mutex, single-writer/multi-reader)"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "concurrency_reader_writer"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "ReaderWriterConcurrency (std::shared_mutex, single-writer/multi-reader)";
+    }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "READER_WRITER"; }
 
     // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). ReaderWriter = ECHTER
@@ -44,9 +46,9 @@ private:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::concurrency_axis
 
 namespace comdare::cache_engine::concurrency_axis {
-    static_assert(concepts::ConcurrencyStrategy<ReaderWriterConcurrency>);
-    static_assert(concepts::CacheEnginePermutationStrategy<ReaderWriterConcurrency>);
-}
+static_assert(concepts::ConcurrencyStrategy<ReaderWriterConcurrency>);
+static_assert(concepts::CacheEnginePermutationStrategy<ReaderWriterConcurrency>);
+} // namespace comdare::cache_engine::concurrency_axis

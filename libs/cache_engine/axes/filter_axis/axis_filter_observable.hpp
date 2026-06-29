@@ -35,11 +35,11 @@ namespace comdare::cache_engine::filter_axis {
 
 /// ABI-taugliches Filter-Snapshot (NUR uint64 → standard_layout + trivially_copyable, Cross-ABI-POD-mappbar).
 struct FilterStatistics {
-    std::uint64_t probe_count        = 0;   ///< Anzahl observe_probe-Aufrufe (Probe-Runden)
-    std::uint64_t queries_positive   = 0;   ///< Queries mit Treffer-Beitrag != 0 (Filter sagt "moeglicherweise enthalten")
-    std::uint64_t queries_negative   = 0;   ///< Queries mit Treffer-Beitrag == 0 (Filter sagt "definitiv nicht enthalten")
-    std::uint64_t hash_probes_total  = 0;   ///< Σ Hash-/Bucket-Probes (Queries × probe_multiplicity der Strategie)
-    std::uint64_t last_checksum      = 0;   ///< letztes filter_probe_scan-Batch-Ergebnis (Korrektheits-/Anti-Wegopt-Anker)
+    std::uint64_t probe_count       = 0; ///< Anzahl observe_probe-Aufrufe (Probe-Runden)
+    std::uint64_t queries_positive  = 0; ///< Queries mit Treffer-Beitrag != 0 (Filter sagt "moeglicherweise enthalten")
+    std::uint64_t queries_negative  = 0; ///< Queries mit Treffer-Beitrag == 0 (Filter sagt "definitiv nicht enthalten")
+    std::uint64_t hash_probes_total = 0; ///< Σ Hash-/Bucket-Probes (Queries × probe_multiplicity der Strategie)
+    std::uint64_t last_checksum     = 0; ///< letztes filter_probe_scan-Batch-Ergebnis (Korrektheits-/Anti-Wegopt-Anker)
 
     [[nodiscard]] bool operator==(FilterStatistics const&) const noexcept = default;
 };
@@ -59,16 +59,25 @@ public:
     using topic_tag = typename Strategy::topic_tag;
 
     // Transparenter Decorator: Strategie-Inspektion durchgereicht.
-    [[nodiscard]] static constexpr bool             supports_range_query() noexcept { return Strategy::supports_range_query(); }
-    [[nodiscard]] static constexpr std::string_view name()                 noexcept { return Strategy::name(); }
-    [[nodiscard]] static constexpr std::string_view family_name()
-        noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()
-        noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
+    [[nodiscard]] static constexpr bool supports_range_query() noexcept { return Strategy::supports_range_query(); }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept
+        requires requires { Strategy::family_name(); }
+    {
+        return Strategy::family_name();
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept
+        requires requires { Strategy::flag_suffix(); }
+    {
+        return Strategy::flag_suffix();
+    }
     // get_compiler() ist eine AxisBase-Eigenschaft (Default "original"), die die RAW-Strategie traegt —
     // transparent durchgereicht (SFINAE-sicher: existiert nur, falls die Strategie sie hat).
-    [[nodiscard]] static constexpr std::string_view get_compiler()
-        noexcept requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
+    [[nodiscard]] static constexpr std::string_view get_compiler() noexcept
+        requires requires { Strategy::get_compiler(); }
+    {
+        return Strategy::get_compiler();
+    }
 
     /// STATIC Pass-Through (Drop-in-Kompatibilität): die Strategie-Methode unveraendert durchgereicht, damit die
     /// Huelle als filter-Slot die bestehenden seg19-Aufrufer NICHT bricht (abi_adapter.hpp T16
@@ -88,31 +97,41 @@ public:
 
     /// Build: fuegt den Key in die REALE Filter-Struktur ein (Bloom-Bit / Cuckoo-Bucket / Xor-Slot / SuRF-Prefix).
     void insert_key(std::uint64_t key) noexcept
-        requires requires (Strategy s) { s.insert_key(key); }
-    { strat_.insert_key(key); }
+        requires requires(Strategy s) { s.insert_key(key); }
+    {
+        strat_.insert_key(key);
+    }
 
     /// Leert die REALE Filter-Struktur (Memento/tier_clear-Symmetrie).
     void clear_filter() noexcept
-        requires requires (Strategy s) { s.clear(); }
-    { strat_.clear(); }
+        requires requires(Strategy s) { s.clear(); }
+    {
+        strat_.clear();
+    }
 
     /// Lesezugriff auf die reale Struktur-Instanz (Test-Verifikation + Memento-Snapshot/Restore).
     [[nodiscard]] Strategy const& strategy_instance() const noexcept { return strat_; }
-    [[nodiscard]] Strategy&       strategy_instance()       noexcept { return strat_; }
+    [[nodiscard]] Strategy&       strategy_instance() noexcept { return strat_; }
 
     /// Bit-exakter Vergleich der REALEN Filter-Struktur (Memento-Verifikation, P5 #124). Vergleicht NUR die
     /// Struktur (strat_), NICHT die diagnostischen Stats — der Memento-Vertrag betrifft die Filter-Membership.
     /// Nur verfuegbar, wenn die Strategie operator== traegt (reale Strukturen; synthetische ohne == unberuehrt).
     [[nodiscard]] bool operator==(ObservableFilter const& o) const noexcept
-        requires requires (Strategy const a, Strategy const b) { { a == b } -> std::convertible_to<bool>; }
-    { return strat_ == o.strat_; }
+        requires requires(Strategy const a, Strategy const b) {
+            { a == b } -> std::convertible_to<bool>;
+        }
+    {
+        return strat_ == o.strat_;
+    }
 
     /// Pfad-B Real-Filter-Driver: probt die REALE Struktur (strat_.probe_key) ueber die echten, in container_
     /// gespeicherten Keys als Query-Strom. queries_positive/negative je Key ueber das ECHTE Struktur-Ergebnis
     /// (probe_key) — keine Strategie-Internas. last_checksum = order-sensitive Treffer-Pruefsumme. Getrennt von
     /// der static filter_probe_scan (Pfad-A bleibt buf-basiert). Nur verfuegbar, wenn die Strategie real ist.
     [[nodiscard]] std::uint64_t observe_probe_keys(std::uint64_t const* keys, std::size_t nk) noexcept
-        requires requires (Strategy const cs, std::uint64_t k) { { cs.probe_key(k) } -> std::convertible_to<bool>; }
+        requires requires(Strategy const cs, std::uint64_t k) {
+            { cs.probe_key(k) } -> std::convertible_to<bool>;
+        }
     {
         std::uint64_t checksum = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -121,9 +140,12 @@ public:
 #endif
         for (std::size_t i = 0; i < nk; ++i) {
             bool const hit = strat_.probe_key(keys[i]);
-            if (hit) checksum += 1u + (keys[i] & 7u);          // order-sensitive Akkumulation (Anti-Wegopt)
+            if (hit) checksum += 1u + (keys[i] & 7u); // order-sensitive Akkumulation (Anti-Wegopt)
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-            if (hit) ++stats_.queries_positive; else ++stats_.queries_negative;
+            if (hit)
+                ++stats_.queries_positive;
+            else
+                ++stats_.queries_negative;
 #endif
         }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -136,8 +158,8 @@ public:
     /// (abi_adapter::fill_observer_v3 / tier_insert-Kopplung) ruft dies → die Probe-Aktivitaet wird observable.
     /// queries_positive/negative je Query ueber das ECHTE Einzel-Query-Strategie-Ergebnis (q=1-Fenster → keine
     /// Strategie-Internas). Getrennt von der static-Variante, weil die seg19-Aufrufer static bleiben muessen.
-    [[nodiscard]] std::uint64_t observe_probe(unsigned char const* buf, std::size_t n,
-                                              unsigned char const* queries, std::size_t q) noexcept {
+    [[nodiscard]] std::uint64_t observe_probe(unsigned char const* buf, std::size_t n, unsigned char const* queries,
+                                              std::size_t q) noexcept {
         std::uint64_t const checksum = Strategy::filter_probe_scan(buf, n, queries, q);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.probe_count;
@@ -145,8 +167,10 @@ public:
         // Positiv/Negativ-Split je Query ueber das oeffentliche Einzel-Query-Ergebnis der Strategie (q=1-Fenster).
         for (std::size_t i = 0; i < q; ++i) {
             std::uint64_t const single = Strategy::filter_probe_scan(buf, n, queries + i, std::size_t{1});
-            if (single != 0) ++stats_.queries_positive;   // Filter: "moeglicherweise enthalten" (Treffer-Beitrag)
-            else             ++stats_.queries_negative;   // Filter: "definitiv nicht enthalten"
+            if (single != 0)
+                ++stats_.queries_positive; // Filter: "moeglicherweise enthalten" (Treffer-Beitrag)
+            else
+                ++stats_.queries_negative; // Filter: "definitiv nicht enthalten"
         }
         stats_.last_checksum = checksum;
 #endif
@@ -156,14 +180,16 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = FilterStatistics;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; }
+    void                     reset() noexcept { stats_ = {}; }
 
 private:
     /// Ehrlich deklarierte Probe-Multiplizitaet je Query (Anzahl Hash-/Bucket-Tests). Default 1; bekannte
     /// Strategien tragen ihre k via static probe_multiplicity() (Bloom k=4, Cuckoo 2). Reine Diagnose-Schaetzung
     /// fuer hash_probes_total — KEIN korrektheitskritischer Wert.
     [[nodiscard]] static constexpr std::uint64_t probe_multiplicity() noexcept {
-        if constexpr (requires { { Strategy::probe_multiplicity() } -> std::convertible_to<std::uint64_t>; }) {
+        if constexpr (requires {
+                          { Strategy::probe_multiplicity() } -> std::convertible_to<std::uint64_t>;
+                      }) {
             return static_cast<std::uint64_t>(Strategy::probe_multiplicity());
         } else {
             return 1u;
@@ -181,4 +207,4 @@ private:
     Strategy strat_{};
 };
 
-}  // namespace comdare::cache_engine::filter_axis
+} // namespace comdare::cache_engine::filter_axis

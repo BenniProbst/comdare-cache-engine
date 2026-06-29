@@ -9,10 +9,8 @@ namespace comdare::cache_engine::layout::concepts {
 
 /// MemoryLayoutStrategy — Pflicht-API: cache_line_alignment, layout_pattern (enum).
 template <typename L>
-concept MemoryLayoutStrategy =
-    ::comdare::cache_engine::memory_layout::concepts::MemoryLayoutComponent<L>
-    && requires {
-        { L::cache_line_size() } noexcept -> std::convertible_to<std::size_t>;
-    };
+concept MemoryLayoutStrategy = ::comdare::cache_engine::memory_layout::concepts::MemoryLayoutComponent<L> && requires {
+    { L::cache_line_size() } noexcept -> std::convertible_to<std::size_t>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::layout::concepts

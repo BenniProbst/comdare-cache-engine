@@ -12,4 +12,4 @@ struct metric_type_tag {};
 // TM3: Collection-Overhead-Level (low / medium / high)
 struct overhead_level_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::telemetry_axis::subaxes

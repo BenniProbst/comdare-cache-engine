@@ -8,11 +8,11 @@
 namespace comdare::cache_engine::subsystems::pinning {
 
 enum class PinningTarget : std::uint8_t {
-    AnyCore           = 0,
-    LargestL3CcdCore  = 1,   // generisch fuer X3D — REV 3 K3.2
-    HighIpcCore       = 2,   // generisch fuer P-Cores — REV 3 K3.2
-    NumaLocalCore     = 3,
-    SpecializedCore   = 4,   // generisch fuer Tiles/PEs — REV 3 K3.2
+    AnyCore          = 0,
+    LargestL3CcdCore = 1, // generisch fuer X3D — REV 3 K3.2
+    HighIpcCore      = 2, // generisch fuer P-Cores — REV 3 K3.2
+    NumaLocalCore    = 3,
+    SpecializedCore  = 4, // generisch fuer Tiles/PEs — REV 3 K3.2
 };
 
 class IPinningEngine {
@@ -28,4 +28,4 @@ public:
     [[nodiscard]] virtual std::uint64_t total_pins_applied() const noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::subsystems::pinning
+} // namespace comdare::cache_engine::subsystems::pinning

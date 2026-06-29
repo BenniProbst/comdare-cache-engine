@@ -53,9 +53,7 @@ public:
         return ok;
     }
 
-    [[nodiscard]] std::size_t size() const {
-        return store_.size();
-    }
+    [[nodiscard]] std::size_t size() const { return store_.size(); }
 
 private:
     std::map<Key, Value> store_;
@@ -78,23 +76,20 @@ private:
 template <typename Backend = DefaultMapBackend<std::string, std::uint64_t>>
 class CacheEngineExecutionEngineAdapter {
 public:
-    using key_type = std::string;
+    using key_type   = std::string;
     using value_type = std::uint64_t;
 
     CacheEngineExecutionEngineAdapter() = default;
-    explicit CacheEngineExecutionEngineAdapter(Backend backend) noexcept
-        : backend_{std::move(backend)} {}
+    explicit CacheEngineExecutionEngineAdapter(Backend backend) noexcept : backend_{std::move(backend)} {}
 
-    [[nodiscard]] static constexpr std::string_view engine_name() noexcept {
-        return "CacheEngine-EE-A";
-    }
+    [[nodiscard]] static constexpr std::string_view engine_name() noexcept { return "CacheEngine-EE-A"; }
 
     /// V32-API: execute eine Workload mit einfacher Simulation
     [[nodiscard]] cmd::ExecutionResult execute(const cmd::Workload& workload) {
-        cmd::ExecutionResult result {};
-        result.engine_name = engine_name();
+        cmd::ExecutionResult result{};
+        result.engine_name   = engine_name();
         result.workload_kind = workload.kind;
-        result.success = true;
+        result.success       = true;
         return result;
     }
 
@@ -102,28 +97,28 @@ public:
     /// Wird vom ExecuteEngineCommand via DI konsumiert.
     [[nodiscard]] cmd::EngineCallable as_engine_callable() {
         return [this](std::size_t op, cmd::WorkloadKind kind, std::uint64_t seed) {
-            cmd::OperationOutcome outcome {};
-            const auto key = make_key(op, seed);
+            cmd::OperationOutcome outcome{};
+            const auto            key = make_key(op, seed);
             switch (kind) {
                 case cmd::WorkloadKind::YCSB_C_ReadOnly: {
-                    auto val = this->backend_.lookup(key);
+                    auto val                   = this->backend_.lookup(key);
                     outcome.cache_misses_delta = val.has_value() ? 0u : 1u;
-                    outcome.bytes_touched = 32u;  // key + value + node header
-                    outcome.success = true;
+                    outcome.bytes_touched      = 32u; // key + value + node header
+                    outcome.success            = true;
                     break;
                 }
                 case cmd::WorkloadKind::YCSB_A_Read50Write50:
                 case cmd::WorkloadKind::YCSB_F_ReadModifyWrite: {
                     const bool do_write = ((op + seed) % 2u == 0u);
                     if (do_write) {
-                        const value_type v = static_cast<value_type>(op);
-                        outcome.success = this->backend_.insert(key, v);
+                        const value_type v    = static_cast<value_type>(op);
+                        outcome.success       = this->backend_.insert(key, v);
                         outcome.bytes_touched = 64u;
                     } else {
-                        auto val = this->backend_.lookup(key);
+                        auto val                   = this->backend_.lookup(key);
                         outcome.cache_misses_delta = val.has_value() ? 0u : 1u;
-                        outcome.bytes_touched = 32u;
-                        outcome.success = true;
+                        outcome.bytes_touched      = 32u;
+                        outcome.success            = true;
                     }
                     break;
                 }
@@ -132,7 +127,7 @@ public:
                     const value_type v = static_cast<value_type>(op);
                     this->backend_.insert(key, v);
                     outcome.bytes_touched = 64u;
-                    outcome.success = true;
+                    outcome.success       = true;
                     break;
                 }
             }
@@ -142,29 +137,23 @@ public:
     }
 
     /// ISearchEngine-API: lookup
-    [[nodiscard]] std::optional<value_type> lookup(const key_type& key) const {
-        return backend_.lookup(key);
-    }
+    [[nodiscard]] std::optional<value_type> lookup(const key_type& key) const { return backend_.lookup(key); }
 
     /// ISearchEngine-API: insert
-    bool insert(const key_type& key, value_type value) {
-        return backend_.insert(key, value);
-    }
+    bool insert(const key_type& key, value_type value) { return backend_.insert(key, value); }
 
-    [[nodiscard]] Backend& backend() noexcept { return backend_; }
+    [[nodiscard]] Backend&       backend() noexcept { return backend_; }
     [[nodiscard]] const Backend& backend() const noexcept { return backend_; }
 
-    [[nodiscard]] std::uint64_t ops_executed() const noexcept {
-        return ops_executed_.load(std::memory_order_relaxed);
-    }
+    [[nodiscard]] std::uint64_t ops_executed() const noexcept { return ops_executed_.load(std::memory_order_relaxed); }
 
 private:
     static key_type make_key(std::size_t op, std::uint64_t seed) {
         return "k" + std::to_string(seed) + "_" + std::to_string(op);
     }
 
-    Backend backend_ {};
-    std::atomic<std::uint64_t> ops_executed_ {0};
+    Backend                    backend_{};
+    std::atomic<std::uint64_t> ops_executed_{0};
 };
 
-}  // namespace comdare::cache_engine::abi
+} // namespace comdare::cache_engine::abi

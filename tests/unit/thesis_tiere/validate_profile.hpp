@@ -25,7 +25,7 @@
 // AUSGABE: klare Meldung je Fehler; bool-Ergebnis (true = OK). Der Host mappt true→Exit 0 (+ Zusammenfassung),
 // false→Exit != 0. Pattern: Specification/Validator (read-only Gegen-Pruefung); C++23, header-only.
 
-#include <builder/experiment_tree/experiment_tree.hpp>        // AxisLevel
+#include <builder/experiment_tree/experiment_tree.hpp>         // AxisLevel
 #include <builder/experiment_tree/profile_to_tree.hpp>         // AxisRegistry (axis-ref → Werteliste)
 #include <builder/experiment_tree/axis_path_serialization.hpp> // kCompositionAxisNames (die 19 Komposition-Achsen)
 #include "xml_config_parser/xml_config_parser.hpp"             // ThesisProfile
@@ -45,8 +45,8 @@ namespace cx = ::comdare::builder::xml;
 // ── Ergebnis-POD: bool + die Fehler-Liste (literal, fuer die Host-Ausgabe + Tests). ──
 struct ProfileValidationResult {
     bool                     ok = true;
-    std::vector<std::string> errors;     // je ungueltiger Eintrag eine klare Meldung
-    std::vector<std::string> warnings;   // nicht-fatale Hinweise (z.B. leere <value>-Liste = Registry-Expansion)
+    std::vector<std::string> errors;   // je ungueltiger Eintrag eine klare Meldung
+    std::vector<std::string> warnings; // nicht-fatale Hinweise (z.B. leere <value>-Liste = Registry-Expansion)
     std::size_t              axes_checked   = 0;
     std::size_t              values_checked = 0;
     std::size_t              sweeps_checked = 0;
@@ -58,15 +58,18 @@ struct ProfileValidationResult {
 /// REALEN EnabledStrategies (reflect_names<…StaticAxisVariants*>), HIER nur als map umgehaengt — keine Wahl.
 [[nodiscard]] inline ex::AxisRegistry axis_registry_from_levels(std::vector<ex::AxisLevel> const& levels) {
     ex::AxisRegistry reg;
-    for (auto const& l : levels) reg[l.axis] = l.values;    // axis → volle name()-Liste (EnabledStrategies)
+    for (auto const& l : levels) reg[l.axis] = l.values; // axis → volle name()-Liste (EnabledStrategies)
     return reg;
 }
 
 // ── Hilfs: gueltige Werte-Vorschau (max 12, sonst "… (+N)") fuer eine lesbare Fehlermeldung. ──
 [[nodiscard]] inline std::string preview_values(std::vector<std::string> const& vals) {
-    std::string s;
+    std::string       s;
     std::size_t const cap = (std::min<std::size_t>)(vals.size(), 12);
-    for (std::size_t i = 0; i < cap; ++i) { if (i) s += ", "; s += vals[i]; }
+    for (std::size_t i = 0; i < cap; ++i) {
+        if (i) s += ", ";
+        s += vals[i];
+    }
     if (vals.size() > cap) s += ", … (+" + std::to_string(vals.size() - cap) + ")";
     return s;
 }
@@ -75,8 +78,8 @@ struct ProfileValidationResult {
 /// EnabledStrategies, vom Host via axis_registry_from_levels(build_all_axis_levels()) hereingereicht). Prueft
 /// (1) Achsen-Namen (2) Achsen-Werte (3) axis_sweep- + sota_series-Referenzen. Schreibt KEINE Datei, baut KEINE
 /// DLL, misst NICHTS. Gibt das Ergebnis-POD zurueck; der Caller (Host) druckt + mappt auf den Exit-Code.
-[[nodiscard]] inline ProfileValidationResult validate_profile(
-        cx::ThesisProfile const& tp, ex::AxisRegistry const& registry) {
+[[nodiscard]] inline ProfileValidationResult validate_profile(cx::ThesisProfile const& tp,
+                                                              ex::AxisRegistry const&  registry) {
     ProfileValidationResult r;
 
     // Menge der bekannten Achsen-Namen: Registry-Keys (EnabledStrategies) ∪ kCompositionAxisNames (die 19 Slots).
@@ -87,7 +90,7 @@ struct ProfileValidationResult {
     // ── (1)+(2): jede <axis ref> bekannt + jeder <value> gueltig. ──
     for (auto const& ax : tp.permute_axes) {
         ++r.axes_checked;
-        if (ax.ref == "cacheline") {            // KF-3-Sonderzweig (compile-time Cache-Line-Unterachse) — separat.
+        if (ax.ref == "cacheline") { // KF-3-Sonderzweig (compile-time Cache-Line-Unterachse) — separat.
             r.warnings.push_back("axis ref=\"cacheline\": KF-3-Sonderzweig (Cache-Line-Unterachse), "
                                  "Werte (line_size/alignment/sw_hint) nicht gegen die Achsen-Registry geprueft.");
             continue;
@@ -95,35 +98,40 @@ struct ProfileValidationResult {
         // (1) Achsen-Name bekannt?
         if (known_axes.find(ax.ref) == known_axes.end()) {
             r.ok = false;
-            r.errors.push_back("UNBEKANNTE Achse <axis ref=\"" + ax.ref + "\">: kein Achsen-Name der Registry/"
+            r.errors.push_back("UNBEKANNTE Achse <axis ref=\"" + ax.ref +
+                               "\">: kein Achsen-Name der Registry/"
                                "EnabledStrategies. Gueltige Achsen = " +
                                preview_values([&] {
-                                   std::vector<std::string> a(known_axes.begin(), known_axes.end()); return a; }()));
-            continue;   // ohne bekannte Achse koennen die Werte nicht geprueft werden
+                                   std::vector<std::string> a(known_axes.begin(), known_axes.end());
+                                   return a;
+                               }()));
+            continue; // ohne bekannte Achse koennen die Werte nicht geprueft werden
         }
         // (2) Achsen-Werte gueltig? Gueltige Werte aus der Registry dieser Achse.
         auto it = registry.find(ax.ref);
         if (it == registry.end()) {
             // Achse ist ein bekannter Slot (kCompositionAxisNames), aber NICHT in der hereingereichten Registry
             // (z.B. Host reichte nur eine Teilmenge). Nicht-fatal: Werte koennen nicht geprueft werden.
-            r.warnings.push_back("axis ref=\"" + ax.ref + "\": bekannter Slot, aber keine Werteliste in der "
+            r.warnings.push_back("axis ref=\"" + ax.ref +
+                                 "\": bekannter Slot, aber keine Werteliste in der "
                                  "hereingereichten Registry — <value>-Pruefung uebersprungen.");
             continue;
         }
         std::vector<std::string> const& valid = it->second;
         if (ax.values.empty()) {
             // Leere <value>-Liste = build_axis_levels expandiert die volle Registry-Liste (legitim) → nur Hinweis.
-            r.warnings.push_back("axis ref=\"" + ax.ref + "\": keine <value> — die volle Registry-Liste ("
-                                 + std::to_string(valid.size()) + " Werte) wird expandiert.");
+            r.warnings.push_back("axis ref=\"" + ax.ref + "\": keine <value> — die volle Registry-Liste (" +
+                                 std::to_string(valid.size()) + " Werte) wird expandiert.");
             continue;
         }
         for (auto const& v : ax.values) {
             ++r.values_checked;
             if (std::find(valid.begin(), valid.end(), v) == valid.end()) {
                 r.ok = false;
-                r.errors.push_back("UNGUELTIGER Wert <axis ref=\"" + ax.ref + "\"><value>" + v + "</value>: kein "
-                                   "name() der EnabledStrategies dieser Achse. Gueltige Werte = "
-                                   + preview_values(valid));
+                r.errors.push_back("UNGUELTIGER Wert <axis ref=\"" + ax.ref + "\"><value>" + v +
+                                   "</value>: kein "
+                                   "name() der EnabledStrategies dieser Achse. Gueltige Werte = " +
+                                   preview_values(valid));
             }
         }
     }
@@ -136,13 +144,15 @@ struct ProfileValidationResult {
     for (auto const& sw : tp.axis_sweeps) {
         ++r.sweeps_checked;
         bool const is_declared = declared_axes.find(sw.axis) != declared_axes.end();
-        bool const is_known    = known_axes.find(sw.axis)    != known_axes.end();
+        bool const is_known    = known_axes.find(sw.axis) != known_axes.end();
         if (!is_declared && !is_known) {
             r.ok = false;
-            r.errors.push_back("UNBEKANNTE Sweep-Achse <axis_sweep axis=\"" + sw.axis + "\">: weder im Profil "
+            r.errors.push_back("UNBEKANNTE Sweep-Achse <axis_sweep axis=\"" + sw.axis +
+                               "\">: weder im Profil "
                                "<permute_axes> deklariert noch ein bekannter Achsen-Name der Registry.");
         } else if (!is_declared) {
-            r.warnings.push_back("axis_sweep axis=\"" + sw.axis + "\": bekannte Achse, aber NICHT in "
+            r.warnings.push_back("axis_sweep axis=\"" + sw.axis +
+                                 "\": bekannte Achse, aber NICHT in "
                                  "<permute_axes> deklariert (Sweep nutzt die Baseline/eigene Sweep-View).");
         }
     }
@@ -157,9 +167,8 @@ struct ProfileValidationResult {
         if (tier_ids.find(ss.lebewesen) == tier_ids.end()) {
             r.ok = false;
             std::vector<std::string> ids(tier_ids.begin(), tier_ids.end());
-            r.errors.push_back("UNBEKANNTES Lebewesen <sota_series id=\"" + ss.id + "\" lebewesen=\""
-                               + ss.lebewesen + "\">: kein deklariertes <base_tier>. Deklarierte base_tiers = "
-                               + preview_values(ids));
+            r.errors.push_back("UNBEKANNTES Lebewesen <sota_series id=\"" + ss.id + "\" lebewesen=\"" + ss.lebewesen +
+                               "\">: kein deklariertes <base_tier>. Deklarierte base_tiers = " + preview_values(ids));
         }
     }
 
@@ -167,16 +176,17 @@ struct ProfileValidationResult {
 }
 
 /// print_validation_report — druckt das Ergebnis menschenlesbar (Host nutzt es; der Test prueft die Literale).
-inline void print_validation_report(ProfileValidationResult const& r, cx::ThesisProfile const& tp,
-                                     std::ostream& os) {
+inline void print_validation_report(ProfileValidationResult const& r, cx::ThesisProfile const& tp, std::ostream& os) {
     os << "=== PROFIL-VALIDAT (rein-lesend; KEIN DLL-Bau, KEINE Messung) ===\n";
     os << "  Profil id=" << tp.id << " schema_version=" << tp.schema_version << "\n";
-    os << "  geprueft: " << r.axes_checked << " Achsen, " << r.values_checked << " Werte, "
-       << r.sweeps_checked << " axis_sweeps, " << r.series_checked << " sota_series\n";
+    os << "  geprueft: " << r.axes_checked << " Achsen, " << r.values_checked << " Werte, " << r.sweeps_checked
+       << " axis_sweeps, " << r.series_checked << " sota_series\n";
     for (auto const& w : r.warnings) os << "  [HINWEIS] " << w << "\n";
-    for (auto const& e : r.errors)   os << "  [FEHLER]  " << e << "\n";
-    if (r.ok) os << "VALIDAT OK: das Profil ist gegen die AxisRegistry/EnabledStrategies konsistent.\n";
-    else      os << "VALIDAT FEHLGESCHLAGEN: " << r.errors.size() << " Fehler — Profil NICHT baubar (Abbruch vor Bau).\n";
+    for (auto const& e : r.errors) os << "  [FEHLER]  " << e << "\n";
+    if (r.ok)
+        os << "VALIDAT OK: das Profil ist gegen die AxisRegistry/EnabledStrategies konsistent.\n";
+    else
+        os << "VALIDAT FEHLGESCHLAGEN: " << r.errors.size() << " Fehler — Profil NICHT baubar (Abbruch vor Bau).\n";
 }
 
-}  // namespace comdare::cache_engine::thesis_lazy
+} // namespace comdare::cache_engine::thesis_lazy

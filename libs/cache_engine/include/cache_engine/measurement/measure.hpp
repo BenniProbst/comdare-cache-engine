@@ -22,9 +22,9 @@ struct alignas(64) Context {
 // Primary template — Default-Hook (F-EXTRA-7), keine Wirkung
 template <MeasurementCategory Cat, AlgoDetail Detail>
 struct Measure {
-    static constexpr void at_lookup_begin(Context&) noexcept {}
-    static constexpr void at_lookup_end(Context&) noexcept {}
-    static constexpr void at_node_visit(std::uint64_t, Context&) noexcept {}
+    static constexpr void   at_lookup_begin(Context&) noexcept {}
+    static constexpr void   at_lookup_end(Context&) noexcept {}
+    static constexpr void   at_node_visit(std::uint64_t, Context&) noexcept {}
     static constexpr double extract(Context const&) noexcept { return 0.0; }
 };
 
@@ -37,9 +37,7 @@ struct Measure<MeasurementCategory::CLU, AlgoDetail::ART_NODE256> {
         // CLU = effektiv genutzte Bytes pro Cache-Line (64 B)
         ctx.cache_lines_used += used_bytes / 64;
     }
-    static constexpr double extract(Context const& ctx) noexcept {
-        return ctx.cache_lines_used > 0 ? 1.0 : 0.0;
-    }
+    static constexpr double extract(Context const& ctx) noexcept { return ctx.cache_lines_used > 0 ? 1.0 : 0.0; }
 };
 
 // Beispiel: LATENCY_MEAN x beliebig — generisch Lookup-Begin/End-Zeitstempel
@@ -49,10 +47,8 @@ struct Measure<MeasurementCategory::LATENCY_MEAN, Detail> {
         // In echtem Build: rdtsc/clock_gettime; hier nur als Pflichtsignatur
         ctx.lookup_start_ns = 0;
     }
-    static constexpr void at_lookup_end(Context& ctx) noexcept {
-        ctx.lookup_end_ns = 0;
-    }
-    static constexpr void at_node_visit(std::uint64_t, Context&) noexcept {}
+    static constexpr void   at_lookup_end(Context& ctx) noexcept { ctx.lookup_end_ns = 0; }
+    static constexpr void   at_node_visit(std::uint64_t, Context&) noexcept {}
     static constexpr double extract(Context const& ctx) noexcept {
         return static_cast<double>(ctx.lookup_end_ns - ctx.lookup_start_ns);
     }
@@ -67,14 +63,13 @@ concept HasMeasurement = requires {
 
 // F11 Trigger-Modus
 enum class MeasurementTrigger : std::uint8_t {
-    CONTINUOUS  = 0,   // Builder-Modus, jeder Lookup
-    SAMPLED_1_N = 1,   // Production, default 1:1000
+    CONTINUOUS  = 0, // Builder-Modus, jeder Lookup
+    SAMPLED_1_N = 1, // Production, default 1:1000
 };
 
 class MeasurementHooks {
 public:
-    explicit MeasurementHooks(MeasurementTrigger t = MeasurementTrigger::CONTINUOUS,
-                              std::size_t sample_n = 1000)
+    explicit MeasurementHooks(MeasurementTrigger t = MeasurementTrigger::CONTINUOUS, std::size_t sample_n = 1000)
         : trigger_(t), sample_n_(sample_n) {}
 
     // Liefert true falls dieser Lookup gemessen werden soll
@@ -84,7 +79,7 @@ public:
         return (sample_counter_ % sample_n_) == 0;
     }
 
-    [[nodiscard]] MeasurementTrigger trigger()  const noexcept { return trigger_; }
+    [[nodiscard]] MeasurementTrigger trigger() const noexcept { return trigger_; }
     [[nodiscard]] std::size_t        sample_n() const noexcept { return sample_n_; }
 
 private:
@@ -93,4 +88,4 @@ private:
     std::size_t        sample_counter_ = 0;
 };
 
-}  // namespace comdare::cache_engine::measurement
+} // namespace comdare::cache_engine::measurement

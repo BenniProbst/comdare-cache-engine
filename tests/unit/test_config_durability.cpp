@@ -19,8 +19,8 @@
 // libs/cache_engine, libs/cache_engine/include, libs/common) + GTest-Registrierung gespiegelt von
 // test_abi_interface (comdare_add_test → gtest/gtest_main + ein add_test je Binary).
 
-#include <serialization/xml_config_parser/xml_reader.hpp>      // cx::parse_document / XmlNode
-#include <builder/workload_driver/load_profile_parser.hpp>     // wd::parse_load_profile / LoadProfile
+#include <serialization/xml_config_parser/xml_reader.hpp>  // cx::parse_document / XmlNode
+#include <builder/workload_driver/load_profile_parser.hpp> // wd::parse_load_profile / LoadProfile
 
 #include <gtest/gtest.h>
 
@@ -47,36 +47,36 @@ namespace {
 [[nodiscard]] std::vector<std::string> make_garbage_inputs() {
     std::vector<std::string> in;
 
-    in.emplace_back("");                                          // 1  komplett leer
-    in.emplace_back(" ");                                         // 2  nur Whitespace
-    in.emplace_back("<");                                         // 3  nacktes '<'
-    in.emplace_back("<a");                                        // 4  Tag ohne Abschluss
-    in.emplace_back("<a>");                                       // 5  offenes Element, kein close
-    in.emplace_back("<a></b>");                                   // 6  falsch verschachtelt / mismatched close
-    in.emplace_back("<<<>>>");                                    // 7  Klammer-Salat
+    in.emplace_back("");        // 1  komplett leer
+    in.emplace_back(" ");       // 2  nur Whitespace
+    in.emplace_back("<");       // 3  nacktes '<'
+    in.emplace_back("<a");      // 4  Tag ohne Abschluss
+    in.emplace_back("<a>");     // 5  offenes Element, kein close
+    in.emplace_back("<a></b>"); // 6  falsch verschachtelt / mismatched close
+    in.emplace_back("<<<>>>");  // 7  Klammer-Salat
     // 8  Binär-Müll inkl. eingebettetem '\0' (kein gültiges UTF-8, nicht null-terminiert).
     {
-        static constexpr unsigned char raw[] = {
-            0x00, 0x01, 0x02, 0xFF, 0x3C /*'<'*/, 0x00, 0x61 /*'a'*/, 0x3E /*'>'*/, 0xFE, 0x00, 0x7F};
+        static constexpr unsigned char raw[] = {0x00,         0x01,         0x02, 0xFF, 0x3C /*'<'*/, 0x00,
+                                                0x61 /*'a'*/, 0x3E /*'>'*/, 0xFE, 0x00, 0x7F};
         in.emplace_back(reinterpret_cast<char const*>(raw), sizeof(raw));
     }
-    in.emplace_back("<?xml");                                     // 9  abgeschnittene XML-Deklaration
+    in.emplace_back("<?xml");                                      // 9  abgeschnittene XML-Deklaration
     in.emplace_back("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"); // 10 nur Deklaration, kein Wurzelelement
     // 11 sehr langes Attribut (~100k Zeichen) — Puffer-/Allokations-Robustheit.
     in.emplace_back("<a b=\"" + std::string(100000, 'x') + "\"/>");
     // 12 sehr tief verschachtelt (~200 Ebenen) — Rekursions-/Stack-Robustheit.
     {
         constexpr int kDepth = 200;
-        std::string deep;
+        std::string   deep;
         deep.reserve(static_cast<std::size_t>(kDepth) * 8);
         for (int i = 0; i < kDepth; ++i) deep += "<n>";
         for (int i = 0; i < kDepth; ++i) deep += "</n>";
         in.emplace_back(std::move(deep));
     }
-    in.emplace_back("<comdare_load_profile");                     // 13 abgeschnittenes Root-Tag (richtiger Name, kein '>')
-    in.emplace_back("<root><child>x</child></root>");            // 14 wohlgeformtes XML, FALSCHES Schema
-    in.emplace_back("<a b=\"unterminated>");                      // 15 nicht geschlossenes Attribut-Quote
-    in.emplace_back("<a>&;&unknown;&#;</a>");                     // 16 kaputte/unbekannte Entities
+    in.emplace_back("<comdare_load_profile");         // 13 abgeschnittenes Root-Tag (richtiger Name, kein '>')
+    in.emplace_back("<root><child>x</child></root>"); // 14 wohlgeformtes XML, FALSCHES Schema
+    in.emplace_back("<a b=\"unterminated>");          // 15 nicht geschlossenes Attribut-Quote
+    in.emplace_back("<a>&;&unknown;&#;</a>");         // 16 kaputte/unbekannte Entities
 
     return in;
 }
@@ -84,10 +84,10 @@ namespace {
 // Legt ein eindeutiges Temp-Arbeitsverzeichnis an (verhindert Kollisionen bei parallelen CI-Läufen
 // auf demselben Runner). Wird am Ende der datei-basierten Tests via remove_all aufgeräumt.
 [[nodiscard]] std::filesystem::path make_unique_tmp_dir() {
-    std::random_device rd;
-    std::string const token = std::to_string(rd()) + "_" + std::to_string(rd());
-    std::filesystem::path dir = std::filesystem::temp_directory_path() / ("comdare_durability_" + token);
-    std::error_code ec;
+    std::random_device    rd;
+    std::string const     token = std::to_string(rd()) + "_" + std::to_string(rd());
+    std::filesystem::path dir   = std::filesystem::temp_directory_path() / ("comdare_durability_" + token);
+    std::error_code       ec;
     std::filesystem::create_directories(dir, ec);
     return dir;
 }
@@ -98,7 +98,7 @@ void write_bytes(std::filesystem::path const& p, std::string const& content) {
     o.write(content.data(), static_cast<std::streamsize>(content.size()));
 }
 
-}  // namespace
+} // namespace
 
 // ─────────────────────────────────────────────────────────────────────────────
 // (1) XML-DOM-Reader: darf an KEINER Müll-Eingabe abstürzen.
@@ -113,7 +113,7 @@ TEST(ConfigDurability, XmlReaderNeverCrashesOnGarbage) {
         // parse_document nimmt einen string_view; std::string konvertiert implizit. Bei der
         // Binär-Eingabe bleibt die Länge (inkl. '\0') über den string_view korrekt erhalten.
         std::optional<cx::XmlNode> const node = cx::parse_document(g);
-        if (node.has_value()) ++parsed_as_node;  // Ergebnis konsumieren — Wert ODER nullopt ist OK.
+        if (node.has_value()) ++parsed_as_node; // Ergebnis konsumieren — Wert ODER nullopt ist OK.
     }
 
     // Bis hierher gekommen = jeder der ~16 Müll-Inputs ist sauber zurückgekehrt → kein Crash.
@@ -136,8 +136,7 @@ TEST(ConfigDurability, ParseLoadProfileRejectsGarbage) {
     for (std::size_t i = 0; i < inputs.size(); ++i) {
         std::filesystem::path const f = dir / ("garbage_" + std::to_string(i) + ".xml");
         write_bytes(f, inputs[i]);
-        EXPECT_FALSE(wd::parse_load_profile(f).has_value())
-            << "Müll-Datei #" << i << " hätte nullopt liefern müssen.";
+        EXPECT_FALSE(wd::parse_load_profile(f).has_value()) << "Müll-Datei #" << i << " hätte nullopt liefern müssen.";
     }
 
     // Nicht existierender Pfad → nullopt (ifstream öffnet nicht, Inhalt leer).
@@ -146,11 +145,10 @@ TEST(ConfigDurability, ParseLoadProfileRejectsGarbage) {
         << "Nicht existierender Pfad hätte nullopt liefern müssen.";
 
     // Verzeichnis-als-Pfad → nullopt (kein regulärer, lesbarer Datei-Inhalt).
-    EXPECT_FALSE(wd::parse_load_profile(dir).has_value())
-        << "Verzeichnis-als-Pfad hätte nullopt liefern müssen.";
+    EXPECT_FALSE(wd::parse_load_profile(dir).has_value()) << "Verzeichnis-als-Pfad hätte nullopt liefern müssen.";
 
     std::error_code ec;
-    std::filesystem::remove_all(dir, ec);  // Aufräumen (best effort; EXPECT ist non-fatal → läuft immer).
+    std::filesystem::remove_all(dir, ec); // Aufräumen (best effort; EXPECT ist non-fatal → läuft immer).
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -169,12 +167,11 @@ TEST(ConfigDurability, ParseLoadProfileAcceptsMinimalValid) {
     ASSERT_TRUE(std::filesystem::is_directory(dir))
         << "Temp-Arbeitsverzeichnis konnte nicht angelegt werden: " << dir.string();
 
-    std::string const minimal_valid =
-        "<comdare_load_profile id=\"t\">"
-        "  <workload>"
-        "    <op_mix lookup=\"1.0\"/>"
-        "  </workload>"
-        "</comdare_load_profile>";
+    std::string const minimal_valid = "<comdare_load_profile id=\"t\">"
+                                      "  <workload>"
+                                      "    <op_mix lookup=\"1.0\"/>"
+                                      "  </workload>"
+                                      "</comdare_load_profile>";
 
     std::filesystem::path const f = dir / "minimal_valid.xml";
     write_bytes(f, minimal_valid);

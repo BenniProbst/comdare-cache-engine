@@ -30,9 +30,9 @@ namespace comdare::cache_engine::alloc::concepts {
  *   - nullptr wenn fehlgeschlagen (alter p bleibt gueltig)
  */
 template <typename A>
-concept ReallocatingStrategy = AllocatorStrategy<A>
-    && requires(A a, void* p, std::size_t old_bytes, std::size_t new_bytes, std::size_t align) {
+concept ReallocatingStrategy =
+    AllocatorStrategy<A> && requires(A a, void* p, std::size_t old_bytes, std::size_t new_bytes, std::size_t align) {
         { a.reallocate(p, old_bytes, new_bytes, align) } -> std::same_as<void*>;
     };
 
-}  // namespace comdare::cache_engine::alloc::concepts
+} // namespace comdare::cache_engine::alloc::concepts

@@ -20,34 +20,31 @@
 #include <string_view>
 #include <type_traits>
 
-namespace ctsha = ::comdare::cache_engine::sha256;
+namespace ctsha       = ::comdare::cache_engine::sha256;
 namespace ce_concepts = ::comdare::cache_engine::concepts;
-namespace ce_topics = ::comdare::cache_engine::topics;
+namespace ce_topics   = ::comdare::cache_engine::topics;
 
 // =================================================================
 // (1) ctsha consteval SHA256 — REIN COMPILE-TIME
 // =================================================================
 
 TEST(CtSha256, EmptyStringHashCompileTime) {
-    constexpr auto digest = ctsha::sha256("");
-    constexpr auto expected = ctsha::from_hex(
-        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    constexpr auto digest   = ctsha::sha256("");
+    constexpr auto expected = ctsha::from_hex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
     static_assert(digest == expected, "ctsha: SHA256(\"\") mismatch");
     SUCCEED();
 }
 
 TEST(CtSha256, AbcHashCompileTime) {
-    constexpr auto digest = ctsha::sha256("abc");
-    constexpr auto expected = ctsha::from_hex(
-        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    constexpr auto digest   = ctsha::sha256("abc");
+    constexpr auto expected = ctsha::from_hex("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     static_assert(digest == expected, "ctsha: SHA256(\"abc\") mismatch");
     SUCCEED();
 }
 
 TEST(CtSha256, LongerStringHashCompileTime) {
-    constexpr auto digest = ctsha::sha256("The quick brown fox jumps over the lazy dog");
-    constexpr auto expected = ctsha::from_hex(
-        "d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592");
+    constexpr auto digest   = ctsha::sha256("The quick brown fox jumps over the lazy dog");
+    constexpr auto expected = ctsha::from_hex("d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592");
     static_assert(digest == expected);
     SUCCEED();
 }
@@ -75,12 +72,8 @@ namespace test_allocator_axis {
 /// und erweitert um Achsen-spezifische is_original_<fn>() pro Pflicht-Interface
 /// (allocate/deallocate/reallocate).
 template <typename PaperManifest>
-struct TestAllocatorOriginalCodeMixin
-    : public ce_concepts::OriginalCodeMixinBase<PaperManifest> {
-
-    [[nodiscard]] static constexpr bool is_original_allocate() noexcept {
-        return PaperManifest::kIsOriginal_allocate;
-    }
+struct TestAllocatorOriginalCodeMixin : public ce_concepts::OriginalCodeMixinBase<PaperManifest> {
+    [[nodiscard]] static constexpr bool is_original_allocate() noexcept { return PaperManifest::kIsOriginal_allocate; }
     [[nodiscard]] static constexpr bool is_original_deallocate() noexcept {
         return PaperManifest::kIsOriginal_deallocate;
     }
@@ -92,7 +85,7 @@ struct TestAllocatorOriginalCodeMixin
     }
 };
 
-}  // namespace test_allocator_axis
+} // namespace test_allocator_axis
 
 // =================================================================
 // (3) Simulated Tool-Generated Header — Paper 1: ALL ORIGINAL
@@ -110,8 +103,8 @@ inline constexpr bool kIsOriginal_reallocate = true;
 
 // Achsen-Manifest-Struct (Pflicht-Constants fuer Mixin-Template):
 struct PaperManifest {
-    static constexpr std::string_view kCompiler = "gcc-9.5";
-    static constexpr bool kHasOriginalPaperCode = true;
+    static constexpr std::string_view kCompiler             = "gcc-9.5";
+    static constexpr bool             kHasOriginalPaperCode = true;
     static constexpr bool kIsOriginal_allocate   = simulated_generated::paper_a04_mimalloc::kIsOriginal_allocate;
     static constexpr bool kIsOriginal_deallocate = simulated_generated::paper_a04_mimalloc::kIsOriginal_deallocate;
     static constexpr bool kIsOriginal_reallocate = simulated_generated::paper_a04_mimalloc::kIsOriginal_reallocate;
@@ -120,7 +113,7 @@ struct PaperManifest {
 // Convenience-Alias: Wrapper erbt davon
 using OriginalCodeMixin = ::test_allocator_axis::TestAllocatorOriginalCodeMixin<PaperManifest>;
 
-}  // namespace simulated_generated::paper_a04_mimalloc
+} // namespace simulated_generated::paper_a04_mimalloc
 
 // =================================================================
 // (4) Simulated Tool-Generated Header — Paper 2: MODIFIED
@@ -129,12 +122,12 @@ using OriginalCodeMixin = ::test_allocator_axis::TestAllocatorOriginalCodeMixin<
 namespace simulated_generated::paper_a07_snmalloc {
 
 inline constexpr bool kIsOriginal_allocate   = true;
-inline constexpr bool kIsOriginal_deallocate = false;  // ← Mismatch: source wurde modifiziert
+inline constexpr bool kIsOriginal_deallocate = false; // ← Mismatch: source wurde modifiziert
 inline constexpr bool kIsOriginal_reallocate = true;
 
 struct PaperManifest {
-    static constexpr std::string_view kCompiler = "clang-12";
-    static constexpr bool kHasOriginalPaperCode = true;
+    static constexpr std::string_view kCompiler             = "clang-12";
+    static constexpr bool             kHasOriginalPaperCode = true;
     static constexpr bool kIsOriginal_allocate   = simulated_generated::paper_a07_snmalloc::kIsOriginal_allocate;
     static constexpr bool kIsOriginal_deallocate = simulated_generated::paper_a07_snmalloc::kIsOriginal_deallocate;
     static constexpr bool kIsOriginal_reallocate = simulated_generated::paper_a07_snmalloc::kIsOriginal_reallocate;
@@ -142,7 +135,7 @@ struct PaperManifest {
 
 using OriginalCodeMixin = ::test_allocator_axis::TestAllocatorOriginalCodeMixin<PaperManifest>;
 
-}  // namespace
+} // namespace simulated_generated::paper_a07_snmalloc
 
 // =================================================================
 // (5) Wrapper-Klassen erben vom generierten Alias (NULL manuelle Macros)
@@ -177,7 +170,7 @@ TEST(AchsenMixin, MimallocAllProperties) {
 TEST(AchsenMixin, SnmallocMismatchDetected) {
     static_assert(DemoSnmallocAllocator::get_compiler() == "clang-12");
     static_assert(DemoSnmallocAllocator::is_original_allocate());
-    static_assert(!DemoSnmallocAllocator::is_original_deallocate());  // ← Mismatch!
+    static_assert(!DemoSnmallocAllocator::is_original_deallocate()); // ← Mismatch!
     static_assert(DemoSnmallocAllocator::is_original_reallocate());
     static_assert(!DemoSnmallocAllocator::is_original_module(),
                   "Modul-Aggregat MUSS false sein wenn EINE Function nicht original ist");
@@ -189,8 +182,8 @@ TEST(AchsenMixin, LegacyPflichtConformsBothWrappers) {
     static_assert(ce_concepts::LegacyOriginalCodePflicht<DemoSnmallocAllocator>);
     static_assert(ce_concepts::HasOriginalCode<DemoMimallocAllocator>);
     static_assert(ce_concepts::HasOriginalCode<DemoSnmallocAllocator>);
-    static_assert(ce_concepts::PaperOriginalValidated<DemoMimallocAllocator>);   // Modul = true
-    static_assert(!ce_concepts::PaperOriginalValidated<DemoSnmallocAllocator>);  // Modul = false
+    static_assert(ce_concepts::PaperOriginalValidated<DemoMimallocAllocator>);  // Modul = true
+    static_assert(!ce_concepts::PaperOriginalValidated<DemoSnmallocAllocator>); // Modul = false
     SUCCEED();
 }
 
@@ -199,12 +192,11 @@ TEST(AchsenMixin, VererbungsHierarchieKorrekt) {
     // TestAllocatorOriginalCodeMixin<M> erbt davon
     // OriginalCodeMixin Alias instanziiert es
     // Wrapper erbt von Alias
-    using ExpectedMimallocMixin = ::test_allocator_axis::TestAllocatorOriginalCodeMixin<
-        simulated_generated::paper_a04_mimalloc::PaperManifest>;
+    using ExpectedMimallocMixin =
+        ::test_allocator_axis::TestAllocatorOriginalCodeMixin<simulated_generated::paper_a04_mimalloc::PaperManifest>;
     static_assert(std::is_base_of_v<ExpectedMimallocMixin, DemoMimallocAllocator>);
 
-    using ExpectedBase = ce_concepts::OriginalCodeMixinBase<
-        simulated_generated::paper_a04_mimalloc::PaperManifest>;
+    using ExpectedBase = ce_concepts::OriginalCodeMixinBase<simulated_generated::paper_a04_mimalloc::PaperManifest>;
     static_assert(std::is_base_of_v<ExpectedBase, DemoMimallocAllocator>);
     SUCCEED();
 }
@@ -220,14 +212,14 @@ inline constexpr bool kIsOriginal_allocate   = false;
 inline constexpr bool kIsOriginal_deallocate = false;
 inline constexpr bool kIsOriginal_reallocate = false;
 struct PaperManifest {
-    static constexpr std::string_view kCompiler = "self";
-    static constexpr bool kHasOriginalPaperCode = false;
-    static constexpr bool kIsOriginal_allocate   = false;
-    static constexpr bool kIsOriginal_deallocate = false;
-    static constexpr bool kIsOriginal_reallocate = false;
+    static constexpr std::string_view kCompiler              = "self";
+    static constexpr bool             kHasOriginalPaperCode  = false;
+    static constexpr bool             kIsOriginal_allocate   = false;
+    static constexpr bool             kIsOriginal_deallocate = false;
+    static constexpr bool             kIsOriginal_reallocate = false;
 };
 using OriginalCodeMixin = ::test_allocator_axis::TestAllocatorOriginalCodeMixin<PaperManifest>;
-}  // namespace
+} // namespace simulated_generated::pseudocode_only
 
 class DemoBuddyAllocator : public simulated_generated::pseudocode_only::OriginalCodeMixin {
 public:
@@ -245,7 +237,7 @@ TEST(PseudocodeReImpl, AllFalseHarte) {
 
 TEST(PseudocodeReImpl, ConformsButNotPaperOriginalValidated) {
     static_assert(ce_concepts::LegacyOriginalCodePflicht<DemoBuddyAllocator>);
-    static_assert(!ce_concepts::HasOriginalCode<DemoBuddyAllocator>);  // has_original=false
+    static_assert(!ce_concepts::HasOriginalCode<DemoBuddyAllocator>); // has_original=false
     static_assert(!ce_concepts::PaperOriginalValidated<DemoBuddyAllocator>);
     SUCCEED();
 }
@@ -333,60 +325,66 @@ namespace p2f_smoke {
 
 // Dummy-Manifests: alle Pflicht-Functions originall → is_original_module = true
 struct AllocatorManifest {
-    static constexpr std::string_view kCompiler = "gcc-9.5";
-    static constexpr bool kHasOriginalPaperCode = true;
-    static constexpr bool kIsOriginal_allocate   = true;
-    static constexpr bool kIsOriginal_deallocate = true;
+    static constexpr std::string_view kCompiler              = "gcc-9.5";
+    static constexpr bool             kHasOriginalPaperCode  = true;
+    static constexpr bool             kIsOriginal_allocate   = true;
+    static constexpr bool             kIsOriginal_deallocate = true;
 };
 struct BufferManifest {
-    static constexpr std::string_view kCompiler = "gcc-9.5";
-    static constexpr bool kHasOriginalPaperCode = true;
-    static constexpr bool kIsOriginal_put        = true;
-    static constexpr bool kIsOriginal_get        = true;
-    static constexpr bool kIsOriginal_emplace    = true;
-    static constexpr bool kIsOriginal_peek_front = true;
-    static constexpr bool kIsOriginal_peek_back  = true;
-    static constexpr bool kIsOriginal_clear      = true;
+    static constexpr std::string_view kCompiler              = "gcc-9.5";
+    static constexpr bool             kHasOriginalPaperCode  = true;
+    static constexpr bool             kIsOriginal_put        = true;
+    static constexpr bool             kIsOriginal_get        = true;
+    static constexpr bool             kIsOriginal_emplace    = true;
+    static constexpr bool             kIsOriginal_peek_front = true;
+    static constexpr bool             kIsOriginal_peek_back  = true;
+    static constexpr bool             kIsOriginal_clear      = true;
 };
 struct FlushManifest {
-    static constexpr std::string_view kCompiler = "gcc-9.5";
-    static constexpr bool kHasOriginalPaperCode = true;
-    static constexpr bool kIsOriginal_should_flush      = true;
-    static constexpr bool kIsOriginal_on_flush_complete = true;
+    static constexpr std::string_view kCompiler                     = "gcc-9.5";
+    static constexpr bool             kHasOriginalPaperCode         = true;
+    static constexpr bool             kIsOriginal_should_flush      = true;
+    static constexpr bool             kIsOriginal_on_flush_complete = true;
 };
 struct SearchAlgoManifest {
-    static constexpr std::string_view kCompiler = "gcc-9.5";
-    static constexpr bool kHasOriginalPaperCode = true;
-    static constexpr bool kIsOriginal_insert = true;
-    static constexpr bool kIsOriginal_lookup = true;
-    static constexpr bool kIsOriginal_erase  = true;
-    static constexpr bool kIsOriginal_clear  = true;
+    static constexpr std::string_view kCompiler             = "gcc-9.5";
+    static constexpr bool             kHasOriginalPaperCode = true;
+    static constexpr bool             kIsOriginal_insert    = true;
+    static constexpr bool             kIsOriginal_lookup    = true;
+    static constexpr bool             kIsOriginal_erase     = true;
+    static constexpr bool             kIsOriginal_clear     = true;
 };
 struct CacheTraversalManifest {
-    static constexpr std::string_view kCompiler = "gcc-9.5";
-    static constexpr bool kHasOriginalPaperCode = true;
-    static constexpr bool kIsOriginal_register_entry = true;
-    static constexpr bool kIsOriginal_resolve        = true;
-    static constexpr bool kIsOriginal_unregister    = true;
-    static constexpr bool kIsOriginal_clear         = true;
+    static constexpr std::string_view kCompiler                  = "gcc-9.5";
+    static constexpr bool             kHasOriginalPaperCode      = true;
+    static constexpr bool             kIsOriginal_register_entry = true;
+    static constexpr bool             kIsOriginal_resolve        = true;
+    static constexpr bool             kIsOriginal_unregister     = true;
+    static constexpr bool             kIsOriginal_clear          = true;
 };
 struct MappingManifest {
-    static constexpr std::string_view kCompiler = "gcc-9.5";
-    static constexpr bool kHasOriginalPaperCode = true;
-    static constexpr bool kIsOriginal_register_slot  = true;
-    static constexpr bool kIsOriginal_resolve_offset = true;
-    static constexpr bool kIsOriginal_reverse_lookup = true;
-    static constexpr bool kIsOriginal_clear          = true;
+    static constexpr std::string_view kCompiler                  = "gcc-9.5";
+    static constexpr bool             kHasOriginalPaperCode      = true;
+    static constexpr bool             kIsOriginal_register_slot  = true;
+    static constexpr bool             kIsOriginal_resolve_offset = true;
+    static constexpr bool             kIsOriginal_reverse_lookup = true;
+    static constexpr bool             kIsOriginal_clear          = true;
 };
 
-using AllocatorMixin       = ::comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorOriginalCodeMixin<AllocatorManifest>;
-using BufferMixin          = ::comdare::cache_engine::queuing::axis_q1_queuing::concepts::BufferOriginalCodeMixin<BufferManifest>;
-using FlushMixin           = ::comdare::cache_engine::queuing::axis_q2_queuing::concepts::FlushOriginalCodeMixin<FlushManifest>;
-using SearchAlgoMixin      = ::comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoOriginalCodeMixin<SearchAlgoManifest>;
-using CacheTraversalMixin  = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::concepts::CacheTraversalOriginalCodeMixin<CacheTraversalManifest>;
-using MappingMixin         = ::comdare::cache_engine::traversal::axis_03m_mapping::concepts::MappingOriginalCodeMixin<MappingManifest>;
+using AllocatorMixin =
+    ::comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorOriginalCodeMixin<AllocatorManifest>;
+using BufferMixin =
+    ::comdare::cache_engine::queuing::axis_q1_queuing::concepts::BufferOriginalCodeMixin<BufferManifest>;
+using FlushMixin = ::comdare::cache_engine::queuing::axis_q2_queuing::concepts::FlushOriginalCodeMixin<FlushManifest>;
+using SearchAlgoMixin =
+    ::comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoOriginalCodeMixin<SearchAlgoManifest>;
+using CacheTraversalMixin =
+    ::comdare::cache_engine::traversal::axis_03b_cache_traversal::concepts::CacheTraversalOriginalCodeMixin<
+        CacheTraversalManifest>;
+using MappingMixin =
+    ::comdare::cache_engine::traversal::axis_03m_mapping::concepts::MappingOriginalCodeMixin<MappingManifest>;
 
-}  // namespace p2f_smoke
+} // namespace p2f_smoke
 
 TEST(P2F_AxisMixins, AllocatorMixinModuleTrue) {
     static_assert(p2f_smoke::AllocatorMixin::get_compiler() == "gcc-9.5");
@@ -472,19 +470,14 @@ using Snmalloc = ::comdare::cache_engine::allocator::axis_06_allocator::Snmalloc
 using Dlmalloc = ::comdare::cache_engine::allocator::axis_06_allocator::DlmallocAllocator;
 using Rpmalloc = ::comdare::cache_engine::allocator::axis_06_allocator::RPMallocAllocator;
 using Lrmalloc = ::comdare::cache_engine::allocator::axis_06_allocator::LRMallocAllocator;
-}  // namespace
+} // namespace paper_wrappers
 
 // V41.F.6.1.P2.D Batch 2: 6 Paper-Wrappers (3 Batch 1 + 3 Batch 2). Auto-Skalierung: TYPED_TEST = N × 8.
-using PaperWrapperList = ::testing::Types<
-    paper_wrappers::Mimalloc,
-    paper_wrappers::Jemalloc,
-    paper_wrappers::Snmalloc,
-    paper_wrappers::Dlmalloc,
-    paper_wrappers::Rpmalloc,
-    paper_wrappers::Lrmalloc
->;
+using PaperWrapperList = ::testing::Types<paper_wrappers::Mimalloc, paper_wrappers::Jemalloc, paper_wrappers::Snmalloc,
+                                          paper_wrappers::Dlmalloc, paper_wrappers::Rpmalloc, paper_wrappers::Lrmalloc>;
 
-template <typename W> class PaperWrapperConformance : public ::testing::Test {};
+template <typename W>
+class PaperWrapperConformance : public ::testing::Test {};
 TYPED_TEST_SUITE(PaperWrapperConformance, PaperWrapperList);
 
 TYPED_TEST(PaperWrapperConformance, AxisBaseConcept) {
@@ -546,13 +539,12 @@ using OrigHot      = ::comdare::cache_engine::traversal::axis_03a_search_algo::O
 using OrigStart    = ::comdare::cache_engine::traversal::axis_03a_search_algo::OriginalStartSearchAlgo;
 using OrigWormhole = ::comdare::cache_engine::traversal::axis_03a_search_algo::OriginalWormholeSearchAlgo;
 using OrigSurf     = ::comdare::cache_engine::traversal::axis_03a_search_algo::OriginalSurfSearchAlgo;
-}  // namespace
+} // namespace original_search_algo
 
 // (a) Full-Original SearchAlgo (alle Functions Paper-bound) — heute nur ART
-using FullOriginalSearchAlgoList = ::testing::Types<
-    original_search_algo::OrigArt
->;
-template <typename W> class FullOriginalSearchAlgoConformance : public ::testing::Test {};
+using FullOriginalSearchAlgoList = ::testing::Types<original_search_algo::OrigArt>;
+template <typename W>
+class FullOriginalSearchAlgoConformance : public ::testing::Test {};
 TYPED_TEST_SUITE(FullOriginalSearchAlgoConformance, FullOriginalSearchAlgoList);
 
 TYPED_TEST(FullOriginalSearchAlgoConformance, AxisBaseConcept) {
@@ -600,11 +592,9 @@ TYPED_TEST(FullOriginalSearchAlgoConformance, IsOriginalModuleAggregation) {
 }
 
 // (b) Partial-Original SearchAlgo (Paper-API insert+lookup originall, erase+clear Lücken) — HOT + START
-using PartialOriginalSearchAlgoList = ::testing::Types<
-    original_search_algo::OrigHot,
-    original_search_algo::OrigStart
->;
-template <typename W> class PartialOriginalSearchAlgoConformance : public ::testing::Test {};
+using PartialOriginalSearchAlgoList = ::testing::Types<original_search_algo::OrigHot, original_search_algo::OrigStart>;
+template <typename W>
+class PartialOriginalSearchAlgoConformance : public ::testing::Test {};
 TYPED_TEST_SUITE(PartialOriginalSearchAlgoConformance, PartialOriginalSearchAlgoList);
 
 TYPED_TEST(PartialOriginalSearchAlgoConformance, AxisBaseConcept) {
@@ -616,8 +606,9 @@ TYPED_TEST(PartialOriginalSearchAlgoConformance, LegacyOriginalCodePflichtConcep
     SUCCEED();
 }
 TYPED_TEST(PartialOriginalSearchAlgoConformance, HasOriginalCodeConcept) {
-    static_assert(ce_concepts::HasOriginalCode<TypeParam>,
-                  "Partial-Original SearchAlgo: get_compiler() MUSS konkret sein (gcc-9.5 via Mixin), HasOriginalCode greift");
+    static_assert(
+        ce_concepts::HasOriginalCode<TypeParam>,
+        "Partial-Original SearchAlgo: get_compiler() MUSS konkret sein (gcc-9.5 via Mixin), HasOriginalCode greift");
     SUCCEED();
 }
 TYPED_TEST(PartialOriginalSearchAlgoConformance, NotPaperOriginalValidated) {
@@ -630,10 +621,8 @@ TYPED_TEST(PartialOriginalSearchAlgoConformance, GetCompilerOverridesAxisBaseDef
     SUCCEED();
 }
 TYPED_TEST(PartialOriginalSearchAlgoConformance, PaperApiFunctionsOriginal) {
-    static_assert(TypeParam::is_original_insert(),
-                  "Partial-Original: insert MUSS Paper-API originall sein");
-    static_assert(TypeParam::is_original_lookup(),
-                  "Partial-Original: lookup MUSS Paper-API originall sein");
+    static_assert(TypeParam::is_original_insert(), "Partial-Original: insert MUSS Paper-API originall sein");
+    static_assert(TypeParam::is_original_lookup(), "Partial-Original: lookup MUSS Paper-API originall sein");
     SUCCEED();
 }
 TYPED_TEST(PartialOriginalSearchAlgoConformance, LueckenFunctionsNotOriginal) {
@@ -647,11 +636,10 @@ TYPED_TEST(PartialOriginalSearchAlgoConformance, LueckenFunctionsNotOriginal) {
 // (c) Flexible-Original SearchAlgo (s3 Batch 1) — variable Anzahl Original-Functions,
 // gemeinsam: HasOriginalCode + !PaperOriginalValidated + is_original_lookup=true.
 // Wormhole 3/4 (insert+lookup+erase, clear-Lücke), SuRF/Masstree 1/4 (nur lookup).
-using FlexibleOriginalSearchAlgoList = ::testing::Types<
-    original_search_algo::OrigWormhole,
-    original_search_algo::OrigSurf
->;
-template <typename W> class FlexibleOriginalSearchAlgoConformance : public ::testing::Test {};
+using FlexibleOriginalSearchAlgoList =
+    ::testing::Types<original_search_algo::OrigWormhole, original_search_algo::OrigSurf>;
+template <typename W>
+class FlexibleOriginalSearchAlgoConformance : public ::testing::Test {};
 TYPED_TEST_SUITE(FlexibleOriginalSearchAlgoConformance, FlexibleOriginalSearchAlgoList);
 
 TYPED_TEST(FlexibleOriginalSearchAlgoConformance, AxisBaseConcept) {
@@ -693,14 +681,13 @@ TYPED_TEST(FlexibleOriginalSearchAlgoConformance, LookupAlwaysOriginal) {
 
 namespace original_buffer {
 using OrigConcurrentQueue = ::comdare::cache_engine::queuing::axis_q1_queuing::OriginalLockFreeMpmcConcurrentQueue;
-}  // namespace
+} // namespace original_buffer
 
 // Q01 ConcurrentQueue ist Partial-Original (2/6: put+get originall, 4 Lücken).
 // Bei Roll-out weiterer Q-Wrappers nur PartialOriginalBufferList ergaenzen.
-using PartialOriginalBufferList = ::testing::Types<
-    original_buffer::OrigConcurrentQueue
->;
-template <typename W> class PartialOriginalBufferConformance : public ::testing::Test {};
+using PartialOriginalBufferList = ::testing::Types<original_buffer::OrigConcurrentQueue>;
+template <typename W>
+class PartialOriginalBufferConformance : public ::testing::Test {};
 TYPED_TEST_SUITE(PartialOriginalBufferConformance, PartialOriginalBufferList);
 
 TYPED_TEST(PartialOriginalBufferConformance, AxisBaseConcept) {
@@ -726,8 +713,7 @@ TYPED_TEST(PartialOriginalBufferConformance, GetCompilerOverridesAxisBaseDefault
     SUCCEED();
 }
 TYPED_TEST(PartialOriginalBufferConformance, PaperApiFunctionsOriginal) {
-    static_assert(TypeParam::is_original_put(),
-                  "Partial-Original Buffer: put MUSS Paper-API originall sein (enqueue)");
+    static_assert(TypeParam::is_original_put(), "Partial-Original Buffer: put MUSS Paper-API originall sein (enqueue)");
     static_assert(TypeParam::is_original_get(),
                   "Partial-Original Buffer: get MUSS Paper-API originall sein (try_dequeue)");
     SUCCEED();
@@ -737,8 +723,7 @@ TYPED_TEST(PartialOriginalBufferConformance, LueckenFunctionsNotOriginal) {
                   "Partial-Original Buffer: emplace ist Re-Impl Luecke (concurrentqueue hat keine emplace)");
     static_assert(!TypeParam::is_original_peek_front(),
                   "Partial-Original Buffer: peek_front ist Re-Impl Luecke (async-only)");
-    static_assert(!TypeParam::is_original_peek_back(),
-                  "Partial-Original Buffer: peek_back ist Re-Impl Luecke");
+    static_assert(!TypeParam::is_original_peek_back(), "Partial-Original Buffer: peek_back ist Re-Impl Luecke");
     static_assert(!TypeParam::is_original_clear(),
                   "Partial-Original Buffer: clear ist Re-Impl Luecke (kein clear in concurrentqueue)");
     SUCCEED();
@@ -765,18 +750,15 @@ using NoPaperFlushPolicy = ::comdare::cache_engine::queuing::axis_q2_queuing::Ea
 using NoPaperSearchAlgo  = ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256SearchAlgo;
 using NoPaperTraversal   = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::LinearFanout;
 using NoPaperMapping     = ::comdare::cache_engine::traversal::axis_03m_mapping::DirectPlacement;
-}  // namespace
+} // namespace non_paper_wrappers
 
-using NonPaperWrapperList = ::testing::Types<
-    non_paper_wrappers::NoPaperAllocator,
-    non_paper_wrappers::NoPaperBuffer,
-    non_paper_wrappers::NoPaperFlushPolicy,
-    non_paper_wrappers::NoPaperSearchAlgo,
-    non_paper_wrappers::NoPaperTraversal,
-    non_paper_wrappers::NoPaperMapping
->;
+using NonPaperWrapperList =
+    ::testing::Types<non_paper_wrappers::NoPaperAllocator, non_paper_wrappers::NoPaperBuffer,
+                     non_paper_wrappers::NoPaperFlushPolicy, non_paper_wrappers::NoPaperSearchAlgo,
+                     non_paper_wrappers::NoPaperTraversal, non_paper_wrappers::NoPaperMapping>;
 
-template <typename W> class NonPaperWrapperDefaults : public ::testing::Test {};
+template <typename W>
+class NonPaperWrapperDefaults : public ::testing::Test {};
 TYPED_TEST_SUITE(NonPaperWrapperDefaults, NonPaperWrapperList);
 
 TYPED_TEST(NonPaperWrapperDefaults, LegacyOriginalCodePflichtConcept) {

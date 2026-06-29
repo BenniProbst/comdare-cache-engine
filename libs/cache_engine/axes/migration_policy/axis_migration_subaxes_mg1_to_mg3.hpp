@@ -12,4 +12,4 @@ struct direction_tag {};
 // MG3: Granularity (none / page / block / object)
 struct granularity_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::migration_policy::subaxes

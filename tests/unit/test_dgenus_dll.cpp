@@ -16,8 +16,11 @@
 namespace loader = ::comdare::cache_engine::builder::anatomy_loader;
 namespace ana    = ::comdare::cache_engine::anatomy;
 
-static int g_fail = 0;
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+static int  g_fail = 0;
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 static void drive_sequence(ana::IAnatomyBase* a) {
     auto* st = dynamic_cast<ana::ISequenceTier*>(a);
@@ -60,26 +63,45 @@ static void drive_view(ana::IAnatomyBase* a) {
 }
 
 int main(int argc, char** argv) {
-    if (argc < 2) { std::cerr << "usage: test_dgenus_dll <dll...>\n"; return 2; }
+    if (argc < 2) {
+        std::cerr << "usage: test_dgenus_dll <dll...>\n";
+        return 2;
+    }
     std::cout << "D-Genus DLL-Round-Trip (Sequence/View über gattungs-agnostischen Loader):\n";
     int seen_seq = 0, seen_view = 0, seen_set = 0;
     for (int i = 1; i < argc; ++i) {
         loader::AnatomyModuleHandle handle;
-        int const st = loader::AnatomyModuleLoader::load(argv[i], handle);
+        int const                   st = loader::AnatomyModuleLoader::load(argv[i], handle);
         tr((std::string{"load == status_ok: "} + argv[i]).c_str(), st == loader::status_ok);
-        if (st != loader::status_ok) { std::cerr << "  status: " << loader::status_name(st) << "\n"; continue; }
+        if (st != loader::status_ok) {
+            std::cerr << "  status: " << loader::status_name(st) << "\n";
+            continue;
+        }
         ana::IAnatomyBase* a = handle.anatomy();
-        if (!a) { tr("anatomy() != null", false); continue; }
+        if (!a) {
+            tr("anatomy() != null", false);
+            continue;
+        }
         switch (a->genus()) {
-            case ana::AnatomyGenus::Sequence: ++seen_seq;  drive_sequence(a); break;
-            case ana::AnatomyGenus::View:     ++seen_view; drive_view(a);     break;
-            case ana::AnatomyGenus::Set:      ++seen_set;  drive_set(a);      break;
+            case ana::AnatomyGenus::Sequence:
+                ++seen_seq;
+                drive_sequence(a);
+                break;
+            case ana::AnatomyGenus::View:
+                ++seen_view;
+                drive_view(a);
+                break;
+            case ana::AnatomyGenus::Set:
+                ++seen_set;
+                drive_set(a);
+                break;
             default: tr("unerwartete Gattung", false); break;
         }
     }
     tr("Sequence-DLL geladen + getrieben", seen_seq >= 1);
     tr("View-DLL geladen + getrieben", seen_view >= 1);
     tr("Set-DLL geladen + getrieben", seen_set >= 1);
-    std::cout << "\n==== D-Genus DLL: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== D-Genus DLL: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

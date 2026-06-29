@@ -22,35 +22,37 @@ public:
 
     static constexpr bool enabled = flags::avx2_enabled;
 
-    [[nodiscard]] static constexpr bool             is_active()             noexcept { return true; }
-    [[nodiscard]] static constexpr int              vector_width_bits()     noexcept { return 256; }
-    [[nodiscard]] static constexpr bool             compatible_with_x86()   noexcept { return true; }
-    [[nodiscard]] static constexpr bool             compatible_with_arm()   noexcept { return false; }
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return true; }
+    [[nodiscard]] static constexpr int              vector_width_bits() noexcept { return 256; }
+    [[nodiscard]] static constexpr bool             compatible_with_x86() noexcept { return true; }
+    [[nodiscard]] static constexpr bool             compatible_with_arm() noexcept { return false; }
     [[nodiscard]] static constexpr bool             compatible_with_riscv() noexcept { return false; }
     [[nodiscard]] static constexpr bool             compatible_with_powerpc() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "simd_ext_avx2"; }
-    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "Avx2SimdExtension (x86_64 Haswell+ 256-bit, ZIH Barnard/Capella default)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "AVX2"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "simd_ext_avx2"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "Avx2SimdExtension (x86_64 Haswell+ 256-bit, ZIH Barnard/Capella default)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "AVX2"; }
 
     // ─── R7.7.b SSE+AVX-Schichten (rueckwaerts-kumulativ Haswell+ 2013) ──────
-    [[nodiscard]] static constexpr bool provides_sse()              noexcept { return true; }
-    [[nodiscard]] static constexpr bool provides_sse2()             noexcept { return true; }
-    [[nodiscard]] static constexpr bool provides_sse3()             noexcept { return true; }
-    [[nodiscard]] static constexpr bool provides_ssse3()            noexcept { return true; }
-    [[nodiscard]] static constexpr bool provides_sse4_1()           noexcept { return true; }
-    [[nodiscard]] static constexpr bool provides_sse4_2()           noexcept { return true; }
-    [[nodiscard]] static constexpr bool provides_avx()              noexcept { return true; }
-    [[nodiscard]] static constexpr bool provides_avx2()             noexcept { return true; }
+    [[nodiscard]] static constexpr bool provides_sse() noexcept { return true; }
+    [[nodiscard]] static constexpr bool provides_sse2() noexcept { return true; }
+    [[nodiscard]] static constexpr bool provides_sse3() noexcept { return true; }
+    [[nodiscard]] static constexpr bool provides_ssse3() noexcept { return true; }
+    [[nodiscard]] static constexpr bool provides_sse4_1() noexcept { return true; }
+    [[nodiscard]] static constexpr bool provides_sse4_2() noexcept { return true; }
+    [[nodiscard]] static constexpr bool provides_avx() noexcept { return true; }
+    [[nodiscard]] static constexpr bool provides_avx2() noexcept { return true; }
     // AVX-512 false (Defaults)
 
     // ─── R7.7.c Topologie: 2 AVX2-Units/Sockel, alle Cores ───────────────────
-    [[nodiscard]] static constexpr int  units_per_socket()                  noexcept { return 2; }
+    [[nodiscard]] static constexpr int  units_per_socket() noexcept { return 2; }
     [[nodiscard]] static constexpr bool accessible_from_efficiency_cores() noexcept { return true; }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::hardware::axis_09b_simd_extension
 
 namespace comdare::cache_engine::hardware::axis_09b_simd_extension {
-    static_assert(concepts::SimdExtensionStrategy<Avx2SimdExtension>);
-    static_assert(concepts::CacheEnginePermutationStrategy<Avx2SimdExtension>);
-}
+static_assert(concepts::SimdExtensionStrategy<Avx2SimdExtension>);
+static_assert(concepts::CacheEnginePermutationStrategy<Avx2SimdExtension>);
+} // namespace comdare::cache_engine::hardware::axis_09b_simd_extension

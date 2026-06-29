@@ -36,7 +36,7 @@ class RcuDomain;
 
 // Per-Thread-Reader-State (epoch-based)
 struct alignas(64) RcuReaderState {
-    std::atomic<std::uint64_t> local_epoch{0};   // 0 = nicht im Read-Block
+    std::atomic<std::uint64_t> local_epoch{0}; // 0 = nicht im Read-Block
     std::atomic<bool>          active{false};
 };
 
@@ -58,8 +58,7 @@ public:
     // Reader-Pfad: read_lock liest aktuelles global_epoch + markiert sich aktiv
     void read_lock() noexcept {
         auto* s = current_thread_state();
-        s->local_epoch.store(global_epoch_.load(std::memory_order_acquire),
-                              std::memory_order_release);
+        s->local_epoch.store(global_epoch_.load(std::memory_order_acquire), std::memory_order_release);
         s->active.store(true, std::memory_order_release);
     }
 
@@ -71,8 +70,7 @@ public:
     // Writer-Pfad: erhoeht global_epoch und wartet, bis alle Reader
     // den Block verlassen haben (busy-wait mit yield).
     void synchronize() noexcept {
-        std::uint64_t const target_epoch =
-            global_epoch_.fetch_add(1, std::memory_order_acq_rel) + 1;
+        std::uint64_t const target_epoch = global_epoch_.fetch_add(1, std::memory_order_acq_rel) + 1;
 
         std::lock_guard lock{registry_mutex_};
         for (auto* r : readers_) {
@@ -85,9 +83,7 @@ public:
         }
     }
 
-    [[nodiscard]] std::uint64_t current_epoch() const noexcept {
-        return global_epoch_.load(std::memory_order_acquire);
-    }
+    [[nodiscard]] std::uint64_t current_epoch() const noexcept { return global_epoch_.load(std::memory_order_acquire); }
 
     [[nodiscard]] std::size_t reader_count() noexcept {
         std::lock_guard lock{registry_mutex_};
@@ -101,23 +97,24 @@ public:
     }
 
 private:
-    std::atomic<std::uint64_t>            global_epoch_{1};
-    std::mutex                            registry_mutex_;
-    std::vector<RcuReaderState*>          readers_{};
+    std::atomic<std::uint64_t>   global_epoch_{1};
+    std::mutex                   registry_mutex_;
+    std::vector<RcuReaderState*> readers_{};
 };
 
 // RAII Reader-Guard
 class [[nodiscard]] RcuReadGuard {
 public:
-    explicit RcuReadGuard(RcuDomain& d = RcuDomain::instance()) noexcept
-        : domain_{&d} { domain_->read_lock(); }
+    explicit RcuReadGuard(RcuDomain& d = RcuDomain::instance()) noexcept : domain_{&d} { domain_->read_lock(); }
 
-    ~RcuReadGuard() { if (domain_) domain_->read_unlock(); }
+    ~RcuReadGuard() {
+        if (domain_) domain_->read_unlock();
+    }
 
     RcuReadGuard(RcuReadGuard const&)            = delete;
     RcuReadGuard& operator=(RcuReadGuard const&) = delete;
     RcuReadGuard(RcuReadGuard&& o) noexcept : domain_{o.domain_} { o.domain_ = nullptr; }
-    RcuReadGuard& operator=(RcuReadGuard&&)      = delete;
+    RcuReadGuard& operator=(RcuReadGuard&&) = delete;
 
 private:
     RcuDomain* domain_;
@@ -163,4 +160,4 @@ inline void rcu_replace(std::atomic<T*>& slot, T* new_value, RcuDeferred& def) {
     }
 }
 
-}  // namespace comdare::rcu
+} // namespace comdare::rcu

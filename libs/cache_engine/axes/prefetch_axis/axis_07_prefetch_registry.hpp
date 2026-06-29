@@ -15,19 +15,13 @@ namespace comdare::cache_engine::prefetch_axis {
 
 namespace mp = boost::mp11;
 
-using AllPrefetchers = mp::mp_list<
-    NonePrefetch,
-    DistanceEstimatorPrefetch,
-    HardwarePrefetch,
-    PathOrientedPrefetch
->;
+using AllPrefetchers = mp::mp_list<NonePrefetch, DistanceEstimatorPrefetch, HardwarePrefetch, PathOrientedPrefetch>;
 
 template <typename T>
 using is_enabled = mp::mp_bool<T::enabled>;
 
 using EnabledPrefetchers = mp::mp_filter<is_enabled, AllPrefetchers>;
 
-static_assert(mp::mp_size<EnabledPrefetchers>::value > 0,
-    "Axis 07 Prefetch: at least one prefetcher must be enabled");
+static_assert(mp::mp_size<EnabledPrefetchers>::value > 0, "Axis 07 Prefetch: at least one prefetcher must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::prefetch_axis

@@ -52,24 +52,30 @@ public:
 
     static constexpr bool enabled = flags::pool_enabled;
 
-    using topic_tag  = ::comdare::cache_engine::allocator::concepts::AllocatorTopicTag;
-    using axis_tag   = subaxes::size_class_schema_tag;
-    using family_id  = std::integral_constant<int, 22>;   // A22 std::pmr-Familie (pool-Variante)
+    using topic_tag = ::comdare::cache_engine::allocator::concepts::AllocatorTopicTag;
+    using axis_tag  = subaxes::size_class_schema_tag;
+    using family_id = std::integral_constant<int, 22>; // A22 std::pmr-Familie (pool-Variante)
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()   noexcept { return false; }  // unsynchronized
-    [[nodiscard]] static constexpr bool        supports_pmr()     noexcept { return true; }   // IST ein pmr-resource
-    [[nodiscard]] static constexpr std::size_t max_alignment()    noexcept { return alignof(std::max_align_t); }
+    [[nodiscard]] static constexpr bool        is_thread_safe() noexcept { return false; } // unsynchronized
+    [[nodiscard]] static constexpr bool        supports_pmr() noexcept { return true; }    // IST ein pmr-resource
+    [[nodiscard]] static constexpr std::size_t max_alignment() noexcept { return alignof(std::max_align_t); }
 
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "pool_resource"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "std::pmr::unsynchronized_pool_resource (eigener Size-Class-Pool, Halpern N3916)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "POOL"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "pool_resource"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "std::pmr::unsynchronized_pool_resource (eigener Size-Class-Pool, Halpern N3916)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "POOL"; }
 
     // Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
-    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // pmr allocate(bytes, alignment)
-    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }
-    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept { return concepts::ProgressGuarantee::Blocking; }
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc() noexcept {
+        return true;
+    } // pmr allocate(bytes, alignment)
+    [[nodiscard]] static constexpr bool                        requires_explicit_init() noexcept { return false; }
+    [[nodiscard]] static constexpr bool                        supports_numa_node_hint() noexcept { return false; }
+    [[nodiscard]] static constexpr bool                        supports_thread_local_cache() noexcept { return false; }
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
+        return concepts::ProgressGuarantee::Blocking;
+    }
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
 
     /// R7.4: BESITZT die memory_resource selbst (eigener unsynchronized_pool_resource via shared_ptr,
@@ -78,8 +84,7 @@ public:
         return concepts::ResourceOwnership::Owned;
     }
 
-    PoolResourceAllocator()
-        : resource_(std::make_shared<std::pmr::unsynchronized_pool_resource>()) {}
+    PoolResourceAllocator() : resource_(std::make_shared<std::pmr::unsynchronized_pool_resource>()) {}
 
     // operator==: zwei Allokatoren sind GLEICH gdw. sie denselben Pool teilen (PMR-is_equal-Semantik).
     [[nodiscard]] bool operator==(PoolResourceAllocator const& other) const noexcept {
@@ -93,7 +98,7 @@ public:
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         ++stats_.allocation_count;
         stats_.total_bytes_allocated += aligned_bytes;
-        stats_.total_bytes_in_use    += aligned_bytes;
+        stats_.total_bytes_in_use += aligned_bytes;
         observer_.notify(stats_);
 #endif
         return p;
@@ -106,11 +111,14 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         ++stats_.deallocation_count;
-        if (aligned_bytes <= stats_.total_bytes_in_use) stats_.total_bytes_in_use -= aligned_bytes;
-        else                                            stats_.total_bytes_in_use = 0;
+        if (aligned_bytes <= stats_.total_bytes_in_use)
+            stats_.total_bytes_in_use -= aligned_bytes;
+        else
+            stats_.total_bytes_in_use = 0;
         observer_.notify(stats_);
 #else
-        (void)bytes; (void)alignment;
+        (void)bytes;
+        (void)alignment;
 #endif
     }
 
@@ -118,10 +126,13 @@ public:
     using snapshot_t = concepts::AllocationStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }   // Statistik-Reset (NICHT Pool-Release)
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    } // Statistik-Reset (NICHT Pool-Release)
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
     // HINWEIS: KEIN zero_allocate / ZeroingStrategy — analog PmrResourceAllocator. Der
@@ -131,8 +142,7 @@ public:
 
     // Sub-Concept: ReallocatingStrategy (alloc-new aus Pool + memcpy + dealloc-old in Pool;
     // der Test gibt das Ergebnis per m.deallocate frei → konsistent mit dem Pool).
-    [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes,
-                                   std::size_t alignment) {
+    [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes, std::size_t alignment) {
         void* np = resource_->allocate(new_bytes, alignment);
         if (p != nullptr) {
             std::size_t copy_bytes = (old_bytes < new_bytes) ? old_bytes : new_bytes;
@@ -145,7 +155,7 @@ public:
         }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_new = ((new_bytes + alignment - 1) / alignment) * alignment;
-        stats_.total_bytes_in_use    += aligned_new;
+        stats_.total_bytes_in_use += aligned_new;
         stats_.total_bytes_allocated += aligned_new;
         ++stats_.allocation_count;
         observer_.notify(stats_);
@@ -160,19 +170,20 @@ private:
     std::shared_ptr<std::pmr::unsynchronized_pool_resource> resource_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::AllocationStatistics stats_{};
-    mutable observer_t observer_{};
+    mutable observer_t                     observer_{};
 #endif
 };
 
-}  // namespace comdare::cache_engine::alloc
+} // namespace comdare::cache_engine::alloc
 
 namespace comdare::cache_engine::alloc {
-    static_assert(concepts::AllocatorStrategy<PoolResourceAllocator>,
-        "Pflicht: PoolResourceAllocator muss AllocatorStrategy erfuellen (Standard-PMR-API)");
-    static_assert(concepts::CacheEnginePermutationStrategy<PoolResourceAllocator>,
-        "Pflicht: PoolResourceAllocator muss CacheEnginePermutationStrategy erfuellen");
-    static_assert(!concepts::ZeroingStrategy<PoolResourceAllocator>,
-        "Erwartet: PoolResourceAllocator bietet KEIN zero_allocate (Pool-Speicher ist nicht std::free-faehig, analog PmrResourceAllocator)");
-    static_assert(concepts::ReallocatingStrategy<PoolResourceAllocator>,
-        "Optional: PoolResourceAllocator bietet reallocate (Pool alloc-copy-free Pattern)");
-}  // namespace
+static_assert(concepts::AllocatorStrategy<PoolResourceAllocator>,
+              "Pflicht: PoolResourceAllocator muss AllocatorStrategy erfuellen (Standard-PMR-API)");
+static_assert(concepts::CacheEnginePermutationStrategy<PoolResourceAllocator>,
+              "Pflicht: PoolResourceAllocator muss CacheEnginePermutationStrategy erfuellen");
+static_assert(!concepts::ZeroingStrategy<PoolResourceAllocator>,
+              "Erwartet: PoolResourceAllocator bietet KEIN zero_allocate (Pool-Speicher ist nicht std::free-faehig, "
+              "analog PmrResourceAllocator)");
+static_assert(concepts::ReallocatingStrategy<PoolResourceAllocator>,
+              "Optional: PoolResourceAllocator bietet reallocate (Pool alloc-copy-free Pattern)");
+} // namespace comdare::cache_engine::alloc

@@ -42,20 +42,22 @@ public:
     using size_type    = std::size_t;
     using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag     = subaxes::versioned_access_tag;
-    using family_id    = std::integral_constant<int, 7>;  // Q07
+    using family_id    = std::integral_constant<int, 7>; // Q07
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }  // unbounded
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "delta_chain"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "DeltaChainBuffer (Bw-Tree, Levandoski/Lomet/Sengupta ICDE 2013)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "DELTA_CHAIN"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "delta_chain"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "DeltaChainBuffer (Bw-Tree, Levandoski/Lomet/Sengupta ICDE 2013)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "DELTA_CHAIN"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_concurrent_consumers() noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_priority_ordering()    noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_priority_ordering() noexcept { return false; }
     /// SONDERFALL: erste Q1-Strategie mit Versionierung=TRUE.
-    [[nodiscard]] static constexpr bool is_versioned()                  noexcept { return true; }
+    [[nodiscard]] static constexpr bool                        is_versioned() noexcept { return true; }
     [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
         return concepts::ProgressGuarantee::Blocking;
     }
@@ -93,9 +95,9 @@ public:
         return v;
     }
 
-    [[nodiscard]] size_type size()     const noexcept { return chain_.size(); }
+    [[nodiscard]] size_type size() const noexcept { return chain_.size(); }
     [[nodiscard]] bool      is_empty() const noexcept { return chain_.empty(); }
-    void                    clear()          noexcept { chain_.clear(); }
+    void                    clear() noexcept { chain_.clear(); }
 
     /// Versionsspezifisch: peek_front=neuestes Delta (top of chain), peek_back=aeltestes.
     [[nodiscard]] std::optional<element_type> peek_front() const noexcept {
@@ -116,25 +118,28 @@ public:
     using snapshot_t = concepts::BufferStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
     std::vector<element_type> chain_;
-    std::uint64_t next_version_id_ = 0;
+    std::uint64_t             next_version_id_ = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
-    observer_t observer_{};
+    observer_t                 observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<DeltaChainBuffer>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<DeltaChainBuffer>);
-    static_assert(concepts::VersionedBufferStrategy<DeltaChainBuffer>);
-}
+static_assert(concepts::BufferStrategy<DeltaChainBuffer>);
+static_assert(concepts::CacheEngineBufferPermutationStrategy<DeltaChainBuffer>);
+static_assert(concepts::VersionedBufferStrategy<DeltaChainBuffer>);
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing

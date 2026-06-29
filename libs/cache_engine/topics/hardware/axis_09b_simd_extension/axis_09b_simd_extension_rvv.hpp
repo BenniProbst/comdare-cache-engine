@@ -23,24 +23,26 @@ public:
 
     static constexpr bool enabled = flags::rvv_enabled;
 
-    [[nodiscard]] static constexpr bool             is_active()             noexcept { return true; }
-    [[nodiscard]] static constexpr int              vector_width_bits()     noexcept { return -1; }  // scalable
-    [[nodiscard]] static constexpr bool             compatible_with_x86()   noexcept { return false; }
-    [[nodiscard]] static constexpr bool             compatible_with_arm()   noexcept { return false; }
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return true; }
+    [[nodiscard]] static constexpr int              vector_width_bits() noexcept { return -1; } // scalable
+    [[nodiscard]] static constexpr bool             compatible_with_x86() noexcept { return false; }
+    [[nodiscard]] static constexpr bool             compatible_with_arm() noexcept { return false; }
     [[nodiscard]] static constexpr bool             compatible_with_riscv() noexcept { return true; }
     [[nodiscard]] static constexpr bool             compatible_with_powerpc() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "simd_ext_rvv"; }
-    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "RvvSimdExtension (RISC-V Vector v1.0 scalable VLEN, SiFive/T-Head)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "RVV"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "simd_ext_rvv"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "RvvSimdExtension (RISC-V Vector v1.0 scalable VLEN, SiFive/T-Head)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "RVV"; }
 
     // ─── R7.7.c Topologie: 1 RVV-Unit/Sockel (SiFive/T-Head: alle Cores) ────
-    [[nodiscard]] static constexpr int  units_per_socket()                  noexcept { return 1; }
+    [[nodiscard]] static constexpr int  units_per_socket() noexcept { return 1; }
     [[nodiscard]] static constexpr bool accessible_from_efficiency_cores() noexcept { return true; }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::hardware::axis_09b_simd_extension
 
 namespace comdare::cache_engine::hardware::axis_09b_simd_extension {
-    static_assert(concepts::SimdExtensionStrategy<RvvSimdExtension>);
-    static_assert(concepts::CacheEnginePermutationStrategy<RvvSimdExtension>);
-}
+static_assert(concepts::SimdExtensionStrategy<RvvSimdExtension>);
+static_assert(concepts::CacheEnginePermutationStrategy<RvvSimdExtension>);
+} // namespace comdare::cache_engine::hardware::axis_09b_simd_extension

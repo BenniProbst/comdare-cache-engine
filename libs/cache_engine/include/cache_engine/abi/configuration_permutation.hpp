@@ -11,8 +11,8 @@
 
 namespace comdare {
 
-template <typename ProcessingStrategyT, typename ConcurrencyT, typename SchedulerT,
-          typename HeuristicT, typename AllocatorStrategyT>
+template <typename ProcessingStrategyT, typename ConcurrencyT, typename SchedulerT, typename HeuristicT,
+          typename AllocatorStrategyT>
 struct configuration_permutation {
     using strategy_t    = ProcessingStrategyT;
     using concurrency_t = ConcurrencyT;
@@ -24,4 +24,4 @@ struct configuration_permutation {
     std::uint64_t permutation_fingerprint = 0;
 };
 
-}  // namespace comdare
+} // namespace comdare

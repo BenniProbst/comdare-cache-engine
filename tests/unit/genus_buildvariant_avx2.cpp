@@ -8,13 +8,19 @@
 #include <cache_engine/abi/build_variant_inspection.hpp>
 
 namespace bv {
-struct DenseBytePage { static constexpr int      page_kind()        noexcept { return 0; }   // DenseByte (identisch zur avx512-Variante)
-                       static constexpr bool      is_branch()        noexcept { return true; }
-                       static constexpr bool      is_leaf()          noexcept { return false; } };
-struct Avx2Ext       { static constexpr unsigned  vector_width_bits() noexcept { return 256; }
-                       static constexpr bool       provides_avx512f() noexcept { return false; } };  // echte axis_09b-API
-struct X86_64Hw      { static constexpr unsigned  cache_line_size()  noexcept { return 64; }   // identisch zur avx512-Variante
-                       static constexpr bool       numa_capable()     noexcept { return true; } };
-}  // namespace bv
+struct DenseBytePage {
+    static constexpr int  page_kind() noexcept { return 0; } // DenseByte (identisch zur avx512-Variante)
+    static constexpr bool is_branch() noexcept { return true; }
+    static constexpr bool is_leaf() noexcept { return false; }
+};
+struct Avx2Ext {
+    static constexpr unsigned vector_width_bits() noexcept { return 256; }
+    static constexpr bool     provides_avx512f() noexcept { return false; }
+}; // echte axis_09b-API
+struct X86_64Hw {
+    static constexpr unsigned cache_line_size() noexcept { return 64; } // identisch zur avx512-Variante
+    static constexpr bool     numa_capable() noexcept { return true; }
+};
+} // namespace bv
 
 COMDARE_DEFINE_BUILD_VARIANT_INSPECTION(comdare_build_variant_inspect, bv::DenseBytePage, bv::Avx2Ext, bv::X86_64Hw)

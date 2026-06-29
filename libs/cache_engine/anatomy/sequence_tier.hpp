@@ -10,14 +10,14 @@ namespace comdare::cache_engine::anatomy {
 
 /// ABI-stabiler Sequence-Observer-Snapshot (cross-boundary, nur uint64 → standard_layout + trivially_copyable).
 struct SequenceObserverSnapshotV1 {
-    std::uint64_t push_count            = 0;   // push_back-Aufrufe
-    std::uint64_t at_count              = 0;   // at(index)-Zugriffe
-    std::uint64_t at_oob_count          = 0;   // davon out-of-bounds
-    std::uint64_t current_size          = 0;   // aktuelle Länge
-    std::uint64_t peak_size             = 0;   // maximale Länge
-    std::uint64_t growth_events         = 0;   // Kapazitäts-Wachstums-Ereignisse (axis_growth getrieben)
-    std::uint64_t observable_axis_count = 0;   // real beobachtete Achsen (R5.B, ehrlich)
-    std::uint64_t organ_count           = 0;   // == SequenceAnatomy::organ_count() (10 + axis_growth = 11)
+    std::uint64_t push_count            = 0; // push_back-Aufrufe
+    std::uint64_t at_count              = 0; // at(index)-Zugriffe
+    std::uint64_t at_oob_count          = 0; // davon out-of-bounds
+    std::uint64_t current_size          = 0; // aktuelle Länge
+    std::uint64_t peak_size             = 0; // maximale Länge
+    std::uint64_t growth_events         = 0; // Kapazitäts-Wachstums-Ereignisse (axis_growth getrieben)
+    std::uint64_t observable_axis_count = 0; // real beobachtete Achsen (R5.B, ehrlich)
+    std::uint64_t organ_count           = 0; // == SequenceAnatomy::organ_count() (10 + axis_growth = 11)
 
     [[nodiscard]] constexpr bool operator==(SequenceObserverSnapshotV1 const&) const noexcept = default;
 };
@@ -51,4 +51,4 @@ public:
     virtual void tier_observe_sequence(SequenceObserverSnapshotV1* out) const noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

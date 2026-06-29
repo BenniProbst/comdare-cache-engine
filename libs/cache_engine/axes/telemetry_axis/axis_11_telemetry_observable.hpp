@@ -25,10 +25,10 @@ namespace comdare::cache_engine::telemetry_axis {
 /// ABI-taugliches Telemetrie-Snapshot (standard_layout + trivially_copyable -> spaeter append-only in den
 /// Cross-ABI-Observer-POD mappbar, Doc 29 §3 Schritt 4).
 struct TelemetrySnapshot {
-    std::uint64_t total_events = 0;   ///< alle Mess-Ereignisse (insert/lookup/erase-Knoten-Touches)
-    std::uint64_t leaf_updates = 0;   ///< gezaehlte Blatt-Knoten-Zaehler-Updates
-    std::uint64_t node_updates = 0;   ///< gezaehlte Inner-Knoten-Updates (== 0 bei leaf-only-Strategie)
-    std::uint64_t peak_tracked = 0;   ///< Hoechststand leaf_updates+node_updates
+    std::uint64_t total_events = 0; ///< alle Mess-Ereignisse (insert/lookup/erase-Knoten-Touches)
+    std::uint64_t leaf_updates = 0; ///< gezaehlte Blatt-Knoten-Zaehler-Updates
+    std::uint64_t node_updates = 0; ///< gezaehlte Inner-Knoten-Updates (== 0 bei leaf-only-Strategie)
+    std::uint64_t peak_tracked = 0; ///< Hoechststand leaf_updates+node_updates
 
     [[nodiscard]] bool operator==(TelemetrySnapshot const&) const noexcept = default;
 };
@@ -46,13 +46,22 @@ public:
     // telemetry-Slot funktioniert (composition_registry.hpp:35 / axis_path_serialization.hpp:67 rufen
     // C::telemetry::name()). family_name/flag_suffix nur weiterreichen, wenn die Strategie sie bietet.
     [[nodiscard]] static constexpr bool             is_leaf_only() noexcept { return Strategy::is_leaf_only(); }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return Strategy::name(); }
-    [[nodiscard]] static constexpr std::string_view family_name()
-        noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()
-        noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
-    [[nodiscard]] static constexpr std::string_view get_compiler()
-        noexcept requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept
+        requires requires { Strategy::family_name(); }
+    {
+        return Strategy::family_name();
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept
+        requires requires { Strategy::flag_suffix(); }
+    {
+        return Strategy::flag_suffix();
+    }
+    [[nodiscard]] static constexpr std::string_view get_compiler() noexcept
+        requires requires { Strategy::get_compiler(); }
+    {
+        return Strategy::get_compiler();
+    }
 
     /// Mess-Kopplung (der eigentliche „Driver", Doc 29 §3 Schritt 3): der Tier-insert/lookup ruft dies bei
     /// jedem Knoten-Touch. `is_leaf`=true fuer Blatt-Knoten. Leaf-only-Strategien verwerfen Inner-Touches.
@@ -82,4 +91,4 @@ private:
 #endif
 };
 
-}  // namespace comdare::cache_engine::telemetry_axis
+} // namespace comdare::cache_engine::telemetry_axis

@@ -12,4 +12,4 @@ struct density_tag {};
 // SR3: Compression (none / lossless)
 struct compression_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::serialization_axis::subaxes

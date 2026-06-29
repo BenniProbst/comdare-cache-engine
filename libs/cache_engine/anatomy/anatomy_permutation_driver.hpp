@@ -34,14 +34,10 @@ public:
     using all_permutations = typename Engine::AllPermutations;
 
     /// Anzahl Cartesian-Produkt-Punkte (Tiere) im Permutations-Raum
-    [[nodiscard]] static constexpr std::size_t count() noexcept {
-        return Engine::count();
-    }
+    [[nodiscard]] static constexpr std::size_t count() noexcept { return Engine::count(); }
 
     /// Anzahl Topic-Achsen (Pflicht: 17 fuer vollstaendige Anatomie)
-    [[nodiscard]] static constexpr std::size_t arity() noexcept {
-        return Engine::arity;
-    }
+    [[nodiscard]] static constexpr std::size_t arity() noexcept { return Engine::arity; }
 
     /**
      * @brief Iteriert ueber alle Permutationen und ruft Visitor mit dem
@@ -60,7 +56,7 @@ public:
      */
     template <class Visitor>
     static constexpr void for_each_animal(Visitor&& v) {
-        Engine::for_each_permutation([&]<class P>(){
+        Engine::for_each_permutation([&]<class P>() {
             using AdHoc = CompositionFromPermTuple<P>;
             SearchAlgorithmAnatomy<AdHoc> anatomy;
             // R5.B: Visitor erhaelt Anatomie + Name (KEINE Container-API mehr in Anatomie)
@@ -78,11 +74,11 @@ public:
      */
     template <class Visitor>
     static constexpr void for_each_composition_type(Visitor&& v) {
-        Engine::for_each_permutation([&]<class P>(){
+        Engine::for_each_permutation([&]<class P>() {
             using AdHoc = CompositionFromPermTuple<P>;
             std::forward<Visitor>(v).template operator()<AdHoc>();
         });
     }
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

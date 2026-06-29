@@ -37,17 +37,17 @@ namespace comdare::cache_engine::execution_engine {
 /// | Virus    | Nicht-Lebewesen, kein Achsen-System | Graphen-Algos / Pipelines / Pure-Math |
 /// | Hybrid   | experimentell Mixed                  | V42+ (z.B. Algorithmus-mit-internem-Cache) |
 enum class ExecutionEngineKind : std::uint8_t {
-    Anatomy = 0,  ///< Lebewesen — erbt AnatomyBase, hat Topics/Achsen + Composition
-    Virus   = 1,  ///< Nicht-Lebewesen — kein Anatomie-Stoffwechsel, eigenes Mess-System
-    Hybrid  = 2   ///< experimentell: kombiniert beide (V42+)
+    Anatomy = 0, ///< Lebewesen — erbt AnatomyBase, hat Topics/Achsen + Composition
+    Virus   = 1, ///< Nicht-Lebewesen — kein Anatomie-Stoffwechsel, eigenes Mess-System
+    Hybrid  = 2  ///< experimentell: kombiniert beide (V42+)
 };
 
 /// engine_kind_name() — Compile-Time-String pro Kind.
 [[nodiscard]] constexpr std::string_view engine_kind_name(ExecutionEngineKind k) noexcept {
     switch (k) {
         case ExecutionEngineKind::Anatomy: return "Anatomy";
-        case ExecutionEngineKind::Virus:   return "Virus";
-        case ExecutionEngineKind::Hybrid:  return "Hybrid";
+        case ExecutionEngineKind::Virus: return "Virus";
+        case ExecutionEngineKind::Hybrid: return "Hybrid";
     }
     return "Unknown";
 }
@@ -59,10 +59,10 @@ enum class ExecutionEngineKind : std::uint8_t {
 /// EngineLifecycleState — Phasen einer ExecutionEngine-Mess-Session.
 enum class EngineLifecycleState : std::uint8_t {
     Uninitialized = 0,
-    Warming       = 1,  ///< warm_up() laeuft (Cache-Preheat, Index-Bulk-Load)
-    Running       = 2,  ///< aktive Mess-Phase
-    Idle          = 3,  ///< zwischen Mess-Reihen, statistics-stable
-    Shutdown      = 4   ///< shutdown() abgeschlossen
+    Warming       = 1, ///< warm_up() laeuft (Cache-Preheat, Index-Bulk-Load)
+    Running       = 2, ///< aktive Mess-Phase
+    Idle          = 3, ///< zwischen Mess-Reihen, statistics-stable
+    Shutdown      = 4  ///< shutdown() abgeschlossen
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ public:
     virtual ~IExecutionEngine() = default;
 
     /// Engine-Identifier (z.B. "ArtComposition" fuer Anatomy, "GraphBFS" fuer Virus)
-    [[nodiscard]] virtual std::string_view    engine_name() const noexcept = 0;
+    [[nodiscard]] virtual std::string_view engine_name() const noexcept = 0;
 
     /// Engine-Kind (Anatomy / Virus / Hybrid)
     [[nodiscard]] virtual ExecutionEngineKind engine_kind() const noexcept = 0;
@@ -109,13 +109,13 @@ public:
     [[nodiscard]] virtual EngineLifecycleState lifecycle_state() const noexcept = 0;
 
     // Mess-Schnittstelle (Pflicht fuer alle ExecutionEngines — analog prt_art_legacy)
-    virtual void warm_up()  = 0;  ///< Engine vor Mess-Reihe vorwaermen (Cache-Preheat, Bulk-Load)
+    virtual void warm_up() = 0; ///< Engine vor Mess-Reihe vorwaermen (Cache-Preheat, Bulk-Load)
     /// R5.C.A4: aktive Mess-Phase starten (Uebergang Warming/Idle → Running).
     /// CacheEngineBuilder ruft run() bevor Workload-Driver Insert/Lookup-Commands
     /// dispatched. Mess-Hooks (Latenz/Throughput) sind nur waehrend Running aktiv.
-    virtual void run()      = 0;  ///< Aktive Mess-Phase starten (lifecycle_state → Running)
-    virtual void reset()    = 0;  ///< Statistik-Reset (NICHT Container-Clear! — siehe [[reset-is-statistics-reset]])
-    virtual void shutdown() = 0;  ///< Engine sauber herunterfahren (Resources freigeben)
+    virtual void run()      = 0; ///< Aktive Mess-Phase starten (lifecycle_state → Running)
+    virtual void reset()    = 0; ///< Statistik-Reset (NICHT Container-Clear! — siehe [[reset-is-statistics-reset]])
+    virtual void shutdown() = 0; ///< Engine sauber herunterfahren (Resources freigeben)
 };
 
-}  // namespace comdare::cache_engine::execution_engine
+} // namespace comdare::cache_engine::execution_engine

@@ -16,10 +16,10 @@
 #include <anatomy/observer_aggregate.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <anatomy/known_algorithms.hpp>
-#include <anatomy/observable_tier.hpp>   // I1: Cross-ABI-Bruecke ObserverAggregate -> konsolidierter Observer-POD
+#include <anatomy/observable_tier.hpp> // I1: Cross-ABI-Bruecke ObserverAggregate -> konsolidierter Observer-POD
 
 #include <type_traits>
-#include <cstring>   // std::memcpy im memory_layout-Test
+#include <cstring> // std::memcpy im memory_layout-Test
 #include <cstdint>
 #include <cstddef>
 
@@ -48,7 +48,9 @@ TEST(R5A_EmptyAxisSnapshot, EqualityIsTrivialTrue) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct WithStatistics {
-    struct snapshot_t { std::uint64_t count{0}; };
+    struct snapshot_t {
+        std::uint64_t count{0};
+    };
     [[nodiscard]] snapshot_t statistics() const noexcept { return {}; }
 };
 
@@ -70,13 +72,13 @@ TEST(R5A_SnapshotOf, GracefulFallbackForNonObservable) {
 
 TEST(R5A_SnapshotAxis, ExtractsSnapshotForObservable) {
     WithStatistics ws;
-    auto snap = ana::snapshot_axis(ws);
-    EXPECT_EQ(snap.count, 0u);  // Default-initialisierter Snapshot
+    auto           snap = ana::snapshot_axis(ws);
+    EXPECT_EQ(snap.count, 0u); // Default-initialisierter Snapshot
 }
 
 TEST(R5A_SnapshotAxis, EmptyForNonObservable) {
     WithoutStatistics wo;
-    auto snap = ana::snapshot_axis(wo);
+    auto              snap = ana::snapshot_axis(wo);
     static_assert(std::is_same_v<decltype(snap), ana::EmptyAxisSnapshot>);
     SUCCEED();
 }
@@ -99,12 +101,12 @@ TEST(R5A_ObserverAggregate, AllSixCompositionsConformLayout) {
     using AggSurf     = ana::ObserverAggregate<ce_compos::SurfComposition>;
     using AggMasstree = ana::ObserverAggregate<ce_compos::MasstreeComposition>;
     using AggStart    = ana::ObserverAggregate<ce_compos::StartComposition>;
-    static_assert(AggArt::total_slots()      == 19);
-    static_assert(AggHot::total_slots()      == 19);
+    static_assert(AggArt::total_slots() == 19);
+    static_assert(AggHot::total_slots() == 19);
     static_assert(AggWormhole::total_slots() == 19);
-    static_assert(AggSurf::total_slots()     == 19);
+    static_assert(AggSurf::total_slots() == 19);
     static_assert(AggMasstree::total_slots() == 19);
-    static_assert(AggStart::total_slots()    == 19);
+    static_assert(AggStart::total_slots() == 19);
     SUCCEED();
 }
 
@@ -114,7 +116,7 @@ TEST(R5A_ObserverAggregate, AllSixCompositionsConformLayout) {
 
 TEST(R5A_AnatomyObserveAll, ArtAnatomyProducesAggregate) {
     ana::Art anatomy;
-    auto agg = anatomy.observe_all();
+    auto     agg = anatomy.observe_all();
     // R5.A Pilot: Default-Aggregate (Achsen-Member-Aggregation R5.B pending)
     using AggT = decltype(agg);
     static_assert(AggT::total_slots() == 19);
@@ -134,7 +136,7 @@ TEST(R5A_AnatomyObserveAll, AllElevenAnatomiesProduceAggregate) {
     [[maybe_unused]] auto agg9  = ana::StartPaperBinding{}.observe_all();
     [[maybe_unused]] auto agg10 = ana::WormholePaperBinding{}.observe_all();
     [[maybe_unused]] auto agg11 = ana::SurfPaperBinding{}.observe_all();
-    static_assert(decltype(agg1)::total_slots()  == 19);
+    static_assert(decltype(agg1)::total_slots() == 19);
     static_assert(decltype(agg11)::total_slots() == 19);
     SUCCEED();
 }
@@ -158,25 +160,25 @@ TEST(R5A_ObservableAxisCount, ArtAnatomyDiagnoseIsCompileTime) {
 
 // Composition wo ALLE Achsen non-observable sind (EmptyAxisSnapshot ueberall)
 struct AllEmptyComposition {
-    using search_algo        = WithoutStatistics;
-    using cache_traversal    = WithoutStatistics;
-    using mapping            = WithoutStatistics;
-    using path_compression   = WithoutStatistics;
-    using node_type          = WithoutStatistics;
-    using memory_layout      = WithoutStatistics;
-    using allocator          = WithoutStatistics;
-    using prefetch           = WithoutStatistics;
-    using concurrency        = WithoutStatistics;
-    using serialization      = WithoutStatistics;
-    using telemetry          = WithoutStatistics;
-    using value_handle       = WithoutStatistics;
-    using isa                = WithoutStatistics;
-    using index_organization = WithoutStatistics;
-    using io_dispatch        = WithoutStatistics;
-    using migration_policy   = WithoutStatistics;
-    using filter             = WithoutStatistics;
-    using queuing_q1         = WithoutStatistics;   // Doc 30 §8.0: SA-Achse T17
-    using queuing_q2         = WithoutStatistics;   // Doc 30 §8.0: SA-Achse T18
+    using search_algo                          = WithoutStatistics;
+    using cache_traversal                      = WithoutStatistics;
+    using mapping                              = WithoutStatistics;
+    using path_compression                     = WithoutStatistics;
+    using node_type                            = WithoutStatistics;
+    using memory_layout                        = WithoutStatistics;
+    using allocator                            = WithoutStatistics;
+    using prefetch                             = WithoutStatistics;
+    using concurrency                          = WithoutStatistics;
+    using serialization                        = WithoutStatistics;
+    using telemetry                            = WithoutStatistics;
+    using value_handle                         = WithoutStatistics;
+    using isa                                  = WithoutStatistics;
+    using index_organization                   = WithoutStatistics;
+    using io_dispatch                          = WithoutStatistics;
+    using migration_policy                     = WithoutStatistics;
+    using filter                               = WithoutStatistics;
+    using queuing_q1                           = WithoutStatistics; // Doc 30 §8.0: SA-Achse T17
+    using queuing_q2                           = WithoutStatistics; // Doc 30 §8.0: SA-Achse T18
     static constexpr std::string_view name     = "AllEmptyComposition";
     static constexpr std::string_view paper_id = "P00 EmptyTest";
 };
@@ -187,7 +189,7 @@ TEST(R5A_AbiStability, AllEmptyAggregateIsStandardLayoutPod) {
     static_assert(std::is_trivially_copyable_v<Agg>);
     static_assert(std::is_trivially_default_constructible_v<Agg>);
     static_assert(Agg::observable_count() == 0);
-    static_assert(Agg::total_slots()      == 19);
+    static_assert(Agg::total_slots() == 19);
     SUCCEED();
 }
 
@@ -196,12 +198,12 @@ TEST(R5A_AbiStability, AllEmptyAggregateIsStandardLayoutPod) {
 // Insert/Lookup/Hit/Miss-Statistik fliesst real in das ObserverAggregate (= Per-Achsen-Statistics-Trace).
 TEST(Saeule2_ObserveAllReal, DrivenSearchAlgoOrganFlowsIntoAggregate) {
     ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
-    using Organ = ce_compos::ArtComposition::search_algo;  // Array256SearchAlgo
+    using Organ = ce_compos::ArtComposition::search_algo; // Array256SearchAlgo
     if constexpr (ana::ObservableAxis<Organ>) {
-        using K = typename Organ::key_type;
+        using K     = typename Organ::key_type;
         auto& organ = anat.search_algo_organ();
         for (int i = 0; i < 40; ++i) organ.insert(static_cast<K>(i), static_cast<std::uint64_t>(i) * 3u + 1u);
-        for (int i = 0; i < 40; ++i) (void)organ.lookup(static_cast<K>(i));   // Treffer
+        for (int i = 0; i < 40; ++i) (void)organ.lookup(static_cast<K>(i)); // Treffer
 
         auto const agg = anat.observe_all();
         // Vorher (Stub): alle Werte 0. Jetzt: ECHTE search_algo-Statistik aus dem getriebenen Organ.
@@ -219,17 +221,17 @@ TEST(Saeule2_ObserveAllReal, DrivenSearchAlgoOrganFlowsIntoAggregate) {
 // Die LeafOnlyCounter-Strategie VERWIRFT Inner-Node-Touches (node_updates==0) — der messbare Achsen-Unterschied.
 TEST(Saeule2_ObserveAllReal, DrivenTelemetryOrganFlowsIntoAggregate) {
     ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
-    using TelOrgan = ce_compos::ArtComposition::telemetry;  // ObservableTelemetry<LeafOnlyCounter>
+    using TelOrgan = ce_compos::ArtComposition::telemetry; // ObservableTelemetry<LeafOnlyCounter>
     if constexpr (ana::ObservableAxis<TelOrgan>) {
         auto& tel = anat.telemetry_organ();
-        tel.record_node_touch(true);    // Blatt
-        tel.record_node_touch(false);   // Inner → leaf-only verwirft
-        tel.record_node_touch(true);    // Blatt
+        tel.record_node_touch(true);  // Blatt
+        tel.record_node_touch(false); // Inner → leaf-only verwirft
+        tel.record_node_touch(true);  // Blatt
 
         auto const agg = anat.observe_all();
         EXPECT_EQ(agg.telemetry.total_events, 3u);
         EXPECT_EQ(agg.telemetry.leaf_updates, 2u);
-        EXPECT_EQ(agg.telemetry.node_updates, 0u);   // LeafOnlyCounter-Strategie verwirft Inner-Touch
+        EXPECT_EQ(agg.telemetry.node_updates, 0u); // LeafOnlyCounter-Strategie verwirft Inner-Touch
         EXPECT_EQ(agg.telemetry.peak_tracked, 2u);
         // observable_count steigt: search_algo + telemetry beide getrieben + observierbar.
         EXPECT_GE(ana::ObserverAggregate<ce_compos::ArtComposition>::observable_count(), 2u);
@@ -242,14 +244,14 @@ TEST(Saeule2_ObserveAllReal, DrivenTelemetryOrganFlowsIntoAggregate) {
 // jetzt die ObservableMemoryLayout-Huelle; observe_scan() treibt die Layout-Scan-Statistik in observe_all().
 TEST(Saeule2_ObserveAllReal, DrivenMemoryLayoutOrganFlowsIntoAggregate) {
     ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
-    using MlOrgan = ce_compos::ArtComposition::memory_layout;  // ObservableMemoryLayout<CacheLineAligned>
+    using MlOrgan = ce_compos::ArtComposition::memory_layout; // ObservableMemoryLayout<CacheLineAligned>
     if constexpr (ana::ObservableAxis<MlOrgan>) {
         constexpr std::size_t record_size = 64, n = 4;
-        unsigned char buf[record_size * n] = {};
-        std::uint32_t const vals[n] = {10u, 20u, 30u, 40u};   // Summe = 100
+        unsigned char         buf[record_size * n] = {};
+        std::uint32_t const   vals[n]              = {10u, 20u, 30u, 40u}; // Summe = 100
         for (std::size_t i = 0; i < n; ++i) std::memcpy(buf + i * record_size, &vals[i], sizeof(std::uint32_t));
 
-        auto& ml = anat.memory_layout_organ();
+        auto&               ml       = anat.memory_layout_organ();
         std::uint64_t const checksum = ml.observe_scan(buf, n, record_size);
         EXPECT_EQ(checksum, 100u);
 
@@ -258,7 +260,8 @@ TEST(Saeule2_ObserveAllReal, DrivenMemoryLayoutOrganFlowsIntoAggregate) {
         EXPECT_EQ(agg.memory_layout.records_scanned, 4u);
         EXPECT_EQ(agg.memory_layout.last_checksum, 100u);
         EXPECT_GT(agg.memory_layout.cache_lines_touched, 0u);
-        EXPECT_GE(ana::ObserverAggregate<ce_compos::ArtComposition>::observable_count(), 3u);  // search_algo+telemetry+memory_layout
+        EXPECT_GE(ana::ObserverAggregate<ce_compos::ArtComposition>::observable_count(),
+                  3u); // search_algo+telemetry+memory_layout
     } else {
         GTEST_SKIP() << "memory_layout nicht ObservableAxis (STATISTICS=OFF)";
     }
@@ -268,23 +271,23 @@ TEST(Saeule2_ObserveAllReal, DrivenMemoryLayoutOrganFlowsIntoAggregate) {
 // jetzt die ObservableSerialization-Huelle; observe_serialize() treibt die Statistik in observe_all().
 TEST(Saeule2_ObserveAllReal, DrivenSerializationOrganFlowsIntoAggregate) {
     ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
-    using SerOrgan = ce_compos::ArtComposition::serialization;  // ObservableSerialization<RawBinary>
+    using SerOrgan = ce_compos::ArtComposition::serialization; // ObservableSerialization<RawBinary>
     if constexpr (ana::ObservableAxis<SerOrgan>) {
         constexpr std::size_t record_size = 8, n = 4;
-        unsigned char buf[record_size * n] = {};
-        std::uint32_t const vals[n] = {10u, 20u, 30u, 40u};   // Summe = 100
+        unsigned char         buf[record_size * n] = {};
+        std::uint32_t const   vals[n]              = {10u, 20u, 30u, 40u}; // Summe = 100
         for (std::size_t i = 0; i < n; ++i) std::memcpy(buf + i * record_size, &vals[i], sizeof(std::uint32_t));
 
-        auto& ser = anat.serialization_organ();
+        auto&               ser      = anat.serialization_organ();
         std::uint64_t const checksum = ser.observe_serialize(buf, n, record_size);
         EXPECT_EQ(checksum, 100u);
 
         auto const agg = anat.observe_all();
         EXPECT_EQ(agg.serialization.serialize_count, 1u);
         EXPECT_EQ(agg.serialization.records_serialized, 4u);
-        EXPECT_EQ(agg.serialization.bytes_serialized, 32u);     // 4 * 8
+        EXPECT_EQ(agg.serialization.bytes_serialized, 32u); // 4 * 8
         EXPECT_EQ(agg.serialization.last_checksum, 100u);
-        EXPECT_GE(ana::ObserverAggregate<ce_compos::ArtComposition>::observable_count(), 4u);  // +serialization
+        EXPECT_GE(ana::ObserverAggregate<ce_compos::ArtComposition>::observable_count(), 4u); // +serialization
     } else {
         GTEST_SKIP() << "serialization nicht ObservableAxis (STATISTICS=OFF)";
     }
@@ -295,12 +298,12 @@ TEST(Saeule2_ObserveAllReal, DrivenSerializationOrganFlowsIntoAggregate) {
 // Huelle (zugleich N in ComposedStore<N,L,A>); observe_node_find() treibt die Statistik in observe_all().
 TEST(Saeule2_ObserveAllReal, DrivenNodeTypeOrganFlowsIntoAggregate) {
     ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
-    using NtOrgan = ce_compos::ArtComposition::node_type;  // ObservableNodeType<Node256>
+    using NtOrgan = ce_compos::ArtComposition::node_type; // ObservableNodeType<Node256>
     if constexpr (ana::ObservableAxis<NtOrgan>) {
-        std::uint8_t const stored[4]  = {1u, 2u, 3u, 4u};
-        std::uint8_t const queries[3] = {2u, 4u, 9u};   // 2(+2),4(+4),9(miss) -> Summe 6
-        auto& nt = anat.node_type_organ();
-        std::uint64_t const checksum = nt.observe_node_find(stored, 4, queries, 3);
+        std::uint8_t const  stored[4]  = {1u, 2u, 3u, 4u};
+        std::uint8_t const  queries[3] = {2u, 4u, 9u}; // 2(+2),4(+4),9(miss) -> Summe 6
+        auto&               nt         = anat.node_type_organ();
+        std::uint64_t const checksum   = nt.observe_node_find(stored, 4, queries, 3);
         EXPECT_EQ(checksum, 6u);
 
         auto const agg = anat.observe_all();
@@ -323,20 +326,20 @@ TEST(V2Bridge_FlatPod, AllDrivenAxesFlowIntoV2Snapshot) {
     ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
     if constexpr (ana::ObservableAxis<ce_compos::ArtComposition::telemetry>) {
         // search_algo treiben
-        for (int i = 0; i < 10; ++i) anat.search_algo_organ().insert(static_cast<std::uint64_t>(i),
-                                                                      static_cast<std::uint64_t>(i) * 2u);
+        for (int i = 0; i < 10; ++i)
+            anat.search_algo_organ().insert(static_cast<std::uint64_t>(i), static_cast<std::uint64_t>(i) * 2u);
         for (int i = 0; i < 10; ++i) (void)anat.search_algo_organ().lookup(static_cast<std::uint64_t>(i));
         // 4 OperativeCapable-Achsen treiben
         anat.telemetry_organ().record_node_touch(true);
-        anat.telemetry_organ().record_node_touch(false);   // leaf-only verwirft
-        std::uint32_t const vals[4] = {10u, 20u, 30u, 40u};
-        unsigned char lbuf[64 * 4] = {};
+        anat.telemetry_organ().record_node_touch(false); // leaf-only verwirft
+        std::uint32_t const vals[4]      = {10u, 20u, 30u, 40u};
+        unsigned char       lbuf[64 * 4] = {};
         for (std::size_t i = 0; i < 4; ++i) std::memcpy(lbuf + i * 64, &vals[i], sizeof(std::uint32_t));
         (void)anat.memory_layout_organ().observe_scan(lbuf, 4, 64);
         unsigned char sbuf[8 * 4] = {};
         for (std::size_t i = 0; i < 4; ++i) std::memcpy(sbuf + i * 8, &vals[i], sizeof(std::uint32_t));
         (void)anat.serialization_organ().observe_serialize(sbuf, 4, 8);
-        std::uint8_t const stored[4] = {1u, 2u, 3u, 4u};
+        std::uint8_t const stored[4]  = {1u, 2u, 3u, 4u};
         std::uint8_t const queries[3] = {2u, 4u, 9u};
         (void)anat.node_type_organ().observe_node_find(stored, 4, queries, 3);
 
@@ -348,7 +351,7 @@ TEST(V2Bridge_FlatPod, AllDrivenAxesFlowIntoV2Snapshot) {
         EXPECT_EQ(agg.search_algo.total_insert_count, 10u);
         EXPECT_GE(agg.search_algo.total_lookup_count, 10u);
         EXPECT_EQ(agg.telemetry.total_events, 2u);
-        EXPECT_EQ(agg.telemetry.node_updates, 0u);             // leaf-only
+        EXPECT_EQ(agg.telemetry.node_updates, 0u); // leaf-only
         EXPECT_EQ(agg.memory_layout.scan_count, 1u);
         EXPECT_EQ(agg.memory_layout.last_checksum, 100u);
         EXPECT_EQ(agg.serialization.serialize_count, 1u);

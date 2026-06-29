@@ -42,16 +42,18 @@ public:
     using size_type       = std::size_t;
     using topic_tag       = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag        = subaxes::direct_access_tag;
-    using family_id       = std::integral_constant<int, 1>;  // MP01
+    using family_id       = std::integral_constant<int, 1>; // MP01
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "direct_placement"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "DirectPlacement (prt-art INode::placement_page_ direct-Pointer)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "DIRECT_PLACEMENT"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "direct_placement"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "DirectPlacement (prt-art INode::placement_page_ direct-Pointer)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "DIRECT_PLACEMENT"; }
 
-    [[nodiscard]] static constexpr bool is_pool_relative()        noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_reverse_lookup() noexcept { return true; }  // linear-scan
-    [[nodiscard]] static constexpr bool requires_pool_base()      noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_pool_relative() noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_reverse_lookup() noexcept { return true; } // linear-scan
+    [[nodiscard]] static constexpr bool requires_pool_base() noexcept { return false; }
 
     DirectPlacement() = default;
 
@@ -61,10 +63,9 @@ public:
 
     /// SONDERFALL [[allocation-failure-exception]]: emplace_back kann std::bad_alloc werfen.
     void register_slot(slot_index_type s, offset_type o) {
-        auto it = std::find_if(mappings_.begin(), mappings_.end(),
-            [s](auto const& m) { return m.first == s; });
+        auto it = std::find_if(mappings_.begin(), mappings_.end(), [s](auto const& m) { return m.first == s; });
         if (it != mappings_.end()) {
-            it->second = o;  // update
+            it->second = o; // update
         } else {
             mappings_.emplace_back(s, o);
         }
@@ -76,12 +77,13 @@ public:
     }
 
     [[nodiscard]] std::optional<offset_type> resolve_offset(slot_index_type s) const {
-        auto it = std::find_if(mappings_.begin(), mappings_.end(),
-            [s](auto const& m) { return m.first == s; });
+        auto it = std::find_if(mappings_.begin(), mappings_.end(), [s](auto const& m) { return m.first == s; });
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_resolve_count;
-        if (it != mappings_.end()) ++stats_.total_resolve_hit_count;
-        else                        ++stats_.total_resolve_miss_count;
+        if (it != mappings_.end())
+            ++stats_.total_resolve_hit_count;
+        else
+            ++stats_.total_resolve_miss_count;
         observer_.notify(stats_);
 #endif
         if (it == mappings_.end()) return std::nullopt;
@@ -89,8 +91,7 @@ public:
     }
 
     [[nodiscard]] std::optional<slot_index_type> reverse_lookup(offset_type o) const {
-        auto it = std::find_if(mappings_.begin(), mappings_.end(),
-            [o](auto const& m) { return m.second == o; });
+        auto it = std::find_if(mappings_.begin(), mappings_.end(), [o](auto const& m) { return m.second == o; });
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_reverse_lookup_count;
         observer_.notify(stats_);
@@ -106,23 +107,26 @@ public:
     using snapshot_t = concepts::MappingStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
     std::vector<std::pair<slot_index_type, offset_type>> mappings_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::MappingStatistics stats_{};
-    mutable observer_t                   observer_{};
+    mutable observer_t                  observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::mapping
 
 namespace comdare::cache_engine::mapping {
-    static_assert(concepts::MappingVariant<DirectPlacement>);
-    static_assert(concepts::CacheEngineMappingPermutationStrategy<DirectPlacement>);
-}
+static_assert(concepts::MappingVariant<DirectPlacement>);
+static_assert(concepts::CacheEngineMappingPermutationStrategy<DirectPlacement>);
+} // namespace comdare::cache_engine::mapping

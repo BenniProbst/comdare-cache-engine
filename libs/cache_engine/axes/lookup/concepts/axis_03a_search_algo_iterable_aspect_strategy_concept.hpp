@@ -31,16 +31,12 @@ namespace comdare::cache_engine::lookup::concepts {
  * Cost-DP — keine threshold-Parametrisierung).
  */
 template <typename S>
-concept IterableAspectSearchAlgoStrategy =
-    SearchAlgoVariant<S>
-    && requires { typename S::iterable_aspect_t; }
-    && (!std::is_void_v<typename S::iterable_aspect_t>)
-    && requires {
-        { S::iterable_values() } noexcept
-            -> std::convertible_to<std::span<typename S::iterable_aspect_t const>>;
-    }
-    && requires(S s, typename S::iterable_aspect_t v) {
-        { s.set_iterable_aspect(v) } noexcept;
-    };
+concept IterableAspectSearchAlgoStrategy = SearchAlgoVariant<S> && requires {
+    typename S::iterable_aspect_t;
+} && (!std::is_void_v<typename S::iterable_aspect_t>) && requires {
+    { S::iterable_values() } noexcept -> std::convertible_to<std::span<typename S::iterable_aspect_t const>>;
+} && requires(S s, typename S::iterable_aspect_t v) {
+    { s.set_iterable_aspect(v) } noexcept;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup::concepts

@@ -31,8 +31,10 @@ public:
     [[nodiscard]] static constexpr concepts::ConcurrencyPattern concurrency_pattern() noexcept {
         return concepts::ConcurrencyPattern::Optimistic;
     }
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "olc_reserved_blocks"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "OlcReservedBlocksConcurrency (OLC + cache-line-reserved value blocks, anti-coherence-storm)"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "olc_reserved_blocks"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "OlcReservedBlocksConcurrency (OLC + cache-line-reserved value blocks, anti-coherence-storm)";
+    }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "OLC_RESERVED_BLOCKS"; }
 
     // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). OLC + reservierte Value-Blocks:
@@ -44,12 +46,12 @@ public:
     static void acquire() noexcept {
         snapshot_() = version_().load(std::memory_order_acquire);
         // reservierte Block-ID vorruecken (anti-coherence-storm: jeder Writer eigener Block).
-        (void) next_block_id_().fetch_add(1u, std::memory_order_acq_rel);
+        (void)next_block_id_().fetch_add(1u, std::memory_order_acq_rel);
     }
     static void release() noexcept {
-        unsigned const now = version_().load(std::memory_order_acquire);
+        unsigned const       now        = version_().load(std::memory_order_acquire);
         static volatile bool valid_sink = false;
-        valid_sink = (now == snapshot_());
+        valid_sink                      = (now == snapshot_());
     }
 
 private:
@@ -67,9 +69,9 @@ private:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::concurrency_axis
 
 namespace comdare::cache_engine::concurrency_axis {
-    static_assert(concepts::ConcurrencyStrategy<OlcReservedBlocksConcurrency>);
-    static_assert(concepts::CacheEnginePermutationStrategy<OlcReservedBlocksConcurrency>);
-}
+static_assert(concepts::ConcurrencyStrategy<OlcReservedBlocksConcurrency>);
+static_assert(concepts::CacheEnginePermutationStrategy<OlcReservedBlocksConcurrency>);
+} // namespace comdare::cache_engine::concurrency_axis

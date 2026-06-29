@@ -32,11 +32,11 @@ namespace comdare::cache_engine::anatomy {
 // Sentinel 0 = "nicht setzen / Default beibehalten".
 // ─────────────────────────────────────────────────────────────────────────────
 struct ComdareResourceControlV1 {
-    std::uint64_t thread_count           = 0;  // Achse concurrency (axis_08) — ursprüngl. Laufzeit-Variable
-    std::uint64_t prefetch_distance      = 0;  // Achse prefetch    (axis_07) — Distanz/Tiefe in Cache-Lines
-    std::uint64_t pool_budget_bytes      = 0;  // Achse allocator   (axis_06) — Arena-/Pool-Budget (Bytes)
-    std::uint64_t batch_size             = 0;  // Achse traversal   (axis_03a) — Batch-/Working-Set-Größe
-    std::uint64_t inline_threshold_bytes = 0;  // Achse value_handle(axis_14) — Inline/External-Schwelle (Bytes)
+    std::uint64_t thread_count            = 0; // Achse concurrency (axis_08) — ursprüngl. Laufzeit-Variable
+    std::uint64_t prefetch_distance       = 0; // Achse prefetch    (axis_07) — Distanz/Tiefe in Cache-Lines
+    std::uint64_t pool_budget_bytes       = 0; // Achse allocator   (axis_06) — Arena-/Pool-Budget (Bytes)
+    std::uint64_t batch_size              = 0; // Achse traversal   (axis_03a) — Batch-/Working-Set-Größe
+    std::uint64_t inline_threshold_bytes  = 0; // Achse value_handle(axis_14) — Inline/External-Schwelle (Bytes)
     std::uint64_t controllable_axis_count = 0; // Meta/Diagnose: real reagierende Achsen (query: max möglich)
 
     [[nodiscard]] constexpr bool operator==(ComdareResourceControlV1 const&) const noexcept = default;
@@ -67,4 +67,4 @@ public:
     virtual std::uint64_t tier_apply_resource_control(ComdareResourceControlV1 const* in) noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

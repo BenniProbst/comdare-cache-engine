@@ -47,20 +47,22 @@ public:
     using size_type    = std::size_t;
     using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag     = subaxes::versioned_access_tag;
-    using family_id    = std::integral_constant<int, 10>;  // Q10
+    using family_id    = std::integral_constant<int, 10>; // Q10
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }  // unbounded
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "copy_on_write"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "CopyOnWriteBuffer (Persistent ART, RCU-Tries — Driscoll/Sarnak/Sleator/Tarjan JCSS 1989)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "COPY_ON_WRITE"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "copy_on_write"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "CopyOnWriteBuffer (Persistent ART, RCU-Tries — Driscoll/Sarnak/Sleator/Tarjan JCSS 1989)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "COPY_ON_WRITE"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_concurrent_consumers() noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_priority_ordering()    noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_priority_ordering() noexcept { return false; }
     /// SONDERFALL: 3. Strategie mit Versionierung=TRUE (Snapshot-Versioning).
-    [[nodiscard]] static constexpr bool is_versioned()                  noexcept { return true; }
+    [[nodiscard]] static constexpr bool                        is_versioned() noexcept { return true; }
     [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
         return concepts::ProgressGuarantee::Blocking;
     }
@@ -95,9 +97,9 @@ public:
 #endif
             return std::nullopt;
         }
-        element_type v = current_->front();
-        auto next = std::make_shared<std::vector<element_type>>(current_->begin() + 1, current_->end());
-        current_ = std::move(next);
+        element_type v    = current_->front();
+        auto         next = std::make_shared<std::vector<element_type>>(current_->begin() + 1, current_->end());
+        current_          = std::move(next);
         ++snapshot_version_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_get_count;
@@ -106,9 +108,9 @@ public:
         return v;
     }
 
-    [[nodiscard]] size_type size()     const noexcept { return current_->size(); }
+    [[nodiscard]] size_type size() const noexcept { return current_->size(); }
     [[nodiscard]] bool      is_empty() const noexcept { return current_->empty(); }
-    void                    clear()          noexcept {
+    void                    clear() noexcept {
         current_ = std::make_shared<std::vector<element_type>>();
         ++snapshot_version_;
     }
@@ -136,25 +138,28 @@ public:
     using snapshot_t = concepts::BufferStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
     std::shared_ptr<std::vector<element_type>> current_;
-    std::uint64_t snapshot_version_ = 0;
+    std::uint64_t                              snapshot_version_ = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
-    observer_t observer_{};
+    observer_t                 observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<CopyOnWriteBuffer>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<CopyOnWriteBuffer>);
-    static_assert(concepts::VersionedBufferStrategy<CopyOnWriteBuffer>);
-}
+static_assert(concepts::BufferStrategy<CopyOnWriteBuffer>);
+static_assert(concepts::CacheEngineBufferPermutationStrategy<CopyOnWriteBuffer>);
+static_assert(concepts::VersionedBufferStrategy<CopyOnWriteBuffer>);
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing

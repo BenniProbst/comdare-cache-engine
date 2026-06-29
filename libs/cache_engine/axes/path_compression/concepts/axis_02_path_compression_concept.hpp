@@ -17,11 +17,9 @@ namespace comdare::cache_engine::path_compression::concepts {
  *   - compression_ratio() → Mass fuer Kompressions-Effizienz (0.0-1.0)
  */
 template <typename P>
-concept PathCompressionStrategy =
-    ::comdare::cache_engine::nodes::concepts::NodesComponent<P>
-    && requires(P p) {
-        { p.compression_ratio() } noexcept -> std::convertible_to<double>;
-    };
+concept PathCompressionStrategy = ::comdare::cache_engine::nodes::concepts::NodesComponent<P> && requires(P p) {
+    { p.compression_ratio() } noexcept -> std::convertible_to<double>;
+};
 
 /**
  * @brief ByteSkipPathCompression — ECHTES Byte-Prefix-Skip-Organ (V41 #43 s4, ART-Anatomie).
@@ -37,12 +35,11 @@ concept PathCompressionStrategy =
  *   - cut(n)                         → fuehrende n Bytes entfernen (Abstieg)
  */
 template <typename P>
-concept ByteSkipPathCompression =
-    requires(P p, P const& cp, std::uint64_t key, unsigned i) {
-        { cp.length() }                  -> std::convertible_to<unsigned>;
-        { cp[i] }                        -> std::convertible_to<std::uint8_t>;
-        { cp.common_prefix_len(key) }    -> std::convertible_to<unsigned>;
-        { p.cut(i) }                     -> std::same_as<void>;
-    };
+concept ByteSkipPathCompression = requires(P p, P const& cp, std::uint64_t key, unsigned i) {
+    { cp.length() } -> std::convertible_to<unsigned>;
+    { cp[i] } -> std::convertible_to<std::uint8_t>;
+    { cp.common_prefix_len(key) } -> std::convertible_to<unsigned>;
+    { p.cut(i) } -> std::same_as<void>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::path_compression::concepts

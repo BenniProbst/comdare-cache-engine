@@ -45,8 +45,7 @@ TYPED_TEST(IndexOrganizationWrapperTest, ConceptConformance) {
 
 TYPED_TEST(IndexOrganizationWrapperTest, HasTopicTagAndFamilyId) {
     using topic_tag_t = typename TypeParam::topic_tag;
-    static_assert(std::is_same_v<topic_tag_t,
-                                 ::comdare::cache_engine::search_engine::concepts::SearchEngineTopicTag>);
+    static_assert(std::is_same_v<topic_tag_t, ::comdare::cache_engine::search_engine::concepts::SearchEngineTopicTag>);
     SUCCEED();
 }
 
@@ -68,37 +67,37 @@ TYPED_TEST(IndexOrganizationWrapperTest, IsEnabledMatchesFlag) {
 
 TEST(R7_5_h_Axis_01_Specific, ClusteringMatrix) {
     // Heap: kein Index → is_clustered=false, has_secondary=false, data_embedded=false
-    static_assert(ax01::HeapIndexOrganization::is_clustered()           == false);
-    static_assert(ax01::HeapIndexOrganization::has_secondary_indexes()  == false);
-    static_assert(ax01::HeapIndexOrganization::data_embedded_in_leaf()  == false);
+    static_assert(ax01::HeapIndexOrganization::is_clustered() == false);
+    static_assert(ax01::HeapIndexOrganization::has_secondary_indexes() == false);
+    static_assert(ax01::HeapIndexOrganization::data_embedded_in_leaf() == false);
     // Clustered: Index-Order=Storage-Order, 1 PK, Daten separat
-    static_assert(ax01::ClusteredIndexOrganization::is_clustered()           == true);
-    static_assert(ax01::ClusteredIndexOrganization::has_secondary_indexes()  == false);
-    static_assert(ax01::ClusteredIndexOrganization::data_embedded_in_leaf()  == false);
+    static_assert(ax01::ClusteredIndexOrganization::is_clustered() == true);
+    static_assert(ax01::ClusteredIndexOrganization::has_secondary_indexes() == false);
+    static_assert(ax01::ClusteredIndexOrganization::data_embedded_in_leaf() == false);
     // NonClustered: Secondary Index, N pro Tabelle
-    static_assert(ax01::NonClusteredIndexOrganization::is_clustered()           == false);
-    static_assert(ax01::NonClusteredIndexOrganization::has_secondary_indexes()  == true);
-    static_assert(ax01::NonClusteredIndexOrganization::data_embedded_in_leaf()  == false);
+    static_assert(ax01::NonClusteredIndexOrganization::is_clustered() == false);
+    static_assert(ax01::NonClusteredIndexOrganization::has_secondary_indexes() == true);
+    static_assert(ax01::NonClusteredIndexOrganization::data_embedded_in_leaf() == false);
     // IOT: clustered + data embedded (Oracle IOT, SQL Server CLUSTERED)
-    static_assert(ax01::IotIndexOrganization::is_clustered()           == true);
-    static_assert(ax01::IotIndexOrganization::has_secondary_indexes()  == true);
-    static_assert(ax01::IotIndexOrganization::data_embedded_in_leaf()  == true);
+    static_assert(ax01::IotIndexOrganization::is_clustered() == true);
+    static_assert(ax01::IotIndexOrganization::has_secondary_indexes() == true);
+    static_assert(ax01::IotIndexOrganization::data_embedded_in_leaf() == true);
     SUCCEED();
 }
 
 TEST(R7_5_h_Axis_01_Specific, FlagSuffixUppercase) {
-    static_assert(ax01::HeapIndexOrganization::flag_suffix()         == std::string_view{"HEAP"});
-    static_assert(ax01::ClusteredIndexOrganization::flag_suffix()    == std::string_view{"CLUSTERED"});
+    static_assert(ax01::HeapIndexOrganization::flag_suffix() == std::string_view{"HEAP"});
+    static_assert(ax01::ClusteredIndexOrganization::flag_suffix() == std::string_view{"CLUSTERED"});
     static_assert(ax01::NonClusteredIndexOrganization::flag_suffix() == std::string_view{"NON_CLUSTERED"});
-    static_assert(ax01::IotIndexOrganization::flag_suffix()      == std::string_view{"INDEX_ORGANIZED_TABLE"});
+    static_assert(ax01::IotIndexOrganization::flag_suffix() == std::string_view{"INDEX_ORGANIZED_TABLE"});
     SUCCEED();
 }
 
 TEST(R7_5_h_Axis_01_Specific, SubaxesOrthogonal) {
-    static_assert(std::is_same_v<ax01::HeapIndexOrganization::axis_tag,         ax01::subaxes::storage_order_tag>);
-    static_assert(std::is_same_v<ax01::ClusteredIndexOrganization::axis_tag,    ax01::subaxes::storage_order_tag>);
+    static_assert(std::is_same_v<ax01::HeapIndexOrganization::axis_tag, ax01::subaxes::storage_order_tag>);
+    static_assert(std::is_same_v<ax01::ClusteredIndexOrganization::axis_tag, ax01::subaxes::storage_order_tag>);
     static_assert(std::is_same_v<ax01::NonClusteredIndexOrganization::axis_tag, ax01::subaxes::index_count_tag>);
-    static_assert(std::is_same_v<ax01::IotIndexOrganization::axis_tag,      ax01::subaxes::data_embedding_tag>);
+    static_assert(std::is_same_v<ax01::IotIndexOrganization::axis_tag, ax01::subaxes::data_embedding_tag>);
     SUCCEED();
 }
 
@@ -110,8 +109,7 @@ TEST(R7_5_h_Axis_01_Specific, RegistryHas4Organizations) {
 
 TEST(R7_5_h_SearchEngine, TopicConfigSetExposesAxis01) {
     static_assert(mp::mp_size<se::TopicConfigSet::StaticAxisVariants_01>::value > 0);
-    static_assert(std::is_same_v<se::TopicConfigSet::StaticAxisVariants,
-                                  se::TopicConfigSet::StaticAxisVariants_01>);
+    static_assert(std::is_same_v<se::TopicConfigSet::StaticAxisVariants, se::TopicConfigSet::StaticAxisVariants_01>);
     SUCCEED();
 }
 

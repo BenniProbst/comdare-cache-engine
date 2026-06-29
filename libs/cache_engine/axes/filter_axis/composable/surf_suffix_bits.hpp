@@ -24,25 +24,32 @@ namespace comdare::cache_engine::filter_axis::composable {
 
 enum class SurfSuffixType : std::uint8_t { kNone = 0, kHash = 1, kReal = 2, kMixed = 3 };
 
-inline constexpr int kSurfHashShift     = 7;       // config.hpp Z.26
-inline constexpr int kSurfCouldBePositive = 2018;  // config.hpp Z.28
+inline constexpr int kSurfHashShift       = 7;    // config.hpp Z.26
+inline constexpr int kSurfCouldBePositive = 2018; // config.hpp Z.28
 
 // leveldb-Hash (hash.hpp Z.17-46), reine uint32-Arithmetik (voll portabel).
-[[nodiscard]] inline std::uint32_t surf_leveldb_hash(std::uint8_t const* data, std::size_t n, std::uint32_t seed) noexcept {
-    constexpr std::uint32_t m = 0xc6a4a793U;
-    constexpr std::uint32_t r = 24U;
-    std::uint8_t const* limit = data + n;
-    std::uint32_t h = seed ^ static_cast<std::uint32_t>(n * m);
+[[nodiscard]] inline std::uint32_t surf_leveldb_hash(std::uint8_t const* data, std::size_t n,
+                                                     std::uint32_t seed) noexcept {
+    constexpr std::uint32_t m     = 0xc6a4a793U;
+    constexpr std::uint32_t r     = 24U;
+    std::uint8_t const*     limit = data + n;
+    std::uint32_t           h     = seed ^ static_cast<std::uint32_t>(n * m);
     while (data + 4 <= limit) {
-        std::uint32_t w = static_cast<std::uint32_t>(data[0]) | (static_cast<std::uint32_t>(data[1]) << 8)
-                        | (static_cast<std::uint32_t>(data[2]) << 16) | (static_cast<std::uint32_t>(data[3]) << 24);
+        std::uint32_t w = static_cast<std::uint32_t>(data[0]) | (static_cast<std::uint32_t>(data[1]) << 8) |
+                          (static_cast<std::uint32_t>(data[2]) << 16) | (static_cast<std::uint32_t>(data[3]) << 24);
         data += 4;
-        h += w; h *= m; h ^= (h >> 16);
+        h += w;
+        h *= m;
+        h ^= (h >> 16);
     }
     switch (limit - data) {
         case 3: h += static_cast<std::uint32_t>(data[2]) << 16; [[fallthrough]];
-        case 2: h += static_cast<std::uint32_t>(data[1]) << 8;  [[fallthrough]];
-        case 1: h += static_cast<std::uint32_t>(data[0]); h *= m; h ^= (h >> r); break;
+        case 2: h += static_cast<std::uint32_t>(data[1]) << 8; [[fallthrough]];
+        case 1:
+            h += static_cast<std::uint32_t>(data[0]);
+            h *= m;
+            h ^= (h >> r);
+            break;
         default: break;
     }
     return h;
@@ -62,11 +69,14 @@ public:
     // constructRealSuffix (suffix.hpp Z.43-65): RealLen Bits ab Byte `level`; 0 wenn Key zu kurz.
     [[nodiscard]] static std::uint64_t construct_real(key_bytes_t const& kb, unsigned level) noexcept {
         if (level > 8U || (8U - level) * 8U < RealLen) return 0;
-        std::uint64_t suffix = 0;
+        std::uint64_t  suffix             = 0;
         unsigned const num_complete_bytes = RealLen / 8U;
         if (num_complete_bytes > 0) {
             suffix = kb[level];
-            for (unsigned i = 1; i < num_complete_bytes; ++i) { suffix <<= 8; suffix += kb[level + i]; }
+            for (unsigned i = 1; i < num_complete_bytes; ++i) {
+                suffix <<= 8;
+                suffix += kb[level + i];
+            }
         }
         unsigned const offset = RealLen % 8U;
         if (offset > 0) {
@@ -88,26 +98,41 @@ public:
     }
 
     [[nodiscard]] static std::uint64_t construct_suffix(key_bytes_t const& kb, unsigned level) noexcept {
-        if constexpr (ST == SurfSuffixType::kHash)  return construct_hash(kb);
-        else if constexpr (ST == SurfSuffixType::kReal) return construct_real(kb, level);
-        else if constexpr (ST == SurfSuffixType::kMixed) return (construct_hash(kb) << RealLen) | construct_real(kb, level);
-        else return 0;  // kNone
+        if constexpr (ST == SurfSuffixType::kHash)
+            return construct_hash(kb);
+        else if constexpr (ST == SurfSuffixType::kReal)
+            return construct_real(kb, level);
+        else if constexpr (ST == SurfSuffixType::kMixed)
+            return (construct_hash(kb) << RealLen) | construct_real(kb, level);
+        else
+            return 0; // kNone
     }
 
     // BUILD: einen Suffix in Speicher-Reihenfolge anhaengen (== Leaf-Reihenfolge des Trie).
     void append(key_bytes_t const& kb, unsigned level) {
-        if constexpr (ST == SurfSuffixType::kNone) { (void)kb; (void)level; return; }
-        else { append_bits(construct_suffix(kb, level), kSuffixLen); }
+        if constexpr (ST == SurfSuffixType::kNone) {
+            (void)kb;
+            (void)level;
+            return;
+        } else {
+            append_bits(construct_suffix(kb, level), kSuffixLen);
+        }
     }
     // BUILD: einen bereits konstruierten Suffix-Word anhaengen (Store legt level-major flach).
     void append_word(std::uint64_t w) {
-        if constexpr (ST == SurfSuffixType::kNone) { (void)w; return; }
-        else { append_bits(w, kSuffixLen); }
+        if constexpr (ST == SurfSuffixType::kNone) {
+            (void)w;
+            return;
+        } else {
+            append_bits(w, kSuffixLen);
+        }
     }
 
     [[nodiscard]] std::uint64_t read(std::size_t idx) const noexcept {
-        if constexpr (ST == SurfSuffixType::kNone) { (void)idx; return 0; }
-        else {
+        if constexpr (ST == SurfSuffixType::kNone) {
+            (void)idx;
+            return 0;
+        } else {
             if (static_cast<std::uint64_t>(idx) * kSuffixLen >= num_bits_) return 0;
             return read_bits(static_cast<std::uint64_t>(idx) * kSuffixLen, kSuffixLen);
         }
@@ -115,13 +140,17 @@ public:
 
     // checkEquality (suffix.hpp Z.208-227) — EINSEITIGES no-FN-Tor: fuer einen gespeicherten Key NIE false.
     [[nodiscard]] bool check_equality(std::size_t idx, key_bytes_t const& kb, unsigned level) const noexcept {
-        if constexpr (ST == SurfSuffixType::kNone) { (void)idx; (void)kb; (void)level; return true; }
-        else {
+        if constexpr (ST == SurfSuffixType::kNone) {
+            (void)idx;
+            (void)kb;
+            (void)level;
+            return true;
+        } else {
             if (static_cast<std::uint64_t>(idx) * kSuffixLen >= num_bits_) return false;
             std::uint64_t const stored = read(idx);
             if constexpr (ST == SurfSuffixType::kReal) {
-                if (stored == 0) return true;                                   // Key zu kurz fuer Suffix-Info
-                if (level > 8U || (8U - level) * 8U < RealLen) return false;    // Query kuerzer als gespeicherter Key
+                if (stored == 0) return true;                                // Key zu kurz fuer Suffix-Info
+                if (level > 8U || (8U - level) * 8U < RealLen) return false; // Query kuerzer als gespeicherter Key
             }
             return stored == construct_suffix(kb, level);
         }
@@ -130,10 +159,14 @@ public:
     // compare (suffix.hpp Z.249-267) — fuer Range-no-FN: kNone/kHash -> kCouldBePositive (immer „koennte"),
     // kReal/kMixed -> echter Vergleich. Wir geben die SuRF-Semantik zurueck (Range-Filter bleibt konservativ).
     [[nodiscard]] int compare(std::size_t idx, key_bytes_t const& kb, unsigned level) const noexcept {
-        if constexpr (ST == SurfSuffixType::kNone || ST == SurfSuffixType::kHash) { (void)idx;(void)kb;(void)level; return kSurfCouldBePositive; }
-        else {
+        if constexpr (ST == SurfSuffixType::kNone || ST == SurfSuffixType::kHash) {
+            (void)idx;
+            (void)kb;
+            (void)level;
+            return kSurfCouldBePositive;
+        } else {
             if (static_cast<std::uint64_t>(idx) * kSuffixLen >= num_bits_) return kSurfCouldBePositive;
-            std::uint64_t stored = read(idx);
+            std::uint64_t       stored   = read(idx);
             std::uint64_t const querying = construct_real(kb, level);
             if constexpr (ST == SurfSuffixType::kMixed) stored &= ((RealLen >= 64) ? ~0ULL : ((1ULL << RealLen) - 1));
             if (stored == 0 && querying == 0) return kSurfCouldBePositive;
@@ -144,25 +177,28 @@ public:
     }
 
     [[nodiscard]] std::size_t bit_size() const noexcept { return num_bits_; }
-    [[nodiscard]] std::size_t count()    const noexcept { return (kSuffixLen == 0) ? 0 : (num_bits_ / kSuffixLen); }
-    void clear() noexcept { bits_.clear(); num_bits_ = 0; }
+    [[nodiscard]] std::size_t count() const noexcept { return (kSuffixLen == 0) ? 0 : (num_bits_ / kSuffixLen); }
+    void                      clear() noexcept {
+        bits_.clear();
+        num_bits_ = 0;
+    }
 
 private:
     void append_bits(std::uint64_t value, unsigned len) {
         for (unsigned i = 0; i < len; ++i) {
             std::uint64_t const bit = (value >> (len - 1 - i)) & 1ULL;
-            std::uint64_t const p = num_bits_ + i;
+            std::uint64_t const p   = num_bits_ + i;
             if (p / 64 >= bits_.size()) bits_.push_back(0);
-            if (bit) bits_[p / 64] |= (0x8000000000000000ULL >> (p % 64));   // MSB-first
+            if (bit) bits_[p / 64] |= (0x8000000000000000ULL >> (p % 64)); // MSB-first
         }
         num_bits_ += len;
     }
     [[nodiscard]] std::uint64_t read_bits(std::uint64_t base, unsigned len) const noexcept {
         std::uint64_t result = 0;
         for (unsigned i = 0; i < len; ++i) {
-            std::uint64_t const p = base + i;
+            std::uint64_t const p   = base + i;
             std::uint64_t const bit = (bits_[p / 64] >> (63 - (p % 64))) & 1ULL;
-            result = (result << 1) | bit;
+            result                  = (result << 1) | bit;
         }
         return result;
     }
@@ -171,4 +207,4 @@ private:
     std::uint64_t              num_bits_ = 0;
 };
 
-}  // namespace comdare::cache_engine::filter_axis::composable
+} // namespace comdare::cache_engine::filter_axis::composable

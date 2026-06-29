@@ -7,9 +7,9 @@
 // (gibt IAnatomyBase* — der Loader ist gattungs-agnostisch, der Container-Dock fragt dynamic_cast<IAdapterTier*>).
 // Cross-Genus-Adapter sind type-system-mathematisch unmöglich (Doku 14 §32) → static_assert genus()==Adapter.
 
-#include "anatomy_base.hpp"        // IAnatomyBase + AnatomyConcept
-#include "adapter_anatomy.hpp"   // AdapterAnatomy / AdapterObserverSnapshot
-#include "adapter_tier.hpp"      // IAdapterTier + AdapterObserverSnapshotV1
+#include "anatomy_base.hpp"    // IAnatomyBase + AnatomyConcept
+#include "adapter_anatomy.hpp" // AdapterAnatomy / AdapterObserverSnapshot
+#include "adapter_tier.hpp"    // IAdapterTier + AdapterObserverSnapshotV1
 #include "../execution_engine/execution_engine_base.hpp"
 
 #include <cstddef>
@@ -36,23 +36,23 @@ public:
     [[nodiscard]] std::string_view engine_name() const noexcept override { return A::composition_name(); }
 
     [[nodiscard]] ::comdare::cache_engine::execution_engine::EngineLifecycleState
-    lifecycle_state() const noexcept override { return state_; }
+    lifecycle_state() const noexcept override {
+        return state_;
+    }
 
-    void warm_up()  override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Warming; }
-    void run()      override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Running; }
-    void reset()    override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Idle; }
+    void warm_up() override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Warming; }
+    void run() override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Running; }
+    void reset() override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Idle; }
     void shutdown() override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Shutdown; }
 
     // ── IAnatomyBase-Pflicht (Anatomie-Schicht) ──
     [[nodiscard]] std::string_view composition_name() const noexcept override { return A::composition_name(); }
-    [[nodiscard]] std::string_view paper_id()         const noexcept override { return A::paper_id(); }
-    [[nodiscard]] AnatomyGenus     genus()            const noexcept override { return A::genus(); }
-    [[nodiscard]] std::size_t      organ_count()      const noexcept override { return A::organ_count(); }
+    [[nodiscard]] std::string_view paper_id() const noexcept override { return A::paper_id(); }
+    [[nodiscard]] AnatomyGenus     genus() const noexcept override { return A::genus(); }
+    [[nodiscard]] std::size_t      organ_count() const noexcept override { return A::organ_count(); }
 
     // ── IAdapterTier-Pflicht (Container-Antrieb + Observer durch die ABI-Grenze) ──
-    void tier_put(std::uint64_t value) noexcept override {
-        anatomy_.put(static_cast<element_type>(value));
-    }
+    void tier_put(std::uint64_t value) noexcept override { anatomy_.put(static_cast<element_type>(value)); }
     [[nodiscard]] bool tier_get(std::uint64_t* out_value) noexcept override {
         auto r = anatomy_.get();
         if (!r) return false;
@@ -67,21 +67,21 @@ public:
     void tier_observe_container(AdapterObserverSnapshotV1* out) const noexcept override {
         if (out == nullptr) return;
         AdapterObserverSnapshot const s = anatomy_.observe_all();
-        AdapterObserverSnapshotV1 v{};
+        AdapterObserverSnapshotV1     v{};
         v.push_count        = s.push_count;
         v.pop_count         = s.pop_count;
         v.front_reads       = s.front_reads;
         v.back_reads        = s.back_reads;
         v.current_occupancy = s.current_occupancy;
         v.peak_occupancy    = s.peak_occupancy;
-        v.organ_count       = A::organ_count();     // 13 (12 geteilt/delegiert + inner_container)
-        *out = v;
+        v.organ_count       = A::organ_count(); // 13 (12 geteilt/delegiert + inner_container)
+        *out                = v;
     }
 
 private:
-    A anatomy_{};   // unbeschränkter Container-Adapter (13 Achsen, inner_container real getrieben; kein Capacity/Flush)
+    A anatomy_{}; // unbeschränkter Container-Adapter (13 Achsen, inner_container real getrieben; kein Capacity/Flush)
     ::comdare::cache_engine::execution_engine::EngineLifecycleState state_{
         ::comdare::cache_engine::execution_engine::EngineLifecycleState::Uninitialized};
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

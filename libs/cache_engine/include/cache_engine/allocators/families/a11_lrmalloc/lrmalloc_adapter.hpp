@@ -18,10 +18,10 @@
 namespace comdare::cache_engine::allocator::families::a11_lrmalloc {
 
 struct LRMallocParams {
-    std::size_t thread_cache_max_objects = 64;           // Pro Size-Class
-    std::size_t superblock_bytes          = 16 * 1024;
-    bool         segregate_metadata         = true;        // User+Allocator Memory getrennt
-    bool         use_hazard_pointers       = true;
+    std::size_t thread_cache_max_objects = 64; // Pro Size-Class
+    std::size_t superblock_bytes         = 16 * 1024;
+    bool        segregate_metadata       = true; // User+Allocator Memory getrennt
+    bool        use_hazard_pointers      = true;
 };
 
 template <LockingStrategy Lock = locking::SharedMutexLock>
@@ -41,7 +41,7 @@ public:
         void* p = portable_aligned_alloc(alignment, bytes);
         if (p) {
             stats_.total_bytes_allocated.fetch_add(bytes, std::memory_order_relaxed);
-            stats_.total_bytes_in_use   .fetch_add(bytes, std::memory_order_relaxed);
+            stats_.total_bytes_in_use.fetch_add(bytes, std::memory_order_relaxed);
         } else {
             stats_.failure_count.fetch_add(1, std::memory_order_relaxed);
         }
@@ -58,10 +58,10 @@ public:
     [[nodiscard]] AllocationStatistics statistics() const noexcept {
         AllocationStatistics s{};
         s.total_bytes_allocated = stats_.total_bytes_allocated.load(std::memory_order_relaxed);
-        s.total_bytes_in_use     = stats_.total_bytes_in_use   .load(std::memory_order_relaxed);
-        s.allocation_count       = stats_.allocation_count     .load(std::memory_order_relaxed);
-        s.deallocation_count     = stats_.deallocation_count   .load(std::memory_order_relaxed);
-        s.failure_count           = stats_.failure_count       .load(std::memory_order_relaxed);
+        s.total_bytes_in_use    = stats_.total_bytes_in_use.load(std::memory_order_relaxed);
+        s.allocation_count      = stats_.allocation_count.load(std::memory_order_relaxed);
+        s.deallocation_count    = stats_.deallocation_count.load(std::memory_order_relaxed);
+        s.failure_count         = stats_.failure_count.load(std::memory_order_relaxed);
         return s;
     }
 
@@ -71,21 +71,21 @@ public:
         return thread_cache_hits_.load(std::memory_order_relaxed);
     }
 
-    static constexpr bool is_lock_free = true;
-    static constexpr bool is_async_signal_safe = true;  // erbt von Michael 2004
+    static constexpr bool is_lock_free         = true;
+    static constexpr bool is_async_signal_safe = true; // erbt von Michael 2004
 
 private:
-    LRMallocParams         params_;
+    LRMallocParams             params_;
     std::atomic<std::uint64_t> thread_cache_hits_{0};
     struct AtomicStats {
         std::atomic<std::size_t> total_bytes_allocated{0};
-        std::atomic<std::size_t> total_bytes_in_use    {0};
-        std::atomic<std::size_t> allocation_count      {0};
-        std::atomic<std::size_t> deallocation_count    {0};
-        std::atomic<std::size_t> failure_count          {0};
+        std::atomic<std::size_t> total_bytes_in_use{0};
+        std::atomic<std::size_t> allocation_count{0};
+        std::atomic<std::size_t> deallocation_count{0};
+        std::atomic<std::size_t> failure_count{0};
     } stats_;
 };
 
 static_assert(IAllocationStrategy<LRMallocAdapter<>>);
 
-}  // namespace comdare::cache_engine::allocator::families::a11_lrmalloc
+} // namespace comdare::cache_engine::allocator::families::a11_lrmalloc

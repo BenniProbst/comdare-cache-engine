@@ -20,22 +20,23 @@
 namespace an   = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;
 
-static int g_fail = 0;
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+static int  g_fail = 0;
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 template <class C>
 static an::ComdareSegmentLatencyV1 measure_segments(char const* name) {
     using Anatomy = an::SearchAlgorithmAnatomy<C>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
-    auto* v2 = dynamic_cast<an::IMeasurableWorkloadV2*>(static_cast<an::IAnatomyBase*>(&tier));
+    auto*                       v2 = dynamic_cast<an::IMeasurableWorkloadV2*>(static_cast<an::IAnatomyBase*>(&tier));
     an::ComdareSegmentLatencyV1 seg{};
-    std::uint64_t const n = (v2 != nullptr) ? v2->run_workload_segmented(/*ops*/4000, /*batches*/64, /*seed*/0xC2u, &seg) : 0;
-    std::cout << "  " << name << ": batches=" << n
-              << " seg_search_algo_ns=" << seg.seg_search_algo_ns
-              << " seg_allocator_ns=" << seg.seg_allocator_ns
-              << " seg_memory_layout_ns=" << seg.seg_memory_layout_ns
-              << " seg_serialization_ns=" << seg.seg_serialization_ns
-              << " total_ns=" << seg.total_ns << "\n";
+    std::uint64_t const         n =
+        (v2 != nullptr) ? v2->run_workload_segmented(/*ops*/ 4000, /*batches*/ 64, /*seed*/ 0xC2u, &seg) : 0;
+    std::cout << "  " << name << ": batches=" << n << " seg_search_algo_ns=" << seg.seg_search_algo_ns
+              << " seg_allocator_ns=" << seg.seg_allocator_ns << " seg_memory_layout_ns=" << seg.seg_memory_layout_ns
+              << " seg_serialization_ns=" << seg.seg_serialization_ns << " total_ns=" << seg.total_ns << "\n";
     return seg;
 }
 
@@ -50,21 +51,22 @@ int main() {
 
     // (1) alle 4 Segmente > 0 bei jeder Komposition (echte Messung).
     auto all_pos = [](an::ComdareSegmentLatencyV1 const& s) {
-        return s.seg_search_algo_ns > 0 && s.seg_allocator_ns > 0
-            && s.seg_memory_layout_ns > 0 && s.seg_serialization_ns > 0 && s.batches_measured > 0;
+        return s.seg_search_algo_ns > 0 && s.seg_allocator_ns > 0 && s.seg_memory_layout_ns > 0 &&
+               s.seg_serialization_ns > 0 && s.batches_measured > 0;
     };
     tr("Art: alle 4 seg_*_ns > 0", all_pos(art));
     tr("Hot: alle 4 seg_*_ns > 0", all_pos(hot));
     tr("Masstree: alle 4 seg_*_ns > 0", all_pos(mass));
 
     // (2) seg_search_algo_ns DIFFERENZIERT zwischen Kompositionen mit verschiedenem search_algo-Organ.
-    bool const sa_differs = (art.seg_search_algo_ns != hot.seg_search_algo_ns)
-                         || (hot.seg_search_algo_ns != mass.seg_search_algo_ns);
+    bool const sa_differs =
+        (art.seg_search_algo_ns != hot.seg_search_algo_ns) || (hot.seg_search_algo_ns != mass.seg_search_algo_ns);
     tr("seg_search_algo_ns differiert zwischen Art/Hot/Masstree (verschiedene search_algo-Organe)", sa_differs);
 
     // (3) total_ns == Summe der 4 Segmente (Konsistenz).
     auto consistent = [](an::ComdareSegmentLatencyV1 const& s) {
-        return s.total_ns == (s.seg_search_algo_ns + s.seg_allocator_ns + s.seg_memory_layout_ns + s.seg_serialization_ns);
+        return s.total_ns ==
+               (s.seg_search_algo_ns + s.seg_allocator_ns + s.seg_memory_layout_ns + s.seg_serialization_ns);
     };
     tr("Art: total_ns == Σ Segmente", consistent(art));
     tr("Hot: total_ns == Σ Segmente", consistent(hot));

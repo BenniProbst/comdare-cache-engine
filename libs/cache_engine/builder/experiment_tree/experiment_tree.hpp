@@ -36,7 +36,7 @@
 // in einer SPARSE Map (key=binary_id → NodeValue) — NUR für tatsächlich GEMESSENE Binaries, nie für alle ∏.
 // Für Suche immer Bäume. C++23, header-only.
 
-#include "anatomy/build_variant_definition.hpp"   // L-74b: BuildVariantDefinitionV1 (flacher uint64-POD, umbrella-unabhängig)
+#include "anatomy/build_variant_definition.hpp" // L-74b: BuildVariantDefinitionV1 (flacher uint64-POD, umbrella-unabhängig)
 
 #include <cstddef>
 #include <cstdint>
@@ -60,34 +60,34 @@ struct NodeObserverSnapshot {
     // Legacy-V1-Projektion (Übergang, entfällt I-C): 13 benannte Felder = Sicht auf axis_stats[0] (search) /
     // axis_stats[6] (allocator) + Meta. Bleiben für die (noch nicht migrierten) 13-Feld-Konsumenten (CSV-o.*-
     // Spalten, runtime_measure_visitor, test_d14b/d14c). Auf ingest aus der vollen Matrix abgeleitet.
-    std::uint64_t search_lookup_count    = 0, search_hit_count        = 0, search_miss_count   = 0,
-                  search_insert_count    = 0, search_erase_count      = 0, search_peak_occupancy = 0;
-    std::uint64_t alloc_bytes_allocated  = 0, alloc_bytes_in_use      = 0, alloc_allocation_count = 0,
-                  alloc_deallocation_count = 0, alloc_failure_count   = 0;
-    std::uint64_t observable_axis_count  = 0;  // ObserverAggregate::observable_count() — wie viele Achsen real
-    std::uint64_t tier_fill_level        = 0;  // tier_size() zum Snapshot-Zeitpunkt
+    std::uint64_t search_lookup_count = 0, search_hit_count = 0, search_miss_count = 0, search_insert_count = 0,
+                  search_erase_count = 0, search_peak_occupancy = 0;
+    std::uint64_t alloc_bytes_allocated = 0, alloc_bytes_in_use = 0, alloc_allocation_count = 0,
+                  alloc_deallocation_count = 0, alloc_failure_count = 0;
+    std::uint64_t observable_axis_count = 0; // ObserverAggregate::observable_count() — wie viele Achsen real
+    std::uint64_t tier_fill_level       = 0; // tier_size() zum Snapshot-Zeitpunkt
     // KONSOLIDIERUNG (I-B.3, 2026-06-04, User-Fork „voll auf axis_stats[19][8] migrieren"): die VOLLE Per-Achsen-
     // Matrix + das Pfad-B-Per-Achsen-Timing. Das Wire-Format (format_perm_result↔ingest_result_line) trägt sie,
     // der Baum persistiert sie. FLACHE uint64/int64-Felder (experiment_tree bleibt umbrella-/anatomy-unabhängig,
     // layout-identisch zu anatomy::ComdareTierObserverSnapshot ohne den Typ zu importieren). 19×8 = kV3-Schema.
-    std::uint64_t axis_stats[19][8] = {};   // T0..T18 × 8 Felder (Schema = kV3AxisSchema)
-    std::int64_t  seg_ns[19]        = {};   // Pfad-B Per-Achsen-Timing (ns, ALGORITHMISCHE Organ-Zeit)
-    std::uint64_t filled_axis_count = 0;    // # Achsen mit Observer-Werten
-    std::uint64_t batches_measured  = 0;    // # Timing-Batches (Warmup verworfen)
+    std::uint64_t axis_stats[19][8] = {}; // T0..T18 × 8 Felder (Schema = kV3AxisSchema)
+    std::int64_t  seg_ns[19]        = {}; // Pfad-B Per-Achsen-Timing (ns, ALGORITHMISCHE Organ-Zeit)
+    std::uint64_t filled_axis_count = 0;  // # Achsen mit Observer-Werten
+    std::uint64_t batches_measured  = 0;  // # Timing-Batches (Warmup verworfen)
     // P-MD3 (2026-06-18): kommensurabler Coverage-Nenner + benannter Rest des Pfad-B-Segment-Laufs (additiv).
-    std::int64_t  seg_framework_ns  = 0;    // = seg_run_total_ns − Σseg_ns (Loop-/Instrumentierungs-Overhead)
-    std::int64_t  seg_run_total_ns  = 0;    // äußere Wall-Clock des Segment-Mess-Laufs (Coverage-Nenner)
+    std::int64_t seg_framework_ns = 0; // = seg_run_total_ns − Σseg_ns (Loop-/Instrumentierungs-Overhead)
+    std::int64_t seg_run_total_ns = 0; // äußere Wall-Clock des Segment-Mess-Laufs (Coverage-Nenner)
 };
 
 // ── Per-node Value (§2): Observer-Statistics + Mess-Auswertung der Ebene ──
 struct NodeValue {
-    std::uint64_t measured_setting_count = 0;  // gemessene Experiment-Einstellungen unter diesem Knoten
+    std::uint64_t measured_setting_count = 0; // gemessene Experiment-Einstellungen unter diesem Knoten
     std::uint64_t sum_total_cycles       = 0;
     std::uint64_t sum_op_count           = 0;
     bool          has_result             = false;
     // BR-3: ECHTER Per-Achsen-Observer-Snapshot (kein 4-uint64-Stub mehr), via observe_all/tier_observe.
     NodeObserverSnapshot observer{};
-    bool                 observer_real = false;  // true = via realem observe_all einer Komposition gezogen
+    bool                 observer_real = false; // true = via realem observe_all einer Komposition gezogen
     // L-74b (Doc 27 §3): die 3 Build-Achsen (page_type/09b/12) sind Build-KONSTANTEN (kein Laufzeit-Observer) →
     // der Knoten trägt ihre reale, ABI-gezogene DEFINITION statt eines Pseudo-Observers. build_def_real=true wenn
     // via read_build_variant gesetzt (gemessener Knoten), sonst false (SPARSE-Kontrast wie observer_real).
@@ -99,14 +99,14 @@ enum class NodeKind { Static, Dynamic };
 
 class INodeDescription {
 public:
-    virtual ~INodeDescription() = default;
-    [[nodiscard]] virtual NodeKind    kind() const noexcept = 0;
-    [[nodiscard]] virtual std::string axis() const = 0;
-    [[nodiscard]] virtual std::string value() const = 0;
-    [[nodiscard]] virtual std::string serialize() const = 0;
-    [[nodiscard]] virtual bool contributes_to_signature() const noexcept = 0;
-    [[nodiscard]] virtual bool contributes_to_pinned_signature() const noexcept = 0;
-    [[nodiscard]] virtual bool is_runtime_loop() const noexcept = 0;
+    virtual ~INodeDescription()                                                        = default;
+    [[nodiscard]] virtual NodeKind    kind() const noexcept                            = 0;
+    [[nodiscard]] virtual std::string axis() const                                     = 0;
+    [[nodiscard]] virtual std::string value() const                                    = 0;
+    [[nodiscard]] virtual std::string serialize() const                                = 0;
+    [[nodiscard]] virtual bool        contributes_to_signature() const noexcept        = 0;
+    [[nodiscard]] virtual bool        contributes_to_pinned_signature() const noexcept = 0;
+    [[nodiscard]] virtual bool        is_runtime_loop() const noexcept                 = 0;
     /// RÜCK-Referenz (Bidirektionalität, User 2026-06-02): die ID des AxisBlock, dem dieser Knoten gehört.
     /// Macht statische UND dynamische Knoten auf dem GESAMTBAUM-Objekt block-filterbar + -zuordbar.
     [[nodiscard]] virtual std::string block_id() const = 0;
@@ -117,18 +117,19 @@ class StaticAxisNode final : public INodeDescription {
 public:
     StaticAxisNode(std::string axis, std::string value, bool pinned, std::string block_id = {})
         : axis_{std::move(axis)}, value_{std::move(value)}, pinned_{pinned}, block_id_{std::move(block_id)} {}
-    NodeKind    kind() const noexcept override { return NodeKind::Static; }
-    std::string axis() const override { return axis_; }
-    std::string value() const override { return value_; }
-    std::string serialize() const override { return axis_ + "=" + value_; }
-    bool contributes_to_signature() const noexcept override { return true; }
-    bool contributes_to_pinned_signature() const noexcept override { return pinned_; }
-    bool is_runtime_loop() const noexcept override { return false; }
-    std::string block_id() const override { return block_id_; }   // Rück-Referenz auf den compile-time AxisBlock
+    NodeKind           kind() const noexcept override { return NodeKind::Static; }
+    std::string        axis() const override { return axis_; }
+    std::string        value() const override { return value_; }
+    std::string        serialize() const override { return axis_ + "=" + value_; }
+    bool               contributes_to_signature() const noexcept override { return true; }
+    bool               contributes_to_pinned_signature() const noexcept override { return pinned_; }
+    bool               is_runtime_loop() const noexcept override { return false; }
+    std::string        block_id() const override { return block_id_; } // Rück-Referenz auf den compile-time AxisBlock
     [[nodiscard]] bool pinned() const noexcept { return pinned_; }
+
 private:
     std::string axis_, value_;
-    bool pinned_;
+    bool        pinned_;
     std::string block_id_;
 };
 
@@ -142,11 +143,12 @@ public:
     std::string axis() const override { return axis_; }
     std::string value() const override { return value_; }
     std::string serialize() const override { return axis_ + "." + var_ + "=" + value_; }
-    bool contributes_to_signature() const noexcept override { return false; }
-    bool contributes_to_pinned_signature() const noexcept override { return false; }
-    bool is_runtime_loop() const noexcept override { return true; }
-    std::string block_id() const override { return block_id_; }   // Rück-Referenz auf den compile-time AxisBlock
+    bool        contributes_to_signature() const noexcept override { return false; }
+    bool        contributes_to_pinned_signature() const noexcept override { return false; }
+    bool        is_runtime_loop() const noexcept override { return true; }
+    std::string block_id() const override { return block_id_; } // Rück-Referenz auf den compile-time AxisBlock
     [[nodiscard]] std::string variable() const { return var_; }
+
 private:
     std::string axis_, var_, value_;
     std::string block_id_;
@@ -156,39 +158,40 @@ class AbstractNodeFactory {
 public:
     virtual ~AbstractNodeFactory() = default;
     [[nodiscard]] virtual std::unique_ptr<INodeDescription>
-        make_static(std::string axis, std::string value, bool pinned, std::string block_id = {}) const = 0;
+    make_static(std::string axis, std::string value, bool pinned, std::string block_id = {}) const = 0;
     [[nodiscard]] virtual std::unique_ptr<INodeDescription>
-        make_dynamic(std::string axis, std::string var, std::string value, std::string block_id = {}) const = 0;
+    make_dynamic(std::string axis, std::string var, std::string value, std::string block_id = {}) const = 0;
 };
 
 class ExperimentNodeFactory final : public AbstractNodeFactory {
 public:
-    std::unique_ptr<INodeDescription>
-    make_static(std::string axis, std::string value, bool pinned, std::string block_id = {}) const override {
+    std::unique_ptr<INodeDescription> make_static(std::string axis, std::string value, bool pinned,
+                                                  std::string block_id = {}) const override {
         return std::make_unique<StaticAxisNode>(std::move(axis), std::move(value), pinned, std::move(block_id));
     }
-    std::unique_ptr<INodeDescription>
-    make_dynamic(std::string axis, std::string var, std::string value, std::string block_id = {}) const override {
-        return std::make_unique<DynamicVariableNode>(std::move(axis), std::move(var), std::move(value), std::move(block_id));
+    std::unique_ptr<INodeDescription> make_dynamic(std::string axis, std::string var, std::string value,
+                                                   std::string block_id = {}) const override {
+        return std::make_unique<DynamicVariableNode>(std::move(axis), std::move(var), std::move(value),
+                                                     std::move(block_id));
     }
 };
 
 // ── (Optional materialisierter) Baumknoten — bei lazy Iteration je Pfad EIN temporäres Blatt-Objekt ──
 struct TreeNode {
-    std::unique_ptr<INodeDescription>       desc;     // null = Wurzel/lazy-Blatt
-    std::string                              key;      // §2: serialisierte Signatur Wurzel→hier (= binary_id)
-    NodeValue                                value;    // §2: Observer-Statistics/Auswertung (aus der sparse value_map)
-    std::vector<std::unique_ptr<TreeNode>>   children;
-    [[nodiscard]] bool is_leaf() const noexcept { return children.empty(); }
+    std::unique_ptr<INodeDescription>      desc;  // null = Wurzel/lazy-Blatt
+    std::string                            key;   // §2: serialisierte Signatur Wurzel→hier (= binary_id)
+    NodeValue                              value; // §2: Observer-Statistics/Auswertung (aus der sparse value_map)
+    std::vector<std::unique_ptr<TreeNode>> children;
+    [[nodiscard]] bool                     is_leaf() const noexcept { return children.empty(); }
 };
 
 /// Statisches Achsen-Level. values.size()==1 → gepinnt (Fanout 1), >1 → freigegeben (Fanout N).
 struct AxisLevel {
     std::string              axis;
     std::vector<std::string> values;
-    bool                     is_static = true;   // static/dynamic = KNOTEN-EIGENSCHAFT (gleichrangig im Baum)
-    std::string              variable;            // ungenutzt für statische Ebenen
-    std::string              block_id;            // Rück-Referenz auf den compile-time AxisBlock (Bidirektionalität)
+    bool                     is_static = true; // static/dynamic = KNOTEN-EIGENSCHAFT (gleichrangig im Baum)
+    std::string              variable;         // ungenutzt für statische Ebenen
+    std::string              block_id;         // Rück-Referenz auf den compile-time AxisBlock (Bidirektionalität)
 };
 
 /// Dynamische Dimension = eine virtuelle (nicht materialisierte) for-Schleife über einer Binary.
@@ -196,7 +199,7 @@ struct DynamicDim {
     std::string              axis;
     std::string              variable;
     std::vector<std::string> values;
-    std::string              block_id;   // Rück-Referenz auf den compile-time AxisBlock (Bidirektionalität)
+    std::string              block_id; // Rück-Referenz auf den compile-time AxisBlock (Bidirektionalität)
 };
 
 // HINWEIS (User 2026-06-02): AxisBlock ist ein COMPILE-TIME-Metaprogrammier-Konstrukt (registrier-/erweiterbar),
@@ -208,17 +211,17 @@ struct DynamicDim {
 
 /// DAS Blatt = exakt EINE Experiment-Einstellung (Binary × eine vollständige dynamische Belegung).
 struct ExperimentSetting {
-    std::string              binary_id;          // statische Rekombination = die Tier-Binary
-    std::string              pinned_signature;   // Paper-Wiedererkennung (KF-15)
-    std::vector<std::string> dynamic_assignment; // akkumulierte dyn. Belegung (je "axis.var=value")
-    std::string              setting_id;         // binary_id + dyn. Belegung = eindeutige ID (ersetzt fingerprint)
-    TreeNode const*          binary_node = nullptr;  // bei lazy Iteration nullptr (kein persistenter Baum)
+    std::string              binary_id;             // statische Rekombination = die Tier-Binary
+    std::string              pinned_signature;      // Paper-Wiedererkennung (KF-15)
+    std::vector<std::string> dynamic_assignment;    // akkumulierte dyn. Belegung (je "axis.var=value")
+    std::string              setting_id;            // binary_id + dyn. Belegung = eindeutige ID (ersetzt fingerprint)
+    TreeNode const*          binary_node = nullptr; // bei lazy Iteration nullptr (kein persistenter Baum)
 };
 
 // ── KF-16 / Doc 26 §2 — indizierte LAZY Sicht auf den STATISCHEN Teilbaum ──
 /// Die statischen Eigenschaften EINER zu kompilierenden Tier-Binary (= ein Static-Pfad/Blatt).
 struct BinarySpec {
-    std::size_t                                      index = 0;  // 0-basiert, stabile Reihenfolge
+    std::size_t                                      index = 0;        // 0-basiert, stabile Reihenfolge
     std::string                                      binary_id;        // serialisierter Static-Pfad = die Binary
     std::string                                      pinned_signature; // gepinnte Achsen (Paper-Wiedererkennung)
     std::vector<std::pair<std::string, std::string>> axes;             // (achse, wert) je statischer Ebene
@@ -234,13 +237,13 @@ public:
     StaticBinaryView() = default;
     explicit StaticBinaryView(std::vector<AxisLevel> static_levels) : levels_{std::move(static_levels)} {
         size_ = levels_.empty() ? 0 : 1;
-        for (auto const& l : levels_) size_ *= l.values.size();   // size_t-Kardinalität (∏ mod 2^64 bei Overflow)
+        for (auto const& l : levels_) size_ *= l.values.size(); // size_t-Kardinalität (∏ mod 2^64 bei Overflow)
         // Divisoren-Cache (most-significant = Ebene 0): div_[d] = ∏_{e>d} size_e
         div_.assign(levels_.size(), 1);
         for (std::size_t d = levels_.size(); d-- > 0;)
             div_[d] = (d + 1 < levels_.size()) ? div_[d + 1] * levels_[d + 1].values.size() : 1;
     }
-    [[nodiscard]] std::size_t size()  const noexcept { return size_; }
+    [[nodiscard]] std::size_t size() const noexcept { return size_; }
     [[nodiscard]] bool        empty() const noexcept { return size_ == 0; }
 
     // ── D1 (L-SEL): Ebenen-Metadaten für die endliche BuildSelection (Coverage-Sampling) ──
@@ -261,38 +264,58 @@ public:
 
     /// On-demand: dekodiert Index i mixed-radix → EINE BinarySpec (materialisiert genau einen Pfad).
     [[nodiscard]] BinarySpec operator[](std::size_t i) const {
-        BinarySpec s; s.index = i;
+        BinarySpec s;
+        s.index = i;
         std::string bin, pin;
         for (std::size_t d = 0; d < levels_.size(); ++d) {
             auto const& l = levels_[d];
             if (l.values.empty()) continue;
-            std::size_t const k = (i / div_[d]) % l.values.size();
-            std::string seg = l.axis; seg += '='; seg += l.values[k];
-            if (!bin.empty()) bin += '/'; bin += seg;
-            if (l.values.size() == 1) { if (!pin.empty()) pin += '/'; pin += seg; }
+            std::size_t const k   = (i / div_[d]) % l.values.size();
+            std::string       seg = l.axis;
+            seg += '=';
+            seg += l.values[k];
+            if (!bin.empty()) bin += '/';
+            bin += seg;
+            if (l.values.size() == 1) {
+                if (!pin.empty()) pin += '/';
+                pin += seg;
+            }
             s.axes.emplace_back(l.axis, l.values[k]);
         }
-        s.binary_id = std::move(bin); s.pinned_signature = std::move(pin);
+        s.binary_id        = std::move(bin);
+        s.pinned_signature = std::move(pin);
         return s;
     }
 
     /// LAZY input-iterator (materialisiert je Schritt genau EINE BinarySpec — by value).
     class iterator {
     public:
-        using value_type = BinarySpec; using difference_type = std::ptrdiff_t;
-        using iterator_category = std::input_iterator_tag; using pointer = void; using reference = BinarySpec;
-        iterator() = default;
+        using value_type        = BinarySpec;
+        using difference_type   = std::ptrdiff_t;
+        using iterator_category = std::input_iterator_tag;
+        using pointer           = void;
+        using reference         = BinarySpec;
+        iterator()              = default;
         iterator(StaticBinaryView const* v, std::size_t i) : v_{v}, i_{i} {}
         [[nodiscard]] BinarySpec operator*() const { return (*v_)[i_]; }
-        iterator& operator++() { ++i_; return *this; }
-        iterator  operator++(int) { auto t = *this; ++i_; return t; }
+        iterator&                operator++() {
+            ++i_;
+            return *this;
+        }
+        iterator operator++(int) {
+            auto t = *this;
+            ++i_;
+            return t;
+        }
         [[nodiscard]] bool operator==(iterator const& o) const { return i_ == o.i_; }
         [[nodiscard]] bool operator!=(iterator const& o) const { return i_ != o.i_; }
+
     private:
-        StaticBinaryView const* v_ = nullptr; std::size_t i_ = 0;
+        StaticBinaryView const* v_ = nullptr;
+        std::size_t             i_ = 0;
     };
     [[nodiscard]] iterator begin() const { return {this, 0}; }
-    [[nodiscard]] iterator end()   const { return {this, size_}; }
+    [[nodiscard]] iterator end() const { return {this, size_}; }
 
 private:
     std::vector<AxisLevel>   levels_;
@@ -302,8 +325,9 @@ private:
 
 class ExperimentTree {
 public:
-    explicit ExperimentTree(std::shared_ptr<AbstractNodeFactory> factory)
-        : factory_{std::move(factory)} { root_ = std::make_unique<TreeNode>(); }
+    explicit ExperimentTree(std::shared_ptr<AbstractNodeFactory> factory) : factory_{std::move(factory)} {
+        root_ = std::make_unique<TreeNode>();
+    }
 
     /// Baut aus dem ZUSAMMENHÄNGENDEN Gesamt-Level-Satz (statische + dynamische Ebenen). Speichert NUR die
     /// Ebenen-Metadaten (statisch/dynamisch gefiltert) — es wird KEIN ∏-großer Knotenbaum materialisiert
@@ -317,13 +341,15 @@ public:
     /// FILTER: statische Ebenen (Binary-Identität).
     [[nodiscard]] std::vector<AxisLevel> static_filter() const {
         std::vector<AxisLevel> out;
-        for (auto const& l : all_levels_) if (l.is_static) out.push_back(l);
+        for (auto const& l : all_levels_)
+            if (l.is_static) out.push_back(l);
         return out;
     }
     /// FILTER: dynamische Dimensionen (virtuelle for-Schleifen).
     [[nodiscard]] std::vector<DynamicDim> dynamic_filter() const {
         std::vector<DynamicDim> out;
-        for (auto const& l : all_levels_) if (!l.is_static) out.push_back(DynamicDim{l.axis, l.variable, l.values, l.block_id});
+        for (auto const& l : all_levels_)
+            if (!l.is_static) out.push_back(DynamicDim{l.axis, l.variable, l.values, l.block_id});
         return out;
     }
 
@@ -346,26 +372,43 @@ public:
     template <class Visitor>
     void for_each_binary(Visitor&& v) const {
         if (static_levels_.empty()) return;
-        for (auto const& l : static_levels_) if (l.values.empty()) return;  // leere Ebene → 0 Binaries
+        for (auto const& l : static_levels_)
+            if (l.values.empty()) return; // leere Ebene → 0 Binaries
         std::vector<std::size_t> idx(static_levels_.size(), 0);
         for (;;) {
             std::string bin, pin;
             for (std::size_t d = 0; d < static_levels_.size(); ++d) {
-                auto const& l = static_levels_[d];
-                std::string seg = l.axis; seg += '='; seg += l.values[idx[d]];
-                if (!bin.empty()) bin += '/'; bin += seg;
-                if (l.values.size() == 1) { if (!pin.empty()) pin += '/'; pin += seg; }
+                auto const& l   = static_levels_[d];
+                std::string seg = l.axis;
+                seg += '=';
+                seg += l.values[idx[d]];
+                if (!bin.empty()) bin += '/';
+                bin += seg;
+                if (l.values.size() == 1) {
+                    if (!pin.empty()) pin += '/';
+                    pin += seg;
+                }
             }
-            TreeNode leaf; leaf.key = bin;
+            TreeNode leaf;
+            leaf.key = bin;
             if (auto it = value_map_.find(bin); it != value_map_.end()) leaf.value = it->second;
             v(bin, pin, static_cast<TreeNode const&>(leaf));
-            std::size_t d = static_levels_.size(); bool carry = true;
-            while (d-- > 0) { if (++idx[d] < static_levels_[d].values.size()) { carry = false; break; } idx[d] = 0; }
+            std::size_t d     = static_levels_.size();
+            bool        carry = true;
+            while (d-- > 0) {
+                if (++idx[d] < static_levels_[d].values.size()) {
+                    carry = false;
+                    break;
+                }
+                idx[d] = 0;
+            }
             if (carry) break;
         }
     }
     [[nodiscard]] std::size_t binary_count_traversed() const {
-        std::size_t n = 0; for_each_binary([&](std::string const&, std::string const&, TreeNode const&) { ++n; }); return n;
+        std::size_t n = 0;
+        for_each_binary([&](std::string const&, std::string const&, TreeNode const&) { ++n; });
+        return n;
     }
 
     /// Bidirektionalität (User 2026-06-02): besucht EINEN Repräsentanten-Knoten je Achse (statische Ebene +
@@ -396,7 +439,7 @@ public:
     }
     [[nodiscard]] std::size_t experiment_setting_count() const {
         std::size_t n = binary_count();
-        for (auto const& d : dynamic_dims_) n *= d.values.size();   // ∏ — arithmetisch, ohne Materialisierung
+        for (auto const& d : dynamic_dims_) n *= d.values.size(); // ∏ — arithmetisch, ohne Materialisierung
         return n;
     }
 
@@ -404,7 +447,8 @@ public:
     /// handhabbaren Bäumen aufrufen (die inverse Auswertung projiziert real GEMESSENE Blätter, Doc 26 §3).
     [[nodiscard]] std::multimap<std::string, std::string> pinned_signature_index() const {
         std::multimap<std::string, std::string> idx;
-        for_each_binary([&](std::string const& bin, std::string const& pin, TreeNode const&) { idx.emplace(pin, bin); });
+        for_each_binary(
+            [&](std::string const& bin, std::string const& pin, TreeNode const&) { idx.emplace(pin, bin); });
         return idx;
     }
 
@@ -418,14 +462,15 @@ public:
     /// Pfade haben einen Eintrag — NIE alle ∏ (OOM-sicher).
     void set_node_value(std::string const& binary_id, NodeValue const& value) { value_map_[binary_id] = value; }
     [[nodiscard]] NodeValue node_value(std::string const& binary_id) const {
-        auto it = value_map_.find(binary_id); return it == value_map_.end() ? NodeValue{} : it->second;
+        auto it = value_map_.find(binary_id);
+        return it == value_map_.end() ? NodeValue{} : it->second;
     }
     [[nodiscard]] std::size_t measured_node_count() const noexcept { return value_map_.size(); }
 
     /// Zerlegt einen serialisierten Static-Pfad ("achse=wert/achse=wert/…") in (achse, wert)-Paare.
     [[nodiscard]] static std::vector<std::pair<std::string, std::string>> parse_axes(std::string const& path) {
         std::vector<std::pair<std::string, std::string>> out;
-        std::size_t i = 0;
+        std::size_t                                      i = 0;
         while (i < path.size()) {
             std::size_t slash = path.find('/', i);
             std::string seg   = path.substr(i, (slash == std::string::npos ? path.size() : slash) - i);
@@ -439,34 +484,37 @@ public:
 
 private:
     template <class Visitor>
-    void expand(std::string const& bin, std::string const& pin,
-                std::size_t dim, std::vector<std::string>& assign, Visitor& v) const {
+    void expand(std::string const& bin, std::string const& pin, std::size_t dim, std::vector<std::string>& assign,
+                Visitor& v) const {
         if (dim >= dynamic_dims_.size()) {
             ExperimentSetting s;
             s.binary_id          = bin;
             s.pinned_signature   = pin;
             s.dynamic_assignment = assign;
             s.setting_id         = bin;
-            s.binary_node        = nullptr;   // lazy: kein persistenter Baum-Knoten
-            for (auto const& seg : assign) { s.setting_id += "/"; s.setting_id += seg; }
+            s.binary_node        = nullptr; // lazy: kein persistenter Baum-Knoten
+            for (auto const& seg : assign) {
+                s.setting_id += "/";
+                s.setting_id += seg;
+            }
             v(s);
             return;
         }
         DynamicDim const& d = dynamic_dims_[dim];
         for (auto const& val : d.values) {
-            auto node = factory_->make_dynamic(d.axis, d.variable, val, d.block_id);  // EIN dyn. Knoten zur Zeit
+            auto node = factory_->make_dynamic(d.axis, d.variable, val, d.block_id); // EIN dyn. Knoten zur Zeit
             assign.push_back(node->serialize());
             expand(bin, pin, dim + 1, assign, v);
             assign.pop_back();
         }
     }
 
-    std::shared_ptr<AbstractNodeFactory>      factory_;
-    std::unique_ptr<TreeNode>                 root_;          // leere Wurzel (kein materialisierter Voll-Baum)
-    std::vector<AxisLevel>                    static_levels_; // gefilterte statische Ebenen (für lazy Iteration)
-    std::vector<DynamicDim>                   dynamic_dims_;  // virtuelle dynamische for-Schleifen
-    std::vector<AxisLevel>                    all_levels_;    // zusammenhängender Gesamt-Level-Satz (vor Filterung)
-    std::map<std::string, NodeValue>          value_map_;     // §2 SPARSE: key=binary_id → NodeValue (nur gemessene)
+    std::shared_ptr<AbstractNodeFactory> factory_;
+    std::unique_ptr<TreeNode>            root_;          // leere Wurzel (kein materialisierter Voll-Baum)
+    std::vector<AxisLevel>               static_levels_; // gefilterte statische Ebenen (für lazy Iteration)
+    std::vector<DynamicDim>              dynamic_dims_;  // virtuelle dynamische for-Schleifen
+    std::vector<AxisLevel>               all_levels_;    // zusammenhängender Gesamt-Level-Satz (vor Filterung)
+    std::map<std::string, NodeValue>     value_map_;     // §2 SPARSE: key=binary_id → NodeValue (nur gemessene)
 };
 
-}  // namespace comdare::cache_engine::builder::experiment
+} // namespace comdare::cache_engine::builder::experiment

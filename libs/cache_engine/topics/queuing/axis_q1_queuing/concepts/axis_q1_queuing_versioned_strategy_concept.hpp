@@ -35,10 +35,8 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts {
  * den "Versions-Drift" zwischen Mess-Reihen messen.
  */
 template <typename B>
-concept VersionedBufferStrategy =
-    BufferStrategy<B>
-    && requires(B const& bc) {
-        { bc.version_id() } noexcept -> std::convertible_to<std::uint64_t>;
-    };
+concept VersionedBufferStrategy = BufferStrategy<B> && requires(B const& bc) {
+    { bc.version_id() } noexcept -> std::convertible_to<std::uint64_t>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts

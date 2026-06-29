@@ -14,7 +14,7 @@
 // wuerde die Probe-Kette nachfolgender Schluessel brechen). [[no-runtime-switch]]: rein statische Templates.
 
 #include "hash_bucket_pool_concept.hpp"
-#include "hash_bucket_pool_store.hpp"   // fuer den Selbstbeweis am Dateiende
+#include "hash_bucket_pool_store.hpp" // fuer den Selbstbeweis am Dateiende
 
 #include <concepts>
 #include <cstddef>
@@ -25,12 +25,12 @@ namespace comdare::cache_engine::lookup::composable {
 
 /// HASH-PROBE-Organ-Concept: statische insert_into/lookup_in/erase_from auf einem HashBucketPool.
 template <class T, class Pool>
-concept HashProbeTraversal = HashBucketPool<Pool> && requires(Pool& p, Pool const& cp,
-                                  typename Pool::key_type k, typename Pool::value_type v) {
-    { T::template insert_into<Pool>(p, k, v) } -> std::same_as<void>;
-    { T::template lookup_in<Pool>(cp, k) }     -> std::same_as<std::optional<typename Pool::value_type>>;
-    { T::template erase_from<Pool>(p, k) }     -> std::same_as<bool>;
-};
+concept HashProbeTraversal =
+    HashBucketPool<Pool> && requires(Pool& p, Pool const& cp, typename Pool::key_type k, typename Pool::value_type v) {
+        { T::template insert_into<Pool>(p, k, v) } -> std::same_as<void>;
+        { T::template lookup_in<Pool>(cp, k) } -> std::same_as<std::optional<typename Pool::value_type>>;
+        { T::template erase_from<Pool>(p, k) } -> std::same_as<bool>;
+    };
 
 /// Hash-Traversal-Organ: Open-Addressing Linear Probing + Fibonacci-Hash. Navigiert ueber Pool-Slot-API.
 struct HashProbeTraversalOrgan {
@@ -47,20 +47,20 @@ struct HashProbeTraversalOrgan {
     static void insert_into(Pool& p, typename Pool::key_type k, typename Pool::value_type v) {
         // Load-Trigger >= 0.7 (verbatim Monolith Z.75): vor dem Proben ggf. Kapazitaet verdoppeln.
         if ((p.occupied() + p.tombstones()) * 10 >= p.bucket_count() * 7) p.rehash(p.bucket_count() * 2);
-        std::size_t const cap   = p.bucket_count();
-        std::size_t const start = index_of<Pool>(k, cap);
+        std::size_t const cap           = p.bucket_count();
+        std::size_t const start         = index_of<Pool>(k, cap);
         std::size_t       first_deleted = kNpos;
         for (std::size_t i = 0; i < cap; ++i) {
             std::size_t const pos = (start + i) & (cap - 1);
             if (p.slot_is_empty(pos)) {
                 // Tombstone-Reuse: an erstem gesehenen Deleted-Slot platzieren, sonst am Empty-Slot.
                 std::size_t const target = (first_deleted != kNpos) ? first_deleted : pos;
-                p.place_occupied(target, k, v);   // Store verbucht Tombstone->Occupied + ++occupied
+                p.place_occupied(target, k, v); // Store verbucht Tombstone->Occupied + ++occupied
                 return;
             }
             if (p.slot_is_deleted(pos)) {
                 if (first_deleted == kNpos) first_deleted = pos;
-            } else if (p.slot_key(pos) == k) {   // Occupied + gleicher Key -> Update
+            } else if (p.slot_key(pos) == k) { // Occupied + gleicher Key -> Update
                 p.set_slot_value(pos, v);
                 return;
             }
@@ -73,7 +73,7 @@ struct HashProbeTraversalOrgan {
         std::size_t const start = index_of<Pool>(k, cap);
         for (std::size_t i = 0; i < cap; ++i) {
             std::size_t const pos = (start + i) & (cap - 1);
-            if (p.slot_is_empty(pos)) return std::nullopt;                          // Kette zu Ende -> Miss
+            if (p.slot_is_empty(pos)) return std::nullopt; // Kette zu Ende -> Miss
             if (p.slot_is_occupied(pos) && p.slot_key(pos) == k) return p.slot_value(pos);
             // Deleted oder Occupied(anderer Key) -> weiter proben
         }
@@ -88,7 +88,7 @@ struct HashProbeTraversalOrgan {
             std::size_t const pos = (start + i) & (cap - 1);
             if (p.slot_is_empty(pos)) return false;
             if (p.slot_is_occupied(pos) && p.slot_key(pos) == k) {
-                p.mark_deleted(pos);   // Tombstone — Probe-Kette bleibt intakt
+                p.mark_deleted(pos); // Tombstone — Probe-Kette bleibt intakt
                 return true;
             }
         }
@@ -99,4 +99,4 @@ struct HashProbeTraversalOrgan {
 // Selbstbeweis: HashProbeTraversalOrgan erfuellt das HashProbeTraversal-Concept ueber dem Pilot-Pool.
 static_assert(HashProbeTraversal<HashProbeTraversalOrgan, HashBucketPoolStore>);
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

@@ -18,10 +18,10 @@ namespace comdare::cache_engine::concepts {
  * @subsystem CE
  */
 enum class LockingMode : std::uint8_t {
-    ReadOnly             = 0,  ///< std::shared_mutex shared
-    ReadWrite            = 1,  ///< std::mutex exclusive
-    Upgradeable          = 2,  ///< boost::shared_mutex upgrade
-    OptimisticValidation = 3   ///< OLC, HTM
+    ReadOnly             = 0, ///< std::shared_mutex shared
+    ReadWrite            = 1, ///< std::mutex exclusive
+    Upgradeable          = 2, ///< boost::shared_mutex upgrade
+    OptimisticValidation = 3  ///< OLC, HTM
 };
 
 /**
@@ -32,7 +32,7 @@ enum class LockingMode : std::uint8_t {
 class ILockingMode {
 public:
     [[nodiscard]] virtual LockingMode preferred_mode() const noexcept = 0;
-    virtual ~ILockingMode() = default;
+    virtual ~ILockingMode()                                           = default;
 };
 
-}  // namespace comdare::cache_engine::concepts
+} // namespace comdare::cache_engine::concepts

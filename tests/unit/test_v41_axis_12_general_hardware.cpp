@@ -62,10 +62,10 @@ TEST(R7_1_Axis12, Aarch64ConformsToConcept) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R7_1_Axis12, GenericHasConservativeDefaults) {
-    static_assert(ax12::GenericHardwareProfile::cache_line_size()   == 64);
-    static_assert(ax12::GenericHardwareProfile::memory_page_size()  == 4096);
-    static_assert(ax12::GenericHardwareProfile::simd_width_bits()   == 0);  // Scalar-Baseline
-    static_assert(ax12::GenericHardwareProfile::numa_capable()      == false);
+    static_assert(ax12::GenericHardwareProfile::cache_line_size() == 64);
+    static_assert(ax12::GenericHardwareProfile::memory_page_size() == 4096);
+    static_assert(ax12::GenericHardwareProfile::simd_width_bits() == 0); // Scalar-Baseline
+    static_assert(ax12::GenericHardwareProfile::numa_capable() == false);
     static_assert(ax12::GenericHardwareProfile::huge_page_capable() == false);
     static_assert(ax12::GenericHardwareProfile::name() == std::string_view{"general_hardware_generic"});
     SUCCEED();
@@ -76,10 +76,10 @@ TEST(R7_1_Axis12, GenericHasConservativeDefaults) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R7_1_Axis12, X86_64HasAvx2DefaultsAndNumaAware) {
-    static_assert(ax12::X86_64HardwareProfile::cache_line_size()   == 64);
-    static_assert(ax12::X86_64HardwareProfile::memory_page_size()  == 4096);
-    static_assert(ax12::X86_64HardwareProfile::simd_width_bits()   == 256);  // AVX2 Conservative
-    static_assert(ax12::X86_64HardwareProfile::numa_capable()      == true);
+    static_assert(ax12::X86_64HardwareProfile::cache_line_size() == 64);
+    static_assert(ax12::X86_64HardwareProfile::memory_page_size() == 4096);
+    static_assert(ax12::X86_64HardwareProfile::simd_width_bits() == 256); // AVX2 Conservative
+    static_assert(ax12::X86_64HardwareProfile::numa_capable() == true);
     static_assert(ax12::X86_64HardwareProfile::huge_page_capable() == true);
     static_assert(ax12::X86_64HardwareProfile::name() == std::string_view{"general_hardware_x86_64"});
     SUCCEED();
@@ -90,10 +90,10 @@ TEST(R7_1_Axis12, X86_64HasAvx2DefaultsAndNumaAware) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R7_1_Axis12, Aarch64HasNeonDefaults) {
-    static_assert(ax12::Aarch64HardwareProfile::cache_line_size()   == 64);
-    static_assert(ax12::Aarch64HardwareProfile::memory_page_size()  == 4096);
-    static_assert(ax12::Aarch64HardwareProfile::simd_width_bits()   == 128);  // NEON
-    static_assert(ax12::Aarch64HardwareProfile::numa_capable()      == true);
+    static_assert(ax12::Aarch64HardwareProfile::cache_line_size() == 64);
+    static_assert(ax12::Aarch64HardwareProfile::memory_page_size() == 4096);
+    static_assert(ax12::Aarch64HardwareProfile::simd_width_bits() == 128); // NEON
+    static_assert(ax12::Aarch64HardwareProfile::numa_capable() == true);
     static_assert(ax12::Aarch64HardwareProfile::huge_page_capable() == true);
     static_assert(ax12::Aarch64HardwareProfile::name() == std::string_view{"general_hardware_aarch64"});
     SUCCEED();
@@ -106,10 +106,10 @@ TEST(R7_1_Axis12, Aarch64HasNeonDefaults) {
 TEST(R7_1_Axis12, ThreeWrappersDistinguishedBySimdWidth) {
     static_assert(ax12::GenericHardwareProfile::simd_width_bits() == 0);
     static_assert(ax12::Aarch64HardwareProfile::simd_width_bits() == 128);
-    static_assert(ax12::X86_64HardwareProfile::simd_width_bits()  == 256);
+    static_assert(ax12::X86_64HardwareProfile::simd_width_bits() == 256);
     // Familien-IDs sind ebenfalls distinkt (0, 1, 2)
     static_assert(ax12::GenericHardwareProfile::family_id::value == 0);
-    static_assert(ax12::X86_64HardwareProfile::family_id::value  == 1);
+    static_assert(ax12::X86_64HardwareProfile::family_id::value == 1);
     static_assert(ax12::Aarch64HardwareProfile::family_id::value == 2);
     SUCCEED();
 }
@@ -138,14 +138,14 @@ TEST(R7_1_a_2_Axis12, AllWrappersSatisfyCacheEnginePermutationConcept) {
 
 TEST(R7_1_a_2_Axis12, AllWrappersHaveSubaxisTagCpuFamily) {
     static_assert(std::is_same_v<ax12::GenericHardwareProfile::axis_tag, ax12::subaxes::cpu_family_tag>);
-    static_assert(std::is_same_v<ax12::X86_64HardwareProfile::axis_tag,  ax12::subaxes::cpu_family_tag>);
+    static_assert(std::is_same_v<ax12::X86_64HardwareProfile::axis_tag, ax12::subaxes::cpu_family_tag>);
     static_assert(std::is_same_v<ax12::Aarch64HardwareProfile::axis_tag, ax12::subaxes::cpu_family_tag>);
     SUCCEED();
 }
 
 TEST(R7_1_a_2_Axis12, AllWrappersHaveFlagSuffix) {
     static_assert(ax12::GenericHardwareProfile::flag_suffix() == std::string_view{"GENERIC"});
-    static_assert(ax12::X86_64HardwareProfile::flag_suffix()  == std::string_view{"X86_64"});
+    static_assert(ax12::X86_64HardwareProfile::flag_suffix() == std::string_view{"X86_64"});
     static_assert(ax12::Aarch64HardwareProfile::flag_suffix() == std::string_view{"AARCH64"});
     SUCCEED();
 }
@@ -167,7 +167,7 @@ TEST(R7_1_a_2_Axis12, EnabledPlatformsIsNonEmpty) {
 
 TEST(R7_1_a_2_Axis12, IsEnabledPredicateMatchesWrapperFlag) {
     static_assert(ax12::is_enabled<ax12::GenericHardwareProfile>::value == ax12::GenericHardwareProfile::enabled);
-    static_assert(ax12::is_enabled<ax12::X86_64HardwareProfile>::value  == ax12::X86_64HardwareProfile::enabled);
+    static_assert(ax12::is_enabled<ax12::X86_64HardwareProfile>::value == ax12::X86_64HardwareProfile::enabled);
     static_assert(ax12::is_enabled<ax12::Aarch64HardwareProfile>::value == ax12::Aarch64HardwareProfile::enabled);
     SUCCEED();
 }
@@ -178,7 +178,7 @@ TEST(R7_1_a_2_Axis12, IsEnabledPredicateMatchesWrapperFlag) {
 
 TEST(R7_1_a_2_Axis12, FlagsHeaderProvidesAllThreePlatforms) {
     static_assert(std::is_same_v<decltype(ax12::flags::generic_enabled), const bool>);
-    static_assert(std::is_same_v<decltype(ax12::flags::x86_64_enabled),  const bool>);
+    static_assert(std::is_same_v<decltype(ax12::flags::x86_64_enabled), const bool>);
     static_assert(std::is_same_v<decltype(ax12::flags::aarch64_enabled), const bool>);
     SUCCEED();
 }
@@ -193,15 +193,14 @@ TEST(R7_1_a_2_Hardware, TopicConfigSetExposesBothAxes) {
     // axis_12 (3 Wrappers per default ENABLE)
     static_assert(mp::mp_size<hw::TopicConfigSet::StaticAxisVariants_12>::value > 0);
     // Default-StaticAxisVariants = axis_12 (Plattform-Konfiguration ist Haupt-Achse)
-    static_assert(std::is_same_v<hw::TopicConfigSet::StaticAxisVariants,
-                                  hw::TopicConfigSet::StaticAxisVariants_12>);
+    static_assert(std::is_same_v<hw::TopicConfigSet::StaticAxisVariants, hw::TopicConfigSet::StaticAxisVariants_12>);
     SUCCEED();
 }
 
 TEST(R7_1_a_2_Hardware, TopicConfigSetCartesianIsa09xPlatform12IsProductOfBoth) {
-    constexpr auto isa_count   = mp::mp_size<hw::TopicConfigSet::StaticAxisVariants_09>::value;
-    constexpr auto plat_count  = mp::mp_size<hw::TopicConfigSet::StaticAxisVariants_12>::value;
-    constexpr auto prod_count  = mp::mp_size<hw::TopicConfigSet::CartesianIsa09xPlatform12>::value;
+    constexpr auto isa_count  = mp::mp_size<hw::TopicConfigSet::StaticAxisVariants_09>::value;
+    constexpr auto plat_count = mp::mp_size<hw::TopicConfigSet::StaticAxisVariants_12>::value;
+    constexpr auto prod_count = mp::mp_size<hw::TopicConfigSet::CartesianIsa09xPlatform12>::value;
     static_assert(prod_count == isa_count * plat_count);
     SUCCEED();
 }

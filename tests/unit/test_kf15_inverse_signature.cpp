@@ -18,12 +18,20 @@ template <typename A, typename B>
 void check_eq(char const* what, A const& got, B const& want) {
     bool ok = (got == want);
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << " = " << got;
-    if (!ok) { std::cout << "  (erwartet: " << want << ")"; ++g_fail; }
+    if (!ok) {
+        std::cout << "  (erwartet: " << want << ")";
+        ++g_fail;
+    }
     std::cout << "\n";
 }
-void check_true(char const* what, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n"; if (!c) ++g_fail; }
+void check_true(char const* what, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n";
+    if (!c) ++g_fail;
+}
 static bool has(std::vector<std::string> const& v, std::string const& s) {
-    for (auto const& e : v) if (e == s) return true; return false;
+    for (auto const& e : v)
+        if (e == s) return true;
+    return false;
 }
 
 int main() {
@@ -33,9 +41,9 @@ int main() {
     {
         ex::PaperSignatureIndex idx;
         idx.add("P01", "traversal=ART");
-        idx.add("P02", "traversal=ART");   // teilt Signatur mit P01 (Doppelerkennung)
+        idx.add("P02", "traversal=ART"); // teilt Signatur mit P01 (Doppelerkennung)
         idx.add("P03", "traversal=HOT");
-        idx.add("P04", "traversal=ART");   // dritter ART-Paper
+        idx.add("P04", "traversal=ART"); // dritter ART-Paper
 
         auto art = idx.papers_for("traversal=ART");
         check_eq("papers_for(ART): 3 Paper teilen die Signatur", art.size(), std::size_t{3});
@@ -48,16 +56,16 @@ int main() {
 
     // ── Teil 2: ReadOnlyResultView — Projektion der Baum-Binaries auf eine Paper-Signatur (linear) ──
     {
-        auto factory = std::make_shared<ex::ExperimentNodeFactory>();
+        auto               factory = std::make_shared<ex::ExperimentNodeFactory>();
         ex::ExperimentTree tree{factory};
         tree.build({
-            ex::AxisLevel{"traversal", {"ART"}, true, ""},          // gepinnt → Paper-Signatur "traversal=ART"
-            ex::AxisLevel{"node", {"N4", "N16", "N48"}, true, ""},  // freigegeben → 3 Varianten-Binaries
+            ex::AxisLevel{"traversal", {"ART"}, true, ""},         // gepinnt → Paper-Signatur "traversal=ART"
+            ex::AxisLevel{"node", {"N4", "N16", "N48"}, true, ""}, // freigegeben → 3 Varianten-Binaries
         });
         // binaries: ART/N4, ART/N16, ART/N48 — alle mit gepinnter Signatur "traversal=ART"
 
         ex::ReadOnlyResultView view{tree};
-        auto sigs = view.signatures();
+        auto                   sigs = view.signatures();
         check_eq("Baum: 1 distinkte gepinnte Signatur", sigs.size(), std::size_t{1});
         check_true("  Signatur == traversal=ART", !sigs.empty() && sigs[0] == "traversal=ART");
 
@@ -65,7 +73,8 @@ int main() {
         check_eq("Projektion: 3 Binaries unter der Signatur", bins.size(), std::size_t{3});
         check_true("  ART/N4 ∈ Projektion", has(bins, "traversal=ART/node=N4"));
         check_true("  ART/N48 ∈ Projektion", has(bins, "traversal=ART/node=N48"));
-        check_eq("fremde Signatur → leere Projektion", view.binaries_with_signature("traversal=HOT").size(), std::size_t{0});
+        check_eq("fremde Signatur → leere Projektion", view.binaries_with_signature("traversal=HOT").size(),
+                 std::size_t{0});
 
         // Paper-Projektion (kombiniert): P01 + P02 teilen ART → beide projizieren auf dieselben 3 Binaries.
         ex::PaperSignatureIndex idx;
@@ -73,8 +82,10 @@ int main() {
         idx.add("P02", "traversal=ART");
         idx.add("P03", "traversal=HOT");
         check_eq("binaries_for_paper(P01) = 3", view.binaries_for_paper("P01", idx).size(), std::size_t{3});
-        check_eq("binaries_for_paper(P02) = 3 (geteilte Signatur)", view.binaries_for_paper("P02", idx).size(), std::size_t{3});
-        check_eq("binaries_for_paper(P03/HOT) = 0 (keine Binaries dieser Signatur)", view.binaries_for_paper("P03", idx).size(), std::size_t{0});
+        check_eq("binaries_for_paper(P02) = 3 (geteilte Signatur)", view.binaries_for_paper("P02", idx).size(),
+                 std::size_t{3});
+        check_eq("binaries_for_paper(P03/HOT) = 0 (keine Binaries dieser Signatur)",
+                 view.binaries_for_paper("P03", idx).size(), std::size_t{0});
 
         // Aggregierte Mess-Projektion (read-only): zählt die 3 Binaries der Signatur.
         auto agg = view.aggregate_for_signature("traversal=ART");

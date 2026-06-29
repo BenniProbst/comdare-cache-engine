@@ -12,15 +12,15 @@ namespace comdare::cache_engine::platform {
 
 // Plattform-Property-Set, das aus Auto-Discovery + Auto-Vermessung entsteht
 struct PlatformPropertySet {
-    bool has_asymmetric_l3            = false;
-    bool has_hybrid_cores             = false;
-    bool has_hbm_tier                 = false;
-    bool has_software_prefetch        = false;
-    bool has_hardware_transactional   = false;
-    bool cpu_core_atom_perf_separation = false;
-    std::uint16_t preferred_pinning_policy = 0;   // PinningPolicyId
-    std::uint16_t usable_simd_width_bytes  = 0;
-    std::map<std::string, double>      measured_metrics;   // freie Plattform-Properties
+    bool                          has_asymmetric_l3             = false;
+    bool                          has_hybrid_cores              = false;
+    bool                          has_hbm_tier                  = false;
+    bool                          has_software_prefetch         = false;
+    bool                          has_hardware_transactional    = false;
+    bool                          cpu_core_atom_perf_separation = false;
+    std::uint16_t                 preferred_pinning_policy      = 0; // PinningPolicyId
+    std::uint16_t                 usable_simd_width_bytes       = 0;
+    std::map<std::string, double> measured_metrics; // freie Plattform-Properties
 };
 
 // Auto-Discovery (statisch + dynamisch) — generisch fuer JEDE Plattform
@@ -47,10 +47,9 @@ public:
     virtual ~ICacheEngineOptionPublisher() = default;
 
     // Pro Modul nur die Properties, die seine Bausteine konsumieren koennen (compile-time-gefiltert)
-    virtual void publish_options_to_module(std::uint64_t module_id,
-                                           PlatformPropertySet const& props) = 0;
+    virtual void publish_options_to_module(std::uint64_t module_id, PlatformPropertySet const& props) = 0;
 
     [[nodiscard]] virtual PlatformPropertySet const* options_for_module(std::uint64_t module_id) const noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::platform
+} // namespace comdare::cache_engine::platform

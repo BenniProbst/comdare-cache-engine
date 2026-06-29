@@ -16,9 +16,9 @@
 // Er gehört in die HARNESS-/Test-.cpp (opt-in), NICHT in den engine-agnostischen Treiber-Header
 // cache_engine_builder_iterator.hpp (der bleibt umbrella-frei). C++23.
 
-#include "axis_path_serialization.hpp"                 // serialize_composition_path<P>() (== Baum-binary_id)
-#include "../codegen/adhoc_emitter.hpp"                // render_adhoc_module_source / adhoc_macro_args<Comp>
-#include "../../anatomy/composition_factory.hpp"        // CompositionFromPermTuple<P> (PermTuple → AdHocComposition)
+#include "axis_path_serialization.hpp"           // serialize_composition_path<P>() (== Baum-binary_id)
+#include "../codegen/adhoc_emitter.hpp"          // render_adhoc_module_source / adhoc_macro_args<Comp>
+#include "../../anatomy/composition_factory.hpp" // CompositionFromPermTuple<P> (PermTuple → AdHocComposition)
 
 #include <functional>
 #include <map>
@@ -35,9 +35,9 @@ namespace comdare::cache_engine::builder::experiment {
 template <class Engine>
 [[nodiscard]] inline std::map<std::string, std::string> build_pilot_source_map() {
     std::map<std::string, std::string> by_path;
-    int idx = 0;
+    int                                idx = 0;
     Engine::for_each_permutation([&]<class P>() {
-        using Comp = anatomy::CompositionFromPermTuple<P>;   // reale AdHocComposition<19> (compile-time materialisiert)
+        using Comp = anatomy::CompositionFromPermTuple<P>; // reale AdHocComposition<19> (compile-time materialisiert)
         std::string const path = serialize_composition_path<P>();
         by_path.emplace(path, codegen::render_adhoc_module_source(idx, codegen::adhoc_macro_args<Comp>()));
         ++idx;
@@ -56,4 +56,4 @@ make_source_gen_from_map(std::map<std::string, std::string> by_path) {
     };
 }
 
-}  // namespace comdare::cache_engine::builder::experiment
+} // namespace comdare::cache_engine::builder::experiment

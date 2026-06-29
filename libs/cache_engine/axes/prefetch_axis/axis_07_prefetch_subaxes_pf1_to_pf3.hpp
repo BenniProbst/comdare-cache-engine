@@ -12,4 +12,4 @@ struct distance_heuristic_tag {};
 // PF3: Granularitaet (cache-line / page / bundle)
 struct granularity_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::prefetch_axis::subaxes

@@ -9,7 +9,7 @@
 // erlaubt Realloc-Adress-Reuse) / FixedChunkGrowth (+Chunk additiv, page-aligned) / ExactGrowth (1:1, minimaler Speicher).
 // C++23, header-only.
 
-#include "anatomy/sequence_composition.hpp"   // GrowthPolicy-Concept + DoublingGrowth (Wiederverwendung)
+#include "anatomy/sequence_composition.hpp" // GrowthPolicy-Concept + DoublingGrowth (Wiederverwendung)
 
 #include <cstddef>
 
@@ -19,9 +19,9 @@ namespace comdare::cache_engine::sequence::axis_growth {
 /// erlaubt (anders als ×2) dass frühere Allokations-Blöcke beim Realloc wiederverwendet werden (folly/MSVC-Stil).
 struct GoldenRatioGrowth {
     [[nodiscard]] std::size_t next_capacity(std::size_t current, std::size_t requested) const noexcept {
-        std::size_t next = current + (current >> 1);     // ×1.5
+        std::size_t next = current + (current >> 1); // ×1.5
         if (next < requested) next = requested;
-        if (next <= current)  next = current + 1;         // mind. +1 Fortschritt (current==0/1-Randfall)
+        if (next <= current) next = current + 1; // mind. +1 Fortschritt (current==0/1-Randfall)
         return next;
     }
     [[nodiscard]] double growth_factor() const noexcept { return 1.5; }
@@ -32,11 +32,11 @@ struct GoldenRatioGrowth {
 template <std::size_t Chunk = 64>
 struct FixedChunkGrowth {
     static constexpr std::size_t chunk = Chunk;
-    [[nodiscard]] std::size_t next_capacity(std::size_t current, std::size_t requested) const noexcept {
+    [[nodiscard]] std::size_t    next_capacity(std::size_t current, std::size_t requested) const noexcept {
         std::size_t next = current + Chunk;
         return next < requested ? requested : next;
     }
-    [[nodiscard]] double growth_factor() const noexcept { return 0.0; }   // additiv, kein multiplikativer Faktor
+    [[nodiscard]] double growth_factor() const noexcept { return 0.0; } // additiv, kein multiplikativer Faktor
 };
 
 /// ExactGrowth — keine Über-Allokation: Kapazität == angefordert. Minimaler Speicher, maximale Realloc-Häufigkeit.
@@ -44,7 +44,7 @@ struct ExactGrowth {
     [[nodiscard]] std::size_t next_capacity(std::size_t /*current*/, std::size_t requested) const noexcept {
         return requested;
     }
-    [[nodiscard]] double growth_factor() const noexcept { return 1.0; }   // exakt 1:1
+    [[nodiscard]] double growth_factor() const noexcept { return 1.0; } // exakt 1:1
 };
 
-}  // namespace comdare::cache_engine::sequence::axis_growth
+} // namespace comdare::cache_engine::sequence::axis_growth

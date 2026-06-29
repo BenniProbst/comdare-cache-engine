@@ -31,7 +31,7 @@ inline constexpr status_t status_empty_container         = 8;
 inline constexpr status_t status_concurrent_modification = 9;
 inline constexpr status_t status_io_error                = 10;
 
-[[nodiscard]] inline constexpr bool status_is_ok(status_t s)    noexcept { return s == 0; }
+[[nodiscard]] inline constexpr bool status_is_ok(status_t s) noexcept { return s == 0; }
 [[nodiscard]] inline constexpr bool status_is_error(status_t s) noexcept { return s != 0; }
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

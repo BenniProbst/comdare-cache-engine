@@ -19,23 +19,18 @@
 
 #if COMDARE_AXIS_06_USE_MIMALLOC
 // Echter Vendor-Header (nur eingebunden wenn USE-Flag ON = ENABLE && HAVE)
-#  include <mimalloc.h>
+#include <mimalloc.h>
 #else
 // Forward-Stubs damit Wrapper-Code (`if constexpr (false)`-Zweig) syntaktisch
 // valide bleibt. NIEMALS aufgerufen — Compiler verwirft die Calls per Dead-Code-Elim.
 extern "C" {
-    inline void* mi_malloc_aligned(std::size_t /*size*/, std::size_t /*alignment*/) noexcept {
-        return nullptr;
-    }
-    inline void  mi_free(void* /*p*/) noexcept {}
-    inline void* mi_calloc(std::size_t /*count*/, std::size_t /*size*/) noexcept {
-        return nullptr;
-    }
-    inline void* mi_realloc_aligned(void* /*p*/, std::size_t /*newsize*/,
-                                    std::size_t /*alignment*/) noexcept {
-        return nullptr;
-    }
-    inline std::size_t mi_usable_size(const void* /*p*/) noexcept { return 0; }
-    inline void mi_collect(int /*force*/) noexcept {}
+inline void* mi_malloc_aligned(std::size_t /*size*/, std::size_t /*alignment*/) noexcept { return nullptr; }
+inline void  mi_free(void* /*p*/) noexcept {}
+inline void* mi_calloc(std::size_t /*count*/, std::size_t /*size*/) noexcept { return nullptr; }
+inline void* mi_realloc_aligned(void* /*p*/, std::size_t /*newsize*/, std::size_t /*alignment*/) noexcept {
+    return nullptr;
+}
+inline std::size_t mi_usable_size(const void* /*p*/) noexcept { return 0; }
+inline void        mi_collect(int /*force*/) noexcept {}
 }
 #endif

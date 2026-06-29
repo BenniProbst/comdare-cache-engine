@@ -23,14 +23,16 @@ public:
     static constexpr bool enabled = flags::density_tracker_enabled;
 
     [[nodiscard]] static constexpr bool             is_leaf_only() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "telemetry_density_tracker"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "DensityTracker (ART per-node density for adaptive Node-Type)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "DENSITY_TRACKER"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "telemetry_density_tracker"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "DensityTracker (ART per-node density for adaptive Node-Type)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "DENSITY_TRACKER"; }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::telemetry_axis
 
 namespace comdare::cache_engine::telemetry_axis {
-    static_assert(concepts::TelemetryStrategy<DensityTracker>);
-    static_assert(concepts::CacheEnginePermutationStrategy<DensityTracker>);
-}
+static_assert(concepts::TelemetryStrategy<DensityTracker>);
+static_assert(concepts::CacheEnginePermutationStrategy<DensityTracker>);
+} // namespace comdare::cache_engine::telemetry_axis

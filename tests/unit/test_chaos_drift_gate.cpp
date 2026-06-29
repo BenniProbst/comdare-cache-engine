@@ -31,9 +31,9 @@ namespace cmd = ::comdare::cache_engine::builder::commands;
 
 namespace {
 
-constexpr double kThreshold = 0.05;  // 5 % — die Diplomarbeit-Schwelle (parametrisiert in der API)
+constexpr double kThreshold = 0.05; // 5 % — die Diplomarbeit-Schwelle (parametrisiert in der API)
 
-}  // namespace
+} // namespace
 
 // ─────────────────────────────────────────────────────────────────────────────
 // (1) assess_drift — Klassifikation
@@ -42,7 +42,7 @@ constexpr double kThreshold = 0.05;  // 5 % — die Diplomarbeit-Schwelle (param
 TEST(ChaosDriftGate, AssessStableSeriesBelowThreshold) {
     // {1000,1010,1020}: median 1010, Spannweite 20 → drift ≈ 1,98 % < 5 % → stabil.
     std::vector<std::int64_t> const s{1000, 1010, 1020};
-    cmd::DriftVerdict const v = cmd::assess_drift(s, kThreshold);
+    cmd::DriftVerdict const         v = cmd::assess_drift(s, kThreshold);
     EXPECT_EQ(v.samples, 3u);
     EXPECT_EQ(v.median_ns, 1010);
     EXPECT_EQ(v.min_ns, 1000);
@@ -54,7 +54,7 @@ TEST(ChaosDriftGate, AssessStableSeriesBelowThreshold) {
 TEST(ChaosDriftGate, AssessUnstableSeriesAboveThreshold) {
     // {1000,1000,1100}: median 1000, Spannweite 100 → drift = 10 % > 5 % → instabil.
     std::vector<std::int64_t> const s{1000, 1000, 1100};
-    cmd::DriftVerdict const v = cmd::assess_drift(s, kThreshold);
+    cmd::DriftVerdict const         v = cmd::assess_drift(s, kThreshold);
     EXPECT_EQ(v.median_ns, 1000);
     EXPECT_DOUBLE_EQ(v.relative_drift, 0.1);
     EXPECT_TRUE(v.unstable);
@@ -65,8 +65,8 @@ TEST(ChaosDriftGate, AssessBoundaryNotStrictlyGreaterIsStable) {
     // {1000,1050}: median (nearest-rank q=0.5, n=2, k=1) = 1050, Spannweite 50 → drift = 50/1050.
     // Wir setzen die Schwelle exakt auf diesen Wert und erwarten stable (drift > threshold ist false).
     std::vector<std::int64_t> const s{1000, 1050};
-    cmd::DriftVerdict const probe = cmd::assess_drift(s, kThreshold);
-    cmd::DriftVerdict const v = cmd::assess_drift(s, probe.relative_drift);
+    cmd::DriftVerdict const         probe = cmd::assess_drift(s, kThreshold);
+    cmd::DriftVerdict const         v     = cmd::assess_drift(s, probe.relative_drift);
     EXPECT_FALSE(v.unstable) << "drift == threshold darf nicht als instabil gelten (striktes >).";
 }
 
@@ -77,7 +77,7 @@ TEST(ChaosDriftGate, EmptyAndSingleSampleAreStableNoCrash) {
     EXPECT_FALSE(e.unstable);
 
     std::vector<std::int64_t> const one{500};
-    cmd::DriftVerdict const v = cmd::assess_drift(one, kThreshold);
+    cmd::DriftVerdict const         v = cmd::assess_drift(one, kThreshold);
     EXPECT_EQ(v.samples, 1u);
     EXPECT_EQ(v.median_ns, 500);
     EXPECT_EQ(v.min_ns, 500);
@@ -89,7 +89,7 @@ TEST(ChaosDriftGate, EmptyAndSingleSampleAreStableNoCrash) {
 TEST(ChaosDriftGate, ZeroMedianGuardNoDivisionByZero) {
     // Degenerierte Null-Messung: median 0 → drift muss 0 bleiben (kein Division-durch-0/NaN/Crash).
     std::vector<std::int64_t> const z{0, 0, 0};
-    cmd::DriftVerdict const v = cmd::assess_drift(z, kThreshold);
+    cmd::DriftVerdict const         v = cmd::assess_drift(z, kThreshold);
     EXPECT_EQ(v.median_ns, 0);
     EXPECT_DOUBLE_EQ(v.relative_drift, 0.0);
     EXPECT_FALSE(v.unstable);
@@ -102,10 +102,10 @@ TEST(ChaosDriftGate, ZeroMedianGuardNoDivisionByZero) {
 TEST(ChaosDriftGate, StableFirstTryNoRerunNoWarn) {
     // Stets stabile Proben (~2 % Drift) → akzeptiert beim 1. Versuch, 0 Reruns, kein Warn-Log.
     std::vector<std::int64_t> const seq{1000, 1010, 1020};
-    std::size_t idx = 0;
-    auto measure = [&]() -> std::int64_t { return seq[idx++ % seq.size()]; };
+    std::size_t                     idx     = 0;
+    auto                            measure = [&]() -> std::int64_t { return seq[idx++ % seq.size()]; };
 
-    std::ostringstream warn;
+    std::ostringstream         warn;
     cmd::DriftGateResult const r =
         cmd::run_with_drift_gate(measure, /*reps=*/3, kThreshold, /*max_reruns=*/3, &warn, "stable");
 
@@ -120,10 +120,10 @@ TEST(ChaosDriftGate, StableFirstTryNoRerunNoWarn) {
 TEST(ChaosDriftGate, HealsAfterInstabilityWithWarnLog) {
     // Versuch 1: {1000,1000,1200} → drift 20 % instabil; Versuch 2: {1000,1010,1020} → stabil.
     std::vector<std::int64_t> const seq{1000, 1000, 1200, /*Rerun:*/ 1000, 1010, 1020};
-    std::size_t idx = 0;
-    auto measure = [&]() -> std::int64_t { return seq.at(idx++); };
+    std::size_t                     idx     = 0;
+    auto                            measure = [&]() -> std::int64_t { return seq.at(idx++); };
 
-    std::ostringstream warn;
+    std::ostringstream         warn;
     cmd::DriftGateResult const r =
         cmd::run_with_drift_gate(measure, /*reps=*/3, kThreshold, /*max_reruns=*/3, &warn, "heal");
 
@@ -141,23 +141,22 @@ TEST(ChaosDriftGate, HealsAfterInstabilityWithWarnLog) {
 TEST(ChaosDriftGate, ExhaustsBudgetThenAdvisoryReturnsBestNoThrow) {
     // Dauerhaft instabil: jede Gruppe {1000,1000,1300} → drift 30 %. Nach max_reruns=3 → 4 Versuche,
     // dann advisory: exhausted, stabilste Gruppe zurück, finale Warnung, KEIN throw/Abbruch.
-    std::size_t i = 0;
-    auto measure = [&]() -> std::int64_t {
-        std::int64_t const v = ((i % 3) == 2) ? 1300 : 1000;  // pro 3er-Gruppe: 1000,1000,1300
+    std::size_t i       = 0;
+    auto        measure = [&]() -> std::int64_t {
+        std::int64_t const v = ((i % 3) == 2) ? 1300 : 1000; // pro 3er-Gruppe: 1000,1000,1300
         ++i;
         return v;
     };
 
-    std::ostringstream warn;
+    std::ostringstream   warn;
     cmd::DriftGateResult r;
-    ASSERT_NO_THROW(
-        r = cmd::run_with_drift_gate(measure, /*reps=*/3, kThreshold, /*max_reruns=*/3, &warn, "exhaust"));
+    ASSERT_NO_THROW(r = cmd::run_with_drift_gate(measure, /*reps=*/3, kThreshold, /*max_reruns=*/3, &warn, "exhaust"));
 
     EXPECT_FALSE(r.stable);
     EXPECT_TRUE(r.exhausted);
-    EXPECT_EQ(r.attempts, 4u);     // 1 initial + 3 Reruns
+    EXPECT_EQ(r.attempts, 4u); // 1 initial + 3 Reruns
     EXPECT_EQ(r.reruns, 3u);
-    EXPECT_EQ(i, 12u);             // 4 Gruppen à 3 Proben
+    EXPECT_EQ(i, 12u); // 4 Gruppen à 3 Proben
     EXPECT_EQ(r.samples.size(), 3u);
     EXPECT_TRUE(r.verdict.unstable);
     EXPECT_NE(warn.str().find("unzuverlaessig"), std::string::npos)
@@ -166,8 +165,11 @@ TEST(ChaosDriftGate, ExhaustsBudgetThenAdvisoryReturnsBestNoThrow) {
 
 TEST(ChaosDriftGate, RepsZeroIsNoMeasurementNotStable) {
     // reps==0 (Fehlkonfig): keine Messung → measure_one nie aufgerufen, nicht „stabil", 0 Versuche.
-    std::size_t calls = 0;
-    auto measure = [&]() -> std::int64_t { ++calls; return 1000; };
+    std::size_t calls   = 0;
+    auto        measure = [&]() -> std::int64_t {
+        ++calls;
+        return 1000;
+    };
     cmd::DriftGateResult const r =
         cmd::run_with_drift_gate(measure, /*reps=*/0, kThreshold, /*max_reruns=*/3, nullptr, "zero");
     EXPECT_EQ(calls, 0u) << "Bei reps==0 darf nicht gemessen werden.";
@@ -178,8 +180,8 @@ TEST(ChaosDriftGate, RepsZeroIsNoMeasurementNotStable) {
 
 TEST(ChaosDriftGate, NullWarnStreamIsSilentAndSafe) {
     // warn=nullptr darf nicht crashen (kein Dereferenzieren eines Null-Streams).
-    std::size_t i = 0;
-    auto measure = [&]() -> std::int64_t {
+    std::size_t i       = 0;
+    auto        measure = [&]() -> std::int64_t {
         std::int64_t const v = ((i % 3) == 2) ? 1300 : 1000;
         ++i;
         return v;
@@ -187,5 +189,5 @@ TEST(ChaosDriftGate, NullWarnStreamIsSilentAndSafe) {
     cmd::DriftGateResult r;
     ASSERT_NO_THROW(r = cmd::run_with_drift_gate(measure, 3, kThreshold, 2, nullptr, "silent"));
     EXPECT_TRUE(r.exhausted);
-    EXPECT_EQ(r.attempts, 3u);  // 1 + 2 Reruns
+    EXPECT_EQ(r.attempts, 3u); // 1 + 2 Reruns
 }

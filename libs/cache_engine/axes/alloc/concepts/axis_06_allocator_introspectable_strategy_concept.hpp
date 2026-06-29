@@ -25,9 +25,8 @@ namespace comdare::cache_engine::alloc::concepts {
  * @refines AllocatorStrategy
  */
 template <typename A>
-concept IntrospectableStrategy = AllocatorStrategy<A>
-    && requires(A const& a, void* p) {
-        { a.usable_size(p) } -> std::same_as<std::size_t>;
-    };
+concept IntrospectableStrategy = AllocatorStrategy<A> && requires(A const& a, void* p) {
+    { a.usable_size(p) } -> std::same_as<std::size_t>;
+};
 
-}  // namespace comdare::cache_engine::alloc::concepts
+} // namespace comdare::cache_engine::alloc::concepts

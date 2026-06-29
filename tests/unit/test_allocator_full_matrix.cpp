@@ -89,7 +89,7 @@ TEST(AllAdapters, AllSatisfyConcept) {
 template <typename Strategy>
 void run_pmr_vector_test(Strategy& strategy) {
     ace::CacheEnginePmrResource<Strategy> resource{&strategy};
-    std::pmr::vector<int> vec{&resource};
+    std::pmr::vector<int>                 vec{&resource};
     for (int i = 0; i < 100; ++i) vec.push_back(i * 2);
     EXPECT_EQ(vec.size(), 100u);
     EXPECT_EQ(vec[42], 84);
@@ -100,7 +100,7 @@ void run_pmr_vector_test(Strategy& strategy) {
 template <typename Strategy>
 void run_pmr_map_test(Strategy& strategy) {
     ace::CacheEnginePmrResource<Strategy> resource{&strategy};
-    std::pmr::map<int, std::pmr::string> m{&resource};
+    std::pmr::map<int, std::pmr::string>  m{&resource};
     m.emplace(1, std::pmr::string{"one", &resource});
     m.emplace(2, std::pmr::string{"two", &resource});
     m.emplace(3, std::pmr::string{"three", &resource});
@@ -112,7 +112,7 @@ void run_pmr_map_test(Strategy& strategy) {
 template <typename Strategy>
 void run_pmr_unordered_map_test(Strategy& strategy) {
     ace::CacheEnginePmrResource<Strategy> resource{&strategy};
-    std::pmr::unordered_map<int, int> um{&resource};
+    std::pmr::unordered_map<int, int>     um{&resource};
     for (int i = 0; i < 50; ++i) um[i] = i * i;
     EXPECT_EQ(um.size(), 50u);
     EXPECT_EQ(um[7], 49);
@@ -121,7 +121,7 @@ void run_pmr_unordered_map_test(Strategy& strategy) {
 template <typename Strategy>
 void run_pmr_deque_test(Strategy& strategy) {
     ace::CacheEnginePmrResource<Strategy> resource{&strategy};
-    std::pmr::deque<int> dq{&resource};
+    std::pmr::deque<int>                  dq{&resource};
     for (int i = 0; i < 30; ++i) dq.push_back(i);
     for (int i = 0; i < 10; ++i) dq.push_front(-i);
     EXPECT_EQ(dq.size(), 40u);
@@ -132,7 +132,7 @@ void run_pmr_deque_test(Strategy& strategy) {
 template <typename Strategy>
 void run_pmr_list_test(Strategy& strategy) {
     ace::CacheEnginePmrResource<Strategy> resource{&strategy};
-    std::pmr::list<int> lst{&resource};
+    std::pmr::list<int>                   lst{&resource};
     for (int i = 0; i < 20; ++i) lst.push_back(i);
     EXPECT_EQ(lst.size(), 20u);
     lst.reverse();
@@ -142,8 +142,8 @@ void run_pmr_list_test(Strategy& strategy) {
 template <typename Strategy>
 void run_pmr_set_test(Strategy& strategy) {
     ace::CacheEnginePmrResource<Strategy> resource{&strategy};
-    std::pmr::set<int> s{&resource};
-    for (int i = 0; i < 100; ++i) s.insert(i % 50);  // duplicates -> 50 unique
+    std::pmr::set<int>                    s{&resource};
+    for (int i = 0; i < 100; ++i) s.insert(i % 50); // duplicates -> 50 unique
     EXPECT_EQ(s.size(), 50u);
 }
 
@@ -151,36 +151,55 @@ void run_pmr_set_test(Strategy& strategy) {
 // Container-Matrix Tests pro Adapter (PFLICHT-PARAMETRISIERUNG)
 // ─────────────────────────────────────────────────────────────────────────────
 
-#define DEFINE_CONTAINER_MATRIX_TESTS(NAME, ADAPTER_TYPE)               \
-    TEST(NAME, PmrVector)         { ADAPTER_TYPE s; run_pmr_vector_test(s); }       \
-    TEST(NAME, PmrMap)            { ADAPTER_TYPE s; run_pmr_map_test(s); }          \
-    TEST(NAME, PmrUnorderedMap)   { ADAPTER_TYPE s; run_pmr_unordered_map_test(s); } \
-    TEST(NAME, PmrDeque)          { ADAPTER_TYPE s; run_pmr_deque_test(s); }        \
-    TEST(NAME, PmrList)           { ADAPTER_TYPE s; run_pmr_list_test(s); }         \
-    TEST(NAME, PmrSet)            { ADAPTER_TYPE s; run_pmr_set_test(s); }
+#define DEFINE_CONTAINER_MATRIX_TESTS(NAME, ADAPTER_TYPE)                                                              \
+    TEST(NAME, PmrVector) {                                                                                            \
+        ADAPTER_TYPE s;                                                                                                \
+        run_pmr_vector_test(s);                                                                                        \
+    }                                                                                                                  \
+    TEST(NAME, PmrMap) {                                                                                               \
+        ADAPTER_TYPE s;                                                                                                \
+        run_pmr_map_test(s);                                                                                           \
+    }                                                                                                                  \
+    TEST(NAME, PmrUnorderedMap) {                                                                                      \
+        ADAPTER_TYPE s;                                                                                                \
+        run_pmr_unordered_map_test(s);                                                                                 \
+    }                                                                                                                  \
+    TEST(NAME, PmrDeque) {                                                                                             \
+        ADAPTER_TYPE s;                                                                                                \
+        run_pmr_deque_test(s);                                                                                         \
+    }                                                                                                                  \
+    TEST(NAME, PmrList) {                                                                                              \
+        ADAPTER_TYPE s;                                                                                                \
+        run_pmr_list_test(s);                                                                                          \
+    }                                                                                                                  \
+    TEST(NAME, PmrSet) {                                                                                               \
+        ADAPTER_TYPE s;                                                                                                \
+        run_pmr_set_test(s);                                                                                           \
+    }
 
-DEFINE_CONTAINER_MATRIX_TESTS(HoardContainerMatrix,        ace::families::a01_hoard::HoardAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(SlabContainerMatrix,         ace::families::a02_slab::SlabAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(MichaelContainerMatrix,      ace::families::a03_michael_lockfree::MichaelLockFreeAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(MimallocContainerMatrix,     ace::families::a04_mimalloc::MimallocAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(JemallocContainerMatrix,     ace::families::a05_jemalloc::JemallocAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(TcmallocContainerMatrix,     ace::families::a06_tcmalloc::TcmallocAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(SnmallocContainerMatrix,     ace::families::a07_snmalloc::SnmallocAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(ScallocContainerMatrix,      ace::families::a08_scalloc::ScallocAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(NumaAllocContainerMatrix,    ace::families::a09_numalloc::NumaAllocAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(RpmallocContainerMatrix,     ace::families::a10_rpmalloc::RpmallocAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(LRMallocContainerMatrix,     ace::families::a11_lrmalloc::LRMallocAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(CamaContainerMatrix,         ace::families::a12_cama::CamaAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(StarMallocContainerMatrix,   ace::families::a13_starmalloc::StarMallocAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(TcmallocWarehouseContainerMatrix, ace::families::a14_tcmalloc_warehouse::TcmallocWarehouseAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(HmallocContainerMatrix,      ace::families::a15_hmalloc::HmallocAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(PimMallocContainerMatrix,    ace::families::a16_pim_malloc::PimMallocAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(CrystallineContainerMatrix,  ace::families::a17_crystalline::CrystallineAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(ExgenMallocContainerMatrix,  ace::families::a18_exgen_malloc::ExgenMallocAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(BuddyContainerMatrix,        ace::families::a19_buddy::BuddyAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(DlmallocContainerMatrix,     ace::families::a20_dlmalloc::DlmallocAdapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(Ptmalloc2ContainerMatrix,    ace::families::a21_ptmalloc2::Ptmalloc2Adapter<>)
-DEFINE_CONTAINER_MATRIX_TESTS(PmrResourceContainerMatrix,  ace::families::a22_pmr_resource::PmrResourceAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(HoardContainerMatrix, ace::families::a01_hoard::HoardAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(SlabContainerMatrix, ace::families::a02_slab::SlabAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(MichaelContainerMatrix, ace::families::a03_michael_lockfree::MichaelLockFreeAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(MimallocContainerMatrix, ace::families::a04_mimalloc::MimallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(JemallocContainerMatrix, ace::families::a05_jemalloc::JemallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(TcmallocContainerMatrix, ace::families::a06_tcmalloc::TcmallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(SnmallocContainerMatrix, ace::families::a07_snmalloc::SnmallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(ScallocContainerMatrix, ace::families::a08_scalloc::ScallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(NumaAllocContainerMatrix, ace::families::a09_numalloc::NumaAllocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(RpmallocContainerMatrix, ace::families::a10_rpmalloc::RpmallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(LRMallocContainerMatrix, ace::families::a11_lrmalloc::LRMallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(CamaContainerMatrix, ace::families::a12_cama::CamaAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(StarMallocContainerMatrix, ace::families::a13_starmalloc::StarMallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(TcmallocWarehouseContainerMatrix,
+                              ace::families::a14_tcmalloc_warehouse::TcmallocWarehouseAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(HmallocContainerMatrix, ace::families::a15_hmalloc::HmallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(PimMallocContainerMatrix, ace::families::a16_pim_malloc::PimMallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(CrystallineContainerMatrix, ace::families::a17_crystalline::CrystallineAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(ExgenMallocContainerMatrix, ace::families::a18_exgen_malloc::ExgenMallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(BuddyContainerMatrix, ace::families::a19_buddy::BuddyAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(DlmallocContainerMatrix, ace::families::a20_dlmalloc::DlmallocAdapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(Ptmalloc2ContainerMatrix, ace::families::a21_ptmalloc2::Ptmalloc2Adapter<>)
+DEFINE_CONTAINER_MATRIX_TESTS(PmrResourceContainerMatrix, ace::families::a22_pmr_resource::PmrResourceAdapter<>)
 DEFINE_CONTAINER_MATRIX_TESTS(VmemMagazinesContainerMatrix, ace::families::a23_vmem_magazines::VmemMagazinesAdapter<>)
 
 #undef DEFINE_CONTAINER_MATRIX_TESTS
@@ -191,14 +210,14 @@ DEFINE_CONTAINER_MATRIX_TESTS(VmemMagazinesContainerMatrix, ace::families::a23_v
 
 template <typename Strategy>
 void run_concurrent_alloc_test(Strategy& strategy, int num_threads, int ops_per_thread) {
-    std::atomic<int> total_allocs{0};
+    std::atomic<int>         total_allocs{0};
     std::vector<std::thread> threads;
     threads.reserve(num_threads);
     for (int t = 0; t < num_threads; ++t) {
         threads.emplace_back([&strategy, &total_allocs, ops_per_thread]() {
             for (int i = 0; i < ops_per_thread; ++i) {
                 std::size_t const size = 16 + (i % 240);
-                void* p = strategy.raw_allocate(size, 16);
+                void*             p    = strategy.raw_allocate(size, 16);
                 if (p) {
                     total_allocs.fetch_add(1, std::memory_order_relaxed);
                     strategy.raw_deallocate(p, size, 16);
@@ -210,39 +229,39 @@ void run_concurrent_alloc_test(Strategy& strategy, int num_threads, int ops_per_
     EXPECT_GT(total_allocs.load(), 0);
 }
 
-#define DEFINE_THREADING_TEST(NAME, ADAPTER_TYPE)                       \
-    TEST(NAME, MultiThreadedAlloc) {                                    \
-        ADAPTER_TYPE s;                                                 \
-        run_concurrent_alloc_test(s, 8, 1000);                          \
-        auto stats = s.statistics();                                    \
-        EXPECT_GT(stats.allocation_count, 0u);                          \
-        EXPECT_EQ(stats.allocation_count, stats.deallocation_count);    \
+#define DEFINE_THREADING_TEST(NAME, ADAPTER_TYPE)                                                                      \
+    TEST(NAME, MultiThreadedAlloc) {                                                                                   \
+        ADAPTER_TYPE s;                                                                                                \
+        run_concurrent_alloc_test(s, 8, 1000);                                                                         \
+        auto stats = s.statistics();                                                                                   \
+        EXPECT_GT(stats.allocation_count, 0u);                                                                         \
+        EXPECT_EQ(stats.allocation_count, stats.deallocation_count);                                                   \
     }
 
-DEFINE_THREADING_TEST(HoardThreading,        ace::families::a01_hoard::HoardAdapter<>)
-DEFINE_THREADING_TEST(SlabThreading,         ace::families::a02_slab::SlabAdapter<>)
-DEFINE_THREADING_TEST(MichaelThreading,      ace::families::a03_michael_lockfree::MichaelLockFreeAdapter<>)
-DEFINE_THREADING_TEST(MimallocThreading,     ace::families::a04_mimalloc::MimallocAdapter<>)
-DEFINE_THREADING_TEST(JemallocThreading,     ace::families::a05_jemalloc::JemallocAdapter<>)
-DEFINE_THREADING_TEST(TcmallocThreading,     ace::families::a06_tcmalloc::TcmallocAdapter<>)
-DEFINE_THREADING_TEST(SnmallocThreading,     ace::families::a07_snmalloc::SnmallocAdapter<>)
-DEFINE_THREADING_TEST(ScallocThreading,      ace::families::a08_scalloc::ScallocAdapter<>)
-DEFINE_THREADING_TEST(NumaAllocThreading,    ace::families::a09_numalloc::NumaAllocAdapter<>)
-DEFINE_THREADING_TEST(RpmallocThreading,     ace::families::a10_rpmalloc::RpmallocAdapter<>)
-DEFINE_THREADING_TEST(LRMallocThreading,     ace::families::a11_lrmalloc::LRMallocAdapter<>)
-DEFINE_THREADING_TEST(CamaThreading,         ace::families::a12_cama::CamaAdapter<>)
-DEFINE_THREADING_TEST(StarMallocThreading,   ace::families::a13_starmalloc::StarMallocAdapter<>)
+DEFINE_THREADING_TEST(HoardThreading, ace::families::a01_hoard::HoardAdapter<>)
+DEFINE_THREADING_TEST(SlabThreading, ace::families::a02_slab::SlabAdapter<>)
+DEFINE_THREADING_TEST(MichaelThreading, ace::families::a03_michael_lockfree::MichaelLockFreeAdapter<>)
+DEFINE_THREADING_TEST(MimallocThreading, ace::families::a04_mimalloc::MimallocAdapter<>)
+DEFINE_THREADING_TEST(JemallocThreading, ace::families::a05_jemalloc::JemallocAdapter<>)
+DEFINE_THREADING_TEST(TcmallocThreading, ace::families::a06_tcmalloc::TcmallocAdapter<>)
+DEFINE_THREADING_TEST(SnmallocThreading, ace::families::a07_snmalloc::SnmallocAdapter<>)
+DEFINE_THREADING_TEST(ScallocThreading, ace::families::a08_scalloc::ScallocAdapter<>)
+DEFINE_THREADING_TEST(NumaAllocThreading, ace::families::a09_numalloc::NumaAllocAdapter<>)
+DEFINE_THREADING_TEST(RpmallocThreading, ace::families::a10_rpmalloc::RpmallocAdapter<>)
+DEFINE_THREADING_TEST(LRMallocThreading, ace::families::a11_lrmalloc::LRMallocAdapter<>)
+DEFINE_THREADING_TEST(CamaThreading, ace::families::a12_cama::CamaAdapter<>)
+DEFINE_THREADING_TEST(StarMallocThreading, ace::families::a13_starmalloc::StarMallocAdapter<>)
 DEFINE_THREADING_TEST(TcmallocWarehouseThreading, ace::families::a14_tcmalloc_warehouse::TcmallocWarehouseAdapter<>)
-DEFINE_THREADING_TEST(HmallocThreading,      ace::families::a15_hmalloc::HmallocAdapter<>)
-DEFINE_THREADING_TEST(PimMallocThreading,    ace::families::a16_pim_malloc::PimMallocAdapter<>)
-DEFINE_THREADING_TEST(CrystallineThreading,  ace::families::a17_crystalline::CrystallineAdapter<>)
+DEFINE_THREADING_TEST(HmallocThreading, ace::families::a15_hmalloc::HmallocAdapter<>)
+DEFINE_THREADING_TEST(PimMallocThreading, ace::families::a16_pim_malloc::PimMallocAdapter<>)
+DEFINE_THREADING_TEST(CrystallineThreading, ace::families::a17_crystalline::CrystallineAdapter<>)
 // ExgenMalloc ist single_threaded_only — non-atomic stats; statt Multi-Threading-Test
 // erfolgt ein Single-Thread-Stress-Test
 TEST(ExgenMallocThreading, SingleThreadStressTest) {
     ace::families::a18_exgen_malloc::ExgenMallocAdapter<> alloc;
     for (int i = 0; i < 10000; ++i) {
         std::size_t const size = 16 + (i % 240);
-        void* p = alloc.raw_allocate(size, 16);
+        void*             p    = alloc.raw_allocate(size, 16);
         ASSERT_NE(p, nullptr);
         alloc.raw_deallocate(p, size, 16);
     }
@@ -250,9 +269,9 @@ TEST(ExgenMallocThreading, SingleThreadStressTest) {
     EXPECT_EQ(stats.allocation_count, 10000u);
     EXPECT_EQ(stats.allocation_count, stats.deallocation_count);
 }
-DEFINE_THREADING_TEST(BuddyThreading,        ace::families::a19_buddy::BuddyAdapter<>)
-DEFINE_THREADING_TEST(DlmallocThreading,     ace::families::a20_dlmalloc::DlmallocAdapter<>)
-DEFINE_THREADING_TEST(Ptmalloc2Threading,    ace::families::a21_ptmalloc2::Ptmalloc2Adapter<>)
+DEFINE_THREADING_TEST(BuddyThreading, ace::families::a19_buddy::BuddyAdapter<>)
+DEFINE_THREADING_TEST(DlmallocThreading, ace::families::a20_dlmalloc::DlmallocAdapter<>)
+DEFINE_THREADING_TEST(Ptmalloc2Threading, ace::families::a21_ptmalloc2::Ptmalloc2Adapter<>)
 DEFINE_THREADING_TEST(VmemMagazinesThreading, ace::families::a23_vmem_magazines::VmemMagazinesAdapter<>)
 
 #undef DEFINE_THREADING_TEST
@@ -263,9 +282,9 @@ DEFINE_THREADING_TEST(VmemMagazinesThreading, ace::families::a23_vmem_magazines:
 
 TEST(SlabAdapter, ColoringRotates) {
     ace::families::a02_slab::SlabAdapter<> alloc;
-    std::size_t color_a = alloc.current_color();
-    auto* p = alloc.raw_allocate(64, 8);
-    EXPECT_NE(alloc.current_color(), color_a);  // sollte rotiert sein
+    std::size_t                            color_a = alloc.current_color();
+    auto*                                  p       = alloc.raw_allocate(64, 8);
+    EXPECT_NE(alloc.current_color(), color_a); // sollte rotiert sein
     alloc.raw_deallocate(p, 64, 8);
 }
 
@@ -277,9 +296,9 @@ TEST(MichaelAdapter, LockFreeAndAsyncSignalSafe) {
 
 TEST(MichaelAdapter, AbaTagIncrements) {
     ace::families::a03_michael_lockfree::MichaelLockFreeAdapter<> alloc;
-    auto t0 = alloc.aba_tag();
-    auto* p = alloc.raw_allocate(64, 8);
-    auto t1 = alloc.aba_tag();
+    auto                                                          t0 = alloc.aba_tag();
+    auto*                                                         p  = alloc.raw_allocate(64, 8);
+    auto                                                          t1 = alloc.aba_tag();
     EXPECT_GT(t1, t0);
     alloc.raw_deallocate(p, 64, 8);
     auto t2 = alloc.aba_tag();
@@ -294,10 +313,10 @@ TEST(JemallocAdapter, ArenaCountAuto) {
 TEST(JemallocAdapter, SizeTierClassification) {
     ace::families::a05_jemalloc::JemallocAdapter<> alloc;
     using ST = ace::families::a05_jemalloc::JemallocAdapter<>::SizeTier;
-    EXPECT_EQ(alloc.classify_size(8),       ST::Tiny);
-    EXPECT_EQ(alloc.classify_size(64),      ST::Quantum);
-    EXPECT_EQ(alloc.classify_size(1024),    ST::Subpage);
-    EXPECT_EQ(alloc.classify_size(8192),    ST::Large);
+    EXPECT_EQ(alloc.classify_size(8), ST::Tiny);
+    EXPECT_EQ(alloc.classify_size(64), ST::Quantum);
+    EXPECT_EQ(alloc.classify_size(1024), ST::Subpage);
+    EXPECT_EQ(alloc.classify_size(8192), ST::Large);
     EXPECT_EQ(alloc.classify_size(4 * 1024 * 1024), ST::Huge);
 }
 
@@ -317,7 +336,7 @@ TEST(LRMallocAdapter, ThreadCacheHitsCounter) {
 
 TEST(BuddyAdapter, MinOrderEnforced) {
     ace::families::a19_buddy::BuddyAdapter<> alloc;
-    auto* p = alloc.raw_allocate(8, 8);   // < 2^min_order=64
+    auto*                                    p = alloc.raw_allocate(8, 8); // < 2^min_order=64
     ASSERT_NE(p, nullptr);
     auto stats = alloc.statistics();
     EXPECT_GE(stats.total_bytes_allocated, 64u);
@@ -356,9 +375,9 @@ TEST(StressTest, TcmallocManyThreads) {
 
 TEST(ScallocAdapter, TreiberTagMonotonicallyIncreasing) {
     ace::families::a08_scalloc::ScallocAdapter<> alloc;
-    auto t0 = alloc.treiber_tag();
-    auto* p = alloc.raw_allocate(64, 8);
-    auto t1 = alloc.treiber_tag();
+    auto                                         t0 = alloc.treiber_tag();
+    auto*                                        p  = alloc.raw_allocate(64, 8);
+    auto                                         t1 = alloc.treiber_tag();
     EXPECT_GT(t1, t0);
     alloc.raw_deallocate(p, 64, 8);
     static_assert(ace::families::a08_scalloc::ScallocAdapter<>::is_lock_free);
@@ -366,8 +385,8 @@ TEST(ScallocAdapter, TreiberTagMonotonicallyIncreasing) {
 
 TEST(NumaAllocAdapter, OriginNodeStableForSameThread) {
     ace::families::a09_numalloc::NumaAllocAdapter<> alloc;
-    auto* p1 = alloc.raw_allocate(64, 8);
-    auto* p2 = alloc.raw_allocate(64, 8);
+    auto*                                           p1 = alloc.raw_allocate(64, 8);
+    auto*                                           p2 = alloc.raw_allocate(64, 8);
     EXPECT_GE(alloc.allocations_for_node(0) + alloc.allocations_for_node(1), 2u);
     alloc.raw_deallocate(p1, 64, 8);
     alloc.raw_deallocate(p2, 64, 8);
@@ -377,7 +396,7 @@ TEST(RpmallocAdapter, SimdAlignmentVariant) {
     ace::families::a10_rpmalloc::RpmallocParams params;
     params.enable_simd_alignment = true;
     ace::families::a10_rpmalloc::RpmallocAdapter<> alloc{params};
-    auto* p = alloc.raw_allocate(100, 16);
+    auto*                                          p = alloc.raw_allocate(100, 16);
     ASSERT_NE(p, nullptr);
     EXPECT_EQ(reinterpret_cast<std::uintptr_t>(p) % 32, 0u);
     alloc.raw_deallocate(p, 100, 16);
@@ -386,7 +405,7 @@ TEST(RpmallocAdapter, SimdAlignmentVariant) {
 
 TEST(CamaAdapter, CacheSetDirectedAllocation) {
     ace::families::a12_cama::CamaAdapter<> alloc;
-    auto* p1 = alloc.raw_allocate_for_set(128, 16, 5);
+    auto*                                  p1 = alloc.raw_allocate_for_set(128, 16, 5);
     EXPECT_EQ(alloc.last_target_set(), 5);
     auto* p2 = alloc.raw_allocate_for_set(128, 16, 17);
     EXPECT_EQ(alloc.last_target_set(), 17);
@@ -402,7 +421,7 @@ TEST(StarMallocAdapter, HardenedFeatures) {
     static_assert(ace::families::a13_starmalloc::StarMallocAdapter<>::is_drop_in_replacement);
 
     ace::families::a13_starmalloc::StarMallocAdapter<> alloc;
-    auto* p = alloc.raw_allocate(128, 16);
+    auto*                                              p = alloc.raw_allocate(128, 16);
     ASSERT_NE(p, nullptr);
     auto* bytes = static_cast<unsigned char*>(p);
     for (int i = 0; i < 128; ++i) EXPECT_EQ(bytes[i], 0);
@@ -411,8 +430,8 @@ TEST(StarMallocAdapter, HardenedFeatures) {
 
 TEST(TcmallocWarehouseAdapter, LifetimeAwareSpanList) {
     ace::families::a14_tcmalloc_warehouse::TcmallocWarehouseAdapter<> alloc;
-    auto* p_long  = alloc.raw_allocate(1024, 16);
-    auto* p_short = alloc.raw_allocate(8, 8);
+    auto*                                                             p_long  = alloc.raw_allocate(1024, 16);
+    auto*                                                             p_short = alloc.raw_allocate(8, 8);
     EXPECT_GT(alloc.allocations_for_list(0), 0u);
     EXPECT_GT(alloc.allocations_for_list(7), 0u);
     alloc.raw_deallocate(p_long, 1024, 16);
@@ -436,7 +455,7 @@ TEST(PimMallocAdapter, FuturePlatformMarker) {
     static_assert(ace::families::a16_pim_malloc::PimMallocAdapter<>::requires_pim_hardware);
     static_assert(ace::families::a16_pim_malloc::PimMallocAdapter<>::is_future_platform);
     ace::families::a16_pim_malloc::PimMallocAdapter<> alloc;
-    auto* p = alloc.raw_allocate(64, 8);
+    auto*                                             p = alloc.raw_allocate(64, 8);
     EXPECT_EQ(alloc.pim_local_count(), 1u);
     alloc.raw_deallocate(p, 64, 8);
 }
@@ -448,7 +467,7 @@ TEST(CrystallineAdapter, WaitFreeReclamationProperties) {
     static_assert(ace::families::a17_crystalline::CrystallineAdapter<>::is_async_signal_safe);
 
     ace::families::a17_crystalline::CrystallineAdapter<> alloc;
-    auto* p = alloc.raw_allocate(64, 8);
+    auto*                                                p = alloc.raw_allocate(64, 8);
     alloc.raw_deallocate(p, 64, 8);
     EXPECT_EQ(alloc.retired_count(), 1u);
 }
@@ -458,16 +477,16 @@ TEST(ExgenMallocAdapter, EightByteFineGrainedSizeClasses) {
     static_assert(ace::families::a18_exgen_malloc::ExgenMallocAdapter<>::has_metadata_compaction);
 
     ace::families::a18_exgen_malloc::ExgenMallocAdapter<> alloc;
-    auto* p = alloc.raw_allocate(13, 8);
-    auto stats = alloc.statistics();
+    auto*                                                 p     = alloc.raw_allocate(13, 8);
+    auto                                                  stats = alloc.statistics();
     EXPECT_GE(stats.total_bytes_allocated, 16u);
     alloc.raw_deallocate(p, 13, 8);
 }
 
 TEST(Ptmalloc2Adapter, BinClassificationCorrect) {
     ace::families::a21_ptmalloc2::Ptmalloc2Adapter<> alloc;
-    auto* p_tcache  = alloc.raw_allocate(64, 8);
-    auto* p_large    = alloc.raw_allocate(8192, 16);
+    auto*                                            p_tcache = alloc.raw_allocate(64, 8);
+    auto*                                            p_large  = alloc.raw_allocate(8192, 16);
     EXPECT_EQ(alloc.tcache_count(), 1u);
     EXPECT_EQ(alloc.largebin_count(), 1u);
     alloc.raw_deallocate(p_tcache, 64, 8);
@@ -481,7 +500,7 @@ TEST(PmrResourceAdapter, AllVariantsWork) {
         PmrParams p;
         p.variant = PmrVariant::NewDelete;
         PmrResourceAdapter<> alloc{p};
-        auto* ptr = alloc.raw_allocate(64, 16);
+        auto*                ptr = alloc.raw_allocate(64, 16);
         ASSERT_NE(ptr, nullptr);
         alloc.raw_deallocate(ptr, 64, 16);
     }
@@ -489,7 +508,7 @@ TEST(PmrResourceAdapter, AllVariantsWork) {
         PmrParams p;
         p.variant = PmrVariant::SynchronizedPool;
         PmrResourceAdapter<> alloc{p};
-        auto* ptr = alloc.raw_allocate(128, 16);
+        auto*                ptr = alloc.raw_allocate(128, 16);
         ASSERT_NE(ptr, nullptr);
         alloc.raw_deallocate(ptr, 128, 16);
     }
@@ -497,7 +516,7 @@ TEST(PmrResourceAdapter, AllVariantsWork) {
         PmrParams p;
         p.variant = PmrVariant::MonotonicBuffer;
         PmrResourceAdapter<> alloc{p};
-        auto* ptr = alloc.raw_allocate(256, 16);
+        auto*                ptr = alloc.raw_allocate(256, 16);
         ASSERT_NE(ptr, nullptr);
         alloc.raw_deallocate(ptr, 256, 16);
     }
@@ -505,7 +524,7 @@ TEST(PmrResourceAdapter, AllVariantsWork) {
 
 TEST(VmemMagazinesAdapter, AdaptiveMagazineResize) {
     ace::families::a23_vmem_magazines::VmemMagazinesAdapter<> alloc;
-    auto initial_size = alloc.current_magazine_size();
+    auto                                                      initial_size = alloc.current_magazine_size();
     alloc.trigger_magazine_resize_up();
     auto resized = alloc.current_magazine_size();
     EXPECT_GT(resized, initial_size);
@@ -515,7 +534,7 @@ TEST(VmemMagazinesAdapter, AdaptiveMagazineResize) {
 
 TEST(VmemMagazinesAdapter, FreelistIndexLog2Power2) {
     ace::families::a23_vmem_magazines::VmemMagazinesAdapter<> alloc;
-    auto* p = alloc.raw_allocate(100, 8);
+    auto*                                                     p = alloc.raw_allocate(100, 8);
     EXPECT_EQ(alloc.last_freelist_index(), 7);
     auto stats = alloc.statistics();
     EXPECT_GE(stats.total_bytes_allocated, 128u);

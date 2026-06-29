@@ -25,15 +25,13 @@ namespace comdare::measurement::dataset_loader::loaders {
 /// Liest uint64-Schluessel (eine pro Zeile) aus @p dataset_id (Dateipfad) -> Read-Operationen.
 class ExampleUint64KeyFileLoader final : public DatasetLoaderStrategy {
 public:
-    [[nodiscard]] std::optional<std::vector<wg::Operation>>
-    load(std::string_view dataset_id, std::uint64_t /*seed*/) override {
+    [[nodiscard]] std::optional<std::vector<wg::Operation>> load(std::string_view dataset_id,
+                                                                 std::uint64_t /*seed*/) override {
         std::ifstream in{std::string{dataset_id}};
         if (!in) return std::nullopt;
         std::vector<wg::Operation> ops;
-        std::uint64_t key{};
-        while (in >> key) {
-            ops.push_back(wg::Operation{wg::OperationKind::Read, key, 0});
-        }
+        std::uint64_t              key{};
+        while (in >> key) { ops.push_back(wg::Operation{wg::OperationKind::Read, key, 0}); }
         if (ops.empty()) return std::nullopt;
         return ops;
     }
@@ -45,9 +43,9 @@ public:
 
 /// Selbst-Registrierung beim Einbinden dieses Headers (inline-Variable -> ODR-gemerged, einmalig).
 inline const bool kExampleUint64KeyFileLoaderRegistered = [] {
-    DatasetLoaderRegistry::instance().register_loader(
-        "example_uint64_file", std::make_unique<ExampleUint64KeyFileLoader>());
+    DatasetLoaderRegistry::instance().register_loader("example_uint64_file",
+                                                      std::make_unique<ExampleUint64KeyFileLoader>());
     return true;
 }();
 
-}  // namespace comdare::measurement::dataset_loader::loaders
+} // namespace comdare::measurement::dataset_loader::loaders

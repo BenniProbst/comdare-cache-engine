@@ -12,4 +12,4 @@ struct ownership_tag {};
 // VH3: Versioning (none / version-tagged)
 struct versioning_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::value_handle_axis::subaxes

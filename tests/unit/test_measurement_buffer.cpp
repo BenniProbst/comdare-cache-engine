@@ -24,8 +24,8 @@ TEST(MeasurementRecord, Is32BytesAlignedAndPacked) {
 
 TEST(MeasurementRecord, FieldsAccessible) {
     cem::MeasurementRecord r{};
-    r.category = static_cast<std::uint8_t>(cem::MeasurementCategory::CLU);
-    r.algo_detail = static_cast<std::uint16_t>(cem::AlgoDetail::ART_NODE256);
+    r.category     = static_cast<std::uint8_t>(cem::MeasurementCategory::CLU);
+    r.algo_detail  = static_cast<std::uint16_t>(cem::AlgoDetail::ART_NODE256);
     r.metric_value = 0.873;
     r.timestamp_ns = 1000;
     EXPECT_EQ(r.category, 0);
@@ -38,18 +38,17 @@ TEST(MeasurementRecord, FieldsAccessible) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(MeasurementCategory, SixteenCategoriesExist) {
-    EXPECT_EQ(static_cast<int>(cem::MeasurementCategory::CLU),                   0);
-    EXPECT_EQ(static_cast<int>(cem::MeasurementCategory::CACHE_MISS_L1),         1);
-    EXPECT_EQ(static_cast<int>(cem::MeasurementCategory::CACHE_MISS_L3),         3);
-    EXPECT_EQ(static_cast<int>(cem::MeasurementCategory::LATENCY_P999),         12);
-    EXPECT_EQ(static_cast<int>(cem::MeasurementCategory::FILL_BUFFER_OCCUPANCY),15);
+    EXPECT_EQ(static_cast<int>(cem::MeasurementCategory::CLU), 0);
+    EXPECT_EQ(static_cast<int>(cem::MeasurementCategory::CACHE_MISS_L1), 1);
+    EXPECT_EQ(static_cast<int>(cem::MeasurementCategory::CACHE_MISS_L3), 3);
+    EXPECT_EQ(static_cast<int>(cem::MeasurementCategory::LATENCY_P999), 12);
+    EXPECT_EQ(static_cast<int>(cem::MeasurementCategory::FILL_BUFFER_OCCUPANCY), 15);
 }
 
 TEST(AlgoDetail, PrtartTagsAreInDistinctRange) {
-    EXPECT_EQ(static_cast<int>(cem::AlgoDetail::PRTART_DENSEBYTE),    100);
+    EXPECT_EQ(static_cast<int>(cem::AlgoDetail::PRTART_DENSEBYTE), 100);
     EXPECT_EQ(static_cast<int>(cem::AlgoDetail::PRTART_CUSTOMCACHE), 104);
-    EXPECT_LT(static_cast<int>(cem::AlgoDetail::ART_NODE256),
-              static_cast<int>(cem::AlgoDetail::PRTART_DENSEBYTE));
+    EXPECT_LT(static_cast<int>(cem::AlgoDetail::ART_NODE256), static_cast<int>(cem::AlgoDetail::PRTART_DENSEBYTE));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -57,16 +56,16 @@ TEST(AlgoDetail, PrtartTagsAreInDistinctRange) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(ThreadArena, AppendIncrementsSizeAndBytes) {
-    cem::ThreadArena arena{std::this_thread::get_id()};
+    cem::ThreadArena       arena{std::this_thread::get_id()};
     cem::MeasurementRecord r{};
     arena.append(r);
     arena.append(r);
     EXPECT_EQ(arena.size(), 2u);
-    EXPECT_EQ(arena.bytes(), 64u);    // 2 * 32 Byte
+    EXPECT_EQ(arena.bytes(), 64u); // 2 * 32 Byte
 }
 
 TEST(ThreadArena, ResetClearsRecords) {
-    cem::ThreadArena arena{std::this_thread::get_id()};
+    cem::ThreadArena       arena{std::this_thread::get_id()};
     cem::MeasurementRecord r{};
     arena.append(r);
     arena.reset();
@@ -86,17 +85,17 @@ TEST(InMemoryMeasurementBuffer, EmptyBufferTotalIsZero) {
 
 TEST(InMemoryMeasurementBuffer, AppendIncreasesTotal) {
     cem::InMemoryMeasurementBuffer buf;
-    cem::MeasurementRecord r{};
+    cem::MeasurementRecord         r{};
     buf.append_record(r);
     buf.append_record(r);
     buf.append_record(r);
     EXPECT_EQ(buf.total_records(), 3u);
-    EXPECT_EQ(buf.arena_count(), 1u);  // alle in dieser Thread-Arena
+    EXPECT_EQ(buf.arena_count(), 1u); // alle in dieser Thread-Arena
 }
 
 TEST(InMemoryMeasurementBuffer, ResetForRunClearsArenas) {
     cem::InMemoryMeasurementBuffer buf;
-    cem::MeasurementRecord r{};
+    cem::MeasurementRecord         r{};
     buf.append_record(r);
     buf.reset_for_run(42);
     EXPECT_EQ(buf.total_records(), 0u);
@@ -139,8 +138,7 @@ TEST(MeasureTemplate, LatencyMeanTemplateAcceptsAnyDetail) {
     cem::Context ctx{};
     ctx.lookup_start_ns = 100;
     ctx.lookup_end_ns   = 250;
-    using M = cem::Measure<cem::MeasurementCategory::LATENCY_MEAN,
-                           cem::AlgoDetail::HOT_COMPOUND_K32>;
+    using M             = cem::Measure<cem::MeasurementCategory::LATENCY_MEAN, cem::AlgoDetail::HOT_COMPOUND_K32>;
     EXPECT_DOUBLE_EQ(M::extract(ctx), 150.0);
 }
 
@@ -155,11 +153,11 @@ TEST(MeasurementHooks, ContinuousAlwaysRecords) {
 
 TEST(MeasurementHooks, SampledOnlyEveryNth) {
     cem::MeasurementHooks h{cem::MeasurementTrigger::SAMPLED_1_N, 5};
-    int hits = 0;
+    int                   hits = 0;
     for (int i = 0; i < 25; ++i) {
         if (h.should_record()) ++hits;
     }
-    EXPECT_EQ(hits, 5);     // jeder 5. von 25 → 5 Hits
+    EXPECT_EQ(hits, 5); // jeder 5. von 25 → 5 Hits
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

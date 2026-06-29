@@ -53,23 +53,24 @@ namespace comdare::cache_engine::compositions {
 /// Dieses Organ ist der Pruefling-Slot-Wert, den die SOTA-Reihen B/C in eine Host-Komposition einsetzen
 /// (pruefling_merge::MergeAxis path_compression-Achse). Bare (nicht observable-gehüllt), damit es
 /// PathCompressionStrategy (compression_ratio()) erfüllt — der abi_adapter verlangt das Konzept im Slot.
-using PrtArtPathCompressionOrgan =
-    nodes::axis_02_path_compression::PatriciaPathCompression;
+using PrtArtPathCompressionOrgan = nodes::axis_02_path_compression::PatriciaPathCompression;
 
 /// PrtArtComposition — PRT-ART als 19-Achsen-Komposition (Reihe-A Stufe1: das Prüfling-Lebewesen isoliert).
 /// = ArtComposition mit path_compression = PrtArtPathCompressionOrgan (Redirect/Patricia statt None).
 struct PrtArtComposition {
-    using search_algo        = traversal::axis_03a_search_algo::composable::ObservableArtTrieOrgan;
-    using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
-    using mapping            = traversal::axis_03m_mapping::DirectPlacement;
-    using path_compression   = PrtArtPathCompressionOrgan;   // ← der PRT-Redirect-Slot (das „R" in PRT-ART)
-    using node_type          = nodes::axis_04_node_type::ObservableNodeType<nodes::axis_04_node_type::Node256NodeType>;
-    using memory_layout      = memory_layout::axis_05_memory_layout::ObservableMemoryLayout<memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout>;
-    using allocator          = allocator::axis_06_allocator::MimallocAllocator;
-    using prefetch           = prefetch::axis_07_prefetch::NonePrefetch;
-    using concurrency        = concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
-    using serialization      = serialization::axis_10_serialization::ObservableSerialization<serialization::axis_10_serialization::RawBinarySerialization>;
-    using telemetry          = telemetry::axis_11_telemetry::ObservableTelemetry<telemetry::axis_11_telemetry::LeafOnlyCounter>;
+    using search_algo      = traversal::axis_03a_search_algo::composable::ObservableArtTrieOrgan;
+    using cache_traversal  = traversal::axis_03b_cache_traversal::LinearFanout;
+    using mapping          = traversal::axis_03m_mapping::DirectPlacement;
+    using path_compression = PrtArtPathCompressionOrgan; // ← der PRT-Redirect-Slot (das „R" in PRT-ART)
+    using node_type        = nodes::axis_04_node_type::ObservableNodeType<nodes::axis_04_node_type::Node256NodeType>;
+    using memory_layout    = memory_layout::axis_05_memory_layout::ObservableMemoryLayout<
+        memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout>;
+    using allocator     = allocator::axis_06_allocator::MimallocAllocator;
+    using prefetch      = prefetch::axis_07_prefetch::NonePrefetch;
+    using concurrency   = concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
+    using serialization = serialization::axis_10_serialization::ObservableSerialization<
+        serialization::axis_10_serialization::RawBinarySerialization>;
+    using telemetry = telemetry::axis_11_telemetry::ObservableTelemetry<telemetry::axis_11_telemetry::LeafOnlyCounter>;
     using value_handle       = value_handle::axis_14_value_handle::InlineValueHandle;
     using isa                = hardware::axis_09_isa::Amd64Isa;
     using index_organization = search_engine::axis_01_index_organization::IotIndexOrganization;
@@ -79,13 +80,13 @@ struct PrtArtComposition {
     using queuing_q1         = queuing::axis_q1_queuing::NoBuffer;
     using queuing_q2         = queuing::axis_q2_queuing::LazyFlush;
 
-    static constexpr std::string_view paper_id    = "PRT Probst Redirect Tree (ART-basiert)";
-    static constexpr std::string_view paper_title = "Probst Redirect Tree — ART trie with collapsed-remainder-path (Patricia) redirect organ";
-    static constexpr std::string_view name        = "PrtArtComposition";
+    static constexpr std::string_view paper_id = "PRT Probst Redirect Tree (ART-basiert)";
+    static constexpr std::string_view paper_title =
+        "Probst Redirect Tree — ART trie with collapsed-remainder-path (Patricia) redirect organ";
+    static constexpr std::string_view name = "PrtArtComposition";
 
-    COMDARE_DEFINE_COMPOSITION_LOCATION(
-        "::comdare::cache_engine::compositions::PrtArtComposition",
-        "compositions/prt_art_reference.hpp");
+    COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::PrtArtComposition",
+                                        "compositions/prt_art_reference.hpp");
 };
 
-}  // namespace comdare::cache_engine::compositions
+} // namespace comdare::cache_engine::compositions

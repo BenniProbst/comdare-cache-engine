@@ -18,9 +18,9 @@
 // COMDARE_SOTA_DEFS fuer den DLL-Bau). KEIN 320-Voll-Bau — nur die ~16 vertieften-Achsen-Materialisierungen +
 // genau >=2 reale cl-DLLs (Klein-Pilot).
 
-#include "source_catalog.hpp"   // axis_sweep_source_map / axis_sweep_levels / is_deepened_axis / make_all_axis_sweeps_source_map
-#include "sota_catalog.hpp"     // render_sota_module_source (DRY: gleiche Modul-.cpp-Form ist hier NICHT noetig — wir
-                                //   bauen die Sweep-Quelle direkt aus der Map, s.u.)
+#include "source_catalog.hpp" // axis_sweep_source_map / axis_sweep_levels / is_deepened_axis / make_all_axis_sweeps_source_map
+#include "sota_catalog.hpp" // render_sota_module_source (DRY: gleiche Modul-.cpp-Form ist hier NICHT noetig — wir
+                            //   bauen die Sweep-Quelle direkt aus der Map, s.u.)
 
 #include <cstdlib>
 #include <filesystem>
@@ -33,7 +33,7 @@
 namespace tlz = comdare::cache_engine::thesis_lazy;
 namespace fs  = std::filesystem;
 
-static int g_fail = 0;
+static int  g_fail = 0;
 static void check(char const* what, bool ok) {
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << "\n";
     if (!ok) ++g_fail;
@@ -41,7 +41,7 @@ static void check(char const* what, bool ok) {
 
 static std::string load_golden0(fs::path const& p) {
     std::ifstream f{p};
-    std::string line;
+    std::string   line;
     while (std::getline(f, line)) {
         while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) line.pop_back();
         if (line.empty() || line[0] == '#') continue;
@@ -52,10 +52,16 @@ static std::string load_golden0(fs::path const& p) {
 
 static std::vector<std::string> split_env(char const* name, char sep) {
     std::vector<std::string> out;
-    char const* e = std::getenv(name);
+    char const*              e = std::getenv(name);
     if (e == nullptr) return out;
     std::string s = e, cur;
-    for (char c : s) { if (c == sep) { if (!cur.empty()) out.push_back(cur); cur.clear(); } else cur += c; }
+    for (char c : s) {
+        if (c == sep) {
+            if (!cur.empty()) out.push_back(cur);
+            cur.clear();
+        } else
+            cur += c;
+    }
     if (!cur.empty()) out.push_back(cur);
     return out;
 }
@@ -65,7 +71,10 @@ static std::vector<std::string> split_env(char const* name, char sep) {
 static bool build_one_dll(std::string const& module_source, fs::path const& work, std::string const& stem,
                           std::vector<std::string> const& defs, std::vector<std::string> const& incs) {
     fs::path const src = work / (stem + ".cpp");
-    { std::ofstream s{src, std::ios::trunc}; s << module_source; }
+    {
+        std::ofstream s{src, std::ios::trunc};
+        s << module_source;
+    }
     fs::path const dll = work / (stem + ".dll");
     fs::path const rsp = work / (stem + ".rsp");
     fs::path const log = work / (stem + ".cl.log");
@@ -78,17 +87,18 @@ static bool build_one_dll(std::string const& module_source, fs::path const& work
         rf << "/Fe:\"" << dll.string() << "\"\n";
         rf << "/Fo:\"" << dll.string() << ".obj\"\n";
     }
-    std::error_code ec; fs::remove(dll, ec);
+    std::error_code ec;
+    fs::remove(dll, ec);
     std::string const cmd = "cl @\"" + rsp.string() + "\" > \"" + log.string() + "\" 2>&1";
     std::system(cmd.c_str());
     bool const ok = fs::exists(dll);
     if (ok) {
-        std::cout << "       real-DLL gebaut: " << dll.filename().string()
-                  << " (" << fs::file_size(dll) << " bytes)\n";
+        std::cout << "       real-DLL gebaut: " << dll.filename().string() << " (" << fs::file_size(dll) << " bytes)\n";
     } else {
         std::cout << "       BUILD-FEHLER (" << stem << ") — Log-Tail:\n";
-        std::ifstream lf{log};
-        std::vector<std::string> lines; std::string ln;
+        std::ifstream            lf{log};
+        std::vector<std::string> lines;
+        std::string              ln;
         while (std::getline(lf, ln)) lines.push_back(ln);
         for (std::size_t i = (lines.size() > 14 ? lines.size() - 14 : 0); i < lines.size(); ++i)
             std::cout << "         " << lines[i] << "\n";
@@ -97,18 +107,23 @@ static bool build_one_dll(std::string const& module_source, fs::path const& work
 }
 
 int main(int argc, char** argv) {
-    fs::path const golden = (argc >= 2) ? fs::path(argv[1])
-        : (fs::path("tests") / "unit" / "thesis_tiere" / "golden_fullpilot_320_binary_ids.txt");
-    fs::path const work = (argc >= 3) ? fs::path(argv[2]) : fs::temp_directory_path() / "comdare_axis_sweep_pilot";
+    fs::path const golden = (argc >= 2)
+                                ? fs::path(argv[1])
+                                : (fs::path("tests") / "unit" / "thesis_tiere" / "golden_fullpilot_320_binary_ids.txt");
+    fs::path const work   = (argc >= 3) ? fs::path(argv[2]) : fs::temp_directory_path() / "comdare_axis_sweep_pilot";
     fs::create_directories(work);
     std::cout << "Golden: " << golden.string() << "\nWork:   " << work.string() << "\n";
 
     // ── (C) je vertiefte Achse die KLEINE Sweep-Source-Map (kein Compile-Explosion) ──
-    struct AxisExp { char const* axis; std::size_t expect; char const* probe_val; };
+    struct AxisExp {
+        char const* axis;
+        std::size_t expect;
+        char const* probe_val;
+    };
     std::vector<AxisExp> const axes = {
         {"migration_policy", 4, "migration_policy=migration_hot_cold"},
-        {"filter",           4, "filter=filter_cuckoo"},
-        {"value_handle",     5, "value_handle=value_handle_external_pool"},
+        {"filter", 4, "filter=filter_cuckoo"},
+        {"value_handle", 5, "value_handle=value_handle_external_pool"},
         {"path_compression", 3, "path_compression=path_compression_patricia"},
     };
     std::cout << "\n--- (C) per-Achse Sweep-Source-Maps (klein, KEIN Compile-Explosion) ---\n";
@@ -117,28 +132,30 @@ int main(int argc, char** argv) {
         check(("is_deepened_axis(" + std::string{ax.axis} + ")").c_str(), tlz::is_deepened_axis(ax.axis));
         auto m = tlz::axis_sweep_source_map(ax.axis);
         total_entries += m.size();
-        std::cout << "  axis=" << ax.axis << " sweep-map-eintraege=" << m.size()
-                  << " (erwartet " << ax.expect << ")\n";
-        check((std::string{ax.axis} + ": sweep-map hat genau |Auspraegungen| Eintraege").c_str(), m.size() == ax.expect);
+        std::cout << "  axis=" << ax.axis << " sweep-map-eintraege=" << m.size() << " (erwartet " << ax.expect << ")\n";
+        check((std::string{ax.axis} + ": sweep-map hat genau |Auspraegungen| Eintraege").c_str(),
+              m.size() == ax.expect);
         check((std::string{ax.axis} + ": >=2 distinkte Auspraegungen (sweep-faehig)").c_str(), m.size() >= 2);
         // die variierte Probe-Auspraegung ist im Schluessel-Raum vorhanden (distinkt zur Baseline).
         bool found_probe = false, found_baseline = false;
         for (auto const& [k, v] : m) {
             if (k.find(ax.probe_val) != std::string::npos) found_probe = true;
-            if (k.find("migration_policy=migration_none") != std::string::npos
-                && k.find("filter=filter_bloom") != std::string::npos
-                && k.find("value_handle=value_handle_inline") != std::string::npos
-                && k.find("path_compression=path_compression_none") != std::string::npos) found_baseline = true;
+            if (k.find("migration_policy=migration_none") != std::string::npos &&
+                k.find("filter=filter_bloom") != std::string::npos &&
+                k.find("value_handle=value_handle_inline") != std::string::npos &&
+                k.find("path_compression=path_compression_none") != std::string::npos)
+                found_baseline = true;
             check((std::string{ax.axis} + ": Quelle ist reale Anatomie (COMDARE_DEFINE_ANATOMY_MODULE_ADHOC)").c_str(),
                   v.find("COMDARE_DEFINE_ANATOMY_MODULE_ADHOC") != std::string::npos);
-            break;  // 1 Quelle pruefen reicht (alle aus demselben Emitter)
+            break; // 1 Quelle pruefen reicht (alle aus demselben Emitter)
         }
         // Probe-/Baseline-Praesenz separat ueber die volle Map.
         for (auto const& [k, v] : m) {
             (void)v;
             if (k.find(ax.probe_val) != std::string::npos) found_probe = true;
         }
-        check((std::string{ax.axis} + ": variierte Auspraegung " + ax.probe_val + " ist im Sweep-Raum").c_str(), found_probe);
+        check((std::string{ax.axis} + ": variierte Auspraegung " + ax.probe_val + " ist im Sweep-Raum").c_str(),
+              found_probe);
     }
     std::cout << "  SUMME aller Sweep-Map-Eintraege = " << total_entries
               << " (KEIN 320-Kartesisch — Compile-Map klein)\n";
@@ -150,15 +167,21 @@ int main(int argc, char** argv) {
     check("migration-Sweep hat >=2 Eintraege", mig.size() >= 2);
     std::string none_id, hot_id, none_src, hot_src;
     for (auto const& [k, v] : mig) {
-        if (k.find("migration_policy=migration_none") != std::string::npos)     { none_id = k; none_src = v; }
-        if (k.find("migration_policy=migration_hot_cold") != std::string::npos) { hot_id = k;  hot_src = v; }
+        if (k.find("migration_policy=migration_none") != std::string::npos) {
+            none_id  = k;
+            none_src = v;
+        }
+        if (k.find("migration_policy=migration_hot_cold") != std::string::npos) {
+            hot_id  = k;
+            hot_src = v;
+        }
     }
-    check("migration_none-Auspraegung vorhanden",     !none_id.empty());
+    check("migration_none-Auspraegung vorhanden", !none_id.empty());
     check("migration_hot_cold-Auspraegung vorhanden", !hot_id.empty());
     check("none- und hot_cold-binary_id sind DISTINKT", !none_id.empty() && none_id != hot_id);
     check("none- und hot_cold-Quelltext sind DISTINKT (andere Anatomie)", !none_src.empty() && none_src != hot_src);
     std::cout << "  none binary_id    = " << none_id << "\n";
-    std::cout << "  hot_cold binary_id= " << hot_id  << "\n";
+    std::cout << "  hot_cold binary_id= " << hot_id << "\n";
 
     // ── (B) GOLDEN-STABIL: die migration_none-Baseline-Auspraegung == golden[0] (kein Basis-320-Drift) ──
     std::cout << "\n--- (B) Golden-Stabilitaet (Basis-320-Baseline unveraendert) ---\n";
@@ -167,9 +190,9 @@ int main(int argc, char** argv) {
     check("migration-Sweep-Baseline (none) == golden[0] (binary_id-Drift = 0)", none_id == golden0);
 
     // ── (D) REALER cl-BAU: >=2 distinkte migration-DLLs (HotCold + none) ──
-    std::vector<std::string> const defs = split_env("COMDARE_SOTA_DEFS", ';');
-    std::vector<std::string> const incs = split_env("COMDARE_PILOT_INCLUDES", ';');
-    bool const have_toolchain = !incs.empty();
+    std::vector<std::string> const defs           = split_env("COMDARE_SOTA_DEFS", ';');
+    std::vector<std::string> const incs           = split_env("COMDARE_PILOT_INCLUDES", ';');
+    bool const                     have_toolchain = !incs.empty();
     std::cout << "\n--- (D) REALER cl-Bau (>=2 distinkte migration-DLLs) ---\n";
     std::cout << "  cl-Includes (env COMDARE_PILOT_INCLUDES) = " << incs.size()
               << (have_toolchain ? "" : "  (LEER → nur Map-/Distinktheits-Beleg, KEIN cl-Bau)") << "\n";
@@ -180,7 +203,7 @@ int main(int argc, char** argv) {
         check("REALE migration_hot_cold-DLL via cl gebaut", ok_hot);
         if (ok_none && ok_hot) {
             fs::path const a = work / "sweep_mig_none.dll", b = work / "sweep_mig_hot_cold.dll";
-            bool const both = fs::exists(a) && fs::exists(b);
+            bool const     both = fs::exists(a) && fs::exists(b);
             check("ZWEI distinkte reale migration-DLLs existieren (HotCold != none)", both);
         }
     } else if (!have_toolchain) {

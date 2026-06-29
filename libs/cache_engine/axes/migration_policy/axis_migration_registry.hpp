@@ -15,19 +15,13 @@ namespace comdare::cache_engine::migration_policy {
 
 namespace mp = boost::mp11;
 
-using AllMigrations = mp::mp_list<
-    NoMigration,
-    HotColdMigration,
-    TierBasedMigration,
-    AdaptiveMigration
->;
+using AllMigrations = mp::mp_list<NoMigration, HotColdMigration, TierBasedMigration, AdaptiveMigration>;
 
 template <typename T>
 using is_enabled = mp::mp_bool<T::enabled>;
 
 using EnabledMigrations = mp::mp_filter<is_enabled, AllMigrations>;
 
-static_assert(mp::mp_size<EnabledMigrations>::value > 0,
-    "Axis Migration: at least one migration must be enabled");
+static_assert(mp::mp_size<EnabledMigrations>::value > 0, "Axis Migration: at least one migration must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::migration_policy

@@ -17,8 +17,7 @@ public:
     virtual ~ICoherenceEngine() = default;
 
     // Cost-Funktion (Block AN): f(node_depth, num_cores_sharing, cache_line_size)
-    [[nodiscard]] virtual double compute_coherence_cost(std::uint16_t node_depth,
-                                                        std::uint16_t num_cores_sharing,
+    [[nodiscard]] virtual double compute_coherence_cost(std::uint16_t node_depth, std::uint16_t num_cores_sharing,
                                                         std::uint16_t cache_line_size_bytes) const noexcept = 0;
 
     // Live-Beobachtung der Plattform
@@ -28,4 +27,4 @@ public:
     [[nodiscard]] virtual bool recommend_write_now(double cost_threshold) const noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::subsystems::coherence
+} // namespace comdare::cache_engine::subsystems::coherence

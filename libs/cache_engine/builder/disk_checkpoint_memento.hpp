@@ -25,12 +25,11 @@ namespace comdare::cache_engine::builder {
 /// lebt auf der Platte. Beweist: „einfacher Snapshot reicht NICHT", die Persistenz quert die Disk.
 class DiskCheckpointStore {
 public:
-    using memento_t = std::string;   ///< Pfad zur Checkpoint-Datei (Zustand liegt AUF DISK, nicht im Memento)
+    using memento_t = std::string; ///< Pfad zur Checkpoint-Datei (Zustand liegt AUF DISK, nicht im Memento)
 
-    explicit DiskCheckpointStore(std::filesystem::path checkpoint_file)
-        : ckpt_{std::move(checkpoint_file)} {}
+    explicit DiskCheckpointStore(std::filesystem::path checkpoint_file) : ckpt_{std::move(checkpoint_file)} {}
 
-    void          set(std::uint64_t v) noexcept { value_ = v; }
+    void                        set(std::uint64_t v) noexcept { value_ = v; }
     [[nodiscard]] std::uint64_t get() const noexcept { return value_; }
 
     /// Kapselt den Zustand auf DISK (Checkpoint-Datei) + liefert den Pfad. IO-Fehler → leerer Pfad (Robustheit).
@@ -58,4 +57,4 @@ private:
     std::uint64_t         value_ = 0;
 };
 
-}  // namespace comdare::cache_engine::builder
+} // namespace comdare::cache_engine::builder

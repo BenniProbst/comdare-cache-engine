@@ -19,22 +19,28 @@
 namespace ex = comdare::cache_engine::builder::experiment;
 
 static int g_fail = 0;
-void check_true(char const* what, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n"; if (!c) ++g_fail; }
+void       check_true(char const* what, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n";
+    if (!c) ++g_fail;
+}
 template <typename A, typename B>
 void check_eq(char const* what, A const& got, B const& want) {
     bool ok = (got == want);
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << " = " << got;
-    if (!ok) { std::cout << "  (erwartet: " << want << ")"; ++g_fail; }
+    if (!ok) {
+        std::cout << "  (erwartet: " << want << ")";
+        ++g_fail;
+    }
     std::cout << "\n";
 }
 
 static ex::ExperimentTree make_tree(std::shared_ptr<ex::ExperimentNodeFactory> const& f) {
     ex::ExperimentTree t{f};
     t.build({
-        ex::AxisLevel{"traversal", {"ART"}, true, ""},                  // gepinnt
-        ex::AxisLevel{"node", {"N4", "N16", "N48", "N256"}, true, ""},  // freigegeben
-        ex::AxisLevel{"node.cl_line", {"64", "128"}, true, ""},         // statische cacheline-Sub-Ebene
-        ex::AxisLevel{"concurrency", {"1", "2", "4"}, false, "thread_count"},  // dynamisch (keine Binary)
+        ex::AxisLevel{"traversal", {"ART"}, true, ""},                        // gepinnt
+        ex::AxisLevel{"node", {"N4", "N16", "N48", "N256"}, true, ""},        // freigegeben
+        ex::AxisLevel{"node.cl_line", {"64", "128"}, true, ""},               // statische cacheline-Sub-Ebene
+        ex::AxisLevel{"concurrency", {"1", "2", "4"}, false, "thread_count"}, // dynamisch (keine Binary)
     });
     return t;
 }
@@ -43,42 +49,49 @@ int main() {
     // ── Teil 1: parallel_jobs-Mathematik (2 Kerne/Build, alle Kerne) ──
     check_eq("parallel_jobs(2 je Build, 16 Kerne)", (ex::BuildConfig{2, 16, {}, {}}).parallel_jobs(), std::size_t{8});
     check_eq("parallel_jobs(4 je Build, 16 Kerne)", (ex::BuildConfig{4, 16, {}, {}}).parallel_jobs(), std::size_t{4});
-    check_eq("parallel_jobs(2 je Build, 1 Kern → min 1)", (ex::BuildConfig{2, 1, {}, {}}).parallel_jobs(), std::size_t{1});
+    check_eq("parallel_jobs(2 je Build, 1 Kern → min 1)", (ex::BuildConfig{2, 1, {}, {}}).parallel_jobs(),
+             std::size_t{1});
     check_eq("parallel_jobs(0 je Build → wie 1)", (ex::BuildConfig{0, 8, {}, {}}).parallel_jobs(), std::size_t{8});
     check_true("effective_total(0) > 0 (Hardware-Concurrency)", (ex::BuildConfig{2, 0, {}, {}}).effective_total() > 0);
 
     // ── Teil 2: StaticBinaryView (indiziert + iterierbar) ──
-    auto factory = std::make_shared<ex::ExperimentNodeFactory>();
-    ex::ExperimentTree tree = make_tree(factory);
-    ex::StaticBinaryView view = tree.static_binary_view();
+    auto                 factory = std::make_shared<ex::ExperimentNodeFactory>();
+    ex::ExperimentTree   tree    = make_tree(factory);
+    ex::StaticBinaryView view    = tree.static_binary_view();
     check_eq("StaticBinaryView.size (1x4x2)", view.size(), std::size_t{8});
     check_eq("view[0].index", view[0].index, std::size_t{0});
     check_eq("view[0].binary_id", view[0].binary_id, std::string{"traversal=ART/node=N4/node.cl_line=64"});
     check_eq("view[0].axes (3 statische Ebenen)", view[0].axes.size(), std::size_t{3});
-    check_true("view[0].axes[0] == (traversal, ART)", view[0].axes[0] == std::make_pair(std::string{"traversal"}, std::string{"ART"}));
-    check_true("view[0].axes[2] == (node.cl_line, 64)", view[0].axes[2] == std::make_pair(std::string{"node.cl_line"}, std::string{"64"}));
+    check_true("view[0].axes[0] == (traversal, ART)",
+               view[0].axes[0] == std::make_pair(std::string{"traversal"}, std::string{"ART"}));
+    check_true("view[0].axes[2] == (node.cl_line, 64)",
+               view[0].axes[2] == std::make_pair(std::string{"node.cl_line"}, std::string{"64"}));
     // Indizes 0..7 lückenlos + Iteration
     {
-        std::size_t expect = 0; bool contiguous = true;
-        for (auto const& s : view) { if (s.index != expect++) contiguous = false; }
+        std::size_t expect     = 0;
+        bool        contiguous = true;
+        for (auto const& s : view) {
+            if (s.index != expect++) contiguous = false;
+        }
         check_true("Iterator: Indizes 0..7 lückenlos", contiguous && expect == 8);
     }
 
     std::filesystem::path const base = std::filesystem::temp_directory_path() / "comdare_kf16";
-    std::error_code ec; std::filesystem::remove_all(base, ec);
+    std::error_code             ec;
+    std::filesystem::remove_all(base, ec);
 
     // ── Teil 3: provision_all mit Stub-CompileFn — deterministische Orchestrierung ──
     {
-        std::array<std::atomic<int>, 8> built{};  // je Index genau 1×?
-        auto compile_stub = [&](ex::BuildJob const& j) -> int {
+        std::array<std::atomic<int>, 8> built{}; // je Index genau 1×?
+        auto                            compile_stub = [&](ex::BuildJob const& j) -> int {
             built[j.index].fetch_add(1);
-            std::this_thread::sleep_for(std::chrono::milliseconds(15));  // Überlappung erzwingen (Parallelität)
+            std::this_thread::sleep_for(std::chrono::milliseconds(15)); // Überlappung erzwingen (Parallelität)
             return 0;
         };
-        ex::BuildConfig cfg{2, 8, base / "src", base / "dll"};  // 8 Kerne / 2 = 4 parallele Jobs
-        ex::BuildOrchestrator orch{cfg, compile_stub, &ex::generate_perm_source};  // echte KF-8-Quellen
-        ex::BuildStats stats;
-        auto results = orch.provision_all(view, &stats);
+        ex::BuildConfig       cfg{2, 8, base / "src", base / "dll"};              // 8 Kerne / 2 = 4 parallele Jobs
+        ex::BuildOrchestrator orch{cfg, compile_stub, &ex::generate_perm_source}; // echte KF-8-Quellen
+        ex::BuildStats        stats;
+        auto                  results = orch.provision_all(view, &stats);
 
         check_eq("provision_all: Ergebnis-Zahl", results.size(), std::size_t{8});
         bool all_ok = true, indexed = true, once = true;
@@ -100,21 +113,21 @@ int main() {
         for (auto const& e : std::filesystem::directory_iterator(base / "src"))
             if (e.path().extension() == ".cpp") ++cpp;
         check_eq("perm_*.cpp auf Disk (je Binary)", cpp, std::size_t{8});
-        std::filesystem::path const sample =
-            (base / "src") / ("perm_" + ex::orch_sanitize(view[0].binary_id) + ".cpp");
+        std::filesystem::path const sample = (base / "src") / ("perm_" + ex::orch_sanitize(view[0].binary_id) + ".cpp");
         check_true("Quelle = echter KF-8-Source (comdare_perm_descriptor)", [&] {
-            std::ifstream f{sample}; std::string s((std::istreambuf_iterator<char>(f)), {});
+            std::ifstream f{sample};
+            std::string   s((std::istreambuf_iterator<char>(f)), {});
             return s.find("comdare_perm_descriptor") != std::string::npos;
         }());
     }
 
     // ── Teil 4: Fehler-Propagierung (CompileFn-Exit ≠ 0) ──
     {
-        auto compile_fail3 = [](ex::BuildJob const& j) -> int { return (j.index == 3) ? 7 : 0; };
-        ex::BuildConfig cfg{2, 4, base / "src2", base / "dll2"};
+        auto                  compile_fail3 = [](ex::BuildJob const& j) -> int { return (j.index == 3) ? 7 : 0; };
+        ex::BuildConfig       cfg{2, 4, base / "src2", base / "dll2"};
         ex::BuildOrchestrator orch{cfg, compile_fail3, [](std::string const&) { return std::string{"// stub\n"}; }};
-        ex::BuildStats stats;
-        auto results = orch.provision_all(view, &stats);
+        ex::BuildStats        stats;
+        auto                  results = orch.provision_all(view, &stats);
         check_eq("Fehler-Binary status", results[3].status, 7);
         check_true("Fehler-Binary !ok", !results[3].ok());
         check_eq("stats.failed", stats.failed, std::size_t{1});

@@ -31,16 +31,14 @@ namespace ee     = ::comdare::cache_engine::execution_engine;
 namespace loader = ::comdare::cache_engine::builder::anatomy_loader;
 
 #ifndef COMDARE_R5D3_PILOT_DIR
-  #error "COMDARE_R5D3_PILOT_DIR must be defined via CMake (target_compile_definitions)"
+#error "COMDARE_R5D3_PILOT_DIR must be defined via CMake (target_compile_definitions)"
 #endif
 
 namespace {
 
-[[nodiscard]] std::filesystem::path pilot_dir() {
-    return std::filesystem::path{COMDARE_R5D3_PILOT_DIR};
-}
+[[nodiscard]] std::filesystem::path pilot_dir() { return std::filesystem::path{COMDARE_R5D3_PILOT_DIR}; }
 
-}  // anonymous
+} // namespace
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §1 — Pilot-Verzeichnis existiert + enthaelt N DLLs
@@ -48,21 +46,17 @@ namespace {
 
 TEST(R5D3_MultiCodegen, PilotDirectoryExists) {
     auto const dir = pilot_dir();
-    EXPECT_TRUE(std::filesystem::is_directory(dir))
-        << "Pilot-Verzeichnis nicht gefunden: " << dir.string();
+    EXPECT_TRUE(std::filesystem::is_directory(dir)) << "Pilot-Verzeichnis nicht gefunden: " << dir.string();
 }
 
 TEST(R5D3_MultiCodegen, PilotDirectoryContainsExpectedDlls) {
-    auto const dir = pilot_dir();
-    auto const suffix = loader::AnatomyModuleLoader::platform_suffix();
-    std::size_t count = 0;
+    auto const  dir    = pilot_dir();
+    auto const  suffix = loader::AnatomyModuleLoader::platform_suffix();
+    std::size_t count  = 0;
     for (auto const& entry : std::filesystem::directory_iterator{dir}) {
         if (!entry.is_regular_file()) continue;
         auto const& p = entry.path();
-        if (p.filename().string().find("comdare_anatomy_perm_") == 0 &&
-            p.extension() == suffix) {
-            ++count;
-        }
+        if (p.filename().string().find("comdare_anatomy_perm_") == 0 && p.extension() == suffix) { ++count; }
     }
     EXPECT_EQ(count, 6u) << "Erwartet 6 anatomy-Pilot-DLLs in " << dir.string();
 }
@@ -73,13 +67,10 @@ TEST(R5D3_MultiCodegen, PilotDirectoryContainsExpectedDlls) {
 
 TEST(R5D3_MultiCodegen, LoadAllReturnsSixHandles) {
     std::vector<loader::AnatomyModuleHandle> handles;
-    int const status = loader::AnatomyModuleLoader::load_all(pilot_dir(), handles);
-    ASSERT_EQ(status, loader::status_ok)
-        << "load_all status: " << loader::status_name(status);
+    int const                                status = loader::AnatomyModuleLoader::load_all(pilot_dir(), handles);
+    ASSERT_EQ(status, loader::status_ok) << "load_all status: " << loader::status_name(status);
     EXPECT_EQ(handles.size(), 6u);
-    for (auto const& h : handles) {
-        EXPECT_TRUE(h.valid());
-    }
+    for (auto const& h : handles) { EXPECT_TRUE(h.valid()); }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,8 +79,7 @@ TEST(R5D3_MultiCodegen, LoadAllReturnsSixHandles) {
 
 TEST(R5D3_MultiCodegen, LoadAllProducesCorrectCompositionSet) {
     std::vector<loader::AnatomyModuleHandle> handles;
-    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles),
-              loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles), loader::status_ok);
     ASSERT_EQ(handles.size(), 6u);
 
     std::set<std::string> seen;
@@ -99,10 +89,10 @@ TEST(R5D3_MultiCodegen, LoadAllProducesCorrectCompositionSet) {
     }
 
     // V41.P2: alle 6 sezierten Organ-Compositions (search_algo = Observable-Organe, direktiven-konform).
-    EXPECT_TRUE(seen.contains("ArtComposition"))      << "ArtComposition fehlt im load_all-Set";
-    EXPECT_TRUE(seen.contains("HotComposition"))      << "HotComposition fehlt im load_all-Set";
-    EXPECT_TRUE(seen.contains("StartComposition"))    << "StartComposition fehlt im load_all-Set";
-    EXPECT_TRUE(seen.contains("SurfComposition"))     << "SurfComposition fehlt im load_all-Set";
+    EXPECT_TRUE(seen.contains("ArtComposition")) << "ArtComposition fehlt im load_all-Set";
+    EXPECT_TRUE(seen.contains("HotComposition")) << "HotComposition fehlt im load_all-Set";
+    EXPECT_TRUE(seen.contains("StartComposition")) << "StartComposition fehlt im load_all-Set";
+    EXPECT_TRUE(seen.contains("SurfComposition")) << "SurfComposition fehlt im load_all-Set";
     EXPECT_TRUE(seen.contains("WormholeComposition")) << "WormholeComposition fehlt im load_all-Set";
     EXPECT_TRUE(seen.contains("MasstreeComposition")) << "MasstreeComposition fehlt im load_all-Set";
 }
@@ -113,14 +103,13 @@ TEST(R5D3_MultiCodegen, LoadAllProducesCorrectCompositionSet) {
 
 TEST(R5D3_MultiCodegen, AllHandlesHaveSearchAlgorithmGenus) {
     std::vector<loader::AnatomyModuleHandle> handles;
-    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles),
-              loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles), loader::status_ok);
     ASSERT_EQ(handles.size(), 6u);
 
     for (auto& h : handles) {
         auto* a = h.anatomy();
         ASSERT_NE(a, nullptr);
-        EXPECT_EQ(a->genus(),       ana::AnatomyGenus::SearchAlgorithm);
+        EXPECT_EQ(a->genus(), ana::AnatomyGenus::SearchAlgorithm);
         EXPECT_EQ(a->organ_count(), 19u);
         EXPECT_EQ(a->engine_kind(), ee::ExecutionEngineKind::Anatomy);
     }
@@ -132,8 +121,7 @@ TEST(R5D3_MultiCodegen, AllHandlesHaveSearchAlgorithmGenus) {
 
 TEST(R5D3_MultiCodegen, LifecyclePerHandleIsIndependent) {
     std::vector<loader::AnatomyModuleHandle> handles;
-    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles),
-              loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles), loader::status_ok);
     ASSERT_EQ(handles.size(), 6u);
 
     // Alle warm_up
@@ -159,8 +147,7 @@ TEST(R5D3_MultiCodegen, LifecyclePerHandleIsIndependent) {
 
 TEST(R5D3_MultiCodegen, PolymorphicMeasurementLoopOverAllHandles) {
     std::vector<loader::AnatomyModuleHandle> handles;
-    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles),
-              loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load_all(pilot_dir(), handles), loader::status_ok);
 
     // Pattern: pro geladene Permutation eine Mess-Iteration (R5.F skeleton)
     std::vector<std::string_view> measured_compositions;

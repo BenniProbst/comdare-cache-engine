@@ -35,9 +35,8 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts {
  */
 template <typename B>
 concept BatchedInsertableStrategy =
-    BufferStrategy<B>
-    && requires(B b, std::span<typename B::element_type const> batch) {
-        { b.bulk_insert(batch) };  // darf werfen
+    BufferStrategy<B> && requires(B b, std::span<typename B::element_type const> batch) {
+        { b.bulk_insert(batch) }; // darf werfen
     };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts

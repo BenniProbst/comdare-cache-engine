@@ -21,7 +21,7 @@
 #include "axis_07_prefetch_subaxes_pf1_to_pf3.hpp"
 #include "concepts/axis_07_prefetch_cache_engine_permutation_concept.hpp"
 #include <axes/prefetch_axis/axis_07_prefetch_flags.hpp>
-#include "axis_07_prefetch_path_oriented_impl.hpp"  // V41.F.6.1.F.6 native Logik (prt-art-Migration)
+#include "axis_07_prefetch_path_oriented_impl.hpp" // V41.F.6.1.F.6 native Logik (prt-art-Migration)
 #include <topics/prefetch/concepts/topic_prefetch_concept.hpp>
 #include <cstddef>
 #include <cstdint>
@@ -42,23 +42,25 @@ public:
 
     static constexpr bool enabled = flags::path_oriented_enabled;
 
-    [[nodiscard]] static constexpr bool             is_active()    noexcept { return true; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "prefetch_path_oriented"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "PathOrientedPrefetch (PRT-ART trie-path bundle-prefetch)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "PATH_ORIENTED"; }
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return true; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "prefetch_path_oriented"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "PathOrientedPrefetch (PRT-ART trie-path bundle-prefetch)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "PATH_ORIENTED"; }
 
     // V41.F.6.1.F.6 — native Pfad-Tracking-Logik (prt-art REV 6 §5.17 + V11.1 Hot-Path).
     // Der Wrapper ist stateful: er verfolgt den aktiven Suchpfad und empfiehlt die naechste
     // Prefetch-Adresse. Forwarding auf die wiederverwendbare StrategyImpl.
-    using impl_type = impl::PathOrientedImpl;
+    using impl_type                               = impl::PathOrientedImpl;
     static constexpr std::size_t kMaxTrackedSlots = impl_type::kMaxTrackedSlots;
 
-    void enqueue(std::uint64_t addr)                              { tracker_.enqueue(addr); }
-    [[nodiscard]] std::uint64_t suggest_next() const noexcept     { return tracker_.suggest_next(); }
-    [[nodiscard]] std::uint64_t total_enqueued() const noexcept   { return tracker_.total_enqueued(); }
-    [[nodiscard]] std::size_t   queue_depth() const noexcept      { return tracker_.queue_depth(); }
+    void                        enqueue(std::uint64_t addr) { tracker_.enqueue(addr); }
+    [[nodiscard]] std::uint64_t suggest_next() const noexcept { return tracker_.suggest_next(); }
+    [[nodiscard]] std::uint64_t total_enqueued() const noexcept { return tracker_.total_enqueued(); }
+    [[nodiscard]] std::size_t   queue_depth() const noexcept { return tracker_.queue_depth(); }
     [[nodiscard]] std::vector<std::uint64_t> const& path() const noexcept { return tracker_.path(); }
-    void reset() noexcept                                         { tracker_.reset(); }
+    void                                            reset() noexcept { tracker_.reset(); }
     /// V11.1 Hot-Path-Hint aus rohen Schluessel-Bytes (z.B. binary_key_t aus SearchEngine-ABI).
     void note_hot_path_bytes(std::byte const* data, std::size_t bytes) noexcept {
         tracker_.note_hot_path_bytes(data, bytes);
@@ -69,9 +71,9 @@ private:
     impl_type tracker_{};
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::prefetch_axis
 
 namespace comdare::cache_engine::prefetch_axis {
-    static_assert(concepts::PrefetchStrategy<PathOrientedPrefetch>);
-    static_assert(concepts::CacheEnginePermutationStrategy<PathOrientedPrefetch>);
-}
+static_assert(concepts::PrefetchStrategy<PathOrientedPrefetch>);
+static_assert(concepts::CacheEnginePermutationStrategy<PathOrientedPrefetch>);
+} // namespace comdare::cache_engine::prefetch_axis

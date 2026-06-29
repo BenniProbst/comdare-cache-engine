@@ -8,15 +8,13 @@
 namespace comdare::cache_engine::path_compression::concepts {
 
 template <typename P>
-concept CacheEnginePermutationStrategy =
-    PathCompressionStrategy<P>
-    && requires {
-        typename P::axis_tag;
-        typename P::family_id;
-        { P::name() }         noexcept -> std::convertible_to<std::string_view>;
-        { P::family_name() }  noexcept -> std::convertible_to<std::string_view>;
-        { P::flag_suffix() }  noexcept -> std::convertible_to<std::string_view>;
-        { P::enabled }                 -> std::convertible_to<bool>;
-    };
+concept CacheEnginePermutationStrategy = PathCompressionStrategy<P> && requires {
+    typename P::axis_tag;
+    typename P::family_id;
+    { P::name() } noexcept -> std::convertible_to<std::string_view>;
+    { P::family_name() } noexcept -> std::convertible_to<std::string_view>;
+    { P::flag_suffix() } noexcept -> std::convertible_to<std::string_view>;
+    { P::enabled } -> std::convertible_to<bool>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::path_compression::concepts

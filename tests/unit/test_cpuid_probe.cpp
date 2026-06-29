@@ -18,9 +18,8 @@ TEST(CpuidProbe, VendorIsSensible) {
 
 #if defined(__x86_64__) || defined(_M_X64)
     // Auf x86_64 sollte Vendor entweder Intel oder AMD sein
-    EXPECT_TRUE(result.vendor == "GenuineIntel"
-             || result.vendor == "AuthenticAMD"
-             || result.vendor.find("Hygon") != std::string::npos)
+    EXPECT_TRUE(result.vendor == "GenuineIntel" || result.vendor == "AuthenticAMD" ||
+                result.vendor.find("Hygon") != std::string::npos)
         << "Unbekannter Vendor: " << result.vendor;
 #else
     // ARM/RISC-V: non-x86 Fallback
@@ -31,9 +30,7 @@ TEST(CpuidProbe, VendorIsSensible) {
 TEST(CpuidProbe, CacheLineBytesIsValid) {
     auto result = pp::probe_cpuid();
     // Erwartet: 64 (x86, ARM-Standard), 128 (Apple Silicon), 256 (A64FX)
-    EXPECT_TRUE(result.cache_line_bytes == 64
-             || result.cache_line_bytes == 128
-             || result.cache_line_bytes == 256)
+    EXPECT_TRUE(result.cache_line_bytes == 64 || result.cache_line_bytes == 128 || result.cache_line_bytes == 256)
         << "Unerwartete Cache-Line-Size: " << result.cache_line_bytes;
 }
 
@@ -48,15 +45,13 @@ TEST(CpuidProbe, BrandStringNonEmpty) {
 TEST(CpuidProbe, IntelAlderLakeHasAvx2NotAvx512) {
     auto result = pp::probe_cpuid();
 
-    if (result.brand_string.find("1270P") != std::string::npos
-     || result.brand_string.find("12th Gen") != std::string::npos
-     || result.brand_string.find("13th Gen") != std::string::npos
-     || result.brand_string.find("14th Gen") != std::string::npos) {
+    if (result.brand_string.find("1270P") != std::string::npos ||
+        result.brand_string.find("12th Gen") != std::string::npos ||
+        result.brand_string.find("13th Gen") != std::string::npos ||
+        result.brand_string.find("14th Gen") != std::string::npos) {
         // Alder Lake / Raptor Lake: AVX2 ja, AVX-512 nein (post-Microcode)
-        EXPECT_TRUE(result.has_avx2)
-            << "Intel Alder/Raptor Lake erwartet has_avx2=true";
-        EXPECT_FALSE(result.has_avx512f)
-            << "Intel Alder/Raptor Lake erwartet has_avx512f=false (post-Microcode)";
+        EXPECT_TRUE(result.has_avx2) << "Intel Alder/Raptor Lake erwartet has_avx2=true";
+        EXPECT_FALSE(result.has_avx512f) << "Intel Alder/Raptor Lake erwartet has_avx512f=false (post-Microcode)";
     }
 }
 #endif

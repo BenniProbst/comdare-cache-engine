@@ -9,7 +9,7 @@
 // Anfang. insert_into/erase_from halten die SORTIER-Invariante (delegieren an SortedBinaryTraversal);
 // nur die Lokalisierung in lookup_in unterscheidet sich → reine Organ-Austauschbarkeit.
 
-#include "composable_search.hpp"   // StorageOrgan-API + SortedBinaryTraversal (insert/erase-Delegation)
+#include "composable_search.hpp" // StorageOrgan-API + SortedBinaryTraversal (insert/erase-Delegation)
 
 #include <cstddef>
 #include <optional>
@@ -20,7 +20,7 @@ namespace comdare::cache_engine::lookup::composable {
 struct GallopingTraversalOrgan {
     template <class Store>
     static void insert_into(Store& s, typename Store::key_type k, typename Store::value_type v) {
-        SortedBinaryTraversal::template insert_into<Store>(s, k, v);   // Sortier-Invariante identisch
+        SortedBinaryTraversal::template insert_into<Store>(s, k, v); // Sortier-Invariante identisch
     }
     template <class Store>
     static bool erase_from(Store& s, typename Store::key_type k) {
@@ -31,25 +31,33 @@ struct GallopingTraversalOrgan {
         std::size_t const n = s.slot_count();
         if (n == 0) return std::nullopt;
         // Exponentielles Galoppieren: lo = letzte Position mit key < k, bound = erstes 2^i jenseits davon.
-        std::size_t lo = 0;
+        std::size_t lo    = 0;
         std::size_t bound = 1;
-        while (bound < n && s.key_at(bound) < k) { lo = bound; bound *= 2; }
+        while (bound < n && s.key_at(bound) < k) {
+            lo = bound;
+            bound *= 2;
+        }
         std::size_t hi = (bound < n) ? bound : (n - 1);
         // Binaere Verfeinerung im inklusiven Fenster [lo, hi].
         while (lo <= hi) {
-            std::size_t const m = lo + (hi - lo) / 2;
+            std::size_t const              m  = lo + (hi - lo) / 2;
             typename Store::key_type const km = s.key_at(m);
             if (km == k) return s.value_at(m);
-            if (km < k) { if (m == hi) break; lo = m + 1; }
-            else        { if (m == 0)  break; hi = m - 1; }
+            if (km < k) {
+                if (m == hi) break;
+                lo = m + 1;
+            } else {
+                if (m == 0) break;
+                hi = m - 1;
+            }
         }
         return std::nullopt;
     }
     /// GoF-Iterator (YCSB-E #214): der Store ist sortiert (insert/erase delegieren an SortedBinary) → der geordnete
     /// Range-Scan delegiert ebenfalls an SortedBinaryTraversal::scan_into (lower_bound + Walk, O(log n + scan_len)).
     template <class Store, class Sink>
-    static std::size_t scan_into(Store const& s, typename Store::key_type start_key,
-                                 std::size_t max_count, Sink&& sink) {
+    static std::size_t scan_into(Store const& s, typename Store::key_type start_key, std::size_t max_count,
+                                 Sink&& sink) {
         return SortedBinaryTraversal::template scan_into<Store>(s, start_key, max_count, std::forward<Sink>(sink));
     }
 };
@@ -58,4 +66,4 @@ struct GallopingTraversalOrgan {
 static_assert(TraversalOrgan<GallopingTraversalOrgan, RawSlotStore>);
 static_assert(ScannableTraversalOrgan<GallopingTraversalOrgan, RawSlotStore>);
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

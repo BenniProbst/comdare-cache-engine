@@ -25,28 +25,25 @@ concept TreeNodePool =
     requires {
         typename S::key_type;
         typename S::value_type;
-        { S::kNil } -> std::convertible_to<std::size_t>;   // Sentinel-Index ("kein Knoten")
-    }
-    && std::same_as<typename S::key_type, std::uint64_t>
-    && std::same_as<typename S::value_type, std::uint64_t>
-    && requires(S& s, S const& cs, std::size_t i,
-                typename S::key_type k, typename S::value_type v) {
+        { S::kNil } -> std::convertible_to<std::size_t>; // Sentinel-Index ("kein Knoten")
+    } && std::same_as<typename S::key_type, std::uint64_t> && std::same_as<typename S::value_type, std::uint64_t> &&
+    requires(S& s, S const& cs, std::size_t i, typename S::key_type k, typename S::value_type v) {
         // (A) const Inspektion — PFLICHT (auf `cs`, erzwingt const-Correctness)
-        { cs.root() }        -> std::convertible_to<std::size_t>;
-        { cs.node_count() }  -> std::convertible_to<std::size_t>;
-        { cs.node_key(i) }   -> std::same_as<typename S::key_type>;
+        { cs.root() } -> std::convertible_to<std::size_t>;
+        { cs.node_count() } -> std::convertible_to<std::size_t>;
+        { cs.node_key(i) } -> std::same_as<typename S::key_type>;
         { cs.node_value(i) } -> std::same_as<typename S::value_type>;
-        { cs.left(i) }       -> std::convertible_to<std::size_t>;
-        { cs.right(i) }      -> std::convertible_to<std::size_t>;
+        { cs.left(i) } -> std::convertible_to<std::size_t>;
+        { cs.right(i) } -> std::convertible_to<std::size_t>;
         // (B) Mutation — PFLICHT (auf `s`)
-        { s.allocate_node(k, v) } -> std::convertible_to<std::size_t>;   // darf werfen (kein noexcept)
-        { s.free_node(i) }        -> std::same_as<void>;
-        { s.set_node_key(i, k) }  -> std::same_as<void>;   // fuer Hibbard-Nachfolger-Kopie
-        { s.set_node_value(i, v) }-> std::same_as<void>;
-        { s.set_left(i, i) }      -> std::same_as<void>;
-        { s.set_right(i, i) }     -> std::same_as<void>;
-        { s.set_root(i) }         -> std::same_as<void>;
-        { s.clear() }             -> std::same_as<void>;
+        { s.allocate_node(k, v) } -> std::convertible_to<std::size_t>; // darf werfen (kein noexcept)
+        { s.free_node(i) } -> std::same_as<void>;
+        { s.set_node_key(i, k) } -> std::same_as<void>; // fuer Hibbard-Nachfolger-Kopie
+        { s.set_node_value(i, v) } -> std::same_as<void>;
+        { s.set_left(i, i) } -> std::same_as<void>;
+        { s.set_right(i, i) } -> std::same_as<void>;
+        { s.set_root(i) } -> std::same_as<void>;
+        { s.clear() } -> std::same_as<void>;
     };
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

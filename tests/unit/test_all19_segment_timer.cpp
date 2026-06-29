@@ -14,8 +14,8 @@
 #include <anatomy/abi_adapter.hpp>
 #include <anatomy/measurable_workload.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
-#include <anatomy/composition_factory.hpp>          // AdHocComposition (Layout-Variante)
-#include <builder/experiment_tree/cache_engine_builder_iterator.hpp>  // lazy_csv_header / format_csv_row / LazyMeasuredRow
+#include <anatomy/composition_factory.hpp>                           // AdHocComposition (Layout-Variante)
+#include <builder/experiment_tree/cache_engine_builder_iterator.hpp> // lazy_csv_header / format_csv_row / LazyMeasuredRow
 
 #include <compositions/art_reference.hpp>
 #include <compositions/hot_reference.hpp>
@@ -35,8 +35,11 @@ namespace comp = ::comdare::cache_engine::compositions;
 namespace ex   = ::comdare::cache_engine::builder::experiment;
 namespace ml   = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;
 
-static int g_fail = 0;
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+static int  g_fail = 0;
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 // Art-Variante: identisch zu ArtComposition, NUR memory_layout = aos_strict (Stride 48 statt CLA 64).
 struct ArtAosStrictComposition {
@@ -45,7 +48,7 @@ struct ArtAosStrictComposition {
     using mapping            = comp::ArtComposition::mapping;
     using path_compression   = comp::ArtComposition::path_compression;
     using node_type          = comp::ArtComposition::node_type;
-    using memory_layout      = ml::ObservableMemoryLayout<ml::AoSStrictMemoryLayout>;   // <-- abweichend
+    using memory_layout      = ml::ObservableMemoryLayout<ml::AoSStrictMemoryLayout>; // <-- abweichend
     using allocator          = comp::ArtComposition::allocator;
     using prefetch           = comp::ArtComposition::prefetch;
     using concurrency        = comp::ArtComposition::concurrency;
@@ -67,9 +70,10 @@ template <class C>
 static an::ComdareSegmentLatencyV2 measure19(char const* name, std::string& csv_out) {
     using Anatomy = an::SearchAlgorithmAnatomy<C>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
-    auto* v3 = dynamic_cast<an::IMeasurableWorkloadV3*>(static_cast<an::IAnatomyBase*>(&tier));
+    auto*                       v3 = dynamic_cast<an::IMeasurableWorkloadV3*>(static_cast<an::IAnatomyBase*>(&tier));
     an::ComdareSegmentLatencyV2 seg{};
-    std::uint64_t const n = (v3 != nullptr) ? v3->run_workload_segmented_v2(/*ops*/4000, /*batches*/16, /*seed*/0xC2u, &seg) : 0;
+    std::uint64_t const         n =
+        (v3 != nullptr) ? v3->run_workload_segmented_v2(/*ops*/ 4000, /*batches*/ 16, /*seed*/ 0xC2u, &seg) : 0;
 
     // Echte CSV-Zeile via format_csv_row (identisches Schema wie der E2E-Treiber).
     ex::LazyMeasuredRow row;
@@ -90,31 +94,36 @@ static an::ComdareSegmentLatencyV2 measure19(char const* name, std::string& csv_
 int main() {
     std::cout << "==== (X) per-Achsen-Timer auf ALLE 19 Achsen + Layout-Fix (in-process) ====\n";
 
-    std::string csv = ex::lazy_csv_header();
-    auto art  = measure19<comp::ArtComposition>("ArtComposition", csv);
-    auto hot  = measure19<comp::HotComposition>("HotComposition", csv);
-    auto mass = measure19<comp::MasstreeComposition>("MasstreeComposition", csv);
-    auto aos  = measure19<ArtAosStrictComposition>("ArtAosStrictComposition", csv);
+    std::string csv  = ex::lazy_csv_header();
+    auto        art  = measure19<comp::ArtComposition>("ArtComposition", csv);
+    auto        hot  = measure19<comp::HotComposition>("HotComposition", csv);
+    auto        mass = measure19<comp::MasstreeComposition>("MasstreeComposition", csv);
+    auto        aos  = measure19<ArtAosStrictComposition>("ArtAosStrictComposition", csv);
 
     // CSV nach build/thesis_tiere/all19_pilot.csv schreiben.
     char const* out_path = "build/thesis_tiere/all19_pilot.csv";
-    { std::ofstream f{out_path, std::ios::trunc}; if (f) f << csv; }
+    {
+        std::ofstream f{out_path, std::ios::trunc};
+        if (f) f << csv;
+    }
     std::cout << "CSV: " << out_path << "\n";
 
     // (1) ALLE 19 seg_*_ns > 0 bei jeder Komposition (kein n/a, kein 0).
     auto all19_pos = [](an::ComdareSegmentLatencyV2 const& s) {
         if (s.batches_measured == 0) return false;
-        for (int i = 0; i < 19; ++i) if (s.seg_ns[i] <= 0) return false;
+        for (int i = 0; i < 19; ++i)
+            if (s.seg_ns[i] <= 0) return false;
         return true;
     };
-    tr("Art: alle 19 seg_*_ns > 0",      all19_pos(art));
-    tr("Hot: alle 19 seg_*_ns > 0",      all19_pos(hot));
+    tr("Art: alle 19 seg_*_ns > 0", all19_pos(art));
+    tr("Hot: alle 19 seg_*_ns > 0", all19_pos(hot));
     tr("Masstree: alle 19 seg_*_ns > 0", all19_pos(mass));
     tr("ArtAosStrict: alle 19 seg_*_ns > 0", all19_pos(aos));
 
     // (2) plausible Variation: nicht alle 19 Segmente identisch (echte, achsen-spezifische Last).
     auto varies = [](an::ComdareSegmentLatencyV2 const& s) {
-        for (int i = 1; i < 19; ++i) if (s.seg_ns[i] != s.seg_ns[0]) return true;
+        for (int i = 1; i < 19; ++i)
+            if (s.seg_ns[i] != s.seg_ns[0]) return true;
         return false;
     };
     tr("Art: Segmente variieren (nicht alle gleich)", varies(art));
@@ -123,11 +132,11 @@ int main() {
     tr("seg_search_algo_ns (T0) differiert zwischen Art/Hot/Masstree", sa_differs);
 
     // (3) Layout-Fix: seg_memory_layout_ns (Index 5) aos_strict vs cache_line_aligned DEUTLICH verschieden.
-    std::int64_t const cla = art.seg_ns[5];   // ArtComposition = cache_line_aligned (Stride 64)
-    std::int64_t const aosL = aos.seg_ns[5];   // ArtAosStrict   = aos_strict (Stride 48)
-    double const rel = (cla > 0) ? (static_cast<double>(aosL - cla) / static_cast<double>(cla)) : 0.0;
-    std::cout << "  Layout-Fix: seg_memory_layout_ns CLA(64)=" << cla
-              << "  aos_strict(48)=" << aosL << "  rel_diff=" << rel << "\n";
+    std::int64_t const cla  = art.seg_ns[5]; // ArtComposition = cache_line_aligned (Stride 64)
+    std::int64_t const aosL = aos.seg_ns[5]; // ArtAosStrict   = aos_strict (Stride 48)
+    double const       rel  = (cla > 0) ? (static_cast<double>(aosL - cla) / static_cast<double>(cla)) : 0.0;
+    std::cout << "  Layout-Fix: seg_memory_layout_ns CLA(64)=" << cla << "  aos_strict(48)=" << aosL
+              << "  rel_diff=" << rel << "\n";
     // Stride 64 (CLA) liest mehr Cache-Lines/Record als Stride 48 (aos) → CLA i.d.R. langsamer; jedenfalls
     // dürfen sie NICHT identisch sein (das war der Duplikat-Bug). Toleranz: >5% relativer Unterschied.
     tr("Layout-Fix: aos_strict(48) != cache_line_aligned(64) seg_memory_layout (>5%)",
@@ -135,7 +144,8 @@ int main() {
 
     // (4) total_ns == Σ der 19 Segmente (Konsistenz).
     auto consistent = [](an::ComdareSegmentLatencyV2 const& s) {
-        std::int64_t sum = 0; for (int i = 0; i < 19; ++i) sum += s.seg_ns[i];
+        std::int64_t sum = 0;
+        for (int i = 0; i < 19; ++i) sum += s.seg_ns[i];
         return s.total_ns == sum;
     };
     tr("Art: total_ns == Σ 19 Segmente", consistent(art));

@@ -17,8 +17,6 @@ namespace comdare::cache_engine::nodes::concepts {
 struct NodesTopicTag {};
 
 template <typename T>
-concept NodesComponent = requires {
-    typename T::topic_tag;
-} && std::same_as<typename T::topic_tag, NodesTopicTag>;
+concept NodesComponent = requires { typename T::topic_tag; } && std::same_as<typename T::topic_tag, NodesTopicTag>;
 
-}  // namespace
+} // namespace comdare::cache_engine::nodes::concepts

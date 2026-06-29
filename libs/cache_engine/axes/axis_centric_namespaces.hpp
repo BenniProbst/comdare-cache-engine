@@ -99,48 +99,56 @@ namespace concepts {
 // Damit entspricht JEDE der 17 Achsen klar einem C++23-Concept (User-Direktive F.3).
 
 // Traversal-Achsen: achsen-spezifische *Variant-Concepts.
-template <typename T> concept LookupAxis =
-    ::comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoVariant<T>;
-template <typename T> concept CacheTraversalAxis =
+template <typename T>
+concept LookupAxis = ::comdare::cache_engine::traversal::axis_03a_search_algo::concepts::SearchAlgoVariant<T>;
+template <typename T>
+concept CacheTraversalAxis =
     ::comdare::cache_engine::traversal::axis_03b_cache_traversal::concepts::CacheTraversalVariant<T>;
-template <typename T> concept MappingAxis =
-    ::comdare::cache_engine::traversal::axis_03m_mapping::concepts::MappingVariant<T>;
+template <typename T>
+concept MappingAxis = ::comdare::cache_engine::traversal::axis_03m_mapping::concepts::MappingVariant<T>;
 
 // Allocator/Layout: achsen-spezifische *Strategy-Concepts.
-template <typename T> concept AllocAxis =
-    ::comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorStrategy<T>;
-template <typename T> concept LayoutAxis =
-    ::comdare::cache_engine::memory_layout::axis_05_memory_layout::concepts::MemoryLayoutStrategy<T>;
+template <typename T>
+concept AllocAxis = ::comdare::cache_engine::allocator::axis_06_allocator::concepts::AllocatorStrategy<T>;
+template <typename T>
+concept LayoutAxis = ::comdare::cache_engine::memory_layout::axis_05_memory_layout::concepts::MemoryLayoutStrategy<T>;
 
 // Uebrige 12 Achsen: das uniforme CacheEnginePermutationStrategy je Achse.
-template <typename T> concept PathCompressionAxis =
+template <typename T>
+concept PathCompressionAxis =
     ::comdare::cache_engine::nodes::axis_02_path_compression::concepts::CacheEnginePermutationStrategy<T>;
-template <typename T> concept NodeAxis =
-    ::comdare::cache_engine::nodes::axis_04_node_type::concepts::CacheEnginePermutationStrategy<T>;
-template <typename T> concept PrefetchAxis =
-    ::comdare::cache_engine::prefetch::axis_07_prefetch::concepts::CacheEnginePermutationStrategy<T>;
-template <typename T> concept ConcurrencyAxis =
+template <typename T>
+concept NodeAxis = ::comdare::cache_engine::nodes::axis_04_node_type::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T>
+concept PrefetchAxis = ::comdare::cache_engine::prefetch::axis_07_prefetch::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T>
+concept ConcurrencyAxis =
     ::comdare::cache_engine::concurrency::axis_08_concurrency::concepts::CacheEnginePermutationStrategy<T>;
-template <typename T> concept SerializationAxis =
+template <typename T>
+concept SerializationAxis =
     ::comdare::cache_engine::serialization::axis_10_serialization::concepts::CacheEnginePermutationStrategy<T>;
-template <typename T> concept TelemetryAxis =
+template <typename T>
+concept TelemetryAxis =
     ::comdare::cache_engine::telemetry::axis_11_telemetry::concepts::CacheEnginePermutationStrategy<T>;
-template <typename T> concept ValueHandleAxis =
+template <typename T>
+concept ValueHandleAxis =
     ::comdare::cache_engine::value_handle::axis_14_value_handle::concepts::CacheEnginePermutationStrategy<T>;
-template <typename T> concept SimdAxis =
-    ::comdare::cache_engine::hardware::axis_09_isa::concepts::CacheEnginePermutationStrategy<T>;
-template <typename T> concept IndexOrganizationAxis =
+template <typename T>
+concept SimdAxis = ::comdare::cache_engine::hardware::axis_09_isa::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T>
+concept IndexOrganizationAxis =
     ::comdare::cache_engine::search_engine::axis_01_index_organization::concepts::CacheEnginePermutationStrategy<T>;
-template <typename T> concept IoDispatchAxis =
-    ::comdare::cache_engine::io::axis_io::concepts::CacheEnginePermutationStrategy<T>;
-template <typename T> concept MigrationPolicyAxis =
+template <typename T>
+concept IoDispatchAxis = ::comdare::cache_engine::io::axis_io::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T>
+concept MigrationPolicyAxis =
     ::comdare::cache_engine::migration::axis_migration::concepts::CacheEnginePermutationStrategy<T>;
-template <typename T> concept FilterAxis =
-    ::comdare::cache_engine::filter::axis_filter::concepts::CacheEnginePermutationStrategy<T>;
+template <typename T>
+concept FilterAxis = ::comdare::cache_engine::filter::axis_filter::concepts::CacheEnginePermutationStrategy<T>;
 
-}  // namespace concepts
+} // namespace concepts
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine
 
 // ─────────────────────────────────────────────────────────────────────────────
 // F.2 — optional_prt_art_impl-SLOT je Achse (Pruefling-Erweiterungspunkt), als echtes Code-Artefakt.
@@ -152,20 +160,54 @@ template <typename T> concept FilterAxis =
 // Hier als leere Sub-Namespaces im jeweiligen (physischen) Achsen-Namespace deklariert → ueber die
 // Achsen-Aliase oben adressierbar (z.B. cache_engine::lookup::optional_prt_art_impl).
 // ─────────────────────────────────────────────────────────────────────────────
-namespace comdare::cache_engine::lookup                               { namespace optional_prt_art_impl {} }  // V41.F.2: lookup echter Namespace
-namespace comdare::cache_engine::cache_traversal   { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::mapping           { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::path_compression       { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::node              { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::layout  { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::alloc          { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::prefetch_axis            { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::concurrency_axis      { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::serialization_axis  { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::telemetry_axis          { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::value_handle_axis    { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::simd                 { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::index_organization { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::io_dispatch                           { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::migration_policy             { namespace optional_prt_art_impl {} }
-namespace comdare::cache_engine::filter_axis                   { namespace optional_prt_art_impl {} }
+namespace comdare::cache_engine::lookup {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::lookup
+namespace comdare::cache_engine::cache_traversal {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::cache_traversal
+namespace comdare::cache_engine::mapping {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::mapping
+namespace comdare::cache_engine::path_compression {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::path_compression
+namespace comdare::cache_engine::node {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::node
+namespace comdare::cache_engine::layout {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::layout
+namespace comdare::cache_engine::alloc {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::alloc
+namespace comdare::cache_engine::prefetch_axis {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::prefetch_axis
+namespace comdare::cache_engine::concurrency_axis {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::concurrency_axis
+namespace comdare::cache_engine::serialization_axis {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::serialization_axis
+namespace comdare::cache_engine::telemetry_axis {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::telemetry_axis
+namespace comdare::cache_engine::value_handle_axis {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::value_handle_axis
+namespace comdare::cache_engine::simd {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::simd
+namespace comdare::cache_engine::index_organization {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::index_organization
+namespace comdare::cache_engine::io_dispatch {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::io_dispatch
+namespace comdare::cache_engine::migration_policy {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::migration_policy
+namespace comdare::cache_engine::filter_axis {
+namespace optional_prt_art_impl {}
+} // namespace comdare::cache_engine::filter_axis

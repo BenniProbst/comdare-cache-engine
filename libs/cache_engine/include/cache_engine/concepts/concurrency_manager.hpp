@@ -21,16 +21,12 @@ template <ConcurrencyMechanicConcept M, ConcurrencyDisciplineConcept... Ds>
 class ConcurrencyManager {
 public:
     void dispatch(Event const& event) noexcept {
-        std::apply([&](auto&... d) noexcept {
-            (d.on_event(event), ...);
-        }, disciplines_);
+        std::apply([&](auto&... d) noexcept { (d.on_event(event), ...); }, disciplines_);
     }
 
-    [[nodiscard]] std::size_t discipline_count() const noexcept {
-        return sizeof...(Ds);
-    }
+    [[nodiscard]] std::size_t discipline_count() const noexcept { return sizeof...(Ds); }
 
-    [[nodiscard]] M&       mechanic() noexcept       { return mechanic_; }
+    [[nodiscard]] M&       mechanic() noexcept { return mechanic_; }
     [[nodiscard]] M const& mechanic() const noexcept { return mechanic_; }
 
     template <std::size_t I>
@@ -46,10 +42,10 @@ private:
 // Type-erased Variante (fuer dynamische Konfiguration via PermutationFlags)
 class IConcurrencyManager {
 public:
-    virtual ~IConcurrencyManager() = default;
-    virtual void dispatch(Event const& event) noexcept = 0;
-    [[nodiscard]] virtual ConcurrencyMechanicKind mechanic_kind() const noexcept = 0;
-    [[nodiscard]] virtual std::size_t discipline_count() const noexcept = 0;
+    virtual ~IConcurrencyManager()                                                      = default;
+    virtual void                                  dispatch(Event const& event) noexcept = 0;
+    [[nodiscard]] virtual ConcurrencyMechanicKind mechanic_kind() const noexcept        = 0;
+    [[nodiscard]] virtual std::size_t             discipline_count() const noexcept     = 0;
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

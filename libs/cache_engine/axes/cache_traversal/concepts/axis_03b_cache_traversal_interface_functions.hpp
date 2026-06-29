@@ -17,4 +17,4 @@ inline constexpr std::array<std::string_view, 4> kAxisInterfaceFunctions = {
     "clear",
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::cache_traversal::concepts

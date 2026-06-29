@@ -8,8 +8,8 @@
 // (Cross-Genus type-unmöglich, Doku 14 §32). Der DLL-Pfad (AnatomyModuleLoader) ist analog BR-4 ein Folgeschritt.
 // C++23, header-only.
 
-#include "anatomy/adapter_anatomy.hpp"   // AdapterAnatomy / AdapterObserverSnapshot
-#include "anatomy/anatomy_base.hpp"        // AnatomyGenus
+#include "anatomy/adapter_anatomy.hpp" // AdapterAnatomy / AdapterObserverSnapshot
+#include "anatomy/anatomy_base.hpp"    // AnatomyGenus
 
 #include <cstdint>
 #include <string>
@@ -23,7 +23,7 @@ class AdapterDock {
 public:
     struct MeasureResult {
         ::comdare::cache_engine::anatomy::AdapterObserverSnapshot observer{};
-        std::uint64_t total_ops = 0;
+        std::uint64_t                                             total_ops = 0;
     };
 
     /// Diese Dock-Seite bedient die Container/Adapter-Gattung (Doc 24 §8.8 Gattungs-Bindung).
@@ -34,13 +34,11 @@ public:
     /// Treibt das Container-Tier mit n_puts put + n_gets get (Zustands-Manipulation, Doku 24 §8.7b) und zieht
     /// den eingebauten Container-Observer. Reines in-process-Treiben der spezifischen §28-Achse inner_container
     /// (push + get/pop_front). #87+#90: capacity wird für Aufruf-Kompatibilität akzeptiert, aber ignoriert (unbeschränkter Adapter).
-    [[nodiscard]] MeasureResult measure(std::uint64_t n_puts, std::uint64_t n_gets,
-                                        std::size_t capacity = 0) const {
+    [[nodiscard]] MeasureResult measure(std::uint64_t n_puts, std::uint64_t n_gets, std::size_t capacity = 0) const {
         AdapterAnatomyT tier(capacity);
-        for (std::uint64_t i = 0; i < n_puts; ++i)
-            tier.put(static_cast<typename AdapterAnatomyT::element_type>(i));
+        for (std::uint64_t i = 0; i < n_puts; ++i) tier.put(static_cast<typename AdapterAnatomyT::element_type>(i));
         for (std::uint64_t i = 0; i < n_gets; ++i) (void)tier.get();
-        return MeasureResult{ tier.observe_all(), n_puts + n_gets };
+        return MeasureResult{tier.observe_all(), n_puts + n_gets};
     }
 
     /// Persistierung (Doc 24 §8.8 Schritt c): eine CSV-Zeile mit den korrelierten Container-Observer-Werten der
@@ -48,12 +46,12 @@ public:
     [[nodiscard]] static std::string serialize_csv(MeasureResult const& r) {
         std::string s = "genus,total_ops,push_count,pop_count,front_reads,back_reads,"
                         "peak_occupancy,current_occupancy\n";
-        s += "Container," + std::to_string(r.total_ops) + ","
-           + std::to_string(r.observer.push_count) + "," + std::to_string(r.observer.pop_count) + ","
-           + std::to_string(r.observer.front_reads) + "," + std::to_string(r.observer.back_reads) + ","
-           + std::to_string(r.observer.peak_occupancy) + "," + std::to_string(r.observer.current_occupancy) + "\n";
+        s += "Container," + std::to_string(r.total_ops) + "," + std::to_string(r.observer.push_count) + "," +
+             std::to_string(r.observer.pop_count) + "," + std::to_string(r.observer.front_reads) + "," +
+             std::to_string(r.observer.back_reads) + "," + std::to_string(r.observer.peak_occupancy) + "," +
+             std::to_string(r.observer.current_occupancy) + "\n";
         return s;
     }
 };
 
-}  // namespace comdare::cache_engine::builder::pruef_dock
+} // namespace comdare::cache_engine::builder::pruef_dock

@@ -25,10 +25,12 @@ public:
 
     static constexpr bool enabled = flags::inline_enabled;
 
-    [[nodiscard]] static constexpr bool             is_inline()    noexcept { return true; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "value_handle_inline"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "InlineValueHandle (value embedded in slot, no indirection)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "INLINE"; }
+    [[nodiscard]] static constexpr bool             is_inline() noexcept { return true; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "value_handle_inline"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "InlineValueHandle (value embedded in slot, no indirection)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "INLINE"; }
 
     // T11 value_handle F15-operativ (Pfad A, abi_adapter-Segment): strategie-charakteristische
     // Value-Zugriffs-SIMULATION auf einem flachen Record-Puffer. SIMULATION (kein echter Node-Slot):
@@ -40,16 +42,16 @@ public:
         std::uint64_t s = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::uint32_t v;
-            std::memcpy(&v, buf + i * record_size, sizeof(v));   // inline: direkter Slot-Read, keine Indirektion
+            std::memcpy(&v, buf + i * record_size, sizeof(v)); // inline: direkter Slot-Read, keine Indirektion
             s += v;
         }
         return s;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::value_handle_axis
 
 namespace comdare::cache_engine::value_handle_axis {
-    static_assert(concepts::ValueHandleStrategy<InlineValueHandle>);
-    static_assert(concepts::CacheEnginePermutationStrategy<InlineValueHandle>);
-}
+static_assert(concepts::ValueHandleStrategy<InlineValueHandle>);
+static_assert(concepts::CacheEnginePermutationStrategy<InlineValueHandle>);
+} // namespace comdare::cache_engine::value_handle_axis

@@ -12,4 +12,4 @@ struct mutability_tag {};
 // FT3: Error-Profile (false-positive / approximative / lossless)
 struct error_profile_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::filter_axis::subaxes

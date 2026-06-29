@@ -12,9 +12,7 @@ namespace comdare::cache_engine {
 
 class ComdareRcuMechanic final : public IConcurrencyMechanic {
 public:
-    [[nodiscard]] ConcurrencyMechanicKind kind() const noexcept override {
-        return ConcurrencyMechanicKind::ComdareRcu;
-    }
+    [[nodiscard]] ConcurrencyMechanicKind kind() const noexcept override { return ConcurrencyMechanicKind::ComdareRcu; }
 
     void register_thread() noexcept override {
         ++registered_threads_;
@@ -37,7 +35,7 @@ public:
     }
 
     void begin_write() noexcept override {}
-    void end_write() noexcept override   {}
+    void end_write() noexcept override {}
 
     void synchronize() noexcept override { synchronize_rcu(); }
 
@@ -50,9 +48,7 @@ public:
     void synchronize_rcu() noexcept {
         // Vereinfachte synchronize: warte bis alle Reader Quiescent State erreicht haben
         // (Echte Implementierung in Task #104)
-        while (active_readers_ != 0) {
-            std::this_thread::yield();
-        }
+        while (active_readers_ != 0) { std::this_thread::yield(); }
     }
 
     [[nodiscard]] std::size_t active_readers() const noexcept {
@@ -66,10 +62,10 @@ public:
     }
 
 private:
-    std::atomic<std::size_t>  active_readers_{0};
-    std::atomic<std::size_t>  registered_threads_{0};
-    std::atomic<std::uint64_t> quiescent_states_{0};
+    std::atomic<std::size_t>        active_readers_{0};
+    std::atomic<std::size_t>        registered_threads_{0};
+    std::atomic<std::uint64_t>      quiescent_states_{0};
     thread_local static inline bool thread_quiescent_state_ = false;
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

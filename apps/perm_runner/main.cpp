@@ -21,19 +21,22 @@ int main(int argc, char** argv) {
     namespace ex     = comdare::cache_engine::builder::experiment;
     namespace ana    = comdare::cache_engine::anatomy;
 
-    if (argc < 2) { std::cerr << "usage: perm_runner <perm.dll> [binary_id] [n_ops]\n"; return 2; }
+    if (argc < 2) {
+        std::cerr << "usage: perm_runner <perm.dll> [binary_id] [n_ops]\n";
+        return 2;
+    }
     std::string const   dll       = argv[1];
     std::string const   binary_id = (argc >= 3) ? argv[2] : dll;
     std::uint64_t const n_ops     = (argc >= 4) ? std::strtoull(argv[3], nullptr, 10) : 1000u;
 
     loader::AnatomyModuleHandle handle;
-    int const st = loader::AnatomyModuleLoader::load(dll.c_str(), handle);
+    int const                   st = loader::AnatomyModuleLoader::load(dll.c_str(), handle);
     if (st != loader::status_ok) {
         std::cerr << "perm_runner: load fehlgeschlagen (" << loader::status_name(st) << "): " << dll << "\n";
         return 1;
     }
     ana::IAnatomyBase* base = handle.anatomy();
-    auto* tier = (base != nullptr) ? dynamic_cast<ana::IObservableTier*>(base) : nullptr;
+    auto*              tier = (base != nullptr) ? dynamic_cast<ana::IObservableTier*>(base) : nullptr;
     if (tier == nullptr) {
         std::cerr << "perm_runner: keine IObservableTier-Mess-Ebene in der DLL (kein Mess-Build?): " << dll << "\n";
         return 1;

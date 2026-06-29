@@ -24,13 +24,13 @@ namespace comdare::cache_engine::builder::workload_driver {
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum class WorkloadOpKind : std::uint8_t {
-    Insert = 0,  ///< (key, value) ins Container einfuegen
-    Lookup = 1,  ///< key suchen, optional value zurueckgeben
-    Erase  = 2,  ///< key entfernen
-    Clear  = 3,  ///< Container komplett leeren (selten, fuer Stress-Tests)
+    Insert = 0, ///< (key, value) ins Container einfuegen
+    Lookup = 1, ///< key suchen, optional value zurueckgeben
+    Erase  = 2, ///< key entfernen
+    Clear  = 3, ///< Container komplett leeren (selten, fuer Stress-Tests)
     // V5-#49-E/F (YCSB-Treue, Op-Set-Erweiterung):
-    Scan            = 4,  ///< YCSB-E Range-Scan: ab `key` die nächsten `value` (=scan_length) Records in Key-Reihenfolge
-    ReadModifyWrite = 5   ///< YCSB-F: lookup(key) → modifizieren → insert(key, value) als EINE Op (kein ABI-Bedarf)
+    Scan            = 4, ///< YCSB-E Range-Scan: ab `key` die nächsten `value` (=scan_length) Records in Key-Reihenfolge
+    ReadModifyWrite = 5  ///< YCSB-F: lookup(key) → modifizieren → insert(key, value) als EINE Op (kein ABI-Bedarf)
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -44,18 +44,18 @@ enum class WorkloadOpKind : std::uint8_t {
 // Gray, Sundaresan, Englert, Baclawski, Weinberger: "Quickly Generating Billion-Record Synthetic
 // Databases", SIGMOD 1994 (das von YCSB verwendete schnelle Inverse-CDF-Verfahren).
 enum class KeyDistribution : std::uint8_t {
-    Uniform  = 0,  ///< gleichverteilt [key_min, key_max] (nicht YCSB-konform; Default für Rückwärtskompat)
-    Zipfian  = 1,  ///< Zipf-verteilt (YCSB Default: wenige heiße Keys; theta≈0.99) — YCSB A/B/C
-    Latest   = 2   ///< Zipf, aber auf die ZULETZT eingefügten (höchsten) Keys verschoben — YCSB D
+    Uniform = 0, ///< gleichverteilt [key_min, key_max] (nicht YCSB-konform; Default für Rückwärtskompat)
+    Zipfian = 1, ///< Zipf-verteilt (YCSB Default: wenige heiße Keys; theta≈0.99) — YCSB A/B/C
+    Latest  = 2  ///< Zipf, aber auf die ZULETZT eingefügten (höchsten) Keys verschoben — YCSB D
 };
 
 [[nodiscard]] constexpr std::string_view op_kind_name(WorkloadOpKind k) noexcept {
     switch (k) {
         case WorkloadOpKind::Insert: return "Insert";
         case WorkloadOpKind::Lookup: return "Lookup";
-        case WorkloadOpKind::Erase:  return "Erase";
-        case WorkloadOpKind::Clear:  return "Clear";
-        case WorkloadOpKind::Scan:            return "Scan";
+        case WorkloadOpKind::Erase: return "Erase";
+        case WorkloadOpKind::Clear: return "Clear";
+        case WorkloadOpKind::Scan: return "Scan";
         case WorkloadOpKind::ReadModifyWrite: return "ReadModifyWrite";
     }
     return "Unknown";
@@ -79,8 +79,7 @@ struct WorkloadOp {
     std::uint64_t  key;
     std::uint64_t  value;
 
-    [[nodiscard]] friend constexpr bool
-    operator==(WorkloadOp const&, WorkloadOp const&) noexcept = default;
+    [[nodiscard]] friend constexpr bool operator==(WorkloadOp const&, WorkloadOp const&) noexcept = default;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -102,7 +101,7 @@ struct WorkloadConfig {
     std::uint64_t seed = 42;
 
     /// Anzahl der zu generierenden Operationen.
-    std::size_t   num_operations = 1000;
+    std::size_t num_operations = 1000;
 
     /// Key-Range [key_min, key_max] inklusive. key_max muss > key_min sein.
     std::uint64_t key_min = 1;
@@ -127,19 +126,19 @@ struct WorkloadConfig {
     /// CoCo-Trie-Direktive (P04, get_queries/QUERY_NOT_IN_SET_PERCENTAGE): Anteil [0,100] der Lookup-/Scan-Queries,
     /// die auf einen NICHT-geladenen Key ([key_max+1, 2*key_max]) zielen → garantierter Miss. Erlaubt den
     /// vergleichbaren Negativ-Query-Sweep {0,25,50,75,100}. Default 0 = alle Queries treffen geladene Keys.
-    double          negative_query_pct = 0.0;
+    double negative_query_pct = 0.0;
 
     /// Identifikation fuer Mess-Protokoll-Ausgaben.
     std::string_view name = "DefaultMixedWorkload";
 
     /// Validation: Pre-Condition fuer WorkloadGenerator Konstruktion.
     [[nodiscard]] constexpr bool is_valid() const noexcept {
-        if (seed == 0)               return false;  // xorshift64 undefiniert
-        if (num_operations == 0)     return false;
-        if (key_max <= key_min)      return false;
-        if (pct_insert < 0.0 || pct_lookup < 0.0 ||
-            pct_erase  < 0.0 || pct_clear  < 0.0 ||
-            pct_scan   < 0.0 || pct_rmw    < 0.0) return false;
+        if (seed == 0) return false; // xorshift64 undefiniert
+        if (num_operations == 0) return false;
+        if (key_max <= key_min) return false;
+        if (pct_insert < 0.0 || pct_lookup < 0.0 || pct_erase < 0.0 || pct_clear < 0.0 || pct_scan < 0.0 ||
+            pct_rmw < 0.0)
+            return false;
         if ((pct_insert + pct_lookup + pct_erase + pct_clear + pct_scan + pct_rmw) <= 0.0) return false;
         if (negative_query_pct < 0.0 || negative_query_pct > 100.0) return false;
         return true;
@@ -151,50 +150,58 @@ struct WorkloadConfig {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Insert-Heavy: 80% Insert, 20% Lookup (Bulk-Load-Phase).
-[[nodiscard]] constexpr WorkloadConfig make_insert_heavy(std::uint64_t seed = 42,
-                                                          std::size_t  ops  = 10'000) noexcept {
-    return WorkloadConfig{
-        .seed = seed, .num_operations = ops,
-        .key_min = 1, .key_max = 1'000'000,
-        .pct_insert = 0.80, .pct_lookup = 0.20,
-        .pct_erase = 0.0, .pct_clear = 0.0,
-        .name = "InsertHeavy_80_20"};
+[[nodiscard]] constexpr WorkloadConfig make_insert_heavy(std::uint64_t seed = 42, std::size_t ops = 10'000) noexcept {
+    return WorkloadConfig{.seed           = seed,
+                          .num_operations = ops,
+                          .key_min        = 1,
+                          .key_max        = 1'000'000,
+                          .pct_insert     = 0.80,
+                          .pct_lookup     = 0.20,
+                          .pct_erase      = 0.0,
+                          .pct_clear      = 0.0,
+                          .name           = "InsertHeavy_80_20"};
 }
 
 /// Lookup-Heavy: 95% Lookup, 5% Insert (Read-dominant — typisch fuer
 /// Index-Benchmarks nach Bulk-Load).
-[[nodiscard]] constexpr WorkloadConfig make_lookup_heavy(std::uint64_t seed = 42,
-                                                          std::size_t  ops  = 10'000) noexcept {
-    return WorkloadConfig{
-        .seed = seed, .num_operations = ops,
-        .key_min = 1, .key_max = 1'000'000,
-        .pct_insert = 0.05, .pct_lookup = 0.95,
-        .pct_erase = 0.0, .pct_clear = 0.0,
-        .name = "LookupHeavy_95_5"};
+[[nodiscard]] constexpr WorkloadConfig make_lookup_heavy(std::uint64_t seed = 42, std::size_t ops = 10'000) noexcept {
+    return WorkloadConfig{.seed           = seed,
+                          .num_operations = ops,
+                          .key_min        = 1,
+                          .key_max        = 1'000'000,
+                          .pct_insert     = 0.05,
+                          .pct_lookup     = 0.95,
+                          .pct_erase      = 0.0,
+                          .pct_clear      = 0.0,
+                          .name           = "LookupHeavy_95_5"};
 }
 
 /// Mixed-A: 50/50 Insert/Lookup (YCSB-A-aehnlich).
-[[nodiscard]] constexpr WorkloadConfig make_mixed_a(std::uint64_t seed = 42,
-                                                     std::size_t  ops  = 10'000) noexcept {
-    return WorkloadConfig{
-        .seed = seed, .num_operations = ops,
-        .key_min = 1, .key_max = 1'000'000,
-        .pct_insert = 0.50, .pct_lookup = 0.50,
-        .pct_erase = 0.0, .pct_clear = 0.0,
-        .key_distribution = KeyDistribution::Zipfian,   // YCSB-A: Zipf-Skew (Definitionsmerkmal)
-        .name = "MixedA_50_50"};
+[[nodiscard]] constexpr WorkloadConfig make_mixed_a(std::uint64_t seed = 42, std::size_t ops = 10'000) noexcept {
+    return WorkloadConfig{.seed             = seed,
+                          .num_operations   = ops,
+                          .key_min          = 1,
+                          .key_max          = 1'000'000,
+                          .pct_insert       = 0.50,
+                          .pct_lookup       = 0.50,
+                          .pct_erase        = 0.0,
+                          .pct_clear        = 0.0,
+                          .key_distribution = KeyDistribution::Zipfian, // YCSB-A: Zipf-Skew (Definitionsmerkmal)
+                          .name             = "MixedA_50_50"};
 }
 
 /// Mixed-B: 5/95 Insert/Lookup (YCSB-B-aehnlich, read-heavy mit kleinem write-share).
-[[nodiscard]] constexpr WorkloadConfig make_mixed_b(std::uint64_t seed = 42,
-                                                     std::size_t  ops  = 10'000) noexcept {
-    return WorkloadConfig{
-        .seed = seed, .num_operations = ops,
-        .key_min = 1, .key_max = 1'000'000,
-        .pct_insert = 0.05, .pct_lookup = 0.95,
-        .pct_erase = 0.0, .pct_clear = 0.0,
-        .key_distribution = KeyDistribution::Zipfian,   // YCSB-B: Zipf-Skew, read-heavy
-        .name = "MixedB_5_95"};
+[[nodiscard]] constexpr WorkloadConfig make_mixed_b(std::uint64_t seed = 42, std::size_t ops = 10'000) noexcept {
+    return WorkloadConfig{.seed             = seed,
+                          .num_operations   = ops,
+                          .key_min          = 1,
+                          .key_max          = 1'000'000,
+                          .pct_insert       = 0.05,
+                          .pct_lookup       = 0.95,
+                          .pct_erase        = 0.0,
+                          .pct_clear        = 0.0,
+                          .key_distribution = KeyDistribution::Zipfian, // YCSB-B: Zipf-Skew, read-heavy
+                          .name             = "MixedB_5_95"};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -209,56 +216,68 @@ struct WorkloadConfig {
 //     Tier-Interface-Methoden (existieren noch nicht) → bewusst NICHT als A–D-Profile vorgetäuscht.
 
 /// YCSB-C: 100% Lookup (Read-Only), Zipfian-Verteilung. Op-Mix + Verteilung YCSB-C-treu.
-[[nodiscard]] constexpr WorkloadConfig make_ycsb_c(std::uint64_t seed = 42,
-                                                   std::size_t  ops  = 10'000) noexcept {
-    return WorkloadConfig{
-        .seed = seed, .num_operations = ops,
-        .key_min = 1, .key_max = 1'000'000,
-        .pct_insert = 0.0, .pct_lookup = 1.0,
-        .pct_erase = 0.0, .pct_clear = 0.0,
-        .key_distribution = KeyDistribution::Zipfian,   // YCSB-C: 100% read, Zipf-Skew
-        .name = "YCSB_C_read_only"};
+[[nodiscard]] constexpr WorkloadConfig make_ycsb_c(std::uint64_t seed = 42, std::size_t ops = 10'000) noexcept {
+    return WorkloadConfig{.seed             = seed,
+                          .num_operations   = ops,
+                          .key_min          = 1,
+                          .key_max          = 1'000'000,
+                          .pct_insert       = 0.0,
+                          .pct_lookup       = 1.0,
+                          .pct_erase        = 0.0,
+                          .pct_clear        = 0.0,
+                          .key_distribution = KeyDistribution::Zipfian, // YCSB-C: 100% read, Zipf-Skew
+                          .name             = "YCSB_C_read_only"};
 }
 
 /// YCSB-D: 95% Lookup, 5% Insert, Read-Latest-Verteilung (zuletzt eingefügte/höchste Keys sind am heißesten).
-[[nodiscard]] constexpr WorkloadConfig make_ycsb_d(std::uint64_t seed = 42,
-                                                   std::size_t  ops  = 10'000) noexcept {
-    return WorkloadConfig{
-        .seed = seed, .num_operations = ops,
-        .key_min = 1, .key_max = 1'000'000,
-        .pct_insert = 0.05, .pct_lookup = 0.95,
-        .pct_erase = 0.0, .pct_clear = 0.0,
-        .key_distribution = KeyDistribution::Latest,    // YCSB-D: „read latest"-Skew (Definitionsmerkmal)
-        .name = "YCSB_D_read_latest"};
+[[nodiscard]] constexpr WorkloadConfig make_ycsb_d(std::uint64_t seed = 42, std::size_t ops = 10'000) noexcept {
+    return WorkloadConfig{.seed           = seed,
+                          .num_operations = ops,
+                          .key_min        = 1,
+                          .key_max        = 1'000'000,
+                          .pct_insert     = 0.05,
+                          .pct_lookup     = 0.95,
+                          .pct_erase      = 0.0,
+                          .pct_clear      = 0.0,
+                          .key_distribution =
+                              KeyDistribution::Latest, // YCSB-D: „read latest"-Skew (Definitionsmerkmal)
+                          .name = "YCSB_D_read_latest"};
 }
 
 /// YCSB-E: 95% Range-Scan, 5% Insert, Zipfian-Verteilung. Scan-Länge je Op uniform [1, scan_length_max=100]
 /// (YCSB-Default). Setzt eine scanbare Tier-Binary voraus (IScannableTier, ABI-Minor ≥ 2); alt-gebaute DLLs
 /// ohne Scan-Fähigkeit → der Host überspringt die Scan-Ops ehrlich (dynamic_cast → null).
-[[nodiscard]] constexpr WorkloadConfig make_ycsb_e(std::uint64_t seed = 42,
-                                                   std::size_t  ops  = 10'000) noexcept {
-    return WorkloadConfig{
-        .seed = seed, .num_operations = ops,
-        .key_min = 1, .key_max = 1'000'000,
-        .pct_insert = 0.05, .pct_lookup = 0.0,
-        .pct_erase = 0.0, .pct_clear = 0.0,
-        .pct_scan = 0.95, .pct_rmw = 0.0, .scan_length_max = 100,
-        .key_distribution = KeyDistribution::Zipfian,   // YCSB-E: Zipf-Skew auf den Scan-Start-Key
-        .name = "YCSB_E_scan_insert"};
+[[nodiscard]] constexpr WorkloadConfig make_ycsb_e(std::uint64_t seed = 42, std::size_t ops = 10'000) noexcept {
+    return WorkloadConfig{.seed             = seed,
+                          .num_operations   = ops,
+                          .key_min          = 1,
+                          .key_max          = 1'000'000,
+                          .pct_insert       = 0.05,
+                          .pct_lookup       = 0.0,
+                          .pct_erase        = 0.0,
+                          .pct_clear        = 0.0,
+                          .pct_scan         = 0.95,
+                          .pct_rmw          = 0.0,
+                          .scan_length_max  = 100,
+                          .key_distribution = KeyDistribution::Zipfian, // YCSB-E: Zipf-Skew auf den Scan-Start-Key
+                          .name             = "YCSB_E_scan_insert"};
 }
 
 /// YCSB-F: 50% Read, 50% Read-Modify-Write, Zipfian-Verteilung. RMW = lookup(key) → modifizieren →
 /// insert(key, neuer Wert) als EINE Op (host-seitig, kein zusätzliches Tier-Interface nötig).
-[[nodiscard]] constexpr WorkloadConfig make_ycsb_f(std::uint64_t seed = 42,
-                                                   std::size_t  ops  = 10'000) noexcept {
-    return WorkloadConfig{
-        .seed = seed, .num_operations = ops,
-        .key_min = 1, .key_max = 1'000'000,
-        .pct_insert = 0.0, .pct_lookup = 0.50,
-        .pct_erase = 0.0, .pct_clear = 0.0,
-        .pct_scan = 0.0, .pct_rmw = 0.50,
-        .key_distribution = KeyDistribution::Zipfian,   // YCSB-F: Zipf-Skew, read + read-modify-write
-        .name = "YCSB_F_read_modify_write"};
+[[nodiscard]] constexpr WorkloadConfig make_ycsb_f(std::uint64_t seed = 42, std::size_t ops = 10'000) noexcept {
+    return WorkloadConfig{.seed             = seed,
+                          .num_operations   = ops,
+                          .key_min          = 1,
+                          .key_max          = 1'000'000,
+                          .pct_insert       = 0.0,
+                          .pct_lookup       = 0.50,
+                          .pct_erase        = 0.0,
+                          .pct_clear        = 0.0,
+                          .pct_scan         = 0.0,
+                          .pct_rmw          = 0.50,
+                          .key_distribution = KeyDistribution::Zipfian, // YCSB-F: Zipf-Skew, read + read-modify-write
+                          .name             = "YCSB_F_read_modify_write"};
 }
 
 // STAND YCSB-E/F (V5-#49, Op-Set-Erweiterung): E (95% Range-Scan / 5% Insert) und F (50% Read / 50% RMW) sind
@@ -268,4 +287,4 @@ struct WorkloadConfig {
 // "update" (A/B) bleibt auf Insert gemappt (tier_insert=emplace mit Update-bei-Kollision in ComposedSearch,
 // s. composable_search.hpp:69/97 — faktisch ein Upsert, daher YCSB-treu genug; kein separater Update-Op-Kind).
 
-}  // namespace comdare::cache_engine::builder::workload_driver
+} // namespace comdare::cache_engine::builder::workload_driver

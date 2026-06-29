@@ -89,4 +89,4 @@ struct reclamation_tag {};
  */
 struct fragmentation_strategy_tag {};
 
-}  // namespace comdare::cache_engine::alloc::subaxes
+} // namespace comdare::cache_engine::alloc::subaxes

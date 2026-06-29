@@ -19,22 +19,25 @@ namespace a = comdare::cache_engine::anatomy;
 
 // Approximiert das Member-`{}`-Verhalten (value/aggregate-init): bei einem Aggregat mit unzugaenglicher
 // Basis ist `T{}` ill-formed -> Concept false. Das ist genau der search_algorithm_anatomy.hpp-Baufehler.
-template <class T> inline constexpr bool brace_ok = requires { T{}; };
+template <class T>
+inline constexpr bool brace_ok = requires { T{}; };
 
 // Member-Hold OHNE `{}` (default-init durch den umschliessenden default-ctor): kompiliert dies, ist
 // `typename Composition::telemetry axis_telemetry_;` (ohne Brace) der Fix.
-template <class T> struct HoldPlain { T x; };
+template <class T>
+struct HoldPlain {
+    T x;
+};
 
 int main() {
     std::cout << "==== V42-Probe2: REALER Wrapper LeafOnlyCounter (= ArtComposition::telemetry) ====\n";
-    std::cout << "LeafOnlyCounter: is_aggregate=" << std::is_aggregate_v<t::LeafOnlyCounter>
-              << " default_constructible=" << std::is_default_constructible_v<t::LeafOnlyCounter>
-              << " brace_ok{T{}}=" << brace_ok<t::LeafOnlyCounter>
-              << " ObservableAxis=" << a::ObservableAxis<t::LeafOnlyCounter> << "\n";
-    std::cout << "InsertCounter:   is_aggregate=" << std::is_aggregate_v<t::InsertCounter>
-              << " default_constructible=" << std::is_default_constructible_v<t::InsertCounter>
-              << " brace_ok{T{}}=" << brace_ok<t::InsertCounter>
-              << " ObservableAxis=" << a::ObservableAxis<t::InsertCounter> << "\n";
+    std::cout << "LeafOnlyCounter: is_aggregate="
+              << std::is_aggregate_v<t::LeafOnlyCounter> << " default_constructible="
+              << std::is_default_constructible_v<t::LeafOnlyCounter> << " brace_ok{T{}}="
+              << brace_ok<t::LeafOnlyCounter> << " ObservableAxis=" << a::ObservableAxis<t::LeafOnlyCounter> << "\n";
+    std::cout << "InsertCounter:   is_aggregate=" << std::is_aggregate_v<t::InsertCounter> << " default_constructible="
+              << std::is_default_constructible_v<t::InsertCounter> << " brace_ok{T{}}="
+              << brace_ok<t::InsertCounter> << " ObservableAxis=" << a::ObservableAxis<t::InsertCounter> << "\n";
 
     // Der entscheidende Test: Member-Hold OHNE `{}` (default-init) fuer den realen Wrapper.
     HoldPlain<t::LeafOnlyCounter> hp;

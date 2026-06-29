@@ -18,8 +18,8 @@
 namespace comdare::cache_engine::allocator::families::a19_buddy {
 
 struct BuddyParams {
-    int min_order = 6;    // 2^6 = 64 byte minimum block
-    int max_order = 30;   // 2^30 = 1 GiB maximum block
+    int min_order = 6;  // 2^6 = 64 byte minimum block
+    int max_order = 30; // 2^30 = 1 GiB maximum block
 };
 
 template <LockingStrategy Lock = locking::SharedMutexLock>
@@ -33,8 +33,7 @@ public:
 
     [[nodiscard]] void* raw_allocate(std::size_t bytes, std::size_t alignment) {
         // Algorithmus-Skelett: round up zur naechsten Power-of-2-Order
-        int const order = std::max(params_.min_order,
-            static_cast<int>(std::bit_width(bytes - 1)));
+        int const order = std::max(params_.min_order, static_cast<int>(std::bit_width(bytes - 1)));
         if (order > params_.max_order) return nullptr;
 
         lock_.write_lock_acquire();
@@ -43,10 +42,9 @@ public:
         if (p) {
             std::size_t const block_bytes = std::size_t{1} << order;
             stats_.total_bytes_allocated += block_bytes;
-            stats_.total_bytes_in_use     += block_bytes;
+            stats_.total_bytes_in_use += block_bytes;
             // Internal fragmentation: requested vs allocated
-            stats_.internal_fragmentation =
-                1.0 - static_cast<double>(bytes) / static_cast<double>(block_bytes);
+            stats_.internal_fragmentation = 1.0 - static_cast<double>(bytes) / static_cast<double>(block_bytes);
         } else {
             stats_.failure_count++;
         }
@@ -56,8 +54,7 @@ public:
 
     void raw_deallocate(void* p, std::size_t bytes, std::size_t /*alignment*/) noexcept {
         if (!p) return;
-        int const order = std::max(params_.min_order,
-            static_cast<int>(std::bit_width(bytes - 1)));
+        int const         order       = std::max(params_.min_order, static_cast<int>(std::bit_width(bytes - 1)));
         std::size_t const block_bytes = std::size_t{1} << order;
 
         lock_.write_lock_acquire();
@@ -72,9 +69,7 @@ public:
         return addr ^ (std::uintptr_t{1} << order);
     }
 
-    [[nodiscard]] AllocationStatistics statistics() const noexcept {
-        return stats_;
-    }
+    [[nodiscard]] AllocationStatistics statistics() const noexcept { return stats_; }
 
     [[nodiscard]] BuddyParams const& params() const noexcept { return params_; }
 
@@ -86,4 +81,4 @@ private:
 
 static_assert(IAllocationStrategy<BuddyAdapter<>>);
 
-}  // namespace comdare::cache_engine::allocator::families::a19_buddy
+} // namespace comdare::cache_engine::allocator::families::a19_buddy

@@ -15,7 +15,7 @@
 #include <span>
 
 #ifdef _MSC_VER
-    #include <malloc.h>
+#include <malloc.h>
 #endif
 
 namespace comdare::benchmark_suite {
@@ -50,42 +50,36 @@ static_assert(sizeof(MeasurementRecord32) == 32);
 
 class CustomAllocation1 {
 public:
-    explicit CustomAllocation1(std::size_t capacity_bytes = 1ULL << 30) {  // 1 GiB default
+    explicit CustomAllocation1(std::size_t capacity_bytes = 1ULL << 30) { // 1 GiB default
         capacity_records_ = capacity_bytes / sizeof(MeasurementRecord32);
-        buffer_ = static_cast<MeasurementRecord32*>(
-            bs_aligned_alloc(alignof(MeasurementRecord32),
-                              capacity_records_ * sizeof(MeasurementRecord32)));
+        buffer_           = static_cast<MeasurementRecord32*>(
+            bs_aligned_alloc(alignof(MeasurementRecord32), capacity_records_ * sizeof(MeasurementRecord32)));
         if (!buffer_) throw std::bad_alloc{};
         // Pre-touch (Pflicht: kein page-fault zur Laufzeit!)
         std::memset(buffer_, 0, capacity_records_ * sizeof(MeasurementRecord32));
     }
 
-    ~CustomAllocation1() {
-        bs_aligned_free(buffer_);
-    }
+    ~CustomAllocation1() { bs_aligned_free(buffer_); }
 
-    CustomAllocation1(CustomAllocation1 const&) = delete;
+    CustomAllocation1(CustomAllocation1 const&)            = delete;
     CustomAllocation1& operator=(CustomAllocation1 const&) = delete;
 
     // Lock-free append: returns slot-index oder UINT64_MAX bei Ueberlauf
     [[nodiscard]] std::uint64_t append(MeasurementRecord32 const& record) noexcept {
         std::uint64_t slot = next_slot_.fetch_add(1, std::memory_order_relaxed);
-        if (slot >= capacity_records_) {
-            return (std::numeric_limits<std::uint64_t>::max)();
-        }
+        if (slot >= capacity_records_) { return (std::numeric_limits<std::uint64_t>::max)(); }
         buffer_[slot] = record;
         return slot;
     }
 
     [[nodiscard]] std::span<MeasurementRecord32 const> snapshot() const noexcept {
-        std::uint64_t const used = next_slot_.load(std::memory_order_relaxed);
+        std::uint64_t const used      = next_slot_.load(std::memory_order_relaxed);
         std::uint64_t const safe_used = (std::min)(used, static_cast<std::uint64_t>(capacity_records_));
         return std::span<MeasurementRecord32 const>{buffer_, safe_used};
     }
 
     [[nodiscard]] std::uint64_t records_used() const noexcept {
-        return (std::min)(next_slot_.load(std::memory_order_relaxed),
-                           static_cast<std::uint64_t>(capacity_records_));
+        return (std::min)(next_slot_.load(std::memory_order_relaxed), static_cast<std::uint64_t>(capacity_records_));
     }
 
     [[nodiscard]] std::size_t capacity_records() const noexcept { return capacity_records_; }
@@ -96,4 +90,4 @@ private:
     std::atomic<std::uint64_t> next_slot_{0};
 };
 
-}  // namespace comdare::benchmark_suite
+} // namespace comdare::benchmark_suite

@@ -33,13 +33,18 @@ namespace comdare::cache_engine::lookup::composable {
 
 // Detektiert den (am Wrapper verifizierten) Marker; ohne Marker konservativ false.
 template <class S>
-inline constexpr bool store_traversable_search_algo_v =
-    requires { { S::axis_03a_store_traversable } -> std::convertible_to<bool>; }
-    && []{ if constexpr (requires { S::axis_03a_store_traversable; }) return S::axis_03a_store_traversable; else return false; }();
+inline constexpr bool store_traversable_search_algo_v = requires {
+    { S::axis_03a_store_traversable } -> std::convertible_to<bool>;
+} && [] {
+    if constexpr (requires { S::axis_03a_store_traversable; })
+        return S::axis_03a_store_traversable;
+    else
+        return false;
+}();
 
 // Concept: S sucht über einen flachen Slot-Store (Array-Familie) → in A2.5 wird container_t-Traversal = das zu S
 // passende Array-Traversal-Organ (statt hart-verdrahtetem SortedBinary), search_organ_ entfällt für S.
 template <class S>
 concept StoreTraversableSearchAlgo = store_traversable_search_algo_v<S>;
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

@@ -32,7 +32,8 @@ using ToGTestTypes = ::testing::Types<Vs...>;
 
 using AllQ1StrategyTypes = boost::mp11::mp_apply<ToGTestTypes, q1::AllStrategies>;
 
-template <class T> class Q1BufferStrategyTest : public ::testing::Test {};
+template <class T>
+class Q1BufferStrategyTest : public ::testing::Test {};
 TYPED_TEST_SUITE(Q1BufferStrategyTest, AllQ1StrategyTypes);
 
 TYPED_TEST(Q1BufferStrategyTest, ConceptConformance) {
@@ -60,9 +61,7 @@ constexpr std::array<std::uint64_t, 5> kTestPutValues{1u, 42u, 100u, 1024u, 1'00
 
 TYPED_TEST(Q1BufferStrategyTest, PutDoesNotCrash) {
     TypeParam b{};
-    for (auto v : kTestPutValues) {
-        b.put(v);
-    }
+    for (auto v : kTestPutValues) { b.put(v); }
     // Spezial-Cases:
     // - NoBuffer: bleibt leer (passthrough)
     // - FIFO/LIFO/BoundedRingBuffer: enthaelt jetzt Werte
@@ -71,9 +70,7 @@ TYPED_TEST(Q1BufferStrategyTest, PutDoesNotCrash) {
 
 TYPED_TEST(Q1BufferStrategyTest, ClearMakesEmpty) {
     TypeParam b{};
-    for (auto v : kTestPutValues) {
-        b.put(v);
-    }
+    for (auto v : kTestPutValues) { b.put(v); }
     b.clear();
     EXPECT_TRUE(b.is_empty());
     EXPECT_EQ(b.size(), 0u);
@@ -88,10 +85,9 @@ TYPED_TEST(Q1BufferStrategyTest, PutGetRoundtripAllValues) {
     std::size_t pulled = 0;
     while (auto v = b.get()) {
         ++pulled;
-        if (pulled > kTestPutValues.size() + 10) break;  // safety
+        if (pulled > kTestPutValues.size() + 10) break; // safety
     }
-    EXPECT_EQ(pulled, before) << "Vendor " << TypeParam::name()
-                              << ": #put = #get muss konsistent sein";
+    EXPECT_EQ(pulled, before) << "Vendor " << TypeParam::name() << ": #put = #get muss konsistent sein";
     EXPECT_TRUE(b.is_empty());
 }
 
@@ -103,9 +99,10 @@ TYPED_TEST(Q1BufferStrategyTest, PeekDoesNotConsume) {
         EXPECT_FALSE(b.peek_back().has_value());
         return;
     }
-    b.put(42); b.put(99);
+    b.put(42);
+    b.put(99);
     auto f1 = b.peek_front();
-    auto f2 = b.peek_front();  // 2x peek = gleicher Wert (kein consume)
+    auto f2 = b.peek_front(); // 2x peek = gleicher Wert (kein consume)
     ASSERT_TRUE(f1.has_value());
     ASSERT_TRUE(f2.has_value());
     EXPECT_EQ(*f1, *f2);
@@ -119,7 +116,7 @@ TYPED_TEST(Q1BufferStrategyTest, EmplaceEquivalentToPut) {
     TypeParam b{};
     b.emplace(77);
     if constexpr (std::is_same_v<TypeParam, q1::NoBuffer>) {
-        EXPECT_TRUE(b.is_empty());  // no-op
+        EXPECT_TRUE(b.is_empty()); // no-op
     } else {
         EXPECT_EQ(b.size(), 1u);
         EXPECT_EQ(*b.get(), 77u);
@@ -128,7 +125,7 @@ TYPED_TEST(Q1BufferStrategyTest, EmplaceEquivalentToPut) {
 
 // Sonderfall-Properties Compile-Pflicht
 TYPED_TEST(Q1BufferStrategyTest, SonderfallPropertiesQueryable) {
-    using PG = q1_cpts::ProgressGuarantee;
+    using PG                          = q1_cpts::ProgressGuarantee;
     [[maybe_unused]] constexpr bool a = TypeParam::supports_concurrent_producers();
     [[maybe_unused]] constexpr bool b = TypeParam::supports_concurrent_consumers();
     [[maybe_unused]] constexpr bool c = TypeParam::supports_priority_ordering();
@@ -144,7 +141,9 @@ TYPED_TEST(Q1BufferStrategyTest, SonderfallPropertiesQueryable) {
 // FIFO-spezifischer Funktionstest (nicht TYPED — Verhaltens-Pruefung)
 TEST(Q1BufferStrategy_FIFO, FifoOrder) {
     q1::FIFOQueueBuffer f{};
-    f.put(1); f.put(2); f.put(3);
+    f.put(1);
+    f.put(2);
+    f.put(3);
     EXPECT_EQ(f.size(), 3u);
     EXPECT_EQ(*f.get(), 1u);
     EXPECT_EQ(*f.get(), 2u);
@@ -154,7 +153,9 @@ TEST(Q1BufferStrategy_FIFO, FifoOrder) {
 
 TEST(Q1BufferStrategy_LIFO, LifoOrder) {
     q1::LIFOStackBuffer s{};
-    s.put(1); s.put(2); s.put(3);
+    s.put(1);
+    s.put(2);
+    s.put(3);
     EXPECT_EQ(s.size(), 3u);
     EXPECT_EQ(*s.get(), 3u);
     EXPECT_EQ(*s.get(), 2u);
@@ -164,34 +165,41 @@ TEST(Q1BufferStrategy_LIFO, LifoOrder) {
 
 TEST(Q1BufferStrategy_AppendOnly, FifoOrderViaCursorNoShift) {
     q1::AppendOnlyBuffer a{};
-    a.put(10); a.put(20); a.put(30);
+    a.put(10);
+    a.put(20);
+    a.put(30);
     EXPECT_EQ(a.size(), 3u);
     EXPECT_EQ(*a.peek_front(), 10u);
-    EXPECT_EQ(*a.peek_back(),  30u);
-    EXPECT_EQ(*a.get(), 10u);  // O(1)-Cursor-Drain, kein Shift
+    EXPECT_EQ(*a.peek_back(), 30u);
+    EXPECT_EQ(*a.get(), 10u); // O(1)-Cursor-Drain, kein Shift
     EXPECT_EQ(*a.get(), 20u);
     EXPECT_EQ(a.size(), 1u);
     EXPECT_EQ(*a.get(), 30u);
     EXPECT_TRUE(a.is_empty());
-    EXPECT_FALSE(a.get().has_value());  // Underflow -> nullopt
+    EXPECT_FALSE(a.get().has_value()); // Underflow -> nullopt
 }
 
 TEST(Q1BufferStrategy_AppendOnly, DrainAllFull) {
     q1::AppendOnlyBuffer a{};
-    a.put(1); a.put(2); a.put(3); a.put(4);
-    auto drained = a.drain_all();  // gesamter Buffer ungedraint -> Move
+    a.put(1);
+    a.put(2);
+    a.put(3);
+    a.put(4);
+    auto drained = a.drain_all(); // gesamter Buffer ungedraint -> Move
     ASSERT_EQ(drained.size(), 4u);
     EXPECT_EQ(drained[0], 1u);
     EXPECT_EQ(drained[3], 4u);
     EXPECT_TRUE(a.is_empty());
-    EXPECT_TRUE(a.drain_all().empty());  // erneuter Drain -> leer
+    EXPECT_TRUE(a.drain_all().empty()); // erneuter Drain -> leer
 }
 
 TEST(Q1BufferStrategy_AppendOnly, DrainAllAfterPartialGet) {
     q1::AppendOnlyBuffer a{};
-    a.put(7); a.put(8); a.put(9);
-    EXPECT_EQ(*a.get(), 7u);          // 7 gedraint, drain_pos_=1
-    auto rest = a.drain_all();        // liefert nur den Rest [8,9]
+    a.put(7);
+    a.put(8);
+    a.put(9);
+    EXPECT_EQ(*a.get(), 7u);   // 7 gedraint, drain_pos_=1
+    auto rest = a.drain_all(); // liefert nur den Rest [8,9]
     ASSERT_EQ(rest.size(), 2u);
     EXPECT_EQ(rest[0], 8u);
     EXPECT_EQ(rest[1], 9u);
@@ -199,12 +207,15 @@ TEST(Q1BufferStrategy_AppendOnly, DrainAllAfterPartialGet) {
 }
 
 TEST(Q1BufferStrategy_BoundedRing, OverflowDropsOldest) {
-    q1::BoundedRingBuffer r{4};  // capacity=4
-    r.put(1); r.put(2); r.put(3); r.put(4);
+    q1::BoundedRingBuffer r{4}; // capacity=4
+    r.put(1);
+    r.put(2);
+    r.put(3);
+    r.put(4);
     EXPECT_EQ(r.size(), 4u);
-    r.put(5);  // overflow: drops 1
+    r.put(5); // overflow: drops 1
     EXPECT_EQ(r.size(), 4u);
-    EXPECT_EQ(*r.get(), 2u);  // 1 wurde gedroppt
+    EXPECT_EQ(*r.get(), 2u); // 1 wurde gedroppt
     EXPECT_EQ(*r.get(), 3u);
     EXPECT_EQ(*r.get(), 4u);
     EXPECT_EQ(*r.get(), 5u);
@@ -218,7 +229,7 @@ TEST(Q1BufferStrategy_BoundedRing, ZeroCapacityThrows) {
 
 TEST(Q1BufferStrategy_BoundedRing, IterableAspectValuesCount) {
     constexpr auto vals = q1::BoundedRingBuffer::iterable_values();
-    EXPECT_EQ(vals.size(), 5u);  // {8, 64, 1024, 16384, 65536}
+    EXPECT_EQ(vals.size(), 5u); // {8, 64, 1024, 16384, 65536}
     EXPECT_EQ(vals[0], 8u);
     EXPECT_EQ(vals[4], 65536u);
 }
@@ -226,34 +237,33 @@ TEST(Q1BufferStrategy_BoundedRing, IterableAspectValuesCount) {
 // Runtime-Permutationen Buffer-Kapazitaeten (User-Direktive 2026-05-26
 // [[neue-achse-strict-vorlage-allocator]]):
 // Edge-Cases mit Extremfaelle + Power-of-2-Alignment-Werte + NICHT-Power-of-2.
-struct CapacityConfig { std::size_t cap; char const* label; };
+struct CapacityConfig {
+    std::size_t cap;
+    char const* label;
+};
 constexpr std::array<CapacityConfig, 9> kTestBufferCapacities{{
-    {     1, "extrem-1"   },    // kleinste sinnvolle (kein FIFO/LIFO-Sinn aber valid)
-    {     2, "extrem-2"   },
-    {     3, "non-pow2-3" },    // klein, NICHT-Power-of-2
-    {     7, "non-pow2-7" },    // klein, NICHT-Power-of-2 (Cache-Line-Edge)
-    {     8, "pow2-8"     },    // Power-of-2 (Cache-Line-aligned)
-    {    15, "non-pow2-15"},
-    {    64, "pow2-64"    },    // Cache-Line (typisch)
-    {   100, "non-pow2-100"},   // round-decimal
-    { 16384, "pow2-16k"   },    // Page-aligned
+    {1, "extrem-1"}, // kleinste sinnvolle (kein FIFO/LIFO-Sinn aber valid)
+    {2, "extrem-2"},
+    {3, "non-pow2-3"}, // klein, NICHT-Power-of-2
+    {7, "non-pow2-7"}, // klein, NICHT-Power-of-2 (Cache-Line-Edge)
+    {8, "pow2-8"},     // Power-of-2 (Cache-Line-aligned)
+    {15, "non-pow2-15"},
+    {64, "pow2-64"},       // Cache-Line (typisch)
+    {100, "non-pow2-100"}, // round-decimal
+    {16384, "pow2-16k"},   // Page-aligned
 }};
 
 TEST(Q1BufferStrategy_BoundedRing, PutGetWithMultipleBufferSizesEdgeCases) {
     for (auto const& cfg : kTestBufferCapacities) {
         q1::BoundedRingBuffer r{cfg.cap};
         // fill bis Overflow
-        for (std::size_t i = 0; i < cfg.cap + 3; ++i) {
-            r.put(static_cast<std::uint64_t>(i + 1));
-        }
-        EXPECT_EQ(r.size(), cfg.cap)
-            << "Capacity=" << cfg.cap << " (" << cfg.label
-            << ") nach Overflow muss size==cap sein";
+        for (std::size_t i = 0; i < cfg.cap + 3; ++i) { r.put(static_cast<std::uint64_t>(i + 1)); }
+        EXPECT_EQ(r.size(), cfg.cap) << "Capacity=" << cfg.cap << " (" << cfg.label
+                                     << ") nach Overflow muss size==cap sein";
         // alle wieder raus
         std::size_t pulled = 0;
         while (r.get()) ++pulled;
-        EXPECT_EQ(pulled, cfg.cap)
-            << "Capacity=" << cfg.cap << " (" << cfg.label << ") roundtrip";
+        EXPECT_EQ(pulled, cfg.cap) << "Capacity=" << cfg.cap << " (" << cfg.label << ") roundtrip";
         EXPECT_TRUE(r.is_empty());
     }
 }
@@ -261,12 +271,13 @@ TEST(Q1BufferStrategy_BoundedRing, PutGetWithMultipleBufferSizesEdgeCases) {
 TEST(Q1BufferStrategy_BoundedRing, PeekWithMultipleBufferSizes) {
     for (auto const& cfg : kTestBufferCapacities) {
         q1::BoundedRingBuffer r{cfg.cap};
-        if (cfg.cap < 2) continue;  // peek-back-Test braucht >=2 elements
-        r.put(11); r.put(22);
+        if (cfg.cap < 2) continue; // peek-back-Test braucht >=2 elements
+        r.put(11);
+        r.put(22);
         ASSERT_TRUE(r.peek_front().has_value());
         ASSERT_TRUE(r.peek_back().has_value());
         EXPECT_EQ(*r.peek_front(), 11u) << "cap=" << cfg.cap;
-        EXPECT_EQ(*r.peek_back(),  22u) << "cap=" << cfg.cap;
+        EXPECT_EQ(*r.peek_back(), 22u) << "cap=" << cfg.cap;
         EXPECT_EQ(r.size(), 2u) << "peek darf size nicht aendern (cap=" << cfg.cap << ")";
     }
 }
@@ -277,7 +288,8 @@ TEST(Q1BufferStrategy_BoundedRing, PeekWithMultipleBufferSizes) {
 
 using AllQ2PolicyTypes = boost::mp11::mp_apply<ToGTestTypes, q2::AllPolicies>;
 
-template <class T> class Q2FlushPolicyTest : public ::testing::Test {};
+template <class T>
+class Q2FlushPolicyTest : public ::testing::Test {};
 TYPED_TEST_SUITE(Q2FlushPolicyTest, AllQ2PolicyTypes);
 
 TYPED_TEST(Q2FlushPolicyTest, ConceptConformance) {
@@ -297,16 +309,15 @@ TYPED_TEST(Q2FlushPolicyTest, Identification) {
 // Q2 should_flush ist deterministisch: gleicher Input -> gleicher Output
 TYPED_TEST(Q2FlushPolicyTest, ShouldFlushDeterministisch) {
     TypeParam p{};
-    auto d1 = p.should_flush(50, 100);
-    auto d2 = p.should_flush(50, 100);
-    EXPECT_EQ(d1, d2) << "Policy " << TypeParam::name()
-                      << " should_flush muss deterministisch sein bei gleichem Input";
+    auto      d1 = p.should_flush(50, 100);
+    auto      d2 = p.should_flush(50, 100);
+    EXPECT_EQ(d1, d2) << "Policy " << TypeParam::name() << " should_flush muss deterministisch sein bei gleichem Input";
 }
 
 TYPED_TEST(Q2FlushPolicyTest, OnFlushCompleteNoCrash) {
     TypeParam p{};
     p.on_flush_complete();
-    p.on_flush_complete();  // 2x sollte safe sein
+    p.on_flush_complete(); // 2x sollte safe sein
     SUCCEED();
 }
 
@@ -354,7 +365,7 @@ TEST(Q2FlushPolicy_Watermark, FlushAt75Percent) {
 
 TEST(Q2FlushPolicy_Watermark, IterableAspectValuesCount) {
     constexpr auto vals = q2::WatermarkFlush::iterable_values();
-    EXPECT_EQ(vals.size(), 5u);  // {50, 65, 75, 85, 95}
+    EXPECT_EQ(vals.size(), 5u); // {50, 65, 75, 85, 95}
     EXPECT_EQ(vals[2], 75u);
 }
 
@@ -362,15 +373,18 @@ TEST(Q2FlushPolicy_Watermark, IterableAspectValuesCount) {
 // [[neue-achse-strict-vorlage-allocator]]):
 // Iteriere ueber alle iterable_values() + verifiziere Schwellen-Verhalten an
 // Edge-Cases (0, threshold-1, threshold, threshold+1, cap).
-struct FillEdge { std::size_t fill; bool expect_flush_at_75; };
+struct FillEdge {
+    std::size_t fill;
+    bool        expect_flush_at_75;
+};
 constexpr std::array<FillEdge, 7> kTestFillLevelsAt100Cap{{
-    {  0, false},   // leer
-    {  1, false},   // 1% << 75%
-    { 74, false},   // direkt unter Threshold
-    { 75, true },   // genau Threshold
-    { 76, true },   // direkt darueber
-    { 99, true },   // fast voll
-    {100, true },   // voll
+    {0, false},  // leer
+    {1, false},  // 1% << 75%
+    {74, false}, // direkt unter Threshold
+    {75, true},  // genau Threshold
+    {76, true},  // direkt darueber
+    {99, true},  // fast voll
+    {100, true}, // voll
 }};
 
 TEST(Q2FlushPolicy_Watermark, ShouldFlushAtAllIterableThresholds) {
@@ -383,7 +397,7 @@ TEST(Q2FlushPolicy_Watermark, ShouldFlushAtAllIterableThresholds) {
         // Fill unter threshold% -> NoFlush
         if (thr > 0) {
             EXPECT_EQ(p.should_flush(thr - 1, 100), q2_cpts::FlushDecision::NoFlush)
-                << "WatermarkPct=" << thr << " fill=" << (thr-1) << "/100";
+                << "WatermarkPct=" << thr << " fill=" << (thr - 1) << "/100";
         }
     }
 }
@@ -415,9 +429,9 @@ TEST(Q2FlushPolicy_Watermark, ShouldFlushWithNonStandardCapacities) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(TopicQueuing_ConfigSet, CartesianProductSize) {
-    using TCS = qing::TopicConfigSet;
-    constexpr auto q1_cnt = boost::mp11::mp_size<TCS::StaticAxisVariants_Q1>::value;
-    constexpr auto q2_cnt = boost::mp11::mp_size<TCS::StaticAxisVariants_Q2>::value;
+    using TCS                    = qing::TopicConfigSet;
+    constexpr auto q1_cnt        = boost::mp11::mp_size<TCS::StaticAxisVariants_Q1>::value;
+    constexpr auto q2_cnt        = boost::mp11::mp_size<TCS::StaticAxisVariants_Q2>::value;
     constexpr auto cartesian_cnt = boost::mp11::mp_size<TCS::CartesianQ1xQ2>::value;
     EXPECT_GE(q1_cnt, 1u);
     EXPECT_GE(q2_cnt, 1u);
@@ -427,7 +441,7 @@ TEST(TopicQueuing_ConfigSet, CartesianProductSize) {
 // PermutationEngine-Integration analog Allocator-Topic (test_v41_topic_allocator_axis_06.cpp)
 TEST(TopicQueuing_PermutationEngine, ForEachQ1xQ2) {
     int count = 0;
-    boost::mp11::mp_for_each<qing::TopicConfigSet::CartesianQ1xQ2>([&count]<class P>(P){
+    boost::mp11::mp_for_each<qing::TopicConfigSet::CartesianQ1xQ2>([&count]<class P>(P) {
         ++count;
         using Q1 = boost::mp11::mp_at_c<P, 0>;
         using Q2 = boost::mp11::mp_at_c<P, 1>;
@@ -435,8 +449,7 @@ TEST(TopicQueuing_PermutationEngine, ForEachQ1xQ2) {
         static_assert(q1_cpts::BufferStrategy<Q1>);
         static_assert(q2_cpts::FlushPolicy<Q2>);
     });
-    EXPECT_EQ(static_cast<std::size_t>(count),
-              boost::mp11::mp_size<qing::TopicConfigSet::CartesianQ1xQ2>::value);
+    EXPECT_EQ(static_cast<std::size_t>(count), boost::mp11::mp_size<qing::TopicConfigSet::CartesianQ1xQ2>::value);
 }
 
 // Statistics-TYPED_TEST: pro Vendor MUSS statistics()/snapshot()/observer() vorhanden sein (wenn STATISTICS=ON)
@@ -450,8 +463,8 @@ TYPED_TEST(Q1BufferStrategyTest, ObserverAliasIsMeasurableObserver) {
 
 TYPED_TEST(Q1BufferStrategyTest, ObserverNotifyOnPut) {
     TypeParam b{};
-    int events = 0;
-    b.observer().on_event([&events](auto const&){ ++events; });
+    int       events = 0;
+    b.observer().on_event([&events](auto const&) { ++events; });
     b.put(42);
     EXPECT_GE(events, 1) << "put muss notify ausloesen (Vendor " << TypeParam::name() << ")";
 }
@@ -465,8 +478,8 @@ TYPED_TEST(Q2FlushPolicyTest, ObserverAliasIsMeasurableObserver) {
 
 TYPED_TEST(Q2FlushPolicyTest, ObserverNotifyOnShouldFlush) {
     TypeParam p{};
-    int events = 0;
-    p.observer().on_event([&events](auto const&){ ++events; });
+    int       events = 0;
+    p.observer().on_event([&events](auto const&) { ++events; });
     (void)p.should_flush(50, 100);
     EXPECT_GE(events, 1) << "should_flush muss notify ausloesen (Policy " << TypeParam::name() << ")";
 }

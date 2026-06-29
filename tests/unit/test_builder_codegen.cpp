@@ -30,14 +30,14 @@ namespace {
 class CodegenFixture : public ::testing::Test {
 protected:
     void SetUp() override {
-        tmp_dir_ = std::filesystem::temp_directory_path()
-                 / ("comdare_codegen_test_" + std::to_string(::testing::UnitTest::GetInstance()->random_seed()));
+        tmp_dir_ = std::filesystem::temp_directory_path() /
+                   ("comdare_codegen_test_" + std::to_string(::testing::UnitTest::GetInstance()->random_seed()));
         std::filesystem::create_directories(tmp_dir_);
 
         cg::CodegenOptions opts;
         opts.output_root  = tmp_dir_ / "generated";
         opts.comdare_root = "/path/to/comdare";
-        engine_ = std::make_unique<cg::CodegenEngine>(opts);
+        engine_           = std::make_unique<cg::CodegenEngine>(opts);
     }
 
     void TearDown() override {
@@ -45,18 +45,18 @@ protected:
         std::filesystem::remove_all(tmp_dir_, ec);
     }
 
-    std::filesystem::path tmp_dir_;
+    std::filesystem::path              tmp_dir_;
     std::unique_ptr<cg::CodegenEngine> engine_;
 };
 
 [[nodiscard]] std::string read_file(std::filesystem::path const& p) {
-    std::ifstream in{p};
+    std::ifstream     in{p};
     std::stringstream ss;
     ss << in.rdbuf();
     return ss.str();
 }
 
-}  // namespace
+} // namespace
 
 // ─────────────────────────────────────────────────────────────────────────────
 // generate_module: schreibt .cpp + _CMakeLists.txt
@@ -66,7 +66,7 @@ TEST_F(CodegenFixture, GenerateModuleCreatesSourceFile) {
     xml::PermutationEntry ce{"ce_test", {}};
     xml::PermutationEntry sa{"sa_test", {}};
     xml::PermutationEntry al{"al_test", {}};
-    std::uint64_t const fp = 0xC0FFEE12345678ABULL;
+    std::uint64_t const   fp = 0xC0FFEE12345678ABULL;
 
     engine_->generate_module(ce, sa, al, fp);
 
@@ -75,15 +75,15 @@ TEST_F(CodegenFixture, GenerateModuleCreatesSourceFile) {
 
     auto content = read_file(src_path);
     EXPECT_NE(content.find("comdare_get_module_v1"), std::string::npos);
-    EXPECT_NE(content.find("c0ffee12345678ab"),       std::string::npos);
-    EXPECT_NE(content.find("ce_test"),                 std::string::npos);
+    EXPECT_NE(content.find("c0ffee12345678ab"), std::string::npos);
+    EXPECT_NE(content.find("ce_test"), std::string::npos);
 }
 
 TEST_F(CodegenFixture, GenerateModuleCreatesCMakeListsFile) {
     xml::PermutationEntry ce{"ce_a", {}};
     xml::PermutationEntry sa{"sa_a", {}};
     xml::PermutationEntry al{"al_a", {}};
-    std::uint64_t const fp = 0xDEADBEEFCAFEBABEULL;
+    std::uint64_t const   fp = 0xDEADBEEFCAFEBABEULL;
 
     engine_->generate_module(ce, sa, al, fp);
 
@@ -95,8 +95,7 @@ TEST_F(CodegenFixture, GenerateModuleCreatesCMakeListsFile) {
     EXPECT_NE(content.find("target_compile_features(comdare_perm_deadbeefcafebabe PRIVATE cxx_std_23)"),
               std::string::npos);
     // Pfad muss Forward-Slashes verwenden, NICHT Backslashes
-    EXPECT_EQ(content.find('\\'), std::string::npos)
-        << "CMakeLists.txt enthaelt Backslashes (Escape-Probleme!)";
+    EXPECT_EQ(content.find('\\'), std::string::npos) << "CMakeLists.txt enthaelt Backslashes (Escape-Probleme!)";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -123,12 +122,9 @@ TEST_F(CodegenFixture, AggregateCmakeListsAllFingerprints) {
     EXPECT_NE(content.find("module_aaaa_CMakeLists.txt"), std::string::npos);
     EXPECT_NE(content.find("module_bbbb_CMakeLists.txt"), std::string::npos);
     EXPECT_NE(content.find("module_cccc_CMakeLists.txt"), std::string::npos);
-    EXPECT_NE(content.find("add_dependencies(comdare_all_permutations comdare_perm_aaaa)"),
-              std::string::npos);
-    EXPECT_NE(content.find("add_dependencies(comdare_all_permutations comdare_perm_bbbb)"),
-              std::string::npos);
-    EXPECT_NE(content.find("add_dependencies(comdare_all_permutations comdare_perm_cccc)"),
-              std::string::npos);
+    EXPECT_NE(content.find("add_dependencies(comdare_all_permutations comdare_perm_aaaa)"), std::string::npos);
+    EXPECT_NE(content.find("add_dependencies(comdare_all_permutations comdare_perm_bbbb)"), std::string::npos);
+    EXPECT_NE(content.find("add_dependencies(comdare_all_permutations comdare_perm_cccc)"), std::string::npos);
 }
 
 TEST_F(CodegenFixture, AggregateCmakeUsesCxxStd23) {
@@ -136,7 +132,7 @@ TEST_F(CodegenFixture, AggregateCmakeUsesCxxStd23) {
     engine_->generate_aggregate_cmake(fps);
 
     auto content = read_file(engine_->aggregate_cmake_path());
-    EXPECT_NE(content.find("set(CMAKE_CXX_STANDARD 23)"),          std::string::npos);
+    EXPECT_NE(content.find("set(CMAKE_CXX_STANDARD 23)"), std::string::npos);
     EXPECT_NE(content.find("set(CMAKE_CXX_STANDARD_REQUIRED ON)"), std::string::npos);
 }
 

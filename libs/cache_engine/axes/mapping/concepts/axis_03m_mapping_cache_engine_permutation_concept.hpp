@@ -5,7 +5,7 @@
 #include "../axis_03m_mapping_subaxes_mp1_to_mp2.hpp"
 
 #include <measurement/measurable_concept.hpp>
-#include <concepts/legacy_original_code_strategy_concept.hpp>   // V41.F.6.1.P2.C Habich-Compliance Pflicht-API
+#include <concepts/legacy_original_code_strategy_concept.hpp> // V41.F.6.1.P2.C Habich-Compliance Pflicht-API
 
 #include <concepts>
 #include <cstddef>
@@ -33,36 +33,36 @@ struct MappingStatistics {
  */
 template <typename M>
 concept CacheEngineMappingPermutationStrategy =
-    ::comdare::cache_engine::traversal::concepts::TraversalComponent<M>
-    && requires {
+    ::comdare::cache_engine::traversal::concepts::TraversalComponent<M> &&
+    requires {
         typename M::axis_tag;
         typename M::family_id;
-        { M::is_thread_safe()           } -> std::convertible_to<bool>;
-        { M::name()                     } -> std::convertible_to<std::string_view>;
-        { M::family_name()              } -> std::convertible_to<std::string_view>;
-        { M::flag_suffix()              } -> std::convertible_to<std::string_view>;
+        { M::is_thread_safe() } -> std::convertible_to<bool>;
+        { M::name() } -> std::convertible_to<std::string_view>;
+        { M::family_name() } -> std::convertible_to<std::string_view>;
+        { M::flag_suffix() } -> std::convertible_to<std::string_view>;
         // Sonderfall-Properties
-        { M::is_pool_relative()         } -> std::convertible_to<bool>;
-        { M::supports_reverse_lookup()  } -> std::convertible_to<bool>;
-        { M::requires_pool_base()       } -> std::convertible_to<bool>;
+        { M::is_pool_relative() } -> std::convertible_to<bool>;
+        { M::supports_reverse_lookup() } -> std::convertible_to<bool>;
+        { M::requires_pool_base() } -> std::convertible_to<bool>;
     }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-    && requires(M m, M const& mc) {
+    &&
+    requires(M m, M const& mc) {
         { mc.statistics() } noexcept;
-        { m.reset() }      noexcept;
-    }
-    && requires {
+        { m.reset() } noexcept;
+    } &&
+    requires {
         typename M::snapshot_t;
         typename M::observer_t;
-    }
-    && std::same_as<typename M::observer_t,
-                    ::comdare::cache_engine::measurement::MeasurableObserver<typename M::snapshot_t>>
-    && requires(M const& mc) {
+    } &&
+    std::same_as<typename M::observer_t,
+                 ::comdare::cache_engine::measurement::MeasurableObserver<typename M::snapshot_t>> &&
+    requires(M const& mc) {
         { mc.observer() } noexcept -> std::same_as<typename M::observer_t const&>;
     }
 #endif
     // V41.F.6.1.P2.C Habich-Compliance: get_compiler + is_original_module (cross-axis via AxisBase Default)
-    && ::comdare::cache_engine::concepts::LegacyOriginalCodePflicht<M>
-    ;
+    && ::comdare::cache_engine::concepts::LegacyOriginalCodePflicht<M>;
 
-}  // namespace
+} // namespace comdare::cache_engine::mapping::concepts

@@ -36,4 +36,4 @@ public:
     [[nodiscard]] virtual bool is_parallelizable() const noexcept { return false; }
 };
 
-}  // namespace comdare::cache_engine::builder::commands
+} // namespace comdare::cache_engine::builder::commands

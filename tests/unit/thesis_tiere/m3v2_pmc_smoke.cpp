@@ -12,8 +12,8 @@
 // und befüllt row.pmc EXAKT über die EINE PMC-Quelle (begin()→[leerer Batch]→end()), genau wie run_observable_perm.
 // Damit ist die Spalten-Existenz + die Default-0/available=0-Belegung literal nachweisbar.
 
-#include "experiment_tree/cache_engine_builder_iterator.hpp"   // lazy_csv_header / format_csv_row / LazyMeasuredRow
-#include "pmc_source_factory.hpp"                              // make_pmc_source / IPmcSource / PmcCounters
+#include "experiment_tree/cache_engine_builder_iterator.hpp" // lazy_csv_header / format_csv_row / LazyMeasuredRow
+#include "pmc_source_factory.hpp"                            // make_pmc_source / IPmcSource / PmcCounters
 
 #include <iostream>
 #include <string>
@@ -40,25 +40,29 @@ int main() {
     row.total_ns      = 123456;
     row.profile_name  = "YCSB_C_read_only";
     row.build_version = "m3v2";
-    row.pmc           = delta;   // #156-De-Risk: die HW-PMC-Counter DIESER Messung in die Endspalten
+    row.pmc           = delta; // #156-De-Risk: die HW-PMC-Counter DIESER Messung in die Endspalten
 
     std::string const header = ex::lazy_csv_header();
     std::string const line   = ex::format_csv_row(row);
 
     std::cout << "=== HEADER ===\n" << header;
-    std::cout << "=== ROW ===\n"    << line;
+    std::cout << "=== ROW ===\n" << line;
 
     // Maschinen-lesbarer Beleg: die 7 neuen Spalten existieren im Header (additiv ans Ende).
-    char const* const pmc_cols[] = {
-        "pmc_cache_misses_l1", "pmc_cache_misses_l2", "pmc_cache_misses_l3", "pmc_dtlb_misses",
-        "pmc_coherence_invalidations", "pmc_energy_micro_joules", "pmc_available"};
-    int missing = 0;
-    for (char const* c : pmc_cols) if (header.find(c) == std::string::npos) { ++missing; std::cout << "[ERR] header fehlt: " << c << "\n"; }
+    char const* const pmc_cols[] = {"pmc_cache_misses_l1", "pmc_cache_misses_l2",         "pmc_cache_misses_l3",
+                                    "pmc_dtlb_misses",     "pmc_coherence_invalidations", "pmc_energy_micro_joules",
+                                    "pmc_available"};
+    int               missing    = 0;
+    for (char const* c : pmc_cols)
+        if (header.find(c) == std::string::npos) {
+            ++missing;
+            std::cout << "[ERR] header fehlt: " << c << "\n";
+        }
 
     // available=0 + alle Counter 0 bei NullPmcSource (ehrlich; mit PCM=ON real).
-    bool const honest_null = !delta.available && delta.cache_misses_l1 == 0 && delta.cache_misses_l2 == 0
-        && delta.cache_misses_l3 == 0 && delta.dtlb_misses == 0 && delta.coherence_invalidations == 0
-        && delta.energy_micro_joules == 0;
+    bool const honest_null = !delta.available && delta.cache_misses_l1 == 0 && delta.cache_misses_l2 == 0 &&
+                             delta.cache_misses_l3 == 0 && delta.dtlb_misses == 0 &&
+                             delta.coherence_invalidations == 0 && delta.energy_micro_joules == 0;
 
     std::cout << "missing_pmc_cols=" << missing << "  honest_null=" << (honest_null ? "1" : "0") << "\n";
     std::cout << ((missing == 0 && honest_null) ? "SMOKE_OK\n" : "SMOKE_FAIL\n");

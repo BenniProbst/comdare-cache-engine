@@ -14,7 +14,7 @@
 // Es wird NIE behauptet, dass auf jedem Runner counter!=0 gilt — das ist HW-/Policy-abhängig (prod-Runner).
 // Geprüft wird nur die Implikation "available ⇒ mind. ein Counter befüllt" und "kein-Zugriff ⇒ sauberer Skip".
 
-#include "pmc_source_factory.hpp"   // make_pmc_source / IPmcSource / PmcCounters
+#include "pmc_source_factory.hpp" // make_pmc_source / IPmcSource / PmcCounters
 
 #include <cstdint>
 #include <iostream>
@@ -32,14 +32,14 @@ int main() {
 
     // (2) Speicherrührende Last: Pointer-Chasing über einen Puffer >> LLC-Größe, damit echte Cache-Misses
     // entstehen. Der Index-Sprung (großschrittig, prim-teilerfremd) verhindert Hardware-Prefetch.
-    constexpr std::size_t kN = 1u << 22;             // 4M * 8B = 32 MiB (> typ. LLC) → garantierte LL-Misses.
+    constexpr std::size_t      kN = 1u << 22; // 4M * 8B = 32 MiB (> typ. LLC) → garantierte LL-Misses.
     std::vector<std::uint64_t> buf(kN);
-    for (std::size_t i = 0; i < kN; ++i) buf[i] = (i * 2654435761u + 1u) & (kN - 1);  // Permutations-Verkettung.
+    for (std::size_t i = 0; i < kN; ++i) buf[i] = (i * 2654435761u + 1u) & (kN - 1); // Permutations-Verkettung.
 
     pmc->begin();
     std::uint64_t idx = 0;
     std::uint64_t acc = 0;
-    for (std::size_t step = 0; step < kN; ++step) {  // kN Sprünge durch den Puffer (zeiger-verkettet).
+    for (std::size_t step = 0; step < kN; ++step) { // kN Sprünge durch den Puffer (zeiger-verkettet).
         idx = buf[idx];
         acc += idx;
     }
@@ -63,9 +63,8 @@ int main() {
     }
 
     // available==1 → mindestens ein echter Counter MUSS befüllt sein (sonst wäre available=true unehrlich).
-    bool const any_counter =
-        delta.cache_misses_l1 != 0 || delta.cache_misses_l3 != 0 || delta.dtlb_misses != 0
-        || delta.energy_micro_joules != 0;
+    bool const any_counter = delta.cache_misses_l1 != 0 || delta.cache_misses_l3 != 0 || delta.dtlb_misses != 0 ||
+                             delta.energy_micro_joules != 0;
 
     if (any_counter) {
         std::cout << "SMOKE_OK (live PMC, >=1 counter populated)\n";

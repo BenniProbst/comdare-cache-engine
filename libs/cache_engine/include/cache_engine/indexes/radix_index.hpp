@@ -17,7 +17,7 @@ namespace comdare::cache_engine::indexes {
 
 class RadixIndex {
 public:
-    static constexpr std::size_t kFanOut = 16;  // 4-bit nibbles
+    static constexpr std::size_t kFanOut = 16; // 4-bit nibbles
 
     RadixIndex() : root_{std::make_unique<Node>()} {}
 
@@ -25,9 +25,7 @@ public:
         Node* node = root_.get();
         for (int shift = 28; shift >= 0; shift -= 4) {
             std::uint8_t nibble = static_cast<std::uint8_t>((key >> shift) & 0xF);
-            if (!node->children[nibble]) {
-                node->children[nibble] = std::make_unique<Node>();
-            }
+            if (!node->children[nibble]) { node->children[nibble] = std::make_unique<Node>(); }
             node = node->children[nibble].get();
         }
         if (!node->present) {
@@ -40,7 +38,7 @@ public:
         Node const* node = root_.get();
         for (int shift = 28; shift >= 0; shift -= 4) {
             std::uint8_t nibble = static_cast<std::uint8_t>((key >> shift) & 0xF);
-            Node const* next = node->children[nibble].get();
+            Node const*  next   = node->children[nibble].get();
             if (!next) return false;
             node = next;
         }
@@ -51,11 +49,11 @@ public:
 
 private:
     struct Node {
-        std::array<std::unique_ptr<Node>, kFanOut> children {};
-        bool present {false};
+        std::array<std::unique_ptr<Node>, kFanOut> children{};
+        bool                                       present{false};
     };
     std::unique_ptr<Node> root_;
-    std::size_t           size_ {0};
+    std::size_t           size_{0};
 };
 
-}  // namespace comdare::cache_engine::indexes
+} // namespace comdare::cache_engine::indexes

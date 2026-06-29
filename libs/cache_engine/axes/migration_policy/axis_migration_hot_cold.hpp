@@ -25,10 +25,12 @@ public:
 
     static constexpr bool enabled = flags::hot_cold_enabled;
 
-    [[nodiscard]] static constexpr bool             is_active()    noexcept { return true; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "migration_hot_cold"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "HotColdMigration (LRU+probabilistic Hot/Cold separation)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "HOT_COLD"; }
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return true; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "migration_hot_cold"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "HotColdMigration (LRU+probabilistic Hot/Cold separation)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "HOT_COLD"; }
 
     // V41.F.6.1 — verhaltens-tragende Mess-Op (migration_policy F15-operativ): Entscheidungs-Scan.
     // EHRLICHKEIT: Migration ohne 2. Tier nicht ausfuehrbar -> gemessen werden ausschliesslich die
@@ -39,26 +41,26 @@ public:
     // Laufzeit (Hot/Cold-Klassifikation), distinkt zu TierBased/Adaptive.
     [[nodiscard]] static std::uint64_t migration_decide_scan(unsigned char const* buf, std::size_t n,
                                                              std::size_t record_size) noexcept {
-        std::uint64_t hot_votes  = 0;
-        std::uint64_t cold_votes = 0;
-        std::uint32_t lru_recency = 0;  // letzter gesehener Feldwert (LRU-Recency-Marker)
+        std::uint64_t hot_votes   = 0;
+        std::uint64_t cold_votes  = 0;
+        std::uint32_t lru_recency = 0; // letzter gesehener Feldwert (LRU-Recency-Marker)
         for (std::size_t i = 0; i < n; ++i) {
             std::uint32_t v;
-            std::memcpy(&v, buf + i * record_size, sizeof(v));   // strided 4-Byte-Feld
+            std::memcpy(&v, buf + i * record_size, sizeof(v)); // strided 4-Byte-Feld
             if (v >= lru_recency) {
-                ++hot_votes;   // erneuter/steigender Zugriff -> hot (Promotion-Tendenz)
+                ++hot_votes; // erneuter/steigender Zugriff -> hot (Promotion-Tendenz)
             } else {
-                ++cold_votes;  // abfallende Recency -> cold (Demotion-Tendenz)
+                ++cold_votes; // abfallende Recency -> cold (Demotion-Tendenz)
             }
-            lru_recency = v;   // LRU-Counter aktualisieren
+            lru_recency = v; // LRU-Counter aktualisieren
         }
         return hot_votes + cold_votes;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::migration_policy
 
 namespace comdare::cache_engine::migration_policy {
-    static_assert(concepts::MigrationStrategy<HotColdMigration>);
-    static_assert(concepts::CacheEnginePermutationStrategy<HotColdMigration>);
-}
+static_assert(concepts::MigrationStrategy<HotColdMigration>);
+static_assert(concepts::CacheEnginePermutationStrategy<HotColdMigration>);
+} // namespace comdare::cache_engine::migration_policy

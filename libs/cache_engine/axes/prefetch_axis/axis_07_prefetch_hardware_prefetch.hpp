@@ -32,15 +32,17 @@ public:
 
     static constexpr bool enabled = flags::hardware_prefetch_enabled;
 
-    [[nodiscard]] static constexpr bool             is_active()    noexcept { return true; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "prefetch_hardware"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "HardwarePrefetch (Wormhole PREFETCHT0, CPU-managed distance)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "HARDWARE_PREFETCH"; }
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return true; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "prefetch_hardware"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "HardwarePrefetch (Wormhole PREFETCHT0, CPU-managed distance)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "HARDWARE_PREFETCH"; }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::prefetch_axis
 
 namespace comdare::cache_engine::prefetch_axis {
-    static_assert(concepts::PrefetchStrategy<HardwarePrefetch>);
-    static_assert(concepts::CacheEnginePermutationStrategy<HardwarePrefetch>);
-}
+static_assert(concepts::PrefetchStrategy<HardwarePrefetch>);
+static_assert(concepts::CacheEnginePermutationStrategy<HardwarePrefetch>);
+} // namespace comdare::cache_engine::prefetch_axis

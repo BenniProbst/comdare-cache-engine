@@ -83,13 +83,9 @@ public:
     // ─────────────────────────────────────────────────────────────────────
     using all_permutations = typename Engine::AllPermutations;
 
-    [[nodiscard]] static constexpr std::size_t count() noexcept {
-        return Engine::count();
-    }
+    [[nodiscard]] static constexpr std::size_t count() noexcept { return Engine::count(); }
 
-    [[nodiscard]] static constexpr std::size_t arity() noexcept {
-        return Engine::arity;
-    }
+    [[nodiscard]] static constexpr std::size_t arity() noexcept { return Engine::arity; }
 
     // ─────────────────────────────────────────────────────────────────────
     // R5.C.B Pruefling-Slot-Validierung (Doku 14 §32.3 Gattungs-Constraint)
@@ -140,8 +136,7 @@ public:
 
     /// Compile-Time-Predicate: alle uebergebenen Slots passen zur Gattung?
     template <class... Slots>
-    static constexpr bool slots_match_genus_v =
-        (pf::IsSlotOfGenus_v<Slots, AnatomyGenus::SearchAlgorithm> && ...);
+    static constexpr bool slots_match_genus_v = (pf::IsSlotOfGenus_v<Slots, AnatomyGenus::SearchAlgorithm> && ...);
 
     // ─────────────────────────────────────────────────────────────────────
     // Iteration: technisch benannte Visitor-API (Doku-Konvention §41)
@@ -191,11 +186,11 @@ public:
         Driver::for_each_animal([&]<class Algo>(Algo& algo, std::string_view name) {
             // Wrappe Anatomie in Production-AbiAdapter
             SearchAlgorithmAbiAdapter<Algo> adapter;
-            IAnatomyBase& base = adapter;
+            IAnatomyBase&                   base = adapter;
             std::forward<Visitor>(v)(base, name);
-            (void)algo;  // Algo wurde fuer Adapter-Instantiation gebraucht
+            (void)algo; // Algo wurde fuer Adapter-Instantiation gebraucht
         });
     }
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

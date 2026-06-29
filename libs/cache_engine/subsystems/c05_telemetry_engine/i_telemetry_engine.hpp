@@ -15,7 +15,7 @@ public:
 
     // Strategien registrieren — eine Engine kann mehrere Strategien verwalten
     virtual void register_strategy(comdare::cache_engine::ITelemetryStrategy* s) = 0;
-    virtual void unregister_all() noexcept = 0;
+    virtual void unregister_all() noexcept                                       = 0;
 
     [[nodiscard]] virtual std::size_t strategy_count() const noexcept = 0;
 
@@ -23,4 +23,4 @@ public:
     [[nodiscard]] virtual std::vector<std::uint64_t> snapshot_values() const = 0;
 };
 
-}  // namespace comdare::cache_engine::subsystems::telemetry
+} // namespace comdare::cache_engine::subsystems::telemetry

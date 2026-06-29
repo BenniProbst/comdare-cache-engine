@@ -21,16 +21,18 @@ public:
     static constexpr bool enabled = flags::dense_byte_enabled;
 
     [[nodiscard]] static constexpr concepts::PageKind page_kind() noexcept { return concepts::PageKind::DenseByte; }
-    [[nodiscard]] static constexpr bool             is_branch()   noexcept { return true; }
-    [[nodiscard]] static constexpr bool             is_leaf()     noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "page_dense_byte"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "DenseBytePageType (dense byte-indexed branch page, direct-addressed)"; }
+    [[nodiscard]] static constexpr bool               is_branch() noexcept { return true; }
+    [[nodiscard]] static constexpr bool               is_leaf() noexcept { return false; }
+    [[nodiscard]] static constexpr std::string_view   name() noexcept { return "page_dense_byte"; }
+    [[nodiscard]] static constexpr std::string_view   family_name() noexcept {
+        return "DenseBytePageType (dense byte-indexed branch page, direct-addressed)";
+    }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "DENSE_BYTE"; }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::nodes::axis_01_page_type
 
 namespace comdare::cache_engine::nodes::axis_01_page_type {
-    static_assert(concepts::PageTypeStrategy<DenseBytePageType>);
-    static_assert(concepts::CacheEnginePermutationStrategy<DenseBytePageType>);
-}
+static_assert(concepts::PageTypeStrategy<DenseBytePageType>);
+static_assert(concepts::CacheEnginePermutationStrategy<DenseBytePageType>);
+} // namespace comdare::cache_engine::nodes::axis_01_page_type

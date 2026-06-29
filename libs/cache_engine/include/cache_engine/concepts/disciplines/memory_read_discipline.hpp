@@ -13,4 +13,4 @@ public:
     void on_event(Event const&) noexcept override {}
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

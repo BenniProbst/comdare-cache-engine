@@ -33,19 +33,18 @@ namespace comdare::cache_engine::mapping::concepts {
  * jeweils ihre Charakteristiken mit (direkt vs pool-relativ).
  */
 template <typename M>
-concept MappingVariant =
-    ::comdare::cache_engine::traversal::concepts::TraversalComponent<M>
-    && requires { typename M::slot_index_type; typename M::offset_type; typename M::size_type; }
-    && requires(M m, typename M::slot_index_type s, typename M::offset_type o) {
-        { m.register_slot(s, o) }     -> std::same_as<void>;
-    }
-    && requires(M const& mc, typename M::slot_index_type s, typename M::offset_type o) {
-        { mc.resolve_offset(s) }      -> std::same_as<std::optional<typename M::offset_type>>;
-        { mc.reverse_lookup(o) }      -> std::same_as<std::optional<typename M::slot_index_type>>;
-        { mc.mapped_count() } noexcept -> std::convertible_to<std::size_t>;
-    }
-    && requires(M m) {
-        { m.clear() }                 noexcept;
-    };
+concept MappingVariant = ::comdare::cache_engine::traversal::concepts::TraversalComponent<M> && requires {
+    typename M::slot_index_type;
+    typename M::offset_type;
+    typename M::size_type;
+} && requires(M m, typename M::slot_index_type s, typename M::offset_type o) {
+    { m.register_slot(s, o) } -> std::same_as<void>;
+} && requires(M const& mc, typename M::slot_index_type s, typename M::offset_type o) {
+    { mc.resolve_offset(s) } -> std::same_as<std::optional<typename M::offset_type>>;
+    { mc.reverse_lookup(o) } -> std::same_as<std::optional<typename M::slot_index_type>>;
+    { mc.mapped_count() } noexcept -> std::convertible_to<std::size_t>;
+} && requires(M m) {
+    { m.clear() } noexcept;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::mapping::concepts

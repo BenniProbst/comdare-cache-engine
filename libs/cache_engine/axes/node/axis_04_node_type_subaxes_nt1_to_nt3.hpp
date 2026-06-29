@@ -12,4 +12,4 @@ struct access_pattern_tag {};
 // NT3: Compactness (sparse/dense/adaptive)
 struct compactness_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::node::subaxes

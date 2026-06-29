@@ -2,7 +2,7 @@
 // PermutationLoop - Master-Enumeration aller gueltigen PermutationDescriptors
 // (REV 7 §5.1 Phase 1 ENUMERATION + Phase 6 MEASURE)
 
-#include "xml_config_parser/xml_config_parser.hpp"  // V23.C.2: libs/common/serialization/
+#include "xml_config_parser/xml_config_parser.hpp" // V23.C.2: libs/common/serialization/
 
 #include <cstdint>
 #include <filesystem>
@@ -23,12 +23,10 @@ struct PermutationDescriptor {
 
 class PermutationLoop {
 public:
-    [[nodiscard]] std::vector<PermutationDescriptor>
-    enumerate(xml::CacheEngineConfig const& cfg) const;
+    [[nodiscard]] std::vector<PermutationDescriptor> enumerate(xml::CacheEngineConfig const& cfg) const;
 
-    [[nodiscard]] static std::uint64_t compute_fingerprint(
-        std::string_view ce_id, std::string_view sa_id,
-        std::string_view alloc_id, std::string_view tds_id) noexcept;
+    [[nodiscard]] static std::uint64_t compute_fingerprint(std::string_view ce_id, std::string_view sa_id,
+                                                           std::string_view alloc_id, std::string_view tds_id) noexcept;
 };
 
-}  // namespace comdare::builder::loop
+} // namespace comdare::builder::loop

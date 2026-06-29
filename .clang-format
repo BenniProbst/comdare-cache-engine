@@ -1,0 +1,41 @@
+# comdare-cache-engine — clang-format (#179/#203, 2026-06-29): bestehenden Stil spiegeln.
+# Ziel: vorhandene Optik bewahren (4-Space, ~120 Spalten, attached Braces, Pointer/Ref links,
+# kurze Funktionen/Bloecke einzeilig, Include-Reihenfolge erhalten) → minimaler, konsistenz-erzwingender Diff.
+# Geprueft via clang-format 22.1.x (CI: LLVM 22.1.8). NICHT auf ext/ angewandt (eigene .clang-format dort).
+---
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: Latest          # C++23 (User 2026-06-29): Latest = neuester von clang-format unterstuetzter Standard (inkl. C++23)
+ColumnLimit: 120
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+NamespaceIndentation: None
+AccessModifierOffset: -4
+PointerAlignment: Left
+ReferenceAlignment: Left
+DerivePointerAlignment: false
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: All
+AllowShortBlocksOnASingleLine: Always
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortEnumsOnASingleLine: true
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 0
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: Consecutive   # User 2026-06-29: maximale penible Sauberkeit — Spalten-Ausrichtung AN (groesserer Diff bewusst)
+AlignConsecutiveDeclarations: Consecutive
+AlignConsecutiveMacros: Consecutive        # #define-Werte ebenfalls ausgerichtet
+ReflowComments: false                      # Kommentar-INHALT (ASCII-Tabellen, ausgerichtete Bloecke) NICHT umbrechen — nur Code-Format
+AlwaysBreakTemplateDeclarations: Yes
+SpaceAfterTemplateKeyword: true
+SortIncludes: Never
+IndentPPDirectives: None
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtTheStartOfBlocks: false
+SpacesBeforeTrailingComments: 1
+IndentCaseLabels: true

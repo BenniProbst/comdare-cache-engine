@@ -12,29 +12,35 @@
 #include <string>
 #include <vector>
 
-namespace ex  = comdare::cache_engine::builder::experiment;
-namespace cx  = comdare::builder::xml;
+namespace ex = comdare::cache_engine::builder::experiment;
+namespace cx = comdare::builder::xml;
 
 static int g_fail = 0;
 template <typename A, typename B>
 void check_eq(char const* what, A const& got, B const& want) {
     bool ok = (got == want);
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << " = " << got;
-    if (!ok) { std::cout << "  (erwartet: " << want << ")"; ++g_fail; }
+    if (!ok) {
+        std::cout << "  (erwartet: " << want << ")";
+        ++g_fail;
+    }
     std::cout << "\n";
 }
-void check_true(char const* what, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n"; if (!c) ++g_fail; }
+void check_true(char const* what, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n";
+    if (!c) ++g_fail;
+}
 
 int main() {
     auto factory = std::make_shared<ex::ExperimentNodeFactory>();
 
     // ── Teil 1: Baum aus ZUSAMMENHÄNGENDEM Gesamt-Level-Satz + Filterung ──
-    ex::ExperimentTree tree{factory};
+    ex::ExperimentTree         tree{factory};
     std::vector<ex::AxisLevel> all_levels = {
-        ex::AxisLevel{"traversal", {"ART"}, true, ""},                   // statisch, gepinnt
-        ex::AxisLevel{"node", {"N4", "N16", "N256"}, true, ""},          // statisch, freigegeben
-        ex::AxisLevel{"node.cl_line", {"64", "128"}, true, ""},          // statisch (compile-time cacheline) -> Binary
-        ex::AxisLevel{"concurrency", {"1", "2", "4"}, false, "thread_count"},  // DYNAMISCH -> for-Schleife
+        ex::AxisLevel{"traversal", {"ART"}, true, ""},          // statisch, gepinnt
+        ex::AxisLevel{"node", {"N4", "N16", "N256"}, true, ""}, // statisch, freigegeben
+        ex::AxisLevel{"node.cl_line", {"64", "128"}, true, ""}, // statisch (compile-time cacheline) -> Binary
+        ex::AxisLevel{"concurrency", {"1", "2", "4"}, false, "thread_count"}, // DYNAMISCH -> for-Schleife
     };
     tree.build(all_levels);
 
@@ -48,7 +54,8 @@ int main() {
 
     std::vector<ex::ExperimentSetting> settings;
     tree.for_each_experiment_setting([&](ex::ExperimentSetting const& s) { settings.push_back(s); });
-    check_eq("Einstellung[0].binary_id", settings.front().binary_id, std::string{"traversal=ART/node=N4/node.cl_line=64"});
+    check_eq("Einstellung[0].binary_id", settings.front().binary_id,
+             std::string{"traversal=ART/node=N4/node.cl_line=64"});
     check_eq("Einstellung[0].dyn-Belegung (1 Variable)", settings.front().dynamic_assignment.size(), std::size_t{1});
     check_eq("Einstellung[0].setting_id (Binary + dyn)", settings.front().setting_id,
              std::string{"traversal=ART/node=N4/node.cl_line=64/concurrency.thread_count=1"});
@@ -56,21 +63,32 @@ int main() {
 
     // je Binary 3 Iterationen (gleicher binary_id 3x in den 18 Settings)
     std::size_t art_n4_64 = 0;
-    for (auto const& s : settings) if (s.binary_id == "traversal=ART/node=N4/node.cl_line=64") ++art_n4_64;
+    for (auto const& s : settings)
+        if (s.binary_id == "traversal=ART/node=N4/node.cl_line=64") ++art_n4_64;
     check_eq("Binary 'ART/N4/64' hat 3 Iterationen", art_n4_64, std::size_t{3});
 
     // ── Teil 2: Adapter comdare_thesis_profile -> AxisLevels ──
     cx::ThesisProfile tp;
-    tp.id = "t"; tp.schema_version = 1;
-    tp.base_tiers = { {"art", "../sota/art.profile.xml", "P01"}, {"hot", "../sota/hot.profile.xml", "P02"} };
-    cx::ThesisAxisSpec isa;  isa.ref = "isa";  isa.values = {"X86_AVX2", "X86_AVX512"};
-    cx::ThesisAxisSpec cl;   cl.ref = "cacheline"; cl.per_organ = {"node"}; cl.line_sizes = {"64","128"}; cl.alignments = {"none"};
-    tp.permute_axes = { isa, cl };
+    tp.id             = "t";
+    tp.schema_version = 1;
+    tp.base_tiers     = {{"art", "../sota/art.profile.xml", "P01"}, {"hot", "../sota/hot.profile.xml", "P02"}};
+    cx::ThesisAxisSpec isa;
+    isa.ref    = "isa";
+    isa.values = {"X86_AVX2", "X86_AVX512"};
+    cx::ThesisAxisSpec cl;
+    cl.ref           = "cacheline";
+    cl.per_organ     = {"node"};
+    cl.line_sizes    = {"64", "128"};
+    cl.alignments    = {"none"};
+    tp.permute_axes  = {isa, cl};
     tp.thread_counts = {"1", "2"};
-    cx::ThesisMode m; m.name = "ce_only"; m.merge = "Stufe1_CeOnly"; m.active_axes = {"isa", "cacheline"};
-    tp.modes = { m };
+    cx::ThesisMode m;
+    m.name        = "ce_only";
+    m.merge       = "Stufe1_CeOnly";
+    m.active_axes = {"isa", "cacheline"};
+    tp.modes      = {m};
 
-    auto levels = ex::build_axis_levels(tp, "ce_only", ex::AxisRegistry{});
+    auto               levels = ex::build_axis_levels(tp, "ce_only", ex::AxisRegistry{});
     ex::ExperimentTree tree2{factory};
     tree2.build(levels);
     // statisch: tier(2) x isa(2) x cl_line(2) x cl_align(1) = 8 Binaries (UNVERAENDERT — die binary_id-Quelle).
@@ -81,6 +99,7 @@ int main() {
     check_eq("Adapter: dynamic_filter (thread_count + repetition)", tree2.dynamic_filter().size(), std::size_t{2});
     check_eq("Adapter: experiment_setting_count (8 x 2 x 3)", tree2.experiment_setting_count(), std::size_t{48});
 
-    std::cout << "\n==== KF-9 Experiment-B+-Baum + Adapter: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== KF-9 Experiment-B+-Baum + Adapter: "
+              << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

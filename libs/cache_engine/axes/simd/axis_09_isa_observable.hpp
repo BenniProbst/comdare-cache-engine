@@ -38,11 +38,11 @@ namespace comdare::cache_engine::simd {
 
 /// ABI-taugliches Isa-Snapshot (NUR uint64 → standard_layout + trivially_copyable, Cross-ABI-POD-mappbar).
 struct IsaStatistics {
-    std::uint64_t simd_calls            = 0;   ///< Anzahl observe_simd_field_sum-Aufrufe (SIMD-Reduktions-Runden)
-    std::uint64_t elements_processed    = 0;   ///< Σ der lane-weise verarbeiteten 32-bit-Worte (Σ n)
-    std::uint64_t simd_iterations       = 0;   ///< Σ der Vektor-Iterationen = floor(n / lane_width) (SSE2: n/4)
-    std::uint64_t scalar_fallback_count = 0;   ///< Σ der skalaren Rest-Iterationen (n mod lane_width, bzw. ganz-n skalar)
-    std::uint64_t last_checksum         = 0;   ///< letztes simd_field_sum-Ergebnis (Korrektheits-/Anti-Wegopt-Anker)
+    std::uint64_t simd_calls            = 0; ///< Anzahl observe_simd_field_sum-Aufrufe (SIMD-Reduktions-Runden)
+    std::uint64_t elements_processed    = 0; ///< Σ der lane-weise verarbeiteten 32-bit-Worte (Σ n)
+    std::uint64_t simd_iterations       = 0; ///< Σ der Vektor-Iterationen = floor(n / lane_width) (SSE2: n/4)
+    std::uint64_t scalar_fallback_count = 0; ///< Σ der skalaren Rest-Iterationen (n mod lane_width, bzw. ganz-n skalar)
+    std::uint64_t last_checksum         = 0; ///< letztes simd_field_sum-Ergebnis (Korrektheits-/Anti-Wegopt-Anker)
 
     [[nodiscard]] bool operator==(IsaStatistics const&) const noexcept = default;
 };
@@ -61,16 +61,25 @@ public:
 
     // Transparenter Decorator: Strategie-Inspektion durchgereicht (composition_registry / axis_path_serialization
     // rufen C::isa::name()).
-    [[nodiscard]] static constexpr bool             is_64bit()             noexcept { return Strategy::is_64bit(); }
-    [[nodiscard]] static constexpr std::string_view cpu_family()           noexcept { return Strategy::cpu_family(); }
-    [[nodiscard]] static constexpr bool             supports_native_simd() noexcept { return Strategy::supports_native_simd(); }
-    [[nodiscard]] static constexpr std::string_view name()                 noexcept { return Strategy::name(); }
-    [[nodiscard]] static constexpr std::string_view family_name()
-        noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()
-        noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
-    [[nodiscard]] static constexpr std::string_view get_compiler()
-        noexcept requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
+    [[nodiscard]] static constexpr bool             is_64bit() noexcept { return Strategy::is_64bit(); }
+    [[nodiscard]] static constexpr std::string_view cpu_family() noexcept { return Strategy::cpu_family(); }
+    [[nodiscard]] static constexpr bool supports_native_simd() noexcept { return Strategy::supports_native_simd(); }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept
+        requires requires { Strategy::family_name(); }
+    {
+        return Strategy::family_name();
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept
+        requires requires { Strategy::flag_suffix(); }
+    {
+        return Strategy::flag_suffix();
+    }
+    [[nodiscard]] static constexpr std::string_view get_compiler() noexcept
+        requires requires { Strategy::get_compiler(); }
+    {
+        return Strategy::get_compiler();
+    }
 
     /// STATIC Pass-Through (Drop-in-Kompatibilität): die Strategie-Methode wird unveraendert durchgereicht, damit
     /// die Huelle als isa-Slot die bestehenden seg19-Aufrufer NICHT bricht (abi_adapter.hpp T12 `Isa::simd_field_sum`).
@@ -87,7 +96,7 @@ private:
 #if defined(__x86_64__) || defined(_M_X64)
         if (Strategy::cpu_family() == std::string_view{"x86_64"} && Strategy::supports_native_simd()) return 4;
 #endif
-        return 1;   // skalarer Pfad (Nicht-x86-Build-Host oder Nicht-x86-ISA-Strategie → kein aktiver SSE2-Zweig)
+        return 1; // skalarer Pfad (Nicht-x86-Build-Host oder Nicht-x86-ISA-Strategie → kein aktiver SSE2-Zweig)
     }
 
 public:
@@ -101,11 +110,11 @@ public:
         ++stats_.simd_calls;
         stats_.elements_processed += static_cast<std::uint64_t>(n);
         std::uint64_t const vec_iters = (lw > 1) ? (static_cast<std::uint64_t>(n) / lw) : 0;
-        std::uint64_t const scalar_rest = (lw > 1) ? (static_cast<std::uint64_t>(n) % lw)
-                                                   : static_cast<std::uint64_t>(n);  // ganz skalar
-        stats_.simd_iterations       += vec_iters;
+        std::uint64_t const scalar_rest =
+            (lw > 1) ? (static_cast<std::uint64_t>(n) % lw) : static_cast<std::uint64_t>(n); // ganz skalar
+        stats_.simd_iterations += vec_iters;
         stats_.scalar_fallback_count += scalar_rest;
-        stats_.last_checksum          = checksum;
+        stats_.last_checksum = checksum;
 #endif
         return checksum;
     }
@@ -113,11 +122,11 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = IsaStatistics;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; }
+    void                     reset() noexcept { stats_ = {}; }
 
 private:
     snapshot_t stats_{};
 #endif
 };
 
-}  // namespace comdare::cache_engine::simd
+} // namespace comdare::cache_engine::simd

@@ -23,4 +23,4 @@ struct packing_density_tag {};
 // HM4: Stride-Pattern (sequential vs interleaved access)
 struct stride_pattern_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::layout::subaxes

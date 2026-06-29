@@ -79,8 +79,8 @@ concept PermutationVariant = requires {
  */
 template <typename Axis, PermutationVariant... Vs>
 struct AxisVariantList {
-    using axis_id  = Axis;
-    using variants = mp::mp_list<Vs...>;
+    using axis_id                     = Axis;
+    using variants                    = mp::mp_list<Vs...>;
     static constexpr std::size_t size = sizeof...(Vs);
 };
 
@@ -95,7 +95,7 @@ struct AxisVariantList {
  */
 template <PermutationVariant... Vs>
 struct Permutation {
-    using variants = mp::mp_list<Vs...>;
+    using variants                          = mp::mp_list<Vs...>;
     static constexpr std::size_t axis_count = sizeof...(Vs);
 
     /**
@@ -104,7 +104,7 @@ struct Permutation {
      * fuer Codegen (perm_<hash>.cpp + perm_<hash>.so/.dll).
      */
     [[nodiscard]] static constexpr std::uint64_t hash() noexcept {
-        std::uint64_t h = 0xcbf29ce484222325ULL;  // FNV-1a offset basis
+        std::uint64_t h = 0xcbf29ce484222325ULL; // FNV-1a offset basis
         ((h = (h ^ Vs::variant_hash) * 0x100000001b3ULL), ...);
         return h;
     }
@@ -161,9 +161,7 @@ using FilterValid = mp::mp_filter<Predicate, Perms>;
  */
 template <typename Perms, typename Visitor>
 constexpr void for_each_permutation(Visitor&& v) {
-    mp::mp_for_each<Perms>([&]<typename P>(P) {
-        std::forward<Visitor>(v).template operator()<P>();
-    });
+    mp::mp_for_each<Perms>([&]<typename P>(P) { std::forward<Visitor>(v).template operator()<P>(); });
 }
 
-}  // namespace comdare::cache_engine::permutations
+} // namespace comdare::cache_engine::permutations

@@ -34,12 +34,8 @@ struct TopicConfigSet {
 
     /// Cartesian-Product 03a x 03b x 03m
     /// (Pilot: 3 x 2 x 2 = 12 Search-Traversal-Mapping-Kombinationen)
-    using Cartesian03ax03bx03m = mp::mp_product<
-        mp::mp_list,
-        StaticAxisVariants_03a,
-        StaticAxisVariants_03b,
-        StaticAxisVariants_03m
-    >;
+    using Cartesian03ax03bx03m =
+        mp::mp_product<mp::mp_list, StaticAxisVariants_03a, StaticAxisVariants_03b, StaticAxisVariants_03m>;
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::traversal

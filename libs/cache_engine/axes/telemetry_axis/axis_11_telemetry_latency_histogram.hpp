@@ -23,14 +23,16 @@ public:
     static constexpr bool enabled = flags::latency_histogram_enabled;
 
     [[nodiscard]] static constexpr bool             is_leaf_only() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "telemetry_latency_histogram"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "LatencyHistogram (HDR-Histogram p50/p95/p99, Wormhole)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "LATENCY_HISTOGRAM"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "telemetry_latency_histogram"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "LatencyHistogram (HDR-Histogram p50/p95/p99, Wormhole)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "LATENCY_HISTOGRAM"; }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::telemetry_axis
 
 namespace comdare::cache_engine::telemetry_axis {
-    static_assert(concepts::TelemetryStrategy<LatencyHistogram>);
-    static_assert(concepts::CacheEnginePermutationStrategy<LatencyHistogram>);
-}
+static_assert(concepts::TelemetryStrategy<LatencyHistogram>);
+static_assert(concepts::CacheEnginePermutationStrategy<LatencyHistogram>);
+} // namespace comdare::cache_engine::telemetry_axis

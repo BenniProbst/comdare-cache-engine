@@ -46,15 +46,17 @@ COMDARE_DEFINE_ANATOMY_MODULE(::comdare::cache_engine::compositions::ArtComposit
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5D_AnatomyAbi, MacroDefinesVersionAndMagic) {
-    static_assert(COMDARE_ANATOMY_ABI_MAJOR == 3);   // I1: ABI-Bruch (Observer-Schnittstellen-Konsolidierung auf EINE IObservableTier + EINEN POD)
-    static_assert(COMDARE_ANATOMY_ABI_MINOR == 0);   // I1: Minor auf 0 zurückgesetzt beim Major-Bump
-    static_assert(COMDARE_ANATOMY_ABI_MAGIC == 0x434F4D444141332EULL);  // "COMDA·A3·" (Magic kodiert Major, Minor-Bump ändert es nicht)
+    static_assert(COMDARE_ANATOMY_ABI_MAJOR ==
+                  3); // I1: ABI-Bruch (Observer-Schnittstellen-Konsolidierung auf EINE IObservableTier + EINEN POD)
+    static_assert(COMDARE_ANATOMY_ABI_MINOR == 0); // I1: Minor auf 0 zurückgesetzt beim Major-Bump
+    static_assert(COMDARE_ANATOMY_ABI_MAGIC ==
+                  0x434F4D444141332EULL); // "COMDA·A3·" (Magic kodiert Major, Minor-Bump ändert es nicht)
     SUCCEED();
 }
 
 TEST(R5D_AnatomyAbi, HostAbiVersionMatchesMacro) {
-    static_assert(abi::kHostAnatomyAbiVersion.major == 3);   // I1
-    static_assert(abi::kHostAnatomyAbiVersion.minor == 0);   // I1
+    static_assert(abi::kHostAnatomyAbiVersion.major == 3); // I1
+    static_assert(abi::kHostAnatomyAbiVersion.minor == 0); // I1
     SUCCEED();
 }
 
@@ -64,8 +66,8 @@ TEST(R5D_AnatomyAbi, HostAbiVersionMatchesMacro) {
 
 TEST(R5D_AnatomyAbiVersion, PackUnpackRoundtrip) {
     constexpr abi::AnatomyAbiVersion v{2, 7};
-    constexpr auto packed = v.pack();
-    constexpr auto unpacked = abi::AnatomyAbiVersion::unpack(packed);
+    constexpr auto                   packed   = v.pack();
+    constexpr auto                   unpacked = abi::AnatomyAbiVersion::unpack(packed);
     static_assert(unpacked.major == 2);
     static_assert(unpacked.minor == 7);
     SUCCEED();
@@ -97,9 +99,8 @@ TEST(R5D_AnatomyAbiVersion, CompatibilityRules) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5D_AnatomyFactory, AbiVersionFunctionReturnsExpected) {
-    constexpr std::uint64_t expected =
-        (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) |
-        static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MINOR);
+    constexpr std::uint64_t expected = (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) |
+                                       static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MINOR);
     EXPECT_EQ(comdare_anatomy_abi_version(), expected);
 }
 
@@ -152,7 +153,7 @@ TEST(R5D_AnatomyFactory, MultipleCreateProducesDistinctInstances) {
     ana::IAnatomyBase* p2 = comdare_create_anatomy();
     ASSERT_NE(p1, nullptr);
     ASSERT_NE(p2, nullptr);
-    EXPECT_NE(p1, p2);  // Heap-Allocation pro Aufruf
+    EXPECT_NE(p1, p2); // Heap-Allocation pro Aufruf
 
     // Lifecycle ist pro-Instanz unabhaengig
     p1->warm_up();

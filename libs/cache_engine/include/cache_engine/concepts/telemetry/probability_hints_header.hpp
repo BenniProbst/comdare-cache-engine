@@ -24,20 +24,14 @@ public:
         if (hint_bits_[idx] < 255) ++hint_bits_[idx];
     }
 
-    [[nodiscard]] std::uint8_t hint(std::uint8_t byte) const noexcept {
-        return hint_bits_[byte % BitLayoutBytes];
-    }
+    [[nodiscard]] std::uint8_t hint(std::uint8_t byte) const noexcept { return hint_bits_[byte % BitLayoutBytes]; }
 
-    [[nodiscard]] std::array<std::uint8_t, BitLayoutBytes> const& bits() const noexcept {
-        return hint_bits_;
-    }
+    [[nodiscard]] std::array<std::uint8_t, BitLayoutBytes> const& bits() const noexcept { return hint_bits_; }
 
-    [[nodiscard]] static constexpr std::size_t layout_bytes() noexcept {
-        return BitLayoutBytes;
-    }
+    [[nodiscard]] static constexpr std::size_t layout_bytes() noexcept { return BitLayoutBytes; }
 
 private:
     std::array<std::uint8_t, BitLayoutBytes> hint_bits_{};
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

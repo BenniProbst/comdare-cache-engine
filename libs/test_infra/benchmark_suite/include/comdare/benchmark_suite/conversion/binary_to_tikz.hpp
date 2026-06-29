@@ -11,9 +11,7 @@ namespace comdare::benchmark_suite::conversion {
 
 class BinaryToTikz {
 public:
-    void convert(std::span<MeasurementRecord32 const> records,
-                 std::filesystem::path const& tikz_path) const
-    {
+    void convert(std::span<MeasurementRecord32 const> records, std::filesystem::path const& tikz_path) const {
         std::ofstream out{tikz_path};
         if (!out) throw std::runtime_error{"Could not open " + tikz_path.string()};
 
@@ -22,13 +20,11 @@ public:
         out << "  \\begin{axis}[xlabel={Operation \\#}, ylabel={Cycles}]\n";
         out << "    \\addplot coordinates {\n";
         std::uint64_t op = 0;
-        for (auto const& r : records) {
-            out << "      (" << op++ << "," << r.cycles_or_value << ")\n";
-        }
+        for (auto const& r : records) { out << "      (" << op++ << "," << r.cycles_or_value << ")\n"; }
         out << "    };\n";
         out << "  \\end{axis}\n";
         out << "\\end{tikzpicture}\n";
     }
 };
 
-}  // namespace comdare::benchmark_suite::conversion
+} // namespace comdare::benchmark_suite::conversion

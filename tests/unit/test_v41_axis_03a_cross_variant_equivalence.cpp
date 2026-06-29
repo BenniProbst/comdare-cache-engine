@@ -23,11 +23,11 @@ namespace ce_alloc  = ::comdare::cache_engine::allocator::axis_06_allocator;
 namespace ts        = ::comdare::cache_engine::test_support;
 
 // Such-Achsen-Varianten ueber GEMEINSAMEM uint64-Key (alle teilen denselben Op-Stream).
-using LinearFlat = ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,        ce_cmp::RawSlotStore>;
-using SortedFlat = ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal,      ce_cmp::RawSlotStore>;
+using LinearFlat = ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal, ce_cmp::RawSlotStore>;
+using SortedFlat = ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, ce_cmp::RawSlotStore>;
 using InterpFlat = ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, ce_cmp::RawSlotStore>;
-using GallopFlat = ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan,    ce_cmp::RawSlotStore>;
-using BstTree    = ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan,      ce_cmp::TreeNodePoolStore>;
+using GallopFlat = ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan, ce_cmp::RawSlotStore>;
+using BstTree    = ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore>;
 
 // --- (1) VERTIKAL: jede Flat-Variante einzeln == std::map -------------------------------------------------
 TEST(Axis03aCrossVariant, FlatOrgansEquivalentToStdMap) {
@@ -53,34 +53,40 @@ TEST(Axis03aCrossVariant, TreeOrganEquivalentToFlatAnchor) {
 
 // --- (4) Storage-Achsen-Tausch aendert das Resultat nicht (Mimalloc vs PMR; LinearScan + SortedBinary) ----
 TEST(Axis03aCrossVariant, StorageSwapEquivalent) {
-    using StoreMi  = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::MimallocAllocator>;
-    using StorePmr = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::PmrResourceAllocator>;
-    ts::verify_variants_equivalent<
-        ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,   StoreMi>,
-        ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,   StorePmr>,
-        ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, StoreMi>,
-        ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, StorePmr>>(100000u, 2000u);
+    using StoreMi  = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout,
+                                             ce_alloc::MimallocAllocator>;
+    using StorePmr = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout,
+                                             ce_alloc::PmrResourceAllocator>;
+    ts::verify_variants_equivalent<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal, StoreMi>,
+                                   ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal, StorePmr>,
+                                   ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, StoreMi>,
+                                   ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, StorePmr>>(100000u, 2000u);
     SUCCEED();
 }
 
 // --- (5) Eigenschafts-Tabelle: Innen-Verhalten ist HETEROGEN, das std::map-Resultat aber IDENTISCH --------
 enum class OrderClass { Unordered, Ordered, Tree };
-template <class Tr> inline constexpr OrderClass kOrderClass = OrderClass::Unordered;   // Default: LinearScan
-template <> inline constexpr OrderClass kOrderClass<ce_cmp::SortedBinaryTraversal>      = OrderClass::Ordered;
-template <> inline constexpr OrderClass kOrderClass<ce_cmp::InterpolationTraversalOrgan> = OrderClass::Ordered;
-template <> inline constexpr OrderClass kOrderClass<ce_cmp::GallopingTraversalOrgan>    = OrderClass::Ordered;
-template <> inline constexpr OrderClass kOrderClass<ce_cmp::BSTTraversalOrgan>          = OrderClass::Tree;
+template <class Tr>
+inline constexpr OrderClass kOrderClass = OrderClass::Unordered; // Default: LinearScan
+template <>
+inline constexpr OrderClass kOrderClass<ce_cmp::SortedBinaryTraversal> = OrderClass::Ordered;
+template <>
+inline constexpr OrderClass kOrderClass<ce_cmp::InterpolationTraversalOrgan> = OrderClass::Ordered;
+template <>
+inline constexpr OrderClass kOrderClass<ce_cmp::GallopingTraversalOrgan> = OrderClass::Ordered;
+template <>
+inline constexpr OrderClass kOrderClass<ce_cmp::BSTTraversalOrgan> = OrderClass::Tree;
 
 TEST(Axis03aCrossVariant, OrderingPropertyTableHeterogeneousButResultsEqual) {
     // Die Tabelle ist HETEROGEN (>= 2 distinkte Innen-Verhalten-Klassen) ...
-    static_assert(kOrderClass<ce_cmp::LinearScanTraversal>   == OrderClass::Unordered);
+    static_assert(kOrderClass<ce_cmp::LinearScanTraversal> == OrderClass::Unordered);
     static_assert(kOrderClass<ce_cmp::SortedBinaryTraversal> == OrderClass::Ordered);
-    static_assert(kOrderClass<ce_cmp::BSTTraversalOrgan>     == OrderClass::Tree);
+    static_assert(kOrderClass<ce_cmp::BSTTraversalOrgan> == OrderClass::Tree);
     static_assert(kOrderClass<ce_cmp::LinearScanTraversal> != kOrderClass<ce_cmp::SortedBinaryTraversal>);
     static_assert(kOrderClass<ce_cmp::SortedBinaryTraversal> != kOrderClass<ce_cmp::BSTTraversalOrgan>);
     // ... und DENNOCH liefern unsortiert (Linear) und Baum (BST) dasselbe std::map-Resultat:
     ts::verify_variants_equivalent<LinearFlat, BstTree>(100000u, 2000u);
-    SUCCEED();  // Korrektheit ⊥ Innen-Verhalten — der Achsen-Vergleich auf der Interface-Dimension
+    SUCCEED(); // Korrektheit ⊥ Innen-Verhalten — der Achsen-Vergleich auf der Interface-Dimension
 }
 
 // Hinweis (Doku 24 §2.4): Diese Suite traegt KEINE Latenz-/Wall-Clock-/Throughput-Felder. Die Frage

@@ -8,15 +8,13 @@
 namespace comdare::cache_engine::telemetry_axis::concepts {
 
 template <typename T>
-concept CacheEnginePermutationStrategy =
-    TelemetryStrategy<T>
-    && requires {
-        typename T::axis_tag;
-        typename T::family_id;
-        { T::name() }         noexcept -> std::convertible_to<std::string_view>;
-        { T::family_name() }  noexcept -> std::convertible_to<std::string_view>;
-        { T::flag_suffix() }  noexcept -> std::convertible_to<std::string_view>;
-        { T::enabled }                 -> std::convertible_to<bool>;
-    };
+concept CacheEnginePermutationStrategy = TelemetryStrategy<T> && requires {
+    typename T::axis_tag;
+    typename T::family_id;
+    { T::name() } noexcept -> std::convertible_to<std::string_view>;
+    { T::family_name() } noexcept -> std::convertible_to<std::string_view>;
+    { T::flag_suffix() } noexcept -> std::convertible_to<std::string_view>;
+    { T::enabled } -> std::convertible_to<bool>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::telemetry_axis::concepts

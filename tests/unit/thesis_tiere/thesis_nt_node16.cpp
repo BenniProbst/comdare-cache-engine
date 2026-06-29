@@ -32,8 +32,7 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(
     ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle,
     ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa,
     ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization,
-    ::comdare::cache_engine::io::axis_io::InMemoryOnly,
-    ::comdare::cache_engine::migration::axis_migration::NoMigration,
+    ::comdare::cache_engine::io::axis_io::InMemoryOnly, ::comdare::cache_engine::migration::axis_migration::NoMigration,
     ::comdare::cache_engine::filter::axis_filter::BloomFilter,
     // ── T17/T18 queuing (Doc 30 §8.0): explizit gewählter Durchreich-Algorithmus (kein „weglassen") ──
     ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer,

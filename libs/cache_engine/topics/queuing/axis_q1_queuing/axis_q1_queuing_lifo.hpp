@@ -31,19 +31,21 @@ public:
     using size_type    = std::size_t;
     using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag     = subaxes::sequential_access_tag;
-    using family_id    = std::integral_constant<int, 4>;  // Q04
+    using family_id    = std::integral_constant<int, 4>; // Q04
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "lifo_stack"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "LIFOStackBuffer (Hot-Path Reuse + Versions-Tombstones)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "LIFO"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "lifo_stack"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "LIFOStackBuffer (Hot-Path Reuse + Versions-Tombstones)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "LIFO"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_concurrent_consumers() noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_priority_ordering()    noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_versioned()                  noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_priority_ordering() noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_versioned() noexcept { return false; }
     [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
         return concepts::ProgressGuarantee::Blocking;
     }
@@ -78,18 +80,18 @@ public:
         return v;
     }
 
-    [[nodiscard]] size_type size()     const noexcept { return data_.size(); }
+    [[nodiscard]] size_type size() const noexcept { return data_.size(); }
     [[nodiscard]] bool      is_empty() const noexcept { return data_.empty(); }
-    void                    clear()          noexcept { data_.clear(); }
+    void                    clear() noexcept { data_.clear(); }
 
     // std::queue-API auf Stack: peek_front=top (last-in), peek_back=bottom (first-in)
     [[nodiscard]] std::optional<element_type> peek_front() const noexcept {
         if (data_.empty()) return std::nullopt;
-        return data_.back();  // top of stack = LIFO front
+        return data_.back(); // top of stack = LIFO front
     }
     [[nodiscard]] std::optional<element_type> peek_back() const noexcept {
         if (data_.empty()) return std::nullopt;
-        return data_.front();  // bottom of stack = oldest
+        return data_.front(); // bottom of stack = oldest
     }
     void emplace(element_type v) { put(v); }
 
@@ -97,23 +99,26 @@ public:
     using snapshot_t = concepts::BufferStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
     std::vector<element_type> data_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
-    observer_t observer_{};
+    observer_t                 observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<LIFOStackBuffer>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<LIFOStackBuffer>);
-}
+static_assert(concepts::BufferStrategy<LIFOStackBuffer>);
+static_assert(concepts::CacheEngineBufferPermutationStrategy<LIFOStackBuffer>);
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing

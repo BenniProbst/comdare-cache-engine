@@ -16,14 +16,14 @@ TEST(PermutationFlags, AnySetTrueWhenAnyBankNonzero) {
 
 TEST(PermutationFlags, ToIdentifierIncludesAllTenBanks) {
     ce::PermutationFlags f{};
-    f.page_bank          = 0x1ULL;
-    f.telemetry_bank     = 0x2ULL;
-    auto id = f.to_identifier();
+    f.page_bank      = 0x1ULL;
+    f.telemetry_bank = 0x2ULL;
+    auto id          = f.to_identifier();
     // 10 banks * 16 hex digits + 9 separators = 169 chars
     EXPECT_EQ(id.size(), 10u * 16u + 9u);
     // erste Bank-Stelle: page_bank ist 0x...1
-    EXPECT_EQ(id.back(), '2');                  // letzte Bank = telemetry_bank
-    EXPECT_EQ(id[15], '1');                     // page_bank LSB
+    EXPECT_EQ(id.back(), '2'); // letzte Bank = telemetry_bank
+    EXPECT_EQ(id[15], '1');    // page_bank LSB
 }
 
 TEST(PermutationFlags, IsValidCombinationDetectsLeafOnlyWithoutRetroactive) {
@@ -89,9 +89,10 @@ TEST(PermutationFlags, TenBanksDistinctMember) {
     f.concurrency_bank   = 1;
     f.isa_bank           = 1;
     f.telemetry_bank     = 1;
-    auto id = f.to_identifier();
+    auto id              = f.to_identifier();
     // alle Banks haben '1' als LSB → 10x '1' an festen Positionen
     int ones = 0;
-    for (char c : id) if (c == '1') ++ones;
+    for (char c : id)
+        if (c == '1') ++ones;
     EXPECT_EQ(ones, 10);
 }

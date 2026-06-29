@@ -34,18 +34,23 @@ namespace comdare::cache_engine::compositions {
 /// HotPaperBindingComposition — HOT mit Habich-konformer Paper-Bindung
 /// (OriginalHotSearchAlgo, 2/4 originall + 2 Luecken).
 struct HotPaperBindingComposition {
-    using search_algo        = traversal::axis_03a_search_algo::composable::ObservableHotPatriciaOrgan;
-    using paper_source       = traversal::axis_03a_search_algo::OriginalHotSearchAlgo;  // #42 is_original/SHA256-Traeger, kein Achsen-Wert
-    using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
-    using mapping            = traversal::axis_03m_mapping::DirectPlacement;
-    using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;
-    using node_type          = nodes::axis_04_node_type::ObservableNodeType<nodes::axis_04_node_type::Node256NodeType>;  // V42 L-74c
-    using memory_layout      = memory_layout::axis_05_memory_layout::ObservableMemoryLayout<memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout>;  // V42 L-74c
-    using allocator          = allocator::axis_06_allocator::MimallocAllocator;
-    using prefetch           = prefetch::axis_07_prefetch::NonePrefetch;
-    using concurrency        = concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
-    using serialization      = serialization::axis_10_serialization::ObservableSerialization<serialization::axis_10_serialization::RawBinarySerialization>;  // V42 L-74c
-    using telemetry          = telemetry::axis_11_telemetry::ObservableTelemetry<telemetry::axis_11_telemetry::LeafOnlyCounter>;  // V42 L-74c
+    using search_algo = traversal::axis_03a_search_algo::composable::ObservableHotPatriciaOrgan;
+    using paper_source =
+        traversal::axis_03a_search_algo::OriginalHotSearchAlgo; // #42 is_original/SHA256-Traeger, kein Achsen-Wert
+    using cache_traversal  = traversal::axis_03b_cache_traversal::LinearFanout;
+    using mapping          = traversal::axis_03m_mapping::DirectPlacement;
+    using path_compression = nodes::axis_02_path_compression::PathCompressionNone;
+    using node_type =
+        nodes::axis_04_node_type::ObservableNodeType<nodes::axis_04_node_type::Node256NodeType>; // V42 L-74c
+    using memory_layout = memory_layout::axis_05_memory_layout::ObservableMemoryLayout<
+        memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout>; // V42 L-74c
+    using allocator     = allocator::axis_06_allocator::MimallocAllocator;
+    using prefetch      = prefetch::axis_07_prefetch::NonePrefetch;
+    using concurrency   = concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
+    using serialization = serialization::axis_10_serialization::ObservableSerialization<
+        serialization::axis_10_serialization::RawBinarySerialization>; // V42 L-74c
+    using telemetry =
+        telemetry::axis_11_telemetry::ObservableTelemetry<telemetry::axis_11_telemetry::LeafOnlyCounter>; // V42 L-74c
     using value_handle       = value_handle::axis_14_value_handle::InlineValueHandle;
     using isa                = hardware::axis_09_isa::Amd64Isa;
     using index_organization = search_engine::axis_01_index_organization::IotIndexOrganization;
@@ -53,15 +58,14 @@ struct HotPaperBindingComposition {
     using migration_policy   = migration::axis_migration::NoMigration;
     using filter             = filter::axis_filter::BloomFilter;
     // Topic queuing T17/T18 (Doc 30 §8.0) — explizit gewaehlter Durchreich-Algorithmus (kein „weglassen")
-    using queuing_q1         = queuing::axis_q1_queuing::NoBuffer;
-    using queuing_q2         = queuing::axis_q2_queuing::LazyFlush;
+    using queuing_q1 = queuing::axis_q1_queuing::NoBuffer;
+    using queuing_q2 = queuing::axis_q2_queuing::LazyFlush;
 
     static constexpr std::string_view paper_id    = "P02 Binna PVLDB 2018 (Paper-Binding)";
     static constexpr std::string_view paper_title = "HOT: Height Optimized Trie (Paper-Source)";
     static constexpr std::string_view name        = "HotPaperBindingComposition";
-    COMDARE_DEFINE_COMPOSITION_LOCATION(
-        "::comdare::cache_engine::compositions::HotPaperBindingComposition",
-        "compositions/hot_paper_binding_reference.hpp");
+    COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::HotPaperBindingComposition",
+                                        "compositions/hot_paper_binding_reference.hpp");
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::compositions

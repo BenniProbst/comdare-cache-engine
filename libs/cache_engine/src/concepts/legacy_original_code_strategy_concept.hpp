@@ -43,11 +43,10 @@ namespace mp = boost::mp11;
  *       fuegt es via Mass-Update in alle Achs-Concepts ein.
  */
 template <typename W>
-concept LegacyOriginalCodePflicht =
-    requires {
-        { W::get_compiler() }       -> std::convertible_to<std::string_view>;
-        { W::is_original_module() } -> std::convertible_to<bool>;
-    };
+concept LegacyOriginalCodePflicht = requires {
+    { W::get_compiler() } -> std::convertible_to<std::string_view>;
+    { W::is_original_module() } -> std::convertible_to<bool>;
+};
 
 /**
  * @brief HasOriginalCode — Sub-Concept: Paper-Wrapper mit konkretem Compiler
@@ -62,10 +61,8 @@ concept LegacyOriginalCodePflicht =
  */
 template <typename W>
 concept HasOriginalCode =
-    LegacyOriginalCodePflicht<W>
-    && (W::get_compiler() != std::string_view{"original"})
-    && (W::get_compiler() != std::string_view{"self"})
-    && (W::get_compiler() != std::string_view{"system"});
+    LegacyOriginalCodePflicht<W> && (W::get_compiler() != std::string_view{"original"}) &&
+    (W::get_compiler() != std::string_view{"self"}) && (W::get_compiler() != std::string_view{"system"});
 
 /**
  * @brief PaperOriginalValidated — Sub-Concept: SHA-validierte Original-Code
@@ -75,8 +72,7 @@ concept HasOriginalCode =
  * nur jene Mess-Reihen filtern, die "ORIGINAL ✓" sind.
  */
 template <typename W>
-concept PaperOriginalValidated =
-    LegacyOriginalCodePflicht<W> && (W::is_original_module());
+concept PaperOriginalValidated = LegacyOriginalCodePflicht<W> && (W::is_original_module());
 
 /**
  * @brief is_original_v<W> — Compile-Time-Konstante (Convenience-Wrapper).
@@ -100,4 +96,4 @@ template <typename W>
     requires LegacyOriginalCodePflicht<W>
 constexpr bool is_original_v = W::is_original_module();
 
-}  // namespace
+} // namespace comdare::cache_engine::concepts

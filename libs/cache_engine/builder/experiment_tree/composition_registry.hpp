@@ -14,7 +14,7 @@
 // compile-time materialisiert — NIE der volle 22-Achsen-Typ-Raum. C++23, header-only.
 
 #include "axis_path_serialization.hpp"
-#include "anatomy/composition_factory.hpp"   // anatomy::AdHocComposition, anatomy::CompositionFromPermTuple
+#include "anatomy/composition_factory.hpp" // anatomy::AdHocComposition, anatomy::CompositionFromPermTuple
 
 #include <cstddef>
 #include <map>
@@ -29,14 +29,11 @@ namespace comdare::cache_engine::builder::experiment {
 template <class C>
 [[nodiscard]] inline std::vector<std::pair<std::string, std::string>> composition_definition() {
     std::array<std::string_view, 19> const v = {
-        C::search_algo::name(),      C::cache_traversal::name(),    C::mapping::name(),
-        C::path_compression::name(), C::node_type::name(),          C::memory_layout::name(),
-        C::allocator::name(),        C::prefetch::name(),           C::concurrency::name(),
-        C::serialization::name(),    C::telemetry::name(),          C::value_handle::name(),
-        C::isa::name(),              C::index_organization::name(), C::io_dispatch::name(),
-        C::migration_policy::name(), C::filter::name(),             C::queuing_q1::name(),
-        C::queuing_q2::name()
-    };
+        C::search_algo::name(), C::cache_traversal::name(),    C::mapping::name(),     C::path_compression::name(),
+        C::node_type::name(),   C::memory_layout::name(),      C::allocator::name(),   C::prefetch::name(),
+        C::concurrency::name(), C::serialization::name(),      C::telemetry::name(),   C::value_handle::name(),
+        C::isa::name(),         C::index_organization::name(), C::io_dispatch::name(), C::migration_policy::name(),
+        C::filter::name(),      C::queuing_q1::name(),         C::queuing_q2::name()};
     std::vector<std::pair<std::string, std::string>> out;
     out.reserve(v.size());
     for (std::size_t i = 0; i < v.size(); ++i)
@@ -46,10 +43,10 @@ template <class C>
 
 /// Ein Registry-Eintrag: EIN Baum-Blatt-Pfad → die reale, materialisierte Komposition (+ ihre Definition).
 struct CompositionRecord {
-    std::string                                      path;          // serialize_composition_path<P>() == binary_id
-    std::string                                      slot_path;     // serialize_composition_from_slots<Comp>() (== path)
-    bool                                             materialized = false;  // CompositionFromPermTuple<P> kompilierte
-    std::vector<std::pair<std::string, std::string>> definition;    // (achse, wrapper) je Slot (read-only, BR-3)
+    std::string                                      path;      // serialize_composition_path<P>() == binary_id
+    std::string                                      slot_path; // serialize_composition_from_slots<Comp>() (== path)
+    bool                                             materialized = false; // CompositionFromPermTuple<P> kompilierte
+    std::vector<std::pair<std::string, std::string>> definition;           // (achse, wrapper) je Slot (read-only, BR-3)
 };
 
 /// CompositionRegistry — keyed über den serialisierten Static-Pfad (= Baum-`binary_id`).
@@ -60,7 +57,7 @@ public:
     template <class PilotEngine>
     void register_from_engine() {
         PilotEngine::for_each_permutation([this]<class P>() {
-            using Comp = anatomy::CompositionFromPermTuple<P>;  // materialisiert AdHocComposition<19> (compile-time)
+            using Comp = anatomy::CompositionFromPermTuple<P>; // materialisiert AdHocComposition<19> (compile-time)
             CompositionRecord r;
             r.path         = serialize_composition_path<P>();
             r.slot_path    = serialize_composition_from_slots<Comp>();
@@ -75,14 +72,16 @@ public:
         return it == by_path_.end() ? nullptr : &it->second;
     }
     [[nodiscard]] bool        contains(std::string const& path) const { return by_path_.contains(path); }
-    [[nodiscard]] std::size_t size()  const noexcept { return by_path_.size(); }
+    [[nodiscard]] std::size_t size() const noexcept { return by_path_.size(); }
     [[nodiscard]] bool        empty() const noexcept { return by_path_.empty(); }
 
     template <class F>
-    void for_each(F&& f) const { for (auto const& [k, v] : by_path_) f(v); }
+    void for_each(F&& f) const {
+        for (auto const& [k, v] : by_path_) f(v);
+    }
 
 private:
     std::map<std::string, CompositionRecord> by_path_;
 };
 
-}  // namespace comdare::cache_engine::builder::experiment
+} // namespace comdare::cache_engine::builder::experiment

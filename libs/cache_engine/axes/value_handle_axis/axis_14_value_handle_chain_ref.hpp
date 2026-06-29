@@ -30,10 +30,12 @@ public:
 
     static constexpr bool enabled = flags::chain_ref_enabled;
 
-    [[nodiscard]] static constexpr bool             is_inline()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "value_handle_chain_ref"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "ChainRefValueHandle (multi-value chained external reference, pool linked-list)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "CHAIN_REF"; }
+    [[nodiscard]] static constexpr bool             is_inline() noexcept { return false; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "value_handle_chain_ref"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "ChainRefValueHandle (multi-value chained external reference, pool linked-list)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "CHAIN_REF"; }
 
     // T11 value_handle F15-operativ (Pfad A, abi_adapter-Segment): strategie-charakteristische
     // Value-Zugriffs-SIMULATION. SIMULATION (kein echter Pool-Linked-List): Multi-Value-Schluessel
@@ -46,25 +48,25 @@ public:
                                                          std::size_t record_size) noexcept {
         std::uint64_t const span  = static_cast<std::uint64_t>(n) * record_size;
         std::uint64_t const guard = (span >= 3u ? span - 3u : 1u);
-        std::uint64_t s = 0;
+        std::uint64_t       s     = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::uint32_t head;
-            std::memcpy(&head, buf + i * record_size, sizeof(head));        // Slot: Chain-Head-Offset
+            std::memcpy(&head, buf + i * record_size, sizeof(head)); // Slot: Chain-Head-Offset
             std::uint64_t head_off = (static_cast<std::uint64_t>(head) % guard) & ~std::uint64_t{3};
             std::uint32_t node;
-            std::memcpy(&node, buf + head_off, sizeof(node));               // (1) Head-Deref -> Chain-Knoten
+            std::memcpy(&node, buf + head_off, sizeof(node)); // (1) Head-Deref -> Chain-Knoten
             std::uint64_t val_off = (static_cast<std::uint64_t>(node) % guard) & ~std::uint64_t{3};
             std::uint32_t v;
-            std::memcpy(&v, buf + val_off, sizeof(v));                      // (2) value_offset-Deref -> Value
+            std::memcpy(&v, buf + val_off, sizeof(v)); // (2) value_offset-Deref -> Value
             s += v;
         }
         return s;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::value_handle_axis
 
 namespace comdare::cache_engine::value_handle_axis {
-    static_assert(concepts::ValueHandleStrategy<ChainRefValueHandle>);
-    static_assert(concepts::CacheEnginePermutationStrategy<ChainRefValueHandle>);
-}
+static_assert(concepts::ValueHandleStrategy<ChainRefValueHandle>);
+static_assert(concepts::CacheEnginePermutationStrategy<ChainRefValueHandle>);
+} // namespace comdare::cache_engine::value_handle_axis

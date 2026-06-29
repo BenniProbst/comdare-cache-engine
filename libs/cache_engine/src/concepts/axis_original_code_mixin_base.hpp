@@ -42,9 +42,7 @@ namespace comdare::cache_engine::concepts {
 template <typename PaperManifest>
 struct OriginalCodeMixinBase : public ::comdare::cache_engine::topics::AxisBase {
     /// Override AxisBase::get_compiler() — Paper-spezifischer Compiler aus Manifest.
-    [[nodiscard]] static constexpr std::string_view get_compiler() noexcept {
-        return PaperManifest::kCompiler;
-    }
+    [[nodiscard]] static constexpr std::string_view get_compiler() noexcept { return PaperManifest::kCompiler; }
     /// V41.F.6.1.P2.C `has_original_paper_code` ENTFERNT (redundant zu is_original_module).
     /// `is_original_module()` wird in achs-spezifischen Mixin-Templates ueberschrieben:
     /// `return mp_all_of(PaperManifest::kIsOriginal_<fn1>, kIsOriginal_<fn2>, ...);`
@@ -52,4 +50,4 @@ struct OriginalCodeMixinBase : public ::comdare::cache_engine::topics::AxisBase 
     /// (lese-only, NICHT mehr via Property exposed).
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::concepts

@@ -43,16 +43,18 @@ public:
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::linear_access_tag;
-    using family_id  = std::integral_constant<int, 3>;  // CT03
+    using family_id  = std::integral_constant<int, 3>; // CT03
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "binary_search_fanout"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "BinarySearchFanout (sorted fanout + lower_bound, B+ inner-node binary search, Bayer/McCreight 1972)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "BINARY_SEARCH_FANOUT"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "binary_search_fanout"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "BinarySearchFanout (sorted fanout + lower_bound, B+ inner-node binary search, Bayer/McCreight 1972)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "BINARY_SEARCH_FANOUT"; }
 
-    [[nodiscard]] static constexpr bool is_hashed()            noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_hashed() noexcept { return false; }
     [[nodiscard]] static constexpr bool has_collision_chains() noexcept { return false; }
-    [[nodiscard]] static constexpr bool amortized_o1()         noexcept { return false; }  // O(log N) resolve
+    [[nodiscard]] static constexpr bool amortized_o1() noexcept { return false; } // O(log N) resolve
 
     BinarySearchFanout() = default;
 
@@ -64,7 +66,7 @@ public:
     /// SONDERFALL [[allocation-failure-exception]]: insert kann std::bad_alloc werfen.
     void register_entry(key_type k, value_type v) {
         auto it = std::lower_bound(entries_.begin(), entries_.end(), k,
-            [](auto const& e, key_type key) { return e.first < key; });
+                                   [](auto const& e, key_type key) { return e.first < key; });
         if (it != entries_.end() && it->first == k) {
             it->second = v;
         } else {
@@ -78,12 +80,15 @@ public:
     }
 
     [[nodiscard]] std::optional<value_type> resolve(key_type k) const {
-        auto it = std::lower_bound(entries_.begin(), entries_.end(), k,
-            [](auto const& e, key_type key) { return e.first < key; });
+        auto       it  = std::lower_bound(entries_.begin(), entries_.end(), k,
+                                          [](auto const& e, key_type key) { return e.first < key; });
         bool const hit = (it != entries_.end() && it->first == k);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_resolve_count;
-        if (hit) ++stats_.total_resolve_hit_count; else ++stats_.total_resolve_miss_count;
+        if (hit)
+            ++stats_.total_resolve_hit_count;
+        else
+            ++stats_.total_resolve_miss_count;
         observer_.notify(stats_);
 #endif
         if (!hit) return std::nullopt;
@@ -92,7 +97,7 @@ public:
 
     bool unregister(key_type k) {
         auto it = std::lower_bound(entries_.begin(), entries_.end(), k,
-            [](auto const& e, key_type key) { return e.first < key; });
+                                   [](auto const& e, key_type key) { return e.first < key; });
         if (it == entries_.end() || it->first != k) return false;
         entries_.erase(it);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -109,23 +114,26 @@ public:
     using snapshot_t = concepts::CacheTraversalStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
-    std::vector<std::pair<key_type, value_type>> entries_;  // nach key sortiert
+    std::vector<std::pair<key_type, value_type>> entries_; // nach key sortiert
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::CacheTraversalStatistics stats_{};
-    mutable observer_t                          observer_{};
+    mutable observer_t                         observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::cache_traversal
 
 namespace comdare::cache_engine::cache_traversal {
-    static_assert(concepts::CacheTraversalVariant<BinarySearchFanout>);
-    static_assert(concepts::CacheEngineCacheTraversalPermutationStrategy<BinarySearchFanout>);
-}
+static_assert(concepts::CacheTraversalVariant<BinarySearchFanout>);
+static_assert(concepts::CacheEngineCacheTraversalPermutationStrategy<BinarySearchFanout>);
+} // namespace comdare::cache_engine::cache_traversal

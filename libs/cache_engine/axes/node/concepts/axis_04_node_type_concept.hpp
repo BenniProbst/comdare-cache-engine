@@ -14,10 +14,8 @@ namespace comdare::cache_engine::node::concepts {
  * BPlusPage (Masstree), HashAnchorNode (Wormhole).
  */
 template <typename N>
-concept NodeTypeStrategy =
-    ::comdare::cache_engine::nodes::concepts::NodesComponent<N>
-    && requires(N const& n) {
-        { n.max_capacity() } noexcept -> std::convertible_to<std::size_t>;
-    };
+concept NodeTypeStrategy = ::comdare::cache_engine::nodes::concepts::NodesComponent<N> && requires(N const& n) {
+    { n.max_capacity() } noexcept -> std::convertible_to<std::size_t>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::node::concepts

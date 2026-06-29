@@ -14,4 +14,4 @@ inline constexpr std::array<std::string_view, 2> kAxisInterfaceFunctions = {
     "on_flush_complete",
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q2_queuing::concepts

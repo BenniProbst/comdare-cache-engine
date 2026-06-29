@@ -18,16 +18,16 @@ TEST(F6_StatusCode, StatusTIsInt) {
 
 TEST(F6_StatusCode, OkIsZeroErrorsArePositive) {
     static_assert(ce::status_ok == 0);
-    static_assert(ce::status_key_already_exists      == 1);
-    static_assert(ce::status_key_not_found           == 2);
-    static_assert(ce::status_out_of_memory           == 3);
-    static_assert(ce::status_invalid_argument        == 4);
-    static_assert(ce::status_capacity_exceeded       == 5);
-    static_assert(ce::status_locked                  == 6);
-    static_assert(ce::status_out_of_range            == 7);
-    static_assert(ce::status_empty_container         == 8);
+    static_assert(ce::status_key_already_exists == 1);
+    static_assert(ce::status_key_not_found == 2);
+    static_assert(ce::status_out_of_memory == 3);
+    static_assert(ce::status_invalid_argument == 4);
+    static_assert(ce::status_capacity_exceeded == 5);
+    static_assert(ce::status_locked == 6);
+    static_assert(ce::status_out_of_range == 7);
+    static_assert(ce::status_empty_container == 8);
     static_assert(ce::status_concurrent_modification == 9);
-    static_assert(ce::status_io_error                == 10);
+    static_assert(ce::status_io_error == 10);
     SUCCEED();
 }
 

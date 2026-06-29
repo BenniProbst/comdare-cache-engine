@@ -17,4 +17,4 @@ struct accelerator_type_tag {};
 // SE3: Compat-Family (none / x86 / arm / riscv / cuda)
 struct compat_family_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::hardware::axis_09b_simd_extension::subaxes

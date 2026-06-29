@@ -25,8 +25,7 @@ namespace comdare::cache_engine::builder::commands::stats {
     if (q < 0.0) q = 0.0;
     if (q > 1.0) q = 1.0;
     std::vector<std::int64_t> copy(samples.begin(), samples.end());
-    std::size_t const k = std::min(copy.size() - 1,
-        static_cast<std::size_t>(q * static_cast<double>(copy.size())));
+    std::size_t const k = std::min(copy.size() - 1, static_cast<std::size_t>(q * static_cast<double>(copy.size())));
     std::nth_element(copy.begin(), copy.begin() + static_cast<std::ptrdiff_t>(k), copy.end());
     return std::chrono::nanoseconds{copy[k]};
 }
@@ -71,19 +70,19 @@ namespace comdare::cache_engine::builder::commands::stats {
 // Grenzen via percentile_ns (Nearest-Rank, dieselbe Single-Source-Perzentil-Definition) → keine Methoden-Drift.
 [[nodiscard]] inline double winsorized_mean_ns(std::span<const std::int64_t> samples, double trim_q) {
     if (samples.empty()) return 0.0;
-    if (trim_q <= 0.0) return latency_mean_ns(samples);   // kein Trim → arithmetisches Mittel über alle n
-    if (trim_q >= 0.5) trim_q = 0.5 - 1e-9;               // symmetrischer Trim < halbe Stichprobe (kein Kollaps)
-    std::int64_t const lo = percentile_ns(samples, trim_q).count();          // untere Winsor-Grenze P(trim_q)
-    std::int64_t const hi = percentile_ns(samples, 1.0 - trim_q).count();    // obere  Winsor-Grenze P(1-trim_q)
+    if (trim_q <= 0.0) return latency_mean_ns(samples); // kein Trim → arithmetisches Mittel über alle n
+    if (trim_q >= 0.5) trim_q = 0.5 - 1e-9;             // symmetrischer Trim < halbe Stichprobe (kein Kollaps)
+    std::int64_t const lo = percentile_ns(samples, trim_q).count();       // untere Winsor-Grenze P(trim_q)
+    std::int64_t const hi = percentile_ns(samples, 1.0 - trim_q).count(); // obere  Winsor-Grenze P(1-trim_q)
     // Robust gegen lo>hi (degenerierte/winzige Stichprobe): in geordnete [min(lo,hi), max(lo,hi)] normalisieren.
     std::int64_t const clamp_lo = (lo <= hi) ? lo : hi;
     std::int64_t const clamp_hi = (lo <= hi) ? hi : lo;
-    long double sum = 0.0L;
+    long double        sum      = 0.0L;
     for (auto v : samples) {
-        std::int64_t const w = (v < clamp_lo) ? clamp_lo : (v > clamp_hi ? clamp_hi : v);  // auf [lo,hi] winsorisieren
+        std::int64_t const w = (v < clamp_lo) ? clamp_lo : (v > clamp_hi ? clamp_hi : v); // auf [lo,hi] winsorisieren
         sum += static_cast<long double>(w);
     }
-    return static_cast<double>(sum / static_cast<long double>(samples.size()));   // Mittel über ALLE n (behalten!)
+    return static_cast<double>(sum / static_cast<long double>(samples.size())); // Mittel über ALLE n (behalten!)
 }
 
-}  // namespace comdare::cache_engine::builder::commands::stats
+} // namespace comdare::cache_engine::builder::commands::stats

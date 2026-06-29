@@ -23,11 +23,11 @@ namespace comdare::cache_engine::builder::commands {
  * @subsystem CEB
  */
 struct AxisVariant {
-    std::string axis_id {};           ///< z.B. "12.1" SIMD-Family
-    std::string variant_name {};      ///< z.B. "AVX2"
-    std::string ce_library_path {};   ///< Pfad zur CE-Bibliothek-Klasse
-    bool host_compatible {true};      ///< IPlatformProbe-Filter-Output
-    bool user_allowed {true};         ///< messreihen.xml allowed_variants-Filter
+    std::string axis_id{};             ///< z.B. "12.1" SIMD-Family
+    std::string variant_name{};        ///< z.B. "AVX2"
+    std::string ce_library_path{};     ///< Pfad zur CE-Bibliothek-Klasse
+    bool        host_compatible{true}; ///< IPlatformProbe-Filter-Output
+    bool        user_allowed{true};    ///< messreihen.xml allowed_variants-Filter
 };
 
 /**
@@ -49,12 +49,11 @@ struct AxisVariant {
  */
 class AutoPermutator {
 public:
-    explicit AutoPermutator(std::string axis_id) noexcept
-        : axis_id_{std::move(axis_id)} {}
+    explicit AutoPermutator(std::string axis_id) noexcept : axis_id_{std::move(axis_id)} {}
 
     /// Schritt 1: Lookup aller verfuegbaren CE-Bausteine fuer diese Achse
     /// V32.HH.1: Lookup via AxisLibraryRegistry (hardcoded Tabelle, V33+ via Doxygen-Tag-Extraktion)
-    void discover_axis_implementations();  // implementiert in axis_library_registry.hpp
+    void discover_axis_implementations(); // implementiert in axis_library_registry.hpp
 
     /// Schritt 2: IPlatformProbe-basierter Filter
     /// V32.EE.2 Skelett - IPlatformProbe-Verdrahtung in V32.2+
@@ -66,8 +65,8 @@ public:
     /// Schritt 3: User-Limit aus messreihen.xml
     void user_limit_filter(std::span<const std::string_view> allowed_variants) {
         for (auto& v : available_variants_) {
-            v.user_allowed = std::ranges::any_of(allowed_variants,
-                [&v](auto allowed) { return allowed == v.variant_name; });
+            v.user_allowed =
+                std::ranges::any_of(allowed_variants, [&v](auto allowed) { return allowed == v.variant_name; });
         }
     }
 
@@ -75,9 +74,7 @@ public:
     [[nodiscard]] std::vector<AxisVariant> generate_permutations() const {
         std::vector<AxisVariant> result;
         for (const auto& v : available_variants_) {
-            if (v.host_compatible && v.user_allowed) {
-                result.push_back(v);
-            }
+            if (v.host_compatible && v.user_allowed) { result.push_back(v); }
         }
         return result;
     }
@@ -87,8 +84,8 @@ public:
     // umgesetzt. AutoPermutator dient nur noch der Achsen-Discovery, nicht Execution.
 
 private:
-    std::string axis_id_;
-    std::vector<AxisVariant> available_variants_ {};
+    std::string              axis_id_;
+    std::vector<AxisVariant> available_variants_{};
 };
 
 /**
@@ -96,14 +93,12 @@ private:
  * @subsystem CEB
  */
 struct MultiAxisPermutationResult {
-    std::vector<std::string> axis_ids;                                  ///< In Eingabe-Reihenfolge
-    std::vector<std::vector<AxisVariant>> variants_per_axis;            ///< parallel zu axis_ids
-    [[nodiscard]] std::size_t cartesian_size() const noexcept {
+    std::vector<std::string>              axis_ids;          ///< In Eingabe-Reihenfolge
+    std::vector<std::vector<AxisVariant>> variants_per_axis; ///< parallel zu axis_ids
+    [[nodiscard]] std::size_t             cartesian_size() const noexcept {
         if (variants_per_axis.empty()) return 0;
         std::size_t prod = 1;
-        for (const auto& v : variants_per_axis) {
-            prod *= v.empty() ? 1 : v.size();
-        }
+        for (const auto& v : variants_per_axis) { prod *= v.empty() ? 1 : v.size(); }
         return prod;
     }
 };
@@ -126,14 +121,13 @@ struct MultiAxisPermutationResult {
  */
 class MultiAxisAutoPermutator {
 public:
-    explicit MultiAxisAutoPermutator(std::vector<std::string> axis_ids) noexcept
-        : axis_ids_{std::move(axis_ids)} {}
+    explicit MultiAxisAutoPermutator(std::vector<std::string> axis_ids) noexcept : axis_ids_{std::move(axis_ids)} {}
 
     void discover_all() {
         per_axis_permutators_.clear();
         per_axis_permutators_.reserve(axis_ids_.size());
         for (const auto& axis : axis_ids_) {
-            AutoPermutator p {axis};
+            AutoPermutator p{axis};
             p.discover_axis_implementations();
             p.platform_filter();
             per_axis_permutators_.push_back(std::move(p));
@@ -144,19 +138,15 @@ public:
         MultiAxisPermutationResult plan;
         plan.axis_ids = axis_ids_;
         plan.variants_per_axis.reserve(per_axis_permutators_.size());
-        for (const auto& p : per_axis_permutators_) {
-            plan.variants_per_axis.push_back(p.generate_permutations());
-        }
+        for (const auto& p : per_axis_permutators_) { plan.variants_per_axis.push_back(p.generate_permutations()); }
         return plan;
     }
 
-    [[nodiscard]] const std::vector<AutoPermutator>& permutators() const noexcept {
-        return per_axis_permutators_;
-    }
+    [[nodiscard]] const std::vector<AutoPermutator>& permutators() const noexcept { return per_axis_permutators_; }
 
 private:
-    std::vector<std::string> axis_ids_;
-    std::vector<AutoPermutator> per_axis_permutators_ {};
+    std::vector<std::string>    axis_ids_;
+    std::vector<AutoPermutator> per_axis_permutators_{};
 };
 
-}  // namespace comdare::cache_engine::builder::commands
+} // namespace comdare::cache_engine::builder::commands

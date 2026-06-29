@@ -25,11 +25,12 @@ namespace comdare::cache_engine::layout {
 
 /// ABI-taugliches Memory-Layout-Snapshot (standard_layout + trivially_copyable).
 struct MemoryLayoutSnapshot {
-    std::uint64_t scan_count         = 0;   ///< Anzahl scan_field_sum-Aufrufe
-    std::uint64_t records_scanned    = 0;   ///< kumulierte Datensatz-Zahl ueber alle Scans
-    std::uint64_t field_bytes_read   = 0;   ///< P-MD1: REAL belegte Nutzbytes je Layout (n * useful, LAYOUT-ABHAENGIG)
-    std::uint64_t cache_lines_touched = 0;  ///< P-MD1: REAL beruehrte 64-B-Lines je Layout (ceil(n*span/64), LAYOUT-ABHAENGIG)
-    std::uint64_t last_checksum      = 0;   ///< letztes scan_field_sum-Ergebnis (Korrektheits-Anker)
+    std::uint64_t scan_count       = 0; ///< Anzahl scan_field_sum-Aufrufe
+    std::uint64_t records_scanned  = 0; ///< kumulierte Datensatz-Zahl ueber alle Scans
+    std::uint64_t field_bytes_read = 0; ///< P-MD1: REAL belegte Nutzbytes je Layout (n * useful, LAYOUT-ABHAENGIG)
+    std::uint64_t cache_lines_touched =
+        0;                           ///< P-MD1: REAL beruehrte 64-B-Lines je Layout (ceil(n*span/64), LAYOUT-ABHAENGIG)
+    std::uint64_t last_checksum = 0; ///< letztes scan_field_sum-Ergebnis (Korrektheits-Anker)
 
     [[nodiscard]] bool operator==(MemoryLayoutSnapshot const&) const noexcept = default;
 };
@@ -48,24 +49,36 @@ public:
     // Transparenter Decorator: Strategie-Inspektion durchgereicht (composition_registry/axis_path_serialization
     // rufen C::memory_layout::name()).
     [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return Strategy::cache_line_size(); }
-    [[nodiscard]] static constexpr std::string_view name()            noexcept { return Strategy::name(); }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
     // P-MD1-ERDUNG (#167): die REALE Repraesentation der gewrappten Strategie transparent durchreichen, damit die
     // Huelle als L im LayoutAwareChunkedStore (z.B. via ArtComposition/observable_composed_search) denselben
     // physischen Store-Footprint erzeugt wie die nackte Strategie.
     [[nodiscard]] static constexpr ::comdare::cache_engine::layout::RepresentationKind representation_kind() noexcept {
         return Strategy::representation_kind();
     }
-    [[nodiscard]] static constexpr std::size_t block_width()
-        noexcept requires requires { Strategy::block_width(); } { return Strategy::block_width(); }
-    [[nodiscard]] static constexpr std::string_view family_name()
-        noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()
-        noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
+    [[nodiscard]] static constexpr std::size_t block_width() noexcept
+        requires requires { Strategy::block_width(); }
+    {
+        return Strategy::block_width();
+    }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept
+        requires requires { Strategy::family_name(); }
+    {
+        return Strategy::family_name();
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept
+        requires requires { Strategy::flag_suffix(); }
+    {
+        return Strategy::flag_suffix();
+    }
     // AxisBase-Eigenschaft (Default "original") transparent durchgereicht: test_v41_compositions ruft
     // C::memory_layout::get_compiler() auf der gewrappten Achse. SFINAE-sicher (Methode existiert nur,
     // wenn die Strategie sie traegt).
-    [[nodiscard]] static constexpr std::string_view get_compiler()
-        noexcept requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
+    [[nodiscard]] static constexpr std::string_view get_compiler() noexcept
+        requires requires { Strategy::get_compiler(); }
+    {
+        return Strategy::get_compiler();
+    }
 
     /// STATIC Pass-Through (Drop-in-Kompatibilität): die Strategie-Methode wird unveraendert durchgereicht,
     /// damit die Huelle als memory_layout-Slot die bestehenden static-Aufrufer NICHT bricht
@@ -84,16 +97,16 @@ public:
         std::uint64_t const checksum = Strategy::scan_field_sum(buf, n, record_size);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.scan_count;
-        stats_.records_scanned  += static_cast<std::uint64_t>(n);
+        stats_.records_scanned += static_cast<std::uint64_t>(n);
         // GENERISCHER Footprint (Raw-Buffer-Pfad ohne realen Store, z.B. abi_adapter/Anatomie-Test): voller
         // Record-Stride. Die LAYOUT-DISTINKTE, REALE CLU kommt aus observe_real_footprint() (P-MD1-ERDUNG #167),
         // das vom LayoutAwareChunkedStore mit dem ECHTEN, representation-spezifischen Key-Scan-Footprint gefuettert
         // wird — NICHT mehr aus einem entkoppelten record_useful_bytes/record_line_span-Deskriptor.
-        constexpr std::size_t kKeyBytes  = sizeof(std::uint64_t);
-        constexpr std::size_t kLineBytes = 64u;
-        std::size_t const rs = (record_size == 0) ? (2u * kKeyBytes) : record_size;
-        std::uint64_t const touched_bytes = static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(rs);
-        stats_.field_bytes_read    += static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(kKeyBytes);
+        constexpr std::size_t kKeyBytes     = sizeof(std::uint64_t);
+        constexpr std::size_t kLineBytes    = 64u;
+        std::size_t const     rs            = (record_size == 0) ? (2u * kKeyBytes) : record_size;
+        std::uint64_t const   touched_bytes = static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(rs);
+        stats_.field_bytes_read += static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(kKeyBytes);
         stats_.cache_lines_touched += (touched_bytes + (kLineBytes - 1u)) / kLineBytes;
         stats_.last_checksum = checksum;
 #endif
@@ -109,12 +122,14 @@ public:
                                                        std::uint64_t field_bytes, std::uint64_t cache_lines) noexcept {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.scan_count;
-        stats_.records_scanned     += static_cast<std::uint64_t>(records);
-        stats_.field_bytes_read    += field_bytes;
+        stats_.records_scanned += static_cast<std::uint64_t>(records);
+        stats_.field_bytes_read += field_bytes;
         stats_.cache_lines_touched += cache_lines;
-        stats_.last_checksum        = checksum;
+        stats_.last_checksum = checksum;
 #else
-        (void)records; (void)field_bytes; (void)cache_lines;
+        (void)records;
+        (void)field_bytes;
+        (void)cache_lines;
 #endif
         return checksum;
     }
@@ -122,11 +137,11 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = MemoryLayoutSnapshot;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; }
+    void                     reset() noexcept { stats_ = {}; }
 
 private:
     snapshot_t stats_{};
 #endif
 };
 
-}  // namespace comdare::cache_engine::layout
+} // namespace comdare::cache_engine::layout

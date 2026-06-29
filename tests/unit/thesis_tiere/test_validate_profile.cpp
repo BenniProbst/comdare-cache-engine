@@ -18,10 +18,10 @@
 // Build/Run: build_validate_profile.ps1 (Include-Satz wie die thesis_tiere-Harness; parse_thesis_profile braucht
 // xml_config_parser.cpp). KEIN Tier-Bau (kein COMDARE_PILOT_INCLUDES noetig).
 
-#include "validate_profile.hpp"   // validate_profile / axis_registry_from_levels / ProfileValidationResult
+#include "validate_profile.hpp" // validate_profile / axis_registry_from_levels / ProfileValidationResult
 #include "xml_config_parser/xml_config_parser.hpp"
 
-#include <builder/experiment_tree/axis_reflect.hpp>   // push_static_axis (REALE EnabledStrategies-Reflektion)
+#include <builder/experiment_tree/axis_reflect.hpp> // push_static_axis (REALE EnabledStrategies-Reflektion)
 
 // Die ConfigSets der vom m3v2-Profil referenzierten Achsen (REALE Enabled-Listen = die gueltigen Werte je Achse):
 #include <topics/traversal/topic_traversal_config_set.hpp>
@@ -53,7 +53,7 @@ namespace cx  = comdare::builder::xml;
 namespace ce  = comdare::cache_engine;
 namespace fs  = std::filesystem;
 
-static int g_fail = 0;
+static int  g_fail = 0;
 static void check(char const* what, bool ok) {
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << "\n";
     if (!ok) ++g_fail;
@@ -66,29 +66,29 @@ static ex::AxisRegistry build_m3v2_registry() {
     ex::push_static_axis<ce::traversal::TopicConfigSet::StaticAxisVariants_03a>(lv, "search_algo");
     ex::push_static_axis<ce::traversal::TopicConfigSet::StaticAxisVariants_03b>(lv, "cache_traversal");
     ex::push_static_axis<ce::traversal::TopicConfigSet::StaticAxisVariants_03m>(lv, "mapping");
-    ex::push_static_axis<ce::nodes::TopicConfigSet::StaticAxisVariants_02>(lv,     "path_compression");
-    ex::push_static_axis<ce::nodes::TopicConfigSet::StaticAxisVariants_04>(lv,     "node_type");
+    ex::push_static_axis<ce::nodes::TopicConfigSet::StaticAxisVariants_02>(lv, "path_compression");
+    ex::push_static_axis<ce::nodes::TopicConfigSet::StaticAxisVariants_04>(lv, "node_type");
     ex::push_static_axis<ce::memory_layout::TopicConfigSet::StaticAxisVariants>(lv, "memory_layout");
-    ex::push_static_axis<ce::allocator::TopicConfigSet::StaticAxisVariants>(lv,    "allocator");
-    ex::push_static_axis<ce::prefetch::TopicConfigSet::StaticAxisVariants>(lv,     "prefetch");
-    ex::push_static_axis<ce::concurrency::TopicConfigSet::StaticAxisVariants>(lv,  "concurrency");
+    ex::push_static_axis<ce::allocator::TopicConfigSet::StaticAxisVariants>(lv, "allocator");
+    ex::push_static_axis<ce::prefetch::TopicConfigSet::StaticAxisVariants>(lv, "prefetch");
+    ex::push_static_axis<ce::concurrency::TopicConfigSet::StaticAxisVariants>(lv, "concurrency");
     ex::push_static_axis<ce::serialization::TopicConfigSet::StaticAxisVariants>(lv, "serialization");
-    ex::push_static_axis<ce::telemetry::TopicConfigSet::StaticAxisVariants>(lv,    "telemetry");
+    ex::push_static_axis<ce::telemetry::TopicConfigSet::StaticAxisVariants>(lv, "telemetry");
     ex::push_static_axis<ce::value_handle::TopicConfigSet::StaticAxisVariants>(lv, "value_handle");
-    ex::push_static_axis<ce::hardware::TopicConfigSet::StaticAxisVariants_09>(lv,  "isa");
+    ex::push_static_axis<ce::hardware::TopicConfigSet::StaticAxisVariants_09>(lv, "isa");
     ex::push_static_axis<ce::search_engine::TopicConfigSet::StaticAxisVariants>(lv, "index_organization");
-    ex::push_static_axis<ce::io::TopicConfigSet::StaticAxisVariants>(lv,           "io_dispatch");
-    ex::push_static_axis<ce::migration::TopicConfigSet::StaticAxisVariants>(lv,    "migration_policy");
-    ex::push_static_axis<ce::filter::TopicConfigSet::StaticAxisVariants>(lv,       "filter");
-    ex::push_static_axis<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1>(lv,   "queuing_q1");
-    ex::push_static_axis<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2>(lv,   "queuing_q2");
+    ex::push_static_axis<ce::io::TopicConfigSet::StaticAxisVariants>(lv, "io_dispatch");
+    ex::push_static_axis<ce::migration::TopicConfigSet::StaticAxisVariants>(lv, "migration_policy");
+    ex::push_static_axis<ce::filter::TopicConfigSet::StaticAxisVariants>(lv, "filter");
+    ex::push_static_axis<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1>(lv, "queuing_q1");
+    ex::push_static_axis<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2>(lv, "queuing_q2");
     return tlz::axis_registry_from_levels(lv);
 }
 
 // Schreibt ein GETIPPTES Profil: node_type traegt <value>node_4</value> (statt node4) und eine unbekannte Achse.
 static fs::path write_typo_profile() {
     fs::path const p = fs::temp_directory_path() / "comdare_typo_profile.xml";
-    std::ofstream f{p};
+    std::ofstream  f{p};
     f << R"(<?xml version="1.0" encoding="UTF-8"?>
 <comdare_thesis_profile id="typo_demo" schema_version="1">
   <base_tiers>
@@ -114,7 +114,8 @@ static fs::path write_typo_profile() {
 }
 
 static bool errors_contain(tlz::ProfileValidationResult const& r, std::string const& needle) {
-    for (auto const& e : r.errors) if (e.find(needle) != std::string::npos) return true;
+    for (auto const& e : r.errors)
+        if (e.find(needle) != std::string::npos) return true;
     return false;
 }
 
@@ -125,14 +126,14 @@ static std::optional<cx::ThesisProfile> load_profile(fs::path const& xml) {
 }
 
 int main(int argc, char** argv) {
-    fs::path const repo = (argc >= 2)
-        ? fs::path{argv[1]}
-        : fs::path{"C:/Users/benja/OneDrive/Desktop/Diplomarbeit - Datenbanken/Code/external/comdare-cache-engine"};
+    fs::path const repo =
+        (argc >= 2)
+            ? fs::path{argv[1]}
+            : fs::path{"C:/Users/benja/OneDrive/Desktop/Diplomarbeit - Datenbanken/Code/external/comdare-cache-engine"};
     fs::path const m3v2 = repo / "libs/cache_engine/algorithm_profiles/thesis_profiles/m3v2_study.profile.xml";
 
     ex::AxisRegistry const registry = build_m3v2_registry();
-    std::cout << "Registry (REALE EnabledStrategies) Achsen=" << registry.size()
-              << "  node_type-Werte=";
+    std::cout << "Registry (REALE EnabledStrategies) Achsen=" << registry.size() << "  node_type-Werte=";
     if (auto it = registry.find("node_type"); it != registry.end())
         for (auto const& v : it->second) std::cout << v << " ";
     std::cout << "\n\n";
@@ -151,8 +152,8 @@ int main(int argc, char** argv) {
 
     // ── (b) ein GETIPPTES Profil wird MIT klarer Meldung gefangen (Exit != 0). ──
     std::cout << "\n── (b) GETIPPT: node_4 (statt node4) + unbekannte Achse nod_type ──\n";
-    fs::path const typo = write_typo_profile();
-    auto const typo_tp = load_profile(typo);
+    fs::path const typo    = write_typo_profile();
+    auto const     typo_tp = load_profile(typo);
     check("Typo-Profil lesbar (parse OK — der Fehler ist SEMANTISCH, nicht syntaktisch)", typo_tp.has_value());
     if (typo_tp) {
         tlz::ProfileValidationResult const vr = tlz::validate_profile(*typo_tp, registry);
@@ -164,8 +165,7 @@ int main(int argc, char** argv) {
         check("Meldung faengt die UNBEKANNTE Achse nod_type", errors_contain(vr, "nod_type"));
         check("Meldung faengt die unbekannte Sweep-Achse totally_unknown_axis",
               errors_contain(vr, "totally_unknown_axis"));
-        check("Meldung faengt das unbekannte Lebewesen ghost_creature",
-              errors_contain(vr, "ghost_creature"));
+        check("Meldung faengt das unbekannte Lebewesen ghost_creature", errors_contain(vr, "ghost_creature"));
         std::cout << "  [Host-Exit-Mapping] !ok → Exit != 0\n";
     }
 
@@ -176,11 +176,13 @@ int main(int argc, char** argv) {
         auto const n = e.path().filename().string();
         if (n.rfind("perm_", 0) == 0 && (e.path().extension() == ".dll" || e.path().extension() == ".cpp")) {
             // Nur Artefakte, die GENAU von diesem validate-Lauf stammen wuerden, gibt es nicht — validate erzeugt sie nie.
-            any_artifact = true; std::cout << "  [unerwartet] " << n << "\n";
+            any_artifact = true;
+            std::cout << "  [unerwartet] " << n << "\n";
         }
     }
     check("validate erzeugte KEINE perm_*.dll/.cpp (rein-lesend)", !any_artifact);
 
-    std::cout << "\n=== " << (g_fail == 0 ? "ALLE CHECKS GRUEN" : "FEHLGESCHLAGEN") << " (fails=" << g_fail << ") ===\n";
+    std::cout << "\n=== " << (g_fail == 0 ? "ALLE CHECKS GRUEN" : "FEHLGESCHLAGEN") << " (fails=" << g_fail
+              << ") ===\n";
     return g_fail == 0 ? 0 : 1;
 }

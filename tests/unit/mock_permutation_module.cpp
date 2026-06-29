@@ -8,11 +8,11 @@
 #include <cache_engine/abi/module_abi_v1.hpp>
 
 #if defined(_WIN32)
-  #define COMDARE_MODULE_EXPORT __declspec(dllexport)
+#define COMDARE_MODULE_EXPORT __declspec(dllexport)
 #elif defined(__GNUC__) || defined(__clang__)
-  #define COMDARE_MODULE_EXPORT __attribute__((visibility("default")))
+#define COMDARE_MODULE_EXPORT __attribute__((visibility("default")))
 #else
-  #define COMDARE_MODULE_EXPORT
+#define COMDARE_MODULE_EXPORT
 #endif
 
 namespace {
@@ -23,23 +23,22 @@ struct MockInstance {
     int dummy = 7;
 };
 
-void* create_instance(comdare_cache_engine_v1* /*engine*/) {
-    return new MockInstance{};
-}
-void destroy_instance(void* inst) {
-    delete static_cast<MockInstance*>(inst);
-}
-void run_workload(void* /*inst*/, comdare_workload_descriptor_v1 const* /*workload*/,
-                  comdare_measurement_record_v1* out) {
+void* create_instance(comdare_cache_engine_v1* /*engine*/) { return new MockInstance{}; }
+void  destroy_instance(void* inst) { delete static_cast<MockInstance*>(inst); }
+void  run_workload(void* /*inst*/, comdare_workload_descriptor_v1 const* /*workload*/,
+                   comdare_measurement_record_v1* out) {
     if (out) {
-        *out = {};
+        *out              = {};
         out->version      = COMDARE_ABI_VERSION;
         out->op_count     = 12345;
         out->total_cycles = 67890;
     }
 }
 void pull_live_counters(void* /*inst*/, comdare_hw_counters_v1* out) {
-    if (out) { *out = {}; out->cycles = 99; }
+    if (out) {
+        *out        = {};
+        out->cycles = 99;
+    }
 }
 
 comdare_permutation_module_v1 const k_module = {
@@ -51,9 +50,6 @@ comdare_permutation_module_v1 const k_module = {
     /* pull_live_counters      */ pull_live_counters,
 };
 
-}  // namespace
+} // namespace
 
-extern "C" COMDARE_MODULE_EXPORT comdare_permutation_module_v1 const*
-comdare_get_module_v1(void) {
-    return &k_module;
-}
+extern "C" COMDARE_MODULE_EXPORT comdare_permutation_module_v1 const* comdare_get_module_v1(void) { return &k_module; }

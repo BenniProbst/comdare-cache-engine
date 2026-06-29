@@ -14,8 +14,8 @@ class SharedMutexLock {
 public:
     using model_tag = locking_models::single_writer_multi_reader_tag;
 
-    void read_lock_acquire()  { mutex_.lock_shared(); }
-    void read_lock_release()  { mutex_.unlock_shared(); }
+    void read_lock_acquire() { mutex_.lock_shared(); }
+    void read_lock_release() { mutex_.unlock_shared(); }
     void write_lock_acquire() { mutex_.lock(); }
     void write_lock_release() { mutex_.unlock(); }
 
@@ -25,4 +25,4 @@ private:
 
 static_assert(LockingStrategy<SharedMutexLock>);
 
-}  // namespace comdare::cache_engine::allocator::locking
+} // namespace comdare::cache_engine::allocator::locking

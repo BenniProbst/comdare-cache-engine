@@ -17,45 +17,19 @@
 namespace comdare::cache_engine::concepts {
 
 /// Achse 12.1 SIMD-Family
-enum class SimdFamily : std::uint8_t {
-    Scalar  = 0,
-    AVX2    = 1,
-    AVX512  = 2,
-    NEON    = 3,
-    SVE2    = 4
-};
+enum class SimdFamily : std::uint8_t { Scalar = 0, AVX2 = 1, AVX512 = 2, NEON = 3, SVE2 = 4 };
 
 /// Achse 12.2 Cache-Level-Targeting
-enum class CacheLevelTarget : std::uint8_t {
-    L1Aware   = 0,
-    L2Aware   = 1,
-    L3Aware   = 2,
-    HBMAware  = 3
-};
+enum class CacheLevelTarget : std::uint8_t { L1Aware = 0, L2Aware = 1, L3Aware = 2, HBMAware = 3 };
 
 /// Achse 12.3 NUMA-Strategy
-enum class NumaStrategy : std::uint8_t {
-    Local        = 0,
-    Interleave   = 1,
-    Preferred    = 2,
-    Bind         = 3
-};
+enum class NumaStrategy : std::uint8_t { Local = 0, Interleave = 1, Preferred = 2, Bind = 3 };
 
 /// Achse 12.4 Prefetch-Hardware
-enum class PrefetchHwInstruction : std::uint8_t {
-    None          = 0,
-    Prefetch      = 1,
-    PrefetchNta   = 2,
-    PrefetchW     = 3
-};
+enum class PrefetchHwInstruction : std::uint8_t { None = 0, Prefetch = 1, PrefetchNta = 2, PrefetchW = 3 };
 
 /// Achse 12.5 Atomic-Instruction-Family
-enum class AtomicFamily : std::uint8_t {
-    None         = 0,
-    CAS          = 1,
-    LLSC         = 2,
-    RmwExtended  = 3
-};
+enum class AtomicFamily : std::uint8_t { None = 0, CAS = 1, LLSC = 2, RmwExtended = 3 };
 
 /**
  * @brief IHardwareStrategy - Concept Achse 12 (NEU)
@@ -68,11 +42,11 @@ enum class AtomicFamily : std::uint8_t {
  */
 class IHardwareStrategy {
 public:
-    [[nodiscard]] virtual SimdFamily get_simd_family() const noexcept = 0;
-    [[nodiscard]] virtual CacheLevelTarget get_cache_level_target() const noexcept = 0;
-    [[nodiscard]] virtual NumaStrategy get_numa_strategy() const noexcept = 0;
-    [[nodiscard]] virtual PrefetchHwInstruction get_prefetch_hw() const noexcept = 0;
-    [[nodiscard]] virtual AtomicFamily get_atomic_family() const noexcept = 0;
+    [[nodiscard]] virtual SimdFamily            get_simd_family() const noexcept        = 0;
+    [[nodiscard]] virtual CacheLevelTarget      get_cache_level_target() const noexcept = 0;
+    [[nodiscard]] virtual NumaStrategy          get_numa_strategy() const noexcept      = 0;
+    [[nodiscard]] virtual PrefetchHwInstruction get_prefetch_hw() const noexcept        = 0;
+    [[nodiscard]] virtual AtomicFamily          get_atomic_family() const noexcept      = 0;
 
     virtual ~IHardwareStrategy() = default;
 };
@@ -83,17 +57,17 @@ public:
  * @reuse_status (a)
  */
 struct DefaultHardwareStrategy : IHardwareStrategy {
-    SimdFamily simd {SimdFamily::AVX2};
-    CacheLevelTarget cache_level {CacheLevelTarget::L1Aware};
-    NumaStrategy numa {NumaStrategy::Local};
-    PrefetchHwInstruction prefetch_hw {PrefetchHwInstruction::Prefetch};
-    AtomicFamily atomic {AtomicFamily::CAS};
+    SimdFamily            simd{SimdFamily::AVX2};
+    CacheLevelTarget      cache_level{CacheLevelTarget::L1Aware};
+    NumaStrategy          numa{NumaStrategy::Local};
+    PrefetchHwInstruction prefetch_hw{PrefetchHwInstruction::Prefetch};
+    AtomicFamily          atomic{AtomicFamily::CAS};
 
-    [[nodiscard]] SimdFamily get_simd_family() const noexcept override { return simd; }
-    [[nodiscard]] CacheLevelTarget get_cache_level_target() const noexcept override { return cache_level; }
-    [[nodiscard]] NumaStrategy get_numa_strategy() const noexcept override { return numa; }
+    [[nodiscard]] SimdFamily            get_simd_family() const noexcept override { return simd; }
+    [[nodiscard]] CacheLevelTarget      get_cache_level_target() const noexcept override { return cache_level; }
+    [[nodiscard]] NumaStrategy          get_numa_strategy() const noexcept override { return numa; }
     [[nodiscard]] PrefetchHwInstruction get_prefetch_hw() const noexcept override { return prefetch_hw; }
-    [[nodiscard]] AtomicFamily get_atomic_family() const noexcept override { return atomic; }
+    [[nodiscard]] AtomicFamily          get_atomic_family() const noexcept override { return atomic; }
 };
 
-}  // namespace comdare::cache_engine::concepts
+} // namespace comdare::cache_engine::concepts

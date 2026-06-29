@@ -29,8 +29,8 @@ public:
     }
 
     [[nodiscard]] std::size_t key_count() const noexcept { return keys_.size(); }
-    [[nodiscard]] std::size_t bit_size()  const noexcept { return keys_.size() * 64u; }   // exakt: voller 64-Bit-Key
-    [[nodiscard]] double bits_per_key()   const noexcept { return keys_.empty() ? 0.0 : 64.0; }
+    [[nodiscard]] std::size_t bit_size() const noexcept { return keys_.size() * 64u; } // exakt: voller 64-Bit-Key
+    [[nodiscard]] double      bits_per_key() const noexcept { return keys_.empty() ? 0.0 : 64.0; }
 
     /// Index des ersten Keys >= k (== size falls keiner). Fundament fuer contains/range.
     [[nodiscard]] std::size_t lower_bound(key_type k) const noexcept {
@@ -41,7 +41,7 @@ public:
     void clear() noexcept { keys_.clear(); }
 
 private:
-    std::vector<key_type> keys_{};   // aufsteigend sortiert, duplikatfrei
+    std::vector<key_type> keys_{}; // aufsteigend sortiert, duplikatfrei
 };
 
-}  // namespace comdare::cache_engine::filter_axis::composable
+} // namespace comdare::cache_engine::filter_axis::composable

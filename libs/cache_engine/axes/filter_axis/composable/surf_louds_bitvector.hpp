@@ -19,14 +19,15 @@
 
 namespace comdare::cache_engine::filter_axis::composable {
 
-inline constexpr std::uint64_t kSurfMsbMask  = 0x8000000000000000ULL;   // config.hpp Z.18
+inline constexpr std::uint64_t kSurfMsbMask  = 0x8000000000000000ULL; // config.hpp Z.18
 inline constexpr unsigned      kSurfWordSize = 64U;
 
 // popcountLinear: Anzahl 1-Bits in den ERSTEN `nbits` Bits ab Wort-Offset `x` (MSB-first). popcount.h Z.70-87.
-[[nodiscard]] inline std::uint64_t surf_popcount_linear(std::uint64_t const* bits, std::uint64_t x, std::uint64_t nbits) noexcept {
+[[nodiscard]] inline std::uint64_t surf_popcount_linear(std::uint64_t const* bits, std::uint64_t x,
+                                                        std::uint64_t nbits) noexcept {
     if (nbits == 0) return 0;
     std::uint64_t const lastword = (nbits - 1) / kSurfWordSize;
-    std::uint64_t p = 0;
+    std::uint64_t       p        = 0;
     for (std::uint64_t i = 0; i < lastword; ++i) p += static_cast<std::uint64_t>(std::popcount(bits[x + i]));
     // Restwort: oberste ((nbits-1)%64)+1 Bits behalten (MSB-first), Rest wegschieben.
     std::uint64_t const lastshifted = bits[x + lastword] >> (63 - ((nbits - 1) & (kSurfWordSize - 1)));
@@ -39,8 +40,13 @@ inline constexpr unsigned      kSurfWordSize = 64U;
     int loc = -1;
     for (int testbits = 32; testbits > 0; testbits >>= 1) {
         int const lcount = std::popcount(x >> testbits);
-        if (k > lcount) { x &= ((1ULL << testbits) - 1); loc += testbits; k -= lcount; }
-        else            { x >>= testbits; }
+        if (k > lcount) {
+            x &= ((1ULL << testbits) - 1);
+            loc += testbits;
+            k -= lcount;
+        } else {
+            x >>= testbits;
+        }
     }
     return loc + k;
 }
@@ -52,7 +58,7 @@ public:
 
     /// Konstruiert aus per-Level-Wortvektoren (concatenateBitvectors, bitvector.hpp Z.141-169, BYTE-GENAU).
     SurfBitVector(std::vector<std::vector<std::uint64_t>> const& bitvector_per_level,
-                  std::vector<std::uint32_t> const& num_bits_per_level) {
+                  std::vector<std::uint32_t> const&              num_bits_per_level) {
         for (std::uint32_t n : num_bits_per_level) num_bits_ += n;
         // +1 Carry-Wort: concatenate (und distance_to_next_set_bit) hat ein One-Past-End-Muster (bitvector.hpp
         // Z.165 schreibt bits_[numWords()] wenn ein Level mit Carry exakt eine Wort-Grenze auffuellt). Das
@@ -63,12 +69,14 @@ public:
         concatenate(bitvector_per_level, num_bits_per_level);
     }
 
-    [[nodiscard]] std::uint32_t num_bits()  const noexcept { return num_bits_; }
+    [[nodiscard]] std::uint32_t num_bits() const noexcept { return num_bits_; }
     [[nodiscard]] std::uint32_t num_words() const noexcept {
         return (num_bits_ % kSurfWordSize == 0) ? (num_bits_ / kSurfWordSize) : (num_bits_ / kSurfWordSize + 1);
     }
     [[nodiscard]] std::uint64_t const* data() const noexcept { return bits_.data(); }
-    [[nodiscard]] std::size_t bit_size_bits() const noexcept { return static_cast<std::size_t>(num_words()) * kSurfWordSize; }
+    [[nodiscard]] std::size_t          bit_size_bits() const noexcept {
+        return static_cast<std::size_t>(num_words()) * kSurfWordSize;
+    }
 
     [[nodiscard]] bool read_bit(std::uint32_t pos) const noexcept {
         return (bits_[pos / kSurfWordSize] & (kSurfMsbMask >> (pos & (kSurfWordSize - 1)))) != 0;
@@ -77,8 +85,8 @@ public:
     // Distanz vom Bit `pos` zum naechsten gesetzten Bit (>pos). bitvector.hpp Z.77-102 mit std::countl_zero.
     [[nodiscard]] std::uint32_t distance_to_next_set_bit(std::uint32_t pos) const noexcept {
         std::uint32_t distance = 1;
-        std::uint32_t word_id = (pos + 1) / kSurfWordSize;
-        std::uint32_t offset  = (pos + 1) % kSurfWordSize;
+        std::uint32_t word_id  = (pos + 1) / kSurfWordSize;
+        std::uint32_t offset   = (pos + 1) % kSurfWordSize;
         // Defensiv: pos+1 kann genau auf die Wort-Grenze jenseits num_words() fallen (pos==num_bits-1,
         // num_bits%64==0). Dann existiert kein naechstes Set-Bit -> der letzte Knoten reicht bis num_bits.
         if (word_id >= num_words()) return num_bits_ - pos;
@@ -133,17 +141,19 @@ protected:
 class SurfRank : public SurfBitVector {
 public:
     SurfRank() = default;
-    SurfRank(std::uint32_t basic_block_size,
-             std::vector<std::vector<std::uint64_t>> const& bvpl, std::vector<std::uint32_t> const& nbpl)
-        : SurfBitVector(bvpl, nbpl), basic_block_size_(basic_block_size) { init_rank_lut(); }
+    SurfRank(std::uint32_t basic_block_size, std::vector<std::vector<std::uint64_t>> const& bvpl,
+             std::vector<std::uint32_t> const& nbpl)
+        : SurfBitVector(bvpl, nbpl), basic_block_size_(basic_block_size) {
+        init_rank_lut();
+    }
 
     // 1-basiert: rank(pos) zaehlt 1-Bits in Positionen [0,pos]. rank.hpp Z.33-40.
     [[nodiscard]] std::uint32_t rank(std::uint32_t pos) const noexcept {
         std::uint32_t const words_per_block = basic_block_size_ / kSurfWordSize;
-        std::uint32_t const block_id = pos / basic_block_size_;
-        std::uint32_t const offset   = pos & (basic_block_size_ - 1);
-        return rank_lut_[block_id]
-             + static_cast<std::uint32_t>(surf_popcount_linear(data(), static_cast<std::uint64_t>(block_id) * words_per_block, offset + 1));
+        std::uint32_t const block_id        = pos / basic_block_size_;
+        std::uint32_t const offset          = pos & (basic_block_size_ - 1);
+        return rank_lut_[block_id] + static_cast<std::uint32_t>(surf_popcount_linear(
+                                         data(), static_cast<std::uint64_t>(block_id) * words_per_block, offset + 1));
     }
 
     [[nodiscard]] std::size_t lut_bits() const noexcept { return rank_lut_.size() * sizeof(std::uint32_t) * 8; }
@@ -151,12 +161,13 @@ public:
 private:
     void init_rank_lut() {
         std::uint32_t const words_per_block = basic_block_size_ / kSurfWordSize;
-        std::uint32_t const num_blocks = num_bits_ / basic_block_size_ + 1;
+        std::uint32_t const num_blocks      = num_bits_ / basic_block_size_ + 1;
         rank_lut_.assign(num_blocks, 0);
         std::uint32_t cumu = 0;
         for (std::uint32_t i = 0; i < num_blocks - 1; ++i) {
             rank_lut_[i] = cumu;
-            cumu += static_cast<std::uint32_t>(surf_popcount_linear(data(), static_cast<std::uint64_t>(i) * words_per_block, basic_block_size_));
+            cumu += static_cast<std::uint32_t>(
+                surf_popcount_linear(data(), static_cast<std::uint64_t>(i) * words_per_block, basic_block_size_));
         }
         rank_lut_[num_blocks - 1] = cumu;
     }
@@ -170,9 +181,11 @@ private:
 class SurfSelect : public SurfBitVector {
 public:
     SurfSelect() = default;
-    SurfSelect(std::uint32_t sample_interval,
-               std::vector<std::vector<std::uint64_t>> const& bvpl, std::vector<std::uint32_t> const& nbpl)
-        : SurfBitVector(bvpl, nbpl), sample_interval_(sample_interval) { init_select_lut(); }
+    SurfSelect(std::uint32_t sample_interval, std::vector<std::vector<std::uint64_t>> const& bvpl,
+               std::vector<std::uint32_t> const& nbpl)
+        : SurfBitVector(bvpl, nbpl), sample_interval_(sample_interval) {
+        init_select_lut();
+    }
 
     [[nodiscard]] std::uint32_t num_ones() const noexcept { return num_ones_; }
 
@@ -186,9 +199,13 @@ public:
 
         std::uint32_t word_id = pos / kSurfWordSize;
         std::uint32_t offset  = pos % kSurfWordSize;
-        if (offset == kSurfWordSize - 1) { ++word_id; offset = 0; }
-        else                             { ++offset; }
-        std::uint64_t word = (bits_[word_id] << offset) >> offset;   // oberste `offset` MSBs nullen
+        if (offset == kSurfWordSize - 1) {
+            ++word_id;
+            offset = 0;
+        } else {
+            ++offset;
+        }
+        std::uint64_t word         = (bits_[word_id] << offset) >> offset; // oberste `offset` MSBs nullen
         std::uint32_t ones_in_word = static_cast<std::uint32_t>(std::popcount(word));
         while (ones_in_word < rank_left) {
             ++word_id;
@@ -206,9 +223,9 @@ private:
         std::uint32_t num_words = num_bits_ / kSurfWordSize;
         if (num_bits_ % kSurfWordSize != 0) ++num_words;
         select_lut_.clear();
-        select_lut_.push_back(0);   // ASSERT: erstes Bit ist 1 (select.hpp Z.139)
+        select_lut_.push_back(0); // ASSERT: erstes Bit ist 1 (select.hpp Z.139)
         std::uint32_t sampling_ones = sample_interval_;
-        std::uint32_t cumu_ones = 0;
+        std::uint32_t cumu_ones     = 0;
         for (std::uint32_t i = 0; i < num_words; ++i) {
             std::uint32_t const num_ones_in_word = static_cast<std::uint32_t>(std::popcount(bits_[i]));
             while (sampling_ones <= cumu_ones + num_ones_in_word) {
@@ -222,8 +239,8 @@ private:
     }
 
     std::uint32_t              sample_interval_ = 0;
-    std::uint32_t              num_ones_ = 0;
+    std::uint32_t              num_ones_        = 0;
     std::vector<std::uint32_t> select_lut_{};
 };
 
-}  // namespace comdare::cache_engine::filter_axis::composable
+} // namespace comdare::cache_engine::filter_axis::composable

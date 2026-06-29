@@ -16,9 +16,9 @@
 // @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md §8.8
 // @related [[anatomie-gattungen]] [[execution-engine-als-wurzel]] [[gattungs-constraint-pruefling-merge]]
 
-#include <anatomy/anatomy_base.hpp>                                  // AnatomyGenus, IAnatomyBase::genus()
-#include <builder/anatomy_module_loader/anatomy_module_loader.hpp>   // AnatomyModuleHandle
-#include <builder/anatomy_commands/tier_observe_trace_abi.hpp>       // AbiTierTraceConfig (Mess-Optionen-Reuse)
+#include <anatomy/anatomy_base.hpp>                                // AnatomyGenus, IAnatomyBase::genus()
+#include <builder/anatomy_module_loader/anatomy_module_loader.hpp> // AnatomyModuleHandle
+#include <builder/anatomy_commands/tier_observe_trace_abi.hpp>     // AbiTierTraceConfig (Mess-Optionen-Reuse)
 
 #include <string>
 #include <string_view>
@@ -34,19 +34,20 @@ using PruefDockMeasureOptions = anatomy_cmds::AbiTierTraceConfig;
 
 // errno-Stil Status-Codes (0 = ok), analog Loader + Hybrid-Search-Interface ([[hybrid-search-engine-interface]]).
 inline constexpr int dock_status_ok                   = 0;
-inline constexpr int dock_status_no_anatomy           = 1;   // Handle ohne IAnatomyBase
-inline constexpr int dock_status_wrong_genus          = 2;   // Modul-Gattung != Dock-Gattung
-inline constexpr int dock_status_subinterface_missing = 3;   // gattungs-Antrieb (dynamic_cast) == nullptr (alte DLL)
-inline constexpr int dock_status_conformance_failed   = 4;   // V5-I4: std::map-Konformitaets-Gate fehlgeschlagen (vor Messung)
+inline constexpr int dock_status_no_anatomy           = 1; // Handle ohne IAnatomyBase
+inline constexpr int dock_status_wrong_genus          = 2; // Modul-Gattung != Dock-Gattung
+inline constexpr int dock_status_subinterface_missing = 3; // gattungs-Antrieb (dynamic_cast) == nullptr (alte DLL)
+inline constexpr int dock_status_conformance_failed =
+    4; // V5-I4: std::map-Konformitaets-Gate fehlgeschlagen (vor Messung)
 
 [[nodiscard]] inline std::string_view dock_status_name(int s) noexcept {
     switch (s) {
-        case dock_status_ok:                   return "ok";
-        case dock_status_no_anatomy:           return "no_anatomy";
-        case dock_status_wrong_genus:          return "wrong_genus";
+        case dock_status_ok: return "ok";
+        case dock_status_no_anatomy: return "no_anatomy";
+        case dock_status_wrong_genus: return "wrong_genus";
         case dock_status_subinterface_missing: return "subinterface_missing";
-        case dock_status_conformance_failed:   return "conformance_failed";
-        default:                               return "unknown";
+        case dock_status_conformance_failed: return "conformance_failed";
+        default: return "unknown";
     }
 }
 
@@ -74,9 +75,8 @@ public:
     /// die std::map-Hüllen-Konformität prüfen (run_conformance_gate, Reihenfolge import → GATE → messen) und bei
     /// Fehlschlag dock_status_conformance_failed liefern, ohne zu messen. Gleiches gilt für JEDEN produktiven
     /// Mess-Eintrittspunkt außerhalb der Docks (z.B. die f15_compare-Pfade A/Observe/measurement-plan).
-    [[nodiscard]] virtual int measure(anatomy_loader::AnatomyModuleHandle& h,
-                                      PruefDockMeasureOptions const& opts,
+    [[nodiscard]] virtual int measure(anatomy_loader::AnatomyModuleHandle& h, PruefDockMeasureOptions const& opts,
                                       std::string& out_csv, std::string& out_json) = 0;
 };
 
-}  // namespace comdare::cache_engine::builder::pruef_dock
+} // namespace comdare::cache_engine::builder::pruef_dock

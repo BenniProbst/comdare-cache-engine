@@ -30,9 +30,9 @@ public:
     [[nodiscard]] std::size_t lower_bound(key_type k) const noexcept {
         return static_cast<std::size_t>(std::lower_bound(keys_.begin(), keys_.end(), k) - keys_.begin());
     }
-    [[nodiscard]] key_type   key_at(std::size_t i)   const noexcept { return keys_[i]; }
+    [[nodiscard]] key_type   key_at(std::size_t i) const noexcept { return keys_[i]; }
     [[nodiscard]] value_type value_at(std::size_t i) const noexcept { return vals_[i]; }
-    void set_value_at(std::size_t i, value_type v) noexcept { vals_[i] = v; }
+    void                     set_value_at(std::size_t i, value_type v) noexcept { vals_[i] = v; }
     /// Sortiert einfuegen an Index i (Aufrufer garantiert die Sortier-Position) — darf via vector werfen.
     void insert_at(std::size_t i, key_type k, value_type v) {
         keys_.insert(keys_.begin() + static_cast<std::ptrdiff_t>(i), k);
@@ -42,14 +42,17 @@ public:
         keys_.erase(keys_.begin() + static_cast<std::ptrdiff_t>(i));
         vals_.erase(vals_.begin() + static_cast<std::ptrdiff_t>(i));
     }
-    void clear() noexcept { keys_.clear(); vals_.clear(); }
+    void clear() noexcept {
+        keys_.clear();
+        vals_.clear();
+    }
 
 private:
-    std::vector<key_type>   keys_{};   // aufsteigend sortiert, duplikatfrei
-    std::vector<value_type> vals_{};   // parallel zu keys_
+    std::vector<key_type>   keys_{}; // aufsteigend sortiert, duplikatfrei
+    std::vector<value_type> vals_{}; // parallel zu keys_
 };
 
 // Selbstbeweis: das Substrat erfuellt das SurfFstMapPool-Concept.
 static_assert(SurfFstMapPool<SurfFstMapPoolStore>);
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

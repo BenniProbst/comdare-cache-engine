@@ -29,15 +29,14 @@
 
 namespace comdare::cache_engine::lookup {
 
-class OriginalSurfSearchAlgo
-    : public SearchAlgoBase<OriginalSurfSearchAlgo>,
-      public generated::p10_surf::OriginalCodeMixin {
+class OriginalSurfSearchAlgo : public SearchAlgoBase<OriginalSurfSearchAlgo>,
+                               public generated::p10_surf::OriginalCodeMixin {
 public:
     using generated::p10_surf::OriginalCodeMixin::get_compiler;
+    using generated::p10_surf::OriginalCodeMixin::is_original_clear;
+    using generated::p10_surf::OriginalCodeMixin::is_original_erase;
     using generated::p10_surf::OriginalCodeMixin::is_original_insert;
     using generated::p10_surf::OriginalCodeMixin::is_original_lookup;
-    using generated::p10_surf::OriginalCodeMixin::is_original_erase;
-    using generated::p10_surf::OriginalCodeMixin::is_original_clear;
     using generated::p10_surf::OriginalCodeMixin::is_original_module;
 
     static constexpr bool enabled = flags::original_surf_enabled;
@@ -47,28 +46,40 @@ public:
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::sparse_access_tag;
-    using family_id  = std::integral_constant<int, 8>;  // S08
+    using family_id  = std::integral_constant<int, 8>; // S08
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t max_fanout()        noexcept { return 256; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return enabled ? std::string_view{"original_surf"} : std::string_view{"original_surf(disabled)"}; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "OriginalSurfSearchAlgo (SuRF Zhang/Lim/Andersen SIGMOD 2018, Read-Only-Index, 1/4 originall)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "ORIGINAL_SURF"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 256; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept {
+        return enabled ? std::string_view{"original_surf"} : std::string_view{"original_surf(disabled)"};
+    }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "OriginalSurfSearchAlgo (SuRF Zhang/Lim/Andersen SIGMOD 2018, Read-Only-Index, 1/4 originall)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "ORIGINAL_SURF"; }
 
-    [[nodiscard]] static constexpr bool supports_simd()            noexcept { return false; }  // LOUDS-Trie nicht SIMD-vectorisierbar
-    [[nodiscard]] static constexpr bool supports_range_scan()      noexcept { return true; }   // SuRF Pflicht-API lookupRange
-    [[nodiscard]] static constexpr bool is_dense()                 noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_simd() noexcept {
+        return false;
+    } // LOUDS-Trie nicht SIMD-vectorisierbar
+    [[nodiscard]] static constexpr bool supports_range_scan() noexcept { return true; } // SuRF Pflicht-API lookupRange
+    [[nodiscard]] static constexpr bool is_dense() noexcept { return false; }
     [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return true; }
 
     OriginalSurfSearchAlgo() noexcept = default;
-    [[nodiscard]] bool operator==(OriginalSurfSearchAlgo const& other) const noexcept { return keys_.size() == other.keys_.size(); }
+    [[nodiscard]] bool operator==(OriginalSurfSearchAlgo const& other) const noexcept {
+        return keys_.size() == other.keys_.size();
+    }
 
     /// LUECKE: kein incremental Insert in SuRF (Bulk-Loaded) — Re-Impl als Sorted-Insert.
     void insert(key_type k, value_type v) {
-        auto it = std::lower_bound(keys_.begin(), keys_.end(), k);
+        auto        it  = std::lower_bound(keys_.begin(), keys_.end(), k);
         std::size_t idx = static_cast<std::size_t>(it - keys_.begin());
-        if (it != keys_.end() && *it == k) values_[idx] = v;
-        else { keys_.insert(it, k); values_.insert(values_.begin() + idx, v); }
+        if (it != keys_.end() && *it == k)
+            values_[idx] = v;
+        else {
+            keys_.insert(it, k);
+            values_.insert(values_.begin() + idx, v);
+        }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_insert_count;
         if (keys_.size() > stats_.peak_occupancy) stats_.peak_occupancy = keys_.size();
@@ -81,7 +92,10 @@ public:
         auto it = std::lower_bound(keys_.begin(), keys_.end(), k);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_lookup_count;
-        if (it != keys_.end() && *it == k) ++stats_.total_hit_count; else ++stats_.total_miss_count;
+        if (it != keys_.end() && *it == k)
+            ++stats_.total_hit_count;
+        else
+            ++stats_.total_miss_count;
         observer_.notify(stats_);
 #endif
         if (it == keys_.end() || *it != k) return std::nullopt;
@@ -93,32 +107,43 @@ public:
         auto it = std::lower_bound(keys_.begin(), keys_.end(), k);
         if (it == keys_.end() || *it != k) return false;
         std::size_t idx = static_cast<std::size_t>(it - keys_.begin());
-        keys_.erase(it); values_.erase(values_.begin() + idx);
+        keys_.erase(it);
+        values_.erase(values_.begin() + idx);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        ++stats_.total_erase_count; observer_.notify(stats_);
+        ++stats_.total_erase_count;
+        observer_.notify(stats_);
 #endif
         return true;
     }
 
     [[nodiscard]] size_type occupied_count() const noexcept { return keys_.size(); }
-    [[nodiscard]] double    density_percent() const noexcept { return 100.0 * static_cast<double>(keys_.size()) / 256.0; }
+    [[nodiscard]] double density_percent() const noexcept { return 100.0 * static_cast<double>(keys_.size()) / 256.0; }
     /// LUECKE: kein Clear in SuRF Paper.
-    void clear() noexcept { keys_.clear(); values_.clear(); }
+    void clear() noexcept {
+        keys_.clear();
+        values_.clear();
+    }
 
     [[nodiscard]] concepts::DensityClass density_class() const noexcept {
-        return concepts::DensityClass::Sparse;  // Succinct-Filter
+        return concepts::DensityClass::Sparse; // Succinct-Filter
     }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     // CoW-Memento (#142/Audit-K3): Stat-POD-Restore -> organ_cow_capable_v aktiv (spiegelt Observable-Huelle).
-    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; observer_.notify(stats_); }
+    void restore_statistics(snapshot_t const& s) noexcept {
+        stats_ = s;
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
@@ -126,24 +151,22 @@ private:
     std::vector<value_type> values_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::SearchAlgoStatistics stats_{};
-    mutable observer_t                      observer_{};
+    mutable observer_t                     observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup
 
 namespace comdare::cache_engine::lookup {
-    static_assert(concepts::SearchAlgoVariant<OriginalSurfSearchAlgo>);
-    static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<OriginalSurfSearchAlgo>);
-    static_assert(concepts::DensityClassifiedStrategy<OriginalSurfSearchAlgo>);
-    static_assert(OriginalSurfSearchAlgo::is_original_lookup(),
-        "OriginalSurfSearchAlgo: lookup MUSS via lookupKey Paper-Bindung originall sein");
-    static_assert(!OriginalSurfSearchAlgo::is_original_insert(),
-        "OriginalSurfSearchAlgo: insert ist Re-Impl Luecke (SuRF Read-Only) — MUSS false sein");
-    static_assert(!OriginalSurfSearchAlgo::is_original_erase(),
-        "OriginalSurfSearchAlgo: erase ist Re-Impl Luecke");
-    static_assert(!OriginalSurfSearchAlgo::is_original_clear(),
-        "OriginalSurfSearchAlgo: clear ist Re-Impl Luecke");
-    static_assert(!OriginalSurfSearchAlgo::is_original_module(),
-        "OriginalSurfSearchAlgo: is_original_module MUSS false sein (3/4 Luecken)");
-}
+static_assert(concepts::SearchAlgoVariant<OriginalSurfSearchAlgo>);
+static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<OriginalSurfSearchAlgo>);
+static_assert(concepts::DensityClassifiedStrategy<OriginalSurfSearchAlgo>);
+static_assert(OriginalSurfSearchAlgo::is_original_lookup(),
+              "OriginalSurfSearchAlgo: lookup MUSS via lookupKey Paper-Bindung originall sein");
+static_assert(!OriginalSurfSearchAlgo::is_original_insert(),
+              "OriginalSurfSearchAlgo: insert ist Re-Impl Luecke (SuRF Read-Only) — MUSS false sein");
+static_assert(!OriginalSurfSearchAlgo::is_original_erase(), "OriginalSurfSearchAlgo: erase ist Re-Impl Luecke");
+static_assert(!OriginalSurfSearchAlgo::is_original_clear(), "OriginalSurfSearchAlgo: clear ist Re-Impl Luecke");
+static_assert(!OriginalSurfSearchAlgo::is_original_module(),
+              "OriginalSurfSearchAlgo: is_original_module MUSS false sein (3/4 Luecken)");
+} // namespace comdare::cache_engine::lookup

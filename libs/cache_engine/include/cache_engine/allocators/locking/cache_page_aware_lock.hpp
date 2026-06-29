@@ -26,25 +26,21 @@ public:
     using model_tag = locking_models::cache_page_aware_multi_writer_tag;
 
     // Globale Read/Write fuer komplette Allokator-Konfiguration
-    void read_lock_acquire()  { global_.lock_shared(); }
-    void read_lock_release()  { global_.unlock_shared(); }
+    void read_lock_acquire() { global_.lock_shared(); }
+    void read_lock_release() { global_.unlock_shared(); }
     void write_lock_acquire() { global_.lock(); }
     void write_lock_release() { global_.unlock(); }
 
     // Pro-Page-Lock fuer Multi-Writer ohne globale Contention
-    void write_lock_for_size(std::size_t bytes) {
-        page_mutex_for_size(bytes).lock();
-    }
-    void release_write_for_size(std::size_t bytes) {
-        page_mutex_for_size(bytes).unlock();
-    }
+    void write_lock_for_size(std::size_t bytes) { page_mutex_for_size(bytes).lock(); }
+    void release_write_for_size(std::size_t bytes) { page_mutex_for_size(bytes).unlock(); }
 
     // RAII-Helper: Multi-Page-Akquisition deadlock-vermeidend via std::scoped_lock
     class MultiPageGuard {
     public:
         MultiPageGuard(CachePageAwareLock& parent, std::size_t bytes_a, std::size_t bytes_b)
-            : guard_{parent.page_mutex_for_size(bytes_a),
-                     parent.page_mutex_for_size(bytes_b)} {}
+            : guard_{parent.page_mutex_for_size(bytes_a), parent.page_mutex_for_size(bytes_b)} {}
+
     private:
         std::scoped_lock<std::mutex, std::mutex> guard_;
     };
@@ -56,11 +52,11 @@ private:
         return page_mutexes_[page_id & (kPageMutexCount - 1)];
     }
 
-    mutable std::shared_mutex            global_;
+    mutable std::shared_mutex               global_;
     std::array<std::mutex, kPageMutexCount> page_mutexes_;
 };
 
 static_assert(LockingStrategy<CachePageAwareLock>);
 static_assert(CachePageAwareLockingStrategy<CachePageAwareLock>);
 
-}  // namespace comdare::cache_engine::allocator::locking
+} // namespace comdare::cache_engine::allocator::locking

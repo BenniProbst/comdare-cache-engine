@@ -21,16 +21,18 @@ public:
     static constexpr bool enabled = flags::bplus_enabled;
 
     [[nodiscard]] static constexpr concepts::PageKind page_kind() noexcept { return concepts::PageKind::BPlus; }
-    [[nodiscard]] static constexpr bool             is_branch()   noexcept { return true; }
-    [[nodiscard]] static constexpr bool             is_leaf()     noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "page_bplus"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "BPlusPageType (sorted B+-style branch page, Masstree family)"; }
+    [[nodiscard]] static constexpr bool               is_branch() noexcept { return true; }
+    [[nodiscard]] static constexpr bool               is_leaf() noexcept { return false; }
+    [[nodiscard]] static constexpr std::string_view   name() noexcept { return "page_bplus"; }
+    [[nodiscard]] static constexpr std::string_view   family_name() noexcept {
+        return "BPlusPageType (sorted B+-style branch page, Masstree family)";
+    }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "BPLUS"; }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::nodes::axis_01_page_type
 
 namespace comdare::cache_engine::nodes::axis_01_page_type {
-    static_assert(concepts::PageTypeStrategy<BPlusPageType>);
-    static_assert(concepts::CacheEnginePermutationStrategy<BPlusPageType>);
-}
+static_assert(concepts::PageTypeStrategy<BPlusPageType>);
+static_assert(concepts::CacheEnginePermutationStrategy<BPlusPageType>);
+} // namespace comdare::cache_engine::nodes::axis_01_page_type

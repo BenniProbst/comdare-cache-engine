@@ -24,9 +24,11 @@ public:
     static constexpr bool enabled = flags::node4_enabled;
 
     [[nodiscard]] static constexpr std::size_t      max_capacity() noexcept { return 4; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "node4"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "Node4NodeType (ART small node, 4-slot linear-search)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "NODE4"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "node4"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "Node4NodeType (ART small node, 4-slot linear-search)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "NODE4"; }
 
     // KF-6 (2026-06-02): verhaltens-tragender Run-Body, DIVERGENT je ART-Node-Format (Leis ICDE 2013) —
     // macht die node-Achse F15-operativ (analog axis_05 scan_field_sum / axis_10 serialize_scan).
@@ -36,22 +38,22 @@ public:
     [[nodiscard]] static std::uint64_t node_find_scan(std::uint8_t const* stored, std::size_t n,
                                                       std::uint8_t const* queries, std::size_t q) noexcept {
         cacheline_prefetch(stored);
-        std::size_t const cap = (n < 4) ? n : 4;          // ART Node4 hält ≤ 4 Schlüssel
-        std::uint64_t sum = 0;
+        std::size_t const cap = (n < 4) ? n : 4; // ART Node4 hält ≤ 4 Schlüssel
+        std::uint64_t     sum = 0;
         for (std::size_t i = 0; i < q; ++i) {
             std::uint8_t const key = queries[i];
-            for (std::size_t j = 0; j < cap; ++j) {        // LINEAR-Scan sortierter Schlüssel
-                sum += stored[j];                           // jede verglichene Zelle berührt
-                if (stored[j] >= key) break;                // ART: sortiert → Abbruch bei >=
+            for (std::size_t j = 0; j < cap; ++j) { // LINEAR-Scan sortierter Schlüssel
+                sum += stored[j];                   // jede verglichene Zelle berührt
+                if (stored[j] >= key) break;        // ART: sortiert → Abbruch bei >=
             }
         }
         return sum;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::node
 
 namespace comdare::cache_engine::node {
-    static_assert(concepts::NodeTypeStrategy<Node4NodeType>);
-    static_assert(concepts::CacheEnginePermutationStrategy<Node4NodeType>);
-}
+static_assert(concepts::NodeTypeStrategy<Node4NodeType>);
+static_assert(concepts::CacheEnginePermutationStrategy<Node4NodeType>);
+} // namespace comdare::cache_engine::node

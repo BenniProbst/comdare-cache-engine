@@ -20,8 +20,7 @@ public:
         return depth_factor * cores_factor * cl_factor;
     }
 
-    [[nodiscard]] Decision evaluate(WriteEvent const& event,
-                                    DecisionContext const& ctx) const noexcept override {
+    [[nodiscard]] Decision evaluate(WriteEvent const& event, DecisionContext const& ctx) const noexcept override {
         ++state_.total_evaluations;
         double cost = compute_cache_coherence_cost(event);
         // SKIP bei Wurzelnaehe + Multi-Core-Last
@@ -39,11 +38,11 @@ public:
     }
 
     [[nodiscard]] NodeTreeState save_state() const noexcept override { return state_; }
-    void restore_state(NodeTreeState const& s) noexcept override { state_ = s; }
+    void                        restore_state(NodeTreeState const& s) noexcept override { state_ = s; }
 
 private:
-    NodeTreeConfig config_{};
+    NodeTreeConfig        config_{};
     mutable NodeTreeState state_{};
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

@@ -26,4 +26,4 @@ struct batched_access_tag {};
 /// QS6 lock_free — lock-freier Concurrent-Zugriff (SPSC/MPMC)
 struct lock_free_access_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing::subaxes

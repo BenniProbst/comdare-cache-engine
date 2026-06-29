@@ -20,16 +20,18 @@ public:
 
     static constexpr bool enabled = flags::none_enabled;
 
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "path_compression_none"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "PathCompressionNone (raw path, no compression)"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "path_compression_none"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "PathCompressionNone (raw path, no compression)";
+    }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "NONE"; }
 
-    [[nodiscard]] double compression_ratio() const noexcept { return 1.0; }  // raw = 1:1
+    [[nodiscard]] double compression_ratio() const noexcept { return 1.0; } // raw = 1:1
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::path_compression
 
 namespace comdare::cache_engine::path_compression {
-    static_assert(concepts::PathCompressionStrategy<PathCompressionNone>);
-    static_assert(concepts::CacheEnginePermutationStrategy<PathCompressionNone>);
-}
+static_assert(concepts::PathCompressionStrategy<PathCompressionNone>);
+static_assert(concepts::CacheEnginePermutationStrategy<PathCompressionNone>);
+} // namespace comdare::cache_engine::path_compression

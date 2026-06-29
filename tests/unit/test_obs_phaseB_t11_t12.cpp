@@ -28,22 +28,30 @@
 namespace an   = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;
 
-static int g_fail = 0;
-static void tr(std::string const& w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+static int  g_fail = 0;
+static void tr(std::string const& w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 static std::uint64_t row_sum(an::ComdareTierObserverSnapshot const& s, int t) {
-    std::uint64_t v = 0; for (std::size_t f = 0; f < an::kV3FieldCount; ++f) v += s.axis_stats[t][f]; return v;
+    std::uint64_t v = 0;
+    for (std::size_t f = 0; f < an::kV3FieldCount; ++f) v += s.axis_stats[t][f];
+    return v;
 }
 
 template <class C>
 static void check_one(char const* name) {
     using Anatomy = an::SearchAlgorithmAnatomy<C>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
-    auto* base = static_cast<an::IAnatomyBase*>(&tier);
-    auto* drv  = dynamic_cast<an::IDriveableTier*>(base);
-    auto* obs  = dynamic_cast<an::IObservableTier*>(base);   // der echte Host-Abfrage-Pfad
+    auto*                                  base = static_cast<an::IAnatomyBase*>(&tier);
+    auto*                                  drv  = dynamic_cast<an::IDriveableTier*>(base);
+    auto* obs = dynamic_cast<an::IObservableTier*>(base); // der echte Host-Abfrage-Pfad
 
-    if (drv == nullptr || obs == nullptr) { tr(std::string{name} + ": IDriveableTier/IObservableTier verfügbar", false); return; }
+    if (drv == nullptr || obs == nullptr) {
+        tr(std::string{name} + ": IDriveableTier/IObservableTier verfügbar", false);
+        return;
+    }
 
     // Tier treiben: clear → 1000 insert (füllt den container_-Slot-Backing) + 1000 lookup.
     drv->tier_clear();
@@ -54,13 +62,12 @@ static void check_one(char const* name) {
     an::ComdareTierObserverSnapshot v3{};
     obs->tier_observe(&v3);
 
-    std::uint64_t const vh = row_sum(v3, 11);
+    std::uint64_t const vh  = row_sum(v3, 11);
     std::uint64_t const isa = row_sum(v3, 12);
-    std::cout << "  " << name << ": T11 value_handle row_sum=" << vh
-              << " (access=" << v3.axis_stats[11][0] << " indirect=" << v3.axis_stats[11][1]
-              << " vtag=" << v3.axis_stats[11][2] << " depth=" << v3.axis_stats[11][3] << ")"
-              << "  T12 isa row_sum=" << isa
-              << " (calls=" << v3.axis_stats[12][0] << " elems=" << v3.axis_stats[12][1]
+    std::cout << "  " << name << ": T11 value_handle row_sum=" << vh << " (access=" << v3.axis_stats[11][0]
+              << " indirect=" << v3.axis_stats[11][1] << " vtag=" << v3.axis_stats[11][2]
+              << " depth=" << v3.axis_stats[11][3] << ")"
+              << "  T12 isa row_sum=" << isa << " (calls=" << v3.axis_stats[12][0] << " elems=" << v3.axis_stats[12][1]
               << " simd_iter=" << v3.axis_stats[12][2] << " scalar=" << v3.axis_stats[12][3]
               << " checksum=" << v3.axis_stats[12][4] << ")\n";
 
@@ -77,14 +84,14 @@ int main() {
 
     // Schema-Sanity (single-source): T11/T12 Zeilen müssen benannt sein.
     tr("Schema: T11 value_handle benannt", an::kV3AxisSchema[11].names[0] != nullptr);
-    tr("Schema: T12 isa benannt",          an::kV3AxisSchema[12].names[0] != nullptr);
+    tr("Schema: T12 isa benannt", an::kV3AxisSchema[12].names[0] != nullptr);
 
     check_one<comp::ArtComposition>("ArtComposition");
     check_one<comp::HotComposition>("HotComposition");
     check_one<comp::MasstreeComposition>("MasstreeComposition");
     check_one<comp::WormholeComposition>("WormholeComposition");
 
-    std::cout << "==== Phase B T11/T12: "
-              << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "==== Phase B T11/T12: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

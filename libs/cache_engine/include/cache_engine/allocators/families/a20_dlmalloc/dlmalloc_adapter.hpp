@@ -15,15 +15,15 @@
 namespace comdare::cache_engine::allocator::families::a20_dlmalloc {
 
 struct DlmallocParams {
-    std::size_t mmap_threshold_bytes = 128 * 1024;  // 128 KiB → mmap fallback
-    std::size_t smallbin_count        = 32;
-    std::size_t treebin_count          = 32;
+    std::size_t mmap_threshold_bytes = 128 * 1024; // 128 KiB → mmap fallback
+    std::size_t smallbin_count       = 32;
+    std::size_t treebin_count        = 32;
 };
 
 template <LockingStrategy Lock = locking::SharedMutexLock>
 class DlmallocAdapter {
 public:
-    using axis_tag  = axes::reclamation_tag;  // Boundary-Tag-Coalesce
+    using axis_tag  = axes::reclamation_tag; // Boundary-Tag-Coalesce
     using family_id = std::integral_constant<int, 20>;
     using locking_t = Lock;
 
@@ -35,7 +35,7 @@ public:
         void* p = portable_aligned_alloc(alignment, bytes);
         if (p) {
             stats_.total_bytes_allocated += bytes;
-            stats_.total_bytes_in_use     += bytes;
+            stats_.total_bytes_in_use += bytes;
         } else {
             stats_.failure_count++;
         }
@@ -52,9 +52,7 @@ public:
         lock_.write_lock_release();
     }
 
-    [[nodiscard]] AllocationStatistics statistics() const noexcept {
-        return stats_;
-    }
+    [[nodiscard]] AllocationStatistics statistics() const noexcept { return stats_; }
 
     [[nodiscard]] DlmallocParams const& params() const noexcept { return params_; }
 
@@ -66,4 +64,4 @@ private:
 
 static_assert(IAllocationStrategy<DlmallocAdapter<>>);
 
-}  // namespace comdare::cache_engine::allocator::families::a20_dlmalloc
+} // namespace comdare::cache_engine::allocator::families::a20_dlmalloc

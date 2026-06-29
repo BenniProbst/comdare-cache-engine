@@ -12,4 +12,4 @@ struct caching_strategy_tag {};
 // IO3: Write-Durability (none / fsync / atomic)
 struct write_durability_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::io_dispatch::subaxes

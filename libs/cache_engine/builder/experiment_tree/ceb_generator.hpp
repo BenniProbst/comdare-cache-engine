@@ -19,7 +19,7 @@
 // Host-Werkzeug: baut den Baum zur Laufzeit; die erzeugten Binaries bleiben compile-time-statisch. Doc 26 §7 KF-8.
 
 #include "experiment_tree.hpp"
-#include "../codegen/adhoc_emitter.hpp"   // (2) realer Anatomie-Emitter (emit_adhoc_modules<Engine>)
+#include "../codegen/adhoc_emitter.hpp" // (2) realer Anatomie-Emitter (emit_adhoc_modules<Engine>)
 
 #include <cctype>
 #include <filesystem>
@@ -46,11 +46,11 @@ namespace comdare::cache_engine::builder::experiment {
 /// Zerlegt einen Binary-Pfad ("axis=value/axis.sub=value/…") in (achse, wert)-Paare.
 [[nodiscard]] inline std::vector<std::pair<std::string, std::string>> ceb_parse_path(std::string_view path) {
     std::vector<std::pair<std::string, std::string>> out;
-    std::size_t i = 0;
+    std::size_t                                      i = 0;
     while (i < path.size()) {
-        std::size_t slash = path.find('/', i);
-        std::string_view seg = path.substr(i, (slash == std::string_view::npos ? path.size() : slash) - i);
-        std::size_t eq = seg.find('=');
+        std::size_t      slash = path.find('/', i);
+        std::string_view seg   = path.substr(i, (slash == std::string_view::npos ? path.size() : slash) - i);
+        std::size_t      eq    = seg.find('=');
         if (eq != std::string_view::npos)
             out.emplace_back(std::string{seg.substr(0, eq)}, std::string{seg.substr(eq + 1)});
         if (slash == std::string_view::npos) break;
@@ -64,8 +64,8 @@ namespace comdare::cache_engine::builder::experiment {
 /// GÜLTIGER DEFAULT-STUB (gibt 0.0 zurück, misst NICHTS) — die #defines werden von keiner Anatomie konsumiert.
 /// Zweck = Pfad↔Datei-Korrelation/Diagnose. Reale, messbare Anatomie ⇒ generate_all_real<Engine> (BR-4).
 [[nodiscard]] inline std::string generate_perm_source(std::string const& binary_id) {
-    std::string const id = ceb_sanitize(binary_id);
-    auto const axes = ceb_parse_path(binary_id);
+    std::string const id   = ceb_sanitize(binary_id);
+    auto const        axes = ceb_parse_path(binary_id);
 
     std::string s;
     s += "// AUTO-GENERATED durch CebGenerator (KF-8, C++23). Binary-Pfad: " + binary_id + "\n";
@@ -101,10 +101,10 @@ namespace comdare::cache_engine::builder::experiment {
 [[nodiscard]] inline std::size_t generate_all(ExperimentTree const& tree, std::filesystem::path const& out_dir) {
     std::filesystem::create_directories(out_dir);
     std::ofstream manifest{out_dir / "perm_manifest.txt"};
-    std::size_t count = 0;
+    std::size_t   count = 0;
     tree.for_each_binary([&](std::string const& binary_id, std::string const& /*pinned*/, TreeNode const& /*leaf*/) {
         std::string const id = ceb_sanitize(binary_id);
-        std::ofstream f{out_dir / ("perm_" + id + ".cpp")};
+        std::ofstream     f{out_dir / ("perm_" + id + ".cpp")};
         f << generate_perm_source(binary_id);
         if (manifest) manifest << "perm_" << id << "  " << binary_id << "\n";
         ++count;
@@ -118,14 +118,12 @@ namespace comdare::cache_engine::builder::experiment {
 /// Schreibt zusätzlich ein anatomy_manifest.txt (idx → Dateiname). Liefert die geschriebenen .cpp-Pfade.
 /// Damit erfüllt KF-8 den realen-Anatomie-Anspruch an EINER Stelle (der String-Pfad (1) bleibt Diagnose).
 template <class Engine>
-[[nodiscard]] std::vector<std::filesystem::path>
-generate_all_real(std::filesystem::path const& out_dir) {
-    auto files = codegen::emit_adhoc_modules<Engine>(out_dir);
+[[nodiscard]] std::vector<std::filesystem::path> generate_all_real(std::filesystem::path const& out_dir) {
+    auto          files = codegen::emit_adhoc_modules<Engine>(out_dir);
     std::ofstream manifest{out_dir / "anatomy_manifest.txt"};
     if (manifest)
-        for (std::size_t i = 0; i < files.size(); ++i)
-            manifest << i << "  " << files[i].filename().string() << "\n";
+        for (std::size_t i = 0; i < files.size(); ++i) manifest << i << "  " << files[i].filename().string() << "\n";
     return files;
 }
 
-}  // namespace comdare::cache_engine::builder::experiment
+} // namespace comdare::cache_engine::builder::experiment

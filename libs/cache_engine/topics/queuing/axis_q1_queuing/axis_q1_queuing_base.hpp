@@ -26,12 +26,13 @@ class BufferStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
 protected:
     BufferStrategyBase() noexcept {
         static_assert(concepts::BufferStrategy<Derived>,
-            "Pflicht: Derived muss BufferStrategy erfuellen "
-            "(put/get/size/is_empty/clear + element_type/size_type/topic_tag)");
+                      "Pflicht: Derived muss BufferStrategy erfuellen "
+                      "(put/get/size/is_empty/clear + element_type/size_type/topic_tag)");
         static_assert(::comdare::cache_engine::topics::AxisBaseConcept<Derived>,
-            "Pflicht: Derived erfuellt AxisBaseConcept (get_compiler() Default 'original' + is_original_module = false via AxisBase)");
+                      "Pflicht: Derived erfuellt AxisBaseConcept (get_compiler() Default 'original' + "
+                      "is_original_module = false via AxisBase)");
     }
     // V41.F.6.1.P2.C ENTFERNT: Defaults kommen via AxisBase (cross-axis generisch).
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing

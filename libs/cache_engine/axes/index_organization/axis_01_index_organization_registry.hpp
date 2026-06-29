@@ -15,12 +15,8 @@ namespace comdare::cache_engine::index_organization {
 
 namespace mp = boost::mp11;
 
-using AllOrganizations = mp::mp_list<
-    HeapIndexOrganization,
-    ClusteredIndexOrganization,
-    NonClusteredIndexOrganization,
-    IotIndexOrganization
->;
+using AllOrganizations =
+    mp::mp_list<HeapIndexOrganization, ClusteredIndexOrganization, NonClusteredIndexOrganization, IotIndexOrganization>;
 
 template <typename T>
 using is_enabled = mp::mp_bool<T::enabled>;
@@ -28,6 +24,6 @@ using is_enabled = mp::mp_bool<T::enabled>;
 using EnabledOrganizations = mp::mp_filter<is_enabled, AllOrganizations>;
 
 static_assert(mp::mp_size<EnabledOrganizations>::value > 0,
-    "Axis 01 IndexOrganization: at least one clustering must be enabled");
+              "Axis 01 IndexOrganization: at least one clustering must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::index_organization

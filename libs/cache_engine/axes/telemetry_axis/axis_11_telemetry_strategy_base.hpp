@@ -17,4 +17,4 @@ protected:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::telemetry_axis

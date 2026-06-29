@@ -31,16 +31,18 @@ public:
 
     using topic_tag = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag  = subaxes::event_triggered_tag;
-    using family_id = std::integral_constant<int, 1>;  // F01
+    using family_id = std::integral_constant<int, 1>; // F01
 
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "eager_flush"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "EagerFlush (per-op FullFlush, niedrige Latenz)"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "eager_flush"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "EagerFlush (per-op FullFlush, niedrige Latenz)";
+    }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "EAGER"; }
 
-    [[nodiscard]] static constexpr bool is_time_based()      noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_time_based() noexcept { return false; }
     [[nodiscard]] static constexpr bool is_threshold_based() noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_event_driven()    noexcept { return true; }
-    [[nodiscard]] static constexpr bool is_adaptive()        noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_event_driven() noexcept { return true; }
+    [[nodiscard]] static constexpr bool is_adaptive() noexcept { return false; }
 
     [[nodiscard]] concepts::FlushDecision should_flush(std::size_t, std::size_t) const noexcept {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -61,20 +63,24 @@ public:
     using snapshot_t = concepts::FlushPolicyStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
+
 private:
     mutable concepts::FlushPolicyStatistics stats_{};
-    mutable observer_t                       observer_{};
+    mutable observer_t                      observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q2_queuing
 
 namespace comdare::cache_engine::queuing::axis_q2_queuing {
-    static_assert(concepts::FlushPolicy<EagerFlush>);
-    static_assert(concepts::CacheEngineFlushPolicyPermutationStrategy<EagerFlush>);
-    static_assert(::comdare::cache_engine::topics::AxisBaseConcept<EagerFlush>);
-}
+static_assert(concepts::FlushPolicy<EagerFlush>);
+static_assert(concepts::CacheEngineFlushPolicyPermutationStrategy<EagerFlush>);
+static_assert(::comdare::cache_engine::topics::AxisBaseConcept<EagerFlush>);
+} // namespace comdare::cache_engine::queuing::axis_q2_queuing

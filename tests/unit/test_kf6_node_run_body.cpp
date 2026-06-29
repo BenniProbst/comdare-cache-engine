@@ -23,15 +23,21 @@ template <typename A, typename B>
 void check_eq(char const* what, A const& got, B const& want) {
     bool ok = (got == want);
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << " = " << got;
-    if (!ok) { std::cout << "  (erwartet: " << want << ")"; ++g_fail; }
+    if (!ok) {
+        std::cout << "  (erwartet: " << want << ")";
+        ++g_fail;
+    }
     std::cout << "\n";
 }
-void check_true(char const* what, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n"; if (!c) ++g_fail; }
+void check_true(char const* what, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n";
+    if (!c) ++g_fail;
+}
 
 int main() {
     // Identischer Input für ALLE 4 Formate → die Divergenz steckt allein im Format-Zugriffsmuster.
-    std::uint8_t const stored[]  = {10, 20, 30, 40, 50, 60};   // sortierte Schlüssel (n=6)
-    std::uint8_t const queries[] = {30, 55};                    // ein Treffer (30) + ein Fehlschlag (55)
+    std::uint8_t const    stored[]  = {10, 20, 30, 40, 50, 60}; // sortierte Schlüssel (n=6)
+    std::uint8_t const    queries[] = {30, 55};                 // ein Treffer (30) + ein Fehlschlag (55)
     constexpr std::size_t n = 6, q = 2;
 
     std::uint64_t const r4   = nd::Node4NodeType::node_find_scan(stored, n, queries, q);
@@ -42,10 +48,10 @@ int main() {
     std::cout << "KF-6: node_find_scan je ART-Node-Format (identischer Input):\n";
 
     // Exakte erwartete Prüfsummen (per Hand verifizierte ART-Zugriffsmuster):
-    check_eq("Node4   (Linear-Scan, cap 4 → scannt {10,20,30,40})", r4,   std::uint64_t{160});
-    check_eq("Node16  (Linear-Scan, cap 16 → scannt alle 6)",       r16,  std::uint64_t{270});
-    check_eq("Node48  (Index-Touch + Child-Touch je Treffer)",      r48,  std::uint64_t{115});
-    check_eq("Node256 (Direkt-Touch, nur Treffer)",                 r256, std::uint64_t{30});
+    check_eq("Node4   (Linear-Scan, cap 4 → scannt {10,20,30,40})", r4, std::uint64_t{160});
+    check_eq("Node16  (Linear-Scan, cap 16 → scannt alle 6)", r16, std::uint64_t{270});
+    check_eq("Node48  (Index-Touch + Child-Touch je Treffer)", r48, std::uint64_t{115});
+    check_eq("Node256 (Direkt-Touch, nur Treffer)", r256, std::uint64_t{30});
 
     // KERN-BELEG: alle 4 Prüfsummen DISTINKT → echte per-Format-Divergenz (kein hohler Stub).
     std::set<std::uint64_t> distinct{r4, r16, r48, r256};

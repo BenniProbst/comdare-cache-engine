@@ -14,7 +14,7 @@
 // nicht mehr nur host-seitig (Stufe A).
 
 #include <cstdint>
-#include <type_traits>   // (C-2) static_assert standard_layout/trivially_copyable für ComdareSegmentLatencyV1
+#include <type_traits> // (C-2) static_assert standard_layout/trivially_copyable für ComdareSegmentLatencyV1
 
 namespace comdare::cache_engine::anatomy {
 
@@ -28,10 +28,8 @@ public:
     /// out_latencies_ns[0 .. min(batches, out_capacity)). Ein Warmup-Batch wird verworfen.
     /// Rückgabe: Anzahl geschriebener Samples (0 = nicht gemessen / nullptr / Exception).
     /// noexcept — interne Exceptions (z.B. OOM bei Bulk-Load) werden zu Rückgabe 0 abgefangen.
-    [[nodiscard]] virtual std::uint64_t run_workload(std::uint64_t ops_per_batch,
-                                                     std::uint64_t batches,
-                                                     std::uint64_t seed,
-                                                     std::int64_t* out_latencies_ns,
+    [[nodiscard]] virtual std::uint64_t run_workload(std::uint64_t ops_per_batch, std::uint64_t batches,
+                                                     std::uint64_t seed, std::int64_t* out_latencies_ns,
                                                      std::uint64_t out_capacity) noexcept = 0;
 };
 
@@ -46,12 +44,12 @@ public:
 /// Observer-Snapshot-Designprinzip). Die übrigen 15 Achsen sind passive Compile-Time-Deskriptoren ohne
 /// Laufzeit-Segment-Timer → der Host kennzeichnet sie ehrlich als n/a (NICHT 0, NICHT erfunden).
 struct ComdareSegmentLatencyV1 {
-    std::int64_t seg_search_algo_ns   = 0;   // Segment 1 (axis_03a search_algo): Lookups auf der Such-Struktur
-    std::int64_t seg_allocator_ns     = 0;   // Segment 2 (axis_06 allocator): alloc/dealloc-Churn
-    std::int64_t seg_memory_layout_ns = 0;   // Segment 3 (axis_05 memory_layout): Feld-Scan
-    std::int64_t seg_serialization_ns = 0;   // Segment 4 (axis_10 serialization): Encode-Scan
-    std::int64_t total_ns             = 0;   // Σ der 4 Segmente über alle gemessenen Batches (Konsistenz-Diagnose)
-    std::uint64_t batches_measured    = 0;   // wie viele Batches einflossen (Warmup verworfen)
+    std::int64_t  seg_search_algo_ns   = 0; // Segment 1 (axis_03a search_algo): Lookups auf der Such-Struktur
+    std::int64_t  seg_allocator_ns     = 0; // Segment 2 (axis_06 allocator): alloc/dealloc-Churn
+    std::int64_t  seg_memory_layout_ns = 0; // Segment 3 (axis_05 memory_layout): Feld-Scan
+    std::int64_t  seg_serialization_ns = 0; // Segment 4 (axis_10 serialization): Encode-Scan
+    std::int64_t  total_ns             = 0; // Σ der 4 Segmente über alle gemessenen Batches (Konsistenz-Diagnose)
+    std::uint64_t batches_measured     = 0; // wie viele Batches einflossen (Warmup verworfen)
 
     [[nodiscard]] constexpr bool operator==(ComdareSegmentLatencyV1 const&) const noexcept = default;
 };
@@ -75,9 +73,8 @@ public:
     /// instrumentierten Segmente mit EIGENEM Timer, und schreibt die über alle (Nicht-Warmup-)Batches
     /// aufsummierten per-Segment-ns nach *out. out != nullptr. noexcept (interne Exception → out bleibt 0,
     /// Rückgabe 0). Rückgabe: Anzahl eingeflossener Batches (= batches_measured).
-    [[nodiscard]] virtual std::uint64_t run_workload_segmented(std::uint64_t ops_per_batch,
-                                                               std::uint64_t batches,
-                                                               std::uint64_t seed,
+    [[nodiscard]] virtual std::uint64_t run_workload_segmented(std::uint64_t ops_per_batch, std::uint64_t batches,
+                                                               std::uint64_t            seed,
                                                                ComdareSegmentLatencyV1* out) noexcept = 0;
 };
 
@@ -99,9 +96,9 @@ public:
 /// · 11 value_handle · 12 isa · 13 index_organization · 14 io_dispatch · 15 migration_policy · 16 filter
 /// · 17 queuing_q1 · 18 queuing_q2. KEINE Achse n/a — jede treibt eine reale, strategie-abhängige Op.
 struct ComdareSegmentLatencyV2 {
-    std::int64_t  seg_ns[19] = {};   // Index T0..T18 == kCompositionAxisNames-Reihenfolge (ALGORITHMISCHE Organ-Zeit)
-    std::int64_t  total_ns   = 0;    // Σ seg_ns[0..18] über alle gemessenen Batches (Konsistenz-Diagnose)
-    std::uint64_t batches_measured = 0;  // wie viele Batches einflossen (Warmup verworfen)
+    std::int64_t  seg_ns[19] = {}; // Index T0..T18 == kCompositionAxisNames-Reihenfolge (ALGORITHMISCHE Organ-Zeit)
+    std::int64_t  total_ns   = 0;  // Σ seg_ns[0..18] über alle gemessenen Batches (Konsistenz-Diagnose)
+    std::uint64_t batches_measured = 0; // wie viele Batches einflossen (Warmup verworfen)
     // P-MD3 (Coverage-Versöhnung, 2026-06-18): die Attribution der Per-Achsen-Zeit braucht einen EIGENEN, kommensurablen
     // Nenner. seg_run_total_ns = die GESAMTE Wall-Clock des gemessenen Batch-Laufs DIESES Timers (äußere steady_clock
     // um die Nicht-Warmup-Batches). seg_framework_ns = seg_run_total_ns − Σseg_ns = der NICHT-segmentierte Rest (rng,
@@ -109,8 +106,8 @@ struct ComdareSegmentLatencyV2 {
     // gegen total_ns (Real-Workload-Wall-Clock) auf ~33% drückte. Mit diesen 2 Feldern versöhnt sich die Per-Achsen-
     // Attribution gegen IHRE EIGENE Wall-Clock: Σseg_ns + seg_framework_ns ≡ seg_run_total_ns (Coverage ~100% per
     // Konstruktion, Rest EXPLIZIT benannt). REIN ADDITIV (hinten angehängt) → ABI-Layout der bestehenden Felder unberührt.
-    std::int64_t  seg_framework_ns  = 0;  // benannter Rest = seg_run_total_ns − Σseg_ns (Instrumentierungs-/Loop-Overhead)
-    std::int64_t  seg_run_total_ns  = 0;  // äußere Wall-Clock des Segment-Mess-Laufs (kommensurabler Nenner der Coverage)
+    std::int64_t seg_framework_ns = 0; // benannter Rest = seg_run_total_ns − Σseg_ns (Instrumentierungs-/Loop-Overhead)
+    std::int64_t seg_run_total_ns = 0; // äußere Wall-Clock des Segment-Mess-Laufs (kommensurabler Nenner der Coverage)
 
     [[nodiscard]] constexpr bool operator==(ComdareSegmentLatencyV2 const&) const noexcept = default;
 };
@@ -133,10 +130,9 @@ public:
     /// instrumentierten Achsen-Segmente mit EIGENEM Timer, und schreibt die über alle (Nicht-Warmup-)Batches
     /// aufsummierten per-Segment-ns nach *out (out != nullptr). noexcept (interne Exception → out bleibt 0,
     /// Rückgabe 0). Rückgabe: Anzahl eingeflossener Batches (= batches_measured).
-    [[nodiscard]] virtual std::uint64_t run_workload_segmented_v2(std::uint64_t ops_per_batch,
-                                                                  std::uint64_t batches,
-                                                                  std::uint64_t seed,
+    [[nodiscard]] virtual std::uint64_t run_workload_segmented_v2(std::uint64_t ops_per_batch, std::uint64_t batches,
+                                                                  std::uint64_t            seed,
                                                                   ComdareSegmentLatencyV2* out) noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

@@ -9,13 +9,13 @@
 #include <topics/traversal/concepts/topic_traversal_concept.hpp>
 #include <topics/traversal/topic_traversal_config_set.hpp>
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_registry.hpp>
-#include <topics/traversal/axis_03a_search_algo/composable/composable_search.hpp>  // Saeule-1 Organ-Modell
-#include <topics/nodes/axis_04_node_type/axis_04_node_type_slot_store.hpp>         // Saeule-1 node_type-Storage-Organ
-#include <topics/nodes/axis_04_node_type/axis_04_node_type_composed_store.hpp>     // Saeule-1 Inc2: 3-Achsen-Storage-Organ (N,L,A)
-#include <topics/traversal/axis_03a_search_algo/composable/interpolation_traversal_organ.hpp>  // Roadmap-2 INC-2a
-#include <topics/traversal/axis_03a_search_algo/composable/galloping_traversal_organ.hpp>      // Roadmap-2 INC-2a
-#include <topics/traversal/axis_03a_search_algo/composable/composed_tree_search.hpp>           // Roadmap-2 INC-2b (BST-Pool)
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_pmr_resource.hpp>   // Saeule-1 Inc2: PMR-Anker (immer verfuegbar)
+#include <topics/traversal/axis_03a_search_algo/composable/composable_search.hpp> // Saeule-1 Organ-Modell
+#include <topics/nodes/axis_04_node_type/axis_04_node_type_slot_store.hpp>        // Saeule-1 node_type-Storage-Organ
+#include <topics/nodes/axis_04_node_type/axis_04_node_type_composed_store.hpp> // Saeule-1 Inc2: 3-Achsen-Storage-Organ (N,L,A)
+#include <topics/traversal/axis_03a_search_algo/composable/interpolation_traversal_organ.hpp> // Roadmap-2 INC-2a
+#include <topics/traversal/axis_03a_search_algo/composable/galloping_traversal_organ.hpp>     // Roadmap-2 INC-2a
+#include <topics/traversal/axis_03a_search_algo/composable/composed_tree_search.hpp> // Roadmap-2 INC-2b (BST-Pool)
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_pmr_resource.hpp> // Saeule-1 Inc2: PMR-Anker (immer verfuegbar)
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_density_classified_strategy_concept.hpp>
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_simd_capable_strategy_concept.hpp>
 #include <topics/traversal/axis_03a_search_algo/concepts/axis_03a_search_algo_iterable_aspect_strategy_concept.hpp>
@@ -36,11 +36,11 @@
 #include <type_traits>
 #include <vector>
 
-namespace mp = boost::mp11;
+namespace mp           = boost::mp11;
 namespace ce_traversal = comdare::cache_engine::traversal;
-namespace ce_03a = comdare::cache_engine::traversal::axis_03a_search_algo;
-namespace ce_03b = comdare::cache_engine::traversal::axis_03b_cache_traversal;
-namespace ce_03m = comdare::cache_engine::traversal::axis_03m_mapping;
+namespace ce_03a       = comdare::cache_engine::traversal::axis_03a_search_algo;
+namespace ce_03b       = comdare::cache_engine::traversal::axis_03b_cache_traversal;
+namespace ce_03m       = comdare::cache_engine::traversal::axis_03m_mapping;
 
 // =================================================================
 // Topic-Marker (M2-Layer-Test)
@@ -58,7 +58,7 @@ TEST(V41_TopicTraversal, RegistryEnabledCounts) {
 }
 
 TEST(V41_TopicTraversal, TopicConfigSetCartesianProductSize) {
-    using Cart = ce_traversal::TopicConfigSet::Cartesian03ax03bx03m;
+    using Cart              = ce_traversal::TopicConfigSet::Cartesian03ax03bx03m;
     constexpr std::size_t a = mp::mp_size<ce_03a::EnabledStrategies>::value;
     constexpr std::size_t b = mp::mp_size<ce_03b::EnabledStrategies>::value;
     constexpr std::size_t m = mp::mp_size<ce_03m::EnabledStrategies>::value;
@@ -69,10 +69,12 @@ TEST(V41_TopicTraversal, TopicConfigSetCartesianProductSize) {
 // TYPED_TEST_SUITE — axis_03a search_algo
 // =================================================================
 
-template <class... Vs> using ToGTestTypes = ::testing::Types<Vs...>;
+template <class... Vs>
+using ToGTestTypes       = ::testing::Types<Vs...>;
 using AllSearchAlgoTypes = mp::mp_apply<ToGTestTypes, ce_03a::AllStrategies>;
 
-template <class T> class SearchAlgoTest : public ::testing::Test {};
+template <class T>
+class SearchAlgoTest : public ::testing::Test {};
 TYPED_TEST_SUITE(SearchAlgoTest, AllSearchAlgoTypes);
 
 TYPED_TEST(SearchAlgoTest, ConceptConformance) {
@@ -104,7 +106,7 @@ TYPED_TEST(SearchAlgoTest, InsertLookupRoundtrip) {
     using K = typename TypeParam::key_type;
     using V = typename TypeParam::value_type;
     s.insert(K{42}, V{100});
-    s.insert(K{7},  V{200});
+    s.insert(K{7}, V{200});
     auto v42 = s.lookup(K{42});
     ASSERT_TRUE(v42.has_value());
     EXPECT_EQ(*v42, V{100});
@@ -117,7 +119,7 @@ TYPED_TEST(SearchAlgoTest, InsertLookupRoundtrip) {
 TYPED_TEST(SearchAlgoTest, LookupMissReturnsNullopt) {
     TypeParam s{};
     using K = typename TypeParam::key_type;
-    auto v = s.lookup(K{99});
+    auto v  = s.lookup(K{99});
     EXPECT_FALSE(v.has_value());
 }
 
@@ -130,7 +132,7 @@ TYPED_TEST(SearchAlgoTest, EraseRemovesEntry) {
     EXPECT_TRUE(s.erase(K{42}));
     auto v = s.lookup(K{42});
     EXPECT_FALSE(v.has_value());
-    EXPECT_FALSE(s.erase(K{42}));  // bereits weg
+    EXPECT_FALSE(s.erase(K{42})); // bereits weg
 }
 
 TYPED_TEST(SearchAlgoTest, ClearMakesEmpty) {
@@ -144,17 +146,16 @@ TYPED_TEST(SearchAlgoTest, ClearMakesEmpty) {
 
 TYPED_TEST(SearchAlgoTest, DensityClassReturnsValid) {
     TypeParam s{};
-    auto dc = s.density_class();
-    EXPECT_TRUE(dc == ce_03a::concepts::DensityClass::Sparse ||
-                dc == ce_03a::concepts::DensityClass::Balanced ||
+    auto      dc = s.density_class();
+    EXPECT_TRUE(dc == ce_03a::concepts::DensityClass::Sparse || dc == ce_03a::concepts::DensityClass::Balanced ||
                 dc == ce_03a::concepts::DensityClass::Dense ||
                 dc == ce_03a::concepts::DensityClass::AdaptiveTransition);
 }
 
 TYPED_TEST(SearchAlgoTest, SonderfallPropertiesAccessible) {
-    [[maybe_unused]] bool simd = TypeParam::supports_simd();
-    [[maybe_unused]] bool rs   = TypeParam::supports_range_scan();
-    [[maybe_unused]] bool dense = TypeParam::is_dense();
+    [[maybe_unused]] bool simd    = TypeParam::supports_simd();
+    [[maybe_unused]] bool rs      = TypeParam::supports_range_scan();
+    [[maybe_unused]] bool dense   = TypeParam::is_dense();
     [[maybe_unused]] bool aligned = TypeParam::has_cache_line_alignment();
     SUCCEED();
 }
@@ -163,14 +164,13 @@ TYPED_TEST(SearchAlgoTest, SonderfallPropertiesAccessible) {
 TYPED_TEST(SearchAlgoTest, ObserverAliasIsMeasurableObserver) {
     using snap_t = typename TypeParam::snapshot_t;
     using obs_t  = typename TypeParam::observer_t;
-    static_assert(std::is_same_v<obs_t,
-        ::comdare::cache_engine::measurement::MeasurableObserver<snap_t>>);
+    static_assert(std::is_same_v<obs_t, ::comdare::cache_engine::measurement::MeasurableObserver<snap_t>>);
     SUCCEED();
 }
 
 TYPED_TEST(SearchAlgoTest, ObserverNotifiedOnInsert) {
     TypeParam s{};
-    int events = 0;
+    int       events = 0;
     s.observer().on_event([&events](auto const&) { ++events; });
     using K = typename TypeParam::key_type;
     using V = typename TypeParam::value_type;
@@ -188,9 +188,7 @@ TEST(SearchAlgo_Array256, DensityClassAlwaysDense) {
     EXPECT_EQ(s.density_class(), ce_03a::concepts::DensityClass::Dense);
 }
 
-TEST(SearchAlgo_Array256, MaxFanoutIs256) {
-    EXPECT_EQ(ce_03a::Array256SearchAlgo::max_fanout(), 256u);
-}
+TEST(SearchAlgo_Array256, MaxFanoutIs256) { EXPECT_EQ(ce_03a::Array256SearchAlgo::max_fanout(), 256u); }
 
 TEST(SearchAlgo_VectorU8U8, SparseAtLowDensity) {
     ce_03a::VectorU8U8SearchAlgo s{};
@@ -206,7 +204,7 @@ TEST(SearchAlgo_VectorU16U16, BalancedDefault) {
 
 TEST(SearchAlgo_VectorU16U16, DoesNotErfuellSimdConcept) {
     static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::VectorU16U16SearchAlgo>,
-        "VectorU16U16SearchAlgo darf SimdCapableStrategy NICHT erfuellen (Cost-DP nicht vectorisierbar)");
+                  "VectorU16U16SearchAlgo darf SimdCapableStrategy NICHT erfuellen (Cost-DP nicht vectorisierbar)");
     SUCCEED();
 }
 
@@ -234,7 +232,7 @@ TEST(SearchAlgo_Array65535, MaxFanoutIs65536) {
 
 TEST(SearchAlgo_Array65535, DoesNotErfuellSimdConcept) {
     static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::Array65535SearchAlgo>,
-        "Array65535SearchAlgo darf SimdCapableStrategy NICHT erfuellen (direkter O(1)-Index)");
+                  "Array65535SearchAlgo darf SimdCapableStrategy NICHT erfuellen (direkter O(1)-Index)");
     SUCCEED();
 }
 
@@ -265,17 +263,15 @@ TEST(SearchAlgo_Array65535, AllOnesValueIsValidNotSentinel) {
 // liefern wie die Referenz (Brute-Force) — die Aritaet ist eine reine Performance-/Iterations-Wahl,
 // nie ein Ergebnis-Unterschied. K=2 ist die Binärsuch-Baseline.
 TEST(SearchAlgo_KAry, CorrectAtAllArities) {
-    constexpr std::uint16_t kStep = 7;
-    constexpr std::uint16_t kMaxKey = 1400;  // present: Vielfache von 7 in [0,1400]
+    constexpr std::uint16_t kStep   = 7;
+    constexpr std::uint16_t kMaxKey = 1400; // present: Vielfache von 7 in [0,1400]
     for (unsigned arity : {2u, 4u, 8u, 16u}) {
         ce_03a::KArySearchAlgo s{arity};
-        for (std::uint16_t k = 0; k <= kMaxKey; k += kStep) {
-            s.insert(k, static_cast<std::uint64_t>(k) * 3u + 1u);
-        }
+        for (std::uint16_t k = 0; k <= kMaxKey; k += kStep) { s.insert(k, static_cast<std::uint64_t>(k) * 3u + 1u); }
         EXPECT_EQ(s.arity(), arity);
         for (std::uint32_t q = 0; q <= 1500u; ++q) {
-            auto const key = static_cast<std::uint16_t>(q);
-            auto v = s.lookup(key);
+            auto const key     = static_cast<std::uint16_t>(q);
+            auto       v       = s.lookup(key);
             bool const present = (q <= kMaxKey) && (q % kStep == 0);
             if (present) {
                 ASSERT_TRUE(v.has_value()) << "arity=" << arity << " key=" << q;
@@ -288,14 +284,17 @@ TEST(SearchAlgo_KAry, CorrectAtAllArities) {
 }
 
 TEST(SearchAlgo_KAry, ArityIterableValuesAndDefault) {
-    EXPECT_EQ(ce_03a::KArySearchAlgo{}.arity(), 4u);                  // Default = 5-Wege-Partition
+    EXPECT_EQ(ce_03a::KArySearchAlgo{}.arity(), 4u); // Default = 5-Wege-Partition
     auto vals = ce_03a::KArySearchAlgo::iterable_values();
     ASSERT_EQ(vals.size(), 4u);
-    EXPECT_EQ(vals[0], 2u); EXPECT_EQ(vals[1], 4u); EXPECT_EQ(vals[2], 8u); EXPECT_EQ(vals[3], 16u);
+    EXPECT_EQ(vals[0], 2u);
+    EXPECT_EQ(vals[1], 4u);
+    EXPECT_EQ(vals[2], 8u);
+    EXPECT_EQ(vals[3], 16u);
     ce_03a::KArySearchAlgo s{};
     s.set_iterable_aspect(8u);
     EXPECT_EQ(s.arity(), 8u);
-    s.set_iterable_aspect(1u);  // < 2 wird auf 2 geklemmt (Binärsuch-Minimum)
+    s.set_iterable_aspect(1u); // < 2 wird auf 2 geklemmt (Binärsuch-Minimum)
     EXPECT_EQ(s.arity(), 2u);
 }
 
@@ -311,15 +310,19 @@ TEST(SearchAlgo_KAry, ErfuelltErwarteteConcepts) {
 
 // KERN-KORREKTHEIT (Gleichverteilung): Interpolationssuche muss EXAKT die Referenz-Ergebnisse liefern.
 TEST(SearchAlgo_Interpolation, CorrectUniform) {
-    constexpr std::uint16_t kStep = 7, kMaxKey = 1400;
+    constexpr std::uint16_t         kStep = 7, kMaxKey = 1400;
     ce_03a::InterpolationSearchAlgo s{};
     for (std::uint16_t k = 0; k <= kMaxKey; k += kStep) s.insert(k, static_cast<std::uint64_t>(k) * 3u + 1u);
     for (std::uint32_t q = 0; q <= 1500u; ++q) {
-        auto const key = static_cast<std::uint16_t>(q);
-        auto v = s.lookup(key);
+        auto const key     = static_cast<std::uint16_t>(q);
+        auto       v       = s.lookup(key);
         bool const present = (q <= kMaxKey) && (q % kStep == 0);
-        if (present) { ASSERT_TRUE(v.has_value()) << "key=" << q; EXPECT_EQ(*v, static_cast<std::uint64_t>(key) * 3u + 1u); }
-        else         { EXPECT_FALSE(v.has_value()) << "key=" << q; }
+        if (present) {
+            ASSERT_TRUE(v.has_value()) << "key=" << q;
+            EXPECT_EQ(*v, static_cast<std::uint64_t>(key) * 3u + 1u);
+        } else {
+            EXPECT_FALSE(v.has_value()) << "key=" << q;
+        }
     }
 }
 
@@ -327,13 +330,17 @@ TEST(SearchAlgo_Interpolation, CorrectUniform) {
 // Positionsschaetzung korrekt bleiben. Cluster [0..50] + Cluster [60000..60050].
 TEST(SearchAlgo_Interpolation, CorrectSkewed) {
     ce_03a::InterpolationSearchAlgo s{};
-    for (std::uint16_t k = 0; k <= 50; ++k)               s.insert(k, static_cast<std::uint64_t>(k) + 1u);
-    for (std::uint16_t k = 60000; k <= 60050; ++k)        s.insert(k, static_cast<std::uint64_t>(k) + 1u);
-    auto present = [](std::uint32_t q){ return (q <= 50u) || (q >= 60000u && q <= 60050u); };
-    for (std::uint32_t q = 0; q <= 65535u; q += 137u) {   // gestreute Stichproben über den ganzen u16-Raum
+    for (std::uint16_t k = 0; k <= 50; ++k) s.insert(k, static_cast<std::uint64_t>(k) + 1u);
+    for (std::uint16_t k = 60000; k <= 60050; ++k) s.insert(k, static_cast<std::uint64_t>(k) + 1u);
+    auto present = [](std::uint32_t q) { return (q <= 50u) || (q >= 60000u && q <= 60050u); };
+    for (std::uint32_t q = 0; q <= 65535u; q += 137u) { // gestreute Stichproben über den ganzen u16-Raum
         auto v = s.lookup(static_cast<std::uint16_t>(q));
-        if (present(q)) { ASSERT_TRUE(v.has_value()) << "key=" << q; EXPECT_EQ(*v, static_cast<std::uint64_t>(q) + 1u); }
-        else            { EXPECT_FALSE(v.has_value()) << "key=" << q; }
+        if (present(q)) {
+            ASSERT_TRUE(v.has_value()) << "key=" << q;
+            EXPECT_EQ(*v, static_cast<std::uint64_t>(q) + 1u);
+        } else {
+            EXPECT_FALSE(v.has_value()) << "key=" << q;
+        }
     }
     // Randwerte exakt
     EXPECT_TRUE(s.lookup(std::uint16_t{0}).has_value());
@@ -345,12 +352,12 @@ TEST(SearchAlgo_Interpolation, CorrectSkewed) {
 TEST(SearchAlgo_Interpolation, EdgeCasesAndNotSimd) {
     static_assert(ce_03a::concepts::SearchAlgoVariant<ce_03a::InterpolationSearchAlgo>);
     static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::InterpolationSearchAlgo>,
-        "Interpolationssuche darf SimdCapableStrategy NICHT erfuellen (datenabhaengiger Index)");
+                  "Interpolationssuche darf SimdCapableStrategy NICHT erfuellen (datenabhaengiger Index)");
     EXPECT_FALSE(ce_03a::InterpolationSearchAlgo::supports_simd());
     ce_03a::InterpolationSearchAlgo s{};
-    EXPECT_FALSE(s.lookup(std::uint16_t{5}).has_value());  // leer
+    EXPECT_FALSE(s.lookup(std::uint16_t{5}).has_value()); // leer
     s.insert(std::uint16_t{42}, std::uint64_t{99});
-    EXPECT_EQ(*s.lookup(std::uint16_t{42}), 99u);          // Single-Element
+    EXPECT_EQ(*s.lookup(std::uint16_t{42}), 99u); // Single-Element
     EXPECT_FALSE(s.lookup(std::uint16_t{41}).has_value());
     EXPECT_FALSE(s.lookup(std::uint16_t{43}).has_value());
 }
@@ -363,10 +370,11 @@ TEST(SearchAlgo_Eytzinger, CorrectAcrossManySizes) {
     for (std::uint16_t nKeys : {1u, 2u, 3u, 4u, 5u, 7u, 8u, 15u, 16u, 17u, 31u, 100u, 1000u}) {
         ce_03a::EytzingerSearchAlgo s{};
         // Keys = 5, 10, 15, ... (Schrittweite 5) → present iff durch 5 teilbar und in [5, 5*nKeys]
-        for (std::uint16_t i = 1; i <= nKeys; ++i) s.insert(static_cast<std::uint16_t>(i * 5u), static_cast<std::uint64_t>(i));
+        for (std::uint16_t i = 1; i <= nKeys; ++i)
+            s.insert(static_cast<std::uint16_t>(i * 5u), static_cast<std::uint64_t>(i));
         std::uint32_t const maxKey = static_cast<std::uint32_t>(nKeys) * 5u;
         for (std::uint32_t q = 0; q <= maxKey + 10u; ++q) {
-            auto v = s.lookup(static_cast<std::uint16_t>(q));
+            auto       v       = s.lookup(static_cast<std::uint16_t>(q));
             bool const present = (q >= 5u) && (q % 5u == 0) && (q <= maxKey);
             if (present) {
                 ASSERT_TRUE(v.has_value()) << "n=" << nKeys << " key=" << q;
@@ -382,21 +390,21 @@ TEST(SearchAlgo_Eytzinger, CorrectAcrossManySizes) {
 TEST(SearchAlgo_Eytzinger, LazyRebuildAfterMutation) {
     ce_03a::EytzingerSearchAlgo s{};
     for (std::uint16_t k = 10; k <= 100; k += 10) s.insert(k, static_cast<std::uint64_t>(k));
-    EXPECT_EQ(*s.lookup(std::uint16_t{50}), 50u);     // baut Layout
-    EXPECT_TRUE(s.erase(std::uint16_t{50}));          // markiert dirty
-    EXPECT_FALSE(s.lookup(std::uint16_t{50}).has_value());  // rebuild ohne 50
+    EXPECT_EQ(*s.lookup(std::uint16_t{50}), 50u);          // baut Layout
+    EXPECT_TRUE(s.erase(std::uint16_t{50}));               // markiert dirty
+    EXPECT_FALSE(s.lookup(std::uint16_t{50}).has_value()); // rebuild ohne 50
     EXPECT_EQ(*s.lookup(std::uint16_t{40}), 40u);
     EXPECT_EQ(*s.lookup(std::uint16_t{60}), 60u);
-    s.insert(std::uint16_t{55}, std::uint64_t{555});  // dirty
-    EXPECT_EQ(*s.lookup(std::uint16_t{55}), 555u);    // rebuild mit 55
+    s.insert(std::uint16_t{55}, std::uint64_t{555}); // dirty
+    EXPECT_EQ(*s.lookup(std::uint16_t{55}), 555u);   // rebuild mit 55
 }
 
 TEST(SearchAlgo_Eytzinger, NotSimdButCacheAligned) {
     static_assert(ce_03a::concepts::SearchAlgoVariant<ce_03a::EytzingerSearchAlgo>);
     static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::EytzingerSearchAlgo>,
-        "Eytzinger ist branch-free/prefetch, NICHT SIMD-vektorisiert");
+                  "Eytzinger ist branch-free/prefetch, NICHT SIMD-vektorisiert");
     EXPECT_FALSE(ce_03a::EytzingerSearchAlgo::supports_simd());
-    EXPECT_TRUE(ce_03a::EytzingerSearchAlgo::has_cache_line_alignment());  // Kern-Vorteil
+    EXPECT_TRUE(ce_03a::EytzingerSearchAlgo::has_cache_line_alignment()); // Kern-Vorteil
 }
 
 // --- V41.F.6.1.R7.2 SkipListSearchAlgo (probabilistic ordered structure, Pugh CACM 1990) -------
@@ -413,13 +421,18 @@ TEST(SearchAlgo_SkipList, CorrectInsertLookupEraseReinsert) {
     }
     // Praesenz-Referenz: alle erzeugten Keys.
     auto present = [](std::uint32_t q) {
-        for (std::uint16_t i = 0; i < kN; ++i) if ((static_cast<std::uint32_t>(i) * 37u) % 1009u == q) return true;
+        for (std::uint16_t i = 0; i < kN; ++i)
+            if ((static_cast<std::uint32_t>(i) * 37u) % 1009u == q) return true;
         return false;
     };
     for (std::uint32_t q = 0; q <= 1010u; ++q) {
         auto v = s.lookup(static_cast<std::uint16_t>(q));
-        if (present(q)) { ASSERT_TRUE(v.has_value()) << "key=" << q; EXPECT_EQ(*v, q + 1u); }
-        else            { EXPECT_FALSE(v.has_value()) << "key=" << q; }
+        if (present(q)) {
+            ASSERT_TRUE(v.has_value()) << "key=" << q;
+            EXPECT_EQ(*v, q + 1u);
+        } else {
+            EXPECT_FALSE(v.has_value()) << "key=" << q;
+        }
     }
     // Update eines vorhandenen Keys
     s.insert(std::uint16_t{0}, std::uint64_t{999999});
@@ -432,8 +445,8 @@ TEST(SearchAlgo_SkipList, CorrectInsertLookupEraseReinsert) {
     }
     EXPECT_LT(s.occupied_count(), before);
     EXPECT_FALSE(s.lookup(static_cast<std::uint16_t>(0)).has_value());          // i=0 -> key 0 geloescht
-    EXPECT_TRUE(s.lookup(static_cast<std::uint16_t>(37u % 1009u)).has_value());  // i=1 -> key 37 bleibt
-    EXPECT_FALSE(s.erase(std::uint16_t{0}));  // schon weg
+    EXPECT_TRUE(s.lookup(static_cast<std::uint16_t>(37u % 1009u)).has_value()); // i=1 -> key 37 bleibt
+    EXPECT_FALSE(s.erase(std::uint16_t{0}));                                    // schon weg
     // Tombstone-Reinsert: geloeschten Key 0 neu einfuegen (neuer Knoten)
     s.insert(std::uint16_t{0}, std::uint64_t{42});
     EXPECT_EQ(*s.lookup(std::uint16_t{0}), 42u);
@@ -442,18 +455,18 @@ TEST(SearchAlgo_SkipList, CorrectInsertLookupEraseReinsert) {
 TEST(SearchAlgo_SkipList, EmptyClearAndProperties) {
     static_assert(ce_03a::concepts::SearchAlgoVariant<ce_03a::SkipListSearchAlgo>);
     static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::SkipListSearchAlgo>,
-        "Skip-Liste ist Pointer-Chasing, NICHT SIMD");
+                  "Skip-Liste ist Pointer-Chasing, NICHT SIMD");
     ce_03a::SkipListSearchAlgo s{};
     EXPECT_EQ(s.occupied_count(), 0u);
     EXPECT_FALSE(s.lookup(std::uint16_t{5}).has_value());
     s.insert(std::uint16_t{5}, std::uint64_t{50});
-    s.insert(std::uint16_t{5}, std::uint64_t{51});  // Update, kein neuer Knoten
+    s.insert(std::uint16_t{5}, std::uint64_t{51}); // Update, kein neuer Knoten
     EXPECT_EQ(s.occupied_count(), 1u);
     EXPECT_EQ(*s.lookup(std::uint16_t{5}), 51u);
     s.clear();
     EXPECT_EQ(s.occupied_count(), 0u);
     EXPECT_FALSE(s.lookup(std::uint16_t{5}).has_value());
-    s.insert(std::uint16_t{7}, std::uint64_t{70});  // nach clear wieder nutzbar
+    s.insert(std::uint16_t{7}, std::uint64_t{70}); // nach clear wieder nutzbar
     EXPECT_EQ(*s.lookup(std::uint16_t{7}), 70u);
 }
 
@@ -461,14 +474,18 @@ TEST(SearchAlgo_SkipList, EmptyClearAndProperties) {
 
 // KERN-KORREKTHEIT: insert (nicht-sortiert) + lookup + erase + Resize über die Last-Schwelle.
 TEST(SearchAlgo_HashSearch, CorrectAcrossResize) {
-    ce_03a::HashSearchAlgo s{};
-    constexpr std::uint16_t kStep = 11, kMaxKey = 2200;  // 201 Keys → erzwingt mehrere Resizes
+    ce_03a::HashSearchAlgo  s{};
+    constexpr std::uint16_t kStep = 11, kMaxKey = 2200; // 201 Keys → erzwingt mehrere Resizes
     for (std::uint16_t k = 0; k <= kMaxKey; k += kStep) s.insert(k, static_cast<std::uint64_t>(k) * 5u + 3u);
     for (std::uint32_t q = 0; q <= 2300u; ++q) {
-        auto v = s.lookup(static_cast<std::uint16_t>(q));
+        auto       v       = s.lookup(static_cast<std::uint16_t>(q));
         bool const present = (q <= kMaxKey) && (q % kStep == 0);
-        if (present) { ASSERT_TRUE(v.has_value()) << "key=" << q; EXPECT_EQ(*v, static_cast<std::uint64_t>(q) * 5u + 3u); }
-        else         { EXPECT_FALSE(v.has_value()) << "key=" << q; }
+        if (present) {
+            ASSERT_TRUE(v.has_value()) << "key=" << q;
+            EXPECT_EQ(*v, static_cast<std::uint64_t>(q) * 5u + 3u);
+        } else {
+            EXPECT_FALSE(v.has_value()) << "key=" << q;
+        }
     }
 }
 
@@ -479,24 +496,29 @@ TEST(SearchAlgo_HashSearch, TombstoneKeepsProbeChainIntact) {
     // Viele Keys einfuegen, einen Block loeschen, Rest muss findbar bleiben (Tombstone-Korrektheit).
     for (std::uint16_t k = 1; k <= 200; ++k) s.insert(k, static_cast<std::uint64_t>(k));
     EXPECT_EQ(s.occupied_count(), 200u);
-    for (std::uint16_t k = 50; k <= 100; ++k) EXPECT_TRUE(s.erase(k));  // mittleren Block loeschen
+    for (std::uint16_t k = 50; k <= 100; ++k) EXPECT_TRUE(s.erase(k)); // mittleren Block loeschen
     EXPECT_EQ(s.occupied_count(), 149u);
     for (std::uint32_t k = 1; k <= 200; ++k) {
-        auto v = s.lookup(static_cast<std::uint16_t>(k));
+        auto       v       = s.lookup(static_cast<std::uint16_t>(k));
         bool const present = (k < 50u || k > 100u);
-        if (present) { ASSERT_TRUE(v.has_value()) << "key=" << k; EXPECT_EQ(*v, k); }  // Kette intakt!
-        else         { EXPECT_FALSE(v.has_value()) << "geloeschter key=" << k; }
+        if (present) {
+            ASSERT_TRUE(v.has_value()) << "key=" << k;
+            EXPECT_EQ(*v, k);
+        } // Kette intakt!
+        else {
+            EXPECT_FALSE(v.has_value()) << "geloeschter key=" << k;
+        }
     }
     // Tombstone-Wiederverwendung: einen geloeschten Key neu einfuegen.
     s.insert(std::uint16_t{75}, std::uint64_t{7777});
     EXPECT_EQ(*s.lookup(std::uint16_t{75}), 7777u);
-    EXPECT_FALSE(s.erase(std::uint16_t{75u + 1000u}));  // nie vorhanden
+    EXPECT_FALSE(s.erase(std::uint16_t{75u + 1000u})); // nie vorhanden
 }
 
 TEST(SearchAlgo_HashSearch, UnorderedNoRangeScanAndProperties) {
     static_assert(ce_03a::concepts::SearchAlgoVariant<ce_03a::HashSearchAlgo>);
     static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::HashSearchAlgo>);
-    EXPECT_FALSE(ce_03a::HashSearchAlgo::supports_range_scan());  // UNGEORDNET — Kern-Unterschied
+    EXPECT_FALSE(ce_03a::HashSearchAlgo::supports_range_scan()); // UNGEORDNET — Kern-Unterschied
     EXPECT_FALSE(ce_03a::HashSearchAlgo::is_dense());
     EXPECT_EQ(ce_03a::HashSearchAlgo::family_id::value, 14);
 }
@@ -511,30 +533,35 @@ TEST(SearchAlgo_LinearScan, CorrectInsertLookupEraseSwapPop) {
         s.insert(key, static_cast<std::uint64_t>(key) + 1u);
     }
     auto present = [](std::uint32_t q) {
-        for (std::uint16_t i = 0; i < 100; ++i) if ((static_cast<std::uint32_t>(i) * 17u) % 211u == q) return true;
+        for (std::uint16_t i = 0; i < 100; ++i)
+            if ((static_cast<std::uint32_t>(i) * 17u) % 211u == q) return true;
         return false;
     };
     for (std::uint32_t q = 0; q <= 215u; ++q) {
         auto v = s.lookup(static_cast<std::uint16_t>(q));
-        if (present(q)) { ASSERT_TRUE(v.has_value()) << "key=" << q; EXPECT_EQ(*v, q + 1u); }
-        else            { EXPECT_FALSE(v.has_value()) << "key=" << q; }
+        if (present(q)) {
+            ASSERT_TRUE(v.has_value()) << "key=" << q;
+            EXPECT_EQ(*v, q + 1u);
+        } else {
+            EXPECT_FALSE(v.has_value()) << "key=" << q;
+        }
     }
     // Update + erase (swap-and-pop) — restliche Keys muessen findbar bleiben.
     s.insert(std::uint16_t{0}, std::uint64_t{999});
     EXPECT_EQ(*s.lookup(std::uint16_t{0}), 999u);
     std::size_t const before = s.occupied_count();
-    EXPECT_TRUE(s.erase(std::uint16_t{17u % 211u}));  // i=1 → key 17
+    EXPECT_TRUE(s.erase(std::uint16_t{17u % 211u})); // i=1 → key 17
     EXPECT_EQ(s.occupied_count(), before - 1u);
     EXPECT_FALSE(s.lookup(std::uint16_t{17u % 211u}).has_value());
-    EXPECT_TRUE(s.lookup(std::uint16_t{0}).has_value());        // andere unberuehrt (swap-pop korrekt)
+    EXPECT_TRUE(s.lookup(std::uint16_t{0}).has_value()); // andere unberuehrt (swap-pop korrekt)
     EXPECT_TRUE(s.lookup(std::uint16_t{34u % 211u}).has_value());
-    EXPECT_FALSE(s.erase(std::uint16_t{17u % 211u}));           // schon weg
+    EXPECT_FALSE(s.erase(std::uint16_t{17u % 211u})); // schon weg
 }
 
 TEST(SearchAlgo_LinearScan, UnsortedBaselineProperties) {
     static_assert(ce_03a::concepts::SearchAlgoVariant<ce_03a::LinearScanSearchAlgo>);
     static_assert(!ce_03a::concepts::SimdCapableStrategy<ce_03a::LinearScanSearchAlgo>);
-    EXPECT_FALSE(ce_03a::LinearScanSearchAlgo::supports_range_scan());  // UNSORTIERT
+    EXPECT_FALSE(ce_03a::LinearScanSearchAlgo::supports_range_scan()); // UNSORTIERT
     EXPECT_FALSE(ce_03a::LinearScanSearchAlgo::is_dense());
     EXPECT_EQ(ce_03a::LinearScanSearchAlgo::family_id::value, 15);
 }
@@ -547,67 +574,73 @@ TEST(SearchAlgo_LinearScan, UnsortedBaselineProperties) {
 // performance-different — genau das misst F15.)
 template <class Wrapper>
 void verify_matches_std_map(std::uint32_t key_mod, std::uint32_t query_max) {
-    using K = typename Wrapper::key_type;  // key_type-generisch (u8 oder u16)
-    Wrapper w{};
+    using K = typename Wrapper::key_type; // key_type-generisch (u8 oder u16)
+    Wrapper                    w{};
     std::map<K, std::uint64_t> ref;
     for (std::uint32_t i = 0; i < 600u; ++i) {
-        auto const k = static_cast<K>((i * 2654435761u) % key_mod);  // gestreut, deterministisch
+        auto const k = static_cast<K>((i * 2654435761u) % key_mod); // gestreut, deterministisch
         if (i % 7u == 0u) {
             bool const had = (ref.erase(k) != 0u);
             EXPECT_EQ(w.erase(k), had) << "erase-Mismatch key=" << static_cast<std::uint32_t>(k);
         } else {
             auto const v = static_cast<std::uint64_t>(k) * 11u + 1u;
-            ref[k] = v;
+            ref[k]       = v;
             w.insert(k, v);
         }
     }
     for (std::uint32_t q = 0; q <= query_max; ++q) {
         auto const key = static_cast<K>(q);
-        auto const it = ref.find(key);
+        auto const it  = ref.find(key);
         auto const got = w.lookup(key);
-        if (it != ref.end()) { ASSERT_TRUE(got.has_value()) << "key=" << q; EXPECT_EQ(*got, it->second); }
-        else                 { EXPECT_FALSE(got.has_value()) << "key=" << q; }
+        if (it != ref.end()) {
+            ASSERT_TRUE(got.has_value()) << "key=" << q;
+            EXPECT_EQ(*got, it->second);
+        } else {
+            EXPECT_FALSE(got.has_value()) << "key=" << q;
+        }
     }
     EXPECT_EQ(w.occupied_count(), ref.size());
 }
 
 TEST(SearchAlgo_Interchangeability, AllUint16WrappersMatchStdMap) {
-    verify_matches_std_map<ce_03a::VectorU16U16SearchAlgo>(1000u, 1000u);   // sorted
-    verify_matches_std_map<ce_03a::Array65535SearchAlgo>(1000u, 1000u);     // dense
-    verify_matches_std_map<ce_03a::KArySearchAlgo>(1000u, 1000u);           // k-ary/SIMD-Partition
-    verify_matches_std_map<ce_03a::InterpolationSearchAlgo>(1000u, 1000u);  // verteilungsbewusst
-    verify_matches_std_map<ce_03a::EytzingerSearchAlgo>(1000u, 1000u);      // cache-conscious Layout
-    verify_matches_std_map<ce_03a::SkipListSearchAlgo>(1000u, 1000u);       // geordnete Struktur
-    verify_matches_std_map<ce_03a::HashSearchAlgo>(1000u, 1000u);           // Hash (ungeordnet)
-    verify_matches_std_map<ce_03a::LinearScanSearchAlgo>(1000u, 1000u);     // unsortiert linear
+    verify_matches_std_map<ce_03a::VectorU16U16SearchAlgo>(1000u, 1000u);     // sorted
+    verify_matches_std_map<ce_03a::Array65535SearchAlgo>(1000u, 1000u);       // dense
+    verify_matches_std_map<ce_03a::KArySearchAlgo>(1000u, 1000u);             // k-ary/SIMD-Partition
+    verify_matches_std_map<ce_03a::InterpolationSearchAlgo>(1000u, 1000u);    // verteilungsbewusst
+    verify_matches_std_map<ce_03a::EytzingerSearchAlgo>(1000u, 1000u);        // cache-conscious Layout
+    verify_matches_std_map<ce_03a::SkipListSearchAlgo>(1000u, 1000u);         // geordnete Struktur
+    verify_matches_std_map<ce_03a::HashSearchAlgo>(1000u, 1000u);             // Hash (ungeordnet)
+    verify_matches_std_map<ce_03a::LinearScanSearchAlgo>(1000u, 1000u);       // unsortiert linear
     verify_matches_std_map<ce_03a::BinarySearchTreeSearchAlgo>(1000u, 1000u); // BST (Hibbard-Deletion)
-    verify_matches_std_map<ce_03a::BTreeSearchAlgo>(1000u, 1000u);          // balancierter Mehrwege-B-Baum (CLRS-Delete)
-    SUCCEED();  // alle 10 uint16-Achsen liefern identische std::map-Semantik (austauschbar)
+    verify_matches_std_map<ce_03a::BTreeSearchAlgo>(1000u, 1000u); // balancierter Mehrwege-B-Baum (CLRS-Delete)
+    SUCCEED(); // alle 10 uint16-Achsen liefern identische std::map-Semantik (austauschbar)
 }
 
 // V41.F.6.1 R7.2 — BST: korrekt auch bei DEGENERIERTER (sortierter) Einfuege-Reihenfolge (O(n)-Kette),
 // + Hibbard-erase aller drei Faelle (Blatt/1 Kind/2 Kinder). Validiert zusaetzlich zur Austauschbarkeit.
 TEST(SearchAlgo_BST, DegenerateSortedInputAndErase) {
     ce_03a::BinarySearchTreeSearchAlgo s{};
-    for (std::uint16_t k = 1; k <= 300; ++k) s.insert(k, static_cast<std::uint64_t>(k) * 2u);  // sortiert → reine rechte Kette
+    for (std::uint16_t k = 1; k <= 300; ++k)
+        s.insert(k, static_cast<std::uint64_t>(k) * 2u); // sortiert → reine rechte Kette
     EXPECT_EQ(s.occupied_count(), 300u);
     for (std::uint32_t k = 1; k <= 300; ++k) {
         auto v = s.lookup(static_cast<std::uint16_t>(k));
-        ASSERT_TRUE(v.has_value()) << "key=" << k; EXPECT_EQ(*v, k * 2u);
+        ASSERT_TRUE(v.has_value()) << "key=" << k;
+        EXPECT_EQ(*v, k * 2u);
     }
     EXPECT_FALSE(s.lookup(std::uint16_t{0}).has_value());
     EXPECT_FALSE(s.lookup(std::uint16_t{301}).has_value());
     // erase: Blatt (300), Mitte mit 2 Kindern nach Re-Insert, Wurzel.
-    EXPECT_TRUE(s.erase(std::uint16_t{300}));   // Endknoten der Kette
-    EXPECT_TRUE(s.erase(std::uint16_t{1}));     // Wurzel (hat nur rechtes Kind)
-    EXPECT_TRUE(s.erase(std::uint16_t{150}));   // innerer Knoten
+    EXPECT_TRUE(s.erase(std::uint16_t{300})); // Endknoten der Kette
+    EXPECT_TRUE(s.erase(std::uint16_t{1}));   // Wurzel (hat nur rechtes Kind)
+    EXPECT_TRUE(s.erase(std::uint16_t{150})); // innerer Knoten
     EXPECT_EQ(s.occupied_count(), 297u);
     EXPECT_FALSE(s.lookup(std::uint16_t{300}).has_value());
     EXPECT_FALSE(s.lookup(std::uint16_t{1}).has_value());
     EXPECT_FALSE(s.lookup(std::uint16_t{150}).has_value());
-    EXPECT_TRUE(s.lookup(std::uint16_t{149}).has_value());   // Nachbarn intakt
+    EXPECT_TRUE(s.lookup(std::uint16_t{149}).has_value()); // Nachbarn intakt
     EXPECT_TRUE(s.lookup(std::uint16_t{151}).has_value());
-    EXPECT_TRUE(ce_03a::BinarySearchTreeSearchAlgo::supports_range_scan());  // geordnet
+    EXPECT_TRUE(ce_03a::BinarySearchTreeSearchAlgo::supports_range_scan()); // geordnet
     EXPECT_EQ(ce_03a::BinarySearchTreeSearchAlgo::family_id::value, 16);
 }
 
@@ -616,8 +649,8 @@ TEST(SearchAlgo_BST, DegenerateSortedInputAndErase) {
 // 2000 Schluessel ⇒ mehrere Ebenen + viele Splits; Loeschen aller geraden Keys ⇒ Borrows/Merges.
 TEST(SearchAlgo_BTree, SplitMergeAndRootShrinkStress) {
     ce_03a::BTreeSearchAlgo s{};
-    EXPECT_TRUE(ce_03a::BTreeSearchAlgo::has_cache_line_alignment());  // block-orientiert (alignas(64))
-    EXPECT_TRUE(ce_03a::BTreeSearchAlgo::supports_range_scan());       // geordnet
+    EXPECT_TRUE(ce_03a::BTreeSearchAlgo::has_cache_line_alignment()); // block-orientiert (alignas(64))
+    EXPECT_TRUE(ce_03a::BTreeSearchAlgo::supports_range_scan());      // geordnet
     EXPECT_EQ(ce_03a::BTreeSearchAlgo::family_id::value, 17);
 
     constexpr std::uint16_t N = 2000;
@@ -635,14 +668,20 @@ TEST(SearchAlgo_BTree, SplitMergeAndRootShrinkStress) {
     }
     // alle geraden Keys loeschen ⇒ massiv Borrows/Merges + mehrfache Wurzel-Schrumpfung.
     std::uint16_t erased = 0;
-    for (std::uint16_t k = 2; k <= N; k += 2) { EXPECT_TRUE(s.erase(k)); ++erased; }
+    for (std::uint16_t k = 2; k <= N; k += 2) {
+        EXPECT_TRUE(s.erase(k));
+        ++erased;
+    }
     EXPECT_EQ(s.occupied_count(), static_cast<std::size_t>(N - erased));
-    EXPECT_FALSE(s.erase(std::uint16_t{2}));  // bereits geloescht ⇒ false (std::map::erase-Semantik)
+    EXPECT_FALSE(s.erase(std::uint16_t{2})); // bereits geloescht ⇒ false (std::map::erase-Semantik)
     // ungerade Keys vollstaendig intakt, gerade verschwunden.
     for (std::uint32_t k = 1; k <= N; ++k) {
         auto v = s.lookup(static_cast<std::uint16_t>(k));
-        if (k % 2u == 1u) { ASSERT_TRUE(v.has_value()) << "odd key=" << k; }
-        else              { EXPECT_FALSE(v.has_value()) << "even key=" << k; }
+        if (k % 2u == 1u) {
+            ASSERT_TRUE(v.has_value()) << "odd key=" << k;
+        } else {
+            EXPECT_FALSE(v.has_value()) << "even key=" << k;
+        }
     }
     // restliche ungerade Keys loeschen ⇒ Baum bis zur leeren Wurzel abbauen.
     for (std::uint16_t k = 1; k <= N; k += 2) EXPECT_TRUE(s.erase(k));
@@ -654,7 +693,7 @@ TEST(SearchAlgo_Interchangeability, AllUint8WrappersMatchStdMap) {
     // uint8-Schluessel (0..255): Keys mod 200, Query-Bereich 0..255.
     verify_matches_std_map<ce_03a::Array256SearchAlgo>(200u, 255u);   // dense direct-addressed
     verify_matches_std_map<ce_03a::VectorU8U8SearchAlgo>(200u, 255u); // sparse sorted lower_bound
-    SUCCEED();  // → alle 12 CE-nativen Such-Achsen (u8+u16) sind std::map-aequivalent + austauschbar
+    SUCCEED(); // → alle 12 CE-nativen Such-Achsen (u8+u16) sind std::map-aequivalent + austauschbar
 }
 
 // V41 Saeule-1 (Doku 24 §5.4, Doku 14 §11.3) — komponierbares Traversal-Organ-Modell: ein Suchalgorithmus
@@ -667,12 +706,12 @@ namespace ce_cmp = comdare::cache_engine::traversal::axis_03a_search_algo::compo
 TEST(Saeule1_ComposableOrgan, BothTraversalOrgansMatchStdMapOverWideKeys) {
     static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal, ce_cmp::RawSlotStore>);
     static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, ce_cmp::RawSlotStore>);
-    static_assert(std::is_same_v<ce_cmp::RawSlotStore::key_type, std::uint64_t>);  // gemeinsamer breiter Key
+    static_assert(std::is_same_v<ce_cmp::RawSlotStore::key_type, std::uint64_t>); // gemeinsamer breiter Key
 
     // key_mod = 100000 > 65535 → Keys ueberschreiten den uint16-Bereich der Tier-Wrapper.
-    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,  ce_cmp::RawSlotStore>>(100000u, 2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal, ce_cmp::RawSlotStore>>(100000u, 2000u);
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, ce_cmp::RawSlotStore>>(100000u, 2000u);
-    SUCCEED();  // Traversal-Organ ⊕ Storage-Organ, frei austauschbar, std::map-aequivalent, breiter Key
+    SUCCEED(); // Traversal-Organ ⊕ Storage-Organ, frei austauschbar, std::map-aequivalent, breiter Key
 }
 
 // V41 Saeule-1 (Doku 24 §5.4) — node_type ALS echtes Storage-Organ: NodeTypeSlotStore<Node4NodeType>
@@ -685,17 +724,17 @@ namespace ce_nodes = comdare::cache_engine::nodes::axis_04_node_type;
 TEST(Saeule1_NodeTypeStorageOrgan, Node4DrivesBothTraversalOrgansAsStdMap) {
     using Store = ce_nodes::NodeTypeSlotStore<ce_nodes::Node4NodeType>;
     static_assert(ce_cmp::StorageOrgan<Store>);
-    static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal,   Store>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal, Store>);
     static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, Store>);
-    static_assert(std::is_same_v<Store::key_type, std::uint64_t>);  // breiter Key, kein uint8/uint16
-    static_assert(Store::node_capacity() == 4u);                    // node_type-getrieben
+    static_assert(std::is_same_v<Store::key_type, std::uint64_t>); // breiter Key, kein uint8/uint16
+    static_assert(Store::node_capacity() == 4u);                   // node_type-getrieben
 
     // key_mod=3 ⇒ Distinct-Keys ∈ {0,1,2} ⇒ max. 3 gleichzeitig belegte Slots ≤ Node4-Kapazitaet 4.
     // (Der Harness macht 600 gemischte Ops; bounded array haelt, weil Distinct-Keys ≤ cap. Bei groesserem
     //  key_mod wuerfe append_slot/insert_slot_at std::length_error — laut+sichtbar, kein stilles UB.)
-    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,   Store>>(3u, 6u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal, Store>>(3u, 6u);
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, Store>>(3u, 6u);
-    SUCCEED();  // node_type-getriebenes Storage-Organ, beide Traversal-Organe, std::map-aequivalent
+    SUCCEED(); // node_type-getriebenes Storage-Organ, beide Traversal-Organe, std::map-aequivalent
 }
 
 // V41 Saeule-1 Inc2 (Doku 24 §6) — ComposedStore<N,L,A>: node_type ⊕ layout ⊕ allocator ALS Storage-Organ.
@@ -706,26 +745,28 @@ namespace ce_layout = comdare::cache_engine::memory_layout::axis_05_memory_layou
 namespace ce_alloc  = comdare::cache_engine::allocator::axis_06_allocator;
 
 TEST(Saeule1_ComposedStore, AllocatorBackedStoreDrivesBothTraversalOrgansAsStdMap) {
-    using StoreMi  = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::MimallocAllocator>;
-    using StorePmr = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::PmrResourceAllocator>;
+    using StoreMi  = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout,
+                                             ce_alloc::MimallocAllocator>;
+    using StorePmr = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout,
+                                             ce_alloc::PmrResourceAllocator>;
 
     // Compile-Selbstbeweis: alle 3 Achsen flossen in den Organ-Typ ein, weiter StorageOrgan-konform.
     static_assert(ce_cmp::StorageOrgan<StoreMi>);
     static_assert(ce_cmp::StorageOrgan<StorePmr>);
-    static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal,   StoreMi>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal, StoreMi>);
     static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, StoreMi>);
-    static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal,   StorePmr>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal, StorePmr>);
     static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, StorePmr>);
     static_assert(std::is_same_v<StoreMi::key_type, std::uint64_t>);
-    static_assert(StoreMi::node_capacity() == 4u);     // node_type floss ein
-    static_assert(StoreMi::cache_line_size == 64u);    // layout floss in den Typ ein
+    static_assert(StoreMi::node_capacity() == 4u);  // node_type floss ein
+    static_assert(StoreMi::cache_line_size == 64u); // layout floss in den Typ ein
 
     // Allocator real + vector-unbounded ⇒ WEITE Keys wie RawSlotStore (kein cap-Limit, key_mod=100000 > 65535):
-    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,   StoreMi>>(100000u, 2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal, StoreMi>>(100000u, 2000u);
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, StoreMi>>(100000u, 2000u);
-    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal,   StorePmr>>(100000u, 2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal, StorePmr>>(100000u, 2000u);
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, StorePmr>>(100000u, 2000u);
-    SUCCEED();  // 3-Achsen-Organ (N·L·A), Allocator real, beide Traversal-Organe, std::map-aequivalent
+    SUCCEED(); // 3-Achsen-Organ (N·L·A), Allocator real, beide Traversal-Organe, std::map-aequivalent
 }
 
 // V41 Roadmap-2 INC-2a (Doku 14 §1.2) — zwei WEITERE Traversal-Organe auf dem flachen sortierten Store:
@@ -734,25 +775,29 @@ TEST(Saeule1_ComposedStore, AllocatorBackedStoreDrivesBothTraversalOrgansAsStdMa
 // — genau das "genetische Experiment" (ein Organ tauschen, Rest gleich).
 TEST(Saeule1_ComposableOrgan, InterpolationAndGallopingMatchStdMapOverWideKeys) {
     static_assert(ce_cmp::TraversalOrgan<ce_cmp::InterpolationTraversalOrgan, ce_cmp::RawSlotStore>);
-    static_assert(ce_cmp::TraversalOrgan<ce_cmp::GallopingTraversalOrgan,     ce_cmp::RawSlotStore>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::GallopingTraversalOrgan, ce_cmp::RawSlotStore>);
     // key_mod=100000 (>65535) → breite uint64-Keys, query_max=2000.
-    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, ce_cmp::RawSlotStore>>(100000u, 2000u);
-    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan,     ce_cmp::RawSlotStore>>(100000u, 2000u);
-    SUCCEED();  // Interpolation + Galloping, std::map-aequivalent, breiter Key
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, ce_cmp::RawSlotStore>>(100000u,
+                                                                                                              2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan, ce_cmp::RawSlotStore>>(100000u,
+                                                                                                          2000u);
+    SUCCEED(); // Interpolation + Galloping, std::map-aequivalent, breiter Key
 }
 
 // Dieselben zwei Organe ueber dem 3-Achsen-Storage-Organ (ComposedStore<N,L,A>) — Organ-Swappability
 // quer ueber Traversal- UND Storage-Achse (Mimalloc + PMR-Anker).
 TEST(Saeule1_ComposedStore, InterpolationAndGallopingOverComposedStore) {
-    using StoreMi  = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::MimallocAllocator>;
-    using StorePmr = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout, ce_alloc::PmrResourceAllocator>;
+    using StoreMi  = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout,
+                                             ce_alloc::MimallocAllocator>;
+    using StorePmr = ce_nodes::ComposedStore<ce_nodes::Node4NodeType, ce_layout::CacheLineAlignedMemoryLayout,
+                                             ce_alloc::PmrResourceAllocator>;
     static_assert(ce_cmp::TraversalOrgan<ce_cmp::InterpolationTraversalOrgan, StoreMi>);
-    static_assert(ce_cmp::TraversalOrgan<ce_cmp::GallopingTraversalOrgan,     StorePmr>);
+    static_assert(ce_cmp::TraversalOrgan<ce_cmp::GallopingTraversalOrgan, StorePmr>);
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, StoreMi>>(100000u, 2000u);
-    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan,     StoreMi>>(100000u, 2000u);
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan, StoreMi>>(100000u, 2000u);
     verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, StorePmr>>(100000u, 2000u);
-    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan,     StorePmr>>(100000u, 2000u);
-    SUCCEED();  // Interpolation/Galloping ⊕ ComposedStore<N,L,A>, std::map-aequivalent
+    verify_matches_std_map<ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan, StorePmr>>(100000u, 2000u);
+    SUCCEED(); // Interpolation/Galloping ⊕ ComposedStore<N,L,A>, std::map-aequivalent
 }
 
 // V41 Roadmap-2 INC-2b (Doku 24 §6) — BAUM-Organ ueber eigenstaendigem TreeNodePool (index-stabil, NICHT
@@ -764,15 +809,16 @@ TEST(Saeule1_TreePoolOrgan, BSTMatchesStdMapOverWideKeys) {
     static_assert(ce_cmp::TreeTraversalOrgan<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore>);
     static_assert(std::is_same_v<ce_cmp::TreeNodePoolStore::key_type, std::uint64_t>);
     // key_mod=100000 (>65535) → breite uint64-Keys (anders als der uint16-Tier-Wrapper).
-    verify_matches_std_map<ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore>>(100000u, 2000u);
-    SUCCEED();  // BST-Organ ⊕ Pool, std::map-aequivalent, breiter Key
+    verify_matches_std_map<ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore>>(100000u,
+                                                                                                             2000u);
+    SUCCEED(); // BST-Organ ⊕ Pool, std::map-aequivalent, breiter Key
 }
 
 // Haertung analog SearchAlgo_BST (degenerierte sortierte Einfuege-Reihenfolge = reine rechte Kette) +
 // Hibbard-Deletion aller 3 Faelle (Blatt / 1 Kind / 2 Kinder) — jetzt ueber dem uint64-Pool-Organ.
 TEST(Saeule1_TreePoolOrgan, BSTDegenerateSortedInputAndHibbardErase) {
     ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore> s{};
-    for (std::uint64_t k = 1; k <= 300; ++k) s.insert(k, k * 2u);   // sortiert → reine rechte Kette
+    for (std::uint64_t k = 1; k <= 300; ++k) s.insert(k, k * 2u); // sortiert → reine rechte Kette
     EXPECT_EQ(s.occupied_count(), 300u);
     for (std::uint64_t k = 1; k <= 300; ++k) {
         auto v = s.lookup(k);
@@ -789,11 +835,13 @@ TEST(Saeule1_TreePoolOrgan, BSTDegenerateSortedInputAndHibbardErase) {
     EXPECT_FALSE(s.lookup(300u).has_value());
     EXPECT_FALSE(s.lookup(1u).has_value());
     EXPECT_FALSE(s.lookup(150u).has_value());
-    EXPECT_TRUE(s.lookup(149u).has_value());   // Nachbarn intakt
+    EXPECT_TRUE(s.lookup(149u).has_value()); // Nachbarn intakt
     EXPECT_TRUE(s.lookup(151u).has_value());
-    EXPECT_FALSE(s.erase(150u));               // bereits geloescht → false
+    EXPECT_FALSE(s.erase(150u)); // bereits geloescht → false
     // Rest abbauen → leerer Baum.
-    for (std::uint64_t k = 2; k <= 299; ++k) { if (k != 150u) (void)s.erase(k); }
+    for (std::uint64_t k = 2; k <= 299; ++k) {
+        if (k != 150u) (void)s.erase(k);
+    }
     EXPECT_EQ(s.occupied_count(), 0u);
     EXPECT_FALSE(s.lookup(149u).has_value());
 }
@@ -804,7 +852,8 @@ TEST(Saeule1_TreePoolOrgan, BSTDegenerateSortedInputAndHibbardErase) {
 
 using AllCacheTraversalTypes = mp::mp_apply<ToGTestTypes, ce_03b::AllStrategies>;
 
-template <class T> class CacheTraversalTest : public ::testing::Test {};
+template <class T>
+class CacheTraversalTest : public ::testing::Test {};
 TYPED_TEST_SUITE(CacheTraversalTest, AllCacheTraversalTypes);
 
 TYPED_TEST(CacheTraversalTest, ConceptConformance) {
@@ -874,9 +923,7 @@ TEST(CacheTraversal_HashLookup, IsHashed) {
 TEST(CacheTraversal_HashLookup, ResizesUnderLoad) {
     ce_03b::HashLookup t{};
     // Trigger resize: > 70% load factor von initial 16 = 12 entries
-    for (std::uint64_t k = 0; k < 20; ++k) {
-        t.register_entry(k, k * 10);
-    }
+    for (std::uint64_t k = 0; k < 20; ++k) { t.register_entry(k, k * 10); }
     EXPECT_EQ(t.tracked_count(), 20u);
     for (std::uint64_t k = 0; k < 20; ++k) {
         auto v = t.resolve(k);
@@ -888,7 +935,7 @@ TEST(CacheTraversal_HashLookup, ResizesUnderLoad) {
 // V41.F.6.1.R7.2 — CT03 BinarySearchFanout (sortiert + lower_bound, B+ inner-node binary search)
 TEST(CacheTraversal_BinarySearchFanout, NotHashedNotO1) {
     EXPECT_FALSE(ce_03b::BinarySearchFanout::is_hashed());
-    EXPECT_FALSE(ce_03b::BinarySearchFanout::amortized_o1());  // O(log N)
+    EXPECT_FALSE(ce_03b::BinarySearchFanout::amortized_o1()); // O(log N)
     EXPECT_EQ(ce_03b::BinarySearchFanout::family_id::value, 3);
 }
 
@@ -902,13 +949,18 @@ TEST(CacheTraversal_BinarySearchFanout, SortedInsertResolveUnregister) {
         t.register_entry(k, k * 7u + 1u);
     }
     auto present = [](std::uint64_t q) {
-        for (std::uint64_t i = 0; i < 200; ++i) if ((i * 53u) % 401u == q) return true;
+        for (std::uint64_t i = 0; i < 200; ++i)
+            if ((i * 53u) % 401u == q) return true;
         return false;
     };
     for (std::uint64_t q = 0; q <= 410u; ++q) {
         auto v = t.resolve(q);
-        if (present(q)) { ASSERT_TRUE(v.has_value()) << "key=" << q; EXPECT_EQ(*v, q * 7u + 1u); }
-        else            { EXPECT_FALSE(v.has_value()) << "key=" << q; }
+        if (present(q)) {
+            ASSERT_TRUE(v.has_value()) << "key=" << q;
+            EXPECT_EQ(*v, q * 7u + 1u);
+        } else {
+            EXPECT_FALSE(v.has_value()) << "key=" << q;
+        }
     }
     // Update + unregister
     t.register_entry(std::uint64_t{53u % 401u}, std::uint64_t{12345});
@@ -916,7 +968,7 @@ TEST(CacheTraversal_BinarySearchFanout, SortedInsertResolveUnregister) {
     std::uint64_t const some = (5u * 53u) % 401u;
     EXPECT_TRUE(t.unregister(some));
     EXPECT_FALSE(t.resolve(some).has_value());
-    EXPECT_FALSE(t.unregister(some));  // schon weg
+    EXPECT_FALSE(t.unregister(some)); // schon weg
 }
 
 // =================================================================
@@ -925,7 +977,8 @@ TEST(CacheTraversal_BinarySearchFanout, SortedInsertResolveUnregister) {
 
 using AllMappingTypes = mp::mp_apply<ToGTestTypes, ce_03m::AllStrategies>;
 
-template <class T> class MappingTest : public ::testing::Test {};
+template <class T>
+class MappingTest : public ::testing::Test {};
 TYPED_TEST_SUITE(MappingTest, AllMappingTypes);
 
 TYPED_TEST(MappingTest, ConceptConformance) {
@@ -986,8 +1039,8 @@ TEST(Mapping_PoolRelative, IsPoolRelative) {
 }
 
 TEST(Mapping_PoolRelative, RebaseChangesAbsoluteOffsets) {
-    ce_03m::PoolRelative m{1000};  // pool_base = 1000
-    m.register_slot(5, 1500);  // relative=500
+    ce_03m::PoolRelative m{1000}; // pool_base = 1000
+    m.register_slot(5, 1500);     // relative=500
     auto o1 = m.resolve_offset(5);
     ASSERT_TRUE(o1.has_value());
     EXPECT_EQ(*o1, 1500u);
@@ -995,7 +1048,7 @@ TEST(Mapping_PoolRelative, RebaseChangesAbsoluteOffsets) {
     m.rebase(2000);
     auto o2 = m.resolve_offset(5);
     ASSERT_TRUE(o2.has_value());
-    EXPECT_EQ(*o2, 2500u);  // 2000 + 500 = 2500
+    EXPECT_EQ(*o2, 2500u); // 2000 + 500 = 2500
 }
 
 TEST(Mapping_PoolRelative, PoolBaseAccessor) {
@@ -1018,8 +1071,7 @@ TEST(SubConcepts_03a, IterableAspectSearchAlgoStrategy) {
 
 TEST(SubConcepts_03b, HashedTraversalStrategy) {
     static_assert(ce_03b::concepts::HashedTraversalStrategy<ce_03b::HashLookup>);
-    static_assert(!ce_03b::concepts::HashedTraversalStrategy<ce_03b::LinearFanout>,
-                  "LinearFanout ist nicht hashed");
+    static_assert(!ce_03b::concepts::HashedTraversalStrategy<ce_03b::LinearFanout>, "LinearFanout ist nicht hashed");
     SUCCEED();
 }
 
@@ -1052,7 +1104,7 @@ TEST(IterableAspect_VectorU8U8, DensityThresholdAffectsClass) {
 }
 
 TEST(IterableAspect_VectorU8U8, IterableValuesContainsDefault) {
-    auto vals = ce_03a::VectorU8U8SearchAlgo::iterable_values();
+    auto vals          = ce_03a::VectorU8U8SearchAlgo::iterable_values();
     bool found_default = false;
     for (auto v : vals) {
         if (v == ce_03a::VectorU8U8SearchAlgo::kDefaultDensityThresholdPct) found_default = true;
@@ -1070,7 +1122,7 @@ TEST(IterableAspect_HashLookup, InitialCapacityAffectsBucketCount) {
 TEST(IterableAspect_HashLookup, SetIterableAspectRehashes) {
     ce_03b::HashLookup t{16};
     for (std::uint64_t k = 0; k < 5; ++k) t.register_entry(k, k * 10);
-    t.set_iterable_aspect(256);  // Rehash auf 256 buckets
+    t.set_iterable_aspect(256); // Rehash auf 256 buckets
     EXPECT_EQ(t.bucket_count(), 256u);
     for (std::uint64_t k = 0; k < 5; ++k) {
         auto v = t.resolve(k);
@@ -1083,13 +1135,11 @@ TEST(IterableAspect_HashLookup, SetIterableAspectRehashes) {
 // Edge-Case + Zero-Boundary-Tests (Allocator-Lessons-Learned)
 // =================================================================
 
-TEST(EdgeCase_HashLookup, ZeroCapacityThrows) {
-    EXPECT_THROW(ce_03b::HashLookup{0}, std::invalid_argument);
-}
+TEST(EdgeCase_HashLookup, ZeroCapacityThrows) { EXPECT_THROW(ce_03b::HashLookup{0}, std::invalid_argument); }
 
 TEST(EdgeCase_HashLookup, NonPowerOf2Throws) {
-    EXPECT_THROW(ce_03b::HashLookup{3},   std::invalid_argument);
-    EXPECT_THROW(ce_03b::HashLookup{17},  std::invalid_argument);
+    EXPECT_THROW(ce_03b::HashLookup{3}, std::invalid_argument);
+    EXPECT_THROW(ce_03b::HashLookup{17}, std::invalid_argument);
     EXPECT_THROW(ce_03b::HashLookup{100}, std::invalid_argument);
 }
 
@@ -1118,9 +1168,13 @@ struct SearchAlgoTestConfig {
 };
 
 constexpr std::array<SearchAlgoTestConfig, 5> kTestSearchAlgoConfigs{{
-    {0, 1}, {0, 10}, {64, 50}, {128, 100}, {200, 30},
+    {0, 1},
+    {0, 10},
+    {64, 50},
+    {128, 100},
+    {200, 30},
 }};
-}  // namespace
+} // namespace
 
 TYPED_TEST(SearchAlgoTest, InsertLookupAllRuntimeConfigs) {
     if (!TypeParam::enabled) GTEST_SKIP() << "#42: deregistriertes Tier (Stub) — Runtime-Configs n/a";
@@ -1133,7 +1187,7 @@ TYPED_TEST(SearchAlgoTest, InsertLookupAllRuntimeConfigs) {
             s.insert(k, V{static_cast<V>(i + 1)});
         }
         for (std::size_t i = 0; i < cfg.count; ++i) {
-            K k = static_cast<K>(cfg.key_base + i);
+            K    k = static_cast<K>(cfg.key_base + i);
             auto v = s.lookup(k);
             ASSERT_TRUE(v.has_value()) << "cfg.key_base=" << cfg.key_base << " i=" << i;
             EXPECT_EQ(*v, V{static_cast<V>(i + 1)});
@@ -1143,7 +1197,7 @@ TYPED_TEST(SearchAlgoTest, InsertLookupAllRuntimeConfigs) {
 
 namespace {
 constexpr std::array<std::size_t, 5> kTestHashCapacities{8u, 16u, 64u, 256u, 1024u};
-}  // namespace
+} // namespace
 
 TEST(Runtime_HashLookup, RoundtripAllCapacities) {
     for (auto cap : kTestHashCapacities) {
@@ -1177,18 +1231,18 @@ TEST(TopicTraversal_PermutationEngine, ForEach03a) {
     using Engine = ce_perm::PermutationEngine<TraversalEnginePrimaryAxisTopic>;
     EXPECT_EQ(Engine::count(), mp::mp_size<ce_03a::EnabledStrategies>::value);
     int seen = 0;
-    Engine::for_each_permutation([&seen]<class P>(){ ++seen; });
+    Engine::for_each_permutation([&seen]<class P>() { ++seen; });
     EXPECT_EQ(seen, static_cast<int>(Engine::count()));
 }
 
 TEST(TopicTraversal_PermutationEngine, ForEachAspectPerVendor) {
     // VectorU8U8SearchAlgo hat iterable_aspect_t (5 density thresholds)
     int aspects = 0;
-    ce_perm::for_each_aspect<ce_03a::VectorU8U8SearchAlgo>([&aspects](auto /*value*/){ ++aspects; });
+    ce_perm::for_each_aspect<ce_03a::VectorU8U8SearchAlgo>([&aspects](auto /*value*/) { ++aspects; });
     EXPECT_EQ(aspects, 5);
     // Array256SearchAlgo hat KEINEN iterable_aspect_t → exakt 1 Aufruf ohne Argument
     int single = 0;
-    ce_perm::for_each_aspect<ce_03a::Array256SearchAlgo>([&single](){ ++single; });
+    ce_perm::for_each_aspect<ce_03a::Array256SearchAlgo>([&single]() { ++single; });
     EXPECT_EQ(single, 1);
 }
 
@@ -1204,10 +1258,14 @@ TEST(TopicTraversal_PermutationEngine, AspectCount) {
 // "Algorithmen bezueglich ihrer Eigenschaften unterscheiden")
 // =================================================================
 
-template <class S> using is_simd_search_algo = mp::mp_bool<S::supports_simd()>;
-template <class S> using is_dense_search_algo = mp::mp_bool<S::is_dense()>;
-template <class T> using is_hashed_cache_traversal = mp::mp_bool<T::is_hashed()>;
-template <class M> using is_pool_relative_mapping = mp::mp_bool<M::is_pool_relative()>;
+template <class S>
+using is_simd_search_algo = mp::mp_bool<S::supports_simd()>;
+template <class S>
+using is_dense_search_algo = mp::mp_bool<S::is_dense()>;
+template <class T>
+using is_hashed_cache_traversal = mp::mp_bool<T::is_hashed()>;
+template <class M>
+using is_pool_relative_mapping = mp::mp_bool<M::is_pool_relative()>;
 
 TEST(PropertyFilter_03a, SimdCapableSubset) {
     using SimdSubset = mp::mp_filter<is_simd_search_algo, ce_03a::AllStrategies>;

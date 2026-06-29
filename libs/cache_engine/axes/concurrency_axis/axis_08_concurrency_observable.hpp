@@ -35,11 +35,11 @@ namespace comdare::cache_engine::concurrency_axis {
 /// ABI-taugliches Concurrency-Snapshot (NUR uint64 → standard_layout + trivially_copyable; mappbar in den
 /// generischen Cross-ABI-Observer-POD, axis_stats[8][...], observable_tier.hpp).
 struct ConcurrencyStatistics {
-    std::uint64_t acquire_count            = 0;  ///< Anzahl getriebener acquire()-Ops (Lock/CAS/Validate-Eintritt)
-    std::uint64_t release_count            = 0;  ///< Anzahl getriebener release()-Ops (Austritt; gepaart)
-    std::uint64_t contention_count         = 0;  ///< CAS-Retries (single-thread-Pfad B: ehrlich 0, kein Konflikt)
-    std::uint64_t validation_failure_count = 0;  ///< fehlgeschlagene OLC-Validierungen (single-thread: ehrlich 0)
-    std::uint64_t pattern_id               = 0;  ///< concurrency_pattern()-Enum (None=0..HazardPtr=7; strategie-distinkt)
+    std::uint64_t acquire_count            = 0; ///< Anzahl getriebener acquire()-Ops (Lock/CAS/Validate-Eintritt)
+    std::uint64_t release_count            = 0; ///< Anzahl getriebener release()-Ops (Austritt; gepaart)
+    std::uint64_t contention_count         = 0; ///< CAS-Retries (single-thread-Pfad B: ehrlich 0, kein Konflikt)
+    std::uint64_t validation_failure_count = 0; ///< fehlgeschlagene OLC-Validierungen (single-thread: ehrlich 0)
+    std::uint64_t pattern_id = 0; ///< concurrency_pattern()-Enum (None=0..HazardPtr=7; strategie-distinkt)
 
     [[nodiscard]] bool operator==(ConcurrencyStatistics const&) const noexcept = default;
 };
@@ -60,13 +60,22 @@ public:
     [[nodiscard]] static constexpr concepts::ConcurrencyPattern concurrency_pattern() noexcept {
         return Strategy::concurrency_pattern();
     }
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return Strategy::name(); }
-    [[nodiscard]] static constexpr std::string_view family_name()
-        noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()
-        noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
-    [[nodiscard]] static constexpr std::string_view get_compiler()
-        noexcept requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept
+        requires requires { Strategy::family_name(); }
+    {
+        return Strategy::family_name();
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept
+        requires requires { Strategy::flag_suffix(); }
+    {
+        return Strategy::flag_suffix();
+    }
+    [[nodiscard]] static constexpr std::string_view get_compiler() noexcept
+        requires requires { Strategy::get_compiler(); }
+    {
+        return Strategy::get_compiler();
+    }
 
     /// Mess-Kopplung (der eigentliche „Driver"): treibt das ECHTE statische Synchronisations-Primitiv der
     /// Strategie (acquire→Mini-Critical-Section-Eintritt) und zählt. Gepaart mit release() zu nutzen.
@@ -88,7 +97,10 @@ public:
 
     /// Eine vollständige, korrekt gepaarte Mini-Critical-Section (acquire→release). Komfort-Driver für den
     /// abi_adapter (tier_insert/lookup): EIN Aufruf = EIN echtes Sync-Primitiv-Paar.
-    void observe_critical_section() noexcept { acquire(); release(); }
+    void observe_critical_section() noexcept {
+        acquire();
+        release();
+    }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = ConcurrencyStatistics;
@@ -101,4 +113,4 @@ private:
 #endif
 };
 
-}  // namespace comdare::cache_engine::concurrency_axis
+} // namespace comdare::cache_engine::concurrency_axis

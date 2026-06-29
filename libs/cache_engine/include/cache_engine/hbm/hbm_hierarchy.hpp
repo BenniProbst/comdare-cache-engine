@@ -25,22 +25,22 @@
 namespace comdare::hbm {
 
 enum class TierKind : std::uint8_t {
-    L1Cache       = 0,
-    L2Cache       = 1,
-    L3Cache       = 2,
-    DRAM          = 3,
-    HBM           = 4,    // High-Bandwidth Memory (MCDRAM, HBM3, ...)
-    PMEM          = 5,    // Persistent Memory (Optane, ...)
-    Disk          = 6,
+    L1Cache = 0,
+    L2Cache = 1,
+    L3Cache = 2,
+    DRAM    = 3,
+    HBM     = 4, // High-Bandwidth Memory (MCDRAM, HBM3, ...)
+    PMEM    = 5, // Persistent Memory (Optane, ...)
+    Disk    = 6,
 };
 
 struct TierInfo {
-    TierKind      kind            = TierKind::DRAM;
-    std::uint64_t size_bytes      = 0;
-    std::uint32_t latency_ns      = 0;
-    std::uint32_t bandwidth_gb_s  = 0;
-    std::uint32_t numa_node       = 0;       // Physical NUMA node id
-    std::string   label           = {};       // Human-readable name
+    TierKind      kind           = TierKind::DRAM;
+    std::uint64_t size_bytes     = 0;
+    std::uint32_t latency_ns     = 0;
+    std::uint32_t bandwidth_gb_s = 0;
+    std::uint32_t numa_node      = 0;  // Physical NUMA node id
+    std::string   label          = {}; // Human-readable name
 };
 
 // Abstract Interface fuer Plattform-spezifische Cache-Hierarchien
@@ -48,11 +48,11 @@ class IHbmHierarchy {
 public:
     virtual ~IHbmHierarchy() = default;
 
-    [[nodiscard]] virtual std::size_t tier_count() const noexcept = 0;
+    [[nodiscard]] virtual std::size_t tier_count() const noexcept      = 0;
     [[nodiscard]] virtual TierInfo    tier_info(std::size_t idx) const = 0;
-    [[nodiscard]] virtual bool        hbm_available() const noexcept = 0;
-    [[nodiscard]] virtual bool        pmem_available() const noexcept = 0;
-    [[nodiscard]] virtual std::string platform_name() const = 0;
+    [[nodiscard]] virtual bool        hbm_available() const noexcept   = 0;
+    [[nodiscard]] virtual bool        pmem_available() const noexcept  = 0;
+    [[nodiscard]] virtual std::string platform_name() const            = 0;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,11 +63,11 @@ class X86HbmHierarchy : public IHbmHierarchy {
 public:
     X86HbmHierarchy() {
         tiers_ = {
-            TierInfo{TierKind::L1Cache, 48 * 1024,         1,    1500, 0, "L1d"},
-            TierInfo{TierKind::L2Cache, 1280 * 1024,       4,    600,  0, "L2"},
-            TierInfo{TierKind::L3Cache, 18 * 1024 * 1024,  12,   300,  0, "L3"},
-            TierInfo{TierKind::DRAM,    32ULL * (1ULL<<30), 100,  50,   0, "DDR5"},
-            TierInfo{TierKind::HBM,     16ULL * (1ULL<<30), 60,   400,  1, "HBM2e"},
+            TierInfo{TierKind::L1Cache, 48 * 1024, 1, 1500, 0, "L1d"},
+            TierInfo{TierKind::L2Cache, 1280 * 1024, 4, 600, 0, "L2"},
+            TierInfo{TierKind::L3Cache, 18 * 1024 * 1024, 12, 300, 0, "L3"},
+            TierInfo{TierKind::DRAM, 32ULL * (1ULL << 30), 100, 50, 0, "DDR5"},
+            TierInfo{TierKind::HBM, 16ULL * (1ULL << 30), 60, 400, 1, "HBM2e"},
         };
     }
 
@@ -78,11 +78,13 @@ public:
     }
 
     [[nodiscard]] bool hbm_available() const noexcept override {
-        for (auto const& t : tiers_) if (t.kind == TierKind::HBM) return true;
+        for (auto const& t : tiers_)
+            if (t.kind == TierKind::HBM) return true;
         return false;
     }
     [[nodiscard]] bool pmem_available() const noexcept override {
-        for (auto const& t : tiers_) if (t.kind == TierKind::PMEM) return true;
+        for (auto const& t : tiers_)
+            if (t.kind == TierKind::PMEM) return true;
         return false;
     }
     [[nodiscard]] std::string platform_name() const override { return "x86_64-hbm-numa"; }
@@ -95,10 +97,10 @@ class ArmDdrHierarchy : public IHbmHierarchy {
 public:
     ArmDdrHierarchy() {
         tiers_ = {
-            TierInfo{TierKind::L1Cache, 64 * 1024,         2,    1200, 0, "L1d"},
-            TierInfo{TierKind::L2Cache, 1024 * 1024,       6,    500,  0, "L2"},
-            TierInfo{TierKind::L3Cache, 8 * 1024 * 1024,   18,   250,  0, "L3"},
-            TierInfo{TierKind::DRAM,    16ULL * (1ULL<<30), 120,  35,   0, "LPDDR5"},
+            TierInfo{TierKind::L1Cache, 64 * 1024, 2, 1200, 0, "L1d"},
+            TierInfo{TierKind::L2Cache, 1024 * 1024, 6, 500, 0, "L2"},
+            TierInfo{TierKind::L3Cache, 8 * 1024 * 1024, 18, 250, 0, "L3"},
+            TierInfo{TierKind::DRAM, 16ULL * (1ULL << 30), 120, 35, 0, "LPDDR5"},
         };
     }
 
@@ -118,9 +120,9 @@ class GenericFallback : public IHbmHierarchy {
 public:
     GenericFallback() {
         tiers_ = {
-            TierInfo{TierKind::L1Cache, 32 * 1024,         3,    1000, 0, "L1"},
-            TierInfo{TierKind::L2Cache, 256 * 1024,        10,   400,  0, "L2"},
-            TierInfo{TierKind::DRAM,    4ULL * (1ULL<<30),  150,  20,   0, "DDR4"},
+            TierInfo{TierKind::L1Cache, 32 * 1024, 3, 1000, 0, "L1"},
+            TierInfo{TierKind::L2Cache, 256 * 1024, 10, 400, 0, "L2"},
+            TierInfo{TierKind::DRAM, 4ULL * (1ULL << 30), 150, 20, 0, "DDR4"},
         };
     }
 
@@ -149,14 +151,13 @@ enum class PlatformChoice : std::uint8_t {
 
 class HbmHierarchyFactory {
 public:
-    [[nodiscard]] static std::unique_ptr<IHbmHierarchy>
-    create(PlatformChoice choice = PlatformChoice::AutoDetect) {
+    [[nodiscard]] static std::unique_ptr<IHbmHierarchy> create(PlatformChoice choice = PlatformChoice::AutoDetect) {
         if (choice == PlatformChoice::AutoDetect) choice = detect_platform();
         switch (choice) {
             case PlatformChoice::X86_Hbm: return std::make_unique<X86HbmHierarchy>();
             case PlatformChoice::Arm_Ddr: return std::make_unique<ArmDdrHierarchy>();
             case PlatformChoice::Generic:
-            default:                       return std::make_unique<GenericFallback>();
+            default: return std::make_unique<GenericFallback>();
         }
     }
 
@@ -181,12 +182,12 @@ public:
         case TierKind::L1Cache: return "L1Cache";
         case TierKind::L2Cache: return "L2Cache";
         case TierKind::L3Cache: return "L3Cache";
-        case TierKind::DRAM:    return "DRAM";
-        case TierKind::HBM:     return "HBM";
-        case TierKind::PMEM:    return "PMEM";
-        case TierKind::Disk:    return "Disk";
+        case TierKind::DRAM: return "DRAM";
+        case TierKind::HBM: return "HBM";
+        case TierKind::PMEM: return "PMEM";
+        case TierKind::Disk: return "Disk";
     }
     return "Unknown";
 }
 
-}  // namespace comdare::hbm
+} // namespace comdare::hbm

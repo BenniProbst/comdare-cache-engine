@@ -22,7 +22,7 @@
 // @task V41.F.6.1 R5.G · V41.P2 SUPERSEDED
 
 #include <builder/codegen/adhoc_emitter.hpp>
-#include <builder/codegen/all_axes_umbrella.hpp>   // alle Achsen-Typen + AdHocComposition + ADHOC-Makro
+#include <builder/codegen/all_axes_umbrella.hpp> // alle Achsen-Typen + AdHocComposition + ADHOC-Makro
 #include <anatomy/search_algorithm_permutation_engine.hpp>
 
 #include <boost/mp11.hpp>
@@ -40,22 +40,22 @@ namespace mp  = ::boost::mp11;
 namespace {
 
 // 17 Achsen-Default-Typen (via Umbrella verfügbar).
-using SA0 = ce::traversal::axis_03a_search_algo::Array256SearchAlgo;       // dense direct-addressed (u8)
-using SA1 = ce::traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;     // sorted lower_bound (u8)
-using SA2 = ce::traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;   // sorted lower_bound (u16)
-using SA3 = ce::traversal::axis_03a_search_algo::Array65535SearchAlgo;     // dense direct-addressed (u16)
-using SA4 = ce::traversal::axis_03a_search_algo::KArySearchAlgo;           // k-ary search (DaMoN 2009)
-using SA5 = ce::traversal::axis_03a_search_algo::InterpolationSearchAlgo;  // interpolation (CACM 1978)
-using SA6 = ce::traversal::axis_03a_search_algo::EytzingerSearchAlgo;      // cache-conscious BFS (JEA 2017)
-using SA7 = ce::traversal::axis_03a_search_algo::SkipListSearchAlgo;       // skip-list (Pugh CACM 1990)
-using SA8 = ce::traversal::axis_03a_search_algo::HashSearchAlgo;           // open-addressing Hash (Knuth)
-using SA9 = ce::traversal::axis_03a_search_algo::LinearScanSearchAlgo;     // unsorted linear (ART Node4)
+using SA0  = ce::traversal::axis_03a_search_algo::Array256SearchAlgo;         // dense direct-addressed (u8)
+using SA1  = ce::traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;       // sorted lower_bound (u8)
+using SA2  = ce::traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;     // sorted lower_bound (u16)
+using SA3  = ce::traversal::axis_03a_search_algo::Array65535SearchAlgo;       // dense direct-addressed (u16)
+using SA4  = ce::traversal::axis_03a_search_algo::KArySearchAlgo;             // k-ary search (DaMoN 2009)
+using SA5  = ce::traversal::axis_03a_search_algo::InterpolationSearchAlgo;    // interpolation (CACM 1978)
+using SA6  = ce::traversal::axis_03a_search_algo::EytzingerSearchAlgo;        // cache-conscious BFS (JEA 2017)
+using SA7  = ce::traversal::axis_03a_search_algo::SkipListSearchAlgo;         // skip-list (Pugh CACM 1990)
+using SA8  = ce::traversal::axis_03a_search_algo::HashSearchAlgo;             // open-addressing Hash (Knuth)
+using SA9  = ce::traversal::axis_03a_search_algo::LinearScanSearchAlgo;       // unsorted linear (ART Node4)
 using SA10 = ce::traversal::axis_03a_search_algo::BinarySearchTreeSearchAlgo; // unbalancierter BST (Knuth §6.2.2)
-using SA11 = ce::traversal::axis_03a_search_algo::BTreeSearchAlgo;            // balancierter B-Baum (Bayer/McCreight 1972)
-using CT  = ce::traversal::axis_03b_cache_traversal::LinearFanout;
-using MP  = ce::traversal::axis_03m_mapping::DirectPlacement;
-using PC  = ce::nodes::axis_02_path_compression::PathCompressionNone;
-using NT  = ce::nodes::axis_04_node_type::Node256NodeType;
+using SA11 = ce::traversal::axis_03a_search_algo::BTreeSearchAlgo; // balancierter B-Baum (Bayer/McCreight 1972)
+using CT   = ce::traversal::axis_03b_cache_traversal::LinearFanout;
+using MP   = ce::traversal::axis_03m_mapping::DirectPlacement;
+using PC   = ce::nodes::axis_02_path_compression::PathCompressionNone;
+using NT   = ce::nodes::axis_04_node_type::Node256NodeType;
 // V41.F.6.1 R5.B (2026-05-29): 3. variierte Achse = memory_layout. Zwei behavioral-distinkte
 // Zugriffsmuster (scan_field_sum): AoS-strided vs SoA-contiguous → echter Cache-Effekt.
 using ML0 = ce::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout; // AoS strided
@@ -74,32 +74,70 @@ using IO  = ce::search_engine::axis_01_index_organization::IotIndexOrganization;
 using IOD = ce::io::axis_io::InMemoryOnly;
 using MG  = ce::migration::axis_migration::NoMigration;
 using FL  = ce::filter::axis_filter::BloomFilter;
-using Q1  = ce::queuing::axis_q1_queuing::NoBuffer;   // T17 queuing_q1 (Doc 30 §8.0: mandatorische SA-Achse, 19-Slot)
-using Q2  = ce::queuing::axis_q2_queuing::LazyFlush;  // T18 queuing_q2
+using Q1  = ce::queuing::axis_q1_queuing::NoBuffer;  // T17 queuing_q1 (Doc 30 §8.0: mandatorische SA-Achse, 19-Slot)
+using Q2  = ce::queuing::axis_q2_queuing::LazyFlush; // T18 queuing_q2
 
 // Pilot-Raum (R5.B 3-Achsen): search_algo (12) × allocator (2) × memory_layout (2) = 48 Permutationen.
-struct C0  { using StaticAxisVariants = mp::mp_list<SA0, SA1, SA2, SA3, SA4, SA5, SA6, SA7, SA8, SA9, SA10, SA11>; };
-struct C1  { using StaticAxisVariants = mp::mp_list<CT>;  };
-struct C2  { using StaticAxisVariants = mp::mp_list<MP>;  };
-struct C3  { using StaticAxisVariants = mp::mp_list<PC>;  };
-struct C4  { using StaticAxisVariants = mp::mp_list<NT>;  };
-struct C5  { using StaticAxisVariants = mp::mp_list<ML0, ML1>;  };  // R5.B: 2 memory_layout-Varianten
-struct C6  { using StaticAxisVariants = mp::mp_list<AL0, AL1>;  };  // R5.B: 2 Allocator-Varianten
-struct C7  { using StaticAxisVariants = mp::mp_list<PF>;  };
-struct C8  { using StaticAxisVariants = mp::mp_list<CC>;  };
-struct C9  { using StaticAxisVariants = mp::mp_list<SE>;  };
-struct C10 { using StaticAxisVariants = mp::mp_list<TM>;  };
-struct C11 { using StaticAxisVariants = mp::mp_list<VH>;  };
-struct C12 { using StaticAxisVariants = mp::mp_list<IS>;  };
-struct C13 { using StaticAxisVariants = mp::mp_list<IO>;  };
-struct C14 { using StaticAxisVariants = mp::mp_list<IOD>; };
-struct C15 { using StaticAxisVariants = mp::mp_list<MG>;  };
-struct C16 { using StaticAxisVariants = mp::mp_list<FL>;  };
-struct C17 { using StaticAxisVariants = mp::mp_list<Q1>;  };  // T17 queuing_q1 (19-Slot-Composition, Doc 30 §8.0)
-struct C18 { using StaticAxisVariants = mp::mp_list<Q2>;  };  // T18 queuing_q2
+struct C0 {
+    using StaticAxisVariants = mp::mp_list<SA0, SA1, SA2, SA3, SA4, SA5, SA6, SA7, SA8, SA9, SA10, SA11>;
+};
+struct C1 {
+    using StaticAxisVariants = mp::mp_list<CT>;
+};
+struct C2 {
+    using StaticAxisVariants = mp::mp_list<MP>;
+};
+struct C3 {
+    using StaticAxisVariants = mp::mp_list<PC>;
+};
+struct C4 {
+    using StaticAxisVariants = mp::mp_list<NT>;
+};
+struct C5 {
+    using StaticAxisVariants = mp::mp_list<ML0, ML1>;
+}; // R5.B: 2 memory_layout-Varianten
+struct C6 {
+    using StaticAxisVariants = mp::mp_list<AL0, AL1>;
+}; // R5.B: 2 Allocator-Varianten
+struct C7 {
+    using StaticAxisVariants = mp::mp_list<PF>;
+};
+struct C8 {
+    using StaticAxisVariants = mp::mp_list<CC>;
+};
+struct C9 {
+    using StaticAxisVariants = mp::mp_list<SE>;
+};
+struct C10 {
+    using StaticAxisVariants = mp::mp_list<TM>;
+};
+struct C11 {
+    using StaticAxisVariants = mp::mp_list<VH>;
+};
+struct C12 {
+    using StaticAxisVariants = mp::mp_list<IS>;
+};
+struct C13 {
+    using StaticAxisVariants = mp::mp_list<IO>;
+};
+struct C14 {
+    using StaticAxisVariants = mp::mp_list<IOD>;
+};
+struct C15 {
+    using StaticAxisVariants = mp::mp_list<MG>;
+};
+struct C16 {
+    using StaticAxisVariants = mp::mp_list<FL>;
+};
+struct C17 {
+    using StaticAxisVariants = mp::mp_list<Q1>;
+}; // T17 queuing_q1 (19-Slot-Composition, Doc 30 §8.0)
+struct C18 {
+    using StaticAxisVariants = mp::mp_list<Q2>;
+}; // T18 queuing_q2
 
-using PilotEngine = ana::SearchAlgorithmPermutationEngine<
-    C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16, C17, C18>;
+using PilotEngine = ana::SearchAlgorithmPermutationEngine<C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13,
+                                                          C14, C15, C16, C17, C18>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // V41.F.6.1 R5.D — VOLL-COVERAGE-Modus (--full-coverage): 1-wise-Ueberdeckungs-Stichprobe ueber die
@@ -108,23 +146,22 @@ using PilotEngine = ana::SearchAlgorithmPermutationEngine<
 // vgl. anatomy/combinatorial_coverage.hpp). Default bleibt der kuratierte Pilot → keine Regression.
 // ─────────────────────────────────────────────────────────────────────────────
 namespace fullcov {
-using SearchList = ce::traversal::axis_03a_search_algo::AllStrategies;
-using AllocList  = ce::allocator::axis_06_allocator::AllVendors;
-using LayoutList = ce::memory_layout::axis_05_memory_layout::AllLayouts;
-inline constexpr std::size_t kNs = mp::mp_size<SearchList>::value;
-inline constexpr std::size_t kNa = mp::mp_size<AllocList>::value;
-inline constexpr std::size_t kNl = mp::mp_size<LayoutList>::value;
+using SearchList                  = ce::traversal::axis_03a_search_algo::AllStrategies;
+using AllocList                   = ce::allocator::axis_06_allocator::AllVendors;
+using LayoutList                  = ce::memory_layout::axis_05_memory_layout::AllLayouts;
+inline constexpr std::size_t kNs  = mp::mp_size<SearchList>::value;
+inline constexpr std::size_t kNa  = mp::mp_size<AllocList>::value;
+inline constexpr std::size_t kNl  = mp::mp_size<LayoutList>::value;
 inline constexpr std::size_t kMax = (kNs > kNa ? (kNs > kNl ? kNs : kNl) : (kNa > kNl ? kNa : kNl));
 
 // Zeile r → Achse i = (r mod n_i): jede Variante jeder Achse erscheint mind. 1× (1-wise).
 template <class R>
-using SampledComposition = ana::AdHocComposition<
-    mp::mp_at_c<SearchList, R::value % kNs>,   // T0  search_algo
-    CT, MP, PC, NT,                             // T1..T4
-    mp::mp_at_c<LayoutList, R::value % kNl>,    // T5  memory_layout
-    mp::mp_at_c<AllocList,  R::value % kNa>,    // T6  allocator
-    PF, CC, SE, TM, VH, IS, IO, IOD, MG, FL,     // T7..T16
-    Q1, Q2>;                                     // T17 queuing_q1, T18 queuing_q2 (19-Slot, Doc 30 §8.0)
+using SampledComposition = ana::AdHocComposition<mp::mp_at_c<SearchList, R::value % kNs>, // T0  search_algo
+                                                 CT, MP, PC, NT,                          // T1..T4
+                                                 mp::mp_at_c<LayoutList, R::value % kNl>, // T5  memory_layout
+                                                 mp::mp_at_c<AllocList, R::value % kNa>,  // T6  allocator
+                                                 PF, CC, SE, TM, VH, IS, IO, IOD, MG, FL, // T7..T16
+                                                 Q1, Q2>; // T17 queuing_q1, T18 queuing_q2 (19-Slot, Doc 30 §8.0)
 
 using SampleList = mp::mp_transform<SampledComposition, mp::mp_iota_c<kMax>>;
 
@@ -139,9 +176,9 @@ struct SampleEngine {
     }
 };
 static_assert(SampleEngine::count() == kMax, "1-wise-Stichprobe muss max(Achsen-Varianten) Permutationen haben");
-}  // namespace fullcov
+} // namespace fullcov
 
-}  // namespace
+} // namespace
 
 namespace {
 // Emittiert den Raum des gewaehlten Engine + schreibt manifest.txt (idx → search/allocator/memory_layout).
@@ -150,21 +187,20 @@ int emit_with(std::string const& out_dir, char const* mode) {
     auto const files = cg::emit_adhoc_modules<Engine>(out_dir);
     for (auto const& f : files) std::cout << f.string() << "\n";
     std::ofstream manifest(std::filesystem::path{out_dir} / "manifest.txt", std::ios::trunc);
-    int mi = 0;
+    int           mi = 0;
     Engine::for_each_composition_type([&]<class C>() {
-        std::string const line = std::to_string(mi) + "\t"
-            + std::string{C::search_algo::name()} + "\t" + std::string{C::allocator::name()}
-            + "\t" + std::string{C::memory_layout::name()};
+        std::string const line = std::to_string(mi) + "\t" + std::string{C::search_algo::name()} + "\t" +
+                                 std::string{C::allocator::name()} + "\t" + std::string{C::memory_layout::name()};
         std::cerr << "  [idx " << line << "]\n";
         manifest << line << "\n";
         ++mi;
     });
     std::cerr << "comdare-adhoc-emitter: " << files.size()
-              << " Permutations-Modul-.cpp geschrieben (count=" << Engine::count()
-              << ", Modus=" << mode << ", manifest.txt geschrieben).\n";
+              << " Permutations-Modul-.cpp geschrieben (count=" << Engine::count() << ", Modus=" << mode
+              << ", manifest.txt geschrieben).\n";
     return files.empty() ? 2 : 0;
 }
-}  // namespace
+} // namespace
 
 int main(int argc, char** argv) {
     if (argc < 2) {
@@ -174,11 +210,11 @@ int main(int argc, char** argv) {
                      "(17×25×5 → 25 Permutationen, jede Variante mind. 1×).\n";
         return 1;
     }
-    std::string const out_dir = argv[1];
-    bool full_coverage = false;
-    for (int i = 2; i < argc; ++i) if (std::string{argv[i]} == "--full-coverage") full_coverage = true;
+    std::string const out_dir       = argv[1];
+    bool              full_coverage = false;
+    for (int i = 2; i < argc; ++i)
+        if (std::string{argv[i]} == "--full-coverage") full_coverage = true;
 
-    return full_coverage
-        ? emit_with<fullcov::SampleEngine>(out_dir, "full-coverage-1wise")
-        : emit_with<PilotEngine>(out_dir, "kuratiert-3achsen");
+    return full_coverage ? emit_with<fullcov::SampleEngine>(out_dir, "full-coverage-1wise")
+                         : emit_with<PilotEngine>(out_dir, "kuratiert-3achsen");
 }

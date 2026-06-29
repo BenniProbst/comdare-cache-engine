@@ -41,8 +41,7 @@ TYPED_TEST(MigrationWrapperTest, ConceptConformance) {
 
 TYPED_TEST(MigrationWrapperTest, HasTopicTagAndFamilyId) {
     using topic_tag_t = typename TypeParam::topic_tag;
-    static_assert(std::is_same_v<topic_tag_t,
-                                 ::comdare::cache_engine::migration::concepts::MigrationTopicTag>);
+    static_assert(std::is_same_v<topic_tag_t, ::comdare::cache_engine::migration::concepts::MigrationTopicTag>);
     SUCCEED();
 }
 
@@ -64,26 +63,26 @@ TYPED_TEST(MigrationWrapperTest, IsEnabledMatchesFlag) {
 
 TEST(R7_5_g_Axis_Migration_Specific, IsActiveDifferentiated) {
     // Nur NoMigration ist inaktiv; alle anderen sind aktiv
-    static_assert(ax_mig::NoMigration::is_active()        == false);
-    static_assert(ax_mig::HotColdMigration::is_active()   == true);
+    static_assert(ax_mig::NoMigration::is_active() == false);
+    static_assert(ax_mig::HotColdMigration::is_active() == true);
     static_assert(ax_mig::TierBasedMigration::is_active() == true);
-    static_assert(ax_mig::AdaptiveMigration::is_active()  == true);
+    static_assert(ax_mig::AdaptiveMigration::is_active() == true);
     SUCCEED();
 }
 
 TEST(R7_5_g_Axis_Migration_Specific, FlagSuffixUppercase) {
-    static_assert(ax_mig::NoMigration::flag_suffix()        == std::string_view{"NONE"});
-    static_assert(ax_mig::HotColdMigration::flag_suffix()   == std::string_view{"HOT_COLD"});
+    static_assert(ax_mig::NoMigration::flag_suffix() == std::string_view{"NONE"});
+    static_assert(ax_mig::HotColdMigration::flag_suffix() == std::string_view{"HOT_COLD"});
     static_assert(ax_mig::TierBasedMigration::flag_suffix() == std::string_view{"TIER_BASED"});
-    static_assert(ax_mig::AdaptiveMigration::flag_suffix()  == std::string_view{"ADAPTIVE"});
+    static_assert(ax_mig::AdaptiveMigration::flag_suffix() == std::string_view{"ADAPTIVE"});
     SUCCEED();
 }
 
 TEST(R7_5_g_Axis_Migration_Specific, SubaxesOrthogonal) {
-    static_assert(std::is_same_v<ax_mig::NoMigration::axis_tag,        ax_mig::subaxes::trigger_tag>);
-    static_assert(std::is_same_v<ax_mig::HotColdMigration::axis_tag,   ax_mig::subaxes::trigger_tag>);
+    static_assert(std::is_same_v<ax_mig::NoMigration::axis_tag, ax_mig::subaxes::trigger_tag>);
+    static_assert(std::is_same_v<ax_mig::HotColdMigration::axis_tag, ax_mig::subaxes::trigger_tag>);
     static_assert(std::is_same_v<ax_mig::TierBasedMigration::axis_tag, ax_mig::subaxes::direction_tag>);
-    static_assert(std::is_same_v<ax_mig::AdaptiveMigration::axis_tag,  ax_mig::subaxes::granularity_tag>);
+    static_assert(std::is_same_v<ax_mig::AdaptiveMigration::axis_tag, ax_mig::subaxes::granularity_tag>);
     SUCCEED();
 }
 
@@ -95,8 +94,7 @@ TEST(R7_5_g_Axis_Migration_Specific, RegistryHas4Migrations) {
 
 TEST(R7_5_g_Migration, TopicConfigSetExposesAxisMigration) {
     static_assert(mp::mp_size<mig::TopicConfigSet::StaticAxisVariants_MG>::value > 0);
-    static_assert(std::is_same_v<mig::TopicConfigSet::StaticAxisVariants,
-                                  mig::TopicConfigSet::StaticAxisVariants_MG>);
+    static_assert(std::is_same_v<mig::TopicConfigSet::StaticAxisVariants, mig::TopicConfigSet::StaticAxisVariants_MG>);
     SUCCEED();
 }
 

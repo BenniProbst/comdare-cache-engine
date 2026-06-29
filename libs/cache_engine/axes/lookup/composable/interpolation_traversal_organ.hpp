@@ -13,7 +13,7 @@
 // `double`-Bruch berechnet und auf [lo,hi] geklemmt. Der Praezisionsverlust betrifft NUR die Probe-Schaetzung —
 // die Korrektheit garantiert die umgebende, stets konvergierende lo/hi-Schleife (wie bei Binaersuche).
 
-#include "composable_search.hpp"   // StorageOrgan-API + SortedBinaryTraversal (insert/erase-Delegation)
+#include "composable_search.hpp" // StorageOrgan-API + SortedBinaryTraversal (insert/erase-Delegation)
 
 #include <cstddef>
 #include <optional>
@@ -24,7 +24,7 @@ namespace comdare::cache_engine::lookup::composable {
 struct InterpolationTraversalOrgan {
     template <class Store>
     static void insert_into(Store& s, typename Store::key_type k, typename Store::value_type v) {
-        SortedBinaryTraversal::template insert_into<Store>(s, k, v);   // Sortier-Invariante identisch
+        SortedBinaryTraversal::template insert_into<Store>(s, k, v); // Sortier-Invariante identisch
     }
     template <class Store>
     static bool erase_from(Store& s, typename Store::key_type k) {
@@ -38,29 +38,34 @@ struct InterpolationTraversalOrgan {
         while (lo <= hi) {
             typename Store::key_type const klo = s.key_at(lo);
             typename Store::key_type const khi = s.key_at(hi);
-            if (k < klo || k > khi) break;          // ausserhalb des sortierten Fensters → nicht vorhanden
+            if (k < klo || k > khi) break; // ausserhalb des sortierten Fensters → nicht vorhanden
             std::size_t pos;
             if (khi == klo) {
-                pos = lo;                            // alle Schluessel im Fenster gleich
+                pos = lo; // alle Schluessel im Fenster gleich
             } else {
                 // double-Bruch statt 128-bit-Produkt (MSVC-portabel); Korrektheit via lo/hi-Schleife.
                 double const frac = static_cast<double>(k - klo) / static_cast<double>(khi - klo);
-                pos = lo + static_cast<std::size_t>(frac * static_cast<double>(hi - lo));
+                pos               = lo + static_cast<std::size_t>(frac * static_cast<double>(hi - lo));
                 if (pos < lo) pos = lo;
                 if (pos > hi) pos = hi;
             }
             typename Store::key_type const kp = s.key_at(pos);
             if (kp == k) return s.value_at(pos);
-            if (kp < k) { if (pos == hi) break; lo = pos + 1; }
-            else        { if (pos == lo) break; hi = pos - 1; }
+            if (kp < k) {
+                if (pos == hi) break;
+                lo = pos + 1;
+            } else {
+                if (pos == lo) break;
+                hi = pos - 1;
+            }
         }
         return std::nullopt;
     }
     /// GoF-Iterator (YCSB-E #214): der Store ist sortiert (insert/erase delegieren an SortedBinary) → der geordnete
     /// Range-Scan delegiert ebenfalls an SortedBinaryTraversal::scan_into (lower_bound + Walk, O(log n + scan_len)).
     template <class Store, class Sink>
-    static std::size_t scan_into(Store const& s, typename Store::key_type start_key,
-                                 std::size_t max_count, Sink&& sink) {
+    static std::size_t scan_into(Store const& s, typename Store::key_type start_key, std::size_t max_count,
+                                 Sink&& sink) {
         return SortedBinaryTraversal::template scan_into<Store>(s, start_key, max_count, std::forward<Sink>(sink));
     }
 };
@@ -69,4 +74,4 @@ struct InterpolationTraversalOrgan {
 static_assert(TraversalOrgan<InterpolationTraversalOrgan, RawSlotStore>);
 static_assert(ScannableTraversalOrgan<InterpolationTraversalOrgan, RawSlotStore>);
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

@@ -25,8 +25,10 @@ public:
     [[nodiscard]] static constexpr concepts::ConcurrencyPattern concurrency_pattern() noexcept {
         return concepts::ConcurrencyPattern::LockFree;
     }
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "concurrency_lock_free"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "LockFreeConcurrency (CAS-based, lock-free progress guarantee)"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "concurrency_lock_free"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "LockFreeConcurrency (CAS-based, lock-free progress guarantee)";
+    }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "LOCK_FREE"; }
 
     // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). LockFree = ECHTE
@@ -36,11 +38,10 @@ public:
     // CAS gelingt im ersten Versuch (kein Live-Lock), exerziert aber die echte atomare RMW-Op.
     // Flag thread_local-static (EINE Instanz via flag_(), von acquire UND release geteilt).
     static void acquire() noexcept {
-        std::atomic<unsigned>& f = flag_();
-        unsigned expected = 0;
-        while (!f.compare_exchange_weak(expected, 1u, std::memory_order_acquire,
-                                        std::memory_order_relaxed)) {
-            expected = 0;  // CAS-Retry (im Pfad-A-Single-Thread im 1. Versuch erfolgreich)
+        std::atomic<unsigned>& f        = flag_();
+        unsigned               expected = 0;
+        while (!f.compare_exchange_weak(expected, 1u, std::memory_order_acquire, std::memory_order_relaxed)) {
+            expected = 0; // CAS-Retry (im Pfad-A-Single-Thread im 1. Versuch erfolgreich)
         }
     }
     static void release() noexcept { flag_().store(0u, std::memory_order_release); }
@@ -52,9 +53,9 @@ private:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::concurrency_axis
 
 namespace comdare::cache_engine::concurrency_axis {
-    static_assert(concepts::ConcurrencyStrategy<LockFreeConcurrency>);
-    static_assert(concepts::CacheEnginePermutationStrategy<LockFreeConcurrency>);
-}
+static_assert(concepts::ConcurrencyStrategy<LockFreeConcurrency>);
+static_assert(concepts::CacheEnginePermutationStrategy<LockFreeConcurrency>);
+} // namespace comdare::cache_engine::concurrency_axis

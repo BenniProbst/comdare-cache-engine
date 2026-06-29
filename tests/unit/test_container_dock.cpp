@@ -20,22 +20,28 @@ template <typename A, typename B>
 void check_eq(char const* what, A const& got, B const& want) {
     bool ok = (got == want);
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << " = " << got;
-    if (!ok) { std::cout << "  (erwartet: " << want << ")"; ++g_fail; }
+    if (!ok) {
+        std::cout << "  (erwartet: " << want << ")";
+        ++g_fail;
+    }
     std::cout << "\n";
 }
-void check_true(char const* what, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n"; if (!c) ++g_fail; }
+void check_true(char const* what, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n";
+    if (!c) ++g_fail;
+}
 
 int main() {
     std::cout << "Container-Prüf-Dock (Doc 24 §8.8): treibt Container-Tier + misst Container-Observer:\n";
 
     using D       = DelegatedAxis;
-    using Comp    = cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>;  // 12 + inner
+    using Comp    = cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>; // 12 + inner
     using Anatomy = cea::AdapterAnatomy<Comp>;
     pd::AdapterDock<Anatomy> dock;
 
     check_true("Dock-Gattung == Adapter (Container)", dock.genus() == cea::AnatomyGenus::Adapter);
 
-    auto const r = dock.measure(/*n_puts=*/1000, /*n_gets=*/400);   // treibt inner_container (push + get/pop_front)
+    auto const r = dock.measure(/*n_puts=*/1000, /*n_gets=*/400); // treibt inner_container (push + get/pop_front)
     check_eq("total_ops == 1400", r.total_ops, std::uint64_t{1400});
     check_eq("Observer: push_count == 1000", r.observer.push_count, std::uint64_t{1000});
     check_eq("Observer: pop_count == 400", r.observer.pop_count, std::uint64_t{400});
@@ -44,9 +50,11 @@ int main() {
     check_eq("Observer: current_occupancy == 600 (1000-400)", r.observer.current_occupancy, std::uint64_t{600});
 
     std::string const csv = dock.serialize_csv(r);
-    check_true("CSV-Persistierung nicht leer + enthält 'Container'", !csv.empty() && csv.find("Container,1400,1000,400,400") != std::string::npos);
+    check_true("CSV-Persistierung nicht leer + enthält 'Container'",
+               !csv.empty() && csv.find("Container,1400,1000,400,400") != std::string::npos);
     std::cout << "    CSV:\n" << csv;
 
-    std::cout << "\n==== Container-Prüf-Dock: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== Container-Prüf-Dock: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

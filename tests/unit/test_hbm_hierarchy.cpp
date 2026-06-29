@@ -9,8 +9,8 @@ namespace hbm = comdare::hbm;
 
 TEST(HbmHierarchy, TierKindNameMapping) {
     EXPECT_EQ(hbm::tier_kind_name(hbm::TierKind::L1Cache), "L1Cache");
-    EXPECT_EQ(hbm::tier_kind_name(hbm::TierKind::HBM),     "HBM");
-    EXPECT_EQ(hbm::tier_kind_name(hbm::TierKind::PMEM),    "PMEM");
+    EXPECT_EQ(hbm::tier_kind_name(hbm::TierKind::HBM), "HBM");
+    EXPECT_EQ(hbm::tier_kind_name(hbm::TierKind::PMEM), "PMEM");
 }
 
 TEST(HbmHierarchy, X86HasHbmAvailable) {
@@ -64,28 +64,28 @@ TEST(HbmHierarchy, FactoryAutoDetectReturnsValidHierarchy) {
 
 TEST(HbmHierarchy, TierInfoOutOfRangeReturnsDefault) {
     hbm::X86HbmHierarchy h;
-    auto t = h.tier_info(100);
+    auto                 t = h.tier_info(100);
     EXPECT_EQ(t.size_bytes, 0u);
 }
 
 TEST(HbmHierarchy, LatencyMonotonicallyIncreases) {
     hbm::X86HbmHierarchy h;
-    EXPECT_LT(h.tier_info(0).latency_ns, h.tier_info(1).latency_ns);  // L1 < L2
-    EXPECT_LT(h.tier_info(1).latency_ns, h.tier_info(2).latency_ns);  // L2 < L3
-    EXPECT_LT(h.tier_info(2).latency_ns, h.tier_info(3).latency_ns);  // L3 < DRAM
+    EXPECT_LT(h.tier_info(0).latency_ns, h.tier_info(1).latency_ns); // L1 < L2
+    EXPECT_LT(h.tier_info(1).latency_ns, h.tier_info(2).latency_ns); // L2 < L3
+    EXPECT_LT(h.tier_info(2).latency_ns, h.tier_info(3).latency_ns); // L3 < DRAM
 }
 
 TEST(HbmHierarchy, HbmHasHigherBandwidthThanDram) {
     hbm::X86HbmHierarchy h;
-    auto const dram = h.tier_info(3);
-    auto const hbm  = h.tier_info(4);
+    auto const           dram = h.tier_info(3);
+    auto const           hbm  = h.tier_info(4);
     ASSERT_EQ(dram.kind, hbm::TierKind::DRAM);
-    ASSERT_EQ(hbm.kind,  hbm::TierKind::HBM);
+    ASSERT_EQ(hbm.kind, hbm::TierKind::HBM);
     EXPECT_GT(hbm.bandwidth_gb_s, dram.bandwidth_gb_s);
 }
 
 TEST(HbmHierarchy, HbmOnDifferentNumaNode) {
     hbm::X86HbmHierarchy h;
-    auto const hbm = h.tier_info(4);
+    auto const           hbm = h.tier_info(4);
     EXPECT_NE(hbm.numa_node, h.tier_info(3).numa_node);
 }

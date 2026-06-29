@@ -36,11 +36,11 @@ public:
     explicit WorkloadGenerator(WorkloadConfig config);
 
     // Non-copyable, movable (verhindert versehentliche State-Duplikation)
-    WorkloadGenerator(WorkloadGenerator const&)            = delete;
-    WorkloadGenerator& operator=(WorkloadGenerator const&) = delete;
-    WorkloadGenerator(WorkloadGenerator&&)                 noexcept = default;
-    WorkloadGenerator& operator=(WorkloadGenerator&&)      noexcept = default;
-    ~WorkloadGenerator()                                   = default;
+    WorkloadGenerator(WorkloadGenerator const&)                = delete;
+    WorkloadGenerator& operator=(WorkloadGenerator const&)     = delete;
+    WorkloadGenerator(WorkloadGenerator&&) noexcept            = default;
+    WorkloadGenerator& operator=(WorkloadGenerator&&) noexcept = default;
+    ~WorkloadGenerator()                                       = default;
 
     /// next() — liefert die naechste Operation der Sequenz.
     /// Side-effect: advance des xorshift64-State.
@@ -84,8 +84,8 @@ private:
     void precompute_zipfian() noexcept;
 
     WorkloadConfig config_;
-    std::uint64_t  state_;        ///< xorshift64-State
-    std::size_t    generated_;    ///< Counter
+    std::uint64_t  state_;     ///< xorshift64-State
+    std::size_t    generated_; ///< Counter
     // Cumulative-Distribution-Function fuer Op-Sampling (6 thresholds: +Scan/+RMW, V5-#49-E/F)
     double cdf_insert_{};
     double cdf_lookup_{};
@@ -94,13 +94,13 @@ private:
     double cdf_scan_{};
     double cdf_rmw_{};
     // Zipfian-Vorberechnung (Gray et al. 1994; nur bei Zipfian/Latest besetzt). YCSB-Treue (#49).
-    std::uint64_t zipf_n_{1};     ///< Anzahl Items = key_max - key_min + 1
-    double zipf_theta_{0.99};
-    double zipf_zetan_{};         ///< sum_{i=1}^{n} 1/i^theta
-    double zipf_zeta2_{};         ///< 1 + 0.5^theta
-    double zipf_eta_{};
-    double zipf_alpha_{};         ///< 1/(1-theta)
-    double zipf_half_pow_{};      ///< 0.5^theta
+    std::uint64_t zipf_n_{1}; ///< Anzahl Items = key_max - key_min + 1
+    double        zipf_theta_{0.99};
+    double        zipf_zetan_{}; ///< sum_{i=1}^{n} 1/i^theta
+    double        zipf_zeta2_{}; ///< 1 + 0.5^theta
+    double        zipf_eta_{};
+    double        zipf_alpha_{};    ///< 1/(1-theta)
+    double        zipf_half_pow_{}; ///< 0.5^theta
 };
 
-}  // namespace comdare::cache_engine::builder::workload_driver
+} // namespace comdare::cache_engine::builder::workload_driver

@@ -25,10 +25,12 @@ public:
 
     static constexpr bool enabled = flags::external_pool_enabled;
 
-    [[nodiscard]] static constexpr bool             is_inline()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "value_handle_external_pool"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "ExternalPoolValueHandle (Wormhole pool-offset, variable-size values)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "EXTERNAL_POOL"; }
+    [[nodiscard]] static constexpr bool             is_inline() noexcept { return false; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "value_handle_external_pool"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "ExternalPoolValueHandle (Wormhole pool-offset, variable-size values)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "EXTERNAL_POOL"; }
 
     // T11 value_handle F15-operativ (Pfad A, abi_adapter-Segment): strategie-charakteristische
     // Value-Zugriffs-SIMULATION. SIMULATION (kein echter Pool): External-Pool speichert im Slot nur
@@ -40,23 +42,24 @@ public:
     [[nodiscard]] static std::uint64_t value_access_scan(unsigned char const* buf, std::size_t n,
                                                          std::size_t record_size) noexcept {
         std::uint64_t const span = static_cast<std::uint64_t>(n) * record_size;
-        std::uint64_t s = 0;
+        std::uint64_t       s    = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::uint32_t handle;
-            std::memcpy(&handle, buf + i * record_size, sizeof(handle));   // Slot haelt nur Pool-Offset
+            std::memcpy(&handle, buf + i * record_size, sizeof(handle)); // Slot haelt nur Pool-Offset
             // Pool-Deref: Offset indiziert extern in den Pool (modulo, bounds-safe, 4-Byte-aligned)
-            std::uint64_t off = (static_cast<std::uint64_t>(handle) % (span >= 3u ? span - 3u : 1u)) & ~std::uint64_t{3};
+            std::uint64_t off =
+                (static_cast<std::uint64_t>(handle) % (span >= 3u ? span - 3u : 1u)) & ~std::uint64_t{3};
             std::uint32_t v;
-            std::memcpy(&v, buf + off, sizeof(v));   // external pool: 2. abhaengiger Read (pointer chase)
+            std::memcpy(&v, buf + off, sizeof(v)); // external pool: 2. abhaengiger Read (pointer chase)
             s += v;
         }
         return s;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::value_handle_axis
 
 namespace comdare::cache_engine::value_handle_axis {
-    static_assert(concepts::ValueHandleStrategy<ExternalPoolValueHandle>);
-    static_assert(concepts::CacheEnginePermutationStrategy<ExternalPoolValueHandle>);
-}
+static_assert(concepts::ValueHandleStrategy<ExternalPoolValueHandle>);
+static_assert(concepts::CacheEnginePermutationStrategy<ExternalPoolValueHandle>);
+} // namespace comdare::cache_engine::value_handle_axis

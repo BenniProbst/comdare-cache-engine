@@ -20,22 +20,34 @@ template <typename A, typename B>
 void check_eq(char const* what, A const& got, B const& want) {
     bool ok = (got == want);
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << " = " << got;
-    if (!ok) { std::cout << "  (erwartet: " << want << ")"; ++g_fail; }
+    if (!ok) {
+        std::cout << "  (erwartet: " << want << ")";
+        ++g_fail;
+    }
     std::cout << "\n";
 }
-void check_true(char const* what, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n"; if (!c) ++g_fail; }
+void check_true(char const* what, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n";
+    if (!c) ++g_fail;
+}
 
 // Mock-Tier: steuerbar thread_count (cap 4) + batch_size (cap 100); protokolliert jede Anwendung.
 struct MockTier : an::IResourceControllableTier {
     std::vector<an::ComdareResourceControlV1> log;
     void tier_query_resource_caps(an::ComdareResourceControlV1* out) const noexcept override {
-        *out = {}; out->thread_count = 4; out->batch_size = 100; out->controllable_axis_count = 2;
+        *out                         = {};
+        out->thread_count            = 4;
+        out->batch_size              = 100;
+        out->controllable_axis_count = 2;
     }
     std::uint64_t tier_apply_resource_control(an::ComdareResourceControlV1 const* in) noexcept override {
         log.push_back(*in);
         std::uint64_t n = 0;
-        if (in->thread_count) ++n; if (in->prefetch_distance) ++n; if (in->pool_budget_bytes) ++n;
-        if (in->batch_size) ++n;   if (in->inline_threshold_bytes) ++n;
+        if (in->thread_count) ++n;
+        if (in->prefetch_distance) ++n;
+        if (in->pool_budget_bytes) ++n;
+        if (in->batch_size) ++n;
+        if (in->inline_threshold_bytes) ++n;
         return n;
     }
 };
@@ -45,9 +57,9 @@ int main() {
 
     // ── Test 1: thread_count {1,2,8} auf EINER Binary, Clamp auf cap 4 ──
     {
-        MockTier tier;
-        ex::RuntimeVariableLoop loop{};  // keine env-Grenze
-        std::vector<ex::DynamicDim> dims = { {"concurrency", "thread_count", {"1", "2", "8"}} };
+        MockTier                        tier;
+        ex::RuntimeVariableLoop         loop{}; // keine env-Grenze
+        std::vector<ex::DynamicDim>     dims = {{"concurrency", "thread_count", {"1", "2", "8"}}};
         std::vector<ex::RuntimeSetting> got;
         std::size_t n = loop.run(tier, dims, [&](ex::RuntimeSetting const& s) { got.push_back(s); });
 
@@ -63,10 +75,11 @@ int main() {
 
     // ── Test 2: env-Limit thread_count=2 klammert strenger als cap 4 ──
     {
-        MockTier tier;
-        an::ComdareResourceControlV1 env{}; env.thread_count = 2;
-        ex::RuntimeVariableLoop loop{env};
-        std::vector<ex::DynamicDim> dims = { {"concurrency", "thread_count", {"1", "2", "8"}} };
+        MockTier                     tier;
+        an::ComdareResourceControlV1 env{};
+        env.thread_count = 2;
+        ex::RuntimeVariableLoop         loop{env};
+        std::vector<ex::DynamicDim>     dims = {{"concurrency", "thread_count", {"1", "2", "8"}}};
         std::vector<ex::RuntimeSetting> got;
         loop.run(tier, dims, [&](ex::RuntimeSetting const& s) { got.push_back(s); });
         check_eq("env-Limit: applied[2].thread_count (8 → clamp env 2)", got[2].applied.thread_count, std::uint64_t{2});
@@ -75,11 +88,11 @@ int main() {
 
     // ── Test 3: KARTESIK zweier dynamischer Dims (thread_count × batch_size) ──
     {
-        MockTier tier;
-        ex::RuntimeVariableLoop loop{};
+        MockTier                    tier;
+        ex::RuntimeVariableLoop     loop{};
         std::vector<ex::DynamicDim> dims = {
             {"concurrency", "thread_count", {"1", "2"}},
-            {"traversal",   "batch_size",   {"10", "20"}},
+            {"traversal", "batch_size", {"10", "20"}},
         };
         std::vector<ex::RuntimeSetting> got;
         std::size_t n = loop.run(tier, dims, [&](ex::RuntimeSetting const& s) { got.push_back(s); });
@@ -92,13 +105,14 @@ int main() {
 
     // ── Test 4: architektonische Ausnahme hw_prefetcher → Label, aber KEIN POD-Feld (KF-12-Launcher-gated) ──
     {
-        MockTier tier;
-        ex::RuntimeVariableLoop loop{};
-        std::vector<ex::DynamicDim> dims = { {"cacheline", "hw_prefetcher", {"off", "l2"}} };
+        MockTier                        tier;
+        ex::RuntimeVariableLoop         loop{};
+        std::vector<ex::DynamicDim>     dims = {{"cacheline", "hw_prefetcher", {"off", "l2"}}};
         std::vector<ex::RuntimeSetting> got;
         loop.run(tier, dims, [&](ex::RuntimeSetting const& s) { got.push_back(s); });
         check_eq("hw_prefetcher: 2 Einstellungen (Label geführt)", got.size(), std::size_t{2});
-        check_eq("hw_prefetcher: kein POD-Feld gesetzt (applied_axis_count 0)", got[1].applied_axis_count, std::uint64_t{0});
+        check_eq("hw_prefetcher: kein POD-Feld gesetzt (applied_axis_count 0)", got[1].applied_axis_count,
+                 std::uint64_t{0});
         check_eq("hw_prefetcher: Label[1]", got[1].setting_label, std::string{"cacheline.hw_prefetcher=l2"});
     }
 

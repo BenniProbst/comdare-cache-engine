@@ -27,9 +27,11 @@ public:
     static constexpr bool enabled = flags::direct_enabled;
 
     [[nodiscard]] static constexpr bool             is_in_memory_only() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()              noexcept { return "io_direct"; }
-    [[nodiscard]] static constexpr std::string_view family_name()       noexcept { return "DirectIo (O_DIRECT, bypass OS page-cache, NVMe-optimal)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()       noexcept { return "DIRECT"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "io_direct"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "DirectIo (O_DIRECT, bypass OS page-cache, NVMe-optimal)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "DIRECT"; }
 
     // V41.F.6.1 R5.B / T14 — verhaltens-tragende Mess-Op der io_dispatch-Achse (Pfad-A, F15-operativ).
     // EHRLICHKEIT: reine IN-MEMORY-Dispatch-SIMULATION, KEIN echtes IO. Die Op exerziert das
@@ -42,22 +44,22 @@ public:
     [[nodiscard]] static std::uint64_t io_dispatch_scan(unsigned char const* buf, std::size_t n,
                                                         std::size_t record_size) noexcept {
         constexpr std::size_t kSector = 512;
-        std::uint64_t s = 0;
+        std::uint64_t         s       = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::size_t const offset = i * record_size;
             // O_DIRECT: Zugriff auf 512-Byte-Sektorgrenze ausrichten (sector-aligned read)
             std::size_t const aligned = offset & ~(kSector - 1u);
-            std::uint32_t v;
-            std::memcpy(&v, buf + aligned, sizeof(v));  // direct: sector-aligned, bypass page-cache
-            s += v + (offset - aligned);                // Alignment-Adjust-Kosten (within-sector offset)
+            std::uint32_t     v;
+            std::memcpy(&v, buf + aligned, sizeof(v)); // direct: sector-aligned, bypass page-cache
+            s += v + (offset - aligned);               // Alignment-Adjust-Kosten (within-sector offset)
         }
         return s;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::io_dispatch
 
 namespace comdare::cache_engine::io_dispatch {
-    static_assert(concepts::IoStrategy<DirectIo>);
-    static_assert(concepts::CacheEnginePermutationStrategy<DirectIo>);
-}
+static_assert(concepts::IoStrategy<DirectIo>);
+static_assert(concepts::CacheEnginePermutationStrategy<DirectIo>);
+} // namespace comdare::cache_engine::io_dispatch

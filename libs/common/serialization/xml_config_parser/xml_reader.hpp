@@ -19,31 +19,31 @@
 namespace comdare::common::xml {
 
 struct XmlNode {
-    std::string tag;
+    std::string                        tag;
     std::map<std::string, std::string> attrs;
-    std::vector<XmlNode> children;
-    std::string text;  // direkter Textinhalt (getrimmt)
+    std::vector<XmlNode>               children;
+    std::string                        text; // direkter Textinhalt (getrimmt)
 
     [[nodiscard]] XmlNode const* child(std::string_view name) const {
-        for (auto const& c : children) if (c.tag == name) return &c;
+        for (auto const& c : children)
+            if (c.tag == name) return &c;
         return nullptr;
     }
     [[nodiscard]] std::vector<XmlNode const*> children_named(std::string_view name) const {
         std::vector<XmlNode const*> out;
-        for (auto const& c : children) if (c.tag == name) out.push_back(&c);
+        for (auto const& c : children)
+            if (c.tag == name) out.push_back(&c);
         return out;
     }
     [[nodiscard]] std::string attr(std::string_view key, std::string_view def = "") const {
         auto it = attrs.find(std::string{key});
         return (it == attrs.end()) ? std::string{def} : it->second;
     }
-    [[nodiscard]] bool has_attr(std::string_view key) const {
-        return attrs.find(std::string{key}) != attrs.end();
-    }
+    [[nodiscard]] bool has_attr(std::string_view key) const { return attrs.find(std::string{key}) != attrs.end(); }
     // Whitespace-getrennte Tokens des Textinhalts (z.B. "A B C D E F" / "1 2 4").
     [[nodiscard]] std::vector<std::string> text_tokens() const {
         std::vector<std::string> out;
-        std::size_t i = 0;
+        std::size_t              i = 0;
         while (i < text.size()) {
             while (i < text.size() && std::isspace(static_cast<unsigned char>(text[i]))) ++i;
             std::size_t start = i;
@@ -59,9 +59,11 @@ namespace detail {
 inline constexpr auto npos = std::string_view::npos;
 
 inline void decode_entities(std::string& s) {
-    struct E { std::string_view from; char to; };
-    static constexpr E kEnt[] = {
-        {"&lt;", '<'}, {"&gt;", '>'}, {"&quot;", '"'}, {"&apos;", '\''}, {"&amp;", '&'}};
+    struct E {
+        std::string_view from;
+        char             to;
+    };
+    static constexpr E kEnt[] = {{"&lt;", '<'}, {"&gt;", '>'}, {"&quot;", '"'}, {"&apos;", '\''}, {"&amp;", '&'}};
     for (auto const& e : kEnt) {
         std::size_t pos = 0;
         while ((pos = s.find(e.from, pos)) != std::string::npos) {
@@ -78,11 +80,12 @@ inline std::string trimmed(std::string_view s) {
     return std::string{s.substr(a, b - a)};
 }
 
-struct Cursor { std::string_view s; std::size_t i = 0; };
+struct Cursor {
+    std::string_view s;
+    std::size_t      i = 0;
+};
 
-inline bool starts_with(Cursor const& c, std::string_view p) {
-    return c.s.substr(c.i, p.size()) == p;
-}
+inline bool starts_with(Cursor const& c, std::string_view p) { return c.s.substr(c.i, p.size()) == p; }
 inline void skip_ws(Cursor& c) {
     while (c.i < c.s.size() && std::isspace(static_cast<unsigned char>(c.s[c.i]))) ++c.i;
 }
@@ -90,18 +93,27 @@ inline void skip_ws(Cursor& c) {
 inline void skip_misc(Cursor& c) {
     for (;;) {
         skip_ws(c);
-        if (starts_with(c, "<!--")) { auto e = c.s.find("-->", c.i); c.i = (e == npos) ? c.s.size() : e + 3; }
-        else if (starts_with(c, "<?")) { auto e = c.s.find("?>", c.i); c.i = (e == npos) ? c.s.size() : e + 2; }
-        else if (starts_with(c, "<!")) { auto e = c.s.find('>', c.i); c.i = (e == npos) ? c.s.size() : e + 1; }
-        else break;
+        if (starts_with(c, "<!--")) {
+            auto e = c.s.find("-->", c.i);
+            c.i    = (e == npos) ? c.s.size() : e + 3;
+        } else if (starts_with(c, "<?")) {
+            auto e = c.s.find("?>", c.i);
+            c.i    = (e == npos) ? c.s.size() : e + 2;
+        } else if (starts_with(c, "<!")) {
+            auto e = c.s.find('>', c.i);
+            c.i    = (e == npos) ? c.s.size() : e + 1;
+        } else
+            break;
     }
 }
 inline std::string read_name(Cursor& c) {
     std::size_t start = c.i;
     while (c.i < c.s.size()) {
         char ch = c.s[c.i];
-        if (std::isalnum(static_cast<unsigned char>(ch)) || ch == '_' || ch == '-' || ch == ':' || ch == '.') ++c.i;
-        else break;
+        if (std::isalnum(static_cast<unsigned char>(ch)) || ch == '_' || ch == '-' || ch == ':' || ch == '.')
+            ++c.i;
+        else
+            break;
     }
     return std::string{c.s.substr(start, c.i - start)};
 }
@@ -110,7 +122,7 @@ inline std::string read_name(Cursor& c) {
 inline bool parse_element(Cursor& c, XmlNode& out) {
     skip_misc(c);
     if (c.i >= c.s.size() || c.s[c.i] != '<') return false;
-    ++c.i;  // '<'
+    ++c.i; // '<'
     out.tag = read_name(c);
     if (out.tag.empty()) return false;
 
@@ -119,13 +131,22 @@ inline bool parse_element(Cursor& c, XmlNode& out) {
         skip_ws(c);
         if (c.i >= c.s.size()) return false;
         char ch = c.s[c.i];
-        if (ch == '/') { if (starts_with(c, "/>")) { c.i += 2; return true; } return false; }
-        if (ch == '>') { ++c.i; break; }
+        if (ch == '/') {
+            if (starts_with(c, "/>")) {
+                c.i += 2;
+                return true;
+            }
+            return false;
+        }
+        if (ch == '>') {
+            ++c.i;
+            break;
+        }
         std::string an = read_name(c);
         if (an.empty()) return false;
         skip_ws(c);
         if (c.i >= c.s.size() || c.s[c.i] != '=') return false;
-        ++c.i;  // '='
+        ++c.i; // '='
         skip_ws(c);
         if (c.i >= c.s.size()) return false;
         char q = c.s[c.i];
@@ -134,7 +155,7 @@ inline bool parse_element(Cursor& c, XmlNode& out) {
         std::size_t vstart = c.i;
         while (c.i < c.s.size() && c.s[c.i] != q) ++c.i;
         std::string av{c.s.substr(vstart, c.i - vstart)};
-        if (c.i < c.s.size()) ++c.i;  // schliessendes Quote
+        if (c.i < c.s.size()) ++c.i; // schliessendes Quote
         decode_entities(av);
         out.attrs[an] = std::move(av);
     }
@@ -146,10 +167,14 @@ inline bool parse_element(Cursor& c, XmlNode& out) {
         while (c.i < c.s.size() && c.s[c.i] != '<') ++c.i;
         text.append(c.s.substr(tstart, c.i - tstart));
         if (c.i >= c.s.size()) break;
-        if (starts_with(c, "<!--")) { auto e = c.s.find("-->", c.i); c.i = (e == npos) ? c.s.size() : e + 3; continue; }
+        if (starts_with(c, "<!--")) {
+            auto e = c.s.find("-->", c.i);
+            c.i    = (e == npos) ? c.s.size() : e + 3;
+            continue;
+        }
         if (starts_with(c, "</")) {
             c.i += 2;
-            read_name(c);  // close-Name (tolerant; Wohlgeformtheit vorausgesetzt)
+            read_name(c); // close-Name (tolerant; Wohlgeformtheit vorausgesetzt)
             skip_ws(c);
             if (c.i < c.s.size() && c.s[c.i] == '>') ++c.i;
             break;
@@ -163,7 +188,7 @@ inline bool parse_element(Cursor& c, XmlNode& out) {
     return true;
 }
 
-}  // namespace detail
+} // namespace detail
 
 // Parst ein XML-Dokument und gibt das Wurzelelement zurueck (nullopt bei Fehler).
 [[nodiscard]] inline std::optional<XmlNode> parse_document(std::string_view xml) {
@@ -174,4 +199,4 @@ inline bool parse_element(Cursor& c, XmlNode& out) {
     return root;
 }
 
-}  // namespace comdare::common::xml
+} // namespace comdare::common::xml

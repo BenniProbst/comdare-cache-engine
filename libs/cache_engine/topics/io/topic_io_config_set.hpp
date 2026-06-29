@@ -17,11 +17,7 @@ struct TopicConfigSet {
     using StaticAxisVariants    = StaticAxisVariants_IO;
 
     template <class Wrapper>
-    using AspectIterations = std::conditional_t<
-        requires { typename Wrapper::iterable_aspect_t; },
-        void,
-        void
-    >;
+    using AspectIterations = std::conditional_t<requires { typename Wrapper::iterable_aspect_t; }, void, void>;
 
     template <class /*Wrapper*/>
     static constexpr auto aspect_values() noexcept {
@@ -29,4 +25,4 @@ struct TopicConfigSet {
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::io

@@ -10,14 +10,14 @@
 
 #include <memory>
 
-#include "pmc_source.hpp"   // IPmcSource / NullPmcSource (UNVERÄNDERT)
+#include "pmc_source.hpp" // IPmcSource / NullPmcSource (UNVERÄNDERT)
 
 #if defined(COMDARE_ENABLE_PMC) && defined(_WIN32)
-#include "windows_pcm_pmc_source.hpp"   // selbst guarded → leer ohne das Makro
+#include "windows_pcm_pmc_source.hpp" // selbst guarded → leer ohne das Makro
 #endif
 
 #if defined(COMDARE_ENABLE_PMC) && defined(__linux__)
-#include "linux_perf_pmc_source.hpp"    // selbst guarded → leer ohne das Makro (perf_event_open, Linux-only)
+#include "linux_perf_pmc_source.hpp" // selbst guarded → leer ohne das Makro (perf_event_open, Linux-only)
 #endif
 
 namespace comdare::cache_engine::builder {
@@ -36,4 +36,4 @@ namespace comdare::cache_engine::builder {
 #endif
 }
 
-}  // namespace comdare::cache_engine::builder
+} // namespace comdare::cache_engine::builder

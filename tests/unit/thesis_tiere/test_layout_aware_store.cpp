@@ -18,17 +18,22 @@ namespace ml  = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;
 namespace lay = ::comdare::cache_engine::layout;
 namespace al  = ::comdare::cache_engine::allocator::axis_06_allocator;
 
-using N    = n::Node4NodeType;
-using CLA  = ml::CacheLineAlignedMemoryLayout;
-using AOS  = ml::AoSStrictMemoryLayout;
-using Mi   = al::MimallocAllocator;
+using N   = n::Node4NodeType;
+using CLA = ml::CacheLineAlignedMemoryLayout;
+using AOS = ml::AoSStrictMemoryLayout;
+using Mi  = al::MimallocAllocator;
 
 using StoreCLA = n::LayoutAwareChunkedStore<N, CLA, Mi>;
 using StoreAOS = n::LayoutAwareChunkedStore<N, AOS, Mi>;
 
 int main() {
-    int fails = 0;
-    auto check = [&](bool ok, char const* msg) { if (!ok) { std::printf("FAIL: %s\n", msg); ++fails; } };
+    int  fails = 0;
+    auto check = [&](bool ok, char const* msg) {
+        if (!ok) {
+            std::printf("FAIL: %s\n", msg);
+            ++fails;
+        }
+    };
 
     constexpr std::size_t kN = 4096;
 
@@ -36,14 +41,24 @@ int main() {
     check(StoreCLA::eff_stride == 64, "CLA eff_stride==64");
     check(StoreAOS::eff_stride == 16, "aos eff_stride==16");
 
-    StoreCLA cla; StoreAOS aos;
-    for (std::uint64_t i = 0; i < kN; ++i) { cla.append_slot(i, i * 7u + 1u); aos.append_slot(i, i * 7u + 1u); }
+    StoreCLA cla;
+    StoreAOS aos;
+    for (std::uint64_t i = 0; i < kN; ++i) {
+        cla.append_slot(i, i * 7u + 1u);
+        aos.append_slot(i, i * 7u + 1u);
+    }
 
     // (1) Round-Trip (CLA: Padding darf Key/Value nicht zerstören)
     bool rt = true;
     for (std::uint64_t i = 0; i < kN; ++i) {
-        if (cla.key_at(i) != i || cla.value_at(i) != i * 7u + 1u) { rt = false; break; }
-        if (aos.key_at(i) != i || aos.value_at(i) != i * 7u + 1u) { rt = false; break; }
+        if (cla.key_at(i) != i || cla.value_at(i) != i * 7u + 1u) {
+            rt = false;
+            break;
+        }
+        if (aos.key_at(i) != i || aos.value_at(i) != i * 7u + 1u) {
+            rt = false;
+            break;
+        }
     }
     check(rt, "round-trip key_at/value_at (CLA+aos)");
     check(cla.slot_count() == kN && aos.slot_count() == kN, "slot_count==kN");
@@ -65,8 +80,8 @@ int main() {
     // (4) organ_observe_layout: OOB-frei + CLA≠aos-Checksum (echte Layout-Divergenz über die Repräsentation)
     lay::ObservableMemoryLayout<CLA> obs_cla{};
     lay::ObservableMemoryLayout<AOS> obs_aos{};
-    std::uint64_t cs_cla = cla.organ_observe_layout(obs_cla);
-    std::uint64_t cs_aos = aos.organ_observe_layout(obs_aos);
+    std::uint64_t                    cs_cla = cla.organ_observe_layout(obs_cla);
+    std::uint64_t                    cs_aos = aos.organ_observe_layout(obs_aos);
     std::printf("layout checksum: CLA=%llu aos=%llu\n", (unsigned long long)cs_cla, (unsigned long long)cs_aos);
     check(cs_cla != 0 && cs_aos != 0, "layout checksum != 0 (kein Crash/OOB, Werte erhoben)");
 

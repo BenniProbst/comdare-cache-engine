@@ -11,16 +11,12 @@ namespace comdare::cache_engine {
 
 class PerNodeCounter final : public ITelemetryStrategy {
 public:
-    explicit PerNodeCounter(std::size_t num_nodes)
-        : counters_(num_nodes) {}
+    explicit PerNodeCounter(std::size_t num_nodes) : counters_(num_nodes) {}
 
-    [[nodiscard]] TelemetryStrategyKind kind() const noexcept override {
-        return TelemetryStrategyKind::PerNodeCounter;
-    }
+    [[nodiscard]] TelemetryStrategyKind kind() const noexcept override { return TelemetryStrategyKind::PerNodeCounter; }
 
     void increment(NodeId node_id) noexcept {
-        if (node_id < counters_.size())
-            counters_[node_id].fetch_add(1, std::memory_order_relaxed);
+        if (node_id < counters_.size()) counters_[node_id].fetch_add(1, std::memory_order_relaxed);
     }
 
     [[nodiscard]] std::uint64_t value(NodeId node_id) const noexcept {
@@ -34,4 +30,4 @@ private:
     std::vector<std::atomic<std::uint64_t>> counters_;
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

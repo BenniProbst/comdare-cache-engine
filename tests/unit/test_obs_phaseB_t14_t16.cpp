@@ -19,20 +19,23 @@
 #include <axes/filter_axis/axis_filter_bloom.hpp>
 #include <axes/filter_axis/axis_filter_cuckoo.hpp>
 
-#include <anatomy/observer_aggregate.hpp>   // ObservableAxis-Concept
+#include <anatomy/observer_aggregate.hpp> // ObservableAxis-Concept
 
 #include <array>
 #include <cstdint>
 #include <iostream>
 #include <type_traits>
 
-namespace io  = ::comdare::cache_engine::io_dispatch;
-namespace mg  = ::comdare::cache_engine::migration_policy;
-namespace ft  = ::comdare::cache_engine::filter_axis;
-namespace an  = ::comdare::cache_engine::anatomy;
+namespace io = ::comdare::cache_engine::io_dispatch;
+namespace mg = ::comdare::cache_engine::migration_policy;
+namespace ft = ::comdare::cache_engine::filter_axis;
+namespace an = ::comdare::cache_engine::anatomy;
 
-static int g_fail = 0;
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+static int  g_fail = 0;
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 // ── ObservableAxis muss für ALLE Hüllen gelten (sonst fiele observe_all auf EmptyAxisSnapshot zurück) ──
 static_assert(an::ObservableAxis<io::ObservableIoDispatch<io::InMemoryOnly>>);
@@ -43,12 +46,13 @@ static_assert(an::ObservableAxis<ft::ObservableFilter<ft::BloomFilter>>);
 static_assert(an::ObservableAxis<ft::ObservableFilter<ft::CuckooFilter>>);
 
 // ── Cross-ABI-POD-Pflicht ──
-static_assert(std::is_standard_layout_v<io::IoDispatchSnapshot> && std::is_trivially_copyable_v<io::IoDispatchSnapshot>);
-static_assert(std::is_standard_layout_v<mg::MigrationSnapshot>  && std::is_trivially_copyable_v<mg::MigrationSnapshot>);
-static_assert(std::is_standard_layout_v<ft::FilterStatistics>   && std::is_trivially_copyable_v<ft::FilterStatistics>);
+static_assert(std::is_standard_layout_v<io::IoDispatchSnapshot> &&
+              std::is_trivially_copyable_v<io::IoDispatchSnapshot>);
+static_assert(std::is_standard_layout_v<mg::MigrationSnapshot> && std::is_trivially_copyable_v<mg::MigrationSnapshot>);
+static_assert(std::is_standard_layout_v<ft::FilterStatistics> && std::is_trivially_copyable_v<ft::FilterStatistics>);
 
 int main() {
-    constexpr std::size_t kRecords = 2048, kRecordSize = 48, kQueries = 256;
+    constexpr std::size_t                    kRecords = 2048, kRecordSize = 48, kQueries = 256;
     std::array<unsigned char, kRecords * 64> buf{};
     for (std::size_t i = 0; i < buf.size(); ++i) buf[i] = static_cast<unsigned char>(i * 31u + 7u);
     std::array<unsigned char, kQueries> q{};
@@ -57,9 +61,10 @@ int main() {
     // T14 io_dispatch — Buffered (alignment_adjusts > 0, da !is_in_memory_only)
     {
         io::ObservableIoDispatch<io::BufferedIo> h;
-        std::uint64_t const a = io::ObservableIoDispatch<io::BufferedIo>::io_dispatch_scan(buf.data(), kRecords, kRecordSize);
+        std::uint64_t const                      a =
+            io::ObservableIoDispatch<io::BufferedIo>::io_dispatch_scan(buf.data(), kRecords, kRecordSize);
         std::uint64_t const b = h.observe_dispatch(buf.data(), kRecords, kRecordSize);
-        auto const s = h.statistics();
+        auto const          s = h.statistics();
         tr("T14 static==driver", a == b);
         tr("T14 dispatch_rounds==1", s.dispatch_rounds == 1);
         tr("T14 total_dispatch_count==kRecords", s.total_dispatch_count == kRecords);
@@ -92,9 +97,10 @@ int main() {
     // T16 filter — Bloom (positive+negative==q)
     {
         ft::ObservableFilter<ft::BloomFilter> h;
-        std::uint64_t const a = ft::ObservableFilter<ft::BloomFilter>::filter_probe_scan(buf.data(), kRecords, q.data(), kQueries);
+        std::uint64_t const                   a =
+            ft::ObservableFilter<ft::BloomFilter>::filter_probe_scan(buf.data(), kRecords, q.data(), kQueries);
         std::uint64_t const b = h.observe_probe(buf.data(), kRecords, q.data(), kQueries);
-        auto const s = h.statistics();
+        auto const          s = h.statistics();
         tr("T16 static==driver", a == b);
         tr("T16 probe_count==1", s.probe_count == 1);
         tr("T16 pos+neg==q", s.queries_positive + s.queries_negative == kQueries);

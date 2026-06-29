@@ -32,9 +32,7 @@ public:
     virtual void register_sub_engine(SubEngineSlot slot, std::unique_ptr<ISubEngine> engine) = 0;
 
     /// Plattform-Pressure-Transition Hook (Telemetry/Debug)
-    virtual void on_pressure_transition(
-        const state::PressureState& from,
-        const state::PressureState& to) = 0;
+    virtual void on_pressure_transition(const state::PressureState& from, const state::PressureState& to) = 0;
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

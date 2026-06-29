@@ -14,8 +14,8 @@
 // Bei OFF: nackter Pass-Through (0 Footprint, ObservableAxis<...> = false → EmptyAxisSnapshot-Fallback).
 
 #include "composable_search.hpp"
-#include "../concepts/axis_03a_search_algo_cache_engine_permutation_concept.hpp"  // SearchAlgoStatistics
-#include <measurement/measurable_concept.hpp>                                      // MeasurableObserver
+#include "../concepts/axis_03a_search_algo_cache_engine_permutation_concept.hpp" // SearchAlgoStatistics
+#include <measurement/measurable_concept.hpp>                                    // MeasurableObserver
 
 #include <cstddef>
 #include <optional>
@@ -30,7 +30,7 @@ template <class Traversal, class Store>
     requires TraversalOrgan<Traversal, Store>
 class ObservableComposedSearch {
 public:
-    using key_type   = typename Store::key_type;     // == std::uint64_t (StorageOrgan-Invariante)
+    using key_type   = typename Store::key_type; // == std::uint64_t (StorageOrgan-Invariante)
     using value_type = typename Store::value_type;
 
     /// insert mit rekonstruiertem inserted-Flag (ComposedSearch::insert ist void) — insert_or_assign-Semantik.
@@ -39,8 +39,7 @@ public:
         search_.insert(k, v);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_insert_count;
-        if (search_.occupied_count() > stats_.peak_occupancy)
-            stats_.peak_occupancy = search_.occupied_count();
+        if (search_.occupied_count() > stats_.peak_occupancy) stats_.peak_occupancy = search_.occupied_count();
         // (Audit P5/P8 · E-Welle-A2 Inkr. A2.1) observer_.notify aus dem Mess-Hot-Pfad ENTFERNT: der std::function-
         // Push-Branch je gemessener Op ist über die extern-C-ABI nie mit einem Subscriber besetzt (toter Hot-Pfad-Zweig);
         // der Transport ist PULL via statistics(). observer()/on_event bleiben für die MeasurableComponent-Concept-API erhalten.
@@ -52,7 +51,10 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_lookup_count;
         auto const r = search_.lookup(k);
-        if (r) ++stats_.total_hit_count; else ++stats_.total_miss_count;  // (A2.1) kein observer_.notify im Hot-Pfad
+        if (r)
+            ++stats_.total_hit_count;
+        else
+            ++stats_.total_miss_count; // (A2.1) kein observer_.notify im Hot-Pfad
         return r;
 #else
         return search_.lookup(k);
@@ -62,13 +64,13 @@ public:
     bool erase(key_type k) {
         bool const ok = search_.erase(k);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        if (ok) ++stats_.total_erase_count;  // (A2.1) kein observer_.notify im Hot-Pfad
+        if (ok) ++stats_.total_erase_count; // (A2.1) kein observer_.notify im Hot-Pfad
 #endif
         return ok;
     }
 
     // clear() leert NUR den Container, NICHT die Statistik (Memory-Regel: reset() = Statistik-Reset).
-    void clear()                                     noexcept { search_.clear(); }
+    void                      clear() noexcept { search_.clear(); }
     [[nodiscard]] std::size_t occupied_count() const noexcept { return search_.occupied_count(); }
 
     /// GoF-Iterator (YCSB-E #214): reicht den geordneten Range-Scan an das innere ComposedSearch durch (O(log n +
@@ -80,7 +82,7 @@ public:
         return search_.scan_range(start_key, max_count, std::forward<Sink>(sink));
     }
 
-    using store_type = Store;   // fuer den optionalen Allocator-Statistik-Durchgriff (Saeule-2)
+    using store_type = Store; // fuer den optionalen Allocator-Statistik-Durchgriff (Saeule-2)
 
     // P4 (#123, 2026-06-04): ECHTER 2-Ebenen-Migrations-Schritt — reicht den MUTABLEN Store-Zugriff durch, damit der
     // abi_adapter den realen Block-Move (organ_migrate_step) ueber das ECHTE Slot-Backing treibt: markierte Records
@@ -91,25 +93,27 @@ public:
     template <class MigOrgan>
     std::uint64_t store_migrate_step(MigOrgan const& org, Store& tier1, std::uint64_t max_moves = 0)
         requires requires(Store& s, MigOrgan const& o, Store& t) { s.organ_migrate_step(o, t, max_moves); }
-    { return search_.store_mut().organ_migrate_step(org, tier1, max_moves); }
+    {
+        return search_.store_mut().organ_migrate_step(org, tier1, max_moves);
+    }
 
     // P4 (#123): MUTABLER + read-only Zugriff auf das innere Storage-Organ — der abi_adapter braucht den 2.-Ebenen-
     // Store (container_tier1_) als Roh-Store-Referenz fuer store_migrate_step(org, tier1) UND fuer die Memento-
     // Verifikation (tier1-Fuellstand). Additiv, bestehende Schnittstelle unveraendert.
-    [[nodiscard]] Store&       store_mut()       noexcept { return search_.store_mut(); }
-    [[nodiscard]] Store const& store()     const noexcept { return search_.store(); }
+    [[nodiscard]] Store&       store_mut() noexcept { return search_.store_mut(); }
+    [[nodiscard]] Store const& store() const noexcept { return search_.store(); }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = ce_concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; }   // (A2.1) notify entfernt — Pull-Transport via statistics()
+    void reset() noexcept { stats_ = {}; } // (A2.1) notify entfernt — Pull-Transport via statistics()
     // Undo-Log-Memento (#133): O(1)-Restore der Statistik auf einen zuvor via statistics() gezogenen Snapshot.
     // Gegenstueck zu reset() (={}): stellt im Zwei-Phasen-Rollback die Zaehler EXAKT auf den save-Stand zurueck,
     // nachdem das Daten-Substrat per op-inversem Replay wiederhergestellt wurde (abi_adapter::tier_rollback_all).
-    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; }   // (A2.1) notify entfernt
+    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; } // (A2.1) notify entfernt
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 
     // Saeule-2 (Roadmap-1): OPTIONALER Durchgriff auf die Allocator-Statistik des inneren Storage-Organs,
     // falls dieses (z.B. ComposedStore<N,L,A>) sie bietet. KEIN Runtime-Switch (reines requires/if constexpr);
@@ -120,7 +124,9 @@ public:
     template <class S = Store>
     [[nodiscard]] auto store_allocator_statistics() const noexcept
         requires store_has_allocator_stats<S>
-    { return search_.store().allocator_statistics(); }
+    {
+        return search_.store().allocator_statistics();
+    }
 
     // V42 L-74c scan-Achsen-Auto-Kopplung: reicht den Store-Slot-Zugriff durch, damit der abi_adapter/Anatomie-
     // Treiber die memory_layout/serialization-Observer-Organe ueber das ECHTE Slot-Backing treiben kann
@@ -129,17 +135,23 @@ public:
     template <class LayoutOrgan>
     std::uint64_t store_observe_layout(LayoutOrgan& org) const
         requires requires(Store const& s, LayoutOrgan& o) { s.organ_observe_layout(o); }
-    { return search_.store().organ_observe_layout(org); }
+    {
+        return search_.store().organ_observe_layout(org);
+    }
 
     template <class SerOrgan>
     std::uint64_t store_observe_serialization(SerOrgan& org) const
         requires requires(Store const& s, SerOrgan& o) { s.organ_observe_serialization(o); }
-    { return search_.store().organ_observe_serialization(org); }
+    {
+        return search_.store().organ_observe_serialization(org);
+    }
 
     template <class NodeOrgan>
     std::uint64_t store_observe_node_type(NodeOrgan& org) const
         requires requires(Store const& s, NodeOrgan& o) { s.organ_observe_node_type(o); }
-    { return search_.store().organ_observe_node_type(org); }
+    {
+        return search_.store().organ_observe_node_type(org);
+    }
 
     // Phase B (2026-06-04) T11 value_handle / T12 isa scan-Achsen-Auto-Kopplung: reicht den Store-Slot-Zugriff
     // durch, damit der abi_adapter die value_handle-/isa-Observer-Huellen ueber das ECHTE Slot-Backing treibt
@@ -148,12 +160,16 @@ public:
     template <class VhOrgan>
     std::uint64_t store_observe_value_handle(VhOrgan& org) const
         requires requires(Store const& s, VhOrgan& o) { s.organ_observe_value_handle(o); }
-    { return search_.store().organ_observe_value_handle(org); }
+    {
+        return search_.store().organ_observe_value_handle(org);
+    }
 
     template <class IsaOrgan>
     std::uint64_t store_observe_isa(IsaOrgan& org) const
         requires requires(Store const& s, IsaOrgan& o) { s.organ_observe_isa(o); }
-    { return search_.store().organ_observe_isa(org); }
+    {
+        return search_.store().organ_observe_isa(org);
+    }
 
     // Phase B (2026-06-04) T13/T14/T15/T16 scan-Achsen-Auto-Kopplung: reicht den Store-Slot-Zugriff durch, damit der
     // abi_adapter die index_org-/io_dispatch-/migration-/filter-Observer-Huellen ueber das ECHTE Slot-Backing treibt
@@ -162,22 +178,30 @@ public:
     template <class IdxOrgan>
     std::uint64_t store_observe_index_org(IdxOrgan& org) const
         requires requires(Store const& s, IdxOrgan& o) { s.organ_observe_index_org(o); }
-    { return search_.store().organ_observe_index_org(org); }
+    {
+        return search_.store().organ_observe_index_org(org);
+    }
 
     template <class IoOrgan>
     std::uint64_t store_observe_io_dispatch(IoOrgan& org) const
         requires requires(Store const& s, IoOrgan& o) { s.organ_observe_io_dispatch(o); }
-    { return search_.store().organ_observe_io_dispatch(org); }
+    {
+        return search_.store().organ_observe_io_dispatch(org);
+    }
 
     template <class MigOrgan>
     std::uint64_t store_observe_migration(MigOrgan& org) const
         requires requires(Store const& s, MigOrgan& o) { s.organ_observe_migration(o); }
-    { return search_.store().organ_observe_migration(org); }
+    {
+        return search_.store().organ_observe_migration(org);
+    }
 
     template <class FltOrgan>
     std::uint64_t store_observe_filter(FltOrgan& org) const
         requires requires(Store const& s, FltOrgan& o) { s.organ_observe_filter(o); }
-    { return search_.store().organ_observe_filter(org); }
+    {
+        return search_.store().organ_observe_filter(org);
+    }
 #endif
 
     // ── V5-I6-SUBSTANZ (#44) — MementoAxis (per-Achsen-Memento, inkl. Observer-Stats) ──────────────────
@@ -202,7 +226,7 @@ public:
     void restore_state(memento_t const& m) {
         search_.restore_state(m.data);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        stats_ = m.stats;   // (A2.1) notify entfernt
+        stats_ = m.stats; // (A2.1) notify entfernt
 #endif
     }
 
@@ -214,4 +238,4 @@ private:
 #endif
 };
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable
