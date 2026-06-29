@@ -24,10 +24,10 @@
 #include <optional>
 #include <type_traits>
 
-namespace ce_topics   = ::comdare::cache_engine::topics;
-namespace ce_concepts = ::comdare::cache_engine::concepts;
-namespace ce_03a      = ::comdare::cache_engine::traversal::axis_03a_search_algo;
-namespace ce_03a_cpts = ::comdare::cache_engine::traversal::axis_03a_search_algo::concepts;
+namespace ce_topics       = ::comdare::cache_engine::topics;
+namespace ce_concepts     = ::comdare::cache_engine::concepts;
+namespace ce_03a          = ::comdare::cache_engine::traversal::axis_03a_search_algo;
+namespace ce_03a_cpts     = ::comdare::cache_engine::traversal::axis_03a_search_algo::concepts;
 namespace ce_compositions = ::comdare::cache_engine::compositions;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,13 +39,12 @@ namespace ce_compositions = ::comdare::cache_engine::compositions;
 // ─────────────────────────────────────────────────────────────────────────────
 template <class SA>
 concept IsDissectedSearchOrgan =
-    std::is_default_constructible_v<SA> &&
-    std::is_same_v<typename SA::key_type, std::uint64_t> &&
+    std::is_default_constructible_v<SA> && std::is_same_v<typename SA::key_type, std::uint64_t> &&
     requires(SA& s, SA const& cs, std::uint64_t k, std::uint64_t v) {
-        { cs.lookup(k) }         -> std::same_as<std::optional<std::uint64_t>>;
+        { cs.lookup(k) } -> std::same_as<std::optional<std::uint64_t>>;
         s.insert(k, v);
-        { s.erase(k) }           -> std::same_as<bool>;
-        { cs.occupied_count() }  -> std::convertible_to<std::size_t>;
+        { s.erase(k) } -> std::same_as<bool>;
+        { cs.occupied_count() } -> std::convertible_to<std::size_t>;
     };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,16 +90,15 @@ TEST(WormholeComposition, PaperIdNonEmpty) {
 }
 
 TEST(WormholeComposition, SearchAlgoIsDissectedOrgan) {
-    using SA = ce_compositions::WormholeComposition::search_algo;  // SEZIERT: Hash-Anchor-Jump + Leaf-Liste
+    using SA = ce_compositions::WormholeComposition::search_algo; // SEZIERT: Hash-Anchor-Jump + Leaf-Liste
     static_assert(IsDissectedSearchOrgan<SA>);
     SUCCEED();
 }
 
 TEST(WormholeComposition, DistinctFromArtComposition) {
     // Wormhole und ART nutzen unterschiedliche search_algo Sub-Achsen
-    static_assert(!std::same_as<
-        ce_compositions::ArtComposition::search_algo,
-        ce_compositions::WormholeComposition::search_algo>);
+    static_assert(
+        !std::same_as<ce_compositions::ArtComposition::search_algo, ce_compositions::WormholeComposition::search_algo>);
     SUCCEED();
 }
 
@@ -114,7 +112,8 @@ TEST(SurfComposition, PaperIdNonEmpty) {
 }
 
 TEST(SurfComposition, SearchAlgoIsDissectedOrgan) {
-    using SA = ce_compositions::SurfComposition::search_algo;  // SEZIERT: exakte Map-Schale (Filter-Organ in axis_filter)
+    using SA =
+        ce_compositions::SurfComposition::search_algo; // SEZIERT: exakte Map-Schale (Filter-Organ in axis_filter)
     static_assert(IsDissectedSearchOrgan<SA>);
     SUCCEED();
 }
@@ -122,9 +121,7 @@ TEST(SurfComposition, SearchAlgoIsDissectedOrgan) {
 TEST(SurfComposition, MappingIsPoolRelative) {
     using M = ce_compositions::SurfComposition::mapping;
     // SuRF nutzt PoolRelative (succinct kompakt), nicht DirectPlacement
-    static_assert(!std::same_as<
-        M,
-        ce_compositions::ArtComposition::mapping>);
+    static_assert(!std::same_as<M, ce_compositions::ArtComposition::mapping>);
     SUCCEED();
 }
 
@@ -164,7 +161,7 @@ TEST(HotComposition, PaperIdNonEmpty) {
     SUCCEED();
 }
 TEST(HotComposition, SearchAlgoIsDissectedOrgan) {
-    using SA = ce_compositions::HotComposition::search_algo;  // SEZIERT: bit-crit-bit-Patricia
+    using SA = ce_compositions::HotComposition::search_algo; // SEZIERT: bit-crit-bit-Patricia
     static_assert(IsDissectedSearchOrgan<SA>);
     SUCCEED();
 }
@@ -183,7 +180,7 @@ TEST(StartComposition, PaperIdNonEmpty) {
     SUCCEED();
 }
 TEST(StartComposition, SearchAlgoIsDissectedOrgan) {
-    using SA = ce_compositions::StartComposition::search_algo;  // SEZIERT: Multibyte-Span-Radix
+    using SA = ce_compositions::StartComposition::search_algo; // SEZIERT: Multibyte-Span-Radix
     static_assert(IsDissectedSearchOrgan<SA>);
     SUCCEED();
 }
@@ -230,17 +227,17 @@ TEST(CompositionMatrixExpanded, EachAnimalHasItsOwnDissectedOrgan) {
     // Metapher (Doku 14 §3.1, Memory feedback_achsen_komposition_organ_metapher): die ACHSE ist das Organ
     // (Sub-Aufgabe), und JEDES Tier ist eine EIGENE Komposition mit seinem EIGENEN sezierten Such-Organ.
     // Nach #41/#43 hat daher jedes Tier ein TYP-DISTINKTES Organ — kein geteilter Platzhalter mehr.
-    using ArtSA      = ce_compositions::ArtComposition::search_algo;       // ART: Node4/16/48/256
-    using HotSA      = ce_compositions::HotComposition::search_algo;       // HOT: crit-bit-Patricia
-    using WormholeSA = ce_compositions::WormholeComposition::search_algo;  // Wormhole: Hash-Anchor-Jump
-    using StartSA    = ce_compositions::StartComposition::search_algo;     // START: Multibyte-Span-Radix
-    using SurfSA     = ce_compositions::SurfComposition::search_algo;      // SuRF: exakte Map-Schale
+    using ArtSA      = ce_compositions::ArtComposition::search_algo;      // ART: Node4/16/48/256
+    using HotSA      = ce_compositions::HotComposition::search_algo;      // HOT: crit-bit-Patricia
+    using WormholeSA = ce_compositions::WormholeComposition::search_algo; // Wormhole: Hash-Anchor-Jump
+    using StartSA    = ce_compositions::StartComposition::search_algo;    // START: Multibyte-Span-Radix
+    using SurfSA     = ce_compositions::SurfComposition::search_algo;     // SuRF: exakte Map-Schale
 
     // Die 5 echten Trie/Hybrid-Organe sind paarweise TYP-DISTINKT (kein geteilter Platzhalter mehr):
     static_assert(!std::same_as<ArtSA, HotSA>);
-    static_assert(!std::same_as<HotSA, WormholeSA>);    // war frueher GETEILT (VectorU8U8) — jetzt distinkt
+    static_assert(!std::same_as<HotSA, WormholeSA>); // war frueher GETEILT (VectorU8U8) — jetzt distinkt
     static_assert(!std::same_as<ArtSA, WormholeSA>);
-    static_assert(!std::same_as<StartSA, SurfSA>);      // war frueher GETEILT (VectorU16U16) — jetzt distinkt
+    static_assert(!std::same_as<StartSA, SurfSA>); // war frueher GETEILT (VectorU16U16) — jetzt distinkt
     static_assert(!std::same_as<HotSA, StartSA>);
     static_assert(!std::same_as<ArtSA, StartSA>);
     static_assert(!std::same_as<WormholeSA, SurfSA>);
@@ -285,33 +282,31 @@ TEST(CompositionFifteenAxes, AllSixCompositionsHaveAllFifteen) {
     using M = ce_compositions::MasstreeComposition;
 
     // Beispielhafte Probe (alle 6 × 15 Achsen geprueft):
-    static_assert(sizeof(typename A::filter) > 0 && sizeof(typename H::filter) > 0
-               && sizeof(typename W::filter) > 0 && sizeof(typename S::filter) > 0
-               && sizeof(typename T::filter) > 0 && sizeof(typename M::filter) > 0);
-    static_assert(sizeof(typename A::isa) > 0 && sizeof(typename H::isa) > 0
-               && sizeof(typename W::isa) > 0 && sizeof(typename S::isa) > 0
-               && sizeof(typename T::isa) > 0 && sizeof(typename M::isa) > 0);
-    static_assert(sizeof(typename A::concurrency) > 0 && sizeof(typename H::concurrency) > 0
-               && sizeof(typename W::concurrency) > 0 && sizeof(typename S::concurrency) > 0
-               && sizeof(typename T::concurrency) > 0 && sizeof(typename M::concurrency) > 0);
+    static_assert(sizeof(typename A::filter) > 0 && sizeof(typename H::filter) > 0 && sizeof(typename W::filter) > 0 &&
+                  sizeof(typename S::filter) > 0 && sizeof(typename T::filter) > 0 && sizeof(typename M::filter) > 0);
+    static_assert(sizeof(typename A::isa) > 0 && sizeof(typename H::isa) > 0 && sizeof(typename W::isa) > 0 &&
+                  sizeof(typename S::isa) > 0 && sizeof(typename T::isa) > 0 && sizeof(typename M::isa) > 0);
+    static_assert(sizeof(typename A::concurrency) > 0 && sizeof(typename H::concurrency) > 0 &&
+                  sizeof(typename W::concurrency) > 0 && sizeof(typename S::concurrency) > 0 &&
+                  sizeof(typename T::concurrency) > 0 && sizeof(typename M::concurrency) > 0);
     SUCCEED();
 }
 
 TEST(CompositionFifteenAxes, NewAxesAllUseAxisBaseDefault) {
     // Die 11 NEUEN Sub-Achsen (aus F1+F2+F3) nutzen AxisBase Default get_compiler="original".
     using A = ce_compositions::ArtComposition;
-    static_assert(A::path_compression::get_compiler()   == std::string_view{"original"});
-    static_assert(A::node_type::get_compiler()          == std::string_view{"original"});
-    static_assert(A::memory_layout::get_compiler()      == std::string_view{"original"});
-    static_assert(A::prefetch::get_compiler()           == std::string_view{"original"});
-    static_assert(A::concurrency::get_compiler()        == std::string_view{"original"});
-    static_assert(A::serialization::get_compiler()      == std::string_view{"original"});
-    static_assert(A::telemetry::get_compiler()          == std::string_view{"original"});
-    static_assert(A::value_handle::get_compiler()       == std::string_view{"original"});
-    static_assert(A::isa::get_compiler()                == std::string_view{"original"});
+    static_assert(A::path_compression::get_compiler() == std::string_view{"original"});
+    static_assert(A::node_type::get_compiler() == std::string_view{"original"});
+    static_assert(A::memory_layout::get_compiler() == std::string_view{"original"});
+    static_assert(A::prefetch::get_compiler() == std::string_view{"original"});
+    static_assert(A::concurrency::get_compiler() == std::string_view{"original"});
+    static_assert(A::serialization::get_compiler() == std::string_view{"original"});
+    static_assert(A::telemetry::get_compiler() == std::string_view{"original"});
+    static_assert(A::value_handle::get_compiler() == std::string_view{"original"});
+    static_assert(A::isa::get_compiler() == std::string_view{"original"});
     static_assert(A::index_organization::get_compiler() == std::string_view{"original"});
-    static_assert(A::io_dispatch::get_compiler()        == std::string_view{"original"});
-    static_assert(A::migration_policy::get_compiler()   == std::string_view{"original"});
-    static_assert(A::filter::get_compiler()             == std::string_view{"original"});
+    static_assert(A::io_dispatch::get_compiler() == std::string_view{"original"});
+    static_assert(A::migration_policy::get_compiler() == std::string_view{"original"});
+    static_assert(A::filter::get_compiler() == std::string_view{"original"});
     SUCCEED();
 }

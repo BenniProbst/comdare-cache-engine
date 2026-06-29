@@ -31,24 +31,22 @@ concept StorageOrgan =
     requires {
         typename S::key_type;
         typename S::value_type;
-    }
-    && std::same_as<typename S::key_type, std::uint64_t>     // Doku-24-§5.5-Reconciliation:
-    && std::same_as<typename S::value_type, std::uint64_t>   // Achsen-Typen bestimmen NICHT den Container-Key
-    && requires(S& s, S const& cs, std::size_t i,
-                typename S::key_type k, typename S::value_type v) {
-        // (A) const Inspektion — PFLICHT (auf `cs`, erzwingt const-Correctness strukturell)
-        { cs.slot_count() } -> std::convertible_to<std::size_t>;
-        { cs.key_at(i) }    -> std::same_as<typename S::key_type>;
-        { cs.value_at(i) }  -> std::same_as<typename S::value_type>;
-        // (B) Mutation — PFLICHT (auf `s`)
-        { s.set_value_at(i, v) }      -> std::same_as<void>;
-        { s.append_slot(k, v) }       -> std::same_as<void>;     // LinearScan (O(1) amortisiert)
-        { s.insert_slot_at(i, k, v) } -> std::same_as<void>;     // SortedBinary (O(n) Verschiebung)
-        { s.erase_slot_at(i) }        -> std::same_as<void>;
-        { s.clear() }                 -> std::same_as<void>;
-    };
+    } && std::same_as<typename S::key_type, std::uint64_t> // Doku-24-§5.5-Reconciliation:
+    && std::same_as<typename S::value_type, std::uint64_t> // Achsen-Typen bestimmen NICHT den Container-Key
+    && requires(S& s, S const& cs, std::size_t i, typename S::key_type k, typename S::value_type v) {
+           // (A) const Inspektion — PFLICHT (auf `cs`, erzwingt const-Correctness strukturell)
+           { cs.slot_count() } -> std::convertible_to<std::size_t>;
+           { cs.key_at(i) } -> std::same_as<typename S::key_type>;
+           { cs.value_at(i) } -> std::same_as<typename S::value_type>;
+           // (B) Mutation — PFLICHT (auf `s`)
+           { s.set_value_at(i, v) } -> std::same_as<void>;
+           { s.append_slot(k, v) } -> std::same_as<void>;       // LinearScan (O(1) amortisiert)
+           { s.insert_slot_at(i, k, v) } -> std::same_as<void>; // SortedBinary (O(n) Verschiebung)
+           { s.erase_slot_at(i) } -> std::same_as<void>;
+           { s.clear() } -> std::same_as<void>;
+       };
 // Bewusst KEIN `noexcept` im Vertrag: append_slot/insert_slot_at/erase_slot_at duerfen allokieren
 // (RawSlotStore via std::vector) bzw. bei Kapazitaets-Ueberlauf werfen (NodeTypeSlotStore) — ein
 // noexcept-Constraint wuerde diese gueltigen Implementierungen faelschlich ausschliessen.
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

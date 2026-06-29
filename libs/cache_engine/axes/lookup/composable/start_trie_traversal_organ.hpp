@@ -19,7 +19,7 @@
 // ohne Shrink/Kollaps — Folge-Refinement); I5 (Free-List-Stabilitaet).
 
 #include "start_trie_node_pool_concept.hpp"
-#include "start_trie_node_pool_store.hpp"   // fuer den Selbstbeweis am Dateiende
+#include "start_trie_node_pool_store.hpp" // fuer den Selbstbeweis am Dateiende
 #include <topics/nodes/axis_02_path_compression/axis_02_path_compression_byte_wise.hpp>
 
 #include <concepts>
@@ -31,12 +31,14 @@ namespace comdare::cache_engine::lookup::composable {
 
 /// START-TRIE-TRAVERSAL-Organ-Concept: statische insert_into/lookup_in/erase_from auf einem StartTrieNodePool.
 template <class T, class Pool>
-concept StartTrieTraversal = StartTrieNodePool<Pool> && requires(Pool& p, Pool const& cp,
-                                  typename Pool::key_type k, typename Pool::value_type v) {
-    { T::template insert_into<Pool>(p, k, v) } -> std::same_as<void>;
-    { T::template lookup_in<Pool>(cp, k) }     -> std::same_as<std::optional<typename Pool::value_type>>;
-    { T::template erase_from<Pool>(p, k) }     -> std::same_as<bool>;
-};
+concept StartTrieTraversal = StartTrieNodePool<Pool> &&
+                             requires(Pool& p, Pool const& cp, typename Pool::key_type k, typename Pool::value_type v) {
+                                 { T::template insert_into<Pool>(p, k, v) } -> std::same_as<void>;
+                                 {
+                                     T::template lookup_in<Pool>(cp, k)
+                                 } -> std::same_as<std::optional<typename Pool::value_type>>;
+                                 { T::template erase_from<Pool>(p, k) } -> std::same_as<bool>;
+                             };
 
 /// Multibyte-Span Adaptive-Radix-Traversal-Organ. PolicySpan = Span neuer Leaf-Split-Knoten (1/2/3).
 template <unsigned PolicySpan = 2>
@@ -54,28 +56,37 @@ struct StartTrieTraversalOrgan {
 
     template <class Pool>
     static void link_parent(Pool& p, std::size_t parent, std::uint32_t parent_disc, std::size_t new_ref) {
-        if (parent == Pool::kNil) p.set_root(new_ref);
-        else                      p.set_child(parent, parent_disc, new_ref);
+        if (parent == Pool::kNil)
+            p.set_root(new_ref);
+        else
+            p.set_child(parent, parent_disc, new_ref);
     }
 
     template <class Pool>
     static void insert_into(Pool& p, typename Pool::key_type key, typename Pool::value_type value) {
         std::size_t const NIL = Pool::kNil;
-        if (p.root() == NIL) { p.set_root(p.new_leaf(key, value)); p.inc_size(); return; }
+        if (p.root() == NIL) {
+            p.set_root(p.new_leaf(key, value));
+            p.inc_size();
+            return;
+        }
 
-        std::size_t  parent = NIL;
+        std::size_t   parent      = NIL;
         std::uint32_t parent_disc = 0;
-        std::size_t  ref = p.root();
-        unsigned     depth = 0;
+        std::size_t   ref         = p.root();
+        unsigned      depth       = 0;
         for (;;) {
             if (p.is_leaf(ref)) {
                 typename Pool::key_type const ek = p.leaf_key(ref);
-                if (ek == key) { p.set_leaf_value(ref, value); return; }   // Update
+                if (ek == key) {
+                    p.set_leaf_value(ref, value);
+                    return;
+                } // Update
                 // Leaf-Split: neuer Multibyte-Span-Knoten (PolicySpan) mit gemeinsamem Byte-Prefix.
-                std::uint64_t const rem_e = (depth >= 8U) ? 0ULL : (ek  >> (depth * 8U));
+                std::uint64_t const rem_e = (depth >= 8U) ? 0ULL : (ek >> (depth * 8U));
                 std::uint64_t const rem_k = (depth >= 8U) ? 0ULL : (key >> (depth * 8U));
-                unsigned const plen = prefix_t::shared_len(rem_e, rem_k, prefix_t::kCapacity);
-                std::size_t const nn = p.new_inner(PolicySpan);
+                unsigned const      plen  = prefix_t::shared_len(rem_e, rem_k, prefix_t::kCapacity);
+                std::size_t const   nn    = p.new_inner(PolicySpan);
                 p.set_prefix(nn, prefix_t::from_bytes(rem_k, plen));
                 unsigned const d2 = depth + plen;
                 p.add_child(nn, slice(ek, d2, PolicySpan), ref);
@@ -84,10 +95,10 @@ struct StartTrieTraversalOrgan {
                 p.inc_size();
                 return;
             }
-            prefix_t const prefix = p.prefix_of(ref);
-            unsigned const pl = prefix.length();
-            std::uint64_t const rem = (depth >= 8U) ? 0ULL : (key >> (depth * 8U));
-            unsigned const shared = prefix.common_prefix_len(rem);
+            prefix_t const      prefix = p.prefix_of(ref);
+            unsigned const      pl     = prefix.length();
+            std::uint64_t const rem    = (depth >= 8U) ? 0ULL : (key >> (depth * 8U));
+            unsigned const      shared = prefix.common_prefix_len(rem);
             if (shared < pl) {
                 // Prefix-Split: neuer span-1-Knoten (branched auf das EINE divergente Byte; cut(shared+1) sicher).
                 std::size_t const nn = p.new_inner(1);
@@ -103,37 +114,41 @@ struct StartTrieTraversalOrgan {
             }
             // Voller Prefix-Match -> span(ref) Bytes tiefer dispatchen.
             depth += pl;
-            unsigned const s = p.span(ref);
-            std::uint32_t const disc = slice(key, depth, s);
-            std::size_t const child = p.find_child(ref, disc);
+            unsigned const      s     = p.span(ref);
+            std::uint32_t const disc  = slice(key, depth, s);
+            std::size_t const   child = p.find_child(ref, disc);
             if (child == NIL) {
-                p.add_child(ref, disc, p.new_leaf(key, value));   // sparse: kein Growth, keine Ref-Aenderung
+                p.add_child(ref, disc, p.new_leaf(key, value)); // sparse: kein Growth, keine Ref-Aenderung
                 p.inc_size();
                 return;
             }
-            parent = ref; parent_disc = disc; ref = child; depth += s;
+            parent      = ref;
+            parent_disc = disc;
+            ref         = child;
+            depth += s;
         }
     }
 
     template <class Pool>
     static std::optional<typename Pool::value_type> lookup_in(Pool const& p, typename Pool::key_type key) {
-        std::size_t const NIL = Pool::kNil;
-        std::size_t ref = p.root();
-        unsigned depth = 0;
+        std::size_t const NIL   = Pool::kNil;
+        std::size_t       ref   = p.root();
+        unsigned          depth = 0;
         while (ref != NIL) {
             if (p.is_leaf(ref)) {
                 return (p.leaf_key(ref) == key) ? std::optional<typename Pool::value_type>{p.leaf_value(ref)}
                                                 : std::nullopt;
             }
-            prefix_t const prefix = p.prefix_of(ref);
-            unsigned const pl = prefix.length();
-            std::uint64_t const rem = (depth >= 8U) ? 0ULL : (key >> (depth * 8U));
+            prefix_t const      prefix = p.prefix_of(ref);
+            unsigned const      pl     = prefix.length();
+            std::uint64_t const rem    = (depth >= 8U) ? 0ULL : (key >> (depth * 8U));
             if (prefix.common_prefix_len(rem) < pl) return std::nullopt;
             depth += pl;
-            unsigned const s = p.span(ref);
+            unsigned const    s     = p.span(ref);
             std::size_t const child = p.find_child(ref, slice(key, depth, s));
             if (child == NIL) return std::nullopt;
-            ref = child; depth += s;
+            ref = child;
+            depth += s;
         }
         return std::nullopt;
     }
@@ -141,30 +156,35 @@ struct StartTrieTraversalOrgan {
     template <class Pool>
     static bool erase_from(Pool& p, typename Pool::key_type key) {
         std::size_t const NIL = Pool::kNil;
-        std::size_t ref = p.root();
+        std::size_t       ref = p.root();
         if (ref == NIL) return false;
-        std::size_t  parent = NIL;
+        std::size_t   parent      = NIL;
         std::uint32_t parent_disc = 0;
-        unsigned     depth = 0;
+        unsigned      depth       = 0;
         for (;;) {
             if (p.is_leaf(ref)) {
                 if (p.leaf_key(ref) != key) return false;
-                if (parent == NIL) p.set_root(NIL);
-                else               p.remove_child(parent, parent_disc);
+                if (parent == NIL)
+                    p.set_root(NIL);
+                else
+                    p.remove_child(parent, parent_disc);
                 p.free_node(ref);
                 p.dec_size();
                 return true;
             }
-            prefix_t const prefix = p.prefix_of(ref);
-            unsigned const pl = prefix.length();
-            std::uint64_t const rem = (depth >= 8U) ? 0ULL : (key >> (depth * 8U));
+            prefix_t const      prefix = p.prefix_of(ref);
+            unsigned const      pl     = prefix.length();
+            std::uint64_t const rem    = (depth >= 8U) ? 0ULL : (key >> (depth * 8U));
             if (prefix.common_prefix_len(rem) < pl) return false;
             depth += pl;
-            unsigned const s = p.span(ref);
-            std::uint32_t const disc = slice(key, depth, s);
-            std::size_t const child = p.find_child(ref, disc);
+            unsigned const      s     = p.span(ref);
+            std::uint32_t const disc  = slice(key, depth, s);
+            std::size_t const   child = p.find_child(ref, disc);
             if (child == NIL) return false;
-            parent = ref; parent_disc = disc; ref = child; depth += s;
+            parent      = ref;
+            parent_disc = disc;
+            ref         = child;
+            depth += s;
         }
     }
 };
@@ -173,4 +193,4 @@ struct StartTrieTraversalOrgan {
 static_assert(StartTrieTraversal<StartTrieTraversalOrgan<2>, StartTrieNodePoolStore>);
 static_assert(StartTrieTraversal<StartTrieTraversalOrgan<1>, StartTrieNodePoolStore>);
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

@@ -44,8 +44,8 @@ public:
     // h2-Kollisionen ueberschreibt ein spaeterer Key den geloesten Slot eines frueheren (mogliche FN; bewusste
     // Apparat-Vereinfachung. Der rigorose Membership-Beleg laeuft ueber Bloom/Cuckoo). kBytes=12288 → 3×4096
     // Slots, L1-resident (messneutral). Voll-uint64-Key-Domain.
-    static constexpr std::size_t kThird = 4096;                 // Slots je Drittel (Zweierpotenz)
-    static constexpr std::size_t kSlots = 3u * kThird;          // 12 KiB Gesamt-Tabelle
+    static constexpr std::size_t kThird = 4096;        // Slots je Drittel (Zweierpotenz)
+    static constexpr std::size_t kSlots = 3u * kThird; // 12 KiB Gesamt-Tabelle
 
     [[nodiscard]] static constexpr std::uint8_t fingerprint_(std::uint64_t key) noexcept {
         return static_cast<std::uint8_t>((key * 0x9E3779B97F4A7C15ull >> 40) ^ 0xA5u);
@@ -63,7 +63,7 @@ public:
     /// Build-Op (Setup, NICHT gemessen): loest den dritten Slot, damit die Xor-Invariante fuer key gilt.
     void insert_key(std::uint64_t key) noexcept {
         std::uint8_t const fp = fingerprint_(key);
-        table_[h2_(key)] = static_cast<std::uint8_t>(fp ^ table_[h0_(key)] ^ table_[h1_(key)]);
+        table_[h2_(key)]      = static_cast<std::uint8_t>(fp ^ table_[h0_(key)] ^ table_[h1_(key)]);
     }
 
     /// Probe der REALEN Tabelle: GENAU 3 Slot-Reads + 3-fach-XOR == Fingerprint (branch-frei).
@@ -72,16 +72,18 @@ public:
         return x == fingerprint_(key);
     }
 
-    void clear() noexcept { table_.fill(0); }
+    void               clear() noexcept { table_.fill(0); }
     [[nodiscard]] bool operator==(XorFilter const& o) const noexcept { return table_ == o.table_; }
 
     /// Probe-Multiplizitaet je Query (3 Slot-Reads) — ehrlich deklariert fuer hash_probes_total.
     [[nodiscard]] static constexpr std::uint64_t probe_multiplicity() noexcept { return 3u; }
 
     [[nodiscard]] static constexpr bool             supports_range_query() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "filter_xor"; }
-    [[nodiscard]] static constexpr std::string_view family_name()          noexcept { return "XorFilter (Graf+Lemire 2020, ~9 bits/key, smaller than Bloom)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()          noexcept { return "XOR"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "filter_xor"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "XorFilter (Graf+Lemire 2020, ~9 bits/key, smaller than Bloom)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "XOR"; }
 
     // F15-Pfad-A Treibe-Op (Spec §5 T16, Goldstandard analog axis_05 scan_field_sum / axis_10
     // serialize_scan / axis_04 node_find_scan). SYNTHETISCHE Mindest-Op (ehrlich deklariert): es
@@ -93,20 +95,20 @@ public:
     // Latenz-Signatur ohne datenabhängigen early-exit. Punkt-Query only, immutable nach Build.
     [[nodiscard]] static std::uint64_t filter_probe_scan(unsigned char const* buf, std::size_t n,
                                                          unsigned char const* queries, std::size_t q) noexcept {
-        if (n < 3) return 0;                               // Xor-Filter braucht 3 disjunkte Tabellen-Drittel
-        std::uint64_t hits = 0;
-        std::size_t const third = n / 3u;                  // garantiert >= 1 (n >= 3), Rest fällt in Drittel 3
-        std::size_t const rest  = n - 2u * third;          // Drittel 3 = Rest (>= third >= 1)
+        if (n < 3) return 0; // Xor-Filter braucht 3 disjunkte Tabellen-Drittel
+        std::uint64_t     hits  = 0;
+        std::size_t const third = n / 3u;         // garantiert >= 1 (n >= 3), Rest fällt in Drittel 3
+        std::size_t const rest  = n - 2u * third; // Drittel 3 = Rest (>= third >= 1)
         for (std::size_t i = 0; i < q; ++i) {
             std::uint32_t const key = queries[i];
-            std::uint8_t const fp = static_cast<std::uint8_t>(key * 0x9Du ^ 0xA5u);   // 1-Byte-Fingerprint
+            std::uint8_t const  fp  = static_cast<std::uint8_t>(key * 0x9Du ^ 0xA5u); // 1-Byte-Fingerprint
             // 3 unabhängige Hash-Positionen (Graf+Lemire: drei disjunkte Tabellen-Drittel)
             std::size_t const h0 = (key * 2654435761u) % third;
             std::size_t const h1 = third + ((key * 40503u) % third);
             std::size_t const h2 = 2u * third + ((key * 0x85EBCA6Bu) % rest);
             // GENAU 3 Slot-Reads + 3-fach-XOR (branch-frei, kein early-exit — Xor-charakteristisch)
             std::uint8_t const x = static_cast<std::uint8_t>(buf[h0] ^ buf[h1] ^ buf[h2]);
-            hits += (x == fp) ? (1u + (key & 7u)) : 0u;                                // order-sensitiv
+            hits += (x == fp) ? (1u + (key & 7u)) : 0u; // order-sensitiv
         }
         return hits;
     }
@@ -116,9 +118,9 @@ private:
     std::array<std::uint8_t, kSlots> table_{};
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::filter_axis
 
 namespace comdare::cache_engine::filter_axis {
-    static_assert(concepts::FilterStrategy<XorFilter>);
-    static_assert(concepts::CacheEnginePermutationStrategy<XorFilter>);
-}
+static_assert(concepts::FilterStrategy<XorFilter>);
+static_assert(concepts::CacheEnginePermutationStrategy<XorFilter>);
+} // namespace comdare::cache_engine::filter_axis

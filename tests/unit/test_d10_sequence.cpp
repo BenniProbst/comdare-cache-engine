@@ -15,7 +15,8 @@
 namespace cea = comdare::cache_engine::anatomy;
 namespace eng = comdare::cache_engine::execution_engine;
 
-using SC    = cea::SequenceComposition<int, int, int, int, int, int, int, int, int, int>;  // Growth = DoublingGrowth (default)
+using SC =
+    cea::SequenceComposition<int, int, int, int, int, int, int, int, int, int>; // Growth = DoublingGrowth (default)
 using SAnat = cea::SequenceAnatomy<SC>;
 
 static_assert(cea::IsSequenceComposition<SC>);
@@ -24,10 +25,20 @@ static_assert(cea::GrowthPolicy<cea::DoublingGrowth>, "DoublingGrowth muss Growt
 static_assert(SAnat::genus() == cea::AnatomyGenus::Sequence);
 
 static int g_fail = 0;
-template <class A, class B> static void eq(char const* w, A const& g, B const& e) {
-    bool ok = (g == e); std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
-    if (!ok) { std::cout << " (erwartet " << e << ")"; ++g_fail; } std::cout << "\n"; }
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+template <class A, class B>
+static void eq(char const* w, A const& g, B const& e) {
+    bool ok = (g == e);
+    std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
+    if (!ok) {
+        std::cout << " (erwartet " << e << ")";
+        ++g_fail;
+    }
+    std::cout << "\n";
+}
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 int main() {
     std::cout << "==== D10 Sequence-Typ-Ebene ====\n";
@@ -41,8 +52,10 @@ int main() {
     SAnat seq;
     for (std::uint64_t i = 0; i < 5; ++i) seq.push_back(100 + i);
     eq("size() == 5 nach 5x push_back", seq.size(), std::size_t{5});
-    auto a0 = seq.at(0); tr("at(0) == 100", a0.has_value() && *a0 == 100u);
-    auto a4 = seq.at(4); tr("at(4) == 104", a4.has_value() && *a4 == 104u);
+    auto a0 = seq.at(0);
+    tr("at(0) == 100", a0.has_value() && *a0 == 100u);
+    auto a4 = seq.at(4);
+    tr("at(4) == 104", a4.has_value() && *a4 == 104u);
     tr("at(99) == nullopt (out-of-bounds)", !seq.at(99).has_value());
     cea::SequenceObserverSnapshot const o = seq.observe_all();
     eq("Observer push_count == 5", o.push_count, std::uint64_t{5});
@@ -53,7 +66,7 @@ int main() {
 
     std::cout << "\n==== D10 SequenceAbiAdapter über IAnatomyBase + ISequenceTier ====\n";
     cea::SequenceAbiAdapter<SAnat> adapter;
-    cea::IAnatomyBase* base = &adapter;
+    cea::IAnatomyBase*             base = &adapter;
     tr("genus() == Sequence", base->genus() == cea::AnatomyGenus::Sequence);
     tr("engine_kind() == Anatomy", base->engine_kind() == eng::ExecutionEngineKind::Anatomy);
     eq("organ_count() == 11", base->organ_count(), std::size_t{11});
@@ -72,6 +85,7 @@ int main() {
         tr("observe: growth_events > 0", pod.growth_events > 0);
     }
 
-    std::cout << "\n==== D10 Sequence: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== D10 Sequence: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

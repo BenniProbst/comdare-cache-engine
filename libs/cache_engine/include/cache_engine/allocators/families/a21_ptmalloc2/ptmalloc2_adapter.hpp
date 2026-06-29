@@ -18,13 +18,13 @@
 namespace comdare::cache_engine::allocator::families::a21_ptmalloc2 {
 
 struct Ptmalloc2Params {
-    std::size_t arena_count_max          = 0;             // 0 = 8*ncpu auto
+    std::size_t arena_count_max           = 0; // 0 = 8*ncpu auto
     std::size_t tcache_bin_count          = 64;
     std::size_t tcache_max_chunks_per_bin = 7;
-    std::size_t fastbin_count             = 10;           // chunks ≤160 bytes
+    std::size_t fastbin_count             = 10; // chunks ≤160 bytes
     std::size_t smallbin_count            = 62;
     std::size_t largebin_count            = 32;
-    bool         enable_tcache             = true;        // glibc 2.26+
+    bool        enable_tcache             = true; // glibc 2.26+
 };
 
 template <LockingStrategy Lock = locking::SharedMutexLock>
@@ -58,7 +58,7 @@ public:
         void* p = portable_aligned_alloc(alignment, bytes);
         if (p) {
             stats_.total_bytes_allocated.fetch_add(bytes, std::memory_order_relaxed);
-            stats_.total_bytes_in_use   .fetch_add(bytes, std::memory_order_relaxed);
+            stats_.total_bytes_in_use.fetch_add(bytes, std::memory_order_relaxed);
         } else {
             stats_.failure_count.fetch_add(1, std::memory_order_relaxed);
         }
@@ -75,18 +75,26 @@ public:
     [[nodiscard]] AllocationStatistics statistics() const noexcept {
         AllocationStatistics s{};
         s.total_bytes_allocated = stats_.total_bytes_allocated.load(std::memory_order_relaxed);
-        s.total_bytes_in_use     = stats_.total_bytes_in_use   .load(std::memory_order_relaxed);
-        s.allocation_count       = stats_.allocation_count     .load(std::memory_order_relaxed);
-        s.deallocation_count     = stats_.deallocation_count   .load(std::memory_order_relaxed);
-        s.failure_count           = stats_.failure_count       .load(std::memory_order_relaxed);
+        s.total_bytes_in_use    = stats_.total_bytes_in_use.load(std::memory_order_relaxed);
+        s.allocation_count      = stats_.allocation_count.load(std::memory_order_relaxed);
+        s.deallocation_count    = stats_.deallocation_count.load(std::memory_order_relaxed);
+        s.failure_count         = stats_.failure_count.load(std::memory_order_relaxed);
         return s;
     }
 
     [[nodiscard]] Ptmalloc2Params const& params() const noexcept { return params_; }
-    [[nodiscard]] std::uint64_t tcache_count()  const noexcept { return tcache_alloc_count_.load(std::memory_order_relaxed); }
-    [[nodiscard]] std::uint64_t fastbin_count() const noexcept { return fastbin_alloc_count_.load(std::memory_order_relaxed); }
-    [[nodiscard]] std::uint64_t smallbin_count() const noexcept { return smallbin_alloc_count_.load(std::memory_order_relaxed); }
-    [[nodiscard]] std::uint64_t largebin_count() const noexcept { return largebin_alloc_count_.load(std::memory_order_relaxed); }
+    [[nodiscard]] std::uint64_t          tcache_count() const noexcept {
+        return tcache_alloc_count_.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] std::uint64_t fastbin_count() const noexcept {
+        return fastbin_alloc_count_.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] std::uint64_t smallbin_count() const noexcept {
+        return smallbin_alloc_count_.load(std::memory_order_relaxed);
+    }
+    [[nodiscard]] std::uint64_t largebin_count() const noexcept {
+        return largebin_alloc_count_.load(std::memory_order_relaxed);
+    }
 
 private:
     Ptmalloc2Params            params_;
@@ -96,13 +104,13 @@ private:
     std::atomic<std::uint64_t> largebin_alloc_count_{0};
     struct AtomicStats {
         std::atomic<std::size_t> total_bytes_allocated{0};
-        std::atomic<std::size_t> total_bytes_in_use    {0};
-        std::atomic<std::size_t> allocation_count      {0};
-        std::atomic<std::size_t> deallocation_count    {0};
-        std::atomic<std::size_t> failure_count          {0};
+        std::atomic<std::size_t> total_bytes_in_use{0};
+        std::atomic<std::size_t> allocation_count{0};
+        std::atomic<std::size_t> deallocation_count{0};
+        std::atomic<std::size_t> failure_count{0};
     } stats_;
 };
 
 static_assert(IAllocationStrategy<Ptmalloc2Adapter<>>);
 
-}  // namespace comdare::cache_engine::allocator::families::a21_ptmalloc2
+} // namespace comdare::cache_engine::allocator::families::a21_ptmalloc2

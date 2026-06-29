@@ -33,16 +33,16 @@
 // @related [[reference_axis_gold_standard_checklist]] [[feedback_lehrbuch_design_patterns_only_zero_cost_metaprog]]
 
 #include "concepts/axis_07_prefetch_concept.hpp"
-#include "axis_07_prefetch_distance_estimator_impl.hpp"   // DistanceEstimatorImpl::estimate (Distance-Heuristik)
+#include "axis_07_prefetch_distance_estimator_impl.hpp" // DistanceEstimatorImpl::estimate (Distance-Heuristik)
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
 
 #if defined(_M_X64) || defined(__x86_64__) || defined(_M_IX86) || defined(__i386__)
-#  include <xmmintrin.h>   // _mm_prefetch + _MM_HINT_T0 (MSVC/GCC/Clang x86)
-#  define COMDARE_PREFETCH_HAVE_MM 1
+#include <xmmintrin.h> // _mm_prefetch + _MM_HINT_T0 (MSVC/GCC/Clang x86)
+#define COMDARE_PREFETCH_HAVE_MM 1
 #else
-#  define COMDARE_PREFETCH_HAVE_MM 0
+#define COMDARE_PREFETCH_HAVE_MM 0
 #endif
 
 namespace comdare::cache_engine::prefetch_axis {
@@ -50,18 +50,20 @@ namespace comdare::cache_engine::prefetch_axis {
 /// Ergebnis EINES Descent-Prefetch-Triggers (real, kein erfundener Wert): wie viele reale `_mm_prefetch`-
 /// Instruktionen abgesetzt wurden + die letzte real geprefetchte Adresse + die genutzte Voraus-Distanz.
 struct DescentPrefetchResult {
-    std::uint64_t       prefetches_issued = 0;        ///< Anzahl real abgesetzter _mm_prefetch (0 fuer None)
-    unsigned char const* last_address     = nullptr;  ///< letzte REAL geprefetchte Slot-Adresse (im Store-Backing)
-    std::uint64_t       last_distance     = 0;        ///< genutzte Voraus-Distanz in Slots (0=HW/aktuell, N=distance, Bundle=path)
+    std::uint64_t        prefetches_issued = 0;       ///< Anzahl real abgesetzter _mm_prefetch (0 fuer None)
+    unsigned char const* last_address      = nullptr; ///< letzte REAL geprefetchte Slot-Adresse (im Store-Backing)
+    std::uint64_t last_distance = 0; ///< genutzte Voraus-Distanz in Slots (0=HW/aktuell, N=distance, Bundle=path)
 };
 
 namespace detail_real {
 
 /// family_id einer prefetch-Strategie (constexpr int): 0=None, 1=DistanceEstimator, 2=Hardware, 3=PathOriented.
 template <class S>
-inline constexpr int prefetch_family_v = []{
-    if constexpr (requires { S::family_id::value; }) return static_cast<int>(S::family_id::value);
-    else return 0;
+inline constexpr int prefetch_family_v = [] {
+    if constexpr (requires { S::family_id::value; })
+        return static_cast<int>(S::family_id::value);
+    else
+        return 0;
 }();
 
 /// Real-issuing _mm_prefetch (T0) — HW-safe; die Adresse stammt IMMER aus store.slot_address (real alloziert).
@@ -72,14 +74,15 @@ inline void issue_prefetch_t0(unsigned char const* addr) noexcept {
     __builtin_prefetch(addr, 0 /*read*/, 3 /*high locality ~T0*/);
 #else
     // Portabler Fallback (kein HW-Prefetch verfuegbar): ein volatile-Read als minimale Touch-Annaeherung.
-    volatile unsigned char sink = *addr; (void)sink;
+    volatile unsigned char sink = *addr;
+    (void)sink;
 #endif
 }
 
 /// Default-Bundle (Cache-Lines/Slots voraus) fuer PathOriented (Chen 2001 Bundle-Granularitaet).
 inline constexpr std::size_t kPathBundle = 4;
 
-}  // namespace detail_real
+} // namespace detail_real
 
 /// PrefetchDescentPolicy<Strategy> — die zero-cost Strategy-Dispatch-Policy: gegeben der reale Store + der
 /// gerade beruehrte Slot-Index `i`, setzt sie die strategie-distinkten realen `_mm_prefetch` ab. Templatisiert
@@ -93,38 +96,54 @@ struct PrefetchDescentPolicy {
     template <class Store>
     static DescentPrefetchResult drive(Store const& store, std::size_t i) noexcept {
         DescentPrefetchResult r{};
-        std::size_t const n = store.slot_count();
-        if (n == 0) return r;                       // leerer Store → nichts real zu prefetchen
-        if (i >= n) i = n - 1;                       // i in den realen Bereich klemmen (kein OOB-Index)
+        std::size_t const     n = store.slot_count();
+        if (n == 0) return r;  // leerer Store → nichts real zu prefetchen
+        if (i >= n) i = n - 1; // i in den realen Bereich klemmen (kein OOB-Index)
 
         if constexpr (family == 0) {
             // NonePrefetch: KEIN Prefetch (0-Overhead-Baseline) → 0 reale Prefetches, keine Adresse.
-            (void)store; (void)i;
+            (void)store;
+            (void)i;
             return r;
         } else if constexpr (family == 2) {
             // HardwarePrefetch (Wormhole): T0-Hint auf den AKTUELLEN Slot — CPU schaetzt Distance autonom.
             unsigned char const* a = store.slot_address(i);
-            if (a != nullptr) { detail_real::issue_prefetch_t0(a); r.prefetches_issued = 1; r.last_address = a; r.last_distance = 0; }
+            if (a != nullptr) {
+                detail_real::issue_prefetch_t0(a);
+                r.prefetches_issued = 1;
+                r.last_address      = a;
+                r.last_distance     = 0;
+            }
             return r;
         } else if constexpr (family == 1) {
             // DistanceEstimatorPrefetch (ART): density-/latenz-basierte Distanz voraus. density = Fuell-% des
             // (Single-Chunk-)Backings; tier_latency ~ DRAM (30 cycles) → estimate() liefert N Slots voraus.
-            double const density = (n >= 1) ? (100.0 * static_cast<double>(n) / static_cast<double>(n + 1)) : 0.0;
-            std::uint8_t const dist = impl::DistanceEstimatorImpl::estimate(density, /*tier_latency_cycles=*/30.0);
-            std::size_t target = i + static_cast<std::size_t>(dist);
-            if (target >= n) target = n - 1;        // hart auf letzten realen Slot klemmen (kein OOB)
+            double const       density = (n >= 1) ? (100.0 * static_cast<double>(n) / static_cast<double>(n + 1)) : 0.0;
+            std::uint8_t const dist    = impl::DistanceEstimatorImpl::estimate(density, /*tier_latency_cycles=*/30.0);
+            std::size_t        target  = i + static_cast<std::size_t>(dist);
+            if (target >= n) target = n - 1; // hart auf letzten realen Slot klemmen (kein OOB)
             unsigned char const* a = store.slot_address(target);
-            if (a != nullptr) { detail_real::issue_prefetch_t0(a); r.prefetches_issued = 1; r.last_address = a; r.last_distance = dist; }
+            if (a != nullptr) {
+                detail_real::issue_prefetch_t0(a);
+                r.prefetches_issued = 1;
+                r.last_address      = a;
+                r.last_distance     = dist;
+            }
             return r;
         } else {
             // PathOrientedPrefetch (PRT-ART/Chen 2001): Bundle entlang des Descent-Pfads — prefetcht die naechsten
             // kBundle Slots ab i+1 (mehrere reale Adressen je Trigger; Bundle-Granularitaet). Alle Ziele real geklemmt.
-            std::uint64_t issued = 0; unsigned char const* last = nullptr;
+            std::uint64_t        issued = 0;
+            unsigned char const* last   = nullptr;
             for (std::size_t b = 1; b <= detail_real::kPathBundle; ++b) {
                 std::size_t target = i + b;
-                if (target >= n) break;             // nicht ueber das reale Backing hinaus
+                if (target >= n) break; // nicht ueber das reale Backing hinaus
                 unsigned char const* a = store.slot_address(target);
-                if (a != nullptr) { detail_real::issue_prefetch_t0(a); ++issued; last = a; }
+                if (a != nullptr) {
+                    detail_real::issue_prefetch_t0(a);
+                    ++issued;
+                    last = a;
+                }
             }
             r.prefetches_issued = issued;
             r.last_address      = last;
@@ -134,4 +153,4 @@ struct PrefetchDescentPolicy {
     }
 };
 
-}  // namespace comdare::cache_engine::prefetch_axis
+} // namespace comdare::cache_engine::prefetch_axis

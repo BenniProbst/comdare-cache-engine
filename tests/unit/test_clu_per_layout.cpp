@@ -45,8 +45,11 @@ namespace cn  = ::comdare::cache_engine::node;
 namespace cl_ = ::comdare::cache_engine::layout;
 namespace ca  = ::comdare::cache_engine::allocator::axis_06_allocator;
 
-static int g_fail = 0;
-static void tr(std::string const& w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+static int  g_fail = 0;
+static void tr(std::string const& w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 struct LayoutResult {
     std::string   name;
@@ -64,7 +67,8 @@ static bool roundtrip_one(char const* nname, char const* lname, std::uint64_t kN
     Store store;
     for (std::uint64_t i = 0; i < kN; ++i) store.append_slot(i, i * 1315423911u + 7u);
     if (store.slot_count() != kN) {
-        std::cout << "  [ERR] " << lname << "/" << nname << " slot_count " << store.slot_count() << " != " << kN << "\n";
+        std::cout << "  [ERR] " << lname << "/" << nname << " slot_count " << store.slot_count() << " != " << kN
+                  << "\n";
         return false;
     }
     // jeder Slot: Key in Insert-Reihenfolge, Value == k*MIX+7 (verlustfrei rekonstruiert ueber load_key/load_value).
@@ -72,8 +76,8 @@ static bool roundtrip_one(char const* nname, char const* lname, std::uint64_t kN
         std::uint64_t const k = store.key_at(static_cast<std::size_t>(i));
         std::uint64_t const v = store.value_at(static_cast<std::size_t>(i));
         if (k != i || v != i * 1315423911u + 7u) {
-            std::cout << "  [ERR] " << lname << "/" << nname << " slot " << i
-                      << " k=" << k << " v=" << v << " (erwartet k=" << i << ")\n";
+            std::cout << "  [ERR] " << lname << "/" << nname << " slot " << i << " k=" << k << " v=" << v
+                      << " (erwartet k=" << i << ")\n";
             return false;
         }
     }
@@ -91,7 +95,7 @@ static LayoutResult measure_layout(char const* name, std::uint64_t kN) {
 
     cl_::ObservableMemoryLayout<L> ml{};
     ml.reset();
-    (void)store.organ_observe_layout(ml);             // ECHTER Key-Scan-Footprint -> observe_real_footprint
+    (void)store.organ_observe_layout(ml); // ECHTER Key-Scan-Footprint -> observe_real_footprint
     auto const snap = ml.statistics();
 
     LayoutResult r;
@@ -99,8 +103,9 @@ static LayoutResult measure_layout(char const* name, std::uint64_t kN) {
     r.records     = snap.records_scanned;
     r.field_bytes = snap.field_bytes_read;
     r.cache_lines = snap.cache_lines_touched;
-    r.clu_pct     = (r.cache_lines == 0) ? 0.0
-                  : (100.0 * static_cast<double>(r.field_bytes) / (static_cast<double>(r.cache_lines) * 64.0));
+    r.clu_pct     = (r.cache_lines == 0)
+                        ? 0.0
+                        : (100.0 * static_cast<double>(r.field_bytes) / (static_cast<double>(r.cache_lines) * 64.0));
     return r;
 }
 
@@ -108,12 +113,12 @@ static LayoutResult measure_layout(char const* name, std::uint64_t kN) {
 template <class N, class L>
 static bool fuzz_one(char const* nname, char const* lname, std::uint64_t kN, std::uint64_t seed) {
     using Store = cn::LayoutAwareChunkedStore<N, L, ca::MimallocAllocator>;
-    Store store;
-    std::mt19937_64 rng(seed);
+    Store                                                store;
+    std::mt19937_64                                      rng(seed);
     std::vector<std::pair<std::uint64_t, std::uint64_t>> ref;
     ref.reserve(static_cast<std::size_t>(kN));
     for (std::uint64_t i = 0; i < kN; ++i) {
-        std::uint64_t const k = rng(), v = rng();   // volle 64-Bit-Domain (testet succinct hot/cold-Split)
+        std::uint64_t const k = rng(), v = rng(); // volle 64-Bit-Domain (testet succinct hot/cold-Split)
         ref.emplace_back(k, v);
         store.append_slot(k, v);
     }
@@ -126,9 +131,9 @@ static bool fuzz_one(char const* nname, char const* lname, std::uint64_t kN, std
 template <class L>
 static bool roundtrip_all_nodes(char const* lname) {
     bool ok = true;
-    ok &= roundtrip_one<cn::Node4NodeType,   L>("node4",   lname, 37);
-    ok &= roundtrip_one<cn::Node16NodeType,  L>("node16",  lname, 100);
-    ok &= roundtrip_one<cn::Node48NodeType,  L>("node48",  lname, 200);
+    ok &= roundtrip_one<cn::Node4NodeType, L>("node4", lname, 37);
+    ok &= roundtrip_one<cn::Node16NodeType, L>("node16", lname, 100);
+    ok &= roundtrip_one<cn::Node48NodeType, L>("node48", lname, 200);
     ok &= roundtrip_one<cn::Node256NodeType, L>("node256", lname, 700);
     return ok;
 }
@@ -136,44 +141,43 @@ static bool roundtrip_all_nodes(char const* lname) {
 template <class L>
 static bool fuzz_all_nodes(char const* lname) {
     bool ok = true;
-    ok &= fuzz_one<cn::Node4NodeType,   L>("node4",   lname, 5000,  0xC0FFEEull);
-    ok &= fuzz_one<cn::Node16NodeType,  L>("node16",  lname, 5000,  0xBEEFull);
-    ok &= fuzz_one<cn::Node48NodeType,  L>("node48",  lname, 5000,  0xD00Dull);
+    ok &= fuzz_one<cn::Node4NodeType, L>("node4", lname, 5000, 0xC0FFEEull);
+    ok &= fuzz_one<cn::Node16NodeType, L>("node16", lname, 5000, 0xBEEFull);
+    ok &= fuzz_one<cn::Node48NodeType, L>("node48", lname, 5000, 0xD00Dull);
     ok &= fuzz_one<cn::Node256NodeType, L>("node256", lname, 20000, 0xFEEDull);
     return ok;
 }
 
 int main() {
     std::cout << "==== #167 5 REALE distinkte memory_layout-Repraesentationen (LayoutAwareChunkedStore) ====\n";
-    constexpr std::uint64_t kN = 11627;   // M3-Matrix-Records-Zahl (Reproduktion der Evidenz)
+    constexpr std::uint64_t kN = 11627; // M3-Matrix-Records-Zahl (Reproduktion der Evidenz)
 
     // (a) ROUND-TRIP ueber 5 Reps x Node4/16/48/256
     std::cout << "-- (a) Round-Trip insert->lookup (5 Reps x Node4/16/48/256) --\n";
     tr("Round-Trip aos_strict         (4 node_types)", roundtrip_all_nodes<cl_::AoSStrictMemoryLayout>("aos_strict"));
-    tr("Round-Trip cache_line_aligned (4 node_types)", roundtrip_all_nodes<cl_::CacheLineAlignedMemoryLayout>("cache_line_aligned"));
+    tr("Round-Trip cache_line_aligned (4 node_types)",
+       roundtrip_all_nodes<cl_::CacheLineAlignedMemoryLayout>("cache_line_aligned"));
     tr("Round-Trip soa                (4 node_types)", roundtrip_all_nodes<cl_::SoAMemoryLayout>("soa"));
     tr("Round-Trip aosoa              (4 node_types)", roundtrip_all_nodes<cl_::AoSoAMemoryLayout>("aosoa"));
-    tr("Round-Trip packed_bitmap      (4 node_types)", roundtrip_all_nodes<cl_::PackedBitmapMemoryLayout>("packed_bitmap"));
+    tr("Round-Trip packed_bitmap      (4 node_types)",
+       roundtrip_all_nodes<cl_::PackedBitmapMemoryLayout>("packed_bitmap"));
 
     // (b)+(c) realer Footprint je Rep (Node256 — grosse Knoten spannen viele 64-B-Linien; bei winzigen Knoten kollabiert
     // jeder Chunk auf 1 Linie und maskiert den Layout-Unterschied; measure_layout instanziiert Node256NodeType, Z.88)
     std::cout << "-- (b)+(c) realer Key-Scan-Footprint + CLU je Rep (Node256, n=" << kN << ") --\n";
     std::vector<LayoutResult> res;
-    res.push_back(measure_layout<cl_::AoSStrictMemoryLayout>        ("aos_strict",         kN));
-    res.push_back(measure_layout<cl_::CacheLineAlignedMemoryLayout> ("cache_line_aligned", kN));
-    res.push_back(measure_layout<cl_::SoAMemoryLayout>              ("soa",                kN));
-    res.push_back(measure_layout<cl_::AoSoAMemoryLayout>            ("aosoa",              kN));
-    res.push_back(measure_layout<cl_::PackedBitmapMemoryLayout>     ("packed_bitmap",      kN));
+    res.push_back(measure_layout<cl_::AoSStrictMemoryLayout>("aos_strict", kN));
+    res.push_back(measure_layout<cl_::CacheLineAlignedMemoryLayout>("cache_line_aligned", kN));
+    res.push_back(measure_layout<cl_::SoAMemoryLayout>("soa", kN));
+    res.push_back(measure_layout<cl_::AoSoAMemoryLayout>("aosoa", kN));
+    res.push_back(measure_layout<cl_::PackedBitmapMemoryLayout>("packed_bitmap", kN));
 
     std::cout << "  layout                records   field_bytes  cache_lines   CLU%\n";
     for (auto const& r : res) {
         char buf[256];
-        std::snprintf(buf, sizeof(buf), "  %-20s  %7llu  %11llu  %10llu  %6.2f",
-                      r.name.c_str(),
-                      static_cast<unsigned long long>(r.records),
-                      static_cast<unsigned long long>(r.field_bytes),
-                      static_cast<unsigned long long>(r.cache_lines),
-                      r.clu_pct);
+        std::snprintf(buf, sizeof(buf), "  %-20s  %7llu  %11llu  %10llu  %6.2f", r.name.c_str(),
+                      static_cast<unsigned long long>(r.records), static_cast<unsigned long long>(r.field_bytes),
+                      static_cast<unsigned long long>(r.cache_lines), r.clu_pct);
         std::cout << buf << "\n";
     }
 
@@ -195,7 +199,8 @@ int main() {
     // (b-1) field_bytes (real beruehrte Key-Bytes) hat mind. 2 distinkte Werte (succinct beruehrt 2 B/Key statt 8).
     {
         bool fb_varies = false;
-        for (std::size_t i = 1; i < res.size(); ++i) if (res[i].field_bytes != res[0].field_bytes) fb_varies = true;
+        for (std::size_t i = 1; i < res.size(); ++i)
+            if (res[i].field_bytes != res[0].field_bytes) fb_varies = true;
         tr("field_bytes layout-abhaengig (real, nicht invariant)", fb_varies);
     }
 
@@ -207,7 +212,8 @@ int main() {
         std::size_t distinct = 0;
         for (std::size_t i = 0; i < cls.size(); ++i) {
             bool first = true;
-            for (std::size_t j = 0; j < i; ++j) if (cls[j] == cls[i]) first = false;
+            for (std::size_t j = 0; j < i; ++j)
+                if (cls[j] == cls[i]) first = false;
             if (first) ++distinct;
         }
         std::cout << "  cache_lines je Rep:";
@@ -219,19 +225,25 @@ int main() {
     // (b-3) records ueber alle Reps gleich (== kN) — der Footprint variiert, die Record-Zahl nicht.
     {
         bool rec_eq = true;
-        for (auto const& r : res) if (r.records != kN) rec_eq = false;
+        for (auto const& r : res)
+            if (r.records != kN) rec_eq = false;
         tr("records == kN ueber alle Reps (Footprint variiert, Record-Zahl konstant)", rec_eq);
     }
 
     // (d) /O2-Fuzz: randomisierte volle-uint64 Keys/Values, kein UB/OOB, Round-Trip 100%.
     std::cout << "-- (d) /O2-Fuzz randomisiert (volle uint64-Domain, 5 Reps x Node4/16/48/256) --\n";
-    tr("Fuzz aos_strict         (kein UB/OOB, Round-Trip 100%)", fuzz_all_nodes<cl_::AoSStrictMemoryLayout>("aos_strict"));
-    tr("Fuzz cache_line_aligned (kein UB/OOB, Round-Trip 100%)", fuzz_all_nodes<cl_::CacheLineAlignedMemoryLayout>("cache_line_aligned"));
+    tr("Fuzz aos_strict         (kein UB/OOB, Round-Trip 100%)",
+       fuzz_all_nodes<cl_::AoSStrictMemoryLayout>("aos_strict"));
+    tr("Fuzz cache_line_aligned (kein UB/OOB, Round-Trip 100%)",
+       fuzz_all_nodes<cl_::CacheLineAlignedMemoryLayout>("cache_line_aligned"));
     tr("Fuzz soa                (kein UB/OOB, Round-Trip 100%)", fuzz_all_nodes<cl_::SoAMemoryLayout>("soa"));
     tr("Fuzz aosoa              (kein UB/OOB, Round-Trip 100%)", fuzz_all_nodes<cl_::AoSoAMemoryLayout>("aosoa"));
-    tr("Fuzz packed_bitmap      (kein UB/OOB, Round-Trip 100%)", fuzz_all_nodes<cl_::PackedBitmapMemoryLayout>("packed_bitmap"));
+    tr("Fuzz packed_bitmap      (kein UB/OOB, Round-Trip 100%)",
+       fuzz_all_nodes<cl_::PackedBitmapMemoryLayout>("packed_bitmap"));
 
-    if (g_fail == 0) std::cout << "==== #167 5 reale Reps: ALLE OK ====\n";
-    else             std::cout << "==== #167: " << g_fail << " FEHLER ====\n";
+    if (g_fail == 0)
+        std::cout << "==== #167 5 reale Reps: ALLE OK ====\n";
+    else
+        std::cout << "==== #167: " << g_fail << " FEHLER ====\n";
     return g_fail == 0 ? 0 : 1;
 }

@@ -19,9 +19,9 @@
 // LEITPLANKEN: Lazy-Compile (1 DLL=1 TU) bleibt (SourceGen kommt aus dem profil-agnostischen source_catalog,
 // vom Caller injiziert); Two-Phasen-Warmup intakt (liegt im perm_runner). C++23, header-only.
 
-#include <builder/experiment_tree/experiment_tree.hpp>      // AxisLevel / DynamicDim / ExperimentTree / StaticBinaryView
-#include <builder/experiment_tree/profile_to_tree.hpp>       // build_axis_levels (die offizielle Bruecke)
-#include <builder/experiment_tree/coverage_selection.hpp>    // BuildSelection / select_explicit
+#include <builder/experiment_tree/experiment_tree.hpp>    // AxisLevel / DynamicDim / ExperimentTree / StaticBinaryView
+#include <builder/experiment_tree/profile_to_tree.hpp>    // build_axis_levels (die offizielle Bruecke)
+#include <builder/experiment_tree/coverage_selection.hpp> // BuildSelection / select_explicit
 #include <builder/build_orchestrator/build_orchestrator.hpp> // ex::SourceGenFn (make_union_source_gen-Signatur; war
                                                              //   bisher nur transitiv via cache_engine_builder_iterator
                                                              //   sichtbar → fehlte im profil-only-Include-Satz, #168)
@@ -59,13 +59,13 @@ namespace cx = ::comdare::builder::xml;
 /// (make_catalog_source_gen, source_catalog.hpp); `sota_by_view_id` = die SOTA-Reihen-Quellen, GEKEYT auf den
 /// VIEW-binary_id ("sota_tier=…", build_sota_view_source_map). Ein binary_id, der in KEINER der beiden Quellen
 /// liegt, liefert eine leere Quelle → der BuildOrchestrator markiert die DLL als nicht baubar (ehrlich sichtbar).
-[[nodiscard]] inline ex::SourceGenFn
-make_union_source_gen(ex::SourceGenFn catalog_gen, std::map<std::string, std::string> sota_by_view_id) {
-    return [catalog_gen = std::move(catalog_gen), sota = std::move(sota_by_view_id)]
-           (std::string const& binary_id) -> std::string {
-        std::string src = catalog_gen ? catalog_gen(binary_id) : std::string{};  // (1) Basis-320 (disjunkt)
+[[nodiscard]] inline ex::SourceGenFn make_union_source_gen(ex::SourceGenFn                    catalog_gen,
+                                                           std::map<std::string, std::string> sota_by_view_id) {
+    return [catalog_gen = std::move(catalog_gen),
+            sota        = std::move(sota_by_view_id)](std::string const& binary_id) -> std::string {
+        std::string src = catalog_gen ? catalog_gen(binary_id) : std::string{}; // (1) Basis-320 (disjunkt)
         if (!src.empty()) return src;
-        auto it = sota.find(binary_id);                                          // (2) SOTA-Reihen (disjunkt)
+        auto it = sota.find(binary_id); // (2) SOTA-Reihen (disjunkt)
         return it == sota.end() ? std::string{} : it->second;
     };
 }
@@ -77,14 +77,16 @@ make_union_source_gen(ex::SourceGenFn catalog_gen, std::map<std::string, std::st
 /// ist ENTFERNT. `with_dynamic=false` ⇒ es werden nur die STATISCHEN Ebenen zurueckgegeben (die dynamischen werden
 /// herausgefiltert) = die reine binary_id-Quelle fuer die Round-Trip-Gate. Die AxisRegistry expandiert leere
 /// <axis>-Listen (hier leer ⇒ die explizit deklarierten <value> aus dem Profil gewinnen → Pilot-Identitaet).
-[[nodiscard]] inline std::vector<ex::AxisLevel> build_profile_levels(
-        cx::ThesisProfile const& tp, std::string const& mode_name,
-        bool with_dynamic = true, ex::AxisRegistry const& registry = {}) {
-    std::vector<ex::AxisLevel> lv = ex::build_axis_levels(tp, mode_name, registry);  // EINZIGE Quelle (statisch+dyn)
+[[nodiscard]] inline std::vector<ex::AxisLevel> build_profile_levels(cx::ThesisProfile const& tp,
+                                                                     std::string const&       mode_name,
+                                                                     bool                     with_dynamic = true,
+                                                                     ex::AxisRegistry const&  registry     = {}) {
+    std::vector<ex::AxisLevel> lv = ex::build_axis_levels(tp, mode_name, registry); // EINZIGE Quelle (statisch+dyn)
     if (with_dynamic) return lv;
     std::vector<ex::AxisLevel> static_only;
     static_only.reserve(lv.size());
-    for (auto& l : lv) if (l.is_static) static_only.push_back(std::move(l));   // dyn-Dims herausfiltern
+    for (auto& l : lv)
+        if (l.is_static) static_only.push_back(std::move(l)); // dyn-Dims herausfiltern
     return static_only;
 }
 
@@ -114,26 +116,28 @@ make_union_source_gen(ex::SourceGenFn catalog_gen, std::map<std::string, std::st
 [[nodiscard]] inline std::vector<ex::AxisLevel> drop_tier_level(std::vector<ex::AxisLevel> levels) {
     std::vector<ex::AxisLevel> out;
     out.reserve(levels.size());
-    for (auto& l : levels) if (l.axis != "tier") out.push_back(std::move(l));
+    for (auto& l : levels)
+        if (l.axis != "tier") out.push_back(std::move(l));
     return out;
 }
 
 /// build_profile_basis_levels — der Gesamt-Level-Satz fuer den BASIS-320-Lauf: build_axis_levels(Profil) OHNE die
 /// tier-Ebene. = die EINE profil-getriebene AxisLevels-Quelle fuer den reinen Achsen-Permutations-Lauf. Die dyn.
 /// Dimensionen (with_dynamic) bleiben erhalten (sie veraendern die binary_id nicht — is_static=false).
-[[nodiscard]] inline std::vector<ex::AxisLevel> build_profile_basis_levels(
-        cx::ThesisProfile const& tp, std::string const& mode_name,
-        bool with_dynamic = true, ex::AxisRegistry const& registry = {}) {
+[[nodiscard]] inline std::vector<ex::AxisLevel> build_profile_basis_levels(cx::ThesisProfile const& tp,
+                                                                           std::string const&       mode_name,
+                                                                           bool                     with_dynamic = true,
+                                                                           ex::AxisRegistry const&  registry     = {}) {
     return drop_tier_level(build_profile_levels(tp, mode_name, with_dynamic, registry));
 }
 
 // ── (run_options) — die Lauf-Steuerung aus <run_options>. argv/env darf weiterhin uebersteuern (Rueckwaerts-
 //    Kompatibilitaet); diese Struct liefert die PROFIL-DEFAULTS, die der Treiber anwendet, wenn argv/env fehlt. ──
 struct ProfileRunOptions {
-    std::size_t cap           = 0;      // max_binaries-Obergrenze (0 = ungesetzt → Treiber-Default)
-    std::string platform;                // CSV-Tag platform
-    std::string build_version;           // CSV-Tag build_version
-    bool        resume        = true;    // Mess-Resume (#139)
+    std::size_t cap = 0;       // max_binaries-Obergrenze (0 = ungesetzt → Treiber-Default)
+    std::string platform;      // CSV-Tag platform
+    std::string build_version; // CSV-Tag build_version
+    bool        resume = true; // Mess-Resume (#139)
 };
 
 /// profile_run_options — liest die <run_options> des Profils in die Treiber-Defaults (cap/platform/build_version/
@@ -153,8 +157,8 @@ struct ProfileRunOptions {
     std::vector<std::uint64_t> ns;
     ns.reserve(tp.working_set_sweep.size());
     for (auto const& s : tp.working_set_sweep) {
-        char* end = nullptr;
-        std::uint64_t const v = std::strtoull(s.c_str(), &end, 10);
+        char*               end = nullptr;
+        std::uint64_t const v   = std::strtoull(s.c_str(), &end, 10);
         if (end != s.c_str() && v > 0) ns.push_back(v);
     }
     return ns;
@@ -166,63 +170,64 @@ struct ProfileRunOptions {
 
 /// profile_axis_level — der Level-Index einer Achse im (tier-freien) statischen AxisLevel-Satz. -1 wenn unbekannt.
 /// Single-Source: dieselbe Reihenfolge, die der StaticBinaryView verwendet (kCompositionAxisNames-Reihenfolge).
-[[nodiscard]] inline std::size_t profile_axis_level(
-        std::vector<ex::AxisLevel> const& static_basis_levels, std::string const& axis_name) {
+[[nodiscard]] inline std::size_t profile_axis_level(std::vector<ex::AxisLevel> const& static_basis_levels,
+                                                    std::string const&                axis_name) {
     std::size_t d = 0;
     for (auto const& l : static_basis_levels) {
-        if (!l.is_static) continue;          // nur statische Ebenen tragen die binary_id
+        if (!l.is_static) continue; // nur statische Ebenen tragen die binary_id
         if (l.axis == axis_name) return d;
         ++d;
     }
-    return static_cast<std::size_t>(-1);     // unbekannt → Caller verweigert (provenance-Marker)
+    return static_cast<std::size_t>(-1); // unbekannt → Caller verweigert (provenance-Marker)
 }
 
 // ── Ein getaggter profil-getriebener Selektions-Pass (BuildSelection + die 2 Klassen-Tags series/sweep_axis). ──
 struct ProfileTaggedSelection {
     ex::BuildSelection selection;
-    std::string        series     = "-";   // SOTA-Reihe (hier immer "-" — sota_series erst Inc5)
-    std::string        sweep_axis  = "-";   // gesweepte Achse oder "-" (Basis)
+    std::string        series     = "-"; // SOTA-Reihe (hier immer "-" — sota_series erst Inc5)
+    std::string        sweep_axis = "-"; // gesweepte Achse oder "-" (Basis)
     std::string        label;
 };
 
 /// profile_make_basis — BASIS-320: die ersten `cap` View-Indizes (voll-faktoriell, identisch zum heutigen
 /// "index"/make_basis-Modus). Tag series="-" sweep_axis="-". Reine explizite Index-Liste (kein Ad-hoc).
-[[nodiscard]] inline ProfileTaggedSelection profile_make_basis(
-        ex::StaticBinaryView const& view, std::size_t cap) {
-    std::size_t const n = (std::min)(cap, view.size());
+[[nodiscard]] inline ProfileTaggedSelection profile_make_basis(ex::StaticBinaryView const& view, std::size_t cap) {
+    std::size_t const        n = (std::min)(cap, view.size());
     std::vector<std::size_t> ids;
     ids.reserve(n);
     for (std::size_t i = 0; i < n; ++i) ids.push_back(i);
     ProfileTaggedSelection ts;
-    ts.selection = ex::select_explicit(std::move(ids));
-    ts.series = "-"; ts.sweep_axis = "-";
-    ts.label  = "basis-320";
+    ts.selection  = ex::select_explicit(std::move(ids));
+    ts.series     = "-";
+    ts.sweep_axis = "-";
+    ts.label      = "basis-320";
     return ts;
 }
 
 /// profile_make_axis_sweep — PER-ACHSEN-SWEEP gegen die feste Baseline (alle Ebenen Index 0) variiert GENAU die
 /// Achse `level_d` ueber ihre Ausprägungen (via StaticBinaryView::flat_index — Achsen-Austausch IM Praefixbaum).
 /// Funktional identisch zu m3v2::make_axis_sweep, aber der level_d kommt aus profile_axis_level (PROFIL-getrieben).
-[[nodiscard]] inline ProfileTaggedSelection profile_make_axis_sweep(
-        ex::StaticBinaryView const& view, std::size_t level_d,
-        std::string const& axis_name, std::size_t cap) {
+[[nodiscard]] inline ProfileTaggedSelection profile_make_axis_sweep(ex::StaticBinaryView const& view,
+                                                                    std::size_t level_d, std::string const& axis_name,
+                                                                    std::size_t cap) {
     ProfileTaggedSelection ts;
-    ts.series = "-"; ts.sweep_axis = axis_name;
-    ts.label  = "sweep:" + axis_name;
+    ts.series     = "-";
+    ts.sweep_axis = axis_name;
+    ts.label      = "sweep:" + axis_name;
     if (level_d == static_cast<std::size_t>(-1) || level_d >= view.level_count()) {
         ts.selection.provenance = "axis_sweep-REFUSED-no-such-level";
         return ts;
     }
-    std::size_t const k = view.level_size(level_d);
-    std::vector<std::size_t> tuple(view.level_count(), 0);   // Baseline: alle Achsen Index 0 (FESTE Baseline-Tier)
-    std::size_t const n = (std::min)(cap, k);
+    std::size_t const        k = view.level_size(level_d);
+    std::vector<std::size_t> tuple(view.level_count(), 0); // Baseline: alle Achsen Index 0 (FESTE Baseline-Tier)
+    std::size_t const        n = (std::min)(cap, k);
     std::vector<std::size_t> ids;
     ids.reserve(n);
     for (std::size_t v = 0; v < n; ++v) {
-        tuple[level_d] = v;                                  // NUR die eine Achse austauschen
-        ids.push_back(view.flat_index(tuple));               // Praefixbaum-Index (mixed-radix), kein Flach-Tupel
+        tuple[level_d] = v;                    // NUR die eine Achse austauschen
+        ids.push_back(view.flat_index(tuple)); // Praefixbaum-Index (mixed-radix), kein Flach-Tupel
     }
-    ts.selection = ex::select_explicit(std::move(ids));
+    ts.selection            = ex::select_explicit(std::move(ids));
     ts.selection.provenance = "axis_sweep:" + axis_name;
     return ts;
 }
@@ -233,21 +238,23 @@ struct ProfileTaggedSelection {
 ///                            wird ueber profile_axis_level aus den tier-freien Basis-Levels aufgeloest.
 /// Verweigert (provenance-Marker) wenn die Achse NICHT als <axis_sweep> deklariert ist (= profil-getrieben:
 /// nur deklarierte Sweeps sind waehlbar — die hartkodierte axis_to_level-Map ist ersetzt).
-[[nodiscard]] inline ProfileTaggedSelection profile_select(
-        cx::ThesisProfile const& tp,
-        std::vector<ex::AxisLevel> const& static_basis_levels,
-        ex::StaticBinaryView const& view,
-        std::string const& series_axis_or_empty,
-        std::size_t cap) {
+[[nodiscard]] inline ProfileTaggedSelection profile_select(cx::ThesisProfile const&          tp,
+                                                           std::vector<ex::AxisLevel> const& static_basis_levels,
+                                                           ex::StaticBinaryView const&       view,
+                                                           std::string const& series_axis_or_empty, std::size_t cap) {
     if (series_axis_or_empty.empty() || series_axis_or_empty == "basis" || series_axis_or_empty == "index")
         return profile_make_basis(view, cap);
     // Per-Achsen-Sweep: die Achse MUSS als <axis_sweep> deklariert sein (profil-getriebene Whitelist).
     bool declared = false;
-    for (auto const& sw : tp.axis_sweeps) if (sw.axis == series_axis_or_empty) { declared = true; break; }
+    for (auto const& sw : tp.axis_sweeps)
+        if (sw.axis == series_axis_or_empty) {
+            declared = true;
+            break;
+        }
     ProfileTaggedSelection ts;
     if (!declared) {
-        ts.sweep_axis = series_axis_or_empty;
-        ts.label = "sweep:" + series_axis_or_empty;
+        ts.sweep_axis           = series_axis_or_empty;
+        ts.label                = "sweep:" + series_axis_or_empty;
         ts.selection.provenance = "axis_sweep-REFUSED-not-declared-in-profile";
         return ts;
     }
@@ -255,4 +262,4 @@ struct ProfileTaggedSelection {
     return profile_make_axis_sweep(view, level_d, series_axis_or_empty, cap);
 }
 
-}  // namespace comdare::cache_engine::thesis_lazy
+} // namespace comdare::cache_engine::thesis_lazy

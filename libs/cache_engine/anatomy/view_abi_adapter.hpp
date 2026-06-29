@@ -22,16 +22,18 @@ class ViewAbiAdapter final : public IAnatomyBase, public IViewTier {
 public:
     [[nodiscard]] std::string_view engine_name() const noexcept override { return A::composition_name(); }
     [[nodiscard]] ::comdare::cache_engine::execution_engine::EngineLifecycleState
-    lifecycle_state() const noexcept override { return state_; }
-    void warm_up()  override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Warming; }
-    void run()      override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Running; }
-    void reset()    override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Idle; }
+    lifecycle_state() const noexcept override {
+        return state_;
+    }
+    void warm_up() override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Warming; }
+    void run() override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Running; }
+    void reset() override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Idle; }
     void shutdown() override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Shutdown; }
 
     [[nodiscard]] std::string_view composition_name() const noexcept override { return A::composition_name(); }
-    [[nodiscard]] std::string_view paper_id()         const noexcept override { return A::paper_id(); }
-    [[nodiscard]] AnatomyGenus     genus()            const noexcept override { return A::genus(); }
-    [[nodiscard]] std::size_t      organ_count()      const noexcept override { return A::organ_count(); }
+    [[nodiscard]] std::string_view paper_id() const noexcept override { return A::paper_id(); }
+    [[nodiscard]] AnatomyGenus     genus() const noexcept override { return A::genus(); }
+    [[nodiscard]] std::size_t      organ_count() const noexcept override { return A::organ_count(); }
 
     void tier_bind(std::uint64_t const* data, std::uint64_t size) noexcept override {
         anatomy_.bind(data, static_cast<std::size_t>(size));
@@ -49,20 +51,20 @@ public:
     void tier_observe_view(ViewObserverSnapshotV1* out) const noexcept override {
         if (out == nullptr) return;
         ViewObserverSnapshot const s = anatomy_.observe_all();
-        ViewObserverSnapshotV1 v{};
+        ViewObserverSnapshotV1     v{};
         v.read_count            = s.read_count;
         v.read_oob_count        = s.read_oob_count;
         v.bound_size            = s.bound_size;
         v.bind_count            = s.bind_count;
-        v.observable_axis_count = 2;   // R5.B ehrlich: axis_layout + axis_accessor real getrieben
+        v.observable_axis_count = 2; // R5.B ehrlich: axis_layout + axis_accessor real getrieben
         v.organ_count           = A::organ_count();
-        *out = v;
+        *out                    = v;
     }
 
 private:
-    A anatomy_{};
+    A                                                               anatomy_{};
     ::comdare::cache_engine::execution_engine::EngineLifecycleState state_{
         ::comdare::cache_engine::execution_engine::EngineLifecycleState::Uninitialized};
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

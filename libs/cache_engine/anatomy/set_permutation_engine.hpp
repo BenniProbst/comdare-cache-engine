@@ -14,10 +14,10 @@
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §29.2 + §32.3
 // @related [[anatomie-gattungen]] [[gattungs-constraint-pruefling-merge]] [[technical-identifiers-over-metaphor]]
 
-#include "anatomy_base.hpp"        // AnatomyGenus
-#include "set_composition.hpp"     // SetComposition / IsSetComposition
-#include "set_anatomy.hpp"         // SetAnatomy
-#include "pruefling_merge.hpp"     // PrueflingSlotConcept / IsSlotOfGenus_v
+#include "anatomy_base.hpp"    // AnatomyGenus
+#include "set_composition.hpp" // SetComposition / IsSetComposition
+#include "set_anatomy.hpp"     // SetAnatomy
+#include "pruefling_merge.hpp" // PrueflingSlotConcept / IsSlotOfGenus_v
 
 #include <src/permutations/permutation_engine.hpp>
 
@@ -31,14 +31,16 @@ namespace pf = ::comdare::cache_engine::anatomy::pruefling;
 
 // ── (1) Composition-Factory: PermTuple<V0..V14> → SetComposition (Set-Gattungs-Arität = 15) ──
 namespace detail {
-template <class PermT> struct SetCompositionFromPermTupleImpl;
+template <class PermT>
+struct SetCompositionFromPermTupleImpl;
 template <template <class...> class PermTupleTmpl, class... Vs>
 struct SetCompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
-    static_assert(sizeof...(Vs) == 15,
+    static_assert(
+        sizeof...(Vs) == 15,
         "Set-PermTuple muss exakt 15 Achsen-Werte enthalten (Set-Gattung K-only, kein mapping/value_handle).");
     using type = SetComposition<Vs...>;
 };
-}  // namespace detail
+} // namespace detail
 
 /// SetCompositionFromPermTuple<PermT> — materialisiert eine SetComposition aus einem 15-Slot-PermTuple.
 template <class PermT>
@@ -53,7 +55,7 @@ class SetPermutationEngine {
 
 public:
     static constexpr AnatomyGenus genus = AnatomyGenus::Set;
-    using all_permutations = typename Engine::AllPermutations;
+    using all_permutations              = typename Engine::AllPermutations;
 
     [[nodiscard]] static constexpr std::size_t count() noexcept { return Engine::count(); }
     [[nodiscard]] static constexpr std::size_t arity() noexcept { return Engine::arity; }
@@ -74,7 +76,7 @@ public:
     /// for_each_set — iteriert über alle Permutationen, instantiiert SetAnatomy<SetComp> + ruft Visitor(anatomy, name).
     template <class Visitor>
     static constexpr void for_each_set(Visitor&& v) {
-        Engine::for_each_permutation([&]<class P>(){
+        Engine::for_each_permutation([&]<class P>() {
             using SetComp = SetCompositionFromPermTuple<P>;
             SetAnatomy<SetComp> anatomy;
             std::forward<Visitor>(v)(anatomy, SetComp::name);
@@ -84,11 +86,11 @@ public:
     /// for_each_composition_type — Compile-Time-Visitor pro Set-Composition-Type (für CacheEngineBuilder-Codegen).
     template <class Visitor>
     static constexpr void for_each_composition_type(Visitor&& v) {
-        Engine::for_each_permutation([&]<class P>(){
+        Engine::for_each_permutation([&]<class P>() {
             using SetComp = SetCompositionFromPermTuple<P>;
             std::forward<Visitor>(v).template operator()<SetComp>();
         });
     }
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

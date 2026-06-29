@@ -41,13 +41,13 @@
 //   • private Member (~:1631)         — container_ (LayoutAwareChunkedStore<N,L,A>, ~:1680) + Mess-Organe + state_
 
 #include "anatomy_base.hpp"
-#include "measurable_workload.hpp"   // F15/Stufe B: optionales Mess-Sub-Interface (ABI-sicher)
-#include "observable_tier.hpp"       // R6/Pfad B: ABI-stabiler Observer-Zugriff (Doku 24 §8.6)
-#include "rollbackable_tier.hpp"     // V5-I6: memento_all-ABI-Sub-Interface (tier_save_all/tier_rollback_all)
-#include "scannable_tier.hpp"        // V5-#49-E: Range-Scan-ABI-Sub-Interface (tier_scan, YCSB-E)
-#include "resource_controllable_tier.hpp"  // KF-4/L-MEAS: Laufzeit-Steuer-Sub-Interface (IMMER, nicht messungs-gated)
-#include "observer_aggregate.hpp"    // ObservableAxis + ObserverAggregate (observable_count)
-#include "memento_aggregate.hpp"     // V5-I6-SUBSTANZ (#44): MementoAxis + save_axis/restore_axis (per-Achsen-Memento)
+#include "measurable_workload.hpp"        // F15/Stufe B: optionales Mess-Sub-Interface (ABI-sicher)
+#include "observable_tier.hpp"            // R6/Pfad B: ABI-stabiler Observer-Zugriff (Doku 24 §8.6)
+#include "rollbackable_tier.hpp"          // V5-I6: memento_all-ABI-Sub-Interface (tier_save_all/tier_rollback_all)
+#include "scannable_tier.hpp"             // V5-#49-E: Range-Scan-ABI-Sub-Interface (tier_scan, YCSB-E)
+#include "resource_controllable_tier.hpp" // KF-4/L-MEAS: Laufzeit-Steuer-Sub-Interface (IMMER, nicht messungs-gated)
+#include "observer_aggregate.hpp"         // ObservableAxis + ObserverAggregate (observable_count)
+#include "memento_aggregate.hpp" // V5-I6-SUBSTANZ (#44): MementoAxis + save_axis/restore_axis (per-Achsen-Memento)
 #include "../execution_engine/execution_engine_base.hpp"
 // R6 Inkrement 2b: die allocator-Achse im Cross-ABI-Observer-POD — der ComposedStore<N,L,A>-Vector-Growth
 // treibt die Allocator-Statistik REAL (2. Mess-Achse, spiegelt builder/AnatomyExecutionContext). Da der
@@ -58,8 +58,8 @@
 #include <axes/lookup/composable/store_traversable_search_algo.hpp>
 #include <axes/lookup/composable/traversal_for_search_algo.hpp>
 #include "../topics/nodes/axis_04_node_type/axis_04_node_type_composed_store.hpp"
-#include "../axes/node/axis_04_node_type_chunked_store.hpp"   // Audit-30 Fix Q2: node-WIRKSamer Store (Delegation)
-#include "../axes/node/axis_04_node_type_layout_aware_store.hpp"  // Plan v2 S1: layout-honorierender Store (CLA-Stride echt, OOB behoben)
+#include "../axes/node/axis_04_node_type_chunked_store.hpp" // Audit-30 Fix Q2: node-WIRKSamer Store (Delegation)
+#include "../axes/node/axis_04_node_type_layout_aware_store.hpp" // Plan v2 S1: layout-honorierender Store (CLA-Stride echt, OOB behoben)
 // (X): ByteWiseKeyPrefix als kanonisches T3-Mess-Organ — IMMER deklariert (auch wenn die Composition
 // PatriciaPathCompression/PathCompressionNone trägt; der `else`-Zweig der T3-Treibe-Op qualifiziert den Namen).
 #include "../axes/path_compression/axis_02_path_compression_byte_wise.hpp"
@@ -87,21 +87,21 @@
 #include "../axes/migration_policy/axis_migration_observable.hpp"
 #include "../axes/filter_axis/axis_filter_observable.hpp"
 
-#include <algorithm>     // STL-Algorithmen (transitiv von Achsen-/Composition-Headern; #214 verlagerte std::sort aus tier_scan nach composable_search.hpp::scan_into)
+#include <algorithm> // STL-Algorithmen (transitiv von Achsen-/Composition-Headern; #214 verlagerte std::sort aus tier_scan nach composable_search.hpp::scan_into)
 #include <array>
 #include <chrono>
-#include <cstring>       // (X) std::memcpy in den 19-Segment-Treibe-Ops
+#include <cstring> // (X) std::memcpy in den 19-Segment-Treibe-Ops
 #if defined(_M_X64) || defined(__x86_64__)
-#include <xmmintrin.h>   // (X) _mm_prefetch für das T7-Prefetch-Segment (MSVC/x86_64-Mess-Build)
+#include <xmmintrin.h> // (X) _mm_prefetch für das T7-Prefetch-Segment (MSVC/x86_64-Mess-Build)
 #endif
 #include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <random>
 #include <string_view>
-#include <type_traits>   // V5-I6: is_copy_constructible/assignable-Guards für die In-Memory-Memento-Kopie
-#include <utility>       // #133 CoW-Memento: std::declval im OrganStatsSnap-Typ-Extrakt
-#include <vector>        // keys-Ernte (Per-Achsen-Seg-Timing) + Memento-Snapshot-Listen (save_state)
+#include <type_traits> // V5-I6: is_copy_constructible/assignable-Guards für die In-Memory-Memento-Kopie
+#include <utility>     // #133 CoW-Memento: std::declval im OrganStatsSnap-Typ-Extrakt
+#include <vector>      // keys-Ernte (Per-Achsen-Seg-Timing) + Memento-Snapshot-Listen (save_state)
 
 namespace comdare::cache_engine::anatomy {
 
@@ -141,21 +141,22 @@ namespace comdare::cache_engine::anatomy {
 /// (warm_up/run/reset/shutdown) setzen NUR `state_` (kein eigener Preheat). Die echte
 /// Mess-Last/Bulk-Load laeuft separat ueber den Workload-Treiber (run_workload, s.u. IMeasurableWorkload).
 template <AnatomyConcept A>
-class SearchAlgorithmAbiAdapter final : public IAnatomyBase,
-                                        public IResourceControllableTier,   // KF-4/L-MEAS: IMMER (auch Messung-aus), eigenständiges Sub-Interface (dynamic_cast)
+class SearchAlgorithmAbiAdapter final
+    : public IAnatomyBase,
+      public IResourceControllableTier, // KF-4/L-MEAS: IMMER (auch Messung-aus), eigenständiges Sub-Interface (dynamic_cast)
 // V5-I2.2/I6: Antrieb ⊥ Observer ⊥ Memento compile-time disjunkt (kein Diamond — IObservableTier/IRollbackableTier IS-A nichts Gemeinsames; IDriveableTier kommt über IObservableTier).
 //   MESSUNG-AN  : IObservableTier (Antrieb + tier_observe/observer_all) + IMeasurableWorkload (Pfad-A, host-relokal. I9) + IRollbackableTier (memento_all, V5-I6) + IScannableTier (Range-Scan, V5-#49-E).
 //   MESSUNG-AUS : NUR IDriveableTier (funktionaler Antrieb) → Release-/funktional-only-DLL OHNE jeden Mess-Overhead (kein Observer-, kein Memento-, kein Scan-vtable-Slot).
 #if COMDARE_MEASUREMENT_ON
-                                        public IObservableTier,   // I1: GENAU EINE Observer-Schnittstelle (V2/V3/V4 konsolidiert, s. docs/architecture/31_*)
-                                        public IMeasurableWorkload,
-                                        public IMeasurableWorkloadV2,  // (C-2): eigenständiges V2-Sub-Interface — per-Segment-Timer (4 Achsen)
-                                        public IMeasurableWorkloadV3,  // (X): eigenständiges V3-Sub-Interface — per-Segment-Timer ALLER 19 Achsen
-                                        public IRollbackableTier,
-                                        public IMigratableTier,   // P4 (#123): ECHTER 2-Ebenen-Migrations-Schritt (tier_moves real > 0)
-                                        public IScannableTier {
+      public IObservableTier, // I1: GENAU EINE Observer-Schnittstelle (V2/V3/V4 konsolidiert, s. docs/architecture/31_*)
+      public IMeasurableWorkload,
+      public IMeasurableWorkloadV2, // (C-2): eigenständiges V2-Sub-Interface — per-Segment-Timer (4 Achsen)
+      public IMeasurableWorkloadV3, // (X): eigenständiges V3-Sub-Interface — per-Segment-Timer ALLER 19 Achsen
+      public IRollbackableTier,
+      public IMigratableTier, // P4 (#123): ECHTER 2-Ebenen-Migrations-Schritt (tier_moves real > 0)
+      public IScannableTier {
 #else
-                                        public IDriveableTier {
+      public IDriveableTier {
 #endif
     static_assert(A::genus() == AnatomyGenus::SearchAlgorithm,
                   "SearchAlgorithmAbiAdapter erwartet eine SearchAlgorithm-Gattung-"
@@ -167,31 +168,21 @@ public:
     // IExecutionEngine-Pflicht-Override (R5.C.A2 Wurzel-Schicht)
     // ─────────────────────────────────────────────────────────────────────
 
-    [[nodiscard]] std::string_view engine_name() const noexcept override {
-        return A::composition_name();
-    }
+    [[nodiscard]] std::string_view engine_name() const noexcept override { return A::composition_name(); }
 
     [[nodiscard]] ::comdare::cache_engine::execution_engine::EngineLifecycleState
     lifecycle_state() const noexcept override {
         return state_;
     }
 
-    void warm_up() override {
-        state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Warming;
-    }
+    void warm_up() override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Warming; }
 
     /// R5.C.A4: Mess-Phase aktivieren — Lifecycle Warming/Idle → Running.
-    void run() override {
-        state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Running;
-    }
+    void run() override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Running; }
 
-    void reset() override {
-        state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Idle;
-    }
+    void reset() override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Idle; }
 
-    void shutdown() override {
-        state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Shutdown;
-    }
+    void shutdown() override { state_ = ::comdare::cache_engine::execution_engine::EngineLifecycleState::Shutdown; }
 
     // ─────────────────────────────────────────────────────────────────────
     // KF-4 / L-MEAS — IResourceControllableTier (IMMER verfügbar, auch Messung-aus). Die SearchAlgorithm-Gattungs-
@@ -201,26 +192,29 @@ public:
     // ─────────────────────────────────────────────────────────────────────
     void tier_query_resource_caps(ComdareResourceControlV1* out_caps) const noexcept override {
         if (out_caps == nullptr) return;
-        *out_caps = ComdareResourceControlV1{};
-        out_caps->thread_count            = 64;                          // concurrency (axis_08)
-        out_caps->prefetch_distance       = 64;                          // prefetch (axis_07), in Cache-Lines
-        out_caps->pool_budget_bytes       = (std::uint64_t{1} << 30);    // allocator (axis_06), 1 GiB Arena-Obergrenze
-        out_caps->batch_size              = 4096;                        // traversal (axis_03a) Working-Set
-        out_caps->inline_threshold_bytes  = 256;                         // value_handle (axis_14)
-        out_caps->controllable_axis_count = 5;                           // genus-invariant: 5 steuerbare Achsen
+        *out_caps                         = ComdareResourceControlV1{};
+        out_caps->thread_count            = 64;                       // concurrency (axis_08)
+        out_caps->prefetch_distance       = 64;                       // prefetch (axis_07), in Cache-Lines
+        out_caps->pool_budget_bytes       = (std::uint64_t{1} << 30); // allocator (axis_06), 1 GiB Arena-Obergrenze
+        out_caps->batch_size              = 4096;                     // traversal (axis_03a) Working-Set
+        out_caps->inline_threshold_bytes  = 256;                      // value_handle (axis_14)
+        out_caps->controllable_axis_count = 5;                        // genus-invariant: 5 steuerbare Achsen
     }
     [[nodiscard]] std::uint64_t tier_apply_resource_control(ComdareResourceControlV1 const* in) noexcept override {
         if (in == nullptr) return 0;
         ComdareResourceControlV1 caps{};
         tier_query_resource_caps(&caps);
         std::uint64_t applied = 0;
-        auto apply1 = [&applied](std::uint64_t v, std::uint64_t cap, std::uint64_t& dst) noexcept {
-            if (v != 0) { dst = (cap != 0 && v > cap) ? cap : v; ++applied; }  // 0 = Default beibehalten; sonst an cap klammern
+        auto          apply1  = [&applied](std::uint64_t v, std::uint64_t cap, std::uint64_t& dst) noexcept {
+            if (v != 0) {
+                dst = (cap != 0 && v > cap) ? cap : v;
+                ++applied;
+            } // 0 = Default beibehalten; sonst an cap klammern
         };
-        apply1(in->thread_count,           caps.thread_count,           applied_rc_.thread_count);
-        apply1(in->prefetch_distance,      caps.prefetch_distance,      applied_rc_.prefetch_distance);
-        apply1(in->pool_budget_bytes,      caps.pool_budget_bytes,      applied_rc_.pool_budget_bytes);
-        apply1(in->batch_size,             caps.batch_size,             applied_rc_.batch_size);
+        apply1(in->thread_count, caps.thread_count, applied_rc_.thread_count);
+        apply1(in->prefetch_distance, caps.prefetch_distance, applied_rc_.prefetch_distance);
+        apply1(in->pool_budget_bytes, caps.pool_budget_bytes, applied_rc_.pool_budget_bytes);
+        apply1(in->batch_size, caps.batch_size, applied_rc_.batch_size);
         apply1(in->inline_threshold_bytes, caps.inline_threshold_bytes, applied_rc_.inline_threshold_bytes);
         return applied;
     }
@@ -229,28 +223,22 @@ public:
     // IAnatomyBase-Pflicht-Override (R5.C.A Anatomie-Schicht)
     // ─────────────────────────────────────────────────────────────────────
 
-    [[nodiscard]] std::string_view composition_name() const noexcept override {
-        return A::composition_name();
-    }
+    [[nodiscard]] std::string_view composition_name() const noexcept override { return A::composition_name(); }
 
-    [[nodiscard]] std::string_view paper_id() const noexcept override {
-        return A::paper_id();
-    }
+    [[nodiscard]] std::string_view paper_id() const noexcept override { return A::paper_id(); }
 
-    [[nodiscard]] AnatomyGenus genus() const noexcept override {
-        return A::genus();
-    }
+    [[nodiscard]] AnatomyGenus genus() const noexcept override { return A::genus(); }
 
-    [[nodiscard]] std::size_t organ_count() const noexcept override {
-        return A::organ_count();
-    }
+    [[nodiscard]] std::size_t organ_count() const noexcept override { return A::organ_count(); }
 
     // ─────────────────────────────────────────────────────────────────────
     // IMeasurableWorkload-Override (F15 / Stufe B): Mess-Last DURCH die DLL
     // ─────────────────────────────────────────────────────────────────────
 
     // (C-2): Akkumulator der 4 per-Segment-ns über die Batches (nur Mess-Hilfsstruktur, quert die ABI NICHT).
-    struct SegmentAccumulator { std::int64_t s1 = 0, s2 = 0, s3 = 0, s4 = 0; };
+    struct SegmentAccumulator {
+        std::int64_t s1 = 0, s2 = 0, s3 = 0, s4 = 0;
+    };
 
     /// KOMPOSIT-Mess-Last (R5.B, F15 Stufe B) — uebt VIER Achsen der geladenen Komposition aus:
     ///   Segment 1: insert/lookup auf A::composition_t::search_algo  (search_algo-Achse)
@@ -262,31 +250,25 @@ public:
     /// Alle vier kompiliert IN der DLL; die Batch-Latenz misst die GANZE Komposition entlang der
     /// variierten Achsen. F15s paarweiser Holm-Test isoliert jede Achse (Paare, die sich nur in einer
     /// Achse unterscheiden) — Dominanz/Balance der Segmente ist dafuer irrelevant.
-#if COMDARE_MEASUREMENT_ON   // V5-I2.2: Pfad-A run_workload NUR bei Messung-AN (V3-Designfehler; host-relokalisiert in I9)
-    [[nodiscard]] std::uint64_t run_workload(std::uint64_t ops_per_batch,
-                                             std::uint64_t batches,
-                                             std::uint64_t seed,
+#if COMDARE_MEASUREMENT_ON // V5-I2.2: Pfad-A run_workload NUR bei Messung-AN (V3-Designfehler; host-relokalisiert in I9)
+    [[nodiscard]] std::uint64_t run_workload(std::uint64_t ops_per_batch, std::uint64_t batches, std::uint64_t seed,
                                              std::int64_t* out_latencies_ns,
                                              std::uint64_t out_capacity) noexcept override {
-        if (out_latencies_ns == nullptr || out_capacity == 0 || batches == 0 || ops_per_batch == 0) {
-            return 0;
-        }
+        if (out_latencies_ns == nullptr || out_capacity == 0 || batches == 0 || ops_per_batch == 0) { return 0; }
         try {
             using SearchAlgo = typename A::composition_t::search_algo;
-            using Allocator  = typename A::composition_t::allocator;       // R5.B: 2. operative Achse
-            using MemLayout  = typename A::composition_t::memory_layout;   // R5.B: 3. operative Achse
-            using Serializer = typename A::composition_t::serialization;   // R5.B: 4. operative Achse (axis_10)
+            using Allocator  = typename A::composition_t::allocator;     // R5.B: 2. operative Achse
+            using MemLayout  = typename A::composition_t::memory_layout; // R5.B: 3. operative Achse
+            using Serializer = typename A::composition_t::serialization; // R5.B: 4. operative Achse (axis_10)
             using K          = typename SearchAlgo::key_type;
             SearchAlgo algo;
-            for (int k = 0; k < 256; ++k) {
-                algo.insert(static_cast<K>(k), static_cast<std::uint64_t>(k) * 7u + 1u);
-            }
-            Allocator alloc;                              // Komposition-Allocator (persistiert ueber Batches)
-            constexpr std::size_t kChurn = 2048;          // moderate alloc/dealloc-Last je Batch
-            constexpr std::size_t kAlign = 16;
+            for (int k = 0; k < 256; ++k) { algo.insert(static_cast<K>(k), static_cast<std::uint64_t>(k) * 7u + 1u); }
+            Allocator                 alloc;         // Komposition-Allocator (persistiert ueber Batches)
+            constexpr std::size_t     kChurn = 2048; // moderate alloc/dealloc-Last je Batch
+            constexpr std::size_t     kAlign = 16;
             std::array<void*, kChurn> blocks{};
-            auto const churn_size = [](std::size_t j) noexcept {
-                return std::size_t{16} + ((j * 16u) & 0xF0u);  // 16..256 Bytes, deterministisch
+            auto const                churn_size = [](std::size_t j) noexcept {
+                return std::size_t{16} + ((j * 16u) & 0xF0u); // 16..256 Bytes, deterministisch
             };
             // Layout-Scan-Puffer (Segment 3): 16384 Datensaetze. LAYOUT-FIX (X-§4, 2026-06-04): kRecordSize=48
             // (NICHT 64) — sonst fiele cache_line_aligned (aligned_stride=round_up(48,64)=64) mit aos_strict
@@ -296,7 +278,8 @@ public:
             // (kRecords-1)*64+4 über das Ende hinaus. EINMAL via Komposition-Allocator alloziert (Setup, NICHT gemessen).
             constexpr std::size_t kRecords    = 16384;
             constexpr std::size_t kRecordSize = 48;
-            constexpr std::size_t kLbufBytes  = kRecords * 64;   // OOB-Schutz: größtmöglicher Layout-Stride (64), nicht kRecordSize
+            constexpr std::size_t kLbufBytes =
+                kRecords * 64; // OOB-Schutz: größtmöglicher Layout-Stride (64), nicht kRecordSize
             unsigned char* lbuf = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
             for (std::size_t i = 0; i < kLbufBytes; ++i) lbuf[i] = static_cast<unsigned char>(i * 31u + 7u);
             std::mt19937_64 rng{seed};
@@ -307,8 +290,8 @@ public:
             // (nur 4 statt 1 now()-Paar je Batch — vernachlässigbar gegenüber den Segment-Schleifen).
             auto do_batch = [&](SegmentAccumulator* seg) -> std::int64_t {
                 std::uint64_t sink = 0;
-                using clock = std::chrono::steady_clock;
-                auto seg_ns = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
+                using clock        = std::chrono::steady_clock;
+                auto seg_ns        = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
                     return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
                 };
                 // Segment 1: search_algo-Achse (Lookups auf der geladenen Such-Struktur)
@@ -320,14 +303,12 @@ public:
                 auto const s1b = clock::now();
                 // Segment 2: allocator-Achse (alloc N → touch → dealloc N; Pool reused Free-Lists)
                 for (std::size_t j = 0; j < kChurn; ++j) {
-                    void* p = alloc.allocate(churn_size(j), kAlign);
-                    *static_cast<unsigned char*>(p) = static_cast<unsigned char>(j);  // touch
+                    void* p                         = alloc.allocate(churn_size(j), kAlign);
+                    *static_cast<unsigned char*>(p) = static_cast<unsigned char>(j); // touch
                     sink += *static_cast<unsigned char*>(p);
                     blocks[j] = p;
                 }
-                for (std::size_t j = 0; j < kChurn; ++j) {
-                    alloc.deallocate(blocks[j], churn_size(j), kAlign);
-                }
+                for (std::size_t j = 0; j < kChurn; ++j) { alloc.deallocate(blocks[j], churn_size(j), kAlign); }
                 auto const s2b = clock::now();
                 // Segment 3: memory_layout-Achse (Feld-Scan im layout-charakteristischen Zugriffsmuster)
                 sink += MemLayout::scan_field_sum(lbuf, kRecords, kRecordSize);
@@ -335,31 +316,35 @@ public:
                 // Segment 4: serialization-Achse (Encode-Scan im strategie-charakteristischen CPU-Aufwand:
                 // raw=Byte-Sum < compressed=Delta+Zigzag < var_len=LEB128 < succinct=Bit-Packing). Doku 22 §4.
                 sink += Serializer::serialize_scan(lbuf, kRecords, kRecordSize);
-                auto const s4b = clock::now();
+                auto const         s4b  = clock::now();
                 std::int64_t const seg1 = seg_ns(s1a, s1b);
                 std::int64_t const seg2 = seg_ns(s1b, s2b);
                 std::int64_t const seg3 = seg_ns(s2b, s3b);
                 std::int64_t const seg4 = seg_ns(s3b, s4b);
-                if (seg != nullptr) { seg->s1 += seg1; seg->s2 += seg2; seg->s3 += seg3; seg->s4 += seg4; }
+                if (seg != nullptr) {
+                    seg->s1 += seg1;
+                    seg->s2 += seg2;
+                    seg->s3 += seg3;
+                    seg->s4 += seg4;
+                }
                 std::int64_t const ns = seg1 + seg2 + seg3 + seg4;
-                return (sink == ~0ull) ? (ns ^ 1) : ns;  // sink-Nutzung gegen Wegoptimierung
+                return (sink == ~0ull) ? (ns ^ 1) : ns; // sink-Nutzung gegen Wegoptimierung
             };
-            do_batch(nullptr);  // Warmup (verworfen)
+            do_batch(nullptr); // Warmup (verworfen)
             std::uint64_t const n = (batches < out_capacity) ? batches : out_capacity;
             for (std::uint64_t b = 0; b < n; ++b) out_latencies_ns[b] = do_batch(nullptr);
-            alloc.deallocate(lbuf, kLbufBytes, 64);   // Layout-Puffer freigeben
+            alloc.deallocate(lbuf, kLbufBytes, 64); // Layout-Puffer freigeben
             return n;
         } catch (...) {
-            return 0;  // noexcept-Vertrag: interne Exception (z.B. OOM) → 0 Samples
+            return 0; // noexcept-Vertrag: interne Exception (z.B. OOM) → 0 Samples
         }
     }
 
     // (C-2): per-Segment-Timer-Variante. EXAKT derselbe 4-Segment-do_batch wie run_workload, aber je Segment
     // ein eigener steady_clock-Timer, über die batches AUFSUMMIERT → echte per-Achsen-Zeit für genau die 4
     // run_workload-getriebenen Achsen (search_algo/allocator/memory_layout/serialization). COMDARE_MEASUREMENT_ON-gegated.
-    [[nodiscard]] std::uint64_t run_workload_segmented(std::uint64_t ops_per_batch,
-                                                       std::uint64_t batches,
-                                                       std::uint64_t seed,
+    [[nodiscard]] std::uint64_t run_workload_segmented(std::uint64_t ops_per_batch, std::uint64_t batches,
+                                                       std::uint64_t            seed,
                                                        ComdareSegmentLatencyV1* out) noexcept override {
         if (out == nullptr) return 0;
         *out = ComdareSegmentLatencyV1{};
@@ -371,23 +356,19 @@ public:
             using Serializer = typename A::composition_t::serialization;
             using K          = typename SearchAlgo::key_type;
             SearchAlgo algo;
-            for (int k = 0; k < 256; ++k) {
-                algo.insert(static_cast<K>(k), static_cast<std::uint64_t>(k) * 7u + 1u);
-            }
-            Allocator alloc;
-            constexpr std::size_t kChurn = 2048;
-            constexpr std::size_t kAlign = 16;
+            for (int k = 0; k < 256; ++k) { algo.insert(static_cast<K>(k), static_cast<std::uint64_t>(k) * 7u + 1u); }
+            Allocator                 alloc;
+            constexpr std::size_t     kChurn = 2048;
+            constexpr std::size_t     kAlign = 16;
             std::array<void*, kChurn> blocks{};
-            auto const churn_size = [](std::size_t j) noexcept {
-                return std::size_t{16} + ((j * 16u) & 0xF0u);
-            };
+            auto const churn_size = [](std::size_t j) noexcept { return std::size_t{16} + ((j * 16u) & 0xF0u); };
             // LAYOUT-FIX (X-§4): kRecordSize=48 + kLbufBytes nach größtmöglichem Layout-Stride (64) dimensioniert
             // (OOB-Schutz), identisch zu run_workload. So differenziert die memory_layout-Achse aos_strict(48) vs
             // cache_line_aligned(64).
             constexpr std::size_t kRecords    = 16384;
             constexpr std::size_t kRecordSize = 48;
-            constexpr std::size_t kLbufBytes  = kRecords * 64;   // OOB-Schutz: größtmöglicher Layout-Stride (64)
-            unsigned char* lbuf = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
+            constexpr std::size_t kLbufBytes  = kRecords * 64; // OOB-Schutz: größtmöglicher Layout-Stride (64)
+            unsigned char*        lbuf        = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
             for (std::size_t i = 0; i < kLbufBytes; ++i) lbuf[i] = static_cast<unsigned char>(i * 31u + 7u);
             std::mt19937_64 rng{seed};
             using clock = std::chrono::steady_clock;
@@ -395,8 +376,8 @@ public:
                 return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
             };
             SegmentAccumulator acc{};
-            std::uint64_t sink = 0;
-            auto do_seg_batch = [&]() {
+            std::uint64_t      sink         = 0;
+            auto               do_seg_batch = [&]() {
                 auto const s1a = clock::now();
                 for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
                     auto v = algo.lookup(static_cast<K>(rng() & 0xFFu));
@@ -404,7 +385,7 @@ public:
                 }
                 auto const s1b = clock::now();
                 for (std::size_t j = 0; j < kChurn; ++j) {
-                    void* p = alloc.allocate(churn_size(j), kAlign);
+                    void* p                         = alloc.allocate(churn_size(j), kAlign);
                     *static_cast<unsigned char*>(p) = static_cast<unsigned char>(j);
                     sink += *static_cast<unsigned char*>(p);
                     blocks[j] = p;
@@ -415,14 +396,16 @@ public:
                 auto const s3b = clock::now();
                 sink += Serializer::serialize_scan(lbuf, kRecords, kRecordSize);
                 auto const s4b = clock::now();
-                acc.s1 += seg_ns(s1a, s1b); acc.s2 += seg_ns(s1b, s2b);
-                acc.s3 += seg_ns(s2b, s3b); acc.s4 += seg_ns(s3b, s4b);
+                acc.s1 += seg_ns(s1a, s1b);
+                acc.s2 += seg_ns(s1b, s2b);
+                acc.s3 += seg_ns(s2b, s3b);
+                acc.s4 += seg_ns(s3b, s4b);
             };
-            do_seg_batch();        // Warmup (verworfen) — acc zurücksetzen
+            do_seg_batch(); // Warmup (verworfen) — acc zurücksetzen
             acc = SegmentAccumulator{};
             for (std::uint64_t b = 0; b < batches; ++b) do_seg_batch();
             alloc.deallocate(lbuf, kLbufBytes, 64);
-            out->seg_search_algo_ns   = (sink == ~0ull) ? (acc.s1 ^ 1) : acc.s1;  // sink-Nutzung gegen Wegoptimierung
+            out->seg_search_algo_ns   = (sink == ~0ull) ? (acc.s1 ^ 1) : acc.s1; // sink-Nutzung gegen Wegoptimierung
             out->seg_allocator_ns     = acc.s2;
             out->seg_memory_layout_ns = acc.s3;
             out->seg_serialization_ns = acc.s4;
@@ -445,9 +428,8 @@ public:
     // Op (die in §5 der Spec deklarierten synthetischen Mindest-Ops sind in den jeweiligen Wrapper-Doc-Kommentaren
     // als SIMULATION gekennzeichnet — keine konstanten/erfundenen Werte). None-artige Strategien (prefetch_none,
     // concurrency_none, migration_none) sind bewusste 0-Overhead-Baselines (so deklariert), KEINE n/a.
-    [[nodiscard]] std::uint64_t run_workload_segmented_v2(std::uint64_t ops_per_batch,
-                                                          std::uint64_t batches,
-                                                          std::uint64_t seed,
+    [[nodiscard]] std::uint64_t run_workload_segmented_v2(std::uint64_t ops_per_batch, std::uint64_t batches,
+                                                          std::uint64_t            seed,
                                                           ComdareSegmentLatencyV2* out) noexcept override {
         if (out == nullptr) return 0;
         *out = ComdareSegmentLatencyV2{};
@@ -478,22 +460,22 @@ public:
             SearchAlgo algo;
             for (int k = 0; k < 256; ++k) algo.insert(static_cast<K>(k), static_cast<std::uint64_t>(k) * 7u + 1u);
 
-            CacheTraversal traversal;           // T1: register K Einträge → resolve N-fach
-            using TV = typename CacheTraversal::value_type;
+            CacheTraversal traversal; // T1: register K Einträge → resolve N-fach
+            using TV                    = typename CacheTraversal::value_type;
             constexpr std::size_t kTrav = 256;
             for (std::size_t k = 0; k < kTrav; ++k)
                 traversal.register_entry(static_cast<typename CacheTraversal::key_type>(k),
                                          static_cast<TV>(k * 7u + 1u));
 
-            Mapping mapping;                    // T2: register K Slots → resolve_offset N-fach
+            Mapping               mapping; // T2: register K Slots → resolve_offset N-fach
             constexpr std::size_t kSlots = 256;
             for (std::size_t s = 0; s < kSlots; ++s)
                 mapping.register_slot(static_cast<typename Mapping::slot_index_type>(s),
                                       static_cast<typename Mapping::offset_type>(s * 64u));
 
-            Allocator alloc;
-            constexpr std::size_t kChurn = 2048;
-            constexpr std::size_t kAlign = 16;
+            Allocator                 alloc;
+            constexpr std::size_t     kChurn = 2048;
+            constexpr std::size_t     kAlign = 16;
             std::array<void*, kChurn> blocks{};
             auto const churn_size = [](std::size_t j) noexcept { return std::size_t{16} + ((j * 16u) & 0xF0u); };
 
@@ -502,17 +484,17 @@ public:
             constexpr std::size_t kRecords    = 16384;
             constexpr std::size_t kRecordSize = 48;
             constexpr std::size_t kLbufBytes  = kRecords * 64;
-            unsigned char* lbuf = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
+            unsigned char*        lbuf        = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
             for (std::size_t i = 0; i < kLbufBytes; ++i) lbuf[i] = static_cast<unsigned char>(i * 31u + 7u);
 
             // Query-Puffer für T16 filter_probe_scan (1 Byte je Query).
-            constexpr std::size_t kQueries = 4096;
+            constexpr std::size_t               kQueries = 4096;
             std::array<unsigned char, kQueries> qbuf{};
             for (std::size_t i = 0; i < kQueries; ++i) qbuf[i] = static_cast<unsigned char>(i * 53u + 11u);
 
-            Telemetry  telemetry_local;         // T10: eigenes Segment (entkoppelt vom Cross-ABI-Auto-Coupling)
-            QueuingQ1  q1_local;                 // T17: put/get-Churn
-            QueuingQ2  q2_local;                 // T18: should_flush/on_flush_complete
+            Telemetry telemetry_local; // T10: eigenes Segment (entkoppelt vom Cross-ABI-Auto-Coupling)
+            QueuingQ1 q1_local;        // T17: put/get-Churn
+            QueuingQ2 q2_local;        // T18: should_flush/on_flush_complete
             using QElem = typename QueuingQ1::element_type;
 
             // GAP #2 Re-Grounding (P5d-Rest, User-Plan dynamic-frolicking-truffle Step 3, 2026-06-18): das T7-Segment
@@ -524,36 +506,48 @@ public:
             // LayoutAwareChunkedStore<node_type, memory_layout, allocator> der Composition. Die anderen 18 Segmente
             // bleiben UNVERAENDERT (rein additiv im T7). @related [[reference_thesis_core_contribution_axis_library]]
             using PfStore = ::comdare::cache_engine::node::LayoutAwareChunkedStore<NodeType, MemLayout, Allocator>;
-            PfStore pf_store;                                            // T7: lokaler realer Store (echte Slot-Adressen)
-            constexpr std::size_t kPfSlots = 4096;                       // genug echte Records fuer Distance/Path-Voraus
+            PfStore               pf_store;        // T7: lokaler realer Store (echte Slot-Adressen)
+            constexpr std::size_t kPfSlots = 4096; // genug echte Records fuer Distance/Path-Voraus
             for (std::size_t i = 0; i < kPfSlots; ++i)
                 pf_store.append_slot(static_cast<typename PfStore::key_type>(i * 2654435761ull + 1u),
                                      static_cast<typename PfStore::value_type>(i * 7u + 1u));
-            ::comdare::cache_engine::prefetch_axis::ObservablePrefetch<Prefetch> pf_seg_organ{};  // T7-Mess-Organ
+            ::comdare::cache_engine::prefetch_axis::ObservablePrefetch<Prefetch> pf_seg_organ{}; // T7-Mess-Organ
 
             std::mt19937_64 rng{seed};
             using clock = std::chrono::steady_clock;
             auto seg_ns = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
                 return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
             };
-            std::int64_t acc[19] = {};
-            std::uint64_t sink = 0;
+            std::int64_t  acc[19] = {};
+            std::uint64_t sink    = 0;
 
             // ── EIN Batch: die 19 Achsen-Segmente, jedes einzeln gezeitet (Index = Seg-Map T0..T18) ─────────
             auto do_seg19 = [&]() {
                 clock::time_point t0, t1;
                 // T0 search_algo: Lookups auf der geladenen Such-Struktur.
                 t0 = clock::now();
-                for (std::uint64_t i = 0; i < ops_per_batch; ++i) { auto v = algo.lookup(static_cast<K>(rng() & 0xFFu)); if (v) sink += *v; }
-                t1 = clock::now(); acc[0] += seg_ns(t0, t1);
+                for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
+                    auto v = algo.lookup(static_cast<K>(rng() & 0xFFu));
+                    if (v) sink += *v;
+                }
+                t1 = clock::now();
+                acc[0] += seg_ns(t0, t1);
                 // T1 cache_traversal: resolve N-fach.
                 t0 = clock::now();
-                for (std::uint64_t i = 0; i < ops_per_batch; ++i) { auto v = traversal.resolve(static_cast<typename CacheTraversal::key_type>(rng() % kTrav)); if (v) sink += static_cast<std::uint64_t>(*v); }
-                t1 = clock::now(); acc[1] += seg_ns(t0, t1);
+                for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
+                    auto v = traversal.resolve(static_cast<typename CacheTraversal::key_type>(rng() % kTrav));
+                    if (v) sink += static_cast<std::uint64_t>(*v);
+                }
+                t1 = clock::now();
+                acc[1] += seg_ns(t0, t1);
                 // T2 mapping: resolve_offset N-fach.
                 t0 = clock::now();
-                for (std::uint64_t i = 0; i < ops_per_batch; ++i) { auto o = mapping.resolve_offset(static_cast<typename Mapping::slot_index_type>(rng() % kSlots)); if (o) sink += static_cast<std::uint64_t>(*o); }
-                t1 = clock::now(); acc[2] += seg_ns(t0, t1);
+                for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
+                    auto o = mapping.resolve_offset(static_cast<typename Mapping::slot_index_type>(rng() % kSlots));
+                    if (o) sink += static_cast<std::uint64_t>(*o);
+                }
+                t1 = clock::now();
+                acc[2] += seg_ns(t0, t1);
                 // T3 path_compression: Patricia → path_descend_scan; sonst (ByteWise/None) → kanonisches
                 // ByteWiseKeyPrefix::common_prefix_len-Organ über den Record-Puffer (echtes Mess-Organ der Achse).
                 t0 = clock::now();
@@ -561,25 +555,36 @@ public:
                     sink += PathCompression::path_descend_scan(lbuf, kRecords, kRecordSize);
                 } else {
                     for (std::size_t i = 0; i < kRecords; ++i) {
-                        std::uint64_t key; std::memcpy(&key, lbuf + i * kRecordSize, sizeof(key));
-                        auto const prefix = ::comdare::cache_engine::path_compression::ByteWiseKeyPrefix::from_bytes(key, 7u);
+                        std::uint64_t key;
+                        std::memcpy(&key, lbuf + i * kRecordSize, sizeof(key));
+                        auto const prefix =
+                            ::comdare::cache_engine::path_compression::ByteWiseKeyPrefix::from_bytes(key, 7u);
                         sink += prefix.common_prefix_len(key >> 8U);
                     }
                 }
-                t1 = clock::now(); acc[3] += seg_ns(t0, t1);
+                t1 = clock::now();
+                acc[3] += seg_ns(t0, t1);
                 // T4 node_type: node_find_scan (KF-6 Pflicht-API, order-sensitiver Probe-Scan).
                 t0 = clock::now();
                 sink += NodeType::node_find_scan(lbuf, kRecords, qbuf.data(), kQueries);
-                t1 = clock::now(); acc[4] += seg_ns(t0, t1);
+                t1 = clock::now();
+                acc[4] += seg_ns(t0, t1);
                 // T5 memory_layout: scan_field_sum (layout-charakteristischer Stride; aos_strict 48 vs CLA 64).
                 t0 = clock::now();
                 sink += MemLayout::scan_field_sum(lbuf, kRecords, kRecordSize);
-                t1 = clock::now(); acc[5] += seg_ns(t0, t1);
+                t1 = clock::now();
+                acc[5] += seg_ns(t0, t1);
                 // T6 allocator: alloc → touch → dealloc-Churn (Pool reused Free-Lists).
                 t0 = clock::now();
-                for (std::size_t j = 0; j < kChurn; ++j) { void* p = alloc.allocate(churn_size(j), kAlign); *static_cast<unsigned char*>(p) = static_cast<unsigned char>(j); sink += *static_cast<unsigned char*>(p); blocks[j] = p; }
+                for (std::size_t j = 0; j < kChurn; ++j) {
+                    void* p                         = alloc.allocate(churn_size(j), kAlign);
+                    *static_cast<unsigned char*>(p) = static_cast<unsigned char>(j);
+                    sink += *static_cast<unsigned char*>(p);
+                    blocks[j] = p;
+                }
                 for (std::size_t j = 0; j < kChurn; ++j) alloc.deallocate(blocks[j], churn_size(j), kAlign);
-                t1 = clock::now(); acc[6] += seg_ns(t0, t1);
+                t1 = clock::now();
+                acc[6] += seg_ns(t0, t1);
                 // T7 prefetch: GAP #2 Re-Grounding (P5d-Rest, 2026-06-18) — der isolierte Pfad-A-Achsen-Timer misst jetzt
                 // den REALEN Descent-Prefetch auf den lokalen pf_store (echte Slot-Adressen), STRATEGIE-DISTINKT via der
                 // committeten PrefetchDescentPolicy<Prefetch> / observe_prefetch_descent (identisch zum Pfad-B-Hot-Path):
@@ -595,62 +600,91 @@ public:
                     std::size_t const pf_n = pf_store.slot_count();
                     if (pf_n != 0) {
                         for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
-                            std::size_t const slot = static_cast<std::size_t>(rng()) % pf_n;   // echter, in-range Descent-Slot
-                            pf_seg_organ.observe_prefetch_descent(pf_store, slot);             // REALES _mm_prefetch (strat-distinkt)
+                            std::size_t const slot =
+                                static_cast<std::size_t>(rng()) % pf_n; // echter, in-range Descent-Slot
+                            pf_seg_organ.observe_prefetch_descent(pf_store,
+                                                                  slot); // REALES _mm_prefetch (strat-distinkt)
                         }
                     }
                 }
-                sink += MemLayout::scan_field_sum(lbuf, kRecords, kRecordSize);   // Re-Scan (Prefetch-Hint-Wirkung auf den Layout-Scan)
-                t1 = clock::now(); acc[7] += seg_ns(t0, t1);
+                sink += MemLayout::scan_field_sum(lbuf, kRecords,
+                                                  kRecordSize); // Re-Scan (Prefetch-Hint-Wirkung auf den Layout-Scan)
+                t1 = clock::now();
+                acc[7] += seg_ns(t0, t1);
                 // T8 concurrency: acquire/release um eine Mini-Critical-Section N-fach (strategie-charakteristisches
                 // Sync-Primitiv: None=no-op, Blocking=mutex, LockFree=CAS, …). if-constexpr-detektiert (optionale Op).
                 t0 = clock::now();
-                if constexpr (requires { Concurrency::acquire(); Concurrency::release(); }) {
-                    for (std::uint64_t i = 0; i < ops_per_batch; ++i) { Concurrency::acquire(); sink += (i & 1u); Concurrency::release(); }
+                if constexpr (requires {
+                                  Concurrency::acquire();
+                                  Concurrency::release();
+                              }) {
+                    for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
+                        Concurrency::acquire();
+                        sink += (i & 1u);
+                        Concurrency::release();
+                    }
                 } else {
-                    for (std::uint64_t i = 0; i < ops_per_batch; ++i) sink += (i & 1u);   // ehrlicher No-Sync-Baseline-Fall
+                    for (std::uint64_t i = 0; i < ops_per_batch; ++i)
+                        sink += (i & 1u); // ehrlicher No-Sync-Baseline-Fall
                 }
-                t1 = clock::now(); acc[8] += seg_ns(t0, t1);
+                t1 = clock::now();
+                acc[8] += seg_ns(t0, t1);
                 // T9 serialization: serialize_scan (strategie-charakteristischer Encode-CPU-Aufwand).
                 t0 = clock::now();
                 sink += Serializer::serialize_scan(lbuf, kRecords, kRecordSize);
-                t1 = clock::now(); acc[9] += seg_ns(t0, t1);
+                t1 = clock::now();
+                acc[9] += seg_ns(t0, t1);
                 // T10 telemetry: record_node_touch N-fach (eigenes Segment, lokales Organ).
                 t0 = clock::now();
                 if constexpr (requires { telemetry_local.record_node_touch(true); }) {
-                    for (std::uint64_t i = 0; i < ops_per_batch; ++i) { telemetry_local.record_node_touch((i & 1u) != 0u); }
+                    for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
+                        telemetry_local.record_node_touch((i & 1u) != 0u);
+                    }
                     sink += static_cast<std::uint64_t>(ops_per_batch);
-                } else { sink += static_cast<std::uint64_t>(ops_per_batch); }
-                t1 = clock::now(); acc[10] += seg_ns(t0, t1);
+                } else {
+                    sink += static_cast<std::uint64_t>(ops_per_batch);
+                }
+                t1 = clock::now();
+                acc[10] += seg_ns(t0, t1);
                 // T11 value_handle: value_access_scan (strategie-charakteristische Deref-Last).
                 t0 = clock::now();
                 sink += ValueHandle::value_access_scan(lbuf, kRecords, kRecordSize);
-                t1 = clock::now(); acc[11] += seg_ns(t0, t1);
+                t1 = clock::now();
+                acc[11] += seg_ns(t0, t1);
                 // T12 isa: simd_field_sum (SSE2 bei Amd64 / Scalar-Fallback sonst). Nur (buf,n) — kein record_size.
                 t0 = clock::now();
                 sink += Isa::simd_field_sum(lbuf, kRecords);
-                t1 = clock::now(); acc[12] += seg_ns(t0, t1);
+                t1 = clock::now();
+                acc[12] += seg_ns(t0, t1);
                 // T13 index_organization: index_org_scan (sequential/random/embedded/unordered je Strategie).
                 t0 = clock::now();
                 sink += IndexOrg::index_org_scan(lbuf, kRecords, kRecordSize);
-                t1 = clock::now(); acc[13] += seg_ns(t0, t1);
+                t1 = clock::now();
+                acc[13] += seg_ns(t0, t1);
                 // T14 io_dispatch: io_dispatch_scan (in-memory-Dispatch-Simulation je Strategie).
                 t0 = clock::now();
                 sink += IoDispatch::io_dispatch_scan(lbuf, kRecords, kRecordSize);
-                t1 = clock::now(); acc[14] += seg_ns(t0, t1);
+                t1 = clock::now();
+                acc[14] += seg_ns(t0, t1);
                 // T15 migration_policy: migration_decide_scan (Entscheidungslogik-Kosten ohne 2. Tier).
                 t0 = clock::now();
                 sink += Migration::migration_decide_scan(lbuf, kRecords, kRecordSize);
-                t1 = clock::now(); acc[15] += seg_ns(t0, t1);
+                t1 = clock::now();
+                acc[15] += seg_ns(t0, t1);
                 // T16 filter: filter_probe_scan (Bloom/Cuckoo/SuRF/Xor-Probe; buf,n,queries,q).
                 t0 = clock::now();
                 sink += Filter::filter_probe_scan(lbuf, kRecords, qbuf.data(), kQueries);
-                t1 = clock::now(); acc[16] += seg_ns(t0, t1);
+                t1 = clock::now();
+                acc[16] += seg_ns(t0, t1);
                 // T17 queuing_q1: put N + get N (Buffer-Strategy).
                 t0 = clock::now();
                 for (std::uint64_t i = 0; i < ops_per_batch; ++i) q1_local.put(static_cast<QElem>(i));
-                for (std::uint64_t i = 0; i < ops_per_batch; ++i) { auto v = q1_local.get(); if (v) sink += static_cast<std::uint64_t>(*v); }
-                t1 = clock::now(); acc[17] += seg_ns(t0, t1);
+                for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
+                    auto v = q1_local.get();
+                    if (v) sink += static_cast<std::uint64_t>(*v);
+                }
+                t1 = clock::now();
+                acc[17] += seg_ns(t0, t1);
                 // T18 queuing_q2: should_flush N + on_flush_complete (Flush-Policy).
                 t0 = clock::now();
                 for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
@@ -658,10 +692,11 @@ public:
                     sink += static_cast<std::uint64_t>(d);
                     q2_local.on_flush_complete();
                 }
-                t1 = clock::now(); acc[18] += seg_ns(t0, t1);
+                t1 = clock::now();
+                acc[18] += seg_ns(t0, t1);
             };
 
-            do_seg19();                                    // Warmup (verworfen)
+            do_seg19(); // Warmup (verworfen)
             for (auto& a : acc) a = 0;
             // P-MD3 (Coverage-Versöhnung, Pfad A analog Pfad B): äußere Wall-Clock um die gemessenen Batches → der
             // kommensurable Nenner; seg_framework_ns = run_total − Σseg_ns (Loop-/Instrumentierungs-Rest).
@@ -671,21 +706,24 @@ public:
             alloc.deallocate(lbuf, kLbufBytes, 64);
 
             std::int64_t total = 0;
-            for (int i = 0; i < 19; ++i) { out->seg_ns[i] = acc[i]; total += acc[i]; }
+            for (int i = 0; i < 19; ++i) {
+                out->seg_ns[i] = acc[i];
+                total += acc[i];
+            }
             // sink-Nutzung gegen Wegoptimierung (verfälscht total NICHT — nur ein 1-bit-XOR im unmöglichen Fall).
             if (sink == ~0ull) out->seg_ns[0] ^= 1;
-            out->total_ns         = total;
-            out->batches_measured = batches;
+            out->total_ns                = total;
+            out->batches_measured        = batches;
             std::int64_t const run_total = seg_ns(run_t0, run_t1);
-            out->seg_run_total_ns = run_total;
-            out->seg_framework_ns = (run_total > total) ? (run_total - total) : 0;
+            out->seg_run_total_ns        = run_total;
+            out->seg_framework_ns        = (run_total > total) ? (run_total - total) : 0;
             return batches;
         } catch (...) {
             *out = ComdareSegmentLatencyV2{};
             return 0;
         }
     }
-#endif  // COMDARE_MEASUREMENT_ON (run_workload / Pfad A)
+#endif // COMDARE_MEASUREMENT_ON (run_workload / Pfad A)
 
     // ─────────────────────────────────────────────────────────────────────
     // IDriveableTier-Override (V5-I2.2): funktionaler Gattungs-Antrieb — IMMER einkompiliert (auch Release-DLL).
@@ -713,7 +751,7 @@ public:
         } else {
             auto const before = search_organ_.occupied_count();
             search_organ_.insert(key, value);
-            container_.insert(key, value);       // treibt + MISST die allocator-Achse (ComposedStore-Vector-Growth)
+            container_.insert(key, value); // treibt + MISST die allocator-Achse (ComposedStore-Vector-Growth)
             m8_new_flag = search_organ_.occupied_count() > before;
         }
 #if COMDARE_MEASUREMENT_ON
@@ -728,19 +766,29 @@ public:
         // Phase A (2026-06-04) Auto-Kopplung der 4 neu verdrahteten Achsen (Pfad B): ein insert registriert den
         // Eintrag in der cache_traversal-/mapping-Indirektion (T1/T2) und puffert ihn in q1 + befragt die
         // q2-Flush-Policy (T17/T18) → ihre statistics() reflektieren die echte Tier-Op beim Observer-Read (tier_observe).
-        if constexpr (requires { ct_organ_.register_entry(typename Composition::cache_traversal::key_type{}, typename Composition::cache_traversal::value_type{}); }) {
+        if constexpr (requires {
+                          ct_organ_.register_entry(typename Composition::cache_traversal::key_type{},
+                                                   typename Composition::cache_traversal::value_type{});
+                      }) {
             ct_organ_.register_entry(static_cast<typename Composition::cache_traversal::key_type>(key),
                                      static_cast<typename Composition::cache_traversal::value_type>(value));
         }
-        if constexpr (requires { map_organ_.register_slot(typename Composition::mapping::slot_index_type{}, typename Composition::mapping::offset_type{}); }) {
+        if constexpr (requires {
+                          map_organ_.register_slot(typename Composition::mapping::slot_index_type{},
+                                                   typename Composition::mapping::offset_type{});
+                      }) {
             map_organ_.register_slot(static_cast<typename Composition::mapping::slot_index_type>(key),
                                      static_cast<typename Composition::mapping::offset_type>(value));
         }
         if constexpr (requires { queuing_q1_organ_.put(typename Composition::queuing_q1::element_type{}); }) {
             queuing_q1_organ_.put(static_cast<typename Composition::queuing_q1::element_type>(value));
         }
-        if constexpr (requires { queuing_q2_organ_.should_flush(std::size_t{}, std::size_t{}); queuing_q2_organ_.on_flush_complete(); }) {
-            (void)queuing_q2_organ_.should_flush(static_cast<std::size_t>(container_.occupied_count()), std::size_t{1024});
+        if constexpr (requires {
+                          queuing_q2_organ_.should_flush(std::size_t{}, std::size_t{});
+                          queuing_q2_organ_.on_flush_complete();
+                      }) {
+            (void)queuing_q2_organ_.should_flush(static_cast<std::size_t>(container_.occupied_count()),
+                                                 std::size_t{1024});
             queuing_q2_organ_.on_flush_complete();
         }
         // Phase B (2026-06-04) Auto-Kopplung T7/T8 (Pfad B): ein insert berührt eine Adresse (key) → die
@@ -752,7 +800,8 @@ public:
         // gelegt; die prefetch-Achse setzt strategie-distinkt `_mm_prefetch` auf die TATSAECHLICHEN Slot-Adressen
         // des Stores ab (NICHT key-als-Adresse). descent_slot = die Lower-Bound-Position des Keys im real
         // allozierten Store-Backing → echte Traversal-Adresse, kein OOB (descent_slot_for_ klemmt auf slot_count()).
-        if (container_.store().slot_count() != 0) pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(key));
+        if (container_.store().slot_count() != 0)
+            pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(key));
         // Phase B Abschluss T3 (Pfad B): ein insert ordnet den Schlüssel in den Trie ein → die path_compression-Achse
         // misst die gemeinsame Byte-Prefix-Länge / cut() am ECHTEN ByteWiseKeyPrefix-Organ (PathCompressionNone =
         // ehrliche niedrige Kompressions-Aktivität, Patricia/ByteWise höher). depth=0 = Trie-Wurzel-Abstieg.
@@ -771,7 +820,7 @@ public:
         // if-constexpr-geguarded: NUR Patricia (PatriciaTrie traegt insert_key) baut den Trie inkrementell auf;
         // `none` (M3-Pin, EmptyPatriciaTrie ohne insert_key) bleibt EXAKT No-Op — kein Trie, kein Build-Effekt.
         if constexpr (requires { pc_organ_.insert_key(key); }) pc_organ_.insert_key(key);
-#endif  // COMDARE_MEASUREMENT_ON (K10-PMAJOR-04: Observer-feeding Auto-Kopplungen tier_insert)
+#endif // COMDARE_MEASUREMENT_ON (K10-PMAJOR-04: Observer-feeding Auto-Kopplungen tier_insert)
         return m8_new_flag;
     }
 
@@ -780,11 +829,11 @@ public:
         bool m8_hit;
         if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
             auto const cv = container_.lookup(key);
-            m8_hit = cv.has_value();
+            m8_hit        = cv.has_value();
             if (m8_hit && out_value != nullptr) *out_value = static_cast<std::uint64_t>(*cv);
         } else {
             auto const v = search_organ_.lookup(key);
-            m8_hit = v.has_value();
+            m8_hit       = v.has_value();
             if (m8_hit && out_value != nullptr) *out_value = static_cast<std::uint64_t>(*v);
         }
 #if COMDARE_MEASUREMENT_ON
@@ -799,9 +848,7 @@ public:
         if constexpr (requires { map_organ_.resolve_offset(typename Composition::mapping::slot_index_type{}); }) {
             (void)map_organ_.resolve_offset(static_cast<typename Composition::mapping::slot_index_type>(key));
         }
-        if constexpr (requires { queuing_q1_organ_.get(); }) {
-            (void)queuing_q1_organ_.get();
-        }
+        if constexpr (requires { queuing_q1_organ_.get(); }) { (void)queuing_q1_organ_.get(); }
         // Phase B Auto-Kopplung T8 (Pfad B): ein lookup exerziert das echte Sync-Primitiv-Paar. cc_organ_ mutable.
         cc_organ_.observe_critical_section();
         // K9-Fix (User §4.4 / 2026-06-18): T7 prefetch REAL — der lookup folgt einem Such-Descent über das ECHTE
@@ -813,26 +860,27 @@ public:
         } else {
             // Weg-B (Trie/Pool, search_organ_ = Such-Speicher): container_ traegt die Storage-Achsen-Records → die
             // realen Slot-Adressen liegen dort. Existiert mind. ein realer Slot, prefetcht der Descent dessen Backing.
-            if (container_.store().slot_count() != 0) pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(key));
+            if (container_.store().slot_count() != 0)
+                pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(key));
         }
         // Phase B Abschluss T3 (Pfad B): ein lookup folgt einem komprimierten Trie-Pfad → die path_compression-Achse
         // misst die gemeinsame Byte-Prefix-Länge des gesuchten Schlüssels am ECHTEN ByteWiseKeyPrefix-Organ. pc_organ_
         // mutable (Tracking im const lookup nicht-const). depth=0 = Trie-Wurzel.
         (void)pc_organ_.compress(key, 0u);
-#endif  // COMDARE_MEASUREMENT_ON (K10-PMAJOR-04: Observer-feeding Auto-Kopplungen tier_lookup)
+#endif // COMDARE_MEASUREMENT_ON (K10-PMAJOR-04: Observer-feeding Auto-Kopplungen tier_lookup)
         return m8_hit;
     }
 
     [[nodiscard]] bool tier_erase(std::uint64_t key) noexcept override {
 #if COMDARE_MEASUREMENT_ON
-        if (cow_armed_) cow_materialize_copy_();   // CoW (#133 Rev. 2): Vollkopie VOR der Mutation (s. tier_insert)
+        if (cow_armed_) cow_materialize_copy_(); // CoW (#133 Rev. 2): Vollkopie VOR der Mutation (s. tier_insert)
 #endif
         // (M8 / Befund-2-Weg-A) store-traversierbare Tiere loeschen NUR in container_ (EIN Speicher); Weg-B: beide.
         if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
             return container_.erase(key);
         } else {
             auto const before = search_organ_.occupied_count();
-            search_organ_.erase(key);            // Rueckgabe-Typ organ-abhaengig → ueber Delta bestimmen
+            search_organ_.erase(key); // Rueckgabe-Typ organ-abhaengig → ueber Delta bestimmen
             container_.erase(key);
             return search_organ_.occupied_count() < before;
         }
@@ -844,7 +892,8 @@ public:
         // der Warmup-Phase (cow_armed_); das tier_clear des Mess-Protokolls (zwischen Profilen) ist unberuehrt.
         if (cow_armed_) cow_materialize_copy_();
 #endif
-        search_organ_.clear(); container_.clear();
+        search_organ_.clear();
+        container_.clear();
         // P4 (#123): die kalte 2. Ebene mit-leeren — nach tier_clear ist der GANZE Tier-Zustand (heiss + kalt) frisch
         // (sonst akkumulierten migrierte Records ueber Mess-Profile hinweg). Fuer None nie befuellt → no-op-aequivalent.
         container_tier1_.clear();
@@ -884,25 +933,26 @@ public:
         // für ALLE vier auto-gekoppelten Instanz-Achsen (T1/T2/T17/T18), if-constexpr-geschützt (AdHoc-Strategien
         // ohne reset()/clear() überspringen den jeweiligen Aufruf). Ziel: nach tier_clear() sind ALLE 19 Achsen-
         // statistics bei 0 → je Messung frisch, konsistent mit dem V1-Delta-Block.
-        if constexpr (requires { ct_organ_.clear(); })          ct_organ_.clear();
-        if constexpr (requires { ct_organ_.reset(); })          ct_organ_.reset();   // T1: stats_ nullen (clear()=nur Daten)
-        if constexpr (requires { map_organ_.clear(); })         map_organ_.clear();
-        if constexpr (requires { map_organ_.reset(); })         map_organ_.reset();  // T2: stats_ nullen
-        if constexpr (requires { queuing_q1_organ_.clear(); })  queuing_q1_organ_.clear();
-        if constexpr (requires { queuing_q1_organ_.reset(); })  queuing_q1_organ_.reset();  // T17: stats_ nullen
-        if constexpr (requires { queuing_q2_organ_.reset(); })  queuing_q2_organ_.reset();  // T18: KEIN clear() vorhanden → nur reset()
+        if constexpr (requires { ct_organ_.clear(); }) ct_organ_.clear();
+        if constexpr (requires { ct_organ_.reset(); }) ct_organ_.reset(); // T1: stats_ nullen (clear()=nur Daten)
+        if constexpr (requires { map_organ_.clear(); }) map_organ_.clear();
+        if constexpr (requires { map_organ_.reset(); }) map_organ_.reset(); // T2: stats_ nullen
+        if constexpr (requires { queuing_q1_organ_.clear(); }) queuing_q1_organ_.clear();
+        if constexpr (requires { queuing_q1_organ_.reset(); }) queuing_q1_organ_.reset(); // T17: stats_ nullen
+        if constexpr (requires { queuing_q2_organ_.reset(); })
+            queuing_q2_organ_.reset(); // T18: KEIN clear() vorhanden → nur reset()
         // T10 telemetry: ebenfalls über tier_insert/lookup auto-gekoppelt (record_node_touch) und in fill_observer_v3
         // DIREKT (kein Delta, kein idempotenter Scan) gelesen → akkumulierte ohne reset() identisch zu T1/T2/T17/T18.
         // ObservableTelemetry::reset() nullt stats_ (axes/telemetry_axis :76). Damit ist auch T10 je Messung frisch.
-        if constexpr (requires { telemetry_organ_.reset(); })   telemetry_organ_.reset();
+        if constexpr (requires { telemetry_organ_.reset(); }) telemetry_organ_.reset();
         // Phase B: T7/T8-Mess-Organe zurücksetzen (Statistik + prefetch-Tracker-Pfad), damit der Mess-Pfad
         // (perm_runner: tier_clear → pre-Observe → ops → post-Observe) einen sauberen Vor-Zustand hat.
-        if constexpr (requires { pf_organ_.reset(); })          pf_organ_.reset();
-        if constexpr (requires { cc_organ_.reset(); })          cc_organ_.reset();
+        if constexpr (requires { pf_organ_.reset(); }) pf_organ_.reset();
+        if constexpr (requires { cc_organ_.reset(); }) cc_organ_.reset();
         // Phase B Abschluss: T3-Mess-Organ zurücksetzen (die scan-Achsen T13/T14/T15/T16 sind idempotent — sie
         // reset()+scan je fill_observer_v3-Aufruf, brauchen hier kein Clear). Sauberer Vor-Zustand.
-        if constexpr (requires { pc_organ_.reset(); })          pc_organ_.reset();
-#endif  // COMDARE_MEASUREMENT_ON (#166 K10-PMAJOR-04: Observer-feeding Auto-Kopplungen tier_clear)
+        if constexpr (requires { pc_organ_.reset(); }) pc_organ_.reset();
+#endif // COMDARE_MEASUREMENT_ON (#166 K10-PMAJOR-04: Observer-feeding Auto-Kopplungen tier_clear)
     }
 
     [[nodiscard]] std::uint64_t tier_size() const noexcept override {
@@ -910,7 +960,7 @@ public:
         return static_cast<std::uint64_t>(container_.occupied_count());
     }
 
-#if COMDARE_MEASUREMENT_ON   // V5-I2.2: tier_observe (observer_all) NUR bei Messung-AN
+#if COMDARE_MEASUREMENT_ON // V5-I2.2: tier_observe (observer_all) NUR bei Messung-AN
     // ─────────────────────────────────────────────────────────────────────
     // IObservableTier / Observer (MESSUNG-AN) — liegt physisch im IDriveableTier-Block: fill_observer_v3 +
     // fill_segment_timing_v3 + tier_observe (Q1-Sequenz: Observer-READ → Pfad-B-Timing → per-op-Organ-Reset).
@@ -928,10 +978,13 @@ public:
     // STATISTICS-gegated. Der Aufrufer (tier_observe) hat *out bereits genullt (Q1-Sequenz: vor dem Timing).
     void fill_observer_v3(ComdareTierObserverSnapshot* out) const noexcept {
         if (out == nullptr) return;
-        auto& s = *out;                    // I1: direkt in den konsolidierten POD schreiben (kein V3-Zwischen-POD)
-        for (auto& row : s.axis_stats) for (auto& v : row) v = 0;   // nur Observer-Felder nullen (seg_ns/batches: tier_observe)
-        s.observable_axis_count = 0; s.tier_fill_level = 0; s.filled_axis_count = 0;
-        std::uint64_t filled = 0;
+        auto& s = *out; // I1: direkt in den konsolidierten POD schreiben (kein V3-Zwischen-POD)
+        for (auto& row : s.axis_stats)
+            for (auto& v : row) v = 0; // nur Observer-Felder nullen (seg_ns/batches: tier_observe)
+        s.observable_axis_count = 0;
+        s.tier_fill_level       = 0;
+        s.filled_axis_count     = 0;
+        std::uint64_t filled    = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         // ── T0 search_algo ──────────────────────────────────────────────────────────────────────────────
         if constexpr (ObservableAxis<SearchAlgo>) {
@@ -946,54 +999,75 @@ public:
                     return search_organ_.statistics();
             }();
             auto* r = s.axis_stats[0];
-            r[0] = ss.total_lookup_count; r[1] = ss.total_hit_count;  r[2] = ss.total_miss_count;
-            r[3] = ss.total_insert_count; r[4] = ss.total_erase_count; r[5] = ss.peak_occupancy;
+            r[0]    = ss.total_lookup_count;
+            r[1]    = ss.total_hit_count;
+            r[2]    = ss.total_miss_count;
+            r[3]    = ss.total_insert_count;
+            r[4]    = ss.total_erase_count;
+            r[5]    = ss.peak_occupancy;
             ++filled;
         }
         // ── T1 cache_traversal (Phase A neu) ────────────────────────────────────────────────────────────
         if constexpr (ObservableAxis<typename Composition::cache_traversal>) {
             auto const ct = ct_organ_.statistics();
-            auto* r = s.axis_stats[1];
-            r[0] = ct.total_resolve_count;      r[1] = ct.total_resolve_hit_count; r[2] = ct.total_resolve_miss_count;
-            r[3] = ct.total_register_count;     r[4] = ct.total_unregister_count;  r[5] = ct.peak_tracked;
+            auto*      r  = s.axis_stats[1];
+            r[0]          = ct.total_resolve_count;
+            r[1]          = ct.total_resolve_hit_count;
+            r[2]          = ct.total_resolve_miss_count;
+            r[3]          = ct.total_register_count;
+            r[4]          = ct.total_unregister_count;
+            r[5]          = ct.peak_tracked;
             ++filled;
         }
         // ── T2 mapping (Phase A neu) ────────────────────────────────────────────────────────────────────
         if constexpr (ObservableAxis<typename Composition::mapping>) {
             auto const mp = map_organ_.statistics();
-            auto* r = s.axis_stats[2];
-            r[0] = mp.total_register_count;     r[1] = mp.total_resolve_count;     r[2] = mp.total_resolve_hit_count;
-            r[3] = mp.total_resolve_miss_count; r[4] = mp.total_reverse_lookup_count; r[5] = mp.peak_mapped;
+            auto*      r  = s.axis_stats[2];
+            r[0]          = mp.total_register_count;
+            r[1]          = mp.total_resolve_count;
+            r[2]          = mp.total_resolve_hit_count;
+            r[3]          = mp.total_resolve_miss_count;
+            r[4]          = mp.total_reverse_lookup_count;
+            r[5]          = mp.peak_mapped;
             ++filled;
         }
         // ── T4 node_type (Pfad-B Zustand-Scan über container_, wie der frühere V2-Pfad) ─────────────────────
-        if constexpr (ObservableAxis<typename Composition::node_type>
-                   && requires { container_.store_observe_node_type(node_organ_); }) {
+        if constexpr (ObservableAxis<typename Composition::node_type> &&
+                      requires { container_.store_observe_node_type(node_organ_); }) {
             node_organ_.reset();
             (void)container_.store_observe_node_type(node_organ_);
             auto const nt = node_organ_.statistics();
-            auto* r = s.axis_stats[4];
-            r[0] = nt.find_count; r[1] = nt.keys_stored; r[2] = nt.queries_run; r[3] = nt.last_checksum;
+            auto*      r  = s.axis_stats[4];
+            r[0]          = nt.find_count;
+            r[1]          = nt.keys_stored;
+            r[2]          = nt.queries_run;
+            r[3]          = nt.last_checksum;
             ++filled;
         }
         // ── T5 memory_layout (Pfad-B Zustand-Scan über container_) ───────────────────────────────────────
-        if constexpr (ObservableAxis<typename Composition::memory_layout>
-                   && requires { container_.store_observe_layout(ml_organ_); }) {
+        if constexpr (ObservableAxis<typename Composition::memory_layout> &&
+                      requires { container_.store_observe_layout(ml_organ_); }) {
             ml_organ_.reset();
             (void)container_.store_observe_layout(ml_organ_);
             auto const ml = ml_organ_.statistics();
-            auto* r = s.axis_stats[5];
-            r[0] = ml.scan_count; r[1] = ml.records_scanned; r[2] = ml.field_bytes_read;
-            r[3] = ml.cache_lines_touched; r[4] = ml.last_checksum;
+            auto*      r  = s.axis_stats[5];
+            r[0]          = ml.scan_count;
+            r[1]          = ml.records_scanned;
+            r[2]          = ml.field_bytes_read;
+            r[3]          = ml.cache_lines_touched;
+            r[4]          = ml.last_checksum;
             ++filled;
         }
         // ── T6 allocator (dasselbe getriebene container_-Allocator-Organ wie der frühere V2-Pfad) ───────────
-        if constexpr (ObservableAxis<typename Composition::allocator>
-                   && container_t::template store_has_allocator_stats<typename container_t::store_type>) {
+        if constexpr (ObservableAxis<typename Composition::allocator> &&
+                      container_t::template store_has_allocator_stats<typename container_t::store_type>) {
             auto const a = container_.store_allocator_statistics();
-            auto* r = s.axis_stats[6];
-            r[0] = a.total_bytes_allocated; r[1] = a.total_bytes_in_use; r[2] = a.allocation_count;
-            r[3] = a.deallocation_count;    r[4] = a.failure_count;
+            auto*      r = s.axis_stats[6];
+            r[0]         = a.total_bytes_allocated;
+            r[1]         = a.total_bytes_in_use;
+            r[2]         = a.allocation_count;
+            r[3]         = a.deallocation_count;
+            r[4]         = a.failure_count;
             ++filled;
         }
         // ── T7 prefetch (K9-Fix, User §4.4 / 2026-06-18: REALER _mm_prefetch auf Store-Adressen) ──────────
@@ -1004,10 +1078,15 @@ public:
         //    (jetzt 0, da PathOriented nicht mehr enqueue-getrieben wird → ehrlich, kein Phantom).
         if constexpr (ObservableAxis<decltype(pf_organ_)>) {
             auto const pf = pf_organ_.statistics();
-            auto* r = s.axis_stats[7];
-            r[0] = pf.trigger_count;          r[1] = pf.suggestions_made;     r[2] = pf.hot_path_hints;
-            r[3] = pf.max_queue_depth;        r[4] = pf.total_addresses_enqueued;
-            r[5] = pf.real_prefetches_issued; r[6] = pf.last_prefetch_distance; r[7] = pf.last_real_address;
+            auto*      r  = s.axis_stats[7];
+            r[0]          = pf.trigger_count;
+            r[1]          = pf.suggestions_made;
+            r[2]          = pf.hot_path_hints;
+            r[3]          = pf.max_queue_depth;
+            r[4]          = pf.total_addresses_enqueued;
+            r[5]          = pf.real_prefetches_issued;
+            r[6]          = pf.last_prefetch_distance;
+            r[7]          = pf.last_real_address;
             ++filled;
         }
         // ── T8 concurrency (Phase B neu, AUTO-gekoppelt via tier_insert/lookup observe_critical_section) ──
@@ -1015,26 +1094,35 @@ public:
         //    contention/validation_failure im single-thread-Pfad ehrlich 0 (s. axis_08_concurrency_observable.hpp).
         if constexpr (ObservableAxis<decltype(cc_organ_)>) {
             auto const cc = cc_organ_.statistics();
-            auto* r = s.axis_stats[8];
-            r[0] = cc.acquire_count;            r[1] = cc.release_count; r[2] = cc.contention_count;
-            r[3] = cc.validation_failure_count; r[4] = cc.pattern_id;
+            auto*      r  = s.axis_stats[8];
+            r[0]          = cc.acquire_count;
+            r[1]          = cc.release_count;
+            r[2]          = cc.contention_count;
+            r[3]          = cc.validation_failure_count;
+            r[4]          = cc.pattern_id;
             ++filled;
         }
         // ── T9 serialization (Pfad-B Zustand-Scan über container_) ───────────────────────────────────────
-        if constexpr (ObservableAxis<typename Composition::serialization>
-                   && requires { container_.store_observe_serialization(ser_organ_); }) {
+        if constexpr (ObservableAxis<typename Composition::serialization> &&
+                      requires { container_.store_observe_serialization(ser_organ_); }) {
             ser_organ_.reset();
             (void)container_.store_observe_serialization(ser_organ_);
             auto const sr = ser_organ_.statistics();
-            auto* r = s.axis_stats[9];
-            r[0] = sr.serialize_count; r[1] = sr.records_serialized; r[2] = sr.bytes_serialized; r[3] = sr.last_checksum;
+            auto*      r  = s.axis_stats[9];
+            r[0]          = sr.serialize_count;
+            r[1]          = sr.records_serialized;
+            r[2]          = sr.bytes_serialized;
+            r[3]          = sr.last_checksum;
             ++filled;
         }
         // ── T10 telemetry (AUTO-gekoppelt via tier_insert/lookup, wie der frühere V2-Pfad) ──────────────────
         if constexpr (ObservableAxis<typename Composition::telemetry>) {
             auto const t = telemetry_organ_.statistics();
-            auto* r = s.axis_stats[10];
-            r[0] = t.total_events; r[1] = t.leaf_updates; r[2] = t.node_updates; r[3] = t.peak_tracked;
+            auto*      r = s.axis_stats[10];
+            r[0]         = t.total_events;
+            r[1]         = t.leaf_updates;
+            r[2]         = t.node_updates;
+            r[3]         = t.peak_tracked;
             ++filled;
         }
         // ── T11 value_handle (Phase B neu, Pfad-B Zustand-Scan über container_-Slot-Backing) ──────────────
@@ -1045,9 +1133,11 @@ public:
             vh_organ_.reset();
             (void)container_.store_observe_value_handle(vh_organ_);
             auto const vh = vh_organ_.statistics();
-            auto* r = s.axis_stats[11];
-            r[0] = vh.total_access_count; r[1] = vh.indirect_deref_count;
-            r[2] = vh.version_tag_strips; r[3] = vh.peak_chain_depth;
+            auto*      r  = s.axis_stats[11];
+            r[0]          = vh.total_access_count;
+            r[1]          = vh.indirect_deref_count;
+            r[2]          = vh.version_tag_strips;
+            r[3]          = vh.peak_chain_depth;
             ++filled;
         }
         // ── T12 isa (Phase B neu, Pfad-B Zustand-Scan über container_-Slot-Backing) ───────────────────────
@@ -1057,9 +1147,12 @@ public:
             isa_organ_.reset();
             (void)container_.store_observe_isa(isa_organ_);
             auto const is = isa_organ_.statistics();
-            auto* r = s.axis_stats[12];
-            r[0] = is.simd_calls;            r[1] = is.elements_processed; r[2] = is.simd_iterations;
-            r[3] = is.scalar_fallback_count; r[4] = is.last_checksum;
+            auto*      r  = s.axis_stats[12];
+            r[0]          = is.simd_calls;
+            r[1]          = is.elements_processed;
+            r[2]          = is.simd_iterations;
+            r[3]          = is.scalar_fallback_count;
+            r[4]          = is.last_checksum;
             ++filled;
         }
         // ── T3 path_compression (Phase B Abschluss, AUTO-gekoppelt via tier_insert/lookup compress) ────────
@@ -1067,9 +1160,12 @@ public:
         //    PathCompressionNone ehrlich niedrige Kompressions-Aktivität (kein Sonderfall), bei Patricia/ByteWise höher.
         if constexpr (requires { pc_organ_.statistics(); }) {
             auto const pc = pc_organ_.statistics();
-            auto* r = s.axis_stats[3];
-            r[0] = pc.compress_calls; r[1] = pc.prefix_len_total;  r[2] = pc.bytes_saved_total;
-            r[3] = pc.cuts_performed; r[4] = pc.last_checksum;
+            auto*      r  = s.axis_stats[3];
+            r[0]          = pc.compress_calls;
+            r[1]          = pc.prefix_len_total;
+            r[2]          = pc.bytes_saved_total;
+            r[3]          = pc.cuts_performed;
+            r[4]          = pc.last_checksum;
             ++filled;
         }
         // ── T13 index_organization (Phase B Abschluss, Pfad-B Zustand-Scan über container_-Slot-Backing) ────
@@ -1080,9 +1176,12 @@ public:
             idx_organ_.reset();
             (void)container_.store_observe_index_org(idx_organ_);
             auto const ix = idx_organ_.statistics();
-            auto* r = s.axis_stats[13];
-            r[0] = ix.scan_count;       r[1] = ix.records_scanned; r[2] = ix.predicate_evals;
-            r[3] = ix.indirect_lookups; r[4] = ix.last_checksum;
+            auto*      r  = s.axis_stats[13];
+            r[0]          = ix.scan_count;
+            r[1]          = ix.records_scanned;
+            r[2]          = ix.predicate_evals;
+            r[3]          = ix.indirect_lookups;
+            r[4]          = ix.last_checksum;
             ++filled;
         }
         // ── T14 io_dispatch (Phase B Abschluss, Pfad-B Zustand-Scan über container_-Slot-Backing) ───────────
@@ -1093,9 +1192,12 @@ public:
             io_organ_.reset();
             (void)container_.store_observe_io_dispatch(io_organ_);
             auto const io = io_organ_.statistics();
-            auto* r = s.axis_stats[14];
-            r[0] = io.dispatch_rounds;     r[1] = io.bytes_dispatched; r[2] = io.alignment_adjusts;
-            r[3] = io.total_dispatch_count; r[4] = io.last_checksum;
+            auto*      r  = s.axis_stats[14];
+            r[0]          = io.dispatch_rounds;
+            r[1]          = io.bytes_dispatched;
+            r[2]          = io.alignment_adjusts;
+            r[3]          = io.total_dispatch_count;
+            r[4]          = io.last_checksum;
             ++filled;
         }
         // ── T15 migration_policy (Phase B Abschluss, Pfad-B Zustand-Scan über container_-Slot-Backing) ───────
@@ -1106,9 +1208,12 @@ public:
             mig_organ_.reset();
             (void)container_.store_observe_migration(mig_organ_);
             auto const mg = mig_organ_.statistics();
-            auto* r = s.axis_stats[15];
-            r[0] = mg.total_decisions; r[1] = mg.migrations_triggered; r[2] = mg.hot_votes;
-            r[3] = mg.cold_votes;      r[4] = mg.tier_moves;
+            auto*      r  = s.axis_stats[15];
+            r[0]          = mg.total_decisions;
+            r[1]          = mg.migrations_triggered;
+            r[2]          = mg.hot_votes;
+            r[3]          = mg.cold_votes;
+            r[4]          = mg.tier_moves;
             ++filled;
         }
         // ── T16 filter (Phase B Abschluss, Pfad-B Zustand-Scan über container_-Slot-Backing) ─────────────────
@@ -1119,28 +1224,37 @@ public:
             flt_organ_.reset();
             (void)container_.store_observe_filter(flt_organ_);
             auto const fl = flt_organ_.statistics();
-            auto* r = s.axis_stats[16];
-            r[0] = fl.probe_count;       r[1] = fl.queries_positive; r[2] = fl.queries_negative;
-            r[3] = fl.hash_probes_total; r[4] = fl.last_checksum;
+            auto*      r  = s.axis_stats[16];
+            r[0]          = fl.probe_count;
+            r[1]          = fl.queries_positive;
+            r[2]          = fl.queries_negative;
+            r[3]          = fl.hash_probes_total;
+            r[4]          = fl.last_checksum;
             ++filled;
         }
         // ── T17 queuing_q1 (Phase A neu, AUTO-gekoppelt via tier_insert/lookup put/get) ──────────────────
         if constexpr (ObservableAxis<typename Composition::queuing_q1>) {
             auto const q = queuing_q1_organ_.statistics();
-            auto* r = s.axis_stats[17];
-            r[0] = q.total_put_count; r[1] = q.total_get_count; r[2] = q.overflow_count;
-            r[3] = q.underflow_count; r[4] = q.peak_size;
+            auto*      r = s.axis_stats[17];
+            r[0]         = q.total_put_count;
+            r[1]         = q.total_get_count;
+            r[2]         = q.overflow_count;
+            r[3]         = q.underflow_count;
+            r[4]         = q.peak_size;
             ++filled;
         }
         // ── T18 queuing_q2 (Phase A neu, AUTO-gekoppelt via tier_insert should_flush/on_flush_complete) ──
         if constexpr (ObservableAxis<typename Composition::queuing_q2>) {
             auto const q = queuing_q2_organ_.statistics();
-            auto* r = s.axis_stats[18];
-            r[0] = q.total_decisions_evaluated; r[1] = q.full_flush_count; r[2] = q.partial_flush_count;
-            r[3] = q.no_flush_count;            r[4] = q.flush_complete_count;
+            auto*      r = s.axis_stats[18];
+            r[0]         = q.total_decisions_evaluated;
+            r[1]         = q.full_flush_count;
+            r[2]         = q.partial_flush_count;
+            r[3]         = q.no_flush_count;
+            r[4]         = q.flush_complete_count;
             ++filled;
         }
-#endif  // COMDARE_CE_ENABLE_STATISTICS
+#endif // COMDARE_CE_ENABLE_STATISTICS
         s.observable_axis_count = ObserverAggregate<Composition>::observable_count();
         s.tier_fill_level       = tier_size();
         s.filled_axis_count     = filled;
@@ -1161,7 +1275,7 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         try {
             using clock = std::chrono::steady_clock;
-            auto dns = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
+            auto dns    = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
                 return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
             };
             // Reale gespeicherte Keys EINMAL beziehen (NICHT gemessen) — für die per-op-Achsen (T0/T1/T2/T3).
@@ -1170,21 +1284,22 @@ public:
             // → sonst nk=1-Degeneration (seg_ns einzelner per-op-Achsen = 0), und (b) search_organ_ entfällt in M8.
             std::vector<std::uint64_t> keys;
             if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
-                auto snap = container_.save_state().data;   // ObservableComposedSearch::save_state → (key,value)-Liste im Store
+                auto snap =
+                    container_.save_state().data; // ObservableComposedSearch::save_state → (key,value)-Liste im Store
                 keys.reserve(snap.size());
                 for (auto const& kv : snap) keys.push_back(static_cast<std::uint64_t>(kv.first));
             } else if constexpr (MementoAxis<SearchAlgo>) {
-                auto snap = search_organ_.save_state();   // (key,value)-Liste der real gespeicherten Records (Weg-B)
+                auto snap = search_organ_.save_state(); // (key,value)-Liste der real gespeicherten Records (Weg-B)
                 keys.reserve(snap.size());
                 for (auto const& kv : snap) keys.push_back(static_cast<std::uint64_t>(kv.first));
             }
             std::size_t const nk = keys.empty() ? std::size_t{1} : keys.size();
             if (keys.empty()) keys.push_back(0);
-            std::uint64_t const n_ops = static_cast<std::uint64_t>(nk);
+            std::uint64_t const     n_ops    = static_cast<std::uint64_t>(nk);
             constexpr std::uint64_t kBatches = 8;
-            std::int64_t acc[19] = {};
-            std::uint64_t sink = 0;
-            using K = typename SearchAlgo::key_type;
+            std::int64_t            acc[19]  = {};
+            std::uint64_t           sink     = 0;
+            using K                          = typename SearchAlgo::key_type;
 
             auto do_batch = [&]() {
                 clock::time_point t0, t1;
@@ -1192,102 +1307,193 @@ public:
                 t0 = clock::now();
                 for (std::uint64_t i = 0; i < n_ops; ++i) {
                     if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
-                        auto v = container_.lookup(keys[i % nk]); if (v) sink += static_cast<std::uint64_t>(*v);   // (M8) store-geroutete Suche
+                        auto v = container_.lookup(keys[i % nk]);
+                        if (v) sink += static_cast<std::uint64_t>(*v); // (M8) store-geroutete Suche
                     } else {
-                        auto v = search_organ_.lookup(static_cast<K>(keys[i % nk])); if (v) sink += static_cast<std::uint64_t>(*v);
+                        auto v = search_organ_.lookup(static_cast<K>(keys[i % nk]));
+                        if (v) sink += static_cast<std::uint64_t>(*v);
                     }
                 }
-                t1 = clock::now(); acc[0] += dns(t0, t1);
+                t1 = clock::now();
+                acc[0] += dns(t0, t1);
                 // T1 cache_traversal: resolve über die real registrierten Einträge.
                 t0 = clock::now();
                 if constexpr (requires { ct_organ_.resolve(typename Composition::cache_traversal::key_type{}); }) {
-                    for (std::uint64_t i = 0; i < n_ops; ++i) { auto v = ct_organ_.resolve(static_cast<typename Composition::cache_traversal::key_type>(keys[i % nk])); if (v) sink += static_cast<std::uint64_t>(*v); }
+                    for (std::uint64_t i = 0; i < n_ops; ++i) {
+                        auto v = ct_organ_.resolve(
+                            static_cast<typename Composition::cache_traversal::key_type>(keys[i % nk]));
+                        if (v) sink += static_cast<std::uint64_t>(*v);
+                    }
                 }
-                t1 = clock::now(); acc[1] += dns(t0, t1);
+                t1 = clock::now();
+                acc[1] += dns(t0, t1);
                 // T2 mapping: resolve_offset über die real registrierten Slots.
                 t0 = clock::now();
-                if constexpr (requires { map_organ_.resolve_offset(typename Composition::mapping::slot_index_type{}); }) {
-                    for (std::uint64_t i = 0; i < n_ops; ++i) { auto o = map_organ_.resolve_offset(static_cast<typename Composition::mapping::slot_index_type>(keys[i % nk])); if (o) sink += static_cast<std::uint64_t>(*o); }
+                if constexpr (requires {
+                                  map_organ_.resolve_offset(typename Composition::mapping::slot_index_type{});
+                              }) {
+                    for (std::uint64_t i = 0; i < n_ops; ++i) {
+                        auto o = map_organ_.resolve_offset(
+                            static_cast<typename Composition::mapping::slot_index_type>(keys[i % nk]));
+                        if (o) sink += static_cast<std::uint64_t>(*o);
+                    }
                 }
-                t1 = clock::now(); acc[2] += dns(t0, t1);
+                t1 = clock::now();
+                acc[2] += dns(t0, t1);
                 // T3 path_compression: echte compress(key,0) über die real gespeicherten Keys.
                 t0 = clock::now();
                 if constexpr (requires { pc_organ_.compress(std::uint64_t{}, 0u); }) {
-                    for (std::uint64_t i = 0; i < n_ops; ++i) sink += static_cast<std::uint64_t>(pc_organ_.compress(keys[i % nk], 0u));
+                    for (std::uint64_t i = 0; i < n_ops; ++i)
+                        sink += static_cast<std::uint64_t>(pc_organ_.compress(keys[i % nk], 0u));
                 }
-                t1 = clock::now(); acc[3] += dns(t0, t1);
+                t1 = clock::now();
+                acc[3] += dns(t0, t1);
                 // T4 node_type: store_observe über das ECHTE container_-Slot-Backing (chunks_).
                 t0 = clock::now();
-                if constexpr (ObservableAxis<typename Composition::node_type> && requires { container_.store_observe_node_type(node_organ_); }) { if constexpr (requires { node_organ_.reset(); }) node_organ_.reset(); sink += container_.store_observe_node_type(node_organ_); }
-                t1 = clock::now(); acc[4] += dns(t0, t1);
+                if constexpr (ObservableAxis<typename Composition::node_type> &&
+                              requires { container_.store_observe_node_type(node_organ_); }) {
+                    if constexpr (requires { node_organ_.reset(); }) node_organ_.reset();
+                    sink += container_.store_observe_node_type(node_organ_);
+                }
+                t1 = clock::now();
+                acc[4] += dns(t0, t1);
                 // T5 memory_layout: store_observe über chunks_ (layout-honorierender Store → CLA-Stride echt).
                 t0 = clock::now();
-                if constexpr (ObservableAxis<typename Composition::memory_layout> && requires { container_.store_observe_layout(ml_organ_); }) { if constexpr (requires { ml_organ_.reset(); }) ml_organ_.reset(); sink += container_.store_observe_layout(ml_organ_); }
-                t1 = clock::now(); acc[5] += dns(t0, t1);
+                if constexpr (ObservableAxis<typename Composition::memory_layout> &&
+                              requires { container_.store_observe_layout(ml_organ_); }) {
+                    if constexpr (requires { ml_organ_.reset(); }) ml_organ_.reset();
+                    sink += container_.store_observe_layout(ml_organ_);
+                }
+                t1 = clock::now();
+                acc[5] += dns(t0, t1);
                 // T6 allocator: O(1)-Stats-Read (Aufbau-Effekt, ehrliche kleine Baseline — kein erfundener Scan).
                 t0 = clock::now();
-                if constexpr (container_t::template store_has_allocator_stats<typename container_t::store_type>) { auto a = container_.store_allocator_statistics(); sink += a.total_bytes_in_use; }
-                t1 = clock::now(); acc[6] += dns(t0, t1);
+                if constexpr (container_t::template store_has_allocator_stats<typename container_t::store_type>) {
+                    auto a = container_.store_allocator_statistics();
+                    sink += a.total_bytes_in_use;
+                }
+                t1 = clock::now();
+                acc[6] += dns(t0, t1);
                 // T7 prefetch: K9-Fix (User §4.4 / 2026-06-18) — REALER _mm_prefetch auf die TATSAECHLICHEN Slot-
                 // Adressen des Stores (strategie-distinkt via PrefetchDescentPolicy), NICHT mehr key-als-Adresse.
                 // descent_slot_for_(k) = der real beruehrte Slot je Op → reale Traversal-Adresse, kein OOB.
                 t0 = clock::now();
                 if constexpr (requires { pf_organ_.observe_prefetch_descent(container_.store(), std::size_t{}); }) {
                     if (container_.store().slot_count() != 0)
-                        for (std::uint64_t i = 0; i < n_ops; ++i) { K k = static_cast<K>(keys[i % nk]); pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(static_cast<std::uint64_t>(k))); }
+                        for (std::uint64_t i = 0; i < n_ops; ++i) {
+                            K k = static_cast<K>(keys[i % nk]);
+                            pf_organ_.observe_prefetch_descent(container_.store(),
+                                                               descent_slot_for_(static_cast<std::uint64_t>(k)));
+                        }
                 }
-                t1 = clock::now(); acc[7] += dns(t0, t1);
+                t1 = clock::now();
+                acc[7] += dns(t0, t1);
                 // T8 concurrency: echtes Sync-Primitiv-Paar (observe_critical_section).
                 t0 = clock::now();
-                if constexpr (requires { cc_organ_.observe_critical_section(); }) { for (std::uint64_t i = 0; i < n_ops; ++i) { cc_organ_.observe_critical_section(); sink += (i & 1u); } }
-                t1 = clock::now(); acc[8] += dns(t0, t1);
+                if constexpr (requires { cc_organ_.observe_critical_section(); }) {
+                    for (std::uint64_t i = 0; i < n_ops; ++i) {
+                        cc_organ_.observe_critical_section();
+                        sink += (i & 1u);
+                    }
+                }
+                t1 = clock::now();
+                acc[8] += dns(t0, t1);
                 // T9 serialization: store_observe über chunks_.
                 t0 = clock::now();
-                if constexpr (ObservableAxis<typename Composition::serialization> && requires { container_.store_observe_serialization(ser_organ_); }) { if constexpr (requires { ser_organ_.reset(); }) ser_organ_.reset(); sink += container_.store_observe_serialization(ser_organ_); }
-                t1 = clock::now(); acc[9] += dns(t0, t1);
+                if constexpr (ObservableAxis<typename Composition::serialization> &&
+                              requires { container_.store_observe_serialization(ser_organ_); }) {
+                    if constexpr (requires { ser_organ_.reset(); }) ser_organ_.reset();
+                    sink += container_.store_observe_serialization(ser_organ_);
+                }
+                t1 = clock::now();
+                acc[9] += dns(t0, t1);
                 // T10 telemetry: echtes record_node_touch.
                 t0 = clock::now();
-                if constexpr (requires { telemetry_organ_.record_node_touch(true); }) { for (std::uint64_t i = 0; i < n_ops; ++i) telemetry_organ_.record_node_touch((i & 1u) != 0u); sink += n_ops; }
-                t1 = clock::now(); acc[10] += dns(t0, t1);
+                if constexpr (requires { telemetry_organ_.record_node_touch(true); }) {
+                    for (std::uint64_t i = 0; i < n_ops; ++i) telemetry_organ_.record_node_touch((i & 1u) != 0u);
+                    sink += n_ops;
+                }
+                t1 = clock::now();
+                acc[10] += dns(t0, t1);
                 // T11 value_handle: store_observe über chunks_.
                 t0 = clock::now();
-                if constexpr (requires { container_.store_observe_value_handle(vh_organ_); }) { vh_organ_.reset(); sink += container_.store_observe_value_handle(vh_organ_); }
-                t1 = clock::now(); acc[11] += dns(t0, t1);
+                if constexpr (requires { container_.store_observe_value_handle(vh_organ_); }) {
+                    vh_organ_.reset();
+                    sink += container_.store_observe_value_handle(vh_organ_);
+                }
+                t1 = clock::now();
+                acc[11] += dns(t0, t1);
                 // T12 isa: store_observe (SIMD-Feld-Reduktion) über chunks_.
                 t0 = clock::now();
-                if constexpr (requires { container_.store_observe_isa(isa_organ_); }) { isa_organ_.reset(); sink += container_.store_observe_isa(isa_organ_); }
-                t1 = clock::now(); acc[12] += dns(t0, t1);
+                if constexpr (requires { container_.store_observe_isa(isa_organ_); }) {
+                    isa_organ_.reset();
+                    sink += container_.store_observe_isa(isa_organ_);
+                }
+                t1 = clock::now();
+                acc[12] += dns(t0, t1);
                 // T13 index_organization: store_observe über chunks_.
                 t0 = clock::now();
-                if constexpr (requires { container_.store_observe_index_org(idx_organ_); }) { idx_organ_.reset(); sink += container_.store_observe_index_org(idx_organ_); }
-                t1 = clock::now(); acc[13] += dns(t0, t1);
+                if constexpr (requires { container_.store_observe_index_org(idx_organ_); }) {
+                    idx_organ_.reset();
+                    sink += container_.store_observe_index_org(idx_organ_);
+                }
+                t1 = clock::now();
+                acc[13] += dns(t0, t1);
                 // T14 io_dispatch: store_observe (In-Memory-Dispatch) über chunks_.
                 t0 = clock::now();
-                if constexpr (requires { container_.store_observe_io_dispatch(io_organ_); }) { io_organ_.reset(); sink += container_.store_observe_io_dispatch(io_organ_); }
-                t1 = clock::now(); acc[14] += dns(t0, t1);
+                if constexpr (requires { container_.store_observe_io_dispatch(io_organ_); }) {
+                    io_organ_.reset();
+                    sink += container_.store_observe_io_dispatch(io_organ_);
+                }
+                t1 = clock::now();
+                acc[14] += dns(t0, t1);
                 // T15 migration_policy: store_observe (decide-only) über chunks_.
                 t0 = clock::now();
-                if constexpr (requires { container_.store_observe_migration(mig_organ_); }) { mig_organ_.reset(); sink += container_.store_observe_migration(mig_organ_); }
-                t1 = clock::now(); acc[15] += dns(t0, t1);
+                if constexpr (requires { container_.store_observe_migration(mig_organ_); }) {
+                    mig_organ_.reset();
+                    sink += container_.store_observe_migration(mig_organ_);
+                }
+                t1 = clock::now();
+                acc[15] += dns(t0, t1);
                 // T16 filter: store_observe (Probe über Key-Low-Bytes) über chunks_.
                 t0 = clock::now();
-                if constexpr (requires { container_.store_observe_filter(flt_organ_); }) { flt_organ_.reset(); sink += container_.store_observe_filter(flt_organ_); }
-                t1 = clock::now(); acc[16] += dns(t0, t1);
+                if constexpr (requires { container_.store_observe_filter(flt_organ_); }) {
+                    flt_organ_.reset();
+                    sink += container_.store_observe_filter(flt_organ_);
+                }
+                t1 = clock::now();
+                acc[16] += dns(t0, t1);
                 // T17 queuing_q1: put+get-Paar (bounded → kein Deque-Wachstum über die Batches).
                 t0 = clock::now();
-                if constexpr (requires { queuing_q1_organ_.put(typename Composition::queuing_q1::element_type{}); queuing_q1_organ_.get(); }) {
-                    for (std::uint64_t i = 0; i < n_ops; ++i) { queuing_q1_organ_.put(static_cast<typename Composition::queuing_q1::element_type>(i)); auto v = queuing_q1_organ_.get(); if (v) sink += static_cast<std::uint64_t>(*v); }
+                if constexpr (requires {
+                                  queuing_q1_organ_.put(typename Composition::queuing_q1::element_type{});
+                                  queuing_q1_organ_.get();
+                              }) {
+                    for (std::uint64_t i = 0; i < n_ops; ++i) {
+                        queuing_q1_organ_.put(static_cast<typename Composition::queuing_q1::element_type>(i));
+                        auto v = queuing_q1_organ_.get();
+                        if (v) sink += static_cast<std::uint64_t>(*v);
+                    }
                 }
-                t1 = clock::now(); acc[17] += dns(t0, t1);
+                t1 = clock::now();
+                acc[17] += dns(t0, t1);
                 // T18 queuing_q2: should_flush + on_flush_complete.
                 t0 = clock::now();
-                if constexpr (requires { queuing_q2_organ_.should_flush(std::size_t{}, std::size_t{}); queuing_q2_organ_.on_flush_complete(); }) {
-                    for (std::uint64_t i = 0; i < n_ops; ++i) { sink += static_cast<std::uint64_t>(queuing_q2_organ_.should_flush(static_cast<std::size_t>(i & 0x3FFu), std::size_t{1024})); queuing_q2_organ_.on_flush_complete(); }
+                if constexpr (requires {
+                                  queuing_q2_organ_.should_flush(std::size_t{}, std::size_t{});
+                                  queuing_q2_organ_.on_flush_complete();
+                              }) {
+                    for (std::uint64_t i = 0; i < n_ops; ++i) {
+                        sink += static_cast<std::uint64_t>(
+                            queuing_q2_organ_.should_flush(static_cast<std::size_t>(i & 0x3FFu), std::size_t{1024}));
+                        queuing_q2_organ_.on_flush_complete();
+                    }
                 }
-                t1 = clock::now(); acc[18] += dns(t0, t1);
+                t1 = clock::now();
+                acc[18] += dns(t0, t1);
             };
 
-            do_batch();                              // Warmup (verworfen)
+            do_batch(); // Warmup (verworfen)
             for (auto& a : acc) a = 0;
             // P-MD3 (Coverage-Versöhnung): ÄUSSERE Wall-Clock um die gemessenen (Nicht-Warmup-)Batches. Sie erfasst
             // ALLES — die 19 Segment-Timer UND den Rest dazwischen (rng, Schleifen-/Branch-/if-constexpr-Overhead,
@@ -1298,32 +1504,33 @@ public:
             clock::time_point const run_t1 = clock::now();
 
             std::int64_t total = 0;
-            for (int i = 0; i < 19; ++i) { out->seg_ns[i] = acc[i]; total += acc[i]; }
-            if (sink == ~0ull) out->seg_ns[0] ^= 1;   // sink-Schutz gegen Wegoptimierung (verfälscht total NICHT)
+            for (int i = 0; i < 19; ++i) {
+                out->seg_ns[i] = acc[i];
+                total += acc[i];
+            }
+            if (sink == ~0ull) out->seg_ns[0] ^= 1; // sink-Schutz gegen Wegoptimierung (verfälscht total NICHT)
             out->total_ns         = total;
             out->batches_measured = kBatches;
             // P-MD3: Σseg_ns + seg_framework_ns ≡ seg_run_total_ns. seg_framework_ns >= 0 by-construction (die äußere
             // Wall-Clock umschließt alle inneren Segment-Spannen); ein theoretischer Mess-Jitter (innere Summe knapp
             // über äußere) wird auf 0 geklemmt, damit der benannte Rest nie negativ in die Coverage geht.
             std::int64_t const run_total = dns(run_t0, run_t1);
-            out->seg_run_total_ns = run_total;
-            out->seg_framework_ns = (run_total > total) ? (run_total - total) : 0;
+            out->seg_run_total_ns        = run_total;
+            out->seg_framework_ns        = (run_total > total) ? (run_total - total) : 0;
 
             // Per-op-getriebene Zähler nach dem Timing zurücksetzen (memento-/observer-neutral; der Host zieht
             // V3 VOR V4, daher sind die Observer schon erhoben — aber ein defensiver Reset hält die Member sauber).
-            if constexpr (requires { ct_organ_.reset(); })          ct_organ_.reset();
-            if constexpr (requires { map_organ_.reset(); })         map_organ_.reset();
-            if constexpr (requires { pc_organ_.reset(); })          pc_organ_.reset();
-            if constexpr (requires { pf_organ_.reset(); })          pf_organ_.reset();
-            if constexpr (requires { cc_organ_.reset(); })          cc_organ_.reset();
-            if constexpr (requires { telemetry_organ_.reset(); })   telemetry_organ_.reset();
-            if constexpr (requires { queuing_q1_organ_.clear(); })  queuing_q1_organ_.clear();
-            if constexpr (requires { queuing_q1_organ_.reset(); })  queuing_q1_organ_.reset();
-            if constexpr (requires { queuing_q2_organ_.reset(); })  queuing_q2_organ_.reset();
-        } catch (...) {
-            *out = ComdareSegmentLatencyV2{};
-        }
-#endif  // COMDARE_CE_ENABLE_STATISTICS
+            if constexpr (requires { ct_organ_.reset(); }) ct_organ_.reset();
+            if constexpr (requires { map_organ_.reset(); }) map_organ_.reset();
+            if constexpr (requires { pc_organ_.reset(); }) pc_organ_.reset();
+            if constexpr (requires { pf_organ_.reset(); }) pf_organ_.reset();
+            if constexpr (requires { cc_organ_.reset(); }) cc_organ_.reset();
+            if constexpr (requires { telemetry_organ_.reset(); }) telemetry_organ_.reset();
+            if constexpr (requires { queuing_q1_organ_.clear(); }) queuing_q1_organ_.clear();
+            if constexpr (requires { queuing_q1_organ_.reset(); }) queuing_q1_organ_.reset();
+            if constexpr (requires { queuing_q2_organ_.reset(); }) queuing_q2_organ_.reset();
+        } catch (...) { *out = ComdareSegmentLatencyV2{}; }
+#endif // COMDARE_CE_ENABLE_STATISTICS
     }
 
     // KONSOLIDIERUNG (I1, 2026-06-05): die EINZIGE Observer-Methode über den konsolidierten POD. Vereint Observer-
@@ -1345,9 +1552,9 @@ public:
         // P-MD3: kommensurabler Coverage-Nenner + benannter Rest des Pfad-B-Segment-Laufs in den EINEN POD übertragen.
         out->seg_framework_ns = seg.seg_framework_ns;
         out->seg_run_total_ns = seg.seg_run_total_ns;
-#endif  // COMDARE_CE_ENABLE_STATISTICS
+#endif // COMDARE_CE_ENABLE_STATISTICS
     }
-#endif  // COMDARE_MEASUREMENT_ON (tier_observe / observer_all)
+#endif // COMDARE_MEASUREMENT_ON (tier_observe / observer_all)
 
 #if COMDARE_MEASUREMENT_ON
     // ─────────────────────────────────────────────────────────────────────
@@ -1392,22 +1599,30 @@ public:
     void tier_save_all() noexcept override {
         // P4 (#123, R1): die kalte 2. Ebene IMMER eager mitsichern (beide Pfade) — symmetrisch zum Rollback unten.
         // container_tier1_ ist copy-constructible (== container_t) → emplace ist exakt; bei OOM verwerfen (Robustheit).
-        try { saved_tier1_.emplace(container_tier1_); } catch (...) { saved_tier1_.reset(); }
+        try {
+            saved_tier1_.emplace(container_tier1_);
+        } catch (...) { saved_tier1_.reset(); }
         // P5 (#124, R1): den REALEN Filter IMMER eager mitsichern (beide Pfade) — symmetrisch zum Rollback unten.
         // flt_organ_ ist copy-constructible (std::array-basiert) → emplace ist bit-exakt; bei OOM verwerfen.
-        try { saved_flt_.emplace(flt_organ_); } catch (...) { saved_flt_.reset(); }
+        try {
+            saved_flt_.emplace(flt_organ_);
+        } catch (...) { saved_flt_.reset(); }
         // §4.3 (User 2026-06-04, R1): die REALE value_handle-Slot-Struktur IMMER eager mitsichern (beide Pfade) —
         // symmetrisch zum Rollback unten. vh_organ_ ist copy-constructible (std::vector-/EmptyRealSlot-basiert) →
         // emplace ist bit-exakt; bei OOM verwerfen. Fuer Inline (EmptyRealSlot) ist die Kopie O(1)-leer.
-        try { saved_vh_.emplace(vh_organ_); } catch (...) { saved_vh_.reset(); }
+        try {
+            saved_vh_.emplace(vh_organ_);
+        } catch (...) { saved_vh_.reset(); }
         // §4.3 (User 2026-06-04, R1): den MATERIALISIERTEN Patricia-Trie IMMER eager mitsichern (beide Pfade) —
         // symmetrisch zum Rollback unten. pc_organ_ ist copy-constructible (std::vector-/EmptyPatriciaTrie-basiert)
         // → emplace ist bit-exakt; bei OOM verwerfen. Fuer `none` (EmptyPatriciaTrie) ist die Kopie O(1)-leer.
-        try { saved_pc_.emplace(pc_organ_); } catch (...) { saved_pc_.reset(); }
+        try {
+            saved_pc_.emplace(pc_organ_);
+        } catch (...) { saved_pc_.reset(); }
         if constexpr (cow_capable_) {
-            saved_search_stats_    = search_organ_.statistics();    // O(1) POD-Snapshot (T0)
-            saved_container_stats_ = container_.statistics();       // O(1) POD-Snapshot (container-/T6-Pfad)
-            saved_search_.reset();                                  // alte materialisierte Kopie freigeben
+            saved_search_stats_    = search_organ_.statistics(); // O(1) POD-Snapshot (T0)
+            saved_container_stats_ = container_.statistics();    // O(1) POD-Snapshot (container-/T6-Pfad)
+            saved_search_.reset();                               // alte materialisierte Kopie freigeben
             saved_container_.reset();
             cow_materialized_ = false;
             cow_session_      = true;
@@ -1415,12 +1630,16 @@ public:
             return;
         }
         try {
-            if constexpr (std::is_copy_constructible_v<SearchAlgo>)  saved_search_.emplace(search_organ_);
-            else if constexpr (MementoAxis<SearchAlgo>)              saved_search_m_    = search_organ_.save_state();
-            if constexpr (std::is_copy_constructible_v<container_t>) saved_container_.emplace(container_);
-            else if constexpr (MementoAxis<container_t>)             saved_container_m_ = container_.save_state();
+            if constexpr (std::is_copy_constructible_v<SearchAlgo>)
+                saved_search_.emplace(search_organ_);
+            else if constexpr (MementoAxis<SearchAlgo>)
+                saved_search_m_ = search_organ_.save_state();
+            if constexpr (std::is_copy_constructible_v<container_t>)
+                saved_container_.emplace(container_);
+            else if constexpr (MementoAxis<container_t>)
+                saved_container_m_ = container_.save_state();
         } catch (...) {
-            saved_search_.reset();      // OOM beim Kapseln → Kopie-Fallback-Memento verwerfen (Mess-Robustheit)
+            saved_search_.reset(); // OOM beim Kapseln → Kopie-Fallback-Memento verwerfen (Mess-Robustheit)
             saved_container_.reset();
         }
     }
@@ -1428,11 +1647,11 @@ public:
     void tier_rollback_all() noexcept override {
         if constexpr (cow_capable_) {
             if (cow_session_) {
-                cow_armed_ = false;   // Mess-Phase: nicht mehr materialisieren (Mess-Op = REINE Op, 1 bool-Check)
+                cow_armed_ = false; // Mess-Phase: nicht mehr materialisieren (Mess-Op = REINE Op, 1 bool-Check)
                 try {
-                    if (cow_materialized_) {   // Write-Periode: materialisierte save-Stand-Kopie zurückspielen
-                        if (saved_search_)    search_organ_ = *saved_search_;
-                        if (saved_container_) container_    = *saved_container_;
+                    if (cow_materialized_) { // Write-Periode: materialisierte save-Stand-Kopie zurückspielen
+                        if (saved_search_) search_organ_ = *saved_search_;
+                        if (saved_container_) container_ = *saved_container_;
                     }
                     // P4 (#123, R1): die kalte 2. Ebene + den migration-Zaehler exakt auf den save-Stand zurueck.
                     // IMMER (nicht nur Write-Periode): ein migrierender Warmup-Op ist gerade die Write-Mutation, die
@@ -1449,21 +1668,25 @@ public:
                     // zuruecksetzen (IMMER, nicht nur Write-Periode: ein Warmup-Insert hat pc_organ_ via insert_key
                     // inkrementell mutiert). idempotent. Fuer `none` (EmptyPatriciaTrie) ist die Zuweisung O(1)-leer.
                     if (saved_pc_) pc_organ_ = *saved_pc_;
-                    mig_organ_.reset();   // tier_moves/Entscheidungs-Zaehler auf 0 (save-Stand: vor jedem Migrate-Op)
+                    mig_organ_.reset(); // tier_moves/Entscheidungs-Zaehler auf 0 (save-Stand: vor jedem Migrate-Op)
                     // Stats restaurieren (Warmup-Op hat Zähler berührt — auch read-only) → exakt save-Stand.
                     search_organ_.restore_statistics(saved_search_stats_);
                     container_.restore_statistics(saved_container_stats_);
                 } catch (...) {
                     // noexcept-Vertrag: ein Rollback-Fehler darf den Mess-Lauf nicht abreißen.
                 }
-                return;   // idempotent: erneuter Aufruf → Kopie/Snapshots unverändert → derselbe Stand
+                return; // idempotent: erneuter Aufruf → Kopie/Snapshots unverändert → derselbe Stand
             }
         }
         try {
-            if constexpr (std::is_copy_assignable_v<SearchAlgo>)  { if (saved_search_)    search_organ_ = *saved_search_; }
-            else if constexpr (MementoAxis<SearchAlgo>)             search_organ_.restore_state(saved_search_m_);
-            if constexpr (std::is_copy_assignable_v<container_t>) { if (saved_container_) container_    = *saved_container_; }
-            else if constexpr (MementoAxis<container_t>)            container_.restore_state(saved_container_m_);
+            if constexpr (std::is_copy_assignable_v<SearchAlgo>) {
+                if (saved_search_) search_organ_ = *saved_search_;
+            } else if constexpr (MementoAxis<SearchAlgo>)
+                search_organ_.restore_state(saved_search_m_);
+            if constexpr (std::is_copy_assignable_v<container_t>) {
+                if (saved_container_) container_ = *saved_container_;
+            } else if constexpr (MementoAxis<container_t>)
+                container_.restore_state(saved_container_m_);
             // P4 (#123, R1): kalte 2. Ebene + migration-Zaehler symmetrisch zum save zuruecksetzen (Fallback-Pfad).
             if (saved_tier1_) container_tier1_ = *saved_tier1_;
             // P5 (#124, R1): REALEN Filter bit-exakt auf den save-Stand zuruecksetzen (Fallback-Pfad, symmetrisch).
@@ -1521,10 +1744,10 @@ public:
     /// Diagnose für den Zwei-Phasen-Treiber (I7): exakter Rollback, wenn jedes Organ ENTWEDER MementoAxis ODER
     /// kopierbar ist. Sonst muss der Treiber Kalt-Messung wählen (empirische Probe in tier_observe_trace_abi.hpp).
     [[nodiscard]] bool tier_rollback_is_exact() const noexcept {
-        constexpr bool search_ok = MementoAxis<SearchAlgo>
-            || (std::is_copy_constructible_v<SearchAlgo>  && std::is_copy_assignable_v<SearchAlgo>);
-        constexpr bool cont_ok = MementoAxis<container_t>
-            || (std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>);
+        constexpr bool search_ok = MementoAxis<SearchAlgo> ||
+                                   (std::is_copy_constructible_v<SearchAlgo> && std::is_copy_assignable_v<SearchAlgo>);
+        constexpr bool cont_ok = MementoAxis<container_t> ||
+                                 (std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>);
         // P4 (#123, R1): die kalte 2. Ebene wird via std::optional<container_t>-Eager-Kopie exakt zurueckgerollt →
         // exakt gdw. container_t kopierbar ist (== dieselbe Bedingung wie cont_ok; container_t ist beidseitig kopierbar).
         constexpr bool tier1_ok = std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>;
@@ -1552,13 +1775,12 @@ public:
             // [LIMIT #226] Weg-B: der Scan misst den container_-SortedBinary-Spiegel, NICHT das native Baum-Organ
             // (search_organ_) — volle Per-Achsen-Scan-Echtheit der SOTA-Bäume erst mit #188 (search_organ_-Entfall).
             visited = static_cast<std::uint64_t>(container_.scan_range(
-                static_cast<typename container_t::key_type>(start_key),
-                static_cast<std::size_t>(max_count),
+                static_cast<typename container_t::key_type>(start_key), static_cast<std::size_t>(max_count),
                 [&sum](typename container_t::key_type /*k*/, typename container_t::value_type v) noexcept {
                     sum += static_cast<std::uint64_t>(v);
                 }));
         } catch (...) {
-            return 0;   // noexcept-Vertrag: interne Störung (z.B. OOM beim Sammeln in LinearScan) → 0 Records
+            return 0; // noexcept-Vertrag: interne Störung (z.B. OOM beim Sammeln in LinearScan) → 0 Records
         }
         if (out_checksum != nullptr) *out_checksum += sum;
         return visited;
@@ -1610,17 +1832,19 @@ public:
         if (cow_armed_) cow_materialize_copy_();
         std::uint64_t moved = 0;
         try {
-            if constexpr (requires { container_.store_migrate_step(mig_organ_, container_tier1_.store_mut(), max_moves); }) {
-                mig_organ_.reset();   // tier_moves je Schritt frisch (analog Observer-reset()+scan)
+            if constexpr (requires {
+                              container_.store_migrate_step(mig_organ_, container_tier1_.store_mut(), max_moves);
+                          }) {
+                mig_organ_.reset(); // tier_moves je Schritt frisch (analog Observer-reset()+scan)
                 moved = container_.store_migrate_step(mig_organ_, container_tier1_.store_mut(), max_moves);
-                mig_organ_.add_tier_moves(moved);   // ECHTE Buchung der bewegten Records (stats_ privat → diese API)
+                mig_organ_.add_tier_moves(moved); // ECHTE Buchung der bewegten Records (stats_ privat → diese API)
             }
         } catch (...) {
-            return 0;   // noexcept-Vertrag: interne Stoerung (z.B. OOM beim Append) → 0 (Mess-Robustheit)
+            return 0; // noexcept-Vertrag: interne Stoerung (z.B. OOM beim Append) → 0 (Mess-Robustheit)
         }
         return moved;
     }
-#endif  // COMDARE_MEASUREMENT_ON (tier_save_all / tier_rollback_all / memento_all / tier_scan / tier_migrate_step)
+#endif // COMDARE_MEASUREMENT_ON (tier_save_all / tier_rollback_all / memento_all / tier_scan / tier_migrate_step)
 
 private:
     // K9-Fix (User §4.4 / 2026-06-18) + GAP #3 Exaktheits-Dokumentation (P5d-Rest, 2026-06-18):
@@ -1638,12 +1862,18 @@ private:
     //   it is the next ESTIMATED (not organ-exact) descent position — real + in-range, yet not necessarily the
     //   exact next touch.
     [[nodiscard]] std::size_t descent_slot_for_(std::uint64_t key) const noexcept {
-        auto const& st = container_.store();
-        std::size_t const n = st.slot_count();
+        auto const&       st = container_.store();
+        std::size_t const n  = st.slot_count();
         if (n == 0) return 0;
         // Lower-Bound ueber die realen Store-Keys. SORTIERT → exakte next-touch-Position; UNSORTIERT → in-range Schaetzung.
         std::size_t lo = 0, hi = n;
-        while (lo < hi) { std::size_t const m = lo + (hi - lo) / 2; if (st.key_at(m) < key) lo = m + 1; else hi = m; }
+        while (lo < hi) {
+            std::size_t const m = lo + (hi - lo) / 2;
+            if (st.key_at(m) < key)
+                lo = m + 1;
+            else
+                hi = m;
+        }
         return (lo < n) ? lo : (n - 1);
     }
 
@@ -1657,10 +1887,10 @@ private:
     // (E-Welle-A2 / Befund-2 / Q2-Schritt-4 / A2.5) Such-Strategie ÜBER den Store: store-traversierbare Algos
     // (LinearScan/Interpolation) parametrisieren container_ mit ihrem TREUEN Traversal-Organ → die search_algo-Achse
     // sucht über DENSELBEN node/layout/allocator-getriebenen Store (Befund-2-SOLL); Weg-B-Algos: SortedBinary-Fallback.
-    using container_traversal_t = std::conditional_t<
-        ::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>,
-        ::comdare::cache_engine::lookup::composable::traversal_for_search_algo_t<SearchAlgo>,
-        ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::SortedBinaryTraversal>;
+    using container_traversal_t =
+        std::conditional_t<::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>,
+                           ::comdare::cache_engine::lookup::composable::traversal_for_search_algo_t<SearchAlgo>,
+                           ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::SortedBinaryTraversal>;
     using container_t = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::ObservableComposedSearch<
         container_traversal_t,
         ::comdare::cache_engine::node::LayoutAwareChunkedStore<
@@ -1671,7 +1901,7 @@ private:
     // R6 / Pfad B: das getriebene ECHTE Composition-Such-Organ (uint64-Key). Default-konstruiert;
     // Default-konstruierbar + ObservableAxis garantiert durch #42 (ObservableComposedContainer-Huelle).
     SearchAlgo  search_organ_{};
-    container_t container_{};   // R6 Inkrement 2b: misst die ALLOCATOR-Achse über die ABI-Grenze
+    container_t container_{}; // R6 Inkrement 2b: misst die ALLOCATOR-Achse über die ABI-Grenze
     // P4 (#123, 2026-06-04): die KALTE 2. Ebene des ECHTEN 2-Ebenen-Migrations-Schritts. Identischer container_t-Typ
     // (gleicher node/layout/allocator-getriebener Store) — tier_migrate_step bewegt markierte Records aus container_
     // (heiss) hierher. Bleibt leer, solange tier_migrate_step nicht gerufen wird (alle 320 None-Lebewesen tasten ihn
@@ -1692,8 +1922,8 @@ private:
     // Observieren (put/get bzw. should_flush in tier_insert/observe) ist ein Folge-Inkrement (Doc 30 §8.2).
     // mutable: ein späteres Mit-Treiben im const tier_lookup/observe bleibt logisch nicht-const (analog
     // telemetry_organ_/ml_organ_). MUSS für die 19-Slot-Composition kompilieren.
-    mutable typename Composition::queuing_q1    queuing_q1_organ_;
-    mutable typename Composition::queuing_q2    queuing_q2_organ_;
+    mutable typename Composition::queuing_q1 queuing_q1_organ_;
+    mutable typename Composition::queuing_q2 queuing_q2_organ_;
     // Phase A (2026-06-04): cache_traversal (T1) + mapping (T2) als real gehaltene, auto-gekoppelte Organe
     // (register/resolve in tier_insert/lookup). mutable: das Resolve-Tracking im const tier_lookup ist logisch
     // nicht-const (analog telemetry_organ_/queuing_*). Ihre statistics() liefert fill_observer_v3 (Pfad B).
@@ -1704,26 +1934,31 @@ private:
     // trägt die Composition für T7/T8 die NACKTE Strategie (kein statistics()) → die Hülle hält das Mess-Organ.
     // mutable: das observe_*-Tracking im const tier_lookup ist logisch nicht-const (analog telemetry_organ_).
     // Ihre statistics() liefert fill_observer_v3 (Pfad B). Default-konstruiert; auto-gekoppelt in tier_insert/lookup.
-    mutable ::comdare::cache_engine::prefetch_axis::ObservablePrefetch<typename Composition::prefetch>       pf_organ_{};
-    mutable ::comdare::cache_engine::concurrency_axis::ObservableConcurrency<typename Composition::concurrency> cc_organ_{};
+    mutable ::comdare::cache_engine::prefetch_axis::ObservablePrefetch<typename Composition::prefetch> pf_organ_{};
+    mutable ::comdare::cache_engine::concurrency_axis::ObservableConcurrency<typename Composition::concurrency>
+        cc_organ_{};
     // Phase B (2026-06-04): T11 value_handle (ObservableValueHandle-Hülle um die rohe Composition::value_handle-
     // Strategie) + T12 isa (ObservableIsa-Hülle um Composition::isa). Anders als telemetry/q1/q2 trägt die
     // Composition für T11/T12 die NACKTE Strategie (kein statistics()) → die Hülle hält das Mess-Organ. Getrieben
     // NICHT in tier_insert/lookup, sondern als Pfad-B Zustand-Scan über das ECHTE container_-Slot-Backing in
     // fill_observer_v3 (store_observe_value_handle/store_observe_isa, idempotenter reset()+scan, analog ml/ser).
     // mutable: der Observe-Scan im const fill_observer_v3 ist logisch nicht-const (analog ml_organ_/ser_organ_).
-    mutable ::comdare::cache_engine::value_handle_axis::ObservableValueHandle<typename Composition::value_handle> vh_organ_{};
-    mutable ::comdare::cache_engine::simd::ObservableIsa<typename Composition::isa>                               isa_organ_{};
+    mutable ::comdare::cache_engine::value_handle_axis::ObservableValueHandle<typename Composition::value_handle>
+                                                                                    vh_organ_{};
+    mutable ::comdare::cache_engine::simd::ObservableIsa<typename Composition::isa> isa_organ_{};
     // Phase B (2026-06-04) Abschluss: die 5 verbleibenden Observer-Hüllen als Member-Organe.
     //  • T3 path_compression: Instanz-Driver compress(key,depth), AUTO-gekoppelt in tier_insert/lookup (wie T1/T2).
     //  • T13/T14/T15/T16 (index_org/io_dispatch/migration/filter): scan-Achsen, getrieben als Pfad-B Zustand-Scan über
     //    das ECHTE container_-Slot-Backing in fill_observer_v3 (store_observe_*, idempotenter reset()+scan, wie ml/ser/vh).
     // mutable: das Tracking im const tier_lookup / const fill_observer_v3 ist logisch nicht-const (analog telemetry_organ_).
-    mutable ::comdare::cache_engine::path_compression::ObservablePathCompression<typename Composition::path_compression> pc_organ_{};
-    mutable ::comdare::cache_engine::index_organization::ObservableIndexOrg<typename Composition::index_organization>     idx_organ_{};
-    mutable ::comdare::cache_engine::io_dispatch::ObservableIoDispatch<typename Composition::io_dispatch>                 io_organ_{};
-    mutable ::comdare::cache_engine::migration_policy::ObservableMigration<typename Composition::migration_policy>        mig_organ_{};
-    mutable ::comdare::cache_engine::filter_axis::ObservableFilter<typename Composition::filter>                          flt_organ_{};
+    mutable ::comdare::cache_engine::path_compression::ObservablePathCompression<typename Composition::path_compression>
+        pc_organ_{};
+    mutable ::comdare::cache_engine::index_organization::ObservableIndexOrg<typename Composition::index_organization>
+                                                                                                          idx_organ_{};
+    mutable ::comdare::cache_engine::io_dispatch::ObservableIoDispatch<typename Composition::io_dispatch> io_organ_{};
+    mutable ::comdare::cache_engine::migration_policy::ObservableMigration<typename Composition::migration_policy>
+                                                                                                 mig_organ_{};
+    mutable ::comdare::cache_engine::filter_axis::ObservableFilter<typename Composition::filter> flt_organ_{};
     // KF-4/L-MEAS: zuletzt angewandte Resource-Control (IMMER, auch Messung-aus) — vom RuntimeVariableLoop je dyn.
     // Einstellung gesetzt. Reiner Steuer-Zustand (quert die ABI nicht; der Host liest die Wirkung über den Observer).
     ComdareResourceControlV1 applied_rc_{};
@@ -1731,8 +1966,8 @@ private:
     // V5-#44 memento_all: Warmup-Vor-Zustand der getriebenen Organe. Lebt IN der Binary, quert die ABI NICHT.
     // PER-ACHSEN-Memento (bevorzugt, MementoAxis): memento_of_t<Organ> = Organ::memento_t (riche (key,value)-
     // Liste + Stats) bzw. EmptyMemento wenn das Organ KEIN MementoAxis ist (dann greift der Kopie-Fallback).
-    memento_of_t<SearchAlgo>   saved_search_m_{};
-    memento_of_t<container_t>  saved_container_m_{};
+    memento_of_t<SearchAlgo>  saved_search_m_{};
+    memento_of_t<container_t> saved_container_m_{};
     // Kopie-Fallback für Organe ohne MementoAxis (std::optional → leer bis save_all; reset bei Kapsel-OOM).
     // Im CoW-Pfad (#133 Rev. 2) der Träger der LAZY materialisierten Daten-Vollkopie (Write-/clear-Perioden).
     std::optional<SearchAlgo>  saved_search_{};
@@ -1757,7 +1992,8 @@ private:
     // nach rollback_all im Slot-Backing stehen (Deref-Drift gegen den save-Stand). EAGER (nicht CoW-lazy): die Struktur
     // ist klein (std::vector, ~KiB) → Kopie ~O(1), KEIN Kosten-Hebel; bit-exakt via operator==. In BEIDEN Pfaden
     // (CoW + Fallback) gesichert/zurueckgespielt → uniform exakt (analog saved_flt_/saved_tier1_).
-    using vh_organ_t = ::comdare::cache_engine::value_handle_axis::ObservableValueHandle<typename Composition::value_handle>;
+    using vh_organ_t =
+        ::comdare::cache_engine::value_handle_axis::ObservableValueHandle<typename Composition::value_handle>;
     std::optional<vh_organ_t> saved_vh_{};
     // §4.3 (User 2026-06-04, R1 — KRITISCH): symmetrischer Memento des MATERIALISIERTEN Patricia-Trie. pc_organ_
     // traegt seit §4.3 (Patricia) einen echten, INKREMENTELL in tier_insert via insert_key aufgebauten crit-bit-Trie
@@ -1765,39 +2001,43 @@ private:
     // nach rollback_all im Trie stehen (Descent-Drift gegen den save-Stand). EAGER (nicht CoW-lazy): die Struktur ist
     // klein (std::vector aus crit-bit-Knoten) → Kopie ~O(n_keys), KEIN dominanter Kosten-Hebel; bit-exakt via
     // operator==. In BEIDEN Pfaden (CoW + Fallback) gesichert/zurueckgespielt → uniform exakt (analog saved_vh_/saved_flt_).
-    using pc_organ_t = ::comdare::cache_engine::path_compression::ObservablePathCompression<typename Composition::path_compression>;
+    using pc_organ_t =
+        ::comdare::cache_engine::path_compression::ObservablePathCompression<typename Composition::path_compression>;
     std::optional<pc_organ_t> saved_pc_{};
 
     // ── Copy-on-Write-Memento (#133 Rev. 2) — save O(1), Daten-Kopie lazy bei der ersten Warmup-Mutation ──
     // Fähigkeits-Detektion (requires): das Organ trägt den O(1)-Stat-Snapshot/-Restore (statistics()/
     // restore_statistics(), ObservableComposedSearch/-Container); Copy-Konstruierbarkeit für die lazy Kopie.
     template <class S>
-    static constexpr bool organ_cow_capable_v = requires(S& s, S const& cs) {
-        s.restore_statistics(cs.statistics());
-    };
+    static constexpr bool organ_cow_capable_v = requires(S& s, S const& cs) { s.restore_statistics(cs.statistics()); };
     static constexpr bool cow_capable_ =
-        organ_cow_capable_v<SearchAlgo> && organ_cow_capable_v<container_t>
-        && std::is_copy_constructible_v<SearchAlgo>  && std::is_copy_assignable_v<SearchAlgo>
-        && std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>;
+        organ_cow_capable_v<SearchAlgo> && organ_cow_capable_v<container_t> &&
+        std::is_copy_constructible_v<SearchAlgo> && std::is_copy_assignable_v<SearchAlgo> &&
+        std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>;
 
     /// Stat-POD-Typ eines CoW-fähigen Organs (sonst leerer Platzhalter — Member existiert immer).
     struct EmptyStatsSnap {};
     template <class S, bool Cap = organ_cow_capable_v<S>>
-    struct OrganStatsSnap { using type = EmptyStatsSnap; };
+    struct OrganStatsSnap {
+        using type = EmptyStatsSnap;
+    };
     template <class S>
-    struct OrganStatsSnap<S, true> { using type = decltype(std::declval<S const&>().statistics()); };
+    struct OrganStatsSnap<S, true> {
+        using type = decltype(std::declval<S const&>().statistics());
+    };
 
     /// Copy-on-Write: die Daten-Vollkopie des save-Stands EINMAL je Periode materialisieren — gerufen von
     /// tier_insert/tier_erase/tier_clear VOR ihrer Mutation (nur Warmup-Phase, cow_armed_). Read-Perioden
     /// materialisieren nie (deren save+rollback bleiben reine O(1)-POD-Kopien — der große Kosten-Hebel).
     void cow_materialize_copy_() noexcept {
-        if (cow_materialized_) return;            // Periode bereits materialisiert (z.B. RMW: insert nach lookup)
+        if (cow_materialized_) return; // Periode bereits materialisiert (z.B. RMW: insert nach lookup)
         try {
             saved_search_.emplace(search_organ_);
             saved_container_.emplace(container_);
             cow_materialized_ = true;
         } catch (...) {
-            saved_search_.reset(); saved_container_.reset();
+            saved_search_.reset();
+            saved_container_.reset();
             // Materialisierung gescheitert (OOM): Rollback dieser Periode degradiert (Status-quo-äquivalente
             // Mess-Robustheit; die empirische rb_exact-Probe deckt strukturelle Fälle je Binary ab).
         }
@@ -1805,10 +2045,10 @@ private:
 
     typename OrganStatsSnap<SearchAlgo>::type  saved_search_stats_{};    // O(1)-Stat-Snapshot (save-Stand, T0)
     typename OrganStatsSnap<container_t>::type saved_container_stats_{}; // O(1)-Stat-Snapshot (container/T6-Pfad)
-    bool cow_session_      = false;           // save_all lief über den CoW-Pfad (Routing in rollback_all)
-    bool cow_armed_        = false;           // Materialisierung AN (nur save→rollback; Mess-Op = 1 bool-Check)
-    bool cow_materialized_ = false;           // diese Periode hat die Daten-Vollkopie materialisiert (Write/clear)
+    bool cow_session_      = false; // save_all lief über den CoW-Pfad (Routing in rollback_all)
+    bool cow_armed_        = false; // Materialisierung AN (nur save→rollback; Mess-Op = 1 bool-Check)
+    bool cow_materialized_ = false; // diese Periode hat die Daten-Vollkopie materialisiert (Write/clear)
 #endif
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

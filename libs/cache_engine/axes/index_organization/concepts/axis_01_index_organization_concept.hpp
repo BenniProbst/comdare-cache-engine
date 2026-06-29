@@ -16,11 +16,10 @@ namespace comdare::cache_engine::index_organization::concepts {
 
 template <typename I>
 concept IndexOrganizationStrategy =
-    ::comdare::cache_engine::search_engine::concepts::SearchEngineComponent<I>
-    && requires {
-        { I::is_clustered() }            noexcept -> std::convertible_to<bool>;
-        { I::has_secondary_indexes() }   noexcept -> std::convertible_to<bool>;
-        { I::data_embedded_in_leaf() }   noexcept -> std::convertible_to<bool>;
+    ::comdare::cache_engine::search_engine::concepts::SearchEngineComponent<I> && requires {
+        { I::is_clustered() } noexcept -> std::convertible_to<bool>;
+        { I::has_secondary_indexes() } noexcept -> std::convertible_to<bool>;
+        { I::data_embedded_in_leaf() } noexcept -> std::convertible_to<bool>;
     };
 
-}  // namespace
+} // namespace comdare::cache_engine::index_organization::concepts

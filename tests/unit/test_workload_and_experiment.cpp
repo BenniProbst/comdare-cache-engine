@@ -15,9 +15,9 @@
 #include <iterator>
 #include <string>
 
-namespace wg = comdare::workload_generator;
+namespace wg   = comdare::workload_generator;
 namespace expt = comdare::experiment;
-namespace fam = comdare::cache_engine::allocator::families;
+namespace fam  = comdare::cache_engine::allocator::families;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WorkloadGenerator
@@ -37,7 +37,7 @@ TEST(WorkloadGenerator, UniformReadsCorrectCount) {
     cfg.num_keys       = 100;
     cfg.num_operations = 1000;
     wg::WorkloadGenerator gen{cfg};
-    auto ops = gen.generate_uniform_reads();
+    auto                  ops = gen.generate_uniform_reads();
     EXPECT_EQ(ops.size(), 1000u);
     for (auto const& op : ops) {
         EXPECT_EQ(op.op, wg::OperationKind::Read);
@@ -50,7 +50,7 @@ TEST(WorkloadGenerator, ZipfianReadsCorrectCount) {
     cfg.num_keys       = 1000;
     cfg.num_operations = 2000;
     wg::WorkloadGenerator gen{cfg};
-    auto ops = gen.generate_zipfian_reads();
+    auto                  ops = gen.generate_zipfian_reads();
     EXPECT_EQ(ops.size(), 2000u);
     for (auto const& op : ops) {
         EXPECT_EQ(op.op, wg::OperationKind::Read);
@@ -63,11 +63,11 @@ TEST(WorkloadGenerator, SequentialReadsAreCyclic) {
     cfg.num_keys       = 10;
     cfg.num_operations = 30;
     wg::WorkloadGenerator gen{cfg};
-    auto ops = gen.generate_sequential_reads();
+    auto                  ops = gen.generate_sequential_reads();
     ASSERT_EQ(ops.size(), 30u);
     EXPECT_EQ(ops[0].key_id, 0u);
     EXPECT_EQ(ops[9].key_id, 9u);
-    EXPECT_EQ(ops[10].key_id, 0u);  // wrap
+    EXPECT_EQ(ops[10].key_id, 0u); // wrap
     EXPECT_EQ(ops[20].key_id, 0u);
 }
 
@@ -76,7 +76,7 @@ TEST(WorkloadGenerator, YcsbAHasReadsAndUpdates) {
     cfg.num_keys       = 100;
     cfg.num_operations = 1000;
     wg::WorkloadGenerator gen{cfg};
-    auto ops = gen.generate_ycsb(wg::YcsbWorkload::A);
+    auto                  ops = gen.generate_ycsb(wg::YcsbWorkload::A);
     EXPECT_EQ(ops.size(), 1000u);
 
     int reads = 0, updates = 0;
@@ -84,7 +84,7 @@ TEST(WorkloadGenerator, YcsbAHasReadsAndUpdates) {
         if (op.op == wg::OperationKind::Read) ++reads;
         if (op.op == wg::OperationKind::Update) ++updates;
     }
-    EXPECT_GT(reads, 300);     // ~50% +/- variance
+    EXPECT_GT(reads, 300); // ~50% +/- variance
     EXPECT_GT(updates, 300);
 }
 
@@ -93,10 +93,8 @@ TEST(WorkloadGenerator, YcsbCAllReads) {
     cfg.num_keys       = 100;
     cfg.num_operations = 500;
     wg::WorkloadGenerator gen{cfg};
-    auto ops = gen.generate_ycsb(wg::YcsbWorkload::C);
-    for (auto const& op : ops) {
-        EXPECT_EQ(op.op, wg::OperationKind::Read);
-    }
+    auto                  ops = gen.generate_ycsb(wg::YcsbWorkload::C);
+    for (auto const& op : ops) { EXPECT_EQ(op.op, wg::OperationKind::Read); }
 }
 
 TEST(WorkloadGenerator, AbiDescriptorMatchesOps) {
@@ -104,8 +102,8 @@ TEST(WorkloadGenerator, AbiDescriptorMatchesOps) {
     cfg.num_keys       = 100;
     cfg.num_operations = 200;
     wg::WorkloadGenerator gen{cfg};
-    auto ops = gen.generate_uniform_reads();
-    auto d = gen.to_abi_descriptor(std::span<wg::Operation const>{ops});
+    auto                  ops = gen.generate_uniform_reads();
+    auto                  d   = gen.to_abi_descriptor(std::span<wg::Operation const>{ops});
     EXPECT_EQ(d.version, static_cast<std::uint32_t>(COMDARE_ABI_VERSION));
     EXPECT_EQ(d.num_operations, 200u);
     EXPECT_EQ(d.dataset_bytes, 200u * sizeof(wg::Operation));
@@ -122,11 +120,11 @@ TEST(ResultAggregator, EmptyInitially) {
 }
 
 TEST(ResultAggregator, AddsResults) {
-    expt::ResultAggregator agg;
+    expt::ResultAggregator  agg;
     expt::PermutationResult r;
-    r.permutation_id = "test1";
-    r.succeeded      = true;
-    r.record.op_count    = 1000;
+    r.permutation_id      = "test1";
+    r.succeeded           = true;
+    r.record.op_count     = 1000;
     r.record.total_cycles = 10000;
     agg.add(r);
     EXPECT_EQ(agg.result_count(), 1u);
@@ -136,19 +134,19 @@ TEST(ResultAggregator, CompareAgainstBaseline) {
     expt::ResultAggregator agg;
 
     expt::PermutationResult baseline;
-    baseline.permutation_id     = "baseline";
-    baseline.succeeded          = true;
-    baseline.record.op_count    = 1000;
-    baseline.record.total_cycles = 10000;
+    baseline.permutation_id           = "baseline";
+    baseline.succeeded                = true;
+    baseline.record.op_count          = 1000;
+    baseline.record.total_cycles      = 10000;
     baseline.record.bytes_in_use_peak = 1024 * 1024;
     agg.add(baseline);
 
     expt::PermutationResult faster;
-    faster.permutation_id     = "candidate";
-    faster.succeeded          = true;
-    faster.record.op_count    = 1000;
-    faster.record.total_cycles = 5000;          // 2x schneller
-    faster.record.bytes_in_use_peak = 2 * 1024 * 1024;  // 2x mehr Memory
+    faster.permutation_id           = "candidate";
+    faster.succeeded                = true;
+    faster.record.op_count          = 1000;
+    faster.record.total_cycles      = 5000;            // 2x schneller
+    faster.record.bytes_in_use_peak = 2 * 1024 * 1024; // 2x mehr Memory
     agg.add(faster);
 
     agg.set_baseline("baseline");
@@ -159,11 +157,11 @@ TEST(ResultAggregator, CompareAgainstBaseline) {
 }
 
 TEST(ResultAggregator, ExportCsv) {
-    expt::ResultAggregator agg;
+    expt::ResultAggregator  agg;
     expt::PermutationResult r;
-    r.permutation_id = "test_perm";
-    r.fingerprint    = 0xCAFE;
-    r.succeeded      = true;
+    r.permutation_id  = "test_perm";
+    r.fingerprint     = 0xCAFE;
+    r.succeeded       = true;
     r.record.op_count = 100;
     agg.add(r);
 
@@ -189,12 +187,12 @@ TEST(ResultAggregator, ExportJson) {
 
 // V20.4 — workload_used als CSV-Spalte und JSON-Feld
 TEST(ResultAggregator, ExportContainsWorkloadUsedColumn) {
-    expt::ResultAggregator agg;
+    expt::ResultAggregator  agg;
     expt::PermutationResult r;
-    r.permutation_id = "v20_test";
-    r.fingerprint    = 0xCAFEBABE;
-    r.succeeded      = true;
-    r.workload_used  = "YCSB_F";
+    r.permutation_id  = "v20_test";
+    r.fingerprint     = 0xCAFEBABE;
+    r.succeeded       = true;
+    r.workload_used   = "YCSB_F";
     r.record.op_count = 42;
     agg.add(r);
 
@@ -203,12 +201,9 @@ TEST(ResultAggregator, ExportContainsWorkloadUsedColumn) {
     agg.export_csv(csv_path);
     {
         std::ifstream f{csv_path};
-        std::string content((std::istreambuf_iterator<char>(f)),
-                             std::istreambuf_iterator<char>());
-        EXPECT_NE(content.find("workload_used"), std::string::npos)
-            << "CSV-Header muss 'workload_used' enthalten";
-        EXPECT_NE(content.find("YCSB_F"), std::string::npos)
-            << "CSV-Daten muessen 'YCSB_F' enthalten";
+        std::string   content((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        EXPECT_NE(content.find("workload_used"), std::string::npos) << "CSV-Header muss 'workload_used' enthalten";
+        EXPECT_NE(content.find("YCSB_F"), std::string::npos) << "CSV-Daten muessen 'YCSB_F' enthalten";
     }
     std::filesystem::remove(csv_path);
 
@@ -217,12 +212,9 @@ TEST(ResultAggregator, ExportContainsWorkloadUsedColumn) {
     agg.export_json(json_path);
     {
         std::ifstream f{json_path};
-        std::string content((std::istreambuf_iterator<char>(f)),
-                             std::istreambuf_iterator<char>());
-        EXPECT_NE(content.find("\"workload_used\""), std::string::npos)
-            << "JSON muss 'workload_used'-Feld enthalten";
-        EXPECT_NE(content.find("\"YCSB_F\""), std::string::npos)
-            << "JSON muss 'YCSB_F'-Wert enthalten";
+        std::string   content((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        EXPECT_NE(content.find("\"workload_used\""), std::string::npos) << "JSON muss 'workload_used'-Feld enthalten";
+        EXPECT_NE(content.find("\"YCSB_F\""), std::string::npos) << "JSON muss 'YCSB_F'-Wert enthalten";
     }
     std::filesystem::remove(json_path);
 }
@@ -237,12 +229,11 @@ TEST(ExperimentDemo, RunSingleAgainstHoard) {
     cfg.num_operations   = 500;
     cfg.value_size_bytes = 64;
     wg::WorkloadGenerator gen{cfg};
-    auto ops = gen.generate_ycsb(wg::YcsbWorkload::A);
+    auto                  ops = gen.generate_ycsb(wg::YcsbWorkload::A);
 
     fam::a01_hoard::HoardAdapter<> alloc;
-    auto result = expt::run_single_experiment(
-        "hoard_demo", 0xDEAD, alloc,
-        std::span<wg::Operation const>{ops}, cfg.value_size_bytes);
+    auto result = expt::run_single_experiment("hoard_demo", 0xDEAD, alloc, std::span<wg::Operation const>{ops},
+                                              cfg.value_size_bytes);
 
     EXPECT_TRUE(result.succeeded);
     EXPECT_EQ(result.record.op_count, 500u);
@@ -255,26 +246,25 @@ TEST(ExperimentDemo, CompareHoardVsMimallocVsTcmalloc) {
     cfg.num_operations   = 1000;
     cfg.value_size_bytes = 128;
     wg::WorkloadGenerator gen{cfg};
-    auto ops = gen.generate_ycsb(wg::YcsbWorkload::A);
+    auto                  ops = gen.generate_ycsb(wg::YcsbWorkload::A);
 
     expt::ResultAggregator agg;
 
-    fam::a01_hoard::HoardAdapter<>          hoard;
-    fam::a04_mimalloc::MimallocAdapter<>    mimal;
-    fam::a06_tcmalloc::TcmallocAdapter<>    tcmal;
+    fam::a01_hoard::HoardAdapter<>       hoard;
+    fam::a04_mimalloc::MimallocAdapter<> mimal;
+    fam::a06_tcmalloc::TcmallocAdapter<> tcmal;
 
-    agg.add(expt::run_single_experiment("hoard", 1, hoard,
-        std::span<wg::Operation const>{ops}, cfg.value_size_bytes));
-    agg.add(expt::run_single_experiment("mimalloc", 2, mimal,
-        std::span<wg::Operation const>{ops}, cfg.value_size_bytes));
-    agg.add(expt::run_single_experiment("tcmalloc", 3, tcmal,
-        std::span<wg::Operation const>{ops}, cfg.value_size_bytes));
+    agg.add(expt::run_single_experiment("hoard", 1, hoard, std::span<wg::Operation const>{ops}, cfg.value_size_bytes));
+    agg.add(
+        expt::run_single_experiment("mimalloc", 2, mimal, std::span<wg::Operation const>{ops}, cfg.value_size_bytes));
+    agg.add(
+        expt::run_single_experiment("tcmalloc", 3, tcmal, std::span<wg::Operation const>{ops}, cfg.value_size_bytes));
 
     EXPECT_EQ(agg.result_count(), 3u);
 
     agg.set_baseline("hoard");
     auto reports = agg.compare_against_baseline();
-    EXPECT_EQ(reports.size(), 2u);   // mimalloc + tcmalloc gegen hoard
+    EXPECT_EQ(reports.size(), 2u); // mimalloc + tcmalloc gegen hoard
 
     // CSV/JSON-Export funktioniert
     auto csv_path  = std::filesystem::temp_directory_path() / "comdare_demo.csv";

@@ -38,25 +38,25 @@ TEST(R7_5_c_Axis10, AllSerializersSatisfyConcepts) {
 }
 
 TEST(R7_5_c_Axis10, SupportsCompressionDifferentiated) {
-    static_assert(ax10::RawBinarySerialization::supports_compression()  == false);
-    static_assert(ax10::VarLenSerialization::supports_compression()     == true);
-    static_assert(ax10::SuccinctSerialization::supports_compression()   == true);
+    static_assert(ax10::RawBinarySerialization::supports_compression() == false);
+    static_assert(ax10::VarLenSerialization::supports_compression() == true);
+    static_assert(ax10::SuccinctSerialization::supports_compression() == true);
     static_assert(ax10::CompressedSerialization::supports_compression() == true);
     SUCCEED();
 }
 
 TEST(R7_5_c_Axis10, FlagSuffixUppercase) {
-    static_assert(ax10::RawBinarySerialization::flag_suffix()  == std::string_view{"RAW_BINARY"});
-    static_assert(ax10::VarLenSerialization::flag_suffix()     == std::string_view{"VAR_LEN"});
-    static_assert(ax10::SuccinctSerialization::flag_suffix()   == std::string_view{"SUCCINCT"});
+    static_assert(ax10::RawBinarySerialization::flag_suffix() == std::string_view{"RAW_BINARY"});
+    static_assert(ax10::VarLenSerialization::flag_suffix() == std::string_view{"VAR_LEN"});
+    static_assert(ax10::SuccinctSerialization::flag_suffix() == std::string_view{"SUCCINCT"});
     static_assert(ax10::CompressedSerialization::flag_suffix() == std::string_view{"COMPRESSED"});
     SUCCEED();
 }
 
 TEST(R7_5_c_Axis10, SubaxesOrthogonal) {
-    static_assert(std::is_same_v<ax10::RawBinarySerialization::axis_tag,  ax10::subaxes::byte_order_tag>);
-    static_assert(std::is_same_v<ax10::VarLenSerialization::axis_tag,     ax10::subaxes::byte_order_tag>);
-    static_assert(std::is_same_v<ax10::SuccinctSerialization::axis_tag,   ax10::subaxes::density_tag>);
+    static_assert(std::is_same_v<ax10::RawBinarySerialization::axis_tag, ax10::subaxes::byte_order_tag>);
+    static_assert(std::is_same_v<ax10::VarLenSerialization::axis_tag, ax10::subaxes::byte_order_tag>);
+    static_assert(std::is_same_v<ax10::SuccinctSerialization::axis_tag, ax10::subaxes::density_tag>);
     static_assert(std::is_same_v<ax10::CompressedSerialization::axis_tag, ax10::subaxes::compression_tag>);
     SUCCEED();
 }
@@ -68,25 +68,24 @@ TEST(R7_5_c_Axis10, RegistryHas4Serializers) {
 }
 
 TEST(R7_5_c_Axis10, FamilyIdsDistinct) {
-    static_assert(ax10::RawBinarySerialization::family_id::value  == 1);
-    static_assert(ax10::VarLenSerialization::family_id::value     == 2);
-    static_assert(ax10::SuccinctSerialization::family_id::value   == 3);
+    static_assert(ax10::RawBinarySerialization::family_id::value == 1);
+    static_assert(ax10::VarLenSerialization::family_id::value == 2);
+    static_assert(ax10::SuccinctSerialization::family_id::value == 3);
     static_assert(ax10::CompressedSerialization::family_id::value == 4);
     SUCCEED();
 }
 
 TEST(R7_5_c_Axis10, FlagsHeaderConstexprBools) {
     static_assert(std::is_same_v<decltype(ax10::flags::raw_binary_enabled), const bool>);
-    static_assert(std::is_same_v<decltype(ax10::flags::var_len_enabled),    const bool>);
-    static_assert(std::is_same_v<decltype(ax10::flags::succinct_enabled),   const bool>);
+    static_assert(std::is_same_v<decltype(ax10::flags::var_len_enabled), const bool>);
+    static_assert(std::is_same_v<decltype(ax10::flags::succinct_enabled), const bool>);
     static_assert(std::is_same_v<decltype(ax10::flags::compressed_enabled), const bool>);
     SUCCEED();
 }
 
 TEST(R7_5_c_Serialization, TopicConfigSetExposesAxis10) {
     static_assert(mp::mp_size<ser::TopicConfigSet::StaticAxisVariants_10>::value > 0);
-    static_assert(std::is_same_v<ser::TopicConfigSet::StaticAxisVariants,
-                                  ser::TopicConfigSet::StaticAxisVariants_10>);
+    static_assert(std::is_same_v<ser::TopicConfigSet::StaticAxisVariants, ser::TopicConfigSet::StaticAxisVariants_10>);
     SUCCEED();
 }
 
@@ -96,19 +95,19 @@ TEST(R7_5_c_Serialization, TopicConfigSetExposesAxis10) {
 // (2) Determinismus, (3) paarweise DISTINKTE Ergebnisse der 4 Strategien auf demselben Input = echter
 // Verhaltensunterschied. Damit ist die Achse als 4. Mess-Dimension (abi_adapter Segment 4) variierbar.
 TEST(R5B_Axis10_SerializeScan, RuntimeOperativeBehaviorallyDistinct) {
-    constexpr std::size_t kN = 512, kRec = 64;
+    constexpr std::size_t      kN = 512, kRec = 64;
     std::vector<unsigned char> buf(kN * kRec, 0u);
-    std::uint64_t field_sum = 0;
+    std::uint64_t              field_sum = 0;
     for (std::size_t i = 0; i < kN; ++i) {
         std::uint32_t const v = static_cast<std::uint32_t>(i * 2654435761u + 12345u);
-        std::memcpy(buf.data() + i * kRec, &v, sizeof(v));   // 32-Bit-Feld je Datensatz
+        std::memcpy(buf.data() + i * kRec, &v, sizeof(v)); // 32-Bit-Feld je Datensatz
         field_sum += v;
     }
-    unsigned char const* p = buf.data();
-    std::uint64_t const raw  = ax10::RawBinarySerialization::serialize_scan(p, kN, kRec);
-    std::uint64_t const comp = ax10::CompressedSerialization::serialize_scan(p, kN, kRec);
-    std::uint64_t const vlen = ax10::VarLenSerialization::serialize_scan(p, kN, kRec);
-    std::uint64_t const succ = ax10::SuccinctSerialization::serialize_scan(p, kN, kRec);
+    unsigned char const* p    = buf.data();
+    std::uint64_t const  raw  = ax10::RawBinarySerialization::serialize_scan(p, kN, kRec);
+    std::uint64_t const  comp = ax10::CompressedSerialization::serialize_scan(p, kN, kRec);
+    std::uint64_t const  vlen = ax10::VarLenSerialization::serialize_scan(p, kN, kRec);
+    std::uint64_t const  succ = ax10::SuccinctSerialization::serialize_scan(p, kN, kRec);
 
     // (1) Baseline-Korrektheit: RawBinary = exakte Summe der 32-Bit-Felder.
     EXPECT_EQ(raw, field_sum);
@@ -117,6 +116,10 @@ TEST(R5B_Axis10_SerializeScan, RuntimeOperativeBehaviorallyDistinct) {
     EXPECT_EQ(vlen, ax10::VarLenSerialization::serialize_scan(p, kN, kRec));
     EXPECT_EQ(succ, ax10::SuccinctSerialization::serialize_scan(p, kN, kRec));
     // (3) Paarweise DISTINKT → echter Verhaltensunterschied der 4 Strategien (Achse nicht mehr trait-only).
-    EXPECT_NE(raw, comp);  EXPECT_NE(raw, vlen);  EXPECT_NE(raw, succ);
-    EXPECT_NE(comp, vlen); EXPECT_NE(comp, succ); EXPECT_NE(vlen, succ);
+    EXPECT_NE(raw, comp);
+    EXPECT_NE(raw, vlen);
+    EXPECT_NE(raw, succ);
+    EXPECT_NE(comp, vlen);
+    EXPECT_NE(comp, succ);
+    EXPECT_NE(vlen, succ);
 }

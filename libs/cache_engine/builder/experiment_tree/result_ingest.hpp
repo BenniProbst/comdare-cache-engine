@@ -23,9 +23,9 @@ namespace comdare::cache_engine::builder::experiment {
 [[nodiscard]] inline bool ingest_result_line(ExperimentTree& tree, std::string_view line) {
     if (line.empty() || line.front() == '#') return false;
     std::vector<std::string_view> f;
-    std::size_t i = 0;
+    std::size_t                   i = 0;
     while (i <= line.size()) {
-        std::size_t const sc = line.find(';', i);
+        std::size_t const sc  = line.find(';', i);
         std::size_t const end = (sc == std::string_view::npos) ? line.size() : sc;
         f.push_back(line.substr(i, end - i));
         if (sc == std::string_view::npos) break;
@@ -40,32 +40,45 @@ namespace comdare::cache_engine::builder::experiment {
     if (f.size() != 178 || f[0].empty()) return false;
 
     auto u64 = [](std::string_view s) -> std::uint64_t {
-        std::uint64_t v = 0; std::from_chars(s.data(), s.data() + s.size(), v); return v;
+        std::uint64_t v = 0;
+        std::from_chars(s.data(), s.data() + s.size(), v);
+        return v;
     };
     auto i64 = [](std::string_view s) -> std::int64_t {
-        std::int64_t v = 0; std::from_chars(s.data(), s.data() + s.size(), v); return v;
+        std::int64_t v = 0;
+        std::from_chars(s.data(), s.data() + s.size(), v);
+        return v;
     };
     NodeObserverSnapshot o{};
-    std::size_t idx = 1;
-    for (std::size_t t = 0; t < 19; ++t) for (std::size_t fi = 0; fi < 8; ++fi) o.axis_stats[t][fi] = u64(f[idx++]);
+    std::size_t          idx = 1;
+    for (std::size_t t = 0; t < 19; ++t)
+        for (std::size_t fi = 0; fi < 8; ++fi) o.axis_stats[t][fi] = u64(f[idx++]);
     for (std::size_t t = 0; t < 19; ++t) o.seg_ns[t] = i64(f[idx++]);
-    o.observable_axis_count = u64(f[idx++]); o.tier_fill_level   = u64(f[idx++]);
-    o.filled_axis_count     = u64(f[idx++]); o.batches_measured  = u64(f[idx++]);
+    o.observable_axis_count = u64(f[idx++]);
+    o.tier_fill_level       = u64(f[idx++]);
+    o.filled_axis_count     = u64(f[idx++]);
+    o.batches_measured      = u64(f[idx++]);
     // P-MD3 (2026-06-18): die 2 additiven Coverage-Versöhnungs-Meta-Felder (Reihenfolge = format_perm_result).
-    o.seg_framework_ns      = i64(f[idx++]); o.seg_run_total_ns  = i64(f[idx++]);
+    o.seg_framework_ns = i64(f[idx++]);
+    o.seg_run_total_ns = i64(f[idx++]);
     // Legacy-V1-Projektion (Übergang, entfällt I-C): 13 benannte Felder = Sicht auf axis_stats[0] (search) /
     // axis_stats[6] (allocator) → die noch nicht migrierten 13-Feld-Konsumenten (CSV-o.*, test_d14b/d14c).
-    o.search_lookup_count    = o.axis_stats[0][0]; o.search_hit_count       = o.axis_stats[0][1];
-    o.search_miss_count      = o.axis_stats[0][2]; o.search_insert_count    = o.axis_stats[0][3];
-    o.search_erase_count     = o.axis_stats[0][4]; o.search_peak_occupancy  = o.axis_stats[0][5];
-    o.alloc_bytes_allocated  = o.axis_stats[6][0]; o.alloc_bytes_in_use     = o.axis_stats[6][1];
-    o.alloc_allocation_count = o.axis_stats[6][2]; o.alloc_deallocation_count = o.axis_stats[6][3];
-    o.alloc_failure_count    = o.axis_stats[6][4];
+    o.search_lookup_count      = o.axis_stats[0][0];
+    o.search_hit_count         = o.axis_stats[0][1];
+    o.search_miss_count        = o.axis_stats[0][2];
+    o.search_insert_count      = o.axis_stats[0][3];
+    o.search_erase_count       = o.axis_stats[0][4];
+    o.search_peak_occupancy    = o.axis_stats[0][5];
+    o.alloc_bytes_allocated    = o.axis_stats[6][0];
+    o.alloc_bytes_in_use       = o.axis_stats[6][1];
+    o.alloc_allocation_count   = o.axis_stats[6][2];
+    o.alloc_deallocation_count = o.axis_stats[6][3];
+    o.alloc_failure_count      = o.axis_stats[6][4];
 
     NodeValue nv{};
-    nv.has_result     = true;
-    nv.observer       = o;
-    nv.observer_real  = true;   // aus echtem Cluster-Lauf (perm_runner tier_observe)
+    nv.has_result             = true;
+    nv.observer               = o;
+    nv.observer_real          = true; // aus echtem Cluster-Lauf (perm_runner tier_observe)
     nv.measured_setting_count = 1;
     tree.set_node_value(std::string{f[0]}, nv);
     return true;
@@ -75,9 +88,9 @@ namespace comdare::cache_engine::builder::experiment {
 [[nodiscard]] inline std::size_t ingest_results(ExperimentTree& tree, std::string_view text) {
     std::size_t n = 0, i = 0;
     while (i <= text.size()) {
-        std::size_t const nl = text.find('\n', i);
-        std::size_t const end = (nl == std::string_view::npos) ? text.size() : nl;
-        std::string_view line = text.substr(i, end - i);
+        std::size_t const nl   = text.find('\n', i);
+        std::size_t const end  = (nl == std::string_view::npos) ? text.size() : nl;
+        std::string_view  line = text.substr(i, end - i);
         if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
         if (ingest_result_line(tree, line)) ++n;
         if (nl == std::string_view::npos) break;
@@ -86,4 +99,4 @@ namespace comdare::cache_engine::builder::experiment {
     return n;
 }
 
-}  // namespace comdare::cache_engine::builder::experiment
+} // namespace comdare::cache_engine::builder::experiment

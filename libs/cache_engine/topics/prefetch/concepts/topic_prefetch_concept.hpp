@@ -14,8 +14,7 @@ namespace comdare::cache_engine::prefetch::concepts {
 struct PrefetchTopicTag {};
 
 template <typename T>
-concept PrefetchComponent = requires {
-    typename T::topic_tag;
-} && std::same_as<typename T::topic_tag, PrefetchTopicTag>;
+concept PrefetchComponent =
+    requires { typename T::topic_tag; } && std::same_as<typename T::topic_tag, PrefetchTopicTag>;
 
-}  // namespace
+} // namespace comdare::cache_engine::prefetch::concepts

@@ -50,8 +50,8 @@ template <class S>
 concept SearchAlgoFullyCowCapable =
     OrganCowCapable<S> && std::is_copy_constructible_v<S> && std::is_copy_assignable_v<S>;
 
-#define K3_CHECK(T) static_assert(OrganCowCapable<lk::T>, \
-    #T ": restore_statistics fehlt -> organ_cow_capable_v false (Audit-K3)");
+#define K3_CHECK(T)                                                                                                    \
+    static_assert(OrganCowCapable<lk::T>, #T ": restore_statistics fehlt -> organ_cow_capable_v false (Audit-K3)");
 K3_CHECK(Array65535SearchAlgo)
 K3_CHECK(Array256SearchAlgo)
 K3_CHECK(BinarySearchTreeSearchAlgo)

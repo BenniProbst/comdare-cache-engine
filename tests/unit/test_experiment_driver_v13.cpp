@@ -23,7 +23,7 @@ namespace {
 class ExperimentDriverV13Fixture : public ::testing::Test {
 protected:
     cb::ExperimentDriverOptions opts;
-    void SetUp() override {
+    void                        SetUp() override {
         // Defaults
         opts.config_dir   = std::filesystem::temp_directory_path() / "cev13_cfg";
         opts.output_dir   = std::filesystem::temp_directory_path() / "cev13_out";
@@ -37,22 +37,15 @@ protected:
 // Defaults-Sanity (V13.2 + V13.3 + V10.6)
 // ─────────────────────────────────────────────────────────────────────────────
 
-TEST_F(ExperimentDriverV13Fixture, EnableRuntimeCodegen_DefaultIsFalse) {
-    EXPECT_FALSE(opts.enable_runtime_codegen);
-}
+TEST_F(ExperimentDriverV13Fixture, EnableRuntimeCodegen_DefaultIsFalse) { EXPECT_FALSE(opts.enable_runtime_codegen); }
 
-TEST_F(ExperimentDriverV13Fixture, EnableFunctionalTests_DefaultIsFalse) {
-    EXPECT_FALSE(opts.enable_functional_tests);
-}
+TEST_F(ExperimentDriverV13Fixture, EnableFunctionalTests_DefaultIsFalse) { EXPECT_FALSE(opts.enable_functional_tests); }
 
 TEST_F(ExperimentDriverV13Fixture, MessreihenMode_DefaultIsFull) {
-    EXPECT_EQ(opts.messreihen_mode,
-              cb::ExperimentDriverOptions::MessreihenMode::Full);
+    EXPECT_EQ(opts.messreihen_mode, cb::ExperimentDriverOptions::MessreihenMode::Full);
 }
 
-TEST_F(ExperimentDriverV13Fixture, SotaProfileFilter_DefaultEmpty) {
-    EXPECT_TRUE(opts.sota_profile_filter.empty());
-}
+TEST_F(ExperimentDriverV13Fixture, SotaProfileFilter_DefaultEmpty) { EXPECT_TRUE(opts.sota_profile_filter.empty()); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // V13.2 phase3_hot_compile_missing
@@ -60,17 +53,17 @@ TEST_F(ExperimentDriverV13Fixture, SotaProfileFilter_DefaultEmpty) {
 
 TEST_F(ExperimentDriverV13Fixture, Phase3HotCompile_NoOpWhenFlagOff) {
     opts.enable_runtime_codegen = false;
-    cb::ExperimentDriver driver{opts};
+    cb::ExperimentDriver       driver{opts};
     std::vector<std::uint64_t> empty_fps;
-    int rc = driver.phase3_hot_compile_missing(empty_fps);
+    int                        rc = driver.phase3_hot_compile_missing(empty_fps);
     EXPECT_EQ(rc, cb::status_ok);
 }
 
 TEST_F(ExperimentDriverV13Fixture, Phase3HotCompile_OkWithEmptyFingerprintsEvenWhenEnabled) {
     opts.enable_runtime_codegen = true;
-    cb::ExperimentDriver driver{opts};
+    cb::ExperimentDriver       driver{opts};
     std::vector<std::uint64_t> empty_fps;
-    int rc = driver.phase3_hot_compile_missing(empty_fps);
+    int                        rc = driver.phase3_hot_compile_missing(empty_fps);
     EXPECT_EQ(rc, cb::status_ok);
 }
 
@@ -80,17 +73,17 @@ TEST_F(ExperimentDriverV13Fixture, Phase3HotCompile_OkWithEmptyFingerprintsEvenW
 
 TEST_F(ExperimentDriverV13Fixture, Phase4bFunctionalTests_NoOpWhenFlagOff) {
     opts.enable_functional_tests = false;
-    cb::ExperimentDriver driver{opts};
+    cb::ExperimentDriver                  driver{opts};
     std::vector<cb::loader::ModuleHandle> empty_handles;
-    int rc = driver.phase4b_functional_tests(empty_handles);
+    int                                   rc = driver.phase4b_functional_tests(empty_handles);
     EXPECT_EQ(rc, cb::status_ok);
 }
 
 TEST_F(ExperimentDriverV13Fixture, Phase4bFunctionalTests_OkWithEmptyHandlesEvenWhenEnabled) {
     opts.enable_functional_tests = true;
-    cb::ExperimentDriver driver{opts};
+    cb::ExperimentDriver                  driver{opts};
     std::vector<cb::loader::ModuleHandle> empty_handles;
-    int rc = driver.phase4b_functional_tests(empty_handles);
+    int                                   rc = driver.phase4b_functional_tests(empty_handles);
     EXPECT_EQ(rc, cb::status_ok);
 }
 
@@ -99,10 +92,9 @@ TEST_F(ExperimentDriverV13Fixture, Phase4bFunctionalTests_OkWithEmptyHandlesEven
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST_F(ExperimentDriverV13Fixture, MessreihenMode_DefinedFilterSettable) {
-    opts.messreihen_mode = cb::ExperimentDriverOptions::MessreihenMode::Defined;
+    opts.messreihen_mode     = cb::ExperimentDriverOptions::MessreihenMode::Defined;
     opts.sota_profile_filter = {"art", "hot", "masstree"};
-    EXPECT_EQ(opts.messreihen_mode,
-              cb::ExperimentDriverOptions::MessreihenMode::Defined);
+    EXPECT_EQ(opts.messreihen_mode, cb::ExperimentDriverOptions::MessreihenMode::Defined);
     EXPECT_EQ(opts.sota_profile_filter.size(), 3u);
     EXPECT_EQ(opts.sota_profile_filter[0], "art");
 }
@@ -114,4 +106,4 @@ TEST_F(ExperimentDriverV13Fixture, BothFlagsCanBeOptInIndependently) {
     EXPECT_TRUE(opts.enable_functional_tests);
 }
 
-}  // anonymous namespace
+} // anonymous namespace

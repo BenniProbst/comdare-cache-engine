@@ -28,8 +28,10 @@ namespace ana       = ::comdare::cache_engine::anatomy;
 namespace ce_compos = ::comdare::cache_engine::compositions;
 
 // #42: robuste paper_source-Detektion (MSVC hart-fehlert bei `requires { typename T::x; }` fuer fehlende x).
-template <class T, class = void> constexpr bool has_paper_source_v = false;
-template <class T> constexpr bool has_paper_source_v<T, std::void_t<typename T::paper_source>> = true;
+template <class T, class = void>
+constexpr bool has_paper_source_v = false;
+template <class T>
+constexpr bool has_paper_source_v<T, std::void_t<typename T::paper_source>> = true;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §1 — IsComposition Concept-Conformance fuer alle 6 bekannten Compositions
@@ -61,13 +63,13 @@ TEST(AnatomyR3_Concept, OrganCountIsNineteenForAllCompositions) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(AnatomyR3_Instantiation, AllSixAlgorithmsInstantiate) {
-    [[maybe_unused]] ana::Art art;
-    [[maybe_unused]] ana::Hot hot;
+    [[maybe_unused]] ana::Art      art;
+    [[maybe_unused]] ana::Hot      hot;
     [[maybe_unused]] ana::Wormhole wh;
-    [[maybe_unused]] ana::SuRF surf;
+    [[maybe_unused]] ana::SuRF     surf;
     [[maybe_unused]] ana::Masstree mt;
-    [[maybe_unused]] ana::Start st;
-    SUCCEED();  // Compile-Time-Beweis: alle 6 Anatomien default-konstruierbar
+    [[maybe_unused]] ana::Start    st;
+    SUCCEED(); // Compile-Time-Beweis: alle 6 Anatomien default-konstruierbar
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,12 +98,12 @@ TEST(AnatomyR3_Inspection, CompositionNameAndPaperIdMatch) {
 }
 
 TEST(AnatomyR3_Inspection, AllSixAlgosHaveNineteenOrgans) {
-    static_assert(ana::Art::organ_count()      == 19);
-    static_assert(ana::Hot::organ_count()      == 19);
+    static_assert(ana::Art::organ_count() == 19);
+    static_assert(ana::Hot::organ_count() == 19);
     static_assert(ana::Wormhole::organ_count() == 19);
-    static_assert(ana::SuRF::organ_count()     == 19);
+    static_assert(ana::SuRF::organ_count() == 19);
     static_assert(ana::Masstree::organ_count() == 19);
-    static_assert(ana::Start::organ_count()    == 19);
+    static_assert(ana::Start::organ_count() == 19);
     SUCCEED();
 }
 
@@ -112,24 +114,18 @@ TEST(AnatomyR3_Inspection, AllSixAlgosHaveNineteenOrgans) {
 
 TEST(AnatomyR3_MammalProof, AllSixUseSameAnatomyTemplate) {
     // Alle 6 sind Spezialisierungen von SearchAlgorithmAnatomy<...>
-    static_assert(std::is_same_v<
-        typename ana::Art::composition_t, ce_compos::ArtComposition>);
-    static_assert(std::is_same_v<
-        typename ana::Hot::composition_t, ce_compos::HotComposition>);
-    static_assert(std::is_same_v<
-        typename ana::Wormhole::composition_t, ce_compos::WormholeComposition>);
-    static_assert(std::is_same_v<
-        typename ana::SuRF::composition_t, ce_compos::SurfComposition>);
-    static_assert(std::is_same_v<
-        typename ana::Masstree::composition_t, ce_compos::MasstreeComposition>);
-    static_assert(std::is_same_v<
-        typename ana::Start::composition_t, ce_compos::StartComposition>);
+    static_assert(std::is_same_v<typename ana::Art::composition_t, ce_compos::ArtComposition>);
+    static_assert(std::is_same_v<typename ana::Hot::composition_t, ce_compos::HotComposition>);
+    static_assert(std::is_same_v<typename ana::Wormhole::composition_t, ce_compos::WormholeComposition>);
+    static_assert(std::is_same_v<typename ana::SuRF::composition_t, ce_compos::SurfComposition>);
+    static_assert(std::is_same_v<typename ana::Masstree::composition_t, ce_compos::MasstreeComposition>);
+    static_assert(std::is_same_v<typename ana::Start::composition_t, ce_compos::StartComposition>);
 
     // Alle 6 haben IDENTISCHE key_type/value_type (Anatomie-Pflicht)
-    static_assert(std::is_same_v<typename ana::Art::key_type,      typename ana::Hot::key_type>);
-    static_assert(std::is_same_v<typename ana::Hot::key_type,      typename ana::Wormhole::key_type>);
+    static_assert(std::is_same_v<typename ana::Art::key_type, typename ana::Hot::key_type>);
+    static_assert(std::is_same_v<typename ana::Hot::key_type, typename ana::Wormhole::key_type>);
     static_assert(std::is_same_v<typename ana::Wormhole::key_type, typename ana::SuRF::key_type>);
-    static_assert(std::is_same_v<typename ana::SuRF::key_type,     typename ana::Masstree::key_type>);
+    static_assert(std::is_same_v<typename ana::SuRF::key_type, typename ana::Masstree::key_type>);
     static_assert(std::is_same_v<typename ana::Masstree::key_type, typename ana::Start::key_type>);
     SUCCEED();
 }
@@ -150,25 +146,25 @@ TEST(AnatomyR3_MammalProof, DifferentTiereDifferentCompositionTypes) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct FrankensteinComposition {
-    using search_algo        = ce_compos::ArtComposition::search_algo;
-    using cache_traversal    = ce_compos::WormholeComposition::cache_traversal;  // Hash von Wormhole
-    using mapping            = ce_compos::SurfComposition::mapping;              // PoolRelative von SuRF
-    using path_compression   = ce_compos::ArtComposition::path_compression;
-    using node_type          = ce_compos::ArtComposition::node_type;
-    using memory_layout      = ce_compos::ArtComposition::memory_layout;
-    using allocator          = ce_compos::ArtComposition::allocator;
-    using prefetch           = ce_compos::ArtComposition::prefetch;
-    using concurrency        = ce_compos::ArtComposition::concurrency;
-    using serialization      = ce_compos::ArtComposition::serialization;
-    using telemetry          = ce_compos::ArtComposition::telemetry;
-    using value_handle       = ce_compos::ArtComposition::value_handle;
-    using isa                = ce_compos::ArtComposition::isa;
-    using index_organization = ce_compos::ArtComposition::index_organization;
-    using io_dispatch        = ce_compos::ArtComposition::io_dispatch;
-    using migration_policy   = ce_compos::ArtComposition::migration_policy;
-    using filter             = ce_compos::ArtComposition::filter;
-    using queuing_q1         = ce_compos::ArtComposition::queuing_q1;   // Doc 30 §8.0: SA-Achse T17
-    using queuing_q2         = ce_compos::ArtComposition::queuing_q2;   // Doc 30 §8.0: SA-Achse T18
+    using search_algo                          = ce_compos::ArtComposition::search_algo;
+    using cache_traversal                      = ce_compos::WormholeComposition::cache_traversal; // Hash von Wormhole
+    using mapping                              = ce_compos::SurfComposition::mapping; // PoolRelative von SuRF
+    using path_compression                     = ce_compos::ArtComposition::path_compression;
+    using node_type                            = ce_compos::ArtComposition::node_type;
+    using memory_layout                        = ce_compos::ArtComposition::memory_layout;
+    using allocator                            = ce_compos::ArtComposition::allocator;
+    using prefetch                             = ce_compos::ArtComposition::prefetch;
+    using concurrency                          = ce_compos::ArtComposition::concurrency;
+    using serialization                        = ce_compos::ArtComposition::serialization;
+    using telemetry                            = ce_compos::ArtComposition::telemetry;
+    using value_handle                         = ce_compos::ArtComposition::value_handle;
+    using isa                                  = ce_compos::ArtComposition::isa;
+    using index_organization                   = ce_compos::ArtComposition::index_organization;
+    using io_dispatch                          = ce_compos::ArtComposition::io_dispatch;
+    using migration_policy                     = ce_compos::ArtComposition::migration_policy;
+    using filter                               = ce_compos::ArtComposition::filter;
+    using queuing_q1                           = ce_compos::ArtComposition::queuing_q1; // Doc 30 §8.0: SA-Achse T17
+    using queuing_q2                           = ce_compos::ArtComposition::queuing_q2; // Doc 30 §8.0: SA-Achse T18
     static constexpr std::string_view name     = "FrankensteinComposition";
     static constexpr std::string_view paper_id = "P00 AdHoc Frankenstein 2026";
 };
@@ -206,11 +202,11 @@ TEST(AnatomyR3_2_PaperBinding, FivePaperBindingAlgosInstantiate) {
 }
 
 TEST(AnatomyR3_2_PaperBinding, NameAndPaperIdMarkedAsPaperBinding) {
-    static_assert(ana::ArtPaperBinding::composition_name()      == std::string_view{"ArtPaperBindingComposition"});
-    static_assert(ana::HotPaperBinding::composition_name()      == std::string_view{"HotPaperBindingComposition"});
-    static_assert(ana::StartPaperBinding::composition_name()    == std::string_view{"StartPaperBindingComposition"});
+    static_assert(ana::ArtPaperBinding::composition_name() == std::string_view{"ArtPaperBindingComposition"});
+    static_assert(ana::HotPaperBinding::composition_name() == std::string_view{"HotPaperBindingComposition"});
+    static_assert(ana::StartPaperBinding::composition_name() == std::string_view{"StartPaperBindingComposition"});
     static_assert(ana::WormholePaperBinding::composition_name() == std::string_view{"WormholePaperBindingComposition"});
-    static_assert(ana::SurfPaperBinding::composition_name()     == std::string_view{"SurfPaperBindingComposition"});
+    static_assert(ana::SurfPaperBinding::composition_name() == std::string_view{"SurfPaperBindingComposition"});
     static_assert(ana::ArtPaperBinding::paper_id().find("Paper-Binding") != std::string_view::npos);
     SUCCEED();
 }
@@ -236,36 +232,36 @@ TEST(AnatomyR3_2_Promotion, ArtVsArtPaperBindingShareOrganDifferInProvenance) {
     static_assert(has_paper_source_v<AP>);
     static_assert(!has_paper_source_v<A>);
     // Alle 17 Achsen (inkl. search_algo) sind nun identisch — der Unterschied ist rein die Provenienz:
-    static_assert(std::is_same_v<A::cache_traversal,    AP::cache_traversal>);
-    static_assert(std::is_same_v<A::mapping,            AP::mapping>);
-    static_assert(std::is_same_v<A::path_compression,   AP::path_compression>);
-    static_assert(std::is_same_v<A::node_type,          AP::node_type>);
-    static_assert(std::is_same_v<A::memory_layout,      AP::memory_layout>);
-    static_assert(std::is_same_v<A::allocator,          AP::allocator>);
-    static_assert(std::is_same_v<A::prefetch,           AP::prefetch>);
-    static_assert(std::is_same_v<A::concurrency,        AP::concurrency>);
-    static_assert(std::is_same_v<A::serialization,      AP::serialization>);
-    static_assert(std::is_same_v<A::telemetry,          AP::telemetry>);
-    static_assert(std::is_same_v<A::value_handle,       AP::value_handle>);
-    static_assert(std::is_same_v<A::isa,                AP::isa>);
+    static_assert(std::is_same_v<A::cache_traversal, AP::cache_traversal>);
+    static_assert(std::is_same_v<A::mapping, AP::mapping>);
+    static_assert(std::is_same_v<A::path_compression, AP::path_compression>);
+    static_assert(std::is_same_v<A::node_type, AP::node_type>);
+    static_assert(std::is_same_v<A::memory_layout, AP::memory_layout>);
+    static_assert(std::is_same_v<A::allocator, AP::allocator>);
+    static_assert(std::is_same_v<A::prefetch, AP::prefetch>);
+    static_assert(std::is_same_v<A::concurrency, AP::concurrency>);
+    static_assert(std::is_same_v<A::serialization, AP::serialization>);
+    static_assert(std::is_same_v<A::telemetry, AP::telemetry>);
+    static_assert(std::is_same_v<A::value_handle, AP::value_handle>);
+    static_assert(std::is_same_v<A::isa, AP::isa>);
     static_assert(std::is_same_v<A::index_organization, AP::index_organization>);
-    static_assert(std::is_same_v<A::io_dispatch,        AP::io_dispatch>);
-    static_assert(std::is_same_v<A::migration_policy,   AP::migration_policy>);
-    static_assert(std::is_same_v<A::filter,             AP::filter>);
+    static_assert(std::is_same_v<A::io_dispatch, AP::io_dispatch>);
+    static_assert(std::is_same_v<A::migration_policy, AP::migration_policy>);
+    static_assert(std::is_same_v<A::filter, AP::filter>);
     SUCCEED();
 }
 
 TEST(AnatomyR3_2_Promotion, ElevenAlgosFromAnatomyOrganCount19) {
-    static_assert(ana::Art::organ_count()                 == 19);
-    static_assert(ana::Hot::organ_count()                 == 19);
-    static_assert(ana::Wormhole::organ_count()            == 19);
-    static_assert(ana::SuRF::organ_count()                == 19);
-    static_assert(ana::Masstree::organ_count()            == 19);
-    static_assert(ana::Start::organ_count()               == 19);
-    static_assert(ana::ArtPaperBinding::organ_count()     == 19);
-    static_assert(ana::HotPaperBinding::organ_count()     == 19);
-    static_assert(ana::StartPaperBinding::organ_count()   == 19);
+    static_assert(ana::Art::organ_count() == 19);
+    static_assert(ana::Hot::organ_count() == 19);
+    static_assert(ana::Wormhole::organ_count() == 19);
+    static_assert(ana::SuRF::organ_count() == 19);
+    static_assert(ana::Masstree::organ_count() == 19);
+    static_assert(ana::Start::organ_count() == 19);
+    static_assert(ana::ArtPaperBinding::organ_count() == 19);
+    static_assert(ana::HotPaperBinding::organ_count() == 19);
+    static_assert(ana::StartPaperBinding::organ_count() == 19);
     static_assert(ana::WormholePaperBinding::organ_count() == 19);
-    static_assert(ana::SurfPaperBinding::organ_count()    == 19);
+    static_assert(ana::SurfPaperBinding::organ_count() == 19);
     SUCCEED();
 }

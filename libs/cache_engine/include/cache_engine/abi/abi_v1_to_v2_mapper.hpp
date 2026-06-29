@@ -30,17 +30,17 @@ public:
      */
     template <typename V31Flags>
     [[nodiscard]] static concepts::PermutationFlagsV32 migrate(const V31Flags& v31) noexcept {
-        concepts::PermutationFlagsV32 v32 {};
+        concepts::PermutationFlagsV32 v32{};
 
         // Direkter Mapping pro existierender Bank
         v32.page_bank = v31.page_bank;
         v32.node_bank = v31.node_bank;
         // V31 Traversal flach -> V32 Sub-Banks (Default-Logik):
         //   alter Traversal-Wert geht nach 3.A (SearchAlgo); 3.B + 3.M = 0 (Default Cache-Walk + Linear-Mapping)
-        v32.traversal_3a = v31.traversal_bank;
-        v32.traversal_3b = 0;
-        v32.traversal_3m = 0;
-        v32.value_handle_bank = v31.value_handle_bank;
+        v32.traversal_3a       = v31.traversal_bank;
+        v32.traversal_3b       = 0;
+        v32.traversal_3m       = 0;
+        v32.value_handle_bank  = v31.value_handle_bank;
         v32.memory_layout_bank = v31.memory_layout_bank;
         // V31 Allocator flach -> V32 Sub-Banks 6.1 (Rest = Default 0)
         v32.allocator_6_1 = v31.allocator_bank;
@@ -50,27 +50,27 @@ public:
         v32.allocator_6_5 = 0;
         v32.prefetch_bank = v31.prefetch_bank;
         // V31 Concurrency flach -> V32 Sub-Banks 8.1 (8.2 = Default 0 = read-only)
-        v32.concurrency_8_1 = v31.concurrency_bank;
-        v32.concurrency_8_2 = 0;
-        v32.isa_bank = v31.isa_bank;
+        v32.concurrency_8_1  = v31.concurrency_bank;
+        v32.concurrency_8_2  = 0;
+        v32.isa_bank         = v31.isa_bank;
         v32.measurement_bank = v31.measurement_bank;
-        v32.telemetry_bank = v31.telemetry_bank;
+        v32.telemetry_bank   = v31.telemetry_bank;
 
         // NEUE Banks - Default 0
-        v32.hw_12_1 = 0;
-        v32.hw_12_2 = 0;
-        v32.hw_12_3 = 0;
-        v32.hw_12_4 = 0;
-        v32.hw_12_5 = 0;
-        v32.sched_13_1 = 0;
-        v32.sched_13_2 = 0;
-        v32.sched_13_3 = 0;
-        v32.sched_13_4 = 0;
-        v32.sched_13_5 = 0;
+        v32.hw_12_1            = 0;
+        v32.hw_12_2            = 0;
+        v32.hw_12_3            = 0;
+        v32.hw_12_4            = 0;
+        v32.hw_12_5            = 0;
+        v32.sched_13_1         = 0;
+        v32.sched_13_2         = 0;
+        v32.sched_13_3         = 0;
+        v32.sched_13_4         = 0;
+        v32.sched_13_5         = 0;
         v32.engine_choice_bank = 0;
 
         return v32;
     }
 };
 
-}  // namespace comdare::cache_engine::abi
+} // namespace comdare::cache_engine::abi

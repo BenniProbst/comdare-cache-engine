@@ -42,9 +42,9 @@ namespace {
         std::vector<CompositionDescriptor> v;
         v.reserve(comp::kKnownReferenceCompositionsCount);
         mp::mp_for_each<comp::KnownReferenceCompositions>([&v]<class Entry>(Entry) {
-            using C = typename Entry::composition;
-            auto d = descriptor_from_composition<C>();
-            d.short_name = Entry::short_name;  // Tool-spezifischer CLI-Override
+            using C      = typename Entry::composition;
+            auto d       = descriptor_from_composition<C>();
+            d.short_name = Entry::short_name; // Tool-spezifischer CLI-Override
             v.push_back(d);
         });
         return v;
@@ -52,7 +52,7 @@ namespace {
     return tbl;
 }
 
-}  // anonymous namespace
+} // anonymous namespace
 
 std::span<CompositionDescriptor const> known_compositions() noexcept {
     auto const& tbl = known_compositions_storage();
@@ -83,19 +83,15 @@ std::vector<std::string_view> split_csv(std::string_view s) {
     return out;
 }
 
-}  // anonymous namespace
+} // anonymous namespace
 
-std::vector<CompositionDescriptor const*>
-select_compositions(std::string_view csv_names,
-                    std::vector<std::string>* unknown_out)
-{
+std::vector<CompositionDescriptor const*> select_compositions(std::string_view          csv_names,
+                                                              std::vector<std::string>* unknown_out) {
     std::vector<CompositionDescriptor const*> out;
-    auto const& tbl = known_compositions_storage();
+    auto const&                               tbl = known_compositions_storage();
     if (csv_names.empty()) {
         out.reserve(tbl.size());
-        for (auto const& c : tbl) {
-            out.push_back(&c);
-        }
+        for (auto const& c : tbl) { out.push_back(&c); }
         return out;
     }
 
@@ -126,15 +122,11 @@ LibraryType const* parse_library_type(std::string_view s) noexcept {
 // write_cmake_snippet
 // ─────────────────────────────────────────────────────────────────────────────
 
-bool write_cmake_snippet(std::filesystem::path const& output_path,
-                         std::span<CompositionDescriptor const* const> selected,
-                         LibraryType lib_type)
-{
+bool write_cmake_snippet(std::filesystem::path const&                  output_path,
+                         std::span<CompositionDescriptor const* const> selected, LibraryType lib_type) {
     // Parent-Verzeichnis erstellen wenn noetig
     std::error_code ec;
-    if (auto parent = output_path.parent_path(); !parent.empty()) {
-        std::filesystem::create_directories(parent, ec);
-    }
+    if (auto parent = output_path.parent_path(); !parent.empty()) { std::filesystem::create_directories(parent, ec); }
 
     std::ofstream out{output_path};
     if (!out) return false;
@@ -153,12 +145,10 @@ bool write_cmake_snippet(std::filesystem::path const& output_path,
     out << "\n";
     out << "set(COMDARE_PERMUTATION_LIBRARY_TYPE \"" << library_type_name(lib_type) << "\")\n\n";
     out << "set(COMDARE_PERMUTATION_COMPOSITIONS\n";
-    for (auto const* d : selected) {
-        out << "    \"" << d->cpp_type_name << "|" << d->header_include << "\"\n";
-    }
+    for (auto const* d : selected) { out << "    \"" << d->cpp_type_name << "|" << d->header_include << "\"\n"; }
     out << ")\n";
 
     return static_cast<bool>(out);
 }
 
-}  // namespace comdare::cache_engine::builder::codegen_tool
+} // namespace comdare::cache_engine::builder::codegen_tool

@@ -21,8 +21,8 @@
 // snapshot_t = SearchAlgoStatistics, MeasurableObserver, alles unter #ifdef COMDARE_CE_ENABLE_STATISTICS.
 // Bei OFF: nackter Pass-Through (0 Footprint, ObservableAxis<...> = false → EmptyAxisSnapshot-Fallback).
 
-#include "../concepts/axis_03a_search_algo_cache_engine_permutation_concept.hpp"  // SearchAlgoStatistics
-#include <measurement/measurable_concept.hpp>                                      // MeasurableObserver
+#include "../concepts/axis_03a_search_algo_cache_engine_permutation_concept.hpp" // SearchAlgoStatistics
+#include <measurement/measurable_concept.hpp>                                    // MeasurableObserver
 
 #include <cstddef>
 #include <optional>
@@ -38,7 +38,7 @@ namespace ce_concepts = ::comdare::cache_engine::lookup::concepts;
 template <class Container>
 class ObservableComposedContainer {
 public:
-    using key_type       = typename Container::key_type;     // == std::uint64_t (Organ-Invariante)
+    using key_type       = typename Container::key_type; // == std::uint64_t (Organ-Invariante)
     using value_type     = typename Container::value_type;
     using container_type = Container;
 
@@ -48,8 +48,7 @@ public:
         container_.insert(k, v);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_insert_count;
-        if (container_.occupied_count() > stats_.peak_occupancy)
-            stats_.peak_occupancy = container_.occupied_count();
+        if (container_.occupied_count() > stats_.peak_occupancy) stats_.peak_occupancy = container_.occupied_count();
         // (Audit P5/P8 · E-Welle-A2 Inkr. A2.1) observer_.notify aus dem Mess-Hot-Pfad ENTFERNT (toter std::function-
         // Push-Branch je Op, über extern-C nie subscribed); Transport ist PULL via statistics(). observer() bleibt (Concept).
 #endif
@@ -60,7 +59,10 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_lookup_count;
         auto const r = container_.lookup(k);
-        if (r) ++stats_.total_hit_count; else ++stats_.total_miss_count;  // (A2.1) kein observer_.notify im Hot-Pfad
+        if (r)
+            ++stats_.total_hit_count;
+        else
+            ++stats_.total_miss_count; // (A2.1) kein observer_.notify im Hot-Pfad
         return r;
 #else
         return container_.lookup(k);
@@ -70,29 +72,29 @@ public:
     bool erase(key_type k) {
         bool const ok = container_.erase(k);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        if (ok) ++stats_.total_erase_count;  // (A2.1) kein observer_.notify im Hot-Pfad
+        if (ok) ++stats_.total_erase_count; // (A2.1) kein observer_.notify im Hot-Pfad
 #endif
         return ok;
     }
 
     // clear() leert NUR den Container, NICHT die Statistik (Memory-Regel: reset() = Statistik-Reset).
-    void clear()                                     noexcept { container_.clear(); }
+    void                      clear() noexcept { container_.clear(); }
     [[nodiscard]] std::size_t occupied_count() const noexcept { return container_.occupied_count(); }
 
     [[nodiscard]] Container const& container() const noexcept { return container_; }
-    [[nodiscard]] Container&       container()       noexcept { return container_; }
+    [[nodiscard]] Container&       container() noexcept { return container_; }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = ce_concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; }   // (A2.1) notify entfernt — Pull-Transport via statistics()
+    void reset() noexcept { stats_ = {}; } // (A2.1) notify entfernt — Pull-Transport via statistics()
     // Undo-Log-Memento (#133): O(1)-Restore der Statistik auf einen zuvor via statistics() gezogenen Snapshot.
     // Gegenstueck zu reset() (={}): stellt im Zwei-Phasen-Rollback die Zaehler EXAKT auf den save-Stand zurueck,
     // nachdem das Daten-Substrat per op-inversem Replay wiederhergestellt wurde (abi_adapter::tier_rollback_all).
-    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; }   // (A2.1) notify entfernt
+    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; } // (A2.1) notify entfernt
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
@@ -103,4 +105,4 @@ private:
 #endif
 };
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

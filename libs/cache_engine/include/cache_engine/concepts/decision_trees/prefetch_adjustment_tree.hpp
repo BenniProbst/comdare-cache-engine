@@ -30,11 +30,11 @@ public:
     }
 
     [[nodiscard]] NodeTreeState save_state() const noexcept override { return state_; }
-    void restore_state(NodeTreeState const& s) noexcept override { state_ = s; }
+    void                        restore_state(NodeTreeState const& s) noexcept override { state_ = s; }
 
 private:
-    NodeTreeConfig config_{};
+    NodeTreeConfig        config_{};
     mutable NodeTreeState state_{};
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

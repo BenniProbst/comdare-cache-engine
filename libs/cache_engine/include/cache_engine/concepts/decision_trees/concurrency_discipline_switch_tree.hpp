@@ -11,8 +11,7 @@ class ConcurrencyDisciplineSwitchTree final : public IDecisionLambdaTree<WriteEv
 public:
     void configure(NodeTreeConfig const& config) override { config_ = config; }
 
-    [[nodiscard]] Decision evaluate(WriteEvent const& event,
-                                    DecisionContext const&) const noexcept override {
+    [[nodiscard]] Decision evaluate(WriteEvent const& event, DecisionContext const&) const noexcept override {
         ++state_.total_evaluations;
         // Hohe Core-Konkurrenz an Wurzelnaehe -> SKIP discipline switch (Block AN)
         if (event.node_depth <= 2 && event.num_cores_sharing > 8) {
@@ -24,11 +23,11 @@ public:
     }
 
     [[nodiscard]] NodeTreeState save_state() const noexcept override { return state_; }
-    void restore_state(NodeTreeState const& s) noexcept override { state_ = s; }
+    void                        restore_state(NodeTreeState const& s) noexcept override { state_ = s; }
 
 private:
-    NodeTreeConfig config_{};
+    NodeTreeConfig        config_{};
     mutable NodeTreeState state_{};
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

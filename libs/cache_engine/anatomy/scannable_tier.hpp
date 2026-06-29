@@ -36,9 +36,8 @@ class IScannableTier {
 public:
     virtual ~IScannableTier() = default;
 
-    virtual std::uint64_t tier_scan(std::uint64_t start_key,
-                                    std::uint64_t max_count,
+    virtual std::uint64_t tier_scan(std::uint64_t start_key, std::uint64_t max_count,
                                     std::uint64_t* out_checksum) const noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

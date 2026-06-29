@@ -12,12 +12,17 @@
 
 namespace wd = comdare::cache_engine::builder::workload_driver;
 
-static int g_fail = 0;
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+static int  g_fail = 0;
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 static std::filesystem::path write_tmp(std::string const& name, std::string const& xml) {
-    auto p = std::filesystem::temp_directory_path() / name;
-    std::ofstream o{p, std::ios::binary}; o << xml; o.close();
+    auto          p = std::filesystem::temp_directory_path() / name;
+    std::ofstream o{p, std::ios::binary};
+    o << xml;
+    o.close();
     return p;
 }
 
@@ -43,28 +48,27 @@ int main() {
     }
 
     // (2) FEHLENDES <op_mix> → nullopt (sonst still 50/40/9/1-Default inkl. 1% Clear = falsches Profil).
-    std::string const no_opmix =
-        "<comdare_load_profile id=\"lp_no_opmix\" paper_ref=\"P00\">"
-        "  <workload>"
-        "    <records>1000</records><num_operations>2000</num_operations>"
-        "    <key_distribution>uniform</key_distribution>"
-        "  </workload>"
-        "</comdare_load_profile>";
-    auto const r2 = wd::parse_load_profile(write_tmp("a1_lp_no_opmix.xml", no_opmix));
+    std::string const no_opmix = "<comdare_load_profile id=\"lp_no_opmix\" paper_ref=\"P00\">"
+                                 "  <workload>"
+                                 "    <records>1000</records><num_operations>2000</num_operations>"
+                                 "    <key_distribution>uniform</key_distribution>"
+                                 "  </workload>"
+                                 "</comdare_load_profile>";
+    auto const        r2       = wd::parse_load_profile(write_tmp("a1_lp_no_opmix.xml", no_opmix));
     tr("OHNE op_mix → nullopt (HART abgelehnt, kein stiller Default)", !r2.has_value());
 
     // (3) LEERES op_mix (alle Anteile fehlen/0) → nullopt (Summe 0 = kein gültiges Profil).
-    std::string const empty_opmix =
-        "<comdare_load_profile id=\"lp_empty_opmix\" paper_ref=\"P00\">"
-        "  <workload>"
-        "    <records>1000</records><num_operations>2000</num_operations>"
-        "    <op_mix/>"
-        "    <key_distribution>uniform</key_distribution>"
-        "  </workload>"
-        "</comdare_load_profile>";
-    auto const r3 = wd::parse_load_profile(write_tmp("a1_lp_empty_opmix.xml", empty_opmix));
+    std::string const empty_opmix = "<comdare_load_profile id=\"lp_empty_opmix\" paper_ref=\"P00\">"
+                                    "  <workload>"
+                                    "    <records>1000</records><num_operations>2000</num_operations>"
+                                    "    <op_mix/>"
+                                    "    <key_distribution>uniform</key_distribution>"
+                                    "  </workload>"
+                                    "</comdare_load_profile>";
+    auto const        r3          = wd::parse_load_profile(write_tmp("a1_lp_empty_opmix.xml", empty_opmix));
     tr("LEERES op_mix (Summe 0) → nullopt", !r3.has_value());
 
-    std::cout << "\n==== A1 / MAJOR-MESS-05: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== A1 / MAJOR-MESS-05: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

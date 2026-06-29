@@ -27,20 +27,20 @@ namespace comdare::cache_engine::lookup::composable {
 /// unverlinkt → unerreichbar). RNG zieht die Knoten-Hoehe (Substrat-Verantwortung Pool-Wachstum).
 class SkipListNodePoolStore {
 public:
-    using key_type   = std::uint64_t;
-    using value_type = std::uint64_t;
+    using key_type                         = std::uint64_t;
+    using value_type                       = std::uint64_t;
     static constexpr int         kMaxLevel = 16;
-    static constexpr std::size_t kNil      = std::numeric_limits<std::size_t>::max();  // "kein Nachfolger"
-    static constexpr std::size_t kHead     = 0;                                        // Sentinel-Kopf-Index
+    static constexpr std::size_t kNil      = std::numeric_limits<std::size_t>::max(); // "kein Nachfolger"
+    static constexpr std::size_t kHead     = 0;                                       // Sentinel-Kopf-Index
 
     SkipListNodePoolStore() : rng_(0xC0FFEEu) { init_head(); }
 
-    [[nodiscard]] std::size_t head()       const noexcept { return kHead; }
+    [[nodiscard]] std::size_t head() const noexcept { return kHead; }
     [[nodiscard]] int         list_level() const noexcept { return level_; }
     [[nodiscard]] std::size_t live_count() const noexcept { return live_count_; }
-    [[nodiscard]] key_type    node_key(std::size_t i)   const noexcept { return nodes_[i].key; }
+    [[nodiscard]] key_type    node_key(std::size_t i) const noexcept { return nodes_[i].key; }
     [[nodiscard]] value_type  node_value(std::size_t i) const noexcept { return nodes_[i].val; }
-    [[nodiscard]] bool        node_live(std::size_t i)  const noexcept { return nodes_[i].live; }
+    [[nodiscard]] bool        node_live(std::size_t i) const noexcept { return nodes_[i].live; }
     [[nodiscard]] std::size_t forward_at(std::size_t node, std::size_t level) const noexcept {
         return nodes_[node].next[level];
     }
@@ -62,9 +62,9 @@ public:
         nodes_[node].next[level] = target;
     }
     void set_node_value(std::size_t i, value_type v) noexcept { nodes_[i].val = v; }
-    void set_node_live(std::size_t i, bool b)        noexcept { nodes_[i].live = b; }
-    void set_list_level(int lvl)                     noexcept { level_ = lvl; }
-    void dec_live()                                  noexcept { --live_count_; }
+    void set_node_live(std::size_t i, bool b) noexcept { nodes_[i].live = b; }
+    void set_list_level(int lvl) noexcept { level_ = lvl; }
+    void dec_live() noexcept { --live_count_; }
 
     void clear() noexcept {
         // Allokationsfrei: nur den Head behalten + seine Forward-Slots auf kNil zuruecksetzen.
@@ -79,13 +79,13 @@ private:
         key_type                 key{};
         value_type               val{};
         bool                     live{};
-        std::vector<std::size_t> next{};   // Forward-Indizes je Level (kNil = Ende)
+        std::vector<std::size_t> next{}; // Forward-Indizes je Level (kNil = Ende)
     };
 
     void init_head() {
         // Head-Sentinel (Index 0): kMaxLevel Forward-Slots, alle kNil.
-        nodes_.push_back(Node{key_type{}, value_type{}, false,
-                              std::vector<std::size_t>(static_cast<std::size_t>(kMaxLevel), kNil)});
+        nodes_.push_back(
+            Node{key_type{}, value_type{}, false, std::vector<std::size_t>(static_cast<std::size_t>(kMaxLevel), kNil)});
     }
 
     std::vector<Node>       nodes_{};
@@ -97,4 +97,4 @@ private:
 // Selbstbeweis: das Substrat erfuellt das SkipListNodePool-Concept.
 static_assert(SkipListNodePool<SkipListNodePoolStore>);
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

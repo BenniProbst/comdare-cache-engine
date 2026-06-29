@@ -8,7 +8,7 @@
 #define COMDARE_CE_ENABLE_STATISTICS 1
 
 #include <topics/telemetry/topic_telemetry_config_set.hpp>
-#include "anatomy/observer_aggregate.hpp"   // ObservableAxis
+#include "anatomy/observer_aggregate.hpp" // ObservableAxis
 
 #include <boost/mp11.hpp>
 #include <iostream>
@@ -20,10 +20,11 @@ namespace a  = comdare::cache_engine::anatomy;
 namespace mp = boost::mp11;
 
 // Jedes Element der StaticAxisVariants muss jetzt eine ObservableTelemetry-Hülle sein (ObservableAxis).
-template <class S> using is_observable = mp::mp_bool<a::ObservableAxis<S>>;
+template <class S>
+using is_observable = mp::mp_bool<a::ObservableAxis<S>>;
 
 int main() {
-    using Variants = t::TopicConfigSet::StaticAxisVariants;
+    using Variants          = t::TopicConfigSet::StaticAxisVariants;
     constexpr std::size_t n = mp::mp_size<Variants>::value;
     std::cout << "telemetry StaticAxisVariants: " << n << " Wrapper\n";
 
@@ -37,6 +38,7 @@ int main() {
     static_assert(!std::is_aggregate_v<First>, "Huelle ist kein Aggregat (nackte Strategie waere eins)");
 
     std::cout << "OK: telemetry-Registry/Permutations-Pfad traegt jetzt die ObservableTelemetry-Huelle "
-                 "(alle " << n << " Varianten ObservableAxis).\n";
+                 "(alle "
+              << n << " Varianten ObservableAxis).\n";
     return 0;
 }

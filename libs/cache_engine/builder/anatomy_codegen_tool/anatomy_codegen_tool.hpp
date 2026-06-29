@@ -29,9 +29,9 @@ namespace comdare::cache_engine::builder::codegen_tool {
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct CompositionDescriptor {
-    std::string_view short_name;       ///< CLI-friendly, z.B. "art"
-    std::string_view cpp_type_name;    ///< fully-qualified C++ Type-Name
-    std::string_view header_include;   ///< Include-Pfad relativ zu libs/cache_engine/
+    std::string_view short_name;     ///< CLI-friendly, z.B. "art"
+    std::string_view cpp_type_name;  ///< fully-qualified C++ Type-Name
+    std::string_view header_include; ///< Include-Pfad relativ zu libs/cache_engine/
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -46,8 +46,7 @@ struct CompositionDescriptor {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// find_composition(name) — Lookup ueber short_name. Liefert nullptr wenn unbekannt.
-[[nodiscard]] CompositionDescriptor const*
-find_composition(std::string_view short_name) noexcept;
+[[nodiscard]] CompositionDescriptor const* find_composition(std::string_view short_name) noexcept;
 
 /// select_compositions(csv_names) — Parsen comma-separated short-name-Liste,
 /// liefert Vektor von Descriptor-Pointer. Leerer csv -> alle known_compositions.
@@ -55,18 +54,14 @@ find_composition(std::string_view short_name) noexcept;
 /// Bei unbekanntem Namen: Eintrag fehlt, `unknown_out` (wenn non-null) wird
 /// mit dem unbekannten Namen gefuellt.
 [[nodiscard]] std::vector<CompositionDescriptor const*>
-select_compositions(std::string_view csv_names,
-                    std::vector<std::string>* unknown_out = nullptr);
+select_compositions(std::string_view csv_names, std::vector<std::string>* unknown_out = nullptr);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CMake-Snippet-Output
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// LibraryType — passend zu comdare_codegen_anatomy_module_list LIBRARY_TYPE.
-enum class LibraryType : std::uint8_t {
-    Shared = 0,
-    Static = 1
-};
+enum class LibraryType : std::uint8_t { Shared = 0, Static = 1 };
 
 [[nodiscard]] constexpr std::string_view library_type_name(LibraryType t) noexcept {
     return (t == LibraryType::Static) ? "STATIC" : "SHARED";
@@ -99,11 +94,7 @@ enum class LibraryType : std::uint8_t {
 /// Build-System CMake-Codegen (R5.D.2 + R5.D.3 + R5.F).
 template <::comdare::cache_engine::anatomy::HasCompositionLocation C>
 [[nodiscard]] constexpr CompositionDescriptor descriptor_from_composition() noexcept {
-    return CompositionDescriptor{
-        C::name,
-        C::cpp_type_name,
-        C::header_include
-    };
+    return CompositionDescriptor{C::name, C::cpp_type_name, C::header_include};
 }
 
 /// write_cmake_snippet(path, selected, lib_type) — Schreibt CMake-Snippet das
@@ -121,8 +112,7 @@ template <::comdare::cache_engine::anatomy::HasCompositionLocation C>
 /// ```
 ///
 /// Liefert true bei Erfolg, false wenn File nicht geschrieben werden konnte.
-[[nodiscard]] bool write_cmake_snippet(std::filesystem::path const& output_path,
-                                        std::span<CompositionDescriptor const* const> selected,
-                                        LibraryType lib_type);
+[[nodiscard]] bool write_cmake_snippet(std::filesystem::path const&                  output_path,
+                                       std::span<CompositionDescriptor const* const> selected, LibraryType lib_type);
 
-}  // namespace comdare::cache_engine::builder::codegen_tool
+} // namespace comdare::cache_engine::builder::codegen_tool

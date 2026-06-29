@@ -46,10 +46,8 @@ namespace comdare::cache_engine::anatomy {
 /// Gattung). Ein nicht-pufferndes Tier wählt EXPLIZIT den Durchreich-Algorithmus
 /// (NoBuffer/LazyFlush) — das ist ein Algorithmus, kein „weglassen". KEINE
 /// Template-Defaults: jedes Tier deklariert q1/q2 ebenso explizit wie die 17 davor.
-template <class T0, class T1, class T2, class T3, class T4,
-          class T5, class T6, class T7, class T8, class T9,
-          class T10, class T11, class T12, class T13, class T14,
-          class T15, class T16, class T17, class T18>
+template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10,
+          class T11, class T12, class T13, class T14, class T15, class T16, class T17, class T18>
 struct AdHocComposition {
     using search_algo        = T0;
     using cache_traversal    = T1;
@@ -89,12 +87,12 @@ struct CompositionFromPermTupleImpl;
 template <template <class...> class PermTupleTmpl, class... Vs>
 struct CompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
     static_assert(sizeof...(Vs) == 19,
-        "PermTuple muss exakt 19 Achsen-Werte enthalten "
-        "(Topic-Slot-Convention V41.F.6.1.R4 §14.3 + Doc 30 §8.0: 17 Such-Achsen + queuing q1/q2)");
+                  "PermTuple muss exakt 19 Achsen-Werte enthalten "
+                  "(Topic-Slot-Convention V41.F.6.1.R4 §14.3 + Doc 30 §8.0: 17 Such-Achsen + queuing q1/q2)");
     using type = AdHocComposition<Vs...>;
 };
 
-}  // namespace detail
+} // namespace detail
 
 /// CompositionFromPermTuple<PermT> — extrahiert die 19 Vendor-Typen aus einem
 /// PermTuple und materialisiert eine AdHocComposition.
@@ -116,13 +114,12 @@ using CompositionFromPermTuple = typename detail::CompositionFromPermTupleImpl<P
 // ─────────────────────────────────────────────────────────────────────────────
 
 template <class PermT>
-concept IsPermTuple19 = requires {
-    typename detail::CompositionFromPermTupleImpl<PermT>::type;
-} && IsComposition<typename detail::CompositionFromPermTupleImpl<PermT>::type>;
+concept IsPermTuple19 = requires { typename detail::CompositionFromPermTupleImpl<PermT>::type; } &&
+                        IsComposition<typename detail::CompositionFromPermTupleImpl<PermT>::type>;
 
 /// Rückwärts-kompatibles Alias (Verwender, die den alten 17-Slot-Namen referenzieren,
 /// bleiben gültig — die Slot-Zahl ist jetzt 19, Doc 30 §8.0).
 template <class PermT>
 concept IsPermTuple17 = IsPermTuple19<PermT>;
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

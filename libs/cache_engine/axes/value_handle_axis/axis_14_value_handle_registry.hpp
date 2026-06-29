@@ -16,20 +16,14 @@ namespace comdare::cache_engine::value_handle_axis {
 
 namespace mp = boost::mp11;
 
-using AllHandles = mp::mp_list<
-    InlineValueHandle,
-    ExternalPoolValueHandle,
-    ImmutableSharedRefValueHandle,
-    VersionedPointerValueHandle,
-    ChainRefValueHandle
->;
+using AllHandles = mp::mp_list<InlineValueHandle, ExternalPoolValueHandle, ImmutableSharedRefValueHandle,
+                               VersionedPointerValueHandle, ChainRefValueHandle>;
 
 template <typename T>
 using is_enabled = mp::mp_bool<T::enabled>;
 
 using EnabledHandles = mp::mp_filter<is_enabled, AllHandles>;
 
-static_assert(mp::mp_size<EnabledHandles>::value > 0,
-    "Axis 14 ValueHandle: at least one handle must be enabled");
+static_assert(mp::mp_size<EnabledHandles>::value > 0, "Axis 14 ValueHandle: at least one handle must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::value_handle_axis

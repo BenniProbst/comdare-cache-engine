@@ -22,24 +22,26 @@ public:
 
     static constexpr bool enabled = flags::neon_enabled;
 
-    [[nodiscard]] static constexpr bool             is_active()             noexcept { return true; }
-    [[nodiscard]] static constexpr int              vector_width_bits()     noexcept { return 128; }
-    [[nodiscard]] static constexpr bool             compatible_with_x86()   noexcept { return false; }
-    [[nodiscard]] static constexpr bool             compatible_with_arm()   noexcept { return true; }
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return true; }
+    [[nodiscard]] static constexpr int              vector_width_bits() noexcept { return 128; }
+    [[nodiscard]] static constexpr bool             compatible_with_x86() noexcept { return false; }
+    [[nodiscard]] static constexpr bool             compatible_with_arm() noexcept { return true; }
     [[nodiscard]] static constexpr bool             compatible_with_riscv() noexcept { return false; }
     [[nodiscard]] static constexpr bool             compatible_with_powerpc() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "simd_ext_neon"; }
-    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "NeonSimdExtension (ARM AdvSIMD 128-bit, AArch64 ABI-baseline, Apple M/Graviton)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "NEON"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "simd_ext_neon"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "NeonSimdExtension (ARM AdvSIMD 128-bit, AArch64 ABI-baseline, Apple M/Graviton)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "NEON"; }
 
     // ─── R7.7.c Topologie: 1 NEON-Unit/Sockel, ARM big.LITTLE alle Cores ────
-    [[nodiscard]] static constexpr int  units_per_socket()                  noexcept { return 1; }
+    [[nodiscard]] static constexpr int  units_per_socket() noexcept { return 1; }
     [[nodiscard]] static constexpr bool accessible_from_efficiency_cores() noexcept { return true; }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::hardware::axis_09b_simd_extension
 
 namespace comdare::cache_engine::hardware::axis_09b_simd_extension {
-    static_assert(concepts::SimdExtensionStrategy<NeonSimdExtension>);
-    static_assert(concepts::CacheEnginePermutationStrategy<NeonSimdExtension>);
-}
+static_assert(concepts::SimdExtensionStrategy<NeonSimdExtension>);
+static_assert(concepts::CacheEnginePermutationStrategy<NeonSimdExtension>);
+} // namespace comdare::cache_engine::hardware::axis_09b_simd_extension

@@ -25,10 +25,10 @@
 namespace comdare::test_data_accumulation {
 
 struct DatasetView {
-    std::string                 name;
-    std::span<std::byte const>  bytes;
-    std::size_t                 cursor    = 0;
-    std::size_t                 record_size = 0;
+    std::string                name;
+    std::span<std::byte const> bytes;
+    std::size_t                cursor      = 0;
+    std::size_t                record_size = 0;
 };
 
 template <typename SearchAlgo>
@@ -36,8 +36,8 @@ class TestDataSetAccumulationEngine {
 public:
     using algo_t = SearchAlgo;
 
-    explicit TestDataSetAccumulationEngine(SearchAlgo& bound_algo,
-                                            AlignmentMode mode = AlignmentMode::CacheLine) noexcept
+    explicit TestDataSetAccumulationEngine(SearchAlgo&   bound_algo,
+                                           AlignmentMode mode = AlignmentMode::CacheLine) noexcept
         : algo_{bound_algo}, mode_{mode} {}
 
     ~TestDataSetAccumulationEngine() {
@@ -46,16 +46,14 @@ public:
         }
     }
 
-    TestDataSetAccumulationEngine(TestDataSetAccumulationEngine const&) = delete;
+    TestDataSetAccumulationEngine(TestDataSetAccumulationEngine const&)            = delete;
     TestDataSetAccumulationEngine& operator=(TestDataSetAccumulationEngine const&) = delete;
 
     // Lade Dataset per Deserialization in cache-line-aligned Buffer
     void load_dataset(std::string const& name, std::filesystem::path const& file) {
-        if (!std::filesystem::exists(file)) {
-            throw std::runtime_error{"Dataset file not found: " + file.string()};
-        }
+        if (!std::filesystem::exists(file)) { throw std::runtime_error{"Dataset file not found: " + file.string()}; }
         std::size_t const file_size = std::filesystem::file_size(file);
-        void* buffer = aligned_alloc_for_mode(file_size, mode_);
+        void*             buffer    = aligned_alloc_for_mode(file_size, mode_);
         if (!buffer) throw std::bad_alloc{};
 
         std::ifstream in{file, std::ios::binary};
@@ -66,22 +64,21 @@ public:
         }
 
         AlignedBuffer ab;
-        ab.ptr  = buffer;
-        ab.size = file_size;
+        ab.ptr                 = buffer;
+        ab.size                = file_size;
         aligned_buffers_[name] = ab;
     }
 
     // In-Memory-Variante: lade Dataset aus User-Buffer (z.B. generated YCSB)
-    void load_dataset_from_memory(std::string const& name,
-                                   std::span<std::byte const> source,
-                                   std::size_t record_size = 0) {
+    void load_dataset_from_memory(std::string const& name, std::span<std::byte const> source,
+                                  std::size_t record_size = 0) {
         void* buffer = aligned_alloc_for_mode(source.size(), mode_);
         if (!buffer) throw std::bad_alloc{};
         std::memcpy(buffer, source.data(), source.size());
         AlignedBuffer ab;
-        ab.ptr         = buffer;
-        ab.size        = source.size();
-        ab.record_size = record_size;
+        ab.ptr                 = buffer;
+        ab.size                = source.size();
+        ab.record_size         = record_size;
         aligned_buffers_[name] = ab;
     }
 
@@ -95,21 +92,16 @@ public:
     [[nodiscard]] std::span<std::byte const> get_dataset(std::string_view name) const noexcept {
         auto it = aligned_buffers_.find(std::string{name});
         if (it == aligned_buffers_.end()) return {};
-        return std::span<std::byte const>{
-            reinterpret_cast<std::byte const*>(it->second.ptr),
-            it->second.size
-        };
+        return std::span<std::byte const>{reinterpret_cast<std::byte const*>(it->second.ptr), it->second.size};
     }
 
     [[nodiscard]] DatasetView make_view(std::string_view name) const {
         DatasetView view;
         view.name = name;
-        auto it = aligned_buffers_.find(std::string{name});
+        auto it   = aligned_buffers_.find(std::string{name});
         if (it != aligned_buffers_.end()) {
-            view.bytes       = std::span<std::byte const>{
-                reinterpret_cast<std::byte const*>(it->second.ptr),
-                it->second.size
-            };
+            view.bytes =
+                std::span<std::byte const>{reinterpret_cast<std::byte const*>(it->second.ptr), it->second.size};
             view.record_size = it->second.record_size;
         }
         return view;
@@ -123,14 +115,14 @@ public:
 
 private:
     struct AlignedBuffer {
-        void*       ptr        = nullptr;
-        std::size_t size       = 0;
+        void*       ptr         = nullptr;
+        std::size_t size        = 0;
         std::size_t record_size = 0;
     };
 
-    SearchAlgo&                                       algo_;
-    AlignmentMode                                     mode_;
-    std::unordered_map<std::string, AlignedBuffer>     aligned_buffers_;
+    SearchAlgo&                                    algo_;
+    AlignmentMode                                  mode_;
+    std::unordered_map<std::string, AlignedBuffer> aligned_buffers_;
 };
 
-}  // namespace comdare::test_data_accumulation
+} // namespace comdare::test_data_accumulation

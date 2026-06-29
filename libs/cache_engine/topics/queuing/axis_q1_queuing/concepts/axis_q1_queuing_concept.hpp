@@ -38,22 +38,20 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts {
  *   - size() / is_empty() / clear()
  */
 template <typename B>
-concept BufferStrategy =
-    ::comdare::cache_engine::queuing::concepts::QueuingComponent<B>
-    && requires { typename B::element_type; typename B::size_type; }
-    && requires(B b, typename B::element_type v) {
-        { b.put(v) }                        -> std::same_as<void>;
-        { b.get() }                         -> std::same_as<std::optional<typename B::element_type>>;
-        { b.emplace(v) }                    -> std::same_as<void>;
-    }
-    && requires(B const& bc) {
-        { bc.size() }       noexcept -> std::convertible_to<std::size_t>;
-        { bc.is_empty() }   noexcept -> std::convertible_to<bool>;
-        { bc.peek_front() } noexcept -> std::same_as<std::optional<typename B::element_type>>;
-        { bc.peek_back() }  noexcept -> std::same_as<std::optional<typename B::element_type>>;
-    }
-    && requires(B b) {
-        { b.clear() }       noexcept;
-    };
+concept BufferStrategy = ::comdare::cache_engine::queuing::concepts::QueuingComponent<B> && requires {
+    typename B::element_type;
+    typename B::size_type;
+} && requires(B b, typename B::element_type v) {
+    { b.put(v) } -> std::same_as<void>;
+    { b.get() } -> std::same_as<std::optional<typename B::element_type>>;
+    { b.emplace(v) } -> std::same_as<void>;
+} && requires(B const& bc) {
+    { bc.size() } noexcept -> std::convertible_to<std::size_t>;
+    { bc.is_empty() } noexcept -> std::convertible_to<bool>;
+    { bc.peek_front() } noexcept -> std::same_as<std::optional<typename B::element_type>>;
+    { bc.peek_back() } noexcept -> std::same_as<std::optional<typename B::element_type>>;
+} && requires(B b) {
+    { b.clear() } noexcept;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts

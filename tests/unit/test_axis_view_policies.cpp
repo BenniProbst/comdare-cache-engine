@@ -19,24 +19,34 @@ namespace vw  = comdare::cache_engine::view;
 namespace mp  = boost::mp11;
 
 // (1) Alle Policies erfüllen ihre Concepts (aus view_composition.hpp).
-static_assert(cea::ExtentPolicy<cea::DynamicExtent>,        "DynamicExtent ist ExtentPolicy");
-static_assert(cea::ExtentPolicy<vw::StaticExtent<256>>,     "StaticExtent ist ExtentPolicy");
-static_assert(cea::LayoutPolicy<cea::LayoutRight>,          "LayoutRight ist LayoutPolicy");
-static_assert(cea::LayoutPolicy<vw::LayoutLeft>,            "LayoutLeft ist LayoutPolicy");
-static_assert(cea::LayoutPolicy<vw::LayoutStrided<2>>,      "LayoutStrided ist LayoutPolicy");
-static_assert(cea::AccessorPolicy<cea::DefaultAccessor>,    "DefaultAccessor ist AccessorPolicy");
+static_assert(cea::ExtentPolicy<cea::DynamicExtent>, "DynamicExtent ist ExtentPolicy");
+static_assert(cea::ExtentPolicy<vw::StaticExtent<256>>, "StaticExtent ist ExtentPolicy");
+static_assert(cea::LayoutPolicy<cea::LayoutRight>, "LayoutRight ist LayoutPolicy");
+static_assert(cea::LayoutPolicy<vw::LayoutLeft>, "LayoutLeft ist LayoutPolicy");
+static_assert(cea::LayoutPolicy<vw::LayoutStrided<2>>, "LayoutStrided ist LayoutPolicy");
+static_assert(cea::AccessorPolicy<cea::DefaultAccessor>, "DefaultAccessor ist AccessorPolicy");
 static_assert(cea::AccessorPolicy<vw::AlignedAccessor<64>>, "AlignedAccessor ist AccessorPolicy");
 
 // (2) Registries.
-static_assert(vw::kExtentCount   == 2, "axis_extent: 2 Policies");
-static_assert(vw::kLayoutCount   == 3, "axis_layout: 3 Policies (right/left/strided)");
+static_assert(vw::kExtentCount == 2, "axis_extent: 2 Policies");
+static_assert(vw::kLayoutCount == 3, "axis_layout: 3 Policies (right/left/strided)");
 static_assert(vw::kAccessorCount == 2, "axis_accessor: 2 Policies");
 
 static int g_fail = 0;
-template <class A, class B> static void eq(char const* w, A const& g, B const& e) {
-    bool ok = (g == e); std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
-    if (!ok) { std::cout << " (erwartet " << e << ")"; ++g_fail; } std::cout << "\n"; }
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+template <class A, class B>
+static void eq(char const* w, A const& g, B const& e) {
+    bool ok = (g == e);
+    std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
+    if (!ok) {
+        std::cout << " (erwartet " << e << ")";
+        ++g_fail;
+    }
+    std::cout << "\n";
+}
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 // ViewComposition mit variabler Layout-Policy (4 Platzhalter + DynamicExtent + Layout + DefaultAccessor).
 template <class Layout>
@@ -47,7 +57,7 @@ int main() {
 
     // (3) index_of je Layout: Right/Left == i (1D), Strided == i*Stride (genuin verschieden).
     std::cout << "-- index_of(3) je Layout-Policy --\n";
-    eq("LayoutRight.index_of(3)    == 3", cea::LayoutRight{}.index_of(3),     std::size_t{3});
+    eq("LayoutRight.index_of(3)    == 3", cea::LayoutRight{}.index_of(3), std::size_t{3});
     eq("LayoutLeft.index_of(3)     == 3 (1D == Right)", vw::LayoutLeft{}.index_of(3), std::size_t{3});
     eq("LayoutStrided<2>.index_of(3) == 6 (i*Stride)", vw::LayoutStrided<2>{}.index_of(3), std::size_t{6});
 
@@ -78,6 +88,7 @@ int main() {
     // Strided<2> halbiert die lesbare Reichweite: read(4) → off=8 >= size 8 → OOB.
     tr("LayoutStrided<2>: read(4) == OOB (off=8 >= size 8)", !v_strided.read(4).has_value());
 
-    std::cout << "\n==== L-76c View-Achsen: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== L-76c View-Achsen: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

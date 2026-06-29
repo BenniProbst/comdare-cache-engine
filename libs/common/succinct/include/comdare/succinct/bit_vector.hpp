@@ -31,9 +31,9 @@ namespace comdare::succinct {
 
 class BitVector {
 public:
-    using word_t = std::uint64_t;
-    static constexpr std::size_t kWordBits  = 64;
-    static constexpr std::size_t kBlockBits = 256;            // 4 words per rank-block
+    using word_t                                = std::uint64_t;
+    static constexpr std::size_t kWordBits      = 64;
+    static constexpr std::size_t kBlockBits     = 256; // 4 words per rank-block
     static constexpr std::size_t kWordsPerBlock = kBlockBits / kWordBits;
 
     BitVector() = default;
@@ -50,12 +50,14 @@ public:
 
     // Set bit at position i to value v.
     int set(std::size_t i, bool v) noexcept {
-        if (i >= bits_) return 7;                              // status_out_of_range
-        std::size_t const w = i / kWordBits;
-        std::size_t const b = i % kWordBits;
-        word_t const mask = word_t{1} << b;
-        if (v) words_[w] |=  mask;
-        else   words_[w] &= ~mask;
+        if (i >= bits_) return 7; // status_out_of_range
+        std::size_t const w    = i / kWordBits;
+        std::size_t const b    = i % kWordBits;
+        word_t const      mask = word_t{1} << b;
+        if (v)
+            words_[w] |= mask;
+        else
+            words_[w] &= ~mask;
         rank_index_dirty_ = true;
         return 0;
     }
@@ -73,28 +75,24 @@ public:
         rank_block_prefix_.assign(nblocks + 1, 0);
         std::uint64_t prefix = 0;
         for (std::size_t b = 0; b < nblocks; ++b) {
-            rank_block_prefix_[b] = prefix;
+            rank_block_prefix_[b]        = prefix;
             std::size_t const word_begin = b * kWordsPerBlock;
             std::size_t const word_end   = std::min(word_begin + kWordsPerBlock, words_.size());
-            for (std::size_t w = word_begin; w < word_end; ++w) {
-                prefix += std::popcount(words_[w]);
-            }
+            for (std::size_t w = word_begin; w < word_end; ++w) { prefix += std::popcount(words_[w]); }
         }
         rank_block_prefix_.back() = prefix;
-        rank_index_dirty_ = false;
+        rank_index_dirty_         = false;
     }
 
     // rank1(i) = Anzahl gesetzter Bits in [0, i)
     [[nodiscard]] std::uint64_t rank1(std::size_t i) const noexcept {
         assert(!rank_index_dirty_ && "build_rank_index() must be called first");
         if (i >= bits_) i = bits_;
-        std::size_t const block = i / kBlockBits;
-        std::uint64_t count = rank_block_prefix_[block];
-        std::size_t const word_begin = block * kWordsPerBlock;
+        std::size_t const block       = i / kBlockBits;
+        std::uint64_t     count       = rank_block_prefix_[block];
+        std::size_t const word_begin  = block * kWordsPerBlock;
         std::size_t const target_word = i / kWordBits;
-        for (std::size_t w = word_begin; w < target_word; ++w) {
-            count += std::popcount(words_[w]);
-        }
+        for (std::size_t w = word_begin; w < target_word; ++w) { count += std::popcount(words_[w]); }
         if (target_word < words_.size()) {
             std::size_t const bit_in_word = i % kWordBits;
             if (bit_in_word > 0) {
@@ -124,7 +122,7 @@ public:
                 if (++count == k) return i;
             }
         }
-        return bits_;  // not found
+        return bits_; // not found
     }
 
     [[nodiscard]] std::size_t select0(std::uint64_t k) const noexcept {
@@ -146,10 +144,10 @@ public:
     [[nodiscard]] std::vector<word_t> const& raw_words() const noexcept { return words_; }
 
 private:
-    std::size_t                bits_              = 0;
+    std::size_t                bits_ = 0;
     std::vector<word_t>        words_{};
     std::vector<std::uint64_t> rank_block_prefix_{};
-    bool                       rank_index_dirty_  = true;
+    bool                       rank_index_dirty_ = true;
 };
 
-}  // namespace comdare::succinct
+} // namespace comdare::succinct

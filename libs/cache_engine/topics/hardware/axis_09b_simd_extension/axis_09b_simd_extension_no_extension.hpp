@@ -22,20 +22,22 @@ public:
 
     static constexpr bool enabled = flags::no_extension_enabled;
 
-    [[nodiscard]] static constexpr bool             is_active()             noexcept { return false; }
-    [[nodiscard]] static constexpr int              vector_width_bits()     noexcept { return 0; }
-    [[nodiscard]] static constexpr bool             compatible_with_x86()   noexcept { return true; }
-    [[nodiscard]] static constexpr bool             compatible_with_arm()   noexcept { return true; }
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return false; }
+    [[nodiscard]] static constexpr int              vector_width_bits() noexcept { return 0; }
+    [[nodiscard]] static constexpr bool             compatible_with_x86() noexcept { return true; }
+    [[nodiscard]] static constexpr bool             compatible_with_arm() noexcept { return true; }
     [[nodiscard]] static constexpr bool             compatible_with_riscv() noexcept { return true; }
     [[nodiscard]] static constexpr bool             compatible_with_powerpc() noexcept { return true; }
-    [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "simd_ext_none"; }
-    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "NoSimdExtension (baseline, no SIMD/accelerator, alle Haupt-ISAs compat)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "NO_EXTENSION"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "simd_ext_none"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "NoSimdExtension (baseline, no SIMD/accelerator, alle Haupt-ISAs compat)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "NO_EXTENSION"; }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::hardware::axis_09b_simd_extension
 
 namespace comdare::cache_engine::hardware::axis_09b_simd_extension {
-    static_assert(concepts::SimdExtensionStrategy<NoSimdExtension>);
-    static_assert(concepts::CacheEnginePermutationStrategy<NoSimdExtension>);
-}
+static_assert(concepts::SimdExtensionStrategy<NoSimdExtension>);
+static_assert(concepts::CacheEnginePermutationStrategy<NoSimdExtension>);
+} // namespace comdare::cache_engine::hardware::axis_09b_simd_extension

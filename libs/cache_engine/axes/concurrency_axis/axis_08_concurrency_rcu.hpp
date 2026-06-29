@@ -26,8 +26,10 @@ public:
     [[nodiscard]] static constexpr concepts::ConcurrencyPattern concurrency_pattern() noexcept {
         return concepts::ConcurrencyPattern::RCU;
     }
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "concurrency_rcu"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "RcuConcurrency (Read-Copy-Update, deferred grace-period reclamation)"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "concurrency_rcu"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "RcuConcurrency (Read-Copy-Update, deferred grace-period reclamation)";
+    }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "RCU"; }
 
     // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). RCU = Read-Copy-Update
@@ -47,9 +49,9 @@ private:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::concurrency_axis
 
 namespace comdare::cache_engine::concurrency_axis {
-    static_assert(concepts::ConcurrencyStrategy<RcuConcurrency>);
-    static_assert(concepts::CacheEnginePermutationStrategy<RcuConcurrency>);
-}
+static_assert(concepts::ConcurrencyStrategy<RcuConcurrency>);
+static_assert(concepts::CacheEnginePermutationStrategy<RcuConcurrency>);
+} // namespace comdare::cache_engine::concurrency_axis

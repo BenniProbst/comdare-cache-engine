@@ -19,14 +19,14 @@ namespace comdare::cache_engine::layout {
 /// (n * lg(sigma) bits), aber hoeherer Decode-Aufwand pro Lookup.
 class PackedBitmapMemoryLayout : public MemoryLayoutStrategyBase<PackedBitmapMemoryLayout> {
 public:
-    using topic_tag  = ::comdare::cache_engine::memory_layout::concepts::MemoryLayoutTopicTag;
-    using axis_tag   = subaxes::packing_density_tag;
-    using family_id  = std::integral_constant<int, 4>;
+    using topic_tag = ::comdare::cache_engine::memory_layout::concepts::MemoryLayoutTopicTag;
+    using axis_tag  = subaxes::packing_density_tag;
+    using family_id = std::integral_constant<int, 4>;
 
     static constexpr bool enabled = flags::packed_bitmap_enabled;
 
-    [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return 8; }  // 64 bit = 1 word
-    [[nodiscard]] static constexpr std::string_view name()            noexcept { return "memory_layout_packed_bitmap"; }
+    [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return 8; } // 64 bit = 1 word
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "memory_layout_packed_bitmap"; }
 
     // REALE Repraesentation (P-MD1-ERDUNG #167): succinct hot/cold column-split (succinct data structures,
     // LOUDS/SuRF-Geist). Der Store legt PRO Chunk drei Regionen an: eine 2-B-HOT-Key-Spalte (low16 jedes Keys),
@@ -37,8 +37,10 @@ public:
     [[nodiscard]] static constexpr RepresentationKind representation_kind() noexcept {
         return RepresentationKind::succinct_hot_cold_split;
     }
-    [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "PackedBitmapMemoryLayout (bit-packed succinct, LOUDS/SuRF, n*lg(sigma) bits)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()     noexcept { return "PACKED_BITMAP"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "PackedBitmapMemoryLayout (bit-packed succinct, LOUDS/SuRF, n*lg(sigma) bits)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "PACKED_BITMAP"; }
 
     // V41.F.6.1 R5.B — verhaltens-tragende Laufzeit-API (Layout-Achse F15-operativ): succinct/packed
     // → kontiguierliche 2-Byte-Felder (i*2), die DICHTESTE Variante (n*2 Bytes, ~32× weniger
@@ -48,16 +50,16 @@ public:
         std::uint64_t s = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::uint16_t v;
-            std::memcpy(&v, buf + i * sizeof(std::uint16_t), sizeof(v));   // packed: contiguous 2-byte
+            std::memcpy(&v, buf + i * sizeof(std::uint16_t), sizeof(v)); // packed: contiguous 2-byte
             s += v;
         }
         return s;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::layout
 
 namespace comdare::cache_engine::layout {
-    static_assert(concepts::MemoryLayoutStrategy<PackedBitmapMemoryLayout>);
-    static_assert(concepts::CacheEnginePermutationStrategy<PackedBitmapMemoryLayout>);
-}
+static_assert(concepts::MemoryLayoutStrategy<PackedBitmapMemoryLayout>);
+static_assert(concepts::CacheEnginePermutationStrategy<PackedBitmapMemoryLayout>);
+} // namespace comdare::cache_engine::layout

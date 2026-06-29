@@ -19,11 +19,16 @@ namespace {
 // Häufigkeit des meistgenutzten Keys über eine reine Lookup-Sequenz (Op-Mix 100% Lookup → jeder Op ein Key).
 std::size_t max_key_frequency(wd::KeyDistribution dist, std::uint64_t key_max, std::size_t ops, std::uint64_t seed) {
     wd::WorkloadConfig cfg;
-    cfg.seed = seed; cfg.num_operations = ops;
-    cfg.key_min = 1; cfg.key_max = key_max;
-    cfg.pct_insert = 0.0; cfg.pct_lookup = 1.0; cfg.pct_erase = 0.0; cfg.pct_clear = 0.0;
+    cfg.seed             = seed;
+    cfg.num_operations   = ops;
+    cfg.key_min          = 1;
+    cfg.key_max          = key_max;
+    cfg.pct_insert       = 0.0;
+    cfg.pct_lookup       = 1.0;
+    cfg.pct_erase        = 0.0;
+    cfg.pct_clear        = 0.0;
     cfg.key_distribution = dist;
-    wd::WorkloadGenerator gen{cfg};
+    wd::WorkloadGenerator                gen{cfg};
     std::map<std::uint64_t, std::size_t> freq;
     for (auto const& op : gen.generate_all()) ++freq[op.key];
     std::size_t mx = 0;
@@ -31,7 +36,7 @@ std::size_t max_key_frequency(wd::KeyDistribution dist, std::uint64_t key_max, s
     return mx;
 }
 
-}  // namespace
+} // namespace
 
 // Zipfian erzeugt einen ECHTEN Skew: der heißeste Key kommt VIEL häufiger als unter Gleichverteilung.
 TEST(V5YcsbDistribution, ZipfianIsSkewedVsUniform) {
@@ -50,22 +55,33 @@ TEST(V5YcsbDistribution, ZipfianIsSkewedVsUniform) {
 TEST(V5YcsbDistribution, LatestSkewsTowardHighestKeys) {
     constexpr std::uint64_t kKeyMax = 1000;
     constexpr std::size_t   kOps    = 20000;
-    wd::WorkloadConfig cfg;
-    cfg.seed = 7; cfg.num_operations = kOps; cfg.key_min = 1; cfg.key_max = kKeyMax;
-    cfg.pct_insert = 0.0; cfg.pct_lookup = 1.0; cfg.pct_erase = 0.0; cfg.pct_clear = 0.0;
+    wd::WorkloadConfig      cfg;
+    cfg.seed             = 7;
+    cfg.num_operations   = kOps;
+    cfg.key_min          = 1;
+    cfg.key_max          = kKeyMax;
+    cfg.pct_insert       = 0.0;
+    cfg.pct_lookup       = 1.0;
+    cfg.pct_erase        = 0.0;
+    cfg.pct_clear        = 0.0;
     cfg.key_distribution = wd::KeyDistribution::Latest;
-    wd::WorkloadGenerator gen{cfg};
+    wd::WorkloadGenerator                gen{cfg};
     std::map<std::uint64_t, std::size_t> freq;
     for (auto const& op : gen.generate_all()) ++freq[op.key];
     // Der meistgenutzte Key liegt im OBEREN Viertel des Key-Raums (latest = höchste Keys heiß).
-    std::uint64_t hottest = 0; std::size_t best = 0;
-    for (auto const& [k, f] : freq) if (f > best) { best = f; hottest = k; }
+    std::uint64_t hottest = 0;
+    std::size_t   best    = 0;
+    for (auto const& [k, f] : freq)
+        if (f > best) {
+            best    = f;
+            hottest = k;
+        }
     EXPECT_GT(hottest, static_cast<std::uint64_t>(kKeyMax * 3 / 4)) << "hottest key=" << hottest;
 }
 
 // Reproduzierbarkeit bleibt erhalten: gleiche Zipfian-Config + Seed → identische Sequenz.
 TEST(V5YcsbDistribution, ZipfianIsReproducible) {
-    auto cfg = wd::make_ycsb_c(123, 2000);
+    auto                  cfg = wd::make_ycsb_c(123, 2000);
     wd::WorkloadGenerator a{cfg}, b{cfg};
     EXPECT_EQ(a.generate_all(), b.generate_all());
 }

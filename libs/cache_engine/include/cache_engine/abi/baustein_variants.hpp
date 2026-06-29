@@ -80,10 +80,9 @@ struct PagePrtArtRedirect {
     static constexpr char paper_ref[]   = "PRTART";
 };
 
-using PageAxis = algorithm_axis<
-    PageStandardHeap, PageDenseByteArt256, PageHotMultiByte,
-    PageMasstreeINode, PageCoCoCompact, PageStart, PageB2Tree,
-    PageWormhole, PageSurf, PagePrtArtDenseByte, PagePrtArtRedirect>;
+using PageAxis =
+    algorithm_axis<PageStandardHeap, PageDenseByteArt256, PageHotMultiByte, PageMasstreeINode, PageCoCoCompact,
+                   PageStart, PageB2Tree, PageWormhole, PageSurf, PagePrtArtDenseByte, PagePrtArtRedirect>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Achse 2: Node-Type (V12.6 mit description + paper_ref)
@@ -129,10 +128,8 @@ struct NodePrtArtBPlus {
     static constexpr char paper_ref[]   = "PRTART";
 };
 
-using NodeAxis = algorithm_axis<
-    NodeSparseNode4Art, NodeHotBitNode, NodeMasstreeTrie,
-    NodeBPlus, NodeWormholeHash, NodeSurfTrie,
-    NodePrtArtRedirect, NodePrtArtBPlus>;
+using NodeAxis = algorithm_axis<NodeSparseNode4Art, NodeHotBitNode, NodeMasstreeTrie, NodeBPlus, NodeWormholeHash,
+                                NodeSurfTrie, NodePrtArtRedirect, NodePrtArtBPlus>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Achse 3: Traversal (V12.6)
@@ -163,9 +160,8 @@ struct TraversalPrtArtHotPath {
     static constexpr char paper_ref[]   = "PRTART";
 };
 
-using TraversalAxis = algorithm_axis<
-    TraversalStandard, TraversalHotPath, TraversalRangeScan,
-    TraversalRangeHotPath, TraversalPrtArtHotPath>;
+using TraversalAxis = algorithm_axis<TraversalStandard, TraversalHotPath, TraversalRangeScan, TraversalRangeHotPath,
+                                     TraversalPrtArtHotPath>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Achse 4: Value-Handle (V12.6)
@@ -186,8 +182,7 @@ struct ValueHandleChainRef {
     static constexpr char paper_ref[]   = "PRTART";
 };
 
-using ValueHandleAxis = algorithm_axis<
-    ValueHandleInline, ValueHandleExternal, ValueHandleChainRef>;
+using ValueHandleAxis = algorithm_axis<ValueHandleInline, ValueHandleExternal, ValueHandleChainRef>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Achse 5: Concurrency (V12.6)
@@ -223,100 +218,98 @@ struct ConcurrencyPrtArtOlcReserved {
     static constexpr char paper_ref[]   = "PRTART";
 };
 
-using ConcurrencyAxis = algorithm_axis<
-    ConcurrencySingleThreaded, ConcurrencySharedMutex,
-    ConcurrencyOptimisticLockCoupling, ConcurrencyRcu,
-    ConcurrencyHazardPointers, ConcurrencyPrtArtOlcReserved>;
+using ConcurrencyAxis =
+    algorithm_axis<ConcurrencySingleThreaded, ConcurrencySharedMutex, ConcurrencyOptimisticLockCoupling, ConcurrencyRcu,
+                   ConcurrencyHazardPointers, ConcurrencyPrtArtOlcReserved>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Achse 6: Allocator (V12.6 — 16 Familien aus Allokator_Matrix.txt + paper_ref)
 // ─────────────────────────────────────────────────────────────────────────────
 struct AllocSystemMalloc {
-    static constexpr char tag[] = "SYSTEM_MALLOC";
+    static constexpr char tag[]         = "SYSTEM_MALLOC";
     static constexpr char description[] = "Default platform malloc (libc / msvcrt)";
     static constexpr char paper_ref[]   = "(generic)";
 };
 struct AllocHoard {
-    static constexpr char tag[] = "HOARD";
+    static constexpr char tag[]         = "HOARD";
     static constexpr char description[] = "Hoard scalable multithreaded allocator";
     static constexpr char paper_ref[]   = "A01";
 };
 struct AllocSlab {
-    static constexpr char tag[] = "SLAB";
+    static constexpr char tag[]         = "SLAB";
     static constexpr char description[] = "Bonwick slab allocator (object-cache)";
     static constexpr char paper_ref[]   = "A02";
 };
 struct AllocMichaelLockFree {
-    static constexpr char tag[] = "MICHAEL_LOCKFREE";
+    static constexpr char tag[]         = "MICHAEL_LOCKFREE";
     static constexpr char description[] = "Michael scalable lock-free dynamic memory allocator";
     static constexpr char paper_ref[]   = "A03";
 };
 struct AllocMimalloc {
-    static constexpr char tag[] = "MIMALLOC";
+    static constexpr char tag[]         = "MIMALLOC";
     static constexpr char description[] = "Microsoft mimalloc free-list-sharding";
     static constexpr char paper_ref[]   = "A04";
 };
 struct AllocJemalloc {
-    static constexpr char tag[] = "JEMALLOC";
+    static constexpr char tag[]         = "JEMALLOC";
     static constexpr char description[] = "FreeBSD jemalloc concurrent malloc";
     static constexpr char paper_ref[]   = "A05";
 };
 struct AllocTcmalloc {
-    static constexpr char tag[] = "TCMALLOC";
+    static constexpr char tag[]         = "TCMALLOC";
     static constexpr char description[] = "Google TCMalloc thread-caching malloc";
     static constexpr char paper_ref[]   = "A06";
 };
 struct AllocSnmalloc {
-    static constexpr char tag[] = "SNMALLOC";
+    static constexpr char tag[]         = "SNMALLOC";
     static constexpr char description[] = "Microsoft snmalloc message-passing allocator";
     static constexpr char paper_ref[]   = "A07";
 };
 struct AllocScalloc {
-    static constexpr char tag[] = "SCALLOC";
+    static constexpr char tag[]         = "SCALLOC";
     static constexpr char description[] = "Salzburg scalloc span-pooling allocator";
     static constexpr char paper_ref[]   = "A08";
 };
 struct AllocNumalloc {
-    static constexpr char tag[] = "NUMALLOC";
+    static constexpr char tag[]         = "NUMALLOC";
     static constexpr char description[] = "NUMA-aware allocator (UMass/Berger)";
     static constexpr char paper_ref[]   = "A09";
 };
 struct AllocRpmalloc {
-    static constexpr char tag[] = "RPMALLOC";
+    static constexpr char tag[]         = "RPMALLOC";
     static constexpr char description[] = "rpmalloc public-domain lock-free thread-caching allocator";
     static constexpr char paper_ref[]   = "A10";
 };
 struct AllocLrmalloc {
-    static constexpr char tag[] = "LRMALLOC";
+    static constexpr char tag[]         = "LRMALLOC";
     static constexpr char description[] = "Modern competitive lock-free allocator (Leite/Rocha 2020)";
     static constexpr char paper_ref[]   = "A11";
 };
 struct AllocCama {
-    static constexpr char tag[] = "CAMA";
+    static constexpr char tag[]         = "CAMA";
     static constexpr char description[] = "Cache-aware predictable memory allocator (RTAS 2011)";
     static constexpr char paper_ref[]   = "A12";
 };
 struct AllocStarMalloc {
-    static constexpr char tag[] = "STARMALLOC";
+    static constexpr char tag[]         = "STARMALLOC";
     static constexpr char description[] = "StarMalloc formally verified concurrent allocator";
     static constexpr char paper_ref[]   = "A13";
 };
 struct AllocBuddy {
-    static constexpr char tag[] = "BUDDY";
+    static constexpr char tag[]         = "BUDDY";
     static constexpr char description[] = "Knuth/Knowlton buddy system allocator";
     static constexpr char paper_ref[]   = "A19";
 };
 struct AllocDlmalloc {
-    static constexpr char tag[] = "DLMALLOC";
+    static constexpr char tag[]         = "DLMALLOC";
     static constexpr char description[] = "Doug Lea malloc (classic allocator since 1987)";
     static constexpr char paper_ref[]   = "A20";
 };
 
-using AllocatorAxis = algorithm_axis<
-    AllocSystemMalloc, AllocHoard, AllocSlab, AllocMichaelLockFree,
-    AllocMimalloc, AllocJemalloc, AllocTcmalloc, AllocSnmalloc,
-    AllocScalloc, AllocNumalloc, AllocRpmalloc, AllocLrmalloc,
-    AllocCama, AllocStarMalloc, AllocBuddy, AllocDlmalloc>;
+using AllocatorAxis =
+    algorithm_axis<AllocSystemMalloc, AllocHoard, AllocSlab, AllocMichaelLockFree, AllocMimalloc, AllocJemalloc,
+                   AllocTcmalloc, AllocSnmalloc, AllocScalloc, AllocNumalloc, AllocRpmalloc, AllocLrmalloc, AllocCama,
+                   AllocStarMalloc, AllocBuddy, AllocDlmalloc>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Achse 7: Prefetch (V12.6)
@@ -352,9 +345,8 @@ struct PrefetchPrtArtRedirectPrefetch {
     static constexpr char paper_ref[]   = "PRTART";
 };
 
-using PrefetchAxis = algorithm_axis<
-    NonePrefetch, PrefetchAdaptiveDistance, PrefetchPathOriented,
-    PrefetchFractal, PrefetchHierarchical, PrefetchPrtArtRedirectPrefetch>;
+using PrefetchAxis = algorithm_axis<NonePrefetch, PrefetchAdaptiveDistance, PrefetchPathOriented, PrefetchFractal,
+                                    PrefetchHierarchical, PrefetchPrtArtRedirectPrefetch>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Achse 8: Telemetry (V12.6 — Kuehn 5 Strategien aus REV 6 INK-4)
@@ -385,9 +377,8 @@ struct TelemetryPikaProfile {
     static constexpr char paper_ref[]   = "(ZIH)";
 };
 
-using TelemetryAxis = algorithm_axis<
-    TelemetryOff, TelemetryLeafonlySampled, TelemetryAllNodes,
-    TelemetryVampirOtf2, TelemetryPikaProfile>;
+using TelemetryAxis = algorithm_axis<TelemetryOff, TelemetryLeafonlySampled, TelemetryAllNodes, TelemetryVampirOtf2,
+                                     TelemetryPikaProfile>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Achse 9: ISA (V12.6)
@@ -423,9 +414,7 @@ struct IsaArmSve {
     static constexpr char paper_ref[]   = "(generic)";
 };
 
-using IsaAxis = algorithm_axis<
-    IsaX86Baseline, IsaX86Sse42, IsaX86Avx2, IsaX86Avx512,
-    IsaArmNeon, IsaArmSve>;
+using IsaAxis = algorithm_axis<IsaX86Baseline, IsaX86Sse42, IsaX86Avx2, IsaX86Avx512, IsaArmNeon, IsaArmSve>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Achse 10: Layout (V12.6)
@@ -461,9 +450,8 @@ struct LayoutPrtArtMultiLevel {
     static constexpr char paper_ref[]   = "PRTART";
 };
 
-using LayoutAxis = algorithm_axis<
-    LayoutStandardHeap, LayoutCacheObliviousVeb, LayoutCacheLineAligned,
-    LayoutNumaPinned, LayoutHbmHybrid, LayoutPrtArtMultiLevel>;
+using LayoutAxis = algorithm_axis<LayoutStandardHeap, LayoutCacheObliviousVeb, LayoutCacheLineAligned, LayoutNumaPinned,
+                                  LayoutHbmHybrid, LayoutPrtArtMultiLevel>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Achse 11: Reclamation (V12.6)
@@ -494,21 +482,19 @@ struct ReclamationCrystallineLockFree {
     static constexpr char paper_ref[]   = "A17";
 };
 
-using ReclamationAxis = algorithm_axis<
-    ReclamationNone, ReclamationRcuGp, ReclamationHazardPointers,
-    ReclamationEpochBased, ReclamationCrystallineLockFree>;
+using ReclamationAxis = algorithm_axis<ReclamationNone, ReclamationRcuGp, ReclamationHazardPointers,
+                                       ReclamationEpochBased, ReclamationCrystallineLockFree>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Komplette 11-Achsen-Permutation als Default-Type-Alias
 // ─────────────────────────────────────────────────────────────────────────────
-using DefaultElevenAxes = eleven_axes_permutation<
-    PageAxis, NodeAxis, TraversalAxis, ValueHandleAxis,
-    ConcurrencyAxis, AllocatorAxis, PrefetchAxis, TelemetryAxis,
-    IsaAxis, LayoutAxis, ReclamationAxis>;
+using DefaultElevenAxes =
+    eleven_axes_permutation<PageAxis, NodeAxis, TraversalAxis, ValueHandleAxis, ConcurrencyAxis, AllocatorAxis,
+                            PrefetchAxis, TelemetryAxis, IsaAxis, LayoutAxis, ReclamationAxis>;
 
 // Total moegliche Permutationen (gesamtes Cartesian-Product):
 //   11 * 8 * 5 * 3 * 6 * 16 * 6 * 5 * 6 * 6 * 5 = 5,485,363,200
 // (Habich-Direktive: full mode generiert _alle_ — nur defined-mode laeuft als
 //  vorgewaehlter Subset)
 
-}  // namespace comdare::cache_engine::baustein
+} // namespace comdare::cache_engine::baustein

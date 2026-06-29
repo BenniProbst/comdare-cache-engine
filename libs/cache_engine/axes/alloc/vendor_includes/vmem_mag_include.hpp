@@ -13,12 +13,12 @@
 #include <cstdlib>
 
 #if COMDARE_AXIS_06_USE_VMEM_MAG
-#  include <vmem_magazine.h>
+#include <vmem_magazine.h>
 #else
 extern "C" {
-    inline void* vmem_alloc(std::size_t /*size*/, std::size_t /*alignment*/) noexcept { return nullptr; }
-    inline void  vmem_free(void* /*p*/, std::size_t /*size*/) noexcept {}
-    inline void* vmem_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
-    inline void* vmem_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
+inline void* vmem_alloc(std::size_t /*size*/, std::size_t /*alignment*/) noexcept { return nullptr; }
+inline void  vmem_free(void* /*p*/, std::size_t /*size*/) noexcept {}
+inline void* vmem_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
+inline void* vmem_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
 }
 #endif

@@ -8,15 +8,13 @@
 namespace comdare::cache_engine::io_dispatch::concepts {
 
 template <typename I>
-concept CacheEnginePermutationStrategy =
-    IoStrategy<I>
-    && requires {
-        typename I::axis_tag;
-        typename I::family_id;
-        { I::name() }         noexcept -> std::convertible_to<std::string_view>;
-        { I::family_name() }  noexcept -> std::convertible_to<std::string_view>;
-        { I::flag_suffix() }  noexcept -> std::convertible_to<std::string_view>;
-        { I::enabled }                 -> std::convertible_to<bool>;
-    };
+concept CacheEnginePermutationStrategy = IoStrategy<I> && requires {
+    typename I::axis_tag;
+    typename I::family_id;
+    { I::name() } noexcept -> std::convertible_to<std::string_view>;
+    { I::family_name() } noexcept -> std::convertible_to<std::string_view>;
+    { I::flag_suffix() } noexcept -> std::convertible_to<std::string_view>;
+    { I::enabled } -> std::convertible_to<bool>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::io_dispatch::concepts

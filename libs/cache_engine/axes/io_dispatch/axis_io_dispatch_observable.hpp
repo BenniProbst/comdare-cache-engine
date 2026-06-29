@@ -33,11 +33,11 @@ namespace comdare::cache_engine::io_dispatch {
 
 /// ABI-taugliches IoDispatch-Snapshot (NUR uint64 → standard_layout + trivially_copyable, Cross-ABI-POD-mappbar).
 struct IoDispatchSnapshot {
-    std::uint64_t dispatch_rounds        = 0;   ///< Anzahl observe_dispatch-Aufrufe (Dispatch-Runden)
-    std::uint64_t bytes_dispatched       = 0;   ///< kumulierte "dispatchte" Record-Bytes (n * record_size) ueber alle Runden
-    std::uint64_t alignment_adjusts      = 0;   ///< strategie-abhaengige Alignment-Anpassungen (0 fuer InMemoryOnly)
-    std::uint64_t total_dispatch_count   = 0;   ///< kumulierte dispatchte Records (Σ n)
-    std::uint64_t last_checksum          = 0;   ///< letztes io_dispatch_scan-Ergebnis (Korrektheits-/Anti-Wegopt-Anker)
+    std::uint64_t dispatch_rounds   = 0; ///< Anzahl observe_dispatch-Aufrufe (Dispatch-Runden)
+    std::uint64_t bytes_dispatched  = 0; ///< kumulierte "dispatchte" Record-Bytes (n * record_size) ueber alle Runden
+    std::uint64_t alignment_adjusts = 0; ///< strategie-abhaengige Alignment-Anpassungen (0 fuer InMemoryOnly)
+    std::uint64_t total_dispatch_count = 0; ///< kumulierte dispatchte Records (Σ n)
+    std::uint64_t last_checksum        = 0; ///< letztes io_dispatch_scan-Ergebnis (Korrektheits-/Anti-Wegopt-Anker)
 
     [[nodiscard]] bool operator==(IoDispatchSnapshot const&) const noexcept = default;
 };
@@ -58,14 +58,23 @@ public:
     using topic_tag = typename Strategy::topic_tag;
 
     // Transparenter Decorator: Strategie-Inspektion durchgereicht.
-    [[nodiscard]] static constexpr bool             is_in_memory_only() noexcept { return Strategy::is_in_memory_only(); }
-    [[nodiscard]] static constexpr std::string_view name()              noexcept { return Strategy::name(); }
-    [[nodiscard]] static constexpr std::string_view family_name()
-        noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()
-        noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
-    [[nodiscard]] static constexpr std::string_view get_compiler()
-        noexcept requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
+    [[nodiscard]] static constexpr bool is_in_memory_only() noexcept { return Strategy::is_in_memory_only(); }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept
+        requires requires { Strategy::family_name(); }
+    {
+        return Strategy::family_name();
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept
+        requires requires { Strategy::flag_suffix(); }
+    {
+        return Strategy::flag_suffix();
+    }
+    [[nodiscard]] static constexpr std::string_view get_compiler() noexcept
+        requires requires { Strategy::get_compiler(); }
+    {
+        return Strategy::get_compiler();
+    }
 
     /// STATIC Pass-Through (Drop-in-Kompatibilität): die Strategie-Methode wird unveraendert durchgereicht, damit
     /// die Huelle als io_dispatch-Slot die bestehenden seg19-Aufrufer NICHT bricht (abi_adapter.hpp T14
@@ -84,7 +93,7 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.dispatch_rounds;
         stats_.total_dispatch_count += static_cast<std::uint64_t>(n);
-        stats_.bytes_dispatched     += static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(record_size);
+        stats_.bytes_dispatched += static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(record_size);
         // Alignment-Anpassung: nur Persistence-Strategien mit Block-Granularitaet (Buffered/Direct/Mmap) richten
         // je Record an die Dispatch-Grenze aus; InMemoryOnly (RAM-only Baseline) tut das nicht → ehrlich 0.
         if (!Strategy::is_in_memory_only()) stats_.alignment_adjusts += static_cast<std::uint64_t>(n);
@@ -96,11 +105,11 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = IoDispatchSnapshot;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; }
+    void                     reset() noexcept { stats_ = {}; }
 
 private:
     snapshot_t stats_{};
 #endif
 };
 
-}  // namespace comdare::cache_engine::io_dispatch
+} // namespace comdare::cache_engine::io_dispatch

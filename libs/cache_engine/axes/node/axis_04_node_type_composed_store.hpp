@@ -24,12 +24,12 @@
 //   - bounded ComposedArrayStore<N,L,A> (N::max_capacity() als hartes Limit) — hier unbounded vector.
 //   - statistics()/snapshot_t/ObservableAxis (Doku 24 §2.2) — bleibt aus dem StorageOrgan-Vertrag.
 
-#include "axis_04_node_type_node4.hpp"                 // Pilot-NodeType (Selbstbeweis)
+#include "axis_04_node_type_node4.hpp" // Pilot-NodeType (Selbstbeweis)
 #include "concepts/axis_04_node_type_concept.hpp"
 #include <topics/memory_layout/axis_05_memory_layout/concepts/axis_05_memory_layout_concept.hpp>
-#include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_cache_line_aligned.hpp>  // Pilot-Layout
+#include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_cache_line_aligned.hpp> // Pilot-Layout
 #include <topics/allocator/axis_06_allocator/concepts/axis_06_allocator_concept.hpp>
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_mimalloc.hpp>  // Pilot-Allocator
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_mimalloc.hpp> // Pilot-Allocator
 #include <topics/traversal/axis_03a_search_algo/composable/storage_organ_concept.hpp>
 #include <topics/traversal/axis_03a_search_algo/composable/composable_search.hpp>
 
@@ -47,9 +47,8 @@ namespace _al = ::comdare::cache_engine::allocator::axis_06_allocator;
 /// 3-Achsen-Storage-Organ: node_type(N) ⊕ layout(L) ⊕ allocator(A) hinter dem uint64-StorageOrgan-Interface.
 /// Der Slot-Speicher kommt REAL aus der Allocator-Achse A (via std::vector<Slot, A::StdAllocatorAdapter<Slot>>).
 template <class N, class L, class A>
-    requires concepts::NodeTypeStrategy<N>
-          && _ml::concepts::MemoryLayoutStrategy<L>
-          && _al::concepts::AllocatorStrategy<A>
+    requires concepts::NodeTypeStrategy<N> && _ml::concepts::MemoryLayoutStrategy<L> &&
+             _al::concepts::AllocatorStrategy<A>
 class ComposedStore {
 private:
     // Frueh deklariert (vor allen Verwendungen in Ctor/Methoden/Membern) — MSVC-robust, kein
@@ -58,37 +57,38 @@ private:
     using slot_alloc = typename A::template StdAllocatorAdapter<slot_t>;
 
 public:
-    using key_type       = std::uint64_t;   // GEMEINSAMER breiter Key (Doku-24-§5.5)
+    using key_type       = std::uint64_t; // GEMEINSAMER breiter Key (Doku-24-§5.5)
     using value_type     = std::uint64_t;
     using node_type      = N;
     using layout_type    = L;
     using allocator_type = A;
 
-    static constexpr std::size_t node_capacity_v   = N::max_capacity();
-    static constexpr std::size_t cache_line_size   = L::cache_line_size();  // Layout floss in den Typ ein
+    static constexpr std::size_t node_capacity_v = N::max_capacity();
+    static constexpr std::size_t cache_line_size = L::cache_line_size(); // Layout floss in den Typ ein
 
     // Provenienz (NICHT Teil des StorageOrgan-Vertrags) — weist die 3 beteiligten Achsen aus.
-    [[nodiscard]] static constexpr std::size_t      node_capacity()  noexcept { return node_capacity_v; }
-    [[nodiscard]] static constexpr std::string_view organ_name()     noexcept { return "composed"; }
-    [[nodiscard]] static constexpr std::string_view node_name()      noexcept { return N::name(); }
-    [[nodiscard]] static constexpr std::string_view layout_name()    noexcept { return L::name(); }
+    [[nodiscard]] static constexpr std::size_t      node_capacity() noexcept { return node_capacity_v; }
+    [[nodiscard]] static constexpr std::string_view organ_name() noexcept { return "composed"; }
+    [[nodiscard]] static constexpr std::string_view node_name() noexcept { return N::name(); }
+    [[nodiscard]] static constexpr std::string_view layout_name() noexcept { return L::name(); }
     [[nodiscard]] static constexpr std::string_view allocator_name() noexcept { return A::name(); }
 
     // --- StorageOrgan-Concept: 8 Methoden (linear, semantisch == RawSlotStore → std::map-aequivalent) ---
-    [[nodiscard]] std::size_t slot_count()            const noexcept { return slots_.size(); }
-    [[nodiscard]] key_type    key_at(std::size_t i)   const noexcept { return slots_[i].first; }
+    [[nodiscard]] std::size_t slot_count() const noexcept { return slots_.size(); }
+    [[nodiscard]] key_type    key_at(std::size_t i) const noexcept { return slots_[i].first; }
     [[nodiscard]] value_type  value_at(std::size_t i) const noexcept { return slots_[i].second; }
-    void set_value_at(std::size_t i, value_type v)          noexcept { slots_[i].second = v; }
-    void append_slot(key_type k, value_type v)                       { slots_.emplace_back(k, v); }
-    void insert_slot_at(std::size_t i, key_type k, value_type v)     { slots_.emplace(slots_.begin() + static_cast<std::ptrdiff_t>(i), k, v); }
-    void erase_slot_at(std::size_t i)                                { slots_.erase(slots_.begin() + static_cast<std::ptrdiff_t>(i)); }
-    void clear()                                            noexcept { slots_.clear(); }
+    void                      set_value_at(std::size_t i, value_type v) noexcept { slots_[i].second = v; }
+    void                      append_slot(key_type k, value_type v) { slots_.emplace_back(k, v); }
+    void                      insert_slot_at(std::size_t i, key_type k, value_type v) {
+        slots_.emplace(slots_.begin() + static_cast<std::ptrdiff_t>(i), k, v);
+    }
+    void erase_slot_at(std::size_t i) { slots_.erase(slots_.begin() + static_cast<std::ptrdiff_t>(i)); }
+    void clear() noexcept { slots_.clear(); }
 
     // Optionale, NICHT-Vertrags-Methode: macht die Layout-Achse operativ messbar (F15-Bruecke).
     // Ruft L::scan_field_sum ueber das rohe Slot-Backing (Layout-distinkter Read-Pfad; kein toter Code).
     [[nodiscard]] std::uint64_t organ_scan_field_sum() const noexcept {
-        return L::scan_field_sum(reinterpret_cast<unsigned char const*>(slots_.data()),
-                                 slots_.size(), sizeof(slot_t));
+        return L::scan_field_sum(reinterpret_cast<unsigned char const*>(slots_.data()), slots_.size(), sizeof(slot_t));
     }
 
     // V42 L-74c scan-Achsen-Auto-Kopplung (Pfad-B Zustand-Scan): treibt ein gegebenes Observer-Organ
@@ -101,7 +101,8 @@ public:
     }
     template <class SerOrgan>
     std::uint64_t organ_observe_serialization(SerOrgan& org) const {
-        return org.observe_serialize(reinterpret_cast<unsigned char const*>(slots_.data()), slots_.size(), sizeof(slot_t));
+        return org.observe_serialize(reinterpret_cast<unsigned char const*>(slots_.data()), slots_.size(),
+                                     sizeof(slot_t));
     }
 
     // V42 L-74c node_type-Auto-Kopplung: extrahiert die niederwertigsten Key-Bytes (ART-Node256-Direkt-
@@ -120,7 +121,7 @@ public:
     // (StorageOrgan fordert statistics() bewusst nicht); A::statistics() ist unter STATISTICS Pflicht-API
     // (CacheEnginePermutationStrategy). Der Allocator wird durch slots_-Vector-Growth (insert/erase) real
     // getrieben → allocation_count/total_bytes_in_use sind workload-getrieben.
-    using allocator_snapshot_t = typename A::snapshot_t;   // == allocator::…::AllocationStatistics
+    using allocator_snapshot_t = typename A::snapshot_t; // == allocator::…::AllocationStatistics
     [[nodiscard]] allocator_snapshot_t allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
@@ -139,16 +140,16 @@ public:
 private:
     // slot_t/slot_alloc sind oben (vor den public-Membern) deklariert — KEINE Re-Deklaration hier
     // (frueheres Doppel war MSVC-toleriert, aber GCC/Clang-brechend; Cleanup Roadmap-1).
-    A allocator_;                              // VOR slots_ (Lifetime des Derived*-Zeigers im Adapter)
+    A                               allocator_; // VOR slots_ (Lifetime des Derived*-Zeigers im Adapter)
     std::vector<slot_t, slot_alloc> slots_;
 };
 
 // Compile-Time-Selbstbeweis (Regel "Compile-Time-Only NO Runtime"): das 3-Achsen-Organ erfuellt
 // StorageOrgan UND ist von BEIDEN Traversal-Organen nutzbar. Pilot = (Node4, CacheLineAligned, Mimalloc).
-namespace ce_cmp = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable;
+namespace ce_cmp         = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable;
 using PilotComposedStore = ComposedStore<Node4NodeType, _ml::CacheLineAlignedMemoryLayout, _al::MimallocAllocator>;
 static_assert(ce_cmp::StorageOrgan<PilotComposedStore>);
-static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal,   PilotComposedStore>);
+static_assert(ce_cmp::TraversalOrgan<ce_cmp::LinearScanTraversal, PilotComposedStore>);
 static_assert(ce_cmp::TraversalOrgan<ce_cmp::SortedBinaryTraversal, PilotComposedStore>);
 
-}  // namespace comdare::cache_engine::node
+} // namespace comdare::cache_engine::node

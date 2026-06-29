@@ -23,7 +23,7 @@
 #include "concepts/axis_06_allocator_cache_engine_permutation_concept.hpp"
 #include "axis_06_allocator_subaxes_aa1_to_aa7.hpp"
 #include <topics/axis_base.hpp>
-#include <axes/cacheline/cacheline_config.hpp>  // KF-5: per-Organ Cache-Line-Unterachse
+#include <axes/cacheline/cacheline_config.hpp> // KF-5: per-Organ Cache-Line-Unterachse
 
 #include <concepts>
 #include <cstddef>
@@ -54,23 +54,21 @@ namespace comdare::cache_engine::alloc {
 // Allokator-Wrapper cacheline-fähig (cacheline_config/cacheline_alignment/cacheline_prefetch). Default {} =
 // B64/None/None = unverändertes Verhalten (nicht-brechend, ODR-sicher: Default ist ein Literal, kein Makro).
 // Die per-Binary-Bäckung wählt der Codegen über eine DISTINKTE Organ-Instanz (KF-6/KF-8), nicht über den Default.
-template <typename Derived,
-          ::comdare::cache_engine::cacheline::CacheLineConfig CacheLineCfg = ::comdare::cache_engine::cacheline::CacheLineConfig{}>
-class AllocatorStrategyBase
-    : public ::comdare::cache_engine::topics::AxisBase
-    , public ::comdare::cache_engine::cacheline::CacheLineAware<CacheLineCfg> {
+template <typename Derived, ::comdare::cache_engine::cacheline::CacheLineConfig CacheLineCfg =
+                                ::comdare::cache_engine::cacheline::CacheLineConfig{}>
+class AllocatorStrategyBase : public ::comdare::cache_engine::topics::AxisBase,
+                              public ::comdare::cache_engine::cacheline::CacheLineAware<CacheLineCfg> {
 public:
     /// Concept-Check im Konstruktor: Pflicht-Set AllocatorStrategy + CacheEnginePermutationStrategy + AxisBase
     constexpr AllocatorStrategyBase() noexcept {
-        static_assert(concepts::AllocatorStrategy<Derived>,
-            "Derived must satisfy AllocatorStrategy concept "
-            "(see concepts/axis_06_allocator_concept.hpp)");
+        static_assert(concepts::AllocatorStrategy<Derived>, "Derived must satisfy AllocatorStrategy concept "
+                                                            "(see concepts/axis_06_allocator_concept.hpp)");
         static_assert(concepts::CacheEnginePermutationStrategy<Derived>,
-            "Derived must satisfy CacheEnginePermutationStrategy concept "
-            "(see concepts/axis_06_allocator_cache_engine_permutation_concept.hpp)");
+                      "Derived must satisfy CacheEnginePermutationStrategy concept "
+                      "(see concepts/axis_06_allocator_cache_engine_permutation_concept.hpp)");
         static_assert(::comdare::cache_engine::topics::AxisBaseConcept<Derived>,
-            "Derived must satisfy AxisBaseConcept (get_compiler() Pflicht-API). "
-            "AllocatorStrategyBase erbt von AxisBase — Derived bekommt Default 'original' automatisch.");
+                      "Derived must satisfy AxisBaseConcept (get_compiler() Pflicht-API). "
+                      "AllocatorStrategyBase erbt von AxisBase — Derived bekommt Default 'original' automatisch.");
     }
 
     // ───────────────────────────────────────────────────────────────────────
@@ -103,9 +101,7 @@ public:
     }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-    [[nodiscard]] concepts::AllocationStatistics statistics() const noexcept {
-        return derived_const().statistics();
-    }
+    [[nodiscard]] concepts::AllocationStatistics statistics() const noexcept { return derived_const().statistics(); }
 
     void reset() noexcept {
         // V41.F.6.1.A User-Klarstellung: reset() = Statistik-Reset, NICHT Pool-Reset!
@@ -134,15 +130,15 @@ public:
         [[nodiscard]] T* allocate(std::size_t n) {
             return static_cast<T*>(strat_->allocate(n * sizeof(T), alignof(T)));
         }
-        void deallocate(T* p, std::size_t n) noexcept {
-            strat_->deallocate(p, n * sizeof(T), alignof(T));
-        }
+        void deallocate(T* p, std::size_t n) noexcept { strat_->deallocate(p, n * sizeof(T), alignof(T)); }
         template <typename U>
         [[nodiscard]] bool operator==(StdAllocatorAdapter<U> const& other) const noexcept {
             return strat_ == other.strat_;
         }
+
     private:
-        template <typename U> friend class StdAllocatorAdapter;
+        template <typename U>
+        friend class StdAllocatorAdapter;
         Derived* strat_;
     };
 
@@ -154,6 +150,7 @@ public:
     class PmrResourceAdapter final : public std::pmr::memory_resource {
     public:
         explicit PmrResourceAdapter(Derived* strat) noexcept : strat_(strat) {}
+
     private:
         void* do_allocate(std::size_t bytes, std::size_t alignment) override {
             return strat_->allocate(bytes, alignment);
@@ -176,13 +173,11 @@ public:
 
     /// Liefert einen pmr-memory_resource-Adapter (Wert). Aufrufer haelt ihn am Leben und uebergibt
     /// dessen Adresse an pmr-Container (z.B. std::pmr::polymorphic_allocator).
-    [[nodiscard]] PmrResourceAdapter as_pmr_resource() noexcept {
-        return PmrResourceAdapter(&derived());
-    }
+    [[nodiscard]] PmrResourceAdapter as_pmr_resource() noexcept { return PmrResourceAdapter(&derived()); }
 
 protected:
-    [[nodiscard]] Derived&        derived() noexcept       { return static_cast<Derived&>(*this); }
-    [[nodiscard]] Derived const&  derived_const() const noexcept { return static_cast<Derived const&>(*this); }
+    [[nodiscard]] Derived&       derived() noexcept { return static_cast<Derived&>(*this); }
+    [[nodiscard]] Derived const& derived_const() const noexcept { return static_cast<Derived const&>(*this); }
 };
 
-}  // namespace comdare::cache_engine::alloc
+} // namespace comdare::cache_engine::alloc

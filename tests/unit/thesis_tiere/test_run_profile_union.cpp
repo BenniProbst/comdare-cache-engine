@@ -14,12 +14,12 @@
 // Build (innerhalb vcvars64): build_run_profile_union.ps1 (Include-Satz wie die thesis_tiere-Harness). KEIN cl
 // fuer die Tiere — nur String-/Index-Rekombination + die Katalog-Materialisierung (header-only).
 
-#include "profile_run_entry.hpp"   // run_profile-Bausteine: make_union_source_gen / make_catalog_source_gen / build_sota_*
-#include "source_catalog.hpp"      // FullSourceCatalog / make_catalog_source_gen
-#include "sota_catalog.hpp"        // build_sota_passes / build_sota_view_source_map / sota_view_binary_id
-#include "profile_runner.hpp"      // load_thesis_profile / build_profile_basis_levels / make_union_source_gen
+#include "profile_run_entry.hpp" // run_profile-Bausteine: make_union_source_gen / make_catalog_source_gen / build_sota_*
+#include "source_catalog.hpp"    // FullSourceCatalog / make_catalog_source_gen
+#include "sota_catalog.hpp"      // build_sota_passes / build_sota_view_source_map / sota_view_binary_id
+#include "profile_runner.hpp"    // load_thesis_profile / build_profile_basis_levels / make_union_source_gen
 
-#include <builder/experiment_tree/experiment_tree.hpp>   // ExperimentTree / StaticBinaryView
+#include <builder/experiment_tree/experiment_tree.hpp> // ExperimentTree / StaticBinaryView
 
 #include <filesystem>
 #include <fstream>
@@ -34,7 +34,7 @@ namespace tlz = comdare::cache_engine::thesis_lazy;
 namespace cx  = comdare::builder::xml;
 namespace fs  = std::filesystem;
 
-static int g_fail = 0;
+static int  g_fail = 0;
 static void check(char const* what, bool ok) {
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << "\n";
     if (!ok) ++g_fail;
@@ -42,30 +42,34 @@ static void check(char const* what, bool ok) {
 
 static std::string load_golden0(fs::path const& p) {
     std::ifstream f{p};
-    std::string line;
+    std::string   line;
     while (std::getline(f, line)) {
         while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) line.pop_back();
         if (line.empty() || line[0] == '#') continue;
-        return line;   // erste Daten-Zeile
+        return line; // erste Daten-Zeile
     }
     return {};
 }
 
 int main(int argc, char** argv) {
     fs::path const profiles_dir = fs::path("libs") / "cache_engine" / "algorithm_profiles" / "thesis_profiles";
-    fs::path const m3v2_xml = (argc >= 2) ? fs::path(argv[1]) : (profiles_dir / "m3v2_study.profile.xml");
-    fs::path const golden   = (argc >= 3) ? fs::path(argv[2])
-                                          : (fs::path("tests") / "unit" / "thesis_tiere" / "golden_fullpilot_320_binary_ids.txt");
+    fs::path const m3v2_xml     = (argc >= 2) ? fs::path(argv[1]) : (profiles_dir / "m3v2_study.profile.xml");
+    fs::path const golden = (argc >= 3)
+                                ? fs::path(argv[2])
+                                : (fs::path("tests") / "unit" / "thesis_tiere" / "golden_fullpilot_320_binary_ids.txt");
     std::cout << "Profil: " << m3v2_xml.string() << "\nGolden: " << golden.string() << "\n";
 
     auto tp = tlz::load_thesis_profile(m3v2_xml);
     check("parse_thesis_profile lieferte das m3v2-Profil", tp.has_value());
-    if (!tp) { std::cout << "\n==== ABBRUCH: Profil nicht lesbar ====\n"; return 1; }
+    if (!tp) {
+        std::cout << "\n==== ABBRUCH: Profil nicht lesbar ====\n";
+        return 1;
+    }
 
     std::string const mode_name = tp->modes.empty() ? std::string{"m3v2_base"} : tp->modes.front().name;
 
     // ── (A) Der BASIS-Baum (wie run_profile ihn baut): build_profile_basis_levels → StaticBinaryView. ──
-    auto factory = std::make_shared<ex::ExperimentNodeFactory>();
+    auto               factory = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree basis_tree{factory};
     basis_tree.build(tlz::build_profile_basis_levels(*tp, mode_name, /*with_dynamic=*/true));
     ex::StaticBinaryView const basis_view = basis_tree.static_binary_view();
@@ -85,7 +89,10 @@ int main(int argc, char** argv) {
     bool series_ab = false;
     {
         bool a = false, b = false;
-        for (auto const& p : passes) { if (p.series == "A") a = true; if (p.series == "B") b = true; }
+        for (auto const& p : passes) {
+            if (p.series == "A") a = true;
+            if (p.series == "B") b = true;
+        }
         series_ab = a && b;
     }
     // #178 (Thesis ch4 §4.8): die Stufen speisen Reihe A (Stufe1∪Stufe2) + Reihe B (Stufe3). Reihe C
@@ -97,18 +104,17 @@ int main(int argc, char** argv) {
 
     // ── (C) Namensraum-DISJUNKTHEIT: Basis = "search_algo=…", SOTA = "sota_tier=…" (kein Praefix-Konflikt). ──
     check("Basis-binary_id im 'search_algo='-Raum", basis_bid0.rfind("search_algo=", 0) == 0);
-    check("SOTA-binary_id im 'sota_tier='-Raum",   sota_bid0.rfind("sota_tier=", 0) == 0);
+    check("SOTA-binary_id im 'sota_tier='-Raum", sota_bid0.rfind("sota_tier=", 0) == 0);
 
     // ── (D) S7a: DIE EINE vereinigte SourceGenFn liefert fuer BEIDE Namensraeume eine reale Modul-Quelle. ──
-    ex::SourceGenFn const union_gen =
-        tlz::make_union_source_gen(tlz::make_catalog_source_gen<tlz::FullSourceCatalog>(),
-                                   tlz::build_sota_view_source_map(*tp));
+    ex::SourceGenFn const union_gen = tlz::make_union_source_gen(tlz::make_catalog_source_gen<tlz::FullSourceCatalog>(),
+                                                                 tlz::build_sota_view_source_map(*tp));
 
     std::string const basis_src = union_gen(basis_bid0);
     std::string const sota_src  = union_gen(sota_bid0);
     std::cout << "\n--- S7a: union_gen ueber EINE SourceGenFn ---\n";
     std::cout << "  basis_src.size() = " << basis_src.size() << " (Basis-320-Quelle)\n";
-    std::cout << "  sota_src.size()  = " << sota_src.size()  << " (SOTA-Reihen-Quelle)\n";
+    std::cout << "  sota_src.size()  = " << sota_src.size() << " (SOTA-Reihen-Quelle)\n";
     check("union_gen(BASIS-binary_id) liefert NICHT-leere Quelle", !basis_src.empty());
     check("union_gen(SOTA-view-binary_id) liefert NICHT-leere Quelle", !sota_src.empty());
     check("BASIS-Quelle ist eine reale Anatomie-Modul-Quelle (COMDARE_DEFINE_ANATOMY_MODULE)",

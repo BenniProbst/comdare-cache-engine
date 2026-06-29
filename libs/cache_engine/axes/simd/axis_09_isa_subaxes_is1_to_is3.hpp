@@ -16,4 +16,4 @@ struct vendor_tag {};
 // IS3: ZIH-Cluster-Zugehoerigkeit (Barnard / Capella / GraceHopper / N/A)
 struct cluster_zih_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::simd::subaxes

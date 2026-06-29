@@ -20,29 +20,29 @@ namespace comdare::cache_engine::builder::commands {
  * CompareEngineCommand zum F15-Vergleich konsumiert.
  */
 struct ExecutionResult {
-    std::string_view engine_name {"unknown"};
-    WorkloadKind workload_kind {WorkloadKind::YCSB_C_ReadOnly};
+    std::string_view engine_name{"unknown"};
+    WorkloadKind     workload_kind{WorkloadKind::YCSB_C_ReadOnly};
 
     // Mess-Werte
-    double throughput_ops_per_sec {0.0};
-    std::chrono::nanoseconds latency_p50 {};
-    std::chrono::nanoseconds latency_p99 {};
-    std::uint64_t total_cache_misses {0};
-    std::uint64_t memory_footprint_bytes {0};
+    double                   throughput_ops_per_sec{0.0};
+    std::chrono::nanoseconds latency_p50{};
+    std::chrono::nanoseconds latency_p99{};
+    std::uint64_t            total_cache_misses{0};
+    std::uint64_t            memory_footprint_bytes{0};
 
     // F15-Hypothesen-Werte
-    double H1_clu_improvement {0.0};   ///< Cache-Line-Utilization
-    double H2_layout_score {0.0};      ///< Layout-Wahl-Effizienz
-    double H3_inline_external_ratio {0.0};  ///< Inline-vs-External-Decision
+    double H1_clu_improvement{0.0};       ///< Cache-Line-Utilization
+    double H2_layout_score{0.0};          ///< Layout-Wahl-Effizienz
+    double H3_inline_external_ratio{0.0}; ///< Inline-vs-External-Decision
 
     // V33.A.2: Per-Operation Latency-Samples fuer Welch's t-Test (optional)
     // Wenn leer -> CompareEngineCommand faellt zurueck auf Schwellwert-Vergleich.
     // Wenn gefuellt -> CompareEngineCommand kann welch_t_test() ausfuehren.
-    std::vector<std::int64_t> latency_samples_ns {};
+    std::vector<std::int64_t> latency_samples_ns{};
 
     // Status
-    bool success {false};
-    std::string_view error_message {};
+    bool             success{false};
+    std::string_view error_message{};
 };
 
-}  // namespace comdare::cache_engine::builder::commands
+} // namespace comdare::cache_engine::builder::commands

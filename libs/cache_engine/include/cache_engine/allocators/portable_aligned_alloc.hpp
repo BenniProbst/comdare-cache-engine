@@ -8,7 +8,7 @@
 #include <cstdlib>
 
 #ifdef _MSC_VER
-    #include <malloc.h>
+#include <malloc.h>
 #endif
 
 namespace comdare::cache_engine::allocator {
@@ -16,7 +16,7 @@ namespace comdare::cache_engine::allocator {
 // Allokation mit Alignment-Garantie auf allen Plattformen
 [[nodiscard]] inline void* portable_aligned_alloc(std::size_t alignment, std::size_t bytes) noexcept {
     if (alignment == 0 || (alignment & (alignment - 1)) != 0) {
-        return nullptr;  // alignment must be power of 2
+        return nullptr; // alignment must be power of 2
     }
     // Round bytes up to multiple of alignment (Pflicht von std::aligned_alloc)
     std::size_t const padded = ((bytes + alignment - 1) / alignment) * alignment;
@@ -35,4 +35,4 @@ inline void portable_aligned_free(void* p) noexcept {
 #endif
 }
 
-}  // namespace comdare::cache_engine::allocator
+} // namespace comdare::cache_engine::allocator

@@ -46,21 +46,23 @@ public:
     using size_type    = std::size_t;
     using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag     = subaxes::batched_access_tag;
-    using family_id    = std::integral_constant<int, 12>;  // Q12
+    using family_id    = std::integral_constant<int, 12>; // Q12
 
-    static constexpr std::size_t kDefaultBatchSize = 64;  // Cache-Line-tauglich
+    static constexpr std::size_t kDefaultBatchSize = 64; // Cache-Line-tauglich
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }  // unbounded
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "batched_insert_buffer"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "BatchedInsertBuffer (OLAP-Index, ART-Bulk-Insert — Leis ICDE 2013 §6)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "BATCHED_INSERT_BUFFER"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "batched_insert_buffer"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "BatchedInsertBuffer (OLAP-Index, ART-Bulk-Insert — Leis ICDE 2013 §6)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "BATCHED_INSERT_BUFFER"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_concurrent_consumers() noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_priority_ordering()    noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_versioned()                  noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_priority_ordering() noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_versioned() noexcept { return false; }
     [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
         return concepts::ProgressGuarantee::Blocking;
     }
@@ -69,9 +71,7 @@ public:
     explicit BatchedInsertBuffer(std::size_t batch_size)
         : batch_size_(batch_size == 0 ? kDefaultBatchSize : batch_size) {}
 
-    [[nodiscard]] bool operator==(BatchedInsertBuffer const& other) const noexcept {
-        return size() == other.size();
-    }
+    [[nodiscard]] bool operator==(BatchedInsertBuffer const& other) const noexcept { return size() == other.size(); }
 
     /// SONDERFALL [[allocation-failure-exception]]: push_back wirft std::bad_alloc bei OOM.
     /// Bei Erreichen der Batch-Groesse: aktuellen Sub-Batch in completed_ verschieben.
@@ -97,8 +97,7 @@ public:
         if (batch.empty()) return;
         current_batch_.insert(current_batch_.end(), batch.begin(), batch.end());
         while (current_batch_.size() >= batch_size_) {
-            std::vector<element_type> overflow{
-                current_batch_.begin() + batch_size_, current_batch_.end()};
+            std::vector<element_type> overflow{current_batch_.begin() + batch_size_, current_batch_.end()};
             current_batch_.resize(batch_size_);
             completed_batches_.emplace_back(std::move(current_batch_));
             current_batch_ = std::move(overflow);
@@ -118,9 +117,7 @@ public:
             if (!head_batch.empty()) {
                 element_type v = head_batch.front();
                 head_batch.erase(head_batch.begin());
-                if (head_batch.empty()) {
-                    completed_batches_.erase(completed_batches_.begin());
-                }
+                if (head_batch.empty()) { completed_batches_.erase(completed_batches_.begin()); }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
                 ++stats_.total_get_count;
                 observer_.notify(stats_);
@@ -150,8 +147,11 @@ public:
         for (auto const& b : completed_batches_) total += b.size();
         return total;
     }
-    [[nodiscard]] bool      is_empty() const noexcept { return size() == 0; }
-    void                    clear()          noexcept { current_batch_.clear(); completed_batches_.clear(); }
+    [[nodiscard]] bool is_empty() const noexcept { return size() == 0; }
+    void               clear() noexcept {
+        current_batch_.clear();
+        completed_batches_.clear();
+    }
 
     // std::queue-API: peek_front=erstes aus completed (oder current), peek_back=letztes current.
     [[nodiscard]] std::optional<element_type> peek_front() const noexcept {
@@ -172,32 +172,35 @@ public:
 
     /// Batch-spezifisch: Anzahl der vollstaendig befuellten Sub-Batches (bereit fuer Bulk-Drain).
     [[nodiscard]] std::size_t completed_batch_count() const noexcept { return completed_batches_.size(); }
-    [[nodiscard]] std::size_t batch_size()             const noexcept { return batch_size_; }
+    [[nodiscard]] std::size_t batch_size() const noexcept { return batch_size_; }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = concepts::BufferStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
     std::vector<element_type>              current_batch_;
     std::vector<std::vector<element_type>> completed_batches_;
-    std::size_t batch_size_;
+    std::size_t                            batch_size_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
-    observer_t observer_{};
+    observer_t                 observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<BatchedInsertBuffer>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<BatchedInsertBuffer>);
-    static_assert(concepts::BatchedInsertableStrategy<BatchedInsertBuffer>);
-}
+static_assert(concepts::BufferStrategy<BatchedInsertBuffer>);
+static_assert(concepts::CacheEngineBufferPermutationStrategy<BatchedInsertBuffer>);
+static_assert(concepts::BatchedInsertableStrategy<BatchedInsertBuffer>);
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing

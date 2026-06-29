@@ -29,26 +29,23 @@ concept HashBucketPool =
     requires {
         typename S::key_type;
         typename S::value_type;
-    }
-    && std::same_as<typename S::key_type, std::uint64_t>
-    && std::same_as<typename S::value_type, std::uint64_t>
-    && requires(S& s, S const& cs, std::size_t i,
-                typename S::key_type k, typename S::value_type v) {
+    } && std::same_as<typename S::key_type, std::uint64_t> && std::same_as<typename S::value_type, std::uint64_t> &&
+    requires(S& s, S const& cs, std::size_t i, typename S::key_type k, typename S::value_type v) {
         // (A) const Inspektion — PFLICHT (auf `cs`, erzwingt const-Correctness)
-        { cs.bucket_count() }    -> std::convertible_to<std::size_t>;   // Power-of-2 (= mask_+1)
-        { cs.slot_is_empty(i) }    -> std::same_as<bool>;               // Kettenende (Probe-Stop)
-        { cs.slot_is_occupied(i) } -> std::same_as<bool>;               // belegt
-        { cs.slot_is_deleted(i) }  -> std::same_as<bool>;               // Tombstone (weiter proben + Reuse-Kandidat)
-        { cs.slot_key(i) }       -> std::same_as<typename S::key_type>;
-        { cs.slot_value(i) }     -> std::same_as<typename S::value_type>;
-        { cs.occupied() }        -> std::convertible_to<std::size_t>;   // LIVE-Count (= occupied_count)
-        { cs.tombstones() }      -> std::convertible_to<std::size_t>;
+        { cs.bucket_count() } -> std::convertible_to<std::size_t>; // Power-of-2 (= mask_+1)
+        { cs.slot_is_empty(i) } -> std::same_as<bool>;             // Kettenende (Probe-Stop)
+        { cs.slot_is_occupied(i) } -> std::same_as<bool>;          // belegt
+        { cs.slot_is_deleted(i) } -> std::same_as<bool>;           // Tombstone (weiter proben + Reuse-Kandidat)
+        { cs.slot_key(i) } -> std::same_as<typename S::key_type>;
+        { cs.slot_value(i) } -> std::same_as<typename S::value_type>;
+        { cs.occupied() } -> std::convertible_to<std::size_t>; // LIVE-Count (= occupied_count)
+        { cs.tombstones() } -> std::convertible_to<std::size_t>;
         // (B) Mutation — PFLICHT (auf `s`)
-        { s.place_occupied(i, k, v) } -> std::same_as<void>;   // setzt Slot Occupied (Tombstone->Occupied wird verbucht)
-        { s.set_slot_value(i, v) }    -> std::same_as<void>;   // Update eines belegten Slots
-        { s.mark_deleted(i) }         -> std::same_as<void>;   // Tombstone (Probe-Kette bleibt intakt)
-        { s.rehash(i) }               -> std::same_as<void>;   // Resize + Re-Distribution; darf werfen
-        { s.clear() }                 -> std::same_as<void>;
+        { s.place_occupied(i, k, v) } -> std::same_as<void>; // setzt Slot Occupied (Tombstone->Occupied wird verbucht)
+        { s.set_slot_value(i, v) } -> std::same_as<void>;    // Update eines belegten Slots
+        { s.mark_deleted(i) } -> std::same_as<void>;         // Tombstone (Probe-Kette bleibt intakt)
+        { s.rehash(i) } -> std::same_as<void>;               // Resize + Re-Distribution; darf werfen
+        { s.clear() } -> std::same_as<void>;
     };
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

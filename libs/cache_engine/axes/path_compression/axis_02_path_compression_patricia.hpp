@@ -25,11 +25,13 @@ public:
 
     static constexpr bool enabled = flags::patricia_enabled;
 
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "path_compression_patricia"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "PatriciaPathCompression (single-bit-split, HOT/Wormhole)"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "path_compression_patricia"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "PatriciaPathCompression (single-bit-split, HOT/Wormhole)";
+    }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "PATRICIA"; }
 
-    [[nodiscard]] double compression_ratio() const noexcept { return 0.3; }  // typisch ~3x kompakter
+    [[nodiscard]] double compression_ratio() const noexcept { return 0.3; } // typisch ~3x kompakter
 
     // T3-Treibe-Op (2026-06-04): ByteWise traegt sein echtes Prefix-Organ (ByteWiseKeyPrefix::common_prefix_len);
     // Patricia hatte bis hier KEINE operative, treibbare Op und waere im Per-Achsen-Timer als n/a gelandet.
@@ -63,20 +65,20 @@ public:
         std::uint64_t sum = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::uint64_t key = 0;
-            std::memcpy(&key, buf + i * record_size, sizeof(key));   // 64-Bit-Schluessel je Record
-            for (unsigned depth = 0; depth < 64U; ++depth) {         // Patricia: Single-Bit-Descent
+            std::memcpy(&key, buf + i * record_size, sizeof(key)); // 64-Bit-Schluessel je Record
+            for (unsigned depth = 0; depth < 64U; ++depth) {       // Patricia: Single-Bit-Descent
                 std::uint8_t const bit = key_split_bit(key, depth);
                 sum += bit;
-                if (bit == 0U) break;                                // variable, schluessel-abhaengige Tiefe
+                if (bit == 0U) break; // variable, schluessel-abhaengige Tiefe
             }
         }
         return sum;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::path_compression
 
 namespace comdare::cache_engine::path_compression {
-    static_assert(concepts::PathCompressionStrategy<PatriciaPathCompression>);
-    static_assert(concepts::CacheEnginePermutationStrategy<PatriciaPathCompression>);
-}
+static_assert(concepts::PathCompressionStrategy<PatriciaPathCompression>);
+static_assert(concepts::CacheEnginePermutationStrategy<PatriciaPathCompression>);
+} // namespace comdare::cache_engine::path_compression

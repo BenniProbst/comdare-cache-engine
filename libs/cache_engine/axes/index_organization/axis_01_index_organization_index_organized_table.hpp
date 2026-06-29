@@ -26,12 +26,14 @@ public:
 
     static constexpr bool enabled = flags::index_organized_table_enabled;
 
-    [[nodiscard]] static constexpr bool             is_clustered()          noexcept { return true; }
+    [[nodiscard]] static constexpr bool             is_clustered() noexcept { return true; }
     [[nodiscard]] static constexpr bool             has_secondary_indexes() noexcept { return true; }
     [[nodiscard]] static constexpr bool             data_embedded_in_leaf() noexcept { return true; }
-    [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "index_org_index_organized_table"; }
-    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "IotIndexOrganization (Oracle IOT, Daten in B+Tree-Leaves, ART/HOT-style)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "INDEX_ORGANIZED_TABLE"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "index_org_index_organized_table"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "IotIndexOrganization (Oracle IOT, Daten in B+Tree-Leaves, ART/HOT-style)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "INDEX_ORGANIZED_TABLE"; }
 
     // V41.F.6.1 — verhaltens-tragende Laufzeit-API (index_organization-Achse, Pfad-A-operativ, T13).
     // Distinktes Zugriffsmuster je Strategie: IOT = EMBEDDED — Daten direkt in den Index-Leaf-Pages,
@@ -43,21 +45,21 @@ public:
     [[nodiscard]] static std::uint64_t index_org_scan(unsigned char const* buf, std::size_t n,
                                                       std::size_t record_size) noexcept {
         std::size_t const key_off = (record_size >= 2u * sizeof(std::uint32_t)) ? sizeof(std::uint32_t) : 0u;
-        std::uint64_t s = 0;
+        std::uint64_t     s       = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::uint32_t key;
             std::uint32_t data;
-            std::memcpy(&key,  buf + i * record_size,           sizeof(key));    // IOT: eingebetteter Index-Key
-            std::memcpy(&data, buf + i * record_size + key_off, sizeof(data));   // IOT: Daten im selben Leaf-Slot
+            std::memcpy(&key, buf + i * record_size, sizeof(key));             // IOT: eingebetteter Index-Key
+            std::memcpy(&data, buf + i * record_size + key_off, sizeof(data)); // IOT: Daten im selben Leaf-Slot
             s += key + data;
         }
         return s;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::index_organization
 
 namespace comdare::cache_engine::index_organization {
-    static_assert(concepts::IndexOrganizationStrategy<IotIndexOrganization>);
-    static_assert(concepts::CacheEnginePermutationStrategy<IotIndexOrganization>);
-}
+static_assert(concepts::IndexOrganizationStrategy<IotIndexOrganization>);
+static_assert(concepts::CacheEnginePermutationStrategy<IotIndexOrganization>);
+} // namespace comdare::cache_engine::index_organization

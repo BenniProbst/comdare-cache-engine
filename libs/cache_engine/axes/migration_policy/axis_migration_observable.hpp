@@ -34,11 +34,11 @@ namespace comdare::cache_engine::migration_policy {
 
 /// ABI-taugliches Migration-Snapshot (NUR uint64 → standard_layout + trivially_copyable, Cross-ABI-POD-mappbar).
 struct MigrationSnapshot {
-    std::uint64_t total_decisions      = 0;   ///< ueber alle Runden geprueffte Records (Σ n)
-    std::uint64_t migrations_triggered = 0;   ///< potenzielle Migrations-Entscheidungen (nur is_active()-Strategien)
-    std::uint64_t hot_votes            = 0;   ///< Promotions-Tendenz-Votes (steigende/gleiche Recency)
-    std::uint64_t cold_votes           = 0;   ///< Demotions-Tendenz-Votes (fallende Recency)
-    std::uint64_t tier_moves           = 0;   ///< HONEST 0 — kein 2. Tier (decide-only, kein realer Block-Move)
+    std::uint64_t total_decisions      = 0; ///< ueber alle Runden geprueffte Records (Σ n)
+    std::uint64_t migrations_triggered = 0; ///< potenzielle Migrations-Entscheidungen (nur is_active()-Strategien)
+    std::uint64_t hot_votes            = 0; ///< Promotions-Tendenz-Votes (steigende/gleiche Recency)
+    std::uint64_t cold_votes           = 0; ///< Demotions-Tendenz-Votes (fallende Recency)
+    std::uint64_t tier_moves           = 0; ///< HONEST 0 — kein 2. Tier (decide-only, kein realer Block-Move)
 
     [[nodiscard]] bool operator==(MigrationSnapshot const&) const noexcept = default;
 };
@@ -58,14 +58,23 @@ public:
     using topic_tag = typename Strategy::topic_tag;
 
     // Transparenter Decorator: Strategie-Inspektion durchgereicht.
-    [[nodiscard]] static constexpr bool             is_active()   noexcept { return Strategy::is_active(); }
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return Strategy::name(); }
-    [[nodiscard]] static constexpr std::string_view family_name()
-        noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()
-        noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return Strategy::is_active(); }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept
+        requires requires { Strategy::family_name(); }
+    {
+        return Strategy::family_name();
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept
+        requires requires { Strategy::flag_suffix(); }
+    {
+        return Strategy::flag_suffix();
+    }
     [[nodiscard]] static constexpr std::string_view get_compiler() noexcept
-        requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
+        requires requires { Strategy::get_compiler(); }
+    {
+        return Strategy::get_compiler();
+    }
 
     /// STATIC Pass-Through (Drop-in-Kompatibilität): die Strategie-Methode unveraendert durchgereicht, damit die
     /// Huelle als migration_policy-Slot die bestehenden seg19-Aufrufer NICHT bricht (abi_adapter.hpp T15
@@ -95,17 +104,19 @@ public:
                                                     std::uint32_t prev_recency) noexcept {
         constexpr int kFamily = Strategy::family_id::value;
         if constexpr (kFamily == 0) {
-            (void)rec; (void)record_size; (void)prev_recency;
-            return false;   // NoMigration: static placement, NIE bewegen (None-Pin)
+            (void)rec;
+            (void)record_size;
+            (void)prev_recency;
+            return false; // NoMigration: static placement, NIE bewegen (None-Pin)
         } else {
             (void)prev_recency;
             std::uint32_t v = 0;
-            if (record_size >= sizeof(v)) std::memcpy(&v, rec, sizeof(v));   // strided 4-Byte-Recency-Feld (OOB-sicher)
-            if constexpr (kFamily == 1) {                 // HotCold: geradzahlige Recency = cold = demotion
+            if (record_size >= sizeof(v)) std::memcpy(&v, rec, sizeof(v)); // strided 4-Byte-Recency-Feld (OOB-sicher)
+            if constexpr (kFamily == 1) { // HotCold: geradzahlige Recency = cold = demotion
                 return (v & 1u) == 0u;
-            } else if constexpr (kFamily == 2) {          // TierBased: Modulo-Ziel-Tier != RAM(0) → migrieren
+            } else if constexpr (kFamily == 2) { // TierBased: Modulo-Ziel-Tier != RAM(0) → migrieren
                 return (v % 3u) != 0u;
-            } else {                                      // Adaptive (3): ML-Score-Bit datenabhaengig
+            } else { // Adaptive (3): ML-Score-Bit datenabhaengig
                 std::uint64_t const score = 3u * static_cast<std::uint64_t>(v) + 1u;
                 return (score & 0x1u) != 0u;
             }
@@ -131,7 +142,7 @@ public:
     /// bestehenden seg19-Aufrufer static bleiben muessen.
     void observe_decide(unsigned char const* buf, std::size_t n, std::size_t record_size) noexcept {
         std::uint64_t const checksum = Strategy::migration_decide_scan(buf, n, record_size);
-        (void)checksum;   // Treibe-Op real exerziert (Wegoptimierungs-Schutz erfolgt im seg19-Pfad via sink)
+        (void)checksum; // Treibe-Op real exerziert (Wegoptimierungs-Schutz erfolgt im seg19-Pfad via sink)
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         stats_.total_decisions += static_cast<std::uint64_t>(n);
         // migrations_triggered nur fuer aktive Strategien (NoMigration = static placement → 0, ehrliche Baseline).
@@ -141,26 +152,30 @@ public:
             std::uint32_t lru_recency = 0;
             for (std::size_t i = 0; i < n; ++i) {
                 std::uint32_t v{};
-                std::memcpy(&v, buf + i * record_size, sizeof(v));   // strided 4-Byte-Recency-Feld
-                if (v >= lru_recency) ++stats_.hot_votes;            // steigende/gleiche Recency → hot (Promotion)
-                else                  ++stats_.cold_votes;           // fallende Recency → cold (Demotion)
+                std::memcpy(&v, buf + i * record_size, sizeof(v)); // strided 4-Byte-Recency-Feld
+                if (v >= lru_recency)
+                    ++stats_.hot_votes; // steigende/gleiche Recency → hot (Promotion)
+                else
+                    ++stats_.cold_votes; // fallende Recency → cold (Demotion)
                 lru_recency = v;
             }
         }
         // stats_.tier_moves bleibt HONEST 0 — kein 2. Tier (decide-only).
 #else
-        (void)buf; (void)n; (void)record_size;
+        (void)buf;
+        (void)n;
+        (void)record_size;
 #endif
     }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = MigrationSnapshot;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; }
+    void                     reset() noexcept { stats_ = {}; }
 
 private:
     snapshot_t stats_{};
 #endif
 };
 
-}  // namespace comdare::cache_engine::migration_policy
+} // namespace comdare::cache_engine::migration_policy

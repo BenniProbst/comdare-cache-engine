@@ -25,7 +25,7 @@
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
 
-#include <compositions/hot_reference.hpp>            // Basis-Composition (value_handle wird im Test ersetzt)
+#include <compositions/hot_reference.hpp> // Basis-Composition (value_handle wird im Test ersetzt)
 #include <axes/value_handle_axis/axis_14_value_handle_inline.hpp>
 #include <axes/value_handle_axis/axis_14_value_handle_external_pool.hpp>
 #include <axes/value_handle_axis/axis_14_value_handle_immutable_shared_ref.hpp>
@@ -39,22 +39,27 @@
 #include <string_view>
 #include <vector>
 
-namespace an  = ::comdare::cache_engine::anatomy;
+namespace an   = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;
-namespace vh  = ::comdare::cache_engine::value_handle_axis;
+namespace vh   = ::comdare::cache_engine::value_handle_axis;
 
-static int g_fail = 0;
-static void tr(std::string const& w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+static int  g_fail = 0;
+static void tr(std::string const& w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 // Detektoren (dependent-Kontext, MSVC-konform: ein requires-Ausdruck ueber einen NICHT existierenden Member eines
 // KONKRETEN Typs ist bei MSVC ein harter C2039 — ueber einen Template-Parameter wird daraus eine saubere SFINAE-
 // Substitution → false). Beweist Compile-Zeit, dass EmptyRealSlot (Inline-Backing) KEIN store_value/deref_value traegt.
-template <class S> concept has_store_value = requires (S s) { s.store_value(std::uint64_t{1}, std::uint64_t{2}); };
-template <class S> concept has_deref_value = requires (S const s) { s.deref_value(std::uint64_t{1}, (std::uint64_t*)nullptr); };
+template <class S>
+concept has_store_value = requires(S s) { s.store_value(std::uint64_t{1}, std::uint64_t{2}); };
+template <class S>
+concept has_deref_value = requires(S const s) { s.deref_value(std::uint64_t{1}, (std::uint64_t*)nullptr); };
 
 // Eingefuegte (key,value)-Paare + disjunkte Miss-Keys (hoher Offset).
-static std::uint64_t ins_key(std::uint64_t i)  { return 1000u + i; }
-static std::uint64_t ins_val(std::uint64_t i)  { return i * 7u + 3u; }
+static std::uint64_t ins_key(std::uint64_t i) { return 1000u + i; }
+static std::uint64_t ins_val(std::uint64_t i) { return i * 7u + 3u; }
 static std::uint64_t miss_key(std::uint64_t i) { return 9'000'000u + i; }
 
 // (a)+(d) je NICHT-inline-Strategie direkt ueber die REALE Slot-Struktur (Hülle ObservableValueHandle).
@@ -66,9 +71,13 @@ static void test_real_strategy(std::string_view name, std::uint64_t expect_chain
     vh::ObservableValueHandle<Strategy> organ{};
     // (a) leere Struktur: kein Key dereferenzierbar.
     {
-        std::uint64_t v = 0;
-        bool empty_none = true;
-        for (std::uint64_t i = 0; i < N; ++i) if (organ.deref_value(ins_key(i), &v)) { empty_none = false; break; }
+        std::uint64_t v          = 0;
+        bool          empty_none = true;
+        for (std::uint64_t i = 0; i < N; ++i)
+            if (organ.deref_value(ins_key(i), &v)) {
+                empty_none = false;
+                break;
+            }
         tr(std::string{name} + ": (a) leere reale Struktur dereferenziert KEINEN Key", empty_none);
     }
 
@@ -99,7 +108,10 @@ static void test_real_strategy(std::string_view name, std::uint64_t expect_chain
 
     // (a) nicht-eingefuegte Keys → KEIN Slot (deref false). Reale Membership, kein Fake-Treffer.
     std::uint64_t miss_hits = 0;
-    for (std::uint64_t i = 0; i < N; ++i) { std::uint64_t v = 0; if (organ.deref_value(miss_key(i), &v)) ++miss_hits; }
+    for (std::uint64_t i = 0; i < N; ++i) {
+        std::uint64_t v = 0;
+        if (organ.deref_value(miss_key(i), &v)) ++miss_hits;
+    }
     tr(std::string{name} + ": (a) nicht-eingefuegte Keys dereferenzieren NICHT (echte Membership)", miss_hits == 0);
 
     // (a) Indirektions-Charakteristik (peak_chain_depth) korrekt: Pool=2, Chain=3 (ueber observe_value_handle).
@@ -112,7 +124,8 @@ static void test_real_strategy(std::string_view name, std::uint64_t expect_chain
 
     // (b) clear() leert die reale Struktur bit-exakt → wieder leere Baseline (== default-konstruiert).
     organ.clear_slots();
-    tr(std::string{name} + ": (b) clear_slots() == leere Default-Struktur (bit-exakt)", organ == vh::ObservableValueHandle<Strategy>{});
+    tr(std::string{name} + ": (b) clear_slots() == leere Default-Struktur (bit-exakt)",
+       organ == vh::ObservableValueHandle<Strategy>{});
 
     // (d) static value_access_scan(buf,n,record_size)-Signatur unveraendert (Pfad-A seg19): kompiliert + liefert.
     std::uint64_t const path_a = Strategy::value_access_scan(buf.data(), N, std::size_t{16});
@@ -130,25 +143,30 @@ static void test_inline_unchanged() {
     // traegt KEIN store_value/deref_value → der abi_adapter-Build-Hook + die Hülle-Methoden greifen fuer Inline NIE).
     static_assert(std::is_same_v<vh::real_slot_t<vh::InlineValueHandle>, vh::EmptyRealSlot>,
                   "Inline muss EmptyRealSlot tragen (M3-Pin messneutral, additive Leitplanke 1)");
-    static_assert(!has_store_value<vh::EmptyRealSlot>,
-                  "EmptyRealSlot (Inline-Backing) darf KEIN store_value tragen → Build-Hook greift nicht (messneutral)");
-    static_assert(!has_deref_value<vh::EmptyRealSlot>,
-                  "EmptyRealSlot (Inline-Backing) darf KEIN deref_value tragen (direkter Slot-Read, keine Indirektion)");
+    static_assert(
+        !has_store_value<vh::EmptyRealSlot>,
+        "EmptyRealSlot (Inline-Backing) darf KEIN store_value tragen → Build-Hook greift nicht (messneutral)");
+    static_assert(
+        !has_deref_value<vh::EmptyRealSlot>,
+        "EmptyRealSlot (Inline-Backing) darf KEIN deref_value tragen (direkter Slot-Read, keine Indirektion)");
     // Gegenprobe: die realen Backings TRAGEN store_value/deref_value (echte Struktur).
-    static_assert(has_store_value<vh::real_slot_t<vh::ChainRefValueHandle>> && has_deref_value<vh::real_slot_t<vh::ChainRefValueHandle>>,
+    static_assert(has_store_value<vh::real_slot_t<vh::ChainRefValueHandle>> &&
+                      has_deref_value<vh::real_slot_t<vh::ChainRefValueHandle>>,
                   "ChainRef-Backing MUSS store_value/deref_value tragen (reale Slot-Struktur)");
     tr("(b) Inline: EmptyRealSlot ohne store_value/deref_value (Compile-Zeit static_assert, messneutral)", true);
     // static value_access_scan unveraendert + bit-identisch zur RAW-Strategie.
     std::vector<unsigned char> buf(256, 0x5Au);
-    std::uint64_t const via_hull = vh::ObservableValueHandle<vh::InlineValueHandle>::value_access_scan(buf.data(), 16, 16);
-    std::uint64_t const via_raw  = vh::InlineValueHandle::value_access_scan(buf.data(), 16, 16);
-    tr("(b) Inline: static value_access_scan bit-identisch (Hülle == RAW-Strategie, Pfad-A messneutral)", via_hull == via_raw);
+    std::uint64_t const        via_hull =
+        vh::ObservableValueHandle<vh::InlineValueHandle>::value_access_scan(buf.data(), 16, 16);
+    std::uint64_t const via_raw = vh::InlineValueHandle::value_access_scan(buf.data(), 16, 16);
+    tr("(b) Inline: static value_access_scan bit-identisch (Hülle == RAW-Strategie, Pfad-A messneutral)",
+       via_hull == via_raw);
 }
 
 // (c) Memento ueber den Zwei-Phasen-Zyklus mit einem Tier, dessen value_handle NICHT-inline ist.
 template <class VHStrategy>
 struct VHComposition : comp::HotComposition {
-    using value_handle = VHStrategy;   // NUR die value_handle-Achse ersetzt (Rest = HotComposition)
+    using value_handle                     = VHStrategy; // NUR die value_handle-Achse ersetzt (Rest = HotComposition)
     static constexpr std::string_view name = "VHComposition";
 };
 
@@ -157,76 +175,109 @@ static void test_tier_memento(std::string_view name) {
     std::cout << "-- Tier-Memento (value_handle=" << name << ") --\n";
     using Anatomy = an::SearchAlgorithmAnatomy<VHComposition<VHStrategy>>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
-    auto* base = static_cast<an::IAnatomyBase*>(&tier);
-    auto* drv  = dynamic_cast<an::IDriveableTier*>(base);
-    auto* rbk  = dynamic_cast<an::IRollbackableTier*>(base);
+    auto*                                  base = static_cast<an::IAnatomyBase*>(&tier);
+    auto*                                  drv  = dynamic_cast<an::IDriveableTier*>(base);
+    auto*                                  rbk  = dynamic_cast<an::IRollbackableTier*>(base);
     tr(std::string{name} + ": (c) IDriveableTier + IRollbackableTier vorhanden", drv != nullptr && rbk != nullptr);
-    if (!drv || !rbk) { std::cout << "  ABBRUCH (c) (Interface fehlt)\n"; ++g_fail; return; }
+    if (!drv || !rbk) {
+        std::cout << "  ABBRUCH (c) (Interface fehlt)\n";
+        ++g_fail;
+        return;
+    }
 
-    constexpr std::uint64_t kBase = 1024;   // Original-Keys (Pre-Save-Stand)
-    constexpr std::uint64_t kWarm = 256;    // Warmup-Keys (NUR in der save→rollback-Phase)
+    constexpr std::uint64_t kBase = 1024; // Original-Keys (Pre-Save-Stand)
+    constexpr std::uint64_t kWarm = 256;  // Warmup-Keys (NUR in der save→rollback-Phase)
     for (std::uint64_t i = 0; i < kBase; ++i) (void)drv->tier_insert(i, i * 11u + 5u);
 
     // Pre-Save-Snapshot des realen value_handle-Organs (ueber value_handle_instance()).
-    auto const& vh_before = tier.value_handle_instance();
-    auto const  vh_copy_before = vh_before;   // tiefe Kopie (std::vector) zum Vergleich nach Rollback
+    auto const& vh_before      = tier.value_handle_instance();
+    auto const  vh_copy_before = vh_before; // tiefe Kopie (std::vector) zum Vergleich nach Rollback
 
     // alle Original-Keys MUESSEN real dereferenzierbar sein (REAL aus den Inserts gebaut).
     bool base_all_deref = true;
-    for (std::uint64_t i = 0; i < kBase; ++i) { std::uint64_t v = 0; if (!vh_before.deref_value(i, &v)) { base_all_deref = false; break; } }
+    for (std::uint64_t i = 0; i < kBase; ++i) {
+        std::uint64_t v = 0;
+        if (!vh_before.deref_value(i, &v)) {
+            base_all_deref = false;
+            break;
+        }
+    }
     tr(std::string{name} + ": (c) Pre-Save: alle Original-Keys real dereferenzierbar (echte Struktur)", base_all_deref);
     std::cout << "     Pre-Save real slot_count=" << vh_before.real_slot().slot_count() << "\n";
 
-    rbk->tier_save_all();                                   // Warmup-Vor-Zustand kapseln (eager vh-Snapshot)
-    for (std::uint64_t i = kBase; i < kBase + kWarm; ++i) (void)drv->tier_insert(i, i * 11u + 5u);   // Warmup-Mutation
+    rbk->tier_save_all(); // Warmup-Vor-Zustand kapseln (eager vh-Snapshot)
+    for (std::uint64_t i = kBase; i < kBase + kWarm; ++i) (void)drv->tier_insert(i, i * 11u + 5u); // Warmup-Mutation
     // nach dem Warmup-Insert MUSS die reale Struktur die Warmup-Keys kennen (REAL mutiert, kein no-op).
     bool warm_in_vh = true;
-    for (std::uint64_t i = kBase; i < kBase + kWarm; ++i) { std::uint64_t v = 0; if (!tier.value_handle_instance().deref_value(i, &v)) { warm_in_vh = false; break; } }
-    tr(std::string{name} + ": (c) nach Warmup-Insert: Warmup-Keys in der REALEN Struktur (mutiert, kein no-op)", warm_in_vh);
-    tr(std::string{name} + ": (c) nach Warmup-Insert: Struktur != Pre-Save-Stand (echte Mutation)", !(tier.value_handle_instance() == vh_copy_before));
+    for (std::uint64_t i = kBase; i < kBase + kWarm; ++i) {
+        std::uint64_t v = 0;
+        if (!tier.value_handle_instance().deref_value(i, &v)) {
+            warm_in_vh = false;
+            break;
+        }
+    }
+    tr(std::string{name} + ": (c) nach Warmup-Insert: Warmup-Keys in der REALEN Struktur (mutiert, kein no-op)",
+       warm_in_vh);
+    tr(std::string{name} + ": (c) nach Warmup-Insert: Struktur != Pre-Save-Stand (echte Mutation)",
+       !(tier.value_handle_instance() == vh_copy_before));
 
-    rbk->tier_rollback_all();                               // exakt auf den save-Stand zurueck
+    rbk->tier_rollback_all(); // exakt auf den save-Stand zurueck
     // (c) BIT-EXAKT: die zurueckgerollte Struktur == Pre-Save-Snapshot (operator==).
     tr(std::string{name} + ": (c) Memento: Struktur nach Rollback BIT-EXAKT wie vor save (operator==)",
        tier.value_handle_instance() == vh_copy_before);
     // (c) Original-Keys weiterhin dereferenzierbar …
     bool base_still_deref = true;
-    for (std::uint64_t i = 0; i < kBase; ++i) { std::uint64_t v = 0; if (!tier.value_handle_instance().deref_value(i, &v)) { base_still_deref = false; break; } }
+    for (std::uint64_t i = 0; i < kBase; ++i) {
+        std::uint64_t v = 0;
+        if (!tier.value_handle_instance().deref_value(i, &v)) {
+            base_still_deref = false;
+            break;
+        }
+    }
     tr(std::string{name} + ": (c) Memento: Original-Keys nach Rollback weiterhin dereferenzierbar", base_still_deref);
     // … und die Warmup-Keys sind NICHT mehr in der Struktur (kein Leck ueber den Rollback).
     std::uint64_t warm_back_gone = 0;
-    for (std::uint64_t i = kBase; i < kBase + kWarm; ++i) { std::uint64_t v = 0; if (!tier.value_handle_instance().deref_value(i, &v)) ++warm_back_gone; }
+    for (std::uint64_t i = kBase; i < kBase + kWarm; ++i) {
+        std::uint64_t v = 0;
+        if (!tier.value_handle_instance().deref_value(i, &v)) ++warm_back_gone;
+    }
     std::cout << "     Warmup-Keys nach Rollback wieder weg: " << warm_back_gone << "/" << kWarm << "\n";
-    tr(std::string{name} + ": (c) Memento: Warmup-Keys nach Rollback NICHT mehr dereferenzierbar (kein Leck)", warm_back_gone == kWarm);
+    tr(std::string{name} + ": (c) Memento: Warmup-Keys nach Rollback NICHT mehr dereferenzierbar (kein Leck)",
+       warm_back_gone == kWarm);
 }
 
 // (c)-Inline: Memento eines Inline-Tiers ist trivial leer-exakt (EmptyRealSlot, messneutral).
 static void test_tier_memento_inline() {
     std::cout << "-- Tier-Memento (value_handle=Inline, M3-Pin messneutral) --\n";
-    using Anatomy = an::SearchAlgorithmAnatomy<comp::HotComposition>;   // HotComposition = InlineValueHandle
+    using Anatomy = an::SearchAlgorithmAnatomy<comp::HotComposition>; // HotComposition = InlineValueHandle
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
-    auto* base = static_cast<an::IAnatomyBase*>(&tier);
-    auto* drv  = dynamic_cast<an::IDriveableTier*>(base);
-    auto* rbk  = dynamic_cast<an::IRollbackableTier*>(base);
-    if (!drv || !rbk) { tr("(c)-Inline: Interface vorhanden", false); return; }
+    auto*                                  base = static_cast<an::IAnatomyBase*>(&tier);
+    auto*                                  drv  = dynamic_cast<an::IDriveableTier*>(base);
+    auto*                                  rbk  = dynamic_cast<an::IRollbackableTier*>(base);
+    if (!drv || !rbk) {
+        tr("(c)-Inline: Interface vorhanden", false);
+        return;
+    }
     for (std::uint64_t i = 0; i < 512; ++i) (void)drv->tier_insert(i, i + 1u);
     auto const vh_copy = tier.value_handle_instance();
     rbk->tier_save_all();
     for (std::uint64_t i = 512; i < 768; ++i) (void)drv->tier_insert(i, i + 1u);
     rbk->tier_rollback_all();
     // EmptyRealSlot bleibt ueber den ganzen Zyklus leer + bit-exakt (Inline traegt KEIN value_handle-Backing).
-    tr("(c)-Inline: value_handle-Struktur bleibt leer (slot_count==0, messneutral)", tier.value_handle_instance().real_slot().slot_count() == 0);
-    tr("(c)-Inline: Memento der leeren Inline-Struktur ist BIT-EXAKT (operator==)", tier.value_handle_instance() == vh_copy);
+    tr("(c)-Inline: value_handle-Struktur bleibt leer (slot_count==0, messneutral)",
+       tier.value_handle_instance().real_slot().slot_count() == 0);
+    tr("(c)-Inline: Memento der leeren Inline-Struktur ist BIT-EXAKT (operator==)",
+       tier.value_handle_instance() == vh_copy);
 }
 
 int main() {
     std::cout << "==== §4.3: REALER value_handle (Pool/Version/Chain-Deref gegen reale Slot-Struktur) ====\n";
 
     // (a)/(d): die 4 NICHT-inline-Strategien je direkt ueber die reale Slot-Struktur (Pool/Version/Chain).
-    test_real_strategy<vh::ExternalPoolValueHandle>("ExternalPool", 2);          // 1 abh. Deref → depth 2
+    test_real_strategy<vh::ExternalPoolValueHandle>("ExternalPool", 2); // 1 abh. Deref → depth 2
     test_real_strategy<vh::ImmutableSharedRefValueHandle>("ImmutableSharedRef", 2);
-    test_real_strategy<vh::VersionedPointerValueHandle>("VersionedPointer", 2);  // MVCC-Tag-Strip + 1 Deref
-    test_real_strategy<vh::ChainRefValueHandle>("ChainRef", 3);                  // 2 abh. Derefs → depth 3
+    test_real_strategy<vh::VersionedPointerValueHandle>("VersionedPointer", 2); // MVCC-Tag-Strip + 1 Deref
+    test_real_strategy<vh::ChainRefValueHandle>("ChainRef", 3);                 // 2 abh. Derefs → depth 3
 
     // (b): Inline (M3-Pin) unveraendert + messneutral.
     test_inline_unchanged();
@@ -236,7 +287,7 @@ int main() {
     test_tier_memento<vh::ExternalPoolValueHandle>("ExternalPool");
     test_tier_memento_inline();
 
-    std::cout << "==== §4.3 REALER value_handle: "
-              << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "==== §4.3 REALER value_handle: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

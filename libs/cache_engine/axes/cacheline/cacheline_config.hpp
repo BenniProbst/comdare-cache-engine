@@ -19,9 +19,9 @@
 #include <cstdint>
 
 #if defined(_MSC_VER)
-  #include <intrin.h>
+#include <intrin.h>
 #elif (defined(__GNUC__) || defined(__clang__)) && (defined(__i386__) || defined(__x86_64__))
-  #include <x86intrin.h>
+#include <x86intrin.h>
 #endif
 
 namespace comdare::cache_engine::cacheline {
@@ -44,9 +44,8 @@ struct CacheLineConfig {
 
 /// Effektive Alignment-Granularitaet in Bytes. None → natuerliches max_align; sonst die Cache-Line-Groesse.
 [[nodiscard]] constexpr std::size_t alignment_bytes(CacheLineConfig c) noexcept {
-    return (c.alignment == CacheLineAlignment::None)
-               ? alignof(std::max_align_t)
-               : static_cast<std::size_t>(c.line_size);
+    return (c.alignment == CacheLineAlignment::None) ? alignof(std::max_align_t)
+                                                     : static_cast<std::size_t>(c.line_size);
 }
 
 /// Software-Prefetch mit compile-time gebackenem Hint (kein Runtime-Branch). No-op fuer None / Nicht-x86.
@@ -56,16 +55,16 @@ inline void prefetch(void const* p) noexcept {
         (void)p;
     } else {
 #if defined(_MSC_VER)
-        constexpr int h = (Hint == SwPrefetchHint::T0)  ? _MM_HINT_T0
-                        : (Hint == SwPrefetchHint::T1)  ? _MM_HINT_T1
-                        : (Hint == SwPrefetchHint::T2)  ? _MM_HINT_T2
-                                                        : _MM_HINT_NTA;
+        constexpr int h = (Hint == SwPrefetchHint::T0)   ? _MM_HINT_T0
+                          : (Hint == SwPrefetchHint::T1) ? _MM_HINT_T1
+                          : (Hint == SwPrefetchHint::T2) ? _MM_HINT_T2
+                                                         : _MM_HINT_NTA;
         _mm_prefetch(static_cast<char const*>(p), h);
 #elif (defined(__GNUC__) || defined(__clang__)) && (defined(__i386__) || defined(__x86_64__))
-        constexpr int locality = (Hint == SwPrefetchHint::T0) ? 3
-                               : (Hint == SwPrefetchHint::T1) ? 2
-                               : (Hint == SwPrefetchHint::T2) ? 1
-                                                              : 0;  // NTA = non-temporal
+        constexpr int locality = (Hint == SwPrefetchHint::T0)   ? 3
+                                 : (Hint == SwPrefetchHint::T1) ? 2
+                                 : (Hint == SwPrefetchHint::T2) ? 1
+                                                                : 0; // NTA = non-temporal
         __builtin_prefetch(p, 0, locality);
 #else
         (void)p;
@@ -85,19 +84,19 @@ concept CacheLineConfigurable = requires {
 template <CacheLineConfig Cfg>
 struct CacheLineAware {
     [[nodiscard]] static constexpr CacheLineConfig cacheline_config() noexcept { return Cfg; }
-    [[nodiscard]] static constexpr std::size_t cacheline_alignment() noexcept { return alignment_bytes(Cfg); }
+    [[nodiscard]] static constexpr std::size_t     cacheline_alignment() noexcept { return alignment_bytes(Cfg); }
     static void cacheline_prefetch(void const* p) noexcept { cacheline::prefetch<Cfg.sw_hint>(p); }
 };
 
 // ── Enumeration: alle 45 Konfigurationen (fuer Codegen/Registry, KF-8/KF-9) ──
 [[nodiscard]] constexpr std::array<CacheLineConfig, 45> all_configs() noexcept {
-    constexpr CacheLineSize      sizes[]  = {CacheLineSize::B64, CacheLineSize::B128, CacheLineSize::B256};
-    constexpr CacheLineAlignment aligns[] = {CacheLineAlignment::None, CacheLineAlignment::CacheLineAligned,
-                                             CacheLineAlignment::Padded};
-    constexpr SwPrefetchHint     hints[]  = {SwPrefetchHint::None, SwPrefetchHint::T0, SwPrefetchHint::T1,
-                                             SwPrefetchHint::T2, SwPrefetchHint::NTA};
+    constexpr CacheLineSize         sizes[]  = {CacheLineSize::B64, CacheLineSize::B128, CacheLineSize::B256};
+    constexpr CacheLineAlignment    aligns[] = {CacheLineAlignment::None, CacheLineAlignment::CacheLineAligned,
+                                                CacheLineAlignment::Padded};
+    constexpr SwPrefetchHint        hints[]  = {SwPrefetchHint::None, SwPrefetchHint::T0, SwPrefetchHint::T1,
+                                                SwPrefetchHint::T2, SwPrefetchHint::NTA};
     std::array<CacheLineConfig, 45> out{};
-    std::size_t i = 0;
+    std::size_t                     i = 0;
     for (auto s : sizes)
         for (auto a : aligns)
             for (auto h : hints) out[i++] = CacheLineConfig{s, a, h};
@@ -108,20 +107,18 @@ struct CacheLineAware {
 /// align∈{0,1,2}=None/CacheLineAligned/Padded, hint∈{0..4}=None/T0/T1/T2/NTA. Out-of-range → konservativer Default.
 [[nodiscard]] constexpr CacheLineConfig make_config(unsigned line, unsigned align, unsigned hint) noexcept {
     CacheLineConfig c;
-    c.line_size = (line == 256) ? CacheLineSize::B256
-                : (line == 128) ? CacheLineSize::B128
-                                : CacheLineSize::B64;
-    c.alignment = (align == 2) ? CacheLineAlignment::Padded
-                : (align == 1) ? CacheLineAlignment::CacheLineAligned
-                               : CacheLineAlignment::None;
-    c.sw_hint   = (hint == 4) ? SwPrefetchHint::NTA
-                : (hint == 3) ? SwPrefetchHint::T2
-                : (hint == 2) ? SwPrefetchHint::T1
-                : (hint == 1) ? SwPrefetchHint::T0
-                              : SwPrefetchHint::None;
+    c.line_size = (line == 256) ? CacheLineSize::B256 : (line == 128) ? CacheLineSize::B128 : CacheLineSize::B64;
+    c.alignment = (align == 2)   ? CacheLineAlignment::Padded
+                  : (align == 1) ? CacheLineAlignment::CacheLineAligned
+                                 : CacheLineAlignment::None;
+    c.sw_hint   = (hint == 4)   ? SwPrefetchHint::NTA
+                  : (hint == 3) ? SwPrefetchHint::T2
+                  : (hint == 2) ? SwPrefetchHint::T1
+                  : (hint == 1) ? SwPrefetchHint::T0
+                                : SwPrefetchHint::None;
     return c;
 }
 
 inline constexpr std::uint32_t kCacheLineSubaxisVersion = 1;
 
-}  // namespace comdare::cache_engine::cacheline
+} // namespace comdare::cache_engine::cacheline

@@ -12,4 +12,4 @@ struct skip_strategy_tag {};
 // PC3: Decode-Komplexitaet (O(1) vs O(log n) vs O(n))
 struct decode_complexity_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::path_compression::subaxes

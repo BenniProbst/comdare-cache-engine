@@ -21,10 +21,10 @@
 namespace comdare::cache_engine::allocator::families::a09_numalloc {
 
 struct NumaAllocParams {
-    std::size_t numa_node_count          = 1;             // typ. 1-8 sockets
-    std::size_t hugepage_size_bytes       = 2 * 1024 * 1024; // 2 MiB
-    bool         enable_incremental_share  = true;
-    std::size_t incremental_share_threshold_pct = 80;     // % memory pressure
+    std::size_t numa_node_count                 = 1;               // typ. 1-8 sockets
+    std::size_t hugepage_size_bytes             = 2 * 1024 * 1024; // 2 MiB
+    bool        enable_incremental_share        = true;
+    std::size_t incremental_share_threshold_pct = 80; // % memory pressure
 };
 
 template <LockingStrategy Lock = locking::SharedMutexLock>
@@ -36,8 +36,8 @@ public:
 
     explicit NumaAllocAdapter(NumaAllocParams params = {}) noexcept : params_{params} {
         if (params_.numa_node_count == 0) {
-            unsigned int cpus = std::thread::hardware_concurrency();
-            params_.numa_node_count = (cpus >= 16) ? 2 : 1;  // Heuristik
+            unsigned int cpus       = std::thread::hardware_concurrency();
+            params_.numa_node_count = (cpus >= 16) ? 2 : 1; // Heuristik
         }
     }
 
@@ -50,7 +50,7 @@ public:
         void* p = portable_aligned_alloc(alignment, bytes);
         if (p) {
             stats_.total_bytes_allocated.fetch_add(bytes, std::memory_order_relaxed);
-            stats_.total_bytes_in_use   .fetch_add(bytes, std::memory_order_relaxed);
+            stats_.total_bytes_in_use.fetch_add(bytes, std::memory_order_relaxed);
         } else {
             stats_.failure_count.fetch_add(1, std::memory_order_relaxed);
         }
@@ -69,10 +69,10 @@ public:
     [[nodiscard]] AllocationStatistics statistics() const noexcept {
         AllocationStatistics s{};
         s.total_bytes_allocated = stats_.total_bytes_allocated.load(std::memory_order_relaxed);
-        s.total_bytes_in_use     = stats_.total_bytes_in_use   .load(std::memory_order_relaxed);
-        s.allocation_count       = stats_.allocation_count     .load(std::memory_order_relaxed);
-        s.deallocation_count     = stats_.deallocation_count   .load(std::memory_order_relaxed);
-        s.failure_count           = stats_.failure_count       .load(std::memory_order_relaxed);
+        s.total_bytes_in_use    = stats_.total_bytes_in_use.load(std::memory_order_relaxed);
+        s.allocation_count      = stats_.allocation_count.load(std::memory_order_relaxed);
+        s.deallocation_count    = stats_.deallocation_count.load(std::memory_order_relaxed);
+        s.failure_count         = stats_.failure_count.load(std::memory_order_relaxed);
         return s;
     }
 
@@ -95,14 +95,14 @@ private:
     NumaAllocParams              params_;
     struct AtomicStats {
         std::atomic<std::size_t> total_bytes_allocated{0};
-        std::atomic<std::size_t> total_bytes_in_use    {0};
-        std::atomic<std::size_t> allocation_count      {0};
-        std::atomic<std::size_t> deallocation_count    {0};
-        std::atomic<std::size_t> failure_count          {0};
+        std::atomic<std::size_t> total_bytes_in_use{0};
+        std::atomic<std::size_t> allocation_count{0};
+        std::atomic<std::size_t> deallocation_count{0};
+        std::atomic<std::size_t> failure_count{0};
     } stats_;
     std::array<std::atomic<std::uint64_t>, kMaxNumaNodes> per_node_alloc_count_{};
 };
 
 static_assert(IAllocationStrategy<NumaAllocAdapter<>>);
 
-}  // namespace comdare::cache_engine::allocator::families::a09_numalloc
+} // namespace comdare::cache_engine::allocator::families::a09_numalloc

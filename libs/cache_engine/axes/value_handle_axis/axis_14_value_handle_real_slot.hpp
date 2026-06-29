@@ -40,11 +40,11 @@ namespace comdare::cache_engine::value_handle_axis {
 // std::vector-freie leere Struktur (0 Footprint). operator== = immer true (leere Inline-Struktur ist konstant).
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 struct EmptyRealSlot {
-    void clear() noexcept {}
-    [[nodiscard]] std::size_t slot_count()  const noexcept { return 0; }
-    [[nodiscard]] std::size_t pool_size()   const noexcept { return 0; }
+    void                      clear() noexcept {}
+    [[nodiscard]] std::size_t slot_count() const noexcept { return 0; }
+    [[nodiscard]] std::size_t pool_size() const noexcept { return 0; }
     [[nodiscard]] std::size_t chain_nodes() const noexcept { return 0; }
-    [[nodiscard]] bool operator==(EmptyRealSlot const&) const noexcept = default;
+    [[nodiscard]] bool        operator==(EmptyRealSlot const&) const noexcept = default;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -58,23 +58,29 @@ struct EmptyRealSlot {
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 template <bool Versioned>
 struct PoolValueSlot {
-    struct Slot { std::uint64_t key = 0; std::uint64_t pool_index = 0; };
-    struct PoolEntry { std::uint64_t value = 0; std::uint64_t version = 0; };
+    struct Slot {
+        std::uint64_t key        = 0;
+        std::uint64_t pool_index = 0;
+    };
+    struct PoolEntry {
+        std::uint64_t value   = 0;
+        std::uint64_t version = 0;
+    };
 
-    std::vector<Slot>      slots_{};   ///< Node-Slots: (key → Pool-Index). EINZIGE Slot-Struktur (kein Inline-Value).
-    std::vector<PoolEntry> pool_{};    ///< Externer Pool: der Value liegt HIER (+ MVCC-Version bei Versioned).
+    std::vector<Slot>      slots_{}; ///< Node-Slots: (key → Pool-Index). EINZIGE Slot-Struktur (kein Inline-Value).
+    std::vector<PoolEntry> pool_{};  ///< Externer Pool: der Value liegt HIER (+ MVCC-Version bei Versioned).
 
     /// Build (Setup, NICHT gemessen): den Value extern in den Pool legen + den Slot auf den Pool-Index zeigen lassen.
     /// Vorhandener Key wird ueberschrieben (in-place Update); Versioned bumpt dabei die Version (neue Snapshot-Sicht).
     void store_value(std::uint64_t key, std::uint64_t value) noexcept {
         for (auto& sl : slots_) {
-            if (sl.key == key) {                       // Update: Value im Pool ersetzen
+            if (sl.key == key) { // Update: Value im Pool ersetzen
                 pool_[static_cast<std::size_t>(sl.pool_index)].value = value;
-                if constexpr (Versioned) ++pool_[static_cast<std::size_t>(sl.pool_index)].version;  // MVCC-Bump
+                if constexpr (Versioned) ++pool_[static_cast<std::size_t>(sl.pool_index)].version; // MVCC-Bump
                 return;
             }
         }
-        std::uint64_t const idx = static_cast<std::uint64_t>(pool_.size());   // neuer Pool-Eintrag am Ende
+        std::uint64_t const idx = static_cast<std::uint64_t>(pool_.size()); // neuer Pool-Eintrag am Ende
         pool_.push_back(PoolEntry{value, Versioned ? std::uint64_t{1} : std::uint64_t{0}});
         slots_.push_back(Slot{key, idx});
     }
@@ -84,11 +90,13 @@ struct PoolValueSlot {
     /// Liefert std::pair{gefunden, value} per out-param-freie Konvention: -1-Sentinel als „nicht gefunden".
     [[nodiscard]] bool deref_value(std::uint64_t key, std::uint64_t* out_value) const noexcept {
         for (auto const& sl : slots_) {
-            if (sl.key == key) {                                              // (1) Slot-Read → Pool-Index
-                auto const& pe = pool_[static_cast<std::size_t>(sl.pool_index)];  // (2) abhaengiger Pool-Deref
+            if (sl.key == key) {                                                 // (1) Slot-Read → Pool-Index
+                auto const& pe = pool_[static_cast<std::size_t>(sl.pool_index)]; // (2) abhaengiger Pool-Deref
                 if (out_value != nullptr) {
-                    if constexpr (Versioned) *out_value = pe.value + pe.version;   // MVCC-Tag-Strip ins Ergebnis
-                    else                     *out_value = pe.value;
+                    if constexpr (Versioned)
+                        *out_value = pe.value + pe.version; // MVCC-Tag-Strip ins Ergebnis
+                    else
+                        *out_value = pe.value;
                 }
                 return true;
             }
@@ -96,9 +104,12 @@ struct PoolValueSlot {
         return false;
     }
 
-    void clear() noexcept { slots_.clear(); pool_.clear(); }
-    [[nodiscard]] std::size_t slot_count()  const noexcept { return slots_.size(); }
-    [[nodiscard]] std::size_t pool_size()   const noexcept { return pool_.size(); }
+    void clear() noexcept {
+        slots_.clear();
+        pool_.clear();
+    }
+    [[nodiscard]] std::size_t slot_count() const noexcept { return slots_.size(); }
+    [[nodiscard]] std::size_t pool_size() const noexcept { return pool_.size(); }
     [[nodiscard]] std::size_t chain_nodes() const noexcept { return 0; }
 
     [[nodiscard]] bool operator==(PoolValueSlot const& o) const noexcept {
@@ -121,33 +132,39 @@ struct PoolValueSlot {
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 struct ChainValueSlot {
     static constexpr std::uint64_t kNil = ~std::uint64_t{0};
-    struct Slot { std::uint64_t key = 0; std::uint64_t head_index = kNil; };
-    struct ChainNode { std::uint64_t value = 0; std::uint64_t next_index = kNil; };
+    struct Slot {
+        std::uint64_t key        = 0;
+        std::uint64_t head_index = kNil;
+    };
+    struct ChainNode {
+        std::uint64_t value      = 0;
+        std::uint64_t next_index = kNil;
+    };
 
-    std::vector<Slot>      slots_{};   ///< Node-Slots: (key → Chain-Head-Index).
-    std::vector<ChainNode> chain_{};   ///< Chain-Knoten-Pool: (value, next_index) — echte verkettete Liste.
+    std::vector<Slot>      slots_{}; ///< Node-Slots: (key → Chain-Head-Index).
+    std::vector<ChainNode> chain_{}; ///< Chain-Knoten-Pool: (value, next_index) — echte verkettete Liste.
 
     /// Build (Setup, NICHT gemessen): einen NEUEN Chain-Knoten an den Pool anhaengen + als neuen Head des Keys
     /// verketten (Multi-Value-Prepend). Existiert der Key noch nicht → neuer Slot mit diesem Knoten als Head.
     void store_value(std::uint64_t key, std::uint64_t value) noexcept {
         std::uint64_t const node_idx = static_cast<std::uint64_t>(chain_.size());
         for (auto& sl : slots_) {
-            if (sl.key == key) {                                  // bestehende Chain: neuen Knoten als Head davorhaengen
+            if (sl.key == key) { // bestehende Chain: neuen Knoten als Head davorhaengen
                 chain_.push_back(ChainNode{value, sl.head_index});
                 sl.head_index = node_idx;
                 return;
             }
         }
-        chain_.push_back(ChainNode{value, kNil});                 // erster Knoten der neuen Chain
+        chain_.push_back(ChainNode{value, kNil}); // erster Knoten der neuen Chain
         slots_.push_back(Slot{key, node_idx});
     }
 
     /// REALER Deref: Slot → Head-Index → Chain-Knoten → Value. Genau 2 abhaengige Derefs (verkettetes Chasing).
     [[nodiscard]] bool deref_value(std::uint64_t key, std::uint64_t* out_value) const noexcept {
         for (auto const& sl : slots_) {
-            if (sl.key == key) {                                          // (1) Slot-Read → Head-Index
+            if (sl.key == key) { // (1) Slot-Read → Head-Index
                 if (sl.head_index == kNil) return false;
-                auto const& node = chain_[static_cast<std::size_t>(sl.head_index)];  // (2) Head-Knoten-Deref → Value
+                auto const& node = chain_[static_cast<std::size_t>(sl.head_index)]; // (2) Head-Knoten-Deref → Value
                 if (out_value != nullptr) *out_value = node.value;
                 return true;
             }
@@ -155,9 +172,12 @@ struct ChainValueSlot {
         return false;
     }
 
-    void clear() noexcept { slots_.clear(); chain_.clear(); }
-    [[nodiscard]] std::size_t slot_count()  const noexcept { return slots_.size(); }
-    [[nodiscard]] std::size_t pool_size()   const noexcept { return 0; }
+    void clear() noexcept {
+        slots_.clear();
+        chain_.clear();
+    }
+    [[nodiscard]] std::size_t slot_count() const noexcept { return slots_.size(); }
+    [[nodiscard]] std::size_t pool_size() const noexcept { return 0; }
     [[nodiscard]] std::size_t chain_nodes() const noexcept { return chain_.size(); }
 
     [[nodiscard]] bool operator==(ChainValueSlot const& o) const noexcept {
@@ -177,33 +197,33 @@ struct ChainValueSlot {
 // Die Auswahl nutzt is_inline() + name() (die kanonischen Strategie-Identifier, axis_14_*-Header).
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 namespace detail_real_slot {
-    [[nodiscard]] constexpr bool name_eq(std::string_view a, std::string_view b) noexcept { return a == b; }
-}
+[[nodiscard]] constexpr bool name_eq(std::string_view a, std::string_view b) noexcept { return a == b; }
+} // namespace detail_real_slot
 
 template <class Strategy>
 [[nodiscard]] consteval int real_slot_kind() noexcept {
-    if (Strategy::is_inline()) return 0;                                          // 0 = Empty (Inline, messneutral)
-    if (detail_real_slot::name_eq(Strategy::name(), "value_handle_chain_ref")) return 2;        // 2 = Chain (2 Derefs)
+    if (Strategy::is_inline()) return 0; // 0 = Empty (Inline, messneutral)
+    if (detail_real_slot::name_eq(Strategy::name(), "value_handle_chain_ref")) return 2;         // 2 = Chain (2 Derefs)
     if (detail_real_slot::name_eq(Strategy::name(), "value_handle_versioned_pointer")) return 3; // 3 = versioned Pool
-    return 1;                                                                     // 1 = Pool (1 Deref, extern/shared)
+    return 1; // 1 = Pool (1 Deref, extern/shared)
 }
 
 template <class Strategy>
 struct real_slot_selector {
     static constexpr int kind = real_slot_kind<Strategy>();
-    using type = std::conditional_t<kind == 0, EmptyRealSlot,
-                 std::conditional_t<kind == 2, ChainValueSlot,
-                 std::conditional_t<kind == 3, PoolValueSlot<true>,
-                                               PoolValueSlot<false>>>>;
+    using type                = std::conditional_t<
+        kind == 0, EmptyRealSlot,
+        std::conditional_t<kind == 2, ChainValueSlot,
+                           std::conditional_t<kind == 3, PoolValueSlot<true>, PoolValueSlot<false>>>>;
 };
 
 template <class Strategy>
 using real_slot_t = typename real_slot_selector<Strategy>::type;
 
 // Das reale Slot-Backing ist fuer JEDE Strategie kopierbar + vergleichbar (R1-Memento, Leitplanke 3).
-static_assert(std::is_copy_constructible_v<EmptyRealSlot>      && std::is_copy_assignable_v<EmptyRealSlot>);
-static_assert(std::is_copy_constructible_v<PoolValueSlot<true>>  && std::is_copy_assignable_v<PoolValueSlot<true>>);
+static_assert(std::is_copy_constructible_v<EmptyRealSlot> && std::is_copy_assignable_v<EmptyRealSlot>);
+static_assert(std::is_copy_constructible_v<PoolValueSlot<true>> && std::is_copy_assignable_v<PoolValueSlot<true>>);
 static_assert(std::is_copy_constructible_v<PoolValueSlot<false>> && std::is_copy_assignable_v<PoolValueSlot<false>>);
-static_assert(std::is_copy_constructible_v<ChainValueSlot>     && std::is_copy_assignable_v<ChainValueSlot>);
+static_assert(std::is_copy_constructible_v<ChainValueSlot> && std::is_copy_assignable_v<ChainValueSlot>);
 
-}  // namespace comdare::cache_engine::value_handle_axis
+} // namespace comdare::cache_engine::value_handle_axis

@@ -37,34 +37,23 @@ namespace mp = boost::mp11;
 /// AllStrategies — KOMPLETTE Liste aller 14 W2-Strategien (Vollausbau Batch 5)
 using AllStrategies = mp::mp_list<
     // Pilot Batch 1 (2026-05-26)
-    NoBuffer,
-    FIFOQueueBuffer,
-    LIFOStackBuffer,
-    BoundedRingBuffer,
+    NoBuffer, FIFOQueueBuffer, LIFOStackBuffer, BoundedRingBuffer,
     // Batch 2 (2026-05-26)
-    AppendOnlyBuffer,
-    PriorityHeapBuffer,
+    AppendOnlyBuffer, PriorityHeapBuffer,
     // Batch 3 (2026-05-26)
-    DeltaChainBuffer,
-    SkiplistBuffer,
-    TombstoneBuffer,
+    DeltaChainBuffer, SkiplistBuffer, TombstoneBuffer,
     // Batch 4 (2026-05-26)
-    CopyOnWriteBuffer,
-    EpochBuffer,
-    BatchedInsertBuffer,
+    CopyOnWriteBuffer, EpochBuffer, BatchedInsertBuffer,
     // Batch 5 VOLLAUSBAU (2026-05-26) — axis_q1_queuing 14/14 KOMPLETT
-    LockFreeSPSCBuffer,
-    LockFreeMPMCBuffer,
+    LockFreeSPSCBuffer, LockFreeMPMCBuffer,
     // V41.F.6.1.P2.D.q.s2 Original-Paper-Wrapper Q15 (moodycamel ConcurrentQueue, 2/6 originall)
-    OriginalLockFreeMpmcConcurrentQueue
->;
+    OriginalLockFreeMpmcConcurrentQueue>;
 
 template <typename S>
 using is_enabled = mp::mp_bool<S::enabled>;
 
 using EnabledStrategies = mp::mp_filter<is_enabled, AllStrategies>;
 
-static_assert(mp::mp_size<EnabledStrategies>::value > 0,
-    "axis_q1_queuing: at least one strategy must be enabled");
+static_assert(mp::mp_size<EnabledStrategies>::value > 0, "axis_q1_queuing: at least one strategy must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing

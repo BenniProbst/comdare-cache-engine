@@ -28,27 +28,33 @@ template <class A, class B>
 static void eq(char const* w, A const& g, B const& e) {
     bool ok = (g == e);
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
-    if (!ok) { std::cout << "  (erwartet " << e << ")"; ++g_fail; }
+    if (!ok) {
+        std::cout << "  (erwartet " << e << ")";
+        ++g_fail;
+    }
     std::cout << "\n";
 }
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 // ── Set: minimales search_algo-Kern-Organ (key_type + insert/lookup/erase/occupied_count/clear) auf std::set ──
 struct TestKeySet {
     using key_type = std::uint64_t;
-    std::set<std::uint64_t> s;
-    void insert(std::uint64_t k, std::uint64_t /*v*/) { s.insert(k); }
+    std::set<std::uint64_t>                    s;
+    void                                       insert(std::uint64_t k, std::uint64_t /*v*/) { s.insert(k); }
     [[nodiscard]] std::optional<std::uint64_t> lookup(std::uint64_t k) const {
         return s.count(k) ? std::optional<std::uint64_t>{k} : std::nullopt;
     }
-    void erase(std::uint64_t k) { s.erase(k); }
+    void                      erase(std::uint64_t k) { s.erase(k); }
     [[nodiscard]] std::size_t occupied_count() const { return s.size(); }
-    void clear() { s.clear(); }
+    void                      clear() { s.clear(); }
 };
 
 using SetComp  = cea::SetComposition<TestKeySet, int, int, int, int, int, int, int, int, int, int, int, int, int, int>;
-using SeqComp  = cea::SequenceComposition<int, int, int, int, int, int, int, int, int, int>;   // Default DoublingGrowth
-using ViewComp = cea::ViewComposition<int, int, int, int>;                                       // Default Layout/Accessor
+using SeqComp  = cea::SequenceComposition<int, int, int, int, int, int, int, int, int, int>; // Default DoublingGrowth
+using ViewComp = cea::ViewComposition<int, int, int, int>;                                   // Default Layout/Accessor
 
 int main() {
     std::cout << "==== L-76 per-Gattung Prüf-Docks (Doc 24 §8.8): Set / Sequence / View ====\n";
@@ -103,6 +109,7 @@ int main() {
         tr("CSV enthält 'View,700,700,200,500,1'", csv.find("View,700,700,200,500,1") != std::string::npos);
     }
 
-    std::cout << "\n==== L-76 per-Gattung Docks: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== L-76 per-Gattung Docks: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

@@ -3,7 +3,7 @@
 
 #include "concepts/axis_io_concept.hpp"
 #include "concepts/axis_io_cache_engine_permutation_concept.hpp"
-#include <topics/axis_base.hpp>  // V41.F.2: stabile Include-Dir-Form (war "../../axis_base.hpp", bricht nach Move)
+#include <topics/axis_base.hpp> // V41.F.2: stabile Include-Dir-Form (war "../../axis_base.hpp", bricht nach Move)
 
 namespace comdare::cache_engine::io_dispatch {
 
@@ -17,4 +17,4 @@ protected:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::io_dispatch

@@ -11,12 +11,7 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts {
 /// Pflicht-Interface-Functions der Q1 Buffer-Strategy-Achse (BufferStrategy).
 /// Properties (size/is_empty) sind keine Paper-Bodies und nicht hier.
 inline constexpr std::array<std::string_view, 6> kAxisInterfaceFunctions = {
-    "put",
-    "get",
-    "emplace",
-    "peek_front",
-    "peek_back",
-    "clear",
+    "put", "get", "emplace", "peek_front", "peek_back", "clear",
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts

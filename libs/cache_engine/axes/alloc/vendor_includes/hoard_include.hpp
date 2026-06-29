@@ -14,9 +14,9 @@
 #else
 // Forward-Stubs fuer if constexpr (false)-Zweig
 extern "C" {
-    inline void* hoard_memalign(std::size_t /*alignment*/, std::size_t /*size*/) noexcept { return nullptr; }
-    inline void  hoard_free(void* /*p*/) noexcept {}
-    inline void* hoard_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
-    inline void* hoard_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
+inline void* hoard_memalign(std::size_t /*alignment*/, std::size_t /*size*/) noexcept { return nullptr; }
+inline void  hoard_free(void* /*p*/) noexcept {}
+inline void* hoard_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
+inline void* hoard_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
 }
 #endif

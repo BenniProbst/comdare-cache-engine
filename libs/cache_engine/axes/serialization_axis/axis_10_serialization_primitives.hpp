@@ -17,8 +17,8 @@
 namespace comdare::cache_engine::serialization_axis {
 
 enum class SignalKind : std::uint8_t {
-    Normal  = 0,    // signal = 0
-    Special = 1,    // signal = 1 (tombstone, layout-switch, layout-marker)
+    Normal  = 0, // signal = 0
+    Special = 1, // signal = 1 (tombstone, layout-switch, layout-marker)
 };
 
 /// VarLenEncoder — Protobuf-style 7-Bit-Continue VarInt (1..9 Bytes).
@@ -37,18 +37,18 @@ public:
 
     struct Decoded {
         std::uint64_t value          = 0;
-        std::size_t   consumed_bytes = 0;  // 0 = Overflow/Fehler
+        std::size_t   consumed_bytes = 0; // 0 = Overflow/Fehler
     };
 
     [[nodiscard]] static Decoded decode(std::span<std::byte const> in) noexcept {
-        Decoded result{};
+        Decoded       result{};
         std::uint64_t shift = 0;
         for (std::byte b : in) {
             ++result.consumed_bytes;
             result.value |= static_cast<std::uint64_t>(static_cast<std::uint8_t>(b) & 0x7F) << shift;
             if ((static_cast<std::uint8_t>(b) & 0x80) == 0) break;
             shift += 7;
-            if (shift >= 64) {                 // Overflow
+            if (shift >= 64) { // Overflow
                 result.consumed_bytes = 0;
                 result.value          = 0;
                 break;
@@ -62,7 +62,7 @@ public:
 class SignalingStream {
 public:
     void append(SignalKind signal, std::span<std::byte const> payload) {
-        std::byte length_buf[9];
+        std::byte   length_buf[9];
         std::size_t length_bytes =
             VarLenEncoder::encode(static_cast<std::uint64_t>(payload.size()), length_buf, sizeof(length_buf));
         buffer_.push_back(static_cast<std::byte>(static_cast<std::uint8_t>(signal)));
@@ -75,9 +75,12 @@ public:
         return std::span<std::byte const>(buffer_.data(), buffer_.size());
     }
     [[nodiscard]] std::size_t entry_count() const noexcept { return entry_count_; }
-    [[nodiscard]] std::size_t byte_size()   const noexcept { return buffer_.size(); }
+    [[nodiscard]] std::size_t byte_size() const noexcept { return buffer_.size(); }
 
-    void clear() noexcept { buffer_.clear(); entry_count_ = 0; }
+    void clear() noexcept {
+        buffer_.clear();
+        entry_count_ = 0;
+    }
 
     struct Entry {
         SignalKind                 signal = SignalKind::Normal;
@@ -104,4 +107,4 @@ private:
     std::size_t            entry_count_ = 0;
 };
 
-}  // namespace comdare::cache_engine::serialization_axis
+} // namespace comdare::cache_engine::serialization_axis

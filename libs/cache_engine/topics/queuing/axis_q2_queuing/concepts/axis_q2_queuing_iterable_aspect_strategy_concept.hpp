@@ -39,16 +39,12 @@ namespace comdare::cache_engine::queuing::axis_q2_queuing::concepts {
  * mit Runtime-Loop ueber iterable_values() statt N separate Binaries.
  */
 template <typename P>
-concept IterableAspectFlushStrategy =
-    FlushPolicy<P>
-    && requires { typename P::iterable_aspect_t; }
-    && (!std::is_void_v<typename P::iterable_aspect_t>)
-    && requires {
-        { P::iterable_values() } noexcept
-            -> std::convertible_to<std::span<typename P::iterable_aspect_t const>>;
-    }
-    && requires(P p, typename P::iterable_aspect_t v) {
-        { p.set_iterable_aspect(v) } noexcept;
-    };
+concept IterableAspectFlushStrategy = FlushPolicy<P> && requires {
+    typename P::iterable_aspect_t;
+} && (!std::is_void_v<typename P::iterable_aspect_t>) && requires {
+    { P::iterable_values() } noexcept -> std::convertible_to<std::span<typename P::iterable_aspect_t const>>;
+} && requires(P p, typename P::iterable_aspect_t v) {
+    { p.set_iterable_aspect(v) } noexcept;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q2_queuing::concepts

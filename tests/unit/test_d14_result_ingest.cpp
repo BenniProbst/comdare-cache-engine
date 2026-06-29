@@ -18,39 +18,55 @@ namespace ex  = comdare::cache_engine::builder::experiment;
 namespace ana = comdare::cache_engine::anatomy;
 
 static int g_fail = 0;
-template <class A, class B> static void eq(char const* w, A const& g, B const& e) {
-    bool ok = (g == e); std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
-    if (!ok) { std::cout << " (erwartet " << e << ")"; ++g_fail; } std::cout << "\n"; }
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+template <class A, class B>
+static void eq(char const* w, A const& g, B const& e) {
+    bool ok = (g == e);
+    std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
+    if (!ok) {
+        std::cout << " (erwartet " << e << ")";
+        ++g_fail;
+    }
+    std::cout << "\n";
+}
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 // Baut eine valide 178-Feld-Wire-Zeile für binary_id mit gesetzten T0-search-Feldern (über das reale Format).
-static std::string make_line(std::string const& bid, std::uint64_t lookups, std::uint64_t hits,
-                             std::uint64_t inserts, std::uint64_t fill) {
+static std::string make_line(std::string const& bid, std::uint64_t lookups, std::uint64_t hits, std::uint64_t inserts,
+                             std::uint64_t fill) {
     ana::ComdareTierObserverSnapshot s{};
-    s.axis_stats[0][0] = lookups; s.axis_stats[0][1] = hits; s.axis_stats[0][3] = inserts;  // T0 search
-    s.tier_fill_level = fill; s.observable_axis_count = 2; s.filled_axis_count = 1;
+    s.axis_stats[0][0]      = lookups;
+    s.axis_stats[0][1]      = hits;
+    s.axis_stats[0][3]      = inserts; // T0 search
+    s.tier_fill_level       = fill;
+    s.observable_axis_count = 2;
+    s.filled_axis_count     = 1;
     return ex::format_perm_result(bid, s);
 }
 
 // Zählt ';'-getrennte Felder einer Zeile (= Wire-Feldzahl).
 static std::size_t field_count(std::string const& line) {
-    std::size_t n = 1; for (char c : line) if (c == ';') ++n; return n;
+    std::size_t n = 1;
+    for (char c : line)
+        if (c == ';') ++n;
+    return n;
 }
 
 int main() {
     std::cout << "==== D14 result_ingest (Cluster-Ergebnis → Baum-NodeValue) ====\n";
-    auto factory = std::make_shared<ex::ExperimentNodeFactory>();
+    auto               factory = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree tree{factory};
 
     std::string const id1 = "search_algo=Array256/allocator=mimalloc";
     std::string const id2 = "search_algo=Patricia/allocator=jemalloc";
-    std::string const l1 = make_line(id1, 100, 80, 256, 256);
-    std::string const l2 = make_line(id2,  50, 40, 128, 128);
+    std::string const l1  = make_line(id1, 100, 80, 256, 256);
+    std::string const l2  = make_line(id2, 50, 40, 128, 128);
     eq("Wire-Zeile l1 hat EXAKT 178 Felder", field_count(l1), std::size_t{178});
 
     // 2 Ergebnis-Zeilen (volle Matrix) + 1 Kommentar + 1 Leerzeile.
-    std::string const text =
-        "# perm-results batch (Cluster/perm_runner)\n" + l1 + "\n\n" + l2 + "\n";
+    std::string const text = "# perm-results batch (Cluster/perm_runner)\n" + l1 + "\n\n" + l2 + "\n";
 
     std::size_t const n = ex::ingest_results(tree, text);
     eq("ingest_results == 2 eingespielte Knoten (Kommentar/Leerzeile ignoriert)", n, std::size_t{2});
@@ -83,8 +99,7 @@ int main() {
     tr("179 Felder (ein Feld zu viel) → verworfen", !ex::ingest_result_line(tree, l1 + ";999"));
 
     // (c) binary_id mit eingebettetem ';' → format_perm_result lehnt ab (leere Zeile) → ingest verwirft.
-    std::string const bad_semi = ex::format_perm_result("evil;id_with_semicolon",
-                                                        ana::ComdareTierObserverSnapshot{});
+    std::string const bad_semi = ex::format_perm_result("evil;id_with_semicolon", ana::ComdareTierObserverSnapshot{});
     tr("format_perm_result(binary_id mit ';') → leere Zeile (verworfen)", bad_semi.empty());
     tr("binary_id_is_wire_safe(';') == false", !ex::binary_id_is_wire_safe("a;b"));
     tr("binary_id_is_wire_safe(newline) == false", !ex::binary_id_is_wire_safe("a\nb"));
@@ -93,10 +108,11 @@ int main() {
 
     // (d) Ein manuell mit ';'-Injektion verschmolzenes binary_id-Feld ergäbe 179 Felder → verworfen
     //     (zweite, lese-seitige Verteidigung gegen Slot-Versatz selbst wenn die ID anders an die Zeile käme).
-    std::string const injected = "evil;id" + l1.substr(l1.find(';'));   // 1 zusätzliches ';'-Feld
+    std::string const injected = "evil;id" + l1.substr(l1.find(';')); // 1 zusätzliches ';'-Feld
     eq("injizierte Zeile hat 179 Felder", field_count(injected), std::size_t{179});
     tr("injizierte (179-Feld-)Zeile → verworfen", !ex::ingest_result_line(tree, injected));
 
-    std::cout << "\n==== D14 result_ingest: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== D14 result_ingest: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

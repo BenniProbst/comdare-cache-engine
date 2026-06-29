@@ -48,40 +48,42 @@ public:
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::sparse_access_tag;
-    using family_id  = std::integral_constant<int, 14>;  // S14
+    using family_id  = std::integral_constant<int, 14>; // S14
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t max_fanout()        noexcept { return 65536; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "hash_search"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "HashSearchAlgo (open-addressing Fibonacci hash, linear probing — Knuth TAOCP 3 §6.4)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "HASH_SEARCH"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "hash_search"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "HashSearchAlgo (open-addressing Fibonacci hash, linear probing — Knuth TAOCP 3 §6.4)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "HASH_SEARCH"; }
 
-    [[nodiscard]] static constexpr bool supports_simd()            noexcept { return false; }  // Hash-Probing
-    [[nodiscard]] static constexpr bool supports_range_scan()      noexcept { return false; }  // UNGEORDNET — Kern-Unterschied
-    [[nodiscard]] static constexpr bool is_dense()                 noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_simd() noexcept { return false; } // Hash-Probing
+    [[nodiscard]] static constexpr bool supports_range_scan() noexcept {
+        return false;
+    } // UNGEORDNET — Kern-Unterschied
+    [[nodiscard]] static constexpr bool is_dense() noexcept { return false; }
     [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return false; }
 
-    static constexpr std::uint64_t kFibonacciMul   = 11400714819323198485ULL;
-    static constexpr std::size_t   kInitialCapacity = 16;  // Power-of-2
+    static constexpr std::uint64_t kFibonacciMul    = 11400714819323198485ULL;
+    static constexpr std::size_t   kInitialCapacity = 16; // Power-of-2
 
     HashSearchAlgo() : buckets_(kInitialCapacity), mask_(kInitialCapacity - 1) {}
 
-    [[nodiscard]] bool operator==(HashSearchAlgo const& other) const noexcept {
-        return size_ == other.size_;
-    }
+    [[nodiscard]] bool operator==(HashSearchAlgo const& other) const noexcept { return size_ == other.size_; }
 
     /// SONDERFALL [[allocation-failure-exception]]: rehash kann std::bad_alloc werfen.
     void insert(key_type k, value_type v) {
         if ((size_ + tombstones_) * 10 >= (mask_ + 1) * 7) rehash((mask_ + 1) * 2);
-        std::size_t const cap = mask_ + 1;
-        std::size_t const start = hash_index(k);
-        std::size_t first_deleted = kNpos;
+        std::size_t const cap           = mask_ + 1;
+        std::size_t const start         = hash_index(k);
+        std::size_t       first_deleted = kNpos;
         for (std::size_t i = 0; i < cap; ++i) {
             std::size_t const pos = (start + i) & mask_;
-            Slot& s = buckets_[pos];
+            Slot&             s   = buckets_[pos];
             if (s.state == SlotState::Empty) {
                 std::size_t const target = (first_deleted != kNpos) ? first_deleted : pos;
-                if (first_deleted != kNpos) --tombstones_;  // Tombstone wiederverwendet
+                if (first_deleted != kNpos) --tombstones_; // Tombstone wiederverwendet
                 buckets_[target] = Slot{k, v, SlotState::Occupied};
                 ++size_;
                 notify_insert();
@@ -89,7 +91,7 @@ public:
             }
             if (s.state == SlotState::Deleted) {
                 if (first_deleted == kNpos) first_deleted = pos;
-            } else if (s.key == k) {  // Occupied + gleicher Key → Update
+            } else if (s.key == k) { // Occupied + gleicher Key → Update
                 s.val = v;
                 notify_insert();
                 return;
@@ -99,36 +101,43 @@ public:
 
     [[nodiscard]] std::optional<value_type> lookup(key_type k) const {
         std::optional<value_type> result = std::nullopt;
-        std::size_t const cap = mask_ + 1;
-        std::size_t const start = hash_index(k);
+        std::size_t const         cap    = mask_ + 1;
+        std::size_t const         start  = hash_index(k);
         for (std::size_t i = 0; i < cap; ++i) {
             std::size_t const pos = (start + i) & mask_;
-            Slot const& s = buckets_[pos];
-            if (s.state == SlotState::Empty) break;                       // Kette zu Ende → Miss
-            if (s.state == SlotState::Occupied && s.key == k) { result = s.val; break; }
+            Slot const&       s   = buckets_[pos];
+            if (s.state == SlotState::Empty) break; // Kette zu Ende → Miss
+            if (s.state == SlotState::Occupied && s.key == k) {
+                result = s.val;
+                break;
+            }
             // Deleted oder Occupied(anderer Key) → weiter proben
         }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_lookup_count;
-        if (result) ++stats_.total_hit_count; else ++stats_.total_miss_count;
+        if (result)
+            ++stats_.total_hit_count;
+        else
+            ++stats_.total_miss_count;
         observer_.notify(stats_);
 #endif
         return result;
     }
 
     bool erase(key_type k) {
-        std::size_t const cap = mask_ + 1;
+        std::size_t const cap   = mask_ + 1;
         std::size_t const start = hash_index(k);
         for (std::size_t i = 0; i < cap; ++i) {
             std::size_t const pos = (start + i) & mask_;
-            Slot& s = buckets_[pos];
+            Slot&             s   = buckets_[pos];
             if (s.state == SlotState::Empty) return false;
             if (s.state == SlotState::Occupied && s.key == k) {
-                s.state = SlotState::Deleted;  // Tombstone — Probe-Kette bleibt intakt
+                s.state = SlotState::Deleted; // Tombstone — Probe-Kette bleibt intakt
                 --size_;
                 ++tombstones_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-                ++stats_.total_erase_count; observer_.notify(stats_);
+                ++stats_.total_erase_count;
+                observer_.notify(stats_);
 #endif
                 return true;
             }
@@ -137,19 +146,17 @@ public:
     }
 
     [[nodiscard]] size_type occupied_count() const noexcept { return size_; }
-    [[nodiscard]] double    density_percent() const noexcept {
-        return 100.0 * static_cast<double>(size_) / 65536.0;
-    }
-    void clear() noexcept {
+    [[nodiscard]] double    density_percent() const noexcept { return 100.0 * static_cast<double>(size_) / 65536.0; }
+    void                    clear() noexcept {
         for (auto& s : buckets_) s = Slot{};
-        size_ = 0;
+        size_       = 0;
         tombstones_ = 0;
     }
 
     /// DensityClassifiedStrategy [[density-classified-strategy]].
     [[nodiscard]] concepts::DensityClass density_class() const noexcept {
         if (size_ > 1024) return concepts::DensityClass::Dense;
-        if (size_ > 64)   return concepts::DensityClass::Balanced;
+        if (size_ > 64) return concepts::DensityClass::Balanced;
         return concepts::DensityClass::Sparse;
     }
 
@@ -157,17 +164,27 @@ public:
     using snapshot_t = concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     // CoW-Memento (#142/Audit-K3): Stat-POD-Restore -> organ_cow_capable_v aktiv (spiegelt Observable-Huelle).
-    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; observer_.notify(stats_); }
+    void restore_statistics(snapshot_t const& s) noexcept {
+        stats_ = s;
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
     enum class SlotState : std::uint8_t { Empty, Occupied, Deleted };
-    struct Slot { key_type key{}; value_type val{}; SlotState state{SlotState::Empty}; };
+    struct Slot {
+        key_type   key{};
+        value_type val{};
+        SlotState  state{SlotState::Empty};
+    };
     static constexpr std::size_t kNpos = static_cast<std::size_t>(-1);
 
     [[nodiscard]] std::size_t hash_index(key_type k) const noexcept {
@@ -178,11 +195,11 @@ private:
         std::vector<Slot> old;
         old.swap(buckets_);
         buckets_.assign(new_capacity, Slot{});
-        mask_ = new_capacity - 1;
-        size_ = 0;
+        mask_       = new_capacity - 1;
+        size_       = 0;
         tombstones_ = 0;
         for (auto const& s : old) {
-            if (s.state != SlotState::Occupied) continue;  // Tombstones entfallen beim Rehash
+            if (s.state != SlotState::Occupied) continue; // Tombstones entfallen beim Rehash
             std::size_t const start = hash_index(s.key);
             for (std::size_t i = 0; i < new_capacity; ++i) {
                 std::size_t const pos = (start + i) & mask_;
@@ -205,18 +222,18 @@ private:
 
     std::vector<Slot> buckets_;
     std::size_t       mask_;
-    std::size_t       size_ = 0;
+    std::size_t       size_       = 0;
     std::size_t       tombstones_ = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::SearchAlgoStatistics stats_{};
-    mutable observer_t                      observer_{};
+    mutable observer_t                     observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup
 
 namespace comdare::cache_engine::lookup {
-    static_assert(concepts::SearchAlgoVariant<HashSearchAlgo>);
-    static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<HashSearchAlgo>);
-    static_assert(concepts::DensityClassifiedStrategy<HashSearchAlgo>);
-}
+static_assert(concepts::SearchAlgoVariant<HashSearchAlgo>);
+static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<HashSearchAlgo>);
+static_assert(concepts::DensityClassifiedStrategy<HashSearchAlgo>);
+} // namespace comdare::cache_engine::lookup

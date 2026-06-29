@@ -9,8 +9,8 @@
 //
 // @related [[anatomie-gattungen]] [[gattungs-constraint-pruefling-merge]]
 
-#include "anatomy/sequence_anatomy.hpp"   // SequenceAnatomy / SequenceObserverSnapshot
-#include "anatomy/anatomy_base.hpp"       // AnatomyGenus
+#include "anatomy/sequence_anatomy.hpp" // SequenceAnatomy / SequenceObserverSnapshot
+#include "anatomy/anatomy_base.hpp"     // AnatomyGenus
 
 #include <cstdint>
 #include <string>
@@ -24,7 +24,7 @@ class SequenceDock {
 public:
     struct MeasureResult {
         ::comdare::cache_engine::anatomy::SequenceObserverSnapshot observer{};
-        std::uint64_t total_ops = 0;
+        std::uint64_t                                              total_ops = 0;
     };
 
     /// Diese Dock-Seite bedient die Sequence-Gattung (Doc 24 §8.8 Gattungs-Bindung).
@@ -38,19 +38,19 @@ public:
         SequenceAnatomyT tier;
         using elem_t = typename SequenceAnatomyT::element_type;
         for (std::uint64_t i = 0; i < n_pushes; ++i) tier.push_back(static_cast<elem_t>(i));
-        for (std::uint64_t i = 0; i < n_reads;  ++i) (void)tier.at(i);
-        return MeasureResult{ tier.observe_all(), n_pushes + n_reads };
+        for (std::uint64_t i = 0; i < n_reads; ++i) (void)tier.at(i);
+        return MeasureResult{tier.observe_all(), n_pushes + n_reads};
     }
 
     /// Persistierung (Doc 24 §8.8 Schritt c): eine CSV-Zeile mit den korrelierten Sequence-Observer-Werten.
     [[nodiscard]] static std::string serialize_csv(MeasureResult const& r) {
         std::string s = "genus,total_ops,push_count,at_count,at_oob,current_size,peak_size,growth_events\n";
-        s += "Sequence," + std::to_string(r.total_ops) + ","
-           + std::to_string(r.observer.push_count) + "," + std::to_string(r.observer.at_count) + ","
-           + std::to_string(r.observer.at_oob_count) + "," + std::to_string(r.observer.current_size) + ","
-           + std::to_string(r.observer.peak_size) + "," + std::to_string(r.observer.growth_events) + "\n";
+        s += "Sequence," + std::to_string(r.total_ops) + "," + std::to_string(r.observer.push_count) + "," +
+             std::to_string(r.observer.at_count) + "," + std::to_string(r.observer.at_oob_count) + "," +
+             std::to_string(r.observer.current_size) + "," + std::to_string(r.observer.peak_size) + "," +
+             std::to_string(r.observer.growth_events) + "\n";
         return s;
     }
 };
 
-}  // namespace comdare::cache_engine::builder::pruef_dock
+} // namespace comdare::cache_engine::builder::pruef_dock

@@ -31,17 +31,17 @@ namespace comdare::cache_engine::layout {
 /// SIMD-vektorisierbar wie SoA innerhalb eines Blocks, lokal wie AoS ueber Bloecke.
 class AoSoAMemoryLayout : public MemoryLayoutStrategyBase<AoSoAMemoryLayout> {
 public:
-    using topic_tag  = ::comdare::cache_engine::memory_layout::concepts::MemoryLayoutTopicTag;
-    using axis_tag   = subaxes::data_organization_tag;
-    using family_id  = std::integral_constant<int, 5>;
+    using topic_tag = ::comdare::cache_engine::memory_layout::concepts::MemoryLayoutTopicTag;
+    using axis_tag  = subaxes::data_organization_tag;
+    using family_id = std::integral_constant<int, 5>;
 
     static constexpr bool enabled = flags::aosoa_enabled;
 
     /// AoSoA-Block-Breite W (Lanes pro Block) — Default 8 (AVX2-u64-Lane-Zahl). Passt zur SIMD-Achse.
     static constexpr std::size_t kBlockWidth = 8;
 
-    [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return 64; }
-    [[nodiscard]] static constexpr std::size_t      block_width()     noexcept { return kBlockWidth; }
+    [[nodiscard]] static constexpr std::size_t cache_line_size() noexcept { return 64; }
+    [[nodiscard]] static constexpr std::size_t block_width() noexcept { return kBlockWidth; }
 
     // REALE Repraesentation (P-MD1-ERDUNG #167): Block-tiled (W=8 Lanes/Block, gedeckelt auf die Node-Kapazitaet).
     // Der Store legt pro Block B keys KONTIGUIERLICH (SoA-artige Key-Lane, B*8 B) an, dann B values, die Bloecke
@@ -52,21 +52,23 @@ public:
     [[nodiscard]] static constexpr RepresentationKind representation_kind() noexcept {
         return RepresentationKind::aosoa_blocked_columns;
     }
-    [[nodiscard]] static constexpr std::string_view name()            noexcept { return "memory_layout_aosoa"; }
-    [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "AoSoAMemoryLayout (Array-of-Structures-of-Arrays, Block-SoA + Block-AoS Hybrid, SIMD-tiled)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()     noexcept { return "AOSOA"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "memory_layout_aosoa"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "AoSoAMemoryLayout (Array-of-Structures-of-Arrays, Block-SoA + Block-AoS Hybrid, SIMD-tiled)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "AOSOA"; }
 
     // V41.F.6.1 R5.B — verhaltens-tragende Laufzeit-API (Layout-Achse F15-operativ): BLOCKED-Zugriff.
     // Innerhalb eines W-Blocks liegt das Feld kontiguierlich (W*4 Bytes, SoA-artig), Bloecke sind um
     // W*record_size gestrided (AoS-artig). Cache-Charakteristik zwischen reinem SoA und reinem AoS.
     [[nodiscard]] static std::uint64_t scan_field_sum(unsigned char const* buf, std::size_t n,
                                                       std::size_t record_size) noexcept {
-        std::uint64_t s = 0;
+        std::uint64_t     s            = 0;
         std::size_t const block_stride = kBlockWidth * record_size;
         for (std::size_t i = 0; i < n; ++i) {
             std::size_t const block  = i / kBlockWidth;
             std::size_t const within = i % kBlockWidth;
-            std::uint32_t v;
+            std::uint32_t     v;
             std::memcpy(&v, buf + block * block_stride + within * sizeof(std::uint32_t), sizeof(v));
             s += v;
         }
@@ -74,10 +76,10 @@ public:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::layout
 
 namespace comdare::cache_engine::layout {
-    static_assert(concepts::MemoryLayoutStrategy<AoSoAMemoryLayout>);
-    static_assert(concepts::CacheEnginePermutationStrategy<AoSoAMemoryLayout>);
-    static_assert(AoSoAMemoryLayout::block_width() == 8);
-}
+static_assert(concepts::MemoryLayoutStrategy<AoSoAMemoryLayout>);
+static_assert(concepts::CacheEnginePermutationStrategy<AoSoAMemoryLayout>);
+static_assert(AoSoAMemoryLayout::block_width() == 8);
+} // namespace comdare::cache_engine::layout

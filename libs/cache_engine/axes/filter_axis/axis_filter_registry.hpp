@@ -15,19 +15,13 @@ namespace comdare::cache_engine::filter_axis {
 
 namespace mp = boost::mp11;
 
-using AllFilters = mp::mp_list<
-    BloomFilter,
-    CuckooFilter,
-    RangeSurfFilter,
-    XorFilter
->;
+using AllFilters = mp::mp_list<BloomFilter, CuckooFilter, RangeSurfFilter, XorFilter>;
 
 template <typename T>
 using is_enabled = mp::mp_bool<T::enabled>;
 
 using EnabledFilters = mp::mp_filter<is_enabled, AllFilters>;
 
-static_assert(mp::mp_size<EnabledFilters>::value > 0,
-    "Axis Filter: at least one filter must be enabled");
+static_assert(mp::mp_size<EnabledFilters>::value > 0, "Axis Filter: at least one filter must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::filter_axis

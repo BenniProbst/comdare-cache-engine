@@ -63,27 +63,29 @@ public:
     using size_type    = std::size_t;
     using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag     = subaxes::lock_free_access_tag;
-    using family_id    = std::integral_constant<int, 14>;  // Q13b (interne ID 14)
+    using family_id    = std::integral_constant<int, 14>; // Q13b (interne ID 14)
 
     /// iterable_aspect_t — Power-of-2 Pflicht (Vyukov-Modulo via bitmask).
     using iterable_aspect_t = std::size_t;
-    static constexpr std::array<std::size_t, 5> kIterableCapacities{8u, 64u, 1024u, 16384u, 65536u};
+    static constexpr std::array<std::size_t, 5>                 kIterableCapacities{8u, 64u, 1024u, 16384u, 65536u};
     [[nodiscard]] static constexpr std::span<std::size_t const> iterable_values() noexcept {
         return std::span<std::size_t const>{kIterableCapacities.data(), kIterableCapacities.size()};
     }
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return true; }
-    [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return true; }
-    [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 1024; }  // Power-of-2
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "lockfree_mpmc"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "LockFreeMPMCBuffer (Vyukov bounded MPMC, per-Cell-Sequence, 1024cores.net)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "LOCKFREE_MPMC"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return true; }
+    [[nodiscard]] static constexpr bool             is_bounded() noexcept { return true; }
+    [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 1024; } // Power-of-2
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "lockfree_mpmc"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "LockFreeMPMCBuffer (Vyukov bounded MPMC, per-Cell-Sequence, 1024cores.net)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "LOCKFREE_MPMC"; }
 
     /// SONDERFALL: ERSTE Q1-Strategien mit supports_concurrent_producers/consumers=true.
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return true; }
     [[nodiscard]] static constexpr bool supports_concurrent_consumers() noexcept { return true; }
-    [[nodiscard]] static constexpr bool supports_priority_ordering()    noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_versioned()                  noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_priority_ordering() noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_versioned() noexcept { return false; }
     /// SONDERFALL: ProgressGuarantee::LockFree (CAS-Retry, nicht wait-free).
     [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
         return concepts::ProgressGuarantee::LockFree;
@@ -93,22 +95,16 @@ public:
 
     /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 oder nicht-Power-of-2 wirft.
     explicit LockFreeMPMCBuffer(std::size_t cap)
-        : capacity_(validate_capacity(cap))
-        , mask_(cap - 1)
-        , enqueue_pos_(0)
-        , dequeue_pos_(0)
-    {
+        : capacity_(validate_capacity(cap)), mask_(cap - 1), enqueue_pos_(0), dequeue_pos_(0) {
         cells_ = std::make_unique<Cell[]>(cap);
-        for (std::size_t i = 0; i < cap; ++i) {
-            cells_[i].sequence.store(i, std::memory_order_relaxed);
-        }
+        for (std::size_t i = 0; i < cap; ++i) { cells_[i].sequence.store(i, std::memory_order_relaxed); }
     }
 
     // MPMC ist nicht copy/move-fähig (atomics + unique_ptr Sequence)
-    LockFreeMPMCBuffer(LockFreeMPMCBuffer const&) = delete;
+    LockFreeMPMCBuffer(LockFreeMPMCBuffer const&)            = delete;
     LockFreeMPMCBuffer& operator=(LockFreeMPMCBuffer const&) = delete;
-    LockFreeMPMCBuffer(LockFreeMPMCBuffer&&) = delete;
-    LockFreeMPMCBuffer& operator=(LockFreeMPMCBuffer&&) = delete;
+    LockFreeMPMCBuffer(LockFreeMPMCBuffer&&)                 = delete;
+    LockFreeMPMCBuffer& operator=(LockFreeMPMCBuffer&&)      = delete;
 
     [[nodiscard]] bool operator==(LockFreeMPMCBuffer const& other) const noexcept {
         return capacity_ == other.capacity_;
@@ -117,15 +113,15 @@ public:
     /// Vyukov-Enqueue: CAS-Loop auf enqueue_pos_, dann Slot-Sequence Update.
     /// Bei vollem Buffer: drop (kein Block).
     void put(element_type v) {
-        Cell* cell;
+        Cell*       cell;
         std::size_t pos = enqueue_pos_.load(std::memory_order_relaxed);
         for (;;) {
-            cell = &cells_[pos & mask_];
-            std::size_t seq = cell->sequence.load(std::memory_order_acquire);
+            cell               = &cells_[pos & mask_];
+            std::size_t   seq  = cell->sequence.load(std::memory_order_acquire);
             std::intptr_t diff = static_cast<std::intptr_t>(seq) - static_cast<std::intptr_t>(pos);
             if (diff == 0) {
                 if (enqueue_pos_.compare_exchange_weak(pos, pos + 1, std::memory_order_relaxed)) {
-                    break;  // Cell reserviert
+                    break; // Cell reserviert
                 }
             } else if (diff < 0) {
                 // Buffer voll — drop
@@ -150,16 +146,14 @@ public:
 
     /// Vyukov-Dequeue: CAS-Loop auf dequeue_pos_, dann Slot-Sequence Update.
     [[nodiscard]] std::optional<element_type> get() {
-        Cell* cell;
+        Cell*       cell;
         std::size_t pos = dequeue_pos_.load(std::memory_order_relaxed);
         for (;;) {
-            cell = &cells_[pos & mask_];
-            std::size_t seq = cell->sequence.load(std::memory_order_acquire);
+            cell               = &cells_[pos & mask_];
+            std::size_t   seq  = cell->sequence.load(std::memory_order_acquire);
             std::intptr_t diff = static_cast<std::intptr_t>(seq) - static_cast<std::intptr_t>(pos + 1);
             if (diff == 0) {
-                if (dequeue_pos_.compare_exchange_weak(pos, pos + 1, std::memory_order_relaxed)) {
-                    break;
-                }
+                if (dequeue_pos_.compare_exchange_weak(pos, pos + 1, std::memory_order_relaxed)) { break; }
             } else if (diff < 0) {
                 // Buffer leer
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -185,14 +179,12 @@ public:
         std::size_t d = dequeue_pos_.load(std::memory_order_acquire);
         return (e > d) ? (e - d) : 0;
     }
-    [[nodiscard]] bool      is_empty() const noexcept { return size() == 0; }
+    [[nodiscard]] bool is_empty() const noexcept { return size() == 0; }
     /// clear() ist nur sicher wenn keine Producer/Consumer aktiv.
-    void                    clear()          noexcept {
+    void clear() noexcept {
         enqueue_pos_.store(0, std::memory_order_relaxed);
         dequeue_pos_.store(0, std::memory_order_relaxed);
-        for (std::size_t i = 0; i < capacity_; ++i) {
-            cells_[i].sequence.store(i, std::memory_order_relaxed);
-        }
+        for (std::size_t i = 0; i < capacity_; ++i) { cells_[i].sequence.store(i, std::memory_order_relaxed); }
     }
 
     [[nodiscard]] size_type capacity() const noexcept { return capacity_; }
@@ -204,12 +196,10 @@ public:
     /// SONDERFALL [[zero-size-allocation-exception]]: cap=0 ODER nicht-Power-of-2 wirft.
     void set_iterable_aspect(std::size_t new_cap) {
         std::size_t validated = validate_capacity(new_cap);
-        cells_ = std::make_unique<Cell[]>(validated);
-        capacity_ = validated;
-        mask_ = validated - 1;
-        for (std::size_t i = 0; i < validated; ++i) {
-            cells_[i].sequence.store(i, std::memory_order_relaxed);
-        }
+        cells_                = std::make_unique<Cell[]>(validated);
+        capacity_             = validated;
+        mask_                 = validated - 1;
+        for (std::size_t i = 0; i < validated; ++i) { cells_[i].sequence.store(i, std::memory_order_relaxed); }
         enqueue_pos_.store(0, std::memory_order_relaxed);
         dequeue_pos_.store(0, std::memory_order_relaxed);
     }
@@ -217,9 +207,9 @@ public:
     // std::queue-API — Snapshot bei MPMC ist inherent inkohaerent unter Contention.
     // Wir geben "best effort" Werte (kein Strong-Guarantee).
     [[nodiscard]] std::optional<element_type> peek_front() const noexcept {
-        std::size_t pos = dequeue_pos_.load(std::memory_order_acquire);
+        std::size_t pos  = dequeue_pos_.load(std::memory_order_acquire);
         Cell const& cell = cells_[pos & mask_];
-        std::size_t seq = cell.sequence.load(std::memory_order_acquire);
+        std::size_t seq  = cell.sequence.load(std::memory_order_acquire);
         if (seq == pos + 1) return cell.data;
         return std::nullopt;
     }
@@ -227,7 +217,7 @@ public:
         std::size_t pos = enqueue_pos_.load(std::memory_order_acquire);
         if (pos == 0) return std::nullopt;
         Cell const& cell = cells_[(pos - 1) & mask_];
-        std::size_t seq = cell.sequence.load(std::memory_order_acquire);
+        std::size_t seq  = cell.sequence.load(std::memory_order_acquire);
         if (seq == pos) return cell.data;
         return std::nullopt;
     }
@@ -237,10 +227,13 @@ public:
     using snapshot_t = concepts::BufferStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
@@ -251,8 +244,7 @@ private:
 
     static std::size_t validate_capacity(std::size_t cap) {
         if (cap == 0) {
-            throw std::invalid_argument(
-                "LockFreeMPMCBuffer: capacity must be > 0 (cap=0 division-by-zero in bitmask)");
+            throw std::invalid_argument("LockFreeMPMCBuffer: capacity must be > 0 (cap=0 division-by-zero in bitmask)");
         }
         // Power-of-2 check (Vyukov-Constraint)
         if ((cap & (cap - 1)) != 0) {
@@ -269,15 +261,15 @@ private:
     std::atomic<std::size_t> dequeue_pos_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
-    observer_t observer_{};
+    observer_t                 observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<LockFreeMPMCBuffer>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<LockFreeMPMCBuffer>);
-    static_assert(concepts::BoundedBufferStrategy<LockFreeMPMCBuffer>);
-    static_assert(concepts::IterableAspectStrategy<LockFreeMPMCBuffer>);
-}
+static_assert(concepts::BufferStrategy<LockFreeMPMCBuffer>);
+static_assert(concepts::CacheEngineBufferPermutationStrategy<LockFreeMPMCBuffer>);
+static_assert(concepts::BoundedBufferStrategy<LockFreeMPMCBuffer>);
+static_assert(concepts::IterableAspectStrategy<LockFreeMPMCBuffer>);
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing

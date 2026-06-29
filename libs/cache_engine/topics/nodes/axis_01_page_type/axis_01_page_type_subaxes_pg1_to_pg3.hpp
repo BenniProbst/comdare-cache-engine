@@ -12,4 +12,4 @@ struct density_class_tag {};
 // PG3: Pfad-Kollaps (none / single-path-collapse)
 struct path_collapse_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::nodes::axis_01_page_type::subaxes

@@ -15,17 +15,15 @@ namespace mp = boost::mp11;
 
 using AllStrategies = mp::mp_list<
     // Pilot Batch 1 (2026-05-26)
-    DirectPlacement,
-    PoolRelative
+    DirectPlacement, PoolRelative
     // Vollausbau-Roadmap: MP03 PermutationIndexed, MP04 HashedOffset, ...
->;
+    >;
 
 template <typename M>
 using is_enabled = mp::mp_bool<M::enabled>;
 
 using EnabledStrategies = mp::mp_filter<is_enabled, AllStrategies>;
 
-static_assert(mp::mp_size<EnabledStrategies>::value > 0,
-    "axis_03m_mapping: at least one strategy must be enabled");
+static_assert(mp::mp_size<EnabledStrategies>::value > 0, "axis_03m_mapping: at least one strategy must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::mapping

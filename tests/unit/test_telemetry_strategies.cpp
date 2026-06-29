@@ -29,7 +29,7 @@ TEST(PerNodeCounter, IncrementBumpsValue) {
 
 TEST(PerNodeCounter, OutOfRangeIsSafe) {
     ce::PerNodeCounter c{2};
-    c.increment(99);          // out-of-range
+    c.increment(99); // out-of-range
     EXPECT_EQ(c.value(99), 0u);
 }
 
@@ -54,10 +54,10 @@ TEST(LeafOnlySampledCounter, SamplingRateExposed) {
 
 TEST(LeafOnlySampledCounter, OnlyEveryNthIncrementsLeaf) {
     ce::LeafOnlySampledCounter<5> c{2};
-    for (int i = 0; i < 9; ++i) c.maybe_increment_leaf(0);  // 9 calls, N=5
+    for (int i = 0; i < 9; ++i) c.maybe_increment_leaf(0); // 9 calls, N=5
     // call 5 trifft → leaf_value(0) == 1
     EXPECT_EQ(c.leaf_value(0), 1u);
-    c.maybe_increment_leaf(0);  // 10. call → leaf_value(0) == 2
+    c.maybe_increment_leaf(0); // 10. call → leaf_value(0) == 2
     EXPECT_EQ(c.leaf_value(0), 2u);
 }
 
@@ -68,9 +68,9 @@ TEST(RetroactiveAggregation, KindIsCorrect) {
 
 TEST(RetroactiveAggregation, AggregatesLeafCountsToInnerNodes) {
     ce::RetroactiveAggregation a;
-    std::vector<std::uint64_t> leaves = {3, 5, 7, 11};
+    std::vector<std::uint64_t> leaves        = {3, 5, 7, 11};
     std::vector<std::size_t>   leaf_to_inner = {0, 0, 1, 1};
-    auto h = a.run_aggregation(leaves, leaf_to_inner);
+    auto                       h             = a.run_aggregation(leaves, leaf_to_inner);
     ASSERT_EQ(h.per_inner_node_count.size(), 2u);
     EXPECT_EQ(h.per_inner_node_count[0], 8u);
     EXPECT_EQ(h.per_inner_node_count[1], 18u);
@@ -78,7 +78,7 @@ TEST(RetroactiveAggregation, AggregatesLeafCountsToInnerNodes) {
 }
 
 TEST(RetroactiveAggregation, BarrierTriggersAreCounted) {
-    ce::RetroactiveAggregation a;
+    ce::RetroactiveAggregation    a;
     ce::ConsolidationBarrierEvent e{};
     a.on_consolidation_barrier(e);
     a.on_consolidation_barrier(e);
@@ -112,8 +112,8 @@ TEST(ProbabilityHintsHeader, RecordAccessSaturatesAt255) {
 
 TEST(ProbabilityHintsHeader, BytesAreDistributedByModulo) {
     ce::ProbabilityHintsHeader<4> h;
-    h.record_access(5);    // 5 % 4 == 1
-    h.record_access(9);    // 9 % 4 == 1
+    h.record_access(5); // 5 % 4 == 1
+    h.record_access(9); // 9 % 4 == 1
     EXPECT_EQ(h.hint(1), 2);
     EXPECT_EQ(h.hint(0), 0);
 }

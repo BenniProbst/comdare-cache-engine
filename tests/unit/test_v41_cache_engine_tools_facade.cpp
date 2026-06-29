@@ -30,21 +30,20 @@ TEST(F4_ToolsFacade, StatisticsToolRunsRealTests) {
 
     auto const w = stats.welch_t_test(a, b);
     EXPECT_TRUE(w.valid);
-    EXPECT_LT(w.p_value, 0.01);               // hochsignifikant verschieden
+    EXPECT_LT(w.p_value, 0.01); // hochsignifikant verschieden
     EXPECT_LT(w.mean_a, w.mean_b);
 
     auto const m = stats.mann_whitney_u_test(a, b);
     EXPECT_TRUE(m.valid);
-    EXPECT_TRUE(m.a_stochastically_less);     // a tendiert zu kleineren (schnelleren) Werten
+    EXPECT_TRUE(m.a_stochastically_less); // a tendiert zu kleineren (schnelleren) Werten
     EXPECT_LT(m.p_value, 0.01);
 }
 
 // Codegen-Werkzeug: emittiert kompilierbaren Modul-.cpp-Quelltext aus FQ-Typ-Namen.
 TEST(F4_ToolsFacade, CodegenToolEmitsModuleSource) {
-    auto& cg = api::get_cache_engine_tools().codegen();
-    std::vector<std::string> const fq{
-        "ns::A0", "ns::A1", "ns::A2"};
-    std::string const src = cg.emit_module_source(7, fq);
+    auto&                          cg = api::get_cache_engine_tools().codegen();
+    std::vector<std::string> const fq{"ns::A0", "ns::A1", "ns::A2"};
+    std::string const              src = cg.emit_module_source(7, fq);
 
     EXPECT_NE(src.find("Permutation 7"), std::string::npos);
     EXPECT_NE(src.find("DO NOT EDIT"), std::string::npos);
@@ -55,7 +54,7 @@ TEST(F4_ToolsFacade, CodegenToolEmitsModuleSource) {
 
 // Workload-Werkzeug: vermittelt den ECHTEN YCSB-Generator (Profil C = 100 % Read).
 TEST(F4_ToolsFacade, WorkloadToolGeneratesYcsb) {
-    auto& wt = api::get_cache_engine_tools().workload_generator();
+    auto&              wt = api::get_cache_engine_tools().workload_generator();
     wg::WorkloadConfig cfg{};
     cfg.num_keys       = 1000;
     cfg.num_operations = 500;
@@ -63,7 +62,7 @@ TEST(F4_ToolsFacade, WorkloadToolGeneratesYcsb) {
 
     auto const ops = wt.generate_ycsb(cfg, wg::YcsbWorkload::C);
     ASSERT_EQ(ops.size(), 500u);
-    for (auto const& op : ops) EXPECT_EQ(op.op, wg::OperationKind::Read);  // YCSB-C ist read-only
+    for (auto const& op : ops) EXPECT_EQ(op.op, wg::OperationKind::Read); // YCSB-C ist read-only
 }
 
 // Plugin-Registry: register_external_tool / find_external_tool / external_tool_names.
@@ -73,7 +72,7 @@ public:
     [[nodiscard]] std::string_view tool_name() const override { return "pmc-counter"; }
     [[nodiscard]] std::string_view tool_kind() const override { return "measurement"; }
 };
-}  // namespace
+} // namespace
 
 TEST(F4_ToolsFacade, RegistersAndFindsExternalTool) {
     // Frische Facade-Instanz, um Test-Isolation von der prozessweiten Default-Instanz zu sichern.

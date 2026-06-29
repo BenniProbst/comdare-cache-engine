@@ -19,7 +19,7 @@
 
 #include <anatomy/observable_tier.hpp>
 #include "workload_driver/workload_orchestrator.hpp"
-#include "pmc_source.hpp"   // V5-#26: pluggable HW-Counter-Quelle (PmcCounters) für die +6-Spalten
+#include "pmc_source.hpp" // V5-#26: pluggable HW-Counter-Quelle (PmcCounters) für die +6-Spalten
 
 #include <cstdint>
 #include <sstream>
@@ -35,38 +35,41 @@ struct ComdareMeasurementSnapshotV1 {
     static constexpr std::uint32_t kVersion = 1;
 
     // ── Meta (3 der 16) ───────────────────────────────────────────────────────
-    std::uint64_t fingerprint            = 0;   // FNV-1a über permutation_id (stabile Zeilen-Identität)
-    std::uint8_t  succeeded              = 1;
-    std::uint64_t op_count               = 0;
+    std::uint64_t fingerprint = 0; // FNV-1a über permutation_id (stabile Zeilen-Identität)
+    std::uint8_t  succeeded   = 1;
+    std::uint64_t op_count    = 0;
     // ── Performance (1 der 16) ────────────────────────────────────────────────
-    std::uint64_t total_cycles           = 0;   // repräsentative Latenz (ns), Stufe-05-Konvention
+    std::uint64_t total_cycles = 0; // repräsentative Latenz (ns), Stufe-05-Konvention
     // ── 6 HW-Counter (6 der 16) — nur gültig wenn pmc_available==1 ─────────────
-    std::uint64_t cache_misses_l1        = 0;
-    std::uint64_t cache_misses_l2        = 0;
-    std::uint64_t cache_misses_l3        = 0;
-    std::uint64_t dtlb_misses            = 0;
+    std::uint64_t cache_misses_l1         = 0;
+    std::uint64_t cache_misses_l2         = 0;
+    std::uint64_t cache_misses_l3         = 0;
+    std::uint64_t dtlb_misses             = 0;
     std::uint64_t coherence_invalidations = 0;
-    std::uint64_t energy_micro_joules    = 0;
-    std::uint8_t  pmc_available          = 0;   // 0 = HW-Counter NICHT real gemessen (P4-gated, ehrlich)
+    std::uint64_t energy_micro_joules     = 0;
+    std::uint8_t  pmc_available           = 0; // 0 = HW-Counter NICHT real gemessen (P4-gated, ehrlich)
     // ── Allocator (4 der 16) — real aus dem Observer ──────────────────────────
-    std::uint64_t bytes_allocated        = 0;
-    std::uint64_t bytes_in_use_peak      = 0;
-    std::uint64_t external_frag_milli    = 0;   // Fragmentierung in ‰ (Promille), 0 wenn unbekannt
-    std::uint64_t internal_frag_milli    = 0;
+    std::uint64_t bytes_allocated     = 0;
+    std::uint64_t bytes_in_use_peak   = 0;
+    std::uint64_t external_frag_milli = 0; // Fragmentierung in ‰ (Promille), 0 wenn unbekannt
+    std::uint64_t internal_frag_milli = 0;
     // ── 6 funktionale Observer-Spalten (die „+6") ─────────────────────────────
-    std::uint64_t search_insert          = 0;
-    std::uint64_t search_lookup          = 0;
-    std::uint64_t search_hit             = 0;
-    std::uint64_t search_miss            = 0;
-    std::uint64_t search_erase           = 0;
-    std::uint64_t search_peak_occupancy  = 0;
+    std::uint64_t search_insert         = 0;
+    std::uint64_t search_lookup         = 0;
+    std::uint64_t search_hit            = 0;
+    std::uint64_t search_miss           = 0;
+    std::uint64_t search_erase          = 0;
+    std::uint64_t search_peak_occupancy = 0;
 };
 
 namespace detail {
 /// FNV-1a 64-bit über einen Namen → stabiler Fingerprint (identisch zur f15-Pfad-A-Konvention).
 [[nodiscard]] inline std::uint64_t fnv1a(std::string_view s) noexcept {
     std::uint64_t h = 14695981039346656037ULL;
-    for (char c : s) { h ^= static_cast<unsigned char>(c); h *= 1099511628211ULL; }
+    for (char c : s) {
+        h ^= static_cast<unsigned char>(c);
+        h *= 1099511628211ULL;
+    }
     return h;
 }
 /// p50 (Median, Nearest-Rank) über die zusammengeführten Op-Latenzen eines Lastprofil-Laufs.
@@ -79,7 +82,7 @@ namespace detail {
     all.insert(all.end(), r.clear_ns.begin(), r.clear_ns.end());
     return anatomy_commands::detail::nearest_rank_p(std::move(all), 0.5);
 }
-}  // namespace detail
+} // namespace detail
 
 /// Baut den autoritativen POD aus einem host-seitigen Lastprofil-Lauf (V5-I9 WorkloadRunResult).
 /// Die 16 Performance-Spalten + 6 Observer-Spalten werden mit ECHTEN Mess-/Observer-Werten befüllt;
@@ -87,14 +90,14 @@ namespace detail {
 [[nodiscard]] inline ComdareMeasurementSnapshotV1
 measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, std::string_view permutation_id) {
     ComdareMeasurementSnapshotV1 m;
-    m.fingerprint           = detail::fnv1a(permutation_id);
-    m.succeeded             = 1;
-    m.op_count              = r.op_count;
-    m.total_cycles          = static_cast<std::uint64_t>(detail::merged_p50_ns(r));   // repräsentative ns
-    m.pmc_available         = 0;                                                       // PMC nicht angebunden
+    m.fingerprint   = detail::fnv1a(permutation_id);
+    m.succeeded     = 1;
+    m.op_count      = r.op_count;
+    m.total_cycles  = static_cast<std::uint64_t>(detail::merged_p50_ns(r)); // repräsentative ns
+    m.pmc_available = 0;                                                    // PMC nicht angebunden
     // I1: aus dem konsolidierten Observer-POD (search→axis_stats[0], alloc→axis_stats[6]).
-    m.bytes_allocated       = r.observer.axis_stats[6][0];                             // ECHT aus Observer
-    m.bytes_in_use_peak     = r.observer.axis_stats[6][1];                             // ECHT aus Observer
+    m.bytes_allocated       = r.observer.axis_stats[6][0]; // ECHT aus Observer
+    m.bytes_in_use_peak     = r.observer.axis_stats[6][1]; // ECHT aus Observer
     m.search_insert         = r.observer.axis_stats[0][3];
     m.search_lookup         = r.observer.axis_stats[0][0];
     m.search_hit            = r.observer.axis_stats[0][1];
@@ -125,30 +128,30 @@ measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, st
 /// Kanonischer Serializer (das EINE Mess-Schema). Schreibt die 16 Pipeline-kanonischen Spalten (kompatibel
 /// zur LaTeX-Pipeline-Stufe 04/05/06) PLUS die 6 Observer-Spalten + pmc_available — die volle 16+6-Sicht.
 /// `rows[i]` ↔ `permutation_ids[i]` ↔ `workload_used[i]` (gleiche Länge). Eine Zeile je (Komposition×Lastprofil).
-[[nodiscard]] inline std::string
-serialize_measurements_csv(std::vector<ComdareMeasurementSnapshotV1> const& rows,
-                           std::vector<std::string> const& permutation_ids,
-                           std::vector<std::string> const& workload_used) {
+[[nodiscard]] inline std::string serialize_measurements_csv(std::vector<ComdareMeasurementSnapshotV1> const& rows,
+                                                            std::vector<std::string> const& permutation_ids,
+                                                            std::vector<std::string> const& workload_used) {
     std::ostringstream os;
     // 16 Pipeline-kanonische Spalten (Stufe-04/05-konsumierbar) ...
     os << "permutation_id,fingerprint,succeeded,workload_used,op_count,total_cycles,"
           "cache_misses_l1,cache_misses_l2,cache_misses_l3,dtlb_misses,"
           "coherence_invalidations,energy_micro_joules,"
           "bytes_allocated,bytes_in_use_peak,external_frag,internal_frag,"
-    // ... + 6 Observer-Spalten + pmc_available (die „+6" + Ehrlichkeits-Flag)
+          // ... + 6 Observer-Spalten + pmc_available (die „+6" + Ehrlichkeits-Flag)
           "search_insert,search_lookup,search_hit,search_miss,search_erase,search_peak_occupancy,pmc_available\n";
     std::size_t const n = rows.size();
     for (std::size_t i = 0; i < n; ++i) {
-        auto const& m = rows[i];
-        std::string const pid = (i < permutation_ids.size()) ? permutation_ids[i] : std::string{"row_"} + std::to_string(i);
-        std::string const wl  = (i < workload_used.size())   ? workload_used[i]   : std::string{"default"};
-        os << pid << ',' << m.fingerprint << ',' << static_cast<unsigned>(m.succeeded) << ',' << wl << ','
-           << m.op_count << ',' << m.total_cycles << ','
-           << m.cache_misses_l1 << ',' << m.cache_misses_l2 << ',' << m.cache_misses_l3 << ','
-           << m.dtlb_misses << ',' << m.coherence_invalidations << ',' << m.energy_micro_joules << ','
-           << m.bytes_allocated << ',' << m.bytes_in_use_peak << ',' << m.external_frag_milli << ',' << m.internal_frag_milli << ','
-           << m.search_insert << ',' << m.search_lookup << ',' << m.search_hit << ',' << m.search_miss << ','
-           << m.search_erase << ',' << m.search_peak_occupancy << ',' << static_cast<unsigned>(m.pmc_available) << '\n';
+        auto const&       m = rows[i];
+        std::string const pid =
+            (i < permutation_ids.size()) ? permutation_ids[i] : std::string{"row_"} + std::to_string(i);
+        std::string const wl = (i < workload_used.size()) ? workload_used[i] : std::string{"default"};
+        os << pid << ',' << m.fingerprint << ',' << static_cast<unsigned>(m.succeeded) << ',' << wl << ',' << m.op_count
+           << ',' << m.total_cycles << ',' << m.cache_misses_l1 << ',' << m.cache_misses_l2 << ',' << m.cache_misses_l3
+           << ',' << m.dtlb_misses << ',' << m.coherence_invalidations << ',' << m.energy_micro_joules << ','
+           << m.bytes_allocated << ',' << m.bytes_in_use_peak << ',' << m.external_frag_milli << ','
+           << m.internal_frag_milli << ',' << m.search_insert << ',' << m.search_lookup << ',' << m.search_hit << ','
+           << m.search_miss << ',' << m.search_erase << ',' << m.search_peak_occupancy << ','
+           << static_cast<unsigned>(m.pmc_available) << '\n';
     }
     return os.str();
 }
@@ -157,24 +160,25 @@ serialize_measurements_csv(std::vector<ComdareMeasurementSnapshotV1> const& rows
 /// Identisch zur f15-Pfad-A-`--pipeline-csv`-Konvention, aber gespeist aus dem autoritativen POD (echte Daten).
 [[nodiscard]] inline std::string
 serialize_measurements_pipeline16_csv(std::vector<ComdareMeasurementSnapshotV1> const& rows,
-                                      std::vector<std::string> const& permutation_ids,
-                                      std::vector<std::string> const& workload_used) {
+                                      std::vector<std::string> const&                  permutation_ids,
+                                      std::vector<std::string> const&                  workload_used) {
     std::ostringstream os;
     os << "permutation_id,fingerprint,succeeded,workload_used,op_count,total_cycles,"
           "cache_misses_l1,cache_misses_l2,cache_misses_l3,dtlb_misses,"
           "coherence_invalidations,energy_micro_joules,"
           "bytes_allocated,bytes_in_use_peak,external_frag,internal_frag\n";
     for (std::size_t i = 0; i < rows.size(); ++i) {
-        auto const& m = rows[i];
-        std::string const pid = (i < permutation_ids.size()) ? permutation_ids[i] : std::string{"row_"} + std::to_string(i);
-        std::string const wl  = (i < workload_used.size())   ? workload_used[i]   : std::string{"default"};
-        os << pid << ',' << m.fingerprint << ',' << static_cast<unsigned>(m.succeeded) << ',' << wl << ','
-           << m.op_count << ',' << m.total_cycles << ','
-           << m.cache_misses_l1 << ',' << m.cache_misses_l2 << ',' << m.cache_misses_l3 << ','
-           << m.dtlb_misses << ',' << m.coherence_invalidations << ',' << m.energy_micro_joules << ','
-           << m.bytes_allocated << ',' << m.bytes_in_use_peak << ',' << m.external_frag_milli << ',' << m.internal_frag_milli << '\n';
+        auto const&       m = rows[i];
+        std::string const pid =
+            (i < permutation_ids.size()) ? permutation_ids[i] : std::string{"row_"} + std::to_string(i);
+        std::string const wl = (i < workload_used.size()) ? workload_used[i] : std::string{"default"};
+        os << pid << ',' << m.fingerprint << ',' << static_cast<unsigned>(m.succeeded) << ',' << wl << ',' << m.op_count
+           << ',' << m.total_cycles << ',' << m.cache_misses_l1 << ',' << m.cache_misses_l2 << ',' << m.cache_misses_l3
+           << ',' << m.dtlb_misses << ',' << m.coherence_invalidations << ',' << m.energy_micro_joules << ','
+           << m.bytes_allocated << ',' << m.bytes_in_use_peak << ',' << m.external_frag_milli << ','
+           << m.internal_frag_milli << '\n';
     }
     return os.str();
 }
 
-}  // namespace comdare::cache_engine::builder
+} // namespace comdare::cache_engine::builder

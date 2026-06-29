@@ -46,14 +46,10 @@ namespace comdare::cache_engine::builder::commands {
  */
 class AutoPermutateAxisCommand : public ICommand {
 public:
-    AutoPermutateAxisCommand(std::string axis_id,
-                             std::string_view engine_name,
-                             Workload workload) noexcept
+    AutoPermutateAxisCommand(std::string axis_id, std::string_view engine_name, Workload workload) noexcept
         : permutator_{std::move(axis_id)}, engine_name_{engine_name}, workload_{workload} {}
 
-    [[nodiscard]] std::string_view command_name() const noexcept override {
-        return "AutoPermutateAxisCommand";
-    }
+    [[nodiscard]] std::string_view command_name() const noexcept override { return "AutoPermutateAxisCommand"; }
 
     int execute() override {
         // V32.EE.2: konkrete Default-Lookup-Loop
@@ -66,15 +62,13 @@ public:
 
     [[nodiscard]] bool is_parallelizable() const noexcept override { return true; }
 
-    [[nodiscard]] const std::vector<ExecutionResult>& results() const noexcept {
-        return results_;
-    }
+    [[nodiscard]] const std::vector<ExecutionResult>& results() const noexcept { return results_; }
 
 private:
-    AutoPermutator permutator_;
-    std::string_view engine_name_;
-    Workload workload_;
-    std::vector<ExecutionResult> results_ {};
+    AutoPermutator               permutator_;
+    std::string_view             engine_name_;
+    Workload                     workload_;
+    std::vector<ExecutionResult> results_{};
 };
 
-}  // namespace comdare::cache_engine::builder::commands
+} // namespace comdare::cache_engine::builder::commands

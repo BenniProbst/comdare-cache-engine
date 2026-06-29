@@ -9,4 +9,4 @@ struct direct_access_tag {};
 /// MP2 pool_relative — pool-relativer Offset-Mapping (CustomAlignedStructure-Pattern)
 struct pool_relative_access_tag {};
 
-}  // namespace
+} // namespace comdare::cache_engine::mapping::subaxes

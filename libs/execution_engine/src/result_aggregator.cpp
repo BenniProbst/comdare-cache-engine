@@ -7,17 +7,13 @@
 
 namespace comdare::experiment {
 
-void ResultAggregator::add(PermutationResult result) {
-    results_.push_back(std::move(result));
-}
+void ResultAggregator::add(PermutationResult result) { results_.push_back(std::move(result)); }
 
-void ResultAggregator::set_baseline(std::string baseline_id) {
-    baseline_id_ = std::move(baseline_id);
-}
+void ResultAggregator::set_baseline(std::string baseline_id) { baseline_id_ = std::move(baseline_id); }
 
 std::optional<PermutationResult> ResultAggregator::find_baseline() const {
     auto it = std::find_if(results_.begin(), results_.end(),
-        [this](auto const& r) { return r.permutation_id == baseline_id_; });
+                           [this](auto const& r) { return r.permutation_id == baseline_id_; });
     if (it == results_.end()) return std::nullopt;
     return *it;
 }
@@ -40,21 +36,19 @@ std::vector<ComparisonReport> ResultAggregator::compare_against_baseline() const
         // Ratios: candidate/baseline
         double const base_cycles = static_cast<double>(baseline->record.total_cycles);
         double const cand_cycles = static_cast<double>(candidate.record.total_cycles);
-        r.throughput_speedup = (cand_cycles > 0) ? (base_cycles / cand_cycles) : 1.0;
+        r.throughput_speedup     = (cand_cycles > 0) ? (base_cycles / cand_cycles) : 1.0;
 
         double const base_mem = static_cast<double>(baseline->record.bytes_in_use_peak);
         double const cand_mem = static_cast<double>(candidate.record.bytes_in_use_peak);
-        r.memory_ratio = (base_mem > 0) ? (cand_mem / base_mem) : 1.0;
+        r.memory_ratio        = (base_mem > 0) ? (cand_mem / base_mem) : 1.0;
 
         double const base_ops = static_cast<double>(baseline->record.op_count);
         double const cand_ops = static_cast<double>(candidate.record.op_count);
-        r.latency_ratio = (base_ops > 0 && cand_ops > 0)
-            ? (cand_cycles / cand_ops) / (base_cycles / base_ops)
-            : 1.0;
+        r.latency_ratio = (base_ops > 0 && cand_ops > 0) ? (cand_cycles / cand_ops) / (base_cycles / base_ops) : 1.0;
 
         double const base_miss = static_cast<double>(baseline->record.cache_misses_l1);
         double const cand_miss = static_cast<double>(candidate.record.cache_misses_l1);
-        r.cache_miss_ratio = (base_miss > 0) ? (cand_miss / base_miss) : 1.0;
+        r.cache_miss_ratio     = (base_miss > 0) ? (cand_miss / base_miss) : 1.0;
 
         reports.push_back(r);
     }
@@ -72,22 +66,12 @@ void ResultAggregator::export_csv(std::filesystem::path const& path) const {
         << "bytes_allocated,bytes_in_use_peak,external_frag,internal_frag\n";
 
     for (auto const& r : results_) {
-        out << r.permutation_id << ','
-            << r.fingerprint << ','
-            << (r.succeeded ? 1 : 0) << ','
-            << r.workload_used << ','
-            << r.record.op_count << ','
-            << r.record.total_cycles << ','
-            << r.record.cache_misses_l1 << ','
-            << r.record.cache_misses_l2 << ','
-            << r.record.cache_misses_l3 << ','
-            << r.record.dtlb_misses << ','
-            << r.record.coherence_invalidations << ','
-            << r.record.energy_micro_joules << ','
-            << r.record.bytes_allocated << ','
-            << r.record.bytes_in_use_peak << ','
-            << r.record.external_fragmentation << ','
-            << r.record.internal_fragmentation << '\n';
+        out << r.permutation_id << ',' << r.fingerprint << ',' << (r.succeeded ? 1 : 0) << ',' << r.workload_used << ','
+            << r.record.op_count << ',' << r.record.total_cycles << ',' << r.record.cache_misses_l1 << ','
+            << r.record.cache_misses_l2 << ',' << r.record.cache_misses_l3 << ',' << r.record.dtlb_misses << ','
+            << r.record.coherence_invalidations << ',' << r.record.energy_micro_joules << ','
+            << r.record.bytes_allocated << ',' << r.record.bytes_in_use_peak << ',' << r.record.external_fragmentation
+            << ',' << r.record.internal_fragmentation << '\n';
     }
 }
 
@@ -114,4 +98,4 @@ void ResultAggregator::export_json(std::filesystem::path const& path) const {
     out << "\n  ]\n}\n";
 }
 
-}  // namespace comdare::experiment
+} // namespace comdare::experiment

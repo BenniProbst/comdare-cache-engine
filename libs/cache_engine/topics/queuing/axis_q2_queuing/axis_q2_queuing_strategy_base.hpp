@@ -29,15 +29,14 @@ template <typename Derived>
 class FlushPolicyStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
 protected:
     FlushPolicyStrategyBase() noexcept {
-        static_assert(concepts::FlushPolicy<Derived>,
-            "Pflicht: Derived muss FlushPolicy erfuellen "
-            "(should_flush/on_flush_complete + topic_tag)");
+        static_assert(concepts::FlushPolicy<Derived>, "Pflicht: Derived muss FlushPolicy erfuellen "
+                                                      "(should_flush/on_flush_complete + topic_tag)");
         static_assert(concepts::CacheEngineFlushPolicyPermutationStrategy<Derived>,
-            "Pflicht: Derived erfuellt CacheEngineFlushPolicyPermutationStrategy "
-            "(axis_tag/family_id/name/family_name/flag_suffix/enabled)");
+                      "Pflicht: Derived erfuellt CacheEngineFlushPolicyPermutationStrategy "
+                      "(axis_tag/family_id/name/family_name/flag_suffix/enabled)");
         static_assert(::comdare::cache_engine::topics::AxisBaseConcept<Derived>,
-            "Pflicht: Derived erfuellt AxisBaseConcept (get_compiler() Default 'original' via AxisBase)");
+                      "Pflicht: Derived erfuellt AxisBaseConcept (get_compiler() Default 'original' via AxisBase)");
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q2_queuing

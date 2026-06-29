@@ -53,9 +53,13 @@ concept MementoAxis = requires(A& a, A const& ca, typename A::memento_t const& m
 
 /// memento_of<A> — A::memento_t wenn MementoAxis, sonst EmptyMemento.
 template <class A>
-struct memento_of { using type = EmptyMemento; };
+struct memento_of {
+    using type = EmptyMemento;
+};
 template <MementoAxis A>
-struct memento_of<A> { using type = typename A::memento_t; };
+struct memento_of<A> {
+    using type = typename A::memento_t;
+};
 template <class A>
 using memento_of_t = typename memento_of<A>::type;
 
@@ -66,15 +70,22 @@ using memento_of_t = typename memento_of<A>::type;
 /// save_axis(a) — kapselt den Achsen-Zustand (oder EmptyMemento für stateless Achsen).
 template <class A>
 [[nodiscard]] memento_of_t<A> save_axis(A const& a) {
-    if constexpr (MementoAxis<A>) { return a.save_state(); }
-    else                          { return EmptyMemento{}; }
+    if constexpr (MementoAxis<A>) {
+        return a.save_state();
+    } else {
+        return EmptyMemento{};
+    }
 }
 
 /// restore_axis(a, m) — rollt den Achsen-Zustand zurück (no-op für stateless Achsen).
 template <class A>
 void restore_axis(A& a, memento_of_t<A> const& m) {
-    if constexpr (MementoAxis<A>) { a.restore_state(m); }
-    else                          { (void)a; (void)m; }
+    if constexpr (MementoAxis<A>) {
+        a.restore_state(m);
+    } else {
+        (void)a;
+        (void)m;
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -92,4 +103,4 @@ void restore_axis(A& a, memento_of_t<A> const& m) {
 // real konsumiert, daher NICHT entfernt): das MementoAxis-Concept, memento_of_t<>, EmptyMemento sowie die
 // Hilfsfunktionen save_axis()/restore_axis() oben.
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

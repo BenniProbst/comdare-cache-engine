@@ -34,19 +34,18 @@ namespace comdare::cache_engine::cache_traversal::concepts {
  * jeweils ihre Charakteristiken mit (linear vs hash, latency vs locality).
  */
 template <typename T>
-concept CacheTraversalVariant =
-    ::comdare::cache_engine::traversal::concepts::TraversalComponent<T>
-    && requires { typename T::key_type; typename T::value_type; typename T::size_type; }
-    && requires(T t, typename T::key_type k, typename T::value_type v) {
-        { t.register_entry(k, v) }    -> std::same_as<void>;
-        { t.unregister(k) }           -> std::same_as<bool>;
-    }
-    && requires(T const& tc, typename T::key_type k) {
-        { tc.resolve(k) }             -> std::same_as<std::optional<typename T::value_type>>;
-        { tc.tracked_count() } noexcept -> std::convertible_to<std::size_t>;
-    }
-    && requires(T t) {
-        { t.clear() }                 noexcept;
-    };
+concept CacheTraversalVariant = ::comdare::cache_engine::traversal::concepts::TraversalComponent<T> && requires {
+    typename T::key_type;
+    typename T::value_type;
+    typename T::size_type;
+} && requires(T t, typename T::key_type k, typename T::value_type v) {
+    { t.register_entry(k, v) } -> std::same_as<void>;
+    { t.unregister(k) } -> std::same_as<bool>;
+} && requires(T const& tc, typename T::key_type k) {
+    { tc.resolve(k) } -> std::same_as<std::optional<typename T::value_type>>;
+    { tc.tracked_count() } noexcept -> std::convertible_to<std::size_t>;
+} && requires(T t) {
+    { t.clear() } noexcept;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::cache_traversal::concepts

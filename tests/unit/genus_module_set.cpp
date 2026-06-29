@@ -12,6 +12,5 @@
 #include <cache_engine/abi/set_module_abi_v1.hpp>
 #include <anatomy/set_default_organ.hpp>
 
-COMDARE_DEFINE_SET_MODULE(
-    ::comdare::cache_engine::anatomy::SortedArrayKeySet,
-    int, int, int, int, int, int, int, int, int, int, int, int, int, int)
+COMDARE_DEFINE_SET_MODULE(::comdare::cache_engine::anatomy::SortedArrayKeySet, int, int, int, int, int, int, int, int,
+                          int, int, int, int, int, int)

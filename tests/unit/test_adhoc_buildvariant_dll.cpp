@@ -21,20 +21,33 @@ namespace ana    = ::comdare::cache_engine::anatomy;
 using InspectFn = void (*)(ana::BuildVariantDefinitionV1*);
 
 static int g_fail = 0;
-template <class A, class B> static void eq(char const* w, A const& g, B const& e) {
-    bool ok = (g == e); std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
-    if (!ok) { std::cout << " (erwartet " << e << ")"; ++g_fail; } std::cout << "\n"; }
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+template <class A, class B>
+static void eq(char const* w, A const& g, B const& e) {
+    bool ok = (g == e);
+    std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
+    if (!ok) {
+        std::cout << " (erwartet " << e << ")";
+        ++g_fail;
+    }
+    std::cout << "\n";
+}
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 int main(int argc, char** argv) {
-    if (argc < 2) { std::cerr << "usage: test_adhoc_buildvariant_dll <adhoc_buildvariant.dll>\n"; return 2; }
+    if (argc < 2) {
+        std::cerr << "usage: test_adhoc_buildvariant_dll <adhoc_buildvariant.dll>\n";
+        return 2;
+    }
     char const* dll = argv[1];
     std::cout << "==== L-74a ADHOC-BUILDVARIANT-DLL: 17-Anatomie + 3 Build-Achsen in EINER DLL ====\n";
 
     // (1) Die ANATOMIE über den gattungs-agnostischen Loader (die 4 ABI-Symbole) — DERSELBE Loader wie alle Module.
     std::cout << "-- (1) Anatomie über den AnatomyModuleLoader --\n";
     loader::AnatomyModuleHandle handle;
-    int const st = loader::AnatomyModuleLoader::load(dll, handle);
+    int const                   st = loader::AnatomyModuleLoader::load(dll, handle);
     tr("load == status_ok", st == loader::status_ok);
     if (st == loader::status_ok) {
         ana::IAnatomyBase* a = handle.anatomy();
@@ -52,7 +65,8 @@ int main(int argc, char** argv) {
     HMODULE h = LoadLibraryA(dll);
     tr("LoadLibraryA (zweiter Handle auf DIESELBE .dll)", h != nullptr);
     if (h != nullptr) {
-        auto fn = reinterpret_cast<InspectFn>(reinterpret_cast<void*>(GetProcAddress(h, "comdare_build_variant_inspect")));
+        auto fn =
+            reinterpret_cast<InspectFn>(reinterpret_cast<void*>(GetProcAddress(h, "comdare_build_variant_inspect")));
         tr("GetProcAddress(comdare_build_variant_inspect) != null", fn != nullptr);
         if (fn != nullptr) {
             ana::BuildVariantDefinitionV1 v{};
@@ -66,8 +80,10 @@ int main(int argc, char** argv) {
         FreeLibrary(h);
     }
 
-    std::cout << "\nKERN-BEWEIS: dieselbe .dll trägt die 17-Slot-Anatomie (genus==SearchAlgorithm) UND die 3-Build-Achsen-\n"
-                 "Identität (simd 512) — die Build-Achsen sind Build-Parameter DERSELBEN Binary (Doc 27 §0.1).\n";
-    std::cout << "\n==== L-74a ADHOC-BUILDVARIANT: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout
+        << "\nKERN-BEWEIS: dieselbe .dll trägt die 17-Slot-Anatomie (genus==SearchAlgorithm) UND die 3-Build-Achsen-\n"
+           "Identität (simd 512) — die Build-Achsen sind Build-Parameter DERSELBEN Binary (Doc 27 §0.1).\n";
+    std::cout << "\n==== L-74a ADHOC-BUILDVARIANT: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

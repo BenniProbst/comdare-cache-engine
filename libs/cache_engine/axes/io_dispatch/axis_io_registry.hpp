@@ -15,19 +15,13 @@ namespace comdare::cache_engine::io_dispatch {
 
 namespace mp = boost::mp11;
 
-using AllIos = mp::mp_list<
-    InMemoryOnly,
-    DirectIo,
-    BufferedIo,
-    MmapIo
->;
+using AllIos = mp::mp_list<InMemoryOnly, DirectIo, BufferedIo, MmapIo>;
 
 template <typename T>
 using is_enabled = mp::mp_bool<T::enabled>;
 
 using EnabledIos = mp::mp_filter<is_enabled, AllIos>;
 
-static_assert(mp::mp_size<EnabledIos>::value > 0,
-    "Axis IO: at least one IO strategy must be enabled");
+static_assert(mp::mp_size<EnabledIos>::value > 0, "Axis IO: at least one IO strategy must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::io_dispatch

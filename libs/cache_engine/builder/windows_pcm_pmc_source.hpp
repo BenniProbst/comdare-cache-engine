@@ -21,7 +21,7 @@
 
 #if defined(COMDARE_ENABLE_PMC) && defined(_WIN32)
 
-#include "pmc_source.hpp"   // IPmcSource / PmcCounters (UNVERÄNDERT)
+#include "pmc_source.hpp" // IPmcSource / PmcCounters (UNVERÄNDERT)
 
 // Intel PCM-Header NUR hier (innerhalb des Guards) — sonst würde der Default-Build ihn anfordern.
 #include <cpucounters.h>
@@ -36,21 +36,17 @@ public:
     WindowsPcmPmcSource() noexcept {
         // PCM ist ein Prozess-Singleton; program() initialisiert den msr.sys-Treiber-Zugriff.
         pcm_ = ::pcm::PCM::getInstance();
-        if (pcm_ != nullptr) {
-            ready_ = (pcm_->program() == ::pcm::PCM::Success);
-        }
+        if (pcm_ != nullptr) { ready_ = (pcm_->program() == ::pcm::PCM::Success); }
     }
 
     void begin() noexcept override {
-        if (ready_ && pcm_ != nullptr) {
-            before_ = pcm_->getSystemCounterState();
-        }
+        if (ready_ && pcm_ != nullptr) { before_ = pcm_->getSystemCounterState(); }
     }
 
     [[nodiscard]] PmcCounters end() noexcept override {
         PmcCounters c;
         if (!ready_ || pcm_ == nullptr) {
-            return c;   // available=false (Default) — ehrlich „nicht gemessen"
+            return c; // available=false (Default) — ehrlich „nicht gemessen"
         }
         auto const after = pcm_->getSystemCounterState();
         // L1 wird von der System-weiten PCM-Counter-State nicht direkt geliefert (architektur-abhängig) —
@@ -61,15 +57,15 @@ public:
         return c;
     }
 
-    [[nodiscard]] bool available() const noexcept override { return ready_ && pcm_ != nullptr; }
+    [[nodiscard]] bool             available() const noexcept override { return ready_ && pcm_ != nullptr; }
     [[nodiscard]] std::string_view name() const noexcept override { return "intel-pcm-windows"; }
 
 private:
-    ::pcm::PCM*                pcm_   = nullptr;   ///< Prozess-Singleton (nicht besitzend)
-    ::pcm::SystemCounterState  before_{};         ///< Snapshot bei begin()
-    bool                       ready_ = false;    ///< program()==Success (Treiber/MSR ok)
+    ::pcm::PCM*               pcm_ = nullptr; ///< Prozess-Singleton (nicht besitzend)
+    ::pcm::SystemCounterState before_{};      ///< Snapshot bei begin()
+    bool                      ready_ = false; ///< program()==Success (Treiber/MSR ok)
 };
 
-}  // namespace comdare::cache_engine::builder
+} // namespace comdare::cache_engine::builder
 
-#endif  // COMDARE_ENABLE_PMC && _WIN32
+#endif // COMDARE_ENABLE_PMC && _WIN32

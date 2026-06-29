@@ -40,40 +40,45 @@
 
 namespace comdare::cache_engine::lookup {
 
-class OriginalStartSearchAlgo
-    : public SearchAlgoBase<OriginalStartSearchAlgo>,
-      public generated::p05_start::OriginalCodeMixin {
+class OriginalStartSearchAlgo : public SearchAlgoBase<OriginalStartSearchAlgo>,
+                                public generated::p05_start::OriginalCodeMixin {
 public:
     // Diamond-Disambiguation: Mixin-Pfad wins
     using generated::p05_start::OriginalCodeMixin::get_compiler;
+    using generated::p05_start::OriginalCodeMixin::is_original_clear;
+    using generated::p05_start::OriginalCodeMixin::is_original_erase;
     using generated::p05_start::OriginalCodeMixin::is_original_insert;
     using generated::p05_start::OriginalCodeMixin::is_original_lookup;
-    using generated::p05_start::OriginalCodeMixin::is_original_erase;
-    using generated::p05_start::OriginalCodeMixin::is_original_clear;
     using generated::p05_start::OriginalCodeMixin::is_original_module;
 
     static constexpr bool enabled = flags::original_start_enabled;
 
-    using key_type   = std::uint16_t;  // Multi-Byte Discriminator (analog VectorU16U16SearchAlgo)
+    using key_type   = std::uint16_t; // Multi-Byte Discriminator (analog VectorU16U16SearchAlgo)
     using value_type = std::uint64_t;
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::multilevel_access_tag;
-    using family_id  = std::integral_constant<int, 6>;  // S06
+    using family_id  = std::integral_constant<int, 6>; // S06
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t max_fanout()        noexcept { return 65536; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept {
-        if constexpr (enabled) { return "original_start"; }
-        else                   { return "original_start(disabled)"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept {
+        if constexpr (enabled) {
+            return "original_start";
+        } else {
+            return "original_start(disabled)";
+        }
     }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "OriginalStartSearchAlgo (START — Self-Tuning Adaptive Radix Tree, Fent/Jungmair/Kipf/Neumann, ICDEW 2020, DOI 10.1109/ICDEW49219.2020.00015 — 2/4 originall)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "ORIGINAL_START"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "OriginalStartSearchAlgo (START — Self-Tuning Adaptive Radix Tree, Fent/Jungmair/Kipf/Neumann, ICDEW "
+               "2020, DOI 10.1109/ICDEW49219.2020.00015 — 2/4 originall)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "ORIGINAL_START"; }
 
     /// SONDERFALL (analog VectorU16U16SearchAlgo): kein SIMD — Cost-DP nicht vectorisierbar.
-    [[nodiscard]] static constexpr bool supports_simd()            noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_range_scan()      noexcept { return true; }
-    [[nodiscard]] static constexpr bool is_dense()                 noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_simd() noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_range_scan() noexcept { return true; }
+    [[nodiscard]] static constexpr bool is_dense() noexcept { return false; }
     [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return true; }
 
     OriginalStartSearchAlgo() noexcept = default;
@@ -86,7 +91,7 @@ public:
     /// SONDERFALL [[allocation-failure-exception]]: std::vector::insert kann std::bad_alloc werfen.
     void insert(key_type k, value_type v) {
         if constexpr (enabled) {
-            auto it = std::lower_bound(keys_.begin(), keys_.end(), k);
+            auto        it  = std::lower_bound(keys_.begin(), keys_.end(), k);
             std::size_t idx = static_cast<std::size_t>(it - keys_.begin());
             if (it != keys_.end() && *it == k) {
                 values_[idx] = v;
@@ -95,7 +100,8 @@ public:
                 values_.insert(values_.begin() + idx, v);
             }
         } else {
-            (void)k; (void)v;
+            (void)k;
+            (void)v;
         }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_insert_count;
@@ -110,8 +116,10 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_lookup_count;
         bool hit = (it != keys_.end() && *it == k);
-        if (hit) ++stats_.total_hit_count;
-        else     ++stats_.total_miss_count;
+        if (hit)
+            ++stats_.total_hit_count;
+        else
+            ++stats_.total_miss_count;
         observer_.notify(stats_);
 #endif
         if (it == keys_.end() || *it != k) return std::nullopt;
@@ -145,20 +153,24 @@ public:
     }
 
     /// DensityClassifiedStrategy: START Cost-DP optimiert sich fuer Balanced-Bereich.
-    [[nodiscard]] concepts::DensityClass density_class() const noexcept {
-        return concepts::DensityClass::Balanced;
-    }
+    [[nodiscard]] concepts::DensityClass density_class() const noexcept { return concepts::DensityClass::Balanced; }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     // CoW-Memento (#142/Audit-K3): Stat-POD-Restore -> organ_cow_capable_v aktiv (spiegelt Observable-Huelle).
-    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; observer_.notify(stats_); }
+    void restore_statistics(snapshot_t const& s) noexcept {
+        stats_ = s;
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
@@ -166,26 +178,28 @@ private:
     std::vector<value_type> values_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::SearchAlgoStatistics stats_{};
-    mutable observer_t                      observer_{};
+    mutable observer_t                     observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup
 
 namespace comdare::cache_engine::lookup {
-    static_assert(concepts::SearchAlgoVariant<OriginalStartSearchAlgo>);
-    static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<OriginalStartSearchAlgo>);
-    static_assert(concepts::DensityClassifiedStrategy<OriginalStartSearchAlgo>);
-    // NICHT SimdCapableStrategy — START Cost-DP nicht vectorisierbar (analog VectorU16U16SearchAlgo)
-    // Habich-Compliance: 2/4 originall (insert+lookup), 2/4 Lücken (erase+clear)
-    static_assert(OriginalStartSearchAlgo::is_original_insert(),
-        "OriginalStartSearchAlgo: insert MUSS via insertLater Paper-Bindung originall sein");
-    static_assert(OriginalStartSearchAlgo::is_original_lookup(),
-        "OriginalStartSearchAlgo: lookup MUSS via EqualityLookup Paper-Bindung originall sein");
-    static_assert(!OriginalStartSearchAlgo::is_original_erase(),
-        "OriginalStartSearchAlgo: erase ist Cache-Engine Re-Impl (kein remove im sosd-Adapter) — is_original_erase MUSS false sein");
-    static_assert(!OriginalStartSearchAlgo::is_original_clear(),
-        "OriginalStartSearchAlgo: clear ist Cache-Engine Re-Impl (kein clear im sosd-Adapter) — is_original_clear MUSS false sein");
-    static_assert(!OriginalStartSearchAlgo::is_original_module(),
-        "OriginalStartSearchAlgo: is_original_module MUSS false sein (2/4 Lücken)");
-}
+static_assert(concepts::SearchAlgoVariant<OriginalStartSearchAlgo>);
+static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<OriginalStartSearchAlgo>);
+static_assert(concepts::DensityClassifiedStrategy<OriginalStartSearchAlgo>);
+// NICHT SimdCapableStrategy — START Cost-DP nicht vectorisierbar (analog VectorU16U16SearchAlgo)
+// Habich-Compliance: 2/4 originall (insert+lookup), 2/4 Lücken (erase+clear)
+static_assert(OriginalStartSearchAlgo::is_original_insert(),
+              "OriginalStartSearchAlgo: insert MUSS via insertLater Paper-Bindung originall sein");
+static_assert(OriginalStartSearchAlgo::is_original_lookup(),
+              "OriginalStartSearchAlgo: lookup MUSS via EqualityLookup Paper-Bindung originall sein");
+static_assert(!OriginalStartSearchAlgo::is_original_erase(),
+              "OriginalStartSearchAlgo: erase ist Cache-Engine Re-Impl (kein remove im sosd-Adapter) — "
+              "is_original_erase MUSS false sein");
+static_assert(!OriginalStartSearchAlgo::is_original_clear(),
+              "OriginalStartSearchAlgo: clear ist Cache-Engine Re-Impl (kein clear im sosd-Adapter) — "
+              "is_original_clear MUSS false sein");
+static_assert(!OriginalStartSearchAlgo::is_original_module(),
+              "OriginalStartSearchAlgo: is_original_module MUSS false sein (2/4 Lücken)");
+} // namespace comdare::cache_engine::lookup

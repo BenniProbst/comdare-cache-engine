@@ -55,70 +55,106 @@ namespace mp  = boost::mp11;
 // Type-Aliases (kompakter)
 // ─────────────────────────────────────────────────────────────────────────────
 
-using Array256SearchAlgo             = ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256SearchAlgo;
-using VectorU8U8SearchAlgo           = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;
-using VectorU16U16SearchAlgo         = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;
-using LinearFanout         = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::LinearFanout;
-using HashLookup           = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::HashLookup;
-using DirectPlacement      = ::comdare::cache_engine::traversal::axis_03m_mapping::DirectPlacement;
-using PathCompressionNone  = ::comdare::cache_engine::nodes::axis_02_path_compression::PathCompressionNone;
-using Node256NodeType          = ::comdare::cache_engine::nodes::axis_04_node_type::Node256NodeType;
-using CacheLineAligned     = ::comdare::cache_engine::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
-using MimallocAllocator    = ::comdare::cache_engine::allocator::axis_06_allocator::MimallocAllocator;
-using NonePrefetch         = ::comdare::cache_engine::prefetch::axis_07_prefetch::NonePrefetch;
-using OlcOptimisticConcurrency        = ::comdare::cache_engine::concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
-using RawBinarySer         = ::comdare::cache_engine::serialization::axis_10_serialization::RawBinarySerialization;
-using LeafOnlyCounter      = ::comdare::cache_engine::telemetry::axis_11_telemetry::LeafOnlyCounter;
-using InlineValueHandle         = ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle;
-using Amd64Isa            = ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa;
-using IotIndexOrganization           = ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization;
+using Array256SearchAlgo     = ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256SearchAlgo;
+using VectorU8U8SearchAlgo   = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;
+using VectorU16U16SearchAlgo = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;
+using LinearFanout           = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::LinearFanout;
+using HashLookup             = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::HashLookup;
+using DirectPlacement        = ::comdare::cache_engine::traversal::axis_03m_mapping::DirectPlacement;
+using PathCompressionNone    = ::comdare::cache_engine::nodes::axis_02_path_compression::PathCompressionNone;
+using Node256NodeType        = ::comdare::cache_engine::nodes::axis_04_node_type::Node256NodeType;
+using CacheLineAligned  = ::comdare::cache_engine::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
+using MimallocAllocator = ::comdare::cache_engine::allocator::axis_06_allocator::MimallocAllocator;
+using NonePrefetch      = ::comdare::cache_engine::prefetch::axis_07_prefetch::NonePrefetch;
+using OlcOptimisticConcurrency = ::comdare::cache_engine::concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
+using RawBinarySer             = ::comdare::cache_engine::serialization::axis_10_serialization::RawBinarySerialization;
+using LeafOnlyCounter          = ::comdare::cache_engine::telemetry::axis_11_telemetry::LeafOnlyCounter;
+using InlineValueHandle        = ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle;
+using Amd64Isa                 = ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa;
+using IotIndexOrganization = ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization;
 using InMemoryOnly         = ::comdare::cache_engine::io::axis_io::InMemoryOnly;
 using NoMigration          = ::comdare::cache_engine::migration::axis_migration::NoMigration;
 using BloomFilter          = ::comdare::cache_engine::filter::axis_filter::BloomFilter;
-using NoBuffer             = ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer;     // T17 queuing_q1 (Doc 30 §8.0)
-using LazyFlush            = ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush;    // T18 queuing_q2 (Doc 30 §8.0)
+using NoBuffer  = ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer;  // T17 queuing_q1 (Doc 30 §8.0)
+using LazyFlush = ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush; // T18 queuing_q2 (Doc 30 §8.0)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 17 Topic-Config-Sets fuer Pilot (3 × 2 × 1^15 = 6 Permutationen)
 // ─────────────────────────────────────────────────────────────────────────────
 
-struct T0_SearchAlgo     { using StaticAxisVariants = mp::mp_list<Array256SearchAlgo, VectorU8U8SearchAlgo, VectorU16U16SearchAlgo>; };
-struct T1_CacheTraversal { using StaticAxisVariants = mp::mp_list<LinearFanout, HashLookup>; };
-struct T2_Mapping        { using StaticAxisVariants = mp::mp_list<DirectPlacement>; };
-struct T3_PathCompr      { using StaticAxisVariants = mp::mp_list<PathCompressionNone>; };
-struct T4_NodeType       { using StaticAxisVariants = mp::mp_list<Node256NodeType>; };
-struct T5_MemoryLayout   { using StaticAxisVariants = mp::mp_list<CacheLineAligned>; };
-struct T6_Allocator      { using StaticAxisVariants = mp::mp_list<MimallocAllocator>; };
-struct T7_Prefetch       { using StaticAxisVariants = mp::mp_list<NonePrefetch>; };
-struct T8_Concurrency    { using StaticAxisVariants = mp::mp_list<OlcOptimisticConcurrency>; };
-struct T9_Serialization  { using StaticAxisVariants = mp::mp_list<RawBinarySer>; };
-struct T10_Telemetry     { using StaticAxisVariants = mp::mp_list<LeafOnlyCounter>; };
-struct T11_ValueHandle   { using StaticAxisVariants = mp::mp_list<InlineValueHandle>; };
-struct T12_Isa           { using StaticAxisVariants = mp::mp_list<Amd64Isa>; };
-struct T13_IndexOrg      { using StaticAxisVariants = mp::mp_list<IotIndexOrganization>; };
-struct T14_IoDispatch    { using StaticAxisVariants = mp::mp_list<InMemoryOnly>; };
-struct T15_Migration     { using StaticAxisVariants = mp::mp_list<NoMigration>; };
-struct T16_Filter        { using StaticAxisVariants = mp::mp_list<BloomFilter>; };
-struct T17_QueuingQ1     { using StaticAxisVariants = mp::mp_list<NoBuffer>; };   // Doc 30 §8.0
-struct T18_QueuingQ2     { using StaticAxisVariants = mp::mp_list<LazyFlush>; };  // Doc 30 §8.0
+struct T0_SearchAlgo {
+    using StaticAxisVariants = mp::mp_list<Array256SearchAlgo, VectorU8U8SearchAlgo, VectorU16U16SearchAlgo>;
+};
+struct T1_CacheTraversal {
+    using StaticAxisVariants = mp::mp_list<LinearFanout, HashLookup>;
+};
+struct T2_Mapping {
+    using StaticAxisVariants = mp::mp_list<DirectPlacement>;
+};
+struct T3_PathCompr {
+    using StaticAxisVariants = mp::mp_list<PathCompressionNone>;
+};
+struct T4_NodeType {
+    using StaticAxisVariants = mp::mp_list<Node256NodeType>;
+};
+struct T5_MemoryLayout {
+    using StaticAxisVariants = mp::mp_list<CacheLineAligned>;
+};
+struct T6_Allocator {
+    using StaticAxisVariants = mp::mp_list<MimallocAllocator>;
+};
+struct T7_Prefetch {
+    using StaticAxisVariants = mp::mp_list<NonePrefetch>;
+};
+struct T8_Concurrency {
+    using StaticAxisVariants = mp::mp_list<OlcOptimisticConcurrency>;
+};
+struct T9_Serialization {
+    using StaticAxisVariants = mp::mp_list<RawBinarySer>;
+};
+struct T10_Telemetry {
+    using StaticAxisVariants = mp::mp_list<LeafOnlyCounter>;
+};
+struct T11_ValueHandle {
+    using StaticAxisVariants = mp::mp_list<InlineValueHandle>;
+};
+struct T12_Isa {
+    using StaticAxisVariants = mp::mp_list<Amd64Isa>;
+};
+struct T13_IndexOrg {
+    using StaticAxisVariants = mp::mp_list<IotIndexOrganization>;
+};
+struct T14_IoDispatch {
+    using StaticAxisVariants = mp::mp_list<InMemoryOnly>;
+};
+struct T15_Migration {
+    using StaticAxisVariants = mp::mp_list<NoMigration>;
+};
+struct T16_Filter {
+    using StaticAxisVariants = mp::mp_list<BloomFilter>;
+};
+struct T17_QueuingQ1 {
+    using StaticAxisVariants = mp::mp_list<NoBuffer>;
+}; // Doc 30 §8.0
+struct T18_QueuingQ2 {
+    using StaticAxisVariants = mp::mp_list<LazyFlush>;
+}; // Doc 30 §8.0
 
-using PilotDriver = ana::AnatomyPermutationDriver<
-    T0_SearchAlgo, T1_CacheTraversal, T2_Mapping, T3_PathCompr, T4_NodeType,
-    T5_MemoryLayout, T6_Allocator, T7_Prefetch, T8_Concurrency, T9_Serialization,
-    T10_Telemetry, T11_ValueHandle, T12_Isa, T13_IndexOrg, T14_IoDispatch,
-    T15_Migration, T16_Filter, T17_QueuingQ1, T18_QueuingQ2
->;
+using PilotDriver =
+    ana::AnatomyPermutationDriver<T0_SearchAlgo, T1_CacheTraversal, T2_Mapping, T3_PathCompr, T4_NodeType,
+                                  T5_MemoryLayout, T6_Allocator, T7_Prefetch, T8_Concurrency, T9_Serialization,
+                                  T10_Telemetry, T11_ValueHandle, T12_Isa, T13_IndexOrg, T14_IoDispatch, T15_Migration,
+                                  T16_Filter, T17_QueuingQ1, T18_QueuingQ2>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §1 — AdHocComposition Concept-Conformance
 // ─────────────────────────────────────────────────────────────────────────────
 
-using AdHocArt = ana::AdHocComposition<
-    Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256NodeType,
-    CacheLineAligned, MimallocAllocator, NonePrefetch, OlcOptimisticConcurrency, RawBinarySer,
-    LeafOnlyCounter, InlineValueHandle, Amd64Isa, IotIndexOrganization, InMemoryOnly,
-    NoMigration, BloomFilter, NoBuffer, LazyFlush
->;
+using AdHocArt =
+    ana::AdHocComposition<Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256NodeType,
+                          CacheLineAligned, MimallocAllocator, NonePrefetch, OlcOptimisticConcurrency, RawBinarySer,
+                          LeafOnlyCounter, InlineValueHandle, Amd64Isa, IotIndexOrganization, InMemoryOnly, NoMigration,
+                          BloomFilter, NoBuffer, LazyFlush>;
 
 TEST(AnatomyR4_Factory, AdHocCompositionConformsIsComposition) {
     static_assert(ana::IsComposition<AdHocArt>);
@@ -130,8 +166,7 @@ TEST(AnatomyR4_Factory, AdHocCompositionInstantiatesAnatomy) {
     [[maybe_unused]] ana::SearchAlgorithmAnatomy<AdHocArt> algo;
     // R5.B: Composition-Inspection statt Container-Ops
     static_assert(ana::SearchAlgorithmAnatomy<AdHocArt>::organ_count() == 19);
-    static_assert(ana::SearchAlgorithmAnatomy<AdHocArt>::composition_name() ==
-                  std::string_view{"AdHocComposition"});
+    static_assert(ana::SearchAlgorithmAnatomy<AdHocArt>::composition_name() == std::string_view{"AdHocComposition"});
     SUCCEED();
 }
 
@@ -139,12 +174,11 @@ TEST(AnatomyR4_Factory, AdHocCompositionInstantiatesAnatomy) {
 // §2 — CompositionFromPermTuple Materialization
 // ─────────────────────────────────────────────────────────────────────────────
 
-using SamplePermTuple = pe::PermTuple<
-    Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256NodeType,
-    CacheLineAligned, MimallocAllocator, NonePrefetch, OlcOptimisticConcurrency, RawBinarySer,
-    LeafOnlyCounter, InlineValueHandle, Amd64Isa, IotIndexOrganization, InMemoryOnly,
-    NoMigration, BloomFilter, NoBuffer, LazyFlush
->;
+using SamplePermTuple =
+    pe::PermTuple<Array256SearchAlgo, LinearFanout, DirectPlacement, PathCompressionNone, Node256NodeType,
+                  CacheLineAligned, MimallocAllocator, NonePrefetch, OlcOptimisticConcurrency, RawBinarySer,
+                  LeafOnlyCounter, InlineValueHandle, Amd64Isa, IotIndexOrganization, InMemoryOnly, NoMigration,
+                  BloomFilter, NoBuffer, LazyFlush>;
 
 TEST(AnatomyR4_Factory, CompositionFromPermTupleProducesValidComposition) {
     using Materialized = ana::CompositionFromPermTuple<SamplePermTuple>;
@@ -181,15 +215,13 @@ TEST(AnatomyR4_Driver, ForEachAnimalIteratesAllSixTiere) {
     });
     EXPECT_EQ(visited_names.size(), 6u);
     // Alle 6 Tiere haben den Default-Namen AdHocComposition (kein paper_id Unterschied)
-    for (auto n : visited_names) {
-        EXPECT_EQ(n, std::string_view{"AdHocComposition"});
-    }
+    for (auto n : visited_names) { EXPECT_EQ(n, std::string_view{"AdHocComposition"}); }
 }
 
 // Compile-Time Composition-Type-Visitor (fuer CacheEngineBuilder-Pattern)
 TEST(AnatomyR4_Driver, ForEachCompositionTypeVisitsSixTypes) {
     std::size_t visit_count = 0;
-    PilotDriver::for_each_composition_type([&]<class C>(){
+    PilotDriver::for_each_composition_type([&]<class C>() {
         static_assert(ana::IsComposition<C>);
         ++visit_count;
     });
@@ -202,18 +234,15 @@ TEST(AnatomyR4_Driver, ForEachCompositionTypeVisitsSixTypes) {
 
 TEST(AnatomyR4_Driver, EachPermutationIsDistinctTier) {
     std::vector<std::pair<std::string_view, std::string_view>> animals;
-    PilotDriver::for_each_composition_type([&]<class C>(){
+    PilotDriver::for_each_composition_type([&]<class C>() {
         // typeid().name() vergleichen waere unportable; nutze stattdessen
         // sizeof + Composition-Members als Distinguisher
-        animals.emplace_back(
-            typeid(typename C::search_algo).name(),
-            typeid(typename C::cache_traversal).name());
+        animals.emplace_back(typeid(typename C::search_algo).name(), typeid(typename C::cache_traversal).name());
     });
     EXPECT_EQ(animals.size(), 6u);
     // Pruefe dass 3 search_algo × 2 cache_traversal alle distinkten Kombinationen
     // produziert (jedes Tupel sollte unique sein)
-    std::set<std::pair<std::string_view, std::string_view>> unique_animals(
-        animals.begin(), animals.end());
+    std::set<std::pair<std::string_view, std::string_view>> unique_animals(animals.begin(), animals.end());
     EXPECT_EQ(unique_animals.size(), 6u);
 }
 

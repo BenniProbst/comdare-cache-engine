@@ -30,20 +30,18 @@ TEST(AlignmentStrategy, AlignedAllocCacheLine) {
 }
 
 TEST(TestDataSetAccumulationEngine, EmptyOnConstruction) {
-    DummySearchAlgo algo;
+    DummySearchAlgo                                     algo;
     tda::TestDataSetAccumulationEngine<DummySearchAlgo> engine{algo};
     EXPECT_FALSE(engine.all_loaded());
     EXPECT_EQ(engine.loaded_count(), 0u);
 }
 
 TEST(TestDataSetAccumulationEngine, LoadFromMemoryWorks) {
-    DummySearchAlgo algo;
+    DummySearchAlgo                                     algo;
     tda::TestDataSetAccumulationEngine<DummySearchAlgo> engine{algo};
 
     std::array<std::byte, 256> data;
-    for (std::size_t i = 0; i < data.size(); ++i) {
-        data[i] = static_cast<std::byte>(i & 0xFF);
-    }
+    for (std::size_t i = 0; i < data.size(); ++i) { data[i] = static_cast<std::byte>(i & 0xFF); }
     engine.load_dataset_from_memory("ycsb_a", std::span<std::byte const>{data}, 32);
 
     EXPECT_TRUE(engine.all_loaded());
@@ -55,15 +53,12 @@ TEST(TestDataSetAccumulationEngine, LoadFromMemoryWorks) {
 }
 
 TEST(TestDataSetAccumulationEngine, MakeViewProvidesAccess) {
-    DummySearchAlgo algo;
+    DummySearchAlgo                                     algo;
     tda::TestDataSetAccumulationEngine<DummySearchAlgo> engine{algo};
 
     std::vector<std::byte> data(1024);
-    for (std::size_t i = 0; i < data.size(); ++i) {
-        data[i] = static_cast<std::byte>(i & 0xFF);
-    }
-    engine.load_dataset_from_memory(
-        "uniform", std::span<std::byte const>{data.data(), data.size()}, 8);
+    for (std::size_t i = 0; i < data.size(); ++i) { data[i] = static_cast<std::byte>(i & 0xFF); }
+    engine.load_dataset_from_memory("uniform", std::span<std::byte const>{data.data(), data.size()}, 8);
 
     auto view = engine.make_view("uniform");
     EXPECT_EQ(view.name, "uniform");
@@ -72,12 +67,15 @@ TEST(TestDataSetAccumulationEngine, MakeViewProvidesAccess) {
 }
 
 TEST(TestDataSetAccumulationEngine, MultipleDatasetsLoaded) {
-    DummySearchAlgo algo;
+    DummySearchAlgo                                     algo;
     tda::TestDataSetAccumulationEngine<DummySearchAlgo> engine{algo};
 
-    std::array<std::byte, 64> a; a.fill(std::byte{1});
-    std::array<std::byte, 128> b; b.fill(std::byte{2});
-    std::array<std::byte, 256> c; c.fill(std::byte{3});
+    std::array<std::byte, 64> a;
+    a.fill(std::byte{1});
+    std::array<std::byte, 128> b;
+    b.fill(std::byte{2});
+    std::array<std::byte, 256> c;
+    c.fill(std::byte{3});
 
     engine.load_dataset_from_memory("a", std::span<std::byte const>{a});
     engine.load_dataset_from_memory("b", std::span<std::byte const>{b});

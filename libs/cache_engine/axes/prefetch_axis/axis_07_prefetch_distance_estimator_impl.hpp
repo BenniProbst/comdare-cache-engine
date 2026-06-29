@@ -27,8 +27,7 @@ struct DistanceEstimatorImpl {
     static constexpr std::uint8_t kMaxDistance = 16;
 
     /// Schaetzt Prefetch-Distanz (Cache-Lines im Voraus) aus Density [%] + Tier-Latenz [cycles].
-    [[nodiscard]] static constexpr std::uint8_t estimate(double density_percent,
-                                                         double tier_latency_cycles) noexcept {
+    [[nodiscard]] static constexpr std::uint8_t estimate(double density_percent, double tier_latency_cycles) noexcept {
         double sparseness     = 1.0 - (density_percent / 100.0);
         double latency_factor = tier_latency_cycles / 10.0;
         double estimate       = 1.0 + sparseness * 8.0 + latency_factor;
@@ -45,4 +44,4 @@ struct DistanceEstimatorImpl {
     }
 };
 
-}  // namespace comdare::cache_engine::prefetch_axis::impl
+} // namespace comdare::cache_engine::prefetch_axis::impl

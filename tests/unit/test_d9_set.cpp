@@ -20,17 +20,17 @@ namespace cea = comdare::cache_engine::anatomy;
 // Minimales search_algo-API-Organ (key_type + insert(k,v)/lookup(k)/erase(k)/occupied_count()/clear()) auf std::set.
 struct TestKeySet {
     using key_type = std::uint64_t;
-    std::set<std::uint64_t> s;
-    void insert(std::uint64_t k, std::uint64_t /*v*/) { s.insert(k); }
+    std::set<std::uint64_t>                    s;
+    void                                       insert(std::uint64_t k, std::uint64_t /*v*/) { s.insert(k); }
     [[nodiscard]] std::optional<std::uint64_t> lookup(std::uint64_t k) const {
         return s.count(k) ? std::optional<std::uint64_t>{k} : std::nullopt;
     }
-    void erase(std::uint64_t k) { s.erase(k); }
+    void                      erase(std::uint64_t k) { s.erase(k); }
     [[nodiscard]] std::size_t occupied_count() const { return s.size(); }
-    void clear() { s.clear(); }
+    void                      clear() { s.clear(); }
 };
 
-using SC   = cea::SetComposition<TestKeySet, int, int, int, int, int, int, int, int, int, int, int, int, int, int>;
+using SC    = cea::SetComposition<TestKeySet, int, int, int, int, int, int, int, int, int, int, int, int, int, int>;
 using SAnat = cea::SetAnatomy<SC>;
 
 static_assert(cea::IsSetComposition<SC>, "SetComposition muss IsSetComposition erfuellen");
@@ -39,11 +39,20 @@ static_assert(cea::kSetCompositionSlotCount == 15);
 static_assert(SAnat::genus() == cea::AnatomyGenus::Set, "SetAnatomy genus == Set");
 
 static int g_fail = 0;
-template <class A, class B> static void eq(char const* w, A const& g, B const& e) {
-    bool ok = (g == e); std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
-    if (!ok) { std::cout << " (erwartet " << e << ")"; ++g_fail; } std::cout << "\n";
+template <class A, class B>
+static void eq(char const* w, A const& g, B const& e) {
+    bool ok = (g == e);
+    std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
+    if (!ok) {
+        std::cout << " (erwartet " << e << ")";
+        ++g_fail;
+    }
+    std::cout << "\n";
 }
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 int main() {
     std::cout << "==== D9 Set-Typ-Ebene ====\n";

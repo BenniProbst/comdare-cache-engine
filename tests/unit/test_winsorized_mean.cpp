@@ -32,7 +32,7 @@ void expect_near(char const* what, double got, double want, double eps = 1e-6) {
     }
 }
 
-}  // namespace
+} // namespace
 
 int main() {
     std::printf("== test_winsorized_mean (#165-C, P-MD9) ==\n");
@@ -45,9 +45,9 @@ int main() {
 
     // (2) trim_q <= 0 → exakt das arithmetische Mittel (kein Clamping).
     {
-        std::vector<std::int64_t> v{10, 20, 30, 40, 50};   // mean = 30
+        std::vector<std::int64_t> v{10, 20, 30, 40, 50}; // mean = 30
         expect_near("trim_q=0 == mean", stats::winsorized_mean_ns(std::span<const std::int64_t>{v}, 0.0), 30.0);
-        expect_near("mean baseline",    stats::latency_mean_ns(std::span<const std::int64_t>{v}),         30.0);
+        expect_near("mean baseline", stats::latency_mean_ns(std::span<const std::int64_t>{v}), 30.0);
     }
 
     // (3) KERN-AUSREISSER-ROBUSTHEIT: ein extremer Ausreisser zieht das arithmetische Mittel stark hoch, das
@@ -55,7 +55,7 @@ int main() {
     //     Datensatz: neun normale Werte 100..100 + EIN Spike 100000.
     {
         std::vector<std::int64_t> v{100, 100, 100, 100, 100, 100, 100, 100, 100, 100000};
-        double const plain = stats::latency_mean_ns(std::span<const std::int64_t>{v});         // (9*100+100000)/10 = 10090
+        double const plain = stats::latency_mean_ns(std::span<const std::int64_t>{v}); // (9*100+100000)/10 = 10090
         expect_near("plain mean (spike)", plain, 10090.0);
         // trim_q=0.1: untere Grenze P(0.1), obere Grenze P(0.9). Nearest-Rank ueber n=10:
         //   k_lo = floor(0.1*10)=1 → 1.-kleinster (sortiert 100..100,100000) = 100.
@@ -67,27 +67,38 @@ int main() {
         double const wins = stats::winsorized_mean_ns(std::span<const std::int64_t>{v}, 0.2);
         expect_near("winsorized mean (spike clamped to 100)", wins, 100.0);
         // Robustheits-Aussage: das winsorisierte Mittel liegt drastisch unter dem arithmetischen Mittel.
-        if (!(wins < plain)) { std::printf("[FAIL] winsorized(%.3f) should be < plain mean(%.3f)\n", wins, plain); ++g_failures; }
-        else                 { std::printf("[ ok ] winsorized < plain (%.3f < %.3f)\n", wins, plain); }
+        if (!(wins < plain)) {
+            std::printf("[FAIL] winsorized(%.3f) should be < plain mean(%.3f)\n", wins, plain);
+            ++g_failures;
+        } else {
+            std::printf("[ ok ] winsorized < plain (%.3f < %.3f)\n", wins, plain);
+        }
     }
 
     // (4) Symmetrischer Trim mit beidseitigen Ausreissern: 1 sehr klein + 1 sehr gross, Rest = 500.
     //     trim_q=0.2 clampt beide Extrema auf die jeweilige innere Grenze (= 500) → Mittel = 500.
     {
         std::vector<std::int64_t> v{1, 500, 500, 500, 500, 500, 500, 500, 500, 99999};
-        double const wins = stats::winsorized_mean_ns(std::span<const std::int64_t>{v}, 0.2);
+        double const              wins = stats::winsorized_mean_ns(std::span<const std::int64_t>{v}, 0.2);
         expect_near("winsorized two-sided -> 500", wins, 500.0);
     }
 
     // (5) trim_q >= 0.5 wird sicher geklemmt (kein Kollaps/keine NaN); Ergebnis endlich + plausibel (= Median-nah).
     {
         std::vector<std::int64_t> v{10, 20, 30, 40, 1000};
-        double const wins = stats::winsorized_mean_ns(std::span<const std::int64_t>{v}, 0.9);
-        if (!std::isfinite(wins)) { std::printf("[FAIL] trim_q=0.9 produced non-finite %.3f\n", wins); ++g_failures; }
-        else                      { std::printf("[ ok ] trim_q>=0.5 clamped, finite (%.3f)\n", wins); }
+        double const              wins = stats::winsorized_mean_ns(std::span<const std::int64_t>{v}, 0.9);
+        if (!std::isfinite(wins)) {
+            std::printf("[FAIL] trim_q=0.9 produced non-finite %.3f\n", wins);
+            ++g_failures;
+        } else {
+            std::printf("[ ok ] trim_q>=0.5 clamped, finite (%.3f)\n", wins);
+        }
     }
 
-    if (g_failures == 0) { std::printf("ALL PASS (test_winsorized_mean)\n"); return 0; }
+    if (g_failures == 0) {
+        std::printf("ALL PASS (test_winsorized_mean)\n");
+        return 0;
+    }
     std::printf("FAILURES: %d (test_winsorized_mean)\n", g_failures);
     return 1;
 }

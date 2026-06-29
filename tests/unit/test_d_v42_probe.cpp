@@ -17,14 +17,17 @@ namespace a = comdare::cache_engine::anatomy;
 
 int main() {
     std::cout << "==== V42-Probe: telemetry-Achse Composition-Driver-Tauglichkeit ====\n";
-    std::cout << "InsertCounter:    default_constructible=" << std::is_default_constructible_v<t::InsertCounter>
-              << "  ObservableAxis=" << a::ObservableAxis<t::InsertCounter> << "\n";
-    std::cout << "DensityTracker:   default_constructible=" << std::is_default_constructible_v<t::DensityTracker>
-              << "  ObservableAxis=" << a::ObservableAxis<t::DensityTracker> << "\n";
-    std::cout << "LatencyHistogram: default_constructible=" << std::is_default_constructible_v<t::LatencyHistogram>
-              << "  ObservableAxis=" << a::ObservableAxis<t::LatencyHistogram> << "\n";
+    std::cout << "InsertCounter:    default_constructible="
+              << std::is_default_constructible_v<t::InsertCounter> << "  ObservableAxis="
+              << a::ObservableAxis<t::InsertCounter> << "\n";
+    std::cout << "DensityTracker:   default_constructible="
+              << std::is_default_constructible_v<t::DensityTracker> << "  ObservableAxis="
+              << a::ObservableAxis<t::DensityTracker> << "\n";
+    std::cout << "LatencyHistogram: default_constructible="
+              << std::is_default_constructible_v<t::LatencyHistogram> << "  ObservableAxis="
+              << a::ObservableAxis<t::LatencyHistogram> << "\n";
     // Direktes Halten (der im search_algorithm_anatomy.hpp:59 genannte Block — gilt er fuer telemetry-Derived?):
-    t::InsertCounter ic;  // kompiliert dies, ist der protected CRTP-Base-ctor KEIN Block fuer den Derived-Member
+    t::InsertCounter ic; // kompiliert dies, ist der protected CRTP-Base-ctor KEIN Block fuer den Derived-Member
     (void)ic;
     std::cout << "InsertCounter als lokales Member/Objekt: KONSTRUIERT (kein CRTP-Block fuer Derived)\n";
     std::cout << "\n==== Befund dokumentiert (Doc 29 §3 Praezisierung) ====\n";

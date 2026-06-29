@@ -40,4 +40,4 @@ struct memory_topology_tag {};
 /// 64K-arm-server, 1G-gigantic-hugepage.
 struct page_topology_tag {};
 
-}  // namespace comdare::cache_engine::hardware::axis_12_general_hardware::subaxes
+} // namespace comdare::cache_engine::hardware::axis_12_general_hardware::subaxes

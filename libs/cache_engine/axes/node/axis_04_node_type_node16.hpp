@@ -24,9 +24,11 @@ public:
     static constexpr bool enabled = flags::node16_enabled;
 
     [[nodiscard]] static constexpr std::size_t      max_capacity() noexcept { return 16; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "node16"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "Node16NodeType (ART medium, SIMD-binary-search 16-slot)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "NODE16"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "node16"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "Node16NodeType (ART medium, SIMD-binary-search 16-slot)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "NODE16"; }
 
     // KF-6 (2026-06-02): Run-Body DIVERGENT je ART-Format. Node16 = SIMD-binary-search-Format (hier
     // Baseline-Linear) über bis zu 16 sortierte Schlüssel — höhere Kapazitätsgrenze als Node4 (→ andere
@@ -34,8 +36,8 @@ public:
     [[nodiscard]] static std::uint64_t node_find_scan(std::uint8_t const* stored, std::size_t n,
                                                       std::uint8_t const* queries, std::size_t q) noexcept {
         cacheline_prefetch(stored);
-        std::size_t const cap = (n < 16) ? n : 16;        // ART Node16 hält ≤ 16 Schlüssel
-        std::uint64_t sum = 0;
+        std::size_t const cap = (n < 16) ? n : 16; // ART Node16 hält ≤ 16 Schlüssel
+        std::uint64_t     sum = 0;
         for (std::size_t i = 0; i < q; ++i) {
             std::uint8_t const key = queries[i];
             for (std::size_t j = 0; j < cap; ++j) {
@@ -47,9 +49,9 @@ public:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::node
 
 namespace comdare::cache_engine::node {
-    static_assert(concepts::NodeTypeStrategy<Node16NodeType>);
-    static_assert(concepts::CacheEnginePermutationStrategy<Node16NodeType>);
-}
+static_assert(concepts::NodeTypeStrategy<Node16NodeType>);
+static_assert(concepts::CacheEnginePermutationStrategy<Node16NodeType>);
+} // namespace comdare::cache_engine::node

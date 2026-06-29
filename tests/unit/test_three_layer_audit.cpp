@@ -26,21 +26,21 @@ TEST(ThreeLayerAudit, INodeIsSlotMicroReference) {
     IntNode node{};
     EXPECT_EQ(node.placement_page(), nullptr);
     EXPECT_EQ(node.slot_index(), 0u);
-    EXPECT_EQ(node.kind(), pa::NodeRefKind::ValueRef);  // Default
+    EXPECT_EQ(node.kind(), pa::NodeRefKind::ValueRef); // Default
 }
 
 TEST(ThreeLayerAudit, IRootNodeReplacesIRootPage) {
     // REV 5.1: Wurzel ist KONZEPTIONELL (IRootNode), NICHT physisch (war: IRootPage)
     // Diese Datei kann nicht IRootPage einschliessen (existiert nicht mehr).
     using IntRoot = pa::IRootNode<int, int>;
-    EXPECT_TRUE(std::is_abstract_v<IntRoot>);  // weil algorithm_signature pure-virtual
+    EXPECT_TRUE(std::is_abstract_v<IntRoot>); // weil algorithm_signature pure-virtual
 }
 
 TEST(ThreeLayerAudit, IFanoutHasPagesNotNodes) {
     // REV 5.1 Korrektur: IFanout HAT ISearchPages (nicht INodes direkt)
     using IntFanout = pa::IFanout<int, int>;
     IntFanout fanout{};
-    EXPECT_EQ(fanout.pages_count(), 0u);  // initial leer
+    EXPECT_EQ(fanout.pages_count(), 0u); // initial leer
     // INodes sind nur INDIREKT ueber ISearchPage erreichbar.
 }
 

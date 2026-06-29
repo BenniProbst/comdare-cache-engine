@@ -43,27 +43,36 @@ namespace ex   = ::comdare::cache_engine::builder::experiment;
 namespace pc   = ::comdare::cache_engine::path_compression;
 namespace ixo  = ::comdare::cache_engine::index_organization;
 
-static int g_fail = 0;
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+static int  g_fail = 0;
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 static bool is_filled(int t) {
     return t >= 0 && t < static_cast<int>(an::kV3AxisCount) && an::kV3AxisSchema[t].names[0] != nullptr;
 }
 static std::uint64_t row_sum(an::ComdareTierObserverSnapshot const& s, int t) {
-    std::uint64_t v = 0; for (std::size_t f = 0; f < an::kV3FieldCount; ++f) v += s.axis_stats[t][f]; return v;
+    std::uint64_t v = 0;
+    for (std::size_t f = 0; f < an::kV3FieldCount; ++f) v += s.axis_stats[t][f];
+    return v;
 }
 
 template <class C>
 static an::ComdareTierObserverSnapshot measure_v3(char const* name, std::string& csv_out) {
     using Anatomy = an::SearchAlgorithmAnatomy<C>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
-    auto* base = static_cast<an::IAnatomyBase*>(&tier);
-    auto* obs  = dynamic_cast<an::IObservableTier*>(base);
-    ex::PermResult const pr = ex::run_observable_perm(*obs, name, /*n_ops=*/1000);
+    auto*                                  base = static_cast<an::IAnatomyBase*>(&tier);
+    auto*                                  obs  = dynamic_cast<an::IObservableTier*>(base);
+    ex::PermResult const                   pr   = ex::run_observable_perm(*obs, name, /*n_ops=*/1000);
 
     ex::LazyMeasuredRow row;
-    row.binary_id = name; row.setting_label = "-"; row.n_ops = pr.n_ops; row.total_ns = pr.total_ns;
-    row.v3 = pr.v3; row.v3_real = pr.v3_real;
+    row.binary_id     = name;
+    row.setting_label = "-";
+    row.n_ops         = pr.n_ops;
+    row.total_ns      = pr.total_ns;
+    row.v3            = pr.v3;
+    row.v3_real       = pr.v3_real;
     csv_out += ex::format_csv_row(row);
 
     std::cout << "  " << name << ": filled_axis_count=" << pr.v3.filled_axis_count << "  T0..T18 row_sum=";
@@ -91,13 +100,16 @@ static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s
 int main() {
     std::cout << "==== Phase B Abschluss: Per-Achsen-Observer-V3 ALLE 19 Achsen (search_algo_grid) ====\n";
 
-    std::string csv = ex::lazy_csv_header();
-    auto art  = measure_v3<comp::ArtComposition>("ArtComposition", csv);
-    auto hot  = measure_v3<comp::HotComposition>("HotComposition", csv);
-    auto mass = measure_v3<comp::MasstreeComposition>("MasstreeComposition", csv);
+    std::string csv  = ex::lazy_csv_header();
+    auto        art  = measure_v3<comp::ArtComposition>("ArtComposition", csv);
+    auto        hot  = measure_v3<comp::HotComposition>("HotComposition", csv);
+    auto        mass = measure_v3<comp::MasstreeComposition>("MasstreeComposition", csv);
 
     char const* out_path = "build/thesis_tiere/obs_phaseB_pilot.csv";
-    { std::ofstream f{out_path, std::ios::trunc}; if (f) f << csv; }
+    {
+        std::ofstream f{out_path, std::ios::trunc};
+        if (f) f << csv;
+    }
     std::cout << "CSV: " << out_path << "\n";
 
     check_one<comp::ArtComposition>("Art", art);
@@ -118,8 +130,7 @@ int main() {
     auto pc_byte = drive_pc(pc::ObservablePathCompression<pc::ByteWisePathCompression>{});
     auto pc_patr = drive_pc(pc::ObservablePathCompression<pc::PatriciaPathCompression>{});
     std::cout << "  T3 compress prefix_len_total: None=" << pc_none.prefix_len_total
-              << " ByteWise=" << pc_byte.prefix_len_total
-              << " Patricia=" << pc_patr.prefix_len_total << "\n";
+              << " ByteWise=" << pc_byte.prefix_len_total << " Patricia=" << pc_patr.prefix_len_total << "\n";
     // Patricia addiert die 1-Bit-Descent-Schritte → prefix_len_total != ByteWise/None (echte Strategie-Charakteristik).
     tr("T3: Patricia.prefix_len_total != ByteWise.prefix_len_total (1-Bit vs 8-Bit Descent)",
        pc_patr.prefix_len_total != pc_byte.prefix_len_total);
@@ -133,8 +144,7 @@ int main() {
     auto ix_heap = drive_ix(ixo::ObservableIndexOrg<ixo::HeapIndexOrganization>{});
     auto ix_clus = drive_ix(ixo::ObservableIndexOrg<ixo::ClusteredIndexOrganization>{});
     auto ix_nonc = drive_ix(ixo::ObservableIndexOrg<ixo::NonClusteredIndexOrganization>{});
-    std::cout << "  T13 predicate_evals: Heap=" << ix_heap.predicate_evals
-              << " Clustered=" << ix_clus.predicate_evals
+    std::cout << "  T13 predicate_evals: Heap=" << ix_heap.predicate_evals << " Clustered=" << ix_clus.predicate_evals
               << " | indirect_lookups: NonClustered=" << ix_nonc.indirect_lookups << "\n";
     tr("T13: Heap.predicate_evals > 0 (nicht-clustered Full-Scan)", ix_heap.predicate_evals > 0);
     tr("T13: Clustered.predicate_evals == 0 (sequential, honest)", ix_clus.predicate_evals == 0);

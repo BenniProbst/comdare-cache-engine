@@ -13,43 +13,46 @@
 namespace comdare::cache_engine::anatomy {
 
 /// axis_extent: statische vs. dynamische Ausdehnung (mdspan extents).
-template <class P> concept ExtentPolicy = requires(P p) {
+template <class P>
+concept ExtentPolicy = requires(P p) {
     { p.is_static() } -> std::convertible_to<bool>;
     { p.static_extent() } -> std::convertible_to<std::size_t>;
 };
 /// axis_layout: index_of(coord) → linearer Offset (mdspan layout_left/right/stride).
-template <class P> concept LayoutPolicy = requires(P p, std::size_t i) {
+template <class P>
+concept LayoutPolicy = requires(P p, std::size_t i) {
     { p.index_of(i) } -> std::convertible_to<std::size_t>;
 };
 /// axis_accessor: access(ptr, offset) → Element (mdspan default/aligned accessor).
-template <class P> concept AccessorPolicy = requires(P p, std::uint64_t const* d, std::size_t i) {
+template <class P>
+concept AccessorPolicy = requires(P p, std::uint64_t const* d, std::size_t i) {
     { p.access(d, i) } -> std::convertible_to<std::uint64_t>;
 };
 
-struct DynamicExtent {  // Default-axis_extent: Ausdehnung erst zur Laufzeit (bind) bekannt.
-    [[nodiscard]] bool        is_static()     const noexcept { return false; }
-    [[nodiscard]] std::size_t static_extent() const noexcept { return ~std::size_t{0}; }  // dynamic_extent
+struct DynamicExtent { // Default-axis_extent: Ausdehnung erst zur Laufzeit (bind) bekannt.
+    [[nodiscard]] bool        is_static() const noexcept { return false; }
+    [[nodiscard]] std::size_t static_extent() const noexcept { return ~std::size_t{0}; } // dynamic_extent
 };
-struct LayoutRight {    // Default-axis_layout: row-major 1D → Offset == Index.
+struct LayoutRight { // Default-axis_layout: row-major 1D → Offset == Index.
     [[nodiscard]] std::size_t index_of(std::size_t i) const noexcept { return i; }
 };
-struct DefaultAccessor {  // Default-axis_accessor: direkter Element-Zugriff.
+struct DefaultAccessor { // Default-axis_accessor: direkter Element-Zugriff.
     [[nodiscard]] std::uint64_t access(std::uint64_t const* d, std::size_t i) const noexcept { return d[i]; }
 };
 
 /// ViewComposition<T0..T3, Extent, Layout, Accessor> — 4 geteilte Achsen (§28 Plant) + 3 eigene. non-owning.
-template <class T0, class T1, class T2, class T3,
-          class Extent = DynamicExtent, class Layout = LayoutRight, class Accessor = DefaultAccessor>
+template <class T0, class T1, class T2, class T3, class Extent = DynamicExtent, class Layout = LayoutRight,
+          class Accessor = DefaultAccessor>
 struct ViewComposition {
-    using memory_layout = T0;   // axis_05
-    using telemetry     = T1;   // axis_11
-    using value_handle  = T2;   // axis_14
-    using isa           = T3;   // axis_09
-    using extent_policy   = Extent;     // NEU axis_extent
-    using layout_policy   = Layout;     // NEU axis_layout
-    using accessor_policy = Accessor;   // NEU axis_accessor
+    using memory_layout   = T0;       // axis_05
+    using telemetry       = T1;       // axis_11
+    using value_handle    = T2;       // axis_14
+    using isa             = T3;       // axis_09
+    using extent_policy   = Extent;   // NEU axis_extent
+    using layout_policy   = Layout;   // NEU axis_layout
+    using accessor_policy = Accessor; // NEU axis_accessor
 
-    static constexpr std::size_t      slot_count = 7;   // 4 geteilt + extent/layout/accessor
+    static constexpr std::size_t      slot_count = 7; // 4 geteilt + extent/layout/accessor
     static constexpr std::string_view name       = "ViewComposition";
     static constexpr std::string_view paper_id   = "P00 View Gattung (Pflanze, non-owning)";
 };
@@ -57,11 +60,16 @@ struct ViewComposition {
 /// IsViewComposition — Concept: 4 geteilte named Achsen + extent/layout/accessor. Kein allocator/concurrency (non-owning).
 template <class C>
 concept IsViewComposition = requires {
-    typename C::memory_layout;  typename C::telemetry;  typename C::value_handle;  typename C::isa;
-    typename C::extent_policy;   typename C::layout_policy;   typename C::accessor_policy;
+    typename C::memory_layout;
+    typename C::telemetry;
+    typename C::value_handle;
+    typename C::isa;
+    typename C::extent_policy;
+    typename C::layout_policy;
+    typename C::accessor_policy;
     { C::slot_count } -> std::convertible_to<std::size_t>;
 };
 
 inline constexpr std::size_t kViewCompositionSlotCount = 7;
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

@@ -29,48 +29,46 @@ concept MasstreeLayerNodePool =
         typename S::key_type;
         typename S::value_type;
         { S::kNil } -> std::convertible_to<std::size_t>;
-    }
-    && std::same_as<typename S::key_type, std::uint64_t>
-    && std::same_as<typename S::value_type, std::uint64_t>
-    && requires(S& s, S const& cs, std::size_t ref, int slot, int logical,
-                std::uint64_t sl, std::uint8_t kl, typename S::value_type v) {
+    } && std::same_as<typename S::key_type, std::uint64_t> && std::same_as<typename S::value_type, std::uint64_t> &&
+    requires(S& s, S const& cs, std::size_t ref, int slot, int logical, std::uint64_t sl, std::uint8_t kl,
+             typename S::value_type v) {
         // (A) Wurzel + Groesse
-        { cs.root() }   -> std::convertible_to<std::size_t>;
-        { cs.size() }   -> std::convertible_to<std::size_t>;     // logische Schluesselzahl
+        { cs.root() } -> std::convertible_to<std::size_t>;
+        { cs.size() } -> std::convertible_to<std::size_t>; // logische Schluesselzahl
         { s.set_root(ref) } -> std::same_as<void>;
-        { s.inc_size() }    -> std::same_as<void>;
-        { s.dec_size() }    -> std::same_as<void>;
-        { s.clear() }       -> std::same_as<void>;
+        { s.inc_size() } -> std::same_as<void>;
+        { s.dec_size() } -> std::same_as<void>;
+        { s.clear() } -> std::same_as<void>;
         { cs.is_leaf(ref) } -> std::same_as<bool>;
-        { s.free_node(ref) }-> std::same_as<void>;
+        { s.free_node(ref) } -> std::same_as<void>;
         // (B) Leaf — kpermuter-Slots (DISTINKTION: Permutationswort statt physischem Array-Shift)
-        { s.new_leaf() }                     -> std::convertible_to<std::size_t>;   // leerer Leaf; darf werfen
-        { cs.leaf_size(ref) }                -> std::convertible_to<int>;           // aus Permutation (perm & 15)
-        { cs.leaf_perm_at(ref, logical) }    -> std::convertible_to<int>;           // logical -> physischer Slot (perm[i])
-        { s.leaf_alloc_slot(ref) }           -> std::convertible_to<int>;           // peek back() (naechster freier phys)
-        { s.leaf_perm_insert(ref, logical) } -> std::convertible_to<int>;           // insert_from_back(logical) -> phys
-        { s.leaf_perm_remove(ref, logical) } -> std::same_as<void>;                 // remove(logical) (Slot recycelt)
-        { s.leaf_set_sorted_size(ref, slot) } -> std::same_as<void>;                // perm = make_sorted(n) (Split-Rebuild)
-        { cs.leaf_slice_at(ref, slot) }      -> std::convertible_to<std::uint64_t>;
+        { s.new_leaf() } -> std::convertible_to<std::size_t>;             // leerer Leaf; darf werfen
+        { cs.leaf_size(ref) } -> std::convertible_to<int>;                // aus Permutation (perm & 15)
+        { cs.leaf_perm_at(ref, logical) } -> std::convertible_to<int>;    // logical -> physischer Slot (perm[i])
+        { s.leaf_alloc_slot(ref) } -> std::convertible_to<int>;           // peek back() (naechster freier phys)
+        { s.leaf_perm_insert(ref, logical) } -> std::convertible_to<int>; // insert_from_back(logical) -> phys
+        { s.leaf_perm_remove(ref, logical) } -> std::same_as<void>;       // remove(logical) (Slot recycelt)
+        { s.leaf_set_sorted_size(ref, slot) } -> std::same_as<void>;      // perm = make_sorted(n) (Split-Rebuild)
+        { cs.leaf_slice_at(ref, slot) } -> std::convertible_to<std::uint64_t>;
         { s.leaf_set_slice_at(ref, slot, sl) } -> std::same_as<void>;
-        { cs.leaf_keylenx_at(ref, slot) }    -> std::convertible_to<int>;           // 8 = Inline-Wert, 128 = Layer
+        { cs.leaf_keylenx_at(ref, slot) } -> std::convertible_to<int>; // 8 = Inline-Wert, 128 = Layer
         { s.leaf_set_keylenx_at(ref, slot, kl) } -> std::same_as<void>;
-        { cs.leaf_value_at(ref, slot) }      -> std::convertible_to<typename S::value_type>;
-        { s.leaf_set_value_at(ref, slot, v) }-> std::same_as<void>;
-        { cs.leaf_layer_at(ref, slot) }      -> std::convertible_to<std::size_t>;   // Sub-Layer-Wurzel (keylenx==128)
+        { cs.leaf_value_at(ref, slot) } -> std::convertible_to<typename S::value_type>;
+        { s.leaf_set_value_at(ref, slot, v) } -> std::same_as<void>;
+        { cs.leaf_layer_at(ref, slot) } -> std::convertible_to<std::size_t>; // Sub-Layer-Wurzel (keylenx==128)
         { s.leaf_set_layer_at(ref, slot, ref) } -> std::same_as<void>;
-        { cs.leaf_next(ref) }                -> std::convertible_to<std::size_t>;   // B-link
-        { cs.leaf_prev(ref) }                -> std::convertible_to<std::size_t>;
-        { s.leaf_set_next(ref, ref) }        -> std::same_as<void>;
-        { s.leaf_set_prev(ref, ref) }        -> std::same_as<void>;
+        { cs.leaf_next(ref) } -> std::convertible_to<std::size_t>; // B-link
+        { cs.leaf_prev(ref) } -> std::convertible_to<std::size_t>;
+        { s.leaf_set_next(ref, ref) } -> std::same_as<void>;
+        { s.leaf_set_prev(ref, ref) } -> std::same_as<void>;
         // (C) Internode — B+Baum-Branch (n Slices, n+1 Kinder)
-        { s.new_internode() }                -> std::convertible_to<std::size_t>;   // darf werfen
-        { cs.inode_n(ref) }                  -> std::convertible_to<int>;
-        { s.inode_set_n(ref, slot) }         -> std::same_as<void>;
-        { cs.inode_slice_at(ref, slot) }     -> std::convertible_to<std::uint64_t>;
+        { s.new_internode() } -> std::convertible_to<std::size_t>; // darf werfen
+        { cs.inode_n(ref) } -> std::convertible_to<int>;
+        { s.inode_set_n(ref, slot) } -> std::same_as<void>;
+        { cs.inode_slice_at(ref, slot) } -> std::convertible_to<std::uint64_t>;
         { s.inode_set_slice_at(ref, slot, sl) } -> std::same_as<void>;
-        { cs.inode_child_at(ref, slot) }     -> std::convertible_to<std::size_t>;
+        { cs.inode_child_at(ref, slot) } -> std::convertible_to<std::size_t>;
         { s.inode_set_child_at(ref, slot, ref) } -> std::same_as<void>;
     };
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

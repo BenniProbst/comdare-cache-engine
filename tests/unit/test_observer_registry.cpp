@@ -9,8 +9,8 @@ namespace ce = comdare::cache_engine;
 
 namespace {
 struct CountingObserver : ce::IObserver {
-    int total_events = 0;
-    int filtered_writes = 0;
+    int  total_events       = 0;
+    int  filtered_writes    = 0;
     bool accept_writes_only = false;
 
     void on_event(ce::Event const& e) noexcept override {
@@ -22,25 +22,25 @@ struct CountingObserver : ce::IObserver {
         return true;
     }
 };
-}  // namespace
+} // namespace
 
 TEST(ObserverRegistry, EmptyRegistryDispatchesNoEvent) {
-    ce::ObserverRegistry reg;
+    ce::ObserverRegistry    reg;
     ce::PageRelocationEvent e{};
     e.module_id = 1;
-    e.kind = ce::EventKind::PageRelocation;
+    e.kind      = ce::EventKind::PageRelocation;
     EXPECT_NO_THROW(reg.dispatch(e));
     EXPECT_EQ(reg.observer_count(1), 0u);
 }
 
 TEST(ObserverRegistry, RegistersAndDispatchesPerModule) {
     ce::ObserverRegistry reg;
-    CountingObserver obs;
+    CountingObserver     obs;
     reg.register_observer(7, &obs);
 
     ce::Event e{};
     e.module_id = 7;
-    e.kind = ce::EventKind::Write;
+    e.kind      = ce::EventKind::Write;
     reg.dispatch(e);
     reg.dispatch(e);
     reg.dispatch(e);
@@ -52,12 +52,12 @@ TEST(ObserverRegistry, RegistersAndDispatchesPerModule) {
 
 TEST(ObserverRegistry, EventToWrongModuleIsNotDelivered) {
     ce::ObserverRegistry reg;
-    CountingObserver obs;
+    CountingObserver     obs;
     reg.register_observer(1, &obs);
 
     ce::Event e{};
-    e.module_id = 2;       // anderes Modul
-    e.kind = ce::EventKind::Write;
+    e.module_id = 2; // anderes Modul
+    e.kind      = ce::EventKind::Write;
     reg.dispatch(e);
 
     EXPECT_EQ(obs.total_events, 0);
@@ -65,14 +65,16 @@ TEST(ObserverRegistry, EventToWrongModuleIsNotDelivered) {
 
 TEST(ObserverRegistry, RespectsAcceptsFilter) {
     ce::ObserverRegistry reg;
-    CountingObserver obs;
+    CountingObserver     obs;
     obs.accept_writes_only = true;
     reg.register_observer(1, &obs);
 
     ce::Event w{};
-    w.module_id = 1; w.kind = ce::EventKind::Write;
+    w.module_id = 1;
+    w.kind      = ce::EventKind::Write;
     ce::Event b{};
-    b.module_id = 1; b.kind = ce::EventKind::ConsolidationBarrier;
+    b.module_id = 1;
+    b.kind      = ce::EventKind::ConsolidationBarrier;
 
     reg.dispatch(w);
     reg.dispatch(b);
@@ -84,12 +86,13 @@ TEST(ObserverRegistry, RespectsAcceptsFilter) {
 
 TEST(ObserverRegistry, MultipleObserversPerModule) {
     ce::ObserverRegistry reg;
-    CountingObserver a, b;
+    CountingObserver     a, b;
     reg.register_observer(1, &a);
     reg.register_observer(1, &b);
 
     ce::Event e{};
-    e.module_id = 1; e.kind = ce::EventKind::Sampling;
+    e.module_id = 1;
+    e.kind      = ce::EventKind::Sampling;
     reg.dispatch(e);
 
     EXPECT_EQ(a.total_events, 1);
@@ -99,13 +102,14 @@ TEST(ObserverRegistry, MultipleObserversPerModule) {
 
 TEST(ObserverRegistry, UnregisterModuleRemovesAllObservers) {
     ce::ObserverRegistry reg;
-    CountingObserver a, b;
+    CountingObserver     a, b;
     reg.register_observer(1, &a);
     reg.register_observer(1, &b);
     reg.unregister_module(1);
 
     ce::Event e{};
-    e.module_id = 1; e.kind = ce::EventKind::Sampling;
+    e.module_id = 1;
+    e.kind      = ce::EventKind::Sampling;
     reg.dispatch(e);
 
     EXPECT_EQ(a.total_events, 0);
@@ -115,7 +119,7 @@ TEST(ObserverRegistry, UnregisterModuleRemovesAllObservers) {
 
 TEST(ObserverRegistry, ClearRemovesEverything) {
     ce::ObserverRegistry reg;
-    CountingObserver a, b;
+    CountingObserver     a, b;
     reg.register_observer(1, &a);
     reg.register_observer(2, &b);
     reg.clear();

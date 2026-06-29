@@ -23,14 +23,16 @@ public:
     static constexpr bool enabled = flags::insert_counter_enabled;
 
     [[nodiscard]] static constexpr bool             is_leaf_only() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "telemetry_insert_counter"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "InsertCounter (HOT global insert counter, low-overhead)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "INSERT_COUNTER"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "telemetry_insert_counter"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "InsertCounter (HOT global insert counter, low-overhead)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "INSERT_COUNTER"; }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::telemetry_axis
 
 namespace comdare::cache_engine::telemetry_axis {
-    static_assert(concepts::TelemetryStrategy<InsertCounter>);
-    static_assert(concepts::CacheEnginePermutationStrategy<InsertCounter>);
-}
+static_assert(concepts::TelemetryStrategy<InsertCounter>);
+static_assert(concepts::CacheEnginePermutationStrategy<InsertCounter>);
+} // namespace comdare::cache_engine::telemetry_axis

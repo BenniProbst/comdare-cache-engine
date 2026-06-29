@@ -47,17 +47,19 @@ public:
     using size_type       = std::size_t;
     using topic_tag       = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag        = subaxes::pool_relative_access_tag;
-    using family_id       = std::integral_constant<int, 2>;  // MP02
+    using family_id       = std::integral_constant<int, 2>; // MP02
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "pool_relative"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "PoolRelative (prt-art CustomAlignedStructure pool-relative)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "POOL_RELATIVE"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "pool_relative"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "PoolRelative (prt-art CustomAlignedStructure pool-relative)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "POOL_RELATIVE"; }
 
-    [[nodiscard]] static constexpr bool is_pool_relative()        noexcept { return true; }
+    [[nodiscard]] static constexpr bool is_pool_relative() noexcept { return true; }
     [[nodiscard]] static constexpr bool supports_reverse_lookup() noexcept { return true; }
     /// SONDERFALL: Constructor benoetigt pool_base_address.
-    [[nodiscard]] static constexpr bool requires_pool_base()      noexcept { return true; }
+    [[nodiscard]] static constexpr bool requires_pool_base() noexcept { return true; }
 
     /// Default-Constructor (pool_base=0 fuer Test-Builds).
     PoolRelative() noexcept : pool_base_(0) {}
@@ -71,8 +73,7 @@ public:
     /// Stored: offset relativ zu pool_base_ (positiv). Negativ-Offsets sind verboten.
     void register_slot(slot_index_type s, offset_type absolute_offset) {
         offset_type relative = (absolute_offset >= pool_base_) ? (absolute_offset - pool_base_) : 0;
-        auto it = std::find_if(mappings_.begin(), mappings_.end(),
-            [s](auto const& m) { return m.first == s; });
+        auto        it = std::find_if(mappings_.begin(), mappings_.end(), [s](auto const& m) { return m.first == s; });
         if (it != mappings_.end()) {
             it->second = relative;
         } else {
@@ -87,12 +88,13 @@ public:
 
     /// Liefert absoluten Offset = pool_base_ + relativ.
     [[nodiscard]] std::optional<offset_type> resolve_offset(slot_index_type s) const {
-        auto it = std::find_if(mappings_.begin(), mappings_.end(),
-            [s](auto const& m) { return m.first == s; });
+        auto it = std::find_if(mappings_.begin(), mappings_.end(), [s](auto const& m) { return m.first == s; });
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_resolve_count;
-        if (it != mappings_.end()) ++stats_.total_resolve_hit_count;
-        else                        ++stats_.total_resolve_miss_count;
+        if (it != mappings_.end())
+            ++stats_.total_resolve_hit_count;
+        else
+            ++stats_.total_resolve_miss_count;
         observer_.notify(stats_);
 #endif
         if (it == mappings_.end()) return std::nullopt;
@@ -102,8 +104,8 @@ public:
     [[nodiscard]] std::optional<slot_index_type> reverse_lookup(offset_type absolute_offset) const {
         if (absolute_offset < pool_base_) return std::nullopt;
         offset_type relative = absolute_offset - pool_base_;
-        auto it = std::find_if(mappings_.begin(), mappings_.end(),
-            [relative](auto const& m) { return m.second == relative; });
+        auto        it       = std::find_if(mappings_.begin(), mappings_.end(),
+                                            [relative](auto const& m) { return m.second == relative; });
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_reverse_lookup_count;
         observer_.notify(stats_);
@@ -127,25 +129,28 @@ public:
     using snapshot_t = concepts::MappingStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
-    offset_type                                           pool_base_;
-    std::vector<std::pair<slot_index_type, offset_type>>  mappings_;
+    offset_type                                          pool_base_;
+    std::vector<std::pair<slot_index_type, offset_type>> mappings_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::MappingStatistics stats_{};
-    mutable observer_t                   observer_{};
+    mutable observer_t                  observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::mapping
 
 namespace comdare::cache_engine::mapping {
-    static_assert(concepts::MappingVariant<PoolRelative>);
-    static_assert(concepts::CacheEngineMappingPermutationStrategy<PoolRelative>);
-    static_assert(concepts::PoolRebasableStrategy<PoolRelative>);
-}
+static_assert(concepts::MappingVariant<PoolRelative>);
+static_assert(concepts::CacheEngineMappingPermutationStrategy<PoolRelative>);
+static_assert(concepts::PoolRebasableStrategy<PoolRelative>);
+} // namespace comdare::cache_engine::mapping

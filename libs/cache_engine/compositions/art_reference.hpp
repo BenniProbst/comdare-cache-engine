@@ -62,49 +62,51 @@ namespace comdare::cache_engine::compositions {
 /// - Pure in-memory Index (axis_io)
 struct ArtComposition {
     // Topic 3 traversal — SEZIERTES ART-Organ (adaptive Node4/16/48/256 + Byte-Descent), observable Huelle.
-    using search_algo        = traversal::axis_03a_search_algo::composable::ObservableArtTrieOrgan;
-    using cache_traversal    = traversal::axis_03b_cache_traversal::LinearFanout;
-    using mapping            = traversal::axis_03m_mapping::DirectPlacement;
+    using search_algo     = traversal::axis_03a_search_algo::composable::ObservableArtTrieOrgan;
+    using cache_traversal = traversal::axis_03b_cache_traversal::LinearFanout;
+    using mapping         = traversal::axis_03m_mapping::DirectPlacement;
     // Topic 4 nodes
-    using path_compression   = nodes::axis_02_path_compression::PathCompressionNone;
-    using node_type          = nodes::axis_04_node_type::ObservableNodeType<nodes::axis_04_node_type::Node256NodeType>;  // V42 L-74c
+    using path_compression = nodes::axis_02_path_compression::PathCompressionNone;
+    using node_type =
+        nodes::axis_04_node_type::ObservableNodeType<nodes::axis_04_node_type::Node256NodeType>; // V42 L-74c
     // Topic 5
-    using memory_layout      = memory_layout::axis_05_memory_layout::ObservableMemoryLayout<memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout>;  // V42 L-74c
+    using memory_layout = memory_layout::axis_05_memory_layout::ObservableMemoryLayout<
+        memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout>; // V42 L-74c
     // Topic 6
-    using allocator          = allocator::axis_06_allocator::MimallocAllocator;
+    using allocator = allocator::axis_06_allocator::MimallocAllocator;
     // Topic 7
-    using prefetch           = prefetch::axis_07_prefetch::NonePrefetch;
+    using prefetch = prefetch::axis_07_prefetch::NonePrefetch;
     // Topic 8
-    using concurrency        = concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
+    using concurrency = concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
     // Topic 10
-    using serialization      = serialization::axis_10_serialization::ObservableSerialization<serialization::axis_10_serialization::RawBinarySerialization>;  // V42 L-74c
+    using serialization = serialization::axis_10_serialization::ObservableSerialization<
+        serialization::axis_10_serialization::RawBinarySerialization>; // V42 L-74c
     // Topic 11 — V42 L-74c: ObservableTelemetry-Huelle um die LeafOnlyCounter-Strategie (getrieben + observierbar)
-    using telemetry          = telemetry::axis_11_telemetry::ObservableTelemetry<
-                                   telemetry::axis_11_telemetry::LeafOnlyCounter>;
+    using telemetry = telemetry::axis_11_telemetry::ObservableTelemetry<telemetry::axis_11_telemetry::LeafOnlyCounter>;
     // Topic 14
-    using value_handle       = value_handle::axis_14_value_handle::InlineValueHandle;
+    using value_handle = value_handle::axis_14_value_handle::InlineValueHandle;
     // Topic hardware
-    using isa                = hardware::axis_09_isa::Amd64Isa;
+    using isa = hardware::axis_09_isa::Amd64Isa;
     // Topic search_engine
     using index_organization = search_engine::axis_01_index_organization::IotIndexOrganization;
     // Topic io
-    using io_dispatch        = io::axis_io::InMemoryOnly;
+    using io_dispatch = io::axis_io::InMemoryOnly;
     // Topic migration
-    using migration_policy   = migration::axis_migration::NoMigration;
+    using migration_policy = migration::axis_migration::NoMigration;
     // Topic filter — ART hat keinen internen Filter, BloomFilter ist optional CE-Erweiterung
-    using filter             = filter::axis_filter::BloomFilter;
+    using filter = filter::axis_filter::BloomFilter;
     // Topic queuing T17/T18 (Doc 30 §8.0) — explizit gewaehlter Durchreich-Algorithmus (kein „weglassen")
-    using queuing_q1         = queuing::axis_q1_queuing::NoBuffer;
-    using queuing_q2         = queuing::axis_q2_queuing::LazyFlush;
+    using queuing_q1 = queuing::axis_q1_queuing::NoBuffer;
+    using queuing_q2 = queuing::axis_q2_queuing::LazyFlush;
 
-    static constexpr std::string_view paper_id    = "P01 Leis/Kemper/Neumann ICDE 2013";
-    static constexpr std::string_view paper_title = "The Adaptive Radix Tree: ARTful Indexing for Main-Memory Databases";
-    static constexpr std::string_view name        = "ArtComposition";
+    static constexpr std::string_view paper_id = "P01 Leis/Kemper/Neumann ICDE 2013";
+    static constexpr std::string_view paper_title =
+        "The Adaptive Radix Tree: ARTful Indexing for Main-Memory Databases";
+    static constexpr std::string_view name = "ArtComposition";
 
     // R5.G CMake-Codegen-Location (HasCompositionLocation Concept)
-    COMDARE_DEFINE_COMPOSITION_LOCATION(
-        "::comdare::cache_engine::compositions::ArtComposition",
-        "compositions/art_reference.hpp");
+    COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::ArtComposition",
+                                        "compositions/art_reference.hpp");
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::compositions

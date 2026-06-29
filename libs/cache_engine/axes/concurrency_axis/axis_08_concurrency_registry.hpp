@@ -20,24 +20,15 @@ namespace comdare::cache_engine::concurrency_axis {
 
 namespace mp = boost::mp11;
 
-using AllStrategies = mp::mp_list<
-    NoneConcurrency,
-    BlockingConcurrency,
-    ReaderWriterConcurrency,
-    OlcOptimisticConcurrency,
-    LockFreeConcurrency,
-    WaitFreeConcurrency,
-    RcuConcurrency,
-    HazardPointerConcurrency,
-    OlcReservedBlocksConcurrency
->;
+using AllStrategies = mp::mp_list<NoneConcurrency, BlockingConcurrency, ReaderWriterConcurrency,
+                                  OlcOptimisticConcurrency, LockFreeConcurrency, WaitFreeConcurrency, RcuConcurrency,
+                                  HazardPointerConcurrency, OlcReservedBlocksConcurrency>;
 
 template <typename T>
 using is_enabled = mp::mp_bool<T::enabled>;
 
 using EnabledStrategies = mp::mp_filter<is_enabled, AllStrategies>;
 
-static_assert(mp::mp_size<EnabledStrategies>::value > 0,
-    "Axis 08 Concurrency: at least one strategy must be enabled");
+static_assert(mp::mp_size<EnabledStrategies>::value > 0, "Axis 08 Concurrency: at least one strategy must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::concurrency_axis

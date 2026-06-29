@@ -15,20 +15,31 @@
 namespace cea = comdare::cache_engine::anatomy;
 namespace eng = comdare::cache_engine::execution_engine;
 
-using VC    = cea::ViewComposition<int, int, int, int>;  // Extent/Layout/Accessor = Defaults
+using VC    = cea::ViewComposition<int, int, int, int>; // Extent/Layout/Accessor = Defaults
 using VAnat = cea::ViewAnatomy<VC>;
 
 static_assert(cea::IsViewComposition<VC>);
 static_assert(VC::slot_count == 7, "View = 4 geteilt + extent/layout/accessor (§28, K-C)");
-static_assert(cea::ExtentPolicy<cea::DynamicExtent> && cea::LayoutPolicy<cea::LayoutRight>
-              && cea::AccessorPolicy<cea::DefaultAccessor>, "Default-Policies muessen die Concepts erfuellen");
+static_assert(cea::ExtentPolicy<cea::DynamicExtent> && cea::LayoutPolicy<cea::LayoutRight> &&
+                  cea::AccessorPolicy<cea::DefaultAccessor>,
+              "Default-Policies muessen die Concepts erfuellen");
 static_assert(VAnat::genus() == cea::AnatomyGenus::View);
 
 static int g_fail = 0;
-template <class A, class B> static void eq(char const* w, A const& g, B const& e) {
-    bool ok = (g == e); std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
-    if (!ok) { std::cout << " (erwartet " << e << ")"; ++g_fail; } std::cout << "\n"; }
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+template <class A, class B>
+static void eq(char const* w, A const& g, B const& e) {
+    bool ok = (g == e);
+    std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
+    if (!ok) {
+        std::cout << " (erwartet " << e << ")";
+        ++g_fail;
+    }
+    std::cout << "\n";
+}
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 int main() {
     std::cout << "==== D11 View-Typ-Ebene ====\n";
@@ -39,12 +50,14 @@ int main() {
     eq("ViewObserverSnapshotV1 = 6 uint64", sizeof(cea::ViewObserverSnapshotV1), std::size_t{6 * 8});
 
     std::cout << "\n==== D11 ViewAnatomy non-owning (bind externer Puffer + read) ====\n";
-    std::uint64_t buf[5] = {10, 20, 30, 40, 50};   // EXTERNER Puffer (View besitzt ihn NICHT)
-    VAnat view;
+    std::uint64_t buf[5] = {10, 20, 30, 40, 50}; // EXTERNER Puffer (View besitzt ihn NICHT)
+    VAnat         view;
     view.bind(buf, 5);
     eq("size() == 5 nach bind(extern, 5)", view.size(), std::size_t{5});
-    auto r0 = view.read(0); tr("read(0) == 10 (aus externem Puffer)", r0.has_value() && *r0 == 10u);
-    auto r4 = view.read(4); tr("read(4) == 50", r4.has_value() && *r4 == 50u);
+    auto r0 = view.read(0);
+    tr("read(0) == 10 (aus externem Puffer)", r0.has_value() && *r0 == 10u);
+    auto r4 = view.read(4);
+    tr("read(4) == 50", r4.has_value() && *r4 == 50u);
     tr("read(99) == nullopt (out-of-bounds)", !view.read(99).has_value());
     cea::ViewObserverSnapshot const o = view.observe_all();
     eq("Observer read_count == 3", o.read_count, std::uint64_t{3});
@@ -54,7 +67,7 @@ int main() {
 
     std::cout << "\n==== D11 ViewAbiAdapter über IAnatomyBase + IViewTier ====\n";
     cea::ViewAbiAdapter<VAnat> adapter;
-    cea::IAnatomyBase* base = &adapter;
+    cea::IAnatomyBase*         base = &adapter;
     tr("genus() == View", base->genus() == cea::AnatomyGenus::View);
     tr("engine_kind() == Anatomy", base->engine_kind() == eng::ExecutionEngineKind::Anatomy);
     eq("organ_count() == 7", base->organ_count(), std::size_t{7});

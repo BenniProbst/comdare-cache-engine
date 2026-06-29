@@ -11,8 +11,7 @@ class AllocatorRebalanceTree final : public IDecisionLambdaTree<PageRelocationEv
 public:
     void configure(NodeTreeConfig const& config) override { config_ = config; }
 
-    [[nodiscard]] Decision evaluate(PageRelocationEvent const& event,
-                                    DecisionContext const&) const noexcept override {
+    [[nodiscard]] Decision evaluate(PageRelocationEvent const& event, DecisionContext const&) const noexcept override {
         ++state_.total_evaluations;
         // Bei Page-Relocation auf andere Allocator-Pool umstellen wenn load_factor stark abweicht
         if (event.load_factor < 0.10 || event.load_factor > 0.90) {
@@ -24,11 +23,11 @@ public:
     }
 
     [[nodiscard]] NodeTreeState save_state() const noexcept override { return state_; }
-    void restore_state(NodeTreeState const& s) noexcept override { state_ = s; }
+    void                        restore_state(NodeTreeState const& s) noexcept override { state_ = s; }
 
 private:
-    NodeTreeConfig config_{};
+    NodeTreeConfig        config_{};
     mutable NodeTreeState state_{};
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

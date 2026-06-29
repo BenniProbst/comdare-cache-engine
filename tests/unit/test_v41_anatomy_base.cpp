@@ -28,19 +28,19 @@ namespace ana = ::comdare::cache_engine::anatomy;
 
 TEST(R5CA_AnatomyGenus, EnumHasFiveValues) {
     static_assert(static_cast<int>(ana::AnatomyGenus::SearchAlgorithm) == 0);
-    static_assert(static_cast<int>(ana::AnatomyGenus::Set)             == 1);
-    static_assert(static_cast<int>(ana::AnatomyGenus::Sequence)        == 2);
-    static_assert(static_cast<int>(ana::AnatomyGenus::Adapter)         == 3);
-    static_assert(static_cast<int>(ana::AnatomyGenus::View)            == 4);
+    static_assert(static_cast<int>(ana::AnatomyGenus::Set) == 1);
+    static_assert(static_cast<int>(ana::AnatomyGenus::Sequence) == 2);
+    static_assert(static_cast<int>(ana::AnatomyGenus::Adapter) == 3);
+    static_assert(static_cast<int>(ana::AnatomyGenus::View) == 4);
     SUCCEED();
 }
 
 TEST(R5CA_AnatomyGenus, GenusNameHelperReturnsStrings) {
     static_assert(ana::genus_name(ana::AnatomyGenus::SearchAlgorithm) == std::string_view{"SearchAlgorithm"});
-    static_assert(ana::genus_name(ana::AnatomyGenus::Set)             == std::string_view{"Set"});
-    static_assert(ana::genus_name(ana::AnatomyGenus::Sequence)        == std::string_view{"Sequence"});
-    static_assert(ana::genus_name(ana::AnatomyGenus::Adapter)         == std::string_view{"Adapter"});
-    static_assert(ana::genus_name(ana::AnatomyGenus::View)            == std::string_view{"View"});
+    static_assert(ana::genus_name(ana::AnatomyGenus::Set) == std::string_view{"Set"});
+    static_assert(ana::genus_name(ana::AnatomyGenus::Sequence) == std::string_view{"Sequence"});
+    static_assert(ana::genus_name(ana::AnatomyGenus::Adapter) == std::string_view{"Adapter"});
+    static_assert(ana::genus_name(ana::AnatomyGenus::View) == std::string_view{"View"});
     SUCCEED();
 }
 
@@ -77,17 +77,17 @@ TEST(R5CA_AnatomyConcept, PaperBindingAnatomyConforms) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5CA_GenusMarker, AllElevenAnatomiesAreMammal) {
-    static_assert(ana::Art::genus()                 == ana::AnatomyGenus::SearchAlgorithm);
-    static_assert(ana::Hot::genus()                 == ana::AnatomyGenus::SearchAlgorithm);
-    static_assert(ana::Wormhole::genus()            == ana::AnatomyGenus::SearchAlgorithm);
-    static_assert(ana::SuRF::genus()                == ana::AnatomyGenus::SearchAlgorithm);
-    static_assert(ana::Masstree::genus()            == ana::AnatomyGenus::SearchAlgorithm);
-    static_assert(ana::Start::genus()               == ana::AnatomyGenus::SearchAlgorithm);
-    static_assert(ana::ArtPaperBinding::genus()     == ana::AnatomyGenus::SearchAlgorithm);
-    static_assert(ana::HotPaperBinding::genus()     == ana::AnatomyGenus::SearchAlgorithm);
-    static_assert(ana::StartPaperBinding::genus()   == ana::AnatomyGenus::SearchAlgorithm);
+    static_assert(ana::Art::genus() == ana::AnatomyGenus::SearchAlgorithm);
+    static_assert(ana::Hot::genus() == ana::AnatomyGenus::SearchAlgorithm);
+    static_assert(ana::Wormhole::genus() == ana::AnatomyGenus::SearchAlgorithm);
+    static_assert(ana::SuRF::genus() == ana::AnatomyGenus::SearchAlgorithm);
+    static_assert(ana::Masstree::genus() == ana::AnatomyGenus::SearchAlgorithm);
+    static_assert(ana::Start::genus() == ana::AnatomyGenus::SearchAlgorithm);
+    static_assert(ana::ArtPaperBinding::genus() == ana::AnatomyGenus::SearchAlgorithm);
+    static_assert(ana::HotPaperBinding::genus() == ana::AnatomyGenus::SearchAlgorithm);
+    static_assert(ana::StartPaperBinding::genus() == ana::AnatomyGenus::SearchAlgorithm);
     static_assert(ana::WormholePaperBinding::genus() == ana::AnatomyGenus::SearchAlgorithm);
-    static_assert(ana::SurfPaperBinding::genus()    == ana::AnatomyGenus::SearchAlgorithm);
+    static_assert(ana::SurfPaperBinding::genus() == ana::AnatomyGenus::SearchAlgorithm);
     SUCCEED();
 }
 
@@ -114,7 +114,7 @@ TEST(R5CA_IAnatomyBase, IsAbstractClass) {
 
 TEST(R5CA_IAnatomyBase, AbiAdapterBridgeToVirtualInterface) {
     ana::SearchAlgorithmAbiAdapter<ana::Art> adapter;
-    ana::IAnatomyBase const& base = adapter;
+    ana::IAnatomyBase const&                 base = adapter;
     EXPECT_EQ(base.composition_name(), std::string_view{"ArtComposition"});
     EXPECT_TRUE(base.paper_id().starts_with("P01"));
     EXPECT_EQ(base.genus(), ana::AnatomyGenus::SearchAlgorithm);
@@ -123,7 +123,7 @@ TEST(R5CA_IAnatomyBase, AbiAdapterBridgeToVirtualInterface) {
 
 TEST(R5CA_IAnatomyBase, AbiAdapterForPaperBinding) {
     ana::SearchAlgorithmAbiAdapter<ana::ArtPaperBinding> adapter;
-    ana::IAnatomyBase const& base = adapter;
+    ana::IAnatomyBase const&                             base = adapter;
     EXPECT_EQ(base.composition_name(), std::string_view{"ArtPaperBindingComposition"});
     EXPECT_EQ(base.genus(), ana::AnatomyGenus::SearchAlgorithm);
 }
@@ -136,15 +136,15 @@ TEST(R5CA_CrossAnatomy, AllElevenShareSameKingdom) {
     constexpr auto kingdom = ana::kingdom_name();
     static_assert(kingdom == std::string_view{"Animalia"});
 
-    constexpr auto art_genus           = ana::genus_name(ana::Art::genus());
-    constexpr auto art_pb_genus        = ana::genus_name(ana::ArtPaperBinding::genus());
-    constexpr auto wormhole_genus      = ana::genus_name(ana::Wormhole::genus());
-    constexpr auto wormhole_pb_genus   = ana::genus_name(ana::WormholePaperBinding::genus());
+    constexpr auto art_genus         = ana::genus_name(ana::Art::genus());
+    constexpr auto art_pb_genus      = ana::genus_name(ana::ArtPaperBinding::genus());
+    constexpr auto wormhole_genus    = ana::genus_name(ana::Wormhole::genus());
+    constexpr auto wormhole_pb_genus = ana::genus_name(ana::WormholePaperBinding::genus());
 
     // Alle haben identische Gattung (Mammal)
-    static_assert(art_genus         == std::string_view{"SearchAlgorithm"});
-    static_assert(art_pb_genus      == std::string_view{"SearchAlgorithm"});
-    static_assert(wormhole_genus    == std::string_view{"SearchAlgorithm"});
+    static_assert(art_genus == std::string_view{"SearchAlgorithm"});
+    static_assert(art_pb_genus == std::string_view{"SearchAlgorithm"});
+    static_assert(wormhole_genus == std::string_view{"SearchAlgorithm"});
     static_assert(wormhole_pb_genus == std::string_view{"SearchAlgorithm"});
     SUCCEED();
 }

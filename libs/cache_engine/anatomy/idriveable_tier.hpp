@@ -45,4 +45,4 @@ public:
     [[nodiscard]] virtual std::uint64_t tier_size() const noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

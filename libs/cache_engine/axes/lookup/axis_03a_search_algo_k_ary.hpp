@@ -68,29 +68,31 @@ public:
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::sparse_access_tag;
-    using family_id  = std::integral_constant<int, 10>;  // S10
+    using family_id  = std::integral_constant<int, 10>; // S10
 
     /// iterable_aspect_t = Arität K (Such-METHODE). PermutationEngine erkennt HasIterableAspect<V>
     /// und generiert 1 Binary mit Runtime-Loop ueber kIterableArities statt 4 separate Binaries.
     /// K=2 ist die Binärsuch-Baseline; K∈{4,8,16} die echten k-ary-Varianten.
     using iterable_aspect_t = unsigned;
-    static constexpr std::array<unsigned, 4> kIterableArities{2u, 4u, 8u, 16u};
+    static constexpr std::array<unsigned, 4>                 kIterableArities{2u, 4u, 8u, 16u};
     [[nodiscard]] static constexpr std::span<unsigned const> iterable_values() noexcept {
         return std::span<unsigned const>{kIterableArities.data(), kIterableArities.size()};
     }
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t max_fanout()        noexcept { return 65536; }  // u16 Keyraum
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "k_ary"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "KArySearchAlgo (k-ary search — Schlegel/Gemulla/Lehner DaMoN 2009)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "K_ARY"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; } // u16 Keyraum
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "k_ary"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "KArySearchAlgo (k-ary search — Schlegel/Gemulla/Lehner DaMoN 2009)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "K_ARY"; }
 
-    [[nodiscard]] static constexpr bool supports_simd()            noexcept { return true; }   // data-parallel Layout (Paper §4)
-    [[nodiscard]] static constexpr bool supports_range_scan()      noexcept { return true; }   // sortiert
-    [[nodiscard]] static constexpr bool is_dense()                 noexcept { return false; }  // sparse sortiert
+    [[nodiscard]] static constexpr bool supports_simd() noexcept { return true; } // data-parallel Layout (Paper §4)
+    [[nodiscard]] static constexpr bool supports_range_scan() noexcept { return true; } // sortiert
+    [[nodiscard]] static constexpr bool is_dense() noexcept { return false; }           // sparse sortiert
     [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return true; }
 
-    static constexpr unsigned kDefaultArity = 4;  // 5-Wege-Partition (Paper-Beispiel)
+    static constexpr unsigned kDefaultArity = 4; // 5-Wege-Partition (Paper-Beispiel)
 
     KArySearchAlgo() noexcept : arity_(kDefaultArity) {}
     explicit KArySearchAlgo(unsigned arity) noexcept : arity_(arity < 2u ? 2u : arity) {}
@@ -101,10 +103,10 @@ public:
 
     /// SONDERFALL [[allocation-failure-exception]]: insert kann std::bad_alloc werfen.
     void insert(key_type k, value_type v) {
-        auto it = std::lower_bound(keys_.begin(), keys_.end(), k);
+        auto        it  = std::lower_bound(keys_.begin(), keys_.end(), k);
         std::size_t idx = static_cast<std::size_t>(it - keys_.begin());
         if (it != keys_.end() && *it == k) {
-            values_[idx] = v;  // update
+            values_[idx] = v; // update
         } else {
             keys_.insert(it, k);
             values_.insert(values_.begin() + static_cast<std::ptrdiff_t>(idx), v);
@@ -120,35 +122,47 @@ public:
     /// Separatoren verglichen → Partition in K+1 Segmente. Bei Restbreite <= K linearer Scan.
     [[nodiscard]] std::optional<value_type> lookup(key_type k) const {
         std::optional<value_type> result = std::nullopt;
-        std::size_t const n = keys_.size();
-        std::size_t lo = 0, hi = n;  // Halb-offenes Intervall [lo, hi)
-        std::size_t const K = arity_;
+        std::size_t const         n      = keys_.size();
+        std::size_t               lo = 0, hi = n; // Halb-offenes Intervall [lo, hi)
+        std::size_t const         K = arity_;
         while (hi - lo > K) {
-            std::size_t const width = hi - lo;
-            std::size_t new_lo = lo, new_hi = hi;
-            bool narrowed = false;
+            std::size_t const width  = hi - lo;
+            std::size_t       new_lo = lo, new_hi = hi;
+            bool              narrowed = false;
             for (std::size_t j = 1; j <= K; ++j) {
-                std::size_t const pos = lo + (width * j) / (K + 1);  // Separator-Position in [lo, hi)
-                key_type const sep = keys_[pos];
-                if (sep == k) {  // Direkt-Treffer auf Separator
+                std::size_t const pos = lo + (width * j) / (K + 1); // Separator-Position in [lo, hi)
+                key_type const    sep = keys_[pos];
+                if (sep == k) { // Direkt-Treffer auf Separator
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-                    ++stats_.total_lookup_count; ++stats_.total_hit_count; observer_.notify(stats_);
+                    ++stats_.total_lookup_count;
+                    ++stats_.total_hit_count;
+                    observer_.notify(stats_);
 #endif
                     return values_[pos];
                 }
-                if (k < sep) { new_hi = pos; narrowed = true; break; }  // Ziel im Segment vor pos
-                new_lo = pos + 1;                                        // Ziel hinter diesem Separator
+                if (k < sep) {
+                    new_hi   = pos;
+                    narrowed = true;
+                    break;
+                } // Ziel im Segment vor pos
+                new_lo = pos + 1; // Ziel hinter diesem Separator
             }
             lo = new_lo;
-            if (narrowed) hi = new_hi;  // sonst: k > alle Separatoren → [letzter_sep+1, hi)
+            if (narrowed) hi = new_hi; // sonst: k > alle Separatoren → [letzter_sep+1, hi)
         }
         // Rest-Segment (Breite <= K): linearer Scan
         for (std::size_t i = lo; i < hi; ++i) {
-            if (keys_[i] == k) { result = values_[i]; break; }
+            if (keys_[i] == k) {
+                result = values_[i];
+                break;
+            }
         }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_lookup_count;
-        if (result) ++stats_.total_hit_count; else ++stats_.total_miss_count;
+        if (result)
+            ++stats_.total_hit_count;
+        else
+            ++stats_.total_miss_count;
         observer_.notify(stats_);
 #endif
         return result;
@@ -175,14 +189,17 @@ public:
     [[nodiscard]] double    density_percent() const noexcept {
         return 100.0 * static_cast<double>(keys_.size()) / 65536.0;
     }
-    void                    clear() noexcept { keys_.clear(); values_.clear(); }
+    void clear() noexcept {
+        keys_.clear();
+        values_.clear();
+    }
 
     /// DensityClassifiedStrategy [[density-classified-strategy]]: Belegungs-basierte Klassifikation
     /// (k-ary search lohnt erst ab groesseren sortierten Regionen).
     [[nodiscard]] concepts::DensityClass density_class() const noexcept {
         std::size_t const n = keys_.size();
         if (n > 1024) return concepts::DensityClass::Dense;
-        if (n > 64)   return concepts::DensityClass::Balanced;
+        if (n > 64) return concepts::DensityClass::Balanced;
         return concepts::DensityClass::Sparse;
     }
 
@@ -197,12 +214,18 @@ public:
     using snapshot_t = concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     // CoW-Memento (#142/Audit-K3): Stat-POD-Restore -> organ_cow_capable_v aktiv (spiegelt Observable-Huelle).
-    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; observer_.notify(stats_); }
+    void restore_statistics(snapshot_t const& s) noexcept {
+        stats_ = s;
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
@@ -211,16 +234,16 @@ private:
     std::vector<value_type> values_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::SearchAlgoStatistics stats_{};
-    mutable observer_t                      observer_{};
+    mutable observer_t                     observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup
 
 namespace comdare::cache_engine::lookup {
-    static_assert(concepts::SearchAlgoVariant<KArySearchAlgo>);
-    static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<KArySearchAlgo>);
-    static_assert(concepts::DensityClassifiedStrategy<KArySearchAlgo>);
-    static_assert(concepts::SimdCapableStrategy<KArySearchAlgo>);
-    static_assert(concepts::IterableAspectSearchAlgoStrategy<KArySearchAlgo>);
-}
+static_assert(concepts::SearchAlgoVariant<KArySearchAlgo>);
+static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<KArySearchAlgo>);
+static_assert(concepts::DensityClassifiedStrategy<KArySearchAlgo>);
+static_assert(concepts::SimdCapableStrategy<KArySearchAlgo>);
+static_assert(concepts::IterableAspectSearchAlgoStrategy<KArySearchAlgo>);
+} // namespace comdare::cache_engine::lookup

@@ -38,7 +38,8 @@ inline constexpr std::size_t enabled_count = mp::mp_size<List>::value;
 /// block_id = Achsen-Name → die materialisierten Knoten verweisen darauf zurück (Bidirektionalität).
 template <class List>
 inline void push_static_axis(std::vector<AxisLevel>& lv, char const* axis) {
-    lv.push_back(AxisLevel{axis, reflect_names<List>(), /*is_static=*/true, std::string{}, /*block_id=*/std::string{axis}});
+    lv.push_back(
+        AxisLevel{axis, reflect_names<List>(), /*is_static=*/true, std::string{}, /*block_id=*/std::string{axis}});
 }
 
-}  // namespace comdare::cache_engine::builder::experiment
+} // namespace comdare::cache_engine::builder::experiment

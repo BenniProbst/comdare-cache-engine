@@ -8,15 +8,15 @@
 #include <cstdint>
 
 #if defined(_WIN32)
-  #ifndef WIN32_LEAN_AND_MEAN
-    #define WIN32_LEAN_AND_MEAN
-  #endif
-  #ifndef NOMINMAX
-    #define NOMINMAX
-  #endif
-  #include <windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #else
-  #include <sys/sysinfo.h>
+#include <sys/sysinfo.h>
 #endif
 
 namespace comdare::cache_engine::builder::experiment {
@@ -32,10 +32,11 @@ namespace comdare::cache_engine::builder::experiment {
         return free_ram_unlimited();
 #else
         struct sysinfo si{};
-        if (::sysinfo(&si) == 0) return static_cast<std::uint64_t>(si.freeram) * static_cast<std::uint64_t>(si.mem_unit);
+        if (::sysinfo(&si) == 0)
+            return static_cast<std::uint64_t>(si.freeram) * static_cast<std::uint64_t>(si.mem_unit);
         return free_ram_unlimited();
 #endif
     };
 }
 
-}  // namespace comdare::cache_engine::builder::experiment
+} // namespace comdare::cache_engine::builder::experiment

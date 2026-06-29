@@ -24,15 +24,17 @@ public:
 
     static constexpr bool enabled = flags::none_enabled;
 
-    [[nodiscard]] static constexpr bool             is_active()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "prefetch_none"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "NonePrefetch (no prefetch baseline)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "NONE"; }
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return false; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "prefetch_none"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "NonePrefetch (no prefetch baseline)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "NONE"; }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::prefetch_axis
 
 namespace comdare::cache_engine::prefetch_axis {
-    static_assert(concepts::PrefetchStrategy<NonePrefetch>);
-    static_assert(concepts::CacheEnginePermutationStrategy<NonePrefetch>);
-}
+static_assert(concepts::PrefetchStrategy<NonePrefetch>);
+static_assert(concepts::CacheEnginePermutationStrategy<NonePrefetch>);
+} // namespace comdare::cache_engine::prefetch_axis

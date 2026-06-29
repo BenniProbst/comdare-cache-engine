@@ -19,22 +19,22 @@ struct Idle {
 
 /// Warmup: Cache fuellt sich, MPKI sinkt. Khan 2010 Live-Block-Phase.
 struct Warmup {
-    double mpki = 0.0;              ///< Misses per kilo-instruction
+    double      mpki         = 0.0; ///< Misses per kilo-instruction
     std::size_t pages_loaded = 0;
 };
 
 /// Saturated: Bandbreite limitiert, MSHR-Stalls.
 /// Mahling 2025 weak-reliability-Schwelle.
 struct Saturated {
-    double bandwidth_util = 0.0;    ///< 0..1
-    std::uint32_t mshr_pressure = 0;
+    double        bandwidth_util = 0.0; ///< 0..1
+    std::uint32_t mshr_pressure  = 0;
 };
 
 /// CoherenceStorm: Inter-Socket-Traffic > Threshold.
 /// Block AN (Kuehn-Mail 2026-05-08), Masstree P03 cross-socket.
 struct CoherenceStorm {
     std::uint32_t inter_socket_msgs_per_us = 0;
-    std::uint8_t affected_sockets = 0;
+    std::uint8_t  affected_sockets         = 0;
 };
 
 /// Recovery: nach Burst, Caches kuehlen ab.
@@ -48,4 +48,4 @@ struct Recovery {
 // -----------------------------------------------------------------------------
 using PressureState = std::variant<Idle, Warmup, Saturated, CoherenceStorm, Recovery>;
 
-}  // namespace comdare::cache_engine::state
+} // namespace comdare::cache_engine::state

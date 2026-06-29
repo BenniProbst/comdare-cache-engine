@@ -29,13 +29,13 @@ namespace comp = ::comdare::cache_engine::compositions;
 TEST(PruefDock, SearchAlgorithmDockMeasuresInProcessModule) {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using Anatomy = an::SearchAlgorithmAnatomy<comp::ArtComposition>;
-    an::SearchAlgorithmAbiAdapter<Anatomy> adapter;                      // In-Process-"Tier-Modul"
-    al::AnatomyModuleHandle h{nullptr, &adapter, nullptr, {1, 0}};       // native/destroy=null → unload() no-op
+    an::SearchAlgorithmAbiAdapter<Anatomy> adapter;                // In-Process-"Tier-Modul"
+    al::AnatomyModuleHandle h{nullptr, &adapter, nullptr, {1, 0}}; // native/destroy=null → unload() no-op
 
     pd::SearchAlgorithmDock dock;
     EXPECT_EQ(dock.dock_genus(), an::AnatomyGenus::SearchAlgorithm);
     EXPECT_EQ(dock.dock_name(), std::string_view{"SearchAlgorithmDock"});
-    EXPECT_TRUE(dock.accepts(h));                                        // Gattungs-Match über genus()
+    EXPECT_TRUE(dock.accepts(h)); // Gattungs-Match über genus()
 
     // Registry waehlt per im Modul deklarierter Gattung das passende Dock.
     pd::PruefDockRegistry reg;
@@ -52,12 +52,12 @@ TEST(PruefDock, SearchAlgorithmDockMeasuresInProcessModule) {
     opts.lookups_per_checkpoint = 200;
     opts.deletes_per_checkpoint = 20;
     std::string csv, json;
-    int const rc = selected->measure(h, opts, csv, json);
+    int const   rc = selected->measure(h, opts, csv, json);
     EXPECT_EQ(rc, pd::dock_status_ok) << pd::dock_status_name(rc);
-    EXPECT_NE(csv.find("checkpoint,observe_wall_ns"), std::string::npos);   // CSV-Header
+    EXPECT_NE(csv.find("checkpoint,observe_wall_ns"), std::string::npos); // CSV-Header
     ASSERT_FALSE(json.empty());
-    EXPECT_EQ(json.front(), '[');                                          // JSON-Array
-    EXPECT_NE(json.find("\"search_insert\""), std::string::npos);          // Observer-Zaehler korreliert
+    EXPECT_EQ(json.front(), '[');                                 // JSON-Array
+    EXPECT_NE(json.find("\"search_insert\""), std::string::npos); // Observer-Zaehler korreliert
     SUCCEED();
 #else
     GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus — Prüf-Dock-Mess-Test n/a";
@@ -66,16 +66,16 @@ TEST(PruefDock, SearchAlgorithmDockMeasuresInProcessModule) {
 
 // Negativ-Pfad: ein leeres Handle (keine Anatomie) wird vom Dock sauber abgelehnt (kein Match, status).
 TEST(PruefDock, EmptyHandleRejectedCleanly) {
-    al::AnatomyModuleHandle empty{};   // valid()==false, anatomy()==nullptr
+    al::AnatomyModuleHandle empty{}; // valid()==false, anatomy()==nullptr
     pd::SearchAlgorithmDock dock;
     EXPECT_FALSE(dock.accepts(empty));
 
     pd::PruefDockRegistry reg;
     reg.register_dock(std::make_unique<pd::SearchAlgorithmDock>());
-    EXPECT_EQ(reg.select_for(empty), nullptr);   // kein Dock akzeptiert ein anatomie-loses Handle
+    EXPECT_EQ(reg.select_for(empty), nullptr); // kein Dock akzeptiert ein anatomie-loses Handle
 
     pd::PruefDockMeasureOptions opts;
-    std::string csv, json;
+    std::string                 csv, json;
     EXPECT_EQ(dock.measure(empty, opts, csv, json), pd::dock_status_no_anatomy);
 }
 
@@ -84,7 +84,7 @@ TEST(PruefDock, GenusSequentialMeasuresAllModules) {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     namespace abi = ::comdare::cache_engine::abi;
     using Anatomy = an::SearchAlgorithmAnatomy<comp::ArtComposition>;
-    an::SearchAlgorithmAbiAdapter<Anatomy> a0, a1, a2;            // 3 In-Process-"Tier-Module" derselben Gattung
+    an::SearchAlgorithmAbiAdapter<Anatomy> a0, a1, a2; // 3 In-Process-"Tier-Module" derselben Gattung
 
     std::vector<al::AnatomyModuleHandle> handles;
     handles.emplace_back(nullptr, &a0, nullptr, abi::AnatomyAbiVersion{1, 0});

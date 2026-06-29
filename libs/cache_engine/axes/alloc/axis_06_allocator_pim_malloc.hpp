@@ -47,13 +47,16 @@ public:
     using axis_tag   = subaxes::allocation_policy_tag;
     using family_id  = std::integral_constant<int, 16>;
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()  noexcept { return true; }
-    [[nodiscard]] static constexpr bool        supports_pmr()    noexcept { return true; }
-    [[nodiscard]] static constexpr std::size_t max_alignment()   noexcept { return alignof(std::max_align_t); }
+    [[nodiscard]] static constexpr bool        is_thread_safe() noexcept { return true; }
+    [[nodiscard]] static constexpr bool        supports_pmr() noexcept { return true; }
+    [[nodiscard]] static constexpr std::size_t max_alignment() noexcept { return alignof(std::max_align_t); }
 
     [[nodiscard]] static constexpr std::string_view name() noexcept {
-        if constexpr (enabled) { return "pim_malloc"; }
-        else                   { return "pim_malloc(real=std)"; }
+        if constexpr (enabled) {
+            return "pim_malloc";
+        } else {
+            return "pim_malloc(real=std)";
+        }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "PIM-Malloc Processing-In-Memory (VIA-Research, HPCA 2026 / arXiv:2505.13002)";
@@ -61,30 +64,39 @@ public:
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "PIM_MALLOC"; }
 
     // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht)
-    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // pim_alloc(size, alignment, dpu)
-    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }  // pim_detect_hardware lazy
-    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }  // PIM != NUMA
-    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }  // single-DPU per allocation
-    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept { return concepts::ProgressGuarantee::Blocking; }
-    [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return true; } // SONDERFALL: PIM-Hardware-Pflicht
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc() noexcept {
+        return true;
+    } // pim_alloc(size, alignment, dpu)
+    [[nodiscard]] static constexpr bool requires_explicit_init() noexcept { return false; }  // pim_detect_hardware lazy
+    [[nodiscard]] static constexpr bool supports_numa_node_hint() noexcept { return false; } // PIM != NUMA
+    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept {
+        return false;
+    } // single-DPU per allocation
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
+        return concepts::ProgressGuarantee::Blocking;
+    }
+    [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept {
+        return true;
+    } // SONDERFALL: PIM-Hardware-Pflicht
 
     PIMMallocAllocator() noexcept : dpu_id_(kDefaultDpuId) {}
     explicit PIMMallocAllocator(int dpu_id) noexcept : dpu_id_(dpu_id) {}
 
-    [[nodiscard]] bool operator==(PIMMallocAllocator const& other) const noexcept {
-        return dpu_id_ == other.dpu_id_;
-    }
+    [[nodiscard]] bool operator==(PIMMallocAllocator const& other) const noexcept { return dpu_id_ == other.dpu_id_; }
 
     [[nodiscard]] void* allocate(std::size_t bytes, std::size_t alignment) {
         void* p;
-        if constexpr (enabled) { p = ::pim_alloc(bytes, alignment, dpu_id_); }
-        else                   { p = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, bytes); }
+        if constexpr (enabled) {
+            p = ::pim_alloc(bytes, alignment, dpu_id_);
+        } else {
+            p = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, bytes);
+        }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         if (p != nullptr) {
             ++stats_.allocation_count;
             stats_.total_bytes_allocated += aligned_bytes;
-            stats_.total_bytes_in_use    += aligned_bytes;
+            stats_.total_bytes_in_use += aligned_bytes;
         } else {
             ++stats_.failure_count;
         }
@@ -95,16 +107,22 @@ public:
 
     void deallocate(void* p, std::size_t bytes, std::size_t alignment) noexcept {
         if (p == nullptr) return;
-        if constexpr (enabled) { ::pim_free(p, dpu_id_); }
-        else                   { ::comdare::cache_engine::allocator::portable_aligned_free(p); }
+        if constexpr (enabled) {
+            ::pim_free(p, dpu_id_);
+        } else {
+            ::comdare::cache_engine::allocator::portable_aligned_free(p);
+        }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         ++stats_.deallocation_count;
-        if (aligned_bytes <= stats_.total_bytes_in_use) stats_.total_bytes_in_use -= aligned_bytes;
-        else stats_.total_bytes_in_use = 0;
+        if (aligned_bytes <= stats_.total_bytes_in_use)
+            stats_.total_bytes_in_use -= aligned_bytes;
+        else
+            stats_.total_bytes_in_use = 0;
         observer_.notify(stats_);
 #else
-        (void)bytes; (void)alignment;
+        (void)bytes;
+        (void)alignment;
 #endif
     }
 
@@ -112,22 +130,28 @@ public:
     using snapshot_t = concepts::AllocationStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
     [[nodiscard]] void* zero_allocate(std::size_t n, std::size_t size) {
         std::size_t bytes = n * size;
-        void* p;
-        if constexpr (enabled) { p = ::pim_calloc(n, size, dpu_id_); }
-        else                   { p = std::calloc(n, size); }
+        void*       p;
+        if constexpr (enabled) {
+            p = ::pim_calloc(n, size, dpu_id_);
+        } else {
+            p = std::calloc(n, size);
+        }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         if (p != nullptr) {
             ++stats_.allocation_count;
             stats_.total_bytes_allocated += bytes;
-            stats_.total_bytes_in_use    += bytes;
+            stats_.total_bytes_in_use += bytes;
         } else {
             ++stats_.failure_count;
         }
@@ -136,8 +160,7 @@ public:
         return p;
     }
 
-    [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes,
-                                   std::size_t alignment) {
+    [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes, std::size_t alignment) {
         void* np;
         if constexpr (enabled) {
             np = ::pim_realloc(p, new_bytes, dpu_id_);
@@ -151,13 +174,17 @@ public:
             }
         }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        if (np == nullptr) { ++stats_.failure_count; observer_.notify(stats_); return nullptr; }
+        if (np == nullptr) {
+            ++stats_.failure_count;
+            observer_.notify(stats_);
+            return nullptr;
+        }
         if (p != nullptr) {
             if (old_bytes <= stats_.total_bytes_in_use) stats_.total_bytes_in_use -= old_bytes;
             ++stats_.deallocation_count;
         }
         std::size_t aligned_new = ((new_bytes + alignment - 1) / alignment) * alignment;
-        stats_.total_bytes_in_use    += aligned_new;
+        stats_.total_bytes_in_use += aligned_new;
         stats_.total_bytes_allocated += aligned_new;
         ++stats_.allocation_count;
         observer_.notify(stats_);
@@ -167,21 +194,21 @@ public:
 
     /// PIM-spezifisch: DPU-ID Setter/Getter
     [[nodiscard]] int dpu_id() const noexcept { return dpu_id_; }
-    void set_dpu_id(int dpu) noexcept { dpu_id_ = dpu; }
+    void              set_dpu_id(int dpu) noexcept { dpu_id_ = dpu; }
 
 private:
     int dpu_id_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::AllocationStatistics stats_{};
-    observer_t observer_{};
+    observer_t                     observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::alloc
 
 namespace comdare::cache_engine::alloc {
-    static_assert(concepts::AllocatorStrategy<PIMMallocAllocator>);
-    static_assert(concepts::CacheEnginePermutationStrategy<PIMMallocAllocator>);
-    static_assert(concepts::ZeroingStrategy<PIMMallocAllocator>);
-    static_assert(concepts::ReallocatingStrategy<PIMMallocAllocator>);
-}
+static_assert(concepts::AllocatorStrategy<PIMMallocAllocator>);
+static_assert(concepts::CacheEnginePermutationStrategy<PIMMallocAllocator>);
+static_assert(concepts::ZeroingStrategy<PIMMallocAllocator>);
+static_assert(concepts::ReallocatingStrategy<PIMMallocAllocator>);
+} // namespace comdare::cache_engine::alloc

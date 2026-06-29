@@ -25,8 +25,10 @@ public:
     [[nodiscard]] static constexpr concepts::ConcurrencyPattern concurrency_pattern() noexcept {
         return concepts::ConcurrencyPattern::WaitFree;
     }
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "concurrency_wait_free"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "WaitFreeConcurrency (bounded per-thread steps, strongest guarantee)"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "concurrency_wait_free"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "WaitFreeConcurrency (bounded per-thread steps, strongest guarantee)";
+    }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "WAIT_FREE"; }
 
     // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). WaitFree = beschraenkte
@@ -35,8 +37,8 @@ public:
     // (release-Order). Genau eine RMW pro Op, garantiert in 1 Schritt fertig. Reale, strategie-
     // abhaengige Laufzeit: distinkt billiger als LockFree (kein Spin/compare_exchange-Loop), aber
     // echte atomare RMW. Zaehler thread_local-static (via counter_()).
-    static void acquire() noexcept { (void) counter_().fetch_add(1u, std::memory_order_acquire); }
-    static void release() noexcept { (void) counter_().fetch_sub(1u, std::memory_order_release); }
+    static void acquire() noexcept { (void)counter_().fetch_add(1u, std::memory_order_acquire); }
+    static void release() noexcept { (void)counter_().fetch_sub(1u, std::memory_order_release); }
 
 private:
     [[nodiscard]] static std::atomic<unsigned>& counter_() noexcept {
@@ -45,9 +47,9 @@ private:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::concurrency_axis
 
 namespace comdare::cache_engine::concurrency_axis {
-    static_assert(concepts::ConcurrencyStrategy<WaitFreeConcurrency>);
-    static_assert(concepts::CacheEnginePermutationStrategy<WaitFreeConcurrency>);
-}
+static_assert(concepts::ConcurrencyStrategy<WaitFreeConcurrency>);
+static_assert(concepts::CacheEnginePermutationStrategy<WaitFreeConcurrency>);
+} // namespace comdare::cache_engine::concurrency_axis

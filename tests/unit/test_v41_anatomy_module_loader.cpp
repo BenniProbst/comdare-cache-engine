@@ -36,16 +36,14 @@ namespace ee     = ::comdare::cache_engine::execution_engine;
 namespace loader = ::comdare::cache_engine::builder::anatomy_loader;
 
 #ifndef COMDARE_R5E_PILOT_DLL
-  #error "COMDARE_R5E_PILOT_DLL must be defined via CMake (target_compile_definitions)"
+#error "COMDARE_R5E_PILOT_DLL must be defined via CMake (target_compile_definitions)"
 #endif
 
 namespace {
 
-[[nodiscard]] std::filesystem::path pilot_dll_path() {
-    return std::filesystem::path{COMDARE_R5E_PILOT_DLL};
-}
+[[nodiscard]] std::filesystem::path pilot_dll_path() { return std::filesystem::path{COMDARE_R5E_PILOT_DLL}; }
 
-}  // anonymous
+} // namespace
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §1 — platform_suffix
@@ -68,8 +66,7 @@ TEST(R5E_AnatomyLoader, PlatformSuffixIsCorrect) {
 
 TEST(R5E_AnatomyLoader, PilotDllExists) {
     auto const path = pilot_dll_path();
-    EXPECT_TRUE(std::filesystem::exists(path))
-        << "Pilot-DLL nicht gefunden: " << path.string();
+    EXPECT_TRUE(std::filesystem::exists(path)) << "Pilot-DLL nicht gefunden: " << path.string();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,8 +75,7 @@ TEST(R5E_AnatomyLoader, PilotDllExists) {
 
 TEST(R5E_AnatomyLoader, LoadNonExistentReturnsNotFound) {
     loader::AnatomyModuleHandle handle;
-    int const status = loader::AnatomyModuleLoader::load(
-        "this_dll_does_not_exist.dll", handle);
+    int const                   status = loader::AnatomyModuleLoader::load("this_dll_does_not_exist.dll", handle);
     EXPECT_EQ(status, loader::status_file_not_found);
     EXPECT_FALSE(handle.valid());
 }
@@ -90,10 +86,9 @@ TEST(R5E_AnatomyLoader, LoadNonExistentReturnsNotFound) {
 
 TEST(R5E_AnatomyLoader, LoadPilotDllSucceeds) {
     loader::AnatomyModuleHandle handle;
-    int const status = loader::AnatomyModuleLoader::load(pilot_dll_path(), handle);
-    ASSERT_EQ(status, loader::status_ok)
-        << "Load failed: status=" << status
-        << " (" << loader::status_name(status) << ")";
+    int const                   status = loader::AnatomyModuleLoader::load(pilot_dll_path(), handle);
+    ASSERT_EQ(status, loader::status_ok) << "Load failed: status=" << status << " (" << loader::status_name(status)
+                                         << ")";
     EXPECT_TRUE(handle.valid());
     EXPECT_NE(handle.anatomy(), nullptr);
 }
@@ -104,8 +99,7 @@ TEST(R5E_AnatomyLoader, LoadPilotDllSucceeds) {
 
 TEST(R5E_AnatomyLoader, LoadedAnatomyIsWormholeComposition) {
     loader::AnatomyModuleHandle handle;
-    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), handle),
-              loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), handle), loader::status_ok);
 
     auto* anat = handle.anatomy();
     ASSERT_NE(anat, nullptr);
@@ -121,8 +115,7 @@ TEST(R5E_AnatomyLoader, LoadedAnatomyIsWormholeComposition) {
 
 TEST(R5E_AnatomyLoader, LifecycleRoundtripViaLoadedHandle) {
     loader::AnatomyModuleHandle handle;
-    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), handle),
-              loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), handle), loader::status_ok);
 
     auto* anat = handle.anatomy();
     ASSERT_NE(anat, nullptr);
@@ -144,8 +137,7 @@ TEST(R5E_AnatomyLoader, LifecycleRoundtripViaLoadedHandle) {
 
 TEST(R5E_AnatomyLoader, ModuleVersionMatchesHost) {
     loader::AnatomyModuleHandle handle;
-    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), handle),
-              loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), handle), loader::status_ok);
 
     auto const v = handle.module_version();
     EXPECT_EQ(v.major, abi::kHostAnatomyAbiVersion.major);
@@ -159,22 +151,19 @@ TEST(R5E_AnatomyLoader, ModuleVersionMatchesHost) {
 
 TEST(R5E_AnatomyLoader, MoveConstructTransfersOwnership) {
     loader::AnatomyModuleHandle src;
-    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), src),
-              loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), src), loader::status_ok);
 
     loader::AnatomyModuleHandle dst{std::move(src)};
     EXPECT_TRUE(dst.valid());
-    EXPECT_FALSE(src.valid());  // source ist nach move leer
+    EXPECT_FALSE(src.valid()); // source ist nach move leer
     EXPECT_NE(dst.anatomy(), nullptr);
 }
 
 TEST(R5E_AnatomyLoader, MoveAssignReleasesPreviousAndTakesNew) {
     loader::AnatomyModuleHandle h1;
     loader::AnatomyModuleHandle h2;
-    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), h1),
-              loader::status_ok);
-    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), h2),
-              loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), h1), loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), h2), loader::status_ok);
 
     // h1 ist gueltig, ueberschreibe mit h2 (move)
     h1 = std::move(h2);
@@ -189,12 +178,10 @@ TEST(R5E_AnatomyLoader, MoveAssignReleasesPreviousAndTakesNew) {
 TEST(R5E_AnatomyLoader, MultipleLoadsProduceDistinctInstances) {
     loader::AnatomyModuleHandle h1;
     loader::AnatomyModuleHandle h2;
-    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), h1),
-              loader::status_ok);
-    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), h2),
-              loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), h1), loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), h2), loader::status_ok);
 
-    EXPECT_NE(h1.anatomy(), h2.anatomy());  // distinkte Heap-Allokationen
+    EXPECT_NE(h1.anatomy(), h2.anatomy()); // distinkte Heap-Allokationen
 
     // Lifecycle pro Instanz unabhaengig
     h1.anatomy()->warm_up();
@@ -208,8 +195,7 @@ TEST(R5E_AnatomyLoader, MultipleLoadsProduceDistinctInstances) {
 
 TEST(R5E_AnatomyLoader, ExplicitUnloadInvalidatesHandle) {
     loader::AnatomyModuleHandle handle;
-    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), handle),
-              loader::status_ok);
+    ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), handle), loader::status_ok);
     EXPECT_TRUE(handle.valid());
 
     handle.unload();

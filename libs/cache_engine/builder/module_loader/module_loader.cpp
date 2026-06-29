@@ -7,12 +7,12 @@
 #include <iostream>
 
 #if defined(_WIN32)
-  #ifndef WIN32_LEAN_AND_MEAN
-    #define WIN32_LEAN_AND_MEAN
-  #endif
-  #include <windows.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
 #else
-  #include <dlfcn.h>
+#include <dlfcn.h>
 #endif
 
 namespace comdare::builder::loader {
@@ -45,7 +45,7 @@ void native_unload(void* h) noexcept {
 #endif
 }
 
-}  // anonymous namespace
+} // anonymous namespace
 
 void ModuleHandle::unload() noexcept {
     if (native_) {
@@ -65,18 +65,12 @@ std::string ModuleLoader::platform_suffix() {
 #endif
 }
 
-int ModuleLoader::load(std::filesystem::path const& dll_path,
-                       ModuleHandle& handle_out) noexcept
-{
+int ModuleLoader::load(std::filesystem::path const& dll_path, ModuleHandle& handle_out) noexcept {
     std::error_code ec;
-    if (!std::filesystem::exists(dll_path, ec)) {
-        return status_file_not_found;
-    }
+    if (!std::filesystem::exists(dll_path, ec)) { return status_file_not_found; }
 
     void* h = native_load(dll_path);
-    if (!h) {
-        return status_load_failed;
-    }
+    if (!h) { return status_load_failed; }
 
     auto* sym = native_symbol(h, COMDARE_GET_MODULE_V1_SYMBOL);
     if (!sym) {
@@ -84,7 +78,7 @@ int ModuleLoader::load(std::filesystem::path const& dll_path,
         return status_symbol_not_found;
     }
 
-    auto fn = reinterpret_cast<comdare_get_module_v1_fn>(sym);
+    auto        fn         = reinterpret_cast<comdare_get_module_v1_fn>(sym);
     auto const* module_ptr = fn();
     if (!module_ptr) {
         native_unload(h);
@@ -99,22 +93,18 @@ int ModuleLoader::load(std::filesystem::path const& dll_path,
     return status_ok;
 }
 
-int ModuleLoader::load_all(std::filesystem::path const& dir,
-                            std::vector<ModuleHandle>& out_handles)
-{
+int ModuleLoader::load_all(std::filesystem::path const& dir, std::vector<ModuleHandle>& out_handles) {
     std::error_code ec;
-    if (!std::filesystem::is_directory(dir, ec)) {
-        return status_file_not_found;
-    }
+    if (!std::filesystem::is_directory(dir, ec)) { return status_file_not_found; }
 
-    auto const suffix = platform_suffix();
+    auto const                         suffix = platform_suffix();
     std::vector<std::filesystem::path> candidates;
     for (auto const& entry : std::filesystem::directory_iterator{dir, ec}) {
         if (!entry.is_regular_file()) continue;
-        auto const& p = entry.path();
-        auto const fn = p.filename().string();
+        auto const& p  = entry.path();
+        auto const  fn = p.filename().string();
         if (fn.find("comdare_perm_") != 0) continue;
-        if (p.extension() != suffix)        continue;
+        if (p.extension() != suffix) continue;
         candidates.push_back(p);
     }
 
@@ -123,16 +113,15 @@ int ModuleLoader::load_all(std::filesystem::path const& dir,
     int last_status = status_ok;
     for (auto const& p : candidates) {
         ModuleHandle h;
-        int const s = load(p, h);
+        int const    s = load(p, h);
         if (s == status_ok) {
             out_handles.push_back(std::move(h));
         } else {
-            std::cerr << "ModuleLoader: failed to load " << p.string()
-                      << " (status=" << s << ")\n";
+            std::cerr << "ModuleLoader: failed to load " << p.string() << " (status=" << s << ")\n";
             last_status = s;
         }
     }
     return last_status;
 }
 
-}  // namespace comdare::builder::loader
+} // namespace comdare::builder::loader

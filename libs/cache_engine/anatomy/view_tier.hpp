@@ -10,12 +10,12 @@ namespace comdare::cache_engine::anatomy {
 
 /// ABI-stabiler View-Observer-Snapshot (cross-boundary, nur uint64 → standard_layout + trivially_copyable).
 struct ViewObserverSnapshotV1 {
-    std::uint64_t read_count            = 0;   // read(index)-Zugriffe
-    std::uint64_t read_oob_count        = 0;   // davon out-of-bounds
-    std::uint64_t bound_size            = 0;   // Länge des aktuell gebundenen externen Puffers
-    std::uint64_t bind_count            = 0;   // Anzahl bind()-Aufrufe (Re-Binding)
-    std::uint64_t observable_axis_count = 0;   // real beobachtete Achsen (R5.B, ehrlich)
-    std::uint64_t organ_count           = 0;   // == ViewAnatomy::organ_count() (7: 4 geteilt + extent/layout/accessor)
+    std::uint64_t read_count            = 0; // read(index)-Zugriffe
+    std::uint64_t read_oob_count        = 0; // davon out-of-bounds
+    std::uint64_t bound_size            = 0; // Länge des aktuell gebundenen externen Puffers
+    std::uint64_t bind_count            = 0; // Anzahl bind()-Aufrufe (Re-Binding)
+    std::uint64_t observable_axis_count = 0; // real beobachtete Achsen (R5.B, ehrlich)
+    std::uint64_t organ_count           = 0; // == ViewAnatomy::organ_count() (7: 4 geteilt + extent/layout/accessor)
 
     [[nodiscard]] constexpr bool operator==(ViewObserverSnapshotV1 const&) const noexcept = default;
 };
@@ -46,4 +46,4 @@ public:
     virtual void tier_observe_view(ViewObserverSnapshotV1* out) const noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

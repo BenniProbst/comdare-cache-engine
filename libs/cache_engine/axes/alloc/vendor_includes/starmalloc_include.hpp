@@ -12,12 +12,12 @@
 #include <cstdlib>
 
 #if COMDARE_AXIS_06_USE_STARMALLOC
-#  include <starmalloc.h>
+#include <starmalloc.h>
 #else
 extern "C" {
-    inline void* starmalloc_alloc(std::size_t /*size*/, std::size_t /*alignment*/) noexcept { return nullptr; }
-    inline void  starmalloc_free(void* /*p*/) noexcept {}
-    inline void* starmalloc_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
-    inline void* starmalloc_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
+inline void* starmalloc_alloc(std::size_t /*size*/, std::size_t /*alignment*/) noexcept { return nullptr; }
+inline void  starmalloc_free(void* /*p*/) noexcept {}
+inline void* starmalloc_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
+inline void* starmalloc_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
 }
 #endif

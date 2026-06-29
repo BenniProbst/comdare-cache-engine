@@ -21,10 +21,10 @@ namespace comdare::cache_engine::serialization_axis {
 
 /// ABI-taugliches Serialization-Snapshot (standard_layout + trivially_copyable).
 struct SerializationSnapshot {
-    std::uint64_t serialize_count    = 0;   ///< Anzahl observe_serialize-Aufrufe
-    std::uint64_t records_serialized = 0;   ///< kumulierte Datensatz-Zahl
-    std::uint64_t bytes_serialized   = 0;   ///< serialisierte Bytes (records * record_size)
-    std::uint64_t last_checksum      = 0;   ///< letztes serialize_scan-Ergebnis (Korrektheits-Anker)
+    std::uint64_t serialize_count    = 0; ///< Anzahl observe_serialize-Aufrufe
+    std::uint64_t records_serialized = 0; ///< kumulierte Datensatz-Zahl
+    std::uint64_t bytes_serialized   = 0; ///< serialisierte Bytes (records * record_size)
+    std::uint64_t last_checksum      = 0; ///< letztes serialize_scan-Ergebnis (Korrektheits-Anker)
 
     [[nodiscard]] bool operator==(SerializationSnapshot const&) const noexcept = default;
 };
@@ -35,17 +35,26 @@ template <class Strategy>
 class ObservableSerialization {
 public:
     using strategy_type = Strategy;
-    using topic_tag     = typename Strategy::topic_tag;  // erfuellt SerializationComponent/SerializationStrategy
+    using topic_tag     = typename Strategy::topic_tag; // erfuellt SerializationComponent/SerializationStrategy
 
     // Transparenter Decorator: Strategie-Inspektion durchgereicht.
-    [[nodiscard]] static constexpr bool             supports_compression() noexcept { return Strategy::supports_compression(); }
-    [[nodiscard]] static constexpr std::string_view name()                 noexcept { return Strategy::name(); }
-    [[nodiscard]] static constexpr std::string_view family_name()
-        noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()
-        noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
+    [[nodiscard]] static constexpr bool supports_compression() noexcept { return Strategy::supports_compression(); }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept
+        requires requires { Strategy::family_name(); }
+    {
+        return Strategy::family_name();
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept
+        requires requires { Strategy::flag_suffix(); }
+    {
+        return Strategy::flag_suffix();
+    }
     [[nodiscard]] static constexpr std::string_view get_compiler() noexcept
-        requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
+        requires requires { Strategy::get_compiler(); }
+    {
+        return Strategy::get_compiler();
+    }
 
     /// STATIC Pass-Through (Drop-in-Kompatibilität): unveraendert durchgereicht fuer die bestehenden Aufrufer
     /// (abi_adapter.hpp:218 `Serializer::serialize_scan`). Trackt NICHT.
@@ -61,7 +70,7 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.serialize_count;
         stats_.records_serialized += static_cast<std::uint64_t>(n);
-        stats_.bytes_serialized   += static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(record_size);
+        stats_.bytes_serialized += static_cast<std::uint64_t>(n) * static_cast<std::uint64_t>(record_size);
         stats_.last_checksum = checksum;
 #endif
         return checksum;
@@ -70,11 +79,11 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = SerializationSnapshot;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; }
+    void                     reset() noexcept { stats_ = {}; }
 
 private:
     snapshot_t stats_{};
 #endif
 };
 
-}  // namespace comdare::cache_engine::serialization_axis
+} // namespace comdare::cache_engine::serialization_axis

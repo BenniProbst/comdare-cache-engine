@@ -13,16 +13,14 @@ namespace comdare::cache_engine {
 
 class LeafOnlyCounter final : public ITelemetryStrategy {
 public:
-    explicit LeafOnlyCounter(std::size_t num_leaves)
-        : leaf_counters_(num_leaves) {}
+    explicit LeafOnlyCounter(std::size_t num_leaves) : leaf_counters_(num_leaves) {}
 
     [[nodiscard]] TelemetryStrategyKind kind() const noexcept override {
         return TelemetryStrategyKind::LeafOnlyCounter;
     }
 
     void increment_leaf(LeafId leaf_id) noexcept {
-        if (leaf_id < leaf_counters_.size())
-            leaf_counters_[leaf_id].fetch_add(1, std::memory_order_relaxed);
+        if (leaf_id < leaf_counters_.size()) leaf_counters_[leaf_id].fetch_add(1, std::memory_order_relaxed);
     }
 
     [[nodiscard]] std::uint64_t leaf_value(LeafId leaf_id) const noexcept {
@@ -30,12 +28,10 @@ public:
         return leaf_counters_[leaf_id].load(std::memory_order_relaxed);
     }
 
-    [[nodiscard]] std::size_t leaf_count() const noexcept {
-        return leaf_counters_.size();
-    }
+    [[nodiscard]] std::size_t leaf_count() const noexcept { return leaf_counters_.size(); }
 
 private:
     std::vector<std::atomic<std::uint64_t>> leaf_counters_;
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

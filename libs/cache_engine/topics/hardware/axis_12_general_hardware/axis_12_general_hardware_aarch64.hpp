@@ -28,24 +28,24 @@ public:
     using axis_tag  = subaxes::cpu_family_tag;
     using family_id = std::integral_constant<int, 2>;
 
-    [[nodiscard]] static constexpr std::size_t cache_line_size()   noexcept { return 64; }
-    [[nodiscard]] static constexpr std::size_t memory_page_size()  noexcept { return 4096; }
-    [[nodiscard]] static constexpr std::size_t simd_width_bits()   noexcept { return 128; }  // NEON Standard
-    [[nodiscard]] static constexpr bool        numa_capable()      noexcept { return true; }
+    [[nodiscard]] static constexpr std::size_t cache_line_size() noexcept { return 64; }
+    [[nodiscard]] static constexpr std::size_t memory_page_size() noexcept { return 4096; }
+    [[nodiscard]] static constexpr std::size_t simd_width_bits() noexcept { return 128; } // NEON Standard
+    [[nodiscard]] static constexpr bool        numa_capable() noexcept { return true; }
     [[nodiscard]] static constexpr bool        huge_page_capable() noexcept { return true; }
 
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "general_hardware_aarch64"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept {
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "general_hardware_aarch64"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "Aarch64HardwareProfile (cache_line=64, page=4K, NEON 128-bit SIMD, NUMA + huge-pages capable)";
     }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "AARCH64"; }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "AARCH64"; }
 
     static constexpr bool enabled = flags::aarch64_enabled;
 };
 
-}  // namespace comdare::cache_engine::hardware::axis_12_general_hardware
+} // namespace comdare::cache_engine::hardware::axis_12_general_hardware
 
 namespace comdare::cache_engine::hardware::axis_12_general_hardware {
-    static_assert(concepts::GeneralHardwareStrategy<Aarch64HardwareProfile>);
-    static_assert(concepts::CacheEnginePermutationStrategy<Aarch64HardwareProfile>);
-}
+static_assert(concepts::GeneralHardwareStrategy<Aarch64HardwareProfile>);
+static_assert(concepts::CacheEnginePermutationStrategy<Aarch64HardwareProfile>);
+} // namespace comdare::cache_engine::hardware::axis_12_general_hardware

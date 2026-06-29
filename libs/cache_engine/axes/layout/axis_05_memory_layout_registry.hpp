@@ -33,13 +33,8 @@ namespace mp = boost::mp11;
 // ─────────────────────────────────────────────────────────────────────────────
 // (1) AllLayouts — komplette statische Liste aller bekannten Layout-Wrapper
 // ─────────────────────────────────────────────────────────────────────────────
-using AllLayouts = mp::mp_list<
-    CacheLineAlignedMemoryLayout,
-    AoSStrictMemoryLayout,
-    SoAMemoryLayout,
-    PackedBitmapMemoryLayout,
-    AoSoAMemoryLayout
->;
+using AllLayouts = mp::mp_list<CacheLineAlignedMemoryLayout, AoSStrictMemoryLayout, SoAMemoryLayout,
+                               PackedBitmapMemoryLayout, AoSoAMemoryLayout>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // (2) is_enabled — Compile-Time-Predicate ueber Layout-Klasse
@@ -53,8 +48,7 @@ using is_enabled = mp::mp_bool<T::enabled>;
 using EnabledLayouts = mp::mp_filter<is_enabled, AllLayouts>;
 
 // Compile-Time-Sanity: mindestens 1 Layout muss aktiviert sein.
-static_assert(mp::mp_size<EnabledLayouts>::value > 0,
-    "Axis 05 MemoryLayout: at least one layout must be enabled "
-    "(alle COMDARE_AXIS_05_ENABLE_* OFF?)");
+static_assert(mp::mp_size<EnabledLayouts>::value > 0, "Axis 05 MemoryLayout: at least one layout must be enabled "
+                                                      "(alle COMDARE_AXIS_05_ENABLE_* OFF?)");
 
-}  // namespace
+} // namespace comdare::cache_engine::layout

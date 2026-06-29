@@ -13,13 +13,13 @@
 #include <cstdlib>
 
 #if COMDARE_AXIS_06_USE_PIM_MALLOC
-#  include <pim_malloc.h>
+#include <pim_malloc.h>
 #else
 extern "C" {
-    inline void* pim_alloc(std::size_t /*size*/, std::size_t /*alignment*/, int /*dpu_id*/) noexcept { return nullptr; }
-    inline void  pim_free(void* /*p*/, int /*dpu_id*/) noexcept {}
-    inline void* pim_calloc(std::size_t /*n*/, std::size_t /*size*/, int /*dpu_id*/) noexcept { return nullptr; }
-    inline void* pim_realloc(void* /*p*/, std::size_t /*new_size*/, int /*dpu_id*/) noexcept { return nullptr; }
-    inline int   pim_detect_hardware() noexcept { return 0; }  // 0 = no PIM-Hardware
+inline void* pim_alloc(std::size_t /*size*/, std::size_t /*alignment*/, int /*dpu_id*/) noexcept { return nullptr; }
+inline void  pim_free(void* /*p*/, int /*dpu_id*/) noexcept {}
+inline void* pim_calloc(std::size_t /*n*/, std::size_t /*size*/, int /*dpu_id*/) noexcept { return nullptr; }
+inline void* pim_realloc(void* /*p*/, std::size_t /*new_size*/, int /*dpu_id*/) noexcept { return nullptr; }
+inline int   pim_detect_hardware() noexcept { return 0; } // 0 = no PIM-Hardware
 }
 #endif

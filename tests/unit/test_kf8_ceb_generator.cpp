@@ -15,12 +15,18 @@
 namespace ex = comdare::cache_engine::builder::experiment;
 
 static int g_fail = 0;
-void check_true(char const* what, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n"; if (!c) ++g_fail; }
+void       check_true(char const* what, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n";
+    if (!c) ++g_fail;
+}
 template <typename A, typename B>
 void check_eq(char const* what, A const& got, B const& want) {
     bool ok = (got == want);
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << " = " << got;
-    if (!ok) { std::cout << "  (erwartet: " << want << ")"; ++g_fail; }
+    if (!ok) {
+        std::cout << "  (erwartet: " << want << ")";
+        ++g_fail;
+    }
     std::cout << "\n";
 }
 static bool contains(std::string const& h, std::string const& n) { return h.find(n) != std::string::npos; }
@@ -28,7 +34,7 @@ static bool contains(std::string const& h, std::string const& n) { return h.find
 int main() {
     // generate_perm_source: Struktur prüfen
     std::string const bid = "traversal=ART/node=N4/node.cl_line=64";
-    std::string src = ex::generate_perm_source(bid);
+    std::string       src = ex::generate_perm_source(bid);
     check_true("axis-#define traversal", contains(src, "#define COMDARE_PERM_TRAVERSAL_IS_ART 1"));
     check_true("axis-#define node", contains(src, "#define COMDARE_PERM_NODE_IS_N4 1"));
     check_true("axis-#define node.cl_line (sanitisiert)", contains(src, "#define COMDARE_PERM_NODE_CL_LINE_IS_64 1"));
@@ -37,18 +43,19 @@ int main() {
     check_true("run-Symbol", contains(src, "_run(unsigned long n_ops, double* out_micros_per_op)"));
 
     // Baum (2 Binaries) -> generate_all
-    auto factory = std::make_shared<ex::ExperimentNodeFactory>();
+    auto               factory = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree tree{factory};
     tree.build({
         ex::AxisLevel{"traversal", {"ART"}, true, ""},
         ex::AxisLevel{"node", {"N4", "N16"}, true, ""},
         ex::AxisLevel{"node.cl_line", {"64"}, true, ""},
-        ex::AxisLevel{"concurrency", {"1", "2"}, false, "thread_count"},  // dynamisch -> keine neuen Binaries
+        ex::AxisLevel{"concurrency", {"1", "2"}, false, "thread_count"}, // dynamisch -> keine neuen Binaries
     });
     check_eq("binary_count (1x2x1)", tree.binary_count(), std::size_t{2});
 
     std::filesystem::path const dir = std::filesystem::temp_directory_path() / "comdare_kf8_gen";
-    std::error_code ec; std::filesystem::remove_all(dir, ec);
+    std::error_code             ec;
+    std::filesystem::remove_all(dir, ec);
     std::size_t n = ex::generate_all(tree, dir);
     check_eq("generate_all: erzeugte Sources", n, std::size_t{2});
     std::size_t cpp_files = 0;
@@ -59,9 +66,13 @@ int main() {
 
     // Ein generiertes Source zur externen Compile-Prüfung wegschreiben
     std::filesystem::path const sample = std::filesystem::temp_directory_path() / "kf8_sample.cpp";
-    { std::ofstream f{sample}; f << src; }
+    {
+        std::ofstream f{sample};
+        f << src;
+    }
     check_true("Sample-Source geschrieben (fuer cl-Compile-Check)", std::filesystem::exists(sample));
 
-    std::cout << "\n==== KF-8 CebGenerator: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== KF-8 CebGenerator: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

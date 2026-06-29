@@ -27,8 +27,6 @@ struct QueuingTopicTag {};
  * Pflicht: jede Klasse die unter queuing/ liegt MUSS topic_tag == QueuingTopicTag haben.
  */
 template <typename T>
-concept QueuingComponent = requires {
-    typename T::topic_tag;
-} && std::same_as<typename T::topic_tag, QueuingTopicTag>;
+concept QueuingComponent = requires { typename T::topic_tag; } && std::same_as<typename T::topic_tag, QueuingTopicTag>;
 
-}  // namespace comdare::cache_engine::queuing::concepts
+} // namespace comdare::cache_engine::queuing::concepts

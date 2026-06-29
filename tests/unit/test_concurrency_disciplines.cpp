@@ -21,31 +21,33 @@
 namespace ce = comdare::cache_engine;
 
 TEST(ConcurrencyDiscipline, AllTenKindsAreDistinct) {
-    EXPECT_EQ(ce::PageDiscipline{}.kind(),            ce::ConcurrencyDisciplineKind::Page);
-    EXPECT_EQ(ce::NodeDiscipline{}.kind(),            ce::ConcurrencyDisciplineKind::Node);
-    EXPECT_EQ(ce::ArrayDiscipline{}.kind(),           ce::ConcurrencyDisciplineKind::Array);
-    EXPECT_EQ(ce::DataStructureDiscipline{}.kind(),   ce::ConcurrencyDisciplineKind::DataStructure);
-    EXPECT_EQ(ce::PathDiscipline{}.kind(),            ce::ConcurrencyDisciplineKind::Path);
-    EXPECT_EQ(ce::MemoryReadDiscipline{}.kind(),      ce::ConcurrencyDisciplineKind::MemoryRead);
-    EXPECT_EQ(ce::MemoryWriteDiscipline{}.kind(),     ce::ConcurrencyDisciplineKind::MemoryWrite);
+    EXPECT_EQ(ce::PageDiscipline{}.kind(), ce::ConcurrencyDisciplineKind::Page);
+    EXPECT_EQ(ce::NodeDiscipline{}.kind(), ce::ConcurrencyDisciplineKind::Node);
+    EXPECT_EQ(ce::ArrayDiscipline{}.kind(), ce::ConcurrencyDisciplineKind::Array);
+    EXPECT_EQ(ce::DataStructureDiscipline{}.kind(), ce::ConcurrencyDisciplineKind::DataStructure);
+    EXPECT_EQ(ce::PathDiscipline{}.kind(), ce::ConcurrencyDisciplineKind::Path);
+    EXPECT_EQ(ce::MemoryReadDiscipline{}.kind(), ce::ConcurrencyDisciplineKind::MemoryRead);
+    EXPECT_EQ(ce::MemoryWriteDiscipline{}.kind(), ce::ConcurrencyDisciplineKind::MemoryWrite);
     EXPECT_EQ(ce::MemoryReadWriteDiscipline{}.kind(), ce::ConcurrencyDisciplineKind::MemoryReadWrite);
-    EXPECT_EQ(ce::SimdThreadDiscipline{}.kind(),      ce::ConcurrencyDisciplineKind::SimdThread);
-    EXPECT_EQ(ce::SimdFlowDiscipline{}.kind(),        ce::ConcurrencyDisciplineKind::SimdFlow);
+    EXPECT_EQ(ce::SimdThreadDiscipline{}.kind(), ce::ConcurrencyDisciplineKind::SimdThread);
+    EXPECT_EQ(ce::SimdFlowDiscipline{}.kind(), ce::ConcurrencyDisciplineKind::SimdFlow);
 }
 
 TEST(MemoryWriteDiscipline, BlockANCacheCoherenceCostMonotonicWithCores) {
     ce::MemoryWriteDiscipline d;
-    ce::WriteEvent e1{}; e1.node_depth = 5; e1.num_cores_sharing = 8;
-    ce::WriteEvent e2 = e1; e2.num_cores_sharing = 64;
-    EXPECT_LT(d.compute_cache_coherence_cost(e1),
-              d.compute_cache_coherence_cost(e2));
+    ce::WriteEvent            e1{};
+    e1.node_depth        = 5;
+    e1.num_cores_sharing = 8;
+    ce::WriteEvent e2    = e1;
+    e2.num_cores_sharing = 64;
+    EXPECT_LT(d.compute_cache_coherence_cost(e1), d.compute_cache_coherence_cost(e2));
 }
 
 TEST(MemoryWriteDiscipline, OnEventCachesLastCost) {
     ce::MemoryWriteDiscipline d;
-    ce::WriteEvent e{};
-    e.kind = ce::EventKind::Write;
-    e.node_depth = 3;
+    ce::WriteEvent            e{};
+    e.kind              = ce::EventKind::Write;
+    e.node_depth        = 3;
     e.num_cores_sharing = 16;
     d.on_event(e);
     EXPECT_GT(d.last_cost(), 0.0);
@@ -59,7 +61,7 @@ TEST(OLCMechanic, KindIsOlc) {
 
 TEST(OLCMechanic, WriterIncrementsVersion) {
     ce::OLCMechanic m;
-    auto v0 = m.version();
+    auto            v0 = m.version();
     m.begin_write();
     m.end_write();
     EXPECT_EQ(m.version(), v0 + 2);
@@ -75,7 +77,8 @@ TEST(OLCMechanic, ReaderValidWhenNoWriteHappened) {
 TEST(OLCMechanic, ReaderInvalidatedByConcurrentWrite) {
     ce::OLCMechanic m;
     m.begin_read();
-    m.begin_write(); m.end_write();
+    m.begin_write();
+    m.end_write();
     m.end_read();
     EXPECT_FALSE(m.last_read_valid());
 }
@@ -88,15 +91,18 @@ TEST(RowexMechanic, KindIsRowex) {
 TEST(RowexMechanic, WriterAcquiresAndReleases) {
     ce::RowexMechanic m;
     m.begin_write();
-    m.end_write();   // muss ohne deadlock zurueckkehren
+    m.end_write(); // muss ohne deadlock zurueckkehren
     SUCCEED();
 }
 
 TEST(RowexMechanic, ReadCounterIncrements) {
     ce::RowexMechanic m;
-    m.begin_read(); m.end_read();
-    m.begin_read(); m.end_read();
-    m.begin_read(); m.end_read();
+    m.begin_read();
+    m.end_read();
+    m.begin_read();
+    m.end_read();
+    m.begin_read();
+    m.end_read();
     EXPECT_EQ(m.read_count(), 3u);
 }
 
@@ -125,27 +131,24 @@ TEST(ComdareRcuMechanic, BeginEndReadDecrementsActive) {
 
 TEST(ComdareRcuMechanic, SynchronizeReturnsWhenNoActiveReaders) {
     ce::ComdareRcuMechanic m;
-    m.synchronize();   // muss sofort zurueckkehren wenn active_readers == 0
+    m.synchronize(); // muss sofort zurueckkehren wenn active_readers == 0
     SUCCEED();
 }
 
 TEST(ConcurrencyManager, ConfigurableViaTemplate) {
-    using Manager = ce::ConcurrencyManager<ce::OLCMechanic,
-                                           ce::PageDiscipline,
-                                           ce::NodeDiscipline,
-                                           ce::MemoryWriteDiscipline>;
+    using Manager =
+        ce::ConcurrencyManager<ce::OLCMechanic, ce::PageDiscipline, ce::NodeDiscipline, ce::MemoryWriteDiscipline>;
     Manager mgr;
     EXPECT_EQ(mgr.discipline_count(), 3u);
     EXPECT_EQ(mgr.mechanic().kind(), ce::ConcurrencyMechanicKind::OLC);
 }
 
 TEST(ConcurrencyManager, DispatchPropagatesEventToAllDisciplines) {
-    using Manager = ce::ConcurrencyManager<ce::OLCMechanic,
-                                           ce::MemoryWriteDiscipline>;
-    Manager mgr;
+    using Manager = ce::ConcurrencyManager<ce::OLCMechanic, ce::MemoryWriteDiscipline>;
+    Manager        mgr;
     ce::WriteEvent e{};
-    e.kind = ce::EventKind::Write;
-    e.node_depth = 2;
+    e.kind              = ce::EventKind::Write;
+    e.node_depth        = 2;
     e.num_cores_sharing = 4;
     mgr.dispatch(e);
     EXPECT_GT(mgr.discipline<0>().last_cost(), 0.0);

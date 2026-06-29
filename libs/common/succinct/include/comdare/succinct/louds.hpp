@@ -35,9 +35,9 @@ public:
 
     // Konstruktion aus BFS-Degree-Sequenz: degrees[i] = Anzahl Kinder des i-ten BFS-Knotens
     void build_from_bfs_degrees(std::vector<std::uint32_t> const& degrees) {
-        node_count_ = degrees.size();
+        node_count_            = degrees.size();
         std::size_t total_bits = 0;
-        for (auto d : degrees) total_bits += (d + 1);   // d Einsen + 1 Null pro Knoten
+        for (auto d : degrees) total_bits += (d + 1); // d Einsen + 1 Null pro Knoten
         bits_.resize(total_bits);
         std::size_t pos = 0;
         for (auto d : degrees) {
@@ -47,7 +47,7 @@ public:
         bits_.build_rank_index();
     }
 
-    [[nodiscard]] std::size_t node_count() const noexcept { return node_count_; }
+    [[nodiscard]] std::size_t      node_count() const noexcept { return node_count_; }
     [[nodiscard]] BitVector const& bits() const noexcept { return bits_; }
 
     // first_child(v) — gibt BFS-Index des ersten Kindes zurueck.
@@ -64,7 +64,7 @@ public:
 
     [[nodiscard]] std::uint32_t degree(std::size_t v) const noexcept {
         if (v >= node_count_) return 0;
-        std::size_t const zero_pos = nth_zero_position(v);
+        std::size_t const zero_pos      = nth_zero_position(v);
         std::size_t const prev_zero_pos = (v == 0) ? 0 : (nth_zero_position(v - 1) + 1);
         return static_cast<std::uint32_t>(zero_pos - prev_zero_pos);
     }
@@ -74,19 +74,17 @@ public:
         if (v == 0) return 0;
         // parent = rank0 der Position vor v's "1"-bit-block
         // Naive: scan bits, weil 1-bit-Position fuer Kind v ueber rank1=v gefunden wird.
-        std::size_t const my_bit = bits_.select1(v);    // position des v-ten 1-bits
+        std::size_t const my_bit = bits_.select1(v); // position des v-ten 1-bits
         if (my_bit >= bits_.size()) return 0;
-        return bits_.rank0(my_bit);                       // anzahl 0-bits davor = parent-id
+        return bits_.rank0(my_bit); // anzahl 0-bits davor = parent-id
     }
 
 private:
     // Position des (v+1)-ten "0"-Bits in bits_
-    [[nodiscard]] std::size_t nth_zero_position(std::size_t v) const noexcept {
-        return bits_.select0(v + 1);
-    }
+    [[nodiscard]] std::size_t nth_zero_position(std::size_t v) const noexcept { return bits_.select0(v + 1); }
 
     BitVector   bits_{};
     std::size_t node_count_ = 0;
 };
 
-}  // namespace comdare::succinct
+} // namespace comdare::succinct

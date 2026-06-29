@@ -31,14 +31,10 @@ TEST(ConceptsCompile, NodeRefKindHas5Variants) {
     EXPECT_EQ(static_cast<int>(NodeRefKind::SuffixRef), 4);
 }
 
-TEST(ConceptsCompile, DefaultFanoutWidthIs15) {
-    EXPECT_EQ(comdare::prt_art::kDefaultFanoutWidth, 15u);
-}
+TEST(ConceptsCompile, DefaultFanoutWidthIs15) { EXPECT_EQ(comdare::prt_art::kDefaultFanoutWidth, 15u); }
 
 TEST(ConceptsCompile, IteratorModeHas3Modes) {
     using comdare::prt_art::IteratorMode;
-    EXPECT_NE(static_cast<int>(IteratorMode::Default),
-              static_cast<int>(IteratorMode::LocallyOrdered));
-    EXPECT_NE(static_cast<int>(IteratorMode::LocallyOrdered),
-              static_cast<int>(IteratorMode::Lex));
+    EXPECT_NE(static_cast<int>(IteratorMode::Default), static_cast<int>(IteratorMode::LocallyOrdered));
+    EXPECT_NE(static_cast<int>(IteratorMode::LocallyOrdered), static_cast<int>(IteratorMode::Lex));
 }

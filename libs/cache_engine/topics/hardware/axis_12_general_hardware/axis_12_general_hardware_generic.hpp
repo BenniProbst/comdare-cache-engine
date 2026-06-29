@@ -32,26 +32,27 @@ public:
     using family_id = std::integral_constant<int, 0>;
 
     // Plattform-Properties (GeneralHardwareStrategy)
-    [[nodiscard]] static constexpr std::size_t cache_line_size()   noexcept { return 64; }
-    [[nodiscard]] static constexpr std::size_t memory_page_size()  noexcept { return 4096; }
-    [[nodiscard]] static constexpr std::size_t simd_width_bits()   noexcept { return 0; }
-    [[nodiscard]] static constexpr bool        numa_capable()      noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t cache_line_size() noexcept { return 64; }
+    [[nodiscard]] static constexpr std::size_t memory_page_size() noexcept { return 4096; }
+    [[nodiscard]] static constexpr std::size_t simd_width_bits() noexcept { return 0; }
+    [[nodiscard]] static constexpr bool        numa_capable() noexcept { return false; }
     [[nodiscard]] static constexpr bool        huge_page_capable() noexcept { return false; }
 
     // Identifikation (Pflicht-API CacheEnginePermutationStrategy)
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "general_hardware_generic"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept {
-        return "GenericHardwareProfile (cache_line=64, page=4K, no SIMD, no NUMA, no huge-pages — conservative defaults)";
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "general_hardware_generic"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "GenericHardwareProfile (cache_line=64, page=4K, no SIMD, no NUMA, no huge-pages — conservative "
+               "defaults)";
     }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "GENERIC"; }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "GENERIC"; }
 
     // CMake-Flag-Mapping (Pflicht fuer Registry::is_enabled)
     static constexpr bool enabled = flags::generic_enabled;
 };
 
-}  // namespace comdare::cache_engine::hardware::axis_12_general_hardware
+} // namespace comdare::cache_engine::hardware::axis_12_general_hardware
 
 namespace comdare::cache_engine::hardware::axis_12_general_hardware {
-    static_assert(concepts::GeneralHardwareStrategy<GenericHardwareProfile>);
-    static_assert(concepts::CacheEnginePermutationStrategy<GenericHardwareProfile>);
-}
+static_assert(concepts::GeneralHardwareStrategy<GenericHardwareProfile>);
+static_assert(concepts::CacheEnginePermutationStrategy<GenericHardwareProfile>);
+} // namespace comdare::cache_engine::hardware::axis_12_general_hardware

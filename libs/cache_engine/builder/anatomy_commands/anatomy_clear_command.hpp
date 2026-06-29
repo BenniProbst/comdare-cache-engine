@@ -11,12 +11,9 @@ namespace comdare::cache_engine::builder::anatomy_commands {
 template <ana::IsComposition Composition>
 class AnatomyClearCommand : public commands::ICommand {
 public:
-    explicit AnatomyClearCommand(AnatomyExecutionContext<Composition>& ctx) noexcept
-        : ctx_(ctx) {}
+    explicit AnatomyClearCommand(AnatomyExecutionContext<Composition>& ctx) noexcept : ctx_(ctx) {}
 
-    [[nodiscard]] std::string_view command_name() const noexcept override {
-        return "AnatomyClearCommand";
-    }
+    [[nodiscard]] std::string_view command_name() const noexcept override { return "AnatomyClearCommand"; }
 
     int execute() override {
         ctx_.clear();
@@ -27,4 +24,4 @@ private:
     AnatomyExecutionContext<Composition>& ctx_;
 };
 
-}  // namespace comdare::cache_engine::builder::anatomy_commands
+} // namespace comdare::cache_engine::builder::anatomy_commands

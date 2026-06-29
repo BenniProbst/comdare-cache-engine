@@ -25,12 +25,14 @@ public:
 
     static constexpr bool enabled = flags::clustered_enabled;
 
-    [[nodiscard]] static constexpr bool             is_clustered()          noexcept { return true; }
+    [[nodiscard]] static constexpr bool             is_clustered() noexcept { return true; }
     [[nodiscard]] static constexpr bool             has_secondary_indexes() noexcept { return false; }
     [[nodiscard]] static constexpr bool             data_embedded_in_leaf() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "index_org_clustered"; }
-    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "ClusteredIndexOrganization (Index-Order = Storage-Order, MySQL InnoDB)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "CLUSTERED"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "index_org_clustered"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "ClusteredIndexOrganization (Index-Order = Storage-Order, MySQL InnoDB)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "CLUSTERED"; }
 
     // V41.F.6.1 — verhaltens-tragende Laufzeit-API (index_organization-Achse, Pfad-A-operativ, T13).
     // Distinktes Zugriffsmuster je Strategie: Clustered = SEQUENTIAL — Index-Order == Storage-Order,
@@ -41,16 +43,16 @@ public:
         std::uint64_t s = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::uint32_t v;
-            std::memcpy(&v, buf + i * record_size, sizeof(v));   // Clustered: sequential, Storage-Order = Index-Order
+            std::memcpy(&v, buf + i * record_size, sizeof(v)); // Clustered: sequential, Storage-Order = Index-Order
             s += v;
         }
         return s;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::index_organization
 
 namespace comdare::cache_engine::index_organization {
-    static_assert(concepts::IndexOrganizationStrategy<ClusteredIndexOrganization>);
-    static_assert(concepts::CacheEnginePermutationStrategy<ClusteredIndexOrganization>);
-}
+static_assert(concepts::IndexOrganizationStrategy<ClusteredIndexOrganization>);
+static_assert(concepts::CacheEnginePermutationStrategy<ClusteredIndexOrganization>);
+} // namespace comdare::cache_engine::index_organization

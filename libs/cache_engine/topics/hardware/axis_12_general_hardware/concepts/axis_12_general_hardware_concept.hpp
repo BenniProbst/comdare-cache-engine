@@ -17,14 +17,12 @@
 namespace comdare::cache_engine::hardware::axis_12_general_hardware::concepts {
 
 template <typename H>
-concept GeneralHardwareStrategy =
-    ::comdare::cache_engine::hardware::concepts::HardwareComponent<H>
-    && requires {
-        { H::cache_line_size()    } noexcept -> std::convertible_to<std::size_t>;
-        { H::memory_page_size()   } noexcept -> std::convertible_to<std::size_t>;
-        { H::simd_width_bits()    } noexcept -> std::convertible_to<std::size_t>;
-        { H::numa_capable()       } noexcept -> std::convertible_to<bool>;
-        { H::huge_page_capable()  } noexcept -> std::convertible_to<bool>;
-    };
+concept GeneralHardwareStrategy = ::comdare::cache_engine::hardware::concepts::HardwareComponent<H> && requires {
+    { H::cache_line_size() } noexcept -> std::convertible_to<std::size_t>;
+    { H::memory_page_size() } noexcept -> std::convertible_to<std::size_t>;
+    { H::simd_width_bits() } noexcept -> std::convertible_to<std::size_t>;
+    { H::numa_capable() } noexcept -> std::convertible_to<bool>;
+    { H::huge_page_capable() } noexcept -> std::convertible_to<bool>;
+};
 
-}  // namespace comdare::cache_engine::hardware::axis_12_general_hardware::concepts
+} // namespace comdare::cache_engine::hardware::axis_12_general_hardware::concepts

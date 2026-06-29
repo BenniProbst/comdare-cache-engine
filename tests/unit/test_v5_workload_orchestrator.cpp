@@ -24,52 +24,80 @@ namespace {
 
 struct MockTier final : an::IObservableTier, an::IRollbackableTier {
     std::map<std::uint64_t, std::uint64_t> data_;
-    std::uint64_t ins_ = 0, ers_ = 0, peak_ = 0;
-    mutable std::uint64_t lk_ = 0, hit_ = 0, miss_ = 0;
-    struct Snap { std::map<std::uint64_t, std::uint64_t> data; std::uint64_t ins, ers, peak, lk, hit, miss; };
+    std::uint64_t                          ins_ = 0, ers_ = 0, peak_ = 0;
+    mutable std::uint64_t                  lk_ = 0, hit_ = 0, miss_ = 0;
+    struct Snap {
+        std::map<std::uint64_t, std::uint64_t> data;
+        std::uint64_t                          ins, ers, peak, lk, hit, miss;
+    };
     std::optional<Snap> saved_;
 
     bool tier_insert(std::uint64_t k, std::uint64_t v) noexcept override {
         bool const nu = data_.emplace(k, v).second;
-        if (nu) { ++ins_; if (data_.size() > peak_) peak_ = data_.size(); }
+        if (nu) {
+            ++ins_;
+            if (data_.size() > peak_) peak_ = data_.size();
+        }
         return nu;
     }
     bool tier_lookup(std::uint64_t k, std::uint64_t* o) const noexcept override {
-        ++lk_; auto const it = data_.find(k);
-        if (it != data_.end()) { ++hit_; if (o) *o = it->second; return true; }
-        ++miss_; return false;
+        ++lk_;
+        auto const it = data_.find(k);
+        if (it != data_.end()) {
+            ++hit_;
+            if (o) *o = it->second;
+            return true;
+        }
+        ++miss_;
+        return false;
     }
-    bool tier_erase(std::uint64_t k) noexcept override { bool const e = data_.erase(k) != 0; if (e) ++ers_; return e; }
-    void tier_clear() noexcept override { data_.clear(); }
+    bool tier_erase(std::uint64_t k) noexcept override {
+        bool const e = data_.erase(k) != 0;
+        if (e) ++ers_;
+        return e;
+    }
+    void                        tier_clear() noexcept override { data_.clear(); }
     [[nodiscard]] std::uint64_t tier_size() const noexcept override { return data_.size(); }
-    void tier_observe(an::ComdareTierObserverSnapshot* o) const noexcept override {   // search → axis_stats[0]
+    void tier_observe(an::ComdareTierObserverSnapshot* o) const noexcept override { // search → axis_stats[0]
         if (!o) return;
-        o->axis_stats[0][3] = ins_; o->axis_stats[0][0] = lk_;  o->axis_stats[0][1] = hit_;
-        o->axis_stats[0][2] = miss_; o->axis_stats[0][4] = ers_; o->axis_stats[0][5] = peak_;
-        o->tier_fill_level = data_.size();
+        o->axis_stats[0][3] = ins_;
+        o->axis_stats[0][0] = lk_;
+        o->axis_stats[0][1] = hit_;
+        o->axis_stats[0][2] = miss_;
+        o->axis_stats[0][4] = ers_;
+        o->axis_stats[0][5] = peak_;
+        o->tier_fill_level  = data_.size();
     }
     void tier_save_all() noexcept override { saved_ = Snap{data_, ins_, ers_, peak_, lk_, hit_, miss_}; }
     void tier_rollback_all() noexcept override {
-        if (saved_) { data_ = saved_->data; ins_ = saved_->ins; ers_ = saved_->ers; peak_ = saved_->peak;
-                      lk_ = saved_->lk; hit_ = saved_->hit; miss_ = saved_->miss; }
+        if (saved_) {
+            data_ = saved_->data;
+            ins_  = saved_->ins;
+            ers_  = saved_->ers;
+            peak_ = saved_->peak;
+            lk_   = saved_->lk;
+            hit_  = saved_->hit;
+            miss_ = saved_->miss;
+        }
     }
 };
 
 std::vector<wd::WorkloadOp> mixed_sequence() {
     using K = wd::WorkloadOpKind;
-    return {
-        {K::Insert, 1, 11}, {K::Insert, 2, 22}, {K::Insert, 3, 33}, {K::Lookup, 2, 0}, {K::Lookup, 9, 0},
-        {K::Erase, 1, 0}, {K::Insert, 4, 44}, {K::Lookup, 4, 0}, {K::Clear, 0, 0},
-        {K::Insert, 5, 55}, {K::Lookup, 5, 0}, {K::Erase, 5, 0}};
+    return {{K::Insert, 1, 11}, {K::Insert, 2, 22}, {K::Insert, 3, 33}, {K::Lookup, 2, 0},
+            {K::Lookup, 9, 0},  {K::Erase, 1, 0},   {K::Insert, 4, 44}, {K::Lookup, 4, 0},
+            {K::Clear, 0, 0},   {K::Insert, 5, 55}, {K::Lookup, 5, 0},  {K::Erase, 5, 0}};
 }
 
-}  // namespace
+} // namespace
 
 // Zwei-Phasen-Lauf lässt EXAKT denselben End-Zustand wie der Einphasen-Lauf zurück (Warmups zurückgerollt).
 TEST(V5WorkloadOrchestrator, TwoPhaseProfileEqualsSinglePhaseFinalState) {
     auto const ops = mixed_sequence();
-    MockTier sp; wd::run_workload_profile(sp, nullptr, ops, "single");
-    MockTier tp; wd::run_workload_profile(tp, &tp, ops, "twophase");
+    MockTier   sp;
+    wd::run_workload_profile(sp, nullptr, ops, "single");
+    MockTier tp;
+    wd::run_workload_profile(tp, &tp, ops, "twophase");
     EXPECT_EQ(sp.data_, tp.data_);
     EXPECT_EQ(sp.ins_, tp.ins_);
     EXPECT_EQ(sp.lk_, tp.lk_);
@@ -82,11 +110,12 @@ TEST(V5WorkloadOrchestrator, TwoPhaseProfileEqualsSinglePhaseFinalState) {
 // Per-Op-Kind-Sample-Counts entsprechen den Op-Vorkommen in der Sequenz.
 TEST(V5WorkloadOrchestrator, PerOpKindSampleCountsMatchSequence) {
     auto const ops = mixed_sequence();
-    MockTier t; auto const r = wd::run_workload_profile(t, &t, ops, "p");
-    EXPECT_EQ(r.insert_ns.size(), 5u);   // 5 Insert
-    EXPECT_EQ(r.lookup_ns.size(), 4u);   // 4 Lookup
-    EXPECT_EQ(r.erase_ns.size(), 2u);    // 2 Erase
-    EXPECT_EQ(r.clear_ns.size(), 1u);    // 1 Clear
+    MockTier   t;
+    auto const r = wd::run_workload_profile(t, &t, ops, "p");
+    EXPECT_EQ(r.insert_ns.size(), 5u); // 5 Insert
+    EXPECT_EQ(r.lookup_ns.size(), 4u); // 4 Lookup
+    EXPECT_EQ(r.erase_ns.size(), 2u);  // 2 Erase
+    EXPECT_EQ(r.clear_ns.size(), 1u);  // 1 Clear
     EXPECT_EQ(r.op_count, ops.size());
 }
 
@@ -94,7 +123,8 @@ TEST(V5WorkloadOrchestrator, PerOpKindSampleCountsMatchSequence) {
 TEST(V5WorkloadOrchestrator, MeasurementPlanRunsMultipleProfiles) {
     wd::MeasurementPlan plan;
     plan.profiles = {wd::make_mixed_a(7, 200), wd::make_ycsb_c(7, 150)};
-    MockTier t; auto const res = wd::run_measurement_plan(t, &t, plan);
+    MockTier   t;
+    auto const res = wd::run_measurement_plan(t, &t, plan);
     ASSERT_EQ(res.size(), 2u);
     EXPECT_EQ(res[0].op_count, 200u);
     EXPECT_EQ(res[1].op_count, 150u);
@@ -116,9 +146,10 @@ TEST(V5WorkloadOrchestrator, SerializeWorkloadConfigFormat) {
 TEST(V5WorkloadOrchestrator, SerializeRunResultsCsv) {
     wd::MeasurementPlan plan;
     plan.profiles = {wd::make_mixed_a(7, 60), wd::make_ycsb_c(7, 40)};
-    MockTier t; auto const res = wd::run_measurement_plan(t, &t, plan);
+    MockTier   t;
+    auto const res = wd::run_measurement_plan(t, &t, plan);
     auto const csv = wd::serialize_workload_run_results_csv(res);
-    EXPECT_EQ(csv.rfind("profile,op_count,two_phase,", 0), 0u);   // Header zuerst
+    EXPECT_EQ(csv.rfind("profile,op_count,two_phase,", 0), 0u);         // Header zuerst
     EXPECT_NE(csv.find("\nMixedA_50_50,60,1,"), std::string::npos);     // Profil-1-Zeile, two_phase=1
     EXPECT_NE(csv.find("\nYCSB_C_read_only,40,1,"), std::string::npos); // Profil-2-Zeile
     // 3 Zeilen (Header + 2 Profile): genau 2 '\n' nach dem Header, 3 insgesamt.

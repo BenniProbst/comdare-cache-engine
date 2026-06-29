@@ -10,12 +10,12 @@
 #include <cstdlib>
 
 #if COMDARE_AXIS_06_USE_CRYSTALLINE
-#  include <crystalline.h>
+#include <crystalline.h>
 #else
 extern "C" {
-    inline void* crystalline_alloc(std::size_t /*size*/, std::size_t /*alignment*/) noexcept { return nullptr; }
-    inline void  crystalline_free(void* /*p*/) noexcept {}
-    inline void* crystalline_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
-    inline void* crystalline_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
+inline void* crystalline_alloc(std::size_t /*size*/, std::size_t /*alignment*/) noexcept { return nullptr; }
+inline void  crystalline_free(void* /*p*/) noexcept {}
+inline void* crystalline_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
+inline void* crystalline_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
 }
 #endif

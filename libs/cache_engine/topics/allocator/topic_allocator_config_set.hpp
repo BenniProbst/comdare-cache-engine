@@ -45,11 +45,9 @@ struct TopicConfigSet {
      * PermutationEngine Hybrid-Variant (1 Binary + Runtime-Loop, siehe Doku §15.5).
      */
     template <class Vendor>
-    using AspectIterations = std::conditional_t<
-        requires { typename Vendor::iterable_aspect_t; },
-        void,  // bis F.6.1.E aktiv: immer void (Skelett)
-        void
-    >;
+    using AspectIterations = std::conditional_t<requires { typename Vendor::iterable_aspect_t; },
+                                                void, // bis F.6.1.E aktiv: immer void (Skelett)
+                                                void>;
 
     /**
      * @brief Pro-Vendor iterable Werte (F.6.1.E Stufe 3+)
@@ -63,4 +61,4 @@ struct TopicConfigSet {
     }
 };
 
-}  // namespace comdare::cache_engine::allocator
+} // namespace comdare::cache_engine::allocator

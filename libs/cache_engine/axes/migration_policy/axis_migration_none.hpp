@@ -23,10 +23,12 @@ public:
 
     static constexpr bool enabled = flags::none_enabled;
 
-    [[nodiscard]] static constexpr bool             is_active()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "migration_none"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "NoMigration (static placement, no migration baseline)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "NONE"; }
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return false; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "migration_none"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "NoMigration (static placement, no migration baseline)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "NONE"; }
 
     // V41.F.6.1 — verhaltens-tragende Mess-Op (migration_policy F15-operativ): Entscheidungs-Scan.
     // EHRLICHKEIT: Migration ohne 2. Tier nicht ausfuehrbar -> gemessen werden ausschliesslich die
@@ -40,9 +42,9 @@ public:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::migration_policy
 
 namespace comdare::cache_engine::migration_policy {
-    static_assert(concepts::MigrationStrategy<NoMigration>);
-    static_assert(concepts::CacheEnginePermutationStrategy<NoMigration>);
-}
+static_assert(concepts::MigrationStrategy<NoMigration>);
+static_assert(concepts::CacheEnginePermutationStrategy<NoMigration>);
+} // namespace comdare::cache_engine::migration_policy

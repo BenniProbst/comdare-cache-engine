@@ -23,13 +23,13 @@ namespace bs = comdare::benchmark_suite;
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(CustomAllocation1, AppendAndSnapshot) {
-    bs::CustomAllocation1 alloc{1024 * 32};   // 1024 records
+    bs::CustomAllocation1 alloc{1024 * 32}; // 1024 records
     EXPECT_EQ(alloc.records_used(), 0u);
 
     bs::MeasurementRecord32 r{};
     r.timestamp_ns = 12345;
     r.op_id        = 1;
-    auto slot = alloc.append(r);
+    auto slot      = alloc.append(r);
     EXPECT_EQ(slot, 0u);
     EXPECT_EQ(alloc.records_used(), 1u);
 
@@ -61,9 +61,7 @@ TEST(CustomAllocation2, PushStateAndSnapshot) {
     bs::CustomAllocation2 alloc{4096};
     EXPECT_EQ(alloc.bytes_used(), 0u);
 
-    std::array<std::byte, 5> delta{
-        std::byte{0xDE}, std::byte{0xAD},
-        std::byte{0xBE}, std::byte{0xEF}, std::byte{0x42}};
+    std::array<std::byte, 5> delta{std::byte{0xDE}, std::byte{0xAD}, std::byte{0xBE}, std::byte{0xEF}, std::byte{0x42}};
     EXPECT_TRUE(alloc.push_state(0xAA, std::span<std::byte const>{delta}));
     EXPECT_GT(alloc.bytes_used(), 5u);
 }
@@ -89,9 +87,7 @@ TEST(BenchmarkRunner, MultiplePhases) {
 
     for (int p = 0; p < 5; ++p) {
         auto h = runner.begin_measurement("phase");
-        for (int e = 0; e < 10; ++e) {
-            runner.record_event(h, bs::EventKind::Custom, e);
-        }
+        for (int e = 0; e < 10; ++e) { runner.record_event(h, bs::EventKind::Custom, e); }
         runner.end_measurement(h, p);
     }
     // 5 phases * (1 begin + 10 events + 1 end) = 60
@@ -115,15 +111,15 @@ TEST(BenchmarkRunner, SparseStateLog) {
 
 TEST(BinaryBlobWriter, WritesValidBlob) {
     bs::BenchmarkRunner runner{1024 * 32, 4096};
-    auto h = runner.begin_measurement("test");
+    auto                h = runner.begin_measurement("test");
     runner.end_measurement(h, 999);
 
     auto tmp_dir = std::filesystem::temp_directory_path();
-    auto path     = tmp_dir / "comdare_test_blob.cdb";
+    auto path    = tmp_dir / "comdare_test_blob.cdb";
 
     runner.flush_to_binary_blob(path);
     EXPECT_TRUE(std::filesystem::exists(path));
-    EXPECT_GT(std::filesystem::file_size(path), 24u);  // header alone
+    EXPECT_GT(std::filesystem::file_size(path), 24u); // header alone
 
     std::filesystem::remove(path);
 }
@@ -136,11 +132,11 @@ TEST(ConversionRoutines, BinaryToCsv) {
     std::vector<bs::MeasurementRecord32> records(3);
     for (int i = 0; i < 3; ++i) {
         records[i].timestamp_ns    = i * 1000;
-        records[i].op_id            = i;
+        records[i].op_id           = i;
         records[i].cycles_or_value = i * i;
     }
     bs::conversion::BinaryToCsv conv;
-    auto path = std::filesystem::temp_directory_path() / "comdare_test.csv";
+    auto                        path = std::filesystem::temp_directory_path() / "comdare_test.csv";
     conv.convert(std::span<bs::MeasurementRecord32 const>{records}, path);
     EXPECT_TRUE(std::filesystem::exists(path));
     std::filesystem::remove(path);
@@ -148,8 +144,8 @@ TEST(ConversionRoutines, BinaryToCsv) {
 
 TEST(ConversionRoutines, BinaryToJson) {
     std::vector<bs::MeasurementRecord32> records(2);
-    bs::conversion::BinaryToJson conv;
-    auto path = std::filesystem::temp_directory_path() / "comdare_test.json";
+    bs::conversion::BinaryToJson         conv;
+    auto                                 path = std::filesystem::temp_directory_path() / "comdare_test.json";
     conv.convert(std::span<bs::MeasurementRecord32 const>{records}, path);
     EXPECT_TRUE(std::filesystem::exists(path));
     std::filesystem::remove(path);
@@ -160,7 +156,7 @@ TEST(ConversionRoutines, BinaryToTikz) {
     records[0].cycles_or_value = 100;
     records[1].cycles_or_value = 200;
     bs::conversion::BinaryToTikz conv;
-    auto path = std::filesystem::temp_directory_path() / "comdare_test.tikz";
+    auto                         path = std::filesystem::temp_directory_path() / "comdare_test.tikz";
     conv.convert(std::span<bs::MeasurementRecord32 const>{records}, path);
     EXPECT_TRUE(std::filesystem::exists(path));
     std::filesystem::remove(path);

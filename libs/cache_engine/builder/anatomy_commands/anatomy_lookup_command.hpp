@@ -13,13 +13,10 @@ namespace comdare::cache_engine::builder::anatomy_commands {
 template <ana::IsComposition Composition>
 class AnatomyLookupCommand : public commands::ICommand {
 public:
-    AnatomyLookupCommand(AnatomyExecutionContext<Composition> const& ctx,
-                         std::uint64_t key) noexcept
+    AnatomyLookupCommand(AnatomyExecutionContext<Composition> const& ctx, std::uint64_t key) noexcept
         : ctx_(ctx), key_(key), result_(std::nullopt) {}
 
-    [[nodiscard]] std::string_view command_name() const noexcept override {
-        return "AnatomyLookupCommand";
-    }
+    [[nodiscard]] std::string_view command_name() const noexcept override { return "AnatomyLookupCommand"; }
 
     int execute() override {
         result_ = ctx_.lookup(key_);
@@ -30,8 +27,8 @@ public:
 
 private:
     AnatomyExecutionContext<Composition> const& ctx_;
-    std::uint64_t key_;
-    std::optional<std::uint64_t> result_;
+    std::uint64_t                               key_;
+    std::optional<std::uint64_t>                result_;
 };
 
-}  // namespace comdare::cache_engine::builder::anatomy_commands
+} // namespace comdare::cache_engine::builder::anatomy_commands

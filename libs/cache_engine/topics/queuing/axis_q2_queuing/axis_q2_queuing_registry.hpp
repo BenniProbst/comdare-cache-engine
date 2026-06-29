@@ -20,20 +20,15 @@ namespace mp = boost::mp11;
 /// AllPolicies — KOMPLETTE Liste aller 5 W3-Flush-Policies (Vollausbau Batch 2)
 using AllPolicies = mp::mp_list<
     // Pilot Batch 1 (2026-05-26)
-    EagerFlush,
-    WatermarkFlush,
-    LazyFlush,
+    EagerFlush, WatermarkFlush, LazyFlush,
     // Vollausbau Batch 2 (2026-05-26) — axis_q2_queuing 5/5 KOMPLETT
-    TimedFlush,
-    AdaptiveLsmFlush
->;
+    TimedFlush, AdaptiveLsmFlush>;
 
 template <typename P>
 using is_enabled = mp::mp_bool<P::enabled>;
 
 using EnabledPolicies = mp::mp_filter<is_enabled, AllPolicies>;
 
-static_assert(mp::mp_size<EnabledPolicies>::value > 0,
-    "axis_q2_queuing: at least one policy must be enabled");
+static_assert(mp::mp_size<EnabledPolicies>::value > 0, "axis_q2_queuing: at least one policy must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q2_queuing

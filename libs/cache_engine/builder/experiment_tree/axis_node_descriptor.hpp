@@ -23,8 +23,8 @@ enum class DescriptorKind { Static, Dynamic };
 template <class D>
 concept AxisNodeDescriptor = requires {
     { D::descriptor_kind() } -> std::same_as<DescriptorKind>;
-    { D::axis_name() }       -> std::convertible_to<std::string_view>;
-    { D::block_id() }        -> std::convertible_to<std::string_view>;
+    { D::axis_name() } -> std::convertible_to<std::string_view>;
+    { D::block_id() } -> std::convertible_to<std::string_view>;
 };
 
 /// CRTP-Basis für STATISCHE Achsen-Deskriptoren. Der per-Achse-Spezial-Deskriptor erbt dies und liefert
@@ -49,7 +49,8 @@ concept StaticAxisNodeDescriptor =
 /// Verfeinertes Concept: dynamischer Deskriptor (trägt `variable()` = die Laufzeit-Variable der Achse).
 template <class D>
 concept DynamicAxisNodeDescriptor =
-    AxisNodeDescriptor<D> && (D::descriptor_kind() == DescriptorKind::Dynamic)
-    && requires { { D::variable() } -> std::convertible_to<std::string_view>; };
+    AxisNodeDescriptor<D> && (D::descriptor_kind() == DescriptorKind::Dynamic) && requires {
+        { D::variable() } -> std::convertible_to<std::string_view>;
+    };
 
-}  // namespace comdare::cache_engine::builder::experiment
+} // namespace comdare::cache_engine::builder::experiment

@@ -17,15 +17,16 @@ class GeneralHardwareStrategyBase : public ::comdare::cache_engine::topics::Axis
 protected:
     GeneralHardwareStrategyBase() noexcept {
         static_assert(concepts::GeneralHardwareStrategy<Derived>,
-            "Derived must satisfy GeneralHardwareStrategy concept "
-            "(see concepts/axis_12_general_hardware_concept.hpp)");
+                      "Derived must satisfy GeneralHardwareStrategy concept "
+                      "(see concepts/axis_12_general_hardware_concept.hpp)");
         static_assert(concepts::CacheEnginePermutationStrategy<Derived>,
-            "Derived must satisfy CacheEnginePermutationStrategy concept "
-            "(see concepts/axis_12_general_hardware_cache_engine_permutation_concept.hpp)");
-        static_assert(::comdare::cache_engine::topics::AxisBaseConcept<Derived>,
+                      "Derived must satisfy CacheEnginePermutationStrategy concept "
+                      "(see concepts/axis_12_general_hardware_cache_engine_permutation_concept.hpp)");
+        static_assert(
+            ::comdare::cache_engine::topics::AxisBaseConcept<Derived>,
             "Derived must satisfy AxisBaseConcept (get_compiler() Default-API). "
             "GeneralHardwareStrategyBase erbt von AxisBase — Derived bekommt Default 'original' automatisch.");
     }
 };
 
-}  // namespace comdare::cache_engine::hardware::axis_12_general_hardware
+} // namespace comdare::cache_engine::hardware::axis_12_general_hardware

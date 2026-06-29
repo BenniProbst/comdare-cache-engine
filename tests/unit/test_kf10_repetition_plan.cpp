@@ -17,12 +17,23 @@ template <typename A, typename B>
 void check_eq(char const* what, A const& got, B const& want) {
     bool ok = (got == want);
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << " = " << got;
-    if (!ok) { std::cout << "  (erwartet: " << want << ")"; ++g_fail; }
+    if (!ok) {
+        std::cout << "  (erwartet: " << want << ")";
+        ++g_fail;
+    }
     std::cout << "\n";
 }
-void check_true(char const* what, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n"; if (!c) ++g_fail; }
+void check_true(char const* what, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n";
+    if (!c) ++g_fail;
+}
 static std::size_t count_substr(std::string const& h, std::string const& n) {
-    std::size_t c = 0, p = 0; while ((p = h.find(n, p)) != std::string::npos) { ++c; p += n.size(); } return c;
+    std::size_t c = 0, p = 0;
+    while ((p = h.find(n, p)) != std::string::npos) {
+        ++c;
+        p += n.size();
+    }
+    return c;
 }
 
 int main() {
@@ -54,7 +65,9 @@ int main() {
     check_eq("konfigurierbar: 5 Wiederholungen", ex::RepetitionPlan{5}.repetitions(), std::uint32_t{5});
     check_eq("0 → auf 1 normalisiert (mind. ein Lauf)", ex::RepetitionPlan{0}.repetitions(), std::uint32_t{1});
     check_eq("5 Wiederholungen → 5 Datensätze",
-             ex::RepetitionPlan{5}.run("s", [](std::uint32_t r){ return std::pair<double,std::uint64_t>{double(r),r}; }).size(),
+             ex::RepetitionPlan{5}
+                 .run("s", [](std::uint32_t r) { return std::pair<double, std::uint64_t>{double(r), r}; })
+                 .size(),
              std::size_t{5});
 
     std::cout << "\n==== KF-10 Wiederholungen separat + nie interpoliert: "

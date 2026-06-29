@@ -28,10 +28,10 @@ struct SurfLoudsQuery {
     template <class Store>
     [[nodiscard]] static bool contains_in(Store const& s, std::uint64_t k) {
         if (s.empty()) return false;
-        auto const kb = Store::to_bytes(k);
-        std::uint32_t node = 0;
-        std::uint32_t pos  = s.first_label_pos(node);
-        unsigned level = 0;
+        auto const    kb    = Store::to_bytes(k);
+        std::uint32_t node  = 0;
+        std::uint32_t pos   = s.first_label_pos(node);
+        unsigned      level = 0;
         for (; level < 8; ++level) {
             if (!s.label_search(kb[level], pos, s.node_size(pos))) return false;
             if (!s.child_bit(pos)) return s.suffix_check_equality(s.suffix_pos(pos), kb, level + 1);
@@ -51,7 +51,7 @@ struct SurfLoudsQuery {
         if (s.empty()) return false;
         if (lo > hi) return false;
         std::array<std::uint8_t, 8> p_low{};
-        if (!leftmost_ge(s, Store::to_bytes(lo), p_low)) return false;   // kein Key >= lo
+        if (!leftmost_ge(s, Store::to_bytes(lo), p_low)) return false; // kein Key >= lo
         std::uint64_t const cand_low = bytes_to_uint(p_low);
         return cand_low <= hi;
     }
@@ -59,19 +59,20 @@ struct SurfLoudsQuery {
 private:
     [[nodiscard]] static std::uint64_t bytes_to_uint(std::array<std::uint8_t, 8> const& b) noexcept {
         std::uint64_t v = 0;
-        for (unsigned i = 0; i < 8; ++i) v = (v << 8) | b[i];   // b[0] = MSB (big-endian)
+        for (unsigned i = 0; i < 8; ++i) v = (v << 8) | b[i]; // b[0] = MSB (big-endian)
         return v;
     }
 
     // Leftmost-Descent ab einer Label-Position: haengt Labels an, bis ein Blatt erreicht ist; Rest = 0.
     template <class Store>
-    static void reconstruct_leftmost(Store const& s, std::array<std::uint8_t, 8>& path, unsigned depth, std::uint32_t pos) {
+    static void reconstruct_leftmost(Store const& s, std::array<std::uint8_t, 8>& path, unsigned depth,
+                                     std::uint32_t pos) {
         while (depth < 8) {
             path[depth] = s.label_at(pos);
             ++depth;
-            if (!s.child_bit(pos)) return;                      // Blatt
+            if (!s.child_bit(pos)) return; // Blatt
             std::uint32_t const node = s.child_node_num(pos);
-            pos = s.first_label_pos(node);
+            pos                      = s.first_label_pos(node);
         }
     }
 
@@ -80,26 +81,30 @@ private:
     [[nodiscard]] static bool leftmost_ge(Store const& s, std::array<std::uint8_t, 8> const& lo,
                                           std::array<std::uint8_t, 8>& out) {
         out = {};
-        struct Frame { std::uint32_t node_start; std::uint32_t node_size; std::uint32_t taken_pos; };
+        struct Frame {
+            std::uint32_t node_start;
+            std::uint32_t node_size;
+            std::uint32_t taken_pos;
+        };
         std::array<Frame, 9> trail{};
-        unsigned depth = 0;
-        std::uint32_t node = 0;
-        std::uint32_t node_start = s.first_label_pos(node);
+        unsigned             depth      = 0;
+        std::uint32_t        node       = 0;
+        std::uint32_t        node_start = s.first_label_pos(node);
 
         for (;;) {
             std::uint32_t const ns = s.node_size(node_start);
-            std::uint32_t p = node_start;
-            if (depth < 8 && s.label_search(lo[depth], p, ns)) {       // exakter Treffer lo[depth]
+            std::uint32_t       p  = node_start;
+            if (depth < 8 && s.label_search(lo[depth], p, ns)) { // exakter Treffer lo[depth]
                 out[depth] = lo[depth];
-                if (!s.child_bit(p)) return true;                      // Blatt mit lo-Praefix => Kandidat
+                if (!s.child_bit(p)) return true; // Blatt mit lo-Praefix => Kandidat
                 trail[depth] = Frame{node_start, ns, p};
-                node = s.child_node_num(p);
-                node_start = s.first_label_pos(node);
+                node         = s.child_node_num(p);
+                node_start   = s.first_label_pos(node);
                 ++depth;
                 continue;
             }
             // kein exaktes lo[depth]: kleinstes Label > lo[depth] in diesem Knoten
-            std::uint32_t pg = node_start;
+            std::uint32_t      pg    = node_start;
             std::uint8_t const probe = (depth < 8) ? lo[depth] : std::uint8_t{0};
             if (depth < 8 && s.label_search_greater_than(probe, pg, ns)) {
                 reconstruct_leftmost(s, out, depth, pg);
@@ -107,10 +112,10 @@ private:
             }
             // Sackgasse: Backtrack zum Elternknoten, dort naechstgroesseres Geschwister
             for (;;) {
-                if (depth == 0) return false;                          // kein Key >= lo
+                if (depth == 0) return false; // kein Key >= lo
                 --depth;
-                out[depth] = 0;
-                Frame const f = trail[depth];
+                out[depth]       = 0;
+                Frame const   f  = trail[depth];
                 std::uint32_t pb = f.node_start;
                 if (s.label_search_greater_than(s.label_at(f.taken_pos), pb, f.node_size)) {
                     reconstruct_leftmost(s, out, depth, pb);
@@ -126,20 +131,22 @@ private:
 template <SurfSuffixType ST = SurfSuffixType::kReal, unsigned HashLen = 0, unsigned RealLen = 8>
 class ComposedSurfLoudsFilter {
 public:
-    using key_type = std::uint64_t;
+    using key_type   = std::uint64_t;
     using store_type = LoudsSparseFilterStore<ST, HashLen, RealLen>;
 
     void build_from_sorted_keys(std::span<key_type const> sorted) { store_.build_from_sorted_keys(sorted); }
-    [[nodiscard]] bool contains(key_type k)                      const { return SurfLoudsQuery::contains_in(store_, k); }
-    [[nodiscard]] bool range_may_exist(key_type lo, key_type hi) const { return SurfLoudsQuery::range_may_exist_in(store_, lo, hi); }
-    [[nodiscard]] std::size_t bit_size()     const noexcept { return store_.bit_size(); }
-    [[nodiscard]] double      bits_per_key() const noexcept { return store_.bits_per_key(); }
-    [[nodiscard]] std::size_t key_count()    const noexcept { return store_.key_count(); }
-    void clear()                                   noexcept { store_.clear(); }
-    [[nodiscard]] store_type const& store()  const noexcept { return store_; }
+    [[nodiscard]] bool contains(key_type k) const { return SurfLoudsQuery::contains_in(store_, k); }
+    [[nodiscard]] bool range_may_exist(key_type lo, key_type hi) const {
+        return SurfLoudsQuery::range_may_exist_in(store_, lo, hi);
+    }
+    [[nodiscard]] std::size_t       bit_size() const noexcept { return store_.bit_size(); }
+    [[nodiscard]] double            bits_per_key() const noexcept { return store_.bits_per_key(); }
+    [[nodiscard]] std::size_t       key_count() const noexcept { return store_.key_count(); }
+    void                            clear() noexcept { store_.clear(); }
+    [[nodiscard]] store_type const& store() const noexcept { return store_; }
 
     // Pflicht-Properties (Habich-Fassade): is_original=false ([[pseudocode-papers-fallback]]).
-    [[nodiscard]] static constexpr bool        is_original_module()  noexcept { return false; }
+    [[nodiscard]] static constexpr bool        is_original_module() noexcept { return false; }
     [[nodiscard]] static constexpr const char* experiment_compiler() noexcept { return "self"; }
 
 private:
@@ -150,4 +157,4 @@ private:
 static_assert(SurfFilterOrgan<ComposedSurfLoudsFilter<SurfSuffixType::kReal, 0, 8>>);
 static_assert(SurfFilterOrgan<ComposedSurfLoudsFilter<SurfSuffixType::kNone, 0, 0>>);
 
-}  // namespace comdare::cache_engine::filter_axis::composable
+} // namespace comdare::cache_engine::filter_axis::composable

@@ -22,30 +22,24 @@ public:
     explicit AllocatorManager(Strategy& strategy, AllocatorPermutationFlags flags) noexcept
         : strategy_{&strategy}, flags_{flags}, pmr_resource_{&strategy} {}
 
-    AllocatorManager(AllocatorManager const&) = delete;
+    AllocatorManager(AllocatorManager const&)            = delete;
     AllocatorManager& operator=(AllocatorManager const&) = delete;
 
-    [[nodiscard]] Strategy&       strategy() noexcept       { return *strategy_; }
+    [[nodiscard]] Strategy&       strategy() noexcept { return *strategy_; }
     [[nodiscard]] Strategy const& strategy() const noexcept { return *strategy_; }
 
     [[nodiscard]] AllocatorPermutationFlags const& flags() const noexcept { return flags_; }
 
-    [[nodiscard]] CacheEnginePmrResource<Strategy>& pmr_resource() noexcept {
-        return pmr_resource_;
-    }
+    [[nodiscard]] CacheEnginePmrResource<Strategy>& pmr_resource() noexcept { return pmr_resource_; }
 
-    [[nodiscard]] std::pmr::memory_resource* as_pmr() noexcept {
-        return &pmr_resource_;
-    }
+    [[nodiscard]] std::pmr::memory_resource* as_pmr() noexcept { return &pmr_resource_; }
 
-    [[nodiscard]] AllocationStatistics statistics() const noexcept {
-        return strategy_->statistics();
-    }
+    [[nodiscard]] AllocationStatistics statistics() const noexcept { return strategy_->statistics(); }
 
 private:
-    Strategy*                           strategy_;
-    AllocatorPermutationFlags           flags_;
-    CacheEnginePmrResource<Strategy>    pmr_resource_;
+    Strategy*                        strategy_;
+    AllocatorPermutationFlags        flags_;
+    CacheEnginePmrResource<Strategy> pmr_resource_;
 };
 
-}  // namespace comdare::cache_engine::allocator
+} // namespace comdare::cache_engine::allocator

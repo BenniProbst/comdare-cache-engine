@@ -27,8 +27,8 @@ namespace comdare::cache_engine::builder::pruef_dock {
 
 /// Ergebnis EINER Modul-Messung durch ein Prüf-Dock.
 struct PruefDockResult {
-    std::string           dock_name{};                          // z. B. "SearchAlgorithmDock" ("" wenn kein Dock)
-    anatomy::AnatomyGenus genus = anatomy::AnatomyGenus::SearchAlgorithm;
+    std::string           dock_name{}; // z. B. "SearchAlgorithmDock" ("" wenn kein Dock)
+    anatomy::AnatomyGenus genus  = anatomy::AnatomyGenus::SearchAlgorithm;
     int                   status = dock_status_no_anatomy;
     std::string           csv{};
     std::string           json{};
@@ -39,15 +39,15 @@ namespace detail {
 [[nodiscard]] inline std::uint16_t genus_sort_key(anatomy_loader::AnatomyModuleHandle const& h) noexcept {
     return h.anatomy() ? static_cast<std::uint16_t>(h.anatomy()->genus()) : std::uint16_t{0xFF};
 }
-}  // namespace detail
+} // namespace detail
 
 /// Misst eine Menge geladener Module GATTUNGS-SEQUENTIELL (Doku 24 §8.8 Default). Die Handles werden
 /// IN-PLACE stabil nach Gattung gruppiert; je Handle das passende Prüf-Dock gewählt + gemessen.
 [[nodiscard]] inline std::vector<PruefDockResult>
-measure_genus_sequential(PruefDockRegistry const& registry,
-                         std::vector<anatomy_loader::AnatomyModuleHandle>& handles,
+measure_genus_sequential(PruefDockRegistry const& registry, std::vector<anatomy_loader::AnatomyModuleHandle>& handles,
                          PruefDockMeasureOptions const& opts) {
-    std::stable_sort(handles.begin(), handles.end(),
+    std::stable_sort(
+        handles.begin(), handles.end(),
         [](anatomy_loader::AnatomyModuleHandle const& a, anatomy_loader::AnatomyModuleHandle const& b) noexcept {
             return detail::genus_sort_key(a) < detail::genus_sort_key(b);
         });
@@ -59,7 +59,7 @@ measure_genus_sequential(PruefDockRegistry const& registry,
         if (h.anatomy() != nullptr) r.genus = h.anatomy()->genus();
         IPruefDock* dock = registry.select_for(h);
         if (dock == nullptr) {
-            r.status = dock_status_no_anatomy;   // kein passendes Dock (Gattung nicht unterstützt / kein Anatomie)
+            r.status = dock_status_no_anatomy; // kein passendes Dock (Gattung nicht unterstützt / kein Anatomie)
             results.push_back(std::move(r));
             continue;
         }
@@ -70,4 +70,4 @@ measure_genus_sequential(PruefDockRegistry const& registry,
     return results;
 }
 
-}  // namespace comdare::cache_engine::builder::pruef_dock
+} // namespace comdare::cache_engine::builder::pruef_dock

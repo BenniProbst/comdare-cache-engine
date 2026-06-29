@@ -47,11 +47,11 @@ namespace comdare::cache_engine::path_compression {
 // EXAKT No-Op + messneutral (Leitplanke 1). 0-Footprint. operator== = immer true (leere none-Struktur ist konstant).
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 struct EmptyPatriciaTrie {
-    void clear() noexcept {}
-    [[nodiscard]] std::size_t node_count()      const noexcept { return 0; }
-    [[nodiscard]] std::size_t key_count()       const noexcept { return 0; }
+    void                        clear() noexcept {}
+    [[nodiscard]] std::size_t   node_count() const noexcept { return 0; }
+    [[nodiscard]] std::size_t   key_count() const noexcept { return 0; }
     [[nodiscard]] std::uint64_t last_descent_depth() const noexcept { return 0; }
-    [[nodiscard]] bool operator==(EmptyPatriciaTrie const&) const noexcept = default;
+    [[nodiscard]] bool          operator==(EmptyPatriciaTrie const&) const noexcept = default;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -80,23 +80,23 @@ struct PatriciaTrie {
     static constexpr std::uint32_t kNil = ~std::uint32_t{0};
 
     // EIN gepoolter Knoten-Typ (innerer Knoten ODER Blatt — Blatt gdw. crit_bit == kLeaf).
-    static constexpr std::uint8_t kLeaf = 0xFFu;   ///< Sentinel-crit_bit → dieser Knoten ist ein Blatt.
+    static constexpr std::uint8_t kLeaf = 0xFFu; ///< Sentinel-crit_bit → dieser Knoten ist ein Blatt.
     struct Node {
-        std::uint8_t  crit_bit = kLeaf;   ///< MSB-first Bit-Position 0..63 (innerer Knoten); kLeaf → Blatt.
-        std::uint32_t left     = kNil;    ///< Kind fuer crit_bit==0 (innerer Knoten); ungenutzt bei Blatt.
-        std::uint32_t right    = kNil;    ///< Kind fuer crit_bit==1 (innerer Knoten); ungenutzt bei Blatt.
-        std::uint64_t key      = 0;       ///< vollstaendiger Schluessel (Blatt); 0 bei innerem Knoten.
+        std::uint8_t  crit_bit = kLeaf; ///< MSB-first Bit-Position 0..63 (innerer Knoten); kLeaf → Blatt.
+        std::uint32_t left     = kNil;  ///< Kind fuer crit_bit==0 (innerer Knoten); ungenutzt bei Blatt.
+        std::uint32_t right    = kNil;  ///< Kind fuer crit_bit==1 (innerer Knoten); ungenutzt bei Blatt.
+        std::uint64_t key      = 0;     ///< vollstaendiger Schluessel (Blatt); 0 bei innerem Knoten.
 
         [[nodiscard]] bool is_leaf() const noexcept { return crit_bit == kLeaf; }
         [[nodiscard]] bool operator==(Node const&) const noexcept = default;
     };
 
-    std::vector<Node> nodes_{};   ///< Knoten-Pool (index-basiert) — innere Knoten + Blaetter.
-    std::uint32_t     root_  = kNil;
-    std::uint64_t     keys_  = 0;   ///< Anzahl GESPEICHERTER (distinct) Schluessel = Anzahl Blaetter.
+    std::vector<Node> nodes_{}; ///< Knoten-Pool (index-basiert) — innere Knoten + Blaetter.
+    std::uint32_t     root_ = kNil;
+    std::uint64_t     keys_ = 0; ///< Anzahl GESPEICHERTER (distinct) Schluessel = Anzahl Blaetter.
     // mutable: rein DIAGNOSTISCHER Nebeneffekt des const-Descent (kein persistenter Struktur-Zustand; aus operator==
     // ausgeklammert) — erlaubt descend() als const-Methode (analog ObservableValueHandle::deref_value const).
-    mutable std::uint64_t last_depth_ = 0;   ///< Tiefe (durchquerte innere Knoten) des letzten descend (Diagnose).
+    mutable std::uint64_t last_depth_ = 0; ///< Tiefe (durchquerte innere Knoten) des letzten descend (Diagnose).
 
     // MSB-first Bit-Extraktion: bit an Position `b` (0 = hoechstwertig) — radix-trie-konventionell, identisch zur
     // Patricia-Strategie key_split_bit (axis_02_path_compression_patricia.hpp:44). Reine, branch-freie Op.
@@ -106,10 +106,13 @@ struct PatriciaTrie {
 
     // Hoechstwertige differierende Bit-Position zweier Schluessel (MSB-first 0..63). Verlangt a != b.
     [[nodiscard]] static constexpr std::uint8_t highest_diff_bit(std::uint64_t a, std::uint64_t b) noexcept {
-        std::uint64_t const x = a ^ b;                 // x != 0 (Aufrufer garantiert a != b)
-        std::uint8_t pos = 0;
-        for (std::uint8_t i = 0; i < 64U; ++i) {       // MSB-first: erstes gesetztes Bit von oben
-            if (((x >> (63U - i)) & 1U) != 0U) { pos = i; break; }
+        std::uint64_t const x   = a ^ b; // x != 0 (Aufrufer garantiert a != b)
+        std::uint8_t        pos = 0;
+        for (std::uint8_t i = 0; i < 64U; ++i) { // MSB-first: erstes gesetztes Bit von oben
+            if (((x >> (63U - i)) & 1U) != 0U) {
+                pos = i;
+                break;
+            }
         }
         return pos;
     }
@@ -128,7 +131,7 @@ struct PatriciaTrie {
     /// den Descent gefundene „naechste" Blatt bestimmt den neuen inneren Knoten; er wird an der Position eingehaengt,
     /// an der seine crit_bit oberhalb der naechsten inneren crit_bit liegt (MSB-first, kleinere Position = weiter oben).
     void insert_key(std::uint64_t key) noexcept {
-        if (root_ == kNil) {                           // erster Schluessel → Blatt = Wurzel
+        if (root_ == kNil) { // erster Schluessel → Blatt = Wurzel
             nodes_.push_back(Node{kLeaf, kNil, kNil, key});
             root_ = static_cast<std::uint32_t>(nodes_.size() - 1);
             ++keys_;
@@ -136,10 +139,10 @@ struct PatriciaTrie {
         }
         std::uint32_t const leaf = walk_to_leaf_(key);
         std::uint64_t const lk   = nodes_[leaf].key;
-        if (lk == key) return;                         // Duplikat → No-Op (idempotent, Set)
+        if (lk == key) return; // Duplikat → No-Op (idempotent, Set)
 
-        std::uint8_t const crit = highest_diff_bit(key, lk);   // hoechstwertiges differierendes Bit
-        std::uint8_t const dir  = bit_at(key, crit);           // Seite des NEUEN Schluessels (1 → rechts)
+        std::uint8_t const crit = highest_diff_bit(key, lk); // hoechstwertiges differierendes Bit
+        std::uint8_t const dir  = bit_at(key, crit);         // Seite des NEUEN Schluessels (1 → rechts)
 
         // Einhaengepunkt suchen: ab Wurzel folgen, solange der naechste innere Knoten ein crit_bit > crit hat
         // (MSB-first: groessere Position = weiter unten → der neue Branch liegt OBERHALB). `parent_link` = Adresse
@@ -148,19 +151,20 @@ struct PatriciaTrie {
         std::uint32_t  cur         = root_;
         while (cur != kNil && !nodes_[cur].is_leaf() && nodes_[cur].crit_bit < crit) {
             parent_link = (bit_at(key, nodes_[cur].crit_bit) == 0U) ? &nodes_[cur].left : &nodes_[cur].right;
-            cur = *parent_link;
+            cur         = *parent_link;
         }
 
         // KRITISCH (Realloc-Safety, Fuzz-aufgedeckt): `sub` aus `parent_link` lesen, BEVOR irgendein push_back nodes_
         // realloziert. Bei Nicht-Wurzel-Einhaengung zeigt parent_link IN nodes_ (Z.150 &nodes_[cur].left/right) und
         // wuerde nach einer Reallocation baumeln → *parent_link = UB/OOB (SIGSEGV bei /O2, N gross). Lese-Pfad zuerst.
-        std::uint32_t const sub      = *parent_link;           // bestehender Teilbaum unter dem Einhaengepunkt (VOR push_back)
+        std::uint32_t const sub      = *parent_link; // bestehender Teilbaum unter dem Einhaengepunkt (VOR push_back)
         std::uint32_t const new_leaf = static_cast<std::uint32_t>(nodes_.size());
-        nodes_.push_back(Node{kLeaf, kNil, kNil, key});        // das neue Blatt (kann nodes_ reallozieren → parent_link ab hier ungueltig)
+        nodes_.push_back(
+            Node{kLeaf, kNil, kNil, key}); // das neue Blatt (kann nodes_ reallozieren → parent_link ab hier ungueltig)
         Node inner{};
         inner.crit_bit = crit;
-        inner.left     = (dir == 0U) ? new_leaf : sub;         // bit==0 → links
-        inner.right    = (dir == 0U) ? sub      : new_leaf;    // bit==1 → rechts
+        inner.left     = (dir == 0U) ? new_leaf : sub; // bit==0 → links
+        inner.right    = (dir == 0U) ? sub : new_leaf; // bit==1 → rechts
         nodes_.push_back(inner);
         // ACHTUNG: parent_link kann durch das push_back invalidiert sein (Reallocation von nodes_) — daher den
         // Einhaengepunkt NICHT ueber den alten Zeiger schreiben, sondern erneut auffinden (robust gegen Realloc).
@@ -171,11 +175,17 @@ struct PatriciaTrie {
 
     // Haenge `inner_idx` an genau die Stelle, an der zuvor `sub` hing (re-walk, realloc-sicher).
     void relink_(std::uint64_t key, std::uint8_t crit, std::uint32_t sub, std::uint32_t inner_idx) noexcept {
-        if (root_ == sub) { root_ = inner_idx; return; }
+        if (root_ == sub) {
+            root_ = inner_idx;
+            return;
+        }
         std::uint32_t cur = root_;
         while (cur != kNil && !nodes_[cur].is_leaf() && nodes_[cur].crit_bit < crit) {
             std::uint32_t& child = (bit_at(key, nodes_[cur].crit_bit) == 0U) ? nodes_[cur].left : nodes_[cur].right;
-            if (child == sub) { child = inner_idx; return; }
+            if (child == sub) {
+                child = inner_idx;
+                return;
+            }
             cur = child;
         }
     }
@@ -184,7 +194,7 @@ struct PatriciaTrie {
     /// am Blatt voller Schluesselvergleich. Liefert true gdw. `key` real gespeichert ist; `last_depth_` = Anzahl
     /// durchquerter innerer Knoten (reale, strukturelle, schluessel-abhaengige Tiefe — KEINE Konstante).
     [[nodiscard]] bool descend(std::uint64_t key) const noexcept {
-        last_depth_ = 0;
+        last_depth_       = 0;
         std::uint32_t cur = root_;
         while (cur != kNil && !nodes_[cur].is_leaf()) {
             ++last_depth_;
@@ -193,10 +203,15 @@ struct PatriciaTrie {
         return cur != kNil && nodes_[cur].key == key;
     }
 
-    void clear() noexcept { nodes_.clear(); root_ = kNil; keys_ = 0; last_depth_ = 0; }
+    void clear() noexcept {
+        nodes_.clear();
+        root_       = kNil;
+        keys_       = 0;
+        last_depth_ = 0;
+    }
 
-    [[nodiscard]] std::size_t node_count() const noexcept { return nodes_.size(); }   ///< innere + Blatt-Knoten
-    [[nodiscard]] std::size_t key_count()  const noexcept { return static_cast<std::size_t>(keys_); }
+    [[nodiscard]] std::size_t   node_count() const noexcept { return nodes_.size(); } ///< innere + Blatt-Knoten
+    [[nodiscard]] std::size_t   key_count() const noexcept { return static_cast<std::size_t>(keys_); }
     [[nodiscard]] std::uint64_t last_descent_depth() const noexcept { return last_depth_; }
 
     [[nodiscard]] bool operator==(PatriciaTrie const& o) const noexcept {
@@ -204,7 +219,8 @@ struct PatriciaTrie {
         // diagnostische last_depth_ (transienter Descent-Nebeneffekt, kein Struktur-Zustand) — exakt wie
         // ObservableValueHandle::operator== nur real_slot_ (nicht die Stats) vergleicht.
         if (root_ != o.root_ || keys_ != o.keys_ || nodes_.size() != o.nodes_.size()) return false;
-        for (std::size_t i = 0; i < nodes_.size(); ++i) if (!(nodes_[i] == o.nodes_[i])) return false;
+        for (std::size_t i = 0; i < nodes_.size(); ++i)
+            if (!(nodes_[i] == o.nodes_[i])) return false;
         return true;
     }
 };
@@ -217,7 +233,7 @@ struct PatriciaTrie {
 // key_split_bit (das genau die Single-Bit-Split-Strategie auszeichnet), NICHT name()-Stringvergleich.
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 template <class Strategy>
-concept HasKeySplitBit = requires (std::uint64_t k, unsigned d) { Strategy::key_split_bit(k, d); };
+concept HasKeySplitBit = requires(std::uint64_t k, unsigned d) { Strategy::key_split_bit(k, d); };
 
 template <class Strategy>
 struct real_trie_selector {
@@ -229,6 +245,6 @@ using real_trie_t = typename real_trie_selector<Strategy>::type;
 
 // Das reale Trie-Backing ist fuer JEDE Strategie kopierbar + vergleichbar (R1-Memento, Leitplanke 3).
 static_assert(std::is_copy_constructible_v<EmptyPatriciaTrie> && std::is_copy_assignable_v<EmptyPatriciaTrie>);
-static_assert(std::is_copy_constructible_v<PatriciaTrie>      && std::is_copy_assignable_v<PatriciaTrie>);
+static_assert(std::is_copy_constructible_v<PatriciaTrie> && std::is_copy_assignable_v<PatriciaTrie>);
 
-}  // namespace comdare::cache_engine::path_compression
+} // namespace comdare::cache_engine::path_compression

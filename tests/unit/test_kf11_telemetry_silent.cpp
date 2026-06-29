@@ -15,21 +15,27 @@ template <typename A, typename B>
 void check_eq(char const* what, A const& got, B const& want) {
     bool ok = (got == want);
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << " = " << got;
-    if (!ok) { std::cout << "  (erwartet: " << want << ")"; ++g_fail; }
+    if (!ok) {
+        std::cout << "  (erwartet: " << want << ")";
+        ++g_fail;
+    }
     std::cout << "\n";
 }
-void check_true(char const* what, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n"; if (!c) ++g_fail; }
+void check_true(char const* what, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n";
+    if (!c) ++g_fail;
+}
 
 // Mock-Telemetrie: value (echte Metrik) + emit_count (Emissions-/Perturbations-Zähler).
 struct MockTelemetry {
-    std::uint64_t value = 0;
-    std::uint64_t emit_count = 0;
+    std::uint64_t         value      = 0;
+    std::uint64_t         emit_count = 0;
     ex::TelemetrySnapshot snapshot() const { return {value, emit_count}; }
     // 100 Operationen; im Active-Modus EMITTIERT je Op (Perturbation), im Silent-Modus NICHT.
     void run_region(ex::TelemetryMode mode) {
         for (int i = 0; i < 100; ++i) {
-            ++value;                                       // echte Arbeit (immer)
-            if (mode == ex::TelemetryMode::Active) ++emit_count;  // Emission NUR Active
+            ++value;                                             // echte Arbeit (immer)
+            if (mode == ex::TelemetryMode::Active) ++emit_count; // Emission NUR Active
         }
     }
 };
@@ -58,12 +64,12 @@ int main() {
     // SILENT-DIFF: Metrik korrekt erfasst (value-Delta 100), ABER Region unverfälscht (emit_count-Delta 0).
     {
         MockTelemetry t;
-        auto diff = ex::measure_silent_diff(
-            [&] { return t.snapshot(); },
-            [&](ex::TelemetryMode m) { t.run_region(m); });
+        auto          diff =
+            ex::measure_silent_diff([&] { return t.snapshot(); }, [&](ex::TelemetryMode m) { t.run_region(m); });
         check_eq("Silent-Diff: value-Delta == 100 (Metrik erfasst)", diff.value, std::uint64_t{100});
         check_eq("Silent-Diff: emit_count-Delta == 0 (Region NICHT perturbiert)", diff.emit_count, std::uint64_t{0});
-        check_eq("Silent: tatsächliche emit_count bleibt 0 (keine Emission in Mess-Region)", t.emit_count, std::uint64_t{0});
+        check_eq("Silent: tatsächliche emit_count bleibt 0 (keine Emission in Mess-Region)", t.emit_count,
+                 std::uint64_t{0});
         check_eq("Silent: echte Arbeit lief trotzdem (value==100)", t.value, std::uint64_t{100});
     }
 

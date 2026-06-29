@@ -7,7 +7,7 @@
 //
 // Sub-Achse von Achse 6 ALLOCATOR (N-Phase Split).
 
-#include "hardware_strategy.hpp"  // NumaStrategy enum
+#include "hardware_strategy.hpp" // NumaStrategy enum
 #include <cstdint>
 
 namespace comdare::cache_engine::concepts {
@@ -22,7 +22,7 @@ namespace comdare::cache_engine::concepts {
 class INumaAffinity {
 public:
     [[nodiscard]] virtual NumaStrategy preferred_strategy() const noexcept = 0;
-    virtual ~INumaAffinity() = default;
+    virtual ~INumaAffinity()                                               = default;
 };
 
-}  // namespace comdare::cache_engine::concepts
+} // namespace comdare::cache_engine::concepts

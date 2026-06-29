@@ -40,28 +40,32 @@ std::vector<std::uint64_t> build_shallow_keys(std::set<std::uint64_t>& gt) {
 
 template <class Filter>
 [[nodiscard]] bool all_built_found(std::vector<std::uint64_t> const& keys, std::set<std::uint64_t> const& gt) {
-    Filter f; f.build_from_sorted_keys(keys);
+    Filter f;
+    f.build_from_sorted_keys(keys);
     if (f.key_count() != gt.size()) return false;
-    for (std::uint64_t const k : gt) if (!f.contains(k)) return false;
+    for (std::uint64_t const k : gt)
+        if (!f.contains(k)) return false;
     return true;
 }
-}  // namespace
+} // namespace
 
 // P1: NO-FALSE-NEGATIVE — jeder gebaute Key MUSS gefunden werden, fuer alle Suffix-Konfigurationen.
 TEST(SurfLoudsFilter, NoFalseNegativeAcrossSuffixConfigs) {
     std::set<std::uint64_t> gt;
-    auto const keys = build_key_set(gt);
+    auto const              keys = build_key_set(gt);
     EXPECT_TRUE(all_built_found<S2None>(keys, gt)) << "kNone no-FN";
-    EXPECT_TRUE(all_built_found<S2R8>(keys, gt))   << "kReal8 no-FN";
-    EXPECT_TRUE(all_built_found<S2R16>(keys, gt))  << "kReal16 no-FN";
+    EXPECT_TRUE(all_built_found<S2R8>(keys, gt)) << "kReal8 no-FN";
+    EXPECT_TRUE(all_built_found<S2R16>(keys, gt)) << "kReal16 no-FN";
 }
 
 // KREUZBELEG: S2.contains(q) >= S1.contains(q) fuer JEDES q — wo S1 (exakt) true sagt, MUSS S2 true sagen.
 TEST(SurfLoudsFilter, CrossProofS2GeS1) {
     std::set<std::uint64_t> gt;
-    auto const keys = build_key_set(gt);
-    S1 s1;  s1.build_from_sorted_keys(keys);
-    S2R8 s2; s2.build_from_sorted_keys(keys);
+    auto const              keys = build_key_set(gt);
+    S1                      s1;
+    s1.build_from_sorted_keys(keys);
+    S2R8 s2;
+    s2.build_from_sorted_keys(keys);
     for (std::uint64_t q = 0; q <= 100000u; ++q) {
         if (s1.contains(q)) ASSERT_TRUE(s2.contains(q)) << "S2 FALSE NEGATIVE bei q=" << q;
     }
@@ -70,7 +74,7 @@ TEST(SurfLoudsFilter, CrossProofS2GeS1) {
 // TUNBARKEIT: FP-Rate monoton fallend + bits_per_key streng steigend ueber RealLen {0,4,8,16}.
 TEST(SurfLoudsFilter, FalsePositiveMonotoneTunable) {
     std::set<std::uint64_t> gt;
-    auto const keys = build_shallow_keys(gt);
+    auto const              keys = build_shallow_keys(gt);
 
     auto measure = [&](auto filter) {
         filter.build_from_sorted_keys(keys);
@@ -83,15 +87,19 @@ TEST(SurfLoudsFilter, FalsePositiveMonotoneTunable) {
         return std::pair<std::size_t, double>{fp, filter.bits_per_key()};
     };
 
-    auto [fp0,  bpk0]  = measure(S2R4{});   // 4-Bit-Real
+    auto [fp0, bpk0]   = measure(S2R4{}); // 4-Bit-Real
     auto [fp_a, bpk_a] = measure(S2R8{});
     auto [fp_b, bpk_b] = measure(S2R16{});
-    auto [fpN,  bpkN]  = measure(S2None{}); // 0-Bit (Trie-only, Max-FP-Anker)
+    auto [fpN, bpkN]   = measure(S2None{}); // 0-Bit (Trie-only, Max-FP-Anker)
 
     // bits_per_key streng steigend mit Suffix-Laenge (jedes Blatt speichert suffix_len Bits).
-    EXPECT_LT(bpkN, bpk0); EXPECT_LT(bpk0, bpk_a); EXPECT_LT(bpk_a, bpk_b);
+    EXPECT_LT(bpkN, bpk0);
+    EXPECT_LT(bpk0, bpk_a);
+    EXPECT_LT(bpk_a, bpk_b);
     // FP monoton fallend mit Suffix-Laenge.
-    EXPECT_GE(fpN, fp0); EXPECT_GE(fp0, fp_a); EXPECT_GE(fp_a, fp_b);
+    EXPECT_GE(fpN, fp0);
+    EXPECT_GE(fp0, fp_a);
+    EXPECT_GE(fp_a, fp_b);
     // Es entsteht ueberhaupt FP (S2 ist der approximative Filter) und laengster Suffix diskriminiert echt besser.
     EXPECT_GT(fpN, 0u);
     EXPECT_LT(fp_b, fpN) << "kReal16 muss strikt weniger FP haben als der Trie-only-Anker";
@@ -100,13 +108,14 @@ TEST(SurfLoudsFilter, FalsePositiveMonotoneTunable) {
 // P3: RANGE-NO-FALSE-NEGATIVE — jeder Range mit >=1 gebautem Key MUSS true liefern (FP erlaubt).
 TEST(SurfLoudsFilter, RangeNoFalseNegativeAgainstStdSet) {
     std::set<std::uint64_t> gt;
-    auto const keys = build_key_set(gt);
-    S2R8 s2; s2.build_from_sorted_keys(keys);
+    auto const              keys = build_key_set(gt);
+    S2R8                    s2;
+    s2.build_from_sorted_keys(keys);
     for (std::uint64_t lo = 0; lo <= 2000u; lo += 7u) {
         for (std::uint64_t w : {std::uint64_t{0}, std::uint64_t{1}, std::uint64_t{50}, std::uint64_t{500}}) {
-            std::uint64_t const hi = lo + w;
-            auto it = gt.lower_bound(lo);
-            bool const truth = (it != gt.end() && *it <= hi);
+            std::uint64_t const hi    = lo + w;
+            auto                it    = gt.lower_bound(lo);
+            bool const          truth = (it != gt.end() && *it <= hi);
             if (truth) ASSERT_TRUE(s2.range_may_exist(lo, hi)) << "RANGE FALSE NEGATIVE [" << lo << "," << hi << "]";
         }
     }
@@ -115,24 +124,26 @@ TEST(SurfLoudsFilter, RangeNoFalseNegativeAgainstStdSet) {
 // ADVERSARIAL: Byte-Praefix-Ketten + Singleton + leerer Trie + clear().
 TEST(SurfLoudsFilter, AdversarialPrefixSingletonEmpty) {
     // Byte-Praefix-Kette (ein Key ist Byte-Praefix-verwandt mit anderen).
-    std::vector<std::uint64_t> chain = {0x0000000000000001ull, 0x0000000000000100ull,
-                                        0x0000000000010000ull, 0x0000000001000000ull,
-                                        0x0000000100000000ull};
+    std::vector<std::uint64_t> chain = {0x0000000000000001ull, 0x0000000000000100ull, 0x0000000000010000ull,
+                                        0x0000000001000000ull, 0x0000000100000000ull};
     {
-        S2R8 f; f.build_from_sorted_keys(chain);
+        S2R8 f;
+        f.build_from_sorted_keys(chain);
         for (std::uint64_t k : chain) EXPECT_TRUE(f.contains(k)) << "Praefix-Ketten-Key " << k;
     }
     // Singleton.
     {
         std::vector<std::uint64_t> one = {0x00DEADBEEF00CAFEull};
-        S2R16 f; f.build_from_sorted_keys(one);
+        S2R16                      f;
+        f.build_from_sorted_keys(one);
         EXPECT_EQ(f.key_count(), 1u);
         EXPECT_TRUE(f.contains(0x00DEADBEEF00CAFEull));
     }
     // Leerer Trie.
     {
         std::vector<std::uint64_t> none;
-        S2R8 f; f.build_from_sorted_keys(none);
+        S2R8                       f;
+        f.build_from_sorted_keys(none);
         EXPECT_EQ(f.key_count(), 0u);
         EXPECT_FALSE(f.contains(0));
         EXPECT_FALSE(f.range_may_exist(0, ~0ull));
@@ -141,8 +152,9 @@ TEST(SurfLoudsFilter, AdversarialPrefixSingletonEmpty) {
     // clear() -> wieder leer.
     {
         std::set<std::uint64_t> gt;
-        auto const keys = build_key_set(gt);
-        S2R8 f; f.build_from_sorted_keys(keys);
+        auto const              keys = build_key_set(gt);
+        S2R8                    f;
+        f.build_from_sorted_keys(keys);
         f.clear();
         EXPECT_EQ(f.key_count(), 0u);
         EXPECT_FALSE(f.contains(*gt.begin()));
@@ -155,9 +167,10 @@ TEST(SurfLoudsFilter, AdversarialPrefixSingletonEmpty) {
 TEST(SurfLoudsFilter, WordBoundaryCarryNoOverflow) {
     std::vector<std::uint64_t> keys = {0xFFFFFFFFFFFFFFAAull, 0xFFFFFFFFFFFFFFBBull};
     for (std::uint64_t i = 0; i < 48; ++i) keys.push_back((i * 0x0100000000000001ull) & 0x00FFFFFFFFFFFFFFull);
-    std::set<std::uint64_t> gt(keys.begin(), keys.end());
+    std::set<std::uint64_t>    gt(keys.begin(), keys.end());
     std::vector<std::uint64_t> sorted(gt.begin(), gt.end());
-    S2R8 f; f.build_from_sorted_keys(sorted);   // darf NICHT crashen
+    S2R8                       f;
+    f.build_from_sorted_keys(sorted); // darf NICHT crashen
     EXPECT_EQ(f.key_count(), gt.size());
     for (std::uint64_t const k : gt) EXPECT_TRUE(f.contains(k)) << "no-FN bei Wort-Grenz-Key " << k;
 }
@@ -165,8 +178,9 @@ TEST(SurfLoudsFilter, WordBoundaryCarryNoOverflow) {
 // Observer: bit_size>0, bits_per_key approximativ (deutlich < 64 = S1-exakt) und > 0.
 TEST(SurfLoudsFilter, ObserversApproximateVsExact) {
     std::set<std::uint64_t> gt;
-    auto const keys = build_key_set(gt);
-    S2R8 s2; s2.build_from_sorted_keys(keys);
+    auto const              keys = build_key_set(gt);
+    S2R8                    s2;
+    s2.build_from_sorted_keys(keys);
     EXPECT_GT(s2.bit_size(), 0u);
     EXPECT_GT(s2.bits_per_key(), 0.0);
     EXPECT_FALSE(S2R8::is_original_module());

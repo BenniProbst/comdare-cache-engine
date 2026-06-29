@@ -29,31 +29,43 @@ namespace comdare::cache_engine::anatomy {
 inline constexpr std::uint64_t kCoverageSaturated = ~std::uint64_t{0};
 
 struct CoverageReport {
-    std::size_t   axis_count {0};            ///< Zahl der Achsen
-    std::uint64_t full_space {1};            ///< Produkt aller Varianten-Zahlen (saturiert bei Overflow)
-    bool          full_space_saturated {false};
-    std::size_t   one_wise_cover {0};        ///< 1-wise-Stichprobengroesse = max(counts)
-    std::uint64_t pairwise_lower_bound {0};  ///< Untergrenze 2-wise = Produkt der zwei groessten counts
-    bool          any_axis_empty {false};    ///< eine Achse hat 0 Varianten → Raum leer
+    std::size_t   axis_count{0}; ///< Zahl der Achsen
+    std::uint64_t full_space{1}; ///< Produkt aller Varianten-Zahlen (saturiert bei Overflow)
+    bool          full_space_saturated{false};
+    std::size_t   one_wise_cover{0};       ///< 1-wise-Stichprobengroesse = max(counts)
+    std::uint64_t pairwise_lower_bound{0}; ///< Untergrenze 2-wise = Produkt der zwei groessten counts
+    bool          any_axis_empty{false};   ///< eine Achse hat 0 Varianten → Raum leer
 };
 
 /// Analysiert den Permutations-Raum aus den Achsen-Varianten-Zahlen.
 [[nodiscard]] inline CoverageReport analyze_coverage(std::span<const std::size_t> counts) noexcept {
-    CoverageReport r {};
+    CoverageReport r{};
     r.axis_count = counts.size();
-    if (counts.empty()) { r.full_space = 0; return r; }
+    if (counts.empty()) {
+        r.full_space = 0;
+        return r;
+    }
 
-    std::size_t max1 = 0, max2 = 0;   // zwei groesste counts (fuer Pairwise-Untergrenze)
+    std::size_t max1 = 0, max2 = 0; // zwei groesste counts (fuer Pairwise-Untergrenze)
     for (std::size_t c : counts) {
         if (c == 0) { r.any_axis_empty = true; }
         r.one_wise_cover = std::max(r.one_wise_cover, c);
-        if (c > max1) { max2 = max1; max1 = c; }
-        else if (c > max2) { max2 = c; }
+        if (c > max1) {
+            max2 = max1;
+            max1 = c;
+        } else if (c > max2) {
+            max2 = c;
+        }
         // full_space *= c mit Overflow-Saettigung
         if (!r.full_space_saturated) {
-            if (c == 0) { r.full_space = 0; }
-            else if (r.full_space > kCoverageSaturated / c) { r.full_space_saturated = true; r.full_space = kCoverageSaturated; }
-            else { r.full_space *= c; }
+            if (c == 0) {
+                r.full_space = 0;
+            } else if (r.full_space > kCoverageSaturated / c) {
+                r.full_space_saturated = true;
+                r.full_space           = kCoverageSaturated;
+            } else {
+                r.full_space *= c;
+            }
         }
     }
     r.pairwise_lower_bound = static_cast<std::uint64_t>(max1) * static_cast<std::uint64_t>(max2);
@@ -65,12 +77,14 @@ struct CoverageReport {
 /// Variante (r mod counts[i]). Da r alle Werte 0..max-1 (>= counts[i]-1) durchlaeuft, kommt jede
 /// Variante jeder Achse mindestens einmal vor. Rueckgabe: Vektor von Index-Tupeln (Zeile → Achse → Variante).
 /// Leerer Rueckgabewert wenn eine Achse 0 Varianten hat (Raum leer).
-[[nodiscard]] inline std::vector<std::vector<std::size_t>>
-one_wise_cover_sample(std::span<const std::size_t> counts) {
+[[nodiscard]] inline std::vector<std::vector<std::size_t>> one_wise_cover_sample(std::span<const std::size_t> counts) {
     std::vector<std::vector<std::size_t>> rows;
     if (counts.empty()) return rows;
     std::size_t max_c = 0;
-    for (std::size_t c : counts) { if (c == 0) return rows; max_c = std::max(max_c, c); }
+    for (std::size_t c : counts) {
+        if (c == 0) return rows;
+        max_c = std::max(max_c, c);
+    }
     rows.reserve(max_c);
     for (std::size_t r = 0; r < max_c; ++r) {
         std::vector<std::size_t> tuple(counts.size());
@@ -80,4 +94,4 @@ one_wise_cover_sample(std::span<const std::size_t> counts) {
     return rows;
 }
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

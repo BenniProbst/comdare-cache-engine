@@ -43,8 +43,8 @@ namespace comdare::cache_engine::api {
 class IStatisticsTool {
 public:
     virtual ~IStatisticsTool() = default;
-    [[nodiscard]] virtual builder::commands::stats::WelchResult
-    welch_t_test(std::span<const std::int64_t> a, std::span<const std::int64_t> b) const = 0;
+    [[nodiscard]] virtual builder::commands::stats::WelchResult welch_t_test(std::span<const std::int64_t> a,
+                                                                             std::span<const std::int64_t> b) const = 0;
     [[nodiscard]] virtual builder::commands::stats::MannWhitneyResult
     mann_whitney_u_test(std::span<const std::int64_t> a, std::span<const std::int64_t> b) const = 0;
 };
@@ -54,8 +54,8 @@ public:
 class ICodegenTool {
 public:
     virtual ~ICodegenTool() = default;
-    [[nodiscard]] virtual std::string
-    emit_module_source(int module_index, std::span<const std::string> fq_axis_type_names) const = 0;
+    [[nodiscard]] virtual std::string emit_module_source(int                          module_index,
+                                                         std::span<const std::string> fq_axis_type_names) const = 0;
 };
 
 /// Workload-Werkzeug: erzeugt YCSB-Standard-Workloads (A–F) für die Mess-Pipeline.
@@ -64,14 +64,14 @@ public:
     virtual ~IWorkloadTool() = default;
     [[nodiscard]] virtual std::vector<workload_generator::Operation>
     generate_ycsb(workload_generator::WorkloadConfig const& config,
-                  workload_generator::YcsbWorkload workload) const = 0;
+                  workload_generator::YcsbWorkload          workload) const = 0;
 };
 
 /// Plugin-Punkt für EXTERNE Werkzeuge (register_external_tool): alles, was über die vier
 /// Built-in-Tools hinausgeht — z.B. PMC-Counter-Backend, Cluster-Job-Submitter, externe Solver.
 class IExternalTool {
 public:
-    virtual ~IExternalTool() = default;
+    virtual ~IExternalTool()                                 = default;
     [[nodiscard]] virtual std::string_view tool_name() const = 0;
     /// Kategorie-Hinweis (z.B. "measurement", "statistics", "codegen", "transport").
     [[nodiscard]] virtual std::string_view tool_kind() const = 0;
@@ -90,9 +90,9 @@ public:
     [[nodiscard]] virtual IWorkloadTool&   workload_generator() = 0;
 
     // Plugin-Registry für externe Werkzeuge.
-    virtual void register_external_tool(std::string name, std::shared_ptr<IExternalTool> tool) = 0;
-    [[nodiscard]] virtual IExternalTool* find_external_tool(std::string_view name) const = 0;
-    [[nodiscard]] virtual std::vector<std::string> external_tool_names() const = 0;
+    virtual void register_external_tool(std::string name, std::shared_ptr<IExternalTool> tool)     = 0;
+    [[nodiscard]] virtual IExternalTool*           find_external_tool(std::string_view name) const = 0;
+    [[nodiscard]] virtual std::vector<std::string> external_tool_names() const                     = 0;
 
     [[nodiscard]] virtual std::string_view framework_version() const = 0;
 };
@@ -103,8 +103,8 @@ public:
 
 class DefaultStatisticsTool final : public IStatisticsTool {
 public:
-    [[nodiscard]] builder::commands::stats::WelchResult
-    welch_t_test(std::span<const std::int64_t> a, std::span<const std::int64_t> b) const override {
+    [[nodiscard]] builder::commands::stats::WelchResult welch_t_test(std::span<const std::int64_t> a,
+                                                                     std::span<const std::int64_t> b) const override {
         return builder::commands::stats::welch_t_test(a, b);
     }
     [[nodiscard]] builder::commands::stats::MannWhitneyResult
@@ -115,8 +115,8 @@ public:
 
 class DefaultCodegenTool final : public ICodegenTool {
 public:
-    [[nodiscard]] std::string
-    emit_module_source(int module_index, std::span<const std::string> fq_axis_type_names) const override {
+    [[nodiscard]] std::string emit_module_source(int                          module_index,
+                                                 std::span<const std::string> fq_axis_type_names) const override {
         std::string args;
         for (auto const& t : fq_axis_type_names) {
             if (!args.empty()) args += ",\n    ";
@@ -131,7 +131,7 @@ class DefaultWorkloadTool final : public IWorkloadTool {
 public:
     [[nodiscard]] std::vector<workload_generator::Operation>
     generate_ycsb(workload_generator::WorkloadConfig const& config,
-                  workload_generator::YcsbWorkload workload) const override {
+                  workload_generator::YcsbWorkload          workload) const override {
         workload_generator::WorkloadGenerator gen{config};
         return gen.generate_ycsb(workload);
     }
@@ -139,8 +139,8 @@ public:
 
 class DefaultCacheEngineTools final : public ICacheEngineTools {
 public:
-    [[nodiscard]] IStatisticsTool& statistics()         override { return statistics_; }
-    [[nodiscard]] ICodegenTool&    codegen()            override { return codegen_; }
+    [[nodiscard]] IStatisticsTool& statistics() override { return statistics_; }
+    [[nodiscard]] ICodegenTool&    codegen() override { return codegen_; }
     [[nodiscard]] IWorkloadTool&   workload_generator() override { return workload_; }
 
     void register_external_tool(std::string name, std::shared_ptr<IExternalTool> tool) override {
@@ -159,9 +159,9 @@ public:
     [[nodiscard]] std::string_view framework_version() const override { return "comdare-tools-v1"; }
 
 private:
-    DefaultStatisticsTool statistics_{};
-    DefaultCodegenTool    codegen_{};
-    DefaultWorkloadTool   workload_{};
+    DefaultStatisticsTool                                           statistics_{};
+    DefaultCodegenTool                                              codegen_{};
+    DefaultWorkloadTool                                             workload_{};
     std::unordered_map<std::string, std::shared_ptr<IExternalTool>> external_tools_{};
 };
 
@@ -172,4 +172,4 @@ private:
     return instance;
 }
 
-}  // namespace comdare::cache_engine::api
+} // namespace comdare::cache_engine::api

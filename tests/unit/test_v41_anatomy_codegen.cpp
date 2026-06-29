@@ -32,15 +32,12 @@ namespace ee  = ::comdare::cache_engine::execution_engine;
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5D2_Codegen, AbiVersionFunctionExported) {
-    constexpr std::uint64_t expected =
-        (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) |
-        static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MINOR);
+    constexpr std::uint64_t expected = (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) |
+                                       static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MINOR);
     EXPECT_EQ(comdare_anatomy_abi_version(), expected);
 }
 
-TEST(R5D2_Codegen, AbiMagicFunctionExported) {
-    EXPECT_EQ(comdare_anatomy_abi_magic(), COMDARE_ANATOMY_ABI_MAGIC);
-}
+TEST(R5D2_Codegen, AbiMagicFunctionExported) { EXPECT_EQ(comdare_anatomy_abi_magic(), COMDARE_ANATOMY_ABI_MAGIC); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §2 — Factory liefert HotComposition (vs ArtComposition in test_v41_anatomy_module_abi)

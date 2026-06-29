@@ -8,8 +8,7 @@ namespace comdare::cache_engine::telemetry::concepts {
 struct TelemetryTopicTag {};
 
 template <typename T>
-concept TelemetryComponent = requires {
-    typename T::topic_tag;
-} && std::same_as<typename T::topic_tag, TelemetryTopicTag>;
+concept TelemetryComponent =
+    requires { typename T::topic_tag; } && std::same_as<typename T::topic_tag, TelemetryTopicTag>;
 
-}  // namespace
+} // namespace comdare::cache_engine::telemetry::concepts

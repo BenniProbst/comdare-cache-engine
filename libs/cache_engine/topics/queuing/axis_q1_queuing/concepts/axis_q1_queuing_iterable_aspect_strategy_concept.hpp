@@ -44,16 +44,13 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts {
  * N separate Binaries.
  */
 template <typename B>
-concept IterableAspectStrategy =
-    BufferStrategy<B>
-    && requires { typename B::iterable_aspect_t; }
-    && (!std::is_void_v<typename B::iterable_aspect_t>)
-    && requires {
-        { B::iterable_values() } noexcept
-            -> std::convertible_to<std::span<typename B::iterable_aspect_t const>>;
-    }
-    && requires(B b, typename B::iterable_aspect_t v) {
-        { b.set_iterable_aspect(v) };  // darf werfen — siehe Doku oben
-    };
+concept IterableAspectStrategy = BufferStrategy<B> && requires { typename B::iterable_aspect_t; } &&
+                                 (!std::is_void_v<typename B::iterable_aspect_t>) && requires {
+                                     {
+                                         B::iterable_values()
+                                     } noexcept -> std::convertible_to<std::span<typename B::iterable_aspect_t const>>;
+                                 } && requires(B b, typename B::iterable_aspect_t v) {
+                                     { b.set_iterable_aspect(v) }; // darf werfen — siehe Doku oben
+                                 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing::concepts

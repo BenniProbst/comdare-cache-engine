@@ -53,7 +53,7 @@ concept IsComposition = requires {
     typename C::queuing_q1;
     typename C::queuing_q2;
     // Identifikation
-    { C::name }     -> std::convertible_to<std::string_view>;
+    { C::name } -> std::convertible_to<std::string_view>;
     { C::paper_id } -> std::convertible_to<std::string_view>;
 };
 
@@ -61,7 +61,7 @@ concept IsComposition = requires {
 /// Pflicht: 19 (3 traversal + 2 nodes + 12 weitere Topics + 2 queuing q1/q2, Doc 30 §8.0).
 template <typename C>
 struct composition_organ_count {
-    static constexpr std::size_t value = 19;  // 3 + 2 + 12 + 2 queuing
+    static constexpr std::size_t value = 19; // 3 + 2 + 12 + 2 queuing
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ struct composition_organ_count {
 /// @doku docs/architektur/14_achsen_komposition_organ_metapher.md §49
 template <typename C>
 concept HasCompositionLocation = IsComposition<C> && requires {
-    { C::cpp_type_name  } -> std::convertible_to<std::string_view>;
+    { C::cpp_type_name } -> std::convertible_to<std::string_view>;
     { C::header_include } -> std::convertible_to<std::string_view>;
 };
 
@@ -100,8 +100,8 @@ concept HasCompositionLocation = IsComposition<C> && requires {
 ///         "compositions/art_reference.hpp");
 /// };
 /// ```
-#define COMDARE_DEFINE_COMPOSITION_LOCATION(TYPE_NAME, HEADER_PATH)               \
-    static constexpr std::string_view cpp_type_name  = TYPE_NAME;                 \
+#define COMDARE_DEFINE_COMPOSITION_LOCATION(TYPE_NAME, HEADER_PATH)                                                    \
+    static constexpr std::string_view cpp_type_name  = TYPE_NAME;                                                      \
     static constexpr std::string_view header_include = HEADER_PATH
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

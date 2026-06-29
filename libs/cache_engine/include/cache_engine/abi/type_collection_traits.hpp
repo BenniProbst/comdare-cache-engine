@@ -25,28 +25,28 @@ struct type_collection_traits;
 // Fall 1: 1 Param
 template <typename T0>
 struct type_collection_traits<T0> {
-    using key_t   = std::uint64_t;
-    using value_t = T0;
-    static constexpr bool key_is_implicit = true;
-    static constexpr std::size_t param_count = 1;
+    using key_t                                  = std::uint64_t;
+    using value_t                                = T0;
+    static constexpr bool        key_is_implicit = true;
+    static constexpr std::size_t param_count     = 1;
 };
 
 // Fall 2: 2 Params
 template <typename T0, typename T1>
 struct type_collection_traits<T0, T1> {
-    using key_t   = T0;
-    using value_t = T1;
-    static constexpr bool key_is_implicit = false;
-    static constexpr std::size_t param_count = 2;
+    using key_t                                  = T0;
+    using value_t                                = T1;
+    static constexpr bool        key_is_implicit = false;
+    static constexpr std::size_t param_count     = 2;
 };
 
 // Fall 3: N>2 Params -> Value = tuple<T1..TN>
 template <typename T0, typename T1, typename T2, typename... TR>
 struct type_collection_traits<T0, T1, T2, TR...> {
-    using key_t   = T0;
-    using value_t = std::tuple<T1, T2, TR...>;
-    static constexpr bool key_is_implicit = false;
-    static constexpr std::size_t param_count = 3 + sizeof...(TR);
+    using key_t                                  = T0;
+    using value_t                                = std::tuple<T1, T2, TR...>;
+    static constexpr bool        key_is_implicit = false;
+    static constexpr std::size_t param_count     = 3 + sizeof...(TR);
 };
 
-}  // namespace comdare
+} // namespace comdare

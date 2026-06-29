@@ -25,8 +25,7 @@ struct RepetitionRecord {
 class RepetitionPlan {
 public:
     /// Default 3 Wiederholungen (konfigurierbar); 0 → auf 1 normalisiert (mind. ein Lauf).
-    explicit RepetitionPlan(std::uint32_t repetitions = 3) noexcept
-        : reps_{repetitions == 0 ? 1u : repetitions} {}
+    explicit RepetitionPlan(std::uint32_t repetitions = 3) noexcept : reps_{repetitions == 0 ? 1u : repetitions} {}
 
     [[nodiscard]] std::uint32_t repetitions() const noexcept { return reps_; }
 
@@ -37,7 +36,7 @@ public:
         std::vector<RepetitionRecord> out;
         out.reserve(reps_);
         for (std::uint32_t r = 0; r < reps_; ++r) {
-            auto const m = measure(r);  // {micros_per_op, op_count}
+            auto const m = measure(r); // {micros_per_op, op_count}
             out.push_back(RepetitionRecord{setting_id, r, m.first, m.second});
         }
         return out;
@@ -62,7 +61,7 @@ public:
 private:
     [[nodiscard]] static std::string format_double(double v) {
         // feste, lokal-unabhängige Darstellung (kein std::ostringstream-Locale-Risiko im Hot-Doc-Pfad)
-        char buf[64];
+        char      buf[64];
         int const n = std::snprintf(buf, sizeof(buf), "%.6f", v);
         return (n > 0) ? std::string(buf, static_cast<std::size_t>(n)) : std::string{"0.000000"};
     }
@@ -70,4 +69,4 @@ private:
     std::uint32_t reps_;
 };
 
-}  // namespace comdare::cache_engine::builder::experiment
+} // namespace comdare::cache_engine::builder::experiment

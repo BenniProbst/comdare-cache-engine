@@ -14,11 +14,7 @@ namespace comdare::cache_engine::path_compression {
 
 namespace mp = boost::mp11;
 
-using AllCompressions = mp::mp_list<
-    PathCompressionNone,
-    PatriciaPathCompression,
-    ByteWisePathCompression
->;
+using AllCompressions = mp::mp_list<PathCompressionNone, PatriciaPathCompression, ByteWisePathCompression>;
 
 template <typename T>
 using is_enabled = mp::mp_bool<T::enabled>;
@@ -26,6 +22,6 @@ using is_enabled = mp::mp_bool<T::enabled>;
 using EnabledCompressions = mp::mp_filter<is_enabled, AllCompressions>;
 
 static_assert(mp::mp_size<EnabledCompressions>::value > 0,
-    "Axis 02 PathCompression: at least one compression must be enabled");
+              "Axis 02 PathCompression: at least one compression must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::path_compression

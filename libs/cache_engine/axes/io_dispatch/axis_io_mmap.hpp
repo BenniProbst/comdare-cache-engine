@@ -27,9 +27,11 @@ public:
     static constexpr bool enabled = flags::mmap_enabled;
 
     [[nodiscard]] static constexpr bool             is_in_memory_only() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()              noexcept { return "io_mmap"; }
-    [[nodiscard]] static constexpr std::string_view family_name()       noexcept { return "MmapIo (mmap file-backed, Persistent Memory, read-heavy)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()       noexcept { return "MMAP"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "io_mmap"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "MmapIo (mmap file-backed, Persistent Memory, read-heavy)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "MMAP"; }
 
     // V41.F.6.1 R5.B / T14 — verhaltens-tragende Mess-Op der io_dispatch-Achse (Pfad-A, F15-operativ).
     // EHRLICHKEIT: reine IN-MEMORY-Dispatch-SIMULATION, KEIN echtes IO (kein echtes mmap/page-fault).
@@ -45,19 +47,17 @@ public:
         for (std::size_t i = 0; i < n; ++i) {
             // mmap: page-fault-getriebener Zugriff -> volatile-Deref, nicht wegoptimierbar
             unsigned char const volatile* p = buf + i * record_size;
-            std::uint32_t v = static_cast<std::uint32_t>(p[0])
-                            | (static_cast<std::uint32_t>(p[1]) << 8)
-                            | (static_cast<std::uint32_t>(p[2]) << 16)
-                            | (static_cast<std::uint32_t>(p[3]) << 24);
+            std::uint32_t v = static_cast<std::uint32_t>(p[0]) | (static_cast<std::uint32_t>(p[1]) << 8) |
+                              (static_cast<std::uint32_t>(p[2]) << 16) | (static_cast<std::uint32_t>(p[3]) << 24);
             s += v;
         }
         return s;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::io_dispatch
 
 namespace comdare::cache_engine::io_dispatch {
-    static_assert(concepts::IoStrategy<MmapIo>);
-    static_assert(concepts::CacheEnginePermutationStrategy<MmapIo>);
-}
+static_assert(concepts::IoStrategy<MmapIo>);
+static_assert(concepts::CacheEnginePermutationStrategy<MmapIo>);
+} // namespace comdare::cache_engine::io_dispatch

@@ -37,11 +37,11 @@ namespace comdare::cache_engine::index_organization {
 /// ABI-taugliches Index-Organisation-Snapshot (standard_layout + trivially_copyable → spaeter in den generischen
 /// Cross-ABI-Observer-POD axis_stats[13] mappbar). NUR uint64-Felder.
 struct IndexOrgStatistics {
-    std::uint64_t scan_count       = 0;   ///< Anzahl index_org_observe-Aufrufe
-    std::uint64_t records_scanned  = 0;   ///< kumulierte Datensatz-Zahl ueber alle Scans
-    std::uint64_t predicate_evals  = 0;   ///< Predicate-Vergleiche (NUR fuer nicht-clustered Full-Scan-Strategien)
-    std::uint64_t indirect_lookups = 0;   ///< Index-Indirektions-Schritte (NUR fuer Strategien mit Sekundaer-Index)
-    std::uint64_t last_checksum    = 0;   ///< letztes index_org_scan-Ergebnis (Korrektheits-/Strategie-Anker)
+    std::uint64_t scan_count       = 0; ///< Anzahl index_org_observe-Aufrufe
+    std::uint64_t records_scanned  = 0; ///< kumulierte Datensatz-Zahl ueber alle Scans
+    std::uint64_t predicate_evals  = 0; ///< Predicate-Vergleiche (NUR fuer nicht-clustered Full-Scan-Strategien)
+    std::uint64_t indirect_lookups = 0; ///< Index-Indirektions-Schritte (NUR fuer Strategien mit Sekundaer-Index)
+    std::uint64_t last_checksum    = 0; ///< letztes index_org_scan-Ergebnis (Korrektheits-/Strategie-Anker)
 
     [[nodiscard]] bool operator==(IndexOrgStatistics const&) const noexcept = default;
 };
@@ -55,20 +55,29 @@ template <class Strategy>
 class ObservableIndexOrg {
 public:
     using strategy_type = Strategy;
-    using topic_tag     = typename Strategy::topic_tag;  // SearchEngineComponent → IndexOrganizationStrategy erfuellt
+    using topic_tag     = typename Strategy::topic_tag; // SearchEngineComponent → IndexOrganizationStrategy erfuellt
 
     // Transparenter Decorator: Strategie-Inspektion durchgereicht (Pflicht fuer IndexOrganizationStrategy +
     // die bestehenden Aufrufer in composition_registry / axis_path_serialization).
-    [[nodiscard]] static constexpr bool             is_clustered()          noexcept { return Strategy::is_clustered(); }
-    [[nodiscard]] static constexpr bool             has_secondary_indexes() noexcept { return Strategy::has_secondary_indexes(); }
-    [[nodiscard]] static constexpr bool             data_embedded_in_leaf() noexcept { return Strategy::data_embedded_in_leaf(); }
-    [[nodiscard]] static constexpr std::string_view name()                  noexcept { return Strategy::name(); }
-    [[nodiscard]] static constexpr std::string_view family_name()
-        noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()
-        noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
+    [[nodiscard]] static constexpr bool is_clustered() noexcept { return Strategy::is_clustered(); }
+    [[nodiscard]] static constexpr bool has_secondary_indexes() noexcept { return Strategy::has_secondary_indexes(); }
+    [[nodiscard]] static constexpr bool data_embedded_in_leaf() noexcept { return Strategy::data_embedded_in_leaf(); }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept
+        requires requires { Strategy::family_name(); }
+    {
+        return Strategy::family_name();
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept
+        requires requires { Strategy::flag_suffix(); }
+    {
+        return Strategy::flag_suffix();
+    }
     [[nodiscard]] static constexpr std::string_view get_compiler() noexcept
-        requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
+        requires requires { Strategy::get_compiler(); }
+    {
+        return Strategy::get_compiler();
+    }
 
     /// STATIC Pass-Through (Drop-in-Kompatibilitaet): die verhaltens-tragende Treibe-Op wird unveraendert
     /// durchgereicht, damit die Huelle als index_organization-Slot den seg19-Timer NICHT bricht
@@ -90,13 +99,9 @@ public:
         stats_.records_scanned += static_cast<std::uint64_t>(n);
         // Nicht-clustered = Full-Scan mit Predicate-Branch je Record (kein Index → kein Frueh-Abbruch). Heap/
         // NonClustered: ein Predicate-Eval pro gescanntem Record. Clustered/IOT (sequential): 0 (reiner Summen-Scan).
-        if (!Strategy::is_clustered()) {
-            stats_.predicate_evals += static_cast<std::uint64_t>(n);
-        }
+        if (!Strategy::is_clustered()) { stats_.predicate_evals += static_cast<std::uint64_t>(n); }
         // Sekundaer-Index-Strategien (NonClustered) leisten je Lookup einen Index-Indirektions-Schritt.
-        if (Strategy::has_secondary_indexes()) {
-            stats_.indirect_lookups += static_cast<std::uint64_t>(n);
-        }
+        if (Strategy::has_secondary_indexes()) { stats_.indirect_lookups += static_cast<std::uint64_t>(n); }
         stats_.last_checksum = checksum;
 #endif
         return checksum;
@@ -105,11 +110,11 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = IndexOrgStatistics;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; }
+    void                     reset() noexcept { stats_ = {}; }
 
 private:
     snapshot_t stats_{};
 #endif
 };
 
-}  // namespace comdare::cache_engine::index_organization
+} // namespace comdare::cache_engine::index_organization

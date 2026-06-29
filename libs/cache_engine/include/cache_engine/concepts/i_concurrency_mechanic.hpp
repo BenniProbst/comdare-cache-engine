@@ -7,9 +7,9 @@
 namespace comdare::cache_engine {
 
 enum class ConcurrencyMechanicKind : std::uint8_t {
-    OLC          = 0,   // P01/P08 Optimistic Lock Coupling
-    ROWEX        = 1,   // P02/P08 Read-Optimized Write Exclusion
-    ComdareRcu   = 2,   // P29 Quiescent-State-Based RCU (Task #104)
+    OLC        = 0, // P01/P08 Optimistic Lock Coupling
+    ROWEX      = 1, // P02/P08 Read-Optimized Write Exclusion
+    ComdareRcu = 2, // P29 Quiescent-State-Based RCU (Task #104)
 };
 
 class IConcurrencyMechanic {
@@ -19,8 +19,8 @@ public:
     [[nodiscard]] virtual ConcurrencyMechanicKind kind() const noexcept = 0;
 
     // Lifecycle / pro-Thread-Hook
-    virtual void register_thread() noexcept    {}
-    virtual void deregister_thread() noexcept  {}
+    virtual void register_thread() noexcept {}
+    virtual void deregister_thread() noexcept {}
 
     // Reader-Eintrittspunkt — aequivalent zu OLC readLockOrRestart / RCU read_lock
     virtual void begin_read() noexcept = 0;
@@ -34,4 +34,4 @@ public:
     virtual void synchronize() noexcept {}
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

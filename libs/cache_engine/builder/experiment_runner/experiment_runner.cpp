@@ -6,15 +6,13 @@
 
 namespace comdare::builder::runner {
 
-ExperimentResult ExperimentRunner::run_one(
-    loop::PermutationDescriptor const& descriptor,
-    std::filesystem::path const& module_binary_path,
-    comdare_workload_descriptor_v1 const& workload,
-    comdare_cache_engine_v1* engine_ref) const
-{
+ExperimentResult ExperimentRunner::run_one(loop::PermutationDescriptor const&    descriptor,
+                                           std::filesystem::path const&          module_binary_path,
+                                           comdare_workload_descriptor_v1 const& workload,
+                                           comdare_cache_engine_v1*              engine_ref) const {
     ExperimentResult result;
     result.permutation_id = descriptor.id;
-    result.fingerprint     = descriptor.fingerprint;
+    result.fingerprint    = descriptor.fingerprint;
 
     try {
         // Phase 4 LINK + LOAD
@@ -33,12 +31,10 @@ ExperimentResult ExperimentRunner::run_one(
     return result;
 }
 
-std::vector<ExperimentResult> ExperimentRunner::run_all(
-    std::vector<loop::PermutationDescriptor> const& descriptors,
-    std::filesystem::path const& module_binary_dir,
-    comdare_workload_descriptor_v1 const& workload,
-    comdare_cache_engine_v1* engine_ref) const
-{
+std::vector<ExperimentResult> ExperimentRunner::run_all(std::vector<loop::PermutationDescriptor> const& descriptors,
+                                                        std::filesystem::path const&          module_binary_dir,
+                                                        comdare_workload_descriptor_v1 const& workload,
+                                                        comdare_cache_engine_v1*              engine_ref) const {
     std::vector<ExperimentResult> results;
     results.reserve(descriptors.size());
     for (auto const& d : descriptors) {
@@ -58,4 +54,4 @@ std::vector<ExperimentResult> ExperimentRunner::run_all(
     return results;
 }
 
-}  // namespace comdare::builder::runner
+} // namespace comdare::builder::runner

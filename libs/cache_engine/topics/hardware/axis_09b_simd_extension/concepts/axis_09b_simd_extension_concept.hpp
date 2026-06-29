@@ -16,15 +16,13 @@
 namespace comdare::cache_engine::hardware::axis_09b_simd_extension::concepts {
 
 template <typename E>
-concept SimdExtensionStrategy =
-    ::comdare::cache_engine::hardware::concepts::HardwareComponent<E>
-    && requires {
-        { E::is_active() }              noexcept -> std::convertible_to<bool>;
-        { E::vector_width_bits() }      noexcept -> std::convertible_to<int>;
-        { E::compatible_with_x86() }    noexcept -> std::convertible_to<bool>;
-        { E::compatible_with_arm() }    noexcept -> std::convertible_to<bool>;
-        { E::compatible_with_riscv() }  noexcept -> std::convertible_to<bool>;
-        { E::compatible_with_powerpc() } noexcept -> std::convertible_to<bool>;
-    };
+concept SimdExtensionStrategy = ::comdare::cache_engine::hardware::concepts::HardwareComponent<E> && requires {
+    { E::is_active() } noexcept -> std::convertible_to<bool>;
+    { E::vector_width_bits() } noexcept -> std::convertible_to<int>;
+    { E::compatible_with_x86() } noexcept -> std::convertible_to<bool>;
+    { E::compatible_with_arm() } noexcept -> std::convertible_to<bool>;
+    { E::compatible_with_riscv() } noexcept -> std::convertible_to<bool>;
+    { E::compatible_with_powerpc() } noexcept -> std::convertible_to<bool>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::hardware::axis_09b_simd_extension::concepts

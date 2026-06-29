@@ -30,30 +30,29 @@ concept HotPatriciaNodePool =
         typename S::key_type;
         typename S::value_type;
         { S::kNil } -> std::convertible_to<std::size_t>;
-    }
-    && std::same_as<typename S::key_type,   std::uint64_t>
-    && std::same_as<typename S::value_type, std::uint64_t>
-    && requires(S& s, S const& cs, std::size_t ref, unsigned bit,
-                typename S::key_type k, typename S::value_type v) {
+    } && std::same_as<typename S::key_type, std::uint64_t> && std::same_as<typename S::value_type, std::uint64_t> &&
+    requires(S& s, S const& cs, std::size_t ref, unsigned bit, typename S::key_type k, typename S::value_type v) {
         // (A) Wurzel + Groesse
-        { cs.root() }   -> std::convertible_to<std::size_t>;
-        { cs.size() }   -> std::convertible_to<std::size_t>;
+        { cs.root() } -> std::convertible_to<std::size_t>;
+        { cs.size() } -> std::convertible_to<std::size_t>;
         { s.set_root(ref) } -> std::same_as<void>;
-        { s.inc_size() }    -> std::same_as<void>;
-        { s.dec_size() }    -> std::same_as<void>;
-        { s.clear() }       -> std::same_as<void>;
+        { s.inc_size() } -> std::same_as<void>;
+        { s.dec_size() } -> std::same_as<void>;
+        { s.clear() } -> std::same_as<void>;
         // (B) Leaf
-        { cs.is_leaf(ref) }          -> std::same_as<bool>;
-        { cs.leaf_key(ref) }         -> std::same_as<typename S::key_type>;
-        { cs.leaf_value(ref) }       -> std::same_as<typename S::value_type>;
+        { cs.is_leaf(ref) } -> std::same_as<bool>;
+        { cs.leaf_key(ref) } -> std::same_as<typename S::key_type>;
+        { cs.leaf_value(ref) } -> std::same_as<typename S::value_type>;
         { s.set_leaf_value(ref, v) } -> std::same_as<void>;
-        { s.new_leaf(k, v) }         -> std::convertible_to<std::size_t>;   // darf werfen
+        { s.new_leaf(k, v) } -> std::convertible_to<std::size_t>; // darf werfen
         // (C) Internal (binaere crit-bit-Patricia, GENAU 2 Kinder)
-        { cs.crit_bit(ref) }              -> std::convertible_to<unsigned>;     // 0..63 (MSB-first)
-        { cs.child(ref, bit) }            -> std::convertible_to<std::size_t>;  // bit in {0,1}
-        { s.set_child(ref, bit, ref) }    -> std::same_as<void>;
-        { s.new_internal(bit, ref, ref) } -> std::convertible_to<std::size_t>; // (crit_bit, child0, child1); darf werfen
-        { s.free_node(ref) }              -> std::same_as<void>;
+        { cs.crit_bit(ref) } -> std::convertible_to<unsigned>;      // 0..63 (MSB-first)
+        { cs.child(ref, bit) } -> std::convertible_to<std::size_t>; // bit in {0,1}
+        { s.set_child(ref, bit, ref) } -> std::same_as<void>;
+        {
+            s.new_internal(bit, ref, ref)
+        } -> std::convertible_to<std::size_t>; // (crit_bit, child0, child1); darf werfen
+        { s.free_node(ref) } -> std::same_as<void>;
     };
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

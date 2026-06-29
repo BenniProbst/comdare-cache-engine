@@ -21,16 +21,18 @@ public:
     static constexpr bool enabled = flags::custom_cache_enabled;
 
     [[nodiscard]] static constexpr concepts::PageKind page_kind() noexcept { return concepts::PageKind::CustomCache; }
-    [[nodiscard]] static constexpr bool             is_branch()   noexcept { return true; }
-    [[nodiscard]] static constexpr bool             is_leaf()     noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "page_custom_cache"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "CustomCachePageType (cache-line-aligned custom page, PRT-ART)"; }
+    [[nodiscard]] static constexpr bool               is_branch() noexcept { return true; }
+    [[nodiscard]] static constexpr bool               is_leaf() noexcept { return false; }
+    [[nodiscard]] static constexpr std::string_view   name() noexcept { return "page_custom_cache"; }
+    [[nodiscard]] static constexpr std::string_view   family_name() noexcept {
+        return "CustomCachePageType (cache-line-aligned custom page, PRT-ART)";
+    }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "CUSTOM_CACHE"; }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::nodes::axis_01_page_type
 
 namespace comdare::cache_engine::nodes::axis_01_page_type {
-    static_assert(concepts::PageTypeStrategy<CustomCachePageType>);
-    static_assert(concepts::CacheEnginePermutationStrategy<CustomCachePageType>);
-}
+static_assert(concepts::PageTypeStrategy<CustomCachePageType>);
+static_assert(concepts::CacheEnginePermutationStrategy<CustomCachePageType>);
+} // namespace comdare::cache_engine::nodes::axis_01_page_type

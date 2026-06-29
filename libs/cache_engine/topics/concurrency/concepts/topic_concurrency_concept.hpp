@@ -16,8 +16,7 @@ namespace comdare::cache_engine::concurrency::concepts {
 struct ConcurrencyTopicTag {};
 
 template <typename T>
-concept ConcurrencyComponent = requires {
-    typename T::topic_tag;
-} && std::same_as<typename T::topic_tag, ConcurrencyTopicTag>;
+concept ConcurrencyComponent =
+    requires { typename T::topic_tag; } && std::same_as<typename T::topic_tag, ConcurrencyTopicTag>;
 
-}  // namespace
+} // namespace comdare::cache_engine::concurrency::concepts

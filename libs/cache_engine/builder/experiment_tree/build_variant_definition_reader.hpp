@@ -8,8 +8,8 @@
 // (BuildVariantDefinitionV1) + markiert build_def_real=true; ungemessene Knoten bleiben build_def_real=false
 // (SPARSE-Kontrast, exakt wie observer_real). C++23, header-only.
 
-#include "experiment_tree.hpp"                       // NodeValue
-#include "anatomy/build_variant_definition.hpp"      // build_variant_definition<PT,SE,HW>()
+#include "experiment_tree.hpp"                  // NodeValue
+#include "anatomy/build_variant_definition.hpp" // build_variant_definition<PT,SE,HW>()
 
 namespace comdare::cache_engine::builder::experiment {
 
@@ -22,4 +22,4 @@ inline void read_build_variant(NodeValue& nv) noexcept {
     nv.build_def_real = true;
 }
 
-}  // namespace comdare::cache_engine::builder::experiment
+} // namespace comdare::cache_engine::builder::experiment

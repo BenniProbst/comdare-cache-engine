@@ -34,9 +34,8 @@ namespace comdare::cache_engine::alloc::concepts {
  *         jemalloc `mallocx(bytes, MALLOCX_ZERO)`, tcmalloc `tc_calloc`.
  */
 template <typename A>
-concept ZeroingStrategy = AllocatorStrategy<A>
-    && requires(A a, std::size_t n, std::size_t size) {
-        { a.zero_allocate(n, size) } -> std::same_as<void*>;
-    };
+concept ZeroingStrategy = AllocatorStrategy<A> && requires(A a, std::size_t n, std::size_t size) {
+    { a.zero_allocate(n, size) } -> std::same_as<void*>;
+};
 
-}  // namespace comdare::cache_engine::alloc::concepts
+} // namespace comdare::cache_engine::alloc::concepts

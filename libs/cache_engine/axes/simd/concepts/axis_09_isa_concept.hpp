@@ -14,12 +14,10 @@
 namespace comdare::cache_engine::simd::concepts {
 
 template <typename I>
-concept IsaStrategy =
-    ::comdare::cache_engine::hardware::concepts::HardwareComponent<I>
-    && requires {
-        { I::is_64bit() }                noexcept -> std::convertible_to<bool>;
-        { I::cpu_family() }              noexcept -> std::convertible_to<std::string_view>;
-        { I::supports_native_simd() }    noexcept -> std::convertible_to<bool>;
-    };
+concept IsaStrategy = ::comdare::cache_engine::hardware::concepts::HardwareComponent<I> && requires {
+    { I::is_64bit() } noexcept -> std::convertible_to<bool>;
+    { I::cpu_family() } noexcept -> std::convertible_to<std::string_view>;
+    { I::supports_native_simd() } noexcept -> std::convertible_to<bool>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::simd::concepts

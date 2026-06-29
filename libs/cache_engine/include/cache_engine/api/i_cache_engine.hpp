@@ -32,12 +32,12 @@ public:
     virtual ~ICacheEngine() = default;
 
     // Vermittlungs-Accessor je Submodul. Owner bleibt das Modul selbst.
-    [[nodiscard]] virtual IMeasurementProvider&    measurement()    = 0;
-    [[nodiscard]] virtual IIsaDispatchProvider&    isa_dispatch()   = 0;
-    [[nodiscard]] virtual ISearchEngineProvider&   search_engine()  = 0;
+    [[nodiscard]] virtual IMeasurementProvider&     measurement()   = 0;
+    [[nodiscard]] virtual IIsaDispatchProvider&     isa_dispatch()  = 0;
+    [[nodiscard]] virtual ISearchEngineProvider&    search_engine() = 0;
     [[nodiscard]] virtual ICacheEngineCoreProvider& core()          = 0;
-    [[nodiscard]] virtual IBuildToolsProvider&     build_tools()    = 0;
-    [[nodiscard]] virtual ITestSystemProvider&     test_system()    = 0;
+    [[nodiscard]] virtual IBuildToolsProvider&      build_tools()   = 0;
+    [[nodiscard]] virtual ITestSystemProvider&      test_system()   = 0;
 
     [[nodiscard]] virtual std::string_view framework_version() const = 0;
 };
@@ -46,4 +46,4 @@ public:
 // Implementation in src/facade/cache_engine_facade.cpp (Phase 7+).
 [[nodiscard]] ICacheEngine& get_cache_engine();
 
-}  // namespace comdare::cache_engine::api
+} // namespace comdare::cache_engine::api

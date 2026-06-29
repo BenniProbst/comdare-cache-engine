@@ -22,8 +22,8 @@
 #include "experiment_tree.hpp"             // NodeValue / NodeObserverSnapshot (umbrella-unabhängig)
 #include "anatomy/composition_factory.hpp" // CompositionFromPermTuple
 #include "anatomy/search_algorithm_anatomy.hpp"
-#include "anatomy/abi_adapter.hpp"         // SearchAlgorithmAbiAdapter (treibt + tier_observe)
-#include "anatomy/observable_tier.hpp"     // ComdareTierObserverSnapshot (I1)
+#include "anatomy/abi_adapter.hpp"     // SearchAlgorithmAbiAdapter (treibt + tier_observe)
+#include "anatomy/observable_tier.hpp" // ComdareTierObserverSnapshot (I1)
 
 #include <cstdint>
 
@@ -33,16 +33,19 @@ namespace comdare::cache_engine::builder::experiment {
 /// NodeValue mit echtem Observer-Snapshot. n_keys = Treib-Last (insert + lookup).
 template <class P>
 [[nodiscard]] inline NodeValue measure_composition(std::uint64_t n_keys = 256) {
-    namespace an = ::comdare::cache_engine::anatomy;
+    namespace an  = ::comdare::cache_engine::anatomy;
     using Comp    = an::CompositionFromPermTuple<P>;
     using Anatomy = an::SearchAlgorithmAnatomy<Comp>;
 
-    NodeValue nv;
-    an::SearchAlgorithmAbiAdapter<Anatomy> adapter;   // realer genus-Adapter (Mammal/SearchAlgorithm)
+    NodeValue                              nv;
+    an::SearchAlgorithmAbiAdapter<Anatomy> adapter; // realer genus-Adapter (Mammal/SearchAlgorithm)
     adapter.warm_up();
     adapter.run();
-    for (std::uint64_t k = 0; k < n_keys; ++k) (void)adapter.tier_insert(k, k * 7u + 1u);  // treibt Organ + Store
-    for (std::uint64_t k = 0; k < n_keys; ++k) { std::uint64_t v = 0; (void)adapter.tier_lookup(k, &v); }
+    for (std::uint64_t k = 0; k < n_keys; ++k) (void)adapter.tier_insert(k, k * 7u + 1u); // treibt Organ + Store
+    for (std::uint64_t k = 0; k < n_keys; ++k) {
+        std::uint64_t v = 0;
+        (void)adapter.tier_lookup(k, &v);
+    }
 
     nv.measured_setting_count = 1;
     nv.has_result             = true;
@@ -50,7 +53,7 @@ template <class P>
 
 #if COMDARE_MEASUREMENT_ON
     an::ComdareTierObserverSnapshot pod{};
-    adapter.tier_observe(&pod);   // observe_all → konsolidierter POD (search_algo + allocator real)
+    adapter.tier_observe(&pod); // observe_all → konsolidierter POD (search_algo + allocator real)
     // I1: V1-Projektion aus dem konsolidierten POD (search→axis_stats[0], alloc→axis_stats[6]).
     nv.observer.search_lookup_count      = pod.axis_stats[0][0];
     nv.observer.search_hit_count         = pod.axis_stats[0][1];
@@ -72,7 +75,7 @@ template <class P>
     }
     nv.observer.filled_axis_count = pod.filled_axis_count;
     nv.observer.batches_measured  = pod.batches_measured;
-    nv.observer_real                     = true;
+    nv.observer_real              = true;
 #else
     // Kein Mess-Build (COMDARE_MEASUREMENT_ON aus) → kein echter Observer. observable_count() ist dennoch
     // compile-time abrufbar (Diagnose, ohne Treiben): wie viele Achsen WÄREN beobachtbar.
@@ -90,4 +93,4 @@ template <class P>
         ::comdare::cache_engine::anatomy::CompositionFromPermTuple<P>>::observable_axis_count();
 }
 
-}  // namespace comdare::cache_engine::builder::experiment
+} // namespace comdare::cache_engine::builder::experiment

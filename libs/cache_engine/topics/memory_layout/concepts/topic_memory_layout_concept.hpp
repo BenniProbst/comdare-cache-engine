@@ -14,8 +14,7 @@ namespace comdare::cache_engine::memory_layout::concepts {
 struct MemoryLayoutTopicTag {};
 
 template <typename T>
-concept MemoryLayoutComponent = requires {
-    typename T::topic_tag;
-} && std::same_as<typename T::topic_tag, MemoryLayoutTopicTag>;
+concept MemoryLayoutComponent =
+    requires { typename T::topic_tag; } && std::same_as<typename T::topic_tag, MemoryLayoutTopicTag>;
 
-}  // namespace
+} // namespace comdare::cache_engine::memory_layout::concepts

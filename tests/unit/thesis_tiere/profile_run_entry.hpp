@@ -20,13 +20,13 @@
 // ⚠️ Katalog-/Umbrella-schwer (source_catalog.hpp zieht den all_axes_umbrella) → gehoert in die HARNESS-/Test-
 //    .cpp (run_lazy_150.cpp / test_*), NICHT in den engine-agnostischen Treiber-Header. C++23, header-only.
 
-#include "source_catalog.hpp"   // make_catalog_source_gen / FullSourceCatalog (S4b, Basis-320-Quelle)
-#include "sota_catalog.hpp"     // build_sota_passes / build_sota_view_source_map / kSotaTierAxis (S6/S7b)
-#include "profile_runner.hpp"   // load_thesis_profile / build_profile_basis_levels / profile_select / make_union_source_gen
+#include "source_catalog.hpp" // make_catalog_source_gen / FullSourceCatalog (S4b, Basis-320-Quelle)
+#include "sota_catalog.hpp"   // build_sota_passes / build_sota_view_source_map / kSotaTierAxis (S6/S7b)
+#include "profile_runner.hpp" // load_thesis_profile / build_profile_basis_levels / profile_select / make_union_source_gen
 
-#include <builder/experiment_tree/cache_engine_builder_iterator.hpp>  // run_lazy_static_then_dynamic / lazy_csv_header / LazyRunConfig
-#include <builder/experiment_tree/coverage_selection.hpp>             // select_explicit
-#include <builder/build_orchestrator/system_ram.hpp>                  // make_system_free_ram_fn
+#include <builder/experiment_tree/cache_engine_builder_iterator.hpp> // run_lazy_static_then_dynamic / lazy_csv_header / LazyRunConfig
+#include <builder/experiment_tree/coverage_selection.hpp> // select_explicit
+#include <builder/build_orchestrator/system_ram.hpp>      // make_system_free_ram_fn
 
 #include <cstddef>
 #include <cstdint>
@@ -49,47 +49,50 @@ namespace wd = ::comdare::cache_engine::builder::workload_driver;
 //    aus dem Profil (tp). cap/resume/platform/build_version werden aus <run_options> vorbelegt; argv/env darf
 //    weiterhin uebersteuern (der Treiber-Host setzt die Felder hier vor dem Aufruf).
 struct RunProfileArgs {
-    std::filesystem::path profile_path;          // das comdare_thesis_profile (m3v2_study.profile.xml)
-    std::filesystem::path out_csv;               // Ziel-CSV (Header genau EINMAL, alle Paesse darunter)
-    std::filesystem::path src_dir;               // perm_<id>.cpp-Ausgabe (per-Binary-Subdir-Basis)
-    std::filesystem::path dll_dir;               // perm_<id>.dll-Ausgabe (per-Binary-Subdir-Basis)
-    ex::CompileFn         compile;               // injizierter Compiler-Aufruf (cl @rsp) — wie BuildOrchestrator
-    std::vector<std::string> compile_includes;   // ungenutzt hier (der Host backt die Includes in compile) — Doku
-    std::uint64_t        n_ops          = 10000; // Mess-Workload je dyn-Setting
-    std::size_t          max_binaries   = 0;     // 0 ⇒ run_options.cap (Profil); sonst Override
-    std::string          build_version  = "m3v2";// Resume-Marke (.version-Sidecar)
-    std::uint32_t        n_repeats      = 3;     // Wiederholungen je (Binary×Setting)
-    std::size_t          cores_per_build = 4;    // KF-16b Default
-    double               min_free_gb    = 0.0;   // RAM-Admission (0 = aus)
-    bool                 resume_override_set = false;  // true ⇒ resume kommt aus `resume`, nicht aus <run_options>
-    bool                 resume         = true;  // Mess-Resume (#139)
-    std::string          sweep_axis;             // leer = Basis-Selektion; sonst ein deklarierter <axis_sweep>
-    std::string          platform_override;      // leer ⇒ <run_options>.platform; sonst Override (CSV-Tag)
-    std::string          build_version_tag_override;  // leer ⇒ <run_options>.build_version; sonst Override (CSV-Tag)
-    bool                 run_sota_series = true;  // S7b: die <sota_series>-Paesse mitfahren (false = nur Basis)
+    std::filesystem::path    profile_path;     // das comdare_thesis_profile (m3v2_study.profile.xml)
+    std::filesystem::path    out_csv;          // Ziel-CSV (Header genau EINMAL, alle Paesse darunter)
+    std::filesystem::path    src_dir;          // perm_<id>.cpp-Ausgabe (per-Binary-Subdir-Basis)
+    std::filesystem::path    dll_dir;          // perm_<id>.dll-Ausgabe (per-Binary-Subdir-Basis)
+    ex::CompileFn            compile;          // injizierter Compiler-Aufruf (cl @rsp) — wie BuildOrchestrator
+    std::vector<std::string> compile_includes; // ungenutzt hier (der Host backt die Includes in compile) — Doku
+    std::uint64_t            n_ops               = 10000;  // Mess-Workload je dyn-Setting
+    std::size_t              max_binaries        = 0;      // 0 ⇒ run_options.cap (Profil); sonst Override
+    std::string              build_version       = "m3v2"; // Resume-Marke (.version-Sidecar)
+    std::uint32_t            n_repeats           = 3;      // Wiederholungen je (Binary×Setting)
+    std::size_t              cores_per_build     = 4;      // KF-16b Default
+    double                   min_free_gb         = 0.0;    // RAM-Admission (0 = aus)
+    bool                     resume_override_set = false;  // true ⇒ resume kommt aus `resume`, nicht aus <run_options>
+    bool                     resume              = true;   // Mess-Resume (#139)
+    std::string              sweep_axis;                 // leer = Basis-Selektion; sonst ein deklarierter <axis_sweep>
+    std::string              platform_override;          // leer ⇒ <run_options>.platform; sonst Override (CSV-Tag)
+    std::string              build_version_tag_override; // leer ⇒ <run_options>.build_version; sonst Override (CSV-Tag)
+    bool                     run_sota_series = true;     // S7b: die <sota_series>-Paesse mitfahren (false = nur Basis)
     // Working-Set-Sweep: Default = der Profil-<working_set_sweep>. Ist `working_set_override` gesetzt (>0), ersetzt
     // er den Profil-Sweep durch EINEN einzigen N-Wert (rueckwaerts-kompatibel zur alten PS-foreach +
     // COMDARE_WORKLOAD_RECORDS, wo das Harness die aeussere N-Schleife selbst faehrt). 0 = Profil-Sweep nutzen.
-    std::uint64_t        working_set_override = 0;
+    std::uint64_t working_set_override = 0;
     // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig). Vom Host via discover_load_profiles gesetzt.
     std::map<std::string, wd::WorkloadConfig> workload_registry;
-    std::vector<std::string>                  workload_values;   // nur fuers Log (Achse-2-Werte)
+    std::vector<std::string>                  workload_values; // nur fuers Log (Achse-2-Werte)
 };
 
 // ── Ergebnis (rein zaehlend; die CSV ist die maßgebliche Mess-Ausgabe). ──
 struct RunProfileResult {
     int           exit_code        = 1;
-    std::size_t   basis_rows       = 0;   // CSV-Zeilen aus dem Basis-Pass (frisch+resumiert)
-    std::size_t   sota_rows        = 0;   // CSV-Zeilen aus den SOTA-Reihen-Paessen (frisch+resumiert)
-    std::size_t   basis_binary_ids = 0;   // distinkte Basis-binary_ids, die in DIESEM Lauf selektiert wurden
-    std::size_t   sota_binary_ids  = 0;   // distinkte SOTA-Reihen-binary_ids, die gebaut/gemessen wurden
+    std::size_t   basis_rows       = 0; // CSV-Zeilen aus dem Basis-Pass (frisch+resumiert)
+    std::size_t   sota_rows        = 0; // CSV-Zeilen aus den SOTA-Reihen-Paessen (frisch+resumiert)
+    std::size_t   basis_binary_ids = 0; // distinkte Basis-binary_ids, die in DIESEM Lauf selektiert wurden
+    std::size_t   sota_binary_ids  = 0; // distinkte SOTA-Reihen-binary_ids, die gebaut/gemessen wurden
     std::uint64_t any_measured     = 0;
     std::uint64_t any_resumed      = 0;
 };
 
 // Interne Helfer: zaehlt '\n' in einem CSV-Block (resumierte Zeilen liegen als String vor).
 [[nodiscard]] inline std::size_t count_lines(std::string const& s) {
-    std::size_t n = 0; for (char c : s) if (c == '\n') ++n; return n;
+    std::size_t n = 0;
+    for (char c : s)
+        if (c == '\n') ++n;
+    return n;
 }
 
 /// run_profile — DIE EINE deklarative CEB-Eintritts-API (S7c). Faehrt aus EINEM Profil BEIDE Subsets:
@@ -106,17 +109,17 @@ struct RunProfileResult {
     if (!tp_opt) {
         std::cerr << "run_profile: Profil '" << a.profile_path.string()
                   << "' nicht lesbar (parse_thesis_profile=nullopt) — Abbruch.\n";
-        res.exit_code = 5; return res;
+        res.exit_code = 5;
+        return res;
     }
-    auto const& tp = *tp_opt;
-    std::string const mode_name = tp.modes.empty() ? std::string{"m3v2_base"} : tp.modes.front().name;
-    ProfileRunOptions const ro = profile_run_options(tp);
+    auto const&             tp        = *tp_opt;
+    std::string const       mode_name = tp.modes.empty() ? std::string{"m3v2_base"} : tp.modes.front().name;
+    ProfileRunOptions const ro        = profile_run_options(tp);
 
     // ── (1) Der BASIS-Baum (build_profile_basis_levels = build_axis_levels OHNE tier-Ebene). ──
-    auto factory = std::make_shared<ex::ExperimentNodeFactory>();
-    ex::ExperimentTree basis_tree{factory};
-    std::vector<ex::AxisLevel> basis_levels =
-        build_profile_basis_levels(tp, mode_name, /*with_dynamic=*/true);
+    auto                       factory = std::make_shared<ex::ExperimentNodeFactory>();
+    ex::ExperimentTree         basis_tree{factory};
+    std::vector<ex::AxisLevel> basis_levels = build_profile_basis_levels(tp, mode_name, /*with_dynamic=*/true);
     // ── (1b) ACHSE 2 (Lastprofil) als DYNAMISCHE Ebene injizieren (STRANG-A-Wiring-Luecke, 2026-06-19).
     //    build_axis_levels emittiert die runtime_dynamic-DynDims (concurrency.thread_count / prefetch.hw_prefetcher /
     //    repetition.repetition_index), aber NICHT die Lastprofil-Achse (die wird separat ueber discover_load_profiles
@@ -127,44 +130,46 @@ struct RunProfileResult {
     //    "workload", variable "workload_id" (lazy_extract_workload_id sucht genau "workload_id="). is_static=false ⇒
     //    veraendert die binary_id NICHT (Round-Trip-Gate unberuehrt).
     if (!a.workload_values.empty())
-        basis_levels.push_back(ex::AxisLevel{"workload", a.workload_values, /*is_static=*/false,
-                                             "workload_id", "workload"});
+        basis_levels.push_back(
+            ex::AxisLevel{"workload", a.workload_values, /*is_static=*/false, "workload_id", "workload"});
     basis_tree.build(basis_levels);
     ex::StaticBinaryView const basis_view = basis_tree.static_binary_view();
 
     // ── (2) cap/resume/Tags (Profil-Defaults; Override aus den Args). ──
     std::size_t eff_cap = a.max_binaries;
     if (ro.cap > 0 && a.max_binaries == 0) eff_cap = ro.cap;
-    bool const resume = a.resume_override_set ? a.resume : ro.resume;
-    std::size_t const N = (std::min)(eff_cap, basis_tree.binary_count());
+    bool const        resume = a.resume_override_set ? a.resume : ro.resume;
+    std::size_t const N      = (std::min)(eff_cap, basis_tree.binary_count());
 
-    std::string tag_platform = a.platform_override.empty()
-        ? (ro.platform.empty() ? std::string{"win-x86_64"} : ro.platform) : a.platform_override;
+    std::string tag_platform      = a.platform_override.empty()
+                                        ? (ro.platform.empty() ? std::string{"win-x86_64"} : ro.platform)
+                                        : a.platform_override;
     std::string tag_build_version = a.build_version_tag_override.empty()
-        ? (ro.build_version.empty() ? std::string{"m3v2"} : ro.build_version) : a.build_version_tag_override;
+                                        ? (ro.build_version.empty() ? std::string{"m3v2"} : ro.build_version)
+                                        : a.build_version_tag_override;
 
     // ── (3) S7a + FF(#168): die EINE vereinigte SourceGenFn (Basis-320 ∪ 4 Achsen-Sweeps ∪ SOTA-Reihen).
     //    Reihenfolge unkritisch: Basis-320 ("search_algo=…/migration_policy=migration_none/…"-Pfade) und die
     //    Achsen-Sweep-Map (gleicher 19-Achsen-Pfad-Namensraum, ABER andere Auspraegungen wie
     //    …/migration_policy=migration_hot_cold/…, die im Basis-320 NICHT vorkommen) sind ueberlappungsfrei (bis auf
     //    die Baseline-DLL, die identisch ist → idempotent). SOTA liegt im disjunkten "sota_tier=…"-Raum.
-    std::map<std::string, std::string> fused = make_all_axis_sweeps_source_map();   // ~16 vertiefte-Achsen-Eintraege
-    for (auto& [k, v] : build_sota_view_source_map(tp)) fused.emplace(k, std::move(v));  // + SOTA-Reihen (disjunkt)
+    std::map<std::string, std::string> fused = make_all_axis_sweeps_source_map(); // ~16 vertiefte-Achsen-Eintraege
+    for (auto& [k, v] : build_sota_view_source_map(tp)) fused.emplace(k, std::move(v)); // + SOTA-Reihen (disjunkt)
     ex::SourceGenFn const union_gen =
         make_union_source_gen(make_catalog_source_gen<FullSourceCatalog>(), std::move(fused));
     ex::FreeRamFn ram = ex::make_system_free_ram_fn();
 
     // ── (4) Working-Set-Sweep = die aeussere N-Liste (gilt fuer BEIDE Subsets identisch). Override ⇒ EIN N. ──
     std::vector<std::uint64_t> n_sweep;
-    if (a.working_set_override > 0) n_sweep.push_back(a.working_set_override);   // PS-foreach-Kompatibilitaet
-    else                            n_sweep = profile_working_set_sweep(tp);     // Profil-<working_set_sweep>
+    if (a.working_set_override > 0)
+        n_sweep.push_back(a.working_set_override); // PS-foreach-Kompatibilitaet
+    else
+        n_sweep = profile_working_set_sweep(tp); // Profil-<working_set_sweep>
     if (n_sweep.empty()) n_sweep.push_back(0);   // 0 ⇒ Iterator setzt records = n_ops
 
-    std::cout << "RUN_PROFILE (CEB-Eintritt): " << a.profile_path.string()
-              << "  id=" << tp.id << " mode=" << mode_name
+    std::cout << "RUN_PROFILE (CEB-Eintritt): " << a.profile_path.string() << "  id=" << tp.id << " mode=" << mode_name
               << "  basis_count=" << basis_tree.binary_count() << " (N=" << N << ")"
-              << "  sota_series=" << tp.sota_series.size()
-              << "  working_set_n=" << n_sweep.size() << "\n";
+              << "  sota_series=" << tp.sota_series.size() << "  working_set_n=" << n_sweep.size() << "\n";
 
     // ── EINE CSV; Header GENAU EINMAL; darunter Basis-Pass + SOTA-Paesse (alle N). ──
     // M11 (G5-Audit w289llo0o): Stream-Fehlerpruefung. Liess der open() scheitern (Pfad nicht
@@ -182,27 +187,26 @@ struct RunProfileResult {
     // Gemeinsame Lauf-Config-Vorlage (je Pass kopiert + getaggt). 1 DLL = 1 TU bleibt.
     // #171 (2026-06-20): make_cfg traegt zusaetzlich pruefling_type (full/abstract/-). Basis/Sweep uebergeben
     // leer ("-"); die SOTA-Paesse uebergeben den aus merge abgeleiteten Typ (sota_catalog::derive_pruefling_type).
-    auto make_cfg = [&](std::uint64_t ws_n, std::size_t cap_for_pass,
-                        std::string const& series, std::string const& sweep_axis,
-                        std::string const& pruefling_type) {
+    auto make_cfg = [&](std::uint64_t ws_n, std::size_t cap_for_pass, std::string const& series,
+                        std::string const& sweep_axis, std::string const& pruefling_type) {
         ex::LazyRunConfig cfg;
-        cfg.max_binaries   = cap_for_pass;
-        cfg.n_ops          = a.n_ops;
-        cfg.workload_records = ws_n;
-        cfg.workload_configs = a.workload_registry;
-        cfg.build_version  = a.build_version;
-        cfg.row_series        = series.empty()     ? std::string{"-"} : series;
-        cfg.row_pruefling_type = pruefling_type.empty() ? std::string{"-"} : pruefling_type;
-        cfg.row_sweep_axis    = sweep_axis.empty()  ? std::string{"-"} : sweep_axis;
-        cfg.row_platform      = tag_platform;
-        cfg.row_build_version = tag_build_version;
-        cfg.source_dir     = a.src_dir;
-        cfg.output_dir     = a.dll_dir;
-        cfg.cores_per_build = a.cores_per_build;
-        cfg.per_binary_subdirs = true;
+        cfg.max_binaries              = cap_for_pass;
+        cfg.n_ops                     = a.n_ops;
+        cfg.workload_records          = ws_n;
+        cfg.workload_configs          = a.workload_registry;
+        cfg.build_version             = a.build_version;
+        cfg.row_series                = series.empty() ? std::string{"-"} : series;
+        cfg.row_pruefling_type        = pruefling_type.empty() ? std::string{"-"} : pruefling_type;
+        cfg.row_sweep_axis            = sweep_axis.empty() ? std::string{"-"} : sweep_axis;
+        cfg.row_platform              = tag_platform;
+        cfg.row_build_version         = tag_build_version;
+        cfg.source_dir                = a.src_dir;
+        cfg.output_dir                = a.dll_dir;
+        cfg.cores_per_build           = a.cores_per_build;
+        cfg.per_binary_subdirs        = true;
         cfg.resume_completed_binaries = resume;
-        cfg.n_repeats          = a.n_repeats;
-        cfg.env_limits.thread_count = 16;
+        cfg.n_repeats                 = a.n_repeats;
+        cfg.env_limits.thread_count   = 16;
         if (a.min_free_gb > 0.0) {
             cfg.ram_per_build_bytes     = static_cast<std::uint64_t>(a.min_free_gb * 1024.0 * 1024.0 * 1024.0);
             cfg.ram_safety_margin_bytes = cfg.ram_per_build_bytes;
@@ -220,7 +224,8 @@ struct RunProfileResult {
         ex::annotate_quality_flags(rows);
         for (auto const& row : rows) csv << ex::format_csv_row(row);
         *row_sink += count_lines(r.resumed_csv_rows) + rows.size();
-        res.any_measured += r.measured; res.any_resumed += r.resumed_binaries;
+        res.any_measured += r.measured;
+        res.any_resumed += r.resumed_binaries;
     };
 
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -238,33 +243,34 @@ struct RunProfileResult {
         // Dieselben DynamicDims wie der Basis-Baum anhaengen (gleiche thread_count×prefetch×repetition-Variation).
         for (auto const& dd : basis_tree.dynamic_filter())
             sweep_levels.push_back(ex::AxisLevel{dd.axis, dd.values, /*is_static=*/false, dd.variable, dd.block_id});
-        auto sweep_factory = std::make_shared<ex::ExperimentNodeFactory>();
+        auto               sweep_factory = std::make_shared<ex::ExperimentNodeFactory>();
         ex::ExperimentTree sweep_tree{sweep_factory};
         sweep_tree.build(sweep_levels);
         ex::StaticBinaryView const sweep_view = sweep_tree.static_binary_view();
-        std::size_t const sweep_n = sweep_tree.binary_count();    // == |Achsen-Auspraegungen|
-        std::vector<std::size_t> ids; ids.reserve(sweep_n);
-        for (std::size_t i = 0; i < sweep_n; ++i) ids.push_back(i);   // ALLE Auspraegungen (volle Achse)
+        std::size_t const          sweep_n    = sweep_tree.binary_count(); // == |Achsen-Auspraegungen|
+        std::vector<std::size_t>   ids;
+        ids.reserve(sweep_n);
+        for (std::size_t i = 0; i < sweep_n; ++i) ids.push_back(i); // ALLE Auspraegungen (volle Achse)
         ex::BuildSelection const sel = ex::select_explicit(std::move(ids));
-        res.basis_binary_ids = sel.indices.size();
+        res.basis_binary_ids         = sel.indices.size();
         std::cout << "  [BASIS/deep-sweep] axis=" << a.sweep_axis << " auspraegungen=" << sweep_n
                   << " (eigener Sweep-Baum, NICHT Basis-View)\n";
         for (std::size_t i = 0; i < sweep_n; ++i)
             std::cout << "      sweep binary_id[" << i << "] = " << sweep_view[i].binary_id << "\n";
         for (std::uint64_t const ws_n : n_sweep) {
-            ex::LazyRunConfig cfg = make_cfg(ws_n, sweep_n, /*series=*/"-", a.sweep_axis, /*pruefling_type=*/"-");
+            ex::LazyRunConfig       cfg = make_cfg(ws_n, sweep_n, /*series=*/"-", a.sweep_axis, /*pruefling_type=*/"-");
             ex::LazyRunResult const r =
                 ex::run_lazy_static_then_dynamic(sweep_tree, sel, a.compile, union_gen, ram, cfg);
             emit(r, &res.basis_rows);
         }
     } else {
         ProfileTaggedSelection const pts = profile_select(tp, basis_levels, basis_view, a.sweep_axis, N);
-        ex::BuildSelection const sel = pts.selection;
-        res.basis_binary_ids = sel.indices.size();
-        std::cout << "  [BASIS] label=" << pts.label << " provenance=" << sel.provenance
-                  << " indices=" << sel.size() << " series=" << pts.series << " sweep=" << pts.sweep_axis << "\n";
+        ex::BuildSelection const     sel = pts.selection;
+        res.basis_binary_ids             = sel.indices.size();
+        std::cout << "  [BASIS] label=" << pts.label << " provenance=" << sel.provenance << " indices=" << sel.size()
+                  << " series=" << pts.series << " sweep=" << pts.sweep_axis << "\n";
         for (std::uint64_t const ws_n : n_sweep) {
-            ex::LazyRunConfig cfg = make_cfg(ws_n, N, pts.series, pts.sweep_axis, /*pruefling_type=*/"-");
+            ex::LazyRunConfig       cfg = make_cfg(ws_n, N, pts.series, pts.sweep_axis, /*pruefling_type=*/"-");
             ex::LazyRunResult const r =
                 ex::run_lazy_static_then_dynamic(basis_tree, sel, a.compile, union_gen, ram, cfg);
             emit(r, &res.basis_rows);
@@ -277,8 +283,8 @@ struct RunProfileResult {
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
     if (a.run_sota_series) {
         std::vector<SotaPass> const passes = build_sota_passes(tp);
-        std::cout << "  [SOTA] real baubare <sota_series>-Paesse = " << passes.size()
-                  << " (von " << tp.sota_series.size() << " deklariert)\n";
+        std::cout << "  [SOTA] real baubare <sota_series>-Paesse = " << passes.size() << " (von "
+                  << tp.sota_series.size() << " deklariert)\n";
         for (auto const& p : passes) {
             // Einwertiger Static-Baum: AxisLevel "sota_tier"=<sota_bid> + dieselben DynamicDims wie der Basis-Baum
             // (damit die SOTA-Zeilen die gleiche thread_count×prefetch×repetition-Variation tragen).
@@ -287,7 +293,7 @@ struct RunProfileResult {
             for (auto const& dd : basis_tree.dynamic_filter())
                 sota_levels.push_back(ex::AxisLevel{dd.axis, dd.values, /*is_static=*/false, dd.variable, dd.block_id});
 
-            auto sota_factory = std::make_shared<ex::ExperimentNodeFactory>();
+            auto               sota_factory = std::make_shared<ex::ExperimentNodeFactory>();
             ex::ExperimentTree sota_tree{sota_factory};
             sota_tree.build(sota_levels);
             ex::StaticBinaryView const sota_view = sota_tree.static_binary_view();
@@ -298,7 +304,8 @@ struct RunProfileResult {
                       << " lebewesen=" << p.lebewesen
                       << " binary_id=" << (sota_view.empty() ? std::string{"<leer>"} : sota_view[0].binary_id) << "\n";
             for (std::uint64_t const ws_n : n_sweep) {
-                ex::LazyRunConfig cfg = make_cfg(ws_n, 1, p.series, /*sweep_axis=*/"", p.pruefling_type);  // #171: full/abstract
+                ex::LazyRunConfig cfg =
+                    make_cfg(ws_n, 1, p.series, /*sweep_axis=*/"", p.pruefling_type); // #171: full/abstract
                 ex::LazyRunResult const r =
                     ex::run_lazy_static_then_dynamic(sota_tree, sel, a.compile, union_gen, ram, cfg);
                 emit(r, &res.sota_rows);
@@ -314,8 +321,7 @@ struct RunProfileResult {
     std::cout << "RUN_PROFILE fertig: basis_rows=" << res.basis_rows << " sota_rows=" << res.sota_rows
               << " (basis_ids=" << res.basis_binary_ids << " sota_ids=" << res.sota_binary_ids << ")"
               << " measured=" << res.any_measured << " resumed=" << res.any_resumed
-              << " csv_ok=" << (csv_ok ? "1" : "0")
-              << " → " << a.out_csv.string() << "\n";
+              << " csv_ok=" << (csv_ok ? "1" : "0") << " → " << a.out_csv.string() << "\n";
 
     // Exit 0 = mind. 1 (Binary × Setting) real gemessen ODER resumiert (Voll-Resume = gueltiger Lauf)
     // UND die CSV fehlerfrei geschrieben+geflusht (M11). Ein Stream-Schreib-/Flush-Fehler erzwingt exit!=0.
@@ -323,4 +329,4 @@ struct RunProfileResult {
     return res;
 }
 
-}  // namespace comdare::cache_engine::thesis_lazy
+} // namespace comdare::cache_engine::thesis_lazy

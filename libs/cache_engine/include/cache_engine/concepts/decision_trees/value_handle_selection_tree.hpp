@@ -11,19 +11,18 @@ class ValueHandleSelectionTree final : public IDecisionLambdaTree<TelemetryUpdat
 public:
     void configure(NodeTreeConfig const& config) override { config_ = config; }
 
-    [[nodiscard]] Decision evaluate(TelemetryUpdateEvent const&,
-                                    DecisionContext const&) const noexcept override {
+    [[nodiscard]] Decision evaluate(TelemetryUpdateEvent const&, DecisionContext const&) const noexcept override {
         ++state_.total_evaluations;
         ++state_.total_executes;
         return Decision::EXECUTE;
     }
 
     [[nodiscard]] NodeTreeState save_state() const noexcept override { return state_; }
-    void restore_state(NodeTreeState const& s) noexcept override { state_ = s; }
+    void                        restore_state(NodeTreeState const& s) noexcept override { state_ = s; }
 
 private:
-    NodeTreeConfig config_{};
+    NodeTreeConfig        config_{};
     mutable NodeTreeState state_{};
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

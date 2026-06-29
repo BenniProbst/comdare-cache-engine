@@ -18,22 +18,22 @@ struct PermutationResult {
     std::string                   permutation_id;
     std::uint64_t                 fingerprint;
     comdare_measurement_record_v1 record{};
-    bool                          succeeded     = false;
+    bool                          succeeded = false;
     std::string                   error_message;
     // REV 7.6 V20.1 — Welcher Workload tatsaechlich gegen das Modul lief.
     // Pro Permutation gesetzt durch ExperimentDriver Phase 5 (V20.2).
     // Fuer Profile-Module: aus expected_workload (V19.3) oder traversal-Heuristik (V11.2).
     // Fuer Nicht-Profile-Module: leer (= WorkloadOptions-Default).
-    std::string                   workload_used;
+    std::string workload_used;
 };
 
 struct ComparisonReport {
     std::string baseline_id;
     std::string candidate_id;
-    double      throughput_speedup;     // candidate/baseline
-    double      memory_ratio;           // candidate/baseline (lower = better)
-    double      latency_ratio;          // candidate/baseline
-    double      cache_miss_ratio;       // candidate/baseline
+    double      throughput_speedup; // candidate/baseline
+    double      memory_ratio;       // candidate/baseline (lower = better)
+    double      latency_ratio;      // candidate/baseline
+    double      cache_miss_ratio;   // candidate/baseline
 };
 
 class ResultAggregator {
@@ -51,7 +51,7 @@ public:
     void export_csv(std::filesystem::path const& path) const;
     void export_json(std::filesystem::path const& path) const;
 
-    [[nodiscard]] std::size_t result_count() const noexcept { return results_.size(); }
+    [[nodiscard]] std::size_t                           result_count() const noexcept { return results_.size(); }
     [[nodiscard]] std::vector<PermutationResult> const& results() const noexcept { return results_; }
 
 private:
@@ -61,4 +61,4 @@ private:
     std::string                    baseline_id_;
 };
 
-}  // namespace comdare::experiment
+} // namespace comdare::experiment

@@ -97,11 +97,11 @@ TEST(R6A_Generator, ConstructorAcceptsValidConfig) {
 TEST(R6A_Generator, ConstructorNormalizesOpMix) {
     wd::WorkloadConfig cfg;
     cfg.pct_insert = 2.0;
-    cfg.pct_lookup = 8.0;  // Summe = 10.0
+    cfg.pct_lookup = 8.0; // Summe = 10.0
     cfg.pct_erase  = 0.0;
     cfg.pct_clear  = 0.0;
     wd::WorkloadGenerator g{cfg};
-    auto const& normalized = g.config();
+    auto const&           normalized = g.config();
     EXPECT_DOUBLE_EQ(normalized.pct_insert, 0.2);
     EXPECT_DOUBLE_EQ(normalized.pct_lookup, 0.8);
 }
@@ -120,18 +120,17 @@ TEST(R6A_Reproducibility, SameConfigProducesIdenticalSequence) {
     for (std::size_t i = 0; i < cfg.num_operations; ++i) {
         auto const op1 = g1.next();
         auto const op2 = g2.next();
-        ASSERT_EQ(op1, op2)
-            << "Mismatch at index " << i
-            << ": op1=(" << wd::op_kind_name(op1.kind)
-            << ", k=" << op1.key << ", v=" << op1.value
-            << ") op2=(" << wd::op_kind_name(op2.kind)
-            << ", k=" << op2.key << ", v=" << op2.value << ")";
+        ASSERT_EQ(op1, op2) << "Mismatch at index " << i << ": op1=(" << wd::op_kind_name(op1.kind) << ", k=" << op1.key
+                            << ", v=" << op1.value << ") op2=(" << wd::op_kind_name(op2.kind) << ", k=" << op2.key
+                            << ", v=" << op2.value << ")";
     }
 }
 
 TEST(R6A_Reproducibility, DifferentSeedsProduceDifferentSequences) {
-    wd::WorkloadConfig cfg_a;  cfg_a.seed = 42;
-    wd::WorkloadConfig cfg_b;  cfg_b.seed = 43;
+    wd::WorkloadConfig cfg_a;
+    cfg_a.seed = 42;
+    wd::WorkloadConfig cfg_b;
+    cfg_b.seed           = 43;
     cfg_a.num_operations = cfg_b.num_operations = 100;
 
     wd::WorkloadGenerator g_a{cfg_a};
@@ -139,7 +138,10 @@ TEST(R6A_Reproducibility, DifferentSeedsProduceDifferentSequences) {
 
     bool any_diff = false;
     for (std::size_t i = 0; i < 100; ++i) {
-        if (g_a.next() != g_b.next()) { any_diff = true; break; }
+        if (g_a.next() != g_b.next()) {
+            any_diff = true;
+            break;
+        }
     }
     EXPECT_TRUE(any_diff) << "Verschiedene Seeds sollten unterschiedliche Sequenzen liefern";
 }
@@ -186,9 +188,9 @@ TEST(R6A_BulkApi, RemainingDecrements) {
     wd::WorkloadGenerator g{cfg};
 
     EXPECT_EQ(g.remaining(), 10u);
-    (void)g.next();                              // [[nodiscard]]-result intentionally discarded
+    (void)g.next(); // [[nodiscard]]-result intentionally discarded
     EXPECT_EQ(g.remaining(), 9u);
-    for (int i = 0; i < 9; ++i) (void)g.next();  // siehe oben
+    for (int i = 0; i < 9; ++i) (void)g.next(); // siehe oben
     EXPECT_EQ(g.remaining(), 0u);
     EXPECT_EQ(g.generated_count(), 10u);
 }
@@ -200,19 +202,19 @@ TEST(R6A_BulkApi, RemainingDecrements) {
 TEST(R6A_Distribution, OpMixDistributionMatchesConfigApproximately) {
     wd::WorkloadConfig cfg;
     cfg.num_operations = 100'000;
-    cfg.pct_insert = 0.5;
-    cfg.pct_lookup = 0.4;
-    cfg.pct_erase  = 0.1;
-    cfg.pct_clear  = 0.0;
+    cfg.pct_insert     = 0.5;
+    cfg.pct_lookup     = 0.4;
+    cfg.pct_erase      = 0.1;
+    cfg.pct_clear      = 0.0;
 
-    wd::WorkloadGenerator g{cfg};
+    wd::WorkloadGenerator      g{cfg};
     std::array<std::size_t, 4> counts{};
     while (g.remaining() > 0) {
         auto const op = g.next();
         counts[static_cast<std::size_t>(op.kind)]++;
     }
 
-    double const total = static_cast<double>(cfg.num_operations);
+    double const total      = static_cast<double>(cfg.num_operations);
     double const pct_insert = static_cast<double>(counts[0]) / total;
     double const pct_lookup = static_cast<double>(counts[1]) / total;
     double const pct_erase  = static_cast<double>(counts[2]) / total;
@@ -221,8 +223,8 @@ TEST(R6A_Distribution, OpMixDistributionMatchesConfigApproximately) {
     // Tolerance 2%: bei 100k Ops sollten Distribution-Werte recht stabil sein
     EXPECT_NEAR(pct_insert, 0.5, 0.02) << "insert ratio off";
     EXPECT_NEAR(pct_lookup, 0.4, 0.02) << "lookup ratio off";
-    EXPECT_NEAR(pct_erase,  0.1, 0.02) << "erase ratio off";
-    EXPECT_NEAR(pct_clear,  0.0, 0.005) << "clear ratio should be 0";
+    EXPECT_NEAR(pct_erase, 0.1, 0.02) << "erase ratio off";
+    EXPECT_NEAR(pct_clear, 0.0, 0.005) << "clear ratio should be 0";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -232,8 +234,8 @@ TEST(R6A_Distribution, OpMixDistributionMatchesConfigApproximately) {
 TEST(R6A_KeyRange, AllKeysAreInConfiguredRange) {
     wd::WorkloadConfig cfg;
     cfg.num_operations = 10'000;
-    cfg.key_min = 100;
-    cfg.key_max = 200;
+    cfg.key_min        = 100;
+    cfg.key_max        = 200;
 
     wd::WorkloadGenerator g{cfg};
     while (g.remaining() > 0) {
@@ -283,7 +285,7 @@ TEST(R6A_Profiles, MixedBIs5_95) {
 TEST(R6A_OpKindName, AllFourEnumsHaveStringName) {
     static_assert(wd::op_kind_name(wd::WorkloadOpKind::Insert) == std::string_view{"Insert"});
     static_assert(wd::op_kind_name(wd::WorkloadOpKind::Lookup) == std::string_view{"Lookup"});
-    static_assert(wd::op_kind_name(wd::WorkloadOpKind::Erase)  == std::string_view{"Erase"});
-    static_assert(wd::op_kind_name(wd::WorkloadOpKind::Clear)  == std::string_view{"Clear"});
+    static_assert(wd::op_kind_name(wd::WorkloadOpKind::Erase) == std::string_view{"Erase"});
+    static_assert(wd::op_kind_name(wd::WorkloadOpKind::Clear) == std::string_view{"Clear"});
     SUCCEED();
 }

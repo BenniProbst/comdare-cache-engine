@@ -15,8 +15,8 @@
 #include <anatomy/abi_adapter.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
-#include <builder/experiment_tree/perm_runner.hpp>                    // run_observable_perm (treibt den V3-Pfad)
-#include <builder/experiment_tree/cache_engine_builder_iterator.hpp>  // lazy_csv_header / format_csv_row / LazyMeasuredRow
+#include <builder/experiment_tree/perm_runner.hpp>                   // run_observable_perm (treibt den V3-Pfad)
+#include <builder/experiment_tree/cache_engine_builder_iterator.hpp> // lazy_csv_header / format_csv_row / LazyMeasuredRow
 
 #include <compositions/art_reference.hpp>
 #include <compositions/hot_reference.hpp>
@@ -31,8 +31,11 @@ namespace an   = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;
 namespace ex   = ::comdare::cache_engine::builder::experiment;
 
-static int g_fail = 0;
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+static int  g_fail = 0;
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 // Welche Achsen-Indizes sind befüllt = aus dem V3-Schema abgeleitet (single-source kV3AxisSchema), NICHT
 // hartkodiert. So zieht der Test automatisch mit, wenn eine Phase-B-Achse ihre Schema-Zeile befüllt (parallele
@@ -43,15 +46,17 @@ static bool is_filled(int t) {
 
 // Summe aller 8 Felder einer Achsen-Zeile (>0 ⇔ Achse trägt echte Werte).
 static std::uint64_t row_sum(an::ComdareTierObserverSnapshot const& s, int t) {
-    std::uint64_t v = 0; for (std::size_t f = 0; f < an::kV3FieldCount; ++f) v += s.axis_stats[t][f]; return v;
+    std::uint64_t v = 0;
+    for (std::size_t f = 0; f < an::kV3FieldCount; ++f) v += s.axis_stats[t][f];
+    return v;
 }
 
 template <class C>
 static an::ComdareTierObserverSnapshot measure_v3(char const* name, std::string& csv_out) {
     using Anatomy = an::SearchAlgorithmAnatomy<C>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
-    auto* base = static_cast<an::IAnatomyBase*>(&tier);
-    auto* obs  = dynamic_cast<an::IObservableTier*>(base);   // I1: EINE Schnittstelle (Antrieb + Observer)
+    auto*                                  base = static_cast<an::IAnatomyBase*>(&tier);
+    auto* obs = dynamic_cast<an::IObservableTier*>(base); // I1: EINE Schnittstelle (Antrieb + Observer)
 
     // run_observable_perm treibt tier_clear → 1000 insert + 1000 lookup (koppelt T1/T2/T17/T18 auto) → zieht den
     // EINEN konsolidierten Observer-POD (axis_stats + Pfad-B-seg_ns).
@@ -63,11 +68,12 @@ static an::ComdareTierObserverSnapshot measure_v3(char const* name, std::string&
     row.setting_label = "-";
     row.n_ops         = pr.n_ops;
     row.total_ns      = pr.total_ns;
-    row.unified       = pr.unified;       // KONSOLIDIERUNG (I1): format_csv_row liest stat_*/seg_* aus dem EINEN POD
+    row.unified       = pr.unified; // KONSOLIDIERUNG (I1): format_csv_row liest stat_*/seg_* aus dem EINEN POD
     row.unified_real  = pr.unified_real;
     csv_out += ex::format_csv_row(row);
     // KONSOLIDIERUNG-Verifikation: der konsolidierte POD ist real gezogen (axis_stats + seg_ns Pfad B in EINEM POD).
-    tr((std::string{name} + ": unified observer real (axis_stats + Pfad-B-seg_ns in EINEM POD)").c_str(), pr.unified_real);
+    tr((std::string{name} + ": unified observer real (axis_stats + Pfad-B-seg_ns in EINEM POD)").c_str(),
+       pr.unified_real);
 
     std::cout << "  " << name << ": unified_real=" << (pr.unified_real ? 1 : 0)
               << " filled_axis_count=" << pr.unified.filled_axis_count << "\n    T0..T18 row_sum=";
@@ -91,9 +97,9 @@ static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s
        s.filled_axis_count == an::kV3FilledAxisCount);
     // Die explizit über die Tier-Op getriebenen Achsen MÜSSEN > 0 sein (echte Auto-Kopplung verifiziert).
     tr((std::string{name} + ": T1 cache_traversal > 0").c_str(), row_sum(s, 1) > 0);
-    tr((std::string{name} + ": T2 mapping > 0").c_str(),         row_sum(s, 2) > 0);
-    tr((std::string{name} + ": T17 queuing_q1 > 0").c_str(),     row_sum(s, 17) > 0);
-    tr((std::string{name} + ": T18 queuing_q2 > 0").c_str(),     row_sum(s, 18) > 0);
+    tr((std::string{name} + ": T2 mapping > 0").c_str(), row_sum(s, 2) > 0);
+    tr((std::string{name} + ": T17 queuing_q1 > 0").c_str(), row_sum(s, 17) > 0);
+    tr((std::string{name} + ": T18 queuing_q2 > 0").c_str(), row_sum(s, 18) > 0);
     // Phase B (T8): concurrency wird über observe_critical_section() getrieben → acquire/release > 0 (auch bei
     // NoneConcurrency: die Op läuft, nur pattern_id=0). T7 prefetch ist mit NonePrefetch ehrlich 0 (Baseline) →
     // NICHT auf > 0 prüfen; die Beobachtbarkeit ist über filled_axis_count + is_filled(7) bereits abgedeckt.
@@ -103,13 +109,16 @@ static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s
 int main() {
     std::cout << "==== Phase A: Per-Achsen-Observer-V3 (axis_stats[19][8]) in-process ====\n";
 
-    std::string csv = ex::lazy_csv_header();
-    auto art  = measure_v3<comp::ArtComposition>("ArtComposition", csv);
-    auto hot  = measure_v3<comp::HotComposition>("HotComposition", csv);
-    auto mass = measure_v3<comp::MasstreeComposition>("MasstreeComposition", csv);
+    std::string csv  = ex::lazy_csv_header();
+    auto        art  = measure_v3<comp::ArtComposition>("ArtComposition", csv);
+    auto        hot  = measure_v3<comp::HotComposition>("HotComposition", csv);
+    auto        mass = measure_v3<comp::MasstreeComposition>("MasstreeComposition", csv);
 
     char const* out_path = "build/thesis_tiere/obs_phaseA_pilot.csv";
-    { std::ofstream f{out_path, std::ios::trunc}; if (f) f << csv; }
+    {
+        std::ofstream f{out_path, std::ios::trunc};
+        if (f) f << csv;
+    }
     std::cout << "CSV: " << out_path << "\n";
 
     check_one<comp::ArtComposition>("Art", art);

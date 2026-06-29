@@ -41,18 +41,51 @@ namespace comdare::cache_engine::compositions {
 // "ArtComposition"). cpp_type_name + header_include kommen aus den Traits
 // der composition selbst — werden NICHT redundant im Entry gespiegelt.
 
-struct ArtEntry      { using composition = ArtComposition;      static constexpr std::string_view short_name = "art"; };
-struct HotEntry      { using composition = HotComposition;      static constexpr std::string_view short_name = "hot"; };
-struct WormholeEntry { using composition = WormholeComposition; static constexpr std::string_view short_name = "wormhole"; };
-struct SurfEntry     { using composition = SurfComposition;     static constexpr std::string_view short_name = "surf"; };
-struct MasstreeEntry { using composition = MasstreeComposition; static constexpr std::string_view short_name = "masstree"; };
-struct StartEntry    { using composition = StartComposition;    static constexpr std::string_view short_name = "start"; };
+struct ArtEntry {
+    using composition                            = ArtComposition;
+    static constexpr std::string_view short_name = "art";
+};
+struct HotEntry {
+    using composition                            = HotComposition;
+    static constexpr std::string_view short_name = "hot";
+};
+struct WormholeEntry {
+    using composition                            = WormholeComposition;
+    static constexpr std::string_view short_name = "wormhole";
+};
+struct SurfEntry {
+    using composition                            = SurfComposition;
+    static constexpr std::string_view short_name = "surf";
+};
+struct MasstreeEntry {
+    using composition                            = MasstreeComposition;
+    static constexpr std::string_view short_name = "masstree";
+};
+struct StartEntry {
+    using composition                            = StartComposition;
+    static constexpr std::string_view short_name = "start";
+};
 
-struct ArtPaperBindingEntry      { using composition = ArtPaperBindingComposition;      static constexpr std::string_view short_name = "art_pb"; };
-struct HotPaperBindingEntry      { using composition = HotPaperBindingComposition;      static constexpr std::string_view short_name = "hot_pb"; };
-struct StartPaperBindingEntry    { using composition = StartPaperBindingComposition;    static constexpr std::string_view short_name = "start_pb"; };
-struct WormholePaperBindingEntry { using composition = WormholePaperBindingComposition; static constexpr std::string_view short_name = "wormhole_pb"; };
-struct SurfPaperBindingEntry     { using composition = SurfPaperBindingComposition;     static constexpr std::string_view short_name = "surf_pb"; };
+struct ArtPaperBindingEntry {
+    using composition                            = ArtPaperBindingComposition;
+    static constexpr std::string_view short_name = "art_pb";
+};
+struct HotPaperBindingEntry {
+    using composition                            = HotPaperBindingComposition;
+    static constexpr std::string_view short_name = "hot_pb";
+};
+struct StartPaperBindingEntry {
+    using composition                            = StartPaperBindingComposition;
+    static constexpr std::string_view short_name = "start_pb";
+};
+struct WormholePaperBindingEntry {
+    using composition                            = WormholePaperBindingComposition;
+    static constexpr std::string_view short_name = "wormhole_pb";
+};
+struct SurfPaperBindingEntry {
+    using composition                            = SurfPaperBindingComposition;
+    static constexpr std::string_view short_name = "surf_pb";
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // KnownReferenceCompositions — zentrale mp_list aller Entry-Wrappers
@@ -63,26 +96,16 @@ struct SurfPaperBindingEntry     { using composition = SurfPaperBindingCompositi
 
 using KnownReferenceCompositions = boost::mp11::mp_list<
     // 6 CE-Reimpl
-    ArtEntry,
-    HotEntry,
-    WormholeEntry,
-    SurfEntry,
-    MasstreeEntry,
-    StartEntry,
+    ArtEntry, HotEntry, WormholeEntry, SurfEntry, MasstreeEntry, StartEntry,
     // 5 PaperBinding
-    ArtPaperBindingEntry,
-    HotPaperBindingEntry,
-    StartPaperBindingEntry,
-    WormholePaperBindingEntry,
-    SurfPaperBindingEntry
->;
+    ArtPaperBindingEntry, HotPaperBindingEntry, StartPaperBindingEntry, WormholePaperBindingEntry,
+    SurfPaperBindingEntry>;
 
 // Compile-Time-Count fuer Sanity-Check
-inline constexpr std::size_t kKnownReferenceCompositionsCount =
-    boost::mp11::mp_size<KnownReferenceCompositions>::value;
+inline constexpr std::size_t kKnownReferenceCompositionsCount = boost::mp11::mp_size<KnownReferenceCompositions>::value;
 static_assert(kKnownReferenceCompositionsCount == 11,
               "R5.J: Stand 2026-05-27 sind 11 Reference-Compositions registriert "
               "(6 CE-Reimpl + 5 PaperBinding). Bei Aenderung auch anatomy_codegen_tool-"
               "Tests + Doku 14 §52 aktualisieren.");
 
-}  // namespace comdare::cache_engine::compositions
+} // namespace comdare::cache_engine::compositions

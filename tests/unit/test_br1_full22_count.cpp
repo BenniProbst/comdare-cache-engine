@@ -26,10 +26,16 @@ template <typename A, typename B>
 void check_eq(char const* what, A const& got, B const& want) {
     bool ok = (got == want);
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << " = " << got;
-    if (!ok) { std::cout << "  (erwartet: " << want << ")"; ++g_fail; }
+    if (!ok) {
+        std::cout << "  (erwartet: " << want << ")";
+        ++g_fail;
+    }
     std::cout << "\n";
 }
-void check_true(char const* what, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n"; if (!c) ++g_fail; }
+void check_true(char const* what, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n";
+    if (!c) ++g_fail;
+}
 
 int main() {
     std::cout << "BR-1 VOLL-22 (Doc 27 §4 Gate-1): registry-getriebene Bindung ALLER 22 Achsen:\n";
@@ -39,7 +45,7 @@ int main() {
     check_eq("Gate-2: 22 Achsen als Baum-Ebene", lv.size(), std::size_t{22});
 
     // Jede Achse hat ihr volles Enabled-Inventar (>0 reale Wrapper), block_id == Achsen-Name (Bidir.-Tag).
-    bool nonempty = true, block_ok = true;
+    bool        nonempty = true, block_ok = true;
     std::size_t prod = 1;
     for (auto const& l : lv) {
         std::cout << "    " << l.axis << " : " << l.values.size() << " Wrapper  block_id=" << l.block_id
@@ -54,8 +60,8 @@ int main() {
     // GATE-1 (Doc 27 §4.1+§6): tree.binary_count() == ∏ mp_size(Enabled_i) == all_axes_binary_count()
     // (== PermutationEngine::count() per Kardinalitäts-Identität, OHNE mp_product-Materialisierung).
     constexpr std::size_t expected = ex::all_axes_binary_count();
-    auto factory = std::make_shared<ex::ExperimentNodeFactory>();
-    ex::ExperimentTree tree{factory};
+    auto                  factory  = std::make_shared<ex::ExperimentNodeFactory>();
+    ex::ExperimentTree    tree{factory};
     tree.build(lv);
     std::cout << "  ∏ (Laufzeit über values.size()) = " << prod << "\n";
     std::cout << "  all_axes_binary_count() (constexpr ∏ mp_size) = " << expected << "\n";
@@ -64,15 +70,19 @@ int main() {
     check_eq("GATE-1: tree.binary_count() == ∏ mp_size(Enabled_i)", tree.binary_count(), expected);
 
     // GATE (Bidir.): jeder materialisierte Knoten trägt block_id() == seine Achse, 22 distinkte Blöcke.
-    std::size_t nodes = 0; bool all_block = true; std::set<std::string> blocks;
+    std::size_t           nodes     = 0;
+    bool                  all_block = true;
+    std::set<std::string> blocks;
     tree.for_each_node([&](ex::INodeDescription const& d) {
-        ++nodes; if (d.block_id() != d.axis()) all_block = false; blocks.insert(d.block_id());
+        ++nodes;
+        if (d.block_id() != d.axis()) all_block = false;
+        blocks.insert(d.block_id());
     });
     check_true("Knoten materialisiert (>0)", nodes > 0);
     check_true("jeder Knoten block_id()==axis() (Bidir. auf dem Gesamtbaum)", all_block);
     check_eq("Knoten block-zuordbar (22 distinkte Achsen-Blöcke)", blocks.size(), std::size_t{22});
 
-    std::cout << "\n==== BR-1 VOLL-22 Gate-1: "
-              << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== BR-1 VOLL-22 Gate-1: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

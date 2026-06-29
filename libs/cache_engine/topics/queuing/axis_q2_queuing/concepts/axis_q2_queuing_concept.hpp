@@ -16,9 +16,9 @@ namespace comdare::cache_engine::queuing::axis_q2_queuing::concepts {
  * Triggert die Buffer-Strategy zum Auslesen.
  */
 enum class FlushDecision : std::uint8_t {
-    NoFlush     = 0,
-    PartialFlush = 1,  // Teilmenge spuelen
-    FullFlush   = 2,   // alles spuelen
+    NoFlush      = 0,
+    PartialFlush = 1, // Teilmenge spuelen
+    FullFlush    = 2, // alles spuelen
 };
 
 /**
@@ -28,14 +28,11 @@ enum class FlushDecision : std::uint8_t {
  * Buffer-Wrapper periodisch (oder nach jeder put/get-Op) aufgerufen.
  */
 template <typename P>
-concept FlushPolicy =
-    ::comdare::cache_engine::queuing::concepts::QueuingComponent<P>
-    && requires(P p, std::size_t current_fill, std::size_t capacity) {
-        { p.should_flush(current_fill, capacity) }
-            noexcept -> std::convertible_to<FlushDecision>;
-    }
-    && requires(P p) {
-        { p.on_flush_complete() } noexcept;
-    };
+concept FlushPolicy = ::comdare::cache_engine::queuing::concepts::QueuingComponent<P> &&
+                      requires(P p, std::size_t current_fill, std::size_t capacity) {
+                          { p.should_flush(current_fill, capacity) } noexcept -> std::convertible_to<FlushDecision>;
+                      } && requires(P p) {
+                          { p.on_flush_complete() } noexcept;
+                      };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q2_queuing::concepts

@@ -20,7 +20,10 @@ template <typename A, typename B>
 void check_eq(char const* what, A const& got, B const& want) {
     bool ok = (got == want);
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << " = " << got;
-    if (!ok) { std::cout << "  (erwartet: " << want << ")"; ++g_fail; }
+    if (!ok) {
+        std::cout << "  (erwartet: " << want << ")";
+        ++g_fail;
+    }
     std::cout << "\n";
 }
 void check_true(char const* what, bool cond) {
@@ -30,9 +33,8 @@ void check_true(char const* what, bool cond) {
 
 int main(int argc, char** argv) {
     // Pfad zum Profil: arg[1] oder Default relativ zur Repo-Struktur.
-    std::string profile = (argc > 1)
-        ? argv[1]
-        : "../../libs/cache_engine/algorithm_profiles/thesis_profiles/cacheline_study.profile.xml";
+    std::string profile =
+        (argc > 1) ? argv[1] : "../../libs/cache_engine/algorithm_profiles/thesis_profiles/cacheline_study.profile.xml";
 
     // 0) DOM-Reader-Smoke (xml_reader.hpp)
     {
@@ -49,9 +51,12 @@ int main(int argc, char** argv) {
 
     // 1) Thesis-Profil
     cx::XmlConfigParser parser;
-    auto tp = parser.parse_thesis_profile(profile);
+    auto                tp = parser.parse_thesis_profile(profile);
     check_true("parse_thesis_profile liefert Profil", tp.has_value());
-    if (!tp) { std::cout << "FATAL: Profil nicht geladen (" << profile << ")\n"; return 1; }
+    if (!tp) {
+        std::cout << "FATAL: Profil nicht geladen (" << profile << ")\n";
+        return 1;
+    }
 
     check_eq("id", tp->id, std::string{"cacheline_study"});
     check_eq("schema_version", tp->schema_version, 1);
@@ -63,43 +68,49 @@ int main(int argc, char** argv) {
 
     // cacheline-Unterachse finden
     cx::ThesisAxisSpec const* cl = nullptr;
-    for (auto const& a : tp->permute_axes) if (a.ref == "cacheline") cl = &a;
+    for (auto const& a : tp->permute_axes)
+        if (a.ref == "cacheline") cl = &a;
     check_true("cacheline-Achse vorhanden", cl != nullptr);
     if (cl) {
-        check_eq("cacheline.per_organ", cl->per_organ.size(), std::size_t{4});  // page node traversal allocator
-        check_eq("cacheline.line_sizes", cl->line_sizes.size(), std::size_t{3});      // 64 128 256
+        check_eq("cacheline.per_organ", cl->per_organ.size(), std::size_t{4});   // page node traversal allocator
+        check_eq("cacheline.line_sizes", cl->line_sizes.size(), std::size_t{3}); // 64 128 256
         check_eq("cacheline.alignments", cl->alignments.size(), std::size_t{3});
         check_eq("cacheline.sw_prefetch_hints", cl->sw_prefetch_hints.size(), std::size_t{5});
     }
 
     // isa-Achse Teilmenge (3 values)
     cx::ThesisAxisSpec const* isa = nullptr;
-    for (auto const& a : tp->permute_axes) if (a.ref == "isa") isa = &a;
+    for (auto const& a : tp->permute_axes)
+        if (a.ref == "isa") isa = &a;
     check_true("isa-Achse vorhanden", isa != nullptr);
     if (isa) check_eq("isa.values (Teilmenge)", isa->values.size(), std::size_t{3});
 
-    check_eq("workloads", tp->workloads.size(), std::size_t{6});           // A..F
+    check_eq("workloads", tp->workloads.size(), std::size_t{6}); // A..F
     check_eq("telemetry_mode", tp->telemetry_mode, std::string{"on"});
     check_true("telemetry_silent", tp->telemetry_silent);
-    check_eq("thread_counts", tp->thread_counts.size(), std::size_t{3});   // 1 2 4
+    check_eq("thread_counts", tp->thread_counts.size(), std::size_t{3}); // 1 2 4
     check_eq("hw_prefetcher", tp->hw_prefetcher.size(), std::size_t{3});
     check_eq("repetitions", tp->repetitions, 3);
     check_true("repetitions nicht interpoliert", !tp->repetitions_interpolate);
-    check_eq("fixed_conditions[turbo]", tp->fixed_conditions.count("turbo") ? tp->fixed_conditions.at("turbo") : std::string{"?"}, std::string{"off"});
+    check_eq("fixed_conditions[turbo]",
+             tp->fixed_conditions.count("turbo") ? tp->fixed_conditions.at("turbo") : std::string{"?"},
+             std::string{"off"});
     check_eq("modes", tp->modes.size(), std::size_t{3});
 
     // Modus pruefling_replace: replaces_axes nicht leer
     cx::ThesisMode const* pr = nullptr;
-    for (auto const& m : tp->modes) if (m.name == "pruefling_replace") pr = &m;
+    for (auto const& m : tp->modes)
+        if (m.name == "pruefling_replace") pr = &m;
     check_true("Modus pruefling_replace vorhanden", pr != nullptr);
     if (pr) {
         check_eq("pruefling_replace.pruefling", pr->pruefling, std::string{"prtart"});
         check_true("pruefling_replace.replaces_axes nicht leer", !pr->replaces_axes.empty());
-        check_eq("pruefling_replace.active_axes", pr->active_axes.size(), std::size_t{2});  // isa cacheline
+        check_eq("pruefling_replace.active_axes", pr->active_axes.size(), std::size_t{2}); // isa cacheline
     }
 
     check_eq("static_axes_from", tp->static_axes_from, std::string{"base_tier"});
 
-    std::cout << "\n==== KF-1 Parser-Test: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== KF-1 Parser-Test: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

@@ -14,12 +14,12 @@
 #include <cstdlib>
 
 #if COMDARE_AXIS_06_USE_PTMALLOC2
-#  include <malloc.h>  // __libc_malloc etc. (glibc-spezifisch)
+#include <malloc.h> // __libc_malloc etc. (glibc-spezifisch)
 #else
 extern "C" {
-    inline void* __libc_memalign(std::size_t /*alignment*/, std::size_t /*size*/) noexcept { return nullptr; }
-    inline void  __libc_free(void* /*p*/) noexcept {}
-    inline void* __libc_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
-    inline void* __libc_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
+inline void* __libc_memalign(std::size_t /*alignment*/, std::size_t /*size*/) noexcept { return nullptr; }
+inline void  __libc_free(void* /*p*/) noexcept {}
+inline void* __libc_calloc(std::size_t /*n*/, std::size_t /*size*/) noexcept { return nullptr; }
+inline void* __libc_realloc(void* /*p*/, std::size_t /*new_size*/) noexcept { return nullptr; }
 }
 #endif

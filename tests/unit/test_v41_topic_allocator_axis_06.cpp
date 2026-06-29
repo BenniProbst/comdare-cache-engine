@@ -31,7 +31,7 @@
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_mimalloc.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_snmalloc.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_pmr_resource.hpp>
-#include <topics/allocator/axis_06_allocator/axis_06_allocator_pool_resource.hpp>   // R7.4 resource_ownership Owned-Anker
+#include <topics/allocator/axis_06_allocator/axis_06_allocator_pool_resource.hpp> // R7.4 resource_ownership Owned-Anker
 // V41.F.6.1 Batch 2 Vendor (2026-05-26)
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_jemalloc.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_tcmalloc.hpp>
@@ -60,11 +60,11 @@
 #include <memory>
 #include <memory_resource>
 
-namespace topic_alloc       = comdare::cache_engine::allocator;
-namespace topic_alloc_cpts  = comdare::cache_engine::allocator::concepts;
-namespace axis_06           = comdare::cache_engine::allocator::axis_06_allocator;
-namespace axis_06_cpts      = comdare::cache_engine::allocator::axis_06_allocator::concepts;
-namespace subaxes           = comdare::cache_engine::allocator::axis_06_allocator::subaxes;
+namespace topic_alloc      = comdare::cache_engine::allocator;
+namespace topic_alloc_cpts = comdare::cache_engine::allocator::concepts;
+namespace axis_06          = comdare::cache_engine::allocator::axis_06_allocator;
+namespace axis_06_cpts     = comdare::cache_engine::allocator::axis_06_allocator::concepts;
+namespace subaxes          = comdare::cache_engine::allocator::axis_06_allocator::subaxes;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // V41.F.6.1 Batch 3 (User-Direktive 2026-05-26): TYPED_TEST_SUITE
@@ -99,37 +99,37 @@ struct AllocConfig {
     std::size_t alignment;
 };
 constexpr std::array<AllocConfig, 7> kTestAllocConfigs{{
-    {  8,     8},   // word-aligned tiny
-    { 64,     8},   // cache-line-aligned small
-    {128,    16},   // SSE-aligned
-    {256,    32},   // AVX-aligned
-    {1024,   64},   // cache-line-aligned medium
-    {4096,  4096},  // page-aligned + page-sized
-    {16384,  16},   // larger block, default alignment
+    {8, 8},       // word-aligned tiny
+    {64, 8},      // cache-line-aligned small
+    {128, 16},    // SSE-aligned
+    {256, 32},    // AVX-aligned
+    {1024, 64},   // cache-line-aligned medium
+    {4096, 4096}, // page-aligned + page-sized
+    {16384, 16},  // larger block, default alignment
 }};
 
 constexpr std::array<std::pair<std::size_t, std::size_t>, 4> kTestZeroAllocConfigs{{
-    {  1,  64},     // 1 element x 64 bytes
-    {  4,  16},     // 4 element x 16 bytes
-    { 16,  64},     // 16 element x 64 bytes (1 KB)
-    {128, 128},     // 128 element x 128 bytes (16 KB)
+    {1, 64},    // 1 element x 64 bytes
+    {4, 16},    // 4 element x 16 bytes
+    {16, 64},   // 16 element x 64 bytes (1 KB)
+    {128, 128}, // 128 element x 128 bytes (16 KB)
 }};
 
 // Pflicht-Concepts werden pro Vendor compile-time geprueft (1 Test je Vendor)
 TYPED_TEST(AllocatorVendorTest, ConceptConformance) {
-    static_assert(axis_06_cpts::AllocatorStrategy<TypeParam>,
-        "Pflicht: AllocatorStrategy (PMR-Standard)");
-    static_assert(axis_06_cpts::CacheEnginePermutationStrategy<TypeParam>,
+    static_assert(axis_06_cpts::AllocatorStrategy<TypeParam>, "Pflicht: AllocatorStrategy (PMR-Standard)");
+    static_assert(
+        axis_06_cpts::CacheEnginePermutationStrategy<TypeParam>,
         "Pflicht: CacheEnginePermutationStrategy (cache-engine-spec, mit statistics+observer wenn STATISTICS=ON)");
     SUCCEED();
 }
 
 // Identifikation: name + flag_suffix + family_id != 0
 TYPED_TEST(AllocatorVendorTest, Identification) {
-    static_assert(!TypeParam::name().empty(),         "name() darf nicht leer sein");
-    static_assert(!TypeParam::family_name().empty(),  "family_name() darf nicht leer sein");
-    static_assert(!TypeParam::flag_suffix().empty(),  "flag_suffix() darf nicht leer sein (F.6.1.G CLI)");
-    static_assert(TypeParam::family_id::value > 0,    "family_id muss > 0 (A01-A23 mapping)");
+    static_assert(!TypeParam::name().empty(), "name() darf nicht leer sein");
+    static_assert(!TypeParam::family_name().empty(), "family_name() darf nicht leer sein");
+    static_assert(!TypeParam::flag_suffix().empty(), "flag_suffix() darf nicht leer sein (F.6.1.G CLI)");
+    static_assert(TypeParam::family_id::value > 0, "family_id muss > 0 (A01-A23 mapping)");
     SUCCEED();
 }
 
@@ -138,13 +138,14 @@ TYPED_TEST(AllocatorVendorTest, Identification) {
 TYPED_TEST(AllocatorVendorTest, SonderfallPropertiesQueryable) {
     using PG = axis_06_cpts::ProgressGuarantee;
     // Properties existieren (Compile-Pflicht via CacheEnginePermutationStrategy)
-    [[maybe_unused]] constexpr bool a = TypeParam::has_native_aligned_alloc();
-    [[maybe_unused]] constexpr bool b = TypeParam::requires_explicit_init();
-    [[maybe_unused]] constexpr bool c = TypeParam::supports_numa_node_hint();
-    [[maybe_unused]] constexpr bool e = TypeParam::supports_thread_local_cache();
-    [[maybe_unused]] constexpr bool f = TypeParam::requires_specialized_hardware();
-    [[maybe_unused]] constexpr PG   pg = TypeParam::progress_guarantee();  // Batch 7 Stufen-Refactor
-    [[maybe_unused]] constexpr axis_06_cpts::ResourceOwnership ro = TypeParam::resource_ownership();  // R7.4 Pflicht-Property
+    [[maybe_unused]] constexpr bool a  = TypeParam::has_native_aligned_alloc();
+    [[maybe_unused]] constexpr bool b  = TypeParam::requires_explicit_init();
+    [[maybe_unused]] constexpr bool c  = TypeParam::supports_numa_node_hint();
+    [[maybe_unused]] constexpr bool e  = TypeParam::supports_thread_local_cache();
+    [[maybe_unused]] constexpr bool f  = TypeParam::requires_specialized_hardware();
+    [[maybe_unused]] constexpr PG   pg = TypeParam::progress_guarantee(); // Batch 7 Stufen-Refactor
+    [[maybe_unused]] constexpr axis_06_cpts::ResourceOwnership ro =
+        TypeParam::resource_ownership(); // R7.4 Pflicht-Property
     // Konsistenz-Checks: Sonderfaelle pro Batch
     if constexpr (std::is_same_v<TypeParam, axis_06::ScallocAllocator>) {
         static_assert(!a, "Scalloc-Sonderfall: keine native aligned_alloc API");
@@ -177,20 +178,20 @@ TEST(V41_TopicAllocatorAxis06, ResourceOwnershipDistinguishesPoolFromPmr) {
     using RO = axis_06_cpts::ResourceOwnership;
     // Die eigentliche Abgrenzung: POOL=Owned vs PMR=Borrowed.
     static_assert(axis_06::PoolResourceAllocator::resource_ownership() == RO::Owned,
-        "POOL besitzt eine eigene unsynchronized_pool_resource (Owned)");
-    static_assert(axis_06::PmrResourceAllocator::resource_ownership()  == RO::Borrowed,
-        "PMR reicht eine extern besessene memory_resource durch (Borrowed)");
+                  "POOL besitzt eine eigene unsynchronized_pool_resource (Owned)");
+    static_assert(axis_06::PmrResourceAllocator::resource_ownership() == RO::Borrowed,
+                  "PMR reicht eine extern besessene memory_resource durch (Borrowed)");
     static_assert(RO::Owned != RO::Borrowed, "Owned und Borrowed sind verschieden");
     // malloc-Familie erbt den None-Default aus AllocatorStrategyBase (kein 25x-Hardcode):
-    static_assert(axis_06::StdMalloc::resource_ownership()         == RO::None, "StdMalloc: None (Default)");
+    static_assert(axis_06::StdMalloc::resource_ownership() == RO::None, "StdMalloc: None (Default)");
     static_assert(axis_06::JemallocAllocator::resource_ownership() == RO::None, "Jemalloc: None (Default)");
     static_assert(axis_06::MimallocAllocator::resource_ownership() == RO::None, "Mimalloc: None (Default)");
     static_assert(RO::None != RO::Owned && RO::None != RO::Borrowed, "None ist von beiden verschieden");
     // Orthogonalitaet zu supports_pmr(): POOL, PMR UND jemalloc liefern supports_pmr()==true,
     // aber NUR POOL/PMR haben ein eigenes/geborgtes Resource-Objekt -> resource_ownership trennt feiner.
     static_assert(axis_06::JemallocAllocator::supports_pmr() &&
-                  axis_06::JemallocAllocator::resource_ownership() == RO::None,
-        "supports_pmr() != resource_ownership(): jemalloc ist pmr-nutzbar, besitzt aber keine Resource");
+                      axis_06::JemallocAllocator::resource_ownership() == RO::None,
+                  "supports_pmr() != resource_ownership(): jemalloc ist pmr-nutzbar, besitzt aber keine Resource");
     SUCCEED();
 }
 
@@ -200,8 +201,8 @@ TYPED_TEST(AllocatorVendorTest, AllocateDeallocateRoundtripAllConfigs) {
     TypeParam m{};
     for (auto const& cfg : kTestAllocConfigs) {
         void* p = m.allocate(cfg.bytes, cfg.alignment);
-        ASSERT_NE(p, nullptr) << "Vendor " << TypeParam::name()
-                              << " allocate(" << cfg.bytes << ", " << cfg.alignment << ") failed";
+        ASSERT_NE(p, nullptr) << "Vendor " << TypeParam::name() << " allocate(" << cfg.bytes << ", " << cfg.alignment
+                              << ") failed";
         m.deallocate(p, cfg.bytes, cfg.alignment);
     }
 }
@@ -214,20 +215,20 @@ TYPED_TEST(AllocatorVendorTest, ZeroAllocateRoundtripAllConfigs) {
         TypeParam m{};
         for (auto const& [n, size] : kTestZeroAllocConfigs) {
             void* p = m.zero_allocate(n, size);
-            ASSERT_NE(p, nullptr) << "Vendor " << TypeParam::name()
-                                  << " zero_allocate(" << n << ", " << size << ") failed";
+            ASSERT_NE(p, nullptr) << "Vendor " << TypeParam::name() << " zero_allocate(" << n << ", " << size
+                                  << ") failed";
             // Pruefe dass Memory zero-initialisiert ist (calloc-Pflicht)
             auto* bytes = static_cast<unsigned char*>(p);
             for (std::size_t i = 0; i < n * size; ++i) {
-                ASSERT_EQ(bytes[i], 0u) << "zero_allocate Byte " << i << " nicht 0 (Vendor "
-                                        << TypeParam::name() << ")";
+                ASSERT_EQ(bytes[i], 0u) << "zero_allocate Byte " << i << " nicht 0 (Vendor " << TypeParam::name()
+                                        << ")";
             }
             // zero_allocate verwendet std::calloc Pfad — std::free statt deallocate
             // (Heap-Crossover-Vermeidung wenn HAVE=OFF Fallback)
             std::free(p);
         }
     }
-    SUCCEED();  // Vendor ohne ZeroingStrategy: kein Body, kein Failure
+    SUCCEED(); // Vendor ohne ZeroingStrategy: kein Body, kein Failure
 }
 
 // reallocate ueber Runtime-Konfigurations-Liste (alloc -> realloc -> dealloc)
@@ -237,11 +238,11 @@ TYPED_TEST(AllocatorVendorTest, ReallocateRoundtripAllConfigs) {
         TypeParam m{};
         for (auto const& cfg : kTestAllocConfigs) {
             std::size_t new_bytes = cfg.bytes * 2;
-            void* p = m.allocate(cfg.bytes, cfg.alignment);
+            void*       p         = m.allocate(cfg.bytes, cfg.alignment);
             ASSERT_NE(p, nullptr);
             void* np = m.reallocate(p, cfg.bytes, new_bytes, cfg.alignment);
-            ASSERT_NE(np, nullptr) << "Vendor " << TypeParam::name()
-                                   << " reallocate(" << cfg.bytes << "->" << new_bytes << ") failed";
+            ASSERT_NE(np, nullptr) << "Vendor " << TypeParam::name() << " reallocate(" << cfg.bytes << "->" << new_bytes
+                                   << ") failed";
             m.deallocate(np, new_bytes, cfg.alignment);
         }
     }
@@ -252,15 +253,14 @@ TYPED_TEST(AllocatorVendorTest, ReallocateRoundtripAllConfigs) {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
 TYPED_TEST(AllocatorVendorTest, ObserverNotifyOnAllocateAndDeallocateAllConfigs) {
     TypeParam m{};
-    int events = 0;
-    m.observer().on_event([&events](auto const&){ ++events; });
+    int       events = 0;
+    m.observer().on_event([&events](auto const&) { ++events; });
     int expected_events = 0;
     for (auto const& cfg : kTestAllocConfigs) {
         void* p = m.allocate(cfg.bytes, cfg.alignment);
         ASSERT_NE(p, nullptr);
         ++expected_events;
-        EXPECT_EQ(events, expected_events)
-            << "Nach allocate(" << cfg.bytes << "," << cfg.alignment << ") fehlt notify";
+        EXPECT_EQ(events, expected_events) << "Nach allocate(" << cfg.bytes << "," << cfg.alignment << ") fehlt notify";
         m.deallocate(p, cfg.bytes, cfg.alignment);
         ++expected_events;
         EXPECT_EQ(events, expected_events)
@@ -275,7 +275,7 @@ TYPED_TEST(AllocatorVendorTest, ObserverAliasIsMeasurableObserverOfSnapshot) {
     using S = typename TypeParam::snapshot_t;
     using O = typename TypeParam::observer_t;
     static_assert(std::is_same_v<O, ::comdare::cache_engine::measurement::MeasurableObserver<S>>,
-        "observer_t Pflicht-Alias = MeasurableObserver<snapshot_t>");
+                  "observer_t Pflicht-Alias = MeasurableObserver<snapshot_t>");
     SUCCEED();
 }
 #endif
@@ -291,32 +291,32 @@ TEST(V41_TopicAllocatorAxis06, StdMallocSatisfiesTopicConcept) {
 
 TEST(V41_TopicAllocatorAxis06, StdMallocSatisfiesAllocatorStrategy) {
     static_assert(axis_06_cpts::AllocatorStrategy<axis_06::StdMalloc>,
-        "Pflicht-Standard: allocate/deallocate/value_type/size_type/operator==");
+                  "Pflicht-Standard: allocate/deallocate/value_type/size_type/operator==");
     SUCCEED();
 }
 
 TEST(V41_TopicAllocatorAxis06, StdMallocSatisfiesCacheEnginePermutationStrategy) {
     static_assert(axis_06_cpts::CacheEnginePermutationStrategy<axis_06::StdMalloc>,
-        "Pflicht cache-engine-spec: axis_tag/family_id/name/.../statistics");
+                  "Pflicht cache-engine-spec: axis_tag/family_id/name/.../statistics");
     SUCCEED();
 }
 
 TEST(V41_TopicAllocatorAxis06, StdMallocSatisfiesZeroingStrategy) {
     static_assert(axis_06_cpts::ZeroingStrategy<axis_06::StdMalloc>,
-        "Optional: StdMalloc bietet zero_allocate (calloc)");
+                  "Optional: StdMalloc bietet zero_allocate (calloc)");
     SUCCEED();
 }
 
 TEST(V41_TopicAllocatorAxis06, StdMallocSatisfiesReallocatingStrategy) {
     static_assert(axis_06_cpts::ReallocatingStrategy<axis_06::StdMalloc>,
-        "Optional: StdMalloc bietet reallocate (realloc)");
+                  "Optional: StdMalloc bietet reallocate (realloc)");
     SUCCEED();
 }
 
 TEST(V41_TopicAllocatorAxis06, StdMallocDoesNotSatisfyPoolResettableStrategy) {
     // libc malloc kennt kein release_all() (Pool/Arena-spezifisch) -> Sub-Concept NICHT erfuellt
     static_assert(!axis_06_cpts::PoolResettableStrategy<axis_06::StdMalloc>,
-        "Negativ: libc malloc hat kein release_all() (Pool/Arena Sub-Concept)");
+                  "Negativ: libc malloc hat kein release_all() (Pool/Arena Sub-Concept)");
     SUCCEED();
 }
 
@@ -324,14 +324,14 @@ TEST(V41_TopicAllocatorAxis06, StdMallocDoesNotSatisfyPoolResettableStrategy) {
 TEST(V41_TopicAllocatorAxis06, ResetClearsStatistics) {
     // V41.F.6.1.A User-Klarstellung: reset() ist Statistik-Reset (NICHT Pool-Reset!)
     axis_06::StdMalloc m{};
-    void* p = m.allocate(64, 8);
+    void*              p = m.allocate(64, 8);
     ASSERT_NE(p, nullptr);
     m.deallocate(p, 64, 8);
     EXPECT_EQ(m.statistics().allocation_count, 1u);
 
-    m.reset();   // = Statistik-Reset
+    m.reset(); // = Statistik-Reset
     auto stats = m.statistics();
-    EXPECT_EQ(stats.allocation_count,   0u);
+    EXPECT_EQ(stats.allocation_count, 0u);
     EXPECT_EQ(stats.deallocation_count, 0u);
     EXPECT_EQ(stats.total_bytes_in_use, 0u);
 }
@@ -339,19 +339,19 @@ TEST(V41_TopicAllocatorAxis06, ResetClearsStatistics) {
 
 TEST(V41_TopicAllocatorAxis06, StdMallocDoesNotSatisfyIntrospectableStrategy) {
     static_assert(!axis_06_cpts::IntrospectableStrategy<axis_06::StdMalloc>,
-        "Negativ: libc malloc hat kein portables usable_size");
+                  "Negativ: libc malloc hat kein portables usable_size");
     SUCCEED();
 }
 
 TEST(V41_TopicAllocatorAxis06, StdMallocDoesNotSatisfyOverAllocatingStrategy) {
     static_assert(!axis_06_cpts::OverAllocatingStrategy<axis_06::StdMalloc>,
-        "Negativ: libc malloc hat kein allocate_at_least");
+                  "Negativ: libc malloc hat kein allocate_at_least");
     SUCCEED();
 }
 
 TEST(V41_TopicAllocatorAxis06, StdMallocDoesNotSatisfyReclaimableStrategy) {
     static_assert(!axis_06_cpts::ReclaimableStrategy<axis_06::StdMalloc>,
-        "Negativ: libc malloc hat kein portables collect/trim");
+                  "Negativ: libc malloc hat kein portables collect/trim");
     SUCCEED();
 }
 
@@ -359,7 +359,7 @@ TEST(V41_TopicAllocatorAxis06, StdMallocDoesNotSatisfyReclaimableStrategy) {
 // Negative-Beweise: Dummy ohne Concept-API
 // ─────────────────────────────────────────────────────────────────────────────
 
-struct DummyNotAllocator {};   // weder topic_tag noch allocate
+struct DummyNotAllocator {}; // weder topic_tag noch allocate
 
 TEST(V41_TopicAllocatorAxis06, DummyDoesNotSatisfyAnyConcept) {
     static_assert(!topic_alloc_cpts::AllocatorComponent<DummyNotAllocator>);
@@ -374,10 +374,10 @@ TEST(V41_TopicAllocatorAxis06, DummyDoesNotSatisfyAnyConcept) {
 
 TEST(V41_TopicAllocatorAxis06, StdMallocCompileTimeProperties) {
     using SM = axis_06::StdMalloc;
-    static_assert(std::same_as<SM::topic_tag,   topic_alloc_cpts::AllocatorTopicTag>);
-    static_assert(std::same_as<SM::axis_tag,    subaxes::size_class_schema_tag>);
-    static_assert(std::same_as<SM::value_type,  std::byte>);
-    static_assert(std::same_as<SM::size_type,   std::size_t>);
+    static_assert(std::same_as<SM::topic_tag, topic_alloc_cpts::AllocatorTopicTag>);
+    static_assert(std::same_as<SM::axis_tag, subaxes::size_class_schema_tag>);
+    static_assert(std::same_as<SM::value_type, std::byte>);
+    static_assert(std::same_as<SM::size_type, std::size_t>);
     static_assert(SM::family_id::value == 22);
     static_assert(SM::is_thread_safe());
     static_assert(SM::supports_pmr());
@@ -387,14 +387,14 @@ TEST(V41_TopicAllocatorAxis06, StdMallocCompileTimeProperties) {
 
 TEST(V41_TopicAllocatorAxis06, StdMallocIdentification) {
     using SM = axis_06::StdMalloc;
-    EXPECT_EQ(SM::name(),        "std_malloc");
+    EXPECT_EQ(SM::name(), "std_malloc");
     EXPECT_FALSE(SM::family_name().empty());
 }
 
 TEST(V41_TopicAllocatorAxis06, StdMallocEquality) {
     axis_06::StdMalloc a{};
     axis_06::StdMalloc b{};
-    EXPECT_TRUE(a == b);  // libc malloc ist global, alle Instanzen aequivalent
+    EXPECT_TRUE(a == b); // libc malloc ist global, alle Instanzen aequivalent
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -403,13 +403,13 @@ TEST(V41_TopicAllocatorAxis06, StdMallocEquality) {
 
 TEST(V41_TopicAllocatorAxis06, AllocateAndDeallocateRoundtrip) {
     axis_06::StdMalloc m{};
-    void* p = m.allocate(128, 16);
+    void*              p = m.allocate(128, 16);
     ASSERT_NE(p, nullptr);
     m.deallocate(p, 128, 16);
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     auto stats = m.statistics();
-    EXPECT_EQ(stats.allocation_count,   1u);
+    EXPECT_EQ(stats.allocation_count, 1u);
     EXPECT_EQ(stats.deallocation_count, 1u);
     EXPECT_EQ(stats.total_bytes_in_use, 0u);
 #endif
@@ -421,18 +421,16 @@ TEST(V41_TopicAllocatorAxis06, AllocateAndDeallocateRoundtrip) {
 
 TEST(V41_TopicAllocatorAxis06, ZeroAllocateReturnsZeroedMemory) {
     axis_06::StdMalloc m{};
-    void* p = m.zero_allocate(8, sizeof(int));  // 8 * 4 = 32 Byte
+    void*              p = m.zero_allocate(8, sizeof(int)); // 8 * 4 = 32 Byte
     ASSERT_NE(p, nullptr);
     auto const* bytes = static_cast<unsigned char*>(p);
-    for (std::size_t i = 0; i < 32; ++i) {
-        EXPECT_EQ(bytes[i], 0u) << "Byte " << i << " sollte 0 sein";
-    }
-    std::free(p);  // calloc-allocated -> std::free OK (NICHT _aligned_free)
+    for (std::size_t i = 0; i < 32; ++i) { EXPECT_EQ(bytes[i], 0u) << "Byte " << i << " sollte 0 sein"; }
+    std::free(p); // calloc-allocated -> std::free OK (NICHT _aligned_free)
 }
 
 TEST(V41_TopicAllocatorAxis06, ReallocateGrowsAllocation) {
     axis_06::StdMalloc m{};
-    void* p = m.allocate(16, alignof(std::max_align_t));
+    void*              p = m.allocate(16, alignof(std::max_align_t));
     ASSERT_NE(p, nullptr);
     std::memcpy(p, "12345678901234", 14);
 
@@ -450,7 +448,7 @@ TEST(V41_TopicAllocatorAxis06, ReallocateGrowsAllocation) {
 
 TEST(V41_TopicAllocatorAxis06, CRTPDelegateAllocateDeallocate) {
     axis_06::StdMalloc m{};
-    auto* base_ref = static_cast<axis_06::AllocatorStrategyBase<axis_06::StdMalloc>*>(&m);
+    auto*              base_ref = static_cast<axis_06::AllocatorStrategyBase<axis_06::StdMalloc>*>(&m);
 
     void* p = base_ref->allocate(256, 16);
     ASSERT_NE(p, nullptr);
@@ -458,7 +456,7 @@ TEST(V41_TopicAllocatorAxis06, CRTPDelegateAllocateDeallocate) {
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     auto stats = base_ref->statistics();
-    EXPECT_EQ(stats.allocation_count,   1u);
+    EXPECT_EQ(stats.allocation_count, 1u);
     EXPECT_EQ(stats.deallocation_count, 1u);
 #endif
 }
@@ -490,7 +488,7 @@ TEST(V41_TopicAllocatorAxis06, MimallocCompileTimeProperties) {
 
 TEST(V41_TopicAllocatorAxis06, MimallocAllocateRoundtrip) {
     axis_06::MimallocAllocator m{};
-    void* p = m.allocate(128, 16);
+    void*                      p = m.allocate(128, 16);
     ASSERT_NE(p, nullptr);
     m.deallocate(p, 128, 16);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -501,9 +499,9 @@ TEST(V41_TopicAllocatorAxis06, MimallocAllocateRoundtrip) {
 
 TEST(V41_TopicAllocatorAxis06, MimallocCollectIsCallable) {
     axis_06::MimallocAllocator m{};
-    void* p = m.allocate(64, 8);
+    void*                      p = m.allocate(64, 8);
     m.deallocate(p, 64, 8);
-    m.collect(true);   // Reclaim-API darf nicht crashen
+    m.collect(true); // Reclaim-API darf nicht crashen
     SUCCEED();
 }
 
@@ -530,7 +528,7 @@ TEST(V41_TopicAllocatorAxis06, SnmallocCompileTimeProperties) {
 
 TEST(V41_TopicAllocatorAxis06, SnmallocAllocateRoundtrip) {
     axis_06::SnmallocAllocator s{};
-    void* p = s.allocate(256, 32);
+    void*                      p = s.allocate(256, 32);
     ASSERT_NE(p, nullptr);
     s.deallocate(p, 256, 32);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -560,8 +558,8 @@ TEST(V41_TopicAllocatorAxis06, PmrResourceCompileTimeProperties) {
 }
 
 TEST(V41_TopicAllocatorAxis06, PmrResourceAllocateRoundtrip) {
-    axis_06::PmrResourceAllocator p{};   // default = std::pmr::new_delete_resource()
-    void* mem = p.allocate(64, 8);
+    axis_06::PmrResourceAllocator p{}; // default = std::pmr::new_delete_resource()
+    void*                         mem = p.allocate(64, 8);
     ASSERT_NE(mem, nullptr);
     p.deallocate(mem, 64, 8);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -571,9 +569,9 @@ TEST(V41_TopicAllocatorAxis06, PmrResourceAllocateRoundtrip) {
 
 TEST(V41_TopicAllocatorAxis06, PmrResourceWithCustomResource) {
     // Test mit explicit monotonic_buffer_resource (kein delete bis Reset)
-    std::byte buffer[1024];
+    std::byte                           buffer[1024];
     std::pmr::monotonic_buffer_resource mono(buffer, sizeof(buffer));
-    axis_06::PmrResourceAllocator p{&mono};
+    axis_06::PmrResourceAllocator       p{&mono};
     EXPECT_EQ(p.underlying_resource(), &mono);
 
     void* mem = p.allocate(128, 16);
@@ -590,10 +588,10 @@ namespace flags = comdare::cache_engine::allocator::axis_06_allocator::flags;
 
 TEST(V41_TopicAllocatorAxis06, FlagsHeaderIsTypedConstexpr) {
     // axis_06_allocator_flags.hpp via configure_file generiert
-    static_assert(std::is_same_v<decltype(flags::std_enabled),       const bool>);
-    static_assert(std::is_same_v<decltype(flags::mimalloc_enabled),  const bool>);
-    static_assert(std::is_same_v<decltype(flags::snmalloc_enabled),  const bool>);
-    static_assert(std::is_same_v<decltype(flags::pmr_enabled),       const bool>);
+    static_assert(std::is_same_v<decltype(flags::std_enabled), const bool>);
+    static_assert(std::is_same_v<decltype(flags::mimalloc_enabled), const bool>);
+    static_assert(std::is_same_v<decltype(flags::snmalloc_enabled), const bool>);
+    static_assert(std::is_same_v<decltype(flags::pmr_enabled), const bool>);
     SUCCEED();
 }
 
@@ -609,8 +607,7 @@ TEST(V41_TopicAllocatorAxis06, RegistryAllVendorsCount) {
 TEST(V41_TopicAllocatorAxis06, RegistryEnabledVendorsNonEmpty) {
     using EnabledV = axis_06::EnabledVendors;
     // Stufe 1: is_enabled<T> = mp_bool<true> -> EnabledVendors = AllVendors
-    static_assert(boost::mp11::mp_size<EnabledV>::value > 0,
-        "Mindestens 1 Vendor muss enabled sein");
+    static_assert(boost::mp11::mp_size<EnabledV>::value > 0, "Mindestens 1 Vendor muss enabled sein");
     SUCCEED();
 }
 
@@ -623,12 +620,12 @@ TEST(V41_TopicAllocatorAxis06, RegistryMpForEachIteration) {
     boost::mp11::mp_for_each<axis_06::EnabledVendors>([&counted]<class V>(V) {
         // pro Vendor: pruefen dass es das AllocatorStrategy-Concept erfuellt
         static_assert(axis_06_cpts::AllocatorStrategy<V>,
-            "Jeder Vendor in EnabledVendors muss AllocatorStrategy erfuellen");
+                      "Jeder Vendor in EnabledVendors muss AllocatorStrategy erfuellen");
         ++counted;
     });
     constexpr auto expected = boost::mp11::mp_size<axis_06::EnabledVendors>::value;
     EXPECT_EQ(static_cast<std::size_t>(counted), expected);
-    EXPECT_GE(expected, 1u);  // mindestens STD/PMR (immer verfuegbar)
+    EXPECT_GE(expected, 1u); // mindestens STD/PMR (immer verfuegbar)
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -640,35 +637,33 @@ TEST(V41_TopicAllocatorAxis06, RegistryMpForEachIteration) {
 TEST(V41_TopicAllocatorAxis06_Stufe3, WrapperHasObserverAlias) {
     using ObserverT_Std = axis_06::StdMalloc::observer_t;
     using SnapshotT_Std = axis_06::StdMalloc::snapshot_t;
-    static_assert(std::is_same_v<ObserverT_Std,
-                                 ::comdare::cache_engine::measurement::MeasurableObserver<SnapshotT_Std>>,
-                  "StdMalloc::observer_t muss MeasurableObserver<snapshot_t> sein");
+    static_assert(
+        std::is_same_v<ObserverT_Std, ::comdare::cache_engine::measurement::MeasurableObserver<SnapshotT_Std>>,
+        "StdMalloc::observer_t muss MeasurableObserver<snapshot_t> sein");
 
-    using ObserverT_Mi  = axis_06::MimallocAllocator::observer_t;
-    using SnapshotT_Mi  = axis_06::MimallocAllocator::snapshot_t;
-    static_assert(std::is_same_v<ObserverT_Mi,
-                                 ::comdare::cache_engine::measurement::MeasurableObserver<SnapshotT_Mi>>,
+    using ObserverT_Mi = axis_06::MimallocAllocator::observer_t;
+    using SnapshotT_Mi = axis_06::MimallocAllocator::snapshot_t;
+    static_assert(std::is_same_v<ObserverT_Mi, ::comdare::cache_engine::measurement::MeasurableObserver<SnapshotT_Mi>>,
                   "MimallocAllocator::observer_t muss MeasurableObserver<snapshot_t> sein");
 
-    using ObserverT_Sn  = axis_06::SnmallocAllocator::observer_t;
-    using SnapshotT_Sn  = axis_06::SnmallocAllocator::snapshot_t;
-    static_assert(std::is_same_v<ObserverT_Sn,
-                                 ::comdare::cache_engine::measurement::MeasurableObserver<SnapshotT_Sn>>,
+    using ObserverT_Sn = axis_06::SnmallocAllocator::observer_t;
+    using SnapshotT_Sn = axis_06::SnmallocAllocator::snapshot_t;
+    static_assert(std::is_same_v<ObserverT_Sn, ::comdare::cache_engine::measurement::MeasurableObserver<SnapshotT_Sn>>,
                   "SnmallocAllocator::observer_t muss MeasurableObserver<snapshot_t> sein");
 
     using ObserverT_Pmr = axis_06::PmrResourceAllocator::observer_t;
     using SnapshotT_Pmr = axis_06::PmrResourceAllocator::snapshot_t;
-    static_assert(std::is_same_v<ObserverT_Pmr,
-                                 ::comdare::cache_engine::measurement::MeasurableObserver<SnapshotT_Pmr>>,
-                  "PmrResourceAllocator::observer_t muss MeasurableObserver<snapshot_t> sein");
+    static_assert(
+        std::is_same_v<ObserverT_Pmr, ::comdare::cache_engine::measurement::MeasurableObserver<SnapshotT_Pmr>>,
+        "PmrResourceAllocator::observer_t muss MeasurableObserver<snapshot_t> sein");
     SUCCEED();
 }
 
 // (b) Observer-Callback wird bei allocate() benachrichtigt
 TEST(V41_TopicAllocatorAxis06_Stufe3, ObserverNotifiesOnAllocate_StdMalloc) {
     axis_06::StdMalloc m{};
-    int events = 0;
-    std::uint64_t last_count = 0;
+    int                events     = 0;
+    std::uint64_t      last_count = 0;
     m.observer().on_event([&events, &last_count](auto const& snap) {
         ++events;
         last_count = snap.allocation_count;
@@ -685,14 +680,14 @@ TEST(V41_TopicAllocatorAxis06_Stufe3, ObserverNotifiesOnAllocate_StdMalloc) {
 // (c) Observer-Notify auch bei zero_allocate (separat) + reallocate (separat)
 TEST(V41_TopicAllocatorAxis06_Stufe3, ObserverNotifiesOnZeroAllocAndRealloc_StdMalloc) {
     axis_06::StdMalloc m{};
-    int events = 0;
+    int                events = 0;
     m.observer().on_event([&events](auto const&) { ++events; });
 
     // zero_allocate -> std::free Pfad (separater Lifecycle)
     void* zp = m.zero_allocate(4, 16);
     ASSERT_NE(zp, nullptr);
     EXPECT_EQ(events, 1);
-    std::free(zp);  // zero_allocate verwendet std::calloc — passendes std::free, KEIN reallocate
+    std::free(zp); // zero_allocate verwendet std::calloc — passendes std::free, KEIN reallocate
 
     // reallocate ueber portable_aligned_alloc Lifecycle (separat)
     void* p = m.allocate(64, 8);
@@ -700,7 +695,7 @@ TEST(V41_TopicAllocatorAxis06_Stufe3, ObserverNotifiesOnZeroAllocAndRealloc_StdM
     EXPECT_EQ(events, 2);
     void* np = m.reallocate(p, 64, 128, 8);
     ASSERT_NE(np, nullptr);
-    EXPECT_GE(events, 3);  // reallocate macht 1 notify im Erfolgs-Fall
+    EXPECT_GE(events, 3); // reallocate macht 1 notify im Erfolgs-Fall
 
     m.deallocate(np, 128, 8);
     EXPECT_GE(events, 4);
@@ -709,13 +704,11 @@ TEST(V41_TopicAllocatorAxis06_Stufe3, ObserverNotifiesOnZeroAllocAndRealloc_StdM
 // (d) reset() benachrichtigt Observer mit leeren Stats
 TEST(V41_TopicAllocatorAxis06_Stufe3, ResetNotifiesObserverWithClearedStats) {
     axis_06::StdMalloc m{};
-    void* p = m.allocate(64, 8);
+    void*              p = m.allocate(64, 8);
     ASSERT_NE(p, nullptr);
 
     std::uint64_t last_alloc_count = 0;
-    m.observer().on_event([&last_alloc_count](auto const& snap) {
-        last_alloc_count = snap.allocation_count;
-    });
+    m.observer().on_event([&last_alloc_count](auto const& snap) { last_alloc_count = snap.allocation_count; });
     m.reset();
     EXPECT_EQ(last_alloc_count, 0u);
 
@@ -727,7 +720,7 @@ TEST(V41_TopicAllocatorAxis06_Stufe3, ObserverWithoutCallbackIsNoOp) {
     axis_06::StdMalloc m{};
     EXPECT_FALSE(m.observer().has_callback());
     void* p = m.allocate(64, 8);
-    ASSERT_NE(p, nullptr);  // kein Crash trotz fehlendem Callback
+    ASSERT_NE(p, nullptr); // kein Crash trotz fehlendem Callback
     m.deallocate(p, 64, 8);
     SUCCEED();
 }
@@ -736,7 +729,7 @@ TEST(V41_TopicAllocatorAxis06_Stufe3, ObserverWithoutCallbackIsNoOp) {
 // User-Direktive: redundant — TYPED_TEST(AllocatorVendorTest, ObserverNotifyOnAllocateAndDeallocate)
 // am Anfang dieses Files deckt alle Vendor in AllVendors automatisch ab.
 
-#endif  // COMDARE_CE_ENABLE_STATISTICS
+#endif // COMDARE_CE_ENABLE_STATISTICS
 
 // ───────────────────────────────────────────────────────────────────────────
 // V41.F.6.1.D Stufe 4: PermutationEngine + TopicConfigSet (Doku §15.4 / §15.7)
@@ -748,9 +741,8 @@ namespace alloc = comdare::cache_engine::allocator;
 // (a) TopicConfigSet hat StaticAxisVariants = EnabledVendors
 TEST(V41_TopicAllocatorAxis06_Stufe4, TopicConfigSetHasEnabledVendors) {
     using TCS = alloc::TopicConfigSet;
-    static_assert(std::is_same_v<typename TCS::StaticAxisVariants,
-                                  alloc::axis_06_allocator::EnabledVendors>,
-        "TopicConfigSet::StaticAxisVariants muss EnabledVendors sein");
+    static_assert(std::is_same_v<typename TCS::StaticAxisVariants, alloc::axis_06_allocator::EnabledVendors>,
+                  "TopicConfigSet::StaticAxisVariants muss EnabledVendors sein");
     SUCCEED();
 }
 
@@ -767,8 +759,8 @@ TEST(V41_TopicAllocatorAxis06_Stufe4, PermutationEngineSingleTopic) {
 // (c) for_each_permutation iteriert genau count() Permutationen
 TEST(V41_TopicAllocatorAxis06_Stufe4, ForEachPermutationCount) {
     using Engine = perms::PermutationEngine<alloc::TopicConfigSet>;
-    int seen = 0;
-    Engine::for_each_permutation([&seen]<class P>(){
+    int seen     = 0;
+    Engine::for_each_permutation([&seen]<class P>() {
         ++seen;
         // Jede Permutation hat hash() != 0 (FNV-1a startet mit Offset-Basis)
         constexpr auto h = P::hash();
@@ -780,9 +772,9 @@ TEST(V41_TopicAllocatorAxis06_Stufe4, ForEachPermutationCount) {
 
 // (d) PermTuple<V>-Hash ist stabil + verschieden pro Vendor
 TEST(V41_TopicAllocatorAxis06_Stufe4, PermTupleHashIsStableAndDistinct) {
-    using P_Std  = perms::PermTuple<axis_06::StdMalloc>;
-    using P_Mi   = perms::PermTuple<axis_06::MimallocAllocator>;
-    using P_Pmr  = perms::PermTuple<axis_06::PmrResourceAllocator>;
+    using P_Std = perms::PermTuple<axis_06::StdMalloc>;
+    using P_Mi  = perms::PermTuple<axis_06::MimallocAllocator>;
+    using P_Pmr = perms::PermTuple<axis_06::PmrResourceAllocator>;
 
     constexpr auto h_std = P_Std::hash();
     constexpr auto h_mi  = P_Mi::hash();
@@ -790,7 +782,7 @@ TEST(V41_TopicAllocatorAxis06_Stufe4, PermTupleHashIsStableAndDistinct) {
 
     EXPECT_NE(h_std, h_mi);
     EXPECT_NE(h_std, h_pmr);
-    EXPECT_NE(h_mi,  h_pmr);
+    EXPECT_NE(h_mi, h_pmr);
 
     // Stabilitaet: 2x Aufruf liefert gleichen Hash
     EXPECT_EQ(h_std, P_Std::hash());
@@ -800,30 +792,25 @@ TEST(V41_TopicAllocatorAxis06_Stufe4, PermTupleHashIsStableAndDistinct) {
 TEST(V41_TopicAllocatorAxis06_Stufe4, MinOneVendorPerAxisConstraintLive) {
     using Engine = perms::PermutationEngine<alloc::TopicConfigSet>;
     static_assert(Engine::non_empty_axis_count == Engine::arity,
-        "alle Achsen muessen min. 1 Vendor haben (sonst greift Static-Assert)");
+                  "alle Achsen muessen min. 1 Vendor haben (sonst greift Static-Assert)");
     EXPECT_EQ(Engine::non_empty_axis_count, Engine::arity);
 }
 
 // (f) for_each_filtered mit AlwaysTrue == identisch mit for_each_permutation
 TEST(V41_TopicAllocatorAxis06_Stufe4, FilterAlwaysTrueIsAllPermutations) {
-    using Engine = perms::PermutationEngine<alloc::TopicConfigSet>;
+    using Engine       = perms::PermutationEngine<alloc::TopicConfigSet>;
     int filtered_count = 0;
-    Engine::for_each_filtered<perms::AlwaysTrue>([&filtered_count]<class>(){
-        ++filtered_count;
-    });
+    Engine::for_each_filtered<perms::AlwaysTrue>([&filtered_count]<class>() { ++filtered_count; });
     EXPECT_EQ(static_cast<std::size_t>(filtered_count), Engine::count());
 }
 
 // (g) for_each_filtered mit AlwaysFalse = 0 Aufrufe
 TEST(V41_TopicAllocatorAxis06_Stufe4, FilterAlwaysFalseIsZero) {
-    using Engine = perms::PermutationEngine<alloc::TopicConfigSet>;
+    using Engine       = perms::PermutationEngine<alloc::TopicConfigSet>;
     int filtered_count = 0;
-    Engine::for_each_filtered<perms::AlwaysFalse>([&filtered_count]<class>(){
-        ++filtered_count;
-    });
+    Engine::for_each_filtered<perms::AlwaysFalse>([&filtered_count]<class>() { ++filtered_count; });
     EXPECT_EQ(filtered_count, 0);
-    static_assert(Engine::count_filtered<perms::AlwaysFalse>() == 0,
-        "Diagnose-Counter mit AlwaysFalse muss 0 sein");
+    static_assert(Engine::count_filtered<perms::AlwaysFalse>() == 0, "Diagnose-Counter mit AlwaysFalse muss 0 sein");
 }
 
 // (h) AxisFullJoin (Stufe 3 Skelett): mp_append + mp_unique
@@ -831,11 +818,10 @@ TEST(V41_TopicAllocatorAxis06_Stufe4, AxisFullJoinDeduplicatesVariants) {
     namespace mp = boost::mp11;
     // Beispiel: cache-engine Defaults + 1 Pruefling der StdMalloc auch nutzt
     using DefaultList   = mp::mp_list<axis_06::StdMalloc, axis_06::MimallocAllocator>;
-    using PrueflingList = mp::mp_list<axis_06::StdMalloc, axis_06::SnmallocAllocator>;  // StdMalloc doppelt
-    using Joined = perms::AxisFullJoin<DefaultList, PrueflingList>;
+    using PrueflingList = mp::mp_list<axis_06::StdMalloc, axis_06::SnmallocAllocator>; // StdMalloc doppelt
+    using Joined        = perms::AxisFullJoin<DefaultList, PrueflingList>;
     // mp_unique entfernt das doppelte StdMalloc -> 3 statt 4
-    static_assert(mp::mp_size<Joined>::value == 3,
-        "AxisFullJoin muss Duplikate via mp_unique entfernen");
+    static_assert(mp::mp_size<Joined>::value == 3, "AxisFullJoin muss Duplikate via mp_unique entfernen");
     SUCCEED();
 }
 
@@ -846,7 +832,7 @@ TEST(V41_TopicAllocatorAxis06_Stufe4, AxisFullJoinDeduplicatesVariants) {
 // Mock-Vendor mit iterable_aspect_t (nur fuer Tests, kein Production-Code)
 struct ThresholdedAllocatorMock {
     using iterable_aspect_t = std::size_t;
-    static constexpr std::array<std::size_t, 5> values{16u, 64u, 256u, 1024u, 4096u};
+    static constexpr std::array<std::size_t, 5>   values{16u, 64u, 256u, 1024u, 4096u};
     static constexpr std::span<std::size_t const> iterable_values() noexcept {
         return std::span<std::size_t const>{values.data(), values.size()};
     }
@@ -861,30 +847,24 @@ struct PlainAllocatorMock {
 // (a) HasIterableAspect Concept erkennt korrekt
 TEST(V41_TopicAllocatorAxis06_Stufe5, HasIterableAspectConceptDetection) {
     static_assert(perms::HasIterableAspect<ThresholdedAllocatorMock>,
-        "ThresholdedAllocatorMock erfuellt HasIterableAspect");
-    static_assert(!perms::HasIterableAspect<PlainAllocatorMock>,
-        "PlainAllocatorMock erfuellt HasIterableAspect NICHT");
+                  "ThresholdedAllocatorMock erfuellt HasIterableAspect");
+    static_assert(!perms::HasIterableAspect<PlainAllocatorMock>, "PlainAllocatorMock erfuellt HasIterableAspect NICHT");
     // Echte Wrapper haben heute KEIN iterable_aspect_t
-    static_assert(!perms::HasIterableAspect<axis_06::StdMalloc>,
-        "StdMalloc hat heute keinen iterable_aspect_t");
+    static_assert(!perms::HasIterableAspect<axis_06::StdMalloc>, "StdMalloc hat heute keinen iterable_aspect_t");
     SUCCEED();
 }
 
 // (b) aspect_count<V>() liefert 1 fuer Plain, N fuer Iterable
 TEST(V41_TopicAllocatorAxis06_Stufe5, AspectCountForPlainAndIterable) {
-    static_assert(perms::aspect_count<PlainAllocatorMock>() == 1u,
-        "Plain Vendor hat aspect_count 1 (Default)");
-    static_assert(perms::aspect_count<ThresholdedAllocatorMock>() == 5u,
-        "Thresholded Vendor hat 5 iterable_values");
+    static_assert(perms::aspect_count<PlainAllocatorMock>() == 1u, "Plain Vendor hat aspect_count 1 (Default)");
+    static_assert(perms::aspect_count<ThresholdedAllocatorMock>() == 5u, "Thresholded Vendor hat 5 iterable_values");
     EXPECT_EQ(perms::aspect_count<axis_06::StdMalloc>(), 1u);
 }
 
 // (c) for_each_aspect ueber Iterable: 5 Iterationen mit unterschiedlichen Werten
 TEST(V41_TopicAllocatorAxis06_Stufe5, ForEachAspectIteratesAllValues) {
     std::vector<std::size_t> seen;
-    perms::for_each_aspect<ThresholdedAllocatorMock>([&seen](std::size_t v){
-        seen.push_back(v);
-    });
+    perms::for_each_aspect<ThresholdedAllocatorMock>([&seen](std::size_t v) { seen.push_back(v); });
     ASSERT_EQ(seen.size(), 5u);
     EXPECT_EQ(seen[0], 16u);
     EXPECT_EQ(seen[1], 64u);
@@ -896,9 +876,7 @@ TEST(V41_TopicAllocatorAxis06_Stufe5, ForEachAspectIteratesAllValues) {
 // (d) for_each_aspect ueber Plain: 1 Aufruf ohne Argument
 TEST(V41_TopicAllocatorAxis06_Stufe5, ForEachAspectPlainSingleCall) {
     int call_count = 0;
-    perms::for_each_aspect<PlainAllocatorMock>([&call_count](){
-        ++call_count;
-    });
+    perms::for_each_aspect<PlainAllocatorMock>([&call_count]() { ++call_count; });
     EXPECT_EQ(call_count, 1);
 }
 
@@ -906,16 +884,14 @@ TEST(V41_TopicAllocatorAxis06_Stufe5, ForEachAspectPlainSingleCall) {
 TEST(V41_TopicAllocatorAxis06_Stufe5, HybridStaticAndDynamicCombo) {
     // Realer Use-Case: PermutationEngine iteriert statisch, innerhalb jeder
     // Iteration wird for_each_aspect runtime-mal aufgerufen.
-    using Engine = perms::PermutationEngine<alloc::TopicConfigSet>;
+    using Engine           = perms::PermutationEngine<alloc::TopicConfigSet>;
     int total_measurements = 0;
 
-    Engine::for_each_permutation([&total_measurements]<class P>(){
+    Engine::for_each_permutation([&total_measurements]<class P>() {
         // P::variants ist mp_list aus Achs-Vendors. Hier nur 1 Achse (allocator),
         // also wir nehmen den ersten Vendor und iterieren seinen Aspekt.
         using FirstVendor = boost::mp11::mp_at_c<typename P::variants, 0>;
-        perms::for_each_aspect<FirstVendor>([&total_measurements](auto...){
-            ++total_measurements;
-        });
+        perms::for_each_aspect<FirstVendor>([&total_measurements](auto...) { ++total_measurements; });
     });
 
     // Erwartete Total-Mess-Reihen = sum_over_permutations(aspect_count_of_each)
@@ -930,10 +906,10 @@ TEST(V41_TopicAllocatorAxis06_Stufe5, HybridStaticAndDynamicCombo) {
 
 // (a) Wrapper flag_suffix() ist Pflicht-Konvention
 TEST(V41_TopicAllocatorAxis06_Stufe6, WrapperHasFlagSuffix) {
-    static_assert(axis_06::StdMalloc::flag_suffix()             == "STD");
-    static_assert(axis_06::MimallocAllocator::flag_suffix()     == "MIMALLOC");
-    static_assert(axis_06::SnmallocAllocator::flag_suffix()     == "SNMALLOC");
-    static_assert(axis_06::PmrResourceAllocator::flag_suffix()  == "PMR");
+    static_assert(axis_06::StdMalloc::flag_suffix() == "STD");
+    static_assert(axis_06::MimallocAllocator::flag_suffix() == "MIMALLOC");
+    static_assert(axis_06::SnmallocAllocator::flag_suffix() == "SNMALLOC");
+    static_assert(axis_06::PmrResourceAllocator::flag_suffix() == "PMR");
     SUCCEED();
 }
 
@@ -949,7 +925,7 @@ TEST(V41_TopicAllocatorAxis06_Stufe6, HashToHexFormat) {
 
 // (c) build_cmake_invocation_prefix mit deterministischem Hash
 TEST(V41_TopicAllocatorAxis06_Stufe6, CmakeInvocationPrefix) {
-    using P = perms::PermTuple<axis_06::StdMalloc>;
+    using P         = perms::PermTuple<axis_06::StdMalloc>;
     std::string cmd = perms::build_cmake_invocation_prefix<P>("/src", "/out");
     EXPECT_TRUE(cmd.starts_with("cmake -B /out/perm_"));
     EXPECT_TRUE(cmd.ends_with(" -S /src"));
@@ -960,29 +936,28 @@ TEST(V41_TopicAllocatorAxis06_Stufe6, CmakeInvocationPrefix) {
 
 // (d) emit_axis_flags: StdMalloc selected = STD=ON, andere=OFF
 TEST(V41_TopicAllocatorAxis06_Stufe6, EmitAxisFlagsStdSelected) {
-    std::string flags = perms::emit_axis_flags<axis_06::StdMalloc, axis_06::AllVendors>(
-        "COMDARE_AXIS_06_ENABLE");
-    EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_STD=ON"),       std::string::npos);
+    std::string flags = perms::emit_axis_flags<axis_06::StdMalloc, axis_06::AllVendors>("COMDARE_AXIS_06_ENABLE");
+    EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_STD=ON"), std::string::npos);
     EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_MIMALLOC=OFF"), std::string::npos);
     EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_SNMALLOC=OFF"), std::string::npos);
-    EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_PMR=OFF"),      std::string::npos);
+    EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_PMR=OFF"), std::string::npos);
     // STD nicht =OFF
-    EXPECT_EQ(flags.find(" -DCOMDARE_AXIS_06_ENABLE_STD=OFF"),      std::string::npos);
+    EXPECT_EQ(flags.find(" -DCOMDARE_AXIS_06_ENABLE_STD=OFF"), std::string::npos);
 }
 
 // (e) emit_axis_flags: Mimalloc selected
 TEST(V41_TopicAllocatorAxis06_Stufe6, EmitAxisFlagsMimallocSelected) {
-    std::string flags = perms::emit_axis_flags<axis_06::MimallocAllocator, axis_06::AllVendors>(
-        "COMDARE_AXIS_06_ENABLE");
-    EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_MIMALLOC=ON"),  std::string::npos);
-    EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_STD=OFF"),      std::string::npos);
+    std::string flags =
+        perms::emit_axis_flags<axis_06::MimallocAllocator, axis_06::AllVendors>("COMDARE_AXIS_06_ENABLE");
+    EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_MIMALLOC=ON"), std::string::npos);
+    EXPECT_NE(flags.find(" -DCOMDARE_AXIS_06_ENABLE_STD=OFF"), std::string::npos);
 }
 
 // (f) build_cmake_command_for_single_topic: voller Befehl
 TEST(V41_TopicAllocatorAxis06_Stufe6, FullCmakeCommandSingleTopic) {
-    using P_Std = perms::PermTuple<axis_06::StdMalloc>;
-    std::string cmd = perms::build_cmake_command_for_single_topic<P_Std, axis_06::AllVendors>(
-        "/src", "/out", "COMDARE_AXIS_06_ENABLE");
+    using P_Std     = perms::PermTuple<axis_06::StdMalloc>;
+    std::string cmd = perms::build_cmake_command_for_single_topic<P_Std, axis_06::AllVendors>("/src", "/out",
+                                                                                              "COMDARE_AXIS_06_ENABLE");
 
     EXPECT_TRUE(cmd.starts_with("cmake -B /out/perm_"));
     EXPECT_NE(cmd.find(" -S /src"), std::string::npos);
@@ -994,16 +969,13 @@ TEST(V41_TopicAllocatorAxis06_Stufe6, FullCmakeCommandSingleTopic) {
 TEST(V41_TopicAllocatorAxis06_Stufe6, EngineAndCliBuilderCombo) {
     using Engine = perms::PermutationEngine<alloc::TopicConfigSet>;
     std::vector<std::string> commands;
-    Engine::for_each_permutation([&commands]<class P>(){
-        commands.push_back(
-            perms::build_cmake_command_for_single_topic<P, axis_06::AllVendors>(
-                "/src", "/out", "COMDARE_AXIS_06_ENABLE"));
+    Engine::for_each_permutation([&commands]<class P>() {
+        commands.push_back(perms::build_cmake_command_for_single_topic<P, axis_06::AllVendors>(
+            "/src", "/out", "COMDARE_AXIS_06_ENABLE"));
     });
     EXPECT_EQ(commands.size(), Engine::count());
     // Jeder Command beginnt mit cmake -B
-    for (auto const& c : commands) {
-        EXPECT_TRUE(c.starts_with("cmake -B "));
-    }
+    for (auto const& c : commands) { EXPECT_TRUE(c.starts_with("cmake -B ")); }
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -1027,7 +999,7 @@ TEST(V41_TopicAllocatorAxis06_Batch2, EngineCountIncludesBatch2) {
     // EnabledVendors haengt von CMake-Flags ab. build-pilot: Std + PMR + Je + Tc + Dl
     // (HAVE=0 fuer Mimalloc/Snmalloc, aber JE/TC/DL haben jetzt HAVE=0 default — siehe nachsten Test)
     constexpr auto cnt = Engine::count();
-    EXPECT_GE(cnt, 1u);  // mindestens Std + PMR
+    EXPECT_GE(cnt, 1u); // mindestens Std + PMR
     // EnabledVendors muss == AllVendors haben WENN alle ENABLE=ON UND HAVE=ON (production build)
     // build-pilot: nur Std + PMR HAVE=ON (Batch 2 alle HAVE=OFF → USE=OFF)
 }
@@ -1038,10 +1010,10 @@ TEST(V41_TopicAllocatorAxis06_Batch2, EngineCountIncludesBatch2) {
 // =================================================================
 
 TEST(V41_TopicAllocatorAxis06_Adapter, AsStdAllocatorBacksStdVector) {
-    axis_06::StdMalloc a{};
-    auto alloc = a.as_std_allocator<int>();
+    axis_06::StdMalloc                a{};
+    auto                              alloc = a.as_std_allocator<int>();
     std::vector<int, decltype(alloc)> v{alloc};
-    for (int i = 0; i < 1000; ++i) v.push_back(i);  // erzwingt mehrere Reallocs via Achsen-Strategie
+    for (int i = 0; i < 1000; ++i) v.push_back(i); // erzwingt mehrere Reallocs via Achsen-Strategie
     ASSERT_EQ(v.size(), 1000u);
     EXPECT_EQ(v.front(), 0);
     EXPECT_EQ(v.back(), 999);
@@ -1050,28 +1022,28 @@ TEST(V41_TopicAllocatorAxis06_Adapter, AsStdAllocatorBacksStdVector) {
 
 TEST(V41_TopicAllocatorAxis06_Adapter, StdAllocatorRebindAndEquality) {
     axis_06::StdMalloc a{};
-    auto ai = a.as_std_allocator<int>();
+    auto               ai = a.as_std_allocator<int>();
     // Rebind int -> double via allocator_traits + Converting-Ctor
     using AllocDouble = std::allocator_traits<decltype(ai)>::rebind_alloc<double>;
     AllocDouble ad{ai};
-    EXPECT_TRUE(ai == ad);   // gleiche zugrundeliegende Strategie
+    EXPECT_TRUE(ai == ad); // gleiche zugrundeliegende Strategie
     axis_06::StdMalloc b{};
-    auto bi = b.as_std_allocator<int>();
-    EXPECT_FALSE(ai == bi);  // verschiedene Strategie-Instanzen
+    auto               bi = b.as_std_allocator<int>();
+    EXPECT_FALSE(ai == bi); // verschiedene Strategie-Instanzen
 }
 
 TEST(V41_TopicAllocatorAxis06_Adapter, AsPmrResourceBacksPmrVector) {
-    axis_06::StdMalloc a{};
-    auto res = a.as_pmr_resource();   // Wert; Aufrufer haelt ihn am Leben
+    axis_06::StdMalloc              a{};
+    auto                            res = a.as_pmr_resource(); // Wert; Aufrufer haelt ihn am Leben
     std::pmr::vector<std::uint64_t> v{&res};
     for (std::uint64_t i = 0; i < 500; ++i) v.push_back(i * 2u);
     ASSERT_EQ(v.size(), 500u);
     EXPECT_EQ(v[10], 20u);
     EXPECT_EQ(v.back(), 998u);
     // do_is_equal: dieselbe Strategie → gleich; andere Strategie → ungleich.
-    auto res_same  = a.as_pmr_resource();
+    auto               res_same = a.as_pmr_resource();
     axis_06::StdMalloc b{};
-    auto res_other = b.as_pmr_resource();
+    auto               res_other = b.as_pmr_resource();
     EXPECT_TRUE(res.is_equal(res_same));
     EXPECT_FALSE(res.is_equal(res_other));
 }
@@ -1082,21 +1054,21 @@ TEST(V41_TopicAllocatorAxis06_Adapter, AsPmrResourceBacksPmrVector) {
 TEST(V41_TopicAllocatorAxis06_Pool, OwnsDistinctPoolAndRoundtrips) {
     axis_06::PoolResourceAllocator a{};
     EXPECT_TRUE(axis_06::PoolResourceAllocator::supports_pmr());
-    EXPECT_FALSE(axis_06::PoolResourceAllocator::is_thread_safe());  // unsynchronized
+    EXPECT_FALSE(axis_06::PoolResourceAllocator::is_thread_safe()); // unsynchronized
     EXPECT_EQ(axis_06::PoolResourceAllocator::name(), std::string_view{"pool_resource"});
     ASSERT_NE(a.underlying_resource(), nullptr);
 
     // Pool-Roundtrip mit vielen kleinen, gleichgrossen Allokationen (Size-Class-Wiederverwendung).
     constexpr std::size_t kBytes = 64, kAlign = 16, kN = 1000;
-    std::vector<void*> ptrs;
+    std::vector<void*>    ptrs;
     ptrs.reserve(kN);
     for (std::size_t i = 0; i < kN; ++i) {
         void* p = a.allocate(kBytes, kAlign);
         ASSERT_NE(p, nullptr);
-        std::memset(p, 0xAB, kBytes);   // Speicher wirklich anfassen
+        std::memset(p, 0xAB, kBytes); // Speicher wirklich anfassen
         ptrs.push_back(p);
     }
-    for (void* p : ptrs) a.deallocate(p, kBytes, kAlign);  // zurueck in die Pool-Free-Lists
+    for (void* p : ptrs) a.deallocate(p, kBytes, kAlign); // zurueck in die Pool-Free-Lists
     // Nach Freigabe erneut allokieren → Pool bedient aus wiederverwendeten Bloecken (kein Crash).
     void* reuse = a.allocate(kBytes, kAlign);
     ASSERT_NE(reuse, nullptr);
@@ -1107,10 +1079,10 @@ TEST(V41_TopicAllocatorAxis06_Pool, OwnsDistinctPoolAndRoundtrips) {
 // eine Kopie TEILT den Pool (gleich) — korrekte PMR-Semantik fuer einen stateful Allocator.
 TEST(V41_TopicAllocatorAxis06_Pool, CopySharesPoolDistinctInstancesDiffer) {
     axis_06::PoolResourceAllocator a{};
-    axis_06::PoolResourceAllocator a_copy{a};   // teilt den shared_ptr-Pool
-    axis_06::PoolResourceAllocator b{};         // eigener, anderer Pool
-    EXPECT_TRUE(a == a_copy);                   // gleicher Pool
-    EXPECT_FALSE(a == b);                        // verschiedene Pools
+    axis_06::PoolResourceAllocator a_copy{a}; // teilt den shared_ptr-Pool
+    axis_06::PoolResourceAllocator b{};       // eigener, anderer Pool
+    EXPECT_TRUE(a == a_copy);                 // gleicher Pool
+    EXPECT_FALSE(a == b);                     // verschiedene Pools
     EXPECT_EQ(a.underlying_resource(), a_copy.underlying_resource());
     EXPECT_NE(a.underlying_resource(), b.underlying_resource());
 }

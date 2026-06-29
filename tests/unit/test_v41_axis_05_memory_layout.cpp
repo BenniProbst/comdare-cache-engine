@@ -99,9 +99,9 @@ TEST(R7_1_b_Axis05, AllWrappersSatisfyCacheEnginePermutationConcept) {
 
 TEST(R7_1_b_Axis05, SubaxesTagsAreOrthogonal) {
     static_assert(std::is_same_v<ax05::CacheLineAlignedMemoryLayout::axis_tag, ax05::subaxes::alignment_strategy_tag>);
-    static_assert(std::is_same_v<ax05::AoSStrictMemoryLayout::axis_tag,        ax05::subaxes::data_organization_tag>);
-    static_assert(std::is_same_v<ax05::SoAMemoryLayout::axis_tag,              ax05::subaxes::data_organization_tag>);
-    static_assert(std::is_same_v<ax05::PackedBitmapMemoryLayout::axis_tag,     ax05::subaxes::packing_density_tag>);
+    static_assert(std::is_same_v<ax05::AoSStrictMemoryLayout::axis_tag, ax05::subaxes::data_organization_tag>);
+    static_assert(std::is_same_v<ax05::SoAMemoryLayout::axis_tag, ax05::subaxes::data_organization_tag>);
+    static_assert(std::is_same_v<ax05::PackedBitmapMemoryLayout::axis_tag, ax05::subaxes::packing_density_tag>);
     SUCCEED();
 }
 
@@ -111,9 +111,9 @@ TEST(R7_1_b_Axis05, SubaxesTagsAreOrthogonal) {
 
 TEST(R7_1_b_Axis05, FlagSuffixUppercase) {
     static_assert(ax05::CacheLineAlignedMemoryLayout::flag_suffix() == std::string_view{"CACHE_LINE_ALIGNED"});
-    static_assert(ax05::AoSStrictMemoryLayout::flag_suffix()        == std::string_view{"AOS_STRICT"});
-    static_assert(ax05::SoAMemoryLayout::flag_suffix()              == std::string_view{"SOA"});
-    static_assert(ax05::PackedBitmapMemoryLayout::flag_suffix()     == std::string_view{"PACKED_BITMAP"});
+    static_assert(ax05::AoSStrictMemoryLayout::flag_suffix() == std::string_view{"AOS_STRICT"});
+    static_assert(ax05::SoAMemoryLayout::flag_suffix() == std::string_view{"SOA"});
+    static_assert(ax05::PackedBitmapMemoryLayout::flag_suffix() == std::string_view{"PACKED_BITMAP"});
     SUCCEED();
 }
 
@@ -122,7 +122,7 @@ TEST(R7_1_b_Axis05, FlagSuffixUppercase) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R7_1_b_Axis05, AllLayoutsContainsFiveWrappers) {
-    static_assert(mp::mp_size<ax05::AllLayouts>::value == 5);  // + AoSoA (A4, 2026-05-29)
+    static_assert(mp::mp_size<ax05::AllLayouts>::value == 5); // + AoSoA (A4, 2026-05-29)
     SUCCEED();
 }
 
@@ -130,11 +130,11 @@ TEST(R7_1_b_Axis05, AllLayoutsContainsFiveWrappers) {
 TEST(R7_1_b_Axis05, AoSoAHybridLayoutProperties) {
     static_assert(ax05::concepts::MemoryLayoutStrategy<ax05::AoSoAMemoryLayout>);
     static_assert(ax05::concepts::CacheEnginePermutationStrategy<ax05::AoSoAMemoryLayout>);
-    static_assert(ax05::AoSoAMemoryLayout::name()        == std::string_view{"memory_layout_aosoa"});
+    static_assert(ax05::AoSoAMemoryLayout::name() == std::string_view{"memory_layout_aosoa"});
     static_assert(ax05::AoSoAMemoryLayout::flag_suffix() == std::string_view{"AOSOA"});
     static_assert(ax05::AoSoAMemoryLayout::cache_line_size() == 64);
-    static_assert(ax05::AoSoAMemoryLayout::block_width()     == 8);   // AVX2-u64-Lane-Zahl
-    static_assert(ax05::AoSoAMemoryLayout::family_id::value  == 5);
+    static_assert(ax05::AoSoAMemoryLayout::block_width() == 8); // AVX2-u64-Lane-Zahl
+    static_assert(ax05::AoSoAMemoryLayout::family_id::value == 5);
     static_assert(std::is_same_v<ax05::AoSoAMemoryLayout::axis_tag, ax05::subaxes::data_organization_tag>);
     SUCCEED();
 }
@@ -150,10 +150,11 @@ TEST(R7_1_b_Axis05, EnabledLayoutsIsNonEmpty) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R7_1_b_Axis05, IsEnabledPredicateMatchesWrapperFlag) {
-    static_assert(ax05::is_enabled<ax05::CacheLineAlignedMemoryLayout>::value == ax05::CacheLineAlignedMemoryLayout::enabled);
-    static_assert(ax05::is_enabled<ax05::AoSStrictMemoryLayout>::value        == ax05::AoSStrictMemoryLayout::enabled);
-    static_assert(ax05::is_enabled<ax05::SoAMemoryLayout>::value              == ax05::SoAMemoryLayout::enabled);
-    static_assert(ax05::is_enabled<ax05::PackedBitmapMemoryLayout>::value     == ax05::PackedBitmapMemoryLayout::enabled);
+    static_assert(ax05::is_enabled<ax05::CacheLineAlignedMemoryLayout>::value ==
+                  ax05::CacheLineAlignedMemoryLayout::enabled);
+    static_assert(ax05::is_enabled<ax05::AoSStrictMemoryLayout>::value == ax05::AoSStrictMemoryLayout::enabled);
+    static_assert(ax05::is_enabled<ax05::SoAMemoryLayout>::value == ax05::SoAMemoryLayout::enabled);
+    static_assert(ax05::is_enabled<ax05::PackedBitmapMemoryLayout>::value == ax05::PackedBitmapMemoryLayout::enabled);
     SUCCEED();
 }
 
@@ -163,9 +164,9 @@ TEST(R7_1_b_Axis05, IsEnabledPredicateMatchesWrapperFlag) {
 
 TEST(R7_1_b_Axis05, FlagsHeaderProvidesAllFourLayouts) {
     static_assert(std::is_same_v<decltype(ax05::flags::cache_line_aligned_enabled), const bool>);
-    static_assert(std::is_same_v<decltype(ax05::flags::aos_strict_enabled),         const bool>);
-    static_assert(std::is_same_v<decltype(ax05::flags::soa_enabled),                const bool>);
-    static_assert(std::is_same_v<decltype(ax05::flags::packed_bitmap_enabled),      const bool>);
+    static_assert(std::is_same_v<decltype(ax05::flags::aos_strict_enabled), const bool>);
+    static_assert(std::is_same_v<decltype(ax05::flags::soa_enabled), const bool>);
+    static_assert(std::is_same_v<decltype(ax05::flags::packed_bitmap_enabled), const bool>);
     SUCCEED();
 }
 
@@ -176,8 +177,7 @@ TEST(R7_1_b_Axis05, FlagsHeaderProvidesAllFourLayouts) {
 TEST(R7_1_b_MemoryLayout, TopicConfigSetExposesAxis05) {
     static_assert(mp::mp_size<ml::TopicConfigSet::StaticAxisVariants_05>::value > 0);
     // Default = axis_05 (einzige Achse im Topic)
-    static_assert(std::is_same_v<ml::TopicConfigSet::StaticAxisVariants,
-                                  ml::TopicConfigSet::StaticAxisVariants_05>);
+    static_assert(std::is_same_v<ml::TopicConfigSet::StaticAxisVariants, ml::TopicConfigSet::StaticAxisVariants_05>);
     SUCCEED();
 }
 
@@ -194,9 +194,9 @@ TEST(R7_1_b_MemoryLayout, AllFourLayoutsInstantiable) {
 // geprueft, dass scan_field_sum exakt die Summe sum(i+1)=n(n+1)/2 liefert. Damit ist die neue
 // Laufzeit-API (die die Achse F15-operativ macht) als korrekt verifiziert.
 TEST(R5B_Axis05_ScanFieldSum, EachLayoutReadsItsCharacteristicPattern) {
-    constexpr std::size_t n = 64;                 // Vielfaches von 8 (AoSoA-Block)
-    constexpr std::size_t record_size = 64;
-    constexpr std::uint64_t expected = (std::uint64_t{n} * (n + 1)) / 2;  // 2080
+    constexpr std::size_t      n           = 64; // Vielfaches von 8 (AoSoA-Block)
+    constexpr std::size_t      record_size = 64;
+    constexpr std::uint64_t    expected    = (std::uint64_t{n} * (n + 1)) / 2; // 2080
     std::vector<unsigned char> buf(n * record_size, 0u);
 
     auto put32 = [&](std::size_t off, std::uint32_t v) { std::memcpy(buf.data() + off, &v, sizeof(v)); };

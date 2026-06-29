@@ -45,20 +45,22 @@ public:
     using size_type    = std::size_t;
     using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag     = subaxes::ordered_access_tag;
-    using family_id    = std::integral_constant<int, 8>;  // Q08
+    using family_id    = std::integral_constant<int, 8>; // Q08
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }  // unbounded
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "skiplist_buffer"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "SkiplistBuffer (LSM MemTable — RocksDB/LevelDB, Pugh CACM 1990)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "SKIPLIST_BUFFER"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "skiplist_buffer"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "SkiplistBuffer (LSM MemTable — RocksDB/LevelDB, Pugh CACM 1990)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "SKIPLIST_BUFFER"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_concurrent_consumers() noexcept { return false; }
     /// SONDERFALL: ordered_access mit min-first Drain (LSM-Compact-Semantik).
-    [[nodiscard]] static constexpr bool supports_priority_ordering()    noexcept { return true; }
-    [[nodiscard]] static constexpr bool is_versioned()                  noexcept { return false; }
+    [[nodiscard]] static constexpr bool                        supports_priority_ordering() noexcept { return true; }
+    [[nodiscard]] static constexpr bool                        is_versioned() noexcept { return false; }
     [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
         return concepts::ProgressGuarantee::Blocking;
     }
@@ -89,8 +91,8 @@ public:
 #endif
             return std::nullopt;
         }
-        auto it = data_.begin();
-        element_type v = *it;
+        auto         it = data_.begin();
+        element_type v  = *it;
         data_.erase(it);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_get_count;
@@ -99,9 +101,9 @@ public:
         return v;
     }
 
-    [[nodiscard]] size_type size()     const noexcept { return data_.size(); }
+    [[nodiscard]] size_type size() const noexcept { return data_.size(); }
     [[nodiscard]] bool      is_empty() const noexcept { return data_.empty(); }
-    void                    clear()          noexcept { data_.clear(); }
+    void                    clear() noexcept { data_.clear(); }
 
     // Skiplist-spezifisch: peek_front=min (was als naechstes get() liefert), peek_back=max.
     [[nodiscard]] std::optional<element_type> peek_front() const noexcept {
@@ -118,23 +120,26 @@ public:
     using snapshot_t = concepts::BufferStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
     std::set<element_type> data_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
-    observer_t observer_{};
+    observer_t                 observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<SkiplistBuffer>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<SkiplistBuffer>);
-}
+static_assert(concepts::BufferStrategy<SkiplistBuffer>);
+static_assert(concepts::CacheEngineBufferPermutationStrategy<SkiplistBuffer>);
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing

@@ -26,12 +26,14 @@ public:
 
     static constexpr bool enabled = flags::aarch64_enabled;
 
-    [[nodiscard]] static constexpr bool             is_64bit()             noexcept { return true; }
-    [[nodiscard]] static constexpr std::string_view cpu_family()           noexcept { return "aarch64"; }
-    [[nodiscard]] static constexpr bool             supports_native_simd() noexcept { return true; }  // NEON baseline
-    [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "isa_aarch64"; }
-    [[nodiscard]] static constexpr std::string_view family_name()          noexcept { return "Aarch64Isa (ARMv8-A 64-bit, ZIH Grace Hopper GH200, Apple M/Graviton)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()          noexcept { return "AARCH64"; }
+    [[nodiscard]] static constexpr bool             is_64bit() noexcept { return true; }
+    [[nodiscard]] static constexpr std::string_view cpu_family() noexcept { return "aarch64"; }
+    [[nodiscard]] static constexpr bool             supports_native_simd() noexcept { return true; } // NEON baseline
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "isa_aarch64"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "Aarch64Isa (ARMv8-A 64-bit, ZIH Grace Hopper GH200, Apple M/Graviton)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "AARCH64"; }
 
     // V41.F.6.1 — verhaltens-tragende Laufzeit-API (ISA-Achse T12 F15-operativ, Goldstandard-Signatur).
     // EHRLICHE KENNZEICHNUNG: Der NEON-Vektorpfad existiert nur auf echten ARMv8-Hosts; der
@@ -39,17 +41,19 @@ public:
     // (4 Lanes von Hand entrollt, modelliert die NEON-4×32-bit-Lane-Breite ohne ARM-Intrinsics).
     // Das ist KEINE erfundene Konstante: die Summe ist strategie-/datenabhaengig und erzeugt eine
     // reale, vom Amd64-SSE2-Pfad messbar abweichende Laufzeit (skalar statt vektorisiert).
-    [[nodiscard]] static std::uint64_t simd_field_sum(unsigned char const* buf,
-                                                      std::size_t n) noexcept {
+    [[nodiscard]] static std::uint64_t simd_field_sum(unsigned char const* buf, std::size_t n) noexcept {
         std::uint64_t l0 = 0, l1 = 0, l2 = 0, l3 = 0;
-        std::size_t i = 0;
-        for (; i + 4 <= n; i += 4) {  // 4-fach entrollt = NEON-Lane-Breite (skalarer Fallback)
+        std::size_t   i = 0;
+        for (; i + 4 <= n; i += 4) { // 4-fach entrollt = NEON-Lane-Breite (skalarer Fallback)
             std::uint32_t v0, v1, v2, v3;
             std::memcpy(&v0, buf + (i + 0) * 4, sizeof(v0));
             std::memcpy(&v1, buf + (i + 1) * 4, sizeof(v1));
             std::memcpy(&v2, buf + (i + 2) * 4, sizeof(v2));
             std::memcpy(&v3, buf + (i + 3) * 4, sizeof(v3));
-            l0 += v0; l1 += v1; l2 += v2; l3 += v3;
+            l0 += v0;
+            l1 += v1;
+            l2 += v2;
+            l3 += v3;
         }
         std::uint64_t s = l0 + l1 + l2 + l3;
         for (; i < n; ++i) {
@@ -61,9 +65,9 @@ public:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::simd
 
 namespace comdare::cache_engine::simd {
-    static_assert(concepts::IsaStrategy<Aarch64Isa>);
-    static_assert(concepts::CacheEnginePermutationStrategy<Aarch64Isa>);
-}
+static_assert(concepts::IsaStrategy<Aarch64Isa>);
+static_assert(concepts::CacheEnginePermutationStrategy<Aarch64Isa>);
+} // namespace comdare::cache_engine::simd

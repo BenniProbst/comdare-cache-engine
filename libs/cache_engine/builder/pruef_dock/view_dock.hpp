@@ -10,8 +10,8 @@
 //
 // @related [[anatomie-gattungen]] [[gattungs-constraint-pruefling-merge]]
 
-#include "anatomy/view_anatomy.hpp"   // ViewAnatomy / ViewObserverSnapshot
-#include "anatomy/anatomy_base.hpp"   // AnatomyGenus
+#include "anatomy/view_anatomy.hpp" // ViewAnatomy / ViewObserverSnapshot
+#include "anatomy/anatomy_base.hpp" // AnatomyGenus
 
 #include <cstdint>
 #include <string>
@@ -26,7 +26,7 @@ class ViewDock {
 public:
     struct MeasureResult {
         ::comdare::cache_engine::anatomy::ViewObserverSnapshot observer{};
-        std::uint64_t total_ops = 0;
+        std::uint64_t                                          total_ops = 0;
     };
 
     /// Diese Dock-Seite bedient die View-Gattung (Doc 24 §8.8 Gattungs-Bindung).
@@ -44,17 +44,17 @@ public:
         ViewAnatomyT tier;
         tier.bind(buf.data(), buf.size());
         for (std::uint64_t i = 0; i < n_reads; ++i) (void)tier.read(i);
-        return MeasureResult{ tier.observe_all(), n_reads };
+        return MeasureResult{tier.observe_all(), n_reads};
     }
 
     /// Persistierung (Doc 24 §8.8 Schritt c): eine CSV-Zeile mit den korrelierten View-Observer-Werten.
     [[nodiscard]] static std::string serialize_csv(MeasureResult const& r) {
         std::string s = "genus,total_ops,read_count,read_oob,bound_size,bind_count\n";
-        s += "View," + std::to_string(r.total_ops) + ","
-           + std::to_string(r.observer.read_count) + "," + std::to_string(r.observer.read_oob_count) + ","
-           + std::to_string(r.observer.bound_size) + "," + std::to_string(r.observer.bind_count) + "\n";
+        s += "View," + std::to_string(r.total_ops) + "," + std::to_string(r.observer.read_count) + "," +
+             std::to_string(r.observer.read_oob_count) + "," + std::to_string(r.observer.bound_size) + "," +
+             std::to_string(r.observer.bind_count) + "\n";
         return s;
     }
 };
 
-}  // namespace comdare::cache_engine::builder::pruef_dock
+} // namespace comdare::cache_engine::builder::pruef_dock

@@ -26,7 +26,7 @@ namespace comdare::cache_engine::baustein {
 // Eine Achse = std::variant der angebotenen Konkretisierungen
 template <typename... Variants>
 struct algorithm_axis {
-    using variant_t = std::variant<Variants...>;
+    using variant_t                   = std::variant<Variants...>;
     static constexpr std::size_t size = sizeof...(Variants);
 };
 
@@ -44,50 +44,41 @@ struct full_join {
 };
 
 // 11-Achsen-Permutation als compile-time Tuple-of-Variants
-template <typename PageAxis,
-          typename NodeAxis,
-          typename TraversalAxis,
-          typename ValueHandleAxis,
-          typename ConcurrencyAxis,
-          typename AllocatorAxis,
-          typename PrefetchAxis    = algorithm_axis<>,  // optional
-          typename TelemetryAxis   = algorithm_axis<>,
-          typename IsaAxis         = algorithm_axis<>,
-          typename LayoutAxis      = algorithm_axis<>,
-          typename ReclamationAxis = algorithm_axis<>>
+template <typename PageAxis, typename NodeAxis, typename TraversalAxis, typename ValueHandleAxis,
+          typename ConcurrencyAxis, typename AllocatorAxis,
+          typename PrefetchAxis  = algorithm_axis<>, // optional
+          typename TelemetryAxis = algorithm_axis<>, typename IsaAxis = algorithm_axis<>,
+          typename LayoutAxis = algorithm_axis<>, typename ReclamationAxis = algorithm_axis<>>
 struct eleven_axes_permutation {
-    using page_v          = typename PageAxis::variant_t;
-    using node_v          = typename NodeAxis::variant_t;
-    using traversal_v     = typename TraversalAxis::variant_t;
-    using value_handle_v  = typename ValueHandleAxis::variant_t;
-    using concurrency_v   = typename ConcurrencyAxis::variant_t;
-    using allocator_v     = typename AllocatorAxis::variant_t;
-    using prefetch_v      = typename PrefetchAxis::variant_t;
-    using telemetry_v     = typename TelemetryAxis::variant_t;
-    using isa_v           = typename IsaAxis::variant_t;
-    using layout_v        = typename LayoutAxis::variant_t;
-    using reclamation_v   = typename ReclamationAxis::variant_t;
+    using page_v         = typename PageAxis::variant_t;
+    using node_v         = typename NodeAxis::variant_t;
+    using traversal_v    = typename TraversalAxis::variant_t;
+    using value_handle_v = typename ValueHandleAxis::variant_t;
+    using concurrency_v  = typename ConcurrencyAxis::variant_t;
+    using allocator_v    = typename AllocatorAxis::variant_t;
+    using prefetch_v     = typename PrefetchAxis::variant_t;
+    using telemetry_v    = typename TelemetryAxis::variant_t;
+    using isa_v          = typename IsaAxis::variant_t;
+    using layout_v       = typename LayoutAxis::variant_t;
+    using reclamation_v  = typename ReclamationAxis::variant_t;
 
-    page_v          page{};
-    node_v          node{};
-    traversal_v     traversal{};
-    value_handle_v  value_handle{};
-    concurrency_v   concurrency{};
-    allocator_v     allocator{};
-    prefetch_v      prefetch{};
-    telemetry_v     telemetry{};
-    isa_v           isa{};
-    layout_v        layout{};
-    reclamation_v   reclamation{};
+    page_v         page{};
+    node_v         node{};
+    traversal_v    traversal{};
+    value_handle_v value_handle{};
+    concurrency_v  concurrency{};
+    allocator_v    allocator{};
+    prefetch_v     prefetch{};
+    telemetry_v    telemetry{};
+    isa_v          isa{};
+    layout_v       layout{};
+    reclamation_v  reclamation{};
 
     static constexpr std::size_t total_permutations =
-        PageAxis::size * NodeAxis::size * TraversalAxis::size *
-        ValueHandleAxis::size * ConcurrencyAxis::size * AllocatorAxis::size *
-        (PrefetchAxis::size    > 0 ? PrefetchAxis::size    : 1) *
-        (TelemetryAxis::size   > 0 ? TelemetryAxis::size   : 1) *
-        (IsaAxis::size         > 0 ? IsaAxis::size         : 1) *
-        (LayoutAxis::size      > 0 ? LayoutAxis::size      : 1) *
-        (ReclamationAxis::size > 0 ? ReclamationAxis::size : 1);
+        PageAxis::size * NodeAxis::size * TraversalAxis::size * ValueHandleAxis::size * ConcurrencyAxis::size *
+        AllocatorAxis::size * (PrefetchAxis::size > 0 ? PrefetchAxis::size : 1) *
+        (TelemetryAxis::size > 0 ? TelemetryAxis::size : 1) * (IsaAxis::size > 0 ? IsaAxis::size : 1) *
+        (LayoutAxis::size > 0 ? LayoutAxis::size : 1) * (ReclamationAxis::size > 0 ? ReclamationAxis::size : 1);
 };
 
-}  // namespace comdare::cache_engine::baustein
+} // namespace comdare::cache_engine::baustein

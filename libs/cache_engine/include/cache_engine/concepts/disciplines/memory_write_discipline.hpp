@@ -26,17 +26,15 @@ public:
         return CoherenceAwareWriteDecisionTree::compute_cache_coherence_cost(w);
     }
 
-    [[nodiscard]] CoherenceAwareWriteDecisionTree& write_decision_tree() noexcept {
-        return tree_;
-    }
+    [[nodiscard]] CoherenceAwareWriteDecisionTree& write_decision_tree() noexcept { return tree_; }
 
-    [[nodiscard]] double last_cost() const noexcept { return last_cost_; }
+    [[nodiscard]] double            last_cost() const noexcept { return last_cost_; }
     [[nodiscard]] WriteEvent const& last_event() const noexcept { return last_event_; }
 
 private:
     CoherenceAwareWriteDecisionTree tree_{};
-    WriteEvent last_event_{};
-    double     last_cost_ = 0.0;
+    WriteEvent                      last_event_{};
+    double                          last_cost_ = 0.0;
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

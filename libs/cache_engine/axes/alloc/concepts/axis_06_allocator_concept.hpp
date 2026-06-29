@@ -73,22 +73,16 @@ namespace comdare::cache_engine::alloc::concepts {
  *   `reset()` ist KEIN free-Aequivalent — gehoert in Sub-Concept ResettableStrategy.
  */
 template <typename A>
-concept AllocatorStrategy =
-    ::comdare::cache_engine::allocator::concepts::AllocatorComponent<A>
-    && requires {
-        typename A::value_type;
-        typename A::size_type;
-    }
-    && requires(A a, void* p, std::size_t bytes, std::size_t align) {
-        // (2) Pflicht Runtime-API
-        { a.allocate(bytes, align) }                -> std::same_as<void*>;
-        { a.deallocate(p, bytes, align) } noexcept;
-    }
-    && requires(A const& a, A const& b) {
-        // (3) Identitaet
-        { a == b } -> std::convertible_to<bool>;
-    }
-    && std::copy_constructible<A>
-    && std::is_nothrow_destructible_v<A>;
+concept AllocatorStrategy = ::comdare::cache_engine::allocator::concepts::AllocatorComponent<A> && requires {
+    typename A::value_type;
+    typename A::size_type;
+} && requires(A a, void* p, std::size_t bytes, std::size_t align) {
+    // (2) Pflicht Runtime-API
+    { a.allocate(bytes, align) } -> std::same_as<void*>;
+    { a.deallocate(p, bytes, align) } noexcept;
+} && requires(A const& a, A const& b) {
+    // (3) Identitaet
+    { a == b } -> std::convertible_to<bool>;
+} && std::copy_constructible<A> && std::is_nothrow_destructible_v<A>;
 
-}  // namespace comdare::cache_engine::alloc::concepts
+} // namespace comdare::cache_engine::alloc::concepts

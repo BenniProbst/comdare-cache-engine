@@ -24,8 +24,8 @@ namespace comdare::cache_engine::alloc::concepts {
  * @brief AllocationResult - Pair von {Pointer, tatsaechliche Bytes}
  */
 struct AllocationResult {
-    void*        pointer;
-    std::size_t  actual_bytes;
+    void*       pointer;
+    std::size_t actual_bytes;
 };
 
 /**
@@ -38,9 +38,8 @@ struct AllocationResult {
  *         tcmalloc nallocx, snmalloc external sizes.
  */
 template <typename A>
-concept OverAllocatingStrategy = AllocatorStrategy<A>
-    && requires(A a, std::size_t bytes, std::size_t align) {
-        { a.allocate_at_least(bytes, align) } -> std::same_as<AllocationResult>;
-    };
+concept OverAllocatingStrategy = AllocatorStrategy<A> && requires(A a, std::size_t bytes, std::size_t align) {
+    { a.allocate_at_least(bytes, align) } -> std::same_as<AllocationResult>;
+};
 
-}  // namespace comdare::cache_engine::alloc::concepts
+} // namespace comdare::cache_engine::alloc::concepts

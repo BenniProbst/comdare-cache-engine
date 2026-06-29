@@ -26,8 +26,10 @@ public:
     [[nodiscard]] static constexpr concepts::ConcurrencyPattern concurrency_pattern() noexcept {
         return concepts::ConcurrencyPattern::Blocking;
     }
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "concurrency_blocking"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "BlockingConcurrency (coarse-grained mutex, pessimistic)"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "concurrency_blocking"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "BlockingConcurrency (coarse-grained mutex, pessimistic)";
+    }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "BLOCKING"; }
 
     // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). Blocking = pessimistisch:
@@ -46,9 +48,9 @@ private:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::concurrency_axis
 
 namespace comdare::cache_engine::concurrency_axis {
-    static_assert(concepts::ConcurrencyStrategy<BlockingConcurrency>);
-    static_assert(concepts::CacheEnginePermutationStrategy<BlockingConcurrency>);
-}
+static_assert(concepts::ConcurrencyStrategy<BlockingConcurrency>);
+static_assert(concepts::CacheEnginePermutationStrategy<BlockingConcurrency>);
+} // namespace comdare::cache_engine::concurrency_axis

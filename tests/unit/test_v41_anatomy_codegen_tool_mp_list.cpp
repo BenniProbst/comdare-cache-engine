@@ -50,8 +50,7 @@ TEST(R5J_MpList, EntryWrappersHaveCompositionAndShortName) {
     static_assert(std::is_same_v<comp::ArtEntry::composition, comp::ArtComposition>);
     static_assert(comp::HotEntry::short_name == std::string_view{"hot"});
     static_assert(comp::ArtPaperBindingEntry::short_name == std::string_view{"art_pb"});
-    static_assert(std::is_same_v<comp::ArtPaperBindingEntry::composition,
-                                 comp::ArtPaperBindingComposition>);
+    static_assert(std::is_same_v<comp::ArtPaperBindingEntry::composition, comp::ArtPaperBindingComposition>);
     SUCCEED();
 }
 
@@ -61,9 +60,8 @@ TEST(R5J_MpList, EntryWrappersHaveCompositionAndShortName) {
 
 TEST(R5J_MpList, ForEachIteratesAllElevenEntries) {
     std::set<std::string> short_names;
-    mp::mp_for_each<comp::KnownReferenceCompositions>([&]<class Entry>(Entry) {
-        short_names.emplace(Entry::short_name);
-    });
+    mp::mp_for_each<comp::KnownReferenceCompositions>(
+        [&]<class Entry>(Entry) { short_names.emplace(Entry::short_name); });
     EXPECT_EQ(short_names.size(), 11u);
     EXPECT_TRUE(short_names.contains("art"));
     EXPECT_TRUE(short_names.contains("hot"));
@@ -87,14 +85,11 @@ TEST(R5J_MpList, ToolApiYieldsSameElevenAsMpList) {
     EXPECT_EQ(tool_all.size(), comp::kKnownReferenceCompositionsCount);
 
     std::set<std::string> tool_short_names;
-    for (auto const& d : tool_all) {
-        tool_short_names.emplace(d.short_name);
-    }
+    for (auto const& d : tool_all) { tool_short_names.emplace(d.short_name); }
 
     std::set<std::string> mp_short_names;
-    mp::mp_for_each<comp::KnownReferenceCompositions>([&]<class Entry>(Entry) {
-        mp_short_names.emplace(Entry::short_name);
-    });
+    mp::mp_for_each<comp::KnownReferenceCompositions>(
+        [&]<class Entry>(Entry) { mp_short_names.emplace(Entry::short_name); });
 
     EXPECT_EQ(tool_short_names, mp_short_names);
 }
@@ -105,15 +100,12 @@ TEST(R5J_MpList, ToolApiYieldsSameElevenAsMpList) {
 
 TEST(R5J_MpList, EachEntryDescriptorMatchesToolTable) {
     mp::mp_for_each<comp::KnownReferenceCompositions>([]<class Entry>(Entry) {
-        using C = typename Entry::composition;
+        using C                      = typename Entry::composition;
         constexpr auto expected_desc = tool::descriptor_from_composition<C>();
-        auto const* tool_entry = tool::find_composition(Entry::short_name);
-        ASSERT_NE(tool_entry, nullptr)
-            << "short_name=" << Entry::short_name;
-        EXPECT_EQ(tool_entry->cpp_type_name,  expected_desc.cpp_type_name)
-            << "short_name=" << Entry::short_name;
-        EXPECT_EQ(tool_entry->header_include, expected_desc.header_include)
-            << "short_name=" << Entry::short_name;
+        auto const*    tool_entry    = tool::find_composition(Entry::short_name);
+        ASSERT_NE(tool_entry, nullptr) << "short_name=" << Entry::short_name;
+        EXPECT_EQ(tool_entry->cpp_type_name, expected_desc.cpp_type_name) << "short_name=" << Entry::short_name;
+        EXPECT_EQ(tool_entry->header_include, expected_desc.header_include) << "short_name=" << Entry::short_name;
     });
 }
 

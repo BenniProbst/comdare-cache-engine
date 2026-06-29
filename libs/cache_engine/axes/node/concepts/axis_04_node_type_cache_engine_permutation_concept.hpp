@@ -8,15 +8,13 @@
 namespace comdare::cache_engine::node::concepts {
 
 template <typename N>
-concept CacheEnginePermutationStrategy =
-    NodeTypeStrategy<N>
-    && requires {
-        typename N::axis_tag;
-        typename N::family_id;
-        { N::name() }         noexcept -> std::convertible_to<std::string_view>;
-        { N::family_name() }  noexcept -> std::convertible_to<std::string_view>;
-        { N::flag_suffix() }  noexcept -> std::convertible_to<std::string_view>;
-        { N::enabled }                 -> std::convertible_to<bool>;
-    };
+concept CacheEnginePermutationStrategy = NodeTypeStrategy<N> && requires {
+    typename N::axis_tag;
+    typename N::family_id;
+    { N::name() } noexcept -> std::convertible_to<std::string_view>;
+    { N::family_name() } noexcept -> std::convertible_to<std::string_view>;
+    { N::flag_suffix() } noexcept -> std::convertible_to<std::string_view>;
+    { N::enabled } -> std::convertible_to<bool>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::node::concepts

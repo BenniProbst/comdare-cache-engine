@@ -16,8 +16,7 @@ public:
 
     void configure(NodeTreeConfig const& config) override { config_ = config; }
 
-    [[nodiscard]] Decision evaluate(SamplingEvent const& event,
-                                    DecisionContext const&) const noexcept override {
+    [[nodiscard]] Decision evaluate(SamplingEvent const& event, DecisionContext const&) const noexcept override {
         ++state_.total_evaluations;
         // Hoher CPU-Load -> N erhoehen (weniger sampling) -> EXECUTE
         if (event.cpu_load > 0.85) {
@@ -33,21 +32,17 @@ public:
         return Decision::SKIP;
     }
 
-    void adjust_n(std::size_t target_n) noexcept {
-        current_n_.store(target_n, std::memory_order_relaxed);
-    }
+    void adjust_n(std::size_t target_n) noexcept { current_n_.store(target_n, std::memory_order_relaxed); }
 
-    [[nodiscard]] std::size_t current_n() const noexcept {
-        return current_n_.load(std::memory_order_relaxed);
-    }
+    [[nodiscard]] std::size_t current_n() const noexcept { return current_n_.load(std::memory_order_relaxed); }
 
     [[nodiscard]] NodeTreeState save_state() const noexcept override { return state_; }
-    void restore_state(NodeTreeState const& s) noexcept override { state_ = s; }
+    void                        restore_state(NodeTreeState const& s) noexcept override { state_ = s; }
 
 private:
-    NodeTreeConfig config_{};
+    NodeTreeConfig           config_{};
     std::atomic<std::size_t> current_n_;
-    mutable NodeTreeState state_{};
+    mutable NodeTreeState    state_{};
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

@@ -4,7 +4,7 @@
 // KEIN Python! Nur CMake + sh + bat (synchron gepflegt).
 // Pro Permutation eine eigene Modul-Binary mit ABI-stabilem v1 Interface.
 
-#include "xml_config_parser/xml_config_parser.hpp"  // V23.C.2: libs/common/serialization/
+#include "xml_config_parser/xml_config_parser.hpp" // V23.C.2: libs/common/serialization/
 
 #include <cstdint>
 #include <filesystem>
@@ -15,10 +15,10 @@
 namespace comdare::builder::codegen {
 
 struct CodegenOptions {
-    std::filesystem::path output_root;        // wohin generierte Files
-    std::filesystem::path comdare_root;        // wo cache_engine/include/ liegt
-    std::filesystem::path prt_art_root;        // V18.1: optional, prt-art-Submodule-Root fuer Pruefling-Templates
-    std::string           cmake_backend = "cmake";   // cmake / sh / bat
+    std::filesystem::path output_root;             // wohin generierte Files
+    std::filesystem::path comdare_root;            // wo cache_engine/include/ liegt
+    std::filesystem::path prt_art_root;            // V18.1: optional, prt-art-Submodule-Root fuer Pruefling-Templates
+    std::string           cmake_backend = "cmake"; // cmake / sh / bat
 };
 
 class CodegenEngine {
@@ -31,8 +31,7 @@ public:
     //   - module_<fingerprint>.cmake (codegen-Backend choice)
     void generate_module(xml::PermutationEntry const& cache_engine_perm,
                          xml::PermutationEntry const& search_algorithm_perm,
-                         xml::PermutationEntry const& allocator_perm,
-                         std::uint64_t fingerprint) const;
+                         xml::PermutationEntry const& allocator_perm, std::uint64_t fingerprint) const;
 
     // REV 7.6 V9.3 — Generiert ein Modul direkt aus einem AlgorithmProfile
     // (algorithm_profiles/sota/<id>.profile.xml). Das Profil enthaelt alle
@@ -40,8 +39,7 @@ public:
     // das Profil und schreibt:
     //   - module_<id>_<fingerprint>.cpp
     //   - module_<id>_<fingerprint>_CMakeLists.txt
-    void generate_module_from_profile(xml::AlgorithmProfile const& profile,
-                                       std::uint64_t fingerprint) const;
+    void generate_module_from_profile(xml::AlgorithmProfile const& profile, std::uint64_t fingerprint) const;
 
     // Phase 7.2.A: generiert einen zentralen Aggregator CMakeLists.txt im
     // output_root, der alle module_<fp>_CMakeLists.txt include-t.
@@ -60,4 +58,4 @@ private:
     CodegenOptions opts_;
 };
 
-}  // namespace comdare::builder::codegen
+} // namespace comdare::builder::codegen

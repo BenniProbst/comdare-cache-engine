@@ -28,10 +28,10 @@ namespace comdare::cache_engine::lookup::concepts {
  *   - level() == AdaptiveTransition  (alle die zur Laufzeit umschalten)
  */
 enum class DensityClass : int {
-    Sparse              = 0,  // <30% fanout occupied (HOT, Patricia)
-    Balanced            = 1,  // 30-70% (Masstree W=15)
-    Dense               = 2,  // >70% (Array256SearchAlgo, ART Node256)
-    AdaptiveTransition  = 3,  // Threshold-Crossing (notify_density_threshold)
+    Sparse             = 0, // <30% fanout occupied (HOT, Patricia)
+    Balanced           = 1, // 30-70% (Masstree W=15)
+    Dense              = 2, // >70% (Array256SearchAlgo, ART Node256)
+    AdaptiveTransition = 3, // Threshold-Crossing (notify_density_threshold)
 };
 
 /**
@@ -41,10 +41,8 @@ enum class DensityClass : int {
  * `density_class() const noexcept -> DensityClass` anbieten.
  */
 template <typename S>
-concept DensityClassifiedStrategy =
-    SearchAlgoVariant<S>
-    && requires(S const& sc) {
-        { sc.density_class() } noexcept -> std::convertible_to<DensityClass>;
-    };
+concept DensityClassifiedStrategy = SearchAlgoVariant<S> && requires(S const& sc) {
+    { sc.density_class() } noexcept -> std::convertible_to<DensityClass>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup::concepts

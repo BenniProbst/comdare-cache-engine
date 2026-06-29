@@ -24,12 +24,14 @@ public:
 
     static constexpr bool enabled = flags::heap_enabled;
 
-    [[nodiscard]] static constexpr bool             is_clustered()          noexcept { return false; }
+    [[nodiscard]] static constexpr bool             is_clustered() noexcept { return false; }
     [[nodiscard]] static constexpr bool             has_secondary_indexes() noexcept { return false; }
     [[nodiscard]] static constexpr bool             data_embedded_in_leaf() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "index_org_heap"; }
-    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "HeapIndexOrganization (no index, storage=insert-order, baseline)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "HEAP"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "index_org_heap"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "HeapIndexOrganization (no index, storage=insert-order, baseline)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "HEAP"; }
 
     // V41.F.6.1 — verhaltens-tragende Laufzeit-API (index_organization-Achse, Pfad-A-operativ, T13).
     // Distinktes Zugriffsmuster je Strategie: Heap = UNORDERED — kein Index (Baseline), Storage =
@@ -41,14 +43,14 @@ public:
     // die daraus folgende Branch-/Compare-Last aber real und strategie-typisch.
     [[nodiscard]] static std::uint64_t index_org_scan(unsigned char const* buf, std::size_t n,
                                                       std::size_t record_size) noexcept {
-        constexpr std::uint32_t kMatchProbe = 0x55555555u;   // synthetischer Full-Scan-Suchschluessel
-        std::uint64_t s = 0;
-        std::uint64_t matches = 0;
+        constexpr std::uint32_t kMatchProbe = 0x55555555u; // synthetischer Full-Scan-Suchschluessel
+        std::uint64_t           s           = 0;
+        std::uint64_t           matches     = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::uint32_t v;
-            std::memcpy(&v, buf + i * record_size, sizeof(v));   // Heap: unordered Full-Scan, Insert-Order
+            std::memcpy(&v, buf + i * record_size, sizeof(v)); // Heap: unordered Full-Scan, Insert-Order
             s += v;
-            if ((v ^ kMatchProbe) < v) {   // datenabhaengiger Predicate-Branch (kein Frueh-Abbruch ohne Index)
+            if ((v ^ kMatchProbe) < v) { // datenabhaengiger Predicate-Branch (kein Frueh-Abbruch ohne Index)
                 ++matches;
             }
         }
@@ -56,9 +58,9 @@ public:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::index_organization
 
 namespace comdare::cache_engine::index_organization {
-    static_assert(concepts::IndexOrganizationStrategy<HeapIndexOrganization>);
-    static_assert(concepts::CacheEnginePermutationStrategy<HeapIndexOrganization>);
-}
+static_assert(concepts::IndexOrganizationStrategy<HeapIndexOrganization>);
+static_assert(concepts::CacheEnginePermutationStrategy<HeapIndexOrganization>);
+} // namespace comdare::cache_engine::index_organization

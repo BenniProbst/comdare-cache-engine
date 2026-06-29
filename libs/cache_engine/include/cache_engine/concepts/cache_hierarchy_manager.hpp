@@ -11,18 +11,18 @@
 namespace comdare::cache_engine {
 
 enum class DataTemperature : std::uint8_t {
-    Cold   = 0,
-    Warm   = 1,
-    Hot    = 2,
-    Ultra  = 3,   // wenige, sehr haeufig zugegriffene Daten (Hot-Path-Layout)
+    Cold  = 0,
+    Warm  = 1,
+    Hot   = 2,
+    Ultra = 3, // wenige, sehr haeufig zugegriffene Daten (Hot-Path-Layout)
 };
 
 enum class AllocatorTier : std::uint8_t {
-    StandardDimm   = 0,
-    HbmTier        = 1,    // generisch fuer HBM/HBM2/HBM3
-    LargestL3Tier  = 2,    // generisch fuer V-Cache-CCDs (REV 3 K3.2)
-    PinnedHighIpc  = 3,    // generisch fuer P-Cores
-    Persistent     = 4,    // NVRAM/Optane-aehnlich
+    StandardDimm  = 0,
+    HbmTier       = 1, // generisch fuer HBM/HBM2/HBM3
+    LargestL3Tier = 2, // generisch fuer V-Cache-CCDs (REV 3 K3.2)
+    PinnedHighIpc = 3, // generisch fuer P-Cores
+    Persistent    = 4, // NVRAM/Optane-aehnlich
 };
 
 // Generischer F4-Manager — agiert auf PlatformPropertySet, NICHT auf konkreten CPUs
@@ -35,7 +35,7 @@ public:
 
     // Allocation pro Daten-Temperatur
     virtual void* allocate_for(DataTemperature temp, std::size_t size) = 0;
-    virtual void  deallocate(void* ptr, std::size_t size) noexcept = 0;
+    virtual void  deallocate(void* ptr, std::size_t size) noexcept     = 0;
 
     // Tier-Migration (z.B. Hot → Ultra → LargestL3Tier)
     virtual void migrate_tier(void* ptr, AllocatorTier from, AllocatorTier to) noexcept = 0;
@@ -44,4 +44,4 @@ public:
     [[nodiscard]] virtual std::map<DataTemperature, AllocatorTier> tier_routing() const = 0;
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

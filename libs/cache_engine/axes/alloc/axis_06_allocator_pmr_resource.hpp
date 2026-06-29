@@ -21,8 +21,8 @@
 #include <topics/allocator/concepts/topic_allocator_concept.hpp>
 
 #include <axes/alloc/axis_06_allocator_flags.hpp>
-#include "vendor_includes/pmr_resource_include.hpp"   // V41.F.6.1.C Stufe 2: Konsistenz-Shim
-#include <measurement/measurable_concept.hpp>          // V41.F.6.1 Stufe 3: MeasurableObserver
+#include "vendor_includes/pmr_resource_include.hpp" // V41.F.6.1.C Stufe 2: Konsistenz-Shim
+#include <measurement/measurable_concept.hpp>       // V41.F.6.1 Stufe 3: MeasurableObserver
 
 #include <cstddef>
 #include <memory_resource>
@@ -48,9 +48,9 @@ public:
     using axis_tag   = subaxes::allocation_policy_tag;
     using family_id  = std::integral_constant<int, 22>;
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()  noexcept { return false; }   // PMR pro-resource konfigurierbar
-    [[nodiscard]] static constexpr bool        supports_pmr()    noexcept { return true; }    // ist selbst PMR
-    [[nodiscard]] static constexpr std::size_t max_alignment()   noexcept { return alignof(std::max_align_t); }
+    [[nodiscard]] static constexpr bool is_thread_safe() noexcept { return false; } // PMR pro-resource konfigurierbar
+    [[nodiscard]] static constexpr bool supports_pmr() noexcept { return true; }    // ist selbst PMR
+    [[nodiscard]] static constexpr std::size_t max_alignment() noexcept { return alignof(std::max_align_t); }
 
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "pmr_resource"; }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
@@ -59,11 +59,17 @@ public:
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "PMR"; }
 
     // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
-    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // PMR allocate(bytes, alignment)
-    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }  // default_resource immer da
-    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }  // resource-typ-abhaengig
-    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept { return concepts::ProgressGuarantee::Blocking; }
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc() noexcept {
+        return true;
+    } // PMR allocate(bytes, alignment)
+    [[nodiscard]] static constexpr bool requires_explicit_init() noexcept { return false; } // default_resource immer da
+    [[nodiscard]] static constexpr bool supports_numa_node_hint() noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept {
+        return false;
+    } // resource-typ-abhaengig
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
+        return concepts::ProgressGuarantee::Blocking;
+    }
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
 
     /// R7.4: LEITET eine EXTERN besessene memory_resource WEITER (roher Zeiger; Default = globaler
@@ -73,11 +79,9 @@ public:
         return concepts::ResourceOwnership::Borrowed;
     }
 
-    PmrResourceAllocator() noexcept
-        : resource_(std::pmr::new_delete_resource()) {}
+    PmrResourceAllocator() noexcept : resource_(std::pmr::new_delete_resource()) {}
 
-    explicit PmrResourceAllocator(std::pmr::memory_resource* r) noexcept
-        : resource_(r) {}
+    explicit PmrResourceAllocator(std::pmr::memory_resource* r) noexcept : resource_(r) {}
 
     [[nodiscard]] bool operator==(PmrResourceAllocator const& other) const noexcept {
         return resource_->is_equal(*other.resource_);
@@ -91,15 +95,13 @@ public:
         void* p = nullptr;
         try {
             p = resource_->allocate(bytes, alignment);
-        } catch (std::bad_alloc const&) {
-            p = nullptr;
-        }
+        } catch (std::bad_alloc const&) { p = nullptr; }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         if (p != nullptr) {
             ++stats_.allocation_count;
             stats_.total_bytes_allocated += aligned_bytes;
-            stats_.total_bytes_in_use    += aligned_bytes;
+            stats_.total_bytes_in_use += aligned_bytes;
         } else {
             ++stats_.failure_count;
         }
@@ -114,8 +116,10 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_bytes = ((bytes + alignment - 1) / alignment) * alignment;
         ++stats_.deallocation_count;
-        if (aligned_bytes <= stats_.total_bytes_in_use) stats_.total_bytes_in_use -= aligned_bytes;
-        else stats_.total_bytes_in_use = 0;
+        if (aligned_bytes <= stats_.total_bytes_in_use)
+            stats_.total_bytes_in_use -= aligned_bytes;
+        else
+            stats_.total_bytes_in_use = 0;
         observer_.notify(stats_);
 #endif
     }
@@ -125,10 +129,13 @@ public:
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
 
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
     [[nodiscard]] std::pmr::memory_resource* underlying_resource() const noexcept { return resource_; }
@@ -137,16 +144,16 @@ private:
     std::pmr::memory_resource* resource_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::AllocationStatistics stats_{};
-    observer_t observer_{};
+    observer_t                     observer_{};
 #endif
 };
 
-}  // namespace comdare::cache_engine::alloc
+} // namespace comdare::cache_engine::alloc
 
 namespace comdare::cache_engine::alloc {
-    static_assert(concepts::AllocatorStrategy<PmrResourceAllocator>,
-        "Pflicht: PmrResourceAllocator muss AllocatorStrategy erfuellen");
-    static_assert(concepts::CacheEnginePermutationStrategy<PmrResourceAllocator>,
-        "Pflicht: PmrResourceAllocator muss CacheEnginePermutationStrategy erfuellen");
-    // KEIN ZeroingStrategy/ReallocatingStrategy — PMR-Interface bietet das nicht direkt
-}  // namespace
+static_assert(concepts::AllocatorStrategy<PmrResourceAllocator>,
+              "Pflicht: PmrResourceAllocator muss AllocatorStrategy erfuellen");
+static_assert(concepts::CacheEnginePermutationStrategy<PmrResourceAllocator>,
+              "Pflicht: PmrResourceAllocator muss CacheEnginePermutationStrategy erfuellen");
+// KEIN ZeroingStrategy/ReallocatingStrategy — PMR-Interface bietet das nicht direkt
+} // namespace comdare::cache_engine::alloc

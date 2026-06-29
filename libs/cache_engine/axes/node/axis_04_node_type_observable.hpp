@@ -20,10 +20,10 @@ namespace comdare::cache_engine::node {
 
 /// ABI-taugliches Node-Type-Snapshot (standard_layout + trivially_copyable).
 struct NodeTypeSnapshot {
-    std::uint64_t find_count    = 0;   ///< Anzahl observe_node_find-Aufrufe
-    std::uint64_t keys_stored   = 0;   ///< kumulierte gespeicherte Key-Zahl (min(n,cap))
-    std::uint64_t queries_run   = 0;   ///< kumulierte Query-Zahl
-    std::uint64_t last_checksum = 0;   ///< letztes node_find_scan-Ergebnis (Format-divergente Pruefsumme)
+    std::uint64_t find_count    = 0; ///< Anzahl observe_node_find-Aufrufe
+    std::uint64_t keys_stored   = 0; ///< kumulierte gespeicherte Key-Zahl (min(n,cap))
+    std::uint64_t queries_run   = 0; ///< kumulierte Query-Zahl
+    std::uint64_t last_checksum = 0; ///< letztes node_find_scan-Ergebnis (Format-divergente Pruefsumme)
 
     [[nodiscard]] bool operator==(NodeTypeSnapshot const&) const noexcept = default;
 };
@@ -35,17 +35,26 @@ template <class Strategy>
 class ObservableNodeType {
 public:
     using strategy_type = Strategy;
-    using topic_tag     = typename Strategy::topic_tag;  // NodesComponent → NodeTypeStrategy erfuellt
+    using topic_tag     = typename Strategy::topic_tag; // NodesComponent → NodeTypeStrategy erfuellt
 
     // Statische API durchgereicht (ComposedStore nutzt N::max_capacity() constexpr + N::name()).
     [[nodiscard]] static constexpr std::size_t      max_capacity() noexcept { return Strategy::max_capacity(); }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return Strategy::name(); }
-    [[nodiscard]] static constexpr std::string_view family_name()
-        noexcept requires requires { Strategy::family_name(); } { return Strategy::family_name(); }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()
-        noexcept requires requires { Strategy::flag_suffix(); } { return Strategy::flag_suffix(); }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept
+        requires requires { Strategy::family_name(); }
+    {
+        return Strategy::family_name();
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept
+        requires requires { Strategy::flag_suffix(); }
+    {
+        return Strategy::flag_suffix();
+    }
     [[nodiscard]] static constexpr std::string_view get_compiler() noexcept
-        requires requires { Strategy::get_compiler(); } { return Strategy::get_compiler(); }
+        requires requires { Strategy::get_compiler(); }
+    {
+        return Strategy::get_compiler();
+    }
 
     /// STATIC Pass-Through (Drop-in): node_find_scan unveraendert durchgereicht. Trackt NICHT.
     [[nodiscard]] static std::uint64_t node_find_scan(std::uint8_t const* stored, std::size_t n,
@@ -60,8 +69,8 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.find_count;
         std::size_t const cap = Strategy::max_capacity();
-        stats_.keys_stored  += static_cast<std::uint64_t>((n < cap) ? n : cap);
-        stats_.queries_run  += static_cast<std::uint64_t>(q);
+        stats_.keys_stored += static_cast<std::uint64_t>((n < cap) ? n : cap);
+        stats_.queries_run += static_cast<std::uint64_t>(q);
         stats_.last_checksum = checksum;
 #endif
         return checksum;
@@ -70,11 +79,11 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = NodeTypeSnapshot;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; }
+    void                     reset() noexcept { stats_ = {}; }
 
 private:
     snapshot_t stats_{};
 #endif
 };
 
-}  // namespace comdare::cache_engine::node
+} // namespace comdare::cache_engine::node

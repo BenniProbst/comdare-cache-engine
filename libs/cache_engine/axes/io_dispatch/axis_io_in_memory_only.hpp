@@ -25,9 +25,11 @@ public:
     static constexpr bool enabled = flags::in_memory_only_enabled;
 
     [[nodiscard]] static constexpr bool             is_in_memory_only() noexcept { return true; }
-    [[nodiscard]] static constexpr std::string_view name()              noexcept { return "io_in_memory_only"; }
-    [[nodiscard]] static constexpr std::string_view family_name()       noexcept { return "InMemoryOnly (no IO, RAM-only baseline)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()       noexcept { return "IN_MEMORY_ONLY"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "io_in_memory_only"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "InMemoryOnly (no IO, RAM-only baseline)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "IN_MEMORY_ONLY"; }
 
     // V41.F.6.1 R5.B / T14 — verhaltens-tragende Mess-Op der io_dispatch-Achse (Pfad-A, F15-operativ).
     // EHRLICHKEIT: reine IN-MEMORY-Dispatch-SIMULATION, KEIN echtes IO (echte Disk-IO im DRAM-
@@ -40,16 +42,16 @@ public:
         std::uint64_t s = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::uint32_t v;
-            std::memcpy(&v, buf + i * record_size, sizeof(v));   // direct: RAM-only, kein Dispatch-Overhead
+            std::memcpy(&v, buf + i * record_size, sizeof(v)); // direct: RAM-only, kein Dispatch-Overhead
             s += v;
         }
         return s;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::io_dispatch
 
 namespace comdare::cache_engine::io_dispatch {
-    static_assert(concepts::IoStrategy<InMemoryOnly>);
-    static_assert(concepts::CacheEnginePermutationStrategy<InMemoryOnly>);
-}
+static_assert(concepts::IoStrategy<InMemoryOnly>);
+static_assert(concepts::CacheEnginePermutationStrategy<InMemoryOnly>);
+} // namespace comdare::cache_engine::io_dispatch

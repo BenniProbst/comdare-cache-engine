@@ -61,9 +61,7 @@ struct AxisBase {
     ///   "gcc-9.5"   Konkreter Compiler aus Paper-Original-Build
     ///   "clang-12"  analog
     ///   "msvc-19.30" analog
-    [[nodiscard]] static constexpr std::string_view get_compiler() noexcept {
-        return "original";
-    }
+    [[nodiscard]] static constexpr std::string_view get_compiler() noexcept { return "original"; }
 
     /// V41.F.6.1.P2.C Habich-Compliance Pflicht-Property (cross-axis).
     /// Default false: kein Paper-Original-Code-Linking + keine SHA-Validierung.
@@ -77,9 +75,7 @@ struct AxisBase {
     ///
     /// **NICHT redundant zu `has_original_paper_code`** (das wurde mit P2.C
     /// entfernt — eine Boolean reicht semantisch, siehe Doku 13 §18.2).
-    [[nodiscard]] static constexpr bool is_original_module() noexcept {
-        return false;
-    }
+    [[nodiscard]] static constexpr bool is_original_module() noexcept { return false; }
 };
 
 /**
@@ -93,8 +89,8 @@ struct AxisBase {
  */
 template <typename T>
 concept AxisBaseConcept = requires {
-    { T::get_compiler() }      -> std::convertible_to<std::string_view>;
+    { T::get_compiler() } -> std::convertible_to<std::string_view>;
     { T::is_original_module() } -> std::convertible_to<bool>;
 };
 
-}  // namespace comdare::cache_engine::topics
+} // namespace comdare::cache_engine::topics

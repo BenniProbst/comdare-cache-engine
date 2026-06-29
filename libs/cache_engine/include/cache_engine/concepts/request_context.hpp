@@ -9,16 +9,7 @@
 namespace comdare::cache_engine {
 
 /// OperationKind - welche Such-Engine-Operation laeuft
-enum class OperationKind : std::uint8_t {
-    Lookup,
-    Insert,
-    Erase,
-    Update,
-    RangeScan,
-    PrefixScan,
-    BulkBuild,
-    Compact
-};
+enum class OperationKind : std::uint8_t { Lookup, Insert, Erase, Update, RangeScan, PrefixScan, BulkBuild, Compact };
 
 /// RequestContext - Read-only Snapshot vom Caller an ICacheEngine
 /// (forward-declarations halten cache_engine unabhaengig von prt_art-Headern)
@@ -33,10 +24,10 @@ struct RequestContext {
 
     /// Generische Pointer auf Caller-Strukturen (typisiert beim Konsumenten)
     /// In Phase 7 werden diese ueber std::any oder typed-handle aufgeloest.
-    const void* search_engine = nullptr;
-    const void* search_page = nullptr;
+    const void* search_engine         = nullptr;
+    const void* search_page           = nullptr;
     const void* search_page_structure = nullptr;
-    const void* requested_inode = nullptr;
+    const void* requested_inode       = nullptr;
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

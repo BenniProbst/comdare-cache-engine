@@ -12,19 +12,17 @@ class IAllocationEngine {
 public:
     virtual ~IAllocationEngine() = default;
 
-    [[nodiscard]] virtual void* allocate(comdare::cache_engine::DataTemperature temp,
-                                         std::size_t bytes,
+    [[nodiscard]] virtual void* allocate(comdare::cache_engine::DataTemperature temp, std::size_t bytes,
                                          std::size_t alignment) = 0;
 
     virtual void deallocate(void* ptr, std::size_t bytes) noexcept = 0;
 
     // Re-Routing (z.B. bei TierWechsel von Hot → Ultra)
-    virtual void migrate(void* ptr,
-                         comdare::cache_engine::AllocatorTier from,
+    virtual void migrate(void* ptr, comdare::cache_engine::AllocatorTier from,
                          comdare::cache_engine::AllocatorTier to) noexcept = 0;
 
-    [[nodiscard]] virtual std::uint64_t total_allocated_bytes() const noexcept = 0;
+    [[nodiscard]] virtual std::uint64_t total_allocated_bytes() const noexcept   = 0;
     [[nodiscard]] virtual std::uint64_t total_deallocated_bytes() const noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::subsystems::allocation
+} // namespace comdare::cache_engine::subsystems::allocation

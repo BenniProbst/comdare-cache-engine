@@ -38,7 +38,7 @@ namespace {
 
 template <typename Adapter>
 void check_paper_id() {
-    const char *id = Adapter::paper_id();
+    const char* id = Adapter::paper_id();
     ASSERT_NE(id, nullptr);
     EXPECT_GT(std::strlen(id), 0u);
 }
@@ -131,31 +131,31 @@ TEST(V31AdapterSota, P30_HazardPointers_Construct) {
 // ──────────────────────────────────────────────────────────────────────────
 template <typename A>
 void check_allocator_smoke() {
-    A a;
-    void *p = a.allocate(64);
+    A     a;
+    void* p = a.allocate(64);
     ASSERT_NE(p, nullptr);
     std::memset(p, 0xAB, 64);
     a.deallocate(p);
     check_paper_id<A>();
 }
 
-TEST(V31AdapterAlloc, A01_Hoard)        { check_allocator_smoke<comdare::adapter::a01_hoard::HoardAdapter>(); }
-TEST(V31AdapterAlloc, A03_Michael)      { check_allocator_smoke<comdare::adapter::a03_michael::MichaelAdapter>(); }
-TEST(V31AdapterAlloc, A04_Mimalloc)     {
+TEST(V31AdapterAlloc, A01_Hoard) { check_allocator_smoke<comdare::adapter::a01_hoard::HoardAdapter>(); }
+TEST(V31AdapterAlloc, A03_Michael) { check_allocator_smoke<comdare::adapter::a03_michael::MichaelAdapter>(); }
+TEST(V31AdapterAlloc, A04_Mimalloc) {
     using A = comdare::adapter::a04_mimalloc::MimallocAdapter;
-    A a;
-    void *p = a.allocate(64);
+    A     a;
+    void* p = a.allocate(64);
     ASSERT_NE(p, nullptr);
     a.deallocate(p);
     check_paper_id<A>();
 }
-TEST(V31AdapterAlloc, A05_Jemalloc)     { check_allocator_smoke<comdare::adapter::a05_jemalloc::JemallocAdapter>(); }
-TEST(V31AdapterAlloc, A06_Tcmalloc)     { check_allocator_smoke<comdare::adapter::a06_tcmalloc::TcmallocAdapter>(); }
-TEST(V31AdapterAlloc, A07_Snmalloc)     { check_allocator_smoke<comdare::adapter::a07_snmalloc::SnmallocAdapter>(); }
-TEST(V31AdapterAlloc, A08_Scalloc)      { check_allocator_smoke<comdare::adapter::a08_scalloc::ScallocAdapter>(); }
-TEST(V31AdapterAlloc, A10_Rpmalloc)     { check_allocator_smoke<comdare::adapter::a10_rpmalloc::RpmallocAdapter>(); }
-TEST(V31AdapterAlloc, A11_Lrmalloc)     { check_allocator_smoke<comdare::adapter::a11_lrmalloc::LrmallocAdapter>(); }
-TEST(V31AdapterAlloc, A20_Dlmalloc)     { check_allocator_smoke<comdare::adapter::a20_dlmalloc::DlmallocAdapter>(); }
+TEST(V31AdapterAlloc, A05_Jemalloc) { check_allocator_smoke<comdare::adapter::a05_jemalloc::JemallocAdapter>(); }
+TEST(V31AdapterAlloc, A06_Tcmalloc) { check_allocator_smoke<comdare::adapter::a06_tcmalloc::TcmallocAdapter>(); }
+TEST(V31AdapterAlloc, A07_Snmalloc) { check_allocator_smoke<comdare::adapter::a07_snmalloc::SnmallocAdapter>(); }
+TEST(V31AdapterAlloc, A08_Scalloc) { check_allocator_smoke<comdare::adapter::a08_scalloc::ScallocAdapter>(); }
+TEST(V31AdapterAlloc, A10_Rpmalloc) { check_allocator_smoke<comdare::adapter::a10_rpmalloc::RpmallocAdapter>(); }
+TEST(V31AdapterAlloc, A11_Lrmalloc) { check_allocator_smoke<comdare::adapter::a11_lrmalloc::LrmallocAdapter>(); }
+TEST(V31AdapterAlloc, A20_Dlmalloc) { check_allocator_smoke<comdare::adapter::a20_dlmalloc::DlmallocAdapter>(); }
 
 TEST(V31AdapterAlloc, A04_Mimalloc_OriginalActiveMatchesFlag) {
     constexpr bool active = comdare::adapter::a04_mimalloc::MimallocAdapter::original_active();

@@ -15,10 +15,10 @@ public:
     virtual ~IScheduler() = default;
 
     virtual void on_event(comdare::cache_engine::Event const& event) noexcept = 0;
-    virtual void rebalance() noexcept = 0;
+    virtual void rebalance() noexcept                                         = 0;
 
     // Empfehlung: welcher Core soll diesen Thread bekommen?
     [[nodiscard]] virtual CoreId recommend_pin(std::thread::id tid) const noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::platform
+} // namespace comdare::cache_engine::platform

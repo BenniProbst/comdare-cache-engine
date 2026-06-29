@@ -7,8 +7,8 @@
 namespace comdare::cache_engine::telemetry_axis::concepts {
 
 template <typename T>
-concept TelemetryStrategy =
-    ::comdare::cache_engine::telemetry::concepts::TelemetryComponent<T>
-    && requires { { T::is_leaf_only() } noexcept -> std::convertible_to<bool>; };
+concept TelemetryStrategy = ::comdare::cache_engine::telemetry::concepts::TelemetryComponent<T> && requires {
+    { T::is_leaf_only() } noexcept -> std::convertible_to<bool>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::telemetry_axis::concepts

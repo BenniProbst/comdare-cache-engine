@@ -26,10 +26,10 @@ template <class T>
 }
 
 // Kalibrierung an einem Probe-Typ ("double" — 6 Zeichen, in jeder Signatur identisch gerendert).
-inline constexpr std::string_view kProbe = raw_signature<double>();
-inline constexpr std::size_t      kProbePos = kProbe.find("double");
+inline constexpr std::string_view kProbe     = raw_signature<double>();
+inline constexpr std::size_t      kProbePos  = kProbe.find("double");
 inline constexpr std::size_t      kPrefixLen = kProbePos;
-inline constexpr std::size_t      kSuffixLen = kProbe.size() - kProbePos - 6;  // 6 == len("double")
+inline constexpr std::size_t      kSuffixLen = kProbe.size() - kProbePos - 6; // 6 == len("double")
 
 /// Entfernt ein führendes Elaborated-Type-Specifier-Keyword (MSVC: "class "/"struct "/"enum ").
 /// HINWEIS (2026-06-03): schält NUR den ÄUSSEREN Specifier. MSVC rendert in __FUNCSIG__ auch verschachtelte
@@ -38,14 +38,14 @@ inline constexpr std::size_t      kSuffixLen = kProbe.size() - kProbePos - 6;  /
 /// einzige Konsument, der den Namen in echten C++-Quelltext schreibt). type_name() selbst bleibt unverändert
 /// (constexpr-string_view, kein Heap/Lifetime-Risiko).
 [[nodiscard]] constexpr std::string_view strip_elaborated(std::string_view s) noexcept {
-    for (std::string_view kw : {std::string_view{"class "}, std::string_view{"struct "},
-                                std::string_view{"enum "}, std::string_view{"union "}}) {
+    for (std::string_view kw : {std::string_view{"class "}, std::string_view{"struct "}, std::string_view{"enum "},
+                                std::string_view{"union "}}) {
         if (s.substr(0, kw.size()) == kw) return s.substr(kw.size());
     }
     return s;
 }
 
-}  // namespace detail
+} // namespace detail
 
 /// type_name<T>() — fully-qualified Typ-Name von T (Compile-Time, ohne FÜHRENDEN "class/struct"-Prefix).
 template <class T>
@@ -56,4 +56,4 @@ template <class T>
     return detail::strip_elaborated(s);
 }
 
-}  // namespace comdare::cache_engine::builder::codegen
+} // namespace comdare::cache_engine::builder::codegen

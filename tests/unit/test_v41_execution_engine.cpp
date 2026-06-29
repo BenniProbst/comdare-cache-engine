@@ -31,15 +31,15 @@ namespace ana = ::comdare::cache_engine::anatomy;
 
 TEST(R5CA2_ExecutionEngineKind, EnumHasThreeValues) {
     static_assert(static_cast<int>(ee::ExecutionEngineKind::Anatomy) == 0);
-    static_assert(static_cast<int>(ee::ExecutionEngineKind::Virus)   == 1);
-    static_assert(static_cast<int>(ee::ExecutionEngineKind::Hybrid)  == 2);
+    static_assert(static_cast<int>(ee::ExecutionEngineKind::Virus) == 1);
+    static_assert(static_cast<int>(ee::ExecutionEngineKind::Hybrid) == 2);
     SUCCEED();
 }
 
 TEST(R5CA2_ExecutionEngineKind, KindNameHelperReturnsStrings) {
     static_assert(ee::engine_kind_name(ee::ExecutionEngineKind::Anatomy) == std::string_view{"Anatomy"});
-    static_assert(ee::engine_kind_name(ee::ExecutionEngineKind::Virus)   == std::string_view{"Virus"});
-    static_assert(ee::engine_kind_name(ee::ExecutionEngineKind::Hybrid)  == std::string_view{"Hybrid"});
+    static_assert(ee::engine_kind_name(ee::ExecutionEngineKind::Virus) == std::string_view{"Virus"});
+    static_assert(ee::engine_kind_name(ee::ExecutionEngineKind::Hybrid) == std::string_view{"Hybrid"});
     SUCCEED();
 }
 
@@ -49,10 +49,10 @@ TEST(R5CA2_ExecutionEngineKind, KindNameHelperReturnsStrings) {
 
 TEST(R5CA2_EngineLifecycleState, EnumHasFivePhases) {
     static_assert(static_cast<int>(ee::EngineLifecycleState::Uninitialized) == 0);
-    static_assert(static_cast<int>(ee::EngineLifecycleState::Warming)       == 1);
-    static_assert(static_cast<int>(ee::EngineLifecycleState::Running)       == 2);
-    static_assert(static_cast<int>(ee::EngineLifecycleState::Idle)          == 3);
-    static_assert(static_cast<int>(ee::EngineLifecycleState::Shutdown)      == 4);
+    static_assert(static_cast<int>(ee::EngineLifecycleState::Warming) == 1);
+    static_assert(static_cast<int>(ee::EngineLifecycleState::Running) == 2);
+    static_assert(static_cast<int>(ee::EngineLifecycleState::Idle) == 3);
+    static_assert(static_cast<int>(ee::EngineLifecycleState::Shutdown) == 4);
     SUCCEED();
 }
 
@@ -63,7 +63,7 @@ TEST(R5CA2_EngineLifecycleState, EnumHasFivePhases) {
 // Sample Anatomie-Engine die Concept erfuellt
 struct SampleAnatomyEngine {
     struct measurement_snapshot_t {};
-    static constexpr std::string_view engine_name() noexcept { return "SampleAnatomyEngine"; }
+    static constexpr std::string_view        engine_name() noexcept { return "SampleAnatomyEngine"; }
     static constexpr ee::ExecutionEngineKind engine_kind() noexcept { return ee::ExecutionEngineKind::Anatomy; }
 };
 
@@ -73,7 +73,7 @@ struct SampleGraphBfsEngine {
         std::uint64_t nodes_visited{0};
         std::uint64_t edges_traversed{0};
     };
-    static constexpr std::string_view engine_name() noexcept { return "GraphBFS"; }
+    static constexpr std::string_view        engine_name() noexcept { return "GraphBFS"; }
     static constexpr ee::ExecutionEngineKind engine_kind() noexcept { return ee::ExecutionEngineKind::Virus; }
 };
 
@@ -147,35 +147,34 @@ TEST(R5CA2_AnatomyInheritance, SearchAlgorithmAdapterBridgeToBothInterfaces) {
 /// Wird in R6/V42 in eigenen Header verschoben (virus/virus_execution_engine.hpp).
 class IVirusExecutionEngine : public ee::IExecutionEngine {
 public:
-    [[nodiscard]] ee::ExecutionEngineKind engine_kind() const noexcept final {
-        return ee::ExecutionEngineKind::Virus;
-    }
+    [[nodiscard]] ee::ExecutionEngineKind  engine_kind() const noexcept final { return ee::ExecutionEngineKind::Virus; }
     [[nodiscard]] virtual std::string_view algorithm_family() const noexcept = 0;
-    [[nodiscard]] virtual std::string_view algorithm_paper()  const noexcept = 0;
+    [[nodiscard]] virtual std::string_view algorithm_paper() const noexcept  = 0;
 };
 
 class GraphBfsVirusStub final : public IVirusExecutionEngine {
 public:
-    [[nodiscard]] std::string_view  engine_name() const noexcept override { return "GraphBFS"; }
+    [[nodiscard]] std::string_view         engine_name() const noexcept override { return "GraphBFS"; }
     [[nodiscard]] ee::EngineLifecycleState lifecycle_state() const noexcept override { return state_; }
-    void warm_up()  override { state_ = ee::EngineLifecycleState::Warming; }
-    void run()      override { state_ = ee::EngineLifecycleState::Running; }
-    void reset()    override { state_ = ee::EngineLifecycleState::Idle; }
-    void shutdown() override { state_ = ee::EngineLifecycleState::Shutdown; }
+    void                                   warm_up() override { state_ = ee::EngineLifecycleState::Warming; }
+    void                                   run() override { state_ = ee::EngineLifecycleState::Running; }
+    void                                   reset() override { state_ = ee::EngineLifecycleState::Idle; }
+    void                                   shutdown() override { state_ = ee::EngineLifecycleState::Shutdown; }
 
     [[nodiscard]] std::string_view algorithm_family() const noexcept override { return "GraphTraversal"; }
     [[nodiscard]] std::string_view algorithm_paper() const noexcept override {
         return "Moore 1959 — Shortest path through a maze";
     }
+
 private:
     ee::EngineLifecycleState state_{ee::EngineLifecycleState::Uninitialized};
 };
 
 TEST(R5CA2_VirusEngine, GraphBfsStubAsVirusExecutionEngine) {
-    GraphBfsVirusStub bfs;
+    GraphBfsVirusStub     bfs;
     ee::IExecutionEngine& exec = bfs;
     EXPECT_EQ(exec.engine_name(), std::string_view{"GraphBFS"});
-    EXPECT_EQ(exec.engine_kind(), ee::ExecutionEngineKind::Virus);  // NICHT Anatomy!
+    EXPECT_EQ(exec.engine_kind(), ee::ExecutionEngineKind::Virus); // NICHT Anatomy!
     // Virus hat keine Composition/Achsen, aber lifecycle Pflicht-API
     bfs.warm_up();
     EXPECT_EQ(bfs.lifecycle_state(), ee::EngineLifecycleState::Warming);
@@ -201,7 +200,7 @@ TEST(R5CA2_PolymorphicMeasurement, AnatomyAndVirusUniformLifecycle) {
 
     // Polymorpher Mess-Loop (CacheEngineBuilder-Pattern fuer R5.D)
     // R5.C.A4: vollstaendige Lifecycle-Sequenz mit run()
-    ee::IExecutionEngine* engines[] = { &anatomy, &virus };
+    ee::IExecutionEngine* engines[] = {&anatomy, &virus};
     for (auto* e : engines) {
         e->warm_up();
         EXPECT_EQ(e->lifecycle_state(), ee::EngineLifecycleState::Warming);
@@ -215,5 +214,5 @@ TEST(R5CA2_PolymorphicMeasurement, AnatomyAndVirusUniformLifecycle) {
 
     // Type-discrimination via engine_kind() (Doku 14 §34.1 Drei-Ebenen-Taxonomie)
     EXPECT_EQ(anatomy.engine_kind(), ee::ExecutionEngineKind::Anatomy);
-    EXPECT_EQ(virus.engine_kind(),   ee::ExecutionEngineKind::Virus);
+    EXPECT_EQ(virus.engine_kind(), ee::ExecutionEngineKind::Virus);
 }

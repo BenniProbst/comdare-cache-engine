@@ -11,16 +11,13 @@ namespace comdare::cache_engine {
 
 class PathReadCounter final : public ITelemetryStrategy {
 public:
-    explicit PathReadCounter(std::uint64_t hot_threshold = 100)
-        : hot_threshold_(hot_threshold) {}
+    explicit PathReadCounter(std::uint64_t hot_threshold = 100) : hot_threshold_(hot_threshold) {}
 
     [[nodiscard]] TelemetryStrategyKind kind() const noexcept override {
         return TelemetryStrategyKind::PathReadCounter;
     }
 
-    void record_block_read(std::uint64_t block_id) noexcept {
-        ++counters_[block_id];
-    }
+    void record_block_read(std::uint64_t block_id) noexcept { ++counters_[block_id]; }
 
     [[nodiscard]] std::uint64_t block_read_count(std::uint64_t block_id) const noexcept {
         auto it = counters_.find(block_id);
@@ -34,8 +31,8 @@ public:
     [[nodiscard]] std::uint64_t hot_threshold() const noexcept { return hot_threshold_; }
 
 private:
-    std::uint64_t hot_threshold_;
+    std::uint64_t                                    hot_threshold_;
     std::unordered_map<std::uint64_t, std::uint64_t> counters_;
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

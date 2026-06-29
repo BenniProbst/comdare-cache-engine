@@ -31,7 +31,7 @@
 
 #include <axes/alloc/axis_06_allocator_flags.hpp>
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
-#include <measurement/measurable_concept.hpp>   // V41.F.6.1 Stufe 3: MeasurableObserver<snapshot_t>
+#include <measurement/measurable_concept.hpp> // V41.F.6.1 Stufe 3: MeasurableObserver<snapshot_t>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -63,25 +63,31 @@ public:
     // ───────────────────────────────────────────────────────────────────────
     // CacheEnginePermutationStrategy Pflicht (IMMER): Identifikation
     // ───────────────────────────────────────────────────────────────────────
-    using topic_tag  = ::comdare::cache_engine::allocator::concepts::AllocatorTopicTag;
-    using axis_tag   = subaxes::size_class_schema_tag;
-    using family_id  = std::integral_constant<int, 22>;   // A22 ptmalloc2/glibc
+    using topic_tag = ::comdare::cache_engine::allocator::concepts::AllocatorTopicTag;
+    using axis_tag  = subaxes::size_class_schema_tag;
+    using family_id = std::integral_constant<int, 22>; // A22 ptmalloc2/glibc
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()   noexcept { return true; }
-    [[nodiscard]] static constexpr bool        supports_pmr()     noexcept { return true; }
-    [[nodiscard]] static constexpr std::size_t max_alignment()    noexcept { return alignof(std::max_align_t); }
+    [[nodiscard]] static constexpr bool        is_thread_safe() noexcept { return true; }
+    [[nodiscard]] static constexpr bool        supports_pmr() noexcept { return true; }
+    [[nodiscard]] static constexpr std::size_t max_alignment() noexcept { return alignof(std::max_align_t); }
 
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "std_malloc"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "Standard libc malloc (ptmalloc2 / glibc)"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "std_malloc"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "Standard libc malloc (ptmalloc2 / glibc)";
+    }
     // V41.F.6.1.G CacheEngineBuilder CLI-Flag-Suffix (Doku §15.10)
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "STD"; }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "STD"; }
 
     // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
-    [[nodiscard]] static constexpr bool has_native_aligned_alloc()    noexcept { return true; }   // portable_aligned_alloc via posix_memalign/_aligned_malloc
-    [[nodiscard]] static constexpr bool requires_explicit_init()      noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_numa_node_hint()     noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }
-    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept { return concepts::ProgressGuarantee::Blocking; }
+    [[nodiscard]] static constexpr bool has_native_aligned_alloc() noexcept {
+        return true;
+    } // portable_aligned_alloc via posix_memalign/_aligned_malloc
+    [[nodiscard]] static constexpr bool                        requires_explicit_init() noexcept { return false; }
+    [[nodiscard]] static constexpr bool                        supports_numa_node_hint() noexcept { return false; }
+    [[nodiscard]] static constexpr bool                        supports_thread_local_cache() noexcept { return false; }
+    [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
+        return concepts::ProgressGuarantee::Blocking;
+    }
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
 
     // ───────────────────────────────────────────────────────────────────────
@@ -103,7 +109,7 @@ public:
         if (p != nullptr) {
             ++stats_.allocation_count;
             stats_.total_bytes_allocated += aligned_bytes;
-            stats_.total_bytes_in_use    += aligned_bytes;
+            stats_.total_bytes_in_use += aligned_bytes;
         } else {
             ++stats_.failure_count;
         }
@@ -143,7 +149,7 @@ public:
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
 
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
 
     void reset() noexcept {
         // Statistik-Reset (NICHT Allokationen freigeben!)
@@ -152,7 +158,7 @@ public:
     }
 
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
     // ───────────────────────────────────────────────────────────────────────
@@ -165,7 +171,7 @@ public:
         if (p != nullptr) {
             ++stats_.allocation_count;
             stats_.total_bytes_allocated += bytes;
-            stats_.total_bytes_in_use    += bytes;
+            stats_.total_bytes_in_use += bytes;
         } else {
             ++stats_.failure_count;
         }
@@ -177,8 +183,7 @@ public:
     // ───────────────────────────────────────────────────────────────────────
     // Sub-Concept: ReallocatingStrategy (portable Pattern: alloc-new + memcpy + free-old)
     // ───────────────────────────────────────────────────────────────────────
-    [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes,
-                                   std::size_t alignment) {
+    [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes, std::size_t alignment) {
         void* np = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, new_bytes);
         if (np == nullptr) {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -192,14 +197,13 @@ public:
             std::memcpy(np, p, copy_bytes);
             ::comdare::cache_engine::allocator::portable_aligned_free(p);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-            if (old_bytes <= stats_.total_bytes_in_use)
-                stats_.total_bytes_in_use -= old_bytes;
+            if (old_bytes <= stats_.total_bytes_in_use) stats_.total_bytes_in_use -= old_bytes;
             ++stats_.deallocation_count;
 #endif
         }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         std::size_t aligned_new = ((new_bytes + alignment - 1) / alignment) * alignment;
-        stats_.total_bytes_in_use    += aligned_new;
+        stats_.total_bytes_in_use += aligned_new;
         stats_.total_bytes_allocated += aligned_new;
         ++stats_.allocation_count;
         observer_.notify(stats_);
@@ -210,23 +214,21 @@ public:
 private:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::AllocationStatistics stats_{};
-    observer_t observer_{};
+    observer_t                     observer_{};
 #endif
 };
 
-}  // namespace comdare::cache_engine::alloc
+} // namespace comdare::cache_engine::alloc
 
 // ───────────────────────────────────────────────────────────────────────────
 // Compile-Time-Beweise (Concept-Konformanz):
 // ───────────────────────────────────────────────────────────────────────────
 namespace comdare::cache_engine::alloc {
-    static_assert(concepts::AllocatorStrategy<StdMalloc>,
-        "Pflicht: StdMalloc muss AllocatorStrategy erfuellen (Standard-PMR-API)");
-    static_assert(concepts::CacheEnginePermutationStrategy<StdMalloc>,
-        "Pflicht: StdMalloc muss CacheEnginePermutationStrategy erfuellen "
-        "(cache-engine-spec, mit statistics()+reset() wenn STATISTICS=ON)");
-    static_assert(concepts::ZeroingStrategy<StdMalloc>,
-        "Optional: StdMalloc bietet zero_allocate (calloc)");
-    static_assert(concepts::ReallocatingStrategy<StdMalloc>,
-        "Optional: StdMalloc bietet reallocate (portable Pattern)");
-}  // namespace
+static_assert(concepts::AllocatorStrategy<StdMalloc>,
+              "Pflicht: StdMalloc muss AllocatorStrategy erfuellen (Standard-PMR-API)");
+static_assert(concepts::CacheEnginePermutationStrategy<StdMalloc>,
+              "Pflicht: StdMalloc muss CacheEnginePermutationStrategy erfuellen "
+              "(cache-engine-spec, mit statistics()+reset() wenn STATISTICS=ON)");
+static_assert(concepts::ZeroingStrategy<StdMalloc>, "Optional: StdMalloc bietet zero_allocate (calloc)");
+static_assert(concepts::ReallocatingStrategy<StdMalloc>, "Optional: StdMalloc bietet reallocate (portable Pattern)");
+} // namespace comdare::cache_engine::alloc

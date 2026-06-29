@@ -8,15 +8,13 @@
 namespace comdare::cache_engine::hardware::axis_09b_simd_extension::concepts {
 
 template <typename E>
-concept CacheEnginePermutationStrategy =
-    SimdExtensionStrategy<E>
-    && requires {
-        typename E::axis_tag;
-        typename E::family_id;
-        { E::name() }         noexcept -> std::convertible_to<std::string_view>;
-        { E::family_name() }  noexcept -> std::convertible_to<std::string_view>;
-        { E::flag_suffix() }  noexcept -> std::convertible_to<std::string_view>;
-        { E::enabled }                 -> std::convertible_to<bool>;
-    };
+concept CacheEnginePermutationStrategy = SimdExtensionStrategy<E> && requires {
+    typename E::axis_tag;
+    typename E::family_id;
+    { E::name() } noexcept -> std::convertible_to<std::string_view>;
+    { E::family_name() } noexcept -> std::convertible_to<std::string_view>;
+    { E::flag_suffix() } noexcept -> std::convertible_to<std::string_view>;
+    { E::enabled } -> std::convertible_to<bool>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::hardware::axis_09b_simd_extension::concepts

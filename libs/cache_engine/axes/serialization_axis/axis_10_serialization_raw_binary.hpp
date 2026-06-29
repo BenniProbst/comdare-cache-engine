@@ -24,9 +24,11 @@ public:
     static constexpr bool enabled = flags::raw_binary_enabled;
 
     [[nodiscard]] static constexpr bool             supports_compression() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "serialization_raw_binary"; }
-    [[nodiscard]] static constexpr std::string_view family_name()          noexcept { return "RawBinarySerialization (memcpy raw bytes baseline)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()          noexcept { return "RAW_BINARY"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "serialization_raw_binary"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "RawBinarySerialization (memcpy raw bytes baseline)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "RAW_BINARY"; }
 
     // R5.B (Doku 22 §3.2/§4): behaviorale Laufzeit-API — macht die serialization-Achse RUNTIME-OPERATIV
     // (nicht mehr trait-only), analog axis_05 `scan_field_sum`. Encodiert je Datensatz das 32-Bit-Feld im
@@ -44,9 +46,9 @@ public:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::serialization_axis
 
 namespace comdare::cache_engine::serialization_axis {
-    static_assert(concepts::SerializationStrategy<RawBinarySerialization>);
-    static_assert(concepts::CacheEnginePermutationStrategy<RawBinarySerialization>);
-}
+static_assert(concepts::SerializationStrategy<RawBinarySerialization>);
+static_assert(concepts::CacheEnginePermutationStrategy<RawBinarySerialization>);
+} // namespace comdare::cache_engine::serialization_axis

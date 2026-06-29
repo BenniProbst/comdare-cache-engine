@@ -30,7 +30,7 @@ namespace tool = ::comdare::cache_engine::builder::codegen_tool;
 namespace {
 
 [[nodiscard]] std::string read_file(std::filesystem::path const& p) {
-    std::ifstream in{p};
+    std::ifstream      in{p};
     std::ostringstream ss;
     ss << in.rdbuf();
     return ss.str();
@@ -42,7 +42,7 @@ namespace {
     return dir / (std::string{stem} + ".cmake");
 }
 
-}  // anonymous
+} // namespace
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §1 — known_compositions Tabelle
@@ -55,11 +55,11 @@ TEST(R5F_Tool, KnownCompositionsHasElevenEntries) {
 
 TEST(R5F_Tool, KnownCompositionsContainsExpectedNames) {
     auto const all = tool::known_compositions();
-    bool art = false, hot = false, art_pb = false, surf_pb = false;
+    bool       art = false, hot = false, art_pb = false, surf_pb = false;
     for (auto const& c : all) {
-        if (c.short_name == "art")     art = true;
-        if (c.short_name == "hot")     hot = true;
-        if (c.short_name == "art_pb")  art_pb = true;
+        if (c.short_name == "art") art = true;
+        if (c.short_name == "hot") hot = true;
+        if (c.short_name == "art_pb") art_pb = true;
         if (c.short_name == "surf_pb") surf_pb = true;
     }
     EXPECT_TRUE(art);
@@ -76,8 +76,7 @@ TEST(R5F_Tool, FindCompositionKnownReturnsDescriptor) {
     auto const* art = tool::find_composition("art");
     ASSERT_NE(art, nullptr);
     EXPECT_EQ(art->short_name, std::string_view{"art"});
-    EXPECT_EQ(art->cpp_type_name,
-              std::string_view{"::comdare::cache_engine::compositions::ArtComposition"});
+    EXPECT_EQ(art->cpp_type_name, std::string_view{"::comdare::cache_engine::compositions::ArtComposition"});
     EXPECT_EQ(art->header_include, std::string_view{"compositions/art_reference.hpp"});
 }
 
@@ -105,8 +104,8 @@ TEST(R5F_Tool, SelectCompositionsCsvReturnsSelected) {
 
 TEST(R5F_Tool, SelectCompositionsCollectsUnknown) {
     std::vector<std::string> unknown;
-    auto const selected = tool::select_compositions("art,bogus,hot,phantom", &unknown);
-    EXPECT_EQ(selected.size(), 2u);   // art + hot
+    auto const               selected = tool::select_compositions("art,bogus,hot,phantom", &unknown);
+    EXPECT_EQ(selected.size(), 2u); // art + hot
     ASSERT_EQ(unknown.size(), 2u);
     EXPECT_EQ(unknown[0], "bogus");
     EXPECT_EQ(unknown[1], "phantom");
@@ -131,9 +130,9 @@ TEST(R5F_Tool, ParseLibraryTypeStatic) {
 }
 
 TEST(R5F_Tool, ParseLibraryTypeInvalidReturnsNullptr) {
-    EXPECT_EQ(tool::parse_library_type("shared"),    nullptr);  // case-sensitive
-    EXPECT_EQ(tool::parse_library_type("MODULE"),    nullptr);
-    EXPECT_EQ(tool::parse_library_type(""),          nullptr);
+    EXPECT_EQ(tool::parse_library_type("shared"), nullptr); // case-sensitive
+    EXPECT_EQ(tool::parse_library_type("MODULE"), nullptr);
+    EXPECT_EQ(tool::parse_library_type(""), nullptr);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -141,17 +140,18 @@ TEST(R5F_Tool, ParseLibraryTypeInvalidReturnsNullptr) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5F_Tool, WriteCmakeSnippetContainsLibraryType) {
-    auto const path = tmp_snippet_path("library_type_check");
+    auto const path     = tmp_snippet_path("library_type_check");
     auto const selected = tool::select_compositions("art");
     ASSERT_TRUE(tool::write_cmake_snippet(path, selected, tool::LibraryType::Shared));
 
     auto const content = read_file(path);
     EXPECT_NE(content.find("set(COMDARE_PERMUTATION_LIBRARY_TYPE \"SHARED\")"), std::string::npos)
-        << "Snippet sollte LIBRARY_TYPE-Variable enthalten:\n" << content;
+        << "Snippet sollte LIBRARY_TYPE-Variable enthalten:\n"
+        << content;
 }
 
 TEST(R5F_Tool, WriteCmakeSnippetContainsCompositionsList) {
-    auto const path = tmp_snippet_path("compositions_check");
+    auto const path     = tmp_snippet_path("compositions_check");
     auto const selected = tool::select_compositions("art,hot");
     ASSERT_TRUE(tool::write_cmake_snippet(path, selected, tool::LibraryType::Shared));
 
@@ -162,24 +162,24 @@ TEST(R5F_Tool, WriteCmakeSnippetContainsCompositionsList) {
 }
 
 TEST(R5F_Tool, WriteCmakeSnippetStaticLibraryTypeOption) {
-    auto const path = tmp_snippet_path("static_check");
-    auto const selected = tool::select_compositions("");  // alle 11
+    auto const path     = tmp_snippet_path("static_check");
+    auto const selected = tool::select_compositions(""); // alle 11
     ASSERT_TRUE(tool::write_cmake_snippet(path, selected, tool::LibraryType::Static));
 
     auto const content = read_file(path);
     EXPECT_NE(content.find("set(COMDARE_PERMUTATION_LIBRARY_TYPE \"STATIC\")"), std::string::npos);
     // Alle 11 Compositions sollten enthalten sein
-    EXPECT_NE(content.find("ArtComposition"),                std::string::npos);
-    EXPECT_NE(content.find("MasstreeComposition"),           std::string::npos);
-    EXPECT_NE(content.find("SurfPaperBindingComposition"),   std::string::npos);
+    EXPECT_NE(content.find("ArtComposition"), std::string::npos);
+    EXPECT_NE(content.find("MasstreeComposition"), std::string::npos);
+    EXPECT_NE(content.find("SurfPaperBindingComposition"), std::string::npos);
 }
 
 TEST(R5F_Tool, WriteCmakeSnippetCreatesParentDirectory) {
-    auto const tmp = std::filesystem::temp_directory_path() / "comdare_r5f_test" / "deep" / "sub" / "dir";
+    auto const      tmp = std::filesystem::temp_directory_path() / "comdare_r5f_test" / "deep" / "sub" / "dir";
     std::error_code ec;
-    std::filesystem::remove_all(tmp.parent_path(), ec);  // sicherstellen dass nicht vorhanden
+    std::filesystem::remove_all(tmp.parent_path(), ec); // sicherstellen dass nicht vorhanden
 
-    auto const path = tmp / "snippet.cmake";
+    auto const path     = tmp / "snippet.cmake";
     auto const selected = tool::select_compositions("art");
     EXPECT_TRUE(tool::write_cmake_snippet(path, selected, tool::LibraryType::Shared));
     EXPECT_TRUE(std::filesystem::exists(path));

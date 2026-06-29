@@ -13,13 +13,13 @@
 #include <cstdlib>
 
 #if COMDARE_AXIS_06_USE_NUMALLOC
-#  include <numalloc.h>
+#include <numalloc.h>
 #else
 // Forward-Stubs fuer if constexpr (false)-Zweig
 extern "C" {
-    inline void* numalloc_alloc(std::size_t /*size*/, std::size_t /*alignment*/, int /*node*/) noexcept { return nullptr; }
-    inline void  numalloc_free(void* /*p*/, std::size_t /*size*/) noexcept {}
-    inline void* numalloc_calloc(std::size_t /*n*/, std::size_t /*size*/, int /*node*/) noexcept { return nullptr; }
-    inline void* numalloc_realloc(void* /*p*/, std::size_t /*new_size*/, int /*node*/) noexcept { return nullptr; }
+inline void* numalloc_alloc(std::size_t /*size*/, std::size_t /*alignment*/, int /*node*/) noexcept { return nullptr; }
+inline void  numalloc_free(void* /*p*/, std::size_t /*size*/) noexcept {}
+inline void* numalloc_calloc(std::size_t /*n*/, std::size_t /*size*/, int /*node*/) noexcept { return nullptr; }
+inline void* numalloc_realloc(void* /*p*/, std::size_t /*new_size*/, int /*node*/) noexcept { return nullptr; }
 }
 #endif

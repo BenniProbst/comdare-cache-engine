@@ -44,20 +44,22 @@ public:
     using size_type    = std::size_t;
     using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag     = subaxes::versioned_access_tag;
-    using family_id    = std::integral_constant<int, 9>;  // Q09
+    using family_id    = std::integral_constant<int, 9>; // Q09
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 0; }  // unbounded
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "tombstone_buffer"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "TombstoneBuffer (LSM + MVCC + ART-Optimistik)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "TOMBSTONE_BUFFER"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "tombstone_buffer"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "TombstoneBuffer (LSM + MVCC + ART-Optimistik)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "TOMBSTONE_BUFFER"; }
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }
     [[nodiscard]] static constexpr bool supports_concurrent_consumers() noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_priority_ordering()    noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_priority_ordering() noexcept { return false; }
     /// SONDERFALL: versioned via Tombstone-Marker (anders als DeltaChainBuffer Append-Version).
-    [[nodiscard]] static constexpr bool is_versioned()                  noexcept { return true; }
+    [[nodiscard]] static constexpr bool                        is_versioned() noexcept { return true; }
     [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
         return concepts::ProgressGuarantee::Blocking;
     }
@@ -82,7 +84,7 @@ public:
     /// vollem Drain entfernt (Compact-Inline).
     [[nodiscard]] std::optional<element_type> get() {
         while (drain_pos_ < slots_.size() && !slots_[drain_pos_].has_value()) {
-            ++drain_pos_;  // Tombstone ueberspringen
+            ++drain_pos_; // Tombstone ueberspringen
         }
         if (drain_pos_ >= slots_.size()) {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -92,7 +94,7 @@ public:
             return std::nullopt;
         }
         element_type v = *slots_[drain_pos_];
-        slots_[drain_pos_].reset();  // markiere als Tombstone NACH get()
+        slots_[drain_pos_].reset(); // markiere als Tombstone NACH get()
         ++drain_pos_;
         --live_count_;
         ++version_counter_;
@@ -108,9 +110,13 @@ public:
         return v;
     }
 
-    [[nodiscard]] size_type size()     const noexcept { return live_count_; }
+    [[nodiscard]] size_type size() const noexcept { return live_count_; }
     [[nodiscard]] bool      is_empty() const noexcept { return live_count_ == 0; }
-    void                    clear()          noexcept { slots_.clear(); drain_pos_ = 0; live_count_ = 0; }
+    void                    clear() noexcept {
+        slots_.clear();
+        drain_pos_  = 0;
+        live_count_ = 0;
+    }
 
     // std::queue-API: peek_front=erstes Live, peek_back=letztes Live.
     [[nodiscard]] std::optional<element_type> peek_front() const noexcept {
@@ -128,9 +134,7 @@ public:
     void emplace(element_type v) { put(v); }
 
     /// Tombstone-spezifisch: aktuelle Anzahl ungelebter Tombstone-Slots.
-    [[nodiscard]] std::size_t tombstone_count() const noexcept {
-        return (slots_.size() - drain_pos_) - live_count_;
-    }
+    [[nodiscard]] std::size_t tombstone_count() const noexcept { return (slots_.size() - drain_pos_) - live_count_; }
 
     /// VersionedBufferStrategy [[versioned-strategy]]: monoton steigender Operation-Counter.
     /// Inkrementiert bei jedem put()/get() (Tombstone-Operation-Versioning, MVCC-Snapshot-Marker).
@@ -140,27 +144,30 @@ public:
     using snapshot_t = concepts::BufferStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
     std::vector<std::optional<element_type>> slots_;
-    std::size_t   drain_pos_       = 0;
-    std::size_t   live_count_      = 0;
-    std::uint64_t version_counter_ = 0;
+    std::size_t                              drain_pos_       = 0;
+    std::size_t                              live_count_      = 0;
+    std::uint64_t                            version_counter_ = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
-    observer_t observer_{};
+    observer_t                 observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<TombstoneBuffer>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<TombstoneBuffer>);
-    static_assert(concepts::VersionedBufferStrategy<TombstoneBuffer>);
-}
+static_assert(concepts::BufferStrategy<TombstoneBuffer>);
+static_assert(concepts::CacheEngineBufferPermutationStrategy<TombstoneBuffer>);
+static_assert(concepts::VersionedBufferStrategy<TombstoneBuffer>);
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing

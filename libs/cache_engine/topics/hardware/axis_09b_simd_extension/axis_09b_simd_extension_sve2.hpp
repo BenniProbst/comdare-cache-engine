@@ -23,24 +23,26 @@ public:
 
     static constexpr bool enabled = flags::sve2_enabled;
 
-    [[nodiscard]] static constexpr bool             is_active()             noexcept { return true; }
-    [[nodiscard]] static constexpr int              vector_width_bits()     noexcept { return -1; }  // scalable (128..2048)
-    [[nodiscard]] static constexpr bool             compatible_with_x86()   noexcept { return false; }
-    [[nodiscard]] static constexpr bool             compatible_with_arm()   noexcept { return true; }
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return true; }
+    [[nodiscard]] static constexpr int              vector_width_bits() noexcept { return -1; } // scalable (128..2048)
+    [[nodiscard]] static constexpr bool             compatible_with_x86() noexcept { return false; }
+    [[nodiscard]] static constexpr bool             compatible_with_arm() noexcept { return true; }
     [[nodiscard]] static constexpr bool             compatible_with_riscv() noexcept { return false; }
     [[nodiscard]] static constexpr bool             compatible_with_powerpc() noexcept { return false; }
-    [[nodiscard]] static constexpr std::string_view name()                  noexcept { return "simd_ext_sve2"; }
-    [[nodiscard]] static constexpr std::string_view family_name()           noexcept { return "Sve2SimdExtension (ARM SVE2 scalable 128-2048bit, ARMv9, ZIH Grace Hopper)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()           noexcept { return "SVE2"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "simd_ext_sve2"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "Sve2SimdExtension (ARM SVE2 scalable 128-2048bit, ARMv9, ZIH Grace Hopper)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "SVE2"; }
 
     // ─── R7.7.c Topologie: 1 SVE2-Unit/Sockel (Grace V2: alle Cores SVE2) ───
-    [[nodiscard]] static constexpr int  units_per_socket()                  noexcept { return 1; }
+    [[nodiscard]] static constexpr int  units_per_socket() noexcept { return 1; }
     [[nodiscard]] static constexpr bool accessible_from_efficiency_cores() noexcept { return true; }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::hardware::axis_09b_simd_extension
 
 namespace comdare::cache_engine::hardware::axis_09b_simd_extension {
-    static_assert(concepts::SimdExtensionStrategy<Sve2SimdExtension>);
-    static_assert(concepts::CacheEnginePermutationStrategy<Sve2SimdExtension>);
-}
+static_assert(concepts::SimdExtensionStrategy<Sve2SimdExtension>);
+static_assert(concepts::CacheEnginePermutationStrategy<Sve2SimdExtension>);
+} // namespace comdare::cache_engine::hardware::axis_09b_simd_extension

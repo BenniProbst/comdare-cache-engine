@@ -28,7 +28,7 @@ namespace comdare::cache_engine::test_support {
 template <class Wrapper>
 void verify_matches_std_map(std::uint32_t key_mod, std::uint32_t query_max) {
     using K = typename Wrapper::key_type;
-    Wrapper w{};
+    Wrapper                    w{};
     std::map<K, std::uint64_t> ref;
     for (std::uint32_t i = 0; i < 600u; ++i) {
         auto const k = static_cast<K>((i * 2654435761u) % key_mod);
@@ -37,7 +37,7 @@ void verify_matches_std_map(std::uint32_t key_mod, std::uint32_t query_max) {
             EXPECT_EQ(w.erase(k), had) << "erase-Mismatch key=" << static_cast<std::uint32_t>(k);
         } else {
             auto const v = static_cast<std::uint64_t>(k) * 11u + 1u;
-            ref[k] = v;
+            ref[k]       = v;
             w.insert(k, v);
         }
     }
@@ -45,8 +45,12 @@ void verify_matches_std_map(std::uint32_t key_mod, std::uint32_t query_max) {
         auto const key = static_cast<K>(q);
         auto const it  = ref.find(key);
         auto const got = w.lookup(key);
-        if (it != ref.end()) { ASSERT_TRUE(got.has_value()) << "key=" << q; EXPECT_EQ(*got, it->second); }
-        else                 { EXPECT_FALSE(got.has_value()) << "key=" << q; }
+        if (it != ref.end()) {
+            ASSERT_TRUE(got.has_value()) << "key=" << q;
+            EXPECT_EQ(*got, it->second);
+        } else {
+            EXPECT_FALSE(got.has_value()) << "key=" << q;
+        }
     }
     EXPECT_EQ(w.occupied_count(), ref.size());
 }
@@ -58,8 +62,11 @@ void drive_reference_stream(Wrapper& w, std::uint32_t key_mod) {
     using K = typename Wrapper::key_type;
     for (std::uint32_t i = 0; i < 600u; ++i) {
         auto const k = static_cast<K>((i * 2654435761u) % key_mod);
-        if (i % 7u == 0u) { (void)w.erase(k); }
-        else              { w.insert(k, static_cast<std::uint64_t>(k) * 11u + 1u); }
+        if (i % 7u == 0u) {
+            (void)w.erase(k);
+        } else {
+            w.insert(k, static_cast<std::uint64_t>(k) * 11u + 1u);
+        }
     }
 }
 
@@ -68,8 +75,7 @@ template <class Anchor, class Other>
 void compare_one_variant(Anchor const& anchor, std::uint32_t key_mod, std::uint32_t query_max) {
     Other other{};
     drive_reference_stream(other, key_mod);
-    EXPECT_EQ(other.occupied_count(), anchor.occupied_count())
-        << "occupied_count-Mismatch zwischen Varianten";
+    EXPECT_EQ(other.occupied_count(), anchor.occupied_count()) << "occupied_count-Mismatch zwischen Varianten";
     using KA = typename Anchor::key_type;
     using KO = typename Other::key_type;
     for (std::uint32_t q = 0; q <= query_max; ++q) {
@@ -79,7 +85,7 @@ void compare_one_variant(Anchor const& anchor, std::uint32_t key_mod, std::uint3
         if (va.has_value() && vo.has_value()) EXPECT_EQ(*va, *vo) << "value-Mismatch q=" << q;
     }
 }
-}  // namespace detail
+} // namespace detail
 
 /// (b) Horizontaler Vergleich: Anchor + alle Others ueber DENSELBEN Stream liefern identische Resultate.
 /// Transitiv mit (a): Other==Anchor && Anchor==std::map ⇒ alle Varianten == std::map (austauschbar).
@@ -91,4 +97,4 @@ void verify_variants_equivalent(std::uint32_t key_mod, std::uint32_t query_max) 
     (detail::compare_one_variant<Anchor, Others>(anchor, key_mod, query_max), ...);
 }
 
-}  // namespace comdare::cache_engine::test_support
+} // namespace comdare::cache_engine::test_support

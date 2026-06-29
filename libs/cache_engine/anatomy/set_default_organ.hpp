@@ -20,7 +20,7 @@ struct SortedArrayKeySet {
 
     void insert(std::uint64_t k, std::uint64_t /*v*/) {
         auto it = std::lower_bound(keys_.begin(), keys_.end(), k);
-        if (it == keys_.end() || *it != k) keys_.insert(it, k);   // Set: keine Duplikate
+        if (it == keys_.end() || *it != k) keys_.insert(it, k); // Set: keine Duplikate
     }
     [[nodiscard]] std::optional<std::uint64_t> lookup(std::uint64_t k) const {
         auto it = std::lower_bound(keys_.begin(), keys_.end(), k);
@@ -31,10 +31,10 @@ struct SortedArrayKeySet {
         if (it != keys_.end() && *it == k) keys_.erase(it);
     }
     [[nodiscard]] std::size_t occupied_count() const noexcept { return keys_.size(); }
-    void clear() noexcept { keys_.clear(); }
+    void                      clear() noexcept { keys_.clear(); }
 
 private:
-    std::vector<std::uint64_t> keys_;   // aufsteigend sortiert
+    std::vector<std::uint64_t> keys_; // aufsteigend sortiert
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

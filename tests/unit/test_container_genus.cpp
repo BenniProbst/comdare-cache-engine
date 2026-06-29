@@ -27,33 +27,43 @@ template <typename A, typename B>
 void check_eq(char const* what, A const& got, B const& want) {
     bool ok = (got == want);
     std::cout << (ok ? "  [OK]  " : "  [ERR] ") << what << " = " << got;
-    if (!ok) { std::cout << "  (erwartet: " << want << ")"; ++g_fail; }
+    if (!ok) {
+        std::cout << "  (erwartet: " << want << ")";
+        ++g_fail;
+    }
     std::cout << "\n";
 }
-void check_true(char const* what, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n"; if (!c) ++g_fail; }
+void check_true(char const* what, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << what << "\n";
+    if (!c) ++g_fail;
+}
 
 int main() {
     std::cout << "#87+#90: Adapter-Tier-Unterklasse der Container-Gattung (Doku 14 §28, 13 Achsen):\n";
 
     using D    = DelegatedAxis;
-    using Comp = cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>;  // 12 + inner
+    using Comp = cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>; // 12 + inner
     cea::AdapterAnatomy<Comp> queue;
 
     // ── Ebene 1+2: Gattung (Container) + Tier-Unterklasse (Adapter) ──
     check_true("gattung() == Container (Ebene 1, Außen-Interface)", queue.gattung() == cea::AnatomyGattung::Container);
     check_true("genus() == Adapter (Ebene 2, Tier-Unterklasse)", queue.genus() == cea::AnatomyGenus::Adapter);
-    check_true("gattung_of(Adapter) == Container (Ebenen-Abbildung)", cea::gattung_of(cea::AnatomyGenus::Adapter) == cea::AnatomyGattung::Container);
-    check_eq("gattung_name(Container)", std::string{cea::gattung_name(cea::AnatomyGattung::Container)}, std::string{"Container"});
+    check_true("gattung_of(Adapter) == Container (Ebenen-Abbildung)",
+               cea::gattung_of(cea::AnatomyGenus::Adapter) == cea::AnatomyGattung::Container);
+    check_eq("gattung_name(Container)", std::string{cea::gattung_name(cea::AnatomyGattung::Container)},
+             std::string{"Container"});
     check_eq("genus_name(Adapter)", std::string{cea::genus_name(cea::AnatomyGenus::Adapter)}, std::string{"Adapter"});
     check_eq("composition_name", std::string{queue.composition_name()}, std::string{"AdapterComposition"});
     check_eq("organ_count == 13 (§28: 12 geteilt/delegiert + inner_container)", queue.organ_count(), std::size_t{13});
 
     // ── Ebene 3 / §26.4-API: push/pop/front/back über inner_container; Disziplin = API-Nutzung ──
-    queue.push(10); queue.push(20); queue.push(30);   // inner: [10,20,30]
+    queue.push(10);
+    queue.push(20);
+    queue.push(30); // inner: [10,20,30]
     check_eq("size == 3 nach 3x push", queue.size(), std::size_t{3});
-    auto const f = queue.pop_front();                 // FIFO (queue): 10 → inner [20,30]
+    auto const f = queue.pop_front(); // FIFO (queue): 10 → inner [20,30]
     check_true("FIFO pop_front() liefert 10 (vorderstes)", f.has_value() && *f == 10u);
-    auto const b = queue.pop_back();                  // LIFO (stack): 30 → inner [20]
+    auto const b = queue.pop_back(); // LIFO (stack): 30 → inner [20]
     check_true("LIFO pop_back() liefert 30 (hinterstes)", b.has_value() && *b == 30u);
     check_true("front()==20 (verbleibendes Element)", queue.front().has_value() && *queue.front() == 20u);
     check_true("top()==back()==20", queue.top().has_value() && *queue.top() == 20u);
@@ -71,7 +81,8 @@ int main() {
     // ── inner_container permutiert (die spezifische §28-Achse): VectorInner als 2. Organ (Roh-Vektor-Substrat) ──
     std::cout << "\ninner_container = VectorInner (2. Organ der spezifischen Achse, kontiguierliches Substrat):\n";
     cea::AdapterAnatomy<cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::VectorInner<>>> vq;
-    vq.push(7); vq.push(9);
+    vq.push(7);
+    vq.push(9);
     check_true("VectorInner: pop_back() liefert 9", vq.pop_back().has_value());
     check_eq("VectorInner: organ_count == 13 (gleicher Achsen-Satz)", vq.organ_count(), std::size_t{13});
 
@@ -80,7 +91,9 @@ int main() {
     // front()(=Max) + pop_front()(=Extract-Max), via std::push_heap/pop_heap (Stand der Technik).
     std::cout << "\ninner_container = HeapInner (3. Organ, §26.4 priority_queue: Max-Heap + Compare):\n";
     cea::AdapterAnatomy<cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, D, cea::HeapInner<>>> pq;
-    pq.push(10); pq.push(30); pq.push(20);
+    pq.push(10);
+    pq.push(30);
+    pq.push(20);
     auto const pmax = pq.front();
     check_true("HeapInner: front() == 30 (Maximum, echte Heap-Disziplin)", pmax.has_value() && *pmax == 30u);
     auto const x1 = pq.pop_front();
@@ -95,11 +108,18 @@ int main() {
     std::cout << "\nGattungs-Bindung (GenusBindingTraits<Adapter>):\n";
     check_true("GenusBound<Adapter> == true", ex::GenusBound<cea::AnatomyGenus::Adapter>);
     check_true("GenusBound<SearchAlgorithm> == true (weiterhin)", ex::GenusBound<cea::AnatomyGenus::SearchAlgorithm>);
-    check_eq("GenusBindingTraits<Adapter>::name == Adapter (Tier-Unterklasse)", std::string{ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::name}, std::string{"Adapter"});
-    check_true("GenusBindingTraits<Adapter>::gattung == Container", ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::gattung == cea::AnatomyGattung::Container);
-    check_eq("GenusBindingTraits<Adapter>::slot_count == 13", ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::slot_count, std::size_t{13});
-    check_eq("Adapter axis_names[0] == search_algo (delegiert)", std::string{ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::axis_names()[0]}, std::string{"search_algo"});
-    check_eq("Adapter axis_names[12] == inner_container (spezifisch)", std::string{ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::axis_names()[12]}, std::string{"inner_container"});
+    check_eq("GenusBindingTraits<Adapter>::name == Adapter (Tier-Unterklasse)",
+             std::string{ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::name}, std::string{"Adapter"});
+    check_true("GenusBindingTraits<Adapter>::gattung == Container",
+               ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::gattung == cea::AnatomyGattung::Container);
+    check_eq("GenusBindingTraits<Adapter>::slot_count == 13",
+             ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::slot_count, std::size_t{13});
+    check_eq("Adapter axis_names[0] == search_algo (delegiert)",
+             std::string{ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::axis_names()[0]},
+             std::string{"search_algo"});
+    check_eq("Adapter axis_names[12] == inner_container (spezifisch)",
+             std::string{ex::GenusBindingTraits<cea::AnatomyGenus::Adapter>::axis_names()[12]},
+             std::string{"inner_container"});
 
     std::cout << "\n==== Adapter-Tier-Unterklasse (#87+#90, §28): "
               << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";

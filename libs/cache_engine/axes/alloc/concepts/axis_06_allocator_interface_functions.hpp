@@ -22,4 +22,4 @@ inline constexpr std::array<std::string_view, 2> kAxisInterfaceFunctions = {
     "deallocate",
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::alloc::concepts

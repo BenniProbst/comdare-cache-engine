@@ -32,8 +32,8 @@ protected:
         fs::create_directories(tmp_dir_);
 
         opts_.output_root  = tmp_dir_ / "generated";
-        opts_.comdare_root = tmp_dir_;  // egal — Test scannt nur File-Inhalt
-        engine_ = std::make_unique<cg::CodegenEngine>(opts_);
+        opts_.comdare_root = tmp_dir_; // egal — Test scannt nur File-Inhalt
+        engine_            = std::make_unique<cg::CodegenEngine>(opts_);
     }
     void TearDown() override {
         std::error_code ec;
@@ -41,7 +41,7 @@ protected:
     }
 
     [[nodiscard]] static std::string read_file(fs::path const& p) {
-        std::ifstream f{p};
+        std::ifstream      f{p};
         std::ostringstream ss;
         ss << f.rdbuf();
         return ss.str();
@@ -49,41 +49,41 @@ protected:
 
     [[nodiscard]] static xml::AlgorithmProfile sample_profile_art() {
         xml::AlgorithmProfile p;
-        p.id          = "art";
-        p.paper_ref   = "P01";
-        p.key_types   = "std::uint64_t";
-        p.value_types = "std::string";
-        p.axes["page"]         = "DENSEBYTE_ART256";
-        p.axes["node"]         = "SPARSE_NODE4_ART";
-        p.axes["traversal"]    = "STANDARD";
-        p.axes["concurrency"]  = "OPTIMISTIC_LOCK_COUPLING";
-        p.axes["allocator"]    = "MIMALLOC";
+        p.id                  = "art";
+        p.paper_ref           = "P01";
+        p.key_types           = "std::uint64_t";
+        p.value_types         = "std::string";
+        p.axes["page"]        = "DENSEBYTE_ART256";
+        p.axes["node"]        = "SPARSE_NODE4_ART";
+        p.axes["traversal"]   = "STANDARD";
+        p.axes["concurrency"] = "OPTIMISTIC_LOCK_COUPLING";
+        p.axes["allocator"]   = "MIMALLOC";
         return p;
     }
 
     [[nodiscard]] static xml::AlgorithmProfile sample_profile_hot() {
         xml::AlgorithmProfile p;
-        p.id          = "hot";
-        p.paper_ref   = "P02";
-        p.key_types   = "std::uint64_t";
-        p.value_types = "std::string";
+        p.id                = "hot";
+        p.paper_ref         = "P02";
+        p.key_types         = "std::uint64_t";
+        p.value_types       = "std::string";
         p.axes["page"]      = "HOT_MULTIBYTE";
         p.axes["node"]      = "HOT_BIT_NODE";
         p.axes["traversal"] = "HOT_PATH";
         return p;
     }
 
-    fs::path                            tmp_dir_;
-    cg::CodegenOptions                  opts_;
-    std::unique_ptr<cg::CodegenEngine>  engine_;
+    fs::path                           tmp_dir_;
+    cg::CodegenOptions                 opts_;
+    std::unique_ptr<cg::CodegenEngine> engine_;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Test 1: generate_module_from_profile schreibt die Source-Datei
 // ─────────────────────────────────────────────────────────────────────────────
 TEST_F(CodegenFromProfileFixture, GeneratesSourceFile) {
-    auto profile = sample_profile_art();
-    constexpr std::uint64_t fp = 0xC0FFEE0000000001ULL;
+    auto                    profile = sample_profile_art();
+    constexpr std::uint64_t fp      = 0xC0FFEE0000000001ULL;
     engine_->generate_module_from_profile(profile, fp);
 
     auto src_path = opts_.output_root / "module_profile_art_c0ffee0000000001.cpp";
@@ -94,8 +94,8 @@ TEST_F(CodegenFromProfileFixture, GeneratesSourceFile) {
 // Test 2: generate_module_from_profile schreibt die CMakeLists-Datei
 // ─────────────────────────────────────────────────────────────────────────────
 TEST_F(CodegenFromProfileFixture, GeneratesCMakeListsFile) {
-    auto profile = sample_profile_art();
-    constexpr std::uint64_t fp = 0xC0FFEE0000000001ULL;
+    auto                    profile = sample_profile_art();
+    constexpr std::uint64_t fp      = 0xC0FFEE0000000001ULL;
     engine_->generate_module_from_profile(profile, fp);
 
     auto cm_path = opts_.output_root / "module_profile_art_c0ffee0000000001_CMakeLists.txt";
@@ -106,8 +106,8 @@ TEST_F(CodegenFromProfileFixture, GeneratesCMakeListsFile) {
 // Test 3: Generated Source enthaelt Profil-Metadaten + ABI-Bindings
 // ─────────────────────────────────────────────────────────────────────────────
 TEST_F(CodegenFromProfileFixture, SourceContainsProfileMetadata) {
-    auto profile = sample_profile_art();
-    constexpr std::uint64_t fp = 0xDEADBEEF00000002ULL;
+    auto                    profile = sample_profile_art();
+    constexpr std::uint64_t fp      = 0xDEADBEEF00000002ULL;
     engine_->generate_module_from_profile(profile, fp);
 
     auto src_path = opts_.output_root / "module_profile_art_deadbeef00000002.cpp";
@@ -143,8 +143,8 @@ TEST_F(CodegenFromProfileFixture, MultipleProfilesGenerateDistinctFiles) {
 // Test 5: CMakeLists referenziert das richtige Library-Target
 // ─────────────────────────────────────────────────────────────────────────────
 TEST_F(CodegenFromProfileFixture, CMakeListsReferencesCorrectTarget) {
-    auto profile = sample_profile_art();
-    constexpr std::uint64_t fp = 0xCAFE000000000003ULL;
+    auto                    profile = sample_profile_art();
+    constexpr std::uint64_t fp      = 0xCAFE000000000003ULL;
     engine_->generate_module_from_profile(profile, fp);
 
     auto cm_path = opts_.output_root / "module_profile_art_cafe000000000003_CMakeLists.txt";
@@ -163,9 +163,9 @@ TEST_F(CodegenFromProfileFixture, CMakeListsReferencesCorrectTarget) {
 TEST_F(CodegenFromProfileFixture, TemplateSubstitution_NoOpWhenTemplateMissing) {
     // Profile-id "nonexistent_xyz" hat kein Template
     xml::AlgorithmProfile p;
-    p.id = "nonexistent_xyz";
-    p.paper_ref = "P99";
-    p.key_types = "int";
+    p.id          = "nonexistent_xyz";
+    p.paper_ref   = "P99";
+    p.key_types   = "int";
     p.value_types = "int";
 
     constexpr std::uint64_t fp = 0xC0FFEE9999999999ULL;
@@ -197,13 +197,13 @@ TEST_F(CodegenFromProfileFixture, TemplateSubstitution_IncludesTemplateWhenPrese
 
     // CodegenEngine mit comdare_root auf das Tmp-Verzeichnis (sodass Template gefunden wird)
     cg::CodegenOptions opts2;
-    opts2.output_root = tmp_dir_ / "generated2";
+    opts2.output_root  = tmp_dir_ / "generated2";
     opts2.comdare_root = tmp_dir_;
     cg::CodegenEngine engine2{opts2};
 
     xml::AlgorithmProfile p;
-    p.id = "test_id";
-    p.paper_ref = "PXX";
+    p.id                       = "test_id";
+    p.paper_ref                = "PXX";
     constexpr std::uint64_t fp = 0xCAFE000000000017ULL;
     engine2.generate_module_from_profile(p, fp);
 
@@ -215,7 +215,8 @@ TEST_F(CodegenFromProfileFixture, TemplateSubstitution_IncludesTemplateWhenPrese
     EXPECT_NE(content.find("test_id_body.hpp.template"), std::string::npos);
     EXPECT_NE(content.find("Template     : yes"), std::string::npos);
     // ABI-Glue verwendet TemplateBody alias
-    EXPECT_NE(content.find("using TemplateBody = ::comdare::cache_engine::builder::generated::ProfileModuleBody;"), std::string::npos);
+    EXPECT_NE(content.find("using TemplateBody = ::comdare::cache_engine::builder::generated::ProfileModuleBody;"),
+              std::string::npos);
     // Kein Skelett-Body
     EXPECT_EQ(content.find("ProfileModule_v1"), std::string::npos);
 }
@@ -235,12 +236,12 @@ TEST_F(CodegenFromProfileFixture, MultiPath_PrtArtTemplateFoundWhenSotaMissing) 
 
     cg::CodegenOptions opts2;
     opts2.output_root  = tmp_dir_ / "generated_v18_3a";
-    opts2.comdare_root = tmp_dir_;          // hat KEIN prtart-Template hier
-    opts2.prt_art_root = tmp_dir_;          // hat prtart-Template
+    opts2.comdare_root = tmp_dir_; // hat KEIN prtart-Template hier
+    opts2.prt_art_root = tmp_dir_; // hat prtart-Template
     cg::CodegenEngine engine2{opts2};
 
     xml::AlgorithmProfile p;
-    p.id = "prtart";
+    p.id        = "prtart";
     p.paper_ref = "PRTART";
     engine2.generate_module_from_profile(p, 0xAB);
 
@@ -250,7 +251,7 @@ TEST_F(CodegenFromProfileFixture, MultiPath_PrtArtTemplateFoundWhenSotaMissing) 
 }
 
 TEST_F(CodegenFromProfileFixture, MultiPath_SotaPriorityOverPrtArt) {
-    auto sota_tpl_dir = tmp_dir_ / "cache_engine" / "builder" / "codegen" / "templates";
+    auto sota_tpl_dir    = tmp_dir_ / "cache_engine" / "builder" / "codegen" / "templates";
     auto prt_art_tpl_dir = tmp_dir_ / "prt_art" / "codegen" / "templates";
     fs::create_directories(sota_tpl_dir);
     fs::create_directories(prt_art_tpl_dir);
@@ -312,12 +313,12 @@ TEST_F(CodegenFromProfileFixture, TemplateSubstitution_AbiGlueDelegatesToTemplat
     f.close();
 
     cg::CodegenOptions opts2;
-    opts2.output_root = tmp_dir_ / "generated3";
+    opts2.output_root  = tmp_dir_ / "generated3";
     opts2.comdare_root = tmp_dir_;
     cg::CodegenEngine engine2{opts2};
 
     xml::AlgorithmProfile p;
-    p.id = "abc";
+    p.id        = "abc";
     p.paper_ref = "PXX";
     engine2.generate_module_from_profile(p, 0x42);
 
@@ -341,7 +342,7 @@ TEST_F(CodegenFromProfileFixture, EmptyAxesProduceValidOutput) {
     minimal_profile.value_types = "int";
     // axes-Map bleibt leer
 
-    constexpr std::uint64_t fp = 0x0000000000001234ULL;  // simple valid hex
+    constexpr std::uint64_t fp = 0x0000000000001234ULL; // simple valid hex
     (void)fp;
     EXPECT_NO_THROW(engine_->generate_module_from_profile(minimal_profile, 0x1234ULL));
 
@@ -374,7 +375,7 @@ TEST_F(CodegenFromProfileFixture, ParsesExpectedWorkloadTag) {
 </comdare_algorithm_profile>)";
     }
     xml::XmlConfigParser parser;
-    auto p = parser.parse_profile(profile_xml);
+    auto                 p = parser.parse_profile(profile_xml);
     EXPECT_EQ(p.id, "testw");
     EXPECT_EQ(p.expected_workload, "YCSB_F");
 }
@@ -394,7 +395,7 @@ TEST_F(CodegenFromProfileFixture, ExpectedWorkloadOptionalEmpty) {
 </comdare_algorithm_profile>)";
     }
     xml::XmlConfigParser parser;
-    auto p = parser.parse_profile(profile_xml);
+    auto                 p = parser.parse_profile(profile_xml);
     EXPECT_EQ(p.id, "nowl");
     EXPECT_TRUE(p.expected_workload.empty());
 }
@@ -418,7 +419,7 @@ TEST_F(CodegenFromProfileFixture, ParsesAllocatorOverrideTag) {
 </comdare_algorithm_profile>)";
     }
     xml::XmlConfigParser parser;
-    auto p = parser.parse_profile(profile_xml);
+    auto                 p = parser.parse_profile(profile_xml);
     EXPECT_EQ(p.id, "testao");
     EXPECT_EQ(p.expected_workload, "YCSB_C");
     EXPECT_EQ(p.allocator_override, "jemalloc");
@@ -441,8 +442,8 @@ TEST_F(CodegenFromProfileFixture, AllocatorOverrideOptionalEmpty) {
 </comdare_algorithm_profile>)";
     }
     xml::XmlConfigParser parser;
-    auto p = parser.parse_profile(profile_xml);
+    auto                 p = parser.parse_profile(profile_xml);
     EXPECT_TRUE(p.allocator_override.empty());
 }
 
-}  // anonymous namespace
+} // anonymous namespace

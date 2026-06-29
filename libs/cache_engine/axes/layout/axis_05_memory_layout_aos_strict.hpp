@@ -19,14 +19,14 @@ namespace comdare::cache_engine::layout {
 /// bei concurrent Schreibern. Typischer Wormhole-Layout (strict AoS).
 class AoSStrictMemoryLayout : public MemoryLayoutStrategyBase<AoSStrictMemoryLayout> {
 public:
-    using topic_tag  = ::comdare::cache_engine::memory_layout::concepts::MemoryLayoutTopicTag;
-    using axis_tag   = subaxes::data_organization_tag;
-    using family_id  = std::integral_constant<int, 2>;
+    using topic_tag = ::comdare::cache_engine::memory_layout::concepts::MemoryLayoutTopicTag;
+    using axis_tag  = subaxes::data_organization_tag;
+    using family_id = std::integral_constant<int, 2>;
 
     static constexpr bool enabled = flags::aos_strict_enabled;
 
-    [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return 1; }  // strict packed, kein alignment
-    [[nodiscard]] static constexpr std::string_view name()            noexcept { return "memory_layout_aos_strict"; }
+    [[nodiscard]] static constexpr std::size_t cache_line_size() noexcept { return 1; } // strict packed, kein alignment
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "memory_layout_aos_strict"; }
 
     // REALE Repraesentation (P-MD1-ERDUNG #167): strict-packed AoS — der Store legt [key|value] adjazent am
     // 16-B-Stride an (kein Padding). Der Key-only-Scan beruehrt jeden 16-B-Block → MEHR Lines als SoA, aber
@@ -35,8 +35,10 @@ public:
     [[nodiscard]] static constexpr RepresentationKind representation_kind() noexcept {
         return RepresentationKind::aos_interleaved_packed;
     }
-    [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "AoSStrictMemoryLayout (strict packed, no cache-line alignment, dense)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()     noexcept { return "AOS_STRICT"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "AoSStrictMemoryLayout (strict packed, no cache-line alignment, dense)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "AOS_STRICT"; }
 
     // V41.F.6.1 R5.B — verhaltens-tragende Laufzeit-API (Layout-Achse F15-operativ): AoS-strided
     // (Feld i bei i*record_size) — wie CacheLineAligned, aber strict-packed ohne Alignment.
@@ -45,16 +47,16 @@ public:
         std::uint64_t s = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::uint32_t v;
-            std::memcpy(&v, buf + i * record_size, sizeof(v));   // AoS: strided
+            std::memcpy(&v, buf + i * record_size, sizeof(v)); // AoS: strided
             s += v;
         }
         return s;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::layout
 
 namespace comdare::cache_engine::layout {
-    static_assert(concepts::MemoryLayoutStrategy<AoSStrictMemoryLayout>);
-    static_assert(concepts::CacheEnginePermutationStrategy<AoSStrictMemoryLayout>);
-}
+static_assert(concepts::MemoryLayoutStrategy<AoSStrictMemoryLayout>);
+static_assert(concepts::CacheEnginePermutationStrategy<AoSStrictMemoryLayout>);
+} // namespace comdare::cache_engine::layout

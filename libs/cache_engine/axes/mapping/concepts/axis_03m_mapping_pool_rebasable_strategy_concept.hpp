@@ -29,13 +29,10 @@ namespace comdare::cache_engine::mapping::concepts {
  *                          semantisch korrekt, nur absolute Position aendert sich
  */
 template <typename M>
-concept PoolRebasableStrategy =
-    MappingVariant<M>
-    && requires(M const& mc) {
-        { mc.pool_base() } noexcept -> std::convertible_to<typename M::offset_type>;
-    }
-    && requires(M m, typename M::offset_type new_base) {
-        { m.rebase(new_base) } noexcept;
-    };
+concept PoolRebasableStrategy = MappingVariant<M> && requires(M const& mc) {
+    { mc.pool_base() } noexcept -> std::convertible_to<typename M::offset_type>;
+} && requires(M m, typename M::offset_type new_base) {
+    { m.rebase(new_base) } noexcept;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::mapping::concepts

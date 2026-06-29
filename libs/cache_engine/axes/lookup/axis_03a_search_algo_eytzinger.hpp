@@ -61,18 +61,22 @@ public:
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::sparse_access_tag;
-    using family_id  = std::integral_constant<int, 12>;  // S12
+    using family_id  = std::integral_constant<int, 12>; // S12
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t max_fanout()        noexcept { return 65536; }  // u16 Keyraum
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "eytzinger"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "EytzingerSearchAlgo (cache-conscious BFS layout, branch-free — Khuong/Morin JEA 2017)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "EYTZINGER"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; } // u16 Keyraum
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "eytzinger"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "EytzingerSearchAlgo (cache-conscious BFS layout, branch-free — Khuong/Morin JEA 2017)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "EYTZINGER"; }
 
-    [[nodiscard]] static constexpr bool supports_simd()            noexcept { return false; }  // branch-free + prefetch, nicht vektorisiert
-    [[nodiscard]] static constexpr bool supports_range_scan()      noexcept { return true; }   // sortierte Quelle
-    [[nodiscard]] static constexpr bool is_dense()                 noexcept { return false; }  // sparse sortiert
-    [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return true; }   // Kern-Vorteil des Layouts
+    [[nodiscard]] static constexpr bool supports_simd() noexcept {
+        return false;
+    } // branch-free + prefetch, nicht vektorisiert
+    [[nodiscard]] static constexpr bool supports_range_scan() noexcept { return true; }      // sortierte Quelle
+    [[nodiscard]] static constexpr bool is_dense() noexcept { return false; }                // sparse sortiert
+    [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return true; } // Kern-Vorteil des Layouts
 
     EytzingerSearchAlgo() noexcept = default;
 
@@ -83,10 +87,10 @@ public:
     /// Quelle der Wahrheit ist die sortierte keys_/values_-Liste; das Eytzinger-Layout wird lazy
     /// (bei naechstem lookup) neu gebaut. SONDERFALL [[allocation-failure-exception]]: std::bad_alloc.
     void insert(key_type k, value_type v) {
-        auto it = std::lower_bound(keys_.begin(), keys_.end(), k);
+        auto        it  = std::lower_bound(keys_.begin(), keys_.end(), k);
         std::size_t idx = static_cast<std::size_t>(it - keys_.begin());
         if (it != keys_.end() && *it == k) {
-            values_[idx] = v;  // update (Layout-Werte aendern sich -> dirty)
+            values_[idx] = v; // update (Layout-Werte aendern sich -> dirty)
         } else {
             keys_.insert(it, k);
             values_.insert(values_.begin() + static_cast<std::ptrdiff_t>(idx), v);
@@ -102,12 +106,12 @@ public:
     /// Eytzinger branch-free Suche (Khuong/Morin 2017). Baut das Layout bei Bedarf neu auf.
     [[nodiscard]] std::optional<value_type> lookup(key_type x) const {
         std::optional<value_type> result = std::nullopt;
-        std::size_t const n = keys_.size();
+        std::size_t const         n      = keys_.size();
         if (n != 0) {
             if (dirty_) rebuild_eytzinger();
             std::size_t k = 1;
             while (k <= n) {
-                k = 2 * k + (eyt_keys_[k] < x ? 1u : 0u);  // 0 = links (>=x), 1 = rechts (<x)
+                k = 2 * k + (eyt_keys_[k] < x ? 1u : 0u); // 0 = links (>=x), 1 = rechts (<x)
             }
             // lower_bound-Eytzinger-Index: trailing-1s + 1 wegshiften (0 ⇒ kein Element >= x).
             std::size_t const idx = k >> (static_cast<unsigned>(std::countr_one(k)) + 1u);
@@ -115,7 +119,10 @@ public:
         }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_lookup_count;
-        if (result) ++stats_.total_hit_count; else ++stats_.total_miss_count;
+        if (result)
+            ++stats_.total_hit_count;
+        else
+            ++stats_.total_miss_count;
         observer_.notify(stats_);
 #endif
         return result;
@@ -139,13 +146,19 @@ public:
     [[nodiscard]] double    density_percent() const noexcept {
         return 100.0 * static_cast<double>(keys_.size()) / 65536.0;
     }
-    void                    clear() noexcept { keys_.clear(); values_.clear(); eyt_keys_.clear(); eyt_vals_.clear(); dirty_ = true; }
+    void clear() noexcept {
+        keys_.clear();
+        values_.clear();
+        eyt_keys_.clear();
+        eyt_vals_.clear();
+        dirty_ = true;
+    }
 
     /// DensityClassifiedStrategy [[density-classified-strategy]]: Belegungs-basierte Klassifikation.
     [[nodiscard]] concepts::DensityClass density_class() const noexcept {
         std::size_t const n = keys_.size();
         if (n > 1024) return concepts::DensityClass::Dense;
-        if (n > 64)   return concepts::DensityClass::Balanced;
+        if (n > 64) return concepts::DensityClass::Balanced;
         return concepts::DensityClass::Sparse;
     }
 
@@ -153,12 +166,18 @@ public:
     using snapshot_t = concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     // CoW-Memento (#142/Audit-K3): Stat-POD-Restore -> organ_cow_capable_v aktiv (spiegelt Observable-Huelle).
-    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; observer_.notify(stats_); }
+    void restore_statistics(snapshot_t const& s) noexcept {
+        stats_ = s;
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
@@ -189,14 +208,14 @@ private:
     mutable bool                    dirty_ = false;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::SearchAlgoStatistics stats_{};
-    mutable observer_t                      observer_{};
+    mutable observer_t                     observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup
 
 namespace comdare::cache_engine::lookup {
-    static_assert(concepts::SearchAlgoVariant<EytzingerSearchAlgo>);
-    static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<EytzingerSearchAlgo>);
-    static_assert(concepts::DensityClassifiedStrategy<EytzingerSearchAlgo>);
-}
+static_assert(concepts::SearchAlgoVariant<EytzingerSearchAlgo>);
+static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<EytzingerSearchAlgo>);
+static_assert(concepts::DensityClassifiedStrategy<EytzingerSearchAlgo>);
+} // namespace comdare::cache_engine::lookup

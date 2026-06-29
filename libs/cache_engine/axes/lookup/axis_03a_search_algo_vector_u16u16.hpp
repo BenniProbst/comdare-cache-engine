@@ -43,23 +43,25 @@ class VectorU16U16SearchAlgo : public SearchAlgoBase<VectorU16U16SearchAlgo> {
 public:
     static constexpr bool enabled = flags::vector_u16u16_enabled;
 
-    using key_type   = std::uint16_t;  // Multi-Byte Discriminator
+    using key_type   = std::uint16_t; // Multi-Byte Discriminator
     using value_type = std::uint64_t;
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::multilevel_access_tag;
-    using family_id  = std::integral_constant<int, 3>;  // S03
+    using family_id  = std::integral_constant<int, 3>; // S03
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t max_fanout()        noexcept { return 65536; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "vector_u16u16"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "VectorU16U16SearchAlgo (START multi-byte Cost-DP, Mertens ICDE 2024)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "VECTOR_U16U16"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "vector_u16u16"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "VectorU16U16SearchAlgo (START multi-byte Cost-DP, Mertens ICDE 2024)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "VECTOR_U16U16"; }
 
     /// SONDERFALL: kein SIMD — Cost-DP-Algorithmus ist nicht vectorisierbar.
-    [[nodiscard]] static constexpr bool supports_simd()            noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_range_scan()      noexcept { return true; }
-    [[nodiscard]] static constexpr bool is_dense()                 noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_simd() noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_range_scan() noexcept { return true; }
+    [[nodiscard]] static constexpr bool is_dense() noexcept { return false; }
     [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return true; }
 
     VectorU16U16SearchAlgo() = default;
@@ -70,7 +72,7 @@ public:
 
     /// SONDERFALL [[allocation-failure-exception]]: push_back kann std::bad_alloc werfen.
     void insert(key_type k, value_type v) {
-        auto it = std::lower_bound(keys_.begin(), keys_.end(), k);
+        auto        it  = std::lower_bound(keys_.begin(), keys_.end(), k);
         std::size_t idx = static_cast<std::size_t>(it - keys_.begin());
         if (it != keys_.end() && *it == k) {
             values_[idx] = v;
@@ -90,8 +92,10 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_lookup_count;
         bool hit = (it != keys_.end() && *it == k);
-        if (hit) ++stats_.total_hit_count;
-        else      ++stats_.total_miss_count;
+        if (hit)
+            ++stats_.total_hit_count;
+        else
+            ++stats_.total_miss_count;
         observer_.notify(stats_);
 #endif
         if (it == keys_.end() || *it != k) return std::nullopt;
@@ -116,25 +120,32 @@ public:
     [[nodiscard]] double    density_percent() const noexcept {
         return 100.0 * static_cast<double>(keys_.size()) / 65536.0;
     }
-    void                    clear() noexcept { keys_.clear(); values_.clear(); }
+    void clear() noexcept {
+        keys_.clear();
+        values_.clear();
+    }
 
     /// DensityClassifiedStrategy [[density-classified-strategy]]:
     /// Balanced default — Multilevel-Cost-DP optimiert sich automatisch
     /// fuer mittlere Density-Bereiche.
-    [[nodiscard]] concepts::DensityClass density_class() const noexcept {
-        return concepts::DensityClass::Balanced;
-    }
+    [[nodiscard]] concepts::DensityClass density_class() const noexcept { return concepts::DensityClass::Balanced; }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     // CoW-Memento (#142/Audit-K3): Stat-POD-Restore -> organ_cow_capable_v aktiv (spiegelt Observable-Huelle).
-    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; observer_.notify(stats_); }
+    void restore_statistics(snapshot_t const& s) noexcept {
+        stats_ = s;
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
@@ -142,15 +153,15 @@ private:
     std::vector<value_type> values_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::SearchAlgoStatistics stats_{};
-    mutable observer_t                      observer_{};
+    mutable observer_t                     observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup
 
 namespace comdare::cache_engine::lookup {
-    static_assert(concepts::SearchAlgoVariant<VectorU16U16SearchAlgo>);
-    static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<VectorU16U16SearchAlgo>);
-    static_assert(concepts::DensityClassifiedStrategy<VectorU16U16SearchAlgo>);
-    // NICHT: SimdCapableStrategy (Cost-DP ist nicht vektorisierbar)
-}
+static_assert(concepts::SearchAlgoVariant<VectorU16U16SearchAlgo>);
+static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<VectorU16U16SearchAlgo>);
+static_assert(concepts::DensityClassifiedStrategy<VectorU16U16SearchAlgo>);
+// NICHT: SimdCapableStrategy (Cost-DP ist nicht vektorisierbar)
+} // namespace comdare::cache_engine::lookup

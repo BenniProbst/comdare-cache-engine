@@ -26,31 +26,28 @@ concept SkipListNodePool =
     requires {
         typename S::key_type;
         typename S::value_type;
-        { S::kNil }      -> std::convertible_to<std::size_t>;   // "kein Nachfolger"
-        { S::kHead }     -> std::convertible_to<std::size_t>;   // Sentinel-Kopf-Index
+        { S::kNil } -> std::convertible_to<std::size_t>;  // "kein Nachfolger"
+        { S::kHead } -> std::convertible_to<std::size_t>; // Sentinel-Kopf-Index
         { S::kMaxLevel } -> std::convertible_to<int>;
-    }
-    && std::same_as<typename S::key_type, std::uint64_t>
-    && std::same_as<typename S::value_type, std::uint64_t>
-    && requires(S& s, S const& cs, std::size_t i, int lvl, bool b,
-                typename S::key_type k, typename S::value_type v) {
+    } && std::same_as<typename S::key_type, std::uint64_t> && std::same_as<typename S::value_type, std::uint64_t> &&
+    requires(S& s, S const& cs, std::size_t i, int lvl, bool b, typename S::key_type k, typename S::value_type v) {
         // (A) const Inspektion — PFLICHT
-        { cs.head() }            -> std::convertible_to<std::size_t>;
-        { cs.list_level() }      -> std::convertible_to<int>;       // listenweite Hoehe
-        { cs.live_count() }      -> std::convertible_to<std::size_t>;
-        { cs.node_key(i) }       -> std::same_as<typename S::key_type>;
-        { cs.node_value(i) }     -> std::same_as<typename S::value_type>;
-        { cs.node_live(i) }      -> std::same_as<bool>;
-        { cs.forward_at(i, i) }  -> std::convertible_to<std::size_t>;  // (node, level) -> Nachfolger-Index
+        { cs.head() } -> std::convertible_to<std::size_t>;
+        { cs.list_level() } -> std::convertible_to<int>; // listenweite Hoehe
+        { cs.live_count() } -> std::convertible_to<std::size_t>;
+        { cs.node_key(i) } -> std::same_as<typename S::key_type>;
+        { cs.node_value(i) } -> std::same_as<typename S::value_type>;
+        { cs.node_live(i) } -> std::same_as<bool>;
+        { cs.forward_at(i, i) } -> std::convertible_to<std::size_t>; // (node, level) -> Nachfolger-Index
         // (B) Mutation — PFLICHT
-        { s.allocate_node(k, v, lvl) } -> std::convertible_to<std::size_t>;  // mit lvl Forward-Slots; darf werfen
-        { s.draw_level() }             -> std::convertible_to<int>;          // RNG-Muenzwurf — Pool-Verantwortung
-        { s.set_forward_at(i, i, i) }  -> std::same_as<void>;                // (node, level, target)
-        { s.set_node_value(i, v) }     -> std::same_as<void>;
-        { s.set_node_live(i, b) }      -> std::same_as<void>;
-        { s.set_list_level(lvl) }      -> std::same_as<void>;
-        { s.dec_live() }               -> std::same_as<void>;
-        { s.clear() }                  -> std::same_as<void>;
+        { s.allocate_node(k, v, lvl) } -> std::convertible_to<std::size_t>; // mit lvl Forward-Slots; darf werfen
+        { s.draw_level() } -> std::convertible_to<int>;                     // RNG-Muenzwurf — Pool-Verantwortung
+        { s.set_forward_at(i, i, i) } -> std::same_as<void>;                // (node, level, target)
+        { s.set_node_value(i, v) } -> std::same_as<void>;
+        { s.set_node_live(i, b) } -> std::same_as<void>;
+        { s.set_list_level(lvl) } -> std::same_as<void>;
+        { s.dec_live() } -> std::same_as<void>;
+        { s.clear() } -> std::same_as<void>;
     };
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

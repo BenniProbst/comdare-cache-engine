@@ -24,24 +24,30 @@ namespace comdare::cache_engine::lookup::concepts {
  * nur Wrappers mit voller Original-Konformitaet (alle 4 Functions true).
  */
 template <typename PaperManifest>
-struct SearchAlgoOriginalCodeMixin
-    : ::comdare::cache_engine::concepts::OriginalCodeMixinBase<PaperManifest> {
-
+struct SearchAlgoOriginalCodeMixin : ::comdare::cache_engine::concepts::OriginalCodeMixinBase<PaperManifest> {
     [[nodiscard]] static constexpr bool is_original_insert() noexcept {
-        if constexpr (requires { PaperManifest::kIsOriginal_insert; }) return PaperManifest::kIsOriginal_insert;
-        else return false;  // Luecke: Function nicht im Paper, eigene Erweiterung
+        if constexpr (requires { PaperManifest::kIsOriginal_insert; })
+            return PaperManifest::kIsOriginal_insert;
+        else
+            return false; // Luecke: Function nicht im Paper, eigene Erweiterung
     }
     [[nodiscard]] static constexpr bool is_original_lookup() noexcept {
-        if constexpr (requires { PaperManifest::kIsOriginal_lookup; }) return PaperManifest::kIsOriginal_lookup;
-        else return false;
+        if constexpr (requires { PaperManifest::kIsOriginal_lookup; })
+            return PaperManifest::kIsOriginal_lookup;
+        else
+            return false;
     }
     [[nodiscard]] static constexpr bool is_original_erase() noexcept {
-        if constexpr (requires { PaperManifest::kIsOriginal_erase; }) return PaperManifest::kIsOriginal_erase;
-        else return false;
+        if constexpr (requires { PaperManifest::kIsOriginal_erase; })
+            return PaperManifest::kIsOriginal_erase;
+        else
+            return false;
     }
     [[nodiscard]] static constexpr bool is_original_clear() noexcept {
-        if constexpr (requires { PaperManifest::kIsOriginal_clear; }) return PaperManifest::kIsOriginal_clear;
-        else return false;
+        if constexpr (requires { PaperManifest::kIsOriginal_clear; })
+            return PaperManifest::kIsOriginal_clear;
+        else
+            return false;
     }
 
     [[nodiscard]] static constexpr bool is_original_module() noexcept {
@@ -49,4 +55,4 @@ struct SearchAlgoOriginalCodeMixin
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup::concepts

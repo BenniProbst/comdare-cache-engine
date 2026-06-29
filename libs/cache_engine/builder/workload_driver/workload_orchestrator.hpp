@@ -16,8 +16,8 @@
 
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/rollbackable_tier.hpp>
-#include <anatomy/scannable_tier.hpp>                            // V5-#49-E: Range-Scan-Sub-Interface (YCSB-E)
-#include <builder/anatomy_commands/tier_observe_trace_abi.hpp>   // detail::two_phase_measure + abi_dur_ns
+#include <anatomy/scannable_tier.hpp>                          // V5-#49-E: Range-Scan-Sub-Interface (YCSB-E)
+#include <builder/anatomy_commands/tier_observe_trace_abi.hpp> // detail::two_phase_measure + abi_dur_ns
 
 #include "workload_config.hpp"
 #include "workload_generator.hpp"
@@ -40,17 +40,17 @@ namespace ac = ::comdare::cache_engine::builder::anatomy_commands;
 
 /// Roh-Wall-Clock-ns je Op-Kind (GETRENNT, Doku 24 §2.1) + Wall-Clock-korrelierter Observer-POD am Ende.
 struct WorkloadRunResult {
-    std::string               profile_name{};
-    std::uint64_t             op_count   = 0;
-    bool                      two_phase  = false;   ///< true = Rollback aktiv (sonst Kalt-Messung)
-    std::vector<std::int64_t> insert_ns{};
-    std::vector<std::int64_t> lookup_ns{};
-    std::vector<std::int64_t> erase_ns{};
-    std::vector<std::int64_t> clear_ns{};
-    std::vector<std::int64_t> scan_ns{};            ///< V5-#49-E: Range-Scan-Latenzen (leer wenn Tier nicht scanbar)
-    std::vector<std::int64_t> rmw_ns{};             ///< V5-#49-F: Read-Modify-Write-Latenzen
-    std::uint64_t             read_sink = 0;        ///< Anti-Wegoptimierungs-Senke (gemessene Lookups + Scans)
-    an::ComdareTierObserverSnapshot observer{};   ///< EIN konsolidierter Observer-POD am Lauf-Ende (korreliert, I1)
+    std::string                     profile_name{};
+    std::uint64_t                   op_count  = 0;
+    bool                            two_phase = false; ///< true = Rollback aktiv (sonst Kalt-Messung)
+    std::vector<std::int64_t>       insert_ns{};
+    std::vector<std::int64_t>       lookup_ns{};
+    std::vector<std::int64_t>       erase_ns{};
+    std::vector<std::int64_t>       clear_ns{};
+    std::vector<std::int64_t>       scan_ns{};     ///< V5-#49-E: Range-Scan-Latenzen (leer wenn Tier nicht scanbar)
+    std::vector<std::int64_t>       rmw_ns{};      ///< V5-#49-F: Read-Modify-Write-Latenzen
+    std::uint64_t                   read_sink = 0; ///< Anti-Wegoptimierungs-Senke (gemessene Lookups + Scans)
+    an::ComdareTierObserverSnapshot observer{};    ///< EIN konsolidierter Observer-POD am Lauf-Ende (korreliert, I1)
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -61,12 +61,10 @@ struct WorkloadRunResult {
 /// Zwei-Phasen-Treiber (V5-I7) wenn `rollback != nullptr`. `ops` wird typischerweise via
 /// `WorkloadGenerator(config).generate_all()` erzeugt — dieselbe Config+Seed ⇒ identische Sequenz über alle
 /// Binaries (Reproduzierbarkeit-Pflicht). Latenzen werden je Op-Kind getrennt gesammelt.
-[[nodiscard]] inline WorkloadRunResult
-run_workload_profile(an::IObservableTier& tier,
-                     an::IRollbackableTier* rollback,
-                     std::vector<WorkloadOp> const& ops,
-                     std::string_view profile_name,
-                     an::IScannableTier* scan = nullptr) {   // V5-#49-E: optional (alte DLLs → nullptr → Scan-Ops übersprungen)
+[[nodiscard]] inline WorkloadRunResult run_workload_profile(
+    an::IObservableTier& tier, an::IRollbackableTier* rollback, std::vector<WorkloadOp> const& ops,
+    std::string_view    profile_name,
+    an::IScannableTier* scan = nullptr) { // V5-#49-E: optional (alte DLLs → nullptr → Scan-Ops übersprungen)
     using clock = std::chrono::steady_clock;
     WorkloadRunResult r;
     r.profile_name = std::string(profile_name);
@@ -88,12 +86,13 @@ run_workload_profile(an::IObservableTier& tier,
             case WorkloadOpKind::Lookup: {
                 std::uint64_t measured_out = 0;
                 bool          measured_hit = false;
-                auto const ns = ac::detail::two_phase_measure(rollback, [&]() -> std::int64_t {
+                auto const    ns           = ac::detail::two_phase_measure(rollback, [&]() -> std::int64_t {
                     std::uint64_t out = 0;
-                    auto const t0 = clock::now();
-                    bool const hit = tier.tier_lookup(op.key, &out);
-                    auto const t1 = clock::now();
-                    measured_hit = hit; measured_out = out;   // spiegelt nach two_phase_measure die MESS-Phase
+                    auto const    t0  = clock::now();
+                    bool const    hit = tier.tier_lookup(op.key, &out);
+                    auto const    t1  = clock::now();
+                    measured_hit      = hit;
+                    measured_out      = out; // spiegelt nach two_phase_measure die MESS-Phase
                     return ac::detail::abi_dur_ns(t0, t1);
                 });
                 r.read_sink += measured_hit ? measured_out : 0u;
@@ -120,15 +119,15 @@ run_workload_profile(an::IObservableTier& tier,
                 r.clear_ns.push_back(ns);
                 break;
             }
-            case WorkloadOpKind::Scan: {   // V5-#49-E: Range-Scan ab op.key über op.value (=scan_length) Records
+            case WorkloadOpKind::Scan: { // V5-#49-E: Range-Scan ab op.key über op.value (=scan_length) Records
                 if (scan != nullptr) {
                     std::uint64_t scan_sum = 0;
-                    auto const ns = ac::detail::two_phase_measure(rollback, [&]() -> std::int64_t {
+                    auto const    ns       = ac::detail::two_phase_measure(rollback, [&]() -> std::int64_t {
                         std::uint64_t cs = 0;
-                        auto const t0 = clock::now();
+                        auto const    t0 = clock::now();
                         (void)scan->tier_scan(op.key, op.value, &cs);
                         auto const t1 = clock::now();
-                        scan_sum = cs;   // spiegelt nach two_phase_measure die MESS-Phase
+                        scan_sum      = cs; // spiegelt nach two_phase_measure die MESS-Phase
                         return ac::detail::abi_dur_ns(t0, t1);
                     });
                     r.read_sink += scan_sum;
@@ -137,13 +136,13 @@ run_workload_profile(an::IObservableTier& tier,
                 // scan == nullptr → Tier nicht scanbar (alte DLL / Release): Op ehrlich übersprungen (kein Fake-Sample).
                 break;
             }
-            case WorkloadOpKind::ReadModifyWrite: {   // V5-#49-F: lookup → modifizieren → upsert als EINE Op
+            case WorkloadOpKind::ReadModifyWrite: { // V5-#49-F: lookup → modifizieren → upsert als EINE Op
                 auto const ns = ac::detail::two_phase_measure(rollback, [&]() -> std::int64_t {
-                    std::uint64_t cur = 0;
-                    auto const t0 = clock::now();
-                    bool const hit = tier.tier_lookup(op.key, &cur);              // READ
-                    std::uint64_t const modified = (hit ? cur : 0u) ^ op.value;   // MODIFY (deterministisch)
-                    (void)tier.tier_insert(op.key, modified);                     // WRITE (ComposedSearch-Upsert)
+                    std::uint64_t       cur      = 0;
+                    auto const          t0       = clock::now();
+                    bool const          hit      = tier.tier_lookup(op.key, &cur); // READ
+                    std::uint64_t const modified = (hit ? cur : 0u) ^ op.value;    // MODIFY (deterministisch)
+                    (void)tier.tier_insert(op.key, modified);                      // WRITE (ComposedSearch-Upsert)
                     auto const t1 = clock::now();
                     return ac::detail::abi_dur_ns(t0, t1);
                 });
@@ -153,7 +152,7 @@ run_workload_profile(an::IObservableTier& tier,
         }
     }
 
-    tier.tier_observe(&r.observer);   // EIN korrelierter Observer-POD am Lauf-Ende
+    tier.tier_observe(&r.observer); // EIN korrelierter Observer-POD am Lauf-Ende
     return r;
 }
 
@@ -174,19 +173,17 @@ struct MeasurementPlan {
 /// Konformität geprüft haben (pruef_dock::run_conformance_gate, import → GATE → messen) — diese Funktion misst
 /// nur Performance und prüft KEINE Funktionalität (vgl. IPruefDock::measure-Vertrag, pruef_dock.hpp).
 [[nodiscard]] inline std::vector<WorkloadRunResult>
-run_measurement_plan(an::IObservableTier& tier,
-                     an::IRollbackableTier* rollback,
-                     MeasurementPlan const& plan,
-                     an::IScannableTier* scan = nullptr) {   // V5-#49-E: Scan-fähiges Tier (für YCSB-E-Profile)
+run_measurement_plan(an::IObservableTier& tier, an::IRollbackableTier* rollback, MeasurementPlan const& plan,
+                     an::IScannableTier* scan = nullptr) { // V5-#49-E: Scan-fähiges Tier (für YCSB-E-Profile)
     std::vector<WorkloadRunResult> results;
     results.reserve(plan.profiles.size());
     // V5-Audit-Härtung: nur zwei-phasig, wenn der Rollback EMPIRISCH exakt ist (einmalige Probe je Binary).
     if (rollback != nullptr && !ac::detail::rollback_is_empirically_exact(tier, rollback)) rollback = nullptr;
     for (auto const& cfg : plan.profiles) {
-        if (!cfg.is_valid()) continue;                 // ungültiges Profil überspringen (Robustheit)
-        tier.tier_clear();                              // frischer Start je Profil
-        WorkloadGenerator gen{cfg};                     // dieselbe Config+Seed ⇒ identische Sequenz je Binary
-        auto const ops = gen.generate_all();
+        if (!cfg.is_valid()) continue; // ungültiges Profil überspringen (Robustheit)
+        tier.tier_clear();             // frischer Start je Profil
+        WorkloadGenerator gen{cfg};    // dieselbe Config+Seed ⇒ identische Sequenz je Binary
+        auto const        ops = gen.generate_all();
         results.push_back(run_workload_profile(tier, rollback, ops, cfg.name, scan));
     }
     return results;
@@ -202,14 +199,22 @@ run_measurement_plan(an::IObservableTier& tier,
 [[nodiscard]] inline std::string serialize_workload_config(WorkloadConfig const& c) {
     std::string s;
     s.reserve(96);
-    s += std::string(c.name);                  s += '|';
-    s += std::to_string(c.seed);               s += '|';
-    s += std::to_string(c.num_operations);     s += '|';
-    s += std::to_string(c.key_min);            s += '|';
-    s += std::to_string(c.key_max);            s += '|';
-    s += std::to_string(c.pct_insert);         s += '|';
-    s += std::to_string(c.pct_lookup);         s += '|';
-    s += std::to_string(c.pct_erase);          s += '|';
+    s += std::string(c.name);
+    s += '|';
+    s += std::to_string(c.seed);
+    s += '|';
+    s += std::to_string(c.num_operations);
+    s += '|';
+    s += std::to_string(c.key_min);
+    s += '|';
+    s += std::to_string(c.key_max);
+    s += '|';
+    s += std::to_string(c.pct_insert);
+    s += '|';
+    s += std::to_string(c.pct_lookup);
+    s += '|';
+    s += std::to_string(c.pct_erase);
+    s += '|';
     s += std::to_string(c.pct_clear);
     return s;
 }
@@ -223,23 +228,26 @@ run_measurement_plan(an::IObservableTier& tier,
     os << "profile,op_count,two_phase,"
           "insert_n,insert_p50_ns,insert_p99_ns,lookup_n,lookup_p50_ns,lookup_p99_ns,"
           "erase_n,erase_p50_ns,erase_p99_ns,clear_n,clear_p50_ns,clear_p99_ns,"
-          "scan_n,scan_p50_ns,scan_p99_ns,rmw_n,rmw_p50_ns,rmw_p99_ns,"   // V5-#49-E/F
+          "scan_n,scan_p50_ns,scan_p99_ns,rmw_n,rmw_p50_ns,rmw_p99_ns," // V5-#49-E/F
           "search_insert,search_lookup,search_hit,search_miss,search_erase,search_peak_occupancy,"
           "alloc_bytes_in_use,alloc_alloc_count,observable_axes\n";
     for (auto const& r : rs) {
         auto const& o = r.observer;
-        os << r.profile_name << ',' << r.op_count << ',' << (r.two_phase ? 1 : 0) << ','
-           << r.insert_ns.size() << ',' << ac::detail::nearest_rank_p(r.insert_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.insert_ns, 0.99) << ','
-           << r.lookup_ns.size() << ',' << ac::detail::nearest_rank_p(r.lookup_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.lookup_ns, 0.99) << ','
-           << r.erase_ns.size()  << ',' << ac::detail::nearest_rank_p(r.erase_ns,  0.5) << ',' << ac::detail::nearest_rank_p(r.erase_ns,  0.99) << ','
-           << r.clear_ns.size()  << ',' << ac::detail::nearest_rank_p(r.clear_ns,  0.5) << ',' << ac::detail::nearest_rank_p(r.clear_ns,  0.99) << ','
-           << r.scan_ns.size()   << ',' << ac::detail::nearest_rank_p(r.scan_ns,   0.5) << ',' << ac::detail::nearest_rank_p(r.scan_ns,   0.99) << ','
-           << r.rmw_ns.size()    << ',' << ac::detail::nearest_rank_p(r.rmw_ns,    0.5) << ',' << ac::detail::nearest_rank_p(r.rmw_ns,    0.99) << ','
-           << o.axis_stats[0][3] << ',' << o.axis_stats[0][0] << ',' << o.axis_stats[0][1] << ','
-           << o.axis_stats[0][2] << ',' << o.axis_stats[0][4] << ',' << o.axis_stats[0][5] << ','
-           << o.axis_stats[6][1] << ',' << o.axis_stats[6][2] << ',' << o.observable_axis_count << '\n';
+        os << r.profile_name << ',' << r.op_count << ',' << (r.two_phase ? 1 : 0) << ',' << r.insert_ns.size() << ','
+           << ac::detail::nearest_rank_p(r.insert_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.insert_ns, 0.99)
+           << ',' << r.lookup_ns.size() << ',' << ac::detail::nearest_rank_p(r.lookup_ns, 0.5) << ','
+           << ac::detail::nearest_rank_p(r.lookup_ns, 0.99) << ',' << r.erase_ns.size() << ','
+           << ac::detail::nearest_rank_p(r.erase_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.erase_ns, 0.99) << ','
+           << r.clear_ns.size() << ',' << ac::detail::nearest_rank_p(r.clear_ns, 0.5) << ','
+           << ac::detail::nearest_rank_p(r.clear_ns, 0.99) << ',' << r.scan_ns.size() << ','
+           << ac::detail::nearest_rank_p(r.scan_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.scan_ns, 0.99) << ','
+           << r.rmw_ns.size() << ',' << ac::detail::nearest_rank_p(r.rmw_ns, 0.5) << ','
+           << ac::detail::nearest_rank_p(r.rmw_ns, 0.99) << ',' << o.axis_stats[0][3] << ',' << o.axis_stats[0][0]
+           << ',' << o.axis_stats[0][1] << ',' << o.axis_stats[0][2] << ',' << o.axis_stats[0][4] << ','
+           << o.axis_stats[0][5] << ',' << o.axis_stats[6][1] << ',' << o.axis_stats[6][2] << ','
+           << o.observable_axis_count << '\n';
     }
     return os.str();
 }
 
-}  // namespace comdare::cache_engine::builder::workload_driver
+} // namespace comdare::cache_engine::builder::workload_driver

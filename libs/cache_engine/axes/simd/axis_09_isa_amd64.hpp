@@ -13,7 +13,7 @@
 #include <type_traits>
 
 #if defined(__x86_64__) || defined(_M_X64)
-#  include <emmintrin.h>  // SSE2 intrinsics (_mm_loadu_si128 / _mm_add_epi32)
+#include <emmintrin.h> // SSE2 intrinsics (_mm_loadu_si128 / _mm_add_epi32)
 #endif
 
 namespace comdare::cache_engine::simd {
@@ -30,12 +30,14 @@ public:
 
     static constexpr bool enabled = flags::amd64_enabled;
 
-    [[nodiscard]] static constexpr bool             is_64bit()             noexcept { return true; }
-    [[nodiscard]] static constexpr std::string_view cpu_family()           noexcept { return "x86_64"; }
-    [[nodiscard]] static constexpr bool             supports_native_simd() noexcept { return true; }  // SSE2 baseline
-    [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "isa_amd64"; }
-    [[nodiscard]] static constexpr std::string_view family_name()          noexcept { return "Amd64Isa (x86_64/Intel 64, ZIH Barnard/Capella, AMD EPYC + Intel Xeon)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()          noexcept { return "AMD64"; }
+    [[nodiscard]] static constexpr bool             is_64bit() noexcept { return true; }
+    [[nodiscard]] static constexpr std::string_view cpu_family() noexcept { return "x86_64"; }
+    [[nodiscard]] static constexpr bool             supports_native_simd() noexcept { return true; } // SSE2 baseline
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "isa_amd64"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "Amd64Isa (x86_64/Intel 64, ZIH Barnard/Capella, AMD EPYC + Intel Xeon)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "AMD64"; }
 
     // V41.F.6.1 — verhaltens-tragende Laufzeit-API (ISA-Achse T12 F15-operativ, Goldstandard-Signatur
     // analog scan_field_sum/serialize_scan/node_find_scan). simd_field_sum addiert die ersten n
@@ -43,16 +45,15 @@ public:
     // Amd64: ECHTES SSE2 (_mm_loadu_si128 + _mm_add_epi32, 4 uint32-Lanes/Iteration) auf x86_64;
     // auf Nicht-x86-Build-Hosts faellt diese Klasse auf den ehrlichen Skalar-Pfad zurueck
     // (im Mess-Build MSVC/x86_64 ist stets der SSE2-Zweig aktiv).
-    [[nodiscard]] static std::uint64_t simd_field_sum(unsigned char const* buf,
-                                                      std::size_t n) noexcept {
+    [[nodiscard]] static std::uint64_t simd_field_sum(unsigned char const* buf, std::size_t n) noexcept {
         std::uint64_t s = 0;
-        std::size_t i = 0;
+        std::size_t   i = 0;
 #if defined(__x86_64__) || defined(_M_X64)
         // ECHTES SSE2: 4 uint32-Lanes pro 128-bit-Register parallel akkumulieren.
         __m128i acc = _mm_setzero_si128();
         for (; i + 4 <= n; i += 4) {
             __m128i v = _mm_loadu_si128(reinterpret_cast<__m128i const*>(buf + i * 4));
-            acc = _mm_add_epi32(acc, v);
+            acc       = _mm_add_epi32(acc, v);
         }
         alignas(16) std::uint32_t lanes[4];
         _mm_storeu_si128(reinterpret_cast<__m128i*>(lanes), acc);
@@ -68,9 +69,9 @@ public:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::simd
 
 namespace comdare::cache_engine::simd {
-    static_assert(concepts::IsaStrategy<Amd64Isa>);
-    static_assert(concepts::CacheEnginePermutationStrategy<Amd64Isa>);
-}
+static_assert(concepts::IsaStrategy<Amd64Isa>);
+static_assert(concepts::CacheEnginePermutationStrategy<Amd64Isa>);
+} // namespace comdare::cache_engine::simd

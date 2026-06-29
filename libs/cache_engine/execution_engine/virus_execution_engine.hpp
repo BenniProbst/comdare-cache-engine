@@ -17,10 +17,10 @@ namespace comdare::cache_engine::execution_engine {
 
 /// Flacher, ABI-stabiler Virus-Mess-Snapshot (kein Achsen-Observer; algo-eigene Zähler + Latenz). Nur uint64.
 struct VirusMeasurementSnapshotV1 {
-    std::uint64_t run_count        = 0;   // Anzahl run_*-Aufrufe
-    std::uint64_t visited_nodes    = 0;   // letzter Lauf: besuchte Knoten (Graph) / verarbeitete Elemente
-    std::uint64_t edges_traversed  = 0;   // letzter Lauf: traversierte Kanten / Operationen
-    std::uint64_t result_checksum  = 0;   // Ergebnis-Prüfsumme (gegen Wegoptimierung + Korrektheits-Anker)
+    std::uint64_t run_count       = 0; // Anzahl run_*-Aufrufe
+    std::uint64_t visited_nodes   = 0; // letzter Lauf: besuchte Knoten (Graph) / verarbeitete Elemente
+    std::uint64_t edges_traversed = 0; // letzter Lauf: traversierte Kanten / Operationen
+    std::uint64_t result_checksum = 0; // Ergebnis-Prüfsumme (gegen Wegoptimierung + Korrektheits-Anker)
 
     [[nodiscard]] constexpr bool operator==(VirusMeasurementSnapshotV1 const&) const noexcept = default;
 };
@@ -43,4 +43,4 @@ public:
     virtual void virus_observe(VirusMeasurementSnapshotV1* out) const noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine::execution_engine
+} // namespace comdare::cache_engine::execution_engine

@@ -18,10 +18,10 @@
 namespace comdare::cache_engine::allocator::families::a08_scalloc {
 
 struct ScallocParams {
-    std::size_t span_min_bytes        = 4 * 1024;        // 4 KiB
-    std::size_t span_max_bytes        = 1 * 1024 * 1024; // 1 MiB
-    std::size_t virtual_reservation_bytes = 1ULL << 40;  // 1 TiB lazy mmap reservation
-    bool         use_treiber_stack     = true;
+    std::size_t span_min_bytes            = 4 * 1024;        // 4 KiB
+    std::size_t span_max_bytes            = 1 * 1024 * 1024; // 1 MiB
+    std::size_t virtual_reservation_bytes = 1ULL << 40;      // 1 TiB lazy mmap reservation
+    bool        use_treiber_stack         = true;
 };
 
 template <LockingStrategy Lock = locking::SharedMutexLock>
@@ -40,7 +40,7 @@ public:
         void* p = portable_aligned_alloc(alignment, bytes);
         if (p) {
             stats_.total_bytes_allocated.fetch_add(bytes, std::memory_order_relaxed);
-            stats_.total_bytes_in_use   .fetch_add(bytes, std::memory_order_relaxed);
+            stats_.total_bytes_in_use.fetch_add(bytes, std::memory_order_relaxed);
         } else {
             stats_.failure_count.fetch_add(1, std::memory_order_relaxed);
         }
@@ -57,15 +57,15 @@ public:
     [[nodiscard]] AllocationStatistics statistics() const noexcept {
         AllocationStatistics s{};
         s.total_bytes_allocated = stats_.total_bytes_allocated.load(std::memory_order_relaxed);
-        s.total_bytes_in_use     = stats_.total_bytes_in_use   .load(std::memory_order_relaxed);
-        s.allocation_count       = stats_.allocation_count     .load(std::memory_order_relaxed);
-        s.deallocation_count     = stats_.deallocation_count   .load(std::memory_order_relaxed);
-        s.failure_count           = stats_.failure_count       .load(std::memory_order_relaxed);
+        s.total_bytes_in_use    = stats_.total_bytes_in_use.load(std::memory_order_relaxed);
+        s.allocation_count      = stats_.allocation_count.load(std::memory_order_relaxed);
+        s.deallocation_count    = stats_.deallocation_count.load(std::memory_order_relaxed);
+        s.failure_count         = stats_.failure_count.load(std::memory_order_relaxed);
         return s;
     }
 
     [[nodiscard]] ScallocParams const& params() const noexcept { return params_; }
-    [[nodiscard]] std::uint64_t treiber_tag() const noexcept {
+    [[nodiscard]] std::uint64_t        treiber_tag() const noexcept {
         return treiber_aba_tag_.load(std::memory_order_relaxed);
     }
 
@@ -76,13 +76,13 @@ private:
     std::atomic<std::uint64_t> treiber_aba_tag_{0};
     struct AtomicStats {
         std::atomic<std::size_t> total_bytes_allocated{0};
-        std::atomic<std::size_t> total_bytes_in_use    {0};
-        std::atomic<std::size_t> allocation_count      {0};
-        std::atomic<std::size_t> deallocation_count    {0};
-        std::atomic<std::size_t> failure_count          {0};
+        std::atomic<std::size_t> total_bytes_in_use{0};
+        std::atomic<std::size_t> allocation_count{0};
+        std::atomic<std::size_t> deallocation_count{0};
+        std::atomic<std::size_t> failure_count{0};
     } stats_;
 };
 
 static_assert(IAllocationStrategy<ScallocAdapter<>>);
 
-}  // namespace comdare::cache_engine::allocator::families::a08_scalloc
+} // namespace comdare::cache_engine::allocator::families::a08_scalloc

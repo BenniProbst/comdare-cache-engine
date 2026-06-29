@@ -25,12 +25,12 @@ namespace pa  = comdare::prt_art;
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(SixPageStructures, AllSixConcreteEncodingsExist) {
-    EXPECT_EQ(ps::RedirectStructure{}.encoding(),         pa::Encoding::Redirect);
-    EXPECT_EQ(ps::DenseByteStructure{}.encoding(),        pa::Encoding::DenseByte);
-    EXPECT_EQ(ps::SparsePatriciaStructure{}.encoding(),   pa::Encoding::SparsePatricia);
-    EXPECT_EQ(ps::MultilevelDenseStructure{}.encoding(),  pa::Encoding::MultilevelDense);
-    EXPECT_EQ(ps::DecisionSpanStructure{}.encoding(),     pa::Encoding::DecisionSpan);
-    EXPECT_EQ(ps::CustomAlignedStructure{}.encoding(),    pa::Encoding::CustomAligned);
+    EXPECT_EQ(ps::RedirectStructure{}.encoding(), pa::Encoding::Redirect);
+    EXPECT_EQ(ps::DenseByteStructure{}.encoding(), pa::Encoding::DenseByte);
+    EXPECT_EQ(ps::SparsePatriciaStructure{}.encoding(), pa::Encoding::SparsePatricia);
+    EXPECT_EQ(ps::MultilevelDenseStructure{}.encoding(), pa::Encoding::MultilevelDense);
+    EXPECT_EQ(ps::DecisionSpanStructure{}.encoding(), pa::Encoding::DecisionSpan);
+    EXPECT_EQ(ps::CustomAlignedStructure{}.encoding(), pa::Encoding::CustomAligned);
 }
 
 TEST(SixPageStructures, AllInvariantsArePassing) {
@@ -54,12 +54,12 @@ TEST(SixPageStructures, MultilevelAndDecisionSpanCarryInvariantI4) {
 }
 
 TEST(SixPageStructures, EncodingNamesIncludePriorityTags) {
-    EXPECT_NE(ps::RedirectStructure{}.encoding_name().find("P0"),       std::string_view::npos);
-    EXPECT_NE(ps::DenseByteStructure{}.encoding_name().find("P0"),      std::string_view::npos);
+    EXPECT_NE(ps::RedirectStructure{}.encoding_name().find("P0"), std::string_view::npos);
+    EXPECT_NE(ps::DenseByteStructure{}.encoding_name().find("P0"), std::string_view::npos);
     EXPECT_NE(ps::SparsePatriciaStructure{}.encoding_name().find("P0"), std::string_view::npos);
-    EXPECT_NE(ps::MultilevelDenseStructure{}.encoding_name().find("P1"),std::string_view::npos);
-    EXPECT_NE(ps::DecisionSpanStructure{}.encoding_name().find("P2"),   std::string_view::npos);
-    EXPECT_NE(ps::CustomAlignedStructure{}.encoding_name().find("P2"),  std::string_view::npos);
+    EXPECT_NE(ps::MultilevelDenseStructure{}.encoding_name().find("P1"), std::string_view::npos);
+    EXPECT_NE(ps::DecisionSpanStructure{}.encoding_name().find("P2"), std::string_view::npos);
+    EXPECT_NE(ps::CustomAlignedStructure{}.encoding_name().find("P2"), std::string_view::npos);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ TEST(SixInterpreters, SingletonReturnsSameInstance) {
 TEST(SixInterpreters, SimdSupportFlagsMatchExpectations) {
     EXPECT_FALSE(ipr::RedirectInterpreter::instance().supports_simd());
     EXPECT_TRUE(ipr::DenseByteInterpreter::instance().supports_simd());
-    EXPECT_TRUE(ipr::PatriciaInterpreter::instance().supports_simd());        // PEXT/AVX2
+    EXPECT_TRUE(ipr::PatriciaInterpreter::instance().supports_simd()); // PEXT/AVX2
     EXPECT_FALSE(ipr::MultilevelInterpreter::instance().supports_simd());
     EXPECT_FALSE(ipr::B2Interpreter::instance().supports_simd());
     EXPECT_TRUE(ipr::CustomInterpreter::instance().supports_simd());
@@ -98,6 +98,6 @@ TEST(SixInterpreters, SimdSupportFlagsMatchExpectations) {
 
 TEST(SixInterpreters, NextSlotReturnsValidByDefault) {
     ps::DenseByteStructure s;
-    auto handle = ipr::DenseByteInterpreter::instance().next_slot(s, {});
+    auto                   handle = ipr::DenseByteInterpreter::instance().next_slot(s, {});
     EXPECT_TRUE(handle.valid);
 }

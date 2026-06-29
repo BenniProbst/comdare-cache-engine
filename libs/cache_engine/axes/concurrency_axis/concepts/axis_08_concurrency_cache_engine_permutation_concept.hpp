@@ -11,15 +11,13 @@ namespace comdare::cache_engine::concurrency_axis::concepts {
 /// axis_tag (Subaxis-Zuordnung), family_id (eindeutig), name/family_name/flag_suffix,
 /// enabled (CMake-Flag). Analog axis_14-Goldstandard.
 template <typename C>
-concept CacheEnginePermutationStrategy =
-    ConcurrencyStrategy<C>
-    && requires {
-        typename C::axis_tag;
-        typename C::family_id;
-        { C::name() }        noexcept -> std::convertible_to<std::string_view>;
-        { C::family_name() } noexcept -> std::convertible_to<std::string_view>;
-        { C::flag_suffix() } noexcept -> std::convertible_to<std::string_view>;
-        { C::enabled }                -> std::convertible_to<bool>;
-    };
+concept CacheEnginePermutationStrategy = ConcurrencyStrategy<C> && requires {
+    typename C::axis_tag;
+    typename C::family_id;
+    { C::name() } noexcept -> std::convertible_to<std::string_view>;
+    { C::family_name() } noexcept -> std::convertible_to<std::string_view>;
+    { C::flag_suffix() } noexcept -> std::convertible_to<std::string_view>;
+    { C::enabled } -> std::convertible_to<bool>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::concurrency_axis::concepts

@@ -20,12 +20,12 @@
 namespace comdare::workload_generator {
 
 enum class YcsbWorkload : std::uint8_t {
-    A,   // 50% read, 50% update, zipfian
-    B,   // 95% read, 5% update, zipfian
-    C,   // 100% read, zipfian
-    D,   // 95% read latest, 5% insert
-    E,   // 95% scan, 5% insert, zipfian
-    F,   // 50% read, 50% read-modify-write, zipfian
+    A, // 50% read, 50% update, zipfian
+    B, // 95% read, 5% update, zipfian
+    C, // 100% read, zipfian
+    D, // 95% read latest, 5% insert
+    E, // 95% scan, 5% insert, zipfian
+    F, // 50% read, 50% read-modify-write, zipfian
 };
 
 enum class KeyDistribution : std::uint8_t {
@@ -36,28 +36,28 @@ enum class KeyDistribution : std::uint8_t {
 };
 
 enum class OperationKind : std::uint8_t {
-    Read       = 0,
-    Update     = 1,
-    Insert     = 2,
-    Scan       = 3,
+    Read            = 0,
+    Update          = 1,
+    Insert          = 2,
+    Scan            = 3,
     ReadModifyWrite = 4,
-    Erase      = 5,
+    Erase           = 5,
 };
 
 struct WorkloadConfig {
-    std::uint64_t num_keys           = 100000;
-    std::uint64_t num_operations     = 1000000;
-    std::uint32_t key_size_bytes     = 16;
-    std::uint32_t value_size_bytes   = 64;
+    std::uint64_t   num_keys         = 100000;
+    std::uint64_t   num_operations   = 1000000;
+    std::uint32_t   key_size_bytes   = 16;
+    std::uint32_t   value_size_bytes = 64;
     KeyDistribution key_distribution = KeyDistribution::Uniform;
-    double           zipfian_theta    = 0.99;     // Zipfian skew (0..1, höher = skewed)
+    double          zipfian_theta    = 0.99; // Zipfian skew (0..1, höher = skewed)
     std::uint64_t   random_seed      = 42;
 };
 
 struct Operation {
     OperationKind op;
     std::uint64_t key_id;
-    std::uint32_t scan_length = 0;   // nur fuer Scan
+    std::uint32_t scan_length = 0; // nur fuer Scan
 };
 
 class WorkloadGenerator {
@@ -73,8 +73,7 @@ public:
     [[nodiscard]] std::vector<Operation> generate_sequential_reads();
 
     // Erzeugt comdare_workload_descriptor_v1 fuer ABI
-    [[nodiscard]] comdare_workload_descriptor_v1 to_abi_descriptor(
-        std::span<Operation const> ops) const noexcept;
+    [[nodiscard]] comdare_workload_descriptor_v1 to_abi_descriptor(std::span<Operation const> ops) const noexcept;
 
     [[nodiscard]] WorkloadConfig const& config() const noexcept { return config_; }
 
@@ -87,4 +86,4 @@ private:
     WorkloadConfig config_;
 };
 
-}  // namespace comdare::workload_generator
+} // namespace comdare::workload_generator

@@ -23,13 +23,13 @@
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/pruefling_merge.hpp>
 #include <anatomy/search_algorithm_permutation_engine.hpp>
-#include <anatomy/combinatorial_coverage.hpp>   // R5.D: Sampling-Grundlage fuer den kartesischen Raum
+#include <anatomy/combinatorial_coverage.hpp> // R5.D: Sampling-Grundlage fuer den kartesischen Raum
 // R5.D — echte Achsen-Registry-Listen (fuer Coverage ueber die REALEN Achsen-Groessen):
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_registry.hpp>
 #include <topics/allocator/axis_06_allocator/axis_06_allocator_registry.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_registry.hpp>
-#include <axes/axis_centric_namespaces.hpp>   // F.2/F.3: axen-zentrische Namespace-Fassade + Concepts
-#include <builder/codegen/type_name.hpp>   // R5.G Auto-Emitter: FQ-Typ-Namen pro Achse
+#include <axes/axis_centric_namespaces.hpp> // F.2/F.3: axen-zentrische Namespace-Fassade + Concepts
+#include <builder/codegen/type_name.hpp>    // R5.G Auto-Emitter: FQ-Typ-Namen pro Achse
 
 // 17 Topic-Achsen Wrappers (identisch zu test_v41_anatomy_r4_driver.cpp)
 #include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
@@ -80,59 +80,96 @@ namespace mp  = boost::mp11;
 // Type-Aliases (kompakter)
 // ─────────────────────────────────────────────────────────────────────────────
 
-using Array256SearchAlgo             = ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256SearchAlgo;
-using VectorU8U8SearchAlgo           = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;
-using VectorU16U16SearchAlgo         = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;
-using LinearFanout         = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::LinearFanout;
-using HashLookup           = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::HashLookup;
-using DirectPlacement      = ::comdare::cache_engine::traversal::axis_03m_mapping::DirectPlacement;
-using PathCompressionNone  = ::comdare::cache_engine::nodes::axis_02_path_compression::PathCompressionNone;
-using Node256NodeType          = ::comdare::cache_engine::nodes::axis_04_node_type::Node256NodeType;
-using CacheLineAligned     = ::comdare::cache_engine::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
-using MimallocAllocator    = ::comdare::cache_engine::allocator::axis_06_allocator::MimallocAllocator;
-using NonePrefetch         = ::comdare::cache_engine::prefetch::axis_07_prefetch::NonePrefetch;
-using OlcOptimisticConcurrency        = ::comdare::cache_engine::concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
-using RawBinarySer         = ::comdare::cache_engine::serialization::axis_10_serialization::RawBinarySerialization;
-using LeafOnlyCounter      = ::comdare::cache_engine::telemetry::axis_11_telemetry::LeafOnlyCounter;
-using InlineValueHandle         = ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle;
-using Amd64Isa            = ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa;
-using IotIndexOrganization           = ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization;
+using Array256SearchAlgo     = ::comdare::cache_engine::traversal::axis_03a_search_algo::Array256SearchAlgo;
+using VectorU8U8SearchAlgo   = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU8U8SearchAlgo;
+using VectorU16U16SearchAlgo = ::comdare::cache_engine::traversal::axis_03a_search_algo::VectorU16U16SearchAlgo;
+using LinearFanout           = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::LinearFanout;
+using HashLookup             = ::comdare::cache_engine::traversal::axis_03b_cache_traversal::HashLookup;
+using DirectPlacement        = ::comdare::cache_engine::traversal::axis_03m_mapping::DirectPlacement;
+using PathCompressionNone    = ::comdare::cache_engine::nodes::axis_02_path_compression::PathCompressionNone;
+using Node256NodeType        = ::comdare::cache_engine::nodes::axis_04_node_type::Node256NodeType;
+using CacheLineAligned  = ::comdare::cache_engine::memory_layout::axis_05_memory_layout::CacheLineAlignedMemoryLayout;
+using MimallocAllocator = ::comdare::cache_engine::allocator::axis_06_allocator::MimallocAllocator;
+using NonePrefetch      = ::comdare::cache_engine::prefetch::axis_07_prefetch::NonePrefetch;
+using OlcOptimisticConcurrency = ::comdare::cache_engine::concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
+using RawBinarySer             = ::comdare::cache_engine::serialization::axis_10_serialization::RawBinarySerialization;
+using LeafOnlyCounter          = ::comdare::cache_engine::telemetry::axis_11_telemetry::LeafOnlyCounter;
+using InlineValueHandle        = ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle;
+using Amd64Isa                 = ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa;
+using IotIndexOrganization = ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization;
 using InMemoryOnly         = ::comdare::cache_engine::io::axis_io::InMemoryOnly;
 using NoMigration          = ::comdare::cache_engine::migration::axis_migration::NoMigration;
 using BloomFilter          = ::comdare::cache_engine::filter::axis_filter::BloomFilter;
-using NoBuffer             = ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer;     // T17 queuing_q1 (Doc 30 §8.0)
-using LazyFlush            = ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush;    // T18 queuing_q2 (Doc 30 §8.0)
+using NoBuffer  = ::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer;  // T17 queuing_q1 (Doc 30 §8.0)
+using LazyFlush = ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush; // T18 queuing_q2 (Doc 30 §8.0)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pilot 19 Topic-Config-Sets (3 × 2 × 1^17 = 6 Permutationen, identisch zu R4-Test; Doc 30 §8.0: + q1/q2)
 // ─────────────────────────────────────────────────────────────────────────────
 
-struct T0_SearchAlgo     { using StaticAxisVariants = mp::mp_list<Array256SearchAlgo, VectorU8U8SearchAlgo, VectorU16U16SearchAlgo>; };
-struct T1_CacheTraversal { using StaticAxisVariants = mp::mp_list<LinearFanout, HashLookup>; };
-struct T2_Mapping        { using StaticAxisVariants = mp::mp_list<DirectPlacement>; };
-struct T3_PathCompr      { using StaticAxisVariants = mp::mp_list<PathCompressionNone>; };
-struct T4_NodeType       { using StaticAxisVariants = mp::mp_list<Node256NodeType>; };
-struct T5_MemoryLayout   { using StaticAxisVariants = mp::mp_list<CacheLineAligned>; };
-struct T6_Allocator      { using StaticAxisVariants = mp::mp_list<MimallocAllocator>; };
-struct T7_Prefetch       { using StaticAxisVariants = mp::mp_list<NonePrefetch>; };
-struct T8_Concurrency    { using StaticAxisVariants = mp::mp_list<OlcOptimisticConcurrency>; };
-struct T9_Serialization  { using StaticAxisVariants = mp::mp_list<RawBinarySer>; };
-struct T10_Telemetry     { using StaticAxisVariants = mp::mp_list<LeafOnlyCounter>; };
-struct T11_ValueHandle   { using StaticAxisVariants = mp::mp_list<InlineValueHandle>; };
-struct T12_Isa           { using StaticAxisVariants = mp::mp_list<Amd64Isa>; };
-struct T13_IndexOrg      { using StaticAxisVariants = mp::mp_list<IotIndexOrganization>; };
-struct T14_IoDispatch    { using StaticAxisVariants = mp::mp_list<InMemoryOnly>; };
-struct T15_Migration     { using StaticAxisVariants = mp::mp_list<NoMigration>; };
-struct T16_Filter        { using StaticAxisVariants = mp::mp_list<BloomFilter>; };
-struct T17_QueuingQ1     { using StaticAxisVariants = mp::mp_list<NoBuffer>; };   // Doc 30 §8.0
-struct T18_QueuingQ2     { using StaticAxisVariants = mp::mp_list<LazyFlush>; };  // Doc 30 §8.0
+struct T0_SearchAlgo {
+    using StaticAxisVariants = mp::mp_list<Array256SearchAlgo, VectorU8U8SearchAlgo, VectorU16U16SearchAlgo>;
+};
+struct T1_CacheTraversal {
+    using StaticAxisVariants = mp::mp_list<LinearFanout, HashLookup>;
+};
+struct T2_Mapping {
+    using StaticAxisVariants = mp::mp_list<DirectPlacement>;
+};
+struct T3_PathCompr {
+    using StaticAxisVariants = mp::mp_list<PathCompressionNone>;
+};
+struct T4_NodeType {
+    using StaticAxisVariants = mp::mp_list<Node256NodeType>;
+};
+struct T5_MemoryLayout {
+    using StaticAxisVariants = mp::mp_list<CacheLineAligned>;
+};
+struct T6_Allocator {
+    using StaticAxisVariants = mp::mp_list<MimallocAllocator>;
+};
+struct T7_Prefetch {
+    using StaticAxisVariants = mp::mp_list<NonePrefetch>;
+};
+struct T8_Concurrency {
+    using StaticAxisVariants = mp::mp_list<OlcOptimisticConcurrency>;
+};
+struct T9_Serialization {
+    using StaticAxisVariants = mp::mp_list<RawBinarySer>;
+};
+struct T10_Telemetry {
+    using StaticAxisVariants = mp::mp_list<LeafOnlyCounter>;
+};
+struct T11_ValueHandle {
+    using StaticAxisVariants = mp::mp_list<InlineValueHandle>;
+};
+struct T12_Isa {
+    using StaticAxisVariants = mp::mp_list<Amd64Isa>;
+};
+struct T13_IndexOrg {
+    using StaticAxisVariants = mp::mp_list<IotIndexOrganization>;
+};
+struct T14_IoDispatch {
+    using StaticAxisVariants = mp::mp_list<InMemoryOnly>;
+};
+struct T15_Migration {
+    using StaticAxisVariants = mp::mp_list<NoMigration>;
+};
+struct T16_Filter {
+    using StaticAxisVariants = mp::mp_list<BloomFilter>;
+};
+struct T17_QueuingQ1 {
+    using StaticAxisVariants = mp::mp_list<NoBuffer>;
+}; // Doc 30 §8.0
+struct T18_QueuingQ2 {
+    using StaticAxisVariants = mp::mp_list<LazyFlush>;
+}; // Doc 30 §8.0
 
-using PilotEngine = ana::SearchAlgorithmPermutationEngine<
-    T0_SearchAlgo, T1_CacheTraversal, T2_Mapping, T3_PathCompr, T4_NodeType,
-    T5_MemoryLayout, T6_Allocator, T7_Prefetch, T8_Concurrency, T9_Serialization,
-    T10_Telemetry, T11_ValueHandle, T12_Isa, T13_IndexOrg, T14_IoDispatch,
-    T15_Migration, T16_Filter, T17_QueuingQ1, T18_QueuingQ2
->;
+using PilotEngine =
+    ana::SearchAlgorithmPermutationEngine<T0_SearchAlgo, T1_CacheTraversal, T2_Mapping, T3_PathCompr, T4_NodeType,
+                                          T5_MemoryLayout, T6_Allocator, T7_Prefetch, T8_Concurrency, T9_Serialization,
+                                          T10_Telemetry, T11_ValueHandle, T12_Isa, T13_IndexOrg, T14_IoDispatch,
+                                          T15_Migration, T16_Filter, T17_QueuingQ1, T18_QueuingQ2>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sample-Slots fuer Gattungs-Constraint-Tests
@@ -140,29 +177,29 @@ using PilotEngine = ana::SearchAlgorithmPermutationEngine<
 
 // Default-Slot ohne explicit genus → slot_genus_v Default = SearchAlgorithm
 struct ImplicitMammalSlot {
-    using PrueflingVariants = mp::mp_list<Array256SearchAlgo>;
+    using PrueflingVariants             = mp::mp_list<Array256SearchAlgo>;
     static constexpr bool has_pruefling = true;
 };
 
 // Explicit-SearchAlgorithm Slot
 struct ExplicitMammalSlot {
-    using PrueflingVariants = mp::mp_list<Array256SearchAlgo>;
-    static constexpr bool has_pruefling = true;
-    static constexpr ana::AnatomyGenus genus = ana::AnatomyGenus::SearchAlgorithm;
+    using PrueflingVariants                          = mp::mp_list<Array256SearchAlgo>;
+    static constexpr bool              has_pruefling = true;
+    static constexpr ana::AnatomyGenus genus         = ana::AnatomyGenus::SearchAlgorithm;
 };
 
 // Cross-Genus Slot (Sequence-Gattung)
 struct SequenceSlot {
-    using PrueflingVariants = mp::mp_list<>;
-    static constexpr bool has_pruefling = false;
-    static constexpr ana::AnatomyGenus genus = ana::AnatomyGenus::Sequence;
+    using PrueflingVariants                          = mp::mp_list<>;
+    static constexpr bool              has_pruefling = false;
+    static constexpr ana::AnatomyGenus genus         = ana::AnatomyGenus::Sequence;
 };
 
 // Cross-Genus Slot (Set-Gattung)
 struct SetSlot {
-    using PrueflingVariants = mp::mp_list<>;
-    static constexpr bool has_pruefling = false;
-    static constexpr ana::AnatomyGenus genus = ana::AnatomyGenus::Set;
+    using PrueflingVariants                          = mp::mp_list<>;
+    static constexpr bool              has_pruefling = false;
+    static constexpr ana::AnatomyGenus genus         = ana::AnatomyGenus::Set;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -248,8 +285,7 @@ TEST(R5CB_GenusAssertion, AssertMammalSlotPassesCompileTime) {
 }
 
 TEST(R5CB_GenusAssertion, AssertAllMammalSlotsPassesVariadic) {
-    PilotEngine::assert_all_pruefling_slots_genus<
-        ImplicitMammalSlot, ExplicitMammalSlot, pf::EmptyPrueflingSlot>();
+    PilotEngine::assert_all_pruefling_slots_genus<ImplicitMammalSlot, ExplicitMammalSlot, pf::EmptyPrueflingSlot>();
     SUCCEED();
 }
 
@@ -258,14 +294,12 @@ TEST(R5CB_GenusAssertion, AssertAllMammalSlotsPassesVariadic) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5CB_SlotsMatchGenus, MammalOnlySlotsMatch) {
-    static_assert(PilotEngine::slots_match_genus_v<
-        ImplicitMammalSlot, ExplicitMammalSlot, pf::EmptyPrueflingSlot>);
+    static_assert(PilotEngine::slots_match_genus_v<ImplicitMammalSlot, ExplicitMammalSlot, pf::EmptyPrueflingSlot>);
     SUCCEED();
 }
 
 TEST(R5CB_SlotsMatchGenus, CrossGenusSlotsFail) {
-    static_assert(!PilotEngine::slots_match_genus_v<
-        ImplicitMammalSlot, SequenceSlot>);
+    static_assert(!PilotEngine::slots_match_genus_v<ImplicitMammalSlot, SequenceSlot>);
     static_assert(!PilotEngine::slots_match_genus_v<SetSlot>);
     SUCCEED();
 }
@@ -287,7 +321,7 @@ TEST(R5CB_VisitorApi, ForEachSearchAlgorithmIteratesAllPermutations) {
 
 TEST(R5CB_VisitorApi, ForEachCompositionTypeIteratesAllPermutations) {
     std::size_t visit_count = 0;
-    PilotEngine::for_each_composition_type([&]<class C>(){
+    PilotEngine::for_each_composition_type([&]<class C>() {
         static_assert(ana::IsComposition<C>);
         ++visit_count;
     });
@@ -299,10 +333,10 @@ TEST(R5CB_VisitorApi, ForEachCompositionTypeIteratesAllPermutations) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5CB_AbiAdapterIteration, ForEachAbiAdapterProducesIAnatomyBasePerPermutation) {
-    namespace ee = ::comdare::cache_engine::execution_engine;
-    std::size_t adapter_count = 0;
+    namespace ee                                 = ::comdare::cache_engine::execution_engine;
+    std::size_t                    adapter_count = 0;
     std::vector<ana::AnatomyGenus> genera_seen;
-    std::vector<std::string_view> names_seen;
+    std::vector<std::string_view>  names_seen;
     PilotEngine::for_each_abi_adapter([&](ana::IAnatomyBase& base, std::string_view name) {
         ++adapter_count;
         // Pro Permutation ein IAnatomyBase mit korrekter Gattung
@@ -321,13 +355,9 @@ TEST(R5CB_AbiAdapterIteration, ForEachAbiAdapterProducesIAnatomyBasePerPermutati
     });
     EXPECT_EQ(adapter_count, 6u);
     // Alle 6 Adapter haben SearchAlgorithm-Gattung
-    for (auto g : genera_seen) {
-        EXPECT_EQ(g, ana::AnatomyGenus::SearchAlgorithm);
-    }
+    for (auto g : genera_seen) { EXPECT_EQ(g, ana::AnatomyGenus::SearchAlgorithm); }
     // Alle Namen sind nicht-leer (AdHocComposition Default)
-    for (auto n : names_seen) {
-        EXPECT_FALSE(n.empty());
-    }
+    for (auto n : names_seen) { EXPECT_FALSE(n.empty()); }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -344,7 +374,10 @@ namespace cg = ::comdare::cache_engine::builder::codegen;
 template <class C>
 std::string adhoc_macro_args() {
     std::string s;
-    auto add = [&](std::string_view t) { if (!s.empty()) s += ", "; s += t; };
+    auto        add = [&](std::string_view t) {
+        if (!s.empty()) s += ", ";
+        s += t;
+    };
     add(cg::type_name<typename C::search_algo>());
     add(cg::type_name<typename C::cache_traversal>());
     add(cg::type_name<typename C::mapping>());
@@ -362,52 +395,49 @@ std::string adhoc_macro_args() {
     add(cg::type_name<typename C::io_dispatch>());
     add(cg::type_name<typename C::migration_policy>());
     add(cg::type_name<typename C::filter>());
-    add(cg::type_name<typename C::queuing_q1>());   // Doc 30 §8.0: queuing q1 (buffer_strategy)
-    add(cg::type_name<typename C::queuing_q2>());   // Doc 30 §8.0: queuing q2 (flush_policy)
+    add(cg::type_name<typename C::queuing_q1>()); // Doc 30 §8.0: queuing q1 (buffer_strategy)
+    add(cg::type_name<typename C::queuing_q2>()); // Doc 30 §8.0: queuing q2 (flush_policy)
     return s;
 }
-}  // namespace
+} // namespace
 
 TEST(R5G_AutoEmitter, BuildsAdHocMacroArgsPerPermutation) {
     std::vector<std::string> emitted;
-    PilotEngine::for_each_composition_type([&]<class C>() {
-        emitted.push_back(adhoc_macro_args<C>());
-    });
+    PilotEngine::for_each_composition_type([&]<class C>() { emitted.push_back(adhoc_macro_args<C>()); });
 
     // Eine Argument-Zeile pro Permutation des gemergten Raums.
-    ASSERT_EQ(emitted.size(), PilotEngine::count());           // 6
+    ASSERT_EQ(emitted.size(), PilotEngine::count()); // 6
     for (auto const& s : emitted) {
         // 19 FQ-Typ-Namen → 18 Kommas (Doc 30 §8.0: + queuing q1/q2); reale Achsen-Namespaces vorhanden.
         EXPECT_EQ(std::count(s.begin(), s.end(), ','), 18);
         EXPECT_NE(s.find("comdare::cache_engine::"), std::string::npos);
-        EXPECT_EQ(s.find("class "), std::string::npos);        // codegen-nutzbar (kein Elaborated-Prefix)
+        EXPECT_EQ(s.find("class "), std::string::npos); // codegen-nutzbar (kein Elaborated-Prefix)
     }
     // Alle 6 Permutationen sind distinkt (unterschiedliche search_algo/cache_traversal-Achsen).
     std::set<std::string> uniq(emitted.begin(), emitted.end());
     EXPECT_EQ(uniq.size(), emitted.size());
 
-    std::cout << "[R5G auto-emitter] " << emitted.size()
-              << " Permutationen; Perm[0] ADHOC-args:\n  " << emitted.front() << "\n";
+    std::cout << "[R5G auto-emitter] " << emitted.size() << " Permutationen; Perm[0] ADHOC-args:\n  " << emitted.front()
+              << "\n";
 }
 
 // Der EIGENTLICHE Emitter: schreibt pro Permutation ein kompilierbares Modul-.cpp
 // (Umbrella-Include + COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(<args>)). Das ist die Datei-Emission des
 // Auto-Emitters — die CMake-add_library-Schleife darüber ist das letzte mechanische Plumbing.
 TEST(R5G_AutoEmitter, EmitsModuleCppPerPermutation) {
-    namespace fs = std::filesystem;
-    fs::path const dir = fs::temp_directory_path() / "comdare_r5g_emit";
+    namespace fs        = std::filesystem;
+    fs::path const  dir = fs::temp_directory_path() / "comdare_r5g_emit";
     std::error_code ec;
     fs::create_directories(dir, ec);
 
     std::vector<fs::path> files;
-    int idx = 0;
+    int                   idx = 0;
     PilotEngine::for_each_composition_type([&]<class C>() {
         fs::path const f = dir / ("comdare_anatomy_perm_auto_" + std::to_string(idx) + ".cpp");
-        std::ofstream out(f, std::ios::trunc);
+        std::ofstream  out(f, std::ios::trunc);
         out << "// AUTO-GENERATED by R5.G Auto-Emitter — Permutation " << idx << " — DO NOT EDIT\n"
             << "#include <builder/codegen/all_axes_umbrella.hpp>\n\n"
-            << "COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(\n    "
-            << adhoc_macro_args<C>() << ")\n";
+            << "COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(\n    " << adhoc_macro_args<C>() << ")\n";
         files.push_back(f);
         ++idx;
     });
@@ -415,37 +445,39 @@ TEST(R5G_AutoEmitter, EmitsModuleCppPerPermutation) {
     ASSERT_EQ(files.size(), PilotEngine::count());
     // Inhalt jedes emittierten Modul-.cpp prüfen (kompilierbares Permutations-Modul).
     for (auto const& f : files) {
-        std::ifstream in(f);
-        std::string const content((std::istreambuf_iterator<char>(in)),
-                                   std::istreambuf_iterator<char>());
+        std::ifstream     in(f);
+        std::string const content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         EXPECT_NE(content.find("all_axes_umbrella.hpp"), std::string::npos);
         EXPECT_NE(content.find("COMDARE_DEFINE_ANATOMY_MODULE_ADHOC("), std::string::npos);
-        EXPECT_NE(content.find("comdare::cache_engine::lookup::"),  // V41.F.2: axis_03a → lookup (physisch migriert)
+        EXPECT_NE(content.find("comdare::cache_engine::lookup::"), // V41.F.2: axis_03a → lookup (physisch migriert)
                   std::string::npos);
     }
     std::cout << "[R5G emitter] " << files.size() << " Modul-.cpp geschrieben nach " << dir << "\n";
 
-    for (auto const& f : files) fs::remove(f, ec);  // Aufräumen
+    for (auto const& f : files) fs::remove(f, ec); // Aufräumen
 }
 
 // V41.F.6.1 R5.D — kombinatorische Coverage des Permutations-Raums (Sampling-Grundlage).
 // Quantifizierung (full/1-wise/pairwise) + 1-wise-Stichprobe deckt jede Achsen-Variante mind. 1×.
 TEST(R5D_CombinatorialCoverage, QuantifyAndOneWiseSampleCoversEveryValue) {
-    std::array<std::size_t, 3> counts{17, 25, 5};   // z. B. search × allocator × layout
-    auto const rep = ana::analyze_coverage(std::span<const std::size_t>{counts});
+    std::array<std::size_t, 3> counts{17, 25, 5}; // z. B. search × allocator × layout
+    auto const                 rep = ana::analyze_coverage(std::span<const std::size_t>{counts});
     EXPECT_EQ(rep.axis_count, 3u);
-    EXPECT_EQ(rep.full_space, 17u * 25u * 5u);          // 2125
+    EXPECT_EQ(rep.full_space, 17u * 25u * 5u); // 2125
     EXPECT_FALSE(rep.full_space_saturated);
     EXPECT_FALSE(rep.any_axis_empty);
-    EXPECT_EQ(rep.one_wise_cover, 25u);                  // = max(counts)
-    EXPECT_EQ(rep.pairwise_lower_bound, 25u * 17u);      // zwei groesste
+    EXPECT_EQ(rep.one_wise_cover, 25u);             // = max(counts)
+    EXPECT_EQ(rep.pairwise_lower_bound, 25u * 17u); // zwei groesste
 
     // 1-wise-Stichprobe: 25 Zeilen; JEDE Variante JEDER Achse muss vorkommen.
     auto const sample = ana::one_wise_cover_sample(std::span<const std::size_t>{counts});
     ASSERT_EQ(sample.size(), 25u);
     for (std::size_t axis = 0; axis < counts.size(); ++axis) {
         std::set<std::size_t> seen;
-        for (auto const& row : sample) { ASSERT_EQ(row.size(), 3u); seen.insert(row[axis]); }
+        for (auto const& row : sample) {
+            ASSERT_EQ(row.size(), 3u);
+            seen.insert(row[axis]);
+        }
         EXPECT_EQ(seen.size(), counts[axis]) << "Achse " << axis << " nicht voll abgedeckt";
         EXPECT_EQ(*seen.begin(), 0u);
         EXPECT_EQ(*seen.rbegin(), counts[axis] - 1);
@@ -454,14 +486,15 @@ TEST(R5D_CombinatorialCoverage, QuantifyAndOneWiseSampleCoversEveryValue) {
 
 TEST(R5D_CombinatorialCoverage, SaturationEmptyAxisAndEdgeCases) {
     // Overflow → gesaettigt (viele grosse Achsen).
-    std::array<std::size_t, 8> big{}; big.fill(1000000u);  // 1e6^8 = 1e48 >> uint64
+    std::array<std::size_t, 8> big{};
+    big.fill(1000000u); // 1e6^8 = 1e48 >> uint64
     auto const rs = ana::analyze_coverage(std::span<const std::size_t>{big});
     EXPECT_TRUE(rs.full_space_saturated);
     EXPECT_EQ(rs.full_space, ana::kCoverageSaturated);
 
     // Leere Achse (0 Varianten) → Raum leer, Stichprobe leer.
     std::array<std::size_t, 3> withzero{4, 0, 7};
-    auto const rz = ana::analyze_coverage(std::span<const std::size_t>{withzero});
+    auto const                 rz = ana::analyze_coverage(std::span<const std::size_t>{withzero});
     EXPECT_TRUE(rz.any_axis_empty);
     EXPECT_EQ(rz.full_space, 0u);
     EXPECT_TRUE(ana::one_wise_cover_sample(std::span<const std::size_t>{withzero}).empty());
@@ -482,30 +515,33 @@ TEST(R5D_CombinatorialCoverage, DimensionedFromRealAxisRegistries) {
     namespace a06  = ::comdare::cache_engine::allocator::axis_06_allocator;
     namespace m05  = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;
 
-    constexpr std::size_t kSearch = mp::mp_size<s03a::AllStrategies>::value;  // 17
-    constexpr std::size_t kAlloc  = mp::mp_size<a06::AllVendors>::value;      // 25
-    constexpr std::size_t kLayout = mp::mp_size<m05::AllLayouts>::value;      // 5
-    static_assert(kSearch == 17 && kAlloc == 25 && kLayout == 5,
-                  "Achsen-Groessen-Snapshot (bei Erweiterung anpassen)");
+    constexpr std::size_t kSearch = mp::mp_size<s03a::AllStrategies>::value; // 17
+    constexpr std::size_t kAlloc  = mp::mp_size<a06::AllVendors>::value;     // 25
+    constexpr std::size_t kLayout = mp::mp_size<m05::AllLayouts>::value;     // 5
+    static_assert(kSearch == 17 && kAlloc == 25 && kLayout == 5, "Achsen-Groessen-Snapshot (bei Erweiterung anpassen)");
 
     std::array<std::size_t, 3> counts{kSearch, kAlloc, kLayout};
-    auto const rep = ana::analyze_coverage(std::span<const std::size_t>{counts});
-    EXPECT_EQ(rep.full_space, std::uint64_t{kSearch} * kAlloc * kLayout);  // 2125 voller Raum
-    EXPECT_EQ(rep.one_wise_cover, kAlloc);          // 25 = max → traktabel statt 2125
-    EXPECT_EQ(rep.pairwise_lower_bound, std::uint64_t{kAlloc} * kSearch);  // 425
+    auto const                 rep = ana::analyze_coverage(std::span<const std::size_t>{counts});
+    EXPECT_EQ(rep.full_space, std::uint64_t{kSearch} * kAlloc * kLayout); // 2125 voller Raum
+    EXPECT_EQ(rep.one_wise_cover, kAlloc);                                // 25 = max → traktabel statt 2125
+    EXPECT_EQ(rep.pairwise_lower_bound, std::uint64_t{kAlloc} * kSearch); // 425
 
     // Jeder Stichproben-Index ist < der jeweiligen Listengroesse → mp_at_c stets gueltig.
     auto const sample = ana::one_wise_cover_sample(std::span<const std::size_t>{counts});
-    ASSERT_EQ(sample.size(), kAlloc);  // 25 Permutationen decken die volle Variantenmenge
+    ASSERT_EQ(sample.size(), kAlloc); // 25 Permutationen decken die volle Variantenmenge
     std::set<std::size_t> sset, aset, lset;
     for (auto const& row : sample) {
         ASSERT_EQ(row.size(), 3u);
-        EXPECT_LT(row[0], kSearch); EXPECT_LT(row[1], kAlloc); EXPECT_LT(row[2], kLayout);
-        sset.insert(row[0]); aset.insert(row[1]); lset.insert(row[2]);
+        EXPECT_LT(row[0], kSearch);
+        EXPECT_LT(row[1], kAlloc);
+        EXPECT_LT(row[2], kLayout);
+        sset.insert(row[0]);
+        aset.insert(row[1]);
+        lset.insert(row[2]);
     }
-    EXPECT_EQ(sset.size(), kSearch);  // ALLE 17 Such-Algos abgedeckt
-    EXPECT_EQ(aset.size(), kAlloc);   // ALLE 25 Allokatoren abgedeckt
-    EXPECT_EQ(lset.size(), kLayout);  // ALLE 5 Layouts abgedeckt
+    EXPECT_EQ(sset.size(), kSearch); // ALLE 17 Such-Algos abgedeckt
+    EXPECT_EQ(aset.size(), kAlloc);  // ALLE 25 Allokatoren abgedeckt
+    EXPECT_EQ(lset.size(), kLayout); // ALLE 5 Layouts abgedeckt
 }
 
 // V41.F.6.1 F.2/F.3 — axen-zentrische Namespace-Fassade: die Aliase liefern denselben Typ wie der
@@ -514,12 +550,11 @@ TEST(R5D_CombinatorialCoverage, DimensionedFromRealAxisRegistries) {
 TEST(F2F3_AxisCentricFacade, AliasesAreSameTypeAndConceptsHold) {
     namespace cce = ::comdare::cache_engine;
     // F.2: axen-zentrischer Alias == physischer Achsen-Typ (Stichprobe ueber 3 Topics).
-    static_assert(std::is_same_v<cce::lookup::Array256SearchAlgo,
-                                 cce::traversal::axis_03a_search_algo::Array256SearchAlgo>);
-    static_assert(std::is_same_v<cce::alloc::StdMalloc,
-                                 cce::allocator::axis_06_allocator::StdMalloc>);
-    static_assert(std::is_same_v<cce::layout::SoAMemoryLayout,
-                                 cce::memory_layout::axis_05_memory_layout::SoAMemoryLayout>);
+    static_assert(
+        std::is_same_v<cce::lookup::Array256SearchAlgo, cce::traversal::axis_03a_search_algo::Array256SearchAlgo>);
+    static_assert(std::is_same_v<cce::alloc::StdMalloc, cce::allocator::axis_06_allocator::StdMalloc>);
+    static_assert(
+        std::is_same_v<cce::layout::SoAMemoryLayout, cce::memory_layout::axis_05_memory_layout::SoAMemoryLayout>);
     // F.3: JEDE der 17 Achsen entspricht einem abstrakten Concept (ueber den axen-zentrischen Namen).
     namespace cc = cce::concepts;
     static_assert(cc::LookupAxis<cce::lookup::Array256SearchAlgo>);
@@ -545,6 +580,6 @@ TEST(F2F3_AxisCentricFacade, AliasesAreSameTypeAndConceptsHold) {
     namespace slot_alloc  = cce::alloc::optional_prt_art_impl;
     namespace slot_layout = cce::layout::optional_prt_art_impl;
     namespace slot_filter = cce::filter_axis::optional_prt_art_impl;
-    (void)sizeof(int);  // slot_*-Aliase nur zum Compile-Beweis
-    SUCCEED();  // 17 Achsen ↔ Concept (F.3) + Pruefling-Slots via Achsen-Name adressierbar (F.2)
+    (void)sizeof(int); // slot_*-Aliase nur zum Compile-Beweis
+    SUCCEED();         // 17 Achsen ↔ Concept (F.3) + Pruefling-Slots via Achsen-Name adressierbar (F.2)
 }

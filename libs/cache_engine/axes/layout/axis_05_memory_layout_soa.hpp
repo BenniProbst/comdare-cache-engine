@@ -19,14 +19,14 @@ namespace comdare::cache_engine::layout {
 /// Layout fuer columnar OLAP-Indizes + LOUDS-Succinct.
 class SoAMemoryLayout : public MemoryLayoutStrategyBase<SoAMemoryLayout> {
 public:
-    using topic_tag  = ::comdare::cache_engine::memory_layout::concepts::MemoryLayoutTopicTag;
-    using axis_tag   = subaxes::data_organization_tag;
-    using family_id  = std::integral_constant<int, 3>;
+    using topic_tag = ::comdare::cache_engine::memory_layout::concepts::MemoryLayoutTopicTag;
+    using axis_tag  = subaxes::data_organization_tag;
+    using family_id = std::integral_constant<int, 3>;
 
     static constexpr bool enabled = flags::soa_enabled;
 
     [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return 64; }
-    [[nodiscard]] static constexpr std::string_view name()            noexcept { return "memory_layout_soa"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "memory_layout_soa"; }
 
     // REALE Repraesentation (P-MD1-ERDUNG #167): columnar — der Store legt PRO Chunk zwei getrennte Arrays an
     // (keys[]-Spalte gefolgt von values[]-Spalte). Der Key-only-Scan liest NUR die keys-Spalte (n*8 B
@@ -36,8 +36,10 @@ public:
     [[nodiscard]] static constexpr RepresentationKind representation_kind() noexcept {
         return RepresentationKind::soa_split_columns;
     }
-    [[nodiscard]] static constexpr std::string_view family_name()     noexcept { return "SoAMemoryLayout (Struct-of-Arrays, SIMD-friendly, column-scan optimal)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()     noexcept { return "SOA"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "SoAMemoryLayout (Struct-of-Arrays, SIMD-friendly, column-scan optimal)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "SOA"; }
 
     // V41.F.6.1 R5.B — verhaltens-tragende Laufzeit-API (macht die Layout-Achse F15-operativ):
     // summiert je Datensatz ein 4-Byte-Feld aus `buf` im SoA-PATTERN — das Feld liegt CONTIGUOUS
@@ -48,16 +50,16 @@ public:
         std::uint64_t s = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::uint32_t v;
-            std::memcpy(&v, buf + i * sizeof(std::uint32_t), sizeof(v));   // SoA: contiguous
+            std::memcpy(&v, buf + i * sizeof(std::uint32_t), sizeof(v)); // SoA: contiguous
             s += v;
         }
         return s;
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::layout
 
 namespace comdare::cache_engine::layout {
-    static_assert(concepts::MemoryLayoutStrategy<SoAMemoryLayout>);
-    static_assert(concepts::CacheEnginePermutationStrategy<SoAMemoryLayout>);
-}
+static_assert(concepts::MemoryLayoutStrategy<SoAMemoryLayout>);
+static_assert(concepts::CacheEnginePermutationStrategy<SoAMemoryLayout>);
+} // namespace comdare::cache_engine::layout

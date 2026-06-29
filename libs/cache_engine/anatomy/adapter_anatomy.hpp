@@ -14,13 +14,13 @@
 // NAMEN (#90-Sweep abgeschlossen): Datei adapter_anatomy.hpp + Typen AdapterComposition/AdapterAnatomy
 // (konsistent mit set_/sequence_/view_; historisch container_anatomy.hpp / Container*). C++23, header-only.
 
-#include "anatomy_base.hpp"   // AnatomyGenus (Tier-Unterklasse) / AnatomyGattung
+#include "anatomy_base.hpp" // AnatomyGenus (Tier-Unterklasse) / AnatomyGattung
 
-#include <algorithm>     // std::push_heap / std::pop_heap (HeapInner = priority_queue-Disziplin)
+#include <algorithm> // std::push_heap / std::pop_heap (HeapInner = priority_queue-Disziplin)
 #include <cstddef>
 #include <cstdint>
 #include <deque>
-#include <functional>    // std::less (HeapInner Default-Compare)
+#include <functional> // std::less (HeapInner Default-Compare)
 #include <optional>
 #include <string_view>
 #include <vector>
@@ -36,15 +36,16 @@ namespace comdare::cache_engine::anatomy {
 /// DequeInner — Inner-Substrat über std::deque (Default für stack/queue, §26.4). Beide Enden O(1).
 template <class T = std::uint64_t>
 struct DequeInner {
-    using element_type = T;
+    using element_type                     = T;
     static constexpr std::string_view name = "DequeInner";
-    void                       push_back(element_type v)      { d_.push_back(v); }
-    [[nodiscard]] std::size_t  size()           const noexcept { return d_.size(); }
-    [[nodiscard]] element_type front()          const          { return d_.front(); }
-    [[nodiscard]] element_type back()           const          { return d_.back(); }
-    void                       pop_front()                     { d_.pop_front(); }
-    void                       pop_back()                      { d_.pop_back(); }
-    void                       clear()                noexcept  { d_.clear(); }
+    void                              push_back(element_type v) { d_.push_back(v); }
+    [[nodiscard]] std::size_t         size() const noexcept { return d_.size(); }
+    [[nodiscard]] element_type        front() const { return d_.front(); }
+    [[nodiscard]] element_type        back() const { return d_.back(); }
+    void                              pop_front() { d_.pop_front(); }
+    void                              pop_back() { d_.pop_back(); }
+    void                              clear() noexcept { d_.clear(); }
+
 private:
     std::deque<element_type> d_{};
 };
@@ -52,15 +53,16 @@ private:
 /// VectorInner — Inner-Substrat über std::vector (Default für priority_queue-Substrat, §26.4). pop_back O(1).
 template <class T = std::uint64_t>
 struct VectorInner {
-    using element_type = T;
+    using element_type                     = T;
     static constexpr std::string_view name = "VectorInner";
-    void                       push_back(element_type v)      { v_.push_back(v); }
-    [[nodiscard]] std::size_t  size()           const noexcept { return v_.size(); }
-    [[nodiscard]] element_type front()          const          { return v_.front(); }
-    [[nodiscard]] element_type back()           const          { return v_.back(); }
-    void                       pop_front()                     { v_.erase(v_.begin()); }
-    void                       pop_back()                      { v_.pop_back(); }
-    void                       clear()                noexcept  { v_.clear(); }
+    void                              push_back(element_type v) { v_.push_back(v); }
+    [[nodiscard]] std::size_t         size() const noexcept { return v_.size(); }
+    [[nodiscard]] element_type        front() const { return v_.front(); }
+    [[nodiscard]] element_type        back() const { return v_.back(); }
+    void                              pop_front() { v_.erase(v_.begin()); }
+    void                              pop_back() { v_.pop_back(); }
+    void                              clear() noexcept { v_.clear(); }
+
 private:
     std::vector<element_type> v_{};
 };
@@ -72,15 +74,22 @@ private:
 /// (Heap bleibt gültig, da pop_back ein Blatt entfernt) — nicht priority-relevant.
 template <class T = std::uint64_t, class Compare = std::less<T>>
 struct HeapInner {
-    using element_type = T;
+    using element_type                     = T;
     static constexpr std::string_view name = "HeapInner";
-    void                       push_back(element_type v)      { v_.push_back(v); std::push_heap(v_.begin(), v_.end(), comp_); }
-    [[nodiscard]] std::size_t  size()           const noexcept { return v_.size(); }
-    [[nodiscard]] element_type front()          const          { return v_.front(); }                 // Heap-Top = Maximum
-    [[nodiscard]] element_type back()           const          { return v_.back(); }                 // Blatt (nicht priority-relevant)
-    void                       pop_front()                     { std::pop_heap(v_.begin(), v_.end(), comp_); v_.pop_back(); }  // Extract-Max
-    void                       pop_back()                      { v_.pop_back(); }                    // entfernt ein Blatt (Heap bleibt gültig)
-    void                       clear()                noexcept  { v_.clear(); }
+    void                              push_back(element_type v) {
+        v_.push_back(v);
+        std::push_heap(v_.begin(), v_.end(), comp_);
+    }
+    [[nodiscard]] std::size_t  size() const noexcept { return v_.size(); }
+    [[nodiscard]] element_type front() const { return v_.front(); } // Heap-Top = Maximum
+    [[nodiscard]] element_type back() const { return v_.back(); }   // Blatt (nicht priority-relevant)
+    void                       pop_front() {
+        std::pop_heap(v_.begin(), v_.end(), comp_);
+        v_.pop_back();
+    } // Extract-Max
+    void pop_back() { v_.pop_back(); } // entfernt ein Blatt (Heap bleibt gültig)
+    void clear() noexcept { v_.clear(); }
+
 private:
     std::vector<element_type> v_{};
     Compare                   comp_{};
@@ -90,36 +99,36 @@ private:
 // Adapter-Observer (gattungs-eigen) — flacher uint64-POD, getrennt vom SearchAlgorithm-ObserverAggregate<19>.
 // Felder spiegeln den Antrieb des inner_container (die real getriebene spezifische Achse, §28).
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════
-struct AdapterObserverSnapshot {   // Adapter-Observer (gattungs-eigen, getrennt vom SearchAlgorithm-ObserverAggregate<19>)
-    std::uint64_t push_count        = 0;   // push → inner_container
-    std::uint64_t pop_count         = 0;   // erfolgreiche pop_front/pop_back
-    std::uint64_t front_reads       = 0;   // front()-Zugriffe (FIFO-Disziplin)
-    std::uint64_t back_reads        = 0;   // back()/top()-Zugriffe (LIFO-Disziplin)
-    std::uint64_t current_occupancy = 0;   // aktuelle inner_container-Größe
-    std::uint64_t peak_occupancy    = 0;   // maximale inner_container-Größe
+struct
+    AdapterObserverSnapshot { // Adapter-Observer (gattungs-eigen, getrennt vom SearchAlgorithm-ObserverAggregate<19>)
+    std::uint64_t push_count        = 0; // push → inner_container
+    std::uint64_t pop_count         = 0; // erfolgreiche pop_front/pop_back
+    std::uint64_t front_reads       = 0; // front()-Zugriffe (FIFO-Disziplin)
+    std::uint64_t back_reads        = 0; // back()/top()-Zugriffe (LIFO-Disziplin)
+    std::uint64_t current_occupancy = 0; // aktuelle inner_container-Größe
+    std::uint64_t peak_occupancy    = 0; // maximale inner_container-Größe
 };
 
 /// AdapterComposition — 12 geteilte/delegierte §28-Achsen + inner_container.
 /// Reihenfolge T0..T11 = §28-Invertebrate (delegiert + aktiv), dann Inner (spezifisch). Analog SequenceComposition.
-template <class T0, class T1, class T2, class T3, class T4, class T5,
-          class T6, class T7, class T8, class T9, class T10, class T11,
-          class Inner = DequeInner<>>
+template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10,
+          class T11, class Inner = DequeInner<>>
 struct AdapterComposition {
-    using search_algo       = T0;    // axis_03a (delegated an inner)
-    using cache_traversal   = T1;    // axis_03b (delegated)
-    using memory_layout     = T2;    // axis_05  (delegated)
-    using allocator         = T3;    // axis_06  (delegated)
-    using prefetch          = T4;    // axis_07  (delegated)
-    using concurrency       = T5;    // axis_08  (delegated)
-    using serialization     = T6;    // axis_10  (aktiv)
-    using telemetry         = T7;    // axis_11  (aktiv)
-    using value_handle      = T8;    // axis_14  (aktiv)
-    using isa               = T9;    // axis_09  (delegated)
-    using io_dispatch       = T10;   // axis_io  (delegated)
-    using migration_policy  = T11;   // axis_migration (delegated)
-    using inner_container   = Inner; // NEU axis_inner (Adapter-spezifisch, §28)
+    using search_algo      = T0;    // axis_03a (delegated an inner)
+    using cache_traversal  = T1;    // axis_03b (delegated)
+    using memory_layout    = T2;    // axis_05  (delegated)
+    using allocator        = T3;    // axis_06  (delegated)
+    using prefetch         = T4;    // axis_07  (delegated)
+    using concurrency      = T5;    // axis_08  (delegated)
+    using serialization    = T6;    // axis_10  (aktiv)
+    using telemetry        = T7;    // axis_11  (aktiv)
+    using value_handle     = T8;    // axis_14  (aktiv)
+    using isa              = T9;    // axis_09  (delegated)
+    using io_dispatch      = T10;   // axis_io  (delegated)
+    using migration_policy = T11;   // axis_migration (delegated)
+    using inner_container  = Inner; // NEU axis_inner (Adapter-spezifisch, §28)
 
-    static constexpr std::size_t      slot_count = 13;   // 12 geteilt/delegiert + inner_container
+    static constexpr std::size_t      slot_count = 13; // 12 geteilt/delegiert + inner_container
     static constexpr std::string_view name       = "AdapterComposition";
     static constexpr std::string_view paper_id   = "P00 Adapter (Container-Tier-Unterklasse, Doku 14 §28 Invertebrate)";
 };
@@ -127,10 +136,18 @@ struct AdapterComposition {
 /// IsAdapterComposition — Concept: 12 geteilte named Achsen + inner_container (§28 Invertebrate).
 template <class C>
 concept IsAdapterComposition = requires {
-    typename C::search_algo;       typename C::cache_traversal;  typename C::memory_layout;
-    typename C::allocator;         typename C::prefetch;         typename C::concurrency;
-    typename C::serialization;     typename C::telemetry;        typename C::value_handle;
-    typename C::isa;               typename C::io_dispatch;      typename C::migration_policy;
+    typename C::search_algo;
+    typename C::cache_traversal;
+    typename C::memory_layout;
+    typename C::allocator;
+    typename C::prefetch;
+    typename C::concurrency;
+    typename C::serialization;
+    typename C::telemetry;
+    typename C::value_handle;
+    typename C::isa;
+    typename C::io_dispatch;
+    typename C::migration_policy;
     typename C::inner_container;
     { C::slot_count } -> std::convertible_to<std::size_t>;
 };
@@ -149,17 +166,17 @@ public:
     using element_type  = typename inner_t::element_type;
 
     static constexpr std::string_view composition_name() noexcept { return Composition::name; }
-    static constexpr std::string_view paper_id()         noexcept { return Composition::paper_id; }
-    static constexpr AnatomyGenus     genus()            noexcept { return AnatomyGenus::Adapter; }       // Tier-Unterklasse
-    static constexpr AnatomyGattung   gattung()          noexcept { return AnatomyGattung::Container; }   // Außen-Interface
-    static constexpr std::size_t      organ_count()      noexcept { return Composition::slot_count; }     // 13
+    static constexpr std::string_view paper_id() noexcept { return Composition::paper_id; }
+    static constexpr AnatomyGenus     genus() noexcept { return AnatomyGenus::Adapter; }         // Tier-Unterklasse
+    static constexpr AnatomyGattung   gattung() noexcept { return AnatomyGattung::Container; }   // Außen-Interface
+    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 13
 
     AdapterAnatomy() = default;
     /// capacity wird für ABI-ctor-Kompatibilität akzeptiert, aber ignoriert (unbeschränkter Adapter).
     explicit AdapterAnatomy(std::size_t /*capacity*/) noexcept {}
 
     // ── §26.4 Adapter-API (push/pop/top/front/back) — treibt das inner_container-Organ + Observer ──
-    void put(element_type v) { push(v); }   // Alias (Bestands-Aufrufe); push = die §26.4-Operation
+    void put(element_type v) { push(v); } // Alias (Bestands-Aufrufe); push = die §26.4-Operation
     void push(element_type v) {
         inner_.push_back(v);
         ++obs_.push_count;
@@ -196,9 +213,12 @@ public:
         if (inner_.size() == 0) return std::nullopt;
         return inner_.back();
     }
-    [[nodiscard]] std::optional<element_type> top() const { return back(); }   // stack-top
-    [[nodiscard]] std::size_t size() const noexcept { return inner_.size(); }
-    void clear() noexcept { inner_.clear(); obs_.current_occupancy = 0; }
+    [[nodiscard]] std::optional<element_type> top() const { return back(); } // stack-top
+    [[nodiscard]] std::size_t                 size() const noexcept { return inner_.size(); }
+    void                                      clear() noexcept {
+        inner_.clear();
+        obs_.current_occupancy = 0;
+    }
 
     /// observe_all() — EIGENER Adapter-Observer (NICHT der SearchAlgorithm-ObserverAggregate<19>).
     [[nodiscard]] AdapterObserverSnapshot observe_all() const noexcept { return obs_; }
@@ -208,4 +228,4 @@ private:
     AdapterObserverSnapshot obs_{};
 };
 
-}  // namespace comdare::cache_engine::anatomy
+} // namespace comdare::cache_engine::anatomy

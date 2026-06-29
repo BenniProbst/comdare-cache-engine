@@ -27,18 +27,19 @@ namespace comdare::cache_engine::lookup::composable {
 /// Erfuellt von SurfFstMapPoolStore; konsumiert von SurfMapTraversalOrgan.
 template <class S>
 concept SurfFstMapPool =
-    requires { typename S::key_type; typename S::value_type; }
-    && std::same_as<typename S::key_type,   std::uint64_t>
-    && std::same_as<typename S::value_type, std::uint64_t>
-    && requires(S& s, S const& cs, std::size_t i, typename S::key_type k, typename S::value_type v) {
-        { cs.size() }            -> std::convertible_to<std::size_t>;
-        { cs.lower_bound(k) }    -> std::convertible_to<std::size_t>;   // erster Index mit key_at>=k (== size falls keiner)
-        { cs.key_at(i) }         -> std::same_as<typename S::key_type>;
-        { cs.value_at(i) }       -> std::same_as<typename S::value_type>;
+    requires {
+        typename S::key_type;
+        typename S::value_type;
+    } && std::same_as<typename S::key_type, std::uint64_t> && std::same_as<typename S::value_type, std::uint64_t> &&
+    requires(S& s, S const& cs, std::size_t i, typename S::key_type k, typename S::value_type v) {
+        { cs.size() } -> std::convertible_to<std::size_t>;
+        { cs.lower_bound(k) } -> std::convertible_to<std::size_t>; // erster Index mit key_at>=k (== size falls keiner)
+        { cs.key_at(i) } -> std::same_as<typename S::key_type>;
+        { cs.value_at(i) } -> std::same_as<typename S::value_type>;
         { s.set_value_at(i, v) } -> std::same_as<void>;
-        { s.insert_at(i, k, v) } -> std::same_as<void>;                 // sortiert einfuegen an Index i; darf werfen
-        { s.erase_at(i) }        -> std::same_as<void>;
-        { s.clear() }            -> std::same_as<void>;
+        { s.insert_at(i, k, v) } -> std::same_as<void>; // sortiert einfuegen an Index i; darf werfen
+        { s.erase_at(i) } -> std::same_as<void>;
+        { s.clear() } -> std::same_as<void>;
     };
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

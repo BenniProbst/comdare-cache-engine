@@ -28,7 +28,10 @@ namespace cml = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;
 namespace cal = ::comdare::cache_engine::allocator::axis_06_allocator;
 namespace ctr = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable;
 
-struct Row { std::string node; std::size_t cap, slots, hits, chunks, chunk_allocs; };
+struct Row {
+    std::string node;
+    std::size_t cap, slots, hits, chunks, chunk_allocs;
+};
 
 template <class NodeT>
 Row run_one(std::uint64_t n) {
@@ -37,19 +40,17 @@ Row run_one(std::uint64_t n) {
     Search s;
     for (std::uint64_t i = 0; i < n; ++i) s.insert(i, i * 7u + 1u);
     std::size_t hits = 0;
-    for (std::uint64_t i = 0; i < n; ++i) if (s.lookup(i).has_value()) ++hits;
+    for (std::uint64_t i = 0; i < n; ++i)
+        if (s.lookup(i).has_value()) ++hits;
     Store const& st = s.store();
-    return Row{ std::string(st.node_name()), st.node_capacity(), s.occupied_count(),
-                hits, st.chunk_count(), st.chunk_alloc_count() };
+    return Row{std::string(st.node_name()), st.node_capacity(), s.occupied_count(), hits, st.chunk_count(),
+               st.chunk_alloc_count()};
 }
 
 int main() {
     constexpr std::uint64_t n = 1000;
-    std::vector<Row> rows{
-        run_one<cn::Node4NodeType>(n),
-        run_one<cn::Node16NodeType>(n),
-        run_one<cn::Node48NodeType>(n),
-        run_one<cn::Node256NodeType>(n) };
+    std::vector<Row> rows{run_one<cn::Node4NodeType>(n), run_one<cn::Node16NodeType>(n), run_one<cn::Node48NodeType>(n),
+                          run_one<cn::Node256NodeType>(n)};
 
     std::printf("# node_delegation_proof  n_ops=%llu  (ComposedSearch<LinearScan, NodeChunkedStore<N,L,A>>)\n",
                 static_cast<unsigned long long>(n));
@@ -67,10 +68,13 @@ int main() {
     }
     for (std::size_t i = 0; i < rows.size(); ++i)
         for (std::size_t j = i + 1; j < rows.size(); ++j)
-            if (rows[i].chunks == rows[j].chunks) node_effect_ok = false;   // paarweise verschieden
+            if (rows[i].chunks == rows[j].chunks) node_effect_ok = false; // paarweise verschieden
 
     std::printf("semantics_identical=%d  node_type_effective=%d\n", semantics_ok ? 1 : 0, node_effect_ok ? 1 : 0);
-    if (semantics_ok && node_effect_ok) { std::printf("PROOF_OK: delegierendes Such-Organ -> node_type runtime-wirksam\n"); return 0; }
+    if (semantics_ok && node_effect_ok) {
+        std::printf("PROOF_OK: delegierendes Such-Organ -> node_type runtime-wirksam\n");
+        return 0;
+    }
     std::printf("PROOF_FAIL\n");
     return 1;
 }

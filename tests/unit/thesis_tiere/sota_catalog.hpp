@@ -43,11 +43,11 @@
 // ⚠️ Umbrella-/Komposition-schwer → gehört in die HARNESS-/Test-.cpp, NICHT in den engine-agnostischen
 //    Treiber-Header. C++23, header-only.
 
-#include "xml_config_parser/xml_config_parser.hpp"                // ThesisSotaSeries / ThesisProfile
+#include "xml_config_parser/xml_config_parser.hpp" // ThesisSotaSeries / ThesisProfile
 
-#include <compositions/known_compositions_list.hpp>               // KnownReferenceCompositions (6 SOTA)
-#include <compositions/prt_art_reference.hpp>                     // PrtArtComposition (Reihe A Prüfling)
-#include <compositions/prt_art_merge_reference.hpp>               // Hot/Masstree-PRT-Merge (Reihe B/C)
+#include <compositions/known_compositions_list.hpp> // KnownReferenceCompositions (6 SOTA)
+#include <compositions/prt_art_reference.hpp>       // PrtArtComposition (Reihe A Prüfling)
+#include <compositions/prt_art_merge_reference.hpp> // Hot/Masstree-PRT-Merge (Reihe B/C)
 
 #include <boost/mp11.hpp>
 #include <map>
@@ -57,9 +57,9 @@
 
 namespace comdare::cache_engine::thesis_lazy {
 
-namespace cmp  = ::comdare::cache_engine::compositions;
-namespace cx   = ::comdare::builder::xml;
-namespace mp   = boost::mp11;
+namespace cmp = ::comdare::cache_engine::compositions;
+namespace cx  = ::comdare::builder::xml;
+namespace mp  = boost::mp11;
 
 // ── Der binary_id der SOTA/PRT-ART-Reihen. EIGENER Namensraum-Präfix "sota::<series>::<name>" → kollidiert
 //    GARANTIERT NICHT mit dem Basis-320-Raum (der "search_algo=.../..."-Pfade nutzt). Stabil + distinkt je
@@ -72,31 +72,33 @@ namespace mp   = boost::mp11;
 //    Stufe1 ∪ Stufe2 → Reihe A (Prüfling vs SOTA) · Stufe3 → Reihe B (systematische Variation). Reihe C
 //    (Merge/Regression alt↔neu) ist BUILD-ÜBERGREIFEND, an KEINE Stufe gebunden → wird hier NIE erzeugt. ──
 [[nodiscard]] inline std::string stufe_to_reihe(std::string const& merge) {
-    if (merge == "Stufe1_CeOnly")           return "A";
+    if (merge == "Stufe1_CeOnly") return "A";
     if (merge == "Stufe2_PrueflingReplace") return "A";
-    if (merge == "Stufe3_FullJoin")         return "B";
-    return "-";   // unbekannte/leere Stufe → kein Phantom-Reihen-Tag
+    if (merge == "Stufe3_FullJoin") return "B";
+    return "-"; // unbekannte/leere Stufe → kein Phantom-Reihen-Tag
 }
 
 // ── Die Reihe-A-Lebewesen (Stufe1_CeOnly): ISOLIERT je 1 reale Komposition. Single-Source 1:1 zu den
 //    Profil-<sota_series id="A" lebewesen=..>-Namen (m3v2_study.profile.xml). ──
 struct SotaModule {
-    std::string lebewesen;     // "art" / "hot" / ... / "prt_art"
-    std::string binary_id;     // serialize_composition_from_slots<C>() (== Baum-binary_id-Format)
-    std::string composition_type;  // FQ-Typ-Name (für COMDARE_DEFINE_ANATOMY_MODULE)
-    std::string header;        // Include-Header der Composition
+    std::string lebewesen;        // "art" / "hot" / ... / "prt_art"
+    std::string binary_id;        // serialize_composition_from_slots<C>() (== Baum-binary_id-Format)
+    std::string composition_type; // FQ-Typ-Name (für COMDARE_DEFINE_ANATOMY_MODULE)
+    std::string header;           // Include-Header der Composition
 };
 
 /// render_sota_module_source — der kompilierbare Modul-.cpp-Quelltext einer SOTA/PRT-ART-Komposition.
 /// IDENTISCH zum CMake-Codegen-Modul (comdare_codegen_anatomy_module): ABI-Header + Composition-Header +
 /// COMDARE_DEFINE_ANATOMY_MODULE(<FQ-Typ>). Real-baubar via cl (probe-belegt für alle 6 SOTA + PRT-ART + B/C).
-[[nodiscard]] inline std::string render_sota_module_source(std::string const& fq_type,
-                                                           std::string const& header) {
+[[nodiscard]] inline std::string render_sota_module_source(std::string const& fq_type, std::string const& header) {
     return "// AUTO-GENERATED (STRANG-A Inc5 / S6) SOTA/PRT-ART Modul — DO NOT EDIT\n"
            "#define COMDARE_ANATOMY_MODULE_BUILD 1\n"
            "#include <cache_engine/abi/anatomy_module_abi_v1.hpp>\n"
-           "#include <" + header + ">\n"
-           "COMDARE_DEFINE_ANATOMY_MODULE(" + fq_type + ")\n";
+           "#include <" +
+           header +
+           ">\n"
+           "COMDARE_DEFINE_ANATOMY_MODULE(" +
+           fq_type + ")\n";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -109,11 +111,9 @@ struct SotaModule {
 [[nodiscard]] inline std::vector<SotaModule> build_sota_series_a_modules() {
     std::vector<SotaModule> out;
     // PRT-ART (Thesis-eigenes Prüfling-Lebewesen, Reihe A isoliert).
-    out.push_back(SotaModule{
-        "prt_art",
-        sota_binary_id("A", std::string{cmp::PrtArtComposition::name}),
-        "::comdare::cache_engine::compositions::PrtArtComposition",
-        "compositions/prt_art_reference.hpp"});
+    out.push_back(SotaModule{"prt_art", sota_binary_id("A", std::string{cmp::PrtArtComposition::name}),
+                             "::comdare::cache_engine::compositions::PrtArtComposition",
+                             "compositions/prt_art_reference.hpp"});
     // Die 6 SOTA über die zentrale mp_list (Tool-Iteration, known_compositions_list.hpp). Wir nehmen die
     // ersten 6 (CE-Reimpl) als die im Profil benannten Lebewesen art/hot/wormhole/surf/masstree/start.
     auto add_sota = [&]<class Entry>() {
@@ -121,14 +121,13 @@ struct SotaModule {
         std::string const sn{Entry::short_name};
         // Nur die 6 Basis-SOTA (kein _pb-PaperBinding in diesem Pilot — die Profil-Namen sind die 6 Basis).
         if (sn == "art" || sn == "hot" || sn == "wormhole" || sn == "surf" || sn == "masstree" || sn == "start") {
-            out.push_back(SotaModule{
-                sn,
-                sota_binary_id("A", std::string{C::name}),
-                std::string{C::cpp_type_name},    // FQ-Typ-Name aus HasCompositionLocation (R5.G)
-                std::string{C::header_include}});
+            out.push_back(SotaModule{sn, sota_binary_id("A", std::string{C::name}),
+                                     std::string{C::cpp_type_name}, // FQ-Typ-Name aus HasCompositionLocation (R5.G)
+                                     std::string{C::header_include}});
         }
     };
-    mp::mp_for_each<cmp::KnownReferenceCompositions>([&]<class Entry>(Entry) { add_sota.template operator()<Entry>(); });
+    mp::mp_for_each<cmp::KnownReferenceCompositions>(
+        [&]<class Entry>(Entry) { add_sota.template operator()<Entry>(); });
     return out;
 }
 
@@ -145,27 +144,24 @@ struct SotaModule {
 ///   Stufe2_PrueflingReplace → HotPrtStufe2ReplaceComposition (PRT-ART ersetzt den path_compression-Slot) → Reihe A.
 ///   Stufe3_FullJoin         → MasstreePrtStufe3FullJoinComposition (Pruefling-Repräsentant der Union) → Reihe B.
 /// (Im Klein-Pilot sind Stufe2/3 an EINEN Host gebunden; der Voll-Lauf [HELD] fächert über alle 7 Hosts.)
-[[nodiscard]] inline std::optional<SotaModule> sota_module_for(std::string const& merge,
-                                                              std::string const& lebewesen) {
+[[nodiscard]] inline std::optional<SotaModule> sota_module_for(std::string const& merge, std::string const& lebewesen) {
     if (merge == "Stufe1_CeOnly") {
         for (auto const& m : build_sota_series_a_modules())
             if (m.lebewesen == lebewesen) return m;
         return std::nullopt;
     }
-    std::string const reihe = stufe_to_reihe(merge);   // #178: Reihe mechanisch aus der Stufe (A für St2, B für St3)
+    std::string const reihe = stufe_to_reihe(merge); // #178: Reihe mechanisch aus der Stufe (A für St2, B für St3)
     if (merge == "Stufe2_PrueflingReplace") {
-        return SotaModule{
-            lebewesen + "+prt(St2)",
-            sota_binary_id(reihe, std::string{cmp::HotPrtStufe2ReplaceComposition::name}),
-            "::comdare::cache_engine::compositions::HotPrtStufe2ReplaceComposition",
-            "compositions/prt_art_merge_reference.hpp"};
+        return SotaModule{lebewesen + "+prt(St2)",
+                          sota_binary_id(reihe, std::string{cmp::HotPrtStufe2ReplaceComposition::name}),
+                          "::comdare::cache_engine::compositions::HotPrtStufe2ReplaceComposition",
+                          "compositions/prt_art_merge_reference.hpp"};
     }
     if (merge == "Stufe3_FullJoin") {
-        return SotaModule{
-            lebewesen + "+prt(St3)",
-            sota_binary_id(reihe, std::string{cmp::MasstreePrtStufe3FullJoinComposition::name}),
-            "::comdare::cache_engine::compositions::MasstreePrtStufe3FullJoinComposition",
-            "compositions/prt_art_merge_reference.hpp"};
+        return SotaModule{lebewesen + "+prt(St3)",
+                          sota_binary_id(reihe, std::string{cmp::MasstreePrtStufe3FullJoinComposition::name}),
+                          "::comdare::cache_engine::compositions::MasstreePrtStufe3FullJoinComposition",
+                          "compositions/prt_art_merge_reference.hpp"};
     }
     return std::nullopt;
 }
@@ -173,11 +169,10 @@ struct SotaModule {
 /// build_sota_source_map(profile) — die profil-getriebene SourceGenFn-Quelle: für jedes im Profil
 /// deklarierte <sota_series id lebewesen merge> ein Eintrag binary_id → reale Modul-Quelle. KEINE
 /// Selektion (die Reihen/Lebewesen kommen aus dem Profil); je Eintrag genau EIN realer perm-DLL-Quelltext.
-[[nodiscard]] inline std::map<std::string, std::string>
-build_sota_source_map(cx::ThesisProfile const& tp) {
+[[nodiscard]] inline std::map<std::string, std::string> build_sota_source_map(cx::ThesisProfile const& tp) {
     std::map<std::string, std::string> by_id;
     for (auto const& s : tp.sota_series) {
-        if (auto m = sota_module_for(s.merge, s.lebewesen))   // #178: dispatch auf die Stufe (merge), nicht den id
+        if (auto m = sota_module_for(s.merge, s.lebewesen)) // #178: dispatch auf die Stufe (merge), nicht den id
             by_id.emplace(m->binary_id, render_sota_module_source(m->composition_type, m->header));
     }
     return by_id;
@@ -212,27 +207,27 @@ inline constexpr char const* kSotaTierAxis = "sota_tier";
 //   Quelle der cacheline-doc §0 Z.11 / §1.2 Z.19 ("Paper-Algorithmen als Basis-Lebewesen in Originalkonfiguration").
 //   Die Ableitung ist DETERMINISTISCH aus merge (bzw. series-id als Fallback); ein explizites
 //   <sota_series pruefling_type=".."/> uebersteuert sie. Single-Source hier → kein verstreuter String-Vergleich.
-[[nodiscard]] inline std::string derive_pruefling_type(std::string const& series_id,
-                                                       std::string const& merge,
+[[nodiscard]] inline std::string derive_pruefling_type(std::string const& series_id, std::string const& merge,
                                                        std::string const& explicit_override) {
-    if (!explicit_override.empty()) return explicit_override;   // Forscher-Override gewinnt
+    if (!explicit_override.empty()) return explicit_override; // Forscher-Override gewinnt
     // Primaer aus merge (die mechanische Wahrheit): Stufe1 = self-contained = full; Stufe2/3 = Teilmenge = abstract.
-    if (merge == "Stufe1_CeOnly")          return "full";
+    if (merge == "Stufe1_CeOnly") return "full";
     if (merge == "Stufe2_PrueflingReplace") return "abstract";
-    if (merge == "Stufe3_FullJoin")         return "abstract";
+    if (merge == "Stufe3_FullJoin") return "abstract";
     // Fallback wenn merge leer/unbekannt: aus der Reihen-id (A=full, B/C=abstract) — kongruent zur merge-Map.
     if (series_id == "A") return "full";
     if (series_id == "B" || series_id == "C") return "abstract";
-    return "-";   // weder ableitbar noch gesetzt (kein Phantom-Typ)
+    return "-"; // weder ableitbar noch gesetzt (kein Phantom-Typ)
 }
 
 // Ein profil-deklariertes SOTA-Reihen-Lebewesen, aufbereitet als EIN Treiber-Pass (Reihe-Tag + view-binary_id).
 struct SotaPass {
-    std::string series;       // #178: Reihe aus Stufe abgeleitet (stufe_to_reihe): "A" (St1∪St2) / "B" (St3); C=build-übergr. (CSV-Tag row_series)
-    std::string lebewesen;    // Profil-Lebewesen-Name (Doku/Log)
-    std::string sota_bid;     // der rohe sota::S::name (AxisLevel-Wert der einwertigen "sota_tier"-Ebene)
-    std::string view_binary_id;  // == "sota_tier=<sota::S::name>" (== StaticBinaryView-binary_id dieses Passes)
-    std::string pruefling_type;  // #171: "full" (Reihe A self-contained) / "abstract" (Reihe B/C Teilmenge+Fallback)
+    std::string
+        series; // #178: Reihe aus Stufe abgeleitet (stufe_to_reihe): "A" (St1∪St2) / "B" (St3); C=build-übergr. (CSV-Tag row_series)
+    std::string lebewesen;      // Profil-Lebewesen-Name (Doku/Log)
+    std::string sota_bid;       // der rohe sota::S::name (AxisLevel-Wert der einwertigen "sota_tier"-Ebene)
+    std::string view_binary_id; // == "sota_tier=<sota::S::name>" (== StaticBinaryView-binary_id dieses Passes)
+    std::string pruefling_type; // #171: "full" (Reihe A self-contained) / "abstract" (Reihe B/C Teilmenge+Fallback)
 };
 
 /// build_sota_passes(profile) — die Liste der SOTA-Reihen-Pässe AUS DEM PROFIL (1 Eintrag je real baubarem
@@ -243,10 +238,10 @@ struct SotaPass {
     std::vector<SotaPass> out;
     out.reserve(tp.sota_series.size());
     for (auto const& s : tp.sota_series) {
-        if (auto m = sota_module_for(s.merge, s.lebewesen)) {   // #178: dispatch auf die Stufe (merge)
-            std::string const reihe = stufe_to_reihe(s.merge);  // #178: Reihen-Tag mechanisch aus der Stufe
+        if (auto m = sota_module_for(s.merge, s.lebewesen)) {  // #178: dispatch auf die Stufe (merge)
+            std::string const reihe = stufe_to_reihe(s.merge); // #178: Reihen-Tag mechanisch aus der Stufe
             out.push_back(SotaPass{reihe, s.lebewesen, m->binary_id, sota_view_binary_id(m->binary_id),
-                                   derive_pruefling_type(reihe, s.merge, s.pruefling_type)});  // #171: full/abstract
+                                   derive_pruefling_type(reihe, s.merge, s.pruefling_type)}); // #171: full/abstract
         }
     }
     return out;
@@ -256,15 +251,13 @@ struct SotaPass {
 /// ("sota_tier=<sota::S::name>") statt des rohen sota::S::name. Das ist GENAU die Form, die der Treiber-View
 /// (einwertige AxisLevel "sota_tier") je SOTA-Pass erzeugt → die SourceGenFn-Vereinigung (S7a) findet die Quelle
 /// direkt über den View-binary_id (kein Re-Mapping im Treiber). Disjunkt zum Basis-320-Schlüsselraum.
-[[nodiscard]] inline std::map<std::string, std::string>
-build_sota_view_source_map(cx::ThesisProfile const& tp) {
+[[nodiscard]] inline std::map<std::string, std::string> build_sota_view_source_map(cx::ThesisProfile const& tp) {
     std::map<std::string, std::string> by_id;
     for (auto const& s : tp.sota_series) {
-        if (auto m = sota_module_for(s.merge, s.lebewesen))   // #178: dispatch auf die Stufe (merge), nicht den id
-            by_id.emplace(sota_view_binary_id(m->binary_id),
-                          render_sota_module_source(m->composition_type, m->header));
+        if (auto m = sota_module_for(s.merge, s.lebewesen)) // #178: dispatch auf die Stufe (merge), nicht den id
+            by_id.emplace(sota_view_binary_id(m->binary_id), render_sota_module_source(m->composition_type, m->header));
     }
     return by_id;
 }
 
-}  // namespace comdare::cache_engine::thesis_lazy
+} // namespace comdare::cache_engine::thesis_lazy

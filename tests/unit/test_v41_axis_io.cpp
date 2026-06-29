@@ -43,8 +43,7 @@ TYPED_TEST(IoWrapperTest, HasTopicTagAndFamilyId) {
     using topic_tag_t = typename TypeParam::topic_tag;
     using family_id_t = typename TypeParam::family_id;
     static_assert(family_id_t::value > 0);
-    static_assert(std::is_same_v<topic_tag_t,
-                                 ::comdare::cache_engine::io::concepts::IoTopicTag>);
+    static_assert(std::is_same_v<topic_tag_t, ::comdare::cache_engine::io::concepts::IoTopicTag>);
     SUCCEED();
 }
 
@@ -67,25 +66,25 @@ TYPED_TEST(IoWrapperTest, IsEnabledMatchesFlag) {
 TEST(R7_5_f_Axis_IO_Specific, IsInMemoryOnlyDifferentiated) {
     // Nur InMemoryOnly hat true; alle anderen sind persistent
     static_assert(ax_io::InMemoryOnly::is_in_memory_only() == true);
-    static_assert(ax_io::DirectIo::is_in_memory_only()     == false);
-    static_assert(ax_io::BufferedIo::is_in_memory_only()   == false);
-    static_assert(ax_io::MmapIo::is_in_memory_only()       == false);
+    static_assert(ax_io::DirectIo::is_in_memory_only() == false);
+    static_assert(ax_io::BufferedIo::is_in_memory_only() == false);
+    static_assert(ax_io::MmapIo::is_in_memory_only() == false);
     SUCCEED();
 }
 
 TEST(R7_5_f_Axis_IO_Specific, FlagSuffixUppercase) {
     static_assert(ax_io::InMemoryOnly::flag_suffix() == std::string_view{"IN_MEMORY_ONLY"});
-    static_assert(ax_io::DirectIo::flag_suffix()     == std::string_view{"DIRECT"});
-    static_assert(ax_io::BufferedIo::flag_suffix()   == std::string_view{"BUFFERED"});
-    static_assert(ax_io::MmapIo::flag_suffix()       == std::string_view{"MMAP"});
+    static_assert(ax_io::DirectIo::flag_suffix() == std::string_view{"DIRECT"});
+    static_assert(ax_io::BufferedIo::flag_suffix() == std::string_view{"BUFFERED"});
+    static_assert(ax_io::MmapIo::flag_suffix() == std::string_view{"MMAP"});
     SUCCEED();
 }
 
 TEST(R7_5_f_Axis_IO_Specific, SubaxesOrthogonal) {
     static_assert(std::is_same_v<ax_io::InMemoryOnly::axis_tag, ax_io::subaxes::persistence_tag>);
-    static_assert(std::is_same_v<ax_io::DirectIo::axis_tag,     ax_io::subaxes::caching_strategy_tag>);
-    static_assert(std::is_same_v<ax_io::BufferedIo::axis_tag,   ax_io::subaxes::caching_strategy_tag>);
-    static_assert(std::is_same_v<ax_io::MmapIo::axis_tag,       ax_io::subaxes::persistence_tag>);
+    static_assert(std::is_same_v<ax_io::DirectIo::axis_tag, ax_io::subaxes::caching_strategy_tag>);
+    static_assert(std::is_same_v<ax_io::BufferedIo::axis_tag, ax_io::subaxes::caching_strategy_tag>);
+    static_assert(std::is_same_v<ax_io::MmapIo::axis_tag, ax_io::subaxes::persistence_tag>);
     SUCCEED();
 }
 
@@ -97,8 +96,7 @@ TEST(R7_5_f_Axis_IO_Specific, RegistryHas4Ios) {
 
 TEST(R7_5_f_IO, TopicConfigSetExposesAxisIO) {
     static_assert(mp::mp_size<io::TopicConfigSet::StaticAxisVariants_IO>::value > 0);
-    static_assert(std::is_same_v<io::TopicConfigSet::StaticAxisVariants,
-                                  io::TopicConfigSet::StaticAxisVariants_IO>);
+    static_assert(std::is_same_v<io::TopicConfigSet::StaticAxisVariants, io::TopicConfigSet::StaticAxisVariants_IO>);
     SUCCEED();
 }
 

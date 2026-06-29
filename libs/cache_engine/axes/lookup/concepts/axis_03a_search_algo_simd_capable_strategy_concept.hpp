@@ -27,10 +27,8 @@ namespace comdare::cache_engine::lookup::concepts {
  * **Nicht erfuellt von:** VectorU16U16SearchAlgo (Multilevel-DP, kein SIMD).
  */
 template <typename S>
-concept SimdCapableStrategy =
-    SearchAlgoVariant<S>
-    && requires(S const& sc, typename S::key_type k) {
-        { sc.simd_lookup(k) } -> std::same_as<std::optional<typename S::value_type>>;
-    };
+concept SimdCapableStrategy = SearchAlgoVariant<S> && requires(S const& sc, typename S::key_type k) {
+    { sc.simd_lookup(k) } -> std::same_as<std::optional<typename S::value_type>>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup::concepts

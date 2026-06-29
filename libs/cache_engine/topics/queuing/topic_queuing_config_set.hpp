@@ -38,11 +38,7 @@ struct TopicConfigSet {
     /// hier reines Redundanz-Pruning — eine MESS-DESIGN-Entscheidung, die dem F15-Ziel (vollstaendige
     /// Permutationsraum-Messung) zuwiderliefe: dass NoBuffer+Watermark ~ NoBuffer+Eager misst, ist selbst
     /// ein valides empirisches Ergebnis des Frameworks. Daher KEIN Filtered*-Set hier (kein Defekt).
-    using CartesianQ1xQ2 = mp::mp_product<
-        mp::mp_list,
-        StaticAxisVariants_Q1,
-        StaticAxisVariants_Q2
-    >;
+    using CartesianQ1xQ2 = mp::mp_product<mp::mp_list, StaticAxisVariants_Q1, StaticAxisVariants_Q2>;
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing

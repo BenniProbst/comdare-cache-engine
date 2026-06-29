@@ -26,35 +26,47 @@ namespace mp  = boost::mp11;
 // Sample-Wrappers fuer Tests (Dummy-Typen, keine echten Achsen-Wrappers)
 // ─────────────────────────────────────────────────────────────────────────────
 
-struct CeArray256       { static constexpr int id = 1; };
-struct CeVectorU8       { static constexpr int id = 2; };
-struct CeVectorU16      { static constexpr int id = 3; };
-struct PrtArtRadix512   { static constexpr int id = 100; };
-struct PrtArtCompact    { static constexpr int id = 101; };
-struct OtherPrueflingX  { static constexpr int id = 200; };
+struct CeArray256 {
+    static constexpr int id = 1;
+};
+struct CeVectorU8 {
+    static constexpr int id = 2;
+};
+struct CeVectorU16 {
+    static constexpr int id = 3;
+};
+struct PrtArtRadix512 {
+    static constexpr int id = 100;
+};
+struct PrtArtCompact {
+    static constexpr int id = 101;
+};
+struct OtherPrueflingX {
+    static constexpr int id = 200;
+};
 
 using CeDefaults = mp::mp_list<CeArray256, CeVectorU8, CeVectorU16>;
 
 // Pruefling-Slots (Pflicht-API laut PrueflingSlotConcept)
 struct PrtArtSlot {
-    using PrueflingVariants = mp::mp_list<PrtArtRadix512, PrtArtCompact>;
+    using PrueflingVariants             = mp::mp_list<PrtArtRadix512, PrtArtCompact>;
     static constexpr bool has_pruefling = true;
 };
 
-struct EmptySlot : prf::EmptyPrueflingSlot {};  // erbt has_pruefling=false
+struct EmptySlot : prf::EmptyPrueflingSlot {}; // erbt has_pruefling=false
 
 struct OtherPrueflingSlot {
-    using PrueflingVariants = mp::mp_list<OtherPrueflingX>;
+    using PrueflingVariants             = mp::mp_list<OtherPrueflingX>;
     static constexpr bool has_pruefling = true;
 };
 
 // Slots fuer DedupeTest (MSVC: static members in lokalen Klassen verboten)
 struct DupSlotA {
-    using PrueflingVariants = mp::mp_list<CeArray256, PrtArtRadix512>;
+    using PrueflingVariants             = mp::mp_list<CeArray256, PrtArtRadix512>;
     static constexpr bool has_pruefling = true;
 };
 struct DupSlotB {
-    using PrueflingVariants = mp::mp_list<PrtArtRadix512, OtherPrueflingX>;
+    using PrueflingVariants             = mp::mp_list<PrtArtRadix512, OtherPrueflingX>;
     static constexpr bool has_pruefling = true;
 };
 
@@ -150,7 +162,7 @@ TEST(R5C_MergeDispatch, Stufe1CeOnly) {
 
 TEST(R5C_MergeDispatch, Stufe2PrueflingReplace) {
     using S = prf::MergeAxis<prf::MergeStrategy::Stufe2_PrueflingReplace, CeDefaults, PrtArtSlot>;
-    static_assert(mp::mp_size<S>::value == 2);  // PrtArtSlot ersetzt komplett
+    static_assert(mp::mp_size<S>::value == 2); // PrtArtSlot ersetzt komplett
     SUCCEED();
 }
 
@@ -170,10 +182,10 @@ namespace pe = ::comdare::cache_engine::permutations;
 
 // MSVC: TopicConfig muss ausserhalb TEST stehen damit StaticAxisVariants als using OK ist
 struct TopicConfigStufe2 {
-    using StaticAxisVariants = prf::StufeTwoAxis<CeDefaults, PrtArtSlot>;  // 2
+    using StaticAxisVariants = prf::StufeTwoAxis<CeDefaults, PrtArtSlot>; // 2
 };
 struct TopicConfigStufe3 {
-    using StaticAxisVariants = prf::StufeThreeAxis<CeDefaults, PrtArtSlot, OtherPrueflingSlot>;  // 6
+    using StaticAxisVariants = prf::StufeThreeAxis<CeDefaults, PrtArtSlot, OtherPrueflingSlot>; // 6
 };
 
 TEST(R5C_Integration, Stufe2AxisFedToPermutationEngine) {

@@ -42,28 +42,30 @@ public:
     using size_type    = std::size_t;
     using topic_tag    = ::comdare::cache_engine::queuing::concepts::QueuingTopicTag;
     using axis_tag     = subaxes::cyclic_access_tag;
-    using family_id    = std::integral_constant<int, 5>;  // Q05
+    using family_id    = std::integral_constant<int, 5>; // Q05
 
     /// iterable_aspect_t (F.6.1.E hybride Laufzeit-Permutation, [[no-runtime-switch]] Ausnahme)
     /// PermutationEngine erkennt via HasIterableAspect<V> und generiert
     /// 1 Binary mit Runtime-Loop ueber kIterableCapacities.
     using iterable_aspect_t = std::size_t;
-    static constexpr std::array<std::size_t, 5> kIterableCapacities{8u, 64u, 1024u, 16384u, 65536u};
+    static constexpr std::array<std::size_t, 5>                 kIterableCapacities{8u, 64u, 1024u, 16384u, 65536u};
     [[nodiscard]] static constexpr std::span<std::size_t const> iterable_values() noexcept {
         return std::span<std::size_t const>{kIterableCapacities.data(), kIterableCapacities.size()};
     }
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr bool        is_bounded()        noexcept { return true; }
-    [[nodiscard]] static constexpr std::size_t default_capacity()  noexcept { return 64; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "bounded_ring"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "BoundedRingBuffer<N> (Disruptor-Pattern LMAX 2011, SPSC/MPMC)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "BOUNDED_RING"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr bool             is_bounded() noexcept { return true; }
+    [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 64; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "bounded_ring"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "BoundedRingBuffer<N> (Disruptor-Pattern LMAX 2011, SPSC/MPMC)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "BOUNDED_RING"; }
 
-    [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; }  // SPSC-Variante
+    [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; } // SPSC-Variante
     [[nodiscard]] static constexpr bool supports_concurrent_consumers() noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_priority_ordering()    noexcept { return false; }
-    [[nodiscard]] static constexpr bool is_versioned()                  noexcept { return false; }
+    [[nodiscard]] static constexpr bool supports_priority_ordering() noexcept { return false; }
+    [[nodiscard]] static constexpr bool is_versioned() noexcept { return false; }
     [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
         return concepts::ProgressGuarantee::Blocking;
     }
@@ -74,8 +76,8 @@ public:
     explicit BoundedRingBuffer(std::size_t cap)
         : buffer_((cap == 0 ? throw std::invalid_argument(
                                   "BoundedRingBuffer: capacity must be > 0 (cap=0 division-by-zero in modulo)")
-                            : cap))
-        , capacity_(cap), head_(0), tail_(0), count_(0) {}
+                            : cap)),
+          capacity_(cap), head_(0), tail_(0), count_(0) {}
 
     [[nodiscard]] bool operator==(BoundedRingBuffer const& other) const noexcept {
         return capacity_ == other.capacity_;
@@ -91,7 +93,7 @@ public:
 #endif
         }
         buffer_[tail_] = v;
-        tail_ = (tail_ + 1) % capacity_;
+        tail_          = (tail_ + 1) % capacity_;
         ++count_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_put_count;
@@ -109,7 +111,7 @@ public:
             return std::nullopt;
         }
         element_type v = buffer_[head_];
-        head_ = (head_ + 1) % capacity_;
+        head_          = (head_ + 1) % capacity_;
         --count_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_get_count;
@@ -118,9 +120,9 @@ public:
         return v;
     }
 
-    [[nodiscard]] size_type size()     const noexcept { return count_; }
+    [[nodiscard]] size_type size() const noexcept { return count_; }
     [[nodiscard]] bool      is_empty() const noexcept { return count_ == 0; }
-    void                    clear()          noexcept { head_ = tail_ = count_ = 0; }
+    void                    clear() noexcept { head_ = tail_ = count_ = 0; }
 
     [[nodiscard]] size_type capacity() const noexcept { return capacity_; }
 
@@ -142,8 +144,7 @@ public:
     /// SONDERFALL [[zero-size-allocation-exception]]: new_cap=0 wirft std::invalid_argument.
     void set_iterable_aspect(std::size_t new_cap) {
         if (new_cap == 0) {
-            throw std::invalid_argument(
-                "BoundedRingBuffer::set_iterable_aspect: capacity must be > 0");
+            throw std::invalid_argument("BoundedRingBuffer::set_iterable_aspect: capacity must be > 0");
         }
         buffer_.assign(new_cap, 0);
         capacity_ = new_cap;
@@ -154,29 +155,32 @@ public:
     using snapshot_t = concepts::BufferStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
     std::vector<element_type> buffer_;
-    std::size_t capacity_;
-    std::size_t head_;
-    std::size_t tail_;
-    std::size_t count_;
+    std::size_t               capacity_;
+    std::size_t               head_;
+    std::size_t               tail_;
+    std::size_t               count_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
-    observer_t observer_{};
+    observer_t                 observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
-    static_assert(concepts::BufferStrategy<BoundedRingBuffer>);
-    static_assert(concepts::CacheEngineBufferPermutationStrategy<BoundedRingBuffer>);
-    static_assert(concepts::BoundedBufferStrategy<BoundedRingBuffer>);
-    static_assert(concepts::IterableAspectStrategy<BoundedRingBuffer>);
-}
+static_assert(concepts::BufferStrategy<BoundedRingBuffer>);
+static_assert(concepts::CacheEngineBufferPermutationStrategy<BoundedRingBuffer>);
+static_assert(concepts::BoundedBufferStrategy<BoundedRingBuffer>);
+static_assert(concepts::IterableAspectStrategy<BoundedRingBuffer>);
+} // namespace comdare::cache_engine::queuing::axis_q1_queuing

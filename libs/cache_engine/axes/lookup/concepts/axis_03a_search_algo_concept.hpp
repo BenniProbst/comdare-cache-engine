@@ -33,20 +33,19 @@ namespace comdare::cache_engine::lookup::concepts {
  * jeweils ihre Charakteristiken mit (dense/sparse/multilevel, SIMD/non-SIMD).
  */
 template <typename S>
-concept SearchAlgoVariant =
-    ::comdare::cache_engine::traversal::concepts::TraversalComponent<S>
-    && requires { typename S::key_type; typename S::value_type; typename S::size_type; }
-    && requires(S s, typename S::key_type k, typename S::value_type v) {
-        { s.insert(k, v) }              -> std::same_as<void>;
-        { s.erase(k) }                  -> std::same_as<bool>;
-    }
-    && requires(S const& sc, typename S::key_type k) {
-        { sc.lookup(k) }                -> std::same_as<std::optional<typename S::value_type>>;
-        { sc.occupied_count() } noexcept -> std::convertible_to<std::size_t>;
-        { sc.density_percent() } noexcept -> std::convertible_to<double>;
-    }
-    && requires(S s) {
-        { s.clear() }                   noexcept;
-    };
+concept SearchAlgoVariant = ::comdare::cache_engine::traversal::concepts::TraversalComponent<S> && requires {
+    typename S::key_type;
+    typename S::value_type;
+    typename S::size_type;
+} && requires(S s, typename S::key_type k, typename S::value_type v) {
+    { s.insert(k, v) } -> std::same_as<void>;
+    { s.erase(k) } -> std::same_as<bool>;
+} && requires(S const& sc, typename S::key_type k) {
+    { sc.lookup(k) } -> std::same_as<std::optional<typename S::value_type>>;
+    { sc.occupied_count() } noexcept -> std::convertible_to<std::size_t>;
+    { sc.density_percent() } noexcept -> std::convertible_to<double>;
+} && requires(S s) {
+    { s.clear() } noexcept;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup::concepts

@@ -17,7 +17,7 @@
 //   static constexpr std::string_view flag_suffix() noexcept;
 //   z.B. "STD" / "MIMALLOC" / "SNMALLOC" / "PMR"
 
-#include "permutation_engine.hpp"   // PermTuple + HasIterableAspect
+#include "permutation_engine.hpp" // PermTuple + HasIterableAspect
 
 #include <boost/mp11.hpp>
 
@@ -53,13 +53,9 @@ namespace mp = boost::mp11;
  * (siehe emit_axis_flags) zu einem vollstaendigen CMake-Befehl konkateniert.
  */
 template <class P>
-[[nodiscard]] std::string build_cmake_invocation_prefix(
-    std::string_view source_dir,
-    std::string_view build_root)
-{
+[[nodiscard]] std::string build_cmake_invocation_prefix(std::string_view source_dir, std::string_view build_root) {
     std::ostringstream os;
-    os << "cmake -B " << build_root << "/perm_" << hash_to_hex(P::hash())
-       << " -S " << source_dir;
+    os << "cmake -B " << build_root << "/perm_" << hash_to_hex(P::hash()) << " -S " << source_dir;
     return os.str();
 }
 
@@ -84,7 +80,7 @@ template <class P>
 template <class SelectedVendor, class AllVendorsList>
 [[nodiscard]] std::string emit_axis_flags(std::string_view flag_prefix) {
     std::string out;
-    mp::mp_for_each<AllVendorsList>([&]<class V>(V){
+    mp::mp_for_each<AllVendorsList>([&]<class V>(V) {
         constexpr bool selected = std::is_same_v<V, SelectedVendor>;
         out += " -D";
         out += flag_prefix;
@@ -111,19 +107,16 @@ template <class SelectedVendor, class AllVendorsList>
  * (parallel zu Batch 2-8 Vendor-Vollausbau).
  */
 template <class P, class AllVendorsList>
-[[nodiscard]] std::string build_cmake_command_for_single_topic(
-    std::string_view source_dir,
-    std::string_view build_root,
-    std::string_view axis_flag_prefix)
-{
+[[nodiscard]] std::string build_cmake_command_for_single_topic(std::string_view source_dir, std::string_view build_root,
+                                                               std::string_view axis_flag_prefix) {
     static_assert(mp::mp_size<typename P::variants>::value == 1,
-        "build_cmake_command_for_single_topic: P muss genau 1 Vendor haben "
-        "(1 Topic-Achse). Multi-Topic-Variante folgt in F.6.1.G+.");
+                  "build_cmake_command_for_single_topic: P muss genau 1 Vendor haben "
+                  "(1 Topic-Achse). Multi-Topic-Variante folgt in F.6.1.G+.");
 
     using SelectedVendor = mp::mp_at_c<typename P::variants, 0>;
-    std::string cmd = build_cmake_invocation_prefix<P>(source_dir, build_root);
+    std::string cmd      = build_cmake_invocation_prefix<P>(source_dir, build_root);
     cmd += emit_axis_flags<SelectedVendor, AllVendorsList>(axis_flag_prefix);
     return cmd;
 }
 
-}  // namespace comdare::cache_engine::permutations
+} // namespace comdare::cache_engine::permutations

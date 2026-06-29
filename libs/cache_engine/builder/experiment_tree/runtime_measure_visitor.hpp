@@ -6,9 +6,9 @@
 // separat, nie interpoliert), OHNE Neu-Laden der Binary (Doc 26 §2). Ergebnis: korrelierte (Setting × Wdh →
 // Observer)-Punkte je Binary. Testdaten RAM-resident, <1s je Binary (Doc 28 §5). Header-only, C++23.
 
-#include "runtime_variable_loop.hpp"                    // RuntimeVariableLoop / RuntimeSetting / DynamicDim
-#include "experiment_tree.hpp"                          // NodeObserverSnapshot
-#include "../../anatomy/observable_tier.hpp"            // IObservableTier + ComdareTierObserverSnapshot (I1)
+#include "runtime_variable_loop.hpp"         // RuntimeVariableLoop / RuntimeSetting / DynamicDim
+#include "experiment_tree.hpp"               // NodeObserverSnapshot
+#include "../../anatomy/observable_tier.hpp" // IObservableTier + ComdareTierObserverSnapshot (I1)
 
 #include <cstdint>
 #include <string>
@@ -31,18 +31,20 @@ public:
     explicit RuntimeMeasureVisitor(anatomy::ComdareResourceControlV1 env_limits = {}) noexcept : env_{env_limits} {}
 
     template <class TierT>
-    [[nodiscard]] std::vector<RuntimeMeasurePoint>
-    measure(TierT& tier, std::vector<DynamicDim> const& dims,
-            std::uint64_t n_ops, std::uint64_t repeats = 3) const {
+    [[nodiscard]] std::vector<RuntimeMeasurePoint> measure(TierT& tier, std::vector<DynamicDim> const& dims,
+                                                           std::uint64_t n_ops, std::uint64_t repeats = 3) const {
         std::vector<RuntimeMeasurePoint> points;
-        RuntimeVariableLoop loop{env_};
+        RuntimeVariableLoop              loop{env_};
         loop.run(tier, dims, [&](RuntimeSetting const& s) {
             for (std::uint64_t r = 0; r < repeats; ++r) {
                 // Workload je Einstellung (RAM-resident, <1s): insert + lookup über die geladene Binary (kein Reload).
                 for (std::uint64_t i = 0; i < n_ops; ++i) (void)tier.tier_insert(i, i * 7u + 1u);
-                for (std::uint64_t i = 0; i < n_ops; ++i) { std::uint64_t v = 0; (void)tier.tier_lookup(i, &v); }
+                for (std::uint64_t i = 0; i < n_ops; ++i) {
+                    std::uint64_t v = 0;
+                    (void)tier.tier_lookup(i, &v);
+                }
                 anatomy::ComdareTierObserverSnapshot pod{};
-                tier.tier_observe(&pod);   // echter Observer-Snapshot (korreliert mit der Einstellung)
+                tier.tier_observe(&pod); // echter Observer-Snapshot (korreliert mit der Einstellung)
                 RuntimeMeasurePoint p;
                 p.setting_label      = s.setting_label;
                 p.repeat_index       = r;
@@ -71,4 +73,4 @@ private:
     anatomy::ComdareResourceControlV1 env_;
 };
 
-}  // namespace comdare::cache_engine::builder::experiment
+} // namespace comdare::cache_engine::builder::experiment

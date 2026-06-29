@@ -51,4 +51,4 @@ private:
     return registry;
 }
 
-}  // namespace comdare::cache_engine::api
+} // namespace comdare::cache_engine::api

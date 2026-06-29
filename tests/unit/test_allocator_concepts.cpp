@@ -56,7 +56,7 @@ TEST(AllocatorConcepts, LockingStrategyConformance) {
 
 TEST(HoardAdapter, AllocAndDealloc) {
     ace::families::a01_hoard::HoardAdapter<> allocator;
-    auto* p = allocator.raw_allocate(128, 16);
+    auto*                                    p = allocator.raw_allocate(128, 16);
     ASSERT_NE(p, nullptr);
     allocator.raw_deallocate(p, 128, 16);
     auto stats = allocator.statistics();
@@ -76,8 +76,8 @@ TEST(HoardAdapter, ParamsAccessible) {
 
 TEST(MimallocAdapter, AllocateAndStatistics) {
     ace::families::a04_mimalloc::MimallocAdapter<> allocator;
-    auto* p1 = allocator.raw_allocate(64, 16);
-    auto* p2 = allocator.raw_allocate(256, 32);
+    auto*                                          p1 = allocator.raw_allocate(64, 16);
+    auto*                                          p2 = allocator.raw_allocate(256, 32);
     ASSERT_NE(p1, nullptr);
     ASSERT_NE(p2, nullptr);
     auto stats = allocator.statistics();
@@ -89,10 +89,8 @@ TEST(MimallocAdapter, AllocateAndStatistics) {
 
 TEST(MimallocAdapter, DeferredFreeCallback) {
     ace::families::a04_mimalloc::MimallocAdapter<> allocator;
-    int callback_count = 0;
-    allocator.set_deferred_free(
-        [](void* data) { ++(*static_cast<int*>(data)); },
-        &callback_count);
+    int                                            callback_count = 0;
+    allocator.set_deferred_free([](void* data) { ++(*static_cast<int*>(data)); }, &callback_count);
     allocator.trigger_deferred_free();
     allocator.trigger_deferred_free();
     EXPECT_EQ(callback_count, 2);
@@ -117,7 +115,7 @@ TEST(BuddyAdapter, XorBuddyAddressCorrect) {
 
 TEST(BuddyAdapter, AllocationRoundsToPowerOf2) {
     ace::families::a19_buddy::BuddyAdapter<> allocator;
-    auto* p = allocator.raw_allocate(100, 16);   // → rounds to 128 (2^7)
+    auto*                                    p = allocator.raw_allocate(100, 16); // → rounds to 128 (2^7)
     ASSERT_NE(p, nullptr);
     auto stats = allocator.statistics();
     EXPECT_GE(stats.total_bytes_allocated, 128u);
@@ -130,27 +128,27 @@ TEST(BuddyAdapter, AllocationRoundsToPowerOf2) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(CacheEngineAllocator, WorksWithStdVector) {
-    ace::families::a01_hoard::HoardAdapter<> strategy;
+    ace::families::a01_hoard::HoardAdapter<>           strategy;
     ace::CacheEngineAllocator<int, decltype(strategy)> alloc{&strategy};
-    std::vector<int, decltype(alloc)> vec(alloc);
+    std::vector<int, decltype(alloc)>                  vec(alloc);
     for (int i = 0; i < 100; ++i) vec.push_back(i);
     EXPECT_EQ(vec.size(), 100u);
     EXPECT_EQ(vec[42], 42);
 }
 
 TEST(CacheEngineAllocator, WorksWithStdList) {
-    ace::families::a04_mimalloc::MimallocAdapter<> strategy;
+    ace::families::a04_mimalloc::MimallocAdapter<>     strategy;
     ace::CacheEngineAllocator<int, decltype(strategy)> alloc{&strategy};
-    std::list<int, decltype(alloc)> lst(alloc);
+    std::list<int, decltype(alloc)>                    lst(alloc);
     for (int i = 0; i < 10; ++i) lst.push_back(i * 7);
     EXPECT_EQ(lst.size(), 10u);
     EXPECT_EQ(lst.back(), 63);
 }
 
 TEST(CacheEngineAllocator, WorksWithStdDeque) {
-    ace::families::a06_tcmalloc::TcmallocAdapter<> strategy;
+    ace::families::a06_tcmalloc::TcmallocAdapter<>     strategy;
     ace::CacheEngineAllocator<int, decltype(strategy)> alloc{&strategy};
-    std::deque<int, decltype(alloc)> dq(alloc);
+    std::deque<int, decltype(alloc)>                   dq(alloc);
     for (int i = 0; i < 50; ++i) dq.push_back(i);
     EXPECT_EQ(dq.size(), 50u);
 }
@@ -160,18 +158,18 @@ TEST(CacheEngineAllocator, WorksWithStdDeque) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(PmrResource, WorksWithPmrVector) {
-    ace::families::a01_hoard::HoardAdapter<> strategy;
+    ace::families::a01_hoard::HoardAdapter<>        strategy;
     ace::CacheEnginePmrResource<decltype(strategy)> resource{&strategy};
-    std::pmr::vector<int> vec{&resource};
+    std::pmr::vector<int>                           vec{&resource};
     for (int i = 0; i < 1000; ++i) vec.push_back(i);
     EXPECT_EQ(vec.size(), 1000u);
     EXPECT_EQ(vec[500], 500);
 }
 
 TEST(PmrResource, WorksWithPmrMap) {
-    ace::families::a04_mimalloc::MimallocAdapter<> strategy;
+    ace::families::a04_mimalloc::MimallocAdapter<>  strategy;
     ace::CacheEnginePmrResource<decltype(strategy)> resource{&strategy};
-    std::pmr::map<int, std::string> m{&resource};
+    std::pmr::map<int, std::string>                 m{&resource};
     m[1] = "one";
     m[2] = "two";
     m[3] = "three";
@@ -180,31 +178,31 @@ TEST(PmrResource, WorksWithPmrMap) {
 }
 
 TEST(PmrResource, WorksWithPmrUnorderedMap) {
-    ace::families::a07_snmalloc::SnmallocAdapter<> strategy;
+    ace::families::a07_snmalloc::SnmallocAdapter<>  strategy;
     ace::CacheEnginePmrResource<decltype(strategy)> resource{&strategy};
-    std::pmr::unordered_map<int, int> m{&resource};
+    std::pmr::unordered_map<int, int>               m{&resource};
     for (int i = 0; i < 100; ++i) m[i] = i * 2;
     EXPECT_EQ(m[50], 100);
     EXPECT_EQ(m.size(), 100u);
 }
 
 TEST(PmrResource, WorksWithPmrSet) {
-    ace::families::a20_dlmalloc::DlmallocAdapter<> strategy;
+    ace::families::a20_dlmalloc::DlmallocAdapter<>  strategy;
     ace::CacheEnginePmrResource<decltype(strategy)> resource{&strategy};
-    std::pmr::set<int> s{&resource};
+    std::pmr::set<int>                              s{&resource};
     for (int i = 0; i < 50; ++i) s.insert(i);
     EXPECT_EQ(s.size(), 50u);
 }
 
 TEST(PmrResource, EqualityCorrect) {
-    ace::families::a01_hoard::HoardAdapter<> strategy_a;
-    ace::families::a01_hoard::HoardAdapter<> strategy_b;
+    ace::families::a01_hoard::HoardAdapter<>          strategy_a;
+    ace::families::a01_hoard::HoardAdapter<>          strategy_b;
     ace::CacheEnginePmrResource<decltype(strategy_a)> resource_a{&strategy_a};
     ace::CacheEnginePmrResource<decltype(strategy_b)> resource_b{&strategy_b};
     ace::CacheEnginePmrResource<decltype(strategy_a)> resource_a2{&strategy_a};
 
-    EXPECT_TRUE(resource_a.is_equal(resource_a2));     // same strategy
-    EXPECT_FALSE(resource_a.is_equal(resource_b));     // different strategy
+    EXPECT_TRUE(resource_a.is_equal(resource_a2)); // same strategy
+    EXPECT_FALSE(resource_a.is_equal(resource_b)); // different strategy
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -239,7 +237,7 @@ TEST(AllocatorPermutationFlags, FlagsAggregation) {
 
 TEST(AllocatorManager, AggregatesStrategyAndFlags) {
     ace::families::a01_hoard::HoardAdapter<> strategy;
-    ace::AllocatorManager mgr{strategy, ace::permutations::kHoardStyle};
+    ace::AllocatorManager                    mgr{strategy, ace::permutations::kHoardStyle};
     EXPECT_TRUE(mgr.flags().is_specified());
 
     auto* res = mgr.as_pmr();
@@ -256,10 +254,10 @@ TEST(AllocatorManager, AggregatesStrategyAndFlags) {
 
 TEST(CachePageAwareLock, AcquireReleaseForSize) {
     ace::locking::CachePageAwareLock lock;
-    lock.write_lock_for_size(4096);      // page 1
+    lock.write_lock_for_size(4096); // page 1
     lock.release_write_for_size(4096);
 
-    lock.write_lock_for_size(8192);      // page 2
+    lock.write_lock_for_size(8192); // page 2
     lock.release_write_for_size(8192);
     SUCCEED();
 }

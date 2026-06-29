@@ -26,10 +26,12 @@ public:
 
     static constexpr bool enabled = flags::adaptive_enabled;
 
-    [[nodiscard]] static constexpr bool             is_active()    noexcept { return true; }
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "migration_adaptive"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "AdaptiveMigration (ML-driven, Cachelib/LeCaR-style)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "ADAPTIVE"; }
+    [[nodiscard]] static constexpr bool             is_active() noexcept { return true; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "migration_adaptive"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "AdaptiveMigration (ML-driven, Cachelib/LeCaR-style)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "ADAPTIVE"; }
 
     // V41.F.6.1 — verhaltens-tragende Mess-Op (migration_policy F15-operativ): Entscheidungs-Scan.
     // EHRLICHKEIT: Migration ohne 2. Tier nicht ausfuehrbar -> gemessen werden ausschliesslich die
@@ -42,27 +44,26 @@ public:
     [[nodiscard]] static std::uint64_t migration_decide_scan(unsigned char const* buf, std::size_t n,
                                                              std::size_t record_size) noexcept {
         // Gewichte fuer Frequenz- (w_freq) und Recency-Feature (w_rec) der Linearkombination.
-        constexpr std::uint64_t w_freq = 3;
-        constexpr std::uint64_t w_rec  = 1;
-        std::uint64_t score_acc   = 0;  // gleitender Online-Score (Learning-Zustand)
-        std::uint64_t migrate_acc = 0;
+        constexpr std::uint64_t w_freq      = 3;
+        constexpr std::uint64_t w_rec       = 1;
+        std::uint64_t           score_acc   = 0; // gleitender Online-Score (Learning-Zustand)
+        std::uint64_t           migrate_acc = 0;
         for (std::size_t i = 0; i < n; ++i) {
             std::uint32_t v;
-            std::memcpy(&v, buf + i * record_size, sizeof(v));   // strided 4-Byte-Feld (Frequenz-Feature)
-            std::uint64_t const recency = static_cast<std::uint64_t>(i & 0xFFu);  // Recency-Feature
-            std::uint64_t const score = w_freq * static_cast<std::uint64_t>(v)
-                                      + w_rec  * recency
-                                      + (score_acc >> 8);   // Beitrag des gleitenden Lern-Scores
+            std::memcpy(&v, buf + i * record_size, sizeof(v)); // strided 4-Byte-Feld (Frequenz-Feature)
+            std::uint64_t const recency = static_cast<std::uint64_t>(i & 0xFFu); // Recency-Feature
+            std::uint64_t const score   = w_freq * static_cast<std::uint64_t>(v) + w_rec * recency +
+                                          (score_acc >> 8); // Beitrag des gleitenden Lern-Scores
             score_acc += score;
-            migrate_acc += (score & 0x1u);  // datenabhaengige Migrations-Entscheidung aus Score
+            migrate_acc += (score & 0x1u); // datenabhaengige Migrations-Entscheidung aus Score
         }
         return migrate_acc + (score_acc & 0xFFFFu);
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::migration_policy
 
 namespace comdare::cache_engine::migration_policy {
-    static_assert(concepts::MigrationStrategy<AdaptiveMigration>);
-    static_assert(concepts::CacheEnginePermutationStrategy<AdaptiveMigration>);
-}
+static_assert(concepts::MigrationStrategy<AdaptiveMigration>);
+static_assert(concepts::CacheEnginePermutationStrategy<AdaptiveMigration>);
+} // namespace comdare::cache_engine::migration_policy

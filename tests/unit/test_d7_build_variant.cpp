@@ -12,33 +12,53 @@
 namespace cea = comdare::cache_engine::anatomy;
 
 // Property-API-Stubs der 3 Build-Achsen (alle static constexpr — wie die echten page_type/09b/12-Wrapper).
-struct StubDenseBytePage { static constexpr int  page_kind()  noexcept { return 0; }   // DenseByte
-                           static constexpr bool is_branch()  noexcept { return false; }
-                           static constexpr bool is_leaf()    noexcept { return true; } };
-struct StubBPlusPage     { static constexpr int  page_kind()  noexcept { return 5; }   // BPlus
-                           static constexpr bool is_branch()  noexcept { return true; }
-                           static constexpr bool is_leaf()    noexcept { return false; } };
-struct StubAvx512 { static constexpr unsigned vector_width_bits() noexcept { return 512; }
-                    static constexpr bool     provides_avx512()   noexcept { return true; } };
-struct StubAvx2   { static constexpr unsigned vector_width_bits() noexcept { return 256; }
-                    static constexpr bool     provides_avx512()   noexcept { return false; } };
-struct StubX86_64 { static constexpr unsigned cache_line_size() noexcept { return 64; }
-                    static constexpr bool     numa_capable()    noexcept { return true; } };
+struct StubDenseBytePage {
+    static constexpr int  page_kind() noexcept { return 0; } // DenseByte
+    static constexpr bool is_branch() noexcept { return false; }
+    static constexpr bool is_leaf() noexcept { return true; }
+};
+struct StubBPlusPage {
+    static constexpr int  page_kind() noexcept { return 5; } // BPlus
+    static constexpr bool is_branch() noexcept { return true; }
+    static constexpr bool is_leaf() noexcept { return false; }
+};
+struct StubAvx512 {
+    static constexpr unsigned vector_width_bits() noexcept { return 512; }
+    static constexpr bool     provides_avx512() noexcept { return true; }
+};
+struct StubAvx2 {
+    static constexpr unsigned vector_width_bits() noexcept { return 256; }
+    static constexpr bool     provides_avx512() noexcept { return false; }
+};
+struct StubX86_64 {
+    static constexpr unsigned cache_line_size() noexcept { return 64; }
+    static constexpr bool     numa_capable() noexcept { return true; }
+};
 
 // COMPILE-TIME: die Definition ist constexpr (reine Build-Konstante, kein Laufzeit-Observer).
 constexpr auto kD1 = cea::build_variant_definition<StubDenseBytePage, StubAvx512, StubX86_64>();
-constexpr auto kD2 = cea::build_variant_definition<StubDenseBytePage, StubAvx2,   StubX86_64>();
-constexpr auto kD3 = cea::build_variant_definition<StubBPlusPage,     StubAvx512, StubX86_64>();
+constexpr auto kD2 = cea::build_variant_definition<StubDenseBytePage, StubAvx2, StubX86_64>();
+constexpr auto kD3 = cea::build_variant_definition<StubBPlusPage, StubAvx512, StubX86_64>();
 static_assert(kD1.simd_width_bits == 512, "Avx512 → 512 (compile-time)");
 static_assert(kD2.simd_width_bits == 256, "Avx2 → 256 (compile-time)");
 static_assert(kD1 != kD2, "2 Build-Varianten (Avx512 vs Avx2) DERSELBEN page/hw → verschiedene Build-Identitaet");
 static_assert(kD1 != kD3, "2 Build-Varianten (DenseByte vs BPlus) → verschiedene Build-Identitaet");
 
 static int g_fail = 0;
-template <class A, class B> static void eq(char const* w, A const& g, B const& e) {
-    bool ok = (g == e); std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
-    if (!ok) { std::cout << " (erwartet " << e << ")"; ++g_fail; } std::cout << "\n"; }
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+template <class A, class B>
+static void eq(char const* w, A const& g, B const& e) {
+    bool ok = (g == e);
+    std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
+    if (!ok) {
+        std::cout << " (erwartet " << e << ")";
+        ++g_fail;
+    }
+    std::cout << "\n";
+}
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 int main() {
     std::cout << "==== D7 BuildVariantDefinitionV1 (Definition-statt-Observer der 3 Build-Achsen) ====\n";
@@ -59,6 +79,7 @@ int main() {
     tr("D1 != D2 (Avx512 vs Avx2 — verschiedene Build-Variante derselben page/hw)", kD1 != kD2);
     tr("D1 != D3 (DenseByte vs BPlus — verschiedene Build-Variante)", kD1 != kD3);
 
-    std::cout << "\n==== D7 BuildVariant: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== D7 BuildVariant: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

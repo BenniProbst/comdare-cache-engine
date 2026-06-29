@@ -8,10 +8,8 @@ namespace comdare::cache_engine::prefetch_axis::concepts {
 
 /// PrefetchStrategy — Pflicht-API: is_active() (true wenn HW-Prefetch genutzt).
 template <typename P>
-concept PrefetchStrategy =
-    ::comdare::cache_engine::prefetch::concepts::PrefetchComponent<P>
-    && requires {
-        { P::is_active() } noexcept -> std::convertible_to<bool>;
-    };
+concept PrefetchStrategy = ::comdare::cache_engine::prefetch::concepts::PrefetchComponent<P> && requires {
+    { P::is_active() } noexcept -> std::convertible_to<bool>;
+};
 
-}  // namespace
+} // namespace comdare::cache_engine::prefetch_axis::concepts

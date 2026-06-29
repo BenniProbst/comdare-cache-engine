@@ -46,4 +46,4 @@ private:
     std::vector<std::unique_ptr<IPruefDock>> docks_;
 };
 
-}  // namespace comdare::cache_engine::builder::pruef_dock
+} // namespace comdare::cache_engine::builder::pruef_dock

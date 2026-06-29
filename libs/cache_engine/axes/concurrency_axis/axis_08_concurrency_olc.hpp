@@ -27,8 +27,10 @@ public:
     [[nodiscard]] static constexpr concepts::ConcurrencyPattern concurrency_pattern() noexcept {
         return concepts::ConcurrencyPattern::Optimistic;
     }
-    [[nodiscard]] static constexpr std::string_view name()        noexcept { return "olc_optimistic"; }
-    [[nodiscard]] static constexpr std::string_view family_name() noexcept { return "OlcOptimisticConcurrency (Optimistic Lock-Coupling, ART-Sync Pattern)"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "olc_optimistic"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "OlcOptimisticConcurrency (Optimistic Lock-Coupling, ART-Sync Pattern)";
+    }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "OPTIMISTIC"; }
 
     // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). OLC = Optimistic Lock-
@@ -37,16 +39,14 @@ public:
     // (Re-Read + Vergleich). Reale, strategie-abhaengige Laufzeit (2 atomare Loads + Compare, KEINE
     // RMW/Sperre → billiger als Lock-Free-CAS, charakteristisch fuer den optimistischen Reader-Pfad).
     // Version-Zaehler thread_local-static (via version_()), Snapshot ebenso (via snapshot_()).
-    static void acquire() noexcept {
-        snapshot_() = version_().load(std::memory_order_acquire);
-    }
+    static void acquire() noexcept { snapshot_() = version_().load(std::memory_order_acquire); }
     static void release() noexcept {
         // Optimistische Validierung: Re-Read der Version, Vergleich gegen den acquire-Snapshot.
         // Im Single-Thread-Pfad-A stets gueltig (keine Nebenlaeufer) — exerziert aber die echte
         // Read-Validate-Bahn. `volatile`-Sink verhindert Wegoptimieren des Vergleichs.
-        unsigned const now = version_().load(std::memory_order_acquire);
+        unsigned const       now        = version_().load(std::memory_order_acquire);
         static volatile bool valid_sink = false;
-        valid_sink = (now == snapshot_());
+        valid_sink                      = (now == snapshot_());
     }
 
 private:
@@ -60,9 +60,9 @@ private:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::concurrency_axis
 
 namespace comdare::cache_engine::concurrency_axis {
-    static_assert(concepts::ConcurrencyStrategy<OlcOptimisticConcurrency>);
-    static_assert(concepts::CacheEnginePermutationStrategy<OlcOptimisticConcurrency>);
-}
+static_assert(concepts::ConcurrencyStrategy<OlcOptimisticConcurrency>);
+static_assert(concepts::CacheEnginePermutationStrategy<OlcOptimisticConcurrency>);
+} // namespace comdare::cache_engine::concurrency_axis

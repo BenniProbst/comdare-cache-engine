@@ -35,9 +35,8 @@ namespace comdare::cache_engine::alloc::concepts {
  * das ist `reset()` in CacheEnginePermutationStrategy.
  */
 template <typename A>
-concept PoolResettableStrategy = AllocatorStrategy<A>
-    && requires(A a) {
-        { a.release_all() } -> std::same_as<void>;
-    };
+concept PoolResettableStrategy = AllocatorStrategy<A> && requires(A a) {
+    { a.release_all() } -> std::same_as<void>;
+};
 
-}  // namespace comdare::cache_engine::alloc::concepts
+} // namespace comdare::cache_engine::alloc::concepts

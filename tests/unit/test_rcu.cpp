@@ -13,14 +13,14 @@ namespace rcu = comdare::rcu;
 
 TEST(Rcu, EpochAdvancesOnSynchronize) {
     rcu::RcuDomain d;
-    auto const before = d.current_epoch();
+    auto const     before = d.current_epoch();
     d.synchronize();
     EXPECT_GT(d.current_epoch(), before);
 }
 
 TEST(Rcu, ReadGuardRegistersThread) {
     rcu::RcuDomain d;
-    auto const before = d.reader_count();
+    auto const     before = d.reader_count();
     {
         rcu::RcuReadGuard g{d};
         EXPECT_GE(d.reader_count(), before + 1);
@@ -29,7 +29,7 @@ TEST(Rcu, ReadGuardRegistersThread) {
 }
 
 TEST(Rcu, MultipleReadersDoNotBlock) {
-    rcu::RcuDomain d;
+    rcu::RcuDomain   d;
     std::atomic<int> entered{0};
 
     auto reader_fn = [&]() {
@@ -62,14 +62,14 @@ TEST(Rcu, DeferredCallbacksRunAfterFlush) {
 TEST(Rcu, DeferredFlushIsIdempotentOnEmpty) {
     rcu::RcuDomain   d;
     rcu::RcuDeferred def;
-    def.flush(d);                // no-op
+    def.flush(d); // no-op
     EXPECT_EQ(def.pending_count(), 0u);
 }
 
 TEST(Rcu, RcuReplaceDefersOldPointer) {
-    rcu::RcuDomain      d;
-    rcu::RcuDeferred    def;
-    std::atomic<int*>   slot{new int(42)};
+    rcu::RcuDomain    d;
+    rcu::RcuDeferred  def;
+    std::atomic<int*> slot{new int(42)};
 
     rcu::rcu_replace(slot, new int(99), def);
     EXPECT_EQ(*slot.load(), 99);
@@ -82,7 +82,7 @@ TEST(Rcu, RcuReplaceDefersOldPointer) {
 }
 
 TEST(Rcu, SynchronizeWaitsForActiveReader) {
-    rcu::RcuDomain d;
+    rcu::RcuDomain    d;
     std::atomic<bool> reader_started{false};
     std::atomic<bool> reader_finished{false};
 
@@ -97,12 +97,12 @@ TEST(Rcu, SynchronizeWaitsForActiveReader) {
 
     auto const t_start = std::chrono::steady_clock::now();
     d.synchronize();
-    auto const elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - t_start).count();
+    auto const elapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t_start).count();
 
     // synchronize() should wait until reader leaves; reader sleeps 50ms.
     EXPECT_TRUE(reader_finished.load());
-    EXPECT_GE(elapsed, 30);  // mit ein bisschen Schlaftoleranz
+    EXPECT_GE(elapsed, 30); // mit ein bisschen Schlaftoleranz
 
     reader.join();
 }

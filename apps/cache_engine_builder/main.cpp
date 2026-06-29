@@ -41,29 +41,31 @@
 namespace {
 
 void print_usage() {
-    std::cerr
-        << "Usage: comdare-cache-engine-builder <config_dir> <output_dir> [options]\n\n"
-        << "  <config_dir>   Directory containing 4 XML configs:\n"
-        << "                   cache_engine_permutations.xml\n"
-        << "                   search_algorithm_permutations.xml\n"
-        << "                   allocator_permutations.xml\n"
-        << "                   test_data_sets.xml\n"
-        << "  <output_dir>   Directory for generated modules + measurement output\n\n"
-        << "Options:\n"
-        << "  --enumerate-only     Skip codegen + execution; print descriptors only\n"
-        << "  --comdare-root=DIR   Path to comdare-cache-engine repo root\n"
-        << "                       (default: current working directory)\n"
-        << "  --skip-build         Generate sources + aggregator, do not invoke cmake\n"
-        << "  --quiet              Disable per-phase diagnostic output\n\n"
-        << "Note: This Builder is the cache-engine-Demo-Driver. The real\n"
-        << "      Experiment-Orchestrator (3 Messreihen A/B/C) lives in\n"
-        << "      Diplomarbeit/Code/messung_driver/ (REV 7.6).\n";
+    std::cerr << "Usage: comdare-cache-engine-builder <config_dir> <output_dir> [options]\n\n"
+              << "  <config_dir>   Directory containing 4 XML configs:\n"
+              << "                   cache_engine_permutations.xml\n"
+              << "                   search_algorithm_permutations.xml\n"
+              << "                   allocator_permutations.xml\n"
+              << "                   test_data_sets.xml\n"
+              << "  <output_dir>   Directory for generated modules + measurement output\n\n"
+              << "Options:\n"
+              << "  --enumerate-only     Skip codegen + execution; print descriptors only\n"
+              << "  --comdare-root=DIR   Path to comdare-cache-engine repo root\n"
+              << "                       (default: current working directory)\n"
+              << "  --skip-build         Generate sources + aggregator, do not invoke cmake\n"
+              << "  --quiet              Disable per-phase diagnostic output\n\n"
+              << "Note: This Builder is the cache-engine-Demo-Driver. The real\n"
+              << "      Experiment-Orchestrator (3 Messreihen A/B/C) lives in\n"
+              << "      Diplomarbeit/Code/messung_driver/ (REV 7.6).\n";
 }
 
-}  // anonymous
+} // namespace
 
 int main(int argc, char* argv[]) {
-    if (argc < 3) { print_usage(); return 1; }
+    if (argc < 3) {
+        print_usage();
+        return 1;
+    }
 
     comdare::builder::ExperimentDriverOptions opts;
     opts.config_dir   = std::filesystem::path{argv[1]};
@@ -73,9 +75,12 @@ int main(int argc, char* argv[]) {
 
     for (int i = 3; i < argc; ++i) {
         std::string_view a{argv[i]};
-        if      (a == "--enumerate-only") opts.enumerate_only = true;
-        else if (a == "--skip-build")     opts.skip_build     = true;
-        else if (a == "--quiet")          opts.verbose        = false;
+        if (a == "--enumerate-only")
+            opts.enumerate_only = true;
+        else if (a == "--skip-build")
+            opts.skip_build = true;
+        else if (a == "--quiet")
+            opts.verbose = false;
         else if (a.rfind("--comdare-root=", 0) == 0) {
             opts.comdare_root = std::filesystem::path{std::string{a.substr(15)}};
         } else {
@@ -90,9 +95,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Output       : " << opts.output_dir.string() << "\n";
     std::cout << "Comdare-Root : " << opts.comdare_root.string() << "\n";
     std::cout << "Mode         : "
-              << (opts.enumerate_only ? "enumerate-only"
-                  : (opts.skip_build  ? "generate-only"
-                                       : "full pipeline"))
+              << (opts.enumerate_only ? "enumerate-only" : (opts.skip_build ? "generate-only" : "full pipeline"))
               << "\n";
     std::cout << "Verbose      : " << (opts.verbose ? "ON" : "OFF") << "\n";
 
@@ -105,10 +108,9 @@ int main(int argc, char* argv[]) {
     wopts.workload              = comdare::workload_generator::YcsbWorkload::C;
 
     comdare::builder::ExperimentDriver driver{opts};
-    int const rc = driver.run_pipeline_full(wopts);
+    int const                          rc = driver.run_pipeline_full(wopts);
     if (rc != comdare::builder::status_ok) {
-        std::cerr << "\n[CacheEngineBuilder] Pipeline failed (status="
-                  << rc << ")\n";
+        std::cerr << "\n[CacheEngineBuilder] Pipeline failed (status=" << rc << ")\n";
         return rc;
     }
 

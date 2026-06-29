@@ -4,9 +4,9 @@
 // + 22-Vollständigkeit: 17 SearchAlgorithmObserver + 3 DefinitionOnly + 2 ContainerObserver == 22, keine fällt weg.
 // Build: cl /I libs/cache_engine (kein Boost).
 
-#include "builder/experiment_tree/experiment_tree.hpp"                    // NodeValue
-#include "builder/experiment_tree/build_variant_definition_reader.hpp"   // read_build_variant
-#include "builder/experiment_tree/axis_observer_classification.hpp"      // kAxisObserverClasses / count_observer_kind
+#include "builder/experiment_tree/experiment_tree.hpp"                 // NodeValue
+#include "builder/experiment_tree/build_variant_definition_reader.hpp" // read_build_variant
+#include "builder/experiment_tree/axis_observer_classification.hpp"    // kAxisObserverClasses / count_observer_kind
 
 #include <cstdint>
 #include <iostream>
@@ -17,21 +17,39 @@ namespace cea = comdare::cache_engine::anatomy;
 
 // Build-Achsen-Property-Typen in der API-FORM der ECHTEN Wrapper (DenseBytePageType / Avx512SimdExtension /
 // X86_64HardwareProfile): SE trägt provides_avx512f() (NICHT provides_avx512) → exerziert detect_avx512.
-struct DenseBytePage { static constexpr int      page_kind()        noexcept { return 0; }
-                       static constexpr bool      is_branch()        noexcept { return true; }
-                       static constexpr bool      is_leaf()          noexcept { return false; } };
-struct Avx512Ext     { static constexpr unsigned  vector_width_bits() noexcept { return 512; }
-                       static constexpr bool       provides_avx512f() noexcept { return true; } };
-struct Avx2Ext       { static constexpr unsigned  vector_width_bits() noexcept { return 256; }
-                       static constexpr bool       provides_avx512f() noexcept { return false; } };
-struct X86_64Hw      { static constexpr unsigned  cache_line_size()  noexcept { return 64; }
-                       static constexpr bool       numa_capable()     noexcept { return true; } };
+struct DenseBytePage {
+    static constexpr int  page_kind() noexcept { return 0; }
+    static constexpr bool is_branch() noexcept { return true; }
+    static constexpr bool is_leaf() noexcept { return false; }
+};
+struct Avx512Ext {
+    static constexpr unsigned vector_width_bits() noexcept { return 512; }
+    static constexpr bool     provides_avx512f() noexcept { return true; }
+};
+struct Avx2Ext {
+    static constexpr unsigned vector_width_bits() noexcept { return 256; }
+    static constexpr bool     provides_avx512f() noexcept { return false; }
+};
+struct X86_64Hw {
+    static constexpr unsigned cache_line_size() noexcept { return 64; }
+    static constexpr bool     numa_capable() noexcept { return true; }
+};
 
 static int g_fail = 0;
-template <class A, class B> static void eq(char const* w, A const& g, B const& e) {
-    bool ok = (g == e); std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
-    if (!ok) { std::cout << " (erwartet " << e << ")"; ++g_fail; } std::cout << "\n"; }
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+template <class A, class B>
+static void eq(char const* w, A const& g, B const& e) {
+    bool ok = (g == e);
+    std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
+    if (!ok) {
+        std::cout << " (erwartet " << e << ")";
+        ++g_fail;
+    }
+    std::cout << "\n";
+}
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 int main() {
     std::cout << "==== D7b / L-74b — per-Knoten Build-Achsen-Definition + 22-Vollständigkeit ====\n";
@@ -47,12 +65,14 @@ int main() {
     ex::read_build_variant<DenseBytePage, Avx512Ext, X86_64Hw>(measured);
     tr("gemessener Knoten: build_def_real == true", measured.build_def_real);
     eq("gemessener Knoten: build_def.simd_width_bits == 512", measured.build_def.simd_width_bits, std::uint64_t{512});
-    eq("gemessener Knoten: build_def.simd_avx512 == 1 (via provides_avx512f)", measured.build_def.simd_avx512, std::uint64_t{1});
+    eq("gemessener Knoten: build_def.simd_avx512 == 1 (via provides_avx512f)", measured.build_def.simd_avx512,
+       std::uint64_t{1});
     eq("gemessener Knoten: build_def.hw_cache_line == 64", measured.build_def.hw_cache_line, std::uint64_t{64});
 
-    ex::NodeValue unmeasured;   // nie read_build_variant → Default
+    ex::NodeValue unmeasured; // nie read_build_variant → Default
     tr("ungemessener Knoten: build_def_real == false (SPARSE-Kontrast)", !unmeasured.build_def_real);
-    tr("ungemessener Knoten: build_def == Default{} (kein Pseudo-Wert)", unmeasured.build_def == cea::BuildVariantDefinitionV1{});
+    tr("ungemessener Knoten: build_def == Default{} (kein Pseudo-Wert)",
+       unmeasured.build_def == cea::BuildVariantDefinitionV1{});
 
     // Zweite Build-Variante (Avx2) DERSELBEN page/hw → andere reale Definition (Build-Identität unterscheidbar).
     ex::NodeValue measured_avx2;
@@ -73,6 +93,7 @@ int main() {
     eq("ContainerObserver == 0 (queuing→SA; reserviert für echte Container-Gattung #87)", n_ctr, std::size_t{0});
     eq("Summe == 22 (kAxisObserverClasses)", ex::kAxisObserverClasses.size(), std::size_t{22});
 
-    std::cout << "\n==== D7b / L-74b: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== D7b / L-74b: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

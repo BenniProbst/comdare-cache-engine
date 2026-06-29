@@ -36,15 +36,13 @@ namespace comdare::cache_engine::hardware::axis_12_general_hardware::concepts {
  *   - static constexpr bool enabled  (aus flags.hpp via configure_file)
  */
 template <typename P>
-concept CacheEnginePermutationStrategy =
-    GeneralHardwareStrategy<P>
-    && requires {
-        typename P::axis_tag;
-        typename P::family_id;
-        { P::name() }         noexcept -> std::convertible_to<std::string_view>;
-        { P::family_name() }  noexcept -> std::convertible_to<std::string_view>;
-        { P::flag_suffix() }  noexcept -> std::convertible_to<std::string_view>;
-        { P::enabled }                 -> std::convertible_to<bool>;
-    };
+concept CacheEnginePermutationStrategy = GeneralHardwareStrategy<P> && requires {
+    typename P::axis_tag;
+    typename P::family_id;
+    { P::name() } noexcept -> std::convertible_to<std::string_view>;
+    { P::family_name() } noexcept -> std::convertible_to<std::string_view>;
+    { P::flag_suffix() } noexcept -> std::convertible_to<std::string_view>;
+    { P::enabled } -> std::convertible_to<bool>;
+};
 
-}  // namespace comdare::cache_engine::hardware::axis_12_general_hardware::concepts
+} // namespace comdare::cache_engine::hardware::axis_12_general_hardware::concepts

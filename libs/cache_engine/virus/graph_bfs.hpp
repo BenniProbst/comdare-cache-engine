@@ -25,22 +25,27 @@ public:
 
     /// ECHTE BFS ab start_node. Liefert die Zahl der erreichten Knoten; aktualisiert den Mess-Snapshot.
     std::uint64_t run_bfs(std::uint64_t start_node) {
-        std::uint64_t const n = node_count();
-        std::uint64_t visited = 0, edges = 0, checksum = 0;
+        std::uint64_t const n       = node_count();
+        std::uint64_t       visited = 0, edges = 0, checksum = 0;
         if (n != 0 && start_node < n) {
-            std::vector<char> seen(static_cast<std::size_t>(n), 0);
+            std::vector<char>         seen(static_cast<std::size_t>(n), 0);
             std::queue<std::uint64_t> q;
             seen[static_cast<std::size_t>(start_node)] = 1;
             q.push(start_node);
             while (!q.empty()) {
-                std::uint64_t const u = q.front(); q.pop();
-                ++visited; checksum += u;
+                std::uint64_t const u = q.front();
+                q.pop();
+                ++visited;
+                checksum += u;
                 std::uint64_t const beg = row_offsets_[static_cast<std::size_t>(u)];
                 std::uint64_t const end = row_offsets_[static_cast<std::size_t>(u) + 1];
                 for (std::uint64_t e = beg; e < end; ++e) {
                     ++edges;
                     std::uint64_t const v = col_indices_[static_cast<std::size_t>(e)];
-                    if (v < n && !seen[static_cast<std::size_t>(v)]) { seen[static_cast<std::size_t>(v)] = 1; q.push(v); }
+                    if (v < n && !seen[static_cast<std::size_t>(v)]) {
+                        seen[static_cast<std::size_t>(v)] = 1;
+                        q.push(v);
+                    }
                 }
             }
         }
@@ -56,24 +61,27 @@ public:
     }
 
     // ── IExecutionEngine ──
-    [[nodiscard]] std::string_view engine_name() const noexcept override { return "GraphBFS"; }
+    [[nodiscard]] std::string_view          engine_name() const noexcept override { return "GraphBFS"; }
     [[nodiscard]] eng::EngineLifecycleState lifecycle_state() const noexcept override { return state_; }
-    void warm_up()  override { state_ = eng::EngineLifecycleState::Warming; }
-    void run()      override { state_ = eng::EngineLifecycleState::Running; }
-    void reset()    override { state_ = eng::EngineLifecycleState::Idle; snap_ = {}; }   // Statistik-Reset
+    void                                    warm_up() override { state_ = eng::EngineLifecycleState::Warming; }
+    void                                    run() override { state_ = eng::EngineLifecycleState::Running; }
+    void                                    reset() override {
+        state_ = eng::EngineLifecycleState::Idle;
+        snap_  = {};
+    } // Statistik-Reset
     void shutdown() override { state_ = eng::EngineLifecycleState::Shutdown; }
 
     // ── IVirusExecutionEngine (engine_kind() final = Virus in der Basis) ──
     [[nodiscard]] std::string_view algorithm_family() const noexcept override { return "GraphBFS"; }
-    void virus_observe(eng::VirusMeasurementSnapshotV1* out) const noexcept override {
+    void                           virus_observe(eng::VirusMeasurementSnapshotV1* out) const noexcept override {
         if (out != nullptr) *out = snap_;
     }
 
 private:
-    std::vector<std::uint64_t>     row_offsets_{};
-    std::vector<std::uint64_t>     col_indices_{};
-    eng::EngineLifecycleState      state_{eng::EngineLifecycleState::Uninitialized};
+    std::vector<std::uint64_t>      row_offsets_{};
+    std::vector<std::uint64_t>      col_indices_{};
+    eng::EngineLifecycleState       state_{eng::EngineLifecycleState::Uninitialized};
     eng::VirusMeasurementSnapshotV1 snap_{};
 };
 
-}  // namespace comdare::cache_engine::virus
+} // namespace comdare::cache_engine::virus

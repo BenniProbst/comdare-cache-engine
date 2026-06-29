@@ -69,14 +69,12 @@ public:
         if (callback_) callback_(snap);
     }
 
-    [[nodiscard]] bool has_callback() const noexcept {
-        return static_cast<bool>(callback_);
-    }
+    [[nodiscard]] bool has_callback() const noexcept { return static_cast<bool>(callback_); }
 
 private:
     callback_t callback_{};
 #else
-public:   // explizit: der private:-Block oben liegt im #ifdef-Zweig und entfaellt im Default-Build => notify ist public.
+public: // explizit: der private:-Block oben liegt im #ifdef-Zweig und entfaellt im Default-Build => notify ist public.
     // DEFAULT: NullNotify -- notify() ist ein leerer NullObject (der Compiler elidiert ihn vollstaendig); KEIN
     // std::function-Member, KEIN per-Op-Branch. Die Achsen-Call-Sites `observer_.notify(stats_)` bleiben
     // UNVERAENDERT und kompilieren hier zu nichts. on_event/has_callback existieren nur im Push-Build (s.o.).
@@ -116,13 +114,13 @@ concept MeasurableComponent = requires(T t, T const& tc) {
     typename T::snapshot_t;
     typename T::observer_t;
     { tc.snapshot() } noexcept -> std::same_as<typename T::snapshot_t>;
-    { t.reset() }    noexcept;
+    { t.reset() } noexcept;
     { tc.observer() } noexcept -> std::same_as<typename T::observer_t const&>;
 } && std::same_as<typename T::observer_t, MeasurableObserver<typename T::snapshot_t>>;
 
-}  // namespace concepts
+} // namespace concepts
 
-#else  // COMDARE_CE_ENABLE_STATISTICS
+#else // COMDARE_CE_ENABLE_STATISTICS
 
 namespace concepts {
 
@@ -135,8 +133,8 @@ namespace concepts {
 template <typename T>
 concept MeasurableComponent = true;
 
-}  // namespace concepts
+} // namespace concepts
 
-#endif  // COMDARE_CE_ENABLE_STATISTICS
+#endif // COMDARE_CE_ENABLE_STATISTICS
 
-}  // namespace comdare::cache_engine::measurement
+} // namespace comdare::cache_engine::measurement

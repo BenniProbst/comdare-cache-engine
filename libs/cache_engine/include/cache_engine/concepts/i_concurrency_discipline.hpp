@@ -23,8 +23,8 @@ class IConcurrencyDiscipline {
 public:
     virtual ~IConcurrencyDiscipline() = default;
 
-    [[nodiscard]] virtual ConcurrencyDisciplineKind kind() const noexcept = 0;
-    virtual void on_event(Event const& event) noexcept = 0;
+    [[nodiscard]] virtual ConcurrencyDisciplineKind kind() const noexcept                 = 0;
+    virtual void                                    on_event(Event const& event) noexcept = 0;
 };
 
-}  // namespace comdare::cache_engine
+} // namespace comdare::cache_engine

@@ -8,7 +8,7 @@
 // also WELCHE Speicherzelle ein read(i) liest — LayoutStrided liest physisch andere Zellen als LayoutRight.
 // C++23, header-only.
 
-#include "anatomy/view_composition.hpp"   // ExtentPolicy/LayoutPolicy/AccessorPolicy-Concepts + die 3 inline-Defaults
+#include "anatomy/view_composition.hpp" // ExtentPolicy/LayoutPolicy/AccessorPolicy-Concepts + die 3 inline-Defaults
 
 #include <cstddef>
 #include <cstdint>
@@ -19,7 +19,7 @@ namespace comdare::cache_engine::view {
 /// StaticExtent<N> — compile-time bekannte Ausdehnung (mdspan static extents). is_static()==true, static_extent()==N.
 template <std::size_t N>
 struct StaticExtent {
-    [[nodiscard]] bool        is_static()     const noexcept { return true; }
+    [[nodiscard]] bool        is_static() const noexcept { return true; }
     [[nodiscard]] std::size_t static_extent() const noexcept { return N; }
 };
 
@@ -34,7 +34,7 @@ struct LayoutLeft {
 template <std::size_t Stride = 2>
 struct LayoutStrided {
     static constexpr std::size_t stride = Stride;
-    [[nodiscard]] std::size_t index_of(std::size_t i) const noexcept { return i * Stride; }
+    [[nodiscard]] std::size_t    index_of(std::size_t i) const noexcept { return i * Stride; }
 };
 
 // ── axis_accessor ────────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ struct LayoutStrided {
 template <std::size_t Align = 64>
 struct AlignedAccessor {
     static constexpr std::size_t alignment = Align;
-    [[nodiscard]] std::uint64_t access(std::uint64_t const* d, std::size_t i) const noexcept { return d[i]; }
+    [[nodiscard]] std::uint64_t  access(std::uint64_t const* d, std::size_t i) const noexcept { return d[i]; }
 };
 
-}  // namespace comdare::cache_engine::view
+} // namespace comdare::cache_engine::view

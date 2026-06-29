@@ -17,17 +17,28 @@ namespace ex  = comdare::cache_engine::builder::experiment;
 namespace ana = comdare::cache_engine::anatomy;
 
 static int g_fail = 0;
-template <class A, class B> static void eq(char const* w, A const& g, B const& e) {
-    bool ok = (g == e); std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
-    if (!ok) { std::cout << " (erwartet " << e << ")"; ++g_fail; } std::cout << "\n"; }
-static void tr(char const* w, bool c) { std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n"; if (!c) ++g_fail; }
+template <class A, class B>
+static void eq(char const* w, A const& g, B const& e) {
+    bool ok = (g == e);
+    std::cout << (ok ? "  [OK]  " : "  [ERR] ") << w << " = " << g;
+    if (!ok) {
+        std::cout << " (erwartet " << e << ")";
+        ++g_fail;
+    }
+    std::cout << "\n";
+}
+static void tr(char const* w, bool c) {
+    std::cout << (c ? "  [OK]  " : "  [ERR] ") << w << "\n";
+    if (!c) ++g_fail;
+}
 
 int main() {
     std::cout << "==== D14c e2e_pipeline (lazy View → Selektion → Mess → Ingest → Baum, O(K)) ====\n";
     // 3 Ebenen × 1000 Werte → ∏ = 1e9 (lazy, nie materialisiert).
     std::vector<ex::AxisLevel> levels;
     for (int e = 0; e < 3; ++e) {
-        std::vector<std::string> vals; vals.reserve(1000);
+        std::vector<std::string> vals;
+        vals.reserve(1000);
         for (int k = 0; k < 1000; ++k) vals.push_back("v" + std::to_string(k));
         levels.push_back({"ax" + std::to_string(e), std::move(vals), true, "", "blk"});
     }
@@ -38,16 +49,18 @@ int main() {
     auto const sel = ex::select_explicit({0, 12345, 999999999});
 
     std::atomic<int> measure_calls{0};
-    ex::MeasureFn measure = [&](std::string const& bid) -> std::string {
+    ex::MeasureFn    measure = [&](std::string const& bid) -> std::string {
         ++measure_calls;
-        ana::ComdareTierObserverSnapshot snap{};   // KONSOLIDIERUNG (I-B.3): EIN POD, search-Stats nach axis_stats[0]
-        snap.axis_stats[0][3] = 42; snap.axis_stats[0][0] = 42;   // T0 search insert/lookup
-        snap.tier_fill_level = 42; snap.observable_axis_count = 2;
-        return ex::format_perm_result(bid, snap);   // exakt wie perm_runner (volle Matrix)
+        ana::ComdareTierObserverSnapshot snap{}; // KONSOLIDIERUNG (I-B.3): EIN POD, search-Stats nach axis_stats[0]
+        snap.axis_stats[0][3]      = 42;
+        snap.axis_stats[0][0]      = 42; // T0 search insert/lookup
+        snap.tier_fill_level       = 42;
+        snap.observable_axis_count = 2;
+        return ex::format_perm_result(bid, snap); // exakt wie perm_runner (volle Matrix)
     };
 
     ex::ExperimentTree tree{std::make_shared<ex::ExperimentNodeFactory>()};
-    auto const st = ex::run_e2e_pipeline(tree, view, sel.indices, measure);
+    auto const         st = ex::run_e2e_pipeline(tree, view, sel.indices, measure);
 
     eq("selected == 3", st.selected, std::size_t{3});
     eq("measured == 3 (in Baum eingespielt)", st.measured, std::size_t{3});
@@ -56,11 +69,13 @@ int main() {
 
     // Der gemessene NodeValue des ersten selektierten Binary trägt die Mess-Werte.
     auto const spec0 = view[sel.indices[0]];
-    auto const nv = tree.node_value(spec0.binary_id);
+    auto const nv    = tree.node_value(spec0.binary_id);
     tr("Knoten[0] observer_real", nv.observer_real);
-    eq("Knoten[0] search_insert_count == 42 (durch die ganze Pipeline)", nv.observer.search_insert_count, std::uint64_t{42});
+    eq("Knoten[0] search_insert_count == 42 (durch die ganze Pipeline)", nv.observer.search_insert_count,
+       std::uint64_t{42});
     eq("Knoten[0] tier_fill_level == 42", nv.observer.tier_fill_level, std::uint64_t{42});
 
-    std::cout << "\n==== D14c e2e_pipeline: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
+    std::cout << "\n==== D14c e2e_pipeline: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
+              << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

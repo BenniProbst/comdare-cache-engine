@@ -14,26 +14,24 @@
 namespace comdare::builder::runner {
 
 struct ExperimentResult {
-    std::string                     permutation_id;
-    std::uint64_t                   fingerprint;
-    comdare_measurement_record_v1   record{};
-    bool                            succeeded = false;
-    std::string                     error_message;
+    std::string                   permutation_id;
+    std::uint64_t                 fingerprint;
+    comdare_measurement_record_v1 record{};
+    bool                          succeeded = false;
+    std::string                   error_message;
 };
 
 class ExperimentRunner {
 public:
-    [[nodiscard]] ExperimentResult run_one(
-        loop::PermutationDescriptor const& descriptor,
-        std::filesystem::path const& module_binary_path,
-        comdare_workload_descriptor_v1 const& workload,
-        comdare_cache_engine_v1* engine_ref) const;
+    [[nodiscard]] ExperimentResult run_one(loop::PermutationDescriptor const&    descriptor,
+                                           std::filesystem::path const&          module_binary_path,
+                                           comdare_workload_descriptor_v1 const& workload,
+                                           comdare_cache_engine_v1*              engine_ref) const;
 
-    [[nodiscard]] std::vector<ExperimentResult> run_all(
-        std::vector<loop::PermutationDescriptor> const& descriptors,
-        std::filesystem::path const& module_binary_dir,
-        comdare_workload_descriptor_v1 const& workload,
-        comdare_cache_engine_v1* engine_ref) const;
+    [[nodiscard]] std::vector<ExperimentResult> run_all(std::vector<loop::PermutationDescriptor> const& descriptors,
+                                                        std::filesystem::path const&          module_binary_dir,
+                                                        comdare_workload_descriptor_v1 const& workload,
+                                                        comdare_cache_engine_v1*              engine_ref) const;
 };
 
-}  // namespace comdare::builder::runner
+} // namespace comdare::builder::runner

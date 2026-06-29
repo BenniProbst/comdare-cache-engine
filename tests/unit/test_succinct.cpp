@@ -30,7 +30,7 @@ TEST(BitVector, ResizeAndSet) {
 
 TEST(BitVector, SetOutOfRangeReturnsError) {
     su::BitVector b{8};
-    EXPECT_EQ(b.set(100, true), 7);  // status_out_of_range
+    EXPECT_EQ(b.set(100, true), 7); // status_out_of_range
 }
 
 TEST(BitVector, Rank1CountsCorrectly) {
@@ -40,10 +40,10 @@ TEST(BitVector, Rank1CountsCorrectly) {
     b.set(7, true);
     b.set(15, true);
     b.build_rank_index();
-    EXPECT_EQ(b.rank1(0),  0u);   // Anzahl gesetzter in [0,0) = 0
-    EXPECT_EQ(b.rank1(1),  1u);
-    EXPECT_EQ(b.rank1(4),  2u);
-    EXPECT_EQ(b.rank1(8),  3u);
+    EXPECT_EQ(b.rank1(0), 0u); // Anzahl gesetzter in [0,0) = 0
+    EXPECT_EQ(b.rank1(1), 1u);
+    EXPECT_EQ(b.rank1(4), 2u);
+    EXPECT_EQ(b.rank1(8), 3u);
     EXPECT_EQ(b.rank1(16), 4u);
 }
 
@@ -58,13 +58,13 @@ TEST(BitVector, TotalOnes) {
     su::BitVector b{256};
     for (std::size_t i = 0; i < 256; ++i) b.set(i, (i % 3 == 0));
     b.build_rank_index();
-    EXPECT_EQ(b.total_ones(), 86u);  // 256/3 = 85 + 1 (i=0)
+    EXPECT_EQ(b.total_ones(), 86u); // 256/3 = 85 + 1 (i=0)
 }
 
 TEST(BitVector, Select1FindsKthOne) {
     su::BitVector b{32};
-    b.set(2,  true);
-    b.set(7,  true);
+    b.set(2, true);
+    b.set(7, true);
     b.set(15, true);
     b.set(31, true);
     b.build_rank_index();
@@ -86,9 +86,9 @@ TEST(BitVector, MultiBlockRank) {
     su::BitVector b{1024};
     for (std::size_t i = 0; i < 1024; ++i) b.set(i, (i % 7 == 0));
     b.build_rank_index();
-    EXPECT_EQ(b.rank1(1024), 147u);  // ceil(1024/7) = 147
-    EXPECT_EQ(b.rank1(7),    1u);    // nur i=0
-    EXPECT_EQ(b.rank1(8),    2u);    // i=0, i=7
+    EXPECT_EQ(b.rank1(1024), 147u); // ceil(1024/7) = 147
+    EXPECT_EQ(b.rank1(7), 1u);      // nur i=0
+    EXPECT_EQ(b.rank1(8), 2u);      // i=0, i=7
 }
 
 TEST(BitVector, ClearResetsAllBits) {
@@ -114,7 +114,7 @@ TEST(Louds, BuildFromBfsDegreesSetsNodeCount) {
     // Baum:    A (2 Kinder)
     //         / \
     //        B   C  (0,0)
-    su::Louds l;
+    su::Louds                  l;
     std::vector<std::uint32_t> degrees{2, 0, 0};
     l.build_from_bfs_degrees(degrees);
     EXPECT_EQ(l.node_count(), 3u);
@@ -126,7 +126,7 @@ TEST(Louds, DegreeMatchesInput) {
     //           B   C
     //          / \
     //         D   E   (B hat 2 Kinder, C/D/E je 0)
-    su::Louds l;
+    su::Louds                  l;
     std::vector<std::uint32_t> degrees{2, 2, 0, 0, 0};
     l.build_from_bfs_degrees(degrees);
     EXPECT_EQ(l.degree(0), 2u);
@@ -147,7 +147,7 @@ TEST(Louds, BitsStructureForSimpleTree) {
     su::Louds l;
     l.build_from_bfs_degrees({2, 2, 0, 0, 0});
     auto const& b = l.bits();
-    EXPECT_EQ(b.size(), 9u);   // 2 + 1 + 2 + 1 + 1 + 1 + 1 + 1 = 9
+    EXPECT_EQ(b.size(), 9u); // 2 + 1 + 2 + 1 + 1 + 1 + 1 + 1 = 9
     EXPECT_TRUE(b.get(0));
     EXPECT_TRUE(b.get(1));
     EXPECT_FALSE(b.get(2));
@@ -159,6 +159,6 @@ TEST(Louds, BitsStructureForSimpleTree) {
 TEST(Louds, LeafNodeHasNoFirstChild) {
     su::Louds l;
     l.build_from_bfs_degrees({2, 0, 0});
-    EXPECT_EQ(l.first_child(1), 0u);  // B ist leaf
-    EXPECT_EQ(l.first_child(2), 0u);  // C ist leaf
+    EXPECT_EQ(l.first_child(1), 0u); // B ist leaf
+    EXPECT_EQ(l.first_child(2), 0u); // C ist leaf
 }

@@ -39,13 +39,15 @@ public:
     using key_type = std::uint64_t;
 
     void build_from_sorted_keys(std::span<key_type const> sorted) { store_.build_from_sorted_keys(sorted); }
-    [[nodiscard]] bool contains(key_type k)                       const { return Query::template contains_in<Store>(store_, k); }
-    [[nodiscard]] bool range_may_exist(key_type lo, key_type hi)  const { return Query::template range_may_exist_in<Store>(store_, lo, hi); }
-    [[nodiscard]] std::size_t bit_size()       const noexcept { return store_.bit_size(); }
-    [[nodiscard]] double      bits_per_key()   const noexcept { return store_.bits_per_key(); }
-    [[nodiscard]] std::size_t key_count()      const noexcept { return store_.key_count(); }
-    void clear()                                     noexcept { store_.clear(); }
-    [[nodiscard]] Store const& store()         const noexcept { return store_; }
+    [[nodiscard]] bool contains(key_type k) const { return Query::template contains_in<Store>(store_, k); }
+    [[nodiscard]] bool range_may_exist(key_type lo, key_type hi) const {
+        return Query::template range_may_exist_in<Store>(store_, lo, hi);
+    }
+    [[nodiscard]] std::size_t  bit_size() const noexcept { return store_.bit_size(); }
+    [[nodiscard]] double       bits_per_key() const noexcept { return store_.bits_per_key(); }
+    [[nodiscard]] std::size_t  key_count() const noexcept { return store_.key_count(); }
+    void                       clear() noexcept { store_.clear(); }
+    [[nodiscard]] Store const& store() const noexcept { return store_; }
 
 private:
     Store store_{};
@@ -54,4 +56,4 @@ private:
 // Selbstbeweis: das exakte Filter-Organ erfuellt das SurfFilterOrgan-Concept.
 static_assert(SurfFilterOrgan<ComposedExactSurfFilter<ExactPrefixFilterQuery, ExactPrefixFilterStore>>);
 
-}  // namespace comdare::cache_engine::filter_axis::composable
+} // namespace comdare::cache_engine::filter_axis::composable

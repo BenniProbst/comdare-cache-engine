@@ -72,15 +72,15 @@
 #include <unordered_map>
 #include <vector>
 
-namespace fs = std::filesystem;
+namespace fs    = std::filesystem;
 namespace ctsha = ::comdare::cache_engine::sha256;
 
 namespace {
 
 struct Manifest {
     std::string compiler;
-    std::string has_original_paper_code;  // "true"/"false"
-    std::string axis_mixin_type;          // fully-qualified Achsen-Mixin-Template
+    std::string has_original_paper_code; // "true"/"false"
+    std::string axis_mixin_type;         // fully-qualified Achsen-Mixin-Template
     struct Mapping {
         std::string wrapper_fn;
         std::string paper_fn;
@@ -90,8 +90,7 @@ struct Manifest {
 };
 
 void print_usage(char const* argv0) {
-    std::cerr << "Usage: " << argv0
-              << " --manifest <path> --base-dir <path> --lock-file <path>"
+    std::cerr << "Usage: " << argv0 << " --manifest <path> --base-dir <path> --lock-file <path>"
               << " --output <header.hpp> --namespace <ns>\n";
     std::cerr << "\n";
     std::cerr << "Manifest-Format:\n";
@@ -107,9 +106,9 @@ Manifest read_manifest(fs::path const& p) {
         std::cerr << "ERROR: cannot open manifest " << p.string() << "\n";
         std::exit(2);
     }
-    Manifest m;
+    Manifest    m;
     std::string line;
-    int line_no = 0;
+    int         line_no = 0;
     while (std::getline(ifs, line)) {
         ++line_no;
         std::size_t start = line.find_first_not_of(" \t");
@@ -118,25 +117,28 @@ Manifest read_manifest(fs::path const& p) {
         // @-Annotation
         if (line[start] == '@') {
             std::istringstream iss(line.substr(start + 1));
-            std::string key;
+            std::string        key;
             iss >> key;
             std::string value;
             std::getline(iss, value);
             // trim leading whitespace from value
             std::size_t v_start = value.find_first_not_of(" \t");
             if (v_start != std::string::npos) value = value.substr(v_start);
-            if      (key == "compiler")    m.compiler = value;
-            else if (key == "has_original_paper_code") m.has_original_paper_code = value;
-            else if (key == "axis_mixin_type")        m.axis_mixin_type = value;
+            if (key == "compiler")
+                m.compiler = value;
+            else if (key == "has_original_paper_code")
+                m.has_original_paper_code = value;
+            else if (key == "axis_mixin_type")
+                m.axis_mixin_type = value;
             else {
-                std::cerr << "WARN: manifest " << p.string() << " line " << line_no
-                          << " unknown annotation @" << key << "\n";
+                std::cerr << "WARN: manifest " << p.string() << " line " << line_no << " unknown annotation @" << key
+                          << "\n";
             }
             continue;
         }
         // Mapping
         std::istringstream iss(line.substr(start));
-        Manifest::Mapping mapping;
+        Manifest::Mapping  mapping;
         if (!(iss >> mapping.wrapper_fn >> mapping.paper_fn >> mapping.source_relative_path)) {
             std::cerr << "ERROR: manifest " << p.string() << " line " << line_no
                       << " malformed (expected: wrapper_fn paper_fn source_path)\n";
@@ -182,7 +184,7 @@ std::optional<std::string> extract_function_body(std::string const& source, std:
     //     Mit Block-Comment:     "void f(int x) /* doc */ { ... }"
     //   - Filtert Forward-Declarations aus (die enden mit ';' nicht '{')
     std::string pattern = R"((?:^|\n)([^\n;]*?\b)" + paper_fn + R"(\s*\([^)]*\)[^{;]*\{))";
-    std::regex re(pattern);
+    std::regex  re(pattern);
     std::smatch match;
     if (!std::regex_search(source, match, re)) return std::nullopt;
 
@@ -193,14 +195,14 @@ std::optional<std::string> extract_function_body(std::string const& source, std:
     if (sig_start < source.size() && source[sig_start] == '\n') ++sig_start;
 
     // Brace-Balancer ab brace_pos
-    int depth = 0;
-    std::size_t end_pos = brace_pos;
-    bool in_string = false;
-    bool in_char = false;
-    bool in_line_comment = false;
-    bool in_block_comment = false;
+    int         depth            = 0;
+    std::size_t end_pos          = brace_pos;
+    bool        in_string        = false;
+    bool        in_char          = false;
+    bool        in_line_comment  = false;
+    bool        in_block_comment = false;
     for (std::size_t i = brace_pos; i < source.size(); ++i) {
-        char c = source[i];
+        char c    = source[i];
         char prev = (i > 0) ? source[i - 1] : '\0';
         // Comment handling
         if (in_line_comment) {
@@ -221,27 +223,41 @@ std::optional<std::string> extract_function_body(std::string const& source, std:
         }
         // Comment-Start
         if (c == '/' && i + 1 < source.size()) {
-            if (source[i + 1] == '/') { in_line_comment = true; ++i; continue; }
-            if (source[i + 1] == '*') { in_block_comment = true; ++i; continue; }
+            if (source[i + 1] == '/') {
+                in_line_comment = true;
+                ++i;
+                continue;
+            }
+            if (source[i + 1] == '*') {
+                in_block_comment = true;
+                ++i;
+                continue;
+            }
         }
-        if (c == '"')  { in_string = true; continue; }
-        if (c == '\'') { in_char = true; continue; }
+        if (c == '"') {
+            in_string = true;
+            continue;
+        }
+        if (c == '\'') {
+            in_char = true;
+            continue;
+        }
         if (c == '{') ++depth;
         if (c == '}') {
             --depth;
             if (depth == 0) {
-                end_pos = i + 1;  // include the closing '}'
+                end_pos = i + 1; // include the closing '}'
                 break;
             }
         }
     }
-    if (depth != 0) return std::nullopt;  // Unbalanced — kein vollstaendiger Body
+    if (depth != 0) return std::nullopt; // Unbalanced — kein vollstaendiger Body
     return source.substr(sig_start, end_pos - sig_start);
 }
 
 std::string runtime_to_hex(ctsha::Digest const& d) {
     static char const* const kHex = "0123456789abcdef";
-    std::string s(64, '0');
+    std::string              s(64, '0');
     for (std::size_t i = 0; i < 32; ++i) {
         s[2 * i + 0] = kHex[(d[i] >> 4) & 0x0f];
         s[2 * i + 1] = kHex[d[i] & 0x0f];
@@ -256,33 +272,30 @@ ctsha::Digest sha256_runtime(std::string_view s) {
 
 std::unordered_map<std::string, std::string> read_lock_file(fs::path const& p) {
     std::unordered_map<std::string, std::string> locked;
-    std::ifstream ifs(p);
-    if (!ifs) return locked;  // not found is OK (first-time init)
+    std::ifstream                                ifs(p);
+    if (!ifs) return locked; // not found is OK (first-time init)
     std::string line;
     while (std::getline(ifs, line)) {
         std::size_t start = line.find_first_not_of(" \t");
         if (start == std::string::npos || line[start] == '#') continue;
         std::istringstream iss(line.substr(start));
-        std::string fn, sha;
+        std::string        fn, sha;
         if (iss >> fn >> sha && sha.size() == 64) locked[fn] = sha;
     }
     return locked;
 }
 
-void write_lock_file(fs::path const& p,
-                     std::vector<std::pair<std::string, std::string>> const& entries) {
+void write_lock_file(fs::path const& p, std::vector<std::pair<std::string, std::string>> const& entries) {
     std::ofstream ofs(p);
     ofs << "# AUTO-GENERATED by is_original_validator (Lock-File)\n";
     ofs << "# Format: wrapper_function <whitespace> sha256_hex\n";
     ofs << "# Commit this file into git to enable validation on subsequent builds.\n";
     ofs << "# Modifications to legacy_code source files will be detected as MISMATCH.\n";
     ofs << "\n";
-    for (auto const& [fn, sha] : entries) {
-        ofs << fn << "  " << sha << "\n";
-    }
+    for (auto const& [fn, sha] : entries) { ofs << fn << "  " << sha << "\n"; }
 }
 
-}  // namespace
+} // namespace
 
 int main(int argc, char** argv) {
     std::string manifest_path;
@@ -293,18 +306,23 @@ int main(int argc, char** argv) {
 
     for (int i = 1; i < argc; ++i) {
         std::string_view arg = argv[i];
-        if      (arg == "--manifest"   && i + 1 < argc) manifest_path   = argv[++i];
-        else if (arg == "--base-dir"   && i + 1 < argc) base_dir        = argv[++i];
-        else if (arg == "--lock-file"  && i + 1 < argc) lock_file_path  = argv[++i];
-        else if (arg == "--output"     && i + 1 < argc) output_path     = argv[++i];
-        else if (arg == "--namespace"  && i + 1 < argc) namespace_name  = argv[++i];
+        if (arg == "--manifest" && i + 1 < argc)
+            manifest_path = argv[++i];
+        else if (arg == "--base-dir" && i + 1 < argc)
+            base_dir = argv[++i];
+        else if (arg == "--lock-file" && i + 1 < argc)
+            lock_file_path = argv[++i];
+        else if (arg == "--output" && i + 1 < argc)
+            output_path = argv[++i];
+        else if (arg == "--namespace" && i + 1 < argc)
+            namespace_name = argv[++i];
         else {
             print_usage(argv[0]);
             return 1;
         }
     }
-    if (manifest_path.empty() || base_dir.empty() || lock_file_path.empty()
-        || output_path.empty() || namespace_name.empty()) {
+    if (manifest_path.empty() || base_dir.empty() || lock_file_path.empty() || output_path.empty() ||
+        namespace_name.empty()) {
         print_usage(argv[0]);
         return 1;
     }
@@ -315,7 +333,7 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    auto locked = read_lock_file(lock_file_path);
+    auto locked          = read_lock_file(lock_file_path);
     bool first_time_init = locked.empty();
 
     // Pro Mapping: Auto-Discovery + Hash + Compare-against-Lock
@@ -325,40 +343,36 @@ int main(int argc, char** argv) {
         bool              is_match;
         bool              body_found;
     };
-    std::vector<ValidatedEntry> validated;
+    std::vector<ValidatedEntry>                      validated;
     std::vector<std::pair<std::string, std::string>> new_lock_entries;
-    bool module_all_match = true;
+    bool                                             module_all_match = true;
 
     for (auto const& mapping : manifest.mappings) {
-        fs::path source_abs = fs::path(base_dir) / mapping.source_relative_path;
-        auto source_content = read_file_string(source_abs);
-        auto body_opt = extract_function_body(source_content, mapping.paper_fn);
+        fs::path source_abs     = fs::path(base_dir) / mapping.source_relative_path;
+        auto     source_content = read_file_string(source_abs);
+        auto     body_opt       = extract_function_body(source_content, mapping.paper_fn);
         if (!body_opt.has_value()) {
-            std::cerr << "ERROR: function '" << mapping.paper_fn
-                      << "' not found in " << source_abs.string() << "\n";
+            std::cerr << "ERROR: function '" << mapping.paper_fn << "' not found in " << source_abs.string() << "\n";
             return 3;
         }
-        auto digest = sha256_runtime(*body_opt);
+        auto digest   = sha256_runtime(*body_opt);
         auto computed = runtime_to_hex(digest);
 
         bool is_match = true;
-        if (auto it = locked.find(mapping.wrapper_fn); it != locked.end()) {
-            is_match = (it->second == computed);
-        }
+        if (auto it = locked.find(mapping.wrapper_fn); it != locked.end()) { is_match = (it->second == computed); }
         if (!is_match) module_all_match = false;
 
         validated.push_back({mapping, computed, is_match, true});
         new_lock_entries.push_back({mapping.wrapper_fn, computed});
 
-        std::cout << "is_original_validator: " << mapping.wrapper_fn
-                  << " (paper=" << mapping.paper_fn << ") "
-                  << (first_time_init ? "INIT" : (is_match ? "PASS" : "MISMATCH"))
-                  << " (sha=" << computed.substr(0, 12) << "...)\n";
+        std::cout << "is_original_validator: " << mapping.wrapper_fn << " (paper=" << mapping.paper_fn << ") "
+                  << (first_time_init ? "INIT" : (is_match ? "PASS" : "MISMATCH")) << " (sha=" << computed.substr(0, 12)
+                  << "...)\n";
     }
 
     if (first_time_init) {
-        std::cout << "is_original_validator: First-time-init — writing lock-file "
-                  << lock_file_path << " (commit this into git)\n";
+        std::cout << "is_original_validator: First-time-init — writing lock-file " << lock_file_path
+                  << " (commit this into git)\n";
         write_lock_file(lock_file_path, new_lock_entries);
     }
 
@@ -381,35 +395,30 @@ int main(int argc, char** argv) {
     ofs << "\n";
     ofs << "// ─── Per-function kIsOriginal_<wrapper_fn> Booleans ──────────────────\n";
     for (auto const& v : validated) {
-        ofs << "// " << v.mapping.wrapper_fn << " (paper=" << v.mapping.paper_fn
-            << " from " << v.mapping.source_relative_path << ")\n";
+        ofs << "// " << v.mapping.wrapper_fn << " (paper=" << v.mapping.paper_fn << " from "
+            << v.mapping.source_relative_path << ")\n";
         ofs << "//   computed_sha=" << v.computed_hex << "\n";
-        ofs << "inline constexpr bool kIsOriginal_" << v.mapping.wrapper_fn
-            << " = " << (v.is_match ? "true" : "false") << ";\n";
+        ofs << "inline constexpr bool kIsOriginal_" << v.mapping.wrapper_fn << " = " << (v.is_match ? "true" : "false")
+            << ";\n";
     }
     ofs << "\n";
     ofs << "// ─── Achsen-Manifest-Struct (Pflicht-Constants fuer Mixin-Template) ──\n";
     ofs << "struct PaperManifest {\n";
-    ofs << "    static constexpr ::std::string_view kCompiler = \""
-        << manifest.compiler << "\";\n";
-    ofs << "    static constexpr bool kHasOriginalPaperCode = "
-        << manifest.has_original_paper_code << ";\n";
+    ofs << "    static constexpr ::std::string_view kCompiler = \"" << manifest.compiler << "\";\n";
+    ofs << "    static constexpr bool kHasOriginalPaperCode = " << manifest.has_original_paper_code << ";\n";
     for (auto const& v : validated) {
-        ofs << "    static constexpr bool kIsOriginal_" << v.mapping.wrapper_fn
-            << " = ::" << namespace_name << "::kIsOriginal_" << v.mapping.wrapper_fn << ";\n";
+        ofs << "    static constexpr bool kIsOriginal_" << v.mapping.wrapper_fn << " = ::" << namespace_name
+            << "::kIsOriginal_" << v.mapping.wrapper_fn << ";\n";
     }
     ofs << "};\n";
     ofs << "\n";
     ofs << "// ─── Convenience-Alias: Wrapper erbt davon (Achsen-generischer Mixin) ─\n";
-    ofs << "using OriginalCodeMixin = ::" << manifest.axis_mixin_type
-        << "<PaperManifest>;\n";
+    ofs << "using OriginalCodeMixin = ::" << manifest.axis_mixin_type << "<PaperManifest>;\n";
     ofs << "\n";
     ofs << "}  // namespace " << namespace_name << "\n";
 
-    std::cout << "is_original_validator: WROTE " << output_path
-              << " (axis_mixin=" << manifest.axis_mixin_type << ", "
-              << validated.size() << " functions, module="
-              << (module_all_match ? "ALL ORIGINAL" : "MODIFIED") << ")\n";
+    std::cout << "is_original_validator: WROTE " << output_path << " (axis_mixin=" << manifest.axis_mixin_type << ", "
+              << validated.size() << " functions, module=" << (module_all_match ? "ALL ORIGINAL" : "MODIFIED") << ")\n";
 
     return 0;
 }

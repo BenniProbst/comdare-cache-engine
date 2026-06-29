@@ -49,7 +49,7 @@ namespace comdare::cache_engine::sha256 {
  */
 consteval Digest from_hex(std::string_view hex) noexcept {
     Digest d{};
-    if (hex.size() != 64) return d;  // Defekt-Marker: bleibt all-zero, Test schlaegt fehl
+    if (hex.size() != 64) return d; // Defekt-Marker: bleibt all-zero, Test schlaegt fehl
     auto to_nibble = [](char c) -> std::uint8_t {
         if (c >= '0' && c <= '9') return static_cast<std::uint8_t>(c - '0');
         if (c >= 'a' && c <= 'f') return static_cast<std::uint8_t>(c - 'a' + 10);
@@ -69,7 +69,7 @@ consteval Digest from_hex(std::string_view hex) noexcept {
  */
 constexpr std::array<char, 64> to_hex(Digest const& d) noexcept {
     std::array<char, 64> out{};
-    constexpr char kHex[] = "0123456789abcdef";
+    constexpr char       kHex[] = "0123456789abcdef";
     for (std::size_t i = 0; i < 32; ++i) {
         out[2 * i + 0] = kHex[(d[i] >> 4) & 0x0f];
         out[2 * i + 1] = kHex[d[i] & 0x0f];
@@ -77,7 +77,7 @@ constexpr std::array<char, 64> to_hex(Digest const& d) noexcept {
     return out;
 }
 
-}  // namespace
+} // namespace comdare::cache_engine::sha256
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMDARE_IS_ORIGINAL_FROM_GENERATED — Pflicht-Macro mit Pre-Build-Generated-Header
@@ -103,9 +103,9 @@ constexpr std::array<char, 64> to_hex(Digest const& d) noexcept {
 //   3. Im Cache-Engine-Compile + Hot-Path: is_original_allocate() returnt
 //      direkten constexpr bool literal → ZERO Runtime-Cost, kein consteval-SHA.
 
-#define COMDARE_IS_ORIGINAL_FROM_GENERATED(fn, generated_constant)                 \
-    [[nodiscard]] static constexpr bool is_original_##fn() noexcept {              \
-        return generated_constant;  /* aus Pre-Build-Tool-Header (literal) */      \
+#define COMDARE_IS_ORIGINAL_FROM_GENERATED(fn, generated_constant)                                                     \
+    [[nodiscard]] static constexpr bool is_original_##fn() noexcept {                                                  \
+        return generated_constant; /* aus Pre-Build-Tool-Header (literal) */                                           \
     }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ constexpr std::array<char, 64> to_hex(Digest const& d) noexcept {
 // Fuer Pseudocode-Papers / Non-C/C++/Go-Originale [[pseudocode-papers-fallback]]:
 // is_original_##fn() = false HART, ohne SHA-Validierung.
 
-#define COMDARE_IS_ORIGINAL_NOT_APPLICABLE(fn)                                     \
-    [[nodiscard]] static constexpr bool is_original_##fn() noexcept {              \
-        return false;  /* Re-Implementation, kein Original-Code-Linking */         \
+#define COMDARE_IS_ORIGINAL_NOT_APPLICABLE(fn)                                                                         \
+    [[nodiscard]] static constexpr bool is_original_##fn() noexcept {                                                  \
+        return false; /* Re-Implementation, kein Original-Code-Linking */                                              \
     }

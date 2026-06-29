@@ -29,7 +29,7 @@
 // Separatoren; Direkt-Treffer-Abkuerzung; Rest-Segment (Breite <= K) linearer Scan -> exakt lower_bound-Semantik fuer
 // vorhandene Keys (sonst nullopt). Keine Allokation, kein throw (reine Lese-Arithmetik).
 
-#include "composable_search.hpp"   // StorageOrgan-API + SortedBinaryTraversal (insert/erase/scan-Delegation) + Concepts
+#include "composable_search.hpp" // StorageOrgan-API + SortedBinaryTraversal (insert/erase/scan-Delegation) + Concepts
 
 #include <cstddef>
 #include <optional>
@@ -47,7 +47,7 @@ struct KAryTraversal {
 
     template <class Store>
     static void insert_into(Store& s, typename Store::key_type k, typename Store::value_type v) {
-        SortedBinaryTraversal::template insert_into<Store>(s, k, v);   // Sortier-Invariante identisch
+        SortedBinaryTraversal::template insert_into<Store>(s, k, v); // Sortier-Invariante identisch
     }
     template <class Store>
     static bool erase_from(Store& s, typename Store::key_type k) {
@@ -58,32 +58,40 @@ struct KAryTraversal {
     /// lookup_in (Wert iff Key vorhanden, sonst nullopt) = std::map-konform — fuer JEDES compile-time K.
     template <class Store>
     static std::optional<typename Store::value_type> lookup_in(Store const& s, typename Store::key_type k) {
-        std::size_t const n = s.slot_count();
-        std::size_t lo = 0, hi = n;                  // halb-offenes Intervall [lo, hi)
-        constexpr std::size_t K = Arity;             // #188-4a-C: K = compile-time-Subachse (Arity>=2 per static_assert)
+        std::size_t const     n  = s.slot_count();
+        std::size_t           lo = 0, hi = n; // halb-offenes Intervall [lo, hi)
+        constexpr std::size_t K = Arity;      // #188-4a-C: K = compile-time-Subachse (Arity>=2 per static_assert)
         while (hi - lo > K) {
-            std::size_t const width = hi - lo;
-            std::size_t new_lo = lo, new_hi = hi;
-            bool narrowed = false;
+            std::size_t const width  = hi - lo;
+            std::size_t       new_lo = lo, new_hi = hi;
+            bool              narrowed = false;
             for (std::size_t j = 1; j <= K; ++j) {
-                std::size_t const pos = lo + (width * j) / (K + 1);    // Separator in (lo,hi); Formel identisch zur Referenz; width<=slot_count -> kein realer Overflow
+                std::size_t const pos =
+                    lo +
+                    (width * j) /
+                        (K +
+                         1); // Separator in (lo,hi); Formel identisch zur Referenz; width<=slot_count -> kein realer Overflow
                 typename Store::key_type const sep = s.key_at(pos);
-                if (sep == k) return s.value_at(pos);                  // Direkt-Treffer auf Separator
-                if (k < sep) { new_hi = pos; narrowed = true; break; } // Ziel im Segment vor pos
-                new_lo = pos + 1;                                      // Ziel hinter diesem Separator
+                if (sep == k) return s.value_at(pos); // Direkt-Treffer auf Separator
+                if (k < sep) {
+                    new_hi   = pos;
+                    narrowed = true;
+                    break;
+                } // Ziel im Segment vor pos
+                new_lo = pos + 1; // Ziel hinter diesem Separator
             }
             lo = new_lo;
-            if (narrowed) hi = new_hi;                                 // sonst: k > alle Separatoren -> [letzter+1, hi)
+            if (narrowed) hi = new_hi; // sonst: k > alle Separatoren -> [letzter+1, hi)
         }
-        for (std::size_t i = lo; i < hi; ++i)                          // Rest-Segment (Breite <= K): linearer Scan
+        for (std::size_t i = lo; i < hi; ++i) // Rest-Segment (Breite <= K): linearer Scan
             if (s.key_at(i) == k) return s.value_at(i);
         return std::nullopt;
     }
     /// GoF-Iterator (YCSB-E #214): Store sortiert (insert/erase delegieren an SortedBinary) -> geordneter Range-Scan
     /// delegiert ebenfalls an SortedBinaryTraversal::scan_into (lower_bound + Walk, O(log n + scan_len)).
     template <class Store, class Sink>
-    static std::size_t scan_into(Store const& s, typename Store::key_type start_key,
-                                 std::size_t max_count, Sink&& sink) {
+    static std::size_t scan_into(Store const& s, typename Store::key_type start_key, std::size_t max_count,
+                                 Sink&& sink) {
         return SortedBinaryTraversal::template scan_into<Store>(s, start_key, max_count, std::forward<Sink>(sink));
     }
 };
@@ -93,4 +101,4 @@ struct KAryTraversal {
 static_assert(TraversalOrgan<KAryTraversal<4u>, RawSlotStore>);
 static_assert(ScannableTraversalOrgan<KAryTraversal<4u>, RawSlotStore>);
 
-}  // namespace comdare::cache_engine::lookup::composable
+} // namespace comdare::cache_engine::lookup::composable

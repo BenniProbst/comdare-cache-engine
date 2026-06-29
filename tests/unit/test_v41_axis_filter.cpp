@@ -23,8 +23,8 @@
 #include <type_traits>
 
 namespace ax_filter = ::comdare::cache_engine::filter::axis_filter;
-namespace flt      = ::comdare::cache_engine::filter;
-namespace mp       = ::boost::mp11;
+namespace flt       = ::comdare::cache_engine::filter;
+namespace mp        = ::boost::mp11;
 
 // ─── TYPED_TEST_SUITE Pattern (axis_06_allocator-Goldstandard) ───
 // mp_apply<ToGTestTypes, AllFilters> wandelt mp_list<...> in ::testing::Types<...>
@@ -48,8 +48,7 @@ TYPED_TEST(FilterWrapperTest, HasTopicTagAndFamilyId) {
     using topic_tag_t = typename TypeParam::topic_tag;
     using family_id_t = typename TypeParam::family_id;
     static_assert(family_id_t::value > 0);
-    static_assert(std::is_same_v<topic_tag_t,
-                                 ::comdare::cache_engine::filter::concepts::FilterTopicTag>);
+    static_assert(std::is_same_v<topic_tag_t, ::comdare::cache_engine::filter::concepts::FilterTopicTag>);
     SUCCEED();
 }
 
@@ -71,26 +70,26 @@ TYPED_TEST(FilterWrapperTest, IsEnabledMatchesFlag) {
 
 TEST(R7_5_e_Axis_Filter_Specific, SupportsRangeQueryDifferentiated) {
     // Nur RangeSurf unterstuetzt Range-Query (Zhang SIGMOD 2018)
-    static_assert(ax_filter::BloomFilter::supports_range_query()      == false);
-    static_assert(ax_filter::CuckooFilter::supports_range_query()     == false);
-    static_assert(ax_filter::RangeSurfFilter::supports_range_query()  == true);
-    static_assert(ax_filter::XorFilter::supports_range_query()        == false);
+    static_assert(ax_filter::BloomFilter::supports_range_query() == false);
+    static_assert(ax_filter::CuckooFilter::supports_range_query() == false);
+    static_assert(ax_filter::RangeSurfFilter::supports_range_query() == true);
+    static_assert(ax_filter::XorFilter::supports_range_query() == false);
     SUCCEED();
 }
 
 TEST(R7_5_e_Axis_Filter_Specific, FlagSuffixUppercase) {
-    static_assert(ax_filter::BloomFilter::flag_suffix()      == std::string_view{"BLOOM"});
-    static_assert(ax_filter::CuckooFilter::flag_suffix()     == std::string_view{"CUCKOO"});
-    static_assert(ax_filter::RangeSurfFilter::flag_suffix()  == std::string_view{"RANGE_SURF"});
-    static_assert(ax_filter::XorFilter::flag_suffix()        == std::string_view{"XOR"});
+    static_assert(ax_filter::BloomFilter::flag_suffix() == std::string_view{"BLOOM"});
+    static_assert(ax_filter::CuckooFilter::flag_suffix() == std::string_view{"CUCKOO"});
+    static_assert(ax_filter::RangeSurfFilter::flag_suffix() == std::string_view{"RANGE_SURF"});
+    static_assert(ax_filter::XorFilter::flag_suffix() == std::string_view{"XOR"});
     SUCCEED();
 }
 
 TEST(R7_5_e_Axis_Filter_Specific, SubaxesOrthogonal) {
-    static_assert(std::is_same_v<ax_filter::BloomFilter::axis_tag,      ax_filter::subaxes::query_type_tag>);
-    static_assert(std::is_same_v<ax_filter::CuckooFilter::axis_tag,     ax_filter::subaxes::mutability_tag>);
-    static_assert(std::is_same_v<ax_filter::RangeSurfFilter::axis_tag,  ax_filter::subaxes::query_type_tag>);
-    static_assert(std::is_same_v<ax_filter::XorFilter::axis_tag,        ax_filter::subaxes::error_profile_tag>);
+    static_assert(std::is_same_v<ax_filter::BloomFilter::axis_tag, ax_filter::subaxes::query_type_tag>);
+    static_assert(std::is_same_v<ax_filter::CuckooFilter::axis_tag, ax_filter::subaxes::mutability_tag>);
+    static_assert(std::is_same_v<ax_filter::RangeSurfFilter::axis_tag, ax_filter::subaxes::query_type_tag>);
+    static_assert(std::is_same_v<ax_filter::XorFilter::axis_tag, ax_filter::subaxes::error_profile_tag>);
     SUCCEED();
 }
 
@@ -102,8 +101,7 @@ TEST(R7_5_e_Axis_Filter_Specific, RegistryHas4Filters) {
 
 TEST(R7_5_e_Filter, TopicConfigSetExposesAxisFilter) {
     static_assert(mp::mp_size<flt::TopicConfigSet::StaticAxisVariants_F>::value > 0);
-    static_assert(std::is_same_v<flt::TopicConfigSet::StaticAxisVariants,
-                                  flt::TopicConfigSet::StaticAxisVariants_F>);
+    static_assert(std::is_same_v<flt::TopicConfigSet::StaticAxisVariants, flt::TopicConfigSet::StaticAxisVariants_F>);
     SUCCEED();
 }
 

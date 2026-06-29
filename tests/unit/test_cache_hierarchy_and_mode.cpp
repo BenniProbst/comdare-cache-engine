@@ -17,10 +17,10 @@ namespace cep = comdare::cache_engine::platform;
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(CacheEngineMode, FourModesExistInOrder) {
-    EXPECT_EQ(static_cast<int>(ce::CacheEngineMode::HEURISTIC_STATIC),    0);
+    EXPECT_EQ(static_cast<int>(ce::CacheEngineMode::HEURISTIC_STATIC), 0);
     EXPECT_EQ(static_cast<int>(ce::CacheEngineMode::INFORMED_KALIBRIERT), 1);
-    EXPECT_EQ(static_cast<int>(ce::CacheEngineMode::AUTOMATIC_ADAPTIVE),  2);
-    EXPECT_EQ(static_cast<int>(ce::CacheEngineMode::BASELINE_NO_ENGINE),  3);
+    EXPECT_EQ(static_cast<int>(ce::CacheEngineMode::AUTOMATIC_ADAPTIVE), 2);
+    EXPECT_EQ(static_cast<int>(ce::CacheEngineMode::BASELINE_NO_ENGINE), 3);
 }
 
 TEST(CacheEnginePermutationVariant, FourFactoriesProduceDistinctVariants) {
@@ -46,43 +46,37 @@ TEST(CacheEnginePermutationVariant, FourFactoriesProduceDistinctVariants) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(DataTemperature, FourTemperaturesExist) {
-    EXPECT_EQ(static_cast<int>(ce::DataTemperature::Cold),  0);
-    EXPECT_EQ(static_cast<int>(ce::DataTemperature::Warm),  1);
-    EXPECT_EQ(static_cast<int>(ce::DataTemperature::Hot),   2);
+    EXPECT_EQ(static_cast<int>(ce::DataTemperature::Cold), 0);
+    EXPECT_EQ(static_cast<int>(ce::DataTemperature::Warm), 1);
+    EXPECT_EQ(static_cast<int>(ce::DataTemperature::Hot), 2);
     EXPECT_EQ(static_cast<int>(ce::DataTemperature::Ultra), 3);
 }
 
 TEST(AllocatorTier, FiveGenericTiersExist) {
     // REV 3 K3.2: KEINE Ryzen/Intel-Spezialisierung
-    EXPECT_EQ(static_cast<int>(ce::AllocatorTier::StandardDimm),  0);
-    EXPECT_EQ(static_cast<int>(ce::AllocatorTier::HbmTier),       1);
-    EXPECT_EQ(static_cast<int>(ce::AllocatorTier::LargestL3Tier), 2);   // statt X3DAware
-    EXPECT_EQ(static_cast<int>(ce::AllocatorTier::PinnedHighIpc), 3);   // statt IntelHybridP-Core
-    EXPECT_EQ(static_cast<int>(ce::AllocatorTier::Persistent),    4);
+    EXPECT_EQ(static_cast<int>(ce::AllocatorTier::StandardDimm), 0);
+    EXPECT_EQ(static_cast<int>(ce::AllocatorTier::HbmTier), 1);
+    EXPECT_EQ(static_cast<int>(ce::AllocatorTier::LargestL3Tier), 2); // statt X3DAware
+    EXPECT_EQ(static_cast<int>(ce::AllocatorTier::PinnedHighIpc), 3); // statt IntelHybridP-Core
+    EXPECT_EQ(static_cast<int>(ce::AllocatorTier::Persistent), 4);
 }
 
-TEST(CacheHierarchyManager, AbstractInterface) {
-    EXPECT_TRUE(std::is_abstract_v<ce::ICacheHierarchyManager>);
-}
+TEST(CacheHierarchyManager, AbstractInterface) { EXPECT_TRUE(std::is_abstract_v<ce::ICacheHierarchyManager>); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Scheduler + Heuristik
 // ─────────────────────────────────────────────────────────────────────────────
 
-TEST(Scheduler, AbstractInterface) {
-    EXPECT_TRUE(std::is_abstract_v<cep::IScheduler>);
-}
+TEST(Scheduler, AbstractInterface) { EXPECT_TRUE(std::is_abstract_v<cep::IScheduler>); }
 
-TEST(Heuristic, AbstractInterface) {
-    EXPECT_TRUE(std::is_abstract_v<cep::IHeuristic>);
-}
+TEST(Heuristic, AbstractInterface) { EXPECT_TRUE(std::is_abstract_v<cep::IHeuristic>); }
 
 TEST(HeuristicCategory, SevenCategoriesExist) {
-    EXPECT_EQ(static_cast<int>(cep::HeuristicCategory::StaticCostModel),    0);
-    EXPECT_EQ(static_cast<int>(cep::HeuristicCategory::AdaptiveRuntime),    1);
+    EXPECT_EQ(static_cast<int>(cep::HeuristicCategory::StaticCostModel), 0);
+    EXPECT_EQ(static_cast<int>(cep::HeuristicCategory::AdaptiveRuntime), 1);
     EXPECT_EQ(static_cast<int>(cep::HeuristicCategory::WorkloadAdaptation), 2);
-    EXPECT_EQ(static_cast<int>(cep::HeuristicCategory::LayoutInvariant),    3);
-    EXPECT_EQ(static_cast<int>(cep::HeuristicCategory::NegativeFinding),    4);
-    EXPECT_EQ(static_cast<int>(cep::HeuristicCategory::TelemetryDriven),    5);
-    EXPECT_EQ(static_cast<int>(cep::HeuristicCategory::HardwareProbe),      6);
+    EXPECT_EQ(static_cast<int>(cep::HeuristicCategory::LayoutInvariant), 3);
+    EXPECT_EQ(static_cast<int>(cep::HeuristicCategory::NegativeFinding), 4);
+    EXPECT_EQ(static_cast<int>(cep::HeuristicCategory::TelemetryDriven), 5);
+    EXPECT_EQ(static_cast<int>(cep::HeuristicCategory::HardwareProbe), 6);
 }

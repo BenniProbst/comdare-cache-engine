@@ -15,12 +15,8 @@ namespace comdare::cache_engine::serialization_axis {
 
 namespace mp = boost::mp11;
 
-using AllSerializers = mp::mp_list<
-    RawBinarySerialization,
-    VarLenSerialization,
-    SuccinctSerialization,
-    CompressedSerialization
->;
+using AllSerializers =
+    mp::mp_list<RawBinarySerialization, VarLenSerialization, SuccinctSerialization, CompressedSerialization>;
 
 template <typename T>
 using is_enabled = mp::mp_bool<T::enabled>;
@@ -28,6 +24,6 @@ using is_enabled = mp::mp_bool<T::enabled>;
 using EnabledSerializers = mp::mp_filter<is_enabled, AllSerializers>;
 
 static_assert(mp::mp_size<EnabledSerializers>::value > 0,
-    "Axis 10 Serialization: at least one serializer must be enabled");
+              "Axis 10 Serialization: at least one serializer must be enabled");
 
-}  // namespace
+} // namespace comdare::cache_engine::serialization_axis

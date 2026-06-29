@@ -51,11 +51,11 @@ TEST(SubEngines, AllTwelveInterfacesAreAbstract) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(C02PinningEngine, FiveGenericTargetsAreDistinct) {
-    EXPECT_EQ(static_cast<int>(pinning::PinningTarget::AnyCore),          0);
-    EXPECT_EQ(static_cast<int>(pinning::PinningTarget::LargestL3CcdCore), 1);  // statt X3DAware
-    EXPECT_EQ(static_cast<int>(pinning::PinningTarget::HighIpcCore),      2);  // statt IntelHybrid
-    EXPECT_EQ(static_cast<int>(pinning::PinningTarget::NumaLocalCore),    3);
-    EXPECT_EQ(static_cast<int>(pinning::PinningTarget::SpecializedCore),  4);
+    EXPECT_EQ(static_cast<int>(pinning::PinningTarget::AnyCore), 0);
+    EXPECT_EQ(static_cast<int>(pinning::PinningTarget::LargestL3CcdCore), 1); // statt X3DAware
+    EXPECT_EQ(static_cast<int>(pinning::PinningTarget::HighIpcCore), 2);      // statt IntelHybrid
+    EXPECT_EQ(static_cast<int>(pinning::PinningTarget::NumaLocalCore), 3);
+    EXPECT_EQ(static_cast<int>(pinning::PinningTarget::SpecializedCore), 4);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,13 +63,13 @@ TEST(C02PinningEngine, FiveGenericTargetsAreDistinct) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(C03PrefetchEngine, SevenPoliciesIncludeNoneAndPaperVariants) {
-    EXPECT_EQ(static_cast<int>(prefetch::PrefetchPolicy::None),               0);
-    EXPECT_EQ(static_cast<int>(prefetch::PrefetchPolicy::SoftwareFixed),      1);
-    EXPECT_EQ(static_cast<int>(prefetch::PrefetchPolicy::AdaptiveDistance),   2);
+    EXPECT_EQ(static_cast<int>(prefetch::PrefetchPolicy::None), 0);
+    EXPECT_EQ(static_cast<int>(prefetch::PrefetchPolicy::SoftwareFixed), 1);
+    EXPECT_EQ(static_cast<int>(prefetch::PrefetchPolicy::AdaptiveDistance), 2);
     EXPECT_EQ(static_cast<int>(prefetch::PrefetchPolicy::HierarchicalBundle), 3);
-    EXPECT_EQ(static_cast<int>(prefetch::PrefetchPolicy::FillBufferAware),    4);
-    EXPECT_EQ(static_cast<int>(prefetch::PrefetchPolicy::HotPath),            5);
-    EXPECT_EQ(static_cast<int>(prefetch::PrefetchPolicy::JumpPointerArray),   6);
+    EXPECT_EQ(static_cast<int>(prefetch::PrefetchPolicy::FillBufferAware), 4);
+    EXPECT_EQ(static_cast<int>(prefetch::PrefetchPolicy::HotPath), 5);
+    EXPECT_EQ(static_cast<int>(prefetch::PrefetchPolicy::JumpPointerArray), 6);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -77,11 +77,11 @@ TEST(C03PrefetchEngine, SevenPoliciesIncludeNoneAndPaperVariants) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(C07MigrationEngine, FiveMigrationKindsExist) {
-    EXPECT_EQ(static_cast<int>(migration::MigrationKind::LocalRelocation),      0);
+    EXPECT_EQ(static_cast<int>(migration::MigrationKind::LocalRelocation), 0);
     EXPECT_EQ(static_cast<int>(migration::MigrationKind::GlobalReorganization), 1);
-    EXPECT_EQ(static_cast<int>(migration::MigrationKind::HotToUltra),           2);
-    EXPECT_EQ(static_cast<int>(migration::MigrationKind::ColdToStandard),       3);
-    EXPECT_EQ(static_cast<int>(migration::MigrationKind::Eviction),             4);
+    EXPECT_EQ(static_cast<int>(migration::MigrationKind::HotToUltra), 2);
+    EXPECT_EQ(static_cast<int>(migration::MigrationKind::ColdToStandard), 3);
+    EXPECT_EQ(static_cast<int>(migration::MigrationKind::Eviction), 4);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -89,18 +89,18 @@ TEST(C07MigrationEngine, FiveMigrationKindsExist) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(C08EncodingEngine, TwelveEncodingsArePresent) {
-    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::LoudsJacobson),          0);
-    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::LoudsDense),             1);
-    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::LoudsSparse),            2);
-    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::EliasFano),              3);
-    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::PackedArray),            4);
-    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::Bitvector),              5);
-    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::DenseEncoding),          6);
-    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::PointerElimination),     7);
-    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::PartialPointerElim),     8);
+    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::LoudsJacobson), 0);
+    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::LoudsDense), 1);
+    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::LoudsSparse), 2);
+    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::EliasFano), 3);
+    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::PackedArray), 4);
+    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::Bitvector), 5);
+    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::DenseEncoding), 6);
+    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::PointerElimination), 7);
+    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::PartialPointerElim), 8);
     EXPECT_EQ(static_cast<int>(encoding::EncodingKind::OrderPreservingHuffman), 9);
-    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::PrefixTruncation),      10);
-    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::KeyNormalization),      11);
+    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::PrefixTruncation), 10);
+    EXPECT_EQ(static_cast<int>(encoding::EncodingKind::KeyNormalization), 11);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -108,9 +108,9 @@ TEST(C08EncodingEngine, TwelveEncodingsArePresent) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(C11SchedulerEngine, FourSchedulingKindsExist) {
-    EXPECT_EQ(static_cast<int>(scheduler::SchedulingKind::PageTypeUpgrade),   0);
+    EXPECT_EQ(static_cast<int>(scheduler::SchedulingKind::PageTypeUpgrade), 0);
     EXPECT_EQ(static_cast<int>(scheduler::SchedulingKind::PageTypeDowngrade), 1);
-    EXPECT_EQ(static_cast<int>(scheduler::SchedulingKind::PageRebalance),     2);
+    EXPECT_EQ(static_cast<int>(scheduler::SchedulingKind::PageRebalance), 2);
     EXPECT_EQ(static_cast<int>(scheduler::SchedulingKind::OperationDeferral), 3);
 }
 
@@ -119,14 +119,14 @@ TEST(C11SchedulerEngine, FourSchedulingKindsExist) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(C12FilterEngine, FourSurfVariantsPlusFourClassicFilters) {
-    EXPECT_EQ(static_cast<int>(filter::FilterKind::SurfBase),     0);
-    EXPECT_EQ(static_cast<int>(filter::FilterKind::SurfHash),     1);
-    EXPECT_EQ(static_cast<int>(filter::FilterKind::SurfReal),     2);
-    EXPECT_EQ(static_cast<int>(filter::FilterKind::SurfMixed),    3);
-    EXPECT_EQ(static_cast<int>(filter::FilterKind::Bloom),        4);
-    EXPECT_EQ(static_cast<int>(filter::FilterKind::CountingBloom),5);
-    EXPECT_EQ(static_cast<int>(filter::FilterKind::Cuckoo),       6);
-    EXPECT_EQ(static_cast<int>(filter::FilterKind::Arf),          7);
+    EXPECT_EQ(static_cast<int>(filter::FilterKind::SurfBase), 0);
+    EXPECT_EQ(static_cast<int>(filter::FilterKind::SurfHash), 1);
+    EXPECT_EQ(static_cast<int>(filter::FilterKind::SurfReal), 2);
+    EXPECT_EQ(static_cast<int>(filter::FilterKind::SurfMixed), 3);
+    EXPECT_EQ(static_cast<int>(filter::FilterKind::Bloom), 4);
+    EXPECT_EQ(static_cast<int>(filter::FilterKind::CountingBloom), 5);
+    EXPECT_EQ(static_cast<int>(filter::FilterKind::Cuckoo), 6);
+    EXPECT_EQ(static_cast<int>(filter::FilterKind::Arf), 7);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -134,9 +134,9 @@ TEST(C12FilterEngine, FourSurfVariantsPlusFourClassicFilters) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(SubEngines, NamingFollowsCxxNumberingConvention) {
-    static_assert(sizeof(cost::CostEstimate)             > 0, "C01 CostEstimate fehlt");
-    static_assert(sizeof(coherence::CoherenceMetrics)    > 0, "C04 CoherenceMetrics fehlt");
-    static_assert(sizeof(migration::MigrationResult)     > 0, "C07 MigrationResult fehlt");
+    static_assert(sizeof(cost::CostEstimate) > 0, "C01 CostEstimate fehlt");
+    static_assert(sizeof(coherence::CoherenceMetrics) > 0, "C04 CoherenceMetrics fehlt");
+    static_assert(sizeof(migration::MigrationResult) > 0, "C07 MigrationResult fehlt");
     static_assert(sizeof(heuristik::HeuristicEvaluation) > 0, "C09 HeuristicEvaluation fehlt");
     SUCCEED();
 }

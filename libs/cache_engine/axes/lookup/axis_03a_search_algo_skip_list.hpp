@@ -58,22 +58,26 @@ public:
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::sparse_access_tag;
-    using family_id  = std::integral_constant<int, 13>;  // S13
+    using family_id  = std::integral_constant<int, 13>; // S13
 
     static constexpr int           kMaxLevel = 16;
-    static constexpr std::uint32_t kNil      = 0xFFFFFFFFu;  // "kein Nachfolger"
-    static constexpr std::uint32_t kHead     = 0u;           // Sentinel-Kopf-Index
+    static constexpr std::uint32_t kNil      = 0xFFFFFFFFu; // "kein Nachfolger"
+    static constexpr std::uint32_t kHead     = 0u;          // Sentinel-Kopf-Index
 
-    [[nodiscard]] static constexpr bool        is_thread_safe()    noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t max_fanout()        noexcept { return 65536; }  // u16 Keyraum
-    [[nodiscard]] static constexpr std::string_view name()         noexcept { return "skip_list"; }
-    [[nodiscard]] static constexpr std::string_view family_name()  noexcept { return "SkipListSearchAlgo (probabilistic ordered structure — Pugh CACM 1990)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()  noexcept { return "SKIP_LIST"; }
+    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; } // u16 Keyraum
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "skip_list"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "SkipListSearchAlgo (probabilistic ordered structure — Pugh CACM 1990)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "SKIP_LIST"; }
 
-    [[nodiscard]] static constexpr bool supports_simd()            noexcept { return false; }  // Pointer-Chasing
-    [[nodiscard]] static constexpr bool supports_range_scan()      noexcept { return true; }   // geordnet (Level-0-Kette)
-    [[nodiscard]] static constexpr bool is_dense()                 noexcept { return false; }
-    [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return false; }  // verzeigert, nicht aligned
+    [[nodiscard]] static constexpr bool supports_simd() noexcept { return false; }      // Pointer-Chasing
+    [[nodiscard]] static constexpr bool supports_range_scan() noexcept { return true; } // geordnet (Level-0-Kette)
+    [[nodiscard]] static constexpr bool is_dense() noexcept { return false; }
+    [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept {
+        return false;
+    } // verzeigert, nicht aligned
 
     SkipListSearchAlgo() noexcept : rng_(0xC0FFEEu) { init_head(); }
 
@@ -84,11 +88,12 @@ public:
     /// SONDERFALL [[allocation-failure-exception]]: nodes_-Wachstum kann std::bad_alloc werfen.
     void insert(key_type k, value_type v) {
         std::array<std::uint32_t, kMaxLevel> update{};
-        std::uint32_t const cand = find_update(k, update);
+        std::uint32_t const                  cand = find_update(k, update);
         if (cand != kNil && nodes_[cand].key == k && nodes_[cand].live) {
-            nodes_[cand].val = v;  // Update vorhandener Key
+            nodes_[cand].val = v; // Update vorhandener Key
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-            ++stats_.total_insert_count; observer_.notify(stats_);
+            ++stats_.total_insert_count;
+            observer_.notify(stats_);
 #endif
             return;
         }
@@ -100,8 +105,8 @@ public:
         std::uint32_t const idx = static_cast<std::uint32_t>(nodes_.size());
         nodes_.push_back(Node{k, v, true, std::vector<std::uint32_t>(static_cast<std::size_t>(lvl), kNil)});
         for (int i = 0; i < lvl; ++i) {
-            std::uint32_t const pred = update[static_cast<std::size_t>(i)];
-            nodes_[idx].next[static_cast<std::size_t>(i)] = nodes_[pred].next[static_cast<std::size_t>(i)];
+            std::uint32_t const pred                       = update[static_cast<std::size_t>(i)];
+            nodes_[idx].next[static_cast<std::size_t>(i)]  = nodes_[pred].next[static_cast<std::size_t>(i)];
             nodes_[pred].next[static_cast<std::size_t>(i)] = idx;
         }
         ++live_count_;
@@ -114,11 +119,11 @@ public:
 
     [[nodiscard]] std::optional<value_type> lookup(key_type k) const {
         std::optional<value_type> result = std::nullopt;
-        std::uint32_t x = kHead;
+        std::uint32_t             x      = kHead;
         for (int i = level_ - 1; i >= 0; --i) {
             std::uint32_t nxt = nodes_[x].next[static_cast<std::size_t>(i)];
             while (nxt != kNil && nodes_[nxt].key < k) {
-                x = nxt;
+                x   = nxt;
                 nxt = nodes_[x].next[static_cast<std::size_t>(i)];
             }
         }
@@ -126,7 +131,10 @@ public:
         if (cand != kNil && nodes_[cand].key == k && nodes_[cand].live) result = nodes_[cand].val;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_lookup_count;
-        if (result) ++stats_.total_hit_count; else ++stats_.total_miss_count;
+        if (result)
+            ++stats_.total_hit_count;
+        else
+            ++stats_.total_miss_count;
         observer_.notify(stats_);
 #endif
         return result;
@@ -134,7 +142,7 @@ public:
 
     bool erase(key_type k) {
         std::array<std::uint32_t, kMaxLevel> update{};
-        std::uint32_t const cand = find_update(k, update);
+        std::uint32_t const                  cand = find_update(k, update);
         if (cand == kNil || nodes_[cand].key != k || !nodes_[cand].live) return false;
         for (int i = 0; i < level_; ++i) {
             std::uint32_t const pred = update[static_cast<std::size_t>(i)];
@@ -142,32 +150,31 @@ public:
                 nodes_[pred].next[static_cast<std::size_t>(i)] = nodes_[cand].next[static_cast<std::size_t>(i)];
             }
         }
-        nodes_[cand].live = false;  // Tombstone (unverlinkt → unerreichbar)
+        nodes_[cand].live = false; // Tombstone (unverlinkt → unerreichbar)
         while (level_ > 1 && nodes_[kHead].next[static_cast<std::size_t>(level_ - 1)] == kNil) --level_;
         --live_count_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        ++stats_.total_erase_count; observer_.notify(stats_);
+        ++stats_.total_erase_count;
+        observer_.notify(stats_);
 #endif
         return true;
     }
 
     [[nodiscard]] size_type occupied_count() const noexcept { return live_count_; }
-    [[nodiscard]] double    density_percent() const noexcept {
-        return 100.0 * static_cast<double>(live_count_) / 65536.0;
-    }
-    void clear() noexcept {
+    [[nodiscard]] double density_percent() const noexcept { return 100.0 * static_cast<double>(live_count_) / 65536.0; }
+    void                 clear() noexcept {
         // Allokationsfrei: nur den Head behalten + seine Forward-Slots auf kNil zuruecksetzen
         // (kein push_back → kein bad_alloc im noexcept-Pfad).
         nodes_.resize(1);
         for (auto& slot : nodes_[kHead].next) slot = kNil;
         live_count_ = 0;
-        level_ = 1;
+        level_      = 1;
     }
 
     /// DensityClassifiedStrategy [[density-classified-strategy]]: Belegungs-basierte Klassifikation.
     [[nodiscard]] concepts::DensityClass density_class() const noexcept {
         if (live_count_ > 1024) return concepts::DensityClass::Dense;
-        if (live_count_ > 64)   return concepts::DensityClass::Balanced;
+        if (live_count_ > 64) return concepts::DensityClass::Balanced;
         return concepts::DensityClass::Sparse;
     }
 
@@ -175,12 +182,18 @@ public:
     using snapshot_t = concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    [[nodiscard]] snapshot_t snapshot()   const noexcept { return stats_; }
-    void reset() noexcept { stats_ = {}; observer_.notify(stats_); }
+    [[nodiscard]] snapshot_t snapshot() const noexcept { return stats_; }
+    void                     reset() noexcept {
+        stats_ = {};
+        observer_.notify(stats_);
+    }
     // CoW-Memento (#142/Audit-K3): Stat-POD-Restore -> organ_cow_capable_v aktiv (spiegelt Observable-Huelle).
-    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; observer_.notify(stats_); }
+    void restore_statistics(snapshot_t const& s) noexcept {
+        stats_ = s;
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
-    [[nodiscard]] observer_t&       observer()       noexcept { return observer_; }
+    [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
@@ -188,7 +201,7 @@ private:
         key_type                   key{};
         value_type                 val{};
         bool                       live{};
-        std::vector<std::uint32_t> next{};  // Forward-INDICES je Level (kNil = Ende)
+        std::vector<std::uint32_t> next{}; // Forward-INDICES je Level (kNil = Ende)
     };
 
     void init_head() {
@@ -203,7 +216,7 @@ private:
         for (int i = level_ - 1; i >= 0; --i) {
             std::uint32_t nxt = nodes_[x].next[static_cast<std::size_t>(i)];
             while (nxt != kNil && nodes_[nxt].key < k) {
-                x = nxt;
+                x   = nxt;
                 nxt = nodes_[x].next[static_cast<std::size_t>(i)];
             }
             update[static_cast<std::size_t>(i)] = x;
@@ -213,24 +226,24 @@ private:
 
     [[nodiscard]] int random_level() noexcept {
         int lvl = 1;
-        while ((rng_() & 1u) != 0u && lvl < kMaxLevel) ++lvl;  // Muenzwurf P=0.5
+        while ((rng_() & 1u) != 0u && lvl < kMaxLevel) ++lvl; // Muenzwurf P=0.5
         return lvl;
     }
 
-    std::vector<Node> nodes_{};
-    std::size_t       live_count_ = 0;
-    int               level_      = 1;
+    std::vector<Node>       nodes_{};
+    std::size_t             live_count_ = 0;
+    int                     level_      = 1;
     mutable std::mt19937_64 rng_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::SearchAlgoStatistics stats_{};
-    mutable observer_t                      observer_{};
+    mutable observer_t                     observer_{};
 #endif
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::lookup
 
 namespace comdare::cache_engine::lookup {
-    static_assert(concepts::SearchAlgoVariant<SkipListSearchAlgo>);
-    static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<SkipListSearchAlgo>);
-    static_assert(concepts::DensityClassifiedStrategy<SkipListSearchAlgo>);
-}
+static_assert(concepts::SearchAlgoVariant<SkipListSearchAlgo>);
+static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<SkipListSearchAlgo>);
+static_assert(concepts::DensityClassifiedStrategy<SkipListSearchAlgo>);
+} // namespace comdare::cache_engine::lookup

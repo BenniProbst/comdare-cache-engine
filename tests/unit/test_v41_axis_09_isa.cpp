@@ -65,27 +65,27 @@ TYPED_TEST(IsaWrapperTest, IsEnabledMatchesFlag) {
 // ─── Spezifische Verhaltens-Tests ───
 
 TEST(R7_5_i2_Axis_09_Specific, CpuFamilyIdentifiers) {
-    static_assert(ax09::Amd64Isa::cpu_family()    == std::string_view{"x86_64"});
-    static_assert(ax09::Aarch64Isa::cpu_family()  == std::string_view{"aarch64"});
-    static_assert(ax09::RiscVIsa::cpu_family()    == std::string_view{"riscv64"});
-    static_assert(ax09::PowerPcIsa::cpu_family()  == std::string_view{"ppc64le"});
+    static_assert(ax09::Amd64Isa::cpu_family() == std::string_view{"x86_64"});
+    static_assert(ax09::Aarch64Isa::cpu_family() == std::string_view{"aarch64"});
+    static_assert(ax09::RiscVIsa::cpu_family() == std::string_view{"riscv64"});
+    static_assert(ax09::PowerPcIsa::cpu_family() == std::string_view{"ppc64le"});
     SUCCEED();
 }
 
 TEST(R7_5_i2_Axis_09_Specific, NativeSimdAvailability) {
     // Amd64/Aarch64/PowerPC haben SIMD als Pflicht-ABI-Baseline
     // RISC-V Vector ist optional (nicht baseline)
-    static_assert(ax09::Amd64Isa::supports_native_simd()   == true);
+    static_assert(ax09::Amd64Isa::supports_native_simd() == true);
     static_assert(ax09::Aarch64Isa::supports_native_simd() == true);
     static_assert(ax09::PowerPcIsa::supports_native_simd() == true);
-    static_assert(ax09::RiscVIsa::supports_native_simd()   == false);
+    static_assert(ax09::RiscVIsa::supports_native_simd() == false);
     SUCCEED();
 }
 
 TEST(R7_5_i2_Axis_09_Specific, FlagSuffixUppercase) {
-    static_assert(ax09::Amd64Isa::flag_suffix()   == std::string_view{"AMD64"});
+    static_assert(ax09::Amd64Isa::flag_suffix() == std::string_view{"AMD64"});
     static_assert(ax09::Aarch64Isa::flag_suffix() == std::string_view{"AARCH64"});
-    static_assert(ax09::RiscVIsa::flag_suffix()   == std::string_view{"RISCV"});
+    static_assert(ax09::RiscVIsa::flag_suffix() == std::string_view{"RISCV"});
     static_assert(ax09::PowerPcIsa::flag_suffix() == std::string_view{"POWERPC"});
     SUCCEED();
 }

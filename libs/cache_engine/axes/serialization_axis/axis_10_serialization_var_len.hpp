@@ -26,9 +26,11 @@ public:
     static constexpr bool enabled = flags::var_len_enabled;
 
     [[nodiscard]] static constexpr bool             supports_compression() noexcept { return true; }
-    [[nodiscard]] static constexpr std::string_view name()                 noexcept { return "serialization_var_len"; }
-    [[nodiscard]] static constexpr std::string_view family_name()          noexcept { return "VarLenSerialization (ART signaling-bits VarInt encoding)"; }
-    [[nodiscard]] static constexpr std::string_view flag_suffix()          noexcept { return "VAR_LEN"; }
+    [[nodiscard]] static constexpr std::string_view name() noexcept { return "serialization_var_len"; }
+    [[nodiscard]] static constexpr std::string_view family_name() noexcept {
+        return "VarLenSerialization (ART signaling-bits VarInt encoding)";
+    }
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "VAR_LEN"; }
 
     // R5.B: behaviorale Laufzeit-API (s. RawBinarySerialization). VarLen = LEB128-VarInt: 7 Nutz-Bits je Byte,
     // MSB = Continuation-Flag (kleine Werte = wenige Bytes). Order-sensitiver FNV-Mix der emittierten Bytes —
@@ -39,12 +41,12 @@ public:
         for (std::size_t i = 0; i < n; ++i) {
             std::uint32_t v;
             std::memcpy(&v, buf + i * record_size, sizeof(v));
-            std::uint64_t mix = 1469598103934665603ULL;        // FNV-1a offset basis
+            std::uint64_t mix = 1469598103934665603ULL; // FNV-1a offset basis
             do {
                 unsigned char byte = static_cast<unsigned char>(v & 0x7Fu);
                 v >>= 7;
-                if (v != 0u) byte = static_cast<unsigned char>(byte | 0x80u);  // Continuation-Bit
-                mix = (mix ^ byte) * 1099511628211ULL;          // FNV-1a Mix der emittierten Bytes
+                if (v != 0u) byte = static_cast<unsigned char>(byte | 0x80u); // Continuation-Bit
+                mix = (mix ^ byte) * 1099511628211ULL;                        // FNV-1a Mix der emittierten Bytes
             } while (v != 0u);
             s += mix;
         }
@@ -52,9 +54,9 @@ public:
     }
 };
 
-}  // namespace
+} // namespace comdare::cache_engine::serialization_axis
 
 namespace comdare::cache_engine::serialization_axis {
-    static_assert(concepts::SerializationStrategy<VarLenSerialization>);
-    static_assert(concepts::CacheEnginePermutationStrategy<VarLenSerialization>);
-}
+static_assert(concepts::SerializationStrategy<VarLenSerialization>);
+static_assert(concepts::CacheEnginePermutationStrategy<VarLenSerialization>);
+} // namespace comdare::cache_engine::serialization_axis

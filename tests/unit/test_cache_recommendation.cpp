@@ -17,11 +17,9 @@ TEST(CacheRecommendation, DefaultIsDoNothing) {
 
 TEST(CacheRecommendation, AllocateHintRoundTrip) {
     ce::CacheRecommendation rec{};
-    rec.verdict = ce::CacheRecommendation::Verdict::Allocate;
+    rec.verdict    = ce::CacheRecommendation::Verdict::Allocate;
     rec.alloc_hint = ce::MemoryAllocationHint{
-        .tier = ce::MemoryAllocationHint::TierKind::Hbm,
-        .alignment_bytes = 64,
-        .size_bytes = 4096 };
+        .tier = ce::MemoryAllocationHint::TierKind::Hbm, .alignment_bytes = 64, .size_bytes = 4096};
 
     ASSERT_TRUE(rec.alloc_hint.has_value());
     EXPECT_EQ(rec.alloc_hint->tier, ce::MemoryAllocationHint::TierKind::Hbm);
@@ -30,15 +28,12 @@ TEST(CacheRecommendation, AllocateHintRoundTrip) {
 
 TEST(CacheRecommendation, MigrationDirectiveRoundTrip) {
     ce::CacheRecommendation rec{};
-    rec.verdict = ce::CacheRecommendation::Verdict::Migrate;
-    int dummy = 0;
+    rec.verdict             = ce::CacheRecommendation::Verdict::Migrate;
+    int dummy               = 0;
     rec.migration_directive = ce::MigrationDirective{
-        .source_addr = &dummy,
-        .target_addr = nullptr,
-        .target_tier = ce::MemoryAllocationHint::TierKind::Nvram };
+        .source_addr = &dummy, .target_addr = nullptr, .target_tier = ce::MemoryAllocationHint::TierKind::Nvram};
 
     ASSERT_TRUE(rec.migration_directive.has_value());
     EXPECT_EQ(rec.migration_directive->source_addr, &dummy);
-    EXPECT_EQ(rec.migration_directive->target_tier,
-              ce::MemoryAllocationHint::TierKind::Nvram);
+    EXPECT_EQ(rec.migration_directive->target_tier, ce::MemoryAllocationHint::TierKind::Nvram);
 }

@@ -6,7 +6,7 @@
 #include "../axis_q2_queuing_subaxes_fs1_to_fs4.hpp"
 
 #include <measurement/measurable_concept.hpp>
-#include <concepts/legacy_original_code_strategy_concept.hpp>   // V41.F.6.1.P2.C Habich-Compliance Pflicht-API
+#include <concepts/legacy_original_code_strategy_concept.hpp> // V41.F.6.1.P2.C Habich-Compliance Pflicht-API
 
 #include <concepts>
 #include <cstddef>
@@ -45,36 +45,36 @@ struct FlushPolicyStatistics {
  */
 template <typename P>
 concept CacheEngineFlushPolicyPermutationStrategy =
-    ::comdare::cache_engine::queuing::concepts::QueuingComponent<P>
-    && requires {
+    ::comdare::cache_engine::queuing::concepts::QueuingComponent<P> &&
+    requires {
         typename P::axis_tag;
         typename P::family_id;
-        { P::name()                  } -> std::convertible_to<std::string_view>;
-        { P::family_name()           } -> std::convertible_to<std::string_view>;
-        { P::flag_suffix()           } -> std::convertible_to<std::string_view>;
+        { P::name() } -> std::convertible_to<std::string_view>;
+        { P::family_name() } -> std::convertible_to<std::string_view>;
+        { P::flag_suffix() } -> std::convertible_to<std::string_view>;
         // Sonderfall-Properties
-        { P::is_time_based()         } -> std::convertible_to<bool>;
-        { P::is_threshold_based()    } -> std::convertible_to<bool>;
-        { P::is_event_driven()       } -> std::convertible_to<bool>;
-        { P::is_adaptive()           } -> std::convertible_to<bool>;
+        { P::is_time_based() } -> std::convertible_to<bool>;
+        { P::is_threshold_based() } -> std::convertible_to<bool>;
+        { P::is_event_driven() } -> std::convertible_to<bool>;
+        { P::is_adaptive() } -> std::convertible_to<bool>;
     }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-    && requires(P p, P const& pc) {
+    &&
+    requires(P p, P const& pc) {
         { pc.statistics() } noexcept;
-        { p.reset() }      noexcept;
-    }
-    && requires {
+        { p.reset() } noexcept;
+    } &&
+    requires {
         typename P::snapshot_t;
         typename P::observer_t;
-    }
-    && std::same_as<typename P::observer_t,
-                    ::comdare::cache_engine::measurement::MeasurableObserver<typename P::snapshot_t>>
-    && requires(P const& pc) {
+    } &&
+    std::same_as<typename P::observer_t,
+                 ::comdare::cache_engine::measurement::MeasurableObserver<typename P::snapshot_t>> &&
+    requires(P const& pc) {
         { pc.observer() } noexcept -> std::same_as<typename P::observer_t const&>;
     }
 #endif
     // V41.F.6.1.P2.C Habich-Compliance: get_compiler + is_original_module (cross-axis via AxisBase Default)
-    && ::comdare::cache_engine::concepts::LegacyOriginalCodePflicht<P>
-    ;
+    && ::comdare::cache_engine::concepts::LegacyOriginalCodePflicht<P>;
 
-}  // namespace
+} // namespace comdare::cache_engine::queuing::axis_q2_queuing::concepts

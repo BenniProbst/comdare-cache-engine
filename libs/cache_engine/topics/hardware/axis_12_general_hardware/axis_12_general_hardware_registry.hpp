@@ -39,11 +39,7 @@ namespace mp = boost::mp11;
 // Eine zentrale Stelle. Jede neue Plattform: 1 Include + 1 Eintrag in
 // AllPlatforms. AllPlatforms ist die Single-Source-of-Truth fuer die Achse.
 
-using AllPlatforms = mp::mp_list<
-    GenericHardwareProfile,
-    X86_64HardwareProfile,
-    Aarch64HardwareProfile
->;
+using AllPlatforms = mp::mp_list<GenericHardwareProfile, X86_64HardwareProfile, Aarch64HardwareProfile>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // (2) is_enabled — Compile-Time-Predicate ueber Plattform-Klasse
@@ -64,7 +60,7 @@ using EnabledPlatforms = mp::mp_filter<is_enabled, AllPlatforms>;
 
 // Compile-Time-Sanity: mindestens 1 Plattform muss aktiviert sein.
 static_assert(mp::mp_size<EnabledPlatforms>::value > 0,
-    "Axis 12 GeneralHardware: at least one platform must be enabled "
-    "(alle COMDARE_AXIS_12_ENABLE_* OFF?)");
+              "Axis 12 GeneralHardware: at least one platform must be enabled "
+              "(alle COMDARE_AXIS_12_ENABLE_* OFF?)");
 
-}  // namespace comdare::cache_engine::hardware::axis_12_general_hardware
+} // namespace comdare::cache_engine::hardware::axis_12_general_hardware
