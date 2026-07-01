@@ -3,5 +3,5 @@
 # Commit this file into git to enable validation on subsequent builds.
 # Modifications to legacy_code source files will be detected as MISMATCH.
 
-put  d3424613c1192ab9ea1ce87c1dd2fe31dcdcf5c532efc3cae7378041a535fc4a
-get  4f866455144ee81903c1a0046f6f48ab2366e5fa1468215c62a4b01ae14ba60d
+put  8fa92eccbcf0c56448b4613a0136e829b674229c3f16fcdf3ed05814db313ca0
+get  92f057de929f05b68b56295c9b07bb5f5451c8c917caff0fbc132b84ee0cb4c4
