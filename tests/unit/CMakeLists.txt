@@ -1443,6 +1443,21 @@ comdare_set_platform_defines(test_conformance_gate)
 add_test(NAME test_conformance_gate COMMAND test_conformance_gate)
 set_tests_properties(test_conformance_gate PROPERTIES LABELS "contract;standalone;gate")
 
+# #188-4b-b0 (2026-07-01) — Weit-Key-Konformitaet der 9 Weg-B-Pool-Organe gegen std::map<u64,u64>. Prerequisite
+# fuer 4b-b1 (container_-Umstellung Pool -> ObservableComposedContainer<organ>): belegt u64-Korrektheit +
+# Truncation-Fix, den der truncation-blinde Prod-Gate (rng()%256) nie ausloest. GTest im Haupt-Suite — die 9
+# Organe ziehen den vollen Stack (src/measurement + src/concepts + generierte path_compression-Flags), daher
+# derselbe Include-Satz wie test_v41_topic_traversal (organ-komponierende Tests).
+comdare_add_test(test_188_4bb0_pool_organ_wide_key_conformance
+    SOURCES test_188_4bb0_pool_organ_wide_key_conformance.cpp)
+target_include_directories(test_188_4bb0_pool_organ_wide_key_conformance PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_188_4bb0_pool_organ_wide_key_conformance PRIVATE Boost::mp11)
+
 # P5 (#156-De-Risk, 2026-06-20) — Smoke fuer die PMC-WIDE-Naht: make_pmc_source()/IPmcSource im LAZY WIDE-Mess-Pfad
 # (perm_runner) + 7 additive pmc_*-Spalten in lazy_csv_header. Standalone (plain int main, baut KEINE DLLs), zieht
 # aber den schweren iterator-/pmc_source_factory-Kontext -> derselbe anatomy/axes/Boost::mp11-Include-Satz wie
