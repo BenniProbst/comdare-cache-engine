@@ -1506,6 +1506,27 @@ target_compile_definitions(m3v2_pmc_smoke PRIVATE
 add_test(NAME m3v2_pmc_smoke COMMAND m3v2_pmc_smoke)
 set_tests_properties(m3v2_pmc_smoke PROPERTIES LABELS "phase_e;standalone;pmc")
 
+# #230-Rest (W1, 2026-07-02) - Contract-Compile-Gate fuer den Host-Treiber-Stack des thesis_tiere-Harness:
+# cache_engine_builder_iterator.hpp + perm_runner.hpp + side-effect-freie Baum-/CSV-/Runner-Datenpfade. Kein
+# run_lazy, keine DLLs, keine Messung, keine CSV-Dateien - nur Compile+Smoke der Treiber-Schicht vor den
+# Node-Shape-Achsen. Gleicher schwerer Include-/Define-Satz wie m3v2_pmc_smoke.
+add_executable(test_harness_compile "test_harness_compile.cpp")
+target_compile_features(test_harness_compile PRIVATE cxx_std_23)
+target_include_directories(test_harness_compile PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_harness_compile PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_harness_compile)
+target_compile_definitions(test_harness_compile PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_harness_compile COMMAND test_harness_compile)
+set_tests_properties(test_harness_compile PROPERTIES LABELS "contract;standalone;harness")
+
 # CE-DL2 (Task #152) — LINUX-PMC-Smoke fuer die LinuxPerfPmcSource (perf_event_open). Spiegel von m3v2_pmc_smoke,
 # aber LINUX-CONDITIONAL registriert: nur unter (UNIX AND NOT APPLE) — der Windows-/MSVC-Build sieht dieses Target
 # NIE (kein add_executable, keine Linux-Header). make_pmc_source() liefert auf Linux+COMDARE_ENABLE_PMC eine

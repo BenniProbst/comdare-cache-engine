@@ -172,6 +172,26 @@ contract:pool_flip:
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
+# -- Stufe 4e: Contract Harness Compile+Smoke-Gate (#230-Rest, W1 vor Node-Shape-Achsen) --
+# E4-Luecke: conformance/pool_flip compilierten Gate+ABI/Organe, aber NICHT den Host-Treiber-Stack des
+# thesis_tiere-Harness (cache_engine_builder_iterator.hpp, perm_runner.hpp und Kontext wie ExperimentTree/
+# Result-Ingest/Workload/PMC). test_harness_compile zieht diese schweren Header in einem isolierten Linux-g++-
+# Contract-Build und macht nur side-effect-freie Smokes (Registry->Tree/View, PermResult, lazy_csv_header,
+# format_csv_row). Kein run_lazy, keine DLLs, keine Messung, keine CSV-Dateien. Mirror von contract:pool_flip:
+# eigener Build-Ordner, lint:secrets-Gate, keine Artefakte.
+contract:harness:
+  extends: .bare_metal
+  stage: contract
+  tags: [baremetal]
+  needs: ["lint:secrets"]   # hart auf den Secrets-Gate warten (Konvention wie .pmc/contract/durability/conformance)
+  script:
+    # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
+    - cmake -B build-harness -G Ninja -DCOMDARE_BUILD_TESTS=ON
+    - cmake --build build-harness --target test_harness_compile
+    - ctest --test-dir build-harness -R '^test_harness_compile$' --output-on-failure -V
+  artifacts:
+    paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
+
 # ── Wartung (MANUELL, one-shot): is_original Habich-Compliance-Lock-Regenerierung (#188-4b-b-V) ──
 # Erzeugt die 13 sha256_locked.txt mit LF-normalisierten SHAs (Validator --update-lock, COMDARE_CE_UPDATE_ORIGINAL_
 # LOCKS=ON). Grund: die Locks wurden auf einem CRLF-Windows-Worktree erzeugt, das Repo ist LF (.gitattributes eol=lf)
