@@ -47,6 +47,24 @@ function(comdare_generate_is_original_mixin)
     get_filename_component(_output_dir "${ARG_OUTPUT_HEADER}" DIRECTORY)
     file(MAKE_DIRECTORY "${_output_dir}")
 
+    # #188-4b-b-V: --update-lock NUR im One-shot-Regenerierungs-Job (COMDARE_CE_UPDATE_ORIGINAL_LOCKS=ON) durchreichen;
+    # sonst validiert der Codegen gegen die committeten Locks (Normalbetrieb unveraendert).
+    set(_update_lock_arg "")
+    if(COMDARE_CE_UPDATE_ORIGINAL_LOCKS)
+        set(_update_lock_arg "--update-lock")
+    endif()
+    # Compliance-Haertung (Codex #188-4b-b-V BLOCKER 1): Lock + die (vom paper-init kopierten) Paper-Source-Dateien
+    # als DEPENDS aufnehmen, damit eine Lock-/Source-Aenderung die Neu-Validierung triggert, statt still einen stalen
+    # is_original.hpp zu behalten (-> faelschlich is_original=true). EXISTS-Guard fuers Lock (first-init hat noch keins);
+    # GLOB CONFIGURE_DEPENDS fuer die Sources (paper-init hat sie beim Configure bereits nach LEGACY_CODE_DIR kopiert).
+    set(_extra_deps "")
+    if(EXISTS "${_lock_file}")
+        list(APPEND _extra_deps "${_lock_file}")
+    endif()
+    file(GLOB_RECURSE _paper_sources CONFIGURE_DEPENDS
+         "${ARG_LEGACY_CODE_DIR}/*.c"  "${ARG_LEGACY_CODE_DIR}/*.cc" "${ARG_LEGACY_CODE_DIR}/*.cpp"
+         "${ARG_LEGACY_CODE_DIR}/*.h"  "${ARG_LEGACY_CODE_DIR}/*.hh" "${ARG_LEGACY_CODE_DIR}/*.hpp")
+    list(APPEND _extra_deps ${_paper_sources})
     add_custom_command(
         OUTPUT "${ARG_OUTPUT_HEADER}"
         COMMAND $<TARGET_FILE:is_original_validator>
@@ -55,7 +73,8 @@ function(comdare_generate_is_original_mixin)
                 --lock-file "${_lock_file}"
                 --output    "${ARG_OUTPUT_HEADER}"
                 --namespace "${ARG_NAMESPACE}"
-        DEPENDS is_original_validator "${_manifest_path}"
+                ${_update_lock_arg}
+        DEPENDS is_original_validator "${_manifest_path}" ${_extra_deps}
         COMMENT "comdare is_original_codegen: ${ARG_WRAPPER_NAME} (paper_${ARG_PAPER_ID})"
         VERBATIM
     )

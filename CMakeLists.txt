@@ -1049,6 +1049,13 @@ message(STATUS "  axis_09b (8 SIMD-extensions): NO_EXT=${COMDARE_AXIS_09B_USE_NO
 # ─────────────────────────────────────────────────────────────────────────────
 option(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION
        "Enable Paper-Original-Code SHA-Validation (Habich-Compliance Pre-Build-Tool)" ON)
+# #188-4b-b-V (2026-07-01): One-shot-Regenerierung der sha256_locked.txt-Habich-Locks mit LF-normalisierten SHAs
+# (Validator --update-lock). Die Locks wurden auf einem CRLF-Windows-Worktree erzeugt, das Repo ist LF
+# (.gitattributes eol=lf) -> auf Linux mismatchten sie (is_original=false, Original*-static_asserts scheiterten).
+# Der Validator normalisiert jetzt CRLF/LF vor dem Hashen (plattform-neutral); dieser Schalter erzeugt EINMALIG die
+# passenden LF-Locks (nur fuer den manuellen is_original:relock-CI-Job). Im Normalbetrieb OFF (validiert gegen Locks).
+option(COMDARE_CE_UPDATE_ORIGINAL_LOCKS
+       "One-shot: regenerate sha256_locked.txt lock-files (validator --update-lock) instead of validating" OFF)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.B/D Paper-Legacy-Code Roll-out (kompakt via Helper)
