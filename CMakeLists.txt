@@ -1265,6 +1265,30 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     )
 endif()
 
+# #188-4b-b-V (PHASE V, 2026-07-01): Dependency-Kante Compile-Verifikationstest -> Paper-Original-Code-Codegen.
+# test_188_4bbV_pool_adapter_flip_compile zieht via all_axes_umbrella.hpp + ArtComposition die Paper-Legacy-Code-
+# Mixin-Header (topics/**/legacy_code/paper_*_is_original.hpp), die zur BUILD-Zeit von den comdare_paper_*_codegen-
+# ALL-Targets (is_original_codegen.cmake:174) erzeugt werden. Ein ISOLIERTER `cmake --build --target test_188_4bbV...`
+# (CI-Job contract:pool_flip) triggert die ALL-Targets NICHT -> fatal error "paper_a04_mimalloc_is_original.hpp:
+# No such file or directory" (Pipeline 7369). Fix: explizite Dependency-Kante, damit die Header VOR dem Target
+# compiliert werden. Defensiv per if(TARGET): die Codegen-Targets sind options-/ext-sentinel-bedingt
+# (COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION + is_original_validator + ext-Sentinel). MUSS nach diesem endif()
+# stehen (Targets existieren erst hier) UND nach add_subdirectory(tests) (Test-Target existiert). Bei neuem Paper-
+# Wrapper mit is_original-Mixin die Liste erweitern (Quelle: axis_06/03a/q1-Registries via all_axes_umbrella).
+if(TARGET test_188_4bbV_pool_adapter_flip_compile)
+    foreach(_pc
+            comdare_paper_a04_mimalloc_codegen  comdare_paper_a05_jemalloc_codegen
+            comdare_paper_a07_snmalloc_codegen  comdare_paper_a20_dlmalloc_codegen
+            comdare_paper_a10_rpmalloc_codegen  comdare_paper_a11_lrmalloc_codegen
+            comdare_paper_p01_art_codegen       comdare_paper_p02_hot_codegen
+            comdare_paper_p05_start_codegen     comdare_paper_p07_wormhole_codegen
+            comdare_paper_p10_surf_codegen      comdare_paper_q01_concurrentqueue_codegen)
+        if(TARGET ${_pc})
+            add_dependencies(test_188_4bbV_pool_adapter_flip_compile ${_pc})
+        endif()
+    endforeach()
+endif()
+
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1 G.1 — Hierarchische Achsen-Iteration im Build-Output + Permutations-Raum-Auswertung
 # (ersetzt die flachen per-Achse-message()-Zeilen durch eine Topic->Achse->Wrapper-Hierarchie).
