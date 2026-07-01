@@ -6,8 +6,9 @@
 // Referenz-Kompositionen Art/Hot/Masstree (deren Slot die Observable-Huelle ist) — Test-Pop != Ziel-Pop.
 //
 // Audit-Meta-Lehre #1 (Capability-Detection darf nie still degradieren) + #2 (Test-Pop == Ziel-Pop):
-// dieser Test erzwingt GENAU die requires-Klausel aus abi_adapter::organ_cow_capable_v ueber ALLE 17
-// produktiven search_algo-Wrapper compile-time. Ohne den Fix (restore_statistics je Wrapper) schluege
+// dieser Test erzwingt GENAU die requires-Klausel aus abi_adapter::organ_cow_capable_v ueber ALLE 21
+// produktiven search_algo-Wrapper compile-time (17 Legacy + 4 per-K KArySearchAlgoK2/4/8/16, #188 Inc2). Ohne
+// den Fix (restore_statistics je Wrapper) schluege
 // jeder static_assert fehl — das ist der Pfad-Differenz-Nachweis (Meta-Lehre #3) auf Compile-Ebene.
 //
 // Build (standalone, COMDARE_CE_ENABLE_STATISTICS aktiviert die Mess-Schnittstelle der Wrapper):
@@ -60,6 +61,11 @@ K3_CHECK(EytzingerSearchAlgo)
 K3_CHECK(HashSearchAlgo)
 K3_CHECK(InterpolationSearchAlgo)
 K3_CHECK(KArySearchAlgo)
+// #188 per-K Increment 2: die 4 compile-time-K Wrapper (aus KArySearchAlgoT<K>) tragen restore_statistics ebenso.
+K3_CHECK(KArySearchAlgoK2)
+K3_CHECK(KArySearchAlgoK4)
+K3_CHECK(KArySearchAlgoK8)
+K3_CHECK(KArySearchAlgoK16)
 K3_CHECK(LinearScanSearchAlgo)
 K3_CHECK(OriginalArtSearchAlgo)
 K3_CHECK(OriginalHotSearchAlgo)
@@ -76,8 +82,9 @@ static_assert(SearchAlgoFullyCowCapable<lk::KArySearchAlgo>,
               "KArySearchAlgo (Profil-Basis-search_algo) muss den CoW-Pfad real aktivieren (K3-Ziel-Population)");
 
 int main() {
-    std::cout << "Audit-K3 VERIFIKATION (compile-time bestanden): alle 17 produktiven search_algo-Wrapper\n"
-                 "tragen restore_statistics -> organ_cow_capable_v aktiv; KArySearchAlgo voll CoW-faehig.\n"
-                 "==== #142 Welle 2 / K3: ALLE 17 OK ====\n";
+    std::cout << "Audit-K3 VERIFIKATION (compile-time bestanden): alle 21 produktiven search_algo-Wrapper\n"
+                 "(17 Legacy + 4 per-K KArySearchAlgoK2/4/8/16, #188 Inc2) tragen restore_statistics ->\n"
+                 "organ_cow_capable_v aktiv; KArySearchAlgo voll CoW-faehig.\n"
+                 "==== #142 Welle 2 / K3: ALLE 21 OK ====\n";
     return 0;
 }

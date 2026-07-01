@@ -30,6 +30,13 @@ namespace comdare::cache_engine::lookup::flags {
 // Such-METHODE auf sortierten u16-Keys; Aritaet K als iterable_aspect (K=2 ≙ Binärsuch-Baseline).
 #cmakedefine01 COMDARE_AXIS_03A_USE_K_ARY
 
+// #188 per-K Increment 2 (2026-07-01) — S18-S21 per-K compile-time k-ary Wrapper (KArySearchAlgoT<K>): je K ein
+// EIGENER Enable-Flag (Default OFF wie OriginalXxx — opt-in fuer den dedizierten per-K-Mess-Lauf, Increment 2b).
+#cmakedefine01 COMDARE_AXIS_03A_USE_K_ARY_K2
+#cmakedefine01 COMDARE_AXIS_03A_USE_K_ARY_K4
+#cmakedefine01 COMDARE_AXIS_03A_USE_K_ARY_K8
+#cmakedefine01 COMDARE_AXIS_03A_USE_K_ARY_K16
+
 // V41.F.6.1 R7.2 (2026-05-29) — S11 InterpolationSearchAlgo: interpolation search (Perl/Itai/Avni
 // CACM 1978), verteilungsbewusste Such-METHODE (O(log log N) avg bei Gleichverteilung), kein SIMD.
 #cmakedefine01 COMDARE_AXIS_03A_USE_INTERPOLATION
@@ -68,6 +75,11 @@ inline constexpr bool original_start_enabled   = COMDARE_AXIS_03A_USE_ORIGINAL_S
 inline constexpr bool original_wormhole_enabled = COMDARE_AXIS_03A_USE_ORIGINAL_WORMHOLE;
 inline constexpr bool original_surf_enabled     = COMDARE_AXIS_03A_USE_ORIGINAL_SURF;
 inline constexpr bool k_ary_enabled             = COMDARE_AXIS_03A_USE_K_ARY;
+// #188 per-K Increment 2 — per-K compile-time k-ary Wrapper (S18-S21), je eigener Enable-Flag (Default OFF).
+inline constexpr bool k_ary_k2_enabled          = COMDARE_AXIS_03A_USE_K_ARY_K2;
+inline constexpr bool k_ary_k4_enabled          = COMDARE_AXIS_03A_USE_K_ARY_K4;
+inline constexpr bool k_ary_k8_enabled          = COMDARE_AXIS_03A_USE_K_ARY_K8;
+inline constexpr bool k_ary_k16_enabled         = COMDARE_AXIS_03A_USE_K_ARY_K16;
 inline constexpr bool interpolation_enabled     = COMDARE_AXIS_03A_USE_INTERPOLATION;
 inline constexpr bool eytzinger_enabled         = COMDARE_AXIS_03A_USE_EYTZINGER;
 inline constexpr bool skip_list_enabled         = COMDARE_AXIS_03A_USE_SKIP_LIST;

@@ -276,12 +276,33 @@ namespace comdare::cache_engine::lookup {
 // (Bewusste, TRANSIENTE Duplikation der Legacy-Schleife: die Legacy wird in Increment 2 mit der Registry-
 //  Umschaltung entfernt; ohne lokalen Compiler ist ein Refactoring des verifizierten Legacy-Hot-Pfads ein
 //  nicht verifizierbares Regressions-Risiko -> additiv + Legacy unberuehrt ist der sauberere, sichere Weg.)
+namespace detail {
+/// #188 per-K Increment 2: compile-time K -> SEIN eigener Enable-Flag (Default OFF; opt-in wie OriginalXxx). Nicht-
+/// kanonisches K ist nie enabled (nur K in {2,4,8,16} werden registriert/gebaut). Saubere Trennung statt Familien-Flag.
+template <unsigned K>
+[[nodiscard]] constexpr bool k_ary_per_k_enabled() noexcept {
+    if constexpr (K == 2u)
+        return flags::k_ary_k2_enabled;
+    else if constexpr (K == 4u)
+        return flags::k_ary_k4_enabled;
+    else if constexpr (K == 8u)
+        return flags::k_ary_k8_enabled;
+    else if constexpr (K == 16u)
+        return flags::k_ary_k16_enabled;
+    else
+        return false;
+}
+} // namespace detail
+
 template <unsigned K>
 class KArySearchAlgoT : public SearchAlgoBase<KArySearchAlgoT<K>> {
     static_assert(K >= 2u, "#188 per-K: Aritaet K muss >= 2 sein (K=2 = Binaersuch-Baseline; K<2 waere linearer Scan)");
 
 public:
-    static constexpr bool enabled = flags::k_ary_enabled; // Increment 2 spaltet dies in per-K enable-flags
+    // Je-K EIGENER Enable-Flag (Default OFF, opt-in wie der OriginalXxx-Praezedenzfall) -> die Registrierung in
+    // AllStrategies ist nicht-disruptiv (EnabledStrategies waechst NICHT); die Aktivierung erfolgt gezielt fuer den
+    // per-K-Mess-Lauf (Increment 2b), ohne golden-320/EnabledStrategies-Tests pauschal zu stoeren.
+    static constexpr bool enabled = detail::k_ary_per_k_enabled<K>();
     // Weg-A-Marker (Risk#2: fehlt er, faellt container_traversal_t auf SortedBinaryTraversal = falsches Organ zurueck).
     static constexpr bool axis_03a_store_traversable = true;
     /// Compile-time-Aritaet K (Risk#5: KEIN Runtime-arity_ -> Pfad-A run_workload misst K nicht als K=4-Phantom).
@@ -313,7 +334,19 @@ public:
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "KArySearchAlgoT<K> (k-ary search compile-time per-K — Schlegel/Gemulla/Lehner DaMoN 2009)";
     }
-    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "K_ARY"; } // Inc2: per-K-Suffix
+    /// Distinkter flag_suffix je K (korrespondiert 1:1 mit COMDARE_AXIS_03A_ENABLE_K_ARY_K<N> — je eigenes Flag).
+    [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept {
+        if constexpr (K == 2u)
+            return "K_ARY_K2";
+        else if constexpr (K == 4u)
+            return "K_ARY_K4";
+        else if constexpr (K == 8u)
+            return "K_ARY_K8";
+        else if constexpr (K == 16u)
+            return "K_ARY_K16";
+        else
+            return "K_ARY_KN";
+    }
 
     [[nodiscard]] static constexpr bool supports_simd() noexcept { return true; } // data-parallel Layout (Paper §4)
     [[nodiscard]] static constexpr bool supports_range_scan() noexcept { return true; } // sortiert
