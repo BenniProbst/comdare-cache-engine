@@ -62,6 +62,16 @@ void verify_pool_organ_wide_key_conformance(char const* name) {
     std::map<std::uint64_t, std::uint64_t> oracle;
     auto const                             keys    = wide_key_set();
     auto const val_for = [](std::uint64_t k) -> std::uint64_t { return k ^ 0x9E3779B97F4A7C15ull; };
+    auto const expect_for_each_matches = [&](char const* phase) {
+        std::map<std::uint64_t, std::uint64_t> harvested;
+        std::size_t const visits = c.for_each_record([&](std::uint64_t k, std::uint64_t v) {
+            bool const inserted = harvested.emplace(k, v).second;
+            EXPECT_TRUE(inserted) << name << ": for_each_record Duplicate key=" << k << " phase=" << phase;
+        });
+        EXPECT_EQ(visits, oracle.size()) << name << ": for_each_record Rueckgabe phase=" << phase;
+        EXPECT_EQ(visits, c.occupied_count()) << name << ": for_each_record vs occupied_count phase=" << phase;
+        EXPECT_EQ(harvested, oracle) << name << ": for_each_record Paare phase=" << phase;
+    };
 
     // (b1) insert je Key: neu-Flag + occupied_count bit-identisch zu std::map. Eine u16-Truncation würde 0 und
     // 65536 kollabieren → occupied_count < oracle.size() → hier gefangen.
@@ -71,6 +81,9 @@ void verify_pool_organ_wide_key_conformance(char const* name) {
         EXPECT_EQ(org_new, map_new) << name << ": insert neu-Flag key=" << k;
         EXPECT_EQ(c.occupied_count(), oracle.size()) << name << ": occupied_count nach insert key=" << k;
     }
+
+    // (b1b) for_each_record: Key-Ernte aus dem realen Pool-Organ, exakt gleiche Paare wie std::map.
+    expect_for_each_matches("nach insert");
 
     // (b2) lookup jeder eingefügte Key = Treffer mit exaktem Wert.
     for (std::uint64_t k : keys) {
@@ -123,10 +136,13 @@ void verify_pool_organ_wide_key_conformance(char const* name) {
         bool const should_hit = (oracle.find(keys[i]) != oracle.end());
         EXPECT_EQ(c.lookup(keys[i]).has_value(), should_hit) << name << ": Rest-Zustand key=" << keys[i];
     }
+    expect_for_each_matches("nach erase");
 
     // (b7) clear leert vollständig.
     c.clear();
+    oracle.clear();
     EXPECT_EQ(c.occupied_count(), 0u) << name << ": occupied_count nach clear";
+    expect_for_each_matches("nach clear");
     EXPECT_FALSE(c.lookup(65536u).has_value()) << name << ": nach clear kein Treffer";
 }
 

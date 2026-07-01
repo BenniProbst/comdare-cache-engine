@@ -33,6 +33,7 @@
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <axes/lookup/composable/organ_for_search_algo.hpp> // organ_for_search_algo_t (pool_family_-Typ-Beleg)
+#include <axes/lookup/composable/observable_composed_container.hpp> // #188-4b-DEG1: Organ-Huelle fuer den Ernte-Beleg
 #include <builder/codegen/all_axes_umbrella.hpp>             // volle Definitionen ALLER Achsen-Wrapper (die 9 rohen search_algo)
 #include <compositions/art_reference.hpp>                    // ArtComposition = Basis fuer die 18 Nicht-search-Achsen
 
@@ -130,11 +131,13 @@ void verify_pool_adapter_flip(char const* name) {
 
     // Observer + Segment-Timing (abi_adapter.hpp fill_observer_v3:~1010 + fill_segment_timing_v3:~1326 → beide auf
     // container_is_authoritative_ umgestellt; die 2 Mess-Bugs dieser Session lagen hier). tier_observe darf nicht
-    // crashen; die T0-Observer-Zaehler kommen aus container_.statistics(). (Pool-seg_ns = DEG-1 honest-degeneriert,
-    // hier bewusst NICHT geprueft — separater Increment #233.)
+    // crashen; die T0-Observer-Zaehler kommen aus container_.statistics(); #188-4b-DEG1 erntet die Pool-Keys
+    // im nativen container_-Organ und wird hier mit-instanziiert.
     {
         an::ComdareTierObserverSnapshot snap{};
         obs->tier_observe(&snap);
+        // #188-4b-DEG1: tier_observe instanziiert fill_segment_timing_v3 und damit den Pool-Harvest via
+        // container_.for_each_record; Compile-Gate reicht, kein separater Laufzeit-Check.
         check("tier_observe lief ohne Crash (Observer + Segment-Timing-Pfad compiliert + laeuft)", true);
     }
 
@@ -144,6 +147,31 @@ void verify_pool_adapter_flip(char const* name) {
     {
         std::uint64_t out = 0;
         check("lookup Miss nach clear", !drv->tier_lookup(2u, &out));
+    }
+
+    // #188-4b-DEG1 (CI-Verhaltens-Beleg): der for_each_record-Walk des NATIVEN Organs — dieselbe Huelle, die der
+    // Adapter als container_ haelt — liefert die eingefuegten Records EXACTLY-ONCE (Wert inklusive). Direkt an der
+    // Huelle geprueft, weil der Adapter die geernteten Keys nicht exponiert; contract:pool_flip macht den Walk damit
+    // je Familie LAUFZEIT-sichtbar (die tiefe Weit-Key-Konformitaet deckt test_188_4bb0 in der Haupt-Suite).
+    {
+        lkc::ObservableComposedContainer<lkc::organ_for_search_algo_t<SearchAlgoWrapper>> hull;
+        std::uint64_t const probe[4] = {1u, 7u, 65536u, 0xDEADBEEFull};
+        for (auto k : probe) hull.insert(k, val_for(k));
+        std::uint64_t     seen_mask = 0, dups = 0, bad = 0;
+        std::size_t const visited = hull.for_each_record([&](std::uint64_t k, std::uint64_t v) {
+            bool matched = false;
+            for (int i = 0; i < 4; ++i)
+                if (k == probe[i]) {
+                    matched = true;
+                    if (v != val_for(k)) ++bad;                // Wert-Drift = Fehler
+                    if (seen_mask & (1ull << i)) ++dups;       // Duplikat = Fehler
+                    seen_mask |= (1ull << i);
+                }
+            if (!matched) ++bad; // Fremd-Record = Fehler
+        });
+        check("DEG-1 for_each_record: 4/4 Records exactly-once (keine Duplikate/Fremd-Records/Wert-Drift)",
+              visited == 4 && seen_mask == 0xFull && dups == 0 && bad == 0);
+        check("DEG-1 for_each_record: Rueckgabe == occupied_count", visited == hull.occupied_count());
     }
 }
 

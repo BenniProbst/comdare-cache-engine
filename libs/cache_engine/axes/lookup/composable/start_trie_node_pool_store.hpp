@@ -98,6 +98,12 @@ public:
         if (it != x.disc.end() && *it == disc) return x.kids[static_cast<std::size_t>(it - x.disc.begin())];
         return kNil;
     }
+    // #188-4b-DEG1: const-Iteration ueber die reale sparse Diskriminator->Kind-Struktur (keine 24-Bit-Vollsuche).
+    [[nodiscard]] std::size_t child_count(std::size_t r) const noexcept { return inners_[ref_idx(r)].kids.size(); }
+
+    [[nodiscard]] std::size_t child_at(std::size_t r, std::size_t i) const noexcept {
+        return inners_[ref_idx(r)].kids[i];
+    }
     /// Fuegt (disc, child) sortiert ein (disc ist garantiert NICHT vorhanden) — darf via vector werfen.
     void add_child(std::size_t r, std::uint32_t disc, std::size_t child) {
         Inner& x  = inners_[ref_idx(r)];

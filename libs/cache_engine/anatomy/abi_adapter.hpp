@@ -1305,10 +1305,24 @@ public:
                     container_.save_state().data; // ObservableComposedSearch::save_state → (key,value)-Liste im Store
                 keys.reserve(snap.size());
                 for (auto const& kv : snap) keys.push_back(static_cast<std::uint64_t>(kv.first));
+            } else if constexpr (pool_family_ &&
+                                 requires { container_.for_each_record([](std::uint64_t, std::uint64_t) {}); }) {
+                // #188-4b-DEG1: Pool-Key-Ernte aus dem nativen container_-Organ statt dem (nach dem Flip leeren)
+                // search_organ_ -> echte per-op-Segment-Timings. requires-gehaertet: eine kuenftige Pool-Familie
+                // OHNE for_each_record-Walk (z.B. Masstree bei spaeterer Registrierung) degeneriert ehrlich auf den
+                // keys={0}-Fallback unten, statt den Compile zu brechen.
+                keys.reserve(container_.occupied_count());
+                container_.for_each_record([&](std::uint64_t k, std::uint64_t) { keys.push_back(k); });
             } else if constexpr (MementoAxis<SearchAlgo>) {
                 auto snap = search_organ_.save_state(); // (key,value)-Liste der real gespeicherten Records (Weg-B)
                 keys.reserve(snap.size());
                 for (auto const& kv : snap) keys.push_back(static_cast<std::uint64_t>(kv.first));
+            } else if constexpr (requires { search_organ_.for_each_record([](std::uint64_t, std::uint64_t) {}); }) {
+                // #188-4b-DEG1: Reference-Compositions mit for_each_record-faehiger Such-Huelle degenerieren nicht
+                // mehr auf keys={0}. Deckt 10/11 References: die Masstree-Reference bleibt BEWUSST beim Fallback
+                // ({0}), weil ComposedMasstreeSearch (deferred Familie, kein Wrapper in AllStrategies, kein
+                // 320-Binary) noch keinen for_each_record-Walk traegt — nachziehen bei Masstree-Registrierung (#234).
+                search_organ_.for_each_record([&](std::uint64_t k, std::uint64_t) { keys.push_back(k); });
             }
             std::size_t const nk = keys.empty() ? std::size_t{1} : keys.size();
             if (keys.empty()) keys.push_back(0);
