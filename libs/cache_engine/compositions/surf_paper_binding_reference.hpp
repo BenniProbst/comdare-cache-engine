@@ -34,7 +34,13 @@ namespace comdare::cache_engine::compositions {
 /// SurfPaperBindingComposition — SuRF mit Paper-Bindung (1/4 originall lookupKey, 3 Luecken).
 /// Behaelt PoolRelative mapping wie SurfComposition (succinct succinct kompakt).
 struct SurfPaperBindingComposition {
-    using search_algo      = traversal::axis_03a_search_algo::OriginalSurfSearchAlgo;
+    // #188-4b-b1b (2026-07-01): an das #42-Muster der anderen PaperBindings (ART/HOT/START/Wormhole) angeglichen —
+    // Skelett = das u64-Organ (ObservableSurfMapOrgan), der Paper-Wrapper wandert in den Provenienz-Slot paper_source
+    // (traegt is_original/SHA256/get_compiler, Habich, Doku 14 §3.4, OHNE Achsen-Wert zu sein). Vorher war dies das
+    // EINZIGE PaperBinding mit rohem Wrapper als search_algo → #188-4b-b1b haette es (pool_family_) auf das Organ
+    // umgeroutet; diese explizite Angleichung macht die Referenz konsistent + bit-identisch zur (nun korrekten) Absicht.
+    using search_algo      = traversal::axis_03a_search_algo::composable::ObservableSurfMapOrgan;
+    using paper_source     = traversal::axis_03a_search_algo::OriginalSurfSearchAlgo;
     using cache_traversal  = traversal::axis_03b_cache_traversal::LinearFanout;
     using mapping          = traversal::axis_03m_mapping::PoolRelative;
     using path_compression = nodes::axis_02_path_compression::PathCompressionNone;
