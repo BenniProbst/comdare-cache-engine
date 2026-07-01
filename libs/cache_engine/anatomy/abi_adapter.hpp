@@ -800,8 +800,11 @@ public:
         // gelegt; die prefetch-Achse setzt strategie-distinkt `_mm_prefetch` auf die TATSAECHLICHEN Slot-Adressen
         // des Stores ab (NICHT key-als-Adresse). descent_slot = die Lower-Bound-Position des Keys im real
         // allozierten Store-Backing → echte Traversal-Adresse, kein OOB (descent_slot_for_ klemmt auf slot_count()).
-        if (container_.store().slot_count() != 0)
-            pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(key));
+        // #188-4b-b1a: nur wenn container_ store-backed ist (Pool-Familien nach 4b-b1b → honest-0, kein store()).
+        if constexpr (container_is_store_backed_) {
+            if (container_.store().slot_count() != 0)
+                pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(key));
+        }
         // Phase B Abschluss T3 (Pfad B): ein insert ordnet den Schlüssel in den Trie ein → die path_compression-Achse
         // misst die gemeinsame Byte-Prefix-Länge / cut() am ECHTEN ByteWiseKeyPrefix-Organ (PathCompressionNone =
         // ehrliche niedrige Kompressions-Aktivität, Patricia/ByteWise höher). depth=0 = Trie-Wurzel-Abstieg.
@@ -855,13 +858,15 @@ public:
         // container_-Slot-Backing; die prefetch-Achse setzt strategie-distinkt `_mm_prefetch` auf die TATSAECHLICHEN
         // Slot-Adressen ab (NICHT mehr key-als-Adresse). `descent_slot` = der real beruehrte Slot des Descents
         // (Lower-Bound-Position des Keys im store, geklemmt auf slot_count()) → echte Traversal-Adresse, kein OOB.
-        if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
-            pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(key));
-        } else {
-            // Weg-B (Trie/Pool, search_organ_ = Such-Speicher): container_ traegt die Storage-Achsen-Records → die
-            // realen Slot-Adressen liegen dort. Existiert mind. ein realer Slot, prefetcht der Descent dessen Backing.
-            if (container_.store().slot_count() != 0)
+        if constexpr (container_is_store_backed_) { // #188-4b-b1a: Pool nach 4b-b1b (kein store()) → honest-0 prefetch
+            if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
                 pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(key));
+            } else {
+                // Weg-B (Trie/Pool, search_organ_ = Such-Speicher): container_ traegt die Storage-Achsen-Records → die
+                // realen Slot-Adressen liegen dort. Existiert mind. ein realer Slot, prefetcht der Descent dessen Backing.
+                if (container_.store().slot_count() != 0)
+                    pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(key));
+            }
         }
         // Phase B Abschluss T3 (Pfad B): ein lookup folgt einem komprimierten Trie-Pfad → die path_compression-Achse
         // misst die gemeinsame Byte-Prefix-Länge des gesuchten Schlüssels am ECHTEN ByteWiseKeyPrefix-Organ. pc_organ_
@@ -1059,16 +1064,19 @@ public:
             ++filled;
         }
         // ── T6 allocator (dasselbe getriebene container_-Allocator-Organ wie der frühere V2-Pfad) ───────────
-        if constexpr (ObservableAxis<typename Composition::allocator> &&
-                      container_t::template store_has_allocator_stats<typename container_t::store_type>) {
-            auto const a = container_.store_allocator_statistics();
-            auto*      r = s.axis_stats[6];
-            r[0]         = a.total_bytes_allocated;
-            r[1]         = a.total_bytes_in_use;
-            r[2]         = a.allocation_count;
-            r[3]         = a.deallocation_count;
-            r[4]         = a.failure_count;
-            ++filled;
+        // #188-4b-b1a: geschachtelt — die innere Bedingung referenziert container_t::store_type; nur betreten, wenn
+        // container_ store-backed ist (Pool-Familien nach 4b-b1b → kein store_type → honest-0, filled unverändert).
+        if constexpr (container_is_store_backed_ && ObservableAxis<typename Composition::allocator>) {
+            if constexpr (container_t::template store_has_allocator_stats<typename container_t::store_type>) {
+                auto const a = container_.store_allocator_statistics();
+                auto*      r = s.axis_stats[6];
+                r[0]         = a.total_bytes_allocated;
+                r[1]         = a.total_bytes_in_use;
+                r[2]         = a.allocation_count;
+                r[3]         = a.deallocation_count;
+                r[4]         = a.failure_count;
+                ++filled;
+            }
         }
         // ── T7 prefetch (K9-Fix, User §4.4 / 2026-06-18: REALER _mm_prefetch auf Store-Adressen) ──────────
         //    ObservablePrefetch-Hülle (pf_organ_) IMMER ObservableAxis → das Schema-Slot ist befüllt. Die
@@ -1368,9 +1376,11 @@ public:
                 acc[5] += dns(t0, t1);
                 // T6 allocator: O(1)-Stats-Read (Aufbau-Effekt, ehrliche kleine Baseline — kein erfundener Scan).
                 t0 = clock::now();
-                if constexpr (container_t::template store_has_allocator_stats<typename container_t::store_type>) {
-                    auto a = container_.store_allocator_statistics();
-                    sink += a.total_bytes_in_use;
+                if constexpr (container_is_store_backed_) { // #188-4b-b1a: store_type-Referenz nur wenn store-backed
+                    if constexpr (container_t::template store_has_allocator_stats<typename container_t::store_type>) {
+                        auto a = container_.store_allocator_statistics();
+                        sink += a.total_bytes_in_use;
+                    }
                 }
                 t1 = clock::now();
                 acc[6] += dns(t0, t1);
@@ -1774,11 +1784,15 @@ public:
             // kein save_state()/std::sort je Op mehr.
             // [LIMIT #226] Weg-B: der Scan misst den container_-SortedBinary-Spiegel, NICHT das native Baum-Organ
             // (search_organ_) — volle Per-Achsen-Scan-Echtheit der SOTA-Bäume erst mit #188 (search_organ_-Entfall).
-            visited = static_cast<std::uint64_t>(container_.scan_range(
-                static_cast<typename container_t::key_type>(start_key), static_cast<std::size_t>(max_count),
-                [&sum](typename container_t::key_type /*k*/, typename container_t::value_type v) noexcept {
-                    sum += static_cast<std::uint64_t>(v);
-                }));
+            if constexpr (container_is_store_backed_) {
+                visited = static_cast<std::uint64_t>(container_.scan_range(
+                    static_cast<typename container_t::key_type>(start_key), static_cast<std::size_t>(max_count),
+                    [&sum](typename container_t::key_type /*k*/, typename container_t::value_type v) noexcept {
+                        sum += static_cast<std::uint64_t>(v);
+                    }));
+            }
+            // #188-4b-b1a: Pool-Familien (container_ = natives Organ ohne scan_range) → visited bleibt 0 (honest-0
+            // Scan bis 4b-c/D; der reale per-Achsen-Scan der SOTA-Bäume kommt mit der per-Familie-Node-Shape-Achse).
         } catch (...) {
             return 0; // noexcept-Vertrag: interne Störung (z.B. OOM beim Sammeln in LinearScan) → 0 Records
         }
@@ -1895,6 +1909,16 @@ private:
         container_traversal_t,
         ::comdare::cache_engine::node::LayoutAwareChunkedStore<
             typename Composition::node_type, typename Composition::memory_layout, typename Composition::allocator>>;
+
+    // #188-4b-b1a (2026-07-01): Kapselungs-Prädikat — trägt container_t einen FLACHEN Store (store_type)? TRUE für
+    // ObservableComposedSearch<Traversal,LayoutAwareChunkedStore> (store()/scan_range/store_observe_*/save_state/
+    // store_allocator_statistics ALLE präsent); FALSE für ObservableComposedContainer<Organ> (natives Pool-Organ,
+    // KEINE store-*-API). 4b-b1b stellt container_ für die 9 Pool-Familien auf das native Organ um → alle store-
+    // abhängigen Mess-Stellen unten (prefetch-descent, tier_scan, allocator-stats) schalten dann via dieses
+    // Prädikat auf honest-0 (die 3 Speicher-Achsen der Pools werden real erst in 4b-c/D über die per-Familie-Node-
+    // Shape-Achse gemessen). Verhaltens-NEUTRAL HEUTE: der flache container_t erfüllt store_type → alle Guards TRUE
+    // → identisches Verhalten (das ist der Sinn von 4b-b1a als sicheres, kompilierendes Fundament vor dem Flip).
+    static constexpr bool container_is_store_backed_ = requires { typename container_t::store_type; };
 
     ::comdare::cache_engine::execution_engine::EngineLifecycleState state_{
         ::comdare::cache_engine::execution_engine::EngineLifecycleState::Uninitialized};
