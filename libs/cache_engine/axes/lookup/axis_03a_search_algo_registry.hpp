@@ -66,7 +66,18 @@ using AllStrategies = mp::mp_list<
     HashSearchAlgo,             // S14, open-addressing Hashtabelle (Knuth TAOCP 3 §6.4) — UNGEORDNET, O(1)
     LinearScanSearchAlgo,       // S15, unsortierter linearer Scan (ART Node4-Baseline, Leis ICDE 2013)
     BinarySearchTreeSearchAlgo, // S16, unbalancierter BST (Hibbard-Deletion, Knuth TAOCP 3 §6.2.2)
-    BTreeSearchAlgo // S17, balancierter Mehrwege-B-Baum (Bayer/McCreight Acta Inf. 1972, t=4, block-orientiert)
+    BTreeSearchAlgo, // S17, balancierter Mehrwege-B-Baum (Bayer/McCreight Acta Inf. 1972, t=4, block-orientiert)
+    // #188 per-K Increment 2 (2026-07-01) — compile-time-K k-ary Wrapper-Familie (Weg-A): je K eine EIGENE Tier-
+    // Binary (KArySearchAlgoT<K> -> KAryTraversal<K>, traversal_for_search_algo). ANS ENDE angehaengt, damit
+    // mp_take_c<EnabledStrategies,4> (= golden-320-First-4 [k_ary, interpolation, eytzinger, linear_scan]) UNBERUEHRT
+    // bleibt. Je EIGENES Enable-Flag (COMDARE_AXIS_03A_ENABLE_K_ARY_K2..K16, Default OFF wie der OriginalXxx-
+    // Praezedenzfall) -> opt-in, nicht-disruptiv (EnabledStrategies waechst NICHT durch die Registrierung); distinkte
+    // name() k_ary_k2..k16 (binary_id-Trennung). Konkrete Emission der 4 Binaries via dediziertes per-K-Profil+Katalog
+    // (Increment 2b) — die bloße Registrierung baut NICHTS (profil-gated), sie macht die per-K nur selektierbar.
+    KArySearchAlgoK2,  // S18, k-ary K=2 (Binaersuch-Baseline)
+    KArySearchAlgoK4,  // S19, k-ary K=4 (Paper-Default, 5-Wege-Partition)
+    KArySearchAlgoK8,  // S20, k-ary K=8
+    KArySearchAlgoK16 // S21, k-ary K=16
     // Vollausbau-Roadmap (Folge-Batches, Tree-STRUKTUR-Paper-Wrappers):
     // P03 Masstree DEFERRED — masstree.hh hat keine direkten Function-Bodies (alle Templates)
     // S13 P04 CoCo-trie (Read-Only, 0/4 originall — deferred wegen kein CRUD-API)
@@ -87,6 +98,14 @@ static_assert(mp::mp_size<EnabledStrategies>::value > 0, "axis_03a_search_algo: 
 // (BFS-Layout) → Weg-B (G3-Cross-Achsen-Constraint, Doc 34 §3/§9.1). A2.5 nutzt dies für die container_t-if-constexpr-Umstellung.
 static_assert(composable::StoreTraversableSearchAlgo<KArySearchAlgo>,
               "#188-4a-C5: k-ary = Array-Familie + treues compile-time KAryTraversal<Arity> -> store-traversierbar (Weg-A)");
+// #188 per-K Increment 2: die 4 registrierten per-K-Wrapper sind ebenfalls store-traversierbar (Weg-A-Marker) ->
+// container_traversal_t (abi_adapter:1890) fuehrt jeden ueber SEIN KAryTraversal<K>, NICHT SortedBinary. Ueber die
+// ZIEL-Population verifiziert (nicht nur Referenz-Kompositionen).
+static_assert(composable::StoreTraversableSearchAlgo<KArySearchAlgoK2> &&
+                  composable::StoreTraversableSearchAlgo<KArySearchAlgoK4> &&
+                  composable::StoreTraversableSearchAlgo<KArySearchAlgoK8> &&
+                  composable::StoreTraversableSearchAlgo<KArySearchAlgoK16>,
+              "#188 per-K Inc2: alle 4 per-K-Wrapper store-traversierbar (Weg-A)");
 static_assert(composable::StoreTraversableSearchAlgo<InterpolationSearchAlgo>,
               "A2.4-S1: interpolation = Array-Familie -> store-traversierbar");
 static_assert(composable::StoreTraversableSearchAlgo<LinearScanSearchAlgo>,

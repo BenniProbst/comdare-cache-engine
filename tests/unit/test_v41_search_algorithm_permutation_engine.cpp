@@ -460,7 +460,9 @@ TEST(R5G_AutoEmitter, EmitsModuleCppPerPermutation) {
 // V41.F.6.1 R5.D — kombinatorische Coverage des Permutations-Raums (Sampling-Grundlage).
 // Quantifizierung (full/1-wise/pairwise) + 1-wise-Stichprobe deckt jede Achsen-Variante mind. 1×.
 TEST(R5D_CombinatorialCoverage, QuantifyAndOneWiseSampleCoversEveryValue) {
-    std::array<std::size_t, 3> counts{17, 25, 5}; // z. B. search × allocator × layout
+    std::array<std::size_t, 3> counts{17, 25, 5}; // FIXES illustratives Tripel fuer die analyze_coverage-Utility
+                                                  // (NICHT die Live-Registry; reale Achsen-Groesse 21×25×5 prueft
+                                                  // DimensionedFromRealAxisRegistries, s.u.)
     auto const                 rep = ana::analyze_coverage(std::span<const std::size_t>{counts});
     EXPECT_EQ(rep.axis_count, 3u);
     EXPECT_EQ(rep.full_space, 17u * 25u * 5u); // 2125
@@ -515,16 +517,16 @@ TEST(R5D_CombinatorialCoverage, DimensionedFromRealAxisRegistries) {
     namespace a06  = ::comdare::cache_engine::allocator::axis_06_allocator;
     namespace m05  = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;
 
-    constexpr std::size_t kSearch = mp::mp_size<s03a::AllStrategies>::value; // 17
+    constexpr std::size_t kSearch = mp::mp_size<s03a::AllStrategies>::value; // 21 (#188 per-K Inc2: +4 KArySearchAlgoK2/4/8/16)
     constexpr std::size_t kAlloc  = mp::mp_size<a06::AllVendors>::value;     // 25
     constexpr std::size_t kLayout = mp::mp_size<m05::AllLayouts>::value;     // 5
-    static_assert(kSearch == 17 && kAlloc == 25 && kLayout == 5, "Achsen-Groessen-Snapshot (bei Erweiterung anpassen)");
+    static_assert(kSearch == 21 && kAlloc == 25 && kLayout == 5, "Achsen-Groessen-Snapshot (bei Erweiterung anpassen)");
 
     std::array<std::size_t, 3> counts{kSearch, kAlloc, kLayout};
     auto const                 rep = ana::analyze_coverage(std::span<const std::size_t>{counts});
-    EXPECT_EQ(rep.full_space, std::uint64_t{kSearch} * kAlloc * kLayout); // 2125 voller Raum
+    EXPECT_EQ(rep.full_space, std::uint64_t{kSearch} * kAlloc * kLayout); // 2625 voller Raum (21*25*5, #188 per-K Inc2)
     EXPECT_EQ(rep.one_wise_cover, kAlloc);                                // 25 = max → traktabel statt 2125
-    EXPECT_EQ(rep.pairwise_lower_bound, std::uint64_t{kAlloc} * kSearch); // 425
+    EXPECT_EQ(rep.pairwise_lower_bound, std::uint64_t{kAlloc} * kSearch); // 525 (25*21, #188 per-K Inc2)
 
     // Jeder Stichproben-Index ist < der jeweiligen Listengroesse → mp_at_c stets gueltig.
     auto const sample = ana::one_wise_cover_sample(std::span<const std::size_t>{counts});
@@ -539,7 +541,7 @@ TEST(R5D_CombinatorialCoverage, DimensionedFromRealAxisRegistries) {
         aset.insert(row[1]);
         lset.insert(row[2]);
     }
-    EXPECT_EQ(sset.size(), kSearch); // ALLE 17 Such-Algos abgedeckt
+    EXPECT_EQ(sset.size(), kSearch); // ALLE 21 Such-Algos abgedeckt (#188 per-K Inc2)
     EXPECT_EQ(aset.size(), kAlloc);  // ALLE 25 Allokatoren abgedeckt
     EXPECT_EQ(lset.size(), kLayout); // ALLE 5 Layouts abgedeckt
 }

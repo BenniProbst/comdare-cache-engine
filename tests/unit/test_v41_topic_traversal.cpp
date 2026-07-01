@@ -100,7 +100,7 @@ TYPED_TEST(SearchAlgoTest, EmptyAfterDefault) {
 TYPED_TEST(SearchAlgoTest, InsertLookupRoundtrip) {
     // #42 Umstufung-B Phase 2: deregistrierte Tiere (enabled=false) sind per Design No-op-Stubs
     // (Compile-Time-Switch im Wrapper) — ein Runtime-Roundtrip ist auf einem Stub nicht sinnvoll.
-    // Die Conformance-Suite laeuft weiterhin ueber ALLE 17 (compile-time); nur dieser Runtime-Test skippt Stubs.
+    // Die Conformance-Suite laeuft weiterhin ueber ALLE 21 (compile-time, #188 Inc2: 17 + 4 per-K); nur dieser Runtime-Test skippt Stubs.
     if (!TypeParam::enabled) GTEST_SKIP() << "deregistriertes Tier (enabled=false, Stub) — Runtime-Roundtrip n/a";
     TypeParam s{};
     using K = typename TypeParam::key_type;
@@ -1273,8 +1273,9 @@ TEST(PropertyFilter_03a, SimdCapableSubset) {
     // V41.F.6.1.P2.D.tr.s2: + OriginalArt (SIMD) + OriginalHot (SIMD), OriginalStart (kein SIMD)
     // V41.F.6.1.P2.D.tr.s3 Batch 1: + OriginalWormhole (SIMD via AVX2), OriginalSurf (kein SIMD LOUDS)
     // V41.F.6.1.R7.2: + KArySearchAlgo (SIMD via data-parallel Layout, Schlegel DaMoN 2009)
-    //   → 6 von 10 SIMD-faehig
-    EXPECT_EQ(mp::mp_size<SimdSubset>::value, 6u);
+    // #188 per-K Inc2 (2026-07-01): + KArySearchAlgoK2/K4/K8/K16 (alle SIMD via data-parallel Layout, supports_simd()==true)
+    //   → 10 SIMD-faehig (6 Legacy-SIMD + 4 per-K) von 21 AllStrategies
+    EXPECT_EQ(mp::mp_size<SimdSubset>::value, 10u);
 }
 
 TEST(PropertyFilter_03a, DenseSubset) {
