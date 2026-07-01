@@ -37,6 +37,9 @@
 #include "composable/store_traversable_search_algo.hpp"
 // (E-Welle-A2 / Befund-2 / A2.4-S2) Mapping store-traversierbarer Such-Algo -> treues Traversal-Organ (für A2.5)
 #include "composable/traversal_for_search_algo.hpp"
+// (#188-4b-a, 2026-07-01) Pool-Analogon: Mapping Weg-B-Pool-Familie -> ihr natives Composed*Search-Organ (für 4b-b
+// container_t-Umstellung auf ObservableComposedContainer statt SortedBinary-Spiegel). Additiv: self-proving trait.
+#include "composable/organ_for_search_algo.hpp"
 
 #include <boost/mp11.hpp>
 #include <type_traits>
