@@ -12,7 +12,9 @@
 #include "art_trie_traversal_organ.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
+#include <vector>
 
 namespace comdare::cache_engine::lookup::composable {
 
@@ -31,6 +33,29 @@ public:
     }
     bool                      erase(key_type k) { return Traversal::template erase_from<Pool>(pool_, k); }
     [[nodiscard]] std::size_t occupied_count() const noexcept { return pool_.size(); }
+    /// #188-4b-DEG1 - besucht JEDEN gespeicherten Record GENAU EINMAL als sink(key, value).
+    /// Reihenfolge familien-spezifisch, NICHT vertraglich (ART: Leaf-Refs ueber alle adaptiven Kindarten).
+    /// Reines Lesen: KEIN Substrat-/Statistik-Effekt. Rueckgabe = Anzahl besuchter Records (== occupied_count()).
+    template <class Sink>
+    std::size_t for_each_record(Sink&& sink) const {
+        std::vector<std::size_t> stack;
+        if (pool_.root() != Pool::kNil) stack.push_back(pool_.root());
+        std::size_t visited = 0;
+        while (!stack.empty()) {
+            std::size_t const ref = stack.back();
+            stack.pop_back();
+            if (pool_.is_leaf(ref)) {
+                sink(pool_.leaf_key(ref), pool_.leaf_value(ref));
+                ++visited;
+                continue;
+            }
+            for (int b = 255; b >= 0; --b) {
+                std::size_t const child = pool_.find_child(ref, static_cast<std::uint8_t>(b));
+                if (child != Pool::kNil) stack.push_back(child);
+            }
+        }
+        return visited;
+    }
     void                      clear() noexcept { pool_.clear(); }
     [[nodiscard]] Pool const& pool() const noexcept { return pool_; }
 

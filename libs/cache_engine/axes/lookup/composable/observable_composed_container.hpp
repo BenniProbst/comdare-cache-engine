@@ -26,6 +26,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <utility>
 
 namespace comdare::cache_engine::lookup::composable {
 
@@ -83,6 +84,14 @@ public:
 
     [[nodiscard]] Container const& container() const noexcept { return container_; }
     [[nodiscard]] Container&       container() noexcept { return container_; }
+
+    /// #188-4b-DEG1 - Key-Ernte fuer den Mess-Pfad (abi_adapter::fill_segment_timing_v3): delegiert an das Organ.
+    /// Meta-/Mess-Operation: bewusst OHNE Statistik-Effekt (kein lookup-/insert-Zaehler).
+    template <class Sink>
+        requires requires(Container const& c, Sink&& s) { c.for_each_record(std::forward<Sink>(s)); }
+    std::size_t for_each_record(Sink&& sink) const {
+        return container_.for_each_record(std::forward<Sink>(sink));
+    }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = ce_concepts::SearchAlgoStatistics;

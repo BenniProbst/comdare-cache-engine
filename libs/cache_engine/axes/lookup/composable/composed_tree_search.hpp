@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <vector>
 
 namespace comdare::cache_engine::lookup::composable {
 
@@ -30,6 +31,27 @@ public:
     }
     bool                      erase(key_type k) { return Traversal::template erase_from<Pool>(pool_, k); }
     [[nodiscard]] std::size_t occupied_count() const noexcept { return pool_.node_count(); }
+    /// #188-4b-DEG1 - besucht JEDEN gespeicherten Record GENAU EINMAL als sink(key, value).
+    /// Reihenfolge familien-spezifisch, NICHT vertraglich (BST: In-Order ueber left/right ab root).
+    /// Reines Lesen: KEIN Substrat-/Statistik-Effekt. Rueckgabe = Anzahl besuchter Records (== occupied_count()).
+    template <class Sink>
+    std::size_t for_each_record(Sink&& sink) const {
+        std::vector<std::size_t> stack;
+        std::size_t              cur     = pool_.root();
+        std::size_t              visited = 0;
+        while (cur != Pool::kNil || !stack.empty()) {
+            while (cur != Pool::kNil) {
+                stack.push_back(cur);
+                cur = pool_.left(cur);
+            }
+            cur = stack.back();
+            stack.pop_back();
+            sink(pool_.node_key(cur), pool_.node_value(cur));
+            ++visited;
+            cur = pool_.right(cur);
+        }
+        return visited;
+    }
     void                      clear() noexcept { pool_.clear(); }
     [[nodiscard]] Pool const& pool() const noexcept { return pool_; }
 

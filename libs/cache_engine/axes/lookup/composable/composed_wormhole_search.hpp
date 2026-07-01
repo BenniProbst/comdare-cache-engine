@@ -31,6 +31,23 @@ public:
     }
     bool                      erase(key_type k) { return Traversal::template erase_from<Pool>(pool_, k); }
     [[nodiscard]] std::size_t occupied_count() const noexcept { return pool_.size(); }
+    /// #188-4b-DEG1 - besucht JEDEN gespeicherten Record GENAU EINMAL als sink(key, value).
+    /// Reihenfolge familien-spezifisch, NICHT vertraglich (Wormhole: doppelt verkettete Leaf-Liste ab root).
+    /// Reines Lesen: KEIN Substrat-/Statistik-Effekt. Rueckgabe = Anzahl besuchter Records (== occupied_count()).
+    template <class Sink>
+    std::size_t for_each_record(Sink&& sink) const {
+        std::size_t leaf    = pool_.root();
+        std::size_t visited = 0;
+        while (leaf != Pool::kNil) {
+            int const n = pool_.leaf_n(leaf);
+            for (int i = 0; i < n; ++i) {
+                sink(pool_.leaf_key_at(leaf, i), pool_.leaf_value_at(leaf, i));
+                ++visited;
+            }
+            leaf = pool_.leaf_next(leaf);
+        }
+        return visited;
+    }
     void                      clear() noexcept { pool_.clear(); }
     [[nodiscard]] Pool const& pool() const noexcept { return pool_; }
 
