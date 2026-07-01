@@ -3,4 +3,4 @@
 # Commit this file into git to enable validation on subsequent builds.
 # Modifications to legacy_code source files will be detected as MISMATCH.
 
-lookup  d13deaaff3bdabda33c162d7eeb8ac2a2054ef27f4c0b6d87c0db7ece749074e
+lookup  53ec75480d8ce5211b01a0e05cee62a67525c4ac5c20ce4ae4434acae8938e9d

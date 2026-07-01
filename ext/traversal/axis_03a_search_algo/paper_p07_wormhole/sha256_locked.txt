@@ -3,6 +3,6 @@
 # Commit this file into git to enable validation on subsequent builds.
 # Modifications to legacy_code source files will be detected as MISMATCH.
 
-insert  cc3e12136c6ad8f201c8315624e76e19fa164e9a863ecb2074f2e8b3a94734dc
-lookup  41161bbb8f0619c999f3e96e7df8ba37a7d77ed0153dfeb351c9ee14586f82bd
-erase  79abbcb8563dde4ce7c7e68e0d208fae972e9297570e653ad8e234ef6456f0f2
+insert  48b20b96bd2cb0917c32b70e1eca5aed1b7bdcc35a508324523df29acf3dc089
+lookup  05a308bead77ffd9ddf58bc235c03a221fea7c815026410fabf21f4393c16b53
+erase  b44fc1b7d2654b54711a2dc69c55c1f68c47322739effd0933f54299423dac28

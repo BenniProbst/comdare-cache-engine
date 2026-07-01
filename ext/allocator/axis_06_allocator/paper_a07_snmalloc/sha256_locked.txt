@@ -3,5 +3,5 @@
 # Commit this file into git to enable validation on subsequent builds.
 # Modifications to legacy_code source files will be detected as MISMATCH.
 
-allocate  261967b76517d54dc3cdf99b7f3e7ba4a07f420912d5a059941d2024f4699452
-deallocate  203d17fb791dcb43eb5e995ed4de9eb3521e9bb5d237c9c9e750c12bc6cccfbb
+allocate  8e4e0d1adc675809e11ed87e3d90b1941e4dad0d8884d9fe124121f4dad2245b
+deallocate  f34e1173407375450792ea744b55122ad38e211228d420188f61531e1a9adc6d
