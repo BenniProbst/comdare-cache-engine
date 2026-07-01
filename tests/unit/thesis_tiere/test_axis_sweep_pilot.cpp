@@ -211,6 +211,41 @@ int main(int argc, char** argv) {
                      "build_axis_sweep_pilot.ps1 setzt die Includes und baut real)\n";
     }
 
+    // ── (E) #188 per-K Increment 2b: der dedizierte per-K-search_algo-Sweep-Katalog materialisiert GENAU 4 reale
+    //    per-K-Kompositionen (search_algo=k_ary_k2/k4/k8/k16 × Baseline). search_algo ist KEINE vertiefte Achse →
+    //    eigener Katalog (explizite per-K-Liste statt Basis-320-First-4). Emission je K = 1 reale DLL (KAryTraversal<K>). ──
+    std::cout << "\n--- (E) #188 per-K Sweep-Katalog (4 per-K search_algo-Kompositionen, KAryTraversal<K>) ---\n";
+    auto const perk = tlz::kary_perk_source_map();
+    check("per-K Sweep-Map hat GENAU 4 Eintraege (k_ary_k2/k4/k8/k16)", perk.size() == 4);
+    // std::map-Keys sind eindeutig → 4 Eintraege == 4 paarweise distinkte binary_ids.
+    for (char const* nm : {"search_algo=k_ary_k2", "search_algo=k_ary_k4", "search_algo=k_ary_k8",
+                           "search_algo=k_ary_k16"}) {
+        bool found = false;
+        for (auto const& [k, v] : perk) {
+            (void)v;
+            if (k.find(nm) != std::string::npos) found = true;
+        }
+        check((std::string{"per-K: Auspraegung "} + nm + " ist im Sweep-Raum").c_str(), found);
+    }
+    int perk_real = 0;
+    for (auto const& [k, v] : perk) {
+        (void)k;
+        if (v.find("COMDARE_DEFINE_ANATOMY_MODULE_ADHOC") != std::string::npos) ++perk_real;
+    }
+    check("per-K: GENAU 4 Quellen sind reale Anatomie (COMDARE_DEFINE_ANATOMY_MODULE_ADHOC)", perk_real == 4);
+    check("per-K Levels: 19 statische Achsen-Ebenen (Single-Source mit der Map)", tlz::kary_perk_levels().size() == 19);
+    if (have_toolchain) {
+        std::cout << "  --- (E-real) REALER cl-Bau der 4 per-K-DLLs (Emission je KAryTraversal<K>) ---\n";
+        int perk_built = 0;
+        for (auto const& [k, v] : perk) {
+            std::string stem = "sweep_perk";
+            for (char const* nm : {"k_ary_k2", "k_ary_k4", "k_ary_k8", "k_ary_k16"})
+                if (k.find(nm) != std::string::npos) stem = std::string("sweep_") + nm;
+            if (build_one_dll(v, work, stem, defs, incs)) ++perk_built;
+        }
+        check("alle 4 per-K-DLLs via cl gebaut (Emission je KAryTraversal<K> real)", perk_built == 4);
+    }
+
     std::cout << "\n==== STRANG-A Inc7 / FF(#168) Achsen-Sweep-Pilot (4 vertiefte Achsen sweep-faehig): "
               << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;

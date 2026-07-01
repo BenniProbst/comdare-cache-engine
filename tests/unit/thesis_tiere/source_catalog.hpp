@@ -35,6 +35,10 @@
 
 // Die statischen Katalog-Achsen-ConfigSets (echte Wrapper):
 #include <topics/traversal/topic_traversal_config_set.hpp>
+// #188 per-K Increment 2b: explizite per-K-Wrapper-Typen (KArySearchAlgoK2/4/8/16) fuer den dedizierten per-K-Katalog
+// (die search_algo-Achse ist NICHT vertieft -> die per-K stehen bewusst NICHT in den Basis-320-First-4). Transitiv via
+// die Traversal-ConfigSet ohnehin sichtbar; hier EXPLIZIT als saubere Direkt-Abhaengigkeit.
+#include <axes/lookup/axis_03a_search_algo_k_ary.hpp>
 #include <topics/nodes/topic_nodes_config_set.hpp>
 #include <topics/memory_layout/topic_memory_layout_config_set.hpp>
 #include <topics/allocator/topic_allocator_config_set.hpp>
@@ -290,5 +294,59 @@ using PathCompressionSweepCatalog = AxisSweepCatalog<PcAll, Vh1, Mg1, Flt1>;
     }
     return all;
 }
+
+// ══ #188 per-K Increment 2b (2026-07-01): dedizierter per-K-search_algo-Sweep-Katalog ═══════════════════════════
+// search_algo ist KEINE vertiefte Achse (is_deepened_axis=false) — die 4 Basis-Achsen laufen sonst ueber den
+// Basis-320-Katalog (L00 = mp_take_c<EnabledStrategies,4> = die First-4 [k_ary, interpolation, eytzinger, linear_scan]).
+// Die per-K-Wrapper stehen aber bewusst am ENDE von AllStrategies + sind Default OFF -> NICHT in den First-4. Darum ein
+// EIGENER Katalog mit EXPLIZITEM L00 = mp_list<KArySearchAlgoK2/4/8/16> (direkte Typen -> bypassen EnabledStrategies/
+// mp_take_c; die per-K-Wrapper sind unabhaengig vom enable-Flag voll funktional). Alle 18 uebrigen Achsen Baseline
+// (Index 0) = deckungsgleich zur 320-Baseline -> nur der search_algo-Slot variiert ueber die 4 per-K. Ergebnis: genau
+// 4 reale Kompositionen (je K eine; container_traversal_t fuehrt jede ueber SEIN KAryTraversal<K>, Weg-A). Die Emission
+// der 4 per-K-DLLs ist katalog-gated -> KEIN 320-Bruch (disjunkter binary_id-Raum, search_algo=k_ary_k*). Fuer den
+// per-K-Mess-Lauf zusaetzlich -DCOMDARE_AXIS_03A_ENABLE_K_ARY_K{2,4,8,16}=ON (EnabledStrategies-Konsistenz +
+// validate_profile) — der Katalog selbst braucht das NICHT (explizite Typen).
+struct KaryPerKCatalog {
+    using L00 = mp::mp_list<::comdare::cache_engine::lookup::KArySearchAlgoK2,
+                            ::comdare::cache_engine::lookup::KArySearchAlgoK4,
+                            ::comdare::cache_engine::lookup::KArySearchAlgoK8,
+                            ::comdare::cache_engine::lookup::KArySearchAlgoK16>;         // search_algo (per-K Sweep)
+    using L01 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03b, 1>; // cache_traversal (Baseline)
+    using L02 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03m, 1>; // mapping
+    using L03 = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_02, 1>;      // path_compression
+    using L04 = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_04, 1>;      // node_type
+    using L05 = mp::mp_take_c<ce::memory_layout::TopicConfigSet::StaticAxisVariants, 1>; // memory_layout
+    using L06 = mp::mp_take_c<ce::allocator::TopicConfigSet::StaticAxisVariants, 1>;     // allocator
+    using L07 = mp::mp_take_c<ce::prefetch::TopicConfigSet::StaticAxisVariants, 1>;      // prefetch
+    using L08 = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, 1>;   // concurrency
+    using L09 = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, 1>; // serialization
+    using L10 = mp::mp_take_c<ce::telemetry::TopicConfigSet::StaticAxisVariants, 1>;     // telemetry
+    using L11 = mp::mp_take_c<ce::value_handle::TopicConfigSet::StaticAxisVariants, 1>;  // value_handle
+    using L12 = mp::mp_take_c<ce::hardware::TopicConfigSet::StaticAxisVariants_09, 1>;   // isa
+    using L13 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants, 1>; // index_organization
+    using L14 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;            // io_dispatch
+    using L15 = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;     // migration_policy
+    using L16 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;        // filter
+    using L17 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>;    // queuing_q1
+    using L18 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>;    // queuing_q2
+
+    using Engine =
+        perm::PermutationEngine<CatalogCfg<L00>, CatalogCfg<L01>, CatalogCfg<L02>, CatalogCfg<L03>, CatalogCfg<L04>,
+                                CatalogCfg<L05>, CatalogCfg<L06>, CatalogCfg<L07>, CatalogCfg<L08>, CatalogCfg<L09>,
+                                CatalogCfg<L10>, CatalogCfg<L11>, CatalogCfg<L12>, CatalogCfg<L13>, CatalogCfg<L14>,
+                                CatalogCfg<L15>, CatalogCfg<L16>, CatalogCfg<L17>, CatalogCfg<L18>>;
+};
+
+/// kary_perk_source_map() — die per-K Sweep-Quellen-map (binary_id → reale Modul-Quelle): genau 4 Eintraege
+/// (KArySearchAlgoK2/4/8/16 × Baseline), je eine reale AdHocComposition (COMDARE_DEFINE_ANATOMY_MODULE_ADHOC).
+/// Analog axis_sweep_source_map, aber fuer die NICHT-vertiefte search_algo-Achse ueber die explizite per-K-Liste.
+[[nodiscard]] inline std::map<std::string, std::string> kary_perk_source_map() {
+    return ex::build_pilot_source_map<typename KaryPerKCatalog::Engine>();
+}
+
+/// kary_perk_levels() — die 19 STATISCHEN AxisLevels des per-K-Sweep-Baums: 18 Baseline-Ebenen (Index 0) + der
+/// search_algo-Slot mit den 4 per-K-Werten (k_ary_k2..k16). Single-Source mit kary_perk_source_map (gleiche
+/// Slot-Listen → die View-binary_ids treffen die map-Keys). DynamicDims haengt der Treiber an.
+[[nodiscard]] inline std::vector<ex::AxisLevel> kary_perk_levels() { return catalog_static_levels<KaryPerKCatalog>(); }
 
 } // namespace comdare::cache_engine::thesis_lazy
