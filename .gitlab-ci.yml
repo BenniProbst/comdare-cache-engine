@@ -146,6 +146,32 @@ contract:conformance:
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
+# ── Stufe 4d: Contract Pool-Adapter-Flip Compile-Gate (#188-4b-b-V, Pipeline P0 / EPIC #186) ──
+# Der 4b-b1b-container_-Flip (anatomy/abi_adapter.hpp) stellt fuer die 9 Weg-B-Pool-Familien (roher search_algo-
+# Wrapper → pool_family_==true) container_ auf ObservableComposedContainer<organ_for_search_algo_t<S>> (natives u64-
+# Organ, via lazy type_identity/conditional_t) um und routet insert/lookup/erase/T0-Observer/T0-Segment-Timing ueber
+# container_is_authoritative_. Explore+Codex-Befund: KEIN anderes CI-Target instanziiert diesen Pool-Zweig DURCH den
+# ABI-Adapter (test_conformance_gate = k-ary/organ==void; abi_interface/durability/chaos/pmc nutzen den Adapter nicht;
+# tier150 = Organ-Huelle/pool_family_==false) → der Flip war nur Codex-/static_assert-verifiziert, NIE compiliert.
+# test_188_4bbV instanziiert SearchAlgorithmAbiAdapter<SearchAlgorithmAnatomy<PoolFlipComposition<W>>> fuer ALLE 9
+# Pool-Familien und treibt jeden ueber insert/lookup/erase/size/clear + tier_observe → erzwingt die Template-
+# Instanziierung des Pool-Zweigs. Ein type_identity-/Routing-Compile-Fehler ODER eine Smoke-Regression = ctest FAILED
+# = CI rot → das Gate faengt eine Flip-Regression VOR dem 320-DLL-Mess-Lauf (#215) ab. COMDARE_MEASUREMENT_ON (CMake)
+# aktiviert IObservableTier + den Segment-Timing-Pfad. Mirror der contract:conformance-Konventionen (eigener Build,
+# kein Artefakt, lint:secrets-Gate).
+contract:pool_flip:
+  extends: .bare_metal
+  stage: contract
+  tags: [baremetal]
+  needs: ["lint:secrets"]   # hart auf den Secrets-Gate warten (Konvention wie .pmc/contract/durability/conformance)
+  script:
+    # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
+    - cmake -B build-poolflip -G Ninja -DCOMDARE_BUILD_TESTS=ON
+    - cmake --build build-poolflip --target test_188_4bbV_pool_adapter_flip_compile
+    - ctest --test-dir build-poolflip -R '^test_188_4bbV_pool_adapter_flip_compile$' --output-on-failure -V
+  artifacts:
+    paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
+
 # ── Stufe 6: chaos Mess-Drift-Gate (#197, Pipeline P0 / EPIC #186) ──
 # Diplomarbeit-Kern: wissenschaftlich belastbare Messung statt driftverseuchter Werte. >5%
 # Wiederholungs-Abweichung (Median-relativ) ueber die N (Default 3) 2-Phasen-Wiederholungen → die

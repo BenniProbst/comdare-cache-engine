@@ -1458,6 +1458,31 @@ target_include_directories(test_188_4bb0_pool_organ_wide_key_conformance PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_188_4bb0_pool_organ_wide_key_conformance PRIVATE Boost::mp11)
 
+# #188-4b-b-V (PHASE V, 2026-07-01) — COMPILE-VERIFIKATION des 4b-b1b container_-Flips DURCH den ABI-ADAPTER.
+# Explore+Codex-Befund: KEIN CI-Target instanziierte bisher SearchAlgorithmAbiAdapter<...> mit einer Pool-Familie
+# (roher search_algo-Wrapper → pool_family_==true → container_ = ObservableComposedContainer<organ>); der Flip war
+# nur Codex-/static_assert-verifiziert, NIE compiliert. Dieser Test instanziiert den Adapter fuer ALLE 9 Pool-
+# Familien + treibt jeden ueber die Flip-Routing-Pfade (insert/lookup/erase/size/clear + tier_observe) → erzwingt die
+# Template-Instanziierung des Pool-Zweigs = gruener Compile-Beleg. COMDARE_MEASUREMENT_ON=1 ZWINGEND (sonst kein
+# IObservableTier → kein fill_observer_v3/fill_segment_timing_v3-Compile). Voller ADHOC-Include-Satz + Boost::mp11 wie
+# m3v2_pmc_smoke. Standalone (plain int main, kein gtest) — CI-erzwungen ueber contract:pool_flip (.gitlab-ci.yml).
+add_executable(test_188_4bbV_pool_adapter_flip_compile "test_188_4bbV_pool_adapter_flip_compile.cpp")
+target_compile_features(test_188_4bbV_pool_adapter_flip_compile PRIVATE cxx_std_23)
+target_include_directories(test_188_4bbV_pool_adapter_flip_compile PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_188_4bbV_pool_adapter_flip_compile PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_188_4bbV_pool_adapter_flip_compile)
+target_compile_definitions(test_188_4bbV_pool_adapter_flip_compile PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_188_4bbV_pool_adapter_flip_compile COMMAND test_188_4bbV_pool_adapter_flip_compile)
+set_tests_properties(test_188_4bbV_pool_adapter_flip_compile PROPERTIES LABELS "contract;standalone;pool_flip")
+
 # P5 (#156-De-Risk, 2026-06-20) — Smoke fuer die PMC-WIDE-Naht: make_pmc_source()/IPmcSource im LAZY WIDE-Mess-Pfad
 # (perm_runner) + 7 additive pmc_*-Spalten in lazy_csv_header. Standalone (plain int main, baut KEINE DLLs), zieht
 # aber den schweren iterator-/pmc_source_factory-Kontext -> derselbe anatomy/axes/Boost::mp11-Include-Satz wie
