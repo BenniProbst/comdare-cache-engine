@@ -91,7 +91,9 @@ struct Manifest {
 
 void print_usage(char const* argv0) {
     std::cerr << "Usage: " << argv0 << " --manifest <path> --base-dir <path> --lock-file <path>"
-              << " --output <header.hpp> --namespace <ns>\n";
+              << " --output <header.hpp> --namespace <ns> [--update-lock]\n";
+    std::cerr << "  --update-lock: (re)write sha256_locked.txt from the (LF-normalized) computed hashes instead of"
+              << " validating (one-shot lock regeneration; used only by the manual is_original:relock CI job).\n";
     std::cerr << "\n";
     std::cerr << "Manifest-Format:\n";
     std::cerr << "  @compiler <id>     (z.B. 'gcc-9.5' oder 'self')\n";
@@ -162,8 +164,26 @@ std::string read_file_string(fs::path const& p) {
     }
     auto size = static_cast<std::size_t>(ifs.tellg());
     ifs.seekg(0);
-    std::string s(size, '\0');
-    if (size > 0) ifs.read(s.data(), static_cast<std::streamsize>(size));
+    std::string raw(size, '\0');
+    if (size > 0) ifs.read(raw.data(), static_cast<std::streamsize>(size));
+    // Line-Ending-Normalisierung (CRLF/lone-CR -> LF) VOR dem Hashen, damit die Habich-Compliance-SHA256
+    // PLATTFORM-NEUTRAL ist: die committeten Locks (sha256_locked.txt) wurden auf einem CRLF-Windows-Worktree
+    // erzeugt, das Repo ist aber LF (.gitattributes eol=lf) -> auf Linux-CI hasht der Validator LF-Bytes und
+    // mismatched die CRLF-Locks (module=MODIFIED, is_original=false), obwohl der Paper-Code UNVERAENDERT ist.
+    // Die Normalisierung aendert NUR die Zeilenende-Repraesentation, NICHT den Code-Inhalt -> echte
+    // Modifikationen (Whitespace/Tabs/Edits/Body-Drift) werden weiterhin als MISMATCH erkannt.
+    // [[legacy-code-sha256-validation]]
+    std::string s;
+    s.reserve(raw.size());
+    for (std::size_t i = 0; i < raw.size(); ++i) {
+        char const c = raw[i];
+        if (c == '\r') {
+            s.push_back('\n');
+            if (i + 1 < raw.size() && raw[i + 1] == '\n') ++i; // CRLF -> ein einzelnes LF
+        } else {
+            s.push_back(c);
+        }
+    }
     return s;
 }
 
@@ -303,6 +323,7 @@ int main(int argc, char** argv) {
     std::string lock_file_path;
     std::string output_path;
     std::string namespace_name;
+    bool        update_lock = false; // --update-lock: schreibt die (normalisierten) SHAs neu ins Lock (one-shot-Regenerierung)
 
     for (int i = 1; i < argc; ++i) {
         std::string_view arg = argv[i];
@@ -316,6 +337,8 @@ int main(int argc, char** argv) {
             output_path = argv[++i];
         else if (arg == "--namespace" && i + 1 < argc)
             namespace_name = argv[++i];
+        else if (arg == "--update-lock")
+            update_lock = true;
         else {
             print_usage(argv[0]);
             return 1;
@@ -359,20 +382,31 @@ int main(int argc, char** argv) {
         auto computed = runtime_to_hex(digest);
 
         bool is_match = true;
-        if (auto it = locked.find(mapping.wrapper_fn); it != locked.end()) { is_match = (it->second == computed); }
+        // --update-lock: die Referenz wird bewusst NEU gesetzt -> als original behandeln (kein Vergleich).
+        // Normal-Modus (Codex #188-4b-b-V BLOCKER 2): fehlt ein Lock-Eintrag, obwohl das Lock EXISTIERT, gilt der
+        // wrapper als NICHT validiert -> MISMATCH (kein stilles is_original=true fuer neue/unbekannte Mappings).
+        // Nur first_time_init (Lock komplett leer) behandelt alle als INIT/original und schreibt das Lock.
+        if (!update_lock) {
+            auto it = locked.find(mapping.wrapper_fn);
+            if (it != locked.end()) {
+                is_match = (it->second == computed);
+            } else if (!first_time_init) {
+                is_match = false;
+            }
+        }
         if (!is_match) module_all_match = false;
 
         validated.push_back({mapping, computed, is_match, true});
         new_lock_entries.push_back({mapping.wrapper_fn, computed});
 
         std::cout << "is_original_validator: " << mapping.wrapper_fn << " (paper=" << mapping.paper_fn << ") "
-                  << (first_time_init ? "INIT" : (is_match ? "PASS" : "MISMATCH")) << " (sha=" << computed.substr(0, 12)
-                  << "...)\n";
+                  << (update_lock ? "UPDATED" : (first_time_init ? "INIT" : (is_match ? "PASS" : "MISMATCH")))
+                  << " (sha=" << computed.substr(0, 12) << "...)\n";
     }
 
-    if (first_time_init) {
-        std::cout << "is_original_validator: First-time-init — writing lock-file " << lock_file_path
-                  << " (commit this into git)\n";
+    if (first_time_init || update_lock) {
+        std::cout << "is_original_validator: " << (update_lock ? "--update-lock (regenerating)" : "First-time-init")
+                  << " — writing lock-file " << lock_file_path << " (commit this into git)\n";
         write_lock_file(lock_file_path, new_lock_entries);
     }
 

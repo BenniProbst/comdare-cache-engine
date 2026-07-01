@@ -172,6 +172,44 @@ contract:pool_flip:
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
+# ── Wartung (MANUELL, one-shot): is_original Habich-Compliance-Lock-Regenerierung (#188-4b-b-V) ──
+# Erzeugt die 13 sha256_locked.txt mit LF-normalisierten SHAs (Validator --update-lock, COMDARE_CE_UPDATE_ORIGINAL_
+# LOCKS=ON). Grund: die Locks wurden auf einem CRLF-Windows-Worktree erzeugt, das Repo ist LF (.gitattributes eol=lf)
+# -> auf Linux mismatchten sie (is_original=false, Original*-Wrapper-static_asserts scheiterten). Der Validator
+# normalisiert jetzt CRLF/LF vor dem Hashen (plattform-neutral); dieser Job erzeugt die passenden LF-Locks EINMALIG
+# als Artefakt -> herunterladen + committen. Danach validiert der Normalbetrieb (UPDATE_LOCKS=OFF) gegen die
+# committeten LF-Locks (auch der Windows-320-Build matcht dann, weil normalisiert). MANUAL, kein Auto-Trigger,
+# allow_failure (kein Gate-Weg). Baut nur die codegen-Targets (nicht das ganze Projekt).
+is_original:relock:
+  extends: .bare_metal
+  stage: contract
+  tags: [baremetal]
+  needs: ["lint:secrets"]
+  rules:
+    - when: manual
+  allow_failure: true
+  script:
+    - cmake -B build-relock -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_CE_UPDATE_ORIGINAL_LOCKS=ON
+    - cmake --build build-relock --target comdare_paper_a04_mimalloc_codegen comdare_paper_a05_jemalloc_codegen comdare_paper_a07_snmalloc_codegen comdare_paper_a20_dlmalloc_codegen comdare_paper_a10_rpmalloc_codegen comdare_paper_a11_lrmalloc_codegen comdare_paper_p01_art_codegen comdare_paper_p02_hot_codegen comdare_paper_p05_start_codegen comdare_paper_p07_wormhole_codegen comdare_paper_p10_surf_codegen comdare_paper_p03_masstree_codegen comdare_paper_q01_concurrentqueue_codegen
+    - 'echo "== regenerierte LF-Locks =="; find ext -name sha256_locked.txt | sort'
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - "ext/allocator/axis_06_allocator/paper_a04_mimalloc/sha256_locked.txt"
+      - "ext/allocator/axis_06_allocator/paper_a05_jemalloc/sha256_locked.txt"
+      - "ext/allocator/axis_06_allocator/paper_a07_snmalloc/sha256_locked.txt"
+      - "ext/allocator/axis_06_allocator/paper_a10_rpmalloc/sha256_locked.txt"
+      - "ext/allocator/axis_06_allocator/paper_a11_lrmalloc/sha256_locked.txt"
+      - "ext/allocator/axis_06_allocator/paper_a20_dlmalloc/sha256_locked.txt"
+      - "ext/queuing/axis_q1_queuing/paper_q01_concurrentqueue/sha256_locked.txt"
+      - "ext/traversal/axis_03a_search_algo/paper_p01_art/sha256_locked.txt"
+      - "ext/traversal/axis_03a_search_algo/paper_p02_hot/sha256_locked.txt"
+      - "ext/traversal/axis_03a_search_algo/paper_p03_masstree/sha256_locked.txt"
+      - "ext/traversal/axis_03a_search_algo/paper_p05_start/sha256_locked.txt"
+      - "ext/traversal/axis_03a_search_algo/paper_p07_wormhole/sha256_locked.txt"
+      - "ext/traversal/axis_03a_search_algo/paper_p10_surf/sha256_locked.txt"
+
 # ── Stufe 6: chaos Mess-Drift-Gate (#197, Pipeline P0 / EPIC #186) ──
 # Diplomarbeit-Kern: wissenschaftlich belastbare Messung statt driftverseuchter Werte. >5%
 # Wiederholungs-Abweichung (Median-relativ) ueber die N (Default 3) 2-Phasen-Wiederholungen → die
