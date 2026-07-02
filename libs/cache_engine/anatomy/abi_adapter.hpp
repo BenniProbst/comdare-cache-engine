@@ -741,8 +741,8 @@ public:
         // auf Rebuild-Strukturen (k_ary/SortedBinary, container_ IMMER) teurer als die memcpy-Vollkopie.
         if (cow_armed_) cow_materialize_copy_();
 #endif
-        // Neu-Flag ueber occupied_count-Delta (NICHT ueber einen internen lookup — der wuerde sonst die
-        // lookup_count-Observer-Statistik verfaelschen; manche Organe insert()->void).
+        // Neu-Flag = container_.insert-bool (insert_or_assign-Semantik; KEIN interner lookup — der wuerde die
+        // lookup_count-Observer-Statistik verfaelschen; das fruehere occupied_count-Delta entfiel mit dem Spiegel).
         // #188-4c-iii (2026-07-02): EIN Speicher, konstitutiv. container_ ist die einzige T0-Datenquelle
         // (flacher Store mit Such-Traversal, native Organ-Huelle oder bereits observable SearchAlgo-Huelle).
         bool const m8_new_flag = container_.insert(key, value);
