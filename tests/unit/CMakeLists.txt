@@ -1387,7 +1387,11 @@ set(COMDARE_PHASE_E_BOOST_TESTS
     test_value_handle_real            # value_handle-Achse (inline/external_pool/immutable/versioned/chain) real
     test_prefetch_real                # prefetch-Achse (RealDescent/HW/None/...) real ueber layout_aware_store
     test_prefetch_adversarial_verify  # prefetch-Achse adversarial-Verifikation
-    test_prefetch_patha_t7)           # prefetch Pfad-A T7 (measurable_workload)
+    test_prefetch_patha_t7            # prefetch Pfad-A T7 (measurable_workload)
+    # #188-4c-iii Review-BLOCKER (2026-07-02): test_cow_memento war git-tracked aber NIE registriert — er ist
+    # DIE Absicherung fuer tier_memento_is_copy_on_write()==true (CoW Rev. 2 + 4c-iii-Semantik-Delta: cow_capable_
+    # haengt nur noch am echten container_t-Substrat). Gleiche anatomy/axes-Include-Kette wie die Tests darueber.
+    test_cow_memento)                 # #133/#188-4c-iii — CoW-Flip-Gate (tier_memento_is_copy_on_write)
 foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)
