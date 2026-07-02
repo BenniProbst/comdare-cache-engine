@@ -1,35 +1,29 @@
 #pragma once
-// #188-4b Increment 4b-a (2026-07-01) — Mapping Pool-Familien-Such-Algo -> sein NATIVES Composed*Search-Organ.
+// #188-4b/#188-4a -- Mapping organ-backed SearchAlgo -> sein NATIVES Composed*Search-Organ.
 //
 // @topic traversal @achse 03a @schicht composable
 //
-// **Zweck (Pool-Analogon zu `traversal_for_search_algo<S>`):** Für einen Weg-B-Pool-Such-Algo (Tree/Trie/Hash —
-// NICHT store-traversierbar, `StoreTraversableSearchAlgo<S> == false`) liefert dieses Mapping das NATIVE
-// `Composed*Search<Traversal,*NodePoolStore>`-Organ, mit dem #188-4b-b das `container_t` parametrisiert:
-// `ObservableComposedContainer<organ_for_search_algo_t<Composition::search_algo>>` statt des flachen
-// SortedBinary-Spiegels über `LayoutAwareChunkedStore`. Dadurch läuft die T0-Suche der Pool-Familie über ihren
-// ECHTEN Knoten-Pool (kein Neben-Apparat) — die intra-Gattungs-Speicher-Organ-Zielformel (Thesis-fundiert,
-// Codex-verifiziert 2026-07-01; `store_traversable_search_algo.hpp:16-22`: der search_organ_/container_-Split
-// „ist ein BUG, KEIN gewolltes Design"). SearchAlgorithm bleibt eigene Gattung (kein Cross-Genus, keine
-// „Container-Achse"): das Organ ist ein Speicher-Organ INNERHALB der Gattung.
+// **Zweck (Sibling zu `traversal_for_search_algo<S>`):** Fuer einen nicht-FLAT-store-traversierbaren,
+// aber organ-backed Such-Algo liefert dieses Mapping das NATIVE `Composed*Search<...>`-Organ, mit dem
+// `abi_adapter.hpp` das `container_t` parametrisiert: `ObservableComposedContainer<organ_for_search_algo_t<...>>`
+// statt flachem SortedBinary-Spiegel ueber `LayoutAwareChunkedStore`. Gruppe (2) besteht seit #188-4a aus den
+// 9 Pool-Familien plus der Eytzinger-Layout-Familie: EytzingerLayoutStore haelt sortierten Primaerzustand und
+// abgeleiteten BFS-Puffer in EINEM Store (Option b, lazy rebuild).
 //
 // **TREUE (yield = ROHES Organ):** wie `traversal_for_search_algo` das rohe Traversal liefert, liefert dieses
-// Mapping das rohe `Composed*Search`-Organ; 4b-b wrappt es mit `ObservableComposedContainer` (= die bestehenden
-// `Observable*Organ`-Aliase in `tier_to_organ_mapping.hpp:86-97`, ObservableAxis + SearchAlgoStatistics + CoW
-// `restore_statistics`). Alles AUSSER den 9 Pool-Familien → primäres Template `void`. Das ist ein 3-WEGE-Split
-// (KEINE saubere 2-Wege-Partition — `StoreTraversableSearchAlgo` ist marker-basiert): (1) store-traversierbare
-// Such-METHODEN (LinearScan/Interpolation/k-ary/per-K) mit faithful-Traversal via `traversal_for_search_algo`;
-// (2) die 9 Weg-B-Pool-Familien mit nativem Organ HIER; (3) markerlose flache Array-/Vector-Wrapper (Array256/
-// VectorU8U8/VectorU16U16/Array65535 — WEDER store-traversierbar-markiert NOCH pool-basiert → Default-Sorted-
-// Binary-Pfad im container_t) + Eytzinger (#188-4a BFS-Layout) + deferred/unregistriertes Masstree = void in
-// BEIDEN Traits. Belastbar (self-proving, s. unten): die zwei Sibling-Traits sind DISJUNKT (kein Wrapper ist in
-// beiden non-void); die organ-gemappten 9 sind eine ECHTE Teilmenge der nicht-store-traversierbaren Menge.
+// Mapping das rohe `Composed*Search`-Organ; der Adapter wrappt es mit `ObservableComposedContainer` (= die
+// bestehenden `Observable*Organ`-Aliase in `tier_to_organ_mapping.hpp`, ObservableAxis + SearchAlgoStatistics +
+// CoW `restore_statistics`). Alles AUSSER den 10 organ-backed Familien -> primaeres Template `void`. Das ist ein
+// 3-WEGE-Split (KEINE saubere 2-Wege-Partition -- `StoreTraversableSearchAlgo` ist marker-basiert):
+// (1) store-traversierbare Such-METHODEN (LinearScan/Interpolation/k-ary/per-K) mit faithful-Traversal via
+// `traversal_for_search_algo`; (2) 9 Pool-Familien + Eytzinger-Layout-Familie mit nativem Organ HIER;
+// (3) markerlose flache Array-/Vector-Wrapper (Array256/VectorU8U8/VectorU16U16/Array65535 -- weder
+// store-traversierbar-markiert noch organ-backed -> Default-SortedBinary-Pfad) + deferred/unregistriertes
+// Masstree = void in BEIDEN Traits. Belastbar (self-proving, s. unten): die zwei Sibling-Traits sind DISJUNKT.
 //
-// **Additiv (4b-a ändert NOCH KEIN Verhalten):** formalisiert nur die im Äquivalenz-Test (`TierOrganPair`,
-// `tier_to_organ_mapping.hpp`) belegte Tier->Organ-Zuordnung als compile-time-Trait, damit 4b-b die container_t-
-// Naht (`abi_adapter.hpp:1890-1897`) je Pool-Familie umstellen kann. Wrapper-/Organ-Namen 1:1 aus der Registry
-// (`axis_03a_search_algo_registry.hpp` AllStrategies) + `tier_to_organ_mapping.hpp` verifiziert (kein Raten).
-
+// **Additiv:** formalisiert die im Aequivalenz-Test (`TierOrganPair`, `tier_to_organ_mapping.hpp`) belegte
+// Tier->Organ-Zuordnung als compile-time-Trait, damit `abi_adapter.hpp` die container_t-Naht je organ-backed
+// Familie umstellen kann. Wrapper-/Organ-Namen 1:1 aus Registry + Mapping verifiziert (kein Raten).
 #include "tier_to_organ_mapping.hpp" // Organ-Aliase: ArtTrieOrgan/HotPatriciaOrgan/StartTrieOrgan/WormholeOrgan/
                                      // SurfMapOrgan/SkipListOrgan/HashSearchOrgan/BstTreeOrgan/BTreeSearchOrgan
 #include "traversal_for_search_algo.hpp" // traversal_for_search_algo_t + LinearScanSearchAlgo-Fwd (Partitions-Beleg)
@@ -51,16 +45,17 @@ class SkipListSearchAlgo;         // S13 Skip-Liste (Pugh CACM 1990)
 class HashSearchAlgo;             // S14 open-addressing Hash (Knuth TAOCP 3)
 class BinarySearchTreeSearchAlgo; // S16 unbalancierter BST (Hibbard/Knuth)
 class BTreeSearchAlgo;            // S17 B-Baum (Bayer/McCreight 1972, t=4)
+class EytzingerSearchAlgo;        // S12 Eytzinger (Khuong/Morin JEA 2017)
 // Repräsentant der DRITTEN Gruppe (markerloser flacher Array-/Vector-Wrapper) — für den „void in BEIDEN Traits"-
 // Beleg unten (weder store-traversierbar-markiert noch Pool-Familie; Default-SortedBinary-Pfad im container_t).
 class Array256SearchAlgo; // S01 direkt-adressiert std::array<optional,256> (ART Node256-Baseline, Leis ICDE 2013)
 
 namespace composable {
 
-// Primär: kein natives Pool-Organ -> void. Betrifft: (a) Such-METHODEN (LinearScan/Interpolation/k-ary/per-K =
+// Primär: kein natives Organ -> void. Betrifft: (a) Such-METHODEN (LinearScan/Interpolation/k-ary/per-K =
 // store-traversierbar, faithful-Traversal via `traversal_for_search_algo`); (b) markerlose flache Array-/Vector-
-// Wrapper (Array256/VectorU8U8/VectorU16U16/Array65535 = weder store-traversierbar-markiert noch Pool ->
-// Default-SortedBinary); (c) Eytzinger (#188-4a BFS-Layout) + deferred/unregistriertes Masstree.
+// Wrapper (Array256/VectorU8U8/VectorU16U16/Array65535 = weder store-traversierbar-markiert noch organ-backed ->
+// Default-SortedBinary); (c) deferred/unregistriertes Masstree.
 template <class S>
 struct organ_for_search_algo {
     using type = void;
@@ -104,6 +99,12 @@ template <>
 struct organ_for_search_algo<::comdare::cache_engine::lookup::BTreeSearchAlgo> {
     using type = BTreeSearchOrgan;
 };
+// #188-4a: Eytzinger ist die 10. organ_for-Familie. Kein Pool: EytzingerLayoutStore = sortierte Basis +
+// abgeleiteter BFS-Puffer in EINEM Store (Option b, lazy rebuild). traversal_for bleibt bewusst void.
+template <>
+struct organ_for_search_algo<::comdare::cache_engine::lookup::EytzingerSearchAlgo> {
+    using type = EytzingerOrgan;
+};
 
 template <class S>
 using organ_for_search_algo_t = typename organ_for_search_algo<S>::type;
@@ -136,6 +137,9 @@ static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lo
 static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::BTreeSearchAlgo>,
                              BTreeSearchOrgan>,
               "#188-4b-a: BTree -> BTreeSearchOrgan");
+static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::EytzingerSearchAlgo>,
+                             EytzingerOrgan>,
+              "#188-4a: Eytzinger -> EytzingerOrgan");
 
 // --- Disjunktheit + 3-Wege-Split (self-proving; NICHT als 2-Wege-Partition überclaimen, s. Header): kein Wrapper
 // ist in BEIDEN Sibling-Traits non-void. Belegt an je einem Repräsentanten jeder Gruppe: (1) Pool-Familie BST =
@@ -159,6 +163,10 @@ static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lo
               "#188-4b-a 3-Wege-Split: Array256 = Flach-Array -> KEIN Pool-Organ (void)");
 static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::Array256SearchAlgo>, void>,
               "#188-4b-a 3-Wege-Split: Array256 = Flach-Array -> KEIN faithful-Traversal (void, Default-SortedBinary)");
+static_assert(!std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::EytzingerSearchAlgo>, void>,
+              "#188-4a 3-Wege-Split: Eytzinger = organ-backed Layout-Familie -> HAT natives Organ");
+static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::EytzingerSearchAlgo>, void>,
+              "#188-4a 3-Wege-Split: Eytzinger -> KEIN faithful FLAT-Store-Traversal");
 
 } // namespace composable
 } // namespace comdare::cache_engine::lookup

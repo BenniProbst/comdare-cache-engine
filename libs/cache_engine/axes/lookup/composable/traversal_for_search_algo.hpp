@@ -11,8 +11,9 @@
 // **TREUE (kein Fidelitäts-Defekt):** nur Algos mit einem dedizierten, sie korrekt abbildenden Traversal-Organ werden
 // gemappt: LinearScan→LinearScanTraversal, Interpolation→InterpolationTraversalOrgan, k-ary→KAryTraversal (#188-4a:
 // k-Wege-Partition über den sortierten Flach-Store; lookup_in bit-identisch zur k_ary-Suche, insert/erase/scan an
-// SortedBinary). Eytzinger (BFS-Layout) hat (noch) KEIN treues Flach-Store-Traversal → primäres Template `void`
-// (= Weg-B; #188-4a-Eytzinger offen: User-Entscheid Mutations-Strategie). Tree/Trie/Hash (Pool-Substrat) ebenso `void` (#188-4b).
+// SortedBinary). Eytzinger (BFS-Layout) ist seit #188-4a organ-backed (organ_for_search_algo → EytzingerOrgan,
+// Option b: lazy rebuild); im traversal_for-Trait bewusst `void` (kein faithful FLAT-Store-Traversal über
+// LayoutAwareChunkedStore). Tree/Trie/Hash (Pool-Substrat) ebenso `void` (#188-4b).
 
 #include "composable_search.hpp"             // LinearScanTraversal, SortedBinaryTraversal
 #include "interpolation_traversal_organ.hpp" // InterpolationTraversalOrgan
