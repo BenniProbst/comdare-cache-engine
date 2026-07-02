@@ -54,6 +54,8 @@ namespace comdare::cache_engine::lookup {
 class Array65535SearchAlgo : public SearchAlgoBase<Array65535SearchAlgo> {
 public:
     static constexpr bool enabled = flags::array65535_enabled;
+    // #188-4c-ii: faithful Flach-Store-Pfad via DirectAddressTraversal; Wrapper-Eigen-API/key_type bleibt u16.
+    static constexpr bool axis_03a_store_traversable = true;
 
     /// Voller uint16-Diskriminator-Bereich [0, 65535] = 65536 Slots (Korrektur
     /// der prt-art-65535-Off-by-one). Density-Zielband aus REV 6 §5.17.

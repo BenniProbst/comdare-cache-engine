@@ -42,6 +42,8 @@ namespace comdare::cache_engine::lookup {
 class VectorU16U16SearchAlgo : public SearchAlgoBase<VectorU16U16SearchAlgo> {
 public:
     static constexpr bool enabled = flags::vector_u16u16_enabled;
+    // #188-4c-ii: faithful Flach-Store-Pfad via SortedVectorTraversal; Wrapper-Eigen-API/key_type bleibt u16.
+    static constexpr bool axis_03a_store_traversable = true;
 
     using key_type   = std::uint16_t; // Multi-Byte Discriminator
     using value_type = std::uint64_t;

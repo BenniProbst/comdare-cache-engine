@@ -9,7 +9,8 @@
 //
 // **Autoritative Klassifikations-Grundlage (G3, code-bestätigt via `tier_to_organ_mapping.hpp` #40 +
 // `axis_03a_search_algo_registry.hpp`):**
-//   • Array-Familie → ComposedSearch<Traversal, RawSlotStore> (flach) → STORE-TRAVERSIERBAR.
+//   • Array-/Flach-Familie → ComposedSearch<Traversal, RawSlotStore> (flach) → STORE-TRAVERSIERBAR.
+//     #188-4c-ii: Array256/Array65535 via DirectAddressTraversal, VectorU8U8/VectorU16U16 via SortedVectorTraversal.
 //   • Tree/Trie/Hash-Familie → Composed*Search<Traversal, *NodePoolStore> → (noch) NICHT flach-traversierbar
 //     (das Pool-Substrat IST der Algorithmus); diese Tiere laufen DERZEIT über search_organ_ (Weg-B).
 //
