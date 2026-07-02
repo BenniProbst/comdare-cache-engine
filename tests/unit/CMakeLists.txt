@@ -1483,6 +1483,20 @@ target_compile_definitions(test_188_4bbV_pool_adapter_flip_compile PRIVATE
 add_test(NAME test_188_4bbV_pool_adapter_flip_compile COMMAND test_188_4bbV_pool_adapter_flip_compile)
 set_tests_properties(test_188_4bbV_pool_adapter_flip_compile PROPERTIES LABELS "contract;standalone;pool_flip")
 
+# #234-F1 (W2, 2026-07-02) — BtreeOrder-Shape-Varianten real: Kt2/3/8/16-Organe paargenau vs std::map + Struktur-
+# Wirkungsanker (Kt2-vs-Kt16-Knotenzahl bei gleicher 200-Key-Sequenz) + Level-0-Alias-Anker. Test-only-Increment
+# (das BTree-Traversal-Organ liest Pool::kT/kMaxKeys bereits ueberall). GTest im Haupt-Suite — zieht die
+# Composed-Organe + topics-Shape-Strategien, daher der 4bb0-Include-Satz. CI: contract:node_shape.
+comdare_add_test(test_234_f1_btree_order_shape
+    SOURCES test_234_f1_btree_order_shape.cpp)
+target_include_directories(test_234_f1_btree_order_shape PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_234_f1_btree_order_shape PRIVATE Boost::mp11)
+
 # P5 (#156-De-Risk, 2026-06-20) — Smoke fuer die PMC-WIDE-Naht: make_pmc_source()/IPmcSource im LAZY WIDE-Mess-Pfad
 # (perm_runner) + 7 additive pmc_*-Spalten in lazy_csv_header. Standalone (plain int main, baut KEINE DLLs), zieht
 # aber den schweren iterator-/pmc_source_factory-Kontext -> derselbe anatomy/axes/Boost::mp11-Include-Satz wie

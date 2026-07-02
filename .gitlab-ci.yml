@@ -192,6 +192,25 @@ contract:harness:
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
+# -- Stufe 4f: Contract Node-Shape-Gate (#234-F1..F4, W2) --
+# Die per-Familie Node-Shape-Achsen (btree_order/skip_list_shape/bst_shape/hash_probe_shape): Varianten-Shapes
+# werden als TYPEN direkt instanziiert (flag-unabhaengig — die CMake-Default-OFF-Optionen filtern nur die
+# Registry/EnabledShapes) und paargenau gegen std::map getrieben (+ Struktur-/Bit-Treue-/Grenz-Anker je Familie).
+# Mirror von contract:pool_flip (eigener Build-Ordner, lint:secrets-Gate, keine Artefakte). Die Target-Liste
+# waechst mit den F-Increments.
+contract:node_shape:
+  extends: .bare_metal
+  stage: contract
+  tags: [baremetal]
+  needs: ["lint:secrets"]
+  script:
+    # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
+    - cmake -B build-nodeshape -G Ninja -DCOMDARE_BUILD_TESTS=ON
+    - cmake --build build-nodeshape --target test_234_f1_btree_order_shape
+    - ctest --test-dir build-nodeshape -R '^test_234_f' --output-on-failure
+  artifacts:
+    paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
+
 # ── Wartung (MANUELL, one-shot): is_original Habich-Compliance-Lock-Regenerierung (#188-4b-b-V) ──
 # Erzeugt die 13 sha256_locked.txt mit LF-normalisierten SHAs (Validator --update-lock, COMDARE_CE_UPDATE_ORIGINAL_
 # LOCKS=ON). Grund: die Locks wurden auf einem CRLF-Windows-Worktree erzeugt, das Repo ist LF (.gitattributes eol=lf)
