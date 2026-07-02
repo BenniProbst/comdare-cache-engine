@@ -1497,6 +1497,20 @@ target_include_directories(test_234_f1_btree_order_shape PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_234_f1_btree_order_shape PRIVATE Boost::mp11)
 
+# #234-F2 (W2, 2026-07-02) — SkipListShape-Varianten real: draw_level zieht P=kPNumerator/kPDenominator
+# maskenbasiert (Level-0 P=1/2 DRAW-FUER-DRAW bit-treu zur alten Muenzwurf-Formel — der Test beweist es ueber
+# 12000 Ziehungen gegen die lokal nachgebaute Alt-Referenz, gleicher Seed 0xC0FFEE); P25-Statistik-Anker
+# (100k Draws, 13-15sigma-Toleranzen); Max8/Max32-Grenzen; Shaped-Organe paargenau vs std::map.
+comdare_add_test(test_234_f2_skip_list_shape
+    SOURCES test_234_f2_skip_list_shape.cpp)
+target_include_directories(test_234_f2_skip_list_shape PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_234_f2_skip_list_shape PRIVATE Boost::mp11)
+
 # P5 (#156-De-Risk, 2026-06-20) — Smoke fuer die PMC-WIDE-Naht: make_pmc_source()/IPmcSource im LAZY WIDE-Mess-Pfad
 # (perm_runner) + 7 additive pmc_*-Spalten in lazy_csv_header. Standalone (plain int main, baut KEINE DLLs), zieht
 # aber den schweren iterator-/pmc_source_factory-Kontext -> derselbe anatomy/axes/Boost::mp11-Include-Satz wie

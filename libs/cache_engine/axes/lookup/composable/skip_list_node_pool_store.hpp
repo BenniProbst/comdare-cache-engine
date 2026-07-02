@@ -12,6 +12,7 @@
 // erzeugt einen live Knoten (++live_count_); das Organ verkettet ihn anschliessend ueber set_forward_at.
 // Deterministischer Seed 0xC0FFEEu → reproduzierbar/testbar (Aequivalenz zum Monolith). Forward-Indizes als
 // std::size_t (das Monolith-uint32-Detail ist messungsirrelevant — Skip-Liste-Merkmal ist supports_range_scan).
+// Seit #234-F2 zieht draw_level() P=Shape::kPNumerator/Shape::kPDenominator maskenbasiert und haelt P=1/2 bit-treu.
 
 #include "skip_list_node_pool_concept.hpp"
 #include <topics/nodes/axis_skip_list_shape/axis_skip_list_shape_max16_p50.hpp>
@@ -30,6 +31,9 @@ namespace comdare::cache_engine::lookup::composable {
 template <typename Shape = ::comdare::cache_engine::nodes::axis_skip_list_shape::SkipListMax16P50>
 class SkipListNodePoolStore {
     static_assert(::comdare::cache_engine::nodes::axis_skip_list_shape::concepts::SkipListShape<Shape>);
+    static_assert((Shape::kPDenominator & (Shape::kPDenominator - 1)) == 0,
+                  "#234-F2: kPDenominator muss Power-of-2 sein (maskenbasierte Ziehung)");
+    static_assert(Shape::kPNumerator >= 1 && Shape::kPNumerator < Shape::kPDenominator);
 
 public:
     using key_type                         = std::uint64_t;
@@ -57,11 +61,16 @@ public:
         ++live_count_;
         return idx;
     }
-    /// Muenzwurf-Level-Ziehung (P=0.5) — verbatim random_level(), mutiert rng_ (deshalb im Store).
+    /// Muenzwurf-Level-Ziehung (P = Shape::kPNumerator/kPDenominator; Level-0: 0.5) — mutiert rng_ (deshalb im Store).
     [[nodiscard]] int draw_level() noexcept {
         int lvl = 1;
-        // #234-K: kPNumerator/kPDenominator are definition-only here; F2 wires non-1/2 probabilities.
-        while ((rng_() & 1u) != 0u && lvl < kMaxLevel) ++lvl;
+        // #234-F2: P = kPNumerator/kPDenominator, kPDenominator MUSS Power-of-2 (maskenbasiert, kein Modulo-Bias).
+        // Weiter-Wuerfeln solange der Draw in den obersten kPNumerator Restklassen liegt — fuer 1/2 ist
+        // ((rng_() & 1u) >= 1u) EXAKT das alte ((rng_() & 1u) != 0u): gleicher RNG-Konsum, gleiches Praedikat.
+        while ((rng_() & (static_cast<std::uint64_t>(Shape::kPDenominator) - 1u)) >=
+                   static_cast<std::uint64_t>(Shape::kPDenominator - Shape::kPNumerator) &&
+               lvl < kMaxLevel)
+            ++lvl;
         return lvl;
     }
     void set_forward_at(std::size_t node, std::size_t level, std::size_t target) noexcept {
