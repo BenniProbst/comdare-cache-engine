@@ -97,6 +97,6 @@ struct HashProbeTraversalOrgan {
 };
 
 // Selbstbeweis: HashProbeTraversalOrgan erfuellt das HashProbeTraversal-Concept ueber dem Pilot-Pool.
-static_assert(HashProbeTraversal<HashProbeTraversalOrgan, HashBucketPoolStore>);
+static_assert(HashProbeTraversal<HashProbeTraversalOrgan, HashBucketPoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

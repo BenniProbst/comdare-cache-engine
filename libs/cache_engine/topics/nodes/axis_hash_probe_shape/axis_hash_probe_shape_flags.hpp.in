@@ -1,0 +1,16 @@
+#pragma once
+// DOSSIER W1/234-K axis_hash_probe_shape CMake-generated flags header
+
+#cmakedefine01 COMDARE_AXIS_HASH_PROBE_SHAPE_USE_OA_LF70
+#cmakedefine01 COMDARE_AXIS_HASH_PROBE_SHAPE_USE_OA_LF50
+#cmakedefine01 COMDARE_AXIS_HASH_PROBE_SHAPE_USE_OA_LF90
+#cmakedefine01 COMDARE_AXIS_HASH_PROBE_SHAPE_USE_CHAINING
+
+namespace comdare::cache_engine::nodes::axis_hash_probe_shape::flags {
+
+inline constexpr bool oa_lf70_enabled  = COMDARE_AXIS_HASH_PROBE_SHAPE_USE_OA_LF70;
+inline constexpr bool oa_lf50_enabled  = COMDARE_AXIS_HASH_PROBE_SHAPE_USE_OA_LF50;
+inline constexpr bool oa_lf90_enabled  = COMDARE_AXIS_HASH_PROBE_SHAPE_USE_OA_LF90;
+inline constexpr bool chaining_enabled = COMDARE_AXIS_HASH_PROBE_SHAPE_USE_CHAINING;
+
+} // namespace comdare::cache_engine::nodes::axis_hash_probe_shape::flags

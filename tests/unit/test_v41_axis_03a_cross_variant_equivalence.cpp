@@ -27,7 +27,7 @@ using LinearFlat = ce_cmp::ComposedSearch<ce_cmp::LinearScanTraversal, ce_cmp::R
 using SortedFlat = ce_cmp::ComposedSearch<ce_cmp::SortedBinaryTraversal, ce_cmp::RawSlotStore>;
 using InterpFlat = ce_cmp::ComposedSearch<ce_cmp::InterpolationTraversalOrgan, ce_cmp::RawSlotStore>;
 using GallopFlat = ce_cmp::ComposedSearch<ce_cmp::GallopingTraversalOrgan, ce_cmp::RawSlotStore>;
-using BstTree    = ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore>;
+using BstTree    = ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore<>>;
 
 // --- (1) VERTIKAL: jede Flat-Variante einzeln == std::map -------------------------------------------------
 TEST(Axis03aCrossVariant, FlatOrgansEquivalentToStdMap) {

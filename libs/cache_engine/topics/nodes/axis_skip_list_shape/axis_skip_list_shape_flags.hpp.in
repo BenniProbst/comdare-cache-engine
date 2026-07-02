@@ -1,0 +1,16 @@
+#pragma once
+// DOSSIER W1/234-K axis_skip_list_shape CMake-generated flags header
+
+#cmakedefine01 COMDARE_AXIS_SKIP_LIST_SHAPE_USE_MAX16_P50
+#cmakedefine01 COMDARE_AXIS_SKIP_LIST_SHAPE_USE_MAX8_P50
+#cmakedefine01 COMDARE_AXIS_SKIP_LIST_SHAPE_USE_MAX32_P50
+#cmakedefine01 COMDARE_AXIS_SKIP_LIST_SHAPE_USE_MAX16_P25
+
+namespace comdare::cache_engine::nodes::axis_skip_list_shape::flags {
+
+inline constexpr bool max16_p50_enabled = COMDARE_AXIS_SKIP_LIST_SHAPE_USE_MAX16_P50;
+inline constexpr bool max8_p50_enabled  = COMDARE_AXIS_SKIP_LIST_SHAPE_USE_MAX8_P50;
+inline constexpr bool max32_p50_enabled = COMDARE_AXIS_SKIP_LIST_SHAPE_USE_MAX32_P50;
+inline constexpr bool max16_p25_enabled = COMDARE_AXIS_SKIP_LIST_SHAPE_USE_MAX16_P25;
+
+} // namespace comdare::cache_engine::nodes::axis_skip_list_shape::flags

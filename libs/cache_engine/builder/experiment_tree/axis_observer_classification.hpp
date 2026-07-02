@@ -1,7 +1,7 @@
 #pragma once
-// BR-3-OBS-22 (2026-06-02, Doc 27 §0.1/§3) — Observer-Klassifikation je der 22 Achsen ("kein Wegschrumpfen").
+// BR-3-OBS-22 (2026-06-02, Doc 27 §0.1/§3) — Observer-Klassifikation je der 26 Achsen ("kein Wegschrumpfen").
 //
-// User-Direktive 2026-06-02: ALLE 22 Achsen tragen einen EIGENEN Observer — NICHT nur die 19 SearchAlgorithm-
+// User-Direktive 2026-06-02: ALLE 26 Achsen tragen einen EIGENEN Observer — NICHT nur die 19 SearchAlgorithm-
 // Komposition-Slots. Die Differenzierung ist GATTUNGS-KORREKT (Doc 27 §0.1, User-Entscheidung „differenziert"):
 //   • SearchAlgorithmObserver : die 19 Komposition-Achsen → ObserverAggregate<19> (real für ObservableAxis,
 //     R5.B: search_algo + allocator + ... operativ; Rest Default-Snapshot). Träger: NodeObserverSnapshot (BR-3).
@@ -13,7 +13,7 @@
 //     Adapter-Tier-Unterklasse, 13 Achsen inkl. inner_container, §28, #87+#90) — NICHT für queuing (das war der
 //     korrigierte Kategorienfehler, Doc 30 §8.0). Aktuell 0 Einträge.
 //
-// So ist jede der 22 Achsen klassifiziert + trägt Observer ODER Definition — keine fällt weg. C++23, header-only,
+// So ist jede der 26 Achsen klassifiziert + trägt Observer ODER Definition — keine fällt weg. C++23, header-only,
 // umbrella-UNABHÄNGIG (nur Namen + Kind; die Definitionen liefert BR-1 build_all_axis_levels via reflect_names).
 
 #include <array>
@@ -22,10 +22,10 @@
 
 namespace comdare::cache_engine::builder::experiment {
 
-/// Die drei Observer-Naturen der 22 Achsen (gattungs-korrekt, Doc 27 §0.1).
+/// Die drei Observer-Naturen der 26 Achsen (gattungs-korrekt, Doc 27 §0.1).
 enum class AxisObserverKind {
     SearchAlgorithmObserver, // 19 Komposition-Achsen (inkl. queuing q1/q2 T17/T18): ObserverAggregate<19> (BR-3)
-    DefinitionOnly,          // page_type/09b/12: Build-Konstanten → Definition statt Laufzeit-Observer
+    DefinitionOnly,          // page_type/09b/12 + 4 node-shape (#234-K): Build-Konstanten → Definition statt Laufzeit-Observer
     ContainerObserver // RESERVIERT: echte Container-Gattung (Adapter, 13 Achsen inkl. inner_container, §28, #87+#90) — NICHT queuing (korr. 2026-06-03)
 };
 
@@ -43,8 +43,8 @@ struct AxisObserverClass {
     AxisObserverKind kind;
 };
 
-/// ALLE 22 Achsen klassifiziert (Reihenfolge = registry_to_axis_levels build_all_axis_levels: 17 Kern-Achsen, dann 3 build-only + q1/q2 = 19 Komposition + 3 DefinitionOnly).
-inline constexpr std::array<AxisObserverClass, 22> kAxisObserverClasses = {{
+/// ALLE 26 Achsen klassifiziert (Reihenfolge = registry_to_axis_levels build_all_axis_levels: 17 Kern-Achsen, dann 3 build-only + q1/q2 = 19 Komposition, dann 4 node-shape (#234-K) → 7 DefinitionOnly gesamt).
+inline constexpr std::array<AxisObserverClass, 26> kAxisObserverClasses = {{
     {"search_algo", AxisObserverKind::SearchAlgorithmObserver},
     {"cache_traversal", AxisObserverKind::SearchAlgorithmObserver},
     {"mapping", AxisObserverKind::SearchAlgorithmObserver},
@@ -72,10 +72,14 @@ inline constexpr std::array<AxisObserverClass, 22> kAxisObserverClasses = {{
     {"queuing_q2",
      AxisObserverKind::
          SearchAlgorithmObserver}, // korr. 2026-06-03 (Doc 30 §8.0): SA-Tier-Unterklasse-Achse T18 (flush_policy) — KEINE Gattung
+    {"btree_order", AxisObserverKind::DefinitionOnly},
+    {"skip_list_shape", AxisObserverKind::DefinitionOnly},
+    {"bst_shape", AxisObserverKind::DefinitionOnly},
+    {"hash_probe_shape", AxisObserverKind::DefinitionOnly},
 }};
 
 /// Observer-Kind einer Achse (per Name). Liefert SearchAlgorithmObserver als Default (für die 17), aber der
-/// Lookup deckt alle 22 ab; unbekannte Achse → false über found.
+/// Lookup deckt alle 26 ab; unbekannte Achse → false über found.
 [[nodiscard]] inline constexpr bool observer_kind_of(std::string_view axis, AxisObserverKind& out) noexcept {
     for (auto const& e : kAxisObserverClasses)
         if (e.axis == axis) {
@@ -85,7 +89,7 @@ inline constexpr std::array<AxisObserverClass, 22> kAxisObserverClasses = {{
     return false;
 }
 
-/// Anzahl Achsen je Observer-Natur (Diagnose: 17 / 3 / 2 = 22).
+/// Anzahl Achsen je Observer-Natur (Diagnose: 19 / 7 / 0 = 26 — test-belegt br3_obs22/d7b).
 [[nodiscard]] inline constexpr std::size_t count_observer_kind(AxisObserverKind k) noexcept {
     std::size_t n = 0;
     for (auto const& e : kAxisObserverClasses)

@@ -22,8 +22,10 @@ namespace comdare::cache_engine::builder::experiment {
 namespace mp = boost::mp11;
 
 /// Die 19 Komposition-Achsen-Namen in AdHocComposition-Slot-Reihenfolge T0..T18 (composition_factory.hpp:41-68;
-/// Doc 30 §8.0 erweitert um queuing_q1/queuing_q2). IDENTISCH zu den ersten 19 Achsen-Namen in
-/// registry_to_axis_levels.hpp build_all_axis_levels() (BR-1) — das ist die zentrale Quelle, auf die beide verweisen.
+/// Doc 30 §8.0 erweitert um queuing_q1/queuing_q2). TEILMENGE der Achsen aus registry_to_axis_levels.hpp
+/// build_all_axis_levels() (BR-1, zentrale Quelle) — aber NICHT deren Präfix: dort stehen zwischen T16 und q1/q2
+/// die 3 build-only-Achsen (page_type/simd_extension/general_hardware), dahinter die 4 node-shape-Achsen (#234-K).
+/// (Kommentar-Korrektur #234-K: die frühere "IDENTISCH zu den ersten 19"-Behauptung war schon im 22er-Stand falsch.)
 inline constexpr std::array<std::string_view, 19> kCompositionAxisNames = {
     "search_algo",      "cache_traversal", "mapping",    "path_compression",   "node_type",
     "memory_layout",    "allocator",       "prefetch",   "concurrency",        "serialization",

@@ -291,6 +291,29 @@ option(COMDARE_AXIS_01PT_ENABLE_REDIRECT        "PageType Redirect (collapsed pa
 option(COMDARE_AXIS_01PT_ENABLE_CUSTOM_CACHE    "PageType CustomCache (cache-line custom, PRT-ART)" ON)
 option(COMDARE_AXIS_01PT_ENABLE_BPLUS           "PageType BPlus (sorted B+ branch, Masstree)" ON)
 
+# DOSSIER W1/234-K axis_btree_order (DefinitionOnly node-shape, Level-0 = KT4)
+option(COMDARE_AXIS_BTREE_ORDER_ENABLE_KT4  "BTree order t=4 (Level-0 default, max-keys 7)" ON)
+option(COMDARE_AXIS_BTREE_ORDER_ENABLE_KT2  "BTree order t=2 (variant, max-keys 3)" OFF)
+option(COMDARE_AXIS_BTREE_ORDER_ENABLE_KT3  "BTree order t=3 (variant, max-keys 5)" OFF)
+option(COMDARE_AXIS_BTREE_ORDER_ENABLE_KT8  "BTree order t=8 (variant, max-keys 15)" OFF)
+option(COMDARE_AXIS_BTREE_ORDER_ENABLE_KT16 "BTree order t=16 (variant, max-keys 31)" OFF)
+
+# DOSSIER W1/234-K axis_skip_list_shape (DefinitionOnly node-shape, Level-0 = Max16P50)
+option(COMDARE_AXIS_SKIP_LIST_SHAPE_ENABLE_MAX16_P50 "SkipList shape max-level=16 p=1/2 (Level-0 default)" ON)
+option(COMDARE_AXIS_SKIP_LIST_SHAPE_ENABLE_MAX8_P50  "SkipList shape max-level=8 p=1/2 (variant)" OFF)
+option(COMDARE_AXIS_SKIP_LIST_SHAPE_ENABLE_MAX32_P50 "SkipList shape max-level=32 p=1/2 (variant)" OFF)
+option(COMDARE_AXIS_SKIP_LIST_SHAPE_ENABLE_MAX16_P25 "SkipList shape max-level=16 p=1/4 (variant)" OFF)
+
+# DOSSIER W1/234-K axis_bst_shape (DefinitionOnly node-shape, Level-0 = size_t index)
+option(COMDARE_AXIS_BST_SHAPE_ENABLE_PTR_SIZE_T "BST pointer/index type size_t (Level-0 default)" ON)
+option(COMDARE_AXIS_BST_SHAPE_ENABLE_PTR_U32    "BST pointer/index type uint32_t (variant)" OFF)
+option(COMDARE_AXIS_BST_SHAPE_ENABLE_PTR_U16    "BST pointer/index type uint16_t (variant)" OFF)
+
+# DOSSIER W1/234-K axis_hash_probe_shape (DefinitionOnly node-shape, Level-0 = OA LF70)
+option(COMDARE_AXIS_HASH_PROBE_SHAPE_ENABLE_OA_LF70  "Hash probe open-addressing load-factor 0.70 (Level-0 default)" ON)
+option(COMDARE_AXIS_HASH_PROBE_SHAPE_ENABLE_OA_LF50  "Hash probe open-addressing load-factor 0.50 (variant)" OFF)
+option(COMDARE_AXIS_HASH_PROBE_SHAPE_ENABLE_OA_LF90  "Hash probe open-addressing load-factor 0.90 (variant)" OFF)
+option(COMDARE_AXIS_HASH_PROBE_SHAPE_ENABLE_CHAINING "Hash probe chaining shape (variant, definition-only in W1/234-K)" OFF)
 # V41.F.6.1.R7.1.d axis_04 Node-Type (4 ART-Varianten)
 option(COMDARE_AXIS_04_ENABLE_NODE4    "Node-Type Node4 (ART small, linear-search 4-slot)" ON)
 option(COMDARE_AXIS_04_ENABLE_NODE16   "Node-Type Node16 (ART medium, SIMD-binary-search 16-slot)" ON)
@@ -872,6 +895,58 @@ configure_file(
     @ONLY)
 message(STATUS "  axis_01_page_type (6 page-types): DENSE=${COMDARE_AXIS_01PT_USE_DENSE_BYTE} EXT=${COMDARE_AXIS_01PT_USE_EXTENDED_DENSE} PATRICIA=${COMDARE_AXIS_01PT_USE_SPARSE_PATRICIA} REDIRECT=${COMDARE_AXIS_01PT_USE_REDIRECT} CUSTOM=${COMDARE_AXIS_01PT_USE_CUSTOM_CACHE} BPLUS=${COMDARE_AXIS_01PT_USE_BPLUS}")
 
+# DOSSIER W1/234-K node-shape shared axes Flags (USE = ENABLE)
+foreach(_bo KT2 KT3 KT4 KT8 KT16)
+    if(COMDARE_AXIS_BTREE_ORDER_ENABLE_${_bo})
+        set(COMDARE_AXIS_BTREE_ORDER_USE_${_bo} 1)
+    else()
+        set(COMDARE_AXIS_BTREE_ORDER_USE_${_bo} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/nodes/axis_btree_order/axis_btree_order_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/nodes/axis_btree_order/axis_btree_order_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_btree_order (5 shapes): KT2=${COMDARE_AXIS_BTREE_ORDER_USE_KT2} KT3=${COMDARE_AXIS_BTREE_ORDER_USE_KT3} KT4=${COMDARE_AXIS_BTREE_ORDER_USE_KT4} KT8=${COMDARE_AXIS_BTREE_ORDER_USE_KT8} KT16=${COMDARE_AXIS_BTREE_ORDER_USE_KT16}")
+
+foreach(_sl MAX16_P50 MAX8_P50 MAX32_P50 MAX16_P25)
+    if(COMDARE_AXIS_SKIP_LIST_SHAPE_ENABLE_${_sl})
+        set(COMDARE_AXIS_SKIP_LIST_SHAPE_USE_${_sl} 1)
+    else()
+        set(COMDARE_AXIS_SKIP_LIST_SHAPE_USE_${_sl} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/nodes/axis_skip_list_shape/axis_skip_list_shape_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/nodes/axis_skip_list_shape/axis_skip_list_shape_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_skip_list_shape (4 shapes): MAX16_P50=${COMDARE_AXIS_SKIP_LIST_SHAPE_USE_MAX16_P50} MAX8_P50=${COMDARE_AXIS_SKIP_LIST_SHAPE_USE_MAX8_P50} MAX32_P50=${COMDARE_AXIS_SKIP_LIST_SHAPE_USE_MAX32_P50} MAX16_P25=${COMDARE_AXIS_SKIP_LIST_SHAPE_USE_MAX16_P25}")
+
+foreach(_bst PTR_SIZE_T PTR_U32 PTR_U16)
+    if(COMDARE_AXIS_BST_SHAPE_ENABLE_${_bst})
+        set(COMDARE_AXIS_BST_SHAPE_USE_${_bst} 1)
+    else()
+        set(COMDARE_AXIS_BST_SHAPE_USE_${_bst} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/nodes/axis_bst_shape/axis_bst_shape_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/nodes/axis_bst_shape/axis_bst_shape_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_bst_shape (3 shapes): PTR_SIZE_T=${COMDARE_AXIS_BST_SHAPE_USE_PTR_SIZE_T} PTR_U32=${COMDARE_AXIS_BST_SHAPE_USE_PTR_U32} PTR_U16=${COMDARE_AXIS_BST_SHAPE_USE_PTR_U16}")
+
+foreach(_hp OA_LF70 OA_LF50 OA_LF90 CHAINING)
+    if(COMDARE_AXIS_HASH_PROBE_SHAPE_ENABLE_${_hp})
+        set(COMDARE_AXIS_HASH_PROBE_SHAPE_USE_${_hp} 1)
+    else()
+        set(COMDARE_AXIS_HASH_PROBE_SHAPE_USE_${_hp} 0)
+    endif()
+endforeach()
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/topics/nodes/axis_hash_probe_shape/axis_hash_probe_shape_flags.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/topics/nodes/axis_hash_probe_shape/axis_hash_probe_shape_flags.hpp"
+    @ONLY)
+message(STATUS "  axis_hash_probe_shape (4 shapes): OA_LF70=${COMDARE_AXIS_HASH_PROBE_SHAPE_USE_OA_LF70} OA_LF50=${COMDARE_AXIS_HASH_PROBE_SHAPE_USE_OA_LF50} OA_LF90=${COMDARE_AXIS_HASH_PROBE_SHAPE_USE_OA_LF90} CHAINING=${COMDARE_AXIS_HASH_PROBE_SHAPE_USE_CHAINING}")
 # V41.F.6.1.R7.1.d axis_04 Node-Type Flags (USE = ENABLE)
 foreach(_n NODE4 NODE16 NODE48 NODE256)
     if(COMDARE_AXIS_04_ENABLE_${_n})

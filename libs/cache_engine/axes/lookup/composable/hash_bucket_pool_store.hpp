@@ -13,6 +13,8 @@
 // Tombstones beim Resize. hash_index() bleibt im Store (kennt mask_+kFibonacciMul) fuer die Re-Distribution.
 
 #include "hash_bucket_pool_concept.hpp"
+#include <topics/nodes/axis_hash_probe_shape/axis_hash_probe_shape_oa_lf70.hpp>
+#include <topics/nodes/axis_hash_probe_shape/concepts/axis_hash_probe_shape_concept.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -22,7 +24,12 @@ namespace comdare::cache_engine::lookup::composable {
 
 /// Open-Addressing-Bucket-Pool: Slots behalten ihre Position (KEINE Index-Shifts); Tombstones erhalten die
 /// Probe-Kette. Kapazitaet stets Power-of-2 (mask_ = cap-1), Start 16, Verdopplung bei Load >= 0.7.
+template <typename Shape = ::comdare::cache_engine::nodes::axis_hash_probe_shape::HashOaLf70>
 class HashBucketPoolStore {
+    static_assert(::comdare::cache_engine::nodes::axis_hash_probe_shape::concepts::HashProbeShape<Shape>);
+    static_assert(Shape::kOpenAddressing, "#234-K HashBucketPoolStore still implements open addressing only");
+    // #234-K: kLoadNumerator/kLoadDenominator and chaining are definition-only until the F4 behavior wiring.
+
 public:
     using key_type                                = std::uint64_t;
     using value_type                              = std::uint64_t;
@@ -102,6 +109,6 @@ private:
 };
 
 // Selbstbeweis: das Substrat erfuellt das HashBucketPool-Concept.
-static_assert(HashBucketPool<HashBucketPoolStore>);
+static_assert(HashBucketPool<HashBucketPoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

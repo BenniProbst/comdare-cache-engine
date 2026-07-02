@@ -14,6 +14,8 @@
 // vom Organ ueber inc_size/dec_size gefuehrt (B-Baum-Knoten != Schluessel).
 
 #include "btree_node_pool_concept.hpp"
+#include <topics/nodes/axis_btree_order/axis_btree_order_kt4.hpp>
+#include <topics/nodes/axis_btree_order/concepts/axis_btree_order_concept.hpp>
 
 #include <array>
 #include <cstddef>
@@ -23,14 +25,20 @@
 namespace comdare::cache_engine::lookup::composable {
 
 /// Index-stabiler Mehrwege-Knoten-Pool (Free-List-Recycling); block-orientiert (alignas(64)).
+template <typename Shape = ::comdare::cache_engine::nodes::axis_btree_order::BtreeOrderKt4>
 class BTreeNodePoolStore {
+    static_assert(::comdare::cache_engine::nodes::axis_btree_order::concepts::BtreeOrderShape<Shape>);
+
 public:
     using key_type                            = std::uint64_t;
     using value_type                          = std::uint64_t;
-    static constexpr int         kT           = 4;          // Minimum-Degree
-    static constexpr int         kMaxKeys     = 2 * kT - 1; // 7
-    static constexpr int         kMaxChildren = 2 * kT;     // 8
+    static constexpr int         kT           = Shape::kT;      // Minimum-Degree (#234-K shape carrier)
+    static constexpr int         kMaxKeys     = 2 * kT - 1;     // Level-0: 7
+    static constexpr int         kMaxChildren = 2 * kT;         // Level-0: 8
     static constexpr std::size_t kNil         = 0xFFFFFFFFu;
+
+    static_assert(kMaxKeys == Shape::kMaxKeys);
+    static_assert(kMaxChildren == Shape::kMaxChildren);
 
     [[nodiscard]] std::size_t root() const noexcept { return root_; }
     [[nodiscard]] std::size_t size() const noexcept { return size_; }
@@ -101,6 +109,6 @@ private:
 };
 
 // Selbstbeweis: das Substrat erfuellt das BTreeNodePool-Concept.
-static_assert(BTreeNodePool<BTreeNodePoolStore>);
+static_assert(BTreeNodePool<BTreeNodePoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

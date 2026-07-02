@@ -1,0 +1,14 @@
+#pragma once
+// DOSSIER W1/234-K axis_bst_shape CMake-generated flags header
+
+#cmakedefine01 COMDARE_AXIS_BST_SHAPE_USE_PTR_SIZE_T
+#cmakedefine01 COMDARE_AXIS_BST_SHAPE_USE_PTR_U32
+#cmakedefine01 COMDARE_AXIS_BST_SHAPE_USE_PTR_U16
+
+namespace comdare::cache_engine::nodes::axis_bst_shape::flags {
+
+inline constexpr bool ptr_size_t_enabled = COMDARE_AXIS_BST_SHAPE_USE_PTR_SIZE_T;
+inline constexpr bool ptr_u32_enabled    = COMDARE_AXIS_BST_SHAPE_USE_PTR_U32;
+inline constexpr bool ptr_u16_enabled    = COMDARE_AXIS_BST_SHAPE_USE_PTR_U16;
+
+} // namespace comdare::cache_engine::nodes::axis_bst_shape::flags

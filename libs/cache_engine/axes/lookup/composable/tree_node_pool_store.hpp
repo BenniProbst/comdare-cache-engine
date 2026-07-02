@@ -8,6 +8,8 @@
 // Verantwortung: die Baum-NAVIGATION lebt im Tree-Traversal-Organ, NICHT hier (genetisches Experiment).
 
 #include "tree_node_pool_concept.hpp"
+#include <topics/nodes/axis_bst_shape/axis_bst_shape_ptr_size_t.hpp>
+#include <topics/nodes/axis_bst_shape/concepts/axis_bst_shape_concept.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -17,24 +19,29 @@
 namespace comdare::cache_engine::lookup::composable {
 
 /// Index-stabiler Knoten-Pool: Knoten behalten ihren Index ueber ihre Lebensdauer (Free-List-Recycling).
+template <typename Shape = ::comdare::cache_engine::nodes::axis_bst_shape::BstPtrSizeT>
 class TreeNodePoolStore {
+    static_assert(::comdare::cache_engine::nodes::axis_bst_shape::concepts::BstShape<Shape>);
+
 public:
     using key_type                    = std::uint64_t;
     using value_type                  = std::uint64_t;
-    static constexpr std::size_t kNil = std::numeric_limits<std::size_t>::max(); // "kein Knoten"
+    using index_type                  = typename Shape::index_type;
+    static constexpr index_type kNilIndex = std::numeric_limits<index_type>::max();
+    static constexpr std::size_t kNil = static_cast<std::size_t>(kNilIndex); // Level-0: size_t max (#234-K)
 
-    [[nodiscard]] std::size_t root() const noexcept { return root_; }
+    [[nodiscard]] std::size_t root() const noexcept { return static_cast<std::size_t>(root_); }
     [[nodiscard]] std::size_t node_count() const noexcept { return size_; }
     [[nodiscard]] key_type    node_key(std::size_t i) const noexcept { return nodes_[i].key; }
     [[nodiscard]] value_type  node_value(std::size_t i) const noexcept { return nodes_[i].val; }
-    [[nodiscard]] std::size_t left(std::size_t i) const noexcept { return nodes_[i].left; }
-    [[nodiscard]] std::size_t right(std::size_t i) const noexcept { return nodes_[i].right; }
+    [[nodiscard]] std::size_t left(std::size_t i) const noexcept { return static_cast<std::size_t>(nodes_[i].left); }
+    [[nodiscard]] std::size_t right(std::size_t i) const noexcept { return static_cast<std::size_t>(nodes_[i].right); }
 
     void set_node_key(std::size_t i, key_type k) noexcept { nodes_[i].key = k; }
     void set_node_value(std::size_t i, value_type v) noexcept { nodes_[i].val = v; }
-    void set_left(std::size_t i, std::size_t c) noexcept { nodes_[i].left = c; }
-    void set_right(std::size_t i, std::size_t c) noexcept { nodes_[i].right = c; }
-    void set_root(std::size_t i) noexcept { root_ = i; }
+    void set_left(std::size_t i, std::size_t c) noexcept { nodes_[i].left = static_cast<index_type>(c); }
+    void set_right(std::size_t i, std::size_t c) noexcept { nodes_[i].right = static_cast<index_type>(c); }
+    void set_root(std::size_t i) noexcept { root_ = static_cast<index_type>(i); }
 
     /// Allokiert einen Knoten (Free-List-Recycling oder Anhang) — darf via vector werfen (kein noexcept).
     std::size_t allocate_node(key_type k, value_type v) {
@@ -42,10 +49,10 @@ public:
         if (!free_.empty()) {
             idx = free_.back();
             free_.pop_back();
-            nodes_[idx] = Node{k, v, kNil, kNil};
+            nodes_[idx] = Node{k, v, kNilIndex, kNilIndex};
         } else {
             idx = nodes_.size();
-            nodes_.push_back(Node{k, v, kNil, kNil});
+            nodes_.push_back(Node{k, v, kNilIndex, kNilIndex});
         }
         ++size_;
         return idx;
@@ -57,24 +64,24 @@ public:
     void clear() noexcept {
         nodes_.clear();
         free_.clear();
-        root_ = kNil;
+        root_ = kNilIndex;
         size_ = 0;
     }
 
 private:
     struct Node {
-        key_type    key{};
-        value_type  val{};
-        std::size_t left{kNil};
-        std::size_t right{kNil};
+        key_type   key{};
+        value_type val{};
+        index_type left{kNilIndex};
+        index_type right{kNilIndex};
     };
     std::vector<Node>        nodes_{};
     std::vector<std::size_t> free_{};
-    std::size_t              root_ = kNil;
+    index_type               root_ = kNilIndex;
     std::size_t              size_ = 0;
 };
 
 // Selbstbeweis: das Substrat erfuellt das TreeNodePool-Concept.
-static_assert(TreeNodePool<TreeNodePoolStore>);
+static_assert(TreeNodePool<TreeNodePoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

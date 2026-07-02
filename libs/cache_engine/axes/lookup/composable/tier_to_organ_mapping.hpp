@@ -39,11 +39,19 @@ namespace comdare::cache_engine::lookup::composable {
 using LinearScanOrgan    = ComposedSearch<LinearScanTraversal, RawSlotStore>;
 using SortedBinaryOrgan  = ComposedSearch<SortedBinaryTraversal, RawSlotStore>;
 using InterpolationOrgan = ComposedSearch<InterpolationTraversalOrgan, RawSlotStore>;
-using BstTreeOrgan       = ComposedTreeSearch<BSTTraversalOrgan, TreeNodePoolStore>;
+template <class Shape>
+using BstTreeOrganShaped = ComposedTreeSearch<BSTTraversalOrgan, TreeNodePoolStore<Shape>>;
+using BstTreeOrgan       = ComposedTreeSearch<BSTTraversalOrgan, TreeNodePoolStore<>>;
 // V41 Umstufung-A (#41) — sezierte CE-native Such-Strukturen als Organ-Kompositionen (eigene Pool-Familien):
-using HashSearchOrgan = ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore>;      // HashSearchAlgo S14
-using SkipListOrgan   = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore>; // SkipListSearchAlgo S13
-using BTreeSearchOrgan = ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoolStore>;         // BTreeSearchAlgo S17
+template <class Shape>
+using HashSearchOrganShaped = ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore<Shape>>;
+using HashSearchOrgan = ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore<>>;      // HashSearchAlgo S14
+template <class Shape>
+using SkipListOrganShaped = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore<Shape>>;
+using SkipListOrgan = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore<>>; // SkipListSearchAlgo S13
+template <class Shape>
+using BTreeSearchOrganShaped = ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoolStore<Shape>>;
+using BTreeSearchOrgan = ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoolStore<>>; // BTreeSearchAlgo S17
 
 // V41 Umstufung-A (#41) — OriginalXxx-Tiere (S04-S08) auf bestehende flache Organe seziert.
 // **Befund (Planrunde 2026-05-29):** Die OriginalXxx-Wrapper-BODIES sind triviale C++23-Re-Impls (KEIN

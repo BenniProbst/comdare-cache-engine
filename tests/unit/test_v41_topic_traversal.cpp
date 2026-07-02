@@ -805,11 +805,11 @@ TEST(Saeule1_ComposedStore, InterpolationAndGallopingOverComposedStore) {
 // ueber breitem uint64-Key. Liefert das Organ-Pendant fuer die monolithischen BST/B-Baum-Tier-Wrapper
 // (entblockt Tier-Wrapper-Umstufung, Task #40).
 TEST(Saeule1_TreePoolOrgan, BSTMatchesStdMapOverWideKeys) {
-    static_assert(ce_cmp::TreeNodePool<ce_cmp::TreeNodePoolStore>);
-    static_assert(ce_cmp::TreeTraversalOrgan<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore>);
-    static_assert(std::is_same_v<ce_cmp::TreeNodePoolStore::key_type, std::uint64_t>);
+    static_assert(ce_cmp::TreeNodePool<ce_cmp::TreeNodePoolStore<>>);
+    static_assert(ce_cmp::TreeTraversalOrgan<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore<>>);
+    static_assert(std::is_same_v<ce_cmp::TreeNodePoolStore<>::key_type, std::uint64_t>);
     // key_mod=100000 (>65535) → breite uint64-Keys (anders als der uint16-Tier-Wrapper).
-    verify_matches_std_map<ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore>>(100000u,
+    verify_matches_std_map<ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore<>>>(100000u,
                                                                                                              2000u);
     SUCCEED(); // BST-Organ ⊕ Pool, std::map-aequivalent, breiter Key
 }
@@ -817,7 +817,7 @@ TEST(Saeule1_TreePoolOrgan, BSTMatchesStdMapOverWideKeys) {
 // Haertung analog SearchAlgo_BST (degenerierte sortierte Einfuege-Reihenfolge = reine rechte Kette) +
 // Hibbard-Deletion aller 3 Faelle (Blatt / 1 Kind / 2 Kinder) — jetzt ueber dem uint64-Pool-Organ.
 TEST(Saeule1_TreePoolOrgan, BSTDegenerateSortedInputAndHibbardErase) {
-    ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore> s{};
+    ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore<>> s{};
     for (std::uint64_t k = 1; k <= 300; ++k) s.insert(k, k * 2u); // sortiert → reine rechte Kette
     EXPECT_EQ(s.occupied_count(), 300u);
     for (std::uint64_t k = 1; k <= 300; ++k) {
