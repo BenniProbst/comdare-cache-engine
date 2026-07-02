@@ -1350,12 +1350,11 @@ public:
                 // descent_slot_for_(k) = der real beruehrte Slot je Op → reale Traversal-Adresse, kein OOB.
                 t0 = clock::now();
                 if constexpr (requires { pf_organ_.observe_prefetch_descent(container_.store(), std::size_t{}); }) {
+                    // #188-4c-iii: voller u64-Key direkt (der fruehere K-Roundtrip truncierte auf die schmale
+                    // search_organ_-Key-Breite und war damit INKONSISTENT zum Hot-Path :808/:866, der nie truncierte).
                     if (container_.store().slot_count() != 0)
-                        for (std::uint64_t i = 0; i < n_ops; ++i) {
-                            K k = static_cast<K>(keys[i % nk]);
-                            pf_organ_.observe_prefetch_descent(container_.store(),
-                                                               descent_slot_for_(static_cast<std::uint64_t>(k)));
-                        }
+                        for (std::uint64_t i = 0; i < n_ops; ++i)
+                            pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(keys[i % nk]));
                 }
                 t1 = clock::now();
                 acc[7] += dns(t0, t1);
