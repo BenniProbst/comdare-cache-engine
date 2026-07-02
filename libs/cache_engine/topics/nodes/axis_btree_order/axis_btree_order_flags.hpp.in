@@ -1,0 +1,18 @@
+#pragma once
+// DOSSIER W1/234-K axis_btree_order CMake-generated flags header
+
+#cmakedefine01 COMDARE_AXIS_BTREE_ORDER_USE_KT2
+#cmakedefine01 COMDARE_AXIS_BTREE_ORDER_USE_KT3
+#cmakedefine01 COMDARE_AXIS_BTREE_ORDER_USE_KT4
+#cmakedefine01 COMDARE_AXIS_BTREE_ORDER_USE_KT8
+#cmakedefine01 COMDARE_AXIS_BTREE_ORDER_USE_KT16
+
+namespace comdare::cache_engine::nodes::axis_btree_order::flags {
+
+inline constexpr bool kt2_enabled  = COMDARE_AXIS_BTREE_ORDER_USE_KT2;
+inline constexpr bool kt3_enabled  = COMDARE_AXIS_BTREE_ORDER_USE_KT3;
+inline constexpr bool kt4_enabled  = COMDARE_AXIS_BTREE_ORDER_USE_KT4;
+inline constexpr bool kt8_enabled  = COMDARE_AXIS_BTREE_ORDER_USE_KT8;
+inline constexpr bool kt16_enabled = COMDARE_AXIS_BTREE_ORDER_USE_KT16;
+
+} // namespace comdare::cache_engine::nodes::axis_btree_order::flags

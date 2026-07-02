@@ -14,6 +14,8 @@
 // std::size_t (das Monolith-uint32-Detail ist messungsirrelevant — Skip-Liste-Merkmal ist supports_range_scan).
 
 #include "skip_list_node_pool_concept.hpp"
+#include <topics/nodes/axis_skip_list_shape/axis_skip_list_shape_max16_p50.hpp>
+#include <topics/nodes/axis_skip_list_shape/concepts/axis_skip_list_shape_concept.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -25,11 +27,14 @@ namespace comdare::cache_engine::lookup::composable {
 
 /// Index-stabiler Skip-Listen-Pool: Knoten behalten ihren Index; Erase setzt nur das live-Flag (Tombstone,
 /// unverlinkt → unerreichbar). RNG zieht die Knoten-Hoehe (Substrat-Verantwortung Pool-Wachstum).
+template <typename Shape = ::comdare::cache_engine::nodes::axis_skip_list_shape::SkipListMax16P50>
 class SkipListNodePoolStore {
+    static_assert(::comdare::cache_engine::nodes::axis_skip_list_shape::concepts::SkipListShape<Shape>);
+
 public:
     using key_type                         = std::uint64_t;
     using value_type                       = std::uint64_t;
-    static constexpr int         kMaxLevel = 16;
+    static constexpr int         kMaxLevel = Shape::kMaxLevel; // Level-0: 16 (#234-K shape carrier)
     static constexpr std::size_t kNil      = std::numeric_limits<std::size_t>::max(); // "kein Nachfolger"
     static constexpr std::size_t kHead     = 0;                                       // Sentinel-Kopf-Index
 
@@ -55,6 +60,7 @@ public:
     /// Muenzwurf-Level-Ziehung (P=0.5) — verbatim random_level(), mutiert rng_ (deshalb im Store).
     [[nodiscard]] int draw_level() noexcept {
         int lvl = 1;
+        // #234-K: kPNumerator/kPDenominator are definition-only here; F2 wires non-1/2 probabilities.
         while ((rng_() & 1u) != 0u && lvl < kMaxLevel) ++lvl;
         return lvl;
     }
@@ -95,6 +101,6 @@ private:
 };
 
 // Selbstbeweis: das Substrat erfuellt das SkipListNodePool-Concept.
-static_assert(SkipListNodePool<SkipListNodePoolStore>);
+static_assert(SkipListNodePool<SkipListNodePoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

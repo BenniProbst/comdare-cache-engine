@@ -115,6 +115,6 @@ struct BSTTraversalOrgan {
 };
 
 // Selbstbeweis: BSTTraversalOrgan erfuellt das TreeTraversalOrgan-Concept ueber dem Pilot-Pool.
-static_assert(TreeTraversalOrgan<BSTTraversalOrgan, TreeNodePoolStore>);
+static_assert(TreeTraversalOrgan<BSTTraversalOrgan, TreeNodePoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

@@ -112,6 +112,6 @@ struct SkipListTraversalOrgan {
 };
 
 // Selbstbeweis: SkipListTraversalOrgan erfuellt das SkipListTraversal-Concept ueber dem Pilot-Pool.
-static_assert(SkipListTraversal<SkipListTraversalOrgan, SkipListNodePoolStore>);
+static_assert(SkipListTraversal<SkipListTraversalOrgan, SkipListNodePoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

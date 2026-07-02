@@ -1,7 +1,7 @@
 // test_br1_full22_count — BR-1 (2026-06-02, Doc 27 §4 Gate-1) — VOLL-22-Achsen-Bindung, literal.
 //
 // Verifiziert das Vollständigkeits-Gate (Doc 27 §4) über ALLE 22 realen Achsen — registry-getrieben,
-// NICHT string-getrieben. Nutzt build_all_axis_levels() (registry_to_axis_levels.hpp) → 22 AxisLevels
+// NICHT string-getrieben. Nutzt build_all_axis_levels() (registry_to_axis_levels.hpp) → 26 AxisLevels
 // aus den ECHTEN Enabled-Listen, baut den Experiment-Baum, prüft die Kardinalitäts-Identität
 // tree.binary_count() == ∏ mp_size(Enabled_i) == all_axes_binary_count() (Doc 27 §6: == PermutationEngine::
 // count() per mp_size<mp_product<L…>> = ∏|L|, OHNE den C1060-infeasiblen mp_product-Typ-Baum).
@@ -38,11 +38,11 @@ void check_true(char const* what, bool c) {
 }
 
 int main() {
-    std::cout << "BR-1 VOLL-22 (Doc 27 §4 Gate-1): registry-getriebene Bindung ALLER 22 Achsen:\n";
+    std::cout << "BR-1 VOLL-22 (Doc 27 §4 Gate-1): registry-getriebene Bindung ALLER 26 Achsen:\n";
 
     // ── Die 22 realen Achsen aus den Registry-Enabled-Listen (registry-getrieben) ──
     std::vector<ex::AxisLevel> lv = ex::build_all_axis_levels();
-    check_eq("Gate-2: 22 Achsen als Baum-Ebene", lv.size(), std::size_t{22});
+    check_eq("Gate-2: 26 Achsen als Baum-Ebene (22 + 4 node-shape #234-K)", lv.size(), std::size_t{26});
 
     // Jede Achse hat ihr volles Enabled-Inventar (>0 reale Wrapper), block_id == Achsen-Name (Bidir.-Tag).
     bool        nonempty = true, block_ok = true;
@@ -54,8 +54,8 @@ int main() {
         if (l.block_id != l.axis) block_ok = false;
         prod *= l.values.size();
     }
-    check_true("Gate-2: jede der 22 Achsen hat volles Enabled-Inventar (>0)", nonempty);
-    check_true("block_id == Achsen-Name (Bidir.-Tag) für alle 22", block_ok);
+    check_true("Gate-2: jede der 26 Achsen hat volles Enabled-Inventar (>0)", nonempty);
+    check_true("block_id == Achsen-Name (Bidir.-Tag) für alle 26", block_ok);
 
     // GATE-1 (Doc 27 §4.1+§6): tree.binary_count() == ∏ mp_size(Enabled_i) == all_axes_binary_count()
     // (== PermutationEngine::count() per Kardinalitäts-Identität, OHNE mp_product-Materialisierung).
@@ -80,7 +80,7 @@ int main() {
     });
     check_true("Knoten materialisiert (>0)", nodes > 0);
     check_true("jeder Knoten block_id()==axis() (Bidir. auf dem Gesamtbaum)", all_block);
-    check_eq("Knoten block-zuordbar (22 distinkte Achsen-Blöcke)", blocks.size(), std::size_t{22});
+    check_eq("Knoten block-zuordbar (26 distinkte Achsen-Blöcke)", blocks.size(), std::size_t{26});
 
     std::cout << "\n==== BR-1 VOLL-22 Gate-1: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
               << " ====\n";

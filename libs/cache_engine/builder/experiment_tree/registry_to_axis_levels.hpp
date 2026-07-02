@@ -1,9 +1,9 @@
 #pragma once
-// BR-1 (2026-06-02, Doc 27 §3) — registry_to_axis_levels: reflektiert ALLE 22 realen Achsen aus den Registry-
+// BR-1 (2026-06-02, Doc 27 §3) — registry_to_axis_levels: reflektiert ALLE 26 realen Achsen aus den Registry-
 // Enabled-Listen (mp_lists) in die Experiment-Baum-AxisLevels — REGISTRY-getrieben, NICHT string-getrieben.
 // Ersetzt die externe XML-String-AxisRegistry (profile_to_tree) als Quelle der Wahrheit.
 //
-// User-Korrektur 2026-06-02: KEINE 17-Achsen-Bindung, sondern ALLE 22 (15 Topics). 17 davon sind AdHocComposition-
+// User-Korrektur 2026-06-02: KEINE 17-Achsen-Bindung, sondern ALLE 26 (15 Topics). 17 davon sind AdHocComposition-
 // Slots T0..T16; die übrigen 5 Registry-Achsen = 3 build-only-Achsen (page_type/01, simd_extension/09b,
 // general_hardware/12; DefinitionOnly) + die 2 queuing-KOMPOSITION-Achsen q1/q2 (gehören zur 19-Slot-Komposition
 // als T17/T18, NICHT „andere Gattung" — nur spät in der Registry-Reihenfolge), die der Baum EBENFALLS bindet.
@@ -11,7 +11,7 @@
 //
 // ⚠️ OOM-HINWEIS: dieser Header inkludiert ALLE Achsen-Registries → in EINEM TU compiler-heap-schwer (Windows-OOM
 // beobachtet). Der Reflektions-MECHANISMUS wird daher LEICHT gegen eine Teilmenge verifiziert (axis_reflect.hpp +
-// wenige ConfigSets, test_br1_subset); die Voll-22-Bindung baut der projekteigene CMake-Build RAM-verwaltet (KF-16b).
+// wenige ConfigSets, test_br1_subset); die Voll-26-Bindung baut der projekteigene CMake-Build RAM-verwaltet (KF-16b).
 // C++23, header-only.
 
 #include "axis_reflect.hpp" // generische Reflektions-Helfer (reflect_names/enabled_count/push_static_axis)
@@ -20,6 +20,10 @@
 #include <topics/traversal/topic_traversal_config_set.hpp>
 #include <topics/nodes/topic_nodes_config_set.hpp>
 #include <topics/nodes/axis_01_page_type/axis_01_page_type_registry.hpp> // page_type (nicht im nodes-ConfigSet)
+#include <topics/nodes/axis_btree_order/axis_btree_order_registry.hpp>
+#include <topics/nodes/axis_skip_list_shape/axis_skip_list_shape_registry.hpp>
+#include <topics/nodes/axis_bst_shape/axis_bst_shape_registry.hpp>
+#include <topics/nodes/axis_hash_probe_shape/axis_hash_probe_shape_registry.hpp>
 #include <topics/memory_layout/topic_memory_layout_config_set.hpp>
 #include <topics/allocator/topic_allocator_config_set.hpp>
 #include <topics/prefetch/topic_prefetch_config_set.hpp>
@@ -39,8 +43,8 @@
 
 namespace comdare::cache_engine::builder::experiment {
 
-// ── Die 22 realen Achsen-Enabled-Listen, namespace-sicher via TopicConfigSet (+ page_type-Registry) ──
-namespace axes22 {
+// ── Die 26 realen Achsen-Enabled-Listen, namespace-sicher via TopicConfigSet (+ page_type-Registry) ──
+namespace axes26 {
 namespace ce = ::comdare::cache_engine;
 // 17 Kern-Komposition-Achsen T0..T16 (die AdHocComposition hat 19 = diese 17 + q1/q2 @ T17/T18):
 using T00_search_algo        = ce::traversal::TopicConfigSet::StaticAxisVariants_03a;
@@ -66,51 +70,61 @@ using T18_simd_extension   = ce::hardware::TopicConfigSet::StaticAxisVariants_09
 using T19_general_hardware = ce::hardware::TopicConfigSet::StaticAxisVariants_12;
 using T20_queuing_q1       = ce::queuing::TopicConfigSet::StaticAxisVariants_Q1;
 using T21_queuing_q2       = ce::queuing::TopicConfigSet::StaticAxisVariants_Q2;
-} // namespace axes22
+using T22_btree_order      = ce::nodes::axis_btree_order::EnabledShapes;
+using T23_skip_list_shape  = ce::nodes::axis_skip_list_shape::EnabledShapes;
+using T24_bst_shape        = ce::nodes::axis_bst_shape::EnabledShapes;
+using T25_hash_probe_shape = ce::nodes::axis_hash_probe_shape::EnabledShapes;
+} // namespace axes26
 
-/// Baut ALLE 22 Achsen als statische AxisLevels aus den REALEN Enabled-Listen (Fanout = volles Enabled-Inventar,
+/// Baut ALLE 26 Achsen als statische AxisLevels aus den REALEN Enabled-Listen (Fanout = volles Enabled-Inventar,
 /// block_id-getaggt → Knoten-Rück-Referenz). Die 17 Kern-Achsen zuerst (T0..T16), dann 3 build-only (page_type/simd/hw) + die 2 queuing-Komposition-Achsen (q1/q2).
 [[nodiscard]] inline std::vector<AxisLevel> build_all_axis_levels() {
     std::vector<AxisLevel> lv;
-    lv.reserve(22);
-    push_static_axis<axes22::T00_search_algo>(lv, "search_algo");
-    push_static_axis<axes22::T01_cache_traversal>(lv, "cache_traversal");
-    push_static_axis<axes22::T02_mapping>(lv, "mapping");
-    push_static_axis<axes22::T03_path_compression>(lv, "path_compression");
-    push_static_axis<axes22::T04_node_type>(lv, "node_type");
-    push_static_axis<axes22::T05_memory_layout>(lv, "memory_layout");
-    push_static_axis<axes22::T06_allocator>(lv, "allocator");
-    push_static_axis<axes22::T07_prefetch>(lv, "prefetch");
-    push_static_axis<axes22::T08_concurrency>(lv, "concurrency");
-    push_static_axis<axes22::T09_serialization>(lv, "serialization");
-    push_static_axis<axes22::T10_telemetry>(lv, "telemetry");
-    push_static_axis<axes22::T11_value_handle>(lv, "value_handle");
-    push_static_axis<axes22::T12_isa>(lv, "isa");
-    push_static_axis<axes22::T13_index_organization>(lv, "index_organization");
-    push_static_axis<axes22::T14_io_dispatch>(lv, "io_dispatch");
-    push_static_axis<axes22::T15_migration_policy>(lv, "migration_policy");
-    push_static_axis<axes22::T16_filter>(lv, "filter");
-    push_static_axis<axes22::T17_page_type>(lv, "page_type");
-    push_static_axis<axes22::T18_simd_extension>(lv, "simd_extension");
-    push_static_axis<axes22::T19_general_hardware>(lv, "general_hardware");
-    push_static_axis<axes22::T20_queuing_q1>(lv, "queuing_q1");
-    push_static_axis<axes22::T21_queuing_q2>(lv, "queuing_q2");
+    lv.reserve(26);
+    push_static_axis<axes26::T00_search_algo>(lv, "search_algo");
+    push_static_axis<axes26::T01_cache_traversal>(lv, "cache_traversal");
+    push_static_axis<axes26::T02_mapping>(lv, "mapping");
+    push_static_axis<axes26::T03_path_compression>(lv, "path_compression");
+    push_static_axis<axes26::T04_node_type>(lv, "node_type");
+    push_static_axis<axes26::T05_memory_layout>(lv, "memory_layout");
+    push_static_axis<axes26::T06_allocator>(lv, "allocator");
+    push_static_axis<axes26::T07_prefetch>(lv, "prefetch");
+    push_static_axis<axes26::T08_concurrency>(lv, "concurrency");
+    push_static_axis<axes26::T09_serialization>(lv, "serialization");
+    push_static_axis<axes26::T10_telemetry>(lv, "telemetry");
+    push_static_axis<axes26::T11_value_handle>(lv, "value_handle");
+    push_static_axis<axes26::T12_isa>(lv, "isa");
+    push_static_axis<axes26::T13_index_organization>(lv, "index_organization");
+    push_static_axis<axes26::T14_io_dispatch>(lv, "io_dispatch");
+    push_static_axis<axes26::T15_migration_policy>(lv, "migration_policy");
+    push_static_axis<axes26::T16_filter>(lv, "filter");
+    push_static_axis<axes26::T17_page_type>(lv, "page_type");
+    push_static_axis<axes26::T18_simd_extension>(lv, "simd_extension");
+    push_static_axis<axes26::T19_general_hardware>(lv, "general_hardware");
+    push_static_axis<axes26::T20_queuing_q1>(lv, "queuing_q1");
+    push_static_axis<axes26::T21_queuing_q2>(lv, "queuing_q2");
+    push_static_axis<axes26::T22_btree_order>(lv, "btree_order");
+    push_static_axis<axes26::T23_skip_list_shape>(lv, "skip_list_shape");
+    push_static_axis<axes26::T24_bst_shape>(lv, "bst_shape");
+    push_static_axis<axes26::T25_hash_probe_shape>(lv, "hash_probe_shape");
     return lv;
 }
 
-/// Compile-time-Produkt der 22 Enabled-Größen = die volle Permutations-Kardinalität (ohne mp_product-Materialisierung).
+/// Compile-time-Produkt der 26 Enabled-Größen = die volle Permutations-Kardinalität (ohne mp_product-Materialisierung).
 [[nodiscard]] inline constexpr std::size_t all_axes_binary_count() {
-    return enabled_count<axes22::T00_search_algo> * enabled_count<axes22::T01_cache_traversal> *
-           enabled_count<axes22::T02_mapping> * enabled_count<axes22::T03_path_compression> *
-           enabled_count<axes22::T04_node_type> * enabled_count<axes22::T05_memory_layout> *
-           enabled_count<axes22::T06_allocator> * enabled_count<axes22::T07_prefetch> *
-           enabled_count<axes22::T08_concurrency> * enabled_count<axes22::T09_serialization> *
-           enabled_count<axes22::T10_telemetry> * enabled_count<axes22::T11_value_handle> *
-           enabled_count<axes22::T12_isa> * enabled_count<axes22::T13_index_organization> *
-           enabled_count<axes22::T14_io_dispatch> * enabled_count<axes22::T15_migration_policy> *
-           enabled_count<axes22::T16_filter> * enabled_count<axes22::T17_page_type> *
-           enabled_count<axes22::T18_simd_extension> * enabled_count<axes22::T19_general_hardware> *
-           enabled_count<axes22::T20_queuing_q1> * enabled_count<axes22::T21_queuing_q2>;
+    return enabled_count<axes26::T00_search_algo> * enabled_count<axes26::T01_cache_traversal> *
+           enabled_count<axes26::T02_mapping> * enabled_count<axes26::T03_path_compression> *
+           enabled_count<axes26::T04_node_type> * enabled_count<axes26::T05_memory_layout> *
+           enabled_count<axes26::T06_allocator> * enabled_count<axes26::T07_prefetch> *
+           enabled_count<axes26::T08_concurrency> * enabled_count<axes26::T09_serialization> *
+           enabled_count<axes26::T10_telemetry> * enabled_count<axes26::T11_value_handle> *
+           enabled_count<axes26::T12_isa> * enabled_count<axes26::T13_index_organization> *
+           enabled_count<axes26::T14_io_dispatch> * enabled_count<axes26::T15_migration_policy> *
+           enabled_count<axes26::T16_filter> * enabled_count<axes26::T17_page_type> *
+           enabled_count<axes26::T18_simd_extension> * enabled_count<axes26::T19_general_hardware> *
+           enabled_count<axes26::T20_queuing_q1> * enabled_count<axes26::T21_queuing_q2> *
+           enabled_count<axes26::T22_btree_order> * enabled_count<axes26::T23_skip_list_shape> *
+           enabled_count<axes26::T24_bst_shape> * enabled_count<axes26::T25_hash_probe_shape>;
 }
 
 } // namespace comdare::cache_engine::builder::experiment
