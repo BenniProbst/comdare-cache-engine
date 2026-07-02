@@ -363,8 +363,8 @@ int main(int argc, char** argv) {
     struct ValidatedEntry {
         Manifest::Mapping mapping;
         std::string       computed_hex;
-        bool              is_match;
-        bool              body_found;
+        bool              is_match   = false;
+        bool              body_found = false;
     };
     std::vector<ValidatedEntry>                      validated;
     std::vector<std::pair<std::string, std::string>> new_lock_entries;

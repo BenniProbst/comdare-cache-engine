@@ -30,7 +30,7 @@ namespace ctr = ::comdare::cache_engine::traversal::axis_03a_search_algo::compos
 
 struct Row {
     std::string node;
-    std::size_t cap, slots, hits, chunks, chunk_allocs;
+    std::size_t cap{}, slots{}, hits{}, chunks{}, chunk_allocs{};
 };
 
 template <class NodeT>

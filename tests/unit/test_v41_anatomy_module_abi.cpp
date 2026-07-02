@@ -39,6 +39,8 @@ namespace ee  = ::comdare::cache_engine::execution_engine;
 // (Das simuliert ein generiertes Permutations-Binary in-process.)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// cppcheck kennt die COMDARE-Codegen-Emitter-Makros nicht (Definition via Include-Kette, kein -I im Lint-Lauf).
+// cppcheck-suppress unknownMacro
 COMDARE_DEFINE_ANATOMY_MODULE(::comdare::cache_engine::compositions::ArtComposition)
 
 // ─────────────────────────────────────────────────────────────────────────────

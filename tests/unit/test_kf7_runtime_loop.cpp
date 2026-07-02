@@ -32,6 +32,8 @@ void check_true(char const* what, bool c) {
 }
 
 // Mock-Tier: steuerbar thread_count (cap 4) + batch_size (cap 100); protokolliert jede Anwendung.
+// #203: anonymer Namespace — gleichnamige TU-lokale Helper in anderen Test-TUs (cppcheck-CTU-ODR).
+namespace {
 struct MockTier : an::IResourceControllableTier {
     std::vector<an::ComdareResourceControlV1> log;
     void tier_query_resource_caps(an::ComdareResourceControlV1* out) const noexcept override {
@@ -51,6 +53,7 @@ struct MockTier : an::IResourceControllableTier {
         return n;
     }
 };
+} // namespace
 
 int main() {
     std::cout << "KF-7: dynamischer Laufzeit-Durchlauf am Prüf-Dock (eine Binary, N Einstellungen):\n";

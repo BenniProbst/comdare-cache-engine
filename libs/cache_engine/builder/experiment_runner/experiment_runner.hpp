@@ -15,7 +15,7 @@ namespace comdare::builder::runner {
 
 struct ExperimentResult {
     std::string                   permutation_id;
-    std::uint64_t                 fingerprint;
+    std::uint64_t                 fingerprint = 0;
     comdare_measurement_record_v1 record{};
     bool                          succeeded = false;
     std::string                   error_message;

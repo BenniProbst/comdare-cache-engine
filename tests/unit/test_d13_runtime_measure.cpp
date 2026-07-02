@@ -16,6 +16,8 @@ namespace ex  = comdare::cache_engine::builder::experiment;
 namespace ana = comdare::cache_engine::anatomy;
 
 // Mock-Tier: erfüllt IObservableTier (Antrieb + Observer) + IResourceControllableTier (Loop-Steuerung).
+// #203: anonymer Namespace — gleichnamige TU-lokale Helper in anderen Test-TUs (cppcheck-CTU-ODR).
+namespace {
 struct MockTier final : ana::IObservableTier, ana::IResourceControllableTier {
     std::map<std::uint64_t, std::uint64_t> data;
     std::uint64_t                          inserts        = 0;
@@ -59,6 +61,7 @@ struct MockTier final : ana::IObservableTier, ana::IResourceControllableTier {
         return (in->thread_count > 0) ? 1u : 0u;
     }
 };
+} // namespace
 
 static int g_fail = 0;
 template <class A, class B>

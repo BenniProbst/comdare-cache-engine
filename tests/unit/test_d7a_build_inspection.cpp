@@ -31,7 +31,10 @@ struct StubX86_64 {
 };
 
 // 2 Build-Varianten DERSELBEN page/hw, nur simd verschieden — je ein extern-"C"-Inspection-Symbol.
+// cppcheck kennt die COMDARE-Codegen-Emitter-Makros nicht (Definition via Include-Kette, kein -I im Lint-Lauf).
+// cppcheck-suppress unknownMacro
 COMDARE_DEFINE_BUILD_VARIANT_INSPECTION(inspect_variant_avx512, StubDenseBytePage, StubAvx512, StubX86_64)
+// cppcheck-suppress unknownMacro
 COMDARE_DEFINE_BUILD_VARIANT_INSPECTION(inspect_variant_avx2, StubDenseBytePage, StubAvx2, StubX86_64)
 
 static int g_fail = 0;

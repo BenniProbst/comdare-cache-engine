@@ -28,7 +28,7 @@ struct MockTier final : an::IObservableTier, an::IRollbackableTier {
     mutable std::uint64_t                  lk_ = 0, hit_ = 0, miss_ = 0;
     struct Snap {
         std::map<std::uint64_t, std::uint64_t> data;
-        std::uint64_t                          ins, ers, peak, lk, hit, miss;
+        std::uint64_t                          ins{}, ers{}, peak{}, lk{}, hit{}, miss{};
     };
     std::optional<Snap> saved_;
 

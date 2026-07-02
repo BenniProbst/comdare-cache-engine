@@ -27,6 +27,8 @@ namespace ana  = ::comdare::cache_engine::anatomy;
 
 // MAKRO UNTER TEST: definiert comdare_anatomy_abi_version/magic/create/destroy für eine AdHoc-Permutation
 // (= ArtCompositions 19 Achsen-Typen, variadisch übergeben — löst das Komma-im-Template-Arg-Problem; Doc 30 §8.0).
+// cppcheck kennt die COMDARE-Codegen-Emitter-Makros nicht (Definition via Include-Kette, kein -I im Lint-Lauf).
+// cppcheck-suppress unknownMacro
 COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(comp::ArtComposition::search_algo, comp::ArtComposition::cache_traversal,
                                     comp::ArtComposition::mapping, comp::ArtComposition::path_compression,
                                     comp::ArtComposition::node_type, comp::ArtComposition::memory_layout,

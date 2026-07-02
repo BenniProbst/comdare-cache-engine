@@ -179,11 +179,14 @@ static void test_fuzz_no_crash() {
 
 // (D) HOT-PATH end-to-end: echtes Tier mit prefetch=Hardware vs None → Observer-POD axis_stats[7] traegt die reale
 //     Prefetch-Telemetrie aus tier_insert/tier_lookup (kein Schluessel-als-Adresse, sondern container_-Store-Adresse).
+// #203: anonymer Namespace — gleichnamige TU-lokale Helper in anderen Test-TUs (cppcheck-CTU-ODR).
+namespace {
 template <class PFStrategy>
 struct PFComposition : comp::HotComposition {
     using prefetch                         = PFStrategy;
     static constexpr std::string_view name = "PFComposition";
 };
+} // namespace
 
 template <class PFStrategy>
 using PFStoreBackedComposition = an::AdHocComposition<
