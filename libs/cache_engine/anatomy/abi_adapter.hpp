@@ -729,7 +729,7 @@ public:
 
     // ─────────────────────────────────────────────────────────────────────
     // IDriveableTier-Override (V5-I2.2): funktionaler Gattungs-Antrieb — IMMER einkompiliert (auch Release-DLL).
-    // Treibt das ECHTE sezierte Composition-Such-Organ (gemeinsamer uint64-Key nach Umstufung-B). GETRENNT
+    // Treibt den EINEN konstitutiven container_-Zustand (gemeinsamer uint64-Key nach Umstufung-B). GETRENNT
     // vom Pfad-A-`run_workload` (Messung-AN-only); bei MESSUNG-AN zieht tier_observe zusaetzlich observer_all (Doku 24 §8.6).
     // ─────────────────────────────────────────────────────────────────────
 
@@ -743,26 +743,14 @@ public:
 #endif
         // Neu-Flag ueber occupied_count-Delta (NICHT ueber einen internen lookup — der wuerde sonst die
         // lookup_count-Observer-Statistik verfaelschen; manche Organe insert()->void).
-        // (M8 / Befund-2-Weg-A + #188-4c-i) Autoritative Tiere fuehren NUR container_ (EIN Speicher,
-        // keine Doppel-Buchfuehrung): store-traversierbare flache Algos, Pool-Familien und bereits observable
-        // Reference-Huellen nutzen container_.insert-bool (insert_or_assign); search_organ_ wird dort NICHT getrieben.
-        // Nur die markerlose Default-Flachgruppe fuehrt weiter search_organ_ + flachen Store-Spiegel.
-        bool m8_new_flag;
-        // #188-4c-i: container_ ist autoritativ fuer store-traversierbar, organ_for_search_algo-Pool und
-        // ObservableComposedContainer<XOrgan> als SearchAlgo; kein SortedBinary-Mirror und kein Double-Wrap.
-        if constexpr (container_is_authoritative_) {
-            m8_new_flag = container_.insert(key, value);
-        } else {
-            auto const before = search_organ_.occupied_count();
-            search_organ_.insert(key, value);
-            container_.insert(key, value); // treibt + MISST die allocator-Achse (ComposedStore-Vector-Growth)
-            m8_new_flag = search_organ_.occupied_count() > before;
-        }
+        // #188-4c-iii (2026-07-02): EIN Speicher, konstitutiv. container_ ist die einzige T0-Datenquelle
+        // (flacher Store mit Such-Traversal, native Organ-Huelle oder bereits observable SearchAlgo-Huelle).
+        bool const m8_new_flag = container_.insert(key, value);
 #if COMDARE_MEASUREMENT_ON
         // ── K10-PMAJOR-04 (2026-06-18): ALLE Observer-feeding Auto-Kopplungen NUR im Mess-Build ──────────────
         // Diese Kopplungen (telemetry/ct/map/q1/q2/cc/pf/pc/flt/vh) speisen AUSSCHLIESSLICH den Observer
         // (fill_observer_v3, selbst #if COMDARE_MEASUREMENT_ON) — kein funktionaler Beitrag zum Daten-Pfad
-        // (container_/search_organ_ oben sind unkonditional). In der funktional-only DLL (Messung-AUS) waren sie
+        // (container_ oben ist unkonditional). In der funktional-only DLL (Messung-AUS) waren sie
         // reiner Overhead. Symmetrisch zu tier_lookup + dem bereits geklammerten CoW-Block oben. Mess-Build
         // identisch (kein M3-Effekt: derselbe Code lief vorher, nur jetzt explizit gegated).
         // V42 L-74c Cross-ABI-Auto-Kopplung: jeder insert berührt einen Blatt-Knoten → telemetry mit-treiben.
@@ -832,18 +820,10 @@ public:
     }
 
     [[nodiscard]] bool tier_lookup(std::uint64_t key, std::uint64_t* out_value) const noexcept override {
-        // (M8 / Befund-2-Weg-A + #188-4c-i) Autoritative Tiere lesen aus container_ (EIN Speicher, uint64-Keys);
-        // nur die markerlose Default-Flachgruppe liest weiter aus search_organ_.
-        bool m8_hit;
-        if constexpr (container_is_authoritative_) { // #188-4c-i: store-/organ-hull-backed Suche ueber container_
-            auto const cv = container_.lookup(key);
-            m8_hit        = cv.has_value();
-            if (m8_hit && out_value != nullptr) *out_value = static_cast<std::uint64_t>(*cv);
-        } else {
-            auto const v = search_organ_.lookup(key);
-            m8_hit       = v.has_value();
-            if (m8_hit && out_value != nullptr) *out_value = static_cast<std::uint64_t>(*v);
-        }
+        // #188-4c-iii (2026-07-02): lookup liest immer aus dem einzigen konstitutiven container_-Zustand.
+        auto const cv = container_.lookup(key);
+        bool const m8_hit = cv.has_value();
+        if (m8_hit && out_value != nullptr) *out_value = static_cast<std::uint64_t>(*cv);
 #if COMDARE_MEASUREMENT_ON
         // ── K10-PMAJOR-04 (2026-06-18): ALLE Observer-feeding Auto-Kopplungen NUR im Mess-Build (s. tier_insert) ──
         // V42 L-74c: lookup berührt ebenfalls einen Knoten → telemetry mit-treiben (telemetry_organ_ mutable).
@@ -867,8 +847,8 @@ public:
             if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
                 pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(key));
             } else {
-                // Weg-B (Trie/Pool, search_organ_ = Such-Speicher): container_ traegt die Storage-Achsen-Records → die
-                // realen Slot-Adressen liegen dort. Existiert mind. ein realer Slot, prefetcht der Descent dessen Backing.
+                // Nicht-store-traversierbare flache Fallbacks tragen trotzdem die realen Storage-Achsen-Records im
+                // container_. Existiert mind. ein realer Slot, prefetcht der Descent dessen Backing.
                 if (container_.store().slot_count() != 0)
                     pf_organ_.observe_prefetch_descent(container_.store(), descent_slot_for_(key));
             }
@@ -885,16 +865,8 @@ public:
 #if COMDARE_MEASUREMENT_ON
         if (cow_armed_) cow_materialize_copy_(); // CoW (#133 Rev. 2): Vollkopie VOR der Mutation (s. tier_insert)
 #endif
-        // (M8 / Befund-2-Weg-A + #188-4c-i) Autoritative Tiere loeschen NUR in container_ (EIN Speicher);
-        // nur die markerlose Default-Flachgruppe loescht search_organ_ + Spiegel.
-        if constexpr (container_is_authoritative_) { // #188-4c-i: store-/organ-hull-backed Loeschung ueber container_
-            return container_.erase(key);
-        } else {
-            auto const before = search_organ_.occupied_count();
-            search_organ_.erase(key); // Rueckgabe-Typ organ-abhaengig → ueber Delta bestimmen
-            container_.erase(key);
-            return search_organ_.occupied_count() < before;
-        }
+        // #188-4c-iii (2026-07-02): erase mutiert nur den einzigen konstitutiven container_-Zustand.
+        return container_.erase(key);
     }
 
     void tier_clear() noexcept override {
@@ -903,14 +875,13 @@ public:
         // der Warmup-Phase (cow_armed_); das tier_clear des Mess-Protokolls (zwischen Profilen) ist unberuehrt.
         if (cow_armed_) cow_materialize_copy_();
 #endif
-        search_organ_.clear();
         container_.clear();
         // P4 (#123): die kalte 2. Ebene mit-leeren — nach tier_clear ist der GANZE Tier-Zustand (heiss + kalt) frisch
         // (sonst akkumulierten migrierte Records ueber Mess-Profile hinweg). Fuer None nie befuellt → no-op-aequivalent.
         container_tier1_.clear();
 #if COMDARE_MEASUREMENT_ON
         // ── K10-PMAJOR-04 (#166, 2026-06-18): ALLE Observer-feeding Auto-Kopplungen NUR im Mess-Build ───────────
-        // Symmetrisch zu tier_insert/tier_lookup. Der DATEN-Pfad oben (search_organ_/container_/container_tier1_)
+        // Symmetrisch zu tier_insert/tier_lookup. Der DATEN-Pfad oben (container_/container_tier1_)
         // bleibt unkonditional; ALLES darunter leert/resettet AUSSCHLIESSLICH die Observer-Organe (flt/vh/pc-DATEN
         // + search/ct/map/q1/q2/telemetry/pf/cc-STATISTIK), die in der funktional-only-DLL (Messung-AUS) NIE befuellt
         // werden (ihre Treib-Kopplungen in tier_insert/lookup sind selbst #if-gegated). Mess-Build identisch (kein
@@ -926,15 +897,9 @@ public:
         // (sonst truege der Trie Keys ueber Mess-Profile hinweg → Descent-Inkonsistenz). if-constexpr: `none`
         // (EmptyPatriciaTrie ohne clear_trie) bleibt unberuehrt → M3-Pin exakt No-Op. Patricia: clear() leert nodes_.
         if constexpr (requires { pc_organ_.clear_trie(); }) pc_organ_.clear_trie();
-        // KONSOLIDIERUNG (2026-06-04): T0 search_algo-Statistik je Messung nullen. Der frühere perm_runner-
-        // Kommentar „search_organ_ per ABI nicht resetbar" war VERALTET — ObservableComposedContainer/
-        // ObservableComposedSearch tragen reset() (stats_={}). Damit ist axis_stats[0] pro (Binary×Setting×Rep)
-        // frisch (kein kumulatives 2000→4000→…-Artefakt) → der konsolidierte tier_observe braucht KEIN post−pre-
-        // Delta mehr (alle 19 Achsen warmup-frei aus EINEM Post-Observe). if-constexpr: AdHoc-Strategien ohne reset().
-        if constexpr (requires { search_organ_.reset(); }) search_organ_.reset();
-        // #188-4c-i: container_ trägt für AUTHORITATIVE Tiere (store-traversierbar, organ-backed Pool, Reference-Huelle)
-        // die T0-Statistik → ebenfalls je Messung nullen. ObservableComposedContainer::clear() leert NUR Daten,
-        // NICHT stats_ → ohne dies akkumulierten T0-Zaehler ueber Mess-Profile hinweg. requires-guard:
+        // #188-4c-iii (2026-07-02): container_ traegt die T0-Statistik -> je Messung nullen.
+        // ObservableComposedContainer::clear() leert NUR Daten,
+        // NICHT stats_ -> ohne dies akkumulierten T0-Zaehler ueber Mess-Profile hinweg. requires-guard:
         // flache/AdHoc container_t ohne reset() = no-op; store-traversierbare bleiben idempotent (kein M3-Effekt).
         if constexpr (requires { container_.reset(); }) container_.reset();
         // Phase A: die auto-gekoppelten Achsen-Organe mit-leeren (Daten UND kumulative Statistik), damit der
@@ -972,7 +937,7 @@ public:
     }
 
     [[nodiscard]] std::uint64_t tier_size() const noexcept override {
-        // (M8) EIN Speicher: container_ haelt fuer ALLE Tiere (Weg-A store-traversierbar + Weg-B) jeden Insert → Groesse korrekt.
+        // #188-4c-iii (2026-07-02): EIN Speicher; container_ haelt fuer alle Tiere jeden Insert und liefert den Fuellstand.
         return static_cast<std::uint64_t>(container_.occupied_count());
     }
 
@@ -1004,16 +969,9 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         // ── T0 search_algo ──────────────────────────────────────────────────────────────────────────────
         if constexpr (ObservableAxis<SearchAlgo>) {
-            // (E-Welle-A2 / Befund-2 / Q2-Schritt-4 / A2.5 + #188-4c-i) T0-Such-Metrik QUELLE:
-            // store-traversierbare Algos, Pool-Familien und bereits observable Reference-Huellen liefern sie aus
-            // container_ (kein search_organ_-Schatten; node/layout-Wechsel aendern T0 = Meta-Lehre #3). Nur die
-            // markerlose Default-Flachgruppe bleibt bei search_organ_. Felder identisch.
-            auto const ss = [&]() {
-                if constexpr (container_is_authoritative_) // #188-4c-i: T0-Metrik aus der autoritativen container_-Quelle
-                    return container_.statistics();
-                else
-                    return search_organ_.statistics();
-            }();
+            // #188-4c-iii (2026-07-02): T0-Such-Metrik kommt immer aus container_. Damit wirken
+            // node/layout/allocator-Pfade auf dieselbe Datenquelle, die tier_insert/lookup/erase treiben.
+            auto const ss = container_.statistics();
             auto* r = s.axis_stats[0];
             r[0]    = ss.total_lookup_count;
             r[1]    = ss.total_hit_count;
@@ -1282,12 +1240,11 @@ public:
     // I1: die früheren V2/V3/V4-Observer-Override-Methoden (eigene Sub-Interfaces) sind ENTFERNT — die EINE
     // tier_observe(ComdareTierObserverSnapshot*) unten vereint Observer-Stats + Pfad-B-Timing (s. Doc 31).
 
-    // Pfad-B Per-Achsen-TIMING-Kern (Plan v2): zeitet die 19 REALEN per-Achsen-Ops über die EINE schon
-    // befüllte composite-Tier-Struktur (search_organ_ + container_.chunks_ + Instanz-Organe) — KEIN
-    // synthetischer Puffer (Pfad A). Alle Ops lesend/idempotent (lookup/resolve/compress const; store_observe_*
-    // reset()+const-scan über chunks_); die per-op-getriebenen Zähler werden NACH dem Timing zurückgesetzt
-    // (der Host zieht V3-Observer ohnehin VOR V4-Timing → keine Verfälschung). Memento-neutral: keine
-    // Daten-Mutation an search_organ_/container_ (deren save_all/rollback_all-Substrat bleibt unberührt).
+    // Pfad-B Per-Achsen-TIMING-Kern (Plan v2): zeitet die 19 REALEN per-Achsen-Ops ueber die EINE schon
+    // befuellte composite-Tier-Struktur (container_ + Instanz-Organe) -- KEIN synthetischer Puffer (Pfad A).
+    // Alle Ops lesend/idempotent (lookup/resolve/compress const; store_observe_* reset()+const-scan ueber chunks_);
+    // die per-op-getriebenen Zaehler werden NACH dem Timing zurueckgesetzt (der Host zieht V3-Observer ohnehin
+    // VOR V4-Timing -> keine Verfaelschung). Memento-neutral: keine Daten-Mutation an container_.
     void fill_segment_timing_v3(ComdareSegmentLatencyV2* out) const noexcept {
         if (out == nullptr) return;
         *out = ComdareSegmentLatencyV2{};
@@ -1297,31 +1254,19 @@ public:
             auto dns    = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
                 return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
             };
-            // Reale gespeicherte Keys EINMAL beziehen (NICHT gemessen) — für die per-op-Achsen (T0/T1/T2/T3).
-            // (Befund-2-Weg-A / K9-b + #188-4c-i): Autoritative Tiere ernten die Keys aus container_
-            // (nicht aus search_organ_) — sonst nk=1-Degeneration bei SearchAlgos ohne save_state; bei M8/4c-i
-            // entfaellt search_organ_ als Datenquelle fuer diese Familien.
+            // Reale gespeicherte Keys EINMAL beziehen (NICHT gemessen) -- fuer die per-op-Achsen (T0/T1/T2/T3).
+            // #188-4c-iii: Keys kommen ausschliesslich aus container_. Store-traversierbare flache Container
+            // liefern save_state().data; Organ-Huellen nutzen for_each_record, wenn vorhanden. Fehlt ein nativer
+            // Walk (z.B. Masstree-{0}), bleibt keys leer und der Default unten nutzt {0}.
             std::vector<std::uint64_t> keys;
             if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
                 auto snap =
-                    container_.save_state().data; // ObservableComposedSearch::save_state → (key,value)-Liste im Store
+                    container_.save_state().data; // ObservableComposedSearch::save_state -> (key,value)-Liste im Store
                 keys.reserve(snap.size());
                 for (auto const& kv : snap) keys.push_back(static_cast<std::uint64_t>(kv.first));
-            } else if constexpr (container_is_authoritative_ &&
-                                 requires { container_.for_each_record([](std::uint64_t, std::uint64_t) {}); }) {
-                // #188-4c-i: Organ-Key-Ernte aus der autoritativen container_-Quelle. Deckt die 10/11
-                // Reference-/PaperBinding-Huellen mit for_each_record; Masstree bleibt ehrlich beim keys={0}-Fallback,
-                // solange sein natives Organ keinen Walk traegt. Der requires-Guard verhindert Compile-Bruch.
+            } else if constexpr (requires { container_.for_each_record([](std::uint64_t, std::uint64_t) {}); }) {
                 keys.reserve(container_.occupied_count());
                 container_.for_each_record([&](std::uint64_t k, std::uint64_t) { keys.push_back(k); });
-            } else if constexpr (MementoAxis<SearchAlgo>) {
-                auto snap = search_organ_.save_state(); // (key,value)-Liste der real gespeicherten Records (nicht-autoritative Flachhuelle)
-                keys.reserve(snap.size());
-                for (auto const& kv : snap) keys.push_back(static_cast<std::uint64_t>(kv.first));
-            } else if constexpr (requires { search_organ_.for_each_record([](std::uint64_t, std::uint64_t) {}); }) {
-                // #188-4c-i: branches 3/4 bleiben nur fuer nicht-autoritative flache Wrapper. Reference-Huellen
-                // werden oben ueber container_ geerntet; Masstree-{0} ist damit der container_-Fallback-Fall.
-                search_organ_.for_each_record([&](std::uint64_t k, std::uint64_t) { keys.push_back(k); });
             }
             std::size_t const nk = keys.empty() ? std::size_t{1} : keys.size();
             if (keys.empty()) keys.push_back(0);
@@ -1329,20 +1274,14 @@ public:
             constexpr std::uint64_t kBatches = 8;
             std::int64_t            acc[19]  = {};
             std::uint64_t           sink     = 0;
-            using K                          = typename SearchAlgo::key_type;
 
             auto do_batch = [&]() {
                 clock::time_point t0, t1;
-                // T0 search_algo: echte Lookups auf dem real befüllten Such-Organ (Baum-Traversierung).
+                // T0 search_algo: echte Lookups auf dem real befuellten container_.
                 t0 = clock::now();
                 for (std::uint64_t i = 0; i < n_ops; ++i) {
-                    if constexpr (container_is_authoritative_) { // #188-4c-i: T0-Timing ueber die autoritative container_-Quelle
-                        auto v = container_.lookup(keys[i % nk]);
-                        if (v) sink += static_cast<std::uint64_t>(*v); // (M8) store-geroutete Suche
-                    } else {
-                        auto v = search_organ_.lookup(static_cast<K>(keys[i % nk]));
-                        if (v) sink += static_cast<std::uint64_t>(*v);
-                    }
+                    auto v = container_.lookup(keys[i % nk]);
+                    if (v) sink += static_cast<std::uint64_t>(*v);
                 }
                 t1 = clock::now();
                 acc[0] += dns(t0, t1);
@@ -1594,40 +1533,32 @@ public:
     // Der host-seitige Zwei-Phasen-Treiber (I7) triggert: save_all → op (warmup) → rollback_all → op (measure),
     // sodass der GEMESSENE Op gegen DENSELBEN Vor-Zustand läuft (eliminiert Pfad-Abhängigkeit der Latenz).
     //
-    // IN-MEMORY-Memento (search_organ_ + container_ leben komplett im RAM): eine Tiefkopie IST der vollständige,
-    // korrekte Memento für die RAM-residenten Achsen (search_algo/node_type/memory_layout/allocator-Arena, die
-    // alle im ComposedStore liegen). Für die DISK-/zustandsreichen Achsen (io_dispatch/serialization/migration),
-    // wo „ein einfacher Snapshot NICHT reicht", greift das per-Achsen-Checkpoint via MementoAxis::save_state/
-    // restore_state (V5-I8 umgesetzt; s. memento_all unten, das BEVORZUGT über den per-Achsen-Memento läuft).
+    // IN-MEMORY-Memento (container_ lebt komplett im RAM): eine Tiefkopie IST das vollstaendige,
+    // korrekte Memento fuer die RAM-residenten Achsen (search_algo/node_type/memory_layout/allocator-Arena, die
+    // alle im ComposedStore liegen). Fuer die DISK-/zustandsreichen Achsen (io_dispatch/serialization/migration),
+    // wo "ein einfacher Snapshot NICHT reicht", greift das per-Achsen-Checkpoint via MementoAxis::save_state/
+    // restore_state (V5-I8 umgesetzt; s. memento_all unten, das BEVORZUGT ueber den per-Achsen-Memento laeuft).
     //
-    // if-constexpr-Kopierbarkeits-Guards: kompiliert für JEDE Komposition. Nicht-kopierbare Organe (selten;
-    // z.B. Allocator mit OS-Handle) degradieren zu no-op-Rollback — der Treiber (I7) muss diese via
-    // Capability-Probe als Kalt-Messung behandeln. Die produktiven SearchAlgorithm-Organe sind kopierbar
-    // (build-verifiziert), die Degradation greift dort nicht.
+    // if-constexpr-Kopierbarkeits-Guards: kompiliert fuer JEDE Komposition. Nicht-kopierbare Organe (selten;
+    // z.B. Allocator mit OS-Handle) degradieren zu no-op-Rollback -- der Treiber (I7) muss diese via
+    // Capability-Probe als Kalt-Messung behandeln.
     // ─────────────────────────────────────────────────────────────────────
 
-    // V5-#44-SUBSTANZ: memento_all läuft BEVORZUGT über den per-Achsen-Memento (MementoAxis::save_state/
-    // restore_state der Organe — der vom /goal geforderte „je stateful Achsen-Interface"); nur Organe OHNE
-    // MementoAxis fallen auf die In-Memory-Tiefkopie zurück. Die produktiven Such-Organe (ComposedSearch /
-    // ObservableComposedSearch) SIND MementoAxis (test_v5_organ_memento) → hier läuft der echte per-Achsen-Pfad.
-    // KOSTEN-FIX (2026-06-08, User „Kopie jetzt"): Der COPY-Memento (organ-Vollkopie, O(n)) wird BEVORZUGT vor dem
-    // MementoAxis-Pfad (save_state()-Liste + restore_state()-RE-INSERT = O(n²) je Op bei O(n)-Insert-Organen wie
-    // k_ary/sorted/linear → O(n_ops·n²)/Messung → Voll-Lauf 11× über ZIH-Kontingent).
+    // V5-#44-SUBSTANZ: memento_all laeuft BEVORZUGT ueber den per-Achsen-Memento (MementoAxis::save_state/
+    // restore_state der Organe -- der vom /goal geforderte "je stateful Achsen-Interface"); nur Organe OHNE
+    // MementoAxis fallen auf die In-Memory-Tiefkopie zurueck. KOSTEN-FIX (2026-06-08, User "Kopie jetzt"):
+    // Der COPY-Memento (organ-Vollkopie, O(n)) wird BEVORZUGT vor dem MementoAxis-Pfad
+    // (save_state()-Liste + restore_state()-RE-INSERT = O(n^2) je Op bei O(n)-Insert-Organen wie k_ary/sorted/linear).
     //
-    // COPY-ON-WRITE-MEMENTO (#133 Rev. 2, 2026-06-11): save_all ist O(1) — es kapselt NUR die Stat-PODs von
-    // search_organ_ + container_ (die T6-Allocator-Statistik des Stores ist aus dem Datenzustand DERIVIERT →
-    // kein eigener Snapshot nötig) und armt die Periode. Die DATEN-Vollkopie wird LAZY erst von der ERSTEN
-    // mutierenden Op der Warmup-Phase materialisiert (tier_insert/tier_erase/tier_clear → cow_materialize_copy_,
-    // VOR der Mutation → Kopie == save-Stand exakt). rollback_all spielt die materialisierte Kopie zurück
-    // (Read-only-Perioden: nichts zu tun) und restauriert die Stat-PODs → Daten UND Observer-Zähler exakt auf
-    // dem save-Stand (zwei_phase-Vertrag tier_observe_trace_abi.hpp: „End-Zustand + Observer-Zähler identisch
-    // zur Einphasen-Messung"). KOSTEN: Read-Perioden O(1) (der große Hebel — die 21 Lastprofile sind großteils
-    // read-heavy; das Copy-Memento zahlte hier 2×O(n)-Kopien je Op); Write-Perioden = EINE Vollkopie (exakt
-    // Copy-Memento-Niveau). REVISION-HISTORIE: Die Rev.-1-Einzel-Key-Organ-Inverse (Undo-Log) war empirisch
-    // LANGSAMER (Smoke 2026-06-11: k_ary 52+54 min vs copymem 25 min/Tier) — die Inverse läuft als Organ-Op
-    // und kostet auf Rebuild-Substraten (SortedBinary insert_slot_at/erase_slot_at = flatten+rebuild; trifft
-    // über container_ JEDE Komposition) mehr als die memcpy-artige Vollkopie → verworfen (Doc 33 §1).
-    // Organe ohne restore_statistics/Copy (requires-detektiert) → unverändert Copy/MementoAxis-Fallback.
+    // COPY-ON-WRITE-MEMENTO (#133 Rev. 2, 2026-06-11; #188-4c-iii angepasst): save_all ist O(1) --
+    // es kapselt NUR das Stat-POD von container_ und armt die Periode. Die DATEN-Vollkopie wird LAZY erst von
+    // der ERSTEN mutierenden Op der Warmup-Phase materialisiert (tier_insert/tier_erase/tier_clear ->
+    // cow_materialize_copy_, VOR der Mutation -> Kopie == save-Stand exakt). rollback_all spielt die
+    // materialisierte Kopie zurueck (Read-only-Perioden: nichts zu tun) und restauriert das Stat-POD -> Daten
+    // UND Observer-Zaehler exakt auf dem save-Stand (zwei_phase-Vertrag tier_observe_trace_abi.hpp).
+    // KOSTEN: Read-Perioden O(1); Write-Perioden = EINE Vollkopie. REVISION-HISTORIE: Die Rev.-1-Einzel-Key-
+    // Organ-Inverse (Undo-Log) war empirisch LANGSAMER und bleibt verworfen (Doc 33 §1).
+    // Organe ohne restore_statistics/Copy (requires-detektiert) -> unveraendert Copy/MementoAxis-Fallback.
     void tier_save_all() noexcept override {
         // P4 (#123, R1): die kalte 2. Ebene IMMER eager mitsichern (beide Pfade) — symmetrisch zum Rollback unten.
         // container_tier1_ ist copy-constructible (== container_t) → emplace ist exakt; bei OOM verwerfen (Robustheit).
@@ -1652,9 +1583,7 @@ public:
             saved_pc_.emplace(pc_organ_);
         } catch (...) { saved_pc_.reset(); }
         if constexpr (cow_capable_) {
-            saved_search_stats_    = search_organ_.statistics(); // O(1) POD-Snapshot (T0)
-            saved_container_stats_ = container_.statistics();    // O(1) POD-Snapshot (container-/T6-Pfad)
-            saved_search_.reset();                               // alte materialisierte Kopie freigeben
+            saved_container_stats_ = container_.statistics(); // O(1) POD-Snapshot (container-/T6-Pfad)
             saved_container_.reset();
             cow_materialized_ = false;
             cow_session_      = true;
@@ -1662,16 +1591,11 @@ public:
             return;
         }
         try {
-            if constexpr (std::is_copy_constructible_v<SearchAlgo>)
-                saved_search_.emplace(search_organ_);
-            else if constexpr (MementoAxis<SearchAlgo>)
-                saved_search_m_ = search_organ_.save_state();
             if constexpr (std::is_copy_constructible_v<container_t>)
                 saved_container_.emplace(container_);
             else if constexpr (MementoAxis<container_t>)
                 saved_container_m_ = container_.save_state();
         } catch (...) {
-            saved_search_.reset(); // OOM beim Kapseln → Kopie-Fallback-Memento verwerfen (Mess-Robustheit)
             saved_container_.reset();
         }
     }
@@ -1681,40 +1605,27 @@ public:
             if (cow_session_) {
                 cow_armed_ = false; // Mess-Phase: nicht mehr materialisieren (Mess-Op = REINE Op, 1 bool-Check)
                 try {
-                    if (cow_materialized_) { // Write-Periode: materialisierte save-Stand-Kopie zurückspielen
-                        if (saved_search_) search_organ_ = *saved_search_;
+                    if (cow_materialized_) { // Write-Periode: materialisierte save-Stand-Kopie zurueckspielen
                         if (saved_container_) container_ = *saved_container_;
                     }
                     // P4 (#123, R1): die kalte 2. Ebene + den migration-Zaehler exakt auf den save-Stand zurueck.
-                    // IMMER (nicht nur Write-Periode): ein migrierender Warmup-Op ist gerade die Write-Mutation, die
-                    // container_tier1_ befuellte → ohne Restore bliebe sie befuellt (Memento-Bruch). idempotent.
                     if (saved_tier1_) container_tier1_ = *saved_tier1_;
-                    // P5 (#124, R1): den REALEN Filter bit-exakt auf den save-Stand zuruecksetzen (IMMER, nicht nur
-                    // Write-Periode: ein Warmup-Insert hat flt_organ_ via insert_key inkrementell mutiert). idempotent.
+                    // P5 (#124, R1): den REALEN Filter bit-exakt auf den save-Stand zuruecksetzen.
                     if (saved_flt_) flt_organ_ = *saved_flt_;
-                    // §4.3 (User 2026-06-04, R1): die REALE value_handle-Slot-Struktur bit-exakt auf den save-Stand
-                    // zuruecksetzen (IMMER, nicht nur Write-Periode: ein Warmup-Insert hat vh_organ_ via store_value
-                    // inkrementell mutiert). idempotent. Fuer Inline (EmptyRealSlot) ist die Zuweisung O(1)-leer.
+                    // §4.3 (User 2026-06-04, R1): die REALE value_handle-Slot-Struktur bit-exakt auf den save-Stand.
                     if (saved_vh_) vh_organ_ = *saved_vh_;
-                    // §4.3 (User 2026-06-04, R1): den MATERIALISIERTEN Patricia-Trie bit-exakt auf den save-Stand
-                    // zuruecksetzen (IMMER, nicht nur Write-Periode: ein Warmup-Insert hat pc_organ_ via insert_key
-                    // inkrementell mutiert). idempotent. Fuer `none` (EmptyPatriciaTrie) ist die Zuweisung O(1)-leer.
+                    // §4.3 (User 2026-06-04, R1): den MATERIALISIERTEN Patricia-Trie bit-exakt auf den save-Stand.
                     if (saved_pc_) pc_organ_ = *saved_pc_;
                     mig_organ_.reset(); // tier_moves/Entscheidungs-Zaehler auf 0 (save-Stand: vor jedem Migrate-Op)
-                    // Stats restaurieren (Warmup-Op hat Zähler berührt — auch read-only) → exakt save-Stand.
-                    search_organ_.restore_statistics(saved_search_stats_);
+                    // Stats restaurieren (Warmup-Op hat Zaehler beruehrt -- auch read-only) -> exakt save-Stand.
                     container_.restore_statistics(saved_container_stats_);
                 } catch (...) {
-                    // noexcept-Vertrag: ein Rollback-Fehler darf den Mess-Lauf nicht abreißen.
+                    // noexcept-Vertrag: ein Rollback-Fehler darf den Mess-Lauf nicht abreissen.
                 }
-                return; // idempotent: erneuter Aufruf → Kopie/Snapshots unverändert → derselbe Stand
+                return; // idempotent: erneuter Aufruf -> Kopie/Snapshots unveraendert -> derselbe Stand
             }
         }
         try {
-            if constexpr (std::is_copy_assignable_v<SearchAlgo>) {
-                if (saved_search_) search_organ_ = *saved_search_;
-            } else if constexpr (MementoAxis<SearchAlgo>)
-                search_organ_.restore_state(saved_search_m_);
             if constexpr (std::is_copy_assignable_v<container_t>) {
                 if (saved_container_) container_ = *saved_container_;
             } else if constexpr (MementoAxis<container_t>)
@@ -1729,7 +1640,7 @@ public:
             if (saved_pc_) pc_organ_ = *saved_pc_;
             mig_organ_.reset();
         } catch (...) {
-            // noexcept-Vertrag: ein Rollback-Fehler darf den Mess-Lauf nicht abreißen.
+            // noexcept-Vertrag: ein Rollback-Fehler darf den Mess-Lauf nicht abreissen.
         }
     }
 
@@ -1738,54 +1649,33 @@ public:
     /// eager Organ-Vollkopie je Op? Literal-prüfbar im Test (test_cow_memento) — keine ABI-Fläche (statisch).
     [[nodiscard]] static constexpr bool tier_memento_is_copy_on_write() noexcept { return cow_capable_; }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // §3.3-DELEGATIONS-STATUS (Thesis ch3 sec:sota-axes „verteilte interfaces"; TODO-7/#182, 2026-06-25).
+    // -----------------------------------------------------------------------------
+    // §3.3-DELEGATIONS-STATUS (Thesis ch3 sec:sota-axes "verteilte interfaces"; TODO-7/#182, 2026-06-25).
     // Die Anatomie = Verdrahtung ZWISCHEN den Organen (ch3 §3.6.3 / ch4 §4.1): viele Achsen reichen anderen
-    // Achsen Detail-Interfaces durch (StorageOrgan → 9× organ_observe_<achse>; T7 konsumiert Store-Adressen).
-    // Die Thesis sagt bewusst „VIELE" (nicht „alle") — das ist ehrlich. Es bleiben GENAU DREI bewusste,
-    // by-design bzw. zurückgestellte Ausnahmen (Doc 30 Q2-Schritt-4):
-    //   (1) T0 search_algo -- nur noch die markerlose Default-Flachgruppe liest Such-Metrik aus dem
-    //       search_organ_-Monolith statt aus container_ (s. tier_search_routes_through_store()==false unten).
-    //       #188-4c-i hat Reference-Huellen in die container_-Quelle gehoben; zurueckgestellt bleibt nur die
-    //       markerlose Default-Flachgruppe ohne StoreTraversal/Organ-Huelle.
-    //   (2) T1 cache_traversal + T2 mapping — eigener register_entry/register_slot-Index (:713-719) PARALLEL zum
-    //       Store: SELF-CONTAINED BY DESIGN. Beide Organe modellieren eine ANDERE Entscheidung als das Store-
-    //       Layout (Algorithmus↔Cache-Abbildung bzw. Key→Position), nicht Store-Daten → eigener Zustand ist
-    //       der Organ-Zustand, kein redundanter Schatten. (Kein Eingriff; bewusste Ausnahme.)
-    //   (3) T15 migration_policy — decide-scan delegiert an den Store (:625/:1080); der reiche 2-Tier-Blockmove
-    //       (organ_migrate_step, axes/node/axis_04_node_type_layout_aware_store.hpp) feuert NUR wo eine 2. Ebene
-    //       existiert (container_tier1_); single-tier/NoMigration → ehrlich 0 (es gibt kein Migrationsziel).
-    //       Korrekt by-design (Reichtum gilt dort, wo es 2 Tiers gibt). (Kein Eingriff; bewusste Ausnahme.)
-    // → Damit ist die §3.3-Schärfung NACHWEISBAR „überall, wo eine Achse eine delegierbare Detail-Op hat",
-    //   und die 3 Nicht-Delegationen sind explizit als bewusst/zurückgestellt ausgewiesen. Thesis unverändert.
-    // ─────────────────────────────────────────────────────────────────────────────
-    // (E-Welle-A2 · Befund-2/Q2-Schritt-4 · Meta-Lehre #3 — Schritt 3 des de-risked Pfads) Diagnose: routet der
-    // GEMESSENE Such-Pfad (T0) durch den EINEN container_-Store (node/layout/allocator wirken REAL auf die Suche)
-    // ODER liefert der separate search_organ_-Monolith die Such-Metrik (= Befund-2-Schatten)? AKTUELL per-Komposition
-    // CONDITIONAL (A2.5/#188-4c-i): fill_observer_v3 (s.o.) zieht das search-Feld fuer store-traversierbare,
-    // organ-backed und bereits observable Reference-Huellen aus container_.statistics(); nur die markerlose
-    // Default-Flachgruppe kommt aus search_organ_.statistics() (false unten). Ohne true
-    // sind die Achsen-Austauschbarkeits-Belege für dieses Tier teils Apparat-Artefakt (Doc 34 §9.1 SOLL-Regel 3 +
-    // A3 Meta-Lehre #3: Diff-Beweise brauchen NACHWEISLICH verschiedene Organ-Pfade). Verifikations-Hook für A2.5.
+    // Achsen Detail-Interfaces durch (StorageOrgan -> 9x organ_observe_<achse>; T7 konsumiert Store-Adressen).
+    // Nach #188-4c-iii routet T0 durch container_; es bleiben ZWEI bewusste, by-design bzw. zurueckgestellte
+    // Nicht-Delegationen:
+    //   (1) T1 cache_traversal + T2 mapping -- eigener register_entry/register_slot-Index PARALLEL zum Store:
+    //       SELF-CONTAINED BY DESIGN. Beide Organe modellieren eine ANDERE Entscheidung als das Store-Layout
+    //       (Algorithmus<->Cache-Abbildung bzw. Key->Position), nicht Store-Daten -> eigener Zustand.
+    //   (2) T15 migration_policy -- decide-scan delegiert an den Store; der reiche 2-Tier-Blockmove feuert NUR
+    //       wo eine 2. Ebene existiert (container_tier1_); single-tier/NoMigration -> ehrlich 0.
+    // -> Damit ist die §3.3-Schaerfung NACHWEISBAR ueberall, wo eine Achse eine delegierbare Detail-Op hat.
+    // -----------------------------------------------------------------------------
     [[nodiscard]] static constexpr bool tier_search_routes_through_store() noexcept {
-        // (A2.5/#188-4a-C5 + #188-4c-i) EHRLICH conditional: store-traversierbare Algos,
-        // organ-backed Familien und bereits observable Reference-Huellen liefern T0 aus container_ -> true;
-        // nur die markerlose Default-Flachgruppe (Array256/Vector*/Array65535, kein natives Organ) bleibt
-        // search_organ_-Quelle -> false.
-        return container_is_authoritative_;
+        // #188-4c-iii (2026-07-02): Diagnose-API bleibt stabil; T0 routet immer ueber container_.
+        return true;
     }
 
     /// Diagnose für den Zwei-Phasen-Treiber (I7): exakter Rollback, wenn jedes Organ ENTWEDER MementoAxis ODER
     /// kopierbar ist. Sonst muss der Treiber Kalt-Messung wählen (empirische Probe in tier_observe_trace_abi.hpp).
     [[nodiscard]] bool tier_rollback_is_exact() const noexcept {
-        constexpr bool search_ok = MementoAxis<SearchAlgo> ||
-                                   (std::is_copy_constructible_v<SearchAlgo> && std::is_copy_assignable_v<SearchAlgo>);
         constexpr bool cont_ok = MementoAxis<container_t> ||
                                  (std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>);
-        // P4 (#123, R1): die kalte 2. Ebene wird via std::optional<container_t>-Eager-Kopie exakt zurueckgerollt →
+        // P4 (#123, R1): die kalte 2. Ebene wird via std::optional<container_t>-Eager-Kopie exakt zurueckgerollt ->
         // exakt gdw. container_t kopierbar ist (== dieselbe Bedingung wie cont_ok; container_t ist beidseitig kopierbar).
         constexpr bool tier1_ok = std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>;
-        return search_ok && cont_ok && tier1_ok;
+        return cont_ok && tier1_ok;
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -1802,12 +1692,11 @@ public:
         std::uint64_t visited = 0;
         std::uint64_t sum     = 0;
         try {
-            // container_ trägt für ALLE Familien die Records (tier_insert :712 store-traversierbar / :716 Weg-B), in
-            // der vom container_traversal_t bestimmten Ordnung: Array-Familie über ihr treues Traversal-Organ
-            // (LinearScan/Interpolation), Weg-B über den SortedBinary-Spiegel. EIN uniformer Pfad, kein if-constexpr,
-            // kein save_state()/std::sort je Op mehr.
-            // [LIMIT #226] Weg-B: der Scan misst den container_-SortedBinary-Spiegel, NICHT das native Baum-Organ
-            // (search_organ_) — volle Per-Achsen-Scan-Echtheit der SOTA-Bäume erst mit #188 (search_organ_-Entfall).
+            // container_ traegt fuer ALLE Familien die Records, in der vom container_traversal_t bestimmten Ordnung:
+            // store-traversierbare Array-Familien ueber ihr treues Traversal-Organ, der flache Rest ueber den
+            // SortedBinary-Fallback. EIN uniformer Pfad, kein if-constexpr, kein save_state()/std::sort je Op mehr.
+            // Organ-backed Familien ohne scan_range bleiben unten ehrlich bei visited=0 bis die jeweilige Familie
+            // einen nativen Range-Walk traegt.
             if constexpr (container_is_store_backed_) {
                 visited = static_cast<std::uint64_t>(container_.scan_range(
                     static_cast<typename container_t::key_type>(start_key), static_cast<std::size_t>(max_count),
@@ -1866,7 +1755,7 @@ public:
         // erase/clear MUSS er daher in der Warmup-Phase die CoW-Vollkopie des save-Stands VOR der Mutation
         // materialisieren, sonst rollte tier_rollback_all container_ NICHT zurueck (cow_materialized_ blieb false →
         // Memento-Bruch). container_tier1_ selbst wird ueber saved_tier1_ (eager) zurueckgerollt; diese Materialisierung
-        // sichert die HEISSE Ebene (container_/search_organ_).
+        // sichert die HEISSE Ebene (container_).
         if (cow_armed_) cow_materialize_copy_();
         std::uint64_t moved = 0;
         try {
@@ -1922,15 +1811,15 @@ private:
     // Plan v2 S1 (2026-06-04): layout-honorierender Store — speichert Records am layout-getriebenen eff_stride
     // (CLA 64-B-gepaddet vs aos 16-B-packed) → die memory_layout-Achse ist ECHT, organ_observe_layout OOB-frei,
     // allocator-Bytes layout-abhängig. Drop-in zu NodeChunkedStore (StorageOrgan-Concept), ersetzt es im Mess-Pfad.
-    // (E-Welle-A2 / Befund-2 / Q2-Schritt-4 / A2.5 / #188-4a-C5 / #188-4c-i) Such-Strategie UEBER
-    // container_: store-traversierbare Algos parametrisieren den flachen Store mit ihrem TREUEN Traversal-Organ;
-    // Pool-Familien werden zu ObservableComposedContainer<Organ>; Reference-Huellen sind bereits SearchAlgo selbst.
-    // Nur nicht-store-traversierbare, nicht-organ-backed, nicht-gehuellte Flach-Algos nutzen den SortedBinary-Fallback.
+    // #188-4c-iii: Such-Strategie UEBER container_: store-traversierbare Algos parametrisieren den flachen Store
+    // mit ihrem TREUEN Traversal-Organ; Pool-Familien werden zu ObservableComposedContainer<Organ>;
+    // Reference-Huellen sind bereits SearchAlgo selbst. Der flache Rest nutzt den SortedBinary-Fallback ebenfalls
+    // als einzigen konstitutiven container_.
     using container_traversal_t =
         std::conditional_t<::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>,
                            ::comdare::cache_engine::lookup::composable::traversal_for_search_algo_t<SearchAlgo>,
                            ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::SortedBinaryTraversal>;
-    // #188-4c-i: DER DRITTE ZWEIG. container_ ist native Organ-Huelle, bereits observable SearchAlgo-Huelle oder flacher Store.
+    // #188-4c-iii: container_ ist native Organ-Huelle, bereits observable SearchAlgo-Huelle oder flacher Store.
     using flat_container_t =
         ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::ObservableComposedSearch<
             container_traversal_t,
@@ -1951,12 +1840,8 @@ private:
         std::type_identity<::comdare::cache_engine::lookup::composable::ObservableComposedContainer<
             ::comdare::cache_engine::lookup::composable::organ_for_search_algo_t<SearchAlgo>>>,
         std::conditional_t<organ_hull_, std::type_identity<SearchAlgo>, std::type_identity<flat_container_t>>>::type;
-    // T0/lookup/insert/erase laufen ueber container_ (statt search_organ_), wenn container_ die AUTORITATIVE Such-
-    // Struktur traegt: store-traversierbar (flacher Store + faithful Traversal), organ_for_search_algo-Familie
-    // (native Organ-Huelle) ODER SearchAlgo ist bereits ObservableComposedContainer<XOrgan>. Nur die markerlose
-    // Default-Flach-Gruppe bleibt search_organ_+Spiegel.
-    static constexpr bool container_is_authoritative_ =
-        ::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo> || pool_family_ || organ_hull_;
+    // #188-4c-iii: T0/lookup/insert/erase laufen fuer alle Kompositionen ueber container_; pool_family_ und
+    // organ_hull_ bleiben nur fuer die container_t-Typwahl.
 
     // #188-4b-b1a/#188-4c-i: Kapselungs-Praedikat — traegt container_t einen FLACHEN Store (store_type)? TRUE fuer
     // ObservableComposedSearch<Traversal,LayoutAwareChunkedStore> (store()/scan_range/store_observe_*/save_state/
@@ -1969,10 +1854,9 @@ private:
 
     ::comdare::cache_engine::execution_engine::EngineLifecycleState state_{
         ::comdare::cache_engine::execution_engine::EngineLifecycleState::Uninitialized};
-    // R6 / Pfad B: das getriebene ECHTE Composition-Such-Organ (uint64-Key). Default-konstruiert;
-    // Default-konstruierbar + ObservableAxis garantiert durch #42 (ObservableComposedContainer-Huelle).
-    SearchAlgo  search_organ_{};
-    container_t container_{}; // R6 Inkrement 2b: misst die ALLOCATOR-Achse über die ABI-Grenze
+    // #188-4c-iii: der einzige getriebene T0-Zustand. Default-konstruiert; container_t kapselt flachen Store,
+    // native Organ-Huelle oder bereits observable SearchAlgo-Huelle.
+    container_t container_{};
     // P4 (#123, 2026-06-04): die KALTE 2. Ebene des ECHTEN 2-Ebenen-Migrations-Schritts. Identischer container_t-Typ
     // (gleicher node/layout/allocator-getriebener Store) — tier_migrate_step bewegt markierte Records aus container_
     // (heiss) hierher. Bleibt leer, solange tier_migrate_step nicht gerufen wird (alle 320 None-Lebewesen tasten ihn
@@ -2037,11 +1921,9 @@ private:
     // V5-#44 memento_all: Warmup-Vor-Zustand der getriebenen Organe. Lebt IN der Binary, quert die ABI NICHT.
     // PER-ACHSEN-Memento (bevorzugt, MementoAxis): memento_of_t<Organ> = Organ::memento_t (riche (key,value)-
     // Liste + Stats) bzw. EmptyMemento wenn das Organ KEIN MementoAxis ist (dann greift der Kopie-Fallback).
-    memento_of_t<SearchAlgo>  saved_search_m_{};
     memento_of_t<container_t> saved_container_m_{};
-    // Kopie-Fallback für Organe ohne MementoAxis (std::optional → leer bis save_all; reset bei Kapsel-OOM).
-    // Im CoW-Pfad (#133 Rev. 2) der Träger der LAZY materialisierten Daten-Vollkopie (Write-/clear-Perioden).
-    std::optional<SearchAlgo>  saved_search_{};
+    // Kopie-Fallback fuer Organe ohne MementoAxis (std::optional -> leer bis save_all; reset bei Kapsel-OOM).
+    // Im CoW-Pfad (#133 Rev. 2) der Traeger der LAZY materialisierten Daten-Vollkopie (Write-/clear-Perioden).
     std::optional<container_t> saved_container_{};
     // P4 (#123, R1 — KRITISCH): symmetrischer Memento der KALTEN 2. Ebene. container_tier1_ ist eine NEUE persistente
     // Struktur → ohne sie hier zu sichern bräche der Zwei-Phasen-Warmup (V5-I6/I7), sobald ein Warmup-Op migrierte
@@ -2076,14 +1958,13 @@ private:
         ::comdare::cache_engine::path_compression::ObservablePathCompression<typename Composition::path_compression>;
     std::optional<pc_organ_t> saved_pc_{};
 
-    // ── Copy-on-Write-Memento (#133 Rev. 2) — save O(1), Daten-Kopie lazy bei der ersten Warmup-Mutation ──
-    // Fähigkeits-Detektion (requires): das Organ trägt den O(1)-Stat-Snapshot/-Restore (statistics()/
-    // restore_statistics(), ObservableComposedSearch/-Container); Copy-Konstruierbarkeit für die lazy Kopie.
+    // -- Copy-on-Write-Memento (#133 Rev. 2; #188-4c-iii) -- save O(1), Daten-Kopie lazy bei der ersten Warmup-Mutation --
+    // Faehigkeits-Detektion (requires): container_ traegt den O(1)-Stat-Snapshot/-Restore (statistics()/
+    // restore_statistics(), ObservableComposedSearch/-Container); Copy-Konstruierbarkeit fuer die lazy Kopie.
     template <class S>
     static constexpr bool organ_cow_capable_v = requires(S& s, S const& cs) { s.restore_statistics(cs.statistics()); };
     static constexpr bool cow_capable_ =
-        organ_cow_capable_v<SearchAlgo> && organ_cow_capable_v<container_t> &&
-        std::is_copy_constructible_v<SearchAlgo> && std::is_copy_assignable_v<SearchAlgo> &&
+        organ_cow_capable_v<container_t> &&
         std::is_copy_constructible_v<container_t> && std::is_copy_assignable_v<container_t>;
 
     /// Stat-POD-Typ eines CoW-fähigen Organs (sonst leerer Platzhalter — Member existiert immer).
@@ -2097,24 +1978,21 @@ private:
         using type = decltype(std::declval<S const&>().statistics());
     };
 
-    /// Copy-on-Write: die Daten-Vollkopie des save-Stands EINMAL je Periode materialisieren — gerufen von
+    /// Copy-on-Write: die Daten-Vollkopie des save-Stands EINMAL je Periode materialisieren -- gerufen von
     /// tier_insert/tier_erase/tier_clear VOR ihrer Mutation (nur Warmup-Phase, cow_armed_). Read-Perioden
-    /// materialisieren nie (deren save+rollback bleiben reine O(1)-POD-Kopien — der große Kosten-Hebel).
+    /// materialisieren nie (deren save+rollback bleiben reine O(1)-POD-Kopien -- der grosse Kosten-Hebel).
     void cow_materialize_copy_() noexcept {
         if (cow_materialized_) return; // Periode bereits materialisiert (z.B. RMW: insert nach lookup)
         try {
-            saved_search_.emplace(search_organ_);
             saved_container_.emplace(container_);
             cow_materialized_ = true;
         } catch (...) {
-            saved_search_.reset();
             saved_container_.reset();
-            // Materialisierung gescheitert (OOM): Rollback dieser Periode degradiert (Status-quo-äquivalente
-            // Mess-Robustheit; die empirische rb_exact-Probe deckt strukturelle Fälle je Binary ab).
+            // Materialisierung gescheitert (OOM): Rollback dieser Periode degradiert (Status-quo-aequivalente
+            // Mess-Robustheit; die empirische rb_exact-Probe deckt strukturelle Faelle je Binary ab).
         }
     }
 
-    typename OrganStatsSnap<SearchAlgo>::type  saved_search_stats_{};    // O(1)-Stat-Snapshot (save-Stand, T0)
     typename OrganStatsSnap<container_t>::type saved_container_stats_{}; // O(1)-Stat-Snapshot (container/T6-Pfad)
     bool cow_session_      = false; // save_all lief über den CoW-Pfad (Routing in rollback_all)
     bool cow_armed_        = false; // Materialisierung AN (nur save→rollback; Mess-Op = 1 bool-Check)
