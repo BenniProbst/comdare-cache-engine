@@ -112,6 +112,8 @@ public:
 
 private:
     anatomy_t anatomy_{};
+    // Builder-Pilot-Eigenpaar: bewusst NICHT im 4c-iv-Rename (nur SearchAlgorithmAbiAdapter).
+    // Konsolidierung dieses search_organ_/container_-Paars folgt mit CMD-1 (#251).
     container_t
         container_{}; // misst die ALLOCATOR-Achse (ComposedStore<N,L,A>-Vector-Growth treibt allocator_statistics)
     // Saeule-2-Mess-Treue (#42-Folge): das ECHTE sezierte Composition-Organ (ART/Masstree/Wormhole/SuRF/...)
