@@ -1538,6 +1538,21 @@ target_include_directories(test_234_f4_hash_probe_shape PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_234_f4_hash_probe_shape PRIVATE Boost::mp11)
 
+# #188-4a (2026-07-02) — Eytzinger als 10. organ_for-Familie (Option b): EytzingerLayoutStore (sortierter
+# Primaerzustand + lazy BFS-Puffer in EINEM Store) + EytzingerTraversalOrgan (branch-free Kern bit-identisch
+# zum Wrapper) + ComposedEytzingerSearch (for_each_record = DEG-1-Key-Ernte-Fix). T1 std::map-Konformitaet,
+# T2 Wrapper-Aequivalenz (u16-Keyraum), T3 Option-b-dirty-Semantik, T4 Ernte ohne Rebuild-Trigger,
+# T5 branch-free-Grenzfaelle, T6 Kopier-Memento, T7 Observable-Huelle, T8 static_asserts (organ_for/traversal_for).
+comdare_add_test(test_188_4a_eytzinger_organ
+    SOURCES test_188_4a_eytzinger_organ.cpp)
+target_include_directories(test_188_4a_eytzinger_organ PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_188_4a_eytzinger_organ PRIVATE Boost::mp11)
+
 # P5 (#156-De-Risk, 2026-06-20) — Smoke fuer die PMC-WIDE-Naht: make_pmc_source()/IPmcSource im LAZY WIDE-Mess-Pfad
 # (perm_runner) + 7 additive pmc_*-Spalten in lazy_csv_header. Standalone (plain int main, baut KEINE DLLs), zieht
 # aber den schweren iterator-/pmc_source_factory-Kontext -> derselbe anatomy/axes/Boost::mp11-Include-Satz wie

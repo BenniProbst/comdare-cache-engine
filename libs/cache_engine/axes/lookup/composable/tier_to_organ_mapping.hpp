@@ -24,6 +24,7 @@
 #include "composed_hash_search.hpp"      // HashProbeTraversalOrgan + HashBucketPoolStore + ComposedHashSearch (#41)
 #include "composed_skip_list_search.hpp" // SkipListTraversalOrgan + SkipListNodePoolStore + ComposedSkipListSearch (#41)
 #include "composed_btree_search.hpp"     // BTreeTraversalOrgan + BTreeNodePoolStore + ComposedBTreeSearch (#41)
+#include "composed_eytzinger_search.hpp" // EytzingerTraversalOrgan + EytzingerLayoutStore + ComposedEytzingerSearch (#188-4a)
 #include "composed_art_trie_search.hpp" // ArtTrieTraversalOrgan + ArtTrieNodePoolStore + ComposedArtTrieSearch (#43 s4)
 #include "composed_hot_patricia_search.hpp" // HotPatriciaTraversalOrgan + HotPatriciaNodePoolStore + ComposedHotPatriciaSearch (#43 s4)
 #include "composed_wormhole_search.hpp" // WormholeJumpTraversalOrgan + WormholeLeafListPoolStore + ComposedWormholeSearch (#43 s4)
@@ -52,6 +53,10 @@ using SkipListOrgan = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNod
 template <class Shape>
 using BTreeSearchOrganShaped = ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoolStore<Shape>>;
 using BTreeSearchOrgan = ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoolStore<>>; // BTreeSearchAlgo S17
+
+// #188-4a (2026-07-02): 10. organ_for-Familie, aber KEIN Pool: EytzingerLayoutStore haelt
+// sortierten Primaerzustand + abgeleiteten BFS-Puffer in EINEM Layout-Store (Option b, lazy rebuild).
+using EytzingerOrgan = ComposedEytzingerSearch<EytzingerTraversalOrgan, EytzingerLayoutStore>; // EytzingerSearchAlgo S12
 
 // V41 Umstufung-A (#41) — OriginalXxx-Tiere (S04-S08) auf bestehende flache Organe seziert.
 // **Befund (Planrunde 2026-05-29):** Die OriginalXxx-Wrapper-BODIES sind triviale C++23-Re-Impls (KEIN
@@ -102,7 +107,8 @@ using ObservableStartTrieOrgan   = ObservableComposedContainer<StartTrieOrgan>;
 // correctness-when-named]]); SliceBytes=8 = Single-Layer-B+Baum-Degenerationsanker. Loest den frueheren flachen
 // ObservableSortedBinaryOrgan-Platzhalter ab (letzter Platzhalter-Konfigurator -> echtes Organ).
 using MasstreeOrgan           = ComposedMasstreeSearch<MasstreeLayerTraversalOrgan<2>, MasstreeLayerNodePoolStore>;
-using ObservableMasstreeOrgan = ObservableComposedContainer<MasstreeOrgan>;
+using ObservableMasstreeOrgan  = ObservableComposedContainer<MasstreeOrgan>;
+using ObservableEytzingerOrgan = ObservableComposedContainer<EytzingerOrgan>;
 
 /// Dokumentiertes Tier→Organ-Paar (für den Äquivalenz-/Rekonstruktions-Test konsumierbar).
 /// `tier` = monolithischer axis_03a-Wrapper (noch Achsen-Wert, bis zur Umstufung).

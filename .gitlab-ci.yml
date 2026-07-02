@@ -159,6 +159,9 @@ contract:conformance:
 # = CI rot → das Gate faengt eine Flip-Regression VOR dem 320-DLL-Mess-Lauf (#215) ab. COMDARE_MEASUREMENT_ON (CMake)
 # aktiviert IObservableTier + den Segment-Timing-Pfad. Mirror der contract:conformance-Konventionen (eigener Build,
 # kein Artefakt, lint:secrets-Gate).
+# #188-4a (2026-07-02): +test_188_4a_eytzinger_organ — Eytzinger als 10. organ_for-Familie (EytzingerLayoutStore,
+# Option b lazy rebuild): std::map-Konformitaet + Wrapper-Aequivalenz + dirty-Semantik + for_each_record-Ernte
+# (DEG-1-Fix fuer den einzigen golden-320-Algo mit keys={0}-Degeneration). Gleicher Job (188-Familien-Gate).
 contract:pool_flip:
   extends: .bare_metal
   stage: contract
@@ -167,8 +170,9 @@ contract:pool_flip:
   script:
     # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
     - cmake -B build-poolflip -G Ninja -DCOMDARE_BUILD_TESTS=ON
-    - cmake --build build-poolflip --target test_188_4bbV_pool_adapter_flip_compile
-    - ctest --test-dir build-poolflip -R '^test_188_4bbV_pool_adapter_flip_compile$' --output-on-failure -V
+    - cmake --build build-poolflip --target test_188_4bbV_pool_adapter_flip_compile test_188_4a_eytzinger_organ
+    # Exakter 2-Target-Match (Review-Fix): '^test_188_4' matchte auch test_188_4bb0_… (hier nicht gebaut).
+    - ctest --test-dir build-poolflip -R '^(test_188_4bbV_pool_adapter_flip_compile|test_188_4a_eytzinger_organ)$' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 

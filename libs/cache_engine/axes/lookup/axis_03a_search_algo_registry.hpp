@@ -97,8 +97,9 @@ static_assert(mp::mp_size<EnabledStrategies>::value > 0, "axis_03a_search_algo: 
 // (E-Welle-A2 / Befund-2 / A2.4-S1) Verifikation der store-traversierbaren Klassifikation über die ZIEL-Population
 // (Meta-Lehre #1/#2: echte Registry-Typen, nicht nur Referenz-Kompositionen). Array-Familie → store-traversierbar
 // (Suche über DENSELBEN node/layout/allocator-getriebenen LayoutAwareChunkedStore); k-ary jetzt store-traversierbar
-// (#188-4a-C5: treues compile-time KAryTraversal<Arity>, test_conformance_gate-grün). Tree/Trie/Hash + Eytzinger
-// (BFS-Layout) → Weg-B (G3-Cross-Achsen-Constraint, Doc 34 §3/§9.1). A2.5 nutzt dies für die container_t-if-constexpr-Umstellung.
+// (#188-4a-C5: treues compile-time KAryTraversal<Arity>, test_conformance_gate-grün). Eytzinger ist seit #188-4a
+// organ-backed via organ_for_search_algo -> EytzingerOrgan, aber BEWUSST kein StoreTraversableSearchAlgo-Marker
+// (der gilt nur dem FLAT-Store-Pfad). Tree/Trie/Hash bleiben nicht-store-traversierbar, teils organ-backed.
 static_assert(composable::StoreTraversableSearchAlgo<KArySearchAlgo>,
               "#188-4a-C5: k-ary = Array-Familie + treues compile-time KAryTraversal<Arity> -> store-traversierbar (Weg-A)");
 // #188 per-K Increment 2: die 4 registrierten per-K-Wrapper sind ebenfalls store-traversierbar (Weg-A-Marker) ->
@@ -114,7 +115,7 @@ static_assert(composable::StoreTraversableSearchAlgo<InterpolationSearchAlgo>,
 static_assert(composable::StoreTraversableSearchAlgo<LinearScanSearchAlgo>,
               "A2.4-S1: linear_scan = Array-Familie -> store-traversierbar");
 static_assert(!composable::StoreTraversableSearchAlgo<EytzingerSearchAlgo>,
-              "A2.4-S1: eytzinger = BFS-Layout -> konservativ Weg-B (kein Marker)");
+              "#188-4a: eytzinger = organ-backed via organ_for, aber kein FLAT-Store-Marker");
 static_assert(!composable::StoreTraversableSearchAlgo<HashSearchAlgo>,
               "A2.4-S1: hash = Pool-Familie (ungeordnet) -> Weg-B (G3)");
 static_assert(!composable::StoreTraversableSearchAlgo<BinarySearchTreeSearchAlgo>,

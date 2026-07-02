@@ -51,10 +51,10 @@ namespace comdare::cache_engine::lookup {
 class EytzingerSearchAlgo : public SearchAlgoBase<EytzingerSearchAlgo> {
 public:
     static constexpr bool enabled = flags::eytzinger_enabled;
-    // (E-Welle-A2 / Befund-2 / A2.4-S1) Eytzinger BRAUCHT ein BFS-Layout-Array (nicht sortiert-aufsteigend) → über einen
-    // sortiert-aufsteigenden LayoutAwareChunkedStore NICHT trivial store-traversierbar → BEWUSST KEIN axis_03a_store_traversable-
-    // Marker (konservativ Weg-B: search_organ_ bleibt, tier_search_routes_through_store()==false; ehrliche Limitierung).
-    // A2.5-Option: eigene Eytzinger-BFS-Layout-Store-Variante (dann nachträglich markierbar). Kein Raten (Meta-Lehre #1/#2).
+    // #188-4a (2026-07-02, Option b): store-traversierbar via organ_for_search_algo -> EytzingerOrgan
+    // (EytzingerLayoutStore: sortierter Primaerzustand + lazy BFS-Puffer). BEWUSST weiterhin KEIN
+    // axis_03a_store_traversable-Marker (der gilt dem FLAT-Store-Pfad); Registry-static_assert bleibt wahr.
+    // Dieser u16-Wrapper bleibt Registry-Tier + Aequivalenz-Referenz; die 320er-Messung laeuft ueber das Organ.
 
     using key_type   = std::uint16_t;
     using value_type = std::uint64_t;
