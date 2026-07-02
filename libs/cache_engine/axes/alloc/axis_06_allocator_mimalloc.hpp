@@ -58,9 +58,11 @@ namespace comdare::cache_engine::alloc {
  * Vendor-Calls direkt — bei OFF werden Forward-Stubs aus dem Shim verwendet
  * (NIEMALS aufgerufen wegen if constexpr (false) Discarded Statement).
  */
-class MimallocAllocator : public AllocatorStrategyBase<MimallocAllocator>
+class MimallocAllocator
+    : public AllocatorStrategyBase<MimallocAllocator>
 #if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
-    , public generated::a04_mimalloc::OriginalCodeMixin // V41.F.6.1.P2.B Paper-Mixin (Habich-Compliance)
+    ,
+      public generated::a04_mimalloc::OriginalCodeMixin // V41.F.6.1.P2.B Paper-Mixin (Habich-Compliance)
 #endif
 {
 public:

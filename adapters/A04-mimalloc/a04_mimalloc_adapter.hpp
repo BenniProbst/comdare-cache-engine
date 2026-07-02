@@ -18,14 +18,14 @@
 #include <new>
 
 #if defined(COMDARE_HAVE_MIMALLOC)
-#  include "mimalloc.h"
+#include "mimalloc.h"
 #endif
 
 namespace comdare::adapter::a04_mimalloc {
 
 class MimallocAdapter {
 public:
-    [[nodiscard]] void *allocate(std::size_t size, std::size_t alignment = alignof(std::max_align_t)) {
+    [[nodiscard]] void* allocate(std::size_t size, std::size_t alignment = alignof(std::max_align_t)) {
 #if defined(COMDARE_HAVE_MIMALLOC)
         return mi_malloc_aligned(size, alignment);
 #else
@@ -36,17 +36,17 @@ public:
             return std::malloc(size);
         }
         used_aligned_alloc_ = true;
-#  if defined(_WIN32)
+#if defined(_WIN32)
         return _aligned_malloc(size, alignment);
-#  else
-        void *p = nullptr;
+#else
+        void* p = nullptr;
         if (posix_memalign(&p, alignment, size) != 0) return nullptr;
         return p;
-#  endif
+#endif
 #endif
     }
 
-    void deallocate(void *ptr) noexcept {
+    void deallocate(void* ptr) noexcept {
         if (ptr == nullptr) return;
 #if defined(COMDARE_HAVE_MIMALLOC)
         mi_free(ptr);
@@ -55,15 +55,15 @@ public:
             std::free(ptr);
             return;
         }
-#  if defined(_WIN32)
+#if defined(_WIN32)
         _aligned_free(ptr);
-#  else
+#else
         std::free(ptr);
-#  endif
+#endif
 #endif
     }
 
-    [[nodiscard]] static constexpr const char *paper_id() noexcept {
+    [[nodiscard]] static constexpr const char* paper_id() noexcept {
         return "A04-mimalloc (Leijen/Zorn/de Moura 2019)";
     }
 

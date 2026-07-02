@@ -8,8 +8,8 @@
 
 #if defined(COMDARE_HAVE_SCALLOC)
 extern "C" {
-    void *scalloc_malloc(std::size_t);
-    void  scalloc_free(void *);
+void* scalloc_malloc(std::size_t);
+void  scalloc_free(void*);
 }
 #endif
 
@@ -17,23 +17,21 @@ namespace comdare::adapter::a08_scalloc {
 
 class ScallocAdapter {
 public:
-    [[nodiscard]] void *allocate(std::size_t size) {
+    [[nodiscard]] void* allocate(std::size_t size) {
 #if defined(COMDARE_HAVE_SCALLOC)
         return scalloc_malloc(size);
 #else
         return std::malloc(size);
 #endif
     }
-    void deallocate(void *p) noexcept {
+    void deallocate(void* p) noexcept {
 #if defined(COMDARE_HAVE_SCALLOC)
         scalloc_free(p);
 #else
         std::free(p);
 #endif
     }
-    [[nodiscard]] static constexpr const char *paper_id() noexcept {
-        return "A08-scalloc (Aigner et al. 2015)";
-    }
+    [[nodiscard]] static constexpr const char* paper_id() noexcept { return "A08-scalloc (Aigner et al. 2015)"; }
 };
 
 } // namespace comdare::adapter::a08_scalloc

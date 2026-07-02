@@ -54,9 +54,9 @@ std::uint64_t value_for_234_f4(std::uint64_t k, std::uint64_t salt) {
 template <class Organ>
 void expect_for_each_matches_234_f4(Organ const& organ, std::map<std::uint64_t, std::uint64_t> const& oracle,
                                     char const* name, char const* phase) {
-    std::set<std::uint64_t>                  seen;
-    std::map<std::uint64_t, std::uint64_t>   harvested;
-    std::size_t const visits = organ.for_each_record([&](std::uint64_t k, std::uint64_t v) {
+    std::set<std::uint64_t>                seen;
+    std::map<std::uint64_t, std::uint64_t> harvested;
+    std::size_t const                      visits = organ.for_each_record([&](std::uint64_t k, std::uint64_t v) {
         bool const inserted = seen.insert(k).second;
         EXPECT_TRUE(inserted) << name << ": for_each_record Duplicate key=" << k << " phase=" << phase;
         harvested.emplace(k, v);
@@ -158,11 +158,11 @@ TEST(Comdare234F4HashProbeShape, ChainingConformsToStdMapWideRandomAndClearRefil
 }
 
 TEST(Comdare234F4HashProbeShape, LoadFactorN64SeparatesLf50AndLf90) {
-    constexpr std::size_t n64            = 64;
-    constexpr std::size_t lf50_threshold = trigger_occupancy_234_f4(
-        n64, hps::HashOaLf50::kLoadNumerator, hps::HashOaLf50::kLoadDenominator);
-    constexpr std::size_t lf90_threshold = trigger_occupancy_234_f4(
-        n64, hps::HashOaLf90::kLoadNumerator, hps::HashOaLf90::kLoadDenominator);
+    constexpr std::size_t n64 = 64;
+    constexpr std::size_t lf50_threshold =
+        trigger_occupancy_234_f4(n64, hps::HashOaLf50::kLoadNumerator, hps::HashOaLf50::kLoadDenominator);
+    constexpr std::size_t lf90_threshold =
+        trigger_occupancy_234_f4(n64, hps::HashOaLf90::kLoadNumerator, hps::HashOaLf90::kLoadDenominator);
     static_assert(lf50_threshold == 32u);
     static_assert(lf90_threshold == 58u);
 

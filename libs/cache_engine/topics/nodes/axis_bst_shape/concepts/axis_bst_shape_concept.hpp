@@ -12,7 +12,6 @@ template <typename S>
 concept BstShape = ::comdare::cache_engine::nodes::concepts::NodesComponent<S> && requires {
     typename S::index_type;
     { S::kIndexBytes } -> std::convertible_to<std::size_t>;
-}
-&& std::is_unsigned_v<typename S::index_type> && (S::kIndexBytes == sizeof(typename S::index_type));
+} && std::is_unsigned_v<typename S::index_type> && (S::kIndexBytes == sizeof(typename S::index_type));
 
 } // namespace comdare::cache_engine::nodes::axis_bst_shape::concepts

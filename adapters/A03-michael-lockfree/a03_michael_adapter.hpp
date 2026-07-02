@@ -9,30 +9,28 @@
 #include <stdexcept>
 
 #if defined(COMDARE_HAVE_MICHAEL)
-#  include "michael.h"
+#include "michael.h"
 #endif
 
 namespace comdare::adapter::a03_michael {
 
 class MichaelAdapter {
 public:
-    [[nodiscard]] void *allocate(std::size_t size) {
+    [[nodiscard]] void* allocate(std::size_t size) {
 #if defined(COMDARE_HAVE_MICHAEL)
         return malloc(size);
 #else
         return std::malloc(size);
 #endif
     }
-    void deallocate(void *p) noexcept {
+    void deallocate(void* p) noexcept {
 #if defined(COMDARE_HAVE_MICHAEL)
         free(p);
 #else
         std::free(p);
 #endif
     }
-    [[nodiscard]] static constexpr const char *paper_id() noexcept {
-        return "A03-Michael Lock-Free (Michael 2004)";
-    }
+    [[nodiscard]] static constexpr const char* paper_id() noexcept { return "A03-Michael Lock-Free (Michael 2004)"; }
 };
 
 } // namespace comdare::adapter::a03_michael

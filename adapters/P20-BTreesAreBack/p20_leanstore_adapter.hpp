@@ -8,7 +8,7 @@
 #include <stdexcept>
 
 #if defined(COMDARE_HAVE_LEANSTORE)
-#  include "leanstore/LeanStore.hpp"
+#include "leanstore/LeanStore.hpp"
 #endif
 
 namespace comdare::adapter::p20_leanstore {
@@ -16,15 +16,17 @@ namespace comdare::adapter::p20_leanstore {
 template <typename Key = std::uint64_t, typename Value = std::uint64_t>
 class LeanStoreAdapter {
 public:
-    using key_type = Key;
+    using key_type   = Key;
     using value_type = Value;
 
     bool insert(key_type key, value_type value) {
 #if defined(COMDARE_HAVE_LEANSTORE)
-        (void)key; (void)value;
+        (void)key;
+        (void)value;
         return true;
 #else
-        (void)key; (void)value;
+        (void)key;
+        (void)value;
         throw std::runtime_error("COMDARE_HAVE_LEANSTORE not enabled");
 #endif
     }
@@ -39,7 +41,7 @@ public:
 #endif
     }
 
-    [[nodiscard]] static constexpr const char *paper_id() noexcept {
+    [[nodiscard]] static constexpr const char* paper_id() noexcept {
         return "P20-LeanStore / B-Trees Are Back (Mueller/Benson/Leis 2025)";
     }
 };

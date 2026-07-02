@@ -810,7 +810,7 @@ TEST(Saeule1_TreePoolOrgan, BSTMatchesStdMapOverWideKeys) {
     static_assert(std::is_same_v<ce_cmp::TreeNodePoolStore<>::key_type, std::uint64_t>);
     // key_mod=100000 (>65535) → breite uint64-Keys (anders als der uint16-Tier-Wrapper).
     verify_matches_std_map<ce_cmp::ComposedTreeSearch<ce_cmp::BSTTraversalOrgan, ce_cmp::TreeNodePoolStore<>>>(100000u,
-                                                                                                             2000u);
+                                                                                                               2000u);
     SUCCEED(); // BST-Organ ⊕ Pool, std::map-aequivalent, breiter Key
 }
 

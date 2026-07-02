@@ -46,9 +46,7 @@ struct EytzingerTraversalOrgan {
         std::size_t const n = p.slot_count();
         if (n == 0) return std::nullopt;
         std::size_t j = 1u;
-        while (j <= n) {
-            j = 2u * j + (p.eyt_key_at(j) < k ? 1u : 0u);
-        }
+        while (j <= n) { j = 2u * j + (p.eyt_key_at(j) < k ? 1u : 0u); }
         std::size_t const idx = j >> (static_cast<unsigned>(std::countr_one(j)) + 1u);
         if (idx >= 1u && idx <= n && p.eyt_key_at(idx) == k) return p.eyt_value_at(idx);
         return std::nullopt;

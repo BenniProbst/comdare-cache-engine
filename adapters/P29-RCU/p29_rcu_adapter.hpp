@@ -11,7 +11,7 @@
 #include <stdexcept>
 
 #if defined(COMDARE_HAVE_LIBURCU)
-#  include <urcu.h>
+#include <urcu.h>
 #endif
 
 namespace comdare::adapter::p29_rcu {
@@ -30,8 +30,8 @@ public:
 #endif
     }
 
-    LiburcuAdapter(const LiburcuAdapter &) = delete;
-    LiburcuAdapter &operator=(const LiburcuAdapter &) = delete;
+    LiburcuAdapter(const LiburcuAdapter&)            = delete;
+    LiburcuAdapter& operator=(const LiburcuAdapter&) = delete;
 
     void read_lock() {
 #if defined(COMDARE_HAVE_LIBURCU)
@@ -57,9 +57,7 @@ public:
 #endif
     }
 
-    [[nodiscard]] static constexpr const char *paper_id() noexcept {
-        return "P29-RCU (McKenney et al. 2001)";
-    }
+    [[nodiscard]] static constexpr const char* paper_id() noexcept { return "P29-RCU (McKenney et al. 2001)"; }
 };
 
 } // namespace comdare::adapter::p29_rcu

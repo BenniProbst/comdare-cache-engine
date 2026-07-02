@@ -25,11 +25,11 @@ class TreeNodePoolStore {
     static_assert(::comdare::cache_engine::nodes::axis_bst_shape::concepts::BstShape<Shape>);
 
 public:
-    using key_type                    = std::uint64_t;
-    using value_type                  = std::uint64_t;
-    using index_type                  = typename Shape::index_type;
-    static constexpr index_type kNilIndex = std::numeric_limits<index_type>::max();
-    static constexpr std::size_t kNil = static_cast<std::size_t>(kNilIndex); // Level-0: size_t max (#234-K)
+    using key_type                         = std::uint64_t;
+    using value_type                       = std::uint64_t;
+    using index_type                       = typename Shape::index_type;
+    static constexpr index_type  kNilIndex = std::numeric_limits<index_type>::max();
+    static constexpr std::size_t kNil      = static_cast<std::size_t>(kNilIndex); // Level-0: size_t max (#234-K)
 
     [[nodiscard]] std::size_t root() const noexcept { return static_cast<std::size_t>(root_); }
     [[nodiscard]] std::size_t node_count() const noexcept { return size_; }

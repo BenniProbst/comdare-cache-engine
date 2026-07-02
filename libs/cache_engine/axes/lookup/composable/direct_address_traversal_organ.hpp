@@ -45,7 +45,7 @@ struct DirectAddressTraversal {
         // aber robust gegen kuenftige schmalere key_types (kein Truncation-Wrap von n). Setzt sortierte
         // UNIQUE Keys voraus (insert_or_assign-Semantik der SortedBinary-Delegation).
         std::uint64_t const offset = static_cast<std::uint64_t>(k) - static_cast<std::uint64_t>(first);
-        std::size_t const direct =
+        std::size_t const   direct =
             (offset >= static_cast<std::uint64_t>(n)) ? (n - 1u) : static_cast<std::size_t>(offset);
 
         typename Store::key_type const kd = s.key_at(direct);

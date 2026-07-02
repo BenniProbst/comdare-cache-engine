@@ -64,8 +64,8 @@ std::vector<ex::AxisLevel> build_registry_subset_levels() {
     ex::push_static_axis<AxNodeType>(levels, "node_type");
     ex::push_static_axis<AxPathCompression>(levels, "path_compression");
     ex::push_static_axis<AxMemoryLayout>(levels, "memory_layout");
-    levels.push_back(ex::AxisLevel{"workload", {"YCSB_C_read_only", "YCSB_A_update_heavy"}, false, "workload_id",
-                                   "workload"});
+    levels.push_back(
+        ex::AxisLevel{"workload", {"YCSB_C_read_only", "YCSB_A_update_heavy"}, false, "workload_id", "workload"});
     return levels;
 }
 
@@ -80,8 +80,8 @@ void smoke_tree_and_view() {
     check("node_type enthaelt realen Wrapper node4",
           std::find(levels[0].values.begin(), levels[0].values.end(), "node4") != levels[0].values.end());
 
-    std::size_t const expected_static = ex::enabled_count<AxNodeType> * ex::enabled_count<AxPathCompression> *
-                                        ex::enabled_count<AxMemoryLayout>;
+    std::size_t const expected_static =
+        ex::enabled_count<AxNodeType> * ex::enabled_count<AxPathCompression> * ex::enabled_count<AxMemoryLayout>;
 
     auto               factory = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree tree{factory};
@@ -98,10 +98,10 @@ void smoke_tree_and_view() {
     bool        ids_ok  = true;
     for (auto it = view.begin(); it != view.end() && visited < 3; ++it, ++visited) {
         ex::BinarySpec spec = *it;
-        ids_ok             = ids_ok && !spec.binary_id.empty() && spec.axes.size() == 3 &&
-                 spec.binary_id.find("node_type=") != std::string::npos &&
-                 spec.binary_id.find("path_compression=") != std::string::npos &&
-                 spec.binary_id.find("memory_layout=") != std::string::npos;
+        ids_ok              = ids_ok && !spec.binary_id.empty() && spec.axes.size() == 3 &&
+                              spec.binary_id.find("node_type=") != std::string::npos &&
+                              spec.binary_id.find("path_compression=") != std::string::npos &&
+                              spec.binary_id.find("memory_layout=") != std::string::npos;
         std::cout << "    view[" << spec.index << "] = " << spec.binary_id << '\n';
     }
     check_eq("wenige BinarySpecs lazy iteriert", visited, std::min<std::size_t>(3, expected_static));

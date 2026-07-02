@@ -36,7 +36,8 @@ namespace comdare::cache_engine::alloc {
 
 class LRMallocAllocator : public AllocatorStrategyBase<LRMallocAllocator>
 #if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
-    , public generated::a11_lrmalloc::OriginalCodeMixin // V41.F.6.1.P2.D Batch 2
+    ,
+                          public generated::a11_lrmalloc::OriginalCodeMixin // V41.F.6.1.P2.D Batch 2
 #endif
 {
 public:

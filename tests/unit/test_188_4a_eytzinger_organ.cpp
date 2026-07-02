@@ -40,9 +40,7 @@ constexpr U64 kValueSalt    = 0x9E3779B97F4A7C15ull;
 constexpr U64 kUpdateSalt   = 0xD1B54A32D192ED03ull;
 constexpr U64 kMissingValue = 0xFFFFFFFFFFFFFFFFull;
 
-[[nodiscard]] U64 value_for(U64 key, U64 salt) noexcept {
-    return (key ^ kValueSalt) + (salt * kUpdateSalt);
-}
+[[nodiscard]] U64 value_for(U64 key, U64 salt) noexcept { return (key ^ kValueSalt) + (salt * kUpdateSalt); }
 
 template <class Organ>
 void expect_lookup_matches_map(Organ const& organ, std::map<U64, U64> const& oracle, U64 key, char const* phase) {
@@ -56,9 +54,7 @@ void expect_lookup_matches_map(Organ const& organ, std::map<U64, U64> const& ora
     EXPECT_EQ(*actual, it->second) << phase << ": Wertdrift key=" << key;
 }
 
-void expect_wrapper_matches_organ(lk::EytzingerSearchAlgo const& wrapper,
-                                  lkc::EytzingerOrgan const& organ,
-                                  U16 key,
+void expect_wrapper_matches_organ(lk::EytzingerSearchAlgo const& wrapper, lkc::EytzingerOrgan const& organ, U16 key,
                                   char const* phase) {
     auto const w = wrapper.lookup(key);
     auto const o = organ.lookup(static_cast<U64>(key));

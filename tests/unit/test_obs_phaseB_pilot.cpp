@@ -47,26 +47,14 @@ namespace ex    = ::comdare::cache_engine::builder::experiment;
 namespace pc    = ::comdare::cache_engine::path_compression;
 namespace ixo   = ::comdare::cache_engine::index_organization;
 
-using StoreBackedAdHocComposition =
-    an::AdHocComposition<ce03a::Array256SearchAlgo,
-                         comp::ArtComposition::cache_traversal,
-                         comp::ArtComposition::mapping,
-                         comp::ArtComposition::path_compression,
-                         comp::ArtComposition::node_type,
-                         comp::ArtComposition::memory_layout,
-                         comp::ArtComposition::allocator,
-                         comp::ArtComposition::prefetch,
-                         comp::ArtComposition::concurrency,
-                         comp::ArtComposition::serialization,
-                         comp::ArtComposition::telemetry,
-                         comp::ArtComposition::value_handle,
-                         comp::ArtComposition::isa,
-                         comp::ArtComposition::index_organization,
-                         comp::ArtComposition::io_dispatch,
-                         comp::ArtComposition::migration_policy,
-                         comp::ArtComposition::filter,
-                         comp::ArtComposition::queuing_q1,
-                         comp::ArtComposition::queuing_q2>;
+using StoreBackedAdHocComposition = an::AdHocComposition<
+    ce03a::Array256SearchAlgo, comp::ArtComposition::cache_traversal, comp::ArtComposition::mapping,
+    comp::ArtComposition::path_compression, comp::ArtComposition::node_type, comp::ArtComposition::memory_layout,
+    comp::ArtComposition::allocator, comp::ArtComposition::prefetch, comp::ArtComposition::concurrency,
+    comp::ArtComposition::serialization, comp::ArtComposition::telemetry, comp::ArtComposition::value_handle,
+    comp::ArtComposition::isa, comp::ArtComposition::index_organization, comp::ArtComposition::io_dispatch,
+    comp::ArtComposition::migration_policy, comp::ArtComposition::filter, comp::ArtComposition::queuing_q1,
+    comp::ArtComposition::queuing_q2>;
 
 static int  g_fail = 0;
 static void tr(char const* w, bool c) {
@@ -117,10 +105,8 @@ static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s
             tr((std::string{name} + ": T" + std::to_string(t) + " row_sum > 0 (store-backed)").c_str(),
                row_sum(s, t) > 0);
         }
-        tr((std::string{name} + ": T15 total_decisions > 0 (Store-Scan getrieben)").c_str(),
-           s.axis_stats[15][0] > 0);
-        tr((std::string{name} + ": T15 tier_moves == 0 (honest, kein 2. Tier)").c_str(),
-           s.axis_stats[15][4] == 0);
+        tr((std::string{name} + ": T15 total_decisions > 0 (Store-Scan getrieben)").c_str(), s.axis_stats[15][0] > 0);
+        tr((std::string{name} + ": T15 tier_moves == 0 (honest, kein 2. Tier)").c_str(), s.axis_stats[15][4] == 0);
         return;
     }
 

@@ -186,26 +186,13 @@ struct PFComposition : comp::HotComposition {
 };
 
 template <class PFStrategy>
-using PFStoreBackedComposition =
-    an::AdHocComposition<ce03a::Array256SearchAlgo,
-                         comp::HotComposition::cache_traversal,
-                         comp::HotComposition::mapping,
-                         comp::HotComposition::path_compression,
-                         comp::HotComposition::node_type,
-                         comp::HotComposition::memory_layout,
-                         comp::HotComposition::allocator,
-                         PFStrategy,
-                         comp::HotComposition::concurrency,
-                         comp::HotComposition::serialization,
-                         comp::HotComposition::telemetry,
-                         comp::HotComposition::value_handle,
-                         comp::HotComposition::isa,
-                         comp::HotComposition::index_organization,
-                         comp::HotComposition::io_dispatch,
-                         comp::HotComposition::migration_policy,
-                         comp::HotComposition::filter,
-                         comp::HotComposition::queuing_q1,
-                         comp::HotComposition::queuing_q2>;
+using PFStoreBackedComposition = an::AdHocComposition<
+    ce03a::Array256SearchAlgo, comp::HotComposition::cache_traversal, comp::HotComposition::mapping,
+    comp::HotComposition::path_compression, comp::HotComposition::node_type, comp::HotComposition::memory_layout,
+    comp::HotComposition::allocator, PFStrategy, comp::HotComposition::concurrency, comp::HotComposition::serialization,
+    comp::HotComposition::telemetry, comp::HotComposition::value_handle, comp::HotComposition::isa,
+    comp::HotComposition::index_organization, comp::HotComposition::io_dispatch, comp::HotComposition::migration_policy,
+    comp::HotComposition::filter, comp::HotComposition::queuing_q1, comp::HotComposition::queuing_q2>;
 
 template <class Composition>
 static an::ComdareTierObserverSnapshot drive_composition_and_observe(std::uint64_t n_keys) {
@@ -237,7 +224,8 @@ static an::ComdareTierObserverSnapshot drive_hull_tier_and_observe(std::uint64_t
 }
 
 static void test_hotpath_end_to_end() {
-    std::cout << "-- (D) HOT-PATH end-to-end: store-backed AdHoc prefetch=Hardware vs None (Observer axis_stats[7]) --\n";
+    std::cout
+        << "-- (D) HOT-PATH end-to-end: store-backed AdHoc prefetch=Hardware vs None (Observer axis_stats[7]) --\n";
     constexpr std::uint64_t N      = 2000;
     auto                    sn_hw  = drive_store_backed_tier_and_observe<pf::HardwarePrefetch>(N);
     auto                    sn_no  = drive_store_backed_tier_and_observe<pf::NonePrefetch>(N);
@@ -250,12 +238,11 @@ static void test_hotpath_end_to_end() {
     std::uint64_t const hw_addr   = sn_hw.axis_stats[7][7]; // last_real_address
     std::uint64_t const no_issued = sn_no.axis_stats[7][5];
 
-    std::cout << "     store-backed hardware-Tier: real_prefetches_issued=" << hw_issued
-              << " last_distance=" << hw_dist << " last_address=" << hw_addr << "\n";
+    std::cout << "     store-backed hardware-Tier: real_prefetches_issued=" << hw_issued << " last_distance=" << hw_dist
+              << " last_address=" << hw_addr << "\n";
     std::cout << "     store-backed none-Tier:     real_prefetches_issued=" << no_issued << "\n";
 
-    tr("(D) store-backed Hardware-Tier traegt >0 reale _mm_prefetch im Observer (hot-path getrieben)",
-       hw_issued > 0);
+    tr("(D) store-backed Hardware-Tier traegt >0 reale _mm_prefetch im Observer (hot-path getrieben)", hw_issued > 0);
     tr("(D) store-backed Hardware-Tier traegt eine reale Adresse (last_real_address != 0)", hw_addr != 0);
     tr("(D) store-backed Hardware-Tier last_distance==0 (HW prefetcht den aktuellen Slot)", hw_dist == 0);
     tr("(D) store-backed None-Tier traegt 0 reale Prefetches (ehrliche 0-Overhead-Baseline)", no_issued == 0);

@@ -12,22 +12,24 @@
 #include <string_view>
 
 #if defined(COMDARE_HAVE_B2TREE)
-#  include "b2tree.hpp"
+#include "b2tree.hpp"
 #endif
 
 namespace comdare::adapter::p06_b2tree {
 
 class B2TreeAdapter {
 public:
-    using key_type = std::string_view;
+    using key_type   = std::string_view;
     using value_type = std::uint64_t;
 
     bool insert(key_type key, value_type value) {
 #if defined(COMDARE_HAVE_B2TREE)
-        (void)key; (void)value;
+        (void)key;
+        (void)value;
         return true;
 #else
-        (void)key; (void)value;
+        (void)key;
+        (void)value;
         throw std::runtime_error("COMDARE_HAVE_B2TREE not enabled");
 #endif
     }
@@ -42,9 +44,7 @@ public:
 #endif
     }
 
-    [[nodiscard]] static constexpr const char *paper_id() noexcept {
-        return "P06-B²-Tree (Schmeisser et al. 2022)";
-    }
+    [[nodiscard]] static constexpr const char* paper_id() noexcept { return "P06-B²-Tree (Schmeisser et al. 2022)"; }
 };
 
 } // namespace comdare::adapter::p06_b2tree

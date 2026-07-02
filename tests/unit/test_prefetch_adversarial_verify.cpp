@@ -117,26 +117,13 @@ struct PFComp : comp::HotComposition {
 };
 
 template <class PFStrategy>
-using PFStoreBackedComp =
-    an::AdHocComposition<ce03a::Array256SearchAlgo,
-                         comp::HotComposition::cache_traversal,
-                         comp::HotComposition::mapping,
-                         comp::HotComposition::path_compression,
-                         comp::HotComposition::node_type,
-                         comp::HotComposition::memory_layout,
-                         comp::HotComposition::allocator,
-                         PFStrategy,
-                         comp::HotComposition::concurrency,
-                         comp::HotComposition::serialization,
-                         comp::HotComposition::telemetry,
-                         comp::HotComposition::value_handle,
-                         comp::HotComposition::isa,
-                         comp::HotComposition::index_organization,
-                         comp::HotComposition::io_dispatch,
-                         comp::HotComposition::migration_policy,
-                         comp::HotComposition::filter,
-                         comp::HotComposition::queuing_q1,
-                         comp::HotComposition::queuing_q2>;
+using PFStoreBackedComp = an::AdHocComposition<
+    ce03a::Array256SearchAlgo, comp::HotComposition::cache_traversal, comp::HotComposition::mapping,
+    comp::HotComposition::path_compression, comp::HotComposition::node_type, comp::HotComposition::memory_layout,
+    comp::HotComposition::allocator, PFStrategy, comp::HotComposition::concurrency, comp::HotComposition::serialization,
+    comp::HotComposition::telemetry, comp::HotComposition::value_handle, comp::HotComposition::isa,
+    comp::HotComposition::index_organization, comp::HotComposition::io_dispatch, comp::HotComposition::migration_policy,
+    comp::HotComposition::filter, comp::HotComposition::queuing_q1, comp::HotComposition::queuing_q2>;
 
 template <class Composition>
 static an::ComdareTierObserverSnapshot drive_composition(std::uint64_t n) {
@@ -165,19 +152,20 @@ static an::ComdareTierObserverSnapshot drive_hull_tier(std::uint64_t n) {
 }
 
 static void v3_v4_hotpath_real_and_differ() {
-    std::cout << "-- (V3/V4) Store-backed Hot-Path: 4 Strategien im ECHTEN Tier; Adresse real (kein Schluessel-Rueckfall) --\n";
-    constexpr std::uint64_t N       = 3000;
-    auto                    no      = drive_store_backed_tier<pf::NonePrefetch>(N);
-    auto                    hw      = drive_store_backed_tier<pf::HardwarePrefetch>(N);
-    auto                    di      = drive_store_backed_tier<pf::DistanceEstimatorPrefetch>(N);
-    auto                    pa      = drive_store_backed_tier<pf::PathOrientedPrefetch>(N);
-    auto                    h_hw    = drive_hull_tier<pf::HardwarePrefetch>(N);
-    auto                    h_dist  = drive_hull_tier<pf::DistanceEstimatorPrefetch>(N);
-    auto                    h_path  = drive_hull_tier<pf::PathOrientedPrefetch>(N);
-    std::uint64_t           i_no    = no.axis_stats[7][5], i_hw = hw.axis_stats[7][5], i_di = di.axis_stats[7][5],
-                            i_pa    = pa.axis_stats[7][5];
-    std::uint64_t           a_hw    = hw.axis_stats[7][7];
-    std::uint64_t           d_di    = di.axis_stats[7][6];
+    std::cout << "-- (V3/V4) Store-backed Hot-Path: 4 Strategien im ECHTEN Tier; Adresse real (kein "
+                 "Schluessel-Rueckfall) --\n";
+    constexpr std::uint64_t N      = 3000;
+    auto                    no     = drive_store_backed_tier<pf::NonePrefetch>(N);
+    auto                    hw     = drive_store_backed_tier<pf::HardwarePrefetch>(N);
+    auto                    di     = drive_store_backed_tier<pf::DistanceEstimatorPrefetch>(N);
+    auto                    pa     = drive_store_backed_tier<pf::PathOrientedPrefetch>(N);
+    auto                    h_hw   = drive_hull_tier<pf::HardwarePrefetch>(N);
+    auto                    h_dist = drive_hull_tier<pf::DistanceEstimatorPrefetch>(N);
+    auto                    h_path = drive_hull_tier<pf::PathOrientedPrefetch>(N);
+    std::uint64_t           i_no = no.axis_stats[7][5], i_hw = hw.axis_stats[7][5], i_di = di.axis_stats[7][5],
+                            i_pa = pa.axis_stats[7][5];
+    std::uint64_t           a_hw = hw.axis_stats[7][7];
+    std::uint64_t           d_di = di.axis_stats[7][6];
     std::cout << "     none=" << i_no << " hw=" << i_hw << " dist=" << i_di << "(d=" << d_di << ") path=" << i_pa
               << " hw_addr=" << a_hw << "\n";
     tr("(V4) store-backed None-Tier issued==0", i_no == 0);

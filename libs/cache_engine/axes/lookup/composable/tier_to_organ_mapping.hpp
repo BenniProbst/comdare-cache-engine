@@ -46,17 +46,18 @@ using BstTreeOrgan       = ComposedTreeSearch<BSTTraversalOrgan, TreeNodePoolSto
 // V41 Umstufung-A (#41) — sezierte CE-native Such-Strukturen als Organ-Kompositionen (eigene Pool-Familien):
 template <class Shape>
 using HashSearchOrganShaped = ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore<Shape>>;
-using HashSearchOrgan = ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore<>>;      // HashSearchAlgo S14
+using HashSearchOrgan       = ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore<>>; // HashSearchAlgo S14
 template <class Shape>
 using SkipListOrganShaped = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore<Shape>>;
 using SkipListOrgan = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore<>>; // SkipListSearchAlgo S13
 template <class Shape>
 using BTreeSearchOrganShaped = ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoolStore<Shape>>;
-using BTreeSearchOrgan = ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoolStore<>>; // BTreeSearchAlgo S17
+using BTreeSearchOrgan       = ComposedBTreeSearch<BTreeTraversalOrgan, BTreeNodePoolStore<>>; // BTreeSearchAlgo S17
 
 // #188-4a (2026-07-02): 10. organ_for-Familie, aber KEIN Pool: EytzingerLayoutStore haelt
 // sortierten Primaerzustand + abgeleiteten BFS-Puffer in EINEM Layout-Store (Option b, lazy rebuild).
-using EytzingerOrgan = ComposedEytzingerSearch<EytzingerTraversalOrgan, EytzingerLayoutStore>; // EytzingerSearchAlgo S12
+using EytzingerOrgan =
+    ComposedEytzingerSearch<EytzingerTraversalOrgan, EytzingerLayoutStore>; // EytzingerSearchAlgo S12
 
 // V41 Umstufung-A (#41) — OriginalXxx-Tiere (S04-S08) auf bestehende flache Organe seziert.
 // **Befund (Planrunde 2026-05-29):** Die OriginalXxx-Wrapper-BODIES sind triviale C++23-Re-Impls (KEIN
@@ -106,7 +107,7 @@ using ObservableStartTrieOrgan   = ObservableComposedContainer<StartTrieOrgan>;
 // Interface (make_new_layer real erreichbar, NICHT toter Code) => Namensanspruch erfuellt ([[algorithm-
 // correctness-when-named]]); SliceBytes=8 = Single-Layer-B+Baum-Degenerationsanker. Loest den frueheren flachen
 // ObservableSortedBinaryOrgan-Platzhalter ab (letzter Platzhalter-Konfigurator -> echtes Organ).
-using MasstreeOrgan           = ComposedMasstreeSearch<MasstreeLayerTraversalOrgan<2>, MasstreeLayerNodePoolStore>;
+using MasstreeOrgan            = ComposedMasstreeSearch<MasstreeLayerTraversalOrgan<2>, MasstreeLayerNodePoolStore>;
 using ObservableMasstreeOrgan  = ObservableComposedContainer<MasstreeOrgan>;
 using ObservableEytzingerOrgan = ObservableComposedContainer<EytzingerOrgan>;
 

@@ -20,16 +20,16 @@ public:
 
     void run(Mode mode, std::size_t footprint_bytes) {
 #if defined(COMDARE_HAVE_MAHLING)
-        (void)mode; (void)footprint_bytes;
+        (void)mode;
+        (void)footprint_bytes;
 #else
-        (void)mode; (void)footprint_bytes;
+        (void)mode;
+        (void)footprint_bytes;
         throw std::runtime_error("COMDARE_HAVE_MAHLING not enabled");
 #endif
     }
 
-    [[nodiscard]] static constexpr const char *paper_id() noexcept {
-        return "P25-Mahling/Weisgut/Rabl 2025";
-    }
+    [[nodiscard]] static constexpr const char* paper_id() noexcept { return "P25-Mahling/Weisgut/Rabl 2025"; }
 };
 
 } // namespace comdare::adapter::p25_mahling

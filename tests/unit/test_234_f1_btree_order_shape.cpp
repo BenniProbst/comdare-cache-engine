@@ -41,10 +41,8 @@ static_assert(std::is_same_v<lkc::BTreeSearchOrgan, lkc::BTreeSearchOrganShaped<
               "#234-F1: BTreeSearchOrgan muss Level-0/Kt4 bleiben");
 
 // Struktur-Shape-Beleg: kMaxKeys folgt direkt aus dem Minimum-Degree t.
-static_assert(lkc::BTreeNodePoolStore<ord::BtreeOrderKt2>::kMaxKeys == 3,
-              "#234-F1: Kt2 muss 3 Keys je Knoten tragen");
-static_assert(lkc::BTreeNodePoolStore<ord::BtreeOrderKt3>::kMaxKeys == 5,
-              "#234-F1: Kt3 muss 5 Keys je Knoten tragen");
+static_assert(lkc::BTreeNodePoolStore<ord::BtreeOrderKt2>::kMaxKeys == 3, "#234-F1: Kt2 muss 3 Keys je Knoten tragen");
+static_assert(lkc::BTreeNodePoolStore<ord::BtreeOrderKt3>::kMaxKeys == 5, "#234-F1: Kt3 muss 5 Keys je Knoten tragen");
 static_assert(lkc::BTreeNodePoolStore<ord::BtreeOrderKt8>::kMaxKeys == 15,
               "#234-F1: Kt8 muss 15 Keys je Knoten tragen");
 static_assert(lkc::BTreeNodePoolStore<ord::BtreeOrderKt16>::kMaxKeys == 31,
@@ -58,14 +56,7 @@ static_assert(std::is_same_v<typename lkc::BTreeSearchOrganShaped<ord::BtreeOrde
 }
 
 [[nodiscard]] std::vector<U64> fixed_wide_keys() {
-    return {0u,
-            7u,
-            65535u,
-            65536u,
-            65537u,
-            (1ull << 32),
-            (1ull << 40),
-            std::numeric_limits<U64>::max()};
+    return {0u, 7u, 65535u, 65536u, 65537u, (1ull << 32), (1ull << 40), std::numeric_limits<U64>::max()};
 }
 
 // Weiter Key-Raum: Pflicht-Keys plus mindestens 5000 deterministische random-wide Keys.
@@ -89,8 +80,8 @@ static_assert(std::is_same_v<typename lkc::BTreeSearchOrganShaped<ord::BtreeOrde
                                         0x00000000FFFFFFFFull,
                                         0xFFFFFFFFFFFF0000ull,
                                         0xDEADBEEFCAFEBABEull};
-    std::mt19937_64 rng{0x234F1B7EED5EEDull};
-    std::size_t     random_unique = 0;
+    std::mt19937_64     rng{0x234F1B7EED5EEDull};
+    std::size_t         random_unique = 0;
     while (random_unique < 5000u) {
         U64 const key = rng();
         if (reserved_misses.find(key) != reserved_misses.end()) continue;
@@ -118,10 +109,7 @@ static_assert(std::is_same_v<typename lkc::BTreeSearchOrganShaped<ord::BtreeOrde
 }
 
 template <class Organ>
-void expect_lookup_equals(char const* name,
-                          Organ const& organ,
-                          std::map<U64, U64> const& oracle,
-                          U64 key,
+void expect_lookup_equals(char const* name, Organ const& organ, std::map<U64, U64> const& oracle, U64 key,
                           char const* phase) {
     std::optional<U64> const actual = organ.lookup(key);
     auto const               it     = oracle.find(key);
@@ -134,11 +122,8 @@ void expect_lookup_equals(char const* name,
 }
 
 template <class Organ>
-void expect_lookup_samples(char const* name,
-                           Organ const& organ,
-                           std::map<U64, U64> const& oracle,
-                           std::vector<U64> const& keys,
-                           char const* phase) {
+void expect_lookup_samples(char const* name, Organ const& organ, std::map<U64, U64> const& oracle,
+                           std::vector<U64> const& keys, char const* phase) {
     if (!keys.empty()) {
         expect_lookup_equals(name, organ, oracle, keys.front(), phase);
         expect_lookup_equals(name, organ, oracle, keys[keys.size() / 2u], phase);
@@ -149,9 +134,7 @@ void expect_lookup_samples(char const* name,
 }
 
 template <class Organ>
-void expect_for_each_exactly_once(char const* name,
-                                  Organ const& organ,
-                                  std::map<U64, U64> const& oracle,
+void expect_for_each_exactly_once(char const* name, Organ const& organ, std::map<U64, U64> const& oracle,
                                   char const* phase) {
     std::map<U64, U64> harvested;
     std::set<U64>      seen;
@@ -177,11 +160,8 @@ void expect_for_each_exactly_once(char const* name,
 }
 
 template <class Organ>
-void expect_phase_matches(char const* name,
-                          Organ const& organ,
-                          std::map<U64, U64> const& oracle,
-                          std::vector<U64> const& keys,
-                          char const* phase) {
+void expect_phase_matches(char const* name, Organ const& organ, std::map<U64, U64> const& oracle,
+                          std::vector<U64> const& keys, char const* phase) {
     EXPECT_EQ(organ.occupied_count(), oracle.size()) << name << ": size-Gleichheit phase=" << phase;
     expect_lookup_samples(name, organ, oracle, keys, phase);
     expect_for_each_exactly_once(name, organ, oracle, phase);
@@ -220,13 +200,14 @@ void drive_shape_against_std_map(char const* name) {
     expect_phase_matches(name, organ, oracle, keys, "nach update");
 
     // Phase 3: Lookup-Sweep ohne Zustandsaenderung, inklusive Misses.
-    for (std::size_t i = 0; i < keys.size(); i += 97u) expect_lookup_equals(name, organ, oracle, keys[i], "lookup sweep");
+    for (std::size_t i = 0; i < keys.size(); i += 97u)
+        expect_lookup_equals(name, organ, oracle, keys[i], "lookup sweep");
     for (U64 miss : miss_key_sequence()) expect_lookup_equals(name, organ, oracle, miss, "lookup sweep");
     expect_phase_matches(name, organ, oracle, keys, "nach lookup sweep");
 
     // Phase 4: Erase auf vorhandenen und bewusst fehlenden Keys, paargenau gegen std::map.
     for (std::size_t i = 0; i < keys.size(); i += 4u) {
-        U64 const key         = keys[i];
+        U64 const  key        = keys[i];
         bool const org_erased = organ.erase(key);
         bool const map_erased = (oracle.erase(key) != 0u);
         EXPECT_EQ(org_erased, map_erased) << name << ": erase Rueckgabe key=" << key;
@@ -357,4 +338,3 @@ TEST(Comdare234F1BtreeOrderShape, Kt2AndKt16ProduceDifferentPublicStoreShape) {
     EXPECT_LE(pool2.node_n(pool2.root()), StoreKt2::kMaxKeys);
     EXPECT_LE(pool16.node_n(pool16.root()), StoreKt16::kMaxKeys);
 }
-

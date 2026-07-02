@@ -29,13 +29,8 @@ namespace slshape = ::comdare::cache_engine::nodes::axis_skip_list_shape;
 static_assert(std::is_same_v<lkc::SkipListOrgan, lkc::SkipListOrganShaped<slshape::SkipListMax16P50>>);
 
 std::vector<std::uint64_t> wide_key_set_234_f2() {
-    std::vector<std::uint64_t> keys{0u,
-                                    7u,
-                                    65535u,
-                                    65536u,
-                                    (1ull << 32),
-                                    (1ull << 40),
-                                    std::numeric_limits<std::uint64_t>::max()};
+    std::vector<std::uint64_t> keys{
+        0u, 7u, 65535u, 65536u, (1ull << 32), (1ull << 40), std::numeric_limits<std::uint64_t>::max()};
     std::mt19937_64 rng(0x234F2u);
     for (int i = 0; i < 6000; ++i) keys.push_back(rng());
     return keys;
@@ -50,12 +45,11 @@ void expect_for_each_matches_234_f2(Organ const& organ, std::map<std::uint64_t, 
                                     char const* name, char const* phase) {
     std::map<std::uint64_t, std::uint64_t> harvested;
     std::set<std::uint64_t>                seen;
-    std::size_t const visits = organ.for_each_record([&](std::uint64_t key, std::uint64_t value) {
+    std::size_t const                      visits = organ.for_each_record([&](std::uint64_t key, std::uint64_t value) {
         bool const seen_new = seen.insert(key).second;
         EXPECT_TRUE(seen_new) << name << ": for_each_record Duplicate key=" << key << " phase=" << phase;
         bool const harvested_new = harvested.emplace(key, value).second;
-        EXPECT_TRUE(harvested_new) << name << ": for_each_record Duplicate harvest key=" << key
-                                   << " phase=" << phase;
+        EXPECT_TRUE(harvested_new) << name << ": for_each_record Duplicate harvest key=" << key << " phase=" << phase;
     });
     EXPECT_EQ(visits, oracle.size()) << name << ": for_each_record Rueckgabe phase=" << phase;
     EXPECT_EQ(visits, organ.occupied_count()) << name << ": for_each_record vs occupied_count phase=" << phase;
@@ -83,10 +77,10 @@ void verify_skip_list_shape_conformance_234_f2(char const* name) {
     static_assert(std::is_same_v<typename Organ::key_type, std::uint64_t>);
     static_assert(std::is_same_v<typename Organ::value_type, std::uint64_t>);
 
-    Organ                                    organ;
-    std::map<std::uint64_t, std::uint64_t>   oracle;
-    std::vector<std::uint64_t> const         keys = wide_key_set_234_f2();
-    std::vector<std::uint64_t> const         fixed_keys(keys.begin(), keys.begin() + 7);
+    Organ                                  organ;
+    std::map<std::uint64_t, std::uint64_t> oracle;
+    std::vector<std::uint64_t> const       keys = wide_key_set_234_f2();
+    std::vector<std::uint64_t> const       fixed_keys(keys.begin(), keys.begin() + 7);
 
     for (std::size_t i = 0; i < keys.size(); ++i) {
         std::uint64_t const key   = keys[i];

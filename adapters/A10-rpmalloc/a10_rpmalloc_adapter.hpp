@@ -7,7 +7,7 @@
 #include <cstdlib>
 
 #if defined(COMDARE_HAVE_RPMALLOC)
-#  include "rpmalloc.h"
+#include "rpmalloc.h"
 #endif
 
 namespace comdare::adapter::a10_rpmalloc {
@@ -24,26 +24,24 @@ public:
         rpmalloc_finalize();
 #endif
     }
-    RpmallocAdapter(const RpmallocAdapter &) = delete;
-    RpmallocAdapter &operator=(const RpmallocAdapter &) = delete;
+    RpmallocAdapter(const RpmallocAdapter&)            = delete;
+    RpmallocAdapter& operator=(const RpmallocAdapter&) = delete;
 
-    [[nodiscard]] void *allocate(std::size_t size) {
+    [[nodiscard]] void* allocate(std::size_t size) {
 #if defined(COMDARE_HAVE_RPMALLOC)
         return rpmalloc(size);
 #else
         return std::malloc(size);
 #endif
     }
-    void deallocate(void *p) noexcept {
+    void deallocate(void* p) noexcept {
 #if defined(COMDARE_HAVE_RPMALLOC)
         rpfree(p);
 #else
         std::free(p);
 #endif
     }
-    [[nodiscard]] static constexpr const char *paper_id() noexcept {
-        return "A10-rpmalloc (Jansson 2017+)";
-    }
+    [[nodiscard]] static constexpr const char* paper_id() noexcept { return "A10-rpmalloc (Jansson 2017+)"; }
 };
 
 } // namespace comdare::adapter::a10_rpmalloc

@@ -32,10 +32,10 @@
 #include <anatomy/abi_adapter.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
-#include <axes/lookup/composable/organ_for_search_algo.hpp> // organ_for_search_algo_t (pool_family_-Typ-Beleg)
+#include <axes/lookup/composable/organ_for_search_algo.hpp>         // organ_for_search_algo_t (pool_family_-Typ-Beleg)
 #include <axes/lookup/composable/observable_composed_container.hpp> // #188-4b-DEG1: Organ-Huelle fuer den Ernte-Beleg
-#include <builder/codegen/all_axes_umbrella.hpp>             // volle Definitionen ALLER Achsen-Wrapper (die 9 rohen search_algo)
-#include <compositions/art_reference.hpp>                    // ArtComposition = Basis fuer die 18 Nicht-search-Achsen
+#include <builder/codegen/all_axes_umbrella.hpp> // volle Definitionen ALLER Achsen-Wrapper (die 9 rohen search_algo)
+#include <compositions/art_reference.hpp>        // ArtComposition = Basis fuer die 18 Nicht-search-Achsen
 
 #include <cstdint>
 #include <cstdio>
@@ -43,9 +43,9 @@
 #include <string_view>
 #include <type_traits>
 
-namespace an  = ::comdare::cache_engine::anatomy;
+namespace an   = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;
-namespace lk  = ::comdare::cache_engine::lookup;            // kanonischer Registry-Namespace der 9 Pool-Wrapper (wie test_188_4bb0)
+namespace lk = ::comdare::cache_engine::lookup; // kanonischer Registry-Namespace der 9 Pool-Wrapper (wie test_188_4bb0)
 namespace lkc = ::comdare::cache_engine::lookup::composable; // organ_for_search_algo_t
 
 namespace {
@@ -62,25 +62,25 @@ void check(char const* what, bool ok) {
 //    ObservableComposedContainer<organ> an. Analog GridComposition (tier150_axis_grid), nur search_algo variiert. ──
 template <class SearchAlgoWrapper>
 struct PoolFlipComposition {
-    using search_algo        = SearchAlgoWrapper;                     // <-- ROHER Pool-Wrapper (der Flip-Ausloeser)
-    using cache_traversal    = comp::ArtComposition::cache_traversal;
-    using mapping            = comp::ArtComposition::mapping;
-    using path_compression   = comp::ArtComposition::path_compression;
-    using node_type          = comp::ArtComposition::node_type;
-    using memory_layout      = comp::ArtComposition::memory_layout;
-    using allocator          = comp::ArtComposition::allocator;
-    using prefetch           = comp::ArtComposition::prefetch;
-    using concurrency        = comp::ArtComposition::concurrency;
-    using serialization      = comp::ArtComposition::serialization;
-    using telemetry          = comp::ArtComposition::telemetry;
-    using value_handle       = comp::ArtComposition::value_handle;
-    using isa                = comp::ArtComposition::isa;
-    using index_organization = comp::ArtComposition::index_organization;
-    using io_dispatch        = comp::ArtComposition::io_dispatch;
-    using migration_policy   = comp::ArtComposition::migration_policy;
-    using filter             = comp::ArtComposition::filter;
-    using queuing_q1         = comp::ArtComposition::queuing_q1;
-    using queuing_q2         = comp::ArtComposition::queuing_q2;
+    using search_algo                          = SearchAlgoWrapper; // <-- ROHER Pool-Wrapper (der Flip-Ausloeser)
+    using cache_traversal                      = comp::ArtComposition::cache_traversal;
+    using mapping                              = comp::ArtComposition::mapping;
+    using path_compression                     = comp::ArtComposition::path_compression;
+    using node_type                            = comp::ArtComposition::node_type;
+    using memory_layout                        = comp::ArtComposition::memory_layout;
+    using allocator                            = comp::ArtComposition::allocator;
+    using prefetch                             = comp::ArtComposition::prefetch;
+    using concurrency                          = comp::ArtComposition::concurrency;
+    using serialization                        = comp::ArtComposition::serialization;
+    using telemetry                            = comp::ArtComposition::telemetry;
+    using value_handle                         = comp::ArtComposition::value_handle;
+    using isa                                  = comp::ArtComposition::isa;
+    using index_organization                   = comp::ArtComposition::index_organization;
+    using io_dispatch                          = comp::ArtComposition::io_dispatch;
+    using migration_policy                     = comp::ArtComposition::migration_policy;
+    using filter                               = comp::ArtComposition::filter;
+    using queuing_q1                           = comp::ArtComposition::queuing_q1;
+    using queuing_q2                           = comp::ArtComposition::queuing_q2;
     static constexpr std::string_view paper_id = "188-4b-b-V pool-flip compile probe";
     static constexpr std::string_view name     = "PoolFlipComposition";
 };
@@ -94,8 +94,9 @@ void verify_pool_adapter_flip(char const* name) {
     using Adapter = an::SearchAlgorithmAbiAdapter<Anatomy>;
 
     // (Typ-Beleg) der Flip TRIFFT diese Familie nur, wenn ein natives Organ gemappt ist (organ != void = pool_family_).
-    static_assert(!std::is_same_v<lkc::organ_for_search_algo_t<SearchAlgoWrapper>, void>,
-                  "4b-b-V: verify_pool_adapter_flip nur fuer Pool-Familien (organ != void) — sonst greift der Flip nicht");
+    static_assert(
+        !std::is_same_v<lkc::organ_for_search_algo_t<SearchAlgoWrapper>, void>,
+        "4b-b-V: verify_pool_adapter_flip nur fuer Pool-Familien (organ != void) — sonst greift der Flip nicht");
 
     std::printf("-- %s --\n", name);
 
@@ -163,8 +164,8 @@ void verify_pool_adapter_flip(char const* name) {
             for (int i = 0; i < 4; ++i)
                 if (k == probe[i]) {
                     matched = true;
-                    if (v != val_for(k)) ++bad;                // Wert-Drift = Fehler
-                    if (seen_mask & (1ull << i)) ++dups;       // Duplikat = Fehler
+                    if (v != val_for(k)) ++bad;          // Wert-Drift = Fehler
+                    if (seen_mask & (1ull << i)) ++dups; // Duplikat = Fehler
                     seen_mask |= (1ull << i);
                 }
             if (!matched) ++bad; // Fremd-Record = Fehler

@@ -56,7 +56,8 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 class OriginalLockFreeMpmcConcurrentQueue : public BufferStrategyBase<OriginalLockFreeMpmcConcurrentQueue>
 #if defined(COMDARE_AQ1_IS_ORIGINAL_CODEGEN)
-    , public generated::q01_concurrentqueue::OriginalCodeMixin
+    ,
+                                            public generated::q01_concurrentqueue::OriginalCodeMixin
 #endif
 {
 public:

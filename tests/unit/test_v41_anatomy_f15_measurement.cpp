@@ -74,26 +74,14 @@ namespace stats  = ::comdare::cache_engine::builder::commands::stats;
 namespace ce03a  = ::comdare::cache_engine::traversal::axis_03a_search_algo;
 namespace comp   = ::comdare::cache_engine::compositions;
 
-using StoreBackedAdHocComposition =
-    ::comdare::cache_engine::anatomy::AdHocComposition<ce03a::Array256SearchAlgo,
-                                                       comp::ArtComposition::cache_traversal,
-                                                       comp::ArtComposition::mapping,
-                                                       comp::ArtComposition::path_compression,
-                                                       comp::ArtComposition::node_type,
-                                                       comp::ArtComposition::memory_layout,
-                                                       comp::ArtComposition::allocator,
-                                                       comp::ArtComposition::prefetch,
-                                                       comp::ArtComposition::concurrency,
-                                                       comp::ArtComposition::serialization,
-                                                       comp::ArtComposition::telemetry,
-                                                       comp::ArtComposition::value_handle,
-                                                       comp::ArtComposition::isa,
-                                                       comp::ArtComposition::index_organization,
-                                                       comp::ArtComposition::io_dispatch,
-                                                       comp::ArtComposition::migration_policy,
-                                                       comp::ArtComposition::filter,
-                                                       comp::ArtComposition::queuing_q1,
-                                                       comp::ArtComposition::queuing_q2>;
+using StoreBackedAdHocComposition = ::comdare::cache_engine::anatomy::AdHocComposition<
+    ce03a::Array256SearchAlgo, comp::ArtComposition::cache_traversal, comp::ArtComposition::mapping,
+    comp::ArtComposition::path_compression, comp::ArtComposition::node_type, comp::ArtComposition::memory_layout,
+    comp::ArtComposition::allocator, comp::ArtComposition::prefetch, comp::ArtComposition::concurrency,
+    comp::ArtComposition::serialization, comp::ArtComposition::telemetry, comp::ArtComposition::value_handle,
+    comp::ArtComposition::isa, comp::ArtComposition::index_organization, comp::ArtComposition::io_dispatch,
+    comp::ArtComposition::migration_policy, comp::ArtComposition::filter, comp::ArtComposition::queuing_q1,
+    comp::ArtComposition::queuing_q2>;
 
 namespace {
 

@@ -26,14 +26,7 @@ namespace ce_bst = ::comdare::cache_engine::nodes::axis_bst_shape;
 namespace {
 
 constexpr std::array<std::uint64_t, 8> kWideKeys{
-    0ull,
-    7ull,
-    65535ull,
-    65536ull,
-    65537ull,
-    (1ull << 32),
-    (1ull << 40),
-    std::numeric_limits<std::uint64_t>::max(),
+    0ull, 7ull, 65535ull, 65536ull, 65537ull, (1ull << 32), (1ull << 40), std::numeric_limits<std::uint64_t>::max(),
 };
 
 [[nodiscard]] std::uint64_t value_for(std::uint64_t key, std::uint64_t salt) noexcept {
@@ -58,7 +51,7 @@ void expect_matches_reference(Organ const& organ, std::map<std::uint64_t, std::u
     }
 
     std::set<std::uint64_t> seen;
-    std::size_t const      visited = organ.for_each_record([&](std::uint64_t key, std::uint64_t value) {
+    std::size_t const       visited = organ.for_each_record([&](std::uint64_t key, std::uint64_t value) {
         auto const [_, inserted] = seen.insert(key);
         EXPECT_TRUE(inserted) << "for_each_record besuchte Key doppelt: " << key;
         auto const it = ref.find(key);
@@ -208,7 +201,7 @@ TEST(Comdare234F3BstShape, PackingStaticAssertsAndNilRelations) {
 TEST(Comdare234F3BstShape, U16OverflowThrowsAndFreeListRecycleStillWorks) {
     using Store = ce_cmp::TreeNodePoolStore<ce_bst::BstPtrU16>;
 
-    Store store;
+    Store                 store;
     constexpr std::size_t kSentinel = static_cast<std::size_t>(Store::kNilIndex);
     for (std::size_t i = 0; i < kSentinel; ++i) {
         std::size_t const idx = store.allocate_node(static_cast<std::uint64_t>(i), static_cast<std::uint64_t>(i + 1u));

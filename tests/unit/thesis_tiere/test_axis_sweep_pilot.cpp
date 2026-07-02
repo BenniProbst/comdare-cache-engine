@@ -218,8 +218,8 @@ int main(int argc, char** argv) {
     auto const perk = tlz::kary_perk_source_map();
     check("per-K Sweep-Map hat GENAU 4 Eintraege (k_ary_k2/k4/k8/k16)", perk.size() == 4);
     // std::map-Keys sind eindeutig → 4 Eintraege == 4 paarweise distinkte binary_ids.
-    for (char const* nm : {"search_algo=k_ary_k2", "search_algo=k_ary_k4", "search_algo=k_ary_k8",
-                           "search_algo=k_ary_k16"}) {
+    for (char const* nm :
+         {"search_algo=k_ary_k2", "search_algo=k_ary_k4", "search_algo=k_ary_k8", "search_algo=k_ary_k16"}) {
         bool found = false;
         for (auto const& [k, v] : perk) {
             (void)v;

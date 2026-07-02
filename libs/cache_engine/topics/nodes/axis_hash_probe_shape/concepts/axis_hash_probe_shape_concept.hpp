@@ -11,7 +11,6 @@ concept HashProbeShape = ::comdare::cache_engine::nodes::concepts::NodesComponen
     { S::kOpenAddressing } -> std::convertible_to<bool>;
     { S::kLoadNumerator } -> std::convertible_to<int>;
     { S::kLoadDenominator } -> std::convertible_to<int>;
-}
-&& (S::kLoadNumerator > 0) && (S::kLoadDenominator > 0) && (S::kLoadNumerator <= S::kLoadDenominator);
+} && (S::kLoadNumerator > 0) && (S::kLoadDenominator > 0) && (S::kLoadNumerator <= S::kLoadDenominator);
 
 } // namespace comdare::cache_engine::nodes::axis_hash_probe_shape::concepts

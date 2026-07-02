@@ -11,7 +11,7 @@
 #include <axes/lookup/axis_03a_search_algo_vector_u8u8.hpp>
 #include <axes/lookup/axis_03a_search_algo_vector_u16u16.hpp>
 #include <axes/lookup/composable/direct_address_traversal_organ.hpp> // Review-F5: organ-scharfe Sparse-Proben
-#include <axes/lookup/composable/store_traversable_search_algo.hpp>  // Review-B1: Concept UNGEGATED fuer die static_asserts
+#include <axes/lookup/composable/store_traversable_search_algo.hpp> // Review-B1: Concept UNGEGATED fuer die static_asserts
 #include <axes/lookup/composable/traversal_for_search_algo.hpp>
 #include <compositions/art_reference.hpp>
 
@@ -40,37 +40,23 @@ namespace lkc  = ::comdare::cache_engine::lookup::composable;
 namespace {
 
 template <class SearchAlgo>
-using StoreBackedAdHocComposition =
-    an::AdHocComposition<SearchAlgo,
-                         comp::ArtComposition::cache_traversal,
-                         comp::ArtComposition::mapping,
-                         comp::ArtComposition::path_compression,
-                         comp::ArtComposition::node_type,
-                         comp::ArtComposition::memory_layout,
-                         comp::ArtComposition::allocator,
-                         comp::ArtComposition::prefetch,
-                         comp::ArtComposition::concurrency,
-                         comp::ArtComposition::serialization,
-                         comp::ArtComposition::telemetry,
-                         comp::ArtComposition::value_handle,
-                         comp::ArtComposition::isa,
-                         comp::ArtComposition::index_organization,
-                         comp::ArtComposition::io_dispatch,
-                         comp::ArtComposition::migration_policy,
-                         comp::ArtComposition::filter,
-                         comp::ArtComposition::queuing_q1,
-                         comp::ArtComposition::queuing_q2>;
+using StoreBackedAdHocComposition = an::AdHocComposition<
+    SearchAlgo, comp::ArtComposition::cache_traversal, comp::ArtComposition::mapping,
+    comp::ArtComposition::path_compression, comp::ArtComposition::node_type, comp::ArtComposition::memory_layout,
+    comp::ArtComposition::allocator, comp::ArtComposition::prefetch, comp::ArtComposition::concurrency,
+    comp::ArtComposition::serialization, comp::ArtComposition::telemetry, comp::ArtComposition::value_handle,
+    comp::ArtComposition::isa, comp::ArtComposition::index_organization, comp::ArtComposition::io_dispatch,
+    comp::ArtComposition::migration_policy, comp::ArtComposition::filter, comp::ArtComposition::queuing_q1,
+    comp::ArtComposition::queuing_q2>;
 
-using FlatWrapperSearchAlgos1884cii = ::testing::Types<sa::Array256SearchAlgo,
-                                                       sa::Array65535SearchAlgo,
-                                                       sa::VectorU8U8SearchAlgo,
-                                                       sa::VectorU16U16SearchAlgo>;
+using FlatWrapperSearchAlgos1884cii = ::testing::Types<sa::Array256SearchAlgo, sa::Array65535SearchAlgo,
+                                                       sa::VectorU8U8SearchAlgo, sa::VectorU16U16SearchAlgo>;
 
-inline constexpr std::uint64_t kNoFailure             = 0u;
-inline constexpr std::uint64_t kConformanceSeed       = 42u;
-inline constexpr std::uint64_t kConformanceRandomOps  = 2000u;
-inline constexpr std::uint64_t kLookupSentinel        = 0xBAD0C0DEu;
-inline constexpr std::uint64_t kValueSalt             = 0x9E3779B97F4A7C15ull;
+inline constexpr std::uint64_t                kNoFailure            = 0u;
+inline constexpr std::uint64_t                kConformanceSeed      = 42u;
+inline constexpr std::uint64_t                kConformanceRandomOps = 2000u;
+inline constexpr std::uint64_t                kLookupSentinel       = 0xBAD0C0DEu;
+inline constexpr std::uint64_t                kValueSalt            = 0x9E3779B97F4A7C15ull;
 inline constexpr std::array<std::uint64_t, 6> kWideKeys{7u, 255u, 256u, 511u, 65'536u, 1ull << 40};
 inline constexpr std::array<std::uint64_t, 4> kReuseKeys{4'096u, 65'535u, 65'537u, (1ull << 40) + 17u};
 
@@ -97,7 +83,7 @@ static_assert(std::is_same_v<lkc::traversal_for_search_algo_t<sa::VectorU16U16Se
 // auch im Measurement-OFF-Build). Nach aufsteigenden Inserts landet die geklemmte Schaetzung fuer alle drei
 // Keys rechts (offset >= n) und MUSS links auf den exakten Slot korrigieren; Misses decken Luecken + Raender.
 TEST(DirectAddressTraversal1884cii, SparseCorrectionOnGappyStore) {
-    lkc::RawSlotStore s{};
+    lkc::RawSlotStore                      s{};
     constexpr std::array<std::uint64_t, 3> gappy{10u, 100u, 200u};
     for (std::uint64_t const k : gappy) lkc::DirectAddressTraversal::insert_into(s, k, value_for(k));
     for (std::uint64_t const k : gappy) {
@@ -130,8 +116,8 @@ TYPED_TEST(FlatWrapperTraversal1884cii, PassesStdMapConformanceGate) {
 
     SCOPED_TRACE(label_for<SearchAlgo>());
 
-    auto tier = std::make_unique<Adapter>();
-    auto& drv = static_cast<an::IDriveableTier&>(*tier);
+    auto  tier = std::make_unique<Adapter>();
+    auto& drv  = static_cast<an::IDriveableTier&>(*tier);
 
     auto const result = dock::run_conformance_gate(drv, kConformanceSeed, kConformanceRandomOps);
     EXPECT_TRUE(result.passed()) << label_for<SearchAlgo>() << " cases=" << result.cases_passed << "/"
@@ -157,8 +143,8 @@ TYPED_TEST(FlatWrapperTraversal1884cii, SizeClearReuseRoundTripWithWideKeys) {
 
     SCOPED_TRACE(label_for<SearchAlgo>());
 
-    auto tier = std::make_unique<Adapter>();
-    auto& drv = static_cast<an::IDriveableTier&>(*tier);
+    auto  tier = std::make_unique<Adapter>();
+    auto& drv  = static_cast<an::IDriveableTier&>(*tier);
     drv.tier_clear();
 
     for (std::uint64_t const key : kWideKeys) {
