@@ -30,9 +30,11 @@
 
 #include <axes/lookup/axis_03a_search_algo_flags.hpp>
 
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
 // V41.F.6.1.P2.D.tr.s2 Paper-Mixin (Tool-generated, SHA256-validiert gegen HOTRowex.hpp)
 #include "concepts/axis_03a_search_algo_original_code_mixin.hpp"
 #include <topics/traversal/axis_03a_search_algo/legacy_code/paper_p02_hot_is_original.hpp>
+#endif
 
 #include <measurement/measurable_concept.hpp>
 #include <algorithm>
@@ -45,16 +47,21 @@
 
 namespace comdare::cache_engine::lookup {
 
-class OriginalHotSearchAlgo : public SearchAlgoBase<OriginalHotSearchAlgo>,
-                              public generated::p02_hot::OriginalCodeMixin {
+class OriginalHotSearchAlgo : public SearchAlgoBase<OriginalHotSearchAlgo>
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
+    , public generated::p02_hot::OriginalCodeMixin
+#endif
+{
 public:
     // Diamond-Disambiguation: Mixin-Pfad wins
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
     using generated::p02_hot::OriginalCodeMixin::get_compiler;
     using generated::p02_hot::OriginalCodeMixin::is_original_clear;
     using generated::p02_hot::OriginalCodeMixin::is_original_erase;
     using generated::p02_hot::OriginalCodeMixin::is_original_insert;
     using generated::p02_hot::OriginalCodeMixin::is_original_lookup;
     using generated::p02_hot::OriginalCodeMixin::is_original_module;
+#endif
 
     static constexpr bool enabled = flags::original_hot_enabled;
 
@@ -199,6 +206,7 @@ static_assert(concepts::SearchAlgoVariant<OriginalHotSearchAlgo>);
 static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<OriginalHotSearchAlgo>);
 static_assert(concepts::DensityClassifiedStrategy<OriginalHotSearchAlgo>);
 static_assert(concepts::SimdCapableStrategy<OriginalHotSearchAlgo>);
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
 // Habich-Compliance: 2/4 originall (insert+lookup), 2/4 Lücken (erase+clear)
 static_assert(OriginalHotSearchAlgo::is_original_insert(),
               "OriginalHotSearchAlgo: insert MUSS via HOTRowex Paper-Bindung originall sein");
@@ -212,4 +220,8 @@ static_assert(!OriginalHotSearchAlgo::is_original_clear(),
               "MUSS false sein");
 static_assert(!OriginalHotSearchAlgo::is_original_module(),
               "OriginalHotSearchAlgo: is_original_module MUSS false sein (2/4 Lücken)");
+#else
+static_assert(!OriginalHotSearchAlgo::is_original_module(),
+              "OriginalHotSearchAlgo: is_original_module()=false wenn is_original-Codegen-Gate AUS ist");
+#endif
 } // namespace comdare::cache_engine::lookup

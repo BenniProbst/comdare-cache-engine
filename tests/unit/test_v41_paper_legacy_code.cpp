@@ -488,6 +488,7 @@ TYPED_TEST(PaperWrapperConformance, LegacyOriginalCodePflichtConcept) {
     static_assert(ce_concepts::LegacyOriginalCodePflicht<TypeParam>);
     SUCCEED();
 }
+#if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
 TYPED_TEST(PaperWrapperConformance, HasOriginalCodeConcept) {
     static_assert(ce_concepts::HasOriginalCode<TypeParam>,
                   "Paper-Wrapper get_compiler() muss konkret sein (nicht original/self/system)");
@@ -516,6 +517,26 @@ TYPED_TEST(PaperWrapperConformance, IsOriginalModuleAggregation) {
     static_assert(TypeParam::is_original_module());
     SUCCEED();
 }
+#else
+TYPED_TEST(PaperWrapperConformance, HasOriginalCodeConcept) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A06 original-codegen gate is OFF";
+}
+TYPED_TEST(PaperWrapperConformance, PaperOriginalValidatedConcept) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A06 original-codegen gate is OFF";
+}
+TYPED_TEST(PaperWrapperConformance, GetCompilerOverridesAxisBaseDefault) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A06 original-codegen gate is OFF";
+}
+TYPED_TEST(PaperWrapperConformance, IsOriginalAllocate) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A06 original-codegen gate is OFF";
+}
+TYPED_TEST(PaperWrapperConformance, IsOriginalDeallocate) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A06 original-codegen gate is OFF";
+}
+TYPED_TEST(PaperWrapperConformance, IsOriginalModuleAggregation) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A06 original-codegen gate is OFF";
+}
+#endif
 
 // =================================================================
 // (11b) P2.D.tr.s2 Original-SearchAlgo-Wrappers — Cross-Validation
@@ -555,6 +576,7 @@ TYPED_TEST(FullOriginalSearchAlgoConformance, LegacyOriginalCodePflichtConcept) 
     static_assert(ce_concepts::LegacyOriginalCodePflicht<TypeParam>);
     SUCCEED();
 }
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
 TYPED_TEST(FullOriginalSearchAlgoConformance, HasOriginalCodeConcept) {
     static_assert(ce_concepts::HasOriginalCode<TypeParam>);
     SUCCEED();
@@ -590,6 +612,32 @@ TYPED_TEST(FullOriginalSearchAlgoConformance, IsOriginalModuleAggregation) {
     static_assert(TypeParam::is_original_module());
     SUCCEED();
 }
+#else
+TYPED_TEST(FullOriginalSearchAlgoConformance, HasOriginalCodeConcept) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, PaperOriginalValidatedConcept) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, GetCompilerOverridesAxisBaseDefault) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, IsOriginalInsert) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, IsOriginalLookup) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, IsOriginalErase) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, IsOriginalClear) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+TYPED_TEST(FullOriginalSearchAlgoConformance, IsOriginalModuleAggregation) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+#endif
 
 // (b) Partial-Original SearchAlgo (Paper-API insert+lookup originall, erase+clear Lücken) — HOT + START
 using PartialOriginalSearchAlgoList = ::testing::Types<original_search_algo::OrigHot, original_search_algo::OrigStart>;
@@ -605,6 +653,7 @@ TYPED_TEST(PartialOriginalSearchAlgoConformance, LegacyOriginalCodePflichtConcep
     static_assert(ce_concepts::LegacyOriginalCodePflicht<TypeParam>);
     SUCCEED();
 }
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
 TYPED_TEST(PartialOriginalSearchAlgoConformance, HasOriginalCodeConcept) {
     static_assert(
         ce_concepts::HasOriginalCode<TypeParam>,
@@ -632,6 +681,23 @@ TYPED_TEST(PartialOriginalSearchAlgoConformance, LueckenFunctionsNotOriginal) {
                   "Partial-Original: clear ist Cache-Engine Re-Impl Luecke — MUSS false sein");
     SUCCEED();
 }
+#else
+TYPED_TEST(PartialOriginalSearchAlgoConformance, HasOriginalCodeConcept) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+TYPED_TEST(PartialOriginalSearchAlgoConformance, NotPaperOriginalValidated) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+TYPED_TEST(PartialOriginalSearchAlgoConformance, GetCompilerOverridesAxisBaseDefault) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+TYPED_TEST(PartialOriginalSearchAlgoConformance, PaperApiFunctionsOriginal) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+TYPED_TEST(PartialOriginalSearchAlgoConformance, LueckenFunctionsNotOriginal) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+#endif
 
 // (c) Flexible-Original SearchAlgo (s3 Batch 1) — variable Anzahl Original-Functions,
 // gemeinsam: HasOriginalCode + !PaperOriginalValidated + is_original_lookup=true.
@@ -650,6 +716,7 @@ TYPED_TEST(FlexibleOriginalSearchAlgoConformance, LegacyOriginalCodePflichtConce
     static_assert(ce_concepts::LegacyOriginalCodePflicht<TypeParam>);
     SUCCEED();
 }
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
 TYPED_TEST(FlexibleOriginalSearchAlgoConformance, HasOriginalCodeConcept) {
     static_assert(ce_concepts::HasOriginalCode<TypeParam>);
     SUCCEED();
@@ -668,6 +735,20 @@ TYPED_TEST(FlexibleOriginalSearchAlgoConformance, LookupAlwaysOriginal) {
                   "Flexible-Original: lookup MUSS in jedem Paper-Bindung originall sein (gemeinsamer Nenner)");
     SUCCEED();
 }
+#else
+TYPED_TEST(FlexibleOriginalSearchAlgoConformance, HasOriginalCodeConcept) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+TYPED_TEST(FlexibleOriginalSearchAlgoConformance, NotPaperOriginalValidated) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+TYPED_TEST(FlexibleOriginalSearchAlgoConformance, GetCompilerOverridesAxisBaseDefault) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+TYPED_TEST(FlexibleOriginalSearchAlgoConformance, LookupAlwaysOriginal) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip A03A original-codegen gate is OFF";
+}
+#endif
 
 // =================================================================
 // (11c) P2.D.q.s2 Original-Buffer-Wrappers (Q1 Queuing) — Cross-Validation
@@ -698,6 +779,7 @@ TYPED_TEST(PartialOriginalBufferConformance, LegacyOriginalCodePflichtConcept) {
     static_assert(ce_concepts::LegacyOriginalCodePflicht<TypeParam>);
     SUCCEED();
 }
+#if defined(COMDARE_AQ1_IS_ORIGINAL_CODEGEN)
 TYPED_TEST(PartialOriginalBufferConformance, HasOriginalCodeConcept) {
     static_assert(ce_concepts::HasOriginalCode<TypeParam>,
                   "Partial-Original Buffer: get_compiler() MUSS konkret sein (gcc-9.5 via Mixin)");
@@ -728,6 +810,23 @@ TYPED_TEST(PartialOriginalBufferConformance, LueckenFunctionsNotOriginal) {
                   "Partial-Original Buffer: clear ist Re-Impl Luecke (kein clear in concurrentqueue)");
     SUCCEED();
 }
+#else
+TYPED_TEST(PartialOriginalBufferConformance, HasOriginalCodeConcept) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip AQ1 original-codegen gate is OFF";
+}
+TYPED_TEST(PartialOriginalBufferConformance, NotPaperOriginalValidated) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip AQ1 original-codegen gate is OFF";
+}
+TYPED_TEST(PartialOriginalBufferConformance, GetCompilerOverridesAxisBaseDefault) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip AQ1 original-codegen gate is OFF";
+}
+TYPED_TEST(PartialOriginalBufferConformance, PaperApiFunctionsOriginal) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip AQ1 original-codegen gate is OFF";
+}
+TYPED_TEST(PartialOriginalBufferConformance, LueckenFunctionsNotOriginal) {
+    GTEST_SKIP() << "test_188_4c0 Measurement-OFF-Skip AQ1 original-codegen gate is OFF";
+}
+#endif
 
 // =================================================================
 // (12) P2.C Non-Paper-Wrappers — TYPED_TEST_SUITE (kompakt, cross-topic)

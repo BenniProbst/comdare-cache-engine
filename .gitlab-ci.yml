@@ -143,10 +143,10 @@ contract:conformance:
   needs: ["lint:secrets"]   # hart auf den Secrets-Gate warten (Konvention wie .pmc/contract/durability)
   script:
     # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
-    # #188-4c-0-Fix: Die Known-Compositions ziehen die Paper-Allocator-Wrapper (mimalloc) — deren
-    # is_original-Header wird NUR bei ORIGINAL_CODE_VALIDATION=ON generiert (CMakeLists:1142-1159).
-    # Vorbestehender Defekt: axis_06_allocator_mimalloc.hpp:37 inkludiert UNGEGATED (bei OFF broken) — Sweep-Punkt.
-    - cmake -B build-conf -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION=ON
+    # #188-4c-0b (2026-07-02): Known-Compositions duerfen Paper-Original-Wrapper auch ohne ext-Submodule
+    # kompilieren. is_original-Mixins sind jetzt per COMDARE_A06/A03A/AQ1_IS_ORIGINAL_CODEGEN gegated;
+    # kein CI-Erzwingen von ORIGINAL_CODE_VALIDATION=ON, weil ext/ im Runner leer sein kann.
+    - cmake -B build-conf -G Ninja -DCOMDARE_BUILD_TESTS=ON
     - cmake --build build-conf --target test_conformance_gate test_188_4c0_known_compositions_conformance
     - ctest --test-dir build-conf -R '^(test_conformance_gate|test_188_4c0_known_compositions_conformance)$' --output-on-failure -V
   artifacts:

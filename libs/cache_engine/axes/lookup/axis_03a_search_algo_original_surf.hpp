@@ -15,8 +15,10 @@
 #include <topics/traversal/concepts/topic_traversal_concept.hpp>
 
 #include <axes/lookup/axis_03a_search_algo_flags.hpp>
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
 #include "concepts/axis_03a_search_algo_original_code_mixin.hpp"
 #include <topics/traversal/axis_03a_search_algo/legacy_code/paper_p10_surf_is_original.hpp>
+#endif
 
 #include <measurement/measurable_concept.hpp>
 #include <algorithm>
@@ -29,15 +31,20 @@
 
 namespace comdare::cache_engine::lookup {
 
-class OriginalSurfSearchAlgo : public SearchAlgoBase<OriginalSurfSearchAlgo>,
-                               public generated::p10_surf::OriginalCodeMixin {
+class OriginalSurfSearchAlgo : public SearchAlgoBase<OriginalSurfSearchAlgo>
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
+    , public generated::p10_surf::OriginalCodeMixin
+#endif
+{
 public:
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
     using generated::p10_surf::OriginalCodeMixin::get_compiler;
     using generated::p10_surf::OriginalCodeMixin::is_original_clear;
     using generated::p10_surf::OriginalCodeMixin::is_original_erase;
     using generated::p10_surf::OriginalCodeMixin::is_original_insert;
     using generated::p10_surf::OriginalCodeMixin::is_original_lookup;
     using generated::p10_surf::OriginalCodeMixin::is_original_module;
+#endif
 
     static constexpr bool enabled = flags::original_surf_enabled;
 
@@ -161,6 +168,7 @@ namespace comdare::cache_engine::lookup {
 static_assert(concepts::SearchAlgoVariant<OriginalSurfSearchAlgo>);
 static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<OriginalSurfSearchAlgo>);
 static_assert(concepts::DensityClassifiedStrategy<OriginalSurfSearchAlgo>);
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
 static_assert(OriginalSurfSearchAlgo::is_original_lookup(),
               "OriginalSurfSearchAlgo: lookup MUSS via lookupKey Paper-Bindung originall sein");
 static_assert(!OriginalSurfSearchAlgo::is_original_insert(),
@@ -169,4 +177,8 @@ static_assert(!OriginalSurfSearchAlgo::is_original_erase(), "OriginalSurfSearchA
 static_assert(!OriginalSurfSearchAlgo::is_original_clear(), "OriginalSurfSearchAlgo: clear ist Re-Impl Luecke");
 static_assert(!OriginalSurfSearchAlgo::is_original_module(),
               "OriginalSurfSearchAlgo: is_original_module MUSS false sein (3/4 Luecken)");
+#else
+static_assert(!OriginalSurfSearchAlgo::is_original_module(),
+              "OriginalSurfSearchAlgo: is_original_module()=false wenn is_original-Codegen-Gate AUS ist");
+#endif
 } // namespace comdare::cache_engine::lookup

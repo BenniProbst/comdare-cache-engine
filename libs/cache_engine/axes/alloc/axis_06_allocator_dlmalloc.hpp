@@ -24,9 +24,11 @@
 #include <axes/alloc/axis_06_allocator_flags.hpp>
 #include "vendor_includes/dlmalloc_include.hpp"
 
+#if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
 // V41.F.6.1.P2.D Batch 2 dlmalloc Paper-Legacy-Code Mixin
 #include "concepts/axis_06_allocator_original_code_mixin.hpp"
 #include <topics/allocator/axis_06_allocator/legacy_code/paper_a20_dlmalloc_is_original.hpp>
+#endif
 
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
 #include <measurement/measurable_concept.hpp>
@@ -43,13 +45,18 @@ namespace comdare::cache_engine::alloc {
  *
  * Bins-based Size-Class-Allocator.
  */
-class DlmallocAllocator : public AllocatorStrategyBase<DlmallocAllocator>,
-                          public generated::a20_dlmalloc::OriginalCodeMixin { // V41.F.6.1.P2.D Batch 2
+class DlmallocAllocator : public AllocatorStrategyBase<DlmallocAllocator>
+#if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
+    , public generated::a20_dlmalloc::OriginalCodeMixin // V41.F.6.1.P2.D Batch 2
+#endif
+{
 public:
+#if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
     using generated::a20_dlmalloc::OriginalCodeMixin::get_compiler;
     using generated::a20_dlmalloc::OriginalCodeMixin::is_original_allocate;
     using generated::a20_dlmalloc::OriginalCodeMixin::is_original_deallocate;
     using generated::a20_dlmalloc::OriginalCodeMixin::is_original_module;
+#endif
 
     static constexpr bool enabled = flags::dlmalloc_enabled;
 

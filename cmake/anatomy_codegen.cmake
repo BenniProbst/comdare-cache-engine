@@ -96,6 +96,21 @@ function(comdare_codegen_anatomy_module)
 
     # ─── add_library mit generierter .cpp ────────────────────────────────
     add_library(${ARG_TARGET_NAME} ${ARG_LIBRARY_TYPE} "${_output_cpp}")
+    set_property(GLOBAL APPEND PROPERTY COMDARE_PAPER_CODEGEN_CONSUMER_TARGETS ${ARG_TARGET_NAME})
+    # #188-4c-0b-R1: generated anatomy modules include Composition headers that
+    # can transitively include generated Paper-Original-Code wrappers.
+    foreach(_pc
+            comdare_paper_a04_mimalloc_codegen  comdare_paper_a05_jemalloc_codegen
+            comdare_paper_a07_snmalloc_codegen  comdare_paper_a20_dlmalloc_codegen
+            comdare_paper_a10_rpmalloc_codegen  comdare_paper_a11_lrmalloc_codegen
+            comdare_paper_p01_art_codegen       comdare_paper_p02_hot_codegen
+            comdare_paper_p05_start_codegen     comdare_paper_p07_wormhole_codegen
+            comdare_paper_p10_surf_codegen      comdare_paper_p03_masstree_codegen
+            comdare_paper_q01_concurrentqueue_codegen)
+        if(TARGET ${_pc})
+            add_dependencies(${ARG_TARGET_NAME} ${_pc})
+        endif()
+    endforeach()
 
     # V41.F.6.1.R7.3-buildfix: per-Achsen generierte flags.hpp-Dirs (source-derived,
     # ordering-invariant — analog tests/unit). Ohne diese fanden generierte Anatomy-Module

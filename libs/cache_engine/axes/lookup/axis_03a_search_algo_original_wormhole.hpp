@@ -14,8 +14,10 @@
 #include <topics/traversal/concepts/topic_traversal_concept.hpp>
 
 #include <axes/lookup/axis_03a_search_algo_flags.hpp>
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
 #include "concepts/axis_03a_search_algo_original_code_mixin.hpp"
 #include <topics/traversal/axis_03a_search_algo/legacy_code/paper_p07_wormhole_is_original.hpp>
+#endif
 
 #include <measurement/measurable_concept.hpp>
 #include <algorithm>
@@ -28,15 +30,20 @@
 
 namespace comdare::cache_engine::lookup {
 
-class OriginalWormholeSearchAlgo : public SearchAlgoBase<OriginalWormholeSearchAlgo>,
-                                   public generated::p07_wormhole::OriginalCodeMixin {
+class OriginalWormholeSearchAlgo : public SearchAlgoBase<OriginalWormholeSearchAlgo>
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
+    , public generated::p07_wormhole::OriginalCodeMixin
+#endif
+{
 public:
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
     using generated::p07_wormhole::OriginalCodeMixin::get_compiler;
     using generated::p07_wormhole::OriginalCodeMixin::is_original_clear;
     using generated::p07_wormhole::OriginalCodeMixin::is_original_erase;
     using generated::p07_wormhole::OriginalCodeMixin::is_original_insert;
     using generated::p07_wormhole::OriginalCodeMixin::is_original_lookup;
     using generated::p07_wormhole::OriginalCodeMixin::is_original_module;
+#endif
 
     static constexpr bool enabled = flags::original_wormhole_enabled;
 
@@ -160,6 +167,7 @@ namespace comdare::cache_engine::lookup {
 static_assert(concepts::SearchAlgoVariant<OriginalWormholeSearchAlgo>);
 static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<OriginalWormholeSearchAlgo>);
 static_assert(concepts::DensityClassifiedStrategy<OriginalWormholeSearchAlgo>);
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
 static_assert(OriginalWormholeSearchAlgo::is_original_insert(),
               "OriginalWormholeSearchAlgo: insert MUSS via wh_put Paper-Bindung originall sein");
 static_assert(OriginalWormholeSearchAlgo::is_original_lookup(),
@@ -170,4 +178,8 @@ static_assert(!OriginalWormholeSearchAlgo::is_original_clear(),
               "OriginalWormholeSearchAlgo: clear ist Re-Impl Luecke (kein Bulk-Clear in Wormhole) — MUSS false sein");
 static_assert(!OriginalWormholeSearchAlgo::is_original_module(),
               "OriginalWormholeSearchAlgo: is_original_module MUSS false sein (1/4 Luecke)");
+#else
+static_assert(!OriginalWormholeSearchAlgo::is_original_module(),
+              "OriginalWormholeSearchAlgo: is_original_module()=false wenn is_original-Codegen-Gate AUS ist");
+#endif
 } // namespace comdare::cache_engine::lookup

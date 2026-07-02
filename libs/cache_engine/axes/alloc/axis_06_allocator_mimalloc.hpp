@@ -32,9 +32,11 @@
 #include <axes/alloc/axis_06_allocator_flags.hpp>
 #include "vendor_includes/mimalloc_include.hpp" // V41.F.6.1.C Stufe 2: Shim mit Forward-Stubs
 
+#if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
 // V41.F.6.1.P2.B mimalloc Pilot — Paper-Legacy-Code Mixin (auto-generated via Pre-Build-Tool)
 #include "concepts/axis_06_allocator_original_code_mixin.hpp"
 #include <topics/allocator/axis_06_allocator/legacy_code/paper_a04_mimalloc_is_original.hpp>
+#endif
 
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
 #include <measurement/measurable_concept.hpp> // V41.F.6.1 Stufe 3: MeasurableObserver<snapshot_t>
@@ -56,10 +58,13 @@ namespace comdare::cache_engine::alloc {
  * Vendor-Calls direkt — bei OFF werden Forward-Stubs aus dem Shim verwendet
  * (NIEMALS aufgerufen wegen if constexpr (false) Discarded Statement).
  */
-class MimallocAllocator
-    : public AllocatorStrategyBase<MimallocAllocator>,
-      public generated::a04_mimalloc::OriginalCodeMixin { // V41.F.6.1.P2.B Paper-Mixin (Habich-Compliance)
+class MimallocAllocator : public AllocatorStrategyBase<MimallocAllocator>
+#if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
+    , public generated::a04_mimalloc::OriginalCodeMixin // V41.F.6.1.P2.B Paper-Mixin (Habich-Compliance)
+#endif
+{
 public:
+#if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
     // V41.F.6.1.P2.B/P2.C Diamond-Disambiguation:
     // AllocatorStrategyBase erbt von AxisBase (get_compiler() = "original",
     // is_original_module() = false Defaults). OriginalCodeMixin (via OriginalCodeMixinBase)
@@ -68,6 +73,7 @@ public:
     using generated::a04_mimalloc::OriginalCodeMixin::is_original_allocate;
     using generated::a04_mimalloc::OriginalCodeMixin::is_original_deallocate;
     using generated::a04_mimalloc::OriginalCodeMixin::is_original_module;
+#endif
 
     // ───────────────────────────────────────────────────────────────────────
     // V41.F.6.1.C Stufe 2 (W6-Pattern): zentralisierte CMake-Flag-Aktivierung

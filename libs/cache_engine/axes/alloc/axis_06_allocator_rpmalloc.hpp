@@ -25,9 +25,11 @@
 #include <axes/alloc/axis_06_allocator_flags.hpp>
 #include "vendor_includes/rpmalloc_include.hpp"
 
+#if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
 // V41.F.6.1.P2.D Batch 2 rpmalloc Paper-Legacy-Code Mixin
 #include "concepts/axis_06_allocator_original_code_mixin.hpp"
 #include <topics/allocator/axis_06_allocator/legacy_code/paper_a10_rpmalloc_is_original.hpp>
+#endif
 
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
 #include <measurement/measurable_concept.hpp>
@@ -64,13 +66,18 @@ struct RPMallocInitGuard {
 
 } // namespace detail
 
-class RPMallocAllocator : public AllocatorStrategyBase<RPMallocAllocator>,
-                          public generated::a10_rpmalloc::OriginalCodeMixin { // V41.F.6.1.P2.D Batch 2
+class RPMallocAllocator : public AllocatorStrategyBase<RPMallocAllocator>
+#if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
+    , public generated::a10_rpmalloc::OriginalCodeMixin // V41.F.6.1.P2.D Batch 2
+#endif
+{
 public:
+#if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
     using generated::a10_rpmalloc::OriginalCodeMixin::get_compiler;
     using generated::a10_rpmalloc::OriginalCodeMixin::is_original_allocate;
     using generated::a10_rpmalloc::OriginalCodeMixin::is_original_deallocate;
     using generated::a10_rpmalloc::OriginalCodeMixin::is_original_module;
+#endif
 
     static constexpr bool enabled = flags::rpmalloc_enabled;
 
