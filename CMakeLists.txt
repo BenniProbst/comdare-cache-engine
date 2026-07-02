@@ -1434,6 +1434,7 @@ foreach(_comdare_codegen_consumer
         test_prefetch_patha_t7
         test_188_4bbV_pool_adapter_flip_compile
         test_188_4c0_known_compositions_conformance
+        test_188_4cii_flat_wrapper_traversal
         perm_adhoc_buildvariant
         ${_comdare_generated_codegen_consumers})
     if(TARGET ${_comdare_codegen_consumer})
