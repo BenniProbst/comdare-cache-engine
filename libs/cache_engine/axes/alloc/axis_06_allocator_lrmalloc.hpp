@@ -26,19 +26,26 @@
 #include <string_view>
 #include <type_traits>
 
+#if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
 // V41.F.6.1.P2.D Batch 2 lrmalloc Paper-Legacy-Code Mixin
 #include "concepts/axis_06_allocator_original_code_mixin.hpp"
 #include <topics/allocator/axis_06_allocator/legacy_code/paper_a11_lrmalloc_is_original.hpp>
+#endif
 
 namespace comdare::cache_engine::alloc {
 
-class LRMallocAllocator : public AllocatorStrategyBase<LRMallocAllocator>,
-                          public generated::a11_lrmalloc::OriginalCodeMixin { // V41.F.6.1.P2.D Batch 2
+class LRMallocAllocator : public AllocatorStrategyBase<LRMallocAllocator>
+#if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
+    , public generated::a11_lrmalloc::OriginalCodeMixin // V41.F.6.1.P2.D Batch 2
+#endif
+{
 public:
+#if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
     using generated::a11_lrmalloc::OriginalCodeMixin::get_compiler;
     using generated::a11_lrmalloc::OriginalCodeMixin::is_original_allocate;
     using generated::a11_lrmalloc::OriginalCodeMixin::is_original_deallocate;
     using generated::a11_lrmalloc::OriginalCodeMixin::is_original_module;
+#endif
 
     static constexpr bool enabled = flags::lrmalloc_enabled;
 

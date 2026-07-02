@@ -34,9 +34,11 @@
 
 #include <topics/queuing/axis_q1_queuing/axis_q1_queuing_flags.hpp>
 
+#if defined(COMDARE_AQ1_IS_ORIGINAL_CODEGEN)
 // V41.F.6.1.P2.D.q.s2 Paper-Mixin (Tool-generated, SHA256-validiert gegen concurrentqueue.h)
 #include "concepts/axis_q1_queuing_original_code_mixin.hpp"
 #include <topics/queuing/axis_q1_queuing/legacy_code/paper_q01_concurrentqueue_is_original.hpp>
+#endif
 
 #include <measurement/measurable_concept.hpp>
 #include <array>
@@ -52,10 +54,14 @@
 
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
-class OriginalLockFreeMpmcConcurrentQueue : public BufferStrategyBase<OriginalLockFreeMpmcConcurrentQueue>,
-                                            public generated::q01_concurrentqueue::OriginalCodeMixin {
+class OriginalLockFreeMpmcConcurrentQueue : public BufferStrategyBase<OriginalLockFreeMpmcConcurrentQueue>
+#if defined(COMDARE_AQ1_IS_ORIGINAL_CODEGEN)
+    , public generated::q01_concurrentqueue::OriginalCodeMixin
+#endif
+{
 public:
     // Diamond-Disambiguation: Mixin-Pfad wins
+#if defined(COMDARE_AQ1_IS_ORIGINAL_CODEGEN)
     using generated::q01_concurrentqueue::OriginalCodeMixin::get_compiler;
     using generated::q01_concurrentqueue::OriginalCodeMixin::is_original_clear;
     using generated::q01_concurrentqueue::OriginalCodeMixin::is_original_emplace;
@@ -64,6 +70,7 @@ public:
     using generated::q01_concurrentqueue::OriginalCodeMixin::is_original_peek_back;
     using generated::q01_concurrentqueue::OriginalCodeMixin::is_original_peek_front;
     using generated::q01_concurrentqueue::OriginalCodeMixin::is_original_put;
+#endif
 
     static constexpr bool enabled = flags::original_concurrentqueue_enabled;
 
@@ -283,6 +290,7 @@ static_assert(concepts::BufferStrategy<OriginalLockFreeMpmcConcurrentQueue>);
 static_assert(concepts::CacheEngineBufferPermutationStrategy<OriginalLockFreeMpmcConcurrentQueue>);
 static_assert(concepts::BoundedBufferStrategy<OriginalLockFreeMpmcConcurrentQueue>);
 static_assert(concepts::IterableAspectStrategy<OriginalLockFreeMpmcConcurrentQueue>);
+#if defined(COMDARE_AQ1_IS_ORIGINAL_CODEGEN)
 // Habich-Compliance: 2/6 originall (put+get), 4/6 Lücken (emplace+peek_front+peek_back+clear)
 static_assert(
     OriginalLockFreeMpmcConcurrentQueue::is_original_put(),
@@ -300,4 +308,8 @@ static_assert(!OriginalLockFreeMpmcConcurrentQueue::is_original_clear(),
               "OriginalLockFreeMpmcConcurrentQueue: clear ist Re-Impl (kein clear in concurrentqueue)");
 static_assert(!OriginalLockFreeMpmcConcurrentQueue::is_original_module(),
               "OriginalLockFreeMpmcConcurrentQueue: is_original_module MUSS false sein (4/6 Lücken)");
+#else
+static_assert(!OriginalLockFreeMpmcConcurrentQueue::is_original_module(),
+              "OriginalLockFreeMpmcConcurrentQueue: is_original_module()=false wenn is_original-Codegen-Gate AUS ist");
+#endif
 } // namespace comdare::cache_engine::queuing::axis_q1_queuing

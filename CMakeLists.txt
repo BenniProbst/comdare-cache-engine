@@ -473,6 +473,66 @@ include(cmake/is_original_codegen.cmake OPTIONAL)
 include(cmake/compiler_cache.cmake     OPTIONAL)
 include(cmake/paper_binary.cmake       OPTIONAL)
 include(cmake/tools_cache.cmake        OPTIONAL)
+# ─────────────────────────────────────────────────────────────────────────────
+# V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung
+# (User-Direktive: cmake flag fuer alle Funktionen, mit dem die app Originalitaet
+# beweist). Bei OFF bzw. fehlendem ext-Sentinel: kein Codegen, kein Mixin-Include
+# — is_original_module()=false kommt generisch via AxisBase Default.
+# #188-4c-0b (2026-07-02): Die Compile-Gates muessen VOR den Subdirectories
+# gesetzt werden, damit alle Header-Konsumenten die Makros sehen.
+# ─────────────────────────────────────────────────────────────────────────────
+option(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION
+       "Enable Paper-Original-Code SHA-Validation (Habich-Compliance Pre-Build-Tool)" ON)
+# #188-4b-b-V (2026-07-01): One-shot-Regenerierung der sha256_locked.txt-Habich-Locks mit LF-normalisierten SHAs
+# (Validator --update-lock). Die Locks wurden auf einem CRLF-Windows-Worktree erzeugt, das Repo ist LF
+# (.gitattributes eol=lf) -> auf Linux mismatchten sie (is_original=false, Original*-static_asserts scheiterten).
+# Der Validator normalisiert jetzt CRLF/LF vor dem Hashen (plattform-neutral); dieser Schalter erzeugt EINMALIG die
+# passenden LF-Locks (nur fuer den manuellen is_original:relock-CI-Job). Im Normalbetrieb OFF (validiert gegen Locks).
+option(COMDARE_CE_UPDATE_ORIGINAL_LOCKS
+       "One-shot: regenerate sha256_locked.txt lock-files (validator --update-lock) instead of validating" OFF)
+
+function(comdare_all_paths_exist out_var)
+    set(_all_exist TRUE)
+    foreach(_path IN LISTS ARGN)
+        if(NOT EXISTS "${_path}")
+            set(_all_exist FALSE)
+            break()
+        endif()
+    endforeach()
+    set(${out_var} ${_all_exist} PARENT_SCOPE)
+endfunction()
+
+if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper_wrapper)
+    comdare_all_paths_exist(_comdare_a06_codegen_ready
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/A04-mimalloc/src/alloc-aligned.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/A05-jemalloc/src/jemalloc.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/A07-snmalloc/src/snmalloc/global/libc.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/A20-dlmalloc/malloc.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/A10-rpmalloc/rpmalloc/rpmalloc.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/allocator/A11-lrmalloc/lrmalloc.cpp")
+    if(_comdare_a06_codegen_ready)
+        add_compile_definitions(COMDARE_A06_IS_ORIGINAL_CODEGEN=1)
+    endif()
+
+    comdare_all_paths_exist(_comdare_a03a_codegen_ready
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/traversal/P01-ART/unodb/art.hpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/traversal/P02-HOT/hot/libs/hot/rowex/include/hot/rowex/HOTRowex.hpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/traversal/P05-START/START/sosd-competitor-adapter-START.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/traversal/P07-Wormhole/wormhole/wh.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/traversal/P10-SuRF/SuRF/include/surf.hpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/traversal/P03-Masstree/masstree-beta/masstree_get.hh"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/traversal/P03-Masstree/masstree-beta/masstree_insert.hh"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/traversal/P03-Masstree/masstree-beta/masstree_remove.hh")
+    if(_comdare_a03a_codegen_ready)
+        add_compile_definitions(COMDARE_A03A_IS_ORIGINAL_CODEGEN=1)
+    endif()
+
+    comdare_all_paths_exist(_comdare_aq1_codegen_ready
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext/queuing/Q01-concurrentqueue/concurrentqueue.h")
+    if(_comdare_aq1_codegen_ready)
+        add_compile_definitions(COMDARE_AQ1_IS_ORIGINAL_CODEGEN=1)
+    endif()
+endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Permutations-Codegen (F-EXTRA-5 — Python-Codegen erzeugt CMake-Targets)
@@ -1117,20 +1177,10 @@ configure_file(
 message(STATUS "  axis_09b (8 SIMD-extensions): NO_EXT=${COMDARE_AXIS_09B_USE_NO_EXTENSION} SSE2=${COMDARE_AXIS_09B_USE_SSE2} AVX2=${COMDARE_AXIS_09B_USE_AVX2} AVX512=${COMDARE_AXIS_09B_USE_AVX512} NEON=${COMDARE_AXIS_09B_USE_NEON} SVE2=${COMDARE_AXIS_09B_USE_SVE2} RVV=${COMDARE_AXIS_09B_USE_RVV} CUDA_GH200=${COMDARE_AXIS_09B_USE_CUDA_GH200}")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# V41.F.6.1.P2.C Zentraler Build-Switch fuer Paper-Original-Code-Validierung
-# (User-Direktive: cmake flag fuer alle Funktionen, mit dem die app Originalitaet
-# beweist). Bei OFF: kein Codegen, kein Mixin-Include — is_original_module()=false
-# kommt generisch via AxisBase Default automatisch fuer ALLE Algorithmen.
+# V41.F.6.1.P2.C Paper-Original-Code-Gates sind vor add_subdirectory gesetzt
+# (siehe #188-4c-0b Preflight oben), damit Header-Konsumenten compile-weit
+# COMDARE_A06/A03A/AQ1_IS_ORIGINAL_CODEGEN nur bei vollstaendig aktivem Codegen sehen.
 # ─────────────────────────────────────────────────────────────────────────────
-option(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION
-       "Enable Paper-Original-Code SHA-Validation (Habich-Compliance Pre-Build-Tool)" ON)
-# #188-4b-b-V (2026-07-01): One-shot-Regenerierung der sha256_locked.txt-Habich-Locks mit LF-normalisierten SHAs
-# (Validator --update-lock). Die Locks wurden auf einem CRLF-Windows-Worktree erzeugt, das Repo ist LF
-# (.gitattributes eol=lf) -> auf Linux mismatchten sie (is_original=false, Original*-static_asserts scheiterten).
-# Der Validator normalisiert jetzt CRLF/LF vor dem Hashen (plattform-neutral); dieser Schalter erzeugt EINMALIG die
-# passenden LF-Locks (nur fuer den manuellen is_original:relock-CI-Job). Im Normalbetrieb OFF (validiert gegen Locks).
-option(COMDARE_CE_UPDATE_ORIGINAL_LOCKS
-       "One-shot: regenerate sha256_locked.txt lock-files (validator --update-lock) instead of validating" OFF)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1.P2.B/D Paper-Legacy-Code Roll-out (kompakt via Helper)
@@ -1347,29 +1397,60 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     )
 endif()
 
-# #188-4b-b-V (PHASE V, 2026-07-01): Dependency-Kante Compile-Verifikationstest -> Paper-Original-Code-Codegen.
-# test_188_4bbV_pool_adapter_flip_compile zieht via all_axes_umbrella.hpp + ArtComposition die Paper-Legacy-Code-
-# Mixin-Header (topics/**/legacy_code/paper_*_is_original.hpp), die zur BUILD-Zeit von den comdare_paper_*_codegen-
-# ALL-Targets (is_original_codegen.cmake:174) erzeugt werden. Ein ISOLIERTER `cmake --build --target test_188_4bbV...`
-# (CI-Job contract:pool_flip) triggert die ALL-Targets NICHT -> fatal error "paper_a04_mimalloc_is_original.hpp:
-# No such file or directory" (Pipeline 7369). Fix: explizite Dependency-Kante, damit die Header VOR dem Target
-# compiliert werden. Defensiv per if(TARGET): die Codegen-Targets sind options-/ext-sentinel-bedingt
-# (COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION + is_original_validator + ext-Sentinel). MUSS nach diesem endif()
-# stehen (Targets existieren erst hier) UND nach add_subdirectory(tests) (Test-Target existiert). Bei neuem Paper-
-# Wrapper mit is_original-Mixin die Liste erweitern (Quelle: axis_06/03a/q1-Registries via all_axes_umbrella).
-if(TARGET test_188_4bbV_pool_adapter_flip_compile)
-    foreach(_pc
-            comdare_paper_a04_mimalloc_codegen  comdare_paper_a05_jemalloc_codegen
-            comdare_paper_a07_snmalloc_codegen  comdare_paper_a20_dlmalloc_codegen
-            comdare_paper_a10_rpmalloc_codegen  comdare_paper_a11_lrmalloc_codegen
-            comdare_paper_p01_art_codegen       comdare_paper_p02_hot_codegen
-            comdare_paper_p05_start_codegen     comdare_paper_p07_wormhole_codegen
-            comdare_paper_p10_surf_codegen      comdare_paper_q01_concurrentqueue_codegen)
-        if(TARGET ${_pc})
-            add_dependencies(test_188_4bbV_pool_adapter_flip_compile ${_pc})
-        endif()
-    endforeach()
+# #188-4b-b-V / #188-4c-0b: Dependency-Kante Codegen-Consumer -> Paper-Original-Code-Codegen.
+# Isolierte Target-Builds triggern die ALL-Codegen-Targets nicht automatisch. Wenn die neuen Gates wegen
+# vollstaendig vorhandenem ext/ aktiv sind, muessen die generierten is_original-Header vor den Consumer-Targets
+# entstehen. Defensiv per if(TARGET): Codegen-Targets sind options-/ext-sentinel-bedingt.
+get_property(_comdare_generated_codegen_consumers GLOBAL PROPERTY COMDARE_PAPER_CODEGEN_CONSUMER_TARGETS)
+if(_comdare_generated_codegen_consumers)
+    list(REMOVE_DUPLICATES _comdare_generated_codegen_consumers)
 endif()
+foreach(_comdare_codegen_consumer
+        comdare_adhoc_emitter_cli
+        test_v41_topic_allocator_axis_06
+        test_v41_topic_queuing
+        test_v41_topic_traversal
+        test_v41_compositions
+        test_v41_paper_legacy_code
+        test_v41_anatomy_r4_driver
+        test_v41_anatomy_module_abi
+        test_v41_anatomy_codegen_tool_traits
+        test_v41_anatomy_codegen_tool_mp_list
+        test_v41_anatomy_adhoc_codegen_macro
+        test_v41_pruef_dock_search_algorithm
+        test_v41_anatomy_f15_measurement
+        test_v41_axis_03a_cross_variant_equivalence
+        test_v41_axis_03a_tier_organ_equivalence
+        test_v41_search_algorithm_permutation_engine
+        test_v41_codegen_all_axes_umbrella
+        comdare_r5g_adhoc_perm
+        test_migration_two_tier
+        test_seg_coverage
+        test_filter_real_from_keys
+        test_patricia_real
+        test_value_handle_real
+        test_prefetch_real
+        test_prefetch_adversarial_verify
+        test_prefetch_patha_t7
+        test_188_4bbV_pool_adapter_flip_compile
+        test_188_4c0_known_compositions_conformance
+        perm_adhoc_buildvariant
+        ${_comdare_generated_codegen_consumers})
+    if(TARGET ${_comdare_codegen_consumer})
+        foreach(_pc
+                comdare_paper_a04_mimalloc_codegen  comdare_paper_a05_jemalloc_codegen
+                comdare_paper_a07_snmalloc_codegen  comdare_paper_a20_dlmalloc_codegen
+                comdare_paper_a10_rpmalloc_codegen  comdare_paper_a11_lrmalloc_codegen
+                comdare_paper_p01_art_codegen       comdare_paper_p02_hot_codegen
+                comdare_paper_p05_start_codegen     comdare_paper_p07_wormhole_codegen
+                comdare_paper_p10_surf_codegen      comdare_paper_p03_masstree_codegen
+                comdare_paper_q01_concurrentqueue_codegen)
+            if(TARGET ${_pc})
+                add_dependencies(${_comdare_codegen_consumer} ${_pc})
+            endif()
+        endforeach()
+    endif()
+endforeach()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1 G.1 — Hierarchische Achsen-Iteration im Build-Output + Permutations-Raum-Auswertung

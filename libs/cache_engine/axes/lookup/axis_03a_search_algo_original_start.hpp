@@ -25,9 +25,11 @@
 
 #include <axes/lookup/axis_03a_search_algo_flags.hpp>
 
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
 // V41.F.6.1.P2.D.tr.s2 Paper-Mixin (Tool-generated, SHA256-validiert gegen sosd-competitor-adapter-START.h)
 #include "concepts/axis_03a_search_algo_original_code_mixin.hpp"
 #include <topics/traversal/axis_03a_search_algo/legacy_code/paper_p05_start_is_original.hpp>
+#endif
 
 #include <measurement/measurable_concept.hpp>
 #include <algorithm>
@@ -40,16 +42,21 @@
 
 namespace comdare::cache_engine::lookup {
 
-class OriginalStartSearchAlgo : public SearchAlgoBase<OriginalStartSearchAlgo>,
-                                public generated::p05_start::OriginalCodeMixin {
+class OriginalStartSearchAlgo : public SearchAlgoBase<OriginalStartSearchAlgo>
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
+    , public generated::p05_start::OriginalCodeMixin
+#endif
+{
 public:
     // Diamond-Disambiguation: Mixin-Pfad wins
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
     using generated::p05_start::OriginalCodeMixin::get_compiler;
     using generated::p05_start::OriginalCodeMixin::is_original_clear;
     using generated::p05_start::OriginalCodeMixin::is_original_erase;
     using generated::p05_start::OriginalCodeMixin::is_original_insert;
     using generated::p05_start::OriginalCodeMixin::is_original_lookup;
     using generated::p05_start::OriginalCodeMixin::is_original_module;
+#endif
 
     static constexpr bool enabled = flags::original_start_enabled;
 
@@ -189,6 +196,7 @@ static_assert(concepts::SearchAlgoVariant<OriginalStartSearchAlgo>);
 static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<OriginalStartSearchAlgo>);
 static_assert(concepts::DensityClassifiedStrategy<OriginalStartSearchAlgo>);
 // NICHT SimdCapableStrategy — START Cost-DP nicht vectorisierbar (analog VectorU16U16SearchAlgo)
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
 // Habich-Compliance: 2/4 originall (insert+lookup), 2/4 Lücken (erase+clear)
 static_assert(OriginalStartSearchAlgo::is_original_insert(),
               "OriginalStartSearchAlgo: insert MUSS via insertLater Paper-Bindung originall sein");
@@ -202,4 +210,8 @@ static_assert(!OriginalStartSearchAlgo::is_original_clear(),
               "is_original_clear MUSS false sein");
 static_assert(!OriginalStartSearchAlgo::is_original_module(),
               "OriginalStartSearchAlgo: is_original_module MUSS false sein (2/4 Lücken)");
+#else
+static_assert(!OriginalStartSearchAlgo::is_original_module(),
+              "OriginalStartSearchAlgo: is_original_module()=false wenn is_original-Codegen-Gate AUS ist");
+#endif
 } // namespace comdare::cache_engine::lookup

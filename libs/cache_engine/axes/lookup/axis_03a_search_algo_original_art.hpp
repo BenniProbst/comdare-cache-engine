@@ -25,9 +25,11 @@
 
 #include <axes/lookup/axis_03a_search_algo_flags.hpp>
 
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
 // V41.F.6.1.P2.D.tr.s2 Paper-Mixin (Tool-generated, SHA256-validiert gegen art.hpp)
 #include "concepts/axis_03a_search_algo_original_code_mixin.hpp"
 #include <topics/traversal/axis_03a_search_algo/legacy_code/paper_p01_art_is_original.hpp>
+#endif
 
 #include <measurement/measurable_concept.hpp>
 #include <array>
@@ -39,16 +41,21 @@
 
 namespace comdare::cache_engine::lookup {
 
-class OriginalArtSearchAlgo : public SearchAlgoBase<OriginalArtSearchAlgo>,
-                              public generated::p01_art::OriginalCodeMixin { // Habich-Compliance Mixin
+class OriginalArtSearchAlgo : public SearchAlgoBase<OriginalArtSearchAlgo>
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
+    , public generated::p01_art::OriginalCodeMixin // Habich-Compliance Mixin
+#endif
+{
 public:
     // Diamond-Disambiguation: Mixin-Pfad wins fuer get_compiler/is_original_*
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
     using generated::p01_art::OriginalCodeMixin::get_compiler;
     using generated::p01_art::OriginalCodeMixin::is_original_clear;
     using generated::p01_art::OriginalCodeMixin::is_original_erase;
     using generated::p01_art::OriginalCodeMixin::is_original_insert;
     using generated::p01_art::OriginalCodeMixin::is_original_lookup;
     using generated::p01_art::OriginalCodeMixin::is_original_module;
+#endif
 
     static constexpr bool enabled = flags::original_art_enabled;
 
@@ -181,7 +188,12 @@ static_assert(concepts::SearchAlgoVariant<OriginalArtSearchAlgo>);
 static_assert(concepts::CacheEngineSearchAlgoPermutationStrategy<OriginalArtSearchAlgo>);
 static_assert(concepts::DensityClassifiedStrategy<OriginalArtSearchAlgo>);
 static_assert(concepts::SimdCapableStrategy<OriginalArtSearchAlgo>);
+#if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
 // Habich-Compliance: alle 4 Functions sind im Paper originall (P01 ART 4/4)
 static_assert(OriginalArtSearchAlgo::is_original_module(),
               "OriginalArtSearchAlgo MUSS is_original_module()=true liefern (4/4 ART-API originall)");
+#else
+static_assert(!OriginalArtSearchAlgo::is_original_module(),
+              "OriginalArtSearchAlgo: is_original_module()=false wenn is_original-Codegen-Gate AUS ist");
+#endif
 } // namespace comdare::cache_engine::lookup
