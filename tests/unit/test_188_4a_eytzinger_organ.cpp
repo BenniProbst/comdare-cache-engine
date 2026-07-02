@@ -63,7 +63,7 @@ void expect_wrapper_matches_organ(lk::EytzingerSearchAlgo const& wrapper,
     auto const w = wrapper.lookup(key);
     auto const o = organ.lookup(static_cast<U64>(key));
     EXPECT_EQ(w.has_value(), o.has_value()) << phase << ": hit/miss drift key=" << key;
-    if (w && o) EXPECT_EQ(*w, *o) << phase << ": Wertdrift key=" << key;
+    if (w && o) { EXPECT_EQ(*w, *o) << phase << ": Wertdrift key=" << key; }
 }
 void expect_optional_value(std::optional<U64> const& actual, U64 expected, char const* phase) {
     ASSERT_TRUE(actual.has_value()) << phase << ": Treffer erwartet";
