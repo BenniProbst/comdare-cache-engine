@@ -15,6 +15,7 @@
 
 #include "hash_bucket_pool_concept.hpp"
 #include "hash_bucket_pool_store.hpp" // fuer den Selbstbeweis am Dateiende
+#include <topics/nodes/axis_hash_probe_shape/axis_hash_probe_shape_chaining.hpp>
 
 #include <concepts>
 #include <cstddef>
@@ -32,7 +33,8 @@ concept HashProbeTraversal =
         { T::template erase_from<Pool>(p, k) } -> std::same_as<bool>;
     };
 
-/// Hash-Traversal-Organ: Open-Addressing Linear Probing + Fibonacci-Hash. Navigiert ueber Pool-Slot-API.
+/// Hash-Traversal-Organ: Open-Addressing Linear Probing oder Separate Chaining + Fibonacci-Hash.
+/// Navigiert ueber Pool-API; der Store bekommt keine Suchlogik.
 struct HashProbeTraversalOrgan {
     /// Multiplikative Hash-Konstante 2^64/phi (Knuth) — die Such-Logik (Index-Berechnung) ist Organ-Sache.
     static constexpr std::uint64_t kFibonacciMul = 11400714819323198485ULL;
@@ -45,58 +47,96 @@ struct HashProbeTraversalOrgan {
 
     template <class Pool>
     static void insert_into(Pool& p, typename Pool::key_type k, typename Pool::value_type v) {
-        // Load-Trigger >= 0.7 (verbatim Monolith Z.75): vor dem Proben ggf. Kapazitaet verdoppeln.
-        if ((p.occupied() + p.tombstones()) * 10 >= p.bucket_count() * 7) p.rehash(p.bucket_count() * 2);
-        std::size_t const cap           = p.bucket_count();
-        std::size_t const start         = index_of<Pool>(k, cap);
-        std::size_t       first_deleted = kNpos;
-        for (std::size_t i = 0; i < cap; ++i) {
-            std::size_t const pos = (start + i) & (cap - 1);
-            if (p.slot_is_empty(pos)) {
-                // Tombstone-Reuse: an erstem gesehenen Deleted-Slot platzieren, sonst am Empty-Slot.
-                std::size_t const target = (first_deleted != kNpos) ? first_deleted : pos;
-                p.place_occupied(target, k, v); // Store verbucht Tombstone->Occupied + ++occupied
-                return;
+        // Shape-Load-Trigger. Fuer HashOaLf70 gilt Term-fuer-Term weiter: 7/10 => *10 >= *7.
+        if ((p.occupied() + p.tombstones()) * static_cast<std::size_t>(Pool::kLoadDenominator) >=
+            p.bucket_count() * static_cast<std::size_t>(Pool::kLoadNumerator))
+            p.rehash(p.bucket_count() * 2);
+
+        if constexpr (Pool::kOpenAddressing) {
+            std::size_t const cap           = p.bucket_count();
+            std::size_t const start         = index_of<Pool>(k, cap);
+            std::size_t       first_deleted = kNpos;
+            for (std::size_t i = 0; i < cap; ++i) {
+                std::size_t const pos = (start + i) & (cap - 1);
+                if (p.slot_is_empty(pos)) {
+                    // Tombstone-Reuse: an erstem gesehenen Deleted-Slot platzieren, sonst am Empty-Slot.
+                    std::size_t const target = (first_deleted != kNpos) ? first_deleted : pos;
+                    p.place_occupied(target, k, v); // Store verbucht Tombstone->Occupied + ++occupied
+                    return;
+                }
+                if (p.slot_is_deleted(pos)) {
+                    if (first_deleted == kNpos) first_deleted = pos;
+                } else if (p.slot_key(pos) == k) { // Occupied + gleicher Key -> Update
+                    p.set_slot_value(pos, v);
+                    return;
+                }
             }
-            if (p.slot_is_deleted(pos)) {
-                if (first_deleted == kNpos) first_deleted = pos;
-            } else if (p.slot_key(pos) == k) { // Occupied + gleicher Key -> Update
-                p.set_slot_value(pos, v);
-                return;
+        } else {
+            std::size_t const bucket = index_of<Pool>(k, p.bucket_count());
+            for (std::size_t node = p.chain_head(bucket); node != Pool::kNil; node = p.node_next(node)) {
+                if (p.slot_is_occupied(node) && p.slot_key(node) == k) {
+                    p.set_slot_value(node, v);
+                    return;
+                }
             }
+            p.allocate_chained(bucket, k, v);
         }
     }
 
     template <class Pool>
     static std::optional<typename Pool::value_type> lookup_in(Pool const& p, typename Pool::key_type k) {
-        std::size_t const cap   = p.bucket_count();
-        std::size_t const start = index_of<Pool>(k, cap);
-        for (std::size_t i = 0; i < cap; ++i) {
-            std::size_t const pos = (start + i) & (cap - 1);
-            if (p.slot_is_empty(pos)) return std::nullopt; // Kette zu Ende -> Miss
-            if (p.slot_is_occupied(pos) && p.slot_key(pos) == k) return p.slot_value(pos);
-            // Deleted oder Occupied(anderer Key) -> weiter proben
+        if constexpr (Pool::kOpenAddressing) {
+            std::size_t const cap   = p.bucket_count();
+            std::size_t const start = index_of<Pool>(k, cap);
+            for (std::size_t i = 0; i < cap; ++i) {
+                std::size_t const pos = (start + i) & (cap - 1);
+                if (p.slot_is_empty(pos)) return std::nullopt; // Kette zu Ende -> Miss
+                if (p.slot_is_occupied(pos) && p.slot_key(pos) == k) return p.slot_value(pos);
+                // Deleted oder Occupied(anderer Key) -> weiter proben
+            }
+            return std::nullopt;
+        } else {
+            std::size_t const bucket = index_of<Pool>(k, p.bucket_count());
+            for (std::size_t node = p.chain_head(bucket); node != Pool::kNil; node = p.node_next(node)) {
+                if (p.slot_is_occupied(node) && p.slot_key(node) == k) return p.slot_value(node);
+            }
+            return std::nullopt;
         }
-        return std::nullopt;
     }
 
     template <class Pool>
     static bool erase_from(Pool& p, typename Pool::key_type k) {
-        std::size_t const cap   = p.bucket_count();
-        std::size_t const start = index_of<Pool>(k, cap);
-        for (std::size_t i = 0; i < cap; ++i) {
-            std::size_t const pos = (start + i) & (cap - 1);
-            if (p.slot_is_empty(pos)) return false;
-            if (p.slot_is_occupied(pos) && p.slot_key(pos) == k) {
-                p.mark_deleted(pos); // Tombstone — Probe-Kette bleibt intakt
-                return true;
+        if constexpr (Pool::kOpenAddressing) {
+            std::size_t const cap   = p.bucket_count();
+            std::size_t const start = index_of<Pool>(k, cap);
+            for (std::size_t i = 0; i < cap; ++i) {
+                std::size_t const pos = (start + i) & (cap - 1);
+                if (p.slot_is_empty(pos)) return false;
+                if (p.slot_is_occupied(pos) && p.slot_key(pos) == k) {
+                    p.mark_deleted(pos); // Tombstone — Probe-Kette bleibt intakt
+                    return true;
+                }
             }
+            return false;
+        } else {
+            std::size_t const bucket = index_of<Pool>(k, p.bucket_count());
+            std::size_t       prev   = Pool::kNil;
+            for (std::size_t node = p.chain_head(bucket); node != Pool::kNil; node = p.node_next(node)) {
+                if (p.slot_is_occupied(node) && p.slot_key(node) == k) {
+                    p.unlink_erase(bucket, node, prev);
+                    return true;
+                }
+                prev = node;
+            }
+            return false;
         }
-        return false;
     }
 };
 
 // Selbstbeweis: HashProbeTraversalOrgan erfuellt das HashProbeTraversal-Concept ueber dem Pilot-Pool.
 static_assert(HashProbeTraversal<HashProbeTraversalOrgan, HashBucketPoolStore<>>);
+static_assert(HashProbeTraversal<
+              HashProbeTraversalOrgan,
+              HashBucketPoolStore<::comdare::cache_engine::nodes::axis_hash_probe_shape::HashChaining>>);
 
 } // namespace comdare::cache_engine::lookup::composable

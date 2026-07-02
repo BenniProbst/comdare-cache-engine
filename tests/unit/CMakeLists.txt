@@ -1524,6 +1524,20 @@ target_include_directories(test_234_f3_bst_shape PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_234_f3_bst_shape PRIVATE Boost::mp11)
 
+# #234-F4 (W2, 2026-07-02) — HashProbeShape real: Shape-LF-Trigger (Lf50/70/90, Lf70 termgleich zum Alt-Code) +
+# Chaining-Vollausbau (conditional_t-Datenpfade OA/Chain im Store, Concept-Union Core+OA+Chaining,
+# for_each_record-Ketten-Walk): Konformitaet je Variante + LF-Wirkungs-Beweis (bucket_count 128 vs 64 nach N=64)
+# + Chaining-Recycling/tombstones==0 + Level-0-Alias-Anker.
+comdare_add_test(test_234_f4_hash_probe_shape
+    SOURCES test_234_f4_hash_probe_shape.cpp)
+target_include_directories(test_234_f4_hash_probe_shape PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_234_f4_hash_probe_shape PRIVATE Boost::mp11)
+
 # P5 (#156-De-Risk, 2026-06-20) — Smoke fuer die PMC-WIDE-Naht: make_pmc_source()/IPmcSource im LAZY WIDE-Mess-Pfad
 # (perm_runner) + 7 additive pmc_*-Spalten in lazy_csv_header. Standalone (plain int main, baut KEINE DLLs), zieht
 # aber den schweren iterator-/pmc_source_factory-Kontext -> derselbe anatomy/axes/Boost::mp11-Include-Satz wie
