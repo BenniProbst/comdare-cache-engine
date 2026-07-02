@@ -1553,6 +1553,19 @@ target_include_directories(test_188_4a_eytzinger_organ PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_188_4a_eytzinger_organ PRIVATE Boost::mp11)
 
+# #188-4c-0 (2026-07-02) — Known-Compositions-Conformance-Gate: alle 11 Reference-/PaperBinding-Compositions
+# durch run_conformance_gate (std::map-Orakel) am realen SearchAlgorithmAbiAdapter — Sicherheitsnetz VOR dem
+# Spiegel-Abbau (#188-4c). Baseline-Routing-Snapshot (routes_through_store==false) flippt bewusst mit 4c-i.
+comdare_add_test(test_188_4c0_known_compositions_conformance
+    SOURCES test_188_4c0_known_compositions_conformance.cpp)
+target_include_directories(test_188_4c0_known_compositions_conformance PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_188_4c0_known_compositions_conformance PRIVATE Boost::mp11)
+
 # P5 (#156-De-Risk, 2026-06-20) — Smoke fuer die PMC-WIDE-Naht: make_pmc_source()/IPmcSource im LAZY WIDE-Mess-Pfad
 # (perm_runner) + 7 additive pmc_*-Spalten in lazy_csv_header. Standalone (plain int main, baut KEINE DLLs), zieht
 # aber den schweren iterator-/pmc_source_factory-Kontext -> derselbe anatomy/axes/Boost::mp11-Include-Satz wie

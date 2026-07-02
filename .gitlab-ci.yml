@@ -133,6 +133,9 @@ contract:durability:
 # defekte Huellen (muessen gefangen werden) durch run_conformance_gate; faengt das Gate eine Nicht-Konformitaet
 # NICHT, ist der Test rot = CI rot. Reines C++/std::map (Linux-g++), kein cl/thesis_tiere-Harness -> schliesst
 # die Harness-CI-Verifikationsluecke fuer genau diesen Konformitaets-Contract. Mirror der .pmc-/contract-Konv.
+# #188-4c-0 (2026-07-02): +test_188_4c0_known_compositions_conformance — alle 11 Reference-/PaperBinding-
+# Compositions durch dasselbe Gate am realen Adapter (Sicherheitsnetz VOR dem Spiegel-Abbau #188-4c;
+# Baseline routes_through_store==false flippt bewusst mit 4c-i). Exakter 2-Target-Regex (bb0-Lehre).
 contract:conformance:
   extends: .bare_metal
   stage: contract
@@ -141,8 +144,8 @@ contract:conformance:
   script:
     # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
     - cmake -B build-conf -G Ninja -DCOMDARE_BUILD_TESTS=ON
-    - cmake --build build-conf --target test_conformance_gate
-    - ctest --test-dir build-conf -R '^test_conformance_gate$' --output-on-failure -V
+    - cmake --build build-conf --target test_conformance_gate test_188_4c0_known_compositions_conformance
+    - ctest --test-dir build-conf -R '^(test_conformance_gate|test_188_4c0_known_compositions_conformance)$' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
