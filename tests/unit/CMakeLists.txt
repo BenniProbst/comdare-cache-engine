@@ -1511,6 +1511,19 @@ target_include_directories(test_234_f2_skip_list_shape PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_234_f2_skip_list_shape PRIVATE Boost::mp11)
 
+# #234-F3 (W2, 2026-07-02) — BstShape-Varianten real: U32/U16-Index-Packing paargenau vs std::map + U16-Ueberlauf-
+# Beweis (fuellt exakt Store::kNilIndex Knoten, dann length_error; Free-List-Recycling an der Kapazitaetsgrenze) +
+# kNil-/kIndexBytes-static_asserts + Level-0-Alias-Anker.
+comdare_add_test(test_234_f3_bst_shape
+    SOURCES test_234_f3_bst_shape.cpp)
+target_include_directories(test_234_f3_bst_shape PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_234_f3_bst_shape PRIVATE Boost::mp11)
+
 # P5 (#156-De-Risk, 2026-06-20) — Smoke fuer die PMC-WIDE-Naht: make_pmc_source()/IPmcSource im LAZY WIDE-Mess-Pfad
 # (perm_runner) + 7 additive pmc_*-Spalten in lazy_csv_header. Standalone (plain int main, baut KEINE DLLs), zieht
 # aber den schweren iterator-/pmc_source_factory-Kontext -> derselbe anatomy/axes/Boost::mp11-Include-Satz wie

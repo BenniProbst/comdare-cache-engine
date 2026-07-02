@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <stdexcept>
 #include <vector>
 
 namespace comdare::cache_engine::lookup::composable {
@@ -52,11 +53,17 @@ public:
             nodes_[idx] = Node{k, v, kNilIndex, kNilIndex};
         } else {
             idx = nodes_.size();
+            // #234-F3 [[allocation-failure-exception]]: der Sentinel kNilIndex ist NIE ein gueltiger Knoten-Index —
+            // bei schmalem index_type (U16: max 65535 Knoten, Indizes 0..65534; 65535 = kNilIndex-Sentinel) ist Ueberlauf ein harter Fehler, kein stilles Wrappen.
+            if (idx >= static_cast<std::size_t>(kNilIndex))
+                throw std::length_error("TreeNodePoolStore: index_type-Kapazitaet erschoepft (#234-F3)");
             nodes_.push_back(Node{k, v, kNilIndex, kNilIndex});
         }
         ++size_;
         return idx;
     }
+    /// Contract (Substrat/Organ-Vertrauensgrenze, wie alle Setter): i MUSS ein aktuell lebendiger, genau einmal
+    /// freigegebener Knoten-Index sein — das Traversal-Organ garantiert das; der Store validiert nicht (#234-F3).
     void free_node(std::size_t i) noexcept {
         free_.push_back(i);
         --size_;
@@ -69,6 +76,8 @@ public:
     }
 
 private:
+    // sizeof(Node) je Packing: size_t 32 B; u32 24 B; u16 20->24 B mit Padding, alignof(u64)-bedingt;
+    // U16-Gewinn liegt im Index-Wertebereich, nicht im sizeof.
     struct Node {
         key_type   key{};
         value_type val{};

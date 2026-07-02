@@ -206,7 +206,7 @@ contract:node_shape:
   script:
     # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
     - cmake -B build-nodeshape -G Ninja -DCOMDARE_BUILD_TESTS=ON
-    - cmake --build build-nodeshape --target test_234_f1_btree_order_shape test_234_f2_skip_list_shape
+    - cmake --build build-nodeshape --target test_234_f1_btree_order_shape test_234_f2_skip_list_shape test_234_f3_bst_shape
     - ctest --test-dir build-nodeshape -R '^test_234_f' --output-on-failure
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
