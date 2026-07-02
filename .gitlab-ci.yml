@@ -134,8 +134,8 @@ contract:durability:
 # NICHT, ist der Test rot = CI rot. Reines C++/std::map (Linux-g++), kein cl/thesis_tiere-Harness -> schliesst
 # die Harness-CI-Verifikationsluecke fuer genau diesen Konformitaets-Contract. Mirror der .pmc-/contract-Konv.
 # #188-4c-0 (2026-07-02): +test_188_4c0_known_compositions_conformance — alle 11 Reference-/PaperBinding-
-# Compositions durch dasselbe Gate am realen Adapter (Sicherheitsnetz VOR dem Spiegel-Abbau #188-4c;
-# Baseline routes_through_store==false flippt bewusst mit 4c-i). Exakter 2-Target-Regex (bb0-Lehre).
+# Compositions durch dasselbe Gate am realen Adapter (Sicherheitsnetz fuer den Spiegel-Abbau #188-4c;
+# seit #188-4c-i routes_through_store==true: Huellen container_-authoritativ). Exakter 2-Target-Regex (bb0-Lehre).
 contract:conformance:
   extends: .bare_metal
   stage: contract

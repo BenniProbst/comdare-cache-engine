@@ -12,14 +12,15 @@
 //   (1) für mehrere reale Tiere: Σseg_ns + seg_framework_ns ≡ seg_run_total_ns (exakte Identität, by-construction);
 //   (2) Coverage = Σseg_ns / seg_run_total_ns > 0.90 ODER der benannte Rest deckt den verbleibenden Anteil
 //       (Coverage + framework_anteil ≡ 1.0) — die ABNAHME-Bedingung von P-MD3;
-//   (3) die latenz-dominanten Organe (search_algo T0 / node_type T4 / memory_layout T5) tragen plausible, NICHT
-//       verschwindende Anteile (> 0), d.h. der seg-Timer attribuiert algorithmische Organ-Zeit, nicht nur Overhead;
+//   (3) die latenz-dominanten Store-Organe (node_type T4 / memory_layout T5) tragen bei store-backed AdHoc plausible,
+//       NICHT verschwindende Anteile (> 0); Reference-Huellen tragen diese Store-Achsen seit #188-4c-i honest-0;
 //   (4) das alte irreführende Verhältnis sum(seg)/total_ns wird zum Vergleich AUSGEGEBEN (Diagnose der ~33%).
 // Alle Zahlen werden LITERAL ausgegeben (keine Erfolgsmarke ohne Ausgabe).
 //
 // Build: cl /std:c++latest /EHsc /DCOMDARE_MEASUREMENT_ON=1 /DCOMDARE_CE_ENABLE_STATISTICS=1 + voller ADHOC-Include-Satz.
 
 #include <anatomy/abi_adapter.hpp>
+#include <anatomy/composition_factory.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <builder/experiment_tree/perm_runner.hpp>                   // run_observable_perm (treibt den Mess-Pfad)
@@ -28,14 +29,37 @@
 #include <compositions/art_reference.hpp>
 #include <compositions/hot_reference.hpp>
 #include <compositions/masstree_reference.hpp>
+#include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 
 #include <cstdint>
 #include <iostream>
 #include <string>
 
-namespace an   = ::comdare::cache_engine::anatomy;
-namespace comp = ::comdare::cache_engine::compositions;
-namespace ex   = ::comdare::cache_engine::builder::experiment;
+namespace an    = ::comdare::cache_engine::anatomy;
+namespace comp  = ::comdare::cache_engine::compositions;
+namespace ce03a = ::comdare::cache_engine::traversal::axis_03a_search_algo;
+namespace ex    = ::comdare::cache_engine::builder::experiment;
+
+using StoreBackedAdHocComposition =
+    an::AdHocComposition<ce03a::Array256SearchAlgo,
+                         comp::ArtComposition::cache_traversal,
+                         comp::ArtComposition::mapping,
+                         comp::ArtComposition::path_compression,
+                         comp::ArtComposition::node_type,
+                         comp::ArtComposition::memory_layout,
+                         comp::ArtComposition::allocator,
+                         comp::ArtComposition::prefetch,
+                         comp::ArtComposition::concurrency,
+                         comp::ArtComposition::serialization,
+                         comp::ArtComposition::telemetry,
+                         comp::ArtComposition::value_handle,
+                         comp::ArtComposition::isa,
+                         comp::ArtComposition::index_organization,
+                         comp::ArtComposition::io_dispatch,
+                         comp::ArtComposition::migration_policy,
+                         comp::ArtComposition::filter,
+                         comp::ArtComposition::queuing_q1,
+                         comp::ArtComposition::queuing_q2>;
 
 static int  g_fail = 0;
 static void tr(std::string const& w, bool c) {
@@ -44,7 +68,7 @@ static void tr(std::string const& w, bool c) {
 }
 
 template <class C>
-static void check_coverage(char const* name) {
+static void check_coverage(char const* name, bool store_axes_backed) {
     using Anatomy = an::SearchAlgorithmAnatomy<C>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
     auto* obs = dynamic_cast<an::IObservableTier*>(static_cast<an::IAnatomyBase*>(&tier));
@@ -91,17 +115,26 @@ static void check_coverage(char const* name) {
     bool const accept = identity && (cov_own > 0.90);
     tr(std::string(name) + ": Identitaet (Rest benannt) UND Coverage > 0.90 (P-MD3-Abnahme, scharf)", accept);
 
-    // (3) die latenz-dominanten Organe tragen plausible, NICHT-verschwindende Zeit (algorithmische Organ-Zeit, nicht 0).
+    // (3) die latenz-dominanten Organe tragen plausible, NICHT-verschwindende Zeit, sofern ein Store existiert.
     tr(std::string(name) + ": seg[T0 search_algo] > 0 (algorithmische Organ-Zeit, nicht 0)", s.seg_ns[0] > 0);
-    tr(std::string(name) + ": seg[T4 node_type] > 0 (algorithmische Organ-Zeit, nicht 0)", s.seg_ns[4] > 0);
-    tr(std::string(name) + ": seg[T5 memory_layout] > 0 (algorithmische Organ-Zeit, nicht 0)", s.seg_ns[5] > 0);
+    if (store_axes_backed) {
+        tr(std::string(name) + ": seg[T4 node_type] > 0 (store-backed algorithmische Organ-Zeit)", s.seg_ns[4] > 0);
+        tr(std::string(name) + ": seg[T5 memory_layout] > 0 (store-backed algorithmische Organ-Zeit)",
+           s.seg_ns[5] > 0);
+    } else {
+        // #188-4c-i: Huellen-Komposition container_-authoritativ -> store-Achsen honest-0 (bis observe-Hooks #234).
+        tr(std::string(name) + ": seg[T4 node_type] == 0 (Huellen honest-0)", s.seg_ns[4] == 0);
+        tr(std::string(name) + ": seg[T5 memory_layout] == 0 (Huellen honest-0)", s.seg_ns[5] == 0);
+        tr(std::string(name) + ": seg[T6 allocator] == 0 (Huellen honest-0)", s.seg_ns[6] == 0);
+    }
 }
 
 int main() {
     std::cout << "==== P-MD3 Segment-Coverage-Versöhnung (seg_sum / seg_run_total_ns) ====\n";
-    check_coverage<comp::ArtComposition>("Art");
-    check_coverage<comp::HotComposition>("Hot");
-    check_coverage<comp::MasstreeComposition>("Masstree");
+    check_coverage<StoreBackedAdHocComposition>("AdHocArray256StoreBacked", true);
+    check_coverage<comp::ArtComposition>("Art", false);
+    check_coverage<comp::HotComposition>("Hot", false);
+    check_coverage<comp::MasstreeComposition>("Masstree", false);
 
     if (g_fail == 0)
         std::cout << "==== P-MD3 Segment-Coverage: ALLE OK ====\n";

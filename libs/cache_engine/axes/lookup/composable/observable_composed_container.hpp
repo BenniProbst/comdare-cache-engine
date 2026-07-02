@@ -26,11 +26,27 @@
 
 #include <cstddef>
 #include <optional>
+#include <type_traits>
 #include <utility>
 
 namespace comdare::cache_engine::lookup::composable {
 
 namespace ce_concepts = ::comdare::cache_engine::lookup::concepts;
+
+template <class Container>
+class ObservableComposedContainer;
+
+/// #188-4c-i: Trait fuer bereits observable Organ-Huellen. Reference-Compositions tragen
+/// `ObservableComposedContainer<XOrgan>` schon als `search_algo`; der ABI-Adapter muss dann `container_t`
+/// direkt als `SearchAlgo` fuehren: kein SortedBinary-Spiegel und kein zweites Wrapping.
+template <class T>
+struct is_observable_organ_hull : std::false_type {};
+
+template <class Container>
+struct is_observable_organ_hull<ObservableComposedContainer<Container>> : std::true_type {};
+
+template <class T>
+inline constexpr bool is_observable_organ_hull_v = is_observable_organ_hull<T>::value;
 
 /// ObservableAxis-Huelle um EIN Container-Organ. Container = ComposedXxxSearch<Traversal,Pool> mit dem
 /// einheitlichen std::map-Interface insert(k,v)/lookup(k)/erase(k)/clear()/occupied_count(). Tier-agnostisch:

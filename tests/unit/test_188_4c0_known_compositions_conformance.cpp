@@ -1,10 +1,10 @@
 // #188-4c-0 (2026-07-02) -- Known-Compositions-Conformance-Gate.
 //
-// Sicherheitsnetz VOR dem Spiegel-Abbau (#188-4c): jede bekannte Reference-/
+// Sicherheitsnetz fuer den Spiegel-Abbau (#188-4c): jede bekannte Reference-/
 // PaperBinding-Composition wird ueber den realen SearchAlgorithmAbiAdapter
-// durch das std::map-Orakel des Pruef-Docks getrieben. Der Test bleibt ueber
-// den 4c-Umbau als Verhaltens-Baseline bestehen; nur der Routing-Snapshot
-// flippt im spaeteren 4c-i-Increment bewusst von false auf true.
+// durch das std::map-Orakel des Pruef-Docks getrieben. #188-4c-i flippt den
+// Routing-Snapshot bewusst auf store-/container-autoritativ: Reference-Huellen
+// nutzen keinen SortedBinary-Spiegel mehr.
 
 #include <anatomy/composition_concept.hpp>
 #include <compositions/known_compositions_list.hpp>
@@ -155,10 +155,10 @@ struct RoutingSnapshotRunner {
         constexpr bool routes_through_store = Adapter::tier_search_routes_through_store();
         ::testing::Test::RecordProperty(std::string{Composition::name}, routes_through_store ? "true" : "false");
 
-        // #188-4c-0: Heute routet diese Known-Reference/PaperBinding-Gruppe noch
-        // nicht durch den Store. Flippt mit 4c-i auf true; dieser EXPECT wird DANN
-        // im 4c-i-Increment bewusst angepasst (einzige erlaubte Test-Aenderung).
-        EXPECT_FALSE(routes_through_store) << label_for<Entry>();
+        // #188-4c-i: Known-Reference/PaperBinding-Compositions tragen bereits
+        // ObservableComposedContainer<XOrgan> als search_algo; der ABI-Adapter routet
+        // T0/insert/lookup/erase jetzt direkt durch diese autoritative Huelle.
+        EXPECT_TRUE(routes_through_store) << label_for<Entry>();
 
         ++visited;
     }
@@ -191,7 +191,7 @@ TEST(KnownCompositionsConformance1884c0, SizeClearReuseRoundTripForEveryKnownCom
     EXPECT_EQ(runner.visited, kKnownCompositionCount);
 }
 
-TEST(KnownCompositionsConformance1884c0, SearchRoutingBaselineStillUsesMirrorBefore1884c) {
+TEST(KnownCompositionsConformance1884c0, SearchRoutingIsStoreAuthoritativeSince1884ci) {
     RoutingSnapshotRunner runner{};
     for_each_known_composition(runner);
     EXPECT_EQ(runner.visited, kKnownCompositionCount);

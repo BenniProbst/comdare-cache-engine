@@ -3,9 +3,10 @@
 //   Kompositionen (in-process Stand-in: identische vtable/POD-Layout wie über die .dll-Grenze). Emittiert die WIDE-
 //   Schema-CSV via die ECHTEN Writer (lazy_csv_header/format_csv_row) nach build/thesis_tiere/obs_phaseB_pilot.csv
 //   und prüft literal:
-//     (1) ALLE 19 Achsen tragen jetzt einen Observer (filled_axis_count == 19; kein Schema-leerer 0-Block mehr);
-//     (2) kein Achsen-Block ist 0 — AUSSER den EHRLICH deklarierten Strategie-Baselines (T7 NonePrefetch,
-//         T15 NoMigration migrations/votes/tier_moves); die Mengen-/Scan-Felder dieser Achsen sind dennoch >0;
+//     (1) store-backed AdHoc traegt weiter alle 19 Observer-Zeilen (filled_axis_count == 19); Reference-Huellen
+//         tragen seit #188-4c-i store-abhaengige Achsen honest-0, bis die observe-Hooks #234 existieren;
+//     (2) bei store-backed ist kein Achsen-Block 0 — AUSSER den EHRLICH deklarierten Strategie-Baselines
+//         (T7 NonePrefetch, T15 NoMigration migrations/votes/tier_moves); Huellen assertieren T13-T16 == 0;
 //     (3) die Werte sind ORGAN-/DATEN-bestimmt: ein zweiter Pass treibt die 5 Phase-B-Achsen-Hüllen (T3/T13/T16)
 //         direkt mit KONTRASTIERENDEN Strategien (None vs ByteWise vs Patricia; Heap vs Clustered vs NonClustered)
 //         → die Zähler DIFFERIEREN strategie-abhängig (kein erfundener Konstantwert).
@@ -13,6 +14,7 @@
 // Build: cl /std:c++latest /EHsc /DCOMDARE_MEASUREMENT_ON=1 /DCOMDARE_CE_ENABLE_STATISTICS=1 + voller ADHOC-Include-Satz.
 
 #include <anatomy/abi_adapter.hpp>
+#include <anatomy/composition_factory.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <builder/experiment_tree/perm_runner.hpp>
@@ -21,6 +23,7 @@
 #include <compositions/art_reference.hpp>
 #include <compositions/hot_reference.hpp>
 #include <compositions/masstree_reference.hpp>
+#include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 
 // Direkte Hüllen-Treiber (strategie-Divergenz-Beleg) — die echten Achsen-Strategien.
 #include <axes/path_compression/axis_02_path_compression_observable.hpp>
@@ -37,11 +40,33 @@
 #include <iostream>
 #include <string>
 
-namespace an   = ::comdare::cache_engine::anatomy;
-namespace comp = ::comdare::cache_engine::compositions;
-namespace ex   = ::comdare::cache_engine::builder::experiment;
-namespace pc   = ::comdare::cache_engine::path_compression;
-namespace ixo  = ::comdare::cache_engine::index_organization;
+namespace an    = ::comdare::cache_engine::anatomy;
+namespace comp  = ::comdare::cache_engine::compositions;
+namespace ce03a = ::comdare::cache_engine::traversal::axis_03a_search_algo;
+namespace ex    = ::comdare::cache_engine::builder::experiment;
+namespace pc    = ::comdare::cache_engine::path_compression;
+namespace ixo   = ::comdare::cache_engine::index_organization;
+
+using StoreBackedAdHocComposition =
+    an::AdHocComposition<ce03a::Array256SearchAlgo,
+                         comp::ArtComposition::cache_traversal,
+                         comp::ArtComposition::mapping,
+                         comp::ArtComposition::path_compression,
+                         comp::ArtComposition::node_type,
+                         comp::ArtComposition::memory_layout,
+                         comp::ArtComposition::allocator,
+                         comp::ArtComposition::prefetch,
+                         comp::ArtComposition::concurrency,
+                         comp::ArtComposition::serialization,
+                         comp::ArtComposition::telemetry,
+                         comp::ArtComposition::value_handle,
+                         comp::ArtComposition::isa,
+                         comp::ArtComposition::index_organization,
+                         comp::ArtComposition::io_dispatch,
+                         comp::ArtComposition::migration_policy,
+                         comp::ArtComposition::filter,
+                         comp::ArtComposition::queuing_q1,
+                         comp::ArtComposition::queuing_q2>;
 
 static int  g_fail = 0;
 static void tr(char const* w, bool c) {
@@ -82,28 +107,45 @@ static an::ComdareTierObserverSnapshot measure_v3(char const* name, std::string&
 }
 
 template <class C>
-static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s) {
-    // (1) alle 19 Achsen befüllt
-    tr((std::string{name} + ": filled_axis_count == 19").c_str(), s.filled_axis_count == 19u);
-    tr((std::string{name} + ": filled_axis_count == kV3FilledAxisCount").c_str(),
-       s.filled_axis_count == an::kV3FilledAxisCount);
-    // (2) jede Phase-B-Achse trägt ECHTE Mengen-/Scan-Felder > 0 (auch die ehrlichen Baselines: ihr Mengen-Feld zählt,
-    //     nur die strategie-spezifischen Trigger/Votes sind 0). T3/T13/T14/T15/T16 row_sum > 0.
-    for (int t : {3, 13, 14, 15, 16}) {
-        tr((std::string{name} + ": T" + std::to_string(t) + " row_sum > 0").c_str(), row_sum(s, t) > 0);
+static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s, bool store_axes_backed) {
+    if (store_axes_backed) {
+        // Store-backed AdHoc bleibt die volle Phase-B-Coverage-Kontrolle: alle Schema-Achsen sind befüllt.
+        tr((std::string{name} + ": filled_axis_count == 19 (store-backed)").c_str(), s.filled_axis_count == 19u);
+        tr((std::string{name} + ": filled_axis_count == kV3FilledAxisCount (store-backed)").c_str(),
+           s.filled_axis_count == an::kV3FilledAxisCount);
+        for (int t : {3, 13, 14, 15, 16}) {
+            tr((std::string{name} + ": T" + std::to_string(t) + " row_sum > 0 (store-backed)").c_str(),
+               row_sum(s, t) > 0);
+        }
+        tr((std::string{name} + ": T15 total_decisions > 0 (Store-Scan getrieben)").c_str(),
+           s.axis_stats[15][0] > 0);
+        tr((std::string{name} + ": T15 tier_moves == 0 (honest, kein 2. Tier)").c_str(),
+           s.axis_stats[15][4] == 0);
+        return;
     }
-    // T15 NoMigration: total_decisions (Feld 0) > 0, aber migrations/hot/cold/tier_moves (Felder 1..4) HONEST 0.
-    tr((std::string{name} + ": T15 total_decisions > 0 (Scan getrieben)").c_str(), s.axis_stats[15][0] > 0);
-    tr((std::string{name} + ": T15 tier_moves == 0 (honest, kein 2. Tier)").c_str(), s.axis_stats[15][4] == 0);
+
+    // #188-4c-i: Huellen-Komposition container_-authoritativ -> store-Achsen honest-0 (bis observe-Hooks #234).
+    // filled_axis_count zaehlt nur tatsaechlich befuellte Observer-Zeilen; T4/T5/T6/T9/T11..T16 fallen ohne Store weg.
+    tr((std::string{name} + ": filled_axis_count == 9 (Huellen honest-0 Store-Achsen)").c_str(),
+       s.filled_axis_count == 9u);
+    tr((std::string{name} + ": T3 row_sum > 0 (Auto-Kopplung bleibt real)").c_str(), row_sum(s, 3) > 0);
+    for (int t : {13, 14, 15, 16}) {
+        tr((std::string{name} + ": T" + std::to_string(t) + " row_sum == 0 (Huellen honest-0)").c_str(),
+           row_sum(s, t) == 0u);
+    }
+    tr((std::string{name} + ": T15 total_decisions == 0 (kein Store-Scan bei Huellen)").c_str(),
+       s.axis_stats[15][0] == 0u);
+    tr((std::string{name} + ": T15 tier_moves == 0 (honest, kein 2. Tier)").c_str(), s.axis_stats[15][4] == 0u);
 }
 
 int main() {
     std::cout << "==== Phase B Abschluss: Per-Achsen-Observer-V3 ALLE 19 Achsen (search_algo_grid) ====\n";
 
-    std::string csv  = ex::lazy_csv_header();
-    auto        art  = measure_v3<comp::ArtComposition>("ArtComposition", csv);
-    auto        hot  = measure_v3<comp::HotComposition>("HotComposition", csv);
-    auto        mass = measure_v3<comp::MasstreeComposition>("MasstreeComposition", csv);
+    std::string csv   = ex::lazy_csv_header();
+    auto        adhoc = measure_v3<StoreBackedAdHocComposition>("AdHocArray256StoreBacked", csv);
+    auto        art   = measure_v3<comp::ArtComposition>("ArtComposition", csv);
+    auto        hot   = measure_v3<comp::HotComposition>("HotComposition", csv);
+    auto        mass  = measure_v3<comp::MasstreeComposition>("MasstreeComposition", csv);
 
     char const* out_path = "build/thesis_tiere/obs_phaseB_pilot.csv";
     {
@@ -112,9 +154,10 @@ int main() {
     }
     std::cout << "CSV: " << out_path << "\n";
 
-    check_one<comp::ArtComposition>("Art", art);
-    check_one<comp::HotComposition>("Hot", hot);
-    check_one<comp::MasstreeComposition>("Masstree", mass);
+    check_one<StoreBackedAdHocComposition>("AdHocArray256StoreBacked", adhoc, true);
+    check_one<comp::ArtComposition>("Art", art, false);
+    check_one<comp::HotComposition>("Hot", hot, false);
+    check_one<comp::MasstreeComposition>("Masstree", mass, false);
 
     // (3) STRATEGIE-DIVERGENZ-BELEG: dieselbe Treibe-Last, KONTRASTIERENDE Strategien → divergente Zähler.
     std::cout << "---- Strategie-Divergenz (gleiche Last, verschiedene Strategie) ----\n";

@@ -22,10 +22,12 @@
 //        (scratch_compile_prefetch_real.ps1, abgeleitet aus scratch_compile_patricia_real.ps1).
 
 #include <anatomy/abi_adapter.hpp>
+#include <anatomy/composition_factory.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
 
 #include <compositions/hot_reference.hpp>
+#include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 #include <axes/node/axis_04_node_type_layout_aware_store.hpp>
 #include <axes/prefetch_axis/axis_07_prefetch_real_descent.hpp>
 #include <axes/prefetch_axis/axis_07_prefetch_observable.hpp>
@@ -45,12 +47,13 @@
 #include <vector>
 #include <random>
 
-namespace an   = ::comdare::cache_engine::anatomy;
-namespace comp = ::comdare::cache_engine::compositions;
-namespace pf   = ::comdare::cache_engine::prefetch_axis;
-namespace nd   = ::comdare::cache_engine::node;
-namespace ml   = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;
-namespace al   = ::comdare::cache_engine::allocator::axis_06_allocator;
+namespace an    = ::comdare::cache_engine::anatomy;
+namespace comp  = ::comdare::cache_engine::compositions;
+namespace ce03a = ::comdare::cache_engine::traversal::axis_03a_search_algo;
+namespace pf    = ::comdare::cache_engine::prefetch_axis;
+namespace nd    = ::comdare::cache_engine::node;
+namespace ml    = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;
+namespace al    = ::comdare::cache_engine::allocator::axis_06_allocator;
 
 static int  g_fail = 0;
 static void tr(std::string const& w, bool c) {
@@ -183,8 +186,30 @@ struct PFComposition : comp::HotComposition {
 };
 
 template <class PFStrategy>
-static an::ComdareTierObserverSnapshot drive_tier_and_observe(std::uint64_t n_keys) {
-    using Anatomy = an::SearchAlgorithmAnatomy<PFComposition<PFStrategy>>;
+using PFStoreBackedComposition =
+    an::AdHocComposition<ce03a::Array256SearchAlgo,
+                         comp::HotComposition::cache_traversal,
+                         comp::HotComposition::mapping,
+                         comp::HotComposition::path_compression,
+                         comp::HotComposition::node_type,
+                         comp::HotComposition::memory_layout,
+                         comp::HotComposition::allocator,
+                         PFStrategy,
+                         comp::HotComposition::concurrency,
+                         comp::HotComposition::serialization,
+                         comp::HotComposition::telemetry,
+                         comp::HotComposition::value_handle,
+                         comp::HotComposition::isa,
+                         comp::HotComposition::index_organization,
+                         comp::HotComposition::io_dispatch,
+                         comp::HotComposition::migration_policy,
+                         comp::HotComposition::filter,
+                         comp::HotComposition::queuing_q1,
+                         comp::HotComposition::queuing_q2>;
+
+template <class Composition>
+static an::ComdareTierObserverSnapshot drive_composition_and_observe(std::uint64_t n_keys) {
+    using Anatomy = an::SearchAlgorithmAnatomy<Composition>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
     auto*                                  base = static_cast<an::IAnatomyBase*>(&tier);
     auto*                                  drv  = dynamic_cast<an::IDriveableTier*>(base);
@@ -201,26 +226,46 @@ static an::ComdareTierObserverSnapshot drive_tier_and_observe(std::uint64_t n_ke
     return snap;
 }
 
+template <class PFStrategy>
+static an::ComdareTierObserverSnapshot drive_store_backed_tier_and_observe(std::uint64_t n_keys) {
+    return drive_composition_and_observe<PFStoreBackedComposition<PFStrategy>>(n_keys);
+}
+
+template <class PFStrategy>
+static an::ComdareTierObserverSnapshot drive_hull_tier_and_observe(std::uint64_t n_keys) {
+    return drive_composition_and_observe<PFComposition<PFStrategy>>(n_keys);
+}
+
 static void test_hotpath_end_to_end() {
-    std::cout << "-- (D) HOT-PATH end-to-end: Tier prefetch=Hardware vs None (Observer axis_stats[7]) --\n";
-    constexpr std::uint64_t N     = 2000;
-    auto                    sn_hw = drive_tier_and_observe<pf::HardwarePrefetch>(N);
-    auto                    sn_no = drive_tier_and_observe<pf::NonePrefetch>(N);
+    std::cout << "-- (D) HOT-PATH end-to-end: store-backed AdHoc prefetch=Hardware vs None (Observer axis_stats[7]) --\n";
+    constexpr std::uint64_t N      = 2000;
+    auto                    sn_hw  = drive_store_backed_tier_and_observe<pf::HardwarePrefetch>(N);
+    auto                    sn_no  = drive_store_backed_tier_and_observe<pf::NonePrefetch>(N);
+    auto                    h_hw   = drive_hull_tier_and_observe<pf::HardwarePrefetch>(N);
+    auto                    h_dist = drive_hull_tier_and_observe<pf::DistanceEstimatorPrefetch>(N);
+    auto                    h_path = drive_hull_tier_and_observe<pf::PathOrientedPrefetch>(N);
 
     std::uint64_t const hw_issued = sn_hw.axis_stats[7][5]; // real_prefetches_issued
     std::uint64_t const hw_dist   = sn_hw.axis_stats[7][6]; // last_prefetch_distance
     std::uint64_t const hw_addr   = sn_hw.axis_stats[7][7]; // last_real_address
     std::uint64_t const no_issued = sn_no.axis_stats[7][5];
 
-    std::cout << "     hardware-Tier: real_prefetches_issued=" << hw_issued << " last_distance=" << hw_dist
-              << " last_address=" << hw_addr << "\n";
-    std::cout << "     none-Tier:     real_prefetches_issued=" << no_issued << "\n";
+    std::cout << "     store-backed hardware-Tier: real_prefetches_issued=" << hw_issued
+              << " last_distance=" << hw_dist << " last_address=" << hw_addr << "\n";
+    std::cout << "     store-backed none-Tier:     real_prefetches_issued=" << no_issued << "\n";
 
-    tr("(D) Hardware-Tier traegt >0 reale _mm_prefetch im Observer (hot-path getrieben)", hw_issued > 0);
-    tr("(D) Hardware-Tier traegt eine reale Adresse (last_real_address != 0)", hw_addr != 0);
-    tr("(D) Hardware-Tier last_distance==0 (HW prefetcht den aktuellen Slot)", hw_dist == 0);
-    tr("(D) None-Tier traegt 0 reale Prefetches (ehrliche 0-Overhead-Baseline)", no_issued == 0);
-    tr("(D) Differenzierung im echten Tier: Hardware-issued > None-issued", hw_issued > no_issued);
+    tr("(D) store-backed Hardware-Tier traegt >0 reale _mm_prefetch im Observer (hot-path getrieben)",
+       hw_issued > 0);
+    tr("(D) store-backed Hardware-Tier traegt eine reale Adresse (last_real_address != 0)", hw_addr != 0);
+    tr("(D) store-backed Hardware-Tier last_distance==0 (HW prefetcht den aktuellen Slot)", hw_dist == 0);
+    tr("(D) store-backed None-Tier traegt 0 reale Prefetches (ehrliche 0-Overhead-Baseline)", no_issued == 0);
+    tr("(D) Differenzierung im echten store-backed Tier: Hardware-issued > None-issued", hw_issued > no_issued);
+
+    // #188-4c-i: Huellen-Komposition container_-authoritativ -> store-Achsen honest-0 (bis observe-Hooks #234).
+    tr("(D) Hot-Huelle Hardware issued==0", h_hw.axis_stats[7][5] == 0u);
+    tr("(D) Hot-Huelle Hardware distance/address==0", h_hw.axis_stats[7][6] == 0u && h_hw.axis_stats[7][7] == 0u);
+    tr("(D) Hot-Huelle Distance issued==0", h_dist.axis_stats[7][5] == 0u);
+    tr("(D) Hot-Huelle Path issued==0", h_path.axis_stats[7][5] == 0u);
 }
 
 int main() {
