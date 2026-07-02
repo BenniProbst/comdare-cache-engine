@@ -743,13 +743,13 @@ public:
 #endif
         // Neu-Flag ueber occupied_count-Delta (NICHT ueber einen internen lookup — der wuerde sonst die
         // lookup_count-Observer-Statistik verfaelschen; manche Organe insert()->void).
-        // (M8 / Befund-2-Weg-A) store-traversierbare Tiere fuehren NUR container_ (EIN Speicher, keine Doppel-
-        // Buchfuehrung): das Neu-Flag = container_.insert-bool (insert_or_assign), search_organ_ wird NICHT getrieben
-        // (bleibt leer; uint64-Keys statt search_organ_-uint16 = behebt zugleich K9-(d) fuer diese Tiere). Weg-B
-        // (Trie/Pool): search_organ_ = Such-Speicher + container_ treibt zusaetzlich die Storage-Achsen.
+        // (M8 / Befund-2-Weg-A + #188-4c-i) Autoritative Tiere fuehren NUR container_ (EIN Speicher,
+        // keine Doppel-Buchfuehrung): store-traversierbare flache Algos, Pool-Familien und bereits observable
+        // Reference-Huellen nutzen container_.insert-bool (insert_or_assign); search_organ_ wird dort NICHT getrieben.
+        // Nur die markerlose Default-Flachgruppe fuehrt weiter search_organ_ + flachen Store-Spiegel.
         bool m8_new_flag;
-        // #188-4b-b1b: container_ ist autoritativ (store-traversierbar ODER organ-backed Familie mit nativem Organ) → EIN
-        // Store, kein search_organ_. Nur die markerlose Default-Flachgruppe (Array256/Vector*/Array65535) fuehrt weiter search_organ_+Spiegel.
+        // #188-4c-i: container_ ist autoritativ fuer store-traversierbar, organ_for_search_algo-Pool und
+        // ObservableComposedContainer<XOrgan> als SearchAlgo; kein SortedBinary-Mirror und kein Double-Wrap.
         if constexpr (container_is_authoritative_) {
             m8_new_flag = container_.insert(key, value);
         } else {
@@ -832,9 +832,10 @@ public:
     }
 
     [[nodiscard]] bool tier_lookup(std::uint64_t key, std::uint64_t* out_value) const noexcept override {
-        // (M8 / Befund-2-Weg-A) store-traversierbare Tiere lesen aus container_ (EIN Speicher, uint64-Keys); Weg-B aus search_organ_.
+        // (M8 / Befund-2-Weg-A + #188-4c-i) Autoritative Tiere lesen aus container_ (EIN Speicher, uint64-Keys);
+        // nur die markerlose Default-Flachgruppe liest weiter aus search_organ_.
         bool m8_hit;
-        if constexpr (container_is_authoritative_) { // #188-4b-b1b: organ-backed Familie liest aus dem nativen container_-Organ
+        if constexpr (container_is_authoritative_) { // #188-4c-i: store-/organ-hull-backed Suche ueber container_
             auto const cv = container_.lookup(key);
             m8_hit        = cv.has_value();
             if (m8_hit && out_value != nullptr) *out_value = static_cast<std::uint64_t>(*cv);
@@ -884,8 +885,9 @@ public:
 #if COMDARE_MEASUREMENT_ON
         if (cow_armed_) cow_materialize_copy_(); // CoW (#133 Rev. 2): Vollkopie VOR der Mutation (s. tier_insert)
 #endif
-        // (M8 / Befund-2-Weg-A) store-traversierbare Tiere loeschen NUR in container_ (EIN Speicher); Weg-B: beide.
-        if constexpr (container_is_authoritative_) { // #188-4b-b1b: organ-backed Familie loescht im nativen container_-Organ
+        // (M8 / Befund-2-Weg-A + #188-4c-i) Autoritative Tiere loeschen NUR in container_ (EIN Speicher);
+        // nur die markerlose Default-Flachgruppe loescht search_organ_ + Spiegel.
+        if constexpr (container_is_authoritative_) { // #188-4c-i: store-/organ-hull-backed Loeschung ueber container_
             return container_.erase(key);
         } else {
             auto const before = search_organ_.occupied_count();
@@ -930,10 +932,10 @@ public:
         // frisch (kein kumulatives 2000→4000→…-Artefakt) → der konsolidierte tier_observe braucht KEIN post−pre-
         // Delta mehr (alle 19 Achsen warmup-frei aus EINEM Post-Observe). if-constexpr: AdHoc-Strategien ohne reset().
         if constexpr (requires { search_organ_.reset(); }) search_organ_.reset();
-        // #188-4b-b1b: container_ trägt für AUTHORITATIVE Tiere (store-traversierbar + organ-backed Familie) die T0-Statistik
-        // → ebenfalls je Messung nullen. ObservableComposedContainer::clear() (Pool) leert NUR Daten, NICHT stats_ →
-        // ohne dies akkumulierten die organ-backed T0-Zaehler über Mess-Profile hinweg. requires-guard: flache/AdHoc container_t
-        // ohne reset() = no-op; für store-traversierbare ist es idempotent zum clear()-Stats-Reset (kein M3-Effekt).
+        // #188-4c-i: container_ trägt für AUTHORITATIVE Tiere (store-traversierbar, organ-backed Pool, Reference-Huelle)
+        // die T0-Statistik → ebenfalls je Messung nullen. ObservableComposedContainer::clear() leert NUR Daten,
+        // NICHT stats_ → ohne dies akkumulierten T0-Zaehler ueber Mess-Profile hinweg. requires-guard:
+        // flache/AdHoc container_t ohne reset() = no-op; store-traversierbare bleiben idempotent (kein M3-Effekt).
         if constexpr (requires { container_.reset(); }) container_.reset();
         // Phase A: die auto-gekoppelten Achsen-Organe mit-leeren (Daten UND kumulative Statistik), damit der
         // Mess-Pfad (perm_runner: tier_clear → pre-Observe → ops → post-Observe) einen sauberen Vor-Zustand hat
@@ -1002,13 +1004,12 @@ public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         // ── T0 search_algo ──────────────────────────────────────────────────────────────────────────────
         if constexpr (ObservableAxis<SearchAlgo>) {
-            // (E-Welle-A2 / Befund-2 / Q2-Schritt-4 / A2.5) T0-Such-Metrik QUELLE: store-traversierbare Algos liefern sie
-            // aus dem container_-Store (die Suche routet jetzt via traversal_for_search_algo über node/layout/allocator —
-            // KEIN search_organ_-Schatten mehr -> node/layout-Wechsel aendern T0 = Meta-Lehre #3). Organ-backed Algos
-            // (Pool-Familien + Eytzinger seit #188-4a) liefern T0 aus container_; nur die markerlose Default-Flachgruppe
-            // bleibt bei search_organ_. Felder identisch.
+            // (E-Welle-A2 / Befund-2 / Q2-Schritt-4 / A2.5 + #188-4c-i) T0-Such-Metrik QUELLE:
+            // store-traversierbare Algos, Pool-Familien und bereits observable Reference-Huellen liefern sie aus
+            // container_ (kein search_organ_-Schatten; node/layout-Wechsel aendern T0 = Meta-Lehre #3). Nur die
+            // markerlose Default-Flachgruppe bleibt bei search_organ_. Felder identisch.
             auto const ss = [&]() {
-                if constexpr (container_is_authoritative_) // #188-4b-b1b: organ-backed T0-Metrik aus dem nativen container_-Organ
+                if constexpr (container_is_authoritative_) // #188-4c-i: T0-Metrik aus der autoritativen container_-Quelle
                     return container_.statistics();
                 else
                     return search_organ_.statistics();
@@ -1297,32 +1298,29 @@ public:
                 return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
             };
             // Reale gespeicherte Keys EINMAL beziehen (NICHT gemessen) — für die per-op-Achsen (T0/T1/T2/T3).
-            // (Befund-2-Weg-A / K9-b): store-traversierbare Tiere ernten die Keys aus dem container_-STORE (nicht aus
-            // search_organ_) — denn (a) der Such-Algo ist evtl. KEIN MementoAxis (z.B. LinearScan: kein save_state)
-            // → sonst nk=1-Degeneration (seg_ns einzelner per-op-Achsen = 0), und (b) search_organ_ entfällt in M8.
+            // (Befund-2-Weg-A / K9-b + #188-4c-i): Autoritative Tiere ernten die Keys aus container_
+            // (nicht aus search_organ_) — sonst nk=1-Degeneration bei SearchAlgos ohne save_state; bei M8/4c-i
+            // entfaellt search_organ_ als Datenquelle fuer diese Familien.
             std::vector<std::uint64_t> keys;
             if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
                 auto snap =
                     container_.save_state().data; // ObservableComposedSearch::save_state → (key,value)-Liste im Store
                 keys.reserve(snap.size());
                 for (auto const& kv : snap) keys.push_back(static_cast<std::uint64_t>(kv.first));
-            } else if constexpr (pool_family_ &&
+            } else if constexpr (container_is_authoritative_ &&
                                  requires { container_.for_each_record([](std::uint64_t, std::uint64_t) {}); }) {
-                // #188-4b-DEG1: Organ-Key-Ernte aus dem nativen container_-Organ statt dem (nach dem Flip leeren)
-                // search_organ_ -> echte per-op-Segment-Timings. requires-gehaertet: eine kuenftige organ-backed Familie
-                // OHNE for_each_record-Walk (z.B. Masstree bei spaeterer Registrierung) degeneriert ehrlich auf den
-                // keys={0}-Fallback unten, statt den Compile zu brechen.
+                // #188-4c-i: Organ-Key-Ernte aus der autoritativen container_-Quelle. Deckt die 10/11
+                // Reference-/PaperBinding-Huellen mit for_each_record; Masstree bleibt ehrlich beim keys={0}-Fallback,
+                // solange sein natives Organ keinen Walk traegt. Der requires-Guard verhindert Compile-Bruch.
                 keys.reserve(container_.occupied_count());
                 container_.for_each_record([&](std::uint64_t k, std::uint64_t) { keys.push_back(k); });
             } else if constexpr (MementoAxis<SearchAlgo>) {
-                auto snap = search_organ_.save_state(); // (key,value)-Liste der real gespeicherten Records (Weg-B)
+                auto snap = search_organ_.save_state(); // (key,value)-Liste der real gespeicherten Records (nicht-autoritative Flachhuelle)
                 keys.reserve(snap.size());
                 for (auto const& kv : snap) keys.push_back(static_cast<std::uint64_t>(kv.first));
             } else if constexpr (requires { search_organ_.for_each_record([](std::uint64_t, std::uint64_t) {}); }) {
-                // #188-4b-DEG1: Reference-Compositions mit for_each_record-faehiger Such-Huelle degenerieren nicht
-                // mehr auf keys={0}. Deckt 10/11 References: die Masstree-Reference bleibt BEWUSST beim Fallback
-                // ({0}), weil ComposedMasstreeSearch (deferred Familie, kein Wrapper in AllStrategies, kein
-                // 320-Binary) noch keinen for_each_record-Walk traegt — nachziehen bei Masstree-Registrierung (#234).
+                // #188-4c-i: branches 3/4 bleiben nur fuer nicht-autoritative flache Wrapper. Reference-Huellen
+                // werden oben ueber container_ geerntet; Masstree-{0} ist damit der container_-Fallback-Fall.
                 search_organ_.for_each_record([&](std::uint64_t k, std::uint64_t) { keys.push_back(k); });
             }
             std::size_t const nk = keys.empty() ? std::size_t{1} : keys.size();
@@ -1338,7 +1336,7 @@ public:
                 // T0 search_algo: echte Lookups auf dem real befüllten Such-Organ (Baum-Traversierung).
                 t0 = clock::now();
                 for (std::uint64_t i = 0; i < n_ops; ++i) {
-                    if constexpr (container_is_authoritative_) { // #188-4b-b1b: organ-backed T0-Timing ueber das native container_-Organ
+                    if constexpr (container_is_authoritative_) { // #188-4c-i: T0-Timing ueber die autoritative container_-Quelle
                         auto v = container_.lookup(keys[i % nk]);
                         if (v) sink += static_cast<std::uint64_t>(*v); // (M8) store-geroutete Suche
                     } else {
@@ -1747,9 +1745,9 @@ public:
     // Die Thesis sagt bewusst „VIELE" (nicht „alle") — das ist ehrlich. Es bleiben GENAU DREI bewusste,
     // by-design bzw. zurückgestellte Ausnahmen (Doc 30 Q2-Schritt-4):
     //   (1) T0 search_algo -- nur noch die markerlose Default-Flachgruppe liest Such-Metrik aus dem
-    //       search_organ_-Monolith statt aus container_ (s. tier_search_routes_through_store()==false unten + :918).
-    //       Voll-Delegation = Mess-Pfad-Umbau (T0-Quelle) → ZURÜCKGESTELLT (braucht explizite Mess-Semantik-
-    //       Freigabe; Weg-A LinearScan/Interpolation/k-ary (#188-4a-C5) routet bereits durch den Store == true).
+    //       search_organ_-Monolith statt aus container_ (s. tier_search_routes_through_store()==false unten).
+    //       #188-4c-i hat Reference-Huellen in die container_-Quelle gehoben; zurueckgestellt bleibt nur die
+    //       markerlose Default-Flachgruppe ohne StoreTraversal/Organ-Huelle.
     //   (2) T1 cache_traversal + T2 mapping — eigener register_entry/register_slot-Index (:713-719) PARALLEL zum
     //       Store: SELF-CONTAINED BY DESIGN. Beide Organe modellieren eine ANDERE Entscheidung als das Store-
     //       Layout (Algorithmus↔Cache-Abbildung bzw. Key→Position), nicht Store-Daten → eigener Zustand ist
@@ -1764,16 +1762,16 @@ public:
     // (E-Welle-A2 · Befund-2/Q2-Schritt-4 · Meta-Lehre #3 — Schritt 3 des de-risked Pfads) Diagnose: routet der
     // GEMESSENE Such-Pfad (T0) durch den EINEN container_-Store (node/layout/allocator wirken REAL auf die Suche)
     // ODER liefert der separate search_organ_-Monolith die Such-Metrik (= Befund-2-Schatten)? AKTUELL per-Komposition
-    // CONDITIONAL (A2.5): fill_observer_v3 (s.o.) zieht das search-Feld via `StoreTraversableSearchAlgo<SearchAlgo>`
-    // aus container_.statistics() (Array-Such-Algo-Familie und organ-backed Familien inkl. Eytzinger -> true) bzw.
-    // sonst aus search_organ_.statistics() (markerlose Default-Flachgruppe -> false). Ohne true
+    // CONDITIONAL (A2.5/#188-4c-i): fill_observer_v3 (s.o.) zieht das search-Feld fuer store-traversierbare,
+    // organ-backed und bereits observable Reference-Huellen aus container_.statistics(); nur die markerlose
+    // Default-Flachgruppe kommt aus search_organ_.statistics() (false unten). Ohne true
     // sind die Achsen-Austauschbarkeits-Belege für dieses Tier teils Apparat-Artefakt (Doc 34 §9.1 SOLL-Regel 3 +
     // A3 Meta-Lehre #3: Diff-Beweise brauchen NACHWEISLICH verschiedene Organ-Pfade). Verifikations-Hook für A2.5.
     [[nodiscard]] static constexpr bool tier_search_routes_through_store() noexcept {
-        // (A2.5/#188-4a-C5) Jetzt EHRLICH conditional: store-traversierbare Algos (LinearScan/Interpolation/k-ary) liefern T0 aus
-        // container_ (Suche ueber node/layout/allocator) -> true; organ-backed Familien (Pool + Eytzinger seit #188-4a)
-        // routen T0 jetzt ueber das NATIVE container_-Organ -> true; nur die markerlose Default-Flachgruppe
-        // (Array256/Vector*/Array65535, kein natives Organ) bleibt search_organ_-Quelle -> false.
+        // (A2.5/#188-4a-C5 + #188-4c-i) EHRLICH conditional: store-traversierbare Algos,
+        // organ-backed Familien und bereits observable Reference-Huellen liefern T0 aus container_ -> true;
+        // nur die markerlose Default-Flachgruppe (Array256/Vector*/Array65535, kein natives Organ) bleibt
+        // search_organ_-Quelle -> false.
         return container_is_authoritative_;
     }
 
@@ -1924,26 +1922,27 @@ private:
     // Plan v2 S1 (2026-06-04): layout-honorierender Store — speichert Records am layout-getriebenen eff_stride
     // (CLA 64-B-gepaddet vs aos 16-B-packed) → die memory_layout-Achse ist ECHT, organ_observe_layout OOB-frei,
     // allocator-Bytes layout-abhängig. Drop-in zu NodeChunkedStore (StorageOrgan-Concept), ersetzt es im Mess-Pfad.
-    // (E-Welle-A2 / Befund-2 / Q2-Schritt-4 / A2.5 / #188-4a-C5) Such-Strategie ÜBER den Store: store-traversierbare Algos
-    // (LinearScan/Interpolation/k-ary) parametrisieren container_ mit ihrem TREUEN Traversal-Organ → die search_algo-Achse
-    // sucht über DENSELBEN node/layout/allocator-getriebenen Store (Befund-2-SOLL); nicht-store-traversierbare,
-    // nicht-organ-backed Algos: SortedBinary-Fallback.
+    // (E-Welle-A2 / Befund-2 / Q2-Schritt-4 / A2.5 / #188-4a-C5 / #188-4c-i) Such-Strategie UEBER
+    // container_: store-traversierbare Algos parametrisieren den flachen Store mit ihrem TREUEN Traversal-Organ;
+    // Pool-Familien werden zu ObservableComposedContainer<Organ>; Reference-Huellen sind bereits SearchAlgo selbst.
+    // Nur nicht-store-traversierbare, nicht-organ-backed, nicht-gehuellte Flach-Algos nutzen den SortedBinary-Fallback.
     using container_traversal_t =
         std::conditional_t<::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>,
                            ::comdare::cache_engine::lookup::composable::traversal_for_search_algo_t<SearchAlgo>,
                            ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::SortedBinaryTraversal>;
-    // #188-4b-b1b/#188-4a: DER FLIP. container_ ist per organ-backed Familie das NATIVE u64-Organ, sonst der flache Store.
+    // #188-4c-i: DER DRITTE ZWEIG. container_ ist native Organ-Huelle, bereits observable SearchAlgo-Huelle oder flacher Store.
     using flat_container_t =
         ::comdare::cache_engine::traversal::axis_03a_search_algo::composable::ObservableComposedSearch<
             container_traversal_t,
             ::comdare::cache_engine::node::LayoutAwareChunkedStore<
                 typename Composition::node_type, typename Composition::memory_layout, typename Composition::allocator>>;
-    // Ist SearchAlgo eine der 10 organ-backed Familien (9 Pool-Familien + Eytzinger-Layout-Familie,
-    // organ_for_search_algo != void)? Dann traegt container_ das native Organ (u64, behebt K9-d) statt des
-    // flachen SortedBinary-Spiegels -> die T0-Suche misst das ECHTE Substrat, kein Neben-Apparat. Die
-    // 11 Reference-Compositions tragen die u64-Huelle bereits als search_algo -> organ_for_search_algo_t == void -> hier flach.
+    // Ist SearchAlgo eine organ_for_search_algo-Familie? Dann traegt container_ ObservableComposedContainer<Organ>.
+    // Ist SearchAlgo bereits ObservableComposedContainer<XOrgan> (Reference-/PaperBinding-Kompositionen), dann ist
+    // container_t direkt SearchAlgo: kein flacher SortedBinary-Spiegel, kein Double-Wrap. Nur der Rest bleibt flach.
     static constexpr bool pool_family_ =
         !std::is_same_v<::comdare::cache_engine::lookup::composable::organ_for_search_algo_t<SearchAlgo>, void>;
+    static constexpr bool organ_hull_ =
+        ::comdare::cache_engine::lookup::composable::is_observable_organ_hull_v<SearchAlgo>;
     // LAZY conditional via std::type_identity: der NICHT gewählte Zweig wird nur BENANNT, nicht instanziiert — sonst
     // wäre ObservableComposedContainer<void> (für Nicht-Pools) ill-formed (void::key_type). ::type extrahiert den
     // gewählten Zweig, ohne den anderen zu instanziieren.
@@ -1951,22 +1950,21 @@ private:
         pool_family_,
         std::type_identity<::comdare::cache_engine::lookup::composable::ObservableComposedContainer<
             ::comdare::cache_engine::lookup::composable::organ_for_search_algo_t<SearchAlgo>>>,
-        std::type_identity<flat_container_t>>::type;
+        std::conditional_t<organ_hull_, std::type_identity<SearchAlgo>, std::type_identity<flat_container_t>>>::type;
     // T0/lookup/insert/erase laufen ueber container_ (statt search_organ_), wenn container_ die AUTORITATIVE Such-
-    // Struktur traegt: store-traversierbar (flacher Store + faithful Traversal) ODER organ-backed Familie (natives
-    // Organ; inkl. Eytzinger seit #188-4a). Nur die markerlose Default-Flach-Gruppe (Array256/Vector*/Array65535)
-    // bleibt search_organ_+Spiegel (StoreTraversable false UND pool_family_ false -> container_is_authoritative_ false).
+    // Struktur traegt: store-traversierbar (flacher Store + faithful Traversal), organ_for_search_algo-Familie
+    // (native Organ-Huelle) ODER SearchAlgo ist bereits ObservableComposedContainer<XOrgan>. Nur die markerlose
+    // Default-Flach-Gruppe bleibt search_organ_+Spiegel.
     static constexpr bool container_is_authoritative_ =
-        ::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo> || pool_family_;
+        ::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo> || pool_family_ || organ_hull_;
 
-    // #188-4b-b1a (2026-07-01): Kapselungs-Prädikat — trägt container_t einen FLACHEN Store (store_type)? TRUE für
+    // #188-4b-b1a/#188-4c-i: Kapselungs-Praedikat — traegt container_t einen FLACHEN Store (store_type)? TRUE fuer
     // ObservableComposedSearch<Traversal,LayoutAwareChunkedStore> (store()/scan_range/store_observe_*/save_state/
-    // store_allocator_statistics ALLE präsent); FALSE für ObservableComposedContainer<Organ> (natives Organ,
-    // KEINE store-*-API). 4b-b1b/#188-4a stellt container_ fuer organ-backed Familien auf das native Organ um → alle store-
-    // abhängigen Mess-Stellen unten (prefetch-descent, tier_scan, allocator-stats) schalten dann via dieses
-    // Prädikat auf honest-0 (die 3 Speicher-Achsen der Pools werden real erst in 4b-c/D über die per-Familie-Node-
-    // Shape-Achse gemessen). Verhaltens-NEUTRAL HEUTE: der flache container_t erfüllt store_type → alle Guards TRUE
-    // → identisches Verhalten (das ist der Sinn von 4b-b1a als sicheres, kompilierendes Fundament vor dem Flip).
+    // store_allocator_statistics ALLE praesent); FALSE fuer ObservableComposedContainer<Organ>, egal ob aus
+    // organ_for_search_algo oder als bereits gehuellter SearchAlgo. Alle store-abhaengigen Mess-Stellen unten
+    // (prefetch-descent, tier_scan, allocator-stats sowie T4/T5/T6-Observer) schalten dann auf honest-0.
+    // Golden-320-neutral: deren flache container_t erfuellen store_type weiter; der neue organ_hull_-Zweig greift
+    // nur fuer Reference-/PaperBinding-Huellen ausserhalb der 320-Registry.
     static constexpr bool container_is_store_backed_ = requires { typename container_t::store_type; };
 
     ::comdare::cache_engine::execution_engine::EngineLifecycleState state_{

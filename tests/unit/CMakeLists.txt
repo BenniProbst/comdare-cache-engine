@@ -1554,8 +1554,8 @@ target_include_directories(test_188_4a_eytzinger_organ PRIVATE
 target_link_libraries(test_188_4a_eytzinger_organ PRIVATE Boost::mp11)
 
 # #188-4c-0 (2026-07-02) — Known-Compositions-Conformance-Gate: alle 11 Reference-/PaperBinding-Compositions
-# durch run_conformance_gate (std::map-Orakel) am realen SearchAlgorithmAbiAdapter — Sicherheitsnetz VOR dem
-# Spiegel-Abbau (#188-4c). Baseline-Routing-Snapshot (routes_through_store==false) flippt bewusst mit 4c-i.
+# durch run_conformance_gate (std::map-Orakel) am realen SearchAlgorithmAbiAdapter — Sicherheitsnetz fuer den
+# Spiegel-Abbau (#188-4c). Routing-Snapshot seit #188-4c-i: routes_through_store==true (Huellen authoritativ).
 comdare_add_test(test_188_4c0_known_compositions_conformance
     SOURCES test_188_4c0_known_compositions_conformance.cpp)
 target_include_directories(test_188_4c0_known_compositions_conformance PRIVATE

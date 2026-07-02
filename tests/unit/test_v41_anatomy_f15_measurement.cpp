@@ -41,6 +41,7 @@
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/measurable_workload.hpp> // Stufe B: Mess-Last DURCH die geladene DLL
 #include <anatomy/abi_adapter.hpp>         // R6/Pfad B: SearchAlgorithmAbiAdapter + IObservableTier
+#include <anatomy/composition_factory.hpp> // #188-4c-i-T: store-backed AdHoc-Kontrollkomposition
 #include <anatomy/observable_tier.hpp>     // R6: ABI-stabiler Observer-Snapshot-POD
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <cstring> // memcpy (ABI-Stabilitaets-Roundtrip)
@@ -72,6 +73,27 @@ namespace loader = ::comdare::cache_engine::builder::anatomy_loader;
 namespace stats  = ::comdare::cache_engine::builder::commands::stats;
 namespace ce03a  = ::comdare::cache_engine::traversal::axis_03a_search_algo;
 namespace comp   = ::comdare::cache_engine::compositions;
+
+using StoreBackedAdHocComposition =
+    ::comdare::cache_engine::anatomy::AdHocComposition<ce03a::Array256SearchAlgo,
+                                                       comp::ArtComposition::cache_traversal,
+                                                       comp::ArtComposition::mapping,
+                                                       comp::ArtComposition::path_compression,
+                                                       comp::ArtComposition::node_type,
+                                                       comp::ArtComposition::memory_layout,
+                                                       comp::ArtComposition::allocator,
+                                                       comp::ArtComposition::prefetch,
+                                                       comp::ArtComposition::concurrency,
+                                                       comp::ArtComposition::serialization,
+                                                       comp::ArtComposition::telemetry,
+                                                       comp::ArtComposition::value_handle,
+                                                       comp::ArtComposition::isa,
+                                                       comp::ArtComposition::index_organization,
+                                                       comp::ArtComposition::io_dispatch,
+                                                       comp::ArtComposition::migration_policy,
+                                                       comp::ArtComposition::filter,
+                                                       comp::ArtComposition::queuing_q1,
+                                                       comp::ArtComposition::queuing_q2>;
 
 namespace {
 
@@ -298,10 +320,21 @@ TEST(F15Measurement, R6_HostSideObserverPullViaAbiInterface) {
     EXPECT_GT(snap.axis_stats[0][5], 0u);
     EXPECT_EQ(snap.tier_fill_level, obs->tier_size()); // korrelierter Fuellstand (§8.7)
     EXPECT_GT(snap.observable_axis_count, 0u);         // mind. die search_algo-Achse observable
-    // R6 Inkrement 2b: die allocator-Achse wird JETZT AUCH über die ABI-Grenze gemessen (2. Mess-Achse,
-    // ComposedStore-Vector-Growth) — sofern die Composition-allocator-Achse observable ist.
-    EXPECT_GT(snap.axis_stats[6][0], 0u);
-    EXPECT_GT(snap.axis_stats[6][2], 0u);
+    // #188-4c-i: Huellen-Komposition container_-authoritativ -> store-Achsen honest-0 (bis observe-Hooks #234).
+    EXPECT_EQ(snap.axis_stats[6][0], 0u);
+    EXPECT_EQ(snap.axis_stats[6][2], 0u);
+
+    // R6 Inkrement 2b: die allocator-Achse wird weiter über die ABI-Grenze gemessen, aber der Echtheits-Beweis
+    // lebt seit #188-4c-i-T auf der store-backed AdHoc-Flachgruppe statt auf der Reference-Huelle.
+    using StoreBackedAnatomy = an::SearchAlgorithmAnatomy<StoreBackedAdHocComposition>;
+    an::SearchAlgorithmAbiAdapter<StoreBackedAnatomy> store_backed_tier;
+    auto* store_backed_obs = dynamic_cast<an::IObservableTier*>(static_cast<an::IAnatomyBase*>(&store_backed_tier));
+    ASSERT_NE(store_backed_obs, nullptr);
+    for (std::uint64_t i = 0; i < N; ++i) (void)store_backed_obs->tier_insert(i, i * 7u + 1u);
+    an::ComdareTierObserverSnapshot store_backed_snap{};
+    store_backed_obs->tier_observe(&store_backed_snap);
+    EXPECT_GT(store_backed_snap.axis_stats[6][0], 0u);
+    EXPECT_GT(store_backed_snap.axis_stats[6][2], 0u);
 
     // (3) ABI-Stabilität: der Snapshot ist memcpy-fähig (Cross-Boundary-Pflicht).
     static_assert(std::is_trivially_copyable_v<an::ComdareTierObserverSnapshot>);

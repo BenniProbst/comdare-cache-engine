@@ -12,9 +12,11 @@
 //   (V5) GROSSER /O2-Fuzz: 1e6 Trigger PathOriented auf 4096-Slot-Store (mehr Chunks) — kein Crash, oob==0.
 
 #include <anatomy/abi_adapter.hpp>
+#include <anatomy/composition_factory.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <compositions/hot_reference.hpp>
+#include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array256.hpp>
 #include <axes/node/axis_04_node_type_layout_aware_store.hpp>
 #include <axes/node/axis_04_node_type_node4.hpp>
 #include <axes/prefetch_axis/axis_07_prefetch_real_descent.hpp>
@@ -34,12 +36,13 @@
 #include <random>
 #include <set>
 
-namespace an   = ::comdare::cache_engine::anatomy;
-namespace comp = ::comdare::cache_engine::compositions;
-namespace pf   = ::comdare::cache_engine::prefetch_axis;
-namespace nd   = ::comdare::cache_engine::node;
-namespace ml   = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;
-namespace al   = ::comdare::cache_engine::allocator::axis_06_allocator;
+namespace an    = ::comdare::cache_engine::anatomy;
+namespace comp  = ::comdare::cache_engine::compositions;
+namespace ce03a = ::comdare::cache_engine::traversal::axis_03a_search_algo;
+namespace pf    = ::comdare::cache_engine::prefetch_axis;
+namespace nd    = ::comdare::cache_engine::node;
+namespace ml    = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;
+namespace al    = ::comdare::cache_engine::allocator::axis_06_allocator;
 
 static int  g_fail = 0;
 static void tr(std::string const& w, bool c) {
@@ -114,8 +117,30 @@ struct PFComp : comp::HotComposition {
 };
 
 template <class PFStrategy>
-static an::ComdareTierObserverSnapshot drive_tier(std::uint64_t n) {
-    using Anatomy = an::SearchAlgorithmAnatomy<PFComp<PFStrategy>>;
+using PFStoreBackedComp =
+    an::AdHocComposition<ce03a::Array256SearchAlgo,
+                         comp::HotComposition::cache_traversal,
+                         comp::HotComposition::mapping,
+                         comp::HotComposition::path_compression,
+                         comp::HotComposition::node_type,
+                         comp::HotComposition::memory_layout,
+                         comp::HotComposition::allocator,
+                         PFStrategy,
+                         comp::HotComposition::concurrency,
+                         comp::HotComposition::serialization,
+                         comp::HotComposition::telemetry,
+                         comp::HotComposition::value_handle,
+                         comp::HotComposition::isa,
+                         comp::HotComposition::index_organization,
+                         comp::HotComposition::io_dispatch,
+                         comp::HotComposition::migration_policy,
+                         comp::HotComposition::filter,
+                         comp::HotComposition::queuing_q1,
+                         comp::HotComposition::queuing_q2>;
+
+template <class Composition>
+static an::ComdareTierObserverSnapshot drive_composition(std::uint64_t n) {
+    using Anatomy = an::SearchAlgorithmAnatomy<Composition>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
     auto*                                  base = static_cast<an::IAnatomyBase*>(&tier);
     auto*                                  drv  = dynamic_cast<an::IDriveableTier*>(base);
@@ -129,24 +154,43 @@ static an::ComdareTierObserverSnapshot drive_tier(std::uint64_t n) {
     return snap;
 }
 
+template <class PFStrategy>
+static an::ComdareTierObserverSnapshot drive_store_backed_tier(std::uint64_t n) {
+    return drive_composition<PFStoreBackedComp<PFStrategy>>(n);
+}
+
+template <class PFStrategy>
+static an::ComdareTierObserverSnapshot drive_hull_tier(std::uint64_t n) {
+    return drive_composition<PFComp<PFStrategy>>(n);
+}
+
 static void v3_v4_hotpath_real_and_differ() {
-    std::cout << "-- (V3/V4) Hot-Path: 4 Strategien im ECHTEN Tier; Adresse real (kein Schluessel-Rueckfall) --\n";
-    constexpr std::uint64_t N    = 3000;
-    auto                    no   = drive_tier<pf::NonePrefetch>(N);
-    auto                    hw   = drive_tier<pf::HardwarePrefetch>(N);
-    auto                    di   = drive_tier<pf::DistanceEstimatorPrefetch>(N);
-    auto                    pa   = drive_tier<pf::PathOrientedPrefetch>(N);
-    std::uint64_t           i_no = no.axis_stats[7][5], i_hw = hw.axis_stats[7][5], i_di = di.axis_stats[7][5],
-                            i_pa = pa.axis_stats[7][5];
-    std::uint64_t           a_hw = hw.axis_stats[7][7];
-    std::uint64_t           d_di = di.axis_stats[7][6];
+    std::cout << "-- (V3/V4) Store-backed Hot-Path: 4 Strategien im ECHTEN Tier; Adresse real (kein Schluessel-Rueckfall) --\n";
+    constexpr std::uint64_t N       = 3000;
+    auto                    no      = drive_store_backed_tier<pf::NonePrefetch>(N);
+    auto                    hw      = drive_store_backed_tier<pf::HardwarePrefetch>(N);
+    auto                    di      = drive_store_backed_tier<pf::DistanceEstimatorPrefetch>(N);
+    auto                    pa      = drive_store_backed_tier<pf::PathOrientedPrefetch>(N);
+    auto                    h_hw    = drive_hull_tier<pf::HardwarePrefetch>(N);
+    auto                    h_dist  = drive_hull_tier<pf::DistanceEstimatorPrefetch>(N);
+    auto                    h_path  = drive_hull_tier<pf::PathOrientedPrefetch>(N);
+    std::uint64_t           i_no    = no.axis_stats[7][5], i_hw = hw.axis_stats[7][5], i_di = di.axis_stats[7][5],
+                            i_pa    = pa.axis_stats[7][5];
+    std::uint64_t           a_hw    = hw.axis_stats[7][7];
+    std::uint64_t           d_di    = di.axis_stats[7][6];
     std::cout << "     none=" << i_no << " hw=" << i_hw << " dist=" << i_di << "(d=" << d_di << ") path=" << i_pa
               << " hw_addr=" << a_hw << "\n";
-    tr("(V4) None-Tier issued==0", i_no == 0);
-    tr("(V4) Hardware-Tier issued>0", i_hw > 0);
-    tr("(V4) Distance-Tier issued>0 UND last_distance>0 (voraus)", i_di > 0 && d_di > 0);
-    tr("(V4) Path-Tier issued > Hardware-Tier (Bundle, real distinkt im echten Tier)", i_pa > i_hw);
-    tr("(V3) Hardware-Tier last_real_address != 0 (reale Adresse getragen)", a_hw != 0);
+    tr("(V4) store-backed None-Tier issued==0", i_no == 0);
+    tr("(V4) store-backed Hardware-Tier issued>0", i_hw > 0);
+    tr("(V4) store-backed Distance-Tier issued>0 UND last_distance>0 (voraus)", i_di > 0 && d_di > 0);
+    tr("(V4) store-backed Path-Tier issued > Hardware-Tier (Bundle, real distinkt im echten Tier)", i_pa > i_hw);
+    tr("(V3) store-backed Hardware-Tier last_real_address != 0 (reale Adresse getragen)", a_hw != 0);
+
+    // #188-4c-i: Huellen-Komposition container_-authoritativ -> store-Achsen honest-0 (bis observe-Hooks #234).
+    tr("(V4) Hot-Huelle Hardware issued==0", h_hw.axis_stats[7][5] == 0u);
+    tr("(V4) Hot-Huelle Hardware distance/address==0", h_hw.axis_stats[7][6] == 0u && h_hw.axis_stats[7][7] == 0u);
+    tr("(V4) Hot-Huelle Distance issued==0", h_dist.axis_stats[7][5] == 0u);
+    tr("(V4) Hot-Huelle Path issued==0", h_path.axis_stats[7][5] == 0u);
 
     // (V3) K9-Rueckfall-Gegenbeweis: die getragene HW-Adresse darf NICHT eine Schluessel-als-Adresse sein.
     // Sammle alle eingefuegten spread_key-Werte; pruefe a_hw ist KEINER davon (eine reale Heap-Adresse ist kein Key).
