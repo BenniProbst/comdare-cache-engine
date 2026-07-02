@@ -54,6 +54,8 @@ TEST(Roadmap3_TierObserveTrace, ReadWriteDeleteSeparated) {
 
 // T7 — Wiederverwendung der bestehenden latency_stats: p50 <= p99 je Operationstyp.
 TEST(Roadmap3_TierObserveTrace, LatencyStatsReuseP50LeP99) {
+    // cppcheck-AST bricht an diesem Ausdruck (internalAstError, cppcheck 2.21 C++23-Grenze) — kein Code-Defekt.
+    // cppcheck-suppress internalAstError
     auto const trace = bcmd::drive_tier_observe_trace<ce_compos::ArtComposition>({});
     ASSERT_FALSE(trace.checkpoints.empty());
     auto const& s   = trace.checkpoints.back();

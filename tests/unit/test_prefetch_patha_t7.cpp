@@ -52,11 +52,14 @@ static void tr(std::string const& w, bool c) {
 }
 
 // Composition-Vorlage mit waehlbarer prefetch-Strategie (sonst HOT) — wie test_prefetch_real PFComposition.
+// #203: anonymer Namespace — gleichnamige TU-lokale Helper in anderen Test-TUs (cppcheck-CTU-ODR).
+namespace {
 template <class PFStrategy>
 struct PFComposition : comp::HotComposition {
     using prefetch                         = PFStrategy;
     static constexpr std::string_view name = "PFComposition_T7";
 };
+} // namespace
 
 // (A)+(B): treibt run_workload_segmented_v2 (Pfad-A 19-Segment-Timer) und liefert den seg_ns[]-POD.
 template <class PFStrategy>

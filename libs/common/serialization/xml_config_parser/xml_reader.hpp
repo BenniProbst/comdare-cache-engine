@@ -61,7 +61,7 @@ inline constexpr auto npos = std::string_view::npos;
 inline void decode_entities(std::string& s) {
     struct E {
         std::string_view from;
-        char             to;
+        char             to{};
     };
     static constexpr E kEnt[] = {{"&lt;", '<'}, {"&gt;", '>'}, {"&quot;", '"'}, {"&apos;", '\''}, {"&amp;", '&'}};
     for (auto const& e : kEnt) {
