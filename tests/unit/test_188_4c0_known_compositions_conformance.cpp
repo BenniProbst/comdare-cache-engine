@@ -90,8 +90,8 @@ struct ConformanceRunner {
 
         SCOPED_TRACE(label_for<Entry>());
 
-        auto tier = std::make_unique<Adapter>();
-        auto& drv = static_cast<an::IDriveableTier&>(*tier);
+        auto  tier = std::make_unique<Adapter>();
+        auto& drv  = static_cast<an::IDriveableTier&>(*tier);
 
         auto const result = dock::run_conformance_gate(drv, kConformanceSeed, kConformanceRandomOps);
         EXPECT_TRUE(result.passed()) << label_for<Entry>() << " cases=" << result.cases_passed << "/"
@@ -113,8 +113,8 @@ struct SizeClearReuseRunner {
 
         SCOPED_TRACE(label_for<Entry>());
 
-        auto tier = std::make_unique<Adapter>();
-        auto& drv = static_cast<an::IDriveableTier&>(*tier);
+        auto  tier = std::make_unique<Adapter>();
+        auto& drv  = static_cast<an::IDriveableTier&>(*tier);
         drv.tier_clear();
 
         for (std::uint64_t offset = kNoFailures; offset < kInitialInsertCount; ++offset) {

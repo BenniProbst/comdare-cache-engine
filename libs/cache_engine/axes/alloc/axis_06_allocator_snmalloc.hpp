@@ -49,9 +49,11 @@ namespace comdare::cache_engine::alloc {
  *
  * V41.F.6.1.C Stufe 2 (W6-Pattern): KEIN #ifdef mehr. enabled via flags::snmalloc_enabled.
  */
-class SnmallocAllocator : public AllocatorStrategyBase<SnmallocAllocator>
+class SnmallocAllocator
+    : public AllocatorStrategyBase<SnmallocAllocator>
 #if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
-    , public generated::a07_snmalloc::OriginalCodeMixin // V41.F.6.1.P2.D Paper-Mixin (Habich-Compliance)
+    ,
+      public generated::a07_snmalloc::OriginalCodeMixin // V41.F.6.1.P2.D Paper-Mixin (Habich-Compliance)
 #endif
 {
 public:

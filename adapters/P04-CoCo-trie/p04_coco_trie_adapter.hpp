@@ -12,14 +12,14 @@
 #include <string_view>
 
 #if defined(COMDARE_HAVE_COCOTRIE)
-#  include "CoCo-trie.hpp"
+#include "CoCo-trie.hpp"
 #endif
 
 namespace comdare::adapter::p04_coco_trie {
 
 class CocoTrieAdapter {
 public:
-    using key_type = std::string_view;
+    using key_type   = std::string_view;
     using value_type = std::size_t;
 
     bool insert(key_type key) {
@@ -42,9 +42,7 @@ public:
 #endif
     }
 
-    [[nodiscard]] static constexpr const char *paper_id() noexcept {
-        return "P04-CoCo-trie (Boffa et al. 2024)";
-    }
+    [[nodiscard]] static constexpr const char* paper_id() noexcept { return "P04-CoCo-trie (Boffa et al. 2024)"; }
 };
 
 } // namespace comdare::adapter::p04_coco_trie

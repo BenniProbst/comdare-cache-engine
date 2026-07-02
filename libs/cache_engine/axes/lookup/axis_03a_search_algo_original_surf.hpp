@@ -33,7 +33,8 @@ namespace comdare::cache_engine::lookup {
 
 class OriginalSurfSearchAlgo : public SearchAlgoBase<OriginalSurfSearchAlgo>
 #if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
-    , public generated::p10_surf::OriginalCodeMixin
+    ,
+                               public generated::p10_surf::OriginalCodeMixin
 #endif
 {
 public:

@@ -818,7 +818,7 @@ public:
 
     [[nodiscard]] bool tier_lookup(std::uint64_t key, std::uint64_t* out_value) const noexcept override {
         // #188-4c-iii (2026-07-02): lookup liest immer aus dem einzigen konstitutiven container_algorithm_-Zustand.
-        auto const cv = container_algorithm_.lookup(key);
+        auto const cv     = container_algorithm_.lookup(key);
         bool const m8_hit = cv.has_value();
         if (m8_hit && out_value != nullptr) *out_value = static_cast<std::uint64_t>(*cv);
 #if COMDARE_MEASUREMENT_ON
@@ -840,7 +840,8 @@ public:
         // container_algorithm_-Slot-Backing; die prefetch-Achse setzt strategie-distinkt `_mm_prefetch` auf die TATSAECHLICHEN
         // Slot-Adressen ab (NICHT mehr key-als-Adresse). `descent_slot` = der real beruehrte Slot des Descents
         // (Lower-Bound-Position des Keys im store, geklemmt auf slot_count()) → echte Traversal-Adresse, kein OOB.
-        if constexpr (container_algorithm_is_store_backed_) { // #188-4b-b1a: organ-backed nach 4b-b1b/#188-4a (kein store()) -> honest-0 prefetch
+        if constexpr (
+            container_algorithm_is_store_backed_) { // #188-4b-b1a: organ-backed nach 4b-b1b/#188-4a (kein store()) -> honest-0 prefetch
             if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
                 pf_organ_.observe_prefetch_descent(container_algorithm_.store(), descent_slot_for_(key));
             } else {
@@ -969,13 +970,13 @@ public:
             // #188-4c-iii (2026-07-02): T0-Such-Metrik kommt immer aus container_algorithm_. Damit wirken
             // node/layout/allocator-Pfade auf dieselbe Datenquelle, die tier_insert/lookup/erase treiben.
             auto const ss = container_algorithm_.statistics();
-            auto* r = s.axis_stats[0];
-            r[0]    = ss.total_lookup_count;
-            r[1]    = ss.total_hit_count;
-            r[2]    = ss.total_miss_count;
-            r[3]    = ss.total_insert_count;
-            r[4]    = ss.total_erase_count;
-            r[5]    = ss.peak_occupancy;
+            auto*      r  = s.axis_stats[0];
+            r[0]          = ss.total_lookup_count;
+            r[1]          = ss.total_hit_count;
+            r[2]          = ss.total_miss_count;
+            r[3]          = ss.total_insert_count;
+            r[4]          = ss.total_erase_count;
+            r[5]          = ss.peak_occupancy;
             ++filled;
         }
         // ── T1 cache_traversal (Phase A neu) ────────────────────────────────────────────────────────────
@@ -1033,7 +1034,8 @@ public:
         // #188-4b-b1a: geschachtelt — die innere Bedingung referenziert container_algorithm_t::store_type; nur betreten, wenn
         // container_algorithm_ store-backed ist (organ-backed Familien nach 4b-b1b/#188-4a -> kein store_type -> honest-0, filled unveraendert).
         if constexpr (container_algorithm_is_store_backed_ && ObservableAxis<typename Composition::allocator>) {
-            if constexpr (container_algorithm_t::template store_has_allocator_stats<typename container_algorithm_t::store_type>) {
+            if constexpr (container_algorithm_t::template store_has_allocator_stats<
+                              typename container_algorithm_t::store_type>) {
                 auto const a = container_algorithm_.store_allocator_statistics();
                 auto*      r = s.axis_stats[6];
                 r[0]         = a.total_bytes_allocated;
@@ -1257,11 +1259,13 @@ public:
             // Walk (z.B. Masstree-{0}), bleibt keys leer und der Default unten nutzt {0}.
             std::vector<std::uint64_t> keys;
             if constexpr (::comdare::cache_engine::lookup::composable::StoreTraversableSearchAlgo<SearchAlgo>) {
-                auto snap =
-                    container_algorithm_.save_state().data; // ObservableComposedSearch::save_state -> (key,value)-Liste im Store
+                auto snap = container_algorithm_.save_state()
+                                .data; // ObservableComposedSearch::save_state -> (key,value)-Liste im Store
                 keys.reserve(snap.size());
                 for (auto const& kv : snap) keys.push_back(static_cast<std::uint64_t>(kv.first));
-            } else if constexpr (requires { container_algorithm_.for_each_record([](std::uint64_t, std::uint64_t) {}); }) {
+            } else if constexpr (requires {
+                                     container_algorithm_.for_each_record([](std::uint64_t, std::uint64_t){});
+                                 }) {
                 keys.reserve(container_algorithm_.occupied_count());
                 container_algorithm_.for_each_record([&](std::uint64_t k, std::uint64_t) { keys.push_back(k); });
             }
@@ -1334,8 +1338,10 @@ public:
                 acc[5] += dns(t0, t1);
                 // T6 allocator: O(1)-Stats-Read (Aufbau-Effekt, ehrliche kleine Baseline — kein erfundener Scan).
                 t0 = clock::now();
-                if constexpr (container_algorithm_is_store_backed_) { // #188-4b-b1a: store_type-Referenz nur wenn store-backed
-                    if constexpr (container_algorithm_t::template store_has_allocator_stats<typename container_algorithm_t::store_type>) {
+                if constexpr (
+                    container_algorithm_is_store_backed_) { // #188-4b-b1a: store_type-Referenz nur wenn store-backed
+                    if constexpr (container_algorithm_t::template store_has_allocator_stats<
+                                      typename container_algorithm_t::store_type>) {
                         auto a = container_algorithm_.store_allocator_statistics();
                         sink += a.total_bytes_in_use;
                     }
@@ -1346,12 +1352,15 @@ public:
                 // Adressen des Stores (strategie-distinkt via PrefetchDescentPolicy), NICHT mehr key-als-Adresse.
                 // descent_slot_for_(k) = der real beruehrte Slot je Op → reale Traversal-Adresse, kein OOB.
                 t0 = clock::now();
-                if constexpr (requires { pf_organ_.observe_prefetch_descent(container_algorithm_.store(), std::size_t{}); }) {
+                if constexpr (requires {
+                                  pf_organ_.observe_prefetch_descent(container_algorithm_.store(), std::size_t{});
+                              }) {
                     // #188-4c-iii: voller u64-Key direkt (der fruehere K-Roundtrip truncierte auf die schmale
                     // search_organ_-Key-Breite und war damit INKONSISTENT zum Hot-Path :808/:866, der nie truncierte).
                     if (container_algorithm_.store().slot_count() != 0)
                         for (std::uint64_t i = 0; i < n_ops; ++i)
-                            pf_organ_.observe_prefetch_descent(container_algorithm_.store(), descent_slot_for_(keys[i % nk]));
+                            pf_organ_.observe_prefetch_descent(container_algorithm_.store(),
+                                                               descent_slot_for_(keys[i % nk]));
                 }
                 t1 = clock::now();
                 acc[7] += dns(t0, t1);
@@ -1579,7 +1588,8 @@ public:
             saved_pc_.emplace(pc_organ_);
         } catch (...) { saved_pc_.reset(); }
         if constexpr (cow_capable_) {
-            saved_container_algorithm_stats_ = container_algorithm_.statistics(); // O(1) POD-Snapshot (container-/T6-Pfad)
+            saved_container_algorithm_stats_ =
+                container_algorithm_.statistics(); // O(1) POD-Snapshot (container-/T6-Pfad)
             saved_container_algorithm_.reset();
             cow_materialized_ = false;
             cow_session_      = true;
@@ -1591,9 +1601,7 @@ public:
                 saved_container_algorithm_.emplace(container_algorithm_);
             else if constexpr (MementoAxis<container_algorithm_t>)
                 saved_container_algorithm_m_ = container_algorithm_.save_state();
-        } catch (...) {
-            saved_container_algorithm_.reset();
-        }
+        } catch (...) { saved_container_algorithm_.reset(); }
     }
 
     void tier_rollback_all() noexcept override {
@@ -1605,7 +1613,8 @@ public:
                         if (saved_container_algorithm_) container_algorithm_ = *saved_container_algorithm_;
                     }
                     // P4 (#123, R1): die kalte 2. Ebene + den migration-Zaehler exakt auf den save-Stand zurueck.
-                    if (saved_container_algorithm_tier1_) container_algorithm_tier1_ = *saved_container_algorithm_tier1_;
+                    if (saved_container_algorithm_tier1_)
+                        container_algorithm_tier1_ = *saved_container_algorithm_tier1_;
                     // P5 (#124, R1): den REALEN Filter bit-exakt auf den save-Stand zuruecksetzen.
                     if (saved_flt_) flt_organ_ = *saved_flt_;
                     // §4.3 (User 2026-06-04, R1): die REALE value_handle-Slot-Struktur bit-exakt auf den save-Stand.
@@ -1666,11 +1675,13 @@ public:
     /// Diagnose für den Zwei-Phasen-Treiber (I7): exakter Rollback, wenn jedes Organ ENTWEDER MementoAxis ODER
     /// kopierbar ist. Sonst muss der Treiber Kalt-Messung wählen (empirische Probe in tier_observe_trace_abi.hpp).
     [[nodiscard]] bool tier_rollback_is_exact() const noexcept {
-        constexpr bool cont_ok = MementoAxis<container_algorithm_t> ||
-                                 (std::is_copy_constructible_v<container_algorithm_t> && std::is_copy_assignable_v<container_algorithm_t>);
+        constexpr bool cont_ok =
+            MementoAxis<container_algorithm_t> ||
+            (std::is_copy_constructible_v<container_algorithm_t> && std::is_copy_assignable_v<container_algorithm_t>);
         // P4 (#123, R1): die kalte 2. Ebene wird via std::optional<container_algorithm_t>-Eager-Kopie exakt zurueckgerollt ->
         // exakt gdw. container_algorithm_t kopierbar ist (== dieselbe Bedingung wie cont_ok; container_algorithm_t ist beidseitig kopierbar).
-        constexpr bool tier1_ok = std::is_copy_constructible_v<container_algorithm_t> && std::is_copy_assignable_v<container_algorithm_t>;
+        constexpr bool tier1_ok =
+            std::is_copy_constructible_v<container_algorithm_t> && std::is_copy_assignable_v<container_algorithm_t>;
         return cont_ok && tier1_ok;
     }
 
@@ -1693,11 +1704,13 @@ public:
             // ohne scan_range bleiben ehrlich bei visited=0, bis die jeweilige Familie einen nativen Range-Walk traegt.
             // EIN uniformer Pfad, kein if-constexpr, kein save_state()/std::sort je Op mehr.
             if constexpr (container_algorithm_is_store_backed_) {
-                visited = static_cast<std::uint64_t>(container_algorithm_.scan_range(
-                    static_cast<typename container_algorithm_t::key_type>(start_key), static_cast<std::size_t>(max_count),
-                    [&sum](typename container_algorithm_t::key_type /*k*/, typename container_algorithm_t::value_type v) noexcept {
-                        sum += static_cast<std::uint64_t>(v);
-                    }));
+                visited = static_cast<std::uint64_t>(
+                    container_algorithm_.scan_range(static_cast<typename container_algorithm_t::key_type>(start_key),
+                                                    static_cast<std::size_t>(max_count),
+                                                    [&sum](typename container_algorithm_t::key_type /*k*/,
+                                                           typename container_algorithm_t::value_type v) noexcept {
+                                                        sum += static_cast<std::uint64_t>(v);
+                                                    }));
             }
             // #188-4b-b1a: organ-backed Familien (container_algorithm_ = natives Organ ohne scan_range) → visited bleibt 0 (honest-0
             // Scan bis 4b-c/D; der reale per-Achsen-Scan der SOTA-Bäume kommt mit der per-Familie-Node-Shape-Achse).
@@ -1755,10 +1768,12 @@ public:
         std::uint64_t moved = 0;
         try {
             if constexpr (requires {
-                              container_algorithm_.store_migrate_step(mig_organ_, container_algorithm_tier1_.store_mut(), max_moves);
+                              container_algorithm_.store_migrate_step(
+                                  mig_organ_, container_algorithm_tier1_.store_mut(), max_moves);
                           }) {
                 mig_organ_.reset(); // tier_moves je Schritt frisch (analog Observer-reset()+scan)
-                moved = container_algorithm_.store_migrate_step(mig_organ_, container_algorithm_tier1_.store_mut(), max_moves);
+                moved = container_algorithm_.store_migrate_step(mig_organ_, container_algorithm_tier1_.store_mut(),
+                                                                max_moves);
                 mig_organ_.add_tier_moves(moved); // ECHTE Buchung der bewegten Records (stats_ privat → diese API)
             }
         } catch (...) {
@@ -1834,7 +1849,8 @@ private:
         pool_family_,
         std::type_identity<::comdare::cache_engine::lookup::composable::ObservableComposedContainer<
             ::comdare::cache_engine::lookup::composable::organ_for_search_algo_t<SearchAlgo>>>,
-        std::conditional_t<organ_hull_, std::type_identity<SearchAlgo>, std::type_identity<flat_container_algorithm_t>>>::type;
+        std::conditional_t<organ_hull_, std::type_identity<SearchAlgo>,
+                           std::type_identity<flat_container_algorithm_t>>>::type;
     // #188-4c-iii: T0/lookup/insert/erase laufen fuer alle Kompositionen ueber container_algorithm_; pool_family_ und
     // organ_hull_ bleiben nur fuer die container_algorithm_t-Typwahl.
 
@@ -1845,7 +1861,8 @@ private:
     // (prefetch-descent, tier_scan, allocator-stats sowie T4/T5/T6-Observer) schalten dann auf honest-0.
     // Golden-320-neutral: deren flache container_algorithm_t erfuellen store_type weiter; der neue organ_hull_-Zweig greift
     // nur fuer Reference-/PaperBinding-Huellen ausserhalb der 320-Registry.
-    static constexpr bool container_algorithm_is_store_backed_ = requires { typename container_algorithm_t::store_type; };
+    static constexpr bool container_algorithm_is_store_backed_ =
+        requires { typename container_algorithm_t::store_type; };
 
     ::comdare::cache_engine::execution_engine::EngineLifecycleState state_{
         ::comdare::cache_engine::execution_engine::EngineLifecycleState::Uninitialized};
@@ -1962,9 +1979,9 @@ private:
     // restore_statistics(), ObservableComposedSearch/-Container); Copy-Konstruierbarkeit fuer die lazy Kopie.
     template <class S>
     static constexpr bool organ_cow_capable_v = requires(S& s, S const& cs) { s.restore_statistics(cs.statistics()); };
-    static constexpr bool cow_capable_ =
-        organ_cow_capable_v<container_algorithm_t> &&
-        std::is_copy_constructible_v<container_algorithm_t> && std::is_copy_assignable_v<container_algorithm_t>;
+    static constexpr bool cow_capable_        = organ_cow_capable_v<container_algorithm_t> &&
+                                                std::is_copy_constructible_v<container_algorithm_t> &&
+                                                std::is_copy_assignable_v<container_algorithm_t>;
 
     /// Stat-POD-Typ eines CoW-fähigen Organs (sonst leerer Platzhalter — Member existiert immer).
     struct EmptyStatsSnap {};
@@ -1992,10 +2009,11 @@ private:
         }
     }
 
-    typename OrganStatsSnap<container_algorithm_t>::type saved_container_algorithm_stats_{}; // O(1)-Stat-Snapshot (container/T6-Pfad)
-    bool cow_session_      = false; // save_all lief über den CoW-Pfad (Routing in rollback_all)
-    bool cow_armed_        = false; // Materialisierung AN (nur save→rollback; Mess-Op = 1 bool-Check)
-    bool cow_materialized_ = false; // diese Periode hat die Daten-Vollkopie materialisiert (Write/clear)
+    typename OrganStatsSnap<container_algorithm_t>::type
+         saved_container_algorithm_stats_{}; // O(1)-Stat-Snapshot (container/T6-Pfad)
+    bool cow_session_      = false;          // save_all lief über den CoW-Pfad (Routing in rollback_all)
+    bool cow_armed_        = false;          // Materialisierung AN (nur save→rollback; Mess-Op = 1 bool-Check)
+    bool cow_materialized_ = false;          // diese Periode hat die Daten-Vollkopie materialisiert (Write/clear)
 #endif
 };
 

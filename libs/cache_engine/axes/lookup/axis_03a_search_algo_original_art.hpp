@@ -43,7 +43,8 @@ namespace comdare::cache_engine::lookup {
 
 class OriginalArtSearchAlgo : public SearchAlgoBase<OriginalArtSearchAlgo>
 #if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
-    , public generated::p01_art::OriginalCodeMixin // Habich-Compliance Mixin
+    ,
+                              public generated::p01_art::OriginalCodeMixin // Habich-Compliance Mixin
 #endif
 {
 public:

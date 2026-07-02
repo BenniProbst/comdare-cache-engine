@@ -24,8 +24,8 @@
 // **Additiv:** formalisiert die im Aequivalenz-Test (`TierOrganPair`, `tier_to_organ_mapping.hpp`) belegte
 // Tier->Organ-Zuordnung als compile-time-Trait, damit `abi_adapter.hpp` die container_t-Naht je organ-backed
 // Familie umstellen kann. Wrapper-/Organ-Namen 1:1 aus Registry + Mapping verifiziert (kein Raten).
-#include "tier_to_organ_mapping.hpp" // Organ-Aliase: ArtTrieOrgan/HotPatriciaOrgan/StartTrieOrgan/WormholeOrgan/
-                                     // SurfMapOrgan/SkipListOrgan/HashSearchOrgan/BstTreeOrgan/BTreeSearchOrgan
+#include "tier_to_organ_mapping.hpp"     // Organ-Aliase: ArtTrieOrgan/HotPatriciaOrgan/StartTrieOrgan/WormholeOrgan/
+                                         // SurfMapOrgan/SkipListOrgan/HashSearchOrgan/BstTreeOrgan/BTreeSearchOrgan
 #include "traversal_for_search_algo.hpp" // traversal_for_search_algo_t + LinearScanSearchAlgo-Fwd (Partitions-Beleg)
 
 #include <type_traits> // std::is_same_v (self-proving static_asserts — kein Raten)
@@ -112,48 +112,46 @@ template <class S>
 using organ_for_search_algo_t = typename organ_for_search_algo<S>::type;
 
 // --- Verifikation (kein Raten): die 9 Pool-Familien mappen je auf ihr treues natives Organ.
-static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::OriginalArtSearchAlgo>,
-                             ArtTrieOrgan>,
-              "#188-4b-a: ART -> ArtTrieOrgan");
-static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::OriginalHotSearchAlgo>,
-                             HotPatriciaOrgan>,
-              "#188-4b-a: HOT -> HotPatriciaOrgan");
-static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::OriginalStartSearchAlgo>,
-                             StartTrieOrgan>,
-              "#188-4b-a: START -> StartTrieOrgan");
-static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::OriginalWormholeSearchAlgo>,
-                             WormholeOrgan>,
-              "#188-4b-a: Wormhole -> WormholeOrgan");
-static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::OriginalSurfSearchAlgo>,
-                             SurfMapOrgan>,
-              "#188-4b-a: SuRF -> SurfMapOrgan");
-static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::SkipListSearchAlgo>,
-                             SkipListOrgan>,
-              "#188-4b-a: SkipList -> SkipListOrgan");
-static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::HashSearchAlgo>,
-                             HashSearchOrgan>,
+static_assert(
+    std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::OriginalArtSearchAlgo>, ArtTrieOrgan>,
+    "#188-4b-a: ART -> ArtTrieOrgan");
+static_assert(
+    std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::OriginalHotSearchAlgo>, HotPatriciaOrgan>,
+    "#188-4b-a: HOT -> HotPatriciaOrgan");
+static_assert(
+    std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::OriginalStartSearchAlgo>, StartTrieOrgan>,
+    "#188-4b-a: START -> StartTrieOrgan");
+static_assert(
+    std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::OriginalWormholeSearchAlgo>, WormholeOrgan>,
+    "#188-4b-a: Wormhole -> WormholeOrgan");
+static_assert(
+    std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::OriginalSurfSearchAlgo>, SurfMapOrgan>,
+    "#188-4b-a: SuRF -> SurfMapOrgan");
+static_assert(
+    std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::SkipListSearchAlgo>, SkipListOrgan>,
+    "#188-4b-a: SkipList -> SkipListOrgan");
+static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::HashSearchAlgo>, HashSearchOrgan>,
               "#188-4b-a: Hash -> HashSearchOrgan");
-static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::BinarySearchTreeSearchAlgo>,
-                             BstTreeOrgan>,
-              "#188-4b-a: BST -> BstTreeOrgan");
-static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::BTreeSearchAlgo>,
-                             BTreeSearchOrgan>,
-              "#188-4b-a: BTree -> BTreeSearchOrgan");
-static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::EytzingerSearchAlgo>,
-                             EytzingerOrgan>,
-              "#188-4a: Eytzinger -> EytzingerOrgan");
+static_assert(
+    std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::BinarySearchTreeSearchAlgo>, BstTreeOrgan>,
+    "#188-4b-a: BST -> BstTreeOrgan");
+static_assert(
+    std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::BTreeSearchAlgo>, BTreeSearchOrgan>,
+    "#188-4b-a: BTree -> BTreeSearchOrgan");
+static_assert(
+    std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::EytzingerSearchAlgo>, EytzingerOrgan>,
+    "#188-4a: Eytzinger -> EytzingerOrgan");
 
 // --- Disjunktheit (self-proving): kein Wrapper ist in BEIDEN Sibling-Traits non-void. Belegt an Repraesentanten:
 // (1) Pool-Familie BST = Organ non-void, faithful-Traversal void; (2) Such-METHODE linear_scan = Traversal non-void,
 // Organ void; (3) Flach-Wrapper Array256 seit #188-4c-ii = faithful DirectAddressTraversal non-void, Organ void.
-static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::BinarySearchTreeSearchAlgo>,
-                             void>,
-              "#188-4b-a Disjunktheit: BST = Pool-Familie -> KEIN faithful-Traversal (void)");
-static_assert(!std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::BinarySearchTreeSearchAlgo>,
-                              void>,
-              "#188-4b-a Disjunktheit: BST = Pool-Familie -> HAT natives Organ (non-void)");
-static_assert(!std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::LinearScanSearchAlgo>,
-                              void>,
+static_assert(
+    std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::BinarySearchTreeSearchAlgo>, void>,
+    "#188-4b-a Disjunktheit: BST = Pool-Familie -> KEIN faithful-Traversal (void)");
+static_assert(
+    !std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::BinarySearchTreeSearchAlgo>, void>,
+    "#188-4b-a Disjunktheit: BST = Pool-Familie -> HAT natives Organ (non-void)");
+static_assert(!std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::LinearScanSearchAlgo>, void>,
               "#188-4b-a Disjunktheit: linear_scan = Such-METHODE -> HAT faithful-Traversal (non-void)");
 static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::LinearScanSearchAlgo>, void>,
               "#188-4b-a Disjunktheit: linear_scan = Such-METHODE -> KEIN Pool-Organ (void)");
@@ -168,10 +166,11 @@ static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine
               "#188-4c-ii: Array256 -> DirectAddressTraversal");
 // Review-N7 (#188-4c-ii): Regressions-Guards fuer die drei uebrigen Flach-Wrapper — organ_for bleibt void
 // (store-traversierbar via traversal_for, KEIN Pool-Organ); explizit belegt statt implizit am Primary Template.
-static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::Array65535SearchAlgo>, void> &&
-                  std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::VectorU8U8SearchAlgo>, void> &&
-                  std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::VectorU16U16SearchAlgo>, void>,
-              "#188-4c-ii: alle 4 Flach-Wrapper bleiben organ_for==void (store-traversierbar, kein Pool-Organ)");
+static_assert(
+    std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::Array65535SearchAlgo>, void> &&
+        std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::VectorU8U8SearchAlgo>, void> &&
+        std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::VectorU16U16SearchAlgo>, void>,
+    "#188-4c-ii: alle 4 Flach-Wrapper bleiben organ_for==void (store-traversierbar, kein Pool-Organ)");
 static_assert(!std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::EytzingerSearchAlgo>, void>,
               "#188-4a 3-Wege-Split: Eytzinger = organ-backed Layout-Familie -> HAT natives Organ");
 static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::EytzingerSearchAlgo>, void>,

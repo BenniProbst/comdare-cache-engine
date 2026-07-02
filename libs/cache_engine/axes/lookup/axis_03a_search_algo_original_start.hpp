@@ -44,7 +44,8 @@ namespace comdare::cache_engine::lookup {
 
 class OriginalStartSearchAlgo : public SearchAlgoBase<OriginalStartSearchAlgo>
 #if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
-    , public generated::p05_start::OriginalCodeMixin
+    ,
+                                public generated::p05_start::OriginalCodeMixin
 #endif
 {
 public:

@@ -17,11 +17,11 @@
 // Option b: lazy rebuild); im traversal_for-Trait bewusst `void` (kein faithful FLAT-Store-Traversal ueber
 // LayoutAwareChunkedStore). Tree/Trie/Hash (Pool-Substrat) ebenso `void` (#188-4b).
 
-#include "composable_search.hpp"                 // LinearScanTraversal, SortedBinaryTraversal
-#include "direct_address_traversal_organ.hpp"    // DirectAddressTraversal (#188-4c-ii)
-#include "interpolation_traversal_organ.hpp"     // InterpolationTraversalOrgan
-#include "k_ary_traversal_organ.hpp"             // KAryTraversal (#188-4a)
-#include "sorted_vector_traversal_organ.hpp"     // SortedVectorTraversal (#188-4c-ii)
+#include "composable_search.hpp"              // LinearScanTraversal, SortedBinaryTraversal
+#include "direct_address_traversal_organ.hpp" // DirectAddressTraversal (#188-4c-ii)
+#include "interpolation_traversal_organ.hpp"  // InterpolationTraversalOrgan
+#include "k_ary_traversal_organ.hpp"          // KAryTraversal (#188-4a)
+#include "sorted_vector_traversal_organ.hpp"  // SortedVectorTraversal (#188-4c-ii)
 
 #include <type_traits> // std::is_same_v (A2.4-S2-static_asserts; vorher nur transitiv)
 

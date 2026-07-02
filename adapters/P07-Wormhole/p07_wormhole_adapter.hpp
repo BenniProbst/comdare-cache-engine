@@ -12,7 +12,7 @@
 
 #if defined(COMDARE_HAVE_WORMHOLE)
 extern "C" {
-#  include "wh.h"
+#include "wh.h"
 }
 #endif
 
@@ -20,7 +20,7 @@ namespace comdare::adapter::p07_wormhole {
 
 class WormholeAdapter {
 public:
-    using key_type = std::string_view;
+    using key_type   = std::string_view;
     using value_type = std::uint64_t;
 
     WormholeAdapter() {
@@ -35,25 +35,24 @@ public:
 #endif
     }
 
-    WormholeAdapter(const WormholeAdapter &) = delete;
-    WormholeAdapter &operator=(const WormholeAdapter &) = delete;
+    WormholeAdapter(const WormholeAdapter&)            = delete;
+    WormholeAdapter& operator=(const WormholeAdapter&) = delete;
 
     bool insert(key_type key, value_type value) {
 #if defined(COMDARE_HAVE_WORMHOLE)
         return wh_put(wh_, key.data(), key.size(), &value, sizeof(value));
 #else
-        (void)key; (void)value;
+        (void)key;
+        (void)value;
         throw std::runtime_error("COMDARE_HAVE_WORMHOLE not enabled");
 #endif
     }
 
-    [[nodiscard]] static constexpr const char *paper_id() noexcept {
-        return "P07-Wormhole (Wu/Ni/Jiang 2019)";
-    }
+    [[nodiscard]] static constexpr const char* paper_id() noexcept { return "P07-Wormhole (Wu/Ni/Jiang 2019)"; }
 
 private:
 #if defined(COMDARE_HAVE_WORMHOLE)
-    struct wormhole *wh_ = nullptr;
+    struct wormhole* wh_ = nullptr;
 #endif
 };
 

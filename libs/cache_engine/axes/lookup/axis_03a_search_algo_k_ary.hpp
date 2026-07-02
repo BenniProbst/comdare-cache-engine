@@ -315,8 +315,8 @@ public:
     using axis_tag   = subaxes::sparse_access_tag;
     using family_id  = std::integral_constant<int, 10>; // S10 (dieselbe k-ary-Familie wie Legacy)
 
-    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; } // u16 Keyraum
+    [[nodiscard]] static constexpr bool        is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t max_fanout() noexcept { return 65536; } // u16 Keyraum
     /// DISTINKTE name() je K (Risk#3: binary_id/Hash wird aus name() abgeleitet -> gleiche Namen kollidieren ->
     /// Dedup -> nur 1 Binary statt 4). Die 4 kanonischen Aritaeten sind paarweise + vs Legacy-"k_ary" distinkt.
     [[nodiscard]] static constexpr std::string_view name() noexcept {

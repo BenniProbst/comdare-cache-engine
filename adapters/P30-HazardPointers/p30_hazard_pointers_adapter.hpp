@@ -12,7 +12,7 @@
 #include <stdexcept>
 
 #if defined(COMDARE_HAVE_HAZ_PTR)
-#  include "haz_ptr.h"
+#include "haz_ptr.h"
 #endif
 
 namespace comdare::adapter::p30_hazard_pointers {
@@ -20,7 +20,7 @@ namespace comdare::adapter::p30_hazard_pointers {
 template <typename T>
 class HazardPointerAdapter {
 public:
-    T *acquire(std::atomic<T *> &slot) {
+    T* acquire(std::atomic<T*>& slot) {
 #if defined(COMDARE_HAVE_HAZ_PTR)
         return slot.load(std::memory_order_acquire);
 #else
@@ -29,7 +29,7 @@ public:
 #endif
     }
 
-    void release(T *ptr) {
+    void release(T* ptr) {
 #if defined(COMDARE_HAVE_HAZ_PTR)
         (void)ptr;
 #else
@@ -38,9 +38,7 @@ public:
 #endif
     }
 
-    [[nodiscard]] static constexpr const char *paper_id() noexcept {
-        return "P30-HazardPointers (Michael 2004)";
-    }
+    [[nodiscard]] static constexpr const char* paper_id() noexcept { return "P30-HazardPointers (Michael 2004)"; }
 };
 
 } // namespace comdare::adapter::p30_hazard_pointers

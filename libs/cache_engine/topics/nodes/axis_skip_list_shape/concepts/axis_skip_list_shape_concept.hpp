@@ -11,7 +11,6 @@ concept SkipListShape = ::comdare::cache_engine::nodes::concepts::NodesComponent
     { S::kMaxLevel } -> std::convertible_to<int>;
     { S::kPNumerator } -> std::convertible_to<int>;
     { S::kPDenominator } -> std::convertible_to<int>;
-}
-&& (S::kMaxLevel > 0) && (S::kPNumerator > 0) && (S::kPDenominator > 0) && (S::kPNumerator < S::kPDenominator);
+} && (S::kMaxLevel > 0) && (S::kPNumerator > 0) && (S::kPDenominator > 0) && (S::kPNumerator < S::kPDenominator);
 
 } // namespace comdare::cache_engine::nodes::axis_skip_list_shape::concepts

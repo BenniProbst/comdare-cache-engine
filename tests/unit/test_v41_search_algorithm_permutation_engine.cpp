@@ -463,7 +463,7 @@ TEST(R5D_CombinatorialCoverage, QuantifyAndOneWiseSampleCoversEveryValue) {
     std::array<std::size_t, 3> counts{17, 25, 5}; // FIXES illustratives Tripel fuer die analyze_coverage-Utility
                                                   // (NICHT die Live-Registry; reale Achsen-Groesse 21×25×5 prueft
                                                   // DimensionedFromRealAxisRegistries, s.u.)
-    auto const                 rep = ana::analyze_coverage(std::span<const std::size_t>{counts});
+    auto const rep = ana::analyze_coverage(std::span<const std::size_t>{counts});
     EXPECT_EQ(rep.axis_count, 3u);
     EXPECT_EQ(rep.full_space, 17u * 25u * 5u); // 2125
     EXPECT_FALSE(rep.full_space_saturated);
@@ -517,9 +517,10 @@ TEST(R5D_CombinatorialCoverage, DimensionedFromRealAxisRegistries) {
     namespace a06  = ::comdare::cache_engine::allocator::axis_06_allocator;
     namespace m05  = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;
 
-    constexpr std::size_t kSearch = mp::mp_size<s03a::AllStrategies>::value; // 21 (#188 per-K Inc2: +4 KArySearchAlgoK2/4/8/16)
-    constexpr std::size_t kAlloc  = mp::mp_size<a06::AllVendors>::value;     // 25
-    constexpr std::size_t kLayout = mp::mp_size<m05::AllLayouts>::value;     // 5
+    constexpr std::size_t kSearch =
+        mp::mp_size<s03a::AllStrategies>::value; // 21 (#188 per-K Inc2: +4 KArySearchAlgoK2/4/8/16)
+    constexpr std::size_t kAlloc  = mp::mp_size<a06::AllVendors>::value; // 25
+    constexpr std::size_t kLayout = mp::mp_size<m05::AllLayouts>::value; // 5
     static_assert(kSearch == 21 && kAlloc == 25 && kLayout == 5, "Achsen-Groessen-Snapshot (bei Erweiterung anpassen)");
 
     std::array<std::size_t, 3> counts{kSearch, kAlloc, kLayout};

@@ -323,7 +323,7 @@ int main(int argc, char** argv) {
     std::string lock_file_path;
     std::string output_path;
     std::string namespace_name;
-    bool        update_lock = false; // --update-lock: schreibt die (normalisierten) SHAs neu ins Lock (one-shot-Regenerierung)
+    bool update_lock = false; // --update-lock: schreibt die (normalisierten) SHAs neu ins Lock (one-shot-Regenerierung)
 
     for (int i = 1; i < argc; ++i) {
         std::string_view arg = argv[i];

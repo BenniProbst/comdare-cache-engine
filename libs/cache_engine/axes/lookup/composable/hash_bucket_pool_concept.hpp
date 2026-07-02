@@ -64,23 +64,22 @@ concept HashBucketPoolOpenAddressing =
 
 /// Separate-Chaining-Pool: Buckets zeigen auf Node-Ketten; Nodes werden ueber eine Freiliste recycelt.
 template <class S>
-concept HashBucketPoolChaining =
-    HashBucketPoolCore<S> && (S::kOpenAddressing == false) &&
-    requires(S& s, S const& cs, std::size_t bucket, std::size_t node, std::size_t prev, typename S::key_type k,
-             typename S::value_type v) {
-        { S::kNil } -> std::convertible_to<std::size_t>;
-        { cs.chain_head(bucket) } -> std::convertible_to<std::size_t>;
-        { cs.node_next(node) } -> std::convertible_to<std::size_t>;
-        { cs.node_slot_count() } -> std::convertible_to<std::size_t>;
-        { cs.slot_is_empty(node) } -> std::same_as<bool>;
-        { cs.slot_is_occupied(node) } -> std::same_as<bool>;
-        { cs.slot_is_deleted(node) } -> std::same_as<bool>;
-        { cs.slot_key(node) } -> std::same_as<typename S::key_type>;
-        { cs.slot_value(node) } -> std::same_as<typename S::value_type>;
-        { s.set_slot_value(node, v) } -> std::same_as<void>;
-        { s.allocate_chained(bucket, k, v) } -> std::same_as<void>;
-        { s.unlink_erase(bucket, node, prev) } -> std::same_as<void>;
-    };
+concept HashBucketPoolChaining = HashBucketPoolCore<S> && (S::kOpenAddressing == false) &&
+                                 requires(S& s, S const& cs, std::size_t bucket, std::size_t node, std::size_t prev,
+                                          typename S::key_type k, typename S::value_type v) {
+                                     { S::kNil } -> std::convertible_to<std::size_t>;
+                                     { cs.chain_head(bucket) } -> std::convertible_to<std::size_t>;
+                                     { cs.node_next(node) } -> std::convertible_to<std::size_t>;
+                                     { cs.node_slot_count() } -> std::convertible_to<std::size_t>;
+                                     { cs.slot_is_empty(node) } -> std::same_as<bool>;
+                                     { cs.slot_is_occupied(node) } -> std::same_as<bool>;
+                                     { cs.slot_is_deleted(node) } -> std::same_as<bool>;
+                                     { cs.slot_key(node) } -> std::same_as<typename S::key_type>;
+                                     { cs.slot_value(node) } -> std::same_as<typename S::value_type>;
+                                     { s.set_slot_value(node, v) } -> std::same_as<void>;
+                                     { s.allocate_chained(bucket, k, v) } -> std::same_as<void>;
+                                     { s.unlink_erase(bucket, node, prev) } -> std::same_as<void>;
+                                 };
 
 /// HASH-BUCKET-POOL-Concept: Shape-abhaengig Open Addressing ODER Chaining.
 template <class S>

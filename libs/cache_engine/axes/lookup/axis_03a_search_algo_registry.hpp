@@ -77,9 +77,9 @@ using AllStrategies = mp::mp_list<
     // Praezedenzfall) -> opt-in, nicht-disruptiv (EnabledStrategies waechst NICHT durch die Registrierung); distinkte
     // name() k_ary_k2..k16 (binary_id-Trennung). Konkrete Emission der 4 Binaries via dediziertes per-K-Profil+Katalog
     // (Increment 2b) — die bloße Registrierung baut NICHTS (profil-gated), sie macht die per-K nur selektierbar.
-    KArySearchAlgoK2,  // S18, k-ary K=2 (Binaersuch-Baseline)
-    KArySearchAlgoK4,  // S19, k-ary K=4 (Paper-Default, 5-Wege-Partition)
-    KArySearchAlgoK8,  // S20, k-ary K=8
+    KArySearchAlgoK2, // S18, k-ary K=2 (Binaersuch-Baseline)
+    KArySearchAlgoK4, // S19, k-ary K=4 (Paper-Default, 5-Wege-Partition)
+    KArySearchAlgoK8, // S20, k-ary K=8
     KArySearchAlgoK16 // S21, k-ary K=16
     // Vollausbau-Roadmap (Folge-Batches, Tree-STRUKTUR-Paper-Wrappers):
     // P03 Masstree DEFERRED — masstree.hh hat keine direkten Function-Bodies (alle Templates)
@@ -107,8 +107,9 @@ static_assert(composable::StoreTraversableSearchAlgo<Array256SearchAlgo> &&
 static_assert(composable::StoreTraversableSearchAlgo<VectorU8U8SearchAlgo> &&
                   composable::StoreTraversableSearchAlgo<VectorU16U16SearchAlgo>,
               "#188-4c-ii: sortierte Vektor-Flach-Wrapper -> SortedVectorTraversal -> store-traversierbar");
-static_assert(composable::StoreTraversableSearchAlgo<KArySearchAlgo>,
-              "#188-4a-C5: k-ary = Array-Familie + treues compile-time KAryTraversal<Arity> -> store-traversierbar (Weg-A)");
+static_assert(
+    composable::StoreTraversableSearchAlgo<KArySearchAlgo>,
+    "#188-4a-C5: k-ary = Array-Familie + treues compile-time KAryTraversal<Arity> -> store-traversierbar (Weg-A)");
 // #188 per-K Increment 2: die 4 registrierten per-K-Wrapper sind ebenfalls store-traversierbar (Weg-A-Marker) ->
 // container_traversal_t (abi_adapter:1890) fuehrt jeden ueber SEIN KAryTraversal<K>, NICHT SortedBinary. Ueber die
 // ZIEL-Population verifiziert (nicht nur Referenz-Kompositionen).

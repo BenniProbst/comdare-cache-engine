@@ -25,7 +25,7 @@ namespace comdare::cache_engine::builder::experiment {
 /// Die drei Observer-Naturen der 26 Achsen (gattungs-korrekt, Doc 27 §0.1).
 enum class AxisObserverKind {
     SearchAlgorithmObserver, // 19 Komposition-Achsen (inkl. queuing q1/q2 T17/T18): ObserverAggregate<19> (BR-3)
-    DefinitionOnly,          // page_type/09b/12 + 4 node-shape (#234-K): Build-Konstanten → Definition statt Laufzeit-Observer
+    DefinitionOnly,   // page_type/09b/12 + 4 node-shape (#234-K): Build-Konstanten → Definition statt Laufzeit-Observer
     ContainerObserver // RESERVIERT: echte Container-Gattung (Adapter, 13 Achsen inkl. inner_container, §28, #87+#90) — NICHT queuing (korr. 2026-06-03)
 };
 

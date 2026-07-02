@@ -32,9 +32,9 @@ class BTreeNodePoolStore {
 public:
     using key_type                            = std::uint64_t;
     using value_type                          = std::uint64_t;
-    static constexpr int         kT           = Shape::kT;      // Minimum-Degree (#234-K shape carrier)
-    static constexpr int         kMaxKeys     = 2 * kT - 1;     // Level-0: 7
-    static constexpr int         kMaxChildren = 2 * kT;         // Level-0: 8
+    static constexpr int         kT           = Shape::kT;  // Minimum-Degree (#234-K shape carrier)
+    static constexpr int         kMaxKeys     = 2 * kT - 1; // Level-0: 7
+    static constexpr int         kMaxChildren = 2 * kT;     // Level-0: 8
     static constexpr std::size_t kNil         = 0xFFFFFFFFu;
 
     static_assert(kMaxKeys == Shape::kMaxKeys);

@@ -39,11 +39,26 @@ namespace lkc = ::comdare::cache_engine::lookup::composable;
 
 // Weiter Schlüsselraum — der Kern: Keys >= 2^16 (die ein u16-Substrat truncatet) bis UINT64_MAX. Alle distinkt.
 std::vector<std::uint64_t> wide_key_set() {
-    return {0u,       1u,        7u,          42u,        255u,
-            256u,     999u,      65535u,      65536u,     65537u,       // 65536/65537: u16-Truncations-Schwelle
-            131072u,  (1ull << 20),           (1ull << 32),  (1ull << 33), // 2^32 und 2^33 (distinkt)
-            (1ull << 40),         (1ull << 48),           0x00000000FFFFFFFFull,
-            0xFFFFFFFFFFFF0000ull, 0xDEADBEEFCAFEBABEull, 0xFFFFFFFFFFFFFFFFull};
+    return {0u,
+            1u,
+            7u,
+            42u,
+            255u,
+            256u,
+            999u,
+            65535u,
+            65536u,
+            65537u, // 65536/65537: u16-Truncations-Schwelle
+            131072u,
+            (1ull << 20),
+            (1ull << 32),
+            (1ull << 33), // 2^32 und 2^33 (distinkt)
+            (1ull << 40),
+            (1ull << 48),
+            0x00000000FFFFFFFFull,
+            0xFFFFFFFFFFFF0000ull,
+            0xDEADBEEFCAFEBABEull,
+            0xFFFFFFFFFFFFFFFFull};
 }
 
 // Verifiziert EIN Pool-Organ in der 4b-b1-container_-Form gegen std::map über den weiten Key-Raum.
@@ -60,11 +75,11 @@ void verify_pool_organ_wide_key_conformance(char const* name) {
 
     Container                              c;
     std::map<std::uint64_t, std::uint64_t> oracle;
-    auto const                             keys    = wide_key_set();
-    auto const val_for = [](std::uint64_t k) -> std::uint64_t { return k ^ 0x9E3779B97F4A7C15ull; };
+    auto const                             keys = wide_key_set();
+    auto const val_for                 = [](std::uint64_t k) -> std::uint64_t { return k ^ 0x9E3779B97F4A7C15ull; };
     auto const expect_for_each_matches = [&](char const* phase) {
         std::map<std::uint64_t, std::uint64_t> harvested;
-        std::size_t const visits = c.for_each_record([&](std::uint64_t k, std::uint64_t v) {
+        std::size_t const                      visits = c.for_each_record([&](std::uint64_t k, std::uint64_t v) {
             bool const inserted = harvested.emplace(k, v).second;
             EXPECT_TRUE(inserted) << name << ": for_each_record Duplicate key=" << k << " phase=" << phase;
         });
@@ -103,8 +118,8 @@ void verify_pool_organ_wide_key_conformance(char const* name) {
 
     // (b3) update: bestehenden Key mit neuem Wert re-inserten → NICHT neu, Wert aktualisiert (insert_or_assign).
     {
-        std::uint64_t const k  = 65536u;
-        std::uint64_t const nv = 0xABCDEF0123456789ull;
+        std::uint64_t const k   = 65536u;
+        std::uint64_t const nv  = 0xABCDEF0123456789ull;
         bool const          org = c.insert(k, static_cast<V>(nv));
         EXPECT_FALSE(org) << name << ": update darf NICHT neu sein key=" << k;
         auto const ov = c.lookup(k);

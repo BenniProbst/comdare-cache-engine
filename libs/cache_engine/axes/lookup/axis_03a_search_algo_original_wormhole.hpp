@@ -32,7 +32,8 @@ namespace comdare::cache_engine::lookup {
 
 class OriginalWormholeSearchAlgo : public SearchAlgoBase<OriginalWormholeSearchAlgo>
 #if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
-    , public generated::p07_wormhole::OriginalCodeMixin
+    ,
+                                   public generated::p07_wormhole::OriginalCodeMixin
 #endif
 {
 public:

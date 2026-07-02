@@ -18,25 +18,25 @@
 #include <string>
 
 #if defined(COMDARE_HAVE_UNODB)
-#  include "art.hpp"
+#include "art.hpp"
 #endif
 
 namespace comdare::adapter::p01_art {
 
 // Map-style adapter: K -> V. Default Key=uint64_t, Value=void* (matches
 // the typical unodb usage pattern from the original ICDE 2013 examples).
-template <typename Key = std::uint64_t, typename Value = void *>
+template <typename Key = std::uint64_t, typename Value = void*>
 class UnodbDbAdapter {
 public:
-    using key_type = Key;
+    using key_type   = Key;
     using value_type = Value;
 
-    UnodbDbAdapter() = default;
-    UnodbDbAdapter(const UnodbDbAdapter &) = delete;
-    UnodbDbAdapter &operator=(const UnodbDbAdapter &) = delete;
-    UnodbDbAdapter(UnodbDbAdapter &&) noexcept = default;
-    UnodbDbAdapter &operator=(UnodbDbAdapter &&) noexcept = default;
-    ~UnodbDbAdapter() = default;
+    UnodbDbAdapter()                                     = default;
+    UnodbDbAdapter(const UnodbDbAdapter&)                = delete;
+    UnodbDbAdapter& operator=(const UnodbDbAdapter&)     = delete;
+    UnodbDbAdapter(UnodbDbAdapter&&) noexcept            = default;
+    UnodbDbAdapter& operator=(UnodbDbAdapter&&) noexcept = default;
+    ~UnodbDbAdapter()                                    = default;
 
     // YCSB-style operations. Concept-mapping to comdare::ISearchEngine
     // happens in libs/cache_engine/builder/, not here.
@@ -78,9 +78,7 @@ public:
 #endif
     }
 
-    [[nodiscard]] static constexpr const char *paper_id() noexcept {
-        return "P01-ART (Leis/Kemper/Neumann 2013)";
-    }
+    [[nodiscard]] static constexpr const char* paper_id() noexcept { return "P01-ART (Leis/Kemper/Neumann 2013)"; }
 
 private:
     static std::string stub_error_message() {

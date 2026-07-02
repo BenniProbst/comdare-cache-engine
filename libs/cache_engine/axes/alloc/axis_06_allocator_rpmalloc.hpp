@@ -68,7 +68,8 @@ struct RPMallocInitGuard {
 
 class RPMallocAllocator : public AllocatorStrategyBase<RPMallocAllocator>
 #if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
-    , public generated::a10_rpmalloc::OriginalCodeMixin // V41.F.6.1.P2.D Batch 2
+    ,
+                          public generated::a10_rpmalloc::OriginalCodeMixin // V41.F.6.1.P2.D Batch 2
 #endif
 {
 public:

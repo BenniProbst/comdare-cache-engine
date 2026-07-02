@@ -7,30 +7,28 @@
 #include <cstdlib>
 
 #if defined(COMDARE_HAVE_TCMALLOC)
-#  include <gperftools/tcmalloc.h>
+#include <gperftools/tcmalloc.h>
 #endif
 
 namespace comdare::adapter::a06_tcmalloc {
 
 class TcmallocAdapter {
 public:
-    [[nodiscard]] void *allocate(std::size_t size) {
+    [[nodiscard]] void* allocate(std::size_t size) {
 #if defined(COMDARE_HAVE_TCMALLOC)
         return tc_malloc(size);
 #else
         return std::malloc(size);
 #endif
     }
-    void deallocate(void *p) noexcept {
+    void deallocate(void* p) noexcept {
 #if defined(COMDARE_HAVE_TCMALLOC)
         tc_free(p);
 #else
         std::free(p);
 #endif
     }
-    [[nodiscard]] static constexpr const char *paper_id() noexcept {
-        return "A06-tcmalloc (Ghemawat/Menage 2009)";
-    }
+    [[nodiscard]] static constexpr const char* paper_id() noexcept { return "A06-tcmalloc (Ghemawat/Menage 2009)"; }
 };
 
 } // namespace comdare::adapter::a06_tcmalloc

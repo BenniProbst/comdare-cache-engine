@@ -49,7 +49,8 @@ namespace comdare::cache_engine::lookup {
 
 class OriginalHotSearchAlgo : public SearchAlgoBase<OriginalHotSearchAlgo>
 #if defined(COMDARE_A03A_IS_ORIGINAL_CODEGEN)
-    , public generated::p02_hot::OriginalCodeMixin
+    ,
+                              public generated::p02_hot::OriginalCodeMixin
 #endif
 {
 public:

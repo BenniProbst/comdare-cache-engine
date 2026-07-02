@@ -119,7 +119,7 @@ public:
 
     /// Belegt Slot i. Wiederverwendung eines Tombstones (Deleted->Occupied) wird automatisch verbucht.
     void place_occupied(std::size_t i, key_type k, value_type v) noexcept
-        requires (kOpenAddressing)
+        requires(kOpenAddressing)
     {
         if (st_.buckets[i].state == SlotState::Deleted) --tombstones_;
         st_.buckets[i] = Slot{k, v, SlotState::Occupied};
@@ -133,7 +133,7 @@ public:
         }
     }
     void mark_deleted(std::size_t i) noexcept
-        requires (kOpenAddressing)
+        requires(kOpenAddressing)
     {
         st_.buckets[i].state = SlotState::Deleted; // Tombstone — Probe-Kette bleibt intakt
         --size_;
@@ -141,22 +141,22 @@ public:
     }
 
     [[nodiscard]] std::size_t chain_head(std::size_t bucket) const noexcept
-        requires (!kOpenAddressing)
+        requires(!kOpenAddressing)
     {
         return st_.heads[bucket];
     }
     [[nodiscard]] std::size_t node_next(std::size_t node) const noexcept
-        requires (!kOpenAddressing)
+        requires(!kOpenAddressing)
     {
         return st_.nodes[node].next;
     }
     [[nodiscard]] std::size_t node_slot_count() const noexcept
-        requires (!kOpenAddressing)
+        requires(!kOpenAddressing)
     {
         return st_.nodes.size();
     }
     void allocate_chained(std::size_t bucket, key_type k, value_type v)
-        requires (!kOpenAddressing)
+        requires(!kOpenAddressing)
     {
         std::size_t node = kNil;
         if (!st_.free.empty()) {
@@ -171,7 +171,7 @@ public:
         ++size_;
     }
     void unlink_erase(std::size_t bucket, std::size_t node, std::size_t prev)
-        requires (!kOpenAddressing)
+        requires(!kOpenAddressing)
     {
         std::size_t const next = st_.nodes[node].next;
         if (prev == kNil) {

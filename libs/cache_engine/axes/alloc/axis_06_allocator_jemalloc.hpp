@@ -47,9 +47,11 @@ namespace comdare::cache_engine::alloc {
  * Arena-based Size-Class-Allocator (Evans 2006).
  * V41.F.6.1.C W6-Pattern: enabled via flags::jemalloc_enabled (zentraler CMake-Flag).
  */
-class JemallocAllocator : public AllocatorStrategyBase<JemallocAllocator>
+class JemallocAllocator
+    : public AllocatorStrategyBase<JemallocAllocator>
 #if defined(COMDARE_A06_IS_ORIGINAL_CODEGEN)
-    , public generated::a05_jemalloc::OriginalCodeMixin // V41.F.6.1.P2.D Paper-Mixin (Habich-Compliance)
+    ,
+      public generated::a05_jemalloc::OriginalCodeMixin // V41.F.6.1.P2.D Paper-Mixin (Habich-Compliance)
 #endif
 {
 public:

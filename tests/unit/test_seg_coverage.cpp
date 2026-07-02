@@ -40,26 +40,14 @@ namespace comp  = ::comdare::cache_engine::compositions;
 namespace ce03a = ::comdare::cache_engine::traversal::axis_03a_search_algo;
 namespace ex    = ::comdare::cache_engine::builder::experiment;
 
-using StoreBackedAdHocComposition =
-    an::AdHocComposition<ce03a::Array256SearchAlgo,
-                         comp::ArtComposition::cache_traversal,
-                         comp::ArtComposition::mapping,
-                         comp::ArtComposition::path_compression,
-                         comp::ArtComposition::node_type,
-                         comp::ArtComposition::memory_layout,
-                         comp::ArtComposition::allocator,
-                         comp::ArtComposition::prefetch,
-                         comp::ArtComposition::concurrency,
-                         comp::ArtComposition::serialization,
-                         comp::ArtComposition::telemetry,
-                         comp::ArtComposition::value_handle,
-                         comp::ArtComposition::isa,
-                         comp::ArtComposition::index_organization,
-                         comp::ArtComposition::io_dispatch,
-                         comp::ArtComposition::migration_policy,
-                         comp::ArtComposition::filter,
-                         comp::ArtComposition::queuing_q1,
-                         comp::ArtComposition::queuing_q2>;
+using StoreBackedAdHocComposition = an::AdHocComposition<
+    ce03a::Array256SearchAlgo, comp::ArtComposition::cache_traversal, comp::ArtComposition::mapping,
+    comp::ArtComposition::path_compression, comp::ArtComposition::node_type, comp::ArtComposition::memory_layout,
+    comp::ArtComposition::allocator, comp::ArtComposition::prefetch, comp::ArtComposition::concurrency,
+    comp::ArtComposition::serialization, comp::ArtComposition::telemetry, comp::ArtComposition::value_handle,
+    comp::ArtComposition::isa, comp::ArtComposition::index_organization, comp::ArtComposition::io_dispatch,
+    comp::ArtComposition::migration_policy, comp::ArtComposition::filter, comp::ArtComposition::queuing_q1,
+    comp::ArtComposition::queuing_q2>;
 
 static int  g_fail = 0;
 static void tr(std::string const& w, bool c) {
@@ -119,8 +107,7 @@ static void check_coverage(char const* name, bool store_axes_backed) {
     tr(std::string(name) + ": seg[T0 search_algo] > 0 (algorithmische Organ-Zeit, nicht 0)", s.seg_ns[0] > 0);
     if (store_axes_backed) {
         tr(std::string(name) + ": seg[T4 node_type] > 0 (store-backed algorithmische Organ-Zeit)", s.seg_ns[4] > 0);
-        tr(std::string(name) + ": seg[T5 memory_layout] > 0 (store-backed algorithmische Organ-Zeit)",
-           s.seg_ns[5] > 0);
+        tr(std::string(name) + ": seg[T5 memory_layout] > 0 (store-backed algorithmische Organ-Zeit)", s.seg_ns[5] > 0);
     } else {
         // #188-4c-i: Huellen-Komposition container_-authoritativ -> store-Achsen honest-0 (bis observe-Hooks #234).
         tr(std::string(name) + ": seg[T4 node_type] == 0 (Huellen honest-0)", s.seg_ns[4] == 0);
