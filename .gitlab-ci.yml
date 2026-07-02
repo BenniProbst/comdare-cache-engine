@@ -146,9 +146,11 @@ contract:conformance:
     # #188-4c-0b (2026-07-02): Known-Compositions duerfen Paper-Original-Wrapper auch ohne ext-Submodule
     # kompilieren. is_original-Mixins sind jetzt per COMDARE_A06/A03A/AQ1_IS_ORIGINAL_CODEGEN gegated;
     # kein CI-Erzwingen von ORIGINAL_CODE_VALIDATION=ON, weil ext/ im Runner leer sein kann.
+    # #188-4c-ii (2026-07-02): +test_188_4cii_flat_wrapper_traversal — die 4 Flach-Wrapper store-traversierbar
+    # (DirectAddress-/SortedVectorTraversal); exakter 3-Target-Regex (bb0-Lehre).
     - cmake -B build-conf -G Ninja -DCOMDARE_BUILD_TESTS=ON
-    - cmake --build build-conf --target test_conformance_gate test_188_4c0_known_compositions_conformance
-    - ctest --test-dir build-conf -R '^(test_conformance_gate|test_188_4c0_known_compositions_conformance)$' --output-on-failure -V
+    - cmake --build build-conf --target test_conformance_gate test_188_4c0_known_compositions_conformance test_188_4cii_flat_wrapper_traversal
+    - ctest --test-dir build-conf -R '^(test_conformance_gate|test_188_4c0_known_compositions_conformance|test_188_4cii_flat_wrapper_traversal)$' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 

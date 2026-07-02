@@ -8,22 +8,30 @@
 // LayoutAwareChunkedStore<…>>` statt hart-verdrahtetem SortedBinary. Dadurch sucht die search_algo-Achse über DENSELBEN
 // node/layout/allocator-getriebenen Store (Befund-2-SOLL).
 //
-// **TREUE (kein Fidelitäts-Defekt):** nur Algos mit einem dedizierten, sie korrekt abbildenden Traversal-Organ werden
-// gemappt: LinearScan→LinearScanTraversal, Interpolation→InterpolationTraversalOrgan, k-ary→KAryTraversal (#188-4a:
-// k-Wege-Partition über den sortierten Flach-Store; lookup_in bit-identisch zur k_ary-Suche, insert/erase/scan an
-// SortedBinary). Eytzinger (BFS-Layout) ist seit #188-4a organ-backed (organ_for_search_algo → EytzingerOrgan,
-// Option b: lazy rebuild); im traversal_for-Trait bewusst `void` (kein faithful FLAT-Store-Traversal über
+// **TREUE (kein Fidelitaets-Defekt):** nur Algos mit einem dedizierten, sie korrekt abbildenden Traversal-Organ werden
+// gemappt: Array256/Array65535 -> DirectAddressTraversal (#188-4c-ii: Direktadress-Schaetzung + lokale Korrektur),
+// VectorU8U8/VectorU16U16 -> SortedVectorTraversal (#188-4c-ii: lower_bound ueber den sortierten Store),
+// LinearScan -> LinearScanTraversal, Interpolation -> InterpolationTraversalOrgan, k-ary -> KAryTraversal (#188-4a:
+// k-Wege-Partition ueber den sortierten Flach-Store; lookup_in bit-identisch zur k_ary-Suche, insert/erase/scan an
+// SortedBinary). Eytzinger (BFS-Layout) ist seit #188-4a organ-backed (organ_for_search_algo -> EytzingerOrgan,
+// Option b: lazy rebuild); im traversal_for-Trait bewusst `void` (kein faithful FLAT-Store-Traversal ueber
 // LayoutAwareChunkedStore). Tree/Trie/Hash (Pool-Substrat) ebenso `void` (#188-4b).
 
-#include "composable_search.hpp"             // LinearScanTraversal, SortedBinaryTraversal
-#include "interpolation_traversal_organ.hpp" // InterpolationTraversalOrgan
-#include "k_ary_traversal_organ.hpp"         // KAryTraversal (#188-4a)
+#include "composable_search.hpp"                 // LinearScanTraversal, SortedBinaryTraversal
+#include "direct_address_traversal_organ.hpp"    // DirectAddressTraversal (#188-4c-ii)
+#include "interpolation_traversal_organ.hpp"     // InterpolationTraversalOrgan
+#include "k_ary_traversal_organ.hpp"             // KAryTraversal (#188-4a)
+#include "sorted_vector_traversal_organ.hpp"     // SortedVectorTraversal (#188-4c-ii)
 
 #include <type_traits> // std::is_same_v (A2.4-S2-static_asserts; vorher nur transitiv)
 
 namespace comdare::cache_engine::lookup {
 
-// Vorwärts-Deklaration der gemappten Such-Algo-Wrapper (vermeidet Voll-Include der Wrapper → keine Zirkularität).
+// Vorwaerts-Deklaration der gemappten Such-Algo-Wrapper (vermeidet Voll-Include der Wrapper -> keine Zirkularitaet).
+class Array256SearchAlgo;     // #188-4c-ii: store-traversierbar via DirectAddressTraversal
+class Array65535SearchAlgo;   // #188-4c-ii: store-traversierbar via DirectAddressTraversal
+class VectorU8U8SearchAlgo;   // #188-4c-ii: store-traversierbar via SortedVectorTraversal
+class VectorU16U16SearchAlgo; // #188-4c-ii: store-traversierbar via SortedVectorTraversal
 class LinearScanSearchAlgo;
 class InterpolationSearchAlgo;
 class KArySearchAlgo; // #188-4a: store-traversierbar via KAryTraversal
@@ -33,10 +41,26 @@ class KArySearchAlgoT;
 
 namespace composable {
 
-// Primär: kein treues Flach-Store-Traversal → void (Weg-B-Zweig nutzt das Mapping ohnehin nicht; search_organ_ bleibt).
+// Primaer: kein treues Flach-Store-Traversal -> void (nicht-autoritative Zweige nutzen dieses Mapping nicht).
 template <class S>
 struct traversal_for_search_algo {
     using type = void;
+};
+template <>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::Array256SearchAlgo> {
+    using type = DirectAddressTraversal;
+};
+template <>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::Array65535SearchAlgo> {
+    using type = DirectAddressTraversal;
+};
+template <>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::VectorU8U8SearchAlgo> {
+    using type = SortedVectorTraversal;
+};
+template <>
+struct traversal_for_search_algo<::comdare::cache_engine::lookup::VectorU16U16SearchAlgo> {
+    using type = SortedVectorTraversal;
 };
 template <>
 struct traversal_for_search_algo<::comdare::cache_engine::lookup::LinearScanSearchAlgo> {
@@ -62,7 +86,19 @@ struct traversal_for_search_algo<::comdare::cache_engine::lookup::KArySearchAlgo
 template <class S>
 using traversal_for_search_algo_t = typename traversal_for_search_algo<S>::type;
 
-// Verifikation (kein Raten): die store-traversierbaren Algos mappen auf ihr treues Organ; nicht-gemappte → void.
+// Verifikation (kein Raten): die store-traversierbaren Algos mappen auf ihr treues Organ; nicht-gemappte -> void.
+static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::Array256SearchAlgo>,
+                             DirectAddressTraversal>,
+              "#188-4c-ii: array256 -> DirectAddressTraversal");
+static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::Array65535SearchAlgo>,
+                             DirectAddressTraversal>,
+              "#188-4c-ii: array65535 -> DirectAddressTraversal");
+static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::VectorU8U8SearchAlgo>,
+                             SortedVectorTraversal>,
+              "#188-4c-ii: vector_u8u8 -> SortedVectorTraversal");
+static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::VectorU16U16SearchAlgo>,
+                             SortedVectorTraversal>,
+              "#188-4c-ii: vector_u16u16 -> SortedVectorTraversal");
 static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::LinearScanSearchAlgo>,
                              LinearScanTraversal>,
               "A2.4-S2: linear_scan -> LinearScanTraversal");

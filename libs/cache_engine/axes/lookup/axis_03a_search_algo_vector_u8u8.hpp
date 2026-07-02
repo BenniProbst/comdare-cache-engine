@@ -50,6 +50,8 @@ namespace comdare::cache_engine::lookup {
 class VectorU8U8SearchAlgo : public SearchAlgoBase<VectorU8U8SearchAlgo> {
 public:
     static constexpr bool enabled = flags::vector_u8u8_enabled;
+    // #188-4c-ii: faithful Flach-Store-Pfad via SortedVectorTraversal; density_threshold bleibt Klassifizierung.
+    static constexpr bool axis_03a_store_traversable = true;
 
     using key_type   = std::uint8_t;
     using value_type = std::uint64_t;

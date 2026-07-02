@@ -42,6 +42,8 @@ namespace comdare::cache_engine::lookup {
 class Array256SearchAlgo : public SearchAlgoBase<Array256SearchAlgo> {
 public:
     static constexpr bool enabled = flags::array256_enabled;
+    // #188-4c-ii: faithful Flach-Store-Pfad via DirectAddressTraversal; Wrapper-Eigen-API/key_type bleibt u8.
+    static constexpr bool axis_03a_store_traversable = true;
 
     using key_type   = std::uint8_t;
     using value_type = std::uint64_t;

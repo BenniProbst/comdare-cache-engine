@@ -94,12 +94,19 @@ using EnabledStrategies = mp::mp_filter<is_enabled, AllStrategies>;
 
 static_assert(mp::mp_size<EnabledStrategies>::value > 0, "axis_03a_search_algo: at least one strategy must be enabled");
 
-// (E-Welle-A2 / Befund-2 / A2.4-S1) Verifikation der store-traversierbaren Klassifikation über die ZIEL-Population
-// (Meta-Lehre #1/#2: echte Registry-Typen, nicht nur Referenz-Kompositionen). Array-Familie → store-traversierbar
-// (Suche über DENSELBEN node/layout/allocator-getriebenen LayoutAwareChunkedStore); k-ary jetzt store-traversierbar
-// (#188-4a-C5: treues compile-time KAryTraversal<Arity>, test_conformance_gate-grün). Eytzinger ist seit #188-4a
-// organ-backed via organ_for_search_algo -> EytzingerOrgan, aber BEWUSST kein StoreTraversableSearchAlgo-Marker
-// (der gilt nur dem FLAT-Store-Pfad). Tree/Trie/Hash bleiben nicht-store-traversierbar, teils organ-backed.
+// (E-Welle-A2 / Befund-2 / A2.4-S1) Verifikation der store-traversierbaren Klassifikation ueber die ZIEL-Population
+// (Meta-Lehre #1/#2: echte Registry-Typen, nicht nur Referenz-Kompositionen). Flach-Familien -> store-traversierbar
+// (Suche ueber DENSELBEN node/layout/allocator-getriebenen LayoutAwareChunkedStore): #188-4c-ii flippt die letzten
+// vier markerlosen Flach-Wrapper (DirectAddressTraversal bzw. SortedVectorTraversal); k-ary ist seit #188-4a-C5
+// store-traversierbar (treues compile-time KAryTraversal<Arity>, test_conformance_gate-gruen). Eytzinger ist seit
+// #188-4a organ-backed via organ_for_search_algo -> EytzingerOrgan, aber BEWUSST kein StoreTraversableSearchAlgo-
+// Marker (der gilt nur dem FLAT-Store-Pfad). Tree/Trie/Hash bleiben nicht-store-traversierbar, teils organ-backed.
+static_assert(composable::StoreTraversableSearchAlgo<Array256SearchAlgo> &&
+                  composable::StoreTraversableSearchAlgo<Array65535SearchAlgo>,
+              "#188-4c-ii: direktadressierte Flach-Wrapper -> DirectAddressTraversal -> store-traversierbar");
+static_assert(composable::StoreTraversableSearchAlgo<VectorU8U8SearchAlgo> &&
+                  composable::StoreTraversableSearchAlgo<VectorU16U16SearchAlgo>,
+              "#188-4c-ii: sortierte Vektor-Flach-Wrapper -> SortedVectorTraversal -> store-traversierbar");
 static_assert(composable::StoreTraversableSearchAlgo<KArySearchAlgo>,
               "#188-4a-C5: k-ary = Array-Familie + treues compile-time KAryTraversal<Arity> -> store-traversierbar (Weg-A)");
 // #188 per-K Increment 2: die 4 registrierten per-K-Wrapper sind ebenfalls store-traversierbar (Weg-A-Marker) ->
