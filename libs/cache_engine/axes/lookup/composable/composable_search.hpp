@@ -10,7 +10,7 @@
 //
 // Dieses Modul fuehrt das KORREKTE Modell ein (Doku 14 §11.3 Schicht 3): ein Suchalgorithmus =
 //   TRAVERSAL-Organ  ⊕  STORAGE-Organ
-// ueber einem GEMEINSAMEN breiten Key (uint64). Das Traversal-Organ besitzt KEINEN Speicher — es
+// ueber der aktuellen Default-Key-Breite (uint64). Das Traversal-Organ besitzt KEINEN Speicher — es
 // operiert via statische insert_into/lookup_in/erase_from auf dem vom Storage-Organ gelieferten
 // Substrat. Traversal-Organe sind damit gegeneinander austauschbar ("genetisches Experiment",
 // Doku 14 §1.2) und der Key-Type-Mismatch (Doku 24 §5.5) entfaellt strukturell.
@@ -32,11 +32,11 @@
 
 namespace comdare::cache_engine::lookup::composable {
 
-/// STORAGE-Organ (Pilot): rohe, indizierte Slots (key,value) ueber GEMEINSAMEM uint64-Key. Vertritt
+/// STORAGE-Organ (Pilot): rohe, indizierte Slots (key,value) ueber aktueller Default-Breite uint64. Vertritt
 /// das node_type/layout/allocator-getriebene Speicher-Substrat; Traversal-Organe operieren darauf.
 class RawSlotStore {
 public:
-    using key_type   = std::uint64_t; // GEMEINSAMER breiter Key (loest Doku-24-§5.5-Blocker)
+    using key_type   = std::uint64_t; // aktuelle Default-Breite; native schmalere Container = #217-2b
     using value_type = std::uint64_t;
 
     [[nodiscard]] std::size_t slot_count() const noexcept { return slots_.size(); }

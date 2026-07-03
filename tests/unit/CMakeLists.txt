@@ -1598,6 +1598,20 @@ target_include_directories(test_188_4cii_flat_wrapper_traversal PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_188_4cii_flat_wrapper_traversal PRIVATE Boost::mp11)
 
+# #217-2a (2026-07-03) — optionale Container-Kapazitaet: nur Static-Container (Array256/Array65535)
+# lehnen tier_insert-Keys ausserhalb der deklarierten Kapazitaet ab; Advisory-Container bleiben unbounded.
+comdare_add_test(test_217_2a_capacity_guard
+    SOURCES test_217_2a_capacity_guard.cpp)
+target_include_directories(test_217_2a_capacity_guard PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_217_2a_capacity_guard PRIVATE Boost::mp11)
+target_compile_definitions(test_217_2a_capacity_guard PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+
 # P5 (#156-De-Risk, 2026-06-20) — Smoke fuer die PMC-WIDE-Naht: make_pmc_source()/IPmcSource im LAZY WIDE-Mess-Pfad
 # (perm_runner) + 7 additive pmc_*-Spalten in lazy_csv_header. Standalone (plain int main, baut KEINE DLLs), zieht
 # aber den schweren iterator-/pmc_source_factory-Kontext -> derselbe anatomy/axes/Boost::mp11-Include-Satz wie

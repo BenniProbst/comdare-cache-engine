@@ -5,7 +5,7 @@
 //
 // **Zweck (Doku 24 §6, Fortsetzung von NodeTypeSlotStore<N>):** Holt zusaetzlich zur node_type-Achse
 // die **allocator-Achse (axis_06)** und die **layout-Achse (axis_05)** real in das komponierbare
-// Storage-Organ. Erfuellt WEITER das StorageOrgan-Concept (gemeinsamer uint64-Key, 8 Methoden) und ist
+// Storage-Organ. Erfuellt WEITER das StorageOrgan-Concept (aktuelle Default-Key-Breite uint64, 8 Methoden) und ist
 // damit Drop-in-Substrat fuer ComposedSearch<Traversal, .> → ein Such-Algorithmus =
 // Traversal-Organ ⊕ ComposedStore<N,L,A>.
 //
@@ -57,7 +57,7 @@ private:
     using slot_alloc = typename A::template StdAllocatorAdapter<slot_t>;
 
 public:
-    using key_type       = std::uint64_t; // GEMEINSAMER breiter Key (Doku-24-§5.5)
+    using key_type       = std::uint64_t; // aktuelle Default-Breite; native schmalere Container = #217-2b
     using value_type     = std::uint64_t;
     using node_type      = N;
     using layout_type    = L;

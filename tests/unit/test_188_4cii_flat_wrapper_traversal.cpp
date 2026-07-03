@@ -2,7 +2,7 @@
 //
 // Neuer Gate-Test: je ein store-backed AdHoc-Tier pro Wrapper, getrieben ueber den realen
 // SearchAlgorithmAbiAdapter. Belegt std::map-Konformitaet, Store-Routing und Size/Clear/Reuse inklusive
-// breiter uint64-Keys (K9-d-Truncation darf im Store-Pfad nicht mehr auftreten).
+// Advisory-Wide-Keys plus ehrlicher Static-Kapazitaets-Rejects (K9-d-Truncation darf im Store-Pfad nicht mehr auftreten).
 
 #include <anatomy/composition_concept.hpp>
 #include <anatomy/composition_factory.hpp>
@@ -10,6 +10,7 @@
 #include <axes/lookup/axis_03a_search_algo_array65535.hpp>
 #include <axes/lookup/axis_03a_search_algo_vector_u8u8.hpp>
 #include <axes/lookup/axis_03a_search_algo_vector_u16u16.hpp>
+#include <axes/lookup/composable/capacity_constraint.hpp>
 #include <axes/lookup/composable/direct_address_traversal_organ.hpp> // Review-F5: organ-scharfe Sparse-Proben
 #include <axes/lookup/composable/store_traversable_search_algo.hpp> // Review-B1: Concept UNGEGATED fuer die static_asserts
 #include <axes/lookup/composable/traversal_for_search_algo.hpp>
@@ -31,6 +32,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
 namespace an   = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;
@@ -66,6 +68,16 @@ std::string label_for() {
 }
 
 [[nodiscard]] std::uint64_t value_for(std::uint64_t key) noexcept { return key ^ kValueSalt; }
+
+template <class SearchAlgo>
+[[nodiscard]] constexpr bool accepts_by_declared_capacity(std::uint64_t key) noexcept {
+    constexpr auto cap = lkc::capacity_constraint_of<SearchAlgo>();
+    if constexpr (cap.kind == lkc::CapacityKind::Static && cap.max_size != 0) {
+        return key < cap.max_size;
+    } else {
+        return true;
+    }
+}
 
 static_assert(lkc::StoreTraversableSearchAlgo<sa::Array256SearchAlgo>);
 static_assert(lkc::StoreTraversableSearchAlgo<sa::Array65535SearchAlgo>);
@@ -147,23 +159,32 @@ TYPED_TEST(FlatWrapperTraversal1884cii, SizeClearReuseRoundTripWithWideKeys) {
     auto& drv  = static_cast<an::IDriveableTier&>(*tier);
     drv.tier_clear();
 
+    std::vector<std::uint64_t> accepted_keys;
     for (std::uint64_t const key : kWideKeys) {
         std::uint64_t const expected = value_for(key);
-        EXPECT_TRUE(drv.tier_insert(key, expected)) << label_for<SearchAlgo>() << " insert key=" << key;
-
-        std::uint64_t actual = kLookupSentinel;
-        EXPECT_TRUE(drv.tier_lookup(key, &actual)) << label_for<SearchAlgo>() << " lookup key=" << key;
-        EXPECT_EQ(actual, expected) << label_for<SearchAlgo>() << " value key=" << key;
+        std::uint64_t       actual   = kLookupSentinel;
+        if (accepts_by_declared_capacity<SearchAlgo>(key)) {
+            EXPECT_TRUE(drv.tier_insert(key, expected)) << label_for<SearchAlgo>() << " insert key=" << key;
+            EXPECT_TRUE(drv.tier_lookup(key, &actual)) << label_for<SearchAlgo>() << " lookup key=" << key;
+            EXPECT_EQ(actual, expected) << label_for<SearchAlgo>() << " value key=" << key;
+            accepted_keys.push_back(key);
+        } else {
+            std::uint64_t const before = drv.tier_size();
+            EXPECT_FALSE(drv.tier_insert(key, expected)) << label_for<SearchAlgo>() << " reject key=" << key;
+            EXPECT_EQ(drv.tier_size(), before) << label_for<SearchAlgo>() << " size nach reject key=" << key;
+            EXPECT_FALSE(drv.tier_lookup(key, &actual)) << label_for<SearchAlgo>() << " rejected key lookup=" << key;
+        }
     }
-    EXPECT_EQ(drv.tier_size(), kWideKeys.size()) << label_for<SearchAlgo>() << " size nach Wide-Key-Inserts";
+    EXPECT_EQ(drv.tier_size(), accepted_keys.size()) << label_for<SearchAlgo>() << " size nach Wide-Key-Inserts";
 
-    std::uint64_t const update_key = kWideKeys.back();
+    ASSERT_FALSE(accepted_keys.empty()) << label_for<SearchAlgo>() << " braucht mindestens einen akzeptierten Key";
+    std::uint64_t const update_key = accepted_keys.front();
     std::uint64_t const updated    = value_for(update_key) ^ 0x55u;
     EXPECT_FALSE(drv.tier_insert(update_key, updated)) << label_for<SearchAlgo>() << " update ist kein neuer Key";
     std::uint64_t actual = kLookupSentinel;
     EXPECT_TRUE(drv.tier_lookup(update_key, &actual));
     EXPECT_EQ(actual, updated) << label_for<SearchAlgo>() << " update value";
-    EXPECT_EQ(drv.tier_size(), kWideKeys.size()) << label_for<SearchAlgo>() << " size nach Update";
+    EXPECT_EQ(drv.tier_size(), accepted_keys.size()) << label_for<SearchAlgo>() << " size nach Update";
 
     drv.tier_clear();
     EXPECT_EQ(drv.tier_size(), kNoFailure) << label_for<SearchAlgo>() << " size nach clear";
@@ -172,16 +193,24 @@ TYPED_TEST(FlatWrapperTraversal1884cii, SizeClearReuseRoundTripWithWideKeys) {
         EXPECT_FALSE(drv.tier_lookup(key, &actual)) << label_for<SearchAlgo>() << " stale key nach clear=" << key;
     }
 
+    std::size_t accepted_reuse = 0;
     for (std::uint64_t const key : kReuseKeys) {
         std::uint64_t const expected = value_for(key);
-        EXPECT_TRUE(drv.tier_insert(key, expected)) << label_for<SearchAlgo>() << " reuse insert key=" << key;
-        actual = kLookupSentinel;
-        EXPECT_TRUE(drv.tier_lookup(key, &actual)) << label_for<SearchAlgo>() << " reuse lookup key=" << key;
-        EXPECT_EQ(actual, expected) << label_for<SearchAlgo>() << " reuse value key=" << key;
+        actual                       = kLookupSentinel;
+        if (accepts_by_declared_capacity<SearchAlgo>(key)) {
+            EXPECT_TRUE(drv.tier_insert(key, expected)) << label_for<SearchAlgo>() << " reuse insert key=" << key;
+            EXPECT_TRUE(drv.tier_lookup(key, &actual)) << label_for<SearchAlgo>() << " reuse lookup key=" << key;
+            EXPECT_EQ(actual, expected) << label_for<SearchAlgo>() << " reuse value key=" << key;
+            ++accepted_reuse;
+        } else {
+            std::uint64_t const before = drv.tier_size();
+            EXPECT_FALSE(drv.tier_insert(key, expected)) << label_for<SearchAlgo>() << " reuse reject key=" << key;
+            EXPECT_EQ(drv.tier_size(), before) << label_for<SearchAlgo>() << " size nach reuse reject key=" << key;
+            EXPECT_FALSE(drv.tier_lookup(key, &actual)) << label_for<SearchAlgo>() << " rejected reuse lookup=" << key;
+        }
     }
-    EXPECT_EQ(drv.tier_size(), kReuseKeys.size()) << label_for<SearchAlgo>() << " size nach Wiederverwendung";
+    EXPECT_EQ(drv.tier_size(), accepted_reuse) << label_for<SearchAlgo>() << " size nach Wiederverwendung";
 }
-
 #else
 
 TEST(FlatWrapperTraversal1884cii, AdapterGateRequiresMeasurementBuild) {

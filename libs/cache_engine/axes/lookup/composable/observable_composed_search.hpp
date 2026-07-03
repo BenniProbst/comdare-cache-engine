@@ -30,7 +30,7 @@ template <class Traversal, class Store>
     requires TraversalOrgan<Traversal, Store>
 class ObservableComposedSearch {
 public:
-    using key_type   = typename Store::key_type; // == std::uint64_t (StorageOrgan-Invariante)
+    using key_type   = typename Store::key_type; // aktuell std::uint64_t per StorageOrgan; Lockerung = #217-2b
     using value_type = typename Store::value_type;
 
     /// insert mit rekonstruiertem inserted-Flag (ComposedSearch::insert ist void) — insert_or_assign-Semantik.

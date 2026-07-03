@@ -40,10 +40,12 @@
 #include "concepts/axis_03a_search_algo_density_classified_strategy_concept.hpp"
 #include <topics/traversal/concepts/topic_traversal_concept.hpp>
 
+#include <axes/lookup/composable/capacity_constraint.hpp>
 #include <axes/lookup/axis_03a_search_algo_flags.hpp>
 #include <measurement/measurable_concept.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string_view>
 #include <type_traits>
@@ -54,7 +56,7 @@ namespace comdare::cache_engine::lookup {
 class Array65535SearchAlgo : public SearchAlgoBase<Array65535SearchAlgo> {
 public:
     static constexpr bool enabled = flags::array65535_enabled;
-    // #188-4c-ii: faithful Flach-Store-Pfad via DirectAddressTraversal; Wrapper-Eigen-API/key_type bleibt u16.
+    // #188-4c-ii: faithful Flach-Store-Pfad via DirectAddressTraversal; #217-2b: Wrapper-key_type bleibt heute u16.
     static constexpr bool axis_03a_store_traversable = true;
 
     /// Voller uint16-Diskriminator-Bereich [0, 65535] = 65536 Slots (Korrektur
@@ -63,15 +65,22 @@ public:
     static constexpr double      kDensityMinPercent = 25.0;
     static constexpr double      kDensityMaxPercent = 50.0;
 
-    using key_type   = std::uint16_t; // Multi-Byte (2-Byte) Discriminator
+    using key_type   = std::uint16_t; // #217-2b: native Wrapper-Breite bleibt heute; Umbau spaeter.
     using value_type = std::uint64_t;
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::direct_multibyte_access_tag;
     using family_id  = std::integral_constant<int, 9>; // S09
 
+    static_assert(static_cast<std::uint64_t>(std::numeric_limits<key_type>::max()) >=
+                      static_cast<std::uint64_t>(kCapacity - 1u),
+                  "Array65535SearchAlgo key_type muss jeden deklarierten Static-Slot adressieren koennen");
+
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; }
+    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return kCapacity; }
+    [[nodiscard]] static constexpr composable::CapacityConstraint container_capacity() noexcept {
+        return {0, kCapacity, composable::CapacityKind::Static};
+    }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "array65535"; }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "Array65535SearchAlgo (prt-art REV6 §5.17 mid-density direct-addressed uint16)";

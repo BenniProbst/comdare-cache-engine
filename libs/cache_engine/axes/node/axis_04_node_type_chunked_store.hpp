@@ -10,7 +10,7 @@
 // (ComposedSearch<Traversal, NodeChunkedStore<N,L,A>>) liefert damit node_type-ABHÄNGIGE Messwerte — der Beweis, dass
 // ein DELEGIERENDES Such-Organ die Speicher-Achse wirklich konsumiert (im Gegensatz zu den Monolith-Wrappern).
 //
-// Erfüllt das StorageOrgan-Concept (gemeinsamer uint64-Key, 8 Methoden) → Drop-in für ComposedSearch. Append-Pfad
+// Erfüllt das StorageOrgan-Concept (aktuelle Default-Key-Breite uint64, 8 Methoden) → Drop-in für ComposedSearch. Append-Pfad
 // (LinearScan) ist der getriebene Pfad; insert_slot_at/erase_slot_at sind concept-vollständig (shift-basiert) für die
 // SortedBinary-Kompatibilität. A/L fließen als Provenienz + (A) realer Chunk-Allokator ein.
 
@@ -46,7 +46,7 @@ private:
     static constexpr std::size_t cap_ = (N::max_capacity() == 0 ? std::size_t{1} : N::max_capacity());
 
 public:
-    using key_type       = std::uint64_t; // GEMEINSAMER breiter Key (Doku-24-§5.5)
+    using key_type       = std::uint64_t; // aktuelle Default-Breite; native schmalere Container = #217-2b
     using value_type     = std::uint64_t;
     using node_type      = N;
     using layout_type    = L;

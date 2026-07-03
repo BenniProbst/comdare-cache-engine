@@ -14,7 +14,7 @@
 // echte Slot-Stride/Backing-Achsen folgen als `NodeTypeSlotStore<N, L, A>` im Folge-Increment.
 // statistics()/snapshot_t (ObservableAxis, Doku 24 §2.2) sind ebenfalls Folge-Increment.
 //
-// **uint64-Key:** loest den Doku-24-§5.5-Blocker (Array256=uint8, BST=uint16) strukturell — die
+// **Default-Key uint64:** loest den Doku-24-§5.5-Blocker heute strukturell; native schmalere Container folgen in #217-2b — die
 // node_type-Kapazitaet bestimmt die Slot-Anzahl, NICHT die Key-Breite.
 
 #include "axis_04_node_type_node4.hpp" // Pilot-NodeType + zieht concept/base/subaxes/flags mit
@@ -37,7 +37,7 @@ template <class N>
     requires concepts::NodeTypeStrategy<N>
 class NodeTypeSlotStore {
 public:
-    using key_type   = std::uint64_t; // GEMEINSAMER breiter Key (Doku-24-§5.5)
+    using key_type   = std::uint64_t; // aktuelle Default-Breite; native schmalere Container = #217-2b
     using value_type = std::uint64_t;
 
     static constexpr std::size_t capacity = N::max_capacity();
