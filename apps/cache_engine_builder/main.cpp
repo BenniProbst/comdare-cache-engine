@@ -22,6 +22,7 @@
 //   <output_dir>   Directory for generated modules + measurement output
 //
 // Optionen:
+//   -h, --help           Show usage text and exit (status 0)
 //   --enumerate-only     Skip codegen + execution; print descriptors only
 //   --comdare-root=DIR   Path to comdare-cache-engine repo root
 //                        (default: current working directory)
@@ -40,8 +41,8 @@
 
 namespace {
 
-void print_usage() {
-    std::cerr << "Usage: comdare-cache-engine-builder <config_dir> <output_dir> [options]\n\n"
+void print_usage(std::ostream& os) {
+    os << "Usage: comdare-cache-engine-builder <config_dir> <output_dir> [options]\n\n"
               << "  <config_dir>   Directory containing 4 XML configs:\n"
               << "                   cache_engine_permutations.xml\n"
               << "                   search_algorithm_permutations.xml\n"
@@ -49,6 +50,7 @@ void print_usage() {
               << "                   test_data_sets.xml\n"
               << "  <output_dir>   Directory for generated modules + measurement output\n\n"
               << "Options:\n"
+              << "  -h, --help           Show this usage text and exit (status 0)\n"
               << "  --enumerate-only     Skip codegen + execution; print descriptors only\n"
               << "  --comdare-root=DIR   Path to comdare-cache-engine repo root\n"
               << "                       (default: current working directory)\n"
@@ -62,8 +64,17 @@ void print_usage() {
 } // namespace
 
 int main(int argc, char* argv[]) {
+    // #193-D — -h/--help: Usage nach stdout + Status 0 (User-Self-Test: Programm-Einstieg auffindbar).
+    for (int i = 1; i < argc; ++i) {
+        std::string_view a{argv[i]};
+        if (a == "--help" || a == "-h") {
+            print_usage(std::cout);
+            return 0;
+        }
+    }
+
     if (argc < 3) {
-        print_usage();
+        print_usage(std::cerr);
         return 1;
     }
 
@@ -85,7 +96,7 @@ int main(int argc, char* argv[]) {
             opts.comdare_root = std::filesystem::path{std::string{a.substr(15)}};
         } else {
             std::cerr << "Unknown option: " << a << "\n";
-            print_usage();
+            print_usage(std::cerr);
             return 1;
         }
     }
