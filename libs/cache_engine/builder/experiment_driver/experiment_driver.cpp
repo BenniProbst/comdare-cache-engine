@@ -4,10 +4,13 @@
 #include "experiment_driver.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstdlib>
+#include <filesystem>
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <system_error>
 #include <unordered_map>
 
 namespace comdare::builder {
@@ -16,6 +19,49 @@ namespace {
 
 [[nodiscard]] std::filesystem::path build_dir_for(std::filesystem::path const& output_dir) {
     return output_dir / "build-perms";
+}
+
+// #193-A — CWD-unabhaengige, libs/-korrekte Aufloesung des SOTA-Profil-Verzeichnisses
+// (algorithm_profiles/sota). Der historische Inline-Fallback zeigte auf das Vor-libs/-Move-
+// Layout comdare_root/"cache_engine"/... (V41.F.6 verschob es nach libs/cache_engine/...) und
+// war zusaetzlich CWD-abhaengig. Diese Aufloesung ist gegen die comdare_root-Semantik
+// (Repo-Root vs. libs/-Wurzel vs. config_dir) robust: sie probiert an jedem Anker mehrere
+// Layout-Varianten und laeuft zur Not aufwaerts bis zur Repo-Wurzel. Rueckgabe leer => kein
+// Auto-Pickup (Aufrufer ueberspringt den Profil-Schritt wie zuvor).
+[[nodiscard]] std::filesystem::path resolve_sota_profiles_dir(std::filesystem::path const& config_dir,
+                                                              std::filesystem::path const& comdare_root) {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+
+    // Relative Layout-Varianten, die 'algorithm_profiles/sota' beherbergen koennen:
+    // Repo-Root (libs/cache_engine/...), libs/-Wurzel (cache_engine/...), config_dir-Stil (direkt).
+    std::array<fs::path, 3> const rel_variants{
+        fs::path{"libs"} / "cache_engine" / "algorithm_profiles" / "sota",
+        fs::path{"cache_engine"} / "algorithm_profiles" / "sota",
+        fs::path{"algorithm_profiles"} / "sota",
+    };
+
+    // 1) Direkt an den uebergebenen Ankern (haelt bestehende korrekte Aufrufe unveraendert).
+    for (auto const& anchor : {config_dir, comdare_root}) {
+        for (auto const& rel : rel_variants) {
+            auto cand = anchor / rel;
+            if (fs::is_directory(cand, ec)) return cand;
+        }
+    }
+
+    // 2) Aufwaerts-Repo-Root-Discovery (CWD-unabhaengig): von jedem Anker Richtung Wurzel laufen.
+    for (auto const& start : {config_dir, comdare_root, fs::current_path(ec)}) {
+        auto dir = fs::weakly_canonical(start, ec);
+        if (ec) { dir = start; ec.clear(); }
+        for (; !dir.empty(); dir = dir.parent_path()) {
+            for (auto const& rel : rel_variants) {
+                auto cand = dir / rel;
+                if (fs::is_directory(cand, ec)) return cand;
+            }
+            if (dir == dir.root_path()) break;  // Wurzel erreicht -> Abbruch (kein Endlos-Loop)
+        }
+    }
+    return {};
 }
 
 } // namespace
@@ -76,12 +122,8 @@ int ExperimentDriver::phase2_generate(std::vector<loop::PermutationDescriptor> c
         }
 
         // REV 7.6 V10.5 — Auto-Pickup von algorithm_profiles/sota/*.profile.xml
-        // Wenn vorhanden, generiere zusaetzlich pro Profil ein Modul.
-        auto profiles_dir = opts_.config_dir / "algorithm_profiles" / "sota";
-        if (!std::filesystem::is_directory(profiles_dir)) {
-            // Fallback: relative zum comdare_root cache-engine
-            profiles_dir = opts_.comdare_root / "cache_engine" / "algorithm_profiles" / "sota";
-        }
+        // #193-A: CWD-unabhaengige, libs/-korrekte Aufloesung (s. resolve_sota_profiles_dir).
+        auto profiles_dir = resolve_sota_profiles_dir(opts_.config_dir, opts_.comdare_root);
         if (std::filesystem::is_directory(profiles_dir)) {
             xml::XmlConfigParser parser;
             auto                 profiles = parser.load_sota_profiles(profiles_dir);
@@ -348,10 +390,8 @@ int ExperimentDriver::phase5_run_workload(std::span<loader::ModuleHandle> handle
 
     // Pre-Compute alle Profile-Workload-Mappings (deterministic Fingerprint -> Workload)
     std::unordered_map<std::uint64_t, workload_generator::YcsbWorkload> fp_to_workload;
-    auto profiles_dir = opts_.config_dir / "algorithm_profiles" / "sota";
-    if (!std::filesystem::is_directory(profiles_dir)) {
-        profiles_dir = opts_.comdare_root / "cache_engine" / "algorithm_profiles" / "sota";
-    }
+    // #193-A: identische robuste Aufloesung wie in Phase 2 (s. resolve_sota_profiles_dir).
+    auto profiles_dir = resolve_sota_profiles_dir(opts_.config_dir, opts_.comdare_root);
     if (std::filesystem::is_directory(profiles_dir)) {
         xml::XmlConfigParser parser;
         auto                 profiles = parser.load_sota_profiles(profiles_dir);
