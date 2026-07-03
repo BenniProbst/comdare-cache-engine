@@ -6,7 +6,7 @@
 #
 # Aufruf:  pwsh tests/unit/buildvariant_dll_roundtrip.ps1   (Exit 0 = ALLE OK)
 param([double]$MinFreeGB = 2.5)
-$repo = "C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine"
+$repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $out  = Join-Path $repo "build"
 $tmp  = Join-Path $env:TEMP "comdare_build"
 New-Item -ItemType Directory -Force $out, $tmp | Out-Null

@@ -1,7 +1,7 @@
 # K10-PMAJOR-04 — NUR Teil (B): funktional-only-TU (OHNE COMDARE_MEASUREMENT_ON) baut + Kopplungs-Symbole weg.
 param([double]$MinFreeGB = 1.5)
 $ErrorActionPreference = "Stop"
-$repo = "C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine"
+$repo = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 $gen  = Join-Path $repo "build\msvc-release\generated"
 $out  = Join-Path $repo "build\thesis_tiere\k10"
 $tmp  = Join-Path $env:TEMP "comdare_k10"

@@ -2,7 +2,7 @@
 # test_pathb_segment_timer + test_obs_phaseA (kein Regress). Modell: k10_double_build_verify.ps1 (ad-hoc cl.exe).
 param([double]$MinFreeGB = 1.2)
 $ErrorActionPreference = "Stop"
-$repo = "C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine"
+$repo = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 $gen  = Join-Path $repo "build\msvc-release\generated"
 $out  = Join-Path $repo "build\thesis_tiere\pmd1"
 $tmp  = Join-Path $env:TEMP "comdare_pmd1"

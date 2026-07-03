@@ -14,7 +14,7 @@
 # Aufruf:  pwsh tests/unit/thesis_tiere/build_and_measure_adapter_tiere.ps1
 # Exit 0 = gebaut + gemessen; schreibt build/thesis_tiere/adapter_measurements.csv (+ Kopie ins Quellverzeichnis).
 $ErrorActionPreference = "Stop"
-$repo = "C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine"
+$repo = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 $src  = Join-Path $repo "tests\unit\thesis_tiere\measure_adapter_tiere.cpp"
 $inc  = Join-Path $repo "libs\cache_engine"
 $out  = Join-Path $repo "build\thesis_tiere"

@@ -3,7 +3,7 @@
 # die thesis_tiere-Harness. KEIN Tier-Bau — nur parse_thesis_profile + validate_profile (read-only) + die leichte
 # m3v2-Achsen-Registry-Reflektion (KEIN 22-Achsen-Umbrella).
 $ErrorActionPreference = "Stop"
-$repo   = "C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine"
+$repo   = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 $gen    = Join-Path $repo "build\msvc-release\generated"
 $srcDir = Join-Path $repo "tests\unit\thesis_tiere"
 $out    = Join-Path $repo "build\thesis_tiere"

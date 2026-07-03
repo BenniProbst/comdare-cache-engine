@@ -2,7 +2,7 @@
 # (full/abstract/-) durch die REALE format_csv_row/lazy_csv_header/build_sota_passes-Kette. Include-Satz identisch
 # zur SOTA-Pilot-Harness (build_sota_pilot.ps1). KEIN cl-DLL-Bau noetig (Tag reist durch die CSV-Mechanik).
 $ErrorActionPreference = "Stop"
-$repo   = "C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine"
+$repo   = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 $gen    = Join-Path $repo "build\msvc-release\generated"
 $srcDir = Join-Path $repo "tests\unit\thesis_tiere"
 $work   = Join-Path $env:TEMP "comdare_pruefling_type_pilot"
