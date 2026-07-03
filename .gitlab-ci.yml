@@ -143,8 +143,10 @@ contract:conformance:
     # #188-4c-ii (2026-07-02): +test_188_4cii_flat_wrapper_traversal — die 4 Flach-Wrapper store-traversierbar
     # (DirectAddress-/SortedVectorTraversal); exakter 3-Target-Regex (bb0-Lehre).
     - cmake -B build-conf -G Ninja -DCOMDARE_BUILD_TESTS=ON
-    - cmake --build build-conf --target test_conformance_gate test_188_4c0_known_compositions_conformance test_188_4cii_flat_wrapper_traversal
-    - ctest --test-dir build-conf -R '^(test_conformance_gate|test_188_4c0_known_compositions_conformance|test_188_4cii_flat_wrapper_traversal)$' --output-on-failure -V
+    # #216-H2 (2026-07-03): +test_216h2_stat_reset_after_load (daten-erhaltender Stat-Reset nach Load belegt) +
+    # test_v41_anatomy_module_abi (ABI-Major 3->4 Loader-Reject-Verifikation).
+    - cmake --build build-conf --target test_conformance_gate test_188_4c0_known_compositions_conformance test_188_4cii_flat_wrapper_traversal test_216h2_stat_reset_after_load test_v41_anatomy_module_abi
+    - ctest --test-dir build-conf -R '^(test_conformance_gate|test_188_4c0_known_compositions_conformance|test_188_4cii_flat_wrapper_traversal|test_216h2_stat_reset_after_load|test_v41_anatomy_module_abi)$' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
