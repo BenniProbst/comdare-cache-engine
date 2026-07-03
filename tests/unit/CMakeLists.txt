@@ -1570,6 +1570,20 @@ target_include_directories(test_188_4c0_known_compositions_conformance PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_188_4c0_known_compositions_conformance PRIVATE Boost::mp11)
 
+# #216-H2 — Load-Phase darf die Run-Statistik nicht kontaminieren: tier_reset_statistics() nullt nach Load
+# daten-erhaltend die auto-gekoppelten Achsen-Statistiken am realen SearchAlgorithmAbiAdapter.
+comdare_add_test(test_216h2_stat_reset_after_load
+    SOURCES test_216h2_stat_reset_after_load.cpp)
+target_include_directories(test_216h2_stat_reset_after_load PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_216h2_stat_reset_after_load PRIVATE Boost::mp11)
+target_compile_definitions(test_216h2_stat_reset_after_load PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+
 # #188-4c-ii (2026-07-02) — Flach-Wrapper-Traversal-Gate: die 4 letzten markerlosen Flach-Wrapper (Array256/
 # Array65535/VectorU8U8/VectorU16U16) sind store-traversierbar (DirectAddress-/SortedVectorTraversal) —
 # Conformance-Oracle + routes_through_store==true + Wide-Key-/Sparse-Korrektur-Proben. Damit ist der

@@ -78,6 +78,7 @@ struct ScannableMockTier final : an::IObservableTier, an::IRollbackableTier, an:
         o->axis_stats[0][5] = peak_;
         o->tier_fill_level  = data_.size();
     }
+    void tier_reset_statistics() noexcept override { ins_ = ers_ = peak_ = lk_ = hit_ = miss_ = 0; }
     void tier_save_all() noexcept override { saved_ = Snap{data_, ins_, ers_, peak_, lk_, hit_, miss_}; }
     void tier_rollback_all() noexcept override {
         if (saved_) {

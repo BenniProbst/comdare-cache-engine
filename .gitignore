@@ -103,3 +103,4 @@ cmake/third_party/_mp11_extract/
 # damit die @doku-Referenzen (docs/architektur/14_...) aufloesen. Sie gehoeren NICHT ins Code-Submodul-Git
 # (Duplikation der Thesis-Quellen) -> ignorieren. Der Junction-Link selbst wird nicht versioniert.
 docs/architektur/
+.claude/

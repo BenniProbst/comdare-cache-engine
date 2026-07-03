@@ -25,7 +25,7 @@
 // ABI-Version + Magic-Number (Compile-Time-Konstanten fuer Module-Loader-Check)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Anatomy-Module ABI Version. Major: 3 (I1 Observer-Konsolidierung). Minor: 0.
+/// Anatomy-Module ABI Version. Major: 4 (#216-H2 tier_reset_statistics). Minor: 0.
 /// V5-I2.2 ABI-Bruch (Major 1→2): IObservableTier→IDriveableTier-Split + konditionale Adapter-Vererbung
 /// (observer_all nur bei MESSUNG-AN compile-time einkompiliert).
 /// I1 Observer-Konsolidierung (Major 2→3, Minor→0, User-Direktive 2026-06-04 „EINE konsistente Observer-
@@ -37,11 +37,14 @@
 /// alt-gebauten Major-2-DLLs per Major-Mismatch ab → ALLE Permutations-DLLs neu zu bauen. Minor auf 0 zurück-
 /// gesetzt (die V5-I6/#49-E-Minor-Stufen sind im Major-Bump aufgegangen; IRollbackableTier/IScannableTier
 /// bleiben additive Sub-Interfaces der MESSUNG-AN-Variante). Magic kodiert den Major → von .A2. auf .A3. bewegt.
-#define COMDARE_ANATOMY_ABI_MAJOR 3
+/// #216-H2 ABI-Bruch (Major 3→4, Minor→0): IObservableTier erhält den daten-erhaltenden vtable-Slot
+/// `tier_reset_statistics()`; der Observer-POD bleibt unverändert. Loader lehnt Major-3-DLLs ab, damit Host und
+/// Modul dieselbe IObservableTier-vtable sehen. Magic kodiert den Major → von .A3. auf .A4. bewegt.
+#define COMDARE_ANATOMY_ABI_MAJOR 4
 #define COMDARE_ANATOMY_ABI_MINOR 0
 
-/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA·A3·" als big-endian uint64_t (I1 Major 3).
-#define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141332EULL
+/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA·A4·" als big-endian uint64_t (#216-H2 Major 4).
+#define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141342EULL
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Export/Import Macros (Cross-Plattform)
