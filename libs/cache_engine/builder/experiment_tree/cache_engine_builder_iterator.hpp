@@ -174,15 +174,17 @@ struct LazyMeasuredRow {
 // (3) Schema-Stabilität: kV3AxisSchema IST der Vertrag Schreiber(DLL)↔Spaltenname(Host) → keine Drift. Die
 // stat_*-Spalten sind „n/a", wenn die DLL kein Mess-Interface trägt (unified_real=false) — ehrlich n/a, NICHT 0.
 //
-// SEMANTIK der stat_*-Spalten (Konsistenz-Stand nach dem tier_clear-Reset-Fix 2026-06-04): PER-MESSUNG, WARMUP-FREI
-// — KEINE Cumulative-Absolut-Werte. perm_runner::run_observable_perm ruft tier_clear() VOR der Mess-Last; die auto-
-// gekoppelten Instanz-Achsen (T1/T2/T3/T7/T8/T10/T17/T18) werden dabei STATISTIK-zurückgesetzt (reset(), nicht nur
-// daten-clear()) → ihr V3-Wert = NUR die Op-Zähler DIESER Messung. WICHTIG (Defekt-Fix): vor dem Fix riefen T1/T2/T17
-// nur clear() (= nur Daten, stats_ blieb stehen) und T18/T10 gar nichts → ihre Zähler akkumulierten über die 3
-// Wiederholungen je (Binary×Setting); der Fix ergänzt reset() für diese 4+1 Organe. Die Scan-Achsen (T4/T5/T9/T11..T16)
-// sind in fill_observer_v3 idempotent (reset()+scan je Observe) → Zustand zum Observe-Zeitpunkt; T0/T6 tragen die V1-
-// Delta-Counter. Damit ist der stat_*-Block pro Zeile konsistent mit dem V1-Delta-Block (search_*/alloc_*): kein
-// doppeltes Zählen über Wiederholungen hinweg.
+// SEMANTIK der stat_*-Spalten (Konsistenz-Stand nach #216-H2): PER-MESSUNG, WARMUP-/LOAD-FREI — KEINE
+// Cumulative-Absolut-Werte. perm_runner::run_observable_perm ruft tier_clear() VOR der Mess-Last; der Workload-Pfad
+// perm_runner::run_workload_perm ruft nach der ungemessenen Load-Phase zusätzlich tier_reset_statistics() (daten-
+// erhaltend) VOR PMC/Wall-Clock-Start. Die auto-gekoppelten Instanz-Achsen (T0/T1/T2/T3/T7/T8/T10/T17/T18) werden
+// dabei STATISTIK-zurückgesetzt (reset(), nicht daten-clear()) → ihr V3-Wert = NUR die Op-Zähler DIESER Messung/Run-
+// Phase. WICHTIG (Defekt-Fix): vor dem Fix riefen T1/T2/T17 nur clear() (= nur Daten, stats_ blieb stehen) und T18/T10
+// gar nichts → ihre Zähler akkumulierten über die 3 Wiederholungen je (Binary×Setting); #216-H2 ergänzt den separaten
+// daten-erhaltenden Reset nach Load für run_workload_perm. Die Scan-Achsen (T4/T5/T9/T11..T16) sind in
+// fill_observer_v3 idempotent (reset()+scan je Observe) → Zustand zum Observe-Zeitpunkt; T0/T6 tragen die
+// Container-/Allocator-Zähler seit dem letzten Reset. Damit ist der stat_*-Block pro Zeile konsistent: kein doppeltes
+// Zählen über Wiederholungen oder Load+Run hinweg.
 [[nodiscard]] inline std::string lazy_csv_header() {
     std::string h = "binary_id;setting;repetition;n_ops;total_ns;ns_per_op;";
     // GOAL-L1 (2026-06-12): per-Interface-Funktions-Spalten op_<art>_{n,p50_ns,p99_ns} (Reihenfolge

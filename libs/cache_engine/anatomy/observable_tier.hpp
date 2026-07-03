@@ -14,7 +14,7 @@
 // versionierte `IObservableTier` mit GENAU EINER `tier_observe(ComdareTierObserverSnapshot*)` + GENAU EINEM
 // versionierten POD (axis_stats[19][8] + seg_ns[19]/Pfad B + Meta). Die früheren parallelen Observer-Sub-
 // Interfaces + die früheren mehrfach versionierten Observer-PODs sind ENTFERNT; die Versionierung läuft
-// jetzt über ABI-Major (anatomy_module_abi_v1_decl.hpp, Major 2→3) — der Loader lehnt inkompatible Alt-DLLs per
+// jetzt über ABI-Major (anatomy_module_abi_v1_decl.hpp, aktuell Major 4) — der Loader lehnt inkompatible Alt-DLLs per
 // Major-Mismatch ab (KEINE per-Version-Sub-Interface-Vermehrung mit dynamic_cast-Degrade mehr). Historie:
 // docs/architecture/31_observer_interface_konsolidierung_i1.md.
 //
@@ -164,8 +164,9 @@ inline constexpr std::uint32_t kTierObserverSnapshotVersionUnified =
 /// realisiert der Host, indem er nach Operationen bzw. Intervallen tier_observe() aufruft und den Snapshot
 /// mit einem Wall-Clock-Zeitstempel korreliert + persistiert.
 /// V5-I2: IObservableTier erbt den funktionalen Antrieb aus IDriveableTier (idriveable_tier.hpp, IMMER einkompiliert)
-/// und ergänzt NUR die Beobachtung (tier_observe). Der ABI-Adapter vererbt IObservableTier NUR bei Messung-AN
-/// (COMDARE_MEASUREMENT_ON) — die Antriebs-Ops bleiben über IDriveableTier auch in der Release-/funktional-only-DLL.
+/// und ergänzt NUR die Mess-/Beobachtungs-Methoden (tier_observe/tier_reset_statistics). Der ABI-Adapter vererbt
+/// IObservableTier NUR bei Messung-AN (COMDARE_MEASUREMENT_ON) — die Antriebs-Ops bleiben über IDriveableTier auch in
+/// der Release-/funktional-only-DLL.
 class IObservableTier : public IDriveableTier {
 public:
     ~IObservableTier() override = default;
@@ -175,6 +176,10 @@ public:
     /// das Resultat mit Wall-Clock + persistiert. Der ABI-Adapter implementiert die feste Sequenz Observer-READ
     /// → Pfad-B-Timing → per-op-Reset (gegen Doppelzählung).
     virtual void tier_observe(ComdareTierObserverSnapshot* out) const noexcept = 0;
+
+    /// Daten-erhaltender Statistik-Reset für Messphasen-Grenzen: nullt ausschließlich die kumulativen
+    /// Observer-/Achsen-Zähler, ohne Tier-Daten oder reale Hilfsstrukturen (Filter/Slots/Trie/Store) zu leeren.
+    virtual void tier_reset_statistics() noexcept = 0;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

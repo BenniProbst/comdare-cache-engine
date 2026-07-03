@@ -162,7 +162,7 @@ inline void apply_conformance_gate_(anatomy::IDriveableTier& tier, PermResult& r
     apply_conformance_gate_(tier, r);
     if (!r.conformance_passed) return gate_failed_result_(std::move(r), binary_id);
 
-    // (A) Reset: frischer Datenstruktur-Zustand. tier_clear() ruft jetzt search_organ_.reset() (I-B.1) → auch die
+    // (A) Reset: frischer Datenstruktur-Zustand. tier_clear() ruft jetzt container_algorithm_.reset() (I-B.1) → auch die
     // T0-search-Statistik wird je Messung genullt → KEIN post−pre-Delta mehr nötig (axis_stats warmup-frei aus
     // EINEM Post-Observe). Die result_ingest-Zeile entsteht unten aus dem EINEN konsolidierten POD (volle Matrix).
     tier.tier_clear();
@@ -185,10 +185,10 @@ inline void apply_conformance_gate_(anatomy::IDriveableTier& tier, PermResult& r
     r.timed_ops = 2u * n_ops; // GOAL-M1.1: Legacy-Fix-Workload = n_ops Inserts + n_ops Lookups getimt
     // KONSOLIDIERUNG (I1): den EINEN konsolidierten Snapshot ziehen (axis_stats + Pfad-B-seg_ns in EINEM POD).
     // Der EINE tier_observe hält intern die fixe Q1-Sequenz (axis_stats-READ → seg_ns-Timing → per-op-Reset) → keine
-    // Doppelzählung. Da tier_clear() jetzt search_organ_.reset() ruft, sind ALLE 19 Achsen pro Zeile warmup-frei
+    // Doppelzählung. Da tier_clear() jetzt container_algorithm_.reset() ruft, sind ALLE 19 Achsen pro Zeile warmup-frei
     // (kein post−pre-Delta nötig): die auto-gekoppelten Instanz-Organe (T1/T2/T3/T7/T8/T10/T17/T18) werden in
     // tier_clear() statistik-genullt, die Scan-Achsen (T4/T5/T9/T11..T16) sind in fill_observer_v3 idempotent
-    // (reset()+scan je Observe), T0 search_algo + T6 allocator werden über search_organ_.reset() frisch.
+    // (reset()+scan je Observe), T0 search_algo + T6 allocator werden über container_algorithm_.reset() frisch.
     tier.tier_observe(&r.unified);
     r.unified_real = true;
     // KONSOLIDIERUNG (I-B.3): die result_ingest-Zeile aus dem EINEN POD = volle Matrix (axis_stats + seg_ns + Meta).
@@ -260,6 +260,8 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
         // LOAD-Phase (UNGEMESSEN): records Sätze einfügen → befülltes Tier für die gemessene Run-Phase (YCSB-Load).
         tier.tier_clear();
         for (std::uint64_t i = 1; i <= records; ++i) (void)tier.tier_insert(i, i * 7u + 1u);
+        // #216-H2: Observer-Statistik nach Load nullen (daten-erhaltend) -> axis_stats misst nur die Run-Phase; Wall-Clock/PMC klammern weiterhin nur die Run-Phase.
+        tier.tier_reset_statistics();
 
         wd::WorkloadGenerator             gen{cfg}; // gleiche Config+Seed ⇒ bit-identische Op-Sequenz je Binary
         std::vector<wd::WorkloadOp> const ops = gen.generate_all();

@@ -40,7 +40,7 @@ struct MockObsTier final : ana::IObservableTier {
         return false;
     }
     [[nodiscard]] bool tier_erase(std::uint64_t k) noexcept override { return data.erase(k) > 0; }
-    // (Audit K9) vertragstreu wie reale Tiere: tier_clear() nullt die Mess-Statistik je Lauf (real: search_organ_.reset(),
+    // (Audit K9) vertragstreu wie reale Tiere: tier_clear() nullt die Mess-Statistik je Lauf (real: container_algorithm_.reset(),
     // perm_runner.hpp:95-97). Ohne dies würden die Konformitäts-Gate-Ops (RF1–7 + 2000 Zufalls-Ops) die Zähler verfälschen.
     void tier_clear() noexcept override {
         data.clear();
@@ -59,6 +59,11 @@ struct MockObsTier final : ana::IObservableTier {
         o->tier_fill_level       = data.size();
         o->observable_axis_count = 2;
         o->filled_axis_count     = 1;
+    }
+    void tier_reset_statistics() noexcept override {
+        inserts = 0;
+        lookups = 0;
+        hits    = 0;
     }
 };
 
@@ -83,6 +88,7 @@ struct BrokenTier final : ana::IObservableTier {
     void                        tier_clear() noexcept override { data.clear(); }
     [[nodiscard]] std::uint64_t tier_size() const noexcept override { return data.size(); }
     void                        tier_observe(ana::ComdareTierObserverSnapshot*) const noexcept override {}
+    void                        tier_reset_statistics() noexcept override {}
 };
 
 static int g_fail = 0;

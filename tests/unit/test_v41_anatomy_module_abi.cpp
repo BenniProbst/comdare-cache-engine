@@ -49,16 +49,16 @@ COMDARE_DEFINE_ANATOMY_MODULE(::comdare::cache_engine::compositions::ArtComposit
 
 TEST(R5D_AnatomyAbi, MacroDefinesVersionAndMagic) {
     static_assert(COMDARE_ANATOMY_ABI_MAJOR ==
-                  3); // I1: ABI-Bruch (Observer-Schnittstellen-Konsolidierung auf EINE IObservableTier + EINEN POD)
-    static_assert(COMDARE_ANATOMY_ABI_MINOR == 0); // I1: Minor auf 0 zurückgesetzt beim Major-Bump
+                  4); // #216-H2: IObservableTier-vtable erweitert um tier_reset_statistics()
+    static_assert(COMDARE_ANATOMY_ABI_MINOR == 0); // #216-H2: Minor auf 0 zurückgesetzt beim Major-Bump
     static_assert(COMDARE_ANATOMY_ABI_MAGIC ==
-                  0x434F4D444141332EULL); // "COMDA·A3·" (Magic kodiert Major, Minor-Bump ändert es nicht)
+                  0x434F4D444141342EULL); // "COMDA·A4·" (Magic kodiert Major, Minor-Bump ändert es nicht)
     SUCCEED();
 }
 
 TEST(R5D_AnatomyAbi, HostAbiVersionMatchesMacro) {
-    static_assert(abi::kHostAnatomyAbiVersion.major == 3); // I1
-    static_assert(abi::kHostAnatomyAbiVersion.minor == 0); // I1
+    static_assert(abi::kHostAnatomyAbiVersion.major == 4); // #216-H2
+    static_assert(abi::kHostAnatomyAbiVersion.minor == 0); // #216-H2
     SUCCEED();
 }
 

@@ -49,6 +49,10 @@ struct MockTier final : ana::IObservableTier, ana::IResourceControllableTier {
         out->tier_fill_level       = data.size();
         out->observable_axis_count = 2;
     }
+    void tier_reset_statistics() noexcept override {
+        inserts = 0;
+        lookups = 0;
+    }
     // IResourceControllableTier
     void tier_query_resource_caps(ana::ComdareResourceControlV1* o) const noexcept override {
         if (!o) return;

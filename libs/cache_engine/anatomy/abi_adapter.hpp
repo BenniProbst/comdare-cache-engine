@@ -895,42 +895,13 @@ public:
         // (sonst truege der Trie Keys ueber Mess-Profile hinweg → Descent-Inkonsistenz). if-constexpr: `none`
         // (EmptyPatriciaTrie ohne clear_trie) bleibt unberuehrt → M3-Pin exakt No-Op. Patricia: clear() leert nodes_.
         if constexpr (requires { pc_organ_.clear_trie(); }) pc_organ_.clear_trie();
-        // #188-4c-iii (2026-07-02): container_algorithm_ traegt die T0-Statistik -> je Messung nullen.
-        // ObservableComposedContainer::clear() leert NUR Daten,
-        // NICHT stats_ -> ohne dies akkumulierten T0-Zaehler ueber Mess-Profile hinweg. requires-guard:
-        // flache/AdHoc container_algorithm_t ohne reset() = no-op; store-traversierbare bleiben idempotent (kein M3-Effekt).
-        if constexpr (requires { container_algorithm_.reset(); }) container_algorithm_.reset();
-        // Phase A: die auto-gekoppelten Achsen-Organe mit-leeren (Daten UND kumulative Statistik), damit der
-        // Mess-Pfad (perm_runner: tier_clear → pre-Observe → ops → post-Observe) einen sauberen Vor-Zustand hat
-        // und q1 (std::deque) nicht über Messungen hinweg unbegrenzt wächst.
-        //
-        // KORREKTUR (2026-06-04, Defekt-Fix): clear() leert NUR die Daten (entries_/mappings_/Puffer); die
-        // statistics()-Zähler dieser Organe (LinearFanout/DirectPlacement/NoBuffer/LazyFlush) leben in einem
-        // SEPARATEN stats_ und werden ausschließlich von reset() genullt. Ohne reset() akkumulierte deren
-        // V3-axis_stats über die 3 Wiederholungen je (Binary×Setting) (kumulatives Artefakt: 1000→2000→3000).
-        // q2 (LazyFlush) besitzt gar kein clear() → wurde zuvor NIE zurückgesetzt. Daher hier zusätzlich reset()
-        // für ALLE vier auto-gekoppelten Instanz-Achsen (T1/T2/T17/T18), if-constexpr-geschützt (AdHoc-Strategien
-        // ohne reset()/clear() überspringen den jeweiligen Aufruf). Ziel: nach tier_clear() sind ALLE 19 Achsen-
-        // statistics bei 0 → je Messung frisch, konsistent mit dem V1-Delta-Block.
+        // Phase A: Datenpuffer der auto-gekoppelten Instanz-Achsen mit-leeren; die zugehörigen stats_ werden
+        // separat in reset_axis_statistics_() genullt, damit tier_reset_statistics() daten-erhaltend bleiben kann.
         if constexpr (requires { ct_organ_.clear(); }) ct_organ_.clear();
-        if constexpr (requires { ct_organ_.reset(); }) ct_organ_.reset(); // T1: stats_ nullen (clear()=nur Daten)
         if constexpr (requires { map_organ_.clear(); }) map_organ_.clear();
-        if constexpr (requires { map_organ_.reset(); }) map_organ_.reset(); // T2: stats_ nullen
         if constexpr (requires { queuing_q1_organ_.clear(); }) queuing_q1_organ_.clear();
-        if constexpr (requires { queuing_q1_organ_.reset(); }) queuing_q1_organ_.reset(); // T17: stats_ nullen
-        if constexpr (requires { queuing_q2_organ_.reset(); })
-            queuing_q2_organ_.reset(); // T18: KEIN clear() vorhanden → nur reset()
-        // T10 telemetry: ebenfalls über tier_insert/lookup auto-gekoppelt (record_node_touch) und in fill_observer_v3
-        // DIREKT (kein Delta, kein idempotenter Scan) gelesen → akkumulierte ohne reset() identisch zu T1/T2/T17/T18.
-        // ObservableTelemetry::reset() nullt stats_ (axes/telemetry_axis :76). Damit ist auch T10 je Messung frisch.
-        if constexpr (requires { telemetry_organ_.reset(); }) telemetry_organ_.reset();
-        // Phase B: T7/T8-Mess-Organe zurücksetzen (Statistik + prefetch-Tracker-Pfad), damit der Mess-Pfad
-        // (perm_runner: tier_clear → pre-Observe → ops → post-Observe) einen sauberen Vor-Zustand hat.
-        if constexpr (requires { pf_organ_.reset(); }) pf_organ_.reset();
-        if constexpr (requires { cc_organ_.reset(); }) cc_organ_.reset();
-        // Phase B Abschluss: T3-Mess-Organ zurücksetzen (die scan-Achsen T13/T14/T15/T16 sind idempotent — sie
-        // reset()+scan je fill_observer_v3-Aufruf, brauchen hier kein Clear). Sauberer Vor-Zustand.
-        if constexpr (requires { pc_organ_.reset(); }) pc_organ_.reset();
+        // Statistik-Reset separat halten: tier_reset_statistics() nutzt dieselbe Nullung daten-erhaltend nach Load.
+        reset_axis_statistics_();
 #endif // COMDARE_MEASUREMENT_ON (#166 K10-PMAJOR-04: Observer-feeding Auto-Kopplungen tier_clear)
     }
 
@@ -1530,6 +1501,8 @@ public:
         out->seg_run_total_ns = seg.seg_run_total_ns;
 #endif // COMDARE_CE_ENABLE_STATISTICS
     }
+
+    void tier_reset_statistics() noexcept override { reset_axis_statistics_(); }
 #endif // COMDARE_MEASUREMENT_ON (tier_observe / observer_all)
 
 #if COMDARE_MEASUREMENT_ON
@@ -1784,6 +1757,31 @@ public:
 #endif // COMDARE_MEASUREMENT_ON (tier_save_all / tier_rollback_all / memento_all / tier_scan / tier_migrate_step)
 
 private:
+#if COMDARE_MEASUREMENT_ON
+    void reset_axis_statistics_() noexcept {
+        // #188-4c-iii (2026-07-02): container_algorithm_ traegt die T0-Statistik -> je Messung nullen.
+        // ObservableComposedContainer::clear() leert NUR Daten, NICHT stats_ -> ohne dies akkumulierten
+        // T0-Zaehler ueber Mess-Profile hinweg. requires-guard: flache/AdHoc container_algorithm_t ohne reset()
+        // = no-op; store-traversierbare bleiben idempotent (kein M3-Effekt).
+        if constexpr (requires { container_algorithm_.reset(); }) container_algorithm_.reset();
+
+        // KORREKTUR (2026-06-04, Defekt-Fix): clear() leert NUR die Daten (entries_/mappings_/Puffer); die
+        // statistics()-Zaehler dieser Organe (LinearFanout/DirectPlacement/NoBuffer/LazyFlush) leben in einem
+        // SEPARATEN stats_ und werden ausschliesslich von reset() genullt. Ziel: ALLE 19 Achsen-statistics bei 0
+        // -> je Messung frisch, konsistent mit dem V1-Delta-Block. Daten-clears bleiben in tier_clear().
+        if constexpr (requires { ct_organ_.reset(); }) ct_organ_.reset();                 // T1: stats_ nullen
+        if constexpr (requires { map_organ_.reset(); }) map_organ_.reset();               // T2: stats_ nullen
+        if constexpr (requires { queuing_q1_organ_.reset(); }) queuing_q1_organ_.reset(); // T17: stats_ nullen
+        if constexpr (requires { queuing_q2_organ_.reset(); }) queuing_q2_organ_.reset(); // T18: nur reset()
+
+        // T10 telemetry: ebenfalls ueber tier_insert/lookup auto-gekoppelt und in fill_observer_v3 direkt gelesen.
+        if constexpr (requires { telemetry_organ_.reset(); }) telemetry_organ_.reset();
+        // Phase B: T7/T8/T3-Mess-Organe zuruecksetzen; Scan-Achsen T13/T14/T15/T16 sind idempotent im Observe.
+        if constexpr (requires { pf_organ_.reset(); }) pf_organ_.reset();
+        if constexpr (requires { cc_organ_.reset(); }) cc_organ_.reset();
+        if constexpr (requires { pc_organ_.reset(); }) pc_organ_.reset();
+    }
+#endif // COMDARE_MEASUREMENT_ON
     // K9-Fix (User §4.4 / 2026-06-18) + GAP #3 Exaktheits-Dokumentation (P5d-Rest, 2026-06-18):
     // bestimmt den REAL beruehrten Descent-Slot-Index fuer `key` im container_algorithm_-Store — die Position, die ein
     // Lower-Bound-Descent ansteuert (gleiche Descent-Geometrie wie SortedBinaryTraversal::lower_bound_index).
