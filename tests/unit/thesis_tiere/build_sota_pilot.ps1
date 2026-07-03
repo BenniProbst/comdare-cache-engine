@@ -2,7 +2,7 @@
 # eine REALE SOTA/PRT-ART-Lebewesen-DLL (echter cl-Bau, distinkte binary_id). Include-Satz identisch zur
 # 150er-Harness. Der Test ruft cl SELBST (via COMDARE_PILOT_INCLUDES/COMDARE_SOTA_DEFS) fuer den DLL-Bau.
 $ErrorActionPreference = "Stop"
-$repo   = "C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine"
+$repo   = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 $gen    = Join-Path $repo "build\msvc-release\generated"
 $srcDir = Join-Path $repo "tests\unit\thesis_tiere"
 $work   = Join-Path $env:TEMP "comdare_sota_pilot"

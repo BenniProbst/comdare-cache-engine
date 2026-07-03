@@ -2,7 +2,7 @@
 # >=2 REALE distinkte migration-DLLs via cl (HotCold + none, distinkte binary_id). Include-Satz identisch zur
 # SOTA-Pilot-Harness. Der Test ruft cl SELBST (via COMDARE_PILOT_INCLUDES/COMDARE_SOTA_DEFS) fuer den DLL-Bau.
 $ErrorActionPreference = "Stop"
-$repo   = "C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine"
+$repo   = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 $gen    = Join-Path $repo "build\msvc-release\generated"
 $srcDir = Join-Path $repo "tests\unit\thesis_tiere"
 $work   = Join-Path $env:TEMP "comdare_axis_sweep_pilot"

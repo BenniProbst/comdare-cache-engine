@@ -2,7 +2,7 @@
 # Verdrahtung: Basis-320 ∪ SOTA-Reihen ueber EINE SourceGenFn + Multi-Pass + Golden-Stabilitaet). Include-Satz
 # identisch zur 150er-Harness. KEIN 320-/SOTA-Bau-Sturm — nur String-/Index-Rekombination + Katalog-Materialisierung.
 $ErrorActionPreference = "Stop"
-$repo   = "C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine"
+$repo   = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 $gen    = Join-Path $repo "build\msvc-release\generated"
 $srcDir = Join-Path $repo "tests\unit\thesis_tiere"
 $out    = Join-Path $repo "build\thesis_tiere"

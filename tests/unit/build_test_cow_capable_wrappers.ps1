@@ -2,7 +2,7 @@
 # Spiegelt den Harness-Include-Satz (build_and_measure_150_tiere.ps1) + COMDARE_CE_ENABLE_STATISTICS.
 # Ein static_assert-Fehler -> Compile-Fehler (Exit != 0). Sicher neben dem M2-Lauf (separater cl-Prozess).
 $ErrorActionPreference = "Stop"
-$repo = "C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine"
+$repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $gen  = Join-Path $repo "build\msvc-release\generated"
 $work = Join-Path $env:TEMP "comdare_cowcap_verify"
 New-Item -ItemType Directory -Force $work | Out-Null

@@ -9,7 +9,7 @@
 # Exit 0 = mind. 1 Tier gebaut + gemessen; schreibt build/thesis_tiere/thesis_measurements.csv.
 param([double]$MinFreeGB = 2.0, [int[]]$NOps = @(1000, 2000, 4000))
 $ErrorActionPreference = "Stop"
-$repo   = "C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine"
+$repo   = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
 $gen    = Join-Path $repo "build\msvc-release\generated"
 $runner = Join-Path $repo "build\msvc-release\apps\perm_runner\Release\perm_runner.exe"
 $srcDir = Join-Path $repo "tests\unit\thesis_tiere"
