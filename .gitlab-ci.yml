@@ -200,6 +200,25 @@ contract:harness:
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
+# -- Stufe 4g: Contract Experiment-Driver-Gate (#193-A CI-Luecke geschlossen + /fork-Direktive) --
+# #193-A fixte den SOTA-Profil-Resolver in experiment_driver.cpp, doch KEIN Gate baute die
+# comdare_builder_experiment_driver-Lib -> #193-A blieb pipeline-unverifiziert (nur lokal-MSVC). Dieses Gate
+# baut+laeuft den Treiber-Unit-Test test_experiment_driver_v13 (linkt die Lib) auf Linux-g++ und erfuellt
+# zugleich die /fork-Direktive (Tests je Projekt in CI bauen+ausfuehren). Mirror von contract:harness
+# (eigener Build-Ordner, lint:secrets-Gate, keine Artefakte).
+contract:experiment_driver:
+  extends: .bare_metal
+  stage: contract
+  tags: [baremetal]
+  needs: ["lint:secrets"]
+  script:
+    # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
+    - cmake -B build-expdrv -G Ninja -DCOMDARE_BUILD_TESTS=ON
+    - cmake --build build-expdrv --target test_experiment_driver_v13
+    - ctest --test-dir build-expdrv -R '^test_experiment_driver_v13$' --output-on-failure -V
+  artifacts:
+    paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
+
 # -- Stufe 4f: Contract Node-Shape-Gate (#234-F1..F4, W2) --
 # Die per-Familie Node-Shape-Achsen (btree_order/skip_list_shape/bst_shape/hash_probe_shape): Varianten-Shapes
 # werden als TYPEN direkt instanziiert (flag-unabhaengig — die CMake-Default-OFF-Optionen filtern nur die
