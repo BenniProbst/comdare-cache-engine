@@ -51,11 +51,12 @@ static void tr(std::string const& w, bool c) {
     if (!c) ++g_fail;
 }
 
-// Composition-Vorlage mit waehlbarer prefetch-Strategie (sonst HOT) — wie test_prefetch_real PFComposition.
+// Composition-Vorlage mit waehlbarer prefetch-Strategie (sonst HOT) — wie test_prefetch_real PFComposition,
+// aber EIGENER Name: cppcheck-CTU wertet anonyme Namespaces bei class templates nicht (ODR-Fehlalarm, #203).
 // #203: anonymer Namespace — gleichnamige TU-lokale Helper in anderen Test-TUs (cppcheck-CTU-ODR).
 namespace {
 template <class PFStrategy>
-struct PFComposition : comp::HotComposition {
+struct PFCompositionT7 : comp::HotComposition {
     using prefetch                         = PFStrategy;
     static constexpr std::string_view name = "PFComposition_T7";
 };
@@ -64,7 +65,7 @@ struct PFComposition : comp::HotComposition {
 // (A)+(B): treibt run_workload_segmented_v2 (Pfad-A 19-Segment-Timer) und liefert den seg_ns[]-POD.
 template <class PFStrategy>
 static an::ComdareSegmentLatencyV2 measure_patha(char const* name) {
-    using Anatomy = an::SearchAlgorithmAnatomy<PFComposition<PFStrategy>>;
+    using Anatomy = an::SearchAlgorithmAnatomy<PFCompositionT7<PFStrategy>>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
     auto*                                  base = static_cast<an::IAnatomyBase*>(&tier);
     auto*                       v3 = dynamic_cast<an::IMeasurableWorkloadV3*>(base); // Pfad-A 19-Segment-Timer
