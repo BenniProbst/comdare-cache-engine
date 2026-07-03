@@ -46,15 +46,9 @@ lint:secrets:
 lint:format:
   extends: .lint-format
   tags: [baremetal]
-  allow_failure: true
-  rules:                          # B (User 2026-06-26): bis #179-Format-Pass MANUELL (raus aus jedem Push; harte Gates bleiben)
-    - when: manual
 lint:static:
   extends: .lint-static
   tags: [baremetal]
-  allow_failure: true
-  rules:
-    - when: manual
 
 # ── Bare-Metal-PMC-Smoke (build+measure in EINEM Job; KEIN großes Artefakt) ──
 .bare_metal:
