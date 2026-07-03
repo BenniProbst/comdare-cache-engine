@@ -53,6 +53,10 @@ namespace comdare::cache_engine::lookup::flags {
 // (Knuth TAOCP 3 §6.4), das fundamentale Hash-Such-Paradigma (kein Range-Scan).
 #cmakedefine01 COMDARE_AXIS_03A_USE_HASH_SEARCH
 
+// AP-7a/#241 (2026-07-03) — S22 SwissTableSearchAlgo: Google Swiss Tables / abseil raw_hash_set
+// Prinzip, CE-native Re-Impl mit Control-Byte-Gruppen-Probe; opt-in bis AP-7b SwissTableOrgan.
+#cmakedefine01 COMDARE_AXIS_03A_USE_SWISSTABLE
+
 // V41.F.6.1 R7.2 (2026-05-29) — S15 LinearScanSearchAlgo: unsortierter linearer Scan
 // (ART-Node4-Baseline, Leis ICDE 2013), der einfachste Vergleichs-Nullpunkt (kein Range-Scan).
 #cmakedefine01 COMDARE_AXIS_03A_USE_LINEAR_SCAN
@@ -84,8 +88,10 @@ inline constexpr bool interpolation_enabled     = COMDARE_AXIS_03A_USE_INTERPOLA
 inline constexpr bool eytzinger_enabled         = COMDARE_AXIS_03A_USE_EYTZINGER;
 inline constexpr bool skip_list_enabled         = COMDARE_AXIS_03A_USE_SKIP_LIST;
 inline constexpr bool hash_search_enabled       = COMDARE_AXIS_03A_USE_HASH_SEARCH;
+inline constexpr bool swisstable_enabled        = COMDARE_AXIS_03A_USE_SWISSTABLE;
 inline constexpr bool linear_scan_enabled       = COMDARE_AXIS_03A_USE_LINEAR_SCAN;
 inline constexpr bool bst_enabled               = COMDARE_AXIS_03A_USE_BST;
 inline constexpr bool btree_enabled             = COMDARE_AXIS_03A_USE_BTREE;
 
 }  // namespace
+

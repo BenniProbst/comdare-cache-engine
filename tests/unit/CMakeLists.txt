@@ -446,6 +446,18 @@ target_include_directories(test_v41_axis_03a_cross_variant_equivalence PRIVATE
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_03a_cross_variant_equivalence PRIVATE Boost::mp11)
 
+# AP-7a/#241 -- S22 SwissTableSearchAlgo: Wrapper-Konformitaet + Scalar-Gruppen-Probe.
+comdare_add_test(test_ap7_swisstable
+    SOURCES test_ap7_swisstable.cpp)
+target_include_directories(test_ap7_swisstable PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_ap7_swisstable PRIVATE Boost::mp11)
+
 # V41 #40 (Doku 24 §6.2) Tier->Organ-Rekonstruktions-Beleg (Tier ≡ Organ-Komposition ≡ std::map)
 comdare_add_test(test_v41_axis_03a_tier_organ_equivalence
     SOURCES test_v41_axis_03a_tier_organ_equivalence.cpp)

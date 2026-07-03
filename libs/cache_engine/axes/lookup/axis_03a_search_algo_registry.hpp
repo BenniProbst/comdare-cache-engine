@@ -27,6 +27,8 @@
 #include "axis_03a_search_algo_skip_list.hpp"
 // V41.F.6.1.R7.2 (2026-05-29) S14 hash search (ungeordnete open-addressing Hashtabelle, Knuth)
 #include "axis_03a_search_algo_hash_search.hpp"
+// AP-7a/#241 (2026-07-03) S22 SwissTable (Control-Byte-Gruppen-Probe, Weg-B, Default-OFF)
+#include "axis_03a_search_algo_swisstable.hpp"
 // V41.F.6.1.R7.2 (2026-05-29) S15 linear scan (unsortierte ART-Node4-Baseline, Leis ICDE 2013)
 #include "axis_03a_search_algo_linear_scan.hpp"
 // V41.F.6.1.R7.2 (2026-05-29) S16 binary search tree (unbalancierter BST, Hibbard, Knuth TAOCP 3)
@@ -80,7 +82,8 @@ using AllStrategies = mp::mp_list<
     KArySearchAlgoK2, // S18, k-ary K=2 (Binaersuch-Baseline)
     KArySearchAlgoK4, // S19, k-ary K=4 (Paper-Default, 5-Wege-Partition)
     KArySearchAlgoK8, // S20, k-ary K=8
-    KArySearchAlgoK16 // S21, k-ary K=16
+    KArySearchAlgoK16, // S21, k-ary K=16
+    SwissTableSearchAlgo // S22, Google Swiss Tables (CppCon 2017) -- Control-Byte-Gruppen-Probe, Weg-B
     // Vollausbau-Roadmap (Folge-Batches, Tree-STRUKTUR-Paper-Wrappers):
     // P03 Masstree DEFERRED — masstree.hh hat keine direkten Function-Bodies (alle Templates)
     // S13 P04 CoCo-trie (Read-Only, 0/4 originall — deferred wegen kein CRUD-API)
@@ -126,7 +129,10 @@ static_assert(!composable::StoreTraversableSearchAlgo<EytzingerSearchAlgo>,
               "#188-4a: eytzinger = organ-backed via organ_for, aber kein FLAT-Store-Marker");
 static_assert(!composable::StoreTraversableSearchAlgo<HashSearchAlgo>,
               "A2.4-S1: hash = Pool-Familie (ungeordnet) -> Weg-B (G3)");
+static_assert(!composable::StoreTraversableSearchAlgo<SwissTableSearchAlgo>,
+              "AP-7: SwissTable = Pool-Familie (Hash, ungeordnet) -> Weg-B (G3); Organ-Backing = AP-7b");
 static_assert(!composable::StoreTraversableSearchAlgo<BinarySearchTreeSearchAlgo>,
               "A2.4-S1: BST = Pool-Familie (Knoten-Pool) -> Weg-B (G3)");
 
 } // namespace comdare::cache_engine::lookup
+
