@@ -25,8 +25,8 @@ $ErrorActionPreference = 'Stop'
 
 # --- CSV-Quelle bestimmen: bevorzugt 150er, sonst Pilot -----------------------------------
 if (-not $Csv) {
-    $build = 'C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine\build\thesis_tiere'
-    $tests = 'C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Code\external\comdare-cache-engine\tests\unit\thesis_tiere'
+    $build = Join-Path (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path 'build/thesis_tiere'
+    $tests = $PSScriptRoot
     $candidates = @(
         (Join-Path $build 'tier150_measurements.csv'),
         (Join-Path $tests 'tier150_measurements.csv'),
