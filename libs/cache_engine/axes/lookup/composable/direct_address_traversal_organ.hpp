@@ -41,8 +41,8 @@ struct DirectAddressTraversal {
         typename Store::key_type const first = s.key_at(0);
         if (k < first) return std::nullopt;
 
-        // Review-F4 (#188-4c-ii): Vergleich in u64 statt key_type — bei der u64-Organ-Invariante identisch,
-        // aber robust gegen kuenftige schmalere key_types (kein Truncation-Wrap von n). Setzt sortierte
+        // Review-F4 (#188-4c-ii): Vergleich in u64 statt key_type — bei der aktuellen Default-Store-Breite
+        // identisch, aber robust gegen #217-2b schmalere key_types (kein Truncation-Wrap von n). Setzt sortierte
         // UNIQUE Keys voraus (insert_or_assign-Semantik der SortedBinary-Delegation).
         std::uint64_t const offset = static_cast<std::uint64_t>(k) - static_cast<std::uint64_t>(first);
         std::size_t const   direct =

@@ -55,7 +55,7 @@ inline constexpr bool is_observable_organ_hull_v = is_observable_organ_hull<T>::
 template <class Container>
 class ObservableComposedContainer {
 public:
-    using key_type       = typename Container::key_type; // == std::uint64_t (Organ-Invariante)
+    using key_type       = typename Container::key_type; // aktuell std::uint64_t in Organen; native Breite = #217-2b
     using value_type     = typename Container::value_type;
     using container_type = Container;
 

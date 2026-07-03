@@ -28,11 +28,13 @@
 #include "concepts/axis_03a_search_algo_simd_capable_strategy_concept.hpp"
 #include <topics/traversal/concepts/topic_traversal_concept.hpp>
 
+#include <axes/lookup/composable/capacity_constraint.hpp>
 #include <axes/lookup/axis_03a_search_algo_flags.hpp>
 #include <measurement/measurable_concept.hpp>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string_view>
 #include <type_traits>
@@ -42,18 +44,26 @@ namespace comdare::cache_engine::lookup {
 class Array256SearchAlgo : public SearchAlgoBase<Array256SearchAlgo> {
 public:
     static constexpr bool enabled = flags::array256_enabled;
-    // #188-4c-ii: faithful Flach-Store-Pfad via DirectAddressTraversal; Wrapper-Eigen-API/key_type bleibt u8.
+    // #188-4c-ii: faithful Flach-Store-Pfad via DirectAddressTraversal; #217-2b: Wrapper-key_type bleibt heute u8.
     static constexpr bool axis_03a_store_traversable = true;
+    static constexpr std::size_t kCapacity = 256;
 
-    using key_type   = std::uint8_t;
+    using key_type   = std::uint8_t; // #217-2b: native Wrapper-Breite bleibt heute; Umbau spaeter.
     using value_type = std::uint64_t;
     using size_type  = std::size_t;
     using topic_tag  = ::comdare::cache_engine::traversal::concepts::TraversalTopicTag;
     using axis_tag   = subaxes::dense_access_tag;
     using family_id  = std::integral_constant<int, 1>; // S01
 
+    static_assert(static_cast<std::uint64_t>(std::numeric_limits<key_type>::max()) >=
+                      static_cast<std::uint64_t>(kCapacity - 1u),
+                  "Array256SearchAlgo key_type muss jeden deklarierten Static-Slot adressieren koennen");
+
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 256; }
+    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return kCapacity; }
+    [[nodiscard]] static constexpr composable::CapacityConstraint container_capacity() noexcept {
+        return {0, kCapacity, composable::CapacityKind::Static};
+    }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "array256"; }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "Array256SearchAlgo (ART Node256 direct-addressed, Leis ICDE 2013)";
@@ -110,7 +120,9 @@ public:
     }
 
     [[nodiscard]] size_type occupied_count() const noexcept { return count_; }
-    [[nodiscard]] double    density_percent() const noexcept { return 100.0 * static_cast<double>(count_) / 256.0; }
+    [[nodiscard]] double    density_percent() const noexcept {
+        return 100.0 * static_cast<double>(count_) / static_cast<double>(kCapacity);
+    }
     void                    clear() noexcept {
         for (auto& slot : data_) slot.reset();
         count_ = 0;

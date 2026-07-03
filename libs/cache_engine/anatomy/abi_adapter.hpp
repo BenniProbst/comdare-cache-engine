@@ -55,6 +55,7 @@
 // belasten diese topics/-Includes nur die Voll-Header-Konsumenten (DLLs/Tests, die die Pfade ohnehin haben).
 #include "../topics/traversal/axis_03a_search_algo/composable/observable_composed_search.hpp"
 // (E-Welle-A2 / Befund-2 / A2.5) Klassifikation + Mapping store-traversierbarer Such-Algos (für die container_algorithm_t-Traversal-Wahl)
+#include <axes/lookup/composable/capacity_constraint.hpp>
 #include <axes/lookup/composable/store_traversable_search_algo.hpp>
 #include <axes/lookup/composable/traversal_for_search_algo.hpp>
 #include <axes/lookup/composable/organ_for_search_algo.hpp>         // #188-4b-b1b: organ_for_search_algo_t (Pool→Organ)
@@ -731,6 +732,12 @@ public:
     // ─────────────────────────────────────────────────────────────────────
 
     [[nodiscard]] bool tier_insert(std::uint64_t key, std::uint64_t value) noexcept override {
+        constexpr auto cap =
+            ::comdare::cache_engine::lookup::composable::capacity_constraint_of<SearchAlgo>();
+        if constexpr (cap.kind == ::comdare::cache_engine::lookup::composable::CapacityKind::Static &&
+                      cap.max_size != 0) {
+            if (key >= cap.max_size) return false; // #217-2a: ehrliche Kapazitaets-Ablehnung (kein stiller Slot-Wrap)
+        }
 #if COMDARE_MEASUREMENT_ON
         // Copy-on-Write-Memento (#133 Rev. 2): in der Warmup-Phase (save→rollback) materialisiert die ERSTE
         // mutierende Op die Vollkopie des save-Stands — VOR der Mutation. Read-Ops materialisieren NIE

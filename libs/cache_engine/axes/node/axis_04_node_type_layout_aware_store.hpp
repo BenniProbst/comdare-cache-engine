@@ -21,7 +21,7 @@
 // JEDE Rep speichert den vollen uint64-Key+Value VERLUSTFREI (Round-Trip insert→lookup korrekt) — der UNTERSCHIED
 // liegt im physischen Byte-Layout und damit im REALEN Key-Scan-Footprint (CLU 5-fach distinkt).
 //
-// Erfuellt das StorageOrgan-Concept (gemeinsamer uint64-Key, 8 Methoden, byte-codiert) → Drop-in fuer ComposedSearch,
+// Erfuellt das StorageOrgan-Concept (aktuelle Default-Key-Breite uint64, 8 Methoden, byte-codiert) → Drop-in fuer ComposedSearch,
 // parallel zu NodeChunkedStore (das Bestehende bleibt unangetastet). Memento ist LOGISCH (copy_from_ kopiert die
 // Chunk-Buffer byte-genau → deckt ALLE Reps ab, weil die Bytes selbst die Repraesentation sind).
 
@@ -70,7 +70,7 @@ private:
     }
 
 public:
-    using key_type       = std::uint64_t; // GEMEINSAMER breiter Key (Doku-24-§5.5)
+    using key_type       = std::uint64_t; // aktuelle Default-Breite; native schmalere Container = #217-2b
     using value_type     = std::uint64_t;
     using node_type      = N;
     using layout_type    = L;
