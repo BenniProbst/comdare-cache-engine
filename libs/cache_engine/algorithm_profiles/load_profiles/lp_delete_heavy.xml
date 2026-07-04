@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Delete-heavy post-build — Lastprofil (Doc 32 Lastprofil-Katalog, Achse-2-Wert). Workload-Charakteristik; Skala (records/n_ops) vom Harness. -->
-<comdare_load_profile id="lp_delete_heavy" paper_ref="P01" schema_version="1">
+<comdare_load_profile id="lp_delete_heavy" paper_ref="P01" lp_id="LP10" schema_version="1">
   <metadata>
     <name>Delete-heavy post-build</name>
     <source>ART sparse_deletes/increasing_keys; OLC-ART parallel_delete</source>

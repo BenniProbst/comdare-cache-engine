@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Range-scan-heavy — Lastprofil (Doc 32 Lastprofil-Katalog, Achse-2-Wert). Workload-Charakteristik; Skala (records/n_ops) vom Harness. -->
-<comdare_load_profile id="lp_range_scan" paper_ref="P01" schema_version="1">
+<comdare_load_profile id="lp_range_scan" paper_ref="P01" lp_id="LP08" schema_version="1">
   <metadata>
     <name>Range-scan-heavy</name>
     <source>ART iter_scan; SuRF range; CSB/CSS table-scan</source>

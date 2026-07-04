@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- CoCo-trie neg-query 100% — Lastprofil (Doc 32 Lastprofil-Katalog, Achse-2-Wert). Workload-Charakteristik; Skala (records/n_ops) vom Harness. -->
-<comdare_load_profile id="coco_p04_neg100" paper_ref="P04" schema_version="1">
+<comdare_load_profile id="coco_p04_neg100" paper_ref="P04" lp_id="LP06" schema_version="1">
   <metadata>
     <name>CoCo-trie neg-query 100%</name>
     <source>Boffa A. et al.: CoCo-trie, VLDB 2024, doi:10.14778/3681954.3681996 (QUERY_NOT_IN_SET sweep)</source>

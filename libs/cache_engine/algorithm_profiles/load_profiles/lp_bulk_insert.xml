@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Bulk-Insert (write-heavy) — Lastprofil (Doc 32 Lastprofil-Katalog, Achse-2-Wert). Workload-Charakteristik; Skala (records/n_ops) vom Harness. -->
-<comdare_load_profile id="lp_bulk_insert" paper_ref="P01" schema_version="1">
+<comdare_load_profile id="lp_bulk_insert" paper_ref="P01" lp_id="LP01" schema_version="1">
   <metadata>
     <name>Bulk-Insert (write-heavy)</name>
     <source>ART/UnoDB micro-benchmark dense_insert; HOT/Masstree/CSB build-phase</source>

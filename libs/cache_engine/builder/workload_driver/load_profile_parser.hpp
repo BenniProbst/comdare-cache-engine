@@ -31,6 +31,7 @@ namespace cx = ::comdare::common::xml;
 struct LoadProfile {
     std::string    id;
     std::string    paper_ref;
+    std::string    catalog_lp_id;
     std::string    pretty_name;
     std::uint64_t  records        = 0; // XML-Default Load-Records (0 → Aufrufer wählt, typ. = n_ops)
     std::uint64_t  num_operations = 0; // XML-Default Run-Ops    (0 → Aufrufer wählt)
@@ -76,8 +77,9 @@ namespace detail {
     if (!root.has_value() || root->tag != "comdare_load_profile") return std::nullopt;
 
     LoadProfile lp;
-    lp.id        = root->attr("id");
-    lp.paper_ref = root->attr("paper_ref");
+    lp.id            = root->attr("id");
+    lp.catalog_lp_id = root->attr("lp_id");
+    lp.paper_ref     = root->attr("paper_ref");
     if (auto const* meta = root->child("metadata"))
         if (auto const* nm = meta->child("name")) lp.pretty_name = nm->text;
 

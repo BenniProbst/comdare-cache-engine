@@ -87,6 +87,10 @@ public:
         paper_ref_ = std::move(v);
         return *this;
     }
+    LoadProfileXmlBuilder& catalog_lp_id(std::string v) {
+        catalog_lp_id_ = std::move(v);
+        return *this;
+    }
     LoadProfileXmlBuilder& pretty_name(std::string v) {
         pretty_name_ = std::move(v);
         return *this;
@@ -111,7 +115,9 @@ public:
         o << "<!-- comdare_load_profile (auto-extrahiert via write_load_profile_xml, #175). Schema = "
              "parse_load_profile. -->\n";
         o << "<comdare_load_profile id=\"" << detail::xml_encode(id_) << "\" paper_ref=\""
-          << detail::xml_encode(paper_ref_) << "\" schema_version=\"1\">\n";
+          << detail::xml_encode(paper_ref_) << "\"";
+        if (!catalog_lp_id_.empty()) o << " lp_id=\"" << detail::xml_encode(catalog_lp_id_) << "\"";
+        o << " schema_version=\"1\">\n";
         o << "  <metadata>\n";
         o << "    <name>" << detail::xml_encode(pretty_name_) << "</name>\n";
         o << "  </metadata>\n";
@@ -138,6 +144,7 @@ public:
 private:
     std::string    id_;
     std::string    paper_ref_;
+    std::string    catalog_lp_id_;
     std::string    pretty_name_;
     std::uint64_t  records_        = 0;
     std::uint64_t  num_operations_ = 0;
@@ -149,6 +156,7 @@ private:
     return LoadProfileXmlBuilder{}
         .id(lp.id)
         .paper_ref(lp.paper_ref)
+        .catalog_lp_id(lp.catalog_lp_id)
         .pretty_name(lp.pretty_name)
         .records(lp.records)
         .num_operations(lp.num_operations)

@@ -12,8 +12,11 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -63,6 +66,7 @@ bool fields_identical(wd::LoadProfile const& a, wd::LoadProfile const& b, std::s
     };
     cmp_s("id", a.id, b.id);
     cmp_s("paper_ref", a.paper_ref, b.paper_ref);
+    cmp_s("catalog_lp_id", a.catalog_lp_id, b.catalog_lp_id);
     cmp_s("pretty_name", a.pretty_name, b.pretty_name);
     cmp_u("records", a.records, b.records);
     cmp_u("num_operations", a.num_operations, b.num_operations);
@@ -81,6 +85,123 @@ bool fields_identical(wd::LoadProfile const& a, wd::LoadProfile const& b, std::s
     return ok;
 }
 
+struct CatalogExpectation {
+    char const* file;
+    char const* lp_id;
+    double      insert;
+    double      lookup;
+    double      erase;
+    double      clear;
+    double      scan;
+    double      rmw;
+    double      negative_query_pct;
+};
+
+std::vector<CatalogExpectation> catalog_expectations() {
+    return {{"lp_bulk_insert.xml", "LP01", 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+            {"lp_read_uniform.xml", "LP04", 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+            {"ycsb_c.xml", "LP05", 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+            {"coco_p04_neg0.xml", "LP06", 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+            {"coco_p04_neg25.xml", "LP06", 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 25.0},
+            {"coco_p04_neg50.xml", "LP06", 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 50.0},
+            {"coco_p04_neg75.xml", "LP06", 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 75.0},
+            {"coco_p04_neg100.xml", "LP06", 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 100.0},
+            {"lp_range_scan.xml", "LP08", 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0},
+            {"lp_balanced_5050.xml", "LP09", 0.50, 0.50, 0.0, 0.0, 0.0, 0.0, 0.0},
+            {"lp_delete_heavy.xml", "LP10", 0.50, 0.0, 0.50, 0.0, 0.0, 0.0, 0.0},
+            {"lp_mixed_oltp.xml", "LP11", 0.25, 0.50, 0.0, 0.0, 0.0, 0.25, 0.0},
+            {"lp_concurrent_rmw.xml", "LP12", 0.25, 0.09, 0.36, 0.0, 0.09, 0.09, 0.0},
+            {"lp_dynamic_trace.xml", "LP14", 0.09, 0.91, 0.0, 0.0, 0.0, 0.0, 0.0}};
+}
+
+std::map<std::string, CatalogExpectation> catalog_by_file() {
+    std::map<std::string, CatalogExpectation> out;
+    for (auto const& e : catalog_expectations()) out.emplace(e.file, e);
+    return out;
+}
+
+std::map<std::string, int> expected_lp_id_counts() {
+    return {{"LP01", 1}, {"LP04", 1}, {"LP05", 1}, {"LP06", 5}, {"LP08", 1},
+            {"LP09", 1}, {"LP10", 1}, {"LP11", 1}, {"LP12", 1}, {"LP14", 1}};
+}
+
+std::vector<std::string> documented_absent_lp_ids() { return {"LP02", "LP03", "LP07", "LP13"}; }
+
+std::string read_text(fs::path const& p) {
+    std::ifstream in{p, std::ios::binary};
+    if (!in) return {};
+    std::string out;
+    std::getline(in, out, '\0');
+    return out;
+}
+
+bool op_mix_matches(wd::LoadProfile const& lp, CatalogExpectation const& e) {
+    return near(lp.config.pct_insert, e.insert) && near(lp.config.pct_lookup, e.lookup) &&
+           near(lp.config.pct_erase, e.erase) && near(lp.config.pct_clear, e.clear) &&
+           near(lp.config.pct_scan, e.scan) && near(lp.config.pct_rmw, e.rmw);
+}
+
+void run_ap11_catalog_checks(fs::path const& lp_dir) {
+    auto const expected_by_file = catalog_by_file();
+    auto const expected_counts  = expected_lp_id_counts();
+    std::map<std::string, int> actual_counts;
+    std::set<std::string>      seen_files;
+
+    auto const discovered = wd::discover_load_profiles(lp_dir);
+    check(!discovered.empty(), "discover_load_profiles returns real profiles");
+
+    for (auto const& entry : discovered) {
+        auto parsed = wd::parse_load_profile(entry.second);
+        std::string const parse_msg = "parse discovered " + entry.second.filename().string();
+        check(parsed.has_value(), parse_msg.c_str());
+        if (!parsed || parsed->catalog_lp_id.empty()) continue;
+
+        std::string const file = entry.second.filename().string();
+        seen_files.insert(file);
+        auto const expected = expected_by_file.find(file);
+        std::string const known_file_msg = "catalog-tagged file is expected: " + file;
+        check(expected != expected_by_file.end(), known_file_msg.c_str());
+        ++actual_counts[parsed->catalog_lp_id];
+        if (expected == expected_by_file.end()) continue;
+
+        std::string const id_msg = "catalog lp_id mapping " + file + " -> " + expected->second.lp_id;
+        check(parsed->catalog_lp_id == expected->second.lp_id, id_msg.c_str());
+        std::string const mix_msg = "catalog op_mix faithful " + file;
+        check(op_mix_matches(*parsed, expected->second), mix_msg.c_str());
+        std::string const neg_msg = "catalog negative_query_pct faithful " + file;
+        check(near(parsed->config.negative_query_pct, expected->second.negative_query_pct), neg_msg.c_str());
+    }
+
+    check(seen_files.size() == expected_by_file.size(), "exactly 14 real catalog files carry lp_id");
+    for (auto const& [file, expected] : expected_by_file) {
+        fs::path const xml = lp_dir / file;
+        auto parsed = wd::parse_load_profile(xml);
+        std::string const msg = "explicit catalog file present+tagged " + file;
+        check(parsed.has_value() && parsed->catalog_lp_id == expected.lp_id, msg.c_str());
+    }
+
+    for (auto const& [lp_id, expected_count] : expected_counts) {
+        std::string const msg = "covered LP-ID count " + lp_id;
+        check(actual_counts[lp_id] == expected_count, msg.c_str());
+    }
+    for (auto const& [lp_id, actual_count] : actual_counts) {
+        (void)actual_count;
+        std::string const msg = "no unknown/non-realized catalog LP-ID " + lp_id;
+        check(expected_counts.count(lp_id) == 1, msg.c_str());
+    }
+
+    for (auto const& absent : documented_absent_lp_ids()) {
+        std::string const absent_msg = "documented absence is not materialized as XML " + absent;
+        check(actual_counts.count(absent) == 0, absent_msg.c_str());
+    }
+
+    std::string const schema = read_text(lp_dir / "SCHEMA.md");
+    check(!schema.empty(), "SCHEMA.md readable for absence documentation");
+    for (auto const& absent : documented_absent_lp_ids()) {
+        std::string const schema_msg = "SCHEMA.md documents absence " + absent;
+        check(schema.find(absent) != std::string::npos, schema_msg.c_str());
+    }
+}
 } // namespace
 
 int main(int argc, char** argv) {
@@ -109,6 +230,10 @@ int main(int argc, char** argv) {
         check(p1.has_value(), (std::string("parse#1 ") + name).c_str());
         if (!p1) continue;
         std::string const written = wd::write_load_profile_xml(*p1);
+        if (!p1->catalog_lp_id.empty()) {
+            check(written.find(" lp_id=\"" + p1->catalog_lp_id + "\"") != std::string::npos,
+                  (std::string("writer emits lp_id ") + name).c_str());
+        }
         // re-parse über Datei (echter Round-Trip durch den Writer-Dateipfad)
         fs::path const rt = out_dir / (std::string("roundtrip_") + name);
         check(wd::write_load_profile_xml(*p1, rt), (std::string("write ") + name).c_str());
@@ -120,6 +245,10 @@ int main(int argc, char** argv) {
         (void)written;
     }
     check(rt_done > 0, "at least one round-trip executed");
+
+    // -- (ap11) LP-ID-Katalogtreue ------------------------------------------------------------
+    emit("\n=== (ap11) LP-ID-KATALOG (Doc 32 mapping, no synthetic files) ===\n");
+    run_ap11_catalog_checks(lp_dir);
 
     // ── (b) EXTRAKTION gegen die echte Pilot-CSV je Architekturfokus ──────────────────────────────
     emit("\n=== (b) EXTRAKTION (Pilot-CSV je search_algo -> XML, re-konsumierbar) ===\n");
@@ -163,6 +292,7 @@ int main(int argc, char** argv) {
     check(extracted == (int)foci.size(), "all foci extracted");
 
     emit("\n=== RESULT: %s (failures=%d) ===\n", g_fail == 0 ? "ALL PASS" : "FAILURES", g_fail);
+    if (g_fail == 0) emit("[ PASSED ] test_load_profile_writer\n");
     if (g_log) std::fclose(g_log);
     return g_fail == 0 ? 0 : 1;
 }

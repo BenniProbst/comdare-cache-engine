@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Static read-only (uniform) — Lastprofil (Doc 32 Lastprofil-Katalog, Achse-2-Wert). Workload-Charakteristik; Skala (records/n_ops) vom Harness. -->
-<comdare_load_profile id="lp_read_uniform" paper_ref="P02" schema_version="1">
+<comdare_load_profile id="lp_read_uniform" paper_ref="P02" lp_id="LP04" schema_version="1">
   <metadata>
     <name>Static read-only (uniform)</name>
     <source>HOT/START/CSS/Bender point-lookup, uniform</source>

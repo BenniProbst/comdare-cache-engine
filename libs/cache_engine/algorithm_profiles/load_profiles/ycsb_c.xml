@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- YCSB-C-Lastprofil: 100% read (point lookup), Zipfian-Skew. Cooper et al., ACM SoCC 2010. Als XML-Lastprofil
      niedergeschrieben (User-Direktive 2026-06-08), damit YCSB neben allen Paper-Lastprofilen über alle Achsen läuft. -->
-<comdare_load_profile id="ycsb_c" paper_ref="YCSB" schema_version="1">
+<comdare_load_profile id="ycsb_c" paper_ref="YCSB" lp_id="LP05" schema_version="1">
   <metadata>
     <name>YCSB-C read-only (point lookup, Zipfian)</name>
     <source>Cooper B.F., Silberstein A., Tam E., Ramakrishnan R., Sears R.: Benchmarking Cloud Serving Systems with YCSB. ACM SoCC 2010, S. 143-154, doi:10.1145/1807128.1807152</source>
