@@ -15,12 +15,13 @@
 
 namespace comdare::cache_engine::builder {
 
-/// Die 6 HW-Counter (Delta über ein Mess-Intervall) + Verfügbarkeits-Flag (= pmc_available im POD).
+/// Die HW-Counter (Delta über ein Mess-Intervall) + Verfügbarkeits-Flag (= pmc_available im POD).
 struct PmcCounters {
     std::uint64_t cache_misses_l1         = 0;
     std::uint64_t cache_misses_l2         = 0;
     std::uint64_t cache_misses_l3         = 0;
     std::uint64_t dtlb_misses             = 0;
+    std::uint64_t branch_misses           = 0;
     std::uint64_t coherence_invalidations = 0;
     std::uint64_t energy_micro_joules     = 0;
     bool          available               = false; // false = NICHT real gemessen (ehrlich, kein Schein-0)

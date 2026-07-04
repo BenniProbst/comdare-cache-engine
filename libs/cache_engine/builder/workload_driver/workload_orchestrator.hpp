@@ -42,6 +42,7 @@ namespace ac = ::comdare::cache_engine::builder::anatomy_commands;
 struct WorkloadRunResult {
     std::string                     profile_name{};
     std::uint64_t                   op_count  = 0;
+    std::int64_t                    total_ns  = 0; ///< Summe der echt gemessenen Op-Wall-Clock-ns
     bool                            two_phase = false; ///< true = Rollback aktiv (sonst Kalt-Messung)
     std::vector<std::int64_t>       insert_ns{};
     std::vector<std::int64_t>       lookup_ns{};
@@ -81,6 +82,7 @@ struct WorkloadRunResult {
                     return ac::detail::abi_dur_ns(t0, t1);
                 });
                 r.insert_ns.push_back(ns);
+                r.total_ns += ns;
                 break;
             }
             case WorkloadOpKind::Lookup: {
@@ -97,6 +99,7 @@ struct WorkloadRunResult {
                 });
                 r.read_sink += measured_hit ? measured_out : 0u;
                 r.lookup_ns.push_back(ns);
+                r.total_ns += ns;
                 break;
             }
             case WorkloadOpKind::Erase: {
@@ -107,6 +110,7 @@ struct WorkloadRunResult {
                     return ac::detail::abi_dur_ns(t0, t1);
                 });
                 r.erase_ns.push_back(ns);
+                r.total_ns += ns;
                 break;
             }
             case WorkloadOpKind::Clear: {
@@ -117,6 +121,7 @@ struct WorkloadRunResult {
                     return ac::detail::abi_dur_ns(t0, t1);
                 });
                 r.clear_ns.push_back(ns);
+                r.total_ns += ns;
                 break;
             }
             case WorkloadOpKind::Scan: { // V5-#49-E: Range-Scan ab op.key über op.value (=scan_length) Records
@@ -132,6 +137,7 @@ struct WorkloadRunResult {
                     });
                     r.read_sink += scan_sum;
                     r.scan_ns.push_back(ns);
+                    r.total_ns += ns;
                 }
                 // scan == nullptr → Tier nicht scanbar (alte DLL / Release): Op ehrlich übersprungen (kein Fake-Sample).
                 break;
@@ -147,6 +153,7 @@ struct WorkloadRunResult {
                     return ac::detail::abi_dur_ns(t0, t1);
                 });
                 r.rmw_ns.push_back(ns);
+                r.total_ns += ns;
                 break;
             }
         }
