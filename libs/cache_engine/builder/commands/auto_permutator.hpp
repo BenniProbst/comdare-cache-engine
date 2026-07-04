@@ -7,6 +7,7 @@
 
 #include "workload.hpp"
 #include "execution_result.hpp"
+#include "../../include/cache_engine/platform_probe/cpuid_platform_probe.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -56,10 +57,12 @@ public:
     void discover_axis_implementations(); // implementiert in axis_library_registry.hpp
 
     /// Schritt 2: IPlatformProbe-basierter Filter
-    /// V32.EE.2 Skelett - IPlatformProbe-Verdrahtung in V32.2+
+    /// AP-3/#237: Host-ISA via IPlatformProbe pruefen
     void platform_filter() {
-        // Pro Variant: pruefe IPlatformProbe.supports(variant)
-        // setze host_compatible = result
+        platform_probe::CpuidPlatformProbe probe;
+        const auto                         props = probe.discover_and_measure();
+
+        for (auto& v : available_variants_) { v.host_compatible = supports_host_variant(props, v); }
     }
 
     /// Schritt 3: User-Limit aus messreihen.xml
@@ -84,6 +87,30 @@ public:
     // umgesetzt. AutoPermutator dient nur noch der Achsen-Discovery, nicht Execution.
 
 private:
+    [[nodiscard]] static bool measured_flag(platform::PlatformPropertySet const& props, std::string_view key) {
+        const auto it = props.measured_metrics.find(std::string{key});
+        return it != props.measured_metrics.end() && it->second > 0.0;
+    }
+
+    [[nodiscard]] static bool supports_host_variant(platform::PlatformPropertySet const& props,
+                                                    AxisVariant const&                  variant) {
+        const std::string_view name{variant.variant_name};
+
+        if (name == "AVX512" || name == "AVX512F" || name == "x86-64-v4") {
+            return props.usable_simd_width_bytes >= 64u;
+        }
+        if (name == "AVX2" || name == "x86-64-v3") { return props.usable_simd_width_bytes >= 32u; }
+        if (name == "SSE4_2") { return measured_flag(props, "feature.sse42"); }
+        if (name == "SSE2") { return props.usable_simd_width_bytes >= 16u; }
+        if (name == "NEON" || name == "ARM_NEON") { return measured_flag(props, "feature.neon"); }
+        if (name == "SVE2" || name == "ARM_SVE2") {
+            // AP-3-Follow: SVE2 bleibt bis zur vollstaendigen ARM-Host-Probe nur ueber ehrliche Probe-Metrik aktiv.
+            return measured_flag(props, "feature.sve2");
+        }
+
+        return true;
+    }
+
     std::string              axis_id_;
     std::vector<AxisVariant> available_variants_{};
 };

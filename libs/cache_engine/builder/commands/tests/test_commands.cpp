@@ -12,7 +12,9 @@
 #include "welch_t_test.hpp"
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <random>
+#include <string_view>
 
 namespace cmd = comdare::cache_engine::builder::commands;
 
@@ -256,11 +258,11 @@ TEST(CompareEngineCommand, WelchTieWhenOverlapping) {
 TEST(AutoPermutator, DiscoverAndGenerate) {
     cmd::AutoPermutator ap("12.1");
     ap.discover_axis_implementations();
-    ap.platform_filter(); // V32.HH.2: no-op
+    ap.platform_filter();
     // user_limit_filter mit leerer Liste -> alle disallowed
     auto perms = ap.generate_permutations();
-    // Mit user_allowed=true Default sind alle generierbar (V32.HH.1 Stand)
-    EXPECT_GE(perms.size(), 0);
+    EXPECT_GE(perms.size(), 1u);
+    EXPECT_TRUE(std::ranges::any_of(perms, [](const cmd::AxisVariant& v) { return v.variant_name == "Scalar"; }));
 }
 
 TEST(MultiAxisAutoPermutator, DiscoverPlanForThreeAxes) {
@@ -271,8 +273,12 @@ TEST(MultiAxisAutoPermutator, DiscoverPlanForThreeAxes) {
     auto plan = multi.build_plan();
     EXPECT_EQ(plan.axis_ids.size(), 3u);
     EXPECT_EQ(plan.variants_per_axis.size(), 3u);
-    // 3.B = 3 Varianten, 11 = 4 Varianten, 12.1 = 5 Varianten -> 60
-    EXPECT_EQ(plan.cartesian_size(), 3u * 4u * 5u);
+    // 12.1 ist seit AP-3 host-gefiltert; Scalar bleibt immer lauffaehig, ISA-Varianten nur bei Host-Support.
+    EXPECT_EQ(plan.variants_per_axis[0].size(), 3u);
+    EXPECT_EQ(plan.variants_per_axis[1].size(), 4u);
+    EXPECT_GE(plan.variants_per_axis[2].size(), 1u);
+    EXPECT_LE(plan.variants_per_axis[2].size(), 5u);
+    EXPECT_EQ(plan.cartesian_size(), 3u * 4u * plan.variants_per_axis[2].size());
 }
 
 TEST(MultiAxisAutoPermutator, EmptyAxisListGivesEmptyPlan) {

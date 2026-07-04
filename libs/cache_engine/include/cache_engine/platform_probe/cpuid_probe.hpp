@@ -42,6 +42,10 @@ struct CpuidProbeResults {
     bool has_sve  = false;
     bool has_sve2 = false;
 
+    std::uint16_t cpu_family   = 0;
+    std::uint16_t cpu_model    = 0;
+    std::uint16_t cpu_stepping = 0;
+
     std::uint8_t  physical_cores   = 0;
     std::uint8_t  logical_cores    = 0;
     std::uint32_t cache_line_bytes = 0;
@@ -99,6 +103,20 @@ inline CpuidProbeResults probe_cpuid() {
     result.has_avx       = (leaf1.ecx & (1u << 28)) != 0;
     result.has_popcnt    = (leaf1.ecx & (1u << 23)) != 0;
     result.has_pclmulqdq = (leaf1.ecx & (1u << 1)) != 0;
+
+    const auto base_family = static_cast<std::uint16_t>((leaf1.eax >> 8) & 0x0Fu);
+    const auto base_model  = static_cast<std::uint16_t>((leaf1.eax >> 4) & 0x0Fu);
+    const auto ext_family  = static_cast<std::uint16_t>((leaf1.eax >> 20) & 0xFFu);
+    const auto ext_model   = static_cast<std::uint16_t>((leaf1.eax >> 16) & 0x0Fu);
+
+    result.cpu_family = base_family;
+    if (base_family == 0x0Fu) { result.cpu_family = static_cast<std::uint16_t>(result.cpu_family + ext_family); }
+
+    result.cpu_model = base_model;
+    if (base_family == 0x06u || base_family == 0x0Fu) {
+        result.cpu_model = static_cast<std::uint16_t>(result.cpu_model + (ext_model << 4));
+    }
+    result.cpu_stepping = static_cast<std::uint16_t>(leaf1.eax & 0x0Fu);
 
     // Leaf 7 sub 0: Extended Feature Flags
     auto leaf7          = cpuid(7, 0);
