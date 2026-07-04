@@ -27,6 +27,7 @@
 #include <builder/workload_driver/workload_orchestrator.hpp>
 #include <builder/workload_driver/workload_profiles.hpp> // INC-0: Single-Source profile_by_name (geteilt mit perm_runner)
 #include <builder/measurement_snapshot.hpp> // V5-I1 (#50): EIN autoritativer 16+6-Mess-POD + Pipeline-16-Serializer
+#include <builder/provenance_manifest.hpp> // AP-9/#243: host-seitiges Provenance-Sidecar (Compiler/Flags/ISA/Allokator/4-Repo-git-SHAs)
 #include <builder/pmc_source_factory.hpp> // V5-#26 / Task #153: make_pmc_source() (Windows-Intel-PCM o. NullPmcSource)
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/rollbackable_tier.hpp>
@@ -314,6 +315,15 @@ int main(int argc, char** argv) {
                 std::cerr << "Pipeline-CSV-Schreiben fehlgeschlagen: " << pipeline_csv << "\n";
                 return 4;
             }
+        }
+        // AP-9/#243: Provenance-Manifest (Compiler/Flags/ISA/Allokator/4-Repo-Commit-Hashes) einmal je Mess-Lauf als
+        // Sidecar neben die CSVs — Reproduzierbarkeit; host-seitig, berührt weder POD noch die 16/25-CSV-Spalten.
+        {
+            std::filesystem::path const prov_p = out_dir / "provenance.txt";
+            if (bld::write_provenance_manifest(prov_p))
+                std::cout << "  Provenance-Manifest -> " << prov_p.string() << "\n";
+            else
+                std::cerr << "  Provenance-Manifest-Schreiben fehlgeschlagen: " << prov_p.string() << "\n";
         }
         std::cout << "  " << ok << "/" << handles.size() << " DLL(s) per Lastprofil-Plan gemessen.\n";
         return (ok > 0) ? 0 : 5;
