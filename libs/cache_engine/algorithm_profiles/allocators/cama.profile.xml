@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="cama" family_ref="A12">
+  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:33,46; axes source: axis_06_allocator_cama.hpp:5,38,41,62-67 -->
+  <metadata>
+    <name>CAMA (Predictable Cache-Aware Allocator)</name>
+    <authors>Herter, Backes, Haupenthal, Reineke</authors>
+    <year>2011</year>
+    <venue>ECRTS</venue>
+    <license>none</license>
+  </metadata>
+  <axes>
+    <granularity>PAGE_BASED</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>YES</thread_local>
+    <fragmentation_strategy>CACHE_AWARE</fragmentation_strategy>
+    <thread_safety>FINEGRAINED_MUTEX</thread_safety>
+  </axes>
+  <abi>
+    <c_api>cama_alloc, cama_free, cama_realloc, cama_calloc</c_api>
+  </abi>
+  <expected_workload>YCSB_A</expected_workload>
+</comdare_allocator_profile>

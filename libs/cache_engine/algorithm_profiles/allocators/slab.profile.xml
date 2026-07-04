@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="slab" family_ref="A02">
+  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:13; axes source: axis_06_allocator_slab.hpp:7,40,43,66-72 -->
+  <metadata>
+    <name>Slab Allocator (Object-Caching Kernel Allocator)</name>
+    <year>1994</year>
+    <venue>USENIX Summer</venue>
+    <license>none</license>
+  </metadata>
+  <axes>
+    <granularity>SLAB</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>YES</thread_local>
+    <fragmentation_strategy>SIZE_CLASS</fragmentation_strategy>
+    <thread_safety>FINEGRAINED_MUTEX</thread_safety>
+  </axes>
+  <abi>
+    <c_api>slab_alloc, slab_free, slab_realloc, slab_calloc</c_api>
+  </abi>
+  <expected_workload>YCSB_A</expected_workload>
+</comdare_allocator_profile>

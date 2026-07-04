@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="starmalloc" family_ref="A13">
+  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:29,43; axes source: axis_06_allocator_starmalloc.hpp:5,43,46,67-71 -->
+  <metadata>
+    <name>StarMalloc (Formally Verified Hardened, F*/Steel)</name>
+    <authors>Inria-Prosecco (Reitz, Fromherz, Protzenko et al.)</authors>
+    <year>2024</year>
+    <venue>OOPSLA</venue>
+    <license>Apache-2.0</license>
+  </metadata>
+  <axes>
+    <granularity>SLAB</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>NO</thread_local>
+    <fragmentation_strategy>SIZE_CLASS</fragmentation_strategy>
+    <thread_safety>FINEGRAINED_MUTEX</thread_safety>
+  </axes>
+  <abi>
+    <c_api>starmalloc_alloc, starmalloc_free, starmalloc_realloc, starmalloc_calloc</c_api>
+  </abi>
+  <expected_workload>YCSB_B</expected_workload>
+</comdare_allocator_profile>

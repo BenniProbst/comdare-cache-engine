@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="vmem_magazines" family_ref="A23">
+  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:36; axes source: axis_06_allocator_vmem_mag.hpp:5,44,47,65-71 -->
+  <metadata>
+    <name>Vmem + Magazines (Slab-Erweiterung)</name>
+    <year>2001</year>
+    <venue>USENIX ATC</venue>
+    <license>none</license>
+  </metadata>
+  <axes>
+    <granularity>SLAB</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>YES</thread_local>
+    <fragmentation_strategy>MAGAZINES</fragmentation_strategy>
+    <thread_safety>FINEGRAINED_MUTEX</thread_safety>
+  </axes>
+  <abi>
+    <c_api>vmem_alloc, vmem_free, vmem_realloc, vmem_calloc</c_api>
+  </abi>
+  <expected_workload>YCSB_A</expected_workload>
+</comdare_allocator_profile>

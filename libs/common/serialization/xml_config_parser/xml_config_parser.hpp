@@ -49,6 +49,7 @@ enum class MessreihenMode {
 struct AlgorithmProfile {
     std::string                                  id;        // z.B. "art", "hot", "masstree"
     std::string                                  paper_ref; // z.B. "P01", "P02"
+    std::string                                  pruefling_type; // "" = full / "abstract" (AP-6/#240 rev): Prüfling-Marker-Profil (P08/P09/P33), zeigt nur auf Organ-Achse(n) + Host-Fallback
     std::unordered_map<std::string, std::string> axes;      // page, node, traversal, ...
     std::string                                  key_types;
     std::string                                  value_types;

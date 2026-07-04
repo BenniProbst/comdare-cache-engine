@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="numalloc" family_ref="A09">
+  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:22,42; axes source: axis_06_allocator_numalloc.hpp:7,47,50,71-78 -->
+  <metadata>
+    <name>NUMAlloc (NUMA origin-aware Allocator)</name>
+    <authors>Yang, Zhao, ... , Liu</authors>
+    <year>2023</year>
+    <venue>ISMM</venue>
+    <license>unknown</license>
+  </metadata>
+  <axes>
+    <granularity>PAGE_BASED</granularity>
+    <numa>AWARE</numa>
+    <thread_local>NO</thread_local>
+    <!-- Fragmentation details are not specified by the source profile header; SIZE_CLASS is the existing neutral allocator-profile token. -->
+    <fragmentation_strategy>SIZE_CLASS</fragmentation_strategy>
+    <thread_safety>FINEGRAINED_MUTEX</thread_safety>
+  </axes>
+  <abi>
+    <c_api>numalloc_alloc, numalloc_free, numalloc_realloc, numalloc_calloc</c_api>
+  </abi>
+  <expected_workload>YCSB_B</expected_workload>
+</comdare_allocator_profile>

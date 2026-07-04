@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="hmalloc" family_ref="A15">
+  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:32,45; axes source: axis_06_allocator_hmalloc.hpp:5,38,41,59-63 -->
+  <metadata>
+    <name>HMalloc (Hybrid, Scalable, Lock-Free)</name>
+    <authors>Li, Yao, Tang, Lin</authors>
+    <year>2019</year>
+    <venue>IEEE ICPADS</venue>
+    <license>none</license>
+  </metadata>
+  <axes>
+    <granularity>PAGE_BASED</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>YES</thread_local>
+    <fragmentation_strategy>FREE_LIST_SHARDING</fragmentation_strategy>
+    <thread_safety>FINEGRAINED_MUTEX</thread_safety>
+  </axes>
+  <abi>
+    <c_api>hmalloc_alloc, hmalloc_free, hmalloc_realloc, hmalloc_calloc</c_api>
+  </abi>
+  <expected_workload>YCSB_B</expected_workload>
+</comdare_allocator_profile>

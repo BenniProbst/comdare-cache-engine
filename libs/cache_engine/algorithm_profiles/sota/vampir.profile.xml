@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="vampir" paper_ref="P33" pruefling_type="abstract">
+  <!-- SPP2377-Kickoff-Poster without algorithm/pseudocode -> no exact rebuild possible;
+       abstract NFP concept marker (Non-Functional Memory Properties). Metadata source:
+       docs/email/20260508-1800-email_kontakte.md:114-120,145-154; P33 concept status:
+       docs/sessions/20260620-HANDOUT-impl-an-text-agent-170-sota-vollabdeckung-P33.md:16,22-28. -->
+  <metadata>
+    <name>VAMPIR - Virtualized Non-Functional Memory Properties for Data-Pipeline Scheduling</name>
+    <authors>Andre Berthold, Lennart Schmidt, Dirk Habich, Wolfgang Lehner, Horst Schirmeier</authors>
+    <year>2023</year>
+    <venue>DFG SPP 2377 Disruptive Memory Technologies, Phase-1-KICKOFF Poster</venue>
+  </metadata>
+  <axes>
+    <page>STANDARD_HEAP</page>
+    <node>BPLUS_NODE</node>
+    <traversal>STANDARD</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <concurrency>SINGLE_THREADED</concurrency>
+    <allocator>SYSTEM_MALLOC</allocator>
+    <prefetch>NONE</prefetch>
+    <telemetry>OFF</telemetry>
+    <isa>X86_BASELINE</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::uint64_t</value_types>
+  </key_value_signature>
+  <expected_workload>YCSB_B</expected_workload>
+</comdare_algorithm_profile>

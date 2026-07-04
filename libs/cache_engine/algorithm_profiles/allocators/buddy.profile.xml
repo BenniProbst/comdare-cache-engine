@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="buddy" family_ref="A19">
+  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:27; axes source: axis_06_allocator_buddy.hpp:5,39,42,60-70 -->
+  <metadata>
+    <name>Buddy System (Power-of-2 Splitting)</name>
+    <authors>Knuth</authors>
+    <year>1965</year>
+    <venue>CACM 1965; TAOCP 1968</venue>
+    <license>none</license>
+  </metadata>
+  <axes>
+    <granularity>POWER_OF_TWO</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>NO</thread_local>
+    <fragmentation_strategy>BUDDY_SPLITTING</fragmentation_strategy>
+    <thread_safety>SINGLE_THREADED</thread_safety>
+  </axes>
+  <abi>
+    <c_api>buddy_alloc, buddy_free, buddy_realloc, buddy_calloc</c_api>
+  </abi>
+  <expected_workload>YCSB_C</expected_workload>
+</comdare_allocator_profile>

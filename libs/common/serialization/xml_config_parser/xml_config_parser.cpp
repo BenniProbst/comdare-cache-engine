@@ -126,6 +126,11 @@ AlgorithmProfile XmlConfigParser::parse_profile(std::filesystem::path const& pro
         std::smatch m;
         if (std::regex_search(content, m, pref_re)) prof.paper_ref = m[1].str();
     }
+    {
+        std::regex  type_re{R"PAT(pruefling_type\s*=\s*"([^"]+)")PAT"};
+        std::smatch m;
+        if (std::regex_search(content, m, type_re)) prof.pruefling_type = m[1].str();
+    }
 
     // Achsen aus <axes>...</axes>
     auto axes_open  = content.find("<axes>");

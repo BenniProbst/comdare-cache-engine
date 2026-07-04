@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="crystalline" family_ref="A17">
+  <!-- metadata source: ext/allocator/REPOS_OVERVIEW.md:48 (Crystalline, Penn-State, URL pending);
+       axes source: axis_06_allocator_crystalline.hpp:5,43,46,65-71. Missing paper/year/license fields are explicit unknowns. -->
+  <metadata>
+    <name>Crystalline</name>
+    <authors>unknown</authors>
+    <year>unknown</year>
+    <venue>Penn-State-Group, URL pending</venue>
+    <license>unknown</license>
+  </metadata>
+  <axes>
+    <granularity>PAGE_BASED</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>YES</thread_local>
+    <fragmentation_strategy>RECLAMATION_EPOCHS</fragmentation_strategy>
+    <thread_safety>WAITFREE</thread_safety>
+  </axes>
+  <abi>
+    <c_api>crystalline_alloc, crystalline_free, crystalline_realloc, crystalline_calloc</c_api>
+  </abi>
+  <expected_workload>YCSB_B</expected_workload>
+</comdare_allocator_profile>
