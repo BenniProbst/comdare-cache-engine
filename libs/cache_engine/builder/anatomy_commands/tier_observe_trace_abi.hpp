@@ -294,7 +294,7 @@ template <class TimedOp>
 }
 
 /// Persistiert den Pfad-B-Trace als JSON-Array (eine Objekt-Zeile je Checkpoint). Zusätzlich zur CSV trägt
-/// die JSON die **Perzentile** (p50/p99) der r/w/d-Roh-ns-Kurven — die Tier-Wall-Clock-Detail-Auswertung
+/// die JSON die **Perzentile** (p50/p95/p99) der r/w/d-Roh-ns-Kurven — die Tier-Wall-Clock-Detail-Auswertung
 /// (Doku 24 §2.1) korreliert mit den Observer-Zählern. Robust gegen Wall-Clock-Ausreisser (p50, vgl. Doku 22 §3.3).
 [[nodiscard]] inline std::string serialize_abi_tier_trace_json(AbiTierObserveTrace const& trace) {
     std::ostringstream os;
@@ -305,10 +305,13 @@ template <class TimedOp>
         if (i != 0) os << ',';
         os << "{\"checkpoint\":" << i << ",\"observe_wall_ns\":" << cp.observe_wall_ns
            << ",\"fill_level\":" << cp.fill_level << ",\"write_p50_ns\":" << detail::nearest_rank_p(cp.write_ns, 0.5)
+           << ",\"write_p95_ns\":" << detail::nearest_rank_p(cp.write_ns, 0.95)
            << ",\"write_p99_ns\":" << detail::nearest_rank_p(cp.write_ns, 0.99)
            << ",\"read_p50_ns\":" << detail::nearest_rank_p(cp.read_ns, 0.5)
+           << ",\"read_p95_ns\":" << detail::nearest_rank_p(cp.read_ns, 0.95)
            << ",\"read_p99_ns\":" << detail::nearest_rank_p(cp.read_ns, 0.99)
            << ",\"delete_p50_ns\":" << detail::nearest_rank_p(cp.delete_ns, 0.5)
+           << ",\"delete_p95_ns\":" << detail::nearest_rank_p(cp.delete_ns, 0.95)
            << ",\"search_insert\":" << o.axis_stats[0][3] << ",\"search_lookup\":" << o.axis_stats[0][0]
            << ",\"search_hit\":" << o.axis_stats[0][1] << ",\"search_miss\":" << o.axis_stats[0][2]
            << ",\"search_peak_occupancy\":" << o.axis_stats[0][5] << ",\"alloc_bytes_in_use\":" << o.axis_stats[6][1]

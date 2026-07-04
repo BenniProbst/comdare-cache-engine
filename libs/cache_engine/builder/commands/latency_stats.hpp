@@ -33,6 +33,9 @@ namespace comdare::cache_engine::builder::commands::stats {
 [[nodiscard]] inline std::chrono::nanoseconds latency_p50_ns(std::span<const std::int64_t> s) {
     return percentile_ns(s, 0.50);
 }
+[[nodiscard]] inline std::chrono::nanoseconds latency_p95_ns(std::span<const std::int64_t> s) {
+    return percentile_ns(s, 0.95);
+}
 [[nodiscard]] inline std::chrono::nanoseconds latency_p99_ns(std::span<const std::int64_t> s) {
     return percentile_ns(s, 0.99);
 }
