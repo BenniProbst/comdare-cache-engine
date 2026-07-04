@@ -114,6 +114,14 @@ public:
         return Strategy::get_compiler();
     }
 
+    /// Laufzeit-RC-Knopf nur fuer DistanceEstimatorPrefetch: 0 bedeutet kein Override und behaelt die
+    /// compile-time/default estimate()-Distanz bei. None/Hardware/Path tragen diese Setter-Faehigkeit nicht.
+    void set_runtime_distance(std::uint32_t distance) noexcept
+        requires (detail_real::prefetch_family_v<Strategy> == 1)
+    {
+        runtime_distance_override_ = distance;
+    }
+
     /// Mess-Kopplung (der eigentliche „Driver"): der Tier-insert/lookup reicht die berührte Adresse herein.
     /// Bei einer Tracking-Strategie (PathOriented) wird der echte Tracker getrieben (enqueue + suggest_next),
     /// und die realen Zähler werden gespiegelt. Bei None/Hardware (kein Tracker) ist es bewusst ein no-op →
@@ -150,7 +158,8 @@ public:
     /// abgesetzt (mikroarch-Effekt, auch im /O2-Mess-Build); die Telemetrie-Zaehler nur unter Statistik gepflegt.
     template <class Store>
     void observe_prefetch_descent(Store const& store, std::size_t i) noexcept {
-        auto const res = PrefetchDescentPolicy<Strategy>::drive(store, i); // REALE _mm_prefetch auf Store-Adressen
+        auto const res = PrefetchDescentPolicy<Strategy>::drive(
+            store, i, runtime_distance_override()); // REALE _mm_prefetch auf Store-Adressen
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         stats_.real_prefetches_issued += res.prefetches_issued;
         if (res.last_address != nullptr) stats_.last_real_address = reinterpret_cast<std::uintptr_t>(res.last_address);
@@ -161,6 +170,15 @@ public:
 #endif
     }
 
+private:
+    [[nodiscard]] std::uint32_t runtime_distance_override() const noexcept {
+        if constexpr (detail_real::prefetch_family_v<Strategy> == 1) return runtime_distance_override_;
+        else return 0;
+    }
+
+    std::uint32_t runtime_distance_override_ = 0;
+
+public:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = PrefetchStatistics;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }

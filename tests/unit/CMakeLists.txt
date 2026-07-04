@@ -1612,6 +1612,26 @@ target_link_libraries(test_216h2_stat_reset_after_load PRIVATE Boost::mp11)
 target_compile_definitions(test_216h2_stat_reset_after_load PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 
+# #221 RC prefetch_distance — Laufzeit-RC erreicht den realen T7 Store-Prefetch (tier_observe-Pfad B).
+comdare_add_test(test_221_rc_prefetch_distance
+    SOURCES test_221_rc_prefetch_distance.cpp)
+target_include_directories(test_221_rc_prefetch_distance PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_221_rc_prefetch_distance PRIVATE Boost::mp11)
+target_compile_definitions(test_221_rc_prefetch_distance PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+target_compile_options(test_221_rc_prefetch_distance PRIVATE
+    "$<$<CXX_COMPILER_ID:MSVC>:/UCOMDARE_A06_IS_ORIGINAL_CODEGEN>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UCOMDARE_A03A_IS_ORIGINAL_CODEGEN>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UCOMDARE_AQ1_IS_ORIGINAL_CODEGEN>"
+    "$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-UCOMDARE_A06_IS_ORIGINAL_CODEGEN>"
+    "$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-UCOMDARE_A03A_IS_ORIGINAL_CODEGEN>"
+    "$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-UCOMDARE_AQ1_IS_ORIGINAL_CODEGEN>")
+
 # #188-4c-ii (2026-07-02) — Flach-Wrapper-Traversal-Gate: die 4 letzten markerlosen Flach-Wrapper (Array256/
 # Array65535/VectorU8U8/VectorU16U16) sind store-traversierbar (DirectAddress-/SortedVectorTraversal) —
 # Conformance-Oracle + routes_through_store==true + Wide-Key-/Sparse-Korrektur-Proben. Damit ist der

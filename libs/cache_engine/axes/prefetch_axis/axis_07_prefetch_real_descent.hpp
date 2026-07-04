@@ -94,11 +94,13 @@ struct PrefetchDescentPolicy {
     /// Treibt EINEN Descent-Prefetch-Trigger auf REALE Store-Adressen. `i` = der Slot, den der Descent gerade
     /// beruehrt (aus der echten Traversierung). Liefert das reale Ergebnis (Zaehler + letzte Adresse + Distanz).
     template <class Store>
-    static DescentPrefetchResult drive(Store const& store, std::size_t i) noexcept {
+    static DescentPrefetchResult drive(Store const& store, std::size_t i,
+                                       std::uint32_t runtime_distance = 0) noexcept {
         DescentPrefetchResult r{};
         std::size_t const     n = store.slot_count();
         if (n == 0) return r;  // leerer Store → nichts real zu prefetchen
         if (i >= n) i = n - 1; // i in den realen Bereich klemmen (kein OOB-Index)
+        (void)runtime_distance;
 
         if constexpr (family == 0) {
             // NonePrefetch: KEIN Prefetch (0-Overhead-Baseline) → 0 reale Prefetches, keine Adresse.
@@ -116,12 +118,16 @@ struct PrefetchDescentPolicy {
             }
             return r;
         } else if constexpr (family == 1) {
-            // DistanceEstimatorPrefetch (ART): density-/latenz-basierte Distanz voraus. density = Fuell-% des
-            // (Single-Chunk-)Backings; tier_latency ~ DRAM (30 cycles) → estimate() liefert N Slots voraus.
-            double const       density = (n >= 1) ? (100.0 * static_cast<double>(n) / static_cast<double>(n + 1)) : 0.0;
-            std::uint8_t const dist    = impl::DistanceEstimatorImpl::estimate(density, /*tier_latency_cycles=*/30.0);
-            std::size_t        target  = i + static_cast<std::size_t>(dist);
-            if (target >= n) target = n - 1; // hart auf letzten realen Slot klemmen (kein OOB)
+            // DistanceEstimatorPrefetch (ART): density-/latenz-basierte Distanz voraus, optional durch den
+            // RC-Laufzeitknopf ueberschrieben. Ohne Override bleibt die bisherige estimate()-Distanz exakt gleich.
+            double const density = (n >= 1) ? (100.0 * static_cast<double>(n) / static_cast<double>(n + 1)) : 0.0;
+            std::uint32_t const dist =
+                (runtime_distance != 0)
+                    ? runtime_distance
+                    : static_cast<std::uint32_t>(
+                          impl::DistanceEstimatorImpl::estimate(density, /*tier_latency_cycles=*/30.0));
+            std::size_t const ahead  = static_cast<std::size_t>(dist);
+            std::size_t       target = (ahead > ((n - 1) - i)) ? (n - 1) : (i + ahead);
             unsigned char const* a = store.slot_address(target);
             if (a != nullptr) {
                 detail_real::issue_prefetch_t0(a);
