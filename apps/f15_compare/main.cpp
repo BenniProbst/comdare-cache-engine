@@ -28,6 +28,7 @@
 #include <builder/workload_driver/workload_profiles.hpp> // INC-0: Single-Source profile_by_name (geteilt mit perm_runner)
 #include <builder/measurement_snapshot.hpp> // V5-I1 (#50): EIN autoritativer 16+6-Mess-POD + Pipeline-16-Serializer
 #include <builder/provenance_manifest.hpp> // AP-9/#243: host-seitiges Provenance-Sidecar (Compiler/Flags/ISA/Allokator/4-Repo-git-SHAs)
+#include <builder/measurement/thread_pinning.hpp> // AP-13/#247: opt-in Mess-Thread-Pinning (--pin-core=N), host-seitig, Default no-op
 #include <builder/pmc_source_factory.hpp> // V5-#26 / Task #153: make_pmc_source() (Windows-Intel-PCM o. NullPmcSource)
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/rollbackable_tier.hpp>
@@ -40,7 +41,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -72,6 +75,7 @@ void print_usage() {
               << "  --ops=N        ops_per_batch, Default 2000\n"
               << "  --batches=N    Batches (= Latenz-Samples pro DLL), Default 128\n"
               << "  --seed=N       RNG-Seed, Default 11\n"
+              << "  --pin-core=N   Mess-Thread optional auf Core N pinnen (Default: no-op)\n"
               << "  --csv=PATH     Report zusaetzlich als CSV schreiben\n"
               << "  --json=PATH    Report zusaetzlich als JSON schreiben\n"
               << "  --observe      Pfad-B Prüf-Dock-Modus: jede DLL ueber das gattungs-passende Prüf-Dock\n"
@@ -143,6 +147,7 @@ int main(int argc, char** argv) {
     std::string   workload_label = "micro";
     std::string   measurement_plan; // V5-I10: --measurement-plan=A,B,C,D (host-seitige Lastprofile je Binary)
     bool          observe = false;
+    std::optional<unsigned> pin_core; // AP-13/#247: opt-in Mess-Thread-Pinning (--pin-core=N); leer => kein Pinning
     for (int i = first_opt; i < argc; ++i) {
         std::string_view a{argv[i]};
         std::uint64_t    u{};
@@ -166,6 +171,12 @@ int main(int argc, char** argv) {
         } else if (parse_flag_str(a, "--workload=", workload_label)) {
         } else if (parse_flag_str(a, "--observe-out=", observe_out)) {
         } else if (parse_flag_str(a, "--measurement-plan=", measurement_plan)) {
+        } else if (parse_flag_u64(a, "--pin-core=", u)) {
+            if (u <= static_cast<std::uint64_t>(std::numeric_limits<unsigned>::max())) {
+                pin_core = static_cast<unsigned>(u);
+            } else {
+                pin_core.reset();
+            }
         } else {
             std::cerr << "Unbekannte Option: " << a << "\n";
             print_usage();
@@ -174,11 +185,18 @@ int main(int argc, char** argv) {
     }
     if (batches == 0) batches = 1;
 
+
     std::vector<loader::AnatomyModuleHandle> handles;
     int const                                st = loader::AnatomyModuleLoader::load_all(dll_dir, handles);
     if (st != loader::status_ok) {
         std::cerr << "load_all fehlgeschlagen: " << loader::status_name(st) << " (dir=" << dll_dir << ")\n";
         return 2;
+    }
+
+    auto measurement_pin =
+        pin_core.has_value() ? bld::CorePinPolicy{*pin_core}.pin() : bld::NoPinPolicy{}.pin();
+    if (measurement_pin.active()) {
+        std::cout << "AP-13 Mess-Thread auf Core " << *pin_core << " gepinnt.\n";
     }
 
     // ── OpenDone.2 / Pfad B — Prüf-Dock-Observe-Modus (Option B: Standalone-CLI mit measure_genus_sequential).
