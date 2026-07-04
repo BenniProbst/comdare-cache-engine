@@ -57,6 +57,8 @@
 #include "axis_06_allocator_vmem_mag.hpp"
 // V41.F.6.1 R5.B (2026-05-29) — eigener std::pmr-Pool, behavioral-distinkt ohne externes Linking
 #include "axis_06_allocator_pool_resource.hpp"
+// P33-VAMPIR Option A — NFP memory-type virtualization allocator (Default-OFF, end append)
+#include "axis_06_allocator_vampir_nfp.hpp"
 
 #include <boost/mp11.hpp>
 
@@ -91,8 +93,10 @@ using AllVendors = mp::mp_list<
     // Batch 8 (2026-05-26) — VOLLAUSBAU-Abschluss A21+A23
     PtMalloc2Allocator, VmemMagazinesAllocator,
     // V41.F.6.1 R5.B (2026-05-29) — eigener std::pmr::unsynchronized_pool_resource (F15-operativ)
-    PoolResourceAllocator
-    // Allocator-Achse 6 KOMPLETT (25 Vendor: Batch 1-8 + R5.B Pool)
+    PoolResourceAllocator,
+    // P33-VAMPIR Option A — END-Append; Index 0 / First-N semantics remain unchanged.
+    VampirNfpAllocator
+    // Allocator-Achse 6 KOMPLETT (26 Vendor: Batch 1-8 + R5.B Pool + P33 VAMPIR_NFP)
     >;
 
 // ───────────────────────────────────────────────────────────────────────────
