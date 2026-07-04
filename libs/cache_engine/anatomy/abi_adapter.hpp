@@ -216,6 +216,11 @@ public:
         apply1(in->pool_budget_bytes, caps.pool_budget_bytes, applied_rc_.pool_budget_bytes);
         apply1(in->batch_size, caps.batch_size, applied_rc_.batch_size);
         apply1(in->inline_threshold_bytes, caps.inline_threshold_bytes, applied_rc_.inline_threshold_bytes);
+        // RC-prefetch_distance = Laufzeit-Distanz-Override am realen Store-Prefetch;
+        // #229-Folge = die 4 übrigen RC-Achsen + KF-5-§7-Voll-API.
+        if constexpr (requires { pf_organ_.set_runtime_distance(std::uint32_t{}); }) {
+            pf_organ_.set_runtime_distance(static_cast<std::uint32_t>(applied_rc_.prefetch_distance));
+        }
         return applied;
     }
 
