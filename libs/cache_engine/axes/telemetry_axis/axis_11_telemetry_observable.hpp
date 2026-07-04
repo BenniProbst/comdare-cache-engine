@@ -42,7 +42,7 @@ class ObservableTelemetry {
 public:
     using strategy_type = Strategy;
 
-    // Transparenter Decorator: die Strategie-Inspektion wird durchgereicht, damit die Huelle ueberall als
+    // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): die Strategie-Inspektion wird durchgereicht, damit die Huelle ueberall als
     // telemetry-Slot funktioniert (composition_registry.hpp:35 / axis_path_serialization.hpp:67 rufen
     // C::telemetry::name()). family_name/flag_suffix nur weiterreichen, wenn die Strategie sie bietet.
     [[nodiscard]] static constexpr bool             is_leaf_only() noexcept { return Strategy::is_leaf_only(); }

@@ -57,7 +57,7 @@ public:
     // migration_policy-Slot einsetzbar (composition_registry / axis_path_serialization rufen C::migration_policy::name()).
     using topic_tag = typename Strategy::topic_tag;
 
-    // Transparenter Decorator: Strategie-Inspektion durchgereicht.
+    // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): Strategie-Inspektion durchgereicht.
     [[nodiscard]] static constexpr bool             is_active() noexcept { return Strategy::is_active(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept

@@ -37,7 +37,7 @@ public:
     using strategy_type = Strategy;
     using topic_tag     = typename Strategy::topic_tag; // erfuellt SerializationComponent/SerializationStrategy
 
-    // Transparenter Decorator: Strategie-Inspektion durchgereicht.
+    // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): Strategie-Inspektion durchgereicht.
     [[nodiscard]] static constexpr bool supports_compression() noexcept { return Strategy::supports_compression(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept

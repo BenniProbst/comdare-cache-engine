@@ -94,7 +94,7 @@ class ObservablePrefetch {
 public:
     using strategy_type = Strategy;
 
-    // Transparenter Decorator: die statische Strategie-Inspektion wird durchgereicht, damit die Hülle überall
+    // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): die statische Strategie-Inspektion wird durchgereicht, damit die Hülle überall
     // als prefetch-Slot funktioniert (Composition-Inspektoren rufen C::prefetch::name()/is_active()).
     [[nodiscard]] static constexpr bool             is_active() noexcept { return Strategy::is_active(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }

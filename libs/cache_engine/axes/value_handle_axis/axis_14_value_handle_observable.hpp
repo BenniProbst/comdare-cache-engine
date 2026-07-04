@@ -61,7 +61,7 @@ class ObservableValueHandle {
 public:
     using strategy_type = Strategy;
 
-    // Transparenter Decorator: Strategie-Inspektion durchgereicht (composition_registry / axis_path_serialization
+    // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): Strategie-Inspektion durchgereicht (composition_registry / axis_path_serialization
     // rufen C::value_handle::name()).
     [[nodiscard]] static constexpr bool             is_inline() noexcept { return Strategy::is_inline(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }

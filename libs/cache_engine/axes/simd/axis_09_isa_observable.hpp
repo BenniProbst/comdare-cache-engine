@@ -59,7 +59,7 @@ class ObservableIsa {
 public:
     using strategy_type = Strategy;
 
-    // Transparenter Decorator: Strategie-Inspektion durchgereicht (composition_registry / axis_path_serialization
+    // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): Strategie-Inspektion durchgereicht (composition_registry / axis_path_serialization
     // rufen C::isa::name()).
     [[nodiscard]] static constexpr bool             is_64bit() noexcept { return Strategy::is_64bit(); }
     [[nodiscard]] static constexpr std::string_view cpu_family() noexcept { return Strategy::cpu_family(); }

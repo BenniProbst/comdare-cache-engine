@@ -55,7 +55,7 @@ class ObservableConcurrency {
 public:
     using strategy_type = Strategy;
 
-    // Transparenter Decorator: die statische Strategie-Inspektion wird durchgereicht, damit die Hülle überall
+    // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): die statische Strategie-Inspektion wird durchgereicht, damit die Hülle überall
     // als concurrency-Slot funktioniert (Composition-Inspektoren rufen C::concurrency::name()/pattern()).
     [[nodiscard]] static constexpr concepts::ConcurrencyPattern concurrency_pattern() noexcept {
         return Strategy::concurrency_pattern();

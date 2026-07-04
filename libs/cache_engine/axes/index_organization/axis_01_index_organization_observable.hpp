@@ -57,7 +57,7 @@ public:
     using strategy_type = Strategy;
     using topic_tag     = typename Strategy::topic_tag; // SearchEngineComponent → IndexOrganizationStrategy erfuellt
 
-    // Transparenter Decorator: Strategie-Inspektion durchgereicht (Pflicht fuer IndexOrganizationStrategy +
+    // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): Strategie-Inspektion durchgereicht (Pflicht fuer IndexOrganizationStrategy +
     // die bestehenden Aufrufer in composition_registry / axis_path_serialization).
     [[nodiscard]] static constexpr bool is_clustered() noexcept { return Strategy::is_clustered(); }
     [[nodiscard]] static constexpr bool has_secondary_indexes() noexcept { return Strategy::has_secondary_indexes(); }

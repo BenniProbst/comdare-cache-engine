@@ -113,6 +113,15 @@ namespace comdare::cache_engine::anatomy {
 /// SearchAlgorithmAbiAdapter<A> — generischer Runtime-ABI-Adapter fuer die
 /// SearchAlgorithm-Gattung (Mammal in Tier-Metapher).
 ///
+/// GoF-Ehrlichkeit (K10/#224): "ABI-Adapter" = Adaption der Composition-Anatomie
+/// (A::composition_t-Organtypen) an die extern-C-IAnatomyBase-vtable — KEIN klassischer
+/// GoF-Object-Adapter. Die Organe werden INTERN konstruiert (eigene Member
+/// container_algorithm_/telemetry_organ_/...), es gibt KEINEN injizierten Adaptee-
+/// Instanz-Member (anders als SetAbiAdapter mit `A anatomy_{}`, das an eine Adaptee-
+/// Instanz delegiert). "Adapter" ist hier als vtable-/ABI-Adapter ehrlich, nicht als
+/// Adaptee-delegierender Object-Adapter. Die volle Delegations-Vereinheitlichung
+/// (echte Adaptee-Delegation) ist bewusst an Befund-2/#188 gekoppelt.
+///
 /// I1-Vereinheitlichung (Doc 36 §2.5/§4, TODO-6, 2026-06-25): DIES ist die EINE
 /// ABI-Laufzeit-SICHT des SearchAlgorithm-Lebewesens — in der Thesis (ch4 fig:abi)
 /// „SearchEngine" genannt. Es gibt KEINE zweite, achsentragende Engine-Hierarchie:
