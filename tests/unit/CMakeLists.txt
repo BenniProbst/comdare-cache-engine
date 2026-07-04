@@ -1171,6 +1171,17 @@ target_include_directories(test_ap9_provenance_manifest PRIVATE
     "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(test_ap9_provenance_manifest PRIVATE
     comdare::workload_driver)
+# AP-10/#244: Dataset-Akte manifest + Option-A string->uint64 corpus loader.
+comdare_add_test(test_ap10_dataset_akte
+    SOURCES test_ap10_dataset_akte.cpp)
+target_include_directories(test_ap10_dataset_akte PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common/measurement/dataset_loader/include"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_ap10_dataset_akte PRIVATE
+    comdare_dataset_loader
+    comdare::workload_driver)
 # V5-#46-REFERENZ — Disk-persistierender MementoAxis (Beweis "Memento inkl. IO/Disk-Persistenz").
 comdare_add_test(test_v5_disk_memento
     SOURCES test_v5_disk_memento.cpp)
