@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="louds" paper_ref="P09" pruefling_type="abstract">
+  <!-- abstract Pruefling marker -> axis_05 PackedBitmapMemoryLayout.
+       Metadata source: docs/architecture/18_achsen_algorithmus_paper_code_map.md:127,383.
+       Wrapper source: libs/cache_engine/axes/layout/axis_05_memory_layout_packed_bitmap.hpp:17-43. -->
+  <metadata>
+    <name>Space-efficient Static Trees and Graphs (LOUDS)</name>
+    <authors>Jacobson</authors>
+    <year>1989</year>
+    <venue>FOCS</venue>
+    <doi>10.1109/SFCS.1989.63533</doi>
+  </metadata>
+  <axes>
+    <page>STANDARD_HEAP</page>
+    <node>BPLUS_NODE</node>
+    <traversal>STANDARD</traversal>
+    <value_handle>INLINE</value_handle>
+    <concurrency>SINGLE_THREADED</concurrency>
+    <allocator>SYSTEM_MALLOC</allocator>
+    <prefetch>NONE</prefetch>
+    <telemetry>OFF</telemetry>
+    <isa>X86_BASELINE</isa>
+    <!-- Token from PackedBitmapMemoryLayout::flag_suffix(): axis_05_memory_layout_packed_bitmap.hpp:43 -->
+    <layout>PACKED_BITMAP</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::string</key_types>
+    <value_types>std::uint64_t</value_types>
+  </key_value_signature>
+  <expected_workload>YCSB_A</expected_workload>
+</comdare_algorithm_profile>

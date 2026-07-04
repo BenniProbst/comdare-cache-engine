@@ -1672,6 +1672,13 @@ target_compile_definitions(test_harness_compile PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 add_test(NAME test_harness_compile COMMAND test_harness_compile)
 set_tests_properties(test_harness_compile PROPERTIES LABELS "contract;standalone;harness")
+# AP-6/#240 rev: rein lesendes Profil-Coverage-Gate (SOTA P01-P33 + Allokator A01-A23).
+comdare_add_test(test_profile_coverage
+    SOURCES thesis_tiere/test_profile_coverage.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+target_compile_definitions(test_profile_coverage PRIVATE
+    "COMDARE_ALGORITHM_PROFILES_DIR=\"${CMAKE_SOURCE_DIR}/libs/cache_engine/algorithm_profiles\"")
+set_tests_properties(test_profile_coverage PROPERTIES LABELS "contract;profiles;coverage")
 
 # CE-DL2 (Task #152) — LINUX-PMC-Smoke fuer die LinuxPerfPmcSource (perf_event_open). Spiegel von m3v2_pmc_smoke,
 # aber LINUX-CONDITIONAL registriert: nur unter (UNIX AND NOT APPLE) — der Windows-/MSVC-Build sieht dieses Target

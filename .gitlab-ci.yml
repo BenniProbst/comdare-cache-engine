@@ -200,6 +200,18 @@ contract:harness:
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
+contract:profile_coverage:
+  extends: .bare_metal
+  stage: contract
+  tags: [baremetal]
+  needs: ["lint:secrets"]   # hart auf den Secrets-Gate warten (Konvention wie .pmc/contract/durability/conformance)
+  script:
+    # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
+    - cmake -B build-cov -G Ninja -DCOMDARE_BUILD_TESTS=ON
+    - cmake --build build-cov --target test_profile_coverage
+    - ctest --test-dir build-cov -R '^test_profile_coverage$' --output-on-failure -V
+  artifacts:
+    paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 # -- Stufe 4g: Contract Experiment-Driver-Gate (#193-A CI-Luecke geschlossen + /fork-Direktive) --
 # #193-A fixte den SOTA-Profil-Resolver in experiment_driver.cpp, doch KEIN Gate baute die
 # comdare_builder_experiment_driver-Lib -> #193-A blieb pipeline-unverifiziert (nur lokal-MSVC). Dieses Gate

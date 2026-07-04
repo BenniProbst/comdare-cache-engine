@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="exgen_malloc" family_ref="A18">
+  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:28,48; axes source: axis_06_allocator_exgen.hpp:5,38,41,59-65 -->
+  <metadata>
+    <name>Exgen-Malloc (Single-Threaded Specialized)</name>
+    <year>2025</year>
+    <venue>IEEE CAL</venue>
+    <license>unknown</license>
+  </metadata>
+  <axes>
+    <granularity>BOUNDARY_TAG</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>NO</thread_local>
+    <!-- Source marks Exgen single-threaded; BEST_FIT is the existing neutral boundary-tag fragmentation token. -->
+    <fragmentation_strategy>BEST_FIT</fragmentation_strategy>
+    <thread_safety>SINGLE_THREADED</thread_safety>
+  </axes>
+  <abi>
+    <c_api>exgen_alloc, exgen_free, exgen_realloc, exgen_calloc</c_api>
+  </abi>
+  <expected_workload>YCSB_C</expected_workload>
+</comdare_allocator_profile>

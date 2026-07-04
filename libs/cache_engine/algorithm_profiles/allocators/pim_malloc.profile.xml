@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="pim_malloc" family_ref="A16">
+  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:23,47; axes source: axis_06_allocator_pim_malloc.hpp:5,47,50,71-76 -->
+  <metadata>
+    <name>PIM-malloc (Processing-In-Memory Allocator)</name>
+    <authors>VIA-Research</authors>
+    <year>2026</year>
+    <venue>HPCA 2026 (arXiv 2025)</venue>
+    <license>MIT</license>
+  </metadata>
+  <axes>
+    <granularity>PAGE_BASED</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>NO</thread_local>
+    <!-- Fragmentation details are not specified by the source profile header; SIZE_CLASS is the existing neutral allocator-profile token. -->
+    <fragmentation_strategy>SIZE_CLASS</fragmentation_strategy>
+    <thread_safety>FINEGRAINED_MUTEX</thread_safety>
+  </axes>
+  <abi>
+    <c_api>pim_alloc, pim_free, pim_realloc, pim_calloc</c_api>
+  </abi>
+  <expected_workload>YCSB_E</expected_workload>
+</comdare_allocator_profile>

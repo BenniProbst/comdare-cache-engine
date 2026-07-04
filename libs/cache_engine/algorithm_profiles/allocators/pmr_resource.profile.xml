@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="pmr_resource" family_ref="A22">
+  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:24; axes source: axis_06_allocator_pmr_resource.hpp:7,48,51,62-72 -->
+  <metadata>
+    <name>std::pmr::memory_resource</name>
+    <year>2014</year>
+    <venue>WG21 2014 to C++17</venue>
+    <license>Standard-Library</license>
+  </metadata>
+  <axes>
+    <granularity>ARENA</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>NO</thread_local>
+    <!-- PMR behavior is resource-dependent; SIZE_CLASS is the existing neutral allocator-profile token. -->
+    <fragmentation_strategy>SIZE_CLASS</fragmentation_strategy>
+    <thread_safety>SINGLE_THREADED</thread_safety>
+  </axes>
+  <abi>
+    <c_api>std::pmr::memory_resource::allocate, std::pmr::memory_resource::deallocate</c_api>
+  </abi>
+  <expected_workload>YCSB_B</expected_workload>
+</comdare_allocator_profile>

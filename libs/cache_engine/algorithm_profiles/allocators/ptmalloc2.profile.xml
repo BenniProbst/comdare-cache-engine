@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="ptmalloc2" family_ref="A21">
+  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:26; axes source: axis_06_allocator_ptmalloc2.hpp:5,41,44,62-68 -->
+  <metadata>
+    <name>ptmalloc2 (glibc malloc)</name>
+    <authors>Gloger, Lea</authors>
+    <year>1990er-2000er</year>
+    <venue>malloc.de</venue>
+    <license>LGPL-2.1+</license>
+  </metadata>
+  <axes>
+    <granularity>ARENA</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>YES</thread_local>
+    <fragmentation_strategy>SIZE_CLASS</fragmentation_strategy>
+    <thread_safety>FINEGRAINED_MUTEX</thread_safety>
+  </axes>
+  <abi>
+    <c_api>__libc_malloc, __libc_free, __libc_realloc, __libc_calloc, __libc_memalign</c_api>
+  </abi>
+  <expected_workload>YCSB_B</expected_workload>
+</comdare_allocator_profile>

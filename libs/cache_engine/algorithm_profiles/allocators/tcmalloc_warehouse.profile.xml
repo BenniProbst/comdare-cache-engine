@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_allocator_profile id="tcmalloc_warehouse" family_ref="A14">
+  <!-- metadata source: libs/cache_engine/axes/alloc/PAPER_REFERENCES.md:34; axes source: axis_06_allocator_tcmalloc_wh.hpp:5,38,41,57-64 -->
+  <metadata>
+    <name>TCMalloc-Warehouse/Hyperscale (hugepage-aware)</name>
+    <year>2021</year>
+    <venue>OSDI 2021; ASPLOS 2024</venue>
+    <license>Apache-2.0</license>
+    <repo>ext/A06-tcmalloc</repo>
+  </metadata>
+  <axes>
+    <granularity>PAGE_BASED</granularity>
+    <numa>UNAWARE</numa>
+    <thread_local>YES</thread_local>
+    <fragmentation_strategy>SIZE_CLASS</fragmentation_strategy>
+    <thread_safety>FINEGRAINED_MUTEX</thread_safety>
+  </axes>
+  <abi>
+    <c_api>tc_wh_alloc, tc_wh_free, tc_wh_realloc, tc_wh_calloc</c_api>
+  </abi>
+  <expected_workload>YCSB_C</expected_workload>
+</comdare_allocator_profile>

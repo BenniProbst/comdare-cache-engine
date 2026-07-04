@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_algorithm_profile id="olc" paper_ref="P08" pruefling_type="abstract">
+  <!-- abstract Pruefling marker -> axis_08 OlcOptimisticConcurrency (code present);
+       metadata source: docs/architecture/18_achsen_algorithmus_paper_code_map.md:66,
+       wrapper source: libs/cache_engine/axes/concurrency_axis/axis_08_concurrency_olc.hpp:17-34.
+       Original paper: DaMoN 2016 / DEBULL 2019. -->
+  <metadata>
+    <name>Optimistic Lock Coupling (OLC)</name>
+    <authors>Leis et al.</authors>
+    <year>2016</year>
+    <venue>DaMoN 2016; DEBULL 2019</venue>
+    <doi>10.1145/2933349.2933352</doi>
+  </metadata>
+  <axes>
+    <page>STANDARD_HEAP</page>
+    <node>BPLUS_NODE</node>
+    <traversal>STANDARD</traversal>
+    <value_handle>EXTERNAL</value_handle>
+    <!-- Token from existing SOTA consumers of P08 OLC: docs/sessions/20260620-HANDOUT-impl-an-text-agent-170-sota-vollabdeckung-P33.md:14 -->
+    <concurrency>OPTIMISTIC_LOCK_COUPLING</concurrency>
+    <allocator>SYSTEM_MALLOC</allocator>
+    <prefetch>NONE</prefetch>
+    <telemetry>OFF</telemetry>
+    <isa>X86_BASELINE</isa>
+    <layout>CACHE_LINE_ALIGNED</layout>
+    <reclamation>NONE</reclamation>
+  </axes>
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::uint64_t</value_types>
+  </key_value_signature>
+  <expected_workload>YCSB_B</expected_workload>
+</comdare_algorithm_profile>
