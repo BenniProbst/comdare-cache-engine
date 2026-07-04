@@ -3,6 +3,7 @@
 // Auf ARM/RISC-V: erwartet non-x86 Fallback ohne Crash.
 
 #include "cache_engine/platform_probe/cpuid_probe.hpp"
+#include "cache_engine/platform_probe/cpuid_platform_probe.hpp"
 
 #include <gtest/gtest.h>
 
@@ -32,6 +33,27 @@ TEST(CpuidProbe, CacheLineBytesIsValid) {
     // Erwartet: 64 (x86, ARM-Standard), 128 (Apple Silicon), 256 (A64FX)
     EXPECT_TRUE(result.cache_line_bytes == 64 || result.cache_line_bytes == 128 || result.cache_line_bytes == 256)
         << "Unerwartete Cache-Line-Size: " << result.cache_line_bytes;
+}
+
+TEST(CpuidPlatformProbe, YieldsSanePropertySet) {
+    pp::CpuidPlatformProbe probe;
+    auto                   props = probe.discover_and_measure();
+
+#if defined(__x86_64__) || defined(_M_X64)
+    auto raw = pp::probe_cpuid();
+    EXPECT_GE(props.usable_simd_width_bytes, static_cast<std::uint16_t>(16));
+    EXPECT_TRUE(props.has_software_prefetch);
+    EXPECT_FALSE(raw.vendor.empty());
+    EXPECT_GT(raw.cpu_family, static_cast<std::uint16_t>(0));
+    EXPECT_EQ(props.measured_metrics.at("feature.avx2"), raw.has_avx2 ? 1.0 : 0.0);
+#else
+    EXPECT_FALSE(props.has_software_prefetch);
+    EXPECT_TRUE(props.usable_simd_width_bytes == 0 || props.usable_simd_width_bytes == 16);
+#endif
+
+    EXPECT_FALSE(props.has_hybrid_cores);
+    EXPECT_FALSE(props.cpu_core_atom_perf_separation);
+    EXPECT_EQ(props.preferred_pinning_policy, static_cast<std::uint16_t>(0));
 }
 
 #if defined(__x86_64__) || defined(_M_X64)
