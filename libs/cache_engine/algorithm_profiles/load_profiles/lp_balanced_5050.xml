@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Insert/Lookup 50/50 (Masstree) — Lastprofil (Doc 32 Lastprofil-Katalog, Achse-2-Wert). Workload-Charakteristik; Skala (records/n_ops) vom Harness. -->
-<comdare_load_profile id="lp_balanced_5050" paper_ref="P03" schema_version="1">
+<comdare_load_profile id="lp_balanced_5050" paper_ref="P03" lp_id="LP09" schema_version="1">
   <metadata>
     <name>Insert/Lookup 50/50 (Masstree)</name>
     <source>Masstree rw1/rw2; RCU 2reader+2writer</source>
