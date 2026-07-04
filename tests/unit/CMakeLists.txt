@@ -1162,6 +1162,15 @@ target_include_directories(test_v5_measurement_snapshot PRIVATE
 target_link_libraries(test_v5_measurement_snapshot PRIVATE
     comdare::workload_driver)
 
+# AP-9/#243: host-side provenance manifest sidecar, golden-/POD-neutral.
+comdare_add_test(test_ap9_provenance_manifest
+    SOURCES test_ap9_provenance_manifest.cpp)
+target_include_directories(test_ap9_provenance_manifest PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${CMAKE_BINARY_DIR}/generated")
+target_link_libraries(test_ap9_provenance_manifest PRIVATE
+    comdare::workload_driver)
 # V5-#46-REFERENZ — Disk-persistierender MementoAxis (Beweis "Memento inkl. IO/Disk-Persistenz").
 comdare_add_test(test_v5_disk_memento
     SOURCES test_v5_disk_memento.cpp)
