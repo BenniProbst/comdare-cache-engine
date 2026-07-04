@@ -21,6 +21,7 @@ wd::WorkloadRunResult make_result() {
     wd::WorkloadRunResult r;
     r.profile_name              = "YCSB_C_read_only";
     r.op_count                  = 300;
+    r.total_ns                  = 1'500'000'000; // 300 ops / 1.5 s = 200 ops/s
     r.two_phase                 = true;
     r.lookup_ns                 = {100, 200, 300}; // merged p50 = 200
     r.observer.axis_stats[0][3] = 822;             // search_insert_count
@@ -55,21 +56,33 @@ TEST(V5MeasurementSnapshot, BuildsFromWorkloadResultWithRealObserverData) {
     EXPECT_EQ(m.bytes_in_use_peak, 3376u);
     EXPECT_EQ(m.pmc_available, 0u);   // PMC NICHT angebunden — ehrlich, kein Schein-Datum
     EXPECT_EQ(m.cache_misses_l1, 0u); // HW-Counter 0 (nur gültig bei pmc_available==1)
+    EXPECT_EQ(m.branch_misses, 0u);
+    EXPECT_DOUBLE_EQ(m.throughput_ops_per_sec, 200.0);
     EXPECT_NE(m.fingerprint, 0u);
 }
 
-// Kanonischer 16+6-Serializer: 23 Spalten (16 Pipeline + 6 Observer + pmc_available), eine Datenzeile.
+// Kanonischer Full-Serializer: 25 Spalten (16 Pipeline + 6 Observer + pmc_available + 2 Host-Messspalten).
 TEST(V5MeasurementSnapshot, Serialize16Plus6FullView) {
     std::vector<b::ComdareMeasurementSnapshotV1> rows{
         b::measurement_from_workload_result(make_result(), "ArtComposition")};
     std::vector<std::string> ids{"ArtComposition_0"}, wls{"YCSB_C_read_only"};
     auto const               csv = b::serialize_measurements_csv(rows, ids, wls);
     auto const               hdr = first_line(csv);
-    EXPECT_EQ(count_cols(hdr), 23u);                      // 16 + 6 + pmc_available
+    EXPECT_EQ(count_cols(hdr), 25u);                      // 16 + 6 + pmc_available + branch_misses + throughput
     EXPECT_NE(hdr.find("search_hit"), std::string::npos); // die „+6" sind drin
     EXPECT_NE(hdr.find("pmc_available"), std::string::npos);
+    EXPECT_NE(hdr.find("branch_misses"), std::string::npos);
+    EXPECT_NE(hdr.find("throughput_ops_per_sec"), std::string::npos);
+    EXPECT_NE(csv.find(",0,200\n"), std::string::npos);
     EXPECT_NE(csv.find("\nArtComposition_0,"), std::string::npos); // Datenzeile vorhanden
     EXPECT_EQ(std::count(csv.begin(), csv.end(), '\n'), 2);        // Header + 1 Datenzeile
+}
+
+TEST(V5MeasurementSnapshot, ThroughputUsesDivZeroGuard) {
+    auto r = make_result();
+    r.total_ns = 0;
+    auto const m = b::measurement_from_workload_result(r, "ArtComposition");
+    EXPECT_DOUBLE_EQ(m.throughput_ops_per_sec, 0.0);
 }
 
 // Pipeline-16-Sicht: exakt die 16 kanonischen Spalten, die Stufe 04/05 erwartet — speist die PDF.
@@ -94,6 +107,7 @@ TEST(V5MeasurementSnapshot, NullPmcSourceReportsUnavailable) {
     auto const m = b::measurement_from_workload_result(make_result(), "ArtComposition", c);
     EXPECT_EQ(m.pmc_available, 0u);
     EXPECT_EQ(m.cache_misses_l1, 0u);
+    EXPECT_EQ(m.branch_misses, 0u);
     EXPECT_EQ(m.energy_micro_joules, 0u);
 }
 
@@ -105,12 +119,14 @@ TEST(V5MeasurementSnapshot, AvailablePmcFillsHwColumns) {
     c.cache_misses_l2         = 222;
     c.cache_misses_l3         = 33;
     c.dtlb_misses             = 7;
+    c.branch_misses           = 17;
     c.coherence_invalidations = 5;
     c.energy_micro_joules     = 99000;
     auto const m              = b::measurement_from_workload_result(make_result(), "ArtComposition", c);
     EXPECT_EQ(m.pmc_available, 1u);
     EXPECT_EQ(m.cache_misses_l1, 1111u);
     EXPECT_EQ(m.cache_misses_l3, 33u);
+    EXPECT_EQ(m.branch_misses, 17u);
     EXPECT_EQ(m.energy_micro_joules, 99000u);
     EXPECT_EQ(m.search_lookup, 1088u); // Observer-Daten unverändert daneben
 }

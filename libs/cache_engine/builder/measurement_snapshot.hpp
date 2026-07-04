@@ -60,6 +60,9 @@ struct ComdareMeasurementSnapshotV1 {
     std::uint64_t search_miss           = 0;
     std::uint64_t search_erase          = 0;
     std::uint64_t search_peak_occupancy = 0;
+    // Additive Host-Messspalten (nur volle CSV, NICHT pipeline16).
+    std::uint64_t branch_misses          = 0;
+    double        throughput_ops_per_sec = 0.0;
 };
 
 namespace detail {
@@ -82,6 +85,9 @@ namespace detail {
     all.insert(all.end(), r.clear_ns.begin(), r.clear_ns.end());
     return anatomy_commands::detail::nearest_rank_p(std::move(all), 0.5);
 }
+[[nodiscard]] inline double throughput_ops_per_sec(std::uint64_t op_count, std::int64_t total_ns) noexcept {
+    return (total_ns > 0) ? (static_cast<double>(op_count) / (static_cast<double>(total_ns) / 1'000'000'000.0)) : 0.0;
+}
 } // namespace detail
 
 /// Baut den autoritativen POD aus einem host-seitigen Lastprofil-Lauf (V5-I9 WorkloadRunResult).
@@ -94,6 +100,7 @@ measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, st
     m.succeeded     = 1;
     m.op_count      = r.op_count;
     m.total_cycles  = static_cast<std::uint64_t>(detail::merged_p50_ns(r)); // repräsentative ns
+    m.throughput_ops_per_sec = detail::throughput_ops_per_sec(r.op_count, r.total_ns);
     m.pmc_available = 0;                                                    // PMC nicht angebunden
     // I1: aus dem konsolidierten Observer-POD (search→axis_stats[0], alloc→axis_stats[6]).
     m.bytes_allocated       = r.observer.axis_stats[6][0]; // ECHT aus Observer
@@ -118,6 +125,7 @@ measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, st
         m.cache_misses_l2         = pmc.cache_misses_l2;
         m.cache_misses_l3         = pmc.cache_misses_l3;
         m.dtlb_misses             = pmc.dtlb_misses;
+        m.branch_misses           = pmc.branch_misses;
         m.coherence_invalidations = pmc.coherence_invalidations;
         m.energy_micro_joules     = pmc.energy_micro_joules;
         m.pmc_available           = 1;
@@ -138,7 +146,8 @@ measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, st
           "coherence_invalidations,energy_micro_joules,"
           "bytes_allocated,bytes_in_use_peak,external_frag,internal_frag,"
           // ... + 6 Observer-Spalten + pmc_available (die „+6" + Ehrlichkeits-Flag)
-          "search_insert,search_lookup,search_hit,search_miss,search_erase,search_peak_occupancy,pmc_available\n";
+          "search_insert,search_lookup,search_hit,search_miss,search_erase,search_peak_occupancy,pmc_available,"
+          "branch_misses,throughput_ops_per_sec\n";
     std::size_t const n = rows.size();
     for (std::size_t i = 0; i < n; ++i) {
         auto const&       m = rows[i];
@@ -151,7 +160,8 @@ measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, st
            << m.bytes_allocated << ',' << m.bytes_in_use_peak << ',' << m.external_frag_milli << ','
            << m.internal_frag_milli << ',' << m.search_insert << ',' << m.search_lookup << ',' << m.search_hit << ','
            << m.search_miss << ',' << m.search_erase << ',' << m.search_peak_occupancy << ','
-           << static_cast<unsigned>(m.pmc_available) << '\n';
+           << static_cast<unsigned>(m.pmc_available) << ',' << m.branch_misses << ',' << m.throughput_ops_per_sec
+           << '\n';
     }
     return os.str();
 }
