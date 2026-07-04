@@ -55,6 +55,8 @@ namespace comdare::cache_engine::alloc::flags {
 // V41.F.6.1 R5.B (2026-05-29) — PoolResourceAllocator: eigener std::pmr::unsynchronized_pool_resource,
 // behavioral-distinkt von System-malloc OHNE externes Linking (macht Allocator-Achse F15-operativ).
 #cmakedefine01 COMDARE_AXIS_06_USE_POOL
+// P33-VAMPIR Option A: VampirNfpAllocator (NFP memory-type virtualization), self-contained and Default-OFF.
+#cmakedefine01 COMDARE_AXIS_06_USE_VAMPIR_NFP
 
 inline constexpr bool std_enabled        = COMDARE_AXIS_06_USE_STD;
 inline constexpr bool mimalloc_enabled   = COMDARE_AXIS_06_USE_MIMALLOC;
@@ -81,5 +83,6 @@ inline constexpr bool exgen_enabled      = COMDARE_AXIS_06_USE_EXGEN;
 inline constexpr bool buddy_enabled      = COMDARE_AXIS_06_USE_BUDDY;
 inline constexpr bool ptmalloc2_enabled  = COMDARE_AXIS_06_USE_PTMALLOC2;
 inline constexpr bool vmem_mag_enabled   = COMDARE_AXIS_06_USE_VMEM_MAG;
+inline constexpr bool vampir_nfp_enabled = COMDARE_AXIS_06_USE_VAMPIR_NFP;
 
 }  // namespace comdare::cache_engine::alloc::flags
