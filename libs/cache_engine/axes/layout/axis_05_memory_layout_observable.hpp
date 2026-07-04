@@ -46,7 +46,7 @@ public:
     // als L in ComposedStore<N,L,A> einsetzbar (node_type-Achse, anatomy_execution_context.hpp:46 / abi_adapter.hpp:393).
     using topic_tag = typename Strategy::topic_tag;
 
-    // Transparenter Decorator: Strategie-Inspektion durchgereicht (composition_registry/axis_path_serialization
+    // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): Strategie-Inspektion durchgereicht (composition_registry/axis_path_serialization
     // rufen C::memory_layout::name()).
     [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return Strategy::cache_line_size(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }

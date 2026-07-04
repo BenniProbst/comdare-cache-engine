@@ -1,5 +1,5 @@
 #pragma once
-// V41.F.6.1.A Mess-Concept mit Observer-Pattern (Topic-uebergreifend, 2026-05-25 revidiert)
+// V41.F.6.1.A Mess-Concept — Single-Slot-Notify-Hook (KEIN GoF-Observer-one-to-many; s. Klassen-Doku :40).
 //
 // @stand V41.F.6.1.A
 //
@@ -33,7 +33,7 @@ namespace comdare::cache_engine::measurement {
 #ifdef COMDARE_CE_ENABLE_STATISTICS
 
 // ───────────────────────────────────────────────────────────────────────────
-// (1) MeasurableObserver - Template Pattern fuer Achs-spezifische Auswertung
+// (1) MeasurableObserver - Template-parametrisiertes Klassen-Template (KEIN GoF-Template-Method-Pattern)
 // ───────────────────────────────────────────────────────────────────────────
 
 /**

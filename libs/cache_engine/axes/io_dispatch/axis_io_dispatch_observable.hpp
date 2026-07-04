@@ -57,7 +57,7 @@ public:
     // einsetzbar (composition_registry / axis_path_serialization rufen C::io_dispatch::name()).
     using topic_tag = typename Strategy::topic_tag;
 
-    // Transparenter Decorator: Strategie-Inspektion durchgereicht.
+    // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): Strategie-Inspektion durchgereicht.
     [[nodiscard]] static constexpr bool is_in_memory_only() noexcept { return Strategy::is_in_memory_only(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept

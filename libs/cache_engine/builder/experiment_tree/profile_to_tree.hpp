@@ -1,5 +1,5 @@
 #pragma once
-// KF-9-Adapter (2026-06-02) — comdare_thesis_profile → AxisLevels für den Experiment-B+-Baum.
+// KF-9-Adapter (2026-06-02) — comdare_thesis_profile → AxisLevels für den Experiment-B+-Baum (Permutations-/Präfixbaum, kein textbook-B+-Baum — s. experiment_tree.hpp:2-10).
 //
 // Brückt das geparste Profil (comdare::builder::xml::ThesisProfile, KF-1) an den Baum-Kern (experiment_tree.hpp):
 //   • Paper/Tier-Dimension (oben): Fanout = base_tiers (jeder = ein gepinntes Paper-Tupel).

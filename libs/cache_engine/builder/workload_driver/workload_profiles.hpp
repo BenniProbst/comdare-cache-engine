@@ -2,7 +2,7 @@
 // workload_profiles.hpp — Single-Source-Mapper Profil-Token → WorkloadConfig (INC-0, 2026-06-07).
 //
 // Hebt das bisher in apps/f15_compare/main.cpp (anonymer Namespace) dupliziert vorliegende profile_by_name in
-// einen geteilten Header, damit f15_compare (CLI) UND der FullPilot-B+-Baum-Mess-Pfad (perm_runner::run_workload_perm)
+// einen geteilten Header, damit f15_compare (CLI) UND der FullPilot-B+-Baum-Mess-Pfad (Permutations-/Präfixbaum, kein textbook-B+-Baum — s. experiment_tree.hpp:2-10) (perm_runner::run_workload_perm)
 // DENSELBEN Mapper nutzen — keine Profil-Drift, eine Source-of-Truth. Workload ist die dynamische Achse 2 des
 // kartesischen Mess-Kreuzes (messarchitektur_v5_design.md §73 „LASTENPROFIL").
 //
@@ -17,7 +17,7 @@
 
 namespace comdare::cache_engine::builder::workload_driver {
 
-/// profile_by_name — bildet ein Lastprofil-Token (CLI/B+-Baum-Label) auf eine WorkloadConfig ab.
+/// profile_by_name — bildet ein Lastprofil-Token (CLI/B+-Baum-Label (Permutations-/Präfixbaum, kein textbook-B+-Baum — s. experiment_tree.hpp:2-10)) auf eine WorkloadConfig ab.
 /// Unbekanntes Token → WorkloadConfig mit leerem name (Marker für „überspringen"). Deterministisch: gleiche
 /// (Token, seed, ops) ⇒ gleiche Config ⇒ (via WorkloadGenerator) bit-identische Op-Sequenz über alle Binaries.
 [[nodiscard]] inline WorkloadConfig profile_by_name(std::string_view tok, std::uint64_t seed, std::size_t ops) {

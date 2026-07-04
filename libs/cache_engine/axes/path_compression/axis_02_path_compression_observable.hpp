@@ -69,7 +69,7 @@ public:
     using strategy_type = Strategy;
     using topic_tag     = typename Strategy::topic_tag; // NodesComponent → PathCompressionStrategy erfuellt
 
-    // Transparenter Decorator: Strategie-Inspektion durchgereicht. NUR die static API wird weitergereicht
+    // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): Strategie-Inspektion durchgereicht. NUR die static API wird weitergereicht
     // (name/family_name/flag_suffix) — exakt wie ObservableNodeType/ObservableMemoryLayout. compression_ratio()
     // ist eine NICHT-static Methode der Strategie und wird von KEINEM Slot-Aufrufer gebraucht (composition_registry
     // / axis_path_serialization rufen nur C::path_compression::name()); zudem ist die CRTP-StrategyBase protected-

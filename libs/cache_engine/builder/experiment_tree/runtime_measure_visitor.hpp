@@ -24,7 +24,7 @@ struct RuntimeMeasurePoint {
     NodeObserverSnapshot observer{};             // tier_observe-Ergebnis (echt getrieben)
 };
 
-/// RuntimeMeasureVisitor — die host-seitige Mess-Schleife je geladener Binary. TierT erfüllt
+/// RuntimeMeasureVisitor — die host-seitige Mess-Schleife je geladener Binary (kein GoF-Visitor — kein accept/visit-Double-Dispatch; host-seitige Mess-Schleife). TierT erfüllt
 /// IResourceControllableTier (für den Loop) UND IObservableTier (tier_insert/lookup/observe).
 class RuntimeMeasureVisitor {
 public:

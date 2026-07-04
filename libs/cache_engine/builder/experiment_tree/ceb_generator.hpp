@@ -1,5 +1,5 @@
 #pragma once
-// KF-8 (2026-06-02) — CebGenerator: C++23-Codegen aus dem Experiment-B+-Baum (KEIN Python).
+// KF-8 (2026-06-02) — CebGenerator: C++23-Codegen aus dem Experiment-B+-Baum (Permutations-/Präfixbaum, kein textbook-B+-Baum — s. experiment_tree.hpp:2-10) (KEIN Python).
 //
 // ⚠️ ZWEI PFADE — KLARE TRENNUNG (D3 / L-77, 2026-06-02; korrigiert die irreführende Lesart von Task #70):
 //
@@ -68,6 +68,7 @@ namespace comdare::cache_engine::builder::experiment {
     auto const        axes = ceb_parse_path(binary_id);
 
     std::string s;
+    // #224: Der unten generierte Experiment-B+-Baum-Pfad-Kommentar meint den (Permutations-/Präfixbaum, kein textbook-B+-Baum — s. experiment_tree.hpp:2-10).
     s += "// AUTO-GENERATED durch CebGenerator (KF-8, C++23). Binary-Pfad: " + binary_id + "\n";
     s += "// Achsen-Wahl je Ebene aus dem Experiment-B+-Baum-Pfad (beliebige Tiefe, kein 5-Achsen-Deckel).\n\n";
     for (auto const& [axis, value] : axes)

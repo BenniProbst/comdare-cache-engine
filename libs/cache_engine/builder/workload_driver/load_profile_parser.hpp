@@ -5,7 +5,7 @@
 // (comdare::common::xml, KF-1) und mappt es auf eine WorkloadConfig. Die Workload-CHARAKTERISTIK (op-mix,
 // key_distribution, negative_query_pct, scan_length) kommt aus dem XML; die SKALA (records, n_ops) setzt der
 // Aufrufer (Harness) — so läuft dasselbe Lastprofil test- (klein) und voll-skaliert (gross) mit identischer
-// Charakteristik. Die Lastprofile sind die Werte der dynamischen Workload-Achse (Achse 2) im Experiment-B+-Baum.
+// Charakteristik. Die Lastprofile sind die Werte der dynamischen Workload-Achse (Achse 2) im Experiment-B+-Baum (Permutations-/Präfixbaum, kein textbook-B+-Baum — s. experiment_tree.hpp:2-10).
 //
 // @related [[feedback_all_papers_loadprofiles_xml_all_axes]] Doc 32 (Lastprofil-Katalog)
 

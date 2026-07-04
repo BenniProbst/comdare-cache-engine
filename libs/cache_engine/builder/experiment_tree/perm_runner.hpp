@@ -22,6 +22,7 @@
 #include "../../anatomy/measurable_workload.hpp" // Pfad A: IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
 #include "../../anatomy/rollbackable_tier.hpp" // Achse 2 (INC-1): IRollbackableTier (Zwei-Phasen-Cache-Warmup, PFLICHT für Gültigkeit)
 #include "../../anatomy/scannable_tier.hpp"             // Achse 2 (INC-1): IScannableTier (YCSB-E Range-Scan)
+// Achse 2 (INC-1): run_workload_profile-Op-Skript-Runner (generischer CS-Interpreter über den flachen Op-Vektor — KEIN GoF-Interpreter mit Grammatik/AST) + WorkloadGenerator.
 #include "../workload_driver/workload_orchestrator.hpp" // Achse 2 (INC-1): run_workload_profile-Interpreter + WorkloadGenerator
 #include "../workload_driver/workload_profiles.hpp"   // Achse 2 (INC-1): Single-Source profile_by_name (Fallback)
 #include "../workload_driver/load_profile_parser.hpp" // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig)
@@ -196,7 +197,7 @@ inline void apply_conformance_gate_(anatomy::IDriveableTier& tier, PermResult& r
     return r;
 }
 
-// ── Achse 2 (INC-1): Lastprofil-Mess-Lauf über den BEREITS implementierten Interpreter (workload_driver) ──
+// ── Achse 2 (INC-1): Lastprofil-Mess-Lauf über den BEREITS implementierten Op-Skript-Runner (generischer CS-Interpreter über den flachen Op-Vektor — KEIN GoF-Interpreter mit Grammatik/AST) ──
 namespace wd  = ::comdare::cache_engine::builder::workload_driver;
 namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
 
