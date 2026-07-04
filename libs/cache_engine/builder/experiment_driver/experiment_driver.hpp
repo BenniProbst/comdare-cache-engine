@@ -15,6 +15,7 @@
 #include <comdare/experiment/result_aggregator.hpp>
 #include <comdare/workload_generator/workload_generator.hpp>
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -51,8 +52,14 @@ struct ExperimentDriverOptions {
     // REV 7.6 V10.6 — Messreihen-Mode (defined/full)
     //   Defined: nur Permutationen, die in sota_profile_filter referenziert sind
     //   Full:    alle Permutationen aus algorithm_profiles/sota/ (Auto-Pickup V10.5)
-    enum class MessreihenMode { Defined, Full } messreihen_mode = MessreihenMode::Full;
+    enum class MessreihenMode { Defined, Full, FullSampled } messreihen_mode = MessreihenMode::Full;
+    static constexpr std::uint32_t default_full_sampled_rate = 1000u;
     std::vector<std::string> sota_profile_filter; // optional: nur diese Profile (Defined-Mode)
+
+    // REV 7.6 AP-5/#239 - FullSampled: deterministische 1:sample_rate-Teilmenge des Full-Raums,
+    // seed- und toolchain-stabil (s. permutation_sampling.hpp). Nur wirksam bei messreihen_mode==FullSampled.
+    std::uint32_t sample_rate = default_full_sampled_rate; // 1:1000 Default; <=1 deaktiviert Sampling
+    std::uint64_t sample_seed = 0;                         // reproduzierbare Variation der Teilmenge
 
     // REV 7.6 V18.1 — Multi-Path-Lookup fuer Codegen-Templates
     //   Cache-engine SOTA-Templates haben Prioritaet, prt-art Pruefling-Templates Fallback.

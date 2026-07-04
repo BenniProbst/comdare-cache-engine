@@ -2,6 +2,7 @@
 // ExperimentDriver — Implementation (REV 7.6 + Diagnose-Restore)
 
 #include "experiment_driver.hpp"
+#include "../permutation_loop/permutation_sampling.hpp"
 
 #include <algorithm>
 #include <array>
@@ -10,6 +11,7 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <string_view>
 #include <system_error>
 #include <unordered_map>
 
@@ -19,6 +21,17 @@ namespace {
 
 [[nodiscard]] std::filesystem::path build_dir_for(std::filesystem::path const& output_dir) {
     return output_dir / "build-perms";
+}
+
+[[nodiscard]] constexpr std::string_view
+messreihen_mode_name(ExperimentDriverOptions::MessreihenMode mode) noexcept {
+    using MM = ExperimentDriverOptions::MessreihenMode;
+    switch (mode) {
+        case MM::Defined: return "defined";
+        case MM::Full: return "full";
+        case MM::FullSampled: return "full-sampled";
+    }
+    return "unknown";
 }
 
 // #193-A — CWD-unabhaengige, libs/-korrekte Aufloesung des SOTA-Profil-Verzeichnisses
@@ -89,9 +102,24 @@ int ExperimentDriver::phase1_enumerate(std::vector<loop::PermutationDescriptor>&
         }
 
         loop::PermutationLoop pl;
-        out_descriptors = pl.enumerate(cfg);
+        std::size_t const full_population = cfg.cache_engine_permutations.size() *
+                                            cfg.search_algorithm_permutations.size() *
+                                            cfg.allocator_permutations.size() * cfg.test_data_sets.size();
+        std::uint32_t const sample_rate =
+            (opts_.messreihen_mode == ExperimentDriverOptions::MessreihenMode::FullSampled) ? opts_.sample_rate : 0u;
+        out_descriptors = pl.enumerate(cfg, sample_rate, opts_.sample_seed);
 
-        if (opts_.verbose) { std::cout << "  Enumerated " << out_descriptors.size() << " permutations.\n"; }
+        if (opts_.verbose) {
+            std::cout << "  Enumerated " << out_descriptors.size() << " permutations";
+            if (sample_rate >= loop::sampling_min_filtered_rate) {
+                std::cout << " (FullSampled 1:" << sample_rate << ", seed=" << opts_.sample_seed << ")";
+            }
+            std::cout << ".\n";
+        }
+        if (sample_rate >= loop::sampling_min_filtered_rate && out_descriptors.empty()) {
+            std::cerr << "[Phase 1] WARN: FullSampled 1:" << sample_rate << " ergab 0 Kandidaten (Population="
+                      << full_population << "); kleinere --sample-rate waehlen.\n";
+        }
     } catch (std::exception const& e) {
         std::cerr << "[Phase 1] XML-Parse error: " << e.what() << "\n";
         return status_xml_parse_failed;
@@ -145,21 +173,33 @@ int ExperimentDriver::phase2_generate(std::vector<loop::PermutationDescriptor> c
 
             if (opts_.verbose) {
                 std::cout << "  [V10.5/V10.6] Auto-Pickup: " << profiles.size() << " SOTA-Profile aus "
-                          << profiles_dir.string() << " (mode="
-                          << (opts_.messreihen_mode == ExperimentDriverOptions::MessreihenMode::Full ? "full"
-                                                                                                     : "defined");
+                          << profiles_dir.string() << " (mode=" << messreihen_mode_name(opts_.messreihen_mode);
                 if (filtered_out > 0) std::cout << ", " << filtered_out << " gefiltert";
                 std::cout << ")\n";
             }
+            std::size_t const profile_population = profiles.size();
+            std::size_t       generated_profiles = 0;
             for (auto const& prof : profiles) {
+                if (opts_.messreihen_mode == ExperimentDriverOptions::MessreihenMode::FullSampled &&
+                    !loop::sample_keep(prof.id, opts_.sample_rate, opts_.sample_seed)) {
+                    continue; // AP-5: deterministisch verworfen; Modul-Identitaet prof_fp bleibt unangetastet.
+                }
                 // Deterministischer Fingerprint aus Profil-id
                 std::uint64_t prof_fp = std::hash<std::string>{}(prof.id) ^ 0xC0FFEE02ull;
                 cg.generate_module_from_profile(prof, prof_fp);
                 fingerprints.push_back(prof_fp);
+                ++generated_profiles;
                 if (opts_.verbose) {
                     std::cout << "    Profile-Modul: " << prof.id << " (paper_ref=" << prof.paper_ref << ", fp=0x"
                               << std::hex << prof_fp << std::dec << ")\n";
                 }
+            }
+            if (opts_.messreihen_mode == ExperimentDriverOptions::MessreihenMode::FullSampled &&
+                opts_.sample_rate >= loop::sampling_min_filtered_rate && profile_population > 0 &&
+                generated_profiles == 0) {
+                std::cerr << "[Phase 2] WARN: FullSampled 1:" << opts_.sample_rate
+                          << " ergab 0 SOTA-Profile (Population=" << profile_population
+                          << "); kleinere --sample-rate waehlen.\n";
             }
         }
 
