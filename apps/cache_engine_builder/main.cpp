@@ -33,13 +33,30 @@
 
 #include <comdare/workload_generator/workload_generator.hpp>
 
+#include <charconv>
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <system_error>
 
 namespace {
+
+using MessreihenMode = comdare::builder::ExperimentDriverOptions::MessreihenMode;
+
+inline constexpr std::string_view mode_prefix        = "--mode=";
+inline constexpr std::string_view sample_rate_prefix = "--sample-rate=";
+inline constexpr std::string_view sample_seed_prefix = "--sample-seed=";
+
+[[nodiscard]] constexpr std::string_view messreihen_mode_name(MessreihenMode mode) noexcept {
+    switch (mode) {
+        case MessreihenMode::Defined: return "defined";
+        case MessreihenMode::Full: return "full";
+        case MessreihenMode::FullSampled: return "full-sampled";
+    }
+    return "unknown";
+}
 
 void print_usage(std::ostream& os) {
     os << "Usage: comdare-cache-engine-builder <config_dir> <output_dir> [options]\n\n"
@@ -54,6 +71,10 @@ void print_usage(std::ostream& os) {
               << "  --enumerate-only     Skip codegen + execution; print descriptors only\n"
               << "  --comdare-root=DIR   Path to comdare-cache-engine repo root\n"
               << "                       (default: current working directory)\n"
+              << "  --mode=<defined|full|full-sampled>\n"
+              << "                       Messreihen mode (default: full)\n"
+              << "  --sample-rate=<N>    FullSampled sampling rate (default: 1000)\n"
+              << "  --sample-seed=<N>    FullSampled sampling seed (default: 0)\n"
               << "  --skip-build         Generate sources + aggregator, do not invoke cmake\n"
               << "  --quiet              Disable per-phase diagnostic output\n\n"
               << "Note: This Builder is the cache-engine-Demo-Driver. The real\n"
@@ -94,6 +115,36 @@ int main(int argc, char* argv[]) {
             opts.verbose = false;
         else if (a.rfind("--comdare-root=", 0) == 0) {
             opts.comdare_root = std::filesystem::path{std::string{a.substr(15)}};
+        } else if (a.rfind(mode_prefix, 0) == 0) {
+            std::string_view m = a.substr(mode_prefix.size());
+            if (m == "defined")
+                opts.messreihen_mode = MessreihenMode::Defined;
+            else if (m == "full")
+                opts.messreihen_mode = MessreihenMode::Full;
+            else if (m == "full-sampled")
+                opts.messreihen_mode = MessreihenMode::FullSampled;
+            else {
+                std::cerr << "Unknown --mode: " << m << " (defined|full|full-sampled)\n";
+                return 1;
+            }
+        } else if (a.rfind(sample_rate_prefix, 0) == 0) {
+            std::string_view v = a.substr(sample_rate_prefix.size());
+            std::uint32_t    r{};
+            auto const [p, ec] = std::from_chars(v.data(), v.data() + v.size(), r);
+            if (ec != std::errc{} || p != v.data() + v.size()) {
+                std::cerr << "Bad --sample-rate: " << v << "\n";
+                return 1;
+            }
+            opts.sample_rate = r;
+        } else if (a.rfind(sample_seed_prefix, 0) == 0) {
+            std::string_view v = a.substr(sample_seed_prefix.size());
+            std::uint64_t    s{};
+            auto const [p, ec] = std::from_chars(v.data(), v.data() + v.size(), s);
+            if (ec != std::errc{} || p != v.data() + v.size()) {
+                std::cerr << "Bad --sample-seed: " << v << "\n";
+                return 1;
+            }
+            opts.sample_seed = s;
         } else {
             std::cerr << "Unknown option: " << a << "\n";
             print_usage(std::cerr);
@@ -105,9 +156,14 @@ int main(int argc, char* argv[]) {
     std::cout << "Config       : " << opts.config_dir.string() << "\n";
     std::cout << "Output       : " << opts.output_dir.string() << "\n";
     std::cout << "Comdare-Root : " << opts.comdare_root.string() << "\n";
-    std::cout << "Mode         : "
+    std::cout << "Pipeline     : "
               << (opts.enumerate_only ? "enumerate-only" : (opts.skip_build ? "generate-only" : "full pipeline"))
               << "\n";
+    std::cout << "Messreihe    : " << messreihen_mode_name(opts.messreihen_mode);
+    if (opts.messreihen_mode == MessreihenMode::FullSampled) {
+        std::cout << " (sample-rate=" << opts.sample_rate << ", sample-seed=" << opts.sample_seed << ")";
+    }
+    std::cout << "\n";
     std::cout << "Verbose      : " << (opts.verbose ? "ON" : "OFF") << "\n";
 
     // Demo-Workload (klein, YCSB-C). Echte Workloads pro Messreihe sind in

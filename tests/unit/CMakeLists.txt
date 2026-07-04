@@ -232,6 +232,11 @@ comdare_add_test(test_experiment_driver_v13
     SOURCES test_experiment_driver_v13.cpp
     LIBRARIES comdare_builder_experiment_driver)
 
+comdare_add_test(test_permutation_sampling
+    SOURCES test_permutation_sampling.cpp)
+target_include_directories(test_permutation_sampling PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder")
+
 # Phase 8 (2026-05-13): LaTeX-Anhang-Tool
 comdare_add_test(test_latex_anhang
     SOURCES test_latex_anhang.cpp
