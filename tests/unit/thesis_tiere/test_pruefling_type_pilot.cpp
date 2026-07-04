@@ -1,13 +1,13 @@
 // test_pruefling_type_pilot — #171 (Text-Agent AP-X2/TODO-2, 2026-06-20). Der LITERALE Klein-Pilot fuer die
 // additive Pruefling-Typ-Spalte "pruefling_type" (full = Reihe A self-contained / "Originalkonfiguration";
-// abstract = Reihe B/C Teilmenge + Host-Fallback). Doc 14 §18-§19 (Pruefling-Slot-Pattern + 3 Kompositionale
-// Joins) + cacheline-doc §0/§1.2 ("Paper-Algorithmen als Basis-Lebewesen in Originalkonfiguration").
+// abstract = Stufe2/Reihe A oder Stufe3/Reihe B Teilmenge + Host-Fallback). Doc 14 §18-§19
+// (Pruefling-Slot-Pattern + 3 Kompositionale Joins) + cacheline-doc §0/§1.2.
 //
 // BEWEIST LITERAL (ohne den HELDen Voll-DLL-Mess-Lauf, header-getrieben, additiv):
 //   (1) derive_pruefling_type mappt die BESTEHENDE merge-Mechanik deterministisch: Stufe1_CeOnly→full,
 //       Stufe2_PrueflingReplace/Stufe3_FullJoin→abstract (Single-Source, kein neuer Selektions-Pfad).
 //   (2) build_sota_passes(m3v2) taggt JEDEN Pass mit pruefling_type — PRT-ART existiert in BEIDEN
-//       Auspraegungen (Reihe A = full, Reihe B/C = abstract): beide Varianten je Pruefling erzeugbar.
+//       Auspraegungen (Stufe1/Reihe A = full, Stufe2/Reihe A = abstract): beide Varianten je Pruefling erzeugbar.
 //   (3) lazy_csv_header endet GANZ auf "pruefling_type" (additiv ans Ende, series/sweep_axis-Muster).
 //   (4) format_csv_row emittiert die letzte Spalte = full / abstract / "-" (Basis) — die Auswertung kann
 //       Original- vs rekombinierte Konfiguration je Messreihe trennen. Eine cowfix-v1-artige Zeile (Feld
@@ -77,7 +77,7 @@ int main(int argc, char** argv) {
     check("mind. ein Pass real baubar", !passes.empty());
 
     tlz::SotaPass const* prt_full     = nullptr; // PRT-ART Stufe1 = full (Reihe A, self-contained)
-    tlz::SotaPass const* prt_abstract = nullptr; // PRT-ART Stufe2/3 = abstract (Reihe A/B, Teilmenge + Fallback)
+    tlz::SotaPass const* prt_abstract = nullptr; // PRT-ART Stufe2 = abstract (Reihe A, Teilmenge + Fallback)
     for (auto const& p : passes) {
         // #178: pruefling_type ist die mechanische Wahrheit (aus merge) — NICHT mehr an die Reihe gekoppelt
         // (Stufe2-abstract liegt jetzt in Reihe A, Stufe3-abstract in Reihe B).
@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
         if (p.lebewesen == "prt_art" && p.pruefling_type == "abstract") prt_abstract = &p;
     }
     check("PRT-ART als FULL (Stufe1 self-contained / Originalkonfiguration, Reihe A) vorhanden", prt_full != nullptr);
-    check("PRT-ART als ABSTRACT (Stufe2/3 Teilmenge + Host-Fallback) vorhanden", prt_abstract != nullptr);
+    check("PRT-ART als ABSTRACT (Stufe2 Teilmenge + Host-Fallback) vorhanden", prt_abstract != nullptr);
 
     // ── (3) lazy_csv_header endet auf pruefling_type. ──
     std::string const hdr       = ex::lazy_csv_header();

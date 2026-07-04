@@ -1,13 +1,13 @@
 #pragma once
-// STRANG A KORRIGIERT — Increment 5 / S6b (2026-06-18). prt_art_merge_reference: die SOTA-Reihen B + C
+// STRANG A KORRIGIERT — Increment 5 / S6b (2026-06-18). prt_art_merge_reference: die SOTA-Reihen A + B
 // als REALE Lebewesen-Kompositionen über pruefling_merge.hpp (die 3 Kompositionalen Joins, Doku 14 §18-§19).
 //
 // Reihe A = Stufe1_CeOnly → Pruefling/SOTA ISOLIERT (PrtArtComposition / die 6 SOTA selbst, prt_art_reference.hpp
-//           + known_compositions_list.hpp). KEINE Merge-Komposition nötig (jede ist 1 reale DLL).
-// Reihe B = Stufe2_PrueflingReplace → PRT-ART ERSETZT einen Slot (path_compression) einer SOTA-Host-Komposition
-//           mit Fallback (HasPruefling_v). Ergebnis: Host-SOTA + Redirect-Organ = distinkte DLL.
-// Reihe C = Stufe3_FullJoin → Union (non-redundant) aus Host-Default + Pruefling-Varianten; je 1 Punkt =
-//           das erste Element der gemergten mp_list (AdHocComposition konsumiert genau EIN Tupel pro DLL).
+//           + known_compositions_list.hpp) UND Stufe2_PrueflingReplace → PRT-ART ERSETZT einen Slot
+//           (path_compression) einer SOTA-Host-Komposition mit Fallback (HasPruefling_v).
+// Reihe B = Stufe3_FullJoin → Union (non-redundant) aus Host-Default + Pruefling-Varianten; je 1 Punkt =
+//           der Pruefling-Repräsentant der gemergten mp_list (AdHocComposition konsumiert genau EIN Tupel pro DLL).
+// Reihe C = build-übergreifende Merge/Regression alt↔neu; keine Stufe in diesem Header.
 //
 // Die Slot-Auswahl ist KEINE neue Code-Selektion: sie folgt mechanisch aus MergeStrategy (pruefling_merge.hpp).
 // Die Gattung wird per assert_pruefling_slot_genus (Cross-Genus-Join type-system-unmöglich) garantiert.
@@ -17,8 +17,11 @@
 
 #include "prt_art_reference.hpp"  // PrtArtComposition + PrtArtPathCompressionOrgan (das Redirect-Organ)
 #include "art_reference.hpp"      // ArtComposition (Default-Varianten-Quelle der Host-PC-Achse)
-#include "hot_reference.hpp"      // HotComposition (Host für Reihe B)
-#include "masstree_reference.hpp" // MasstreeComposition (Host für Reihe C)
+#include "hot_reference.hpp"      // HotComposition (Host für Stufe2/Reihe A und Stufe3/Reihe B)
+#include "masstree_reference.hpp" // MasstreeComposition (Host für Stufe3/Reihe B)
+#include "surf_reference.hpp"     // SurfComposition (Host für Stufe3/Reihe B)
+#include "start_reference.hpp"    // StartComposition (Host für Stufe3/Reihe B)
+#include "wormhole_reference.hpp" // WormholeComposition (Host für Stufe3/Reihe B)
 
 #include "../anatomy/pruefling_merge.hpp" // MergeStrategy / MergeAxis / PrueflingSlotConcept / slot_genus
 #include "../anatomy/search_algorithm_permutation_engine.hpp" // assert_pruefling_slot_genus (Gattungs-Constraint)
@@ -63,14 +66,14 @@ static_assert(mp::mp_size<Stufe3MergedPC>::value == 2,
 // Stufe2: ERSETZT → der EINE Punkt ist die Pruefling-Variante (mp_front der 1-elementigen Replace-Liste).
 using Stufe2PathCompressionOrgan = mp::mp_front<Stufe2MergedPC>; // = PrtArtPathCompressionOrgan (Patricia, replace)
 // Stufe3: FullJoin trägt BEIDE (Host-Default + Pruefling). Der gemessene Punkt je DLL ist der Pruefling-
-// REPRÄSENTANT der Union (mp_back = die hinzugefügte Pruefling-Variante) — die Reihe-C-DLL belegt damit
+// REPRÄSENTANT der Union (mp_back = die hinzugefügte Pruefling-Variante) — die Reihe-B-DLL belegt damit
 // nachweislich den Join-Pruefling (nicht den Host-Default, der schon in Reihe A als reines SOTA gemessen wird).
 using Stufe3PathCompressionOrgan = mp::mp_back<Stufe3MergedPC>; // = PrtArtPathCompressionOrgan (Patricia, join-rep)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // (2) Die Host-Komposition mit dem gemergten path_compression-Slot. Host-Achsen = die SOTA-Host-Komposition
 //     (Template-Parameter Host); die path_compression-Achse kommt aus MergeAxis (Stufe 2 oder 3). Verschiedene
-//     Hosts je Reihe (HOT für B, MASSTREE für C) ⇒ die binary_ids von A/B/C sind GARANTIERT distinkt
+//     Hosts in Stufe3/Reihe B liefern distinkte Kompositionen; Stufe2/Reihe A bleibt der bestehende HOT-Pilot.
 //     (verschiedene search_algo-Organe + Patricia statt PathCompressionNone ⇒ ≠ A-SOTA und ≠ untereinander).
 // ─────────────────────────────────────────────────────────────────────────────
 template <class Host, class MergedPathCompression>
@@ -100,17 +103,53 @@ struct HostPrtMergeComposition {
         "SOTA host composition with PRT-ART path_compression slot (3 compositional joins)";
 };
 
-/// Reihe B (Stufe2_PrueflingReplace): HOT-Host, path_compression = das PRT-Redirect-Organ (ersetzt PathCompressionNone).
+/// Reihe A (Stufe2_PrueflingReplace): HOT-Host, path_compression = das PRT-Redirect-Organ (ersetzt PathCompressionNone).
 struct HotPrtStufe2ReplaceComposition : HostPrtMergeComposition<HotComposition, Stufe2PathCompressionOrgan> {
     static constexpr std::string_view name = "HotPrtStufe2ReplaceComposition";
     COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::HotPrtStufe2ReplaceComposition",
                                         "compositions/prt_art_merge_reference.hpp");
 };
 
-/// Reihe C (Stufe3_FullJoin): MASSTREE-Host, path_compression = Pruefling-Repräsentant der Union (non-redundant).
+/// Reihe B (Stufe3_FullJoin): MASSTREE-Host, path_compression = Pruefling-Repräsentant der Union (non-redundant).
 struct MasstreePrtStufe3FullJoinComposition : HostPrtMergeComposition<MasstreeComposition, Stufe3PathCompressionOrgan> {
     static constexpr std::string_view name = "MasstreePrtStufe3FullJoinComposition";
     COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::MasstreePrtStufe3FullJoinComposition",
+                                        "compositions/prt_art_merge_reference.hpp");
+};
+
+/// Reihe B (Stufe3_FullJoin): ART-Host, path_compression = Pruefling-Repräsentant der Union (non-redundant).
+struct ArtPrtStufe3FullJoinComposition : HostPrtMergeComposition<ArtComposition, Stufe3PathCompressionOrgan> {
+    static constexpr std::string_view name = "ArtPrtStufe3FullJoinComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::ArtPrtStufe3FullJoinComposition",
+                                        "compositions/prt_art_merge_reference.hpp");
+};
+
+/// Reihe B (Stufe3_FullJoin): HOT-Host, path_compression = Pruefling-Repräsentant der Union (non-redundant).
+struct HotPrtStufe3FullJoinComposition : HostPrtMergeComposition<HotComposition, Stufe3PathCompressionOrgan> {
+    static constexpr std::string_view name = "HotPrtStufe3FullJoinComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::HotPrtStufe3FullJoinComposition",
+                                        "compositions/prt_art_merge_reference.hpp");
+};
+
+/// Reihe B (Stufe3_FullJoin): SuRF-Host, path_compression = Pruefling-Repräsentant der Union (non-redundant).
+struct SurfPrtStufe3FullJoinComposition : HostPrtMergeComposition<SurfComposition, Stufe3PathCompressionOrgan> {
+    static constexpr std::string_view name = "SurfPrtStufe3FullJoinComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::SurfPrtStufe3FullJoinComposition",
+                                        "compositions/prt_art_merge_reference.hpp");
+};
+
+/// Reihe B (Stufe3_FullJoin): START-Host, path_compression = Pruefling-Repräsentant der Union (non-redundant).
+struct StartPrtStufe3FullJoinComposition : HostPrtMergeComposition<StartComposition, Stufe3PathCompressionOrgan> {
+    static constexpr std::string_view name = "StartPrtStufe3FullJoinComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::StartPrtStufe3FullJoinComposition",
+                                        "compositions/prt_art_merge_reference.hpp");
+};
+
+/// Reihe B (Stufe3_FullJoin): Wormhole-Host, path_compression = Pruefling-Repräsentant der Union (non-redundant).
+struct WormholePrtStufe3FullJoinComposition
+    : HostPrtMergeComposition<WormholeComposition, Stufe3PathCompressionOrgan> {
+    static constexpr std::string_view name = "WormholePrtStufe3FullJoinComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::WormholePrtStufe3FullJoinComposition",
                                         "compositions/prt_art_merge_reference.hpp");
 };
 

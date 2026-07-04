@@ -1,5 +1,5 @@
-# STRANG A KORRIGIERT — Increment 5 / S6 (Klein-Pilot). Baut+laeuft test_sota_series_pilot: je Reihe A/B/C
-# eine REALE SOTA/PRT-ART-Lebewesen-DLL (echter cl-Bau, distinkte binary_id). Include-Satz identisch zur
+# STRANG A KORRIGIERT — Increment 5 / S6 (Klein-Pilot). Baut+laeuft test_sota_series_pilot:
+# Stufe1/2 als reale Smoke-DLLs plus Stufe3/Reihe B als 6 per-Host-DLLs. Include-Satz identisch zur
 # 150er-Harness. Der Test ruft cl SELBST (via COMDARE_PILOT_INCLUDES/COMDARE_SOTA_DEFS) fuer den DLL-Bau.
 $ErrorActionPreference = "Stop"
 $repo   = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
@@ -34,7 +34,7 @@ cmd /c "`"$bat`""
 if (!(Test-Path $exe)) { Write-Host "BUILD-FEHLER (Test), Log-Tail:"; if (Test-Path $log) { Get-Content $log -Tail 40 | ForEach-Object { Write-Host "    $_" } }; exit 1 }
 Write-Host "gebaut: $exe"
 
-# Den DLL-Bau-Include-Satz + die Mess-Defines, die der Test je Reihe an cl uebergibt (';'-getrennt).
+# Den DLL-Bau-Include-Satz + die Mess-Defines, die der Test je Stufe/Host an cl uebergibt (';'-getrennt).
 $pilotIncludes = ($incList -join ";")
 $sotaDefs = @("/DCOMDARE_ANATOMY_MODULE_BUILD=1","/DCOMDARE_MEASUREMENT_ON=1","/DCOMDARE_CE_ENABLE_STATISTICS=1",
               "/DCOMDARE_EXPERIMENT_MODE_ON=1","/DCOMDARE_OS_WINDOWS=1","/DCOMDARE_ARCH_X86_64=1",
@@ -48,6 +48,6 @@ Set-Content -Path $runBat -Encoding ASCII -Value @(
     "set COMDARE_PILOT_INCLUDES=$pilotIncludes",
     "set COMDARE_SOTA_DEFS=$sotaDefs",
     "`"$exe`" `"$(Join-Path $repo 'libs\cache_engine\algorithm_profiles\thesis_profiles\m3v2_study.profile.xml')`" `"$work`"")
-Write-Host "=== Laeuft test_sota_series_pilot (baut je Reihe A/B/C eine reale DLL) ==="
+Write-Host "=== Laeuft test_sota_series_pilot (Stufe1/2 + 6x Stufe3/B real) ==="
 cmd /c "`"$runBat`""
 exit $LASTEXITCODE

@@ -4,13 +4,14 @@
 //
 // BEWEIST LITERAL:
 //   • S6a: die benannten SOTA + PRT-ART sind im Katalog materialisierbar (binary_id → reale Modul-Quelle).
-//   • S6b: die 3 Stufen (pruefling_merge: Stufe1/Stufe2/Stufe3) erzeugen je eine reale, distinkte Lebewesen-DLL.
-//   • Distinktheit: die 3 Stufen-binary_ids sind paarweise verschieden (distinkte Kompositionen, nicht nur Tag).
-//   • EHRLICH: falls ein cl-Bau scheitert, wird das per Stufe LITERAL gemeldet (Log-Tail), nicht versteckt.
+//   • S6b: die 3 Stufen (pruefling_merge: Stufe1/Stufe2/Stufe3) erzeugen reale, distinkte Lebewesen-DLLs.
+//   • AP-4/#238: Stufe3/Reihe B liefert 6 per-Host-FullJoin-binary_ids; prt_art-Host ist nullopt.
+//   • Distinktheit: die 3 Stufen-IDs und die 6 B-Host-IDs sind paarweise verschieden (nicht nur Tag).
+//   • EHRLICH: falls ein cl-Bau scheitert, wird das per Stufe/Host LITERAL gemeldet (Log-Tail), nicht versteckt.
 //
-// Dieser Test RUFT cl SELBST auf (innerhalb vcvars64): er rendert je Reihe das Modul-.cpp aus dem Katalog
-// (render_sota_module_source) und baut es real zu einer DLL — kein „nur Tag". KEIN 320/voller SOTA-Sturm:
-// genau 1 Lebewesen je Reihe (Klein-Pilot). Include-Satz wie die 150er-Harness (build_sota_pilot.ps1).
+// Dieser Test RUFT cl SELBST auf (innerhalb vcvars64): er rendert je Stufe/Host das Modul-.cpp aus dem
+// Katalog (render_sota_module_source) und baut es real zu einer DLL — kein „nur Tag". KEIN 320/voller
+// SOTA-Sturm: Stufe1/2 als Klein-Pilot, Stufe3/Reihe B als 6-Host-Gate. Include-Satz wie die 150er-Harness.
 
 #include "sota_catalog.hpp"   // build_sota_source_map / sota_module_for / render_sota_module_source (S6)
 #include "profile_runner.hpp" // load_thesis_profile
@@ -110,18 +111,18 @@ int main(int argc, char** argv) {
     std::map<std::string, std::string> const src_map = tlz::build_sota_source_map(*tp);
     std::cout << "\n--- S6a: SOTA-Katalog-Quellen (binary_id → reale Modul-Quelle) = " << src_map.size()
               << " distinkt ---\n";
-    check("S6a: Katalog hat >=3 distinkte SOTA/PRT-ART-Quellen", src_map.size() >= 3);
+    check("S6a: Katalog hat >=14 distinkte SOTA/PRT-ART-Quellen (inkl. 6 B-Hosts)", src_map.size() >= 14);
 
-    // ── Klein-Pilot: 1 Lebewesen je Reihe (echter cl-Bau). defs/incs aus env (Harness). ──
+    // ── Klein-Pilot: Stufe1/2-Smoke + Stufe3/B-6-Host-Gate. defs/incs aus env (Harness). ──
     std::vector<std::string> const defs           = split_env("COMDARE_SOTA_DEFS", ';');
     std::vector<std::string> const incs           = split_env("COMDARE_PILOT_INCLUDES", ';');
     bool const                     have_toolchain = !incs.empty();
     std::cout << "  cl-Includes (env COMDARE_PILOT_INCLUDES) = " << incs.size()
               << (have_toolchain ? "" : "  (LEER → nur Katalog-Beleg, KEIN cl-Bau)") << "\n";
 
-    // #178: je STUFE (merge) das ERSTE im Profil deklarierte Lebewesen (profil-getrieben). Die Stufe ist die
-    // mechanische Wahrheit; die Reihe wird daraus abgeleitet (Thesis ch4 §4.8: Stufe1∪Stufe2→A, Stufe3→B;
-    // Reihe C ist build-übergreifend und an KEINE Stufe gebunden → hier nicht vertreten).
+    // #178: je STUFE (merge) das erste real materialisierbare Profil-Lebewesen. Stufe3 beginnt im Profil mit
+    // prt_art, das AP-4 ehrlich als degenerierten Host auf nullopt setzt; der Stufen-Smoke nimmt daher den
+    // naechsten real baubaren SOTA-Host. Die Reihe wird mechanisch aus der Stufe abgeleitet.
     struct StufeCase {
         char const* merge;
         char const* expect_reihe;
@@ -131,18 +132,26 @@ int main(int argc, char** argv) {
         {"Stufe2_PrueflingReplace", "A"},
         {"Stufe3_FullJoin", "B"},
     };
-    std::map<std::string, std::string> first_of_merge; // merge → lebewesen
-    for (auto const& s : tp->sota_series)
+    std::map<std::string, std::string> first_of_merge;           // merge → erstes Profil-Lebewesen
+    std::map<std::string, std::string> first_buildable_of_merge; // merge → erstes real baubares Lebewesen
+    for (auto const& s : tp->sota_series) {
         if (!first_of_merge.count(s.merge)) first_of_merge[s.merge] = s.lebewesen;
+        if (!first_buildable_of_merge.count(s.merge) && tlz::sota_module_for(s.merge, s.lebewesen))
+            first_buildable_of_merge[s.merge] = s.lebewesen;
+    }
     check("Profil deklariert die Stufen 1, 2 und 3", first_of_merge.count("Stufe1_CeOnly") &&
                                                          first_of_merge.count("Stufe2_PrueflingReplace") &&
                                                          first_of_merge.count("Stufe3_FullJoin"));
+    check("Katalog liefert je Stufe mindestens ein real baubares Lebewesen",
+          first_buildable_of_merge.count("Stufe1_CeOnly") &&
+              first_buildable_of_merge.count("Stufe2_PrueflingReplace") &&
+              first_buildable_of_merge.count("Stufe3_FullJoin"));
 
     std::map<std::string, std::string> built_binary_id; // merge → binary_id (für Distinktheits-Check)
-    int                                real_built = 0;
+    int                                real_stage_smoke_built = 0;
     for (auto const& sc : stufen) {
-        auto it = first_of_merge.find(sc.merge);
-        if (it == first_of_merge.end()) continue;
+        auto it = first_buildable_of_merge.find(sc.merge);
+        if (it == first_buildable_of_merge.end()) continue;
         std::string const reihe = tlz::stufe_to_reihe(sc.merge);
         auto              mod   = tlz::sota_module_for(sc.merge, it->second); // #178: dispatch auf die Stufe (merge)
         std::cout << "\n--- Stufe " << sc.merge << " → Reihe " << reihe << " (Lebewesen=" << it->second << "): ";
@@ -155,10 +164,15 @@ int main(int argc, char** argv) {
         std::cout << "       type      = " << mod->composition_type << "\n";
         built_binary_id[sc.merge] = mod->binary_id;
         if (have_toolchain) {
-            bool const ok = build_one_dll(mod->composition_type, mod->header, work,
-                                          std::string{"sota_"} + reihe + "_" + it->second, defs, incs);
-            check((std::string{"Stufe "} + sc.merge + ": REALE Lebewesen-DLL via cl gebaut (echter Bau)").c_str(), ok);
-            if (ok) ++real_built;
+            if (std::string{sc.merge} == "Stufe3_FullJoin") {
+                std::cout << "       real-DLL-Bau fuer Stufe3 erfolgt im 6-Host-Gate unten\n";
+            } else {
+                bool const ok = build_one_dll(mod->composition_type, mod->header, work,
+                                              std::string{"sota_"} + reihe + "_" + it->second, defs, incs);
+                check((std::string{"Stufe "} + sc.merge + ": REALE Lebewesen-DLL via cl gebaut (echter Bau)").c_str(),
+                      ok);
+                if (ok) ++real_stage_smoke_built;
+            }
         }
     }
 
@@ -172,12 +186,62 @@ int main(int argc, char** argv) {
     }
     check("Stufe1/2/3 binary_ids paarweise distinkt (distinkte Kompositionen, nicht nur Tag)", distinct);
 
-    if (have_toolchain)
-        check("Klein-Pilot: je Stufe 1/2/3 >=1 reale DLL gebaut (3 real)", real_built == 3);
-    else
+    // ── AP-4/#238: Reihe B/Stufe3 ist per SOTA-Host distinkt; prt_art-als-Host ist degeneriert → nullopt. ──
+    std::cout << "\n--- Reihe B / Stufe3_FullJoin: 6 per-Host-binary_ids ---\n";
+    std::vector<std::string> const b_hosts = {"art", "hot", "masstree", "surf", "start", "wormhole"};
+    std::map<std::string, tlz::SotaModule> b_modules;
+    auto const prt_art_b = tlz::sota_module_for("Stufe3_FullJoin", "prt_art");
+    std::cout << "       prt_art/Stufe3 = " << (prt_art_b ? prt_art_b->binary_id : std::string{"nullopt"}) << "\n";
+    check("Stufe3_FullJoin/prt_art liefert nullopt (degenerierter Host, keine Reihe-A-Duplikation)",
+          !prt_art_b.has_value());
+
+    for (auto const& host : b_hosts) {
+        auto b = tlz::sota_module_for("Stufe3_FullJoin", host);
+        check((std::string{"B-Host "} + host + ": Katalog liefert per-Host-FullJoin-Modul").c_str(), b.has_value());
+        if (!b) continue;
+        std::cout << "       B " << host << " binary_id = " << b->binary_id << "\n";
+        std::cout << "       B " << host << " type      = " << b->composition_type << "\n";
+        auto a = tlz::sota_module_for("Stufe1_CeOnly", host);
+        check((std::string{"B-Host "} + host + ": A-Modul desselben Hosts existiert").c_str(), a.has_value());
+        check((std::string{"B-Host "} + host + ": B-binary_id != A-binary_id desselben Hosts").c_str(),
+              a && a->binary_id != b->binary_id);
+        if (host != "masstree") {
+            check((std::string{"B-Host "} + host + ": composition_type ist keine Masstree-Kopie").c_str(),
+                  b->composition_type.find("MasstreePrtStufe3FullJoinComposition") == std::string::npos);
+        }
+        b_modules.emplace(host, *b);
+    }
+
+    bool b_ids_distinct   = b_modules.size() == b_hosts.size();
+    bool b_types_distinct = b_modules.size() == b_hosts.size();
+    for (auto it1 = b_modules.begin(); it1 != b_modules.end(); ++it1) {
+        auto it2 = it1;
+        ++it2;
+        for (; it2 != b_modules.end(); ++it2) {
+            if (it1->second.binary_id == it2->second.binary_id) b_ids_distinct = false;
+            if (it1->second.composition_type == it2->second.composition_type) b_types_distinct = false;
+        }
+    }
+    check("Reihe B/Stufe3: 6 SOTA-Host-binary_ids paarweise distinkt", b_ids_distinct);
+    check("Reihe B/Stufe3: 6 composition_type-Werte paarweise distinkt (keine Fake-Labels)", b_types_distinct);
+
+    int b_real_built = 0;
+    if (have_toolchain) {
+        for (auto const& host : b_hosts) {
+            auto it = b_modules.find(host);
+            if (it == b_modules.end()) continue;
+            bool const ok = build_one_dll(it->second.composition_type, it->second.header, work,
+                                          std::string{"sota_B_fulljoin_"} + host, defs, incs);
+            check((std::string{"Stufe3_FullJoin/"} + host + ": REALE per-Host-DLL via cl gebaut").c_str(), ok);
+            if (ok) ++b_real_built;
+        }
+        check("Klein-Pilot: Stufe1/2 real gebaut und Stufe3/B alle 6 per-Host-DLLs real gebaut",
+              real_stage_smoke_built == 2 && b_real_built == 6);
+    } else {
         std::cout << "  (cl-Toolchain nicht gesetzt → Katalog-/Distinktheits-Beleg ohne realen Bau; die "
                      "build_sota_pilot.ps1-Harness setzt die Includes und baut real)\n";
-
+    }
+    std::cout << "test_sota_series_pilot " << (g_fail == 0 ? "[ PASSED ]" : "[ FAILED ]") << "\n";
     std::cout << "\n==== STRANG-A Inc5 / S6 SOTA-Reihen-Pilot: "
               << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;
