@@ -1,7 +1,7 @@
 #pragma once
 // STRANG A KORRIGIERT — Increment 5 / S6a + S6b (2026-06-18, profil-getrieben). sota_catalog: die
 // MATERIALISIERUNGS-DOMÄNE der benannten SOTA-Kompositionen + PRT-ART + der 3 Kompositionalen Joins
-// (Reihen A/B/C). Parallel zu source_catalog.hpp (der die 320 Basis-Permutationen materialisiert), aber
+// (Reihen A/B; Reihe C ist build-übergreifend). Parallel zu source_catalog.hpp (der die 320 Basis-Permutationen materialisiert), aber
 // für die im comdare_thesis_profile DEKLARIERTEN <sota_series>-Lebewesen.
 //
 // Plan: docs/sessions/20260618-STRANG-A-KORRIGIERT-PROFIL-GETRIEBEN-PLAN.md (S6). KEINE neue Selektion —
@@ -22,7 +22,8 @@
 //   • Stufe1_CeOnly           → das Lebewesen ISOLIERT (PrtArtComposition / die 6 SOTA selbst).
 //   • Stufe2_PrueflingReplace → PRT-ART ERSETZT den path_compression-Slot einer SOTA-Host-Komposition
 //                               (HotPrtStufe2ReplaceComposition); Fallback via HasPruefling_v.
-//   • Stufe3_FullJoin         → Union (non-redundant); je 1 Punkt = Pruefling-Repräsentant (MasstreePrt…).
+//   • Stufe3_FullJoin         → Union (non-redundant); je SOTA-Host ein Pruefling-Repräsentant
+//                               (<Host>PrtStufe3FullJoinComposition), prt_art-als-Host degeneriert zu nullopt.
 //
 //   STUFE→REIHE-ZUORDNUNG — EINGEFROREN per Thesis ch4 §4.8 / Tab. tab:stage-series
 //   (kapitel/de/04_concept_architecture.tex Z.314-331) + Treiber-Enum MessreiheKind (02_messung_driver/
@@ -38,7 +39,8 @@
 //
 // EHRLICHKEIT (Plan-Direktive): falls ein Lebewesen real NICHT baubar ist, liefert der Katalog für sein
 // (Reihe,Lebewesen)-Paar eine LEERE Quelle → der Orchestrator markiert die DLL als nicht baubar (sichtbar,
-// nicht versteckt). Der Klein-Pilot (test_sota_series_pilot) baut je Reihe A/B/C ≥1 reale DLL real mit cl.
+// nicht versteckt). Der Klein-Pilot (test_sota_series_pilot) baut je Stufe ≥1 reale DLL real mit cl und
+// belegt Stufe3/Reihe B zusätzlich per 6 SOTA-Hosts.
 //
 // ⚠️ Umbrella-/Komposition-schwer → gehört in die HARNESS-/Test-.cpp, NICHT in den engine-agnostischen
 //    Treiber-Header. C++23, header-only.
@@ -47,12 +49,13 @@
 
 #include <compositions/known_compositions_list.hpp> // KnownReferenceCompositions (6 SOTA)
 #include <compositions/prt_art_reference.hpp>       // PrtArtComposition (Reihe A Prüfling)
-#include <compositions/prt_art_merge_reference.hpp> // Hot/Masstree-PRT-Merge (Reihe B/C)
+#include <compositions/prt_art_merge_reference.hpp> // PRT-Merge-Kompositionen (Stufe2/Reihe A, Stufe3/Reihe B)
 
 #include <boost/mp11.hpp>
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace comdare::cache_engine::thesis_lazy {
@@ -89,7 +92,7 @@ struct SotaModule {
 
 /// render_sota_module_source — der kompilierbare Modul-.cpp-Quelltext einer SOTA/PRT-ART-Komposition.
 /// IDENTISCH zum CMake-Codegen-Modul (comdare_codegen_anatomy_module): ABI-Header + Composition-Header +
-/// COMDARE_DEFINE_ANATOMY_MODULE(<FQ-Typ>). Real-baubar via cl (probe-belegt für alle 6 SOTA + PRT-ART + B/C).
+/// COMDARE_DEFINE_ANATOMY_MODULE(<FQ-Typ>). Real-baubar via cl (probe-belegt für alle 6 SOTA + PRT-ART + Stufe3/B).
 [[nodiscard]] inline std::string render_sota_module_source(std::string const& fq_type, std::string const& header) {
     return "// AUTO-GENERATED (STRANG-A Inc5 / S6) SOTA/PRT-ART Modul — DO NOT EDIT\n"
            "#define COMDARE_ANATOMY_MODULE_BUILD 1\n"
@@ -142,8 +145,8 @@ struct SotaModule {
 /// abgeleitet (binary_id-Namensraum). Mechanik:
 ///   Stufe1_CeOnly           → das isolierte Lebewesen (build_sota_series_a_modules) → Reihe A.
 ///   Stufe2_PrueflingReplace → HotPrtStufe2ReplaceComposition (PRT-ART ersetzt den path_compression-Slot) → Reihe A.
-///   Stufe3_FullJoin         → MasstreePrtStufe3FullJoinComposition (Pruefling-Repräsentant der Union) → Reihe B.
-/// (Im Klein-Pilot sind Stufe2/3 an EINEN Host gebunden; der Voll-Lauf [HELD] fächert über alle 7 Hosts.)
+///   Stufe3_FullJoin         → <Host>PrtStufe3FullJoinComposition je SOTA-Host → Reihe B; prt_art-Host → nullopt.
+/// AP-4-Follow: Stufe2/Reihe-A-Parallelfall ist weiterhin der bestehende HOT-Pilot und wird separat gefächert.
 [[nodiscard]] inline std::optional<SotaModule> sota_module_for(std::string const& merge, std::string const& lebewesen) {
     if (merge == "Stufe1_CeOnly") {
         for (auto const& m : build_sota_series_a_modules())
@@ -152,16 +155,41 @@ struct SotaModule {
     }
     std::string const reihe = stufe_to_reihe(merge); // #178: Reihe mechanisch aus der Stufe (A für St2, B für St3)
     if (merge == "Stufe2_PrueflingReplace") {
+        // AP-4-Follow: Stufe2/Reihe-A-Parallelfall bleibt absichtlich der bestehende HOT-Pilot.
         return SotaModule{lebewesen + "+prt(St2)",
                           sota_binary_id(reihe, std::string{cmp::HotPrtStufe2ReplaceComposition::name}),
                           "::comdare::cache_engine::compositions::HotPrtStufe2ReplaceComposition",
                           "compositions/prt_art_merge_reference.hpp"};
     }
     if (merge == "Stufe3_FullJoin") {
-        return SotaModule{lebewesen + "+prt(St3)",
-                          sota_binary_id(reihe, std::string{cmp::MasstreePrtStufe3FullJoinComposition::name}),
-                          "::comdare::cache_engine::compositions::MasstreePrtStufe3FullJoinComposition",
-                          "compositions/prt_art_merge_reference.hpp"};
+        // AP-4/#238: per-Host-FullJoin (analog build_sota_series_a_modules) — je SOTA-Host eine distinkte
+        // <Host>PrtStufe3FullJoinComposition. prt_art-als-Host ist degeneriert (prt_art ist in Reihe A/Stufe1
+        // bereits isoliert) → nullopt (ehrlich, keine Reihe-A-Duplikation unter B-Label).
+        struct B {
+            std::string_view type;
+            std::string_view name;
+        };
+        auto pick = [&](std::string const& l) -> std::optional<B> {
+            if (l == "art") return B{"::comdare::cache_engine::compositions::ArtPrtStufe3FullJoinComposition",
+                                      cmp::ArtPrtStufe3FullJoinComposition::name};
+            if (l == "hot") return B{"::comdare::cache_engine::compositions::HotPrtStufe3FullJoinComposition",
+                                      cmp::HotPrtStufe3FullJoinComposition::name};
+            if (l == "masstree")
+                return B{"::comdare::cache_engine::compositions::MasstreePrtStufe3FullJoinComposition",
+                         cmp::MasstreePrtStufe3FullJoinComposition::name};
+            if (l == "surf") return B{"::comdare::cache_engine::compositions::SurfPrtStufe3FullJoinComposition",
+                                       cmp::SurfPrtStufe3FullJoinComposition::name};
+            if (l == "start") return B{"::comdare::cache_engine::compositions::StartPrtStufe3FullJoinComposition",
+                                        cmp::StartPrtStufe3FullJoinComposition::name};
+            if (l == "wormhole")
+                return B{"::comdare::cache_engine::compositions::WormholePrtStufe3FullJoinComposition",
+                         cmp::WormholePrtStufe3FullJoinComposition::name};
+            return std::nullopt; // prt_art (degeneriert) + unbekannte
+        };
+        if (auto b = pick(lebewesen))
+            return SotaModule{lebewesen + "+prt(St3)", sota_binary_id(reihe, std::string{b->name}),
+                              std::string{b->type}, "compositions/prt_art_merge_reference.hpp"};
+        return std::nullopt;
     }
     return std::nullopt;
 }
@@ -201,7 +229,7 @@ inline constexpr char const* kSotaTierAxis = "sota_tier";
 //     • full     == "Originalkonfiguration"/self-contained == Reihe A == merge=Stufe1_CeOnly: das Lebewesen
 //                   fuellt ALLE 19 Achsen mit EIGENEN Organen (PrtArtComposition / die 6 SOTA isoliert).
 //                   Beleg: pruefling_merge.hpp:93-95 StufeOneAxis=DefaultList; prt_art_reference.hpp:61-80.
-//     • abstract == Teilmenge + Host-Fallback == Reihe B/C == merge=Stufe2_PrueflingReplace / Stufe3_FullJoin:
+//     • abstract == Teilmenge + Host-Fallback == Stufe2/Reihe A oder Stufe3/Reihe B:
 //                   der Pruefling fuellt NUR einen Slot (path_compression), 18 Achsen via Host-Fallback.
 //                   Beleg: pruefling_merge.hpp:113-118 conditional_t Ersetzt-mit-Fallback; prt_art_merge_reference.hpp.
 //   Quelle der cacheline-doc §0 Z.11 / §1.2 Z.19 ("Paper-Algorithmen als Basis-Lebewesen in Originalkonfiguration").
@@ -227,7 +255,7 @@ struct SotaPass {
     std::string lebewesen;      // Profil-Lebewesen-Name (Doku/Log)
     std::string sota_bid;       // der rohe sota::S::name (AxisLevel-Wert der einwertigen "sota_tier"-Ebene)
     std::string view_binary_id; // == "sota_tier=<sota::S::name>" (== StaticBinaryView-binary_id dieses Passes)
-    std::string pruefling_type; // #171: "full" (Reihe A self-contained) / "abstract" (Reihe B/C Teilmenge+Fallback)
+    std::string pruefling_type; // #171: "full" (Reihe A self-contained) / "abstract" (Stufe2/3 Teilmenge+Fallback)
 };
 
 /// build_sota_passes(profile) — die Liste der SOTA-Reihen-Pässe AUS DEM PROFIL (1 Eintrag je real baubarem
