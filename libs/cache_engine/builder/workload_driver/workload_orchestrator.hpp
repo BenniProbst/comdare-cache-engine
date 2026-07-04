@@ -227,32 +227,35 @@ run_measurement_plan(an::IObservableTier& tier, an::IRollbackableTier* rollback,
 }
 
 /// serialize_workload_run_results_csv — Mess-Ergebnis-CSV des Lastprofil-Pfads (eine Zeile je Profil-Lauf).
-/// Trägt je Op-Kind die Sample-Zahl + p50/p99-Perzentile (Tier-Wall-Clock, Doku 24 §2.1, GETRENNT) UND die
+/// Trägt je Op-Kind die Sample-Zahl + p50/p95/p99-Perzentile (Tier-Wall-Clock, Doku 24 §2.1, GETRENNT) UND die
 /// korrelierten Observer-Zähler am Lauf-Ende. `two_phase`-Spalte dokumentiert, ob zwei-phasig (Rollback aktiv)
 /// gemessen wurde. Perzentile via `anatomy_commands::detail::nearest_rank_p` (Nearest-Rank, robust).
 [[nodiscard]] inline std::string serialize_workload_run_results_csv(std::vector<WorkloadRunResult> const& rs) {
     std::ostringstream os;
     os << "profile,op_count,two_phase,"
-          "insert_n,insert_p50_ns,insert_p99_ns,lookup_n,lookup_p50_ns,lookup_p99_ns,"
-          "erase_n,erase_p50_ns,erase_p99_ns,clear_n,clear_p50_ns,clear_p99_ns,"
-          "scan_n,scan_p50_ns,scan_p99_ns,rmw_n,rmw_p50_ns,rmw_p99_ns," // V5-#49-E/F
+          "insert_n,insert_p50_ns,insert_p95_ns,insert_p99_ns,lookup_n,lookup_p50_ns,lookup_p95_ns,lookup_p99_ns,"
+          "erase_n,erase_p50_ns,erase_p95_ns,erase_p99_ns,clear_n,clear_p50_ns,clear_p95_ns,clear_p99_ns,"
+          "scan_n,scan_p50_ns,scan_p95_ns,scan_p99_ns,rmw_n,rmw_p50_ns,rmw_p95_ns,rmw_p99_ns," // V5-#49-E/F
           "search_insert,search_lookup,search_hit,search_miss,search_erase,search_peak_occupancy,"
           "alloc_bytes_in_use,alloc_alloc_count,observable_axes\n";
     for (auto const& r : rs) {
         auto const& o = r.observer;
         os << r.profile_name << ',' << r.op_count << ',' << (r.two_phase ? 1 : 0) << ',' << r.insert_ns.size() << ','
-           << ac::detail::nearest_rank_p(r.insert_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.insert_ns, 0.99)
+           << ac::detail::nearest_rank_p(r.insert_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.insert_ns, 0.95)
+           << ',' << ac::detail::nearest_rank_p(r.insert_ns, 0.99)
            << ',' << r.lookup_ns.size() << ',' << ac::detail::nearest_rank_p(r.lookup_ns, 0.5) << ','
-           << ac::detail::nearest_rank_p(r.lookup_ns, 0.99) << ',' << r.erase_ns.size() << ','
-           << ac::detail::nearest_rank_p(r.erase_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.erase_ns, 0.99) << ','
+           << ac::detail::nearest_rank_p(r.lookup_ns, 0.95) << ',' << ac::detail::nearest_rank_p(r.lookup_ns, 0.99)
+           << ',' << r.erase_ns.size() << ',' << ac::detail::nearest_rank_p(r.erase_ns, 0.5) << ','
+           << ac::detail::nearest_rank_p(r.erase_ns, 0.95) << ',' << ac::detail::nearest_rank_p(r.erase_ns, 0.99) << ','
            << r.clear_ns.size() << ',' << ac::detail::nearest_rank_p(r.clear_ns, 0.5) << ','
-           << ac::detail::nearest_rank_p(r.clear_ns, 0.99) << ',' << r.scan_ns.size() << ','
-           << ac::detail::nearest_rank_p(r.scan_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.scan_ns, 0.99) << ','
+           << ac::detail::nearest_rank_p(r.clear_ns, 0.95) << ',' << ac::detail::nearest_rank_p(r.clear_ns, 0.99)
+           << ',' << r.scan_ns.size() << ',' << ac::detail::nearest_rank_p(r.scan_ns, 0.5) << ','
+           << ac::detail::nearest_rank_p(r.scan_ns, 0.95) << ',' << ac::detail::nearest_rank_p(r.scan_ns, 0.99) << ','
            << r.rmw_ns.size() << ',' << ac::detail::nearest_rank_p(r.rmw_ns, 0.5) << ','
-           << ac::detail::nearest_rank_p(r.rmw_ns, 0.99) << ',' << o.axis_stats[0][3] << ',' << o.axis_stats[0][0]
-           << ',' << o.axis_stats[0][1] << ',' << o.axis_stats[0][2] << ',' << o.axis_stats[0][4] << ','
-           << o.axis_stats[0][5] << ',' << o.axis_stats[6][1] << ',' << o.axis_stats[6][2] << ','
-           << o.observable_axis_count << '\n';
+           << ac::detail::nearest_rank_p(r.rmw_ns, 0.95) << ',' << ac::detail::nearest_rank_p(r.rmw_ns, 0.99) << ','
+           << o.axis_stats[0][3] << ',' << o.axis_stats[0][0] << ',' << o.axis_stats[0][1] << ','
+           << o.axis_stats[0][2] << ',' << o.axis_stats[0][4] << ',' << o.axis_stats[0][5] << ','
+           << o.axis_stats[6][1] << ',' << o.axis_stats[6][2] << ',' << o.observable_axis_count << '\n';
     }
     return os.str();
 }

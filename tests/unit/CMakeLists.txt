@@ -462,6 +462,16 @@ target_include_directories(test_ap7_swisstable PRIVATE
     "${CMAKE_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_ap7_swisstable PRIVATE Boost::mp11)
+# AP-8/#242 -- HdrHistogram_c wrapper + p95 host serializer coverage.
+comdare_add_test(test_ap8_hdr_histogram
+    SOURCES test_ap8_hdr_histogram.cpp)
+target_include_directories(test_ap8_hdr_histogram PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_link_libraries(test_ap8_hdr_histogram PRIVATE
+    comdare_hdr_histogram_wrapper
+    comdare::workload_driver)
 
 # P33-VAMPIR Option A — axis_06 VampirNfpAllocator conformance and statistics.
 comdare_add_test(test_vampir_nfp_allocator
