@@ -108,8 +108,8 @@ TEST(AP13ThreadPinning, NeutralityGuardsStayIntact) {
     EXPECT_EQ(anatomy::kTierObserverSnapshotVersionUnified, 5u);
 
     std::vector<b::ComdareMeasurementSnapshotV1> rows(1);
-    std::vector<std::string> ids{"neutrality_guard"};
-    std::vector<std::string> workloads{"ap9"};
+    std::vector<std::string>                     ids{"neutrality_guard"};
+    std::vector<std::string>                     workloads{"ap9"};
 
     auto const full_csv = b::serialize_measurements_csv(rows, ids, workloads);
     EXPECT_EQ(count_cols(first_line(full_csv)), 25u);
@@ -149,9 +149,7 @@ TEST(AP13ThreadPinning, CorePinPolicyPinsCoreZeroAndRestoresPreviousMask) {
     auto const process_mask = process_affinity_mask();
     ASSERT_TRUE(process_mask.has_value());
     constexpr DWORD_PTR kCore0Mask = DWORD_PTR{1};
-    if ((*process_mask & kCore0Mask) == 0) {
-        GTEST_SKIP() << "Core 0 is outside the process affinity mask";
-    }
+    if ((*process_mask & kCore0Mask) == 0) { GTEST_SKIP() << "Core 0 is outside the process affinity mask"; }
 
     std::optional<DWORD_PTR> pinned;
     {
@@ -165,14 +163,12 @@ TEST(AP13ThreadPinning, CorePinPolicyPinsCoreZeroAndRestoresPreviousMask) {
     auto const restored = current_thread_affinity_mask();
     ASSERT_TRUE(restored.has_value());
     EXPECT_TRUE(masks_equal(*before, *restored));
-    std::cout << "AP13 CorePin RoundTrip: before=" << mask_to_text(*before)
-              << " pinned=" << mask_to_text(*pinned) << " restored=" << mask_to_text(*restored) << "\n";
+    std::cout << "AP13 CorePin RoundTrip: before=" << mask_to_text(*before) << " pinned=" << mask_to_text(*pinned)
+              << " restored=" << mask_to_text(*restored) << "\n";
 #elif defined(__linux__)
     auto const before = current_thread_affinity_mask();
     ASSERT_TRUE(before.has_value());
-    if (!mask_contains_core(*before, 0)) {
-        GTEST_SKIP() << "Core 0 is outside the process affinity mask";
-    }
+    if (!mask_contains_core(*before, 0)) { GTEST_SKIP() << "Core 0 is outside the process affinity mask"; }
 
     std::optional<cpu_set_t> pinned;
     {
@@ -186,8 +182,8 @@ TEST(AP13ThreadPinning, CorePinPolicyPinsCoreZeroAndRestoresPreviousMask) {
     auto const restored = current_thread_affinity_mask();
     ASSERT_TRUE(restored.has_value());
     EXPECT_TRUE(masks_equal(*before, *restored));
-    std::cout << "AP13 CorePin RoundTrip: before=" << mask_to_text(*before)
-              << " pinned=" << mask_to_text(*pinned) << " restored=" << mask_to_text(*restored) << "\n";
+    std::cout << "AP13 CorePin RoundTrip: before=" << mask_to_text(*before) << " pinned=" << mask_to_text(*pinned)
+              << " restored=" << mask_to_text(*restored) << "\n";
 #else
     auto guard = b::CorePinPolicy{0}.pin();
     EXPECT_FALSE(guard.active());

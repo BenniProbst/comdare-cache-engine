@@ -23,8 +23,7 @@ namespace {
     return output_dir / "build-perms";
 }
 
-[[nodiscard]] constexpr std::string_view
-messreihen_mode_name(ExperimentDriverOptions::MessreihenMode mode) noexcept {
+[[nodiscard]] constexpr std::string_view messreihen_mode_name(ExperimentDriverOptions::MessreihenMode mode) noexcept {
     using MM = ExperimentDriverOptions::MessreihenMode;
     switch (mode) {
         case MM::Defined: return "defined";
@@ -65,13 +64,16 @@ messreihen_mode_name(ExperimentDriverOptions::MessreihenMode mode) noexcept {
     // 2) Aufwaerts-Repo-Root-Discovery (CWD-unabhaengig): von jedem Anker Richtung Wurzel laufen.
     for (auto const& start : {config_dir, comdare_root, fs::current_path(ec)}) {
         auto dir = fs::weakly_canonical(start, ec);
-        if (ec) { dir = start; ec.clear(); }
+        if (ec) {
+            dir = start;
+            ec.clear();
+        }
         for (; !dir.empty(); dir = dir.parent_path()) {
             for (auto const& rel : rel_variants) {
                 auto cand = dir / rel;
                 if (fs::is_directory(cand, ec)) return cand;
             }
-            if (dir == dir.root_path()) break;  // Wurzel erreicht -> Abbruch (kein Endlos-Loop)
+            if (dir == dir.root_path()) break; // Wurzel erreicht -> Abbruch (kein Endlos-Loop)
         }
     }
     return {};
@@ -102,10 +104,10 @@ int ExperimentDriver::phase1_enumerate(std::vector<loop::PermutationDescriptor>&
         }
 
         loop::PermutationLoop pl;
-        std::size_t const full_population = cfg.cache_engine_permutations.size() *
-                                            cfg.search_algorithm_permutations.size() *
-                                            cfg.allocator_permutations.size() * cfg.test_data_sets.size();
-        std::uint32_t const sample_rate =
+        std::size_t const     full_population = cfg.cache_engine_permutations.size() *
+                                                cfg.search_algorithm_permutations.size() *
+                                                cfg.allocator_permutations.size() * cfg.test_data_sets.size();
+        std::uint32_t const   sample_rate =
             (opts_.messreihen_mode == ExperimentDriverOptions::MessreihenMode::FullSampled) ? opts_.sample_rate : 0u;
         out_descriptors = pl.enumerate(cfg, sample_rate, opts_.sample_seed);
 
@@ -117,8 +119,9 @@ int ExperimentDriver::phase1_enumerate(std::vector<loop::PermutationDescriptor>&
             std::cout << ".\n";
         }
         if (sample_rate >= loop::sampling_min_filtered_rate && out_descriptors.empty()) {
-            std::cerr << "[Phase 1] WARN: FullSampled 1:" << sample_rate << " ergab 0 Kandidaten (Population="
-                      << full_population << "); kleinere --sample-rate waehlen.\n";
+            std::cerr << "[Phase 1] WARN: FullSampled 1:" << sample_rate
+                      << " ergab 0 Kandidaten (Population=" << full_population
+                      << "); kleinere --sample-rate waehlen.\n";
         }
     } catch (std::exception const& e) {
         std::cerr << "[Phase 1] XML-Parse error: " << e.what() << "\n";

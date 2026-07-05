@@ -57,25 +57,23 @@ namespace {
 
 using DistanceStoreBackedComposition = an::AdHocComposition<
     ce03a::Array256SearchAlgo, ct::LinearFanout, map::DirectPlacement, pc::PathCompressionNone,
-    nd::ObservableNodeType<nd::Node256NodeType>,
-    ml::ObservableMemoryLayout<ml::CacheLineAlignedMemoryLayout>, al::StdMalloc, pf::DistanceEstimatorPrefetch,
-    cc::NoneConcurrency, ser::ObservableSerialization<ser::RawBinarySerialization>,
-    tel::ObservableTelemetry<tel::LeafOnlyCounter>, vh::InlineValueHandle, hw::Amd64Isa, idx::IotIndexOrganization,
-    ioax::InMemoryOnly, mig::NoMigration, flt::BloomFilter, q1::NoBuffer, q2::LazyFlush>;
+    nd::ObservableNodeType<nd::Node256NodeType>, ml::ObservableMemoryLayout<ml::CacheLineAlignedMemoryLayout>,
+    al::StdMalloc, pf::DistanceEstimatorPrefetch, cc::NoneConcurrency,
+    ser::ObservableSerialization<ser::RawBinarySerialization>, tel::ObservableTelemetry<tel::LeafOnlyCounter>,
+    vh::InlineValueHandle, hw::Amd64Isa, idx::IotIndexOrganization, ioax::InMemoryOnly, mig::NoMigration,
+    flt::BloomFilter, q1::NoBuffer, q2::LazyFlush>;
 
 using DistanceTier = an::SearchAlgorithmAbiAdapter<an::SearchAlgorithmAnatomy<DistanceStoreBackedComposition>>;
 
 constexpr std::uint64_t kTestRecords = 128;
-constexpr std::uint64_t kRcD1    = 2;
-constexpr std::uint64_t kRcD2    = 9;
+constexpr std::uint64_t kRcD1        = 2;
+constexpr std::uint64_t kRcD2        = 9;
 
 [[nodiscard]] constexpr std::uint64_t value_for(std::uint64_t key) noexcept { return key * 17u + 3u; }
 
 void load_once(an::IObservableTier& tier) {
     tier.tier_clear();
-    for (std::uint64_t key = 0; key < kTestRecords; ++key) {
-        ASSERT_TRUE(tier.tier_insert(key, value_for(key)));
-    }
+    for (std::uint64_t key = 0; key < kTestRecords; ++key) { ASSERT_TRUE(tier.tier_insert(key, value_for(key))); }
     ASSERT_EQ(tier.tier_size(), kTestRecords);
 }
 

@@ -146,8 +146,7 @@ struct StartPrtStufe3FullJoinComposition : HostPrtMergeComposition<StartComposit
 };
 
 /// Reihe B (Stufe3_FullJoin): Wormhole-Host, path_compression = Pruefling-Repräsentant der Union (non-redundant).
-struct WormholePrtStufe3FullJoinComposition
-    : HostPrtMergeComposition<WormholeComposition, Stufe3PathCompressionOrgan> {
+struct WormholePrtStufe3FullJoinComposition : HostPrtMergeComposition<WormholeComposition, Stufe3PathCompressionOrgan> {
     static constexpr std::string_view name = "WormholePrtStufe3FullJoinComposition";
     COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::WormholePrtStufe3FullJoinComposition",
                                         "compositions/prt_art_merge_reference.hpp");

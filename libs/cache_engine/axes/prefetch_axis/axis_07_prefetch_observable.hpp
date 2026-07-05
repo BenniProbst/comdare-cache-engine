@@ -117,7 +117,7 @@ public:
     /// Laufzeit-RC-Knopf nur fuer DistanceEstimatorPrefetch: 0 bedeutet kein Override und behaelt die
     /// compile-time/default estimate()-Distanz bei. None/Hardware/Path tragen diese Setter-Faehigkeit nicht.
     void set_runtime_distance(std::uint32_t distance) noexcept
-        requires (detail_real::prefetch_family_v<Strategy> == 1)
+        requires(detail_real::prefetch_family_v<Strategy> == 1)
     {
         runtime_distance_override_ = distance;
     }
@@ -172,8 +172,10 @@ public:
 
 private:
     [[nodiscard]] std::uint32_t runtime_distance_override() const noexcept {
-        if constexpr (detail_real::prefetch_family_v<Strategy> == 1) return runtime_distance_override_;
-        else return 0;
+        if constexpr (detail_real::prefetch_family_v<Strategy> == 1)
+            return runtime_distance_override_;
+        else
+            return 0;
     }
 
     std::uint32_t runtime_distance_override_ = 0;

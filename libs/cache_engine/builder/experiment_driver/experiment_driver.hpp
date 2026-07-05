@@ -53,8 +53,8 @@ struct ExperimentDriverOptions {
     //   Defined: nur Permutationen, die in sota_profile_filter referenziert sind
     //   Full:    alle Permutationen aus algorithm_profiles/sota/ (Auto-Pickup V10.5)
     enum class MessreihenMode { Defined, Full, FullSampled } messreihen_mode = MessreihenMode::Full;
-    static constexpr std::uint32_t default_full_sampled_rate = 1000u;
-    std::vector<std::string> sota_profile_filter; // optional: nur diese Profile (Defined-Mode)
+    static constexpr std::uint32_t default_full_sampled_rate                 = 1000u;
+    std::vector<std::string>       sota_profile_filter; // optional: nur diese Profile (Defined-Mode)
 
     // REV 7.6 AP-5/#239 - FullSampled: deterministische 1:sample_rate-Teilmenge des Full-Raums,
     // seed- und toolchain-stabil (s. permutation_sampling.hpp). Nur wirksam bei messreihen_mode==FullSampled.

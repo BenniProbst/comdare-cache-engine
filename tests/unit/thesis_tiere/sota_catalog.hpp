@@ -170,17 +170,21 @@ struct SotaModule {
             std::string_view name;
         };
         auto pick = [&](std::string const& l) -> std::optional<B> {
-            if (l == "art") return B{"::comdare::cache_engine::compositions::ArtPrtStufe3FullJoinComposition",
-                                      cmp::ArtPrtStufe3FullJoinComposition::name};
-            if (l == "hot") return B{"::comdare::cache_engine::compositions::HotPrtStufe3FullJoinComposition",
-                                      cmp::HotPrtStufe3FullJoinComposition::name};
+            if (l == "art")
+                return B{"::comdare::cache_engine::compositions::ArtPrtStufe3FullJoinComposition",
+                         cmp::ArtPrtStufe3FullJoinComposition::name};
+            if (l == "hot")
+                return B{"::comdare::cache_engine::compositions::HotPrtStufe3FullJoinComposition",
+                         cmp::HotPrtStufe3FullJoinComposition::name};
             if (l == "masstree")
                 return B{"::comdare::cache_engine::compositions::MasstreePrtStufe3FullJoinComposition",
                          cmp::MasstreePrtStufe3FullJoinComposition::name};
-            if (l == "surf") return B{"::comdare::cache_engine::compositions::SurfPrtStufe3FullJoinComposition",
-                                       cmp::SurfPrtStufe3FullJoinComposition::name};
-            if (l == "start") return B{"::comdare::cache_engine::compositions::StartPrtStufe3FullJoinComposition",
-                                        cmp::StartPrtStufe3FullJoinComposition::name};
+            if (l == "surf")
+                return B{"::comdare::cache_engine::compositions::SurfPrtStufe3FullJoinComposition",
+                         cmp::SurfPrtStufe3FullJoinComposition::name};
+            if (l == "start")
+                return B{"::comdare::cache_engine::compositions::StartPrtStufe3FullJoinComposition",
+                         cmp::StartPrtStufe3FullJoinComposition::name};
             if (l == "wormhole")
                 return B{"::comdare::cache_engine::compositions::WormholePrtStufe3FullJoinComposition",
                          cmp::WormholePrtStufe3FullJoinComposition::name};

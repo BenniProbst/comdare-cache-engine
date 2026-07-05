@@ -31,7 +31,8 @@ concept StorageOrgan =
     requires {
         typename S::key_type;
         typename S::value_type;
-    } && std::same_as<typename S::key_type, std::uint64_t> // #217-2b: aktuelle Default-Breite; spaeter unsigned_integral
+    } &&
+    std::same_as<typename S::key_type, std::uint64_t> // #217-2b: aktuelle Default-Breite; spaeter unsigned_integral
     && std::same_as<typename S::value_type, std::uint64_t> // Achsen-Typen bestimmen NICHT den Container-Key
     && requires(S& s, S const& cs, std::size_t i, typename S::key_type k, typename S::value_type v) {
            // (A) const Inspektion — PFLICHT (auf `cs`, erzwingt const-Correctness strukturell)

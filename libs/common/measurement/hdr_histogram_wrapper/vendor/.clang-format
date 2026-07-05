@@ -1,0 +1,4 @@
+# HdrHistogram_c vendored ORIGINAL (CC0) — Vendoring-Doktrin: byte-treu belassen, NIE umformatieren.
+# Gleiches Muster wie ext/ (eigene .clang-format je vendored Baum).
+DisableFormat: true
+SortIncludes: Never

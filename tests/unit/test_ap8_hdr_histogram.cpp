@@ -28,9 +28,7 @@ std::span<std::int64_t const> as_span(std::vector<std::int64_t> const& values) {
     return {values.data(), values.size()};
 }
 
-std::string first_line(std::string const& s) {
-    return s.substr(0, s.find('\n'));
-}
+std::string first_line(std::string const& s) { return s.substr(0, s.find('\n')); }
 
 std::size_t count_cols(std::string const& csv_first_line) {
     return static_cast<std::size_t>(std::count(csv_first_line.begin(), csv_first_line.end(), ',') + 1);
@@ -42,24 +40,24 @@ void expect_hdr_near_ref(std::int64_t actual, std::int64_t ref) {
 
 workload::WorkloadRunResult make_workload_result() {
     workload::WorkloadRunResult r;
-    r.profile_name              = "AP8_profile";
-    r.op_count                  = 24;
-    r.total_ns                  = 2400;
-    r.two_phase                 = true;
-    r.insert_ns                 = {10, 20, 30, 40};
-    r.lookup_ns                 = {11, 21, 31, 41};
-    r.erase_ns                  = {12, 22, 32, 42};
-    r.clear_ns                  = {13, 23, 33, 43};
-    r.scan_ns                   = {14, 24, 34, 44};
-    r.rmw_ns                    = {15, 25, 35, 45};
-    r.observer.axis_stats[0][3] = 4;
-    r.observer.axis_stats[0][0] = 5;
-    r.observer.axis_stats[0][1] = 3;
-    r.observer.axis_stats[0][2] = 2;
-    r.observer.axis_stats[0][4] = 1;
-    r.observer.axis_stats[0][5] = 6;
-    r.observer.axis_stats[6][1] = 128;
-    r.observer.axis_stats[6][2] = 7;
+    r.profile_name                   = "AP8_profile";
+    r.op_count                       = 24;
+    r.total_ns                       = 2400;
+    r.two_phase                      = true;
+    r.insert_ns                      = {10, 20, 30, 40};
+    r.lookup_ns                      = {11, 21, 31, 41};
+    r.erase_ns                       = {12, 22, 32, 42};
+    r.clear_ns                       = {13, 23, 33, 43};
+    r.scan_ns                        = {14, 24, 34, 44};
+    r.rmw_ns                         = {15, 25, 35, 45};
+    r.observer.axis_stats[0][3]      = 4;
+    r.observer.axis_stats[0][0]      = 5;
+    r.observer.axis_stats[0][1]      = 3;
+    r.observer.axis_stats[0][2]      = 2;
+    r.observer.axis_stats[0][4]      = 1;
+    r.observer.axis_stats[0][5]      = 6;
+    r.observer.axis_stats[6][1]      = 128;
+    r.observer.axis_stats[6][2]      = 7;
     r.observer.observable_axis_count = 17;
     return r;
 }
@@ -116,7 +114,7 @@ TEST(AP8HdrHistogram, P95ColumnsPresentAndPipeline16StaysSixteenColumns) {
     EXPECT_NE(workload_csv.find("scan_p95_ns"), std::string::npos);
     EXPECT_NE(workload_csv.find("rmw_p95_ns"), std::string::npos);
 
-    trace_abi::AbiTierObserveTrace trace;
+    trace_abi::AbiTierObserveTrace  trace;
     trace_abi::AbiFillLevelSnapshot cp;
     cp.fill_level = 4;
     cp.write_ns   = {10, 20, 30, 40};
@@ -131,7 +129,8 @@ TEST(AP8HdrHistogram, P95ColumnsPresentAndPipeline16StaysSixteenColumns) {
 
     std::vector<builder::ComdareMeasurementSnapshotV1> rows{
         builder::measurement_from_workload_result(r, "AP8Composition")};
-    std::string const pipeline16 = builder::serialize_measurements_pipeline16_csv(rows, {"AP8Composition_0"}, {r.profile_name});
+    std::string const pipeline16 =
+        builder::serialize_measurements_pipeline16_csv(rows, {"AP8Composition_0"}, {r.profile_name});
     EXPECT_EQ(count_cols(first_line(pipeline16)), 16u);
     EXPECT_EQ(pipeline16.find("_p95_ns"), std::string::npos);
 }

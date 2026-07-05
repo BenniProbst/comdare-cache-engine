@@ -45,8 +45,8 @@ class Array256SearchAlgo : public SearchAlgoBase<Array256SearchAlgo> {
 public:
     static constexpr bool enabled = flags::array256_enabled;
     // #188-4c-ii: faithful Flach-Store-Pfad via DirectAddressTraversal; #217-2b: Wrapper-key_type bleibt heute u8.
-    static constexpr bool axis_03a_store_traversable = true;
-    static constexpr std::size_t kCapacity = 256;
+    static constexpr bool        axis_03a_store_traversable = true;
+    static constexpr std::size_t kCapacity                  = 256;
 
     using key_type   = std::uint8_t; // #217-2b: native Wrapper-Breite bleibt heute; Umbau spaeter.
     using value_type = std::uint64_t;
@@ -59,8 +59,8 @@ public:
                       static_cast<std::uint64_t>(kCapacity - 1u),
                   "Array256SearchAlgo key_type muss jeden deklarierten Static-Slot adressieren koennen");
 
-    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return kCapacity; }
+    [[nodiscard]] static constexpr bool                           is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t                    max_fanout() noexcept { return kCapacity; }
     [[nodiscard]] static constexpr composable::CapacityConstraint container_capacity() noexcept {
         return {0, kCapacity, composable::CapacityKind::Static};
     }
@@ -123,7 +123,7 @@ public:
     [[nodiscard]] double    density_percent() const noexcept {
         return 100.0 * static_cast<double>(count_) / static_cast<double>(kCapacity);
     }
-    void                    clear() noexcept {
+    void clear() noexcept {
         for (auto& slot : data_) slot.reset();
         count_ = 0;
     }

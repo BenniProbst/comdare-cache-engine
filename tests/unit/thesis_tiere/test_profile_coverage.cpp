@@ -49,8 +49,7 @@ namespace cx = ::comdare::builder::xml;
 [[nodiscard]] std::vector<std::string> missing_refs(std::set<std::string> const& expected,
                                                     std::set<std::string> const& actual) {
     std::vector<std::string> missing;
-    std::set_difference(expected.begin(), expected.end(), actual.begin(), actual.end(),
-                        std::back_inserter(missing));
+    std::set_difference(expected.begin(), expected.end(), actual.begin(), actual.end(), std::back_inserter(missing));
     return missing;
 }
 

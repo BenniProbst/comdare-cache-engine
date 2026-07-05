@@ -6,8 +6,8 @@
 namespace comdare::builder::loop {
 
 std::vector<PermutationDescriptor> PermutationLoop::enumerate(xml::CacheEngineConfig const& cfg,
-                                                              std::uint32_t sample_rate,
-                                                              std::uint64_t sample_seed) const {
+                                                              std::uint32_t                 sample_rate,
+                                                              std::uint64_t                 sample_seed) const {
     std::vector<PermutationDescriptor> result;
     result.reserve(cfg.cache_engine_permutations.size() * cfg.search_algorithm_permutations.size() *
                    cfg.allocator_permutations.size() * cfg.test_data_sets.size());

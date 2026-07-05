@@ -57,9 +57,7 @@ public:
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "SWISSTABLE"; }
 
     [[nodiscard]] static constexpr bool supports_simd() noexcept { return false; } // AP-7-Follow: SIMD-Gruppen-Probe
-    [[nodiscard]] static constexpr bool supports_range_scan() noexcept {
-        return false;
-    } // UNGEORDNET -- Pool-Familie
+    [[nodiscard]] static constexpr bool supports_range_scan() noexcept { return false; } // UNGEORDNET -- Pool-Familie
     [[nodiscard]] static constexpr bool is_dense() noexcept { return false; }
     [[nodiscard]] static constexpr bool has_cache_line_alignment() noexcept { return false; }
 
@@ -97,7 +95,7 @@ public:
                 if (ctrl_[group_start + i] == kEmpty) goto done; // Probe-Kette zu Ende -> Miss
             }
         }
-done:
+    done:
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_lookup_count;
         if (result)
@@ -256,9 +254,9 @@ private:
 
     std::vector<Slot>         slots_;
     std::vector<std::uint8_t> ctrl_;
-    std::size_t              mask_;
-    std::size_t              size_       = 0;
-    std::size_t              tombstones_ = 0;
+    std::size_t               mask_;
+    std::size_t               size_       = 0;
+    std::size_t               tombstones_ = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::SearchAlgoStatistics stats_{};
     mutable observer_t                     observer_{};

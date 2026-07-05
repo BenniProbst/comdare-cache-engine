@@ -79,8 +79,8 @@ TEST(V5MeasurementSnapshot, Serialize16Plus6FullView) {
 }
 
 TEST(V5MeasurementSnapshot, ThroughputUsesDivZeroGuard) {
-    auto r = make_result();
-    r.total_ns = 0;
+    auto r       = make_result();
+    r.total_ns   = 0;
     auto const m = b::measurement_from_workload_result(r, "ArtComposition");
     EXPECT_DOUBLE_EQ(m.throughput_ops_per_sec, 0.0);
 }
