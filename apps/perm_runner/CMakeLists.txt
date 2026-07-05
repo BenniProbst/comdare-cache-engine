@@ -7,7 +7,10 @@ set_target_properties(comdare_perm_runner PROPERTIES OUTPUT_NAME "perm_runner")
 
 target_include_directories(comdare_perm_runner PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    # #271/DEG-5: perm_runner.hpp -> load_profile_parser.hpp -> <serialization/xml_config_parser/xml_reader.hpp>
+    # liegt unter libs/common -- f15 bekam es transitiv ueber workload_driver, der schlanke Runner nicht.
+    "${PROJECT_SOURCE_DIR}/libs/common")
 
 target_link_libraries(comdare_perm_runner PRIVATE comdare::anatomy_module_loader)
 target_compile_features(comdare_perm_runner PRIVATE cxx_std_23)
