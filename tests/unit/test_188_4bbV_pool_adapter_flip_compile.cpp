@@ -1,4 +1,4 @@
-// #188-4b-b-V (PHASE V, 2026-07-01) — COMPILE-VERIFIKATION des 4b-b1b container_-Flips fuer die 9 Weg-B-Pool-Familien.
+// #188-4b-b-V (PHASE V, 2026-07-01) — COMPILE-VERIFIKATION des 4b-b1b container_-Flips fuer die 10 Weg-B-Pool-Familien.
 //
 // **Warum dieser Test (Explore+Codex konvergent 2026-07-01):** Der 4b-b1b-Flip (cache-engine cd25b9b) stellt in
 // `anatomy/abi_adapter.hpp` fuer Pool-Familien-Compositions (search_algo = ROHER Wrapper mit
@@ -15,13 +15,13 @@
 // Fundament, das PHASE V (User-verbindlich, Kontext-Ende SE-17 §10) VOR 4b-c/D compile-belegt haben will.
 //
 // WAS dieser Test belegt: er instanziiert `SearchAlgorithmAbiAdapter<SearchAlgorithmAnatomy<PoolFlipComposition<W>>>`
-// fuer ALLE 9 Pool-Familien-Wrapper W und TREIBT jeden Adapter ueber die vollen vom Flip beruehrten Routing-Pfade
+// fuer ALLE 10 Pool-Familien-Wrapper W und TREIBT jeden Adapter ueber die vollen vom Flip beruehrten Routing-Pfade
 // (insert/lookup/erase/size/clear + tier_observe = fill_observer_v3 + fill_segment_timing_v3). Jeder Aufruf erzwingt
 // die Template-Instanziierung des jeweiligen Adapter-Members fuer die Pool-Composition → grüner literaler COMPILE-Beleg
 // (faengt type_identity-Metaprogramm-/Routing-Fehler, die auf dem nur-Codex-verifizierten Fundament schlummern
 // koennten — z.B. die 2 Mess-Bugs, die diese Session per Codex fielen: seg-T0-Routing + tier_clear-Reset). Der
 // minimale Verhaltens-Smoke (insert→lookup-hit→erase→size→clear) ist RUN-Beleg; die tiefe std::map-Weit-Key-
-// Konformitaet der 9 Organe deckt bereits test_188_4bb0 (organ-direkt) ab — hier geht es um den ADAPTER-Zweig.
+// Konformitaet der 10 Organe deckt bereits test_188_4bb0 (organ-direkt) ab — hier geht es um den ADAPTER-Zweig.
 //
 // Standalone (plain int main, KEIN gtest) — konsistent mit den anderen contract-Stufen (test_conformance_gate).
 // COMDARE_MEASUREMENT_ON=1 ist ZWINGEND: der Adapter vererbt IObservableTier NUR bei Messung-AN (abi_adapter.hpp:977)
@@ -45,7 +45,8 @@
 
 namespace an   = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;
-namespace lk = ::comdare::cache_engine::lookup; // kanonischer Registry-Namespace der 9 Pool-Wrapper (wie test_188_4bb0)
+namespace lk =
+    ::comdare::cache_engine::lookup; // kanonischer Registry-Namespace der 10 Pool-Wrapper (wie test_188_4bb0)
 namespace lkc = ::comdare::cache_engine::lookup::composable; // organ_for_search_algo_t
 
 namespace {
@@ -179,11 +180,12 @@ void verify_pool_adapter_flip(char const* name) {
 } // namespace
 
 int main() {
-    std::printf("== test_188_4bbV_pool_adapter_flip_compile (PHASE V — der container_-Flip fuer 9 Pool-Familien) ==\n");
+    std::printf(
+        "== test_188_4bbV_pool_adapter_flip_compile (PHASE V — der container_-Flip fuer 10 Pool-Familien) ==\n");
 
-    // Alle 9 registrierten Weg-B-Pool-Familien (organ_for_search_algo-gemappt) — exakt die Menge aus test_188_4bb0
+    // Alle 10 registrierten Weg-B-Pool-Familien (organ_for_search_algo-gemappt) — exakt die Menge aus test_188_4bb0
     // + axis_03a_search_algo_registry.hpp. Jede traegt ein ANDERES Organ → jede kann einen anderen type_identity-/
-    // Routing-Compile-Fehler ausloesen → alle 9 durch den Adapter instanziieren.
+    // Routing-Compile-Fehler ausloesen → alle 10 durch den Adapter instanziieren.
     verify_pool_adapter_flip<lk::BinarySearchTreeSearchAlgo>("BST");
     verify_pool_adapter_flip<lk::BTreeSearchAlgo>("BTree");
     verify_pool_adapter_flip<lk::SkipListSearchAlgo>("SkipList");
@@ -193,6 +195,7 @@ int main() {
     verify_pool_adapter_flip<lk::OriginalStartSearchAlgo>("START");
     verify_pool_adapter_flip<lk::OriginalWormholeSearchAlgo>("Wormhole");
     verify_pool_adapter_flip<lk::OriginalSurfSearchAlgo>("SuRF");
+    verify_pool_adapter_flip<lk::SwissTableSearchAlgo>("SwissTable");
 
     std::printf("== test_188_4bbV: %s ==\n", g_fail == 0 ? "ALLE OK" : "FEHLER");
     return g_fail == 0 ? 0 : 1;
