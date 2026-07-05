@@ -62,6 +62,7 @@ void check(char const* what, bool ok) {
 //    Wrapper als T0) → organ_for_search_algo_t<W> != void → pool_family_==true → container_t nimmt den Flip-Zweig
 //    ObservableComposedContainer<organ> an. Analog GridComposition (tier150_axis_grid), nur search_algo variiert. ──
 template <class SearchAlgoWrapper>
+// cppcheck-suppress ctuOneDefinitionRuleViolation // FP: anon. Namespace = interne Bindung je TU
 struct PoolFlipComposition {
     using search_algo                          = SearchAlgoWrapper; // <-- ROHER Pool-Wrapper (der Flip-Ausloeser)
     using cache_traversal                      = comp::ArtComposition::cache_traversal;

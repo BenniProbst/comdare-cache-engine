@@ -43,6 +43,7 @@ static_assert(requires(DefaultOrgan const& organ) { organ.store_allocator_statis
 static_assert(requires(BstHull const& hull) { hull.store_allocator_statistics(); });
 
 template <class SearchAlgoWrapper>
+// cppcheck-suppress ctuOneDefinitionRuleViolation // FP: anon. Namespace = interne Bindung je TU
 struct PoolFlipComposition {
     using search_algo                          = SearchAlgoWrapper;
     using cache_traversal                      = comp::ArtComposition::cache_traversal;
