@@ -188,9 +188,9 @@ int main(int argc, char** argv) {
 
     // ── AP-4/#238: Reihe B/Stufe3 ist per SOTA-Host distinkt; prt_art-als-Host ist degeneriert → nullopt. ──
     std::cout << "\n--- Reihe B / Stufe3_FullJoin: 6 per-Host-binary_ids ---\n";
-    std::vector<std::string> const b_hosts = {"art", "hot", "masstree", "surf", "start", "wormhole"};
+    std::vector<std::string> const         b_hosts = {"art", "hot", "masstree", "surf", "start", "wormhole"};
     std::map<std::string, tlz::SotaModule> b_modules;
-    auto const prt_art_b = tlz::sota_module_for("Stufe3_FullJoin", "prt_art");
+    auto const                             prt_art_b = tlz::sota_module_for("Stufe3_FullJoin", "prt_art");
     std::cout << "       prt_art/Stufe3 = " << (prt_art_b ? prt_art_b->binary_id : std::string{"nullopt"}) << "\n";
     check("Stufe3_FullJoin/prt_art liefert nullopt (degenerierter Host, keine Reihe-A-Duplikation)",
           !prt_art_b.has_value());

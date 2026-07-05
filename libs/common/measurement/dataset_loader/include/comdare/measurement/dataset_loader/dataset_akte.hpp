@@ -43,9 +43,8 @@ inline void fnv1a64_update(std::uint64_t& hash, unsigned char byte) noexcept {
 
 } // namespace dataset_akte_detail
 
-[[nodiscard]] inline DatasetAkte compute_dataset_akte(std::string_view             id,
-                                                      std::filesystem::path const& source_path,
-                                                      std::string_view             preprocessing = "none") {
+[[nodiscard]] inline DatasetAkte compute_dataset_akte(std::string_view id, std::filesystem::path const& source_path,
+                                                      std::string_view preprocessing = "none") {
     std::ifstream in{source_path, std::ios::binary};
     if (!in) { throw std::runtime_error{"cannot open dataset source for akte: " + source_path.string()}; }
 

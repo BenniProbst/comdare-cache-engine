@@ -35,9 +35,7 @@ using StoreBackedAdHocComposition = an::AdHocComposition<
 template <class SearchAlgo>
 using AdapterFor = an::SearchAlgorithmAbiAdapter<an::SearchAlgorithmAnatomy<StoreBackedAdHocComposition<SearchAlgo>>>;
 
-[[nodiscard]] constexpr std::uint64_t value_for(std::uint64_t key) noexcept {
-    return key ^ 0x9E3779B97F4A7C15ull;
-}
+[[nodiscard]] constexpr std::uint64_t value_for(std::uint64_t key) noexcept { return key ^ 0x9E3779B97F4A7C15ull; }
 
 template <class SearchAlgo>
 [[nodiscard]] an::IDriveableTier& drive(AdapterFor<SearchAlgo>& adapter) noexcept {

@@ -14,9 +14,8 @@ class LatencyHdrHistogram {
     hdr_histogram* h_ = nullptr;
 
 public:
-    explicit LatencyHdrHistogram(std::int64_t lowest = 1,
-                                 std::int64_t highest = 3'600'000'000'000LL,
-                                 int          significant_figures = 3) noexcept {
+    explicit LatencyHdrHistogram(std::int64_t lowest = 1, std::int64_t highest = 3'600'000'000'000LL,
+                                 int significant_figures = 3) noexcept {
         if (hdr_init(lowest, highest, significant_figures, &h_) != 0) h_ = nullptr;
     }
 
@@ -62,9 +61,7 @@ public:
 
     [[nodiscard]] std::int64_t count() const noexcept { return h_ != nullptr ? h_->total_count : 0; }
 
-    [[nodiscard]] double mean() const noexcept {
-        return (h_ != nullptr && h_->total_count != 0) ? hdr_mean(h_) : 0.0;
-    }
+    [[nodiscard]] double mean() const noexcept { return (h_ != nullptr && h_->total_count != 0) ? hdr_mean(h_) : 0.0; }
 
     [[nodiscard]] static LatencyHdrHistogram from_samples(std::span<std::int64_t const> ns) noexcept {
         LatencyHdrHistogram hist;

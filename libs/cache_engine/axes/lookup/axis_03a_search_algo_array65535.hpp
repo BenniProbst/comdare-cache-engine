@@ -76,8 +76,8 @@ public:
                       static_cast<std::uint64_t>(kCapacity - 1u),
                   "Array65535SearchAlgo key_type muss jeden deklarierten Static-Slot adressieren koennen");
 
-    [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
-    [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return kCapacity; }
+    [[nodiscard]] static constexpr bool                           is_thread_safe() noexcept { return false; }
+    [[nodiscard]] static constexpr std::size_t                    max_fanout() noexcept { return kCapacity; }
     [[nodiscard]] static constexpr composable::CapacityConstraint container_capacity() noexcept {
         return {0, kCapacity, composable::CapacityKind::Static};
     }

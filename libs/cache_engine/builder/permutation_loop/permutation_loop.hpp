@@ -24,9 +24,8 @@ struct PermutationDescriptor {
 class PermutationLoop {
 public:
     // sample_rate==0/1 => keine Filterung (Defined/Full unveraendert). >=2 => deterministisches 1:sample_rate.
-    [[nodiscard]] std::vector<PermutationDescriptor> enumerate(xml::CacheEngineConfig const& cfg,
-                                                               std::uint32_t sample_rate = 0,
-                                                               std::uint64_t sample_seed = 0) const;
+    [[nodiscard]] std::vector<PermutationDescriptor>
+    enumerate(xml::CacheEngineConfig const& cfg, std::uint32_t sample_rate = 0, std::uint64_t sample_seed = 0) const;
 
     [[nodiscard]] static std::uint64_t compute_fingerprint(std::string_view ce_id, std::string_view sa_id,
                                                            std::string_view alloc_id, std::string_view tds_id) noexcept;

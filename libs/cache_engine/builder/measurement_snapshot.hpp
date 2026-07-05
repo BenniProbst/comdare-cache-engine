@@ -96,12 +96,12 @@ namespace detail {
 [[nodiscard]] inline ComdareMeasurementSnapshotV1
 measurement_from_workload_result(workload_driver::WorkloadRunResult const& r, std::string_view permutation_id) {
     ComdareMeasurementSnapshotV1 m;
-    m.fingerprint   = detail::fnv1a(permutation_id);
-    m.succeeded     = 1;
-    m.op_count      = r.op_count;
-    m.total_cycles  = static_cast<std::uint64_t>(detail::merged_p50_ns(r)); // repräsentative ns
+    m.fingerprint            = detail::fnv1a(permutation_id);
+    m.succeeded              = 1;
+    m.op_count               = r.op_count;
+    m.total_cycles           = static_cast<std::uint64_t>(detail::merged_p50_ns(r)); // repräsentative ns
     m.throughput_ops_per_sec = detail::throughput_ops_per_sec(r.op_count, r.total_ns);
-    m.pmc_available = 0;                                                    // PMC nicht angebunden
+    m.pmc_available          = 0; // PMC nicht angebunden
     // I1: aus dem konsolidierten Observer-POD (search→axis_stats[0], alloc→axis_stats[6]).
     m.bytes_allocated       = r.observer.axis_stats[6][0]; // ECHT aus Observer
     m.bytes_in_use_peak     = r.observer.axis_stats[6][1]; // ECHT aus Observer

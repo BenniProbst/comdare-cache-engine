@@ -79,10 +79,10 @@ using AllStrategies = mp::mp_list<
     // Praezedenzfall) -> opt-in, nicht-disruptiv (EnabledStrategies waechst NICHT durch die Registrierung); distinkte
     // name() k_ary_k2..k16 (binary_id-Trennung). Konkrete Emission der 4 Binaries via dediziertes per-K-Profil+Katalog
     // (Increment 2b) — die bloße Registrierung baut NICHTS (profil-gated), sie macht die per-K nur selektierbar.
-    KArySearchAlgoK2, // S18, k-ary K=2 (Binaersuch-Baseline)
-    KArySearchAlgoK4, // S19, k-ary K=4 (Paper-Default, 5-Wege-Partition)
-    KArySearchAlgoK8, // S20, k-ary K=8
-    KArySearchAlgoK16, // S21, k-ary K=16
+    KArySearchAlgoK2,    // S18, k-ary K=2 (Binaersuch-Baseline)
+    KArySearchAlgoK4,    // S19, k-ary K=4 (Paper-Default, 5-Wege-Partition)
+    KArySearchAlgoK8,    // S20, k-ary K=8
+    KArySearchAlgoK16,   // S21, k-ary K=16
     SwissTableSearchAlgo // S22, Google Swiss Tables (CppCon 2017) -- Control-Byte-Gruppen-Probe, Weg-B
     // Vollausbau-Roadmap (Folge-Batches, Tree-STRUKTUR-Paper-Wrappers):
     // P03 Masstree DEFERRED — masstree.hh hat keine direkten Function-Bodies (alle Templates)
@@ -135,4 +135,3 @@ static_assert(!composable::StoreTraversableSearchAlgo<BinarySearchTreeSearchAlgo
               "A2.4-S1: BST = Pool-Familie (Knoten-Pool) -> Weg-B (G3)");
 
 } // namespace comdare::cache_engine::lookup
-

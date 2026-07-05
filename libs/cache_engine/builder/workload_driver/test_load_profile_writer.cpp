@@ -142,8 +142,8 @@ bool op_mix_matches(wd::LoadProfile const& lp, CatalogExpectation const& e) {
 }
 
 void run_ap11_catalog_checks(fs::path const& lp_dir) {
-    auto const expected_by_file = catalog_by_file();
-    auto const expected_counts  = expected_lp_id_counts();
+    auto const                 expected_by_file = catalog_by_file();
+    auto const                 expected_counts  = expected_lp_id_counts();
     std::map<std::string, int> actual_counts;
     std::set<std::string>      seen_files;
 
@@ -151,14 +151,14 @@ void run_ap11_catalog_checks(fs::path const& lp_dir) {
     check(!discovered.empty(), "discover_load_profiles returns real profiles");
 
     for (auto const& entry : discovered) {
-        auto parsed = wd::parse_load_profile(entry.second);
+        auto              parsed    = wd::parse_load_profile(entry.second);
         std::string const parse_msg = "parse discovered " + entry.second.filename().string();
         check(parsed.has_value(), parse_msg.c_str());
         if (!parsed || parsed->catalog_lp_id.empty()) continue;
 
         std::string const file = entry.second.filename().string();
         seen_files.insert(file);
-        auto const expected = expected_by_file.find(file);
+        auto const        expected       = expected_by_file.find(file);
         std::string const known_file_msg = "catalog-tagged file is expected: " + file;
         check(expected != expected_by_file.end(), known_file_msg.c_str());
         ++actual_counts[parsed->catalog_lp_id];
@@ -174,9 +174,9 @@ void run_ap11_catalog_checks(fs::path const& lp_dir) {
 
     check(seen_files.size() == expected_by_file.size(), "exactly 14 real catalog files carry lp_id");
     for (auto const& [file, expected] : expected_by_file) {
-        fs::path const xml = lp_dir / file;
-        auto parsed = wd::parse_load_profile(xml);
-        std::string const msg = "explicit catalog file present+tagged " + file;
+        fs::path const    xml    = lp_dir / file;
+        auto              parsed = wd::parse_load_profile(xml);
+        std::string const msg    = "explicit catalog file present+tagged " + file;
         check(parsed.has_value() && parsed->catalog_lp_id == expected.lp_id, msg.c_str());
     }
 

@@ -59,11 +59,10 @@ inline void append_enabled_allocator(std::string& out, std::string_view name, bo
 isa_ran_on_manifest_value(::comdare::cache_engine::platform_probe::CpuidProbeResults const& cpu) {
     std::ostringstream os;
     os << "vendor=" << cpu.vendor << ";brand=" << cpu.brand_string << ";sse2=" << bool01(cpu.has_sse2)
-       << ";sse42=" << bool01(cpu.has_sse42) << ";avx=" << bool01(cpu.has_avx)
-       << ";avx2=" << bool01(cpu.has_avx2) << ";avx512f=" << bool01(cpu.has_avx512f)
-       << ";avx512bw=" << bool01(cpu.has_avx512bw) << ";avx512vl=" << bool01(cpu.has_avx512vl)
-       << ";bmi1=" << bool01(cpu.has_bmi1) << ";bmi2=" << bool01(cpu.has_bmi2)
-       << ";neon=" << bool01(cpu.has_neon) << ";sve=" << bool01(cpu.has_sve)
+       << ";sse42=" << bool01(cpu.has_sse42) << ";avx=" << bool01(cpu.has_avx) << ";avx2=" << bool01(cpu.has_avx2)
+       << ";avx512f=" << bool01(cpu.has_avx512f) << ";avx512bw=" << bool01(cpu.has_avx512bw)
+       << ";avx512vl=" << bool01(cpu.has_avx512vl) << ";bmi1=" << bool01(cpu.has_bmi1)
+       << ";bmi2=" << bool01(cpu.has_bmi2) << ";neon=" << bool01(cpu.has_neon) << ";sve=" << bool01(cpu.has_sve)
        << ";sve2=" << bool01(cpu.has_sve2) << ";family=" << cpu.cpu_family << ";model=" << cpu.cpu_model
        << ";stepping=" << cpu.cpu_stepping << ";cache_line_bytes=" << cpu.cache_line_bytes;
     return os.str();

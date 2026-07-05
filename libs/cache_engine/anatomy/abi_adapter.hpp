@@ -746,8 +746,7 @@ public:
     // ─────────────────────────────────────────────────────────────────────
 
     [[nodiscard]] bool tier_insert(std::uint64_t key, std::uint64_t value) noexcept override {
-        constexpr auto cap =
-            ::comdare::cache_engine::lookup::composable::capacity_constraint_of<SearchAlgo>();
+        constexpr auto cap = ::comdare::cache_engine::lookup::composable::capacity_constraint_of<SearchAlgo>();
         if constexpr (cap.kind == ::comdare::cache_engine::lookup::composable::CapacityKind::Static &&
                       cap.max_size != 0) {
             if (key >= cap.max_size) return false; // #217-2a: ehrliche Kapazitaets-Ablehnung (kein stiller Slot-Wrap)

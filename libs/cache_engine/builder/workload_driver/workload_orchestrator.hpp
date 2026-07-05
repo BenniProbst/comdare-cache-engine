@@ -42,7 +42,7 @@ namespace ac = ::comdare::cache_engine::builder::anatomy_commands;
 struct WorkloadRunResult {
     std::string                     profile_name{};
     std::uint64_t                   op_count  = 0;
-    std::int64_t                    total_ns  = 0; ///< Summe der echt gemessenen Op-Wall-Clock-ns
+    std::int64_t                    total_ns  = 0;     ///< Summe der echt gemessenen Op-Wall-Clock-ns
     bool                            two_phase = false; ///< true = Rollback aktiv (sonst Kalt-Messung)
     std::vector<std::int64_t>       insert_ns{};
     std::vector<std::int64_t>       lookup_ns{};
@@ -242,20 +242,20 @@ run_measurement_plan(an::IObservableTier& tier, an::IRollbackableTier* rollback,
         auto const& o = r.observer;
         os << r.profile_name << ',' << r.op_count << ',' << (r.two_phase ? 1 : 0) << ',' << r.insert_ns.size() << ','
            << ac::detail::nearest_rank_p(r.insert_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.insert_ns, 0.95)
-           << ',' << ac::detail::nearest_rank_p(r.insert_ns, 0.99)
-           << ',' << r.lookup_ns.size() << ',' << ac::detail::nearest_rank_p(r.lookup_ns, 0.5) << ','
-           << ac::detail::nearest_rank_p(r.lookup_ns, 0.95) << ',' << ac::detail::nearest_rank_p(r.lookup_ns, 0.99)
-           << ',' << r.erase_ns.size() << ',' << ac::detail::nearest_rank_p(r.erase_ns, 0.5) << ','
-           << ac::detail::nearest_rank_p(r.erase_ns, 0.95) << ',' << ac::detail::nearest_rank_p(r.erase_ns, 0.99) << ','
-           << r.clear_ns.size() << ',' << ac::detail::nearest_rank_p(r.clear_ns, 0.5) << ','
-           << ac::detail::nearest_rank_p(r.clear_ns, 0.95) << ',' << ac::detail::nearest_rank_p(r.clear_ns, 0.99)
-           << ',' << r.scan_ns.size() << ',' << ac::detail::nearest_rank_p(r.scan_ns, 0.5) << ','
-           << ac::detail::nearest_rank_p(r.scan_ns, 0.95) << ',' << ac::detail::nearest_rank_p(r.scan_ns, 0.99) << ','
-           << r.rmw_ns.size() << ',' << ac::detail::nearest_rank_p(r.rmw_ns, 0.5) << ','
-           << ac::detail::nearest_rank_p(r.rmw_ns, 0.95) << ',' << ac::detail::nearest_rank_p(r.rmw_ns, 0.99) << ','
-           << o.axis_stats[0][3] << ',' << o.axis_stats[0][0] << ',' << o.axis_stats[0][1] << ','
-           << o.axis_stats[0][2] << ',' << o.axis_stats[0][4] << ',' << o.axis_stats[0][5] << ','
-           << o.axis_stats[6][1] << ',' << o.axis_stats[6][2] << ',' << o.observable_axis_count << '\n';
+           << ',' << ac::detail::nearest_rank_p(r.insert_ns, 0.99) << ',' << r.lookup_ns.size() << ','
+           << ac::detail::nearest_rank_p(r.lookup_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.lookup_ns, 0.95)
+           << ',' << ac::detail::nearest_rank_p(r.lookup_ns, 0.99) << ',' << r.erase_ns.size() << ','
+           << ac::detail::nearest_rank_p(r.erase_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.erase_ns, 0.95) << ','
+           << ac::detail::nearest_rank_p(r.erase_ns, 0.99) << ',' << r.clear_ns.size() << ','
+           << ac::detail::nearest_rank_p(r.clear_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.clear_ns, 0.95) << ','
+           << ac::detail::nearest_rank_p(r.clear_ns, 0.99) << ',' << r.scan_ns.size() << ','
+           << ac::detail::nearest_rank_p(r.scan_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.scan_ns, 0.95) << ','
+           << ac::detail::nearest_rank_p(r.scan_ns, 0.99) << ',' << r.rmw_ns.size() << ','
+           << ac::detail::nearest_rank_p(r.rmw_ns, 0.5) << ',' << ac::detail::nearest_rank_p(r.rmw_ns, 0.95) << ','
+           << ac::detail::nearest_rank_p(r.rmw_ns, 0.99) << ',' << o.axis_stats[0][3] << ',' << o.axis_stats[0][0]
+           << ',' << o.axis_stats[0][1] << ',' << o.axis_stats[0][2] << ',' << o.axis_stats[0][4] << ','
+           << o.axis_stats[0][5] << ',' << o.axis_stats[6][1] << ',' << o.axis_stats[6][2] << ','
+           << o.observable_axis_count << '\n';
     }
     return os.str();
 }

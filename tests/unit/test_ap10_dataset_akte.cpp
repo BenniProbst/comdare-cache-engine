@@ -38,7 +38,7 @@ namespace {
 [[nodiscard]] std::string first_line(std::string const& s) { return s.substr(0, s.find('\n')); }
 
 [[nodiscard]] std::filesystem::path write_temp_file(std::string_view name, std::string const& content) {
-    auto const path = std::filesystem::temp_directory_path() / std::string{name};
+    auto const    path = std::filesystem::temp_directory_path() / std::string{name};
     std::ofstream out{path, std::ios::binary | std::ios::trunc};
     EXPECT_TRUE(static_cast<bool>(out));
     out << content;
@@ -99,8 +99,8 @@ TEST(AP10DatasetAkte, StringCorpusLoaderMapsDeterministicallyToUint64ReadOps) {
 }
 
 TEST(AP10DatasetAkte, ComputesStableAkteAndSerializesKeys) {
-    auto const corpus_path = write_temp_file("comdare_ap10_dataset_akte_corpus.txt",
-                                             "alpha\nbeta\ngamma\nalpha\ndelta\n");
+    auto const corpus_path =
+        write_temp_file("comdare_ap10_dataset_akte_corpus.txt", "alpha\nbeta\ngamma\nalpha\ndelta\n");
 
     auto const first  = dl::compute_dataset_akte("ap10_temp_corpus", corpus_path, "test:raw-lines");
     auto const second = dl::compute_dataset_akte("ap10_temp_corpus", corpus_path, "test:raw-lines");
@@ -137,8 +137,8 @@ TEST(AP10DatasetAkte, NeutralityGuardsStayIntact) {
     EXPECT_EQ(anatomy::kTierObserverSnapshotVersionUnified, 5u);
 
     std::vector<b::ComdareMeasurementSnapshotV1> rows(1);
-    std::vector<std::string> ids{"neutrality_guard"};
-    std::vector<std::string> workloads{"ap9"};
+    std::vector<std::string>                     ids{"neutrality_guard"};
+    std::vector<std::string>                     workloads{"ap9"};
 
     auto const full_csv = b::serialize_measurements_csv(rows, ids, workloads);
     EXPECT_EQ(count_cols(first_line(full_csv)), 25u);

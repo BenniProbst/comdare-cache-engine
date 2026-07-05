@@ -29,9 +29,8 @@ namespace {
 [[nodiscard]] bool is_sha_or_unknown(std::string_view value) {
     if (value == "unknown") { return true; }
     if (value.size() != 40u) { return false; }
-    return std::all_of(value.begin(), value.end(), [](char c) {
-        return std::isxdigit(static_cast<unsigned char>(c)) != 0;
-    });
+    return std::all_of(value.begin(), value.end(),
+                       [](char c) { return std::isxdigit(static_cast<unsigned char>(c)) != 0; });
 }
 
 [[nodiscard]] std::size_t count_cols(std::string const& csv_first_line) {
@@ -74,8 +73,8 @@ TEST(AP9ProvenanceManifest, NeutralityGuardsStayIntact) {
     EXPECT_EQ(anatomy::kTierObserverSnapshotVersionUnified, 5u);
 
     std::vector<b::ComdareMeasurementSnapshotV1> rows(1);
-    std::vector<std::string> ids{"neutrality_guard"};
-    std::vector<std::string> workloads{"ap9"};
+    std::vector<std::string>                     ids{"neutrality_guard"};
+    std::vector<std::string>                     workloads{"ap9"};
 
     auto const full_csv = b::serialize_measurements_csv(rows, ids, workloads);
     EXPECT_EQ(count_cols(first_line(full_csv)), 25u);

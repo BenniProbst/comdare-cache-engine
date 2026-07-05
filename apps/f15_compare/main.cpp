@@ -141,12 +141,12 @@ int main(int argc, char** argv) {
     }
     std::filesystem::path const dll_dir{dll_dir_str};
 
-    double        alpha    = 0.05;
-    std::uint64_t baseline = 0, ops = 2000, batches = 128, seed = 11;
-    std::string   csv_path, json_path, observe_out, pipeline_csv;
-    std::string   workload_label = "micro";
-    std::string   measurement_plan; // V5-I10: --measurement-plan=A,B,C,D (host-seitige Lastprofile je Binary)
-    bool          observe = false;
+    double                  alpha    = 0.05;
+    std::uint64_t           baseline = 0, ops = 2000, batches = 128, seed = 11;
+    std::string             csv_path, json_path, observe_out, pipeline_csv;
+    std::string             workload_label = "micro";
+    std::string             measurement_plan; // V5-I10: --measurement-plan=A,B,C,D (host-seitige Lastprofile je Binary)
+    bool                    observe = false;
     std::optional<unsigned> pin_core; // AP-13/#247: opt-in Mess-Thread-Pinning (--pin-core=N); leer => kein Pinning
     for (int i = first_opt; i < argc; ++i) {
         std::string_view a{argv[i]};
@@ -185,7 +185,6 @@ int main(int argc, char** argv) {
     }
     if (batches == 0) batches = 1;
 
-
     std::vector<loader::AnatomyModuleHandle> handles;
     int const                                st = loader::AnatomyModuleLoader::load_all(dll_dir, handles);
     if (st != loader::status_ok) {
@@ -193,11 +192,8 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    auto measurement_pin =
-        pin_core.has_value() ? bld::CorePinPolicy{*pin_core}.pin() : bld::NoPinPolicy{}.pin();
-    if (measurement_pin.active()) {
-        std::cout << "AP-13 Mess-Thread auf Core " << *pin_core << " gepinnt.\n";
-    }
+    auto measurement_pin = pin_core.has_value() ? bld::CorePinPolicy{*pin_core}.pin() : bld::NoPinPolicy{}.pin();
+    if (measurement_pin.active()) { std::cout << "AP-13 Mess-Thread auf Core " << *pin_core << " gepinnt.\n"; }
 
     // ── OpenDone.2 / Pfad B — Prüf-Dock-Observe-Modus (Option B: Standalone-CLI mit measure_genus_sequential).
     // Wireht den (in test_v41_anatomy_adhoc_dll_load bewiesenen) Prüf-Dock-Mess-Pfad als CLI: jede REAL

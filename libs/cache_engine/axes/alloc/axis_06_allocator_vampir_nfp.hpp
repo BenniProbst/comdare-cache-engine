@@ -62,8 +62,8 @@ public:
         std::size_t      capacity;
     };
 
-    [[nodiscard]] static constexpr bool is_thread_safe() noexcept { return true; }
-    [[nodiscard]] static constexpr bool supports_pmr() noexcept { return true; }
+    [[nodiscard]] static constexpr bool        is_thread_safe() noexcept { return true; }
+    [[nodiscard]] static constexpr bool        supports_pmr() noexcept { return true; }
     [[nodiscard]] static constexpr std::size_t max_alignment() noexcept { return alignof(std::max_align_t); }
 
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "vampir_nfp"; }
@@ -72,10 +72,10 @@ public:
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "VAMPIR_NFP"; }
 
-    [[nodiscard]] static constexpr bool has_native_aligned_alloc() noexcept { return true; }
-    [[nodiscard]] static constexpr bool requires_explicit_init() noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_numa_node_hint() noexcept { return false; }
-    [[nodiscard]] static constexpr bool supports_thread_local_cache() noexcept { return false; }
+    [[nodiscard]] static constexpr bool                        has_native_aligned_alloc() noexcept { return true; }
+    [[nodiscard]] static constexpr bool                        requires_explicit_init() noexcept { return false; }
+    [[nodiscard]] static constexpr bool                        supports_numa_node_hint() noexcept { return false; }
+    [[nodiscard]] static constexpr bool                        supports_thread_local_cache() noexcept { return false; }
     [[nodiscard]] static constexpr concepts::ProgressGuarantee progress_guarantee() noexcept {
         return concepts::ProgressGuarantee::Blocking;
     }

@@ -21,7 +21,7 @@
 #include "../../anatomy/observable_tier.hpp" // IObservableTier + ComdareTierObserverSnapshot (I1: EINE Schnittstelle/EIN POD)
 #include "../../anatomy/measurable_workload.hpp" // Pfad A: IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
 #include "../../anatomy/rollbackable_tier.hpp" // Achse 2 (INC-1): IRollbackableTier (Zwei-Phasen-Cache-Warmup, PFLICHT für Gültigkeit)
-#include "../../anatomy/scannable_tier.hpp"             // Achse 2 (INC-1): IScannableTier (YCSB-E Range-Scan)
+#include "../../anatomy/scannable_tier.hpp" // Achse 2 (INC-1): IScannableTier (YCSB-E Range-Scan)
 // Achse 2 (INC-1): run_workload_profile-Op-Skript-Runner (generischer CS-Interpreter über den flachen Op-Vektor — KEIN GoF-Interpreter mit Grammatik/AST) + WorkloadGenerator.
 #include "../workload_driver/workload_orchestrator.hpp" // Achse 2 (INC-1): run_workload_profile-Interpreter + WorkloadGenerator
 #include "../workload_driver/workload_profiles.hpp"   // Achse 2 (INC-1): Single-Source profile_by_name (Fallback)

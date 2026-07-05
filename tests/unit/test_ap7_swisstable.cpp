@@ -53,9 +53,9 @@ TEST(ComdareAP7SwissTable, ConformsToStdMapHarness) {
 }
 
 TEST(ComdareAP7SwissTable, ScalarGroupProbeH2TombstoneClearAndRefill) {
-    SwissTableSearchAlgo                         table;
-    std::map<std::uint16_t, std::uint64_t>       oracle;
-    std::vector<std::uint16_t> const             touched = h2_collision_keys();
+    SwissTableSearchAlgo                   table;
+    std::map<std::uint16_t, std::uint64_t> oracle;
+    std::vector<std::uint16_t> const       touched = h2_collision_keys();
 
     for (std::size_t i = 0; i < touched.size(); ++i) {
         std::uint16_t const k = touched[i];

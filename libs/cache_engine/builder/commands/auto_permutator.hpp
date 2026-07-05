@@ -93,7 +93,7 @@ private:
     }
 
     [[nodiscard]] static bool supports_host_variant(platform::PlatformPropertySet const& props,
-                                                    AxisVariant const&                  variant) {
+                                                    AxisVariant const&                   variant) {
         const std::string_view name{variant.variant_name};
 
         if (name == "AVX512" || name == "AVX512F" || name == "x86-64-v4") {

@@ -24,8 +24,7 @@ static_assert(VampirNfpAllocator::get_compiler() == "original");
 
 TEST(ComdareVampirNfpAllocator, StaticMetadataIsNeutralAndFaithful) {
     EXPECT_EQ(VampirNfpAllocator::name(), std::string_view{"vampir_nfp"});
-    EXPECT_EQ(VampirNfpAllocator::family_name(),
-              std::string_view{"VAMPIR NFP memory-type virtualization allocator"});
+    EXPECT_EQ(VampirNfpAllocator::family_name(), std::string_view{"VAMPIR NFP memory-type virtualization allocator"});
     EXPECT_TRUE(VampirNfpAllocator::is_thread_safe());
     EXPECT_TRUE(VampirNfpAllocator::supports_pmr());
     EXPECT_FALSE(VampirNfpAllocator::requires_explicit_init());
