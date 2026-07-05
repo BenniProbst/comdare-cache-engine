@@ -1,5 +1,10 @@
 # measurement/hdr_histogram_wrapper — Sub-Komponente
 
+# CI-Fix (Pipeline 7917): das Root-project() ist CXX-only; die vendored C-Quelle braucht die C-Toolchain
+# explizit, sonst bricht der Ninja-/Makefiles-Generator im Configure (CMAKE_C_COMPILE_OBJECT not set —
+# 12 Jobs rot am selben Fehler). Der VS-Generator verzieh das lokal. Lokal begrenzt: nur diese Zelle baut C.
+enable_language(C)
+
 add_library(comdare_hdr_histogram_wrapper STATIC vendor/hdr_histogram.c)
 target_include_directories(comdare_hdr_histogram_wrapper
     PUBLIC  ${CMAKE_CURRENT_SOURCE_DIR}
