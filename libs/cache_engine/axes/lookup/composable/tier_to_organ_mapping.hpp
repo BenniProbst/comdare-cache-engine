@@ -20,8 +20,9 @@
 
 #include "composable_search.hpp" // LinearScan/SortedBinary + RawSlotStore + ComposedSearch
 #include "interpolation_traversal_organ.hpp"
-#include "composed_tree_search.hpp"      // BSTTraversalOrgan + TreeNodePoolStore + ComposedTreeSearch
-#include "composed_hash_search.hpp"      // HashProbeTraversalOrgan + HashBucketPoolStore + ComposedHashSearch (#41)
+#include "composed_tree_search.hpp"  // BSTTraversalOrgan + TreeNodePoolStore + ComposedTreeSearch
+#include "composed_hash_search.hpp"  // HashProbeTraversalOrgan + HashBucketPoolStore + ComposedHashSearch (#41)
+#include "composed_swiss_search.hpp" // SwissGroupProbeTraversalOrgan + SwissGroupPoolStore + ComposedSwissSearch (AP-7b)
 #include "composed_skip_list_search.hpp" // SkipListTraversalOrgan + SkipListNodePoolStore + ComposedSkipListSearch (#41)
 #include "composed_btree_search.hpp"     // BTreeTraversalOrgan + BTreeNodePoolStore + ComposedBTreeSearch (#41)
 #include "composed_eytzinger_search.hpp" // EytzingerTraversalOrgan + EytzingerLayoutStore + ComposedEytzingerSearch (#188-4a)
@@ -47,6 +48,7 @@ using BstTreeOrgan       = ComposedTreeSearch<BSTTraversalOrgan, TreeNodePoolSto
 template <class Shape>
 using HashSearchOrganShaped = ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore<Shape>>;
 using HashSearchOrgan       = ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore<>>; // HashSearchAlgo S14
+using SwissTableOrgan       = ComposedSwissSearch<SwissGroupProbeTraversalOrgan, SwissGroupPoolStore<>>; // S22
 template <class Shape>
 using SkipListOrganShaped = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore<Shape>>;
 using SkipListOrgan = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore<>>; // SkipListSearchAlgo S13
