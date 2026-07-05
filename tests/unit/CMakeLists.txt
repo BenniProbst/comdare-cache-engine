@@ -462,6 +462,19 @@ target_include_directories(test_ap7_swisstable PRIVATE
     "${CMAKE_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_ap7_swisstable PRIVATE Boost::mp11)
+# AP-7b/#262 -- S22 SwissTableOrgan: native Weg-B Organ + DEG-1 harvest.
+comdare_add_test(test_ap7b_swiss_organ
+    SOURCES test_ap7b_swiss_organ.cpp)
+target_include_directories(test_ap7b_swiss_organ PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_ap7b_swiss_organ PRIVATE
+    Boost::mp11
+    comdare::workload_driver)
 # AP-8/#242 -- HdrHistogram_c wrapper + p95 host serializer coverage.
 comdare_add_test(test_ap8_hdr_histogram
     SOURCES test_ap8_hdr_histogram.cpp)
@@ -1996,3 +2009,5 @@ set_tests_properties(test_load_profile_writer PROPERTIES
 
 message(STATUS "tools-tests: test_cacheline_policy_selector (#174) + test_load_profile_writer (#175) "
     "als add_test registriert (best_binary_selector-Tool = tools/best_binary_selector add_executable).")
+
+
