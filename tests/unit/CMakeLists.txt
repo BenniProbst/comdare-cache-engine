@@ -1584,6 +1584,22 @@ target_compile_definitions(test_s7_1_bst_pool_allocator_deg PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_s7_1_bst_pool_allocator_deg PROPERTIES LABELS "contract;pool_flip;allocator")
 
+# S7-2 (#261/#234) -- BTree-Pool: allocator-param default + T6 allocator DEG hook.
+comdare_add_test(test_s7_2_btree_pool_allocator_deg
+    SOURCES test_s7_2_btree_pool_allocator_deg.cpp)
+target_include_directories(test_s7_2_btree_pool_allocator_deg PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_s7_2_btree_pool_allocator_deg PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_s7_2_btree_pool_allocator_deg PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_s7_2_btree_pool_allocator_deg PROPERTIES LABELS "contract;pool_flip;allocator")
+
 # #234-F1 (W2, 2026-07-02) — BtreeOrder-Shape-Varianten real: Kt2/3/8/16-Organe paargenau vs std::map + Struktur-
 # Wirkungsanker (Kt2-vs-Kt16-Knotenzahl bei gleicher 200-Key-Sequenz) + Level-0-Alias-Anker. Test-only-Increment
 # (das BTree-Traversal-Organ liest Pool::kT/kMaxKeys bereits ueberall). GTest im Haupt-Suite — zieht die
@@ -2009,5 +2025,4 @@ set_tests_properties(test_load_profile_writer PROPERTIES
 
 message(STATUS "tools-tests: test_cacheline_policy_selector (#174) + test_load_profile_writer (#175) "
     "als add_test registriert (best_binary_selector-Tool = tools/best_binary_selector add_executable).")
-
 
