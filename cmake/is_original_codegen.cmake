@@ -192,5 +192,11 @@ function(comdare_register_paper_wrapper)
         )
         add_custom_target(comdare_paper_${ARG_PAPER_ID}_codegen ALL
             DEPENDS "${ARG_OUTPUT_HEADER}")
+        # Aggregations-Umbrella fuer isolierte --target-Builds (Fehlerklasse 14eed391):
+        # jeder neue Paper-Wrapper haengt sich automatisch an, die manuelle 12-Namen-Liste entfaellt.
+        if(NOT TARGET comdare_paper_codegen_all)
+            add_custom_target(comdare_paper_codegen_all)
+        endif()
+        add_dependencies(comdare_paper_codegen_all comdare_paper_${ARG_PAPER_ID}_codegen)
     endif()
 endfunction()
