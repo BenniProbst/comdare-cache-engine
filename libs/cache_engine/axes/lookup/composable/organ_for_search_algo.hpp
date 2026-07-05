@@ -7,7 +7,7 @@
 // aber organ-backed Such-Algo liefert dieses Mapping das NATIVE `Composed*Search<...>`-Organ, mit dem
 // `abi_adapter.hpp` das `container_t` parametrisiert: `ObservableComposedContainer<organ_for_search_algo_t<...>>`
 // statt flachem SortedBinary-Spiegel ueber `LayoutAwareChunkedStore`. Gruppe (2) besteht seit #188-4a aus den
-// 9 Pool-Familien plus der Eytzinger-Layout-Familie: EytzingerLayoutStore haelt sortierten Primaerzustand und
+// 10 Pool-Familien plus der Eytzinger-Layout-Familie: EytzingerLayoutStore haelt sortierten Primaerzustand und
 // abgeleiteten BFS-Puffer in EINEM Store (Option b, lazy rebuild).
 //
 // **TREUE (yield = ROHES Organ):** wie `traversal_for_search_algo` das rohe Traversal liefert, liefert dieses
@@ -17,7 +17,7 @@
 // disjunkt zum Store-Traversal-Trait:
 // (1) store-traversierbare Flach-Wrapper/Such-METHODEN (Array256/Array65535/VectorU8U8/VectorU16U16 seit #188-4c-ii,
 // LinearScan/Interpolation/k-ary/per-K) mit faithful-Traversal via `traversal_for_search_algo`;
-// (2) 9 Pool-Familien + Eytzinger-Layout-Familie mit nativem Organ HIER;
+// (2) 10 Pool-Familien + Eytzinger-Layout-Familie mit nativem Organ HIER;
 // (3) deferred/unregistrierte Typen = primaer `void` in diesem Trait, ggf. auch im Traversal-Trait. Belastbar
 // (self-proving, s. unten): die zwei Sibling-Traits sind DISJUNKT.
 //
@@ -32,9 +32,9 @@
 
 namespace comdare::cache_engine::lookup {
 
-// Vorwärts-Deklaration der 9 registrierten Weg-B-Pool-Familien-Wrapper (vermeidet Voll-Include der Wrapper-Header
+// Vorwärts-Deklaration der 10 registrierten Weg-B-Pool-Familien-Wrapper (vermeidet Voll-Include der Wrapper-Header
 // -> keine Zirkularität; identisch zum Muster in `traversal_for_search_algo.hpp`). Namen 1:1 aus AllStrategies:
-// 5 OriginalXxx (Trie/Hybrid, S04-S08) + 4 CE-native (S13/S14/S16/S17). Masstree = DEFERRED (kein Wrapper in
+// 5 OriginalXxx (Trie/Hybrid, S04-S08) + 5 CE-native (S13/S14/S16/S17/S22). Masstree = DEFERRED (kein Wrapper in
 // AllStrategies -> keine Spezialisierung; Organ-Alias existiert, wird bei Registrierung ergänzt).
 class OriginalArtSearchAlgo;      // S04 ART (Leis ICDE 2013)
 class OriginalHotSearchAlgo;      // S05 HOT (Binna PVLDB 2018)
@@ -43,6 +43,7 @@ class OriginalWormholeSearchAlgo; // S07 Wormhole (Wu/Ni/Jiang ATC 2019)
 class OriginalSurfSearchAlgo;     // S08 SuRF (Zhang/Lim/Andersen SIGMOD 2018) — Map-Schale
 class SkipListSearchAlgo;         // S13 Skip-Liste (Pugh CACM 1990)
 class HashSearchAlgo;             // S14 open-addressing Hash (Knuth TAOCP 3)
+class SwissTableSearchAlgo;       // S22 SwissTable (scalar control-byte group probe)
 class BinarySearchTreeSearchAlgo; // S16 unbalancierter BST (Hibbard/Knuth)
 class BTreeSearchAlgo;            // S17 B-Baum (Bayer/McCreight 1972, t=4)
 class EytzingerSearchAlgo;        // S12 Eytzinger (Khuong/Morin JEA 2017)
@@ -63,7 +64,7 @@ struct organ_for_search_algo {
     using type = void;
 };
 
-// --- Die 9 registrierten Weg-B-Pool-Familien -> ihr treues Composed*Search<Traversal,*NodePoolStore>-Organ.
+// --- Die 10 registrierten Weg-B-Pool-Familien -> ihr treues Composed*Search<Traversal,*NodePoolStore>-Organ.
 // (yield = ROHES Organ; 4b-b wrappt mit ObservableComposedContainer, s. tier_to_organ_mapping.hpp:86-97.)
 template <>
 struct organ_for_search_algo<::comdare::cache_engine::lookup::OriginalArtSearchAlgo> {
@@ -94,6 +95,10 @@ struct organ_for_search_algo<::comdare::cache_engine::lookup::HashSearchAlgo> {
     using type = HashSearchOrgan;
 };
 template <>
+struct organ_for_search_algo<::comdare::cache_engine::lookup::SwissTableSearchAlgo> {
+    using type = SwissTableOrgan;
+};
+template <>
 struct organ_for_search_algo<::comdare::cache_engine::lookup::BinarySearchTreeSearchAlgo> {
     using type = BstTreeOrgan;
 };
@@ -101,7 +106,7 @@ template <>
 struct organ_for_search_algo<::comdare::cache_engine::lookup::BTreeSearchAlgo> {
     using type = BTreeSearchOrgan;
 };
-// #188-4a: Eytzinger ist die 10. organ_for-Familie. Kein Pool: EytzingerLayoutStore = sortierte Basis +
+// #188-4a/AP-7b: Eytzinger ist die Layout-organ_for-Familie. Kein Pool: EytzingerLayoutStore = sortierte Basis +
 // abgeleiteter BFS-Puffer in EINEM Store (Option b, lazy rebuild). traversal_for bleibt bewusst void.
 template <>
 struct organ_for_search_algo<::comdare::cache_engine::lookup::EytzingerSearchAlgo> {
@@ -111,7 +116,7 @@ struct organ_for_search_algo<::comdare::cache_engine::lookup::EytzingerSearchAlg
 template <class S>
 using organ_for_search_algo_t = typename organ_for_search_algo<S>::type;
 
-// --- Verifikation (kein Raten): die 9 Pool-Familien mappen je auf ihr treues natives Organ.
+// --- Verifikation (kein Raten): die 10 Pool-Familien mappen je auf ihr treues natives Organ.
 static_assert(
     std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::OriginalArtSearchAlgo>, ArtTrieOrgan>,
     "#188-4b-a: ART -> ArtTrieOrgan");
@@ -132,6 +137,9 @@ static_assert(
     "#188-4b-a: SkipList -> SkipListOrgan");
 static_assert(std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::HashSearchAlgo>, HashSearchOrgan>,
               "#188-4b-a: Hash -> HashSearchOrgan");
+static_assert(
+    std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::SwissTableSearchAlgo>, SwissTableOrgan>,
+    "AP-7b: SwissTable -> SwissTableOrgan");
 static_assert(
     std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::BinarySearchTreeSearchAlgo>, BstTreeOrgan>,
     "#188-4b-a: BST -> BstTreeOrgan");
@@ -175,6 +183,10 @@ static_assert(!std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::l
               "#188-4a 3-Wege-Split: Eytzinger = organ-backed Layout-Familie -> HAT natives Organ");
 static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::EytzingerSearchAlgo>, void>,
               "#188-4a 3-Wege-Split: Eytzinger -> KEIN faithful FLAT-Store-Traversal");
+static_assert(!std::is_same_v<organ_for_search_algo_t<::comdare::cache_engine::lookup::SwissTableSearchAlgo>, void>,
+              "AP-7b 3-Wege-Split: SwissTable = organ-backed Pool-Familie -> HAT natives Organ");
+static_assert(std::is_same_v<traversal_for_search_algo_t<::comdare::cache_engine::lookup::SwissTableSearchAlgo>, void>,
+              "AP-7b 3-Wege-Split: SwissTable -> KEIN faithful FLAT-Store-Traversal");
 
 } // namespace composable
 } // namespace comdare::cache_engine::lookup

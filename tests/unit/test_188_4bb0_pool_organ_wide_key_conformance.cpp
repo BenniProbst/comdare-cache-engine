@@ -1,4 +1,4 @@
-// #188-4b-b0 (2026-07-01) — Verhaltens-Konformität der 9 Weg-B-Pool-Organe gegen std::map<uint64,uint64>
+// #188-4b-b0 (2026-07-01) — Verhaltens-Konformität der 10 Weg-B-Pool-Organe gegen std::map<uint64,uint64>
 // über einen WEITEN Schlüsselraum (inkl. Keys >= 2^16). GTest im Haupt-Suite (voller Organ-Include-Stack:
 // libs/cache_engine + include + src + generated; die Organe ziehen path_compression-Flags + measurement-Concepts).
 //
@@ -9,12 +9,12 @@
 //   1. Der Produktions-Konformitäts-Gate (`builder/pruef_dock/conformance_gate.hpp`) ist TRUNCATION-BLIND —
 //      er testet nur Keys < 2^16 (rng()%256, 7/999/42). Er würde weder die u8/u16-Truncation der heutigen
 //      Monolith-Wrapper (search_organ_) noch deren Fix durch das u64-Organ je auslösen.
-//   2. Die 9 Pool-Organe (BstTreeOrgan, HashSearchOrgan, …) werden von KEINER Reference-Composition benutzt
+//   2. Die 10 Pool-Organe (BstTreeOrgan, HashSearchOrgan, …) werden von KEINER Reference-Composition benutzt
 //      und sind daher VERHALTENS-mäßig nie gegen std::map gate-getestet (nur Typ-static_asserts in
 //      organ_for_search_algo.hpp). Der Swap darf ein bislang grünes (weil truncation-blindes) Binary NICHT
 //      auf ein ungetestetes Organ umlenken.
 //
-// Dieser Test belegt für JEDES der 9 Organe (genau in der Form `ObservableComposedContainer<Organ>`, die
+// Dieser Test belegt für JEDES der 10 Organe (genau in der Form `ObservableComposedContainer<Organ>`, die
 // `container_` in 4b-b1 annimmt): (a) key_type == uint64 (kein Truncation-Typ, K9-d-Fix, static_assert),
 // (b) insert/lookup/erase/update/occupied_count/clear-Semantik bit-identisch zu std::map über Keys 0 …
 // UINT64_MAX, (c) explizite Truncation-Probe: Keys 0 und 65536 (die ein u16-Substrat aliasen würde) distinkt.
@@ -159,13 +159,14 @@ void verify_pool_organ_wide_key_conformance(char const* name) {
     EXPECT_EQ(c.occupied_count(), 0u) << name << ": occupied_count nach clear";
     expect_for_each_matches("nach clear");
     EXPECT_FALSE(c.lookup(65536u).has_value()) << name << ": nach clear kein Treffer";
+    std::cout << "  [OK] " << name << " wide-key organ conformance\n";
 }
 
 } // namespace
 
-// Alle 9 registrierten Weg-B-Pool-Familien (organ_for_search_algo-gemappt) — genau die Menge, die 4b-b1 auf
+// Alle 10 registrierten Weg-B-Pool-Familien (organ_for_search_algo-gemappt) — genau die Menge, die 4b-b1 auf
 // container_=ObservableComposedContainer<organ> umstellt. Namen 1:1 aus axis_03a_search_algo_registry.hpp.
-TEST(Pool_Organ_Wide_Key_Conformance_188_4bb0, AllNinePoolFamiliesBehaveLikeStdMap) {
+TEST(Pool_Organ_Wide_Key_Conformance_188_4bb0, AllTenPoolFamiliesBehaveLikeStdMap) {
     verify_pool_organ_wide_key_conformance<lk::BinarySearchTreeSearchAlgo>("BST");
     verify_pool_organ_wide_key_conformance<lk::BTreeSearchAlgo>("BTree");
     verify_pool_organ_wide_key_conformance<lk::SkipListSearchAlgo>("SkipList");
@@ -175,4 +176,5 @@ TEST(Pool_Organ_Wide_Key_Conformance_188_4bb0, AllNinePoolFamiliesBehaveLikeStdM
     verify_pool_organ_wide_key_conformance<lk::OriginalStartSearchAlgo>("START");
     verify_pool_organ_wide_key_conformance<lk::OriginalWormholeSearchAlgo>("Wormhole");
     verify_pool_organ_wide_key_conformance<lk::OriginalSurfSearchAlgo>("SuRF");
+    verify_pool_organ_wide_key_conformance<lk::SwissTableSearchAlgo>("SwissTable");
 }
