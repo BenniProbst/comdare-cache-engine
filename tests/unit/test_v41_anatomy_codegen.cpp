@@ -23,9 +23,9 @@
 // compile-definition (siehe cmake/anatomy_codegen.cmake), das macht die
 // __declspec-Markierungen auf Windows zu no-ops.
 
-namespace ana = ::comdare::cache_engine::anatomy;
-namespace abi = ::comdare::cache_engine::abi;
-namespace ee  = ::comdare::cache_engine::execution_engine;
+namespace ana    = ::comdare::cache_engine::anatomy;
+namespace ce_abi = ::comdare::cache_engine::abi; // ce_abi avoids libstdc++ <cxxabi.h> global abi alias via gtest
+namespace ee     = ::comdare::cache_engine::execution_engine;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §1 — Codegen-Pilot exportiert die 4 ABI-Symbole
@@ -80,6 +80,6 @@ TEST(R5D2_Codegen, LifecycleRoundtripViaCodegenFactory) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5D2_Codegen, ModuleVersionIsCompatibleWithHost) {
-    auto const module_version = abi::AnatomyAbiVersion::unpack(comdare_anatomy_abi_version());
-    EXPECT_TRUE(abi::kHostAnatomyAbiVersion.host_compatible_with(module_version));
+    auto const module_version = ce_abi::AnatomyAbiVersion::unpack(comdare_anatomy_abi_version());
+    EXPECT_TRUE(ce_abi::kHostAnatomyAbiVersion.host_compatible_with(module_version));
 }
