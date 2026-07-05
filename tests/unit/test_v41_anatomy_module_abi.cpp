@@ -30,9 +30,9 @@
 #include <cstdint>
 #include <type_traits>
 
-namespace ana = ::comdare::cache_engine::anatomy;
-namespace abi = ::comdare::cache_engine::abi;
-namespace ee  = ::comdare::cache_engine::execution_engine;
+namespace ana    = ::comdare::cache_engine::anatomy;
+namespace ce_abi = ::comdare::cache_engine::abi; // ce_abi avoids libstdc++ <cxxabi.h> global abi alias via gtest
+namespace ee     = ::comdare::cache_engine::execution_engine;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMDARE_DEFINE_ANATOMY_MODULE expandieren — Pilot mit ArtComposition
@@ -57,8 +57,8 @@ TEST(R5D_AnatomyAbi, MacroDefinesVersionAndMagic) {
 }
 
 TEST(R5D_AnatomyAbi, HostAbiVersionMatchesMacro) {
-    static_assert(abi::kHostAnatomyAbiVersion.major == 4); // #216-H2
-    static_assert(abi::kHostAnatomyAbiVersion.minor == 0); // #216-H2
+    static_assert(ce_abi::kHostAnatomyAbiVersion.major == 4); // #216-H2
+    static_assert(ce_abi::kHostAnatomyAbiVersion.minor == 0); // #216-H2
     SUCCEED();
 }
 
@@ -67,9 +67,9 @@ TEST(R5D_AnatomyAbi, HostAbiVersionMatchesMacro) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5D_AnatomyAbiVersion, PackUnpackRoundtrip) {
-    constexpr abi::AnatomyAbiVersion v{2, 7};
-    constexpr auto                   packed   = v.pack();
-    constexpr auto                   unpacked = abi::AnatomyAbiVersion::unpack(packed);
+    constexpr ce_abi::AnatomyAbiVersion v{2, 7};
+    constexpr auto                      packed   = v.pack();
+    constexpr auto                      unpacked = ce_abi::AnatomyAbiVersion::unpack(packed);
     static_assert(unpacked.major == 2);
     static_assert(unpacked.minor == 7);
     SUCCEED();
@@ -80,19 +80,19 @@ TEST(R5D_AnatomyAbiVersion, PackUnpackRoundtrip) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5D_AnatomyAbiVersion, CompatibilityRules) {
-    constexpr abi::AnatomyAbiVersion host_1_5{1, 5};
+    constexpr ce_abi::AnatomyAbiVersion host_1_5{1, 5};
 
     // Modul gleiche Version: OK
-    static_assert(host_1_5.host_compatible_with(abi::AnatomyAbiVersion{1, 5}));
+    static_assert(host_1_5.host_compatible_with(ce_abi::AnatomyAbiVersion{1, 5}));
     // Modul aelter (minor lower): OK
-    static_assert(host_1_5.host_compatible_with(abi::AnatomyAbiVersion{1, 3}));
+    static_assert(host_1_5.host_compatible_with(ce_abi::AnatomyAbiVersion{1, 3}));
     // Modul aelter (minor=0): OK
-    static_assert(host_1_5.host_compatible_with(abi::AnatomyAbiVersion{1, 0}));
+    static_assert(host_1_5.host_compatible_with(ce_abi::AnatomyAbiVersion{1, 0}));
     // Modul neuer (minor higher): NICHT OK (Host kennt Modul-Features nicht)
-    static_assert(!host_1_5.host_compatible_with(abi::AnatomyAbiVersion{1, 6}));
+    static_assert(!host_1_5.host_compatible_with(ce_abi::AnatomyAbiVersion{1, 6}));
     // Major-Mismatch: NICHT OK
-    static_assert(!host_1_5.host_compatible_with(abi::AnatomyAbiVersion{2, 0}));
-    static_assert(!host_1_5.host_compatible_with(abi::AnatomyAbiVersion{0, 5}));
+    static_assert(!host_1_5.host_compatible_with(ce_abi::AnatomyAbiVersion{2, 0}));
+    static_assert(!host_1_5.host_compatible_with(ce_abi::AnatomyAbiVersion{0, 5}));
     SUCCEED();
 }
 

@@ -9,22 +9,22 @@
 
 #include <gtest/gtest.h>
 
-namespace abi = comdare::cache_engine::abi;
-namespace cmd = comdare::cache_engine::builder::commands;
+namespace ce_abi = comdare::cache_engine::abi; // ce_abi avoids libstdc++ <cxxabi.h> global abi alias via gtest
+namespace cmd    = comdare::cache_engine::builder::commands;
 
 TEST(CacheEngineExecutionEngineAdapter, EngineName) {
-    abi::CacheEngineExecutionEngineAdapter<> adapter;
+    ce_abi::CacheEngineExecutionEngineAdapter<> adapter;
     EXPECT_EQ(adapter.engine_name(), "CacheEngine-EE-A");
 }
 
 TEST(CacheEngineExecutionEngineAdapter, LookupOnEmptyReturnsNullopt) {
-    abi::CacheEngineExecutionEngineAdapter<> adapter;
-    auto                                     result = adapter.lookup("nonexistent");
+    ce_abi::CacheEngineExecutionEngineAdapter<> adapter;
+    auto                                        result = adapter.lookup("nonexistent");
     EXPECT_FALSE(result.has_value());
 }
 
 TEST(CacheEngineExecutionEngineAdapter, InsertThenLookup) {
-    abi::CacheEngineExecutionEngineAdapter<> adapter;
+    ce_abi::CacheEngineExecutionEngineAdapter<> adapter;
     EXPECT_TRUE(adapter.insert("k1", 42));
     auto val = adapter.lookup("k1");
     ASSERT_TRUE(val.has_value());
@@ -32,8 +32,8 @@ TEST(CacheEngineExecutionEngineAdapter, InsertThenLookup) {
 }
 
 TEST(CacheEngineExecutionEngineAdapter, AsEngineCallableYCSBC) {
-    abi::CacheEngineExecutionEngineAdapter<> adapter;
-    auto                                     callable = adapter.as_engine_callable();
+    ce_abi::CacheEngineExecutionEngineAdapter<> adapter;
+    auto                                        callable = adapter.as_engine_callable();
 
     // 10 Lookups -> alle miss (Empty Backend) aber success
     for (std::size_t i = 0; i < 10; ++i) {
@@ -45,8 +45,8 @@ TEST(CacheEngineExecutionEngineAdapter, AsEngineCallableYCSBC) {
 }
 
 TEST(CacheEngineExecutionEngineAdapter, AsEngineCallableYCSBA_MixedWriteRead) {
-    abi::CacheEngineExecutionEngineAdapter<> adapter;
-    auto                                     callable = adapter.as_engine_callable();
+    ce_abi::CacheEngineExecutionEngineAdapter<> adapter;
+    auto                                        callable = adapter.as_engine_callable();
 
     for (std::size_t i = 0; i < 10; ++i) {
         auto out = callable(i, cmd::WorkloadKind::YCSB_A_Read50Write50, 42);
@@ -58,8 +58,8 @@ TEST(CacheEngineExecutionEngineAdapter, AsEngineCallableYCSBA_MixedWriteRead) {
 }
 
 TEST(CacheEngineExecutionEngineAdapter, IntegrationWithExecuteEngineCommand) {
-    abi::CacheEngineExecutionEngineAdapter<> adapter;
-    cmd::Workload                            w{};
+    ce_abi::CacheEngineExecutionEngineAdapter<> adapter;
+    cmd::Workload                               w{};
     w.kind            = cmd::WorkloadKind::YCSB_C_ReadOnly;
     w.operation_count = 100;
     w.seed            = 42;
@@ -75,10 +75,10 @@ TEST(CacheEngineExecutionEngineAdapter, IntegrationWithExecuteEngineCommand) {
 
 TEST(CacheEngineExecutionEngineAdapter, CustomBackendInjection) {
     // Beispiel mit explizit injiziertem Backend
-    abi::DefaultMapBackend<std::string, std::uint64_t> backend;
+    ce_abi::DefaultMapBackend<std::string, std::uint64_t> backend;
     backend.insert("preloaded", 999);
-    abi::CacheEngineExecutionEngineAdapter<> adapter(std::move(backend));
-    auto                                     val = adapter.lookup("preloaded");
+    ce_abi::CacheEngineExecutionEngineAdapter<> adapter(std::move(backend));
+    auto                                        val = adapter.lookup("preloaded");
     ASSERT_TRUE(val.has_value());
     EXPECT_EQ(*val, 999u);
 }
