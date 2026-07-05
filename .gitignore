@@ -104,3 +104,7 @@ cmake/third_party/_mp11_extract/
 # (Duplikation der Thesis-Quellen) -> ignorieren. Der Junction-Link selbst wird nicht versioniert.
 docs/architektur/
 .claude/
+
+# #260/#254: OneDrive-restaurierte Modul-Klone (Entscheid A: entnestet, leben offiziell im Matrix-System
+# Projekte/Modules/comdare-cacheengine-all + GitHub/GitLab). Lokale Kopien erhalten, NICHT re-einchecken.
+modules/comdare-*/
