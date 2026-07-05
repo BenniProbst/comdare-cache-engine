@@ -1407,10 +1407,14 @@ if(COMDARE_CE_ENABLE_ORIGINAL_CODE_VALIDATION AND COMMAND comdare_register_paper
     )
 endif()
 
-# #188-4b-b-V / #188-4c-0b: Dependency-Kante Codegen-Consumer -> Paper-Original-Code-Codegen.
-# Isolierte Target-Builds triggern die ALL-Codegen-Targets nicht automatisch. Wenn die neuen Gates wegen
-# vollstaendig vorhandenem ext/ aktiv sind, muessen die generierten is_original-Header vor den Consumer-Targets
-# entstehen. Defensiv per if(TARGET): Codegen-Targets sind options-/ext-sentinel-bedingt.
+# #188-4b-b-V / #188-4c-0b / #258: Dependency-Kante Codegen-Consumer -> Paper-Original-Code-Codegen.
+# Historie: 14eed391 entsperrte PHASE-V-Pipeline 7369 mit expliziter 12er-Namensliste je Consumer; seit #258
+# haengen alle Consumer am Umbrella comdare_paper_codegen_all (is_original_codegen.cmake registriert jeden
+# Paper-Wrapper automatisch daran) — neue Wrapper muessen NICHT mehr hier nachgetragen werden, neue CONSUMER
+# (isolierte --target-Builds, die via abi_adapter/all_axes_umbrella is_original-Mixins ziehen) schon.
+# Pipeline 7965 / Fehler-TU test_216h2_stat_reset_after_load zeigte dieselbe Klasse fuer contract:conformance.
+# test_conformance_gate zieht abi_adapter nicht (k-ary/organ==void) und bekommt bewusst keine Kante.
+# Defensiv per if(TARGET): Codegen-Targets sind options-/ext-sentinel-bedingt.
 get_property(_comdare_generated_codegen_consumers GLOBAL PROPERTY COMDARE_PAPER_CODEGEN_CONSUMER_TARGETS)
 if(_comdare_generated_codegen_consumers)
     list(REMOVE_DUPLICATES _comdare_generated_codegen_consumers)
@@ -1445,21 +1449,11 @@ foreach(_comdare_codegen_consumer
         test_188_4bbV_pool_adapter_flip_compile
         test_188_4c0_known_compositions_conformance
         test_188_4cii_flat_wrapper_traversal
+        test_216h2_stat_reset_after_load
         perm_adhoc_buildvariant
         ${_comdare_generated_codegen_consumers})
-    if(TARGET ${_comdare_codegen_consumer})
-        foreach(_pc
-                comdare_paper_a04_mimalloc_codegen  comdare_paper_a05_jemalloc_codegen
-                comdare_paper_a07_snmalloc_codegen  comdare_paper_a20_dlmalloc_codegen
-                comdare_paper_a10_rpmalloc_codegen  comdare_paper_a11_lrmalloc_codegen
-                comdare_paper_p01_art_codegen       comdare_paper_p02_hot_codegen
-                comdare_paper_p05_start_codegen     comdare_paper_p07_wormhole_codegen
-                comdare_paper_p10_surf_codegen      comdare_paper_p03_masstree_codegen
-                comdare_paper_q01_concurrentqueue_codegen)
-            if(TARGET ${_pc})
-                add_dependencies(${_comdare_codegen_consumer} ${_pc})
-            endif()
-        endforeach()
+    if(TARGET ${_comdare_codegen_consumer} AND TARGET comdare_paper_codegen_all)
+        add_dependencies(${_comdare_codegen_consumer} comdare_paper_codegen_all)
     endif()
 endforeach()
 
