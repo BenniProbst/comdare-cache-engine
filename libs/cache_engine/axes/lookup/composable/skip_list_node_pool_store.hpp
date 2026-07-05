@@ -21,14 +21,31 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <random>
 #include <vector>
 
 namespace comdare::cache_engine::lookup::composable {
 
+namespace detail {
+
+template <class FwdAlloc = std::allocator<std::size_t>>
+struct SkipListNodePoolNode {
+    using key_type   = std::uint64_t;
+    using value_type = std::uint64_t;
+
+    key_type                           key{};
+    value_type                         val{};
+    bool                               live{};
+    std::vector<std::size_t, FwdAlloc> next{}; // Forward-Indizes je Level (kNil = Ende)
+};
+
+} // namespace detail
+
 /// Index-stabiler Skip-Listen-Pool: Knoten behalten ihren Index; Erase setzt nur das live-Flag (Tombstone,
 /// unverlinkt → unerreichbar). RNG zieht die Knoten-Hoehe (Substrat-Verantwortung Pool-Wachstum).
-template <typename Shape = ::comdare::cache_engine::nodes::axis_skip_list_shape::SkipListMax16P50>
+template <typename Shape = ::comdare::cache_engine::nodes::axis_skip_list_shape::SkipListMax16P50,
+          class A        = std::allocator<detail::SkipListNodePoolNode<>>>
 class SkipListNodePoolStore {
     static_assert(::comdare::cache_engine::nodes::axis_skip_list_shape::concepts::SkipListShape<Shape>);
     static_assert((Shape::kPDenominator & (Shape::kPDenominator - 1)) == 0,
@@ -38,6 +55,10 @@ class SkipListNodePoolStore {
 public:
     using key_type                         = std::uint64_t;
     using value_type                       = std::uint64_t;
+    using forward_allocator_type           = typename std::allocator_traits<A>::template rebind_alloc<std::size_t>;
+    using node_type                        = detail::SkipListNodePoolNode<forward_allocator_type>;
+    using allocator_type                   = A;
+    using node_allocator_type              = typename std::allocator_traits<A>::template rebind_alloc<node_type>;
     static constexpr int         kMaxLevel = Shape::kMaxLevel; // Level-0: 16 (#234-K shape carrier)
     static constexpr std::size_t kNil      = std::numeric_limits<std::size_t>::max(); // "kein Nachfolger"
     static constexpr std::size_t kHead     = 0;                                       // Sentinel-Kopf-Index
@@ -54,10 +75,34 @@ public:
         return nodes_[node].next[level];
     }
 
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    struct allocator_statistics_snapshot {
+        std::uint64_t alloc_calls     = 0;
+        std::uint64_t bytes_allocated = 0;
+        std::uint64_t live_nodes      = 0;
+    };
+
+    [[nodiscard]] allocator_statistics_snapshot store_allocator_statistics() const noexcept {
+        return allocator_statistics_snapshot{
+            alloc_calls_,
+            bytes_allocated_,
+            live_count_,
+        };
+    }
+#endif
+
     /// Allokiert einen live Knoten mit `level` Forward-Slots (alle kNil) — darf via vector werfen (kein noexcept).
     std::size_t allocate_node(key_type k, value_type v, int level) {
-        std::size_t const idx = nodes_.size();
-        nodes_.push_back(Node{k, v, true, std::vector<std::size_t>(static_cast<std::size_t>(level), kNil)});
+        std::size_t const idx          = nodes_.size();
+        std::size_t const old_capacity = nodes_.capacity();
+        nodes_.push_back(node_type{
+            k,
+            v,
+            true,
+            std::vector<std::size_t, forward_allocator_type>(static_cast<std::size_t>(level), kNil),
+        });
+        record_capacity_growth_(old_capacity, nodes_.capacity(), sizeof(node_type));
+        record_tower_allocation_(static_cast<std::size_t>(level));
         ++live_count_;
         return idx;
     }
@@ -90,23 +135,46 @@ public:
     }
 
 private:
-    struct Node {
-        key_type                 key{};
-        value_type               val{};
-        bool                     live{};
-        std::vector<std::size_t> next{}; // Forward-Indizes je Level (kNil = Ende)
-    };
-
     void init_head() {
         // Head-Sentinel (Index 0): kMaxLevel Forward-Slots, alle kNil.
-        nodes_.push_back(
-            Node{key_type{}, value_type{}, false, std::vector<std::size_t>(static_cast<std::size_t>(kMaxLevel), kNil)});
+        std::size_t const old_capacity = nodes_.capacity();
+        nodes_.push_back(node_type{
+            key_type{},
+            value_type{},
+            false,
+            std::vector<std::size_t, forward_allocator_type>(static_cast<std::size_t>(kMaxLevel), kNil),
+        });
+        record_capacity_growth_(old_capacity, nodes_.capacity(), sizeof(node_type));
+        record_tower_allocation_(static_cast<std::size_t>(kMaxLevel));
     }
 
-    std::vector<Node>       nodes_{};
-    std::size_t             live_count_ = 0;
-    int                     level_      = 1;
-    mutable std::mt19937_64 rng_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    // Ehrliche Allokator-Metrik: gezaehlt werden nur erfolgreiche vector-capacity-Zuwaechse, als Capacity-Delta
+    // mal Elementgroesse. Reuse/clear ohne Capacity-Wachstum erzeugt bewusst keine kuenstlichen Werte.
+    void record_capacity_growth_(std::size_t old_capacity, std::size_t new_capacity, std::size_t elem_bytes) noexcept {
+        if (new_capacity <= old_capacity) return;
+        ++alloc_calls_;
+        bytes_allocated_ +=
+            static_cast<std::uint64_t>(new_capacity - old_capacity) * static_cast<std::uint64_t>(elem_bytes);
+    }
+
+    void record_tower_allocation_(std::size_t level) noexcept {
+        ++alloc_calls_;
+        bytes_allocated_ += static_cast<std::uint64_t>(level) * static_cast<std::uint64_t>(sizeof(std::size_t));
+    }
+#else
+    static void record_capacity_growth_(std::size_t, std::size_t, std::size_t) noexcept {}
+    static void record_tower_allocation_(std::size_t) noexcept {}
+#endif
+
+    std::vector<node_type, node_allocator_type> nodes_{};
+    std::size_t                                 live_count_ = 0;
+    int                                         level_      = 1;
+    mutable std::mt19937_64                     rng_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    std::uint64_t alloc_calls_     = 0;
+    std::uint64_t bytes_allocated_ = 0;
+#endif
 };
 
 // Selbstbeweis: das Substrat erfuellt das SkipListNodePool-Concept.
