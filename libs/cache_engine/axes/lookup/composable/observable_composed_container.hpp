@@ -110,6 +110,16 @@ public:
     }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
+    template <class C>
+    static constexpr bool container_has_allocator_stats = requires(C const& c) { c.store_allocator_statistics(); };
+
+    template <class C = Container>
+    [[nodiscard]] auto store_allocator_statistics() const noexcept
+        requires container_has_allocator_stats<C>
+    {
+        return container_.store_allocator_statistics();
+    }
+
     using snapshot_t = ce_concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }

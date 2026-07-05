@@ -1022,18 +1022,32 @@ public:
             ++filled;
         }
         // ── T6 allocator (dasselbe getriebene container_algorithm_-Allocator-Organ wie der frühere V2-Pfad) ───────────
-        // #188-4b-b1a: geschachtelt — die innere Bedingung referenziert container_algorithm_t::store_type; nur betreten, wenn
-        // container_algorithm_ store-backed ist (organ-backed Familien nach 4b-b1b/#188-4a -> kein store_type -> honest-0, filled unveraendert).
-        if constexpr (container_algorithm_is_store_backed_ && ObservableAxis<typename Composition::allocator>) {
-            if constexpr (container_algorithm_t::template store_has_allocator_stats<
-                              typename container_algorithm_t::store_type>) {
-                auto const a = container_algorithm_.store_allocator_statistics();
-                auto*      r = s.axis_stats[6];
-                r[0]         = a.total_bytes_allocated;
-                r[1]         = a.total_bytes_in_use;
-                r[2]         = a.allocation_count;
-                r[3]         = a.deallocation_count;
-                r[4]         = a.failure_count;
+        // S7-1: nicht mehr an store_type koppeln. Flache Stores und BST-Pool-Organe liefern beide optional
+        // store_allocator_statistics(); Familien ohne diese schmale Route bleiben honest-0.
+        if constexpr (ObservableAxis<typename Composition::allocator> &&
+                      requires { container_algorithm_.store_allocator_statistics(); }) {
+            auto const a = container_algorithm_.store_allocator_statistics();
+            auto*      r = s.axis_stats[6];
+            if constexpr (requires {
+                              a.total_bytes_allocated;
+                              a.total_bytes_in_use;
+                              a.allocation_count;
+                              a.deallocation_count;
+                              a.failure_count;
+                          }) {
+                r[0] = a.total_bytes_allocated;
+                r[1] = a.total_bytes_in_use;
+                r[2] = a.allocation_count;
+                r[3] = a.deallocation_count;
+                r[4] = a.failure_count;
+                ++filled;
+            } else if constexpr (requires {
+                                     a.bytes_allocated;
+                                     a.alloc_calls;
+                                 }) {
+                r[0] = a.bytes_allocated;
+                r[1] = a.bytes_allocated;
+                r[2] = a.alloc_calls;
                 ++filled;
             }
         }
@@ -1329,12 +1343,12 @@ public:
                 acc[5] += dns(t0, t1);
                 // T6 allocator: O(1)-Stats-Read (Aufbau-Effekt, ehrliche kleine Baseline — kein erfundener Scan).
                 t0 = clock::now();
-                if constexpr (
-                    container_algorithm_is_store_backed_) { // #188-4b-b1a: store_type-Referenz nur wenn store-backed
-                    if constexpr (container_algorithm_t::template store_has_allocator_stats<
-                                      typename container_algorithm_t::store_type>) {
-                        auto a = container_algorithm_.store_allocator_statistics();
+                if constexpr (requires { container_algorithm_.store_allocator_statistics(); }) {
+                    auto a = container_algorithm_.store_allocator_statistics();
+                    if constexpr (requires { a.total_bytes_in_use; }) {
                         sink += a.total_bytes_in_use;
+                    } else if constexpr (requires { a.bytes_allocated; }) {
+                        sink += a.bytes_allocated;
                     }
                 }
                 t1 = clock::now();
@@ -1875,8 +1889,8 @@ private:
     // #188-4b-b1a/#188-4c-i: Kapselungs-Praedikat — traegt container_algorithm_t einen FLACHEN Store (store_type)? TRUE fuer
     // ObservableComposedSearch<Traversal,LayoutAwareChunkedStore> (store()/scan_range/store_observe_*/save_state/
     // store_allocator_statistics ALLE praesent); FALSE fuer ObservableComposedContainer<Organ>, egal ob aus
-    // organ_for_search_algo oder als bereits gehuellter SearchAlgo. Alle store-abhaengigen Mess-Stellen unten
-    // (prefetch-descent, tier_scan, allocator-stats sowie T4/T5/T6-Observer) schalten dann auf honest-0.
+    // organ_for_search_algo oder als bereits gehuellter SearchAlgo. Store-abhaengige Mess-Stellen unten
+    // (prefetch-descent, tier_scan sowie T4/T5-Observer) schalten dann auf honest-0; T6 nutzt eine eigene schmale Stats-Route.
     // Golden-320-neutral: deren flache container_algorithm_t erfuellen store_type weiter; der neue organ_hull_-Zweig greift
     // nur fuer Reference-/PaperBinding-Huellen ausserhalb der 320-Registry.
     static constexpr bool container_algorithm_is_store_backed_ =
