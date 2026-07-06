@@ -137,6 +137,8 @@ function(comdare_build_adhoc_modules)
     foreach(_cpp ${_emitted_cpps})
         set(_target "${ARG_PILOT_PREFIX}_${_index}")
         add_library(${_target} SHARED "${_cpp}")
+        # #278 (2026-07-06): PREFIX "" — dokumentiertes Loader-Pattern comdare_anatomy_perm_* (s. anatomy_codegen.cmake).
+        set_target_properties(${_target} PROPERTIES PREFIX "")
         set_property(GLOBAL APPEND PROPERTY COMDARE_PAPER_CODEGEN_CONSUMER_TARGETS ${_target})
         # #188-4c-0b-R1: emitted modules can include Composition headers that
         # transitively include generated Paper-Original-Code wrappers.
