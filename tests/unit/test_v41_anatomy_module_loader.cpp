@@ -31,7 +31,8 @@
 #include <utility>
 
 namespace ana    = ::comdare::cache_engine::anatomy;
-namespace abi    = ::comdare::cache_engine::abi;
+namespace ce_abi = ::comdare::cache_engine::
+    abi; // 'ce_abi' statt 'abi': <cxxabi.h> (gtest auf GCC/libstdc++) deklariert global 'namespace abi'
 namespace ee     = ::comdare::cache_engine::execution_engine;
 namespace loader = ::comdare::cache_engine::builder::anatomy_loader;
 
@@ -140,9 +141,9 @@ TEST(R5E_AnatomyLoader, ModuleVersionMatchesHost) {
     ASSERT_EQ(loader::AnatomyModuleLoader::load(pilot_dll_path(), handle), loader::status_ok);
 
     auto const v = handle.module_version();
-    EXPECT_EQ(v.major, abi::kHostAnatomyAbiVersion.major);
-    EXPECT_LE(v.minor, abi::kHostAnatomyAbiVersion.minor);
-    EXPECT_TRUE(abi::kHostAnatomyAbiVersion.host_compatible_with(v));
+    EXPECT_EQ(v.major, ce_abi::kHostAnatomyAbiVersion.major);
+    EXPECT_LE(v.minor, ce_abi::kHostAnatomyAbiVersion.minor);
+    EXPECT_TRUE(ce_abi::kHostAnatomyAbiVersion.host_compatible_with(v));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
