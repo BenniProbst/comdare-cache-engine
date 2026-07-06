@@ -19,20 +19,53 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <map>
+#include <memory>
+#include <utility>
 #include <vector>
 
 namespace comdare::cache_engine::lookup::composable {
 
+namespace detail {
+
+inline constexpr std::size_t kWormholeNil = std::numeric_limits<std::size_t>::max();
+inline constexpr int         kWormholeKpn = 8; // Keys/Leaf (klein -> erzwingt Split/Merge)
+inline constexpr int         kWormholeMid = 4; // Split-Punkt
+inline constexpr int         kWormholeMrg = 6; // Borrow/Merge-Schwelle (~3/4 kWhKpn)
+
+struct WormholeLeaf {
+    using key_type   = std::uint64_t;
+    using value_type = std::uint64_t;
+
+    int         n      = 0;
+    key_type    anchor = 0;
+    std::size_t prev   = kWormholeNil;
+    std::size_t next   = kWormholeNil;
+    // Kapazitaet kWhKpn+1: ein Insert darf ein (durch Merge) bis kWhKpn gefuelltes Leaf transient auf
+    // kWhKpn+1 bringen, BEVOR der Split greift (sonst Array-Overflow — adversariale Verifikation).
+    std::array<key_type, kWormholeKpn + 1>   key{};
+    std::array<value_type, kWormholeKpn + 1> val{};
+};
+
+} // namespace detail
+
+template <class A = std::allocator<detail::WormholeLeaf>>
 class WormholeLeafListPoolStore {
 public:
-    using key_type                      = std::uint64_t;
-    using value_type                    = std::uint64_t;
-    static constexpr std::size_t kNil   = std::numeric_limits<std::size_t>::max();
-    static constexpr int         kWhKpn = 8; // Keys/Leaf (klein -> erzwingt Split/Merge)
-    static constexpr int         kWhMid = 4; // Split-Punkt
-    static constexpr int         kWhMrg = 6; // Borrow/Merge-Schwelle (~3/4 kWhKpn)
+    using node_type                     = detail::WormholeLeaf;
+    using key_type                      = typename node_type::key_type;
+    using value_type                    = typename node_type::value_type;
+    using allocator_type                = A;
+    using leaf_allocator_type           = typename std::allocator_traits<A>::template rebind_alloc<node_type>;
+    using index_allocator_type          = typename std::allocator_traits<A>::template rebind_alloc<std::size_t>;
+    using map_value_type                = std::pair<const key_type, std::size_t>;
+    using map_allocator_type            = typename std::allocator_traits<A>::template rebind_alloc<map_value_type>;
+    static constexpr std::size_t kNil   = detail::kWormholeNil;
+    static constexpr int         kWhKpn = detail::kWormholeKpn;
+    static constexpr int         kWhMid = detail::kWormholeMid;
+    static constexpr int         kWhMrg = detail::kWormholeMrg;
     // Robustheits-Guard (adversariale Verifikation): die Split/Merge-Logik setzt diese Relationen voraus.
     static_assert(kWhMid >= 1 && kWhMid < kWhKpn, "kWhMid muss in [1, kWhKpn) liegen (split_leaf-Korrektheit)");
     static_assert(kWhMrg >= kWhMid && kWhMrg <= kWhKpn,
@@ -78,15 +111,28 @@ public:
             fl_leaf_.pop_back();
             leaves_[idx] = Leaf{};
         } else {
-            idx = leaves_.size();
-            leaves_.push_back(Leaf{});
+            idx                            = leaves_.size();
+            std::size_t const old_capacity = leaves_.capacity();
+            leaves_.push_back(node_type{});
+            record_capacity_growth_(old_capacity, leaves_.capacity(), sizeof(node_type));
         }
         return idx;
     }
-    void free_node(std::size_t i) noexcept { fl_leaf_.push_back(i); }
+    void free_node(std::size_t i) noexcept {
+        std::size_t const old_capacity = fl_leaf_.capacity();
+        fl_leaf_.push_back(i);
+        record_capacity_growth_(old_capacity, fl_leaf_.capacity(), sizeof(std::size_t));
+    }
 
     // ── Anchor-Index (geordnet) ──
-    void index_insert(key_type anchor, std::size_t leaf) { anchor_index_[anchor] = leaf; }
+    void index_insert(key_type anchor, std::size_t leaf) {
+        auto [it, inserted] = anchor_index_.try_emplace(anchor, leaf);
+        if (!inserted) {
+            it->second = leaf;
+            return;
+        }
+        record_map_insert_();
+    }
     void index_erase(key_type anchor) { anchor_index_.erase(anchor); }
     /// Groesster Anchor <= key -> sein Leaf; kNil falls key < allen Ankern (Linear-Fallback im Organ).
     [[nodiscard]] std::size_t index_lookup_le(key_type key) const noexcept {
@@ -97,26 +143,58 @@ public:
     }
     void index_clear() noexcept { anchor_index_.clear(); }
 
-private:
-    struct Leaf {
-        int         n      = 0;
-        key_type    anchor = 0;
-        std::size_t prev   = kNil;
-        std::size_t next   = kNil;
-        // Kapazitaet kWhKpn+1: ein Insert darf ein (durch Merge) bis kWhKpn gefuelltes Leaf transient auf
-        // kWhKpn+1 bringen, BEVOR der Split greift (sonst Array-Overflow — adversariale Verifikation).
-        std::array<key_type, kWhKpn + 1>   key{};
-        std::array<value_type, kWhKpn + 1> val{};
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    struct allocator_statistics_snapshot {
+        std::uint64_t alloc_calls     = 0;
+        std::uint64_t bytes_allocated = 0;
+        std::uint64_t live_nodes      = 0;
     };
 
-    std::vector<Leaf>               leaves_{};
-    std::vector<std::size_t>        fl_leaf_{};
-    std::map<key_type, std::size_t> anchor_index_{};
-    std::size_t                     root_ = kNil;
-    std::size_t                     size_ = 0;
+    [[nodiscard]] allocator_statistics_snapshot store_allocator_statistics() const noexcept {
+        return allocator_statistics_snapshot{
+            alloc_calls_,
+            bytes_allocated_,
+            static_cast<std::uint64_t>(leaves_.size() - fl_leaf_.size()),
+        };
+    }
+#endif
+
+private:
+    using Leaf     = node_type;
+    using MapIndex = std::map<key_type, std::size_t, std::less<key_type>, map_allocator_type>;
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    // Ehrliche Allokator-Metrik: gezaehlt werden nur erfolgreiche vector-capacity-Zuwaechse (als Capacity-Delta
+    // mal Elementgroesse) sowie NEU eingefuegte Map-Werte. Reuse/clear ohne Wachstum erzeugt bewusst keine
+    // kuenstlichen Werte.
+    void record_capacity_growth_(std::size_t old_capacity, std::size_t new_capacity, std::size_t elem_bytes) noexcept {
+        if (new_capacity <= old_capacity) return;
+        ++alloc_calls_;
+        bytes_allocated_ +=
+            static_cast<std::uint64_t>(new_capacity - old_capacity) * static_cast<std::uint64_t>(elem_bytes);
+    }
+    void record_map_insert_() noexcept {
+        ++alloc_calls_;
+        // konservative Untergrenze (RB-Node-Overhead bewusst nicht fabriziert).
+        bytes_allocated_ += static_cast<std::uint64_t>(sizeof(map_value_type));
+    }
+#else
+    static void record_capacity_growth_(std::size_t, std::size_t, std::size_t) noexcept {}
+    static void record_map_insert_() noexcept {}
+#endif
+
+    std::vector<Leaf, leaf_allocator_type>         leaves_{};
+    std::vector<std::size_t, index_allocator_type> fl_leaf_{};
+    MapIndex                                       anchor_index_{};
+    std::size_t                                    root_ = kNil;
+    std::size_t                                    size_ = 0;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    std::uint64_t alloc_calls_     = 0;
+    std::uint64_t bytes_allocated_ = 0;
+#endif
 };
 
 // Selbstbeweis: das Substrat erfuellt das WormholeLeafListPool-Concept.
-static_assert(WormholeLeafListPool<WormholeLeafListPoolStore>);
+static_assert(WormholeLeafListPool<WormholeLeafListPoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable
