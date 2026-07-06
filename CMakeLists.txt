@@ -1421,8 +1421,9 @@ if(_comdare_generated_codegen_consumers)
 endif()
 foreach(_comdare_codegen_consumer
         comdare_adhoc_emitter_cli
-        # test:unit-PREBUILD (2026-07-06, Job 213736): das CLI zieht via anatomy_codegen_tool.cpp die
-        # Achsen-Header und laeuft VOR dem comdare_tests-Sammel-Bau (dessen Hermetik-Kante greift dort nicht).
+        # test:unit-PREBUILD (2026-07-06, Jobs 213736+213850): die TU anatomy_codegen_tool.cpp gehoert zur
+        # STATISCHEN LIB (nicht zum CLI!) und laeuft VOR dem comdare_tests-Sammel-Bau — BEIDE brauchen die Kante.
+        comdare_anatomy_codegen_tool
         comdare_anatomy_codegen_cli
         test_v41_topic_allocator_axis_06
         test_v41_topic_queuing
