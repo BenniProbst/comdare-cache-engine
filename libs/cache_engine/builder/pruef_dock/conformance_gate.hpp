@@ -11,6 +11,7 @@
 // Erweiterung (V5-I-Drive-Vollausbau) wächst die Randfall-Menge auf die volle std::map-Schnittstelle.
 
 #include <anatomy/idriveable_tier.hpp>
+#include <anatomy/allocator_proxy_tier.hpp>
 #include <anatomy/scannable_tier.hpp>
 
 #include <array>
@@ -35,6 +36,26 @@ struct ConformanceResult {
     std::uint64_t      first_fail   = 0; ///< 1-basierter Index der ersten verletzten Zusicherung (0 = keine)
     [[nodiscard]] bool passed() const noexcept { return cases_total > 0 && cases_passed == cases_total; }
 };
+
+// AP1 non-dagger get_allocator-Proxy: eigenstaendige REPORT-Probe ausserhalb der RF-Kette.
+// RF12/RF13, cases_total und Report-Format des std::map-Oracles bleiben unveraendert.
+struct AllocatorProxyProbeResult {
+    bool                             interface_present   = false;
+    bool                             identity_present    = false;
+    bool                             stats_route_present = false;
+    anatomy::ComdareAllocatorProxyV1 proxy{};
+};
+
+[[nodiscard]] inline AllocatorProxyProbeResult probe_allocator_proxy(anatomy::IDriveableTier& tier) noexcept {
+    AllocatorProxyProbeResult r{};
+    auto*                     proxy = dynamic_cast<anatomy::IAllocatorProxyTier*>(&tier);
+    if (proxy == nullptr) return r;
+    r.interface_present = true;
+    proxy->tier_get_allocator(&r.proxy);
+    r.identity_present    = (r.proxy.flags & (std::uint64_t{1} << 0u)) != 0u;
+    r.stats_route_present = (r.proxy.flags & (std::uint64_t{1} << 1u)) != 0u;
+    return r;
+}
 
 /// run_conformance_gate — deterministische Randfall- + Zufallssequenz gegen std::map-Oracle.
 /// `tier` wird VORHER geleert. Je Op verglichen: Rückgabe-Semantik (neu?/Treffer?/existierte?), Lookup-Wert, Größe.

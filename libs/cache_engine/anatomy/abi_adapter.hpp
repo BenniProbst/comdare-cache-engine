@@ -30,6 +30,7 @@
 //   • IExecutionEngine-Override       — Lifecycle warm_up/run/reset/shutdown + engine_name        (~:150)
 //   • IResourceControllableTier (KF-4)— tier_query_resource_caps / tier_apply_resource_control    (~:180)
 //        IMMER verfuegbar; 5 steuerbare Achsen (concurrency/prefetch/allocator/traversal/value_handle)
+//   - IAllocatorProxyTier (AP15-2)   -- tier_get_allocator (non-dagger get_allocator-Proxy)         (~:205)
 //   • IAnatomyBase-Override           — composition_name / paper_id / genus / organ_count          (~:212)
 //   • IMeasurableWorkload (Pfad A)    — run_workload / _segmented (4 Seg) / _segmented_v2 (19 Seg)  (~:232)
 //   • IDriveableTier-Antrieb (IMMER)  — tier_insert/lookup/erase/clear/size (Pfad-B Observer-Auto-Kopplung)(~:672)
@@ -46,6 +47,7 @@
 #include "rollbackable_tier.hpp"          // V5-I6: memento_all-ABI-Sub-Interface (tier_save_all/tier_rollback_all)
 #include "scannable_tier.hpp"             // V5-#49-E: Range-Scan-ABI-Sub-Interface (tier_scan, YCSB-E)
 #include "resource_controllable_tier.hpp" // KF-4/L-MEAS: Laufzeit-Steuer-Sub-Interface (IMMER, nicht messungs-gated)
+#include "allocator_proxy_tier.hpp"       // AP15-2: non-dagger get_allocator-Proxy-Sub-Interface
 #include "observer_aggregate.hpp"         // ObservableAxis + ObserverAggregate (observable_count)
 #include "memento_aggregate.hpp" // V5-I6-SUBSTANZ (#44): MementoAxis + save_axis/restore_axis (per-Achsen-Memento)
 #include "../execution_engine/execution_engine_base.hpp"
@@ -153,6 +155,7 @@ template <AnatomyConcept A>
 class SearchAlgorithmAbiAdapter final
     : public IAnatomyBase,
       public IResourceControllableTier, // KF-4/L-MEAS: IMMER (auch Messung-aus), eigenständiges Sub-Interface (dynamic_cast)
+      public IAllocatorProxyTier,       // AP15-2: IMMER, non-dagger get_allocator-Proxy-Sub-Interface (dynamic_cast)
 // V5-I2.2/I6: Antrieb ⊥ Observer ⊥ Memento compile-time disjunkt (kein Diamond — IObservableTier/IRollbackableTier IS-A nichts Gemeinsames; IDriveableTier kommt über IObservableTier).
 //   MESSUNG-AN  : IObservableTier (Antrieb + tier_observe/observer_all) + IMeasurableWorkload (Pfad-A, host-relokal. I9) + IRollbackableTier (memento_all, V5-I6) + IScannableTier (Range-Scan, V5-#49-E).
 //   MESSUNG-AUS : NUR IDriveableTier (funktionaler Antrieb) → Release-/funktional-only-DLL OHNE jeden Mess-Overhead (kein Observer-, kein Memento-, kein Scan-vtable-Slot).
@@ -231,6 +234,59 @@ public:
             pf_organ_.set_runtime_distance(static_cast<std::uint32_t>(applied_rc_.prefetch_distance));
         }
         return applied;
+    }
+
+    // ----------------------------------------------------------------------
+    // AP15-2 -- IAllocatorProxyTier (IMMER verfuegbar, non-dagger get_allocator-Proxy). Kein std::map-Oracle-
+    // Bestandteil: Der Host bekommt nur eine ehrliche axis_06-Identitaet und, falls vorhanden, die schmale
+    // S7-T6-Allocator-Statistikroute. Die T6-Kaskade in fill_observer_v3 bleibt absichtlich unveraendert;
+    // die gleiche requires-Folge ist hier gespiegelt, damit der alte Observer-Pfad byte-/verhaltensstabil bleibt.
+    // ----------------------------------------------------------------------
+    void tier_get_allocator(ComdareAllocatorProxyV1* out) const noexcept override {
+        if (out == nullptr) return;
+        *out                 = ComdareAllocatorProxyV1{};
+        out->format_version  = kAllocatorProxyFormatVersion;
+        constexpr auto idbit = std::uint64_t{1} << 0u;
+        constexpr auto stbit = std::uint64_t{1} << 1u;
+        constexpr auto orbit = std::uint64_t{1} << 2u;
+
+        if constexpr (requires { typename Composition::allocator::family_id; }) {
+            out->allocator_family_id = static_cast<std::uint64_t>(Composition::allocator::family_id::value);
+            out->flags |= idbit;
+            if constexpr (requires { Composition::allocator::is_original_module(); }) {
+                if (Composition::allocator::is_original_module()) { out->flags |= orbit; }
+            }
+        }
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        if constexpr (ObservableAxis<typename Composition::allocator> &&
+                      requires { container_algorithm_.store_allocator_statistics(); }) {
+            auto const a = container_algorithm_.store_allocator_statistics();
+            if constexpr (requires {
+                              a.total_bytes_allocated;
+                              a.total_bytes_in_use;
+                              a.allocation_count;
+                              a.deallocation_count;
+                              a.failure_count;
+                          }) {
+                out->total_bytes_allocated = static_cast<std::uint64_t>(a.total_bytes_allocated);
+                out->total_bytes_in_use    = static_cast<std::uint64_t>(a.total_bytes_in_use);
+                out->allocation_count      = static_cast<std::uint64_t>(a.allocation_count);
+                out->flags |= stbit;
+            } else if constexpr (requires {
+                                     a.bytes_allocated;
+                                     a.alloc_calls;
+                                 }) {
+                out->total_bytes_allocated = static_cast<std::uint64_t>(a.bytes_allocated);
+                out->total_bytes_in_use    = static_cast<std::uint64_t>(a.bytes_allocated);
+                out->allocation_count      = static_cast<std::uint64_t>(a.alloc_calls);
+                if constexpr (requires { a.live_nodes; }) {
+                    out->live_nodes = static_cast<std::uint64_t>(a.live_nodes);
+                }
+                out->flags |= stbit;
+            }
+        }
+#endif
     }
 
     // ─────────────────────────────────────────────────────────────────────
