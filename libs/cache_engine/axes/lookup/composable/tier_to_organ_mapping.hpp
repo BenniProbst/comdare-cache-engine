@@ -86,7 +86,7 @@ using OriginalStartOrgan = StartTrieOrgan; // S06 START (war letzter flacher Sor
 // S07 Wormhole: ECHTE Hybrid-Anatomie (#43 s4) — sortierte doppelt-verkettete Leaf-Liste + Hash-Anchor-Jump
 // (groesster Anker<=key statt Wurzel-Abstieg) + Leaf-Split/Merge. is_original=false ([[pseudocode-papers-fallback]];
 // wh.c GPL-3.0, KEIN extern-C-Linking). Loest den flachen SortedBinaryOrgan-Platzhalter ab.
-using WormholeOrgan         = ComposedWormholeSearch<WormholeJumpTraversalOrgan, WormholeLeafListPoolStore>;
+using WormholeOrgan         = ComposedWormholeSearch<WormholeJumpTraversalOrgan, WormholeLeafListPoolStore<>>;
 using OriginalWormholeOrgan = WormholeOrgan; // S07 Wormhole (war flacher SortedBinaryOrgan-Platzhalter)
 // S08 SuRF: exakte Map-Schale (#43 s4) — autoritatives exaktes K->V (sortiert), traegt std::map-Vergleichbarkeit.
 // Das echte LOUDS-Succinct-Range-Filter-Organ (may-contain, bool) lebt separat in axis_filter (Gattungs-Trennung).

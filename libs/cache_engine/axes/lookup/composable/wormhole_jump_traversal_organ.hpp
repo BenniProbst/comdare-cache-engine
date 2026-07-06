@@ -250,6 +250,6 @@ struct WormholeJumpTraversalOrgan {
 };
 
 // Selbstbeweis: WormholeJumpTraversalOrgan erfuellt das WormholeTraversal-Concept ueber dem Pilot-Pool.
-static_assert(WormholeTraversal<WormholeJumpTraversalOrgan, WormholeLeafListPoolStore>);
+static_assert(WormholeTraversal<WormholeJumpTraversalOrgan, WormholeLeafListPoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable
