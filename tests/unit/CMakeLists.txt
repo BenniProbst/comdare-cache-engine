@@ -1600,6 +1600,15 @@ target_compile_definitions(test_ap15_2_get_allocator_proxy PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_ap15_2_get_allocator_proxy PROPERTIES LABELS "contract;allocator")
 
+# AP15-3 (#263-Rest, Strang C) -- HOST-CRTP-Map-Vertrag direkt gegen std::map, ohne Gate-Runner.
+comdare_add_test(test_ap15_3_driveable_map_contract
+    SOURCES test_ap15_3_driveable_map_contract.cpp)
+target_include_directories(test_ap15_3_driveable_map_contract PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+target_link_libraries(test_ap15_3_driveable_map_contract PRIVATE comdare::workload_driver)
+set_tests_properties(test_ap15_3_driveable_map_contract PROPERTIES LABELS "contract;gate")
+
 # S7-2 (#261/#234) -- BTree-Pool: allocator-param default + T6 allocator DEG hook.
 comdare_add_test(test_s7_2_btree_pool_allocator_deg
     SOURCES test_s7_2_btree_pool_allocator_deg.cpp)
