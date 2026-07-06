@@ -198,7 +198,8 @@ using PFStoreBackedComposition = an::AdHocComposition<
     comp::HotComposition::filter, comp::HotComposition::queuing_q1, comp::HotComposition::queuing_q2>;
 
 template <class Composition>
-static an::ComdareTierObserverSnapshot drive_composition_and_observe(std::uint64_t n_keys) {
+static an::ComdareTierObserverSnapshot drive_composition_and_observe(std::uint64_t n_keys,
+                                                                     std::uint64_t key_mask = ~0ull) {
     using Anatomy = an::SearchAlgorithmAnatomy<Composition>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
     auto*                                  base = static_cast<an::IAnatomyBase*>(&tier);
@@ -209,16 +210,20 @@ static an::ComdareTierObserverSnapshot drive_composition_and_observe(std::uint64
         tr("(D) IDriveableTier + IObservableTier vorhanden", false);
         return snap;
     }
-    for (std::uint64_t i = 0; i < n_keys; ++i) (void)drv->tier_insert(spread_key(i), i * 11u + 5u);
+    for (std::uint64_t i = 0; i < n_keys; ++i) (void)drv->tier_insert(spread_key(i) & key_mask, i * 11u + 5u);
     std::uint64_t v = 0;
-    for (std::uint64_t i = 0; i < n_keys; ++i) (void)drv->tier_lookup(spread_key(i), &v);
+    for (std::uint64_t i = 0; i < n_keys; ++i) (void)drv->tier_lookup(spread_key(i) & key_mask, &v);
     obs->tier_observe(&snap);
     return snap;
 }
 
 template <class PFStrategy>
 static an::ComdareTierObserverSnapshot drive_store_backed_tier_and_observe(std::uint64_t n_keys) {
-    return drive_composition_and_observe<PFStoreBackedComposition<PFStrategy>>(n_keys);
+    // #278 (2026-07-06): seit #188-4c-ii ist container_algorithm_ Array256-TREU (DirectAddressTraversal,
+    // Domaene 0..255) — ungespreizte u64-Keys wuerden ALLE abgelehnt (Tier leer -> slot_count()==0 ->
+    // Descent-Guard blockt -> issued=0). Die Klemme auf die Byte-Domaene haelt das Tier real befuellt;
+    // der Testzweck (REALE _mm_prefetch auf reale Store-Adressen) bleibt unveraendert.
+    return drive_composition_and_observe<PFStoreBackedComposition<PFStrategy>>(n_keys, 0xFFull);
 }
 
 template <class PFStrategy>

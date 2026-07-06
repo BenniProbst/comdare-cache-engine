@@ -126,7 +126,7 @@ using PFStoreBackedComp = an::AdHocComposition<
     comp::HotComposition::filter, comp::HotComposition::queuing_q1, comp::HotComposition::queuing_q2>;
 
 template <class Composition>
-static an::ComdareTierObserverSnapshot drive_composition(std::uint64_t n) {
+static an::ComdareTierObserverSnapshot drive_composition(std::uint64_t n, std::uint64_t key_mask = ~0ull) {
     using Anatomy = an::SearchAlgorithmAnatomy<Composition>;
     an::SearchAlgorithmAbiAdapter<Anatomy> tier;
     auto*                                  base = static_cast<an::IAnatomyBase*>(&tier);
@@ -134,16 +134,19 @@ static an::ComdareTierObserverSnapshot drive_composition(std::uint64_t n) {
     auto*                                  obs  = dynamic_cast<an::IObservableTier*>(base);
     an::ComdareTierObserverSnapshot        snap{};
     if (!drv || !obs) return snap;
-    for (std::uint64_t i = 0; i < n; ++i) (void)drv->tier_insert(spread_key(i), i * 11u + 5u);
+    for (std::uint64_t i = 0; i < n; ++i) (void)drv->tier_insert(spread_key(i) & key_mask, i * 11u + 5u);
     std::uint64_t v = 0;
-    for (std::uint64_t i = 0; i < n; ++i) (void)drv->tier_lookup(spread_key(i), &v);
+    for (std::uint64_t i = 0; i < n; ++i) (void)drv->tier_lookup(spread_key(i) & key_mask, &v);
     obs->tier_observe(&snap);
     return snap;
 }
 
 template <class PFStrategy>
 static an::ComdareTierObserverSnapshot drive_store_backed_tier(std::uint64_t n) {
-    return drive_composition<PFStoreBackedComp<PFStrategy>>(n);
+    // #278 (2026-07-06): seit #188-4c-ii ist container_algorithm_ Array256-TREU (DirectAddressTraversal, Domaene
+    // 0..255) — ungespreizte u64-Keys wuerden ALLE abgelehnt (Tier leer -> Descent-Guard -> issued=0). Klemme
+    // auf die Byte-Domaene; der Adversarial-Zweck (reale Adresse, Strategien distinkt) bleibt unveraendert.
+    return drive_composition<PFStoreBackedComp<PFStrategy>>(n, 0xFFull);
 }
 
 template <class PFStrategy>
@@ -181,10 +184,11 @@ static void v3_v4_hotpath_real_and_differ() {
     tr("(V4) Hot-Huelle Path issued==0", h_path.axis_stats[7][5] == 0u);
 
     // (V3) K9-Rueckfall-Gegenbeweis: die getragene HW-Adresse darf NICHT eine Schluessel-als-Adresse sein.
-    // Sammle alle eingefuegten spread_key-Werte; pruefe a_hw ist KEINER davon (eine reale Heap-Adresse ist kein Key).
+    // Sammle alle eingefuegten Keys (#278: mit derselben 0xFF-Domaenen-Klemme wie der store-backed Treiber);
+    // pruefe a_hw ist KEINER davon (eine reale Heap-Adresse ist kein Key).
     bool addr_equals_some_key = false;
     for (std::uint64_t i = 0; i < N; ++i)
-        if (static_cast<std::uintptr_t>(spread_key(i)) == a_hw) {
+        if (static_cast<std::uintptr_t>(spread_key(i) & 0xFFull) == a_hw) {
             addr_equals_some_key = true;
             break;
         }
