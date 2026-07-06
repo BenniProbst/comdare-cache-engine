@@ -1,4 +1,10 @@
 #pragma once
+// CMD-1 (c) GEPARKT (#267, 2026-07-06): dieser Header bleibt als dokumentierte V32-AUSNAHME —
+// include/cache_engine/abi/cache_engine_execution_engine_adapter.hpp (ABI-Flaeche, V32-Demo-Pfad,
+// default OFF) konsumiert execute_engine_command (und damit i_command als Basis) HART. Die uebrigen
+// Command-Inseln (compare_engine/auto_permutate/anatomy_*_command/strategy_command/algorithm_visitor)
+// wurden mit 0-Konsumenten-Beweis entfernt; Nachfolger der Command-Semantik = compile-time AxisCommand
+// (topics/axis_command_base.hpp, CMD-1 a/b).
 // V32.DD.1 (2026-05-18) + V33.A.1 (2026-05-21) - ExecuteEngineCommand
 //
 // @subsystem CEB
