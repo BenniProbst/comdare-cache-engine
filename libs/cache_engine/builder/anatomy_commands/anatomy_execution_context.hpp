@@ -13,17 +13,25 @@
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <anatomy/composition_concept.hpp>
 #include <anatomy/observer_aggregate.hpp>
+#include <topics/axis_command_base.hpp>
 #include <topics/traversal/axis_03a_search_algo/composable/observable_composed_search.hpp> // Saeule-2
-#include <topics/nodes/axis_04_node_type/axis_04_node_type_composed_store.hpp>             // Roadmap-1: allocator real
+#include <axes/lookup/composable/organ_for_search_algo.hpp>
+#include <axes/lookup/composable/observable_composed_container.hpp>
+#include <axes/lookup/composable/store_traversable_search_algo.hpp>
+#include <axes/lookup/composable/traversal_for_search_algo.hpp>
+#include <axes/node/axis_04_node_type_composed_store.hpp>
 
 #include <cstdint>
 #include <optional>
+#include <type_traits>
 
 namespace comdare::cache_engine::builder::anatomy_commands {
 
-namespace ana   = ::comdare::cache_engine::anatomy;
-namespace comp  = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable;
-namespace nodes = ::comdare::cache_engine::nodes::axis_04_node_type;
+namespace ana     = ::comdare::cache_engine::anatomy;
+namespace comp    = ::comdare::cache_engine::traversal::axis_03a_search_algo::composable;
+namespace lk_comp = ::comdare::cache_engine::lookup::composable;
+namespace node    = ::comdare::cache_engine::node;
+namespace topics  = ::comdare::cache_engine::topics;
 
 /// AnatomyExecutionContext — Builder-Side Container + Anatomie-Holder.
 ///
@@ -37,15 +45,88 @@ public:
     using observer_aggregate_t = typename anatomy_t::observer_aggregate_t;
     using key_type             = std::uint64_t;
     using value_type           = std::uint64_t;
-    // Saeule-2 (Doku 24 §5.3/§5.5) + Roadmap-1: GETRIEBENER uint64-Container statt losgelostem std::map.
-    // Inneres Storage-Organ ist jetzt ComposedStore<N,L,A> mit der Composition-Allocator-Achse → dessen
-    // Vector-Growth treibt die Allocator-Statistik REAL (2. observierbare Achse). ObservableComposedSearch
-    // haelt den Store by value (nie kopiert) → ComposedStore Copy/Move=delete (Derived*-Lifetime) vertraeglich.
-    using container_t = comp::ObservableComposedSearch<
-        comp::SortedBinaryTraversal,
-        nodes::ComposedStore<typename Composition::node_type, typename Composition::memory_layout,
-                             typename Composition::allocator>>;
+    using search_algo_t        = typename Composition::search_algo;
+    using container_algorithm_traversal_t =
+        std::conditional_t<lk_comp::StoreTraversableSearchAlgo<search_algo_t>,
+                           lk_comp::traversal_for_search_algo_t<search_algo_t>, comp::SortedBinaryTraversal>;
+    // Flat-Fallback bewusst mit ComposedStore (NICHT LayoutAwareChunkedStore wie im Adapter): der Builder-
+    // Pilot misst die Allocator-Achse ueber den Store-Vector-Growth REAL inkl. total_bytes_in_use
+    // (Roadmap-1; Pilot-Test R5B asserted in_use > 0 — LayoutAware-Slab-Snapshot kennt kein in-use-Mass).
+    using flat_container_algorithm_t = comp::ObservableComposedSearch<
+        container_algorithm_traversal_t,
+        node::ComposedStore<typename Composition::node_type, typename Composition::memory_layout,
+                            typename Composition::allocator>>;
+    static constexpr bool pool_family_ = !std::is_same_v<lk_comp::organ_for_search_algo_t<search_algo_t>, void>;
+    static constexpr bool organ_hull_  = lk_comp::is_observable_organ_hull_v<search_algo_t>;
+    using container_algorithm_t        = typename std::conditional_t<
+        pool_family_,
+        std::type_identity<lk_comp::ObservableComposedContainer<lk_comp::organ_for_search_algo_t<search_algo_t>>>,
+        std::conditional_t<organ_hull_, std::type_identity<search_algo_t>,
+                           std::type_identity<flat_container_algorithm_t>>>::type;
 
+    // T6-Mess-Organ-Erkennung: bietet der konstitutive Speicher selbst eine Allocator-Statistik?
+    static constexpr bool has_store_alloc_stats_ =
+        requires(container_algorithm_t const& c) { c.store_allocator_statistics(); };
+
+private:
+    // Nicht-konstitutives T6-MESS-Organ (Adapter-Muster „container_algorithm_ + Mess-Organe"): nur fuer
+    // Zweige OHNE eigene store_allocator_statistics (Organ-Huellen/Pools) — erhaelt das Roadmap-1-
+    // Verhalten (ComposedStore-Vector-Growth treibt die Allocator-Achse REAL inkl. in_use; Pilot R5B).
+    struct EmptyMeter {
+        void insert(key_type, value_type) noexcept {}
+        void erase(key_type) noexcept {}
+        void clear() noexcept {}
+    };
+    using allocator_meter_t = std::conditional_t<has_store_alloc_stats_, EmptyMeter, flat_container_algorithm_t>;
+
+    template <class Target, class Source>
+    static void assign_allocator_snapshot_(Target& target, Source const& source) noexcept {
+        if constexpr (std::is_assignable_v<Target&, Source const&>) {
+            target = source;
+        } else if constexpr (requires {
+                                 source.total_bytes_allocated;
+                                 source.total_bytes_in_use;
+                                 source.allocation_count;
+                                 source.deallocation_count;
+                                 source.failure_count;
+                             }) {
+            target.total_bytes_allocated = static_cast<std::uint64_t>(source.total_bytes_allocated);
+            target.total_bytes_in_use    = static_cast<std::uint64_t>(source.total_bytes_in_use);
+            target.allocation_count      = static_cast<std::uint64_t>(source.allocation_count);
+            target.deallocation_count    = static_cast<std::uint64_t>(source.deallocation_count);
+            target.failure_count         = static_cast<std::uint64_t>(source.failure_count);
+        } else if constexpr (requires {
+                                 source.bytes_allocated;
+                                 source.alloc_calls;
+                             }) {
+            // Adapter-Spiegel-Konvention (abi_adapter tier_get_allocator, Zweig 2): native Slab-/Pool-
+            // Formate ohne free-Pfad haben allocated == in_use per Konstruktion — KEINE Fabrikation.
+            target.total_bytes_allocated = static_cast<std::uint64_t>(source.bytes_allocated);
+            target.total_bytes_in_use    = static_cast<std::uint64_t>(source.bytes_allocated);
+            target.allocation_count      = static_cast<std::uint64_t>(source.alloc_calls);
+        }
+    }
+
+    struct MeasurementVisitor {
+        observer_aggregate_t&        agg;
+        container_algorithm_t const& container_algorithm;
+        allocator_meter_t const&     allocator_meter;
+
+        template <class Axis>
+        void visit_observable() const noexcept {
+            if constexpr (std::is_same_v<Axis, typename Composition::search_algo>) {
+                agg.search_algo = container_algorithm.statistics();
+            } else if constexpr (std::is_same_v<Axis, typename Composition::allocator>) {
+                if constexpr (has_store_alloc_stats_) {
+                    assign_allocator_snapshot_(agg.allocator, container_algorithm.store_allocator_statistics());
+                } else {
+                    assign_allocator_snapshot_(agg.allocator, allocator_meter.store_allocator_statistics());
+                }
+            }
+        }
+    };
+
+public:
     /// Default-konstruiert — Anatomie + leeren Container
     AnatomyExecutionContext() = default;
 
@@ -57,47 +138,34 @@ public:
     // ─────────────────────────────────────────────────────────────────────
 
     bool insert(key_type k, value_type v) {
-        search_organ_.insert(
-            k,
-            v); // treibt + MISST die search_algo-Achse (echtes Composition-Organ; Rueckgabe egal — manche Organe insert()->void)
-        return container_.insert(k, v); // inserted-Flag + ALLOCATOR-Achse (container_ ist immer bool)
+        if constexpr (!has_store_alloc_stats_) { allocator_meter_.insert(k, v); }
+        return container_algorithm_.insert(k, v);
     }
 
-    [[nodiscard]] std::optional<value_type> lookup(key_type k) const {
-        return search_organ_.lookup(k);
-    } // echtes Organ (Lookup-Stats)
+    [[nodiscard]] std::optional<value_type> lookup(key_type k) const { return container_algorithm_.lookup(k); }
 
     bool erase(key_type k) {
-        search_organ_.erase(k);
-        return container_.erase(k);
+        if constexpr (!has_store_alloc_stats_) { allocator_meter_.erase(k); }
+        return container_algorithm_.erase(k);
     }
 
     void clear() noexcept {
-        container_.clear();
-        search_organ_.clear();
+        if constexpr (!has_store_alloc_stats_) { allocator_meter_.clear(); }
+        container_algorithm_.clear();
     }
 
-    [[nodiscard]] std::size_t size() const noexcept { return search_organ_.occupied_count(); }
-    [[nodiscard]] bool        empty() const noexcept { return search_organ_.occupied_count() == 0; }
+    [[nodiscard]] std::size_t size() const noexcept { return container_algorithm_.occupied_count(); }
+    [[nodiscard]] bool        empty() const noexcept { return container_algorithm_.occupied_count() == 0; }
 
     /// Snapshot-Abruf (R5.A observe_all) — Saeule-2 (Doku 24 §5.2/§5.3): die 16 nicht-getriebenen Achsen
-    /// kommen als Default aus der Anatomie; der GETRIEBENE search_algo-Slot bekommt die ECHTEN Zaehler
-    /// aus dem Container. Typkompatibel: container_t::snapshot_t == SearchAlgoStatistics ==
-    /// snapshot_of_t<Composition::search_algo> fuer alle Compositions (Praezedenz Array256SearchAlgo:124).
+    /// kommen als Default aus der Anatomie; die GETRIEBENEN search_algo-/allocator-Slots bekommen die echten
+    /// Zaehler aus dem einen container_algorithm_-Zustand.
     [[nodiscard]] observer_aggregate_t observe_all() const noexcept {
         observer_aggregate_t agg = anatomy_.observe_all();
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        // Achse 1 (search_algo) — echte Zaehler aus dem GETRIEBENEN ECHTEN Composition-Organ (#42-Folge:
-        // jede Composition misst ihr EIGENES seziertes Organ, nicht mehr generisch SortedBinary).
-        if constexpr (ana::ObservableAxis<typename Composition::search_algo>) {
-            agg.search_algo = search_organ_.statistics(); // Doku 24 §5.2-Luecke geschlossen + mess-treu
-        }
-        // Achse 2 (allocator, Roadmap-1) — der innere ComposedStore-Vector treibt die Allocator-Achse REAL.
-        // Doppeltes Gate: Composition::allocator observable UND der Store bietet allocator_statistics().
-        if constexpr (ana::ObservableAxis<typename Composition::allocator> &&
-                      container_t::template store_has_allocator_stats<typename container_t::store_type>) {
-            agg.allocator = container_.store_allocator_statistics();
-        }
+        MeasurementVisitor visitor{agg, container_algorithm_, allocator_meter_};
+        topics::axis_accept_measurement<typename Composition::search_algo>(visitor);
+        topics::axis_accept_measurement<typename Composition::allocator>(visitor);
 #endif
         return agg;
     }
@@ -112,14 +180,10 @@ public:
 
 private:
     anatomy_t anatomy_{};
-    // Builder-Pilot-Eigenpaar: bewusst NICHT im 4c-iv-Rename (nur SearchAlgorithmAbiAdapter).
-    // Konsolidierung dieses search_organ_/container_-Paars folgt mit CMD-1 (#251).
-    container_t
-        container_{}; // misst die ALLOCATOR-Achse (ComposedStore<N,L,A>-Vector-Growth treibt allocator_statistics)
-    // Saeule-2-Mess-Treue (#42-Folge): das ECHTE sezierte Composition-Organ (ART/Masstree/Wormhole/SuRF/...)
-    // im search_algo-Slot misst jetzt die search_algo-Achse — statt fuer ALLE Compositions generisch SortedBinary.
-    // Default-konstruierbar + ObservableAxis (durch #42 garantiert: ObservableComposedContainer-Huelle).
-    typename Composition::search_algo search_organ_{};
+    // CMD-1 (#251): ein konstitutiver Speicher analog abi_adapter::container_algorithm_. Der Typ ist entweder die
+    // native observable SearchAlgo-Huelle der Composition, ein organ_for<>-Wrapper oder der flache LayoutAware-Fallback.
+    container_algorithm_t container_algorithm_{};
+    allocator_meter_t     allocator_meter_{};
 };
 
 } // namespace comdare::cache_engine::builder::anatomy_commands
