@@ -31,7 +31,14 @@ stages:
   - test           # CI-2 (#264): Voll-Suite via Sammel-Target comdare_tests (Probelauf, s. test:unit)
   - chaos          # Stufe 6 (#197, EPIC #186): Mess-Drift-Detektor + Rerun-Gate (Selbstheilung)
 
+# #277/#21 (User 06.07.): ccache-Bestand auf dev-MinIO via runners.cache; projektlokales CCACHE_DIR fuer cache:-Sync.
+cache:
+  key: "ccache-$CI_PROJECT_NAME"
+  paths: [".ccache"]
+
 variables:
+  CCACHE_DIR: "$CI_PROJECT_DIR/.ccache"
+  CCACHE_MAXSIZE: "5G"
   GIT_SUBMODULE_STRATEGY: none
   CMAKE_BUILD_PARALLEL_LEVEL: "6"          # User 2026-07-06: 2x6 Kerne bei concurrent=2 (prod1 16C; revidiert 4@8-Kern-cgroup-Aera)
   COMDARE_LINT_PATHS: "libs apps tests adapters benchmark_suite benchmarks"
