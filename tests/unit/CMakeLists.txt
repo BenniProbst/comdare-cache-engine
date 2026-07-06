@@ -1426,7 +1426,7 @@ set(COMDARE_GOALV6_LIGHT_DTESTS
     test_d11_view             # L-76c (View-Gattung)
     test_genus_docks          # L-76a-c (Set/Sequence/View Pruef-Docks: Gattungs-API treiben + Observer + CSV)
     test_d12_virus            # L-76d (Viren IVirusExecutionEngine + GraphBfs)
-    test_d13_runtime_measure  # L-MEAS (RuntimeMeasureVisitor)
+    test_d13_runtime_measure  # L-MEAS (HostMeasureLoop, ex RuntimeMeasureVisitor)
     test_d14_result_ingest    # L-CLUSTER gate-frei (result_ingest) + Audit-A1 MAJOR-MESS-09 Negativ-Tests (==176/binary_id)
     test_d14b_perm_runner     # L-CLUSTER-E2E gate-frei (perm_runner → result_ingest Round-Trip)
     test_a1_load_profile_opmix # Audit-A1 MAJOR-MESS-05 (op_mix-Pflicht: fehlend/leer → nullopt)
@@ -2162,7 +2162,7 @@ add_test(NAME test_adhoc_buildvariant_dll COMMAND test_adhoc_buildvariant_dll "$
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_adhoc_buildvariant_dll)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
 set_tests_properties(test_adhoc_buildvariant_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
 
-# L-MEAS — RuntimeMeasureVisitor über die ECHTE geladene DLL (dynamic_cast IObservableTier + IResourceControllableTier
+# L-MEAS — HostMeasureLoop (ex RuntimeMeasureVisitor) über die ECHTE geladene DLL (dynamic_cast IObservableTier + IResourceControllableTier
 # aus DEMSELBEN Tier → Host-Bridge → Mess-Schleife je dyn. Einstellung × repeats, kein Reload). Reuse perm_adhoc_buildvariant.
 add_executable(test_d13_dll_runtime_measure test_d13_dll_runtime_measure.cpp)
 target_include_directories(test_d13_dll_runtime_measure PRIVATE

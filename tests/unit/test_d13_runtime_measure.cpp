@@ -1,9 +1,9 @@
-// D13 / L-MEAS — RuntimeMeasureVisitor: die host-seitige Mess-Schleife je geladener Binary. Verifiziert: je
+// D13 / L-MEAS — HostMeasureLoop: die host-seitige Mess-Schleife je geladener Binary. Verifiziert: je
 // dynamischer Einstellung (RuntimeVariableLoop-Kartesik) wird ein Workload gefahren + tier_observe gezogen,
 // je repeats — OHNE Reload. Mock-Tier (IObservableTier + IResourceControllableTier) belegt die Mechanik
 // leichtgewichtig. Build: cl /I libs/cache_engine (kein Boost).
 
-#include "builder/experiment_tree/runtime_measure_visitor.hpp"
+#include "builder/experiment_tree/host_measure_loop.hpp"
 
 #include <cstdint>
 #include <iostream>
@@ -84,13 +84,13 @@ static void tr(char const* w, bool c) {
 }
 
 int main() {
-    std::cout << "==== D13 RuntimeMeasureVisitor (dyn. Variablen × Messung je Binary, kein Reload) ====\n";
+    std::cout << "==== D13 HostMeasureLoop (dyn. Variablen × Messung je Binary, kein Reload) ====\n";
     MockTier mock;
     // 1 dynamische Dimension: concurrency.thread_count ∈ {1,2,4} → 3 Einstellungen.
     std::vector<ex::DynamicDim> dims = {{"concurrency", "thread_count", {"1", "2", "4"}, "blk_conc"}};
 
-    ex::RuntimeMeasureVisitor vis{};
-    auto const                pts = vis.measure(mock, dims, /*n_ops=*/10, /*repeats=*/3);
+    ex::HostMeasureLoop vis{};
+    auto const          pts = vis.measure(mock, dims, /*n_ops=*/10, /*repeats=*/3);
 
     eq("Punkte == 9 (3 Einstellungen × 3 Wiederholungen)", pts.size(), std::size_t{9});
 

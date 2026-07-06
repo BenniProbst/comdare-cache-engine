@@ -1,10 +1,10 @@
-// D13-DLL / L-MEAS — der RuntimeMeasureVisitor über eine ECHTE geladene DLL (statt MockTier). Lädt eine
+// D13-DLL / L-MEAS — der HostMeasureLoop über eine ECHTE geladene DLL (statt MockTier). Lädt eine
 // SearchAlgorithm-adhoc-DLL via AnatomyModuleLoader, zieht via dynamic_cast BEIDE Sub-Interfaces (IObservableTier
 // für Antrieb+Observer, IResourceControllableTier für die dyn. Steuerung) aus DEMSELBEN geladenen Tier, und fährt
 // die Mess-Schleife: je dyn. Einstellung (thread_count ∈ {1,2,4}) × repeats=3 Workload + tier_observe — OHNE Reload.
 // Beweist L-MEAS end-to-end über die echte .dll-Grenze. Aufruf: <searchalgo_adhoc.dll>.
 
-#include <builder/experiment_tree/runtime_measure_visitor.hpp>
+#include <builder/experiment_tree/host_measure_loop.hpp>
 #include <builder/anatomy_module_loader/anatomy_module_loader.hpp>
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/observable_tier.hpp>
@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
         std::cerr << "usage: test_d13_dll_runtime_measure <searchalgo_adhoc.dll>\n";
         return 2;
     }
-    std::cout << "==== D13-DLL / L-MEAS — RuntimeMeasureVisitor über die ECHTE .dll-Grenze ====\n";
+    std::cout << "==== D13-DLL / L-MEAS — HostMeasureLoop über die ECHTE .dll-Grenze ====\n";
 
     loader::AnatomyModuleHandle handle;
     int const                   st = loader::AnatomyModuleLoader::load(argv[1], handle);
@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
     // Die Mess-Schleife über DIESELBE geladene Tier (kein Reload): thread_count ∈ {1,2,4} × 3 Wiederholungen.
     DllTierBridge               bridge{obs, rc};
     std::vector<ex::DynamicDim> dims = {{"concurrency", "thread_count", {"1", "2", "4"}, "blk_conc"}};
-    ex::RuntimeMeasureVisitor   vis{};
+    ex::HostMeasureLoop         vis{};
     auto const                  pts = vis.measure(bridge, dims, /*n_ops=*/20, /*repeats=*/3);
 
     eq("Mess-Punkte == 9 (3 Einstellungen × 3 Wiederholungen)", pts.size(), std::size_t{9});

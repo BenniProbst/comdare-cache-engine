@@ -1,5 +1,5 @@
 #pragma once
-// D13 / L-MEAS (2026-06-02) — RuntimeMeasureVisitor: verbindet den RuntimeVariableLoop (KF-7, dyn. Variablen-
+// D13 / L-MEAS (2026-06-02) — HostMeasureLoop: verbindet den RuntimeVariableLoop (KF-7, dyn. Variablen-
 // Kartesik auf EINER geladenen Binary) mit der MESSUNG. Der bestehende Loop wendet je Einstellung nur die
 // Resource-Control an — er MISST nichts. Dieser Visitor schließt die Lücke: je dynamischer Einstellung fährt er
 // einen Workload (n_ops insert+lookup über IObservableTier) + zieht tier_observe, je `repeats` (Default 3, KF-10 —
@@ -24,11 +24,13 @@ struct RuntimeMeasurePoint {
     NodeObserverSnapshot observer{};             // tier_observe-Ergebnis (echt getrieben)
 };
 
-/// RuntimeMeasureVisitor — die host-seitige Mess-Schleife je geladener Binary (kein GoF-Visitor — kein accept/visit-Double-Dispatch; host-seitige Mess-Schleife). TierT erfüllt
+/// HostMeasureLoop — die host-seitige Mess-Schleife je geladener Binary. CMD-1 (d) (#267, 2026-07-06):
+/// umbenannt von RuntimeMeasureVisitor — das Etikett war irrefuehrend (kein GoF-Visitor, kein accept/visit-
+/// Double-Dispatch; K10-Disclaimer wortgleich). TierT erfüllt
 /// IResourceControllableTier (für den Loop) UND IObservableTier (tier_insert/lookup/observe).
-class RuntimeMeasureVisitor {
+class HostMeasureLoop {
 public:
-    explicit RuntimeMeasureVisitor(anatomy::ComdareResourceControlV1 env_limits = {}) noexcept : env_{env_limits} {}
+    explicit HostMeasureLoop(anatomy::ComdareResourceControlV1 env_limits = {}) noexcept : env_{env_limits} {}
 
     template <class TierT>
     [[nodiscard]] std::vector<RuntimeMeasurePoint> measure(TierT& tier, std::vector<DynamicDim> const& dims,

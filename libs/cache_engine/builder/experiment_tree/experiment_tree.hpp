@@ -59,7 +59,7 @@ namespace comdare::cache_engine::builder::experiment {
 struct NodeObserverSnapshot {
     // Legacy-V1-Projektion (Übergang, entfällt I-C): 13 benannte Felder = Sicht auf axis_stats[0] (search) /
     // axis_stats[6] (allocator) + Meta. Bleiben für die (noch nicht migrierten) 13-Feld-Konsumenten (CSV-o.*-
-    // Spalten, runtime_measure_visitor, test_d14b/d14c). Auf ingest aus der vollen Matrix abgeleitet.
+    // Spalten, host_measure_loop, test_d14b/d14c). Auf ingest aus der vollen Matrix abgeleitet.
     std::uint64_t search_lookup_count = 0, search_hit_count = 0, search_miss_count = 0, search_insert_count = 0,
                   search_erase_count = 0, search_peak_occupancy = 0;
     std::uint64_t alloc_bytes_allocated = 0, alloc_bytes_in_use = 0, alloc_allocation_count = 0,
