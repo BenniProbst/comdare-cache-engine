@@ -1657,6 +1657,22 @@ target_compile_definitions(test_s7_2_btree_pool_allocator_deg PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_s7_2_btree_pool_allocator_deg PROPERTIES LABELS "contract;pool_flip;allocator")
 
+# CMD-1-a (#267/#251) -- Compile-time-Command-Basis + Mess-Visitor-Slot.
+comdare_add_test(test_cmd1_a_axis_command_base
+    SOURCES test_cmd1_a_axis_command_base.cpp)
+target_include_directories(test_cmd1_a_axis_command_base PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_cmd1_a_axis_command_base PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_cmd1_a_axis_command_base PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_cmd1_a_axis_command_base PROPERTIES LABELS "contract")
+
 # S7-3 (#261/#234) -- SkipList-Pool: allocator-param default + T6 allocator DEG hook.
 comdare_add_test(test_s7_3_skip_list_pool_allocator_deg
     SOURCES test_s7_3_skip_list_pool_allocator_deg.cpp)
