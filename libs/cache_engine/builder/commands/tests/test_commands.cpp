@@ -6,6 +6,7 @@
 #include "workload.hpp"
 #include "execution_result.hpp"
 #include "execute_engine_command.hpp"
+#include "compare_engine_command.hpp"
 #include "auto_permutator.hpp"
 #include "axis_library_registry.hpp"
 #include "welch_t_test.hpp"
@@ -78,6 +79,47 @@ TEST(ExecuteEngineCommand, CallableFailurePropagates) {
     int                       rc = command.execute();
     EXPECT_EQ(rc, 1);
     EXPECT_FALSE(command.result().success);
+}
+
+TEST(CompareEngineCommand, BasicCompare) {
+    cmd::ExecutionResult r_a{};
+    r_a.engine_name            = "ee-a";
+    r_a.success                = true;
+    r_a.throughput_ops_per_sec = 1100.0;
+    r_a.latency_p99            = std::chrono::nanoseconds(900);
+    r_a.total_cache_misses     = 100;
+    r_a.memory_footprint_bytes = 4096;
+    r_a.H1_clu_improvement     = 1.2;
+
+    cmd::ExecutionResult r_b{};
+    r_b.engine_name            = "ee-b";
+    r_b.success                = true;
+    r_b.throughput_ops_per_sec = 1000.0;
+    r_b.latency_p99            = std::chrono::nanoseconds(1000);
+    r_b.total_cache_misses     = 150;
+    r_b.memory_footprint_bytes = 4096;
+
+    cmd::CompareEngineCommand cmp(r_a, r_b);
+    EXPECT_EQ(cmp.command_name(), "CompareEngineCommand");
+
+    int rc = cmp.execute();
+    EXPECT_EQ(rc, 0);
+    EXPECT_EQ(cmp.verdict(), cmd::CompareEngineCommand::Verdict::EE_A_Wins);
+    EXPECT_NEAR(cmp.throughput_ratio(), 1.1, 0.01);
+    EXPECT_EQ(cmp.latency_delta_ns(), 100); // 1000 - 900
+    EXPECT_EQ(cmp.cache_miss_improvement(), 50);
+    EXPECT_TRUE(cmp.h1_clu_validated());
+}
+
+TEST(CompareEngineCommand, Tie) {
+    cmd::ExecutionResult r{};
+    r.success                = true;
+    r.throughput_ops_per_sec = 1000.0;
+    r.latency_p99            = std::chrono::nanoseconds(1000);
+
+    cmd::CompareEngineCommand cmp(r, r);
+    cmp.execute();
+    EXPECT_EQ(cmp.verdict(), cmd::CompareEngineCommand::Verdict::Tie);
 }
 
 TEST(AxisLibraryRegistry, LookupAchse12_1Simd) {
@@ -169,6 +211,48 @@ TEST(WelchTTest, TooFewSamplesInvalid) {
     std::vector<std::int64_t> b{200, 201};
     auto                      r = cmd::stats::welch_t_test(a, b);
     EXPECT_FALSE(r.valid);
+}
+
+TEST(CompareEngineCommand, WelchBasedVerdictWhenSamplesPresent) {
+    cmd::ExecutionResult r_a{};
+    r_a.engine_name            = "ee-a";
+    r_a.success                = true;
+    r_a.throughput_ops_per_sec = 1000.0;
+    r_a.memory_footprint_bytes = 4096;
+    r_a.latency_samples_ns     = {100, 102, 98, 101, 99, 100, 103, 97, 100, 101};
+
+    cmd::ExecutionResult r_b{};
+    r_b.engine_name            = "ee-b";
+    r_b.success                = true;
+    r_b.throughput_ops_per_sec = 1000.0; // gleiches Throughput!
+    r_b.memory_footprint_bytes = 4096;
+    r_b.latency_samples_ns     = {500, 510, 495, 503, 498, 505, 502, 499, 501, 506};
+
+    cmd::CompareEngineCommand cmp(r_a, r_b);
+    int                       rc = cmp.execute();
+    EXPECT_EQ(rc, 0);
+    // Welch-basiertes Verdict: a hat kleinere Latenz → EE_A_Wins (auch wenn throughput gleich!)
+    EXPECT_EQ(cmp.verdict(), cmd::CompareEngineCommand::Verdict::EE_A_Wins);
+    EXPECT_TRUE(cmp.welch().valid);
+    EXPECT_LT(cmp.welch().p_value, 0.05);
+}
+
+TEST(CompareEngineCommand, WelchTieWhenOverlapping) {
+    cmd::ExecutionResult r_a{};
+    r_a.engine_name            = "ee-a";
+    r_a.success                = true;
+    r_a.throughput_ops_per_sec = 1000.0;
+    r_a.latency_samples_ns     = {100, 102, 98, 101, 99, 100, 103, 97, 100, 101};
+
+    cmd::ExecutionResult r_b{};
+    r_b.engine_name            = "ee-b";
+    r_b.success                = true;
+    r_b.throughput_ops_per_sec = 1000.0;
+    r_b.latency_samples_ns     = {100, 103, 99, 101, 100, 102, 98, 100, 101, 102};
+
+    cmd::CompareEngineCommand cmp(r_a, r_b);
+    cmp.execute();
+    EXPECT_EQ(cmp.verdict(), cmd::CompareEngineCommand::Verdict::Tie);
 }
 
 TEST(AutoPermutator, DiscoverAndGenerate) {
