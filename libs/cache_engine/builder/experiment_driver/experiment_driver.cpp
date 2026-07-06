@@ -92,6 +92,12 @@ std::filesystem::path const& ExperimentDriver::build_dir() const noexcept {
 // ─────────────────────────────────────────────────────────────────────────────
 int ExperimentDriver::phase1_enumerate(std::vector<loop::PermutationDescriptor>& out_descriptors) {
     try {
+        // INV-4/kein-Silent-Skip (Fix 2026-07-06): fehlendes Config-Verzeichnis ist ein FEHLER,
+        // kein leerer Erfolg (parse_one liefert sonst still {} je Datei -> 0 Permutationen "ok").
+        if (!std::filesystem::is_directory(opts_.config_dir)) {
+            std::cerr << "[Phase 1] Config-Verzeichnis fehlt: " << opts_.config_dir.string() << "\n";
+            return status_xml_parse_failed;
+        }
         xml::XmlConfigParser parser;
         auto                 cfg = parser.parse(opts_.config_dir);
 
@@ -526,6 +532,15 @@ int ExperimentDriver::phase7_export(experiment::ResultAggregator const& agg) {
 // Convenience: Full Pipeline (Phase 1-7, mit allen Diagnose-Outputs)
 // ─────────────────────────────────────────────────────────────────────────────
 int ExperimentDriver::run_pipeline_full(WorkloadOptions const& wopts) {
+    // Fix 2026-07-06: ein erfolgreicher Lauf materialisiert IMMER sein deklariertes output_dir —
+    // auch im enumerate_only-Modus (vorher entstand es erst in phase2_generate; Messreihen-Layout-
+    // Konsumenten pruefen die Verzeichnis-Existenz je Reihe).
+    std::error_code output_dir_ec;
+    std::filesystem::create_directories(opts_.output_dir, output_dir_ec);
+    if (output_dir_ec) {
+        std::cerr << "[Pipeline] output_dir nicht anlegbar: " << opts_.output_dir.string() << "\n";
+        return status_export_failed;
+    }
     std::vector<loop::PermutationDescriptor> descriptors;
     int                                      rc = phase1_enumerate(descriptors);
     if (rc != status_ok) return rc;
