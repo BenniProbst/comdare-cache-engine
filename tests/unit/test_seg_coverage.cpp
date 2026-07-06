@@ -105,15 +105,13 @@ static void check_coverage(char const* name, bool store_axes_backed) {
 
     // (3) die latenz-dominanten Organe tragen plausible, NICHT-verschwindende Zeit, sofern ein Store existiert.
     tr(std::string(name) + ": seg[T0 search_algo] > 0 (algorithmische Organ-Zeit, nicht 0)", s.seg_ns[0] > 0);
-    if (store_axes_backed) {
-        tr(std::string(name) + ": seg[T4 node_type] > 0 (store-backed algorithmische Organ-Zeit)", s.seg_ns[4] > 0);
-        tr(std::string(name) + ": seg[T5 memory_layout] > 0 (store-backed algorithmische Organ-Zeit)", s.seg_ns[5] > 0);
-    } else {
-        // #188-4c-i: Huellen-Komposition container_-authoritativ -> store-Achsen honest-0 (bis observe-Hooks #234).
-        tr(std::string(name) + ": seg[T4 node_type] == 0 (Huellen honest-0)", s.seg_ns[4] == 0);
-        tr(std::string(name) + ": seg[T5 memory_layout] == 0 (Huellen honest-0)", s.seg_ns[5] == 0);
-        tr(std::string(name) + ": seg[T6 allocator] == 0 (Huellen honest-0)", s.seg_ns[6] == 0);
-    }
+    // #188-4c-i sagte fuer Huellen: store-Achsen honest-0 (bis observe-Hooks #234). Dieser Vorbehalt ist durch
+    // CMD-1 (b) (#267, Ein-Speicher-Umbau) eingeloest: auch Huellen-Kompositionen erfuellen die store_observe_*/
+    // store_allocator_statistics-requires -> T4/T5/T6-Segmente tragen jetzt UEBERALL echte Organ-Zeit (> 0).
+    (void)store_axes_backed;
+    tr(std::string(name) + ": seg[T4 node_type] > 0 (algorithmische Organ-Zeit, CMD-1-b echt)", s.seg_ns[4] > 0);
+    tr(std::string(name) + ": seg[T5 memory_layout] > 0 (algorithmische Organ-Zeit, CMD-1-b echt)", s.seg_ns[5] > 0);
+    tr(std::string(name) + ": seg[T6 allocator] > 0 (O(1)-Stats-Read, CMD-1-b echt)", s.seg_ns[6] > 0);
 }
 
 int main() {

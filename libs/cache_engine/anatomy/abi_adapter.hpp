@@ -1332,7 +1332,12 @@ public:
             }
             std::size_t const nk = keys.empty() ? std::size_t{1} : keys.size();
             if (keys.empty()) keys.push_back(0);
-            std::uint64_t const     n_ops    = static_cast<std::uint64_t>(nk);
+            // #278 (2026-07-06): Mindest-Op-Zahl je Batch gegen Clock-Aufloesung/Framework-Fixkosten. Walk-lose
+            // Huellen (Masstree: keys={0} -> nk=1) fuhren 1 Op je Segment -> 9µs-Lauf, framework_share 42%,
+            // P-MD3-Abnahme (Coverage > 0.90) physikalisch unerreichbar. Zyklisches Wiederholen derselben Ops
+            // (keys[i % nk]) aendert die Mess-Semantik nicht, amortisiert nur die Fixkosten (Batch-weise fuer
+            // ALLE Achsen desselben Laufs -> kommensurabel).
+            std::uint64_t const     n_ops    = std::max<std::uint64_t>(static_cast<std::uint64_t>(nk), 256u);
             constexpr std::uint64_t kBatches = 8;
             std::int64_t            acc[19]  = {};
             std::uint64_t           sink     = 0;

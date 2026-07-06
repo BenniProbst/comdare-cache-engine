@@ -308,9 +308,11 @@ TEST(F15Measurement, R6_HostSideObserverPullViaAbiInterface) {
     EXPECT_GT(snap.axis_stats[0][5], 0u);
     EXPECT_EQ(snap.tier_fill_level, obs->tier_size()); // korrelierter Fuellstand (§8.7)
     EXPECT_GT(snap.observable_axis_count, 0u);         // mind. die search_algo-Achse observable
-    // #188-4c-i: Huellen-Komposition container_-authoritativ -> store-Achsen honest-0 (bis observe-Hooks #234).
-    EXPECT_EQ(snap.axis_stats[6][0], 0u);
-    EXPECT_EQ(snap.axis_stats[6][2], 0u);
+    // #188-4c-i sagte: Huellen-Komposition container_-authoritativ -> store-Achsen honest-0 (bis observe-Hooks
+    // #234). Dieser Vorbehalt ist durch CMD-1 (b) (#267, Ein-Speicher-Umbau + nicht-konstitutives T6-Mess-Organ
+    // allocator_meter_) eingeloest: die allocator-Achse wird jetzt AUCH auf der Huellen-Komposition echt gemessen.
+    EXPECT_GT(snap.axis_stats[6][0], 0u); // bytes_alloc — echte Messung statt honest-0
+    EXPECT_GT(snap.axis_stats[6][2], 0u); // alloc_cnt   — dito
 
     // R6 Inkrement 2b: die allocator-Achse wird weiter über die ABI-Grenze gemessen, aber der Echtheits-Beweis
     // lebt seit #188-4c-i-T auf der store-backed AdHoc-Flachgruppe statt auf der Reference-Huelle.

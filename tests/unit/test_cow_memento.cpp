@@ -110,14 +110,30 @@ static void check_composition(char const* name) {
     an::ComdareTierObserverSnapshot s1{}, s2{};
     t1->tier_observe(&s1);
     t2->tier_observe(&s2);
-    bool t0_eq = true, t6_eq = true;
-    for (std::size_t f = 0; f < an::kV3FieldCount; ++f) {
+    bool t0_eq = true;
+    for (std::size_t f = 0; f < an::kV3FieldCount; ++f)
         if (s1.axis_stats[0][f] != s2.axis_stats[0][f]) t0_eq = false;
-        if (s1.axis_stats[6][f] != s2.axis_stats[6][f]) t6_eq = false;
-    }
     tr(std::string(name) + ": T0 search-axis_stats ELEMENTWEISE identisch (counter-clean)", t0_eq);
-    tr(std::string(name) + ": T6 allocator-axis_stats ELEMENTWEISE identisch (deriviert exakt)", t6_eq);
-    if (!t0_eq || !t6_eq) {
+    // T6 allocator: VOR CMD-1 (b) war die Achse zustandsderiviert (allocated==in_use==f(size)) -> elementweise
+    // rollback-invariant („deriviert exakt"). Seit CMD-1 (b) (#267) misst ein ECHTES kumulatives Mess-Organ:
+    // der CoW-Restore ersetzt das Organ durch seine Kopie, deren kumulative Allocator-HISTORIE die Kopier-
+    // Historie ist -> elementweise Gleichheit ueber Zwei-Phasen-Laeufe ist prinzipiell nicht mehr definiert.
+    // Der ehrliche counter-clean-Kontrakt fuer ein kumulatives Organ ist KEINE DOPPELZAEHLUNG (die Probe-Phase
+    // darf nicht zusaetzlich in den Zaehlern kleben: 2-phasig <= 1-phasig) + Echtheit (beide Laeufe > 0) +
+    // Adapter-Spiegel-Konvention (bytes_alloc == bytes_in_use, f0==f1) + fail==0.
+    std::uint64_t const b1 = s1.axis_stats[6][0], b2 = s2.axis_stats[6][0]; // bytes_alloc
+    std::uint64_t const c1 = s1.axis_stats[6][2], c2 = s2.axis_stats[6][2]; // alloc_cnt
+    // Huellen OHNE T6-Stats-Quelle (z.B. Masstree) tragen ehrlich 0 — Echtheit wird nur gefordert, sobald
+    // IRGENDEIN Lauf eine Quelle zeigt (dann muessen BEIDE Laeufe konsistent echt sein).
+    bool const t6_source = (b1 | b2 | c1 | c2) != 0;
+    tr(std::string(name) + (t6_source ? ": T6 ECHT in beiden Laeufen (bytes_alloc/alloc_cnt > 0)"
+                                      : ": T6 honest-0 (Huelle ohne T6-Stats-Quelle, konsistent 0)"),
+       !t6_source || (b1 > 0 && b2 > 0 && c1 > 0 && c2 > 0));
+    tr(std::string(name) + ": T6 counter-clean (keine Doppelzaehlung: 2-phasig <= 1-phasig)", b2 <= b1 && c2 <= c1);
+    tr(std::string(name) + ": T6 Adapter-Spiegel (bytes_alloc == bytes_in_use, beide Laeufe)",
+       s1.axis_stats[6][0] == s1.axis_stats[6][1] && s2.axis_stats[6][0] == s2.axis_stats[6][1]);
+    tr(std::string(name) + ": T6 fail == 0 (beide Laeufe)", s1.axis_stats[6][4] == 0 && s2.axis_stats[6][4] == 0);
+    if (!t0_eq) {
         for (std::size_t f = 0; f < an::kV3FieldCount; ++f)
             std::cout << "    f" << f << ": T0 " << s1.axis_stats[0][f] << " vs " << s2.axis_stats[0][f] << " | T6 "
                       << s1.axis_stats[6][f] << " vs " << s2.axis_stats[6][f] << "\n";
