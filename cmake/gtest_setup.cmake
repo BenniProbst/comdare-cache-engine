@@ -83,5 +83,9 @@ function(COMDARE_add_test name)
     add_test(
         NAME ${name}
         COMMAND ${name})
+    # CI-2-Registry: Root-Ende konsumiert diese Targets als comdare_tests.
+    # Erfasst auch conditional registrierte Post-Pass-2-Tests (r5i/f15), die
+    # eine handgepflegte Liste verpassen wuerde.
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${name})
     set_tests_properties(${name} PROPERTIES TIMEOUT 60)
 endfunction()
