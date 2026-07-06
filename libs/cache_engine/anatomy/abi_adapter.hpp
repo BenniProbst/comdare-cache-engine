@@ -1953,6 +1953,10 @@ private:
     // store_allocator_statistics ALLE praesent); FALSE fuer ObservableComposedContainer<Organ>, egal ob aus
     // organ_for_search_algo oder als bereits gehuellter SearchAlgo. Store-abhaengige Mess-Stellen unten
     // (prefetch-descent, tier_scan sowie T4/T5-Observer) schalten dann auf honest-0; T6 nutzt eine eigene schmale Stats-Route.
+    // CMD-1 (d) GEPARKT (#267, 2026-07-06): die gemeinsame private Helper-Route fuer die T6-Spiegel-Kaskade
+    // (tier_get_allocator <-> fill_observer_v3) bleibt GEPARKT — Dossier-Bedingung war byte-gleiches Verhalten
+    // LITERAL beweisbar; nach dem frischen CMD-1-b-Umbau + 164/164-Haertung wird die Kaskade nicht ohne Not
+    // angefasst. Kandidat fuer CMD-2 (#252, Container-Anteil-Aufschluesselung).
     // Golden-320-neutral: deren flache container_algorithm_t erfuellen store_type weiter; der neue organ_hull_-Zweig greift
     // nur fuer Reference-/PaperBinding-Huellen ausserhalb der 320-Registry.
     static constexpr bool container_algorithm_is_store_backed_ =
