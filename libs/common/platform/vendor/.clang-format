@@ -1,0 +1,4 @@
+# comdare-foundation-Zellen vendored ORIGINAL (First-Party, #265) — Vendoring-Doktrin: byte-treu belassen, NIE umformatieren.
+# Gleiches Muster wie ext/ bzw. hdr_histogram_wrapper/vendor (eigene .clang-format je vendored Baum).
+DisableFormat: true
+SortIncludes: Never
