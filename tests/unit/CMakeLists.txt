@@ -1584,6 +1584,22 @@ target_compile_definitions(test_s7_1_bst_pool_allocator_deg PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_s7_1_bst_pool_allocator_deg PROPERTIES LABELS "contract;pool_flip;allocator")
 
+# AP15-2 (#263-Rest, Strang C) -- get_allocator als POD-Proxy-Sub-Interface.
+comdare_add_test(test_ap15_2_get_allocator_proxy
+    SOURCES test_ap15_2_get_allocator_proxy.cpp)
+target_include_directories(test_ap15_2_get_allocator_proxy PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_ap15_2_get_allocator_proxy PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_ap15_2_get_allocator_proxy PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_ap15_2_get_allocator_proxy PROPERTIES LABELS "contract;allocator")
+
 # S7-2 (#261/#234) -- BTree-Pool: allocator-param default + T6 allocator DEG hook.
 comdare_add_test(test_s7_2_btree_pool_allocator_deg
     SOURCES test_s7_2_btree_pool_allocator_deg.cpp)
