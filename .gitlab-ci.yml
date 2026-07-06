@@ -336,6 +336,10 @@ test:unit:
     COMDARE_TEST_CONFIGURE_FLAGS: "-DCOMDARE_BUILD_TESTS=ON"
     COMDARE_TEST_BUILD_TARGET: "comdare_tests"
     COMDARE_TEST_PREBUILD_TARGET: "comdare_anatomy_codegen_cli"
+    # #278 Job-Scope (2026-07-06, Job 214641): contract-/pmc-Tests laufen bereits HART in ihren eigenen
+    # Jobs (contract:* / pmc:amd) — im unit-Sammel-Lauf zaehlten sie als "Not Run" (5x). KEIN Auslassen:
+    # der Ausschluss verweist auf die dedizierten Gates; unit-Scope = alles andere.
+    COMDARE_TEST_CTEST_ARGS: "-LE contract|pmc"
 
 # ── #204/264-b: TSan-Job (Thread-Sanitizer, NICHT mit ASan kombinierbar -> eigener Build). Advisory bis 264-d.
 # Nur Threading-Targets; DLL-dlopen-Tests bewusst ausgeklammert (Sanitizer-Interceptor/RTLD-heikel).
