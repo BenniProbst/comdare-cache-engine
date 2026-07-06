@@ -74,7 +74,7 @@ using ArtTrieOrgan     = ComposedArtTrieSearch<ArtTrieTraversalOrgan, ArtTrieNod
 using OriginalArtOrgan = ArtTrieOrgan;
 // S05 HOT: ECHTE bit-level Patricia-Anatomie (#43 s4) — crit-bit (countl_zero MSB-first) + Single-Bit-Split +
 // Collapse-Erase. is_original=false ([[pseudocode-papers-fallback]]); Multi-Bit/SparsePartialKeys+SIMD = Folge.
-using HotPatriciaOrgan = ComposedHotPatriciaSearch<HotPatriciaTraversalOrgan, HotPatriciaNodePoolStore>;
+using HotPatriciaOrgan = ComposedHotPatriciaSearch<HotPatriciaTraversalOrgan, HotPatriciaNodePoolStore<>>;
 using OriginalHotOrgan = HotPatriciaOrgan; // S05 HOT (war flacher SortedBinaryOrgan-Platzhalter)
 // S06 START: ECHTE Multibyte-Span-Anatomie (#43 s4) — Adaptive Radix Tree mit per-Node-Span (1/2/3-Byte-
 // Diskriminator, span-2 = Rewired64K-Distinktion ggue. ARTs fixem 1-Byte) + ByteWise-Path-Compression.
