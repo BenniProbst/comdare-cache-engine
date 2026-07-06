@@ -68,7 +68,8 @@ comdare_add_test(test_cache_recommendation
 
 comdare_add_test(test_cpuid_probe
     SOURCES test_cpuid_probe.cpp
-    LIBRARIES comdare::cache_engine_concepts)
+    # #265-b: die AP-3-Bruecke konsumiert die vendored foundation-Zelle comdare::platform (SIMDDetector).
+    LIBRARIES comdare::cache_engine_concepts comdare::platform)
 
 # V41.F.6.1 E1: prt-art-Legacy-Concept-Tests nur mit verfuegbaren prt-art-Headern (sonst _NOT_BUILT).
 if(COMDARE_PRT_ART_LEGACY_AVAILABLE)

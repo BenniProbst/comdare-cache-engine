@@ -85,3 +85,54 @@ TEST(CpuidProbe, AppleSiliconHasNeonAnd128ByteCacheLine) {
     EXPECT_EQ(result.cache_line_bytes, 128u);
 }
 #endif
+
+// ── #265-b (AP-3-Follow-up-Konsum): sysfs-Laufzeitprobe + Bruecken-Quellen-Kette ────────────────────────────
+#include <cache_engine/platform_probe/sysfs_cache_probe.hpp>
+#include <cache_engine/platform_probe/cpuid_platform_probe.hpp>
+
+#if defined(__linux__)
+TEST(SysfsCacheProbe, LinuxHierarchyRealAndPlausible) {
+    auto const info = pp::probe_sysfs_cache();
+    ASSERT_TRUE(info.available) << "Linux ohne /sys/devices/system/cpu/cpu0/cache/ — unerwartet";
+    EXPECT_TRUE(info.line_bytes == 32u || info.line_bytes == 64u || info.line_bytes == 128u || info.line_bytes == 256u)
+        << "coherency_line_size=" << info.line_bytes;
+    EXPECT_GT(info.l1_data_kb, 0u);
+    EXPECT_LT(info.l1_data_kb, 4096u); // L1d > 4 MiB gibt es nicht — Parser-Plausibilitaet
+    // Kreuzcheck: liefern CPUID und sysfs BEIDE eine Line-Size, muessen sie uebereinstimmen.
+    auto const raw = pp::probe_cpuid();
+    if (raw.cache_line_bytes != 0u && info.line_bytes != 0u) EXPECT_EQ(raw.cache_line_bytes, info.line_bytes);
+}
+#endif
+
+TEST(CpuidPlatformProbe, CacheMetricsViaSourceChain) {
+    pp::CpuidPlatformProbe probe;
+    auto                   props = probe.discover_and_measure();
+    ASSERT_TRUE(props.measured_metrics.count("cache.l1d_kb"));
+    ASSERT_TRUE(props.measured_metrics.count("cache.l2_kb"));
+    ASSERT_TRUE(props.measured_metrics.count("cache.l3_kb"));
+    ASSERT_TRUE(props.measured_metrics.count("cache.sysfs_available"));
+#if defined(__linux__)
+    // Auf Linux (x86 wie ARM) muss die Kette CPUID->vendored->sysfs echte Werte liefern.
+    EXPECT_GT(props.measured_metrics["cache.l1d_kb"], 0.0);
+    EXPECT_GT(props.measured_metrics["cache_line_bytes"], 0.0);
+    EXPECT_EQ(props.measured_metrics["cache.sysfs_available"], 1.0);
+#endif
+#if defined(__aarch64__)
+    // #265-b-Kern: ARM-Flags kommen zur LAUFZEIT aus der vendored hwcap-Erkennung.
+    EXPECT_EQ(props.measured_metrics["feature.neon"], 1.0); // jeder AArch64-Linux-Host traegt NEON/ASIMD
+#endif
+}
+
+// Cross-Review 265-b: host-unabhaengige Parser-Unit-Tests (der sysfs-Realtest oben ist host-abhaengig).
+TEST(SysfsCacheProbe, SizeParserUnits) {
+    namespace d = pp::detail;
+    EXPECT_EQ(d::parse_size_kb("32K"), 32u);
+    EXPECT_EQ(d::parse_size_kb("36864K"), 36864u);
+    EXPECT_EQ(d::parse_size_kb("8M"), 8192u);
+    EXPECT_EQ(d::parse_size_kb("1G"), 1048576u);
+    EXPECT_EQ(d::parse_size_kb(""), 0u);
+    EXPECT_EQ(d::parse_size_kb("64"), 0u);  // ohne Einheit -> unverwertbar
+    EXPECT_EQ(d::parse_size_kb("64X"), 0u); // unbekanntes Suffix
+    EXPECT_EQ(d::parse_u32("64"), 64u);
+    EXPECT_EQ(d::parse_u32(""), 0u);
+}
