@@ -54,7 +54,9 @@ int main() {
     assert(checksum == 100u); // Korrektheit der durchgereichten Strategie-Methode
     assert(after.scan_count == 1u);
     assert(after.records_scanned == 4u);
-    assert(after.field_bytes_read == 16u);   // 4 * 4 Byte
+    // P-MD1-ERDUNG #167: der generische Raw-Buffer-Pfad (observe_scan ohne realen Store) bucht n * sizeof(uint64)
+    // Key-Bytes; die layout-distinkte REALE CLU kommt seitdem aus observe_real_footprint (Store-Pfad).
+    assert(after.field_bytes_read == 32u);   // 4 * 8 Byte (generischer Key-Footprint, s.o.)
     assert(after.cache_lines_touched == 4u); // 4 * ceil(64/64) = 4 (AoS strided, 1 Cache-Line/Record)
     assert(after.last_checksum == 100u);
     assert(!(after == before)); // Delta > 0 (kein Stub)
