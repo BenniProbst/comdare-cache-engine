@@ -24,7 +24,6 @@ add_subdirectory(workload_driver)        # V41.F.6.1.R6.A
 add_subdirectory(pruef_dock)             # V41.F.6.1.R6 — per-Gattung ABI-Mess-Übergang (Doku 24 §8.8)
 add_subdirectory(platform_probe)
 add_subdirectory(live_cpu_model)
-add_subdirectory(algorithm_visitor)
 add_subdirectory(observer_registry)
 add_subdirectory(compile_time_knowledge)
 add_subdirectory(runtime_micro_benchmarks)

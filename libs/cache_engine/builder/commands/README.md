@@ -1,5 +1,7 @@
 # cache_engine/builder/commands/ — V32.DD.1 Command-Pattern (AA.2 Korrektur)
 
+
+> **CMD-1 (c) (#267, 2026-07-06):** `compare_engine_command.hpp` und `auto_permutate_axis_command.hpp` wurden mit 0-Konsumenten-Beweis ENTFERNT (Nachfolger der Command-Semantik: compile-time `AxisCommand`, topics/axis_command_base.hpp). `i_command.hpp` + `execute_engine_command.hpp` bleiben als dokumentierte V32-/ABI-Adapter-Ausnahme (GEPARKT-Notiz in den Headern). Die Tabellen unten beschreiben den historischen V32-Stand.
 **Stand:** 2026-05-18 (V32.DD.1 Skelett)
 **Trigger:** User-Direktive 2026-05-18 (AA.2 KRITISCHE KORREKTUR)
 

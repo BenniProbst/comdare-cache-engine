@@ -130,11 +130,6 @@ comdare_add_test(test_cache_hierarchy_and_mode
     SOURCES test_cache_hierarchy_and_mode.cpp
     LIBRARIES comdare::cache_engine_concepts)
 
-# INK-7: HybridCompositionCommand (Command-Pattern, REV 3 K3.4)
-comdare_add_test(test_strategy_command
-    SOURCES test_strategy_command.cpp
-    LIBRARIES comdare::cache_engine_concepts)
-
 # INK-8: InMemoryMeasurementBuffer (F5) + Measure (F1) + F-EXTRA-7 + F11
 comdare_add_test(test_measurement_buffer
     SOURCES test_measurement_buffer.cpp
@@ -420,18 +415,6 @@ target_include_directories(test_v41_anatomy_observer PRIVATE
     "${CMAKE_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_observer PRIVATE Boost::mp11)
-
-# V41.F.6.1.R5.B Builder-Anatomy-Commands (insert/lookup/erase/clear/observe)
-comdare_add_test(test_v41_builder_anatomy_commands
-    SOURCES test_v41_builder_anatomy_commands.cpp)
-target_include_directories(test_v41_builder_anatomy_commands PRIVATE
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
-    "${PROJECT_SOURCE_DIR}"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated"
-    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
-target_link_libraries(test_v41_builder_anatomy_commands PRIVATE Boost::mp11)
 
 # V41 Roadmap-3 (Doku 24 §2.1/§2.2) Saeule-2 Mess-Pfad: TierObserveTrace Fuellstands-Treiber
 comdare_add_test(test_v41_tier_observe_trace
