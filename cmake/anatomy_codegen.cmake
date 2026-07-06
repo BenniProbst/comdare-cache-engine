@@ -96,6 +96,10 @@ function(comdare_codegen_anatomy_module)
 
     # ─── add_library mit generierter .cpp ────────────────────────────────
     add_library(${ARG_TARGET_NAME} ${ARG_LIBRARY_TYPE} "${_output_cpp}")
+    # #278 (2026-07-06, Job 214698): der AnatomyModuleLoader filtert auf comdare_anatomy_perm_* (dokumentiertes
+    # Pattern, anatomy_module_loader.cpp:173) — CMakes lib-Praefix brach den Vertrag auf Linux (alle Pilot-DLLs
+    # hiessen libcomdare_...so -> load_all fand 0). PREFIX "" stellt das dokumentierte Pattern her.
+    set_target_properties(${ARG_TARGET_NAME} PROPERTIES PREFIX "")
     set_property(GLOBAL APPEND PROPERTY COMDARE_PAPER_CODEGEN_CONSUMER_TARGETS ${ARG_TARGET_NAME})
     # #188-4c-0b-R1: generated anatomy modules include Composition headers that
     # can transitively include generated Paper-Original-Code wrappers.

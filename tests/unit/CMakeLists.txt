@@ -1324,6 +1324,9 @@ target_compile_features(comdare_r5g_adhoc_perm PRIVATE cxx_std_23)
 target_compile_definitions(comdare_r5g_adhoc_perm PRIVATE COMDARE_ANATOMY_MODULE_BUILD=1)
 set_target_properties(comdare_r5g_adhoc_perm PROPERTIES
     POSITION_INDEPENDENT_CODE                ON
+    # #278: PREFIX "" — AnatomyModuleLoader::load_all filtert auf comdare_anatomy_perm_* (Dateiname),
+    # CMakes lib-Praefix liess die DLL auf Linux durch den Filter fallen (handles==0).
+    PREFIX                                   ""
     OUTPUT_NAME                              "comdare_anatomy_perm_r5g_adhoc"
     RUNTIME_OUTPUT_DIRECTORY                 "${_r5g_adhoc_dir}"
     RUNTIME_OUTPUT_DIRECTORY_RELEASE         "${_r5g_adhoc_dir}"
