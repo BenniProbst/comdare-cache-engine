@@ -3,6 +3,7 @@
 // Self-contained (schreibt Temp-XMLs), kein Boost. Build: cl /I libs/cache_engine.
 
 #include "builder/workload_driver/load_profile_parser.hpp"
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 
 #include <cstdint>
 #include <filesystem>
@@ -19,7 +20,7 @@ static void tr(char const* w, bool c) {
 }
 
 static std::filesystem::path write_tmp(std::string const& name, std::string const& xml) {
-    auto          p = std::filesystem::temp_directory_path() / name;
+    auto          p = ::comdare::test::user_tmp_dir() / name;
     std::ofstream o{p, std::ios::binary};
     o << xml;
     o.close();

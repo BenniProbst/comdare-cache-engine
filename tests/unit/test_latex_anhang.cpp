@@ -2,6 +2,7 @@
 // Tests fuer latex_anhang (Phase 8)
 
 #include <gtest/gtest.h>
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 
 #include <cstdint>
 #include <filesystem>
@@ -43,7 +44,7 @@ namespace {
 class TempFile {
 public:
     explicit TempFile(std::string const& suffix) {
-        path_ = std::filesystem::temp_directory_path() / ("comdare_latex_test_" + std::to_string(rand()) + suffix);
+        path_ = ::comdare::test::user_tmp_dir() / ("comdare_latex_test_" + std::to_string(rand()) + suffix);
     }
     ~TempFile() {
         std::error_code ec;

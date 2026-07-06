@@ -19,6 +19,7 @@
 // genau >=2 reale cl-DLLs (Klein-Pilot).
 
 #include "source_catalog.hpp" // axis_sweep_source_map / axis_sweep_levels / is_deepened_axis / make_all_axis_sweeps_source_map
+#include "../comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 #include "sota_catalog.hpp" // render_sota_module_source (DRY: gleiche Modul-.cpp-Form ist hier NICHT noetig — wir
                             //   bauen die Sweep-Quelle direkt aus der Map, s.u.)
 
@@ -110,7 +111,8 @@ int main(int argc, char** argv) {
     fs::path const golden = (argc >= 2)
                                 ? fs::path(argv[1])
                                 : (fs::path("tests") / "unit" / "thesis_tiere" / "golden_fullpilot_320_binary_ids.txt");
-    fs::path const work   = (argc >= 3) ? fs::path(argv[2]) : fs::temp_directory_path() / "comdare_axis_sweep_pilot";
+    fs::path const work =
+        (argc >= 3) ? fs::path(argv[2]) : ::comdare::test::user_tmp_dir() / "comdare_axis_sweep_pilot";
     fs::create_directories(work);
     std::cout << "Golden: " << golden.string() << "\nWork:   " << work.string() << "\n";
 

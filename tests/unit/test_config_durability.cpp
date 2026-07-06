@@ -20,6 +20,7 @@
 // test_abi_interface (comdare_add_test → gtest/gtest_main + ein add_test je Binary).
 
 #include <serialization/xml_config_parser/xml_reader.hpp>  // cx::parse_document / XmlNode
+#include "comdare_test_tmp.hpp"                            // #278/#24: per-User-Temp gegen CI-Kollisionen
 #include <builder/workload_driver/load_profile_parser.hpp> // wd::parse_load_profile / LoadProfile
 
 #include <gtest/gtest.h>
@@ -86,7 +87,7 @@ namespace {
 [[nodiscard]] std::filesystem::path make_unique_tmp_dir() {
     std::random_device    rd;
     std::string const     token = std::to_string(rd()) + "_" + std::to_string(rd());
-    std::filesystem::path dir   = std::filesystem::temp_directory_path() / ("comdare_durability_" + token);
+    std::filesystem::path dir   = ::comdare::test::user_tmp_dir() / ("comdare_durability_" + token);
     std::error_code       ec;
     std::filesystem::create_directories(dir, ec);
     return dir;

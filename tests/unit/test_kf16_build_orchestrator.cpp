@@ -4,6 +4,7 @@
 // Build: cl /std:c++latest /EHsc /I<libs/cache_engine> test_kf16_build_orchestrator.cpp
 
 #include "builder/build_orchestrator/build_orchestrator.hpp"
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 #include "builder/experiment_tree/ceb_generator.hpp"
 #include "builder/experiment_tree/experiment_tree.hpp"
 
@@ -76,7 +77,7 @@ int main() {
         check_true("Iterator: Indizes 0..7 lückenlos", contiguous && expect == 8);
     }
 
-    std::filesystem::path const base = std::filesystem::temp_directory_path() / "comdare_kf16";
+    std::filesystem::path const base = ::comdare::test::user_tmp_dir() / "comdare_kf16";
     std::error_code             ec;
     std::filesystem::remove_all(base, ec);
 

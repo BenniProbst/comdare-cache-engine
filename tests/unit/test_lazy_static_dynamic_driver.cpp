@@ -18,6 +18,7 @@
 // jetzt den profil-agnostischen Anatomie-Quell-KATALOG (source_catalog.hpp): SmallSourceCatalog (4 Kompositionen) +
 // catalog_levels (Baum-Levels) + make_catalog_source_gen (SourceGenFn). KEIN Pilot-Selektor mehr.
 #include "thesis_tiere/source_catalog.hpp" // SmallSourceCatalog / catalog_levels / make_catalog_source_gen
+#include "comdare_test_tmp.hpp"            // #278/#24: per-User-Temp gegen CI-Kollisionen
 
 #include <builder/build_orchestrator/system_ram.hpp> // free physical RAM (real)
 
@@ -82,7 +83,7 @@ int main() {
     std::cout << "Include-Dirs (env): " << incs.size() << "\n";
 
     // ── (1) Treiber-Eingaben: Baum (static + dynamic), Selektion (erste 4), reale Source-Map, CompileFn, RAM ──
-    fs::path const work   = fs::temp_directory_path() / "comdare_lazy_e2e_test";
+    fs::path const work   = ::comdare::test::user_tmp_dir() / "comdare_lazy_e2e_test";
     fs::path const srcDir = work / "src", outDir = work / "dll";
 
     auto               factory = std::make_shared<ex::ExperimentNodeFactory>();

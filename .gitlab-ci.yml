@@ -90,12 +90,12 @@ pmc:intel:
 
 # ── Stufe 3b: Sanitize (ASan+UBSan, 10-Stufen-Prinzip P1b) — fängt Memory-/UB-Bugs ──
 # advisory (allow_failure) bis #179-Bereinigung, danach HART. Eigener Debug+Sanitizer-Build, kein Artefakt.
+# #278 (2026-07-06): HART geschaltet — Gruen-Beweise Pipelines 8190 UND 8191 (2x in Folge success).
 sanitize:asan-ubsan:
   extends: .bare_metal
   stage: sanitize
   tags: [baremetal]
   needs: ["lint:secrets"]   # Codex-Review 06-27: hart auf den Secrets-Gate warten (sonst läuft Build trotz Leak)
-  allow_failure: true
   script:
     - cmake -B build-san -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
     # #204/264-b: Target-Liste um die 5 schnellen, contract-gruen-bewiesenen Gates erweitert (advisory).
@@ -327,11 +327,12 @@ chaos:drift:
 # (-j/RAM-Politik CI-5 + #179). Ehrlicher Ist-Stand beim Anlegen (Commit 8669210d): comdare_tests baut
 # 788/788; ctest-Vollauf lokal 126/184 passed, 58 Laufzeit-Fails (Inventar im Ledger) -- dieser Job macht
 # den Stand pipeline-sichtbar, behauptet aber KEIN Gruen.
+# #278 (2026-07-06): HART geschaltet — Einzelfix-Serie 62->0; Gruen-Beweis LITERAL Job 214827
+# (Pipeline 8191, 861dce2d): "100% tests passed, 0 tests failed out of 164".
 test:unit:
   extends: .test
   tags: [baremetal]
   needs: ["lint:secrets"]
-  allow_failure: true
   variables:
     COMDARE_TEST_CONFIGURE_FLAGS: "-DCOMDARE_BUILD_TESTS=ON"
     COMDARE_TEST_BUILD_TARGET: "comdare_tests"
@@ -343,12 +344,12 @@ test:unit:
 
 # ── #204/264-b: TSan-Job (Thread-Sanitizer, NICHT mit ASan kombinierbar -> eigener Build). Advisory bis 264-d.
 # Nur Threading-Targets; DLL-dlopen-Tests bewusst ausgeklammert (Sanitizer-Interceptor/RTLD-heikel).
+# #278 (2026-07-06): HART geschaltet — Gruen-Beweise Pipelines 8190 UND 8191 (2x in Folge success).
 sanitize:tsan:
   extends: .bare_metal
   stage: sanitize
   tags: [baremetal]
   needs: ["lint:secrets"]
-  allow_failure: true
   script:
     - cmake -B build-tsan -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
     - cmake --build build-tsan --target test_concurrency_disciplines test_rcu test_v41_axis_08_concurrency

@@ -12,6 +12,7 @@
 // example_configs/ → 54 DLLs).
 
 #include "../../cache_engine/builder/codegen/codegen.hpp"
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 
 #include <gtest/gtest.h>
 
@@ -30,7 +31,7 @@ namespace {
 class CodegenFixture : public ::testing::Test {
 protected:
     void SetUp() override {
-        tmp_dir_ = std::filesystem::temp_directory_path() /
+        tmp_dir_ = ::comdare::test::user_tmp_dir() /
                    ("comdare_codegen_test_" + std::to_string(::testing::UnitTest::GetInstance()->random_seed()));
         std::filesystem::create_directories(tmp_dir_);
 

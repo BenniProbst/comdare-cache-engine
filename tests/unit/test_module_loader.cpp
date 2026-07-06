@@ -2,6 +2,7 @@
 // Tests fuer ModuleLoader (Phase 7.2.D, 2026-05-13)
 
 #include "../../cache_engine/builder/module_loader/module_loader.hpp"
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 
 #include <gtest/gtest.h>
 
@@ -35,7 +36,7 @@ TEST(ModuleLoader, LoadNonexistentReturnsFileNotFound) {
 }
 
 TEST(ModuleLoader, LoadInvalidBinaryReturnsLoadFailed) {
-    auto tmp = std::filesystem::temp_directory_path() / "not_a_dll.dll";
+    auto tmp = ::comdare::test::user_tmp_dir() / "not_a_dll.dll";
     {
         std::ofstream out{tmp, std::ios::binary};
         out << "this is not a valid PE/ELF file";

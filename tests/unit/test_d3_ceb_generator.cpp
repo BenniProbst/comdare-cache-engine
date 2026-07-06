@@ -4,6 +4,7 @@
 // Build: cl /std:c++latest /EHsc test_d3_ceb_generator.cpp /I libs/cache_engine  (ein Include-Root, kein Boost).
 
 #include "builder/experiment_tree/ceb_generator.hpp"
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 
 #include <filesystem>
 #include <fstream>
@@ -65,7 +66,7 @@ int main() {
     check(has(shell, "0.0"), "perm_run misst nichts (Default 0.0)");
 
     std::cout << "\n==== D3 (2) generate_all_real<Engine> = REALER ADHOC-Anatomie-Pfad (BR-4) ====\n";
-    auto            dir = std::filesystem::temp_directory_path() / "comdare_d3_real";
+    auto            dir = ::comdare::test::user_tmp_dir() / "comdare_d3_real";
     std::error_code ec;
     std::filesystem::remove_all(dir, ec);
     auto files = generate_all_real<FakeEngine>(dir);

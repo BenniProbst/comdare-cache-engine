@@ -19,8 +19,9 @@
 // Mess-Zeilen (format_csv_row). Der reale Voll-DLL-Mess-Lauf (M3, #156) fuehrt run_profile, das exakt diese
 // cfg.row_pruefling_type → row.pruefling_type → format_csv_row-Kette nutzt (hier 1:1 belegt).
 
-#include "sota_catalog.hpp"   // build_sota_passes / derive_pruefling_type / SotaPass (#171)
-#include "profile_runner.hpp" // load_thesis_profile
+#include "sota_catalog.hpp"        // build_sota_passes / derive_pruefling_type / SotaPass (#171)
+#include "../comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
+#include "profile_runner.hpp"      // load_thesis_profile
 
 #include <builder/experiment_tree/cache_engine_builder_iterator.hpp> // lazy_csv_header / format_csv_row / LazyMeasuredRow
 
@@ -51,7 +52,8 @@ static std::string last_col(std::string const& csv_line) {
 int main(int argc, char** argv) {
     fs::path const profiles_dir = fs::path("libs") / "cache_engine" / "algorithm_profiles" / "thesis_profiles";
     fs::path const m3v2_xml     = (argc >= 2) ? fs::path(argv[1]) : (profiles_dir / "m3v2_study.profile.xml");
-    fs::path const work = (argc >= 3) ? fs::path(argv[2]) : fs::temp_directory_path() / "comdare_pruefling_type_pilot";
+    fs::path const work =
+        (argc >= 3) ? fs::path(argv[2]) : ::comdare::test::user_tmp_dir() / "comdare_pruefling_type_pilot";
     fs::create_directories(work);
     std::cout << "Profil: " << m3v2_xml.string() << "\nWork:   " << work.string() << "\n";
 

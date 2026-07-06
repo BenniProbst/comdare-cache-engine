@@ -2,6 +2,7 @@
 // Tests fuer ycsb_cli (Phase C, 2026-05-13)
 
 #include <gtest/gtest.h>
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 
 #include <comdare/workload_generator/workload_generator.hpp>
 
@@ -153,7 +154,7 @@ std::vector<wg::Operation> make_sample_ops() {
 
 TEST(YcsbCli, WriteBinaryRoundtrip) {
     auto ops = make_sample_ops();
-    auto tmp = std::filesystem::temp_directory_path() / "ycsb_test.bin";
+    auto tmp = ::comdare::test::user_tmp_dir() / "ycsb_test.bin";
     EXPECT_EQ(ycsb_cli::write_binary(tmp, ops), 0);
 
     std::ifstream in{tmp, std::ios::binary};
@@ -182,7 +183,7 @@ TEST(YcsbCli, WriteBinaryRoundtrip) {
 
 TEST(YcsbCli, WriteTsvHasHeader) {
     auto ops = make_sample_ops();
-    auto tmp = std::filesystem::temp_directory_path() / "ycsb_test.tsv";
+    auto tmp = ::comdare::test::user_tmp_dir() / "ycsb_test.tsv";
     EXPECT_EQ(ycsb_cli::write_tsv(tmp, ops), 0);
 
     std::ifstream in{tmp};
@@ -200,7 +201,7 @@ TEST(YcsbCli, WriteTsvHasHeader) {
 
 TEST(YcsbCli, WriteJsonContainsCount) {
     auto ops = make_sample_ops();
-    auto tmp = std::filesystem::temp_directory_path() / "ycsb_test.json";
+    auto tmp = ::comdare::test::user_tmp_dir() / "ycsb_test.json";
     EXPECT_EQ(ycsb_cli::write_json(tmp, ops), 0);
 
     std::ifstream in{tmp};
@@ -222,7 +223,7 @@ TEST(YcsbCli, GenerateAndWriteSmallWorkload) {
     cfg.workload = wg::YcsbWorkload::C;
     cfg.num_keys = 100;
     cfg.num_ops  = 50;
-    cfg.output   = std::filesystem::temp_directory_path() / "ycsb_e2e.bin";
+    cfg.output   = ::comdare::test::user_tmp_dir() / "ycsb_e2e.bin";
     cfg.format   = ycsb_cli::OutputFormat::Binary;
 
     EXPECT_EQ(ycsb_cli::generate_and_write(cfg), 0);
@@ -239,7 +240,7 @@ TEST(YcsbCli, GenerateAndWriteAllYcsbVariants) {
         cfg.workload = w;
         cfg.num_keys = 50;
         cfg.num_ops  = 25;
-        cfg.output   = std::filesystem::temp_directory_path() / "ycsb_variant.tsv";
+        cfg.output   = ::comdare::test::user_tmp_dir() / "ycsb_variant.tsv";
         cfg.format   = ycsb_cli::OutputFormat::Tsv;
         EXPECT_EQ(ycsb_cli::generate_and_write(cfg), 0) << "Workload variant failed: " << static_cast<int>(w);
         std::filesystem::remove(cfg.output);

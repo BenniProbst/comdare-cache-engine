@@ -3,6 +3,7 @@
 // Muss in einer vcvars64-Umgebung laufen (cl im PATH/Env). Build: cl /std:c++latest /EHsc /I<libs/cache_engine> ...
 
 #include "builder/build_orchestrator/build_orchestrator.hpp"
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 #include "builder/experiment_tree/ceb_generator.hpp"
 #include "builder/experiment_tree/experiment_tree.hpp"
 
@@ -23,7 +24,7 @@ int main() {
     ex::StaticBinaryView view = tree.static_binary_view();
     std::cout << "Statischer Teilbaum: " << view.size() << " Tier-Binaries bereitzustellen\n";
 
-    std::filesystem::path const base = std::filesystem::temp_directory_path() / "comdare_kf16_e2e";
+    std::filesystem::path const base = ::comdare::test::user_tmp_dir() / "comdare_kf16_e2e";
     std::error_code             ec;
     std::filesystem::remove_all(base, ec);
 
