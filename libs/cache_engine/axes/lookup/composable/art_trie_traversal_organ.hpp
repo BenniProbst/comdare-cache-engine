@@ -187,6 +187,6 @@ struct ArtTrieTraversalOrgan {
 };
 
 // Selbstbeweis: ArtTrieTraversalOrgan erfuellt das ArtTrieTraversal-Concept ueber dem Pilot-Pool.
-static_assert(ArtTrieTraversal<ArtTrieTraversalOrgan, ArtTrieNodePoolStore>);
+static_assert(ArtTrieTraversal<ArtTrieTraversalOrgan, ArtTrieNodePoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

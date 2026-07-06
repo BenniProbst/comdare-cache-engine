@@ -22,16 +22,73 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <vector>
 
 namespace comdare::cache_engine::lookup::composable {
 
+namespace detail {
+
+using ArtTriePrefix = ::comdare::cache_engine::nodes::axis_02_path_compression::ByteWiseKeyPrefix;
+
+inline constexpr std::size_t  kArtTrieNil     = std::numeric_limits<std::size_t>::max();
+inline constexpr std::uint8_t kArtTrieEmpty48 = 0xFFu;
+
+struct ArtTrieLeaf {
+    using key_type   = std::uint64_t;
+    using value_type = std::uint64_t;
+
+    key_type   key{};
+    value_type val{};
+};
+
+struct ArtTrieNode4 {
+    ArtTriePrefix               prefix{};
+    int                         n = 0;
+    std::array<std::uint8_t, 4> keys{};
+    std::array<std::size_t, 4>  kids{};
+};
+
+struct ArtTrieNode16 {
+    ArtTriePrefix                prefix{};
+    int                          n = 0;
+    std::array<std::uint8_t, 16> keys{};
+    std::array<std::size_t, 16>  kids{};
+};
+
+struct ArtTrieNode48 {
+    ArtTriePrefix                 prefix{};
+    int                           n = 0;
+    std::array<std::uint8_t, 256> child_index{};
+    std::array<std::size_t, 48>   kids{};
+    std::array<std::uint8_t, 48>  slot_byte{}; // Reverse-Map Slot->Byte (fuer O(1)-Kompaktierung bei remove_child)
+    ArtTrieNode48() { child_index.fill(kArtTrieEmpty48); }
+};
+
+struct ArtTrieNode256 {
+    ArtTriePrefix                prefix{};
+    int                          n = 0;
+    std::array<std::size_t, 256> kids{};
+    ArtTrieNode256() { kids.fill(kArtTrieNil); }
+};
+
+} // namespace detail
+
+template <class A = std::allocator<detail::ArtTrieLeaf>>
 class ArtTrieNodePoolStore {
 public:
-    using key_type                    = std::uint64_t;
-    using value_type                  = std::uint64_t;
-    using prefix_type                 = ::comdare::cache_engine::nodes::axis_02_path_compression::ByteWiseKeyPrefix;
-    static constexpr std::size_t kNil = std::numeric_limits<std::size_t>::max();
+    using node_type            = detail::ArtTrieLeaf;
+    using key_type             = typename node_type::key_type;
+    using value_type           = typename node_type::value_type;
+    using prefix_type          = detail::ArtTriePrefix;
+    using allocator_type       = A;
+    using leaf_allocator_type  = typename std::allocator_traits<A>::template rebind_alloc<detail::ArtTrieLeaf>;
+    using n4_allocator_type    = typename std::allocator_traits<A>::template rebind_alloc<detail::ArtTrieNode4>;
+    using n16_allocator_type   = typename std::allocator_traits<A>::template rebind_alloc<detail::ArtTrieNode16>;
+    using n48_allocator_type   = typename std::allocator_traits<A>::template rebind_alloc<detail::ArtTrieNode48>;
+    using n256_allocator_type  = typename std::allocator_traits<A>::template rebind_alloc<detail::ArtTrieNode256>;
+    using index_allocator_type = typename std::allocator_traits<A>::template rebind_alloc<std::size_t>;
+    static constexpr std::size_t kNil = detail::kArtTrieNil;
 
     // NodeRef-Kodierung: Kind in Bits 56-63, Index in Bits 0-55.
     enum Kind : std::uint8_t { kLeaf = 0, kN4 = 1, kN16 = 2, kN48 = 3, kN256 = 4 };
@@ -72,10 +129,12 @@ public:
         if (!fl_leaf_.empty()) {
             idx = fl_leaf_.back();
             fl_leaf_.pop_back();
-            leaves_[idx] = Leaf{k, v};
+            leaves_[idx] = node_type{k, v};
         } else {
-            idx = leaves_.size();
-            leaves_.push_back(Leaf{k, v});
+            idx                            = leaves_.size();
+            std::size_t const old_capacity = leaves_.capacity();
+            leaves_.push_back(node_type{k, v});
+            record_capacity_growth_(old_capacity, leaves_.capacity(), sizeof(node_type));
         }
         return make_ref(kLeaf, idx);
     }
@@ -88,8 +147,10 @@ public:
             fl_n4_.pop_back();
             n4_[idx] = N4{};
         } else {
-            idx = n4_.size();
+            idx                            = n4_.size();
+            std::size_t const old_capacity = n4_.capacity();
             n4_.push_back(N4{});
+            record_capacity_growth_(old_capacity, n4_.capacity(), sizeof(N4));
         }
         return make_ref(kN4, idx);
     }
@@ -278,16 +339,59 @@ public:
 
     void free_node(std::size_t r) noexcept {
         switch (ref_kind(r)) {
-            case kLeaf: fl_leaf_.push_back(ref_idx(r)); return;
-            case kN4: fl_n4_.push_back(ref_idx(r)); return;
-            case kN16: fl_n16_.push_back(ref_idx(r)); return;
-            case kN48: fl_n48_.push_back(ref_idx(r)); return;
-            case kN256: fl_n256_.push_back(ref_idx(r)); return;
+            case kLeaf: {
+                std::size_t const old_capacity = fl_leaf_.capacity();
+                fl_leaf_.push_back(ref_idx(r));
+                record_capacity_growth_(old_capacity, fl_leaf_.capacity(), sizeof(std::size_t));
+                return;
+            }
+            case kN4: {
+                std::size_t const old_capacity = fl_n4_.capacity();
+                fl_n4_.push_back(ref_idx(r));
+                record_capacity_growth_(old_capacity, fl_n4_.capacity(), sizeof(std::size_t));
+                return;
+            }
+            case kN16: {
+                std::size_t const old_capacity = fl_n16_.capacity();
+                fl_n16_.push_back(ref_idx(r));
+                record_capacity_growth_(old_capacity, fl_n16_.capacity(), sizeof(std::size_t));
+                return;
+            }
+            case kN48: {
+                std::size_t const old_capacity = fl_n48_.capacity();
+                fl_n48_.push_back(ref_idx(r));
+                record_capacity_growth_(old_capacity, fl_n48_.capacity(), sizeof(std::size_t));
+                return;
+            }
+            case kN256: {
+                std::size_t const old_capacity = fl_n256_.capacity();
+                fl_n256_.push_back(ref_idx(r));
+                record_capacity_growth_(old_capacity, fl_n256_.capacity(), sizeof(std::size_t));
+                return;
+            }
         }
     }
 
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    struct allocator_statistics_snapshot {
+        std::uint64_t alloc_calls     = 0;
+        std::uint64_t bytes_allocated = 0;
+        std::uint64_t live_nodes      = 0;
+    };
+
+    [[nodiscard]] allocator_statistics_snapshot store_allocator_statistics() const noexcept {
+        return allocator_statistics_snapshot{alloc_calls_, bytes_allocated_, live_node_count_()};
+    }
+#endif
+
 private:
-    static constexpr std::uint8_t kEmpty48 = 0xFFu; // "kein Slot" im N48-child_index
+    using Leaf = detail::ArtTrieLeaf;
+    using N4   = detail::ArtTrieNode4;
+    using N16  = detail::ArtTrieNode16;
+    using N48  = detail::ArtTrieNode48;
+    using N256 = detail::ArtTrieNode256;
+
+    static constexpr std::uint8_t kEmpty48 = detail::kArtTrieEmpty48; // "kein Slot" im N48-child_index
     // Shrink-Schwellen (Hysterese ggue. Grow bei 49/17/5): geschrumpft wird, wenn n NACH dem Entfernen DIESEN
     // Wert erreicht — jeweils unter der Zielkapazitaet (48/16/4) mit Reserve, damit ein direktes Re-Insert
     // nicht sofort wieder waechst.
@@ -295,36 +399,25 @@ private:
     static constexpr int kShrink48  = 12; // N48  -> N16
     static constexpr int kShrink16  = 3;  // N16  -> N4
 
-    struct Leaf {
-        key_type   key{};
-        value_type val{};
-    };
-    struct N4 {
-        prefix_type                 prefix{};
-        int                         n = 0;
-        std::array<std::uint8_t, 4> keys{};
-        std::array<std::size_t, 4>  kids{};
-    };
-    struct N16 {
-        prefix_type                  prefix{};
-        int                          n = 0;
-        std::array<std::uint8_t, 16> keys{};
-        std::array<std::size_t, 16>  kids{};
-    };
-    struct N48 {
-        prefix_type                   prefix{};
-        int                           n = 0;
-        std::array<std::uint8_t, 256> child_index{};
-        std::array<std::size_t, 48>   kids{};
-        std::array<std::uint8_t, 48>  slot_byte{}; // Reverse-Map Slot->Byte (fuer O(1)-Kompaktierung bei remove_child)
-        N48() { child_index.fill(kEmpty48); }
-    };
-    struct N256 {
-        prefix_type                  prefix{};
-        int                          n = 0;
-        std::array<std::size_t, 256> kids{};
-        N256() { kids.fill(kNil); }
-    };
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    [[nodiscard]] std::uint64_t live_node_count_() const noexcept {
+        std::size_t const node_count = leaves_.size() + n4_.size() + n16_.size() + n48_.size() + n256_.size();
+        std::size_t const free_count =
+            fl_leaf_.size() + fl_n4_.size() + fl_n16_.size() + fl_n48_.size() + fl_n256_.size();
+        return static_cast<std::uint64_t>(node_count - free_count);
+    }
+
+    // Ehrliche Allokator-Metrik: gezaehlt werden nur erfolgreiche vector-capacity-Zuwaechse, als Capacity-Delta
+    // mal Elementgroesse. Reuse/clear ohne Capacity-Wachstum erzeugt bewusst keine kuenstlichen Werte.
+    void record_capacity_growth_(std::size_t old_capacity, std::size_t new_capacity, std::size_t elem_bytes) noexcept {
+        if (new_capacity <= old_capacity) return;
+        ++alloc_calls_;
+        bytes_allocated_ +=
+            static_cast<std::uint64_t>(new_capacity - old_capacity) * static_cast<std::uint64_t>(elem_bytes);
+    }
+#else
+    static void record_capacity_growth_(std::size_t, std::size_t, std::size_t) noexcept {}
+#endif
 
     [[nodiscard]] prefix_type& mutable_prefix(std::size_t r) noexcept {
         switch (ref_kind(r)) {
@@ -385,7 +478,9 @@ private:
             d.keys[i] = s.keys[i];
             d.kids[i] = s.kids[i];
         }
+        std::size_t const old_capacity = fl_n4_.capacity();
         fl_n4_.push_back(idx);
+        record_capacity_growth_(old_capacity, fl_n4_.capacity(), sizeof(std::size_t));
         return r16;
     }
     [[nodiscard]] std::size_t grow_n16_to_n48(std::size_t idx) {
@@ -399,7 +494,9 @@ private:
             d.child_index[s.keys[i]]                 = static_cast<std::uint8_t>(i);
             d.slot_byte[static_cast<std::size_t>(i)] = s.keys[i];
         }
+        std::size_t const old_capacity = fl_n16_.capacity();
         fl_n16_.push_back(idx);
+        record_capacity_growth_(old_capacity, fl_n16_.capacity(), sizeof(std::size_t));
         return r48;
     }
     [[nodiscard]] std::size_t grow_n48_to_n256(std::size_t idx) {
@@ -412,7 +509,9 @@ private:
             std::uint8_t const slot = s.child_index[static_cast<std::size_t>(b)];
             if (slot != kEmpty48) d.kids[static_cast<std::size_t>(b)] = s.kids[slot];
         }
+        std::size_t const old_capacity = fl_n48_.capacity();
         fl_n48_.push_back(idx);
+        record_capacity_growth_(old_capacity, fl_n48_.capacity(), sizeof(std::size_t));
         return r256;
     }
 
@@ -433,7 +532,9 @@ private:
                 ++slot;
             }
         }
+        std::size_t const old_capacity = fl_n256_.capacity();
         fl_n256_.push_back(idx);
+        record_capacity_growth_(old_capacity, fl_n256_.capacity(), sizeof(std::size_t));
         return r48;
     }
     [[nodiscard]] std::size_t shrink_n48_to_n16(std::size_t idx) {
@@ -451,7 +552,9 @@ private:
                 ++i;
             }
         }
+        std::size_t const old_capacity = fl_n48_.capacity();
         fl_n48_.push_back(idx);
+        record_capacity_growth_(old_capacity, fl_n48_.capacity(), sizeof(std::size_t));
         return r16;
     }
     [[nodiscard]] std::size_t shrink_n16_to_n4(std::size_t idx) {
@@ -464,7 +567,9 @@ private:
             d.keys[i] = s.keys[i];
             d.kids[i] = s.kids[i];
         } // bereits sortiert
+        std::size_t const old_capacity = fl_n16_.capacity();
         fl_n16_.push_back(idx);
+        record_capacity_growth_(old_capacity, fl_n16_.capacity(), sizeof(std::size_t));
         return r4;
     }
     [[nodiscard]] std::size_t new_node16() {
@@ -474,8 +579,10 @@ private:
             fl_n16_.pop_back();
             n16_[idx] = N16{};
         } else {
-            idx = n16_.size();
+            idx                            = n16_.size();
+            std::size_t const old_capacity = n16_.capacity();
             n16_.push_back(N16{});
+            record_capacity_growth_(old_capacity, n16_.capacity(), sizeof(N16));
         }
         return make_ref(kN16, idx);
     }
@@ -486,8 +593,10 @@ private:
             fl_n48_.pop_back();
             n48_[idx] = N48{};
         } else {
-            idx = n48_.size();
+            idx                            = n48_.size();
+            std::size_t const old_capacity = n48_.capacity();
             n48_.push_back(N48{});
+            record_capacity_growth_(old_capacity, n48_.capacity(), sizeof(N48));
         }
         return make_ref(kN48, idx);
     }
@@ -498,23 +607,33 @@ private:
             fl_n256_.pop_back();
             n256_[idx] = N256{};
         } else {
-            idx = n256_.size();
+            idx                            = n256_.size();
+            std::size_t const old_capacity = n256_.capacity();
             n256_.push_back(N256{});
+            record_capacity_growth_(old_capacity, n256_.capacity(), sizeof(N256));
         }
         return make_ref(kN256, idx);
     }
 
-    std::vector<Leaf>        leaves_{};
-    std::vector<N4>          n4_{};
-    std::vector<N16>         n16_{};
-    std::vector<N48>         n48_{};
-    std::vector<N256>        n256_{};
-    std::vector<std::size_t> fl_leaf_{}, fl_n4_{}, fl_n16_{}, fl_n48_{}, fl_n256_{};
-    std::size_t              root_ = kNil;
-    std::size_t              size_ = 0;
+    std::vector<Leaf, leaf_allocator_type>         leaves_{};
+    std::vector<N4, n4_allocator_type>             n4_{};
+    std::vector<N16, n16_allocator_type>           n16_{};
+    std::vector<N48, n48_allocator_type>           n48_{};
+    std::vector<N256, n256_allocator_type>         n256_{};
+    std::vector<std::size_t, index_allocator_type> fl_leaf_{};
+    std::vector<std::size_t, index_allocator_type> fl_n4_{};
+    std::vector<std::size_t, index_allocator_type> fl_n16_{};
+    std::vector<std::size_t, index_allocator_type> fl_n48_{};
+    std::vector<std::size_t, index_allocator_type> fl_n256_{};
+    std::size_t                                    root_ = kNil;
+    std::size_t                                    size_ = 0;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    std::uint64_t alloc_calls_     = 0;
+    std::uint64_t bytes_allocated_ = 0;
+#endif
 };
 
 // Selbstbeweis: das Substrat erfuellt das ArtTrieNodePool-Concept.
-static_assert(ArtTrieNodePool<ArtTrieNodePoolStore>);
+static_assert(ArtTrieNodePool<ArtTrieNodePoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable
