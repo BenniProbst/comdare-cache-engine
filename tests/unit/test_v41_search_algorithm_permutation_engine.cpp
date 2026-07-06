@@ -518,10 +518,10 @@ TEST(R5D_CombinatorialCoverage, DimensionedFromRealAxisRegistries) {
     namespace m05  = ::comdare::cache_engine::memory_layout::axis_05_memory_layout;
 
     constexpr std::size_t kSearch =
-        mp::mp_size<s03a::AllStrategies>::value; // 21 (#188 per-K Inc2: +4 KArySearchAlgoK2/4/8/16)
-    constexpr std::size_t kAlloc  = mp::mp_size<a06::AllVendors>::value; // 25
+        mp::mp_size<s03a::AllStrategies>::value; // 22 (#188 per-K +4; AP-7a +S22 SwissTable END-Append)
+    constexpr std::size_t kAlloc  = mp::mp_size<a06::AllVendors>::value; // 26 (AP-6 +A24 VampirNfp END-Append)
     constexpr std::size_t kLayout = mp::mp_size<m05::AllLayouts>::value; // 5
-    static_assert(kSearch == 21 && kAlloc == 25 && kLayout == 5, "Achsen-Groessen-Snapshot (bei Erweiterung anpassen)");
+    static_assert(kSearch == 22 && kAlloc == 26 && kLayout == 5, "Achsen-Groessen-Snapshot (bei Erweiterung anpassen)");
 
     std::array<std::size_t, 3> counts{kSearch, kAlloc, kLayout};
     auto const                 rep = ana::analyze_coverage(std::span<const std::size_t>{counts});

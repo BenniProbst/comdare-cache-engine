@@ -316,7 +316,8 @@ target_include_directories(test_v41_topic_allocator_axis_06 PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"  # V41.F.6.1 Stufe 3: measurement/measurable_concept.hpp
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_topic_allocator_axis_06 PRIVATE Boost::mp11)
 # Audit #212/K5b (2026-06-28): die drei Topic-Observer-Mechanik-Tests pruefen den per-Achsen-PUSH
 # (observer().on_event/notify/has_callback). Der Push ist projektweit Default-OFF (zero-cost NullNotify,
@@ -330,7 +331,8 @@ target_include_directories(test_v41_topic_queuing PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_topic_queuing PRIVATE Boost::mp11)
 target_compile_definitions(test_v41_topic_queuing PRIVATE COMDARE_CE_ENABLE_OBSERVER_PUSH)  # #212/K5b: s.o.
 
@@ -610,7 +612,8 @@ target_include_directories(test_v41_anatomy_module_loader PRIVATE
     "${PROJECT_SOURCE_DIR}"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_module_loader PRIVATE
     Boost::mp11
     comdare::anatomy_module_loader)
@@ -644,7 +647,8 @@ target_include_directories(test_v41_anatomy_multi_codegen PRIVATE
     "${PROJECT_SOURCE_DIR}"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_multi_codegen PRIVATE
     Boost::mp11
     comdare::anatomy_module_loader)
@@ -660,7 +664,8 @@ target_include_directories(test_v41_anatomy_codegen_tool PRIVATE
     "${PROJECT_SOURCE_DIR}"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_codegen_tool PRIVATE
     comdare::anatomy_codegen_tool)
 
@@ -672,7 +677,8 @@ target_include_directories(test_v41_anatomy_codegen_tool_traits PRIVATE
     "${PROJECT_SOURCE_DIR}"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_codegen_tool_traits PRIVATE
     Boost::mp11
     comdare::anatomy_codegen_tool)
@@ -685,7 +691,8 @@ target_include_directories(test_v41_anatomy_codegen_tool_mp_list PRIVATE
     "${PROJECT_SOURCE_DIR}"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_codegen_tool_mp_list PRIVATE
     Boost::mp11
     comdare::anatomy_codegen_tool)
@@ -712,7 +719,8 @@ target_include_directories(test_v41_axis_12_general_hardware PRIVATE
     "${CMAKE_BINARY_DIR}/generated"
     "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware"
     "${CMAKE_BINARY_DIR}/generated/axes/simd"
-    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension")
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_12_general_hardware PRIVATE
     Boost::mp11)
 
@@ -724,7 +732,8 @@ target_include_directories(test_v41_axis_05_memory_layout PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/axes/layout")
+    "${CMAKE_BINARY_DIR}/generated/axes/layout"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_05_memory_layout PRIVATE
     Boost::mp11)
 
@@ -737,7 +746,8 @@ target_include_directories(test_v41_axis_02_axis_04_nodes PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
     "${CMAKE_BINARY_DIR}/generated/axes/path_compression"
-    "${CMAKE_BINARY_DIR}/generated/axes/node")
+    "${CMAKE_BINARY_DIR}/generated/axes/node"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_02_axis_04_nodes PRIVATE
     Boost::mp11)
 
@@ -749,7 +759,8 @@ target_include_directories(test_v41_axis_07_prefetch PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/axes/prefetch_axis")
+    "${CMAKE_BINARY_DIR}/generated/axes/prefetch_axis"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_07_prefetch PRIVATE
     Boost::mp11)
 
@@ -761,7 +772,8 @@ target_include_directories(test_v41_axis_11_telemetry PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/axes/telemetry_axis")  # V41.F.2: axis_11_telemetry → axes/telemetry_axis
+    "${CMAKE_BINARY_DIR}/generated/axes/telemetry_axis"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})  # V41.F.2: axis_11_telemetry → axes/telemetry_axis
 target_link_libraries(test_v41_axis_11_telemetry PRIVATE
     Boost::mp11)
 
@@ -773,7 +785,8 @@ target_include_directories(test_v41_axis_10_serialization PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/axes/serialization_axis")
+    "${CMAKE_BINARY_DIR}/generated/axes/serialization_axis"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_10_serialization PRIVATE
     Boost::mp11)
 
@@ -785,7 +798,8 @@ target_include_directories(test_v41_axis_14_value_handle PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/axes/value_handle_axis")
+    "${CMAKE_BINARY_DIR}/generated/axes/value_handle_axis"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_14_value_handle PRIVATE
     Boost::mp11)
 
@@ -797,7 +811,8 @@ target_include_directories(test_v41_axis_08_concurrency PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/axes/concurrency_axis")
+    "${CMAKE_BINARY_DIR}/generated/axes/concurrency_axis"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_08_concurrency PRIVATE
     Boost::mp11)
 
@@ -819,7 +834,8 @@ comdare_add_test(test_v41_axis_01_page_type
 target_include_directories(test_v41_axis_01_page_type PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/topics/nodes/axis_01_page_type")
+    "${CMAKE_BINARY_DIR}/generated/topics/nodes/axis_01_page_type"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_01_page_type PRIVATE Boost::mp11)
 
 # V41.E11 Plugin-Controller Pruefling-Registry
@@ -854,7 +870,8 @@ target_include_directories(test_v41_axis_filter PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/axes/filter_axis")
+    "${CMAKE_BINARY_DIR}/generated/axes/filter_axis"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_filter PRIVATE
     Boost::mp11)
 
@@ -866,7 +883,8 @@ target_include_directories(test_v41_axis_filter_surf_organ PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/axes/filter_axis")
+    "${CMAKE_BINARY_DIR}/generated/axes/filter_axis"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_filter_surf_organ PRIVATE
     Boost::mp11)
 
@@ -878,7 +896,8 @@ target_include_directories(test_v41_axis_filter_surf_louds_organ PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/axes/filter_axis")
+    "${CMAKE_BINARY_DIR}/generated/axes/filter_axis"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_filter_surf_louds_organ PRIVATE
     Boost::mp11)
 
@@ -890,7 +909,8 @@ target_include_directories(test_v41_axis_io PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/axes/io_dispatch")  # V41.F.2: axis_io → axes/io_dispatch migriert
+    "${CMAKE_BINARY_DIR}/generated/axes/io_dispatch"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})  # V41.F.2: axis_io → axes/io_dispatch migriert
 target_link_libraries(test_v41_axis_io PRIVATE
     Boost::mp11)
 
@@ -902,7 +922,8 @@ target_include_directories(test_v41_axis_migration PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/axes/migration_policy")  # V41.F.2: axis_migration → axes/migration_policy
+    "${CMAKE_BINARY_DIR}/generated/axes/migration_policy"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})  # V41.F.2: axis_migration → axes/migration_policy
 target_link_libraries(test_v41_axis_migration PRIVATE
     Boost::mp11)
 
@@ -914,7 +935,8 @@ target_include_directories(test_v41_axis_01_index_organization PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${CMAKE_BINARY_DIR}/generated"
-    "${CMAKE_BINARY_DIR}/generated/axes/index_organization")
+    "${CMAKE_BINARY_DIR}/generated/axes/index_organization"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_01_index_organization PRIVATE
     Boost::mp11)
 
@@ -929,7 +951,8 @@ target_include_directories(test_v41_axis_09_isa PRIVATE
     "${CMAKE_BINARY_DIR}/generated"
     "${CMAKE_BINARY_DIR}/generated/axes/simd"
     "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
-    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware")
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_09_isa PRIVATE
     Boost::mp11)
 
@@ -943,7 +966,8 @@ target_include_directories(test_v41_axis_09b_simd_extension PRIVATE
     "${CMAKE_BINARY_DIR}/generated"
     "${CMAKE_BINARY_DIR}/generated/axes/simd"
     "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
-    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware")
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_axis_09b_simd_extension PRIVATE
     Boost::mp11)
 
@@ -957,7 +981,8 @@ target_include_directories(test_v41_r5c3_isa_simd_cross_constraint PRIVATE
     "${CMAKE_BINARY_DIR}/generated"
     "${CMAKE_BINARY_DIR}/generated/axes/simd"
     "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
-    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware")
+    "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_r5c3_isa_simd_cross_constraint PRIVATE
     Boost::mp11)
 
@@ -1182,7 +1207,8 @@ comdare_add_test(test_ap9_provenance_manifest
 target_include_directories(test_ap9_provenance_manifest PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_ap9_provenance_manifest PRIVATE
     comdare::workload_driver)
 
@@ -1192,7 +1218,8 @@ comdare_add_test(test_ap13_thread_pinning
 target_include_directories(test_ap13_thread_pinning PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_ap13_thread_pinning PRIVATE
     comdare::workload_driver)
 # AP-10/#244: Dataset-Akte manifest + Option-A string->uint64 corpus loader.
@@ -1202,7 +1229,8 @@ target_include_directories(test_ap10_dataset_akte PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/common/measurement/dataset_loader/include"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_ap10_dataset_akte PRIVATE
     comdare_dataset_loader
     comdare::workload_driver)
@@ -1234,7 +1262,9 @@ comdare_add_test(test_v41_scan_range_organ
     SOURCES test_v41_scan_range_organ.cpp)
 target_include_directories(test_v41_scan_range_organ PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    # Hermetik (CI-2): measurement/measurable_concept.hpp liegt unter libs/cache_engine/src
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src")
 
 # V5-I6-SUBSTANZ (#44) — echte produktive MementoAxis auf den Such-Organen (ComposedSearch + Observable-Wrapper).
 comdare_add_test(test_v5_organ_memento
@@ -1313,7 +1343,8 @@ target_include_directories(test_v41_anatomy_adhoc_dll_load PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_adhoc_dll_load PRIVATE
     Boost::mp11
     comdare::anatomy_module_loader)

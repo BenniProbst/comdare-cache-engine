@@ -2,6 +2,7 @@
 // AlignmentStrategy - Cache-Line / HugePage / NUMA-aware Buffer-Alignment (REV 7 §7.3)
 
 #include <cstddef>
+#include <cstdint> // Hermetik (CI-2): std::uint8_t fuer AlignmentMode -- bisher nur transitiv bei manchen Konsumenten
 #include <cstdlib>
 #include <new>
 #include <type_traits>
