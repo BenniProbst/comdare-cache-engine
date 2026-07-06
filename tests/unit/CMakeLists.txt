@@ -1632,6 +1632,22 @@ target_compile_definitions(test_s7_4_hash_pool_allocator_deg PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_s7_4_hash_pool_allocator_deg PROPERTIES LABELS "contract;pool_flip;allocator")
 
+# S7-5 (#261/#234) -- ART-Pool: allocator-param default + T6 allocator DEG hook.
+comdare_add_test(test_s7_5_art_pool_allocator_deg
+    SOURCES test_s7_5_art_pool_allocator_deg.cpp)
+target_include_directories(test_s7_5_art_pool_allocator_deg PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_s7_5_art_pool_allocator_deg PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_s7_5_art_pool_allocator_deg PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_s7_5_art_pool_allocator_deg PROPERTIES LABELS "contract;pool_flip;allocator")
+
 # S7-6 (#261/#234) -- HOT-Pool: allocator-param default + T6 allocator DEG hook.
 comdare_add_test(test_s7_6_hot_pool_allocator_deg
     SOURCES test_s7_6_hot_pool_allocator_deg.cpp)

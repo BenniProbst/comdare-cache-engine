@@ -70,7 +70,7 @@ using EytzingerOrgan =
 // (node_type x path_compression x Trie-Traversal Mehr-Achsen-Modell + extern-C-Linking), NICHT #41.
 // S04 ART: ECHTE Trie-Anatomie (#43 s4) — adaptive Node4/16/48/256 + ByteWise-Path-Compression + Byte-Descent.
 // (Loest den fruehen flachen LinearScanOrgan-Platzhalter ab: ART ist jetzt als echtes Organ rekonstruiert.)
-using ArtTrieOrgan     = ComposedArtTrieSearch<ArtTrieTraversalOrgan, ArtTrieNodePoolStore>;
+using ArtTrieOrgan     = ComposedArtTrieSearch<ArtTrieTraversalOrgan, ArtTrieNodePoolStore<>>;
 using OriginalArtOrgan = ArtTrieOrgan;
 // S05 HOT: ECHTE bit-level Patricia-Anatomie (#43 s4) — crit-bit (countl_zero MSB-first) + Single-Bit-Split +
 // Collapse-Erase. is_original=false ([[pseudocode-papers-fallback]]); Multi-Bit/SparsePartialKeys+SIMD = Folge.

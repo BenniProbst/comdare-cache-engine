@@ -182,7 +182,7 @@ TEST(Axis03aTierOrgan, MasstreeChurnStressMatchesStdMap) {
 // --- ART adaptiver Node-Type-SHRINK beim Erase (Leis ICDE 2013: Knotengroesse passt sich BEIDE Richtungen an).
 // Wurzel waechst auf N256 (201 Byte-0-Kinder), schrumpft beim Loeschen N256->N48->N16->N4 — std::map-treu.
 TEST(Axis03aTierOrgan, ArtNodeShrinkOnEraseMatchesStdMap) {
-    using Store = ce_cmp::ArtTrieNodePoolStore;
+    using Store = ce_cmp::ArtTrieNodePoolStore<>;
     ce_cmp::ArtTrieOrgan                   organ;
     std::map<std::uint64_t, std::uint64_t> ref;
     for (std::uint64_t i = 0; i <= 200; ++i) {
