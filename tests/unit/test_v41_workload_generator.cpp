@@ -237,11 +237,18 @@ TEST(R6A_KeyRange, AllKeysAreInConfiguredRange) {
     cfg.key_min        = 100;
     cfg.key_max        = 200;
 
+    // Vertrags-Präzisierung (2026-07-06, Job 213964): Seit Audit-K7b erzeugen INSERT-Ops bewusst ECHTE
+    // NEUE Keys OBERHALB des Negativ-Query-Bands (> 2*key_max+1, workload_generator.cpp) — kein Upsert,
+    // kollisionsfrei mit Negativ-Queries. Die [key_min,key_max]-Invariante gilt für alle NICHT-Insert-Ops.
     wd::WorkloadGenerator g{cfg};
     while (g.remaining() > 0) {
         auto const op = g.next();
-        EXPECT_GE(op.key, cfg.key_min);
-        EXPECT_LE(op.key, cfg.key_max);
+        if (op.kind == wd::WorkloadOpKind::Insert) {
+            EXPECT_GT(op.key, cfg.key_max * 2ULL + 1ULL) << "Insert muss oberhalb des Negativ-Bands wachsen (K7b)";
+        } else {
+            EXPECT_GE(op.key, cfg.key_min);
+            EXPECT_LE(op.key, cfg.key_max);
+        }
     }
 }
 
