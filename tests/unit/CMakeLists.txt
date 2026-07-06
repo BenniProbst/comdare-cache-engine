@@ -1546,6 +1546,8 @@ if(WIN32)
     target_link_libraries(test_v5_io_real_fixture PRIVATE psapi)
 endif()
 add_test(NAME test_v5_io_real_fixture COMMAND test_v5_io_real_fixture)
+
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_v5_io_real_fixture)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
 set_tests_properties(test_v5_io_real_fixture PROPERTIES LABELS "phase_e;standalone;io")
 
 # #165-C (P-MD9, 2026-06-20) — Unit-Test fuer winsorized_mean_ns (latency_stats.hpp). Leichter Standalone-Test
@@ -1559,6 +1561,8 @@ target_include_directories(test_winsorized_mean PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 comdare_set_platform_defines(test_winsorized_mean)
 add_test(NAME test_winsorized_mean COMMAND test_winsorized_mean)
+
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_winsorized_mean)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
 set_tests_properties(test_winsorized_mean PROPERTIES LABELS "phase_e;standalone;stats")
 
 # #223 (AUDIT-A3 K9, 2026-06-28) — Regressions-Test, der das Konformitaets-Gate (run_conformance_gate,
@@ -2081,6 +2085,8 @@ target_link_libraries(test_dgenus_dll PRIVATE comdare::anatomy_module_loader)
 add_dependencies(test_dgenus_dll perm_set_d9 perm_sequence_d10 perm_view_d11)
 add_test(NAME test_dgenus_dll COMMAND test_dgenus_dll
     "$<TARGET_FILE:perm_set_d9>" "$<TARGET_FILE:perm_sequence_d10>" "$<TARGET_FILE:perm_view_d11>")
+
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_dgenus_dll)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
 set_tests_properties(test_dgenus_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
 
 # Build-Varianten-DLL-Loader-Test (L-74a, win32 LoadLibrary/GetProcAddress — Avx512 vs Avx2 über die .dll-Grenze).
@@ -2091,6 +2097,8 @@ target_compile_features(test_buildvariant_dll PRIVATE cxx_std_23)
 add_dependencies(test_buildvariant_dll perm_buildvariant_avx512 perm_buildvariant_avx2)
 add_test(NAME test_buildvariant_dll COMMAND test_buildvariant_dll
     "$<TARGET_FILE:perm_buildvariant_avx512>" "$<TARGET_FILE:perm_buildvariant_avx2>")
+
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_buildvariant_dll)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
 set_tests_properties(test_buildvariant_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
 
 # L-74a — Build-Varianten-DLLs mit den ECHTEN axis_01/09b/12-Wrapper-KLASSEN (DenseBytePageType/Avx512SimdExtension/
@@ -2126,6 +2134,8 @@ endforeach()
 add_dependencies(test_buildvariant_dll perm_buildvariant_real_avx512 perm_buildvariant_real_avx2)
 add_test(NAME test_buildvariant_dll_real COMMAND test_buildvariant_dll
     "$<TARGET_FILE:perm_buildvariant_real_avx512>" "$<TARGET_FILE:perm_buildvariant_real_avx2>")
+
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_buildvariant_dll_real)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
 set_tests_properties(test_buildvariant_dll_real PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
 
 # L-74a — ADHOC-BUILDVARIANT-DLL: EINE DLL traegt die 17-Slot-Anatomie (4 ABI-Symbole) UND die 3-Build-Achsen-
@@ -2162,6 +2172,8 @@ target_compile_features(test_adhoc_buildvariant_dll PRIVATE cxx_std_23)
 target_link_libraries(test_adhoc_buildvariant_dll PRIVATE comdare::anatomy_module_loader)
 add_dependencies(test_adhoc_buildvariant_dll perm_adhoc_buildvariant)
 add_test(NAME test_adhoc_buildvariant_dll COMMAND test_adhoc_buildvariant_dll "$<TARGET_FILE:perm_adhoc_buildvariant>")
+
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_adhoc_buildvariant_dll)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
 set_tests_properties(test_adhoc_buildvariant_dll PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
 
 # L-MEAS — RuntimeMeasureVisitor über die ECHTE geladene DLL (dynamic_cast IObservableTier + IResourceControllableTier
@@ -2173,6 +2185,8 @@ target_compile_features(test_d13_dll_runtime_measure PRIVATE cxx_std_23)
 target_link_libraries(test_d13_dll_runtime_measure PRIVATE comdare::anatomy_module_loader)
 add_dependencies(test_d13_dll_runtime_measure perm_adhoc_buildvariant)
 add_test(NAME test_d13_dll_runtime_measure COMMAND test_d13_dll_runtime_measure "$<TARGET_FILE:perm_adhoc_buildvariant>")
+
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_d13_dll_runtime_measure)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
 set_tests_properties(test_d13_dll_runtime_measure PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
 
 message(STATUS "Goal-V6 Phase D: ${CMAKE_CURRENT_LIST_LINE} — 28 add_test-D-Tests (16 leicht + 12 Boost) + 5 DLL-Round-Trip-Tests "
@@ -2221,6 +2235,8 @@ comdare_set_platform_defines(test_cacheline_policy_selector)
 # Optionales CSV-Arg (echte Pilot-CSV, falls vorhanden) — fehlt sie, SKIPt der Test diesen Teil sauber.
 add_test(NAME test_cacheline_policy_selector COMMAND test_cacheline_policy_selector
     "${CMAKE_SOURCE_DIR}/build/thesis_tiere/m3v2_sota_pilot_measurements.csv")
+
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_cacheline_policy_selector)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
 set_tests_properties(test_cacheline_policy_selector PROPERTIES
     LABELS "tools;cacheline;strategy" TIMEOUT 60)
 
@@ -2236,6 +2252,8 @@ add_test(NAME test_load_profile_writer COMMAND test_load_profile_writer
     "${CMAKE_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/load_profiles"   # arg1: getracktes LP-XML-Verzeichnis
     "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/load_profile_writer_pilot.csv"        # arg2: getrackte Fixture-Mess-CSV
     "${_comdare_test_out_root}/comdare_load_profile_writer_out")                # arg3: Output (Temp, nicht OneDrive)
+
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_load_profile_writer)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
 # TIMEOUT großzügig: 1 s im OS-Temp, aber Sync-/AV-Umgebungen können Datei-Writes verzögern.
 set_tests_properties(test_load_profile_writer PROPERTIES
     LABELS "tools;workload_driver;xml_export" TIMEOUT 300)
