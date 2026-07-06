@@ -1450,6 +1450,10 @@ foreach(_dt IN LISTS COMDARE_GOALV6_LIGHT_DTESTS)
         "${PROJECT_SOURCE_DIR}/libs/common")
     comdare_set_platform_defines(${_dt})
     add_test(NAME ${_dt} COMMAND ${_dt})
+    # #278 Klasse-B-Fix (2026-07-06, Job 213964): diese direkt-registrierten Standalone-Tests hingen NICHT
+    # am comdare_tests-Sammel-Target -> CI baute sie nie -> 52x "Not Run". Property-Eintrag zieht sie in den
+    # Sammel-Bau (inkl. automatischer Codegen-Hermetik-Kante aus dem Haupt-CMakeLists).
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_dt})
     set_tests_properties(${_dt} PROPERTIES LABELS "goal_v6;phase_d")
 endforeach()
 
@@ -1480,6 +1484,10 @@ foreach(_dt IN LISTS COMDARE_GOALV6_BOOST_DTESTS)
     target_link_libraries(${_dt} PRIVATE Boost::mp11)
     comdare_set_platform_defines(${_dt})
     add_test(NAME ${_dt} COMMAND ${_dt})
+    # #278 Klasse-B-Fix (2026-07-06, Job 213964): diese direkt-registrierten Standalone-Tests hingen NICHT
+    # am comdare_tests-Sammel-Target -> CI baute sie nie -> 52x "Not Run". Property-Eintrag zieht sie in den
+    # Sammel-Bau (inkl. automatischer Codegen-Hermetik-Kante aus dem Haupt-CMakeLists).
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_dt})
     set_tests_properties(${_dt} PROPERTIES LABELS "goal_v6;phase_d")
 endforeach()
 
@@ -1518,6 +1526,10 @@ foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     target_link_libraries(${_dt} PRIVATE Boost::mp11)
     comdare_set_platform_defines(${_dt})
     add_test(NAME ${_dt} COMMAND ${_dt})
+    # #278 Klasse-B-Fix (2026-07-06, Job 213964): diese direkt-registrierten Standalone-Tests hingen NICHT
+    # am comdare_tests-Sammel-Target -> CI baute sie nie -> 52x "Not Run". Property-Eintrag zieht sie in den
+    # Sammel-Bau (inkl. automatischer Codegen-Hermetik-Kante aus dem Haupt-CMakeLists).
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_dt})
     set_tests_properties(${_dt} PROPERTIES LABELS "phase_e;standalone")
 endforeach()
 
