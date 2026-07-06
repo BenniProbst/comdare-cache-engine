@@ -14,11 +14,13 @@
 //        (scratch_compile_migration_two_tier.ps1, abgeleitet aus scratch_compile_obs_phaseA.ps1).
 
 #include <anatomy/abi_adapter.hpp>
+#include <anatomy/composition_factory.hpp>
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/search_algorithm_anatomy.hpp>
 
-// Volle HotComposition als Basis (15+ Achsen) — wir tauschen NUR die migration_policy.
+// Volle HotComposition als ACHSEN-Spender — wir tauschen NUR search_algo + migration_policy.
 #include <compositions/hot_reference.hpp>
+#include <topics/traversal/axis_03a_search_algo/axis_03a_search_algo_array65535.hpp>
 #include <axes/migration_policy/axis_migration_none.hpp>
 #include <axes/migration_policy/axis_migration_hot_cold.hpp>
 
@@ -26,9 +28,10 @@
 #include <iostream>
 #include <string>
 
-namespace an   = ::comdare::cache_engine::anatomy;
-namespace comp = ::comdare::cache_engine::compositions;
-namespace mig  = ::comdare::cache_engine::migration_policy;
+namespace an    = ::comdare::cache_engine::anatomy;
+namespace comp  = ::comdare::cache_engine::compositions;
+namespace mig   = ::comdare::cache_engine::migration_policy;
+namespace ce03a = ::comdare::cache_engine::traversal::axis_03a_search_algo;
 
 static int  g_fail = 0;
 static void tr(std::string const& w, bool c) {
@@ -36,16 +39,23 @@ static void tr(std::string const& w, bool c) {
     if (!c) ++g_fail;
 }
 
-// ── Zwei Test-Kompositionen: identisch zu HotComposition, NUR migration_policy variiert ───────────────────────────
-// (HotComposition selbst pinnt NoMigration = der None-Pin-Fall.)
-struct MigNoneComposition : comp::HotComposition {
-    using migration_policy                 = mig::NoMigration;
-    static constexpr std::string_view name = "MigNoneComposition";
-};
-struct MigHotColdComposition : comp::HotComposition {
-    using migration_policy                 = mig::HotColdMigration;
-    static constexpr std::string_view name = "MigHotColdComposition";
-};
+// ── Zwei Test-Kompositionen: HotComposition-Achsen, NUR search_algo + migration_policy variiert ────────────────────
+// #278 (2026-07-06): P4-Basis von der HotComposition-HÜLLE auf eine STORE-BACKED AdHoc-Komposition umgestellt.
+// Der ECHTE 2-Ebenen-Move läuft per P4-Design ÜBER den container_algorithm_-Store (store_migrate_step →
+// LayoutAwareChunkedStore::organ_migrate_step); seit der Spiegel-Eliminierung (#188-4c) tragen Reference-Hüllen
+// KEINEN flachen Store mehr (requires-Kante false → moved==0, Hüllen-Migration honest-0 bis observe-Hooks #234).
+// Array65535 (uint16-Domäne, direktadressiert, store-traversierbar) deckt die kN=4096-Treiber-Keys unverändert ab.
+template <class MigrationPolicy>
+using MigStoreBackedComposition = an::AdHocComposition<
+    ce03a::Array65535SearchAlgo, comp::HotComposition::cache_traversal, comp::HotComposition::mapping,
+    comp::HotComposition::path_compression, comp::HotComposition::node_type, comp::HotComposition::memory_layout,
+    comp::HotComposition::allocator, comp::HotComposition::prefetch, comp::HotComposition::concurrency,
+    comp::HotComposition::serialization, comp::HotComposition::telemetry, comp::HotComposition::value_handle,
+    comp::HotComposition::isa, comp::HotComposition::index_organization, comp::HotComposition::io_dispatch,
+    MigrationPolicy, comp::HotComposition::filter, comp::HotComposition::queuing_q1, comp::HotComposition::queuing_q2>;
+
+using MigNoneComposition    = MigStoreBackedComposition<mig::NoMigration>;
+using MigHotColdComposition = MigStoreBackedComposition<mig::HotColdMigration>;
 
 // row_sum der migration-Achse (T15) im Observer-POD.
 static std::uint64_t mig_row_sum(an::ComdareTierObserverSnapshot const& s) {
