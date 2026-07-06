@@ -28,6 +28,7 @@ stages:
   - build
   - sanitize
   - contract
+  - test           # CI-2 (#264): Voll-Suite via Sammel-Target comdare_tests (Probelauf, s. test:unit)
   - chaos          # Stufe 6 (#197, EPIC #186): Mess-Drift-Detektor + Rerun-Gate (Selbstheilung)
 
 variables:
@@ -90,8 +91,9 @@ sanitize:asan-ubsan:
   allow_failure: true
   script:
     - cmake -B build-san -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
-    - cmake --build build-san --target test_abi_interface
-    - 'ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1 ctest --test-dir build-san -R "^test_abi_interface$" --output-on-failure -V'
+    # #204/264-b: Target-Liste um die 5 schnellen, contract-gruen-bewiesenen Gates erweitert (advisory).
+    - cmake --build build-san --target test_abi_interface test_config_durability test_conformance_gate test_experiment_driver_v13 test_chaos_drift_gate
+    - 'ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=print_stacktrace=1 ctest --test-dir build-san -R "^(test_abi_interface|test_config_durability|test_conformance_gate|test_experiment_driver_v13|test_chaos_drift_gate)$" --output-on-failure -V'
 
 # ── Stufe 4: Contract (aus ci-templates; ABI-Smoke eigenständig, kein großes Artefakt) ──
 contract:
@@ -308,3 +310,31 @@ chaos:drift:
     - ctest --test-dir build-chaos -R '^test_chaos_drift_gate$' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen Smoke-Jobs)
+
+# ── CI-2 (#264/264-b): Voll-Suite-PROBELAUF via Sammel-Target comdare_tests (base-pipeline .test-Template). ──
+# CI-6-Konvention: allow_failure bis zum ersten dokumentierten Gruen-Beweis; Hard-Gate erst nach 264-d
+# (-j/RAM-Politik CI-5 + #179). Ehrlicher Ist-Stand beim Anlegen (Commit 8669210d): comdare_tests baut
+# 788/788; ctest-Vollauf lokal 126/184 passed, 58 Laufzeit-Fails (Inventar im Ledger) -- dieser Job macht
+# den Stand pipeline-sichtbar, behauptet aber KEIN Gruen.
+test:unit:
+  extends: .test
+  tags: [baremetal]
+  needs: ["lint:secrets"]
+  allow_failure: true
+  variables:
+    COMDARE_TEST_CONFIGURE_FLAGS: "-DCOMDARE_BUILD_TESTS=ON"
+    COMDARE_TEST_BUILD_TARGET: "comdare_tests"
+    COMDARE_TEST_PREBUILD_TARGET: "comdare_anatomy_codegen_cli"
+
+# ── #204/264-b: TSan-Job (Thread-Sanitizer, NICHT mit ASan kombinierbar -> eigener Build). Advisory bis 264-d.
+# Nur Threading-Targets; DLL-dlopen-Tests bewusst ausgeklammert (Sanitizer-Interceptor/RTLD-heikel).
+sanitize:tsan:
+  extends: .bare_metal
+  stage: sanitize
+  tags: [baremetal]
+  needs: ["lint:secrets"]
+  allow_failure: true
+  script:
+    - cmake -B build-tsan -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
+    - cmake --build build-tsan --target test_concurrency_disciplines test_rcu test_v41_axis_08_concurrency
+    - 'TSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-tsan -R "^(test_concurrency_disciplines|test_rcu|test_v41_axis_08_concurrency)$" --output-on-failure -V'
