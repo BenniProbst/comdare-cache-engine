@@ -5,6 +5,9 @@ add_library(cache_engine_commands_v32 INTERFACE)
 target_include_directories(cache_engine_commands_v32 INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
+# #265-b: auto_permutator/platform_filter konsumiert die AP-3-Bruecke, die jetzt die vendored
+# foundation-Zelle comdare::platform (SIMDDetector) als Laufzeit-Zweitquelle nutzt.
+target_link_libraries(cache_engine_commands_v32 INTERFACE comdare::platform)
 target_compile_features(cache_engine_commands_v32 INTERFACE cxx_std_23)
 
 # Optional: V32_ENABLE Compile-Flag (default OFF, V31.F-Code bleibt unveraendert)
