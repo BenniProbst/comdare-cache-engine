@@ -663,7 +663,7 @@ TEST(Axis03aTierOrgan, WormholeMultiLevelStressMatchesStdMap) {
 // mit per-Node-Span + ByteWise-Path-Compression). uint16-Beleg (START == OriginalStartSearchAlgo) laeuft in
 // Uint16OriginalStartReconstructibleFromOrgan oben; hier MULTI-BYTE-uint64-Belege (span-2-Diskriminatoren).
 using StartSpan1Organ =
-    ce_cmp::ComposedStartTrieSearch<ce_cmp::StartTrieTraversalOrgan<1>, ce_cmp::StartTrieNodePoolStore>;
+    ce_cmp::ComposedStartTrieSearch<ce_cmp::StartTrieTraversalOrgan<1>, ce_cmp::StartTrieNodePoolStore<>>;
 
 TEST(Axis03aTierOrgan, Uint64StartTrieMatchesStdMap) {
     ts::verify_matches_std_map<ce_cmp::StartTrieOrgan>(60000u, 60000u); // span-2 Multibyte-Diskriminatoren
@@ -730,7 +730,7 @@ TEST(Axis03aTierOrgan, StartTrieMultiByteStressMatchesStdMap) {
 // Coverage-Haertung (adversariale Verifikation w3346v581): span-3 (Rewired16M, 24-Bit-Diskriminator) +
 // hohe Byte-Positionen (5/6/7) + Phantom-Byte-7-Grenze — vom Stress oben nicht abgedeckte Korrektheitsflaeche.
 using StartSpan3Organ =
-    ce_cmp::ComposedStartTrieSearch<ce_cmp::StartTrieTraversalOrgan<3>, ce_cmp::StartTrieNodePoolStore>;
+    ce_cmp::ComposedStartTrieSearch<ce_cmp::StartTrieTraversalOrgan<3>, ce_cmp::StartTrieNodePoolStore<>>;
 TEST(Axis03aTierOrgan, StartSpan3AndHighByteMatchesStdMap) {
     ts::verify_matches_std_map<StartSpan3Organ>(60000u, 60000u); // span-3 gegen std::map
     ts::verify_matches_std_map<StartSpan3Organ>(200u, 255u);

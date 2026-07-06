@@ -190,7 +190,7 @@ struct StartTrieTraversalOrgan {
 };
 
 // Selbstbeweis: StartTrieTraversalOrgan erfuellt das StartTrieTraversal-Concept ueber dem Pilot-Pool (span-2 + span-1).
-static_assert(StartTrieTraversal<StartTrieTraversalOrgan<2>, StartTrieNodePoolStore>);
-static_assert(StartTrieTraversal<StartTrieTraversalOrgan<1>, StartTrieNodePoolStore>);
+static_assert(StartTrieTraversal<StartTrieTraversalOrgan<2>, StartTrieNodePoolStore<>>);
+static_assert(StartTrieTraversal<StartTrieTraversalOrgan<1>, StartTrieNodePoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable
