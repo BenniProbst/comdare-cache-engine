@@ -15,14 +15,39 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <vector>
 
 namespace comdare::cache_engine::lookup::composable {
 
+namespace detail {
+
+struct HotPatriciaLeaf {
+    using key_type   = std::uint64_t;
+    using value_type = std::uint64_t;
+
+    key_type   key{};
+    value_type val{};
+};
+
+struct HotPatriciaInternal {
+    std::uint8_t               crit_bit{};
+    std::array<std::size_t, 2> child{};
+}; // crit_bit 0..63 passt in uint8
+
+} // namespace detail
+
+template <class A = std::allocator<detail::HotPatriciaLeaf>>
 class HotPatriciaNodePoolStore {
 public:
-    using key_type                    = std::uint64_t;
-    using value_type                  = std::uint64_t;
+    using node_type           = detail::HotPatriciaLeaf;
+    using key_type            = typename node_type::key_type;
+    using value_type          = typename node_type::value_type;
+    using allocator_type      = A;
+    using leaf_allocator_type = typename std::allocator_traits<A>::template rebind_alloc<detail::HotPatriciaLeaf>;
+    using internal_allocator_type =
+        typename std::allocator_traits<A>::template rebind_alloc<detail::HotPatriciaInternal>;
+    using index_allocator_type        = typename std::allocator_traits<A>::template rebind_alloc<std::size_t>;
     static constexpr std::size_t kNil = std::numeric_limits<std::size_t>::max();
 
     enum Kind : std::uint8_t { kLeaf = 0, kInternal = 1 };
@@ -57,10 +82,12 @@ public:
         if (!fl_leaf_.empty()) {
             idx = fl_leaf_.back();
             fl_leaf_.pop_back();
-            leaves_[idx] = Leaf{k, v};
+            leaves_[idx] = node_type{k, v};
         } else {
-            idx = leaves_.size();
-            leaves_.push_back(Leaf{k, v});
+            idx                            = leaves_.size();
+            std::size_t const old_capacity = leaves_.capacity();
+            leaves_.push_back(node_type{k, v});
+            record_capacity_growth_(old_capacity, leaves_.capacity(), sizeof(node_type));
         }
         return make_ref(kLeaf, idx);
     }
@@ -76,42 +103,77 @@ public:
         if (!fl_internal_.empty()) {
             idx = fl_internal_.back();
             fl_internal_.pop_back();
-            internals_[idx] = Internal{};
+            internals_[idx] = detail::HotPatriciaInternal{};
         } else {
-            idx = internals_.size();
-            internals_.push_back(Internal{});
+            idx                            = internals_.size();
+            std::size_t const old_capacity = internals_.capacity();
+            internals_.push_back(detail::HotPatriciaInternal{});
+            record_capacity_growth_(old_capacity, internals_.capacity(), sizeof(detail::HotPatriciaInternal));
         }
-        Internal& x = internals_[idx];
-        x.crit_bit  = static_cast<std::uint8_t>(crit_bit);
-        x.child[0]  = c0;
-        x.child[1]  = c1;
+        detail::HotPatriciaInternal& x = internals_[idx];
+        x.crit_bit                     = static_cast<std::uint8_t>(crit_bit);
+        x.child[0]                     = c0;
+        x.child[1]                     = c1;
         return make_ref(kInternal, idx);
     }
     void free_node(std::size_t r) noexcept {
-        if (ref_kind(r) == kLeaf)
+        if (ref_kind(r) == kLeaf) {
+            std::size_t const old_capacity = fl_leaf_.capacity();
             fl_leaf_.push_back(ref_idx(r));
-        else
+            record_capacity_growth_(old_capacity, fl_leaf_.capacity(), sizeof(std::size_t));
+        } else {
+            std::size_t const old_capacity = fl_internal_.capacity();
             fl_internal_.push_back(ref_idx(r));
+            record_capacity_growth_(old_capacity, fl_internal_.capacity(), sizeof(std::size_t));
+        }
     }
 
-private:
-    struct Leaf {
-        key_type   key{};
-        value_type val{};
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    struct allocator_statistics_snapshot {
+        std::uint64_t alloc_calls     = 0;
+        std::uint64_t bytes_allocated = 0;
+        std::uint64_t live_nodes      = 0;
     };
-    struct Internal {
-        std::uint8_t               crit_bit{};
-        std::array<std::size_t, 2> child{};
-    }; // crit_bit 0..63 passt in uint8
 
-    std::vector<Leaf>        leaves_{};
-    std::vector<Internal>    internals_{};
-    std::vector<std::size_t> fl_leaf_{}, fl_internal_{};
-    std::size_t              root_ = kNil;
-    std::size_t              size_ = 0;
+    [[nodiscard]] allocator_statistics_snapshot store_allocator_statistics() const noexcept {
+        return allocator_statistics_snapshot{
+            alloc_calls_,
+            bytes_allocated_,
+            static_cast<std::uint64_t>((leaves_.size() + internals_.size()) - (fl_leaf_.size() + fl_internal_.size())),
+        };
+    }
+#endif
+
+private:
+    using Leaf     = detail::HotPatriciaLeaf;
+    using Internal = detail::HotPatriciaInternal;
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    // Ehrliche Allokator-Metrik: gezaehlt werden nur erfolgreiche vector-capacity-Zuwaechse, als Capacity-Delta
+    // mal Elementgroesse. Reuse/clear ohne Capacity-Wachstum erzeugt bewusst keine kuenstlichen Werte.
+    void record_capacity_growth_(std::size_t old_capacity, std::size_t new_capacity, std::size_t elem_bytes) noexcept {
+        if (new_capacity <= old_capacity) return;
+        ++alloc_calls_;
+        bytes_allocated_ +=
+            static_cast<std::uint64_t>(new_capacity - old_capacity) * static_cast<std::uint64_t>(elem_bytes);
+    }
+#else
+    static void record_capacity_growth_(std::size_t, std::size_t, std::size_t) noexcept {}
+#endif
+
+    std::vector<Leaf, leaf_allocator_type>         leaves_{};
+    std::vector<Internal, internal_allocator_type> internals_{};
+    std::vector<std::size_t, index_allocator_type> fl_leaf_{};
+    std::vector<std::size_t, index_allocator_type> fl_internal_{};
+    std::size_t                                    root_ = kNil;
+    std::size_t                                    size_ = 0;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    std::uint64_t alloc_calls_     = 0;
+    std::uint64_t bytes_allocated_ = 0;
+#endif
 };
 
 // Selbstbeweis: das Substrat erfuellt das HotPatriciaNodePool-Concept.
-static_assert(HotPatriciaNodePool<HotPatriciaNodePoolStore>);
+static_assert(HotPatriciaNodePool<HotPatriciaNodePoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

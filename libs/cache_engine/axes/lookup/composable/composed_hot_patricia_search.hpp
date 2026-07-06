@@ -57,6 +57,13 @@ public:
     void                      clear() noexcept { pool_.clear(); }
     [[nodiscard]] Pool const& pool() const noexcept { return pool_; }
 
+    template <class P = Pool>
+    [[nodiscard]] auto store_allocator_statistics() const noexcept
+        requires requires(P const& p) { p.store_allocator_statistics(); }
+    {
+        return pool_.store_allocator_statistics();
+    }
+
 private:
     Pool pool_{};
 };

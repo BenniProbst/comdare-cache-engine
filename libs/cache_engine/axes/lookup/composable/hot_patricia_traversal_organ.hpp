@@ -151,6 +151,6 @@ struct HotPatriciaTraversalOrgan {
 };
 
 // Selbstbeweis: HotPatriciaTraversalOrgan erfuellt das HotPatriciaTraversal-Concept ueber dem Pilot-Pool.
-static_assert(HotPatriciaTraversal<HotPatriciaTraversalOrgan, HotPatriciaNodePoolStore>);
+static_assert(HotPatriciaTraversal<HotPatriciaTraversalOrgan, HotPatriciaNodePoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable
