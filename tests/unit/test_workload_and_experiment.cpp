@@ -1,6 +1,7 @@
 // Tests fuer WorkloadGenerator + ResultAggregator + ExperimentDemo (Phase 7)
 
 #include <comdare/workload_generator/workload_generator.hpp>
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 #include <comdare/experiment/result_aggregator.hpp>
 #include <comdare/experiment/experiment_demo.hpp>
 
@@ -165,7 +166,7 @@ TEST(ResultAggregator, ExportCsv) {
     r.record.op_count = 100;
     agg.add(r);
 
-    auto path = std::filesystem::temp_directory_path() / "comdare_agg_test.csv";
+    auto path = ::comdare::test::user_tmp_dir() / "comdare_agg_test.csv";
     agg.export_csv(path);
     EXPECT_TRUE(std::filesystem::exists(path));
     std::filesystem::remove(path);
@@ -179,7 +180,7 @@ TEST(ResultAggregator, ExportJson) {
     r.succeeded      = true;
     agg.add(r);
 
-    auto path = std::filesystem::temp_directory_path() / "comdare_agg_test.json";
+    auto path = ::comdare::test::user_tmp_dir() / "comdare_agg_test.json";
     agg.export_json(path);
     EXPECT_TRUE(std::filesystem::exists(path));
     std::filesystem::remove(path);
@@ -197,7 +198,7 @@ TEST(ResultAggregator, ExportContainsWorkloadUsedColumn) {
     agg.add(r);
 
     // CSV-Header + Daten
-    auto csv_path = std::filesystem::temp_directory_path() / "comdare_v20_agg.csv";
+    auto csv_path = ::comdare::test::user_tmp_dir() / "comdare_v20_agg.csv";
     agg.export_csv(csv_path);
     {
         std::ifstream f{csv_path};
@@ -208,7 +209,7 @@ TEST(ResultAggregator, ExportContainsWorkloadUsedColumn) {
     std::filesystem::remove(csv_path);
 
     // JSON-Feld
-    auto json_path = std::filesystem::temp_directory_path() / "comdare_v20_agg.json";
+    auto json_path = ::comdare::test::user_tmp_dir() / "comdare_v20_agg.json";
     agg.export_json(json_path);
     {
         std::ifstream f{json_path};
@@ -267,8 +268,8 @@ TEST(ExperimentDemo, CompareHoardVsMimallocVsTcmalloc) {
     EXPECT_EQ(reports.size(), 2u); // mimalloc + tcmalloc gegen hoard
 
     // CSV/JSON-Export funktioniert
-    auto csv_path  = std::filesystem::temp_directory_path() / "comdare_demo.csv";
-    auto json_path = std::filesystem::temp_directory_path() / "comdare_demo.json";
+    auto csv_path  = ::comdare::test::user_tmp_dir() / "comdare_demo.csv";
+    auto json_path = ::comdare::test::user_tmp_dir() / "comdare_demo.json";
     agg.export_csv(csv_path);
     agg.export_json(json_path);
     EXPECT_TRUE(std::filesystem::exists(csv_path));

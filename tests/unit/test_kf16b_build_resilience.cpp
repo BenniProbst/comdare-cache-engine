@@ -5,6 +5,7 @@
 // Build: cl /std:c++latest /EHsc /I<libs/cache_engine> test_kf16b_build_resilience.cpp
 
 #include "builder/build_orchestrator/build_orchestrator.hpp"
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 #include "builder/experiment_tree/experiment_tree.hpp"
 
 #include <atomic>
@@ -63,7 +64,7 @@ int main() {
              (ex::BuildConfig{4, 2, {}, {}}).parallel_jobs(), std::size_t{1});
 
     auto                        factory = std::make_shared<ex::ExperimentNodeFactory>();
-    std::filesystem::path const base    = std::filesystem::temp_directory_path() / "comdare_kf16b";
+    std::filesystem::path const base    = ::comdare::test::user_tmp_dir() / "comdare_kf16b";
     std::error_code             ec;
     std::filesystem::remove_all(base, ec);
 

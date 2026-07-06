@@ -3,6 +3,7 @@
 // Build: cl /std:c++latest /EHsc /I<libs/cache_engine> test_kf8_ceb_generator.cpp
 
 #include "builder/experiment_tree/ceb_generator.hpp"
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 #include "builder/experiment_tree/experiment_tree.hpp"
 
 #include <cstdlib>
@@ -53,7 +54,7 @@ int main() {
     });
     check_eq("binary_count (1x2x1)", tree.binary_count(), std::size_t{2});
 
-    std::filesystem::path const dir = std::filesystem::temp_directory_path() / "comdare_kf8_gen";
+    std::filesystem::path const dir = ::comdare::test::user_tmp_dir() / "comdare_kf8_gen";
     std::error_code             ec;
     std::filesystem::remove_all(dir, ec);
     std::size_t n = ex::generate_all(tree, dir);
@@ -65,7 +66,7 @@ int main() {
     check_true("Manifest vorhanden", std::filesystem::exists(dir / "perm_manifest.txt"));
 
     // Ein generiertes Source zur externen Compile-Prüfung wegschreiben
-    std::filesystem::path const sample = std::filesystem::temp_directory_path() / "kf8_sample.cpp";
+    std::filesystem::path const sample = ::comdare::test::user_tmp_dir() / "kf8_sample.cpp";
     {
         std::ofstream f{sample};
         f << src;

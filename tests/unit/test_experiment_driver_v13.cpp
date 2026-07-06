@@ -10,6 +10,7 @@
 // E2E-Verifikation steht in messung_driver-Lauf an (V14.6 zukuenftig).
 
 #include "../../cache_engine/builder/experiment_driver/experiment_driver.hpp"
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 
 #include <gtest/gtest.h>
 
@@ -25,9 +26,9 @@ protected:
     cb::ExperimentDriverOptions opts;
     void                        SetUp() override {
         // Defaults
-        opts.config_dir   = std::filesystem::temp_directory_path() / "cev13_cfg";
-        opts.output_dir   = std::filesystem::temp_directory_path() / "cev13_out";
-        opts.comdare_root = std::filesystem::temp_directory_path() / "cev13_root";
+        opts.config_dir   = ::comdare::test::user_tmp_dir() / "cev13_cfg";
+        opts.output_dir   = ::comdare::test::user_tmp_dir() / "cev13_out";
+        opts.comdare_root = ::comdare::test::user_tmp_dir() / "cev13_root";
         opts.verbose      = false;
         std::filesystem::create_directories(opts.output_dir);
     }

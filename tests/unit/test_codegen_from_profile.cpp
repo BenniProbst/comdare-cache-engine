@@ -9,6 +9,7 @@
 //   5. Generated Source enthaelt comdare_get_module_v1 + ABI-Bindings
 
 #include "../../cache_engine/builder/codegen/codegen.hpp"
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 
 #include <gtest/gtest.h>
 
@@ -27,7 +28,7 @@ namespace {
 class CodegenFromProfileFixture : public ::testing::Test {
 protected:
     void SetUp() override {
-        tmp_dir_ = fs::temp_directory_path() / "comdare_v10_4_codegen_test";
+        tmp_dir_ = ::comdare::test::user_tmp_dir() / "comdare_v10_4_codegen_test";
         fs::remove_all(tmp_dir_);
         fs::create_directories(tmp_dir_);
 

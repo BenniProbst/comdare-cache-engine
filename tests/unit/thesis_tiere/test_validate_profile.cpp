@@ -18,7 +18,8 @@
 // Build/Run: build_validate_profile.ps1 (Include-Satz wie die thesis_tiere-Harness; parse_thesis_profile braucht
 // xml_config_parser.cpp). KEIN Tier-Bau (kein COMDARE_PILOT_INCLUDES noetig).
 
-#include "validate_profile.hpp" // validate_profile / axis_registry_from_levels / ProfileValidationResult
+#include "validate_profile.hpp"    // validate_profile / axis_registry_from_levels / ProfileValidationResult
+#include "../comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 #include "xml_config_parser/xml_config_parser.hpp"
 
 #include <builder/experiment_tree/axis_reflect.hpp> // push_static_axis (REALE EnabledStrategies-Reflektion)
@@ -87,7 +88,7 @@ static ex::AxisRegistry build_m3v2_registry() {
 
 // Schreibt ein GETIPPTES Profil: node_type traegt <value>node_4</value> (statt node4) und eine unbekannte Achse.
 static fs::path write_typo_profile() {
-    fs::path const p = fs::temp_directory_path() / "comdare_typo_profile.xml";
+    fs::path const p = ::comdare::test::user_tmp_dir() / "comdare_typo_profile.xml";
     std::ofstream  f{p};
     f << R"(<?xml version="1.0" encoding="UTF-8"?>
 <comdare_thesis_profile id="typo_demo" schema_version="1">
@@ -172,7 +173,7 @@ int main(int argc, char** argv) {
     // ── (c) validate baut KEINE DLL: kein .dll/.obj/perm_*.cpp im temp-Verzeichnis dieses Laufs erzeugt. ──
     std::cout << "\n── (c) KEIN DLL-Bau ──\n";
     bool any_artifact = false;
-    for (auto const& e : fs::directory_iterator(fs::temp_directory_path())) {
+    for (auto const& e : fs::directory_iterator(::comdare::test::user_tmp_dir())) {
         auto const n = e.path().filename().string();
         if (n.rfind("perm_", 0) == 0 && (e.path().extension() == ".dll" || e.path().extension() == ".cpp")) {
             // Nur Artefakte, die GENAU von diesem validate-Lauf stammen wuerden, gibt es nicht — validate erzeugt sie nie.

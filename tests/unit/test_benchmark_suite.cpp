@@ -1,6 +1,7 @@
 // Tests fuer Mikrobenchmark-Suite (Phase 6.6)
 
 #include <comdare/benchmark_suite/custom_allocation_1_measurements.hpp>
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 #include <comdare/benchmark_suite/custom_allocation_2_state_log.hpp>
 #include <comdare/benchmark_suite/benchmark_runner.hpp>
 #include <comdare/benchmark_suite/binary_blob_writer.hpp>
@@ -114,7 +115,7 @@ TEST(BinaryBlobWriter, WritesValidBlob) {
     auto                h = runner.begin_measurement("test");
     runner.end_measurement(h, 999);
 
-    auto tmp_dir = std::filesystem::temp_directory_path();
+    auto tmp_dir = ::comdare::test::user_tmp_dir();
     auto path    = tmp_dir / "comdare_test_blob.cdb";
 
     runner.flush_to_binary_blob(path);
@@ -136,7 +137,7 @@ TEST(ConversionRoutines, BinaryToCsv) {
         records[i].cycles_or_value = i * i;
     }
     bs::conversion::BinaryToCsv conv;
-    auto                        path = std::filesystem::temp_directory_path() / "comdare_test.csv";
+    auto                        path = ::comdare::test::user_tmp_dir() / "comdare_test.csv";
     conv.convert(std::span<bs::MeasurementRecord32 const>{records}, path);
     EXPECT_TRUE(std::filesystem::exists(path));
     std::filesystem::remove(path);
@@ -145,7 +146,7 @@ TEST(ConversionRoutines, BinaryToCsv) {
 TEST(ConversionRoutines, BinaryToJson) {
     std::vector<bs::MeasurementRecord32> records(2);
     bs::conversion::BinaryToJson         conv;
-    auto                                 path = std::filesystem::temp_directory_path() / "comdare_test.json";
+    auto                                 path = ::comdare::test::user_tmp_dir() / "comdare_test.json";
     conv.convert(std::span<bs::MeasurementRecord32 const>{records}, path);
     EXPECT_TRUE(std::filesystem::exists(path));
     std::filesystem::remove(path);
@@ -156,7 +157,7 @@ TEST(ConversionRoutines, BinaryToTikz) {
     records[0].cycles_or_value = 100;
     records[1].cycles_or_value = 200;
     bs::conversion::BinaryToTikz conv;
-    auto                         path = std::filesystem::temp_directory_path() / "comdare_test.tikz";
+    auto                         path = ::comdare::test::user_tmp_dir() / "comdare_test.tikz";
     conv.convert(std::span<bs::MeasurementRecord32 const>{records}, path);
     EXPECT_TRUE(std::filesystem::exists(path));
     std::filesystem::remove(path);

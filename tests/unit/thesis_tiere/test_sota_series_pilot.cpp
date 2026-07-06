@@ -13,8 +13,9 @@
 // Katalog (render_sota_module_source) und baut es real zu einer DLL — kein „nur Tag". KEIN 320/voller
 // SOTA-Sturm: Stufe1/2 als Klein-Pilot, Stufe3/Reihe B als 6-Host-Gate. Include-Satz wie die 150er-Harness.
 
-#include "sota_catalog.hpp"   // build_sota_source_map / sota_module_for / render_sota_module_source (S6)
-#include "profile_runner.hpp" // load_thesis_profile
+#include "sota_catalog.hpp"        // build_sota_source_map / sota_module_for / render_sota_module_source (S6)
+#include "../comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
+#include "profile_runner.hpp"      // load_thesis_profile
 
 #include <cstdlib>
 #include <filesystem>
@@ -95,7 +96,7 @@ static std::vector<std::string> split_env(char const* name, char sep) {
 int main(int argc, char** argv) {
     fs::path const profiles_dir = fs::path("libs") / "cache_engine" / "algorithm_profiles" / "thesis_profiles";
     fs::path const m3v2_xml     = (argc >= 2) ? fs::path(argv[1]) : (profiles_dir / "m3v2_study.profile.xml");
-    fs::path const work         = (argc >= 3) ? fs::path(argv[2]) : fs::temp_directory_path() / "comdare_sota_pilot";
+    fs::path const work = (argc >= 3) ? fs::path(argv[2]) : ::comdare::test::user_tmp_dir() / "comdare_sota_pilot";
     fs::create_directories(work);
     std::cout << "Profil: " << m3v2_xml.string() << "\nWork:   " << work.string() << "\n";
 
