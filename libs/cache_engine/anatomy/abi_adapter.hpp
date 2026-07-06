@@ -91,6 +91,7 @@
 #include "../axes/filter_axis/axis_filter_observable.hpp"
 
 #include <array>
+#include <algorithm> // #278: std::max (Segment-Batch-Mindest-Ops) — direkt inkludieren, MSVC-strikt
 #include <chrono>
 #include <cstring> // (X) std::memcpy in den 19-Segment-Treibe-Ops
 #if defined(_M_X64) || defined(__x86_64__)
