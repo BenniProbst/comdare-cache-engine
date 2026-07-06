@@ -1,7 +1,7 @@
 // L-74a Build-Varianten-DLL-Round-Trip — der ECHTE dlsym-Pull über die .dll-Grenze (test_d7a beweist denselben
 // ABI-Pull nur in-process via COMDARE_ANATOMY_ABI_STATIC). Lädt 2 Build-Varianten-DLLs DERSELBEN page/hw (nur
 // simd verschieden: Avx512 vs Avx2), zieht aus JEDER das extern-"C"-Symbol comdare_build_variant_inspect via
-// GetProcAddress und prüft, dass die BuildVariantDefinitionV1 host-seitig literal unterscheidbar ist (512 vs 256).
+// dll_sym (LoadLibrary/dlopen-Shim) und prüft, dass die BuildVariantDefinitionV1 host-seitig literal unterscheidbar ist (512 vs 256).
 //
 // Beweist L-74a-Kern: die 3 Build-Achsen (page_type/09b/12) sind als reale, ABI-gezogene Build-Identität DERSELBEN
 // Binary über die DLL-Grenze abrufbar — DefinitionOnly-Etikett → reale, cross-boundary abrufbare Definition.
@@ -9,7 +9,21 @@
 
 #include "anatomy/build_variant_definition.hpp"
 
+// Portables DLL-Shim (#278, Job 214584): identischer Symbol-Roundtrip auf Windows UND Linux —
+// kein Gate/Skip, der Test läuft auf beiden Plattformen echt.
+#if defined(_WIN32)
 #include <windows.h>
+using DllHandle = HMODULE;
+static DllHandle dll_open(char const* p) { return LoadLibraryA(p); }
+static void*     dll_sym(DllHandle h, char const* s) { return reinterpret_cast<void*>(GetProcAddress(h, s)); }
+static void      dll_close(DllHandle h) { dll_close(h); }
+#else
+#include <dlfcn.h>
+using DllHandle = void*;
+static DllHandle dll_open(char const* p) { return dlopen(p, RTLD_NOW); }
+static void*     dll_sym(DllHandle h, char const* s) { return dlsym(h, s); }
+static void      dll_close(DllHandle h) { dlclose(h); }
+#endif
 
 #include <cstdint>
 #include <iostream>
@@ -37,21 +51,21 @@ static void tr(char const* w, bool c) {
 
 // Lädt eine DLL, zieht das Inspection-Symbol und füllt die Build-Identität (errno-style: false = Lade-/Symbol-Fehler).
 static bool pull_build_variant(char const* dll_path, cea::BuildVariantDefinitionV1& out) {
-    HMODULE h = LoadLibraryA(dll_path);
+    DllHandle h = dll_open(dll_path);
     if (h == nullptr) {
-        std::cout << "  [ERR] LoadLibraryA fehlgeschlagen: " << dll_path << "\n";
+        std::cout << "  [ERR] dll_open fehlgeschlagen: " << dll_path << "\n";
         ++g_fail;
         return false;
     }
-    auto fn = reinterpret_cast<InspectFn>(reinterpret_cast<void*>(GetProcAddress(h, "comdare_build_variant_inspect")));
+    auto fn = reinterpret_cast<InspectFn>(dll_sym(h, "comdare_build_variant_inspect"));
     if (fn == nullptr) {
-        std::cout << "  [ERR] GetProcAddress(comdare_build_variant_inspect) == null: " << dll_path << "\n";
+        std::cout << "  [ERR] dll_sym(comdare_build_variant_inspect) == null: " << dll_path << "\n";
         ++g_fail;
-        FreeLibrary(h);
+        dll_close(h);
         return false;
     }
     fn(&out); // Build-Identität über die ECHTE .dll-Grenze ziehen
-    FreeLibrary(h);
+    dll_close(h);
     return true;
 }
 

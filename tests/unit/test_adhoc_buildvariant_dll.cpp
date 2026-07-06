@@ -2,14 +2,28 @@
 // ALS AUCH die Build-Identität der 3 Build-Achsen trägt (Doc 27 §0.1: die 3 Build-Achsen modifizieren DIESELBE
 // 17-Slot-Binary, NICHT eine eigene Gattung). Aus DERSELBEN .dll werden host-seitig BEIDE gezogen:
 //   (1) die Anatomie über den gattungs-agnostischen AnatomyModuleLoader → genus()==SearchAlgorithm, organ_count()==19 (Doc 30 §8.0);
-//   (2) die Build-Variante über GetProcAddress("comdare_build_variant_inspect") → simd_width_bits==512 (Avx512).
+//   (2) die Build-Variante über dll_sym("comdare_build_variant_inspect") → simd_width_bits==512 (Avx512).
 // Build: siehe CMake-Registrierung (braucht den Anatomie-Umbrella + Boost + generierte Dirs). Aufruf: <adhoc_buildvariant.dll>.
 
 #include <builder/anatomy_module_loader/anatomy_module_loader.hpp>
 #include <anatomy/anatomy_base.hpp>
 #include <anatomy/build_variant_definition.hpp>
 
+// Portables DLL-Shim (#278, Job 214584): identischer Symbol-Roundtrip auf Windows UND Linux —
+// kein Gate/Skip, der Test läuft auf beiden Plattformen echt.
+#if defined(_WIN32)
 #include <windows.h>
+using DllHandle = HMODULE;
+static DllHandle dll_open(char const* p) { return LoadLibraryA(p); }
+static void*     dll_sym(DllHandle h, char const* s) { return reinterpret_cast<void*>(GetProcAddress(h, s)); }
+static void      dll_close(DllHandle h) { dll_close(h); }
+#else
+#include <dlfcn.h>
+using DllHandle = void*;
+static DllHandle dll_open(char const* p) { return dlopen(p, RTLD_NOW); }
+static void*     dll_sym(DllHandle h, char const* s) { return dlsym(h, s); }
+static void      dll_close(DllHandle h) { dlclose(h); }
+#endif
 
 #include <cstdint>
 #include <iostream>
@@ -60,14 +74,13 @@ int main(int argc, char** argv) {
         std::cerr << "  status: " << loader::status_name(st) << "\n";
     }
 
-    // (2) Die BUILD-VARIANTE über GetProcAddress aus DERSELBEN .dll (das Inspection-Symbol NEBEN den 4 ABI-Symbolen).
+    // (2) Die BUILD-VARIANTE über dll_sym aus DERSELBEN .dll (das Inspection-Symbol NEBEN den 4 ABI-Symbolen).
     std::cout << "-- (2) Build-Identität über comdare_build_variant_inspect (DIESELBE .dll) --\n";
-    HMODULE h = LoadLibraryA(dll);
-    tr("LoadLibraryA (zweiter Handle auf DIESELBE .dll)", h != nullptr);
+    DllHandle h = dll_open(dll);
+    tr("dll_open (zweiter Handle auf DIESELBE .dll)", h != nullptr);
     if (h != nullptr) {
-        auto fn =
-            reinterpret_cast<InspectFn>(reinterpret_cast<void*>(GetProcAddress(h, "comdare_build_variant_inspect")));
-        tr("GetProcAddress(comdare_build_variant_inspect) != null", fn != nullptr);
+        auto fn = reinterpret_cast<InspectFn>(dll_sym(h, "comdare_build_variant_inspect"));
+        tr("dll_sym(comdare_build_variant_inspect) != null", fn != nullptr);
         if (fn != nullptr) {
             ana::BuildVariantDefinitionV1 v{};
             fn(&v);
@@ -77,7 +90,7 @@ int main(int argc, char** argv) {
             eq("hw_cache_line == 64 (X86_64)", v.hw_cache_line, std::uint64_t{64});
             eq("present_mask == 7 (alle 3 Build-Achsen)", v.present_mask, std::uint64_t{7});
         }
-        FreeLibrary(h);
+        dll_close(h);
     }
 
     std::cout
