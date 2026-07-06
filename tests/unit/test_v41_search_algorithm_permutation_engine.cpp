@@ -18,6 +18,7 @@
 // @task #703 V41.F.6.1.R5.C.B
 
 #include <gtest/gtest.h>
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 
 #include <anatomy/abi_adapter.hpp>
 #include <anatomy/anatomy_base.hpp>
@@ -426,7 +427,7 @@ TEST(R5G_AutoEmitter, BuildsAdHocMacroArgsPerPermutation) {
 // Auto-Emitters — die CMake-add_library-Schleife darüber ist das letzte mechanische Plumbing.
 TEST(R5G_AutoEmitter, EmitsModuleCppPerPermutation) {
     namespace fs        = std::filesystem;
-    fs::path const  dir = fs::temp_directory_path() / "comdare_r5g_emit";
+    fs::path const  dir = ::comdare::test::user_tmp_dir() / "comdare_r5g_emit";
     std::error_code ec;
     fs::create_directories(dir, ec);
 

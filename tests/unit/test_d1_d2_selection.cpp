@@ -5,6 +5,7 @@
 // Build: cl /std:c++latest /EHsc test_d1_d2_selection.cpp /I libs/cache_engine  (ein Include-Root, kein Boost).
 
 #include "builder/experiment_tree/experiment_tree.hpp"
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 #include "builder/experiment_tree/coverage_selection.hpp"
 #include "builder/build_orchestrator/build_orchestrator.hpp"
 
@@ -88,8 +89,8 @@ int main() {
     std::atomic<int> compile_calls{0};
     std::atomic<int> gen_calls{0};
     BuildConfig      cfg;
-    cfg.source_dir      = std::filesystem::temp_directory_path() / "comdare_d2_src";
-    cfg.output_dir      = std::filesystem::temp_directory_path() / "comdare_d2_out";
+    cfg.source_dir      = ::comdare::test::user_tmp_dir() / "comdare_d2_src";
+    cfg.output_dir      = ::comdare::test::user_tmp_dir() / "comdare_d2_out";
     cfg.cores_per_build = 1;
     cfg.total_cores     = 2;
     // ram_per_build_bytes == 0 -> RAM-Gate aus (deterministisch testbar).
