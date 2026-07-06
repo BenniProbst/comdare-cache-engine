@@ -4,6 +4,7 @@
 // DISK (der memento_t trägt nur den Pfad). Demonstriert den /goal-Kontrakt für künftige echte Disk-Achsen.
 
 #include "anatomy/memento_aggregate.hpp"
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 #include "builder/disk_checkpoint_memento.hpp"
 
 #include <gtest/gtest.h>
@@ -18,7 +19,7 @@ namespace b  = ::comdare::cache_engine::builder;
 
 namespace {
 std::filesystem::path tmp_ckpt(char const* name) {
-    return std::filesystem::temp_directory_path() / "comdare_v5_disk_memento" / name;
+    return ::comdare::test::user_tmp_dir() / "comdare_v5_disk_memento" / name;
 }
 } // namespace
 

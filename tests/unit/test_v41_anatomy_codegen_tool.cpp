@@ -16,6 +16,7 @@
 // @task #710 V41.F.6.1.R5.F
 
 #include <gtest/gtest.h>
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 
 #include <builder/anatomy_codegen_tool/anatomy_codegen_tool.hpp>
 
@@ -37,7 +38,7 @@ namespace {
 }
 
 [[nodiscard]] std::filesystem::path tmp_snippet_path(std::string_view stem) {
-    auto const dir = std::filesystem::temp_directory_path() / "comdare_r5f_test";
+    auto const dir = ::comdare::test::user_tmp_dir() / "comdare_r5f_test";
     std::filesystem::create_directories(dir);
     return dir / (std::string{stem} + ".cmake");
 }
@@ -175,7 +176,7 @@ TEST(R5F_Tool, WriteCmakeSnippetStaticLibraryTypeOption) {
 }
 
 TEST(R5F_Tool, WriteCmakeSnippetCreatesParentDirectory) {
-    auto const      tmp = std::filesystem::temp_directory_path() / "comdare_r5f_test" / "deep" / "sub" / "dir";
+    auto const      tmp = ::comdare::test::user_tmp_dir() / "comdare_r5f_test" / "deep" / "sub" / "dir";
     std::error_code ec;
     std::filesystem::remove_all(tmp.parent_path(), ec); // sicherstellen dass nicht vorhanden
 

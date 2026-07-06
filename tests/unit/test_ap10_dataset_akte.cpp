@@ -1,4 +1,5 @@
 #include <comdare/measurement/dataset_loader/dataset_akte.hpp>
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen
 #include <comdare/measurement/dataset_loader/loaders/string_corpus_loader.hpp>
 
 #include "builder/measurement_snapshot.hpp"
@@ -38,7 +39,7 @@ namespace {
 [[nodiscard]] std::string first_line(std::string const& s) { return s.substr(0, s.find('\n')); }
 
 [[nodiscard]] std::filesystem::path write_temp_file(std::string_view name, std::string const& content) {
-    auto const    path = std::filesystem::temp_directory_path() / std::string{name};
+    auto const    path = ::comdare::test::user_tmp_dir() / std::string{name};
     std::ofstream out{path, std::ios::binary | std::ios::trunc};
     EXPECT_TRUE(static_cast<bool>(out));
     out << content;
@@ -124,7 +125,7 @@ TEST(AP10DatasetAkte, ComputesStableAkteAndSerializesKeys) {
     EXPECT_TRUE(contains_key(manifest, "line_count"));
     EXPECT_TRUE(contains_key(manifest, "preprocessing"));
 
-    auto const manifest_path = std::filesystem::temp_directory_path() / "comdare_ap10_dataset_akte_manifest.txt";
+    auto const manifest_path = ::comdare::test::user_tmp_dir() / "comdare_ap10_dataset_akte_manifest.txt";
     EXPECT_TRUE(dl::write_dataset_akte(manifest_path, first));
 }
 
