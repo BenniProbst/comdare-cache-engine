@@ -1457,6 +1457,29 @@ foreach(_comdare_codegen_consumer
     endif()
 endforeach()
 
+# CI-2, Ledger 7: base-pipeline .test-Template erwartet via
+# COMDARE_TEST_BUILD_TARGET genau ein Sammel-Target fuer alle Test-Binaries.
+# Die Registry aus COMDARE_add_test faengt auch conditional registrierte Tests.
+# Der bestehende Einzel-Consumer-foreach oben bleibt unveraendert: er deckt
+# Nicht-Test-Consumer wie comdare_adhoc_emitter_cli/perm_adhoc_buildvariant ab.
+# Redundante Codegen-Kanten fuer Test-Targets sind harmlos.
+get_property(_comdare_test_targets GLOBAL PROPERTY COMDARE_TEST_TARGETS)
+if(_comdare_test_targets)
+    list(REMOVE_DUPLICATES _comdare_test_targets)
+    add_custom_target(comdare_tests)
+    foreach(_t IN LISTS _comdare_test_targets)
+        if(TARGET ${_t})
+            add_dependencies(comdare_tests ${_t})
+            # Hermetik: JEDES Test-Target bekommt die Codegen-Kante -- eliminiert die
+            # 14eed391-Fehlerklasse fuer den Sammel-Bau vollstaendig (isolierte
+            # --target-Builds decken weiter die Einzel-Listen ab).
+            if(TARGET comdare_paper_codegen_all)
+                add_dependencies(${_t} comdare_paper_codegen_all)
+            endif()
+        endif()
+    endforeach()
+endif()
+
 # ─────────────────────────────────────────────────────────────────────────────
 # V41.F.6.1 G.1 — Hierarchische Achsen-Iteration im Build-Output + Permutations-Raum-Auswertung
 # (ersetzt die flachen per-Achse-message()-Zeilen durch eine Topic->Achse->Wrapper-Hierarchie).

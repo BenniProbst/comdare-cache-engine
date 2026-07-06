@@ -587,7 +587,8 @@ target_include_directories(test_v41_anatomy_codegen PRIVATE
     "${PROJECT_SOURCE_DIR}"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_v41_anatomy_codegen PRIVATE
     Boost::mp11
     anatomy_codegen_pilot_hot)
