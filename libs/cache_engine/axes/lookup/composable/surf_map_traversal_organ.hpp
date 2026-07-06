@@ -57,6 +57,6 @@ struct SurfMapTraversalOrgan {
 };
 
 // Selbstbeweis: SurfMapTraversalOrgan erfuellt das SurfMapTraversal-Concept ueber dem Pilot-Pool.
-static_assert(SurfMapTraversal<SurfMapTraversalOrgan, SurfFstMapPoolStore>);
+static_assert(SurfMapTraversal<SurfMapTraversalOrgan, SurfFstMapPoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable

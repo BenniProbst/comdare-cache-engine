@@ -91,7 +91,7 @@ using OriginalWormholeOrgan = WormholeOrgan; // S07 Wormhole (war flacher Sorted
 // S08 SuRF: exakte Map-Schale (#43 s4) — autoritatives exaktes K->V (sortiert), traegt std::map-Vergleichbarkeit.
 // Das echte LOUDS-Succinct-Range-Filter-Organ (may-contain, bool) lebt separat in axis_filter (Gattungs-Trennung).
 // is_original=false ([[pseudocode-papers-fallback]]). Loest den flachen SortedBinaryOrgan-Platzhalter ab.
-using SurfMapOrgan      = ComposedSurfMapSearch<SurfMapTraversalOrgan, SurfFstMapPoolStore>;
+using SurfMapOrgan      = ComposedSurfMapSearch<SurfMapTraversalOrgan, SurfFstMapPoolStore<>>;
 using OriginalSurfOrgan = SurfMapOrgan; // S08 SuRF (war flacher SortedBinaryOrgan-Platzhalter)
 
 // --- Observable-Organ-Aliase (#42 Umstufung-B Phase 1) — die im search_algo-Slot der Gattungs-Konfiguratoren
