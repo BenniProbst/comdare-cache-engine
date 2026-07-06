@@ -80,7 +80,8 @@ using OriginalHotOrgan = HotPatriciaOrgan; // S05 HOT (war flacher SortedBinaryO
 // Diskriminator, span-2 = Rewired64K-Distinktion ggue. ARTs fixem 1-Byte) + ByteWise-Path-Compression.
 // is_original=false ([[pseudocode-papers-fallback]]; volle Quelle fehlt). Cost-DP-Self-Tuning (adaptive
 // Span-Wahl) = Folge-Achse axis_03t_node_tuning. Loest den letzten flachen SortedBinaryOrgan-Platzhalter ab.
-using StartTrieOrgan = ComposedStartTrieSearch<StartTrieTraversalOrgan<2>, StartTrieNodePoolStore>; // span-2 Multibyte
+using StartTrieOrgan =
+    ComposedStartTrieSearch<StartTrieTraversalOrgan<2>, StartTrieNodePoolStore<>>; // span-2 Multibyte
 using OriginalStartOrgan = StartTrieOrgan; // S06 START (war letzter flacher SortedBinaryOrgan-Platzhalter)
 // S07 Wormhole: ECHTE Hybrid-Anatomie (#43 s4) — sortierte doppelt-verkettete Leaf-Liste + Hash-Anchor-Jump
 // (groesster Anker<=key statt Wurzel-Abstieg) + Leaf-Split/Merge. is_original=false ([[pseudocode-papers-fallback]];

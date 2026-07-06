@@ -22,16 +22,54 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <vector>
 
 namespace comdare::cache_engine::lookup::composable {
 
+namespace detail {
+
+using StartTriePrefix = ::comdare::cache_engine::nodes::axis_02_path_compression::ByteWiseKeyPrefix;
+
+inline constexpr std::size_t kStartTrieNil = std::numeric_limits<std::size_t>::max();
+
+struct StartTrieLeaf {
+    using key_type   = std::uint64_t;
+    using value_type = std::uint64_t;
+
+    key_type   key{};
+    value_type val{};
+};
+
+template <class FwdAlloc = std::allocator<std::size_t>>
+struct StartTrieInner {
+    using disc_allocator_type = typename std::allocator_traits<FwdAlloc>::template rebind_alloc<std::uint32_t>;
+    using kids_allocator_type = typename std::allocator_traits<FwdAlloc>::template rebind_alloc<std::size_t>;
+    using disc_vector_type    = std::vector<std::uint32_t, disc_allocator_type>;
+    using kids_vector_type    = std::vector<std::size_t, kids_allocator_type>;
+
+    StartTriePrefix  prefix{};
+    std::uint8_t     span = 1;
+    disc_vector_type disc{}; // aufsteigend sortierte Diskriminatoren (span-breit)
+    kids_vector_type kids{}; // parallel: Kind-Refs
+};
+
+} // namespace detail
+
+template <class A = std::allocator<detail::StartTrieLeaf>>
 class StartTrieNodePoolStore {
 public:
-    using key_type                    = std::uint64_t;
-    using value_type                  = std::uint64_t;
-    using prefix_type                 = ::comdare::cache_engine::nodes::axis_02_path_compression::ByteWiseKeyPrefix;
-    static constexpr std::size_t kNil = std::numeric_limits<std::size_t>::max();
+    using node_type                   = detail::StartTrieLeaf;
+    using key_type                    = typename node_type::key_type;
+    using value_type                  = typename node_type::value_type;
+    using prefix_type                 = detail::StartTriePrefix;
+    using allocator_type              = A;
+    using leaf_allocator_type         = typename std::allocator_traits<A>::template rebind_alloc<detail::StartTrieLeaf>;
+    using forward_allocator_type      = typename std::allocator_traits<A>::template rebind_alloc<std::size_t>;
+    using inner_type                  = detail::StartTrieInner<forward_allocator_type>;
+    using inner_allocator_type        = typename std::allocator_traits<A>::template rebind_alloc<inner_type>;
+    using index_allocator_type        = typename std::allocator_traits<A>::template rebind_alloc<std::size_t>;
+    static constexpr std::size_t kNil = detail::kStartTrieNil;
 
     enum Kind : std::uint8_t { kLeaf = 0, kInner = 1 };
     [[nodiscard]] static constexpr std::size_t make_ref(Kind kind, std::size_t idx) noexcept {
@@ -65,10 +103,12 @@ public:
         if (!fl_leaf_.empty()) {
             idx = fl_leaf_.back();
             fl_leaf_.pop_back();
-            leaves_[idx] = Leaf{k, v};
+            leaves_[idx] = node_type{k, v};
         } else {
-            idx = leaves_.size();
-            leaves_.push_back(Leaf{k, v});
+            idx                            = leaves_.size();
+            std::size_t const old_capacity = leaves_.capacity();
+            leaves_.push_back(node_type{k, v});
+            record_capacity_growth_(old_capacity, leaves_.capacity(), sizeof(node_type));
         }
         return make_ref(kLeaf, idx);
     }
@@ -76,15 +116,22 @@ public:
     // ── Inner (Multibyte-Span) ──
     [[nodiscard]] std::size_t new_inner(unsigned sp) {
         std::size_t idx;
+        std::size_t old_disc_capacity = 0;
+        std::size_t old_kids_capacity = 0;
         if (!fl_inner_.empty()) {
             idx = fl_inner_.back();
             fl_inner_.pop_back();
-            inners_[idx] = Inner{};
+            old_disc_capacity = inners_[idx].disc.capacity();
+            old_kids_capacity = inners_[idx].kids.capacity();
+            inners_[idx]      = Inner{};
         } else {
-            idx = inners_.size();
+            idx                            = inners_.size();
+            std::size_t const old_capacity = inners_.capacity();
             inners_.push_back(Inner{});
+            record_capacity_growth_(old_capacity, inners_.capacity(), sizeof(Inner));
         }
         inners_[idx].span = static_cast<std::uint8_t>(sp);
+        record_inner_vector_capacity_growth_(old_disc_capacity, old_kids_capacity, inners_[idx]);
         return make_ref(kInner, idx);
     }
     [[nodiscard]] unsigned    span(std::size_t r) const noexcept { return inners_[ref_idx(r)].span; }
@@ -112,9 +159,15 @@ public:
         // axis_03t/Gattungs-Konfigurator-Aufrufer, der das verletzt, sofort auffaellt statt still einen
         // Subtree zu ueberschreiben (adversariale Verifikation w3346v581; heute kein Verhaltenswechsel).
         assert((it == x.disc.end() || *it != disc) && "add_child: disc bereits vorhanden — Praekondition verletzt");
-        std::size_t const pos = static_cast<std::size_t>(it - x.disc.begin());
+        std::size_t const pos               = static_cast<std::size_t>(it - x.disc.begin());
+        std::size_t const old_disc_capacity = x.disc.capacity();
+        std::size_t const old_kids_capacity = x.kids.capacity();
         x.disc.insert(x.disc.begin() + static_cast<std::ptrdiff_t>(pos), disc);
+        record_capacity_growth_(old_disc_capacity, x.disc.capacity(),
+                                sizeof(typename Inner::disc_vector_type::value_type));
         x.kids.insert(x.kids.begin() + static_cast<std::ptrdiff_t>(pos), child);
+        record_capacity_growth_(old_kids_capacity, x.kids.capacity(),
+                                sizeof(typename Inner::kids_vector_type::value_type));
     }
     void set_child(std::size_t r, std::uint32_t disc, std::size_t child) noexcept {
         Inner& x  = inners_[ref_idx(r)];
@@ -132,32 +185,71 @@ public:
     }
 
     void free_node(std::size_t r) noexcept {
-        if (ref_kind(r) == kLeaf)
+        if (ref_kind(r) == kLeaf) {
+            std::size_t const old_capacity = fl_leaf_.capacity();
             fl_leaf_.push_back(ref_idx(r));
-        else
+            record_capacity_growth_(old_capacity, fl_leaf_.capacity(), sizeof(std::size_t));
+        } else {
+            std::size_t const old_capacity = fl_inner_.capacity();
             fl_inner_.push_back(ref_idx(r));
+            record_capacity_growth_(old_capacity, fl_inner_.capacity(), sizeof(std::size_t));
+        }
     }
 
-private:
-    struct Leaf {
-        key_type   key{};
-        value_type val{};
-    };
-    struct Inner {
-        prefix_type                prefix{};
-        std::uint8_t               span = 1;
-        std::vector<std::uint32_t> disc{}; // aufsteigend sortierte Diskriminatoren (span-breit)
-        std::vector<std::size_t>   kids{}; // parallel: Kind-Refs
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    struct allocator_statistics_snapshot {
+        std::uint64_t alloc_calls     = 0;
+        std::uint64_t bytes_allocated = 0;
+        std::uint64_t live_nodes      = 0;
     };
 
-    std::vector<Leaf>        leaves_{};
-    std::vector<Inner>       inners_{};
-    std::vector<std::size_t> fl_leaf_{}, fl_inner_{};
-    std::size_t              root_ = kNil;
-    std::size_t              size_ = 0;
+    [[nodiscard]] allocator_statistics_snapshot store_allocator_statistics() const noexcept {
+        return allocator_statistics_snapshot{
+            alloc_calls_,
+            bytes_allocated_,
+            static_cast<std::uint64_t>((leaves_.size() + inners_.size()) - (fl_leaf_.size() + fl_inner_.size())),
+        };
+    }
+#endif
+
+private:
+    using Leaf  = detail::StartTrieLeaf;
+    using Inner = inner_type;
+
+    void record_inner_vector_capacity_growth_(std::size_t old_disc_capacity, std::size_t old_kids_capacity,
+                                              Inner const& x) noexcept {
+        record_capacity_growth_(old_disc_capacity, x.disc.capacity(),
+                                sizeof(typename Inner::disc_vector_type::value_type));
+        record_capacity_growth_(old_kids_capacity, x.kids.capacity(),
+                                sizeof(typename Inner::kids_vector_type::value_type));
+    }
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    // Ehrliche Allokator-Metrik: gezaehlt werden nur erfolgreiche vector-capacity-Zuwaechse, als Capacity-Delta
+    // mal Elementgroesse. Reuse/clear ohne Capacity-Wachstum erzeugt bewusst keine kuenstlichen Werte.
+    void record_capacity_growth_(std::size_t old_capacity, std::size_t new_capacity, std::size_t elem_bytes) noexcept {
+        if (new_capacity <= old_capacity) return;
+        ++alloc_calls_;
+        bytes_allocated_ +=
+            static_cast<std::uint64_t>(new_capacity - old_capacity) * static_cast<std::uint64_t>(elem_bytes);
+    }
+#else
+    static void record_capacity_growth_(std::size_t, std::size_t, std::size_t) noexcept {}
+#endif
+
+    std::vector<Leaf, leaf_allocator_type>         leaves_{};
+    std::vector<Inner, inner_allocator_type>       inners_{};
+    std::vector<std::size_t, index_allocator_type> fl_leaf_{};
+    std::vector<std::size_t, index_allocator_type> fl_inner_{};
+    std::size_t                                    root_ = kNil;
+    std::size_t                                    size_ = 0;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    std::uint64_t alloc_calls_     = 0;
+    std::uint64_t bytes_allocated_ = 0;
+#endif
 };
 
 // Selbstbeweis: das Substrat erfuellt das StartTrieNodePool-Concept.
-static_assert(StartTrieNodePool<StartTrieNodePoolStore>);
+static_assert(StartTrieNodePool<StartTrieNodePoolStore<>>);
 
 } // namespace comdare::cache_engine::lookup::composable
