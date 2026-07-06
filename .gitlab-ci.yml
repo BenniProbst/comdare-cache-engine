@@ -33,7 +33,7 @@ stages:
 
 variables:
   GIT_SUBMODULE_STRATEGY: none
-  CMAKE_BUILD_PARALLEL_LEVEL: "4"          # A-Folge (User 2026-06-26): 8 Kern-cgroup / concurrent=2 = 4 (keine Oversubscription)
+  CMAKE_BUILD_PARALLEL_LEVEL: "6"          # User 2026-07-06: 2x6 Kerne bei concurrent=2 (prod1 16C; revidiert 4@8-Kern-cgroup-Aera)
   COMDARE_LINT_PATHS: "libs apps tests adapters benchmark_suite benchmarks"
   # contract: ABI-Contract-Smoke = test_abi_interface (std::map/ABI-Interface-Kontrakt). test_v41_anatomy_module_abi
   # ist der schwerere anatomy-MODULE-Test (eigener Linux-Build) -> gehoert in den vollen Test-Stage/#179-Sweep,
