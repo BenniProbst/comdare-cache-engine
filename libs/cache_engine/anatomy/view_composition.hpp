@@ -8,6 +8,7 @@
 // Goldstandard-Vollausbau (layout_left/right/stride, aligned_accessor) = Folgeschritt.
 
 #include <cstddef>
+#include <cstdint>
 #include <string_view>
 
 namespace comdare::cache_engine::anatomy {

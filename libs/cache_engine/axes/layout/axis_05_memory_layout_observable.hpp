@@ -16,6 +16,7 @@
 // Gating exakt nach Praezedenz: snapshot_t/statistics()/reset() unter COMDARE_CE_ENABLE_STATISTICS.
 // Bei OFF: scan_field_sum = nackter Pass-Through (0 Footprint), ObservableAxis<...> = false.
 
+#include "axis_05_memory_layout_strategy_base.hpp" // RepresentationKind (2026-07-06: Job 214061 — TU-Reihenfolge-Glueck beendet)
 #include "concepts/axis_05_memory_layout_concept.hpp"
 #include <cstddef>
 #include <cstdint>
