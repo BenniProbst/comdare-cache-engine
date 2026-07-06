@@ -264,7 +264,11 @@ target_compile_features(comdare_perm_mock_test PRIVATE cxx_std_23)
 target_include_directories(comdare_perm_mock_test PRIVATE
     "${CMAKE_SOURCE_DIR}/libs/cache_engine/include")
 set_target_properties(comdare_perm_mock_test PROPERTIES
-    POSITION_INDEPENDENT_CODE ON)
+    POSITION_INDEPENDENT_CODE ON
+    # #278 A3 (2026-07-06, Job 213964): load_all filtert auf das comdare_perm_-Praefix (Mess-Pfad-Konvention;
+    # der echte Emitter baut praefixfrei). CMakes lib-Praefix machte die Mock-DLL zu libcomdare_perm_...so
+    # -> Verzeichnis-Scan fand 0 Kandidaten. PREFIX "" = Mock folgt der Konvention (Filter bleibt strikt).
+    PREFIX "")
 
 comdare_add_test(test_module_loader
     SOURCES test_module_loader.cpp
