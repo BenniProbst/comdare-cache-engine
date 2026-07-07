@@ -88,6 +88,29 @@ pmc:intel:
   rules:
     - if: '$COMDARE_PROD2_AVAILABLE == "true"'
 
+# ── #270b (2026-07-07): 3-ISA-Teilmatrix-INSTANZIIERUNG — arm64-Smoke auf node7-rpi5-arm64 (tag arm64). ──
+# OPT-IN + advisory: die HARTE Scharfschaltung als CI-PFLICHT ist ausdruecklich #276 (letzte Ledger-Aufgabe).
+# Dieser Job destabilisiert die Hauptpipeline NICHT (rules-gated auf COMDARE_ISA_MATRIX=="true"), baut nur eine
+# kleine, ISA-repraesentative Teilmenge (der cpuid/isa-Probe-Test + das Conformance-Gate) und laeuft ihn — der
+# Beweis, dass der arm64-Toolchain-Pfad traegt. Bei node7-Freeze/Toolchain-Luecke: Runner-Endstrecke = Task #23
+# (K87b-Montags-Audit); dieser Job bleibt dann instanziiert-aber-ungetriggert (kein Pipeline-Schaden).
+build:arm64-smoke:
+  stage: test
+  tags: [arm64]
+  needs: []
+  allow_failure: true
+  rules:
+    - if: '$COMDARE_ISA_MATRIX == "true"'
+  script:
+    - 'echo "== arm64-Teilmatrix-Smoke auf $(uname -m) =="'
+    - 'test "$(uname -m)" = "aarch64" || { echo "FEHLER: kein aarch64-Runner (uname=$(uname -m))"; exit 1; }'
+    - _CC=cc; _CXX=c++; command -v g++-13 >/dev/null 2>&1 && { _CC=gcc-13; _CXX=g++-13; }
+    - cmake -B build-arm64 -G Ninja -DCMAKE_C_COMPILER="$_CC" -DCMAKE_CXX_COMPILER="$_CXX" -DCOMDARE_BUILD_TESTS=ON
+    - cmake --build build-arm64 --target test_cpuid_probe test_conformance_gate
+    - ctest --test-dir build-arm64 -R "^(test_cpuid_probe|test_conformance_gate)$" --output-on-failure
+  artifacts:
+    paths: []
+
 # ── Stufe 3b: Sanitize (ASan+UBSan, 10-Stufen-Prinzip P1b) — fängt Memory-/UB-Bugs ──
 # advisory (allow_failure) bis #179-Bereinigung, danach HART. Eigener Debug+Sanitizer-Build, kein Artefakt.
 # #278 (2026-07-06): HART geschaltet — Gruen-Beweise Pipelines 8190 UND 8191 (2x in Folge success).
