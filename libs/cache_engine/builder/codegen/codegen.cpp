@@ -100,6 +100,10 @@ void CodegenEngine::generate_module_from_profile(xml::AlgorithmProfile const& pr
     auto const sota_template_dir = opts_.comdare_root / "cache_engine" / "builder" / "codegen" / "templates";
     auto const sota_template     = sota_template_dir / (profile.id + "_body.hpp.template");
 
+    // QUARANTAENE-Hinweis (AP-2-neu/#236 W4, 2026-07-07): dieser V18-Template-Zug ist ein ALT-PFAD —
+    // das prtart_body-Template traegt den 90ns-Stub und ist NICHT Teil des Mess-Pfads. Der einzige
+    // PRT-ART-Mess-Pfad ist der Katalog-Pfad (sota_catalog, echte PrtArtComposition; Beweis:
+    // test_ap2_katalog_pfad_stubfrei). Notizen auch in den 3 prt-art-Alt-Pfad-Dateien.
     auto const prt_art_template_dir = opts_.prt_art_root / "prt_art" / "codegen" / "templates";
     auto const prt_art_template     = prt_art_template_dir / (profile.id + "_body.hpp.template");
 

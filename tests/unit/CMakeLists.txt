@@ -2004,6 +2004,23 @@ target_compile_definitions(test_profile_coverage PRIVATE
     "COMDARE_ALGORITHM_PROFILES_DIR=\"${CMAKE_SOURCE_DIR}/libs/cache_engine/algorithm_profiles\"")
 set_tests_properties(test_profile_coverage PROPERTIES LABELS "contract;profiles;coverage")
 
+# AP-2-neu/#236 (W4, 2026-07-07): Katalog-Pfad ist der EINZIGE PRT-ART-Mess-Pfad — materialisiert die
+# ECHTE PrtArtComposition STUB-FREI (Gegenstueck zu den QUARANTAENE-Notizen der 3 Alt-Pfade im prt-art-Repo).
+comdare_add_test(test_ap2_katalog_pfad_stubfrei
+    SOURCES thesis_tiere/test_ap2_katalog_pfad_stubfrei.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+target_include_directories(test_ap2_katalog_pfad_stubfrei PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_ap2_katalog_pfad_stubfrei PRIVATE Boost::mp11)
+target_compile_definitions(test_ap2_katalog_pfad_stubfrei PRIVATE
+    "COMDARE_CE_LIB_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine\"")
+
 # CE-DL2 (Task #152) — LINUX-PMC-Smoke fuer die LinuxPerfPmcSource (perf_event_open). Spiegel von m3v2_pmc_smoke,
 # aber LINUX-CONDITIONAL registriert: nur unter (UNIX AND NOT APPLE) — der Windows-/MSVC-Build sieht dieses Target
 # NIE (kein add_executable, keine Linux-Header). make_pmc_source() liefert auf Linux+COMDARE_ENABLE_PMC eine
