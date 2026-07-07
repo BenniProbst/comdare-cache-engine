@@ -65,6 +65,20 @@ lint:static:
     - 'echo "== perf_event_paranoid =="; cat /proc/sys/kernel/perf_event_paranoid || true'
     - 'echo "== Toolchain =="; cmake --version; (g++ --version || c++ --version || echo "KEIN C++-Compiler"); (ninja --version || echo "kein ninja")'
 
+# ── #273-T3 (2026-07-07): build:clang-Rollout — ce baut die Voll-Suite unter dem neuesten clang. ──
+# OPT-IN + advisory (COMDARE_CLANG_MATRIX=="1", wie super-T1): destabilisiert die Hauptpipeline NICHT.
+# clang-22.1.8 ist auf den bare-metal-Runnern vorhanden; lokal comdare_tests EXIT 0 bewiesen (07.07.).
+# Der gcc-15.3-Pin (T2) ist SEPARAT + gcc-15.3-gated (HO-11) und NICHT Teil dieses Jobs.
+build:clang:
+  extends: .build-clang-latest
+  stage: build
+  tags: [baremetal]
+  variables:
+    COMDARE_CMAKE_SOURCE_DIR: "."
+    COMDARE_AUDIT_BUILD_TYPE: "Release"
+    COMDARE_CMAKE_CONFIGURE_FLAGS: "-G Ninja -DCOMDARE_BUILD_TESTS=ON"
+    COMDARE_CMAKE_BUILD_TARGET: "comdare_tests"
+
 .pmc:
   extends: .bare_metal
   stage: build
