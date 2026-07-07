@@ -46,6 +46,14 @@ TEST(CpuidPlatformProbe, YieldsSanePropertySet) {
     EXPECT_FALSE(raw.vendor.empty());
     EXPECT_GT(raw.cpu_family, static_cast<std::uint16_t>(0));
     EXPECT_EQ(props.measured_metrics.at("feature.avx2"), raw.has_avx2 ? 1.0 : 0.0);
+#elif defined(__aarch64__)
+    // #265-b-Angleich (Architektur-Audit 07.07.): PRFM ist AArch64-Architektur-
+    // Bestandteil -> die Probe setzt has_software_prefetch unbedingt true
+    // (cpuid_platform_probe.hpp); Breite = 16 bei NEON/SVE (vendored hwcap), sonst 0.
+    // Vorher erwartete der Sammel-#else hier FALSE -> der arm64-Smoke (node7,
+    // #270b/#276) waere an seinem eigenen Konsumenten-Test rot geworden.
+    EXPECT_TRUE(props.has_software_prefetch);
+    EXPECT_TRUE(props.usable_simd_width_bytes == 0 || props.usable_simd_width_bytes == 16);
 #else
     EXPECT_FALSE(props.has_software_prefetch);
     EXPECT_TRUE(props.usable_simd_width_bytes == 0 || props.usable_simd_width_bytes == 16);
