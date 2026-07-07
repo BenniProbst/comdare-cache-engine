@@ -287,3 +287,47 @@ Kategorienfehler UNABHÄNGIG + bleibt gültig (betrifft search↔node/layout/all
 **Status der §8-Korrektur:** Kategorienfehler **behoben** — queuing ist SA-Achse (nicht Gattung); Adapter ist echte Lebewesen-Unterklasse der Container-Gattung mit §28-Achsen (nicht queuing-Hülle, nicht inner+ordering).
 
 **ERLEDIGT seither:** (a) Doku-Konsistenz 27-29 — additive §8.1-Korrektur-Notizen (`76e24fd`). (b) **priority_queue umgesetzt** — `HeapInner`-Organ (Max-Heap über std::vector via std::push_heap/std::pop_heap + Compare, Default std::less) als 3. `inner_container`-Organ neben Deque/Vector; die Priority-Disziplin lebt INNERHALB der inner_container-Achse (§28), KEINE neue Achse. Verifiziert (`test_container_genus` exit 0): push 10/30/20 → front()==30 (Max), pop_front() → 30→20→10 (Extract-Max), organ_count==13. **Damit ist die §8-Korrektur (queuing + Adapter §28 + 3-Ebenen + priority) vollständig umgesetzt + verifiziert.**
+
+## §8.2 — AUTORITATIV: Reichweite der memory_layout-Achse (L) — flach vs. Node-Pools (2026-07-07, W2-Doku-Lücke geschlossen)
+
+> **Zweck:** Diese Sektion ist die AUTORITATIVE Architektur-Stelle zur Frage „Gilt die memory_layout-Achse L
+> auch für Node-Pool-Speicher?" (Ledger §13.10-W2, §13.8-F-S7-b, C2). Vor 2026-07-07 existierte das SOLL nur in
+> einer Session-Übergabe + im Ledger; eine autoritative Doku-Stelle fehlte. Sie wird hier — additiv, ohne
+> Umbau — angelegt. Grundlage ist ausschließlich die dokumentierte User-Richtung (Session-„Option D" +
+> C2 „alles dokumentiert, Doku nachlesen statt entscheiden"); die Sektion trifft KEINE neue Design-Entscheidung.
+
+**Die Achse (autoritativ, flach):** `memory_layout` deklariert je Strategie genau EINE von 5 realen, byte-distinkten
+`RepresentationKind` (`axes/layout/axis_05_memory_layout_strategy_base.hpp:18-24` — `aos_interleaved_packed`,
+`aos_interleaved_padded`, `soa_split_columns`, `aosoa_blocked_columns`, `succinct_hot_cold_split`; je Strategie
+via `representation_kind()` `:59-61`). Der **flache** `LayoutAwareChunkedStore<N,L,A>` konsumiert L AUTORITATIV
+(`axes/node/axis_04_node_type_layout_aware_store.hpp` — if-constexpr-Dispatch auf `kRep`, realer
+representation-genauer Key-Scan-Footprint). Das ist das D2-Muster „Achse konsumiert Achse" und steht im
+§3.3-DELEGATIONS-STATUS oben (9 delegierte Achsen, memory_layout darunter).
+
+**IST für NODE-POOLS (code-verifiziert 2026-07-07 am aktiven development):** L ist bei den Pool-Speichern NICHT
+angewandt — die Pool-Store-Typen tragen KEINEN L-Template-Parameter:
+- `TreeNodePoolStore<Shape, A>` (`axes/lookup/composable/tree_node_pool_store.hpp:39-40`) — Node-Struct fest
+  (`{key,val,left,right}`), Backing `std::vector`, kein L.
+- `SwissGroupPoolStore<A=…>` (`swiss_group_pool_store.hpp:30-31`) — nur Allocator-Tag, kein L.
+- An der Pool-Naht des Adapters bleiben die Store-Messstellen für diese Familien ehrlich honest-0 (kein
+  representation-genauer Layout-Footprint, weil kein L-getriebener Store).
+
+**SOLL (dokumentierte User-Richtung — Session `docs/sessions/20260701-SESSION-ENDE-15…` „Option D" + Ledger
+§13.8-F-S7-b):** L SOLL für Node-Pools als **Node-Array-Backing-Politik** wirken, NICHT als flache Slot-Stride-Politik:
+- **Node-Struct-Packing/Alignment:** `packed` vs. `cache_line_aligned` Node-Array (die Node-Struct-Instanzen
+  liegen dicht bzw. cache-line-ausgerichtet im Pool-Array).
+- **soa/aosoa** für Node-FELDER NUR dort, wo die Node-Struktur es hergibt (z. B. getrennte `left[]`/`right[]`/
+  `key[]`-Spalten eines Baum-Pools) — sonst je Familie EHRLICH „nicht anwendbar" dokumentieren, KEIN
+  Attrappen-Layout erfinden (honest-0 bleibt bis zur echten Umsetzung).
+- Die 5 flachen `RepresentationKind` sind NICHT 1:1 auf Node-Pools übertragbar (flach = Slot-[key|value]-Stride;
+  Pool = Node-Struct-Array) — die Pool-Semantik von L ist eine EIGENE, node-orientierte Auslegung derselben Achse,
+  keine Kopie der flachen Reps.
+
+**Konsequenz für Umsetzung (wenn beauftragt):** ein L-Parameter an `TreeNodePoolStore`/`SwissGroupPoolStore`
+(analog `LayoutAwareChunkedStore<N,L,A>`), der die Node-Array-Backing-Politik compile-time wählt; die
+honest-0-Messstellen der Pool-Naht werden dann durch echte, node-representation-genaue Footprints ersetzt.
+Bis dahin ist der honest-0-Zustand der Pool-Familien der DOKUMENTIERTE, korrekte IST (keine Attrappe).
+
+**Status:** Doku-Lücke W2/C2 geschlossen — die autoritative Stelle existiert nun HIER. Die tatsächliche
+Code-Umsetzung von „L für Node-Pools" bleibt ein separater, beauftragbarer Increment (F-S7-b-Vollausbau);
+diese Sektion ist die normative Referenz dafür.
