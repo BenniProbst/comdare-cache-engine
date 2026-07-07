@@ -1680,6 +1680,24 @@ target_compile_definitions(test_s7_2_btree_pool_allocator_deg PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_s7_2_btree_pool_allocator_deg PROPERTIES LABELS "contract;pool_flip;allocator")
 
+# 234-V-a (2026-07-07, User-GO Option A): Shaped-Emission Mechanik + btree_order-Beweis --
+# Trait-2-Arm + Adapter-ShapeCarrier + SHAPED-Render + organ_for!=void-Emitter-Filter; default-OFF,
+# golden/ABI-4-neutral (Guards im Test). Spiegel des S7-2-Blocks (gleiche Deps/Defines).
+comdare_add_test(test_234_va_shaped_adapter
+    SOURCES test_234_va_shaped_adapter.cpp)
+target_include_directories(test_234_va_shaped_adapter PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_234_va_shaped_adapter PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_234_va_shaped_adapter PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_234_va_shaped_adapter PROPERTIES LABELS "contract;pool_flip;shaped")
+
 # CMD-1-a (#267/#251) -- Compile-time-Command-Basis + Mess-Visitor-Slot.
 comdare_add_test(test_cmd1_a_axis_command_base
     SOURCES test_cmd1_a_axis_command_base.cpp)

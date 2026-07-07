@@ -80,3 +80,33 @@
 #define COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(PT, SE, HW, ...)                                              \
     COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(__VA_ARGS__)                                                                   \
     COMDARE_DEFINE_BUILD_VARIANT_INSPECTION(comdare_build_variant_inspect, PT, SE, HW)
+
+/// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_SHAPED(ShapeType, <19 Anatomie-Achsen>) — 234-V-a (Option A,
+/// User-GO 07.07.): Materialisiert eine auto-enumerierte Permutation MIT Shape-Traeger (z.B.
+/// axis_btree_order::BtreeOrderKt8). Der Shape faehrt als ADAPTER-Traeger mit (2. Template-Parameter des
+/// SearchAlgorithmAbiAdapter) und waehlt ueber `organ_for_search_algo_shaped<S,Shape>` das Shaped-Organ
+/// der Pool-Familie — er ist KEIN 20. Composition-Slot: die 19-Slot-ABI-Invariante, organ_count()==19,
+/// alle POD-Layouts und ABI-MAJOR bleiben unveraendert. Reihenfolge nach BUILDVARIANT-Praezedenz:
+/// benannter Shape ZUERST, dann die 19 Anatomie-Achsen variadisch (Komma-Problem von AdHocComposition).
+/// Bewusst SELBSTSTAENDIG (4 Symbole erneut definiert statt Basis-Makro-Refactor): der Golden-Pfad
+/// (COMDARE_DEFINE_ANATOMY_MODULE/_ADHOC/_BUILDVARIANT) wird nicht angefasst.
+#define COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_SHAPED(ShapeType, ...)                                                     \
+    using ComdareAdHocPermutationComposition = ::comdare::cache_engine::anatomy::AdHocComposition<__VA_ARGS__>;        \
+    extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint64_t comdare_anatomy_abi_version() noexcept {                       \
+        return (static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MAJOR) << 32) |                                         \
+               static_cast<std::uint64_t>(COMDARE_ANATOMY_ABI_MINOR);                                                  \
+    }                                                                                                                  \
+    extern "C" COMDARE_ANATOMY_ABI_EXPORT std::uint64_t comdare_anatomy_abi_magic() noexcept {                         \
+        return COMDARE_ANATOMY_ABI_MAGIC;                                                                              \
+    }                                                                                                                  \
+    extern "C" COMDARE_ANATOMY_ABI_EXPORT ::comdare::cache_engine::anatomy::IAnatomyBase*                              \
+    comdare_create_anatomy() noexcept {                                                                                \
+        using AnatomyType =                                                                                            \
+            ::comdare::cache_engine::anatomy::SearchAlgorithmAnatomy<ComdareAdHocPermutationComposition>;              \
+        return new (                                                                                                   \
+            ::std::nothrow)::comdare::cache_engine::anatomy::SearchAlgorithmAbiAdapter<AnatomyType, ShapeType>{};      \
+    }                                                                                                                  \
+    extern "C" COMDARE_ANATOMY_ABI_EXPORT void comdare_destroy_anatomy(                                                \
+        ::comdare::cache_engine::anatomy::IAnatomyBase* ptr) noexcept {                                                \
+        delete ptr;                                                                                                    \
+    }
