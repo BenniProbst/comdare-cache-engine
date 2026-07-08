@@ -1776,6 +1776,22 @@ target_include_directories(test_striktheit_metaprog_guard PRIVATE
 target_link_libraries(test_striktheit_metaprog_guard PRIVATE Boost::mp11 comdare::workload_driver)
 target_compile_definitions(test_striktheit_metaprog_guard PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+
+# Teil 2 (#50, Organ-Ebene): alle 26 Achsen-Strategie-Marker nicht-polymorph. Separate Datei, weil
+# registry_to_axis_levels.hpp die 23 topic_config_sets zieht (schwerer Header, isoliert retriggerbar).
+comdare_add_test(test_striktheit_axes_guard
+    SOURCES test_striktheit_axes_guard.cpp)
+target_include_directories(test_striktheit_axes_guard PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_striktheit_axes_guard PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_striktheit_axes_guard PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_29_container_framework PROPERTIES LABELS "contract;gattung;container")
 
 # 234-V-b (2026-07-08): Rest-Familien Shaped-Naht + binary_id-Shape-Segment + Baum->Emitter-Verdrahtung.
