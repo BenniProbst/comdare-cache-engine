@@ -44,8 +44,10 @@ using type_list = mp::mp_list<std::integral_constant<cea::AnatomyGenus, cea::Ana
                               std::integral_constant<cea::AnatomyGenus, cea::AnatomyGenus::Sequence>,
                               std::integral_constant<cea::AnatomyGenus, cea::AnatomyGenus::View>>;
 
-/// type_count -- Anzahl der Container-TYPEN (heute 4). Waechst additiv, sobald weitere std-Container-Typen
-/// (linked list ...) als Genus gebunden werden (AP-15 Punkt 3, noch zu planen).
+/// type_count -- Anzahl der Container-Genus-TYPEN (heute 4, Ebene 2). Weitere std-Container (linked list,
+/// deque, array ...) werden als Ebene-3-Realisierungen UNTER den bestehenden Genus geplant (Option A,
+/// empfohlen, type_count bleibt 4) ODER als eigener Genus (Option B, type_count-wachsend) -- Fork +
+/// Empfehlung: docs/architecture/37_ap15_container_typen_sequence_plan.md (AP-15 Punkt 3).
 inline constexpr std::size_t type_count = mp::mp_size<type_list>::value;
 
 /// type_traits<G> -- das generische comdare::container-Interface je Container-TYP. RE-EXPORTIERT die
