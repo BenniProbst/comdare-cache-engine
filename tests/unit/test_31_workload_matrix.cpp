@@ -44,3 +44,14 @@ TEST(WorkloadMatrixHybrid, WorkloadKindBridgesToRuntimeProfileBitIdentical) {
     EXPECT_TRUE(all_valid); // jede YCSB-WorkloadKind → gültiges runtime-Profil
     EXPECT_TRUE(all_match); // config_for delegiert bit-identisch an profile_by_name (Hybrid, kein Drift)
 }
+
+TEST(WorkloadMatrixHybrid, TwoDMatrixIsWorkloadTimesDataset) {
+    static_assert(wd::dataset_count == 6, "6er-Kanon-Datensätze.");
+    static_assert(wd::matrix_cell_count == 36, "2D-Matrix = 6 Workloads × 6 Datasets.");
+    std::size_t cells = 0;
+    mp::mp_for_each<wd::matrix_cells>([&](auto cell) {
+        ++cells;
+        (void)cell;
+    });
+    EXPECT_EQ(cells, 36u); // Achse W (A–F) × Achse D (6 Datasets) = 36 compile-time-Zellen
+}

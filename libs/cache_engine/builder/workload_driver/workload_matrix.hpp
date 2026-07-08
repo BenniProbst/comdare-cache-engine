@@ -76,4 +76,37 @@ static_assert(ycsb_token(cmd::WorkloadKind::YCSB_A_Read50Write50) == std::string
 static_assert(ycsb_token(cmd::WorkloadKind::YCSB_E_Scan95) == std::string_view{"E"});
 static_assert(ycsb_token(cmd::WorkloadKind::YCSB_F_ReadModifyWrite) == std::string_view{"F"});
 
+// ── Achse D: die 6 Kanon-Datensätze (#25 / G-6v48, Thesis-tab:datasets — eindeutig fixiert, kein Fork) ──
+enum class CanonicalDataset : std::uint8_t { Url = 0, Dna, Protein, Xml, TpcdsId, TrecTerms };
+
+[[nodiscard]] constexpr std::string_view dataset_name(CanonicalDataset d) noexcept {
+    switch (d) {
+        case CanonicalDataset::Url: return "url";
+        case CanonicalDataset::Dna: return "dna";
+        case CanonicalDataset::Protein: return "protein";
+        case CanonicalDataset::Xml: return "xml";
+        case CanonicalDataset::TpcdsId: return "tpcds-id";
+        case CanonicalDataset::TrecTerms: return "trec-terms";
+    }
+    return "";
+}
+
+using dataset_list = mp::mp_list<std::integral_constant<CanonicalDataset, CanonicalDataset::Url>,
+                                 std::integral_constant<CanonicalDataset, CanonicalDataset::Dna>,
+                                 std::integral_constant<CanonicalDataset, CanonicalDataset::Protein>,
+                                 std::integral_constant<CanonicalDataset, CanonicalDataset::Xml>,
+                                 std::integral_constant<CanonicalDataset, CanonicalDataset::TpcdsId>,
+                                 std::integral_constant<CanonicalDataset, CanonicalDataset::TrecTerms>>;
+
+inline constexpr std::size_t dataset_count = mp::mp_size<dataset_list>::value;
+
+// ── 2D-Mess-Matrix = Achse W (YCSB A–F) × Achse D (6 Datasets) als compile-time-Kreuzprodukt (F7-Plan §4).
+// Jede Zelle = mp_list<WorkloadKind-Tag, CanonicalDataset-Tag>; runtime instanziiert je Mess-Lauf (Hybrid).
+using matrix_cells                             = mp::mp_product<mp::mp_list, ycsb_profile_list, dataset_list>;
+inline constexpr std::size_t matrix_cell_count = mp::mp_size<matrix_cells>::value;
+
+static_assert(dataset_count == 6, "#31: 6er-Kanon-Datensätze (#25 / G-6v48).");
+static_assert(dataset_name(CanonicalDataset::TrecTerms) == std::string_view{"trec-terms"});
+static_assert(matrix_cell_count == 36, "#31: 2D-Mess-Matrix = 6 Workloads (A–F) × 6 Datasets = 36 Zellen.");
+
 } // namespace comdare::cache_engine::builder::workload_driver
