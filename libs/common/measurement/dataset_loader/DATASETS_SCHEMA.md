@@ -37,6 +37,6 @@ This is Option A only: strings are deterministically mapped to the existing `uin
 
 ## Scope Boundary
 
-The concrete "8 datasets" are externally specified in `Termin 7/Datasets_Spezifikation.txt` and are user-gated. They are not hardcoded here: no dataset files, IDs, checksums, or expected values are registered by this mechanic.
+~~The concrete "8 datasets" are externally specified in `Termin 7/Datasets_Spezifikation.txt` and are user-gated.~~ **SUPERSEDED (#25, 2026-07-08, Ledger §13.10-W5 / Gate G-6v48):** the `Termin 7/Datasets_Spezifikation.txt` reference (a separate, older 48-entry catalogue) is struck. The canonical dataset set is the thesis table `tab:datasets` (6: `url`, `dna`, `protein`, `xml`, `tpcds-id`, `trec-terms`). The reproducibility akten are committed as provenance in `Code/test_data_xml/<id>.test_data.xml`, not hardcoded here. Current status: `url`/`protein`/`tpcds-id`/`trec-terms` carry real akten computed against the CoCo-trie-preprocessed files committed in the ce repo (verified by `test_25_kanon_dataset_akten`); `dna` via the existing `pizzachili_dna` akte; `xml` + `sosd_books_200M` are honest-0 (file not local, no fabricated checksum). This mechanic still registers no dataset files, IDs, checksums, or expected values itself.
 
 Option B (native String-Keys) is intentionally out of scope because it would change ABI-facing contracts (Doc 32:66). `tier_insert(uint64,uint64)`, `IDriveableTier`, `conformance_gate.hpp` (`std::map<uint64,uint64>`), snapshot PODs, golden IDs, and pipeline16 remain unchanged.
