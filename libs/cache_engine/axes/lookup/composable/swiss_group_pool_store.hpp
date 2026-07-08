@@ -57,10 +57,13 @@ public:
         return (size_ + tombstones_ + 1u) * 8u >= slot_count() * 7u;
     }
 
-    [[nodiscard]] std::uint8_t control_byte(std::size_t i) const noexcept { return ctrl_[i]; }
-    [[nodiscard]] bool         slot_is_empty(std::size_t i) const noexcept { return ctrl_[i] == kEmpty; }
-    [[nodiscard]] bool         slot_is_deleted(std::size_t i) const noexcept { return ctrl_[i] == kDeleted; }
-    [[nodiscard]] bool         slot_is_occupied(std::size_t i) const noexcept {
+    [[nodiscard]] std::uint8_t        control_byte(std::size_t i) const noexcept { return ctrl_[i]; }
+    [[nodiscard]] std::uint8_t const* control_group_ptr(std::size_t group_start) const noexcept {
+        return ctrl_.data() + group_start;
+    }
+    [[nodiscard]] bool slot_is_empty(std::size_t i) const noexcept { return ctrl_[i] == kEmpty; }
+    [[nodiscard]] bool slot_is_deleted(std::size_t i) const noexcept { return ctrl_[i] == kDeleted; }
+    [[nodiscard]] bool slot_is_occupied(std::size_t i) const noexcept {
         return ctrl_[i] != kEmpty && ctrl_[i] != kDeleted;
     }
     [[nodiscard]] key_type   slot_key(std::size_t i) const noexcept { return slots_[i].key; }
@@ -122,6 +125,24 @@ public:
             bytes_allocated_,
             static_cast<std::uint64_t>(size_),
         };
+    }
+
+    template <class IsaOrgan>
+    std::uint64_t organ_observe_isa(IsaOrgan& org) const
+        requires requires(IsaOrgan& o, unsigned char const* b, std::size_t words) {
+            o.observe_simd_field_sum(b, words);
+        }
+    {
+        std::uint64_t acc = 0;
+        if (!slots_.empty()) {
+            std::size_t const words = (slots_.size() * sizeof(Slot)) / sizeof(std::uint32_t);
+            acc += org.observe_simd_field_sum(reinterpret_cast<unsigned char const*>(slots_.data()), words);
+        }
+        if (!ctrl_.empty()) {
+            std::size_t const words = ctrl_.size() / sizeof(std::uint32_t);
+            acc += org.observe_simd_field_sum(reinterpret_cast<unsigned char const*>(ctrl_.data()), words);
+        }
+        return acc;
     }
 #endif
 

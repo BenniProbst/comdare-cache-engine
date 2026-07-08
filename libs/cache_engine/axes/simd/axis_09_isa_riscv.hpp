@@ -37,6 +37,15 @@ public:
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "RISCV"; }
 
+    [[nodiscard]] static constexpr std::uint16_t group_match_mask(std::uint8_t const* ctrl16,
+                                                                  std::uint8_t        needle) noexcept {
+        std::uint16_t mask = 0;
+        for (std::size_t i = 0; i < 16u; ++i) {
+            if (ctrl16[i] == needle) mask = static_cast<std::uint16_t>(mask | (std::uint16_t{1} << i));
+        }
+        return mask;
+    }
+
     // V41.F.6.1 — verhaltens-tragende Laufzeit-API (ISA-Achse T12 F15-operativ, Goldstandard-Signatur).
     // EHRLICHE KENNZEICHNUNG: RV64GC hat KEIN baseline-SIMD (supports_native_simd()==false, RVV ist
     // optional). Daher bewusst ein PLAIN-Skalar-Pfad (NICHT entrollt) — modelliert die fehlende

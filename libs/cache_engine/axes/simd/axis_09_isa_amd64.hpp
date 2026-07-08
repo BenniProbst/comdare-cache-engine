@@ -39,6 +39,30 @@ public:
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "AMD64"; }
 
+    [[nodiscard]] static constexpr std::uint16_t group_match_mask(std::uint8_t const* ctrl16,
+                                                                  std::uint8_t        needle) noexcept {
+        if consteval {
+            std::uint16_t mask = 0;
+            for (std::size_t i = 0; i < 16u; ++i) {
+                if (ctrl16[i] == needle) mask = static_cast<std::uint16_t>(mask | (std::uint16_t{1} << i));
+            }
+            return mask;
+        } else {
+#if defined(__x86_64__) || defined(_M_X64)
+            __m128i const ctrl = _mm_loadu_si128(reinterpret_cast<__m128i const*>(ctrl16));
+            __m128i const key  = _mm_set1_epi8(static_cast<char>(needle));
+            __m128i const eq   = _mm_cmpeq_epi8(ctrl, key);
+            return static_cast<std::uint16_t>(_mm_movemask_epi8(eq));
+#else
+            std::uint16_t mask = 0;
+            for (std::size_t i = 0; i < 16u; ++i) {
+                if (ctrl16[i] == needle) mask = static_cast<std::uint16_t>(mask | (std::uint16_t{1} << i));
+            }
+            return mask;
+#endif
+        }
+    }
+
     // V41.F.6.1 — verhaltens-tragende Laufzeit-API (ISA-Achse T12 F15-operativ, Goldstandard-Signatur
     // analog scan_field_sum/serialize_scan/node_find_scan). simd_field_sum addiert die ersten n
     // 32-bit-Worte des Puffers (lane-weise) und liefert die Summe.

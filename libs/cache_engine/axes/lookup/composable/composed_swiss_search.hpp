@@ -8,22 +8,24 @@
 #include "swiss_group_probe_traversal_organ.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 
 namespace comdare::cache_engine::lookup::composable {
 
-template <class Traversal, class Pool>
-    requires SwissGroupProbeTraversal<Traversal, Pool>
+template <class Traversal, class Pool, class I = ScalarGroupMatch>
+    requires SwissGroupProbeTraversal<Traversal, Pool, I>
 class ComposedSwissSearch {
 public:
-    using key_type   = typename Pool::key_type;
-    using value_type = typename Pool::value_type;
+    using key_type     = typename Pool::key_type;
+    using value_type   = typename Pool::value_type;
+    using matcher_type = I;
 
-    void insert(key_type k, value_type v) { Traversal::template insert_into<Pool>(pool_, k, v); }
+    void insert(key_type k, value_type v) { Traversal::template insert_into<Pool, I>(pool_, k, v); }
     [[nodiscard]] std::optional<value_type> lookup(key_type k) const {
-        return Traversal::template lookup_in<Pool>(pool_, k);
+        return Traversal::template lookup_in<Pool, I>(pool_, k);
     }
-    bool                      erase(key_type k) { return Traversal::template erase_from<Pool>(pool_, k); }
+    bool                      erase(key_type k) { return Traversal::template erase_from<Pool, I>(pool_, k); }
     [[nodiscard]] std::size_t occupied_count() const noexcept { return pool_.occupied(); }
 
     template <class Sink>
@@ -46,6 +48,15 @@ public:
     {
         return pool_.store_allocator_statistics();
     }
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+    template <class IsaOrgan>
+    std::uint64_t store_observe_isa(IsaOrgan& org) const
+        requires requires(Pool const& p, IsaOrgan& o) { p.organ_observe_isa(o); }
+    {
+        return pool_.organ_observe_isa(org);
+    }
+#endif
 
 private:
     Pool pool_{};

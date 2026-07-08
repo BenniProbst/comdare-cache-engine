@@ -36,6 +36,15 @@ public:
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "POWERPC"; }
 
+    [[nodiscard]] static constexpr std::uint16_t group_match_mask(std::uint8_t const* ctrl16,
+                                                                  std::uint8_t        needle) noexcept {
+        std::uint16_t mask = 0;
+        for (std::size_t i = 0; i < 16u; ++i) {
+            if (ctrl16[i] == needle) mask = static_cast<std::uint16_t>(mask | (std::uint16_t{1} << i));
+        }
+        return mask;
+    }
+
     // V41.F.6.1 — verhaltens-tragende Laufzeit-API (ISA-Achse T12 F15-operativ, Goldstandard-Signatur).
     // EHRLICHE KENNZEICHNUNG: Der VSX-Vektorpfad (128-bit, 4×32-bit) existiert nur auf echten
     // ppc64le-Hosts; der Mess-Build laeuft MSVC/x86_64, daher ist dies ein UNROLLED-Skalar-Fallback
