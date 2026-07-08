@@ -30,6 +30,7 @@ concept SwissGroupPool =
         { cs.occupied() } -> std::convertible_to<std::size_t>;
         { cs.tombstones() } -> std::convertible_to<std::size_t>;
         { cs.control_byte(i) } -> std::same_as<std::uint8_t>;
+        { cs.control_group_ptr(i) } -> std::same_as<std::uint8_t const*>;
         { cs.slot_is_empty(i) } -> std::same_as<bool>;
         { cs.slot_is_deleted(i) } -> std::same_as<bool>;
         { cs.slot_is_occupied(i) } -> std::same_as<bool>;

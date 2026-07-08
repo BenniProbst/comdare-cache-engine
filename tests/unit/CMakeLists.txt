@@ -465,6 +465,20 @@ target_include_directories(test_ap7b_swiss_organ PRIVATE
 target_link_libraries(test_ap7b_swiss_organ PRIVATE
     Boost::mp11
     comdare::workload_driver)
+
+# AP-7b-3/#27 -- SwissTable ISA group-match primitive, SIMD opt-in.
+comdare_add_test(test_ap7b3_swiss_isa_group_match
+    SOURCES test_ap7b3_swiss_isa_group_match.cpp)
+target_include_directories(test_ap7b3_swiss_isa_group_match PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_ap7b3_swiss_isa_group_match PRIVATE
+    Boost::mp11
+    comdare::workload_driver)
 # AP-8/#242 -- HdrHistogram_c wrapper + p95 host serializer coverage.
 comdare_add_test(test_ap8_hdr_histogram
     SOURCES test_ap8_hdr_histogram.cpp)

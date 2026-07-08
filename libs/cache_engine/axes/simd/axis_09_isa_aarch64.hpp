@@ -12,6 +12,10 @@
 #include <string_view>
 #include <type_traits>
 
+#if defined(__aarch64__)
+#include <arm_neon.h>
+#endif
+
 namespace comdare::cache_engine::simd {
 
 /// Aarch64Isa — ARMv8-A 64-bit (ARM Holdings).
@@ -34,6 +38,33 @@ public:
         return "Aarch64Isa (ARMv8-A 64-bit, ZIH Grace Hopper GH200, Apple M/Graviton)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "AARCH64"; }
+
+    [[nodiscard]] static constexpr std::uint16_t group_match_mask(std::uint8_t const* ctrl16,
+                                                                  std::uint8_t        needle) noexcept {
+        std::uint16_t mask = 0;
+        if consteval {
+            for (std::size_t i = 0; i < 16u; ++i) {
+                if (ctrl16[i] == needle) mask = static_cast<std::uint16_t>(mask | (std::uint16_t{1} << i));
+            }
+            return mask;
+        } else {
+#if defined(__aarch64__)
+            uint8x16_t const         ctrl = vld1q_u8(ctrl16);
+            uint8x16_t const         key  = vdupq_n_u8(needle);
+            uint8x16_t const         eq   = vceqq_u8(ctrl, key);
+            alignas(16) std::uint8_t lanes[16];
+            vst1q_u8(lanes, eq);
+            for (std::size_t i = 0; i < 16u; ++i) {
+                if (lanes[i] != 0u) mask = static_cast<std::uint16_t>(mask | (std::uint16_t{1} << i));
+            }
+#else
+            for (std::size_t i = 0; i < 16u; ++i) {
+                if (ctrl16[i] == needle) mask = static_cast<std::uint16_t>(mask | (std::uint16_t{1} << i));
+            }
+#endif
+            return mask;
+        }
+    }
 
     // V41.F.6.1 — verhaltens-tragende Laufzeit-API (ISA-Achse T12 F15-operativ, Goldstandard-Signatur).
     // EHRLICHE KENNZEICHNUNG: Der NEON-Vektorpfad existiert nur auf echten ARMv8-Hosts; der

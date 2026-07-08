@@ -9,6 +9,7 @@
 
 #include <topics/hardware/concepts/topic_hardware_concept.hpp>
 #include <concepts>
+#include <cstdint>
 #include <string_view>
 
 namespace comdare::cache_engine::simd::concepts {
@@ -18,6 +19,9 @@ concept IsaStrategy = ::comdare::cache_engine::hardware::concepts::HardwareCompo
     { I::is_64bit() } noexcept -> std::convertible_to<bool>;
     { I::cpu_family() } noexcept -> std::convertible_to<std::string_view>;
     { I::supports_native_simd() } noexcept -> std::convertible_to<bool>;
+    {
+        I::group_match_mask(static_cast<std::uint8_t const*>(nullptr), std::uint8_t{})
+    } noexcept -> std::same_as<std::uint16_t>;
 };
 
 } // namespace comdare::cache_engine::simd::concepts

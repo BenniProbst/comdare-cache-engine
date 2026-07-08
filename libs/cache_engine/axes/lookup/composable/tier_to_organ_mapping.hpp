@@ -49,6 +49,8 @@ template <class Shape>
 using HashSearchOrganShaped = ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore<Shape>>;
 using HashSearchOrgan       = ComposedHashSearch<HashProbeTraversalOrgan, HashBucketPoolStore<>>; // HashSearchAlgo S14
 using SwissTableOrgan       = ComposedSwissSearch<SwissGroupProbeTraversalOrgan, SwissGroupPoolStore<>>; // S22
+template <class Isa>
+using SwissTableOrganSimd = ComposedSwissSearch<SwissGroupProbeTraversalOrgan, SwissGroupPoolStore<>, Isa>;
 template <class Shape>
 using SkipListOrganShaped = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore<Shape>>;
 using SkipListOrgan = ComposedSkipListSearch<SkipListTraversalOrgan, SkipListNodePoolStore<>>; // SkipListSearchAlgo S13

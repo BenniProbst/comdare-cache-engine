@@ -64,6 +64,10 @@ public:
     [[nodiscard]] static constexpr bool             is_64bit() noexcept { return Strategy::is_64bit(); }
     [[nodiscard]] static constexpr std::string_view cpu_family() noexcept { return Strategy::cpu_family(); }
     [[nodiscard]] static constexpr bool supports_native_simd() noexcept { return Strategy::supports_native_simd(); }
+    [[nodiscard]] static constexpr std::uint16_t group_match_mask(std::uint8_t const* ctrl16,
+                                                                  std::uint8_t        needle) noexcept {
+        return Strategy::group_match_mask(ctrl16, needle);
+    }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept
         requires requires { Strategy::family_name(); }
