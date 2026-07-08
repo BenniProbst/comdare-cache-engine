@@ -26,8 +26,8 @@ namespace dl = comdare::measurement::dataset_loader;
 struct KanonCase {
     std::string   id;
     std::string   file_name; // relativ zu COMDARE_CE_DATASET_DIR
-    std::uint64_t checksum;
-    std::uint64_t line_count;
+    std::uint64_t checksum{};
+    std::uint64_t line_count{};
 };
 
 [[nodiscard]] std::filesystem::path dataset_dir() { return std::filesystem::path{COMDARE_CE_DATASET_DIR}; }
