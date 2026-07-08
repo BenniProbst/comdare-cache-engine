@@ -1698,6 +1698,23 @@ target_compile_definitions(test_234_va_shaped_adapter PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_234_va_shaped_adapter PROPERTIES LABELS "contract;pool_flip;shaped")
 
+# #29 Schritt 1 (2026-07-08, AP-15): comdare::container Kopf-Framework -- additive golden/ABI-neutrale
+# Generalisierung der 4 gebauten Container-Genus als generische Typen (kein Anatomie-/ABI-Kern-Umbau).
+comdare_add_test(test_29_container_framework
+    SOURCES test_29_container_framework.cpp)
+target_include_directories(test_29_container_framework PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_29_container_framework PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_29_container_framework PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_29_container_framework PROPERTIES LABELS "contract;gattung;container")
+
 # 234-V-b (2026-07-08): Rest-Familien Shaped-Naht + binary_id-Shape-Segment + Baum->Emitter-Verdrahtung.
 # Spiegel des 234-V-a-Blocks (gleiche Deps/Defines), default-OFF und golden-neutral.
 comdare_add_test(test_234_vb_rest_families_shaped
