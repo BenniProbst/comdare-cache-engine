@@ -1792,6 +1792,22 @@ target_include_directories(test_striktheit_axes_guard PRIVATE
 target_link_libraries(test_striktheit_axes_guard PRIVATE Boost::mp11 comdare::workload_driver)
 target_compile_definitions(test_striktheit_axes_guard PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+
+# #50-Rest (ABI-Transport-POD-Striktheit): zentraler Guard, dass alle 12 Snapshot-PODs trivially_copyable
+# + standard_layout bleiben (C-ABI-sicher über die anatomy_module_abi_v1-DLL-Grenze). Additiv, ABI-neutral.
+comdare_add_test(test_striktheit_abi_pod_guard
+    SOURCES test_striktheit_abi_pod_guard.cpp)
+target_include_directories(test_striktheit_abi_pod_guard PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_striktheit_abi_pod_guard PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_striktheit_abi_pod_guard PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_29_container_framework PROPERTIES LABELS "contract;gattung;container")
 
 # 234-V-b (2026-07-08): Rest-Familien Shaped-Naht + binary_id-Shape-Segment + Baum->Emitter-Verdrahtung.
