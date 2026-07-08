@@ -1758,6 +1758,24 @@ target_include_directories(test_29_container_framework PRIVATE
 target_link_libraries(test_29_container_framework PRIVATE Boost::mp11 comdare::workload_driver)
 target_compile_definitions(test_29_container_framework PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+
+# Goal-V3 Striktheit (Metaprogrammierung): prospektiver compile-time-Guard. Beweist POSITIV, dass die 11
+# Referenz-Anatomien nicht-polymorph (keine vtable im Hot-Path) + AnatomyConcept-erfuellt sind, und dass die
+# ABI-Grenze (IAnatomyBase/IDriveableTier/IMeasurableWorkload) bewusst polymorph bleibt -- faengt jede
+# compile-time->runtime-Degradation. Additiv, golden/ABI-neutral (reiner static_assert-Test ueber Bestandstypen).
+comdare_add_test(test_striktheit_metaprog_guard
+    SOURCES test_striktheit_metaprog_guard.cpp)
+target_include_directories(test_striktheit_metaprog_guard PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_striktheit_metaprog_guard PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_striktheit_metaprog_guard PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_29_container_framework PROPERTIES LABELS "contract;gattung;container")
 
 # 234-V-b (2026-07-08): Rest-Familien Shaped-Naht + binary_id-Shape-Segment + Baum->Emitter-Verdrahtung.
