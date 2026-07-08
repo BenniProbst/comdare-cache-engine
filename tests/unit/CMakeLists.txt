@@ -1698,6 +1698,23 @@ target_compile_definitions(test_234_va_shaped_adapter PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_234_va_shaped_adapter PROPERTIES LABELS "contract;pool_flip;shaped")
 
+# 234-V-b (2026-07-08): Rest-Familien Shaped-Naht + binary_id-Shape-Segment + Baum->Emitter-Verdrahtung.
+# Spiegel des 234-V-a-Blocks (gleiche Deps/Defines), default-OFF und golden-neutral.
+comdare_add_test(test_234_vb_rest_families_shaped
+    SOURCES test_234_vb_rest_families_shaped.cpp)
+target_include_directories(test_234_vb_rest_families_shaped PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_234_vb_rest_families_shaped PRIVATE Boost::mp11 comdare::workload_driver)
+target_compile_definitions(test_234_vb_rest_families_shaped PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+set_tests_properties(test_234_vb_rest_families_shaped PROPERTIES LABELS "contract;pool_flip;shaped")
+
 # CMD-1-a (#267/#251) -- Compile-time-Command-Basis + Mess-Visitor-Slot.
 comdare_add_test(test_cmd1_a_axis_command_base
     SOURCES test_cmd1_a_axis_command_base.cpp)

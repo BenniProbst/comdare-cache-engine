@@ -14,8 +14,8 @@
 // jede nicht spezialisierte Familie auf die einarmige Zuordnung zurueck (Shape wirkt nicht), (2) der
 // Emitter emittiert Shaped-Quellen NUR hinter dem organ_for!=void-Filter (adhoc_emitter.hpp).
 //
-// **234-V-a Scope:** NUR die BTree-Familie (Beweis-Familie btree_order); die uebrigen Pool-Familien mit
-// existierenden Shaped-Aliasen (Bst/SkipList/Hash, tier_to_organ_mapping.hpp:44-57) folgen in 234-V-b.
+// **234-V-b (2026-07-08):** BST/Hash/SkipList ergaenzt; SwissTable + ART/HOT/START/Wormhole/SuRF/
+// Eytzinger/Masstree bleiben mangels Shape-Param out of scope.
 
 #include "organ_for_search_algo.hpp" // einarmige Naht + Familien-Fwd-Decls + Shaped-Aliase (via tier_to_organ_mapping.hpp)
 
@@ -41,6 +41,42 @@ struct organ_for_search_algo_shaped<::comdare::cache_engine::lookup::BTreeSearch
     using type = organ_for_search_algo_t<::comdare::cache_engine::lookup::BTreeSearchAlgo>;
 };
 
+// BST (S16) -- echter Shape-Traeger waehlt das BST-Shaped-Organ.
+template <class Shape>
+struct organ_for_search_algo_shaped<::comdare::cache_engine::lookup::BinarySearchTreeSearchAlgo, Shape> {
+    using type = BstTreeOrganShaped<Shape>;
+};
+
+// Level-0 explizit: void bleibt typ-identisch zur einarmigen BST-Zuordnung.
+template <>
+struct organ_for_search_algo_shaped<::comdare::cache_engine::lookup::BinarySearchTreeSearchAlgo, void> {
+    using type = organ_for_search_algo_t<::comdare::cache_engine::lookup::BinarySearchTreeSearchAlgo>;
+};
+
+// Hash (S14) -- echter Shape-Traeger waehlt das Hash-Shaped-Organ.
+template <class Shape>
+struct organ_for_search_algo_shaped<::comdare::cache_engine::lookup::HashSearchAlgo, Shape> {
+    using type = HashSearchOrganShaped<Shape>;
+};
+
+// Level-0 explizit: void bleibt typ-identisch zur einarmigen Hash-Zuordnung.
+template <>
+struct organ_for_search_algo_shaped<::comdare::cache_engine::lookup::HashSearchAlgo, void> {
+    using type = organ_for_search_algo_t<::comdare::cache_engine::lookup::HashSearchAlgo>;
+};
+
+// SkipList (S13) -- echter Shape-Traeger waehlt das SkipList-Shaped-Organ.
+template <class Shape>
+struct organ_for_search_algo_shaped<::comdare::cache_engine::lookup::SkipListSearchAlgo, Shape> {
+    using type = SkipListOrganShaped<Shape>;
+};
+
+// Level-0 explizit: void bleibt typ-identisch zur einarmigen SkipList-Zuordnung.
+template <>
+struct organ_for_search_algo_shaped<::comdare::cache_engine::lookup::SkipListSearchAlgo, void> {
+    using type = organ_for_search_algo_t<::comdare::cache_engine::lookup::SkipListSearchAlgo>;
+};
+
 template <class S, class Shape>
 using organ_for_search_algo_shaped_t = typename organ_for_search_algo_shaped<S, Shape>::type;
 
@@ -52,5 +88,15 @@ static_assert(std::is_same_v<organ_for_search_algo_shaped_t<::comdare::cache_eng
 static_assert(std::is_same_v<organ_for_search_algo_shaped_t<::comdare::cache_engine::lookup::Array256SearchAlgo, void>,
                              organ_for_search_algo_t<::comdare::cache_engine::lookup::Array256SearchAlgo>>,
               "234-V-a: fremde Familie (flach, organ_for=void) bleibt unter dem Shaped-Trait void");
+static_assert(
+    std::is_same_v<organ_for_search_algo_shaped_t<::comdare::cache_engine::lookup::BinarySearchTreeSearchAlgo, void>,
+                   organ_for_search_algo_t<::comdare::cache_engine::lookup::BinarySearchTreeSearchAlgo>>,
+    "234-V-b: Level-0 (void) muss exakt die einarmige BST-Zuordnung liefern");
+static_assert(std::is_same_v<organ_for_search_algo_shaped_t<::comdare::cache_engine::lookup::HashSearchAlgo, void>,
+                             organ_for_search_algo_t<::comdare::cache_engine::lookup::HashSearchAlgo>>,
+              "234-V-b: Level-0 (void) muss exakt die einarmige Hash-Zuordnung liefern");
+static_assert(std::is_same_v<organ_for_search_algo_shaped_t<::comdare::cache_engine::lookup::SkipListSearchAlgo, void>,
+                             organ_for_search_algo_t<::comdare::cache_engine::lookup::SkipListSearchAlgo>>,
+              "234-V-b: Level-0 (void) muss exakt die einarmige SkipList-Zuordnung liefern");
 
 } // namespace comdare::cache_engine::lookup::composable
