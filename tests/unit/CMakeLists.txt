@@ -1252,6 +1252,24 @@ target_link_libraries(test_184_dataset_loader_wiring PRIVATE
     comdare::workload_driver)
 target_compile_definitions(test_184_dataset_loader_wiring PRIVATE
     "COMDARE_TEST_FIXTURE_DIR=\"${PROJECT_SOURCE_DIR}/tests/fixtures\"")
+
+# #25 (2026-07-08): 6er-Kanon-Datensatz-Akten (url/protein/tpcds-id/trec-terms) gegen die ECHTEN
+# im ce-Repo committeten CoCo-trie-preprocessed Dateien verifizieren (compute_dataset_akte reproduziert
+# die in Code/test_data_xml/*.test_data.xml committeten checksum/line_count). CoCo-dataset = KEIN Submodul
+# -> in CI vorhanden trotz GIT_SUBMODULE_STRATEGY=none.
+comdare_add_test(test_25_kanon_dataset_akten
+    SOURCES test_25_kanon_dataset_akten.cpp)
+target_include_directories(test_25_kanon_dataset_akten PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common/measurement/dataset_loader/include"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_25_kanon_dataset_akten PRIVATE
+    comdare_dataset_loader
+    comdare::workload_driver)
+target_compile_definitions(test_25_kanon_dataset_akten PRIVATE
+    "COMDARE_CE_DATASET_DIR=\"${PROJECT_SOURCE_DIR}/ext/traversal/P04-CoCo-trie/CoCo-trie/dataset\"")
 # V5-#46-REFERENZ — Disk-persistierender MementoAxis (Beweis "Memento inkl. IO/Disk-Persistenz").
 comdare_add_test(test_v5_disk_memento
     SOURCES test_v5_disk_memento.cpp)
