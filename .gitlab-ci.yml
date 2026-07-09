@@ -82,6 +82,7 @@ build:clang:
 .pmc:
   extends: .bare_metal
   stage: build
+  timeout: 15m   # Härtung 2026-07-09: fail-fast statt 60min-Default. Ein hängender bare-metal-Node (prod2-configure-Hang 08.07., 3×60min verbrannt) failt so nach 15min statt eine Stunde je Pipeline zu blockieren. Normal-Lauf < 3min (configure 0.7s + smoke-Build + ctest).
   needs: ["lint:secrets"]   # Codex-Review 06-27: hart auf den Secrets-Gate warten (sonst läuft Build trotz Leak)
   script:
     - cmake -B build -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_ENABLE_PMC=ON
@@ -98,7 +99,11 @@ pmc:intel:
   extends: .pmc
   tags: [baremetal, intel]
   # prod2-Runner pullt seit Secret-Swap nicht (Infra spielt meinen SSH-Key auf .212 → dann Runner-Fix).
-  # Reaktivieren: CI-Variable COMDARE_PROD2_AVAILABLE="true" setzen.
+  # 2026-07-09: erneut deaktiviert (COMDARE_PROD2_AVAILABLE=false). Nach dem MinIO-prod→dev-Swap hängt der
+  #   cmake-configure auf prod2 VOR der Compiler-ID (stale Mount/Node-Überlast) → 3× 60min-Timeout, Pipeline 9h rot.
+  #   Beleg: gleicher sha 4d8aedce lief 20:36 grün (28s), ab 21:53 retriggert 60min-Kill; pmc:amd/prod1 grün.
+  #   Echter Fix = Infra (prod2-Node), Handover docs/sessions/20260709-*. pmc:amd/prod1 hält die PMC-Coverage.
+  # Reaktivieren (erst NACH prod2-Node-Fix + einem grünen Probe-Lauf): CI-Variable COMDARE_PROD2_AVAILABLE="true".
   rules:
     - if: '$COMDARE_PROD2_AVAILABLE == "true"'
 
