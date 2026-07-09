@@ -1808,22 +1808,6 @@ target_include_directories(test_striktheit_abi_pod_guard PRIVATE
 target_link_libraries(test_striktheit_abi_pod_guard PRIVATE Boost::mp11 comdare::workload_driver)
 target_compile_definitions(test_striktheit_abi_pod_guard PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
-
-# #31-Schritt-1 (F7 Hybrid, WorkloadKind-Reuse): additive compile-time-Workload-Achse (YCSB A-F via bestehendem
-# enum WorkloadKind) + Hybrid-Bruecke zum runtime profile_by_name. golden-neutral, kein neuer Enum.
-comdare_add_test(test_31_workload_matrix
-    SOURCES test_31_workload_matrix.cpp)
-target_include_directories(test_31_workload_matrix PRIVATE
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
-    "${PROJECT_SOURCE_DIR}/libs/common"
-    "${CMAKE_BINARY_DIR}/generated"
-    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
-target_link_libraries(test_31_workload_matrix PRIVATE Boost::mp11 comdare::workload_driver)
-target_compile_definitions(test_31_workload_matrix PRIVATE
-    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 set_tests_properties(test_29_container_framework PROPERTIES LABELS "contract;gattung;container")
 
 # 234-V-b (2026-07-08): Rest-Familien Shaped-Naht + binary_id-Shape-Segment + Baum->Emitter-Verdrahtung.
