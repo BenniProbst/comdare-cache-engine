@@ -18,7 +18,7 @@ Beispiel: `cacheline_study.profile.xml` (gleicher Ordner).
 | `<permute_axes>` / `<axis ref [per_organ]>` | ja | Die **dynamischen, cache-line-relevanten** Achsen (compile-time). Ohne Kind-`<value>` = volle Liste aus `permutation_axes.xml`; mit `<value>` = Teilmenge. |
 | `<axis ref="cacheline" per_organ="…">` | ja (Kernthema) | **NEUE per-Organ Cache-Line-Unterachse** (KF-3). `per_organ` = Leerzeichen-Liste der Organe (page/node/traversal/allocator), die JEWEILS eine **eigene, unabhängige** Cache-Line-Einstellung tragen. Kinder: `<line_size>` (64/128/256), `<alignment>` (none/cacheline_aligned/padded), `<sw_prefetch_hint>` (none/T0/T1/T2/NTA). Pro Organ also bis 3×3×5 = 45 → bis **45ⁿ** für n Organe (beabsichtigt). |
 | `<compile_dims>` | ja | Compile-time Mess-Dimensionen (je Binary gebacken): `<workloads>` (YCSB A–F), `<telemetry mode silent>` (§8). |
-| `<runtime_dynamic>` | nein | **OS-seitige dynamische Dimensionen**, vom CacheEngineBuilder am Prüf-Dock zur Laufzeit durchlaufen (Faustregel §7): `<thread_count>` (via `Algorithm_Resource_Control`, KF-4), `<hw_prefetcher>` (via MSR 0x1A4, KF-12). |
+| `<runtime_dynamic>` | nein | **OS-seitige dynamische Dimensionen**, vom CacheEngineBuilder am Prüf-Dock zur Laufzeit durchlaufen (Faustregel §7): `<thread_count>` (via `Algorithm_Resource_Control`, KF-4), `<hw_prefetcher>` (via MSR 0x1A4, KF-12). Additiv optional für Resource-Control: `<prefetch_distance>`, `<pool_budget_bytes>`, `<batch_size>`, `<inline_threshold_bytes>` als whitespace-getrennte uint64-Listen; `0` bedeutet Default/aus. |
 | `<fixed_conditions .../>` | nein | Fixe reproduzierbare Bedingungen (Launcher, konstant): `turbo/smt/aslr/numa/governor`. |
 | `<repetitions count interpolate overlay_in_chart/>` | ja | Wiederholungen (Default 3); `interpolate="false"` = **nie** gemittelt; alle Läufe separat (§9, KF-10). |
 | `<modes>` / `<mode name merge active_axes [pruefling replaces_axes]>` | ja | Die 3 Permutationsmodi (`Stufe1_CeOnly`/`Stufe2_PrueflingReplace`/`Stufe3_FullJoin` aus `pruefling_merge.hpp`). `active_axes` = Achsen-Teilmenge, die in diesem Modus permutiert wird (deine 3-Modi-Achsen-Beschränkung). |
@@ -41,7 +41,8 @@ Beispiel: `cacheline_study.profile.xml` (gleicher Ordner).
 
 - **Compile-time** (eigenes Binary): alle **Architektur-Achsen** inkl. per-Organ-`cacheline`, `workload`, `telemetry`-Modus.
 - **Runtime** (CacheEngineBuilder am Prüf-Dock, in Env-/Ressourcengrenzen): OS-seitige, nicht-architektonische Größen —
-  `thread_count`, `hw_prefetcher`, Affinität/NUMA. Plus Wiederholungen (Orchestrierung).
+  `thread_count`, `hw_prefetcher`, `prefetch_distance`, `pool_budget_bytes`, `batch_size`,
+  `inline_threshold_bytes`, Affinität/NUMA. Plus Wiederholungen (Orchestrierung).
 
 ## Verarbeitung (Pipeline)
 

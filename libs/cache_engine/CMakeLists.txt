@@ -2,6 +2,7 @@
 # CacheEngineBuilder + CacheEngine-Singleton (Heap, im Builder)
 
 add_subdirectory(builder)
+add_subdirectory(profile_facade)
 add_subdirectory(concurrency_manager)
 add_subdirectory(subsystems)
 add_subdirectory(reclamation)
