@@ -119,15 +119,12 @@ diag:prod2:
     - if: '$COMDARE_PROD2_DIAG == "true"'
   script:
     - 'set +e'
-    - 'echo "== HOST =="; uname -a; uptime; echo "nproc=$(nproc)"; free -h'
-    - 'echo "== cmake im BG, /proc-Inspektion des Hangs =="; cd "$CI_PROJECT_DIR"; rm -rf /tmp/pr$CI_JOB_ID; ( timeout 140 cmake -B /tmp/pr$CI_JOB_ID -G Ninja -DCOMDARE_BUILD_TESTS=ON >/tmp/cmout$CI_JOB_ID 2>&1 ) & CMPID=$!'
-    - 'sleep 40; echo "--- cmake-Ausgabe nach 40s ---"; head -10 /tmp/cmout$CI_JOB_ID'
-    - 'echo "--- cmake Haupt-Prozess State/wchan ---"; grep -H State /proc/$CMPID/status 2>/dev/null; echo "wchan=$(cat /proc/$CMPID/wchan 2>/dev/null)"'
-    - 'echo "--- cmake Prozessbaum (child = cc1plus/g++?) ---"; ps -o pid,ppid,state,time,wchan:22,cmd --ppid $CMPID 2>/dev/null; ps --ppid $CMPID -o pid= 2>/dev/null | while read c; do ps -o pid,state,time,wchan:22,cmd -p $c 2>/dev/null | tail -1; done'
-    - 'echo "--- alle cmake/cc1/g++/ninja auf dem Host ---"; ps -eo pid,state,time,wchan:20,cmd | grep -iE "cmake|cc1|[g]\\+\\+|ninja|/probe" | grep -v grep | head -15'
-    - 'echo "--- offene fds des Haupt-cmake (letzter Datei-Zugriff) ---"; ls -la /proc/$CMPID/fd 2>/dev/null | tail -12'
-    - 'echo "--- D-state (uninterruptible I/O) Prozesse gesamt ---"; ps -eo pid,state,wchan:20,cmd | awk "\\$2 ~ /D/" | head -10'
-    - 'wait $CMPID; echo "cmake-rc=$?"; echo "--- finale cmake-Ausgabe ---"; head -20 /tmp/cmout$CI_JOB_ID'
+    - 'echo "== HOST =="; uname -a; uptime; echo "nproc=$(nproc)"'
+    - 'echo "== COMPILER =="; which g++ cc1plus; g++ --version | head -1'
+    - 'echo "== TEST 1: minimaler g++-Compile (25s) =="; echo "int main(){return 0;}" > /tmp/t$CI_JOB_ID.cpp; ( timeout 25 g++ -x c++ /tmp/t$CI_JOB_ID.cpp -o /tmp/t$CI_JOB_ID.out ) & GPP=$!'
+    - 'sleep 28; if kill -0 $GPP 2>/dev/null; then echo "!! G++ HAENGT nach 28s !!"; grep -H State /proc/$GPP/status 2>/dev/null; echo "syscall=$(cat /proc/$GPP/syscall 2>/dev/null)"; echo "--- g++-Kinder cc1plus State+syscall (KEIN wchan) ---"; for p in $(ps -eo pid,cmd | grep -iE "cc1|[g]\\+\\+" | grep -v grep | awk "{print \\$1}" | head); do echo "pid=$p state=$(cut -d\" \" -f3 /proc/$p/stat 2>/dev/null) syscall=$(cat /proc/$p/syscall 2>/dev/null | cut -d\" \" -f1)"; done; else wait $GPP; echo "g++-rc=$? → DURCHGELAUFEN (g++ ok)"; fi'
+    - 'echo "== D-state Prozesse host-weit (state+cmd, KEIN wchan) =="; for p in $(ps -eo pid --no-headers); do s=$(cut -d\" \" -f3 /proc/$p/stat 2>/dev/null); case "$s" in D) echo "pid=$p D-state cmd=$(tr \"\\0\" \" \" </proc/$p/cmdline 2>/dev/null | cut -c1-70) syscall=$(cat /proc/$p/syscall 2>/dev/null|cut -d\" \" -f1)";; esac; done | head -15'
+    - 'echo "== alte hängende cmake/cc1/g++ (etime) =="; ps -eo pid,state,etime,cmd | grep -iE "cmake|cc1|[g]\\+\\+" | grep -v grep | head -20'
 
 # ── #270b (2026-07-07): 3-ISA-Teilmatrix-INSTANZIIERUNG — arm64-Smoke auf node7-rpi5-arm64 (tag arm64). ──
 # OPT-IN + advisory: die HARTE Scharfschaltung als CI-PFLICHT ist ausdruecklich #276 (letzte Ledger-Aufgabe).
