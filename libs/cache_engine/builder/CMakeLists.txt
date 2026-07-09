@@ -31,8 +31,3 @@ add_subdirectory(telemetry_spool)
 add_subdirectory(in_memory_measurement_buffer)
 add_subdirectory(disk_serializer)
 add_subdirectory(latex_renderer)
-
-# #230 (E4-XML-Roadmap Phase 1) — Produktiv-Fassade um die umbrella-schwere CEB-Eintritts-API run_profile.
-# EXCLUDE_FROM_ALL: baut nur, wenn ein Konsument (super messung_driver) sie linkt bzw. das Target explizit
-# gebaut wird — kein Umbrella-Zusatz-Compile beim reinen ce-Library-Build.
-add_subdirectory(profile_facade)
