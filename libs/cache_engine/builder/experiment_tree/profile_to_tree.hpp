@@ -76,6 +76,15 @@ using AxisRegistry = std::map<std::string, std::vector<std::string>>;
         levels.push_back(AxisLevel{"concurrency", tp.thread_counts, false, "thread_count", "concurrency"});
     if (!tp.hw_prefetcher.empty())
         levels.push_back(AxisLevel{"prefetch", tp.hw_prefetcher, false, "hw_prefetcher", "prefetch"});
+    if (!tp.prefetch_distances.empty())
+        levels.push_back(AxisLevel{"prefetch", tp.prefetch_distances, false, "prefetch_distance", "prefetch"});
+    if (!tp.pool_budgets_bytes.empty())
+        levels.push_back(AxisLevel{"allocator", tp.pool_budgets_bytes, false, "pool_budget_bytes", "allocator"});
+    if (!tp.batch_sizes.empty())
+        levels.push_back(AxisLevel{"cache_traversal", tp.batch_sizes, false, "batch_size", "cache_traversal"});
+    if (!tp.inline_thresholds_bytes.empty())
+        levels.push_back(
+            AxisLevel{"value_handle", tp.inline_thresholds_bytes, false, "inline_threshold_bytes", "value_handle"});
     // Wiederholungs-Achse (D, KF-10): immer vorhanden (Default 3, separat, nie interpoliert). repetitions<=0 → 1.
     {
         int const                reps = (tp.repetitions <= 0) ? 1 : tp.repetitions;

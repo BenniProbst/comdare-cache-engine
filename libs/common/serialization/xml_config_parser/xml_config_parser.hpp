@@ -158,8 +158,12 @@ struct ThesisProfile {
     std::string              telemetry_mode; // on/off/leaf_sampled/all
     bool                     telemetry_silent = false;
     // runtime_dynamic (OS-seitig, CacheEngineBuilder-Durchlauf)
-    std::vector<std::string>           thread_counts;    // 1/2/4
-    std::vector<std::string>           hw_prefetcher;    // all_on/adjacent_off/all_off
+    std::vector<std::string>           thread_counts; // 1/2/4
+    std::vector<std::string>           hw_prefetcher; // all_on/adjacent_off/all_off
+    std::vector<std::string>           prefetch_distances;
+    std::vector<std::string>           pool_budgets_bytes;
+    std::vector<std::string>           batch_sizes;
+    std::vector<std::string>           inline_thresholds_bytes;
     std::map<std::string, std::string> fixed_conditions; // turbo/smt/aslr/numa/governor
     // repetitions
     int  repetitions             = 3;

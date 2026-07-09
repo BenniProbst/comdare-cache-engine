@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<comdare_thesis_profile id="e4_contract" schema_version="1">
+  <base_tiers>
+    <tier id="tier_a" profile_ref="../sota/art.profile.xml" paper_ref="P01"/>
+    <tier id="tier_b" profile_ref="../sota/hot.profile.xml" paper_ref="P02"/>
+  </base_tiers>
+
+  <permute_axes>
+    <axis ref="search_algo">
+      <value>art</value>
+      <value>hot</value>
+    </axis>
+    <axis ref="cache_traversal">
+      <value>linear</value>
+    </axis>
+    <axis ref="value_handle">
+      <value>inline</value>
+      <value>external</value>
+    </axis>
+  </permute_axes>
+
+  <compile_dims>
+    <workloads>YCSB_A</workloads>
+    <telemetry mode="off" silent="true"/>
+  </compile_dims>
+
+  <runtime_dynamic>
+    <thread_count>1 4</thread_count>
+    <hw_prefetcher>all_on all_off</hw_prefetcher>
+    <prefetch_distance>0 16 64</prefetch_distance>
+    <pool_budget_bytes>0 4096</pool_budget_bytes>
+    <batch_size>1 32</batch_size>
+    <inline_threshold_bytes>0 128</inline_threshold_bytes>
+  </runtime_dynamic>
+
+  <repetitions count="2" interpolate="false" overlay_in_chart="true"/>
+
+  <modes>
+    <mode name="ce_only" merge="Stufe1_CeOnly" active_axes="search_algo cache_traversal value_handle"/>
+  </modes>
+  <static_axes from="base_tier"/>
+</comdare_thesis_profile>

@@ -234,6 +234,25 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(std::filesyst
     if (auto const* rd = root->child("runtime_dynamic")) {
         if (auto const* tc = rd->child("thread_count")) tp.thread_counts = tc->text_tokens();
         if (auto const* hp = rd->child("hw_prefetcher")) tp.hw_prefetcher = hp->text_tokens();
+        // Die 4 RC-POD-Felder sind laut SCHEMA uint64-Listen. STRIKT validieren (jedes Token
+        // vollstaendig numerisch), sonst wuerde parse_u64 spaeter nicht-numerisch still auf 0
+        // mappen = falsch etikettierte Mess-Zeilen. Ungueltig => Profil unlesbar (nullopt).
+        auto const parse_u64_list_strict = [](auto const* node, std::vector<std::string>& dst) -> bool {
+            if (node == nullptr) return true;
+            std::vector<std::string> toks = node->text_tokens();
+            for (std::string const& t : toks) {
+                std::uint64_t v      = 0;
+                auto const [ptr, ec] = std::from_chars(t.data(), t.data() + t.size(), v, 10);
+                if (ec != std::errc{} || ptr != t.data() + t.size()) return false;
+            }
+            dst = std::move(toks);
+            return true;
+        };
+        if (!parse_u64_list_strict(rd->child("prefetch_distance"), tp.prefetch_distances)) return std::nullopt;
+        if (!parse_u64_list_strict(rd->child("pool_budget_bytes"), tp.pool_budgets_bytes)) return std::nullopt;
+        if (!parse_u64_list_strict(rd->child("batch_size"), tp.batch_sizes)) return std::nullopt;
+        if (!parse_u64_list_strict(rd->child("inline_threshold_bytes"), tp.inline_thresholds_bytes))
+            return std::nullopt;
     }
     if (auto const* fc = root->child("fixed_conditions")) tp.fixed_conditions = fc->attrs;
     if (auto const* rep = root->child("repetitions")) {

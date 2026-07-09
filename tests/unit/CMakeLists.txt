@@ -2427,3 +2427,18 @@ set_tests_properties(test_load_profile_writer PROPERTIES
 
 message(STATUS "tools-tests: test_cacheline_policy_selector (#174) + test_load_profile_writer (#175) "
     "als add_test registriert (best_binary_selector-Tool = tools/best_binary_selector add_executable).")
+
+# Schicht E4 Paket B - XML-Eingang der Resource-Control-Felder bis zur E3-AxisLevel-Struktur.
+add_executable(test_e4_contract_xml_to_axislevels "test_e4_contract_xml_to_axislevels.cpp")
+target_compile_features(test_e4_contract_xml_to_axislevels PRIVATE cxx_std_23)
+target_include_directories(test_e4_contract_xml_to_axislevels PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization")
+target_link_libraries(test_e4_contract_xml_to_axislevels PRIVATE comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_e4_contract_xml_to_axislevels)
+add_test(NAME test_e4_contract_xml_to_axislevels COMMAND test_e4_contract_xml_to_axislevels
+    "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/e4_contract_profile.xml")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e4_contract_xml_to_axislevels)
+# Label BEWUSST ohne 'contract': ce test:unit laeuft mit -LE 'contract|pmc', und die dedizierten
+# contract-Gates matchen nur explizite -R-Listen -- mit 'contract'-Label waere der Test CI-tot.
+set_tests_properties(test_e4_contract_xml_to_axislevels PROPERTIES LABELS "profiles;e4")

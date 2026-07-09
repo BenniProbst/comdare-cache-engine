@@ -19,11 +19,13 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cerrno>
 #include <cctype>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -36,6 +38,15 @@
 #include <thread>
 #include <utility>
 #include <vector>
+
+#ifndef _WIN32
+#include <fcntl.h>
+#include <spawn.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+extern char** environ;
+#endif
 
 namespace comdare::cache_engine::builder::experiment {
 
@@ -348,6 +359,92 @@ private:
     FreeRamFn   free_ram_;
 };
 
+namespace detail {
+
+[[nodiscard]] inline int decode_process_status(int status) noexcept {
+#ifdef _WIN32
+    return status;
+#else
+    if (WIFEXITED(status)) return WEXITSTATUS(status);
+    if (WIFSIGNALED(status)) return 128 + WTERMSIG(status);
+    return status;
+#endif
+}
+
+[[nodiscard]] inline bool shell_safe_token(std::string_view s) noexcept {
+    if (s.empty()) return false;
+    for (char const c : s) {
+        unsigned char const uc = static_cast<unsigned char>(c);
+        // '+' fuer Compiler-Namen wie g++-16; ':' und '\\' bleiben bewusst draussen (Injection-Schutz;
+        // der _WIN32-Zweig ist damit de facto auf den MSVC-Pfad make_system_compile_fn verwiesen).
+        if (std::isalnum(uc) || c == '_' || c == '.' || c == '/' || c == '-' || c == '@' || c == '+') continue;
+        return false;
+    }
+    return true;
+}
+
+[[nodiscard]] inline int run_argv_redirected(std::vector<std::string> const& argv, std::filesystem::path const& log) {
+    if (argv.empty()) return 127;
+#ifdef _WIN32
+    // Der E4-g++-Pfad ist POSIX. Diese Fallback-Route bleibt shell-basiert, aber
+    // nur fuer strikt validierte Tokens aktiv.
+    for (auto const& arg : argv) {
+        if (!shell_safe_token(arg)) {
+            std::ofstream lf{log, std::ios::app};
+            lf << "ungueltiges Shell-Token: " << arg << "\n";
+            return 127;
+        }
+    }
+    std::string cmd;
+    for (auto const& arg : argv) {
+        if (!cmd.empty()) cmd += ' ';
+        cmd += '"' + arg + '"';
+    }
+    cmd += " > \"" + log.string() + "\" 2>&1";
+    return decode_process_status(std::system(cmd.c_str()));
+#else
+    std::string const log_s = log.string();
+
+    posix_spawn_file_actions_t actions;
+    int                        rc = posix_spawn_file_actions_init(&actions);
+    if (rc != 0) return 127;
+
+    rc = posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, log_s.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (rc == 0) rc = posix_spawn_file_actions_adddup2(&actions, STDOUT_FILENO, STDERR_FILENO);
+    if (rc != 0) {
+        posix_spawn_file_actions_destroy(&actions);
+        std::ofstream lf{log, std::ios::app};
+        lf << "posix_spawn_file_actions fehlgeschlagen: " << std::strerror(rc) << "\n";
+        return 127;
+    }
+
+    std::vector<char*> c_argv;
+    c_argv.reserve(argv.size() + 1);
+    for (auto const& arg : argv) c_argv.push_back(const_cast<char*>(arg.c_str()));
+    c_argv.push_back(nullptr);
+
+    pid_t pid = 0;
+    rc        = posix_spawnp(&pid, argv.front().c_str(), &actions, nullptr, c_argv.data(), ::environ);
+    posix_spawn_file_actions_destroy(&actions);
+    if (rc != 0) {
+        std::ofstream lf{log, std::ios::app};
+        lf << "posix_spawnp(" << argv.front() << ") fehlgeschlagen: " << std::strerror(rc) << "\n";
+        return 127;
+    }
+
+    int status = 0;
+    while (waitpid(pid, &status, 0) < 0) {
+        if (errno == EINTR) continue;
+        std::ofstream lf{log, std::ios::app};
+        lf << "waitpid(" << pid << ") fehlgeschlagen: " << std::strerror(errno) << "\n";
+        return 127;
+    }
+    return decode_process_status(status);
+#endif
+}
+
+} // namespace detail
+
 /// Default-CompileFn: realer MSVC-Subprozess, baut perm_<id>.cpp → perm_<id>.dll (SHARED). {cores} → /MP<cores>.
 /// Host-Werkzeug (ruft cl via std::system; cl muss im PATH/Env sein, z.B. vcvars64). Ausgabe unterdrückt.
 [[nodiscard]] inline CompileFn make_system_compile_fn(std::vector<std::string> include_dirs = {},
@@ -360,6 +457,34 @@ private:
         cmd += " /Fo:\"" + job.output.string() + ".obj\"";
         cmd += " > nul 2>&1";
         return std::system(cmd.c_str());
+    };
+}
+
+/// POSIX-CompileFn: realer g++-Subprozess, baut perm_<id>.cpp -> perm_<id>.so (SHARED).
+/// Nutzt @rsp und posix_spawnp(argv), also keinen /bin/sh-String; der wait-status wird
+/// auf den tatsaechlichen Prozess-Exitcode dekodiert.
+[[nodiscard]] inline CompileFn make_gpp_compile_fn(std::vector<std::string> include_dirs = {},
+                                                   std::vector<std::string> defines = {}, std::string cxx = "g++-16") {
+    return [include_dirs = std::move(include_dirs), defines = std::move(defines),
+            cxx = std::move(cxx)](BuildJob const& job) -> int {
+        std::filesystem::path const rsp = job.output.string() + ".rsp";
+        {
+            std::ofstream rf{rsp};
+            if (!rf) return 125;
+            rf << "-std=c++23\n";
+            rf << "-O2\n";
+            rf << "-fPIC\n";
+            rf << "-shared\n";
+            rf << "-fno-gnu-unique\n";
+            rf << "-fdiagnostics-color=never\n";
+            for (auto const& d : defines) rf << d << "\n";
+            for (auto const& i : include_dirs) rf << "-I\"" << i << "\"\n";
+            rf << "\"" << job.source.string() << "\"\n";
+            rf << "-o \"" << job.output.string() << "\"\n";
+        }
+
+        std::filesystem::path const log = job.output.string() + ".cxx.log";
+        return detail::run_argv_redirected({cxx, "@" + rsp.string()}, log);
     };
 }
 
