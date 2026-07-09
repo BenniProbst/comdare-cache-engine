@@ -2442,3 +2442,29 @@ set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e4_contract_xml_to
 # Label BEWUSST ohne 'contract': ce test:unit laeuft mit -LE 'contract|pmc', und die dedizierten
 # contract-Gates matchen nur explizite -R-Listen -- mit 'contract'-Label waere der Test CI-tot.
 set_tests_properties(test_e4_contract_xml_to_axislevels PROPERTIES LABELS "profiles;e4")
+
+# Schicht E3 Paket A - #223-Gate-Beweis im echten perm_runner-Pfad.
+add_executable(test_e3_contract_conformance_gate_wirksam "test_e3_contract_conformance_gate_wirksam.cpp")
+target_compile_features(test_e3_contract_conformance_gate_wirksam PRIVATE cxx_std_23)
+target_include_directories(test_e3_contract_conformance_gate_wirksam PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+# run_workload_perm (Review-Fix wf_6e518da1) zieht workload_driver-Symbole (profile_by_name etc.).
+target_link_libraries(test_e3_contract_conformance_gate_wirksam PRIVATE comdare::workload_driver)
+comdare_set_platform_defines(test_e3_contract_conformance_gate_wirksam)
+add_test(NAME test_e3_contract_conformance_gate_wirksam COMMAND test_e3_contract_conformance_gate_wirksam)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e3_contract_conformance_gate_wirksam)
+set_tests_properties(test_e3_contract_conformance_gate_wirksam PROPERTIES LABELS "e3;gate")
+
+# Schicht E3 Paket B - StaticBinaryView-Bijektion und dynamische Levels ohne DLL-Bau.
+add_executable(test_e3_contract_binary_id_bijektion "test_e3_contract_binary_id_bijektion.cpp")
+target_compile_features(test_e3_contract_binary_id_bijektion PRIVATE cxx_std_23)
+target_include_directories(test_e3_contract_binary_id_bijektion PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+comdare_set_platform_defines(test_e3_contract_binary_id_bijektion)
+add_test(NAME test_e3_contract_binary_id_bijektion COMMAND test_e3_contract_binary_id_bijektion)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e3_contract_binary_id_bijektion)
+set_tests_properties(test_e3_contract_binary_id_bijektion PROPERTIES LABELS "e3;tree")
