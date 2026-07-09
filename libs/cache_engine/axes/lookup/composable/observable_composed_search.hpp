@@ -18,7 +18,6 @@
 #include <measurement/measurable_concept.hpp>                                    // MeasurableObserver
 
 #include <cstddef>
-#include <cstdint>
 #include <optional>
 
 namespace comdare::cache_engine::lookup::composable {
@@ -37,10 +36,6 @@ public:
     /// insert mit rekonstruiertem inserted-Flag (ComposedSearch::insert ist void) — insert_or_assign-Semantik.
     bool insert(key_type k, value_type v) {
         bool const is_new = !search_.lookup(k).has_value();
-        if (is_new && !runtime_pool_budget_accepts_growth_()) {
-            note_runtime_pool_budget_rejection_();
-            return false;
-        }
         search_.insert(k, v);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_insert_count;
@@ -53,17 +48,16 @@ public:
     }
 
     [[nodiscard]] std::optional<value_type> lookup(key_type k) const {
-        auto const r = search_.lookup(k);
-        drive_runtime_batch_probe_(k);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_lookup_count;
+        auto const r = search_.lookup(k);
         if (r)
             ++stats_.total_hit_count;
         else
             ++stats_.total_miss_count; // (A2.1) kein observer_.notify im Hot-Pfad
         return r;
 #else
-        return r;
+        return search_.lookup(k);
 #endif
     }
 
@@ -109,40 +103,15 @@ public:
     [[nodiscard]] Store&       store_mut() noexcept { return search_.store_mut(); }
     [[nodiscard]] Store const& store() const noexcept { return search_.store(); }
 
-    /// RC allocator: 0 = No-op; nicht-null begrenzt künftiges Store-Wachstum auf dieses Byte-Budget.
-    void set_runtime_pool_budget_bytes(std::uint64_t budget_bytes) noexcept
-        requires requires(Store& s) { s.set_runtime_pool_budget_bytes(budget_bytes); }
-    {
-        search_.store_mut().set_runtime_pool_budget_bytes(budget_bytes);
-    }
-
-    /// RC traversal: 0 = No-op/Default. Nicht-null treibt pro lookup eine zusätzliche reale Slot-Probe über
-    /// bis zu batch_size Records; der logische lookup bleibt unverändert, die Traversal-Arbeit nicht.
-    void set_runtime_batch_size(std::uint64_t batch_size) noexcept {
-        if (batch_size != 0) runtime_batch_size_ = batch_size;
-    }
-    [[nodiscard]] std::uint64_t runtime_batch_size() const noexcept { return runtime_batch_size_; }
-    [[nodiscard]] std::uint64_t runtime_batch_probe_count() const noexcept { return runtime_batch_probe_count_; }
-
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = ce_concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    void                     reset() noexcept {
-        stats_ = {}; // (A2.1) notify entfernt — Pull-Transport via statistics()
-        reset_runtime_batch_probe_statistics();
-    }
-    void reset_runtime_batch_probe_statistics() const noexcept {
-        runtime_batch_probe_count_    = 0;
-        runtime_batch_probe_checksum_ = 0;
-    }
+    void reset() noexcept { stats_ = {}; } // (A2.1) notify entfernt — Pull-Transport via statistics()
     // Undo-Log-Memento (#133): O(1)-Restore der Statistik auf einen zuvor via statistics() gezogenen Snapshot.
     // Gegenstueck zu reset() (={}): stellt im Zwei-Phasen-Rollback die Zaehler EXAKT auf den save-Stand zurueck,
     // nachdem das Daten-Substrat per op-inversem Replay wiederhergestellt wurde (abi_adapter::tier_rollback_all).
-    void restore_statistics(snapshot_t const& s) noexcept {
-        stats_ = s; // (A2.1) notify entfernt
-        reset_runtime_batch_probe_statistics();
-    }
+    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; } // (A2.1) notify entfernt
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 
@@ -243,8 +212,6 @@ public:
         typename ComposedSearch<Traversal, Store>::memento_t data{};
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ce_concepts::SearchAlgoStatistics stats{};
-        std::uint64_t                     runtime_batch_probe_count    = 0;
-        std::uint64_t                     runtime_batch_probe_checksum = 0;
 #endif
     };
 
@@ -252,58 +219,19 @@ public:
         memento_t m;
         m.data = search_.save_state();
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        m.stats                        = stats_;
-        m.runtime_batch_probe_count    = runtime_batch_probe_count_;
-        m.runtime_batch_probe_checksum = runtime_batch_probe_checksum_;
+        m.stats = stats_;
 #endif
         return m;
     }
     void restore_state(memento_t const& m) {
         search_.restore_state(m.data);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        stats_                        = m.stats; // (A2.1) notify entfernt
-        runtime_batch_probe_count_    = m.runtime_batch_probe_count;
-        runtime_batch_probe_checksum_ = m.runtime_batch_probe_checksum;
+        stats_ = m.stats; // (A2.1) notify entfernt
 #endif
     }
 
 private:
-    [[nodiscard]] bool runtime_pool_budget_accepts_growth_() const noexcept {
-        if constexpr (requires(Store const& s) { s.runtime_pool_budget_can_grow_by_one(); }) {
-            return search_.store().runtime_pool_budget_can_grow_by_one();
-        } else {
-            return true;
-        }
-    }
-
-    void note_runtime_pool_budget_rejection_() noexcept {
-        if constexpr (requires(Store& s) { s.note_runtime_pool_budget_rejection(); }) {
-            search_.store_mut().note_runtime_pool_budget_rejection();
-        }
-    }
-
-    void drive_runtime_batch_probe_(key_type k) const noexcept {
-        if (runtime_batch_size_ == 0) return;
-        auto const&       st = search_.store();
-        std::size_t const n  = st.slot_count();
-        if (n == 0) return;
-        std::uint64_t const wanted = runtime_batch_size_;
-        std::size_t const   probes = (wanted < static_cast<std::uint64_t>(n)) ? static_cast<std::size_t>(wanted) : n;
-        std::size_t const   start  = static_cast<std::size_t>(k % static_cast<key_type>(n));
-        std::uint64_t       sink   = 0;
-        for (std::size_t i = 0; i < probes; ++i) {
-            std::size_t const idx = (start + i) % n;
-            sink ^= static_cast<std::uint64_t>(st.key_at(idx));
-            sink += static_cast<std::uint64_t>(st.value_at(idx));
-        }
-        runtime_batch_probe_count_ += static_cast<std::uint64_t>(probes);
-        runtime_batch_probe_checksum_ ^= sink;
-    }
-
     ComposedSearch<Traversal, Store> search_{};
-    std::uint64_t                    runtime_batch_size_           = 0;
-    mutable std::uint64_t            runtime_batch_probe_count_    = 0;
-    mutable std::uint64_t            runtime_batch_probe_checksum_ = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable snapshot_t stats_{};
     mutable observer_t observer_{};
