@@ -107,6 +107,25 @@ pmc:intel:
   rules:
     - if: '$COMDARE_PROD2_AVAILABLE == "true"'
 
+# TEMP-Diagnose 2026-07-09: prod2-configure-Hang-Wurzel via Runner-auf-prod2 lokalisieren (kein SSH-Zugang).
+# rules-gated auf COMDARE_PROD2_DIAG — stoert Normalbetrieb NICHT. Nach Root-Cause-Fix wieder entfernen.
+diag:prod2:
+  extends: .bare_metal
+  stage: build
+  tags: [baremetal, intel]
+  timeout: 8m
+  rules:
+    - if: '$COMDARE_PROD2_DIAG == "true"'
+  script:
+    - 'echo "== HOST =="; uname -a; uptime; free -h'
+    - 'echo "== MOUNTS =="; mount | grep -iE "minio|s3|fuse|nfs|:9000|gluster|ceph|rclone|overlay|cifs" || echo none'
+    - 'echo "== DF timeout10 =="; timeout 10 df -h 2>&1 || echo "!!DF-HAENGT=stale-mount!!"'
+    - 'echo "== DMESG =="; { dmesg 2>/dev/null || sudo -n dmesg 2>/dev/null; } | grep -iE "hung task|blocked for|I/O err|not responding|fuse|nfs" | tail -15 || echo kein-dmesg'
+    - 'echo "== SUDO =="; sudo -n true 2>&1 && echo SUDO-JA || echo SUDO-NEIN'
+    - 'echo "== TMP/CCACHE =="; echo "TMPDIR=$TMPDIR"; timeout 8 ls -ld /tmp /home/gitlab-runner/.ccache /opt 2>&1'
+    - 'echo "== CMAKE-HANG strace timeout90 =="; timeout 90 strace -f -e trace=file -o /tmp/cm$CI_JOB_ID.strace cmake -B /tmp/probe$CI_JOB_ID -G Ninja -DCOMDARE_BUILD_TESTS=ON 2>&1 | head -6 || echo cmake-timeout-killed'
+    - 'echo "== HANG-PUNKT letzte strace-Zeilen =="; tail -25 /tmp/cm$CI_JOB_ID.strace 2>/dev/null || echo kein-strace'
+
 # ── #270b (2026-07-07): 3-ISA-Teilmatrix-INSTANZIIERUNG — arm64-Smoke auf node7-rpi5-arm64 (tag arm64). ──
 # OPT-IN + advisory: die HARTE Scharfschaltung als CI-PFLICHT ist ausdruecklich #276 (letzte Ledger-Aufgabe).
 # Dieser Job destabilisiert die Hauptpipeline NICHT (rules-gated auf COMDARE_ISA_MATRIX=="true"), baut nur eine
