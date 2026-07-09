@@ -114,17 +114,20 @@ diag:prod2:
   stage: build
   tags: [baremetal, intel]
   timeout: 8m
+  needs: []
   rules:
     - if: '$COMDARE_PROD2_DIAG == "true"'
   script:
-    - 'echo "== HOST =="; uname -a; uptime; free -h'
-    - 'echo "== MOUNTS =="; mount | grep -iE "minio|s3|fuse|nfs|:9000|gluster|ceph|rclone|overlay|cifs" || echo none'
-    - 'echo "== DF timeout10 =="; timeout 10 df -h 2>&1 || echo "!!DF-HAENGT=stale-mount!!"'
-    - 'echo "== DMESG =="; { dmesg 2>/dev/null || sudo -n dmesg 2>/dev/null; } | grep -iE "hung task|blocked for|I/O err|not responding|fuse|nfs" | tail -15 || echo kein-dmesg'
-    - 'echo "== SUDO =="; sudo -n true 2>&1 && echo SUDO-JA || echo SUDO-NEIN'
-    - 'echo "== TMP/CCACHE =="; echo "TMPDIR=$TMPDIR"; timeout 8 ls -ld /tmp /home/gitlab-runner/.ccache /opt 2>&1'
-    - 'echo "== CMAKE-HANG strace timeout90 =="; timeout 90 strace -f -e trace=file -o /tmp/cm$CI_JOB_ID.strace cmake -B /tmp/probe$CI_JOB_ID -G Ninja -DCOMDARE_BUILD_TESTS=ON 2>&1 | head -6 || echo cmake-timeout-killed'
-    - 'echo "== HANG-PUNKT letzte strace-Zeilen =="; tail -25 /tmp/cm$CI_JOB_ID.strace 2>/dev/null || echo kein-strace'
+    - 'set +e'
+    - 'echo "== HOST =="; uname -a; uptime; echo "nproc=$(nproc)"; free -h'
+    - 'echo "== cmake im BG, /proc-Inspektion des Hangs =="; cd "$CI_PROJECT_DIR"; rm -rf /tmp/pr$CI_JOB_ID; ( timeout 140 cmake -B /tmp/pr$CI_JOB_ID -G Ninja -DCOMDARE_BUILD_TESTS=ON >/tmp/cmout$CI_JOB_ID 2>&1 ) & CMPID=$!'
+    - 'sleep 40; echo "--- cmake-Ausgabe nach 40s ---"; head -10 /tmp/cmout$CI_JOB_ID'
+    - 'echo "--- cmake Haupt-Prozess State/wchan ---"; grep -H State /proc/$CMPID/status 2>/dev/null; echo "wchan=$(cat /proc/$CMPID/wchan 2>/dev/null)"'
+    - 'echo "--- cmake Prozessbaum (child = cc1plus/g++?) ---"; ps -o pid,ppid,state,time,wchan:22,cmd --ppid $CMPID 2>/dev/null; ps --ppid $CMPID -o pid= 2>/dev/null | while read c; do ps -o pid,state,time,wchan:22,cmd -p $c 2>/dev/null | tail -1; done'
+    - 'echo "--- alle cmake/cc1/g++/ninja auf dem Host ---"; ps -eo pid,state,time,wchan:20,cmd | grep -iE "cmake|cc1|[g]\\+\\+|ninja|/probe" | grep -v grep | head -15'
+    - 'echo "--- offene fds des Haupt-cmake (letzter Datei-Zugriff) ---"; ls -la /proc/$CMPID/fd 2>/dev/null | tail -12'
+    - 'echo "--- D-state (uninterruptible I/O) Prozesse gesamt ---"; ps -eo pid,state,wchan:20,cmd | awk "\\$2 ~ /D/" | head -10'
+    - 'wait $CMPID; echo "cmake-rc=$?"; echo "--- finale cmake-Ausgabe ---"; head -20 /tmp/cmout$CI_JOB_ID'
 
 # ── #270b (2026-07-07): 3-ISA-Teilmatrix-INSTANZIIERUNG — arm64-Smoke auf node7-rpi5-arm64 (tag arm64). ──
 # OPT-IN + advisory: die HARTE Scharfschaltung als CI-PFLICHT ist ausdruecklich #276 (letzte Ledger-Aufgabe).
