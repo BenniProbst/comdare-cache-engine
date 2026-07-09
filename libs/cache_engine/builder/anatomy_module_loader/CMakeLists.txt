@@ -6,8 +6,8 @@ comdare_add_library(comdare_anatomy_module_loader PROJECT CACHE_ENGINE SOURCES
 add_library(comdare::anatomy_module_loader ALIAS comdare_anatomy_module_loader)
 
 target_include_directories(comdare_anatomy_module_loader PUBLIC
-    "${CMAKE_SOURCE_DIR}/libs/cache_engine"
-    "${CMAKE_SOURCE_DIR}/libs/cache_engine/include")
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 
 target_compile_features(comdare_anatomy_module_loader PUBLIC cxx_std_23)
 

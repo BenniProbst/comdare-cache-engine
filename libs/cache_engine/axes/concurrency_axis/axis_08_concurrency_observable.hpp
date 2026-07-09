@@ -77,6 +77,14 @@ public:
         return Strategy::get_compiler();
     }
 
+    /// Laufzeit-RC: 0 = No-op/Default (ein acquire/release-Paar pro beobachteter Critical Section).
+    /// Nicht-null modelliert die vom Host gewünschte Thread-Zahl als N echte Sync-Primitiv-Paare im selben
+    /// Organpfad; dadurch ändern sich sowohl Kosten als auch acquire/release-Zähler ohne Runtime-Dispatch.
+    void set_runtime_thread_count(std::uint32_t thread_count) noexcept {
+        if (thread_count != 0) runtime_thread_count_ = thread_count;
+    }
+    [[nodiscard]] std::uint32_t runtime_thread_count() const noexcept { return runtime_thread_count_; }
+
     /// Mess-Kopplung (der eigentliche „Driver"): treibt das ECHTE statische Synchronisations-Primitiv der
     /// Strategie (acquire→Mini-Critical-Section-Eintritt) und zählt. Gepaart mit release() zu nutzen.
     void acquire() noexcept {
@@ -98,8 +106,11 @@ public:
     /// Eine vollständige, korrekt gepaarte Mini-Critical-Section (acquire→release). Komfort-Driver für den
     /// abi_adapter (tier_insert/lookup): EIN Aufruf = EIN echtes Sync-Primitiv-Paar.
     void observe_critical_section() noexcept {
-        acquire();
-        release();
+        std::uint32_t const n = effective_thread_count_();
+        for (std::uint32_t i = 0; i < n; ++i) {
+            acquire();
+            release();
+        }
     }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
@@ -107,8 +118,16 @@ public:
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
     // reset() = Statistik-Reset (Memory-Regel). pattern_id wird beim nächsten acquire() neu gesetzt.
     void reset() noexcept { stats_ = {}; }
+#endif
 
 private:
+    [[nodiscard]] std::uint32_t effective_thread_count_() const noexcept {
+        return runtime_thread_count_ == 0 ? 1u : runtime_thread_count_;
+    }
+
+    std::uint32_t runtime_thread_count_ = 0;
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
     snapshot_t stats_{};
 #endif
 };
