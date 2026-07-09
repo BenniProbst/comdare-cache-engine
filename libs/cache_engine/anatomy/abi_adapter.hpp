@@ -235,10 +235,22 @@ public:
         apply1(in->pool_budget_bytes, caps.pool_budget_bytes, applied_rc_.pool_budget_bytes);
         apply1(in->batch_size, caps.batch_size, applied_rc_.batch_size);
         apply1(in->inline_threshold_bytes, caps.inline_threshold_bytes, applied_rc_.inline_threshold_bytes);
-        // RC-prefetch_distance = Laufzeit-Distanz-Override am realen Store-Prefetch;
-        // #229-Folge = die 4 übrigen RC-Achsen + KF-5-§7-Voll-API.
+        // RC-Werte erreichen die realen Organe. 0 bleibt golden-neutral, weil apply1(0) applied_rc_ unverändert
+        // lässt und die Organ-Setter 0 ihrerseits als No-op behandeln.
+        if constexpr (requires { cc_organ_.set_runtime_thread_count(std::uint32_t{}); }) {
+            cc_organ_.set_runtime_thread_count(static_cast<std::uint32_t>(applied_rc_.thread_count));
+        }
         if constexpr (requires { pf_organ_.set_runtime_distance(std::uint32_t{}); }) {
             pf_organ_.set_runtime_distance(static_cast<std::uint32_t>(applied_rc_.prefetch_distance));
+        }
+        if constexpr (requires { container_algorithm_.set_runtime_pool_budget_bytes(std::uint64_t{}); }) {
+            container_algorithm_.set_runtime_pool_budget_bytes(applied_rc_.pool_budget_bytes);
+        }
+        if constexpr (requires { container_algorithm_.set_runtime_batch_size(std::uint64_t{}); }) {
+            container_algorithm_.set_runtime_batch_size(applied_rc_.batch_size);
+        }
+        if constexpr (requires { vh_organ_.set_runtime_inline_threshold_bytes(std::uint64_t{}); }) {
+            vh_organ_.set_runtime_inline_threshold_bytes(applied_rc_.inline_threshold_bytes);
         }
         return applied;
     }
@@ -1031,6 +1043,12 @@ public:
             r[3]          = ss.total_insert_count;
             r[4]          = ss.total_erase_count;
             r[5]          = ss.peak_occupancy;
+            if constexpr (requires { container_algorithm_.runtime_batch_size(); }) {
+                r[6] = container_algorithm_.runtime_batch_size();
+            }
+            if constexpr (requires { container_algorithm_.runtime_batch_probe_count(); }) {
+                r[7] = container_algorithm_.runtime_batch_probe_count();
+            }
             ++filled;
         }
         // ── T1 cache_traversal (Phase A neu) ────────────────────────────────────────────────────────────
