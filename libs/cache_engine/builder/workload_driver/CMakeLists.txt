@@ -5,11 +5,9 @@ comdare_add_library(comdare_workload_driver PROJECT CACHE_ENGINE SOURCES
 
 add_library(comdare::workload_driver ALIAS comdare_workload_driver)
 
-# PROJECT_SOURCE_DIR (ce-Wurzel) statt CMAKE_SOURCE_DIR: als add_subdirectory-Modul (super-Sub-Build) ist
-# CMAKE_SOURCE_DIR die super-Wurzel → falscher -I-Pfad. Standalone-ce identisch = No-Op. (#230 super-Andockung)
 target_include_directories(comdare_workload_driver PUBLIC
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+    "${CMAKE_SOURCE_DIR}/libs/cache_engine"
+    "${CMAKE_SOURCE_DIR}/libs/cache_engine/include")
 
 target_compile_features(comdare_workload_driver PUBLIC cxx_std_23)
 
