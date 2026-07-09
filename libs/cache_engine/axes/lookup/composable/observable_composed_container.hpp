@@ -25,7 +25,6 @@
 #include <measurement/measurable_concept.hpp>                                    // MeasurableObserver
 
 #include <cstddef>
-#include <cstdint>
 #include <optional>
 #include <type_traits>
 #include <utility>
@@ -63,10 +62,6 @@ public:
     /// insert mit rekonstruiertem inserted-Flag (Container::insert ist void) — insert_or_assign-Semantik.
     bool insert(key_type k, value_type v) {
         bool const is_new = !container_.lookup(k).has_value();
-        if (is_new && !runtime_pool_budget_accepts_growth_()) {
-            note_runtime_pool_budget_rejection_();
-            return false;
-        }
         container_.insert(k, v);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_insert_count;
@@ -78,17 +73,16 @@ public:
     }
 
     [[nodiscard]] std::optional<value_type> lookup(key_type k) const {
-        auto const r = container_.lookup(k);
-        drive_runtime_batch_probe_(k);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_lookup_count;
+        auto const r = container_.lookup(k);
         if (r)
             ++stats_.total_hit_count;
         else
             ++stats_.total_miss_count; // (A2.1) kein observer_.notify im Hot-Pfad
         return r;
 #else
-        return r;
+        return container_.lookup(k);
 #endif
     }
 
@@ -106,18 +100,6 @@ public:
 
     [[nodiscard]] Container const& container() const noexcept { return container_; }
     [[nodiscard]] Container&       container() noexcept { return container_; }
-
-    void set_runtime_pool_budget_bytes(std::uint64_t budget_bytes) noexcept
-        requires requires(Container& c) { c.set_runtime_pool_budget_bytes(budget_bytes); }
-    {
-        container_.set_runtime_pool_budget_bytes(budget_bytes);
-    }
-
-    void set_runtime_batch_size(std::uint64_t batch_size) noexcept {
-        if (batch_size != 0) runtime_batch_size_ = batch_size;
-    }
-    [[nodiscard]] std::uint64_t runtime_batch_size() const noexcept { return runtime_batch_size_; }
-    [[nodiscard]] std::uint64_t runtime_batch_probe_count() const noexcept { return runtime_batch_probe_count_; }
 
     /// #188-4b-DEG1 - Key-Ernte fuer den Mess-Pfad (abi_adapter::fill_segment_timing_v3): delegiert an das Organ.
     /// Meta-/Mess-Operation: bewusst OHNE Statistik-Effekt (kein lookup-/insert-Zaehler).
@@ -141,60 +123,17 @@ public:
     using snapshot_t = ce_concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
-    void                     reset() noexcept {
-        stats_ = {}; // (A2.1) notify entfernt — Pull-Transport via statistics()
-        reset_runtime_batch_probe_statistics();
-    }
-    void reset_runtime_batch_probe_statistics() const noexcept {
-        runtime_batch_probe_count_    = 0;
-        runtime_batch_probe_checksum_ = 0;
-    }
+    void reset() noexcept { stats_ = {}; } // (A2.1) notify entfernt — Pull-Transport via statistics()
     // Undo-Log-Memento (#133): O(1)-Restore der Statistik auf einen zuvor via statistics() gezogenen Snapshot.
     // Gegenstueck zu reset() (={}): stellt im Zwei-Phasen-Rollback die Zaehler EXAKT auf den save-Stand zurueck,
     // nachdem das Daten-Substrat per op-inversem Replay wiederhergestellt wurde (abi_adapter::tier_rollback_all).
-    void restore_statistics(snapshot_t const& s) noexcept {
-        stats_ = s; // (A2.1) notify entfernt
-        reset_runtime_batch_probe_statistics();
-    }
+    void restore_statistics(snapshot_t const& s) noexcept { stats_ = s; } // (A2.1) notify entfernt
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif
 
 private:
-    [[nodiscard]] bool runtime_pool_budget_accepts_growth_() const noexcept {
-        if constexpr (requires(Container const& c) { c.runtime_pool_budget_can_grow_by_one(); }) {
-            return container_.runtime_pool_budget_can_grow_by_one();
-        } else {
-            return true;
-        }
-    }
-
-    void note_runtime_pool_budget_rejection_() noexcept {
-        if constexpr (requires(Container& c) { c.note_runtime_pool_budget_rejection(); }) {
-            container_.note_runtime_pool_budget_rejection();
-        }
-    }
-
-    void drive_runtime_batch_probe_(key_type) const noexcept {
-        if (runtime_batch_size_ == 0) return;
-        if constexpr (requires(Container const& c) { c.for_each_record([](key_type, value_type) {}); }) {
-            std::uint64_t visited = 0;
-            std::uint64_t sink    = 0;
-            container_.for_each_record([&](key_type k, value_type v) {
-                if (visited >= runtime_batch_size_) return;
-                sink ^= static_cast<std::uint64_t>(k);
-                sink += static_cast<std::uint64_t>(v);
-                ++visited;
-            });
-            runtime_batch_probe_count_ += visited;
-            runtime_batch_probe_checksum_ ^= sink;
-        }
-    }
-
-    Container             container_{};
-    std::uint64_t         runtime_batch_size_           = 0;
-    mutable std::uint64_t runtime_batch_probe_count_    = 0;
-    mutable std::uint64_t runtime_batch_probe_checksum_ = 0;
+    Container container_{};
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable snapshot_t stats_{};
     mutable observer_t observer_{};

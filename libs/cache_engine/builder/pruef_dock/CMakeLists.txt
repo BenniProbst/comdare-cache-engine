@@ -8,9 +8,9 @@ add_library(comdare_ce_pruef_dock INTERFACE)
 add_library(comdare::ce_pruef_dock ALIAS comdare_ce_pruef_dock)
 
 target_include_directories(comdare_ce_pruef_dock INTERFACE
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src")   # measurement/measurable_concept.hpp (transitiv über observable_composed_search)
+    "${CMAKE_SOURCE_DIR}/libs/cache_engine"
+    "${CMAKE_SOURCE_DIR}/libs/cache_engine/include"
+    "${CMAKE_SOURCE_DIR}/libs/cache_engine/src")   # measurement/measurable_concept.hpp (transitiv über observable_composed_search)
 
 target_compile_features(comdare_ce_pruef_dock INTERFACE cxx_std_23)
 
