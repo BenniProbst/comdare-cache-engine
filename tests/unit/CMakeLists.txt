@@ -2565,6 +2565,20 @@ add_test(NAME test_limits_entkopplung_vorstufe COMMAND test_limits_entkopplung_v
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_limits_entkopplung_vorstufe)
 set_tests_properties(test_limits_entkopplung_vorstufe PROPERTIES LABELS "e4;limits")
 
+# Phase 7 (Parser-/Gating-Konsolidierung): Regressions-Gate der DOM-Fassung (parse_profile/
+# load_messreihen/parse_one) gegen die eingefrorenen Regex-Referenzwerte.
+add_executable(test_parser_konsolidierung "test_parser_konsolidierung.cpp")
+target_compile_features(test_parser_konsolidierung PRIVATE cxx_std_23)
+target_include_directories(test_parser_konsolidierung PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization")
+target_link_libraries(test_parser_konsolidierung PRIVATE comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_parser_konsolidierung)
+add_test(NAME test_parser_konsolidierung COMMAND test_parser_konsolidierung
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/sota")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_parser_konsolidierung)
+set_tests_properties(test_parser_konsolidierung PROPERTIES LABELS "parser;e4")
+
 # thesis_tiere ADHOC-Treiber: baubar per explizitem Target, aber absichtlich
 # nicht in ctest/COMDARE_TEST_TARGETS registriert.
 # GRENZE (Review wf_1009d16f, empirisch): im super-Sub-Build sind diese EXCLUDE_FROM_ALL-Targets
