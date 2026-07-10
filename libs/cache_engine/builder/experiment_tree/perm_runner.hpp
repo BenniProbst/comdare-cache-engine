@@ -9,8 +9,9 @@
 //
 // MESS-ARCHITEKTUR-UMBAU (2026-06-04, Anforderungen A/B/C):
 //   (A) Reset je Messung: run_observable_perm ruft ZUERST tier_clear() (frischer Zustand) und bildet die
-//       Observer-Werte als DELTA (post − pre) — die Statistik-Zähler im search_organ_ sind per ABI nicht
-//       resetbar, also eliminiert die Delta-Bildung das kumulative Artefakt (search_lookup 2000→4000→…).
+//       Observer-Werte als DELTA (post − pre) — die Statistik-Zähler waren 2026-06-04 per ABI nicht resetbar,
+//       die Delta-Bildung eliminierte das kumulative Artefakt (search_lookup 2000→4000→…). Seit #216-H2
+//       (ABI Major 4) ergänzt der virtuelle Reset-Punkt tier_reset_statistics() diesen Delta-Ansatz.
 //   (B) Gesamt-Wall-Clock: steady_clock um insert+lookup → total_ns je Messung (Host-Messung, KEINE
 //       Baum-Knoten-Eigenschaft → reist NUR über PermResult/LazyMeasuredRow in die CSV, NICHT über ingest).
 //   (X) Echter per-Segment-Timer auf ALLE 19 Achsen: drive_segment_latencies() ruft das ABI-Sub-Interface

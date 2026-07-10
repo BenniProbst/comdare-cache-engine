@@ -7,7 +7,7 @@
 // (Schlegel/Gemulla/Lehner, DaMoN 2009) — Verallgemeinerung der Binaersuche: pro Iteration K gleichverteilte
 // Separatoren -> Partition in K+1 Segmente (ceil(log_(K+1) n) Iterationen). #188-4a macht die k_ary-search_algo-
 // Achse STORE-TRAVERSIERBAR (Weg-A): container_ fuehrt sie ueber DENSELBEN node/layout/allocator-getriebenen Store
-// (statt SortedBinary-Spiegel ueber search_organ_ / Weg-B). Damit misst die k_ary-Achse ihren ECHTEN Organ-Pfad
+// (statt vor #188 entferntem SortedBinary-Spiegel / Weg-B). Damit misst die k_ary-Achse ihren ECHTEN Organ-Pfad
 // (Meta-Lehre #3), nicht den eines Fremd-Apparats.
 //
 // **Organ-Disziplin (wie InterpolationTraversalOrgan):** KEIN Eigenspeicher. insert_into/erase_from/scan_into halten

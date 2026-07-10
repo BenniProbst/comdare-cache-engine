@@ -1428,8 +1428,8 @@ public:
                 if constexpr (requires {
                                   pf_organ_.observe_prefetch_descent(container_algorithm_.store(), std::size_t{});
                               }) {
-                    // #188-4c-iii: voller u64-Key direkt (der fruehere K-Roundtrip truncierte auf die schmale
-                    // search_organ_-Key-Breite und war damit INKONSISTENT zum Hot-Path :808/:866, der nie truncierte).
+                    // #188-4c-iii: voller u64-Key direkt (der fruehere K-Roundtrip truncierte im vor #188
+                    // entfernten Spiegelpfad und war damit INKONSISTENT zum Hot-Path :808/:866, der nie truncierte).
                     if (container_algorithm_.store().slot_count() != 0)
                         for (std::uint64_t i = 0; i < n_ops; ++i)
                             pf_organ_.observe_prefetch_descent(container_algorithm_.store(),

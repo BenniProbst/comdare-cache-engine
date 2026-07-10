@@ -1,7 +1,7 @@
 // M8-Basis (Befund-2-Weg-A) — store-traversierbare LinearScan-Komposition IN-PROCESS durch den abi_adapter.
 // Ergänzt test_pathb_segment_timer (das NUR Art/Hot/Masstree = Trie/Weg-B deckt) um den STORE-TRAVERSIERBAREN Fall
-// (LinearScan): belegt A2.5/Befund-2 für store-geroutete Suche literal + ist die Verifikations-Basis für die spätere
-// search_organ_-Voll-Entfernung (M8). Prüft: (1) tier_search_routes_through_store()==true; (2) Basis-Ops korrekt
+// (LinearScan): belegt A2.5/Befund-2 für store-geroutete Suche literal + ist die Verifikations-Basis der vollzogenen
+// search_organ_-Entfernung (#188-4c/M8). Prüft: (1) tier_search_routes_through_store()==true; (2) Basis-Ops korrekt
 // (Keys < 65536, LinearScanSearchAlgo key_type=uint16); (3) alle 19 seg_ns > 0 (deckt den Befund auf, dass die
 // seg_ns-Key-Ernte für NICHT-MementoAxis-store-traversierbare Tiere wie LinearScan ohne den container_-Harvest-Fix
 // auf nk=1 degeneriert → seg_ns einzelner Achsen = 0; mit dem Fix [abi_adapter fill_segment_timing_v3, Key-Ernte aus

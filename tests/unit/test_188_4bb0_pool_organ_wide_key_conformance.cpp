@@ -2,13 +2,13 @@
 // über einen WEITEN Schlüsselraum (inkl. Keys >= 2^16). GTest im Haupt-Suite (voller Organ-Include-Stack:
 // libs/cache_engine + include + src + generated; die Organe ziehen path_compression-Flags + measurement-Concepts).
 //
-// **Warum (Explore+Codex konvergent, Prerequisite für 4b-b1):** 4b-b1 stellt in `abi_adapter.hpp` für die 9
-// Pool-Familien `container_` von einem flachen SortedBinary-Spiegel auf `ObservableComposedContainer<
-// organ_for_search_algo_t<SearchAlgo>>` (das NATIVE u64-Organ) um und routet T0/lookup/insert/erase darüber.
-// Zwei Befunde machen diesen Test unverzichtbar VOR dem Eingriff:
+// **Warum (Explore+Codex konvergent, Prerequisite für 4b-b1; seit #188 vollzogen):** 4b-b1 stellte in
+// `abi_adapter.hpp` für die Pool-Familien `container_` von einem flachen SortedBinary-Spiegel auf
+// `ObservableComposedContainer<organ_for_search_algo_t<SearchAlgo>>` (das NATIVE u64-Organ) um und routet
+// T0/lookup/insert/erase darüber. Zwei Befunde machten diesen Test unverzichtbar:
 //   1. Der Produktions-Konformitäts-Gate (`builder/pruef_dock/conformance_gate.hpp`) ist TRUNCATION-BLIND —
-//      er testet nur Keys < 2^16 (rng()%256, 7/999/42). Er würde weder die u8/u16-Truncation der heutigen
-//      Monolith-Wrapper (search_organ_) noch deren Fix durch das u64-Organ je auslösen.
+//      er testet nur Keys < 2^16 (rng()%256, 7/999/42). Er würde weder die u8/u16-Truncation der damaligen
+//      Monolith-Spiegel noch deren Fix durch das u64-Organ je auslösen.
 //   2. Die 10 Pool-Organe (BstTreeOrgan, HashSearchOrgan, …) werden von KEINER Reference-Composition benutzt
 //      und sind daher VERHALTENS-mäßig nie gegen std::map gate-getestet (nur Typ-static_asserts in
 //      organ_for_search_algo.hpp). Der Swap darf ein bislang grünes (weil truncation-blindes) Binary NICHT
@@ -20,7 +20,7 @@
 // UINT64_MAX, (c) explizite Truncation-Probe: Keys 0 und 65536 (die ein u16-Substrat aliasen würde) distinkt.
 //
 // Additiv/gate-frei: berührt WEDER den abi_adapter NOCH den Produktions-Konformitäts-Gate (dessen Erweiterung
-// auf weite Keys würde die heutigen u16-Monolith-Binaries brechen — daher hier organ-direkt, nicht am Gate).
+// auf weite Keys hätte die damaligen u16-Monolith-Binaries gebrochen — daher hier organ-direkt, nicht am Gate).
 
 #include <axes/lookup/composable/organ_for_search_algo.hpp>         // organ_for_search_algo_t + 9 Wrapper-Fwd + Organe
 #include <axes/lookup/composable/observable_composed_container.hpp> // ObservableComposedContainer<Organ>

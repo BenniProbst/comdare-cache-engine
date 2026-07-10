@@ -3,8 +3,9 @@
 // search_algo-Organ der Komposition (Composition::search_algo) und treibt es als MENGE (K=V): insert(k)=
 // insert(k,k), contains(k)=lookup(k).has_value(), erase(k). Liefert observe_all → SetObserverSnapshot.
 //
-// Leichtgewichtig: nutzt NUR Composition::search_algo direkt (kein ComposedStore/Umbrella) — analog zur Art,
-// wie SearchAlgorithmAbiAdapter `SearchAlgo search_organ_` hält. Die 15 Set-Achsen sind die Komposition-Identität;
+// Leichtgewichtig: nutzt NUR Composition::search_algo direkt (kein ComposedStore/Umbrella); der
+// SearchAlgorithmAbiAdapter treibt seit #188-4c den konstitutiven Zustand über container_algorithm_. Die 15 Set-Achsen
+// sind die Komposition-Identität;
 // real getrieben ist das search_algo-Kern-Organ (R5.B-Grenze ehrlich, wie SearchAlgorithm). Doku 14 §27.2/§28/§32.
 
 #include "anatomy_base.hpp"    // AnatomyGenus

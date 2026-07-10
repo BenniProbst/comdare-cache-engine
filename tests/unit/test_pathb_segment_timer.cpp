@@ -1,6 +1,6 @@
 // Plan v2 Schritt 2/3 (2026-06-04) / I1 (2026-06-05): BUILD-VERIFIKATION des Pfad-B Per-Achsen-TIMINGS über die
 // EINE konsolidierte tier_observe(ComdareTierObserverSnapshot*) (axis_stats[19][8] + seg_ns[19]) über die EINE
-// REALE, befüllte composite-Tier-Struktur (search_organ_ + container_.chunks_ via layout-honorierender Store).
+// REALE, befüllte composite-Tier-Struktur (container_algorithm_ + Instanz-Organe via layout-honorierender Store).
 // KEIN synthetischer Puffer. Prüft literal: (1) alle 19 seg_ns > 0 (jede Achse real getrieben); (2) Korrelation
 // Observer>0 ⇒ seg_ns>0 (Observer + Timer aus DERSELBEN realen Struktur, EIN POD); (3) DATA-Neutralität (tier_size
 // + lookup unverändert nach dem Observe → memento-sicher); (4) Tier-Variation (Art/Hot/Masstree differieren in ≥1 Achse).
