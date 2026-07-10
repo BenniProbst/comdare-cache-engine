@@ -116,6 +116,8 @@ endif()
 # Targets existieren; so bleibt die Fassade in libs/cache_engine/profile_facade.
 cmake_language(DEFER DIRECTORY "${PROJECT_SOURCE_DIR}" CALL target_link_libraries
     comdare_profile_run_facade PRIVATE comdare_builder_xml_config_parser ${_facade_adapter_targets})
+cmake_language(DEFER DIRECTORY "${PROJECT_SOURCE_DIR}" CALL comdare_attach_generated_catalog
+    comdare_profile_run_facade)
 
 if(COMMAND comdare_set_platform_defines)
     comdare_set_platform_defines(comdare_profile_run_facade)

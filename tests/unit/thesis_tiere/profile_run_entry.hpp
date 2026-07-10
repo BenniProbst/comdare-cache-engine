@@ -20,8 +20,9 @@
 // ⚠️ Katalog-/Umbrella-schwer (source_catalog.hpp zieht den all_axes_umbrella) → gehoert in die HARNESS-/Test-
 //    .cpp (run_lazy_150.cpp / test_*), NICHT in den engine-agnostischen Treiber-Header. C++23, header-only.
 
-#include "source_catalog.hpp" // make_catalog_source_gen / FullSourceCatalog (S4b, Basis-320-Quelle)
-#include "sota_catalog.hpp"   // build_sota_passes / build_sota_view_source_map / kSotaTierAxis (S6/S7b)
+#include "generated_source_catalog.hpp" // generated_make_catalog_source_gen (Basis-320-Quelle)
+#include "source_catalog.hpp"           // axis_sweep_source_map / axis_sweep_levels (Sweep-Quellen)
+#include "sota_catalog.hpp"             // build_sota_passes / build_sota_view_source_map / kSotaTierAxis (S6/S7b)
 #include "profile_runner.hpp" // load_thesis_profile / build_profile_basis_levels / profile_select / make_union_source_gen
 
 #include <builder/experiment_tree/cache_engine_builder_iterator.hpp> // run_lazy_static_then_dynamic / lazy_csv_header / LazyRunConfig
@@ -155,9 +156,8 @@ struct RunProfileResult {
     //    die Baseline-DLL, die identisch ist → idempotent). SOTA liegt im disjunkten "sota_tier=…"-Raum.
     std::map<std::string, std::string> fused = make_all_axis_sweeps_source_map(); // ~16 vertiefte-Achsen-Eintraege
     for (auto& [k, v] : build_sota_view_source_map(tp)) fused.emplace(k, std::move(v)); // + SOTA-Reihen (disjunkt)
-    ex::SourceGenFn const union_gen =
-        make_union_source_gen(make_catalog_source_gen<FullSourceCatalog>(), std::move(fused));
-    ex::FreeRamFn ram = ex::make_system_free_ram_fn();
+    ex::SourceGenFn const union_gen = make_union_source_gen(generated_make_catalog_source_gen(), std::move(fused));
+    ex::FreeRamFn         ram       = ex::make_system_free_ram_fn();
 
     // ── (4) Working-Set-Sweep = die aeussere N-Liste (gilt fuer BEIDE Subsets identisch). Override ⇒ EIN N. ──
     std::vector<std::uint64_t> n_sweep;
