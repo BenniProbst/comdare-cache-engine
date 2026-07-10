@@ -37,6 +37,11 @@ ein langsamer, fragiler ctest-Eintrag ist KEIN Gewinn gegenüber der dokumentier
 Jeder Test hat ein committetes Build-+Run-Skript. `cmake --preset msvc-release` (Configure) muss einmal
 gelaufen sein (erzeugt `build/msvc-release/generated/`). Dann je Test:
 
+> **Limits-Entkopplung (2026-07-10):** `profile_run_entry.hpp` konsumiert seit der Produktivumschaltung den
+> BUILD-zeitigen `generated_source_catalog.hpp`. Die Skripte `build_run_profile_union.ps1` und
+> `build_and_measure_150_tiere.ps1` bauen das Codegen-Target `comdare_limits_generated_source_catalog`
+> deshalb selbst idempotent mit (regeneriert auch bei geaendertem `m3v2_study.profile.xml`).
+
 | Test (`*.cpp`)              | Build-/Run-Skript                | Inhalt | DLL-Bau |
 |-----------------------------|----------------------------------|--------|---------|
 | `test_validate_profile`     | `build_validate_profile.ps1`     | rein-lesende `--validate`-Gate (m3v2-Profil ok / Tippfehler gefangen) | nein |

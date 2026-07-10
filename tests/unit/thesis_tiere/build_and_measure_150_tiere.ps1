@@ -65,6 +65,12 @@ $permDll = $permBase
 New-Item -ItemType Directory -Force $out, $work, $permBase | Out-Null
 if (!(Test-Path $gen)) { Write-Output "generated/ fehlt (CMake configure): $gen"; exit 3 }
 
+# Limits-Entkopplung (2026-07-10, Review wf_1009d16f): profile_run_entry.hpp konsumiert den BUILD-zeitigen
+# generated_source_catalog.hpp — Codegen-Target idempotent mitbauen (DEPENDS regeneriert bei Profil-XML-
+# Aenderung; verhindert C1083 auf frischem Tree UND stille stale Kataloge nach Profil-Edit).
+& cmake --build (Split-Path $gen) --target comdare_limits_generated_source_catalog | Out-Host
+if ($LASTEXITCODE -ne 0) { Write-Output "ABBRUCH: comdare_limits_generated_source_catalog fehlgeschlagen"; exit 3 }
+
 # GOAL-M1.3 (Audit: Re-Entry-Drift + unvalidiertes env): Workload-Achse HIER pinnen + validieren.
 if ([string]::IsNullOrEmpty($LoadProfileDir)) {
     $LoadProfileDir = Join-Path $repo "libs\cache_engine\algorithm_profiles\load_profiles"
