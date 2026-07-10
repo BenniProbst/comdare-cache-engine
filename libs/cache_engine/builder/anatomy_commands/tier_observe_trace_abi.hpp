@@ -84,7 +84,7 @@ namespace detail {
 /// gemessene Phase-2-Op logischen Fortschritt ⇒ End-Zustand + Observer-Zähler identisch zur Einphasen-Messung.
 /// QUALIFIZIERUNG (G5-Audit w289llo0o): „identisch" gilt für die nicht-auto-gekoppelten Achsen-Zähler (z.B. T0/T6).
 /// Die 8 auto-gekoppelten Sekundär-Achsen zählen je logischer Op ZWEIMAL (Warmup-Op + Mess-Op tragen je in deren
-/// gekoppelte Zähler ein, da der Rollback nur den materialisierten search_organ_/container_-Zustand zurückrollt, nicht
+/// gekoppelte Zähler ein, da der Rollback nur den materialisierten container_algorithm_-Zustand zurückrollt, nicht
 /// die gekoppelten Observer-Counter) → für sie ist der Zählerstand NICHT bit-identisch zur Einphasen-Messung. Vgl. Doc 33 §2.
 /// V5-Audit-Härtung: EMPIRISCHE Rollback-Exaktheits-Probe über das ABI (KEINE Interface-Erweiterung nötig).
 /// save-all(leer) → Mutation → rollback-all → ist der leere Zustand exakt wiederhergestellt? Adressiert die

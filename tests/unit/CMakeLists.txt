@@ -2468,3 +2468,22 @@ comdare_set_platform_defines(test_e3_contract_binary_id_bijektion)
 add_test(NAME test_e3_contract_binary_id_bijektion COMMAND test_e3_contract_binary_id_bijektion)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e3_contract_binary_id_bijektion)
 set_tests_properties(test_e3_contract_binary_id_bijektion PROPERTIES LABELS "e3;tree")
+
+# Schicht E2 Paket B - ABI-Vertrag gegen die bestehende Wormhole-Referenz-DLL.
+add_executable(test_e2_contract_abi_vertrag "test_e2_contract_abi_vertrag.cpp")
+target_compile_features(test_e2_contract_abi_vertrag PRIVATE cxx_std_23)
+target_include_directories(test_e2_contract_abi_vertrag PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_e2_contract_abi_vertrag PRIVATE comdare::anatomy_module_loader)
+comdare_set_platform_defines(test_e2_contract_abi_vertrag)
+target_compile_definitions(test_e2_contract_abi_vertrag PRIVATE
+    "COMDARE_E2_PILOT_DLL=\"$<TARGET_FILE:anatomy_codegen_pilot_wormhole_shared>\"")
+add_dependencies(test_e2_contract_abi_vertrag anatomy_codegen_pilot_wormhole_shared)
+add_test(NAME test_e2_contract_abi_vertrag COMMAND test_e2_contract_abi_vertrag)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e2_contract_abi_vertrag)
+set_tests_properties(test_e2_contract_abi_vertrag PROPERTIES LABELS "e2;abi")

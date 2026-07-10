@@ -59,7 +59,7 @@ public:
     // (E-Welle-A2 / Befund-2 / #188-4a-C5, 2026-06-29) k-ary ist Array-Familie (flacher SORTIERTER Store). Das TREUE
     // Traversal-Organ KAryTraversal<Arity> (axes/lookup/composable/k_ary_traversal_organ.hpp) ist compile-time +
     // std::map-konform (test_conformance_gate, k_ary<Arity=2/4/8/16> alle grün). AKTIVIERT (Weg-A): container_ führt
-    // k-ary über DENSELBEN node/layout/allocator-LayoutAwareChunkedStore statt SortedBinary-Spiegel via search_organ_
+    // k-ary über DENSELBEN node/layout/allocator-LayoutAwareChunkedStore statt vor #188 entferntem SortedBinary-Spiegel
     // (Meta-Lehre #3 erfüllt). K-Variation = COMPILE-TIME-Permutation (User-Entscheid SE-13, KEIN Runtime-Kanal — der
     // wurde verworfen): der per-K-StaticAxisNode-Build (profile_to_tree) emittiert K∈{2,4,8,16} als EIGENE Binaries
     // (je KAryTraversal<K>). Default-Mapping = KAryTraversal<4u> (traversal_for_search_algo); per-K-Build = Folgestufe

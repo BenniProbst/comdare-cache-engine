@@ -11,16 +11,18 @@
 // `axis_03a_search_algo_registry.hpp`):**
 //   • Array-/Flach-Familie → ComposedSearch<Traversal, RawSlotStore> (flach) → STORE-TRAVERSIERBAR.
 //     #188-4c-ii: Array256/Array65535 via DirectAddressTraversal, VectorU8U8/VectorU16U16 via SortedVectorTraversal.
-//   • Tree/Trie/Hash-Familie → Composed*Search<Traversal, *NodePoolStore> → (noch) NICHT flach-traversierbar
-//     (das Pool-Substrat IST der Algorithmus); diese Tiere laufen DERZEIT über search_organ_ (Weg-B).
+//   • Tree/Trie/Hash-Familie → Composed*Search<Traversal, *NodePoolStore> → NICHT flach-traversierbar
+//     (das Pool-Substrat IST der Algorithmus); diese Tiere laufen seit #188-4b/#188-4c über ihr natives
+//     Organ im container_algorithm_ (Weg-B), ohne separate search_organ_-Spiegelung.
 //
-// ⚠️ ARCHITEKTUR-SOLL (Doc 30 §6 Q2 + User-Direktive A10, 2026-06-25, Task #188): die separate
-// search_organ_/container_-Aufteilung ist ein BUG, KEIN gewolltes Design — „Q2 ist ein Bug, kein Geschmack"
-// (Doc 30:125). Der Soll (Doc 30:111) ist EIN Speicher: `container_` trägt das ECHTE
-// `Composition::search_algo` für ALLE Familien, `search_organ_` ENTFÄLLT (Q2 Schritt 4 = OFFEN). Die hiesige
-// Weg-B-Klassifikation ist ein TEMPORÄRER Stopgap bis zum container_-ComposedSearch-Substrat-Umbau
+// ARCHITEKTUR-STAND seit #188-4c (Doc 30 §6 Q2 + User-Direktive A10, 2026-06-25, Task #188): die separate
+// search_organ_/container_-Aufteilung war ein BUG, KEIN gewolltes Design — „Q2 ist ein Bug, kein Geschmack"
+// (Doc 30:125). Der Soll (Doc 30:111) ist umgesetzt: EIN Speicher; `container_algorithm_` trägt das treue
+// Organ/Traversal des `Composition::search_algo` für ALLE Familien (Pool-Familien via ObservableComposedContainer,
+// flache Familien via ObservableComposedSearch), `search_organ_` ist entfallen. Die hiesige Weg-B-Klassifikation
+// beschreibt nur noch die Substrat-Form („natives Pool-Organ" statt „flacher Store-Traversal")
 // (#188 Inkremente 4a k-ary/Eytzinger-Traversal-Organe · 4b Pool-Familie über node/layout/allocator ·
-// 4c search_organ_-Entfernung) — KEINE dauerhafte „ehrliche Limitierung".
+// 4c search_organ_-Entfernung) — keine Q2-Stopgap-Limitierung mehr.
 //
 // **Marker-basiert (KEIN Raten, Meta-Lehre #1/#2):** jeder store-traversierbare search_algo-Wrapper trägt
 // `static constexpr bool axis_03a_store_traversable = true;` — je Wrapper am Code verifiziert, NICHT pauschal.
@@ -43,8 +45,8 @@ inline constexpr bool store_traversable_search_algo_v = requires {
         return false;
 }();
 
-// Concept: S sucht über einen flachen Slot-Store (Array-Familie) → in A2.5 wird container_t-Traversal = das zu S
-// passende Array-Traversal-Organ (statt hart-verdrahtetem SortedBinary), search_organ_ entfällt für S.
+// Concept: S sucht über einen flachen Slot-Store (Array-Familie) → seit #188-4c ist container_t-Traversal = das zu S
+// passende Array-Traversal-Organ (statt hart-verdrahtetem SortedBinary); search_organ_ ist für S entfallen.
 template <class S>
 concept StoreTraversableSearchAlgo = store_traversable_search_algo_v<S>;
 
