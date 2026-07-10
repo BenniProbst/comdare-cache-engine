@@ -18,6 +18,7 @@
 #include <measurement/measurable_concept.hpp>                                    // MeasurableObserver
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 
 namespace comdare::cache_engine::lookup::composable {
@@ -35,7 +36,13 @@ public:
 
     /// insert mit rekonstruiertem inserted-Flag (ComposedSearch::insert ist void) — insert_or_assign-Semantik.
     bool insert(key_type k, value_type v) {
-        bool const is_new = !search_.lookup(k).has_value();
+        bool const is_new          = !search_.lookup(k).has_value();
+        last_insert_budget_reject_ = false;
+        if (is_new && !runtime_budget_allows_growth_()) {
+            note_runtime_pool_budget_rejection_();
+            last_insert_budget_reject_ = true;
+            return false;
+        }
         search_.insert(k, v);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_insert_count;
@@ -102,6 +109,14 @@ public:
     // Verifikation (tier1-Fuellstand). Additiv, bestehende Schnittstelle unveraendert.
     [[nodiscard]] Store&       store_mut() noexcept { return search_.store_mut(); }
     [[nodiscard]] Store const& store() const noexcept { return search_.store(); }
+
+    // Observer-Strategy (M2, Dossier 18 A.3): set_runtime_pool_budget ist die austauschbare
+    // Wirkungs-Strategie der Achse; Min/Max-Semantik: weniger Fragmentierung vs. Alloc-Durchsatz.
+    void set_runtime_pool_budget(std::uint64_t budget_bytes) noexcept
+        requires requires(Store& s) { s.set_runtime_pool_budget(budget_bytes); }
+    {
+        search_.store_mut().set_runtime_pool_budget(budget_bytes);
+    }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = ce_concepts::SearchAlgoStatistics;
@@ -231,6 +246,28 @@ public:
     }
 
 private:
+public:
+    /// A2-Signal (Review wf_3017934d): unterscheidet Budget-Reject (KEINE Mutation) vom Duplicate-Upsert
+    /// (false-Rueckgabe, aber realer Wert-Update) -- der Adapter darf NUR beim Reject die Kopplungen skippen.
+    [[nodiscard]] bool last_insert_was_budget_reject() const noexcept { return last_insert_budget_reject_; }
+
+private:
+    bool last_insert_budget_reject_ = false;
+
+    [[nodiscard]] bool runtime_budget_allows_growth_() const noexcept {
+        if constexpr (requires(Store const& s) { s.runtime_budget_allows_growth(); }) {
+            return search_.store().runtime_budget_allows_growth();
+        } else {
+            return true;
+        }
+    }
+
+    void note_runtime_pool_budget_rejection_() noexcept {
+        if constexpr (requires(Store& s) { s.note_runtime_pool_budget_rejection(); }) {
+            search_.store_mut().note_runtime_pool_budget_rejection();
+        }
+    }
+
     ComposedSearch<Traversal, Store> search_{};
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable snapshot_t stats_{};

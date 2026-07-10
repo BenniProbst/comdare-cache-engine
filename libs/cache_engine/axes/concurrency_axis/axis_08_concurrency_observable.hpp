@@ -77,12 +77,30 @@ public:
         return Strategy::get_compiler();
     }
 
+    // Observer-Strategy (M2, Dossier 18 A.3): set_runtime_thread_count ist die austauschbare
+    // Wirkungs-Strategie der Achse; Min/Max-Semantik: Multicore-Durchsatz vs. Contention.
+    void set_runtime_thread_count(std::uint64_t thread_count) noexcept {
+        runtime_thread_count_ = thread_count > 64u ? 64u : static_cast<std::uint32_t>(thread_count);
+    }
+    [[nodiscard]] std::uint32_t runtime_thread_count() const noexcept {
+        return runtime_thread_count_ == 0 ? 1u : runtime_thread_count_;
+    }
+
     /// Mess-Kopplung (der eigentliche „Driver"): treibt das ECHTE statische Synchronisations-Primitiv der
     /// Strategie (acquire→Mini-Critical-Section-Eintritt) und zählt. Gepaart mit release() zu nutzen.
     void acquire() noexcept {
-        if constexpr (requires { Strategy::acquire(); }) Strategy::acquire();
+        bool contented = false;
+        if constexpr (requires { Strategy::try_acquire(); }) {
+            if (!Strategy::try_acquire()) {
+                contented = true;
+                Strategy::acquire();
+            }
+        } else if constexpr (requires { Strategy::acquire(); }) {
+            Strategy::acquire();
+        }
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.acquire_count;
+        if (contented) ++stats_.contention_count;
         stats_.pattern_id = static_cast<std::uint64_t>(static_cast<int>(Strategy::concurrency_pattern()));
 #endif
     }
@@ -107,8 +125,12 @@ public:
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
     // reset() = Statistik-Reset (Memory-Regel). pattern_id wird beim nächsten acquire() neu gesetzt.
     void reset() noexcept { stats_ = {}; }
+#endif
 
 private:
+    std::uint32_t runtime_thread_count_ = 0;
+
+#ifdef COMDARE_CE_ENABLE_STATISTICS
     snapshot_t stats_{};
 #endif
 };

@@ -209,6 +209,7 @@ public:
     // der Host-Loop (RuntimeVariableLoop) quert die Caps + wendet je dyn. Einstellung an (kein Reload). apply klammert
     // an die Caps + merkt die zuletzt angewandte Steuerung (applied_rc_). Eigenständiges Sub-Interface (dynamic_cast).
     // ─────────────────────────────────────────────────────────────────────
+    // VERTRAGS-FREEZE (Ledger §4:94, Schicht E1): Signaturen+POD+caps eingefroren; Semantik-Aenderungen nur additiv.
     void tier_query_resource_caps(ComdareResourceControlV1* out_caps) const noexcept override {
         if (out_caps == nullptr) return;
         *out_caps                         = ComdareResourceControlV1{};
@@ -225,20 +226,25 @@ public:
         tier_query_resource_caps(&caps);
         std::uint64_t applied = 0;
         auto          apply1  = [&applied](std::uint64_t v, std::uint64_t cap, std::uint64_t& dst) noexcept {
-            if (v != 0) {
-                dst = (cap != 0 && v > cap) ? cap : v;
-                ++applied;
-            } // 0 = Default beibehalten; sonst an cap klammern
+            dst = (v == 0 || cap == 0 || v <= cap) ? v : cap;
+            if (v != 0) ++applied;
         };
         apply1(in->thread_count, caps.thread_count, applied_rc_.thread_count);
         apply1(in->prefetch_distance, caps.prefetch_distance, applied_rc_.prefetch_distance);
         apply1(in->pool_budget_bytes, caps.pool_budget_bytes, applied_rc_.pool_budget_bytes);
         apply1(in->batch_size, caps.batch_size, applied_rc_.batch_size);
         apply1(in->inline_threshold_bytes, caps.inline_threshold_bytes, applied_rc_.inline_threshold_bytes);
-        // RC-prefetch_distance = Laufzeit-Distanz-Override am realen Store-Prefetch;
-        // #229-Folge = die 4 übrigen RC-Achsen + KF-5-§7-Voll-API.
+        if constexpr (requires { cc_organ_.set_runtime_thread_count(std::uint64_t{}); }) {
+            cc_organ_.set_runtime_thread_count(applied_rc_.thread_count);
+        }
         if constexpr (requires { pf_organ_.set_runtime_distance(std::uint32_t{}); }) {
             pf_organ_.set_runtime_distance(static_cast<std::uint32_t>(applied_rc_.prefetch_distance));
+        }
+        if constexpr (requires { container_algorithm_.set_runtime_pool_budget(std::uint64_t{}); }) {
+            container_algorithm_.set_runtime_pool_budget(applied_rc_.pool_budget_bytes);
+        }
+        if constexpr (requires { vh_organ_.set_runtime_inline_threshold(std::uint64_t{}); }) {
+            vh_organ_.set_runtime_inline_threshold(applied_rc_.inline_threshold_bytes);
         }
         return applied;
     }
@@ -826,6 +832,11 @@ public:
         // #188-4c-iii (2026-07-02): EIN Speicher, konstitutiv. container_algorithm_ ist die einzige T0-Datenquelle
         // (flacher Store mit Such-Traversal, native Organ-Huelle oder bereits observable SearchAlgo-Huelle).
         bool const m8_new_flag = container_algorithm_.insert(key, value);
+        // A2 (Review wf_3017934d): NUR der Budget-Reject (keine Mutation) skippt die Kopplungen; der
+        // Duplicate-Upsert (false, aber realer Update) treibt sie weiter wie vor #221 (sonst stale vh/T8-Kollaps).
+        if constexpr (requires { container_algorithm_.last_insert_was_budget_reject(); }) {
+            if (!m8_new_flag && container_algorithm_.last_insert_was_budget_reject()) return false;
+        }
 #if COMDARE_MEASUREMENT_ON
         // ── K10-PMAJOR-04 (2026-06-18): ALLE Observer-feeding Auto-Kopplungen NUR im Mess-Build ──────────────
         // Diese Kopplungen (telemetry/ct/map/q1/q2/cc/pf/pc/flt/vh) speisen AUSSCHLIESSLICH den Observer
@@ -994,10 +1005,42 @@ public:
     }
 
 #if COMDARE_MEASUREMENT_ON // V5-I2.2: tier_observe (observer_all) NUR bei Messung-AN
-    // ─────────────────────────────────────────────────────────────────────
+                           // ─────────────────────────────────────────────────────────────────────
     // IObservableTier / Observer (MESSUNG-AN) — liegt physisch im IDriveableTier-Block: fill_observer_v3 +
     // fill_segment_timing_v3 + tier_observe (Q1-Sequenz: Observer-READ → Pfad-B-Timing → per-op-Organ-Reset).
     // ─────────────────────────────────────────────────────────────────────
+    struct t1_segment_shape_t {
+        std::uint64_t batch_size   = 256;
+        std::uint64_t n_ops        = 256;
+        std::uint64_t batch_count  = 8;
+        std::uint64_t visited_keys = 2048;
+    };
+
+    [[nodiscard]] std::uint64_t segment_key_count_for_timing_() const noexcept {
+        std::uint64_t n = 0;
+        if constexpr (requires { container_algorithm_.save_state().data; }) {
+            n = static_cast<std::uint64_t>(container_algorithm_.occupied_count());
+        } else if constexpr (requires { container_algorithm_.for_each_record([](std::uint64_t, std::uint64_t){}); }) {
+            n = static_cast<std::uint64_t>(container_algorithm_.occupied_count());
+        }
+        return n == 0 ? 1u : n;
+    }
+
+    // RC-batch_size = FENSTER-Semantik (Review wf_3017934d, CONFIRMED-critical gefixt): die Batch-Anzahl
+    // bleibt FIX bei 8 (P-MD3-Coverage-Invariante, kommensurabel zu allen Alt-Reihen); batch_size steuert die
+    // Ops JE Batch (kleines Key-Fenster je Batch = echte MIN-Cache-Miss-Wirkung), die Fenster-Basis rotiert
+    // pro Batch. RC=0 => byte-gleich zum Alt-Pfad (max(keys,256) Ops x 8). Gesamtarbeit SINKT mit kleinem
+    // batch_size (8*B statt 8*n_ops) -- kein Pipeline-Hang moeglich.
+    [[nodiscard]] t1_segment_shape_t t1_segment_shape_(std::uint64_t key_count) const noexcept {
+        constexpr std::uint64_t kDefaultBatchCount = 8;
+        std::uint64_t const     default_ops        = std::max<std::uint64_t>(key_count, 256u);
+        std::uint64_t const     ops_per_batch =
+            applied_rc_.batch_size == 0 ? default_ops : std::max<std::uint64_t>(1u, applied_rc_.batch_size);
+        // r[6] weist die EFFEKTIV gefahrene Fenster-Groesse aus (ehrlich: das, was gemessen wurde).
+        return t1_segment_shape_t{ops_per_batch, ops_per_batch, kDefaultBatchCount,
+                                  ops_per_batch * kDefaultBatchCount};
+    }
+
     // I1 (2026-06-05): der frühere V1-Observe + die V2-Observer-Fill/Override-Methoden (eigenes V2-Sub-Interface)
     // sind ENTFERNT. Ihre Felder sind im konsolidierten POD subsumiert (V1 search→axis_stats[0], alloc→[6]; V2
     // telemetry→[10], layout→[5], serialization→[9], node_type→[4]). Rationale: docs/architecture/31_observer_interface_konsolidierung_i1.md.
@@ -1037,12 +1080,17 @@ public:
         if constexpr (ObservableAxis<typename Composition::cache_traversal>) {
             auto const ct = ct_organ_.statistics();
             auto*      r  = s.axis_stats[1];
+            static_assert(std::string_view{kV3AxisSchema[1].names[6]} == std::string_view{"batch_size"});
+            static_assert(std::string_view{kV3AxisSchema[1].names[7]} == std::string_view{"batch_visited"});
             r[0]          = ct.total_resolve_count;
             r[1]          = ct.total_resolve_hit_count;
             r[2]          = ct.total_resolve_miss_count;
             r[3]          = ct.total_register_count;
             r[4]          = ct.total_unregister_count;
             r[5]          = ct.peak_tracked;
+            auto const t1 = t1_segment_shape_(segment_key_count_for_timing_());
+            r[6]          = t1.batch_size;
+            r[7]          = t1.visited_keys;
             ++filled;
         }
         // ── T2 mapping (Phase A neu) ────────────────────────────────────────────────────────────────────
@@ -1098,11 +1146,15 @@ public:
                               a.deallocation_count;
                               a.failure_count;
                           }) {
+                static_assert(std::string_view{kV3AxisSchema[6].names[5]} == std::string_view{"budget_reject"});
                 r[0] = a.total_bytes_allocated;
                 r[1] = a.total_bytes_in_use;
                 r[2] = a.allocation_count;
                 r[3] = a.deallocation_count;
                 r[4] = a.failure_count;
+                if constexpr (requires { container_algorithm_.store().runtime_pool_budget_rejections(); }) {
+                    r[5] = container_algorithm_.store().runtime_pool_budget_rejections();
+                }
                 ++filled;
             } else if constexpr (requires {
                                      a.bytes_allocated;
@@ -1342,19 +1394,21 @@ public:
             // #278 (2026-07-06): Mindest-Op-Zahl je Batch gegen Clock-Aufloesung/Framework-Fixkosten. Walk-lose
             // Huellen (Masstree: keys={0} -> nk=1) fuhren 1 Op je Segment -> 9µs-Lauf, framework_share 42%,
             // P-MD3-Abnahme (Coverage > 0.90) physikalisch unerreichbar. Zyklisches Wiederholen derselben Ops
-            // (keys[i % nk]) aendert die Mess-Semantik nicht, amortisiert nur die Fixkosten (Batch-weise fuer
+            // (keys[(t1_base + i) % nk]) aendert die Mess-Semantik nicht, amortisiert nur die Fixkosten (Batch-weise fuer
             // ALLE Achsen desselben Laufs -> kommensurabel).
-            std::uint64_t const     n_ops    = std::max<std::uint64_t>(static_cast<std::uint64_t>(nk), 256u);
-            constexpr std::uint64_t kBatches = 8;
-            std::int64_t            acc[19]  = {};
-            std::uint64_t           sink     = 0;
+            auto const          t1_shape = t1_segment_shape_(static_cast<std::uint64_t>(nk));
+            std::uint64_t const n_ops    = t1_shape.n_ops; // Ops JE Batch (Fenster-Groesse)
+            std::uint64_t const batches  = t1_shape.batch_count;
+            std::uint64_t       t1_base  = 0; // rotierende Fenster-Basis (vom Batch-Loop gesetzt)
+            std::int64_t        acc[19]  = {};
+            std::uint64_t       sink     = 0;
 
             auto do_batch = [&]() {
                 clock::time_point t0, t1;
                 // T0 search_algo: echte Lookups auf dem real befuellten container_algorithm_.
                 t0 = clock::now();
                 for (std::uint64_t i = 0; i < n_ops; ++i) {
-                    auto v = container_algorithm_.lookup(keys[i % nk]);
+                    auto v = container_algorithm_.lookup(keys[(t1_base + i) % nk]);
                     if (v) sink += static_cast<std::uint64_t>(*v);
                 }
                 t1 = clock::now();
@@ -1364,7 +1418,7 @@ public:
                 if constexpr (requires { ct_organ_.resolve(typename Composition::cache_traversal::key_type{}); }) {
                     for (std::uint64_t i = 0; i < n_ops; ++i) {
                         auto v = ct_organ_.resolve(
-                            static_cast<typename Composition::cache_traversal::key_type>(keys[i % nk]));
+                            static_cast<typename Composition::cache_traversal::key_type>(keys[(t1_base + i) % nk]));
                         if (v) sink += static_cast<std::uint64_t>(*v);
                     }
                 }
@@ -1377,7 +1431,7 @@ public:
                               }) {
                     for (std::uint64_t i = 0; i < n_ops; ++i) {
                         auto o = map_organ_.resolve_offset(
-                            static_cast<typename Composition::mapping::slot_index_type>(keys[i % nk]));
+                            static_cast<typename Composition::mapping::slot_index_type>(keys[(t1_base + i) % nk]));
                         if (o) sink += static_cast<std::uint64_t>(*o);
                     }
                 }
@@ -1387,7 +1441,7 @@ public:
                 t0 = clock::now();
                 if constexpr (requires { pc_organ_.compress(std::uint64_t{}, 0u); }) {
                     for (std::uint64_t i = 0; i < n_ops; ++i)
-                        sink += static_cast<std::uint64_t>(pc_organ_.compress(keys[i % nk], 0u));
+                        sink += static_cast<std::uint64_t>(pc_organ_.compress(keys[(t1_base + i) % nk], 0u));
                 }
                 t1 = clock::now();
                 acc[3] += dns(t0, t1);
@@ -1433,7 +1487,7 @@ public:
                     if (container_algorithm_.store().slot_count() != 0)
                         for (std::uint64_t i = 0; i < n_ops; ++i)
                             pf_organ_.observe_prefetch_descent(container_algorithm_.store(),
-                                                               descent_slot_for_(keys[i % nk]));
+                                                               descent_slot_for_(keys[(t1_base + i) % nk]));
                 }
                 t1 = clock::now();
                 acc[7] += dns(t0, t1);
@@ -1542,14 +1596,17 @@ public:
                 acc[18] += dns(t0, t1);
             };
 
-            do_batch(); // Warmup (verworfen)
+            do_batch(); // Warmup (verworfen, Basis 0)
             for (auto& a : acc) a = 0;
             // P-MD3 (Coverage-Versöhnung): ÄUSSERE Wall-Clock um die gemessenen (Nicht-Warmup-)Batches. Sie erfasst
             // ALLES — die 19 Segment-Timer UND den Rest dazwischen (rng, Schleifen-/Branch-/if-constexpr-Overhead,
             // die Lücken zwischen aufeinanderfolgenden clock::now()-Paaren). seg_run_total_ns ist damit der
             // KOMMENSURABLE Nenner für die Coverage des Segment-Laufs; seg_framework_ns der explizite, benannte Rest.
             clock::time_point const run_t0 = clock::now();
-            for (std::uint64_t b = 0; b < kBatches; ++b) do_batch();
+            for (std::uint64_t b = 0; b < batches; ++b) {
+                t1_base = b * n_ops; // Fenster rotiert; RC=0: volle Passes wie Alt (Basis wirkt via % nk)
+                do_batch();
+            }
             clock::time_point const run_t1 = clock::now();
 
             std::int64_t total = 0;
@@ -1559,7 +1616,7 @@ public:
             }
             if (sink == ~0ull) out->seg_ns[0] ^= 1; // sink-Schutz gegen Wegoptimierung (verfälscht total NICHT)
             out->total_ns         = total;
-            out->batches_measured = kBatches;
+            out->batches_measured = batches;
             // P-MD3: Σseg_ns + seg_framework_ns ≡ seg_run_total_ns. seg_framework_ns >= 0 by-construction (die äußere
             // Wall-Clock umschließt alle inneren Segment-Spannen); ein theoretischer Mess-Jitter (innere Summe knapp
             // über äußere) wird auf 0 geklemmt, damit der benannte Rest nie negativ in die Coverage geht.

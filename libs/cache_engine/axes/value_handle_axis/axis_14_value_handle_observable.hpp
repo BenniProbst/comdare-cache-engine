@@ -34,6 +34,7 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <type_traits>
 
@@ -88,6 +89,13 @@ public:
                                                          std::size_t record_size) noexcept {
         return Strategy::value_access_scan(buf, n, record_size);
     }
+
+    // Observer-Strategy (M2, Dossier 18 A.3): set_runtime_inline_threshold ist die austauschbare
+    // Wirkungs-Strategie der Achse; Min/Max-Semantik: Inline-Dichte vs. Wert-Indirektion.
+    void set_runtime_inline_threshold(std::uint64_t threshold_bytes) noexcept {
+        runtime_inline_threshold_bytes_ = threshold_bytes;
+    }
+    [[nodiscard]] std::uint64_t runtime_inline_threshold() const noexcept { return runtime_inline_threshold_bytes_; }
 
     // ── §4.3 (User 2026-06-04) — REALER Pool/Version/Chain-Deref gegen die echte Slot-Struktur ──────────────────
     // Die Huelle haelt die ECHTE Slot-Struktur-Instanz (real_slot_), compile-zeit-selektiert je Strategie
@@ -149,6 +157,48 @@ private:
     [[nodiscard]] static constexpr bool has_version_tag_() noexcept {
         return Strategy::name() == "value_handle_versioned_pointer"; // MVCC-Tag-Strip vor jedem Deref
     }
+    [[nodiscard]] std::uint64_t effective_chain_depth_() const noexcept {
+        if (runtime_inline_threshold_bytes_ == 0) return chain_depth_();
+        if (sizeof(std::uint64_t) <= runtime_inline_threshold_bytes_) return 1u;
+        if constexpr (Strategy::is_inline())
+            return 2u;
+        else
+            return chain_depth_();
+    }
+    [[nodiscard]] std::uint64_t threshold_scan_(unsigned char const* buf, std::size_t n,
+                                                std::size_t record_size) const noexcept {
+        if (runtime_inline_threshold_bytes_ == 0) return Strategy::value_access_scan(buf, n, record_size);
+        if (sizeof(std::uint64_t) <= runtime_inline_threshold_bytes_) return inline_scan_(buf, n, record_size);
+        if constexpr (Strategy::is_inline())
+            return external_handle_scan_(buf, n, record_size);
+        else
+            return Strategy::value_access_scan(buf, n, record_size);
+    }
+    [[nodiscard]] static std::uint64_t inline_scan_(unsigned char const* buf, std::size_t n,
+                                                    std::size_t record_size) noexcept {
+        std::uint64_t s = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::uint32_t v;
+            std::memcpy(&v, buf + i * record_size, sizeof(v));
+            s += v;
+        }
+        return s;
+    }
+    [[nodiscard]] static std::uint64_t external_handle_scan_(unsigned char const* buf, std::size_t n,
+                                                             std::size_t record_size) noexcept {
+        std::uint64_t const span  = static_cast<std::uint64_t>(n) * record_size;
+        std::uint64_t const guard = (span > 3u) ? (span - 3u) : 1u;
+        std::uint64_t       s     = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::uint32_t handle;
+            std::memcpy(&handle, buf + i * record_size, sizeof(handle));
+            std::uint64_t const off = (static_cast<std::uint64_t>(handle) % guard) & ~std::uint64_t{3};
+            std::uint32_t       v;
+            std::memcpy(&v, buf + off, sizeof(v));
+            s += v;
+        }
+        return s;
+    }
 
 public:
     /// Mess-Kopplung (der eigentliche „Driver", Instanz): treibt den ECHTEN value_access_scan ueber die uebergebenen
@@ -157,9 +207,9 @@ public:
     /// fill_observer_v3 via store_observe_value_handle) ruft dies → die Value-Zugriffs-Aktivitaet wird observable.
     [[nodiscard]] std::uint64_t observe_value_handle(unsigned char const* buf, std::size_t n,
                                                      std::size_t record_size) noexcept {
-        std::uint64_t const checksum = Strategy::value_access_scan(buf, n, record_size);
+        std::uint64_t const checksum = threshold_scan_(buf, n, record_size);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-        std::uint64_t const depth = chain_depth_();
+        std::uint64_t const depth = effective_chain_depth_();
         stats_.total_access_count += static_cast<std::uint64_t>(n);
         stats_.indirect_deref_count += static_cast<std::uint64_t>(n) * (depth - 1); // ZUSAETZLICH ggue. Inline
         if (has_version_tag_()) stats_.version_tag_strips += static_cast<std::uint64_t>(n);
@@ -184,6 +234,7 @@ private:
     // → ObservableValueHandle kopierbar/vergleichbar → fuer den symmetrischen Memento (saved_vh_ in tier_save_all/
     // tier_rollback_all) snapshot-faehig (R1, Leitplanke 3). Default-konstruiert = leer (None-aequivalente Baseline).
     real_slot_type real_slot_{};
+    std::uint64_t  runtime_inline_threshold_bytes_ = 0;
 };
 
 } // namespace comdare::cache_engine::value_handle_axis

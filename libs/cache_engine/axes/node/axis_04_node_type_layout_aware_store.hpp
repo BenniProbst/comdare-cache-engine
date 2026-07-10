@@ -129,29 +129,39 @@ public:
         if (this != &o) {
             free_chunks_();
             chunks_.clear();
-            size_         = 0;
-            chunk_allocs_ = 0;
-            alloc_        = A{};
+            size_                           = 0;
+            chunk_allocs_                   = 0;
+            runtime_pool_budget_bytes_      = 0;
+            runtime_pool_budget_rejections_ = 0;
+            alloc_                          = A{};
             copy_from_(o);
         }
         return *this;
     }
     LayoutAwareChunkedStore(LayoutAwareChunkedStore&& o) noexcept
-        : alloc_(std::move(o.alloc_)), chunks_(std::move(o.chunks_)), size_(o.size_), chunk_allocs_(o.chunk_allocs_) {
+        : alloc_(std::move(o.alloc_)), chunks_(std::move(o.chunks_)), size_(o.size_), chunk_allocs_(o.chunk_allocs_),
+          runtime_pool_budget_bytes_(o.runtime_pool_budget_bytes_),
+          runtime_pool_budget_rejections_(o.runtime_pool_budget_rejections_) {
         o.chunks_.clear();
-        o.size_         = 0;
-        o.chunk_allocs_ = 0;
+        o.size_                           = 0;
+        o.chunk_allocs_                   = 0;
+        o.runtime_pool_budget_bytes_      = 0;
+        o.runtime_pool_budget_rejections_ = 0;
     }
     LayoutAwareChunkedStore& operator=(LayoutAwareChunkedStore&& o) noexcept {
         if (this != &o) {
             free_chunks_();
-            alloc_        = std::move(o.alloc_);
-            chunks_       = std::move(o.chunks_);
-            size_         = o.size_;
-            chunk_allocs_ = o.chunk_allocs_;
+            alloc_                          = std::move(o.alloc_);
+            chunks_                         = std::move(o.chunks_);
+            size_                           = o.size_;
+            chunk_allocs_                   = o.chunk_allocs_;
+            runtime_pool_budget_bytes_      = o.runtime_pool_budget_bytes_;
+            runtime_pool_budget_rejections_ = o.runtime_pool_budget_rejections_;
             o.chunks_.clear();
-            o.size_         = 0;
-            o.chunk_allocs_ = 0;
+            o.size_                           = 0;
+            o.chunk_allocs_                   = 0;
+            o.runtime_pool_budget_bytes_      = 0;
+            o.runtime_pool_budget_rejections_ = 0;
         }
         return *this;
     }
@@ -206,8 +216,23 @@ public:
     void clear() noexcept {
         free_chunks_();
         chunks_.clear();
-        size_         = 0;
-        chunk_allocs_ = 0;
+        size_                           = 0;
+        chunk_allocs_                   = 0;
+        runtime_pool_budget_rejections_ = 0;
+    }
+
+    // Observer-Strategy (M2, Dossier 18 A.3): set_runtime_pool_budget ist die austauschbare
+    // Wirkungs-Strategie der Achse; Min/Max-Semantik: weniger Fragmentierung vs. Alloc-Durchsatz.
+    void set_runtime_pool_budget(std::uint64_t budget_bytes) noexcept { runtime_pool_budget_bytes_ = budget_bytes; }
+    [[nodiscard]] std::uint64_t runtime_pool_budget() const noexcept { return runtime_pool_budget_bytes_; }
+    [[nodiscard]] bool          runtime_budget_allows_growth() const noexcept {
+        if (runtime_pool_budget_bytes_ == 0) return true;
+        if (!chunks_.empty() && chunks_.back().count < cap_) return true;
+        return bytes_in_use_() + chunk_bytes() <= runtime_pool_budget_bytes_;
+    }
+    void                        note_runtime_pool_budget_rejection() noexcept { ++runtime_pool_budget_rejections_; }
+    [[nodiscard]] std::uint64_t runtime_pool_budget_rejections() const noexcept {
+        return runtime_pool_budget_rejections_;
     }
 
     // --- Drop-in-Paritaet zu ComposedStore/NodeChunkedStore ---
@@ -491,14 +516,24 @@ private:
             c.count = oc.count;
             chunks_.push_back(c);
         }
-        size_         = o.size_;
-        chunk_allocs_ = o.chunk_allocs_;
+        size_                           = o.size_;
+        chunk_allocs_                   = o.chunk_allocs_;
+        runtime_pool_budget_bytes_      = o.runtime_pool_budget_bytes_;
+        runtime_pool_budget_rejections_ = o.runtime_pool_budget_rejections_;
+    }
+
+    [[nodiscard]] std::uint64_t bytes_in_use_() const noexcept {
+        std::uint64_t bytes = 0;
+        for (auto const& c : chunks_) bytes += static_cast<std::uint64_t>(c.capacity);
+        return bytes;
     }
 
     mutable A          alloc_{};
     std::vector<Chunk> chunks_{};
-    std::size_t        size_         = 0;
-    std::size_t        chunk_allocs_ = 0;
+    std::size_t        size_                           = 0;
+    std::size_t        chunk_allocs_                   = 0;
+    std::uint64_t      runtime_pool_budget_bytes_      = 0;
+    std::uint64_t      runtime_pool_budget_rejections_ = 0;
 };
 
 // Compile-Time-Selbstbeweis: layout-honorierendes Organ erfuellt StorageOrgan UND ist von beiden Traversal-Organen nutzbar.
