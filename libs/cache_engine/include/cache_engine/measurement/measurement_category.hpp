@@ -2,6 +2,7 @@
 // MeasurementCategory + AlgoDetail enums (F1)
 // Termin 7 / 03_uml_measurement §2
 
+#include <cstddef>
 #include <cstdint>
 
 namespace comdare::cache_engine::measurement {
@@ -24,6 +25,11 @@ enum class MeasurementCategory : std::uint8_t {
     ENERGY_J              = 14,
     FILL_BUFFER_OCCUPANCY = 15,
 };
+
+/// Anzahl der Kategorien — bei JEDER neuen Kategorie MIT hochzaehlen (Single-Source direkt am
+/// Enum; kMeasurementAxisRegistry haengt per static_assert daran, Review wf_c99a2132: regime_of
+/// hat einen Default-Zweig, deshalb faengt der Compiler Enum-Drift sonst nicht).
+inline constexpr std::size_t kMeasurementCategoryCount = 16;
 
 enum class AlgoDetail : std::uint16_t {
     UNKNOWN               = 0,
