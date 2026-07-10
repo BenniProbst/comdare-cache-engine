@@ -1,4 +1,14 @@
 #pragma once
+
+// Phase 7 (2026-07-10): COMDARE_EXPERIMENT_MODE_ON real verdrahtet — die dokumentierte
+// Options-Semantik (CMakeLists: "ResultAggregator + Mess-Hooks in der ExecutionEngine")
+// setzt die Mess-Hooks voraus; Experiment-Kompilate OHNE Mess-Gating waeren stille
+// Nulllaeufe (vgl. E4-Review-Lehre two_phase_valid=0). Compile-time-Invariante:
+// Wert-basiert wie das Bestands-Mess-Gating (#if COMDARE_MEASUREMENT_ON) — Review wf_8508f98c:
+// -DCOMDARE_MEASUREMENT_ON=0 muss den Guard ausloesen, -DCOMDARE_EXPERIMENT_MODE_ON=0 nicht.
+#if COMDARE_EXPERIMENT_MODE_ON && !COMDARE_MEASUREMENT_ON
+#error "COMDARE_EXPERIMENT_MODE_ON erfordert COMDARE_MEASUREMENT_ON (Mess-Hooks; CMake-Option COMDARE_EXPERIMENT_MODE)"
+#endif
 // V41.F.6.1.R5.C.A3 — MammalAbiAdapter Production-Header (Module-Loader-Bruecke)
 //
 // User-Direktive 2026-05-27 frueh (Session-Doku Teil II §18, NEXT-Action R5.C.A3):

@@ -408,8 +408,14 @@ option(COMDARE_AXIS_09B_ENABLE_CUDA_GH200   "SIMD-Ext CUDA-GH200 (NVIDIA Hopper,
 # Default ON wird vom Diplomarbeits-messung_driver beim ExperimentDriver-
 # Sub-Build ueberschrieben (-DCOMDARE_EXPERIMENT_MODE=ON).
 option(COMDARE_EXPERIMENT_MODE
-    "Aktiviert ResultAggregator + Mess-Hooks in der ExecutionEngine (REV 7.6 V8.4)"
+    "Markiert Experiment-Kompilate (Define COMDARE_EXPERIMENT_MODE_ON=1). AKTIVIERT selbst keine Hooks — Mess-Hooks/ResultAggregator haengen an COMDARE_MEASUREMENT_MODE; Phase 7 kodiert die Invariante Experiment=>Messung compile-time in abi_adapter.hpp"
     OFF)
+if(COMDARE_EXPERIMENT_MODE AND NOT COMDARE_MEASUREMENT_MODE)
+    # Phase 7 (Review wf_8508f98c): Kontradiktion configure-time fangen statt als
+    # verteilter #error-Sturm mid-build (Muster: RELEASE=>!MEASUREMENT-FORCE oben).
+    message(FATAL_ERROR
+        "COMDARE_EXPERIMENT_MODE=ON erfordert COMDARE_MEASUREMENT_MODE=ON (Mess-Hooks; vgl. abi_adapter.hpp-Guard)")
+endif()
 if(COMDARE_EXPERIMENT_MODE)
     add_compile_definitions(COMDARE_EXPERIMENT_MODE_ON=1)
 endif()
