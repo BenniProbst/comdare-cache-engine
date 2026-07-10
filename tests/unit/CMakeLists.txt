@@ -2579,6 +2579,19 @@ add_test(NAME test_parser_konsolidierung COMMAND test_parser_konsolidierung
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_parser_konsolidierung)
 set_tests_properties(test_parser_konsolidierung PROPERTIES LABELS "parser;e4")
 
+# Phase-6-Vorbau: IMeasurementSource (vendor-neutral) + Mess-Achsen-Registry + E4'-Kurven-Skeleton.
+add_executable(test_phase6_vorbau "test_phase6_vorbau.cpp")
+target_compile_features(test_phase6_vorbau PRIVATE cxx_std_23)
+target_include_directories(test_phase6_vorbau PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+comdare_set_platform_defines(test_phase6_vorbau)
+target_compile_definitions(test_phase6_vorbau PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_phase6_vorbau COMMAND test_phase6_vorbau)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_phase6_vorbau)
+set_tests_properties(test_phase6_vorbau PROPERTIES LABELS "m;phase6")
+
 # thesis_tiere ADHOC-Treiber: baubar per explizitem Target, aber absichtlich
 # nicht in ctest/COMDARE_TEST_TARGETS registriert.
 # GRENZE (Review wf_1009d16f, empirisch): im super-Sub-Build sind diese EXCLUDE_FROM_ALL-Targets
