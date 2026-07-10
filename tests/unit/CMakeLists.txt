@@ -29,6 +29,10 @@ foreach(_axes_dir ${_comdare_axes_dirs})
     endif()
 endforeach()
 
+function(comdare_prepare_thesis_object_dir target)
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${target}.dir/thesis_tiere")
+endfunction()
+
 # Header-only INTERFACE-Library: Cache-Engine Concepts
 add_library(comdare_cache_engine_concepts INTERFACE)
 add_library(comdare::cache_engine_concepts ALIAS comdare_cache_engine_concepts)
@@ -493,6 +497,7 @@ target_link_libraries(test_ap8_hdr_histogram PRIVATE
 # P33-VAMPIR Option A — axis_06 VampirNfpAllocator conformance and statistics.
 comdare_add_test(test_vampir_nfp_allocator
     SOURCES thesis_tiere/test_vampir_nfp_allocator.cpp)
+comdare_prepare_thesis_object_dir(test_vampir_nfp_allocator)
 target_include_directories(test_vampir_nfp_allocator PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
@@ -1626,6 +1631,7 @@ target_include_directories(test_conformance_gate PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 comdare_set_platform_defines(test_conformance_gate)
 add_test(NAME test_conformance_gate COMMAND test_conformance_gate)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_conformance_gate)
 set_tests_properties(test_conformance_gate PROPERTIES LABELS "contract;standalone;gate")
 
 # #188-4b-b0 (2026-07-01) — Weit-Key-Konformitaet der 9 Weg-B-Pool-Organe gegen std::map<u64,u64>. Prerequisite
@@ -1666,6 +1672,7 @@ comdare_set_platform_defines(test_188_4bbV_pool_adapter_flip_compile)
 target_compile_definitions(test_188_4bbV_pool_adapter_flip_compile PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 add_test(NAME test_188_4bbV_pool_adapter_flip_compile COMMAND test_188_4bbV_pool_adapter_flip_compile)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_188_4bbV_pool_adapter_flip_compile)
 set_tests_properties(test_188_4bbV_pool_adapter_flip_compile PROPERTIES LABELS "contract;standalone;pool_flip")
 
 # S7-1 (#261/#234) -- BST-Pool: allocator-param default + T6 allocator DEG hook.
@@ -2146,6 +2153,7 @@ target_compile_definitions(test_217_2a_capacity_guard PRIVATE
 # denen perm_runner die PMC-Naht aktiviert. OFFIZIELLE CMake/ctest-Registrierung (ersetzt das fruehere Scratch-
 # Build-Skript). NullPmcSource (COMDARE_ENABLE_PMC OFF) -> alle 7 Spalten 0/available=0 (ehrliche Null).
 add_executable(m3v2_pmc_smoke "thesis_tiere/m3v2_pmc_smoke.cpp")
+comdare_prepare_thesis_object_dir(m3v2_pmc_smoke)
 target_compile_features(m3v2_pmc_smoke PRIVATE cxx_std_23)
 target_include_directories(m3v2_pmc_smoke PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
@@ -2160,6 +2168,7 @@ comdare_set_platform_defines(m3v2_pmc_smoke)
 target_compile_definitions(m3v2_pmc_smoke PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 add_test(NAME m3v2_pmc_smoke COMMAND m3v2_pmc_smoke)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS m3v2_pmc_smoke)
 set_tests_properties(m3v2_pmc_smoke PROPERTIES LABELS "phase_e;standalone;pmc")
 
 # #230-Rest (W1, 2026-07-02) - Contract-Compile-Gate fuer den Host-Treiber-Stack des thesis_tiere-Harness:
@@ -2181,11 +2190,13 @@ comdare_set_platform_defines(test_harness_compile)
 target_compile_definitions(test_harness_compile PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 add_test(NAME test_harness_compile COMMAND test_harness_compile)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_harness_compile)
 set_tests_properties(test_harness_compile PROPERTIES LABELS "contract;standalone;harness")
 # AP-6/#240 rev: rein lesendes Profil-Coverage-Gate (SOTA P01-P33 + Allokator A01-A23).
 comdare_add_test(test_profile_coverage
     SOURCES thesis_tiere/test_profile_coverage.cpp
     LIBRARIES comdare_builder_xml_config_parser)
+comdare_prepare_thesis_object_dir(test_profile_coverage)
 target_compile_definitions(test_profile_coverage PRIVATE
     "COMDARE_ALGORITHM_PROFILES_DIR=\"${CMAKE_SOURCE_DIR}/libs/cache_engine/algorithm_profiles\"")
 set_tests_properties(test_profile_coverage PROPERTIES LABELS "contract;profiles;coverage")
@@ -2195,13 +2206,13 @@ set_tests_properties(test_profile_coverage PROPERTIES LABELS "contract;profiles;
 comdare_add_test(test_ap2_katalog_pfad_stubfrei
     SOURCES thesis_tiere/test_ap2_katalog_pfad_stubfrei.cpp
     LIBRARIES comdare_builder_xml_config_parser)
+comdare_prepare_thesis_object_dir(test_ap2_katalog_pfad_stubfrei)
 target_include_directories(test_ap2_katalog_pfad_stubfrei PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common/serialization"
     "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
-    "${CMAKE_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_ap2_katalog_pfad_stubfrei PRIVATE Boost::mp11)
 target_compile_definitions(test_ap2_katalog_pfad_stubfrei PRIVATE
@@ -2216,6 +2227,7 @@ target_compile_definitions(test_ap2_katalog_pfad_stubfrei PRIVATE
 # (prod-Runner) und wird NICHT auf jedem Runner garantiert. Standalone (plain int main, baut KEINE DLLs).
 if(UNIX AND NOT APPLE)
     add_executable(linux_perf_pmc_smoke "thesis_tiere/linux_perf_pmc_smoke.cpp")
+    comdare_prepare_thesis_object_dir(linux_perf_pmc_smoke)
     target_compile_features(linux_perf_pmc_smoke PRIVATE cxx_std_23)
     target_include_directories(linux_perf_pmc_smoke PRIVATE
         "${PROJECT_SOURCE_DIR}/libs/cache_engine"
@@ -2229,6 +2241,7 @@ if(UNIX AND NOT APPLE)
     target_compile_definitions(linux_perf_pmc_smoke PRIVATE
         COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
     add_test(NAME linux_perf_pmc_smoke COMMAND linux_perf_pmc_smoke)
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS linux_perf_pmc_smoke)
     set_tests_properties(linux_perf_pmc_smoke PROPERTIES LABELS "phase_e;standalone;pmc;linux")
 endif()
 
@@ -2531,21 +2544,6 @@ set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m_contract_system_
 set_tests_properties(test_m_contract_system_axis_wurzel PROPERTIES LABELS "m;blut")
 
 # Limits-Entkopplung Vorstufe - XML-Profil generiert Build-Header, kein Produktivkonsum.
-set(_limits_generated_header "${CMAKE_BINARY_DIR}/generated/generated_source_catalog.hpp")
-set(_limits_profile_xml
-    "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/m3v2_study.profile.xml")
-add_custom_command(
-    OUTPUT "${_limits_generated_header}"
-    COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_BINARY_DIR}/generated"
-    COMMAND $<TARGET_FILE:comdare_catalog_codegen_cli>
-            --profile "${_limits_profile_xml}"
-            --out "${_limits_generated_header}"
-    DEPENDS comdare_catalog_codegen_cli "${_limits_profile_xml}"
-    COMMENT "Limits-Entkopplung: generated_source_catalog.hpp aus m3v2_study.profile.xml"
-    VERBATIM)
-add_custom_target(comdare_limits_generated_source_catalog
-    DEPENDS "${_limits_generated_header}")
-
 add_executable(test_limits_entkopplung_vorstufe
     "test_limits_entkopplung_vorstufe.cpp")
 target_compile_features(test_limits_entkopplung_vorstufe PRIVATE cxx_std_23)
@@ -2556,14 +2554,64 @@ target_include_directories(test_limits_entkopplung_vorstufe PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/common"
     "${CMAKE_CURRENT_SOURCE_DIR}"
-    "${CMAKE_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_limits_entkopplung_vorstufe PRIVATE Boost::mp11)
 comdare_set_platform_defines(test_limits_entkopplung_vorstufe)
 target_compile_definitions(test_limits_entkopplung_vorstufe PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
-add_dependencies(test_limits_entkopplung_vorstufe comdare_limits_generated_source_catalog)
+comdare_attach_generated_catalog(test_limits_entkopplung_vorstufe)
 add_test(NAME test_limits_entkopplung_vorstufe COMMAND test_limits_entkopplung_vorstufe
     "${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt")
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_limits_entkopplung_vorstufe)
 set_tests_properties(test_limits_entkopplung_vorstufe PROPERTIES LABELS "e4;limits")
+
+# thesis_tiere ADHOC-Treiber: baubar per explizitem Target, aber absichtlich
+# nicht in ctest/COMDARE_TEST_TARGETS registriert.
+# GRENZE (Review wf_1009d16f, empirisch): im super-Sub-Build sind diese EXCLUDE_FROM_ALL-Targets
+# nicht baubar (COMDARE_AXIS_06_USE_MIMALLOC=1 dort, ADHOC erbt keine Vendor-Includes) — die
+# Gates 4-5 laufen im ce-Standalone-Baum; der super-Beweis ist messung_driver ueber die Facade.
+set(_thesis_adhoc_includes
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+
+set(_thesis_adhoc_libs
+    Boost::mp11
+    comdare_builder_xml_config_parser
+    comdare::workload_driver
+    comdare::anatomy_module_loader)
+
+function(comdare_thesis_adhoc_executable target)
+    cmake_parse_arguments(ARG "" "" "SOURCES;LIBRARIES" ${ARGN})
+    add_executable(${target} EXCLUDE_FROM_ALL ${ARG_SOURCES})
+    comdare_prepare_thesis_object_dir(${target})
+    target_compile_features(${target} PRIVATE cxx_std_23)
+    target_include_directories(${target} PRIVATE ${_thesis_adhoc_includes})
+    target_link_libraries(${target} PRIVATE ${_thesis_adhoc_libs} ${ARG_LIBRARIES})
+    comdare_set_platform_defines(${target})
+    target_compile_definitions(${target} PRIVATE
+        COMDARE_MEASUREMENT_ON=1
+        COMDARE_CE_ENABLE_STATISTICS=1
+        COMDARE_EXPERIMENT_MODE_ON=1)
+    set_property(GLOBAL APPEND PROPERTY COMDARE_PAPER_CODEGEN_CONSUMER_TARGETS ${target})
+endfunction()
+
+comdare_thesis_adhoc_executable(test_profile_roundtrip
+    SOURCES "thesis_tiere/test_profile_roundtrip.cpp")
+
+comdare_thesis_adhoc_executable(test_run_profile_union
+    SOURCES "thesis_tiere/test_run_profile_union.cpp")
+comdare_attach_generated_catalog(test_run_profile_union)
+
+comdare_thesis_adhoc_executable(test_axis_sweep_pilot
+    SOURCES "thesis_tiere/test_axis_sweep_pilot.cpp")
+
+comdare_thesis_adhoc_executable(run_lazy_150
+    SOURCES "thesis_tiere/run_lazy_150.cpp")
+comdare_attach_generated_catalog(run_lazy_150)
