@@ -744,7 +744,8 @@ public:
                 sink += ValueHandle::value_access_scan(lbuf, kRecords, kRecordSize);
                 t1 = clock::now();
                 acc[11] += seg_ns(t0, t1);
-                // T12 isa: simd_field_sum (SSE2 bei Amd64 / Scalar-Fallback sonst). Nur (buf,n) — kein record_size.
+                // T12 isa: simd_field_sum (Phase-0.1-Dispatch bei Amd64: AVX-512F/AVX2/SSE2 nach BUILD-SIMD-Stufe,
+                // uint64-akkumuliert build-invariant; Scalar-Fallback sonst). Nur (buf,n) — kein record_size.
                 t0 = clock::now();
                 sink += Isa::simd_field_sum(lbuf, kRecords);
                 t1 = clock::now();
