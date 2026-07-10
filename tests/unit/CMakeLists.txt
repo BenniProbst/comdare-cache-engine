@@ -2529,3 +2529,41 @@ target_compile_definitions(test_m_contract_system_axis_wurzel PRIVATE
 add_test(NAME test_m_contract_system_axis_wurzel COMMAND test_m_contract_system_axis_wurzel)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m_contract_system_axis_wurzel)
 set_tests_properties(test_m_contract_system_axis_wurzel PROPERTIES LABELS "m;blut")
+
+# Limits-Entkopplung Vorstufe - XML-Profil generiert Build-Header, kein Produktivkonsum.
+set(_limits_generated_header "${CMAKE_BINARY_DIR}/generated/generated_source_catalog.hpp")
+set(_limits_profile_xml
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/m3v2_study.profile.xml")
+add_custom_command(
+    OUTPUT "${_limits_generated_header}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_BINARY_DIR}/generated"
+    COMMAND $<TARGET_FILE:comdare_catalog_codegen_cli>
+            --profile "${_limits_profile_xml}"
+            --out "${_limits_generated_header}"
+    DEPENDS comdare_catalog_codegen_cli "${_limits_profile_xml}"
+    COMMENT "Limits-Entkopplung: generated_source_catalog.hpp aus m3v2_study.profile.xml"
+    VERBATIM)
+add_custom_target(comdare_limits_generated_source_catalog
+    DEPENDS "${_limits_generated_header}")
+
+add_executable(test_limits_entkopplung_vorstufe
+    "test_limits_entkopplung_vorstufe.cpp")
+target_compile_features(test_limits_entkopplung_vorstufe PRIVATE cxx_std_23)
+target_include_directories(test_limits_entkopplung_vorstufe PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_limits_entkopplung_vorstufe PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_limits_entkopplung_vorstufe)
+target_compile_definitions(test_limits_entkopplung_vorstufe PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_dependencies(test_limits_entkopplung_vorstufe comdare_limits_generated_source_catalog)
+add_test(NAME test_limits_entkopplung_vorstufe COMMAND test_limits_entkopplung_vorstufe
+    "${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_limits_entkopplung_vorstufe)
+set_tests_properties(test_limits_entkopplung_vorstufe PROPERTIES LABELS "e4;limits")
