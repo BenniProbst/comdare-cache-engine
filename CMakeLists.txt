@@ -598,6 +598,7 @@ endif()
 
 add_subdirectory(tools)                   # Phase C (ycsb_cli, 2026-05-13)
 add_subdirectory(apps)                    # REV 7.7 V23.B (2026-05-14): Top-Level Executables
+include(cmake/catalog_codegen.cmake)
 
 if(COMDARE_BUILD_BENCHMARKS)
   add_subdirectory(benchmarks)
@@ -1413,7 +1414,10 @@ endif()
 # Paper-Wrapper automatisch daran) — neue Wrapper muessen NICHT mehr hier nachgetragen werden, neue CONSUMER
 # (isolierte --target-Builds, die via abi_adapter/all_axes_umbrella is_original-Mixins ziehen) schon.
 # Pipeline 7965 / Fehler-TU test_216h2_stat_reset_after_load zeigte dieselbe Klasse fuer contract:conformance.
-# test_conformance_gate zieht abi_adapter nicht (k-ary/organ==void) und bekommt bewusst keine Kante.
+# test_conformance_gate zieht abi_adapter nicht (k-ary/organ==void) und bekommt bewusst keine EXPLIZITE Kante.
+# (2026-07-10: seit der COMDARE_TEST_TARGETS-Nachregistrierung erhaelt es die Kante ueber die Registry-Schleife
+#  unten — laut Registry-Doktrin harmlos-redundant; Zweck der Nachregistrierung: comdare_tests baut JEDES
+#  ctest-registrierte Target, sonst "Not Run"-Klasse.)
 # Defensiv per if(TARGET): Codegen-Targets sind options-/ext-sentinel-bedingt.
 get_property(_comdare_generated_codegen_consumers GLOBAL PROPERTY COMDARE_PAPER_CODEGEN_CONSUMER_TARGETS)
 if(_comdare_generated_codegen_consumers)

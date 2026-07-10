@@ -14,10 +14,10 @@
 // Build (innerhalb vcvars64): build_run_profile_union.ps1 (Include-Satz wie die thesis_tiere-Harness). KEIN cl
 // fuer die Tiere — nur String-/Index-Rekombination + die Katalog-Materialisierung (header-only).
 
-#include "profile_run_entry.hpp" // run_profile-Bausteine: make_union_source_gen / make_catalog_source_gen / build_sota_*
-#include "source_catalog.hpp"    // FullSourceCatalog / make_catalog_source_gen
-#include "sota_catalog.hpp"      // build_sota_passes / build_sota_view_source_map / sota_view_binary_id
-#include "profile_runner.hpp"    // load_thesis_profile / build_profile_basis_levels / make_union_source_gen
+#include "profile_run_entry.hpp"        // run_profile-Bausteine: make_union_source_gen / build_sota_*
+#include "generated_source_catalog.hpp" // generated_make_catalog_source_gen
+#include "sota_catalog.hpp"             // build_sota_passes / build_sota_view_source_map / sota_view_binary_id
+#include "profile_runner.hpp"           // load_thesis_profile / build_profile_basis_levels / make_union_source_gen
 
 #include <builder/experiment_tree/experiment_tree.hpp> // ExperimentTree / StaticBinaryView
 
@@ -107,8 +107,8 @@ int main(int argc, char** argv) {
     check("SOTA-binary_id im 'sota_tier='-Raum", sota_bid0.rfind("sota_tier=", 0) == 0);
 
     // ── (D) S7a: DIE EINE vereinigte SourceGenFn liefert fuer BEIDE Namensraeume eine reale Modul-Quelle. ──
-    ex::SourceGenFn const union_gen = tlz::make_union_source_gen(tlz::make_catalog_source_gen<tlz::FullSourceCatalog>(),
-                                                                 tlz::build_sota_view_source_map(*tp));
+    ex::SourceGenFn const union_gen =
+        tlz::make_union_source_gen(tlz::generated_make_catalog_source_gen(), tlz::build_sota_view_source_map(*tp));
 
     std::string const basis_src = union_gen(basis_bid0);
     std::string const sota_src  = union_gen(sota_bid0);
@@ -127,7 +127,7 @@ int main(int argc, char** argv) {
     std::map<std::string, std::string> const sota_map = tlz::build_sota_view_source_map(*tp);
     check("SOTA-map enthaelt den SOTA-view-binary_id", sota_map.count(sota_bid0) == 1);
     check("SOTA-map enthaelt KEINEN Basis-binary_id (disjunkt)", sota_map.count(basis_bid0) == 0);
-    ex::SourceGenFn const basis_only = tlz::make_catalog_source_gen<tlz::FullSourceCatalog>();
+    ex::SourceGenFn const basis_only = tlz::generated_make_catalog_source_gen();
     check("Basis-Katalog liefert KEINE Quelle fuer den SOTA-id (disjunkt)", basis_only(sota_bid0).empty());
 
     std::cout << "\n==== STRANG-A Inc6 / S7 Union-Verdrahtung (Basis-320 ∪ SOTA-Reihen ueber EINE SourceGenFn): "
