@@ -1037,8 +1037,7 @@ public:
         std::uint64_t const     ops_per_batch =
             applied_rc_.batch_size == 0 ? default_ops : std::max<std::uint64_t>(1u, applied_rc_.batch_size);
         // r[6] weist die EFFEKTIV gefahrene Fenster-Groesse aus (ehrlich: das, was gemessen wurde).
-        return t1_segment_shape_t{ops_per_batch, ops_per_batch, kDefaultBatchCount,
-                                  ops_per_batch * kDefaultBatchCount};
+        return t1_segment_shape_t{ops_per_batch, ops_per_batch, kDefaultBatchCount, ops_per_batch * kDefaultBatchCount};
     }
 
     // I1 (2026-06-05): der frühere V1-Observe + die V2-Observer-Fill/Override-Methoden (eigenes V2-Sub-Interface)
