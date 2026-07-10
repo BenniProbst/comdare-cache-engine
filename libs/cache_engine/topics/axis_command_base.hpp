@@ -21,8 +21,17 @@ concept AxisCommand = AxisBaseConcept<Axis> && requires {
     { Axis::name() } -> std::convertible_to<std::string_view>;
 };
 
+/// Visitor-Vertrags-Concept (CMD-1-b, Querschnitt M): beobachtbare Achsen verlangen visit_observable<Axis>(),
+/// nicht beobachtbare Achsen bleiben fuer den Mess-Slot ein ehrlicher No-op. BEWUSST OHNE AxisCommand-Konjunkt:
+/// der Mess-Slot wird auch fuer Organ-HUELLEN (ObservableComposedContainer/-Search via Composition::search_algo,
+/// anatomy_execution_context.hpp observe_all) instanziiert, die keine AxisBase-Statik tragen — das Konjunkt
+/// braeche alle Referenz-Kompositionen im Default-Build (Review wf_f1604ba3, CONFIRMED-critical).
+template <class Axis, class Visitor>
+concept MeasurementVisitable = !ObservableAxis<Axis> || requires(Visitor&& v) { v.template visit_observable<Axis>(); };
+
 /// Statischer Mess-Visitor-Slot. Nicht beobachtbare Achsen bleiben ein ehrlicher No-op.
 template <class Axis, class V>
+    requires MeasurementVisitable<Axis, V>
 constexpr void axis_accept_measurement(V&& v) {
     if constexpr (ObservableAxis<Axis>) {
         v.template visit_observable<Axis>();
@@ -30,13 +39,6 @@ constexpr void axis_accept_measurement(V&& v) {
         (void)v;
     }
 }
-
-// GEPARKT (User 06.07.): Visitor-Vertrags-Concept — wird mit dem Visitor-/Observer-Umbau
-// (CMD-1-b ff., #267/#251) als eigener, getesteter Baustein implementiert. Bis dahin bewusst auskommentiert:
-// template <class Axis, class Visitor>
-// concept MeasurementVisitable = AxisCommand<Axis> && (!ObservableAxis<Axis> || requires(Visitor&& v) {
-//     v.template visit_observable<Axis>();
-// });
 
 /// Compile-time-Limitations-Auskunft; Runtime-Pendant bleibt IResourceControllableTier
 /// (anatomy/resource_controllable_tier.hpp:56, `tier_query_resource_caps` @:63) und wird hier nicht dupliziert.
