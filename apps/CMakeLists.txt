@@ -15,6 +15,9 @@ add_subdirectory(anatomy_codegen_tool)
 # V41.F.6.1.R5.G — CLI-Tool, das pro Permutation eines Raums ein AdHoc-Modul-.cpp emittiert
 add_subdirectory(adhoc_emitter)
 
+# Limits-Entkopplung Vorstufe - CLI-Tool fuer XML-Profil -> generierter Source-Katalog-Header
+add_subdirectory(catalog_codegen_tool)
+
 # V41.F.6.1.R5.D — CLI-Treiber fuer den F15-Messlauf ueber materialisierte Permutations-DLLs
 add_subdirectory(f15_compare)
 
