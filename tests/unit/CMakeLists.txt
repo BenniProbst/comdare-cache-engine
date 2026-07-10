@@ -2088,6 +2088,29 @@ target_compile_options(test_221_rc_prefetch_distance PRIVATE
     "$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-UCOMDARE_A03A_IS_ORIGINAL_CODEGEN>"
     "$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-UCOMDARE_AQ1_IS_ORIGINAL_CODEGEN>")
 
+# Schicht E1 (#221 re-impl): T6/T8/T1/T11-RC-Konsum + A-Fix-Edges, bewusst kein contract-Label.
+comdare_add_test(test_e1_contract_rc_konsum
+    SOURCES test_e1_contract_rc_konsum.cpp)
+target_include_directories(test_e1_contract_rc_konsum PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_e1_contract_rc_konsum PRIVATE Boost::mp11)
+target_compile_definitions(test_e1_contract_rc_konsum PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+target_compile_options(test_e1_contract_rc_konsum PRIVATE
+    "$<$<CXX_COMPILER_ID:MSVC>:/UCOMDARE_A06_IS_ORIGINAL_CODEGEN>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UCOMDARE_A03A_IS_ORIGINAL_CODEGEN>"
+    "$<$<CXX_COMPILER_ID:MSVC>:/UCOMDARE_AQ1_IS_ORIGINAL_CODEGEN>"
+    "$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-UCOMDARE_A06_IS_ORIGINAL_CODEGEN>"
+    "$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-UCOMDARE_A03A_IS_ORIGINAL_CODEGEN>"
+    "$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-UCOMDARE_AQ1_IS_ORIGINAL_CODEGEN>")
+set_tests_properties(test_e1_contract_rc_konsum PROPERTIES LABELS "e1;rc")
+
 # #188-4c-ii (2026-07-02) — Flach-Wrapper-Traversal-Gate: die 4 letzten markerlosen Flach-Wrapper (Array256/
 # Array65535/VectorU8U8/VectorU16U16) sind store-traversierbar (DirectAddress-/SortedVectorTraversal) —
 # Conformance-Oracle + routes_through_store==true + Wide-Key-/Sparse-Korrektur-Proben. Damit ist der

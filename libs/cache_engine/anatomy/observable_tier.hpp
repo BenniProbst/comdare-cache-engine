@@ -66,14 +66,16 @@ struct V3AxisFieldNames {
 inline constexpr V3AxisFieldNames kV3AxisSchema[kV3AxisCount] = {
     /*T0  search_algo*/ {{"lookup", "hit", "miss", "insert", "erase", "peak", nullptr, nullptr}},
     /*T1  cache_traversal*/
-    {{"resolve", "resolve_hit", "resolve_miss", "register", "unregister", "peak_tracked", nullptr, nullptr}},
+    {{"resolve", "resolve_hit", "resolve_miss", "register", "unregister", "peak_tracked", "batch_size",
+      "batch_visited"}},
     /*T2  mapping*/
     {{"register", "resolve", "resolve_hit", "resolve_miss", "reverse_lookup", "peak_mapped", nullptr, nullptr}},
     /*T3  path_compression*/
     {{"compress", "prefix_len", "bytes_saved", "cuts", "checksum", nullptr, nullptr, nullptr}}, // Phase B (T3)
     /*T4  node_type*/ {{"find", "keys_stored", "queries", "checksum", nullptr, nullptr, nullptr, nullptr}},
     /*T5  memory_layout*/ {{"scan", "records", "field_bytes", "cache_lines", "checksum", nullptr, nullptr, nullptr}},
-    /*T6  allocator*/ {{"bytes_alloc", "bytes_in_use", "alloc_cnt", "dealloc_cnt", "fail", nullptr, nullptr, nullptr}},
+    /*T6  allocator*/
+    {{"bytes_alloc", "bytes_in_use", "alloc_cnt", "dealloc_cnt", "fail", "budget_reject", nullptr, nullptr}},
     /*T7  prefetch*/
     {{"trigger", "suggestions", "hot_path_hints", "max_queue_depth", "addrs_enqueued", nullptr, nullptr,
       nullptr}}, // Phase B (T7)
