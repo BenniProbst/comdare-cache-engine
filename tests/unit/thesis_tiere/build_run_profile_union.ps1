@@ -10,6 +10,12 @@ $work   = Join-Path $env:TEMP "comdare_run_profile_union"
 New-Item -ItemType Directory -Force $out, $work | Out-Null
 if (!(Test-Path $gen)) { Write-Output "generated/ fehlt (CMake configure): $gen"; exit 3 }
 
+# Limits-Entkopplung (2026-07-10, Review wf_1009d16f): profile_run_entry.hpp konsumiert den BUILD-zeitigen
+# generated_source_catalog.hpp — Codegen-Target idempotent mitbauen (DEPENDS regeneriert bei Profil-XML-
+# Aenderung; verhindert C1083 auf frischem Tree UND stille stale Kataloge nach Profil-Edit).
+& cmake --build (Split-Path $gen) --target comdare_limits_generated_source_catalog | Out-Host
+if ($LASTEXITCODE -ne 0) { Write-Output "ABBRUCH: comdare_limits_generated_source_catalog fehlgeschlagen"; exit 3 }
+
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 $vcvars  = Join-Path (& $vswhere -latest -property installationPath) "VC\Auxiliary\Build\vcvars64.bat"
 if (!(Test-Path $vcvars)) { Write-Output "vcvars64 fehlt"; exit 3 }
