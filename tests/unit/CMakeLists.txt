@@ -2592,6 +2592,66 @@ add_test(NAME test_phase6_vorbau COMMAND test_phase6_vorbau)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_phase6_vorbau)
 set_tests_properties(test_phase6_vorbau PROPERTIES LABELS "m;phase6")
 
+# Phase 0.1 SIMD-Dispatch (Doc 21 §F): Amd64Isa::simd_field_sum dispatcht auf die aktive Vektor-Breite.
+# Der Basis-Test baut mit den Plattform-Defaults (auf x86_64 = SSE2-Baseline). Damit die BREITEREN Dispatch-
+# Pfade (AVX2 = 8 uint32/Iter, AVX-512F = 16 uint32/Iter) in der CI nicht nur latent bleiben, sondern ECHT
+# kompiliert (Compile-Deckung aller #if-Zweige) und — wo die Host-ISA es zulaesst — auch AUSGEFUEHRT werden,
+# erzeugen wir je ISA-Stufe eine eigene Test-Variante mit der passenden -m-Flag (Review wf_fd87be00: die
+# Overflow-Build-Invarianz je Stufe muss real bewiesen werden, nicht nur der SSE2-Pfad). Getrennt gehalten:
+#  * BAUEN immer (COMDARE_TEST_TARGETS) -> CI kompiliert alle Dispatch-Zweige, wenn der Compiler die Flag kennt.
+#  * AUSFUEHREN nur, wenn der BUILD-Host die ISA zur Laufzeit unterstuetzt (Probe via __builtin_cpu_supports,
+#    OHNE ISA-Flag kompiliert -> kann selbst nie SIGILLen). Cross-Compile: check_cxx_source_runs entfaellt ->
+#    Variante wird nur kompiliert. So kein SIGILL auf Runnern ohne AVX2/AVX-512.
+include(CheckCXXCompilerFlag)
+include(CheckCXXSourceRuns)
+
+check_cxx_source_runs("int main(){return __builtin_cpu_supports(\"avx2\")?0:1;}" COMDARE_HOST_RUNS_AVX2)
+check_cxx_source_runs("int main(){return __builtin_cpu_supports(\"avx512f\")?0:1;}" COMDARE_HOST_RUNS_AVX512F)
+
+function(comdare_add_simd_dispatch_test suffix flag do_run)
+    set(_tgt "test_simd_field_sum_dispatch${suffix}")
+    add_executable(${_tgt} "test_simd_field_sum_dispatch.cpp")
+    target_compile_features(${_tgt} PRIVATE cxx_std_23)
+    # Include-Konvention wie das Schwester-Target test_v41_axis_09b_simd_extension: die generierten
+    # (configure_file) Header — allen voran axes/simd/axis_09_isa_flags.hpp — EXPLIZIT nachreichen, damit das
+    # Target self-sufficient ist und nicht implizit auf comdare_set_platform_defines' generated-Kante baut.
+    target_include_directories(${_tgt} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${CMAKE_BINARY_DIR}/generated"
+        "${CMAKE_BINARY_DIR}/generated/axes/simd"
+        "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_09b_simd_extension"
+        "${CMAKE_BINARY_DIR}/generated/topics/hardware/axis_12_general_hardware"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    comdare_set_platform_defines(${_tgt})
+    if(NOT flag STREQUAL "")
+        target_compile_options(${_tgt} PRIVATE ${flag})
+    endif()
+    # Immer in den Sammel-Bau (comdare_tests) + Codegen-Kante -> CI kompiliert diesen Dispatch-Zweig.
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_tgt})
+    if(do_run)
+        add_test(NAME ${_tgt} COMMAND ${_tgt})
+        set_tests_properties(${_tgt} PROPERTIES LABELS "axes;simd")
+    endif()
+endfunction()
+
+# Baseline (Plattform-Default: SSE2 auf x86_64, skalar sonst) — immer bauen UND ausfuehren.
+comdare_add_simd_dispatch_test("" "" TRUE)
+
+# AVX2-Variante: bauen, wenn der Compiler -mavx2 kennt; ausfuehren nur bei Host-AVX2.
+check_cxx_compiler_flag("-mavx2" COMDARE_CXX_HAS_MAVX2)
+if(COMDARE_CXX_HAS_MAVX2)
+    comdare_add_simd_dispatch_test("_avx2" "-mavx2" ${COMDARE_HOST_RUNS_AVX2})
+endif()
+
+# AVX-512F-Variante: bauen, wenn der Compiler -mavx512f kennt; ausfuehren nur bei Host-AVX-512F.
+check_cxx_compiler_flag("-mavx512f" COMDARE_CXX_HAS_MAVX512F)
+if(COMDARE_CXX_HAS_MAVX512F)
+    comdare_add_simd_dispatch_test("_avx512" "-mavx512f" ${COMDARE_HOST_RUNS_AVX512F})
+endif()
+
 # thesis_tiere ADHOC-Treiber: baubar per explizitem Target, aber absichtlich
 # nicht in ctest/COMDARE_TEST_TARGETS registriert.
 # GRENZE (Review wf_1009d16f, empirisch): im super-Sub-Build sind diese EXCLUDE_FROM_ALL-Targets

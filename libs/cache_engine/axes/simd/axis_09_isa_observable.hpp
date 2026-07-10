@@ -9,19 +9,20 @@
 // @topic hardware @achse 09 @saeule 2 (Per-Achsen-Observer) @task Phase-B
 //
 // **Achsen-Semantik (treu, KEINE erfundene Konstante):** Die isa-Achse charakterisiert die SIMD-Breite der Ziel-CPU-
-// ISA. simd_field_sum addiert n 32-bit-Worte lane-weise; auf x86_64 ECHTES SSE2 (4 Lanes/Iteration via _mm_add_epi32),
-// sonst skalarer Fallback (1 Wort/Iteration). Die Huelle macht diese Aktivitaet observable; jeder Zaehler folgt der
-// ECHTEN Op-Schleife je observe-Runde:
+// ISA. simd_field_sum addiert n 32-bit-Worte; auf x86_64 dispatcht es Phase-0.1 nach der BUILD-SIMD-Stufe (AVX-512F =
+// 16, AVX2 = 8, SSE2 = 4 uint32/Iter), sonst skalarer Fallback (1 Wort/Iteration). Alle Pfade akkumulieren in uint64
+// (build-invariante wahre Summe). Die Huelle macht diese Aktivitaet observable; jeder Zaehler folgt der ECHTEN Op-
+// Schleife je observe-Runde:
 //   - simd_calls            : Anzahl observe_simd_field_sum-Aufrufe (SIMD-Reduktions-Runden)
-//   - elements_processed    : Σ der lane-weise verarbeiteten 32-bit-Worte (n je Runde) — Durchsatz-Mass
-//   - simd_iterations       : Σ der VEKTOR-Iterationen = floor(n / lane_width) je Runde (SSE2: n/4, Scalar: 0) —
-//                             strategie-charakteristisch (breitere ISA → weniger Iterationen fuer dasselbe n)
+//   - elements_processed    : Σ der verarbeiteten 32-bit-Worte (n je Runde) — Durchsatz-Mass
+//   - simd_iterations       : Σ der VEKTOR-Iterationen = floor(n / lane_width) je Runde (AVX512: n/16, AVX2: n/8,
+//                             SSE2: n/4, Scalar: 0) — strategie-charakteristisch (breitere ISA → weniger Iterationen)
 //   - scalar_fallback_count : Σ der SKALAR-Rest-Iterationen = n mod lane_width (+ ganz-n bei Nicht-SIMD-Build) —
 //                             ehrlicher Anteil ohne Vektorisierung
 //   - last_checksum         : letztes simd_field_sum-Ergebnis (Korrektheits-/Anti-Wegopt-Anker)
-// lane_width ist die statisch bekannte SIMD-Breite der ISA (Compile-Time, [[no-runtime-switch]]): x86_64 SSE2 = 4
-// uint32-Lanes; sonst 1 (skalar). KEIN erfundener Wert — die Zaehler reproduzieren GENAU die Schleifenstruktur von
-// simd_field_sum (4er-SSE2-Block + skalarer Rest).
+// lane_width ist die statisch bekannte SIMD-Breite der ISA (Compile-Time, [[no-runtime-switch]]): AVX-512F = 16,
+// AVX2 = 8, x86_64 SSE2 = 4 uint32-Lanes; sonst 1 (skalar). KEIN erfundener Wert — lane_width_() spiegelt GENAU die
+// 16/8/4-Kaskade von simd_field_sum (Vektor-Block je Stufe + skalarer Rest).
 //
 // Gating exakt nach Praezedenz (axis_05): snapshot_t/statistics()/reset() unter COMDARE_CE_ENABLE_STATISTICS.
 // Bei OFF: simd_field_sum = nackter Pass-Through (0 Footprint), ObservableAxis<...> = false → observe_all()
@@ -93,14 +94,20 @@ public:
     }
 
 private:
-    // Statisch bekannte SIMD-Breite der ISA in uint32-Lanes (Compile-Time, [[no-runtime-switch]]). Spiegelt die
-    // simd_field_sum-Schleifenstruktur: auf x86_64-Build mit SSE2-Baseline (supports_native_simd && x86_64) = 4
-    // Lanes; sonst skalar (1). Wird je nach BUILD-Host gewaehlt — exakt der Zweig, den simd_field_sum nimmt.
+    // Statisch bekannte SIMD-Breite der ISA in uint32-Elementen pro Vektor-Iteration (Compile-Time,
+    // [[no-runtime-switch]]). MUSS exakt den Element-Schritt spiegeln, den simd_field_sum je Iteration nimmt
+    // (axis_09_isa_amd64.hpp Phase-0.1-Kaskade): AVX-512F = 16, AVX2 = 8, SSE2 = 4, sonst skalar (1). Wird je
+    // nach BUILD-SIMD-Stufe gewaehlt — dieselbe Compiler-Makro-Kaskade wie der Compute, damit simd_iterations /
+    // scalar_fallback_count in der T12-Messzeile nicht gegen den echten Pfad driften (Review wf_fd87be00).
     [[nodiscard]] static constexpr std::uint64_t lane_width_() noexcept {
-#if defined(__x86_64__) || defined(_M_X64)
+#if defined(__AVX512F__)
+        if (Strategy::cpu_family() == std::string_view{"x86_64"} && Strategy::supports_native_simd()) return 16;
+#elif defined(__AVX2__)
+        if (Strategy::cpu_family() == std::string_view{"x86_64"} && Strategy::supports_native_simd()) return 8;
+#elif defined(__x86_64__) || defined(_M_X64)
         if (Strategy::cpu_family() == std::string_view{"x86_64"} && Strategy::supports_native_simd()) return 4;
 #endif
-        return 1; // skalarer Pfad (Nicht-x86-Build-Host oder Nicht-x86-ISA-Strategie → kein aktiver SSE2-Zweig)
+        return 1; // skalarer Pfad (Nicht-x86-Build-Host oder Nicht-x86-ISA-Strategie → kein aktiver SIMD-Zweig)
     }
 
 public:
