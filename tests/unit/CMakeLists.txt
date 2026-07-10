@@ -2487,3 +2487,22 @@ add_dependencies(test_e2_contract_abi_vertrag anatomy_codegen_pilot_wormhole_sha
 add_test(NAME test_e2_contract_abi_vertrag COMMAND test_e2_contract_abi_vertrag)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_e2_contract_abi_vertrag)
 set_tests_properties(test_e2_contract_abi_vertrag PROPERTIES LABELS "e2;abi")
+
+# Querschnitt M - SystemAxis-Wurzel ("Blut") + CMD-1-b MeasurementVisitable, ohne DLL-/Umbrella-Bezug.
+add_executable(test_m_contract_system_axis_wurzel "test_m_contract_system_axis_wurzel.cpp")
+target_compile_features(test_m_contract_system_axis_wurzel PRIVATE cxx_std_23)
+target_include_directories(test_m_contract_system_axis_wurzel PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_m_contract_system_axis_wurzel PRIVATE gtest gtest_main)
+comdare_set_platform_defines(test_m_contract_system_axis_wurzel)
+target_compile_definitions(test_m_contract_system_axis_wurzel PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
+add_test(NAME test_m_contract_system_axis_wurzel COMMAND test_m_contract_system_axis_wurzel)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_m_contract_system_axis_wurzel)
+set_tests_properties(test_m_contract_system_axis_wurzel PROPERTIES LABELS "m;blut")
