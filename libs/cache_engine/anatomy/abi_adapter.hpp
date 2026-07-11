@@ -295,6 +295,11 @@ public:
                 out->total_bytes_allocated = static_cast<std::uint64_t>(a.total_bytes_allocated);
                 out->total_bytes_in_use    = static_cast<std::uint64_t>(a.total_bytes_in_use);
                 out->allocation_count      = static_cast<std::uint64_t>(a.allocation_count);
+                // Phase 0.3: live_nodes ist eine CONTAINER-Eigenschaft (Knotenzahl), keine Allocator-Stat — bei
+                // einem strategie-getriebenen Store (rich AllocationStatistics, kein live_nodes-Feld) aus dem
+                // Organ-occupied_count speisen statt aus dem Alloc-Snapshot (kein POD-/ABI-/golden-Touch).
+                if constexpr (requires { container_algorithm_.occupied_count(); })
+                    out->live_nodes = static_cast<std::uint64_t>(container_algorithm_.occupied_count());
                 out->flags |= stbit;
             } else if constexpr (requires {
                                      a.bytes_allocated;

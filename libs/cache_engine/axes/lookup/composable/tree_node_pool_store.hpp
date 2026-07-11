@@ -6,15 +6,32 @@
 // Reines Substrat OHNE Such-Logik (1:1-Struktur nach dem bewaehrten axis_03a_search_algo_bst.hpp:
 // std::vector<Node> + Free-List + root_), aber generisch ueber uint64-Key und mit getrennter
 // Verantwortung: die Baum-NAVIGATION lebt im Tree-Traversal-Organ, NICHT hier (genetisches Experiment).
+//
+// Phase 0.3 (Hebel B, Doc 21 §F): der Knoten-/Free-List-Speicher kommt REAL aus der Allocator-Achse (axis_06)
+// — analog axis_04 ComposedStore. Der Pool haelt eine axis_06-Strategie als Member und konstruiert seine
+// Vektoren ueber deren StdAllocatorAdapter (as_std_allocator<T>()). store_allocator_statistics() liefert die
+// Strategie-Statistik (rich 5-Feld AllocationStatistics) -> T6 reflektiert den ECHTEN Allocator statt der
+// allocator-unabhaengigen Vektor-Kapazitaets-Zaehlung. Default ExgenAllocator (real=std bei disabled ->
+// verhaltens-neutral).
+//
+// COW-Sicherheit (Memento-Pattern GoF): der Store lebt IM COW-kopierten Such-Organ (das Zwei-Phasen-Mess-
+// Protokoll kopiert container_algorithm_ via cow_materialize_copy_ + rollback-Assign). Der Store ist daher
+// copy-konstruierbar+assignable (cow_capable_-Pflicht). Weil der StdAllocatorAdapter &allocator_ haelt, MUSS
+// jede Kopie/Assign den Adapter neu an das eigene allocator_ binden und die Vektoren re-allozieren — das zaehlt
+// transient in die Strategie-Stats. Copy-Ctor/Assign verwerfen diese Pollution abschliessend per
+// allocator_.restore_statistics(o.allocator_.statistics()) -> die Kopie traegt exakt den Quell-Stand, sodass
+// T6 = save-Stand + measure-Delta bleibt (keine Zwei-Phasen-Doppelzaehlung). Move ist NICHT deklariert ->
+// degradiert sicher zu Copy (kein dangling &allocator_; cow_capable_ verlangt nur Copy).
 
 #include "tree_node_pool_concept.hpp"
+#include <axes/alloc/axis_06_allocator_exgen.hpp> // axis_06-Default-Strategie ExgenAllocator + StdAllocatorAdapter
+#include <axes/alloc/concepts/axis_06_allocator_concept.hpp> // AllocatorStrategy-Concept (compile-time-strikt)
 #include <topics/nodes/axis_bst_shape/axis_bst_shape_ptr_size_t.hpp>
 #include <topics/nodes/axis_bst_shape/concepts/axis_bst_shape_concept.hpp>
 
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <memory>
 #include <stdexcept>
 #include <vector>
 
@@ -37,7 +54,8 @@ struct TreeNodePoolNode {
 
 /// Index-stabiler Knoten-Pool: Knoten behalten ihren Index ueber ihre Lebensdauer (Free-List-Recycling).
 template <typename Shape = ::comdare::cache_engine::nodes::axis_bst_shape::BstPtrSizeT,
-          class A        = std::allocator<detail::TreeNodePoolNode<Shape>>>
+          class Alloc    = ::comdare::cache_engine::alloc::ExgenAllocator>
+    requires ::comdare::cache_engine::alloc::concepts::AllocatorStrategy<Alloc>
 class TreeNodePoolStore {
     static_assert(::comdare::cache_engine::nodes::axis_bst_shape::concepts::BstShape<Shape>);
 
@@ -46,9 +64,45 @@ public:
     using value_type                       = std::uint64_t;
     using index_type                       = typename Shape::index_type;
     using node_type                        = detail::TreeNodePoolNode<Shape>;
-    using allocator_type                   = A;
+    using allocator_type                   = Alloc;
     static constexpr index_type  kNilIndex = std::numeric_limits<index_type>::max();
     static constexpr std::size_t kNil      = static_cast<std::size_t>(kNilIndex); // Level-0: size_t max (#234-K)
+
+private:
+    using node_alloc = typename Alloc::template StdAllocatorAdapter<node_type>;
+    using free_alloc = typename Alloc::template StdAllocatorAdapter<std::size_t>;
+
+public:
+    // Default: die Vektoren an das eigene allocator_ binden (Adapter nicht default-konstruierbar).
+    TreeNodePoolStore()
+        : nodes_(allocator_.template as_std_allocator<node_type>()),
+          free_(allocator_.template as_std_allocator<std::size_t>()) {}
+
+    // Copy (COW-Pflicht): allocator_ mitkopieren, Vektoren an DAS EIGENE allocator_ rebinden + Elemente kopieren
+    // (re-alloziert transient ueber this-allocator_), dann Memento-Restore der Quell-Stats -> Pollution verworfen.
+    TreeNodePoolStore(TreeNodePoolStore const& o)
+        : allocator_(o.allocator_), nodes_(o.nodes_, allocator_.template as_std_allocator<node_type>()),
+          free_(o.free_, allocator_.template as_std_allocator<std::size_t>()), root_(o.root_), size_(o.size_) {
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        allocator_.restore_statistics(o.allocator_.statistics());
+#endif
+    }
+    TreeNodePoolStore& operator=(TreeNodePoolStore const& o) {
+        if (this != &o) {
+            // POCCA=false (StdAllocatorAdapter setzt keine propagate_-Typedefs) -> nodes_/free_ behalten ihr
+            // an this-allocator_ gebundenes Adapter; die Assigns re-allozieren transient ueber this-allocator_.
+            nodes_ = o.nodes_;
+            free_  = o.free_;
+            root_  = o.root_;
+            size_  = o.size_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+            allocator_.restore_statistics(o.allocator_.statistics()); // Rollback-Copy-Pollution verwerfen
+#endif
+        }
+        return *this;
+    }
+    // Move NICHT deklariert -> implizit unterdrueckt durch user-Copy -> faellt sicher auf Copy zurueck.
+    ~TreeNodePoolStore() = default;
 
     [[nodiscard]] std::size_t root() const noexcept { return static_cast<std::size_t>(root_); }
     [[nodiscard]] std::size_t node_count() const noexcept { return size_; }
@@ -64,19 +118,11 @@ public:
     void set_root(std::size_t i) noexcept { root_ = static_cast<index_type>(i); }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
-    struct allocator_statistics_snapshot {
-        std::uint64_t alloc_calls     = 0;
-        std::uint64_t bytes_allocated = 0;
-        std::uint64_t live_nodes      = 0;
-    };
-
-    [[nodiscard]] allocator_statistics_snapshot store_allocator_statistics() const noexcept {
-        return allocator_statistics_snapshot{
-            alloc_calls_,
-            bytes_allocated_,
-            live_nodes_,
-        };
-    }
+    using allocator_snapshot_t = typename Alloc::snapshot_t;
+    /// T6-Route (Phase 0.3): die ECHTE Allocator-Achsen-Statistik (rich AllocationStatistics, 5 Felder) — von
+    /// abi_adapter bevorzugt (total_bytes_allocated/total_bytes_in_use/allocation_count/deallocation_count/
+    /// failure_count). Reflektiert die gewaehlte axis_06-Strategie statt allocator-unabhaengiger Store-Zaehlung.
+    [[nodiscard]] allocator_snapshot_t store_allocator_statistics() const noexcept { return allocator_.statistics(); }
 #endif
 
     /// Allokiert einen Knoten (Free-List-Recycling oder Anhang) — darf via vector werfen (kein noexcept).
@@ -92,66 +138,34 @@ public:
             // bei schmalem index_type (U16: max 65535 Knoten, Indizes 0..65534; 65535 = kNilIndex-Sentinel) ist Ueberlauf ein harter Fehler, kein stilles Wrappen.
             if (idx >= static_cast<std::size_t>(kNilIndex))
                 throw std::length_error("TreeNodePoolStore: index_type-Kapazitaet erschoepft (#234-F3)");
-            std::size_t const old_capacity = nodes_.capacity();
             nodes_.push_back(node_type{k, v, kNilIndex, kNilIndex});
-            record_capacity_growth_(old_capacity, nodes_.capacity(), sizeof(node_type));
         }
         ++size_;
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-        ++live_nodes_;
-#endif
         return idx;
     }
     /// Contract (Substrat/Organ-Vertrauensgrenze, wie alle Setter): i MUSS ein aktuell lebendiger, genau einmal
     /// freigegebener Knoten-Index sein — das Traversal-Organ garantiert das; der Store validiert nicht (#234-F3).
     void free_node(std::size_t i) noexcept {
-        std::size_t const old_capacity = free_.capacity();
         free_.push_back(i);
-        record_capacity_growth_(old_capacity, free_.capacity(), sizeof(std::size_t));
         --size_;
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-        --live_nodes_;
-#endif
     }
     void clear() noexcept {
         nodes_.clear();
         free_.clear();
         root_ = kNilIndex;
         size_ = 0;
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-        live_nodes_ = 0;
-#endif
     }
 
 private:
-    using Node                = node_type;
-    using node_allocator_type = typename std::allocator_traits<A>::template rebind_alloc<Node>;
-    using free_allocator_type = typename std::allocator_traits<A>::template rebind_alloc<std::size_t>;
-
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-    // Ehrliche Allokator-Metrik: gezaehlt werden nur erfolgreiche vector-capacity-Zuwaechse, als Capacity-Delta
-    // mal Elementgroesse. Reuse/clear ohne Capacity-Wachstum erzeugt bewusst keine kuenstlichen Werte.
-    void record_capacity_growth_(std::size_t old_capacity, std::size_t new_capacity, std::size_t elem_bytes) noexcept {
-        if (new_capacity <= old_capacity) return;
-        ++alloc_calls_;
-        bytes_allocated_ +=
-            static_cast<std::uint64_t>(new_capacity - old_capacity) * static_cast<std::uint64_t>(elem_bytes);
-    }
-#else
-    static void record_capacity_growth_(std::size_t, std::size_t, std::size_t) noexcept {}
-#endif
-
     // sizeof(Node) je Packing: size_t 32 B; u32 24 B; u16 20->24 B mit Padding, alignof(u64)-bedingt;
     // U16-Gewinn liegt im Index-Wertebereich, nicht im sizeof.
-    std::vector<Node, node_allocator_type>        nodes_{};
-    std::vector<std::size_t, free_allocator_type> free_{};
-    index_type                                    root_ = kNilIndex;
-    std::size_t                                   size_ = 0;
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-    std::uint64_t alloc_calls_     = 0;
-    std::uint64_t bytes_allocated_ = 0;
-    std::uint64_t live_nodes_      = 0;
-#endif
+    // allocator_ VOR den Vektoren deklariert (Init-/Destruktions-Reihenfolge; die Vektoren halten via Adapter
+    // &allocator_) — Phase 0.3, analog axis_04 ComposedStore.
+    Alloc                                allocator_{};
+    std::vector<node_type, node_alloc>   nodes_;
+    std::vector<std::size_t, free_alloc> free_;
+    index_type                           root_ = kNilIndex;
+    std::size_t                          size_ = 0;
 };
 
 // Selbstbeweis: das Substrat erfuellt das TreeNodePool-Concept.
