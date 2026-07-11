@@ -32,6 +32,8 @@ public:
     }
     bool                      erase(key_type k) { return Traversal::template erase_from<Pool>(pool_, k); }
     [[nodiscard]] std::size_t occupied_count() const noexcept { return pool_.size(); }
+    // Phase 0.3a: pool-native LEBENDE Knotenzahl (growth-unabhaengig) fuer Shape-Struktur-Beweise.
+    [[nodiscard]] std::size_t pool_node_count() const noexcept { return pool_.pool_node_count(); }
     /// #188-4b-DEG1 - besucht JEDEN gespeicherten Record GENAU EINMAL als sink(key, value).
     /// Reihenfolge familien-spezifisch, NICHT vertraglich (B-Tree: In-Order ueber child/key-Arrays).
     /// Reines Lesen: KEIN Substrat-/Statistik-Effekt. Rueckgabe = Anzahl besuchter Records (== occupied_count()).

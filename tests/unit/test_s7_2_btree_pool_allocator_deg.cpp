@@ -29,6 +29,7 @@ namespace comp = ::comdare::cache_engine::compositions;
 namespace lk   = ::comdare::cache_engine::lookup;
 namespace lkc  = ::comdare::cache_engine::lookup::composable;
 namespace ord  = ::comdare::cache_engine::nodes::axis_btree_order;
+namespace alc  = ::comdare::cache_engine::alloc;
 
 namespace {
 
@@ -40,7 +41,9 @@ using BTreeHull    = lkc::ObservableComposedContainer<DefaultOrgan>;
 
 static_assert(std::is_same_v<DefaultStore, lkc::BTreeNodePoolStore<Shape>>);
 static_assert(lkc::BTreeNodePool<DefaultStore>);
-static_assert(std::is_same_v<typename DefaultStore::allocator_type, std::allocator<typename DefaultStore::node_type>>);
+// Phase 0.3a (Hebel B): allocator_type ist jetzt die axis_06-Strategie (Default ExgenAllocator) statt std::allocator.
+static_assert(alc::concepts::AllocatorStrategy<typename DefaultStore::allocator_type>);
+static_assert(std::is_same_v<typename DefaultStore::allocator_type, alc::ExgenAllocator>);
 static_assert(requires(DefaultOrgan const& organ) { organ.store_allocator_statistics(); });
 static_assert(requires(BTreeHull const& hull) { hull.store_allocator_statistics(); });
 
@@ -86,11 +89,13 @@ TEST(S72BTreePoolAllocatorDeg, DirectPoolStatsAreReal) {
 
     for (U64 const key : keys) { EXPECT_TRUE(hull.insert(key, value_for(key))); }
 
+    // Phase 0.3a: store_allocator_statistics() liefert die axis_06-Strategie-Statistik (AllocationStatistics).
     auto const stats = hull.store_allocator_statistics();
-    EXPECT_GT(stats.alloc_calls, 0u);
-    EXPECT_GT(stats.bytes_allocated, 0u);
-    EXPECT_GT(stats.live_nodes, 0u);
-    EXPECT_LE(stats.live_nodes, keys.size());
+    EXPECT_GT(stats.allocation_count, 0u);
+    EXPECT_GT(stats.total_bytes_allocated, 0u);
+    EXPECT_GT(stats.total_bytes_in_use, 0u);
+    // Belegung: B-Baum-Knoten != Schluesselzahl -> occupied_count() == eingefuegte Keys (Substrat fuehrt size_).
+    EXPECT_EQ(hull.occupied_count(), keys.size());
 }
 
 TEST(S72BTreePoolAllocatorDeg, AbiObserverRoutesPoolAllocatorStatsToT6) {
