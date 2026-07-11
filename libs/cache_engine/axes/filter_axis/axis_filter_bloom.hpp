@@ -71,6 +71,17 @@ public:
     /// Probe-Multiplizitaet je Query (k Bit-Tests) — ehrlich deklariert fuer hash_probes_total.
     [[nodiscard]] static constexpr std::uint64_t probe_multiplicity() noexcept { return kHashes; }
 
+    /// SPACE-Seite des T16-Kern-Trade-offs (Space-Effizienz @ Ziel-FPR): strukturelles Bit-Budget der REALEN
+    /// Bitmap, compile-time aus kBitmapBytes abgeleitet (= sizeof(bitmap_)*8). Static-constexpr-Descriptor analog
+    /// probe_multiplicity() — KEIN Datenmember (Layout/trivially_copyable/ABI unberuehrt), KEIN neuer Achsenwert
+    /// (AllFilters bleibt 4 → golden-320 4x4x5x4 + Gate-1-Produkt unberuehrt), KEIN POD-Feld (1416 unberuehrt).
+    [[nodiscard]] static constexpr std::size_t filter_bit_capacity() noexcept { return kBitmapBytes * 8u; }
+    /// bits/key bei key_count gespeicherten Keys — spiegelt composable/ louds_sparse_filter_store::bits_per_key()
+    /// (bit_size/key_count, key_count==0 → 0.0). key_count aus dem realen Fuellstand (tier_fill_level, Observer-POD).
+    [[nodiscard]] static constexpr double bits_per_key(std::size_t key_count) noexcept {
+        return key_count ? static_cast<double>(filter_bit_capacity()) / static_cast<double>(key_count) : 0.0;
+    }
+
     [[nodiscard]] static constexpr bool             supports_range_query() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "filter_bloom"; }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
