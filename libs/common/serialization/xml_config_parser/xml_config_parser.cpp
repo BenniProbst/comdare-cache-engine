@@ -314,6 +314,7 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(std::filesyst
     // (d) <run_options cap=".." platform=".." build_version=".." resume=".."/> — Lauf-Steuerungs-Defaults.
     if (auto const* ro = root->child("run_options")) {
         tp.run_options.cap           = to_int(ro->attr("cap", "0"), 0);
+        tp.run_options.n_ops         = std::strtoull(ro->attr("n_ops", "0").c_str(), nullptr, 10); // G5
         tp.run_options.platform      = ro->attr("platform");
         tp.run_options.build_version = ro->attr("build_version");
         if (ro->has_attr("resume")) {

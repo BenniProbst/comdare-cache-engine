@@ -191,8 +191,10 @@ struct RunProfileResult {
     auto make_cfg = [&](std::uint64_t ws_n, std::size_t cap_for_pass, std::string const& series,
                         std::string const& sweep_axis, std::string const& pruefling_type) {
         ex::LazyRunConfig cfg;
-        cfg.max_binaries              = cap_for_pass;
-        cfg.n_ops                     = a.n_ops;
+        cfg.max_binaries = cap_for_pass;
+        // G5: <run_options n_ops> ist autoritativ (XML steuert ALLES, #229); der Fassaden-/argv-Wert
+        // greift nur als Fallback (n_ops=0 im Profil = ungesetzt).
+        cfg.n_ops                     = (tp.run_options.n_ops > 0) ? tp.run_options.n_ops : a.n_ops;
         cfg.workload_records          = ws_n;
         cfg.workload_configs          = a.workload_registry;
         cfg.build_version             = a.build_version;
@@ -206,8 +208,10 @@ struct RunProfileResult {
         cfg.cores_per_build           = a.cores_per_build;
         cfg.per_binary_subdirs        = true;
         cfg.resume_completed_binaries = resume;
-        cfg.n_repeats                 = a.n_repeats;
-        cfg.env_limits.thread_count   = 16;
+        // G4: informatives Feld konsistent aus <repetitions count> speisen (die echten Wiederholungen
+        // laufen ohnehin ueber die repetition-DynDim aus tp.repetitions; cfg.n_repeats wird nicht geloopt).
+        cfg.n_repeats               = (tp.repetitions > 0) ? static_cast<std::uint32_t>(tp.repetitions) : a.n_repeats;
+        cfg.env_limits.thread_count = 16;
         if (a.min_free_gb > 0.0) {
             cfg.ram_per_build_bytes     = static_cast<std::uint64_t>(a.min_free_gb * 1024.0 * 1024.0 * 1024.0);
             cfg.ram_safety_margin_bytes = cfg.ram_per_build_bytes;
