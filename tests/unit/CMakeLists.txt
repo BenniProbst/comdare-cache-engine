@@ -2713,13 +2713,5 @@ endfunction()
 comdare_thesis_adhoc_executable(test_profile_roundtrip
     SOURCES "thesis_tiere/test_profile_roundtrip.cpp")
 
-comdare_thesis_adhoc_executable(test_run_profile_union
-    SOURCES "thesis_tiere/test_run_profile_union.cpp")
-comdare_attach_generated_catalog(test_run_profile_union)
-
 comdare_thesis_adhoc_executable(test_axis_sweep_pilot
     SOURCES "thesis_tiere/test_axis_sweep_pilot.cpp")
-
-comdare_thesis_adhoc_executable(run_lazy_150
-    SOURCES "thesis_tiere/run_lazy_150.cpp")
-comdare_attach_generated_catalog(run_lazy_150)

@@ -177,7 +177,7 @@ struct ThesisProfile {
 
     // ── S1 (Increment 2, 2026-06-18): die 4 deklarativen m3v2-Selektions-Konstrukte (ADDITIV; leer = Default). ──
     // (a) <working_set_sweep>{N-Liste}</working_set_sweep> — die Working-Set-N-Werte (Record-Zahlen) der aeusseren
-    //     Lauf-Iteration. Ersetzt COMDARE_WORKLOAD_RECORDS + PS-foreach (build_and_measure_150_tiere.ps1:166).
+    //     Lauf-Iteration. Ersetzt COMDARE_WORKLOAD_RECORDS + den alten PS-foreach-Behelf (entfernt).
     //     Leer = einmaliger Lauf (rueckwaerts-kompatibel). Als String-Liste (wie thread_counts) gehalten.
     std::vector<std::string>      working_set_sweep;
     std::vector<ThesisAxisSweep>  axis_sweeps; // (b) <axis_sweep .../> — eine Achse gegen feste Baseline
