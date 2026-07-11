@@ -1,0 +1,10 @@
+binary_id;ns_per_op;two_phase_valid;op_insert_p50_ns;op_lookup_p50_ns;op_erase_p50_ns;op_scan_p50_ns
+bin_fast;100;1;10;20;30;40
+bin_fast;120;1;12;22;32;42
+bin_fast;110;1;11;21;31;41
+bin_slow;300;1;13;23;33;43
+bin_invalid;50;0;99;99;99;99
+bin_zero;0;1;0;0;0;0
+bin_mid;200;1;14;24;34;44
+bin_mid2;200;1;15;25;35;45
+bin_mid2;200;1;16;26;36;46

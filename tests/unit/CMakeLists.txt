@@ -2466,6 +2466,23 @@ set_tests_properties(test_load_profile_writer PROPERTIES
 message(STATUS "tools-tests: test_cacheline_policy_selector (#174) + test_load_profile_writer (#175) "
     "als add_test registriert (best_binary_selector-Tool = tools/best_binary_selector add_executable).")
 
+# 2026-07-11: best_binary_selector parse+rank Characterization-Test. Das #172-Werkzeug war bisher NUR als
+# add_executable (tools/best_binary_selector) registriert, NIE als add_test -> parse_measurement_csv +
+# rank_binaries (ausgelieferte Produktionslogik) waren UNGETESTET. Dieser Test nagelt sie gate-frei fest
+# (synthetische WIDE-CSV-Golden-Fixture, kein #156-Messlauf, kein Treiber). best_binary_selector.cpp ist
+# self-contained (nur Standardbibliothek) -> direkt in die Test-TU kompiliert, keine Engine-/Boost-Deps.
+add_executable(test_best_binary_selector_parse_rank
+    "test_best_binary_selector_parse_rank.cpp"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/best_binary_selector/best_binary_selector.cpp")
+target_compile_features(test_best_binary_selector_parse_rank PRIVATE cxx_std_23)
+target_include_directories(test_best_binary_selector_parse_rank PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/best_binary_selector")
+comdare_set_platform_defines(test_best_binary_selector_parse_rank)
+add_test(NAME test_best_binary_selector_parse_rank COMMAND test_best_binary_selector_parse_rank
+    "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/best_binary_wide.csv")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_best_binary_selector_parse_rank)
+set_tests_properties(test_best_binary_selector_parse_rank PROPERTIES LABELS "tools;best_binary" TIMEOUT 60)
+
 # Schicht E4 Paket B - XML-Eingang der Resource-Control-Felder bis zur E3-AxisLevel-Struktur.
 add_executable(test_e4_contract_xml_to_axislevels "test_e4_contract_xml_to_axislevels.cpp")
 target_compile_features(test_e4_contract_xml_to_axislevels PRIVATE cxx_std_23)
