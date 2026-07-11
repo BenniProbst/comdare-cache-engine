@@ -103,15 +103,19 @@ int main(int argc, char** argv) {
     auto const                  pts = vis.measure(bridge, dims, /*n_ops=*/20, /*repeats=*/3);
 
     eq("Mess-Punkte == 9 (3 Einstellungen × 3 Wiederholungen)", pts.size(), std::size_t{9});
-    bool                  all_measured = true, all_applied = true;
+    bool                  all_measured = true, all_label_only = true;
     std::set<std::string> labels;
     for (auto const& p : pts) {
         if (p.observer.search_insert_count == 0) all_measured = false; // echt über die DLL getrieben?
-        if (p.applied_axis_count == 0) all_applied = false;            // thread_count real angewandt?
+        // T8-Ehrlichkeit (Achsen-Ontologie-Verifikation 2026-07-11): thread_count ist LABEL-ONLY — der
+        // In-Prozess-In-Memory-Tier konsumiert es nicht (runtime_thread_count() = null Consumer), also zählt
+        // apply1 es counts=false → applied_axis_count == 0. Der Sweep produziert weiter 3 distinkte, real
+        // gemessene Label-Punkte; nur der Phantom-"applied" ist weg. Dieser Test ist der DLL-Ebenen-Guard.
+        if (p.applied_axis_count != 0) all_label_only = false;
         labels.insert(p.setting_label);
     }
     tr("jeder Punkt: observer.search_insert_count > 0 (echt über die DLL getrieben)", all_measured);
-    tr("jeder Punkt: applied_axis_count > 0 (thread_count real angewandt über DLL)", all_applied);
+    tr("jeder Punkt: applied_axis_count == 0 (thread_count label-only über DLL — T8-Phantom-Guard)", all_label_only);
     eq("3 distinkte dyn. Einstellungs-Labels", labels.size(), std::size_t{3});
 
     int rep_counts[3] = {0, 0, 0};
