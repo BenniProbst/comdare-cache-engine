@@ -1127,7 +1127,8 @@ public:
             r[3]          = mp.total_resolve_miss_count;
             r[4]          = mp.total_reverse_lookup_count;
             r[5]          = mp.peak_mapped;
-            r[6]          = mp.total_indirection_steps; // T2 Indirektions-CM in reservierten Slot [2][6] (layout-neutral, sizeof 1416 unveraendert)
+            // T2 Indirektions-CM in den reservierten Slot [2][6] (layout-neutral, sizeof 1416 unveraendert):
+            r[6] = mp.total_indirection_steps;
             ++filled;
         }
         // ── T4 node_type (Pfad-B Zustand-Scan über container_algorithm_, wie der frühere V2-Pfad) ─────────────────────
