@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <ostream>
 #include <string>
 
 namespace comdare::cache_engine::builder::profile_facade {
@@ -47,5 +48,11 @@ struct ProfileRunResult {
 };
 
 [[nodiscard]] ProfileRunResult run_profile_facade(ProfileRunArgs const& args);
+
+// GoF Facade: rein-lesende Profil-Vorabpruefung (Pre-Flight, #169(A)/P5, migriert von run_lazy_150
+// --validate). Parst das Thesis-Profil + prueft ALLE Achsen-Werte gegen die realen EnabledStrategies;
+// baut KEINE DLL und misst NICHT. Rueckgabe: 0 = gueltig, 1 = Verstoss (Report auf os), 5 = Profil
+// nicht lesbar. Erlaubt einen mehrtaegigen Voll-Lauf vor dem teuren Bau abzusichern.
+[[nodiscard]] int validate_profile_facade(std::filesystem::path const& profile_path, std::ostream& os);
 
 } // namespace comdare::cache_engine::builder::profile_facade

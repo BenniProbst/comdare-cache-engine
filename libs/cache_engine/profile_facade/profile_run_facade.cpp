@@ -4,8 +4,10 @@
 #include "profile_run_facade.hpp"
 
 #include "profile_run_entry.hpp"
+#include "validate_profile.hpp" // P5: axis_registry_from_levels / validate_profile / print_validation_report
 
 #include <builder/build_orchestrator/build_orchestrator.hpp>
+#include <builder/experiment_tree/registry_to_axis_levels.hpp> // P5: build_all_axis_levels (EnabledStrategies)
 #include <builder/workload_driver/load_profile_parser.hpp>
 
 #include <algorithm>
@@ -170,6 +172,22 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     out.measured                  = r.any_measured;
     out.resumed                   = r.any_resumed;
     return out;
+}
+
+int validate_profile_facade(std::filesystem::path const& profile_path, std::ostream& os) {
+    auto const tp = tlz::load_thesis_profile(profile_path);
+    if (!tp) {
+        os << "[validate] Profil '" << profile_path.string()
+           << "' nicht lesbar (parse_thesis_profile=nullopt). KEIN Bau ausgefuehrt.\n";
+        return 5;
+    }
+    // Die gueltigen Achsen-Werte kommen aus den REALEN EnabledStrategies (build_all_axis_levels
+    // reflektiert sie) → Registry → validate_profile prueft jeden <axis>-Wert dagegen.
+    ex::AxisRegistry const             registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+    tlz::ProfileValidationResult const vr       = tlz::validate_profile(*tp, registry);
+    tlz::print_validation_report(vr, *tp, os);
+    os << "(--validate: rein-lesend — es wurde KEINE DLL gebaut und KEINE Messung durchgefuehrt.)\n";
+    return vr.ok ? 0 : 1;
 }
 
 } // namespace comdare::cache_engine::builder::profile_facade
