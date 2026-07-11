@@ -133,9 +133,14 @@
   </compile_dims>
 
   <!-- (d-1) DYNAMISCHE OS-Laufzeit-Dimensionen — build_axis_levels expandiert sie zu DynamicDims (NICHT teil
-       der binary_id). thread_count → concurrency.thread_count; hw_prefetcher → prefetch.hw_prefetcher. -->
+       der binary_id). thread_count → concurrency.thread_count; hw_prefetcher → prefetch.hw_prefetcher.
+       thread_count ist LABEL-ONLY auf 1 gepinnt (Achsen-Ontologie-Verifikation 2026-07-11, T8): der In-Prozess-
+       In-Memory-Tier konsumiert es nicht real (runtime_thread_count() hat null Consumer; abi_adapter apply1
+       zaehlt es counts=false = nicht "applied"). Ein 1/2/4-Sweep produzierte IDENTISCHE Phantom-Zeilen, nur
+       verschieden etikettiert. Echter Threading-Konsum = Fix A (#221-Rest, deferred). hw_prefetcher bleibt
+       gesweept: auf dem Cluster via MSR 0x1A4 real (nur lokal label-only). -->
   <runtime_dynamic>
-    <thread_count>1 2 4</thread_count>
+    <thread_count>1</thread_count>
     <hw_prefetcher>all_on adjacent_off all_off</hw_prefetcher>
   </runtime_dynamic>
 
