@@ -175,13 +175,16 @@ TEST(V234aShapedAdapter, ShapedOrganHasStructurallyMoreLiveNodesThanDefault) {
         EXPECT_TRUE(kh.insert(key, value_for(key)));
     }
 
-    auto const ds = dh.store_allocator_statistics();
-    auto const ks = kh.store_allocator_statistics();
-    std::cout << "234-V-a live_nodes: default(Kt4)=" << ds.live_nodes << " shaped(Kt2)=" << ks.live_nodes << '\n';
+    // Phase 0.3a: die pool-native LEBENDE Knotenzahl kommt jetzt aus pool_node_count() (nodes_.size()-free_.size(),
+    // growth-bucket-UNABHAENGIG) statt aus dem entfallenen allocator-snapshot-live_nodes — genau die Groesse, die
+    // der Kommentar oben verlangt (die Allocator-Stats zaehlen jetzt vector-Reallokationen, growth-abhaengig).
+    std::size_t const ds = dh.pool_node_count();
+    std::size_t const ks = kh.pool_node_count();
+    std::cout << "234-V-a pool_node_count: default(Kt4)=" << ds << " shaped(Kt2)=" << ks << '\n';
 
-    EXPECT_GT(ds.live_nodes, 0u);
-    EXPECT_GT(ks.live_nodes, 0u);
-    EXPECT_GT(ks.live_nodes, ds.live_nodes) << "Kt2 muss strukturell mehr Knoten tragen als Kt4";
+    EXPECT_GT(ds, 0u);
+    EXPECT_GT(ks, 0u);
+    EXPECT_GT(ks, ds) << "Kt2 muss strukturell mehr Knoten tragen als Kt4";
 }
 
 // (2b) Adapter-Traeger-Beweis ueber die ABI-Route: der Shape erreicht den Pool DURCH den Adapter.

@@ -120,6 +120,14 @@ public:
         return container_.store_allocator_statistics();
     }
 
+    // Phase 0.3a: pool-native LEBENDE Knotenzahl (growth-unabhaengig) fuer Shape-Struktur-Beweise (requires-detektiert).
+    template <class C = Container>
+    [[nodiscard]] std::size_t pool_node_count() const noexcept
+        requires requires(C const& c) { c.pool_node_count(); }
+    {
+        return container_.pool_node_count();
+    }
+
     using snapshot_t = ce_concepts::SearchAlgoStatistics;
     using observer_t = ::comdare::cache_engine::measurement::MeasurableObserver<snapshot_t>;
     [[nodiscard]] snapshot_t statistics() const noexcept { return stats_; }
