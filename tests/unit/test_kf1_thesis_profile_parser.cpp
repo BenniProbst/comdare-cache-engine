@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
     check_eq("workloads", tp->workloads.size(), std::size_t{6}); // A..F
     check_eq("telemetry_mode", tp->telemetry_mode, std::string{"on"});
     check_true("telemetry_silent", tp->telemetry_silent);
-    check_eq("thread_counts", tp->thread_counts.size(), std::size_t{3}); // 1 2 4
+    check_eq("thread_counts", tp->thread_counts.size(), std::size_t{1}); // 1 (label-only gepinnt, T8-Phantom-Fix)
     check_eq("hw_prefetcher", tp->hw_prefetcher.size(), std::size_t{3});
     check_eq("repetitions", tp->repetitions, 3);
     check_true("repetitions nicht interpoliert", !tp->repetitions_interpolate);

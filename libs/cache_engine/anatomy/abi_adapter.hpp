@@ -235,15 +235,24 @@ public:
         ComdareResourceControlV1 caps{};
         tier_query_resource_caps(&caps);
         std::uint64_t applied = 0;
-        auto          apply1  = [&applied](std::uint64_t v, std::uint64_t cap, std::uint64_t& dst) noexcept {
+        // `counts` = ob das Feld als "real angenommen" zaehlt (Vertrag resource_controllable_tier.hpp:65-67).
+        // thread_count (axis_08) wird geklammert + als Label an das Concurrency-Organ durchgereicht, aber der
+        // In-Prozess-In-Memory-Tier KONSUMIERT es nicht in der Mess-Scan: runtime_thread_count() hat repo-weit
+        // null wirkende Aufrufer, acquire()/release() treiben das statische Sync-Primitiv fanout-unabhaengig.
+        // Es zaehlt daher — analog zur hw_prefetcher-MSR-Ausnahme (nur auf dem Cluster real) — NICHT als applied,
+        // sonst meldete apply1 einen False-Positive (Phantom-"applied"). Echter Threading-Konsum = Fix A
+        // (#221-Rest, deferred: In-Prozess-Threading eines Single-Tier-In-Memory-Lookups fuehrt Contention-
+        // Rauschen statt sauberem Achsen-Signal ein — genau der bei #221 revertete Mess-Defekt).
+        auto apply1 = [&applied](std::uint64_t v, std::uint64_t cap, std::uint64_t& dst, bool counts) noexcept {
             dst = (v == 0 || cap == 0 || v <= cap) ? v : cap;
-            if (v != 0) ++applied;
+            if (v != 0 && counts) ++applied;
         };
-        apply1(in->thread_count, caps.thread_count, applied_rc_.thread_count);
-        apply1(in->prefetch_distance, caps.prefetch_distance, applied_rc_.prefetch_distance);
-        apply1(in->pool_budget_bytes, caps.pool_budget_bytes, applied_rc_.pool_budget_bytes);
-        apply1(in->batch_size, caps.batch_size, applied_rc_.batch_size);
-        apply1(in->inline_threshold_bytes, caps.inline_threshold_bytes, applied_rc_.inline_threshold_bytes);
+        apply1(in->thread_count, caps.thread_count, applied_rc_.thread_count, /*counts=*/false);
+        apply1(in->prefetch_distance, caps.prefetch_distance, applied_rc_.prefetch_distance, /*counts=*/true);
+        apply1(in->pool_budget_bytes, caps.pool_budget_bytes, applied_rc_.pool_budget_bytes, /*counts=*/true);
+        apply1(in->batch_size, caps.batch_size, applied_rc_.batch_size, /*counts=*/true);
+        apply1(in->inline_threshold_bytes, caps.inline_threshold_bytes, applied_rc_.inline_threshold_bytes,
+               /*counts=*/true);
         if constexpr (requires { cc_organ_.set_runtime_thread_count(std::uint64_t{}); }) {
             cc_organ_.set_runtime_thread_count(applied_rc_.thread_count);
         }

@@ -95,8 +95,10 @@ void check_resource_control_contract(ana::IResourceControllableTier* rc) {
     fake_e1.inline_threshold_bytes  = 999;
     fake_e1.controllable_axis_count = 99;
 
+    // thread_count zaehlt NICHT als "real angenommen" (label-only: der In-Prozess-Tier konsumiert es nicht,
+    // s. abi_adapter apply1 counts=false). Die 4 real wirkenden RC-Achsen (prefetch/pool/batch/inline) zaehlen.
     std::uint64_t const applied = rc->tier_apply_resource_control(&fake_e1);
-    check_eq("Fake-E1 over-caps apply status", applied, std::uint64_t{5});
+    check_eq("Fake-E1 over-caps apply status (thread_count label-only -> 4)", applied, std::uint64_t{4});
 }
 
 void check_loaded_dll_contract() {
