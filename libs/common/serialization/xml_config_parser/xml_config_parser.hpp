@@ -141,11 +141,12 @@ struct ThesisSotaSeries {
 //     argv/env von run_lazy_150 kommt. Deklarativ im Profil; der Treiber liest sie als Defaults (argv/env darf
 //     weiterhin uebersteuern — Rueckwaerts-Kompatibilitaet). cap=0 / leere Strings = "ungesetzt".
 struct ThesisRunOptions {
-    int         cap = 0;            // max_binaries-Obergrenze (0 = ungesetzt → Treiber-Default)
-    std::string platform;           // CSV-Tag platform (z.B. "win-x86_64")
-    std::string build_version;      // CSV-Tag build_version (z.B. "m3v2")
-    bool        resume     = true;  // Mess-Resume an/aus (#139)
-    bool        resume_set = false; // true wenn <run_options resume=..> explizit gesetzt war
+    int           cap   = 0;          // max_binaries-Obergrenze (0 = ungesetzt → Treiber-Default)
+    std::uint64_t n_ops = 0;          // Ops je (Binary×Setting) (0 = ungesetzt → Treiber-/Fassaden-Default, G5)
+    std::string   platform;           // CSV-Tag platform (z.B. "win-x86_64")
+    std::string   build_version;      // CSV-Tag build_version (z.B. "m3v2")
+    bool          resume     = true;  // Mess-Resume an/aus (#139)
+    bool          resume_set = false; // true wenn <run_options resume=..> explizit gesetzt war
 };
 
 struct ThesisProfile {
