@@ -40,8 +40,9 @@ set(_facade_adapter_ext_includes
     "${PROJECT_SOURCE_DIR}/ext/traversal/P29-RCU/userspace-rcu/include"
     "${PROJECT_SOURCE_DIR}/ext/traversal/P30-HazardPointers/haz_ptr")
 
-# Phase-1-Naht: profile_run_entry.hpp ist noch im Test-Harness. Nur dieser PRIVATE
-# Include-Pfad zieht ihn; eine echte Hebung ist ein Folge-Increment.
+# P0-Hebung (VOLLZOGEN): profile_run_entry.hpp + source_catalog/sota_catalog/profile_runner.hpp
+# liegen jetzt in diesem Verzeichnis (libs/cache_engine/profile_facade), nicht mehr im Test-Harness.
+# Der Include-Pfad loest den generierten Katalog-Re-Include "source_catalog.hpp" auf.
 set(_facade_heavy_includes
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
@@ -49,7 +50,7 @@ set(_facade_heavy_includes
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
     "${PROJECT_SOURCE_DIR}/libs/common"
     "${PROJECT_SOURCE_DIR}/libs/common/serialization"
-    "${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
     "${PROJECT_BINARY_DIR}/generated"
     ${_facade_axis_generated_dirs}
     ${_facade_adapter_ext_includes})
