@@ -118,6 +118,11 @@ public:
         stats_ = {};
         observer_.notify(stats_);
     }
+    // Phase 0.3 (Memento): Stats auf einen Snapshot zuruecksetzen (verwirft COW-Kopier-Pollution im Store-Copy).
+    void restore_statistics(snapshot_t const& s) noexcept {
+        stats_ = s;
+        observer_.notify(stats_);
+    }
     [[nodiscard]] observer_t const& observer() const noexcept { return observer_; }
     [[nodiscard]] observer_t&       observer() noexcept { return observer_; }
 #endif

@@ -107,6 +107,12 @@ public:
         // V41.F.6.1.A User-Klarstellung: reset() = Statistik-Reset, NICHT Pool-Reset!
         derived().reset();
     }
+
+    // Phase 0.3 (Hebel B, Memento-Pattern GoF): Statistik auf einen zuvor via statistics() gezogenen Snapshot
+    // zuruecksetzen — spiegelbildlich zu reset(). Nutzung: ein strategie-besitzender Store (z.B. TreeNodePoolStore)
+    // verwirft damit im Copy-Ctor/Assign die durch die COW-Vollkopie entstandene transiente Re-Allokations-
+    // Pollution (die Zwei-Phasen-Mess-Doppelzaehlung), sodass T6 = save-Stand + measure-Delta bleibt.
+    void restore_statistics(concepts::AllocationStatistics const& s) noexcept { derived().restore_statistics(s); }
 #endif
 
     // ───────────────────────────────────────────────────────────────────────

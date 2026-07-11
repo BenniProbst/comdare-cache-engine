@@ -4,7 +4,9 @@
 
 #include <anatomy/abi_adapter.hpp>
 #include <anatomy/observable_tier.hpp>
+#include <anatomy/rollbackable_tier.hpp> // IRollbackableTier (Zwei-Phasen-CoW)
 #include <anatomy/search_algorithm_anatomy.hpp>
+#include <builder/anatomy_commands/tier_observe_trace_abi.hpp> // detail::two_phase_measure
 #include <axes/lookup/axis_03a_search_algo_bst.hpp>
 #include <axes/lookup/composable/tier_to_organ_mapping.hpp>
 #include <builder/codegen/all_axes_umbrella.hpp>
@@ -28,6 +30,8 @@ namespace comp = ::comdare::cache_engine::compositions;
 namespace lk   = ::comdare::cache_engine::lookup;
 namespace lkc  = ::comdare::cache_engine::lookup::composable;
 namespace shp  = ::comdare::cache_engine::nodes::axis_bst_shape;
+namespace alc  = ::comdare::cache_engine::alloc;
+namespace acd  = ::comdare::cache_engine::builder::anatomy_commands::detail;
 
 namespace {
 
@@ -38,7 +42,10 @@ using DefaultOrgan = lkc::BstTreeOrgan;
 using BstHull      = lkc::ObservableComposedContainer<DefaultOrgan>;
 
 static_assert(lkc::TreeNodePool<DefaultStore>);
-static_assert(std::is_same_v<typename DefaultStore::allocator_type, std::allocator<typename DefaultStore::node_type>>);
+// Phase 0.3 (Hebel B): allocator_type ist jetzt die axis_06-Strategie (Default ExgenAllocator, real=std bei
+// disabled -> verhaltens-neutral) statt std::allocator — der Pool allokiert REAL ueber die Allocator-Achse.
+static_assert(alc::concepts::AllocatorStrategy<typename DefaultStore::allocator_type>);
+static_assert(std::is_same_v<typename DefaultStore::allocator_type, alc::ExgenAllocator>);
 static_assert(requires(DefaultOrgan const& organ) { organ.store_allocator_statistics(); });
 static_assert(requires(BstHull const& hull) { hull.store_allocator_statistics(); });
 
@@ -84,10 +91,15 @@ TEST(S71BstPoolAllocatorDeg, DirectPoolStatsAreReal) {
 
     for (U64 const key : keys) { EXPECT_TRUE(hull.insert(key, value_for(key))); }
 
+    // Phase 0.3: store_allocator_statistics() liefert jetzt die axis_06-Strategie-Statistik (AllocationStatistics,
+    // rich 5-Feld) statt der Store-eigenen Vektor-Kapazitaets-Zaehlung. Der Pool hat real ueber die Allocator-Achse
+    // allokiert -> allocation_count/total_bytes_allocated > 0; total_bytes_in_use > 0 (Free-List -> nie vector-free).
     auto const stats = hull.store_allocator_statistics();
-    EXPECT_GT(stats.alloc_calls, 0u);
-    EXPECT_GT(stats.bytes_allocated, 0u);
-    EXPECT_EQ(stats.live_nodes, keys.size());
+    EXPECT_GT(stats.allocation_count, 0u);
+    EXPECT_GT(stats.total_bytes_allocated, 0u);
+    EXPECT_GT(stats.total_bytes_in_use, 0u);
+    // Exakter Belegungs-Invariant (statt des entfallenen live_nodes-Zaehlers): occupied_count == eingefuegte Keys.
+    EXPECT_EQ(hull.occupied_count(), keys.size());
 }
 
 TEST(S71BstPoolAllocatorDeg, AbiObserverRoutesPoolAllocatorStatsToT6) {
@@ -112,6 +124,70 @@ TEST(S71BstPoolAllocatorDeg, AbiObserverRoutesPoolAllocatorStatsToT6) {
     EXPECT_GT(snap.axis_stats[6][0], 0u);
     EXPECT_GT(snap.axis_stats[6][1], 0u);
     EXPECT_GT(snap.axis_stats[6][2], 0u);
+}
+
+// Phase 0.3 KERN-Regression (Memento/Option A): beweist, dass der strategie-getriebene Pool-Store COW-safe misst.
+// Der 0.3a-Bug war exakt die Zwei-Phasen-Doppelzaehlung (COW-Vollkopie alloziert erneut ueber die Strategie ->
+// T6 pollutet). Fahre dieselbe Sequenz ein- vs. zwei-phasig (save->warmup->rollback->measure je Op) und fordere
+// COUNTER-CLEAN (2-phasig <= 1-phasig). Nur insert-Ops -> Free-List -> nie vector-free -> allocated==in_use.
+TEST(S71BstPoolAllocatorDeg, TwoPhaseCowT6IsPollutionFree) {
+    using C       = PoolFlipComposition<lk::BinarySearchTreeSearchAlgo>;
+    using Anatomy = an::SearchAlgorithmAnatomy<C>;
+    using Adapter = an::SearchAlgorithmAbiAdapter<Anatomy>;
+    // Der axis_06-getriebene Store bleibt CoW-fähig (copy-konstruierbar/assignable + Observer-restore_statistics).
+    static_assert(Adapter::tier_memento_is_copy_on_write(),
+                  "Phase 0.3: der axis_06-getriebene TreeNodePoolStore muss den lazy CoW-Memento-Pfad tragen");
+
+    auto seq = [](an::IObservableTier& t, an::IRollbackableTier* rb) {
+        t.tier_clear();
+        for (U64 k = 1; k <= 40u; ++k) (void)t.tier_insert(k, k * 3u); // LOAD (ungemessen)
+        for (U64 i = 0; i < 80u; ++i) {
+            auto op = [&]() -> std::int64_t {
+                (void)t.tier_insert(1000u + i, i);
+                return 0;
+            };
+            if (rb != nullptr)
+                (void)acd::two_phase_measure(rb, op);
+            else
+                (void)op();
+        }
+    };
+
+    Adapter one_phase, two_phase;
+    auto*   t1 = dynamic_cast<an::IObservableTier*>(static_cast<an::IAnatomyBase*>(&one_phase));
+    auto*   t2 = dynamic_cast<an::IObservableTier*>(static_cast<an::IAnatomyBase*>(&two_phase));
+    auto*   rb = dynamic_cast<an::IRollbackableTier*>(static_cast<an::IAnatomyBase*>(&two_phase));
+    ASSERT_NE(t1, nullptr);
+    ASSERT_NE(t2, nullptr);
+    ASSERT_NE(rb, nullptr);
+
+    seq(*t1, nullptr);
+    seq(*t2, rb);
+    EXPECT_EQ(t1->tier_size(), t2->tier_size()); // beide Laeufe enden im selben Zustand
+
+    an::ComdareTierObserverSnapshot s1{}, s2{};
+    t1->tier_observe(&s1);
+    t2->tier_observe(&s2);
+
+    // Beide Laeufe messen REAL ueber die axis_06-Strategie (T6 > 0).
+    EXPECT_GT(s1.axis_stats[6][0], 0u); // total_bytes_allocated
+    EXPECT_GT(s2.axis_stats[6][0], 0u);
+    EXPECT_GT(s1.axis_stats[6][2], 0u); // allocation_count
+    EXPECT_GT(s2.axis_stats[6][2], 0u);
+    // COUNTER-CLEAN — der eigentliche Beweis des Mementos: die save/rollback-Vollkopien werden per
+    // restore_statistics neutralisiert -> keine Doppelzaehlung -> 2-phasig <= 1-phasig. (Ohne das Memento
+    // waere s2 > s1, wie im revertierten 0.3a-Bug.)
+    EXPECT_LE(s2.axis_stats[6][0], s1.axis_stats[6][0]);
+    EXPECT_LE(s2.axis_stats[6][2], s1.axis_stats[6][2]);
+    // ECHTE Allocator-Semantik: total_bytes_allocated (kumulativ, inkl. freigegebener vector-Wachstums-Puffer)
+    // >= total_bytes_in_use (aktuell live) — der real messbare Unterschied zur alten allocator-unabhaengigen
+    // Zaehlung; total_bytes_in_use > 0 (Knoten gehalten); keine Fehl-Allokation.
+    EXPECT_GE(s1.axis_stats[6][0], s1.axis_stats[6][1]);
+    EXPECT_GE(s2.axis_stats[6][0], s2.axis_stats[6][1]);
+    EXPECT_GT(s1.axis_stats[6][1], 0u);
+    EXPECT_GT(s2.axis_stats[6][1], 0u);
+    EXPECT_EQ(s1.axis_stats[6][4], 0u);
+    EXPECT_EQ(s2.axis_stats[6][4], 0u);
 }
 
 TEST(S71BstPoolAllocatorDeg, DefaultStoreRoundtripIsUnchanged) {
