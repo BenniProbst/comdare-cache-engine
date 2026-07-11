@@ -159,13 +159,14 @@ struct RunProfileResult {
     ex::SourceGenFn const union_gen = make_union_source_gen(generated_make_catalog_source_gen(), std::move(fused));
     ex::FreeRamFn         ram       = ex::make_system_free_ram_fn();
 
-    // ── (4) Working-Set-Sweep = die aeussere N-Liste (gilt fuer BEIDE Subsets identisch). Override ⇒ EIN N. ──
-    std::vector<std::uint64_t> n_sweep;
-    if (a.working_set_override > 0)
-        n_sweep.push_back(a.working_set_override); // PS-foreach-Kompatibilitaet
-    else
-        n_sweep = profile_working_set_sweep(tp); // Profil-<working_set_sweep>
-    if (n_sweep.empty()) n_sweep.push_back(0);   // 0 ⇒ Iterator setzt records = n_ops
+    // ── (4) Working-Set-Sweep = die aeussere N-Liste (gilt fuer BEIDE Subsets identisch). Das Profil-
+    //    <working_set_sweep> ist AUTORITATIV (XML steuert ALLES, #229/G3); working_set_override (env
+    //    COMDARE_WORKLOAD_RECORDS, ehem. PS-foreach-Behelf) greift NUR als Fallback, wenn das Profil keinen
+    //    Sweep setzt — sonst kollabierte der Behelfs-Override den mehrwertigen XML-Sweep still auf EIN N. ──
+    std::vector<std::uint64_t> n_sweep = profile_working_set_sweep(tp); // Profil-<working_set_sweep> autoritativ
+    if (n_sweep.empty() && a.working_set_override > 0)
+        n_sweep.push_back(a.working_set_override); // Fallback nur ohne Profil-Sweep
+    if (n_sweep.empty()) n_sweep.push_back(0);     // 0 ⇒ Iterator setzt records = n_ops
 
     std::cout << "RUN_PROFILE (CEB-Eintritt): " << a.profile_path.string() << "  id=" << tp.id << " mode=" << mode_name
               << "  basis_count=" << basis_tree.binary_count() << " (N=" << N << ")"
