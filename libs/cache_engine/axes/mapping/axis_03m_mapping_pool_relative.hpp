@@ -91,6 +91,8 @@ public:
         auto it = std::find_if(mappings_.begin(), mappings_.end(), [s](auto const& m) { return m.first == s; });
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_resolve_count;
+        stats_.total_indirection_steps +=
+            2; // MP02: 1 Lookup + 1 pool_base-Rebase-Translation (is_pool_relative()==true, jetzt gemessen statt nur strukturell praediziert)
         if (it != mappings_.end())
             ++stats_.total_resolve_hit_count;
         else

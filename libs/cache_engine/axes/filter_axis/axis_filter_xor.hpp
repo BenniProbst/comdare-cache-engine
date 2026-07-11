@@ -78,6 +78,15 @@ public:
     /// Probe-Multiplizitaet je Query (3 Slot-Reads) — ehrlich deklariert fuer hash_probes_total.
     [[nodiscard]] static constexpr std::uint64_t probe_multiplicity() noexcept { return 3u; }
 
+    /// SPACE-Seite des T16-Kern-Trade-offs: strukturelles Bit-Budget der REALEN Slot-Tabelle (kSlots 1-Byte-Slots =
+    /// sizeof(table_)*8), compile-time. Static-constexpr-Descriptor analog probe_multiplicity() — kein Datenmember,
+    /// kein neuer Achsenwert, kein POD-Feld (golden-320/Gate-1/1416 neutral).
+    [[nodiscard]] static constexpr std::size_t filter_bit_capacity() noexcept { return kSlots * 8u; }
+    /// bits/key bei key_count Keys — spiegelt composable/ bits_per_key() (key_count==0 → 0.0).
+    [[nodiscard]] static constexpr double bits_per_key(std::size_t key_count) noexcept {
+        return key_count ? static_cast<double>(filter_bit_capacity()) / static_cast<double>(key_count) : 0.0;
+    }
+
     [[nodiscard]] static constexpr bool             supports_range_query() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "filter_xor"; }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
