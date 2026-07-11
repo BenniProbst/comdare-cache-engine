@@ -2221,6 +2221,24 @@ target_link_libraries(test_ap2_katalog_pfad_stubfrei PRIVATE Boost::mp11)
 target_compile_definitions(test_ap2_katalog_pfad_stubfrei PRIVATE
     "COMDARE_CE_LIB_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine\"")
 
+# #18 Golden-Coverage-Gate: jede der 19 Achsen ist im Coverage-Test beruehrbar (15 nicht-Basis via Sweep-Katalog,
+# 4 Basis via Basis-320). Echter Konsument der 11 neuen SweepCatalog-Instanzen (source_catalog.hpp).
+comdare_add_test(test_axis_sweep_coverage
+    SOURCES thesis_tiere/test_axis_sweep_coverage.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+comdare_prepare_thesis_object_dir(test_axis_sweep_coverage)
+target_include_directories(test_axis_sweep_coverage PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_axis_sweep_coverage PRIVATE Boost::mp11)
+
 # CE-DL2 (Task #152) — LINUX-PMC-Smoke fuer die LinuxPerfPmcSource (perf_event_open). Spiegel von m3v2_pmc_smoke,
 # aber LINUX-CONDITIONAL registriert: nur unter (UNIX AND NOT APPLE) — der Windows-/MSVC-Build sieht dieses Target
 # NIE (kein add_executable, keine Linux-Header). make_pmc_source() liefert auf Linux+COMDARE_ENABLE_PMC eine
