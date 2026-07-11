@@ -28,6 +28,7 @@
 #include "axis_path_serialization.hpp" // (X) kCompositionAxisNames[19] — Single-Source der 19 seg_*-Spaltennamen
 #include "coverage_selection.hpp"      // BuildSelection
 #include "runtime_variable_loop.hpp"   // RuntimeVariableLoop / RuntimeSetting (gefiltert-dynamisch)
+#include "container_attribution.hpp"   // CMD-2/#252: host-seitige Container-in-SA-Attribution (c1 store_ops)
 #include "perm_runner.hpp"             // run_observable_perm / format_perm_result
 #include "result_ingest.hpp"           // ingest_result_line
 #include "../build_orchestrator/build_orchestrator.hpp"       // BuildOrchestrator / BuildConfig / *Fn
@@ -246,7 +247,7 @@ struct LazyMeasuredRow {
     // getriebene Auswertung liest sie dort leer/n-a (Datenerhaltung, kein cowfix-v1-Leser bricht). KEINE bestehende
     // Spalte umbenannt/verschoben. Schließt die #156-WIDE-Naht (perm_runner→IPmcSource→CSV).
     h += ";pmc_cache_misses_l1;pmc_cache_misses_l2;pmc_cache_misses_l3;pmc_dtlb_misses;"
-         "pmc_coherence_invalidations;pmc_energy_micro_joules;pmc_available\n";
+         "pmc_coherence_invalidations;pmc_energy_micro_joules;pmc_available;container_store_ops\n";
     return h;
 }
 
@@ -426,6 +427,11 @@ struct LazyMeasuredRow {
     out += std::to_string(row.pmc.energy_micro_joules);
     out += ';';
     out += (row.pmc.available ? "1" : "0");
+    // CMD-2/#252 (2026-07-11): container_store_ops ALS LETZTE Spalte (Reihenfolge IDENTISCH zum Header). Host-seitige
+    // Container-in-SA-Attribution (c1 = lookup+insert+erase; ABI-neutral, 0 neue POD-Spalten). unified_real==false ->
+    // "n/a" (Phantom-Schutz, exakt wie stat_*/PMC); additiv -> alte CSVs/Leser unberuehrt.
+    out += ';';
+    out += (row.unified_real ? std::to_string(container_attribution(row.unified).store_ops) : std::string{"n/a"});
     out += '\n';
     return out;
 }
