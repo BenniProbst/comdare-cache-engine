@@ -152,7 +152,7 @@ struct ProfileRunOptions {
 }
 
 // ── (working_set_sweep) — die N-Liste der AEUSSEREN Lauf-Iteration (Record-Zahlen, P-MD7). Ersetzt die
-//    PS-foreach (build_and_measure_150_tiere.ps1:166) + COMDARE_WORKLOAD_RECORDS. Leer = einmaliger Lauf. ──
+//    den alten PS-foreach-Behelf (entfernt) + COMDARE_WORKLOAD_RECORDS. Leer = einmaliger Lauf. ──
 [[nodiscard]] inline std::vector<std::uint64_t> profile_working_set_sweep(cx::ThesisProfile const& tp) {
     std::vector<std::uint64_t> ns;
     ns.reserve(tp.working_set_sweep.size());
