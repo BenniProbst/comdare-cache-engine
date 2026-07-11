@@ -124,9 +124,11 @@
        COMDARE_WORKLOAD_RECORDS + PS-foreach. {2^14, 2^17, 2^20, 2^23} (Infra-Agent passt an die reale LLC an). -->
   <working_set_sweep>16384 131072 1048576 8388608</working_set_sweep>
 
-  <!-- (c-1) COMPILE-TIME Mess-Dimensionen (je Binary gebacken). Workloads = YCSB A..F. -->
+  <!-- (c-1) Mess-Dimensionen. <workloads> = AUTORITATIVE Achse-2-Auswahl: die ids der Lastprofile
+       (algorithm_profiles/load_profiles/ycsb_*.xml), die run_profile aus dem Verzeichnis uebernimmt
+       (YCSB A..F). Nur die hier genannten ids werden gemessen; env COMDARE_LOAD_PROFILE_DIR ist Override. -->
   <compile_dims>
-    <workloads>A B C D E F</workloads>
+    <workloads>ycsb_a ycsb_b ycsb_c ycsb_d ycsb_e ycsb_f</workloads>
     <telemetry mode="on" silent="true"/>
   </compile_dims>
 

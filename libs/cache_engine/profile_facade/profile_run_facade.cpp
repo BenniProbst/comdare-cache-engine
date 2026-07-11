@@ -8,6 +8,7 @@
 #include <builder/build_orchestrator/build_orchestrator.hpp>
 #include <builder/workload_driver/load_profile_parser.hpp>
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -98,20 +99,41 @@ namespace {
 ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     ProfileRunResult out;
 
+    // Achse-2-Lastprofile (#135/G1/#229): Gibt der Host kein Verzeichnis vor, defaultet die WIE-Schicht
+    // auf die zum Thesis-Profil co-lokalisierten Lastprofile (algorithm_profiles/load_profiles/,
+    // Schwesterordner von thesis_profiles/) — so ist die Profil-XML selbst-suffizient und braucht kein
+    // COMDARE_LOAD_PROFILE_DIR; env bleibt reiner Override. Findet die Fassade 0 gueltige Profile, bricht
+    // SIE mit exit 4 ab (Achse 2 darf nicht still entfallen = two_phase_valid=0-Schutz).
+    std::filesystem::path load_profile_dir = args.load_profile_dir;
+    if (load_profile_dir.empty() && !args.profile_path.empty())
+        load_profile_dir = args.profile_path.parent_path().parent_path() / "load_profiles";
+
+    // <workloads> im Thesis-Profil ist die AUTORITATIVE Achse-2-Auswahl: die ids der Lastprofile
+    // (z.B. ycsb_a..ycsb_f). Nur die dort genannten werden aus dem (bewusst reicheren) load_profiles/-
+    // Verzeichnis uebernommen — so steuert die XML den Workload-Satz vollstaendig (#229). Leer bzw. kein
+    // parsbares Profil => alle entdeckten Profile (Rueckwaerts-Kompatibilitaet mit dem env-Override-Pfad).
+    std::vector<std::string> workload_select;
+    if (auto tp = tlz::load_thesis_profile(args.profile_path)) workload_select = tp->workloads;
+    auto const is_selected = [&workload_select](std::string const& id) {
+        return workload_select.empty() ||
+               std::find(workload_select.begin(), workload_select.end(), id) != workload_select.end();
+    };
+
     std::map<std::string, wd::WorkloadConfig> workload_registry;
     std::vector<std::string>                  workload_values;
-    if (!args.load_profile_dir.empty()) {
-        for (auto const& idp : wd::discover_load_profiles(args.load_profile_dir)) {
+    if (!load_profile_dir.empty()) {
+        for (auto const& idp : wd::discover_load_profiles(load_profile_dir)) {
+            if (!is_selected(idp.first)) continue;
             if (auto lp = wd::parse_load_profile(idp.second)) {
                 workload_registry[idp.first] = lp->config;
                 workload_values.push_back(idp.first);
             }
         }
-        std::cout << "[profile_facade] Lastprofile (XML, Achse 2) entdeckt: " << workload_values.size() << " aus "
-                  << args.load_profile_dir.string() << "\n";
+        std::cout << "[profile_facade] Lastprofile (XML, Achse 2, <workloads>-Auswahl): " << workload_values.size()
+                  << " aus " << load_profile_dir.string() << "\n";
         if (workload_values.empty()) {
-            std::cerr << "[profile_facade] COMDARE_LOAD_PROFILE_DIR gesetzt, aber 0 gueltige Profile in '"
-                      << args.load_profile_dir.string() << "' -- Abbruch (Achse 2 darf nicht still entfallen).\n";
+            std::cerr << "[profile_facade] 0 gueltige Lastprofile fuer die <workloads>-Auswahl in '"
+                      << load_profile_dir.string() << "' -- Abbruch (Achse 2 darf nicht still entfallen).\n";
             out.exit_code = 4;
             return out;
         }
