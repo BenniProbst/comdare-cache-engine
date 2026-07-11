@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- comdare_thesis_profile — GOLDENER COVERAGE-TEST (Task #18, User 2026-07-11).
+     Erweitert den golden-320 zu EINEM Voll-Feature-Test: er beruehrt JEDE der 19 Kompositions-Achsen mit >=1
+     Konfiguration + fordert alle Frameworks + alle Lastprofile. Standard-Messen wird dadurch deutlich groesser,
+     deckt aber alle Funktionen ab.
+
+     STRUKTUR (Superset des m3v2_study, dieselbe Maschinerie):
+       • <permute_axes> = die BASIS-320 (search_algo × node_type × memory_layout × prefetch = 4×4×5×4), 15 uebrige
+         Slots gepinnt — byte-identisch zu m3v2 (golden-Round-Trip unberuehrt).
+       • <axis_sweeps> = ALLE 19 Achsen: die 4 Basis (via Basis-320-View) + die 15 nicht-Basis (4 vertiefte + 11
+         neue Sweep-Kataloge, source_catalog.hpp / test_axis_sweep_coverage). Je Achse >=1 Nicht-Baseline-Config.
+       • <workloads> = ALLE 21 Lastprofile (algorithm_profiles/load_profiles/): YCSB A..F + lp_* + coco_* + ih/lh.
+       • <sota_series_set> = alle 7 Lebewesen × alle 3 Merge-Stufen (Reihen A/B).
+
+     TABU: golden_fullpilot_320_binary_ids.txt (Basis-320-Round-Trip-Fixture) bleibt unberuehrt — die Sweep-Kataloge
+     liegen im disjunkten binary_id-Raum (idempotente Baseline). cap=0 = KEIN kuenstliches Cap (voller Coverage-Satz).
+     Verifikation: `messung_driver --validate <dieses Profil>` (Werte-Konsistenz) + test_axis_sweep_coverage (Gate). -->
+<comdare_thesis_profile id="m3_golden_coverage" schema_version="1">
+
+  <base_tiers>
+    <tier id="prt_art"  profile_ref="../sota/art.profile.xml"       paper_ref="PRT"/>
+    <tier id="art"      profile_ref="../sota/art.profile.xml"       paper_ref="P01"/>
+    <tier id="hot"      profile_ref="../sota/hot.profile.xml"       paper_ref="P02"/>
+    <tier id="masstree" profile_ref="../sota/masstree.profile.xml"  paper_ref="P03"/>
+    <tier id="surf"     profile_ref="../sota/surf.profile.xml"      paper_ref="P10"/>
+    <tier id="start"    profile_ref="../sota/start.profile.xml"     paper_ref="P05"/>
+    <tier id="wormhole" profile_ref="../sota/wormhole.profile.xml"  paper_ref="P07"/>
+  </base_tiers>
+
+  <!-- BASIS-320: identisch zu m3v2_study (golden-Round-Trip). Die 4 variierten Achsen tragen ihre volle
+       FullPilot-Werteliste in mp_take_c-Reihenfolge; die 15 uebrigen je 1 Wert gepinnt. -->
+  <permute_axes>
+    <axis ref="search_algo">
+      <value>k_ary</value><value>interpolation</value><value>eytzinger</value><value>linear_scan</value>
+    </axis>
+    <axis ref="cache_traversal"><value>linear_fanout</value></axis>
+    <axis ref="mapping"><value>direct_placement</value></axis>
+    <axis ref="path_compression"><value>path_compression_none</value></axis>
+    <axis ref="node_type">
+      <value>node4</value><value>node16</value><value>node48</value><value>node256</value>
+    </axis>
+    <axis ref="memory_layout">
+      <value>memory_layout_cache_line_aligned</value><value>memory_layout_aos_strict</value>
+      <value>memory_layout_soa</value><value>memory_layout_packed_bitmap</value><value>memory_layout_aosoa</value>
+    </axis>
+    <axis ref="allocator"><value>std_malloc</value></axis>
+    <axis ref="prefetch">
+      <value>prefetch_none</value><value>prefetch_distance_estimator</value>
+      <value>prefetch_hardware</value><value>prefetch_path_oriented</value>
+    </axis>
+    <axis ref="concurrency"><value>concurrency_none</value></axis>
+    <axis ref="serialization"><value>serialization_raw_binary</value></axis>
+    <axis ref="telemetry"><value>telemetry_leaf_only_counter</value></axis>
+    <axis ref="value_handle"><value>value_handle_inline</value></axis>
+    <axis ref="isa"><value>isa_amd64</value></axis>
+    <axis ref="index_organization"><value>index_org_heap</value></axis>
+    <axis ref="io_dispatch"><value>io_in_memory_only</value></axis>
+    <axis ref="migration_policy"><value>migration_none</value></axis>
+    <axis ref="filter"><value>filter_bloom</value></axis>
+    <axis ref="queuing_q1"><value>no_buffer</value></axis>
+    <axis ref="queuing_q2"><value>eager_flush</value></axis>
+  </permute_axes>
+
+  <!-- COVERAGE: je Achse EIN Sweep gegen die index0-Baseline. ALLE 19 Achsen — 4 Basis (Basis-320-View) +
+       15 nicht-Basis (Sweep-Katalog, source_catalog.hpp). Damit ist jede Achse mit >=1 Config beruehrt. -->
+  <axis_sweeps>
+    <axis_sweep axis="search_algo"        baseline="index0"/>
+    <axis_sweep axis="cache_traversal"    baseline="index0"/>
+    <axis_sweep axis="mapping"            baseline="index0"/>
+    <axis_sweep axis="path_compression"   baseline="index0"/>
+    <axis_sweep axis="node_type"          baseline="index0"/>
+    <axis_sweep axis="memory_layout"      baseline="index0"/>
+    <axis_sweep axis="allocator"          baseline="index0"/>
+    <axis_sweep axis="prefetch"           baseline="index0"/>
+    <axis_sweep axis="concurrency"        baseline="index0"/>
+    <axis_sweep axis="serialization"      baseline="index0"/>
+    <axis_sweep axis="telemetry"          baseline="index0"/>
+    <axis_sweep axis="value_handle"       baseline="index0"/>
+    <axis_sweep axis="isa"                baseline="index0"/>
+    <axis_sweep axis="index_organization" baseline="index0"/>
+    <axis_sweep axis="io_dispatch"        baseline="index0"/>
+    <axis_sweep axis="migration_policy"   baseline="index0"/>
+    <axis_sweep axis="filter"             baseline="index0"/>
+    <axis_sweep axis="queuing_q1"         baseline="index0"/>
+    <axis_sweep axis="queuing_q2"         baseline="index0"/>
+  </axis_sweeps>
+
+  <!-- Alle 7 Lebewesen × alle 3 Merge-Stufen (Reihen A/B). -->
+  <sota_series_set>
+    <sota_series id="A" lebewesen="prt_art"  merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="art"      merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="hot"      merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="masstree" merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="surf"     merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="start"    merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="wormhole" merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="prt_art"  merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="art"      merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="hot"      merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="masstree" merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="surf"     merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="start"    merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="wormhole" merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="B" lebewesen="prt_art"  merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="art"      merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="hot"      merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="masstree" merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="surf"     merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="start"    merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="wormhole" merge="Stufe3_FullJoin"/>
+  </sota_series_set>
+
+  <working_set_sweep>16384 131072 1048576 8388608</working_set_sweep>
+
+  <!-- ALLE 21 Lastprofile (algorithm_profiles/load_profiles/) — Achse-2-Voll-Coverage. -->
+  <compile_dims>
+    <workloads>ycsb_a ycsb_b ycsb_c ycsb_d ycsb_e ycsb_f lp_balanced_5050 lp_bulk_insert lp_concurrent_rmw lp_delete_heavy lp_dynamic_trace lp_mixed_oltp lp_range_scan lp_read_uniform ih lh coco_p04_neg0 coco_p04_neg25 coco_p04_neg50 coco_p04_neg75 coco_p04_neg100</workloads>
+    <telemetry mode="on" silent="true"/>
+  </compile_dims>
+
+  <runtime_dynamic>
+    <thread_count>1 2 4</thread_count>
+    <hw_prefetcher>all_on adjacent_off all_off</hw_prefetcher>
+  </runtime_dynamic>
+
+  <repetitions count="3" interpolate="false" overlay_in_chart="true"/>
+
+  <!-- cap=0 = KEIN kuenstliches Cap: der volle Coverage-Satz (Basis-320 + 19 Achsen-Sweeps + SOTA-Reihen). -->
+  <run_options cap="0" platform="linux-x86_64" build_version="m3_golden_coverage" resume="true"/>
+
+  <modes>
+    <mode name="m3_coverage_base" merge="Stufe1_CeOnly"
+          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization telemetry value_handle isa index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2"/>
+  </modes>
+
+  <static_axes from="base_tier"/>
+
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_thesis_profile>
