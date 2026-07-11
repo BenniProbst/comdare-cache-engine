@@ -43,9 +43,10 @@ function(comdare_attach_generated_catalog target)
             "comdare_attach_generated_catalog: Target '${target}' existiert nicht.")
     endif()
     add_dependencies(${target} comdare_limits_generated_source_catalog)
-    # Der generierte Header re-inkludiert "thesis_tiere/source_catalog.hpp" (generische
-    # Katalog-Templates) — die attach-Funktion traegt deshalb BEIDE Konsum-Voraussetzungen.
+    # Der generierte Header re-inkludiert "source_catalog.hpp" (generische Katalog-Templates).
+    # Seit der P0-Hebung liegt dieser Header in libs/cache_engine/profile_facade (nicht mehr im
+    # Test-Harness) — die attach-Funktion traegt deshalb BEIDE Konsum-Voraussetzungen.
     target_include_directories(${target} PRIVATE
         "${_comdare_limits_generated_dir}"
-        "${_comdare_catalog_codegen_ce_root}/tests/unit")
+        "${_comdare_catalog_codegen_ce_root}/libs/cache_engine/profile_facade")
 endfunction()

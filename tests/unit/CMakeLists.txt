@@ -2215,6 +2215,7 @@ target_include_directories(test_ap2_katalog_pfad_stubfrei PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
     "${PROJECT_SOURCE_DIR}/libs/common/serialization"
     "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_ap2_katalog_pfad_stubfrei PRIVATE Boost::mp11)
 target_compile_definitions(test_ap2_katalog_pfad_stubfrei PRIVATE
@@ -2685,6 +2686,7 @@ set(_thesis_adhoc_includes
     "${PROJECT_SOURCE_DIR}/libs/common/serialization"
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 
 set(_thesis_adhoc_libs
