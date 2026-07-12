@@ -2236,8 +2236,9 @@ target_link_libraries(test_ap2_katalog_pfad_stubfrei PRIVATE Boost::mp11)
 target_compile_definitions(test_ap2_katalog_pfad_stubfrei PRIVATE
     "COMDARE_CE_LIB_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine\"")
 
-# #18 Golden-Coverage-Gate: jede der 19 Achsen ist im Coverage-Test beruehrbar (15 nicht-Basis via Sweep-Katalog,
-# 4 Basis via Basis-320). Echter Konsument der 11 neuen SweepCatalog-Instanzen (source_catalog.hpp).
+# #18 Golden-Coverage-Gate: jede der 19 Achsen ist im Coverage-Test beruehrbar — seit #26/GO-5 tragen ALLE
+# 19 Achsen (inkl. der 4 Basis-Achsen) einen dedizierten Sweep-Katalog. Echter Konsument der
+# SweepCatalog-Instanzen (source_catalog.hpp).
 comdare_add_test(test_axis_sweep_coverage
     SOURCES thesis_tiere/test_axis_sweep_coverage.cpp
     LIBRARIES comdare_builder_xml_config_parser)
@@ -2253,6 +2254,31 @@ target_include_directories(test_axis_sweep_coverage PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
 target_link_libraries(test_axis_sweep_coverage PRIVATE Boost::mp11)
+
+# #26/GO-5 (2026-07-12): Gate fuer das Smoke-/Coverage-MESS-Profil m3_smoke_coverage.profile.xml + den
+# Multi-Sweep-Durchlauf (profile_sweep_passes). Pinnt die Binary-Zaehlung (Default-Configure dieses Baums:
+# 72 Sweep-/Baseline-DLLs + 21 SOTA = 93; USE=ENABLE&&HAVE-abhaengig, s. Test-Kopf), beweist golden-
+# Baseline-Identitaet (golden[0] byte-unberuehrt) und validiert das Profil gegen die realen
+# EnabledStrategies (ctest-Gegenstueck zu `messung_driver --validate`).
+comdare_add_test(test_smoke_coverage_profile
+    SOURCES thesis_tiere/test_smoke_coverage_profile.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+comdare_prepare_thesis_object_dir(test_smoke_coverage_profile)
+target_include_directories(test_smoke_coverage_profile PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_smoke_coverage_profile PRIVATE Boost::mp11)
+target_compile_definitions(test_smoke_coverage_profile PRIVATE
+    "COMDARE_THESIS_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles\""
+    "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"")
+set_tests_properties(test_smoke_coverage_profile PROPERTIES LABELS "contract;profiles;coverage;smoke")
 
 # CE-DL2 (Task #152) — LINUX-PMC-Smoke fuer die LinuxPerfPmcSource (perf_event_open). Spiegel von m3v2_pmc_smoke,
 # aber LINUX-CONDITIONAL registriert: nur unter (UNIX AND NOT APPLE) — der Windows-/MSVC-Build sieht dieses Target
