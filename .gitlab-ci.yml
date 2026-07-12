@@ -378,7 +378,7 @@ test:unit:
   variables:
     COMDARE_TEST_CONFIGURE_FLAGS: "-DCOMDARE_BUILD_TESTS=ON"
     COMDARE_TEST_BUILD_TARGET: "comdare_tests"
-    COMDARE_TEST_PREBUILD_TARGET: "comdare_anatomy_codegen_cli"
+    COMDARE_TEST_PREBUILD_TARGET: "comdare_anatomy_codegen_cli comdare_permutation_codegen_cli"  # #25-B: byte_identity-Treiber ruft das Perm-CLI ueber $<TARGET_FILE> -> muss VOR dem Test gebaut sein (2-Pass)
     # #278 Job-Scope (2026-07-06, Job 214641): contract-/pmc-Tests laufen bereits HART in ihren eigenen
     # Jobs (contract:* / pmc:amd) — im unit-Sammel-Lauf zaehlten sie als "Not Run" (5x). KEIN Auslassen:
     # der Ausschluss verweist auf die dedizierten Gates; unit-Scope = alles andere.
