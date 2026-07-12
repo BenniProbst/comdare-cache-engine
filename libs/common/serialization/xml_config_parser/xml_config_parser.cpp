@@ -234,6 +234,10 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(std::filesyst
             if (ax.ref == "node_width") { // FF2-Unterachse Knoten-Breite in Cache-Lines (C2, Muster KF-3)
                 for (auto const* x : a->children_named("width_in_lines")) ax.width_in_lines.push_back(x->text);
             }
+            if (ax.ref == "alloc_hw") { // NUMA/Page->allocator-Unterachse (F-B, Muster KF-3/C2)
+                for (auto const* x : a->children_named("numa_node")) ax.alloc_numa_nodes.push_back(x->text);
+                for (auto const* x : a->children_named("page")) ax.alloc_pages.push_back(x->text);
+            }
             tp.permute_axes.push_back(std::move(ax));
         }
     }

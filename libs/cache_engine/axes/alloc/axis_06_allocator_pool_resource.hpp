@@ -21,6 +21,14 @@
 // Kopierbarkeit: pool_resource ist non-copyable/non-movable → via std::shared_ptr gehalten; Kopien
 // TEILEN den Pool (korrekte PMR-is_equal-Semantik). Allocation-Failure: allocate wirft std::bad_alloc
 // ([[allocation-failure-exception]]).
+//
+// F-B (GO4/#8, 2026-07-12): Page-Hint der NUMA/Page-Unterachse (alloc_hw_config.hpp) → der Koerper ist
+// jetzt das CRTP-Body-Template PoolResourceAllocatorBody<Derived, AllocHwConfig>: ein nicht-nativer
+// Page-Hint (4k/2m) setzt COMPILE-TIME die pmr::pool_options (largest_required_pool_block = Page-Bytes),
+// d.h. Bloecke bis zur Page-Groesse werden aus Size-Class-Pools bedient statt upstream zu gehen (dTLB-/
+// huge-page-Motivation, thesis 02_fundamentals). Das konkrete Registry-Blatt `PoolResourceAllocator`
+// bleibt eine konkrete Klasse mit Default Native (KEIN Hint -> default-konstruierte pool_options,
+// byte-identisch); Page-Varianten = distinkte Organ-Instanzen mit explizitem NTTP (KF-6/KF-8-Mechanik).
 
 #include "axis_06_allocator_strategy_base.hpp"
 #include "axis_06_allocator_subaxes_aa1_to_aa7.hpp"
@@ -42,10 +50,13 @@
 namespace comdare::cache_engine::alloc {
 
 /**
- * @brief PoolResourceAllocator — eigener std::pmr::unsynchronized_pool_resource (A22 pool-Variante)
+ * @brief PoolResourceAllocatorBody — eigener std::pmr::unsynchronized_pool_resource (A22 pool-Variante)
  * @topic allocator @achse 6 @subaxis AA2 size_class_schema_tag
+ * F-B: HwCfg = NUMA/Page-Unterachse (nur der Page-Hint wird hier konsumiert → pool_options).
  */
-class PoolResourceAllocator : public AllocatorStrategyBase<PoolResourceAllocator> {
+template <typename Derived, AllocHwConfig HwCfg = AllocHwConfig{}>
+class PoolResourceAllocatorBody
+    : public AllocatorStrategyBase<Derived, ::comdare::cache_engine::cacheline::CacheLineConfig{}, HwCfg> {
 public:
     using value_type = std::byte;
     using size_type  = std::size_t;
@@ -84,10 +95,10 @@ public:
         return concepts::ResourceOwnership::Owned;
     }
 
-    PoolResourceAllocator() : resource_(std::make_shared<std::pmr::unsynchronized_pool_resource>()) {}
+    PoolResourceAllocatorBody() : resource_(make_resource_()) {}
 
     // operator==: zwei Allokatoren sind GLEICH gdw. sie denselben Pool teilen (PMR-is_equal-Semantik).
-    [[nodiscard]] bool operator==(PoolResourceAllocator const& other) const noexcept {
+    [[nodiscard]] bool operator==(PoolResourceAllocatorBody const& other) const noexcept {
         return resource_.get() == other.resource_.get();
     }
 
@@ -166,12 +177,37 @@ public:
     /// Pool-spezifisch: Zugriff auf das underlying memory_resource (Symmetrie zu PmrResourceAllocator).
     [[nodiscard]] std::pmr::memory_resource* underlying_resource() const noexcept { return resource_.get(); }
 
+    /// F-B: die tatsaechlich wirksamen pool_options des Resources (Konsum-Beweis: ein nicht-nativer
+    /// Page-Hint veraendert largest_required_pool_block gegenueber dem default-konstruierten Pool).
+    [[nodiscard]] std::pmr::pool_options pool_options_in_effect() const noexcept { return resource_->options(); }
+
 private:
+    /// F-B: Page-Hint (compile-time) → pool_options. Native (0) = default-konstruierter Pool — dieser
+    /// if-constexpr-Zweig ist AST-identisch zum Stand vor F-B (byte-identisches Default-Verhalten).
+    [[nodiscard]] static std::shared_ptr<std::pmr::unsynchronized_pool_resource> make_resource_() {
+        constexpr std::size_t page_hint_bytes = AllocHwAware<HwCfg>::alloc_hw_page_bytes();
+        if constexpr (page_hint_bytes == 0) {
+            return std::make_shared<std::pmr::unsynchronized_pool_resource>();
+        } else {
+            return std::make_shared<std::pmr::unsynchronized_pool_resource>(
+                std::pmr::pool_options{/*max_blocks_per_chunk=*/0,
+                                       /*largest_required_pool_block=*/page_hint_bytes});
+        }
+    }
+
     std::shared_ptr<std::pmr::unsynchronized_pool_resource> resource_;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     mutable concepts::AllocationStatistics stats_{};
     mutable observer_t                     observer_{};
 #endif
+};
+
+/// Das konkrete Registry-Blatt (AllVendors-mp_list, unveraendert): Default Native (kein Page-Hint) =
+/// default-konstruierte pool_options — Verhalten byte-identisch zum Stand vor F-B. Page-Varianten =
+/// distinkte Organ-Instanzen mit explizitem NTTP, NIE Runtime-Switch im Hot-Path.
+class PoolResourceAllocator : public PoolResourceAllocatorBody<PoolResourceAllocator> {
+public:
+    using PoolResourceAllocatorBody<PoolResourceAllocator>::PoolResourceAllocatorBody;
 };
 
 } // namespace comdare::cache_engine::alloc
@@ -186,4 +222,8 @@ static_assert(!concepts::ZeroingStrategy<PoolResourceAllocator>,
               "analog PmrResourceAllocator)");
 static_assert(concepts::ReallocatingStrategy<PoolResourceAllocator>,
               "Optional: PoolResourceAllocator bietet reallocate (Pool alloc-copy-free Pattern)");
+// F-B-Neutralitaet: das Registry-Blatt traegt die Unterachse (Concept) UND behaelt Native (kein Page-Hint).
+static_assert(AllocHwConfigurable<PoolResourceAllocator>);
+static_assert(PoolResourceAllocator::alloc_hw_page_bytes() == 0,
+              "F-B-Neutralitaet: Default-Pool muss byte-identisch ohne Page-Hint bleiben (Native)");
 } // namespace comdare::cache_engine::alloc

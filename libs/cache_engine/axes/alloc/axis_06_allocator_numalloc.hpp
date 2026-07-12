@@ -12,6 +12,14 @@
 //
 // Optionale Konstruktor-Variante: `NUMAllocAllocator(int node)` fuer expliziten
 // Node-Pin (z.B. Hot-Pages auf Node 0, Cold-Pages auf Node 1). Heute Default = -1.
+//
+// F-B (GO4/#8, 2026-07-12): der bisherige Hartcode `kDefaultNumaNode = -1` ist durch den COMPILE-TIME-
+// Parameter der NUMA/Page-Unterachse abgeloest (alloc_hw_config.hpp, Muster node_width): der Koerper ist
+// jetzt das CRTP-Body-Template NUMAllocAllocatorBody<Derived, AllocHwConfig> — das konkrete Registry-Blatt
+// `NUMAllocAllocator` bleibt eine konkrete Klasse mit Default Auto(-1) (byte-identisch, mp_list unberuehrt);
+// eine profil-/codegen-gebackene Node-Pin-Variante ist eine DISTINKTE Organ-Instanz mit explizitem NTTP
+// (exakt KF-6/KF-8-Mechanik). HW-Gate: gate_alloc_hw_for<HW>() kompiliert das Pinning weg, wenn das
+// axis_12-Profil numa_capable()==false meldet. Der NUMA-EFFEKT selbst bleibt Multi-Socket-HW-gated (~Sep).
 
 #include "axis_06_allocator_strategy_base.hpp"
 #include "axis_06_allocator_subaxes_aa1_to_aa7.hpp"
@@ -34,12 +42,15 @@
 
 namespace comdare::cache_engine::alloc {
 
-class NUMAllocAllocator : public AllocatorStrategyBase<NUMAllocAllocator> {
+template <typename Derived, AllocHwConfig HwCfg = AllocHwConfig{}>
+class NUMAllocAllocatorBody
+    : public AllocatorStrategyBase<Derived, ::comdare::cache_engine::cacheline::CacheLineConfig{}, HwCfg> {
 public:
     static constexpr bool enabled = flags::numalloc_enabled;
 
-    /// Sonderfall: NUMA-Node-Default (-1 = kernel-Default = aktueller Node)
-    static constexpr int kDefaultNumaNode = -1;
+    /// Sonderfall: NUMA-Node-Default — F-B: der COMPILE-TIME-Parameter der NUMA/Page-Unterachse
+    /// (Auto = -1 = kernel-Default = aktueller Node; byte-identisch zum frueheren Hartcode -1).
+    static constexpr int kDefaultNumaNode = AllocHwAware<HwCfg>::alloc_hw_numa_node();
 
     using value_type = std::byte;
     using size_type  = std::size_t;
@@ -79,10 +90,10 @@ public:
     }
     [[nodiscard]] static constexpr bool requires_specialized_hardware() noexcept { return false; }
 
-    NUMAllocAllocator() noexcept : numa_node_(kDefaultNumaNode) {}
-    explicit NUMAllocAllocator(int node) noexcept : numa_node_(node) {}
+    NUMAllocAllocatorBody() noexcept : numa_node_(kDefaultNumaNode) {}
+    explicit NUMAllocAllocatorBody(int node) noexcept : numa_node_(node) {}
 
-    [[nodiscard]] bool operator==(NUMAllocAllocator const& other) const noexcept {
+    [[nodiscard]] bool operator==(NUMAllocAllocatorBody const& other) const noexcept {
         return numa_node_ == other.numa_node_;
     }
 
@@ -207,6 +218,14 @@ private:
 #endif
 };
 
+/// Das konkrete Registry-Blatt (AllVendors-mp_list, unveraendert): Default Auto(-1) = kernel-Default —
+/// Verhalten byte-identisch zum Stand vor F-B. Node-Pin-Varianten = distinkte Organ-Instanzen mit
+/// explizitem NTTP (NUMAllocAllocatorBody<V, AllocHwConfig{...}>), NIE Runtime-Switch im Hot-Path.
+class NUMAllocAllocator : public NUMAllocAllocatorBody<NUMAllocAllocator> {
+public:
+    using NUMAllocAllocatorBody<NUMAllocAllocator>::NUMAllocAllocatorBody;
+};
+
 } // namespace comdare::cache_engine::alloc
 
 namespace comdare::cache_engine::alloc {
@@ -214,4 +233,8 @@ static_assert(concepts::AllocatorStrategy<NUMAllocAllocator>);
 static_assert(concepts::CacheEnginePermutationStrategy<NUMAllocAllocator>);
 static_assert(concepts::ZeroingStrategy<NUMAllocAllocator>);
 static_assert(concepts::ReallocatingStrategy<NUMAllocAllocator>);
+// F-B-Neutralitaet: das Registry-Blatt traegt die Unterachse (Concept) UND behaelt den Ist-Default -1.
+static_assert(AllocHwConfigurable<NUMAllocAllocator>);
+static_assert(NUMAllocAllocator::kDefaultNumaNode == -1,
+              "F-B-Neutralitaet: Default-NUMAlloc muss byte-identisch beim kernel-Default (-1/Auto) bleiben");
 } // namespace comdare::cache_engine::alloc

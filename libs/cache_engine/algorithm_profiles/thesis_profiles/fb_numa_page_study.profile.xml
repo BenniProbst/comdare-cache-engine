@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- comdare_thesis_profile - Diplomarbeit F-B-Studie "NUMA/Page->allocator" (GO4/#8 F-B, 2026-07-12)
+     Schema-Doku: SCHEMA.md (gleicher Ordner). Muster: ff2_node_width_study.profile.xml (C2).
+     Grundlage (Dossier GO4 §1/F-B): die axis_12-Eigenschaften numa_capable/memory_page_size/
+     huge_page_capable fliessen compile-time an die Allocator-Kante (axis_06). Thesis-Motivation:
+     AA5/NUMAlloc A09 (anhang D_building_block_matrix) + huge pages/dTLB-Reach (kapitel 02_fundamentals,
+     FF3 dTLB-Misses). User-Entscheid: "als Permutation und dokumentiert den Effekt-Unterschied bewerten".
+     HW-GATE-GRENZE (ehrlich): der NUMA-EFFEKT braucht Multi-Socket-Hardware (~Sep); auf Single-Socket-
+     prod1 ist die Effekt-Differenz auto-vs-gepinnt erwartbar klein/null - der KNOPF existiert trotzdem
+     und ist dokumentiert (Baseline der spaeteren Multi-Socket-Kampagne).
+     NUR dieses Profil aktiviert die alloc_hw-Unterachse: ohne diese Aktivierung aendert sich KEINE
+     binary_id (golden-320/base_pilot/m3v2 bleiben byte-unberuehrt). KEINE bestehende Datei geaendert. -->
+<comdare_thesis_profile id="fb_numa_page_study" schema_version="1">
+
+  <!-- (a) BASIS-TIERE = Paper-Originale in Standardkonfig (statische Achsen-Tupel), wie ff2/cacheline_study. -->
+  <base_tiers>
+    <tier id="art"      profile_ref="../sota/art.profile.xml"       paper_ref="P01"/>
+    <tier id="hot"      profile_ref="../sota/hot.profile.xml"       paper_ref="P02"/>
+    <tier id="masstree" profile_ref="../sota/masstree.profile.xml"  paper_ref="P03"/>
+    <tier id="coco"     profile_ref="../sota/coco_trie.profile.xml" paper_ref="P04"/>
+    <tier id="start"    profile_ref="../sota/start.profile.xml"     paper_ref="P05"/>
+    <tier id="b2tree"   profile_ref="../sota/b2tree.profile.xml"    paper_ref="P06"/>
+    <tier id="wormhole" profile_ref="../sota/wormhole.profile.xml"  paper_ref="P07"/>
+    <tier id="surf"     profile_ref="../sota/surf.profile.xml"      paper_ref="P10"/>
+  </base_tiers>
+
+  <!-- (b) PERMUTIERTE ACHSEN (compile-time). Fokus der F-B-Frage: die Allocator-Kante.
+       NUMALLOC = der numa_node-Konsument (AA5/A09, Node-Bindung); SYSTEM_MALLOC = Baseline. -->
+  <permute_axes>
+    <axis ref="allocator">
+      <value>SYSTEM_MALLOC</value>
+      <value>NUMALLOC</value>
+    </axis>
+
+    <!-- NEUE F-B-Unterachse: NUMA/Page->allocator. Wertesets:
+         numa_node {auto,0,1}: auto = kernel-Default (= bisheriges hartes -1, Baseline der
+           Effekt-Differenz), 0/1 = expliziter Node-Pin (Effekt erst auf Multi-Socket-HW, ~Sep).
+         page {4k,2m}: 4k = Basis-Page der Plattform (HW::memory_page_size()), 2m = Huge-Page-Hint
+           (nur wenn HW::huge_page_capable(), sonst compile-time weggegated auf 4k).
+         Konsum: NUMAllocAllocatorBody (numa_node statt Hartcode -1) + PoolResourceAllocatorBody
+           (page -> pmr::pool_options); Gate: gate_alloc_hw_for<HW> (axes/alloc/alloc_hw_config.hpp). -->
+    <axis ref="alloc_hw">
+      <numa_node>auto</numa_node>
+      <numa_node>0</numa_node>
+      <numa_node>1</numa_node>
+      <page>4k</page>
+      <page>2m</page>
+    </axis>
+  </permute_axes>
+
+  <!-- (c) COMPILE-TIME Mess-Dimensionen (je Binary gebacken, kein Runtime-Switch). -->
+  <compile_dims>
+    <workloads>A B C D E F</workloads>
+    <telemetry mode="on" silent="true"/>
+  </compile_dims>
+
+  <!-- (d) DYNAMISCHE OS-Laufzeit-Dimensionen (Muster ff2/cacheline_study). -->
+  <runtime_dynamic>
+    <thread_count>1</thread_count>
+    <hw_prefetcher>all_on adjacent_off all_off</hw_prefetcher>
+  </runtime_dynamic>
+
+  <!-- (e) FIXE reproduzierbare Bedingungen (Launcher, konstant fuer ALLE Laeufe).
+       numa="local" = die Launcher-Bedingung; die PERMUTIERTE Node-Bindung kommt aus alloc_hw.numa_node. -->
+  <fixed_conditions turbo="off" smt="off" aslr="off" numa="local" governor="performance"/>
+
+  <!-- (f) WIEDERHOLUNGEN - alle Laeufe vollstaendig + separat, NIE interpoliert. -->
+  <repetitions count="3" interpolate="false" overlay_in_chart="true"/>
+
+  <!-- (g) PERMUTATIONSMODUS: ce_only genuegt der F-B-Frage (eigene Allocator-Kante). -->
+  <modes>
+    <mode name="ce_only" merge="Stufe1_CeOnly" active_axes="allocator alloc_hw"/>
+  </modes>
+
+  <!-- (h) STATISCHE Achsen aus dem jeweiligen base_tier (Paper-Tupel). -->
+  <static_axes from="base_tier"/>
+
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_thesis_profile>

@@ -16,7 +16,8 @@
 //
 // PRUEFUNGEN (Plan #169(A)):
 //   (1) jeder <axis ref="X"> in <permute_axes> ist ein bekannter Achsen-Name (Registry-Key / kCompositionAxisNames;
-//       "cacheline" = KF-3-Sonderzweig, separat erlaubt; "node_width" = C2/FF2-Sonderzweig, ebenso separat).
+//       "cacheline" = KF-3-Sonderzweig, separat erlaubt; "node_width" = C2/FF2-Sonderzweig, ebenso separat;
+//       "alloc_hw" = F-B-Sonderzweig (NUMA/Page->allocator), ebenso separat).
 //   (2) jeder <value>Y</value> dieser Achse ist ein gueltiger Achsen-Wert (= ein name() der EnabledStrategies/Registry
 //       dieser Achse). Bei Fehler: nennt Achse + ungueltigen Wert + die gueltigen Werte.
 //   (3) jeder <axis_sweep axis="X"> + jede <sota_series lebewesen="L"> referenziert eine deklarierte Achse / ein
@@ -98,6 +99,11 @@ struct ProfileValidationResult {
         if (ax.ref == "node_width") { // C2/FF2-Sonderzweig (compile-time Knoten-Breite in Cache-Lines) — separat.
             r.warnings.push_back("axis ref=\"node_width\": C2/FF2-Sonderzweig (Knoten-Breiten-Unterachse), "
                                  "Werte (width_in_lines) nicht gegen die Achsen-Registry geprueft.");
+            continue;
+        }
+        if (ax.ref == "alloc_hw") { // F-B-Sonderzweig (compile-time NUMA/Page->allocator) — separat.
+            r.warnings.push_back("axis ref=\"alloc_hw\": F-B-Sonderzweig (NUMA/Page-Unterachse), "
+                                 "Werte (numa_node/page) nicht gegen die Achsen-Registry geprueft.");
             continue;
         }
         // (1) Achsen-Name bekannt?
