@@ -16,6 +16,8 @@
 
 #include <cstdint>
 
+// cppcheck-suppress unknownMacro — CHECKED-Makro (build_variant_inspection.hpp) ist cppcheck ohne
+// vollstaendige Include-Konfiguration unbekannt; der Compiler prueft es (static_assert-Kohaerenz-Guard).
 COMDARE_DEFINE_BUILD_VARIANT_INSPECTION_CHECKED(
     comdare_build_variant_inspect, ::comdare::cache_engine::nodes::axis_01_page_type::DenseBytePageType,
     ::comdare::cache_engine::hardware::axis_09b_simd_extension::Avx2SimdExtension,

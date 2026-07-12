@@ -26,6 +26,9 @@ Makefile
 !cmake/*.cmake
 !tools/permutation_codegen/*.cmake
 !tools/latex_toolchain/*.cmake
+# ctest-Treiber-Skripte sind QUELLEN (kein Build-Output) — ohne die Negation verschluckt *.cmake sie
+# still (CI 'Not a file' bei lokal-gruenem Test; Vorfall 2026-07-12 perm_codegen_byte_identity).
+!tests/unit/*.cmake
 
 # Generated (Permutations + Codegen)
 build/generated/
