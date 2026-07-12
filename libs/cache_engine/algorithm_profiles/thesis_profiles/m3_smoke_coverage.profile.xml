@@ -29,9 +29,11 @@
      Shape-Sub-Achsen (deregistrierte Familien; nur via SOTA-Pool-Stores implizit beruehrt) -
      RC-Unterachsen (#221-Rest) - thread_count>1 (T8/Fix A) - P/E-Core-Domaenen (HW-gated).
 
-     cap="1": exakt die EINE deklarierte Basis-Zelle (Baseline). Bewusste Abweichung vom Dossier-Sketch
-     (cap="0"): run_profile behandelt cap=0 heute als N=0 (leere Basis-Selektion), nicht als "kein Cap" —
-     cap="1" deklariert die Basis-Groesse exakt, ohne die geteilte cap-Semantik anzufassen.
+     cap="1": exakt die EINE deklarierte Basis-Zelle (Baseline). Historische Notiz: die Abweichung vom
+     Dossier-Sketch (cap="0") entstand, weil run_profile cap=0 damals als N=0 (leere Basis-Selektion)
+     behandelte; SEIT der cap-Korrektur (GO-4/GO-5-Nebenbefund 2026-07-12, profile_effective_cap) gilt
+     cap="0"/fehlend = KEIN Cap = alle Basis-Zellen — fuer DIESES Profil identisch (Basis-Zellen-Anzahl = 1).
+     cap="1" bleibt BEWUSST stehen: es deklariert die Basis-Groesse exakt (test_smoke_coverage_profile pinnt 1).
 
      TABU: golden_fullpilot_320_binary_ids.txt + permutation_axes.xml + m3v2_study/m3v2_smoke/
      m3_golden_coverage bleiben byte-unberuehrt (dieses Profil ist SEPARAT/additiv; Basis = die idempotente

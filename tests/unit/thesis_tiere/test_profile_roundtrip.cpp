@@ -240,6 +240,45 @@ int main(int argc, char** argv) {
         }
     }
 
+    // ════════════════════════════════════════════════════════════════════════════════════════════════════
+    // (7) cap-SEMANTIK (GO-4/GO-5-Nebenbefund, 2026-07-12) — profile_effective_cap ist die EINE cap-Aufloesung
+    //     der Basis-Selektion (profile_runner.hpp; Konsum in run_profile). GEPINNT: cap=0 → alle, cap=1 → 1,
+    //     cap FEHLT (run_options-Default 0) → alle; argv/env-Override behaelt Vorrang; Klemmung auf basis_count.
+    //     VORHER ergab eff_cap==0 eine LEERE Basis-Selektion — m3_golden_coverage (cap="0" = dokumentiert
+    //     "KEIN kuenstliches Cap") haette damit KEINE Basis-320 selektiert.
+    // ════════════════════════════════════════════════════════════════════════════════════════════════════
+    {
+        std::cout << "\n--- (7) cap-Semantik (profile_effective_cap) ---\n";
+        check_eq("cap=0 → alle (320)", tlz::profile_effective_cap(0, 0, 320), std::size_t{320});
+        check_eq("cap=1 → 1", tlz::profile_effective_cap(1, 0, 320), std::size_t{1});
+        check_eq("cap=320 → 320", tlz::profile_effective_cap(320, 0, 320), std::size_t{320});
+        check_eq("cap>basis_count → geklemmt (500→320)", tlz::profile_effective_cap(500, 0, 320), std::size_t{320});
+        check_eq("Override-Vorrang (profil 0, override 150)", tlz::profile_effective_cap(0, 150, 320),
+                 std::size_t{150});
+        check_eq("Override-Vorrang (profil 320, override 12)", tlz::profile_effective_cap(320, 12, 320),
+                 std::size_t{12});
+
+        // cap FEHLT: ein Profil OHNE <run_options> traegt den Parser-Default cap=0 → alle Basis-Zellen.
+        cx::ThesisProfile            no_cap; // run_options.cap Default = 0 (xml_config_parser.hpp)
+        tlz::ProfileRunOptions const ro_no_cap = tlz::profile_run_options(no_cap);
+        check_eq("cap FEHLT: run_options-Default 0", ro_no_cap.cap, std::size_t{0});
+        check_eq("cap FEHLT → alle (320)", tlz::profile_effective_cap(ro_no_cap.cap, 0, 320), std::size_t{320});
+
+        // REALES Profil m3_golden_coverage (cap="0" im XML, gleicher Ordner wie m3v2_study): dessen
+        // Basis-Selektion wird durch die 0=KEIN-Cap-Semantik ERSTMALS korrekt (volle Basis-320 statt leer).
+        fs::path const golden_cov_xml = m3v2_xml.parent_path() / "m3_golden_coverage.profile.xml";
+        auto           gc             = tlz::load_thesis_profile(golden_cov_xml);
+        check_true("m3_golden_coverage geparst", gc.has_value());
+        if (gc) {
+            tlz::ProfileRunOptions const ro_gc = tlz::profile_run_options(*gc);
+            check_eq("m3_golden_coverage: run_options.cap == 0 (XML cap=\"0\")", ro_gc.cap, std::size_t{0});
+            check_eq("m3_golden_coverage: effektiv = volle Basis-320", tlz::profile_effective_cap(ro_gc.cap, 0, 320),
+                     std::size_t{320});
+        }
+        // m3v2_study (TABU, byte-unberuehrt): cap=320 == basis_count → Verhalten UNVERAENDERT.
+        check_eq("m3v2_study: cap=320 unveraendert", tlz::profile_effective_cap(320, 0, 320), std::size_t{320});
+    }
+
     std::cout << "\n==== STRANG-A Inc1..4 Round-Trip-Gate (gegen GOLDEN): "
               << (g_fail == 0 ? "ALLE OK (Diff leer)" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;

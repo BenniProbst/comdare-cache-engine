@@ -64,7 +64,9 @@ int main(int argc, char** argv) {
     check_eq("base_tiers[0].id", tp->base_tiers.front().id, std::string{"art"});
     check_true("base_tiers[0].profile_ref enthaelt art.profile.xml",
                tp->base_tiers.front().profile_ref.find("art.profile.xml") != std::string::npos);
-    check_eq("permute_axes", tp->permute_axes.size(), std::size_t{8});
+    // BEWUSSTE Pin-Fortschreibung 8 -> 9 (Kanonisierung, GO-4/GO-5-Nebenbefund 2026-07-12): die Alt-isa-Achse
+    // {X86_SSE42/AVX2/AVX512} zerfaellt kanonisch in isa{isa_amd64} + simd_extension{simd_ext_sse2/avx2/avx512}.
+    check_eq("permute_axes", tp->permute_axes.size(), std::size_t{9});
 
     // cacheline-Unterachse finden
     cx::ThesisAxisSpec const* cl = nullptr;
@@ -72,19 +74,25 @@ int main(int argc, char** argv) {
         if (a.ref == "cacheline") cl = &a;
     check_true("cacheline-Achse vorhanden", cl != nullptr);
     if (cl) {
-        check_eq("cacheline.per_organ", cl->per_organ.size(), std::size_t{4}); // page node traversal allocator
+        check_eq("cacheline.per_organ", cl->per_organ.size(), std::size_t{4}); // kanonische 4 Organe
         // BEWUSSTE Pin-Fortschreibung 3 -> 4 (C1, GO4/#8 F-C, 2026-07-12): line_size 32 additiv im Profil.
         check_eq("cacheline.line_sizes", cl->line_sizes.size(), std::size_t{4}); // 64 128 256 32
         check_eq("cacheline.alignments", cl->alignments.size(), std::size_t{3});
         check_eq("cacheline.sw_prefetch_hints", cl->sw_prefetch_hints.size(), std::size_t{5});
     }
 
-    // isa-Achse Teilmenge (3 values)
+    // isa-Achse: kanonisch auf die CPU-Familie gepinnt (isa_amd64); der Alt-SIMD-Stufen-Spread (3 values)
+    // lebt kanonisch in der simd_extension-Achse (Kanonisierung 2026-07-12, s.o.).
     cx::ThesisAxisSpec const* isa = nullptr;
     for (auto const& a : tp->permute_axes)
         if (a.ref == "isa") isa = &a;
     check_true("isa-Achse vorhanden", isa != nullptr);
-    if (isa) check_eq("isa.values (Teilmenge)", isa->values.size(), std::size_t{3});
+    if (isa) check_eq("isa.values (Familie gepinnt)", isa->values.size(), std::size_t{1});
+    cx::ThesisAxisSpec const* simd = nullptr;
+    for (auto const& a : tp->permute_axes)
+        if (a.ref == "simd_extension") simd = &a;
+    check_true("simd_extension-Achse vorhanden", simd != nullptr);
+    if (simd) check_eq("simd_extension.values (Stufen-Spread)", simd->values.size(), std::size_t{3});
 
     check_eq("workloads", tp->workloads.size(), std::size_t{6}); // A..F
     check_eq("telemetry_mode", tp->telemetry_mode, std::string{"on"});
@@ -106,7 +114,8 @@ int main(int argc, char** argv) {
     if (pr) {
         check_eq("pruefling_replace.pruefling", pr->pruefling, std::string{"prtart"});
         check_true("pruefling_replace.replaces_axes nicht leer", !pr->replaces_axes.empty());
-        check_eq("pruefling_replace.active_axes", pr->active_axes.size(), std::size_t{2}); // isa cacheline
+        // Pin 2 -> 3 (Kanonisierung 2026-07-12): isa simd_extension cacheline.
+        check_eq("pruefling_replace.active_axes", pr->active_axes.size(), std::size_t{3});
     }
 
     check_eq("static_axes_from", tp->static_axes_from, std::string{"base_tier"});

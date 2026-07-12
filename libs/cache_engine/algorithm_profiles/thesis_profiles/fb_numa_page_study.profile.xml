@@ -9,7 +9,10 @@
      prod1 ist die Effekt-Differenz auto-vs-gepinnt erwartbar klein/null - der KNOPF existiert trotzdem
      und ist dokumentiert (Baseline der spaeteren Multi-Socket-Kampagne).
      NUR dieses Profil aktiviert die alloc_hw-Unterachse: ohne diese Aktivierung aendert sich KEINE
-     binary_id (golden-320/base_pilot/m3v2 bleiben byte-unberuehrt). KEINE bestehende Datei geaendert. -->
+     binary_id (golden-320/base_pilot/m3v2 bleiben byte-unberuehrt). KEINE bestehende Datei geaendert.
+     KANONISIERT (GO-4/GO-5-Nebenbefund, 2026-07-12): allocator-Werte auf die kanonischen Registry-Namen
+     gezogen (SYSTEM_MALLOC->std_malloc; NUMALLOC->s. (b): numalloc ist HAVE-gated und in den heutigen
+     Builds nicht USE-enabled — pool_resource ist der reale, immer-enabled page-Konsument). -->
 <comdare_thesis_profile id="fb_numa_page_study" schema_version="1">
 
   <!-- (a) BASIS-TIERE = Paper-Originale in Standardkonfig (statische Achsen-Tupel), wie ff2/cacheline_study. -->
@@ -25,11 +28,15 @@
   </base_tiers>
 
   <!-- (b) PERMUTIERTE ACHSEN (compile-time). Fokus der F-B-Frage: die Allocator-Kante.
-       NUMALLOC = der numa_node-Konsument (AA5/A09, Node-Bindung); SYSTEM_MALLOC = Baseline. -->
+       std_malloc = Baseline; pool_resource = der page-Konsument (PoolResourceAllocatorBody ->
+       pmr::pool_options, immer USE-enabled). Der numa_node-Konsument numalloc (AA5/A09, Node-Bindung,
+       NUMAllocAllocatorBody) ist HAVE-gated (Vendor-Detection) und heute in keinem Build USE-enabled —
+       er wird bei der Multi-Socket-/Voll-Vendor-Kampagne (~Sep) als dritter <value>numalloc</value>
+       ergaenzt; der alloc_hw-KNOPF (numa_node) bleibt schon jetzt deklariert + compile-time gated. -->
   <permute_axes>
     <axis ref="allocator">
-      <value>SYSTEM_MALLOC</value>
-      <value>NUMALLOC</value>
+      <value>std_malloc</value>
+      <value>pool_resource</value>
     </axis>
 
     <!-- NEUE F-B-Unterachse: NUMA/Page->allocator. Wertesets:

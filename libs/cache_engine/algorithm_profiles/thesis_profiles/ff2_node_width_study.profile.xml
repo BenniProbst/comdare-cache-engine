@@ -6,7 +6,10 @@
      Hankins/Patel - bias-frei nachmessen. Die Knoten-BREITE (1..16 Lines) ist eine ANDERE Dimension als
      die Line-GROESSE (32/64/128/256 Byte, cacheline_study) - deshalb ein SEPARATES Studien-Profil.
      NUR dieses Profil aktiviert die node_width-Unterachse: ohne diese Aktivierung aendert sich KEINE
-     binary_id (golden-320/base_pilot/m3v2 bleiben byte-unberuehrt). KEINE bestehende Datei geaendert. -->
+     binary_id (golden-320/base_pilot/m3v2 bleiben byte-unberuehrt). KEINE bestehende Datei geaendert.
+     KANONISIERT (GO-4/GO-5-Nebenbefund, 2026-07-12): <axis ref>-Namen/-Werte auf die kanonischen
+     Registry-Namen gezogen (layout->memory_layout, node->node_type, SYSTEM_MALLOC->std_malloc) — die
+     permutation_axes.xml-Aliasse kennt die AxisRegistry nicht mehr (`messung_driver --validate`). -->
 <comdare_thesis_profile id="ff2_node_width_study" schema_version="1">
 
   <!-- (a) BASIS-TIERE = Paper-Originale in Standardkonfig (statische Achsen-Tupel), wie cacheline_study. -->
@@ -23,9 +26,9 @@
 
   <!-- (b) PERMUTIERTE ACHSEN (compile-time). Fokus der FF2-Frage: Node-/Layout-Pfad. -->
   <permute_axes>
-    <axis ref="layout"/>
-    <axis ref="node"/>
-    <axis ref="allocator"><value>SYSTEM_MALLOC</value></axis>
+    <axis ref="memory_layout"/>
+    <axis ref="node_type"/>
+    <axis ref="allocator"><value>std_malloc</value></axis>
 
     <!-- NEUE FF2-Unterachse (C2): Knoten-Breite in Cache-Lines. Werteset {1,2,4,8,16}:
          1 = CSS/CSB+ (eine Cache-Line pro Knoten), 16 = Hankins/Patel; Zweierpotenzen dazwischen.
@@ -60,7 +63,7 @@
 
   <!-- (g) PERMUTATIONSMODUS: ce_only genuegt der FF2-Teilfrage (eigener Node-/Layout-Pfad). -->
   <modes>
-    <mode name="ce_only" merge="Stufe1_CeOnly" active_axes="layout node allocator node_width"/>
+    <mode name="ce_only" merge="Stufe1_CeOnly" active_axes="memory_layout node_type allocator node_width"/>
   </modes>
 
   <!-- (h) STATISCHE Achsen aus dem jeweiligen base_tier (Paper-Tupel). -->
