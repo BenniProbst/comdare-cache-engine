@@ -1,7 +1,8 @@
 // Phase 0.1 SIMD-Dispatch (Doc 21 §F): Amd64Isa::simd_field_sum dispatcht auf die aktive Vektor-Breite
 // (__AVX512F__/__AVX2__/SSE2/Skalar) — gesteuert durch die Compiler-SIMD-Makros. Diese CI-Varianten setzen die
-// -m-Flag direkt (tests/unit/CMakeLists.txt); die produktive Kopplung 09b-Achse -> ISA-Flag via
-// cmake/isa_features.cmake ist ein OFFENER Folge-Slice (heute ruft kein Produktiv-Target den Flag-Setter).
+// -m-Flag direkt (tests/unit/CMakeLists.txt); die Kopplung 09b-Achse -> ISA-Flag ist seit GO-3 A1 (Task #5,
+// 2026-07-12) gebaut: comdare_apply_simd_extension_flags (cmake/isa_features.cmake) + Kohaerenz-Guard
+// (axis_09b_build_coherence.hpp), konsumiert von den real-Wrapper-DLLs; E2-Voll-Matrix-Emission = #276-Folge-Slice.
 // Dieser Contract beweist: (a) der aktive Pfad ist numerisch KORREKT (== uint64-Referenzsumme) ueber alle
 // Tail-Restlaengen aller Lane-Breiten; (b) BUILD-INVARIANZ unter Ueberlauf; (c) die aktive SIMD-Stufe wird ehrlich gemeldet.
 

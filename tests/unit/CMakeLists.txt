@@ -1817,6 +1817,21 @@ target_include_directories(test_striktheit_abi_pod_guard PRIVATE
 target_link_libraries(test_striktheit_abi_pod_guard PRIVATE Boost::mp11 comdare::workload_driver)
 target_compile_definitions(test_striktheit_abi_pod_guard PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+
+# Teil 4 (GO-3 A2, Task #5 Hebel-A-Rest, 2026-07-12): Mess-Kern-Reinheits-Guard — Interface-Freeze der
+# 9 *_scan-Kernel-Familien (bewusst skalare, strided Mess-Kerne: Zugriffsmuster == Achsen-Signal, Doc 21 §F;
+# prospektiv build-brechend bei kuenftiger Isa-Einspeisung). Bewusst LEICHTE Header (nur Achsen-Registries +
+# axis_09_isa_amd64.hpp, KEINE config_sets — Cold-Cache-ICE-Lektion, s. test_striktheit_axes_guard).
+comdare_add_test(test_striktheit_scan_kernel_purity
+    SOURCES test_striktheit_scan_kernel_purity.cpp)
+target_include_directories(test_striktheit_scan_kernel_purity PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_striktheit_scan_kernel_purity PRIVATE Boost::mp11)
+set_tests_properties(test_striktheit_scan_kernel_purity PROPERTIES LABELS "striktheit;axes")
 set_tests_properties(test_29_container_framework PROPERTIES LABELS "contract;gattung;container")
 
 # 234-V-b (2026-07-08): Rest-Familien Shaped-Naht + binary_id-Shape-Segment + Baum->Emitter-Verdrahtung.
@@ -2328,39 +2343,135 @@ set_tests_properties(test_buildvariant_dll PROPERTIES LABELS "goal_v6;phase_d;dl
 # L-74a — Build-Varianten-DLLs mit den ECHTEN axis_01/09b/12-Wrapper-KLASSEN (DenseBytePageType/Avx512SimdExtension/
 # X86_64HardwareProfile) statt real-geformter Stubs. Brauchen die generierten flags.hpp-Dirs + Boost::mp11 → eigene
 # Registrierung (nicht in der boost-freien Schleife oben). Beweist: die REALEN Library-Wrapper sind DLL-einbaubar.
-set(_rsrc_perm_buildvariant_real_avx512 genus_buildvariant_real_avx512.cpp)
-set(_rsrc_perm_buildvariant_real_avx2   genus_buildvariant_real_avx2.cpp)
-foreach(_rdll IN ITEMS perm_buildvariant_real_avx512 perm_buildvariant_real_avx2)
-    add_library(${_rdll} SHARED "${_rsrc_${_rdll}}")
-    target_include_directories(${_rdll} PRIVATE
-        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
-        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
-        "${PROJECT_SOURCE_DIR}/libs/common"
-        "${CMAKE_BINARY_DIR}/generated"
-        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
-    target_link_libraries(${_rdll} PRIVATE Boost::mp11)
-    target_compile_features(${_rdll} PRIVATE cxx_std_23)
-    target_compile_definitions(${_rdll} PRIVATE COMDARE_ANATOMY_MODULE_BUILD=1)
-    set_target_properties(${_rdll} PROPERTIES
-        POSITION_INDEPENDENT_CODE                ON
-        RUNTIME_OUTPUT_DIRECTORY                 "${_goalv6_dll_dir}"
-        RUNTIME_OUTPUT_DIRECTORY_RELEASE         "${_goalv6_dll_dir}"
-        RUNTIME_OUTPUT_DIRECTORY_DEBUG           "${_goalv6_dll_dir}"
-        RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO  "${_goalv6_dll_dir}"
-        LIBRARY_OUTPUT_DIRECTORY                 "${_goalv6_dll_dir}"
-        LIBRARY_OUTPUT_DIRECTORY_RELEASE         "${_goalv6_dll_dir}"
-        LIBRARY_OUTPUT_DIRECTORY_DEBUG           "${_goalv6_dll_dir}"
-        LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO  "${_goalv6_dll_dir}")
-    if(COMMAND comdare_set_platform_defines)
-        comdare_set_platform_defines(${_rdll})
-    endif()
-endforeach()
-add_dependencies(test_buildvariant_dll perm_buildvariant_real_avx512 perm_buildvariant_real_avx2)
-add_test(NAME test_buildvariant_dll_real COMMAND test_buildvariant_dll
-    "$<TARGET_FILE:perm_buildvariant_real_avx512>" "$<TARGET_FILE:perm_buildvariant_real_avx2>")
+#
+# GO-3 A1 (Task #5 Hebel-A-Rest, 2026-07-12) — DEKLARATIONS-WAHRHEIT: die real-Wrapper-DLLs bauen jetzt MIT
+# den echten ISA-Flags (comdare_apply_simd_extension_flags AVX512/AVX2, cmake/isa_features.cmake) und
+# emittieren das CHECKED-Makro (consteval-Kohaerenz-Guard: deklarierte Extension == Build-ISA-Stufe). Vorher
+# deklarierten sie Avx512/Avx2 OHNE Flags — Mess-Etikett != Mess-Gegenstand (Dossier GO3 §2.3).
+#  * BUILD-Gate: nur wenn der Compiler BEIDE Flags kennt (sonst wuerde der CHECKED-Guard zu Recht feuern).
+#  * AUSFUEHRUNGS-Gate: nur wenn der BUILD-Host die ISA real kann (__builtin_cpu_supports-Probe, Muster der
+#    Dispatch-Test-Varianten unten) — die DLLs enthalten jetzt echten AVX2-/AVX-512-Maschinencode; schon der
+#    Inspect-Symbol-Prolog darf auf schwaecheren Hosts nicht SIGILLen.
+include(CheckCXXCompilerFlag)
+include(CheckCXXSourceRuns)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    check_cxx_compiler_flag("/arch:AVX2" COMDARE_CXX_HAS_ARCH_AVX2)
+    check_cxx_compiler_flag("/arch:AVX512" COMDARE_CXX_HAS_ARCH_AVX512)
+    set(COMDARE_CXX_HAS_SIMD_EXT_AVX2_FLAG "${COMDARE_CXX_HAS_ARCH_AVX2}")
+    set(COMDARE_CXX_HAS_SIMD_EXT_AVX512_FLAG "${COMDARE_CXX_HAS_ARCH_AVX512}")
+else()
+    check_cxx_compiler_flag("-mavx2" COMDARE_CXX_HAS_MAVX2)
+    check_cxx_compiler_flag("-mavx512f" COMDARE_CXX_HAS_MAVX512F)
+    set(COMDARE_CXX_HAS_SIMD_EXT_AVX2_FLAG "${COMDARE_CXX_HAS_MAVX2}")
+    set(COMDARE_CXX_HAS_SIMD_EXT_AVX512_FLAG "${COMDARE_CXX_HAS_MAVX512F}")
+endif()
+check_cxx_source_runs("int main(){return __builtin_cpu_supports(\"avx2\")?0:1;}" COMDARE_HOST_RUNS_AVX2)
+check_cxx_source_runs("int main(){return __builtin_cpu_supports(\"avx512f\")?0:1;}" COMDARE_HOST_RUNS_AVX512F)
 
-set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_buildvariant_dll_real)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
-set_tests_properties(test_buildvariant_dll_real PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
+if(COMDARE_CXX_HAS_SIMD_EXT_AVX2_FLAG AND COMDARE_CXX_HAS_SIMD_EXT_AVX512_FLAG)
+    set(_rsrc_perm_buildvariant_real_avx512 genus_buildvariant_real_avx512.cpp)
+    set(_rsrc_perm_buildvariant_real_avx2   genus_buildvariant_real_avx2.cpp)
+    foreach(_rdll IN ITEMS perm_buildvariant_real_avx512 perm_buildvariant_real_avx2)
+        add_library(${_rdll} SHARED "${_rsrc_${_rdll}}")
+        target_include_directories(${_rdll} PRIVATE
+            "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+            "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+            "${PROJECT_SOURCE_DIR}/libs/common"
+            "${CMAKE_BINARY_DIR}/generated"
+            ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+        target_link_libraries(${_rdll} PRIVATE Boost::mp11)
+        target_compile_features(${_rdll} PRIVATE cxx_std_23)
+        target_compile_definitions(${_rdll} PRIVATE COMDARE_ANATOMY_MODULE_BUILD=1)
+        set_target_properties(${_rdll} PROPERTIES
+            POSITION_INDEPENDENT_CODE                ON
+            RUNTIME_OUTPUT_DIRECTORY                 "${_goalv6_dll_dir}"
+            RUNTIME_OUTPUT_DIRECTORY_RELEASE         "${_goalv6_dll_dir}"
+            RUNTIME_OUTPUT_DIRECTORY_DEBUG           "${_goalv6_dll_dir}"
+            RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO  "${_goalv6_dll_dir}"
+            LIBRARY_OUTPUT_DIRECTORY                 "${_goalv6_dll_dir}"
+            LIBRARY_OUTPUT_DIRECTORY_RELEASE         "${_goalv6_dll_dir}"
+            LIBRARY_OUTPUT_DIRECTORY_DEBUG           "${_goalv6_dll_dir}"
+            LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO  "${_goalv6_dll_dir}")
+        if(COMMAND comdare_set_platform_defines)
+            comdare_set_platform_defines(${_rdll})
+        endif()
+    endforeach()
+    # GO-3 A1: die je-Extension-Flags aus der ZENTRALEN Kaskade (keine Dreifach-Spiegelung von -m-Flags hier).
+    comdare_apply_simd_extension_flags(perm_buildvariant_real_avx512 AVX512)
+    comdare_apply_simd_extension_flags(perm_buildvariant_real_avx2 AVX2)
+    add_dependencies(test_buildvariant_dll perm_buildvariant_real_avx512 perm_buildvariant_real_avx2)
+
+    if(COMDARE_HOST_RUNS_AVX2 AND COMDARE_HOST_RUNS_AVX512F)
+        add_test(NAME test_buildvariant_dll_real COMMAND test_buildvariant_dll
+            "$<TARGET_FILE:perm_buildvariant_real_avx512>" "$<TARGET_FILE:perm_buildvariant_real_avx2>")
+
+        set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_buildvariant_dll_real)  # #278 Not-Run-(b): in comdare_tests-Sammel-Bau (Job 214367)
+        set_tests_properties(test_buildvariant_dll_real PROPERTIES LABELS "goal_v6;phase_d;dll_roundtrip")
+
+        # GO-3 A1 Kohaerenz-Beweis-Test: Etikett (POD simd_width_bits) == Realitaet (Build-ISA-Kaskade via
+        # comdare_build_isa_width_probe) je real-DLL, literal ueber die echte .dll-Grenze gezogen.
+        add_executable(test_ap5_simd_extension_coherence test_ap5_simd_extension_coherence.cpp)
+        target_include_directories(test_ap5_simd_extension_coherence PRIVATE
+            "${PROJECT_SOURCE_DIR}/libs/cache_engine" "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+        target_compile_features(test_ap5_simd_extension_coherence PRIVATE cxx_std_23)
+        add_dependencies(test_ap5_simd_extension_coherence
+            perm_buildvariant_real_avx512 perm_buildvariant_real_avx2)
+        add_test(NAME test_ap5_simd_extension_coherence COMMAND test_ap5_simd_extension_coherence
+            "$<TARGET_FILE:perm_buildvariant_real_avx512>" "$<TARGET_FILE:perm_buildvariant_real_avx2>")
+        set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_ap5_simd_extension_coherence)
+        set_tests_properties(test_ap5_simd_extension_coherence PROPERTIES LABELS "goal_v6;axes;simd")
+    else()
+        message(STATUS "GO-3 A1: test_buildvariant_dll_real/test_ap5_simd_extension_coherence NICHT registriert "
+            "(Host ohne AVX2+AVX-512F — real-DLLs werden nur GEBAUT, Muster Dispatch-Varianten)")
+    endif()
+else()
+    message(STATUS "GO-3 A1: real-Wrapper-DLLs NICHT gebaut (Compiler ohne AVX2-/AVX-512-Flag — CHECKED-Guard "
+        "wuerde zu Recht feuern)")
+endif()
+
+# GO-3 A1 NEGATIV-BEWEIS (konfigurationszeitig, Muster isa_features.cmake; Dossier-GO3-Risiko 3 — kein
+# flake-anfaelliger ctest-Fall): der consteval-Kohaerenz-Guard MUSS eine inkohaerente Deklaration ABLEHNEN.
+# Probe-Paar: eine 256-bit-Deklaration (echte Wrapper-API-Form) OHNE AVX2-Flag DARF NICHT kompilieren
+# (static_assert im Guard), MIT AVX2-Flag MUSS sie kompilieren (die Paarung faengt falsche Negativa wie
+# kaputte Include-Pfade ab). Bei Guard-Erosion: harter Configure-FATAL.
+if(COMDARE_ARCH_X86_64 AND COMDARE_CXX_HAS_SIMD_EXT_AVX2_FLAG)
+    include(CheckCXXSourceCompiles)
+    set(_ap5_coherence_probe_src "
+        #include <topics/hardware/axis_09b_simd_extension/axis_09b_build_coherence.hpp>
+        #include <string_view>
+        struct ProbeAvx2Decl {
+            static constexpr bool is_active() noexcept { return true; }
+            static constexpr int vector_width_bits() noexcept { return 256; }
+            static constexpr bool compatible_with_x86() noexcept { return true; }
+            static constexpr bool compatible_with_arm() noexcept { return false; }
+            static constexpr bool compatible_with_riscv() noexcept { return false; }
+            static constexpr std::string_view flag_suffix() noexcept { return \"AVX2\"; }
+        };
+        static_assert(::comdare::cache_engine::hardware::axis_09b_simd_extension::
+                          declared_extension_matches_build<ProbeAvx2Decl>());
+        int main() { return 0; }")
+    set(CMAKE_REQUIRED_INCLUDES "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+    set(CMAKE_REQUIRED_FLAGS "")
+    check_cxx_source_compiles("${_ap5_coherence_probe_src}" COMDARE_AP5_COHERENCE_NEGATIVE_PROBE_COMPILES)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        set(CMAKE_REQUIRED_FLAGS "/arch:AVX2")
+    else()
+        set(CMAKE_REQUIRED_FLAGS "-mavx2")
+    endif()
+    check_cxx_source_compiles("${_ap5_coherence_probe_src}" COMDARE_AP5_COHERENCE_POSITIVE_PROBE_COMPILES)
+    set(CMAKE_REQUIRED_FLAGS "")
+    set(CMAKE_REQUIRED_INCLUDES "")
+    if(COMDARE_AP5_COHERENCE_NEGATIVE_PROBE_COMPILES)
+        message(FATAL_ERROR "GO-3 A1: Kohaerenz-Guard WIRKUNGSLOS — 256-bit-Deklaration kompiliert OHNE "
+            "AVX2-Flag (der static_assert in axis_09b_build_coherence.hpp haette feuern muessen).")
+    endif()
+    if(NOT COMDARE_AP5_COHERENCE_POSITIVE_PROBE_COMPILES)
+        message(FATAL_ERROR "GO-3 A1: Kohaerenz-Positiv-Probe kompiliert NICHT mit AVX2-Flag — Guard/Probe "
+            "defekt (ein falsches Negativ bliebe sonst unerkannt).")
+    endif()
+    message(STATUS "GO-3 A1 Kohaerenz-Guard bewiesen: Negativ-Probe (ohne AVX2-Flag) korrekt ABGELEHNT, "
+        "Positiv-Probe (mit AVX2-Flag) kompiliert")
+endif()
 
 # L-74a — ADHOC-BUILDVARIANT-DLL: EINE DLL traegt die 17-Slot-Anatomie (4 ABI-Symbole) UND die 3-Build-Achsen-
 # Inspection (comdare_build_variant_inspect). Heavy (Anatomie-Umbrella + Boost + generierte Dirs, wie comdare_r5g).
