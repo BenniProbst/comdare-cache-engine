@@ -2658,6 +2658,31 @@ add_test(NAME test_ff2_node_width_subaxis COMMAND test_ff2_node_width_subaxis
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_ff2_node_width_subaxis)
 set_tests_properties(test_ff2_node_width_subaxis PROPERTIES LABELS "axes;cacheline;ff2;node_width" TIMEOUT 120)
 
+# ─────────────────────────────────────────────────────────────────────────────
+# GO4/#8 F-B (2026-07-12) — alloc_hw-Unterachsen-Test CTest-registrieren (Muster test_ff2-Block:
+# plain `int main()`-Standalone, KEIN gtest -> add_test DIREKT, Return 0/1).
+#   * test_fb_alloc_hw_subaxis (F-B): die NEUE Unterachse "NUMA/Page->allocator" (alloc_hw.numa_node
+#       {auto,0,1} + alloc_hw.page {4k,2m}) — Wertraum + HW-Gate (axis_12-Properties als Typ-Parameter,
+#       gate_alloc_hw_for<HW>) + binary-id-Neutralitaet ohne Profil-Aktivierung (profile_to_tree) +
+#       REALER Konsum an der Allocator-Kante (NUMAlloc-Node-Bindung statt Hartcode -1; Pool-Page-Hint ->
+#       pmr::pool_options). Include-/Link-Satz identisch zum ff2-Block; Studien-Profil als arg1.
+add_executable(test_fb_alloc_hw_subaxis "test_fb_alloc_hw_subaxis.cpp")
+target_compile_features(test_fb_alloc_hw_subaxis PRIVATE cxx_std_23)
+target_include_directories(test_fb_alloc_hw_subaxis PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_fb_alloc_hw_subaxis PRIVATE Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_fb_alloc_hw_subaxis)
+add_test(NAME test_fb_alloc_hw_subaxis COMMAND test_fb_alloc_hw_subaxis
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/fb_numa_page_study.profile.xml")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_fb_alloc_hw_subaxis)
+set_tests_properties(test_fb_alloc_hw_subaxis PROPERTIES LABELS "axes;alloc;fb;alloc_hw" TIMEOUT 120)
+
 # 2026-07-11: best_binary_selector parse+rank Characterization-Test. Das #172-Werkzeug war bisher NUR als
 # add_executable (tools/best_binary_selector) registriert, NIE als add_test -> parse_measurement_csv +
 # rank_binaries (ausgelieferte Produktionslogik) waren UNGETESTET. Dieser Test nagelt sie gate-frei fest

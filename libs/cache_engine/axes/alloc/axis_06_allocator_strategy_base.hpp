@@ -22,6 +22,7 @@
 #include "concepts/axis_06_allocator_concept.hpp"
 #include "concepts/axis_06_allocator_cache_engine_permutation_concept.hpp"
 #include "axis_06_allocator_subaxes_aa1_to_aa7.hpp"
+#include "alloc_hw_config.hpp" // F-B: NUMA/Page->allocator-Unterachse (GO4/#8, 2026-07-12)
 #include <topics/axis_base.hpp>
 #include <axes/cacheline/cacheline_config.hpp> // KF-5: per-Organ Cache-Line-Unterachse
 
@@ -54,10 +55,18 @@ namespace comdare::cache_engine::alloc {
 // Allokator-Wrapper cacheline-fähig (cacheline_config/cacheline_alignment/cacheline_prefetch). Default {} =
 // B64/None/None = unverändertes Verhalten (nicht-brechend, ODR-sicher: Default ist ein Literal, kein Makro).
 // Die per-Binary-Bäckung wählt der Codegen über eine DISTINKTE Organ-Instanz (KF-6/KF-8), nicht über den Default.
-template <typename Derived, ::comdare::cache_engine::cacheline::CacheLineConfig CacheLineCfg =
-                                ::comdare::cache_engine::cacheline::CacheLineConfig{}>
+// F-B (GO4/#8, 2026-07-12): dritter defaulted NTTP AllocHwCfg + AllocHwAware<Cfg> → jeder Allokator-Wrapper
+// trägt die NUMA/Page-Unterachse (alloc_hw.numa_node {auto,0,1} / alloc_hw.page {4k,2m}; alloc_hw_config.hpp).
+// Default {} = Auto/Native = keine Vorgabe → Verhalten/Bytes unverändert (exakt das KF-5-/node_width-Muster:
+// Blätter bleiben konkrete Klassen, Registry-mp_list unberührt, golden-/Gate-1-neutral). Konsum:
+// axis_06_allocator_numalloc.hpp (Node-Bindung) + axis_06_allocator_pool_resource.hpp (Page-Hint→pool_options).
+template <typename Derived,
+          ::comdare::cache_engine::cacheline::CacheLineConfig CacheLineCfg =
+              ::comdare::cache_engine::cacheline::CacheLineConfig{},
+          AllocHwConfig AllocHwCfg = AllocHwConfig{}>
 class AllocatorStrategyBase : public ::comdare::cache_engine::topics::AxisBase,
-                              public ::comdare::cache_engine::cacheline::CacheLineAware<CacheLineCfg> {
+                              public ::comdare::cache_engine::cacheline::CacheLineAware<CacheLineCfg>,
+                              public AllocHwAware<AllocHwCfg> {
 public:
     /// Concept-Check im Konstruktor: Pflicht-Set AllocatorStrategy + CacheEnginePermutationStrategy + AxisBase
     constexpr AllocatorStrategyBase() noexcept {
