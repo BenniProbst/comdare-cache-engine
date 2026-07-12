@@ -115,7 +115,8 @@ elseif(COMDARE_PERMUTATION_CODEGEN_BACKEND STREQUAL "cpp")
         "--target-isa=${COMDARE_TARGET_ISA}"
         "--profile=${COMDARE_PERMUTATION_PROFILE}"
         "--mode=${COMDARE_PERMUTATION_MODE}"
-        "--output=${COMDARE_PERMUTATION_OUTPUT}")
+        "--output=${COMDARE_PERMUTATION_OUTPUT}"
+        "--axes-versions=${_codegen_tools}/axes_versions.txt")
 else()
     message(FATAL_ERROR "Unbekanntes COMDARE_PERMUTATION_CODEGEN_BACKEND: ${COMDARE_PERMUTATION_CODEGEN_BACKEND}")
 endif()
