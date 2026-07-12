@@ -232,6 +232,26 @@ struct ProfileTaggedSelection {
     return ts;
 }
 
+/// profile_sweep_passes — #26/GO-5 (B.4.1-b, 2026-07-12): die DETERMINISTISCHE Pass-Liste der Selektions-Phase
+/// von run_profile. Vorher fuhr run_profile GENAU EINEN Selektions-Pass (Basis ODER die eine args.sweep_axis) —
+/// und der E4-Treiber setzt sweep_axis nie ⇒ die im Profil deklarierten <axis_sweeps> blieben im offiziellen
+/// XML-Weg UNGEFAHREN (Eigenbefund Dossier GO-5 B.1; betraf auch den #18-Coverage-Voll-Lauf).
+/// Semantik:
+///   • `requested_axis` nicht leer (explizites args.sweep_axis) ⇒ genau {requested_axis} — das bisherige
+///     Einzel-Sweep-Verhalten behaelt Vorrang und bleibt unveraendert (rueckwaerts-kompatibel).
+///   • `requested_axis` leer ⇒ {""} (= Basis-Pass, immer zuerst) + JE deklariertem <axis_sweep> ein Pass in
+///     Dokument-Reihenfolge (tp.axis_sweeps ist die geparste XML-Reihenfolge ⇒ deterministisch).
+///     Profile OHNE <axis_sweeps> liefern exakt {""} = das bisherige Basis-only-Verhalten (byte-identisch).
+[[nodiscard]] inline std::vector<std::string> profile_sweep_passes(cx::ThesisProfile const& tp,
+                                                                   std::string const&       requested_axis) {
+    if (!requested_axis.empty()) return {requested_axis};
+    std::vector<std::string> passes;
+    passes.reserve(tp.axis_sweeps.size() + 1);
+    passes.emplace_back(); // "" = Basis-Pass (immer zuerst)
+    for (auto const& sw : tp.axis_sweeps) passes.push_back(sw.axis);
+    return passes;
+}
+
 /// profile_select — die EINE profil-getriebene Selektions-Auswahl, gesteuert ueber `series_axis_or_empty`:
 ///   • ""  / "basis"        → BASIS-320 (profile_make_basis).
 ///   • "<achse>"            → PER-ACHSEN-SWEEP: matcht einen <axis_sweep axis="<achse>"> im Profil; der level_d

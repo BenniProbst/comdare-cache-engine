@@ -341,11 +341,39 @@ using QueuingQ1SweepCatalog =
 using QueuingQ2SweepCatalog =
     AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17, F18>;
 
+// ── #26/GO-5 (B.4.1-a, 2026-07-12): auch die 4 BASIS-Achsen (search_algo/node_type/memory_layout/prefetch)
+//    bekommen je einen dedizierten Sweep-Katalog nach der #18-Schablone. GRUND: ein Smoke-/Coverage-Profil mit
+//    GEPINNTER Basis (alle 19 Slots je 1 Wert, m3_smoke_coverage) kann die 4 Basis-Achsen NICHT ueber die
+//    Basis-320-View sweepen (level_size==1) — ohne eigene Kataloge verloere der Smoke-Lauf genau diese 4 Achsen.
+//    Jeder Katalog traegt die VOLLE Enabled-Liste im jeweiligen Slot gegen die Index-0-Baseline. Unter den
+//    Default-Enables (4/4/5/4) sind die binary_ids eine TEILMENGE der golden-320 → idempotente Keys in der
+//    Union (gleiche Quelle, gleiche DLL, KEIN golden-Bruch); Opt-in-Enables (z.B. per-K k_ary) erweitern sie
+//    als END-Appends disjunkt. Konsum: run_profile Multi-Sweep-Durchlauf (profile_run_entry, B.4.1-b) +
+//    test_smoke_coverage_profile (Binary-Zaehlungs-Gate). ──
+using F00 = ce::traversal::TopicConfigSet::StaticAxisVariants_03a; // search_algo (volle Enabled-Liste)
+using F04 = ce::nodes::TopicConfigSet::StaticAxisVariants_04;      // node_type
+using F05 = ce::memory_layout::TopicConfigSet::StaticAxisVariants; // memory_layout
+using F07 = ce::prefetch::TopicConfigSet::StaticAxisVariants;      // prefetch
+
+using SearchAlgoSweepCatalog =
+    AxisSweepCatalogFull<F00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17, B18>;
+using NodeTypeSweepCatalog =
+    AxisSweepCatalogFull<B00, B01, B02, B03, F04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17, B18>;
+using MemoryLayoutSweepCatalog =
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, F05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17, B18>;
+using PrefetchSweepCatalog =
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, F07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17, B18>;
+
 /// axis_sweep_source_map(axis_name) — die KLEINE per-Achse Sweep-Quellen-map (binary_id → reale Modul-Quelle) der
-/// gesweepten vertieften Achse. |Achsen-Werte| Eintraege; jeder ist eine reale AdHocComposition (Baseline + nur
+/// gesweepten Achse. |Achsen-Werte| Eintraege; jeder ist eine reale AdHocComposition (Baseline + nur
 /// diese Achse variiert). Unbekannte Achse → leere map (Caller faellt auf Basis-320 zurueck). KEINE Selektion —
-/// reine Materialisierungs-Domaene EINER vertieften Achse.
+/// reine Materialisierungs-Domaene EINER Achse. Seit #26/GO-5 fuer ALLE 19 Kompositions-Achsen (4 Basis +
+/// 4 vertiefte + 11 uebrige).
 [[nodiscard]] inline std::map<std::string, std::string> axis_sweep_source_map(std::string const& axis_name) {
+    if (axis_name == "search_algo") return ex::build_pilot_source_map<typename SearchAlgoSweepCatalog::Engine>();
+    if (axis_name == "node_type") return ex::build_pilot_source_map<typename NodeTypeSweepCatalog::Engine>();
+    if (axis_name == "memory_layout") return ex::build_pilot_source_map<typename MemoryLayoutSweepCatalog::Engine>();
+    if (axis_name == "prefetch") return ex::build_pilot_source_map<typename PrefetchSweepCatalog::Engine>();
     if (axis_name == "migration_policy") return ex::build_pilot_source_map<typename MigrationSweepCatalog::Engine>();
     if (axis_name == "filter") return ex::build_pilot_source_map<typename FilterSweepCatalog::Engine>();
     if (axis_name == "value_handle") return ex::build_pilot_source_map<typename ValueHandleSweepCatalog::Engine>();
@@ -367,11 +395,15 @@ using QueuingQ2SweepCatalog =
     return {};
 }
 
-/// axis_sweep_levels(axis_name) — die 19 STATISCHEN AxisLevels des Sweep-Baums der gesweepten vertieften Achse:
+/// axis_sweep_levels(axis_name) — die 19 STATISCHEN AxisLevels des Sweep-Baums der gesweepten Achse:
 /// 18 Baseline-Ebenen je 1 Wert (Index 0) + die gesweepte Achse mit ihrer VOLLEN Werteliste. Single-Source mit
 /// axis_sweep_source_map (gleiche Slot-Listen → gleiche W::name()-Werte → die View-binary_ids treffen die map-Keys).
 /// Die DynamicDims haengt der Treiber an (wie beim Basis-/SOTA-Baum). Leere Liste fuer unbekannte Achse.
 [[nodiscard]] inline std::vector<ex::AxisLevel> axis_sweep_levels(std::string const& axis_name) {
+    if (axis_name == "search_algo") return catalog_static_levels<SearchAlgoSweepCatalog>();
+    if (axis_name == "node_type") return catalog_static_levels<NodeTypeSweepCatalog>();
+    if (axis_name == "memory_layout") return catalog_static_levels<MemoryLayoutSweepCatalog>();
+    if (axis_name == "prefetch") return catalog_static_levels<PrefetchSweepCatalog>();
     if (axis_name == "migration_policy") return catalog_static_levels<MigrationSweepCatalog>();
     if (axis_name == "filter") return catalog_static_levels<FilterSweepCatalog>();
     if (axis_name == "value_handle") return catalog_static_levels<ValueHandleSweepCatalog>();
@@ -390,25 +422,35 @@ using QueuingQ2SweepCatalog =
     return {};
 }
 
-/// is_deepened_axis(axis_name) — true fuer die 4 vertieften Achsen, die eine eigene Sweep-Source-Map brauchen
-/// (weil der Basis-320-Katalog sie pinnt). Die 4 Basis-Achsen (search_algo/node_type/memory_layout/prefetch) sind
-/// im Basis-320-Katalog voll vertreten → ihr Sweep laeuft ueber die Basis-View (KEINE Zusatz-Map noetig).
+/// is_deepened_axis(axis_name) — true fuer jede Achse, die eine eigene Sweep-Source-Map + eigene Sweep-Levels
+/// traegt. Seit #26/GO-5 sind das ALLE 19 Kompositions-Achsen: die 4 vertieften + 11 uebrigen (historisch, #168/
+/// #18) UND die 4 Basis-Achsen (search_algo/node_type/memory_layout/prefetch, B.4.1-a). Die Basis-Achsen-Sweeps
+/// liefen frueher NUR ueber die Basis-320-View — das setzte eine materialisierte, VARIIERENDE Basis voraus und
+/// verlor die 4 Achsen in jedem Profil mit gepinnter Basis. Unter den Default-Enables sind die Basis-Achsen-
+/// Sweep-ids eine Teilmenge der golden-320 (byte-identische ids in gleicher Werte-Reihenfolge) → das bisherige
+/// Einzel-Sweep-Verhalten (args.sweep_axis) bleibt id-identisch, nur die Quelle ist jetzt der eigene Katalog.
 [[nodiscard]] inline bool is_deepened_axis(std::string const& axis_name) {
-    return axis_name == "migration_policy" || axis_name == "filter" || axis_name == "value_handle" ||
-           axis_name == "path_compression" || axis_name == "cache_traversal" || axis_name == "mapping" ||
-           axis_name == "allocator" || axis_name == "concurrency" || axis_name == "serialization" ||
-           axis_name == "telemetry" || axis_name == "isa" || axis_name == "index_organization" ||
-           axis_name == "io_dispatch" || axis_name == "queuing_q1" || axis_name == "queuing_q2";
+    return axis_name == "search_algo" || axis_name == "node_type" || axis_name == "memory_layout" ||
+           axis_name == "prefetch" || axis_name == "migration_policy" || axis_name == "filter" ||
+           axis_name == "value_handle" || axis_name == "path_compression" || axis_name == "cache_traversal" ||
+           axis_name == "mapping" || axis_name == "allocator" || axis_name == "concurrency" ||
+           axis_name == "serialization" || axis_name == "telemetry" || axis_name == "isa" ||
+           axis_name == "index_organization" || axis_name == "io_dispatch" || axis_name == "queuing_q1" ||
+           axis_name == "queuing_q2";
 }
 
-/// make_all_axis_sweeps_source_map() — die VEREINIGTE Sweep-Quellen-map ueber ALLE 4 vertieften Achsen (disjunkte
+/// make_all_axis_sweeps_source_map() — die VEREINIGTE Sweep-Quellen-map ueber ALLE 19 Achsen-Sweeps (disjunkte
 /// binary_id-Pfade, da je Achse nur sie selbst von der Baseline abweicht; die Baseline-Auspraegung jeder Achse ist
-/// die GLEICHE Baseline-DLL → identischer binary_id → idempotente emplace, kein Konflikt). ~16 Eintraege gesamt.
+/// die GLEICHE Baseline-DLL → identischer binary_id → idempotente emplace, kein Konflikt). Eintragszahl =
+/// 1 Baseline + Sum(je Achse USE-Enabled − 1); enable-/HAVE-abhaengig (ce-Default-Baum: 72 — Gate:
+/// test_smoke_coverage_profile pinnt den Wert). Die Eintraege der 4 Basis-Achsen ueberlappen die
+/// Basis-320-Quelle idempotent (union_gen fragt die Basis-320 zuerst).
 [[nodiscard]] inline std::map<std::string, std::string> make_all_axis_sweeps_source_map() {
     std::map<std::string, std::string> all;
-    for (char const* ax : {"migration_policy", "filter", "value_handle", "path_compression", "cache_traversal",
-                           "mapping", "allocator", "concurrency", "serialization", "telemetry", "isa",
-                           "index_organization", "io_dispatch", "queuing_q1", "queuing_q2"}) {
+    for (char const* ax :
+         {"search_algo", "node_type", "memory_layout", "prefetch", "migration_policy", "filter", "value_handle",
+          "path_compression", "cache_traversal", "mapping", "allocator", "concurrency", "serialization", "telemetry",
+          "isa", "index_organization", "io_dispatch", "queuing_q1", "queuing_q2"}) {
         auto m = axis_sweep_source_map(ax);
         for (auto& [k, v] : m) all.emplace(k, std::move(v)); // Baseline-Key kollidiert idempotent
     }
@@ -416,7 +458,9 @@ using QueuingQ2SweepCatalog =
 }
 
 // ══ #188 per-K Increment 2b (2026-07-01): dedizierter per-K-search_algo-Sweep-Katalog ═══════════════════════════
-// search_algo ist KEINE vertiefte Achse (is_deepened_axis=false) — die 4 Basis-Achsen laufen sonst ueber den
+// search_algo war zum #188-Zeitpunkt KEINE vertiefte Achse (is_deepened_axis=false; seit #26/GO-5 hat sie einen
+// eigenen SearchAlgoSweepCatalog ueber die EnabledStrategies — der per-K-Katalog hier bleibt der davon UNABHAENGIGE
+// Opt-in-Kanal fuer die Default-OFF per-K-Wrapper). Historischer Kontext: die 4 Basis-Achsen liefen ueber den
 // Basis-320-Katalog (L00 = mp_take_c<EnabledStrategies,4> = die First-4 [k_ary, interpolation, eytzinger, linear_scan]).
 // Die per-K-Wrapper stehen aber bewusst am ENDE von AllStrategies + sind Default OFF -> NICHT in den First-4. Darum ein
 // EIGENER Katalog mit EXPLIZITEM L00 = mp_list<KArySearchAlgoK2/4/8/16> (direkte Typen -> bypassen EnabledStrategies/

@@ -9,6 +9,8 @@
 //                            ("sota_tier=sota::S::name") → make_union_source_gen (disjunkte Namensraeume).
 //   • S7b Multi-Pass       : aus EINEM Profil fuehrt run_profile MEHRERE Selektions-Paesse:
 //                            (1) BASIS-Pass  = permute_axes → build_profile_basis_levels → 320 (bzw. cap),
+//                            (1b) je deklariertem <axis_sweep> EIN Achsen-Sweep-Pass (#26/GO-5 Multi-Sweep,
+//                                profile_sweep_passes; explizites args.sweep_axis behaelt Einzel-Pass-Vorrang),
 //                            (2) je <sota_series>-Eintrag = EIN SOTA-Lebewesen-Pass (einwertiger "sota_tier"-
 //                                Baum), getaggt mit series A/B/C. Alle Zeilen → EINE CSV (Header genau EINMAL).
 //   • S7c Eintritts-API    : run_profile(RunProfileArgs&) — run_lazy_150.main reduziert sich auf Pfad+Output;
@@ -37,6 +39,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -149,12 +152,14 @@ struct RunProfileResult {
                                         ? (ro.build_version.empty() ? std::string{"m3v2"} : ro.build_version)
                                         : a.build_version_tag_override;
 
-    // ── (3) S7a + FF(#168): die EINE vereinigte SourceGenFn (Basis-320 ∪ 4 Achsen-Sweeps ∪ SOTA-Reihen).
+    // ── (3) S7a + FF(#168): die EINE vereinigte SourceGenFn (Basis-320 ∪ Achsen-Sweeps ∪ SOTA-Reihen).
     //    Reihenfolge unkritisch: Basis-320 ("search_algo=…/migration_policy=migration_none/…"-Pfade) und die
     //    Achsen-Sweep-Map (gleicher 19-Achsen-Pfad-Namensraum, ABER andere Auspraegungen wie
     //    …/migration_policy=migration_hot_cold/…, die im Basis-320 NICHT vorkommen) sind ueberlappungsfrei (bis auf
-    //    die Baseline-DLL, die identisch ist → idempotent). SOTA liegt im disjunkten "sota_tier=…"-Raum.
-    std::map<std::string, std::string> fused = make_all_axis_sweeps_source_map(); // ~16 vertiefte-Achsen-Eintraege
+    //    die Baseline-DLL + die Basis-Achsen-Sweep-ids, die identisch sind → idempotent; union_gen fragt die
+    //    Basis-320 zuerst). SOTA liegt im disjunkten "sota_tier=…"-Raum.
+    std::map<std::string, std::string> fused =
+        make_all_axis_sweeps_source_map(); // alle 19 Achsen-Sweeps (#26/GO-5; Eintragszahl USE-Enable-abhaengig)
     for (auto& [k, v] : build_sota_view_source_map(tp)) fused.emplace(k, std::move(v)); // + SOTA-Reihen (disjunkt)
     ex::SourceGenFn const union_gen = make_union_source_gen(generated_make_catalog_source_gen(), std::move(fused));
     ex::FreeRamFn         ram       = ex::make_system_free_ram_fn();
@@ -234,53 +239,97 @@ struct RunProfileResult {
     };
 
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
-    // S7b — PASS 1: BASIS (permute_axes → source_catalog). Selektion = Basis-320 ODER ein deklarierter Sweep.
+    // S7b — PASS 1..m: BASIS + ACHSEN-SWEEPS (permute_axes/axis_sweeps → source_catalog).
     //
-    // FF(#168) — VERTIEFTE-ACHSEN-SWEEP: ist `a.sweep_axis` eine der 4 vertieften Achsen (migration_policy/filter/
-    // value_handle/path_compression), kann der Basis-320-Baum sie NICHT variieren (im Profil je 1 Wert gepinnt →
-    // level_size==1). Statt der Basis-View baut der Treiber dann einen EIGENEN Sweep-Baum aus axis_sweep_levels(axis)
+    // FF(#168) — ACHSEN-SWEEP: ist die Pass-Achse sweep-katalogisiert (seit #26/GO-5 ALLE 19 Achsen,
+    // is_deepened_axis), kann/soll der Basis-Baum sie nicht variieren (im Profil ggf. 1 Wert gepinnt →
+    // level_size==1). Statt der Basis-View baut der Treiber einen EIGENEN Sweep-Baum aus axis_sweep_levels(axis)
     // — 18 Baseline-Ebenen + die gesweepte Achse VOLL — dessen 19-Achsen-binary_ids die axis_sweep_source_map-Keys
     // treffen (in der union_gen). So entsteht je Auspraegung eine REALE distinkte Lebewesen-DLL (z.B. migration_none
-    // vs migration_hot_cold). Die 4 BASIS-Achsen-Sweeps laufen weiter ueber die Basis-View (dort voll vertreten).
+    // vs migration_hot_cold).
+    //
+    // #26/GO-5 (B.4.1-b, 2026-07-12) — MULTI-SWEEP-DURCHLAUF: vorher fuhr run_profile GENAU EINEN Selektions-Pass
+    // (Basis ODER die eine args.sweep_axis) — und der E4-Treiber setzt sweep_axis nie, d.h. die im Profil
+    // deklarierten <axis_sweeps> blieben im offiziellen XML-Weg UNGEFAHREN (Dossier-GO-5-Eigenbefund B.1; betraf
+    // auch den #18-Coverage-Voll-Lauf). Jetzt liefert profile_sweep_passes die deterministische Pass-Liste:
+    // explizites args.sweep_axis ⇒ genau 1 Pass (byte-identisch zum Alt-Verhalten); leer ⇒ Basis-Pass + je
+    // deklariertem <axis_sweep> ein Pass in Dokument-Reihenfolge. pass_seen_ids dedupliziert ueber die Paesse
+    // DIESES Laufs: die idempotente Baseline (und Basis-Achsen-Sweep-ids, die schon im Basis-Pass selektiert
+    // wurden) wird nicht erneut selektiert — jede binary_id wird je Lauf GENAU EINMAL gemessen (keine
+    // Doppel-Zeilen in der EINEN CSV); im Einzel-Pass-Fall ist das Set leer ⇒ Verhalten unveraendert.
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
-    if (is_deepened_axis(a.sweep_axis)) {
-        std::vector<ex::AxisLevel> sweep_levels = axis_sweep_levels(a.sweep_axis);
-        // Dieselben DynamicDims wie der Basis-Baum anhaengen (gleiche thread_count×prefetch×repetition-Variation).
-        for (auto const& dd : basis_tree.dynamic_filter())
-            sweep_levels.push_back(ex::AxisLevel{dd.axis, dd.values, /*is_static=*/false, dd.variable, dd.block_id});
-        auto               sweep_factory = std::make_shared<ex::ExperimentNodeFactory>();
-        ex::ExperimentTree sweep_tree{sweep_factory};
-        sweep_tree.build(sweep_levels);
-        ex::StaticBinaryView const sweep_view = sweep_tree.static_binary_view();
-        std::size_t const          sweep_n    = sweep_tree.binary_count(); // == |Achsen-Auspraegungen|
-        std::vector<std::size_t>   ids;
-        ids.reserve(sweep_n);
-        for (std::size_t i = 0; i < sweep_n; ++i) ids.push_back(i); // ALLE Auspraegungen (volle Achse)
-        ex::BuildSelection const sel = ex::select_explicit(std::move(ids));
-        res.basis_binary_ids         = sel.indices.size();
-        std::cout << "  [BASIS/deep-sweep] axis=" << a.sweep_axis << " auspraegungen=" << sweep_n
-                  << " (eigener Sweep-Baum, NICHT Basis-View)\n";
-        for (std::size_t i = 0; i < sweep_n; ++i)
-            std::cout << "      sweep binary_id[" << i << "] = " << sweep_view[i].binary_id << "\n";
-        for (std::uint64_t const ws_n : n_sweep) {
-            ex::LazyRunConfig       cfg = make_cfg(ws_n, sweep_n, /*series=*/"-", a.sweep_axis, /*pruefling_type=*/"-");
-            ex::LazyRunResult const r =
-                ex::run_lazy_static_then_dynamic(sweep_tree, sel, a.compile, union_gen, ram, cfg);
-            emit(r, &res.basis_rows);
+    std::set<std::string> pass_seen_ids; // binary_ids bereits gefahrener Paesse DIESES Laufs (Dedupe)
+
+    auto run_selection_pass = [&](std::string const& pass_axis) {
+        if (is_deepened_axis(pass_axis)) {
+            std::vector<ex::AxisLevel> sweep_levels = axis_sweep_levels(pass_axis);
+            // Dieselben DynamicDims wie der Basis-Baum anhaengen (gleiche thread_count×prefetch×repetition-Variation).
+            for (auto const& dd : basis_tree.dynamic_filter())
+                sweep_levels.push_back(
+                    ex::AxisLevel{dd.axis, dd.values, /*is_static=*/false, dd.variable, dd.block_id});
+            auto               sweep_factory = std::make_shared<ex::ExperimentNodeFactory>();
+            ex::ExperimentTree sweep_tree{sweep_factory};
+            sweep_tree.build(sweep_levels);
+            ex::StaticBinaryView const sweep_view = sweep_tree.static_binary_view();
+            std::size_t const          sweep_n    = sweep_tree.binary_count(); // == |Achsen-Auspraegungen|
+            std::vector<std::size_t>   ids;
+            ids.reserve(sweep_n);
+            for (std::size_t i = 0; i < sweep_n; ++i) // ALLE Auspraegungen (volle Achse), abzgl. bereits gefahrener
+                if (pass_seen_ids.insert(sweep_view[i].binary_id).second) ids.push_back(i);
+            std::size_t const        fresh_n = ids.size();
+            ex::BuildSelection const sel     = ex::select_explicit(std::move(ids));
+            std::cout << "  [BASIS/deep-sweep] axis=" << pass_axis << " auspraegungen=" << sweep_n
+                      << " davon neu=" << fresh_n << " (eigener Sweep-Baum, NICHT Basis-View)\n";
+            for (std::size_t const idx : sel.indices)
+                std::cout << "      sweep binary_id[" << idx << "] = " << sweep_view[idx].binary_id << "\n";
+            if (fresh_n == 0) {
+                std::cout << "      (alle Auspraegungen bereits in frueherem Pass dieses Laufs selektiert — "
+                             "Pass uebersprungen)\n";
+                return;
+            }
+            for (std::uint64_t const ws_n : n_sweep) {
+                ex::LazyRunConfig cfg = make_cfg(ws_n, sweep_n, /*series=*/"-", pass_axis, /*pruefling_type=*/"-");
+                ex::LazyRunResult const r =
+                    ex::run_lazy_static_then_dynamic(sweep_tree, sel, a.compile, union_gen, ram, cfg);
+                emit(r, &res.basis_rows);
+            }
+        } else {
+            ProfileTaggedSelection const pts = profile_select(tp, basis_levels, basis_view, pass_axis, N);
+            ex::BuildSelection           sel = pts.selection;
+            { // Multi-Sweep-Dedupe (im Einzel-Pass-Fall leer ⇒ no-op, Selektion byte-identisch).
+                std::vector<std::size_t> fresh;
+                fresh.reserve(sel.indices.size());
+                for (std::size_t const idx : sel.indices)
+                    if (pass_seen_ids.insert(basis_view[idx].binary_id).second) fresh.push_back(idx);
+                if (fresh.size() != sel.indices.size()) {
+                    std::string const prov = sel.provenance;
+                    sel                    = ex::select_explicit(std::move(fresh));
+                    sel.provenance         = prov;
+                }
+            }
+            std::cout << "  [BASIS] label=" << pts.label << " provenance=" << sel.provenance
+                      << " indices=" << sel.size() << " series=" << pts.series << " sweep=" << pts.sweep_axis << "\n";
+            if (sel.indices.empty()) {
+                std::cout << "      (keine neuen binary_ids in diesem Pass — Pass uebersprungen)\n";
+                return;
+            }
+            for (std::uint64_t const ws_n : n_sweep) {
+                ex::LazyRunConfig       cfg = make_cfg(ws_n, N, pts.series, pts.sweep_axis, /*pruefling_type=*/"-");
+                ex::LazyRunResult const r =
+                    ex::run_lazy_static_then_dynamic(basis_tree, sel, a.compile, union_gen, ram, cfg);
+                emit(r, &res.basis_rows);
+            }
         }
-    } else {
-        ProfileTaggedSelection const pts = profile_select(tp, basis_levels, basis_view, a.sweep_axis, N);
-        ex::BuildSelection const     sel = pts.selection;
-        res.basis_binary_ids             = sel.indices.size();
-        std::cout << "  [BASIS] label=" << pts.label << " provenance=" << sel.provenance << " indices=" << sel.size()
-                  << " series=" << pts.series << " sweep=" << pts.sweep_axis << "\n";
-        for (std::uint64_t const ws_n : n_sweep) {
-            ex::LazyRunConfig       cfg = make_cfg(ws_n, N, pts.series, pts.sweep_axis, /*pruefling_type=*/"-");
-            ex::LazyRunResult const r =
-                ex::run_lazy_static_then_dynamic(basis_tree, sel, a.compile, union_gen, ram, cfg);
-            emit(r, &res.basis_rows);
-        }
-    }
+    };
+
+    std::vector<std::string> const selection_passes = profile_sweep_passes(tp, a.sweep_axis);
+    if (selection_passes.size() > 1)
+        std::cout << "  [MULTI-SWEEP] Basis-Pass + " << (selection_passes.size() - 1)
+                  << " deklarierte <axis_sweep>-Paesse (Dokument-Reihenfolge, #26/GO-5)\n";
+    for (auto const& pass_axis : selection_passes) run_selection_pass(pass_axis);
+    // Distinkte Basis-/Sweep-binary_ids DIESES Laufs (Baseline zaehlt ueber alle Paesse genau 1x). Im
+    // Einzel-Pass-Fall identisch zur frueheren sel.indices.size()-Zaehlung (Selektionen sind duplikatfrei).
+    res.basis_binary_ids = pass_seen_ids.size();
 
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
     // S7b — PASS 2..k: je <sota_series> EIN SOTA-Reihen-Lebewesen (einwertiger "sota_tier"-Baum, Tag A/B/C).

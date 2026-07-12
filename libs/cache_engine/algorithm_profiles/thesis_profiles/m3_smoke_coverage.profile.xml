@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- comdare_thesis_profile — SMOKE-/COVERAGE-MESS-PROFIL (#26, loest #9 messseitig ein; User-GO 5, 2026-07-12).
+     Dossier: docs/sessions/backups/20260712-go5-forks-und-smoke-profil/DOSSIER.md Teil B (B.4.2).
+
+     ZWECK: JEDES Feature des Gesamtsystems 1x beruehren — jede der 19 Kompositions-Achsen mit JEDEM
+     Enabled-Wert genau 1x gegen die feste Baseline, alle 21 Lastprofile, alle 7 Lebewesen x 3 Merge-Stufen
+     (= die 9 Pool-Store-Familien = der #9-Messpfad), Working-Set-Sweep-Mechanik, hw_prefetcher-Toggles,
+     Resume — kartesisch NICHT explodiert. Ablauf kuenftig: ERST dieser Smoke, DANN der Voll-Lauf
+     (super .gitlab-ci.yml: measure:smoke -> measure:golden-320 via needs).
+
+     KONSTRUKTION (je-Achse-Sweep bei GEPINNTER Basis, #18-Maschinerie zu Ende gefuehrt):
+       - <permute_axes> = alle 19 Slots je EXAKT 1 Wert (die Index-0-Baseline, byte-identisch zur
+         golden-320-Baseline golden[0]) -> Basis-Zellen-Anzahl = 1, KEIN 4x4x5x4-Kreuzprodukt.
+       - <axis_sweeps> = ALLE 19 Achsen; die 4 Basis-Achsen laufen ueber die neuen dedizierten
+         Sweep-Kataloge (#26/GO-5 B.4.1-a, source_catalog.hpp), da die gepinnte Basis sie nicht variieren
+         kann. Binary-Zahl = 1 Baseline + Sum(je Achse USE-Enabled - 1) Sweep-DLLs + 21 SOTA-DLLs —
+         USE = ENABLE && HAVE (Vendor-Detection): ce-Default-Baum 72+21 = 93, super-Sub-Build 73+21 = 94,
+         Voll-Vendor-HAVE ~115 (Dossier-Schaetzung zaehlte ENABLE-Flags). Das Profil selbst ist
+         enable-agnostisch: je Achse IMMER die volle Enabled-Liste
+         (Gate: test_smoke_coverage_profile pinnt die Zaehlung des Default-Baums).
+       - Mess-Phase: ~93-115 DLLs x 21 Workloads x 2 Working-Sets x 3 hw_prefetcher x 1 Rep ~ 12-14,5k
+         Zellen (Stunden statt Tage; ~Faktor 65 unter dem golden-coverage-Voll-Lauf).
+
+     EHRLICH statt Label-Matrix (B.4.3): thread_count=1 (T8: runtime_thread_count() hat null Consumer —
+     Werte >1 waeren mehrfach etikettierte identische Messungen); hw_prefetcher alle 3 Toggles (echter
+     MSR-Effekt, KF-12); KEINE RC-Listen (P4-Revert: 8 CONFIRMED Mess-Defekte, #221-Rest);
+     <repetitions count="1"> (Smoke prueft Funktion, nicht Streuung — Streuung = Voll-Lauf, KF-10).
+     BEWUSST NICHT abgedeckt (dokumentierte Luecken): page_type (Phase 5) - simd-09b-Spread (Phase 1) -
+     Shape-Sub-Achsen (deregistrierte Familien; nur via SOTA-Pool-Stores implizit beruehrt) -
+     RC-Unterachsen (#221-Rest) - thread_count>1 (T8/Fix A) - P/E-Core-Domaenen (HW-gated).
+
+     cap="1": exakt die EINE deklarierte Basis-Zelle (Baseline). Bewusste Abweichung vom Dossier-Sketch
+     (cap="0"): run_profile behandelt cap=0 heute als N=0 (leere Basis-Selektion), nicht als "kein Cap" —
+     cap="1" deklariert die Basis-Groesse exakt, ohne die geteilte cap-Semantik anzufassen.
+
+     TABU: golden_fullpilot_320_binary_ids.txt + permutation_axes.xml + m3v2_study/m3v2_smoke/
+     m3_golden_coverage bleiben byte-unberuehrt (dieses Profil ist SEPARAT/additiv; Basis = die idempotente
+     golden-Baseline, Sweep-ids disjunkt bzw. idempotent per Konstruktion).
+     Verifikation: `messung_driver --validate <dieses Profil>` (VALIDAT OK) +
+     test_smoke_coverage_profile (Binary-Zaehlung + golden-Baseline-Identitaet). -->
+<comdare_thesis_profile id="m3_smoke_coverage" schema_version="1">
+
+  <base_tiers>
+    <tier id="prt_art"  profile_ref="../sota/art.profile.xml"       paper_ref="PRT"/>
+    <tier id="art"      profile_ref="../sota/art.profile.xml"       paper_ref="P01"/>
+    <tier id="hot"      profile_ref="../sota/hot.profile.xml"       paper_ref="P02"/>
+    <tier id="masstree" profile_ref="../sota/masstree.profile.xml"  paper_ref="P03"/>
+    <tier id="surf"     profile_ref="../sota/surf.profile.xml"      paper_ref="P10"/>
+    <tier id="start"    profile_ref="../sota/start.profile.xml"     paper_ref="P05"/>
+    <tier id="wormhole" profile_ref="../sota/wormhole.profile.xml"  paper_ref="P07"/>
+  </base_tiers>
+
+  <!-- BASIS GEPINNT: alle 19 Slots je 1 Wert = Index-0-Baseline (identisch zur golden-320-Baseline =
+       idempotente binary_id). KEIN Kreuzprodukt — Basis-Zellen-Anzahl = 1. Reihenfolge = kCompositionAxisNames. -->
+  <permute_axes>
+    <axis ref="search_algo"><value>k_ary</value></axis>
+    <axis ref="cache_traversal"><value>linear_fanout</value></axis>
+    <axis ref="mapping"><value>direct_placement</value></axis>
+    <axis ref="path_compression"><value>path_compression_none</value></axis>
+    <axis ref="node_type"><value>node4</value></axis>
+    <axis ref="memory_layout"><value>memory_layout_cache_line_aligned</value></axis>
+    <axis ref="allocator"><value>std_malloc</value></axis>
+    <axis ref="prefetch"><value>prefetch_none</value></axis>
+    <axis ref="concurrency"><value>concurrency_none</value></axis>
+    <axis ref="serialization"><value>serialization_raw_binary</value></axis>
+    <axis ref="telemetry"><value>telemetry_leaf_only_counter</value></axis>
+    <axis ref="value_handle"><value>value_handle_inline</value></axis>
+    <axis ref="isa"><value>isa_amd64</value></axis>
+    <axis ref="index_organization"><value>index_org_heap</value></axis>
+    <axis ref="io_dispatch"><value>io_in_memory_only</value></axis>
+    <axis ref="migration_policy"><value>migration_none</value></axis>
+    <axis ref="filter"><value>filter_bloom</value></axis>
+    <axis ref="queuing_q1"><value>no_buffer</value></axis>
+    <axis ref="queuing_q2"><value>eager_flush</value></axis>
+  </permute_axes>
+
+  <!-- COVERAGE-KERN: ALLE 19 Achsen sweepen — jetzt inkl. der 4 Basis-Achsen via die #26/GO-5-Kataloge
+       (SearchAlgo/NodeType/MemoryLayout/Prefetch-SweepCatalog). Je Achse jeder Enabled-Wert genau 1x gegen
+       die fixe Baseline; der Multi-Sweep-Durchlauf (profile_sweep_passes) faehrt alle 19 Paesse. -->
+  <axis_sweeps>
+    <axis_sweep axis="search_algo"        baseline="index0"/>
+    <axis_sweep axis="cache_traversal"    baseline="index0"/>
+    <axis_sweep axis="mapping"            baseline="index0"/>
+    <axis_sweep axis="path_compression"   baseline="index0"/>
+    <axis_sweep axis="node_type"          baseline="index0"/>
+    <axis_sweep axis="memory_layout"      baseline="index0"/>
+    <axis_sweep axis="allocator"          baseline="index0"/>
+    <axis_sweep axis="prefetch"           baseline="index0"/>
+    <axis_sweep axis="concurrency"        baseline="index0"/>
+    <axis_sweep axis="serialization"      baseline="index0"/>
+    <axis_sweep axis="telemetry"          baseline="index0"/>
+    <axis_sweep axis="value_handle"       baseline="index0"/>
+    <axis_sweep axis="isa"                baseline="index0"/>
+    <axis_sweep axis="index_organization" baseline="index0"/>
+    <axis_sweep axis="io_dispatch"        baseline="index0"/>
+    <axis_sweep axis="migration_policy"   baseline="index0"/>
+    <axis_sweep axis="filter"             baseline="index0"/>
+    <axis_sweep axis="queuing_q1"         baseline="index0"/>
+    <axis_sweep axis="queuing_q2"         baseline="index0"/>
+  </axis_sweeps>
+
+  <!-- Alle Frameworks/Stufen 1x: 7 Lebewesen x 3 Merge-Stufen = 21 SOTA-Reihen (wie m3_golden_coverage;
+       deckt zugleich die 9 Pool-Store-Familien = der #9-Messpfad ueber die Gattungs-Konfiguratoren). -->
+  <sota_series_set>
+    <sota_series id="A" lebewesen="prt_art"  merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="art"      merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="hot"      merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="masstree" merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="surf"     merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="start"    merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="wormhole" merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="prt_art"  merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="art"      merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="hot"      merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="masstree" merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="surf"     merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="start"    merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="wormhole" merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="B" lebewesen="prt_art"  merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="art"      merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="hot"      merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="masstree" merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="surf"     merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="start"    merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="wormhole" merge="Stufe3_FullJoin"/>
+  </sota_series_set>
+
+  <!-- Sweep-MECHANIK 1x beruehren, aber klein: 2 Werte (Cache-klein + ein >LLC-Wert fuer den
+       FF1-Regime-Wechsel) statt 4. -->
+  <working_set_sweep>16384 8388608</working_set_sweep>
+
+  <!-- ALLE 21 Lastprofile (algorithm_profiles/load_profiles/) — Achse-2-Voll-Coverage. -->
+  <compile_dims>
+    <workloads>ycsb_a ycsb_b ycsb_c ycsb_d ycsb_e ycsb_f lp_balanced_5050 lp_bulk_insert lp_concurrent_rmw lp_delete_heavy lp_dynamic_trace lp_mixed_oltp lp_range_scan lp_read_uniform ih lh coco_p04_neg0 coco_p04_neg25 coco_p04_neg50 coco_p04_neg75 coco_p04_neg100</workloads>
+    <telemetry mode="on" silent="true"/>
+  </compile_dims>
+
+  <!-- EHRLICH: thread_count=1 (T8 LABEL-ONLY, s. Kopf); hw_prefetcher alle 3 Toggles (MSR 0x1A4, KF-12).
+       KEINE RC-Listen (P4-Revert, #221-Rest). -->
+  <runtime_dynamic>
+    <thread_count>1</thread_count>
+    <hw_prefetcher>all_on adjacent_off all_off</hw_prefetcher>
+  </runtime_dynamic>
+
+  <!-- 1 Wiederholung: Smoke prueft Funktion, nicht Streuung (Streuung = Voll-Lauf, KF-10). -->
+  <repetitions count="1" interpolate="false" overlay_in_chart="true"/>
+
+  <!-- cap="1" = exakt die eine deklarierte Basis-Zelle (Begruendung im Kopf-Kommentar). -->
+  <run_options cap="1" platform="linux-x86_64" build_version="m3_smoke_coverage" resume="true"/>
+
+  <modes>
+    <mode name="m3_smoke_base" merge="Stufe1_CeOnly"
+          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization telemetry value_handle isa index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2"/>
+  </modes>
+
+  <static_axes from="base_tier"/>
+
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_thesis_profile>
