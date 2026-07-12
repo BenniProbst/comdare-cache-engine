@@ -535,6 +535,14 @@ public:
     // Op (die in §5 der Spec deklarierten synthetischen Mindest-Ops sind in den jeweiligen Wrapper-Doc-Kommentaren
     // als SIMULATION gekennzeichnet — keine konstanten/erfundenen Werte). None-artige Strategien (prefetch_none,
     // concurrency_none, migration_none) sind bewusste 0-Overhead-Baselines (so deklariert), KEINE n/a.
+    //
+    // GO-3 A2 MESS-KERN-REINHEIT (Task #5 Hebel-A-Rest, 2026-07-12): die *_scan-Kerne der Segmente T3..T16
+    // (path_descend/node_find/scan_field_sum/serialize/value_access/index_org/io_dispatch/migration_decide/
+    // filter_probe) sind BEWUSST skalar — ihr ZUGRIFFSMUSTER ist das Achsen-Signal (LAYOUT-FIX X-§4 oben;
+    // Doc 21 §F). KEIN Isa-Routing in diese Kerne: es kollabierte die Muster-Differenzierung und braeche die
+    // per-Achsen-Attribution (die isa-Achse hat ihr EIGENES Segment T12, simd_field_sum). SIMD-Verhaltens-
+    // Primitive gehoeren in die isa-Achse selbst (group_match_mask-Muster, axis_09_isa_amd64.hpp, 7b-3).
+    // Interface-Freeze compile-time erzwungen: tests/unit/test_striktheit_scan_kernel_purity.cpp.
     [[nodiscard]] std::uint64_t run_workload_segmented_v2(std::uint64_t ops_per_batch, std::uint64_t batches,
                                                           std::uint64_t            seed,
                                                           ComdareSegmentLatencyV2* out) noexcept override {

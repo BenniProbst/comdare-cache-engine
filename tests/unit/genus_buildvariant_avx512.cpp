@@ -10,6 +10,10 @@
 // Die simd-Typen spiegeln die API-FORM der ECHTEN axis_09b-Wrapper: Avx512Ext trägt `provides_avx512f()` (wie
 // Avx512SimdExtension — NICHT `provides_avx512()`), exerziert also den toleranten detect_avx512-Pfad der Factory.
 // (Die echten Library-Klassen direkt einzubauen braucht die cmake-generierten flags.hpp-Includes → Folgeschritt.)
+//
+// GO-3 A1 (2026-07-12): dieser Stub ist ein POD-ROUNDTRIP-Beweis (Etikett-Transport), KEINE Build-Wahrheit —
+// er deklariert die Avx512-Form bewusst OHNE ISA-Flag (Legacy-Makro). Build-Wahrheit (Etikett == Maschinencode)
+// beweisen die real-Wrapper-DLLs via COMDARE_DEFINE_BUILD_VARIANT_INSPECTION_CHECKED (genus_buildvariant_real_*.cpp).
 
 #include <cache_engine/abi/build_variant_inspection.hpp>
 

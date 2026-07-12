@@ -4,6 +4,10 @@
 // 2 Build-Varianten DERSELBEN 17-Komposition literal (simd_width_bits 256 vs 512) über die echte .dll-Grenze.
 //
 // Avx2Ext trägt `provides_avx512f()==false` (echte axis_09b-API-Form) → detect_avx512-Pfad liefert simd_avx512==0.
+//
+// GO-3 A1 (2026-07-12): dieser Stub ist ein POD-ROUNDTRIP-Beweis (Etikett-Transport), KEINE Build-Wahrheit —
+// er deklariert die Avx2-Form bewusst OHNE ISA-Flag (Legacy-Makro). Build-Wahrheit (Etikett == Maschinencode)
+// beweisen die real-Wrapper-DLLs via COMDARE_DEFINE_BUILD_VARIANT_INSPECTION_CHECKED (genus_buildvariant_real_*.cpp).
 
 #include <cache_engine/abi/build_variant_inspection.hpp>
 

@@ -70,8 +70,11 @@ public:
     // 32-bit-Worte des Puffers (lane-weise) und liefert die Summe.
     // Phase 0.1 SIMD-Dispatch (Doc 21 §F): die aktive Vektor-Breite folgt den Compiler-SIMD-Makros
     // (-mavx2 -> __AVX512F__/__AVX2__), sodass die simd_extension-Achse (axis_09b) den Compute waehlen KANN,
-    // sobald der Tier-Modul-Build die passende ISA-Flag aus der 09b-Achse setzt (Verdrahtung 09b->Flag =
-    // Folge-Slice; heute noch nicht in cmake/isa_features.cmake gekoppelt). Compile-time-strikt, kein
+    // sobald der Tier-Modul-Build die passende ISA-Flag aus der 09b-Achse setzt. Verdrahtung 09b->Flag seit
+    // GO-3 A1 (Task #5, 2026-07-12) GEKOPPELT: comdare_apply_simd_extension_flags(<target> <EXT>) in
+    // cmake/isa_features.cmake + consteval-Kohaerenz-Guard axis_09b_build_coherence.hpp (CHECKED-Inspection-
+    // Makro erzwingt Deklaration == Build-ISA-Stufe); E2-Voll-Matrix-Emission je 09b-Variante bleibt
+    // Folge-Slice der #276-Build-Matrix-Doktrin. Compile-time-strikt, kein
     // Runtime-Switch. Alle Pfade akkumulieren in uint64 (32->64 vor der Addition gewidened) -> das Ergebnis
     // ist die WAHRE Summe, BUILD-INVARIANT ueber SSE2/AVX2/AVX512/Skalar (kein per-lane-32-bit-Overflow-Drift;
     // Review wf_fd87be00). Der Element-Schritt je Iteration (4/8/16) = Lane-Breite fuer die Mess-Huelle
