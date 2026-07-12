@@ -2750,6 +2750,7 @@ if(TARGET comdare_permutation_codegen_cli)
             COMMAND "${CMAKE_COMMAND}"
                 "-DCODEGEN_CMAKE=${PROJECT_SOURCE_DIR}/tools/permutation_codegen/codegen.cmake"
                 "-DCLI_TOOL=$<TARGET_FILE:comdare_permutation_codegen_cli>"
+                "-DAXES_VERSIONS=${PROJECT_SOURCE_DIR}/tools/permutation_codegen/axes_versions.txt"
                 "-DPROFILE=${_perm_profile}"
                 "-DTARGET_ISA=auto"
                 "-DMODE=on_build_on_demand"

@@ -28,13 +28,16 @@ void print_usage() {
     std::cerr << "Usage: comdare-permutation-codegen [options]\n"
                  "\n"
                  "C++23-Port von tools/permutation_codegen/codegen.cmake (opt-in Backend 'cpp').\n"
-                 "Erzeugt eine byte-identische permutations.cmake + permutations_manifest.txt.\n"
+                 "Voller Bau-Ersatz: erzeugt byte-identisch permutations.cmake, permutations_manifest.txt,\n"
+                 "perm_src/perm_<id>.cpp und perm_versions/perm_<id>.version.\n"
                  "\n"
                  "Options (jeweils '--key value' oder '--key=value'):\n"
                  "  --target-isa ISA     Ziel-ISA (auto|scalar|sse4|avx2|avx512|neon). Default: auto\n"
                  "  --profile P          Profile-Filter (smoke|medium|full). Default: smoke\n"
                  "  --mode M             on_build_on_demand|on_rebuild|off_pause_build. Default: on_build_on_demand\n"
                  "  --output FILE        Pfad der zu erzeugenden permutations.cmake (erforderlich)\n"
+                 "  --axes-versions F    Pfad zu axes_versions.txt (V36.E Achsen-Versionen; fuer Wrapper-Sig).\n"
+                 "                       Fehlt/leer => alle Achsen-Versionen 'v0' (wie fehlende Datei).\n"
                  "  --help               Diese Hilfe anzeigen und beenden\n";
 }
 
@@ -84,6 +87,10 @@ int main(int argc, char** argv) {
             have_output   = true;
             continue;
         }
+        if (auto v = take_value(a, "--axes-versions", i, argc, argv)) {
+            inputs.axes_versions = *v;
+            continue;
+        }
         std::cerr << "comdare-permutation-codegen: unbekanntes oder unvollstaendiges Argument: " << a << "\n\n";
         print_usage();
         return 2;
@@ -112,6 +119,6 @@ int main(int argc, char** argv) {
     auto const perms = pc::enumerate_permutations(inputs.profile, inputs.target_isa);
     std::cout << "comdare-permutation-codegen: " << perms.size()
               << " Permutationen (Profile=" << pc::profile_name(inputs.profile) << ", ISA=" << inputs.target_isa
-              << ") -> " << inputs.output.string() << "\n";
+              << ") -> " << inputs.output.string() << " (+ manifest + perm_src/*.cpp + perm_versions/*.version)\n";
     return 0;
 }
