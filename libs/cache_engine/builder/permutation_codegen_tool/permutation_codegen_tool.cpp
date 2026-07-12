@@ -12,8 +12,9 @@
 // ${CMAKE_CURRENT_LIST_FILE} (= Pfad zu codegen.cmake). Das cpp-Tool behauptet NICHT, codegen.cmake
 // habe die Datei erzeugt, sondern schreibt seinen EIGENEN Marker (cpp_last_codegen_marker()). Der
 // Byte-Identitaets-Test schliesst GENAU diese eine `last_codegen=`-Zeile aus; alle anderen Felder
-// sind byte-identisch. Sicherheits-Rahmen: Default-Backend bleibt `cmake`, der reale golden-320-Bau
-// ist unberuehrt; das cpp-Backend ist opt-in (COMDARE_PERMUTATION_CODEGEN_BACKEND=cpp).
+// sind byte-identisch. GO-2 (2026-07-12): nach diesem Beweis ist `cpp` das DEFAULT-Backend
+// (COMDARE_PERMUTATION_CODEGEN_BACKEND=cpp); cmake/sh/bat bleiben waehlbar, codegen.cmake bleibt
+// als Referenz-Backend byte-unberuehrt. Historie: eingefuehrt als opt-in (Default war `cmake`).
 //
 // KEIN Python (Talos-OS-Direktive). Reines C++23 + CMake.
 

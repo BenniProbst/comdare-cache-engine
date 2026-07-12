@@ -2986,7 +2986,8 @@ comdare_thesis_adhoc_executable(test_axis_sweep_pilot
     SOURCES "thesis_tiere/test_axis_sweep_pilot.cpp")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# #25 B — Permutations-Codegen Byte-Identitaet (opt-in cpp-Tool == Default cmake-Backend).
+# #25 B — Permutations-Codegen Byte-Identitaet (cpp-Tool == cmake-Backend; seit GO-2
+# 2026-07-12 ist 'cpp' das Default-Backend, 'cmake' bleibt Referenz-Backend).
 # Script-Test (CMake-Primitiv add_test, KEIN gtest-Binary): der Treiber
 # perm_codegen_byte_identity.cmake faehrt codegen.cmake (cmake -P) UND das gebaute
 # comdare_permutation_codegen_cli auf dieselben Eingaben und vergleicht die erzeugte
