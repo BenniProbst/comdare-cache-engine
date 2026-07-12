@@ -11,8 +11,8 @@ set(COMDARE_TARGET_ISA "auto" CACHE STRING
     "Target ISA fuer ConstraintFilter (auto = via PlatformProbe)")
 
 set(COMDARE_PERMUTATION_CODEGEN_BACKEND "cmake" CACHE STRING
-    "Codegen-Backend: cmake (Standard via cmake -P), sh, oder bat")
-set_property(CACHE COMDARE_PERMUTATION_CODEGEN_BACKEND PROPERTY STRINGS cmake sh bat)
+    "Codegen-Backend: cmake (Standard via cmake -P), sh, bat, oder cpp (#25 B C++23-Tool)")
+set_property(CACHE COMDARE_PERMUTATION_CODEGEN_BACKEND PROPERTY STRINGS cmake sh bat cpp)
 
 if(NOT COMDARE_BUILD_PERMUTATIONS)
     return()
@@ -75,6 +75,43 @@ elseif(COMDARE_PERMUTATION_CODEGEN_BACKEND STREQUAL "sh")
 elseif(COMDARE_PERMUTATION_CODEGEN_BACKEND STREQUAL "bat")
     set(_codegen_cmd
         cmd /c "${_codegen_tools}/codegen.bat"
+        "--target-isa=${COMDARE_TARGET_ISA}"
+        "--profile=${COMDARE_PERMUTATION_PROFILE}"
+        "--mode=${COMDARE_PERMUTATION_MODE}"
+        "--output=${COMDARE_PERMUTATION_OUTPUT}")
+elseif(COMDARE_PERMUTATION_CODEGEN_BACKEND STREQUAL "cpp")
+    # #25 B (opt-in): C++23-Port von codegen.cmake (apps/permutation_codegen_tool/ ->
+    # comdare_permutation_codegen_cli). Erzeugt eine BYTE-IDENTISCHE permutations.cmake.
+    # 2-Pass-Build (wie R5.I anatomy_codegen_runner): permutations.cmake laeuft zur Configure-Time,
+    # daher muss das Tool VORHER gebaut sein. Das Default-Backend bleibt "cmake" (kein 2-Pass noetig)
+    # -> der reale golden-320-Bau ist von diesem Zweig unberuehrt.
+    set(_perm_cli_name "comdare-permutation-codegen")
+    if(WIN32)
+        set(_perm_cli_name "${_perm_cli_name}.exe")
+    endif()
+    set(_perm_cli_dir "${CMAKE_BINARY_DIR}/apps/permutation_codegen_tool")
+    set(_perm_cli_candidates
+        "${_perm_cli_dir}/${_perm_cli_name}"
+        "${_perm_cli_dir}/Release/${_perm_cli_name}"
+        "${_perm_cli_dir}/Debug/${_perm_cli_name}"
+        "${_perm_cli_dir}/RelWithDebInfo/${_perm_cli_name}"
+        "${_perm_cli_dir}/MinSizeRel/${_perm_cli_name}")
+    set(_perm_cli_path "")
+    foreach(_cand ${_perm_cli_candidates})
+        if(EXISTS "${_cand}")
+            set(_perm_cli_path "${_cand}")
+            break()
+        endif()
+    endforeach()
+    if(NOT _perm_cli_path)
+        message(FATAL_ERROR
+            "Permutations-Codegen Backend 'cpp': Tool noch nicht gebaut.\n"
+            "  Erwartet eines von: ${_perm_cli_candidates}\n"
+            "  2-Pass-Build: 'cmake --build <build-dir> --target comdare_permutation_codegen_cli' "
+            "und danach erneut konfigurieren. (Das Default-Backend 'cmake' braucht keinen 2-Pass.)")
+    endif()
+    set(_codegen_cmd
+        "${_perm_cli_path}"
         "--target-isa=${COMDARE_TARGET_ISA}"
         "--profile=${COMDARE_PERMUTATION_PROFILE}"
         "--mode=${COMDARE_PERMUTATION_MODE}"

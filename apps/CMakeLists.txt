@@ -18,6 +18,9 @@ add_subdirectory(adhoc_emitter)
 # Limits-Entkopplung Vorstufe - CLI-Tool fuer XML-Profil -> generierter Source-Katalog-Header
 add_subdirectory(catalog_codegen_tool)
 
+# #25 Teil B — CLI-Tool: C++23-Port von codegen.cmake (opt-in Backend 'cpp', byte-identische permutations.cmake)
+add_subdirectory(permutation_codegen_tool)
+
 # V41.F.6.1.R5.D — CLI-Treiber fuer den F15-Messlauf ueber materialisierte Permutations-DLLs
 add_subdirectory(f15_compare)
 

@@ -2733,3 +2733,29 @@ comdare_thesis_adhoc_executable(test_profile_roundtrip
 
 comdare_thesis_adhoc_executable(test_axis_sweep_pilot
     SOURCES "thesis_tiere/test_axis_sweep_pilot.cpp")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# #25 B — Permutations-Codegen Byte-Identitaet (opt-in cpp-Tool == Default cmake-Backend).
+# Script-Test (CMake-Primitiv add_test, KEIN gtest-Binary): der Treiber
+# perm_codegen_byte_identity.cmake faehrt codegen.cmake (cmake -P) UND das gebaute
+# comdare_permutation_codegen_cli auf dieselben Eingaben und vergleicht die erzeugte
+# permutations.cmake (+ manifest) byte-fuer-byte. Deckt smoke + medium ab.
+# Voraussetzung: 'cmake --build <build> --target comdare_permutation_codegen_cli' (2-Pass; das
+# Tool ist ein normales app-Target und wird vom Default-Build ohnehin gebaut).
+# ─────────────────────────────────────────────────────────────────────────────
+if(TARGET comdare_permutation_codegen_cli)
+    foreach(_perm_profile smoke medium)
+        add_test(
+            NAME test_permutation_codegen_byte_identity_${_perm_profile}
+            COMMAND "${CMAKE_COMMAND}"
+                "-DCODEGEN_CMAKE=${PROJECT_SOURCE_DIR}/tools/permutation_codegen/codegen.cmake"
+                "-DCLI_TOOL=$<TARGET_FILE:comdare_permutation_codegen_cli>"
+                "-DPROFILE=${_perm_profile}"
+                "-DTARGET_ISA=auto"
+                "-DMODE=on_build_on_demand"
+                "-DWORKDIR=${CMAKE_CURRENT_BINARY_DIR}/perm_byte_${_perm_profile}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/perm_codegen_byte_identity.cmake")
+        set_tests_properties(test_permutation_codegen_byte_identity_${_perm_profile}
+            PROPERTIES TIMEOUT 120)
+    endforeach()
+endif()
