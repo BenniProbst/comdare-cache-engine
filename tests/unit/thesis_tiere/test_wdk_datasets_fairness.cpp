@@ -253,19 +253,21 @@ TEST(WdkDatasetsFairness, FairnessArrivesInSotaPassSpec) {
 // (4b) EXPORT: CSV-Endspalte fairness_mode + Resume-Stamp (resume-v5) konsumieren beide Felder —
 // verschiedene Deklarationen ⇒ verschiedene Stamps (kein stales Cross-Resume), Default bleibt "-"/leer.
 TEST(WdkDatasetsFairness, FairnessAndDatasetsAreExportedInCsvAndResumeStamp) {
-    // CSV-Header: fairness_mode ist die LETZTE Spalte (additiv; alte Leser header-getrieben unberuehrt).
+    // CSV-Header: fairness_mode ist die vorletzte Spalte (additiv; alte Leser header-getrieben
+    // unberuehrt). GO-5 Fork 7 haengte h2_code_quality_score als NEUE letzte Spalte an (gleiches
+    // END-Append-Muster) — das End-Pinning zieht additiv nach (Position von fairness_mode bleibt).
     std::string const header = ex::lazy_csv_header();
-    ASSERT_GE(header.size(), 15u);
-    EXPECT_EQ(header.substr(header.size() - 15), ";fairness_mode\n");
+    ASSERT_GE(header.size(), 37u);
+    EXPECT_EQ(header.substr(header.size() - 37), ";fairness_mode;h2_code_quality_score\n");
 
     // Row-Export: Default "-" und gesetzter Modus, Spaltenzahl == Header-Spaltenzahl (Schema-Identitaet).
     ex::LazyMeasuredRow row;
     row.binary_id         = "sota_tier=smoke";
     std::string const def = ex::format_csv_row(row);
-    EXPECT_EQ(def.substr(def.size() - 3), ";-\n");
+    EXPECT_EQ(def.substr(def.size() - 5), ";-;-\n");
     row.fairness_mode        = "native";
     std::string const native = ex::format_csv_row(row);
-    EXPECT_EQ(native.substr(native.size() - 8), ";native\n");
+    EXPECT_EQ(native.substr(native.size() - 10), ";native;-\n");
     EXPECT_EQ(count_char(def, ';'), count_char(header, ';'));
     EXPECT_EQ(count_char(native, ';'), count_char(header, ';'));
 

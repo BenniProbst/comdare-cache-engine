@@ -23,6 +23,7 @@
 //    .cpp (run_lazy_150.cpp / test_*), NICHT in den engine-agnostischen Treiber-Header. C++23, header-only.
 
 #include "generated_source_catalog.hpp" // generated_make_catalog_source_gen (Basis-320-Quelle)
+#include "h2_score_akte.hpp"            // GO-5 Fork 7: parse_h2_score_akte / h2_score_for (CSV-Endspalte)
 #include "source_catalog.hpp"           // axis_sweep_source_map / axis_sweep_levels (Sweep-Quellen)
 #include "sota_catalog.hpp"             // build_sota_passes / build_sota_view_source_map / kSotaTierAxis (S6/S7b)
 #include "profile_runner.hpp" // load_thesis_profile / build_profile_basis_levels / profile_select / make_union_source_gen
@@ -206,10 +207,22 @@ struct RunProfileResult {
     // SOTA-Paesse den deklarierten <sota_series fairness=..>-Modus (SotaPass.fairness_mode).
     // GO-5 Fork 1 (2026-07-12): die <datasets>-Deklarations-Signatur des Profils geht lauf-weit in JEDE Pass-
     // Config (Resume-Stamp-Konsum; Ankunfts-Nachweis in der Spec — der Loader-Mess-Konsum ist lauf-gated).
-    std::string const datasets_signature = profile_datasets_signature(tp);
-    auto              make_cfg           = [&](std::uint64_t ws_n, std::size_t cap_for_pass, std::string const& series,
-                                               std::string const& sweep_axis, std::string const& pruefling_type,
-                                               std::string const& fairness_mode) {
+    // GO-5 Fork 7 (2026-07-12): die TOOL-BERECHNETE H2-Score-Akte (sota_h2_scores.xml, Schwester-Datei der
+    // sota/*.profile.xml — gleiche Co-Lokalisierungs-Ableitung wie load_profiles/ in run_profile_facade).
+    // Fehlt die Akte, sind ALLE SOTA-Reihen honest "n/a" (kein Abbruch, kein 0-Phantom); Basis/Sweep = "-".
+    std::string const                datasets_signature = profile_datasets_signature(tp);
+    std::optional<H2ScoreAkte> const h2_akte =
+        a.profile_path.empty()
+            ? std::nullopt
+            : parse_h2_score_akte(a.profile_path.parent_path().parent_path() / "sota" / "sota_h2_scores.xml");
+    if (h2_akte.has_value())
+        std::cout << "  [H2-AKTE] sota_h2_scores.xml geladen: " << h2_akte->entries.size()
+                  << " Eintraege (tool=" << h2_akte->tool << " " << h2_akte->tool_version << ")\n";
+    else
+        std::cout << "  [H2-AKTE] keine sota_h2_scores.xml — h2_code_quality_score der SOTA-Reihen = n/a (honest)\n";
+    auto make_cfg = [&](std::uint64_t ws_n, std::size_t cap_for_pass, std::string const& series,
+                        std::string const& sweep_axis, std::string const& pruefling_type,
+                        std::string const& fairness_mode, std::string const& h2_score) {
         ex::LazyRunConfig cfg;
         cfg.max_binaries = cap_for_pass;
         // G5: <run_options n_ops> ist autoritativ (XML steuert ALLES, #229); der Fassaden-/argv-Wert
@@ -222,6 +235,7 @@ struct RunProfileResult {
         cfg.row_pruefling_type        = pruefling_type.empty() ? std::string{"-"} : pruefling_type;
         cfg.row_sweep_axis            = sweep_axis.empty() ? std::string{"-"} : sweep_axis;
         cfg.row_fairness_mode         = fairness_mode.empty() ? std::string{"-"} : fairness_mode; // GO-5 Fork 6
+        cfg.row_h2_score              = h2_score.empty() ? std::string{"-"} : h2_score;           // GO-5 Fork 7
         cfg.profile_datasets          = datasets_signature; // GO-5 Fork 1: lauf-weite <datasets>-Signatur (Stamp)
         cfg.row_platform              = tag_platform;
         cfg.row_build_version         = tag_build_version;
@@ -306,7 +320,7 @@ struct RunProfileResult {
             }
             for (std::uint64_t const ws_n : n_sweep) {
                 ex::LazyRunConfig       cfg = make_cfg(ws_n, sweep_n, /*series=*/"-", pass_axis, /*pruefling_type=*/"-",
-                                                       /*fairness_mode=*/"-");
+                                                       /*fairness_mode=*/"-", /*h2_score=*/"-");
                 ex::LazyRunResult const r =
                     ex::run_lazy_static_then_dynamic(sweep_tree, sel, a.compile, union_gen, ram, cfg);
                 emit(r, &res.basis_rows);
@@ -333,7 +347,7 @@ struct RunProfileResult {
             }
             for (std::uint64_t const ws_n : n_sweep) {
                 ex::LazyRunConfig       cfg = make_cfg(ws_n, N, pts.series, pts.sweep_axis, /*pruefling_type=*/"-",
-                                                       /*fairness_mode=*/"-");
+                                                       /*fairness_mode=*/"-", /*h2_score=*/"-");
                 ex::LazyRunResult const r =
                     ex::run_lazy_static_then_dynamic(basis_tree, sel, a.compile, union_gen, ram, cfg);
                 emit(r, &res.basis_rows);
@@ -373,12 +387,16 @@ struct RunProfileResult {
             // EIN Lebewesen je Reihe = view-Index 0. binary_id == p.view_binary_id ("sota_tier=…").
             ex::BuildSelection const sel = ex::select_explicit({0});
             ++res.sota_binary_ids;
+            // GO-5 Fork 7: der tool-berechnete H2-Score des Lebewesens (Akten-Lookup ueber den PROFIL-
+            // Lebewesen-Namen == sota-Profil-Dateistamm; prt_art/fehlende Akte ⇒ honest "n/a").
+            std::string const h2_score = h2_score_for(h2_akte, p.lebewesen);
             std::cout << "    SOTA-Pass series=" << p.series << " pruefling_type=" << p.pruefling_type
-                      << " fairness=" << p.fairness_mode << " lebewesen=" << p.lebewesen
+                      << " fairness=" << p.fairness_mode << " h2_score=" << h2_score << " lebewesen=" << p.lebewesen
                       << " binary_id=" << (sota_view.empty() ? std::string{"<leer>"} : sota_view[0].binary_id) << "\n";
             for (std::uint64_t const ws_n : n_sweep) {
-                ex::LazyRunConfig       cfg = make_cfg(ws_n, 1, p.series, /*sweep_axis=*/"", p.pruefling_type,
-                                                       p.fairness_mode); // #171 full/abstract + GO-5 Fork 6 fairness
+                ex::LazyRunConfig cfg =
+                    make_cfg(ws_n, 1, p.series, /*sweep_axis=*/"", p.pruefling_type, p.fairness_mode,
+                             h2_score); // #171 full/abstract + Fork 6 fairness + Fork 7 h2
                 ex::LazyRunResult const r =
                     ex::run_lazy_static_then_dynamic(sota_tree, sel, a.compile, union_gen, ram, cfg);
                 emit(r, &res.sota_rows);

@@ -2307,6 +2307,32 @@ target_compile_definitions(test_wdk_datasets_fairness PRIVATE
     "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"")
 set_tests_properties(test_wdk_datasets_fairness PROPERTIES LABELS "contract;profiles;e4;go5")
 
+# GO-5 Fork 7 (2026-07-12, Dossier 20260712-go5 A.7) — ctest-Gate fuer die TOOL-BERECHNETE
+# H2-Code-Qualitaets-Akte (sota_h2_scores.xml, NEUE Schwester-Datei der byte-unberuehrten
+# sota/*.profile.xml) + die additive CSV-Endspalte h2_code_quality_score. Beweist Akte-Parse
+# + 1:1-Vollabdeckung je sota-Profil, tool-berechnete Scores der vendorten Quellen, honest-n/a
+# (Rekonstruktionen/prt_art/fehlende Akte), Formel-Single-Source (h2_score_akte.hpp) und
+# CSV-/Resume-Stamp-Invarianz. Der Generator (apps/h2_score_akte_tool) laeuft hier NICHT
+# (cppcheck-gebunden) — die committete Akte ist die Fixture.
+comdare_add_test(test_h2_score_akte
+    SOURCES thesis_tiere/test_h2_score_akte.cpp)
+comdare_prepare_thesis_object_dir(test_h2_score_akte)
+target_include_directories(test_h2_score_akte PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_h2_score_akte PRIVATE Boost::mp11)
+target_compile_definitions(test_h2_score_akte PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_SOTA_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/sota\"")
+set_tests_properties(test_h2_score_akte PROPERTIES LABELS "contract;profiles;e4;go5")
+
 # CE-DL2 (Task #152) — LINUX-PMC-Smoke fuer die LinuxPerfPmcSource (perf_event_open). Spiegel von m3v2_pmc_smoke,
 # aber LINUX-CONDITIONAL registriert: nur unter (UNIX AND NOT APPLE) — der Windows-/MSVC-Build sieht dieses Target
 # NIE (kein add_executable, keine Linux-Header). make_pmc_source() liefert auf Linux+COMDARE_ENABLE_PMC eine
