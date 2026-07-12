@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // #25 Teil B — comdare-permutation-codegen CLI-Wrapper (C++23-Port von codegen.cmake)
 //
-// NEUES opt-in-Backend `cpp` fuer den Permutations-Codegen. Erzeugt fuer dieselben Eingaben
+// Backend `cpp` fuer den Permutations-Codegen. Erzeugt fuer dieselben Eingaben
 // (COMDARE_TARGET_ISA × COMDARE_PROFILE × COMDARE_MODE × COMDARE_OUTPUT) eine BYTE-IDENTISCHE
-// permutations.cmake wie tools/permutation_codegen/codegen.cmake (Default-Backend `cmake`).
+// permutations.cmake wie tools/permutation_codegen/codegen.cmake.
 //
-// Das Default-Backend bleibt UNVERAENDERT `cmake`; dieses Tool wird nur aktiv, wenn der User
-// COMDARE_PERMUTATION_CODEGEN_BACKEND=cpp setzt (cmake/permutations.cmake, elseif "cpp"-Zweig).
+// GO-2 (2026-07-12): `cpp` ist das DEFAULT-Backend (COMDARE_PERMUTATION_CODEGEN_BACKEND=cpp,
+// cmake/permutations.cmake). Historie: eingefuehrt als opt-in (#25 B, Default war `cmake`);
+// nach dem Byte-Identitaets-Beweis zum Standard erhoben. Die Backends cmake/sh/bat bleiben
+// waehlbar. Fehlt das Tool-Binary im build-tree (frischer Pass 1), faellt der Configure
+// deterministisch aufs `cmake`-Backend zurueck (graceful-skip-Bootstrap, 2-Pass).
 //
 // Aufruf (spiegelt codegen.cmake / codegen.sh):
 //   comdare-permutation-codegen --target-isa auto --profile smoke
