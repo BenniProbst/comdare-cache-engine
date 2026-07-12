@@ -4,7 +4,8 @@
 // Brückt das geparste Profil (comdare::builder::xml::ThesisProfile, KF-1) an den Baum-Kern (experiment_tree.hpp):
 //   • Paper/Tier-Dimension (oben): Fanout = base_tiers (jeder = ein gepinntes Paper-Tupel).
 //   • freigegebene permute_axes (mode.active_axes) → STATISCHE Ebenen (→ Binaries); cacheline → statische
-//     Sub-Ebenen (line_size/alignment/sw_hint, compile-time).
+//     Sub-Ebenen (line_size/alignment/sw_hint, compile-time); node_width → statische Sub-Ebene
+//     (width_in_lines, compile-time; C2/FF2 2026-07-12, Muster cacheline).
 //   • runtime_dynamic (thread_count/hw_prefetcher) → DYNAMISCHE Ebenen (Laufzeit-for-Schleife, Algorithm_Resource_Control).
 // Werte: explizit aus dem Profil; fehlen sie, expandiert die AxisRegistry (permutation_axes.xml) die volle Liste.
 // Doc architecture/26. C++23, header-only.
@@ -55,6 +56,13 @@ using AxisRegistry = std::map<std::string, std::vector<std::string>>;
             if (!ax.alignments.empty()) levels.push_back(AxisLevel{"cacheline.alignment", ax.alignments, true, ""});
             if (!ax.sw_prefetch_hints.empty())
                 levels.push_back(AxisLevel{"cacheline.sw_hint", ax.sw_prefetch_hints, true, ""});
+            continue;
+        }
+        if (ax.ref == "node_width") { // C2/FF2: Knoten-Breite in Cache-Lines, compile-time → statische Sub-Ebene.
+            // Exakt das cacheline-Muster: NUR wenn ein Profil die Achse deklariert UND aktiviert, entsteht eine
+            // Ebene (Binary-Identität); ohne Profil-Aktivierung ändert sich KEINE binary_id.
+            if (!ax.width_in_lines.empty())
+                levels.push_back(AxisLevel{"node_width.width_in_lines", ax.width_in_lines, true, ""});
             continue;
         }
         std::vector<std::string> vals = ax.values; // explizit?

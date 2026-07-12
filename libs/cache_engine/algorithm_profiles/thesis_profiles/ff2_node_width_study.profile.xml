@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- comdare_thesis_profile - Diplomarbeit FF2-Studie "Knoten-Breite in Cache-Lines" (C2, GO4/#8 F-C, 2026-07-12)
+     Schema-Doku: SCHEMA.md (gleicher Ordner). Muster: cacheline_study.profile.xml (KF-2).
+     Thesis-Grundlage FF2 (kapitel/de/01_einleitung.tex:94-99): widerspruechliche Literaturbefunde zur
+     optimalen Knoten-/Cache-Line-Groesse - EINE Cache-Line bei CSS/CSB+ gegenueber bis zu SECHZEHN bei
+     Hankins/Patel - bias-frei nachmessen. Die Knoten-BREITE (1..16 Lines) ist eine ANDERE Dimension als
+     die Line-GROESSE (32/64/128/256 Byte, cacheline_study) - deshalb ein SEPARATES Studien-Profil.
+     NUR dieses Profil aktiviert die node_width-Unterachse: ohne diese Aktivierung aendert sich KEINE
+     binary_id (golden-320/base_pilot/m3v2 bleiben byte-unberuehrt). KEINE bestehende Datei geaendert. -->
+<comdare_thesis_profile id="ff2_node_width_study" schema_version="1">
+
+  <!-- (a) BASIS-TIERE = Paper-Originale in Standardkonfig (statische Achsen-Tupel), wie cacheline_study. -->
+  <base_tiers>
+    <tier id="art"      profile_ref="../sota/art.profile.xml"       paper_ref="P01"/>
+    <tier id="hot"      profile_ref="../sota/hot.profile.xml"       paper_ref="P02"/>
+    <tier id="masstree" profile_ref="../sota/masstree.profile.xml"  paper_ref="P03"/>
+    <tier id="coco"     profile_ref="../sota/coco_trie.profile.xml" paper_ref="P04"/>
+    <tier id="start"    profile_ref="../sota/start.profile.xml"     paper_ref="P05"/>
+    <tier id="b2tree"   profile_ref="../sota/b2tree.profile.xml"    paper_ref="P06"/>
+    <tier id="wormhole" profile_ref="../sota/wormhole.profile.xml"  paper_ref="P07"/>
+    <tier id="surf"     profile_ref="../sota/surf.profile.xml"      paper_ref="P10"/>
+  </base_tiers>
+
+  <!-- (b) PERMUTIERTE ACHSEN (compile-time). Fokus der FF2-Frage: Node-/Layout-Pfad. -->
+  <permute_axes>
+    <axis ref="layout"/>
+    <axis ref="node"/>
+    <axis ref="allocator"><value>SYSTEM_MALLOC</value></axis>
+
+    <!-- NEUE FF2-Unterachse (C2): Knoten-Breite in Cache-Lines. Werteset {1,2,4,8,16}:
+         1 = CSS/CSB+ (eine Cache-Line pro Knoten), 16 = Hankins/Patel; Zweierpotenzen dazwischen.
+         Konsum: NodeWidthAware (axes/cacheline/node_width_config.hpp) -> LayoutAwareChunkedStore
+         macht das Chunk-/Knoten-Backing W Cache-Lines breit (Kapazitaet aus dem Record-Layout). -->
+    <axis ref="node_width">
+      <width_in_lines>1</width_in_lines>
+      <width_in_lines>2</width_in_lines>
+      <width_in_lines>4</width_in_lines>
+      <width_in_lines>8</width_in_lines>
+      <width_in_lines>16</width_in_lines>
+    </axis>
+  </permute_axes>
+
+  <!-- (c) COMPILE-TIME Mess-Dimensionen (je Binary gebacken, kein Runtime-Switch). -->
+  <compile_dims>
+    <workloads>A B C D E F</workloads>
+    <telemetry mode="on" silent="true"/>
+  </compile_dims>
+
+  <!-- (d) DYNAMISCHE OS-Laufzeit-Dimensionen (Muster cacheline_study). -->
+  <runtime_dynamic>
+    <thread_count>1</thread_count>
+    <hw_prefetcher>all_on adjacent_off all_off</hw_prefetcher>
+  </runtime_dynamic>
+
+  <!-- (e) FIXE reproduzierbare Bedingungen (Launcher, konstant fuer ALLE Laeufe). -->
+  <fixed_conditions turbo="off" smt="off" aslr="off" numa="local" governor="performance"/>
+
+  <!-- (f) WIEDERHOLUNGEN - alle Laeufe vollstaendig + separat, NIE interpoliert. -->
+  <repetitions count="3" interpolate="false" overlay_in_chart="true"/>
+
+  <!-- (g) PERMUTATIONSMODUS: ce_only genuegt der FF2-Teilfrage (eigener Node-/Layout-Pfad). -->
+  <modes>
+    <mode name="ce_only" merge="Stufe1_CeOnly" active_axes="layout node allocator node_width"/>
+  </modes>
+
+  <!-- (h) STATISCHE Achsen aus dem jeweiligen base_tier (Paper-Tupel). -->
+  <static_axes from="base_tier"/>
+
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_thesis_profile>

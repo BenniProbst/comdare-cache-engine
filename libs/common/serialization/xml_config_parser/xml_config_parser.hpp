@@ -89,13 +89,16 @@ struct ThesisTier { // Paper-Original = statisches Achsen-Tupel
 };
 
 struct ThesisAxisSpec {              // eine permutierte (dynamische) Achse
-    std::string              ref;    // z.B. "layout","isa","cacheline"
+    std::string              ref;    // z.B. "layout","isa","cacheline","node_width"
     std::vector<std::string> values; // leer = volle Liste aus permutation_axes.xml
     // Nur fuer ref=="cacheline" (per-Organ Cache-Line-Unterachse, KF-3):
     std::vector<std::string> per_organ;         // Organe mit JE eigener Einstellung
-    std::vector<std::string> line_sizes;        // 64/128/256
+    std::vector<std::string> line_sizes;        // 32/64/128/256 (C1 2026-07-12: 32 additiv, KF-5 thesis-treu)
     std::vector<std::string> alignments;        // none/cacheline_aligned/padded
     std::vector<std::string> sw_prefetch_hints; // none/T0/T1/T2/NTA
+    // Nur fuer ref=="node_width" (FF2-Unterachse Knoten-Breite in Cache-Lines, C2 2026-07-12). ADDITIV —
+    // leer bei allen anderen Achsen/Profilen (Round-Trip bestehender Profile byte-identisch).
+    std::vector<std::string> width_in_lines; // 1/2/4/8/16
 };
 
 struct ThesisMode { // einer der 3 Permutationsmodi

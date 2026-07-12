@@ -52,13 +52,28 @@ int main() {
                                                      cl::SwPrefetchHint::None}),
              std::size_t{256});
 
-    // Enumeration: 45 distinkte Configs
+    // Enumeration: 60 distinkte Configs.
+    // BEWUSSTE Pin-Fortschreibung 45 -> 60 (C1, GO4/#8 F-C, 2026-07-12): das Werteset wurde ADDITIV
+    // thesis-treu erweitert (KF-5 {32,64,128} ⊂ neuem {B32,B64,B128,B256}; B256 bleibt). 4 x 3 x 5 = 60.
+    // Der B32-Block ist ANGEHAENGT: Indizes [0..44] tragen exakt die bisherigen 45 Konfigurationen.
     auto configs = cl::all_configs();
-    check_eq("all_configs().size()", configs.size(), std::size_t{45});
+    check_eq("all_configs().size()", configs.size(), std::size_t{60});
     std::set<std::tuple<int, int, int>> uniq;
     for (auto c : configs)
         uniq.insert({static_cast<int>(c.line_size), static_cast<int>(c.alignment), static_cast<int>(c.sw_hint)});
-    check_eq("all_configs distinkt", uniq.size(), std::size_t{45});
+    check_eq("all_configs distinkt", uniq.size(), std::size_t{60});
+    // C1-Index-Stabilitaet: [0] bleibt der bisherige Anfang (B64-Block), [45] beginnt der neue B32-Block.
+    check_true("all_configs[0].line_size == B64 (alte Indizes stabil)", configs[0].line_size == cl::CacheLineSize::B64);
+    check_true("all_configs[44].line_size == B256 (Ende des alten Blocks)",
+               configs[44].line_size == cl::CacheLineSize::B256);
+    check_true("all_configs[45].line_size == B32 (neuer Block angehaengt)",
+               configs[45].line_size == cl::CacheLineSize::B32);
+    // C1: make_config kennt 32 additiv; alignment_bytes(B32, Aligned) == 32.
+    check_true("make_config(32,1,0).line_size == B32", cl::make_config(32, 1, 0).line_size == cl::CacheLineSize::B32);
+    check_eq("alignment_bytes(B32,Aligned) == 32",
+             cl::alignment_bytes(cl::CacheLineConfig{cl::CacheLineSize::B32, cl::CacheLineAlignment::CacheLineAligned,
+                                                     cl::SwPrefetchHint::None}),
+             std::size_t{32});
 
     // Per-Organ-Mixin: jedes Organ traegt seine EIGENE Config
     check_true("OrganA.config == {B128,Padded,T0}",

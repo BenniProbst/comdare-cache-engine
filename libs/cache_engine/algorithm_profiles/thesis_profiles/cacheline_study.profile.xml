@@ -33,11 +33,15 @@
     <axis ref="allocator"><value>SYSTEM_MALLOC</value><value>JEMALLOC</value><value>MIMALLOC</value></axis>
 
     <!-- NEUE per-Organ Cache-Line-Unterachse (KF-3, Kernthema §4.3): JEDES benannte Organ
-         traegt eine EIGENE, unabhaengige Cache-Line-Einstellung -> bis 45^4 (beabsichtigt). -->
+         traegt eine EIGENE, unabhaengige Cache-Line-Einstellung -> bis 60^4 (beabsichtigt).
+         C1 (GO4/#8 F-C, 2026-07-12): line_size 32 ADDITIV ergaenzt (KF-5 thesis-treu {32,64,128};
+         32 = embedded, D_building_block_matrix.tex:251). ANS ENDE angehaengt, damit die Reihenfolge
+         der bestehenden Werte (und damit deren Ebenen-Ordnung im Experiment-Baum) stabil bleibt. -->
     <axis ref="cacheline" per_organ="page node traversal allocator">
       <line_size>64</line_size>
       <line_size>128</line_size>
       <line_size>256</line_size>
+      <line_size>32</line_size>
       <alignment>none</alignment>
       <alignment>cacheline_aligned</alignment>
       <alignment>padded</alignment>
