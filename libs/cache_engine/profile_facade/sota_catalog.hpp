@@ -260,6 +260,13 @@ struct SotaPass {
     std::string sota_bid;       // der rohe sota::S::name (AxisLevel-Wert der einwertigen "sota_tier"-Ebene)
     std::string view_binary_id; // == "sota_tier=<sota::S::name>" (== StaticBinaryView-binary_id dieses Passes)
     std::string pruefling_type; // #171: "full" (Reihe A self-contained) / "abstract" (Stufe2/3 Teilmenge+Fallback)
+    // GO-5 Fork 6 (2026-07-12, Thesis §sec:fairness): der deklarierte Fairness-Modus der Reihe —
+    // "common_denominator" / "native" / "-" (ungesetzt = heutiges Verhalten). REINE Reihen-Metadaten
+    // (CSV-Tag fairness_mode + Resume-Stamp), NICHT Teil der binary_id (Tags verschmutzen die
+    // Round-Trip-Identitaet nie, LazyRunConfig-Doktrin). Die Kompositions-Pinnung des
+    // common_denominator-Falls (value_handle_external + PRT-Spezialpfade aus) ist DATEN-gated
+    // (#156/#162-Fenster) und aendert DANN die Komposition selbst (⇒ natuerlicherweise eigene binary_id).
+    std::string fairness_mode = "-";
 };
 
 /// build_sota_passes(profile) — die Liste der SOTA-Reihen-Pässe AUS DEM PROFIL (1 Eintrag je real baubarem
@@ -273,7 +280,8 @@ struct SotaPass {
         if (auto m = sota_module_for(s.merge, s.lebewesen)) {  // #178: dispatch auf die Stufe (merge)
             std::string const reihe = stufe_to_reihe(s.merge); // #178: Reihen-Tag mechanisch aus der Stufe
             out.push_back(SotaPass{reihe, s.lebewesen, m->binary_id, sota_view_binary_id(m->binary_id),
-                                   derive_pruefling_type(reihe, s.merge, s.pruefling_type)}); // #171: full/abstract
+                                   derive_pruefling_type(reihe, s.merge, s.pruefling_type), // #171: full/abstract
+                                   s.fairness.empty() ? std::string{"-"} : s.fairness}); // GO-5 Fork 6: fairness_mode
         }
     }
     return out;

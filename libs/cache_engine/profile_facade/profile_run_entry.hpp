@@ -176,6 +176,15 @@ struct RunProfileResult {
     std::cout << "RUN_PROFILE (CEB-Eintritt): " << a.profile_path.string() << "  id=" << tp.id << " mode=" << mode_name
               << "  basis_count=" << basis_tree.binary_count() << " (N=" << N << ")"
               << "  sota_series=" << tp.sota_series.size() << "  working_set_n=" << n_sweep.size() << "\n";
+    // GO-5 Fork 1 (2026-07-12): die deklarierten <datasets>-Akten-Referenzen als Lauf-Provenienz-Kopf
+    // (Single-Source = die test_data-Akten, Fork 2/R2). EHRLICH: der Loader-MESS-Konsum (load_or_generate_ycsb
+    // im Workload-Pfad) ist lauf-gated — heute reisen die Referenzen in den Resume-Stamp (make_cfg) + dieses Log.
+    if (!tp.datasets.empty()) {
+        std::cout << "  [DATASETS] deklariert=" << tp.datasets.size()
+                  << " (Akten=Single-Source; Loader-Mess-Konsum lauf-gated, Signatur geht in den Resume-Stamp)\n";
+        for (auto const& d : tp.datasets)
+            std::cout << "      dataset id=" << d.id << " akte_ref=" << d.akte_ref << " loader=" << d.loader << "\n";
+    }
 
     // ── EINE CSV; Header GENAU EINMAL; darunter Basis-Pass + SOTA-Paesse (alle N). ──
     // M11 (G5-Audit w289llo0o): Stream-Fehlerpruefung. Liess der open() scheitern (Pfad nicht
@@ -193,8 +202,14 @@ struct RunProfileResult {
     // Gemeinsame Lauf-Config-Vorlage (je Pass kopiert + getaggt). 1 DLL = 1 TU bleibt.
     // #171 (2026-06-20): make_cfg traegt zusaetzlich pruefling_type (full/abstract/-). Basis/Sweep uebergeben
     // leer ("-"); die SOTA-Paesse uebergeben den aus merge abgeleiteten Typ (sota_catalog::derive_pruefling_type).
-    auto make_cfg = [&](std::uint64_t ws_n, std::size_t cap_for_pass, std::string const& series,
-                        std::string const& sweep_axis, std::string const& pruefling_type) {
+    // GO-5 Fork 6 (2026-07-12): zusaetzlich fairness_mode (common_denominator/native/-) — Basis/Sweep "-",
+    // SOTA-Paesse den deklarierten <sota_series fairness=..>-Modus (SotaPass.fairness_mode).
+    // GO-5 Fork 1 (2026-07-12): die <datasets>-Deklarations-Signatur des Profils geht lauf-weit in JEDE Pass-
+    // Config (Resume-Stamp-Konsum; Ankunfts-Nachweis in der Spec — der Loader-Mess-Konsum ist lauf-gated).
+    std::string const datasets_signature = profile_datasets_signature(tp);
+    auto              make_cfg           = [&](std::uint64_t ws_n, std::size_t cap_for_pass, std::string const& series,
+                                               std::string const& sweep_axis, std::string const& pruefling_type,
+                                               std::string const& fairness_mode) {
         ex::LazyRunConfig cfg;
         cfg.max_binaries = cap_for_pass;
         // G5: <run_options n_ops> ist autoritativ (XML steuert ALLES, #229); der Fassaden-/argv-Wert
@@ -206,6 +221,8 @@ struct RunProfileResult {
         cfg.row_series                = series.empty() ? std::string{"-"} : series;
         cfg.row_pruefling_type        = pruefling_type.empty() ? std::string{"-"} : pruefling_type;
         cfg.row_sweep_axis            = sweep_axis.empty() ? std::string{"-"} : sweep_axis;
+        cfg.row_fairness_mode         = fairness_mode.empty() ? std::string{"-"} : fairness_mode; // GO-5 Fork 6
+        cfg.profile_datasets          = datasets_signature; // GO-5 Fork 1: lauf-weite <datasets>-Signatur (Stamp)
         cfg.row_platform              = tag_platform;
         cfg.row_build_version         = tag_build_version;
         cfg.source_dir                = a.src_dir;
@@ -288,7 +305,8 @@ struct RunProfileResult {
                 return;
             }
             for (std::uint64_t const ws_n : n_sweep) {
-                ex::LazyRunConfig cfg = make_cfg(ws_n, sweep_n, /*series=*/"-", pass_axis, /*pruefling_type=*/"-");
+                ex::LazyRunConfig       cfg = make_cfg(ws_n, sweep_n, /*series=*/"-", pass_axis, /*pruefling_type=*/"-",
+                                                       /*fairness_mode=*/"-");
                 ex::LazyRunResult const r =
                     ex::run_lazy_static_then_dynamic(sweep_tree, sel, a.compile, union_gen, ram, cfg);
                 emit(r, &res.basis_rows);
@@ -314,7 +332,8 @@ struct RunProfileResult {
                 return;
             }
             for (std::uint64_t const ws_n : n_sweep) {
-                ex::LazyRunConfig       cfg = make_cfg(ws_n, N, pts.series, pts.sweep_axis, /*pruefling_type=*/"-");
+                ex::LazyRunConfig       cfg = make_cfg(ws_n, N, pts.series, pts.sweep_axis, /*pruefling_type=*/"-",
+                                                       /*fairness_mode=*/"-");
                 ex::LazyRunResult const r =
                     ex::run_lazy_static_then_dynamic(basis_tree, sel, a.compile, union_gen, ram, cfg);
                 emit(r, &res.basis_rows);
@@ -355,11 +374,11 @@ struct RunProfileResult {
             ex::BuildSelection const sel = ex::select_explicit({0});
             ++res.sota_binary_ids;
             std::cout << "    SOTA-Pass series=" << p.series << " pruefling_type=" << p.pruefling_type
-                      << " lebewesen=" << p.lebewesen
+                      << " fairness=" << p.fairness_mode << " lebewesen=" << p.lebewesen
                       << " binary_id=" << (sota_view.empty() ? std::string{"<leer>"} : sota_view[0].binary_id) << "\n";
             for (std::uint64_t const ws_n : n_sweep) {
-                ex::LazyRunConfig cfg =
-                    make_cfg(ws_n, 1, p.series, /*sweep_axis=*/"", p.pruefling_type); // #171: full/abstract
+                ex::LazyRunConfig       cfg = make_cfg(ws_n, 1, p.series, /*sweep_axis=*/"", p.pruefling_type,
+                                                       p.fairness_mode); // #171 full/abstract + GO-5 Fork 6 fairness
                 ex::LazyRunResult const r =
                     ex::run_lazy_static_then_dynamic(sota_tree, sel, a.compile, union_gen, ram, cfg);
                 emit(r, &res.sota_rows);

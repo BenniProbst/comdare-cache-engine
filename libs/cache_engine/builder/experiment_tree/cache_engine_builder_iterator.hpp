@@ -100,6 +100,16 @@ struct LazyRunConfig {
     std::string row_sweep_axis     = "-";          // gesweepte Achse (z.B. "migration_policy") bzw. "-" (Basis/SOTA)
     std::string row_platform       = "win-x86_64"; // Plattform-Tag (Infra-Agent überschreibt für ZIH-Reihen)
     std::string row_build_version  = "m3v2";       // Build-Version-Tag (= BuildVersion-Marke; Default m3v2)
+    // GO-5 Fork 6 (2026-07-12, Thesis §sec:fairness): der Fairness-Modus der SOTA-Reihe dieses Passes —
+    // "common_denominator" / "native" / "-" (Basis/Sweep/ungesetzt). REINE Metadaten wie series/pruefling_type
+    // (kein Mess-Einfluss heute; die common_denominator-Kompositions-Pinnung ist DATEN-gated), reist in der
+    // CSV-Tag-Spalte fairness_mode + im Resume-Stamp — NICHT in der binary_id (keine Tag-Verschmutzung).
+    std::string row_fairness_mode = "-"; // "common_denominator" / "native" / "-"
+    // GO-5 Fork 1 (2026-07-12): die deterministische <datasets>-Deklarations-Signatur des Profils
+    // (profile_datasets_signature; leer = keine deklariert = heutiges Verhalten). Geht in den Resume-Stamp:
+    // eine geaenderte Dataset-Deklaration macht alte per-Binary-Staende konservativ NICHT resume-faehig
+    // (ehrliche Neu-Messung; der Loader-MESS-Konsum selbst ist lauf-gated, s. profile_runner.hpp).
+    std::string profile_datasets;
     // working_set_n je Zeile = cfg.workload_records (der N-Sweep ruft den Treiber je N-Wert mit gesetztem records).
     // Mess-RESUME (#139, User 2026-06-10 „Wiedereinstieg bei einem bestimmten nicht fertigen Tier"): Binaries,
     // deren per-Binary result.csv VOLLSTÄNDIG + KONFIGURATIONS-AKTUELL ist (result.csv.stamp == aktueller
@@ -143,6 +153,9 @@ struct LazyMeasuredRow {
     std::uint64_t working_set_n  = 0;            // N (Record-Zahl) dieser Mess-Zeile (= workload_records)
     std::string   platform       = "win-x86_64"; // Plattform-Tag
     std::string   build_version  = "m3v2";       // Build-Version-Tag
+    // GO-5 Fork 6: der Fairness-Modus der Reihe dieser Zeile (aus LazyRunConfig::row_fairness_mode
+    // durchgereicht) — "common_denominator" / "native" / "-" (Basis/Sweep/ungesetzt). Reine Metadaten.
+    std::string fairness_mode = "-";
     // #165-B (P-MD8, 2026-06-20): STATISTISCHER Ausreißer-Flag je Zeile (gate-frei). 1 = ns_per_op dieser Zeile
     // ist ein Ausreißer relativ zum Median der (binary_id, workload/profile_name)-Gruppe (Heuristik s.u.); 0 = nicht.
     // Default 0 (kein Flag) → bestehende Aufrufer unverändert; befüllt OPT-IN durch annotate_quality_flags(rows) VOR
@@ -247,7 +260,13 @@ struct LazyMeasuredRow {
     // getriebene Auswertung liest sie dort leer/n-a (Datenerhaltung, kein cowfix-v1-Leser bricht). KEINE bestehende
     // Spalte umbenannt/verschoben. Schließt die #156-WIDE-Naht (perm_runner→IPmcSource→CSV).
     h += ";pmc_cache_misses_l1;pmc_cache_misses_l2;pmc_cache_misses_l3;pmc_dtlb_misses;"
-         "pmc_coherence_invalidations;pmc_energy_micro_joules;pmc_available;container_store_ops\n";
+         "pmc_coherence_invalidations;pmc_energy_micro_joules;pmc_available;container_store_ops";
+    // GO-5 Fork 6 (2026-07-12): fairness_mode ALS LETZTE Spalte (additiv, header-getrieben, gleiches Muster
+    // wie series/pruefling_type/quality_flag/PMC/container_store_ops). Traegt den deklarierten Thesis-
+    // §sec:fairness-Modus der SOTA-Reihe ("common_denominator"/"native") bzw. "-" (Basis/Sweep/ungesetzt).
+    // Alte CSVs hatten die Spalte NICHT → die header-getriebene Auswertung liest sie dort leer/n-a
+    // (Datenerhaltung, kein Leser bricht). KEINE bestehende Spalte umbenannt/verschoben.
+    h += ";fairness_mode\n";
     return h;
 }
 
@@ -432,6 +451,10 @@ struct LazyMeasuredRow {
     // "n/a" (Phantom-Schutz, exakt wie stat_*/PMC); additiv -> alte CSVs/Leser unberuehrt.
     out += ';';
     out += (row.unified_real ? std::to_string(container_attribution(row.unified).store_ops) : std::string{"n/a"});
+    // GO-5 Fork 6 (2026-07-12): fairness_mode ALS LETZTE Spalte (Reihenfolge IDENTISCH zum Header).
+    // "-" fuer Basis/Sweep/ungesetzte Reihen; der Wert kommt aus <sota_series fairness=..> via SotaPass.
+    out += ';';
+    out += (row.fairness_mode.empty() ? std::string{"-"} : row.fairness_mode);
     out += '\n';
     return out;
 }
@@ -525,10 +548,18 @@ struct LazyRunResult {
     // self-contained) und eine "abstract"-Reihe (B/C, Teilmenge) mit GLEICHER view-binary_id+Skala fälschlich
     // gegenseitig resume-fähig — und die getaggte Zeile aus dem falschen Pruefling-Pass übernommen. Format-Bump
     // v3→v4 invalidiert Alt-Stamps via Prefix-Mismatch → ehrliche Neu-Messung (kein stilles Stale-Resume).
-    std::string s = "resume-v4|build=" + cfg.build_version + "|series=" + cfg.row_series +
-                    "|ptype=" + cfg.row_pruefling_type + "|sweep=" + cfg.row_sweep_axis + "|plat=" + cfg.row_platform +
-                    "|bv=" + cfg.row_build_version + "|n_ops=" + std::to_string(cfg.n_ops) +
-                    "|seed=" + std::to_string(cfg.workload_seed) + "|records=" + std::to_string(cfg.workload_records) +
+    // resume-v5 (GO-5 Fork 6 + Fork 1, 2026-07-12): zusätzlich (a) fairness_mode — sonst wären eine
+    // common_denominator- und eine native-Reihe desselben Lebewesens (GLEICHE view-binary_id bis zur DATEN-gated
+    // Kompositions-Pinnung) fälschlich gegenseitig resume-fähig; (b) die <datasets>-Deklarations-Signatur
+    // (profile_datasets) — eine geänderte Dataset-Deklaration invalidiert alte Stände KONSERVATIV (der
+    // Loader-Mess-Konsum ist lauf-gated; bis dahin ehrliche Neu-Messung statt semantisch stalem Resume).
+    // Format-Bump v4→v5 invalidiert Alt-Stamps via Prefix-Mismatch (zusätzlich bricht ohnehin die
+    // Header-Identität durch die neue fairness_mode-Spalte) → ehrliche Neu-Messung.
+    std::string s = "resume-v5|build=" + cfg.build_version + "|series=" + cfg.row_series +
+                    "|ptype=" + cfg.row_pruefling_type + "|fair=" + cfg.row_fairness_mode +
+                    "|sweep=" + cfg.row_sweep_axis + "|plat=" + cfg.row_platform + "|bv=" + cfg.row_build_version +
+                    "|n_ops=" + std::to_string(cfg.n_ops) + "|seed=" + std::to_string(cfg.workload_seed) +
+                    "|records=" + std::to_string(cfg.workload_records) + "|datasets=" + cfg.profile_datasets +
                     "|env=" + std::to_string(cfg.env_limits.thread_count) + ',' +
                     std::to_string(cfg.env_limits.prefetch_distance) + ',' +
                     std::to_string(cfg.env_limits.pool_budget_bytes) + ',' + std::to_string(cfg.env_limits.batch_size) +
@@ -766,6 +797,7 @@ struct LazyRunResult {
                 row.working_set_n  = cfg.workload_records; // N = befüllte Sätze (= Working-Set-Achse, P-MD7)
                 row.platform       = cfg.row_platform;
                 row.build_version  = cfg.row_build_version;
+                row.fairness_mode  = cfg.row_fairness_mode; // GO-5 Fork 6: common_denominator/native/- (SOTA-Pass)
                 // (E): die per-Binary-Ergebnis-CSV mit-akkumulieren (gleiches Schema wie die globale CSV).
                 per_binary_all_valid = per_binary_all_valid && row.two_phase_valid; // GOAL-M1.4 Gültigkeits-Gate
                 if (cfg.per_binary_subdirs) {
