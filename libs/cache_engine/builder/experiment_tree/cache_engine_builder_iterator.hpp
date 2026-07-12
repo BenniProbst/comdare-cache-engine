@@ -105,6 +105,14 @@ struct LazyRunConfig {
     // (kein Mess-Einfluss heute; die common_denominator-Kompositions-Pinnung ist DATEN-gated), reist in der
     // CSV-Tag-Spalte fairness_mode + im Resume-Stamp — NICHT in der binary_id (keine Tag-Verschmutzung).
     std::string row_fairness_mode = "-"; // "common_denominator" / "native" / "-"
+    // GO-5 Fork 7 (2026-07-12, Thesis-Hypothese H2): der TOOL-BERECHNETE Code-Qualitaets-Score der
+    // SOTA-Reihe dieses Passes (aus der Akte sota_h2_scores.xml via h2_score_for; Formel-Single-Source
+    // profile_facade/h2_score_akte.hpp). "-" = Basis/Sweep (keine Reihe); "n/a" = SOTA-Reihe ohne
+    // Akten-Eintrag (prt_art/fehlende Akte — honest, NIE 0). REINE Metadaten wie fairness_mode (kein
+    // Mess-Einfluss, CSV-Tag-Spalte, NICHT in der binary_id). BEWUSST NICHT im Resume-Stamp: der Score
+    // ist eine abgeleitete Eigenschaft des Lebewesens (kein Lauf-Konfigurations-Freiheitsgrad — dieselbe
+    // binary_id kann nie mit zwei Scores kollidieren); Schema-Drift faengt ohnehin der Header-Vergleich.
+    std::string row_h2_score = "-"; // "%.3f"-Dichte / "n/a" / "-"
     // GO-5 Fork 1 (2026-07-12): die deterministische <datasets>-Deklarations-Signatur des Profils
     // (profile_datasets_signature; leer = keine deklariert = heutiges Verhalten). Geht in den Resume-Stamp:
     // eine geaenderte Dataset-Deklaration macht alte per-Binary-Staende konservativ NICHT resume-faehig
@@ -156,6 +164,9 @@ struct LazyMeasuredRow {
     // GO-5 Fork 6: der Fairness-Modus der Reihe dieser Zeile (aus LazyRunConfig::row_fairness_mode
     // durchgereicht) — "common_denominator" / "native" / "-" (Basis/Sweep/ungesetzt). Reine Metadaten.
     std::string fairness_mode = "-";
+    // GO-5 Fork 7: der tool-berechnete H2-Code-Qualitaets-Score der Reihe dieser Zeile (aus
+    // LazyRunConfig::row_h2_score durchgereicht) — Dichte-String / "n/a" / "-". Reine Metadaten.
+    std::string h2_score = "-";
     // #165-B (P-MD8, 2026-06-20): STATISTISCHER Ausreißer-Flag je Zeile (gate-frei). 1 = ns_per_op dieser Zeile
     // ist ein Ausreißer relativ zum Median der (binary_id, workload/profile_name)-Gruppe (Heuristik s.u.); 0 = nicht.
     // Default 0 (kein Flag) → bestehende Aufrufer unverändert; befüllt OPT-IN durch annotate_quality_flags(rows) VOR
@@ -266,7 +277,13 @@ struct LazyMeasuredRow {
     // §sec:fairness-Modus der SOTA-Reihe ("common_denominator"/"native") bzw. "-" (Basis/Sweep/ungesetzt).
     // Alte CSVs hatten die Spalte NICHT → die header-getriebene Auswertung liest sie dort leer/n-a
     // (Datenerhaltung, kein Leser bricht). KEINE bestehende Spalte umbenannt/verschoben.
-    h += ";fairness_mode\n";
+    h += ";fairness_mode";
+    // GO-5 Fork 7 (2026-07-12): h2_code_quality_score ALS LETZTE Spalte (additiv, header-getrieben,
+    // gleiches Muster wie series/pruefling_type/quality_flag/PMC/fairness_mode). Traegt den TOOL-
+    // BERECHNETEN H2-Score der SOTA-Reihe (Akte sota_h2_scores.xml, Thesis-Hypothese H2) bzw. "n/a"
+    // (Reihe ohne Akten-Eintrag — honest, kein 0-Phantom) bzw. "-" (Basis/Sweep). Alte CSVs hatten
+    // die Spalte NICHT → header-getriebene Auswertung liest sie dort leer/n-a (Datenerhaltung).
+    h += ";h2_code_quality_score\n";
     return h;
 }
 
@@ -451,10 +468,14 @@ struct LazyMeasuredRow {
     // "n/a" (Phantom-Schutz, exakt wie stat_*/PMC); additiv -> alte CSVs/Leser unberuehrt.
     out += ';';
     out += (row.unified_real ? std::to_string(container_attribution(row.unified).store_ops) : std::string{"n/a"});
-    // GO-5 Fork 6 (2026-07-12): fairness_mode ALS LETZTE Spalte (Reihenfolge IDENTISCH zum Header).
+    // GO-5 Fork 6 (2026-07-12): fairness_mode (Reihenfolge IDENTISCH zum Header).
     // "-" fuer Basis/Sweep/ungesetzte Reihen; der Wert kommt aus <sota_series fairness=..> via SotaPass.
     out += ';';
     out += (row.fairness_mode.empty() ? std::string{"-"} : row.fairness_mode);
+    // GO-5 Fork 7 (2026-07-12): h2_code_quality_score ALS LETZTE Spalte (Reihenfolge IDENTISCH zum
+    // Header). Tool-berechneter H2-Score der Reihe / "n/a" (kein Akten-Eintrag) / "-" (Basis/Sweep).
+    out += ';';
+    out += (row.h2_score.empty() ? std::string{"-"} : row.h2_score);
     out += '\n';
     return out;
 }
@@ -798,6 +819,7 @@ struct LazyRunResult {
                 row.platform       = cfg.row_platform;
                 row.build_version  = cfg.row_build_version;
                 row.fairness_mode  = cfg.row_fairness_mode; // GO-5 Fork 6: common_denominator/native/- (SOTA-Pass)
+                row.h2_score       = cfg.row_h2_score;      // GO-5 Fork 7: tool-berechneter H2-Score/n-a/- (SOTA-Pass)
                 // (E): die per-Binary-Ergebnis-CSV mit-akkumulieren (gleiches Schema wie die globale CSV).
                 per_binary_all_valid = per_binary_all_valid && row.two_phase_valid; // GOAL-M1.4 Gültigkeits-Gate
                 if (cfg.per_binary_subdirs) {

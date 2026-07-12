@@ -26,3 +26,6 @@ add_subdirectory(f15_compare)
 
 # L-CLUSTER (gate-frei) — lokaler Cluster-Mess-Runner je Binary (laedt 1 perm-DLL -> result_ingest-Zeile)
 add_subdirectory(perm_runner)
+
+# GO-5 Fork 7 — Generator der TOOL-BERECHNETEN H2-Code-Qualitaets-Akte (sota_h2_scores.xml)
+add_subdirectory(h2_score_akte_tool)
