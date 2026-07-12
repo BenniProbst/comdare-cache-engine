@@ -3,7 +3,12 @@
 //
 // User-Direktive 2026-06-02: die Cache-Line-Groesse je Organ EINZELN variieren/permutieren. `cacheline` ist
 // daher KEINE globale Einstellung, sondern eine eigene Compile-Time-Unterachse PRO betroffenem Organ
-// (page/node/traversal/allocator). Jedes Organ traegt seine UNABHAENGIGE CacheLineConfig (45 = 3x3x5).
+// (page/node/traversal/allocator). Jedes Organ traegt seine UNABHAENGIGE CacheLineConfig (60 = 4x3x5).
+//
+// C1 (GO4/#8 F-C, 2026-07-12): Werteset ADDITIV thesis-treu erweitert — KF-5 der Thesis definiert
+// {32, 64, 128} Byte (anhang/de/D_building_block_matrix.tex:251: 64 Standard x86-64/ARM64, 128 Azure/Power,
+// 32 embedded); der Code hatte {64, 128, 256} (256 real existent, z.B. s390x). Superset = {B32,B64,B128,B256}.
+// NICHTS ersetzt/entfernt: B64/B128/B256 und deren Bedeutung unveraendert, B32 kommt hinzu (45 -> 60 Configs).
 //
 // Querschnitt-Komponente (kein eigenes Organ-Set): die betroffenen Organ-Algorithmen WEBEN sie via CRTP-Mixin
 // CacheLineAware<Cfg> ein (KF-5). Compile-time only (kein Runtime-Switch im Hot-Path):
@@ -26,8 +31,8 @@
 
 namespace comdare::cache_engine::cacheline {
 
-// ── Wertraum (3 x 3 x 5 = 45) ────────────────────────────────────────────────
-enum class CacheLineSize : std::uint16_t { B64 = 64, B128 = 128, B256 = 256 };
+// ── Wertraum (4 x 3 x 5 = 60; C1: B32 additiv, s. Kopf-Kommentar) ────────────
+enum class CacheLineSize : std::uint16_t { B32 = 32, B64 = 64, B128 = 128, B256 = 256 };
 enum class CacheLineAlignment : std::uint8_t { None = 0, CacheLineAligned = 1, Padded = 2 };
 enum class SwPrefetchHint : std::uint8_t { None = 0, T0 = 1, T1 = 2, T2 = 3, NTA = 4 };
 
@@ -88,14 +93,17 @@ struct CacheLineAware {
     static void cacheline_prefetch(void const* p) noexcept { cacheline::prefetch<Cfg.sw_hint>(p); }
 };
 
-// ── Enumeration: alle 45 Konfigurationen (fuer Codegen/Registry, KF-8/KF-9) ──
-[[nodiscard]] constexpr std::array<CacheLineConfig, 45> all_configs() noexcept {
-    constexpr CacheLineSize         sizes[]  = {CacheLineSize::B64, CacheLineSize::B128, CacheLineSize::B256};
+// ── Enumeration: alle 60 Konfigurationen (fuer Codegen/Registry, KF-8/KF-9) ──
+// C1-Index-Stabilitaet: B32 wird ANGEHAENGT (nicht einsortiert) — die bisherigen 45 Konfigurationen behalten
+// exakt ihre Indizes [0..44]; der B32-Block ist [45..59]. Bewusst additiv (nichts verschiebt sich).
+[[nodiscard]] constexpr std::array<CacheLineConfig, 60> all_configs() noexcept {
+    constexpr CacheLineSize         sizes[]  = {CacheLineSize::B64, CacheLineSize::B128, CacheLineSize::B256,
+                                                CacheLineSize::B32};
     constexpr CacheLineAlignment    aligns[] = {CacheLineAlignment::None, CacheLineAlignment::CacheLineAligned,
                                                 CacheLineAlignment::Padded};
     constexpr SwPrefetchHint        hints[]  = {SwPrefetchHint::None, SwPrefetchHint::T0, SwPrefetchHint::T1,
                                                 SwPrefetchHint::T2, SwPrefetchHint::NTA};
-    std::array<CacheLineConfig, 45> out{};
+    std::array<CacheLineConfig, 60> out{};
     std::size_t                     i = 0;
     for (auto s : sizes)
         for (auto a : aligns)
@@ -103,11 +111,15 @@ struct CacheLineAware {
     return out;
 }
 
-/// Compile-Time-Factory aus Integer-Werten (KF-5 — Brücke für Codegen/Tests). line∈{64,128,256} (sonst→64),
-/// align∈{0,1,2}=None/CacheLineAligned/Padded, hint∈{0..4}=None/T0/T1/T2/NTA. Out-of-range → konservativer Default.
+/// Compile-Time-Factory aus Integer-Werten (KF-5 — Brücke für Codegen/Tests). line∈{32,64,128,256} (sonst→64;
+/// C1: 32 additiv), align∈{0,1,2}=None/CacheLineAligned/Padded, hint∈{0..4}=None/T0/T1/T2/NTA.
+/// Out-of-range → konservativer Default.
 [[nodiscard]] constexpr CacheLineConfig make_config(unsigned line, unsigned align, unsigned hint) noexcept {
     CacheLineConfig c;
-    c.line_size = (line == 256) ? CacheLineSize::B256 : (line == 128) ? CacheLineSize::B128 : CacheLineSize::B64;
+    c.line_size = (line == 256)   ? CacheLineSize::B256
+                  : (line == 128) ? CacheLineSize::B128
+                  : (line == 32)  ? CacheLineSize::B32
+                                  : CacheLineSize::B64;
     c.alignment = (align == 2)   ? CacheLineAlignment::Padded
                   : (align == 1) ? CacheLineAlignment::CacheLineAligned
                                  : CacheLineAlignment::None;
@@ -119,6 +131,7 @@ struct CacheLineAware {
     return c;
 }
 
-inline constexpr std::uint32_t kCacheLineSubaxisVersion = 1;
+// Version 2 = C1 (2026-07-12): Werteset additiv {B32,B64,B128,B256} (45 -> 60 Configs, Indizes [0..44] stabil).
+inline constexpr std::uint32_t kCacheLineSubaxisVersion = 2;
 
 } // namespace comdare::cache_engine::cacheline

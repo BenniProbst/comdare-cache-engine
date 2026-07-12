@@ -16,7 +16,7 @@
 //
 // PRUEFUNGEN (Plan #169(A)):
 //   (1) jeder <axis ref="X"> in <permute_axes> ist ein bekannter Achsen-Name (Registry-Key / kCompositionAxisNames;
-//       "cacheline" = KF-3-Sonderzweig, separat erlaubt).
+//       "cacheline" = KF-3-Sonderzweig, separat erlaubt; "node_width" = C2/FF2-Sonderzweig, ebenso separat).
 //   (2) jeder <value>Y</value> dieser Achse ist ein gueltiger Achsen-Wert (= ein name() der EnabledStrategies/Registry
 //       dieser Achse). Bei Fehler: nennt Achse + ungueltigen Wert + die gueltigen Werte.
 //   (3) jeder <axis_sweep axis="X"> + jede <sota_series lebewesen="L"> referenziert eine deklarierte Achse / ein
@@ -93,6 +93,11 @@ struct ProfileValidationResult {
         if (ax.ref == "cacheline") { // KF-3-Sonderzweig (compile-time Cache-Line-Unterachse) — separat.
             r.warnings.push_back("axis ref=\"cacheline\": KF-3-Sonderzweig (Cache-Line-Unterachse), "
                                  "Werte (line_size/alignment/sw_hint) nicht gegen die Achsen-Registry geprueft.");
+            continue;
+        }
+        if (ax.ref == "node_width") { // C2/FF2-Sonderzweig (compile-time Knoten-Breite in Cache-Lines) — separat.
+            r.warnings.push_back("axis ref=\"node_width\": C2/FF2-Sonderzweig (Knoten-Breiten-Unterachse), "
+                                 "Werte (width_in_lines) nicht gegen die Achsen-Registry geprueft.");
             continue;
         }
         // (1) Achsen-Name bekannt?

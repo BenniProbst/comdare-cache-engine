@@ -182,8 +182,11 @@ template <class List>
             // Review wf_fce92d2c (CONFIRMED): stilles Verwerfen erzeugt inkonsistente Kataloge —
             // cacheline-Ebenen sind binary-id-relevant (profile_to_tree.hpp:53-58), unbekannte refs
             // sind Tippfehler. Beides = harter Fehler statt gruener Bescheinigung.
-            if (spec.ref == "cacheline") {
-                std::cerr << "catalog-codegen: axis 'cacheline' ist in der Limits-Entkopplungs-Vorstufe nicht "
+            if (spec.ref == "cacheline" || spec.ref == "node_width") {
+                // node_width = C2/FF2-Sonderzweig (2026-07-12), exakt wie cacheline: erzeugt zusaetzliche
+                // statische binary_id-Segmente (profile_to_tree.hpp) -> hart ablehnen statt still verwerfen.
+                std::cerr << "catalog-codegen: axis '" << spec.ref
+                          << "' ist in der Limits-Entkopplungs-Vorstufe nicht "
                              "unterstuetzt (erzeugt zusaetzliche statische binary_id-Segmente jenseits der 19 "
                              "Slot-Listen) -- Profil ablehnen.\n";
             } else {

@@ -27,6 +27,7 @@
 
 #include "axis_04_node_type_node4.hpp" // Pilot-NodeType (Selbstbeweis)
 #include "concepts/axis_04_node_type_concept.hpp"
+#include <axes/cacheline/node_width_config.hpp> // C2/FF2: Knoten-Breite-in-Cache-Lines-Unterachse (Konsum hier)
 #include <topics/memory_layout/axis_05_memory_layout/concepts/axis_05_memory_layout_concept.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_cache_line_aligned.hpp>
 #include <topics/memory_layout/axis_05_memory_layout/axis_05_memory_layout_strategy_base.hpp> // RepresentationKind
@@ -69,6 +70,22 @@ private:
         return a <= 1 ? v : ((v + a - 1u) & ~(a - 1u));
     }
 
+    // C2/FF2 (GO4/#8 F-C, 2026-07-12): physische Record-Bytes als private constexpr-Quelle, damit die
+    // width-getriebene Kapazitaet (cap_, unten) sie VOR der public-Deklaration von record_phys_bytes()
+    // nutzen kann. Wert-identisch zu record_phys_bytes() (das jetzt hierauf delegiert).
+    static constexpr std::size_t record_bytes_() noexcept {
+        return (kRep == RK::aos_interleaved_padded) ? round_up_(kKvBytes, kLineBytes) : kKvBytes;
+    }
+
+    // C2/FF2: die vom Node-Organ deklarierte Knoten-Breite in Cache-Lines (NodeWidthAware, node_width_config).
+    // 0 = Native (keine Vorgabe) -> Kapazitaet bleibt N::max_capacity() (byte-identisch zum Ist-Stand).
+    static constexpr std::size_t node_width_lines_ = [] {
+        if constexpr (::comdare::cache_engine::cacheline::NodeWidthConfigurable<N>)
+            return static_cast<std::size_t>(N::node_width_in_lines());
+        else
+            return std::size_t{0};
+    }();
+
 public:
     using key_type       = std::uint64_t; // aktuelle Default-Breite; native schmalere Container = #217-2b
     using value_type     = std::uint64_t;
@@ -76,7 +93,18 @@ public:
     using layout_type    = L;
     using allocator_type = A;
 
-    static constexpr std::size_t cap_ = (N::max_capacity() == 0 ? std::size_t{1} : N::max_capacity());
+    /// Natuerliche Kapazitaet (Records je Chunk) aus dem Node-Organ (bisheriges Verhalten).
+    static constexpr std::size_t nat_cap_ = (N::max_capacity() == 0 ? std::size_t{1} : N::max_capacity());
+    /// C2/FF2 „Knoten-Breite in Cache-Lines" (1..16): deklariert das Node-Organ eine nicht-native Breite W
+    /// (NodeWidthAware, profil-aktivierte Unterachse), wird der Chunk (= Knoten-Backing) W Cache-Lines breit —
+    /// die Kapazitaet folgt aus dem physischen Record-Layout: floor(W*64 / record_bytes), min. 1. Native
+    /// (Default aller bestehenden Node-Blaetter) → nat_cap_, byte-identisch zum Ist-Stand (golden-/ABI-neutral).
+    /// Thesis FF2 (01_einleitung.tex:94-99): CSS/CSB+ = 1 Cache-Line vs. Hankins/Patel = 16 Cache-Lines.
+    static constexpr std::size_t cap_ = (node_width_lines_ == 0)
+                                            ? nat_cap_
+                                            : (((node_width_lines_ * kLineBytes) / record_bytes_()) == 0
+                                                   ? std::size_t{1}
+                                                   : (node_width_lines_ * kLineBytes) / record_bytes_());
     /// AoSoA PHYSISCHE Store-Blockbreite (B keys dann B values, Bloecke als Array). Bewusst KEINE Line-teilende
     /// Lane-Zahl (waere lane-aligned identisch zum SoA-Key-Footprint), sondern eine Tile-Breite, deren Key-Lane
     /// die 64-B-Linien STRADDLET → der Key-Scan-Footprint liegt ECHT zwischen SoA (dicht) und AoS (strided),
@@ -89,10 +117,7 @@ public:
     /// amortisierter Spaltenanteil). AoS-padded = 64, sonst 16 (alle uebrigen Reps speichern Key+Value
     /// verlustfrei in 16 B, nur ANDERS angeordnet). Bestimmt die Chunk-Allokationsgroesse.
     static constexpr std::size_t record_phys_bytes() noexcept {
-        if constexpr (kRep == RK::aos_interleaved_padded)
-            return round_up_(kKvBytes, kLineBytes); // 64
-        else
-            return kKvBytes; // 16
+        return record_bytes_(); // C2/FF2: delegiert an die private constexpr-Quelle (wert-identisch: 64 bzw. 16)
     }
     static constexpr std::size_t eff_stride = record_phys_bytes(); // Rueckwaerts-Kompat-Name (AoS-Stride)
 
@@ -111,7 +136,9 @@ public:
         }
     }
 
-    [[nodiscard]] static constexpr std::size_t      node_capacity() noexcept { return cap_; }
+    [[nodiscard]] static constexpr std::size_t node_capacity() noexcept { return cap_; }
+    /// C2/FF2: die wirksame Knoten-Breite in Cache-Lines (0 = Native, Knoten-Backing unveraendert).
+    [[nodiscard]] static constexpr std::size_t      node_width_in_lines() noexcept { return node_width_lines_; }
     [[nodiscard]] static constexpr std::size_t      record_stride() noexcept { return record_phys_bytes(); }
     [[nodiscard]] static constexpr std::string_view organ_name() noexcept { return "node_layout_aware"; }
     [[nodiscard]] static constexpr std::string_view node_name() noexcept { return N::name(); }
@@ -544,5 +571,9 @@ static_assert(_la_cmp::StorageOrgan<PilotLayoutAwareStore>);
 static_assert(_la_cmp::TraversalOrgan<_la_cmp::LinearScanTraversal, PilotLayoutAwareStore>);
 static_assert(_la_cmp::TraversalOrgan<_la_cmp::SortedBinaryTraversal, PilotLayoutAwareStore>);
 static_assert(PilotLayoutAwareStore::record_phys_bytes() == 64); // CLA → 64-B-Stride (Padding) verifiziert
+// C2/FF2-Neutralitaets-Selbstbeweis: alle bestehenden Node-Blaetter sind Native (Breite 0) → Kapazitaet und
+// damit Chunk-Layout byte-identisch zum Ist-Stand (der Wide-Pfad wird in test_ff2_node_width_subaxis bewiesen).
+static_assert(PilotLayoutAwareStore::node_width_in_lines() == 0);
+static_assert(PilotLayoutAwareStore::node_capacity() == Node4NodeType::max_capacity());
 
 } // namespace comdare::cache_engine::node

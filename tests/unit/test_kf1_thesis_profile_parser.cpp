@@ -72,8 +72,9 @@ int main(int argc, char** argv) {
         if (a.ref == "cacheline") cl = &a;
     check_true("cacheline-Achse vorhanden", cl != nullptr);
     if (cl) {
-        check_eq("cacheline.per_organ", cl->per_organ.size(), std::size_t{4});   // page node traversal allocator
-        check_eq("cacheline.line_sizes", cl->line_sizes.size(), std::size_t{3}); // 64 128 256
+        check_eq("cacheline.per_organ", cl->per_organ.size(), std::size_t{4}); // page node traversal allocator
+        // BEWUSSTE Pin-Fortschreibung 3 -> 4 (C1, GO4/#8 F-C, 2026-07-12): line_size 32 additiv im Profil.
+        check_eq("cacheline.line_sizes", cl->line_sizes.size(), std::size_t{4}); // 64 128 256 32
         check_eq("cacheline.alignments", cl->alignments.size(), std::size_t{3});
         check_eq("cacheline.sw_prefetch_hints", cl->sw_prefetch_hints.size(), std::size_t{5});
     }

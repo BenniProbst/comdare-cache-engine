@@ -2485,6 +2485,42 @@ set_tests_properties(test_load_profile_writer PROPERTIES
 message(STATUS "tools-tests: test_cacheline_policy_selector (#174) + test_load_profile_writer (#175) "
     "als add_test registriert (best_binary_selector-Tool = tools/best_binary_selector add_executable).")
 
+# ─────────────────────────────────────────────────────────────────────────────
+# GO4/#8 F-C (2026-07-12) — C1/C2-Unterachsen-Tests CTest-registrieren (Muster #155-/#174-Bloecke:
+# plain `int main()`-Standalone, KEIN gtest -> add_test DIREKT, Return 0/1).
+#   * test_kf3_cacheline_subaxis (C1): pinnt den cacheline-Wertraum (jetzt 60 = 4x3x5; B32 additiv,
+#       KF-5 thesis-treu). War bisher NUR Quelle im Tree (nie in ctest) -> der Produkt-Pin war zahnlos;
+#       ab jetzt laeuft er in der Suite. Schlanker Include-Satz (nur axes/cacheline/ -> Root libs/cache_engine).
+#   * test_ff2_node_width_subaxis (C2): die NEUE FF2-Unterachse "Knoten-Breite in Cache-Lines" (1..16) —
+#       Wertraum + binary-id-Neutralitaet ohne Profil-Aktivierung (profile_to_tree) + REALER Konsum im
+#       Node-Layout-Pfad (LayoutAwareChunkedStore-Chunk-Geometrie). Include-Satz wie die #155-Phase-E-Tests
+#       (+ libs/common/serialization) + XML-Parser-Lib fuer den Parse des getrackten Studien-Profils (arg1).
+add_executable(test_kf3_cacheline_subaxis "test_kf3_cacheline_subaxis.cpp")
+target_compile_features(test_kf3_cacheline_subaxis PRIVATE cxx_std_23)
+target_include_directories(test_kf3_cacheline_subaxis PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
+comdare_set_platform_defines(test_kf3_cacheline_subaxis)
+add_test(NAME test_kf3_cacheline_subaxis COMMAND test_kf3_cacheline_subaxis)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_kf3_cacheline_subaxis)
+set_tests_properties(test_kf3_cacheline_subaxis PROPERTIES LABELS "axes;cacheline;kf3" TIMEOUT 60)
+
+add_executable(test_ff2_node_width_subaxis "test_ff2_node_width_subaxis.cpp")
+target_compile_features(test_ff2_node_width_subaxis PRIVATE cxx_std_23)
+target_include_directories(test_ff2_node_width_subaxis PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_ff2_node_width_subaxis PRIVATE Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_ff2_node_width_subaxis)
+add_test(NAME test_ff2_node_width_subaxis COMMAND test_ff2_node_width_subaxis
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/ff2_node_width_study.profile.xml")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_ff2_node_width_subaxis)
+set_tests_properties(test_ff2_node_width_subaxis PROPERTIES LABELS "axes;cacheline;ff2;node_width" TIMEOUT 120)
+
 # 2026-07-11: best_binary_selector parse+rank Characterization-Test. Das #172-Werkzeug war bisher NUR als
 # add_executable (tools/best_binary_selector) registriert, NIE als add_test -> parse_measurement_csv +
 # rank_binaries (ausgelieferte Produktionslogik) waren UNGETESTET. Dieser Test nagelt sie gate-frei fest
