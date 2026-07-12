@@ -223,9 +223,20 @@ TYPED_TEST(AllocatorVendorTest, ZeroAllocateRoundtripAllConfigs) {
                 ASSERT_EQ(bytes[i], 0u) << "zero_allocate Byte " << i << " nicht 0 (Vendor " << TypeParam::name()
                                         << ")";
             }
-            // zero_allocate verwendet std::calloc Pfad — std::free statt deallocate
-            // (Heap-Crossover-Vermeidung wenn HAVE=OFF Fallback)
-            std::free(p);
+            // Domaenen-korrekte Freigabe (wf_1009d16f-Folgebefund 2026-07-12): mit echter
+            // Vendor-Detection (USE_MIMALLOC=1, perms-ON-Baum) liefert zero_allocate einen
+            // mi_calloc-Zeiger — glibc-free darauf ist Heap-Crossover ("free(): invalid
+            // pointer"-Abort). mi_free (via m.deallocate) verarbeitet mi_calloc-Zeiger.
+            // Alle uebrigen Wrapper liefern im zero-Pfad std::calloc-Zeiger: dort bleibt
+            // std::free korrekt (m.deallocate waere portable_aligned_free — auf Windows
+            // _aligned_free und damit selbst Heap-Crossover). Weitere Vendor-Wrapper
+            // (jemalloc/tcmalloc/...) brauchen dieselbe Behandlung, sobald ihre
+            // HAVE-Detection aktiv wird.
+            if constexpr (std::is_same_v<TypeParam, axis_06::MimallocAllocator> && TypeParam::enabled) {
+                m.deallocate(p, n * size, alignof(std::max_align_t));
+            } else {
+                std::free(p);
+            }
         }
     }
     SUCCEED(); // Vendor ohne ZeroingStrategy: kein Body, kein Failure
