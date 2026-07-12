@@ -1,10 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- comdare_thesis_profile — Diplomarbeit Cache-Line-Konfigurator (KF-2, 2026-06-02)
      Schema-Doku: SCHEMA.md (gleicher Ordner). Baut additiv auf:
-       - permutation_axes.xml (11 Achsen-Wertebereiche, ../permutation_axes.xml)
+       - permutation_axes.xml (11 Achsen-Wertebereiche, ../permutation_axes.xml) — HISTORISCHER Alias-Stand
        - sota/*.profile.xml    (Paper-Originale = statische Achsen-Tupel)
      Design: docs/sessions/20260602-cacheline-konfigurator-design-und-hw-recherche.md
-     KEINE bestehende Datei wird geaendert (Rueckwaerts-Kompatibilitaet). -->
+     KEINE bestehende Datei wird geaendert (Rueckwaerts-Kompatibilitaet).
+     KANONISIERT (GO-4/GO-5-Nebenbefund, 2026-07-12): die <axis ref>-Namen/-Werte sind auf die kanonischen
+     Registry-Namen gezogen (kCompositionAxisNames/EnabledStrategies, wie m3v2/m3_golden_coverage) — die
+     permutation_axes.xml-Aliasse der KF-2-Aera (layout/node/traversal/page + GROSS-Werte wie X86_SSE42/
+     SYSTEM_MALLOC) kennt die AxisRegistry nicht mehr; `messung_driver --validate` prueft gegen die Registry.
+     Uebersetzung: layout->memory_layout, traversal->cache_traversal, node->node_type, page->page_type,
+     isa{X86_SSE42/AVX2/AVX512} -> isa{isa_amd64} x simd_extension{simd_ext_sse2/avx2/avx512} (die Registry
+     fuehrt kein SSE4.2; simd_ext_sse2 = niedrigste x86-SIMD-Stufe), allocator{SYSTEM_MALLOC/JEMALLOC/MIMALLOC}
+     -> volle USE-Enabled-Liste (enable-agnostisch wie m3_smoke_coverage; jemalloc/mimalloc sind HAVE-gated
+     und kommen automatisch dazu, sobald der Vendor im Build vorhanden ist). -->
 <comdare_thesis_profile id="cacheline_study" schema_version="1">
 
   <!-- (a) BASIS-TIERE = Paper-Originale in Standardkonfig (statische Achsen-Tupel).
@@ -22,22 +31,30 @@
   </base_tiers>
 
   <!-- (b) PERMUTIERTE (dynamische) ACHSEN = cache-line-relevant, COMPILE-TIME.
-       Kein <value> => volle Liste aus permutation_axes.xml; mit <value> => Teilmenge. -->
+       Kein <value> => volle Liste aus der Achsen-Registry (EnabledStrategies); mit <value> => Teilmenge.
+       Achsen-/Werte-Namen = kanonische Registry-Namen (Kopf-Kommentar: KANONISIERT 2026-07-12). -->
   <permute_axes>
-    <axis ref="layout"/>
-    <axis ref="isa"><value>X86_SSE42</value><value>X86_AVX2</value><value>X86_AVX512</value></axis>
-    <axis ref="traversal"/>
-    <axis ref="node"/>
-    <axis ref="page"/>
+    <axis ref="memory_layout"/>
+    <!-- Alt-Intent isa{X86_SSE42/AVX2/AVX512}: die x86-SIMD-Stufen. Kanonisch zerfaellt das in die
+         CPU-Familie (isa, T12) x die SIMD-Stufe (simd_extension, axis_09b): Familie auf x86 gepinnt,
+         Stufen-Spread ueber die 09b-Achse. -->
+    <axis ref="isa"><value>isa_amd64</value></axis>
+    <axis ref="simd_extension"><value>simd_ext_sse2</value><value>simd_ext_avx2</value><value>simd_ext_avx512</value></axis>
+    <axis ref="cache_traversal"/>
+    <axis ref="node_type"/>
+    <axis ref="page_type"/>
     <axis ref="prefetch"/>
-    <axis ref="allocator"><value>SYSTEM_MALLOC</value><value>JEMALLOC</value><value>MIMALLOC</value></axis>
+    <!-- Alt-Intent allocator{SYSTEM_MALLOC/JEMALLOC/MIMALLOC}: repraesentative Familien-Teilmenge.
+         Kanonisch enable-agnostisch OHNE <value> = volle USE-Enabled-Liste des Builds (std_malloc/pmr/pool
+         immer; jemalloc/mimalloc HAVE-gated automatisch dazu — kein build-varianter Validate-Bruch). -->
+    <axis ref="allocator"/>
 
     <!-- NEUE per-Organ Cache-Line-Unterachse (KF-3, Kernthema §4.3): JEDES benannte Organ
          traegt eine EIGENE, unabhaengige Cache-Line-Einstellung -> bis 60^4 (beabsichtigt).
          C1 (GO4/#8 F-C, 2026-07-12): line_size 32 ADDITIV ergaenzt (KF-5 thesis-treu {32,64,128};
          32 = embedded, D_building_block_matrix.tex:251). ANS ENDE angehaengt, damit die Reihenfolge
          der bestehenden Werte (und damit deren Ebenen-Ordnung im Experiment-Baum) stabil bleibt. -->
-    <axis ref="cacheline" per_organ="page node traversal allocator">
+    <axis ref="cacheline" per_organ="page_type node_type cache_traversal allocator">
       <line_size>64</line_size>
       <line_size>128</line_size>
       <line_size>256</line_size>
@@ -62,7 +79,10 @@
   <!-- (d) DYNAMISCHE OS-Laufzeit-Dimensionen — der CacheEngineBuilder durchlaeuft sie am Pruef-Dock
        zur Laufzeit in Env-/Ressourcengrenzen (Faustregel §7; KF-7). -->
   <runtime_dynamic>
-    <thread_count>1 2 4</thread_count>                          <!-- via Algorithm_Resource_Control (KF-4) -->
+    <!-- T8-Phantom-Fix nachgezogen (vorbestehender Befund, 2026-07-12): runtime_thread_count() hat null
+         Consumer — Werte >1 waeren mehrfach etikettierte identische Messungen (Muster ff2/fb/m3_smoke;
+         test_kf1 pinnt 1). Alt-Intent "1 2 4" (KF-4/KF-7) kehrt zurueck, sobald T8 echte Consumer hat. -->
+    <thread_count>1</thread_count>                              <!-- via Algorithm_Resource_Control (KF-4) -->
     <hw_prefetcher>all_on adjacent_off all_off</hw_prefetcher>  <!-- via MSR 0x1A4 (Launcher KF-12) -->
   </runtime_dynamic>
 
@@ -75,12 +95,12 @@
   <!-- (g) 3 PERMUTATIONSMODI, je auf Achsen-Teilmenge beschraenkt (pruefling_merge.hpp; KF-9). -->
   <modes>
     <mode name="ce_only"           merge="Stufe1_CeOnly"
-          active_axes="layout isa traversal node page prefetch allocator cacheline"/>
+          active_axes="memory_layout isa simd_extension cache_traversal node_type page_type prefetch allocator cacheline"/>
     <mode name="pruefling_replace" merge="Stufe2_PrueflingReplace"
-          pruefling="prtart" replaces_axes="page node traversal value_handle allocator prefetch layout"
-          active_axes="isa cacheline"/>
+          pruefling="prtart" replaces_axes="page_type node_type cache_traversal value_handle allocator prefetch memory_layout"
+          active_axes="isa simd_extension cacheline"/>
     <mode name="full_join"         merge="Stufe3_FullJoin"
-          active_axes="layout isa traversal node page prefetch allocator cacheline"/>
+          active_axes="memory_layout isa simd_extension cache_traversal node_type page_type prefetch allocator cacheline"/>
   </modes>
 
   <!-- (h) STATISCHE Achsen kommen aus dem jeweiligen base_tier (Paper-Tupel); Cross-Constraints. -->

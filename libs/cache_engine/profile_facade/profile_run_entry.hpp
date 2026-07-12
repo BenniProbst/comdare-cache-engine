@@ -61,7 +61,7 @@ struct RunProfileArgs {
     ex::CompileFn            compile;          // injizierter Compiler-Aufruf (cl @rsp) — wie BuildOrchestrator
     std::vector<std::string> compile_includes; // ungenutzt hier (der Host backt die Includes in compile) — Doku
     std::uint64_t            n_ops               = 10000;  // Mess-Workload je dyn-Setting
-    std::size_t              max_binaries        = 0;      // 0 ⇒ run_options.cap (Profil); sonst Override
+    std::size_t              max_binaries        = 0;      // 0 ⇒ run_options.cap; beide 0 ⇒ KEIN Cap
     std::string              build_version       = "m3v2"; // Resume-Marke (.version-Sidecar)
     std::uint32_t            n_repeats           = 3;      // Wiederholungen je (Binary×Setting)
     std::size_t              cores_per_build     = 4;      // KF-16b Default
@@ -140,11 +140,12 @@ struct RunProfileResult {
     basis_tree.build(basis_levels);
     ex::StaticBinaryView const basis_view = basis_tree.static_binary_view();
 
-    // ── (2) cap/resume/Tags (Profil-Defaults; Override aus den Args). ──
-    std::size_t eff_cap = a.max_binaries;
-    if (ro.cap > 0 && a.max_binaries == 0) eff_cap = ro.cap;
+    // ── (2) cap/resume/Tags (Profil-Defaults; Override aus den Args). cap-Aufloesung = profile_effective_cap
+    //    (Single-Source, profile_runner.hpp): cap="0"/fehlendes cap = KEIN Cap → alle Basis-Zellen (GO-4/GO-5-
+    //    Nebenbefund 2026-07-12; vorher ergab eff_cap==0 eine LEERE Basis-Selektion — m3_golden_coverage
+    //    (cap="0" = dokumentiert "KEIN kuenstliches Cap") bekam damit faelschlich keine Basis-320). ──
     bool const        resume = a.resume_override_set ? a.resume : ro.resume;
-    std::size_t const N      = (std::min)(eff_cap, basis_tree.binary_count());
+    std::size_t const N      = profile_effective_cap(ro.cap, a.max_binaries, basis_tree.binary_count());
 
     std::string tag_platform      = a.platform_override.empty()
                                         ? (ro.platform.empty() ? std::string{"win-x86_64"} : ro.platform)

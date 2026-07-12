@@ -134,7 +134,7 @@ namespace cx = ::comdare::builder::xml;
 // ── (run_options) — die Lauf-Steuerung aus <run_options>. argv/env darf weiterhin uebersteuern (Rueckwaerts-
 //    Kompatibilitaet); diese Struct liefert die PROFIL-DEFAULTS, die der Treiber anwendet, wenn argv/env fehlt. ──
 struct ProfileRunOptions {
-    std::size_t cap = 0;       // max_binaries-Obergrenze (0 = ungesetzt → Treiber-Default)
+    std::size_t cap = 0;       // max_binaries-Obergrenze (0 = cap="0"/fehlend = KEIN Cap → alle Basis-Zellen)
     std::string platform;      // CSV-Tag platform
     std::string build_version; // CSV-Tag build_version
     bool        resume = true; // Mess-Resume (#139)
@@ -149,6 +149,22 @@ struct ProfileRunOptions {
     ro.build_version = tp.run_options.build_version;
     ro.resume        = tp.run_options.resume;
     return ro;
+}
+
+/// profile_effective_cap — DIE EINE cap-Aufloesung der Basis-Selektion (GO-4/GO-5-Nebenbefund, 2026-07-12).
+/// Semantik (gepinnt in test_profile_roundtrip (7)):
+///   • override_cap > 0 (argv/env, z.B. COMDARE_E4_CAP)  ⇒ override_cap gewinnt (Rueckwaerts-Kompatibilitaet).
+///   • sonst profile_cap > 0 (<run_options cap="N">)      ⇒ profile_cap.
+///   • BEIDE 0 (cap="0" ODER fehlendes cap)               ⇒ KEIN Cap = alle `basis_count` Basis-Zellen.
+/// VORHER interpretierte run_profile eff_cap==0 als N=0 (LEERE Basis-Selektion) — damit bekam
+/// m3_golden_coverage (cap="0" = dokumentiert "KEIN kuenstliches Cap") KEINE Basis-320. Das Ergebnis ist
+/// stets auf basis_count geklemmt (min), nie darueber.
+[[nodiscard]] inline std::size_t profile_effective_cap(std::size_t profile_cap, std::size_t override_cap,
+                                                       std::size_t basis_count) {
+    std::size_t eff = override_cap;
+    if (override_cap == 0 && profile_cap > 0) eff = profile_cap;
+    if (eff == 0) eff = basis_count; // 0 = KEIN Cap → alle Basis-Zellen (nie mehr "leer")
+    return (std::min)(eff, basis_count);
 }
 
 // ── (working_set_sweep) — die N-Liste der AEUSSEREN Lauf-Iteration (Record-Zahlen, P-MD7). Ersetzt die
