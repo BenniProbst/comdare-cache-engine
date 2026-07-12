@@ -20,6 +20,7 @@ add_subdirectory(permutation_engine)
 add_subdirectory(module_loader)
 add_subdirectory(anatomy_module_loader)  # V41.F.6.1.R5.E
 add_subdirectory(anatomy_codegen_tool)   # V41.F.6.1.R5.F
+add_subdirectory(permutation_codegen_tool)  # #25 B — C++23-Port von codegen.cmake (opt-in cpp-Backend)
 add_subdirectory(workload_driver)        # V41.F.6.1.R6.A
 add_subdirectory(pruef_dock)             # V41.F.6.1.R6 — per-Gattung ABI-Mess-Übergang (Doku 24 §8.8)
 add_subdirectory(platform_probe)

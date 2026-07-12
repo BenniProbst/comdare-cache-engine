@@ -1,6 +1,13 @@
 @echo off
 REM tools\permutation_codegen\codegen.bat — Windows-Pendant zu codegen.cmake (F-EXTRA-5 NO-PYTHON)
 REM
+REM DEPRECATED (#25 B, 2026-07-12): Dieses Skelett-Skript (nur Platzhalter-Output, KEINE echten
+REM   Permutationen) ist durch das C++23-Tool abgeloest:
+REM     apps\permutation_codegen_tool\ -> comdare_permutation_codegen_cli (Backend 'cpp').
+REM   Das C++-Tool erzeugt eine BYTE-IDENTISCHE permutations.cmake zum Default-Backend 'cmake'
+REM   (codegen.cmake). Neue Belange bitte dort implementieren, nicht hier.
+REM   Wird bewusst NICHT geloescht (Doku-nie-loeschen); als bat-Backend weiter aufrufbar.
+REM
 REM Aufruf:  set COMDARE_TARGET_ISA=auto && set COMDARE_OUTPUT=<path> && codegen.bat
 REM oder:    codegen.bat --target-isa=auto --output=<path>
 REM

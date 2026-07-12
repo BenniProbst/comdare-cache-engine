@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # tools/permutation_codegen/codegen.sh — POSIX Pendant zu codegen.cmake (F-EXTRA-5 NO-PYTHON)
 #
+# DEPRECATED (#25 B, 2026-07-12): Dieses Skelett-Skript (nur ein Platzhalter-Output, KEINE echten
+#   Permutationen) ist durch das C++23-Tool abgeloest:
+#     apps/permutation_codegen_tool/ -> comdare_permutation_codegen_cli (Backend 'cpp').
+#   Das C++-Tool erzeugt eine BYTE-IDENTISCHE permutations.cmake zum Default-Backend 'cmake'
+#   (codegen.cmake). Neue Belange bitte dort implementieren, nicht hier.
+#   Wird bewusst NICHT geloescht (Doku-nie-loeschen); als sh-Backend weiter aufrufbar.
+#
 # Aufruf:  COMDARE_TARGET_ISA=auto COMDARE_OUTPUT=<path> ./codegen.sh
 # oder:    ./codegen.sh --target-isa=auto --output=<path>
 #
