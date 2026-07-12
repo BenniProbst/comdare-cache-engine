@@ -18,7 +18,10 @@
 //                    cache_engine_permutations.xml
 //                    search_algorithm_permutations.xml
 //                    allocator_permutations.xml
-//                    test_data_sets.xml
+//                    test_data_sets.xml   [DEPRECATED-Slot, GO-5 Fork 2/R2 2026-07-12: die Datei
+//                                          existiert nirgends; Wahrheitsquelle der Datensaetze sind
+//                                          die Akten Code/test_data_xml/*.test_data.xml — KEINE
+//                                          Doppelquelle nachtraeglich erzeugen]
 //   <output_dir>   Directory for generated modules + measurement output
 //
 // Optionen:
@@ -64,7 +67,8 @@ void print_usage(std::ostream& os) {
        << "                   cache_engine_permutations.xml\n"
        << "                   search_algorithm_permutations.xml\n"
        << "                   allocator_permutations.xml\n"
-       << "                   test_data_sets.xml\n"
+       << "                   test_data_sets.xml  [DEPRECATED-Slot; Wahrheitsquelle sind die\n"
+       << "                                        Code/test_data_xml/*.test_data.xml-Akten (GO-5 Fork 2)]\n"
        << "  <output_dir>   Directory for generated modules + measurement output\n\n"
        << "Options:\n"
        << "  -h, --help           Show this usage text and exit (status 0)\n"

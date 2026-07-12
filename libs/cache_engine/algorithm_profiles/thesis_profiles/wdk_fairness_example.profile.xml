@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- comdare_thesis_profile — GO-5 Fork 1 + Fork 6 BEISPIEL-Profil (2026-07-12, Dossier 20260712-go5 A.1/A.6).
+
+     ZWECK: NUR Demonstrator der beiden ADDITIVEN Schema-Erweiterungen (SCHEMA.md):
+       (1) <datasets>          — Fork 1/Option A': die Mess-INPUT-Dimension D referenziert die
+                                 test_data-AKTEN (Code/test_data_xml/*.test_data.xml, super) =
+                                 SINGLE-SOURCE (Fork 2/R2: KEINE test_data_sets.xml-Doppelquelle).
+       (2) <sota_series fairness=".."> — Fork 6: die Thesis-§sec:fairness-Modi common_denominator|native
+                                 als Reihen-Dimension (Trennung je Vergleich).
+     Dieses Profil wird von KEINEM Mess-Job gefahren (kein CI-Default); es ist das validierbare
+     Beispiel (messung_driver - -validate ⇒ Exit 0) + Fixture der ctest-Gates. Die bestehenden Profile
+     (m3v2_study/m3v2_smoke/m3_golden_coverage/m3_smoke_coverage/fb_numa_page_study/…) bleiben
+     byte-unberuehrt (TABU dieses Increments).
+
+     BASIS: alle 19 Slots wie die m3v2-Baseline gepinnt (Index 0) ⇒ genau 1 Basis-Zelle mit
+     golden-identischer binary_id (idempotent; golden-Roundtrip unberuehrt). Datasets/fairness sind
+     Mess-Input-/Reihen-METADATEN — sie aendern KEINE binary_id.
+
+     EHRLICHKEIT (Fork 6): die zwei hot-Reihen unten (common_denominator vs native) erzeugen bis zur
+     DATEN-gated Kompositions-Pinnung (#156/#162-Fenster) DIESELBE DLL/binary_id — das --validate
+     WARNT genau darueber (gewollt sichtbar, kein Fehler). -->
+<comdare_thesis_profile id="wdk_fairness_example" schema_version="1">
+
+  <base_tiers>
+    <tier id="prt_art" profile_ref="../sota/art.profile.xml" paper_ref="PRT"/>
+    <tier id="hot"     profile_ref="../sota/hot.profile.xml" paper_ref="P02"/>
+  </base_tiers>
+
+  <!-- Alle 19 Slots auf die m3v2-Baseline gepinnt (je 1 Wert = Index 0; Reihenfolge kCompositionAxisNames). -->
+  <permute_axes>
+    <axis ref="search_algo"><value>k_ary</value></axis>
+    <axis ref="cache_traversal"><value>linear_fanout</value></axis>
+    <axis ref="mapping"><value>direct_placement</value></axis>
+    <axis ref="path_compression"><value>path_compression_none</value></axis>
+    <axis ref="node_type"><value>node4</value></axis>
+    <axis ref="memory_layout"><value>memory_layout_cache_line_aligned</value></axis>
+    <axis ref="allocator"><value>std_malloc</value></axis>
+    <axis ref="prefetch"><value>prefetch_none</value></axis>
+    <axis ref="concurrency"><value>concurrency_none</value></axis>
+    <axis ref="serialization"><value>serialization_raw_binary</value></axis>
+    <axis ref="telemetry"><value>telemetry_leaf_only_counter</value></axis>
+    <axis ref="value_handle"><value>value_handle_inline</value></axis>
+    <axis ref="isa"><value>isa_amd64</value></axis>
+    <axis ref="index_organization"><value>index_org_heap</value></axis>
+    <axis ref="io_dispatch"><value>io_in_memory_only</value></axis>
+    <axis ref="migration_policy"><value>migration_none</value></axis>
+    <axis ref="filter"><value>filter_bloom</value></axis>
+    <axis ref="queuing_q1"><value>no_buffer</value></axis>
+    <axis ref="queuing_q2"><value>eager_flush</value></axis>
+  </permute_axes>
+
+  <!-- GO-5 Fork 1: die Mess-INPUT-Dimension D — Referenzen auf die test_data-AKTEN (Single-Source).
+       loader = DatasetLoaderRegistry-loader_id: string_corpus (String-Korpora des 6er-Kanons),
+       sosd_uint64 (binaere SOSD-Akte). Die DATEI-Existenz ist super-seitig (Akten leben im super-Repo);
+       das --validate prueft hier das FORMAT (…*.test_data.xml) + die loader-Plausibilitaet. -->
+  <datasets>
+    <dataset id="url"            akte_ref="test_data_xml/url.test_data.xml"            loader="string_corpus"/>
+    <dataset id="english_words"  akte_ref="test_data_xml/english_words.test_data.xml"  loader="string_corpus"/>
+    <dataset id="sosd_books_200M" akte_ref="test_data_xml/sosd_books_200M.test_data.xml" loader="sosd_uint64"/>
+  </datasets>
+
+  <!-- GO-5 Fork 6: die Thesis-§sec:fairness-TRENNUNG je Vergleich — derselbe Vergleich (hot, Stufe1)
+       einmal als Common-Denominator- und einmal als Native-Reihe; prt_art ohne fairness (ungesetzt = "-"). -->
+  <sota_series_set>
+    <sota_series id="A" lebewesen="prt_art" merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="hot"     merge="Stufe1_CeOnly" fairness="common_denominator"/>
+    <sota_series id="A" lebewesen="hot"     merge="Stufe1_CeOnly" fairness="native"/>
+  </sota_series_set>
+
+  <compile_dims>
+    <workloads>ycsb_c</workloads>
+    <telemetry mode="on" silent="true"/>
+  </compile_dims>
+
+  <runtime_dynamic>
+    <thread_count>1</thread_count>
+    <hw_prefetcher>all_on</hw_prefetcher>
+  </runtime_dynamic>
+
+  <repetitions count="1" interpolate="false" overlay_in_chart="true"/>
+
+  <run_options cap="1" platform="linux-x86_64" build_version="wdk_fairness_example" resume="true"/>
+
+  <modes>
+    <mode name="wdk_example_base" merge="Stufe1_CeOnly"
+          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization telemetry value_handle isa index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2"/>
+  </modes>
+
+  <static_axes from="base_tier"/>
+
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_thesis_profile>

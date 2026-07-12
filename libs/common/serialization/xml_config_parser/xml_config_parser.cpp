@@ -91,7 +91,13 @@ CacheEngineConfig XmlConfigParser::parse(std::filesystem::path const& root_dir) 
     cfg.cache_engine_permutations     = parse_one(root_dir / "cache_engine_permutations.xml");
     cfg.search_algorithm_permutations = parse_one(root_dir / "search_algorithm_permutations.xml");
     cfg.allocator_permutations        = parse_one(root_dir / "allocator_permutations.xml");
-    cfg.test_data_sets                = parse_one(root_dir / "test_data_sets.xml");
+    // GO-5 Fork 2 (R2 ENTSCHIEDEN, 2026-07-12, Dossier A.2): DEPRECATED-Slot. `test_data_sets.xml`
+    // existiert nirgends (0x) und darf NICHT nachtraeglich erzeugt werden — die WAHRHEITSQUELLE der
+    // Datensaetze sind die Akten `Code/test_data_xml/*.test_data.xml` (super; #25-Kanon), die der
+    // E4-Weg ueber `<datasets>` im comdare_thesis_profile referenziert (Fork 1/A.1). Der Aufruf
+    // bleibt fuer den COMDARE_LEGACY_MESSREIHEN-gated Legacy-Pfad stehen (Doku-nie-loeschen) und
+    // diagnostiziert die fehlende Datei laut (parse_one, keine stille-{}-Falle).
+    cfg.test_data_sets = parse_one(root_dir / "test_data_sets.xml");
 
     // REV 7.6 V8.6 — Optional: algorithm_profiles + Messreihen
     auto profiles_dir = root_dir / "algorithm_profiles";
@@ -104,11 +110,13 @@ CacheEngineConfig XmlConfigParser::parse(std::filesystem::path const& root_dir) 
 }
 
 std::vector<PermutationEntry> XmlConfigParser::parse_one(std::filesystem::path const& xml_file) const {
-    // Phase 7: stille-{}-Falle bereinigt — Rueckgabe bleibt {} (Legacy-4-Datei-Schema ist
-    // optional, R2-Entscheid Dataset-Wahrheitsquelle steht aus), aber NICHT mehr schweigend.
+    // Phase 7: stille-{}-Falle bereinigt — Rueckgabe bleibt {} (Legacy-4-Datei-Schema ist optional),
+    // aber NICHT mehr schweigend. GO-5 Fork 2 (2026-07-12): R2 ist ENTSCHIEDEN — test_data_sets.xml
+    // ist ein DEPRECATED-Slot; Wahrheitsquelle = die Code/test_data_xml/*.test_data.xml-Akten (A.2).
     if (!std::filesystem::exists(xml_file)) {
         std::cerr << "[xml-config] optionale Datei fehlt: " << xml_file.string()
-                  << " (Legacy-4-Datei-Schema, vgl. R2-Entscheid)\n";
+                  << " (Legacy-4-Datei-Schema; test_data_sets.xml = DEPRECATED-Slot, Wahrheitsquelle "
+                     "sind die Code/test_data_xml/*.test_data.xml-Akten — GO-5 Fork 2/R2)\n";
         return {};
     }
     std::string content = read_file(xml_file);
@@ -315,7 +323,20 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(std::filesyst
             sr.lebewesen      = s->attr("lebewesen");
             sr.merge          = s->attr("merge");
             sr.pruefling_type = s->attr("pruefling_type"); // #171: optional; leer ⇒ aus merge abgeleitet
+            sr.fairness       = s->attr("fairness");       // GO-5 Fork 6: optional; leer ⇒ ungesetzt (CSV-Tag "-")
             tp.sota_series.push_back(std::move(sr));
+        }
+    }
+    // ── GO-5 Fork 1 (2026-07-12): <datasets>/<dataset id=".." akte_ref=".." loader=".."/> — die deklarierten
+    //    Datensatz-AKTEN-Referenzen (Mess-Input D; Single-Source = die test_data-Akten, Fork 2/R2). ADDITIV —
+    //    fehlt <datasets>, bleibt die Liste leer (heutiges Verhalten byte-identisch, kein Round-Trip-Einfluss). ──
+    if (auto const* ds = root->child("datasets")) {
+        for (auto const* d : ds->children_named("dataset")) {
+            ThesisDatasetRef dr;
+            dr.id       = d->attr("id");
+            dr.akte_ref = d->attr("akte_ref");
+            dr.loader   = d->attr("loader");
+            tp.datasets.push_back(std::move(dr));
         }
     }
     // (d) <run_options cap=".." platform=".." build_version=".." resume=".."/> — Lauf-Steuerungs-Defaults.

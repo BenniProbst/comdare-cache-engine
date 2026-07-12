@@ -4,7 +4,16 @@
 //   cache_engine_permutations.xml
 //   search_algorithm_permutations.xml
 //   allocator_permutations.xml
-//   test_data_sets.xml
+//   test_data_sets.xml   [DEPRECATED-Slot — s.u.]
+//
+// GO-5 Fork 2 (Dataset-Wahrheitsquelle, 2026-07-12, Dossier 20260712-go5 A.2): `test_data_sets.xml`
+// existiert NIRGENDS im Bestand (0x; einzig ein Unit-Test erzeugt sie sich synthetisch). Die
+// WAHRHEITSQUELLE der Datensaetze sind die test_data-AKTEN `Code/test_data_xml/*.test_data.xml`
+// (super; Checksum/line_count/preprocessing via compute_dataset_akte, #25-Kanon). Der Parser-Slot
+// (`CacheEngineConfig::test_data_sets`) bleibt als Legacy-Schnittstelle stehen (Doku-nie-loeschen;
+// der Legacy-Pfad ist ohnehin COMDARE_LEGACY_MESSREIHEN-gated), wird aber NICHT befuellt und darf
+// NICHT nachtraeglich mit einer eigenen test_data_sets.xml gefuellt werden (KEINE Doppelquelle, R2).
+// Der E4-Weg konsumiert die Akten ueber `<datasets>` im comdare_thesis_profile (Fork 1/A.1, s.u.).
 //
 // Minimaler XML-Reader fuer Phase 6.4 Skelett. Phase 7 ersetzt durch
 // echten XML-Parser (tinyxml2 oder eigene Implementation).
@@ -142,6 +151,32 @@ struct ThesisSotaSeries {
     // Ableitung (z.B. Forscher-eigene Reihe). Die Ableitung lebt in sota_catalog::derive_pruefling_type
     // (Single-Source) — KEIN neues Selektions-Konzept, nur eine 1:1-Sicht auf die bestehende MergeStrategy.
     std::string pruefling_type; // "" (ableiten) / "full" / "abstract"
+    // GO-5 Fork 6 (Fairness-Modus, 2026-07-12, Dossier A.6 + Thesis §sec:fairness
+    // kapitel/de/06_evaluation_methodology.tex:128-136): "Jeder Vergleich TRENNT einen gemeinsamen
+    // Minimalmodus (Common-Denominator: externe Werte-Handles, keine PRT-ART-Spezialpfade) vom
+    // PRT-ART-Native-Modus (Inline-Umschaltung, Cache-Engine, Seitentyp-Scheduler)." ADDITIV +
+    // OPTIONAL: "" (ungesetzt = heutiges Verhalten, CSV-Tag "-") / "common_denominator" / "native".
+    // HEUTIGER Konsum: Reihen-Tag bis in die Runner-Spec (SotaPass.fairness_mode) + CSV-Spalte
+    // fairness_mode + Resume-Stamp. Die Kompositions-Pinnung des common_denominator-Falls
+    // (value_handle_external + PRT-Spezialpfade aus) + die MESS-Abnahme sind DATEN-gated
+    // (#156/#162-Fenster) — ehrlich dokumentiert, hier NICHT vorgebaut.
+    std::string fairness; // "" (ungesetzt) / "common_denominator" / "native"
+};
+
+// GO-5 Fork 1 (W/D/K-XML-Strecke, Option A', 2026-07-12, Dossier A.1): <datasets>/<dataset .../> —
+// die Mess-INPUT-Dimension D (Dataset) ADDITIV im E4-Profil-Schema. Je Eintrag referenziert
+// `akte_ref` eine test_data-AKTE `Code/test_data_xml/<name>.test_data.xml` (super) = die
+// SINGLE-SOURCE der Datensatz-Provenienz (Fork 2/R2: KEINE test_data_sets.xml-Doppelquelle).
+// `loader` = DatasetLoaderRegistry-loader_id (dataset_loader.hpp; Repo-Loader: "string_corpus"
+// fuer die 6er-Kanon-String-Korpora, "sosd_uint64" fuer die binaere SOSD-Akte). Datasets sind
+// MESS-INPUTS, keine Binary-Achsen → binary_id-neutral (golden-Roundtrip unberuehrt). Fehlt
+// <datasets> ⇒ Liste leer = heutiges Verhalten (synthetischer YCSB-Generator) byte-identisch.
+// Der Loader-MESS-Konsum (load_or_generate_ycsb im Workload-Pfad) ist der dokumentierte offene
+// Folge-Schritt (lauf-gated; der Loader-Slot selbst ist seit #184 hermetisch bewiesen).
+struct ThesisDatasetRef {
+    std::string id;       // Kurzname (z.B. "url") — eindeutiger Referenz-Schluessel (Log/CSV-Meta)
+    std::string akte_ref; // Pfad/Name der Akte (…<name>.test_data.xml) — Format-Check im --validate
+    std::string loader;   // DatasetLoaderRegistry-loader_id (z.B. "string_corpus")
 };
 
 // (d) <run_options cap=".." platform=".." build_version=".." resume=".."/> — die Lauf-Steuerung, die heute aus
@@ -190,6 +225,11 @@ struct ThesisProfile {
     std::vector<ThesisAxisSweep>  axis_sweeps; // (b) <axis_sweep .../> — eine Achse gegen feste Baseline
     std::vector<ThesisSotaSeries> sota_series; // (c) <sota_series .../> — SOTA-/PRT-ART-Reihen A/B/C
     ThesisRunOptions              run_options; // (d) <run_options .../> — Lauf-Steuerung (cap/platform/...)
+
+    // ── GO-5 Fork 1 (2026-07-12): <datasets>/<dataset id akte_ref loader/> — die deklarierten
+    //    Datensatz-AKTEN-Referenzen (ADDITIV; leer = Default = synthetischer YCSB-Generator,
+    //    byte-identisch zum heutigen Verhalten). Doku an ThesisDatasetRef. ──
+    std::vector<ThesisDatasetRef> datasets;
 };
 
 class XmlConfigParser {

@@ -22,6 +22,15 @@
 //       dieser Achse). Bei Fehler: nennt Achse + ungueltigen Wert + die gueltigen Werte.
 //   (3) jeder <axis_sweep axis="X"> + jede <sota_series lebewesen="L"> referenziert eine deklarierte Achse / ein
 //       deklariertes base_tier.
+//   (4) GO-5 Fork 6 (2026-07-12): <sota_series fairness=".."> traegt nur die erlaubten Thesis-§sec:fairness-Modi
+//       (common_denominator|native; leer = ungesetzt). Zwei Reihen desselben (lebewesen,merge) mit verschiedenem
+//       fairness erzeugen bis zur DATEN-gated Kompositions-Pinnung DIESELBE binary_id → WARNUNG (kein Fehler).
+//   (5) GO-5 Fork 1 (2026-07-12): jeder <dataset id akte_ref loader> ist FORMAT-plausibel — id nicht leer +
+//       eindeutig, akte_ref endet auf ".test_data.xml" (die Akten sind die Single-Source, Fork 2/R2; die
+//       DATEI-Existenz ist super-seitig und wird hier bewusst NICHT geprueft), loader nicht leer. Ein loader
+//       ausserhalb der Repo-Loader-ids (kKnownDatasetLoaderIds) ist eine WARNUNG (die DatasetLoaderRegistry ist
+//       laufzeit-offen), denn ein Tippfehler fiele beim spaeteren Mess-Konsum still auf den YCSB-Generator
+//       zurueck (load_or_generate_ycsb-Fallback) — genau die stille Fehlerklasse, die --validate sichtbar macht.
 //
 // AUSGABE: klare Meldung je Fehler; bool-Ergebnis (true = OK). Der Host mappt true→Exit 0 (+ Zusammenfassung),
 // false→Exit != 0. Pattern: Specification/Validator (read-only Gegen-Pruefung); C++23, header-only.
@@ -36,6 +45,7 @@
 #include <ostream>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace comdare::cache_engine::thesis_lazy {
@@ -48,11 +58,21 @@ struct ProfileValidationResult {
     bool                     ok = true;
     std::vector<std::string> errors;   // je ungueltiger Eintrag eine klare Meldung
     std::vector<std::string> warnings; // nicht-fatale Hinweise (z.B. leere <value>-Liste = Registry-Expansion)
-    std::size_t              axes_checked   = 0;
-    std::size_t              values_checked = 0;
-    std::size_t              sweeps_checked = 0;
-    std::size_t              series_checked = 0;
+    std::size_t              axes_checked     = 0;
+    std::size_t              values_checked   = 0;
+    std::size_t              sweeps_checked   = 0;
+    std::size_t              series_checked   = 0;
+    std::size_t              datasets_checked = 0; // GO-5 Fork 1: geprueften <dataset>-Eintraege (0 = keine deklariert)
 };
+
+// ── GO-5 Fork 6 (Thesis §sec:fairness): die zwei erlaubten Fairness-Modi einer <sota_series>. ──
+inline constexpr char const* kFairnessModes[] = {"common_denominator", "native"};
+
+// ── GO-5 Fork 1: die im Repo existenten DatasetLoaderRegistry-loader_ids (Quelle: die Selbst-
+//    Registrierungen in libs/common/measurement/dataset_loader/include/.../loaders/*.hpp —
+//    string_corpus_loader.hpp + sosd_uint64_loader.hpp). Die Registry ist laufzeit-OFFEN (weitere
+//    Loader registrierbar) → ein fremder loader ist WARNUNG, kein Fehler (s. Kopf-Doku (5)). ──
+inline constexpr char const* kKnownDatasetLoaderIds[] = {"string_corpus", "sosd_uint64"};
 
 /// axis_registry_from_levels — formt die AxisLevel-Liste (z.B. build_all_axis_levels()) in eine AxisRegistry
 /// (axis-Name → gueltige Werte). Das ist der READ-ONLY Brueckenkopf: build_all_axis_levels() reflektiert die
@@ -172,7 +192,10 @@ struct ProfileValidationResult {
     std::set<std::string> tier_ids;
     for (auto const& t : tp.base_tiers) tier_ids.insert(t.id);
 
-    // ── (3b): jede <sota_series lebewesen="L"> referenziert ein deklariertes <base_tier id="L">. ──
+    // ── (3b): jede <sota_series lebewesen="L"> referenziert ein deklariertes <base_tier id="L">.
+    //    (4) GO-5 Fork 6: fairness (falls gesetzt) ∈ kFairnessModes; fairness-Varianten desselben
+    //    (lebewesen,merge)-Paars sind bis zur DATEN-gated Kompositions-Pinnung binary_id-GLEICH → WARNUNG. ──
+    std::map<std::string, std::string> fairness_by_pair; // "lebewesen|merge" → erster fairness-Wert
     for (auto const& ss : tp.sota_series) {
         ++r.series_checked;
         if (tier_ids.find(ss.lebewesen) == tier_ids.end()) {
@@ -180,6 +203,64 @@ struct ProfileValidationResult {
             std::vector<std::string> ids(tier_ids.begin(), tier_ids.end());
             r.errors.push_back("UNBEKANNTES Lebewesen <sota_series id=\"" + ss.id + "\" lebewesen=\"" + ss.lebewesen +
                                "\">: kein deklariertes <base_tier>. Deklarierte base_tiers = " + preview_values(ids));
+        }
+        if (!ss.fairness.empty()) {
+            bool known = false;
+            for (char const* m : kFairnessModes) known = known || (ss.fairness == m);
+            if (!known) {
+                r.ok = false;
+                r.errors.push_back("UNGUELTIGER Fairness-Modus <sota_series id=\"" + ss.id + "\" lebewesen=\"" +
+                                   ss.lebewesen + "\" fairness=\"" + ss.fairness +
+                                   "\">: erlaubt sind common_denominator|native (Thesis §sec:fairness) oder "
+                                   "weglassen (ungesetzt).");
+            }
+        }
+        auto const [it, inserted] = fairness_by_pair.emplace(ss.lebewesen + "|" + ss.merge, ss.fairness);
+        if (!inserted && it->second != ss.fairness) {
+            r.warnings.push_back(
+                "sota_series lebewesen=\"" + ss.lebewesen + "\" merge=\"" + ss.merge +
+                "\": mehrere fairness-Varianten desselben (lebewesen,merge)-Paars erzeugen bis zur "
+                "DATEN-gated Kompositions-Pinnung (GO-5 Fork 6) DIESELBE binary_id/DLL — die Paesse "
+                "teilen sich ein per-Binary-Verzeichnis (Resume unterscheidet sie nur ueber den Stamp).");
+        }
+    }
+
+    // ── (5) GO-5 Fork 1: <datasets>-FORMAT-Checks (Datei-Existenz ist super-seitig — hier bewusst NICHT). ──
+    std::set<std::string> seen_dataset_ids;
+    for (auto const& d : tp.datasets) {
+        ++r.datasets_checked;
+        if (d.id.empty()) {
+            r.ok = false;
+            r.errors.push_back("DATASET ohne id: <dataset akte_ref=\"" + d.akte_ref +
+                               "\"> braucht einen eindeutigen Kurznamen (id).");
+        } else if (!seen_dataset_ids.insert(d.id).second) {
+            r.ok = false;
+            r.errors.push_back("DOPPELTE Dataset-id <dataset id=\"" + d.id +
+                               "\">: die id muss je Profil eindeutig sein (Referenz-Schluessel).");
+        }
+        static constexpr std::string_view kAkteSuffix = ".test_data.xml";
+        bool const                        suffix_ok =
+            d.akte_ref.size() > kAkteSuffix.size() &&
+            d.akte_ref.compare(d.akte_ref.size() - kAkteSuffix.size(), kAkteSuffix.size(), kAkteSuffix) == 0;
+        if (!suffix_ok) {
+            r.ok = false;
+            r.errors.push_back("UNGUELTIGE Akten-Referenz <dataset id=\"" + d.id + "\" akte_ref=\"" + d.akte_ref +
+                               "\">: muss auf eine test_data-AKTE (…<name>.test_data.xml) zeigen — die Akten "
+                               "sind die Single-Source (GO-5 Fork 2/R2; Datei-Existenz prueft die super-Seite).");
+        }
+        if (d.loader.empty()) {
+            r.ok = false;
+            r.errors.push_back("DATASET ohne loader: <dataset id=\"" + d.id +
+                               "\"> braucht eine DatasetLoaderRegistry-loader_id (z.B. string_corpus).");
+        } else {
+            bool known = false;
+            for (char const* l : kKnownDatasetLoaderIds) known = known || (d.loader == l);
+            if (!known) {
+                r.warnings.push_back("dataset id=\"" + d.id + "\" loader=\"" + d.loader +
+                                     "\": keine Repo-Loader-id (string_corpus|sosd_uint64). Die Registry ist "
+                                     "laufzeit-offen, ABER ein Tippfehler fiele beim Mess-Konsum still auf den "
+                                     "YCSB-Generator zurueck (load_or_generate_ycsb-Fallback).");
+            }
         }
     }
 
@@ -191,7 +272,11 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
     os << "=== PROFIL-VALIDAT (rein-lesend; KEIN DLL-Bau, KEINE Messung) ===\n";
     os << "  Profil id=" << tp.id << " schema_version=" << tp.schema_version << "\n";
     os << "  geprueft: " << r.axes_checked << " Achsen, " << r.values_checked << " Werte, " << r.sweeps_checked
-       << " axis_sweeps, " << r.series_checked << " sota_series\n";
+       << " axis_sweeps, " << r.series_checked << " sota_series";
+    // GO-5 Fork 1: datasets NUR ausgeben, wenn deklariert — die --validate-Ausgabe bestehender Profile
+    // (ohne <datasets>) bleibt byte-identisch (Default-Verhaltens-Gate dieses Increments).
+    if (r.datasets_checked > 0) os << ", " << r.datasets_checked << " datasets";
+    os << "\n";
     for (auto const& w : r.warnings) os << "  [HINWEIS] " << w << "\n";
     for (auto const& e : r.errors) os << "  [FEHLER]  " << e << "\n";
     if (r.ok)

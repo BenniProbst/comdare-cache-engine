@@ -2280,6 +2280,33 @@ target_compile_definitions(test_smoke_coverage_profile PRIVATE
     "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"")
 set_tests_properties(test_smoke_coverage_profile PROPERTIES LABELS "contract;profiles;coverage;smoke")
 
+# GO-5 Forks 1/2/6 (2026-07-12) — ctest-Gate fuer die ADDITIVEN E4-Profil-Schema-Erweiterungen
+# <datasets> (Fork 1; Single-Source = die test_data-Akten, Fork 2/R2) + <sota_series fairness=..>
+# (Fork 6, Thesis §sec:fairness). Beweist Parse-Roundtrip (wdk_fairness_example.profile.xml),
+# Default-Neutralitaet (m3v2/golden NUR GELESEN; Report bestehender Profile byte-identisch),
+# validate-Fehlerfaelle und die Konsum-Ankunft in der Runner-Spec (SotaPass.fairness_mode) +
+# im Export (CSV-Endspalte fairness_mode + resume-v5-Stamp mit fair=/datasets=-Segmenten).
+comdare_add_test(test_wdk_datasets_fairness
+    SOURCES thesis_tiere/test_wdk_datasets_fairness.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+comdare_prepare_thesis_object_dir(test_wdk_datasets_fairness)
+target_include_directories(test_wdk_datasets_fairness PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_wdk_datasets_fairness PRIVATE Boost::mp11)
+target_compile_definitions(test_wdk_datasets_fairness PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_THESIS_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles\""
+    "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"")
+set_tests_properties(test_wdk_datasets_fairness PROPERTIES LABELS "contract;profiles;e4;go5")
+
 # CE-DL2 (Task #152) — LINUX-PMC-Smoke fuer die LinuxPerfPmcSource (perf_event_open). Spiegel von m3v2_pmc_smoke,
 # aber LINUX-CONDITIONAL registriert: nur unter (UNIX AND NOT APPLE) — der Windows-/MSVC-Build sieht dieses Target
 # NIE (kein add_executable, keine Linux-Header). make_pmc_source() liefert auf Linux+COMDARE_ENABLE_PMC eine

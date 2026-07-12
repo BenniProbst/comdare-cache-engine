@@ -164,6 +164,26 @@ struct ProfileRunOptions {
     return ns;
 }
 
+// ── (datasets, GO-5 Fork 1, 2026-07-12) — die deklarierten <dataset>-Akten-Referenzen als EINE deterministische
+//    Signatur (Dokument-Reihenfolge = geparste XML-Reihenfolge). KONSUMENTEN heute: (a) der RUN_PROFILE-Lauf-Kopf
+//    (Provenienz-Log) und (b) der Mess-Resume-Stamp (LazyRunConfig::profile_datasets → lazy_resume_stamp_prefix):
+//    aendert sich die Dataset-Deklaration, ist ein alter per-Binary-Stand NICHT mehr resume-faehig (konservativ —
+//    ehrliche Neu-Messung statt stalem Resume). Der Loader-MESS-KonsUM (load_or_generate_ycsb mit
+//    dataset_source=loader, dataset_id=akte) ist der dokumentierte offene Folge-Schritt (lauf-gated; Loader-Slot
+//    seit #184 hermetisch bewiesen) — bis dahin ist diese Signatur der EHRLICHE Ankunfts-Nachweis in der Spec. ──
+[[nodiscard]] inline std::string profile_datasets_signature(cx::ThesisProfile const& tp) {
+    std::string s;
+    for (auto const& d : tp.datasets) {
+        s += d.id;
+        s += ':';
+        s += d.akte_ref;
+        s += ':';
+        s += d.loader;
+        s += ';';
+    }
+    return s;
+}
+
 // ── (axis_sweeps) — der Treiber loest jeden <axis_sweep axis=..> auf die LEVEL-INDEX-Position im tier-freien
 //    Basis-StaticBinaryView auf (per Achsen-Namen-Suche in den statischen AxisLevels), NICHT ueber eine
 //    hartkodierte axis_to_level-Map (run_lazy_150.cpp:214). Damit ist die Aufloesung PROFIL-GETRIEBEN. ──
