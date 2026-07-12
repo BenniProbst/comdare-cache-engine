@@ -27,6 +27,8 @@
 #include <builder/experiment_tree/experiment_tree.hpp>         // ExperimentTree / StaticBinaryView
 #include <builder/experiment_tree/registry_to_axis_levels.hpp> // build_all_axis_levels (EnabledStrategies)
 
+#include <axes/alloc/axis_06_allocator_flags.hpp> // flags::mimalloc_enabled (basis-bewusster Pin)
+
 #include <gtest/gtest.h>
 
 #include <cstddef>
@@ -62,7 +64,12 @@ fs::path m3v2_profile_path() { return fs::path{COMDARE_THESIS_PROFILES_DIR} / "m
 // detektiert (allocator=3) -> Union 72 = 1 Baseline + 71 Sweeps; + 21 SOTA = 93 Binaries. Im super-Sub-
 // Build (Mess-Runner) kommt MIMALLOC dazu (allocator=4 -> 73/94); mit Voll-Vendor-HAVE laege sie bei
 // 94/115. Das Profil selbst ist enable-agnostisch (je Achse IMMER die volle Enabled-Liste).
-constexpr std::size_t kExpectedSweepUnion    = 72;                       // 1 Baseline + Sum(USE-Enabled-1)
+// wf_1009d16f-FIX (2026-07-12): Seit der Vendor-Include-Vererbung (Root-CMakeLists) baut dieser
+// Test AUCH im perms-ON-Baum (USE_MIMALLOC=1). Der Pin folgt compile-time der oben dokumentierten
+// Basis (72/93 Default-Baum, 73/94 mit MIMALLOC) statt die 72 hart zu verdrahten; Drift jeder
+// ANDEREN Achse/Vendor-Detection schlaegt weiterhin als Pin-Verletzung auf.
+constexpr std::size_t kExpectedSweepUnion = // 1 Baseline + Sum(USE-Enabled-1)
+    72 + (comdare::cache_engine::alloc::flags::mimalloc_enabled ? 1 : 0);
 constexpr std::size_t kExpectedTotalBinaries = kExpectedSweepUnion + 21; // + 7 Lebewesen x 3 Stufen (SOTA) = 93
 
 std::vector<std::string> load_golden_ids() {

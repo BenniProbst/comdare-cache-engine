@@ -2946,6 +2946,9 @@ endif()
 # GRENZE (Review wf_1009d16f, empirisch): im super-Sub-Build sind diese EXCLUDE_FROM_ALL-Targets
 # nicht baubar (COMDARE_AXIS_06_USE_MIMALLOC=1 dort, ADHOC erbt keine Vendor-Includes) — die
 # Gates 4-5 laufen im ce-Standalone-Baum; der super-Beweis ist messung_driver ueber die Facade.
+# AUFGELOEST (wf_1009d16f-FIX, 2026-07-12): Root-CMakeLists vererbt bei USE_MIMALLOC=1 das
+# Vendor-Include+Archiv directory-scope (link_libraries(comdare::vendor_mimalloc) nach
+# add_subdirectory(ext)) an ALLE Targets — auch diese ADHOC-Targets bauen jetzt im perms-ON-Baum.
 set(_thesis_adhoc_includes
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"

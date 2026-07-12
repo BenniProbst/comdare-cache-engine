@@ -555,6 +555,24 @@ if(COMDARE_BUILD_PERMUTATIONS)
     add_subdirectory(ext)
     set(_comdare_ext_added TRUE)
   endif()
+  # wf_1009d16f-FIX (2026-07-12): Vendor-Include-VERERBUNG an der Quelle.
+  # Das USE-Flag (USE = ENABLE && HAVE, s.u. "MIMALLOC: ENABLE && HAVE") wird per
+  # configure_file GLOBAL in generated/axes/alloc/axis_06_allocator_flags.hpp gebacken —
+  # JEDES Target mit -I<build>/generated sieht COMDARE_AXIS_06_USE_MIMALLOC=1 und zieht
+  # via vendor_includes/mimalloc_include.hpp den echten <mimalloc.h>. Der Include-Pfad
+  # + das Archiv hingen bisher aber NUR target-scoped an comdare_vendor_mimalloc
+  # (ext/CMakeLists.txt, PUBLIC), das ausschliesslich die generierten perm_*-Targets
+  # linken → ~70 Targets (anatomy_codegen_tool, Pilots, Unit-Tests) brachen mit
+  # "mimalloc.h: No such file or directory". Definition und Include muessen aus EINER
+  # Quelle kommen: comdare::vendor_mimalloc traegt den Include-Pfad PUBLIC — ueber
+  # directory-scope link_libraries erben ihn hier ALLE nachfolgend angelegten Targets
+  # (libs/, adapters/, tools/, apps/, tests/), mit derselben globalen Reichweite wie
+  # der configure_file-Flag-Header. Kein Malloc-Override: MI_STATIC_LIB=1-Archiv,
+  # mi_*-Symbole werden nur gezogen, wo der Wrapper sie odr-nutzt.
+  # (Standalone/perms-OFF: COMDARE_HAVE_MIMALLOC=OFF → Block inert.)
+  if(COMDARE_AXIS_06_ENABLE_MIMALLOC AND COMDARE_HAVE_MIMALLOC)
+    link_libraries(comdare::vendor_mimalloc)
+  endif()
   if(EXISTS "${CMAKE_BINARY_DIR}/generated/permutations.cmake")
     include("${CMAKE_BINARY_DIR}/generated/permutations.cmake")
   endif()
