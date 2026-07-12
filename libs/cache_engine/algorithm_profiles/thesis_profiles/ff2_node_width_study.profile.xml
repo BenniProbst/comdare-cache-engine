@@ -45,7 +45,7 @@
 
   <!-- (c) COMPILE-TIME Mess-Dimensionen (je Binary gebacken, kein Runtime-Switch). -->
   <compile_dims>
-    <workloads>A B C D E F</workloads>
+    <workloads>ycsb_a ycsb_b ycsb_c ycsb_d ycsb_e ycsb_f</workloads>
     <telemetry mode="on" silent="true"/>
   </compile_dims>
 
