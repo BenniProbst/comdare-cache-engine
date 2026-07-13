@@ -59,12 +59,20 @@ int main() {
             std::cout << "[ERR] header fehlt: " << c << "\n";
         }
 
-    // available=0 + alle Counter 0 bei NullPmcSource (ehrlich; mit PCM=ON real).
-    bool const honest_null = !delta.available && delta.cache_misses_l1 == 0 && delta.cache_misses_l2 == 0 &&
-                             delta.cache_misses_l3 == 0 && delta.dtlb_misses == 0 &&
-                             delta.coherence_invalidations == 0 && delta.energy_micro_joules == 0;
+    // Seam-Verdikt (NICHT invertiert — Fix M-CE-25/Muster-F 2026-07-13): die geschlossene PMC-Naht ist gueltig,
+    // wenn ENTWEDER die Quelle live ist (available=1, z.B. Intel-PCM Montag → reale Counter sind ERFOLG, nicht
+    // Fehler) ODER die NullPmcSource ehrliche Null liefert (available=0 → alle Counter MUESSEN 0 sein). FEHLER
+    // nur bei available=0 UND einem Counter != 0 (unehrliche Nicht-Null ohne Verfuegbarkeit). Vorher war das
+    // Verdikt `honest_null` (= !available && all-zero) hart gefordert → ein ehrlich-live-PMC (available=1) kippte
+    // SMOKE_FAIL, obwohl genau das der zu beweisende Erfolgsfall ist.
+    bool const counters_all_zero = delta.cache_misses_l1 == 0 && delta.cache_misses_l2 == 0 &&
+                                   delta.cache_misses_l3 == 0 && delta.dtlb_misses == 0 &&
+                                   delta.coherence_invalidations == 0 && delta.energy_micro_joules == 0;
+    bool const pmc_seam_ok       = delta.available || counters_all_zero;
 
-    std::cout << "missing_pmc_cols=" << missing << "  honest_null=" << (honest_null ? "1" : "0") << "\n";
-    std::cout << ((missing == 0 && honest_null) ? "SMOKE_OK\n" : "SMOKE_FAIL\n");
-    return (missing == 0 && honest_null) ? 0 : 1;
+    std::cout << "missing_pmc_cols=" << missing << "  pmc_available=" << (delta.available ? "1" : "0")
+              << "  counters_all_zero=" << (counters_all_zero ? "1" : "0")
+              << "  pmc_seam_ok=" << (pmc_seam_ok ? "1" : "0") << "\n";
+    std::cout << ((missing == 0 && pmc_seam_ok) ? "SMOKE_OK\n" : "SMOKE_FAIL\n");
+    return (missing == 0 && pmc_seam_ok) ? 0 : 1;
 }

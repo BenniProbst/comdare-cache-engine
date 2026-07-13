@@ -15,6 +15,17 @@
 namespace nd = comdare::cache_engine::node;
 namespace a  = comdare::cache_engine::anatomy;
 
+// M-CE-22 / NDEBUG-No-Op-Fix (2026-07-13, Muster-F): harte Checks statt assert(). assert() ist unter NDEBUG
+// (Release) ein No-Op -> dieser Test degenerierte im Release-Build zu `return 0` (kein echter Beweis). CE_CHECK
+// prueft NDEBUG-unabhaengig und liefert bei Verletzung `return 1` (rot). static_assert() bleibt (compile-time).
+#define CE_CHECK(cond)                                                                                                 \
+    do {                                                                                                               \
+        if (!(cond)) {                                                                                                 \
+            std::cerr << "[FAIL] " #cond " @ " << __FILE__ << ":" << __LINE__ << "\n";                                 \
+            return 1;                                                                                                  \
+        }                                                                                                              \
+    } while (0)
+
 int main() {
     using Strat = nd::Node256NodeType;
     using Obs   = nd::ObservableNodeType<Strat>;
@@ -32,24 +43,24 @@ int main() {
     std::uint8_t const queries[3] = {2u, 4u, 9u}; // 2(+2), 4(+4), 9(miss) -> Summe 6
 
     // static Pass-Through trackt NICHT:
-    assert(Obs::node_find_scan(stored, 4, queries, 3) == 6u);
+    CE_CHECK(Obs::node_find_scan(stored, 4, queries, 3) == 6u);
 
     Obs node;
-    assert(node.statistics().find_count == 0);
+    CE_CHECK(node.statistics().find_count == 0);
     std::uint64_t const checksum = node.observe_node_find(stored, 4, queries, 3); // Instanz-Driver: trackt
     auto const          after    = node.statistics();
     std::cout << "find_count=" << after.find_count << " keys_stored=" << after.keys_stored
               << " queries_run=" << after.queries_run << " checksum=" << after.last_checksum << "\n";
 
-    assert(checksum == 6u);
-    assert(after.find_count == 1u);
-    assert(after.keys_stored == 4u);
-    assert(after.queries_run == 3u);
-    assert(after.last_checksum == 6u);
-    assert(after.find_count != 0u); // Delta > 0
+    CE_CHECK(checksum == 6u);
+    CE_CHECK(after.find_count == 1u);
+    CE_CHECK(after.keys_stored == 4u);
+    CE_CHECK(after.queries_run == 3u);
+    CE_CHECK(after.last_checksum == 6u);
+    CE_CHECK(after.find_count != 0u); // Delta > 0
 
     node.reset();
-    assert(node.statistics().find_count == 0u);
+    CE_CHECK(node.statistics().find_count == 0u);
 
     std::cout << "OK: node_type-Achse ist echte getriebene ObservableAxis (node_find_scan durchgereicht + getrackt).\n";
     return 0;

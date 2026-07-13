@@ -17,6 +17,17 @@
 namespace s = comdare::cache_engine::serialization_axis;
 namespace a = comdare::cache_engine::anatomy;
 
+// M-CE-22 / NDEBUG-No-Op-Fix (2026-07-13, Muster-F): harte Checks statt assert(). assert() ist unter NDEBUG
+// (Release) ein No-Op -> dieser Test degenerierte im Release-Build zu `return 0` (kein echter Beweis). CE_CHECK
+// prueft NDEBUG-unabhaengig und liefert bei Verletzung `return 1` (rot). static_assert() bleibt (compile-time).
+#define CE_CHECK(cond)                                                                                                 \
+    do {                                                                                                               \
+        if (!(cond)) {                                                                                                 \
+            std::cerr << "[FAIL] " #cond " @ " << __FILE__ << ":" << __LINE__ << "\n";                                 \
+            return 1;                                                                                                  \
+        }                                                                                                              \
+    } while (0)
+
 int main() {
     using Strat = s::RawBinarySerialization;
     using Obs   = s::ObservableSerialization<Strat>;
@@ -35,24 +46,24 @@ int main() {
     for (std::size_t i = 0; i < n; ++i) std::memcpy(buf.data() + i * record_size, &vals[i], sizeof(std::uint32_t));
 
     // static Pass-Through trackt NICHT (Drop-in fuer abi_adapter):
-    assert(Obs::serialize_scan(buf.data(), n, record_size) == 100u);
+    CE_CHECK(Obs::serialize_scan(buf.data(), n, record_size) == 100u);
 
     Obs ser;
-    assert(ser.statistics().serialize_count == 0);
+    CE_CHECK(ser.statistics().serialize_count == 0);
     std::uint64_t const checksum = ser.observe_serialize(buf.data(), n, record_size); // Instanz-Driver: trackt
     auto const          after    = ser.statistics();
     std::cout << "serialize_count=" << after.serialize_count << " records=" << after.records_serialized
               << " bytes=" << after.bytes_serialized << " checksum=" << after.last_checksum << "\n";
 
-    assert(checksum == 100u);
-    assert(after.serialize_count == 1u);
-    assert(after.records_serialized == 4u);
-    assert(after.bytes_serialized == 32u); // 4 * 8
-    assert(after.last_checksum == 100u);
-    assert(after.serialize_count != 0u); // Delta > 0
+    CE_CHECK(checksum == 100u);
+    CE_CHECK(after.serialize_count == 1u);
+    CE_CHECK(after.records_serialized == 4u);
+    CE_CHECK(after.bytes_serialized == 32u); // 4 * 8
+    CE_CHECK(after.last_checksum == 100u);
+    CE_CHECK(after.serialize_count != 0u); // Delta > 0
 
     ser.reset();
-    assert(ser.statistics().serialize_count == 0u);
+    CE_CHECK(ser.statistics().serialize_count == 0u);
 
     std::cout
         << "OK: serialization-Achse ist echte getriebene ObservableAxis (serialize_scan durchgereicht + getrackt).\n";

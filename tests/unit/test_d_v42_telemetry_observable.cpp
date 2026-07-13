@@ -21,6 +21,17 @@
 namespace t = comdare::cache_engine::telemetry_axis;
 namespace a = comdare::cache_engine::anatomy;
 
+// M-CE-22 / NDEBUG-No-Op-Fix (2026-07-13, Muster-F): harte Checks statt assert(). assert() ist unter NDEBUG
+// (Release) ein No-Op -> dieser Test degenerierte im Release-Build zu `return 0` (kein echter Beweis). CE_CHECK
+// prueft NDEBUG-unabhaengig und liefert bei Verletzung `return 1` (rot). static_assert() bleibt (compile-time).
+#define CE_CHECK(cond)                                                                                                 \
+    do {                                                                                                               \
+        if (!(cond)) {                                                                                                 \
+            std::cerr << "[FAIL] " #cond " @ " << __FILE__ << ":" << __LINE__ << "\n";                                 \
+            return 1;                                                                                                  \
+        }                                                                                                              \
+    } while (0)
+
 int main() {
     using LeafTel = t::ObservableTelemetry<t::LeafOnlyCounter>;
     using NodeTel = t::ObservableTelemetry<t::InsertCounter>;
@@ -37,18 +48,18 @@ int main() {
     // ── leaf-only-Strategie: Inner-Touch wird VERWORFEN ───────────────────────────────────────────────
     LeafTel    leaf;
     auto const leaf_before = leaf.statistics();
-    assert(leaf_before.total_events == 0);
+    CE_CHECK(leaf_before.total_events == 0);
     leaf.record_node_touch(true);  // Blatt
     leaf.record_node_touch(false); // Inner -> leaf-only verwirft
     leaf.record_node_touch(true);  // Blatt
     auto const leaf_after = leaf.statistics();
     std::cout << "LeafOnlyCounter : total=" << leaf_after.total_events << " leaf=" << leaf_after.leaf_updates
               << " node=" << leaf_after.node_updates << " peak=" << leaf_after.peak_tracked << "\n";
-    assert(leaf_after.total_events == 3);
-    assert(leaf_after.leaf_updates == 2);
-    assert(leaf_after.node_updates == 0); // <- leaf-only verwirft Inner-Touch
-    assert(leaf_after.peak_tracked == 2);
-    assert(!(leaf_after == leaf_before)); // Delta > 0 (kein Stub)
+    CE_CHECK(leaf_after.total_events == 3);
+    CE_CHECK(leaf_after.leaf_updates == 2);
+    CE_CHECK(leaf_after.node_updates == 0); // <- leaf-only verwirft Inner-Touch
+    CE_CHECK(leaf_after.peak_tracked == 2);
+    CE_CHECK(!(leaf_after == leaf_before)); // Delta > 0 (kein Stub)
 
     // ── non-leaf-Strategie: Inner-Touch wird GEZAEHLT ─────────────────────────────────────────────────
     NodeTel node;
@@ -58,16 +69,16 @@ int main() {
     auto const node_after = node.statistics();
     std::cout << "InsertCounter   : total=" << node_after.total_events << " leaf=" << node_after.leaf_updates
               << " node=" << node_after.node_updates << " peak=" << node_after.peak_tracked << "\n";
-    assert(node_after.total_events == 3);
-    assert(node_after.leaf_updates == 2);
-    assert(node_after.node_updates == 1); // <- non-leaf zaehlt Inner-Touch
+    CE_CHECK(node_after.total_events == 3);
+    CE_CHECK(node_after.leaf_updates == 2);
+    CE_CHECK(node_after.node_updates == 1); // <- non-leaf zaehlt Inner-Touch
 
     // (4) Der messbare Achsen-Unterschied: identische Touch-Folge, verschiedene node_updates.
-    assert(leaf_after.node_updates != node_after.node_updates);
+    CE_CHECK(leaf_after.node_updates != node_after.node_updates);
 
     // (5) reset() = Statistik-Reset.
     leaf.reset();
-    assert(leaf.statistics().total_events == 0);
+    CE_CHECK(leaf.statistics().total_events == 0);
 
     std::cout << "OK: telemetry-Achse ist echte getriebene ObservableAxis; Strategie parametrisiert die Mechanik.\n";
     return 0;

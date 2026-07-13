@@ -81,8 +81,12 @@ static an::ComdareSegmentLatencyV2 measure19(char const* name, std::string& csv_
     row.setting_label = "-";
     row.n_ops         = 4000;
     row.total_ns      = seg.total_ns;
-    row.seg           = seg;
-    row.seg_real      = (n > 0);
+    for (int i = 0; i < 19; ++i)
+        row.unified.seg_ns[i] = seg.seg_ns[i]; // I1-Konsolidierung: seg-Struct -> unified.seg_ns[19]
+    row.unified.seg_framework_ns = seg.seg_framework_ns;
+    row.unified.seg_run_total_ns = seg.seg_run_total_ns;
+    row.unified.batches_measured = seg.batches_measured;
+    row.unified_real             = (n > 0);
     csv_out += ex::format_csv_row(row);
 
     std::cout << "  " << name << ": batches=" << n << "  seg_ns[T0..T18]=";

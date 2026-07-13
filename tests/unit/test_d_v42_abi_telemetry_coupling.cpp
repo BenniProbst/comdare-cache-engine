@@ -17,6 +17,17 @@
 namespace ana = comdare::cache_engine::anatomy;
 namespace cc  = comdare::cache_engine::compositions;
 
+// M-CE-22 / NDEBUG-No-Op-Fix (2026-07-13, Muster-F): harte Checks statt assert(). assert() ist unter NDEBUG
+// (Release) ein No-Op -> dieser Test degenerierte im Release-Build zu `return 0` (kein echter Beweis). CE_CHECK
+// prueft NDEBUG-unabhaengig und liefert bei Verletzung `return 1` (rot). static_assert() bleibt (compile-time).
+#define CE_CHECK(cond)                                                                                                 \
+    do {                                                                                                               \
+        if (!(cond)) {                                                                                                 \
+            std::cerr << "[FAIL] " #cond " @ " << __FILE__ << ":" << __LINE__ << "\n";                                 \
+            return 1;                                                                                                  \
+        }                                                                                                              \
+    } while (0)
+
 int main() {
     ana::SearchAlgorithmAbiAdapter<ana::SearchAlgorithmAnatomy<cc::ArtComposition>> ad;
 
@@ -37,30 +48,30 @@ int main() {
               << " | telemetry_total=" << u.axis_stats[10][0] << " telemetry_leaf=" << u.axis_stats[10][1]
               << " telemetry_node=" << u.axis_stats[10][2] << " | observable_axes=" << u.observable_axis_count << "\n";
 
-    assert(u.axis_stats[0][3] == 20u); // search_insert
-    assert(u.axis_stats[0][0] >= 20u); // search_lookup
+    CE_CHECK(u.axis_stats[0][3] == 20u); // search_insert
+    CE_CHECK(u.axis_stats[0][0] >= 20u); // search_lookup
     // KERN-BEWEIS: telemetry wurde AUTOMATISCH ueber tier_insert/lookup gekoppelt (20+20 = 40 Knoten-Touches).
-    assert(u.axis_stats[10][0] == 40u); // telemetry_total_events
-    assert(u.axis_stats[10][1] == 40u); // telemetry_leaf_updates
-    assert(u.axis_stats[10][2] == 0u);  // telemetry_node_updates (LeafOnlyCounter verwirft Inner-Touch)
-    assert(u.observable_axis_count >= 5u);
+    CE_CHECK(u.axis_stats[10][0] == 40u); // telemetry_total_events
+    CE_CHECK(u.axis_stats[10][1] == 40u); // telemetry_leaf_updates
+    CE_CHECK(u.axis_stats[10][2] == 0u);  // telemetry_node_updates (LeafOnlyCounter verwirft Inner-Touch)
+    CE_CHECK(u.observable_axis_count >= 5u);
 
     // scan-Achsen-Auto-Kopplung: memory_layout + serialization wurden in der Observer-Befuellung ueber das ECHTE
     // Slot-Backing des container_ getrieben (Pfad-B Zustand-Scan) → records == tier_fill_level (alle Slots).
     std::cout << "  scan-Achsen ueber Slot-Backing: layout_records=" << u.axis_stats[5][1]
               << " layout_checksum=" << u.axis_stats[5][4] << " | serialization_records=" << u.axis_stats[9][1] << "\n";
-    assert(u.axis_stats[5][0] == 1u);                // layout_scan_count
-    assert(u.axis_stats[5][1] == u.tier_fill_level); // layout_records_scanned == alle Tier-Slots
-    assert(u.axis_stats[9][0] == 1u);                // serialization_serialize_count
-    assert(u.axis_stats[9][1] == u.tier_fill_level); // serialization_records_serialized
+    CE_CHECK(u.axis_stats[5][0] == 1u);                // layout_scan_count
+    CE_CHECK(u.axis_stats[5][1] == u.tier_fill_level); // layout_records_scanned == alle Tier-Slots
+    CE_CHECK(u.axis_stats[9][0] == 1u);                // serialization_serialize_count
+    CE_CHECK(u.axis_stats[9][1] == u.tier_fill_level); // serialization_records_serialized
 
     // node_type-Auto-Kopplung: observe_node_find ueber die ECHTEN Tier-Keys (self-query) → checksum =
     // sum der gefundenen Key-Bytes; bei keys 0..19 (alle present) = 0+1+..+19 = 190.
     std::cout << "  node_type ueber Slot-Backing: find_count=" << u.axis_stats[4][0] << " keys=" << u.axis_stats[4][1]
               << " checksum=" << u.axis_stats[4][3] << "\n";
-    assert(u.axis_stats[4][0] == 1u);                // node_find_count
-    assert(u.axis_stats[4][1] == u.tier_fill_level); // node_keys_stored == alle Tier-Keys
-    assert(u.axis_stats[4][3] == 190u);              // node_last_checksum sum(0..19) self-query
+    CE_CHECK(u.axis_stats[4][0] == 1u);                // node_find_count
+    CE_CHECK(u.axis_stats[4][1] == u.tier_fill_level); // node_keys_stored == alle Tier-Keys
+    CE_CHECK(u.axis_stats[4][3] == 190u);              // node_last_checksum sum(0..19) self-query
 
     std::cout << "OK: abi_adapter tier_insert/lookup koppelt telemetry AUTOMATISCH -> der EINE tier_observe "
                  "(Cross-ABI konsolidierter Observer-POD ueber das Gattungs-Interface).\n";

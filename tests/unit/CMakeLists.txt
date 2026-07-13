@@ -1619,6 +1619,121 @@ foreach(_dt IN LISTS COMDARE_G3_CORRECTNESS_TESTS)
     set_tests_properties(${_dt} PROPERTIES LABELS "g3;correctness;standalone")
 endforeach()
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Goal-V4 G4 Muster-F / M-CE-24 (2026-07-13, Test-Registrierungs-Audit) — 34 git-getrackte, bisher in KEINEM
+# CMake-Target/ctest registrierte Standalone-Verifikationstests (plain int main(), g_fail-Zaehler → return 0/1;
+# KEIN gtest → add_test DIREKT). Ihr dokumentierter Build-Weg (scratch_*.ps1) wurde bei der Behelfsweg-Bereinigung
+# 2026-07-11 geloescht → ihre Pruefungen liefen NIE. Property-Eintrag zieht sie in den comdare_tests-Sammel-Bau
+# (#278-Lektion). Gleiche anatomy/axes-Include-Kette + Boost::mp11 wie die #155-/GoalV6-Bloecke darueber.
+#   * (B) COMDARE_MCE24_PLAIN_TESTS — ohne Mess-Defines.
+#   * (A) COMDARE_MCE24_MEASURED_TESTS — mit COMDARE_MEASUREMENT_ON/STATISTICS (Observer-/Segment-Timer-Pfad;
+#         ohne die Defines liefert der Observe-Pfad 0-Deltas → die Non-Stub-Assertions der Tests wuerden rot).
+# ─────────────────────────────────────────────────────────────────────────────
+set(COMDARE_MCE24_INCLUDES
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"                    # profile_to_tree.hpp -> xml_config_parser/xml_config_parser.hpp (Pfad-Form)
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization/xml_config_parser"  # test_kf1_thesis_profile_parser (bare xml_*.hpp)
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+
+set(COMDARE_MCE24_PLAIN_TESTS
+    test_br1_full22_count
+    test_br1_subset
+    test_br2_descriptor_foundation
+    test_br2_roundtrip
+    test_br3_obs22
+    test_br_kf15_real
+    test_clu_per_layout
+    test_cow_capable_wrappers
+    test_d4b_container_adapter
+    test_genus_binding
+    test_kf4_resource_control
+    test_kf5_cacheline_weave
+    test_kf6_node_run_body
+    test_kf7_runtime_loop
+    test_kf8_ceb_generator
+    test_kf9_experiment_tree
+    test_kf10_repetition_plan
+    test_kf11_telemetry_silent
+    test_kf12_kf13_slurm_prepare
+    test_kf15_inverse_signature
+    test_kf16_build_orchestrator
+    test_kf16b_build_resilience)
+foreach(_dt IN LISTS COMDARE_MCE24_PLAIN_TESTS)
+    add_executable(${_dt} "${_dt}.cpp")
+    target_compile_features(${_dt} PRIVATE cxx_std_23)
+    target_include_directories(${_dt} PRIVATE ${COMDARE_MCE24_INCLUDES})
+    target_link_libraries(${_dt} PRIVATE Boost::mp11 comdare_builder_xml_config_parser)
+    comdare_set_platform_defines(${_dt})
+    add_test(NAME ${_dt} COMMAND ${_dt})
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_dt})
+    set_tests_properties(${_dt} PROPERTIES LABELS "g4;muster_f;standalone" TIMEOUT 120)
+endforeach()
+
+# HINWEIS (Muster-F-Befund, 2026-07-13): 4 der 34 sind hier BEWUSST NICHT registriert, weil sie eine STALE-
+# Erwartung gegen das aktuelle container-flip-Design (#188-4b) tragen, NICHT weil eine additive Registrierung
+# scheiterte. Sie erwarten, dass die REFERENZ-Kompositionen (Art/Hot/Masstree/Wormhole) via in-process-ABI die
+# store-backed-Scan-Observer (value_handle T11 / isa T12 / memory_layout-scan T5 / serialization-scan T9 /
+# hoehere filled_axis_count / Node-Telemetrie) mit >0 fuellen. Ist-Verhalten = honest-0 (container_ ist nur fuer
+# die Pool-Familien autoritativ; die 4 direkten/store-backed d_v42-Tests + test_obs_phaseB_t11_t12_iso fuellen
+# die Observer korrekt und sind GRUEN). Diese 4 brauchen eine THESIS-abgestimmte Erwartungs-Reparatur (store-
+# backed Komposition ODER honest-0-Erwartung) — kein Produktionscode-Bug, keine additive Registrierung:
+#   test_obs_phaseA, test_obs_phaseB_pilot, test_obs_phaseB_t11_t12, test_d_v42_abi_telemetry_coupling.
+set(COMDARE_MCE24_MEASURED_TESTS
+    test_all19_segment_timer
+    test_m8_storetrav_segment
+    test_br3_observer
+    test_obs_phaseB_t11_t12_iso
+    test_obs_phaseB_t14_t16
+    test_pathb_segment_timer
+    test_segment_timer_differentiation)
+foreach(_dt IN LISTS COMDARE_MCE24_MEASURED_TESTS)
+    add_executable(${_dt} "${_dt}.cpp")
+    target_compile_features(${_dt} PRIVATE cxx_std_23)
+    target_include_directories(${_dt} PRIVATE ${COMDARE_MCE24_INCLUDES})
+    target_link_libraries(${_dt} PRIVATE Boost::mp11 comdare_builder_xml_config_parser)
+    comdare_set_platform_defines(${_dt})
+    # Autoritative Observer-Rezeptur (wie test_harness_compile / thesis_adhoc / test_29 / test_ap15): ALLE DREI
+    # Defines — ohne COMDARE_EXPERIMENT_MODE_ON bleiben der T11-value_handle-/T12-isa-store_observe-Pfad + Teile
+    # der Node-Telemetrie 0 (Observe-Verdrahtung Phase 7). Der abi_adapter-Guard fordert MEASUREMENT (hier gesetzt).
+    target_compile_definitions(${_dt} PRIVATE
+        COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+    add_test(NAME ${_dt} COMMAND ${_dt})
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_dt})
+    set_tests_properties(${_dt} PROPERTIES LABELS "g4;muster_f;standalone;measured" TIMEOUT 120)
+endforeach()
+
+# test_kf1_thesis_profile_parser — separat, weil es das getrackte Studien-Profil parst und dessen Pfad als
+# argv[1] erwartet (Default ist ein CWD-relativer ../../-Pfad → unter ctest-CWD nicht aufloesbar). Absoluter Pfad
+# als add_test-Argument (CWD-unabhaengig; nur GELESEN). Include-/Link-Satz = COMDARE_MCE24_INCLUDES + XML-Parser-Lib.
+add_executable(test_kf1_thesis_profile_parser "test_kf1_thesis_profile_parser.cpp")
+target_compile_features(test_kf1_thesis_profile_parser PRIVATE cxx_std_23)
+target_include_directories(test_kf1_thesis_profile_parser PRIVATE ${COMDARE_MCE24_INCLUDES})
+target_link_libraries(test_kf1_thesis_profile_parser PRIVATE Boost::mp11 comdare_builder_xml_config_parser)
+comdare_set_platform_defines(test_kf1_thesis_profile_parser)
+add_test(NAME test_kf1_thesis_profile_parser COMMAND test_kf1_thesis_profile_parser
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/cacheline_study.profile.xml")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_kf1_thesis_profile_parser)
+set_tests_properties(test_kf1_thesis_profile_parser PROPERTIES LABELS "g4;muster_f;standalone" TIMEOUT 120)
+
+# M-CE-09 (Muster-F, 2026-07-13) — schliesst die Test-Luecke der beiden als thread-safe deklarierten Lock-Free-
+# Queues (LockFreeMPMCBuffer/Vyukov bounded MPMC + LockFreeSPSCBuffer): sie hatten repo-weit KEINEN einzigen
+# nebenlaeufigen Test. Plain int main() (KEIN gtest) → add_test direkt; braucht std::thread (Threads::Threads).
+# Der sanitize:tsan-Job kann dasselbe Target zusaetzlich unter -fsanitize=thread bauen (scharfe Race-Freiheit).
+find_package(Threads REQUIRED)
+add_executable(test_q1_lockfree_concurrency "test_q1_lockfree_concurrency.cpp")
+target_compile_features(test_q1_lockfree_concurrency PRIVATE cxx_std_23)
+target_include_directories(test_q1_lockfree_concurrency PRIVATE ${COMDARE_MCE24_INCLUDES})
+target_link_libraries(test_q1_lockfree_concurrency PRIVATE Boost::mp11 Threads::Threads)
+comdare_set_platform_defines(test_q1_lockfree_concurrency)
+add_test(NAME test_q1_lockfree_concurrency COMMAND test_q1_lockfree_concurrency)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_q1_lockfree_concurrency)
+set_tests_properties(test_q1_lockfree_concurrency PROPERTIES LABELS "g4;muster_f;standalone;queuing;concurrency" TIMEOUT 120)
+
 # #155 — leichtes Phase-E-Fixture: nur std + Win32-API (CreateFileW/CreateFileMappingW/VirtualAlloc), KEIN
 # Anatomie-/Boost-/generated-Include. Auf Non-Win32 kompiliert die #else-Branch zu einem sauberen SKIP (Exit 0).
 add_executable(test_v5_io_real_fixture "test_v5_io_real_fixture.cpp")
@@ -3108,6 +3223,21 @@ endfunction()
 
 comdare_thesis_adhoc_executable(test_profile_roundtrip
     SOURCES "thesis_tiere/test_profile_roundtrip.cpp")
+
+# M-CE-27 (Muster-F, 2026-07-13) — das volle golden-320-Roundtrip-Gate des PROFIL-Pfads (m3v2_study.profile.xml
+# → parse_thesis_profile → StaticBinaryView == 320 binary_ids POSITIONSIDENTISCH zur eingefrorenen Golden-Liste;
+# #139-Resume-Schutz). War bisher NUR als EXCLUDE_FROM_ALL-ADHOC baubar, ohne add_test / nicht im comdare_tests-
+# Sammel-Bau → automatisiert geprueft war nur golden[0]. Der historische EXCLUDE_FROM_ALL-Blocker (super-Sub-Build-
+# Vendor-Includes) ist laut Kopf-Kommentar AUFGELOEST (wf_1009d16f-FIX). Daher jetzt regulaer registriert:
+# COMDARE_TEST_TARGETS zieht das EXCLUDE_FROM_ALL-Target per add_dependencies in den Sammel-Bau, add_test macht das
+# Gate CI-lauffaehig. Profil-XML + Golden-ID-Liste werden als ABSOLUTE argv uebergeben (CWD-unabhaengig; beide nur
+# GELESEN → golden_fullpilot_320 bleibt TABU-unberuehrt).
+add_test(NAME test_profile_roundtrip
+    COMMAND test_profile_roundtrip
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/m3v2_study.profile.xml"
+        "${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt")
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_profile_roundtrip)
+set_tests_properties(test_profile_roundtrip PROPERTIES LABELS "thesis_tiere;golden;roundtrip" TIMEOUT 300)
 
 comdare_thesis_adhoc_executable(test_axis_sweep_pilot
     SOURCES "thesis_tiere/test_axis_sweep_pilot.cpp")
