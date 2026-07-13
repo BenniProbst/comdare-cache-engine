@@ -437,8 +437,9 @@ int main(int argc, char** argv) {
     }
 
     // V41.P3-Bridge: 16-Spalten-Pipeline-Mess-CSV (eine Zeile je gemessener Organ-Composition).
-    // total_cycles = gemessene mittlere Latenz in ns (Stufe-05-Konvention "cycles als ns interpretiert").
-    // PMU-/Energie-Spalten = 0 (P4-gated, kein PMC). Speist Stufe 04/05 mit REALEN Mess-Zahlen.
+    // total_cycles = gemessene mittlere Latenz in ns (Stufe-05-Konvention "cycles als ns interpretiert") = REAL.
+    // Anti-Phantom (Ledger §0): PMU-/Energie-Spalten UND bytes_allocated/bytes_in_use_peak = honest-0 (P4-gated,
+    // kein PMC/Allocator-Zaehler) -- KEINE ops*64-Byte-Schaetzung mehr. Nur die Latenz ist real gemessen.
     if (!pipeline_csv.empty()) {
         std::string out = "permutation_id,fingerprint,succeeded,workload_used,op_count,total_cycles,"
                           "cache_misses_l1,cache_misses_l2,cache_misses_l3,dtlb_misses,"
@@ -451,13 +452,13 @@ int main(int argc, char** argv) {
                 fp ^= static_cast<unsigned char>(c);
                 fp *= 1099511628211ULL;
             }
-            std::uint64_t const bytes = ops * 64ULL; // Schätzung (PMC-frei)
+            // Reihenfolge ab total_cycles: cache_l1,l2,l3,dtlb,coherence,energy,bytes_allocated,
+            // bytes_in_use_peak,external_frag,internal_frag = 10x honest-0 (kein PMC/Allocator-Zaehler).
             out += names[i] + ',' + std::to_string(fp) + ",1," + workload_label + ',' + std::to_string(ops) + ',' +
-                   std::to_string(static_cast<std::uint64_t>(mean)) + ",0,0,0,0,0,0," + std::to_string(bytes) + ',' +
-                   std::to_string(bytes) + ",0,0\n";
+                   std::to_string(static_cast<std::uint64_t>(mean)) + ",0,0,0,0,0,0,0,0,0,0\n";
         }
         if (write_text_file(pipeline_csv, out))
-            std::cout << "  Pipeline-CSV (16-col, reale Mess-Zahlen) -> " << pipeline_csv << "\n";
+            std::cout << "  Pipeline-CSV (16-col; Latenz real, PMU/Bytes honest-0) -> " << pipeline_csv << "\n";
         else {
             std::cerr << "Pipeline-CSV-Schreiben fehlgeschlagen: " << pipeline_csv << "\n";
             return 4;
