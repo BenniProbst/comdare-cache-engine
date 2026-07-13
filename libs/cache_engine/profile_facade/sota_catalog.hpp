@@ -41,6 +41,7 @@
 // (Reihe,Lebewesen)-Paar eine LEERE Quelle → der Orchestrator markiert die DLL als nicht baubar (sichtbar,
 // nicht versteckt). Der Klein-Pilot (test_sota_series_pilot) baut je Stufe ≥1 reale DLL real mit cl und
 // belegt Stufe3/Reihe B zusätzlich per 6 SOTA-Hosts.
+// (test_sota_series_pilot: Pilot-Test entfernt 2026-07-11; Host/Emitter heute Code/02_messung_driver, E4-XML)
 //
 // ⚠️ Umbrella-/Komposition-schwer → gehört in die HARNESS-/Test-.cpp, NICHT in den engine-agnostischen
 //    Treiber-Header. C++23, header-only.

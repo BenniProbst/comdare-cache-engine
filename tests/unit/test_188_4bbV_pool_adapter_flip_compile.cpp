@@ -61,6 +61,7 @@ void check(char const* what, bool ok) {
 //    = ROHER Pool-Wrapper (BTreeSearchAlgo etc.). Genau die Struktur der 320 generierten Permutations-Binaries (roher
 //    Wrapper als T0) → organ_for_search_algo_t<W> != void → pool_family_==true → container_t nimmt den Flip-Zweig
 //    ObservableComposedContainer<organ> an. Analog GridComposition (tier150_axis_grid), nur search_algo variiert. ──
+//    (tier150_axis_grid entfernt 2026-07-11; Mess-System heute Code/02_messung_driver, E4-XML)
 template <class SearchAlgoWrapper>
 // cppcheck-suppress ctuOneDefinitionRuleViolation // FP: anon. Namespace = interne Bindung je TU
 struct PoolFlipComposition {

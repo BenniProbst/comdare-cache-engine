@@ -103,7 +103,7 @@ für jede Komposition.
 **Granularität = Lebewesen-Binary** (User: „Wiedereinstieg bei einem bestimmten nicht fertigen Tier"). Der
 Zwei-Phasen-Cache-Warmup gilt auf Re-Entry intrinsisch je Op (er ist Teil jeder Messung, nicht des Laufs).
 
-**Mechanik (cache_engine_builder_iterator.hpp + run_lazy_150.cpp + Harness):**
+**Mechanik (cache_engine_builder_iterator.hpp + run_lazy_150.cpp + Harness):** (run_lazy_150.cpp geloescht 2026-07-11; Host heute Code/02_messung_driver, E4-XML)
 1. **Config-Stempel** `result.csv.stamp` neben der per-Binary `result.csv`, geschrieben NUR wenn die Binary
    VOLLSTÄNDIG gemessen wurde (jede besuchte dyn-Einstellung lieferte eine Zeile). Inhalt:
    `resume-v1|build=<BuildVersion>|n_ops|seed|records|dims=<JEDE dynamische Dimension mit voller
@@ -132,5 +132,5 @@ Zwei-Phasen-Cache-Warmup gilt auf Re-Entry intrinsisch je Op (er ist Teil jeder 
 | O(1)-Stat-Restore der Hüllen | `axes/lookup/composable/observable_composed_search.hpp` + `observable_composed_container.hpp` |
 | Semantik-Test | `tests/unit/test_undolog_memento.cpp` (standalone, ADHOC-Include-Satz) |
 | Resume (Stamp + Skip + resumed_csv_rows) | `libs/cache_engine/builder/experiment_tree/cache_engine_builder_iterator.hpp` |
-| Host (argv[11], globale CSV inkl. resumiert) | `tests/unit/thesis_tiere/run_lazy_150.cpp` |
-| Harness (`-Resume`) | `tests/unit/thesis_tiere/build_and_measure_150_tiere.ps1` |
+| Host (argv[11], globale CSV inkl. resumiert) | `tests/unit/thesis_tiere/run_lazy_150.cpp` (geloescht 2026-07-11; Host heute Code/02_messung_driver, E4-XML) |
+| Harness (`-Resume`) | `tests/unit/thesis_tiere/build_and_measure_150_tiere.ps1` (geloescht 2026-07-11; Harness heute Code/02_messung_driver, E4-XML) |

@@ -14,6 +14,7 @@
 //                            (2) je <sota_series>-Eintrag = EIN SOTA-Lebewesen-Pass (einwertiger "sota_tier"-
 //                                Baum), getaggt mit series A/B/C. Alle Zeilen → EINE CSV (Header genau EINMAL).
 //   • S7c Eintritts-API    : run_profile(RunProfileArgs&) — run_lazy_150.main reduziert sich auf Pfad+Output;
+//     (run_lazy_150 geloescht 2026-07-11; Host/Emitter heute Code/02_messung_driver, E4-XML)
 //                            die WHAT-Konfiguration kommt komplett aus dem Profil.
 //
 // Resume/binary_id-Stabilitaet bleibt (jeder Pass ruft run_lazy_static_then_dynamic → .version-Sidecar +
@@ -21,6 +22,7 @@
 //
 // ⚠️ Katalog-/Umbrella-schwer (source_catalog.hpp zieht den all_axes_umbrella) → gehoert in die HARNESS-/Test-
 //    .cpp (run_lazy_150.cpp / test_*), NICHT in den engine-agnostischen Treiber-Header. C++23, header-only.
+//    (run_lazy_150.cpp geloescht 2026-07-11; Host/Emitter heute Code/02_messung_driver, E4-XML)
 
 #include "generated_source_catalog.hpp" // generated_make_catalog_source_gen (Basis-320-Quelle)
 #include "h2_score_akte.hpp"            // GO-5 Fork 7: parse_h2_score_akte / h2_score_for (CSV-Endspalte)
