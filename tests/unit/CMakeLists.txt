@@ -2119,6 +2119,21 @@ target_link_libraries(test_216h2_stat_reset_after_load PRIVATE Boost::mp11)
 target_compile_definitions(test_216h2_stat_reset_after_load PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 
+# G3 Batch-2 — additive Correctness-Guards am realen SearchAlgorithmAbiAdapter: (a) uint16-Narrow-Cast-Guard
+# im Mapping-Observer-Seitenpfad (out-of-range-Keys ehrlich abgelehnt statt still gewrappt), (b) nullptr-Guard-
+# Happy-Path-Neutralitaet ueber alle drei run_workload-Treiber. Messungs-/Statistik-Build wie test_216h2.
+comdare_add_test(test_abi_adapter_g3_batch2
+    SOURCES test_abi_adapter_g3_batch2.cpp)
+target_include_directories(test_abi_adapter_g3_batch2 PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_abi_adapter_g3_batch2 PRIVATE Boost::mp11)
+target_compile_definitions(test_abi_adapter_g3_batch2 PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+
 # #221 RC prefetch_distance — Laufzeit-RC erreicht den realen T7 Store-Prefetch (tier_observe-Pfad B).
 comdare_add_test(test_221_rc_prefetch_distance
     SOURCES test_221_rc_prefetch_distance.cpp)
@@ -3020,6 +3035,34 @@ endif()
 check_cxx_compiler_flag("-mavx512f" COMDARE_CXX_HAS_MAVX512F)
 if(COMDARE_CXX_HAS_MAVX512F)
     comdare_add_simd_dispatch_test("_avx512" "-mavx512f" ${COMDARE_HOST_RUNS_AVX512F})
+endif()
+
+# M-CE-16 (G3 Batch-2): Regressionstest für comdare::simd::avx2::add_u64 (Carry-Verlust + UB-Tail-Read).
+# Wie der simd_field_sum-Dispatch: je ISA-Stufe eine Variante — die avx2-Variante (mit -mavx2) instanziiert
+# GENAU die zuvor kaputte AVX2-Fassung und weist r[4]==13 nach. Gtest-basiert → gtest/gtest_main + comdare::simd.
+function(comdare_add_simd_add_u64_test suffix flag do_run)
+    set(_tgt "test_simd_add_u64_carry${suffix}")
+    add_executable(${_tgt} "test_simd_add_u64_carry.cpp")
+    target_compile_features(${_tgt} PRIVATE cxx_std_23)
+    comdare_set_platform_defines(${_tgt})
+    target_link_libraries(${_tgt} PRIVATE gtest gtest_main comdare::simd)
+    if(NOT flag STREQUAL "")
+        target_compile_options(${_tgt} PRIVATE ${flag})
+    endif()
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_tgt})
+    if(do_run)
+        add_test(NAME ${_tgt} COMMAND ${_tgt})
+        set_tests_properties(${_tgt} PROPERTIES LABELS "axes;simd" TIMEOUT 60)
+    endif()
+endfunction()
+
+# Baseline (Plattform-Default) — immer bauen UND ausfuehren.
+comdare_add_simd_add_u64_test("" "" TRUE)
+if(COMDARE_CXX_HAS_MAVX2)
+    comdare_add_simd_add_u64_test("_avx2" "-mavx2" ${COMDARE_HOST_RUNS_AVX2})
+endif()
+if(COMDARE_CXX_HAS_MAVX512F)
+    comdare_add_simd_add_u64_test("_avx512" "-mavx512f" ${COMDARE_HOST_RUNS_AVX512F})
 endif()
 
 # thesis_tiere ADHOC-Treiber: baubar per explizitem Target, aber absichtlich

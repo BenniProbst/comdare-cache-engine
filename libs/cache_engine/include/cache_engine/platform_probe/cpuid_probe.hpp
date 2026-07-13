@@ -72,6 +72,25 @@ inline CpuidResult cpuid(std::uint32_t leaf, std::uint32_t subleaf = 0) noexcept
     return r;
 }
 
+/// XGETBV-Wrapper (liest ein Extended-Control-Register, x86). DARF ausschliesslich aufgerufen werden, NACHDEM
+/// das OSXSAVE-Bit (CPUID.1:ECX[27]) als gesetzt bestaetigt wurde — sonst #UD (SIGILL), weil CR4.OSXSAVE die
+/// XGETBV-Instruktion erst freischaltet. Liefert den 64-Bit-Wert (EDX:EAX). Auf non-x86 inert 0.
+inline std::uint64_t xgetbv(std::uint32_t xcr) noexcept {
+#if defined(__x86_64__) || defined(_M_X64)
+#if defined(_MSC_VER)
+    return _xgetbv(xcr);
+#else
+    std::uint32_t eax = 0;
+    std::uint32_t edx = 0;
+    __asm__ __volatile__("xgetbv" : "=a"(eax), "=d"(edx) : "c"(xcr));
+    return (static_cast<std::uint64_t>(edx) << 32) | eax;
+#endif
+#else
+    (void)xcr;
+    return 0;
+#endif
+}
+
 /// Probe ausfuehren - liefert CpuidProbeResults
 inline CpuidProbeResults probe_cpuid() {
     CpuidProbeResults result{};
@@ -100,9 +119,28 @@ inline CpuidProbeResults probe_cpuid() {
     auto leaf1           = cpuid(1);
     result.has_sse2      = (leaf1.edx & (1u << 26)) != 0;
     result.has_sse42     = (leaf1.ecx & (1u << 20)) != 0;
-    result.has_avx       = (leaf1.ecx & (1u << 28)) != 0;
     result.has_popcnt    = (leaf1.ecx & (1u << 23)) != 0;
     result.has_pclmulqdq = (leaf1.ecx & (1u << 1)) != 0;
+
+    // OS-ENABLEMENT-GATE für AVX/AVX2/AVX-512 (Intel SDM Vol.1 §14.3 / AMD APM Vol.2 §11.5.1):
+    // ein gesetztes CPUID-Feature-Bit sagt nur, dass die HARDWARE die ISA kann — NICHT, dass das OS den
+    // zugehörigen Vektor-Register-State (YMM/ZMM/OPMASK via XSAVE) rettet. Ohne diese Kette meldete die Probe
+    // AVX/AVX-512 als nutzbar, wo eine AVX-Instruktion mit #UD (SIGILL) abbricht. Kanonische Sequenz:
+    //   1. OSXSAVE (CPUID.1:ECX[27]) muss gesetzt sein — erst dann ist XGETBV überhaupt legal (sonst #UD);
+    //   2. XGETBV(XCR0) lesen und die OS-State-Bits prüfen:
+    //        AVX/AVX2 : XCR0[1] (SSE/XMM) & XCR0[2] (AVX/YMM)                → Maske 0x6
+    //        AVX-512  : zusätzlich XCR0[5] (OPMASK) & [6] (ZMM_Hi256) & [7] (Hi16_ZMM) → Maske 0xE0
+    const bool cpuid_avx_bit   = (leaf1.ecx & (1u << 28)) != 0;
+    const bool osxsave         = (leaf1.ecx & (1u << 27)) != 0;
+    bool       os_saves_avx    = false; // OS rettet XMM+YMM
+    bool       os_saves_avx512 = false; // OS rettet zusätzlich OPMASK+ZMM_Hi256+Hi16_ZMM
+    if (osxsave) {
+        const std::uint64_t xcr0 = xgetbv(0);
+        os_saves_avx             = (xcr0 & 0x6u) == 0x6u;
+        os_saves_avx512          = os_saves_avx && ((xcr0 & 0xE0u) == 0xE0u);
+    }
+    // has_avx nur, wenn Hardware- UND OS-Support beide vorliegen (sonst SIGILL beim Dispatch).
+    result.has_avx = cpuid_avx_bit && os_saves_avx;
 
     const auto base_family = static_cast<std::uint16_t>((leaf1.eax >> 8) & 0x0Fu);
     const auto base_model  = static_cast<std::uint16_t>((leaf1.eax >> 4) & 0x0Fu);
@@ -118,14 +156,19 @@ inline CpuidProbeResults probe_cpuid() {
     }
     result.cpu_stepping = static_cast<std::uint16_t>(leaf1.eax & 0x0Fu);
 
-    // Leaf 7 sub 0: Extended Feature Flags
-    auto leaf7          = cpuid(7, 0);
-    result.has_avx2     = (leaf7.ebx & (1u << 5)) != 0;
-    result.has_bmi1     = (leaf7.ebx & (1u << 3)) != 0;
-    result.has_bmi2     = (leaf7.ebx & (1u << 8)) != 0;
-    result.has_avx512f  = (leaf7.ebx & (1u << 16)) != 0;
-    result.has_avx512bw = (leaf7.ebx & (1u << 30)) != 0;
-    result.has_avx512vl = (leaf7.ebx & (1u << 31)) != 0;
+    // Leaf 7 sub 0: Extended Feature Flags — nur lesen, wenn der Max-Standard-Leaf (CPUID.0:EAX) Leaf 7
+    // überhaupt anbietet (auf sehr alten CPUs ist leaf0.eax < 7 → CPUID(7) liefert Fremd-/Nullwerte). Die
+    // Vektor-Flags werden zusätzlich mit dem OS-Enablement-Gate (os_saves_avx / os_saves_avx512, s.o.)
+    // konjunktiv verknüpft; BMI1/BMI2 sind GPR-only (kein XSAVE-State) und brauchen nur den Max-Leaf-Guard.
+    if (leaf0.eax >= 7u) {
+        auto leaf7          = cpuid(7, 0);
+        result.has_avx2     = ((leaf7.ebx & (1u << 5)) != 0) && os_saves_avx;
+        result.has_bmi1     = (leaf7.ebx & (1u << 3)) != 0;
+        result.has_bmi2     = (leaf7.ebx & (1u << 8)) != 0;
+        result.has_avx512f  = ((leaf7.ebx & (1u << 16)) != 0) && os_saves_avx512;
+        result.has_avx512bw = ((leaf7.ebx & (1u << 30)) != 0) && os_saves_avx512;
+        result.has_avx512vl = ((leaf7.ebx & (1u << 31)) != 0) && os_saves_avx512;
+    }
 
     // Cache-Line-Size aus Leaf 1 EBX[15:8] (in 8-Byte-Units, x86-standard)
     result.cache_line_bytes = ((leaf1.ebx >> 8) & 0xFF) * 8;

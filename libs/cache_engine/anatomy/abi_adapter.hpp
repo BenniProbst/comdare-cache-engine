@@ -110,6 +110,7 @@
 #endif
 #include <cstddef>
 #include <cstdint>
+#include <limits> // G3 Batch-2: numeric_limits<slot_index_type> für den additiven uint16-Kapazitaets-Guard (Mapping-Observer)
 #include <optional>
 #include <random>
 #include <string_view>
@@ -388,6 +389,10 @@ public:
             constexpr std::size_t kLbufBytes =
                 kRecords * 64; // OOB-Schutz: größtmöglicher Layout-Stride (64), nicht kRecordSize
             unsigned char* lbuf = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
+            // G3 Batch-2: Alloc-Achsen (z.B. numalloc) liefern bei OOM nullptr OHNE throw — der folgende Fill-Write
+            // wäre UB/SIGSEGV und würde vom catch(...) NICHT gefangen (bräche den noexcept-Vertrag). Ehrlicher
+            // 0-Return (= 0 Samples) statt Write ins Nichts.
+            if (lbuf == nullptr) return 0;
             for (std::size_t i = 0; i < kLbufBytes; ++i) lbuf[i] = static_cast<unsigned char>(i * 31u + 7u);
             std::mt19937_64 rng{seed};
             // (C-2): do_batch misst JE SEGMENT einen eigenen steady_clock-Timer. `seg`(!=nullptr) akkumuliert
@@ -409,13 +414,20 @@ public:
                 }
                 auto const s1b = clock::now();
                 // Segment 2: allocator-Achse (alloc N → touch → dealloc N; Pool reused Free-Lists)
+                // G3 Batch-2: `churn_n` verfolgt die REAL alloziierten Blöcke. Bei OOM-nullptr wird der Churn ehrlich
+                // abgekürzt (kein UB-Touch) und die Dealloc-Schleife gibt NUR das real Alloziierte frei (kein
+                // Doppel-Free über die batch-übergreifend wiederverwendeten stale `blocks`-Zeiger). Im Nicht-OOM-Fall
+                // (churn_n == kChurn) ist das Verhalten byte-identisch zum Bestand.
+                std::size_t churn_n = 0;
                 for (std::size_t j = 0; j < kChurn; ++j) {
-                    void* p                         = alloc.allocate(churn_size(j), kAlign);
+                    void* p = alloc.allocate(churn_size(j), kAlign);
+                    if (p == nullptr) break;
                     *static_cast<unsigned char*>(p) = static_cast<unsigned char>(j); // touch
                     sink += *static_cast<unsigned char*>(p);
                     blocks[j] = p;
+                    ++churn_n;
                 }
-                for (std::size_t j = 0; j < kChurn; ++j) { alloc.deallocate(blocks[j], churn_size(j), kAlign); }
+                for (std::size_t j = 0; j < churn_n; ++j) { alloc.deallocate(blocks[j], churn_size(j), kAlign); }
                 auto const s2b = clock::now();
                 // Segment 3: memory_layout-Achse (Feld-Scan im layout-charakteristischen Zugriffsmuster)
                 sink += MemLayout::scan_field_sum(lbuf, kRecords, kRecordSize);
@@ -476,6 +488,8 @@ public:
             constexpr std::size_t kRecordSize = 48;
             constexpr std::size_t kLbufBytes  = kRecords * 64; // OOB-Schutz: größtmöglicher Layout-Stride (64)
             unsigned char*        lbuf        = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
+            // G3 Batch-2: OOM-nullptr der Alloc-Achse ehrlich abweisen (0 Samples) statt UB-Fill (s. run_workload).
+            if (lbuf == nullptr) return 0;
             for (std::size_t i = 0; i < kLbufBytes; ++i) lbuf[i] = static_cast<unsigned char>(i * 31u + 7u);
             std::mt19937_64 rng{seed};
             using clock = std::chrono::steady_clock;
@@ -491,13 +505,18 @@ public:
                     if (v) sink += *v;
                 }
                 auto const s1b = clock::now();
+                // G3 Batch-2: `churn_n` = real alloziierte Blöcke; OOM-nullptr kürzt ehrlich ab (kein UB-Touch),
+                // Dealloc nur des real Alloziierten (kein Doppel-Free über stale `blocks`). Nicht-OOM: byte-identisch.
+                std::size_t churn_n = 0;
                 for (std::size_t j = 0; j < kChurn; ++j) {
-                    void* p                         = alloc.allocate(churn_size(j), kAlign);
+                    void* p = alloc.allocate(churn_size(j), kAlign);
+                    if (p == nullptr) break;
                     *static_cast<unsigned char*>(p) = static_cast<unsigned char>(j);
                     sink += *static_cast<unsigned char*>(p);
                     blocks[j] = p;
+                    ++churn_n;
                 }
-                for (std::size_t j = 0; j < kChurn; ++j) alloc.deallocate(blocks[j], churn_size(j), kAlign);
+                for (std::size_t j = 0; j < churn_n; ++j) alloc.deallocate(blocks[j], churn_size(j), kAlign);
                 auto const s2b = clock::now();
                 sink += MemLayout::scan_field_sum(lbuf, kRecords, kRecordSize);
                 auto const s3b = clock::now();
@@ -600,6 +619,8 @@ public:
             constexpr std::size_t kRecordSize = 48;
             constexpr std::size_t kLbufBytes  = kRecords * 64;
             unsigned char*        lbuf        = static_cast<unsigned char*>(alloc.allocate(kLbufBytes, 64));
+            // G3 Batch-2: OOM-nullptr der Alloc-Achse ehrlich abweisen (0 Samples) statt UB-Fill (s. run_workload).
+            if (lbuf == nullptr) return 0;
             for (std::size_t i = 0; i < kLbufBytes; ++i) lbuf[i] = static_cast<unsigned char>(i * 31u + 7u);
 
             // Query-Puffer für T16 filter_probe_scan (1 Byte je Query).
@@ -691,13 +712,18 @@ public:
                 acc[5] += seg_ns(t0, t1);
                 // T6 allocator: alloc → touch → dealloc-Churn (Pool reused Free-Lists).
                 t0 = clock::now();
+                // G3 Batch-2: `churn_n` = real alloziierte Blöcke; OOM-nullptr kürzt ehrlich ab (kein UB-Touch),
+                // Dealloc nur des real Alloziierten (kein Doppel-Free über stale `blocks`). Nicht-OOM: byte-identisch.
+                std::size_t churn_n = 0;
                 for (std::size_t j = 0; j < kChurn; ++j) {
-                    void* p                         = alloc.allocate(churn_size(j), kAlign);
+                    void* p = alloc.allocate(churn_size(j), kAlign);
+                    if (p == nullptr) break;
                     *static_cast<unsigned char*>(p) = static_cast<unsigned char>(j);
                     sink += *static_cast<unsigned char*>(p);
                     blocks[j] = p;
+                    ++churn_n;
                 }
-                for (std::size_t j = 0; j < kChurn; ++j) alloc.deallocate(blocks[j], churn_size(j), kAlign);
+                for (std::size_t j = 0; j < churn_n; ++j) alloc.deallocate(blocks[j], churn_size(j), kAlign);
                 t1 = clock::now();
                 acc[6] += seg_ns(t0, t1);
                 // T7 prefetch: GAP #2 Re-Grounding (P5d-Rest, 2026-06-18) — der isolierte Pfad-A-Achsen-Timer misst jetzt
@@ -893,8 +919,16 @@ public:
                           map_organ_.register_slot(typename Composition::mapping::slot_index_type{},
                                                    typename Composition::mapping::offset_type{});
                       }) {
-            map_organ_.register_slot(static_cast<typename Composition::mapping::slot_index_type>(key),
-                                     static_cast<typename Composition::mapping::offset_type>(value));
+            // G3 Batch-2: additiver Kapazitaets-Guard analog #217-2a (tier_insert-Kopf, Z.854). slot_index_type ist
+            // typ. uint16 — ein ungeguardeter Narrow-Cast von key(uint64) würde ab key>=2^16 STILL in einen falschen
+            // Slot wrappen und die Mapping-Observer-Statistik (T2) verfälschen. Ehrliche Ablehnung der Observer-
+            // Kopplung (kein Slot-Wrap) statt stiller Trunkierung; der konstitutive container_algorithm_ oben bleibt
+            // unberührt, und der Cast ist damit beweisbar verlustfrei.
+            using slot_idx_t = typename Composition::mapping::slot_index_type;
+            if (key <= static_cast<std::uint64_t>(std::numeric_limits<slot_idx_t>::max())) {
+                map_organ_.register_slot(static_cast<slot_idx_t>(key),
+                                         static_cast<typename Composition::mapping::offset_type>(value));
+            }
         }
         if constexpr (requires { queuing_q1_organ_.put(typename Composition::queuing_q1::element_type{}); }) {
             queuing_q1_organ_.put(static_cast<typename Composition::queuing_q1::element_type>(value));
@@ -958,7 +992,13 @@ public:
             (void)ct_organ_.resolve(static_cast<typename Composition::cache_traversal::key_type>(key));
         }
         if constexpr (requires { map_organ_.resolve_offset(typename Composition::mapping::slot_index_type{}); }) {
-            (void)map_organ_.resolve_offset(static_cast<typename Composition::mapping::slot_index_type>(key));
+            // G3 Batch-2: symmetrischer Kapazitaets-Guard zum register_slot in tier_insert — ein Narrow-Cast von
+            // key(uint64) auf slot_index_type(uint16) würde ab key>=2^16 einen fremden Slot proben (Resolve-Hit/Miss-
+            // Zähler verfälscht). Out-of-range-Keys nehmen ehrlich NICHT an der Mapping-Observer-Kopplung teil.
+            using slot_idx_t = typename Composition::mapping::slot_index_type;
+            if (key <= static_cast<std::uint64_t>(std::numeric_limits<slot_idx_t>::max())) {
+                (void)map_organ_.resolve_offset(static_cast<slot_idx_t>(key));
+            }
         }
         if constexpr (requires { queuing_q1_organ_.get(); }) { (void)queuing_q1_organ_.get(); }
         // Phase B Auto-Kopplung T8 (Pfad B): ein lookup exerziert das echte Sync-Primitiv-Paar. cc_organ_ mutable.

@@ -84,6 +84,41 @@ TEST(CpuidProbe, IntelAlderLakeHasAvx2NotAvx512) {
         EXPECT_FALSE(result.has_avx512f) << "Intel Alder/Raptor Lake erwartet has_avx512f=false (post-Microcode)";
     }
 }
+
+// M-CE-08 (G3 Batch-2): AVX/AVX2/AVX-512 dürfen NUR als usable gemeldet werden, wenn das OS den zugehörigen
+// Vektor-Register-State rettet (OSXSAVE-Bit + XGETBV(XCR0)-State-Bits, Intel SDM Vol.1 §14.3 / AMD APM Vol.2
+// §11.5.1). Ohne dieses Gate droht SIGILL beim ISA-Dispatch. Dieser Test verifiziert die Gate-Invarianten auf
+// dem realen Host, OHNE selbst eine AVX-Instruktion auszuführen (kein SIGILL-Risiko: er liest nur CPUID + XGETBV).
+TEST(CpuidProbe, AvxFlagsAreOsEnablementGated) {
+    auto const raw     = pp::probe_cpuid();
+    auto const leaf1   = pp::cpuid(1);
+    bool const osxsave = (leaf1.ecx & (1u << 27)) != 0;
+
+    if (!osxsave) {
+        // Ohne OSXSAVE ist XGETBV illegal → KEIN Vektor-Flag darf gesetzt sein (sonst SIGILL beim Dispatch).
+        EXPECT_FALSE(raw.has_avx) << "has_avx ohne OSXSAVE — SIGILL-Risiko";
+        EXPECT_FALSE(raw.has_avx2) << "has_avx2 ohne OSXSAVE — SIGILL-Risiko";
+        EXPECT_FALSE(raw.has_avx512f) << "has_avx512f ohne OSXSAVE — SIGILL-Risiko";
+    } else {
+        std::uint64_t const xcr0   = pp::xgetbv(0);
+        bool const          os_avx = (xcr0 & 0x6u) == 0x6u;               // XCR0[1] XMM + [2] YMM
+        bool const os_avx512       = os_avx && ((xcr0 & 0xE0u) == 0xE0u); // + [5] OPMASK, [6] ZMM_Hi256, [7] Hi16_ZMM
+        // has_avx ⟹ OS rettet XMM+YMM; ohne YMM-State darf weder AVX noch AVX2 gemeldet werden.
+        if (raw.has_avx) EXPECT_TRUE(os_avx) << "has_avx, aber XCR0[1,2] nicht gesetzt";
+        if (!os_avx) {
+            EXPECT_FALSE(raw.has_avx) << "has_avx trotz fehlendem OS-YMM-State";
+            EXPECT_FALSE(raw.has_avx2) << "has_avx2 trotz fehlendem OS-YMM-State";
+        }
+        // has_avx512f ⟹ OS rettet zusätzlich OPMASK+ZMM_Hi256+Hi16_ZMM.
+        if (raw.has_avx512f) EXPECT_TRUE(os_avx512) << "has_avx512f, aber XCR0[5,6,7] nicht gesetzt";
+        if (!os_avx512) EXPECT_FALSE(raw.has_avx512f) << "has_avx512f trotz fehlendem OS-ZMM-State";
+    }
+
+    // Monotonie des Gates: AVX-512F ⟹ AVX2 ⟹ AVX (jede breitere ISA impliziert die schmalere UND deren
+    // OS-State — os_saves_avx512 ⊆ os_saves_avx, und die CPUID-Bits sind architektonisch geschachtelt).
+    if (raw.has_avx512f) EXPECT_TRUE(raw.has_avx2) << "has_avx512f ohne has_avx2 — Gate inkonsistent";
+    if (raw.has_avx2) EXPECT_TRUE(raw.has_avx) << "has_avx2 ohne has_avx — Gate inkonsistent";
+}
 #endif
 
 #if defined(__APPLE__) && defined(__aarch64__)
