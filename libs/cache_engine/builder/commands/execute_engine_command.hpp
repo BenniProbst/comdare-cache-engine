@@ -136,9 +136,18 @@ public:
         // V33.A.2: Latency-Samples behalten fuer Welch's t-Test in CompareEngineCommand
         result_.latency_samples_ns = std::move(op_latencies_ns);
 
-        result_.H1_clu_improvement       = 1.0;
-        result_.H2_layout_score          = 1.0;
-        result_.H3_inline_external_ratio = 0.5;
+        // Anti-Phantom (Review 2026-07-12, Ledger §G2): FRUEHER wurden hier H1/H2/H3 UNBEDINGT auf
+        // 1.0/1.0/0.5 hartkodiert — auch im echten engine_callable_-Pfad. Das war eine Schein-Validierung:
+        // CompareEngineCommand::hX_validated() (>=1.0 bzw. [0.2,0.8]) lieferte damit INPUT-UNABHAENGIG
+        // immer `true`, obwohl nichts gemessen wurde. Die drei F15-Struktur-Hypothesen H1
+        // (Cache-Line-Utilization), H2 (Layout-Score) und H3 (Inline/External-Ratio) sind STRUKTURELLE /
+        // compile-time-Eigenschaften der Achsen-Konfiguration und in dieser Runtime-Workload-Loop (die nur
+        // throughput/latency/cache-misses/footprint misst; EngineCallable liefert nur
+        // cache_misses_delta/bytes_touched/success) NICHT ehrlich ableitbar. Daher bleiben sie beim
+        // ehrlichen not-measured-Default (0.0 aus ExecutionResult) statt fabrizierter Werte. Folge:
+        // hX_validated() liefert ehrlich `false` ("nicht validiert / keine Daten") statt Schein-`true`.
+        // Sobald ein Mess-/Struktur-Konsument H1/H2/H3 REAL liefert, werden sie HIER aus echten Daten
+        // gesetzt (nicht wieder pauschal). Struct-Default 0.0 => keine explizite Zuweisung noetig.
 
         result_.success = (ops_succeeded == workload_.operation_count);
         return result_.success ? 0 : 1;
