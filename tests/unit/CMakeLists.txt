@@ -2366,6 +2366,30 @@ target_compile_definitions(test_harness_compile PRIVATE
 add_test(NAME test_harness_compile COMMAND test_harness_compile)
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_harness_compile)
 set_tests_properties(test_harness_compile PROPERTIES LABELS "contract;standalone;harness")
+
+# Goal-V4 G4 / M-CE-05 (2026-07-13) - dedizierter Unit-Test der BINARY-Resume-Logik
+# lazy_try_resume_binary (#139 Mess-Resume-Schutz) aus cache_engine_builder_iterator.hpp. Deckt die drei
+# Kern-Pfade: (a) valider per-Binary-Stand -> Resume/Skip, (b) korrupt/partiell/leer -> sauberer Fallback
+# (false, kein Crash/UB), (c) veraltet (Version-/Schema-/Format-Mismatch) -> Neustart. Temp-Dateien
+# user-eindeutig (comdare_test_tmp, #278/#24). Gleicher schwerer Include-/Define-Satz wie test_harness_compile
+# (derselbe Host-Treiber-Header). Ergaenzt das PROFIL-Pfad-Gate (test_profile_roundtrip) um die BINARY-Ebene.
+add_executable(test_lazy_resume_binary "test_lazy_resume_binary.cpp")
+target_compile_features(test_lazy_resume_binary PRIVATE cxx_std_23)
+target_include_directories(test_lazy_resume_binary PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_BINARY_DIR}/generated"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_lazy_resume_binary PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_lazy_resume_binary)
+target_compile_definitions(test_lazy_resume_binary PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+add_test(NAME test_lazy_resume_binary COMMAND test_lazy_resume_binary)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lazy_resume_binary)
+set_tests_properties(test_lazy_resume_binary PROPERTIES LABELS "contract;standalone;harness;resume")
 # AP-6/#240 rev: rein lesendes Profil-Coverage-Gate (SOTA P01-P33 + Allokator A01-A23).
 comdare_add_test(test_profile_coverage
     SOURCES thesis_tiere/test_profile_coverage.cpp
