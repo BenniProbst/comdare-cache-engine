@@ -142,21 +142,43 @@ public:
     }
 
     bool unregister(key_type k) {
-        std::size_t idx = hash_index(k);
+        std::size_t idx   = hash_index(k);
+        std::size_t pos   = 0;
+        bool        found = false;
         for (std::size_t i = 0; i < (capacity_mask_ + 1); ++i) {
-            std::size_t pos = (idx + i) & capacity_mask_;
-            if (!buckets_[pos].has_value()) return false;
+            pos = (idx + i) & capacity_mask_;
+            if (!buckets_[pos].has_value()) return false; // leerer Slot = Ende der Probe-Kette → nicht vorhanden
             if (buckets_[pos]->first == k) {
-                buckets_[pos].reset();
-                --size_;
-#ifdef COMDARE_CE_ENABLE_STATISTICS
-                ++stats_.total_unregister_count;
-                observer_.notify(stats_);
-#endif
-                return true;
+                found = true;
+                break;
             }
         }
-        return false;
+        if (!found) return false;
+
+        // Knuth TAOCP Vol 3 §6.4 Algorithm R — Backward-Shift-Deletion fuer Linear Probing.
+        // Ein blosses buckets_[pos].reset() wuerde die Probe-Kette zerreissen (Keys hinter der Luecke
+        // ⇒ falsche Misses; Re-Insert ⇒ Duplikate). Stattdessen: Luecke bei `hole` halten und jedes
+        // nachfolgende Element, dessen Home-Slot NICHT zyklisch im offenen Intervall (hole, j] liegt,
+        // in die Luecke nachziehen. Erhaelt die Kontiguitaets-Invariante jeder Kette OHNE Tombstone
+        // (passt zur std::optional-Belegung leer/besetzt) → resolve()/register_entry() bleiben korrekt.
+        std::size_t hole = pos;
+        buckets_[hole].reset();
+        for (std::size_t j = (hole + 1) & capacity_mask_;; j = (j + 1) & capacity_mask_) {
+            if (!buckets_[j].has_value()) break; // Ende des Clusters → fertig
+            std::size_t const home = hash_index(buckets_[j]->first);
+            // Liegt `home` zyklisch in (hole, j]? Dann darf das Element NICHT nachgezogen werden.
+            bool const cannot_move = (hole <= j) ? (hole < home && home <= j) : (hole < home || home <= j);
+            if (cannot_move) continue;
+            buckets_[hole] = std::move(buckets_[j]); // Element in die Luecke ziehen
+            buckets_[j].reset();                     // j wird zur neuen Luecke
+            hole = j;
+        }
+        --size_;
+#ifdef COMDARE_CE_ENABLE_STATISTICS
+        ++stats_.total_unregister_count;
+        observer_.notify(stats_);
+#endif
+        return true;
     }
 
     [[nodiscard]] size_type tracked_count() const noexcept { return size_; }

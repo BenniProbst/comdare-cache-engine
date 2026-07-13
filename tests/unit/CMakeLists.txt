@@ -1592,6 +1592,33 @@ foreach(_dt IN LISTS COMDARE_PHASE_E_BOOST_TESTS)
     set_tests_properties(${_dt} PROPERTIES LABELS "phase_e;standalone")
 endforeach()
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Goal-V4 G3 Batch-1 — Datenstruktur-Correctness-Pins (M-CE-01/03/04). Plain int main()-Standalone
+# (KEIN gtest → add_test direkt), gleicher anatomy/axes-Include-Satz wie die Phase-E-Tests darueber.
+#   * test_cuckoo_eviction_correctness — CuckooFilter-Verdraengung erhaelt Membership (keine False Negatives)
+#   * test_hash_lookup_backward_shift  — HashLookup unregister == Knuth Algorithm R (keine False Misses/Duplikate)
+#   * test_scalloc_realloc_alignment   — ScallocAllocator::reallocate spiegelt die alignment-Weiche
+set(COMDARE_G3_CORRECTNESS_TESTS
+    test_cuckoo_eviction_correctness
+    test_hash_lookup_backward_shift
+    test_scalloc_realloc_alignment)
+foreach(_dt IN LISTS COMDARE_G3_CORRECTNESS_TESTS)
+    add_executable(${_dt} "${_dt}.cpp")
+    target_compile_features(${_dt} PRIVATE cxx_std_23)
+    target_include_directories(${_dt} PRIVATE
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+        "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+        "${PROJECT_SOURCE_DIR}/libs/common"
+        "${CMAKE_BINARY_DIR}/generated"
+        ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+    target_link_libraries(${_dt} PRIVATE Boost::mp11)
+    comdare_set_platform_defines(${_dt})
+    add_test(NAME ${_dt} COMMAND ${_dt})
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS ${_dt})
+    set_tests_properties(${_dt} PROPERTIES LABELS "g3;correctness;standalone")
+endforeach()
+
 # #155 — leichtes Phase-E-Fixture: nur std + Win32-API (CreateFileW/CreateFileMappingW/VirtualAlloc), KEIN
 # Anatomie-/Boost-/generated-Include. Auf Non-Win32 kompiliert die #else-Branch zu einem sauberen SKIP (Exit 0).
 add_executable(test_v5_io_real_fixture "test_v5_io_real_fixture.cpp")
