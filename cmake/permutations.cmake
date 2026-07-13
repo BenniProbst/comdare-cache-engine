@@ -87,7 +87,13 @@ if(_perm_backend_effective STREQUAL "cpp")
     if(WIN32)
         set(_perm_cli_name "${_perm_cli_name}.exe")
     endif()
-    set(_perm_cli_dir "${CMAKE_BINARY_DIR}/apps/permutation_codegen_tool")
+    # Muster-D/#14: PROJECT_BINARY_DIR — Tool-Binary im ce-Build-Baum (im super-Sub-Build
+    # _cache_engine_external/apps), nicht in der Superprojekt-Build-Wurzel (CMAKE_BINARY_DIR).
+    # NUR die Tool-SUCHE wird ce-gewurzelt; COMDARE_PERMUTATION_OUTPUT (Z.17) + der Consumer
+    # (CMakeLists.txt:576/577) bleiben CMAKE_BINARY_DIR/generated = super-CI-Vertrag
+    # (Code/CMakeLists.txt:418 tier-binary-visibility liest dort das Manifest). Der cpp-Tool-Lauf
+    # erzeugt byte-identische Artefakte zum cmake-Backend (#25-B) — Ausgabepfad unveraendert.
+    set(_perm_cli_dir "${PROJECT_BINARY_DIR}/apps/permutation_codegen_tool")
     set(_perm_cli_candidates
         "${_perm_cli_dir}/${_perm_cli_name}"
         "${_perm_cli_dir}/Release/${_perm_cli_name}"

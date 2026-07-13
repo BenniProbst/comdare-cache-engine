@@ -64,7 +64,9 @@ function(comdare_run_anatomy_codegen_tool)
         set(_exe_name "${_exe_name}.exe")
     endif()
 
-    set(_tool_dir "${CMAKE_BINARY_DIR}/apps/anatomy_codegen_tool")
+    # Muster-D/#14: PROJECT_BINARY_DIR — die apps/ landen im ce-Build-Baum (im super-Sub-Build
+    # _cache_engine_external/apps), nicht in der Superprojekt-Build-Wurzel (CMAKE_BINARY_DIR).
+    set(_tool_dir "${PROJECT_BINARY_DIR}/apps/anatomy_codegen_tool")
     set(_tool_candidates
         "${_tool_dir}/${_exe_name}"
         "${_tool_dir}/Release/${_exe_name}"
