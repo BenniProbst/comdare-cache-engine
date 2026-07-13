@@ -5,7 +5,7 @@
 // Variante derselben 17-Komposition) — der ABI-Pull-Pfad, der das DefinitionOnly-Etikett zu einer realen,
 // abrufbaren Definition macht. Additive ABI-Erweiterung (eigenes Symbol; alte Loader ignorieren es).
 //
-// Die 17-Slot-Gattungs-Invariante bleibt (KEINE AdHocComposition<20>); die 3 Build-Achsen sind Codegen-Parameter
+// Die 19-Slot-Gattungs-Invariante bleibt (KEINE AdHocComposition<20>); die 3 Build-Achsen sind Codegen-Parameter
 // /Inspection NEBEN der 17-Komposition (Doc 27 §0.1). Header-only.
 
 #include "anatomy_module_abi_v1_decl.hpp" // COMDARE_ANATOMY_ABI_EXPORT

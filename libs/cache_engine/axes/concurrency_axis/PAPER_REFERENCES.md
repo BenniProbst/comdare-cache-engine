@@ -19,13 +19,17 @@ Nur `OlcOptimisticConcurrency` hat echtes is_original-Linking-Potenzial (OSS, pe
 | HazardPointerConcurrency | Hazard Pointers (safe memory reclamation, ABA) | Hazard Pointers: Safe Memory Reclamation for Lock-Free Objects | TPDS 15(6) 2004 | 10.1109/TPDS.2004.8 | lokal (P30) | none | ✗ |
 
 ## §3 Compliance-Status
-Alle 8 Wrapper haben eine Paper-Referenz ODER sind als Baseline/Lehrbuch-Konzept gekennzeichnet → Habich-Pflicht erfuellt:
+Alle 9 Wrapper haben eine Paper-Referenz ODER sind als Baseline/Lehrbuch-Konzept gekennzeichnet → Habich-Pflicht erfuellt:
 - **Baseline (kein Paper, bewusster Vergleichs-Nullpunkt):** NoneConcurrency.
 - **Lehrbuch-/Klassiker-Anker:** BlockingConcurrency (Dijkstra CACM 1965), ReaderWriterConcurrency (Courtois et al. CACM 1971).
 - **Generische Pattern mit Theorie-Anker (Map §5, confidence = medium):** LockFreeConcurrency (Michael/Scott PODC 1996 als Anker; generisches CAS-Pattern, kein einzelner Algorithmus), WaitFreeConcurrency (Herlihy TOPLAS 1991 als Theorie-Anker; generisches Seqlock-Pattern).
 - **is_original-Kandidat (Map §3, R7.6.c):** OlcOptimisticConcurrency — Repo github.com/laurynas-biveinis/unodb, Apache-2.0 (P08), `is_original = ✓`. Einziger is_original-faehiger Wrapper dieser Achse.
 - **Lokale Forschungs-Codes, aber NICHT is_original:** RcuConcurrency (P29 userspace-rcu/liburcu, LGPL-2.1-or-later) und HazardPointerConcurrency (P30 huangjiahua/haz_ptr) — P30 ist lizenz-blockiert (NO LICENSE), daher kein Original-Linking.
 - **Keine §4-Header-Korrekturen** betreffen axis_08 (keine Fehlattribution gelistet).
+
+> **Zaehl-Korrektur (2026-07-13, Registry AllStrategies = 9 Typen, autoritativ):** Gesamtzahl auf **9** angeglichen
+> (vorher 8). In §1/§2 noch nicht nachgezogen ist `OlcReservedBlocksConcurrency` (der 9. Wrapper); §2-Tabellenzeile
+> + Paper-Anker folgen separat.
 
 ## §4 Cross-Refs
 - Autoritative Map: docs/architecture/18_achsen_algorithmus_paper_code_map.md (§2 axis_08_concurrency, §3 is_original-Kandidaten, §5 offene Punkte, §6 P-ID-Katalog)

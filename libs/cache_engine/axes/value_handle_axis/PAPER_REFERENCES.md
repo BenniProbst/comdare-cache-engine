@@ -4,7 +4,7 @@
 **Klasse (Doku 17 §4.5):** Mix C/E — Engineering-Techniken (Value-Handle-Varianten) mit Paper-Ankern; KEINE is_original-faehigen Wrapper. Wormhole = GPL-3.0 (Klasse C, blockiert), RCU = LGPL-2.1-or-later; ART/Masstree = permissiv, aber nur lokal angebunden (Re-Impl, kein Original-Linking).
 
 ## §1 Pflicht-Note
-Kein Wrapper dieser Achse hat echtes is_original-Linking (OSS+permissiv). Alle 4 Wrapper sind lokale Re-Impl/Baseline-Anbindungen: `InlineValueHandle` (ART, lokal Apache-2.0) und `VersionedPointerValueHandle` (Masstree, lokal MIT) stammen aus permissiven Quellen, sind aber als CE-Re-Impl gefuehrt; `ExternalPoolValueHandle` (Wormhole) ist durch GPL-3.0 blockiert; `ImmutableSharedRefValueHandle` (RCU) ist LGPL-2.1-or-later. is_original = 0/4.
+Kein Wrapper dieser Achse hat echtes is_original-Linking (OSS+permissiv). Alle 5 Wrapper sind lokale Re-Impl/Baseline-Anbindungen: `InlineValueHandle` (ART, lokal Apache-2.0) und `VersionedPointerValueHandle` (Masstree, lokal MIT) stammen aus permissiven Quellen, sind aber als CE-Re-Impl gefuehrt; `ExternalPoolValueHandle` (Wormhole) ist durch GPL-3.0 blockiert; `ImmutableSharedRefValueHandle` (RCU) ist LGPL-2.1-or-later. is_original = 0/5.
 
 ## §2 Wrapper → Paper → Code
 | Wrapper | Algorithmus | Paper (Titel) | Venue/Jahr | DOI/URL | C/C++-Code | Lizenz | is_original |
@@ -15,7 +15,12 @@ Kein Wrapper dieser Achse hat echtes is_original-Linking (OSS+permissiv). Alle 4
 | VersionedPointerValueHandle | Pointer mit Version-Tag (MVCC/optimistic; Masstree+SMART) | Cache Craftiness for Fast Multicore Key-Value Storage (Masstree) | EuroSys 2012 | 10.1145/2168836.2168855 | lokal | MIT | ✗ |
 
 ## §3 Compliance-Status
-Alle 4 Wrapper haben einen verifizierten Paper-Anker → Habich-Pflicht erfuellt. Keiner ist als reine Lehrbuch-Baseline gefuehrt (jeder traegt ein konkretes Quellpaper). is_original-Kandidaten (§3 der Map): KEINE — axis_14 erscheint nicht in der is_original-Eligible-Liste (20 Wrapper, keiner aus value_handle). Lizenz-blockiert: `ExternalPoolValueHandle` (Wormhole, GPL-3.0) — kein Original-Linking moeglich.
+Alle 5 Wrapper haben einen verifizierten Paper-Anker → Habich-Pflicht erfuellt. Keiner ist als reine Lehrbuch-Baseline gefuehrt (jeder traegt ein konkretes Quellpaper). is_original-Kandidaten (§3 der Map): KEINE — axis_14 erscheint nicht in der is_original-Eligible-Liste (20 Wrapper, keiner aus value_handle). Lizenz-blockiert: `ExternalPoolValueHandle` (Wormhole, GPL-3.0) — kein Original-Linking moeglich.
+
+> **Zaehl-Korrektur (2026-07-13, Registry AllHandles = 5 Typen, autoritativ):** Gesamtzahl auf **5** angeglichen
+> (vorher 4; is_original entsprechend 0/5). Der 5. Wrapper `ChainRefValueHandle` ist in §1/§2 noch nicht nachgezogen;
+> §2-Tabellenzeile + Paper-Anker folgen separat. (Die „20 Wrapper" oben = achsen-uebergreifende is_original-Eligible-
+> Liste der Map, NICHT die value_handle-Zahl — unveraendert.)
 
 **§4 Korrekturen (KORRIGIERTE Angaben, oben in §2 bereits eingearbeitet — alte Attributionen waren falsch):**
 - `InlineValueHandle`: alte PAPER_REFERENCES.md §2.1 behauptete Rao/Ross CSS-Tree (P11, SIGMOD 2000) → KORREKT: Leis ART ICDE 2013 (P01).

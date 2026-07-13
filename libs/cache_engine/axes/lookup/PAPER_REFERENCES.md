@@ -36,7 +36,7 @@ Vier Wrapper sind is_original-faehig mit permissivem OSS-Original-Code (Original
 > - OriginalSurfSearchAlgo: Klarstellung (kein Bug) — Mehr-Header-Bibliothek, kein Single-Header.
 
 ## §3 Compliance-Status
-Alle 17 axis_03a-Wrapper besitzen eine Paper-Referenz (12 Re-Impl/Konzept-Wrapper + 5 Original-Paper-
+Alle 22 axis_03a-Wrapper besitzen eine Paper-Referenz (12 Re-Impl/Konzept-Wrapper + 5 Original-Paper-
 Wrapper; + BinarySearchTreeSearchAlgo = unbalancierter BST mit Hibbard-Deletion, Knuth TAOCP 3 §6.2.2;
 + BTreeSearchAlgo = balancierter block-orientierter Mehrwege-B-Baum, Bayer/McCreight Acta Inf. 1972 /
 CLRS Kap. 18). Die Re-Impl/Konzept-Wrapper (Array256SearchAlgo, Array65535SearchAlgo, VectorU16U16SearchAlgo,
@@ -56,6 +56,12 @@ sorted / Such-Methode / Hash / unsortiert-linear / Original-Trie / geordnete Str
 Balance-Auspraegungen (BST unbalanciert · SkipList probabilistisch balanciert · B-Baum deterministisch
 balanciert + block-orientiert), womit das Komplexitaets- und Cache-Verhalten am einheitlichen
 std::map-Interface vollstaendig vergleichbar wird (F15).
+
+> **Zaehl-Korrektur (2026-07-13, Registry AllStrategies = 22 Typen, autoritativ):** Gesamtzahl in §3 auf **22**
+> angeglichen (vorher 17). Die §2-Tabelle ist noch nicht vollstaendig nachgezogen — es fehlen die zuletzt
+> ergaenzten Wrapper Array65535SearchAlgo (S09), KArySearchAlgoK2/K4/K8/K16 (S18-S21) und SwissTableSearchAlgo
+> (S22), zusammen 6 Zeilen. KEINE erfundenen Paper-Anker eingesetzt; die §2-Ergaenzung (inkl. Attribution/Lizenz)
+> erfolgt separat.
 
 is_original-Kandidaten (Map §3, fuer R7.6.c — echtes Original-Code-Linking):
 - OriginalArtSearchAlgo → github.com/laurynas-biveinis/unodb (Apache-2.0)

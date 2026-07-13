@@ -2,7 +2,7 @@
 // Gattungs-Generik (2026-06-02, User-Option-B Schritt 2) — GenusBindingTraits<G>: die gattungs-PARAMETRISCHE
 // Bau-Brücke. Der Baum-KERN ist bereits gattungs-agnostisch (AxisLevel/StaticAxisNode tragen beliebige Achsen);
 // was eine Permutation in eine baubare Tier-Binary verwandelt, war bisher auf SearchAlgorithm (AdHocComposition
-// <17>) hartcodiert. Dieses Traits hebt die Bindung auf eine pro-Gattung-Spezialisierung: jede Gattung deklariert
+// <19>) hartcodiert. Dieses Traits hebt die Bindung auf eine pro-Gattung-Spezialisierung: jede Gattung deklariert
 // ihre Slot-Zahl, Achsen-Namen, Composition-/Anatomie-Bindung. SearchAlgorithm ist der VERIFIZIERTE Spezialfall
 // (BR-2/BR-3/BR-4); die Container-Gattung dockt über ihre Tier-Unterklassen (Adapter §28 13 Achsen / Set / Sequence /
 // View) an, ebenso die Graph-Gattung, sobald ihre Komposition/Anatomie existiert
@@ -11,7 +11,7 @@
 
 #include "axis_path_serialization.hpp"          // kCompositionAxisNames (19 SearchAlgorithm-Achsen, Doc 30 §8.0)
 #include "anatomy/anatomy_base.hpp"             // AnatomyGenus
-#include "anatomy/composition_factory.hpp"      // CompositionFromPermTuple / AdHocComposition<17>
+#include "anatomy/composition_factory.hpp"      // CompositionFromPermTuple / AdHocComposition<19>
 #include "anatomy/search_algorithm_anatomy.hpp" // SearchAlgorithmAnatomy
 #include "anatomy/adapter_anatomy.hpp"          // AdapterAnatomy / AdapterComposition (Container-Gattung)
 #include "anatomy/set_anatomy.hpp"              // SetAnatomy / SetComposition (Set-Gattung, D9)
