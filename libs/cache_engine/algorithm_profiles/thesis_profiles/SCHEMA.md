@@ -86,6 +86,11 @@ run_lazy_150 --validate <pfad>
    super-seitig und wird bewusst NICHT geprüft), `loader` nicht leer; ein loader außerhalb der Repo-Loader-ids
    (`string_corpus|sosd_uint64`) ist eine WARNUNG (Registry laufzeit-offen, aber Tippfehler fielen beim
    Mess-Konsum still auf den YCSB-Generator zurück).
+6. **(M-CE-12, 2026-07-13)** jede `<compile_dims><workloads>`-id ist eine **REAL existente
+   `load_profiles/`-id** (`ycsb_a..ycsb_f`, `lp_*`, `coco_*`, `ih`, `lh`) — die `<workloads>`-Auswahl ist die
+   AUTORITATIVE Achse-2-Auswahl; eine getippte id (z.B. das alte `A` statt `ycsb_a`) matcht 0 Lastprofile und
+   der Lauf bräche mit **exit 4** ab. Der Host reicht die via `discover_load_profiles` entdeckten ids herein;
+   eine unbekannte id ist ein **HARTER Fehler**, leere `<workloads>` = „alle Lastprofile" (OK).
 
 **Quelle der gültigen Werte = der CODE, nicht hartkodiert:** die Registry kommt aus `build_all_axis_levels()`
 (`registry_to_axis_levels.hpp`), die die realen `TopicConfigSet::StaticAxisVariants*`-Listen reflektiert
