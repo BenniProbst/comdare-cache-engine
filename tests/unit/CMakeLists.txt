@@ -247,6 +247,12 @@ comdare_add_test(test_rcu
     SOURCES test_rcu.cpp
     LIBRARIES comdare::rcu)
 
+# Feature #25 (2026-07-13): Eigentumsmodell-/Concurrency-Tests fuer die RCU-Reader-Registry
+# (Ownership-Inversion: Thread-Ende + Stack-Domain-Adress-Wiederverwendung, ehemals dangling).
+comdare_add_test(test_rcu_concurrency
+    SOURCES test_rcu_concurrency.cpp
+    LIBRARIES comdare::rcu)
+
 # Aufgabe #105 (2026-05-13): eigene SDSL-Lite-Portierung (BitVector + LOUDS)
 comdare_add_test(test_succinct
     SOURCES test_succinct.cpp
