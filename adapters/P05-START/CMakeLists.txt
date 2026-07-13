@@ -8,5 +8,5 @@ target_compile_features(comdare_adapter_p05_start INTERFACE cxx_std_23)
 if(COMDARE_HAVE_START)
     target_compile_definitions(comdare_adapter_p05_start INTERFACE COMDARE_HAVE_START=1)
     target_include_directories(comdare_adapter_p05_start INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/traversal/P05-START/START")
+        "${PROJECT_SOURCE_DIR}/ext/traversal/P05-START/START")
 endif()

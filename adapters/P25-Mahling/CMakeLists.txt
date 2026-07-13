@@ -8,5 +8,5 @@ target_compile_features(comdare_adapter_p25_mahling INTERFACE cxx_std_23)
 if(COMDARE_HAVE_MAHLING)
     target_compile_definitions(comdare_adapter_p25_mahling INTERFACE COMDARE_HAVE_MAHLING=1)
     target_include_directories(comdare_adapter_p25_mahling INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/traversal/P25-Mahling/prefetching/src")
+        "${PROJECT_SOURCE_DIR}/ext/traversal/P25-Mahling/prefetching/src")
 endif()

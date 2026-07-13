@@ -9,5 +9,5 @@ target_compile_features(comdare_adapter_p07_wormhole INTERFACE cxx_std_23)
 if(COMDARE_HAVE_WORMHOLE)
     target_compile_definitions(comdare_adapter_p07_wormhole INTERFACE COMDARE_HAVE_WORMHOLE=1)
     target_include_directories(comdare_adapter_p07_wormhole INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/traversal/P07-Wormhole/wormhole")
+        "${PROJECT_SOURCE_DIR}/ext/traversal/P07-Wormhole/wormhole")
 endif()

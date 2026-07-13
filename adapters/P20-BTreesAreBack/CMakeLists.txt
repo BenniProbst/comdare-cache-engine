@@ -8,5 +8,5 @@ target_compile_features(comdare_adapter_p20_btreesareback INTERFACE cxx_std_23)
 if(COMDARE_HAVE_LEANSTORE)
     target_compile_definitions(comdare_adapter_p20_btreesareback INTERFACE COMDARE_HAVE_LEANSTORE=1)
     target_include_directories(comdare_adapter_p20_btreesareback INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/traversal/P20-BTreesAreBack/leanstore/backend")
+        "${PROJECT_SOURCE_DIR}/ext/traversal/P20-BTreesAreBack/leanstore/backend")
 endif()

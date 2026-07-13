@@ -8,5 +8,5 @@ target_compile_features(comdare_adapter_p03_masstree INTERFACE cxx_std_23)
 if(COMDARE_HAVE_MASSTREE)
     target_compile_definitions(comdare_adapter_p03_masstree INTERFACE COMDARE_HAVE_MASSTREE=1)
     target_include_directories(comdare_adapter_p03_masstree INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/traversal/P03-Masstree/masstree-beta")
+        "${PROJECT_SOURCE_DIR}/ext/traversal/P03-Masstree/masstree-beta")
 endif()

@@ -16,7 +16,7 @@ foreach(_ae_d ${_ae_axis_src_dirs})
     if(IS_DIRECTORY "${_ae_d}")
         file(RELATIVE_PATH _ae_rel
             "${PROJECT_SOURCE_DIR}/libs/cache_engine/topics" "${_ae_d}")
-        list(APPEND _ae_axis_gen_dirs "${CMAKE_BINARY_DIR}/generated/topics/${_ae_rel}")
+        list(APPEND _ae_axis_gen_dirs "${PROJECT_BINARY_DIR}/generated/topics/${_ae_rel}")
     endif()
 endforeach()
 
@@ -24,7 +24,7 @@ target_include_directories(comdare_adhoc_emitter_cli PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated"
+    "${PROJECT_BINARY_DIR}/generated"
     ${_ae_axis_gen_dirs})
 
 target_link_libraries(comdare_adhoc_emitter_cli PRIVATE Boost::mp11)

@@ -9,7 +9,7 @@ comdare_add_library(comdare_permutation_codegen_tool PROJECT CACHE_ENGINE SOURCE
 add_library(comdare::permutation_codegen_tool ALIAS comdare_permutation_codegen_tool)
 
 target_include_directories(comdare_permutation_codegen_tool PUBLIC
-    "${CMAKE_SOURCE_DIR}/libs/cache_engine")
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine")
 
 target_compile_features(comdare_permutation_codegen_tool PUBLIC cxx_std_23)
 

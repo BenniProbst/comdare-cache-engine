@@ -9,5 +9,5 @@ target_compile_features(comdare_adapter_p06_b2tree INTERFACE cxx_std_23)
 if(COMDARE_HAVE_B2TREE)
     target_compile_definitions(comdare_adapter_p06_b2tree INTERFACE COMDARE_HAVE_B2TREE=1)
     target_include_directories(comdare_adapter_p06_b2tree INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/traversal/P06-B2tree/b2-tree-master/include")
+        "${PROJECT_SOURCE_DIR}/ext/traversal/P06-B2tree/b2-tree-master/include")
 endif()

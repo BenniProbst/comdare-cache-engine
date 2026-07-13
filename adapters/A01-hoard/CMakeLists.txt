@@ -7,5 +7,5 @@ target_compile_features(comdare_adapter_a01_hoard INTERFACE cxx_std_23)
 if(COMDARE_HAVE_HOARD)
     target_compile_definitions(comdare_adapter_a01_hoard INTERFACE COMDARE_HAVE_HOARD=1)
     target_include_directories(comdare_adapter_a01_hoard INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/allocator/A01-hoard/src/include")
+        "${PROJECT_SOURCE_DIR}/ext/allocator/A01-hoard/src/include")
 endif()

@@ -7,5 +7,5 @@ target_compile_features(comdare_adapter_a20_dlmalloc INTERFACE cxx_std_23)
 if(COMDARE_HAVE_DLMALLOC)
     target_compile_definitions(comdare_adapter_a20_dlmalloc INTERFACE COMDARE_HAVE_DLMALLOC=1)
     target_include_directories(comdare_adapter_a20_dlmalloc INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/allocator/A20-dlmalloc")
+        "${PROJECT_SOURCE_DIR}/ext/allocator/A20-dlmalloc")
 endif()
