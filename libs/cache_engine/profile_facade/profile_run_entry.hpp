@@ -373,6 +373,12 @@ struct RunProfileResult {
         std::vector<SotaPass> const passes = build_sota_passes(tp);
         std::cout << "  [SOTA] real baubare <sota_series>-Paesse = " << passes.size() << " (von "
                   << tp.sota_series.size() << " deklariert)\n";
+        // M-CE-10 (Voll-Review 2026-07-13, Fix (b)): res.sota_binary_ids ist per Doku "distinkte SOTA-Reihen-
+        // binary_ids, die gebaut/gemessen wurden" — NICHT die Pass-Zahl. build_sota_passes dedupliziert bereits
+        // identische Messungen (St2 = 1 HOT-Pilot); dieser Set-Guard fängt zusätzlich die legitimen fairness-
+        // Varianten ab (gleiche binary_id, verschiedener fairness_mode ⇒ EINE reale DLL). So bleibt der Zähler
+        // exakt == Zahl der real gebauten/gemessenen distinkten DLLs (kein Über-Zählen wie vor dem Fix).
+        std::set<std::string> sota_seen_bids;
         for (auto const& p : passes) {
             // Einwertiger Static-Baum: AxisLevel "sota_tier"=<sota_bid> + dieselben DynamicDims wie der Basis-Baum
             // (damit die SOTA-Zeilen die gleiche thread_count×prefetch×repetition-Variation tragen).
@@ -387,12 +393,15 @@ struct RunProfileResult {
             ex::StaticBinaryView const sota_view = sota_tree.static_binary_view();
             // EIN Lebewesen je Reihe = view-Index 0. binary_id == p.view_binary_id ("sota_tier=…").
             ex::BuildSelection const sel = ex::select_explicit({0});
-            ++res.sota_binary_ids;
-            // GO-5 Fork 7: der tool-berechnete H2-Score des Lebewesens (Akten-Lookup ueber den PROFIL-
-            // Lebewesen-Namen == sota-Profil-Dateistamm; prt_art/fehlende Akte ⇒ honest "n/a").
-            std::string const h2_score = h2_score_for(h2_akte, p.lebewesen);
+            if (sota_seen_bids.insert(p.view_binary_id).second) ++res.sota_binary_ids; // M-CE-10 (b): distinkt
+            // GO-5 Fork 7 + M-CE-10 (c): der tool-berechnete H2-Score wird ueber das HOST-Lebewesen (p.h2_lebewesen)
+            // aufgeloest — host-dominant (#171: "abstract" = Host fuellt 18/19 Achsen). Fuer St1/St3 == angefragtes
+            // Lebewesen; fuer St2 FIX "hot" (die Komposition IST der HOT-Host), NIE das angefragte lebewesen.
+            // prt_art/fehlende Akte ⇒ honest "n/a" (sota-Profil-Dateistamm == Lebewesen-Name der 6 SOTA).
+            std::string const h2_score = h2_score_for(h2_akte, p.h2_lebewesen);
             std::cout << "    SOTA-Pass series=" << p.series << " pruefling_type=" << p.pruefling_type
-                      << " fairness=" << p.fairness_mode << " h2_score=" << h2_score << " lebewesen=" << p.lebewesen
+                      << " fairness=" << p.fairness_mode << " h2_score=" << h2_score
+                      << " h2_lebewesen=" << p.h2_lebewesen << " lebewesen=" << p.lebewesen
                       << " binary_id=" << (sota_view.empty() ? std::string{"<leer>"} : sota_view[0].binary_id) << "\n";
             for (std::uint64_t const ws_n : n_sweep) {
                 ex::LazyRunConfig cfg =
