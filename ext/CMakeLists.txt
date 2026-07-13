@@ -118,14 +118,27 @@ endif()
 option(COMDARE_VENDOR_SNMALLOC "Snmalloc Detection (header-only-Setup)" ${COMDARE_BUILD_PERMUTATIONS})
 set(COMDARE_HAVE_SNMALLOC OFF CACHE BOOL "" FORCE)
 if(COMDARE_VENDOR_SNMALLOC)
-    set(_sn_root "${CMAKE_CURRENT_LIST_DIR}/A07-snmalloc")
+    # V41.A2-FIX (M-CE-21): Pfad korrigiert auf allocator/A07-snmalloc — der
+    # header-only-Vendor liegt (analog mimalloc-Fix #19) unter
+    # ext/allocator/A07-snmalloc, NICHT ext/A07-snmalloc (existiert nicht).
+    # Vorher schlug der EXISTS-Check fehl -> COMDARE_HAVE_SNMALLOC blieb IMMER OFF.
+    set(_sn_root "${CMAKE_CURRENT_LIST_DIR}/allocator/A07-snmalloc")
     if(EXISTS "${_sn_root}/src/snmalloc/snmalloc.h")
         add_library(comdare_vendor_snmalloc INTERFACE)
         target_include_directories(comdare_vendor_snmalloc INTERFACE "${_sn_root}/src")
         target_compile_definitions(comdare_vendor_snmalloc INTERFACE
             SNMALLOC_HEADER_ONLY_LIBRARY=1
             SNMALLOC_USE_CXX17=0
-            SNMALLOC_QEMU_WORKAROUND=0)
+            SNMALLOC_QEMU_WORKAROUND=0
+            # M-CE-21-Vervollstaendigung: der header-only-Setup umgeht snmallocs eigene Plattform-Detection, daher
+            # WAIT_ON_ADDRESS explizit deaktivieren (kein futex/WaitOnAddress-Pfad) — sonst „SNMALLOC_USE_WAIT_ON_ADDRESS
+            # was not declared". Verifiziert kompilierbar mit g++-16.
+            SNMALLOC_USE_WAIT_ON_ADDRESS=0)
+        # snmalloc verlangt auf x86-64 16-Byte-CAS (cmpxchg16b) → -mcx16 (aba.h: „You must compile with -mcx16").
+        # ISA-gegatet: auf ARM/RISC-V liefert die AAL ihren eigenen Atomic-Pfad (dortige Enablement = Multi-Plattform-Matrix).
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64")
+            target_compile_options(comdare_vendor_snmalloc INTERFACE -mcx16)
+        endif()
         if(NOT TARGET comdare::vendor_snmalloc)
             add_library(comdare::vendor_snmalloc ALIAS comdare_vendor_snmalloc)
         endif()

@@ -1,4 +1,6 @@
-# HdrHistogram_c vendored ORIGINAL (CC0) — Vendoring-Doktrin: byte-treu belassen, NIE umformatieren.
+# HdrHistogram_c vendored Snapshot (Basis: CC0, Michael Barker), comdare-MODIFIZIERT —
+# NICHT byte-identisch zu Upstream (AVX2-Runtime-Dispatch, Prefetch-/Likely-Hints im .c).
+# Vendoring-Doktrin: als externe Quelle behandeln, Format-Lock — NIE umformatieren.
 # Gleiches Muster wie ext/ (eigene .clang-format je vendored Baum).
 DisableFormat: true
 SortIncludes: Never

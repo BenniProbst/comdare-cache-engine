@@ -11,4 +11,10 @@ target_include_directories(comdare_hdr_histogram_wrapper
             ${CMAKE_CURRENT_SOURCE_DIR}/vendor/include
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vendor)
 set_target_properties(comdare_hdr_histogram_wrapper PROPERTIES LINKER_LANGUAGE C)
-# CC0-1.0 (Public Domain) — HdrHistogram_c (Michael Barker), s. NOTICE. is_original.
+# CC0-1.0 (Public Domain) — HdrHistogram_c (Michael Barker), s. NOTICE.
+# Provenienz-Korrektur (M-CE-17): dies ist eine VENDORED copy, NICHT byte-identisch
+# zu Upstream und KEINE eigene Re-Impl. Der vendored vendor/hdr_histogram.c enthaelt
+# comdare-Modifikationen (AVX2-Runtime-Dispatch, Prefetch-/Likely-Hints). Der frueher
+# hier gefuehrte Marker "is_original" (= unmodifiziertes Upstream) war daher unzutreffend.
+# Der Vendor-Inhalt bleibt per Vendoring-Doktrin unangetastet; nur die Provenienz-Angabe
+# wird hier ehrlich gemacht.
