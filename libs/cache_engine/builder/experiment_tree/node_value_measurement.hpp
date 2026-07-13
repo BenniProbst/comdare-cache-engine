@@ -29,7 +29,7 @@
 
 namespace comdare::cache_engine::builder::experiment {
 
-/// Misst EINE reale Komposition (PermTuple<17> P) in-process über den realen genus-ABI-Adapter und liefert
+/// Misst EINE reale Komposition (PermTuple<19> P) in-process über den realen genus-ABI-Adapter und liefert
 /// NodeValue mit echtem Observer-Snapshot. n_keys = Treib-Last (insert + lookup).
 template <class P>
 [[nodiscard]] inline NodeValue measure_composition(std::uint64_t n_keys = 256) {

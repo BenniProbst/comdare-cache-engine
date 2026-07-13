@@ -48,7 +48,12 @@ Echtes `is_original`-Linking (OSS + permissiv) haben 6 Wrapper dieser Achse: Mim
 > - ExgenAllocator: vage "Exception-Generated Single-Thread" → präzisiert "Old is Gold", UT Austin, IEEE CAL 2025.
 
 ## §3 Compliance-Status
-Alle 25 Allocator-Wrapper (RPMallocInitGuard ist Guard, kein Allocator) haben entweder eine Paper-Referenz oder sind explizit als Baseline/Lehrbuch gekennzeichnet (StdMalloc = libc-Baseline; Buddy/Slab/Vmem = Lehrbuch-/Kernel-Klassiker ohne OSS-Code; PoolResourceAllocator = std::pmr-Standardbibliothek, R5.B 2026-05-29). → Habich-Pflicht erfuellt.
+Alle 26 Allocator-Wrapper (RPMallocInitGuard ist Guard, kein Allocator) haben entweder eine Paper-Referenz oder sind explizit als Baseline/Lehrbuch gekennzeichnet (StdMalloc = libc-Baseline; Buddy/Slab/Vmem = Lehrbuch-/Kernel-Klassiker ohne OSS-Code; PoolResourceAllocator = std::pmr-Standardbibliothek, R5.B 2026-05-29). → Habich-Pflicht erfuellt.
+
+> **Zaehl-Korrektur (2026-07-13, Registry AllVendors = 26 Wrapper, autoritativ):** Gesamtzahl auf **26** angeglichen
+> (vorher 25; davon 25 default-enabled, VampirNfpAllocator default-OFF). In der §2-Tabelle fehlen noch
+> CrystallineAllocator (A17) und VampirNfpAllocator (A24) — Attribution/Lizenz dieser beiden Zeilen wird hier NICHT
+> erfunden, sondern separat nachgezogen.
 
 **R5.B-Hinweis (2026-05-29):** PoolResourceAllocator ist der erste axis_06-Wrapper, der sich OHNE externes Linking verhaltens-distinkt von System-malloc verhaelt (besitzt einen eigenen unsynchronized_pool_resource statt new_delete-Fallback). Damit wird die Allocator-Achse F15-operativ (nicht-hohle 2-Achsen-Messung search_algo × allocator moeglich, vs. die uebrigen Wrapper, die ohne Vendor-Linking auf portable_aligned_alloc = System zurueckfallen).
 

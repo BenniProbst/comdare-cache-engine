@@ -1,7 +1,7 @@
 #pragma once
 // D9 / L-76a (2026-06-02) — SetComposition: die SET-Gattungs-Komposition (Vogel, K-only). 15 Achsen-Slots
 // (Doku 14 §28 Bird-Spalte, K-A aufgelöst: kein mapping/value_handle — K=V; mit filter). Analog AdHocComposition
-// <17> (SearchAlgorithm), aber GETRENNTE Gattung (Cross-Genus type-unmöglich, Doku 14 §32) → eigene Slot-Namen.
+// <19> (SearchAlgorithm), aber GETRENNTE Gattung (Cross-Genus type-unmöglich, Doku 14 §32) → eigene Slot-Namen.
 //
 // Leichtgewichtig (kein Organ-Include): trägt NUR die 15 named Achsen-Typen als Komposition-Identität. Das
 // echte K-only-Such-Organ baut SetAnatomy<Comp> aus node_type/memory_layout/allocator (analog SearchAlgorithm).
@@ -58,7 +58,7 @@ concept IsSetComposition = requires {
     { C::slot_count } -> std::convertible_to<std::size_t>;
 };
 
-/// Anzahl Set-Komposition-Slots (Gattungs-Invariante, analog AdHocComposition<17>::slot_count==17).
+/// Anzahl Set-Komposition-Slots (Gattungs-Invariante, analog AdHocComposition<19> mit 19 Slots).
 inline constexpr std::size_t kSetCompositionSlotCount = 15;
 
 } // namespace comdare::cache_engine::anatomy
