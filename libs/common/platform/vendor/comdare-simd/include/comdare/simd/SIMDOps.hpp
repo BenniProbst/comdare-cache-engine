@@ -175,26 +175,26 @@ inline uint64_t add_u64(const uint64_t* a, const uint64_t* b,
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(result + i), vsum);
     }
 
-    // Scalar carry propagation
+    // Scalar carry propagation over the full array. Der frühere Zweig las für die Tail-Limbs (j >= i) das
+    // noch UNINITIALISIERTE result[j] (UB) und absorbierte den Übertrag des vektorisierten Präfix in diese
+    // Garbage-Limbs, statt ihn in die Rest-Schleife zu tragen → empirisch r[4]==12 statt 13. Jetzt exakt die
+    // Carry-Save-Logik der avx512-/neon-Fassung: für j < i (vektorisiert) den in result[j] bereits abgelegten
+    // Roh-Sum a[j]+b[j] mit dem eingehenden Carry kombinieren, sonst (Tail) den vollständigen Skalar-Add.
     carry = 0;
     for (size_t j = 0; j < count; ++j) {
-        uint64_t sum = result[j] + carry;
-        carry = (sum < carry) ? 1 : 0;
         if (j < i) {
-            // Already computed, just propagate carry
             uint64_t orig = a[j] + b[j];
-            carry += (orig < a[j]) ? 1 : 0;
+            uint64_t sum = result[j] + carry;
+            carry = (orig < a[j]) ? 1 : 0;
+            carry += (sum < result[j]) ? 1 : 0;
+            result[j] = sum;
+        } else {
+            uint64_t sum = a[j] + carry;
+            carry = (sum < carry) ? 1 : 0;
+            sum += b[j];
+            carry += (sum < b[j]) ? 1 : 0;
+            result[j] = sum;
         }
-        result[j] = sum;
-    }
-
-    // Handle remaining
-    for (; i < count; ++i) {
-        uint64_t sum = a[i] + carry;
-        carry = (sum < carry) ? 1 : 0;
-        sum += b[i];
-        carry += (sum < b[i]) ? 1 : 0;
-        result[i] = sum;
     }
 
     return carry;
