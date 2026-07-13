@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 5 Vendor-Header-Shim: CAMA (W6-Pattern)
 //
-// @vendor A12 CAMA Cache-Aware (Bhattacharyya/Beard/Cohen 2020)
+// @vendor A12 CAMA Cache-Aware (Herter/Backes/Haupenthal/Reineke, ECRTS 2011)
 
 #include <axes/alloc/axis_06_allocator_flags.hpp>
 

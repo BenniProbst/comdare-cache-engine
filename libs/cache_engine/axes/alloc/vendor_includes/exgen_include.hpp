@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 7 Vendor-Header-Shim: Exgen-Malloc (W6-Pattern)
 //
-// @vendor A18 Exgen-Malloc Exception-Generated Single-Thread Specialized
+// @vendor A18 Exgen-Malloc Single-Thread Specialized ("Old is Gold", UT Austin, IEEE CAL 2025)
 // Optimiert fuer single-threaded Code mit Exception-Safety.
 
 #include <axes/alloc/axis_06_allocator_flags.hpp>

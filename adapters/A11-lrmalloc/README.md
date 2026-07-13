@@ -1,4 +1,4 @@
-# A11-lrmalloc — Allokator-Adapter (Cohen/Petrank 2018)
+# A11-lrmalloc — Allokator-Adapter (Leite/Rocha 2018)
 
 **Original-Repo:** ext/A11-lrmalloc (BSD-3)
 **Profile:** `cache_engine/algorithm_profiles/allocators/lrmalloc.profile.xml`

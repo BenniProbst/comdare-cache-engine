@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 4 Vendor-Header-Shim: NUMAlloc (W6-Pattern)
 //
-// @vendor A09 NUMAlloc (Linden/Liu/Williams ICDCS 2018)
+// @vendor A09 NUMAlloc (UTSASRG, ISMM 2023)
 //
 // SONDERFALL: NUMA-Node-Parameter — `numalloc_alloc(size, node)`.
 // Wir uebergeben node=-1 (kernel-Default = aktueller NUMA-Node der CPU).

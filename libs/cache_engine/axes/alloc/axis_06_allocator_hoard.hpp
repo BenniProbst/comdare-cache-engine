@@ -3,7 +3,7 @@
 //
 // @topic allocator
 // @achse 6
-// @family A01 (Hoard — Berger/McKinley/Blumofe/Wilson PPoPP 2000)
+// @family A01 (Hoard — Berger/McKinley/Blumofe/Wilson ASPLOS-IX 2000)
 // @subaxis AA1 freelist_topology (Per-Heap Free-Lists)
 //
 // Erster groesserer SMP-Allocator mit per-Thread-Heaps + Global-Heap fuer
@@ -52,7 +52,7 @@ public:
         }
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "Hoard Per-Heap Free-Lists (Berger/McKinley PPoPP 2000)";
+        return "Hoard Per-Heap Free-Lists (Berger/McKinley ASPLOS-IX 2000)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "HOARD"; }
 

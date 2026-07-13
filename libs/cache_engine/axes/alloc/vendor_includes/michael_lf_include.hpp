@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 3 Vendor-Header-Shim: Michael Lock-Free CAS (W6-Pattern)
 //
-// @vendor A03 Michael Lock-Free (Michael PODC 2002 + JPDC 2004)
+// @vendor A03 Michael Lock-Free (Maged Michael, PLDI 2004)
 //
 // Lock-Free Memory Allocator using CAS-only operations (kein mutex).
 

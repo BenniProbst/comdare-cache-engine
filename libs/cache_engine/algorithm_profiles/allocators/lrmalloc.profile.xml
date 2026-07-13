@@ -2,9 +2,9 @@
 <comdare_allocator_profile id="lrmalloc" family_ref="A11">
   <metadata>
     <name>lrmalloc (Lock-Free Reservation Allocator)</name>
-    <authors>Cohen, Petrank</authors>
+    <authors>Ricardo Leite, Ricardo Rocha</authors>
     <year>2018</year>
-    <venue>PPoPP</venue>
+    <venue>VECPAR 2018</venue>
     <license>BSD-3</license>
     <repo>ext/A11-lrmalloc</repo>
   </metadata>

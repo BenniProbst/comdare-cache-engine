@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 5 Vendor-Header-Shim: LRMalloc (W6-Pattern)
 //
-// @vendor A11 LRMalloc (Leite/Rocha JPDC 2019)
+// @vendor A11 LRMalloc (Leite/Rocha, VECPAR 2018)
 // Lock-Free Memory Allocator using Hazard-Pointers fuer safe Reclamation.
 
 #include <axes/alloc/axis_06_allocator_flags.hpp>

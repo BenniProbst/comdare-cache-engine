@@ -60,7 +60,7 @@ struct WormholePaperBindingComposition {
     using queuing_q1 = queuing::axis_q1_queuing::NoBuffer;
     using queuing_q2 = queuing::axis_q2_queuing::LazyFlush;
 
-    static constexpr std::string_view paper_id    = "P07 Wu/Ni/Jiang ATC 2019 (Paper-Binding)";
+    static constexpr std::string_view paper_id    = "P07 Wu/Ni/Jiang EuroSys 2019 (Paper-Binding)";
     static constexpr std::string_view paper_title = "Wormhole: Fast Ordered Index (wh.c Paper-Source)";
     static constexpr std::string_view name        = "WormholePaperBindingComposition";
     COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::WormholePaperBindingComposition",

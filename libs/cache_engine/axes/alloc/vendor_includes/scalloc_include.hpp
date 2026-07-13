@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 4 Vendor-Header-Shim: Scalloc (W6-Pattern)
 //
-// @vendor A08 Scalloc (Aigner/Iurca/Wimmer PPoPP 2015)
+// @vendor A08 Scalloc (Aigner/Kirsch/Lippautz/Sokolova, OOPSLA 2015)
 //
 // SONDERFALL: Scalloc Standard-API hat KEINE native aligned_alloc.
 // Aligned-Allocation muss via Overallocation + manueller Pointer-Justierung

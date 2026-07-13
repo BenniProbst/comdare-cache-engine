@@ -60,7 +60,7 @@ struct StartPaperBindingComposition {
     using queuing_q1 = queuing::axis_q1_queuing::NoBuffer;
     using queuing_q2 = queuing::axis_q2_queuing::LazyFlush;
 
-    static constexpr std::string_view paper_id    = "P05 Mertens ICDE 2024 (Paper-Binding)";
+    static constexpr std::string_view paper_id    = "P05 Fent et al. ICDEW 2020 (Paper-Binding)";
     static constexpr std::string_view paper_title = "START: Self-Tuning Adaptive Radix Tree (Paper-Source)";
     static constexpr std::string_view name        = "StartPaperBindingComposition";
     COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::StartPaperBindingComposition",

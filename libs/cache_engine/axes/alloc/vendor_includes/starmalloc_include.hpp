@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 5 Vendor-Header-Shim: StarMalloc (W6-Pattern)
 //
-// @vendor A13 StarMalloc Formal Verified (Dang/Charguer 2024)
+// @vendor A13 StarMalloc Formal Verified (Inria-Prosecco: Reitz/Fromherz/Protzenko et al., OOPSLA 2024)
 //
 // SONDERFALL/HINWEIS: Formal-verified Allocator (F* + KaRaMeL extraction).
 // Build-Time-Eigenschaft, KEINE Runtime-Property (laeuft identisch wie andere).
