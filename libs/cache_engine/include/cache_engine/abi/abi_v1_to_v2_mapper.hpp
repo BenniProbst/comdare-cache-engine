@@ -1,11 +1,4 @@
 #pragma once
-// ===== DEPRECATED (Muster-C Voll-Review 2026-07-12, verifiziert tot 2026-07-13) =====
-// V1->V2 ABI-Migrations-Mapper (AbiV1ToV2Mapper) ohne Konsument; migrate() liest
-// v31.measurement_bank (existiert nicht) -> latent kaputt. Kein Konsument
-// (grep=0: Symbol AbiV1ToV2Mapper 0 Treffer; Header nur als Kommentar in
-// permutation_flags_v32.hpp:17, kein #include). Datei-Entfernung = separater je-GO
-// (Doku-nie-loeschen-Doktrin G4). KEIN [[deprecated]]-Attribut (haelt -Werror fuer Restnutzer).
-//
 // V32.EE.4 (2026-05-18 spaet) - ABI V1 -> V2 Migrations-Mapper (DD.4)
 //
 // @subsystem CE

@@ -1,11 +1,4 @@
 #pragma once
-// ===== DEPRECATED (Muster-C Voll-Review 2026-07-12, verifiziert tot 2026-07-13) =====
-// V32.EE.5 vtable-Achse (IHardwareStrategy/DefaultHardwareStrategy + Enums) gegen die
-// CRTP+Concept-Doktrin. Kein Konsument (grep=0: Symbole 0 externe Treffer; Header nur
-// intra-Cluster von numa_affinity.hpp inkludiert + Doku, kein Live-Nutzer). Nachfolger:
-// Produktiv-Achsen in axes/ und topics/. Datei-Entfernung = separater je-GO
-// (Doku-nie-loeschen-Doktrin G4). KEIN [[deprecated]]-Attribut (haelt -Werror fuer Restnutzer).
-//
 // V32.EE.5 (2026-05-18 spaet) - Achse 12 HARDWARE-STRATEGY (NEU)
 //
 // @achse 12

@@ -1,11 +1,4 @@
 #pragma once
-// ===== DEPRECATED (Muster-C Voll-Review 2026-07-12, verifiziert tot 2026-07-13) =====
-// Public-Aggregations-Header ohne Includer; get_cache_engine() deklariert, nie definiert
-// (src/facade/ existiert nicht). Kein Konsument (grep=0: kein #include von
-// cache_engine/cache_engine.hpp repo-weit, nur Doku-Erwaehnung). Datei-Entfernung =
-// separater je-GO (Doku-nie-loeschen-Doktrin G4).
-// KEIN [[deprecated]]-Attribut (haelt -Werror fuer Restnutzer).
-//
 // cache_engine.hpp - Public Aggregation-Header
 // Reicht aus, um cache_engine als Konsument einzubinden.
 
