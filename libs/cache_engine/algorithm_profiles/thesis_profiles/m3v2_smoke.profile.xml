@@ -62,7 +62,7 @@
   <working_set_sweep>4096</working_set_sweep>
 
   <compile_dims>
-    <workloads>A C</workloads>
+    <workloads>ycsb_a ycsb_c</workloads>
     <telemetry mode="on" silent="true"/>
   </compile_dims>
 

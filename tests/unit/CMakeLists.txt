@@ -2307,6 +2307,33 @@ target_compile_definitions(test_wdk_datasets_fairness PRIVATE
     "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"")
 set_tests_properties(test_wdk_datasets_fairness PROPERTIES LABELS "contract;profiles;e4;go5")
 
+# M-CE-12 (Voll-Review 2026-07-13) — ctest-Gate der rein-lesenden <workloads>-id-Pruefung in
+# validate_profile: eine getippte <workloads>-id (z.B. das alte "A" statt "ycsb_a") wird von --validate
+# ABGELEHNT (statt erst im teuren E4-Lauf mit exit 4). Beweist (a) UNBEKANNTE id rejected, (b) ycsb_*
+# akzeptiert, (c) leere Auswahl OK, (d) 2-arg-Aufruf rueckwaerts-kompatibel (Pruefung uebersprungen),
+# (e) Regressions-Wache M-CE-11 (m3v2_smoke/m3v2_sota_pilot gegen die REAL entdeckten load_profiles/-ids).
+# SCHEMA.md:73-Verweis (test_validate_profile.cpp) damit wieder wahr. comdare_add_test registriert das
+# Target auto in COMDARE_TEST_TARGETS (comdare_tests-Sammel-Bau; #278-Lektion).
+comdare_add_test(test_validate_profile
+    SOURCES thesis_tiere/test_validate_profile.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+comdare_prepare_thesis_object_dir(test_validate_profile)
+target_include_directories(test_validate_profile PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_validate_profile PRIVATE Boost::mp11)
+target_compile_definitions(test_validate_profile PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_THESIS_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles\"")
+set_tests_properties(test_validate_profile PROPERTIES LABELS "contract;profiles;e4;validate")
+
 # GO-5 Fork 7 (2026-07-12, Dossier 20260712-go5 A.7) — ctest-Gate fuer die TOOL-BERECHNETE
 # H2-Code-Qualitaets-Akte (sota_h2_scores.xml, NEUE Schwester-Datei der byte-unberuehrten
 # sota/*.profile.xml) + die additive CSV-Endspalte h2_code_quality_score. Beweist Akte-Parse
