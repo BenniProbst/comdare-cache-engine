@@ -17,11 +17,14 @@
 // machen genau diese strategie-divergente Scan-Aktivitaet observable; der reine Latenz-Unterschied der Muster
 // bleibt der Wall-Clock-Messung vorbehalten (Pfad B, Hybrid-Messmodell, Doku 24 §8).
 //
-// EHRLICHKEIT der Zaehler (Pflicht-Deklaration, [[no-success-marks-without-literal-output]]): predicate_evals
-// wird NUR fuer Strategien hochgezaehlt, die laut ihrer is_clustered()-Eigenschaft wirklich einen Predicate-Scan
-// fahren (Heap = nicht-clustered, kein Frueh-Abbruch); fuer Clustered/IOT bleibt predicate_evals==0 (sequentieller
-// Summen-Scan ohne Vergleichslast). indirect_lookups folgt has_secondary_indexes() (NonClustered). Kein Zaehler
-// wird mit einem erfundenen Konstantwert befuellt — jeder Zaehler folgt der echten, strategie-deklarierten Op.
+// EHRLICHKEIT der Zaehler (honest-100%, #24 Option A, 2026-07-13): predicate_evals/indirect_lookups werden NICHT
+// mehr aus statischen Flags (is_clustered()/has_secondary_indexes()) x n SYNTHETISIERT, sondern vom strategie-echten
+// Scan ZURUECKGEMELDET. index_org_observe() ruft Strategy::index_org_scan_counted(), das je Strategie GENAU die im
+// Scan-Code real ausgefuehrten Operationen zaehlt: Heap inkrementiert predicate_evals je datenabhaengig evaluiertem
+// Predicate-Branch (n); NonClustered inkrementiert je Lookup indirect_lookups (real ausgefuehrter Pointer-Hop, n)
+// UND je geholtem Record predicate_evals (Residual-Predicate auf der Daten-Row, n, Anhang D NonClustered);
+// Clustered/IOT (sequentieller Summen-Scan, kein Predicate, kein Hop) melden 0. Kein Zaehler wird aus Flags oder
+// einem Konstantwert befuellt — jeder Zaehler == Anzahl der TATSAECHLICH im Scan-Code ausgefuehrten Operationen.
 //
 // Gating exakt nach Praezedenz (ObservableNodeType/ObservableMemoryLayout): snapshot_t/statistics()/reset() unter
 // COMDARE_CE_ENABLE_STATISTICS. Bei OFF: index_org_scan = nackter static Pass-Through (0 Footprint),
@@ -44,6 +47,14 @@ struct IndexOrgStatistics {
     std::uint64_t last_checksum    = 0; ///< letztes index_org_scan-Ergebnis (Korrektheits-/Strategie-Anker)
 
     [[nodiscard]] bool operator==(IndexOrgStatistics const&) const noexcept = default;
+};
+
+/// Transiente Zaehl-Rueckgabe des strategie-echten Scans (honest-100%, #24 Option A): index_org_scan_counted()
+/// meldet hier die je Record TATSAECHLICH ausgefuehrten Operationen zurueck (kein Flag-abgeleiteter Wert).
+/// index_org_observe() summiert diese in IndexOrgStatistics. Rein transient (kein ABI-Mapping) — NUR uint64-Felder.
+struct IndexOrgScanCounters {
+    std::uint64_t predicate_evals  = 0; ///< real evaluierte Predicate-Branches (Heap/NonClustered: n; Clustered/IOT: 0)
+    std::uint64_t indirect_lookups = 0; ///< real ausgefuehrte Index-Indirektions-Hops (NonClustered: n; sonst: 0)
 };
 
 /// ObservableAxis-Huelle: index_organization-Strategie + Per-Achsen-Mess-Mechanik (gegated). KEIN Aggregat
@@ -87,24 +98,27 @@ public:
         return Strategy::index_org_scan(buf, n, record_size);
     }
 
-    /// Mess-Kopplung (der eigentliche „Driver", Instanz): delegiert an die strategie-echte index_org_scan +
+    /// Mess-Kopplung (der eigentliche „Driver", Instanz): delegiert an die strategie-echte index_org_scan_counted +
     /// trackt strategie-treu. Der Observer-Treiber (abi_adapter fill_observer_v3, Pfad B) ruft dies → die
-    /// Index-Organisations-Scan-Aktivitaet wird observable (statistics()). predicate_evals/indirect_lookups
-    /// folgen den static-deklarierten Strategie-Eigenschaften (kein erfundener Wert).
+    /// Index-Organisations-Scan-Aktivitaet wird observable (statistics()). predicate_evals/indirect_lookups werden
+    /// vom Scan ZURUECKGEMELDET (honest-100%, #24 Option A): jeder Zaehler == real im Scan-Code ausgefuehrte Op-Zahl,
+    /// KEIN aus Flags synthetisierter Wert. Bei OFF-Statistics: nackter Pass-Through der plain index_org_scan.
     [[nodiscard]] std::uint64_t index_org_observe(unsigned char const* buf, std::size_t n,
                                                   std::size_t record_size) noexcept {
-        std::uint64_t const checksum = Strategy::index_org_scan(buf, n, record_size);
 #ifdef COMDARE_CE_ENABLE_STATISTICS
+        IndexOrgScanCounters counters{};
+        std::uint64_t const  checksum =
+            Strategy::index_org_scan_counted(buf, n, record_size, counters.predicate_evals, counters.indirect_lookups);
         ++stats_.scan_count;
         stats_.records_scanned += static_cast<std::uint64_t>(n);
-        // Nicht-clustered = Full-Scan mit Predicate-Branch je Record (kein Index → kein Frueh-Abbruch). Heap/
-        // NonClustered: ein Predicate-Eval pro gescanntem Record. Clustered/IOT (sequential): 0 (reiner Summen-Scan).
-        if (!Strategy::is_clustered()) { stats_.predicate_evals += static_cast<std::uint64_t>(n); }
-        // Sekundaer-Index-Strategien (NonClustered) leisten je Lookup einen Index-Indirektions-Schritt.
-        if (Strategy::has_secondary_indexes()) { stats_.indirect_lookups += static_cast<std::uint64_t>(n); }
+        // predicate_evals/indirect_lookups == die vom Scan ZURUECKGEMELDETE, real ausgefuehrte Op-Zahl (honest-100%).
+        stats_.predicate_evals += counters.predicate_evals;
+        stats_.indirect_lookups += counters.indirect_lookups;
         stats_.last_checksum = checksum;
-#endif
         return checksum;
+#else
+        return Strategy::index_org_scan(buf, n, record_size);
+#endif
     }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS

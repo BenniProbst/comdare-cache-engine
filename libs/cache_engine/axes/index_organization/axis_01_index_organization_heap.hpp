@@ -56,6 +56,31 @@ public:
         }
         return s + matches;
     }
+
+    // honest-100% (#24 Option A) — Zaehl-Schwester zu index_org_scan (Observer-Pfad B, index_org_observe): identischer
+    // O(n) Full-Scan mit datenabhaengigem Predicate-Branch je Record, meldet aber die REAL ausgefuehrte Predicate-Eval-
+    // Zahl (== n) zurueck statt sie aus is_clustered() zu synthetisieren. Heap hat KEINEN Sekundaer-Index →
+    // indirect_lookups bleibt 0. matches bleibt in return s+matches gefaltet, damit der Compare nicht wegoptimiert
+    // wird (sonst Rueckfall in Synthese). Signatur bewusst != kanonische index_org_scan-Form (kein Mess-Kern; die
+    // Kern-Reinheit T13 in test_striktheit_scan_kernel_purity prueft ausschliesslich index_org_scan).
+    [[nodiscard]] static std::uint64_t index_org_scan_counted(unsigned char const* buf, std::size_t n,
+                                                              std::size_t record_size, std::uint64_t& predicate_evals,
+                                                              std::uint64_t& indirect_lookups) noexcept {
+        (void)indirect_lookups;                            // Heap: kein Sekundaer-Index → keine Indirektion (bleibt 0)
+        constexpr std::uint32_t kMatchProbe = 0x55555555u; // synthetischer Full-Scan-Suchschluessel
+        std::uint64_t           s           = 0;
+        std::uint64_t           matches     = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::uint32_t v;
+            std::memcpy(&v, buf + i * record_size, sizeof(v)); // Heap: unordered Full-Scan, Insert-Order
+            if ((v ^ kMatchProbe) < v) {                       // datenabhaengiger Predicate-Branch (kein Frueh-Abbruch)
+                ++matches;
+            }
+            ++predicate_evals; // EIN real ausgefuehrter Predicate-Eval je gescanntem Record
+            s += v;
+        }
+        return s + matches;
+    }
 };
 
 } // namespace comdare::cache_engine::index_organization

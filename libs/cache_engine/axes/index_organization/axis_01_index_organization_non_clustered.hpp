@@ -55,6 +55,36 @@ public:
         }
         return s;
     }
+
+    // honest-100% (#24 Option A, 2026-07-13) — Zaehl-Schwester zu index_org_scan (Observer-Pfad B): je Lookup ein
+    // REALER Pointer-Hop in unsortierte Storage-Order (indirect_lookups++ == n) UND ein REALER Residual-Predicate-
+    // Vergleich auf der geholten Daten-Row (predicate_evals++ == n) — analog Bookmark-/RID-Lookup gefolgt von einem
+    // Residual-Filter (SQL Server NONCLUSTERED / PostgreSQL Index-Scan). Beide Zaehler == tatsaechlich ausgefuehrte
+    // Ops, KEIN Flag-Wert. matches bleibt in return s+matches gefaltet, damit der Residual-Compare nicht wegoptimiert
+    // wird (sonst Rueckfall in Synthese). Thesis-Beleg: Anhang D, NonClusteredIndexOrganization (Residual-Predicate
+    // pro geholtem Record). Signatur bewusst != kanonische index_org_scan-Form (die Kern-Reinheit T13 prueft nur
+    // index_org_scan).
+    [[nodiscard]] static std::uint64_t index_org_scan_counted(unsigned char const* buf, std::size_t n,
+                                                              std::size_t record_size, std::uint64_t& predicate_evals,
+                                                              std::uint64_t& indirect_lookups) noexcept {
+        constexpr std::uint32_t kResidualProbe = 0x55555555u; // Residual-Predicate-Suchschluessel (nach RID-Lookup)
+        std::uint64_t           s              = 0;
+        std::uint64_t           matches        = 0;
+        std::uint64_t           idx            = 0x9E3779B97F4A7C15ull; // Startzustand (Fibonacci-Hash), LCG-getrieben
+        for (std::size_t i = 0; i < n; ++i) {
+            idx                 = idx * 6364136223846793005ull + 1442695040888963407ull; // LCG (Knuth MMIX)
+            std::size_t const r = (n == 0) ? 0 : static_cast<std::size_t>((idx >> 33) % n);
+            std::uint32_t     v;
+            std::memcpy(&v, buf + r * record_size, sizeof(v)); // NonClustered: random Storage-Hop (Pointer-Indirektion)
+            ++indirect_lookups;             // EIN real ausgefuehrter Index-Indirektions-Hop je Lookup
+            if ((v ^ kResidualProbe) < v) { // Residual-Predicate auf der geholten Daten-Row
+                ++matches;
+            }
+            ++predicate_evals; // EIN real ausgefuehrter Residual-Predicate-Eval je geholtem Record
+            s += v;
+        }
+        return s + matches;
+    }
 };
 
 } // namespace comdare::cache_engine::index_organization

@@ -55,6 +55,27 @@ public:
         }
         return s;
     }
+
+    // honest-100% (#24 Option A) — Zaehl-Schwester zu index_org_scan (Observer-Pfad B): Daten im Leaf eingebettet
+    // (data_embedded_in_leaf()==true), KEIN Pointer-Hop, sequentiell wie Clustered → beide Zaehler bleiben GENUIN 0.
+    // Behebt die frueher aus has_secondary_indexes()==true synthetisierte indirect_lookups=n-FABRIKATION: laut
+    // Anhang D (Iot) „spart IOT die Pointer-Indirektion" → indirect_lookups MUSS 0 sein (thesis-treu, honest-100%).
+    [[nodiscard]] static std::uint64_t index_org_scan_counted(unsigned char const* buf, std::size_t n,
+                                                              std::size_t record_size, std::uint64_t& predicate_evals,
+                                                              std::uint64_t& indirect_lookups) noexcept {
+        (void)predicate_evals;  // IOT: sequentieller Embedded-Scan → kein Predicate (bleibt 0)
+        (void)indirect_lookups; // IOT: data_embedded_in_leaf → kein Pointer-Hop (bleibt 0)
+        std::size_t const key_off = (record_size >= 2u * sizeof(std::uint32_t)) ? sizeof(std::uint32_t) : 0u;
+        std::uint64_t     s       = 0;
+        for (std::size_t i = 0; i < n; ++i) {
+            std::uint32_t key;
+            std::uint32_t data;
+            std::memcpy(&key, buf + i * record_size, sizeof(key));             // IOT: eingebetteter Index-Key
+            std::memcpy(&data, buf + i * record_size + key_off, sizeof(data)); // IOT: Daten im selben Leaf-Slot
+            s += key + data;
+        }
+        return s;
+    }
 };
 
 } // namespace comdare::cache_engine::index_organization

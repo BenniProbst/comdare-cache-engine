@@ -34,6 +34,7 @@
 #include <axes/index_organization/axis_01_index_organization_heap.hpp>
 #include <axes/index_organization/axis_01_index_organization_clustered.hpp>
 #include <axes/index_organization/axis_01_index_organization_non_clustered.hpp>
+#include <axes/index_organization/axis_01_index_organization_index_organized_table.hpp>
 
 #include <cstdint>
 #include <fstream>
@@ -171,28 +172,39 @@ int main() {
     tr("T3: Patricia.prefix_len_total != ByteWise.prefix_len_total (1-Bit vs 8-Bit Descent)",
        pc_patr.prefix_len_total != pc_byte.prefix_len_total);
 
-    // T13 index_organization: Heap (nicht-clustered → predicate_evals) vs Clustered (sequential → 0) vs NonClustered
-    // (indirect_lookups). Gleicher Scan, divergente predicate_evals/indirect_lookups je Strategie-Eigenschaft.
+    // T13 index_organization (#24 Option A, honest-100%, 2026-07-13): predicate_evals/indirect_lookups werden vom
+    // strategie-echten Scan (index_org_scan_counted) ZURUECKGEMELDET, nicht mehr aus Flags synthetisiert. Heap +
+    // NonClustered fuehren je Record einen REALEN Predicate-Vergleich aus (== n); NonClustered zusaetzlich je Lookup
+    // einen REALEN Pointer-Hop (indirect_lookups == n); Clustered/IOT (sequentieller Summen-Scan) melden 0/0.
     auto drive_ix = [&](auto organ) -> ixo::IndexOrgStatistics {
         (void)organ.index_org_observe(buf, sizeof(buf) / 16, 16);
         return organ.statistics();
     };
-    auto ix_heap = drive_ix(ixo::ObservableIndexOrg<ixo::HeapIndexOrganization>{});
-    auto ix_clus = drive_ix(ixo::ObservableIndexOrg<ixo::ClusteredIndexOrganization>{});
-    auto ix_nonc = drive_ix(ixo::ObservableIndexOrg<ixo::NonClusteredIndexOrganization>{});
+    constexpr std::uint64_t kIxRecords = sizeof(buf) / 16; // 4096/16 = 256 gescannte Records
+    auto                    ix_heap    = drive_ix(ixo::ObservableIndexOrg<ixo::HeapIndexOrganization>{});
+    auto                    ix_clus    = drive_ix(ixo::ObservableIndexOrg<ixo::ClusteredIndexOrganization>{});
+    auto                    ix_nonc    = drive_ix(ixo::ObservableIndexOrg<ixo::NonClusteredIndexOrganization>{});
+    auto                    ix_iot     = drive_ix(ixo::ObservableIndexOrg<ixo::IotIndexOrganization>{});
     std::cout << "  T13 predicate_evals: Heap=" << ix_heap.predicate_evals << " Clustered=" << ix_clus.predicate_evals
-              << " | indirect_lookups: NonClustered=" << ix_nonc.indirect_lookups << "\n";
-    // #24 UNSPEZIFIZIERT (modelliert vs. literal) — beim User eskaliert; keine harte Erwartung bis Entscheid
-    std::cout << "  T13 (#24 UNSPEZIFIZIERT modelliert vs. literal): Heap.predicate_evals=" << ix_heap.predicate_evals
+              << " NonClustered=" << ix_nonc.predicate_evals
+              << " | indirect_lookups: NonClustered=" << ix_nonc.indirect_lookups << " IOT=" << ix_iot.indirect_lookups
               << "\n";
-    // Clustered==0 ist #24-NEUTRAL (beide Doktrin-Seiten einig: sequentieller Summen-Scan hat keinen Predicate).
+    // Heap = O(n) Full-Scan mit Predicate-Branch je Record → predicate_evals == n (REAL gemessen, kein Flag).
+    tr("T13 (#24): Heap.predicate_evals == 256 (real gemessen, ein Predicate je Record)",
+       ix_heap.predicate_evals == kIxRecords);
+    // Clustered = sequentieller Summen-Scan ohne Predicate → 0 (honest, #24-neutral).
     tr("T13: Clustered.predicate_evals == 0 (sequential, honest)", ix_clus.predicate_evals == 0);
-    // #24 UNSPEZIFIZIERT: die Heap-vs-Clustered-DIVERGENZ auf predicate_evals unterstellte die modellierte Seite
-    // (Heap!=0). Bis zum User-Entscheid modelliert-vs-literal KEINE harte Erwartung — nur informativ (die
-    // strategie-neutrale Divergenz bleibt über indirect_lookups/Clustered==0 oben belegt).
-    std::cout << "  T13 (#24) Heap-vs-Clustered predicate_evals-Divergenz: "
-              << (ix_heap.predicate_evals != ix_clus.predicate_evals ? "divergent" : "gleich")
-              << " (Heap=" << ix_heap.predicate_evals << " Clustered=" << ix_clus.predicate_evals << ")\n";
+    // #24 Option A: die Divergenz ist jetzt REAL gemessen + design-fest → HARTE Assertion (nicht mehr informativ).
+    tr("T13 (#24): Heap.predicate_evals != Clustered.predicate_evals (real gemessene Divergenz)",
+       ix_heap.predicate_evals != ix_clus.predicate_evals);
+    // NonClustered = Pointer-Hop je Lookup + Residual-Predicate je geholtem Record (Option A, Thesis-Anhang-D:612).
+    tr("T13 (#24): NonClustered.indirect_lookups == 256 (real ausgefuehrter Pointer-Hop je Lookup)",
+       ix_nonc.indirect_lookups == kIxRecords);
+    tr("T13 (#24): NonClustered.predicate_evals == 256 (real ausgefuehrter Residual-Predicate je Record)",
+       ix_nonc.predicate_evals == kIxRecords);
+    // IOT = data_embedded_in_leaf → KEIN Pointer-Hop → indirect_lookups == 0 (Korrektur der frueheren Flag-Fabrikation).
+    tr("T13 (#24): IOT.indirect_lookups == 0 (data_embedded_in_leaf, kein Pointer-Hop; Fabrikation behoben)",
+       ix_iot.indirect_lookups == 0);
 
     std::cout << "==== Phase B Abschluss Per-Achsen-Observer-V3: "
               << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
