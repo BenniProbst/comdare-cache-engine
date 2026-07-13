@@ -6,6 +6,8 @@
 // Beweist L-74a-Kern: die 3 Build-Achsen (page_type/09b/12) sind als reale, ABI-gezogene Build-Identität DERSELBEN
 // Binary über die DLL-Grenze abrufbar — DefinitionOnly-Etikett → reale, cross-boundary abrufbare Definition.
 // Aufruf: test_buildvariant_dll <avx512.dll> <avx2.dll>. Build: siehe tests/unit/buildvariant_dll_roundtrip.ps1.
+// SUPERSEDED 2026-07-11: buildvariant_dll_roundtrip.ps1 entfernt (Behelfsweg-Bereinigung); jetzt registriertes
+// ctest-Target test_buildvariant_dll (tests/unit/CMakeLists.txt, Goal-V6 L-74a-Block; DLLs perm_buildvariant_avx512/avx2).
 
 #include "anatomy/build_variant_definition.hpp"
 

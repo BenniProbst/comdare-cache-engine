@@ -5,6 +5,8 @@
 // REPO-COMMITTET (vorher nur ephemer in build/). 4 geteilte Slots = int; extent/layout/accessor nutzen die
 // Defaults (DynamicExtent/LayoutRight/DefaultAccessor — read real über die layout/accessor-Policy, non-owning).
 // Build: siehe tests/unit/genus_dll_roundtrip.ps1 (committet).
+// SUPERSEDED 2026-07-11: genus_dll_roundtrip.ps1 entfernt (Behelfsweg-Bereinigung); DLL jetzt via CMakeLists
+// gebaut (SHARED perm_view_d11), Round-Trip = registriertes ctest-Target test_dgenus_dll (Goal-V6 L-76-Block).
 
 #include <cache_engine/abi/view_module_abi_v1.hpp>
 

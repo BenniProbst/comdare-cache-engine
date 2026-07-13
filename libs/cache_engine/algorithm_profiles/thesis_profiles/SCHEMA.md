@@ -7,6 +7,12 @@ Diplomarbeit-ansteuerbares XML-Profil für den Cache-Line-Konfigurator. Ersetzt 
 Vollständiger Entwurf + Begründung: `docs/sessions/20260602-cacheline-konfigurator-design-und-hw-recherche.md`.
 Beispiel: `cacheline_study.profile.xml` (gleicher Ordner).
 
+> **SUPERSEDED-Hinweis (2026-07-11, additiv):** Einzelne Zellen unten verweisen historisch auf
+> `build_and_measure_150_tiere.ps1` (Z.30) bzw. den Host `run_lazy_150.cpp`/`run_lazy_150` (Z.31/34) als das, was
+> ein Profil-Feld ersetzt. Diese `.ps1`/`run_lazy_150.*` wurden am 2026-07-11 bei der Behelfsweg-Bereinigung
+> **entfernt**; der offizielle Mess-/Validier-Host ist heute **`Code/02_messung_driver`** (E4-XML). Die Verweise
+> bleiben additiv als historischer Kontext erhalten.
+
 ## Wurzel
 `<comdare_thesis_profile id="..." schema_version="1">`
 
@@ -62,6 +68,11 @@ Beispiel: `cacheline_study.profile.xml` (gleicher Ordner).
 Ein **rein-lesendes** Validat prüft das Profil gegen die AxisRegistry/EnabledStrategies, **BEVOR** teuer gebaut/
 gemessen wird — so fällt ein getippter `<value>` (z.B. `node_4` statt `node4`) oder eine unbekannte
 `<axis ref="…">` SOFORT auf, statt erst nach langer Bau-/Mess-Wartezeit als „falsche Matrix"/„DLL nicht baubar".
+
+> **SUPERSEDED (2026-07-11):** Die beiden gezeigten Aufrufe (`build_and_measure_150_tiere.ps1 -Validate`,
+> `run_lazy_150 --validate`) sind entfernt (Behelfsweg-Bereinigung). Offizielles Validat heute:
+> **`messung_driver --validate <profil>`** (`Code/02_messung_driver`, E4). Der folgende Block bleibt additiv als
+> historischer Stand erhalten.
 
 ```powershell
 # Harness-Schalter (kein DLL-Bau, keine Messung):

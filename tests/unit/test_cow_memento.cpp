@@ -20,6 +20,8 @@
 // Build (standalone, analog test_obs_phaseA):
 //   cl /std:c++latest /EHsc /Od /bigobj /DCOMDARE_MEASUREMENT_ON=1 /DCOMDARE_CE_ENABLE_STATISTICS=1
 //      + voller ADHOC-Include-Satz (Harness-Include-Liste, build_and_measure_150_tiere.ps1).
+// SUPERSEDED 2026-07-11: obiger .ps1-Build-Weg (build_and_measure_150_tiere.ps1) entfernt (Behelfsweg-Bereinigung);
+//      Test jetzt registriertes ctest-Target (tests/unit/CMakeLists.txt, #155-Block COMDARE_PHASE_E_BOOST_TESTS).
 
 #include <anatomy/abi_adapter.hpp>
 #include <anatomy/observable_tier.hpp>

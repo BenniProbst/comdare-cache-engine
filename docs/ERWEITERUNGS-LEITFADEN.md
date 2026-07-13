@@ -16,6 +16,13 @@
 
 ## Teil A — Nutzerfreundliche Steuerung: heute eine Messung starten
 
+> **DEPRECATED/SUPERSEDED (2026-07-11):** Der gesamte Teil A beschreibt die Bedienung ueber das PowerShell-Harness
+> `build_and_measure_150_tiere.ps1` + den Host `run_lazy_150.cpp` (u.a. Z.27/31/33/35/40/41/45/47/48/58/59/75).
+> Diese `*.ps1` und `run_lazy_150.*` wurden am 2026-07-11 bei der Behelfsweg-Bereinigung **entfernt** und sind
+> **nicht mehr ausfuehrbar**. **Offizieller Weg heute:** dasselbe XML-Profil (`comdare_thesis_profile`) ->
+> **`Code/02_messung_driver`** (E4-XML-getriebener Mess-Host); das `--validate`-Gate ist dort verfuegbar. Die
+> Kommando-/Ketten-Beschreibungen unten bleiben additiv als historischer Stand + Profil-Semantik-Referenz erhalten.
+
 ### Das Bedienmodell in EINEM Satz
 **Messung = ein `comdare_thesis_profile`-XML schreiben/editieren + EIN PowerShell-Kommando ausführen.** Die
 WHAT-Konfiguration (Lebewesen / variierte Achsen / Sweeps / SOTA-Reihen / Working-Set / Lauf-Optionen) kommt
@@ -184,6 +191,6 @@ Kombinationen (1 DLL = 1 TU).
 - Profil-Parser: `libs/common/serialization/xml_config_parser/xml_config_parser.{hpp:142-190,cpp:209-307}`.
 - Profil→Baum: `libs/cache_engine/builder/experiment_tree/profile_to_tree.hpp:25-88`.
 - CEB-Eintritt: `tests/unit/thesis_tiere/profile_run_entry.hpp:101-286`.
-- Host/Einstieg: `tests/unit/thesis_tiere/run_lazy_150.cpp` + `build_and_measure_150_tiere.ps1`.
+- Host/Einstieg: `tests/unit/thesis_tiere/run_lazy_150.cpp` + `build_and_measure_150_tiere.ps1`. **(entfernt 2026-07-11; Nachfolger: `Code/02_messung_driver`, E4-XML.)**
 - Schema: `libs/cache_engine/algorithm_profiles/thesis_profiles/SCHEMA.md`.
 - Goldstandard-Checkliste: `reference_axis_gold_standard_checklist.md` (10 Komponenten, Vorlage `topics/allocator/axis_06_allocator/`).

@@ -8,6 +8,8 @@
 // search_algo-Kern = SortedArrayKeySet (echtes Binary-Search-Set-Organ, K=V); T1..T14 = int (von SetAnatomy nicht
 // getrieben — die Set-Gattung treibt real nur das search_algo-Organ, R5.B-Grenze ehrlich). Build: siehe
 // tests/unit/genus_dll_roundtrip.ps1 (committet).
+// SUPERSEDED 2026-07-11: genus_dll_roundtrip.ps1 entfernt (Behelfsweg-Bereinigung); DLL jetzt via CMakeLists
+// gebaut (SHARED perm_set_d9), Round-Trip = registriertes ctest-Target test_dgenus_dll (Goal-V6 L-76-Block).
 
 #include <cache_engine/abi/set_module_abi_v1.hpp>
 #include <anatomy/set_default_organ.hpp>

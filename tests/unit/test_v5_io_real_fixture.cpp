@@ -23,6 +23,8 @@
 // Linux/Non-Win32: sauberer SKIP/No-Op (EXIT 0, kein Bruch der Portabilitaet).
 //
 // Build+Run: build/scratch_compile_io_real_fixture.ps1 (vcvars + cl /std:c++latest /EHsc + Ausfuehrung).
+// SUPERSEDED 2026-07-11: obiger scratch_compile_*.ps1-Build-Weg entfernt (Behelfsweg-Bereinigung); Test jetzt
+//        registriertes ctest-Target (tests/unit/CMakeLists.txt, eigener test_v5_io_real_fixture-Block).
 
 #include <cstdint>
 #include <cstring>

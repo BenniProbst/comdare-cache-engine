@@ -12,6 +12,8 @@
 //
 // Build: cl /std:c++latest /EHsc /DCOMDARE_MEASUREMENT_ON=1 /DCOMDARE_CE_ENABLE_STATISTICS=1 + ADHOC-Include-Satz
 //        (scratch_compile_migration_two_tier.ps1, abgeleitet aus scratch_compile_obs_phaseA.ps1).
+// SUPERSEDED 2026-07-11: obiger scratch_compile_*.ps1-Build-Weg entfernt (Behelfsweg-Bereinigung); Test jetzt
+//        registriertes ctest-Target (tests/unit/CMakeLists.txt, #155-Block COMDARE_PHASE_E_BOOST_TESTS).
 
 #include <anatomy/abi_adapter.hpp>
 #include <anatomy/composition_factory.hpp>

@@ -16,6 +16,8 @@
 //
 // Build: build/scratch_compile_obs_phaseB_t11_t12.ps1 (cl /std:c++latest /EHsc /DCOMDARE_MEASUREMENT_ON=1
 //        /DCOMDARE_CE_ENABLE_STATISTICS=1 + voller ADHOC-Include-Satz).
+// SUPERSEDED 2026-07-11: obiger scratch_compile_*.ps1-Build-Weg entfernt (Behelfsweg-Bereinigung); Test jetzt
+//        registriertes ctest-Target (tests/unit/CMakeLists.txt, M-CE-24-Block COMDARE_MCE24_MEASURED_TESTS).
 
 #include <anatomy/abi_adapter.hpp>
 #include <anatomy/observable_tier.hpp>
