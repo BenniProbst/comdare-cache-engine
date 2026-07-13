@@ -54,8 +54,10 @@
 #include <boost/mp11.hpp>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace comdare::cache_engine::thesis_lazy {
@@ -88,6 +90,13 @@ struct SotaModule {
     std::string binary_id;        // serialize_composition_from_slots<C>() (== Baum-binary_id-Format)
     std::string composition_type; // FQ-Typ-Name (für COMDARE_DEFINE_ANATOMY_MODULE)
     std::string header;           // Include-Header der Composition
+    // M-CE-10 (Voll-Review 2026-07-13): das HOST-Lebewesen der Komposition — das Original-Quell-Repository,
+    // dessen H2-Code-Qualitäts-Score dieses Modul trägt (host-dominant, #171: "abstract" = der Host füllt 18/19
+    // Achsen, der Prüfling nur den path_compression-Slot). Stufe1 (isoliert) == lebewesen; Stufe3 (per-Host) ==
+    // dem angefragten Lebewesen (das IST der Host). Stufe2 ist FIX "hot" — HotPrtStufe2ReplaceComposition hat
+    // IMMER den HOT-Host, UNABHÄNGIG vom angefragten <sota_series lebewesen=..>. Genau das korrigiert die
+    // M-CE-10-Fehl-Attribution (h2_score_for darf NICHT das angefragte, sondern das reale Host-Lebewesen nehmen).
+    std::string host_lebewesen;
 };
 
 /// render_sota_module_source — der kompilierbare Modul-.cpp-Quelltext einer SOTA/PRT-ART-Komposition.
@@ -113,10 +122,10 @@ struct SotaModule {
 /// je als isolierte reale Komposition (Stufe1_CeOnly). binary_id = serialize_composition_from_slots.
 [[nodiscard]] inline std::vector<SotaModule> build_sota_series_a_modules() {
     std::vector<SotaModule> out;
-    // PRT-ART (Thesis-eigenes Prüfling-Lebewesen, Reihe A isoliert).
+    // PRT-ART (Thesis-eigenes Prüfling-Lebewesen, Reihe A isoliert). host==prt_art (KEIN Original-Repo → H2 n/a).
     out.push_back(SotaModule{"prt_art", sota_binary_id("A", std::string{cmp::PrtArtComposition::name}),
                              "::comdare::cache_engine::compositions::PrtArtComposition",
-                             "compositions/prt_art_reference.hpp"});
+                             "compositions/prt_art_reference.hpp", "prt_art"});
     // Die 6 SOTA über die zentrale mp_list (Tool-Iteration, known_compositions_list.hpp). Wir nehmen die
     // ersten 6 (CE-Reimpl) als die im Profil benannten Lebewesen art/hot/wormhole/surf/masstree/start.
     auto add_sota = [&]<class Entry>() {
@@ -126,7 +135,8 @@ struct SotaModule {
         if (sn == "art" || sn == "hot" || sn == "wormhole" || sn == "surf" || sn == "masstree" || sn == "start") {
             out.push_back(SotaModule{sn, sota_binary_id("A", std::string{C::name}),
                                      std::string{C::cpp_type_name}, // FQ-Typ-Name aus HasCompositionLocation (R5.G)
-                                     std::string{C::header_include}});
+                                     std::string{C::header_include},
+                                     sn}); // host_lebewesen == sn (Stufe1 isoliert: der Host IST das Lebewesen)
         }
     };
     mp::mp_for_each<cmp::KnownReferenceCompositions>(
@@ -155,11 +165,16 @@ struct SotaModule {
     }
     std::string const reihe = stufe_to_reihe(merge); // #178: Reihe mechanisch aus der Stufe (A für St2, B für St3)
     if (merge == "Stufe2_PrueflingReplace") {
-        // AP-4-Follow: Stufe2/Reihe-A-Parallelfall bleibt absichtlich der bestehende HOT-Pilot.
+        // AP-4-Follow: Stufe2/Reihe-A-Parallelfall bleibt absichtlich der bestehende HOT-Pilot. M-CE-10: die
+        // binary_id trägt bewusst KEIN lebewesen — HotPrtStufe2ReplaceComposition ist EINE feste Binary (HOT-Host +
+        // PRT-ART im path_compression-Slot), UNABHÄNGIG vom angefragten lebewesen. Der Host ist FIX "hot" → genau
+        // dieses Host-Lebewesen trägt den H2-Score (host_lebewesen), NICHT das angefragte lebewesen. Der Anzeige-
+        // Name markiert den Prüfling; die Dedup identischer Messungen macht build_sota_passes über die view_binary_id.
         return SotaModule{lebewesen + "+prt(St2)",
                           sota_binary_id(reihe, std::string{cmp::HotPrtStufe2ReplaceComposition::name}),
                           "::comdare::cache_engine::compositions::HotPrtStufe2ReplaceComposition",
-                          "compositions/prt_art_merge_reference.hpp"};
+                          "compositions/prt_art_merge_reference.hpp",
+                          "hot"}; // host_lebewesen FIX: St2 IST HOT-Host, unabhängig vom angefragten lebewesen
     }
     if (merge == "Stufe3_FullJoin") {
         // AP-4/#238: per-Host-FullJoin (analog build_sota_series_a_modules) — je SOTA-Host eine distinkte
@@ -192,7 +207,8 @@ struct SotaModule {
         };
         if (auto b = pick(lebewesen))
             return SotaModule{lebewesen + "+prt(St3)", sota_binary_id(reihe, std::string{b->name}),
-                              std::string{b->type}, "compositions/prt_art_merge_reference.hpp"};
+                              std::string{b->type}, "compositions/prt_art_merge_reference.hpp",
+                              lebewesen}; // host_lebewesen == lebewesen: der per-Host-FullJoin hat DIESEN Host
         return std::nullopt;
     }
     return std::nullopt;
@@ -267,6 +283,11 @@ struct SotaPass {
     // common_denominator-Falls (value_handle_external + PRT-Spezialpfade aus) ist DATEN-gated
     // (#156/#162-Fenster) und aendert DANN die Komposition selbst (⇒ natuerlicherweise eigene binary_id).
     std::string fairness_mode = "-";
+    // M-CE-10 (Voll-Review 2026-07-13): das Lebewesen, dessen H2-Code-Qualitäts-Score dieser Pass trägt —
+    // host-dominant (== SotaModule::host_lebewesen). Für St1/St3 identisch zu `lebewesen`; für St2 FIX "hot",
+    // weil die St2-Komposition IMMER der HOT-Host ist (NICHT das angefragte lebewesen). Der Treiber löst den
+    // CSV-Score über DIESES Feld auf (h2_score_for) — prt_art/fehlende Akte ⇒ honest "n/a".
+    std::string h2_lebewesen = "-";
 };
 
 /// build_sota_passes(profile) — die Liste der SOTA-Reihen-Pässe AUS DEM PROFIL (1 Eintrag je real baubarem
@@ -276,13 +297,33 @@ struct SotaPass {
 [[nodiscard]] inline std::vector<SotaPass> build_sota_passes(cx::ThesisProfile const& tp) {
     std::vector<SotaPass> out;
     out.reserve(tp.sota_series.size());
+    // ── M-CE-10 (Voll-Review 2026-07-13, correctness/Anti-Phantom) — SEMANTIK-ENTSCHEIDUNG ────────────────────
+    //   Stufe2_PrueflingReplace ist KONZEPTIONELL EINE Binary: der HOT-Pilot (HotPrtStufe2ReplaceComposition —
+    //   HOT-Host, PRT-ART ersetzt den path_compression-Slot). sota_module_for bildet die binary_id BEWUSST OHNE
+    //   das angefragte lebewesen (der Wert existiert real nicht per-lebewesen). Mehrere <sota_series
+    //   merge="Stufe2_.."> mit VERSCHIEDENEN lebewesen materialisieren daher DIESELBE Messung (identische
+    //   view_binary_id + fairness_mode) — vorher: N Pässe schrieben dieselben Messzeilen N× in EINE per-Binary-CSV
+    //   und über-zählten die DLL-Zahl. FIX-Optionen (Anti-Phantom): NICHT lebewesen in die binary_id ziehen (das
+    //   erzeugte N FAKE-distinkte-ids für byte-identischen HOT-Code = MEHR Phantom), sondern:
+    //     (a) DEDUP der Pässe auf (view_binary_id, fairness_mode). St2 kollabiert zu 1 Pass (dem HOT-Pilot); die
+    //         LEGITIMEN fairness-Varianten (gleiche binary_id, verschiedener fairness_mode — DATEN-gated #156-
+    //         Pinnung) UND St1/St3 (distinkte binary_ids) bleiben unberührt.
+    //     (c) H2-ATTRIBUTION host-dominant: der Pass trägt den H2-Score seines HOST-Lebewesens (m->host_lebewesen),
+    //         NICHT des angefragten. Konsistent zu St3 (Host==angefragt); für St2 ist der Host FIX "hot".
+    //   (b) Der Zähler res.sota_binary_ids wird im Treiber (profile_run_entry) auf DISTINKTE binary_ids korrigiert.
+    // ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+    std::set<std::pair<std::string, std::string>> seen_pass; // Dedup-Schlüssel: (view_binary_id, fairness_mode)
     for (auto const& s : tp.sota_series) {
-        if (auto m = sota_module_for(s.merge, s.lebewesen)) {  // #178: dispatch auf die Stufe (merge)
-            std::string const reihe = stufe_to_reihe(s.merge); // #178: Reihen-Tag mechanisch aus der Stufe
-            out.push_back(SotaPass{reihe, s.lebewesen, m->binary_id, sota_view_binary_id(m->binary_id),
-                                   derive_pruefling_type(reihe, s.merge, s.pruefling_type), // #171: full/abstract
-                                   s.fairness.empty() ? std::string{"-"} : s.fairness}); // GO-5 Fork 6: fairness_mode
-        }
+        auto const m = sota_module_for(s.merge, s.lebewesen); // #178: dispatch auf die Stufe (merge)
+        if (!m) continue;                                     // nicht baubares Paar (ehrlich: kein Phantom-Pass)
+        std::string const reihe    = stufe_to_reihe(s.merge); // #178: Reihen-Tag mechanisch aus der Stufe
+        std::string const view_bid = sota_view_binary_id(m->binary_id);
+        std::string const fair     = s.fairness.empty() ? std::string{"-"} : s.fairness; // GO-5 Fork 6
+        if (!seen_pass.emplace(view_bid, fair).second) continue; // M-CE-10 (a): identische Messung ⇒ genau 1 Pass
+        out.push_back(SotaPass{reihe, s.lebewesen, m->binary_id, view_bid,
+                               derive_pruefling_type(reihe, s.merge, s.pruefling_type), // #171: full/abstract
+                               fair,
+                               m->host_lebewesen}); // M-CE-10 (c): H2 host-dominant (St2 ⇒ "hot", nie das angefragte)
     }
     return out;
 }

@@ -2307,6 +2307,33 @@ target_compile_definitions(test_wdk_datasets_fairness PRIVATE
     "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"")
 set_tests_properties(test_wdk_datasets_fairness PROPERTIES LABELS "contract;profiles;e4;go5")
 
+# M-CE-10 (Voll-Review 2026-07-13) — ctest-Gate der Stufe2_PrueflingReplace-Korrektur im sota_catalog:
+# St2 ist KONZEPTIONELL EINE Binary (HOT-Pilot). Beweist (1) Dedup mehrerer St2-Deklarationen zu 1 Pass,
+# (2) host-dominante H2-Attribution (h2_lebewesen == "hot", NICHT das angefragte lebewesen — via committeter
+# Akte), (3) distinkte binary_id-Zaehlung am gepinnten m3v2_study (14 statt vorher 20/21 gezaehlt),
+# (4) fairness-Varianten werden NICHT ueber die gemeinsame binary_id zusammengefasst. m3v2_study.profile.xml +
+# sota_h2_scores.xml werden NUR GELESEN (TABU-Wache). comdare_add_test registriert auto in COMDARE_TEST_TARGETS.
+comdare_add_test(test_sota_st2_dedup
+    SOURCES thesis_tiere/test_sota_st2_dedup.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+comdare_prepare_thesis_object_dir(test_sota_st2_dedup)
+target_include_directories(test_sota_st2_dedup PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_sota_st2_dedup PRIVATE Boost::mp11)
+target_compile_definitions(test_sota_st2_dedup PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_THESIS_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles\""
+    "COMDARE_SOTA_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/sota\"")
+set_tests_properties(test_sota_st2_dedup PROPERTIES LABELS "contract;profiles;e4;anti-phantom")
+
 # M-CE-12 (Voll-Review 2026-07-13) — ctest-Gate der rein-lesenden <workloads>-id-Pruefung in
 # validate_profile: eine getippte <workloads>-id (z.B. das alte "A" statt "ycsb_a") wird von --validate
 # ABGELEHNT (statt erst im teuren E4-Lauf mit exit 4). Beweist (a) UNBEKANNTE id rejected, (b) ycsb_*
