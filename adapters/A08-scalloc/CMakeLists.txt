@@ -7,5 +7,5 @@ target_compile_features(comdare_adapter_a08_scalloc INTERFACE cxx_std_23)
 if(COMDARE_HAVE_SCALLOC)
     target_compile_definitions(comdare_adapter_a08_scalloc INTERFACE COMDARE_HAVE_SCALLOC=1)
     target_include_directories(comdare_adapter_a08_scalloc INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/allocator/A08-scalloc/src")
+        "${PROJECT_SOURCE_DIR}/ext/allocator/A08-scalloc/src")
 endif()

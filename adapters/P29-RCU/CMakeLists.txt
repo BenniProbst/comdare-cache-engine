@@ -8,5 +8,5 @@ target_compile_features(comdare_adapter_p29_rcu INTERFACE cxx_std_23)
 if(COMDARE_HAVE_LIBURCU)
     target_compile_definitions(comdare_adapter_p29_rcu INTERFACE COMDARE_HAVE_LIBURCU=1)
     target_include_directories(comdare_adapter_p29_rcu INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/traversal/P29-RCU/userspace-rcu/include")
+        "${PROJECT_SOURCE_DIR}/ext/traversal/P29-RCU/userspace-rcu/include")
 endif()

@@ -9,5 +9,5 @@ target_compile_features(comdare_adapter_p04_cocotrie INTERFACE cxx_std_23)
 if(COMDARE_HAVE_COCOTRIE)
     target_compile_definitions(comdare_adapter_p04_cocotrie INTERFACE COMDARE_HAVE_COCOTRIE=1)
     target_include_directories(comdare_adapter_p04_cocotrie INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/traversal/P04-CoCo-trie/CoCo-trie")
+        "${PROJECT_SOURCE_DIR}/ext/traversal/P04-CoCo-trie/CoCo-trie")
 endif()

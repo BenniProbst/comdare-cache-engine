@@ -7,5 +7,5 @@ target_compile_features(comdare_adapter_a03_michael_lockfree INTERFACE cxx_std_2
 if(COMDARE_HAVE_MICHAEL)
     target_compile_definitions(comdare_adapter_a03_michael_lockfree INTERFACE COMDARE_HAVE_MICHAEL=1)
     target_include_directories(comdare_adapter_a03_michael_lockfree INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/allocator/A03-michael-lockfree")
+        "${PROJECT_SOURCE_DIR}/ext/allocator/A03-michael-lockfree")
 endif()

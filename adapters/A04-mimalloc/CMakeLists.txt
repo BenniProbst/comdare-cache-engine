@@ -11,5 +11,5 @@ target_compile_features(comdare_adapter_a04_mimalloc INTERFACE cxx_std_23)
 if(COMDARE_HAVE_MIMALLOC)
     target_compile_definitions(comdare_adapter_a04_mimalloc INTERFACE COMDARE_HAVE_MIMALLOC=1)
     target_include_directories(comdare_adapter_a04_mimalloc INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/allocator/A04-mimalloc/include")
+        "${PROJECT_SOURCE_DIR}/ext/allocator/A04-mimalloc/include")
 endif()

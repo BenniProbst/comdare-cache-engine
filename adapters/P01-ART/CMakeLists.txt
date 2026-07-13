@@ -13,7 +13,7 @@ target_compile_features(comdare_adapter_p01_art INTERFACE cxx_std_23)
 if(COMDARE_HAVE_UNODB)
     target_compile_definitions(comdare_adapter_p01_art INTERFACE COMDARE_HAVE_UNODB=1)
     target_include_directories(comdare_adapter_p01_art INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/traversal/P01-ART/unodb")
+        "${PROJECT_SOURCE_DIR}/ext/traversal/P01-ART/unodb")
     # NOTE: unodb itself is built by ext/traversal/P01-ART/CMakeLists.txt with its
     # own toolchain (Architekt-Direktive 2026-05-08). Linking is wired
     # there, not here.

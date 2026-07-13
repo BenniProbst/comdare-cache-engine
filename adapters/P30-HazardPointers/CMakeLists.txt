@@ -8,5 +8,5 @@ target_compile_features(comdare_adapter_p30_hazardpointers INTERFACE cxx_std_23)
 if(COMDARE_HAVE_HAZ_PTR)
     target_compile_definitions(comdare_adapter_p30_hazardpointers INTERFACE COMDARE_HAVE_HAZ_PTR=1)
     target_include_directories(comdare_adapter_p30_hazardpointers INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/traversal/P30-HazardPointers/haz_ptr")
+        "${PROJECT_SOURCE_DIR}/ext/traversal/P30-HazardPointers/haz_ptr")
 endif()

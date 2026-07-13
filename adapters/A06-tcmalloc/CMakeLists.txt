@@ -7,5 +7,5 @@ target_compile_features(comdare_adapter_a06_tcmalloc INTERFACE cxx_std_23)
 if(COMDARE_HAVE_TCMALLOC)
     target_compile_definitions(comdare_adapter_a06_tcmalloc INTERFACE COMDARE_HAVE_TCMALLOC=1)
     target_include_directories(comdare_adapter_a06_tcmalloc INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/allocator/A06-tcmalloc/tcmalloc")
+        "${PROJECT_SOURCE_DIR}/ext/allocator/A06-tcmalloc/tcmalloc")
 endif()

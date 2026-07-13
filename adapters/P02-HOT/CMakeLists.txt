@@ -8,5 +8,5 @@ target_compile_features(comdare_adapter_p02_hot INTERFACE cxx_std_23)
 if(COMDARE_HAVE_HOT)
     target_compile_definitions(comdare_adapter_p02_hot INTERFACE COMDARE_HAVE_HOT=1)
     target_include_directories(comdare_adapter_p02_hot INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/traversal/P02-HOT/hot")
+        "${PROJECT_SOURCE_DIR}/ext/traversal/P02-HOT/hot")
 endif()

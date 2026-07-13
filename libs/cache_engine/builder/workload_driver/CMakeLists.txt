@@ -6,8 +6,8 @@ comdare_add_library(comdare_workload_driver PROJECT CACHE_ENGINE SOURCES
 add_library(comdare::workload_driver ALIAS comdare_workload_driver)
 
 target_include_directories(comdare_workload_driver PUBLIC
-    "${CMAKE_SOURCE_DIR}/libs/cache_engine"
-    "${CMAKE_SOURCE_DIR}/libs/cache_engine/include")
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 
 target_compile_features(comdare_workload_driver PUBLIC cxx_std_23)
 

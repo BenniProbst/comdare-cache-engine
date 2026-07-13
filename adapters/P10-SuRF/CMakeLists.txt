@@ -8,5 +8,5 @@ target_compile_features(comdare_adapter_p10_surf INTERFACE cxx_std_23)
 if(COMDARE_HAVE_SURF)
     target_compile_definitions(comdare_adapter_p10_surf INTERFACE COMDARE_HAVE_SURF=1)
     target_include_directories(comdare_adapter_p10_surf INTERFACE
-        "${CMAKE_SOURCE_DIR}/ext/traversal/P10-SuRF/SuRF/include")
+        "${PROJECT_SOURCE_DIR}/ext/traversal/P10-SuRF/SuRF/include")
 endif()

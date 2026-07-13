@@ -12,7 +12,7 @@ target_include_directories(comdare_f15_compare_cli PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
-    "${CMAKE_BINARY_DIR}/generated")
+    "${PROJECT_BINARY_DIR}/generated")
 
 target_link_libraries(comdare_f15_compare_cli PRIVATE
     comdare::anatomy_module_loader
