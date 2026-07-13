@@ -5,7 +5,8 @@
     <authors>Michael</authors>
     <year>2004</year>
     <venue>PLDI</venue>
-    <license>BSD-3</license>
+    <license>LGPL-2.1-or-later</license>
+    <!-- Copyleft (schwaches). Compliance-Nuance: comdare-Shim ist DEFERRED/Custom (REPOS_OVERVIEW) -> Link-Status pruefen; das LABEL ist LGPL laut michael.h -->
     <repo>ext/A03-michael-lockfree</repo>
   </metadata>
   <axes>

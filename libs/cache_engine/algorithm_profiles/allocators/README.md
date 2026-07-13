@@ -16,14 +16,14 @@ Pro Allokator (A01-A20) ein Profile-XML mit:
 | Profile | Family | Lizenz | expected_workload |
 |---|---|---|---|
 | hoard | A01 | Apache-2.0 | YCSB_A |
-| michael_lockfree | A03 | BSD-3 | YCSB_B |
+| michael_lockfree | A03 | LGPL-2.1-or-later | YCSB_B |
 | mimalloc | A04 | MIT | YCSB_A |
 | jemalloc | A05 | BSD-2 | YCSB_B |
-| tcmalloc | A06 | BSD-3 | YCSB_C |
+| tcmalloc | A06 | Apache-2.0 | YCSB_C |
 | snmalloc | A07 | MIT | YCSB_A |
 | scalloc | A08 | BSD-3 | YCSB_A |
 | rpmalloc | A10 | Public Domain | YCSB_C |
-| lrmalloc | A11 | BSD-3 | YCSB_B |
+| lrmalloc | A11 | MIT | YCSB_B |
 | dlmalloc | A20 | CC0 | YCSB_C |
 
 ## Querverweis

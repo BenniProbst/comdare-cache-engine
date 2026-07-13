@@ -5,7 +5,7 @@
     <authors>Ricardo Leite, Ricardo Rocha</authors>
     <year>2018</year>
     <venue>VECPAR 2018</venue>
-    <license>BSD-3</license>
+    <license>MIT</license>
     <repo>ext/A11-lrmalloc</repo>
   </metadata>
   <axes>

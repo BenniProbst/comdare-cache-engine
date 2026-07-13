@@ -1,6 +1,6 @@
 // V31.K4 (2026-05-14) — A03-Michael Lock-Free Allocator Adapter
 // Wrapper around scotts/michael Re-Implementation of Maged Michael 2004 PLDI.
-// Activation: -DCOMDARE_HAVE_MICHAEL=ON. License: MIT.
+// Activation: -DCOMDARE_HAVE_MICHAEL=ON. License: LGPL-2.1-or-later.
 // IBM Patent US 2006/0190697 may apply (see NOTICE).
 #pragma once
 

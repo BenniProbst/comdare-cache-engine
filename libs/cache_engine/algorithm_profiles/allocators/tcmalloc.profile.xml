@@ -5,7 +5,7 @@
     <authors>Google</authors>
     <year>2009</year>
     <venue>Google gperftools</venue>
-    <license>BSD-3</license>
+    <license>Apache-2.0</license>
     <repo>ext/A06-tcmalloc</repo>
   </metadata>
   <axes>
