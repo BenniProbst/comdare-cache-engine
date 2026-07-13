@@ -95,10 +95,17 @@ void check_resource_control_contract(ana::IResourceControllableTier* rc) {
     fake_e1.inline_threshold_bytes  = 999;
     fake_e1.controllable_axis_count = 99;
 
-    // thread_count zaehlt NICHT als "real angenommen" (label-only: der In-Prozess-Tier konsumiert es nicht,
-    // s. abi_adapter apply1 counts=false). Die 4 real wirkenden RC-Achsen (prefetch/pool/batch/inline) zaehlen.
+    // #23 honest-100% (Goal-V4): `applied` zaehlt nur RC-Achsen, deren KONKRETE Pilot-Komposition den Wert REAL
+    // annimmt (Detection-Idiom = Praesenz des set_runtime_*-Konsumenten). Pilot-DLL = WormholeComposition:
+    //   • thread_count → 0 (label-only, In-Prozess-Tier konsumiert runtime_thread_count() nicht)
+    //   • prefetch_distance → 0 (NonePrefetch traegt KEIN set_runtime_distance, nur DistanceEstimator; axis_07:119-123)
+    //   • pool_budget_bytes → 0 (ObservableWormholeOrgan = organ-backed Huelle ohne Store → kein set_runtime_pool_budget)
+    //   • batch_size → 1 (adapter-konsumiert als FENSTER-Semantik, t1_segment_shape_ :1102-1114)
+    //   • inline_threshold_bytes → 1 (ObservableValueHandle traegt den Setter unbedingt + konsumiert ihn real)
+    // ⇒ ehrlich 2. KEIN ABI-Bump: kResourceControlVersion/POD/Vtable unveraendert, nur der Observer-Zaehlwert.
     std::uint64_t const applied = rc->tier_apply_resource_control(&fake_e1);
-    check_eq("Fake-E1 over-caps apply status (thread_count label-only -> 4)", applied, std::uint64_t{4});
+    check_eq("Fake-E1 over-caps apply status (Wormhole: batch + inline real angewandt -> 2)", applied,
+             std::uint64_t{2});
 }
 
 void check_loaded_dll_contract() {
