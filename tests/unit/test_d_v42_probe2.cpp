@@ -6,6 +6,8 @@
 //   (3) ObservableAxis? -> LeafOnlyCounter ist ein reiner Strategie-Marker (kein statistics()) -> erwartet 0,
 //       d.h. der telemetry-Observer muss eine Huelle mit EIGENER Statistik tragen (analog ObservableComposedSearch).
 // Build: scratch_compile_test.ps1 -Test test_d_v42_probe2 -Boost -Extra @("build\generated")
+// SUPERSEDED 2026-07-11: obiger .ps1-Build-Weg entfernt (Behelfsweg-Bereinigung); Test jetzt registriertes
+//   ctest-Target (tests/unit/CMakeLists.txt, Block COMDARE_GOALV6_BOOST_DTESTS).
 
 #include <axes/telemetry_axis/axis_11_telemetry_leaf_only.hpp>
 #include <axes/telemetry_axis/axis_11_telemetry_insert_counter.hpp>

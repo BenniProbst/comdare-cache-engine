@@ -91,6 +91,13 @@ und 2 `testPresets` (`msvc-release`, `gcc-release` mit `outputOnFailure`).
 
 ## Messwerte erzeugen (Kommandozeile) — Schnellstart
 
+> **DEPRECATED/SUPERSEDED (2026-07-11):** Dieser Schnellstart nutzt die `.ps1`-Harnesse
+> `build_and_measure_thesis_tiere.ps1` (Z.106) + `build_node_delegation_proof.ps1` (Z.131) und die `thesis_sa_*`-
+> Tier-Quellen/DLLs (Z.115-116/122). Diese `*.ps1` und `thesis_sa_*`/`thesis_nt_*`-Quellen wurden am 2026-07-11 bei
+> der Behelfsweg-Bereinigung **entfernt** (keine `*.ps1` mehr im ce-Repo) und sind **nicht mehr ausfuehrbar**.
+> **Offizieller Weg heute:** XML-Profil (`comdare_thesis_profile`) -> **`Code/02_messung_driver`** (E4-XML-Mess-Host);
+> Einzeltests als registrierte ctest-Targets. Der folgende Abschnitt bleibt additiv als historischer Stand erhalten.
+
 Diese Kette erzeugt **echte Messwerte aus echten SearchAlgorithm-DLL-„Tieren"** lokal (Windows/MSVC, gate-frei).
 Ein „Tier" = eine kompilierte Permutations-DLL (19 SearchAlgorithm-Slots T0..T18 = 17 Kern-Achsen + queuing q1/q2, plus 3 Build-Achsen); `perm_runner` lädt sie,
 treibt den Mess-Workload (`n` Inserts + `n` Lookups) und gibt eine `result_ingest`-Zeile aus.

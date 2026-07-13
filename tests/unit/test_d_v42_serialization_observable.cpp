@@ -1,5 +1,7 @@
 // V42 L-74c — ObservableSerialization<Strategy> Driver-Baustein-Test (2026-06-03). 3. Exemplar des Musters.
 // Build: scratch_compile_test.ps1 -Test test_d_v42_serialization_observable -Boost -Extra @("build\generated")
+// SUPERSEDED 2026-07-11: obiger .ps1-Build-Weg entfernt (Behelfsweg-Bereinigung); Test jetzt registriertes
+//   ctest-Target (tests/unit/CMakeLists.txt, Block COMDARE_GOALV6_BOOST_DTESTS).
 
 #define COMDARE_CE_ENABLE_STATISTICS 1
 

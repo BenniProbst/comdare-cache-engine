@@ -1,5 +1,20 @@
 # `thesis_tiere/` — ADHOC-Standalone-Tests & Mess-Treiber (Reproduktion)
 
+> **DEPRECATED/SUPERSEDED (additiver Kopf-Banner, 2026-07-11).** Die unten beschriebene `.ps1`-ADHOC-Bauweise
+> (committete PowerShell-Skripte je Test/Treiber) wurde am **2026-07-11** bei der Behelfsweg-Bereinigung **entfernt**
+> (es gibt KEINE `*.ps1` mehr im ce-Repo). **Offizieller Weg heute:**
+> - **Mess-Erzeugung:** XML-Profil (`comdare_thesis_profile`) -> **`Code/02_messung_driver`** (E4-XML-getriebener
+>   Mess-Host) statt der `build_and_measure_*.ps1`/`run_lazy_150`-Kette.
+> - **Einzeltests:** die noch vorhandenen `.cpp` laufen als **registrierte ctest-Targets** -
+>   `test_validate_profile`, `test_profile_roundtrip`, `test_axis_sweep_pilot` (s. `tests/unit/CMakeLists.txt`).
+> - **Appendix-Erzeugung:** `Code/08_appendix_generator` (nicht die alten `generate_*_appendix.ps1`).
+>
+> **Deleted 2026-07-11 (`.cpp` + zugehoerige `.ps1`, unten nur historisch erwaehnt):** `run_lazy_150`,
+> `tier150_axis_grid`, `thesis_sa_*`, `thesis_nt_*`, `measure_adapter_tiere`, `gen_golden_fullpilot`,
+> `test_run_profile_union`, `test_sota_series_pilot`, `test_node_delegation_proof`, `test_layout_aware_store`,
+> `test_pruefling_type_pilot`. Der folgende Text ist der historische Stand 2026-06-20 (#155 + #171) und bleibt
+> bewusst additiv erhalten; die konkreten `.ps1`-Aufrufe unten sind nicht mehr ausfuehrbar.
+
 Stand: 2026-06-20 (#155 + #171). Dieses Verzeichnis enthält **Standalone-Tests und Mess-Treiber**, die
 bewusst **NICHT** über den normalen CMake-/CTest-Pfad (`comdare_add_test` in `tests/unit/CMakeLists.txt`)
 gebaut werden, sondern über committete PowerShell-Skripte mit einem **eigenen, schweren ADHOC-Include-Satz**.
@@ -42,6 +57,12 @@ gelaufen sein (erzeugt `build/msvc-release/generated/`). Dann je Test:
 > `build_and_measure_150_tiere.ps1` bauen das Codegen-Target `comdare_limits_generated_source_catalog`
 > deshalb selbst idempotent mit (regeneriert auch bei geaendertem `m3v2_study.profile.xml`).
 
+> **SUPERSEDED (2026-07-11):** Alle in dieser Tabelle (und im Hinweis darueber) genannten `build_*.ps1` sind
+> entfernt. Noch vorhandene `.cpp` = registrierte ctest-Targets: `test_validate_profile`, `test_profile_roundtrip`,
+> `test_axis_sweep_pilot`. Entfernt (`.cpp` + `.ps1`, 2026-07-11): `test_run_profile_union`, `test_sota_series_pilot`,
+> `test_node_delegation_proof`, `test_layout_aware_store`, `test_pruefling_type_pilot`. Mess-Erzeugung heute:
+> XML-Profil -> `Code/02_messung_driver` (E4).
+
 | Test (`*.cpp`)              | Build-/Run-Skript                | Inhalt | DLL-Bau |
 |-----------------------------|----------------------------------|--------|---------|
 | `test_validate_profile`     | `build_validate_profile.ps1`     | rein-lesende `--validate`-Gate (m3v2-Profil ok / Tippfehler gefangen) | nein |
@@ -66,6 +87,10 @@ pwsh tests/unit/thesis_tiere/build_profile_roundtrip.ps1  # Exit 0 = grün
 ## Mess-Treiber (schwer — echter DLL-/Tier-Bau, NICHT als Test gedacht)
 
 Diese erzeugen die Thesis-Messreihen (CSV) und bauen reale Tier-DLLs — bewusst außerhalb ctest:
+
+> **SUPERSEDED (2026-07-11):** Die folgenden Mess-Treiber-Quellen UND ihre Orchestrierungs-`.ps1` wurden entfernt
+> (`run_lazy_150`, `tier150_axis_grid`, `thesis_sa_*`, `thesis_nt_*`, `measure_adapter_tiere`, `gen_golden_fullpilot`;
+> `build_and_measure_*.ps1`). Nachfolger = XML-Profil-getriebener Mess-Host **`Code/02_messung_driver`** (E4).
 
 | Treiber-Quelle                         | Orchestrierungs-Skript                  | Zweck |
 |----------------------------------------|-----------------------------------------|-------|

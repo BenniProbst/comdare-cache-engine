@@ -2,6 +2,8 @@
 // COMDARE_CE_ENABLE_STATISTICS), dass die memory_layout-Achse jetzt eine echte, getriebene ObservableAxis ist.
 // Enthaelt die Pflicht-Probe (reale Strategie CacheLineAlignedMemoryLayout) + den Mechanik-Delta-Test.
 // Build: scratch_compile_test.ps1 -Test test_d_v42_memory_layout_observable -Boost -Extra @("build\generated")
+// SUPERSEDED 2026-07-11: obiger .ps1-Build-Weg entfernt (Behelfsweg-Bereinigung); Test jetzt registriertes
+//   ctest-Target (tests/unit/CMakeLists.txt, Block COMDARE_GOALV6_BOOST_DTESTS).
 
 #define COMDARE_CE_ENABLE_STATISTICS 1
 

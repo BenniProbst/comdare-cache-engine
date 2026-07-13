@@ -19,6 +19,8 @@
 //
 // Build (identischer Include-Satz wie scratch_clu_pmd1_verify.ps1):
 //   cl /std:c++latest /EHsc /DCOMDARE_MEASUREMENT_ON=1 /DCOMDARE_CE_ENABLE_STATISTICS=1 + ADHOC-Include-Satz.
+// SUPERSEDED 2026-07-11: obiger .ps1-Build-Weg (scratch_clu_pmd1_verify.ps1) entfernt (Behelfsweg-Bereinigung);
+//   Test jetzt registriertes ctest-Target (tests/unit/CMakeLists.txt, M-CE-24-Block COMDARE_MCE24_PLAIN_TESTS).
 
 #include <axes/node/axis_04_node_type_layout_aware_store.hpp>
 #include <axes/node/axis_04_node_type_node4.hpp>

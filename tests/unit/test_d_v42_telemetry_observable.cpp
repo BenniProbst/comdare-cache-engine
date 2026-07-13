@@ -6,6 +6,8 @@
 //     (node_updates==0), InsertCounter (non-leaf) ZAEHLT sie (node_updates>0) — der messbare Achsen-Unterschied.
 // Build: scratch_compile_test.ps1 -Test test_d_v42_telemetry_observable -Boost -Extra @("build\generated")
 // (Das Define wird hier in der Quelle gesetzt -> kein Build-Script-Define noetig.)
+// SUPERSEDED 2026-07-11: obiger .ps1-Build-Weg entfernt (Behelfsweg-Bereinigung); Test jetzt registriertes
+//   ctest-Target (tests/unit/CMakeLists.txt, Block COMDARE_GOALV6_BOOST_DTESTS).
 
 #define COMDARE_CE_ENABLE_STATISTICS 1
 

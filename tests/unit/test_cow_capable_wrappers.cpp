@@ -14,6 +14,8 @@
 // Build (standalone, COMDARE_CE_ENABLE_STATISTICS aktiviert die Mess-Schnittstelle der Wrapper):
 //   cl /std:c++latest /EHsc /Od /DCOMDARE_CE_ENABLE_STATISTICS=1 <harness-include-set> diese.cpp
 //   -> Skript tests/unit/build_test_cow_capable_wrappers.ps1
+// SUPERSEDED 2026-07-11: obiges .ps1-Skript entfernt (Behelfsweg-Bereinigung); Test jetzt registriertes
+//   ctest-Target (tests/unit/CMakeLists.txt, M-CE-24-Block COMDARE_MCE24_PLAIN_TESTS).
 
 #include <axes/lookup/axis_03a_search_algo_array65535.hpp>
 #include <axes/lookup/axis_03a_search_algo_array256.hpp>

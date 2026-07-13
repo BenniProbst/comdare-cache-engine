@@ -4,6 +4,8 @@
 // die benannten Reference-Compositions). Belegt: alle StaticAxisVariants-Elemente sind ObservableAxis,
 // und BR-1 (registry_to_axis_levels) baut die AxisLevels über die Hüllen-Liste fehlerfrei.
 // Build: scratch_compile_test.ps1 -Test test_d_v42_telemetry_registry_observable -Boost -Extra @("build\generated")
+// SUPERSEDED 2026-07-11: obiger .ps1-Build-Weg entfernt (Behelfsweg-Bereinigung); Test jetzt registriertes
+//   ctest-Target (tests/unit/CMakeLists.txt, Block COMDARE_GOALV6_BOOST_DTESTS).
 
 #define COMDARE_CE_ENABLE_STATISTICS 1
 
