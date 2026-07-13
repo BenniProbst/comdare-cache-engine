@@ -5,7 +5,10 @@
 //   [magic:4B "CDB1"] [version:4B] [record_count:8B] [state_log_bytes:8B]
 //   [records: record_count * 32B]
 //   [state_log: state_log_bytes]
-//   [footer: CRC64 4B + magic_end:4B "END!"]
+//   [footer: reserved:4B (=0, KEIN CRC berechnet) + magic_end:4B "END!"]
+// Anti-Phantom-Hinweis: das 4B-Feld ist ein RESERVIERTER Nullwert, keine CRC64 (die waere 8B). Es existiert
+// heute KEIN Leser/Validator dieses Feldes (repo-weit kein crc64-Konsument) → eine echte Pruefsumme waere ein
+// Feature ohne Konsument. Falls Integritaetspruefung gewuenscht: eigener Increment mit Leser + Format-Bump.
 
 #include "benchmark_runner.hpp"
 
@@ -46,7 +49,8 @@ public:
             out.write(reinterpret_cast<char const*>(state_log.data()),
                       static_cast<std::streamsize>(state_log.size_bytes()));
         }
-        // Footer (placeholder CRC = 0; Phase 7 ergaenzt echte CRC64)
+        // Footer: reserviertes 4B-Feld = 0 (KEINE CRC berechnet; kein Leser/Validator existiert — s. Layout-Doku
+        // oben). Bewusst honest-0 statt eines Phantom-Prüfwerts.
         write_u32(out, 0);
         write_u32(out, kBlobMagicEnd);
     }
