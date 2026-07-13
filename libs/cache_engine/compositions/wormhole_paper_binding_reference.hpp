@@ -4,7 +4,7 @@
 // #42: search_algo = SEZIERTES Wormhole-Organ; OriginalWormholeSearchAlgo bleibt nur als paper_source-Provenienz.
 #include "../topics/traversal/axis_03a_search_algo/composable/tier_to_organ_mapping.hpp"
 #include "../topics/traversal/axis_03a_search_algo/axis_03a_search_algo_original_wormhole.hpp"
-#include "../topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp"
+#include "../topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_hash_lookup.hpp"
 #include "../topics/traversal/axis_03m_mapping/axis_03m_mapping_direct_placement.hpp"
 #include "../topics/nodes/axis_02_path_compression/axis_02_path_compression_none.hpp"
 #include "../topics/nodes/axis_04_node_type/axis_04_node_type_node256.hpp"
@@ -36,7 +36,8 @@ struct WormholePaperBindingComposition {
     using search_algo = traversal::axis_03a_search_algo::composable::ObservableWormholeOrgan;
     using paper_source =
         traversal::axis_03a_search_algo::OriginalWormholeSearchAlgo; // #42 is_original/SHA256-Traeger, kein Achsen-Wert
-    using cache_traversal  = traversal::axis_03b_cache_traversal::LinearFanout;
+    using cache_traversal = traversal::axis_03b_cache_traversal::
+        HashLookup; // M-CE-15: an Re-Impl (wormhole_reference.hpp) angeglichen — PaperBinding spiegelt Re-Impl AUSSER paper_source
     using mapping          = traversal::axis_03m_mapping::DirectPlacement;
     using path_compression = nodes::axis_02_path_compression::PathCompressionNone;
     using node_type =

@@ -4,11 +4,19 @@
 
 #include "xml_config_parser/xml_config_parser.hpp"
 
+#include "comdare_test_tmp.hpp" // #278/#24: per-User-Temp gegen CI-Kollisionen (analog M-SU-04)
+
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
+
+#if defined(_WIN32)
+#include <process.h> // ::_getpid
+#else
+#include <unistd.h> // ::getpid
+#endif
 
 namespace cx = ::comdare::builder::xml;
 namespace fs = ::std::filesystem;
@@ -31,8 +39,27 @@ void check_eq(char const* what, A const& got, B const& want) {
     if (!ok) ++g_fail;
 }
 
+// analog M-SU-04 (#278/#24): feste Namen direkt unter temp_directory_path() kollidieren auf host-weit
+// geteiltem /tmp mit Resten FREMDER User (Owner-Mismatch + Sticky-Bit -> ofstream/remove scheitern STILL,
+// Test liest Alt-/Fremdinhalte). Basis = uid-eindeutiges user_tmp_dir() (verbindliche Loesung, wie die
+// uebrigen ce-Unit-Tests); der zusaetzliche getpid()+Zaehler-Praefix macht jeden comdare_p7_-Namen
+// prozess-eindeutig gegen parallele Laeufe desselben Users. POSIX/Windows portabel.
+[[nodiscard]] long long comdare_pid() {
+#if defined(_WIN32)
+    return static_cast<long long>(::_getpid());
+#else
+    return static_cast<long long>(::getpid());
+#endif
+}
+
+fs::path temp_path(char const* name) {
+    static int counter = 0;
+    return ::comdare::test::user_tmp_dir() /
+           (std::to_string(comdare_pid()) + "_" + std::to_string(counter++) + "_" + name);
+}
+
 fs::path write_temp(char const* name, std::string const& content) {
-    fs::path p = fs::temp_directory_path() / name;
+    fs::path const p = temp_path(name);
     std::ofstream{p} << content;
     return p;
 }
@@ -110,7 +137,7 @@ int main(int argc, char** argv) {
     }
 
     // ── (4) parse_one: {} bleibt {} (R2-Gate), aber diagnostiziert ──
-    auto const missing = parser.parse_one(fs::temp_directory_path() / "comdare_p7_gibt_es_nicht.xml");
+    auto const missing = parser.parse_one(temp_path("comdare_p7_gibt_es_nicht.xml"));
     check_true("parse_one: fehlende Datei => leer", missing.empty());
     fs::path const perm_xml = write_temp("comdare_p7_perm.xml", "<root><allocator_permutation id=\"a1\">\n"
                                                                 "  <family>hoard</family><variant>v1</variant>\n"
