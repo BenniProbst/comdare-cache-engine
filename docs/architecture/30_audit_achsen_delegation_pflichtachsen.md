@@ -149,7 +149,7 @@ Belegt (perm_runner, alle 8 thesis-Lebewesen neu gebaut + gemessen, `build/thesi
 
 **Vorher (Befund 2):** alloc_cnt über alle Node-Varianten identisch (18) — node_type inert. **Jetzt:** `ceil(n/node_cap)`,
 node-abhängig → die Speicher-Achsen node_type/layout/allocator sind im gemessenen Pfad real wirksam. Zusätzlich
-standalone-Beleg `test_node_delegation_proof` (ComposedSearch über NodeChunkedStore, PROOF_OK).
+standalone-Beleg `test_node_delegation_proof` (ComposedSearch über NodeChunkedStore, PROOF_OK). (test_node_delegation_proof entfernt 2026-07-11)
 
 **Q2 Schritt 4 (perm_runner→V2-POD) + volle Such-Organ-Delegation (search_organ_ entfällt):** OFFEN — die SEARCH-Zähler
 (peak/fill/lookup) kommen weiter aus dem Monolith `search_organ_`; die STORAGE-Achsen delegieren jetzt korrekt. Die
@@ -185,7 +185,7 @@ ENTFERNT**; `test_genus_binding` 5→4 Gattungen.
 löschen/entkernen; `anatomy/anatomy_base.hpp` AnatomyGenus::Adapter (Enum-Wert) bereinigen; CMake-Targets
 `perm_container_*`/`test_d4b`/Container-Teil von `test_dgenus_dll` entfernen.
 **G. Tests anpassen:** `test_br3_obs22` (19+3, keine 2 Container), `test_br1_full22_count` (22 = 19+3), Container-Tests entfernen.
-**Verifikation:** Mess-Pfad `build_and_measure_thesis_tiere.ps1` (Lebewesen jetzt 19 Achsen) + `cmake --build` grün.
+**Verifikation:** Mess-Pfad `build_and_measure_thesis_tiere.ps1` (Lebewesen jetzt 19 Achsen) + `cmake --build` grün. (build_and_measure_thesis_tiere.ps1 geloescht 2026-07-11; Mess-Pfad heute Code/02_messung_driver)
 
 ---
 

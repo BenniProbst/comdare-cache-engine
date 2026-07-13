@@ -101,6 +101,7 @@ namespace cx = ::comdare::builder::xml;
 //
 // Plan: docs/sessions/20260618-STRANG-A-KORRIGIERT-PROFIL-GETRIEBEN-PLAN.md (Inc 3). Diese Helfer machen den
 // profil-getriebenen Lauf (run_lazy_150 im PROFIL-MODUS) FUNKTIONAL identisch zum heutigen Code-Lauf
+// (run_lazy_150 geloescht 2026-07-11; Host/Emitter heute Code/02_messung_driver, E4-XML)
 // (PS-foreach + SelectMode + COMDARE_*-env): working_set_sweep ersetzt die PS-foreach + COMDARE_WORKLOAD_RECORDS;
 // axis_sweeps ersetzt SelectMode "axis_sweep:<a>" + axis_to_level-Map; run_options ersetzt argv/env; die
 // tier-Level-Behandlung haelt den binary_id-Raum stabil (Basis-320 == golden-Liste, Resume #139).
@@ -203,6 +204,7 @@ struct ProfileRunOptions {
 // ── (axis_sweeps) — der Treiber loest jeden <axis_sweep axis=..> auf die LEVEL-INDEX-Position im tier-freien
 //    Basis-StaticBinaryView auf (per Achsen-Namen-Suche in den statischen AxisLevels), NICHT ueber eine
 //    hartkodierte axis_to_level-Map (run_lazy_150.cpp:214). Damit ist die Aufloesung PROFIL-GETRIEBEN. ──
+//    (run_lazy_150.cpp geloescht 2026-07-11; Host/Emitter heute Code/02_messung_driver, E4-XML)
 
 /// profile_axis_level — der Level-Index einer Achse im (tier-freien) statischen AxisLevel-Satz. -1 wenn unbekannt.
 /// Single-Source: dieselbe Reihenfolge, die der StaticBinaryView verwendet (kCompositionAxisNames-Reihenfolge).

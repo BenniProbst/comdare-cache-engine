@@ -181,6 +181,7 @@ struct ThesisDatasetRef {
 
 // (d) <run_options cap=".." platform=".." build_version=".." resume=".."/> — die Lauf-Steuerung, die heute aus
 //     argv/env von run_lazy_150 kommt. Deklarativ im Profil; der Treiber liest sie als Defaults (argv/env darf
+//     (run_lazy_150 geloescht 2026-07-11; Quelle argv/env heute Code/02_messung_driver / XML run_options)
 //     weiterhin uebersteuern — Rueckwaerts-Kompatibilitaet). cap=0 / leere Strings = "ungesetzt".
 struct ThesisRunOptions {
     int           cap   = 0;          // max_binaries-Obergrenze (0 = ungesetzt → Treiber-Default)

@@ -82,6 +82,7 @@ struct LazyRunConfig {
     // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig: op-mix/dist/negative_query_pct aus dem XML).
     // Leer → run_workload_perm fällt auf hartcodiertes profile_by_name (env-String) zurück. Befüllt von run_lazy_150
     // via discover_load_profiles(load_profiles/). Die ids sind die Werte der dynamischen Workload-Achse.
+    // (run_lazy_150 geloescht 2026-07-11; Befuellt heute von Code/02_messung_driver, E4-XML)
     std::map<std::string, wd::WorkloadConfig> workload_configs{};
     // Laufzeit-Obergrenze (System-Limits) für die dyn-Variation (RuntimeVariableLoop clamp gegen caps∩env).
     anatomy::ComdareResourceControlV1 env_limits{};
