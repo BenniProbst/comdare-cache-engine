@@ -1,4 +1,11 @@
 #pragma once
+// ===== DEPRECATED (Muster-C Voll-Review 2026-07-12, verifiziert tot 2026-07-13) =====
+// Macro-Header ohne Includer; redefiniert from_hex/to_hex aus ctsha.hpp -> kompiliert
+// nicht. Kein Konsument (grep=0: kein #include von comdare_is_original_macro.hpp;
+// Macro-Name nur in Doc-Kommentaren). Nachfolger: sha256/ctsha.hpp (is_original_validator
+// nutzt ctsha.hpp). Datei-Entfernung = separater je-GO (Doku-nie-loeschen-Doktrin G4).
+// KEIN [[deprecated]]-Attribut (haelt -Werror fuer Restnutzer).
+//
 // V41.F.6.1.P1 Phase B — COMDARE_IS_ORIGINAL Macro fuer Paper-Original-Code-Validierung
 //
 // @stand V41.F.6.1.P1 Phase B Pilot
