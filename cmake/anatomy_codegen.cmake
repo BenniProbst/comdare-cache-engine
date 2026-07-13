@@ -119,13 +119,17 @@ function(comdare_codegen_anatomy_module)
     # V41.F.6.1.R7.3-buildfix: per-Achsen generierte flags.hpp-Dirs (source-derived,
     # ordering-invariant — analog tests/unit). Ohne diese fanden generierte Anatomy-Module
     # (Pilots) axis_NN_*_flags.hpp nicht im Full-ALL-Build (Compositions ziehen alle Achsen).
+    # Muster-D/#14 (2026-07-13): PROJECT_BINARY_DIR (nicht CMAKE_BINARY_DIR) — im super-Sub-Build
+    # schreibt das Root-CMakeLists die axis_*_flags.hpp nach CMAKE_CURRENT_BINARY_DIR/generated
+    # (= ce-Build-Baum _cache_engine_external); CMAKE_BINARY_DIR zeigte auf die Superprojekt-Wurzel.
+    # Gleiche Konvention wie cmake/catalog_codegen.cmake.
     file(GLOB _cdg_axis_src_dirs LIST_DIRECTORIES true
         "${_ce_root}/libs/cache_engine/topics/*/axis_*")
     set(_cdg_axis_gen_dirs "")
     foreach(_cdg_d ${_cdg_axis_src_dirs})
         if(IS_DIRECTORY "${_cdg_d}")
             file(RELATIVE_PATH _cdg_rel "${_ce_root}/libs/cache_engine/topics" "${_cdg_d}")
-            list(APPEND _cdg_axis_gen_dirs "${CMAKE_BINARY_DIR}/generated/topics/${_cdg_rel}")
+            list(APPEND _cdg_axis_gen_dirs "${PROJECT_BINARY_DIR}/generated/topics/${_cdg_rel}")
         endif()
     endforeach()
 
@@ -133,7 +137,7 @@ function(comdare_codegen_anatomy_module)
         "${_ce_root}/libs/cache_engine"
         "${_ce_root}/libs/cache_engine/include"
         "${_ce_root}/libs/cache_engine/src"
-        "${CMAKE_BINARY_DIR}/generated"
+        "${PROJECT_BINARY_DIR}/generated"
         ${_cdg_axis_gen_dirs})
 
     # Build-Mode-Defines fuer ABI-Header:

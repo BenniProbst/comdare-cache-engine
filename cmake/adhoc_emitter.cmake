@@ -50,7 +50,9 @@ function(comdare_run_adhoc_emitter)
     if(WIN32)
         set(_exe_name "${_exe_name}.exe")
     endif()
-    set(_tool_dir "${CMAKE_BINARY_DIR}/apps/adhoc_emitter")
+    # Muster-D/#14: PROJECT_BINARY_DIR — die apps/ landen im ce-Build-Baum (im super-Sub-Build
+    # _cache_engine_external/apps), nicht in der Superprojekt-Build-Wurzel (CMAKE_BINARY_DIR).
+    set(_tool_dir "${PROJECT_BINARY_DIR}/apps/adhoc_emitter")
     set(_tool_candidates
         "${_tool_dir}/${_exe_name}"
         "${_tool_dir}/Release/${_exe_name}"
@@ -158,7 +160,7 @@ function(comdare_build_adhoc_modules)
             "${_ce_root}/libs/cache_engine"
             "${_ce_root}/libs/cache_engine/include"
             "${_ce_root}/libs/cache_engine/src"
-            "${CMAKE_BINARY_DIR}/generated"
+            "${PROJECT_BINARY_DIR}/generated"
             ${ARG_AXIS_GEN_DIRS})
         target_link_libraries(${_target} PRIVATE Boost::mp11)
         target_compile_features(${_target} PRIVATE cxx_std_23)

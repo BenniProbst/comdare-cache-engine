@@ -438,11 +438,14 @@ option(COMDARE_BUILD_LEGACY_REIMPL
 option(COMDARE_AUTO_RUN_BUILDER
     "Stage 2 (V13.4): nach Builder-Build automatisch Builder ausfuehren"
     OFF)
+# Muster-D/#14 (2026-07-13): CMAKE_CURRENT_SOURCE_DIR/CMAKE_CURRENT_BINARY_DIR (nicht
+# CMAKE_SOURCE_DIR/CMAKE_BINARY_DIR) — im super-Sub-Build (add_subdirectory) zeigten letztere
+# auf die Superprojekt-Wurzel; ce-gewurzelt liegt Config im ce-Source- und Output im ce-Build-Baum.
 set(COMDARE_BUILDER_CONFIG_DIR
-    "${CMAKE_SOURCE_DIR}/libs/cache_engine/builder/example_configs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/libs/cache_engine/builder/example_configs"
     CACHE PATH "Stage 2 (V13.4): Konfig-Dir fuer Auto-Run des Builders")
 set(COMDARE_BUILDER_OUTPUT_DIR
-    "${CMAKE_BINARY_DIR}/builder_runs/auto"
+    "${CMAKE_CURRENT_BINARY_DIR}/builder_runs/auto"
     CACHE PATH "Stage 2 (V13.4): Output-Dir fuer Auto-Run des Builders")
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -653,14 +656,18 @@ message(STATUS "─────────────────────�
 # Wird nur im ALL-Target ausgefuehrt wenn COMDARE_AUTO_RUN_BUILDER=ON.
 # Erfordert dass der Builder-Target (cache-engine-builder) bereits gebaut wurde.
 if(COMDARE_AUTO_RUN_BUILDER AND COMDARE_BUILD_BUILDER)
+    # #28 (2026-07-13): echtes CMake-Target = cache_engine_builder (apps/cache_engine_builder,
+    # if COMDARE_BUILD_BUILDER); "comdare-cache-engine-builder" ist NUR OUTPUT_NAME und existiert
+    # NICHT als Target (Zwilling zu super M-SU-06, Code/CMakeLists.txt:422-424).
+    # Muster-D/#14: --comdare-root/WORKING_DIRECTORY ce-gewurzelt (CMAKE_CURRENT_*), nicht super-Wurzel.
     add_custom_target(comdare_run_builder ALL
-        COMMAND $<TARGET_FILE:comdare-cache-engine-builder>
+        COMMAND $<TARGET_FILE:cache_engine_builder>
                 "${COMDARE_BUILDER_CONFIG_DIR}"
                 "${COMDARE_BUILDER_OUTPUT_DIR}"
                 --enumerate-only
-                "--comdare-root=${CMAKE_SOURCE_DIR}"
-        DEPENDS comdare-cache-engine-builder
-        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+                "--comdare-root=${CMAKE_CURRENT_SOURCE_DIR}"
+        DEPENDS cache_engine_builder
+        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
         COMMENT "[V13.4 Stage-2] Auto-Run CacheEngineBuilder (--enumerate-only)"
         VERBATIM)
 endif()
