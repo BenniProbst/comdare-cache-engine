@@ -5,12 +5,12 @@
 **Vorlage:** Phase 4.B-detail (12 Such-Algorithmus-Repos in P*-Verzeichnissen)
 **Roll-out Status (V41.F.6.1.P2.B/P2.D/P2.D.b2):** 6 als Original-Wrapper integriert, 4 deferred (Task #685)
 
-## Geklonte Repositories (Pflicht, alle Lizenzen permissive)
+## Geklonte Repositories (Pflicht; Lizenzen ueberwiegend permissive -- Ausnahme A03 = LGPL-2.1, siehe "Lizenz-Kompatibilitaet" unten)
 
 | ID | Verzeichnis | Repo | Lizenz | Groesse | Wrapper-Status | Originall |
 |----|-------------|------|--------|---------|:--------------:|:---------:|
 | **A01** | `A01-hoard/` | [emeryberger/Hoard](https://github.com/emeryberger/Hoard) | Apache 2.0 | 983K | DEFERRED Task #685 (Custom-Shim) | (TBD) |
-| **A03** | `A03-michael-lockfree/` | [scotts/michael](https://github.com/scotts/michael) | MIT (re-impl) | 173K | DEFERRED Task #685 (Custom-Shim) | (TBD) |
+| **A03** | `A03-michael-lockfree/` | [scotts/michael](https://github.com/scotts/michael) | LGPL-2.1-or-later (re-impl; laut vendored michael.h) | 173K | DEFERRED Task #685 (Custom-Shim) | (TBD) |
 | **A04** | `A04-mimalloc/` | [microsoft/mimalloc](https://github.com/microsoft/mimalloc) | MIT | 7.4M | ✅ MimallocAllocator (Pilot P2.B) | 2/2 |
 | **A05** | `A05-jemalloc/` | [jemalloc/jemalloc](https://github.com/jemalloc/jemalloc) | BSD-2 | 6.4M | ✅ JemallocAllocator (P2.D) | 2/2 |
 | **A06** | `A06-tcmalloc/` | [google/tcmalloc](https://github.com/google/tcmalloc) | Apache 2.0 | 6.5M | DEFERRED Task #685 (Bazel-Build) | (TBD) |
@@ -25,7 +25,13 @@
 
 ## Lizenz-Kompatibilitaet (alle 10 Repos)
 
-✅ **Alle Lizenzen permissive** und mit Comdare's Apache-2.0 kompatibel.
+⚠️ **KORRIGIERT (2026-07-13, Anti-Drift gegen vendored LICENSE/Header):** NICHT alle Lizenzen permissive.
+   A03-michael = **LGPL-2.1-or-later** (schwaches Copyleft, laut vendored `A03-michael-lockfree/michael.h`,
+   Copyright 2007 Schneider/Antonopoulos). A06-tcmalloc = Apache-2.0, A11-lrmalloc = MIT; die uebrigen Repos
+   permissive (Apache-2.0/MIT/BSD-2/BSD-3/Public-Domain/CC0). Apache/MIT/BSD/PD sind mit Comdare's Apache-2.0
+   kompatibel; LGPL-2.1 (A03) erfordert eine Link-Status-Pruefung — der comdare-Shim fuer A03 ist DEFERRED/Custom
+   (Task #685) und noch nicht statisch gelinkt.
+   (DEPRECATED: die urspruengliche Aussage "Alle Lizenzen permissive" war fehl-etikettiert.)
 ✅ **Statisches Linking + Modularisierung** ist nach Architekt-Direktive 2026-05-08
    ("modularisierte Bruchstuecke + C++23-Metaprogrammierung = neues Werk") zulaessig.
 ✅ **Pro Repo:** LICENSE-Datei wurde NICHT geloescht — bleibt bit-identisch erhalten.
