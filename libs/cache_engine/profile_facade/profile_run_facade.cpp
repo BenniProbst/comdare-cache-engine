@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <iostream>
 #include <map>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -183,8 +184,20 @@ int validate_profile_facade(std::filesystem::path const& profile_path, std::ostr
     }
     // Die gueltigen Achsen-Werte kommen aus den REALEN EnabledStrategies (build_all_axis_levels
     // reflektiert sie) → Registry → validate_profile prueft jeden <axis>-Wert dagegen.
-    ex::AxisRegistry const             registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
-    tlz::ProfileValidationResult const vr       = tlz::validate_profile(*tp, registry);
+    ex::AxisRegistry const registry = tlz::axis_registry_from_levels(ex::build_all_axis_levels());
+
+    // M-CE-12: die REAL vorhandenen load_profiles/-ids enumerieren (gleicher co-lokalisierter Default-Pfad
+    // wie der Run: thesis_profiles/../load_profiles, s. run_profile_facade) und als bekannte Workload-Menge
+    // hereinreichen — so faellt eine getippte <workloads>-id SCHON hier (rein-lesend) auf, statt erst im
+    // teuren E4-Lauf mit exit 4. Existiert das Verzeichnis nicht, bleibt die Menge leer (Pruefung
+    // uebersprungen, rueckwaerts-kompatibel).
+    std::set<std::string> known_workload_ids;
+    if (!profile_path.empty()) {
+        std::filesystem::path const load_profile_dir = profile_path.parent_path().parent_path() / "load_profiles";
+        for (auto const& idp : wd::discover_load_profiles(load_profile_dir)) known_workload_ids.insert(idp.first);
+    }
+
+    tlz::ProfileValidationResult const vr = tlz::validate_profile(*tp, registry, known_workload_ids);
     tlz::print_validation_report(vr, *tp, os);
     os << "(--validate: rein-lesend — es wurde KEINE DLL gebaut und KEINE Messung durchgefuehrt.)\n";
     return vr.ok ? 0 : 1;
