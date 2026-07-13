@@ -31,7 +31,7 @@ namespace comdare::cache_engine::compositions {
 
 /// StartComposition — START als 15-Achsen-Permutations-Konfiguration.
 ///
-/// START Charakteristik (Mertens ICDE 2024):
+/// START Charakteristik (Fent/Jungmair/Kipf/Neumann, ICDEW 2020):
 /// - Multi-Byte-Span Cost-DP Trie (axis_03a VectorU16U16SearchAlgo)
 /// - Self-Tuning Adaptive — node_type variabel zur Laufzeit (Node4/16/48/256-Mix)
 struct StartComposition {
@@ -61,7 +61,7 @@ struct StartComposition {
     using queuing_q1 = queuing::axis_q1_queuing::NoBuffer;
     using queuing_q2 = queuing::axis_q2_queuing::LazyFlush;
 
-    static constexpr std::string_view paper_id    = "P05 Mertens et al. ICDE 2024";
+    static constexpr std::string_view paper_id    = "P05 Fent et al. ICDEW 2020";
     static constexpr std::string_view paper_title = "START: Self-Tuning Adaptive Radix Tree";
     static constexpr std::string_view name        = "StartComposition";
     COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::StartComposition",

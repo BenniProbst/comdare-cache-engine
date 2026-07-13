@@ -61,7 +61,7 @@ public:
         return enabled ? std::string_view{"original_wormhole"} : std::string_view{"original_wormhole(disabled)"};
     }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "OriginalWormholeSearchAlgo (Wormhole Wu/Ni/Jiang ATC 2019, 3/4 originall)";
+        return "OriginalWormholeSearchAlgo (Wormhole Wu/Ni/Jiang EuroSys 2019, 3/4 originall)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "ORIGINAL_WORMHOLE"; }
 

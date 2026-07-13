@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 3 Vendor-Header-Shim: Hoard (W6-Pattern)
 //
-// @vendor A01 Hoard (Berger/McKinley/Blumofe/Wilson PPoPP 2000)
+// @vendor A01 Hoard (Berger/McKinley/Blumofe/Wilson, ASPLOS-IX 2000)
 
 #include <axes/alloc/axis_06_allocator_flags.hpp>
 

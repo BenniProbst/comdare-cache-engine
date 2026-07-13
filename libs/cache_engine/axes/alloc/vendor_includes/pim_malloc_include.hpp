@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 6 Vendor-Header-Shim: PIM-Malloc (W6-Pattern)
 //
-// @vendor A16 PIM-Malloc Processing-In-Memory (UPMEM/HBM-PIM 2023+)
+// @vendor A16 PIM-Malloc Processing-In-Memory (VIA-Research, HPCA 2026)
 //
 // SONDERFALL: Verlangt PIM-Hardware (UPMEM DPUs, Samsung HBM-PIM, ...).
 // Auf nicht-PIM-Hardware: Fallback auf portable_aligned_alloc (Host-Memory).

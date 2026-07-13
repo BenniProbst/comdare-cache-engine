@@ -26,7 +26,7 @@ public:
     [[nodiscard]] static constexpr bool             is_leaf_only() noexcept { return true; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "telemetry_leaf_only_counter"; }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "LeafOnlyCounter (Kuehn DaMoN 2023 X1, leaf-scope only)";
+        return "LeafOnlyCounter (leaf-scope only)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "LEAF_ONLY_COUNTER"; }
 };

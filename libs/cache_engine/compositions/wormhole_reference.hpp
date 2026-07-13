@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1.R2 Erweitert: WormholeComposition (alle 15 Achsen)
 //
-// @composition Wormhole (P07 Wu/Ni/Jiang ATC 2019)
+// @composition Wormhole (P07 Wu/Ni/Jiang, EuroSys 2019)
 
 #include "../topics/traversal/axis_03a_search_algo/composable/tier_to_organ_mapping.hpp" // #42: Wormhole als Organ statt Tier
 #include "../topics/traversal/axis_03b_cache_traversal/axis_03b_cache_traversal_hash_lookup.hpp"
@@ -33,7 +33,7 @@ namespace comdare::cache_engine::compositions {
 
 /// WormholeComposition — Wormhole als 15-Achsen-Permutations-Konfiguration.
 ///
-/// Wormhole Charakteristik (Wu/Ni/Jiang ATC 2019):
+/// Wormhole Charakteristik (Wu/Ni/Jiang, EuroSys 2019):
 /// - Hash-Anchor-Lookup statt sequential Walk (axis_03b HashLookup)
 /// - Sparse Search-Algo Variant (axis_03a VectorU8U8SearchAlgo)
 /// - Persistent Index (kein clear API im Original)
@@ -65,7 +65,7 @@ struct WormholeComposition {
     using queuing_q1 = queuing::axis_q1_queuing::NoBuffer;
     using queuing_q2 = queuing::axis_q2_queuing::LazyFlush;
 
-    static constexpr std::string_view paper_id    = "P07 Wu/Ni/Jiang ATC 2019";
+    static constexpr std::string_view paper_id    = "P07 Wu/Ni/Jiang EuroSys 2019";
     static constexpr std::string_view paper_title = "Wormhole: A Fast Ordered Index for In-memory Data Management";
     static constexpr std::string_view name        = "WormholeComposition";
     COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::WormholeComposition",

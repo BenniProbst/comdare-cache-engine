@@ -56,7 +56,7 @@ public:
     [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "vector_u16u16"; }
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
-        return "VectorU16U16SearchAlgo (START multi-byte Cost-DP, Mertens ICDE 2024)";
+        return "VectorU16U16SearchAlgo (START multi-byte Cost-DP, Fent et al. ICDEW 2020)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "VECTOR_U16U16"; }
 

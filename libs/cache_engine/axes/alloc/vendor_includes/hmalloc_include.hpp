@@ -1,7 +1,7 @@
 #pragma once
 // V41.F.6.1 Batch 6 Vendor-Header-Shim: HMalloc (W6-Pattern)
 //
-// @vendor A15 HMalloc Hybrid Free-List (Tang 2020 + Anwendungen)
+// @vendor A15 HMalloc Hybrid Free-List (Li/Yao/Tang/Lin, ICPADS 2019)
 
 #include <axes/alloc/axis_06_allocator_flags.hpp>
 

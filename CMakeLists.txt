@@ -340,7 +340,7 @@ option(COMDARE_AXIS_08_ENABLE_HAZARD_PTR    "Concurrency HazardPtr (Michael TPDS
 option(COMDARE_AXIS_08_ENABLE_OLC_RESERVED_BLOCKS "Concurrency OLC+reserved-blocks (prt-art F.6, anti-coherence-storm)" ON)
 
 # V41.F.6.1.R7.5.b axis_11 Telemetry (4 Strategien)
-option(COMDARE_AXIS_11_ENABLE_LEAF_ONLY_COUNTER "Telemetry LeafOnlyCounter (Kuehn DaMoN 2023 X1)" ON)
+option(COMDARE_AXIS_11_ENABLE_LEAF_ONLY_COUNTER "Telemetry LeafOnlyCounter (leaf-scope only)" ON)
 option(COMDARE_AXIS_11_ENABLE_DENSITY_TRACKER   "Telemetry DensityTracker (ART per-node density)" ON)
 option(COMDARE_AXIS_11_ENABLE_INSERT_COUNTER    "Telemetry InsertCounter (HOT global insert counter)" ON)
 option(COMDARE_AXIS_11_ENABLE_LATENCY_HISTOGRAM "Telemetry LatencyHistogram (HDR p50/p95/p99)" ON)

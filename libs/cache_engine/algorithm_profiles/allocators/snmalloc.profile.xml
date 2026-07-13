@@ -2,7 +2,7 @@
 <comdare_allocator_profile id="snmalloc" family_ref="A07">
   <metadata>
     <name>snmalloc (Microsoft Research)</name>
-    <authors>Liedtke, Lyu, Parkinson</authors>
+    <authors>Paul Liétar et al.</authors>
     <year>2019</year>
     <venue>ISMM</venue>
     <license>MIT</license>
