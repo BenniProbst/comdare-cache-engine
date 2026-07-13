@@ -72,7 +72,12 @@ if(COMDARE_VENDOR_JEMALLOC)
         message(STATUS "V41.A1 jemalloc (system): ${JEMALLOC_LIB}")
     else()
         # Stufe 2: ext/allocator/A05-jemalloc pre-configured? Headers schon generiert?
-        set(_je_root "${CMAKE_CURRENT_LIST_DIR}/A05-jemalloc")
+        # M-CE-21-Zwilling: Pfad korrigiert auf allocator/A05-jemalloc — der Vendor liegt (analog mimalloc-#19/
+        # snmalloc-M-CE-21) unter ext/allocator/A05-jemalloc, NICHT ext/A05-jemalloc (= 40K-msvc-Orphan ohne include/).
+        # Vorher schlug der EXISTS-Check IMMER fehl -> jemalloc degradierte still auf real=std, selbst nach der
+        # dokumentierten autogen.sh-Anleitung (Z.106 zeigt selbst auf allocator/A05-jemalloc). Header hier noch
+        # nicht generiert -> Verhalten unveraendert (Stufe-3-Fallback), aber die Detection ist jetzt korrekt.
+        set(_je_root "${CMAKE_CURRENT_LIST_DIR}/allocator/A05-jemalloc")
         if(EXISTS "${_je_root}/include/jemalloc/jemalloc.h"
            AND EXISTS "${_je_root}/include/jemalloc/internal/jemalloc_preamble.h")
             # Headers wurden via autogen.sh erzeugt — wir koennen direkt bauen
