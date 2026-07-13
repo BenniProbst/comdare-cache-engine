@@ -19,6 +19,17 @@
 namespace l = comdare::cache_engine::layout;
 namespace a = comdare::cache_engine::anatomy;
 
+// M-CE-22 / NDEBUG-No-Op-Fix (2026-07-13, Muster-F): harte Checks statt assert(). assert() ist unter NDEBUG
+// (Release) ein No-Op -> dieser Test degenerierte im Release-Build zu `return 0` (kein echter Beweis). CE_CHECK
+// prueft NDEBUG-unabhaengig und liefert bei Verletzung `return 1` (rot). static_assert() bleibt (compile-time).
+#define CE_CHECK(cond)                                                                                                 \
+    do {                                                                                                               \
+        if (!(cond)) {                                                                                                 \
+            std::cerr << "[FAIL] " #cond " @ " << __FILE__ << ":" << __LINE__ << "\n";                                 \
+            return 1;                                                                                                  \
+        }                                                                                                              \
+    } while (0)
+
 int main() {
     using Strat = l::CacheLineAlignedMemoryLayout;
     using Obs   = l::ObservableMemoryLayout<Strat>;
@@ -39,11 +50,11 @@ int main() {
     for (std::size_t i = 0; i < n; ++i) std::memcpy(buf.data() + i * record_size, &vals[i], sizeof(std::uint32_t));
 
     // static Pass-Through (Drop-in-Kompatibilität) trackt NICHT:
-    assert(Obs::scan_field_sum(buf.data(), n, record_size) == 100u);
+    CE_CHECK(Obs::scan_field_sum(buf.data(), n, record_size) == 100u);
 
     Obs        layout;
     auto const before = layout.statistics();
-    assert(before.scan_count == 0);
+    CE_CHECK(before.scan_count == 0);
 
     std::uint64_t const checksum = layout.observe_scan(buf.data(), n, record_size); // Instanz-Driver: trackt
     auto const          after    = layout.statistics();
@@ -51,23 +62,23 @@ int main() {
               << " field_bytes=" << after.field_bytes_read << " cache_lines=" << after.cache_lines_touched
               << " checksum=" << after.last_checksum << "\n";
 
-    assert(checksum == 100u); // Korrektheit der durchgereichten Strategie-Methode
-    assert(after.scan_count == 1u);
-    assert(after.records_scanned == 4u);
+    CE_CHECK(checksum == 100u); // Korrektheit der durchgereichten Strategie-Methode
+    CE_CHECK(after.scan_count == 1u);
+    CE_CHECK(after.records_scanned == 4u);
     // P-MD1-ERDUNG #167: der generische Raw-Buffer-Pfad (observe_scan ohne realen Store) bucht n * sizeof(uint64)
     // Key-Bytes; die layout-distinkte REALE CLU kommt seitdem aus observe_real_footprint (Store-Pfad).
-    assert(after.field_bytes_read == 32u);   // 4 * 8 Byte (generischer Key-Footprint, s.o.)
-    assert(after.cache_lines_touched == 4u); // 4 * ceil(64/64) = 4 (AoS strided, 1 Cache-Line/Record)
-    assert(after.last_checksum == 100u);
-    assert(!(after == before)); // Delta > 0 (kein Stub)
+    CE_CHECK(after.field_bytes_read == 32u);   // 4 * 8 Byte (generischer Key-Footprint, s.o.)
+    CE_CHECK(after.cache_lines_touched == 4u); // 4 * ceil(64/64) = 4 (AoS strided, 1 Cache-Line/Record)
+    CE_CHECK(after.last_checksum == 100u);
+    CE_CHECK(!(after == before)); // Delta > 0 (kein Stub)
 
     // zweiter Scan akkumuliert
     (void)layout.observe_scan(buf.data(), n, record_size);
-    assert(layout.statistics().scan_count == 2u);
-    assert(layout.statistics().records_scanned == 8u);
+    CE_CHECK(layout.statistics().scan_count == 2u);
+    CE_CHECK(layout.statistics().records_scanned == 8u);
 
     layout.reset();
-    assert(layout.statistics().scan_count == 0u);
+    CE_CHECK(layout.statistics().scan_count == 0u);
 
     std::cout
         << "OK: memory_layout-Achse ist echte getriebene ObservableAxis (scan_field_sum durchgereicht + getrackt).\n";

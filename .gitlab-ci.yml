@@ -87,8 +87,12 @@ build:clang:
   script:
     - cmake -B build -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCOMDARE_ENABLE_PMC=ON
     # Build-Parallelität via CMAKE_BUILD_PARALLEL_LEVEL=4 (Runner-Core-Budget, User 2026-06-25), NICHT -j nproc
-    - cmake --build build --target linux_perf_pmc_smoke
-    - ctest --test-dir build -R '^linux_perf_pmc_smoke$' --output-on-failure -V
+    # M-CE-25 (Muster-F, 2026-07-13): m3v2_pmc_smoke (Label pmc) lief in KEINEM Job — test:unit schliesst es per
+    # -LE pmc aus, kein dedizierter -R matchte es. Es beweist die geschlossene PMC-Naht im Lazy-WIDE-Pfad und
+    # gehoert damit in den PMC-Gate. Mit COMDARE_ENABLE_PMC=ON (echte Quelle, available=1) ist der Naht-Beweis
+    # scharf (Inversion-Fix: live-PMC = SMOKE_OK). Lokal gruen bewiesen.
+    - cmake --build build --target linux_perf_pmc_smoke m3v2_pmc_smoke
+    - ctest --test-dir build -R '^(linux_perf_pmc_smoke|m3v2_pmc_smoke)$' --output-on-failure -V
   # KEINE Artefakte: das build/-Tree-Artefakt scheiterte am Object-Storage-500 (post-swap). Beleg = ctest-Log.
 
 pmc:amd:
@@ -200,8 +204,11 @@ contract:conformance:
     # (AxisCommand ueber 27 AxisBase-Erben, Mess-Visitor-Slot, AxisLimitations). Befund 8073/Job 213476: das
     # Label 'contract' allein laesst KEINEN CI-Job den Test fahren (Jobs bauen gezielte Targets) -> explizit
     # hier aufgenommen (User-Direktive: Tests nie auslassen).
-    - cmake --build build-conf --target test_conformance_gate test_188_4c0_known_compositions_conformance test_188_4cii_flat_wrapper_traversal test_216h2_stat_reset_after_load test_v41_anatomy_module_abi test_cmd1_a_axis_command_base
-    - ctest --test-dir build-conf -R '^(test_conformance_gate|test_188_4c0_known_compositions_conformance|test_188_4cii_flat_wrapper_traversal|test_216h2_stat_reset_after_load|test_v41_anatomy_module_abi|test_cmd1_a_axis_command_base)$' --output-on-failure -V
+    # M-CE-25 (Muster-F, 2026-07-13): +test_ap15_2_get_allocator_proxy +test_ap15_3_driveable_map_contract
+    # +test_29_container_framework — contract-gelabelt, aber von KEINEM -R-Job gefahren (test:unit -LE contract).
+    # Hier in den Konformitaets-Gate aufgenommen (Container-/Allocator-Proxy-Vertraege). Lokal gruen bewiesen.
+    - cmake --build build-conf --target test_conformance_gate test_188_4c0_known_compositions_conformance test_188_4cii_flat_wrapper_traversal test_216h2_stat_reset_after_load test_v41_anatomy_module_abi test_cmd1_a_axis_command_base test_ap15_2_get_allocator_proxy test_ap15_3_driveable_map_contract test_29_container_framework
+    - ctest --test-dir build-conf -R '^(test_conformance_gate|test_188_4c0_known_compositions_conformance|test_188_4cii_flat_wrapper_traversal|test_216h2_stat_reset_after_load|test_v41_anatomy_module_abi|test_cmd1_a_axis_command_base|test_ap15_2_get_allocator_proxy|test_ap15_3_driveable_map_contract|test_29_container_framework)$' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
@@ -229,9 +236,12 @@ contract:pool_flip:
   script:
     # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
     - cmake -B build-poolflip -G Ninja -DCOMDARE_BUILD_TESTS=ON
-    - cmake --build build-poolflip --target test_188_4bbV_pool_adapter_flip_compile test_188_4a_eytzinger_organ
-    # Exakter 2-Target-Match (Review-Fix): '^test_188_4' matchte auch test_188_4bb0_… (hier nicht gebaut).
-    - ctest --test-dir build-poolflip -R '^(test_188_4bbV_pool_adapter_flip_compile|test_188_4a_eytzinger_organ)$' --output-on-failure -V
+    # M-CE-25 (Muster-F, 2026-07-13): +test_s7_1..10 (die 10 Pool-Alloc-DEG-Gates, Label contract;pool_flip) —
+    # liefen in KEINEM Job (test:unit -LE contract, kein dedizierter -R). Gehoeren fachlich in den Pool-Flip-Gate.
+    # Lokal alle 10 gruen bewiesen.
+    - cmake --build build-poolflip --target test_188_4bbV_pool_adapter_flip_compile test_188_4a_eytzinger_organ test_s7_1_bst_pool_allocator_deg test_s7_2_btree_pool_allocator_deg test_s7_3_skip_list_pool_allocator_deg test_s7_4_hash_pool_allocator_deg test_s7_5_art_pool_allocator_deg test_s7_6_hot_pool_allocator_deg test_s7_7_start_pool_allocator_deg test_s7_8_wormhole_pool_allocator_deg test_s7_9_surf_pool_allocator_deg test_s7_10_swiss_pool_allocator_deg
+    # Exakter Match (Review-Fix): '^test_188_4' matchte auch test_188_4bb0_… (hier nicht gebaut). test_s7_ exakt.
+    - ctest --test-dir build-poolflip -R '^(test_188_4bbV_pool_adapter_flip_compile|test_188_4a_eytzinger_organ|test_s7_([1-9]|10)_)' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
@@ -263,8 +273,11 @@ contract:profile_coverage:
   script:
     # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
     - cmake -B build-cov -G Ninja -DCOMDARE_BUILD_TESTS=ON
-    - cmake --build build-cov --target test_profile_coverage
-    - ctest --test-dir build-cov -R '^test_profile_coverage$' --output-on-failure -V
+    # M-CE-25 (Muster-F, 2026-07-13): +test_smoke_coverage_profile +test_wdk_datasets_fairness +test_sota_st2_dedup
+    # +test_validate_profile +test_h2_score_akte — alle contract;profiles-gelabelt, aber von KEINEM -R-Job gefahren
+    # (test:unit -LE contract). Gehoeren in den Profil-Coverage-Gate (Profil-/E4-Vertraege). Lokal alle gruen bewiesen.
+    - cmake --build build-cov --target test_profile_coverage test_smoke_coverage_profile test_wdk_datasets_fairness test_sota_st2_dedup test_validate_profile test_h2_score_akte
+    - ctest --test-dir build-cov -R '^(test_profile_coverage|test_smoke_coverage_profile|test_wdk_datasets_fairness|test_sota_st2_dedup|test_validate_profile|test_h2_score_akte)$' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 # -- Stufe 4g: Contract Experiment-Driver-Gate (#193-A CI-Luecke geschlossen + /fork-Direktive) --
@@ -300,8 +313,11 @@ contract:node_shape:
   script:
     # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
     - cmake -B build-nodeshape -G Ninja -DCOMDARE_BUILD_TESTS=ON
-    - cmake --build build-nodeshape --target test_234_f1_btree_order_shape test_234_f2_skip_list_shape test_234_f3_bst_shape test_234_f4_hash_probe_shape
-    - ctest --test-dir build-nodeshape -R '^test_234_f' --output-on-failure
+    # M-CE-25 (Muster-F, 2026-07-13): +test_234_va_shaped_adapter +test_234_vb_rest_families_shaped — Label
+    # contract;pool_flip;shaped, aber von KEINEM -R-Job gefahren (test:unit -LE contract). Gehoeren in den
+    # Node-Shape-Gate (shaped-Adapter-Familie). Lokal gruen bewiesen. -R auf '^test_234_' erweitert (f + va/vb).
+    - cmake --build build-nodeshape --target test_234_f1_btree_order_shape test_234_f2_skip_list_shape test_234_f3_bst_shape test_234_f4_hash_probe_shape test_234_va_shaped_adapter test_234_vb_rest_families_shaped
+    - ctest --test-dir build-nodeshape -R '^test_234_' --output-on-failure
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 

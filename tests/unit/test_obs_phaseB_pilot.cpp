@@ -84,14 +84,14 @@ static an::ComdareTierObserverSnapshot measure_v3(char const* name, std::string&
     row.setting_label = "-";
     row.n_ops         = pr.n_ops;
     row.total_ns      = pr.total_ns;
-    row.v3            = pr.v3;
-    row.v3_real       = pr.v3_real;
+    row.unified       = pr.unified;
+    row.unified_real  = pr.unified_real;
     csv_out += ex::format_csv_row(row);
 
-    std::cout << "  " << name << ": filled_axis_count=" << pr.v3.filled_axis_count << "  T0..T18 row_sum=";
-    for (int t = 0; t < 19; ++t) std::cout << row_sum(pr.v3, t) << (t < 18 ? "," : "");
+    std::cout << "  " << name << ": filled_axis_count=" << pr.unified.filled_axis_count << "  T0..T18 row_sum=";
+    for (int t = 0; t < 19; ++t) std::cout << row_sum(pr.unified, t) << (t < 18 ? "," : "");
     std::cout << "\n";
-    return pr.v3;
+    return pr.unified;
 }
 
 template <class C>
