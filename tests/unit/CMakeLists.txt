@@ -1674,14 +1674,14 @@ foreach(_dt IN LISTS COMDARE_MCE24_PLAIN_TESTS)
     set_tests_properties(${_dt} PROPERTIES LABELS "g4;muster_f;standalone" TIMEOUT 120)
 endforeach()
 
-# HINWEIS (Muster-F-Befund, 2026-07-13): 4 der 34 sind hier BEWUSST NICHT registriert, weil sie eine STALE-
-# Erwartung gegen das aktuelle container-flip-Design (#188-4b) tragen, NICHT weil eine additive Registrierung
-# scheiterte. Sie erwarten, dass die REFERENZ-Kompositionen (Art/Hot/Masstree/Wormhole) via in-process-ABI die
-# store-backed-Scan-Observer (value_handle T11 / isa T12 / memory_layout-scan T5 / serialization-scan T9 /
-# hoehere filled_axis_count / Node-Telemetrie) mit >0 fuellen. Ist-Verhalten = honest-0 (container_ ist nur fuer
-# die Pool-Familien autoritativ; die 4 direkten/store-backed d_v42-Tests + test_obs_phaseB_t11_t12_iso fuellen
-# die Observer korrekt und sind GRUEN). Diese 4 brauchen eine THESIS-abgestimmte Erwartungs-Reparatur (store-
-# backed Komposition ODER honest-0-Erwartung) — kein Produktionscode-Bug, keine additive Registrierung:
+# HINWEIS (Muster-F-Befund, 2026-07-13 → RESOLVED gleichentags): der frühere STALE-Befund gegen das container-flip-
+# Design (#188-4b) ist AUFGELÖST. Verdikt DESIGN-MANDATED-HONEST-0 per committetem #188-4c-i (Deep-Research
+# 2026-07-13): die REFERENZ-Kompositionen (Art/Hot/Masstree/Wormhole) haben KEIN store_type → container_is_store_backed_
+# = false → die store-slot-gescannten Observer (value_handle T11 / isa T12 / memory_layout-scan T5 / serialization-scan
+# T9 / node_type T4 / höhere filled_axis_count / Node-Telemetrie) sind für die Hüllen EHRLICH 0 (Re-Kopplung = #234).
+# Die per-op-gekoppelten Observer (search/telemetry) bleiben real >0. Die 4 Tests wurden auf diese honest-0-Erwartung
+# repariert (filled_axis_count komposition-spezifisch: Art/Hot=10, Masstree=9; predicate_evals #24-neutralisiert) und
+# sind jetzt regulär registriert:
 #   test_obs_phaseA, test_obs_phaseB_pilot, test_obs_phaseB_t11_t12, test_d_v42_abi_telemetry_coupling.
 set(COMDARE_MCE24_MEASURED_TESTS
     test_all19_segment_timer
@@ -1690,7 +1690,11 @@ set(COMDARE_MCE24_MEASURED_TESTS
     test_obs_phaseB_t11_t12_iso
     test_obs_phaseB_t14_t16
     test_pathb_segment_timer
-    test_segment_timer_differentiation)
+    test_segment_timer_differentiation
+    test_obs_phaseA
+    test_obs_phaseB_pilot
+    test_obs_phaseB_t11_t12
+    test_d_v42_abi_telemetry_coupling)
 foreach(_dt IN LISTS COMDARE_MCE24_MEASURED_TESTS)
     add_executable(${_dt} "${_dt}.cpp")
     target_compile_features(${_dt} PRIVATE cxx_std_23)

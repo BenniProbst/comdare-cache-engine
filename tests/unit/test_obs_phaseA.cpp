@@ -83,7 +83,7 @@ static an::ComdareTierObserverSnapshot measure_v3(char const* name, std::string&
 }
 
 template <class C>
-static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s) {
+static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s, std::uint32_t expected_filled) {
     // EHRLICHE Semantik: (a) Schema-LEERE Achsen (noch nicht implementiert) MÜSSEN exakt 0 sein. (b) Schema-
     // BEFÜLLTE (observable) Achsen werden beobachtet, ihr Wert darf aber strategie-abhängig 0 sein (z.B. T7
     // prefetch mit NonePrefetch = ehrliche 0-Baseline, KEIN enqueue-Pfad; T8 pattern_id=0 bei NoneConcurrency).
@@ -93,8 +93,13 @@ static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s
         if (!is_filled(t) && row_sum(s, t) != 0) phaseb_zero = false;
     }
     tr((std::string{name} + ": alle Schema-leeren (noch nicht implementierten) Achsen == 0").c_str(), phaseb_zero);
-    tr((std::string{name} + ": filled_axis_count == kV3FilledAxisCount").c_str(),
-       s.filled_axis_count == an::kV3FilledAxisCount);
+    // #188-4c-i: Referenz-Hülle hat kein store_type → honest-0 (Re-Kopplung #234). Die store-abhängigen Achsen
+    // (memory_layout/serialization/value_handle/isa/Node-Telemetrie) bleiben honest-0 → die Hülle füllt NICHT alle
+    // kV3FilledAxisCount(19), sondern nur ihre Nicht-Store-Achsen (komposition-spezifisch: Art/Hot=10, Masstree=9).
+    tr((std::string{name} + ": filled_axis_count == " + std::to_string(expected_filled) +
+        " (Huelle honest-0 Store-Achsen)")
+           .c_str(),
+       s.filled_axis_count == expected_filled);
     // Die explizit über die Tier-Op getriebenen Achsen MÜSSEN > 0 sein (echte Auto-Kopplung verifiziert).
     tr((std::string{name} + ": T1 cache_traversal > 0").c_str(), row_sum(s, 1) > 0);
     tr((std::string{name} + ": T2 mapping > 0").c_str(), row_sum(s, 2) > 0);
@@ -121,9 +126,10 @@ int main() {
     }
     std::cout << "CSV: " << out_path << "\n";
 
-    check_one<comp::ArtComposition>("Art", art);
-    check_one<comp::HotComposition>("Hot", hot);
-    check_one<comp::MasstreeComposition>("Masstree", mass);
+    // #188-4c-i: Referenz-Hüllen honest-0 auf den Store-Achsen → filled_axis_count komposition-spezifisch (Re-Kopplung #234).
+    check_one<comp::ArtComposition>("Art", art, /*expected_filled=*/10u);
+    check_one<comp::HotComposition>("Hot", hot, /*expected_filled=*/10u);
+    check_one<comp::MasstreeComposition>("Masstree", mass, /*expected_filled=*/9u);
 
     std::cout << "==== Phase A Per-Achsen-Observer-V3: "
               << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";

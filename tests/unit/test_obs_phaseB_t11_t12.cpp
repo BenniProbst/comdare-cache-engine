@@ -9,6 +9,11 @@
 //         Komposition — hier nur EHRLICH: >= 0, da Inline-Tiere legitim 0 Indirektion haben).
 // ISOLIERT von den anderen Phase-B-Achsen (prüft NUR T11/T12) → unabhängig vom Stand paralleler Achsen-Agenten.
 //
+// HONEST-0-NACHZUG (#188-4c-i, Deep-Research 2026-07-13): nach dem container-flip haben die REFERENZ-Hüllen
+// (Art/Hot/Masstree/Wormhole) KEIN store_type → container_is_store_backed_ = false → die store-slot-gescannten
+// T11/T12-Observer sind für diese Hüllen DESIGNIERT honest-0 (== 0), NICHT >0. Der historische Text oben beschreibt
+// den store-backed Pfad (bleibt für d_v42/test_obs_phaseB_t11_t12_iso wahr). Re-Kopplung der Hüllen = Increment #234.
+//
 // Build: build/scratch_compile_obs_phaseB_t11_t12.ps1 (cl /std:c++latest /EHsc /DCOMDARE_MEASUREMENT_ON=1
 //        /DCOMDARE_CE_ENABLE_STATISTICS=1 + voller ADHOC-Include-Satz).
 
@@ -71,12 +76,16 @@ static void check_one(char const* name) {
               << " simd_iter=" << v3.axis_stats[12][2] << " scalar=" << v3.axis_stats[12][3]
               << " checksum=" << v3.axis_stats[12][4] << ")\n";
 
-    tr(std::string{name} + ": T11 value_handle row_sum > 0", vh > 0);
-    tr(std::string{name} + ": T11 total_access_count > 0", v3.axis_stats[11][0] > 0);
-    tr(std::string{name} + ": T11 peak_chain_depth >= 1", v3.axis_stats[11][3] >= 1);
-    tr(std::string{name} + ": T12 isa row_sum > 0", isa > 0);
-    tr(std::string{name} + ": T12 simd_calls > 0", v3.axis_stats[12][0] > 0);
-    tr(std::string{name} + ": T12 elements_processed > 0", v3.axis_stats[12][1] > 0);
+    // #188-4c-i: Referenz-Hülle hat kein store_type → honest-0 (Re-Kopplung #234).
+    // Alle hier getriebenen Kompositionen (Art/Hot/Masstree/Wormhole) sind REFERENZ-HÜLLEN → container_is_store_backed_
+    // = false → die store-slot-gescannten T11/T12-Observer bleiben ehrlich 0 (der direkte/store-backed Pfad füllt sie
+    // >0: siehe test_obs_phaseB_t11_t12_iso, bleibt registriert+grün).
+    tr(std::string{name} + ": T11 value_handle row_sum == 0 (Huelle honest-0)", vh == 0);
+    tr(std::string{name} + ": T11 total_access_count == 0 (Huelle honest-0)", v3.axis_stats[11][0] == 0);
+    tr(std::string{name} + ": T11 peak_chain_depth == 0 (Huelle honest-0)", v3.axis_stats[11][3] == 0);
+    tr(std::string{name} + ": T12 isa row_sum == 0 (Huelle honest-0)", isa == 0);
+    tr(std::string{name} + ": T12 simd_calls == 0 (Huelle honest-0)", v3.axis_stats[12][0] == 0);
+    tr(std::string{name} + ": T12 elements_processed == 0 (Huelle honest-0)", v3.axis_stats[12][1] == 0);
 }
 
 int main() {

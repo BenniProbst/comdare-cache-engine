@@ -1,6 +1,11 @@
 // V42 L-74c / I1 — Cross-ABI-Auto-Kopplung: der SearchAlgorithmAbiAdapter treibt beim tier_insert/lookup das
 // telemetry-Organ AUTOMATISCH (record_node_touch), und die EINE tier_observe zieht es in den konsolidierten
 // Observer-POD (axis_stats[10] = telemetry). Beweis über die Gattungs-ABI (tier_insert/lookup), nicht über explizites Organ-Treiben.
+//
+// HONEST-0-NACHZUG (#188-4c-i, Deep-Research 2026-07-13): ArtComposition ist eine REFERENZ-Hülle ohne store_type →
+// container_is_store_backed_ = false. Die per-op-gekoppelten Observer (search axis_stats[0], telemetry axis_stats[10])
+// bleiben real >0 (record_node_touch über tier_insert/lookup, KEIN Store-Scan). Die store-slot-gescannten Observer
+// node_type[4] / memory_layout[5] / serialization[9] sind für die Hülle DESIGNIERT honest-0 (Re-Kopplung #234).
 // Build: manuell mit /DCOMDARE_MEASUREMENT_ON=1 /DCOMDARE_CE_ENABLE_STATISTICS (siehe Build-Skript).
 
 #define COMDARE_MEASUREMENT_ON       1
@@ -56,22 +61,22 @@ int main() {
     CE_CHECK(u.axis_stats[10][2] == 0u);  // telemetry_node_updates (LeafOnlyCounter verwirft Inner-Touch)
     CE_CHECK(u.observable_axis_count >= 5u);
 
-    // scan-Achsen-Auto-Kopplung: memory_layout + serialization wurden in der Observer-Befuellung ueber das ECHTE
-    // Slot-Backing des container_ getrieben (Pfad-B Zustand-Scan) → records == tier_fill_level (alle Slots).
-    std::cout << "  scan-Achsen ueber Slot-Backing: layout_records=" << u.axis_stats[5][1]
+    // #188-4c-i: Referenz-Hülle hat kein store_type → honest-0 (Re-Kopplung #234). Die store-slot-gescannten Achsen
+    // memory_layout + serialization sind für die Hülle ehrlich 0 (der store-backed Pfad mit eigenem Store füllt sie >0).
+    std::cout << "  scan-Achsen ueber Slot-Backing (Huelle honest-0): layout_records=" << u.axis_stats[5][1]
               << " layout_checksum=" << u.axis_stats[5][4] << " | serialization_records=" << u.axis_stats[9][1] << "\n";
-    CE_CHECK(u.axis_stats[5][0] == 1u);                // layout_scan_count
-    CE_CHECK(u.axis_stats[5][1] == u.tier_fill_level); // layout_records_scanned == alle Tier-Slots
-    CE_CHECK(u.axis_stats[9][0] == 1u);                // serialization_serialize_count
-    CE_CHECK(u.axis_stats[9][1] == u.tier_fill_level); // serialization_records_serialized
+    CE_CHECK(u.axis_stats[5][0] == 0u); // layout_scan_count (Huelle honest-0)
+    CE_CHECK(u.axis_stats[5][1] == 0u); // layout_records_scanned (Huelle honest-0)
+    CE_CHECK(u.axis_stats[9][0] == 0u); // serialization_serialize_count (Huelle honest-0)
+    CE_CHECK(u.axis_stats[9][1] == 0u); // serialization_records_serialized (Huelle honest-0)
 
-    // node_type-Auto-Kopplung: observe_node_find ueber die ECHTEN Tier-Keys (self-query) → checksum =
-    // sum der gefundenen Key-Bytes; bei keys 0..19 (alle present) = 0+1+..+19 = 190.
-    std::cout << "  node_type ueber Slot-Backing: find_count=" << u.axis_stats[4][0] << " keys=" << u.axis_stats[4][1]
-              << " checksum=" << u.axis_stats[4][3] << "\n";
-    CE_CHECK(u.axis_stats[4][0] == 1u);                // node_find_count
-    CE_CHECK(u.axis_stats[4][1] == u.tier_fill_level); // node_keys_stored == alle Tier-Keys
-    CE_CHECK(u.axis_stats[4][3] == 190u);              // node_last_checksum sum(0..19) self-query
+    // #188-4c-i: node_type-Slot-Scan (observe_node_find) läuft nur über ein echtes store_type → für die Referenz-Hülle
+    // honest-0 (Re-Kopplung #234). Der store-backed Pfad liefert find_count/keys/checksum >0.
+    std::cout << "  node_type ueber Slot-Backing (Huelle honest-0): find_count=" << u.axis_stats[4][0]
+              << " keys=" << u.axis_stats[4][1] << " checksum=" << u.axis_stats[4][3] << "\n";
+    CE_CHECK(u.axis_stats[4][0] == 0u); // node_find_count (Huelle honest-0)
+    CE_CHECK(u.axis_stats[4][1] == 0u); // node_keys_stored (Huelle honest-0)
+    CE_CHECK(u.axis_stats[4][3] == 0u); // node_last_checksum (Huelle honest-0)
 
     std::cout << "OK: abi_adapter tier_insert/lookup koppelt telemetry AUTOMATISCH -> der EINE tier_observe "
                  "(Cross-ABI konsolidierter Observer-POD ueber das Gattungs-Interface).\n";
