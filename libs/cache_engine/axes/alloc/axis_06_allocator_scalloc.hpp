@@ -167,8 +167,20 @@ public:
     [[nodiscard]] void* reallocate(void* p, std::size_t old_bytes, std::size_t new_bytes, std::size_t alignment) {
         void* np;
         if constexpr (enabled) {
-            np = ::scalloc_realloc(p, new_bytes);
-            (void)alignment;
+            // MUSS dieselbe alignment-Weiche wie allocate()/deallocate() spiegeln: bei alignment >
+            // max_align_t stammt `p` aus portable_aligned_alloc (NICHT aus scalloc) — es an
+            // ::scalloc_realloc zu uebergeben waere ein Fremd-Heap-Pointer → Heap-Korruption.
+            if (alignment <= alignof(std::max_align_t)) {
+                np = ::scalloc_realloc(p, new_bytes);
+            } else {
+                // Grosses alignment: manuell aligned-alloc + copy + free (realloc-Semantik).
+                np = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, new_bytes);
+                if (np != nullptr && p != nullptr) {
+                    std::size_t copy_bytes = (old_bytes < new_bytes) ? old_bytes : new_bytes;
+                    std::memcpy(np, p, copy_bytes);
+                    ::comdare::cache_engine::allocator::portable_aligned_free(p);
+                }
+            }
         } else {
             np = ::comdare::cache_engine::allocator::portable_aligned_alloc(alignment, new_bytes);
             if (np != nullptr && p != nullptr) {

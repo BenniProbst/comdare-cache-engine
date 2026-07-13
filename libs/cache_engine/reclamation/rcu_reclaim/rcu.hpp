@@ -38,6 +38,11 @@ class RcuDomain;
 struct alignas(64) RcuReaderState {
     std::atomic<std::uint64_t> local_epoch{0}; // 0 = nicht im Read-Block
     std::atomic<bool>          active{false};
+    // Nesting-Zaehler fuer rekursive/geschachtelte read-side critical sections (McKenney-RCU nestet).
+    // Nur der EIGENE Thread greift darauf zu (thread_local State) → nicht-atomar ausreichend, kein Data-Race
+    // (Writer liest ausschliesslich local_epoch/active). Verhindert, dass ein innerer Guard den Reader fuer
+    // den GANZEN Thread als inaktiv markiert, waehrend ein aeusserer Guard noch im kritischen Abschnitt ist.
+    std::uint32_t nesting{0};
 };
 
 // RcuDomain: globaler Grace-Period-Counter + Reader-Registry
@@ -55,22 +60,36 @@ public:
         return &state;
     }
 
-    // Reader-Pfad: read_lock liest aktuelles global_epoch + markiert sich aktiv
+    // Reader-Pfad: read_lock liest aktuelles global_epoch + markiert sich aktiv.
+    // Nur der AEUSSERSTE Guard (nesting 0→1) publiziert local_epoch/active; geschachtelte Guards
+    // erhoehen nur den Zaehler (der Reader bleibt durchgehend aktiv).
     void read_lock() noexcept {
         auto* s = current_thread_state();
-        s->local_epoch.store(global_epoch_.load(std::memory_order_acquire), std::memory_order_release);
-        s->active.store(true, std::memory_order_release);
+        if (s->nesting++ == 0) {
+            s->local_epoch.store(global_epoch_.load(std::memory_order_acquire), std::memory_order_relaxed);
+            s->active.store(true, std::memory_order_release);
+            // Store-Load-Fence (SB/Dekker-Muster): das active=true MUSS global sichtbar sein, BEVOR die
+            // geschuetzten Loads (alter Pointer) folgen. Zusammen mit dem seq_cst-Fence in synchronize()
+            // ist ausgeschlossen, dass der Writer den Reader als inaktiv uebersieht, waehrend dieser noch
+            // den alten Pointer liest → verhindert die verfruehte Grace-Period-Beendigung (UAF).
+            std::atomic_thread_fence(std::memory_order_seq_cst);
+        }
     }
 
     void read_unlock() noexcept {
         auto* s = current_thread_state();
-        s->active.store(false, std::memory_order_release);
+        // Nur der AEUSSERSTE Guard (nesting 1→0) beendet den kritischen Abschnitt. Release-Store stellt
+        // sicher, dass alle geschuetzten Loads vor active=false abgeschlossen sind.
+        if (s->nesting != 0 && --s->nesting == 0) { s->active.store(false, std::memory_order_release); }
     }
 
     // Writer-Pfad: erhoeht global_epoch und wartet, bis alle Reader
     // den Block verlassen haben (busy-wait mit yield).
     void synchronize() noexcept {
-        std::uint64_t const target_epoch = global_epoch_.fetch_add(1, std::memory_order_acq_rel) + 1;
+        std::uint64_t const target_epoch = global_epoch_.fetch_add(1, std::memory_order_seq_cst) + 1;
+        // seq_cst-Fence (Gegenstueck zum read_lock-Fence): trennt Epoch-Bump/Pointer-Publikation von den
+        // folgenden active-Loads → SB-Muster geschlossen (siehe read_lock).
+        std::atomic_thread_fence(std::memory_order_seq_cst);
 
         std::lock_guard lock{registry_mutex_};
         for (auto* r : readers_) {

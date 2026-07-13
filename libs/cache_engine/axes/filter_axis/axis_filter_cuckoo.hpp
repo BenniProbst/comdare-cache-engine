@@ -55,16 +55,47 @@ public:
     }
 
     /// Build-Op (Setup, NICHT gemessen): platziert den Fingerprint in einen freien Slot von i1, sonst i2.
-    /// (Vereinfachte Variante ohne Eviction-Kette — fuer den Mess-Apparat genuegt korrektes Membership; bei
-    /// vollen Buckets bleibt der Key dennoch via i1-Sticky-Slot auffindbar, Fan §3 Kuckucks-Verdraengung optional.)
+    /// Sind beide Kandidaten-Buckets voll, greift die ECHTE Kuckucks-Verdraengung (Fan CoNEXT 2014 §3):
+    /// ein residenter Fingerprint wird in SEINEN Alternativ-Bucket relokiert (i_alt = i XOR hash(fp),
+    /// partial-key symmetrisch), bis ein freier Slot gefunden ist. KEIN stilles Ueberschreiben mehr —
+    /// jeder verdraengte Fingerprint wird verschoben, NIE verworfen → die Filter-Gattungs-Garantie
+    /// (may-contain, KEINE False Negatives) haelt fuer ALLE bereits eingefuegten Keys. Gelingt die
+    /// Platzierung nach kMaxKicks nicht (Filter effektiv voll), wird die gesamte Verdraengungskette
+    /// LIFO zurueckgerollt (table_ bit-exakt wie vor dem insert) und der NEUE Key ehrlich nicht
+    /// aufgenommen (ehrliche Kapazitaetsgrenze statt Datenverlust). Deterministisch (fixe Hash-
+    /// Konstanten, reproduzierbar) → mess-neutral, kein Achsenwert/name()/binary_id beruehrt.
     void insert_key(std::uint64_t key) noexcept {
         std::uint8_t const fp = fingerprint_(key);
         std::size_t const  i1 = bucket1_(key);
         std::size_t const  i2 = bucket2_(i1, fp);
         if (place_in_bucket_(i1, fp)) return;
         if (place_in_bucket_(i2, fp)) return;
-        // Beide Kandidaten voll → sticky in i1-Slot 0 ueberschreiben (Membership-Erhalt; konservativ).
-        table_[i1 * kSlotsPerBucket] = fp;
+        // Beide Kandidaten voll → Kuckucks-Verdraengung mit vollstaendigem Undo-Pfad.
+        struct KickStep {
+            std::uint16_t bucket;
+            std::uint8_t  slot;
+        };
+        std::array<KickStep, kMaxKicks> path{};
+        std::size_t                     steps = 0;
+        std::uint8_t                    carry = fp; // aktuell zu platzierender Fingerprint
+        std::size_t                     cur   = i1;
+        for (std::size_t n = 0; n < kMaxKicks; ++n) {
+            std::size_t const  slot    = eviction_slot_(cur, n, carry);
+            std::size_t const  idx     = cur * kSlotsPerBucket + slot;
+            std::uint8_t const evicted = table_[idx];
+            table_[idx]                = carry;   // platziere getragenen Fingerprint
+            carry                      = evicted; // trage verdraengten Fingerprint weiter
+            path[steps++]              = KickStep{static_cast<std::uint16_t>(cur), static_cast<std::uint8_t>(slot)};
+            cur                        = bucket2_(cur, carry); // Alternativ-Bucket des verdraengten Fingerprints
+            if (place_in_bucket_(cur, carry)) return;          // freier Slot → alle Fingerprints erhalten
+        }
+        // Filter voll: Kette LIFO zurueckrollen → table_ exakt wiederherstellen, neuen Key verwerfen.
+        for (std::size_t k = steps; k-- > 0;) {
+            std::size_t const  idx = static_cast<std::size_t>(path[k].bucket) * kSlotsPerBucket + path[k].slot;
+            std::uint8_t const tmp = table_[idx];
+            table_[idx]            = carry;
+            carry                  = tmp;
+        }
     }
 
     /// Probe der REALEN Bucket-Tabelle: Fingerprint in i1 ODER i2 → "moeglicherweise enthalten".
@@ -128,6 +159,19 @@ public:
     }
 
 private:
+    // Maximale Verdraengungs-Kettenlaenge (Fan CoNEXT 2014 §3: MaxNumKicks). Wird die Platzierung
+    // innerhalb kMaxKicks nicht erreicht, gilt der Filter als voll → Kette-Undo + ehrlicher Reject.
+    static constexpr std::size_t kMaxKicks = 500;
+
+    /// Deterministische, gut gemischte Slot-Wahl fuer die Verdraengung (bricht 2-Zyklen, reproduzierbar).
+    [[nodiscard]] static constexpr std::size_t eviction_slot_(std::size_t bucket, std::size_t kick,
+                                                              std::uint8_t fp) noexcept {
+        std::uint64_t h = (static_cast<std::uint64_t>(bucket) * 0x9E3779B97F4A7C15ull) ^
+                          (static_cast<std::uint64_t>(kick) * 0xD1B54A32D192ED03ull) ^
+                          (static_cast<std::uint64_t>(fp) * 0xFF51AFD7ED558CCDull);
+        return static_cast<std::size_t>((h >> 61) & (kSlotsPerBucket - 1u));
+    }
+
     /// Plaziere fp in den ersten freien Slot (==0) des Buckets b; true bei Erfolg.
     bool place_in_bucket_(std::size_t b, std::uint8_t fp) noexcept {
         for (std::size_t s = 0; s < kSlotsPerBucket; ++s) {
