@@ -31,6 +31,13 @@
 //       ausserhalb der Repo-Loader-ids (kKnownDatasetLoaderIds) ist eine WARNUNG (die DatasetLoaderRegistry ist
 //       laufzeit-offen), denn ein Tippfehler fiele beim spaeteren Mess-Konsum still auf den YCSB-Generator
 //       zurueck (load_or_generate_ycsb-Fallback) — genau die stille Fehlerklasse, die --validate sichtbar macht.
+//   (6) M-CE-12 (2026-07-13): jede <workloads>-id ist eine REAL existente load_profiles/-id. Die <workloads>-
+//       Auswahl ist die AUTORITATIVE Achse-2-Auswahl (profile_run_facade.cpp:113-141); eine getippte id matcht
+//       0 Lastprofile → der E4-Lauf bricht mit exit 4 ab (--validate soll genau DIESE stille Fehlerklasse
+//       vorab sichtbar machen). Der Host reicht die real entdeckten ids (via wd::discover_load_profiles) als
+//       known_workload_ids herein; ist die Menge leer (2-arg-Aufrufer / Test ohne Host-Enumeration), wird die
+//       Pruefung uebersprungen (rueckwaerts-kompatibel). Leere <workloads> im Profil = "alle Lastprofile"
+//       (legitim) → nichts zu pruefen; eine UNBEKANNTE id ist ein HARTER Fehler (Report-ok=false → Exit != 0).
 //
 // AUSGABE: klare Meldung je Fehler; bool-Ergebnis (true = OK). Der Host mappt true→Exit 0 (+ Zusammenfassung),
 // false→Exit != 0. Pattern: Specification/Validator (read-only Gegen-Pruefung); C++23, header-only.
@@ -63,6 +70,7 @@ struct ProfileValidationResult {
     std::size_t              sweeps_checked   = 0;
     std::size_t              series_checked   = 0;
     std::size_t              datasets_checked = 0; // GO-5 Fork 1: geprueften <dataset>-Eintraege (0 = keine deklariert)
+    std::size_t workloads_checked = 0; // M-CE-12: gepruefte <workloads>-ids (0 = keine / Pruefung uebersprungen)
 };
 
 // ── GO-5 Fork 6 (Thesis §sec:fairness): die zwei erlaubten Fairness-Modi einer <sota_series>. ──
@@ -96,11 +104,15 @@ inline constexpr char const* kKnownDatasetLoaderIds[] = {"string_corpus", "sosd_
 }
 
 /// validate_profile — DIE reine Pruef-Logik (read-only). `registry` = axis-Name → gueltige Werte (aus den
-/// EnabledStrategies, vom Host via axis_registry_from_levels(build_all_axis_levels()) hereingereicht). Prueft
-/// (1) Achsen-Namen (2) Achsen-Werte (3) axis_sweep- + sota_series-Referenzen. Schreibt KEINE Datei, baut KEINE
-/// DLL, misst NICHTS. Gibt das Ergebnis-POD zurueck; der Caller (Host) druckt + mappt auf den Exit-Code.
-[[nodiscard]] inline ProfileValidationResult validate_profile(cx::ThesisProfile const& tp,
-                                                              ex::AxisRegistry const&  registry) {
+/// EnabledStrategies, vom Host via axis_registry_from_levels(build_all_axis_levels()) hereingereicht).
+/// `known_workload_ids` = die REAL vorhandenen load_profiles/-ids (aus wd::discover_load_profiles), vom Host
+/// hereingereicht; leer = die <workloads>-Pruefung (6) wird uebersprungen (rueckwaerts-kompatibel). Prueft
+/// (1) Achsen-Namen (2) Achsen-Werte (3) axis_sweep- + sota_series-Referenzen (4) fairness (5) datasets
+/// (6) <workloads>-ids. Schreibt KEINE Datei, baut KEINE DLL, misst NICHTS. Gibt das Ergebnis-POD zurueck;
+/// der Caller (Host) druckt + mappt auf den Exit-Code.
+[[nodiscard]] inline ProfileValidationResult validate_profile(cx::ThesisProfile const&     tp,
+                                                              ex::AxisRegistry const&      registry,
+                                                              std::set<std::string> const& known_workload_ids = {}) {
     ProfileValidationResult r;
 
     // Menge der bekannten Achsen-Namen: Registry-Keys (EnabledStrategies) ∪ kCompositionAxisNames (die 19 Slots).
@@ -264,6 +276,27 @@ inline constexpr char const* kKnownDatasetLoaderIds[] = {"string_corpus", "sosd_
         }
     }
 
+    // ── (6) M-CE-12: jede <workloads>-id ist eine REAL existente load_profiles/-id. Nur wenn der Host die
+    //    entdeckten ids hereinreicht (known_workload_ids nicht leer) — leer = Pruefung uebersprungen
+    //    (rueckwaerts-kompatibel: 2-arg-Aufrufer/Tests ohne Host-Enumeration). Leere <workloads> im Profil =
+    //    "alle Lastprofile" (legitim) → nichts zu pruefen. Eine unbekannte id ist ein HARTER Fehler: sie matcht
+    //    0 Lastprofile, wodurch der spaetere E4-Lauf mit exit 4 abbricht (Achse 2 darf nicht still entfallen). ──
+    if (!known_workload_ids.empty()) {
+        std::vector<std::string> const valid_wl(known_workload_ids.begin(), known_workload_ids.end());
+        for (auto const& w : tp.workloads) {
+            ++r.workloads_checked;
+            if (known_workload_ids.find(w) == known_workload_ids.end()) {
+                r.ok = false;
+                r.errors.push_back("UNBEKANNTE Workload-id <workloads>… " + w +
+                                   " …</workloads>: keine load_profiles/-id. Die <workloads>-Auswahl ist die "
+                                   "AUTORITATIVE Achse-2-Auswahl; eine unbekannte id matcht 0 Lastprofile → der "
+                                   "E4-Lauf braeche mit exit 4 ab (Achse 2 darf nicht still entfallen). "
+                                   "Gueltige ids = " +
+                                   preview_values(valid_wl));
+            }
+        }
+    }
+
     return r;
 }
 
@@ -273,6 +306,9 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
     os << "  Profil id=" << tp.id << " schema_version=" << tp.schema_version << "\n";
     os << "  geprueft: " << r.axes_checked << " Achsen, " << r.values_checked << " Werte, " << r.sweeps_checked
        << " axis_sweeps, " << r.series_checked << " sota_series";
+    // M-CE-12: workloads NUR ausgeben, wenn geprueft (Host reichte known_workload_ids herein) — die --validate-
+    // Ausgabe der 2-arg-Aufrufer (Tests ohne Host-Enumeration) bleibt byte-identisch.
+    if (r.workloads_checked > 0) os << ", " << r.workloads_checked << " workloads";
     // GO-5 Fork 1: datasets NUR ausgeben, wenn deklariert — die --validate-Ausgabe bestehender Profile
     // (ohne <datasets>) bleibt byte-identisch (Default-Verhaltens-Gate dieses Increments).
     if (r.datasets_checked > 0) os << ", " << r.datasets_checked << " datasets";

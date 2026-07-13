@@ -71,7 +71,7 @@
   <working_set_sweep>16384</working_set_sweep>
 
   <compile_dims>
-    <workloads>A B C D E F</workloads>
+    <workloads>ycsb_a ycsb_b ycsb_c ycsb_d ycsb_e ycsb_f</workloads>
     <telemetry mode="on" silent="true"/>
   </compile_dims>
 
