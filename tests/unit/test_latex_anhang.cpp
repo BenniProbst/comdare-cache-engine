@@ -17,6 +17,7 @@ struct CsvRow {
     std::string   permutation_id;
     std::uint64_t fingerprint             = 0;
     bool          succeeded               = false;
+    std::string   workload_used           = "n/a";
     std::uint64_t op_count                = 0;
     std::uint64_t total_cycles            = 0;
     std::uint64_t cache_misses_l1         = 0;
@@ -65,7 +66,7 @@ private:
 
 void write_csv_with_header(std::filesystem::path const& p, std::vector<std::string> const& body_lines) {
     std::ofstream out{p};
-    out << "permutation_id,fingerprint,succeeded,op_count,total_cycles,"
+    out << "permutation_id,fingerprint,succeeded,workload_used,op_count,total_cycles,"
         << "cache_misses_l1,cache_misses_l2,cache_misses_l3,dtlb_misses,"
         << "coherence_invalidations,energy_micro_joules,"
         << "bytes_allocated,bytes_in_use_peak,external_frag,internal_frag\n";
@@ -93,9 +94,9 @@ TEST(LatexAnhang, EscapesBraces) { EXPECT_EQ(latex_anhang::escape_latex("{ok}"),
 TEST(LatexAnhang, ParseCsvWithThreeRows) {
     TempFile csv{".csv"};
     write_csv_with_header(csv.path(), {
-                                          "ce_a:sa:al:tds,11111,1,500,12345,100,50,10,5,2,0,0,0,0,0",
-                                          "ce_b:sa:al:tds,22222,1,500,99999,200,100,20,10,4,0,0,0,0,0",
-                                          "ce_c:sa:al:tds,33333,0,0,0,0,0,0,0,0,0,0,0,0,0",
+                                          "ce_a:sa:al:tds,11111,1,ycsb_a,500,12345,100,50,10,5,2,0,0,0,0,0",
+                                          "ce_b:sa:al:tds,22222,1,ycsb_b,500,99999,200,100,20,10,4,0,0,0,0,0",
+                                          "ce_c:sa:al:tds,33333,0,ycsb_a,0,0,0,0,0,0,0,0,0,0,0,0",
                                       });
 
     std::vector<latex_anhang::CsvRow> rows;
@@ -114,7 +115,7 @@ TEST(LatexAnhang, ParseCsvMissingFileReturnsError) {
 
 TEST(LatexAnhang, WriteLatexHasBooktabsStructure) {
     std::vector<latex_anhang::CsvRow> rows;
-    rows.push_back({"ce_test:_x", 0xABC, true, 100, 200, 30, 20, 10, 5, 0, 0, 0, 0, 0.0, 0.0});
+    rows.push_back({"ce_test:_x", 0xABC, true, "n/a", 100, 200, 30, 20, 10, 5, 0, 0, 0, 0, 0.0, 0.0});
 
     TempFile tex{".tex"};
     EXPECT_EQ(latex_anhang::write_latex(tex.path().string(), rows, "Test caption", "tab:test"), 0);
@@ -132,7 +133,7 @@ TEST(LatexAnhang, WriteLatexHasBooktabsStructure) {
 
 TEST(LatexAnhang, WriteLatexFullMetricsHasAllColumns) {
     std::vector<latex_anhang::CsvRow> rows;
-    rows.push_back({"ce_a", 0xA, true, 100, 200, 30, 20, 10, 7, 4, 0, 0, 0, 0.0, 0.0});
+    rows.push_back({"ce_a", 0xA, true, "n/a", 100, 200, 30, 20, 10, 7, 4, 0, 0, 0, 0.0, 0.0});
 
     TempFile tex{".tex"};
     EXPECT_EQ(latex_anhang::write_latex_full_metrics(tex.path().string(), rows, "Full", "tab:full"), 0);
@@ -147,8 +148,8 @@ TEST(LatexAnhang, WriteLatexFullMetricsHasAllColumns) {
 
 TEST(LatexAnhang, WriteLatexSkipsFailedRows) {
     std::vector<latex_anhang::CsvRow> rows;
-    rows.push_back({"ok_row", 0x1, true, 100, 200, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0.0});
-    rows.push_back({"fail_row", 0x2, false, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0.0});
+    rows.push_back({"ok_row", 0x1, true, "n/a", 100, 200, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0.0});
+    rows.push_back({"fail_row", 0x2, false, "n/a", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.0, 0.0});
 
     TempFile tex{".tex"};
     EXPECT_EQ(latex_anhang::write_latex(tex.path().string(), rows, "x", "tab:x"), 0);

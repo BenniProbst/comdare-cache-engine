@@ -16,6 +16,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace latex_anhang {
@@ -29,6 +30,7 @@ struct CsvRow {
     std::string   permutation_id;
     std::uint64_t fingerprint             = 0;
     bool          succeeded               = false;
+    std::string   workload_used           = "n/a";
     std::uint64_t op_count                = 0;
     std::uint64_t total_cycles            = 0;
     std::uint64_t cache_misses_l1         = 0;
@@ -65,28 +67,55 @@ struct CsvRow {
     std::string header;
     if (!std::getline(in, header)) return status_parse_error;
 
+    // HEADER-GETRIEBEN (Muster aus Code/04_csv_to_latex::parse_wide_csv): Header NICHT verwerfen,
+    // sondern Spalten per NAME aufloesen. Robust gegen additive Schema-Erweiterungen des Mess-Systems —
+    // insbesondere die V20.3-Spalte workload_used@idx3 (String) der 16-col-NARROW-Pipeline. Positions-
+    // basiertes Parsen wuerde stoull("ycsb_a") auf der workload_used-Spalte werfen (Legacy-Bug).
+    auto const                                   hdr = split_csv_line(header);
+    std::unordered_map<std::string, std::size_t> col;
+    for (std::size_t i = 0; i < hdr.size(); ++i) col.emplace(hdr[i], i);
+    char const* required[] = {"permutation_id",
+                              "fingerprint",
+                              "succeeded",
+                              "workload_used",
+                              "op_count",
+                              "total_cycles",
+                              "cache_misses_l1",
+                              "cache_misses_l2",
+                              "cache_misses_l3",
+                              "dtlb_misses",
+                              "coherence_invalidations",
+                              "energy_micro_joules",
+                              "bytes_allocated",
+                              "bytes_in_use_peak",
+                              "external_frag",
+                              "internal_frag"};
+    for (char const* name : required)
+        if (col.find(name) == col.end()) return status_parse_error;
+
     std::string line;
     while (std::getline(in, line)) {
         if (line.empty()) continue;
         auto cols = split_csv_line(line);
-        if (cols.size() < 15) return status_parse_error;
+        if (cols.size() != hdr.size()) return status_parse_error;
         CsvRow r;
         try {
-            r.permutation_id          = cols[0];
-            r.fingerprint             = std::stoull(cols[1]);
-            r.succeeded               = (cols[2] == "1");
-            r.op_count                = std::stoull(cols[3]);
-            r.total_cycles            = std::stoull(cols[4]);
-            r.cache_misses_l1         = std::stoull(cols[5]);
-            r.cache_misses_l2         = std::stoull(cols[6]);
-            r.cache_misses_l3         = std::stoull(cols[7]);
-            r.dtlb_misses             = std::stoull(cols[8]);
-            r.coherence_invalidations = std::stoull(cols[9]);
-            r.energy_micro_joules     = std::stoull(cols[10]);
-            r.bytes_allocated         = std::stoull(cols[11]);
-            r.bytes_in_use_peak       = std::stoull(cols[12]);
-            r.external_frag           = std::stod(cols[13]);
-            r.internal_frag           = std::stod(cols[14]);
+            r.permutation_id          = cols[col.at("permutation_id")];
+            r.fingerprint             = std::stoull(cols[col.at("fingerprint")]);
+            r.succeeded               = (cols[col.at("succeeded")] == "1");
+            r.workload_used           = cols[col.at("workload_used")];
+            r.op_count                = std::stoull(cols[col.at("op_count")]);
+            r.total_cycles            = std::stoull(cols[col.at("total_cycles")]);
+            r.cache_misses_l1         = std::stoull(cols[col.at("cache_misses_l1")]);
+            r.cache_misses_l2         = std::stoull(cols[col.at("cache_misses_l2")]);
+            r.cache_misses_l3         = std::stoull(cols[col.at("cache_misses_l3")]);
+            r.dtlb_misses             = std::stoull(cols[col.at("dtlb_misses")]);
+            r.coherence_invalidations = std::stoull(cols[col.at("coherence_invalidations")]);
+            r.energy_micro_joules     = std::stoull(cols[col.at("energy_micro_joules")]);
+            r.bytes_allocated         = std::stoull(cols[col.at("bytes_allocated")]);
+            r.bytes_in_use_peak       = std::stoull(cols[col.at("bytes_in_use_peak")]);
+            r.external_frag           = std::stod(cols[col.at("external_frag")]);
+            r.internal_frag           = std::stod(cols[col.at("internal_frag")]);
         } catch (std::exception const&) { return status_parse_error; }
         rows.push_back(std::move(r));
     }
