@@ -1,0 +1,137 @@
+<comdare_axis_registry engine="cache_engine" schema="1">
+  <!-- GENERIERT von tools/axis_registry_gen (INC-A) per compile-time-Reflektion der Enabled*/
+       StaticAxisVariants*-Listen (mp_filter<is_enabled, All*>). NICHT von Hand editieren. -->
+  <!-- Baustein-Zahlen = ENABLED-Inventar dieser Build-Konfiguration (Vendor-HAVE-/Flag-abhaengig),
+       NICHT die All*-Registry-Zahlen. Reflektion ueber Enabled* ist Pflicht (Round-Trip-Garantie). -->
+  <!-- FOLGE-BEDARF (analog prt-art R-B): 'header' ist leer, weil die CE-Achsen-Wrapper kein
+       cpp_type_name/header_include-Member tragen (verifiziert V1/V2). Header-Ableitung aus dem Typ-
+       Namen waere fragil/fabriziert; sauber = per-Organ-Location-Makro auf den Wrappern ergaenzen. -->
+  <axis id="search_algo" slot="T00" category="composition" genus="SearchAlgorithm" baustein_count="4">
+    <baustein name="k_ary" wrapper="KArySearchAlgo" type="comdare::cache_engine::lookup::KArySearchAlgo" header="" enabled="true" golden_wired="true"/>
+    <baustein name="interpolation" wrapper="InterpolationSearchAlgo" type="comdare::cache_engine::lookup::InterpolationSearchAlgo" header="" enabled="true" golden_wired="true"/>
+    <baustein name="eytzinger" wrapper="EytzingerSearchAlgo" type="comdare::cache_engine::lookup::EytzingerSearchAlgo" header="" enabled="true" golden_wired="true"/>
+    <baustein name="linear_scan" wrapper="LinearScanSearchAlgo" type="comdare::cache_engine::lookup::LinearScanSearchAlgo" header="" enabled="true" golden_wired="true"/>
+  </axis>
+  <axis id="cache_traversal" slot="T01" category="composition" genus="SearchAlgorithm" baustein_count="3">
+    <baustein name="linear_fanout" wrapper="LinearFanout" type="comdare::cache_engine::cache_traversal::LinearFanout" header="" enabled="true" golden_wired="true"/>
+    <baustein name="hash_lookup" wrapper="HashLookup" type="comdare::cache_engine::cache_traversal::HashLookup" header="" enabled="true" golden_wired="false"/>
+    <baustein name="binary_search_fanout" wrapper="BinarySearchFanout" type="comdare::cache_engine::cache_traversal::BinarySearchFanout" header="" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="mapping" slot="T02" category="composition" genus="SearchAlgorithm" baustein_count="2">
+    <baustein name="direct_placement" wrapper="DirectPlacement" type="comdare::cache_engine::mapping::DirectPlacement" header="" enabled="true" golden_wired="true"/>
+    <baustein name="pool_relative" wrapper="PoolRelative" type="comdare::cache_engine::mapping::PoolRelative" header="" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="path_compression" slot="T03" category="composition" genus="SearchAlgorithm" baustein_count="3">
+    <baustein name="path_compression_none" wrapper="PathCompressionNone" type="comdare::cache_engine::path_compression::PathCompressionNone" header="" enabled="true" golden_wired="true"/>
+    <baustein name="path_compression_patricia" wrapper="PatriciaPathCompression" type="comdare::cache_engine::path_compression::PatriciaPathCompression" header="" enabled="true" golden_wired="false"/>
+    <baustein name="path_compression_byte_wise" wrapper="ByteWisePathCompression" type="comdare::cache_engine::path_compression::ByteWisePathCompression" header="" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="node_type" slot="T04" category="composition" genus="SearchAlgorithm" baustein_count="4">
+    <baustein name="node4" wrapper="ObservableNodeType" type="comdare::cache_engine::node::ObservableNodeType&lt;comdare::cache_engine::node::Node4NodeType&gt;" header="" enabled="true" golden_wired="true"/>
+    <baustein name="node16" wrapper="ObservableNodeType" type="comdare::cache_engine::node::ObservableNodeType&lt;comdare::cache_engine::node::Node16NodeType&gt;" header="" enabled="true" golden_wired="true"/>
+    <baustein name="node48" wrapper="ObservableNodeType" type="comdare::cache_engine::node::ObservableNodeType&lt;comdare::cache_engine::node::Node48NodeType&gt;" header="" enabled="true" golden_wired="true"/>
+    <baustein name="node256" wrapper="ObservableNodeType" type="comdare::cache_engine::node::ObservableNodeType&lt;comdare::cache_engine::node::Node256NodeType&gt;" header="" enabled="true" golden_wired="true"/>
+  </axis>
+  <axis id="memory_layout" slot="T05" category="composition" genus="SearchAlgorithm" baustein_count="5">
+    <baustein name="memory_layout_cache_line_aligned" wrapper="ObservableMemoryLayout" type="comdare::cache_engine::layout::ObservableMemoryLayout&lt;comdare::cache_engine::layout::CacheLineAlignedMemoryLayout&gt;" header="" enabled="true" golden_wired="true"/>
+    <baustein name="memory_layout_aos_strict" wrapper="ObservableMemoryLayout" type="comdare::cache_engine::layout::ObservableMemoryLayout&lt;comdare::cache_engine::layout::AoSStrictMemoryLayout&gt;" header="" enabled="true" golden_wired="true"/>
+    <baustein name="memory_layout_soa" wrapper="ObservableMemoryLayout" type="comdare::cache_engine::layout::ObservableMemoryLayout&lt;comdare::cache_engine::layout::SoAMemoryLayout&gt;" header="" enabled="true" golden_wired="true"/>
+    <baustein name="memory_layout_packed_bitmap" wrapper="ObservableMemoryLayout" type="comdare::cache_engine::layout::ObservableMemoryLayout&lt;comdare::cache_engine::layout::PackedBitmapMemoryLayout&gt;" header="" enabled="true" golden_wired="true"/>
+    <baustein name="memory_layout_aosoa" wrapper="ObservableMemoryLayout" type="comdare::cache_engine::layout::ObservableMemoryLayout&lt;comdare::cache_engine::layout::AoSoAMemoryLayout&gt;" header="" enabled="true" golden_wired="true"/>
+  </axis>
+  <axis id="allocator" slot="T06" category="composition" genus="SearchAlgorithm" baustein_count="3">
+    <baustein name="std_malloc" wrapper="StdMalloc" type="comdare::cache_engine::alloc::StdMalloc" header="" enabled="true" golden_wired="true"/>
+    <baustein name="pmr_resource" wrapper="PmrResourceAllocator" type="comdare::cache_engine::alloc::PmrResourceAllocator" header="" enabled="true" golden_wired="false"/>
+    <baustein name="pool_resource" wrapper="PoolResourceAllocator" type="comdare::cache_engine::alloc::PoolResourceAllocator" header="" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="prefetch" slot="T07" category="composition" genus="SearchAlgorithm" baustein_count="4">
+    <baustein name="prefetch_none" wrapper="NonePrefetch" type="comdare::cache_engine::prefetch_axis::NonePrefetch" header="" enabled="true" golden_wired="true"/>
+    <baustein name="prefetch_distance_estimator" wrapper="DistanceEstimatorPrefetch" type="comdare::cache_engine::prefetch_axis::DistanceEstimatorPrefetch" header="" enabled="true" golden_wired="true"/>
+    <baustein name="prefetch_hardware" wrapper="HardwarePrefetch" type="comdare::cache_engine::prefetch_axis::HardwarePrefetch" header="" enabled="true" golden_wired="true"/>
+    <baustein name="prefetch_path_oriented" wrapper="PathOrientedPrefetch" type="comdare::cache_engine::prefetch_axis::PathOrientedPrefetch" header="" enabled="true" golden_wired="true"/>
+  </axis>
+  <axis id="concurrency" slot="T08" category="composition" genus="SearchAlgorithm" baustein_count="9">
+    <baustein name="concurrency_none" wrapper="NoneConcurrency" type="comdare::cache_engine::concurrency_axis::NoneConcurrency" header="" enabled="true" golden_wired="true"/>
+    <baustein name="concurrency_blocking" wrapper="BlockingConcurrency" type="comdare::cache_engine::concurrency_axis::BlockingConcurrency" header="" enabled="true" golden_wired="false"/>
+    <baustein name="concurrency_reader_writer" wrapper="ReaderWriterConcurrency" type="comdare::cache_engine::concurrency_axis::ReaderWriterConcurrency" header="" enabled="true" golden_wired="false"/>
+    <baustein name="olc_optimistic" wrapper="OlcOptimisticConcurrency" type="comdare::cache_engine::concurrency_axis::OlcOptimisticConcurrency" header="" enabled="true" golden_wired="false"/>
+    <baustein name="concurrency_lock_free" wrapper="LockFreeConcurrency" type="comdare::cache_engine::concurrency_axis::LockFreeConcurrency" header="" enabled="true" golden_wired="false"/>
+    <baustein name="concurrency_wait_free" wrapper="WaitFreeConcurrency" type="comdare::cache_engine::concurrency_axis::WaitFreeConcurrency" header="" enabled="true" golden_wired="false"/>
+    <baustein name="concurrency_rcu" wrapper="RcuConcurrency" type="comdare::cache_engine::concurrency_axis::RcuConcurrency" header="" enabled="true" golden_wired="false"/>
+    <baustein name="concurrency_hazard_ptr" wrapper="HazardPointerConcurrency" type="comdare::cache_engine::concurrency_axis::HazardPointerConcurrency" header="" enabled="true" golden_wired="false"/>
+    <baustein name="olc_reserved_blocks" wrapper="OlcReservedBlocksConcurrency" type="comdare::cache_engine::concurrency_axis::OlcReservedBlocksConcurrency" header="" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="serialization" slot="T09" category="composition" genus="SearchAlgorithm" baustein_count="4">
+    <baustein name="serialization_raw_binary" wrapper="ObservableSerialization" type="comdare::cache_engine::serialization_axis::ObservableSerialization&lt;comdare::cache_engine::serialization_axis::RawBinarySerialization&gt;" header="" enabled="true" golden_wired="true"/>
+    <baustein name="serialization_var_len" wrapper="ObservableSerialization" type="comdare::cache_engine::serialization_axis::ObservableSerialization&lt;comdare::cache_engine::serialization_axis::VarLenSerialization&gt;" header="" enabled="true" golden_wired="false"/>
+    <baustein name="serialization_succinct" wrapper="ObservableSerialization" type="comdare::cache_engine::serialization_axis::ObservableSerialization&lt;comdare::cache_engine::serialization_axis::SuccinctSerialization&gt;" header="" enabled="true" golden_wired="false"/>
+    <baustein name="serialization_compressed" wrapper="ObservableSerialization" type="comdare::cache_engine::serialization_axis::ObservableSerialization&lt;comdare::cache_engine::serialization_axis::CompressedSerialization&gt;" header="" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="telemetry" slot="T10" category="composition" genus="SearchAlgorithm" baustein_count="4">
+    <baustein name="telemetry_leaf_only_counter" wrapper="ObservableTelemetry" type="comdare::cache_engine::telemetry_axis::ObservableTelemetry&lt;comdare::cache_engine::telemetry_axis::LeafOnlyCounter&gt;" header="" enabled="true" golden_wired="true"/>
+    <baustein name="telemetry_density_tracker" wrapper="ObservableTelemetry" type="comdare::cache_engine::telemetry_axis::ObservableTelemetry&lt;comdare::cache_engine::telemetry_axis::DensityTracker&gt;" header="" enabled="true" golden_wired="false"/>
+    <baustein name="telemetry_insert_counter" wrapper="ObservableTelemetry" type="comdare::cache_engine::telemetry_axis::ObservableTelemetry&lt;comdare::cache_engine::telemetry_axis::InsertCounter&gt;" header="" enabled="true" golden_wired="false"/>
+    <baustein name="telemetry_latency_histogram" wrapper="ObservableTelemetry" type="comdare::cache_engine::telemetry_axis::ObservableTelemetry&lt;comdare::cache_engine::telemetry_axis::LatencyHistogram&gt;" header="" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="value_handle" slot="T11" category="composition" genus="SearchAlgorithm" baustein_count="5">
+    <baustein name="value_handle_inline" wrapper="InlineValueHandle" type="comdare::cache_engine::value_handle_axis::InlineValueHandle" header="" enabled="true" golden_wired="true"/>
+    <baustein name="value_handle_external_pool" wrapper="ExternalPoolValueHandle" type="comdare::cache_engine::value_handle_axis::ExternalPoolValueHandle" header="" enabled="true" golden_wired="false"/>
+    <baustein name="value_handle_immutable_shared_ref" wrapper="ImmutableSharedRefValueHandle" type="comdare::cache_engine::value_handle_axis::ImmutableSharedRefValueHandle" header="" enabled="true" golden_wired="false"/>
+    <baustein name="value_handle_versioned_pointer" wrapper="VersionedPointerValueHandle" type="comdare::cache_engine::value_handle_axis::VersionedPointerValueHandle" header="" enabled="true" golden_wired="false"/>
+    <baustein name="value_handle_chain_ref" wrapper="ChainRefValueHandle" type="comdare::cache_engine::value_handle_axis::ChainRefValueHandle" header="" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="isa" slot="T12" category="composition" genus="SearchAlgorithm" baustein_count="4">
+    <baustein name="isa_amd64" wrapper="Amd64Isa" type="comdare::cache_engine::simd::Amd64Isa" header="" enabled="true" golden_wired="true"/>
+    <baustein name="isa_aarch64" wrapper="Aarch64Isa" type="comdare::cache_engine::simd::Aarch64Isa" header="" enabled="true" golden_wired="false"/>
+    <baustein name="isa_riscv" wrapper="RiscVIsa" type="comdare::cache_engine::simd::RiscVIsa" header="" enabled="true" golden_wired="false"/>
+    <baustein name="isa_powerpc" wrapper="PowerPcIsa" type="comdare::cache_engine::simd::PowerPcIsa" header="" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="index_organization" slot="T13" category="composition" genus="SearchAlgorithm" baustein_count="4">
+    <baustein name="index_org_heap" wrapper="HeapIndexOrganization" type="comdare::cache_engine::index_organization::HeapIndexOrganization" header="" enabled="true" golden_wired="true"/>
+    <baustein name="index_org_clustered" wrapper="ClusteredIndexOrganization" type="comdare::cache_engine::index_organization::ClusteredIndexOrganization" header="" enabled="true" golden_wired="false"/>
+    <baustein name="index_org_non_clustered" wrapper="NonClusteredIndexOrganization" type="comdare::cache_engine::index_organization::NonClusteredIndexOrganization" header="" enabled="true" golden_wired="false"/>
+    <baustein name="index_org_index_organized_table" wrapper="IotIndexOrganization" type="comdare::cache_engine::index_organization::IotIndexOrganization" header="" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="io_dispatch" slot="T14" category="composition" genus="SearchAlgorithm" baustein_count="4">
+    <baustein name="io_in_memory_only" wrapper="InMemoryOnly" type="comdare::cache_engine::io_dispatch::InMemoryOnly" header="" enabled="true" golden_wired="true"/>
+    <baustein name="io_direct" wrapper="DirectIo" type="comdare::cache_engine::io_dispatch::DirectIo" header="" enabled="true" golden_wired="false"/>
+    <baustein name="io_buffered" wrapper="BufferedIo" type="comdare::cache_engine::io_dispatch::BufferedIo" header="" enabled="true" golden_wired="false"/>
+    <baustein name="io_mmap" wrapper="MmapIo" type="comdare::cache_engine::io_dispatch::MmapIo" header="" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="migration_policy" slot="T15" category="composition" genus="SearchAlgorithm" baustein_count="4">
+    <baustein name="migration_none" wrapper="NoMigration" type="comdare::cache_engine::migration_policy::NoMigration" header="" enabled="true" golden_wired="true"/>
+    <baustein name="migration_hot_cold" wrapper="HotColdMigration" type="comdare::cache_engine::migration_policy::HotColdMigration" header="" enabled="true" golden_wired="false"/>
+    <baustein name="migration_tier_based" wrapper="TierBasedMigration" type="comdare::cache_engine::migration_policy::TierBasedMigration" header="" enabled="true" golden_wired="false"/>
+    <baustein name="migration_adaptive" wrapper="AdaptiveMigration" type="comdare::cache_engine::migration_policy::AdaptiveMigration" header="" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="filter" slot="T16" category="composition" genus="SearchAlgorithm" baustein_count="4">
+    <baustein name="filter_bloom" wrapper="BloomFilter" type="comdare::cache_engine::filter_axis::BloomFilter" header="" enabled="true" golden_wired="true"/>
+    <baustein name="filter_cuckoo" wrapper="CuckooFilter" type="comdare::cache_engine::filter_axis::CuckooFilter" header="" enabled="true" golden_wired="false"/>
+    <baustein name="filter_range_surf" wrapper="RangeSurfFilter" type="comdare::cache_engine::filter_axis::RangeSurfFilter" header="" enabled="true" golden_wired="false"/>
+    <baustein name="filter_xor" wrapper="XorFilter" type="comdare::cache_engine::filter_axis::XorFilter" header="" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="queuing_q1" slot="T17" category="composition" genus="SearchAlgorithm" baustein_count="15">
+    <baustein name="no_buffer" wrapper="NoBuffer" type="comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer" header="" enabled="true" golden_wired="true"/>
+    <baustein name="fifo_queue" wrapper="FIFOQueueBuffer" type="comdare::cache_engine::queuing::axis_q1_queuing::FIFOQueueBuffer" header="" enabled="true" golden_wired="false"/>
+    <baustein name="lifo_stack" wrapper="LIFOStackBuffer" type="comdare::cache_engine::queuing::axis_q1_queuing::LIFOStackBuffer" header="" enabled="true" golden_wired="false"/>
+    <baustein name="bounded_ring" wrapper="BoundedRingBuffer" type="comdare::cache_engine::queuing::axis_q1_queuing::BoundedRingBuffer" header="" enabled="true" golden_wired="false"/>
+    <baustein name="append_only" wrapper="AppendOnlyBuffer" type="comdare::cache_engine::queuing::axis_q1_queuing::AppendOnlyBuffer" header="" enabled="true" golden_wired="false"/>
+    <baustein name="priority_heap" wrapper="PriorityHeapBuffer" type="comdare::cache_engine::queuing::axis_q1_queuing::PriorityHeapBuffer" header="" enabled="true" golden_wired="false"/>
+    <baustein name="delta_chain" wrapper="DeltaChainBuffer" type="comdare::cache_engine::queuing::axis_q1_queuing::DeltaChainBuffer" header="" enabled="true" golden_wired="false"/>
+    <baustein name="skiplist_buffer" wrapper="SkiplistBuffer" type="comdare::cache_engine::queuing::axis_q1_queuing::SkiplistBuffer" header="" enabled="true" golden_wired="false"/>
+    <baustein name="tombstone_buffer" wrapper="TombstoneBuffer" type="comdare::cache_engine::queuing::axis_q1_queuing::TombstoneBuffer" header="" enabled="true" golden_wired="false"/>
+    <baustein name="copy_on_write" wrapper="CopyOnWriteBuffer" type="comdare::cache_engine::queuing::axis_q1_queuing::CopyOnWriteBuffer" header="" enabled="true" golden_wired="false"/>
+    <baustein name="epoch_buffer" wrapper="EpochBuffer" type="comdare::cache_engine::queuing::axis_q1_queuing::EpochBuffer" header="" enabled="true" golden_wired="false"/>
+    <baustein name="batched_insert_buffer" wrapper="BatchedInsertBuffer" type="comdare::cache_engine::queuing::axis_q1_queuing::BatchedInsertBuffer" header="" enabled="true" golden_wired="false"/>
+    <baustein name="lockfree_spsc" wrapper="LockFreeSPSCBuffer" type="comdare::cache_engine::queuing::axis_q1_queuing::LockFreeSPSCBuffer" header="" enabled="true" golden_wired="false"/>
+    <baustein name="lockfree_mpmc" wrapper="LockFreeMPMCBuffer" type="comdare::cache_engine::queuing::axis_q1_queuing::LockFreeMPMCBuffer" header="" enabled="true" golden_wired="false"/>
+    <baustein name="original_concurrentqueue" wrapper="OriginalLockFreeMpmcConcurrentQueue" type="comdare::cache_engine::queuing::axis_q1_queuing::OriginalLockFreeMpmcConcurrentQueue" header="" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="queuing_q2" slot="T18" category="composition" genus="SearchAlgorithm" baustein_count="5">
+    <baustein name="eager_flush" wrapper="EagerFlush" type="comdare::cache_engine::queuing::axis_q2_queuing::EagerFlush" header="" enabled="true" golden_wired="true"/>
+    <baustein name="watermark_flush" wrapper="WatermarkFlush" type="comdare::cache_engine::queuing::axis_q2_queuing::WatermarkFlush" header="" enabled="true" golden_wired="false"/>
+    <baustein name="lazy_flush" wrapper="LazyFlush" type="comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush" header="" enabled="true" golden_wired="false"/>
+    <baustein name="timed_flush" wrapper="TimedFlush" type="comdare::cache_engine::queuing::axis_q2_queuing::TimedFlush" header="" enabled="true" golden_wired="false"/>
+    <baustein name="adaptive_lsm_flush" wrapper="AdaptiveLsmFlush" type="comdare::cache_engine::queuing::axis_q2_queuing::AdaptiveLsmFlush" header="" enabled="true" golden_wired="false"/>
+  </axis>
+</comdare_axis_registry>
