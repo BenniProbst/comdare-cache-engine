@@ -231,6 +231,18 @@ struct ThesisProfile {
     //    Datensatz-AKTEN-Referenzen (ADDITIV; leer = Default = synthetischer YCSB-Generator,
     //    byte-identisch zum heutigen Verhalten). Doku an ThesisDatasetRef. ──
     std::vector<ThesisDatasetRef> datasets;
+
+    // ── INC-3 Familie A (2026-07-14): <measurement_categories>/<category name=".."/> — die dritte
+    //    W/D/K-Dimension K (Mess-KATEGORIE) ADDITIV im E4-Schema. Eine reine SPALTEN-PROJEKTION ueber die
+    //    16 gemessenen System-Kategorien (cache_engine/measurement/measurement_category.hpp): eine
+    //    SICHT-Auswahl, KEINE Binary-/Kompositions-Achse → binary_id-neutral (golden-Roundtrip unberuehrt).
+    //    Fehlt <measurement_categories>, bleibt die Liste leer = heutiges Verhalten (alle 16 Kategorien)
+    //    byte-identisch. Als NAMEN-Strings gehalten (NICHT als MeasurementCategory-Enum): ThesisProfile lebt
+    //    in der common-Schicht, die die cache_engine-Enum nicht referenzieren darf (Baseline-Layering in
+    //    Stein) — die String->Enum-Aufloesung + Gueltigkeits-Pruefung gegen die Single-Source
+    //    (kMeasurementAxisRegistry) lebt in der cache_engine-Schicht (profile_facade/validate_profile.hpp),
+    //    exakt wie ThesisDatasetRef.loader gegen kKnownDatasetLoaderIds. ──
+    std::vector<std::string> measurement_categories;
 };
 
 class XmlConfigParser {

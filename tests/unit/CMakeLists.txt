@@ -2498,6 +2498,33 @@ target_compile_definitions(test_wdk_datasets_fairness PRIVATE
     "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"")
 set_tests_properties(test_wdk_datasets_fairness PROPERTIES LABELS "contract;profiles;e4;go5")
 
+# INC-3 Familie A (2026-07-14) — ctest-Gate der ADDITIVEN E4-Profil-Schema-Erweiterung
+# <measurement_categories>/<category name=..> (die dritte W/D/K-Dimension K; Verortungs-Hinweis K nun GEBAUT).
+# Beweist (a) gueltige Kategorien geparst+validiert (wdk_fairness_example.profile.xml), (b) ungueltige Kategorie
+# ⇒ Fehler (Single-Source kMeasurementAxisRegistry), (c) ohne Element ⇒ leer+ok+Report byte-identisch
+# (rueckwaerts-kompatibel), (d) Duplikat ⇒ WARNUNG, (e) golden-320-Baseline-binary_id unveraendert (Projektion,
+# keine Achse). m3v2_study.profile.xml + golden_fullpilot_320_binary_ids.txt werden NUR GELESEN (TABU-Wache).
+comdare_add_test(test_measurement_categories
+    SOURCES thesis_tiere/test_measurement_categories.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+comdare_prepare_thesis_object_dir(test_measurement_categories)
+target_include_directories(test_measurement_categories PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_measurement_categories PRIVATE Boost::mp11)
+target_compile_definitions(test_measurement_categories PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_THESIS_PROFILES_DIR=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles\""
+    "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"")
+set_tests_properties(test_measurement_categories PROPERTIES LABELS "contract;profiles;e4;inc3")
+
 # M-CE-10 (Voll-Review 2026-07-13) — ctest-Gate der Stufe2_PrueflingReplace-Korrektur im sota_catalog:
 # St2 ist KONZEPTIONELL EINE Binary (HOT-Pilot). Beweist (1) Dedup mehrerer St2-Deklarationen zu 1 Pass,
 # (2) host-dominante H2-Attribution (h2_lebewesen == "hot", NICHT das angefragte lebewesen — via committeter

@@ -59,6 +59,17 @@
     <dataset id="sosd_books_200M" akte_ref="test_data_xml/sosd_books_200M.test_data.xml" loader="sosd_uint64"/>
   </datasets>
 
+  <!-- INC-3 Familie A: die dritte W/D/K-Dimension K — eine Spalten-PROJEKTION ueber die 16 gemessenen
+       System-Kategorien (measurement_category.hpp). name = exakt der Enum-Name (Single-Source
+       kMeasurementAxisRegistry). Reine SICHT-Auswahl, KEINE Achse → binary_id-neutral (golden-Roundtrip
+       unberuehrt); fehlt das Element ⇒ alle 16 Kategorien. Das --validate prueft jeden Namen gegen die Registry. -->
+  <measurement_categories>
+    <category name="CLU"/>
+    <category name="CACHE_MISS_L3"/>
+    <category name="LATENCY_P99"/>
+    <category name="THROUGHPUT"/>
+  </measurement_categories>
+
   <!-- GO-5 Fork 6: die Thesis-§sec:fairness-TRENNUNG je Vergleich — derselbe Vergleich (hot, Stufe1)
        einmal als Common-Denominator- und einmal als Native-Reihe; prt_art ohne fairness (ungesetzt = "-"). -->
   <sota_series_set>

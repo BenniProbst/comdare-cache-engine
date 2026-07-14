@@ -38,6 +38,13 @@
 //       known_workload_ids herein; ist die Menge leer (2-arg-Aufrufer / Test ohne Host-Enumeration), wird die
 //       Pruefung uebersprungen (rueckwaerts-kompatibel). Leere <workloads> im Profil = "alle Lastprofile"
 //       (legitim) → nichts zu pruefen; eine UNBEKANNTE id ist ein HARTER Fehler (Report-ok=false → Exit != 0).
+//   (7) INC-3 Familie A (2026-07-14): jede <measurement_categories><category name="X"/> ist ein GUELTIGER
+//       MeasurementCategory-Name. SINGLE-SOURCE der gueltigen Namen = kMeasurementAxisRegistry
+//       (measurement_axis_registry.hpp; die 16 System-Kategorien) — NICHT hartkodiert. Kategorien sind eine
+//       Spalten-PROJEKTION ueber die gemessenen Kategorien, KEINE Achse → binary_id-neutral (golden-Roundtrip
+//       unberuehrt). Ein getippter Name (z.B. "LATENCY_P90") ist ein HARTER Fehler (er erzeugte sonst still eine
+//       leere/falsche Projektion); eine mehrfach genannte Kategorie ist eine WARNUNG (redundante Spalte, nicht
+//       fatal). Fehlt das Element = "alle 16 Kategorien" (legitim) → nichts zu pruefen (rueckwaerts-kompatibel).
 //
 // AUSGABE: klare Meldung je Fehler; bool-Ergebnis (true = OK). Der Host mappt true→Exit 0 (+ Zusammenfassung),
 // false→Exit != 0. Pattern: Specification/Validator (read-only Gegen-Pruefung); C++23, header-only.
@@ -45,7 +52,8 @@
 #include <builder/experiment_tree/experiment_tree.hpp>         // AxisLevel
 #include <builder/experiment_tree/profile_to_tree.hpp>         // AxisRegistry (axis-ref → Werteliste)
 #include <builder/experiment_tree/axis_path_serialization.hpp> // kCompositionAxisNames (die 19 Komposition-Achsen)
-#include "xml_config_parser/xml_config_parser.hpp"             // ThesisProfile
+#include <cache_engine/measurement/measurement_axis_registry.hpp> // kMeasurementAxisRegistry (INC-3: Single-Source der 16 Kategorie-Namen)
+#include "xml_config_parser/xml_config_parser.hpp" // ThesisProfile
 
 #include <algorithm>
 #include <map>
@@ -59,6 +67,7 @@ namespace comdare::cache_engine::thesis_lazy {
 
 namespace ex = ::comdare::cache_engine::builder::experiment;
 namespace cx = ::comdare::builder::xml;
+namespace ms = ::comdare::cache_engine::measurement; // INC-3: kMeasurementAxisRegistry (Kategorie-Namen)
 
 // ── Ergebnis-POD: bool + die Fehler-Liste (literal, fuer die Host-Ausgabe + Tests). ──
 struct ProfileValidationResult {
@@ -71,6 +80,8 @@ struct ProfileValidationResult {
     std::size_t              series_checked   = 0;
     std::size_t              datasets_checked = 0; // GO-5 Fork 1: geprueften <dataset>-Eintraege (0 = keine deklariert)
     std::size_t workloads_checked = 0; // M-CE-12: gepruefte <workloads>-ids (0 = keine / Pruefung uebersprungen)
+    std::size_t categories_checked =
+        0; // INC-3 Familie A: gepruefte <measurement_categories>-Namen (0 = keine deklariert)
 };
 
 // ── GO-5 Fork 6 (Thesis §sec:fairness): die zwei erlaubten Fairness-Modi einer <sota_series>. ──
@@ -276,6 +287,30 @@ inline constexpr char const* kKnownDatasetLoaderIds[] = {"string_corpus", "sosd_
         }
     }
 
+    // ── (7) INC-3 Familie A: <measurement_categories>-Namen-Check. SINGLE-SOURCE der gueltigen Namen =
+    //    kMeasurementAxisRegistry (die 16 System-Kategorien, measurement_axis_registry.hpp) — NICHT hartkodiert.
+    //    Kategorien sind eine Spalten-PROJEKTION, keine Achse → binary_id-neutral. Unbekannter Name = HARTER
+    //    Fehler (sonst stille leere/falsche Projektion); mehrfache Nennung = WARNUNG (redundante Spalte). ──
+    if (!tp.measurement_categories.empty()) {
+        std::set<std::string> valid_categories;
+        for (auto const& info : ms::kMeasurementAxisRegistry) valid_categories.insert(std::string{info.name});
+        std::set<std::string> seen_categories;
+        for (auto const& cat : tp.measurement_categories) {
+            ++r.categories_checked;
+            if (valid_categories.find(cat) == valid_categories.end()) {
+                r.ok = false;
+                std::vector<std::string> const valid(valid_categories.begin(), valid_categories.end());
+                r.errors.push_back("UNGUELTIGE Mess-Kategorie <measurement_categories><category name=\"" + cat +
+                                   "\">: kein MeasurementCategory-Name (Single-Source kMeasurementAxisRegistry, "
+                                   "die 16 System-Kategorien). Gueltige Kategorien = " +
+                                   preview_values(valid));
+            } else if (!seen_categories.insert(cat).second) {
+                r.warnings.push_back("category name=\"" + cat +
+                                     "\": mehrfach deklariert — redundante Spalten-Projektion (nicht fatal).");
+            }
+        }
+    }
+
     // ── (6) M-CE-12: jede <workloads>-id ist eine REAL existente load_profiles/-id. Nur wenn der Host die
     //    entdeckten ids hereinreicht (known_workload_ids nicht leer) — leer = Pruefung uebersprungen
     //    (rueckwaerts-kompatibel: 2-arg-Aufrufer/Tests ohne Host-Enumeration). Leere <workloads> im Profil =
@@ -312,6 +347,9 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
     // GO-5 Fork 1: datasets NUR ausgeben, wenn deklariert — die --validate-Ausgabe bestehender Profile
     // (ohne <datasets>) bleibt byte-identisch (Default-Verhaltens-Gate dieses Increments).
     if (r.datasets_checked > 0) os << ", " << r.datasets_checked << " datasets";
+    // INC-3 Familie A: measurement_categories NUR ausgeben, wenn deklariert — die --validate-Ausgabe
+    // bestehender Profile (ohne <measurement_categories>) bleibt byte-identisch (Default-Verhaltens-Gate).
+    if (r.categories_checked > 0) os << ", " << r.categories_checked << " measurement_categories";
     os << "\n";
     for (auto const& w : r.warnings) os << "  [HINWEIS] " << w << "\n";
     for (auto const& e : r.errors) os << "  [FEHLER]  " << e << "\n";

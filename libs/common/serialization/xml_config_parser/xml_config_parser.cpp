@@ -339,6 +339,14 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(std::filesyst
             tp.datasets.push_back(std::move(dr));
         }
     }
+    // ── INC-3 Familie A (2026-07-14): <measurement_categories>/<category name=".."/> — die Mess-KATEGORIE-
+    //    Projektion K (Spalten-SICHT ueber die 16 System-Kategorien; Muster analog <datasets>). ADDITIV —
+    //    fehlt das Element, bleibt die Liste leer (heutiges Verhalten byte-identisch; binary_id-/Round-Trip-
+    //    neutral). Nur der `name`-String wird uebernommen; die Gueltigkeit (name ∈ kMeasurementAxisRegistry)
+    //    prueft validate_profile (cache_engine-Schicht) — hier keine Enum-Referenz (Baseline-Layering). ──
+    if (auto const* mc = root->child("measurement_categories")) {
+        for (auto const* c : mc->children_named("category")) tp.measurement_categories.push_back(c->attr("name"));
+    }
     // (d) <run_options cap=".." platform=".." build_version=".." resume=".."/> — Lauf-Steuerungs-Defaults.
     if (auto const* ro = root->child("run_options")) {
         tp.run_options.cap           = to_int(ro->attr("cap", "0"), 0);
