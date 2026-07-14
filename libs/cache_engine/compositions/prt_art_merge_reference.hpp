@@ -110,6 +110,51 @@ struct HotPrtStufe2ReplaceComposition : HostPrtMergeComposition<HotComposition, 
                                         "compositions/prt_art_merge_reference.hpp");
 };
 
+// ── M-CE-10 (per-Host-Stufe2, 2026-07-14, Ledger :1134 "per-Host-Stufe2-Kompositionen noetig", bau-relevant mit
+//    F/G): der HOT-Pilot war die EINE Stufe2-Binary; damit erzeugten N <sota_series merge="Stufe2_.." lebewesen=X>
+//    N Paesse auf DERSELBEN HOT-Binary (Dedup fing es ab, aber die per-Host-Distinktheit fehlte). ANALOG zur
+//    Stufe3-Reihe (unten) faechert Stufe2 jetzt je SOTA-Host eine EIGENE <Host>PrtStufe2ReplaceComposition: der
+//    Host stellt 18 Achsen (search_algo/node_type/... je Repository VERSCHIEDEN), path_compression = das PRT-Redirect-
+//    Organ (Stufe2PathCompressionOrgan). Damit sind die Stufe2-binary_ids GENUINE per-Host distinkt (KEIN
+//    Fake-id fuer byte-identischen HOT-Code -- ArtHost != HotHost != ...): der frueher zurecht kritisierte
+//    Anti-Phantom-Fall ("N FAKE-distinkte-ids fuer byte-identischen HOT-Code") entfaellt, weil die Kompositionen
+//    real verschieden sind. prt_art-als-Host bleibt degeneriert (in Reihe A/Stufe1 bereits isoliert) -> im Katalog
+//    nullopt. Die Abstraktheit des Merge-Slots bleibt unberuehrt (path_compression-Slot, 18 Host-Achsen, W4 :969).
+/// Reihe A (Stufe2_PrueflingReplace): ART-Host, path_compression = das PRT-Redirect-Organ.
+struct ArtPrtStufe2ReplaceComposition : HostPrtMergeComposition<ArtComposition, Stufe2PathCompressionOrgan> {
+    static constexpr std::string_view name = "ArtPrtStufe2ReplaceComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::ArtPrtStufe2ReplaceComposition",
+                                        "compositions/prt_art_merge_reference.hpp");
+};
+
+/// Reihe A (Stufe2_PrueflingReplace): MASSTREE-Host, path_compression = das PRT-Redirect-Organ.
+struct MasstreePrtStufe2ReplaceComposition : HostPrtMergeComposition<MasstreeComposition, Stufe2PathCompressionOrgan> {
+    static constexpr std::string_view name = "MasstreePrtStufe2ReplaceComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::MasstreePrtStufe2ReplaceComposition",
+                                        "compositions/prt_art_merge_reference.hpp");
+};
+
+/// Reihe A (Stufe2_PrueflingReplace): SuRF-Host, path_compression = das PRT-Redirect-Organ.
+struct SurfPrtStufe2ReplaceComposition : HostPrtMergeComposition<SurfComposition, Stufe2PathCompressionOrgan> {
+    static constexpr std::string_view name = "SurfPrtStufe2ReplaceComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::SurfPrtStufe2ReplaceComposition",
+                                        "compositions/prt_art_merge_reference.hpp");
+};
+
+/// Reihe A (Stufe2_PrueflingReplace): START-Host, path_compression = das PRT-Redirect-Organ.
+struct StartPrtStufe2ReplaceComposition : HostPrtMergeComposition<StartComposition, Stufe2PathCompressionOrgan> {
+    static constexpr std::string_view name = "StartPrtStufe2ReplaceComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::StartPrtStufe2ReplaceComposition",
+                                        "compositions/prt_art_merge_reference.hpp");
+};
+
+/// Reihe A (Stufe2_PrueflingReplace): Wormhole-Host, path_compression = das PRT-Redirect-Organ.
+struct WormholePrtStufe2ReplaceComposition : HostPrtMergeComposition<WormholeComposition, Stufe2PathCompressionOrgan> {
+    static constexpr std::string_view name = "WormholePrtStufe2ReplaceComposition";
+    COMDARE_DEFINE_COMPOSITION_LOCATION("::comdare::cache_engine::compositions::WormholePrtStufe2ReplaceComposition",
+                                        "compositions/prt_art_merge_reference.hpp");
+};
+
 /// Reihe B (Stufe3_FullJoin): MASSTREE-Host, path_compression = Pruefling-Repräsentant der Union (non-redundant).
 struct MasstreePrtStufe3FullJoinComposition : HostPrtMergeComposition<MasstreeComposition, Stufe3PathCompressionOrgan> {
     static constexpr std::string_view name = "MasstreePrtStufe3FullJoinComposition";
