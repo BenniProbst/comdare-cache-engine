@@ -1,0 +1,26 @@
+<comdare_axis_registry engine="prt_art" schema="1">
+  <!-- GENERIERT von prt_art/registry_gen (INC-B) per compile-time-Reflektion der prt-art-Slot-
+       Wrapper (PrueflingVariants). NICHT von Hand editieren. Gleiches Schema wie die ce-Registry
+       (cache_engine_axis_registry.xml, engine="cache_engine"); hier engine="prt_art". -->
+  <!-- prt-art bleibt ein SEPARATER PRUEFLING: diese Registry manifestiert NUR prt-arts Slot-Beitrag,
+       sie mergt prt-art NICHT in den CEB. Die 4 repo-Slots = Slot-Demonstration (golden_wired=false);
+       golden_wired=true traegt EINZIG das PathCompression-Merge-Organ (SOTA-Merge-Serien). -->
+  <!-- 'header' ist per R-B (COMDARE_DEFINE_ORGAN_LOCATION) befuellt. KOLLISION: das golden-Organ ist
+       die bare ce-Strategie PatriciaPathCompression (name=path_compression_patricia, KEIN prtart_-
+       Name) - der ce-Patricia-Baustein, den die prt-art-SOTA-Merge in den path_compression-Slot setzt. -->
+  <axis id="page_type" slot="axis_01" category="pruefling_slot" genus="SearchAlgorithm" baustein_count="1">
+    <baustein name="prtart_bplus_page" wrapper="PrtArtBPlusPageType" type="::comdare::prt_art::slots::axis_01::PrtArtBPlusPageType" header="prt_art/slots/axis_01_page_type_slot.hpp" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="prefetch" slot="axis_07" category="pruefling_slot" genus="SearchAlgorithm" baustein_count="1">
+    <baustein name="prtart_redirect_prefetch" wrapper="PrtArtRedirectPrefetch" type="::comdare::prt_art::slots::axis_07::PrtArtRedirectPrefetch" header="prt_art/slots/axis_07_prefetch_slot.hpp" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="telemetry" slot="axis_11" category="pruefling_slot" genus="SearchAlgorithm" baustein_count="1">
+    <baustein name="prtart_per_node_counter" wrapper="PrtArtPerNodeCounter" type="::comdare::prt_art::slots::axis_11::PrtArtPerNodeCounter" header="prt_art/slots/axis_11_telemetry_slot.hpp" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="value_handle" slot="axis_14" category="pruefling_slot" genus="SearchAlgorithm" baustein_count="1">
+    <baustein name="prtart_chain_ref_handle" wrapper="PrtArtChainRefHandle" type="::comdare::prt_art::slots::axis_14::PrtArtChainRefHandle" header="prt_art/slots/axis_14_value_handle_slot.hpp" enabled="true" golden_wired="false"/>
+  </axis>
+  <axis id="path_compression" slot="axis_02" category="golden_merge_slot" genus="SearchAlgorithm" baustein_count="1">
+    <baustein name="path_compression_patricia" wrapper="PatriciaPathCompression" type="::comdare::cache_engine::path_compression::PatriciaPathCompression" header="axes/path_compression/axis_02_path_compression_patricia.hpp" enabled="true" golden_wired="true"/>
+  </axis>
+</comdare_axis_registry>

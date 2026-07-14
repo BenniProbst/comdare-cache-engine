@@ -245,6 +245,63 @@ struct ThesisProfile {
     std::vector<std::string> measurement_categories;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// INC-D (2026-07-14): comdare_experiment — der Experiment-Parser als MODUL im allgemeinen
+// ce-Parser. REINE LESE-Schicht ueber common::xml::parse_document (KEIN tinyxml2/regex).
+// Schema: Code/test_data_xml/experiment_schema.xsd (INC-C), Golden-Instanz experiment_golden.xml.
+// LAYERING (Baseline in Stein): `common` referenziert NIE `cache_engine` — die ExperimentProfile-
+// Felder halten NAMEN als STRINGS (merge / registry / allowed_variants / categories). Die Enum-/
+// Registry-/MergeStrategy-Aufloesung + Gueltigkeits-Pruefung leben in der cache_engine-Schicht
+// (profile_facade/validate_profile.hpp::validate_experiment_profile), exakt wie ThesisProfile.
+// ─────────────────────────────────────────────────────────────────────────────
+struct ExperimentMetadata {
+    std::string name; // <metadata><name>
+    std::string mode; // <metadata><mode> — defined|full|full_sampled (String; Enum-Pruefung = cache_engine-Schicht)
+};
+
+struct ExperimentEngine {
+    std::string id;       // <engine id=..>
+    std::string type;     // <engine type=..> (Adapter-Typname, roh belassen)
+    std::string registry; // <engine registry=..> (Registry-XML-Dateiname; Existenz/Namen = validate)
+};
+
+struct ExperimentPhase {
+    std::string              name;      // <phase name=..>
+    std::string              merge;     // <phase merge=..> (MergeStrategy-Name als String)
+    std::string              engine;    // <phase engine=..> (optional Einzel-EE)
+    std::vector<std::string> engines;   // <phase engines=..> (optional Whitespace-Liste von EE-ids)
+    std::string              pruefling; // <phase pruefling=..> (optional)
+};
+
+struct ExperimentAxisDefault {                 // <axes_default_lookup><axis ref allowed_variants/>
+    std::string              ref;              // Registry-axis-id (z.B. "isa")
+    std::vector<std::string> allowed_variants; // Whitespace-Liste von baustein-name-Werten (Teilmenge)
+};
+
+struct ExperimentOutput {
+    std::string binary_path;                // <output><binary_path>
+    std::string csv_path;                   // <output><csv_path>
+    std::string latex_path;                 // <output><latex_path>
+    bool        comparison_metrics = false; // <output><comparison_metrics> (bool)
+};
+
+struct ExperimentProfile {
+    std::string                   version;   // <comdare_experiment version=..>
+    std::string                   id;        // <comdare_experiment id=..>
+    ExperimentMetadata            metadata;  // <metadata>
+    std::vector<ExperimentEngine> engines;   // <execution_engines><engine>* (Schema: GENAU 2)
+    std::vector<std::string>      lebewesen; // <lebewesen><tier id=..>* (base_tier-ids)
+    std::vector<ExperimentPhase>  phases;    // <phases><phase>* (Schema: >=1; Golden: 3 Kompositionale Joins)
+    // <axes_default_lookup enabled=..> — reines LIMIT (ungenannte Achsen = volle Registry-Liste).
+    bool                               axes_default_lookup_enabled = false;
+    std::vector<ExperimentAxisDefault> axes_default_lookup;
+    std::vector<std::string>           workloads;    // <workloads> (Whitespace-Tokens, YCSB-ids)
+    std::vector<ThesisDatasetRef>      datasets;     // <datasets><dataset id akte_ref loader>* (Single-Source-Akten)
+    std::vector<std::string> measurement_categories; // <measurement_categories><category name=..>* (Spalten-Projektion)
+    std::vector<std::string> op_types;               // <op_types> (Whitespace-Tokens OP-1..OP-6)
+    ExperimentOutput         output;                 // <output>
+};
+
 class XmlConfigParser {
 public:
     [[nodiscard]] CacheEngineConfig             parse(std::filesystem::path const& root_dir) const;
@@ -258,6 +315,12 @@ public:
     // KF-1 (2026-06-02): comdare_thesis_profile-Parser (self-contained XML-DOM, xml_reader.hpp).
     // Liefert nullopt bei fehlender/fehlerhafter Datei oder falschem Wurzel-Tag.
     [[nodiscard]] std::optional<ThesisProfile> parse_thesis_profile(std::filesystem::path const& xml_file) const;
+
+    // INC-D (2026-07-14): comdare_experiment-Parser (self-contained XML-DOM, xml_reader.hpp). Liest ALLE
+    // Elemente des Schemas (Attribute UND verschachtelte Werte). Fehlertolerant (fehlende optionale ->
+    // Default); nullopt bei fehlender/nicht-wohlgeformter Datei oder falschem Wurzel-Tag (comdare_experiment).
+    [[nodiscard]] std::optional<ExperimentProfile>
+    parse_experiment_profile(std::filesystem::path const& xml_file) const;
 };
 
 } // namespace comdare::builder::xml
