@@ -12,6 +12,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::index_organization {
 
 /// HeapIndexOrganization — Storage-Order = Insert-Order, KEIN Index (Baseline).
@@ -28,6 +29,8 @@ public:
     [[nodiscard]] static constexpr bool             has_secondary_indexes() noexcept { return false; }
     [[nodiscard]] static constexpr bool             data_embedded_in_leaf() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "index_org_heap"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::index_organization::HeapIndexOrganization",
+                                  "axes/index_organization/axis_01_index_organization_heap.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "HeapIndexOrganization (no index, storage=insert-order, baseline)";
     }

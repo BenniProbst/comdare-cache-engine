@@ -53,6 +53,7 @@
 #include <type_traits>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 class LockFreeMPMCBuffer : public BufferStrategyBase<LockFreeMPMCBuffer> {
@@ -76,6 +77,8 @@ public:
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return true; }
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 1024; } // Power-of-2
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "lockfree_mpmc"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::queuing::axis_q1_queuing::LockFreeMPMCBuffer",
+                                  "topics/queuing/axis_q1_queuing/axis_q1_queuing_lockfree_mpmc.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "LockFreeMPMCBuffer (Vyukov bounded MPMC, per-Cell-Sequence, 1024cores.net)";
     }

@@ -12,6 +12,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::index_organization {
 
 /// NonClusteredIndexOrganization — Index-Order != Storage-Order, N Secondary-Indizes.
@@ -30,6 +31,8 @@ public:
     [[nodiscard]] static constexpr bool             has_secondary_indexes() noexcept { return true; }
     [[nodiscard]] static constexpr bool             data_embedded_in_leaf() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "index_org_non_clustered"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::index_organization::NonClusteredIndexOrganization",
+                                  "axes/index_organization/axis_01_index_organization_non_clustered.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "NonClusteredIndexOrganization (Secondary Index, N-pro-Tabelle, SQL Server/PostgreSQL)";
     }

@@ -12,6 +12,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::migration_policy {
 
 /// NoMigration — Default: static placement, keine Migration (baseline).
@@ -25,6 +26,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_active() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "migration_none"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::migration_policy::NoMigration",
+                                  "axes/migration_policy/axis_migration_none.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "NoMigration (static placement, no migration baseline)";
     }

@@ -42,6 +42,7 @@
 #include <type_traits>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::lookup {
 
 class InterpolationSearchAlgo : public SearchAlgoBase<InterpolationSearchAlgo> {
@@ -61,6 +62,8 @@ public:
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; } // u16 Keyraum
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "interpolation"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::lookup::InterpolationSearchAlgo",
+                                  "axes/lookup/axis_03a_search_algo_interpolation.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "InterpolationSearchAlgo (interpolation search — Perl/Itai/Avni CACM 1978)";
     }

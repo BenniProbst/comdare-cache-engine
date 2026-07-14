@@ -18,6 +18,7 @@
 #include <emmintrin.h> // SSE2 intrinsics (_mm_loadu_si128 / _mm_add_epi32)
 #endif
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::simd {
 
 /// Amd64Isa — x86_64 / Intel 64 (AMD/Intel Server+Desktop).
@@ -36,6 +37,7 @@ public:
     [[nodiscard]] static constexpr std::string_view cpu_family() noexcept { return "x86_64"; }
     [[nodiscard]] static constexpr bool             supports_native_simd() noexcept { return true; } // SSE2 baseline
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "isa_amd64"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::simd::Amd64Isa", "axes/simd/axis_09_isa_amd64.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "Amd64Isa (x86_64/Intel 64, ZIH Barnard/Capella, AMD EPYC + Intel Xeon)";
     }

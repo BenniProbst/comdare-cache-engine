@@ -29,6 +29,7 @@
 #include <type_traits>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::prefetch_axis {
 
 /// PathOrientedPrefetch — Pfad-orientierte Prefetch-Heuristik (PRT-ART).
@@ -44,6 +45,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_active() noexcept { return true; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "prefetch_path_oriented"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::prefetch_axis::PathOrientedPrefetch",
+                                  "axes/prefetch_axis/axis_07_prefetch_path_oriented.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "PathOrientedPrefetch (PRT-ART trie-path bundle-prefetch)";
     }

@@ -13,6 +13,7 @@
 // der Strategien bleibt der Wall-Clock-Messung vorbehalten (Pfad B, Hybrid-Messmodell).
 
 #include "concepts/axis_10_serialization_concept.hpp"
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -40,6 +41,10 @@ public:
     // statische Forwarding-/Instrumentierungs-Hülle (KEIN GoF-Decorator: hält keine Komponenten-Instanz, kein Voll-Interface): Strategie-Inspektion durchgereicht.
     [[nodiscard]] static constexpr bool supports_compression() noexcept { return Strategy::supports_compression(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    // INC-A #6: per-Organ-Codegen-Lokation. Wrapper-Typ = ObservableSerialization-Huelle (Enabled-Eintrag =
+    // ObservableSerialization<Strategy>); Header = diese Huellen-Datei.
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::serialization_axis::ObservableSerialization",
+                                  "axes/serialization_axis/axis_10_serialization_observable.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept
         requires requires { Strategy::family_name(); }
     {

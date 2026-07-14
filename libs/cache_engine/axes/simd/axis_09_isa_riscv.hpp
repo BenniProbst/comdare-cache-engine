@@ -12,6 +12,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::simd {
 
 /// RiscVIsa — RISC-V 64-bit Open-Source ISA (RV64GC = G General + Compressed).
@@ -32,6 +33,7 @@ public:
         return false;
     } // RVV optional, nicht baseline
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "isa_riscv"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::simd::RiscVIsa", "axes/simd/axis_09_isa_riscv.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "RiscVIsa (RV64GC Open-Source ISA, SiFive/Alibaba Xuantie/ETH PULP, Forschungs-Boards)";
     }

@@ -17,6 +17,7 @@
 // -> observe_all() faellt auf EmptyAxisSnapshot zurueck (Release-Pfad, korrekt).
 
 #include "concepts/axis_11_telemetry_concept.hpp"
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 #include <cstdint>
 #include <string_view>
 
@@ -47,6 +48,10 @@ public:
     // C::telemetry::name()). family_name/flag_suffix nur weiterreichen, wenn die Strategie sie bietet.
     [[nodiscard]] static constexpr bool             is_leaf_only() noexcept { return Strategy::is_leaf_only(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    // INC-A #6: per-Organ-Codegen-Lokation. Wrapper-Typ = ObservableTelemetry-Huelle (Enabled-Eintrag =
+    // ObservableTelemetry<Strategy>); Header = diese Huellen-Datei.
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::telemetry_axis::ObservableTelemetry",
+                                  "axes/telemetry_axis/axis_11_telemetry_observable.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept
         requires requires { Strategy::family_name(); }
     {

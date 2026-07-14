@@ -10,6 +10,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::concurrency_axis {
 
 /// ReaderWriterConcurrency — Single-Writer/Multi-Reader via std::shared_mutex.
@@ -26,6 +27,8 @@ public:
         return concepts::ConcurrencyPattern::ReaderWriter;
     }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "concurrency_reader_writer"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::concurrency_axis::ReaderWriterConcurrency",
+                                  "axes/concurrency_axis/axis_08_concurrency_reader_writer.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "ReaderWriterConcurrency (std::shared_mutex, single-writer/multi-reader)";
     }

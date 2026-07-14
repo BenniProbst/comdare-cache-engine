@@ -16,6 +16,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::queuing::axis_q2_queuing {
 
 /**
@@ -34,6 +35,8 @@ public:
     using family_id = std::integral_constant<int, 1>; // F01
 
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "eager_flush"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::queuing::axis_q2_queuing::EagerFlush",
+                                  "topics/queuing/axis_q2_queuing/axis_q2_queuing_eager.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "EagerFlush (per-op FullFlush, niedrige Latenz)";
     }

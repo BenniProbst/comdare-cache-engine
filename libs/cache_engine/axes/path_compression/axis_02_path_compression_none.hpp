@@ -9,6 +9,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::path_compression {
 
 /// PathCompressionNone — Default: keine Compression (raw path).
@@ -21,6 +22,8 @@ public:
     static constexpr bool enabled = flags::none_enabled;
 
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "path_compression_none"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::path_compression::PathCompressionNone",
+                                  "axes/path_compression/axis_02_path_compression_none.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "PathCompressionNone (raw path, no compression)";
     }

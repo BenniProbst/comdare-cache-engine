@@ -22,6 +22,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::filter_axis {
 
 /// XorFilter — Graf/Lemire 2020 (JEA, Apache-2.0 License).
@@ -89,6 +90,8 @@ public:
 
     [[nodiscard]] static constexpr bool             supports_range_query() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "filter_xor"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::filter_axis::XorFilter",
+                                  "axes/filter_axis/axis_filter_xor.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "XorFilter (Graf+Lemire 2020, ~9 bits/key, smaller than Bloom)";
     }

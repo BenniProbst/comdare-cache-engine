@@ -19,6 +19,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::prefetch_axis {
 
 /// HardwarePrefetch — Explizite HW-Prefetch-Instructions (PREFETCHT0/T1/T2/NTA).
@@ -34,6 +35,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_active() noexcept { return true; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "prefetch_hardware"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::prefetch_axis::HardwarePrefetch",
+                                  "axes/prefetch_axis/axis_07_prefetch_hardware_prefetch.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "HardwarePrefetch (Wormhole PREFETCHT0, CPU-managed distance)";
     }

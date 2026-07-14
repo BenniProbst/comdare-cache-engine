@@ -35,6 +35,7 @@
 #include <utility>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::lookup {
 
 class LinearScanSearchAlgo : public SearchAlgoBase<LinearScanSearchAlgo> {
@@ -54,6 +55,8 @@ public:
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "linear_scan"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::lookup::LinearScanSearchAlgo",
+                                  "axes/lookup/axis_03a_search_algo_linear_scan.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "LinearScanSearchAlgo (unsorted linear scan, ART Node4-Strategie — Leis ICDE 2013)";
     }

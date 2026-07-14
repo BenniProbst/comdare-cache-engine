@@ -21,6 +21,7 @@
 #include <type_traits>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 class LIFOStackBuffer : public BufferStrategyBase<LIFOStackBuffer> {
@@ -37,6 +38,8 @@ public:
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "lifo_stack"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::queuing::axis_q1_queuing::LIFOStackBuffer",
+                                  "topics/queuing/axis_q1_queuing/axis_q1_queuing_lifo.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "LIFOStackBuffer (Hot-Path Reuse + Versions-Tombstones)";
     }

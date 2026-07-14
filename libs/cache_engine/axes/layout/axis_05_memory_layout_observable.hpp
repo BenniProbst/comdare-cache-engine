@@ -18,6 +18,7 @@
 
 #include "axis_05_memory_layout_strategy_base.hpp" // RepresentationKind (2026-07-06: Job 214061 — TU-Reihenfolge-Glueck beendet)
 #include "concepts/axis_05_memory_layout_concept.hpp"
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -51,6 +52,10 @@ public:
     // rufen C::memory_layout::name()).
     [[nodiscard]] static constexpr std::size_t      cache_line_size() noexcept { return Strategy::cache_line_size(); }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    // INC-A #6: per-Organ-Codegen-Lokation. Wrapper-Typ = ObservableMemoryLayout-Huelle (Enabled-Eintrag =
+    // ObservableMemoryLayout<Strategy>); Header = diese Huellen-Datei.
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::layout::ObservableMemoryLayout",
+                                  "axes/layout/axis_05_memory_layout_observable.hpp");
     // P-MD1-ERDUNG (#167): die REALE Repraesentation der gewrappten Strategie transparent durchreichen, damit die
     // Huelle als L im LayoutAwareChunkedStore (z.B. via ArtComposition/observable_composed_search) denselben
     // physischen Store-Footprint erzeugt wie die nackte Strategie.

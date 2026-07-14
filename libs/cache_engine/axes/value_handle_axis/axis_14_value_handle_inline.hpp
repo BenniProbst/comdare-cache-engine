@@ -12,6 +12,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::value_handle_axis {
 
 /// InlineValueHandle — Default: value embedded direkt in Node-Slot.
@@ -27,6 +28,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_inline() noexcept { return true; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "value_handle_inline"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::value_handle_axis::InlineValueHandle",
+                                  "axes/value_handle_axis/axis_14_value_handle_inline.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "InlineValueHandle (value embedded in slot, no indirection)";
     }

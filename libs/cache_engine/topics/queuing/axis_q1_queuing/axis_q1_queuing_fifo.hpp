@@ -22,6 +22,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 class FIFOQueueBuffer : public BufferStrategyBase<FIFOQueueBuffer> {
@@ -38,6 +39,8 @@ public:
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "fifo_queue"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::queuing::axis_q1_queuing::FIFOQueueBuffer",
+                                  "topics/queuing/axis_q1_queuing/axis_q1_queuing_fifo.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "FIFOQueueBuffer (Ring/Deque — LSM MemTable + Write-Coalescing)";
     }

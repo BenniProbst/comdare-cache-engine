@@ -31,6 +31,7 @@
 #include <utility>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::cache_traversal {
 
 class LinearFanout : public CacheTraversalBase<LinearFanout> {
@@ -46,6 +47,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "linear_fanout"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::cache_traversal::LinearFanout",
+                                  "axes/cache_traversal/axis_03b_cache_traversal_linear_fanout.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "LinearFanout (prt-art IFanout::lookup_page linear-scan-Fallback)";
     }

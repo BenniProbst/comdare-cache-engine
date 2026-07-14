@@ -12,6 +12,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::io_dispatch {
 
 /// DirectIo — O_DIRECT bypass OS-Page-Cache.
@@ -28,6 +29,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_in_memory_only() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "io_direct"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::io_dispatch::DirectIo",
+                                  "axes/io_dispatch/axis_io_direct.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "DirectIo (O_DIRECT, bypass OS page-cache, NVMe-optimal)";
     }

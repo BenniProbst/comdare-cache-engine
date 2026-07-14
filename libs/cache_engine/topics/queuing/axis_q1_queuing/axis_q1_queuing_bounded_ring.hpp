@@ -32,6 +32,7 @@
 #include <type_traits>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 class BoundedRingBuffer : public BufferStrategyBase<BoundedRingBuffer> {
@@ -57,6 +58,8 @@ public:
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return true; }
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 64; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "bounded_ring"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::queuing::axis_q1_queuing::BoundedRingBuffer",
+                                  "topics/queuing/axis_q1_queuing/axis_q1_queuing_bounded_ring.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "BoundedRingBuffer<N> (Disruptor-Pattern LMAX 2011, SPSC/MPMC)";
     }

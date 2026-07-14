@@ -12,6 +12,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::migration_policy {
 
 /// TierBasedMigration — Multi-Tier-Migration: RAM → SSD → HDD.
@@ -28,6 +29,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_active() noexcept { return true; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "migration_tier_based"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::migration_policy::TierBasedMigration",
+                                  "axes/migration_policy/axis_migration_tier_based.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "TierBasedMigration (RAM/SSD/HDD multi-tier, RocksDB-style)";
     }

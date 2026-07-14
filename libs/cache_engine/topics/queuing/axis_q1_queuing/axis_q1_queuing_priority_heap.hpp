@@ -33,6 +33,7 @@
 #include <type_traits>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 class PriorityHeapBuffer : public BufferStrategyBase<PriorityHeapBuffer> {
@@ -49,6 +50,8 @@ public:
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "priority_heap"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::queuing::axis_q1_queuing::PriorityHeapBuffer",
+                                  "topics/queuing/axis_q1_queuing/axis_q1_queuing_priority_heap.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "PriorityHeapBuffer (Max-Heap, LRU-Approx + Hot-Key Promotion)";
     }

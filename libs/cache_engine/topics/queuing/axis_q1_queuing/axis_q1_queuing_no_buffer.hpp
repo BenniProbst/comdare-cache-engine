@@ -22,6 +22,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 class NoBuffer : public BufferStrategyBase<NoBuffer> {
@@ -38,6 +39,8 @@ public:
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return true; }     // Kapazitaet 0
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "no_buffer"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer",
+                                  "topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "NoBuffer Passthrough (B+/ART direkt-zum-Leaf)";
     }

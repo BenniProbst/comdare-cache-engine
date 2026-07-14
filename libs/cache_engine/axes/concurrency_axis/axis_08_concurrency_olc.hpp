@@ -11,6 +11,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::concurrency_axis {
 
 /// OlcOptimisticConcurrency — Optimistic Lock-Coupling (ART-Sync, PRT-ART Default).
@@ -28,6 +29,8 @@ public:
         return concepts::ConcurrencyPattern::Optimistic;
     }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "olc_optimistic"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::concurrency_axis::OlcOptimisticConcurrency",
+                                  "axes/concurrency_axis/axis_08_concurrency_olc.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "OlcOptimisticConcurrency (Optimistic Lock-Coupling, ART-Sync Pattern)";
     }
