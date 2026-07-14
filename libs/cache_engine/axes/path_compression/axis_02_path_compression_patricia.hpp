@@ -6,6 +6,7 @@
 #include "concepts/axis_02_path_compression_cache_engine_permutation_concept.hpp"
 #include <axes/path_compression/axis_02_path_compression_flags.hpp>
 #include <topics/nodes/concepts/topic_nodes_concept.hpp>
+#include <anatomy/organ_location.hpp> // INC-B/R-B: COMDARE_DEFINE_ORGAN_LOCATION (per-Organ-Codegen-Lokation)
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -30,6 +31,12 @@ public:
         return "PatriciaPathCompression (single-bit-split, HOT/Wormhole)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "PATRICIA"; }
+
+    // INC-B/R-B (2026-07-14): Per-Organ-Codegen-Lokation. Dieses CE-Organ ist zugleich der golden-verdrahtete
+    // prt-art-Merge-Baustein (PrtArtPathCompressionSlot, compositions/prt_art_merge_reference.hpp:42-47 ->
+    // PrueflingVariants = mp_list<PatriciaPathCompression>); die prt-art-Registry emittiert seinen Header hierher.
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::path_compression::PatriciaPathCompression",
+                                  "axes/path_compression/axis_02_path_compression_patricia.hpp");
 
     [[nodiscard]] double compression_ratio() const noexcept { return 0.3; } // typisch ~3x kompakter
 
