@@ -44,6 +44,7 @@
 #include <type_traits>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 class EpochBuffer : public BufferStrategyBase<EpochBuffer> {
@@ -69,6 +70,8 @@ public:
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "epoch_buffer"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::queuing::axis_q1_queuing::EpochBuffer",
+                                  "topics/queuing/axis_q1_queuing/axis_q1_queuing_epoch_buffer.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "EpochBuffer (QSBR — McKenney OLS 2001, SMART ART OSDI 2023, Masstree EuroSys 2012)";
     }

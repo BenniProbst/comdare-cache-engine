@@ -10,6 +10,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::concurrency_axis {
 
 /// WaitFreeConcurrency — Wait-free: jeder Thread schliesst in beschraenkter
@@ -26,6 +27,8 @@ public:
         return concepts::ConcurrencyPattern::WaitFree;
     }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "concurrency_wait_free"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::concurrency_axis::WaitFreeConcurrency",
+                                  "axes/concurrency_axis/axis_08_concurrency_wait_free.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "WaitFreeConcurrency (bounded per-thread steps, strongest guarantee)";
     }

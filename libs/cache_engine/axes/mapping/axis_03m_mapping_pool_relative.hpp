@@ -36,6 +36,7 @@
 #include <utility>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::mapping {
 
 class PoolRelative : public MappingBase<PoolRelative> {
@@ -51,6 +52,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "pool_relative"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::mapping::PoolRelative",
+                                  "axes/mapping/axis_03m_mapping_pool_relative.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "PoolRelative (prt-art CustomAlignedStructure pool-relative)";
     }

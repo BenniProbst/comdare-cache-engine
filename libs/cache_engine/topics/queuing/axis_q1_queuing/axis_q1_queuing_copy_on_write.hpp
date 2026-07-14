@@ -37,6 +37,7 @@
 #include <type_traits>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 class CopyOnWriteBuffer : public BufferStrategyBase<CopyOnWriteBuffer> {
@@ -53,6 +54,8 @@ public:
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "copy_on_write"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::queuing::axis_q1_queuing::CopyOnWriteBuffer",
+                                  "topics/queuing/axis_q1_queuing/axis_q1_queuing_copy_on_write.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "CopyOnWriteBuffer (Persistent ART, RCU-Tries — Driscoll/Sarnak/Sleator/Tarjan JCSS 1989)";
     }

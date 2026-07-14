@@ -23,6 +23,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::filter_axis {
 
 /// RangeSurfFilter — Zhang/Lim/Leis/Andersen/Pavlo SIGMOD 2018.
@@ -99,6 +100,8 @@ public:
 
     [[nodiscard]] static constexpr bool             supports_range_query() noexcept { return true; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "filter_range_surf"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::filter_axis::RangeSurfFilter",
+                                  "axes/filter_axis/axis_filter_range_surf.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "RangeSurfFilter (Zhang SIGMOD 2018, succinct LOUDS-Trie, range-query)";
     }

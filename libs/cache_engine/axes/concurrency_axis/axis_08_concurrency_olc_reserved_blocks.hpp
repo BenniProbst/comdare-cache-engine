@@ -16,6 +16,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::concurrency_axis {
 
 /// OlcReservedBlocksConcurrency — OLC mit reservierten cache-line-aligned Value-Blocks
@@ -32,6 +33,8 @@ public:
         return concepts::ConcurrencyPattern::Optimistic;
     }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "olc_reserved_blocks"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::concurrency_axis::OlcReservedBlocksConcurrency",
+                                  "axes/concurrency_axis/axis_08_concurrency_olc_reserved_blocks.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "OlcReservedBlocksConcurrency (OLC + cache-line-reserved value blocks, anti-coherence-storm)";
     }

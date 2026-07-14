@@ -12,6 +12,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::simd {
 
 /// PowerPcIsa — IBM Power-Architecture POWER9/POWER10 (ppc64le Little-Endian).
@@ -31,6 +32,7 @@ public:
     [[nodiscard]] static constexpr std::string_view cpu_family() noexcept { return "ppc64le"; }
     [[nodiscard]] static constexpr bool             supports_native_simd() noexcept { return true; } // VSX baseline
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "isa_powerpc"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::simd::PowerPcIsa", "axes/simd/axis_09_isa_powerpc.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "PowerPcIsa (POWER9/10 ppc64le, IBM Power Systems, AC922/IC922 HPC)";
     }

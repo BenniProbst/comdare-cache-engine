@@ -12,6 +12,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::path_compression {
 
 /// ByteWisePathCompression — Byte-by-Byte Path-Compression (ART).
@@ -26,6 +27,8 @@ public:
     static constexpr bool enabled = flags::byte_wise_enabled;
 
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "path_compression_byte_wise"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::path_compression::ByteWisePathCompression",
+                                  "axes/path_compression/axis_02_path_compression_byte_wise.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "ByteWisePathCompression (byte-by-byte, ART Leis ICDE 2013)";
     }

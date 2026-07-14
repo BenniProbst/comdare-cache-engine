@@ -12,6 +12,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::io_dispatch {
 
 /// InMemoryOnly — Default: kein IO, alles im RAM (Pure In-Memory Index).
@@ -26,6 +27,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_in_memory_only() noexcept { return true; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "io_in_memory_only"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::io_dispatch::InMemoryOnly",
+                                  "axes/io_dispatch/axis_io_in_memory_only.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "InMemoryOnly (no IO, RAM-only baseline)";
     }

@@ -32,6 +32,7 @@
 #include <utility>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::cache_traversal {
 
 class BinarySearchFanout : public CacheTraversalBase<BinarySearchFanout> {
@@ -47,6 +48,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "binary_search_fanout"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::cache_traversal::BinarySearchFanout",
+                                  "axes/cache_traversal/axis_03b_cache_traversal_binary_search_fanout.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "BinarySearchFanout (sorted fanout + lower_bound, B+ inner-node binary search, Bayer/McCreight 1972)";
     }

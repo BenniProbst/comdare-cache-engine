@@ -20,6 +20,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::filter_axis {
 
 /// BloomFilter — Bloom 1970 classical point-query filter.
@@ -84,6 +85,8 @@ public:
 
     [[nodiscard]] static constexpr bool             supports_range_query() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "filter_bloom"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::filter_axis::BloomFilter",
+                                  "axes/filter_axis/axis_filter_bloom.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "BloomFilter (Bloom 1970, k-hash bitmap, point-query)";
     }

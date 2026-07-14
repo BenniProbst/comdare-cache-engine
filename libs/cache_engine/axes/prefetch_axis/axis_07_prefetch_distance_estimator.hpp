@@ -24,6 +24,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::prefetch_axis {
 
 /// DistanceEstimatorPrefetch — Distance-Estimator-basierter Software-Prefetch.
@@ -39,6 +40,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_active() noexcept { return true; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "prefetch_distance_estimator"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::prefetch_axis::DistanceEstimatorPrefetch",
+                                  "axes/prefetch_axis/axis_07_prefetch_distance_estimator.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "DistanceEstimatorPrefetch (ART software-prefetch, distance-based)";
     }

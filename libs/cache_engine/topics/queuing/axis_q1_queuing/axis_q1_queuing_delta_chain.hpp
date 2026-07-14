@@ -32,6 +32,7 @@
 #include <type_traits>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 class DeltaChainBuffer : public BufferStrategyBase<DeltaChainBuffer> {
@@ -48,6 +49,8 @@ public:
     [[nodiscard]] static constexpr bool             is_bounded() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      default_capacity() noexcept { return 0; } // unbounded
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "delta_chain"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::queuing::axis_q1_queuing::DeltaChainBuffer",
+                                  "topics/queuing/axis_q1_queuing/axis_q1_queuing_delta_chain.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "DeltaChainBuffer (Bw-Tree, Levandoski/Lomet/Sengupta ICDE 2013)";
     }

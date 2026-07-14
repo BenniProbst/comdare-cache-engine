@@ -23,6 +23,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::filter_axis {
 
 /// CuckooFilter — Fan/Andersen/Kaminsky/Mitzenmacher CoNEXT 2014.
@@ -125,6 +126,8 @@ public:
 
     [[nodiscard]] static constexpr bool             supports_range_query() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "filter_cuckoo"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::filter_axis::CuckooFilter",
+                                  "axes/filter_axis/axis_filter_cuckoo.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "CuckooFilter (Fan CoNEXT 2014, supports delete + counting)";
     }

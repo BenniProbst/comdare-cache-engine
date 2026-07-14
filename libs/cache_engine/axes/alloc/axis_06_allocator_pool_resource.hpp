@@ -47,6 +47,8 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
+
 namespace comdare::cache_engine::alloc {
 
 /**
@@ -208,6 +210,8 @@ private:
 class PoolResourceAllocator : public PoolResourceAllocatorBody<PoolResourceAllocator> {
 public:
     using PoolResourceAllocatorBody<PoolResourceAllocator>::PoolResourceAllocatorBody;
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::alloc::PoolResourceAllocator",
+                                  "axes/alloc/axis_06_allocator_pool_resource.hpp");
 };
 
 } // namespace comdare::cache_engine::alloc

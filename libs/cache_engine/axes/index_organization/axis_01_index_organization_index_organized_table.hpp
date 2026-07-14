@@ -12,6 +12,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::index_organization {
 
 /// IotIndexOrganization — Daten direkt in Index-Leaf-Pages eingebettet (Oracle IOT).
@@ -30,6 +31,8 @@ public:
     [[nodiscard]] static constexpr bool             has_secondary_indexes() noexcept { return true; }
     [[nodiscard]] static constexpr bool             data_embedded_in_leaf() noexcept { return true; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "index_org_index_organized_table"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::index_organization::IotIndexOrganization",
+                                  "axes/index_organization/axis_01_index_organization_index_organized_table.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "IotIndexOrganization (Oracle IOT, Daten in B+Tree-Leaves, ART/HOT-style)";
     }

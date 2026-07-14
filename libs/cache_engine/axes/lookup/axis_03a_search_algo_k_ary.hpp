@@ -51,6 +51,7 @@
 #include <type_traits>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::lookup {
 
 class KArySearchAlgo : public SearchAlgoBase<KArySearchAlgo> {
@@ -85,6 +86,8 @@ public:
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr std::size_t      max_fanout() noexcept { return 65536; } // u16 Keyraum
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "k_ary"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::lookup::KArySearchAlgo",
+                                  "axes/lookup/axis_03a_search_algo_k_ary.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "KArySearchAlgo (k-ary search — Schlegel/Gemulla/Lehner DaMoN 2009)";
     }

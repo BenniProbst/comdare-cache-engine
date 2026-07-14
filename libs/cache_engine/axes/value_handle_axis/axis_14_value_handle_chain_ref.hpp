@@ -18,6 +18,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::value_handle_axis {
 
 /// ChainRefValueHandle — verkettete externe Referenz fuer Multi-Value-Schluessel.
@@ -32,6 +33,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_inline() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "value_handle_chain_ref"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::value_handle_axis::ChainRefValueHandle",
+                                  "axes/value_handle_axis/axis_14_value_handle_chain_ref.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "ChainRefValueHandle (multi-value chained external reference, pool linked-list)";
     }

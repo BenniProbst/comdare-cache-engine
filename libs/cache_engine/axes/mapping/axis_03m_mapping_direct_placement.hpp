@@ -31,6 +31,7 @@
 #include <utility>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::mapping {
 
 class DirectPlacement : public MappingBase<DirectPlacement> {
@@ -46,6 +47,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "direct_placement"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::mapping::DirectPlacement",
+                                  "axes/mapping/axis_03m_mapping_direct_placement.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "DirectPlacement (prt-art INode::placement_page_ direct-Pointer)";
     }

@@ -10,6 +10,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::concurrency_axis {
 
 /// LockFreeConcurrency — Lock-free via Compare-And-Swap (std::atomic CAS-Loops).
@@ -26,6 +27,8 @@ public:
         return concepts::ConcurrencyPattern::LockFree;
     }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "concurrency_lock_free"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::concurrency_axis::LockFreeConcurrency",
+                                  "axes/concurrency_axis/axis_08_concurrency_lock_free.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "LockFreeConcurrency (CAS-based, lock-free progress guarantee)";
     }

@@ -52,6 +52,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::queuing::axis_q1_queuing {
 
 class OriginalLockFreeMpmcConcurrentQueue : public BufferStrategyBase<OriginalLockFreeMpmcConcurrentQueue>
@@ -98,6 +99,9 @@ public:
             return "original_concurrentqueue(disabled)";
         }
     }
+    COMDARE_DEFINE_ORGAN_LOCATION(
+        "::comdare::cache_engine::queuing::axis_q1_queuing::OriginalLockFreeMpmcConcurrentQueue",
+        "topics/queuing/axis_q1_queuing/axis_q1_queuing_original_concurrentqueue.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "OriginalLockFreeMpmcConcurrentQueue (moodycamel BSD-2 Paper-Bindung — 2/6 originall)";
     }

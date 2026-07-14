@@ -23,10 +23,10 @@
 //   enabled==clean name()) auf die All*-Zahlen. Der Generator ist damit flag-parametrisch + immer round-
 //   trip-sicher.
 //
-// header="": die CE-Achsen-Wrapper tragen name()/family_name()/flag_suffix()/family_id/enabled, aber
-//   KEIN cpp_type_name/header_include-Member (verifiziert V1/V2). 'header' wird daher bewusst LEER
-//   emittiert - eine Ableitung aus dem Typ-Namen waere fragil/fabriziert. Folge-Bedarf (analog prt-art R-B):
-//   ein per-Organ-Location-Makro (cpp_type_name+header_include) auf den Achsen-Wrappern.
+// header=...: seit INC-A #6 tragen die CE-Achsen-Wrapper COMDARE_DEFINE_ORGAN_LOCATION (cpp_type_name+
+//   header_include, anatomy/organ_location.hpp) - analog dem prt-art-R-B-Fix. 'header' wird jetzt aus
+//   W::header_include gelesen (organ_header<W>(), nur falls HasOrganLocation<W>), NIE aus dem Typ-Namen
+//   abgeleitet (das waere fragil/fabriziert). Wrapper OHNE Location liefern weiterhin header="".
 //
 // genus="SearchAlgorithm": die 19 Kompositions-Achsen sind die 19 Organe der SearchAlgorithm-Anatomie
 //   (AnatomyGenus::SearchAlgorithm, anatomy_base.hpp:68 = "vollst. 19-Achsen-Anatomie"). Die Achsen-
@@ -40,6 +40,7 @@
 // C++23. Ausfuehren: `axis_registry_gen --out <pfad> [--with-extra-axes]`. TABU (permutation_axes.xml,
 // golden-320, POD-1416, kV3AxisSchema, ABI) wird NICHT beruehrt - der Generator LIEST nur Typen.
 
+#include <anatomy/organ_location.hpp>                          // HasOrganLocation<W> (INC-A #6: header_include)
 #include <builder/codegen/type_name.hpp>                       // type_name<W>() (FQ-Typ, compile-time)
 #include <builder/experiment_tree/registry_to_axis_levels.hpp> // axes26::T* (Enabled*/StaticAxisVariants*)
 
@@ -55,9 +56,10 @@
 #include <string_view>
 #include <vector>
 
-namespace ex = ::comdare::cache_engine::builder::experiment;
-namespace cg = ::comdare::cache_engine::builder::codegen;
-namespace mp = boost::mp11;
+namespace ex   = ::comdare::cache_engine::builder::experiment;
+namespace cg   = ::comdare::cache_engine::builder::codegen;
+namespace anat = ::comdare::cache_engine::anatomy;
+namespace mp   = boost::mp11;
 
 namespace {
 
@@ -65,6 +67,7 @@ struct Baustein {
     std::string name;    // Wrapper::name() - byte-genauer serialize-Schluessel
     std::string wrapper; // Kurz-Typ (letzte ::-Komponente vor einem eventuellen '<')
     std::string type;    // fully-qualified C++-Typ (type_name<W>())
+    std::string header;  // Include-Pfad des Wrappers (W::header_include, falls HasOrganLocation<W>; sonst leer)
     bool        golden = false;
 };
 
@@ -99,6 +102,18 @@ struct AxisOut {
     return o;
 }
 
+// header_include eines Organs, wenn der Wrapper COMDARE_DEFINE_ORGAN_LOCATION traegt (HasOrganLocation<W>,
+// INC-A #6). Wrapper OHNE per-Organ-Location liefern "" - eine Ableitung aus dem Typ-Namen waere
+// fragil/fabriziert (die frueher bewusst leere 'header'-Emission, jetzt via Makro befuellt).
+template <class W>
+[[nodiscard]] std::string organ_header() {
+    if constexpr (anat::HasOrganLocation<W>) {
+        return std::string{W::header_include};
+    } else {
+        return std::string{};
+    }
+}
+
 // Reflektiert eine Enabled*-mp_list in ihre Bausteine (name/FQ-Typ/Kurz-Typ) + markiert golden anhand
 // der ersten GoldenK Eintraege derselben Liste (== FullSourceCatalog-Take). mp_identity vermeidet die
 // Default-Konstruktion der Wrapper (nur der Typ wird benoetigt).
@@ -120,6 +135,7 @@ template <class List, std::size_t GoldenK>
         b.name    = std::string{W::name()};
         b.type    = std::string{cg::type_name<W>()};
         b.wrapper = short_name(b.type);
+        b.header  = organ_header<W>();
         b.golden  = golden.contains(b.name);
         out.push_back(std::move(b));
     });
@@ -215,17 +231,17 @@ int main(int argc, char** argv) {
     f << "       StaticAxisVariants*-Listen (mp_filter<is_enabled, All*>). NICHT von Hand editieren. -->\n";
     f << "  <!-- Baustein-Zahlen = ENABLED-Inventar dieser Build-Konfiguration (Vendor-HAVE-/Flag-abhaengig),\n";
     f << "       NICHT die All*-Registry-Zahlen. Reflektion ueber Enabled* ist Pflicht (Round-Trip-Garantie). -->\n";
-    f << "  <!-- FOLGE-BEDARF (analog prt-art R-B): 'header' ist leer, weil die CE-Achsen-Wrapper kein\n";
-    f << "       cpp_type_name/header_include-Member tragen (verifiziert V1/V2). Header-Ableitung aus dem Typ-\n";
-    f << "       Namen waere fragil/fabriziert; sauber = per-Organ-Location-Makro auf den Wrappern ergaenzen. -->\n";
+    f << "  <!-- 'header' = W::header_include aus COMDARE_DEFINE_ORGAN_LOCATION (INC-A #6, analog prt-art R-B),\n";
+    f << "       gelesen via HasOrganLocation<W>; NIE aus dem Typ-Namen abgeleitet. Wrapper ohne per-Organ-\n";
+    f << "       Location liefern header=\"\" (kein Fabrizieren). -->\n";
     for (auto const& ax : axes) {
         f << "  <axis id=\"" << xml_escape(ax.id) << "\" slot=\"" << xml_escape(ax.slot) << "\" category=\""
           << xml_escape(ax.category) << "\" genus=\"SearchAlgorithm\" baustein_count=\"" << ax.bausteine.size()
           << "\">\n";
         for (auto const& b : ax.bausteine) {
             f << "    <baustein name=\"" << xml_escape(b.name) << "\" wrapper=\"" << xml_escape(b.wrapper)
-              << "\" type=\"" << xml_escape(b.type) << "\" header=\"\" enabled=\"true\" golden_wired=\""
-              << (b.golden ? "true" : "false") << "\"/>\n";
+              << "\" type=\"" << xml_escape(b.type) << "\" header=\"" << xml_escape(b.header)
+              << "\" enabled=\"true\" golden_wired=\"" << (b.golden ? "true" : "false") << "\"/>\n";
         }
         f << "  </axis>\n";
     }

@@ -41,6 +41,7 @@
 #include <utility>
 #include <vector>
 
+#include <anatomy/organ_location.hpp> // INC-A #6: per-Organ-Codegen-Lokation (header_include)
 namespace comdare::cache_engine::cache_traversal {
 
 class HashLookup : public CacheTraversalBase<HashLookup> {
@@ -65,6 +66,8 @@ public:
 
     [[nodiscard]] static constexpr bool             is_thread_safe() noexcept { return false; }
     [[nodiscard]] static constexpr std::string_view name() noexcept { return "hash_lookup"; }
+    COMDARE_DEFINE_ORGAN_LOCATION("::comdare::cache_engine::cache_traversal::HashLookup",
+                                  "axes/cache_traversal/axis_03b_cache_traversal_hash_lookup.hpp");
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "HashLookup (Fibonacci-Hash open-addressing, prt-art LinearProbeHashSet-Pattern)";
     }
