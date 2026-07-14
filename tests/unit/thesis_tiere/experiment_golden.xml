@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  INC-C (2026-07-14) - comdare_experiment GOLDEN-Instanz (3-Phasen-Vorlage).
+
+  Loest das Interim-Muster messreihe_v32_schema_example.xml ab (das als
+  Legacy-Fixture BEHALTEN wird, nicht geloescht). Diese Datei ist eine reine
+  Daten-/Fixture-Definition und INERT, bis der typisierte Parser (INC-D) sie
+  liest - sie beruehrt KEINEN Code, keine golden-binary_ids, kein POD/ABI.
+
+  Prinzip: das Experiment REFERENZIERT die zwei Achsen-Registries und traegt
+  KEINE Bausteine. Eine <phase> traegt NUR merge + engine(s), KEIN <baustein>;
+  die konkreten Bausteine leben in den referenzierten Registries.
+
+  Die 3 Phasen bilden die 3 Kompositionalen Joins (pruefling_merge.hpp) ab:
+    Stufe1_CeOnly            - CE-only (KEINE Pruefling-Beteiligung)
+    Stufe2_PrueflingReplace  - Pruefling ERSETZT-mit-Fallback pro Achse
+    Stufe3_FullJoin          - Union non-redundant (CE + Pruefling)
+  Reihe R-C(i) (Merge/Regression alt<->neu) ist hier semantisch die
+  build-uebergreifende Kombination von Stufe1 (ee_ce) und Stufe3 (ee_ce+ee_prt).
+-->
+<comdare_experiment version="1" id="diplomarbeit_golden"
+                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                    xsi:noNamespaceSchemaLocation="experiment_schema.xsd">
+
+  <metadata>
+    <name>diplomarbeit_golden</name>
+    <mode>defined</mode>  <!-- defined | full | full_sampled -->
+  </metadata>
+
+  <!-- GENAU 2 ExecutionEngines, jede referenziert IHRE Achsen-Registry. -->
+  <execution_engines>
+    <engine id="ee_ce"  type="CacheEngineExecutionEngineAdapter" registry="cache_engine_axis_registry.xml"/>
+    <engine id="ee_prt" type="PrtArtExecutionEngineAdapter"      registry="prt_art_axis_registry.xml"/>
+  </execution_engines>
+
+  <!-- Die gemessenen Lebewesen (base_tier-ids, single-source zu den sota-Profilen). -->
+  <lebewesen>
+    <tier id="prt_art"/>
+    <tier id="art"/>
+    <tier id="hot"/>
+    <tier id="masstree"/>
+    <tier id="surf"/>
+    <tier id="start"/>
+    <tier id="wormhole"/>
+  </lebewesen>
+
+  <!-- Die 3 Phasen. Jede traegt NUR merge (MergeStrategy) + engine(s), KEIN baustein. -->
+  <phases>
+    <phase name="phase2_cache_engine" merge="Stufe1_CeOnly"           engine="ee_ce"/>
+    <phase name="phase1_prt_art"      merge="Stufe2_PrueflingReplace" engine="ee_prt"  pruefling="prt_art"/>
+    <phase name="phase3_kombiniert"   merge="Stufe3_FullJoin"         engines="ee_ce ee_prt"/>
+  </phases>
+
+  <!-- Reines LIMIT: axis ref = Registry-axis-id, allowed_variants = Teilmenge der
+       baustein-name-Werte der ce-Registry. Ungenannte Achsen = volle Registry-Liste. -->
+  <axes_default_lookup enabled="true">
+    <axis ref="isa"              allowed_variants="isa_amd64 isa_aarch64"/>
+    <axis ref="search_algo"      allowed_variants="k_ary eytzinger"/>
+    <axis ref="path_compression" allowed_variants="path_compression_none path_compression_patricia"/>
+  </axes_default_lookup>
+
+  <!-- Achse-2: die YCSB-Lastprofile (load_profiles/ycsb_*.xml). -->
+  <workloads>ycsb_a ycsb_b ycsb_c ycsb_d ycsb_e ycsb_f</workloads>
+
+  <!-- Mess-INPUT-Dimension D: Single-Source Referenzen auf die test_data-AKTEN. -->
+  <datasets>
+    <dataset id="url"             akte_ref="test_data_xml/url.test_data.xml"             loader="string_corpus"/>
+    <dataset id="english_words"   akte_ref="test_data_xml/english_words.test_data.xml"   loader="string_corpus"/>
+    <dataset id="sosd_books_200M" akte_ref="test_data_xml/sosd_books_200M.test_data.xml" loader="sosd_uint64"/>
+  </datasets>
+
+  <!-- Spalten-Projektion ueber die 16 System-Kategorien (measurement_category.hpp). -->
+  <measurement_categories>
+    <category name="CLU"/>
+    <category name="CACHE_MISS_L3"/>
+    <category name="IPC_CPI"/>
+    <category name="LATENCY_P99"/>
+    <category name="THROUGHPUT"/>
+  </measurement_categories>
+
+  <!-- OP-Typen (OP-1 Read / OP-3 Update / OP-4 Scan). -->
+  <op_types>OP-1 OP-3 OP-4</op_types>
+
+  <output>
+    <binary_path>_runs/${date}/diplomarbeit_golden/results.bin</binary_path>
+    <csv_path>_runs/${date}/diplomarbeit_golden/results.csv</csv_path>
+    <latex_path>_runs/${date}/diplomarbeit_golden/results.tex</latex_path>
+    <comparison_metrics>true</comparison_metrics>
+  </output>
+
+</comdare_experiment>

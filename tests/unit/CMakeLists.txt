@@ -2525,6 +2525,34 @@ target_compile_definitions(test_measurement_categories PRIVATE
     "COMDARE_GOLDEN_320_IDS=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt\"")
 set_tests_properties(test_measurement_categories PROPERTIES LABELS "contract;profiles;e4;inc3")
 
+# INC-D (2026-07-14) — ctest-Gate des comdare_experiment-Parsers als MODUL im allgemeinen ce-Parser
+# (parse_experiment_profile, common-Schicht) + der layering-sauberen validate_experiment_profile
+# (cache_engine-Schicht). Beweist (a) Golden-Instanz parst woertlich, (b) validiert ok gegen die REALE
+# ce-Registry + prt-Registry, (c) 3 Fehlerfaelle (ungueltige merge / allowed_variant nicht-in-Registry /
+# != 2 engines). Fixtures (experiment_golden.xml + prt_art_axis_registry.xml) werden NUR GELESEN; die
+# reale cache_engine_axis_registry.xml ist Single-Source (per Define referenziert, nicht kopiert).
+comdare_add_test(test_experiment_parser
+    SOURCES thesis_tiere/test_experiment_parser.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+comdare_prepare_thesis_object_dir(test_experiment_parser)
+target_include_directories(test_experiment_parser PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_experiment_parser PRIVATE Boost::mp11)
+target_compile_definitions(test_experiment_parser PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_EXPERIMENT_GOLDEN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_golden.xml\""
+    "COMDARE_CE_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/cache_engine_axis_registry.xml\""
+    "COMDARE_PRT_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/prt_art_axis_registry.xml\"")
+set_tests_properties(test_experiment_parser PROPERTIES LABELS "contract;profiles;e4;incd")
+
 # M-CE-10 (Voll-Review 2026-07-13) — ctest-Gate der Stufe2_PrueflingReplace-Korrektur im sota_catalog:
 # St2 ist KONZEPTIONELL EINE Binary (HOT-Pilot). Beweist (1) Dedup mehrerer St2-Deklarationen zu 1 Pass,
 # (2) host-dominante H2-Attribution (h2_lebewesen == "hot", NICHT das angefragte lebewesen — via committeter

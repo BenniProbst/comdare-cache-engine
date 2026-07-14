@@ -53,12 +53,19 @@
 #include <builder/experiment_tree/profile_to_tree.hpp>         // AxisRegistry (axis-ref → Werteliste)
 #include <builder/experiment_tree/axis_path_serialization.hpp> // kCompositionAxisNames (die 19 Komposition-Achsen)
 #include <cache_engine/measurement/measurement_axis_registry.hpp> // kMeasurementAxisRegistry (INC-3: Single-Source der 16 Kategorie-Namen)
-#include "xml_config_parser/xml_config_parser.hpp" // ThesisProfile
+#include <cache_engine/measurement/system_axis.hpp> // kAllMeasurementCategories (INC-D: Single-Source der 16 Kategorie-Enums)
+#include <anatomy/pruefling_merge.hpp>              // MergeStrategy-Enum (INC-D: die 3 Kompositionalen Joins)
+#include "xml_config_parser/xml_config_parser.hpp" // ThesisProfile / ExperimentProfile
+#include "xml_config_parser/xml_reader.hpp"        // INC-D: common-DOM zum Lesen der Registry-XML (kein regex)
 
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
 #include <map>
+#include <optional>
 #include <ostream>
 #include <set>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -357,6 +364,190 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
         os << "VALIDAT OK: das Profil ist gegen die AxisRegistry/EnabledStrategies konsistent.\n";
     else
         os << "VALIDAT FEHLGESCHLAGEN: " << r.errors.size() << " Fehler — Profil NICHT baubar (Abbruch vor Bau).\n";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INC-D (2026-07-14): validate_experiment_profile — das REIN-LESENDE Validat des comdare_experiment-
+// Profils (ExperimentProfile, common-Schicht) gegen die cache_engine-Wahrheiten. Muster = validate_profile
+// (Specification/Validator; read-only). Die common-Schicht traegt NUR Strings; DIESE cache_engine-Schicht
+// loest sie gegen die MergeStrategy-Enum + die Registry-XML + kAllMeasurementCategories auf (Baseline-
+// Layering: common referenziert NIE cache_engine).
+//
+// PRUEFUNGEN:
+//   (1) GENAU 2 <execution_engines><engine> (ee_ce + ee_prt).
+//   (2) mindestens 1 <phases><phase>.
+//   (3) jede phase.merge ∈ MergeStrategy-Enum (pruefling_merge.hpp: Stufe1_CeOnly/Stufe2_.../Stufe3_...).
+//   (4) die je-engine referenzierten Registry-Dateien existieren (registry_dir/<registry>).
+//   (5) jede <axes_default_lookup> allowed_variants ⊆ der `baustein name`-Werte der ce-Registry
+//       (Wurzel engine="cache_engine") fuer die Achse `ref`; unbekannte Achse = Fehler.
+//   (6) jede <measurement_categories> category ∈ kAllMeasurementCategories (16, measurement_category.hpp) —
+//       Single-Source ueber measurement_axis_registry::axis_info(cat).name; Duplikat = WARNUNG.
+// registry_dir leer = (4)+(5) uebersprungen (rein strukturelle Validierung; der Host reicht das
+// Registry-Verzeichnis herein — analog validate_profile::known_workload_ids).
+// ─────────────────────────────────────────────────────────────────────────────
+
+namespace pm = ::comdare::cache_engine::anatomy::pruefling;
+
+// Die 3 gueltigen MergeStrategy-Enum-Werte (Single-Source = das Enum selbst).
+inline constexpr pm::MergeStrategy kExperimentMergeStrategies[] = {
+    pm::MergeStrategy::Stufe1_CeOnly, pm::MergeStrategy::Stufe2_PrueflingReplace, pm::MergeStrategy::Stufe3_FullJoin};
+
+// merge_strategy_name — Enum -> kanonischer XML-String. switch OHNE default: -Wswitch faengt Enum-Drift
+// (eine 4. Stufe muss hier + im XSD nachgezogen werden), statt still eine gueltige Stufe zu verwerfen.
+[[nodiscard]] inline std::string_view merge_strategy_name(pm::MergeStrategy s) {
+    switch (s) {
+        case pm::MergeStrategy::Stufe1_CeOnly: return "Stufe1_CeOnly";
+        case pm::MergeStrategy::Stufe2_PrueflingReplace: return "Stufe2_PrueflingReplace";
+        case pm::MergeStrategy::Stufe3_FullJoin: return "Stufe3_FullJoin";
+    }
+    return "";
+}
+
+// ── Ergebnis-POD: bool + Fehler-/Warnungs-Liste (literal, fuer Host-Ausgabe + Tests). ──
+struct ExperimentValidationResult {
+    bool                     ok = true;
+    std::vector<std::string> errors;
+    std::vector<std::string> warnings;
+    std::size_t              engines_checked    = 0;
+    std::size_t              phases_checked     = 0;
+    std::size_t              variants_checked   = 0; // gepruefte allowed_variants (0 = registry_dir leer / keine)
+    std::size_t              categories_checked = 0; // gepruefte <category>-Namen (0 = keine deklariert)
+};
+
+// ── Inhalt einer comdare_axis_registry.xml: engine-Attr + axis-id -> {baustein name}. ──
+struct RegistryContents {
+    std::string                                  engine;     // Wurzel @engine ("cache_engine" / "prt_art")
+    std::map<std::string, std::set<std::string>> axis_names; // axis-id -> {baustein name}
+};
+
+// read_axis_registry — liest EINE comdare_axis_registry.xml ueber den common-DOM (KEIN regex/tinyxml2).
+// nullopt bei Lese-/Parse-Fehler oder falschem Wurzel-Tag.
+[[nodiscard]] inline std::optional<RegistryContents> read_axis_registry(std::filesystem::path const& registry_file) {
+    std::ifstream in{registry_file};
+    if (!in) return std::nullopt;
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    auto root = ::comdare::common::xml::parse_document(ss.str());
+    if (!root || root->tag != "comdare_axis_registry") return std::nullopt;
+    RegistryContents rc;
+    rc.engine = root->attr("engine");
+    for (auto const* axis : root->children_named("axis")) {
+        auto& names = rc.axis_names[axis->attr("id")];
+        for (auto const* b : axis->children_named("baustein")) names.insert(b->attr("name"));
+    }
+    return rc;
+}
+
+/// validate_experiment_profile — DIE reine Pruef-Logik (read-only). `registry_dir` = Verzeichnis, gegen das
+/// die je-engine `registry`-Dateinamen aufgeloest werden (leer = (4)+(5) uebersprungen). Schreibt KEINE Datei,
+/// baut KEINE DLL, misst NICHTS. Gibt das Ergebnis-POD zurueck.
+[[nodiscard]] inline ExperimentValidationResult
+validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::path const& registry_dir = {}) {
+    ExperimentValidationResult r;
+
+    // ── (1) GENAU 2 engines. ──
+    r.engines_checked = ep.engines.size();
+    if (ep.engines.size() != 2) {
+        r.ok = false;
+        r.errors.push_back("EXPERIMENT braucht GENAU 2 <execution_engines><engine> (ee_ce + ee_prt), gefunden: " +
+                           std::to_string(ep.engines.size()) + ".");
+    }
+
+    // ── (2) mindestens 1 phase. ──
+    if (ep.phases.empty()) {
+        r.ok = false;
+        r.errors.push_back("EXPERIMENT braucht mindestens 1 <phases><phase> (die Kompositionalen Joins).");
+    }
+
+    // ── (3) jede phase.merge ∈ MergeStrategy-Enum. ──
+    std::set<std::string> valid_merges;
+    for (auto const s : kExperimentMergeStrategies) valid_merges.insert(std::string{merge_strategy_name(s)});
+    for (auto const& ph : ep.phases) {
+        ++r.phases_checked;
+        if (valid_merges.find(ph.merge) == valid_merges.end()) {
+            r.ok = false;
+            std::vector<std::string> const vm(valid_merges.begin(), valid_merges.end());
+            r.errors.push_back(
+                "UNGUELTIGE Merge-Strategie <phase name=\"" + ph.name + "\" merge=\"" + ph.merge +
+                "\">: kein MergeStrategy-Enum-Wert (pruefling_merge.hpp). Gueltig = " + preview_values(vm));
+        }
+    }
+
+    // ── (4)+(5): Registry-Dateien existieren + allowed_variants ⊆ ce-Registry-baustein-names. ──
+    if (registry_dir.empty()) {
+        r.warnings.push_back("registry_dir nicht gesetzt: Registry-Existenz (4) + allowed_variants (5) "
+                             "uebersprungen — rein strukturelle Validierung.");
+    } else {
+        std::optional<RegistryContents> ce_registry; // die Registry mit engine="cache_engine"
+        for (auto const& e : ep.engines) {
+            std::filesystem::path const rf = registry_dir / e.registry;
+            if (!std::filesystem::exists(rf)) {
+                r.ok = false;
+                r.errors.push_back("REGISTRY-Datei fehlt <engine id=\"" + e.id + "\" registry=\"" + e.registry +
+                                   "\">: nicht gefunden unter " + rf.string() + ".");
+                continue;
+            }
+            auto parsed = read_axis_registry(rf);
+            if (!parsed) {
+                r.warnings.push_back(
+                    "Registry <engine id=\"" + e.id + "\" registry=\"" + e.registry +
+                    "\"> nicht als comdare_axis_registry lesbar — allowed_variants-Pruefung entfaellt.");
+                continue;
+            }
+            if (parsed->engine == "cache_engine") ce_registry = std::move(parsed);
+        }
+        // (5) allowed_variants gegen die ce-Registry (Golden-Doku: Teilmenge der ce-`baustein name`-Werte).
+        if (!ep.axes_default_lookup.empty()) {
+            if (!ce_registry) {
+                r.warnings.push_back("keine ce-Registry (engine=\"cache_engine\") aufloesbar — "
+                                     "allowed_variants (5) nicht gegen die Registry geprueft.");
+            } else {
+                for (auto const& ax : ep.axes_default_lookup) {
+                    auto it = ce_registry->axis_names.find(ax.ref);
+                    if (it == ce_registry->axis_names.end()) {
+                        r.ok = false;
+                        r.errors.push_back("UNBEKANNTE Achse <axes_default_lookup><axis ref=\"" + ax.ref +
+                                           "\">: kein axis-id der ce-Registry (cache_engine_axis_registry.xml).");
+                        continue;
+                    }
+                    std::set<std::string> const& valid = it->second;
+                    for (auto const& v : ax.allowed_variants) {
+                        ++r.variants_checked;
+                        if (valid.find(v) == valid.end()) {
+                            r.ok = false;
+                            std::vector<std::string> const vv(valid.begin(), valid.end());
+                            r.errors.push_back("UNGUELTIGE allowed_variant <axis ref=\"" + ax.ref + "\">: \"" + v +
+                                               "\" ist kein `baustein name` dieser ce-Registry-Achse. Gueltig = " +
+                                               preview_values(vv));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── (6) jede category ∈ kAllMeasurementCategories (16). Single-Source = das Enum + der Registry-Name. ──
+    if (!ep.measurement_categories.empty()) {
+        std::set<std::string> valid_categories;
+        for (auto const cat : ms::kAllMeasurementCategories)
+            valid_categories.insert(std::string{ms::axis_info(cat).name});
+        std::set<std::string> seen_categories;
+        for (auto const& cat : ep.measurement_categories) {
+            ++r.categories_checked;
+            if (valid_categories.find(cat) == valid_categories.end()) {
+                r.ok = false;
+                std::vector<std::string> const valid(valid_categories.begin(), valid_categories.end());
+                r.errors.push_back("UNGUELTIGE Mess-Kategorie <measurement_categories><category name=\"" + cat +
+                                   "\">: kein MeasurementCategory-Name (kAllMeasurementCategories, 16). Gueltig = " +
+                                   preview_values(valid));
+            } else if (!seen_categories.insert(cat).second) {
+                r.warnings.push_back("category name=\"" + cat +
+                                     "\": mehrfach deklariert — redundante Spalten-Projektion (nicht fatal).");
+            }
+        }
+    }
+
+    return r;
 }
 
 } // namespace comdare::cache_engine::thesis_lazy

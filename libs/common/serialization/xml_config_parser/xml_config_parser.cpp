@@ -361,4 +361,70 @@ std::optional<ThesisProfile> XmlConfigParser::parse_thesis_profile(std::filesyst
     return tp;
 }
 
+// INC-D (2026-07-14): comdare_experiment-Parser ueber den self-contained XML-DOM (xml_reader.hpp).
+// REINE Lese-Schicht: liest ALLE Schema-Elemente (Attribute UND verschachtelte Werte). Fehlertolerant —
+// fehlende optionale Elemente -> Default (leer/false); struktureller Fehler (nicht wohlgeformt / falsches
+// Wurzel-Tag) -> nullopt. KEINE Enum-/Registry-Aufloesung hier (Baseline-Layering; die lebt in der
+// cache_engine-Schicht validate_experiment_profile).
+std::optional<ExperimentProfile>
+XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file) const {
+    if (!std::filesystem::exists(xml_file)) return std::nullopt;
+    std::string content = read_file(xml_file);
+    auto        root    = comdare::common::xml::parse_document(content);
+    if (!root || root->tag != "comdare_experiment") return std::nullopt;
+
+    ExperimentProfile ep;
+    ep.version = root->attr("version");
+    ep.id      = root->attr("id");
+
+    if (auto const* md = root->child("metadata")) {
+        if (auto const* n = md->child("name")) ep.metadata.name = n->text;
+        if (auto const* m = md->child("mode")) ep.metadata.mode = m->text;
+    }
+    if (auto const* ee = root->child("execution_engines")) {
+        for (auto const* e : ee->children_named("engine"))
+            ep.engines.push_back({e->attr("id"), e->attr("type"), e->attr("registry")});
+    }
+    if (auto const* lw = root->child("lebewesen")) {
+        for (auto const* t : lw->children_named("tier")) ep.lebewesen.push_back(t->attr("id"));
+    }
+    if (auto const* ph = root->child("phases")) {
+        for (auto const* p : ph->children_named("phase")) {
+            ExperimentPhase phase;
+            phase.name      = p->attr("name");
+            phase.merge     = p->attr("merge");
+            phase.engine    = p->attr("engine");
+            phase.engines   = split_ws(p->attr("engines")); // Whitespace-Liste (leer bei Einzel-engine)
+            phase.pruefling = p->attr("pruefling");
+            ep.phases.push_back(std::move(phase));
+        }
+    }
+    if (auto const* adl = root->child("axes_default_lookup")) {
+        ep.axes_default_lookup_enabled = (adl->attr("enabled") == "true" || adl->attr("enabled") == "1");
+        for (auto const* a : adl->children_named("axis")) {
+            ExperimentAxisDefault ax;
+            ax.ref              = a->attr("ref");
+            ax.allowed_variants = split_ws(a->attr("allowed_variants"));
+            ep.axes_default_lookup.push_back(std::move(ax));
+        }
+    }
+    if (auto const* w = root->child("workloads")) ep.workloads = w->text_tokens();
+    if (auto const* ds = root->child("datasets")) {
+        for (auto const* d : ds->children_named("dataset"))
+            ep.datasets.push_back({d->attr("id"), d->attr("akte_ref"), d->attr("loader")});
+    }
+    if (auto const* mc = root->child("measurement_categories")) {
+        for (auto const* c : mc->children_named("category")) ep.measurement_categories.push_back(c->attr("name"));
+    }
+    if (auto const* ot = root->child("op_types")) ep.op_types = ot->text_tokens();
+    if (auto const* out = root->child("output")) {
+        if (auto const* b = out->child("binary_path")) ep.output.binary_path = b->text;
+        if (auto const* c = out->child("csv_path")) ep.output.csv_path = c->text;
+        if (auto const* l = out->child("latex_path")) ep.output.latex_path = l->text;
+        if (auto const* cm = out->child("comparison_metrics"))
+            ep.output.comparison_metrics = (cm->text == "true" || cm->text == "1");
+    }
+    return ep;
+}
+
 } // namespace comdare::builder::xml
