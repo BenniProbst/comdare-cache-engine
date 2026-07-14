@@ -29,6 +29,14 @@ foreach(_axes_dir ${_comdare_axes_dirs})
     endif()
 endforeach()
 
+# INC-F (2026-07-14): den generierten axis_*_flags-Include-Satz als GLOBAL-Property exportieren, damit der
+# super-Subbuild-seitige W4-Gate-Test (super/Code/02_messung_driver/test_v32_katalog_driver, opt-in
+# COMDARE_V32_DRIVER_ENABLE) ihn via get_property liest — SINGLE-SOURCE (kein hartcodierter Dir-Satz, kein
+# Drift bei neuen Achsen). Laeuft im ce-Standalone-Build harmlos leer mit; im super-Embed (COMDARE_BUILD_TESTS
+# ON) wird ce VOR 02_messung_driver konfiguriert -> die Property ist dort verfuegbar. PROJECT_BINARY_DIR ist im
+# Embed == ${CMAKE_BINARY_DIR}/_cache_engine_external -> die Pfade stimmen fuer beide Builds.
+set_property(GLOBAL PROPERTY COMDARE_CE_AXIS_GENERATED_DIRS "${COMDARE_ALL_AXIS_GENERATED_DIRS}")
+
 function(comdare_prepare_thesis_object_dir target)
     file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${target}.dir/thesis_tiere")
 endfunction()
