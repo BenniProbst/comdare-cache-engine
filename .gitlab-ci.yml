@@ -276,8 +276,15 @@ contract:profile_coverage:
     # M-CE-25 (Muster-F, 2026-07-13): +test_smoke_coverage_profile +test_wdk_datasets_fairness +test_sota_st2_dedup
     # +test_validate_profile +test_h2_score_akte — alle contract;profiles-gelabelt, aber von KEINEM -R-Job gefahren
     # (test:unit -LE contract). Gehoeren in den Profil-Coverage-Gate (Profil-/E4-Vertraege). Lokal alle gruen bewiesen.
-    - cmake --build build-cov --target test_profile_coverage test_smoke_coverage_profile test_wdk_datasets_fairness test_sota_st2_dedup test_validate_profile test_h2_score_akte
-    - ctest --test-dir build-cov -R '^(test_profile_coverage|test_smoke_coverage_profile|test_wdk_datasets_fairness|test_sota_st2_dedup|test_validate_profile|test_h2_score_akte)$' --output-on-failure -V
+    # M-CE-27 (Muster-F, 2026-07-15): +test_profile_roundtrip — das HARTE golden-320-Roundtrip-Gate des PROFIL-Pfads
+    # (m3v2_study.profile.xml -> parse_thesis_profile -> StaticBinaryView == 320 binary_ids POSITIONSIDENTISCH zur
+    # eingefrorenen Golden-Liste; #139-Resume-Schutz). Das EXCLUDE_FROM_ALL-Adhoc-Target lief in KEINEM -R-Job: nur
+    # der comdare_tests-Sammel-Sweep (test:unit) zog es implizit mit, es gab KEIN dediziertes golden-Gate. Hier als
+    # expliziter -R-Gate im semantisch passenden Profil/Validierungs-Job gehoben (Target zur Build-Liste + Name in
+    # den -R-Regex). Das +contract-Label (tests/unit/CMakeLists.txt) haelt es aus test:unit -LE contract raus ->
+    # laeuft in GENAU DIESEM einen Job. Profil-XML + Golden-Liste werden NUR GELESEN (golden-320 TABU). Lokal gruen.
+    - cmake --build build-cov --target test_profile_coverage test_smoke_coverage_profile test_wdk_datasets_fairness test_sota_st2_dedup test_validate_profile test_h2_score_akte test_profile_roundtrip
+    - ctest --test-dir build-cov -R '^(test_profile_coverage|test_smoke_coverage_profile|test_wdk_datasets_fairness|test_sota_st2_dedup|test_validate_profile|test_h2_score_akte|test_profile_roundtrip)$' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 # -- Stufe 4g: Contract Experiment-Driver-Gate (#193-A CI-Luecke geschlossen + /fork-Direktive) --
