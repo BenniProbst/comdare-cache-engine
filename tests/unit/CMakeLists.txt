@@ -3334,7 +3334,11 @@ add_test(NAME test_profile_roundtrip
         "${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/m3v2_study.profile.xml"
         "${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt")
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_profile_roundtrip)
-set_tests_properties(test_profile_roundtrip PROPERTIES LABELS "thesis_tiere;golden;roundtrip" TIMEOUT 300)
+# M-CE-27 (Muster-F, 2026-07-15) — CI-Heimat: der dedizierte -R-Gate ist der contract:profile_coverage-Job der
+# ce-.gitlab-ci.yml (Profil-/E4-Validierung, semantisch der golden/validation-Job). Das +contract-Label sorgt dafuer,
+# dass test:unit (-LE contract|pmc) das Gate NICHT zusaetzlich sweept -> es laeuft in GENAU EINEM Job (Doktrin wie
+# die M-CE-25-Profil-Gates). golden/roundtrip bleiben als Semantik-Label erhalten; comdare_tests baut es weiterhin mit.
+set_tests_properties(test_profile_roundtrip PROPERTIES LABELS "thesis_tiere;golden;roundtrip;contract" TIMEOUT 300)
 
 comdare_thesis_adhoc_executable(test_axis_sweep_pilot
     SOURCES "thesis_tiere/test_axis_sweep_pilot.cpp")
