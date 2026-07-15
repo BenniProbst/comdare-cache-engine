@@ -60,7 +60,14 @@ fs::path temp_path(char const* name) {
 
 fs::path write_temp(char const* name, std::string const& content) {
     fs::path const p = temp_path(name);
-    std::ofstream{p} << content;
+    // M-CE-26 (2026-07-15): den Schreiberfolg pruefen — ein still gescheiterter ofstream
+    // (Owner-/Sticky-/Platz-Fehler) darf nicht als „leere Datei erfolgreich geschrieben" durchgehen.
+    std::ofstream os{p};
+    os << content;
+    if (!os) {
+        std::cout << "  [ERR] write_temp nicht schreibbar: " << p << "\n";
+        ++g_fail;
+    }
     return p;
 }
 
