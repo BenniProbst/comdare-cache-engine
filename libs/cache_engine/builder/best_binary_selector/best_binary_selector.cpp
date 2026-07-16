@@ -220,15 +220,43 @@ std::optional<ShippedArtifact> ShippedArtifactBuilder::build(RankedBinary const&
         return std::nullopt;
     }
 
-    // Schritt 2: DLL-Kopie als benanntes Versand-Artefakt.
-    art.shipped_dll = out_dir_ / (artifact_name_ + ".dll");
-    fs::copy_file(art.source_dll, art.shipped_dll, fs::copy_options::overwrite_existing, ec);
+    // (REV-DATA-06, WP-5 2026-07-16) ATOMARER PUBLISH: das komplette Artefaktset (DLL + .version-Sidecar +
+    // Manifest) wird ZUERST vollständig in ein temporäres Sibling-Verzeichnis geschrieben und verifiziert;
+    // erst danach wird es per fs::rename (atomar je Datei, Manifest ZULETZT) in den out_dir gehoben. Vorher
+    // überschrieb Schritt 2 die produktive DLL DIREKT (overwrite_existing) und ein Sidecar-Schreibfehler
+    // wurde ignoriert — jeder Fehler nach der DLL-Kopie hinterließ einen Mischstand (neue DLL + altes/leeres
+    // Sidecar/Manifest), den die Methode sogar als Erfolg meldete. Jetzt gilt: Fehler VOR dem ersten rename
+    // ⇒ vorherige Generation vollständig unverändert; die rename-Reihenfolge DLL → Version → Manifest stellt
+    // sicher, dass NIE ein neues Manifest auf eine alte DLL zeigt (Manifest = Commit-Marke).
+    fs::path const tmp_dir = out_dir_ / (".tmp_publish_" + artifact_name_);
+    fs::remove_all(tmp_dir, ec); // Reste eines früheren abgebrochenen Laufs entfernen (eigener Namensraum)
+    fs::create_directories(tmp_dir, ec);
     if (ec) {
-        error = "DLL-Kopie fehlgeschlagen: " + ec.message();
+        error = "temporaeres Publish-Verzeichnis konnte nicht angelegt werden: " + ec.message();
         return std::nullopt;
     }
+    // Best-effort-Aufräumen des tmp-Verzeichnisses auf JEDEM Fehlerpfad.
+    auto fail = [&](std::string msg) {
+        std::error_code ig;
+        fs::remove_all(tmp_dir, ig);
+        error = std::move(msg);
+        return std::nullopt;
+    };
 
-    // Schritt 3: .version-Sidecar mitliefern (Build-Version der Quelle, z.B. cowfix-v1).
+    // Schritt 2 (tmp): DLL-Kopie als benanntes Versand-Artefakt + Größen-Verifikation gegen die Quelle.
+    fs::path const tmp_dll = tmp_dir / (artifact_name_ + ".dll");
+    fs::copy_file(art.source_dll, tmp_dll, fs::copy_options::overwrite_existing, ec);
+    if (ec) return fail("DLL-Kopie fehlgeschlagen: " + ec.message());
+    auto const src_size = fs::file_size(art.source_dll, ec);
+    if (ec) return fail("Quell-DLL-Groesse nicht lesbar: " + ec.message());
+    auto const dst_size = fs::file_size(tmp_dll, ec);
+    if (ec || dst_size != src_size)
+        return fail("DLL-Kopie unvollstaendig (" + std::to_string(dst_size) + " != " + std::to_string(src_size) +
+                    " Bytes)");
+
+    // Schritt 3 (tmp): .version-Sidecar mitliefern (Build-Version der Quelle, z.B. cowfix-v1) — Schreiberfolg
+    // wird jetzt GEPRÜFT (vorher wurde ein Sidecar-Fehler still verschluckt und Erfolg gemeldet).
+    fs::path const tmp_version = tmp_dir / (artifact_name_ + ".dll.version");
     {
         std::ifstream vf{source_dir / "perm.dll.version", std::ios::binary};
         if (vf) {
@@ -236,35 +264,48 @@ std::optional<ShippedArtifact> ShippedArtifactBuilder::build(RankedBinary const&
             ss << vf.rdbuf();
             art.dll_build_version = ss.str();
         }
-        std::ofstream vout{out_dir_ / (artifact_name_ + ".dll.version"), std::ios::binary | std::ios::trunc};
-        if (vout) vout << art.dll_build_version;
+        std::ofstream vout{tmp_version, std::ios::binary | std::ios::trunc};
+        if (!vout) return fail("Version-Sidecar konnte nicht geoeffnet werden: " + tmp_version.string());
+        vout << art.dll_build_version;
+        vout.flush();
+        if (!vout.good()) return fail("Version-Sidecar-Schreiben fehlgeschlagen: " + tmp_version.string());
     }
 
-    // Schritt 4: Manifest (selbst-beschreibend; ABI-Major/Minor/Magic + Gewinner-Metrik + Herkunft).
+    // Zielpfade (kanonischer out_dir-Bestand) — erst NACH vollständigem tmp-Set befüllt.
+    art.shipped_dll   = out_dir_ / (artifact_name_ + ".dll");
     art.manifest_path = out_dir_ / (artifact_name_ + ".manifest.txt");
-    std::ofstream mf{art.manifest_path, std::ios::trunc};
-    if (!mf) {
-        error = "Manifest konnte nicht geschrieben werden";
-        return std::nullopt;
-    }
-    mf << "# COMDARE best-binary artifact manifest\n";
-    mf << "artifact_name=" << artifact_name_ << "\n";
-    mf << "shipped_dll=" << art.shipped_dll.filename().string() << "\n";
-    mf << "binary_id=" << art.binary_id << "\n";
-    mf << "ranking_metric=" << art.metric << "\n";
-    mf << "median_ns=" << art.median_value << "\n";
-    mf << "samples=" << art.samples << "\n";
-    mf << "source_dir=" << source_dir.string() << "\n";
-    mf << "dll_build_version=" << art.dll_build_version << "\n";
-    mf << "abi_major=" << kAbiMajor << "\n";
-    mf << "abi_minor=" << kAbiMinor << "\n";
-    mf << "abi_magic=0x" << std::hex << kAbiMagic << std::dec << "\n";
-    mf.flush();
-    if (!mf.good()) {
-        error = "Manifest-Flush fehlgeschlagen";
-        return std::nullopt;
+
+    // Schritt 4 (tmp): Manifest (selbst-beschreibend; ABI-Major/Minor/Magic + Gewinner-Metrik + Herkunft).
+    fs::path const tmp_manifest = tmp_dir / (artifact_name_ + ".manifest.txt");
+    {
+        std::ofstream mf{tmp_manifest, std::ios::trunc};
+        if (!mf) return fail("Manifest konnte nicht geschrieben werden");
+        mf << "# COMDARE best-binary artifact manifest\n";
+        mf << "artifact_name=" << artifact_name_ << "\n";
+        mf << "shipped_dll=" << art.shipped_dll.filename().string() << "\n";
+        mf << "binary_id=" << art.binary_id << "\n";
+        mf << "ranking_metric=" << art.metric << "\n";
+        mf << "median_ns=" << art.median_value << "\n";
+        mf << "samples=" << art.samples << "\n";
+        mf << "source_dir=" << source_dir.string() << "\n";
+        mf << "dll_build_version=" << art.dll_build_version << "\n";
+        mf << "abi_major=" << kAbiMajor << "\n";
+        mf << "abi_minor=" << kAbiMinor << "\n";
+        mf << "abi_magic=0x" << std::hex << kAbiMagic << std::dec << "\n";
+        mf.flush();
+        if (!mf.good()) return fail("Manifest-Flush fehlgeschlagen");
     }
 
+    // Schritt 5 (Commit): atomare renames in den out_dir — DLL → Version → MANIFEST ZULETZT (Commit-Marke:
+    // ein sichtbares neues Manifest garantiert, dass DLL + Sidecar bereits die neue Generation sind).
+    fs::rename(tmp_dll, art.shipped_dll, ec);
+    if (ec) return fail("Publish-rename der DLL fehlgeschlagen: " + ec.message());
+    fs::rename(tmp_version, out_dir_ / (artifact_name_ + ".dll.version"), ec);
+    if (ec) return fail("Publish-rename des Version-Sidecars fehlgeschlagen: " + ec.message());
+    fs::rename(tmp_manifest, art.manifest_path, ec);
+    if (ec) return fail("Publish-rename des Manifests fehlgeschlagen: " + ec.message());
+
+    fs::remove_all(tmp_dir, ec); // leeres tmp-Verzeichnis aufräumen (best-effort)
     return art;
 }
 
