@@ -268,3 +268,28 @@ TEST(ExperimentParser, RegistryEngineMismatchAndDuplicateCeAreErrors) {
 
     fs::remove_all(reg, ec);
 }
+
+// (c8) F12-Validator-Haelfte (WP-3, 2026-07-16) — ein Bogus-<op_types>-Token ist ein HARTER Fehler
+//      (XSD-Enumeration OP-1..OP-6; vorher mislabelte es die Messzeile still).
+TEST(ExperimentParser, BogusOpTypeTokenIsError) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->op_types.push_back("OP-9"); // ausserhalb der XSD-Enumeration
+
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "UNGUELTIGES <op_types>-Token"));
+    EXPECT_TRUE(any_contains(vr.errors, "OP-9"));
+}
+
+// (c9) F12-Validator-Haelfte (WP-3, 2026-07-16) — ein LEERES <op_types> ist ein HARTER Fehler
+//      (XSD: required; vorher erfand der deprecatete Parallel-Antrieb still "OP-1").
+TEST(ExperimentParser, EmptyOpTypesIsError) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->op_types.clear();
+
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "LEERES/FEHLENDES <op_types>"));
+}

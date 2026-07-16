@@ -392,6 +392,13 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
 //       (Referenz-Schluessel der Phasen; vorher ungeprueft).
 //   (8) F22 (WP-3, 2026-07-16): jedes gesetzte phase.pruefling ∈ den deklarierten <lebewesen><tier id=..>
 //       (vorher ungeprueft — ein Tippfehler validierte ok).
+//   (9) F12-Validator-Haelfte (WP-3, 2026-07-16): jedes <op_types>-Token ∈ {OP-1..OP-6} (HART) und ein
+//       LEERES/fehlendes <op_types> ist ein FEHLER — das XSD deklariert das Element als required mit
+//       enumeriertem OpTypeType (super Code/test_data_xml/experiment_schema.xsd:33/168-177). Vorher
+//       ungeprueft: ein Bogus-Token mislabelte die Messzeile still (phase@<bogus> misst den Basis-Workload),
+//       ein leeres Element erfand still "OP-1". Die 6 Token spiegeln die XSD-Enumeration; der super-Treiber
+//       fuehrt dieselbe Tabelle (02_messung_driver/op_type_filter.hpp kOpTypeTable) — ce darf super nicht
+//       inkludieren (Baseline-Layering), daher hier der XSD-Kontrakt als Single-Source zitiert.
 //   HINWEIS K7 (E11-gated, BEWUSST NICHT hier): Kardinalitaets-/Struktur-Regeln, die vom E11-Entscheid
 //   (Phasen-Kardinalitaet/Serie) abhaengen — ==3-Phasen-Haertung, engine/engines-XOR, phase.engine(s)-
 //   Referenz-Checks gegen die engine-ids, merge-Enum-Kardinalitaet je Phase (F19/F21) — bleiben offen,
@@ -505,6 +512,25 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
             r.errors.push_back("UNBEKANNTES Pruefling-Lebewesen <phase name=\"" + ph.name + "\" pruefling=\"" +
                                ph.pruefling +
                                "\">: keine deklarierte <lebewesen><tier id>. Deklariert = " + preview_values(ids));
+        }
+    }
+
+    // ── (9) F12-Validator-Haelfte: <op_types> HART gegen die XSD-Enumeration OP-1..OP-6; leer = FEHLER. ──
+    // XSD-Kontrakt (super Code/test_data_xml/experiment_schema.xsd:33 required, :168-177 OpTypeType-Enum);
+    // vorher mislabelte ein Bogus-Token die Messzeile still und ein leeres Element erfand "OP-1".
+    static constexpr std::string_view kValidOpTypes[] = {"OP-1", "OP-2", "OP-3", "OP-4", "OP-5", "OP-6"};
+    if (ep.op_types.empty()) {
+        r.ok = false;
+        r.errors.push_back("LEERES/FEHLENDES <op_types>: das XSD deklariert das Element als required "
+                           "(Whitespace-Liste aus OP-1..OP-6) — es wird KEIN Default erfunden.");
+    }
+    for (auto const& tok : ep.op_types) {
+        bool const known =
+            std::find(std::begin(kValidOpTypes), std::end(kValidOpTypes), tok) != std::end(kValidOpTypes);
+        if (!known) {
+            r.ok = false;
+            r.errors.push_back("UNGUELTIGES <op_types>-Token \"" + tok +
+                               "\": kein Wert der XSD-Enumeration OP-1..OP-6 (experiment_schema.xsd OpTypeType).");
         }
     }
 
