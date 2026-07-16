@@ -109,7 +109,8 @@ public:
 
     /// Build (Setup, NICHT gemessen): den (key,value) in die REALE Slot-Struktur legen (Pool-Indirektion / Chain-
     /// Knoten / versioniertem Pool-Eintrag). Existiert NUR fuer Nicht-Inline-Strategien (EmptyRealSlot ohne store_value).
-    void store_value(std::uint64_t key, std::uint64_t value) noexcept
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — delegiert an das allozierende real_slot-store_value.
+    void store_value(std::uint64_t key, std::uint64_t value)
         requires requires(real_slot_type s) { s.store_value(key, value); }
     {
         real_slot_.store_value(key, value);

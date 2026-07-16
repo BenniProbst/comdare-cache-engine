@@ -38,7 +38,9 @@ public:
     using family_id = std::integral_constant<int, 22>;
     using locking_t = Lock;
 
-    explicit PmrResourceAdapter(PmrParams params = {}) noexcept : params_{params} {
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — make_unique der pmr-Pool-Resourcen alloziert und
+    // kann werfen (IAllocationStrategy verlangt keinen nothrow-Konstruktor, nur nothrow-Destruktor).
+    explicit PmrResourceAdapter(PmrParams params = {}) : params_{params} {
         switch (params_.variant) {
             case PmrVariant::NewDelete: resource_ = std::pmr::new_delete_resource(); break;
             case PmrVariant::SynchronizedPool: {

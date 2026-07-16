@@ -59,7 +59,9 @@ public:
     }
 
     /// V11.1 Hot-Path-Hint: erste min(8, bytes) Byte als uint64 interpretieren + einreihen.
-    void note_hot_path_bytes(std::byte const* data, std::size_t bytes) noexcept {
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — enqueue() -> recent_path_.push_back kann
+    // allozieren/werfen (enqueue ist konsistent ebenfalls nicht noexcept).
+    void note_hot_path_bytes(std::byte const* data, std::size_t bytes) {
         if (data == nullptr || bytes == 0) return;
         std::uint64_t addr = 0;
         std::size_t   copy = bytes < sizeof(addr) ? bytes : sizeof(addr);

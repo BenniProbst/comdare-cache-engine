@@ -125,7 +125,8 @@ public:
     /// Build (Setup, NICHT gemessen): den Schluessel inkrementell in den materialisierten Patricia-Trie einordnen
     /// (crit-bit-Trie-Insert, Set-Semantik). Existiert NUR fuer Patricia (EmptyPatriciaTrie ohne insert_key →
     /// `none`-Build-Hook greift nicht → M3-Pin bleibt EXAKT No-Op).
-    void insert_key(std::uint64_t key) noexcept
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — delegiert an das allozierende PatriciaTrie::insert_key.
+    void insert_key(std::uint64_t key)
         requires requires(real_trie_type t) { t.insert_key(key); }
     {
         real_trie_.insert_key(key);

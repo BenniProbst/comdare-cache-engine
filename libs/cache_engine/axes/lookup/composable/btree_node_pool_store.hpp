@@ -143,7 +143,9 @@ public:
         nodes_[idx].child.fill(kNilU32);
         return idx;
     }
-    void free_node(std::size_t i) noexcept { free_.push_back(i); }
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — free_.push_back kann beim Free-List-Wachstum
+    // allozieren/werfen ([[allocation-failure-exception]]: werfen statt terminate; Concept verlangt kein noexcept).
+    void free_node(std::size_t i) { free_.push_back(i); }
     void set_root(std::size_t i) noexcept { root_ = i; }
     void set_node_n(std::size_t i, int n) noexcept { nodes_[i].n = static_cast<std::int16_t>(n); }
     void set_node_leaf(std::size_t i, bool b) noexcept { nodes_[i].leaf = b; }

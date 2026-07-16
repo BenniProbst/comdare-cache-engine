@@ -145,7 +145,9 @@ public:
     }
     /// Contract (Substrat/Organ-Vertrauensgrenze, wie alle Setter): i MUSS ein aktuell lebendiger, genau einmal
     /// freigegebener Knoten-Index sein — das Traversal-Organ garantiert das; der Store validiert nicht (#234-F3).
-    void free_node(std::size_t i) noexcept {
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — free_.push_back kann beim Free-List-Wachstum
+    // allozieren/werfen ([[allocation-failure-exception]]: werfen statt terminate; Concept verlangt kein noexcept).
+    void free_node(std::size_t i) {
         free_.push_back(i);
         --size_;
     }

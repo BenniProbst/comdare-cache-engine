@@ -116,7 +116,9 @@ public:
         x.child[1]                     = c1;
         return make_ref(kInternal, idx);
     }
-    void free_node(std::size_t r) noexcept {
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — free_.push_back kann beim Free-List-Wachstum
+    // allozieren/werfen ([[allocation-failure-exception]]: werfen statt terminate; Concept verlangt kein noexcept).
+    void free_node(std::size_t r) {
         if (ref_kind(r) == kLeaf) {
             std::size_t const old_capacity = fl_leaf_.capacity();
             fl_leaf_.push_back(ref_idx(r));

@@ -130,7 +130,9 @@ struct PatriciaTrie {
     /// (Duplikat → No-Op). Kanonischer crit-bit-Trie-Insert: das hoechstwertige differierende Bit gegen das durch
     /// den Descent gefundene „naechste" Blatt bestimmt den neuen inneren Knoten; er wird an der Position eingehaengt,
     /// an der seine crit_bit oberhalb der naechsten inneren crit_bit liegt (MSB-first, kleinere Position = weiter oben).
-    void insert_key(std::uint64_t key) noexcept {
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — nodes_.push_back kann allozieren/werfen
+    // ([[allocation-failure-exception]]: werfen statt terminate).
+    void insert_key(std::uint64_t key) {
         if (root_ == kNil) { // erster Schluessel → Blatt = Wurzel
             nodes_.push_back(Node{kLeaf, kNil, kNil, key});
             root_ = static_cast<std::uint32_t>(nodes_.size() - 1);

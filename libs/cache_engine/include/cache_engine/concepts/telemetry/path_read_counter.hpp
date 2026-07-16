@@ -17,7 +17,9 @@ public:
         return TelemetryStrategyKind::PathReadCounter;
     }
 
-    void record_block_read(std::uint64_t block_id) noexcept { ++counters_[block_id]; }
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — unordered_map::operator[] kann beim
+    // Erst-Insert/Rehash allozieren/werfen ([[allocation-failure-exception]]).
+    void record_block_read(std::uint64_t block_id) { ++counters_[block_id]; }
 
     [[nodiscard]] std::uint64_t block_read_count(std::uint64_t block_id) const noexcept {
         auto it = counters_.find(block_id);
