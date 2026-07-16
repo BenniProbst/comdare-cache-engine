@@ -91,6 +91,24 @@ int main(int argc, char** argv) {
         check(false, "strict: Fixture 2 (argv[2]) fehlt");
     }
 
+    // ── (REV-DATA-05, WP-5 2026-07-16): Artefaktnamen-Allowlist (Pfad-Traversal-Sperre) ──────────
+    check(bb::valid_artifact_stem("best_lookup"), "stem: 'best_lookup' zulaessig");
+    check(bb::valid_artifact_stem("Best-Binary_42"), "stem: alnum/_/- zulaessig");
+    check(!bb::valid_artifact_stem(""), "stem: leer abgelehnt");
+    check(!bb::valid_artifact_stem("../evil"), "stem: dotdot-Traversal abgelehnt");
+    check(!bb::valid_artifact_stem("..\\evil"), "stem: Windows-Traversal abgelehnt");
+    check(!bb::valid_artifact_stem("a/b"), "stem: Verzeichnistrenner abgelehnt");
+    check(!bb::valid_artifact_stem("a\\b"), "stem: Backslash abgelehnt");
+    check(!bb::valid_artifact_stem("/abs/path"), "stem: absoluter Pfad abgelehnt");
+    check(!bb::valid_artifact_stem("C:evil"), "stem: Drive-Form abgelehnt (':' nicht in Allowlist)");
+    check(!bb::valid_artifact_stem("name.dll"), "stem: '.' abgelehnt (keine Erweiterungs-Tricks)");
+    check(!bb::valid_artifact_stem("CON"), "stem: reservierter Windows-Name CON abgelehnt");
+    check(!bb::valid_artifact_stem("nul"), "stem: reservierter Windows-Name nul (case-insensitiv) abgelehnt");
+    check(!bb::valid_artifact_stem("COM1"), "stem: reservierter Windows-Name COM1 abgelehnt");
+    check(!bb::valid_artifact_stem("lpt9"), "stem: reservierter Windows-Name lpt9 abgelehnt");
+    check(bb::valid_artifact_stem("CONSOLE"), "stem: CONSOLE zulaessig (nur exakte reservierte Namen)");
+    check(!bb::valid_artifact_stem(std::string(121, 'a')), "stem: > kStemMax (120) abgelehnt");
+
     std::printf(g_fail == 0 ? "BEST-BINARY PARSE+RANK: ALLE OK\n" : "BEST-BINARY PARSE+RANK: %d FAIL\n", g_fail);
     return g_fail == 0 ? 0 : 1;
 }

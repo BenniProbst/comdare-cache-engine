@@ -179,10 +179,32 @@ std::optional<ShippedArtifact> ShippedArtifactBuilder::build(RankedBinary const&
                                                              fs::path const& source_dir, std::string& error) const {
     std::error_code ec;
 
+    // (REV-DATA-05, WP-5 2026-07-16) Schritt 0a: Namens-Härtung VOR jedem Schreib-Effekt. Nur ein einfacher
+    // Allowlist-Stamm ([A-Za-z0-9_-], keine Separatoren/dot/dotdot/reservierte Windows-Namen) ist zulässig —
+    // `--name ../../x` konnte zuvor mit overwrite_existing Dateien AUSSERHALB des out_dir überschreiben.
+    if (!valid_artifact_stem(artifact_name_)) {
+        error = "unzulaessiger Artefaktname (erlaubt: [A-Za-z0-9_-], 1.." + std::to_string(kStemMax) +
+                " Zeichen, keine reservierten Windows-Namen): '" + artifact_name_ + "'";
+        return std::nullopt;
+    }
+
     // Schritt 1: out_dir anlegen.
     fs::create_directories(out_dir_, ec);
     if (ec) {
         error = "out_dir konnte nicht angelegt werden: " + ec.message();
+        return std::nullopt;
+    }
+
+    // (REV-DATA-05) Schritt 0b: Containment-Wache (defense-in-depth zur Allowlist): der kanonisierte Zielpfad
+    // MUSS direkt unter dem kanonisierten out_dir liegen — sonst Abbruch ohne Schreib-Effekt.
+    fs::path const out_canon = fs::weakly_canonical(out_dir_, ec);
+    if (ec || out_canon.empty()) {
+        error = "out_dir nicht kanonisierbar: " + ec.message();
+        return std::nullopt;
+    }
+    fs::path const target_probe = fs::weakly_canonical(out_canon / (artifact_name_ + ".dll"), ec);
+    if (ec || target_probe.parent_path() != out_canon) {
+        error = "Zielpfad verlaesst out_dir (Containment-Verletzung): " + target_probe.string();
         return std::nullopt;
     }
 
