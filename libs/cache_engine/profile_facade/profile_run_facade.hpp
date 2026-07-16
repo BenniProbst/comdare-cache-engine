@@ -56,4 +56,15 @@ struct ProfileRunResult {
 // nicht lesbar. Erlaubt einen mehrtaegigen Voll-Lauf vor dem teuren Bau abzusichern.
 [[nodiscard]] int validate_profile_facade(std::filesystem::path const& profile_path, std::ostream& os);
 
+// GoF Facade (Bruecke-I2, 2026-07-16): rein-lesende Vorabpruefung der 3-Phasen-comdare_experiment-XML
+// (ExperimentProfile) — das Schwestergate zu validate_profile_facade fuer den zweiten offiziellen Profil-
+// Typ. Parst das Experiment-Profil + loest die je-Engine-Registries am STATISCHEN Pfad auf (2-Registry-
+// Kanon): der Host reicht beide Pfade als PARAMETER herein (die ce-Fassade haelt KEINEN prt-art-Pfad hart
+// vor — Baseline-Layering). `ce_registry_path` = cache_engine_axis_registry.xml, `prt_registry_path` =
+// prt_art_axis_registry.xml. Baut KEINE DLL und misst NICHT. Rueckgabe: 0 = gueltig, 1 = Verstoss (Report
+// auf os), 5 = Profil nicht als comdare_experiment lesbar.
+[[nodiscard]] int validate_experiment_profile_facade(std::filesystem::path const& profile_path,
+                                                     std::filesystem::path const& ce_registry_path,
+                                                     std::filesystem::path const& prt_registry_path, std::ostream& os);
+
 } // namespace comdare::cache_engine::builder::profile_facade
