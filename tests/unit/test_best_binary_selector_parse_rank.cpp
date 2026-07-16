@@ -11,6 +11,8 @@
 #include "best_binary_selector.hpp"
 
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -108,6 +110,49 @@ int main(int argc, char** argv) {
     check(!bb::valid_artifact_stem("lpt9"), "stem: reservierter Windows-Name lpt9 abgelehnt");
     check(bb::valid_artifact_stem("CONSOLE"), "stem: CONSOLE zulaessig (nur exakte reservierte Namen)");
     check(!bb::valid_artifact_stem(std::string(121, 'a')), "stem: > kStemMax (120) abgelehnt");
+
+    // ── (REV-DATA-05/06, WP-5 2026-07-16): ShippedArtifactBuilder E2E (tmp-Publish + Namens-Wache) ──
+    {
+        namespace fs       = std::filesystem;
+        fs::path const  tb = fs::temp_directory_path() / "bb_selector_wp5_test";
+        std::error_code ig;
+        fs::remove_all(tb, ig);
+        fs::path const src = tb / "src";
+        fs::path const out = tb / "out";
+        fs::create_directories(src, ig);
+        {
+            std::ofstream d{src / "perm.dll", std::ios::binary};
+            d << "FAKE_DLL_BYTES";
+            std::ofstream v{src / "perm.dll.version", std::ios::binary};
+            v << "wp5-test-v1";
+        }
+        bb::RankedBinary const winner{"bin_ok", 110.0, 3};
+        std::string            err;
+
+        // Negativ: Traversal-Name wird VOR jedem Schreib-Effekt abgelehnt; out_dir bleibt unangelegt.
+        bb::ShippedArtifactBuilder bad{out, "../evil"};
+        auto const                 bad_art = bad.build(winner, bb::Metric::ns_per_op, src, err);
+        check(!bad_art.has_value(), "builder: Traversal-Name '../evil' abgelehnt");
+        check(!err.empty(), "builder: Ablehnung traegt Fehlermeldung");
+        check(!fs::exists(tb / "evil.dll", ig) && !fs::exists(tb.parent_path() / "evil.dll", ig),
+              "builder: keine Datei ausserhalb out_dir entstanden");
+
+        // Positiv: atomarer Publish liefert DLL + Sidecar + Manifest; tmp-Verzeichnis ist aufgeraeumt.
+        err.clear();
+        bb::ShippedArtifactBuilder good{out, "best_test"};
+        auto const                 art = good.build(winner, bb::Metric::ns_per_op, src, err);
+        check(art.has_value(), ("builder: Publish erfolgreich (err='" + err + "')").c_str());
+        if (art) {
+            check(fs::exists(art->shipped_dll, ig), "builder: DLL ausgeliefert");
+            check(fs::exists(out / "best_test.dll.version", ig), "builder: Version-Sidecar ausgeliefert");
+            check(fs::exists(art->manifest_path, ig), "builder: Manifest ausgeliefert");
+            check(art->dll_build_version == "wp5-test-v1", "builder: Sidecar-Inhalt uebernommen");
+            check(fs::file_size(art->shipped_dll, ig) == fs::file_size(src / "perm.dll", ig),
+                  "builder: DLL-Groesse == Quelle (Kopie verifiziert)");
+            check(!fs::exists(out / ".tmp_publish_best_test", ig), "builder: tmp-Publish-Verzeichnis aufgeraeumt");
+        }
+        fs::remove_all(tb, ig);
+    }
 
     std::printf(g_fail == 0 ? "BEST-BINARY PARSE+RANK: ALLE OK\n" : "BEST-BINARY PARSE+RANK: %d FAIL\n", g_fail);
     return g_fail == 0 ? 0 : 1;
