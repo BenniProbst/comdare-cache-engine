@@ -118,12 +118,24 @@ public:
             result.push_back({"6.2", "QSBR", "cache_engine/concepts/mechanics/qsbr_mechanic.hpp"});
 
             // ===== Achse 6.3: NUMA Affinity =====
+            // S-2b (2026-07-16, Dossier 23 Abschnitt 2.3): Provenienz von tot+PHANTOM
+            // (numa_affinity.hpp::NumaAffinity existierte NIE) auf die LIVE-Gattungs-
+            // Substanz umgebogen: NUMA-Allocator-Kante alloc_hw (compile-time
+            // Unterachse). Host-NUMA-Regie (Interleave/Preferred als Prozess-Pinning)
+            // = TODO-Systemachse (Dossier 23 S-2), hier nicht vorhanden.
         } else if (axis_id == "6.3") {
-            result.push_back({"6.3", "Local", "cache_engine/concepts/numa_affinity.hpp::NumaAffinity::Local"});
-            result.push_back(
-                {"6.3", "Interleave", "cache_engine/concepts/numa_affinity.hpp::NumaAffinity::Interleave"});
-            result.push_back({"6.3", "Preferred", "cache_engine/concepts/numa_affinity.hpp::NumaAffinity::Preferred"});
-            result.push_back({"6.3", "Bind", "cache_engine/concepts/numa_affinity.hpp::NumaAffinity::Bind"});
+            result.push_back({"6.3", "Local",
+                              "cache_engine/axes/alloc/alloc_hw_config.hpp::AllocNumaNode (NUMA-Allocator-Kante, "
+                              "compile-time Unterachse; ex-Phantom numa_affinity.hpp::NumaAffinity)"});
+            result.push_back({"6.3", "Interleave",
+                              "cache_engine/axes/alloc/axis_06_allocator_subaxes_aa1_to_aa7.hpp AA5 allocation_policy "
+                              "(NUMA-origin-aware); Host-NUMA-Interleave = TODO-Systemachse (Dossier 23 S-2)"});
+            result.push_back({"6.3", "Preferred",
+                              "cache_engine/axes/alloc/alloc_hw_config.hpp::AllocNumaNode (Auto/Node-Praeferenz); "
+                              "Host-Preferred-Regie = TODO-Systemachse (Dossier 23 S-2)"});
+            result.push_back({"6.3", "Bind",
+                              "cache_engine/axes/alloc/alloc_hw_config.hpp::AllocNumaNode{Node0,Node1} "
+                              "(if-constexpr numa_capable-gated)"});
 
             // ===== Achse 6.4: Huge-Page Strategy =====
         } else if (axis_id == "6.4") {
@@ -160,12 +172,24 @@ public:
             result.push_back({"8.1", "Transactional", "cache_engine/concurrency_manager/tx/"});
 
             // ===== Achse 8.2: Locking-Mode =====
+            // S-2b (2026-07-16, Dossier 23 Abschnitt 2.2): Provenienz von tot+PHANTOM
+            // (locking_mode.hpp::LockingMode kennt Optimistic/Pessimistic/LockFree/
+            // WaitFree NICHT -- Header hat ReadOnly/ReadWrite/Upgradeable/
+            // OptimisticValidation) auf die LIVE-CRTP-Organe der concurrency-Achse 08
+            // umgebogen.
         } else if (axis_id == "8.2") {
-            result.push_back({"8.2", "Optimistic", "cache_engine/concepts/locking_mode.hpp::LockingMode::Optimistic"});
-            result.push_back(
-                {"8.2", "Pessimistic", "cache_engine/concepts/locking_mode.hpp::LockingMode::Pessimistic"});
-            result.push_back({"8.2", "LockFree", "cache_engine/concepts/locking_mode.hpp::LockingMode::LockFree"});
-            result.push_back({"8.2", "WaitFree", "cache_engine/concepts/locking_mode.hpp::LockingMode::WaitFree"});
+            result.push_back({"8.2", "Optimistic",
+                              "cache_engine/axes/concurrency_axis/axis_08_concurrency_registry.hpp::"
+                              "OlcOptimisticConcurrency (live CRTP-Organ; ex-Phantom locking_mode.hpp)"});
+            result.push_back({"8.2", "Pessimistic",
+                              "cache_engine/axes/concurrency_axis/axis_08_concurrency_registry.hpp::"
+                              "BlockingConcurrency (live CRTP-Organ, coarse-grained std::mutex; ex-Phantom)"});
+            result.push_back({"8.2", "LockFree",
+                              "cache_engine/axes/concurrency_axis/axis_08_concurrency_registry.hpp::"
+                              "LockFreeConcurrency (live CRTP-Organ; ex-Phantom)"});
+            result.push_back({"8.2", "WaitFree",
+                              "cache_engine/axes/concurrency_axis/axis_08_concurrency_registry.hpp::"
+                              "WaitFreeConcurrency (live CRTP-Organ; ex-Phantom)"});
 
             // ===== Achse 9: ISA-Targeting =====
         } else if (axis_id == "9") {
@@ -193,30 +217,57 @@ public:
             result.push_back({"11", "PathReadCounter", "cache_engine/concepts/telemetry/path_read_counter.hpp"});
 
             // ===== Achse 12.1 (existiert schon): SIMD-Family =====
+            // S-2b (2026-07-16, Dossier 23 Abschnitt 2.1): SimdFamily-Enum lebt real,
+            // aber im nun DEPRECATED V32.EE.5-Entwurf hardware_strategy.hpp. Provenienz
+            // auf die LIVE-SIMD-Substanz umgebogen: ISA-Achse 9 (concepts/isa/*.hpp) +
+            // Build-Achse simd_extension/09b + axis_12 general_hardware HW2
+            // simd_capability.
         } else if (axis_id == "12.1") {
-            result.push_back({"12.1", "Scalar", "cache_engine/concepts/hardware_strategy.hpp::SimdFamily::Scalar"});
-            result.push_back({"12.1", "AVX2", "cache_engine/concepts/hardware_strategy.hpp::SimdFamily::AVX2"});
-            result.push_back({"12.1", "AVX512", "cache_engine/concepts/hardware_strategy.hpp::SimdFamily::AVX512"});
-            result.push_back({"12.1", "NEON", "cache_engine/concepts/hardware_strategy.hpp::SimdFamily::NEON"});
-            result.push_back({"12.1", "SVE2", "cache_engine/concepts/hardware_strategy.hpp::SimdFamily::SVE2"});
+            result.push_back({"12.1", "Scalar",
+                              "cache_engine/concepts/isa/ (ISA-Achse 9 Generic; ex-Draft "
+                              "hardware_strategy.hpp::SimdFamily)"});
+            result.push_back({"12.1", "AVX2", "cache_engine/concepts/isa/avx2.hpp (ISA-Achse 9; simd_extension/09b)"});
+            result.push_back(
+                {"12.1", "AVX512", "cache_engine/concepts/isa/avx512f.hpp (ISA-Achse 9; simd_extension/09b)"});
+            result.push_back({"12.1", "NEON", "cache_engine/concepts/isa/arm_neon.hpp (ISA-Achse 9)"});
+            result.push_back({"12.1", "SVE2", "cache_engine/concepts/isa/arm_sve2.hpp (ISA-Achse 9)"});
 
         } else if (axis_id == "12.2") {
-            result.push_back(
-                {"12.2", "L1Aware", "cache_engine/concepts/hardware_strategy.hpp::CacheLevelTarget::L1Aware"});
-            result.push_back(
-                {"12.2", "L2Aware", "cache_engine/concepts/hardware_strategy.hpp::CacheLevelTarget::L2Aware"});
-            result.push_back(
-                {"12.2", "L3Aware", "cache_engine/concepts/hardware_strategy.hpp::CacheLevelTarget::L3Aware"});
-            result.push_back(
-                {"12.2", "HBMAware", "cache_engine/concepts/hardware_strategy.hpp::CacheLevelTarget::HBMAware"});
+            // S-2b (2026-07-16, Dossier 23 Abschnitt 2.1): KEINE treibende Live-Achse
+            // fuer Ziel-Cache-Level. Definition existiert nur als Build-Konstante
+            // (anatomy/build_variant_definition.hpp hw_cache_line /
+            // COMDARE_CACHE_LINE_SIZE); Ziel-Level-STEUERUNG als Achse = Deep-Research-
+            // TODO (ex-Draft hardware_strategy.hpp::CacheLevelTarget).
+            result.push_back({"12.2", "L1Aware",
+                              "cache_engine/anatomy/build_variant_definition.hpp hw_cache_line (Build-Konstante; "
+                              "keine treibende Achse -- TODO; ex-Draft hardware_strategy.hpp)"});
+            result.push_back({"12.2", "L2Aware",
+                              "cache_engine/anatomy/build_variant_definition.hpp hw_cache_line (Build-Konstante; "
+                              "keine treibende Achse -- TODO)"});
+            result.push_back({"12.2", "L3Aware",
+                              "cache_engine/anatomy/build_variant_definition.hpp hw_cache_line (Build-Konstante; "
+                              "keine treibende Achse -- TODO)"});
+            result.push_back({"12.2", "HBMAware",
+                              "cache_engine/anatomy/build_variant_definition.hpp hw_cache_line (Build-Konstante; "
+                              "keine treibende Achse -- TODO)"});
 
         } else if (axis_id == "12.3") {
-            result.push_back({"12.3", "Local", "cache_engine/concepts/hardware_strategy.hpp::NumaStrategy::Local"});
-            result.push_back(
-                {"12.3", "Interleave", "cache_engine/concepts/hardware_strategy.hpp::NumaStrategy::Interleave"});
-            result.push_back(
-                {"12.3", "Preferred", "cache_engine/concepts/hardware_strategy.hpp::NumaStrategy::Preferred"});
-            result.push_back({"12.3", "Bind", "cache_engine/concepts/hardware_strategy.hpp::NumaStrategy::Bind"});
+            // S-2b (2026-07-16, Dossier 23 Abschnitt 2.1): NumaStrategy-Enum lebt im nun
+            // DEPRECATED hardware_strategy.hpp; Provenienz auf die LIVE-NUMA-Allocator-
+            // Kante alloc_hw umgebogen (identisch Achse 6.3). Host-NUMA-Regie =
+            // TODO-Systemachse (Dossier 23 S-2).
+            result.push_back({"12.3", "Local",
+                              "cache_engine/axes/alloc/alloc_hw_config.hpp::AllocNumaNode (NUMA-Allocator-Kante; "
+                              "ex-Draft hardware_strategy.hpp::NumaStrategy)"});
+            result.push_back({"12.3", "Interleave",
+                              "cache_engine/axes/alloc/axis_06_allocator_subaxes_aa1_to_aa7.hpp AA5 allocation_policy; "
+                              "Host-Interleave = TODO-Systemachse"});
+            result.push_back({"12.3", "Preferred",
+                              "cache_engine/axes/alloc/alloc_hw_config.hpp::AllocNumaNode; Host-Preferred-Regie = "
+                              "TODO-Systemachse"});
+            result.push_back({"12.3", "Bind",
+                              "cache_engine/axes/alloc/alloc_hw_config.hpp::AllocNumaNode{Node0,Node1} "
+                              "(if-constexpr numa_capable-gated)"});
 
             // ===== Achse 12.4: Prefetch-Distance =====
         } else if (axis_id == "12.4") {
@@ -253,6 +304,15 @@ public:
             result.push_back({"13.3", "HybridAware", "Performance- vs Efficiency-Cores beruecksichtigen"});
 
             // ===== Achse 13.4: Memory-Interleave =====
+            // S-2b (2026-07-16, Dossier 23 Abschnitt 2.4/2.5): ACHSEN-ID-KOLLISION
+            // aufgeloest. Diese Registry-ID 13.4 bezeichnet MEMORY-INTERLEAVE (NUMA-
+            // Page-Platzierung) -- NICHT die gleichnamige ID 13.4 im historischen
+            // scheduling_strategy.hpp-Entwurf, die dort "Co-Routine-Strategy" meint
+            // (voellig anderes Thema, 0 Konsumenten). Die Memory-Interleave-Semantik
+            // gehoert thematisch zur NUMA-Kante (vgl. Achse 6.3/12.3); Co-Routine-
+            // Strategy = separater Neubau nur nach Deep-Research (Dossier 23, Fork
+            // S-1). scheduling_strategy.hpp bleibt hier UNBERUEHRT (Fork-S-1-Deferral).
+            // Strings bleiben deskriptiv (kein Header-Verweis).
         } else if (axis_id == "13.4") {
             result.push_back({"13.4", "NoInterleave", "single NUMA node"});
             result.push_back({"13.4", "RoundRobin", "page-level round-robin"});
