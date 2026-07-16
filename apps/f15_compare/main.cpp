@@ -33,6 +33,8 @@
 #include <anatomy/observable_tier.hpp>
 #include <anatomy/rollbackable_tier.hpp>
 #include <anatomy/scannable_tier.hpp> // V5-#49-E: Range-Scan-Sub-Interface (YCSB-E)
+// F5.R1 (#35): erster echter Konsument der Master-Framework-Gesamt-Fassade (get_cache_engine() ueber die EINE Tuer).
+#include <cache_engine/api/i_cache_engine.hpp>
 
 #include <algorithm>
 #include <charconv>
@@ -124,6 +126,18 @@ bool write_text_file(std::string const& path, std::string const& content) {
 } // namespace
 
 int main(int argc, char** argv) {
+    // F5.R1 (#35): das README-Beispiel eingelöst — ein minimaler REALER Aufruf über die Fassade beim Start.
+    // Additive stderr-Diagnose (wie die uebrigen cerr-Meldungen); die eigentliche Vergleichs-Ausgabe bleibt
+    // unveraendert. Belegt, dass get_cache_engine() in einem ECHTEN Binary linkt + laeuft (Linker-Falle zu).
+    {
+        auto&      ce  = ::comdare::cache_engine::api::get_cache_engine();
+        auto const isa = ce.isa_dispatch().detect();
+        std::cerr << "[cache-engine] Framework " << ce.framework_version() << " | ISA "
+                  << (isa.vendor.empty() ? "?" : isa.vendor) << " cache-line=" << isa.cache_line_bytes << "B"
+                  << " | System-Mess-Achsen=" << ce.measurement().system_axis_count()
+                  << " | deferred(#274)=" << ce.deferred_providers().size() << "\n";
+    }
+
     // B5 Plugin-Discovery: erstes Positions-Argument ist das DLL-Verzeichnis; fehlt es (oder beginnt
     // direkt mit einer Option), faellt die CLI auf die Umgebungsvariable COMDARE_PERM_ROOT zurueck.
     std::string dll_dir_str;
