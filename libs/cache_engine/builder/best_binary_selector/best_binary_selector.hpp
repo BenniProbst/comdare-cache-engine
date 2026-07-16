@@ -101,6 +101,10 @@ inline constexpr std::size_t kStemMax = 120;
 }
 
 // ── Mess-Zeile (header-getrieben; NUR die auswertungs-relevanten Felder) ──────────────────────────
+// (REV-DATA-07, WP-5 2026-07-16): zusätzlich der KANONISCHE ZELL-SCHLÜSSEL der Messung — Workload,
+// Working-Set, Plattform, Build, Serie und Setting (OHNE Wiederholungs-Segment; Wiederholungen sind die
+// Samples INNERHALB einer Zelle). Alle Zell-Spalten sind optional/header-getrieben (fehlende Spalte ⇒ ""
+// konstant über alle Zeilen ⇒ eine einzige Zelle = exakt das alte Verhalten, Rückwärtskompatibilität).
 struct MeasurementRow {
     std::string binary_id;
     bool        two_phase_valid = false;
@@ -110,7 +114,22 @@ struct MeasurementRow {
     double      op_erase_p50    = 0.0;
     double      op_scan_p50     = 0.0;
     double      op_rmw_p50      = 0.0;
+    // Zell-Dimensionen (REV-DATA-07; Reihenfolge = kCellDims):
+    std::string workload;      // WIDE-Spalte "workload" (Lastprofil-Name, "-" = alter fixer Workload)
+    std::string working_set;   // WIDE-Spalte "working_set_n" (als String — reiner Schlüsselvergleich)
+    std::string platform;      // WIDE-Spalte "platform"
+    std::string build_version; // WIDE-Spalte "build_version"
+    std::string series;        // WIDE-Spalte "series"
+    std::string setting_norep; // WIDE-Spalte "setting" OHNE "repetition.repetition_index=N"-Segment
+
+    /// Kanonischer Zell-Schlüssel (Stratum) dieser Zeile.
+    [[nodiscard]] std::string cell_key() const {
+        return workload + "|" + working_set + "|" + platform + "|" + build_version + "|" + series + "|" + setting_norep;
+    }
 };
+
+/// (REV-DATA-07) Die Zell-Dimensionen in kanonischer Reihenfolge (fürs Manifest / die Dokumentation).
+inline constexpr std::string_view kCellDims = "workload|working_set_n|platform|build_version|series|setting";
 
 // ── Strategy: Ranking-Kriterium (austauschbar) ────────────────────────────────────────────────────
 // Eine Metrik zieht aus einer Zeile genau EINEN Vergleichswert (ns). Kleiner = besser.
@@ -161,6 +180,7 @@ struct RankedBinary {
     std::string binary_id;
     double      median_value = 0.0; // ns (kleiner = besser)
     std::size_t samples      = 0;   // Anzahl gültiger, nicht-n/a-Zeilen
+    std::size_t cells        = 0;   // (REV-DATA-07) Anzahl abgedeckter Mess-Zellen (== erwartetes Raster)
 };
 
 /// CSV-Parser (header-getrieben, ';'-getrennt; Reihenfolge-/Breite-agnostisch wie csv_to_latex).
@@ -173,10 +193,16 @@ struct RankedBinary {
 [[nodiscard]] int parse_measurement_csv(std::filesystem::path const& in, std::vector<MeasurementRow>& out_rows,
                                         std::vector<std::string>* reject_diags = nullptr);
 
-/// Rangbildung: je binary_id Median des Kriteriums über NUR two_phase_valid-Zeilen mit Wert>0.
-/// Aufsteigend sortiert (Index 0 = beste). Strategy = crit.
+/// Rangbildung: je binary_id über NUR two_phase_valid-Zeilen mit Wert>0. Aufsteigend sortiert (Index 0 = beste).
+/// (REV-DATA-07, WP-5 2026-07-16) STRATIFIZIERT je Mess-Zelle (cell_key = kCellDims): das erwartete Raster ist
+/// die VEREINIGUNG aller beobachteten Zellen; ein Kandidat, der NICHT alle Zellen abdeckt, wird DISQUALIFIZIERT
+/// (Diagnose in `excluded`, falls != nullptr) — ein Binary, das in schweren Zellen fehlt, kann nicht mehr allein
+/// aus leichten Restzellen einen besseren Median bekommen. Aggregation = Median der Zell-Mediane (jede Zelle
+/// zählt gleich, unabhängig von der Wiederholungszahl). Ohne Zell-Spalten (alte CSVs) gibt es genau eine Zelle
+/// ⇒ identisches Verhalten wie zuvor. Strategy = crit.
 [[nodiscard]] std::vector<RankedBinary> rank_binaries(std::vector<MeasurementRow> const& rows,
-                                                      RankingCriterion const&            crit);
+                                                      RankingCriterion const&            crit,
+                                                      std::vector<std::string>*          excluded = nullptr);
 
 // ── Repository: binary_id → reale perm.dll im tiere/-Baum ────────────────────────────────────────
 /// Kapselt die Auflösung. tiere_dir = build/thesis_tiere/tiere. Liefert das Verzeichnis (mit perm.dll)

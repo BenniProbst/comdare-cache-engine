@@ -3057,9 +3057,11 @@ target_include_directories(test_best_binary_selector_parse_rank PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder/best_binary_selector")
 comdare_set_platform_defines(test_best_binary_selector_parse_rank)
 # (REV-DATA-04, WP-5 2026-07-16): Fixture 2 = strikte Zahl-Validierung (nan/inf/12junk/leer-Pflicht verworfen).
+# (REV-DATA-07, WP-5 2026-07-16): Fixture 3 = Zell-Raster (unvollstaendiger Kandidat wird disqualifiziert).
 add_test(NAME test_best_binary_selector_parse_rank COMMAND test_best_binary_selector_parse_rank
     "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/best_binary_wide.csv"
-    "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/best_binary_strict_values.csv")
+    "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/best_binary_strict_values.csv"
+    "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/best_binary_cells.csv")
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_best_binary_selector_parse_rank)
 set_tests_properties(test_best_binary_selector_parse_rank PROPERTIES LABELS "tools;best_binary" TIMEOUT 60)
 

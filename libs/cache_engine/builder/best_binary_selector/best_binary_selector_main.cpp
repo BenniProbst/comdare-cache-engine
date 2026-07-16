@@ -93,20 +93,28 @@ int main(int argc, char** argv) {
             std::cerr << "         ... (+" << (rejects.size() - show_rejects) << " weitere)\n";
     }
 
-    // 2) Rangbildung (Strategy = gewaehlte Metrik).
-    bb::RankingCriterion crit{metric};
-    auto const           ranked = bb::rank_binaries(rows, crit);
+    // 2) Rangbildung (Strategy = gewaehlte Metrik). (REV-DATA-07): stratifiziert je Mess-Zelle; Kandidaten
+    //    ohne volle Zell-Abdeckung werden disqualifiziert (Diagnose unten).
+    bb::RankingCriterion     crit{metric};
+    std::vector<std::string> disqualified;
+    auto const               ranked = bb::rank_binaries(rows, crit, &disqualified);
+    if (!disqualified.empty()) {
+        std::cerr << "[rank]   WARN: " << disqualified.size()
+                  << " Kandidat(en) disqualifiziert (unvollstaendige Zell-Abdeckung, REV-DATA-07):\n";
+        for (auto const& d : disqualified) std::cerr << "         " << d << "\n";
+    }
     if (ranked.empty()) {
-        std::cerr << "Keine two_phase_valid-Zeilen mit Metrik '" << bb::metric_name(metric) << "' (>0).\n";
+        std::cerr << "Keine two_phase_valid-Zeilen mit Metrik '" << bb::metric_name(metric)
+                  << "' (>0) und voller Zell-Abdeckung.\n";
         return 1;
     }
 
-    std::cout << "[rank]   Kriterium=" << bb::metric_name(metric) << " (Median ns, kleiner=besser), " << ranked.size()
-              << " distinkte binary_ids:\n";
+    std::cout << "[rank]   Kriterium=" << bb::metric_name(metric) << " (Median der Zell-Mediane ns, kleiner=besser), "
+              << ranked.size() << " distinkte binary_ids:\n";
     int const show = (top_n < static_cast<int>(ranked.size())) ? top_n : static_cast<int>(ranked.size());
     for (int r = 0; r < show; ++r) {
-        std::printf("  #%-2d  median=%12.3f ns  n=%-3zu  %s\n", r + 1, ranked[r].median_value, ranked[r].samples,
-                    ranked[r].binary_id.c_str());
+        std::printf("  #%-2d  median=%12.3f ns  n=%-3zu  zellen=%-3zu  %s\n", r + 1, ranked[r].median_value,
+                    ranked[r].samples, ranked[r].cells, ranked[r].binary_id.c_str());
     }
 
     // 3) Gewinner → reale perm.dll auffinden (Repository, orch_make_stem-Round-Trip).
