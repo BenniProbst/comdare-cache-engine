@@ -2570,6 +2570,33 @@ target_compile_definitions(test_experiment_parser PRIVATE
     "COMDARE_PRT_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/prt_art_axis_registry.xml\"")
 set_tests_properties(test_experiment_parser PROPERTIES LABELS "contract;profiles;e4;incd")
 
+# BRÜCKE I3 (2026-07-16) — ctest-Gate der Projektion ExperimentProfile → (merge×lebewesen)-Pässe/Quellen-Map
+# (sota_catalog.hpp::project_experiment_to_sota_passes, E5/Fork-5 (b) schmale Overloads). REINER Enumerations-/
+# Render-Schritt der Fork-A-Brücke — KEIN DLL-Bau, KEINE Messung. Beweist (a) je Phase die WÖRTLICH erwarteten
+# view-binary_id-Keys (Golden: Stufe1→Reihe A/7, Stufe2→Reihe A/6, Stufe3→Reihe B/6 = 19 Pässe), (b) nicht-leere
+# Quelltexte je Pass (COMDARE_DEFINE_ANATOMY_MODULE-Marker) 1:1 über view_binary_id, (c) nullopt-Paare ehrlich
+# ausgelassen (prt_art degeneriert unter Stufe2/Stufe3 ⇒ kein Phantom-Key/-Pass). experiment_golden.xml wird NUR
+# GELESEN. sota_catalog.hpp zieht die Compositions ⇒ Boost::mp11 + Achsen-Generated-Dirs wie test_sota_st2_dedup.
+comdare_add_test(test_experiment_projection
+    SOURCES thesis_tiere/test_experiment_projection.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+comdare_prepare_thesis_object_dir(test_experiment_projection)
+target_include_directories(test_experiment_projection PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_experiment_projection PRIVATE Boost::mp11)
+target_compile_definitions(test_experiment_projection PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_EXPERIMENT_GOLDEN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_golden.xml\"")
+set_tests_properties(test_experiment_projection PROPERTIES LABELS "contract;profiles;e4;incd")
+
 # M-CE-10 (Voll-Review 2026-07-13; per-Host-Auffaecherung 2026-07-14) — ctest-Gate der
 # Stufe2_PrueflingReplace-Materialisierung im sota_catalog. KORREKTUR F23 (2026-07-16): die fruehere
 # Beschreibung ("St2 = EINE Binary/HOT-Pilot, Dedup zu 1 Pass, h2_lebewesen == 'hot', 14 gezaehlt") war die
