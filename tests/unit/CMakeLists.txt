@@ -1363,6 +1363,15 @@ target_include_directories(test_v41_cache_engine_tools_facade PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine"
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
 
+# F5.R1 (#35) — ICacheEngine Master-Framework-Gesamt-Fassade: Smoke-Test (get_cache_engine() über die EINE Tür;
+# measurement/isa_dispatch/build_tools/test_system real vermittelt, search_engine/core ehrlich DEFERRED-#274).
+comdare_add_test(test_v41_cache_engine_facade
+    SOURCES test_v41_cache_engine_facade.cpp
+    LIBRARIES comdare::workload_generator)
+target_include_directories(test_v41_cache_engine_facade PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+
 # V41.F.6.1 R5.G — all_axes_umbrella.hpp (Auto-Emitter-Plumbing: alle 17 Achsen in einem Include).
 comdare_add_test(test_v41_codegen_all_axes_umbrella
     SOURCES test_v41_codegen_all_axes_umbrella.cpp)
