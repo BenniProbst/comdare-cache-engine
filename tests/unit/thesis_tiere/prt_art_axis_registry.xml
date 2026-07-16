@@ -1,3 +1,9 @@
+<!-- FIXTURE-PROVENIENZ (F33/F66, Voll-Audit 2026-07-16): KOPIE von comdare-prt-art
+     prt_art/algorithm_profiles/prt_art_axis_registry.xml (Master; Stand INC-B 2026-07-14, prt-art-Commit
+     1d66ded). Die Kopie ist Layering-gewollt (ce darf prt-art NICHT konsumieren, Standalone-Build ohne
+     Nachbar-Checkout) - Sync-PFLICHT bei jeder Registry-Regeneration im prt-art-Repo. Gate: super-ctest
+     test_fixture_sync_prt_registry (Code/tests/fixture_sync_check.cmake, Byte-Vergleich ohne diesen
+     Block); UEBERGANG bis E7-Single-Source (Bruecke I7). -->
 <comdare_axis_registry engine="prt_art" schema="1">
   <!-- GENERIERT von prt_art/registry_gen (INC-B) per compile-time-Reflektion der prt-art-Slot-
        Wrapper (PrueflingVariants). NICHT von Hand editieren. Gleiches Schema wie die ce-Registry

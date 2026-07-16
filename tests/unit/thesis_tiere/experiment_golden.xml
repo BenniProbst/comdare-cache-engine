@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- FIXTURE-PROVENIENZ (F33/F66, Voll-Audit 2026-07-16): SYNC-KOPIE - byte-identisch (ohne diesen
+     Block) zur Instanz super Code/test_data_xml/experiment_golden.xml. Welche Kopie KANONISCH ist,
+     ist offen (F27, user-gated) - bis dahin Sync-PFLICHT bei jeder Aenderung an einer der beiden.
+     Gate: super-ctest test_fixture_sync_experiment_golden (Code/tests/fixture_sync_check.cmake);
+     UEBERGANG bis E7-Single-Source (Bruecke I7). -->
 <!--
   INC-C (2026-07-14) - comdare_experiment GOLDEN-Instanz (3-Phasen-Vorlage).
 
