@@ -6,6 +6,8 @@
 #include "profile_run_entry.hpp"
 #include "validate_profile.hpp" // P5: axis_registry_from_levels / validate_profile / print_validation_report
 
+#include "xml_config_parser/xml_config_parser.hpp" // Bruecke-I2: XmlConfigParser / ExperimentProfile
+
 #include <builder/build_orchestrator/build_orchestrator.hpp>
 #include <builder/experiment_tree/registry_to_axis_levels.hpp> // P5: build_all_axis_levels (EnabledStrategies)
 #include <builder/workload_driver/load_profile_parser.hpp>
@@ -25,6 +27,7 @@ namespace comdare::cache_engine::builder::profile_facade {
 namespace ex  = ::comdare::cache_engine::builder::experiment;
 namespace tlz = ::comdare::cache_engine::thesis_lazy;
 namespace wd  = ::comdare::cache_engine::builder::workload_driver;
+namespace cx  = ::comdare::builder::xml; // Bruecke-I2: XmlConfigParser / ExperimentProfile
 
 namespace {
 
@@ -199,6 +202,64 @@ int validate_profile_facade(std::filesystem::path const& profile_path, std::ostr
 
     tlz::ProfileValidationResult const vr = tlz::validate_profile(*tp, registry, known_workload_ids);
     tlz::print_validation_report(vr, *tp, os);
+    os << "(--validate: rein-lesend — es wurde KEINE DLL gebaut und KEINE Messung durchgefuehrt.)\n";
+    return vr.ok ? 0 : 1;
+}
+
+int validate_experiment_profile_facade(std::filesystem::path const& profile_path,
+                                       std::filesystem::path const& ce_registry_path,
+                                       std::filesystem::path const& prt_registry_path, std::ostream& os) {
+    cx::XmlConfigParser const parser;
+    auto const                ep = parser.parse_experiment_profile(profile_path);
+    if (!ep) {
+        os << "[validate] Experiment-Profil '" << profile_path.string()
+           << "' nicht als comdare_experiment lesbar (parse_experiment_profile=nullopt). KEIN Bau ausgefuehrt.\n";
+        return 5;
+    }
+
+    // Bruecke-I2 (2-Registry-Kanon): je Engine EINE Registry am STATISCHEN Pfad. Die Map wird per Adapter-Typ
+    // gebaut (CacheEngineExecutionEngineAdapter→ce, PrtArtExecutionEngineAdapter→prt), mit Fallback per
+    // kanonischer engine-id (ee_ce/ee_prt) — so traegt jede deklarierte engine-id ihren statischen Pfad. Der
+    // Host reicht BEIDE Pfade herein (die ce-Fassade kennt das prt-art-Repo-Layout nicht — Baseline-Layering).
+    std::map<std::string, std::filesystem::path> engine_registry_paths;
+    for (auto const& e : ep->engines) {
+        if (e.type == "CacheEngineExecutionEngineAdapter")
+            engine_registry_paths[e.id] = ce_registry_path;
+        else if (e.type == "PrtArtExecutionEngineAdapter")
+            engine_registry_paths[e.id] = prt_registry_path;
+        else if (e.id == "ee_ce")
+            engine_registry_paths[e.id] = ce_registry_path;
+        else if (e.id == "ee_prt")
+            engine_registry_paths[e.id] = prt_registry_path;
+    }
+
+    // Bruecke-I1/M-CE-12: die REAL vorhandenen load_profiles/-ids enumerieren (gleicher co-lokalisierter
+    // Default-Pfad wie validate_profile_facade: thesis_profiles/../load_profiles) und als bekannte Workload-
+    // Menge hereinreichen — so faellt eine getippte <workloads>-id SCHON hier auf. Existiert das Verzeichnis
+    // nicht, bleibt die Menge leer (Pruefung uebersprungen, rueckwaerts-kompatibel).
+    std::set<std::string> known_workload_ids;
+    if (!profile_path.empty()) {
+        std::filesystem::path const load_profile_dir = profile_path.parent_path().parent_path() / "load_profiles";
+        for (auto const& idp : wd::discover_load_profiles(load_profile_dir)) known_workload_ids.insert(idp.first);
+    }
+
+    tlz::ExperimentValidationResult const vr =
+        tlz::validate_experiment_profile(*ep, {}, known_workload_ids, engine_registry_paths);
+
+    os << "=== EXPERIMENT-PROFIL-VALIDAT (rein-lesend; KEIN DLL-Bau, KEINE Messung) ===\n";
+    os << "  Experiment id=" << ep->id << " version=" << ep->version << "\n";
+    os << "  geprueft: " << vr.engines_checked << " engines, " << vr.phases_checked << " phases, "
+       << vr.variants_checked << " allowed_variants, " << vr.categories_checked << " measurement_categories";
+    if (vr.workloads_checked > 0) os << ", " << vr.workloads_checked << " workloads";
+    os << "\n";
+    for (auto const& w : vr.warnings) os << "  [HINWEIS] " << w << "\n";
+    for (auto const& e : vr.errors) os << "  [FEHLER]  " << e << "\n";
+    if (vr.ok)
+        os << "VALIDAT OK: das Experiment-Profil ist gegen die 2-Registry (ce+prt) + MergeStrategy/Kategorien "
+              "konsistent.\n";
+    else
+        os << "VALIDAT FEHLGESCHLAGEN: " << vr.errors.size()
+           << " Fehler — Experiment NICHT baubar (Abbruch vor Bau).\n";
     os << "(--validate: rein-lesend — es wurde KEINE DLL gebaut und KEINE Messung durchgefuehrt.)\n";
     return vr.ok ? 0 : 1;
 }
