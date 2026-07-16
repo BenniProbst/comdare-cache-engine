@@ -260,8 +260,10 @@ contract:harness:
   script:
     # Build-Parallelitaet via globalem CMAKE_BUILD_PARALLEL_LEVEL (Runner-Core-Budget), NICHT -j nproc.
     - cmake -B build-harness -G Ninja -DCOMDARE_BUILD_TESTS=ON
-    - cmake --build build-harness --target test_harness_compile
-    - ctest --test-dir build-harness -R '^test_harness_compile$' --output-on-failure -V
+    # F18/WP-0 (Voll-Audit 2026-07-16): +test_lazy_resume_binary (M-CE-05, Labels contract;standalone;harness;
+    # resume — von test:unit -LE contract ausgeschlossen, lief in KEINEM -R-Job). Heimat = der Harness-Gate.
+    - cmake --build build-harness --target test_harness_compile test_lazy_resume_binary
+    - ctest --test-dir build-harness -R '^(test_harness_compile|test_lazy_resume_binary)$' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
@@ -283,8 +285,12 @@ contract:profile_coverage:
     # expliziter -R-Gate im semantisch passenden Profil/Validierungs-Job gehoben (Target zur Build-Liste + Name in
     # den -R-Regex). Das +contract-Label (tests/unit/CMakeLists.txt) haelt es aus test:unit -LE contract raus ->
     # laeuft in GENAU DIESEM einen Job. Profil-XML + Golden-Liste werden NUR GELESEN (golden-320 TABU). Lokal gruen.
-    - cmake --build build-cov --target test_profile_coverage test_smoke_coverage_profile test_wdk_datasets_fairness test_sota_st2_dedup test_validate_profile test_h2_score_akte test_profile_roundtrip
-    - ctest --test-dir build-cov -R '^(test_profile_coverage|test_smoke_coverage_profile|test_wdk_datasets_fairness|test_sota_st2_dedup|test_validate_profile|test_h2_score_akte|test_profile_roundtrip)$' --output-on-failure -V
+    # F18/WP-0 (Voll-Audit 2026-07-16, Muster-F 4. Loch): +test_experiment_parser (INC-D comdare_experiment-
+    # Parser-Modul + validate gegen die REALEN Registries) +test_measurement_categories (INC-3) — beide
+    # contract;profiles;e4-gelabelt (raus aus test:unit -LE contract), aber von KEINEM -R-Job gefahren ->
+    # Phantom-Verifikationssignal der A-H-Welle. Hier im semantisch passenden Profil-/E4-Vertrags-Gate gehoben.
+    - cmake --build build-cov --target test_profile_coverage test_smoke_coverage_profile test_wdk_datasets_fairness test_sota_st2_dedup test_validate_profile test_h2_score_akte test_profile_roundtrip test_experiment_parser test_measurement_categories
+    - ctest --test-dir build-cov -R '^(test_profile_coverage|test_smoke_coverage_profile|test_wdk_datasets_fairness|test_sota_st2_dedup|test_validate_profile|test_h2_score_akte|test_profile_roundtrip|test_experiment_parser|test_measurement_categories)$' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 # -- Stufe 4g: Contract Experiment-Driver-Gate (#193-A CI-Luecke geschlossen + /fork-Direktive) --
