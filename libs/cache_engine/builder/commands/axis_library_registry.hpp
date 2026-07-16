@@ -325,6 +325,12 @@ public:
             result.push_back({"13.5", "MacroBatch", "128+ ops per batch"});
 
             // ===== Achse 14: ENGINE-CHOICE =====
+            // S-3 (2026-07-16, Dossier 23 Abschnitt 4.3, Fork S-3): BETRIEBSWAHL-
+            // Dimension -- WELCHE Engine laeuft (V1 manuell / V2 adaptive / V3 hybrid /
+            // V4 Voll-Permutation), KEINE Pruef-Stufe. NICHT zu verwechseln mit den 3
+            // Merge-Stufen (Stufe1_CeOnly / Stufe2_PrueflingReplace / Stufe3_FullJoin);
+            // die V1..V4-Werte sind KEINE "4. Stufe" (User-Diktum "keine 4. Stufe",
+            // Fork S-3 2026-07-16). Betriebswahl != Pruefstufe.
         } else if (axis_id == "14") {
             result.push_back({"14", "V1_Manual_Profile", "AlgorithmProfile gewaehlt manuell"});
             result.push_back({"14", "V2_Adaptive_RuntimeDetect", "ICacheStrategy waehlt anhand Workload"});
