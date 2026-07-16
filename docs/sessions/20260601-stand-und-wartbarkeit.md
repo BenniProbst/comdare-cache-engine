@@ -3,6 +3,7 @@
 > **Zweck:** Vollständiger, IST-verifizierter Stand nach dem autonomen TODO-Sweep (2026-06-01), als Basis für
 > die vom User gewünschte „Ordnung & Wartbarkeit"-Phase. Single-Source-of-Truth bleibt das
 > `architektur-ziele-offene-punkte-ledger.md`; dieses Dokument ist die narrative Übersicht + Wartbarkeits-Agenda.
+> **[KLARSTELLUNG 2026-07-16, Voll-Audit F67]:** historisch — das ce-Ledger ist selbst SUPERSEDED; autoritativ = super-Ledger `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` (Diplomarbeit-Root).
 
 ---
 

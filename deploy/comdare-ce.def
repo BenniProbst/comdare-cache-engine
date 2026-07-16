@@ -1,3 +1,7 @@
+# ⚠️ DEPRECATED (2026-07-16, Voll-Audit F68): Der ZIH-/Apptainer-Pfad (GATE-MAXIMAL-ZIH) ist supersediert
+# durch den #156-prod-GitLab-Runner-Pivot (docs/sessions/20260623-PIVOT-PLAN-156-GITLAB-RUNNER-PROD.md;
+# ZIH deprioritisiert per User 2026-06-23, nicht gestrichen). Datei bleibt als historische Referenz erhalten —
+# KEINE Löschung ohne je-Repo-GO. NICHT weiterentwickeln.
 Bootstrap: docker
 From: gcc:13
 

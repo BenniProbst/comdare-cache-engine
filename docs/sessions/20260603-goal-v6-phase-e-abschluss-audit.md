@@ -8,6 +8,7 @@ Schlussfolgerung über den autonom-abschließbaren Umfang.
 
 > **Single-Source bleibt** `architektur-ziele-offene-punkte-ledger.md` (§2.5 + die L-*-Sektionen mit literalem IST je
 > Datei:Zeile + Commit-Hash). Dieser Audit fasst zusammen + bewertet; bei Widerspruch hat das Ledger Vorrang.
+> **[KLARSTELLUNG 2026-07-16, Voll-Audit F67]:** historisch — das ce-Ledger ist selbst SUPERSEDED; autoritativ = super-Ledger `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` (Diplomarbeit-Root).
 
 ## 1. Konsolidierte Verifikation (literal, 2026-06-03)
 
