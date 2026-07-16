@@ -21,6 +21,7 @@
 
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <optional>
 #include <string>
 #include <system_error>
@@ -205,4 +206,65 @@ TEST(ExperimentParser, EngineCountMustBeExactlyTwo) {
     EXPECT_FALSE(vr.ok);
     EXPECT_EQ(vr.engines_checked, 1u);
     EXPECT_TRUE(any_contains(vr.errors, "GENAU 2"));
+}
+
+// (c4) F22 (WP-3, 2026-07-16) — doppelte engine-id ist ein HARTER Fehler (Referenz-Schluessel der Phasen).
+TEST(ExperimentParser, DuplicateEngineIdIsError) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->engines[1].id = "ee_ce"; // Duplikat (weiterhin 2 engines -> nur die Eindeutigkeit schlaegt an)
+
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "DOPPELTE engine-id"));
+}
+
+// (c5) F22 (WP-3, 2026-07-16) — phase.pruefling muss ein deklariertes <lebewesen><tier id> sein.
+TEST(ExperimentParser, UnknownPrueflingIsError) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->phases[1].pruefling = "prt_atr"; // Tippfehler (Golden deklariert prt_art)
+
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "UNBEKANNTES Pruefling-Lebewesen"));
+    EXPECT_TRUE(any_contains(vr.errors, "prt_atr"));
+}
+
+// (c6) F28 (WP-3, 2026-07-16) — eine UNLESBARE Registry-Datei ist jetzt ein HARTER Fehler (vorher nur
+//      WARNUNG: eine korrupte Registry validierte 'ok' mit still uebersprungener allowed_variants-Pruefung).
+TEST(ExperimentParser, UnreadableRegistryIsError) {
+    auto const ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+
+    fs::path const reg = make_registry_dir();
+    {
+        std::ofstream out{reg / "prt_art_axis_registry.xml", std::ios::binary | std::ios::trunc};
+        out << "<kaputt"; // nicht wohlgeformt -> read_axis_registry == nullopt
+    }
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep, reg);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "REGISTRY-Datei unlesbar"));
+
+    std::error_code ec;
+    fs::remove_all(reg, ec);
+}
+
+// (c7) F22/F28 (WP-3, 2026-07-16) — engine-Attribut-Abgleich (2-Registry-Kanon): traegt die von ee_prt
+//      referenzierte Datei engine="cache_engine" (Copy-Paste-Fehler), ist das ein MISMATCH-Fehler UND ein
+//      Doppel-ce-Fehler (vorher: stilles last-wins ueberschrieb die echte ce-Registry im (5)-Check).
+TEST(ExperimentParser, RegistryEngineMismatchAndDuplicateCeAreErrors) {
+    auto const ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+
+    fs::path const  reg = make_registry_dir();
+    std::error_code ec;
+    fs::copy_file(reg / "cache_engine_axis_registry.xml", reg / "prt_art_axis_registry.xml",
+                  fs::copy_options::overwrite_existing, ec); // prt-Dateiname traegt jetzt die ce-Registry
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep, reg);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "REGISTRY-ENGINE-MISMATCH"));
+    EXPECT_TRUE(any_contains(vr.errors, "DOPPELTE ce-Registry"));
+
+    fs::remove_all(reg, ec);
 }

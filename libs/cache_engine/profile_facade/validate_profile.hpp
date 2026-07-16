@@ -377,11 +377,25 @@ inline void print_validation_report(ProfileValidationResult const& r, cx::Thesis
 //   (1) GENAU 2 <execution_engines><engine> (ee_ce + ee_prt).
 //   (2) mindestens 1 <phases><phase>.
 //   (3) jede phase.merge ∈ MergeStrategy-Enum (pruefling_merge.hpp: Stufe1_CeOnly/Stufe2_.../Stufe3_...).
-//   (4) die je-engine referenzierten Registry-Dateien existieren (registry_dir/<registry>).
+//   (4) die je-engine referenzierten Registry-Dateien existieren (registry_dir/<registry>) UND sind als
+//       comdare_axis_registry lesbar (F28, WP-3 2026-07-16: unlesbar war vorher nur WARNUNG — eine korrupte
+//       Registry validierte 'ok' mit still uebersprungener (5)-Pruefung; jetzt HARTER Fehler). Zusaetzlich
+//       engine-Attribut-Abgleich (F22/F28): die Registry einer bekannten engine-id muss das passende
+//       Wurzel-engine-Attribut tragen (ee_ce→"cache_engine", ee_prt→"prt_art"; Copy-Paste-Mismatch=FEHLER);
+//       eine ZWEITE Registry mit engine="cache_engine" ist ein FEHLER (vorher last-wins: sie ueberschrieb
+//       still die echte ce-Registry im (5)-Check).
 //   (5) jede <axes_default_lookup> allowed_variants ⊆ der `baustein name`-Werte der ce-Registry
 //       (Wurzel engine="cache_engine") fuer die Achse `ref`; unbekannte Achse = Fehler.
 //   (6) jede <measurement_categories> category ∈ kAllMeasurementCategories (16, measurement_category.hpp) —
 //       Single-Source ueber measurement_axis_registry::axis_info(cat).name; Duplikat = WARNUNG.
+//   (7) F22 (WP-3, 2026-07-16): engine-id-EINDEUTIGKEIT — eine doppelte <engine id=..> ist ein FEHLER
+//       (Referenz-Schluessel der Phasen; vorher ungeprueft).
+//   (8) F22 (WP-3, 2026-07-16): jedes gesetzte phase.pruefling ∈ den deklarierten <lebewesen><tier id=..>
+//       (vorher ungeprueft — ein Tippfehler validierte ok).
+//   HINWEIS K7 (E11-gated, BEWUSST NICHT hier): Kardinalitaets-/Struktur-Regeln, die vom E11-Entscheid
+//   (Phasen-Kardinalitaet/Serie) abhaengen — ==3-Phasen-Haertung, engine/engines-XOR, phase.engine(s)-
+//   Referenz-Checks gegen die engine-ids, merge-Enum-Kardinalitaet je Phase (F19/F21) — bleiben offen,
+//   bis der User-Fork C (F21) entschieden ist.
 // registry_dir leer = (4)+(5) uebersprungen (rein strukturelle Validierung; der Host reicht das
 // Registry-Verzeichnis herein — analog validate_profile::known_workload_ids).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -453,15 +467,29 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
                            std::to_string(ep.engines.size()) + ".");
     }
 
+    // ── (7) F22: engine-id-Eindeutigkeit (Referenz-Schluessel der Phasen; Duplikat = HARTER Fehler). ──
+    {
+        std::set<std::string> engine_ids;
+        for (auto const& e : ep.engines) {
+            if (!engine_ids.insert(e.id).second) {
+                r.ok = false;
+                r.errors.push_back("DOPPELTE engine-id <engine id=\"" + e.id +
+                                   "\">: die id muss je Experiment eindeutig sein (Referenz-Schluessel der "
+                                   "<phase engine(s)>-Zuordnung).");
+            }
+        }
+    }
+
     // ── (2) mindestens 1 phase. ──
     if (ep.phases.empty()) {
         r.ok = false;
         r.errors.push_back("EXPERIMENT braucht mindestens 1 <phases><phase> (die Kompositionalen Joins).");
     }
 
-    // ── (3) jede phase.merge ∈ MergeStrategy-Enum. ──
+    // ── (3) jede phase.merge ∈ MergeStrategy-Enum. (8) F22: gesetztes pruefling ∈ <lebewesen>-tier-ids. ──
     std::set<std::string> valid_merges;
     for (auto const s : kExperimentMergeStrategies) valid_merges.insert(std::string{merge_strategy_name(s)});
+    std::set<std::string> const lebewesen_ids(ep.lebewesen.begin(), ep.lebewesen.end());
     for (auto const& ph : ep.phases) {
         ++r.phases_checked;
         if (valid_merges.find(ph.merge) == valid_merges.end()) {
@@ -471,6 +499,13 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
                 "UNGUELTIGE Merge-Strategie <phase name=\"" + ph.name + "\" merge=\"" + ph.merge +
                 "\">: kein MergeStrategy-Enum-Wert (pruefling_merge.hpp). Gueltig = " + preview_values(vm));
         }
+        if (!ph.pruefling.empty() && lebewesen_ids.find(ph.pruefling) == lebewesen_ids.end()) {
+            r.ok = false;
+            std::vector<std::string> const ids(lebewesen_ids.begin(), lebewesen_ids.end());
+            r.errors.push_back("UNBEKANNTES Pruefling-Lebewesen <phase name=\"" + ph.name + "\" pruefling=\"" +
+                               ph.pruefling +
+                               "\">: keine deklarierte <lebewesen><tier id>. Deklariert = " + preview_values(ids));
+        }
     }
 
     // ── (4)+(5): Registry-Dateien existieren + allowed_variants ⊆ ce-Registry-baustein-names. ──
@@ -478,6 +513,14 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
         r.warnings.push_back("registry_dir nicht gesetzt: Registry-Existenz (4) + allowed_variants (5) "
                              "uebersprungen — rein strukturelle Validierung.");
     } else {
+        // F22/F28 (WP-3, 2026-07-16): 2-Registry-Kanon — erwartetes Wurzel-engine-Attribut je BEKANNTER
+        // engine-id (ee_ce→cache_engine, ee_prt→prt_art). Unbekannte ids tragen keine Erwartung (das
+        // WELCHE-ids-Vokabular ist Schema-/E11-Frage, K7) — geprueft wird nur der Copy-Paste-Mismatch.
+        auto const expected_registry_engine = [](std::string const& engine_id) -> std::string_view {
+            if (engine_id == "ee_ce") return "cache_engine";
+            if (engine_id == "ee_prt") return "prt_art";
+            return {};
+        };
         std::optional<RegistryContents> ce_registry; // die Registry mit engine="cache_engine"
         for (auto const& e : ep.engines) {
             std::filesystem::path const rf = registry_dir / e.registry;
@@ -489,12 +532,34 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
             }
             auto parsed = read_axis_registry(rf);
             if (!parsed) {
-                r.warnings.push_back(
-                    "Registry <engine id=\"" + e.id + "\" registry=\"" + e.registry +
-                    "\"> nicht als comdare_axis_registry lesbar — allowed_variants-Pruefung entfaellt.");
+                // F28: HARTER Fehler (vorher WARNUNG) — eine korrupte Registry validierte 'ok', waehrend die
+                // allowed_variants-Pruefung (5) still uebersprungen wurde; die fehlende Datei war bereits Fehler.
+                r.ok = false;
+                r.errors.push_back("REGISTRY-Datei unlesbar <engine id=\"" + e.id + "\" registry=\"" + e.registry +
+                                   "\">: nicht als comdare_axis_registry parsbar (" + rf.string() +
+                                   ") — korrupte/fremde Registry darf nicht 'ok' validieren.");
                 continue;
             }
-            if (parsed->engine == "cache_engine") ce_registry = std::move(parsed);
+            // F22/F28: engine-Attribut-Abgleich fuer bekannte ids (Copy-Paste-Fehler = HARTER Fehler).
+            std::string_view const expected = expected_registry_engine(e.id);
+            if (!expected.empty() && parsed->engine != expected) {
+                r.ok = false;
+                r.errors.push_back("REGISTRY-ENGINE-MISMATCH <engine id=\"" + e.id + "\" registry=\"" + e.registry +
+                                   "\">: Wurzel-Attribut engine=\"" + parsed->engine + "\", erwartet \"" +
+                                   std::string{expected} + "\" (2-Registry-Kanon; Copy-Paste-Fehler?).");
+            }
+            if (parsed->engine == "cache_engine") {
+                if (ce_registry) {
+                    // F28: Doppel-ce war vorher last-wins — die zweite Datei ueberschrieb still die echte
+                    // ce-Registry im (5)-Check. Jetzt HARTER Fehler; die ERSTE bleibt Pruef-Referenz.
+                    r.ok = false;
+                    r.errors.push_back("DOPPELTE ce-Registry <engine id=\"" + e.id + "\" registry=\"" + e.registry +
+                                       "\">: es darf genau EINE Registry mit engine=\"cache_engine\" referenziert "
+                                       "sein (vorher stilles last-wins im allowed_variants-Check).");
+                } else {
+                    ce_registry = std::move(parsed);
+                }
+            }
         }
         // (5) allowed_variants gegen die ce-Registry (Golden-Doku: Teilmenge der ce-`baustein name`-Werte).
         if (!ep.axes_default_lookup.empty()) {
