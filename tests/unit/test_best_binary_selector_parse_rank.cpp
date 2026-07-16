@@ -93,6 +93,33 @@ int main(int argc, char** argv) {
         check(false, "strict: Fixture 2 (argv[2]) fehlt");
     }
 
+    // ── (REV-DATA-07, WP-5 2026-07-16): Zell-Raster-Stratifizierung ──────────────────────────────
+    // Fixture 3 (argv[3]): bin_cherry deckt nur die leichte ycsb_a-Zelle ab (Median 50 < alles) und haette
+    // im binary_id-Aggregat gewonnen; mit Zell-Raster (union grid) wird es DISQUALIFIZIERT — bin_complete
+    // (beide Zellen; Median der Zell-Mediane {100,500} = 100, untere Mitte) gewinnt. Wiederholungs-Segmente
+    // im setting fallen aus dem Zell-Schluessel (2 Reps = 2 Samples EINER Zelle, nicht 2 Zellen).
+    if (argc >= 4) {
+        std::vector<bb::MeasurementRow> crows;
+        int const                       cn = bb::parse_measurement_csv(argv[3], crows);
+        check(cn == 6, "cells: 6 Datenzeilen gelesen");
+        check(crows.size() >= 2u && crows[0].cell_key() == crows[1].cell_key(),
+              "cells: Wiederholungs-Segment faellt aus dem Zell-Schluessel (rep0/rep1 = EINE Zelle)");
+        check(crows.size() >= 3u && crows[0].cell_key() != crows[2].cell_key(),
+              "cells: ycsb_a- und ycsb_e-Zeilen sind verschiedene Zellen");
+
+        std::vector<std::string> disq;
+        auto const               r_cells = bb::rank_binaries(crows, bb::RankingCriterion{bb::Metric::ns_per_op}, &disq);
+        check(disq.size() == 1u && disq[0].rfind("bin_cherry", 0) == 0,
+              "cells: bin_cherry (nur 1/2 Zellen) disqualifiziert (Diagnose)");
+        check(r_cells.size() == 1u, "cells: nur der vollstaendige Kandidat wird gerankt");
+        check(!r_cells.empty() && r_cells[0].binary_id == "bin_complete" && r_cells[0].median_value == 100.0,
+              "cells: bin_complete gewinnt mit Median der Zell-Mediane {100,500} = 100");
+        check(!r_cells.empty() && r_cells[0].samples == 4u && r_cells[0].cells == 2u,
+              "cells: samples=4 (2 Reps x 2 Zellen), cells=2");
+    } else {
+        check(false, "cells: Fixture 3 (argv[3]) fehlt");
+    }
+
     // ── (REV-DATA-05, WP-5 2026-07-16): Artefaktnamen-Allowlist (Pfad-Traversal-Sperre) ──────────
     check(bb::valid_artifact_stem("best_lookup"), "stem: 'best_lookup' zulaessig");
     check(bb::valid_artifact_stem("Best-Binary_42"), "stem: alnum/_/- zulaessig");

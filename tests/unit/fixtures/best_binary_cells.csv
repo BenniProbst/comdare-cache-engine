@@ -1,0 +1,7 @@
+binary_id;ns_per_op;two_phase_valid;workload;working_set_n;platform;build_version;series;setting
+bin_complete;100;1;ycsb_a;1000;linux;m3v2;basis;s1/repetition.repetition_index=0
+bin_complete;110;1;ycsb_a;1000;linux;m3v2;basis;s1/repetition.repetition_index=1
+bin_complete;500;1;ycsb_e;1000;linux;m3v2;basis;s1/repetition.repetition_index=0
+bin_complete;520;1;ycsb_e;1000;linux;m3v2;basis;s1/repetition.repetition_index=1
+bin_cherry;50;1;ycsb_a;1000;linux;m3v2;basis;s1/repetition.repetition_index=0
+bin_cherry;52;1;ycsb_a;1000;linux;m3v2;basis;s1/repetition.repetition_index=1

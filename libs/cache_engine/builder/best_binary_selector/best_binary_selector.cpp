@@ -3,6 +3,7 @@
 
 #include <charconv>
 #include <cmath>
+#include <set>
 #include <unordered_map>
 
 namespace comdare::cache_engine::best_binary {
@@ -44,6 +45,26 @@ namespace {
     return true;
 }
 
+// (REV-DATA-07) Entfernt das "repetition.repetition_index=N"-Segment aus dem setting-Label ('/'-separiert):
+// Wiederholungen sind Samples INNERHALB einer Zelle, nicht Teil des Zell-Schlüssels.
+[[nodiscard]] std::string strip_repetition_segment(std::string const& setting) {
+    std::string out;
+    out.reserve(setting.size());
+    std::size_t pos = 0;
+    while (pos <= setting.size()) {
+        std::size_t const sep = setting.find('/', pos);
+        std::size_t const end = (sep == std::string::npos) ? setting.size() : sep;
+        std::string const seg = setting.substr(pos, end - pos);
+        if (seg.find("repetition_index=") == std::string::npos) {
+            if (!out.empty() && !seg.empty()) out += '/';
+            out += seg;
+        }
+        if (sep == std::string::npos) break;
+        pos = sep + 1;
+    }
+    return out;
+}
+
 } // namespace
 
 int parse_measurement_csv(fs::path const& in, std::vector<MeasurementRow>& out_rows,
@@ -77,6 +98,14 @@ int parse_measurement_csv(fs::path const& in, std::vector<MeasurementRow>& out_r
     bool const has_er  = need("op_erase_p50_ns", i_er);
     bool const has_sc  = need("op_scan_p50_ns", i_sc);
     bool const has_rmw = need("op_rmw_p50_ns", i_rmw);
+    // (REV-DATA-07) Zell-Spalten optional (header-getrieben): fehlt eine, bleibt "" (konstant ⇒ eine Zelle).
+    std::size_t i_wl = 0, i_ws = 0, i_pf = 0, i_bv = 0, i_se = 0, i_set = 0;
+    bool const  has_wl  = need("workload", i_wl);
+    bool const  has_ws  = need("working_set_n", i_ws);
+    bool const  has_pf  = need("platform", i_pf);
+    bool const  has_bv  = need("build_version", i_bv);
+    bool const  has_se  = need("series", i_se);
+    bool const  has_set = need("setting", i_set);
 
     // (REV-DATA-04) Diagnose-Helfer: verworfene Zeile protokollieren (Zeilennummer 1-basiert inkl. Header).
     std::size_t line_no = 1; // Header war Zeile 1
@@ -118,29 +147,66 @@ int parse_measurement_csv(fs::path const& in, std::vector<MeasurementRow>& out_r
         if (!opt_field(has_er, i_er, "op_erase_p50_ns", r.op_erase_p50)) continue;
         if (!opt_field(has_sc, i_sc, "op_scan_p50_ns", r.op_scan_p50)) continue;
         if (!opt_field(has_rmw, i_rmw, "op_rmw_p50_ns", r.op_rmw_p50)) continue;
+        // (REV-DATA-07) Zell-Schlüssel-Spalten (String, kein Parsen; fehlende Spalte ⇒ "").
+        auto cell_field = [&](bool has, std::size_t idx) -> std::string {
+            return (has && fields.size() > idx) ? fields[idx] : std::string{};
+        };
+        r.workload      = cell_field(has_wl, i_wl);
+        r.working_set   = cell_field(has_ws, i_ws);
+        r.platform      = cell_field(has_pf, i_pf);
+        r.build_version = cell_field(has_bv, i_bv);
+        r.series        = cell_field(has_se, i_se);
+        r.setting_norep = strip_repetition_segment(cell_field(has_set, i_set));
         out_rows.push_back(std::move(r));
         ++count;
     }
     return count;
 }
 
-std::vector<RankedBinary> rank_binaries(std::vector<MeasurementRow> const& rows, RankingCriterion const& crit) {
-    // Gruppiere Kriteriums-Werte je binary_id (nur two_phase_valid + Wert>0 = vom Profil ausgeübt).
-    std::map<std::string, std::vector<double>> by_id;
+std::vector<RankedBinary> rank_binaries(std::vector<MeasurementRow> const& rows, RankingCriterion const& crit,
+                                        std::vector<std::string>* excluded) {
+    // (REV-DATA-07) Gruppiere Kriteriums-Werte je (binary_id × Mess-Zelle); nur two_phase_valid + Wert>0
+    // (= vom Profil ausgeübt). Zusätzlich das ERWARTETE Zell-Raster = Vereinigung aller beobachteten Zellen.
+    std::map<std::string, std::map<std::string, std::vector<double>>> by_id_cell;
+    std::set<std::string>                                             expected_cells;
     for (auto const& r : rows) {
         if (!r.two_phase_valid) continue;
         double const v = crit.value_of(r);
         if (v <= 0.0) continue; // 0 = Metrik nicht ausgeübt → nicht werten
-        by_id[r.binary_id].push_back(v);
+        std::string cell = r.cell_key();
+        expected_cells.insert(cell);
+        by_id_cell[r.binary_id][std::move(cell)].push_back(v);
     }
 
-    std::vector<RankedBinary> out;
-    out.reserve(by_id.size());
-    for (auto& [id, vals] : by_id) {
+    // Median (nearest-rank, UNTERE Mitte vals[(n-1)/2]). Bewusste Werkzeug-Definition; Achtung: csv_to_latex/
+    // diagram_generator nutzen die nearest-rank-OBERE Mitte — Divergenz bei geradem n = REV-DATA-12 (offen).
+    auto lower_median = [](std::vector<double>& vals) -> double {
         std::sort(vals.begin(), vals.end());
-        // Median (nearest-rank, untere Mitte) — identisch zum csv_to_latex-Aggregat.
-        double const median = vals.empty() ? 0.0 : vals[(vals.size() - 1) / 2];
-        out.push_back(RankedBinary{id, median, vals.size()});
+        return vals.empty() ? 0.0 : vals[(vals.size() - 1) / 2];
+    };
+
+    std::vector<RankedBinary> out;
+    out.reserve(by_id_cell.size());
+    for (auto& [id, cells] : by_id_cell) {
+        // Vollständigkeits-Gate: NUR Kandidaten mit identischer Zellmenge sind vergleichbar. Ein Binary, das
+        // in schweren Zellen fehlt, darf nicht aus leichten Restzellen einen besseren Median beziehen.
+        if (cells.size() != expected_cells.size()) {
+            if (excluded != nullptr)
+                excluded->push_back(id + " (deckt nur " + std::to_string(cells.size()) + "/" +
+                                    std::to_string(expected_cells.size()) + " Mess-Zellen ab -> disqualifiziert)");
+            continue;
+        }
+        // Stratifizierte Aggregation: Median je Zelle, dann Median der Zell-Mediane (jede Zelle zählt gleich,
+        // unabhängig von der Wiederholungs-/Setting-Sample-Zahl innerhalb der Zelle).
+        std::vector<double> cell_medians;
+        cell_medians.reserve(cells.size());
+        std::size_t samples = 0;
+        for (auto& [cell, vals] : cells) {
+            samples += vals.size();
+            cell_medians.push_back(lower_median(vals));
+        }
+        double const median = lower_median(cell_medians);
+        out.push_back(RankedBinary{id, median, samples, cells.size()});
     }
     // Aufsteigend nach Median (kleiner = besser); Tie-Break: mehr Samples zuerst, dann binary_id.
     std::sort(out.begin(), out.end(), [](RankedBinary const& a, RankedBinary const& b) {
@@ -287,6 +353,11 @@ std::optional<ShippedArtifact> ShippedArtifactBuilder::build(RankedBinary const&
         mf << "ranking_metric=" << art.metric << "\n";
         mf << "median_ns=" << art.median_value << "\n";
         mf << "samples=" << art.samples << "\n";
+        // (REV-DATA-07) Vergleichskontext: Zell-Raster-Dimensionen, abgedeckte Zellen + Aggregationsregel.
+        mf << "cells=" << winner.cells << "\n";
+        mf << "cell_dims=" << kCellDims << "\n";
+        mf << "aggregation=median_of_cell_medians(nearest_rank_lower)\n";
+        mf << "missing_cells_policy=disqualify(candidate_must_cover_union_grid)\n";
         mf << "source_dir=" << source_dir.string() << "\n";
         mf << "dll_build_version=" << art.dll_build_version << "\n";
         mf << "abi_major=" << kAbiMajor << "\n";
