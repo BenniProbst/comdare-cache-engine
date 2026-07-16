@@ -350,8 +350,14 @@ struct SotaPass {
         std::string const fair     = s.fairness.empty() ? std::string{"-"} : s.fairness; // GO-5 Fork 6
         if (!seen_pass.emplace(view_bid, fair).second) continue; // M-CE-10 (a): identische Messung ⇒ genau 1 Pass
         out.push_back(SotaPass{reihe, s.lebewesen, m->binary_id, view_bid,
-                               derive_pruefling_type(reihe, s.merge, s.pruefling_type), // #171: full/abstract
-                               fair,
+                               // #171: full/abstract. F25 (WP-4, 2026-07-16): der 1. Parameter ist laut
+                               // Funktions-Vertrag die PROFIL-series-id (Fallback bei leerem/unbekanntem merge)
+                               // — vorher wurde der ABGELEITETE Reihen-Tag (stufe_to_reihe) uebergeben, womit
+                               // der dokumentierte id-Fallback toter Code war. Byte-verhaltensgleich fuer alle
+                               // erreichbaren Pfade: dieser Punkt ist nur mit gueltigem merge erreichbar
+                               // (sota_module_for != nullopt) -> der Primaer-Zweig greift, der Parameter ist
+                               // dann ungenutzt. Vertrag wiederhergestellt (kein Phantom-Fallback).
+                               derive_pruefling_type(s.id, s.merge, s.pruefling_type), fair,
                                // M-CE-10 (c): H2 host-dominant. KORREKTUR F23 (2026-07-16): seit der per-Host-
                                // Auffaecherung (2026-07-14) ist host_lebewesen == lebewesen — der fruehere
                                // Zusatz "(St2 ⇒ \"hot\", nie das angefragte)" beschrieb die VOR-M-CE-10-
