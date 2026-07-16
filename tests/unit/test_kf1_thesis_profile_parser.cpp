@@ -64,6 +64,21 @@ int main(int argc, char** argv) {
         check_true("xml_reader F26.1: BOM im Text bleibt Text", doc2.has_value() && !doc2->text.empty());
     }
 
+    // 0c) F26.2 (WP-3, 2026-07-16): Close-Tag-Name muss dem offenen Tag entsprechen — ein falscher/zu
+    //     frueher Close-Tag ist jetzt ein Parse-Fehler (vorher: stilles Re-Parenting, teil-leeres DOM).
+    {
+        // Falscher Close-Name auf dem Wurzel-Element.
+        auto bad1 = comdare::common::xml::parse_document("<root a='1'><child>x</child></wurzel>");
+        check_true("xml_reader F26.2: falscher Root-Close => nullopt", !bad1.has_value());
+        // Zu frueher Close-Tag eines Eltern-Elements im Kind (die INC-D-Fehlerklasse </phase> vs </phases>).
+        auto bad2 = comdare::common::xml::parse_document("<phases><phase name='p'>x</phases></phases>");
+        check_true("xml_reader F26.2: zu frueher Eltern-Close im Kind => nullopt", !bad2.has_value());
+        // Gegenprobe: korrekt geschachtelt parst weiterhin.
+        auto good = comdare::common::xml::parse_document("<phases><phase name='p'>x</phase></phases>");
+        check_true("xml_reader F26.2: korrekt geschachtelt parst", good.has_value());
+        check_eq("xml_reader F26.2: 1 Kind", good ? good->children.size() : std::size_t{0}, std::size_t{1});
+    }
+
     // 1) Thesis-Profil
     cx::XmlConfigParser parser;
     auto                tp = parser.parse_thesis_profile(profile);
