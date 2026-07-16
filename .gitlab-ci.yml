@@ -207,8 +207,11 @@ contract:conformance:
     # M-CE-25 (Muster-F, 2026-07-13): +test_ap15_2_get_allocator_proxy +test_ap15_3_driveable_map_contract
     # +test_29_container_framework — contract-gelabelt, aber von KEINEM -R-Job gefahren (test:unit -LE contract).
     # Hier in den Konformitaets-Gate aufgenommen (Container-/Allocator-Proxy-Vertraege). Lokal gruen bewiesen.
-    - cmake --build build-conf --target test_conformance_gate test_188_4c0_known_compositions_conformance test_188_4cii_flat_wrapper_traversal test_216h2_stat_reset_after_load test_v41_anatomy_module_abi test_cmd1_a_axis_command_base test_ap15_2_get_allocator_proxy test_ap15_3_driveable_map_contract test_29_container_framework
-    - ctest --test-dir build-conf -R '^(test_conformance_gate|test_188_4c0_known_compositions_conformance|test_188_4cii_flat_wrapper_traversal|test_216h2_stat_reset_after_load|test_v41_anatomy_module_abi|test_cmd1_a_axis_command_base|test_ap15_2_get_allocator_proxy|test_ap15_3_driveable_map_contract|test_29_container_framework)$' --output-on-failure -V
+    # F5.R1 (#35, 2026-07-16): +test_v41_cache_engine_facade — der API-Vermittlungs-Vertrag der Master-Framework-
+    # Gesamt-Fassade (get_cache_engine() ueber die EINE Tuer). Sichert die geschlossene Linker-Falle + die
+    # ehrliche DEFERRED-#274-Meldung als CI-Gate. Lokal 7/7 PASSED. Baut in demselben build-conf-Tree.
+    - cmake --build build-conf --target test_conformance_gate test_188_4c0_known_compositions_conformance test_188_4cii_flat_wrapper_traversal test_216h2_stat_reset_after_load test_v41_anatomy_module_abi test_cmd1_a_axis_command_base test_ap15_2_get_allocator_proxy test_ap15_3_driveable_map_contract test_29_container_framework test_v41_cache_engine_facade
+    - ctest --test-dir build-conf -R '^(test_conformance_gate|test_188_4c0_known_compositions_conformance|test_188_4cii_flat_wrapper_traversal|test_216h2_stat_reset_after_load|test_v41_anatomy_module_abi|test_cmd1_a_axis_command_base|test_ap15_2_get_allocator_proxy|test_ap15_3_driveable_map_contract|test_29_container_framework|test_v41_cache_engine_facade)$' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 
