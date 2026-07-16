@@ -576,6 +576,23 @@ if(COMDARE_BUILD_PERMUTATIONS)
   if(COMDARE_AXIS_06_ENABLE_MIMALLOC AND COMDARE_HAVE_MIMALLOC)
     link_libraries(comdare::vendor_mimalloc)
   endif()
+  # F12i-Fix (2026-07-16, #21-Fortsetzung): dieselbe Vendor-Belang-VERERBUNG-an-der-Quelle fuer snmalloc.
+  # COMDARE_AXIS_06_USE_SNMALLOC=1 wird (wie USE_MIMALLOC) GLOBAL in axis_06_allocator_flags.hpp gebacken →
+  # JEDES Target mit -I<build>/generated, das ueber die Katalog-Kette (source_catalog → topic_allocator →
+  # axis_06_allocator_snmalloc.hpp → vendor_includes/snmalloc_include.hpp) <snmalloc/snmalloc.h> zieht, BRAUCHT
+  # snmallocs zwingende Compile-Belange (SNMALLOC_HEADER_ONLY_LIBRARY=1, SNMALLOC_USE_WAIT_ON_ADDRESS=0 +
+  # -mcx16 auf x86_64, sonst „ds/aba.h: You must compile with -mcx16" / „combininglock.h: SNMALLOC_USE_WAIT_ON_ADDRESS
+  # not declared"). #21 legte diese als INTERFACE an comdare::adapter::a07_snmalloc — die erreichen aber NUR
+  # Ziele, die den Adapter explizit linken (z. B. per DEFER an comdare_profile_run_facade, dessen C++20-Modul-Scan
+  # sie NICHT erbt), NICHT die vielen Consumer, die die Header transitiv ueber topic_allocator ziehen
+  # (catalog_codegen_cli, profile_run_facade, messung_driver …). comdare::vendor_snmalloc traegt EXAKT diese Belange
+  # (ext/CMakeLists.txt, string-gleich zu #21) INTERFACE → directory-scope link_libraries vererbt sie an ALLE
+  # nachfolgend angelegten Targets (libs/, adapters/, tools/, apps/, tests/), single-source, identisch zum
+  # mimalloc-Muster oben. Kein Alloc-Override (header-only, INTERFACE), inert wo snmalloc.h nicht gezogen wird.
+  # (Standalone/perms-OFF: COMDARE_HAVE_SNMALLOC=OFF → Block inert; COMDARE_AXIS_06_USE_SNMALLOC=0, keine Header.)
+  if(COMDARE_AXIS_06_ENABLE_SNMALLOC AND COMDARE_HAVE_SNMALLOC AND TARGET comdare::vendor_snmalloc)
+    link_libraries(comdare::vendor_snmalloc)
+  endif()
   if(EXISTS "${CMAKE_BINARY_DIR}/generated/permutations.cmake")
     include("${CMAKE_BINARY_DIR}/generated/permutations.cmake")
   endif()
