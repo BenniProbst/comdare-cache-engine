@@ -6,6 +6,9 @@
 //   - Elemente mit Attributen, verschachtelte Kinder, Textinhalt
 //   - Kommentare <!-- -->, XML-Deklaration <?xml ?>, DOCTYPE <! >, self-closing <tag/>
 //   - Basis-Entities (&lt; &gt; &amp; &quot; &apos;)
+//   - UTF-8-BOM am Dokument-Anfang (F26.1, WP-3 2026-07-16: wird uebersprungen — vorher lieferte ein
+//     BOM-behaftetes, sonst wohlgeformtes Dokument stilles nullopt; Windows-Editoren/PowerShell setzen
+//     BOMs, Repo-Doktrin ist Windows+Linux. Bestand: 0 von 176 committeten XMLs tragen ein BOM.)
 // BEWUSST NICHT: Namespaces, DTD-Validierung, CDATA, numerische Entities — fuer die
 // kontrollierten, selbst erzeugten Profile nicht noetig. Robust genug + ohne Abhaengigkeit.
 
@@ -192,6 +195,9 @@ inline bool parse_element(Cursor& c, XmlNode& out) {
 
 // Parst ein XML-Dokument und gibt das Wurzelelement zurueck (nullopt bei Fehler).
 [[nodiscard]] inline std::optional<XmlNode> parse_document(std::string_view xml) {
+    // F26.1 (WP-3, 2026-07-16): UTF-8-BOM (EF BB BF) am Dokument-Anfang ueberspringen. Vorher schlug
+    // parse_element am BOM-Byte fehl -> stilles nullopt fuer ein sonst wohlgeformtes Dokument (Kopf-Doku).
+    if (xml.size() >= 3 && xml.substr(0, 3) == "\xEF\xBB\xBF") xml.remove_prefix(3);
     detail::Cursor c{xml, 0};
     detail::skip_misc(c);
     XmlNode root;

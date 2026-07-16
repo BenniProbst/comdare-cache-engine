@@ -49,6 +49,21 @@ int main(int argc, char** argv) {
         }
     }
 
+    // 0b) F26.1 (WP-3, 2026-07-16): UTF-8-BOM am Dokument-Anfang wird uebersprungen — vorher stilles
+    //     nullopt fuer ein wohlgeformtes, BOM-behaftetes Dokument (Windows-Editor/PowerShell-Faelle).
+    {
+        std::string const bom_doc = std::string{"\xEF\xBB\xBF"} + R"(<?xml version="1.0"?><root a="1"/>)";
+        auto              doc     = comdare::common::xml::parse_document(bom_doc);
+        check_true("xml_reader F26.1: BOM-Dokument parst (kein stilles nullopt)", doc.has_value());
+        if (doc) {
+            check_eq("xml_reader F26.1: BOM root.tag", doc->tag, std::string{"root"});
+            check_eq("xml_reader F26.1: BOM root@a", doc->attr("a"), std::string{"1"});
+        }
+        // BOM mitten im Dokument bleibt Inhalt (nur der Dokument-ANFANG wird geschaelt).
+        auto doc2 = comdare::common::xml::parse_document("<root>\xEF\xBB\xBFtext</root>");
+        check_true("xml_reader F26.1: BOM im Text bleibt Text", doc2.has_value() && !doc2->text.empty());
+    }
+
     // 1) Thesis-Profil
     cx::XmlConfigParser parser;
     auto                tp = parser.parse_thesis_profile(profile);
