@@ -41,6 +41,7 @@
 // golden-320, POD-1416, kV3AxisSchema, ABI) wird NICHT beruehrt - der Generator LIEST nur Typen.
 
 #include <anatomy/organ_location.hpp>                          // HasOrganLocation<W> (INC-A #6: header_include)
+#include <builder/codegen/adhoc_emitter.hpp>                   // strip_all_elaborated (F24: geteilter Helfer)
 #include <builder/codegen/type_name.hpp>                       // type_name<W>() (FQ-Typ, compile-time)
 #include <builder/experiment_tree/registry_to_axis_levels.hpp> // axes26::T* (Enabled*/StaticAxisVariants*)
 
@@ -132,8 +133,13 @@ template <class List, std::size_t GoldenK>
     mp::mp_for_each<mp::mp_transform<mp::mp_identity, List>>([&](auto id) {
         using W = typename decltype(id)::type;
         Baustein b;
-        b.name    = std::string{W::name()};
-        b.type    = std::string{cg::type_name<W>()};
+        b.name = std::string{W::name()};
+        // F24 (WP-4, Voll-Audit 2026-07-16): type_name<W>() schaelt nur den AEUSSEREN MSVC-Elaborated-
+        // Specifier; verschachtelte Template-Argumente (Outer<class NS::Inner>) behalten unter MSVC ihre
+        // "class "/"struct "-Tokens -> die Registry-XML waere compiler-abhaengig (anderes Byte-Bild als die
+        // committete GCC-Form). Derselbe geteilte Helfer wie im adhoc_emitter (Single-Source) normalisiert
+        // ALLE Elaborated-Keywords; unter GCC/Clang ist das ein No-op (Byte-Bild unveraendert, verifiziert).
+        b.type    = cg::strip_all_elaborated(cg::type_name<W>());
         b.wrapper = short_name(b.type);
         b.header  = organ_header<W>();
         b.golden  = golden.contains(b.name);
