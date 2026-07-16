@@ -318,6 +318,34 @@ struct SotaPass {
     std::string h2_lebewesen = "-";
 };
 
+/// make_sota_pass — die EINE Stelle, die aus einem (merge, lebewesen [, series_id, pruefling_type-Override,
+/// fairness])-Eintrag GENAU EINEN SotaPass baut (Single-Source der Pass-Bildung). nullopt, wenn das
+/// (merge,lebewesen)-Paar in diesem Pilot NICHT real baubar ist (sota_module_for == nullopt → ehrlich
+/// ausgelassen, KEIN Phantom-Pass). Die DEDUP der Pass-Liste bleibt beim Aufrufer (er iteriert die
+/// Eintrags-/Reihen-Liste und führt den (view_binary_id, fairness_mode)-Guard). Genutzt von BEIDEN
+/// Eingangsformen: build_sota_passes(ThesisProfile) (die <sota_series>-Reihen) UND build_sota_passes(pairs)
+/// (die Brücken-(merge×lebewesen)-Paare, E5 / Fork-5 (b), Ledger:377). #178: dispatch auf die STUFE (merge).
+[[nodiscard]] inline std::optional<SotaPass> make_sota_pass(std::string const& merge, std::string const& lebewesen,
+                                                            std::string const& series_id,
+                                                            std::string const& pruefling_type_override,
+                                                            std::string const& fairness_raw) {
+    auto const m = sota_module_for(merge, lebewesen);   // #178: dispatch auf die Stufe (merge)
+    if (!m) return std::nullopt;                        // nicht baubares Paar (ehrlich: kein Phantom-Pass)
+    std::string const reihe    = stufe_to_reihe(merge); // #178: Reihen-Tag mechanisch aus der Stufe
+    std::string const view_bid = sota_view_binary_id(m->binary_id);
+    std::string const fair     = fairness_raw.empty() ? std::string{"-"} : fairness_raw; // GO-5 Fork 6
+    return SotaPass{reihe, lebewesen, m->binary_id, view_bid,
+                    // #171: full/abstract. F25 (WP-4, 2026-07-16): der 1. derive_pruefling_type-Parameter ist laut
+                    // Funktions-Vertrag die PROFIL-series-id (Fallback bei leerem/unbekanntem merge). Byte-
+                    // verhaltensgleich fuer alle erreichbaren Pfade: dieser Punkt ist nur mit gueltigem merge
+                    // erreichbar (sota_module_for != nullopt) → der merge-Primaerzweig greift, series_id ist dann
+                    // ungenutzt (die Brücken-Paare reichen "" herein, ThesisProfile reicht s.id herein).
+                    derive_pruefling_type(series_id, merge, pruefling_type_override), fair,
+                    // M-CE-10 (c): H2 host-dominant. KORREKTUR F23 (2026-07-16): seit der per-Host-Auffaecherung
+                    // (2026-07-14) ist host_lebewesen == lebewesen (Gate: test_sota_st2_dedup, 19 Paesse).
+                    m->host_lebewesen};
+}
+
 /// build_sota_passes(profile) — die Liste der SOTA-Reihen-Pässe AUS DEM PROFIL (1 Eintrag je real baubarem
 /// <sota_series>). Reihenfolge = Profil-Reihenfolge (stabil/resumierbar). Ein nicht baubares (Reihe,Lebewesen)-
 /// Paar (sota_module_for == nullopt) wird ausgelassen (ehrlich: kein Phantom-Pass). KEINE Selektion — das
@@ -343,26 +371,13 @@ struct SotaPass {
     // ──────────────────────────────────────────────────────────────────────────────────────────────────────────
     std::set<std::pair<std::string, std::string>> seen_pass; // Dedup-Schlüssel: (view_binary_id, fairness_mode)
     for (auto const& s : tp.sota_series) {
-        auto const m = sota_module_for(s.merge, s.lebewesen); // #178: dispatch auf die Stufe (merge)
-        if (!m) continue;                                     // nicht baubares Paar (ehrlich: kein Phantom-Pass)
-        std::string const reihe    = stufe_to_reihe(s.merge); // #178: Reihen-Tag mechanisch aus der Stufe
-        std::string const view_bid = sota_view_binary_id(m->binary_id);
-        std::string const fair     = s.fairness.empty() ? std::string{"-"} : s.fairness; // GO-5 Fork 6
-        if (!seen_pass.emplace(view_bid, fair).second) continue; // M-CE-10 (a): identische Messung ⇒ genau 1 Pass
-        out.push_back(SotaPass{reihe, s.lebewesen, m->binary_id, view_bid,
-                               // #171: full/abstract. F25 (WP-4, 2026-07-16): der 1. Parameter ist laut
-                               // Funktions-Vertrag die PROFIL-series-id (Fallback bei leerem/unbekanntem merge)
-                               // — vorher wurde der ABGELEITETE Reihen-Tag (stufe_to_reihe) uebergeben, womit
-                               // der dokumentierte id-Fallback toter Code war. Byte-verhaltensgleich fuer alle
-                               // erreichbaren Pfade: dieser Punkt ist nur mit gueltigem merge erreichbar
-                               // (sota_module_for != nullopt) -> der Primaer-Zweig greift, der Parameter ist
-                               // dann ungenutzt. Vertrag wiederhergestellt (kein Phantom-Fallback).
-                               derive_pruefling_type(s.id, s.merge, s.pruefling_type), fair,
-                               // M-CE-10 (c): H2 host-dominant. KORREKTUR F23 (2026-07-16): seit der per-Host-
-                               // Auffaecherung (2026-07-14) ist host_lebewesen == lebewesen — der fruehere
-                               // Zusatz "(St2 ⇒ \"hot\", nie das angefragte)" beschrieb die VOR-M-CE-10-
-                               // Semantik (nur HOT-Host) und ist ueberholt (Gate: test_sota_st2_dedup, 19 Paesse).
-                               m->host_lebewesen});
+        // Single-Source der Pass-Bildung (make_sota_pass): #178 dispatch auf die Stufe (merge), ehrlich-nullopt
+        // bei nicht baubarem Paar, F25 series-id-Fallback (s.id) + F23 host-dominante H2 leben im Helfer.
+        auto p = make_sota_pass(s.merge, s.lebewesen, s.id, s.pruefling_type, s.fairness);
+        if (!p) continue;                                                   // nicht baubar (kein Phantom-Pass)
+        if (!seen_pass.emplace(p->view_binary_id, p->fairness_mode).second) // M-CE-10 (a): identische Messung
+            continue;                                                       //   ⇒ genau 1 Pass
+        out.push_back(std::move(*p));
     }
     return out;
 }
@@ -378,6 +393,92 @@ struct SotaPass {
             by_id.emplace(sota_view_binary_id(m->binary_id), render_sota_module_source(m->composition_type, m->header));
     }
     return by_id;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BRÜCKE / E5 (Fork-5 (b), Ledger:377 „schmale (merge,lebewesen)-Overloads in sota_catalog") — die SCHMALEN
+//   (merge×lebewesen)-Paar-Overloads. Sie SPIEGELN die ThesisProfile-Bausteine (build_sota_passes /
+//   build_sota_view_source_map), aber der Eingang ist eine explizite (merge×lebewesen)-Paar-Liste statt einer
+//   <sota_series_set>-Sicht. Damit projiziert die comdare_experiment-Brücke OHNE synthetische ThesisProfile-
+//   Sicht auf denselben SOTA-Pass-Unterbau (dieselben Primitive make_sota_pass / sota_module_for /
+//   sota_view_binary_id / render_sota_module_source). ADDITIV — die ThesisProfile-Signaturen bleiben unberührt.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// SotaMergeLebewesen — ein schmales (merge,lebewesen)-Paar, die Brücken-Eingangsform. Trägt NUR die 2
+/// mechanisch nötigen Felder; series_id/pruefling_type werden (wie im ThesisProfile-Pfad) aus `merge`
+/// ABGELEITET (derive_pruefling_type), fairness bleibt "-" (die Experiment-Phase deklariert keinen Fairness-Modus).
+struct SotaMergeLebewesen {
+    std::string merge;     // Stufe1_CeOnly / Stufe2_PrueflingReplace / Stufe3_FullJoin
+    std::string lebewesen; // prt_art/art/hot/masstree/surf/start/wormhole
+};
+
+/// build_sota_passes(pairs) — Overload: die SOTA-Reihen-Pässe AUS einer expliziten (merge×lebewesen)-Paar-Liste
+/// (Brücken-Eingang). 1 Eintrag je real baubarem Paar (make_sota_pass != nullopt); nicht baubare Paare
+/// (z.B. prt_art unter Stufe2/Stufe3) werden EHRLICH ausgelassen (kein Phantom-Pass). Dedup IDENTISCH zum
+/// ThesisProfile-Pfad: (view_binary_id, fairness_mode). Reihenfolge = Paar-Reihenfolge (stabil).
+[[nodiscard]] inline std::vector<SotaPass> build_sota_passes(std::vector<SotaMergeLebewesen> const& pairs) {
+    std::vector<SotaPass>                         out;
+    std::set<std::pair<std::string, std::string>> seen_pass; // Dedup-Schlüssel: (view_binary_id, fairness_mode)
+    out.reserve(pairs.size());
+    for (auto const& pr : pairs) {
+        // series_id/pruefling_type-Override "" ⇒ derive_pruefling_type leitet rein aus `merge` ab (full/abstract);
+        // fairness "" ⇒ CSV-Tag "-". Identische Bau-Semantik wie der ThesisProfile-Pfad (make_sota_pass).
+        auto p = make_sota_pass(pr.merge, pr.lebewesen, /*series_id=*/"", /*pruefling_type_override=*/"",
+                                /*fairness_raw=*/"");
+        if (!p) continue;                                                   // nicht baubar (kein Phantom-Pass)
+        if (!seen_pass.emplace(p->view_binary_id, p->fairness_mode).second) // identische Messung ⇒ genau 1 Pass
+            continue;
+        out.push_back(std::move(*p));
+    }
+    return out;
+}
+
+/// build_sota_view_source_map(pairs) — Overload: die Quellen-Map (view_binary_id → reale Modul-Quelle) AUS einer
+/// (merge×lebewesen)-Paar-Liste. Byte-gleich zum ThesisProfile-Pfad, nur die Eingangsform unterscheidet sich.
+/// Nicht baubare Paare (sota_module_for == nullopt) erzeugen KEINEN Key (ehrlich, kein Phantom-Key).
+[[nodiscard]] inline std::map<std::string, std::string>
+build_sota_view_source_map(std::vector<SotaMergeLebewesen> const& pairs) {
+    std::map<std::string, std::string> by_id;
+    for (auto const& pr : pairs)
+        if (auto m = sota_module_for(pr.merge, pr.lebewesen))
+            by_id.emplace(sota_view_binary_id(m->binary_id), render_sota_module_source(m->composition_type, m->header));
+    return by_id;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BRÜCKE I3 — die PROJEKTION ExperimentProfile → (merge×lebewesen)-Pässe/Quellen-Map. REINER Enumerations-/
+//   Render-Schritt: KEIN DLL-Bau, KEINE Messung, KEIN run_lazy_static_then_dynamic. Je <phase> das Kreuzprodukt
+//   phase.merge × profile.lebewesen; je real baubares Paar EIN SotaPass (Muster build_sota_passes) + die
+//   Quellen-Map keyed view_binary_id (Muster build_sota_view_source_map). Die dünne Lauf-Fassade (I4) hängt
+//   hier den bestehenden run_profile-Unterbau (echte DLLs, EINE CSV) an — I3 liefert NUR die Projektion.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Die Projektion EINER ExperimentPhase auf den SOTA-Pass-Unterbau. passes und source_by_view_id sind
+/// über den view_binary_id 1:1 verknüpft (jeder Pass-view_binary_id ist genau ein Map-Key).
+struct ExperimentPhaseProjection {
+    std::string                        phase_name;        // ExperimentPhase.name (Provenienz/Log)
+    std::string                        merge;             // ExperimentPhase.merge (die Stufe dieser Phase)
+    std::vector<SotaPass>              passes;            // je (phase.merge × lebewesen) real baubares Paar EIN Pass
+    std::map<std::string, std::string> source_by_view_id; // view_binary_id → render_sota_module_source
+};
+
+/// project_experiment_to_sota_passes — die Brücken-Projektion (I3). Je <phase> wird das Kreuzprodukt
+/// phase.merge × profile.lebewesen gebildet und über die schmalen (merge,lebewesen)-Overloads auf Pässe +
+/// Quellen-Map abgebildet. nullopt-Paare (z.B. prt_art unter Stufe2/Stufe3) werden EHRLICH ausgelassen (kein
+/// Phantom-Key/-Pass — Muster build_sota_passes:323). Reihenfolge = Phasen-Reihenfolge × lebewesen-Reihenfolge
+/// (stabil/resumierbar). KEIN Bau, KEIN Lauf.
+[[nodiscard]] inline std::vector<ExperimentPhaseProjection>
+project_experiment_to_sota_passes(cx::ExperimentProfile const& ep) {
+    std::vector<ExperimentPhaseProjection> out;
+    out.reserve(ep.phases.size());
+    for (auto const& phase : ep.phases) {
+        std::vector<SotaMergeLebewesen> pairs;
+        pairs.reserve(ep.lebewesen.size());
+        for (auto const& l : ep.lebewesen) pairs.push_back(SotaMergeLebewesen{phase.merge, l});
+        out.push_back(ExperimentPhaseProjection{phase.name, phase.merge, build_sota_passes(pairs),
+                                                build_sota_view_source_map(pairs)});
+    }
+    return out;
 }
 
 } // namespace comdare::cache_engine::thesis_lazy
