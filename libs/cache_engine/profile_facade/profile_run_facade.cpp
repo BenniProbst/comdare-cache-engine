@@ -4,7 +4,8 @@
 #include "profile_run_facade.hpp"
 
 #include "profile_run_entry.hpp"
-#include "validate_profile.hpp" // P5: axis_registry_from_levels / validate_profile / print_validation_report
+#include "experiment_run_entry.hpp" // Brücke-I4: run_experiment_profile (comdare_experiment-Lauf-Unterbau)
+#include "validate_profile.hpp"     // P5: axis_registry_from_levels / validate_profile / print_validation_report
 
 #include "xml_config_parser/xml_config_parser.hpp" // Bruecke-I2: XmlConfigParser / ExperimentProfile
 
@@ -262,6 +263,93 @@ int validate_experiment_profile_facade(std::filesystem::path const& profile_path
            << " Fehler — Experiment NICHT baubar (Abbruch vor Bau).\n";
     os << "(--validate: rein-lesend — es wurde KEINE DLL gebaut und KEINE Messung durchgefuehrt.)\n";
     return vr.ok ? 0 : 1;
+}
+
+ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args) {
+    ExperimentRunResult out;
+
+    // ── (1) Pre-Flight-Validat (I1/I2-Gate) MIT registry_dir + known_workload_ids. Schliesst die Lücke des
+    //    ersetzten Parallelstrangs (execute_messreihe validierte mit leerem registry_dir, v32_messreihe_antrieb:264).
+    //    Verstoss ⇒ Abbruch VOR jedem Bau (5 = nicht als comdare_experiment lesbar, 1 = Registry-/Struktur-Verstoss). ──
+    if (int const vrc = validate_experiment_profile_facade(args.profile_path, args.ce_registry_path,
+                                                           args.prt_registry_path, std::cout);
+        vrc != 0) {
+        std::cerr << "[experiment_facade] Validat fehlgeschlagen (rc=" << vrc << ") -- KEIN Bau, KEINE Messung.\n";
+        out.exit_code = vrc;
+        return out;
+    }
+
+    // ── (2) Experiment-XML fuer die Achse-2-Auswahl (<workloads>) parsen — analog run_profile_facade (tp->workloads). ──
+    cx::XmlConfigParser const parser;
+    auto const                ep = parser.parse_experiment_profile(args.profile_path);
+    if (!ep) { // von (1) bereits ausgeschlossen; defensiv
+        out.exit_code = 5;
+        return out;
+    }
+
+    // ── (3) Achse-2-Lastprofile aufloesen: co-lokalisierter Default (profile/../load_profiles) oder Host-Override,
+    //    gefiltert ueber <workloads> — BYTE-gleiches Muster wie run_profile_facade:108-146. 0 gueltige Profile ⇒
+    //    exit 4 (Achse 2 darf nicht still entfallen = two_phase_valid=0-Schutz). ──
+    std::filesystem::path load_profile_dir = args.load_profile_dir;
+    if (load_profile_dir.empty() && !args.profile_path.empty())
+        load_profile_dir = args.profile_path.parent_path().parent_path() / "load_profiles";
+
+    std::vector<std::string> const& workload_select = ep->workloads;
+    auto const                      is_selected     = [&workload_select](std::string const& id) {
+        return workload_select.empty() ||
+               std::find(workload_select.begin(), workload_select.end(), id) != workload_select.end();
+    };
+
+    std::map<std::string, wd::WorkloadConfig> workload_registry;
+    std::vector<std::string>                  workload_values;
+    if (!load_profile_dir.empty()) {
+        for (auto const& idp : wd::discover_load_profiles(load_profile_dir)) {
+            if (!is_selected(idp.first)) continue;
+            if (auto lp = wd::parse_load_profile(idp.second)) {
+                workload_registry[idp.first] = lp->config;
+                workload_values.push_back(idp.first);
+            }
+        }
+        std::cout << "[experiment_facade] Lastprofile (XML, Achse 2, <workloads>-Auswahl): " << workload_values.size()
+                  << " aus " << load_profile_dir.string() << "\n";
+        if (workload_values.empty()) {
+            std::cerr << "[experiment_facade] 0 gueltige Lastprofile fuer die <workloads>-Auswahl in '"
+                      << load_profile_dir.string() << "' -- Abbruch (Achse 2 darf nicht still entfallen).\n";
+            out.exit_code = 4;
+            return out;
+        }
+    }
+
+    // ── (4) Der EINE Compile-Injektionspunkt (identisch run_profile_facade:153) → Delegation an den umbrella-
+    //    schweren Lauf-Unterbau run_experiment_profile (experiment_run_entry.hpp). ──
+    tlz::RunExperimentArgs a;
+    a.profile_path               = args.profile_path;
+    a.out_csv                    = args.out_csv;
+    a.src_dir                    = args.src_dir;
+    a.dll_dir                    = args.dll_dir;
+    a.compile                    = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler());
+    a.n_ops                      = args.n_ops;
+    a.max_binaries               = args.max_binaries;
+    a.build_version              = args.build_version;
+    a.n_repeats                  = args.n_repeats;
+    a.cores_per_build            = args.cores_per_build;
+    a.min_free_gb                = args.min_free_gb;
+    a.resume_override_set        = args.resume_override_set;
+    a.resume                     = args.resume;
+    a.working_set_override       = args.working_set_override;
+    a.platform_override          = args.platform_override;
+    a.build_version_tag_override = args.build_version_tag_override;
+    a.workload_registry          = std::move(workload_registry);
+    a.workload_values            = std::move(workload_values);
+
+    tlz::RunExperimentResult const r = tlz::run_experiment_profile(a);
+    out.exit_code                    = r.exit_code;
+    out.phases                       = r.phases;
+    out.sota_rows                    = r.sota_rows;
+    out.sota_binary_ids              = r.sota_binary_ids;
+    out.measured                     = r.any_measured;
+    out.resumed                      = r.any_resumed;
+    return out;
 }
 
 } // namespace comdare::cache_engine::builder::profile_facade
