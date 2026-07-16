@@ -433,6 +433,7 @@ struct ExperimentValidationResult {
     std::size_t              phases_checked     = 0;
     std::size_t              variants_checked   = 0; // gepruefte allowed_variants (0 = registry_dir leer / keine)
     std::size_t              categories_checked = 0; // gepruefte <category>-Namen (0 = keine deklariert)
+    std::size_t              workloads_checked  = 0; // Bruecke-I1/M-CE-12: gepruefte <workloads>-ids (0 = known leer)
 };
 
 // ── Inhalt einer comdare_axis_registry.xml: engine-Attr + axis-id -> {baustein name}. ──
@@ -460,10 +461,13 @@ struct RegistryContents {
 }
 
 /// validate_experiment_profile — DIE reine Pruef-Logik (read-only). `registry_dir` = Verzeichnis, gegen das
-/// die je-engine `registry`-Dateinamen aufgeloest werden (leer = (4)+(5) uebersprungen). Schreibt KEINE Datei,
-/// baut KEINE DLL, misst NICHTS. Gibt das Ergebnis-POD zurueck.
+/// die je-engine `registry`-Dateinamen aufgeloest werden (leer = (4)+(5) uebersprungen). `known_workload_ids`
+/// = die REAL vorhandenen load_profiles/-ids (aus wd::discover_load_profiles, vom Host hereingereicht); leer =
+/// die <workloads>-Pruefung (10) wird uebersprungen (rueckwaerts-kompatibel, Bruecke-I1). Schreibt KEINE
+/// Datei, baut KEINE DLL, misst NICHTS. Gibt das Ergebnis-POD zurueck.
 [[nodiscard]] inline ExperimentValidationResult
-validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::path const& registry_dir = {}) {
+validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::path const& registry_dir = {},
+                            std::set<std::string> const& known_workload_ids = {}) {
     ExperimentValidationResult r;
 
     // ── (1) GENAU 2 engines. ──
@@ -634,6 +638,26 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
             } else if (!seen_categories.insert(cat).second) {
                 r.warnings.push_back("category name=\"" + cat +
                                      "\": mehrfach deklariert — redundante Spalten-Projektion (nicht fatal).");
+            }
+        }
+    }
+
+    // ── (10) Bruecke-I1/M-CE-12 (2026-07-16): jede <workloads>-id ist eine REAL existente load_profiles/-id.
+    //    Nur wenn der Host die entdeckten ids hereinreicht (known_workload_ids nicht leer) — leer = uebersprungen
+    //    (rueckwaerts-kompatibel: 2-arg-Aufrufer ohne Host-Enumeration, z.B. execute_messreihe). Spiegelt das
+    //    Thesis-Profil-Gate (validate_profile Pruefung 6): so faellt eine getippte Experiment-<workloads>-id
+    //    SCHON hier rein-lesend auf, statt erst im teuren CEB-Lauf mit exit 4 (schliesst die Luecke, dass der
+    //    deprecatete Antrieb mit leerem registry_dir UND ohne Workload-Gegenpruefung validierte).
+    if (!known_workload_ids.empty()) {
+        for (auto const& w : ep.workloads) {
+            ++r.workloads_checked;
+            if (known_workload_ids.find(w) == known_workload_ids.end()) {
+                r.ok = false;
+                std::vector<std::string> const valid_wl(known_workload_ids.begin(), known_workload_ids.end());
+                r.errors.push_back("UNBEKANNTE Workload-id \"" + w +
+                                   "\" in <workloads>: keine load_profiles/-id (ycsb_*/lp_*). Die <workloads>-"
+                                   "Auswahl ist die autoritative Achse-2-Auswahl (#229). Bekannt = " +
+                                   preview_values(valid_wl));
             }
         }
     }
