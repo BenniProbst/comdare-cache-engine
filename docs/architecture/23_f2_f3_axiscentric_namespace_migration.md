@@ -5,6 +5,7 @@
 > perm_engine 21/21) sind **done-verified**. Als *aktiver* Plan damit **überholt** (historische Referenz); IST-treue
 > Single-Source-of-Truth: `docs/sessions/architektur-ziele-offene-punkte-ledger.md` (§e). Etwaige „pending"-
 > Formulierungen unten sind historischer Plan, NICHT offener Stand. Niemals löschen — nur Banner.
+> **[KLARSTELLUNG 2026-07-16, Voll-Audit F67]:** historisch — das oben referenzierte ce-Ledger ist selbst SUPERSEDED; autoritativ = super-Ledger `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` (Diplomarbeit-Root).
 
 **Stand:** 2026-05-29 · **Tasks:** #12 V41.F.2 (axen-zentrische Namespaces) + #13 V41.F.3 (Achsen-Concepts)
 **Quelle:** `Diplomarbeit/docs/sessions/20260524-V41-open-todos.md` §261–314 (User-Wortlaut).

@@ -3,6 +3,7 @@
 **Stand:** 2026-05-31 · **Recherche:** Workflow `wh17bc1dm` (4 Web-Dimensionen + Synthese, 5 Agenten).
 **Kontext:** /goal-Strang P4-PMC (echte HW-Counter für cache_misses_l1/l2/l3, dtlb_misses,
 coherence_invalidations, energy_micro_joules). Ergänzt `architektur-ziele-offene-punkte-ledger.md` §b R5.D.
+**[KLARSTELLUNG 2026-07-16, Voll-Audit F67]:** historisch — das ce-Ledger ist selbst SUPERSEDED; autoritativ = super-Ledger `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` (Diplomarbeit-Root; PMC-Stand heute: prod1-perf/PAPI real, Rest = #156-Fenster).
 
 ---
 

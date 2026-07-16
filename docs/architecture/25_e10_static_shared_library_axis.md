@@ -69,3 +69,5 @@ bewusst ausserhalb des Helpers.
 
 - **E10.6/E10.7** (Cluster-Build-Layout, Verteil-Topologie der SHARED-Libs über ZIH-Nodes) bleiben
   termin-/extern-abhängig — NICHT Teil dieser lokalen CMake-Achse.
+  **[NACHTRAG 2026-07-16, Audit F80]:** Mechanismus SUPERSEDIERT — kein ZIH-Verteil-Modell mehr
+  (#156/#189-prod-Runner + CEB-Laufzeit-Build); das Ziel lebt in #189/#26 (super-Ledger §8).

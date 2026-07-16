@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# ⚠️ DEPRECATED (2026-07-16, Voll-Audit F68): Der ZIH-/Apptainer-/sbatch-Pfad (GATE-MAXIMAL-ZIH) ist supersediert
+# durch den #156-prod-GitLab-Runner-Pivot (docs/sessions/20260623-PIVOT-PLAN-156-GITLAB-RUNNER-PROD.md;
+# ZIH deprioritisiert per User 2026-06-23, nicht gestrichen). Datei bleibt als historische Referenz erhalten —
+# KEINE Löschung ohne je-Repo-GO. NICHT weiterentwickeln.
 # L-CLUSTER (gate-frei-TEXT) — baut den comdare-ce.sif Apptainer-Container aus comdare-ce.def. Bindet den Repo-
 # Quellbaum als /src ein; der %post-Block baut perm_runner (gcc-13 C++23, Boost.MP11 vendored offline).
 #

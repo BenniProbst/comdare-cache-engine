@@ -3,6 +3,7 @@
 > **Handoff-Doku.** Single-Source-of-Truth bleibt das Ledger
 > `docs/sessions/architektur-ziele-offene-punkte-ledger.md` (Block (a.V5)). Diese Notiz fasst den
 > Umsetzungs-Strom dieser Session zusammen, damit nach einer Kontext-Summierung lückenlos fortgesetzt werden kann.
+> **[KLARSTELLUNG 2026-07-16, Voll-Audit F67]:** historisch — das ce-Ledger ist selbst SUPERSEDED; autoritativ = super-Ledger `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` (Diplomarbeit-Root).
 
 ## /goal V5 (Stop-Hook, verbatim Kern)
 

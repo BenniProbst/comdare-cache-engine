@@ -75,7 +75,8 @@ Session-Start ist verloren.
 SUPERSEDED-Banner (2026-05-31)** (überholter Planungs-/V31-Stand: axis-zentrische Restruktur, Plugin-Prüfling,
 DLL-F15-Pipeline). Die **IST-treue Single-Source-of-Truth** ist laut Banner:
 `docs/sessions/architektur-ziele-offene-punkte-ledger.md` + `docs/sessions/20260531-e2e-abnahme-audit-und-
-entscheidungen.md` (cache-engine). **KONSEQUENZ für B:** Phase B konsolidiert ONTO diese zwei IST-Docs als Basis;
+entscheidungen.md` (cache-engine). **[KLARSTELLUNG 2026-07-16, Voll-Audit F67]:** historisch — das ce-Ledger ist
+selbst SUPERSEDED; autoritativ = super-Ledger `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` (Diplomarbeit-Root). **KONSEQUENZ für B:** Phase B konsolidiert ONTO diese zwei IST-Docs als Basis;
 die 00–33 liefern Begriffs-/Historien-/Konzept-Kontext (3-Säulen, 4-Subsystem, 3-Stufen, Organ-Metapher,
 B+-Baum), sind aber NICHT der IST-Stand. **A1-PFLICHT-ZUSATZ (höchste Prio):** `architektur-ziele-offene-punkte-
 ledger.md` + `20260531-e2e-abnahme-audit-und-entscheidungen.md` zusätzlich vollständig lesen — sie sind die

@@ -32,6 +32,7 @@ prod-Cluster** statt ZIH als Mess-Plattform.
 ## §2b Infra-Stand-Bewertung (Workflow `wkdvwe9fj`, 2026-06-23) — GO/NO-GO
 Der Infra-Agent ist bei den prod-Runnern angekommen (NOCH NICHT fertig). Bewertung gegen sein Single-Source-Ledger
 `C:\Users\benja\cluster_development\docs\sessions\architektur-ziele-offene-punkte-ledger.md` + `K78-GOAL-CUTOVER-READY.md` §8b (CE-DL1..DL5):
+**[KLARSTELLUNG 2026-07-16, Voll-Audit F67]:** historisch — Ledger dieses Namens sind SUPERSEDED; autoritativ = super-Ledger `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` (Diplomarbeit-Root).
 - **KORREKTUREN am Plan oben:** (1) GitLab ist `gitlab.comdare.de` = **DEV** — KEIN eigener prod-GitLab; die prod-Runner registrieren
   AN den dev-GitLab (CI läuft auf dev-GitLab, **executet auf prod-Runnern**). (2) Die erwarteten **Docker-Debian/Fedora-Runner
   existieren NOCH NICHT** (Fleet 3/17 gebaut; 6 Linux-VM + 2 Win-VM offen). (3) Begriffs-Kollision: „#156" im Infra-Ledger Z.613 =

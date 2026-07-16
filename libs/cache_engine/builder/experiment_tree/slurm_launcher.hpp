@@ -1,4 +1,8 @@
 #pragma once
+// ⚠️ DEPRECATED (2026-07-16, Voll-Audit F68): Der ZIH-/SLURM-/sbatch-Pfad (GATE-MAXIMAL-ZIH) ist supersediert
+// durch den #156-prod-GitLab-Runner-Pivot (docs/sessions/20260623-PIVOT-PLAN-156-GITLAB-RUNNER-PROD.md;
+// ZIH deprioritisiert per User 2026-06-23, nicht gestrichen). Header bleibt als historische Referenz erhalten —
+// KEINE Löschung ohne je-Repo-GO. NICHT weiterentwickeln.
 // KF-12 + KF-13 (2026-06-02) — VORBEREITET, NICHT AUSGEFÜHRT (Cluster-gated).
 //
 // C++23-Generator für die SLURM/ZIH-Experiment-Skripte. Er EMITTIERT Skript-TEXT (Host-Werkzeug) — submittet

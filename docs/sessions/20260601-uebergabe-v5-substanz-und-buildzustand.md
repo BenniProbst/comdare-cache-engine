@@ -3,6 +3,7 @@
 > **Pflicht-Pre-Read nächste Session:** dieses Dokument + `architektur-ziele-offene-punkte-ledger.md` +
 > `20260531-v5-reverifikation-substanz-luecken.md` + `20260531-todo-abarbeitung-autonom.md`.
 > Single-Source-of-Truth bleibt das Ledger.
+> **[KLARSTELLUNG 2026-07-16, Voll-Audit F67]:** historisch — das ce-Ledger ist selbst SUPERSEDED; autoritativ = super-Ledger `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` (Diplomarbeit-Root).
 
 ## Git-Stand (WICHTIG)
 - **HEAD = `16781af`**, **55 Commits vor `origin/main`, UNGEPUSHT** (FortiGate-SSL-Inspection blockt git push;

@@ -2,7 +2,7 @@
 
 > **Zweck (Masterplan B1):** EIN umfassendes, aktuelles Architektur-Doc, das den IST-Stand über ALLE Quellen konsolidiert —
 > ein neuer Bearbeiter kann daraus korrekt arbeiten, OHNE alle 48 Quell-Docs einzeln zu lesen. **Basis:** die zwei IST-Single-
-> Sources (`architektur-ziele-offene-punkte-ledger.md` + `20260531-e2e-abnahme-audit-und-entscheidungen.md`) + die destillierten
+> Sources (`architektur-ziele-offene-punkte-ledger.md` **[KLARSTELLUNG 2026-07-16, Voll-Audit F67]:** historisch, selbst SUPERSEDED — autoritativ = super-Ledger `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` (Diplomarbeit-Root) — + `20260531-e2e-abnahme-audit-und-entscheidungen.md`) + die destillierten
 > Lese-/Code-/Audit-Notizen (`20260613-A1-lesenotizen-ist-architektur.md` · `…-A2-code-pre-read-notizen.md` · `…-A3-audit-soll-
 > abgleich.md`) — alle agent-verifiziert (A1-Coverage VOLLSTÄNDIG + Treue DESTILLAT-TREU) bzw. am Code gegengeprüft (A2).
 > **Ort-Hinweis:** liegt bei den IST-Docs (cache-engine `docs/architecture/`, Nummer 34 nach 33). Masterplan B1 schlug
