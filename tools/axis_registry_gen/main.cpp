@@ -31,6 +31,16 @@
 // genus="SearchAlgorithm": die 19 Kompositions-Achsen sind die 19 Organe der SearchAlgorithm-Anatomie
 //   (AnatomyGenus::SearchAlgorithm, anatomy_base.hpp:68 = "vollst. 19-Achsen-Anatomie"). Die Achsen-
 //   Wrapper tragen selbst kein per-Organ-genus-Member; 'genus' ist daher der Anatomie-Genus der Komposition.
+//   F30 (WP-4, 2026-07-16): der Wert wird nicht mehr als String-Literal emittiert, sondern via
+//   anat::genus_name(AnatomyGenus::SearchAlgorithm) aus der Enum-Single-Source reflektiert (byte-identisch).
+//
+// type= (F30, WP-4 2026-07-16): '::'-praefixierter FQ-Typ nach der Makro-Konvention (organ_location.hpp:42,
+//   wie die prt-art-Registry via W::cpp_type_name) — derselbe Typ ist damit in BEIDEN Registries identisch
+//   buchstabiert. BEWUSST NICHT das cpp_type_name-Literal selbst: bei Template-Wrappern (ObservableNodeType/
+//   ObservableMemoryLayout/...) traegt das Literal KEINE Template-Argumente — eine 1:1-Emission kollabierte
+//   z.B. alle 4 node_type-Bausteine auf denselben type-String (Informationsverlust). Stattdessen wird der
+//   volle, argument-erhaltende type_name<W>() emittiert ('::'-praefixiert, elaborated-normalisiert, F24) und
+//   per GUARD gegen das Literal geprueft (b.type muss mit W::cpp_type_name beginnen — faengt Literal-Drift).
 //
 // golden_wired: ein Baustein ist golden-verdrahtet, wenn er in den golden-320-Katalog (FullSourceCatalog =
 //   CatalogAxes<4,4,5,4>, profile_facade/source_catalog.hpp:83-113) eingeht: die ersten K je Achse
@@ -40,6 +50,7 @@
 // C++23. Ausfuehren: `axis_registry_gen --out <pfad> [--with-extra-axes]`. TABU (permutation_axes.xml,
 // golden-320, POD-1416, kV3AxisSchema, ABI) wird NICHT beruehrt - der Generator LIEST nur Typen.
 
+#include <anatomy/anatomy_base.hpp>                            // AnatomyGenus + genus_name (F30: genus reflektiert)
 #include <anatomy/organ_location.hpp>                          // HasOrganLocation<W> (INC-A #6: header_include)
 #include <builder/codegen/adhoc_emitter.hpp>                   // strip_all_elaborated (F24: geteilter Helfer)
 #include <builder/codegen/type_name.hpp>                       // type_name<W>() (FQ-Typ, compile-time)
@@ -67,8 +78,11 @@ namespace {
 struct Baustein {
     std::string name;    // Wrapper::name() - byte-genauer serialize-Schluessel
     std::string wrapper; // Kurz-Typ (letzte ::-Komponente vor einem eventuellen '<')
-    std::string type;    // fully-qualified C++-Typ (type_name<W>())
+    std::string type;    // fully-qualified C++-Typ, '::'-praefixiert (F30; type_name<W>() + strip, F24)
     std::string header;  // Include-Pfad des Wrappers (W::header_include, falls HasOrganLocation<W>; sonst leer)
+    // F30-GUARD: das cpp_type_name-Literal des Wrappers (COMDARE_DEFINE_ORGAN_LOCATION), falls vorhanden —
+    // b.type MUSS damit beginnen (Literal ohne Template-Argumente == Praefix des vollen Typ-Namens).
+    std::string location_literal;
     bool        golden = false;
 };
 
@@ -139,10 +153,15 @@ template <class List, std::size_t GoldenK>
         // "class "/"struct "-Tokens -> die Registry-XML waere compiler-abhaengig (anderes Byte-Bild als die
         // committete GCC-Form). Derselbe geteilte Helfer wie im adhoc_emitter (Single-Source) normalisiert
         // ALLE Elaborated-Keywords; unter GCC/Clang ist das ein No-op (Byte-Bild unveraendert, verifiziert).
-        b.type    = cg::strip_all_elaborated(cg::type_name<W>());
+        // F30 (WP-4): '::'-Praefix nach der Makro-Konvention (organ_location.hpp:42) — identische
+        // Buchstabierung wie die prt-art-Registry (W::cpp_type_name); Details s. Kopf-Doku 'type='.
+        b.type    = "::" + cg::strip_all_elaborated(cg::type_name<W>());
         b.wrapper = short_name(b.type);
         b.header  = organ_header<W>();
-        b.golden  = golden.contains(b.name);
+        if constexpr (anat::HasOrganLocation<W>) {
+            b.location_literal = std::string{W::cpp_type_name}; // F30-GUARD-Eingabe
+        }
+        b.golden = golden.contains(b.name);
         out.push_back(std::move(b));
     });
     return out;
@@ -223,6 +242,15 @@ int main(int argc, char** argv) {
                           << "'. KEINE Datei geschrieben (Enabled*-Leitplanke verletzt).\n";
                 return 3;
             }
+            // -- F30-GUARD: b.type ('::'-praefixiert) MUSS mit dem COMDARE_DEFINE_ORGAN_LOCATION-Literal des
+            //    Wrappers beginnen (das Literal traegt keine Template-Argumente -> Praefix-Beziehung). Faengt
+            //    Literal-Drift zwischen Makro-Deklaration und realem Typ (Kopf-Doku 'type='). --
+            if (!b.location_literal.empty() && b.type.compare(0, b.location_literal.size(), b.location_literal) != 0) {
+                std::cerr << "axis_registry_gen: F30-GUARD-BRUCH - type '" << b.type
+                          << "' beginnt nicht mit dem cpp_type_name-Literal '" << b.location_literal << "' (Achse '"
+                          << ax.id << "'). KEINE Datei geschrieben (Makro-Literal driftet vom realen Typ).\n";
+                return 5;
+            }
         }
     }
 
@@ -240,10 +268,12 @@ int main(int argc, char** argv) {
     f << "  <!-- 'header' = W::header_include aus COMDARE_DEFINE_ORGAN_LOCATION (INC-A #6, analog prt-art R-B),\n";
     f << "       gelesen via HasOrganLocation<W>; NIE aus dem Typ-Namen abgeleitet. Wrapper ohne per-Organ-\n";
     f << "       Location liefern header=\"\" (kein Fabrizieren). -->\n";
+    // F30: genus aus der Enum-Single-Source reflektiert (anatomy_base.hpp genus_name), nicht mehr Literal.
+    std::string const genus{anat::genus_name(anat::AnatomyGenus::SearchAlgorithm)};
     for (auto const& ax : axes) {
         f << "  <axis id=\"" << xml_escape(ax.id) << "\" slot=\"" << xml_escape(ax.slot) << "\" category=\""
-          << xml_escape(ax.category) << "\" genus=\"SearchAlgorithm\" baustein_count=\"" << ax.bausteine.size()
-          << "\">\n";
+          << xml_escape(ax.category) << "\" genus=\"" << xml_escape(genus) << "\" baustein_count=\""
+          << ax.bausteine.size() << "\">\n";
         for (auto const& b : ax.bausteine) {
             f << "    <baustein name=\"" << xml_escape(b.name) << "\" wrapper=\"" << xml_escape(b.wrapper)
               << "\" type=\"" << xml_escape(b.type) << "\" header=\"" << xml_escape(b.header)
