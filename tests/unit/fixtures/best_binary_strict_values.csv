@@ -1,0 +1,10 @@
+binary_id;ns_per_op;two_phase_valid;op_insert_p50_ns
+bin_ok;100.5;1;10
+bin_ok;1.205e2;1;11
+bin_junk;12junk;1;12
+bin_nan;nan;1;13
+bin_inf;inf;1;14
+bin_neginf;-inf;1;15
+bin_empty;;1;16
+bin_opt_junk;130;1;17junk
+bin_opt_empty;140;1;

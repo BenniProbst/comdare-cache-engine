@@ -64,6 +64,33 @@ int main(int argc, char** argv) {
     auto const r_rmw = bb::rank_binaries(rows, bb::RankingCriterion{bb::Metric::rmw});
     check(r_rmw.empty(), "rank rmw: leer (fehlende op_rmw_p50-Spalte -> alle Werte 0 -> ausgeschlossen)");
 
+    // ── (REV-DATA-04, WP-5 2026-07-16): strikter Zahl-Parser + isfinite ──────────────────────────
+    // Fixture 2 (argv[2]): nan/inf/-inf/12junk/leerer Pflichtwert/op_*-junk werden mit Diagnose verworfen;
+    // gueltige Dezimal- + Exponentialwerte bleiben; leeres optionales op_*-Feld bleibt 0 (n/a-Semantik).
+    if (argc >= 3) {
+        std::vector<bb::MeasurementRow> srows;
+        std::vector<std::string>        rejects;
+        int const                       sn = bb::parse_measurement_csv(argv[2], srows, &rejects);
+        check(sn == 3, "strict: 3 von 9 Zeilen akzeptiert (12junk/nan/inf/-inf/leer-Pflicht/op-junk verworfen)");
+        check(rejects.size() == 6u, "strict: 6 Verwerfungs-Diagnosen gesammelt");
+        check(srows.size() == 3u && srows[0].binary_id == "bin_ok" && srows[0].ns_per_op == 100.5,
+              "strict: Dezimalwert 100.5 akzeptiert");
+        check(srows.size() >= 2u && srows[1].ns_per_op == 120.5, "strict: Exponentialwert 1.205e2 akzeptiert");
+        // bin_opt_junk hat '17junk' im op_insert-Feld -> Zeile verworfen; bin_opt_empty (leer) bleibt mit 0.
+        bool found_opt_junk = false, found_opt_empty = false;
+        for (auto const& r : srows) {
+            if (r.binary_id == "bin_opt_junk") found_opt_junk = true;
+            if (r.binary_id == "bin_opt_empty") found_opt_empty = true;
+        }
+        check(!found_opt_junk, "strict: '17junk' in optionalem op_*-Feld -> Zeile verworfen");
+        check(found_opt_empty, "strict: LEERES optionales op_*-Feld -> Zeile bleibt (Wert 0 = n/a)");
+        // NaN/Inf duerfen nie mehr ins Ranking: sort-Ordnung deterministisch, kein NaN-Median moeglich.
+        auto const r_strict = bb::rank_binaries(srows, bb::RankingCriterion{bb::Metric::ns_per_op});
+        check(r_strict.size() == 2u, "strict rank: 2 binary_ids (bin_ok + bin_opt_empty), kein NaN/Inf im Ranking");
+    } else {
+        check(false, "strict: Fixture 2 (argv[2]) fehlt");
+    }
+
     std::printf(g_fail == 0 ? "BEST-BINARY PARSE+RANK: ALLE OK\n" : "BEST-BINARY PARSE+RANK: %d FAIL\n", g_fail);
     return g_fail == 0 ? 0 : 1;
 }

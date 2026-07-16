@@ -76,14 +76,22 @@ int main(int argc, char** argv) {
     bb::Metric const metric = *metric_opt;
     if (art_name.empty()) art_name = "best_" + bb::metric_name(metric);
 
-    // 1) CSV einlesen.
+    // 1) CSV einlesen. (REV-DATA-04): strikte Zahl-Validierung — verworfene Zeilen mit Diagnose ausweisen.
     std::vector<bb::MeasurementRow> rows;
-    int const                       n = bb::parse_measurement_csv(csv_path, rows);
+    std::vector<std::string>        rejects;
+    int const                       n = bb::parse_measurement_csv(csv_path, rows, &rejects);
     if (n < 0) {
         std::cerr << "CSV konnte nicht gelesen werden: " << csv_path << "\n";
         return 1;
     }
     std::cout << "[csv]    " << n << " Datenzeilen gelesen aus " << csv_path << "\n";
+    if (!rejects.empty()) {
+        std::cerr << "[csv]    WARN: " << rejects.size() << " Zeile(n) verworfen (strikte Zahl-Validierung):\n";
+        std::size_t const show_rejects = (rejects.size() < 5u) ? rejects.size() : 5u;
+        for (std::size_t i = 0; i < show_rejects; ++i) std::cerr << "         " << rejects[i] << "\n";
+        if (rejects.size() > show_rejects)
+            std::cerr << "         ... (+" << (rejects.size() - show_rejects) << " weitere)\n";
+    }
 
     // 2) Rangbildung (Strategy = gewaehlte Metrik).
     bb::RankingCriterion crit{metric};

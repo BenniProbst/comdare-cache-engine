@@ -140,7 +140,13 @@ struct RankedBinary {
 
 /// CSV-Parser (header-getrieben, ';'-getrennt; Reihenfolge-/Breite-agnostisch wie csv_to_latex).
 /// Gibt Anzahl gelesener Datenzeilen zurück, -1 bei Fehler.
-[[nodiscard]] int parse_measurement_csv(std::filesystem::path const& in, std::vector<MeasurementRow>& out_rows);
+/// (REV-DATA-04, WP-5 2026-07-16): Zahlfelder werden STRIKT geparst (std::from_chars, voller Token-Verbrauch,
+/// std::isfinite) — "12junk"/nan/inf/-inf und leere Pflichtwerte (ns_per_op) verwerfen die GANZE Zeile mit
+/// Diagnose statt als 12/NaN ins Ranking zu fließen (NaN verletzte die strikte schwache Ordnung von sort;
+/// "12junk" wurde von stod still auf 12 gekürzt). Optionale op_*-Felder: leer ⇒ 0 (= n/a, Bestands-Semantik),
+/// nicht-leer ⇒ strikt. `reject_diags` (optional) sammelt je verworfener Zeile eine Diagnose.
+[[nodiscard]] int parse_measurement_csv(std::filesystem::path const& in, std::vector<MeasurementRow>& out_rows,
+                                        std::vector<std::string>* reject_diags = nullptr);
 
 /// Rangbildung: je binary_id Median des Kriteriums über NUR two_phase_valid-Zeilen mit Wert>0.
 /// Aufsteigend sortiert (Index 0 = beste). Strategy = crit.
