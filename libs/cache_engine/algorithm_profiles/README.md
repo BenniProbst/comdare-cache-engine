@@ -8,7 +8,42 @@
 
 ---
 
-## Layout
+## Layout (IST-Stand, F34-Nachzieh 2026-07-16)
+
+> KORREKTUR F34 (WP-4, Voll-Audit 2026-07-16): der darunter stehende Original-Baum
+> von REV 7.6 V8.3 ist ein LEGACY-STAND (bewusst nicht geloescht, Doku-Doktrin). Er
+> weicht in drei Punkten vom Ist ab: (1) `_schema.xsd` wurde nie materialisiert — die
+> XSD-Wahrheit des comdare_experiment-Pfads liegt im SUPER-Repo unter
+> `Code/test_data_xml/experiment_schema.xsd` (INC-C 2026-07-14; die Validierung selbst
+> ist der C++-Validator `profile_facade/validate_profile.hpp`, kein xmllint-Gate);
+> (2) `permutation_axes.xml` ist der historische 11-Achsen-Katalog (page/node/
+> traversal/…) und TABU-read-only — der KANONISCHE Achsen-Stand sind die 19
+> Kompositions-Achsen T00–T18, maschinenlesbar in der GENERIERTEN
+> `cache_engine_axis_registry.xml` (tools/axis_registry_gen, INC-A; Round-Trip-Gate
+> test_axis_registry_roundtrip, F29); (3) der Ordner traegt heute weit mehr als sota/.
+
+```
+algorithm_profiles/
+├── README.md                        (dieses Dokument)
+├── permutation_axes.xml             (LEGACY: historischer 11-Achsen-Katalog; TABU-read-only,
+│                                     NICHT informations-redundant zur Registry-XML)
+├── cache_engine_axis_registry.xml   (GENERIERT, INC-A: 19 Achsen T00-T18 / 90 Bausteine der
+│                                     Enabled*-Reflektion; NICHT von Hand editieren;
+│                                     Drift-Gate: ctest test_axis_registry_roundtrip)
+├── sota/                            (34 SOTA-/Paper-Profile, P01-P30-Welle)
+├── thesis_profiles/                 (E4-Studien-Profile inkl. m3v2_study.profile.xml
+│                                     [golden-320-Quelle] + SCHEMA.md)
+├── load_profiles/                   (Achse-2-Lastprofile: ycsb_a..f, lp_*, coco_p04_*, ih/lh
+│                                     + SCHEMA.md)
+└── allocators/                      (23 Allokator-Profile + README.md)
+```
+
+Das Schema der prt-art-Registry (`prt_art_axis_registry.xml`) ist identisch; sie lebt
+im prt-art-Repo (`prt_art/algorithm_profiles/`, Generator `prt_art/registry_gen`).
+
+---
+
+## Layout (LEGACY-Stand REV 7.6 V8.3 — historisch, s. Korrektur oben)
 
 ```
 algorithm_profiles/
