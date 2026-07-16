@@ -9,6 +9,10 @@
 //   - UTF-8-BOM am Dokument-Anfang (F26.1, WP-3 2026-07-16: wird uebersprungen — vorher lieferte ein
 //     BOM-behaftetes, sonst wohlgeformtes Dokument stilles nullopt; Windows-Editoren/PowerShell setzen
 //     BOMs, Repo-Doktrin ist Windows+Linux. Bestand: 0 von 176 committeten XMLs tragen ein BOM.)
+//   - Close-Tag-Abgleich (F26.2, WP-3 2026-07-16: </name> muss dem offenen Tag entsprechen, sonst
+//     Parse-Fehler — vorher wurde der Close-Name gelesen und verworfen, ein strukturell kaputtes
+//     Dokument lieferte ein scheinbar gueltiges, teil-leeres DOM. Regressionslauf ueber alle 176
+//     committeten XMLs beider Sub-Repos + super: 176/176 OK, DOM-Dump byte-identisch.)
 // BEWUSST NICHT: Namespaces, DTD-Validierung, CDATA, numerische Entities — fuer die
 // kontrollierten, selbst erzeugten Profile nicht noetig. Robust genug + ohne Abhaengigkeit.
 
@@ -177,7 +181,11 @@ inline bool parse_element(Cursor& c, XmlNode& out) {
         }
         if (starts_with(c, "</")) {
             c.i += 2;
-            read_name(c); // close-Name (tolerant; Wohlgeformtheit vorausgesetzt)
+            // F26.2 (WP-3, 2026-07-16): Close-Tag-Name MUSS dem offenen Tag entsprechen, sonst Parse-
+            // Fehler. Vorher wurde der Name gelesen und verworfen ("tolerant") — ein zu frueher/falscher
+            // Close-Tag re-parentete Folge-Elemente still und lieferte ein scheinbar gueltiges, teil-
+            // leeres DOM (Kopf-Doku). Regressionslauf 176/176 committete XMLs: verhaltensidentisch.
+            if (read_name(c) != out.tag) return false;
             skip_ws(c);
             if (c.i < c.s.size() && c.s[c.i] == '>') ++c.i;
             break;
