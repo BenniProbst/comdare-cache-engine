@@ -289,8 +289,13 @@ contract:profile_coverage:
     # Parser-Modul + validate gegen die REALEN Registries) +test_measurement_categories (INC-3) — beide
     # contract;profiles;e4-gelabelt (raus aus test:unit -LE contract), aber von KEINEM -R-Job gefahren ->
     # Phantom-Verifikationssignal der A-H-Welle. Hier im semantisch passenden Profil-/E4-Vertrags-Gate gehoben.
-    - cmake --build build-cov --target test_profile_coverage test_smoke_coverage_profile test_wdk_datasets_fairness test_sota_st2_dedup test_validate_profile test_h2_score_akte test_profile_roundtrip test_experiment_parser test_measurement_categories
-    - ctest --test-dir build-cov -R '^(test_profile_coverage|test_smoke_coverage_profile|test_wdk_datasets_fairness|test_sota_st2_dedup|test_validate_profile|test_h2_score_akte|test_profile_roundtrip|test_experiment_parser|test_measurement_categories)$' --output-on-failure -V
+    # F29+F64(a)/WP-4 (Voll-Audit 2026-07-16): +test_axis_registry_roundtrip — Round-Trip-Gate der committeten
+    # cache_engine_axis_registry.xml (comdare_axis_registry_gen regeneriert, byte-diff == 0; Muster R-E/M-CE-27).
+    # Der Generator war EXCLUDE_FROM_ALL ohne CI-Bezug -> Enabled*-Drift waere stumm geblieben. Tool in der
+    # --target-Liste (2-Pass, wie die anderen EXCLUDE_FROM_ALL-Gates), Test im -R-Regex. Default-Standalone-
+    # Konfiguration dieses Jobs == Referenz-Konfiguration der committeten XML (tests/unit/registry_roundtrip.cmake).
+    - cmake --build build-cov --target test_profile_coverage test_smoke_coverage_profile test_wdk_datasets_fairness test_sota_st2_dedup test_validate_profile test_h2_score_akte test_profile_roundtrip test_experiment_parser test_measurement_categories comdare_axis_registry_gen
+    - ctest --test-dir build-cov -R '^(test_profile_coverage|test_smoke_coverage_profile|test_wdk_datasets_fairness|test_sota_st2_dedup|test_validate_profile|test_h2_score_akte|test_profile_roundtrip|test_experiment_parser|test_measurement_categories|test_axis_registry_roundtrip)$' --output-on-failure -V
   artifacts:
     paths: []     # kein build/Testing/-Artefakt (Storage-500-Konvention der anderen contract-Jobs)
 # -- Stufe 4g: Contract Experiment-Driver-Gate (#193-A CI-Luecke geschlossen + /fork-Direktive) --

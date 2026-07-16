@@ -3374,3 +3374,29 @@ if(TARGET comdare_permutation_codegen_cli)
             PROPERTIES TIMEOUT 120)
     endforeach()
 endif()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WP-4/F29+F64(a) (Voll-Audit 2026-07-16) — Registry-Round-Trip-Gate (Muster R-E/M-CE-27):
+# die committete cache_engine_axis_registry.xml deklariert "Reflektion ueber Enabled* ist Pflicht
+# (Round-Trip-Garantie)", aber der Generator (comdare_axis_registry_gen, EXCLUDE_FROM_ALL) lief in
+# KEINEM ctest/CI-Job — Enabled*-Aenderungen driften stumm an der XML vorbei (M-CE-27-Stale-Klasse).
+# Script-Test (CMake-Primitiv, KEIN gtest): registry_roundtrip.cmake laesst das VOR-gebaute Tool
+# nach CMAKE_CURRENT_BINARY_DIR regenerieren + byte-difft gegen die committete XML (NUR GELESEN).
+# Referenz-Konfiguration: Default-Standalone (s. Script-Kopf). Das +contract-Label haelt den Test
+# aus test:unit (-LE contract|pmc) heraus — CI-Heimat ist contract:profile_coverage (Registry-/
+# Profil-Wahrheit), dort Target in der Build-Liste + Name im -R-Regex (Doktrin: GENAU EIN Job).
+# COMDARE_TEST_TARGETS-Registrierung zieht das EXCLUDE_FROM_ALL-Tool in den comdare_tests-Sammel-Bau
+# (Registry-Doktrin Root-CMakeLists Z.1505: jedes ctest-registrierte Target wird gebaut).
+# ─────────────────────────────────────────────────────────────────────────────
+if(TARGET comdare_axis_registry_gen)
+    add_test(
+        NAME test_axis_registry_roundtrip
+        COMMAND "${CMAKE_COMMAND}"
+            "-DGEN_TOOL=$<TARGET_FILE:comdare_axis_registry_gen>"
+            "-DCOMMITTED=${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/cache_engine_axis_registry.xml"
+            "-DWORKDIR=${CMAKE_CURRENT_BINARY_DIR}/registry_roundtrip_ce"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/registry_roundtrip.cmake")
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS comdare_axis_registry_gen)
+    set_tests_properties(test_axis_registry_roundtrip
+        PROPERTIES LABELS "contract;registry;roundtrip" TIMEOUT 120)
+endif()
