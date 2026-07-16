@@ -15,6 +15,13 @@
 // Sequence 11 / View 7) -- dieser Header RE-EXPORTIERT die bestehende gattungs-parametrische Bau-Bindung,
 // er baut sie NICHT um. Eine echte Genus->Typ-UMSTRUKTURIERUNG (Set/Sequence als bloede Typen statt
 // eigener Genus) waere ABI/golden-beruehrend und bleibt ein SEPARATER User-GO (Ledger #29-GEPARKT).
+//
+// **#29-ENTPARKT (F1a-Vokabular-Versoehnung, User-GO 2026-07-16):** Der obige „Ledger #29-GEPARKT"-Vermerk
+// ist hiermit ENTPARKT — die Genus->Ebene-1-Umstrukturierung (Set/Sequence als eigene AnatomyGattung) ist
+// per User-GO 2026-07-16 (Increment F1b) FREIGEGEBEN. Dieser additive Re-Export BLEIBT als Kompatibilitaets-
+// Sicht bestehen. Die Umsetzung ist ein KOORDINIERTER ABI-Schritt (Version 4->5, gemeinsam mit #37 nach
+// F12iii) und laeuft mit eigener Kadenz. HIER (F1a) passiert NUR die Vokabular-Klarstellung: KEINE
+// Aenderung an AnatomyGattung/AnatomyGenus-Enum, GenusBindingTraits, golden_fullpilot_320 oder permutation_axes.
 
 #include <anatomy/anatomy_base.hpp>                         // AnatomyGattung/AnatomyGenus + gattung_of (constexpr)
 #include <builder/experiment_tree/genus_binding_traits.hpp> // GenusBindingTraits<G> + GenusBound<G> (Bau-Bindung je Genus)

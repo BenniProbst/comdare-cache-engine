@@ -55,3 +55,11 @@ Der Begriff „Container-TYP" ist präzisierungsbedürftig, weil zwei Ebenen inf
 ## 5. Tabus (unverändert)
 
 Kein neuer Ebene-1-Gattungs-Eintrag außer via expliziter User-GO. Anatomie-Enum-Reihenfolge, `GenusBindingTraits`, `golden_fullpilot_320_binary_ids.txt`, `permutation_axes.xml`, POD sizeof==1416, conformance-Oracle bleiben unberührt, bis ein Realisierungs-Increment sie nachweislich golden-neutral (default-OFF-End-Append) berührt. Metaprogrammierung compile-time (Concepts/`if constexpr`/mp11), kein runtime-switch.
+
+## 6. Nachtrag 2026-07-16 (F1a — Vokabular-Versöhnung, additiv; die Ebene-1-Promotion ist jetzt GO'd)
+
+**Bezug:** User-Entscheid 2026-07-16 (Increment F1a golden-neutral / F1b koordiniert-ABI). Rein additiv — keine Aussage der §1–§5 wird zurückgenommen; §5 („nur via expliziter User-GO") wird hierdurch erfüllt, nicht verletzt.
+
+- **Set/Sequence sind heute Genus (Ebene 2) UNTER der Container-Gattung** — exakt wie §1/§2 festhalten. Das bleibt der Ist-Zustand; F1a ändert ihn nicht.
+- **Die native Set-ABI existiert BEREITS als eigenständiges Sub-Interface:** `ISetTier` / `SetObserverSnapshotV1` mit eigenen `GenusBindingTraits<Set>`. Set ist damit schon heute ein vollwertiges eigenes Genus mit eigener Komposition/Anatomie/Observer, nicht bloß ein Alias unter Container.
+- **Die Ebene-1-Promotion ist GO'd (F1b):** die in §3 (Option B) / §5 als „nur via expliziter User-GO" markierte Genus→Ebene-1-Umstrukturierung (Set/Sequence als eigene `AnatomyGattung`) ist per User-GO 2026-07-16 freigegeben — als **koordinierter Folge-Schritt** (ABI 4→5, gemeinsam mit #37 nach F12iii, eigene Kadenz). **F1a selbst berührt NUR das Vokabular/die Doku** (Enum, `GenusBindingTraits`, `golden_fullpilot_320_binary_ids.txt`, `permutation_axes.xml`, POD-sizeof, conformance-Oracle unberührt); die eigentliche Umsetzung bleibt F1b.

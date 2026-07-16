@@ -64,6 +64,17 @@ enum class AnatomyGattung : std::uint8_t {
 /// | Reptil        | Sequence                         | Container         | vector, list, deque, array |
 /// | Wirbelloses   | Adapter                          | Container         | stack, queue, priority_queue |
 /// | Pflanze       | View                             | Container         | span, mdspan, string_view |
+///
+/// **Vokabular-Brücke (F1a, User-GO 2026-07-16 — golden-neutral, REIN DOKU):** Der User-Begriff
+/// *„Gattung"* bezeichnet umgangssprachlich GENAU diese Tier-Unterklasse hier (Ebene 2, `AnatomyGenus`),
+/// NICHT das gleichnamige Ebene-1-Außen-Interface `AnatomyGattung`. Diese Zwei-Namen-Realität
+/// (Ebene-1 `AnatomyGattung` vs. Ebene-2 `AnatomyGenus`) wird bewusst benannt, damit „Gattung" im
+/// User-Sprech und „Genus" im Code nicht verwechselt werden. *Set* ist dabei BEREITS ein eigenes
+/// Genus (`Set = 1`) mit eigener Komposition/Anatomie/Observer und eigener ABI
+/// (`ISetTier` / `SetObserverSnapshotV1`) samt eigenen `GenusBindingTraits<Set>` — also schon heute
+/// eine vollwertige, native Tier-Unterklasse, kein bloßer Alias. Die ECHTE Ebene-1-Promotion (Set als
+/// eigenständige `AnatomyGattung`) ist der SEPARATE, koordinierte ABI-Schritt F1b (NICHT hier;
+/// s. container_framework.hpp #29-Vermerk + docs/architecture/37).
 enum class AnatomyGenus : std::uint8_t {
     SearchAlgorithm = 0, ///< Tier-Unterklasse der SearchAlgorithm-Gattung (vollst. 19-Achsen-Anatomie)
     Set             = 1, ///< Tier-Unterklasse der Container-Gattung (K only, Bird)
