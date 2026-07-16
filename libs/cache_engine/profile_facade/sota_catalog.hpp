@@ -352,7 +352,11 @@ struct SotaPass {
         out.push_back(SotaPass{reihe, s.lebewesen, m->binary_id, view_bid,
                                derive_pruefling_type(reihe, s.merge, s.pruefling_type), // #171: full/abstract
                                fair,
-                               m->host_lebewesen}); // M-CE-10 (c): H2 host-dominant (St2 ⇒ "hot", nie das angefragte)
+                               // M-CE-10 (c): H2 host-dominant. KORREKTUR F23 (2026-07-16): seit der per-Host-
+                               // Auffaecherung (2026-07-14) ist host_lebewesen == lebewesen — der fruehere
+                               // Zusatz "(St2 ⇒ \"hot\", nie das angefragte)" beschrieb die VOR-M-CE-10-
+                               // Semantik (nur HOT-Host) und ist ueberholt (Gate: test_sota_st2_dedup, 19 Paesse).
+                               m->host_lebewesen});
     }
     return out;
 }

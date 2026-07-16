@@ -2561,12 +2561,17 @@ target_compile_definitions(test_experiment_parser PRIVATE
     "COMDARE_PRT_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/prt_art_axis_registry.xml\"")
 set_tests_properties(test_experiment_parser PROPERTIES LABELS "contract;profiles;e4;incd")
 
-# M-CE-10 (Voll-Review 2026-07-13) — ctest-Gate der Stufe2_PrueflingReplace-Korrektur im sota_catalog:
-# St2 ist KONZEPTIONELL EINE Binary (HOT-Pilot). Beweist (1) Dedup mehrerer St2-Deklarationen zu 1 Pass,
-# (2) host-dominante H2-Attribution (h2_lebewesen == "hot", NICHT das angefragte lebewesen — via committeter
-# Akte), (3) distinkte binary_id-Zaehlung am gepinnten m3v2_study (14 statt vorher 20/21 gezaehlt),
-# (4) fairness-Varianten werden NICHT ueber die gemeinsame binary_id zusammengefasst. m3v2_study.profile.xml +
-# sota_h2_scores.xml werden NUR GELESEN (TABU-Wache). comdare_add_test registriert auto in COMDARE_TEST_TARGETS.
+# M-CE-10 (Voll-Review 2026-07-13; per-Host-Auffaecherung 2026-07-14) — ctest-Gate der
+# Stufe2_PrueflingReplace-Materialisierung im sota_catalog. KORREKTUR F23 (2026-07-16): die fruehere
+# Beschreibung ("St2 = EINE Binary/HOT-Pilot, Dedup zu 1 Pass, h2_lebewesen == 'hot', 14 gezaehlt") war die
+# VOR-M-CE-10-Semantik — der Test asserted seit der per-Host-Auffaecherung das Gegenteil. Beweist (Wortlaut
+# test_sota_st2_dedup.cpp-Kopf): (1) PER-HOST-DISTINKT — mehrere St2-Deklarationen mit verschiedenen
+# lebewesen ⇒ je Host EIN distinkter Pass, NICHT mehr zu 1 kollabiert; (2) H2-Attribution host-dominant mit
+# host == angefragtem lebewesen (EXPECT_EQ(p.h2_lebewesen, p.lebewesen)); (3) das gepinnte m3v2_study
+# (7 St1 + 7 St2 + 7 St3) liefert 19 Paesse mit 19 DISTINKTEN view_binary_ids (7 St1 + 6 St2 + 6 St3,
+# prt_art degeneriert); (4) fairness-Varianten bleiben getrennte Paesse; (5) echte Dedup bleibt (gleicher
+# Host ⇒ 1 Pass). m3v2_study.profile.xml + sota_h2_scores.xml werden NUR GELESEN (TABU-Wache).
+# comdare_add_test registriert auto in COMDARE_TEST_TARGETS.
 comdare_add_test(test_sota_st2_dedup
     SOURCES thesis_tiere/test_sota_st2_dedup.cpp
     LIBRARIES comdare_builder_xml_config_parser)
