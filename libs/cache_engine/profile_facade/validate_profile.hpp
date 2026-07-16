@@ -460,14 +460,23 @@ struct RegistryContents {
     return rc;
 }
 
-/// validate_experiment_profile — DIE reine Pruef-Logik (read-only). `registry_dir` = Verzeichnis, gegen das
-/// die je-engine `registry`-Dateinamen aufgeloest werden (leer = (4)+(5) uebersprungen). `known_workload_ids`
-/// = die REAL vorhandenen load_profiles/-ids (aus wd::discover_load_profiles, vom Host hereingereicht); leer =
-/// die <workloads>-Pruefung (10) wird uebersprungen (rueckwaerts-kompatibel, Bruecke-I1). Schreibt KEINE
-/// Datei, baut KEINE DLL, misst NICHTS. Gibt das Ergebnis-POD zurueck.
+/// validate_experiment_profile — DIE reine Pruef-Logik (read-only). Zwei Registry-Aufloesungs-Modi:
+///   • `engine_registry_paths` NICHT leer (Bruecke-I2, 2-Registry-Kanon): je Engine wird ihre Registry aus
+///     DIESER Map (Schluessel = engine-id ee_ce/ee_prt, Wert = voller STATISCHER Registry-Pfad) aufgeloest — die
+///     Registries liegen an verschiedenen, per CMake-Interface dokumentierten Pfaden (je Engine EINE), NICHT
+///     co-lokalisiert und NICHT als registry_dir/<bare filename>. Der Host reicht beide statischen Pfade herein
+///     (die ce-Fassade kennt das prt-art-Repo-Layout NICHT — Baseline-Layering: ce=Framework).
+///   • `engine_registry_paths` leer: der bestehende `registry_dir`-Modus — die je-engine `registry`-Dateinamen
+///     werden als registry_dir/<filename> aufgeloest (registry_dir leer = (4)+(5) uebersprungen). Die Checks
+///     selbst (Existenz / parsbar / engine-Attribut-Abgleich / Doppel-ce / allowed_variants⊆ce-Registry) sind
+///     in BEIDEN Modi identisch — nur der Aufloesungs-Pfad je Engine unterscheidet sich. RUECKWAERTS-KOMPATIBEL.
+/// `known_workload_ids` = die REAL vorhandenen load_profiles/-ids (aus wd::discover_load_profiles, vom Host
+/// hereingereicht); leer = die <workloads>-Pruefung (10) wird uebersprungen (rueckwaerts-kompatibel, Bruecke-I1).
+/// Schreibt KEINE Datei, baut KEINE DLL, misst NICHTS. Gibt das Ergebnis-POD zurueck.
 [[nodiscard]] inline ExperimentValidationResult
 validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::path const& registry_dir = {},
-                            std::set<std::string> const& known_workload_ids = {}) {
+                            std::set<std::string> const&                        known_workload_ids    = {},
+                            std::map<std::string, std::filesystem::path> const& engine_registry_paths = {}) {
     ExperimentValidationResult r;
 
     // ── (1) GENAU 2 engines. ──
@@ -538,8 +547,12 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
         }
     }
 
-    // ── (4)+(5): Registry-Dateien existieren + allowed_variants ⊆ ce-Registry-baustein-names. ──
-    if (registry_dir.empty()) {
+    // ── (4)+(5): Registry-Dateien existieren + allowed_variants ⊆ ce-Registry-baustein-names. Zwei
+    //    Aufloesungs-Modi (Bruecke-I2, s. Kopf-Doku): (A) engine_registry_paths NICHT leer -> je Engine der
+    //    volle STATISCHE Pfad aus der Map (2-Registry-Kanon; je Engine EINE Registry an dokumentiertem Pfad);
+    //    (B) sonst der bestehende registry_dir/<bare filename>-Pfad. Die Checks selbst sind modus-invariant. ──
+    bool const map_mode = !engine_registry_paths.empty();
+    if (!map_mode && registry_dir.empty()) {
         r.warnings.push_back("registry_dir nicht gesetzt: Registry-Existenz (4) + allowed_variants (5) "
                              "uebersprungen — rein strukturelle Validierung.");
     } else {
@@ -553,7 +566,23 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
         };
         std::optional<RegistryContents> ce_registry; // die Registry mit engine="cache_engine"
         for (auto const& e : ep.engines) {
-            std::filesystem::path const rf = registry_dir / e.registry;
+            // Bruecke-I2: je-Engine-Aufloesung. Map-Modus -> voller statischer Pfad aus der Map (Schluessel =
+            // engine-id); fehlt der Eintrag, kann die Registry nicht aufgeloest werden = HARTER Fehler (sonst
+            // fiele die (4)/(5)-Gegenpruefung fuer diese Engine still aus). Sonst registry_dir/<bare filename>.
+            std::filesystem::path rf;
+            if (map_mode) {
+                auto const pit = engine_registry_paths.find(e.id);
+                if (pit == engine_registry_paths.end()) {
+                    r.ok = false;
+                    r.errors.push_back("KEIN statischer Registry-Pfad fuer <engine id=\"" + e.id +
+                                       "\">: die engine_registry_paths-Map (2-Registry-Kanon, Bruecke-I2) fuehrt "
+                                       "keinen Pfad fuer diese engine-id.");
+                    continue;
+                }
+                rf = pit->second;
+            } else {
+                rf = registry_dir / e.registry;
+            }
             if (!std::filesystem::exists(rf)) {
                 r.ok = false;
                 r.errors.push_back("REGISTRY-Datei fehlt <engine id=\"" + e.id + "\" registry=\"" + e.registry +
