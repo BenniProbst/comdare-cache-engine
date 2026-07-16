@@ -34,9 +34,11 @@ inline constexpr std::size_t      kSuffixLen = kProbe.size() - kProbePos - 6; //
 /// Entfernt ein führendes Elaborated-Type-Specifier-Keyword (MSVC: "class "/"struct "/"enum ").
 /// HINWEIS (2026-06-03): schält NUR den ÄUSSEREN Specifier. MSVC rendert in __FUNCSIG__ auch verschachtelte
 /// Template-Argumente mit "class "/"struct "-Prefix (z.B. `Outer<class NS::Inner>`); die INNEN-liegenden Keywords
-/// bleiben hier stehen und werden host-seitig vom Emitter entfernt (adhoc_emitter.hpp strip_all_elaborated, der
-/// einzige Konsument, der den Namen in echten C++-Quelltext schreibt). type_name() selbst bleibt unverändert
-/// (constexpr-string_view, kein Heap/Lifetime-Risiko).
+/// bleiben hier stehen und werden host-seitig entfernt (adhoc_emitter.hpp strip_all_elaborated). type_name()
+/// selbst bleibt unverändert (constexpr-string_view, kein Heap/Lifetime-Risiko).
+/// KORREKTUR F24 (2026-07-16): die frühere Aussage "adhoc_emitter = der einzige Konsument" ist seit INC-A
+/// (2026-07-14) überholt — auch tools/axis_registry_gen konsumiert type_name<W>() (Registry-XML type=-Attribut)
+/// und wendet seither DENSELBEN geteilten strip_all_elaborated-Helfer an (compiler-unabhängiges Byte-Bild).
 [[nodiscard]] constexpr std::string_view strip_elaborated(std::string_view s) noexcept {
     for (std::string_view kw : {std::string_view{"class "}, std::string_view{"struct "}, std::string_view{"enum "},
                                 std::string_view{"union "}}) {
