@@ -23,6 +23,7 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <set>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -292,4 +293,36 @@ TEST(ExperimentParser, EmptyOpTypesIsError) {
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_FALSE(vr.ok);
     EXPECT_TRUE(any_contains(vr.errors, "LEERES/FEHLENDES <op_types>"));
+}
+
+// (c10) Bruecke-I1 (2026-07-16) — eine <workloads>-id, die keine entdeckte load_profiles/-id ist, ist ein
+//       HARTER Fehler, SOBALD der Host die bekannte Menge hereinreicht (rein-lesendes Achse-2-Gate, spiegelt
+//       das Thesis-Profil-M-CE-12). So faellt ein Tippfehler SCHON bei --validate auf statt erst im CEB-Lauf.
+TEST(ExperimentParser, UnknownWorkloadIdIsErrorWhenKnownSetProvided) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->workloads.push_back("ycsb_TYPO"); // keine reale load_profiles/-id
+
+    std::set<std::string> const           known = {"ycsb_a", "ycsb_b", "ycsb_c", "ycsb_d", "ycsb_e", "ycsb_f"};
+    tlz::ExperimentValidationResult const vr    = tlz::validate_experiment_profile(*ep, {}, known);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "UNBEKANNTE Workload-id"));
+    EXPECT_TRUE(any_contains(vr.errors, "ycsb_TYPO"));
+    EXPECT_EQ(vr.workloads_checked, 7u); // 6 Golden + 1 Tippfehler
+}
+
+// (c11) Bruecke-I1 — ohne hereingereichte bekannte Menge (2-arg, execute_messreihe-Pfad) bleibt das
+//       Workload-Gate uebersprungen: die Golden-Instanz validiert weiterhin OK (rueckwaerts-kompatibel).
+TEST(ExperimentParser, WorkloadGateSkippedWithoutKnownSet) {
+    auto const ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+
+    fs::path const                        reg = make_registry_dir();
+    tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg); // 2-arg: known leer
+    for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
+    EXPECT_TRUE(vr.ok);
+    EXPECT_EQ(vr.workloads_checked, 0u); // uebersprungen
+
+    std::error_code ec;
+    fs::remove_all(reg, ec);
 }
