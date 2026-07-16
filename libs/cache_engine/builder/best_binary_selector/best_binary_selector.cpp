@@ -1,6 +1,8 @@
 // best_binary_selector — Implementierung. Siehe Header für Zweck + Pattern-Begründung.
 #include "best_binary_selector.hpp"
 
+#include <charconv>
+#include <cmath>
 #include <unordered_map>
 
 namespace comdare::cache_engine::best_binary {
@@ -25,16 +27,27 @@ namespace {
     return out;
 }
 
-[[nodiscard]] double to_double(std::string const& s) {
-    if (s.empty()) return 0.0;
-    try {
-        return std::stod(s);
-    } catch (...) { return 0.0; }
+// (REV-DATA-04, WP-5 2026-07-16) STRIKTER Zahl-Parser: std::from_chars (locale-unabhängig, portabel für
+// Dezimal- + Exponentialform), voller Token-Verbrauch PFLICHT ("12junk" ⇒ false statt still 12) und
+// std::isfinite PFLICHT (nan/inf/-inf ⇒ false — NaN passierte zuvor den v<=0-Filter und verletzte die
+// strikte schwache Ordnung von std::sort ⇒ nichtdeterministisches Ranking). Ersetzt das frühere rohe
+// `std::stod` + catch(...)-auf-0-Mapping.
+[[nodiscard]] bool parse_double_strict(std::string const& s, double& out) {
+    if (s.empty()) return false;
+    double      v      = 0.0;
+    char const* first  = s.data();
+    char const* last   = s.data() + s.size();
+    auto const [p, ec] = std::from_chars(first, last, v);
+    if (ec != std::errc{} || p != last) return false;
+    if (!std::isfinite(v)) return false;
+    out = v;
+    return true;
 }
 
 } // namespace
 
-int parse_measurement_csv(fs::path const& in, std::vector<MeasurementRow>& out_rows) {
+int parse_measurement_csv(fs::path const& in, std::vector<MeasurementRow>& out_rows,
+                          std::vector<std::string>* reject_diags) {
     std::ifstream f{in};
     if (!f) return -1;
 
@@ -65,22 +78,46 @@ int parse_measurement_csv(fs::path const& in, std::vector<MeasurementRow>& out_r
     bool const has_sc  = need("op_scan_p50_ns", i_sc);
     bool const has_rmw = need("op_rmw_p50_ns", i_rmw);
 
+    // (REV-DATA-04) Diagnose-Helfer: verworfene Zeile protokollieren (Zeilennummer 1-basiert inkl. Header).
+    std::size_t line_no = 1; // Header war Zeile 1
+    auto        reject  = [&](char const* col, std::string const& val) {
+        if (reject_diags != nullptr)
+            reject_diags->push_back("Zeile " + std::to_string(line_no) + ": Feld '" + col + "' ungueltig ('" + val +
+                                    "') -> Zeile verworfen");
+    };
+
     int         count = 0;
     std::string line;
     while (std::getline(f, line)) {
+        ++line_no;
         if (line.empty()) continue;
         std::vector<std::string> const fields = split_semicolon(line);
-        if (fields.size() <= i_valid || fields.size() <= i_nsop || fields.size() <= i_bid) continue;
+        if (fields.size() <= i_valid || fields.size() <= i_nsop || fields.size() <= i_bid) {
+            if (reject_diags != nullptr)
+                reject_diags->push_back("Zeile " + std::to_string(line_no) + ": zu wenige Felder -> Zeile verworfen");
+            continue;
+        }
 
         MeasurementRow r;
-        r.binary_id       = fields[i_bid];
-        r.ns_per_op       = to_double(fields[i_nsop]);
+        r.binary_id = fields[i_bid];
+        // Pflichtwert ns_per_op: STRIKT (leer/partiell/nan/inf ⇒ Zeile verworfen, REV-DATA-04).
+        if (!parse_double_strict(fields[i_nsop], r.ns_per_op)) {
+            reject("ns_per_op", fields[i_nsop]);
+            continue;
+        }
         r.two_phase_valid = (fields[i_valid] == "1");
-        if (has_ins && fields.size() > i_ins) r.op_insert_p50 = to_double(fields[i_ins]);
-        if (has_lk && fields.size() > i_lk) r.op_lookup_p50 = to_double(fields[i_lk]);
-        if (has_er && fields.size() > i_er) r.op_erase_p50 = to_double(fields[i_er]);
-        if (has_sc && fields.size() > i_sc) r.op_scan_p50 = to_double(fields[i_sc]);
-        if (has_rmw && fields.size() > i_rmw) r.op_rmw_p50 = to_double(fields[i_rmw]);
+        // Optionale op_*-Felder: leer ⇒ 0 (= n/a, Bestands-Semantik); nicht-leer ⇒ STRIKT.
+        auto opt_field = [&](bool has, std::size_t idx, char const* col, double& dst) -> bool {
+            if (!has || fields.size() <= idx || fields[idx].empty()) return true; // fehlend/leer ⇒ 0 (n/a)
+            if (parse_double_strict(fields[idx], dst)) return true;
+            reject(col, fields[idx]);
+            return false;
+        };
+        if (!opt_field(has_ins, i_ins, "op_insert_p50_ns", r.op_insert_p50)) continue;
+        if (!opt_field(has_lk, i_lk, "op_lookup_p50_ns", r.op_lookup_p50)) continue;
+        if (!opt_field(has_er, i_er, "op_erase_p50_ns", r.op_erase_p50)) continue;
+        if (!opt_field(has_sc, i_sc, "op_scan_p50_ns", r.op_scan_p50)) continue;
+        if (!opt_field(has_rmw, i_rmw, "op_rmw_p50_ns", r.op_rmw_p50)) continue;
         out_rows.push_back(std::move(r));
         ++count;
     }
