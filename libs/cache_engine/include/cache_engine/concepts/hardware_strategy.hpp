@@ -1,4 +1,18 @@
 #pragma once
+// ---------------------------------------------------------------------------
+// DEPRECATED (2026-07-16): HISTORISCHER V32.EE.5-ALGORITHMUS-ACHSEN-ENTWURF
+// (vtable) -- 0 Konsumenten. Gattungs-Substanz lebt als CRTP:
+//   axis_12/T19 general_hardware -- topics/hardware/axis_12_general_hardware/
+//   (CRTP-Basis GeneralHardwareStrategyBase in
+//   axis_12_general_hardware_strategy_base.hpp + Pflicht-Properties in
+//   concepts/axis_12_general_hardware_concept.hpp; SIMD-/ISA-Substanz live als
+//   ISA-Achse 9 + T12-Komposition + simd_extension/09b-Build-Achse).
+// Die SYSTEM-Seite (Pflicht-Systemachse im CacheEngineBuilder) wird NEU gebaut
+//   -- Dossier 23 (Abschnitt 6, S-2; User-Entscheid 2026-07-16).
+// NICHT reaktivieren, NICHT loeschen; Rest-Semantik ohne Live-Gegenstueck
+//   (LockingMode::Upgradeable, aktive NumaStrategy, AtomicFamily) in der
+//   Delta-Matrix (Dossier 23 Abschnitt 2) als TODO getrackt.
+// ---------------------------------------------------------------------------
 // V32.EE.5 (2026-05-18 spaet) - Achse 12 HARDWARE-STRATEGY (NEU)
 //
 // @achse 12
