@@ -70,7 +70,10 @@ public:
         return concepts::ProgressGuarantee::Blocking;
     }
 
-    CopyOnWriteBuffer() : current_(std::make_shared<std::vector<element_type>>()) {}
+    // (F57/Muster B, WP-5 2026-07-16): der EINE unveraenderliche Leer-Snapshot wird HIER (nicht-noexcept)
+    // vorab alloziert — clear() teilt ihn nur noch (shared_ptr-Copy-Assign, allokationsfrei). Teilen ist
+    // CoW-korrekt: put()/get() mutieren *current_ NIE in place (immer make_shared-Neukopie).
+    CopyOnWriteBuffer() : empty_snapshot_(std::make_shared<std::vector<element_type>>()), current_(empty_snapshot_) {}
 
     [[nodiscard]] bool operator==(CopyOnWriteBuffer const& other) const noexcept {
         return current_->size() == other.current_->size();
@@ -113,8 +116,12 @@ public:
 
     [[nodiscard]] size_type size() const noexcept { return current_->size(); }
     [[nodiscard]] bool      is_empty() const noexcept { return current_->empty(); }
-    void                    clear() noexcept {
-        current_ = std::make_shared<std::vector<element_type>>();
+    // (F57/Muster B, WP-5 2026-07-16): der Gattungs-Concept (BufferStrategy) verlangt clear() noexcept —
+    // statt noexcept zu entfernen wird die Allokation HERAUSGEHOBEN: der unveraenderliche Leer-Snapshot
+    // ist im Konstruktor vorab alloziert; clear() ist eine allokationsfreie shared_ptr-Zuweisung
+    // (vorher: make_shared unter noexcept = terminate-on-OOM, Muster B).
+    void clear() noexcept {
+        current_ = empty_snapshot_;
         ++snapshot_version_;
     }
 
@@ -151,6 +158,9 @@ public:
 #endif
 
 private:
+    // (F57/Muster B): unveraenderlicher, im ctor vorab allozierter Leer-Snapshot fuer das noexcept-clear().
+    // VOR current_ deklariert (Initialisierungsreihenfolge: current_ startet als Alias des Leer-Snapshots).
+    std::shared_ptr<std::vector<element_type>> empty_snapshot_;
     std::shared_ptr<std::vector<element_type>> current_;
     std::uint64_t                              snapshot_version_ = 0;
 #ifdef COMDARE_CE_ENABLE_STATISTICS

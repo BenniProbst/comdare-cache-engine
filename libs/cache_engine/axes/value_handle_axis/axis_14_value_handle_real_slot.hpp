@@ -72,7 +72,9 @@ struct PoolValueSlot {
 
     /// Build (Setup, NICHT gemessen): den Value extern in den Pool legen + den Slot auf den Pool-Index zeigen lassen.
     /// Vorhandener Key wird ueberschrieben (in-place Update); Versioned bumpt dabei die Version (neue Snapshot-Sicht).
-    void store_value(std::uint64_t key, std::uint64_t value) noexcept {
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — pool_/slots_.push_back kann allozieren/werfen
+    // ([[allocation-failure-exception]]: werfen statt terminate).
+    void store_value(std::uint64_t key, std::uint64_t value) {
         for (auto& sl : slots_) {
             if (sl.key == key) { // Update: Value im Pool ersetzen
                 pool_[static_cast<std::size_t>(sl.pool_index)].value = value;
@@ -146,7 +148,8 @@ struct ChainValueSlot {
 
     /// Build (Setup, NICHT gemessen): einen NEUEN Chain-Knoten an den Pool anhaengen + als neuen Head des Keys
     /// verketten (Multi-Value-Prepend). Existiert der Key noch nicht → neuer Slot mit diesem Knoten als Head.
-    void store_value(std::uint64_t key, std::uint64_t value) noexcept {
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — chain_/slots_.push_back kann allozieren/werfen.
+    void store_value(std::uint64_t key, std::uint64_t value) {
         std::uint64_t const node_idx = static_cast<std::uint64_t>(chain_.size());
         for (auto& sl : slots_) {
             if (sl.key == key) { // bestehende Chain: neuen Knoten als Head davorhaengen

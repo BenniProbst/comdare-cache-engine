@@ -94,7 +94,9 @@ public:
         size_ = 0;
     }
     [[nodiscard]] bool is_leaf(std::size_t r) const noexcept { return ref_kind(r) == kLeaf; }
-    void               free_node(std::size_t r) noexcept {
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — free_.push_back kann beim Free-List-Wachstum
+    // allozieren/werfen ([[allocation-failure-exception]]: werfen statt terminate; Concept verlangt kein noexcept).
+    void free_node(std::size_t r) {
         if (ref_kind(r) == kLeaf)
             fl_leaf_.push_back(ref_idx(r));
         else

@@ -74,6 +74,9 @@ public:
     /// std::bad_alloc bei OOM. Nicht noexcept.
     void put(element_type v) {
         heap_.push(v);
+        // (F57/Muster B, WP-5 2026-07-16): Min-Tracker NACH erfolgreichem push aktualisieren — macht
+        // peek_back() allokationsfrei O(1) (s. dort). Invariante: min_ = Minimum aller Heap-Elemente.
+        if (!min_.has_value() || v < *min_) min_ = v;
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_put_count;
         if (heap_.size() > stats_.peak_size) stats_.peak_size = heap_.size();
@@ -92,6 +95,9 @@ public:
         }
         element_type v = heap_.top();
         heap_.pop();
+        // (F57/Muster B): Min-Tracker-Erhalt — das Minimum verlaesst den Max-Heap nur als top(), also wenn
+        // ALLE verbliebenen Elemente == min sind (dann bleibt min_ korrekt) oder der Heap leer wird (reset).
+        if (heap_.empty()) min_.reset();
 #ifdef COMDARE_CE_ENABLE_STATISTICS
         ++stats_.total_get_count;
         observer_.notify(stats_);
@@ -101,7 +107,10 @@ public:
 
     [[nodiscard]] size_type size() const noexcept { return heap_.size(); }
     [[nodiscard]] bool      is_empty() const noexcept { return heap_.empty(); }
-    void                    clear() noexcept { heap_ = decltype(heap_){}; }
+    void                    clear() noexcept {
+        heap_ = decltype(heap_){};
+        min_.reset();
+    }
 
     // std::queue-API auf max-heap:
     //   peek_front=highest priority (top, was als naechstes get() liefert)
@@ -110,23 +119,15 @@ public:
         if (heap_.empty()) return std::nullopt;
         return heap_.top();
     }
-    /// Approximation: lineare Suche nach min im Heap-internen Container.
-    /// std::priority_queue exponiert keinen Iterator — wir nutzen die unsichere
-    /// (aber portable) c-Member-Konvention NICHT, sondern duplizieren via O(N) scan.
-    [[nodiscard]] std::optional<element_type> peek_back() const noexcept {
-        if (heap_.empty()) return std::nullopt;
-        // Tradeoff: O(N) scan ist akzeptabel da peek_back() bei PriorityHeapBuffer selten genutzt
-        // (typisch nur Diagnostik). Wir kopieren den Heap einmalig und drainen.
-        auto         copy    = heap_;
-        element_type min_val = copy.top();
-        while (!copy.empty()) {
-            element_type v = copy.top();
-            if (v < min_val) min_val = v;
-            copy.pop();
-        }
-        return min_val;
-    }
-    void emplace(element_type v) { put(v); }
+    /// (F57/Muster B, WP-5 2026-07-16): der Gattungs-Concept (BufferStrategy) verlangt peek_back() noexcept —
+    /// statt noexcept zu entfernen wird die Allokation HERAUSGEHOBEN: der fruehere O(N)-Drain kopierte den
+    /// GANZEN Heap (`auto copy = heap_` = Container-Vollkopie unter noexcept = terminate-on-OOM, Muster B).
+    /// Jetzt haelt ein O(1)-Min-Tracker (min_, gepflegt im nicht-noexcept put() und in get()/clear()) das
+    /// exakte Minimum: das Minimum verlaesst den Max-Heap nur, wenn es selbst top() ist (= alle Elemente
+    /// gleich, min_ bleibt korrekt) oder der Heap leer wird (reset). std::priority_queue exponiert weiterhin
+    /// keinen Iterator; die unsichere c-Member-Konvention wird weiterhin NICHT genutzt.
+    [[nodiscard]] std::optional<element_type> peek_back() const noexcept { return min_; }
+    void                                      emplace(element_type v) { put(v); }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     using snapshot_t = concepts::BufferStatistics;
@@ -143,6 +144,8 @@ public:
 
 private:
     std::priority_queue<element_type> heap_;
+    // (F57/Muster B): exaktes Heap-Minimum fuer das allokationsfreie noexcept-peek_back() (s. dort).
+    std::optional<element_type> min_{};
 #ifdef COMDARE_CE_ENABLE_STATISTICS
     concepts::BufferStatistics stats_{};
     observer_t                 observer_{};

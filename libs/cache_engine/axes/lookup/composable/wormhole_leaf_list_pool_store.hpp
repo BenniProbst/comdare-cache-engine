@@ -118,7 +118,9 @@ public:
         }
         return idx;
     }
-    void free_node(std::size_t i) noexcept {
+    // (F57/Muster B, WP-5 2026-07-16): NICHT noexcept — free_.push_back kann beim Free-List-Wachstum
+    // allozieren/werfen ([[allocation-failure-exception]]: werfen statt terminate; Concept verlangt kein noexcept).
+    void free_node(std::size_t i) {
         std::size_t const old_capacity = fl_leaf_.capacity();
         fl_leaf_.push_back(i);
         record_capacity_growth_(old_capacity, fl_leaf_.capacity(), sizeof(std::size_t));
