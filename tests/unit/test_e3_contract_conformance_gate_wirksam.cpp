@@ -5,6 +5,7 @@
 // IObservableTier-Huelle vor jeder Performance-Messung abbrechen und eine genullte Formatzeile liefern.
 
 #include <anatomy/observable_tier.hpp>
+#include <anatomy/scannable_tier.hpp>
 #include <builder/experiment_tree/perm_runner.hpp>
 
 #include <cstdint>
@@ -185,6 +186,72 @@ void negative_non_conforming_tier_is_gated_on_workload_path() {
     check("WL: Load-Phase uebersprungen (Tier leer nach Gate)", tier.tier_size() == 0);
 }
 
+// (REV-DATA-01, WP-5 2026-07-16): konforme, aber SCAN-FÄHIGE Hülle — Positiv-Kontrolle der Capability-Prüfung.
+class ScannableMapObservableTier final : public MapObservableTier, public ana::IScannableTier {
+public:
+    [[nodiscard]] std::uint64_t tier_scan(std::uint64_t start_key, std::uint64_t max_count,
+                                          std::uint64_t* out_checksum) const noexcept override {
+        std::uint64_t visited = 0, sum = 0;
+        for (auto it = data_.lower_bound(start_key); it != data_.end() && visited < max_count; ++it, ++visited)
+            sum += it->second;
+        if (out_checksum != nullptr) *out_checksum = sum;
+        return visited;
+    }
+};
+
+// (REV-DATA-01, WP-5 2026-07-16): Capability-Zell-Invalidierung host-seitig. Ein Lastprofil mit pct_scan>0
+// (YCSB-E-artig) gegen ein Tier OHNE IScannableTier (scan==nullptr) darf KEINE partielle Leistungszeile
+// erzeugen: vorher blieb die Zelle two_phase_valid-fähig und maß nur die schnellen Insert-5% — ein scan-
+// unfähiges Tier konnte YCSB-E gewinnen. Jetzt: GANZE Zelle ungültig, genullte Zeile, weder Gate- noch
+// Load-/Run-Phase. Positiv-Kontrolle: dieselbe Config mit scan-fähigem Tier misst real.
+void negative_scan_incapable_tier_cell_invalidated() {
+    std::cout << "== Negativ: scan-pflichtiges Profil auf scan-unfaehigem Tier (REV-DATA-01) ==\n";
+    namespace wd = ::comdare::cache_engine::builder::workload_driver;
+
+    wd::WorkloadConfig ycsb_e_like{};
+    ycsb_e_like.name       = "e3_ycsb_e_like";
+    ycsb_e_like.seed       = 7;
+    ycsb_e_like.pct_insert = 0.05; // YCSB-E: 5% Insert / 95% Range-Scan (Cooper et al. 2010)
+    ycsb_e_like.pct_lookup = 0.0;
+    ycsb_e_like.pct_erase  = 0.0;
+    ycsb_e_like.pct_clear  = 0.0;
+    ycsb_e_like.pct_scan   = 0.95;
+    std::map<std::string, wd::WorkloadConfig> registry;
+    registry["e3_ycsb_e_like"] = ycsb_e_like;
+
+    {
+        MapObservableTier tier; // KONFORM — die Entwertung darf NICHT vom Konformitäts-Gate kommen
+        std::string const bid       = "search_algo=map_ok_no_scan/node_type=mock";
+        auto const        zero_snap = ana::ComdareTierObserverSnapshot{};
+
+        ex::PermResult const pr = ex::run_workload_perm(tier, /*rollback=*/nullptr, /*scan=*/nullptr, bid,
+                                                        "e3_ycsb_e_like", /*n_ops=*/64, /*seed=*/7,
+                                                        /*load_records=*/0, &registry);
+
+        check("CAP: Zelle UNGUELTIG (two_phase_valid=false)", !pr.two_phase_valid);
+        check("CAP: kein realer Mess-Snapshot", !pr.unified_real);
+        check_eq("CAP: total_ns bleibt 0 (keine Messung)", pr.total_ns, std::int64_t{0});
+        check_eq("CAP: timed_ops bleibt 0 (keine partielle Insert-Zeile)", pr.timed_ops, std::uint64_t{0});
+        check_eq("CAP: Gate nicht gelaufen (Ableitung VOR dem Gate)", pr.conformance_cases_total, std::uint64_t{0});
+        check("CAP: profile_name traegt den Achsen-Wert", pr.profile_name == "e3_ycsb_e_like");
+        check("CAP: Formatzeile ist die genullte Default-Zeile", pr.line == ex::format_perm_result(bid, zero_snap));
+        check("CAP: Load-Phase uebersprungen (Tier leer)", tier.tier_size() == 0);
+    }
+    {
+        ScannableMapObservableTier tier; // Positiv-Kontrolle: Capability vorhanden ⇒ Messung findet statt
+        std::string const          bid = "search_algo=map_ok_scan/node_type=mock";
+
+        ex::PermResult const pr = ex::run_workload_perm(tier, /*rollback=*/nullptr, &tier, bid, "e3_ycsb_e_like",
+                                                        /*n_ops=*/64, /*seed=*/7, /*load_records=*/0, &registry);
+
+        check("CAP+: Gate lief (cases_total > 0)", pr.conformance_cases_total > 0);
+        check("CAP+: Gate bestanden", pr.conformance_passed);
+        check("CAP+: realer Mess-Snapshot (Messung fand statt)", pr.unified_real);
+        check("CAP+: timed_ops > 0 (Scan-Ops getimt)", pr.timed_ops > 0);
+        check("CAP+: ohne Rollback bleibt die Zelle ehrlich zwei-phasen-ungueltig", !pr.two_phase_valid);
+    }
+}
+
 } // namespace
 
 int main() {
@@ -192,6 +259,7 @@ int main() {
     positive_conforming_tier_measures();
     negative_non_conforming_tier_is_gated();
     negative_non_conforming_tier_is_gated_on_workload_path();
+    negative_scan_incapable_tier_cell_invalidated();
     std::cout << "\n==== E3 Gate: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;
 }

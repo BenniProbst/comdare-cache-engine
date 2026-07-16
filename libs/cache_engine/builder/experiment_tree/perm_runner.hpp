@@ -141,6 +141,9 @@ inline void apply_conformance_gate_(anatomy::IDriveableTier& tier, PermResult& r
 }
 /// Gate-Fehlschlag: ehrliche genullte Matrix-Zeile, KEINE Performance-Messung (gated≠gültig). two_phase_valid/unified_real
 /// bleiben false → der Iterator emittiert KEINE gültige Mess-Zeile für eine nicht-konforme Hülle.
+/// (REV-DATA-01, WP-5 2026-07-16): dieselbe ehrliche Entwertung trägt auch die Capability-Zell-Invalidierung
+/// (fehlende Pflicht-Fähigkeit des Lastprofils, z.B. YCSB-E-Scan ohne IScannableTier) — genullte Zeile statt
+/// partieller Leistungszeile.
 [[nodiscard]] inline PermResult gate_failed_result_(PermResult r, std::string const& binary_id) {
     r.two_phase_valid = false;
     r.unified_real    = false;
@@ -241,6 +244,17 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
 
     PermResult r;
     r.profile_name = std::string(workload_id); // schon hier (Gate-Früh-Return + CSV nutzen den Achsen-Wert)
+    // (REV-DATA-01, WP-5 2026-07-16) Capability-Zell-Invalidierung HOST-seitig, VOR jedem Lauf: die benötigte
+    // Fähigkeits-Menge wird aus dem Lastprofil abgeleitet (pct_scan>0 ⇒ IScannableTier PFLICHT; alle übrigen
+    // Op-Arten laufen über das immer vorhandene IObservableTier). Fehlt die Capability, ist die GANZE Zelle
+    // ungültig (two_phase_valid=false, genullte Matrix-Zeile, KEINE Messung/Load-Phase/Gate-Arbeit): ein nicht-
+    // scanbares Tier maß in YCSB-E sonst nur die schnellen 5% Inserts, blieb two_phase_valid (rb_exact hängt
+    // nicht an der Scan-Fähigkeit) und konnte im Best-Binary-Selector ein vollständig gemessenes, scanbares
+    // Tier schlagen — eine partielle Leistungszeile wird NIE veröffentlicht. Der ehrliche Op-Skip in
+    // run_workload_profile (scan==nullptr) bleibt als zweite Verteidigungslinie bestehen; die IScannableTier-
+    // Design-Absicht („YCSB-E-Profile fallen für solche Module aus, ehrlich", scannable_tier.hpp Kopf) wird
+    // damit erstmals durchgesetzt. conformance_cases_total bleibt 0 (= Gate nicht gelaufen, ehrlich).
+    if (cfg.pct_scan > 0.0 && scan == nullptr) return gate_failed_result_(std::move(r), binary_id);
     // (Audit K9 / V5-I4) import → GATE → (nur bei pass) messen: nicht-std::map-konforme Hülle erzeugt KEINE gültige
     // Performance-Zeile (gated≠gültig). Das Gate läuft VOR Load-/Run-Phase (es leert das Tier selbst).
     apply_conformance_gate_(tier, r);
