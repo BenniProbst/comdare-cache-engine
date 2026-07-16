@@ -75,6 +75,31 @@ inline constexpr std::uint64_t kAbiMagic = 0x434F4D444141342EULL; // COMDARE_ANA
 
 inline constexpr std::size_t kStemMax = 120;
 
+// ── (REV-DATA-05, WP-5 2026-07-16) Artefaktnamen-Allowlist ────────────────────────────────────────
+/// Nur ein EINFACHER Dateistamm ist als --name/artifact_name zulässig: [A-Za-z0-9_-], 1..kStemMax Zeichen.
+/// Verboten damit by-construction: Verzeichnistrenner ('/', '\\'), dot/dotdot, absolute Pfade, Laufwerks-/
+/// UNC-Formen und Erweiterungs-Tricks (kein '.'). Zusätzlich werden reservierte Windows-Basisnamen
+/// (CON/PRN/AUX/NUL/COM1-9/LPT1-9, case-insensitiv) abgelehnt. Vorher konnte `--name ../../x` mit
+/// overwrite_existing beliebige Dateien AUSSERHALB des out_dir überschreiben (Pfad-Traversal).
+[[nodiscard]] inline bool valid_artifact_stem(std::string_view s) {
+    if (s.empty() || s.size() > kStemMax) return false;
+    for (char c : s) {
+        bool const ok = std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_' || c == '-';
+        if (!ok) return false;
+    }
+    // Reservierte Windows-Basisnamen (case-insensitiv; ohne '.'-Erweiterung, die ist oben schon verboten).
+    std::string upper;
+    upper.reserve(s.size());
+    for (char c : s) upper += static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    static constexpr std::string_view kReserved[] = {"CON", "PRN", "AUX", "NUL"};
+    for (auto r : kReserved)
+        if (upper == r) return false;
+    if (upper.size() == 4 && (upper.compare(0, 3, "COM") == 0 || upper.compare(0, 3, "LPT") == 0) && upper[3] >= '1' &&
+        upper[3] <= '9')
+        return false;
+    return true;
+}
+
 // ── Mess-Zeile (header-getrieben; NUR die auswertungs-relevanten Felder) ──────────────────────────
 struct MeasurementRow {
     std::string binary_id;
