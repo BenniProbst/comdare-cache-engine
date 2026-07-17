@@ -9,6 +9,8 @@
 
 #include "xml_config_parser/xml_config_parser.hpp" // Bruecke-I2: XmlConfigParser / ExperimentProfile
 
+#include <cache_engine/measurement/extension_hardware_system_axis.hpp> // INC-1d: Erweiterungshardware-Achse (Flag-Quelle)
+
 #include <builder/build_orchestrator/build_orchestrator.hpp>
 #include <builder/experiment_tree/registry_to_axis_levels.hpp> // P5: build_all_axis_levels (EnabledStrategies)
 #include <builder/workload_driver/load_profile_parser.hpp>
@@ -99,6 +101,27 @@ namespace {
 #endif
 }
 
+// Erweiterungshardware-System-Achse (Bau-INC-1d, Q2-Option-C): die -march-Flag-QUELLE ist die
+// Achse (compile-time-Reflexion), der ORT ist diese CompileFn-Flag-Kette. Default = Generic
+// (keine Flags, Ist-Verhalten byte-identisch); die CEB-Laufzeit-Permutation aller Auspraegungen
+// kommt mit dem Planer-Strang, bis dahin ist COMDARE_PILOT_SIMD_POLICY der Smoke-Schalter.
+[[nodiscard]] std::vector<std::string> perm_extension_hardware_cflags() {
+    namespace cm            = ::comdare::cache_engine::measurement;
+    std::string_view policy = cm::GenericExtensionHardwareAxis::simd_extension_id();
+    if (char const* e = std::getenv("COMDARE_PILOT_SIMD_POLICY"); e != nullptr && *e != '\0') policy = e;
+    std::string_view flag;
+    if (policy == cm::Avx2ExtensionHardwareAxis::simd_extension_id()) {
+        flag = cm::Avx2ExtensionHardwareAxis::gcc_march_flag();
+    } else if (policy == cm::Avx512ExtensionHardwareAxis::simd_extension_id()) {
+        flag = cm::Avx512ExtensionHardwareAxis::gcc_march_flag();
+    } else if (policy != cm::GenericExtensionHardwareAxis::simd_extension_id()) {
+        std::cerr << "[profile_facade] COMDARE_PILOT_SIMD_POLICY='" << policy
+                  << "' unbekannt; nutze no_extension (generisch).\n";
+    }
+    if (flag.empty()) return {};
+    return {std::string{flag}};
+}
+
 [[nodiscard]] std::vector<std::string> perm_mess_defines() {
     std::vector<std::string> d = {"-DCOMDARE_ANATOMY_MODULE_BUILD=1", "-DCOMDARE_MEASUREMENT_ON=1",
                                   "-DCOMDARE_CE_ENABLE_STATISTICS=1", "-DCOMDARE_EXPERIMENT_MODE_ON=1"};
@@ -123,6 +146,7 @@ namespace {
     // snmalloc ist header-only: seine INTERFACE-Defs + -mcx16 muessen dem g++-Subprozess
     // explizit mitgegeben werden (gebacken, gleiche Luecke wie bei den Vendor-Archiven).
     for (auto& f : baked_perm_extra_cflags()) d.push_back(std::move(f));
+    for (auto& f : perm_extension_hardware_cflags()) d.push_back(std::move(f));
     return d;
 }
 
