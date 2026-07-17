@@ -1734,6 +1734,16 @@ foreach(_dt IN LISTS COMDARE_MCE24_MEASURED_TESTS)
     set_tests_properties(${_dt} PROPERTIES LABELS "g4;muster_f;standalone;measured" TIMEOUT 120)
 endforeach()
 
+# Bau-INC-2c.opt Naht #2 (Option A, Verifikations-Test-Teil): der Layout-Sensitivitaets-Check in
+# test_all19_segment_timer (seg_memory_layout_ns aos_strict-Stride-48 vs cache_line_aligned-Stride-64) ist NUR
+# UNTER Optimierung >5% sichtbar — im unoptimierten Default-Build maskiert der Instrumentierungs-Overhead den
+# Cache-Line-Effekt (Median-of-7 misst physikalisch ~3-4% < Schwelle → CI-Rot). -O3 (deterministisch, IEEE-754-treu,
+# NICHT Ofast) macht den Effekt real messbar. Reflektiert die opt_level=O3-Ausprägung der Compiler-System-Achse
+# (optimization_level_sub_axis.hpp); der volle XML-permutierte opt_level-Raum je mess-charakteristischem Target
+# folgt mit dem Planer (2c.opt-g/h). Nur dieses eine Target (die Observer-Tests der Liste tragen honest-0-Kontrakte,
+# die unter -O3 nicht ohne Not verschoben werden sollen).
+comdare_apply_optimization_level_flags(test_all19_segment_timer O3)
+
 # test_kf1_thesis_profile_parser — separat, weil es das getrackte Studien-Profil parst und dessen Pfad als
 # argv[1] erwartet (Default ist ein CWD-relativer ../../-Pfad → unter ctest-CWD nicht aufloesbar). Absoluter Pfad
 # als add_test-Argument (CWD-unabhaengig; nur GELESEN). Include-/Link-Satz = COMDARE_MCE24_INCLUDES + XML-Parser-Lib.

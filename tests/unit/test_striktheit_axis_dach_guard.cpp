@@ -15,6 +15,7 @@
 #include <cache_engine/measurement/extension_hardware_system_axis.hpp>
 #include <cache_engine/measurement/hardware_isa_system_axis.hpp>
 #include <cache_engine/measurement/load_framework_system_axis.hpp>
+#include <cache_engine/measurement/optimization_level_sub_axis.hpp>
 #include <cache_engine/measurement/scheduling_system_axis.hpp>
 #include <cache_engine/measurement/system_axis.hpp>
 
@@ -109,6 +110,20 @@ static_assert(cem::ClangCompilerAxis::compiler_id() == std::string_view{"clang"}
 // Das Dialekt-Gate haengt an dieser Reflexion: clang kennt -fno-gnu-unique NICHT.
 static_assert(cem::GccCompilerAxis::supports_fno_gnu_unique());
 static_assert(!cem::ClangCompilerAxis::supports_fno_gnu_unique());
+
+// ── Block J (Bau-INC-2c.opt-a): opt_level als dynamische Unter-Achse UNTER der Compiler-Haupt-Achse (OF-1/2/3) ──
+// Compile-time-Schicht (CRTP+Concept, keine vtable), binary_id-neutral (H-10-Sidecar). parent_axis_label=="compiler"
+// verankert die Unter-Achsen-Zugehoerigkeit; opt_level ist KEINE Geschwister-System-Achse.
+static_assert(cem::OptimizationLevelSubAxisConcept<cem::OptO0SubAxis>);
+static_assert(cem::OptimizationLevelSubAxisConcept<cem::OptO3SubAxis>);
+static_assert(cem::OptimizationLevelSubAxisConcept<cem::OptOfastSubAxis>);
+static_assert(cem::OptO2SubAxis::axis_label() == std::string_view{"opt_level"});
+static_assert(cem::OptOfastSubAxis::parent_axis_label() == std::string_view{"compiler"});
+static_assert(cem::OptO3SubAxis::gcc_opt_flag() == std::string_view{"-O3"});
+// OF-2: CEB-Default = Ofast; Ofast bricht IEEE-754/Determinismus (die Verifikations-Tests nutzen daher O3, nicht Ofast).
+static_assert(cem::DefaultOptLevelSubAxis::opt_level_id() == std::string_view{"Ofast"});
+static_assert(cem::OptO3SubAxis::is_ieee754_deterministic());
+static_assert(!cem::OptOfastSubAxis::is_ieee754_deterministic());
 
 TEST(StriktheitAxisDachGuard, DiskriminatorenSindDisjunkt) {
     EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ), static_cast<unsigned>(cet::AxisKind::system_measurement));
