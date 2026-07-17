@@ -3205,7 +3205,11 @@ target_include_directories(test_m_contract_system_axis_wurzel PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/common"
     "${PROJECT_BINARY_DIR}/generated"
     ${COMDARE_ALL_AXIS_GENERATED_DIRS})
-target_link_libraries(test_m_contract_system_axis_wurzel PRIVATE gtest gtest_main)
+# Hermetik (CI-3): test_m_contract_system_axis_wurzel zieht transitiv
+# topics/axis_command_base.hpp -> axis_06_allocator_* -> legacy_original_code_strategy_concept.hpp
+# (boost::mp11). Wie alle boost-berührten Tests explizit an Boost::mp11 linken (vendored
+# Include-Pfad; System-Boost maskiert die Lücke lokal, hermetische CI deckt sie auf).
+target_link_libraries(test_m_contract_system_axis_wurzel PRIVATE gtest gtest_main Boost::mp11)
 comdare_set_platform_defines(test_m_contract_system_axis_wurzel)
 target_compile_definitions(test_m_contract_system_axis_wurzel PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1)
