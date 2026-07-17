@@ -8,6 +8,7 @@
 
 #include "../../../anatomy/observable_tier.hpp"
 #include "../../../builder/pmc_source.hpp"
+#include "../../../topics/axis.hpp"
 
 #include <array>
 #include <concepts>
@@ -145,7 +146,10 @@ static_assert(std::is_trivially_copyable_v<SystemAxisSample>);
 [[nodiscard]] constexpr bool system_axes_always_present() noexcept { return true; }
 
 template <class Derived>
-struct SystemAxis {
+struct SystemAxis : topics::Axis<Derived> {
+    [[nodiscard]] static constexpr topics::AxisKind axis_kind() noexcept {
+        return topics::AxisKind::system_measurement;
+    }
     [[nodiscard]] static constexpr auto              categories() noexcept { return Derived::do_categories(); }
     [[nodiscard]] static constexpr MeasurementRegime regime() noexcept { return detail::regime_for_axis<Derived>(); }
 
@@ -181,8 +185,8 @@ private:
 
 template <class A>
 concept SystemAxisConcept =
-    std::derived_from<A, SystemAxis<A>> && std::is_empty_v<SystemAxis<A>> && (!std::is_polymorphic_v<SystemAxis<A>>) &&
-    requires(A const& axis, SystemAxisSample& sample) {
+    topics::AxisConcept<A> && std::derived_from<A, SystemAxis<A>> && std::is_empty_v<SystemAxis<A>> &&
+    (!std::is_polymorphic_v<SystemAxis<A>>) && requires(A const& axis, SystemAxisSample& sample) {
         { A::categories() };
         { A::regime() } -> std::same_as<MeasurementRegime>;
         { axis.available() } -> std::same_as<bool>;
