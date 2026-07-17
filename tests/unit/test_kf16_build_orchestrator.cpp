@@ -135,6 +135,37 @@ int main() {
         check_eq("stats.succeeded", stats.succeeded, std::size_t{7});
     }
 
+    // ── Teil 5 (Bau-INC-2c.opt-b): opt_flag-Kanal in make_gpp_compile_fn — .rsp-Byte-Identität + Durchfluss ──
+    // Durabler Guard: der Signatur-Default "-O2" MUSS byte-identisch zum vormals hartkodierten -O2 bleiben
+    // (Verhaltensneutralität des Refactors), und opt_flag MUSS bis in die .rsp durchfliessen. Byte-Identität
+    // wird am .rsp geprueft, NICHT an der .so (deren Bytes tragen abs. Pfade + build-id/timestamps und
+    // variieren lauf-zu-lauf unabhaengig von opt_flag). g++-Exit egal — die .rsp wird VOR dem Spawn geschrieben.
+    {
+        auto const   tmp = comdare::test::user_tmp_dir();
+        ex::BuildJob job;
+        job.source = tmp / "optb_probe.cpp";
+        job.output = tmp / "optb_probe.so";
+        {
+            std::ofstream s{job.source};
+            s << "int main(){return 0;}\n";
+        }
+        auto rsp_of = [&](ex::CompileFn const& fn) -> std::string {
+            std::error_code ec;
+            std::filesystem::remove(job.output.string() + ".rsp", ec);
+            (void)fn(job); // schreibt .rsp, dann g++ (Exit ignoriert — nur die .rsp interessiert)
+            std::ifstream f{job.output.string() + ".rsp"};
+            return std::string((std::istreambuf_iterator<char>(f)), {});
+        };
+        std::string const rsp_default = rsp_of(ex::make_gpp_compile_fn()); // Default opt_flag="-O2"
+        std::string const rsp_o2      = rsp_of(ex::make_gpp_compile_fn({}, {}, "g++-16", {}, "-O2")); // explizit -O2
+        std::string const rsp_o3      = rsp_of(ex::make_gpp_compile_fn({}, {}, "g++-16", {}, "-O3")); // -O3
+        check_true("opt-b: Default-.rsp traegt -O2", rsp_default.find("-O2\n") != std::string::npos);
+        check_true("opt-b: Default-.rsp == explizit-O2 (Byte-Identitaet des Refactors)", rsp_default == rsp_o2);
+        check_true("opt-b: -O3-.rsp traegt -O3", rsp_o3.find("-O3\n") != std::string::npos);
+        check_true("opt-b: -O3-.rsp traegt NICHT -O2", rsp_o3.find("-O2\n") == std::string::npos);
+        check_true("opt-b: opt_flag fliesst durch (default != O3)", rsp_default != rsp_o3);
+    }
+
     std::cout << "\n==== KF-16 StaticBinaryView + BuildOrchestrator: "
               << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;

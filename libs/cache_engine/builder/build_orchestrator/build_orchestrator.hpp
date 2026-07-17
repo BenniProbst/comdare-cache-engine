@@ -465,15 +465,22 @@ namespace detail {
 /// auf den tatsaechlichen Prozess-Exitcode dekodiert.
 [[nodiscard]] inline CompileFn make_gpp_compile_fn(std::vector<std::string> include_dirs = {},
                                                    std::vector<std::string> defines = {}, std::string cxx = "g++-16",
-                                                   std::vector<std::string> link_libs = {}) {
+                                                   std::vector<std::string> link_libs = {},
+                                                   std::string              opt_flag  = "-O2") {
+    // Bau-INC-2c.opt-b: opt_flag = der volle Optimierungs-Flag-String (Konvention aus opt-a:
+    // OptO*SubAxis::gcc_opt_flag() liefert "-O2"/"-O3"/"-Ofast"). Der Signatur-Default "-O2" ist ein
+    // TRANSITIONALER Builder-Fallback fuer Aufrufer, die (noch) nichts setzen — NICHT der CEB-Default:
+    // der architektonische CEB-Default ist Ofast (OF-2, DefaultOptLevelSubAxis), erzwungen am Planer
+    // (opt-c/opt-g), NICHT auf dieser Signatur. Ein "Ofast"-Signatur-Default wuerde die unveraenderten
+    // Aufrufer sofort ziehen und die opt-b/opt-c-Trennung brechen — daher bleibt "-O2" hier stehen.
     return [include_dirs = std::move(include_dirs), defines = std::move(defines), cxx = std::move(cxx),
-            link_libs = std::move(link_libs)](BuildJob const& job) -> int {
+            link_libs = std::move(link_libs), opt_flag = std::move(opt_flag)](BuildJob const& job) -> int {
         std::filesystem::path const rsp = job.output.string() + ".rsp";
         {
             std::ofstream rf{rsp};
             if (!rf) return 125;
             rf << "-std=c++23\n";
-            rf << "-O2\n";
+            rf << opt_flag << "\n"; // opt-b: war hart "-O2"; Default-opt_flag=="-O2" => byte-identisch
             rf << "-fPIC\n";
             rf << "-shared\n";
             // Compiler-Dialekt-Gate (INC-1h): -fno-gnu-unique ist GNU-only — clang bricht mit
