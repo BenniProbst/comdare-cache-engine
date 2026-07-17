@@ -76,11 +76,14 @@ using T24_bst_shape        = ce::nodes::axis_bst_shape::EnabledShapes;
 using T25_hash_probe_shape = ce::nodes::axis_hash_probe_shape::EnabledShapes;
 } // namespace axes26
 
-/// Baut ALLE 26 Achsen als statische AxisLevels aus den REALEN Enabled-Listen (Fanout = volles Enabled-Inventar,
-/// block_id-getaggt → Knoten-Rück-Referenz). Die 17 Kern-Achsen zuerst (T0..T16), dann 3 build-only (page_type/simd/hw) + die 2 queuing-Komposition-Achsen (q1/q2).
-[[nodiscard]] inline std::vector<AxisLevel> build_all_axis_levels() {
-    std::vector<AxisLevel> lv;
-    lv.reserve(26);
+/// Bau-INC-1b (Schichtung, System ⊃ Tier): die 26 Achsen zerfallen in drei benannte Schicht-Bausteine.
+/// Die Organ-/Kompositions-Seite permutiert die binary_id; die System-Schicht (build-only) ist
+/// binary_id-orthogonal und wird kuenftig von der CEB-System-Achsen-Schicht getrieben (Q2-Ruling:
+/// simd_extension = Auspraegungsquelle der Erweiterungshardware-System-Achse, von der CEB zur
+/// Laufzeit selbst permutiert). build_all_axis_levels() bleibt byte-identisch (Reihenfolge + Labels).
+
+/// Die 17 Kern-Kompositions-Achsen T0..T16 (Organ-Seite, permutieren die binary_id).
+inline void append_organ_core_axis_levels(std::vector<AxisLevel>& lv) {
     push_static_axis<axes26::T00_search_algo>(lv, "search_algo");
     push_static_axis<axes26::T01_cache_traversal>(lv, "cache_traversal");
     push_static_axis<axes26::T02_mapping>(lv, "mapping");
@@ -98,15 +101,39 @@ using T25_hash_probe_shape = ce::nodes::axis_hash_probe_shape::EnabledShapes;
     push_static_axis<axes26::T14_io_dispatch>(lv, "io_dispatch");
     push_static_axis<axes26::T15_migration_policy>(lv, "migration_policy");
     push_static_axis<axes26::T16_filter>(lv, "filter");
+}
+
+/// Die System-Schicht-Keimzelle: die 3 build-only-Achsen (binary_id-orthogonal, stehen NICHT in
+/// kCompositionAxisNames). Eigenstaendig abrufbar, damit die CEB-System-Achsen-Schicht sie getrennt
+/// von der Organ-Permutation treiben kann (Erweiterungshardware/Compiler-Ordner statt Baum-Ebenen).
+[[nodiscard]] inline std::vector<AxisLevel> build_system_axis_levels() {
+    std::vector<AxisLevel> lv;
+    lv.reserve(3);
     push_static_axis<axes26::T17_page_type>(lv, "page_type");
     push_static_axis<axes26::T18_simd_extension>(lv, "simd_extension");
     push_static_axis<axes26::T19_general_hardware>(lv, "general_hardware");
+    return lv;
+}
+
+/// Die 2 queuing-Kompositions-Achsen (q1/q2, T17/T18 der 19-Slot-Komposition) + die 4 Shape-Achsen.
+inline void append_composition_tail_axis_levels(std::vector<AxisLevel>& lv) {
     push_static_axis<axes26::T20_queuing_q1>(lv, "queuing_q1");
     push_static_axis<axes26::T21_queuing_q2>(lv, "queuing_q2");
     push_static_axis<axes26::T22_btree_order>(lv, "btree_order");
     push_static_axis<axes26::T23_skip_list_shape>(lv, "skip_list_shape");
     push_static_axis<axes26::T24_bst_shape>(lv, "bst_shape");
     push_static_axis<axes26::T25_hash_probe_shape>(lv, "hash_probe_shape");
+}
+
+/// Baut ALLE 26 Achsen als statische AxisLevels aus den REALEN Enabled-Listen (Fanout = volles Enabled-Inventar,
+/// block_id-getaggt → Knoten-Rück-Referenz). Reihenfolge UNVERAENDERT: 17 Kern-Achsen (T0..T16), dann die
+/// 3 build-only-System-Achsen (page_type/simd/hw), dann q1/q2 + die 4 Shape-Achsen.
+[[nodiscard]] inline std::vector<AxisLevel> build_all_axis_levels() {
+    std::vector<AxisLevel> lv;
+    lv.reserve(26);
+    append_organ_core_axis_levels(lv);
+    for (AxisLevel& system_level : build_system_axis_levels()) lv.push_back(std::move(system_level));
+    append_composition_tail_axis_levels(lv);
     return lv;
 }
 
