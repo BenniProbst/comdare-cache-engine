@@ -11,6 +11,7 @@
 
 #include <cache_engine/concepts/scheduling_strategy.hpp>
 #include <cache_engine/measurement/ceb_system_axis.hpp>
+#include <cache_engine/measurement/compiler_system_axis.hpp>
 #include <cache_engine/measurement/extension_hardware_system_axis.hpp>
 #include <cache_engine/measurement/hardware_isa_system_axis.hpp>
 #include <cache_engine/measurement/load_framework_system_axis.hpp>
@@ -98,6 +99,16 @@ static_assert(cem::YcsbLoadFrameworkAxis::axis_label() == std::string_view{"load
 static_assert(cem::YcsbLoadFrameworkAxis::framework_id() == std::string_view{"ycsb"});
 // Die Zwei-Phasen-Konvention "workload.workload_id=..." haengt an diesem String — Drift bricht hier.
 static_assert(cem::YcsbLoadFrameworkAxis::sub_axis_label() == std::string_view{"workload"});
+
+// ── Block I (INC-1h): Compiler-System-Achse (Q3: volle 5. Achse, gcc|clang, beide Treiber) ────────────────
+static_assert(cem::CompilerSystemAxisConcept<cem::GccCompilerAxis>);
+static_assert(cem::CompilerSystemAxisConcept<cem::ClangCompilerAxis>);
+static_assert(cem::GccCompilerAxis::axis_label() == std::string_view{"compiler"});
+static_assert(cem::GccCompilerAxis::compiler_id() == std::string_view{"gcc"});
+static_assert(cem::ClangCompilerAxis::compiler_id() == std::string_view{"clang"});
+// Das Dialekt-Gate haengt an dieser Reflexion: clang kennt -fno-gnu-unique NICHT.
+static_assert(cem::GccCompilerAxis::supports_fno_gnu_unique());
+static_assert(!cem::ClangCompilerAxis::supports_fno_gnu_unique());
 
 TEST(StriktheitAxisDachGuard, DiskriminatorenSindDisjunkt) {
     EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ), static_cast<unsigned>(cet::AxisKind::system_measurement));
