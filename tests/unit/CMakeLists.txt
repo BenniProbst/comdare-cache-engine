@@ -3325,12 +3325,23 @@ comdare_add_simd_dispatch_test("" "" TRUE)
 check_cxx_compiler_flag("-mavx2" COMDARE_CXX_HAS_MAVX2)
 if(COMDARE_CXX_HAS_MAVX2)
     comdare_add_simd_dispatch_test("_avx2" "-mavx2" "${COMDARE_HOST_RUNS_AVX2}")
+else()
+    # Fehlerklassifizierung INC-29.2 (D1): HW-/Compile-Erweiterungs-Fehlen ist ein ERKENNBARER,
+    # klassifizierbarer Zustand -- KEIN stiller Skip. Der Experiment-Planer (Compiler-Compiler) deklariert
+    # ihn IM LOG und faehrt weiter (die Suite baut ohne diese Variante). Feuert nur auf Hosts, deren Compiler
+    # -mavx2 nicht kennt (nicht auf den CI-Prod-Hosts -> CI-neutral).
+    message(WARNING "[Compiler-Compiler-Fehler: hardware_erweiterung_fehlt] Compiler kennt -mavx2 nicht -> "
+                    "avx2-SIMD-Dispatch-Variante uebersprungen. Klassifiziert+geloggt, kein stiller Skip, kein Absturz.")
 endif()
 
 # AVX-512F-Variante: bauen, wenn der Compiler -mavx512f kennt; ausfuehren nur bei Host-AVX-512F.
 check_cxx_compiler_flag("-mavx512f" COMDARE_CXX_HAS_MAVX512F)
 if(COMDARE_CXX_HAS_MAVX512F)
     comdare_add_simd_dispatch_test("_avx512" "-mavx512f" "${COMDARE_HOST_RUNS_AVX512F}")
+else()
+    # Fehlerklassifizierung INC-29.2 (D1), analog avx2: -mavx512f-Fehlen klassifiziert+geloggt, Suite baut weiter.
+    message(WARNING "[Compiler-Compiler-Fehler: hardware_erweiterung_fehlt] Compiler kennt -mavx512f nicht -> "
+                    "avx512-SIMD-Dispatch-Variante uebersprungen. Klassifiziert+geloggt, kein stiller Skip, kein Absturz.")
 endif()
 
 # M-CE-16 (G3 Batch-2): Regressionstest für comdare::simd::avx2::add_u64 (Carry-Verlust + UB-Tail-Read).
