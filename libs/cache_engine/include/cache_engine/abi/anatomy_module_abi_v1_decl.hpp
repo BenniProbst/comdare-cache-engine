@@ -40,11 +40,17 @@
 /// #216-H2 ABI-Bruch (Major 3→4, Minor→0): IObservableTier erhält den daten-erhaltenden vtable-Slot
 /// `tier_reset_statistics()`; der Observer-POD bleibt unverändert. Loader lehnt Major-3-DLLs ab, damit Host und
 /// Modul dieselbe IObservableTier-vtable sehen. Magic kodiert den Major → von .A3. auf .A4. bewegt.
-#define COMDARE_ANATOMY_ABI_MAJOR 4
+/// Bau-INC-2b (2026-07-17, TABU-GO) ABI-Bruch Major 4→5, Minor→0: der EINE koordinierte Bündel-Bump am
+/// Experiment-Planer-Dock (F12iii Telemetrie-Herauslösung aus der binary_id + F1b Set-Ebene-1-Gattung +
+/// F2 native Set-ABI + #37 Scheduling-CT-Ersatz + H-7/Q5-Metadaten-Version; Bauplan
+/// docs/sessions/backups/20260717-inc2-planung/). Loader lehnt Major-4-DLLs ab (alle Permutations-DLLs
+/// werden neu gebaut); Alt-golden als golden_fullpilot_320_binary_ids_abi4.txt additiv eingefroren
+/// (W3=A: autoritative Neu-Materialisierung = Bau-INC-3). Magic kodiert den Major → von .A4. auf .A5. bewegt.
+#define COMDARE_ANATOMY_ABI_MAJOR 5
 #define COMDARE_ANATOMY_ABI_MINOR 0
 
-/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA·A4·" als big-endian uint64_t (#216-H2 Major 4).
-#define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141342EULL
+/// Magic-Number als Sanity-Check fuer dlopen/LoadLibrary-Compatibility. "COMDA·A5·" als big-endian uint64_t (Bau-INC-2b Major 5).
+#define COMDARE_ANATOMY_ABI_MAGIC 0x434F4D444141352EULL
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Export/Import Macros (Cross-Plattform)

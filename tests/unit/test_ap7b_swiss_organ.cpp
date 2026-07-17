@@ -137,7 +137,7 @@ TEST(ComdareAP7bSwissTableOrgan, NeutralityGuardsStayIntact) {
     static_assert(std::is_trivially_copyable_v<b::ComdareMeasurementSnapshotV1>);
     static_assert(std::is_trivially_copyable_v<anatomy::ComdareTierObserverSnapshot>);
 
-    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 4);
+    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 5);
     EXPECT_EQ(sizeof(anatomy::ComdareTierObserverSnapshot), 1416u);
     EXPECT_EQ(anatomy::kTierObserverSnapshotVersionUnified, 5u);
 

@@ -43,9 +43,9 @@ namespace comdare::cache_engine::best_binary {
 
 // ── ABI-Identität fürs Manifest (Quelle: anatomy_module_abi_v1_decl.hpp) ──────────────────────────
 // Hart gespiegelt (KEINE Build-Abhängigkeit aufs Engine-Target); muss mit dem Decl-Header übereinstimmen.
-inline constexpr std::uint32_t kAbiMajor = 4; // #216-H2 tier_reset_statistics
+inline constexpr std::uint32_t kAbiMajor = 5; // Bau-INC-2b 4→5-Buendel-Bump (vorher #216-H2: 4)
 inline constexpr std::uint32_t kAbiMinor = 0;
-inline constexpr std::uint64_t kAbiMagic = 0x434F4D444141342EULL; // COMDARE_ANATOMY_ABI_MAGIC
+inline constexpr std::uint64_t kAbiMagic = 0x434F4D444141352EULL; // COMDARE_ANATOMY_ABI_MAGIC "COMDA·A5·"
 
 // ── orch_make_stem-Round-Trip (identisch BuildOrchestrator: sanitize + FNV-1a + kStemMax=120) ─────
 // Diese drei Funktionen sind eine 1:1-Spiegelung von build_orchestrator.hpp:114/122/138 — sie MÜSSEN

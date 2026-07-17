@@ -49,16 +49,16 @@ COMDARE_DEFINE_ANATOMY_MODULE(::comdare::cache_engine::compositions::ArtComposit
 
 TEST(R5D_AnatomyAbi, MacroDefinesVersionAndMagic) {
     static_assert(COMDARE_ANATOMY_ABI_MAJOR ==
-                  4); // #216-H2: IObservableTier-vtable erweitert um tier_reset_statistics()
-    static_assert(COMDARE_ANATOMY_ABI_MINOR == 0); // #216-H2: Minor auf 0 zurückgesetzt beim Major-Bump
+                  5); // Bau-INC-2b (TABU-GO): der EINE koordinierte 4→5-Bündel-Bump (vorher #216-H2 Major 4)
+    static_assert(COMDARE_ANATOMY_ABI_MINOR == 0); // Minor auf 0 zurückgesetzt beim Major-Bump
     static_assert(COMDARE_ANATOMY_ABI_MAGIC ==
-                  0x434F4D444141342EULL); // "COMDA·A4·" (Magic kodiert Major, Minor-Bump ändert es nicht)
+                  0x434F4D444141352EULL); // "COMDA·A5·" (Magic kodiert Major, Minor-Bump ändert es nicht)
     SUCCEED();
 }
 
 TEST(R5D_AnatomyAbi, HostAbiVersionMatchesMacro) {
-    static_assert(ce_abi::kHostAnatomyAbiVersion.major == 4); // #216-H2
-    static_assert(ce_abi::kHostAnatomyAbiVersion.minor == 0); // #216-H2
+    static_assert(ce_abi::kHostAnatomyAbiVersion.major == 5); // Bau-INC-2b (vorher #216-H2: 4)
+    static_assert(ce_abi::kHostAnatomyAbiVersion.minor == 0);
     SUCCEED();
 }
 
@@ -93,6 +93,12 @@ TEST(R5D_AnatomyAbiVersion, CompatibilityRules) {
     // Major-Mismatch: NICHT OK
     static_assert(!host_1_5.host_compatible_with(ce_abi::AnatomyAbiVersion{2, 0}));
     static_assert(!host_1_5.host_compatible_with(ce_abi::AnatomyAbiVersion{0, 5}));
+
+    // Bau-INC-2b (Loader-Ablehnungs-Checkpoint): der REALE Host (ABI-5) verwirft alt-gebaute
+    // Major-4-Module — alle Permutations-DLLs der ABI-4-Aera werden nicht mehr geladen.
+    static_assert(!ce_abi::kHostAnatomyAbiVersion.host_compatible_with(ce_abi::AnatomyAbiVersion{4, 0}));
+    static_assert(ce_abi::kHostAnatomyAbiVersion.host_compatible_with(
+        ce_abi::AnatomyAbiVersion{COMDARE_ANATOMY_ABI_MAJOR, COMDARE_ANATOMY_ABI_MINOR}));
     SUCCEED();
 }
 

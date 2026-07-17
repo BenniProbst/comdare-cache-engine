@@ -177,7 +177,7 @@ TEST(ComdareAP7b3SwissIsaGroupMatch, NeutralityGuardsStayIntact) {
     static_assert(std::is_trivially_copyable_v<anatomy::ComdareTierObserverSnapshot>);
 
     EXPECT_FALSE(::comdare::cache_engine::lookup::SwissTableSearchAlgo::supports_simd());
-    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 4);
+    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 5);
     EXPECT_EQ(sizeof(anatomy::ComdareTierObserverSnapshot), 1416u);
     EXPECT_EQ(anatomy::kTierObserverSnapshotVersionUnified, 5u);
 }
