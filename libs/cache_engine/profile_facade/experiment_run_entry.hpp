@@ -25,6 +25,8 @@
 //    C++23, header-only.
 // -----------------------------------------------------------------------------
 
+#include <cache_engine/measurement/load_framework_system_axis.hpp> // INC-1f: Single-Source des "workload"-Unter-Achsen-Labels
+
 #include "profile_run_entry.hpp" // run_profile-Unterbau: count_lines / ex-/wd-Aliase / generated_make_catalog_source_gen /
                                  //   make_union_source_gen / make_system_free_ram_fn / sota_catalog (Projektion I3)
 
@@ -142,9 +144,12 @@ struct RunExperimentResult {
     //    (cache_engine_builder_iterator.hpp:789-793) → two_phase_valid=1. Gleiche Konvention wie der Basis-Baum
     //    (profile_run_entry.hpp:139-141 + profile_to_tree.hpp:105-111). ──
     std::vector<ex::AxisLevel> dyn_levels;
-    if (!a.workload_values.empty())
+    if (!a.workload_values.empty()) {
+        // INC-1f: das Unter-Achsen-Label kommt Single-Source aus der Last-Framework-System-Achse (H-9).
+        std::string const workload_label{::comdare::cache_engine::measurement::YcsbLoadFrameworkAxis::sub_axis_label()};
         dyn_levels.push_back(
-            ex::AxisLevel{"workload", a.workload_values, /*is_static=*/false, "workload_id", "workload"});
+            ex::AxisLevel{workload_label, a.workload_values, /*is_static=*/false, "workload_id", workload_label});
+    }
     {
         std::uint32_t const      reps = (a.n_repeats == 0) ? 1u : a.n_repeats;
         std::vector<std::string> rep_vals;
