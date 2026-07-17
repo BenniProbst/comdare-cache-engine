@@ -11,6 +11,8 @@
 
 #include <cache_engine/concepts/scheduling_strategy.hpp>
 #include <cache_engine/measurement/ceb_system_axis.hpp>
+#include <cache_engine/measurement/extension_hardware_system_axis.hpp>
+#include <cache_engine/measurement/hardware_isa_system_axis.hpp>
 #include <cache_engine/measurement/scheduling_system_axis.hpp>
 #include <cache_engine/measurement/system_axis.hpp>
 
@@ -67,6 +69,21 @@ static_assert(std::is_empty_v<cem::DefaultSchedulingSystemAxis>);
 static_assert(!std::is_polymorphic_v<cem::DefaultSchedulingSystemAxis>);
 // Kontrast (bewusste, DEPRECATED Grenze — nie im Hot-Path): die historische Runtime-vtable IST polymorph.
 static_assert(std::is_polymorphic_v<::comdare::cache_engine::concepts::ISchedulingStrategy>);
+
+// ── Block F (INC-1d): Erweiterungshardware- + Hardware-Host-Achse (Q2-Option-C) ───────────────────────────
+static_assert(cem::ExtensionHardwareSystemAxisConcept<cem::GenericExtensionHardwareAxis>);
+static_assert(cem::ExtensionHardwareSystemAxisConcept<cem::Avx2ExtensionHardwareAxis>);
+static_assert(cem::ExtensionHardwareSystemAxisConcept<cem::Avx512ExtensionHardwareAxis>);
+static_assert(cem::HardwareIsaSystemAxisConcept<cem::Amd64HostIsaAxis>);
+static_assert(cem::GenericExtensionHardwareAxis::axis_kind() == cet::AxisKind::system_config);
+static_assert(cem::GenericExtensionHardwareAxis::axis_label() == std::string_view{"extension_hardware"});
+static_assert(cem::Amd64HostIsaAxis::axis_label() == std::string_view{"hardware"});
+// Flag-Deckung zur codegen-Praezedenz (permutation_codegen_tool.cpp simd_flags: avx512->-mavx512f, avx2->-mavx2)
+static_assert(cem::Avx512ExtensionHardwareAxis::gcc_march_flag() == std::string_view{"-mavx512f"});
+static_assert(cem::Avx2ExtensionHardwareAxis::gcc_march_flag() == std::string_view{"-mavx2"});
+// Default = generisch: KEINE Flags (Ist-Verhalten der Mess-DLLs bleibt byte-identisch).
+static_assert(cem::GenericExtensionHardwareAxis::gcc_march_flag().empty());
+static_assert(cem::GenericExtensionHardwareAxis::clang_march_flag().empty());
 
 TEST(StriktheitAxisDachGuard, DiskriminatorenSindDisjunkt) {
     EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ), static_cast<unsigned>(cet::AxisKind::system_measurement));
