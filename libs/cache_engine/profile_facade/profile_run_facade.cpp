@@ -9,6 +9,7 @@
 
 #include "xml_config_parser/xml_config_parser.hpp" // Bruecke-I2: XmlConfigParser / ExperimentProfile
 
+#include <cache_engine/measurement/compiler_system_axis.hpp>           // INC-1h: Compiler-System-Achse (gcc|clang)
 #include <cache_engine/measurement/extension_hardware_system_axis.hpp> // INC-1d: Erweiterungshardware-Achse (Flag-Quelle)
 
 #include <builder/build_orchestrator/build_orchestrator.hpp>
@@ -105,11 +106,17 @@ namespace {
 // Achse (compile-time-Reflexion), der ORT ist diese CompileFn-Flag-Kette. Default = Generic
 // (keine Flags, Ist-Verhalten byte-identisch); die CEB-Laufzeit-Permutation aller Auspraegungen
 // kommt mit dem Planer-Strang, bis dahin ist COMDARE_PILOT_SIMD_POLICY der Smoke-Schalter.
-[[nodiscard]] std::vector<std::string> perm_extension_hardware_cflags() {
+[[nodiscard]] std::string_view active_simd_policy() {
     namespace cm            = ::comdare::cache_engine::measurement;
     std::string_view policy = cm::GenericExtensionHardwareAxis::simd_extension_id();
     if (char const* e = std::getenv("COMDARE_PILOT_SIMD_POLICY"); e != nullptr && *e != '\0') policy = e;
-    std::string_view flag;
+    return policy;
+}
+
+[[nodiscard]] std::vector<std::string> perm_extension_hardware_cflags() {
+    namespace cm                  = ::comdare::cache_engine::measurement;
+    std::string_view const policy = active_simd_policy();
+    std::string_view       flag;
     if (policy == cm::Avx2ExtensionHardwareAxis::simd_extension_id()) {
         flag = cm::Avx2ExtensionHardwareAxis::gcc_march_flag();
     } else if (policy == cm::Avx512ExtensionHardwareAxis::simd_extension_id()) {
@@ -152,7 +159,18 @@ namespace {
 
 [[nodiscard]] std::string cxx_compiler() {
     if (char const* e = std::getenv("COMDARE_CXX"); e != nullptr && *e != '\0') return e;
-    return "g++-16";
+    // INC-1h: der Default-Treiber kommt Single-Source aus der Compiler-System-Achse (gcc-Leg);
+    // das clang-Leg faehrt der Experiment-Planer ueber dieselbe Achse (Q3: beide Compiler).
+    return std::string{::comdare::cache_engine::measurement::GccCompilerAxis::driver_default()};
+}
+
+// H-10 (Bau-INC-1g): die VARIABLEN System-Achsen-Belegungen (Erweiterungshardware-Politik,
+// Compiler) werden in build_version kodiert — eine unter anderer Belegung gebaute DLL bekommt
+// ein eigenes .version-Sidecar (kein falsches Skip via dll_is_current) und die CSV-Spalte
+// build_version traegt die Provenienz. Konstante Achsen (Scheduling/Last=Default) bleiben
+// weggelassen, bis die CEB-Laufzeit-Permutation sie variabel macht.
+[[nodiscard]] std::string system_axes_version_suffix() {
+    return "+ext=" + std::string{active_simd_policy()} + "+cxx=" + cxx_compiler();
 }
 
 } // namespace
@@ -208,7 +226,7 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.compile = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs());
     a.n_ops   = args.n_ops;
     a.max_binaries               = args.max_binaries;
-    a.build_version              = args.build_version;
+    a.build_version              = args.build_version + system_axes_version_suffix();
     a.n_repeats                  = args.n_repeats;
     a.cores_per_build            = args.cores_per_build;
     a.min_free_gb                = args.min_free_gb;
@@ -384,7 +402,7 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     a.compile = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs());
     a.n_ops   = args.n_ops;
     a.max_binaries               = args.max_binaries;
-    a.build_version              = args.build_version;
+    a.build_version              = args.build_version + system_axes_version_suffix();
     a.n_repeats                  = args.n_repeats;
     a.cores_per_build            = args.cores_per_build;
     a.min_free_gb                = args.min_free_gb;

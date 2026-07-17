@@ -476,7 +476,9 @@ namespace detail {
             rf << "-O2\n";
             rf << "-fPIC\n";
             rf << "-shared\n";
-            rf << "-fno-gnu-unique\n";
+            // Compiler-Dialekt-Gate (INC-1h): -fno-gnu-unique ist GNU-only — clang bricht mit
+            // "unknown argument" ab; die Compiler-System-Achse baut mit BEIDEN Treibern.
+            if (cxx.find("clang") == std::string::npos) rf << "-fno-gnu-unique\n";
             rf << "-fdiagnostics-color=never\n";
             for (auto const& d : defines) rf << d << "\n";
             for (auto const& i : include_dirs) rf << "-I\"" << i << "\"\n";
