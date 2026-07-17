@@ -51,8 +51,6 @@ struct HotComposition {
     using concurrency   = concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
     using serialization = serialization::axis_10_serialization::ObservableSerialization<
         serialization::axis_10_serialization::RawBinarySerialization>; // V42 L-74c
-    using telemetry =
-        telemetry::axis_11_telemetry::ObservableTelemetry<telemetry::axis_11_telemetry::LeafOnlyCounter>; // V42 L-74c
     using value_handle       = value_handle::axis_14_value_handle::InlineValueHandle;
     using isa                = hardware::axis_09_isa::Amd64Isa;
     using index_organization = search_engine::axis_01_index_organization::IotIndexOrganization;

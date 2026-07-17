@@ -15,11 +15,11 @@
 namespace cea = comdare::cache_engine::anatomy;
 namespace eng = comdare::cache_engine::execution_engine;
 
-using VC    = cea::ViewComposition<int, int, int, int>; // Extent/Layout/Accessor = Defaults
+using VC    = cea::ViewComposition<int, int, int>; // Extent/Layout/Accessor = Defaults (INC-2c: 3 geteilte)
 using VAnat = cea::ViewAnatomy<VC>;
 
 static_assert(cea::IsViewComposition<VC>);
-static_assert(VC::slot_count == 7, "View = 4 geteilt + extent/layout/accessor (§28, K-C)");
+static_assert(VC::slot_count == 6, "View = 3 geteilt + extent/layout/accessor (§28, K-C; INC-2c)");
 static_assert(cea::ExtentPolicy<cea::DynamicExtent> && cea::LayoutPolicy<cea::LayoutRight> &&
                   cea::AccessorPolicy<cea::DefaultAccessor>,
               "Default-Policies muessen die Concepts erfuellen");
@@ -44,9 +44,9 @@ static void tr(char const* w, bool c) {
 int main() {
     std::cout << "==== D11 View-Typ-Ebene ====\n";
     tr("IsViewComposition<VC>", cea::IsViewComposition<VC>);
-    eq("VC::slot_count == 7 (4 + extent/layout/accessor)", VC::slot_count, std::size_t{7});
+    eq("VC::slot_count == 6 (3 + extent/layout/accessor)", VC::slot_count, std::size_t{6});
     tr("genus() == View (Pflanze)", VAnat::genus() == cea::AnatomyGenus::View);
-    eq("organ_count() == 7", VAnat::organ_count(), std::size_t{7});
+    eq("organ_count() == 6", VAnat::organ_count(), std::size_t{6});
     eq("ViewObserverSnapshotV1 = 6 uint64", sizeof(cea::ViewObserverSnapshotV1), std::size_t{6 * 8});
 
     std::cout << "\n==== D11 ViewAnatomy non-owning (bind externer Puffer + read) ====\n";
@@ -70,7 +70,7 @@ int main() {
     cea::IAnatomyBase*         base = &adapter;
     tr("genus() == View", base->genus() == cea::AnatomyGenus::View);
     tr("engine_kind() == Anatomy", base->engine_kind() == eng::ExecutionEngineKind::Anatomy);
-    eq("organ_count() == 7", base->organ_count(), std::size_t{7});
+    eq("organ_count() == 6", base->organ_count(), std::size_t{6});
     auto* vt = dynamic_cast<cea::IViewTier*>(base);
     tr("dynamic_cast<IViewTier*> != null", vt != nullptr);
     if (vt) {
@@ -83,7 +83,7 @@ int main() {
         cea::ViewObserverSnapshotV1 pod{};
         vt->tier_observe_view(&pod);
         eq("observe: bound_size == 3", pod.bound_size, std::uint64_t{3});
-        eq("observe: organ_count == 7", pod.organ_count, std::uint64_t{7});
+        eq("observe: organ_count == 6", pod.organ_count, std::uint64_t{6});
         tr("observe: read_count >= 2", pod.read_count >= 2);
     }
 

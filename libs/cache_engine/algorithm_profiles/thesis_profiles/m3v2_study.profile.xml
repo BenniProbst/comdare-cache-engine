@@ -60,7 +60,6 @@
     </axis>
     <axis ref="concurrency"><value>concurrency_none</value></axis>
     <axis ref="serialization"><value>serialization_raw_binary</value></axis>
-    <axis ref="telemetry"><value>telemetry_leaf_only_counter</value></axis>
     <axis ref="value_handle"><value>value_handle_inline</value></axis>
     <axis ref="isa"><value>isa_amd64</value></axis>
     <axis ref="index_organization"><value>index_org_heap</value></axis>
@@ -155,7 +154,7 @@
        A/B/C leben in <sota_series_set> (s.o.) und nutzen die merge-Felder. -->
   <modes>
     <mode name="m3v2_base" merge="Stufe1_CeOnly"
-          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization telemetry value_handle isa index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2"/>
+          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization value_handle isa index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2"/>
   </modes>
 
   <static_axes from="base_tier"/>

@@ -65,7 +65,6 @@
     <axis ref="prefetch"><value>prefetch_none</value></axis>
     <axis ref="concurrency"><value>concurrency_none</value></axis>
     <axis ref="serialization"><value>serialization_raw_binary</value></axis>
-    <axis ref="telemetry"><value>telemetry_leaf_only_counter</value></axis>
     <axis ref="value_handle"><value>value_handle_inline</value></axis>
     <axis ref="isa"><value>isa_amd64</value></axis>
     <axis ref="index_organization"><value>index_org_heap</value></axis>
@@ -90,7 +89,6 @@
     <axis_sweep axis="prefetch"           baseline="index0"/>
     <axis_sweep axis="concurrency"        baseline="index0"/>
     <axis_sweep axis="serialization"      baseline="index0"/>
-    <axis_sweep axis="telemetry"          baseline="index0"/>
     <axis_sweep axis="value_handle"       baseline="index0"/>
     <axis_sweep axis="isa"                baseline="index0"/>
     <axis_sweep axis="index_organization" baseline="index0"/>
@@ -152,7 +150,7 @@
 
   <modes>
     <mode name="m3_smoke_base" merge="Stufe1_CeOnly"
-          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization telemetry value_handle isa index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2"/>
+          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization value_handle isa index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2"/>
   </modes>
 
   <static_axes from="base_tier"/>

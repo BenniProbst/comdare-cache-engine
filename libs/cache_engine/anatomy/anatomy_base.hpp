@@ -33,7 +33,7 @@ namespace comdare::cache_engine::anatomy {
 //   Ebene 2  AnatomyGenus      = TIER-UNTERKLASSE unter einem Gattungs-Interface (fester Achsen-Satz)
 //   Ebene 3  Achsen            = Organe der Tier-Unterklasse (permutieren; KEINE optional)
 // Set/Sequence/Adapter/View sind Tier-Unterklassen UNTER der Container-Gattung (Doc 24 Z.564 / Doc 27 §0),
-// NICHT je eine eigene Gattung. SearchAlgorithm ist eine Gattung MIT einer Tier-Unterklasse (std::map-artig, 19 Achsen).
+// NICHT je eine eigene Gattung. SearchAlgorithm ist eine Gattung MIT einer Tier-Unterklasse (std::map-artig, 18 Achsen; INC-2c: telemetry ist System-Achse).
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// AnatomyGattung — Ebene 1: das Außen-Interface zur Welt (Prüf-Dock je Gattung, Doc 24 §8.8). NUR 3.

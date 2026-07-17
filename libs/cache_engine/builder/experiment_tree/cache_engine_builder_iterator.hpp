@@ -25,7 +25,7 @@
 // Header-only, C++23.
 
 #include "experiment_tree.hpp"         // ExperimentTree / StaticBinaryView / NodeObserverSnapshot
-#include "axis_path_serialization.hpp" // (X) kCompositionAxisNames[19] — Single-Source der 19 seg_*-Spaltennamen
+#include "axis_path_serialization.hpp" // (X) kCompositionAxisNames[18] — Single-Source der seg_*-Spaltennamen
 #include "coverage_selection.hpp"      // BuildSelection
 #include "runtime_variable_loop.hpp"   // RuntimeVariableLoop / RuntimeSetting (gefiltert-dynamisch)
 #include "container_attribution.hpp"   // CMD-2/#252: host-seitige Container-in-SA-Attribution (c1 store_ops)
@@ -35,7 +35,7 @@
 #include "../anatomy_module_loader/anatomy_module_loader.hpp" // AnatomyModuleLoader / AnatomyModuleHandle
 #include "../pruef_dock/search_algorithm_dock.hpp" // INC-2a (Q4): acquire_search_algorithm_drive (Dock-Vertrag)
 #include "../../anatomy/observable_tier.hpp"       // IObservableTier
-#include "../../anatomy/measurable_workload.hpp"   // (X): IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
+#include "../../anatomy/measurable_workload.hpp"   // (X): IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (18 Segmente)
 #include "../../anatomy/resource_controllable_tier.hpp" // IResourceControllableTier
 
 #include <algorithm> // #165-B: std::nth_element (Gruppen-Median im quality_flag)
@@ -70,7 +70,7 @@ struct LazyRunConfig {
     // (repetition-DynamicDim aus dem Profil-<runtime_dynamic>; hier durchgereicht). Default 3 (0 → 1 normalisiert).
     std::uint32_t n_repeats = 3;
     // (C-2): per-Segment-Workload-Parameter (run_workload_segmented). seg_batches=0 → kein Segment-Timing (n/a).
-    std::uint64_t seg_ops_per_batch = 4000;   // Operationen je Batch im 19-Segment-Workload (X)
+    std::uint64_t seg_ops_per_batch = 4000;   // Operationen je Batch im 18-Segment-Workload (X)
     std::uint64_t seg_batches       = 32;     // gemessene Batches (Warmup verworfen); 0 = Segment-Timing aus
     std::uint64_t seg_seed          = 0xB15u; // deterministischer Seed
     // Achse 2 (INC-3): fester Seed für die Workload-Op-Sequenz-Materialisierung. Hängt NUR vom Profil ab (via
@@ -145,7 +145,7 @@ struct LazyMeasuredRow {
     std::uint64_t timed_ops = 0;
     // GOAL-L1: per-Interface-Funktions-Latenzen (Reihenfolge kOpKindNames) — z-Achsen-Quelle der 3D-Auswertung.
     std::array<OpKindLatency, 6> op_lat{};
-    // KONSOLIDIERUNG (I1): der EINE konsolidierte Observer-POD (axis_stats[19][8] + seg_ns[19]/Pfad B + Meta).
+    // KONSOLIDIERUNG (I1): der EINE konsolidierte Observer-POD (axis_stats[18][8] + seg_ns[18]/Pfad B + Meta).
     // Maßgebliche CSV-Quelle: stat_*-Spalten aus unified.axis_stats, seg_*-Spalten aus unified.seg_ns (Pfad B, reale
     // Komposition). Ersetzt den früheren V3-Snapshot + den Pfad-A-Segment-Timer.
     anatomy::ComdareTierObserverSnapshot unified{};
@@ -185,18 +185,18 @@ struct LazyMeasuredRow {
 
 // ── (B/C/D/X) EINHEITLICHES CSV-Schema (global + per-Binary identisch) ──────────────────────────────────
 //   binary_id;setting;repetition;n_ops;total_ns;ns_per_op;
-//   seg_<T0>_ns;…;seg_<T18>_ns;   (19 per-Achsen-Timer-Spalten, kCompositionAxisNames-Reihenfolge)
+//   seg_<T0>_ns;…;seg_<T17>_ns;   (18 per-Achsen-Timer-Spalten, kCompositionAxisNames-Reihenfolge)
 //   <die 13 differenzierten Observer-Counter>;applied_axes
-// (X) Die frühere `na_axes`-Notiz-Spalte ist ENTFALLEN: ALLE 19 Achsen tragen jetzt einen echten per-Achsen-
-// Timer (kein „15 Deskriptor-Achsen ohne Timer" mehr). Die 19 seg_*-Spalten = "n/a", wenn das Modul kein
+// (X) Die frühere `na_axes`-Notiz-Spalte ist ENTFALLEN: ALLE 18 Achsen tragen jetzt einen echten per-Achsen-
+// Timer (kein „15 Deskriptor-Achsen ohne Timer" mehr). Die 18 seg_*-Spalten = "n/a", wenn das Modul kein
 // IMeasurableWorkloadV3 exponiert (seg_real=false) — ehrlich n/a, NICHT 0. Die Spaltennamen werden aus der
 // EINEN Single-Source kCompositionAxisNames (axis_path_serialization.hpp) generiert → keine Namens-Drift.
 //
 // Phase A (2026-06-04) PER-ACHSEN-OBSERVER-SPALTEN: zusätzlich `stat_<achse>_<feld>` je befülltem statistics()-Feld
 // (generisch aus der EINEN Single-Source kV3AxisSchema, observable_tier.hpp). CSV-SCHEMA-WAHL = WIDE NAMED COLUMNS
-// (nicht long-format), BEGRÜNDUNG: (1) die bestehende CSV ist bereits wide (13 Observer-Counter + 19 seg-Spalten),
+// (nicht long-format), BEGRÜNDUNG: (1) die bestehende CSV ist bereits wide (13 Observer-Counter + 18 seg-Spalten),
 // 1 Zeile je Messung — wide bleibt konsistent + direkt vom Thesis-PDF-Pipeline konsumierbar; (2) der V3-POD ist
-// generisch [19][8], ABER nur die im Schema BENANNTEN (non-null) Felder werden zu Spalten → die Breite ist gegen
+// generisch [18][8], ABER nur die im Schema BENANNTEN (non-null) Felder werden zu Spalten → die Breite ist gegen
 // weitere Felder gedeckelt (Phase B füllt nur leere Schema-Slots, KEINE neue Spalte ausser tatsächlich benannt);
 // (3) Schema-Stabilität: kV3AxisSchema IST der Vertrag Schreiber(DLL)↔Spaltenname(Host) → keine Drift. Die
 // stat_*-Spalten sind „n/a", wenn die DLL kein Mess-Interface trägt (unified_real=false) — ehrlich n/a, NICHT 0.
@@ -349,8 +349,8 @@ struct LazyMeasuredRow {
         out += std::to_string(ol.p99_ns);
         out += ';';
     }
-    // (X) die 19 per-Segment-ns (T0..T18) — echt wenn seg_real, sonst ehrlich n/a (NICHT 0). Geschleift über
-    // seg_ns[19] in derselben Reihenfolge wie die Header-Spalten (kCompositionAxisNames) — single-source, keine Drift.
+    // (X) die 18 per-Segment-ns (T0..T17, INC-2c) — echt wenn seg_real, sonst ehrlich n/a (NICHT 0). Geschleift über
+    // kCompositionAxisNames.size() in derselben Reihenfolge wie die Header-Spalten — single-source, keine Drift.
     // KONSOLIDIERUNG (I-B): seg_<achse>_ns bevorzugt aus dem EINEN konsolidierten POD = Pfad-B-Timing (reale
     // Komposition, User-Entscheid 2026-06-04). Fallback (additive Übergangsphase, entfällt in I-C): row.seg
     // (Pfad A) für noch nicht migrierte Aufrufer; sonst ehrlich n/a (alte DLL ohne konsolidierte tier_observe).
@@ -361,13 +361,13 @@ struct LazyMeasuredRow {
             out += "n/a"; // alte/Nicht-Mess-DLL → ehrlich n/a
         out += ';';
     };
-    for (int i = 0; i < 19; ++i) seg_field(i);
+    for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) seg_field(static_cast<int>(i));
     // P-MD3 (2026-06-18): die Coverage-Versöhnung. seg_framework_ns/seg_run_total_ns ehrlich n/a, wenn keine Mess-DLL;
     // seg_coverage = Σseg_ns / seg_run_total_ns (gegen die KOMMENSURABLE eigene Wall-Clock des Segment-Laufs → ~1.0,
     // NICHT gegen die unkommensurable Real-Workload-total_ns). seg_run_total_ns==0 → coverage n/a (kein Div-by-0).
     if (row.unified_real) {
         std::int64_t seg_sum = 0;
-        for (int i = 0; i < 19; ++i) seg_sum += row.unified.seg_ns[i];
+        for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) seg_sum += row.unified.seg_ns[i];
         out += std::to_string(row.unified.seg_framework_ns);
         out += ';';
         out += std::to_string(row.unified.seg_run_total_ns);

@@ -118,7 +118,7 @@ TEST(R5CA_IAnatomyBase, AbiAdapterBridgeToVirtualInterface) {
     EXPECT_EQ(base.composition_name(), std::string_view{"ArtComposition"});
     EXPECT_TRUE(base.paper_id().starts_with("P01"));
     EXPECT_EQ(base.genus(), ana::AnatomyGenus::SearchAlgorithm);
-    EXPECT_EQ(base.organ_count(), 19u);
+    EXPECT_EQ(base.organ_count(), 18u);
 }
 
 TEST(R5CA_IAnatomyBase, AbiAdapterForPaperBinding) {

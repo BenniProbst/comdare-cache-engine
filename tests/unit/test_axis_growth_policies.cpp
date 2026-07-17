@@ -46,7 +46,7 @@ static void tr(char const* w, bool c) {
 
 // SequenceComposition mit variabler Growth-Policy (10 Platzhalter-Slots + axis_growth).
 template <class GrowthT>
-using SeqComp = cea::SequenceComposition<int, int, int, int, int, int, int, int, int, int, GrowthT>;
+using SeqComp = cea::SequenceComposition<int, int, int, int, int, int, int, int, int, GrowthT>;
 
 template <class GrowthT>
 static std::uint64_t growth_events_for(std::uint64_t n_pushes) {

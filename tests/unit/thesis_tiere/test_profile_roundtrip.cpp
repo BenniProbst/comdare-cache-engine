@@ -122,7 +122,7 @@ int main(int argc, char** argv) {
     std::vector<std::string> const   prof_ids    = binary_ids(prof_base);
 
     // ── (3) STRUKTUR: 19 statische Ebenen, kanonische Achsen-Namen-Reihenfolge ──
-    check_eq("profile static_levels = 19 (tier abgezogen)", prof_static.size(), std::size_t{19});
+    check_eq("profile static_levels = 18 (tier abgezogen)", prof_static.size(), std::size_t{18});
     {
         bool canon_ok = (prof_static.size() == ex::kCompositionAxisNames.size());
         for (std::size_t i = 0; canon_ok && i < prof_static.size(); ++i)

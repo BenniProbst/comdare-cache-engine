@@ -50,7 +50,6 @@ namespace pf    = ::comdare::cache_engine::prefetch::axis_07_prefetch;
 namespace q1    = ::comdare::cache_engine::queuing::axis_q1_queuing;
 namespace q2    = ::comdare::cache_engine::queuing::axis_q2_queuing;
 namespace ser   = ::comdare::cache_engine::serialization::axis_10_serialization;
-namespace tel   = ::comdare::cache_engine::telemetry::axis_11_telemetry;
 namespace vh    = ::comdare::cache_engine::value_handle::axis_14_value_handle;
 
 namespace {
@@ -59,9 +58,8 @@ using DistanceStoreBackedComposition = an::AdHocComposition<
     ce03a::Array256SearchAlgo, ct::LinearFanout, map::DirectPlacement, pc::PathCompressionNone,
     nd::ObservableNodeType<nd::Node256NodeType>, ml::ObservableMemoryLayout<ml::CacheLineAlignedMemoryLayout>,
     al::StdMalloc, pf::DistanceEstimatorPrefetch, cc::NoneConcurrency,
-    ser::ObservableSerialization<ser::RawBinarySerialization>, tel::ObservableTelemetry<tel::LeafOnlyCounter>,
-    vh::InlineValueHandle, hw::Amd64Isa, idx::IotIndexOrganization, ioax::InMemoryOnly, mig::NoMigration,
-    flt::BloomFilter, q1::NoBuffer, q2::LazyFlush>;
+    ser::ObservableSerialization<ser::RawBinarySerialization>, vh::InlineValueHandle, hw::Amd64Isa,
+    idx::IotIndexOrganization, ioax::InMemoryOnly, mig::NoMigration, flt::BloomFilter, q1::NoBuffer, q2::LazyFlush>;
 
 using DistanceTier = an::SearchAlgorithmAbiAdapter<an::SearchAlgorithmAnatomy<DistanceStoreBackedComposition>>;
 

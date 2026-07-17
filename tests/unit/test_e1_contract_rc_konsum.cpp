@@ -62,18 +62,18 @@ namespace pf    = ::comdare::cache_engine::prefetch::axis_07_prefetch;
 namespace q1    = ::comdare::cache_engine::queuing::axis_q1_queuing;
 namespace q2    = ::comdare::cache_engine::queuing::axis_q2_queuing;
 namespace ser   = ::comdare::cache_engine::serialization::axis_10_serialization;
-namespace tel   = ::comdare::cache_engine::telemetry::axis_11_telemetry;
 namespace vh    = ::comdare::cache_engine::value_handle::axis_14_value_handle;
 
 namespace {
 
 template <class ValueHandle = vh::InlineValueHandle>
-using RcComposition = an::AdHocComposition<
-    ce03a::Array256SearchAlgo, ct::LinearFanout, map::DirectPlacement, pc::PathCompressionNone,
-    nd::ObservableNodeType<nd::Node4NodeType>, ml::ObservableMemoryLayout<ml::CacheLineAlignedMemoryLayout>,
-    al::StdMalloc, pf::NonePrefetch, cc::BlockingConcurrency, ser::ObservableSerialization<ser::RawBinarySerialization>,
-    tel::ObservableTelemetry<tel::LeafOnlyCounter>, ValueHandle, hw::Amd64Isa, idx::IotIndexOrganization,
-    ioax::InMemoryOnly, mig::NoMigration, flt::BloomFilter, q1::NoBuffer, q2::LazyFlush>;
+using RcComposition =
+    an::AdHocComposition<ce03a::Array256SearchAlgo, ct::LinearFanout, map::DirectPlacement, pc::PathCompressionNone,
+                         nd::ObservableNodeType<nd::Node4NodeType>,
+                         ml::ObservableMemoryLayout<ml::CacheLineAlignedMemoryLayout>, al::StdMalloc, pf::NonePrefetch,
+                         cc::BlockingConcurrency, ser::ObservableSerialization<ser::RawBinarySerialization>,
+                         ValueHandle, hw::Amd64Isa, idx::IotIndexOrganization, ioax::InMemoryOnly, mig::NoMigration,
+                         flt::BloomFilter, q1::NoBuffer, q2::LazyFlush>;
 
 template <class ValueHandle = vh::InlineValueHandle>
 using RcTier = an::SearchAlgorithmAbiAdapter<an::SearchAlgorithmAnatomy<RcComposition<ValueHandle>>>;
@@ -204,9 +204,8 @@ TEST(E1ResourceControlKonsum, RejectedInsertDoesNotDriveObserverAuxOrgans) {
     auto const snapshot = observe(*tv.obs);
 
     EXPECT_EQ(snapshot.axis_stats[0][3], 0u);
-    EXPECT_EQ(snapshot.axis_stats[10][0], 0u);
-    EXPECT_EQ(snapshot.axis_stats[11][0], 4u);
-    EXPECT_EQ(snapshot.axis_stats[16][1] + snapshot.axis_stats[16][2], 4u);
+    EXPECT_EQ(snapshot.axis_stats[10][0], 4u);
+    EXPECT_EQ(snapshot.axis_stats[15][1] + snapshot.axis_stats[15][2], 4u);
     EXPECT_EQ(tv.obs->tier_size(), 4u);
 }
 
@@ -252,21 +251,21 @@ TEST(E1ResourceControlKonsum, InlineThresholdOverrideCoexistsWithValueHandleAcco
     insert_range(*inline_tv.obs, 8u);
 
     auto const inline_default = observe(*inline_tv.obs);
-    EXPECT_EQ(inline_default.axis_stats[11][1], 0u);
-    EXPECT_EQ(inline_default.axis_stats[11][3], 1u);
+    EXPECT_EQ(inline_default.axis_stats[10][1], 0u);
+    EXPECT_EQ(inline_default.axis_stats[10][3], 1u);
 
     an::ComdareResourceControlV1 external{};
     external.inline_threshold_bytes = 1u;
     apply_rc(*inline_tv.rc, external, 1u);
     auto const inline_external = observe(*inline_tv.obs);
-    EXPECT_GT(inline_external.axis_stats[11][1], 0u);
-    EXPECT_EQ(inline_external.axis_stats[11][3], 2u);
+    EXPECT_GT(inline_external.axis_stats[10][1], 0u);
+    EXPECT_EQ(inline_external.axis_stats[10][3], 2u);
 
     an::ComdareResourceControlV1 reset{};
     apply_rc(*inline_tv.rc, reset, 0u);
     auto const inline_reset = observe(*inline_tv.obs);
-    EXPECT_EQ(inline_reset.axis_stats[11][1], 0u);
-    EXPECT_EQ(inline_reset.axis_stats[11][3], 1u);
+    EXPECT_EQ(inline_reset.axis_stats[10][1], 0u);
+    EXPECT_EQ(inline_reset.axis_stats[10][3], 1u);
 
     RcTier<vh::VersionedPointerValueHandle> versioned_tier{};
     auto                                    versioned_tv = views(versioned_tier);
@@ -275,15 +274,15 @@ TEST(E1ResourceControlKonsum, InlineThresholdOverrideCoexistsWithValueHandleAcco
     insert_range(*versioned_tv.obs, 8u);
     apply_rc(*versioned_tv.rc, external, 1u);
     auto const versioned_external = observe(*versioned_tv.obs);
-    EXPECT_GT(versioned_external.axis_stats[11][1], 0u);
-    EXPECT_GT(versioned_external.axis_stats[11][2], 0u);
-    EXPECT_GE(versioned_external.axis_stats[11][3], 2u);
+    EXPECT_GT(versioned_external.axis_stats[10][1], 0u);
+    EXPECT_GT(versioned_external.axis_stats[10][2], 0u);
+    EXPECT_GE(versioned_external.axis_stats[10][3], 2u);
 
     apply_rc(*versioned_tv.rc, reset, 0u);
     auto const versioned_default = observe(*versioned_tv.obs);
-    EXPECT_GT(versioned_default.axis_stats[11][1], 0u);
-    EXPECT_GT(versioned_default.axis_stats[11][2], 0u);
-    EXPECT_GE(versioned_default.axis_stats[11][3], 2u);
+    EXPECT_GT(versioned_default.axis_stats[10][1], 0u);
+    EXPECT_GT(versioned_default.axis_stats[10][2], 0u);
+    EXPECT_GE(versioned_default.axis_stats[10][3], 2u);
 }
 
 TEST(E1ResourceControlKonsum, CsvSchemaNamesAndRowsCarryNewRcEvidence) {

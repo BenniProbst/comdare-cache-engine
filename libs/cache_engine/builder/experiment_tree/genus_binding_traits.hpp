@@ -36,7 +36,7 @@ struct GenusBindingTraits;
 template <>
 struct GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm> {
     static constexpr cea::AnatomyGenus genus      = cea::AnatomyGenus::SearchAlgorithm;
-    static constexpr std::size_t       slot_count = 19;
+    static constexpr std::size_t       slot_count = 18; // INC-2c: telemetry raus (war 19)
     static constexpr std::string_view  name       = "SearchAlgorithm";
 
     /// Blatt-PermTuple<19> → reale Komposition (AdHocComposition<19>) → Gattungs-Anatomie.
@@ -45,8 +45,8 @@ struct GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm> {
     template <class Comp>
     using AnatomyFor = cea::SearchAlgorithmAnatomy<Comp>;
 
-    /// Die Achsen-Namen der Komposition-Slots (Reihenfolge T0..T18) — zentrale Pfad-Konvention (BR-2).
-    [[nodiscard]] static constexpr std::array<std::string_view, 19> const& axis_names() noexcept {
+    /// Die Achsen-Namen der Komposition-Slots (Reihenfolge T0..T17) — zentrale Pfad-Konvention (BR-2).
+    [[nodiscard]] static constexpr std::array<std::string_view, 18> const& axis_names() noexcept {
         return kCompositionAxisNames;
     }
 };
@@ -60,93 +60,96 @@ template <>
 struct GenusBindingTraits<cea::AnatomyGenus::Adapter> {
     static constexpr cea::AnatomyGenus   genus      = cea::AnatomyGenus::Adapter;     // Tier-Unterklasse (Ebene 2)
     static constexpr cea::AnatomyGattung gattung    = cea::AnatomyGattung::Container; // Außen-Interface (Ebene 1)
-    static constexpr std::size_t         slot_count = 13; // 12 geteilt/delegiert + inner_container
+    static constexpr std::size_t         slot_count = 12; // 11 geteilt/delegiert + inner_container (INC-2c)
     static constexpr std::string_view    name       = "Adapter";
 
-    /// 12 geteilte/delegierte (§28) + inner_container (Inner defaultet auf DequeInner → stack/queue-Default, §26.4).
+    /// 11 geteilte/delegierte (§28; INC-2c: telemetry ist System-Achse) + inner_container (Inner defaultet auf
+    /// DequeInner → stack/queue-Default, §26.4).
     template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9,
-              class T10, class T11, class Inner = cea::DequeInner<>>
-    using CompositionFor = cea::AdapterComposition<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, Inner>;
+              class T10, class Inner = cea::DequeInner<>>
+    using CompositionFor = cea::AdapterComposition<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, Inner>;
     template <class Comp>
     using AnatomyFor = cea::AdapterAnatomy<Comp>;
 
-    [[nodiscard]] static constexpr std::array<std::string_view, 13> const& axis_names() noexcept {
-        static constexpr std::array<std::string_view, 13> kNames = {
-            "search_algo", "cache_traversal",  "memory_layout",  "allocator",    "prefetch",
-            "concurrency", "serialization",    "telemetry",      "value_handle", "isa",
-            "io_dispatch", "migration_policy", "inner_container"};
+    [[nodiscard]] static constexpr std::array<std::string_view, 12> const& axis_names() noexcept {
+        static constexpr std::array<std::string_view, 12> kNames = {
+            "search_algo",   "cache_traversal", "memory_layout", "allocator",   "prefetch",         "concurrency",
+            "serialization", "value_handle",    "isa",           "io_dispatch", "migration_policy", "inner_container"};
         return kNames;
     }
 };
 
-/// Set (Vogel, K-only) — die 3. Gattungs-Instanz (D9/L-76a). 15 Achsen-Slots (§28 Bird, kein mapping/value_handle,
+/// Set (Vogel, K-only) — die 3. Gattungs-Instanz (D9/L-76a). 14 Achsen-Slots (§28 Bird; INC-2c: telemetry ist System-Achse; kein mapping/value_handle,
 /// K-A aufgelöst). EIGENE Komposition/Anatomie (SetAnatomy treibt Composition::search_algo als Menge K=V) +
 /// eigener Set-Observer (Cross-Genus type-unmöglich → getrennt). Belegt: der EINE Baum bindet auch die Set-Gattung.
 template <>
 struct GenusBindingTraits<cea::AnatomyGenus::Set> {
     static constexpr cea::AnatomyGenus genus      = cea::AnatomyGenus::Set;
-    static constexpr std::size_t       slot_count = 15;
+    static constexpr std::size_t       slot_count = 14; // INC-2c: telemetry raus (war 15)
     static constexpr std::string_view  name       = "Set";
 
-    /// 15-Slot-Komposition (Reihenfolge = §28 Bird-Spalte). Blatt-PermTuple<15> → SetComposition → SetAnatomy.
+    /// 14-Slot-Komposition (Reihenfolge = §28 Bird-Spalte; INC-2c: telemetry ist System-Achse). Blatt-PermTuple<14>
+    /// → SetComposition → SetAnatomy.
     template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9,
-              class T10, class T11, class T12, class T13, class T14>
-    using CompositionFor = cea::SetComposition<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>;
+              class T10, class T11, class T12, class T13>
+    using CompositionFor = cea::SetComposition<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>;
     template <class Comp>
     using AnatomyFor = cea::SetAnatomy<Comp>;
 
-    [[nodiscard]] static constexpr std::array<std::string_view, 15> const& axis_names() noexcept {
-        static constexpr std::array<std::string_view, 15> kNames = {
-            "search_algo", "cache_traversal",    "path_compression", "node_type",        "memory_layout",
-            "allocator",   "prefetch",           "concurrency",      "serialization",    "telemetry",
-            "isa",         "index_organization", "io_dispatch",      "migration_policy", "filter"};
+    [[nodiscard]] static constexpr std::array<std::string_view, 14> const& axis_names() noexcept {
+        static constexpr std::array<std::string_view, 14> kNames = {
+            "search_algo",        "cache_traversal", "path_compression", "node_type",     "memory_layout",
+            "allocator",          "prefetch",        "concurrency",      "serialization", "isa",
+            "index_organization", "io_dispatch",     "migration_policy", "filter"};
         return kNames;
     }
 };
 
-/// Sequence (Reptil, V-indexed) — die 4. Gattungs-Instanz (D10/L-76b). 11 Slots = 10 geteilte Achsen (§28 Reptile,
+/// Sequence (Reptil, V-indexed) — die 4. Gattungs-Instanz (D10/L-76b). 10 Slots = 9 geteilte Achsen (§28 Reptile; INC-2c ohne telemetry,
 /// K-B aufgelöst) + axis_growth (eigene). EIGENE Komposition/Anatomie (SequenceAnatomy treibt V-Speicher + Growth-
 /// Policy) + eigener Sequence-Observer (Cross-Genus getrennt). Belegt: der EINE Baum bindet auch die Sequence-Gattung.
 template <>
 struct GenusBindingTraits<cea::AnatomyGenus::Sequence> {
     static constexpr cea::AnatomyGenus genus      = cea::AnatomyGenus::Sequence;
-    static constexpr std::size_t       slot_count = 11; // 10 geteilte + axis_growth
+    static constexpr std::size_t       slot_count = 10; // 9 geteilte + axis_growth (INC-2c)
     static constexpr std::string_view  name       = "Sequence";
 
-    /// 10-geteilte + Growth-Slot (Growth defaultet auf DoublingGrowth → 10-arg-Aufrufe bleiben gültig).
-    template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9,
+    /// 9-geteilte + Growth-Slot (INC-2c: telemetry ist System-Achse; Growth defaultet auf DoublingGrowth →
+    /// 9-arg-Aufrufe bleiben gültig).
+    template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8,
               class Growth = cea::DoublingGrowth>
-    using CompositionFor = cea::SequenceComposition<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, Growth>;
+    using CompositionFor = cea::SequenceComposition<T0, T1, T2, T3, T4, T5, T6, T7, T8, Growth>;
     template <class Comp>
     using AnatomyFor = cea::SequenceAnatomy<Comp>;
 
-    [[nodiscard]] static constexpr std::array<std::string_view, 11> const& axis_names() noexcept {
-        static constexpr std::array<std::string_view, 11> kNames = {
-            "memory_layout", "allocator", "prefetch",    "concurrency",      "serialization", "telemetry",
+    [[nodiscard]] static constexpr std::array<std::string_view, 10> const& axis_names() noexcept {
+        static constexpr std::array<std::string_view, 10> kNames = {
+            "memory_layout", "allocator", "prefetch",    "concurrency",      "serialization",
             "value_handle",  "isa",       "io_dispatch", "migration_policy", "growth_policy"};
         return kNames;
     }
 };
 
-/// View (Pflanze, non-owning) — die 5. (letzte) Gattungs-Instanz (D11/L-76c). 7 Slots = 4 geteilte Achsen
+/// View (Pflanze, non-owning) — die 5. (letzte) Gattungs-Instanz (D11/L-76c). 6 Slots = 3 geteilte Achsen (INC-2c)
 /// (§28 Plant, K-C aufgelöst) + axis_extent/axis_layout/axis_accessor (eigene). EIGENE Komposition/Anatomie
 /// (ViewAnatomy referenziert externen Puffer non-owning, liest über layout/accessor) + eigener View-Observer.
 template <>
 struct GenusBindingTraits<cea::AnatomyGenus::View> {
     static constexpr cea::AnatomyGenus genus      = cea::AnatomyGenus::View;
-    static constexpr std::size_t       slot_count = 7; // 4 geteilt + extent/layout/accessor
+    static constexpr std::size_t       slot_count = 6; // 3 geteilt + extent/layout/accessor (INC-2c)
     static constexpr std::string_view  name       = "View";
 
-    /// 4-geteilte + extent/layout/accessor (alle drei defaulten → 4-arg-Aufrufe bleiben gültig).
-    template <class T0, class T1, class T2, class T3, class Extent = cea::DynamicExtent,
-              class Layout = cea::LayoutRight, class Accessor = cea::DefaultAccessor>
-    using CompositionFor = cea::ViewComposition<T0, T1, T2, T3, Extent, Layout, Accessor>;
+    /// 3-geteilte + extent/layout/accessor (INC-2c: telemetry ist System-Achse; alle drei defaulten →
+    /// 3-arg-Aufrufe bleiben gültig).
+    template <class T0, class T1, class T2, class Extent = cea::DynamicExtent, class Layout = cea::LayoutRight,
+              class Accessor = cea::DefaultAccessor>
+    using CompositionFor = cea::ViewComposition<T0, T1, T2, Extent, Layout, Accessor>;
     template <class Comp>
     using AnatomyFor = cea::ViewAnatomy<Comp>;
 
-    [[nodiscard]] static constexpr std::array<std::string_view, 7> const& axis_names() noexcept {
-        static constexpr std::array<std::string_view, 7> kNames = {
-            "memory_layout", "telemetry", "value_handle", "isa", "extent_policy", "layout_policy", "accessor_policy"};
+    [[nodiscard]] static constexpr std::array<std::string_view, 6> const& axis_names() noexcept {
+        static constexpr std::array<std::string_view, 6> kNames = {"memory_layout", "value_handle",  "isa",
+                                                                   "extent_policy", "layout_policy", "accessor_policy"};
         return kNames;
     }
 };

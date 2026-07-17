@@ -69,8 +69,8 @@ TEST(AP9ProvenanceManifest, NeutralityGuardsStayIntact) {
     static_assert(std::is_trivially_copyable_v<anatomy::ComdareTierObserverSnapshot>);
 
     EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 5);
-    EXPECT_EQ(sizeof(anatomy::ComdareTierObserverSnapshot), 1416u);
-    EXPECT_EQ(anatomy::kTierObserverSnapshotVersionUnified, 5u);
+    EXPECT_EQ(sizeof(anatomy::ComdareTierObserverSnapshot), 1344u);
+    EXPECT_EQ(anatomy::kTierObserverSnapshotVersionUnified, 6u);
 
     std::vector<b::ComdareMeasurementSnapshotV1> rows(1);
     std::vector<std::string>                     ids{"neutrality_guard"};

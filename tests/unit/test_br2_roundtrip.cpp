@@ -14,7 +14,7 @@
 #include "builder/experiment_tree/experiment_tree.hpp"
 #include <permutations/permutation_engine.hpp> // PermutationEngine
 
-// Die 19 Komposition-Topic-ConfigSets (echte Wrapper; Doc 30 §8.0: + queuing q1/q2 als SA-Achsen T17/T18):
+// Die 18 Komposition-Topic-ConfigSets (echte Wrapper; Doc 30 §8.0 + INC-2c: + queuing q1/q2 als SA-Achsen T16/T17):
 #include <topics/traversal/topic_traversal_config_set.hpp>
 #include <topics/nodes/topic_nodes_config_set.hpp>
 #include <topics/memory_layout/topic_memory_layout_config_set.hpp>
@@ -22,7 +22,6 @@
 #include <topics/prefetch/topic_prefetch_config_set.hpp>
 #include <topics/concurrency/topic_concurrency_config_set.hpp>
 #include <topics/serialization/topic_serialization_config_set.hpp>
-#include <topics/telemetry/topic_telemetry_config_set.hpp>
 #include <topics/value_handle/topic_value_handle_config_set.hpp>
 #include <topics/hardware/topic_hardware_config_set.hpp>
 #include <topics/search_engine/topic_search_engine_config_set.hpp>
@@ -75,7 +74,6 @@ using L6  = mp::mp_take_c<ce::allocator::TopicConfigSet::StaticAxisVariants, 1>;
 using L7  = mp::mp_take_c<ce::prefetch::TopicConfigSet::StaticAxisVariants, 1>;
 using L8  = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, 1>;
 using L9  = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, 1>;
-using L10 = mp::mp_take_c<ce::telemetry::TopicConfigSet::StaticAxisVariants, 1>;
 using L11 = mp::mp_take_c<ce::value_handle::TopicConfigSet::StaticAxisVariants, 1>;
 using L12 = mp::mp_take_c<ce::hardware::TopicConfigSet::StaticAxisVariants_09, 1>;   // isa
 using L13 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants, 1>; // index_organization
@@ -85,32 +83,33 @@ using L16 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;   
 using L17 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>;    // queuing_q1 ×1 (Doc 30 §8.0)
 using L18 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>;    // queuing_q2 ×1 (Doc 30 §8.0)
 
-using PilotEngine = perm::PermutationEngine<PilotCfg<L0>, PilotCfg<L1>, PilotCfg<L2>, PilotCfg<L3>, PilotCfg<L4>,
-                                            PilotCfg<L5>, PilotCfg<L6>, PilotCfg<L7>, PilotCfg<L8>, PilotCfg<L9>,
-                                            PilotCfg<L10>, PilotCfg<L11>, PilotCfg<L12>, PilotCfg<L13>, PilotCfg<L14>,
-                                            PilotCfg<L15>, PilotCfg<L16>, PilotCfg<L17>, PilotCfg<L18>>;
+using PilotEngine =
+    perm::PermutationEngine<PilotCfg<L0>, PilotCfg<L1>, PilotCfg<L2>, PilotCfg<L3>, PilotCfg<L4>, PilotCfg<L5>,
+                            PilotCfg<L6>, PilotCfg<L7>, PilotCfg<L8>, PilotCfg<L9>, PilotCfg<L11>, PilotCfg<L12>,
+                            PilotCfg<L13>, PilotCfg<L14>, PilotCfg<L15>, PilotCfg<L16>, PilotCfg<L17>, PilotCfg<L18>>;
 
 int main() {
-    std::cout << "BR-2 (Pilot, C1060-sicher): Baum-Blatt ↔ reale AdHocComposition<19> Round-Trip:\n";
+    std::cout << "BR-2 (Pilot, C1060-sicher): Baum-Blatt ↔ reale AdHocComposition<18> Round-Trip:\n";
 
-    // (1) CompositionRegistry aus dem PILOT-Engine: jede Permutation → reale AdHocComposition<19>.
+    // (1) CompositionRegistry aus dem PILOT-Engine: jede Permutation → reale AdHocComposition<18>.
     ex::CompositionRegistry reg;
     reg.register_from_engine<PilotEngine>();
     std::cout << "  PilotEngine::count() = " << PilotEngine::count() << "  reg.size() = " << reg.size() << "\n";
     check_eq("reg.size() == PilotEngine::count()", reg.size(), PilotEngine::count());
     check_true("∏ > 1 (echtes Fanout: node_type ×2 · memory_layout ×2)", reg.size() > 1);
 
-    // (2) Round-Trip P → CompositionFromPermTuple → AdHocComposition<19>: path (aus PermTuple) == slot_path
-    //     (aus den 19 named Slots) + materialisiert + 19-Achsen-Definition.
+    // (2) Round-Trip P → CompositionFromPermTuple → AdHocComposition<18>: path (aus PermTuple) == slot_path
+    //     (aus den 18 named Slots) + materialisiert + 18-Achsen-Definition.
     bool        rt     = true;
     std::size_t def_ok = 0;
     reg.for_each([&](ex::CompositionRecord const& r) {
-        if (r.path != r.slot_path) rt = false;   // P→Composition Slot-Reihenfolge verlustfrei
-        if (!r.materialized) rt = false;         // CompositionFromPermTuple<P> kompilierte
-        if (r.definition.size() == 19) ++def_ok; // reale Achsen-Definition je Slot (Doc 30 §8.0: 17 + queuing q1/q2)
+        if (r.path != r.slot_path) rt = false; // P→Composition Slot-Reihenfolge verlustfrei
+        if (!r.materialized) rt = false;       // CompositionFromPermTuple<P> kompilierte
+        if (r.definition.size() == 18)
+            ++def_ok; // reale Achsen-Definition je Slot (Doc 30 §8.0 + INC-2c: 16 + queuing q1/q2)
     });
     check_true("Round-Trip: path == slot_path + materialized (alle)", rt);
-    check_eq("jede Komposition hat 19-Achsen-Definition", def_ok, reg.size());
+    check_eq("jede Komposition hat 18-Achsen-Definition", def_ok, reg.size());
 
     // (3) Baum über DIESELBEN Pilot-Listen + Achsen-Namen (= kCompositionAxisNames) → identische Pfade.
     std::vector<ex::AxisLevel> lv;
@@ -124,7 +123,6 @@ int main() {
     ex::push_static_axis<L7>(lv, "prefetch");
     ex::push_static_axis<L8>(lv, "concurrency");
     ex::push_static_axis<L9>(lv, "serialization");
-    ex::push_static_axis<L10>(lv, "telemetry");
     ex::push_static_axis<L11>(lv, "value_handle");
     ex::push_static_axis<L12>(lv, "isa");
     ex::push_static_axis<L13>(lv, "index_organization");

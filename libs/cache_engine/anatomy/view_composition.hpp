@@ -1,6 +1,6 @@
 #pragma once
 // D11 / L-76c (2026-06-02) — ViewComposition: die VIEW-Gattungs-Komposition (Pflanze, non-owning). 7 Slots =
-// 4 geteilte Achsen (Doku 14 §28 Plant: memory_layout/telemetry/value_handle/isa; K-C aufgelöst) + 3 eigene
+// 3 geteilte Achsen (Doku 14 §28 Plant: memory_layout/value_handle/isa; INC-2c: telemetry ist System-Achse) + 3 eigene
 // (axis_extent/axis_layout/axis_accessor, mdspan-Bezug §26.6). GETRENNTE Gattung (Cross-Genus type-unmöglich,
 // Doku 14 §32). non-owning → KEIN allocator/concurrency/insert (Doku 14 §28 „— (non-owning)/(immutable)").
 //
@@ -41,19 +41,19 @@ struct DefaultAccessor { // Default-axis_accessor: direkter Element-Zugriff.
     [[nodiscard]] std::uint64_t access(std::uint64_t const* d, std::size_t i) const noexcept { return d[i]; }
 };
 
-/// ViewComposition<T0..T3, Extent, Layout, Accessor> — 4 geteilte Achsen (§28 Plant) + 3 eigene. non-owning.
-template <class T0, class T1, class T2, class T3, class Extent = DynamicExtent, class Layout = LayoutRight,
+/// ViewComposition<T0..T2, Extent, Layout, Accessor> — 3 geteilte Achsen (§28 Plant; INC-2c: telemetry
+/// ist System-Achse, kein Slot) + 3 eigene. non-owning.
+template <class T0, class T1, class T2, class Extent = DynamicExtent, class Layout = LayoutRight,
           class Accessor = DefaultAccessor>
 struct ViewComposition {
     using memory_layout   = T0;       // axis_05
-    using telemetry       = T1;       // axis_11
-    using value_handle    = T2;       // axis_14
-    using isa             = T3;       // axis_09
+    using value_handle    = T1;       // axis_14
+    using isa             = T2;       // axis_09
     using extent_policy   = Extent;   // NEU axis_extent
     using layout_policy   = Layout;   // NEU axis_layout
     using accessor_policy = Accessor; // NEU axis_accessor
 
-    static constexpr std::size_t      slot_count = 7; // 4 geteilt + extent/layout/accessor
+    static constexpr std::size_t      slot_count = 6; // 3 geteilt + extent/layout/accessor (INC-2c)
     static constexpr std::string_view name       = "ViewComposition";
     static constexpr std::string_view paper_id   = "P00 View Gattung (Pflanze, non-owning)";
 };
@@ -62,7 +62,6 @@ struct ViewComposition {
 template <class C>
 concept IsViewComposition = requires {
     typename C::memory_layout;
-    typename C::telemetry;
     typename C::value_handle;
     typename C::isa;
     typename C::extent_policy;

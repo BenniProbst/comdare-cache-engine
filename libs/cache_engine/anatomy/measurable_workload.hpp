@@ -79,26 +79,26 @@ public:
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// (X) 19-Segment-Latenz-POD — der per-Achsen-Timer auf ALLE 19 SearchAlgorithm-Achsen ausgeweitet
+// (X) 18-Segment-Latenz-POD — der per-Achsen-Timer auf ALLE 18 SearchAlgorithm-Achsen (INC-2c: telemetry ist System-Achse) ausgeweitet
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// ComdareSegmentLatencyV2 — flacher, ABI-stabiler POD, der die ECHT gemessene (über die batches
-/// AUFSUMMIERTE) per-Achsen-Wall-Clock ALLER 19 SearchAlgorithm-Achsen über die Modul-Binary-Grenze trägt.
-/// INDEXBASIERT (seg_ns[19], NICHT 19 benannte Felder): der Slot-Index IST die kanonische Achsen-Identität
-/// (T0..T18 == kCompositionAxisNames-Reihenfolge in builder/experiment_tree/axis_path_serialization.hpp:27-32);
-/// der CSV-Writer iteriert dann `for i in 0..18` statt 19 Felder hartzucodieren, und eine spätere Achsen-
+/// AUFSUMMIERTE) per-Achsen-Wall-Clock ALLER 18 SearchAlgorithm-Achsen über die Modul-Binary-Grenze trägt.
+/// INDEXBASIERT (seg_ns[18], NICHT benannte Felder): der Slot-Index IST die kanonische Achsen-Identität
+/// (T0..T17 == kCompositionAxisNames-Reihenfolge in builder/experiment_tree/axis_path_serialization.hpp:27-32);
+/// der CSV-Writer iteriert dann `for i in 0..17` statt 18 Felder hartzucodieren, und eine spätere Achsen-
 /// Umordnung verschiebt nur die Index-Bedeutung, bricht aber nicht still Name↔Feld. NUR int64/uint64-Felder
 /// → standard_layout + trivially_copyable (memcpy über die .dll-Grenze, identisch zum Observer-Snapshot-Prinzip).
 /// V1 (4 benannte Segmente) bleibt UNVERÄNDERT erhalten (ABI-Erhalt für alte DLLs / bestehende Tests).
 ///
-/// Seg-Index-Map (T0..T18): 0 search_algo · 1 cache_traversal · 2 mapping · 3 path_compression · 4 node_type
+/// Seg-Index-Map (T0..T17): 0 search_algo · 1 cache_traversal · 2 mapping · 3 path_compression · 4 node_type
 /// · 5 memory_layout · 6 allocator · 7 prefetch · 8 concurrency · 9 serialization · 10 telemetry
 /// · 11 value_handle · 12 isa · 13 index_organization · 14 io_dispatch · 15 migration_policy · 16 filter
 /// · 17 queuing_q1 · 18 queuing_q2. KEINE Achse n/a — jede treibt eine reale, strategie-abhängige Op.
 struct ComdareSegmentLatencyV2 {
-    std::int64_t  seg_ns[19] = {}; // Index T0..T18 == kCompositionAxisNames-Reihenfolge (ALGORITHMISCHE Organ-Zeit)
-    std::int64_t  total_ns   = 0;  // Σ seg_ns[0..18] über alle gemessenen Batches (Konsistenz-Diagnose)
-    std::uint64_t batches_measured = 0; // wie viele Batches einflossen (Warmup verworfen)
+    std::int64_t  seg_ns[18]       = {}; // Index T0..T17 == kCompositionAxisNames-Reihenfolge (INC-2c: telemetry raus)
+    std::int64_t  total_ns         = 0;  // Σ seg_ns[0..18] über alle gemessenen Batches (Konsistenz-Diagnose)
+    std::uint64_t batches_measured = 0;  // wie viele Batches einflossen (Warmup verworfen)
     // P-MD3 (Coverage-Versöhnung, 2026-06-18): die Attribution der Per-Achsen-Zeit braucht einen EIGENEN, kommensurablen
     // Nenner. seg_run_total_ns = die GESAMTE Wall-Clock des gemessenen Batch-Laufs DIESES Timers (äußere steady_clock
     // um die Nicht-Warmup-Batches). seg_framework_ns = seg_run_total_ns − Σseg_ns = der NICHT-segmentierte Rest (rng,
@@ -113,20 +113,20 @@ struct ComdareSegmentLatencyV2 {
 };
 
 static_assert(std::is_standard_layout_v<ComdareSegmentLatencyV2>,
-              "ABI-Pflicht: 19-Segment-Latenz-POD muss standard_layout sein");
+              "ABI-Pflicht: 18-Segment-Latenz-POD muss standard_layout sein");
 static_assert(std::is_trivially_copyable_v<ComdareSegmentLatencyV2>,
-              "ABI-Pflicht: 19-Segment-Latenz-POD muss memcpy-fähig (trivially_copyable) sein");
+              "ABI-Pflicht: 18-Segment-Latenz-POD muss memcpy-fähig (trivially_copyable) sein");
 
 /// IMeasurableWorkloadV3 — EIGENSTÄNDIGES Sub-Interface (L-74c-ABI-Prinzip: hängt NICHT an
 /// IMeasurableWorkload(V2)/IAnatomyBase → ändert deren vtable NICHT; der Host fragt via
 /// `dynamic_cast<IMeasurableWorkloadV3*>(ianatomy_ptr)`, alte Module → nullptr → sauberer Degrade auf V2/V1).
-/// Fährt einen 19-Segment-do_batch: je SearchAlgorithm-Achse ein eigener steady_clock-Timer, über die batches
-/// AUFSUMMIERT → echter per-Achsen-Timer für ALLE 19 Achsen (kein n/a mehr).
+/// Fährt einen 18-Segment-do_batch: je SearchAlgorithm-Achse ein eigener steady_clock-Timer, über die batches
+/// AUFSUMMIERT → echter per-Achsen-Timer für ALLE 18 Achsen (kein n/a mehr).
 class IMeasurableWorkloadV3 {
 public:
     virtual ~IMeasurableWorkloadV3() = default;
 
-    /// Fährt `batches` Batches à `ops_per_batch` Operationen (seed-deterministisch), je Batch die 19
+    /// Fährt `batches` Batches à `ops_per_batch` Operationen (seed-deterministisch), je Batch die 18
     /// instrumentierten Achsen-Segmente mit EIGENEM Timer, und schreibt die über alle (Nicht-Warmup-)Batches
     /// aufsummierten per-Segment-ns nach *out (out != nullptr). noexcept (interne Exception → out bleibt 0,
     /// Rückgabe 0). Rückgabe: Anzahl eingeflossener Batches (= batches_measured).

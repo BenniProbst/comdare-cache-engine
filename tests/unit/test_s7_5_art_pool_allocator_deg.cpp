@@ -53,7 +53,6 @@ struct PoolFlipComposition {
     using prefetch                             = comp::ArtComposition::prefetch;
     using concurrency                          = comp::ArtComposition::concurrency;
     using serialization                        = comp::ArtComposition::serialization;
-    using telemetry                            = comp::ArtComposition::telemetry;
     using value_handle                         = comp::ArtComposition::value_handle;
     using isa                                  = comp::ArtComposition::isa;
     using index_organization                   = comp::ArtComposition::index_organization;
@@ -139,8 +138,8 @@ TEST(S75ArtPoolAllocatorDeg, NeutralityGuardsStayIntact) {
     static_assert(std::is_trivially_copyable_v<an::ComdareTierObserverSnapshot>);
 
     EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 5);
-    EXPECT_EQ(sizeof(an::ComdareTierObserverSnapshot), 1416u);
-    EXPECT_EQ(an::kTierObserverSnapshotVersionUnified, 5u);
+    EXPECT_EQ(sizeof(an::ComdareTierObserverSnapshot), 1344u);
+    EXPECT_EQ(an::kTierObserverSnapshotVersionUnified, 6u);
 
     std::vector<b::ComdareMeasurementSnapshotV1> rows(1);
     std::vector<std::string>                     ids{"neutrality_guard"};

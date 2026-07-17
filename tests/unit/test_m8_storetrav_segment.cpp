@@ -89,7 +89,7 @@ int main() {
     drv->tier_observe(&u);
     bool all_pos = true;
     int  zero_t  = -1;
-    for (int t = 0; t < 19; ++t)
+    for (int t = 0; t < 18; ++t)
         if (u.seg_ns[t] <= 0) {
             all_pos = false;
             if (zero_t < 0) zero_t = t;

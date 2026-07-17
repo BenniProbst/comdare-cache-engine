@@ -46,7 +46,7 @@ static void drive_set(ana::IAnatomyBase* a) {
     tr("Set: contains(99)==false über DLL", !st->tier_set_contains(99));
     ana::SetObserverSnapshotV1 pod{};
     st->tier_observe_set(&pod);
-    tr("Set: observe insert_count==2 + organ_count==15 über DLL", pod.insert_count == 2 && pod.organ_count == 15);
+    tr("Set: observe insert_count==2 + organ_count==14 über DLL", pod.insert_count == 2 && pod.organ_count == 14);
 }
 static void drive_view(ana::IAnatomyBase* a) {
     auto* vt = dynamic_cast<ana::IViewTier*>(a);

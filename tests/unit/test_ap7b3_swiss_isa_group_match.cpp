@@ -178,8 +178,8 @@ TEST(ComdareAP7b3SwissIsaGroupMatch, NeutralityGuardsStayIntact) {
 
     EXPECT_FALSE(::comdare::cache_engine::lookup::SwissTableSearchAlgo::supports_simd());
     EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 5);
-    EXPECT_EQ(sizeof(anatomy::ComdareTierObserverSnapshot), 1416u);
-    EXPECT_EQ(anatomy::kTierObserverSnapshotVersionUnified, 5u);
+    EXPECT_EQ(sizeof(anatomy::ComdareTierObserverSnapshot), 1344u);
+    EXPECT_EQ(anatomy::kTierObserverSnapshotVersionUnified, 6u);
 }
 
 #ifdef COMDARE_CE_ENABLE_STATISTICS

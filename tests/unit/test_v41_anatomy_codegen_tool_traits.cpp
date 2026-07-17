@@ -71,8 +71,8 @@ TEST(R5G_CompositionLocation, AdHocCompositionDoesNotConform) {
         comp::ArtComposition::search_algo, comp::ArtComposition::cache_traversal, comp::ArtComposition::mapping,
         comp::ArtComposition::path_compression, comp::ArtComposition::node_type, comp::ArtComposition::memory_layout,
         comp::ArtComposition::allocator, comp::ArtComposition::prefetch, comp::ArtComposition::concurrency,
-        comp::ArtComposition::serialization, comp::ArtComposition::telemetry, comp::ArtComposition::value_handle,
-        comp::ArtComposition::isa, comp::ArtComposition::index_organization, comp::ArtComposition::io_dispatch,
+        comp::ArtComposition::serialization, comp::ArtComposition::value_handle, comp::ArtComposition::isa,
+        comp::ArtComposition::index_organization, comp::ArtComposition::io_dispatch,
         comp::ArtComposition::migration_policy, comp::ArtComposition::filter,
         comp::ArtComposition::queuing_q1,                  // T17 (Doc 30 §8.0)
         comp::ArtComposition::queuing_q2>;                 // T18 (Doc 30 §8.0)

@@ -1,7 +1,7 @@
 // L-74a — ADHOC-BUILDVARIANT-DLL-Round-Trip: beweist, dass EINE DLL SOWOHL die 17-Slot-SearchAlgorithm-Anatomie
 // ALS AUCH die Build-Identität der 3 Build-Achsen trägt (Doc 27 §0.1: die 3 Build-Achsen modifizieren DIESELBE
 // 17-Slot-Binary, NICHT eine eigene Gattung). Aus DERSELBEN .dll werden host-seitig BEIDE gezogen:
-//   (1) die Anatomie über den gattungs-agnostischen AnatomyModuleLoader → genus()==SearchAlgorithm, organ_count()==19 (Doc 30 §8.0);
+//   (1) die Anatomie über den gattungs-agnostischen AnatomyModuleLoader → genus()==SearchAlgorithm, organ_count()==18 (Doc 30 §8.0);
 //   (2) die Build-Variante über dll_sym("comdare_build_variant_inspect") → simd_width_bits==512 (Avx512).
 // Build: siehe CMake-Registrierung (braucht den Anatomie-Umbrella + Boost + generierte Dirs). Aufruf: <adhoc_buildvariant.dll>.
 
@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
         tr("anatomy() != null", a != nullptr);
         if (a != nullptr) {
             tr("genus() == SearchAlgorithm (die 17-Slot-Anatomie)", a->genus() == ana::AnatomyGenus::SearchAlgorithm);
-            eq("organ_count() == 19", a->organ_count(), std::size_t{19});
+            eq("organ_count() == 18", a->organ_count(), std::size_t{18});
         }
     } else {
         std::cerr << "  status: " << loader::status_name(st) << "\n";

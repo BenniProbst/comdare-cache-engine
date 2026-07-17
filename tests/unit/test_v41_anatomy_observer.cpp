@@ -4,7 +4,7 @@
 // 1. EmptyAxisSnapshot ist standard_layout + trivially_copyable
 // 2. ObservableAxis Concept funktioniert (Detection von statistics())
 // 3. snapshot_of_t graceful fallback fuer non-observable Achsen
-// 4. ObserverAggregate<Composition> hat 19 named Snapshot-Members (17 + queuing q1/q2, Doc 30 §8.0)
+// 4. ObserverAggregate<Composition> hat 18 named Snapshot-Members (16 + queuing q1/q2; INC-2c: telemetry ist System-Achse)
 // 5. SearchAlgorithmAnatomy<C>::observe_all() liefert ObserverAggregate
 // 6. observable_axis_count() korrekte Compile-Time-Diagnose
 //
@@ -17,6 +17,7 @@
 #include <anatomy/search_algorithm_anatomy.hpp>
 #include <anatomy/known_algorithms.hpp>
 #include <anatomy/observable_tier.hpp> // I1: Cross-ABI-Bruecke ObserverAggregate -> konsolidierter Observer-POD
+#include <cache_engine/concepts/telemetry/leaf_only_counter.hpp> // F12iii-Guard: Organ-Infrastruktur lebt eigenständig
 
 #include <type_traits>
 #include <cstring> // std::memcpy im memory_layout-Test
@@ -25,6 +26,7 @@
 
 namespace ana       = ::comdare::cache_engine::anatomy;
 namespace ce_compos = ::comdare::cache_engine::compositions;
+namespace ce        = ::comdare::cache_engine; // F12iii-Guard: telemetry-Strategie-Concept (LeafOnlyCounter)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §1 — EmptyAxisSnapshot POD-Eigenschaften (ABI-Stabilitaet)
@@ -84,12 +86,12 @@ TEST(R5A_SnapshotAxis, EmptyForNonObservable) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// §3 — ObserverAggregate Komposition mit 19 Members (Doc 30 §8.0)
+// §3 — ObserverAggregate Komposition mit 18 Members (Doc 30 §8.0 + INC-2c)
 // ─────────────────────────────────────────────────────────────────────────────
 
-TEST(R5A_ObserverAggregate, ArtCompositionHasNineteenSlots) {
+TEST(R5A_ObserverAggregate, ArtCompositionHasEighteenSlots) {
     using Agg = ana::ObserverAggregate<ce_compos::ArtComposition>;
-    static_assert(Agg::total_slots() == 19);
+    static_assert(Agg::total_slots() == 18);
     SUCCEED();
 }
 
@@ -101,12 +103,12 @@ TEST(R5A_ObserverAggregate, AllSixCompositionsConformLayout) {
     using AggSurf     = ana::ObserverAggregate<ce_compos::SurfComposition>;
     using AggMasstree = ana::ObserverAggregate<ce_compos::MasstreeComposition>;
     using AggStart    = ana::ObserverAggregate<ce_compos::StartComposition>;
-    static_assert(AggArt::total_slots() == 19);
-    static_assert(AggHot::total_slots() == 19);
-    static_assert(AggWormhole::total_slots() == 19);
-    static_assert(AggSurf::total_slots() == 19);
-    static_assert(AggMasstree::total_slots() == 19);
-    static_assert(AggStart::total_slots() == 19);
+    static_assert(AggArt::total_slots() == 18);
+    static_assert(AggHot::total_slots() == 18);
+    static_assert(AggWormhole::total_slots() == 18);
+    static_assert(AggSurf::total_slots() == 18);
+    static_assert(AggMasstree::total_slots() == 18);
+    static_assert(AggStart::total_slots() == 18);
     SUCCEED();
 }
 
@@ -119,7 +121,7 @@ TEST(R5A_AnatomyObserveAll, ArtAnatomyProducesAggregate) {
     auto     agg = anatomy.observe_all();
     // R5.A Pilot: Default-Aggregate (Achsen-Member-Aggregation R5.B pending)
     using AggT = decltype(agg);
-    static_assert(AggT::total_slots() == 19);
+    static_assert(AggT::total_slots() == 18);
     SUCCEED();
 }
 
@@ -136,8 +138,8 @@ TEST(R5A_AnatomyObserveAll, AllElevenAnatomiesProduceAggregate) {
     [[maybe_unused]] auto agg9  = ana::StartPaperBinding{}.observe_all();
     [[maybe_unused]] auto agg10 = ana::WormholePaperBinding{}.observe_all();
     [[maybe_unused]] auto agg11 = ana::SurfPaperBinding{}.observe_all();
-    static_assert(decltype(agg1)::total_slots() == 19);
-    static_assert(decltype(agg11)::total_slots() == 19);
+    static_assert(decltype(agg1)::total_slots() == 18);
+    static_assert(decltype(agg11)::total_slots() == 18);
     SUCCEED();
 }
 
@@ -150,7 +152,7 @@ TEST(R5A_ObservableAxisCount, ArtAnatomyDiagnoseIsCompileTime) {
     // COMDARE_CE_ENABLE_STATISTICS. Hier wird der Count zur Compile-Time geprueft —
     // wenn Statistics-Flag aus ist, sind 0 oder wenig Achsen observable.
     constexpr auto count = ana::Art::observable_axis_count();
-    static_assert(count <= 19);
+    static_assert(count <= 18);
     SUCCEED();
 }
 
@@ -170,7 +172,6 @@ struct AllEmptyComposition {
     using prefetch                             = WithoutStatistics;
     using concurrency                          = WithoutStatistics;
     using serialization                        = WithoutStatistics;
-    using telemetry                            = WithoutStatistics;
     using value_handle                         = WithoutStatistics;
     using isa                                  = WithoutStatistics;
     using index_organization                   = WithoutStatistics;
@@ -189,7 +190,7 @@ TEST(R5A_AbiStability, AllEmptyAggregateIsStandardLayoutPod) {
     static_assert(std::is_trivially_copyable_v<Agg>);
     static_assert(std::is_trivially_default_constructible_v<Agg>);
     static_assert(Agg::observable_count() == 0);
-    static_assert(Agg::total_slots() == 19);
+    static_assert(Agg::total_slots() == 18);
     SUCCEED();
 }
 
@@ -216,28 +217,29 @@ TEST(Saeule2_ObserveAllReal, DrivenSearchAlgoOrganFlowsIntoAggregate) {
     }
 }
 
-// V42 L-74c Composition-Driver: telemetry als 2. getriebenes Organ. ArtComposition::telemetry ist jetzt die
-// ObservableTelemetry-Huelle → getrieben via telemetry_organ() fliesst sie real in observe_all().telemetry.
-// Die LeafOnlyCounter-Strategie VERWIRFT Inner-Node-Touches (node_updates==0) — der messbare Achsen-Unterschied.
-TEST(Saeule2_ObserveAllReal, DrivenTelemetryOrganFlowsIntoAggregate) {
-    ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
-    using TelOrgan = ce_compos::ArtComposition::telemetry; // ObservableTelemetry<LeafOnlyCounter>
-    if constexpr (ana::ObservableAxis<TelOrgan>) {
-        auto& tel = anat.telemetry_organ();
-        tel.record_node_touch(true);  // Blatt
-        tel.record_node_touch(false); // Inner → leaf-only verwirft
-        tel.record_node_touch(true);  // Blatt
+// Bau-INC-2c / F12iii-NEGATIV-GUARD (positiv formuliert): der frühere DrivenTelemetryOrgan-Test bewies, dass
+// das telemetry-Organ über anat.telemetry_organ() in observe_all().telemetry fließt. Seit F12iii ist telemetry
+// KEINE Kompositions-Achse mehr (System-Achse, H-10-Sidecar) → dieser Guard beweist BEIDES:
+//   (a) telemetry ist aus der Anatomie-Aggregation heraus (compile-time: kein telemetry-Member, 18 Aggregat-Slots);
+//   (b) die telemetry-Organ-INFRASTRUKTUR lebt eigenständig weiter (F12III-Vorlage: „Organ bleibt, permutiert
+//       nicht mehr") — die LeafOnlyCounter-Strategie ist direkt treibbar (verwirft Inner-Touch), OHNE die Anatomie.
+// Helper-Concept für den F12iii-Negativ-Beweis (robust gegen die requires-in-static_assert-Parse-Falle).
+template <class C>
+concept HasTelemetrySlot = requires { typename C::telemetry; };
 
-        auto const agg = anat.observe_all();
-        EXPECT_EQ(agg.telemetry.total_events, 3u);
-        EXPECT_EQ(agg.telemetry.leaf_updates, 2u);
-        EXPECT_EQ(agg.telemetry.node_updates, 0u); // LeafOnlyCounter-Strategie verwirft Inner-Touch
-        EXPECT_EQ(agg.telemetry.peak_tracked, 2u);
-        // observable_count steigt: search_algo + telemetry beide getrieben + observierbar.
-        EXPECT_GE(ana::ObserverAggregate<ce_compos::ArtComposition>::observable_count(), 2u);
-    } else {
-        GTEST_SKIP() << "telemetry nicht ObservableAxis (STATISTICS=OFF)";
-    }
+TEST(Saeule2_ObserveAllReal, TelemetryIsSystemAxisNotAnatomyOrgan_F12iii) {
+    // (a) telemetry ist KEIN Kompositions-Member mehr — compile-time-Negativ-Beweis.
+    static_assert(!HasTelemetrySlot<ce_compos::ArtComposition>,
+                  "Bau-INC-2c: ArtComposition darf keinen telemetry-Slot mehr tragen (System-Achse)");
+    // Aggregat trägt exakt die 18 Kompositions-Achsen, keine telemetry-Zeile.
+    static_assert(ana::ObserverAggregate<ce_compos::ArtComposition>::total_slots() == 18);
+
+    // (b) die telemetry-Organ-Infrastruktur lebt eigenständig (Concept-Strategie direkt getrieben, nicht via Anatomie).
+    ce::LeafOnlyCounter counter{4};
+    counter.increment_leaf(1);            // Blatt
+    counter.increment_leaf(1);            // Blatt
+    EXPECT_EQ(counter.leaf_value(1), 2u); // Organ funktioniert real, nur außerhalb der binary_id-Permutation
+    EXPECT_EQ(counter.kind(), ce::TelemetryStrategyKind::LeafOnlyCounter);
 }
 
 // V42 L-74c Composition-Driver: memory_layout als 3. getriebenes Organ. ArtComposition::memory_layout ist
@@ -261,7 +263,7 @@ TEST(Saeule2_ObserveAllReal, DrivenMemoryLayoutOrganFlowsIntoAggregate) {
         EXPECT_EQ(agg.memory_layout.last_checksum, 100u);
         EXPECT_GT(agg.memory_layout.cache_lines_touched, 0u);
         EXPECT_GE(ana::ObserverAggregate<ce_compos::ArtComposition>::observable_count(),
-                  3u); // search_algo+telemetry+memory_layout
+                  2u); // search_algo+memory_layout (INC-2c: telemetry ist kein Organ mehr)
     } else {
         GTEST_SKIP() << "memory_layout nicht ObservableAxis (STATISTICS=OFF)";
     }
@@ -324,14 +326,12 @@ TEST(Saeule2_ObserveAllReal, DrivenNodeTypeOrganFlowsIntoAggregate) {
 // I1 entfallen → hier direkt auf dem Aggregate geprüft. Beweist den Cross-ABI-Schritt (Doc 29 §3 Schritt 4).
 TEST(V2Bridge_FlatPod, AllDrivenAxesFlowIntoV2Snapshot) {
     ana::SearchAlgorithmAnatomy<ce_compos::ArtComposition> anat;
-    if constexpr (ana::ObservableAxis<ce_compos::ArtComposition::telemetry>) {
+    if constexpr (ana::ObservableAxis<ce_compos::ArtComposition::memory_layout>) {
         // search_algo treiben
         for (int i = 0; i < 10; ++i)
             anat.search_algo_organ().insert(static_cast<std::uint64_t>(i), static_cast<std::uint64_t>(i) * 2u);
         for (int i = 0; i < 10; ++i) (void)anat.search_algo_organ().lookup(static_cast<std::uint64_t>(i));
         // 4 OperativeCapable-Achsen treiben
-        anat.telemetry_organ().record_node_touch(true);
-        anat.telemetry_organ().record_node_touch(false); // leaf-only verwirft
         std::uint32_t const vals[4]      = {10u, 20u, 30u, 40u};
         unsigned char       lbuf[64 * 4] = {};
         for (std::size_t i = 0; i < 4; ++i) std::memcpy(lbuf + i * 64, &vals[i], sizeof(std::uint32_t));
@@ -350,8 +350,6 @@ TEST(V2Bridge_FlatPod, AllDrivenAxesFlowIntoV2Snapshot) {
 
         EXPECT_EQ(agg.search_algo.total_insert_count, 10u);
         EXPECT_GE(agg.search_algo.total_lookup_count, 10u);
-        EXPECT_EQ(agg.telemetry.total_events, 2u);
-        EXPECT_EQ(agg.telemetry.node_updates, 0u); // leaf-only
         EXPECT_EQ(agg.memory_layout.scan_count, 1u);
         EXPECT_EQ(agg.memory_layout.last_checksum, 100u);
         EXPECT_EQ(agg.serialization.serialize_count, 1u);

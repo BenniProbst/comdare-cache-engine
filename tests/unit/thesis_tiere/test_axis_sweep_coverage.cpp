@@ -29,13 +29,13 @@ std::vector<std::string> const kSweepAxes = {
     "search_algo", "node_type", "memory_layout", "prefetch",
     // 4 vertiefte (im Basis-320 gepinnt, eigener Katalog historisch, #168)
     "path_compression", "value_handle", "migration_policy", "filter",
-    // 11 uebrige (#18)
-    "cache_traversal", "mapping", "allocator", "concurrency", "serialization", "telemetry", "isa", "index_organization",
+    // 10 uebrige (#18; INC-2c: ohne telemetry)
+    "cache_traversal", "mapping", "allocator", "concurrency", "serialization", "isa", "index_organization",
     "io_dispatch", "queuing_q1", "queuing_q2"};
 
 } // namespace
 
-// Jede Achse liefert eine nicht-leere Sweep-Quellen-map (mind. die Baseline-Auspraegung) + 19-slotige
+// Jede Achse liefert eine nicht-leere Sweep-Quellen-map (mind. die Baseline-Auspraegung) + 18-slotige
 // Sweep-Levels (Single-Source mit der Map) -> beruehrbar.
 TEST(AxisSweepCoverage, AllAxesMaterialize) {
     for (auto const& ax : kSweepAxes) {
@@ -43,11 +43,11 @@ TEST(AxisSweepCoverage, AllAxesMaterialize) {
         auto const m = tlz::axis_sweep_source_map(ax);
         EXPECT_FALSE(m.empty()) << "Sweep-Katalog leer (nicht materialisierbar) fuer Achse: " << ax;
         auto const lv = tlz::axis_sweep_levels(ax);
-        EXPECT_EQ(lv.size(), 19u) << "Sweep-Levels nicht 19-slotig fuer Achse: " << ax;
+        EXPECT_EQ(lv.size(), 18u) << "Sweep-Levels nicht 18-slotig fuer Achse: " << ax;
     }
 }
 
-// make_all_axis_sweeps_source_map vereinigt ALLE 19 Achsen-Sweeps (disjunkte binary_id-Raeume bis auf
+// make_all_axis_sweeps_source_map vereinigt ALLE 18 Achsen-Sweeps (disjunkte binary_id-Raeume bis auf
 // die idempotente Baseline) -> jede per-Achse-id ist in der Vereinigung enthalten.
 TEST(AxisSweepCoverage, UnionCoversAllAxes) {
     auto const all = tlz::make_all_axis_sweeps_source_map();

@@ -262,7 +262,6 @@ TEST(CompositionFifteenAxes, ArtCompositionHasAllFifteen) {
     static_assert(sizeof(typename C::prefetch) > 0);
     static_assert(sizeof(typename C::concurrency) > 0);
     static_assert(sizeof(typename C::serialization) > 0);
-    static_assert(sizeof(typename C::telemetry) > 0);
     static_assert(sizeof(typename C::value_handle) > 0);
     static_assert(sizeof(typename C::isa) > 0);
     static_assert(sizeof(typename C::index_organization) > 0);
@@ -301,7 +300,6 @@ TEST(CompositionFifteenAxes, NewAxesAllUseAxisBaseDefault) {
     static_assert(A::prefetch::get_compiler() == std::string_view{"original"});
     static_assert(A::concurrency::get_compiler() == std::string_view{"original"});
     static_assert(A::serialization::get_compiler() == std::string_view{"original"});
-    static_assert(A::telemetry::get_compiler() == std::string_view{"original"});
     static_assert(A::value_handle::get_compiler() == std::string_view{"original"});
     static_assert(A::isa::get_compiler() == std::string_view{"original"});
     static_assert(A::index_organization::get_compiler() == std::string_view{"original"});

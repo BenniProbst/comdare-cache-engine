@@ -1,5 +1,5 @@
 // L-74a — ADHOC-BUILDVARIANT-DLL: EINE DLL trägt SOWOHL die 17-Slot-SearchAlgorithm-Anatomie (4 ABI-Symbole,
-// genus()==SearchAlgorithm, organ_count()==19, Doc 30 §8.0) ALS AUCH die Build-Identität der 3 Build-Achsen (page_type/09b/12)
+// genus()==SearchAlgorithm, organ_count()==18, Doc 30 §8.0) ALS AUCH die Build-Identität der 3 Build-Achsen (page_type/09b/12)
 // als extern-"C"-Inspection-Symbol. Beweist Doc 27 §0.1: die 3 Build-Achsen sind Build-Parameter DERSELBEN
 // 17-Slot-Binary (Sub/Build-Varianten DESSELBEN Algorithmus), NICHT eine eigene Gattung (KEINE AdHocComposition<20>).
 //
@@ -31,7 +31,6 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(
     ::comdare::cache_engine::prefetch::axis_07_prefetch::NonePrefetch,
     ::comdare::cache_engine::concurrency::axis_08_concurrency::OlcOptimisticConcurrency,
     ::comdare::cache_engine::serialization::axis_10_serialization::RawBinarySerialization,
-    ::comdare::cache_engine::telemetry::axis_11_telemetry::LeafOnlyCounter,
     ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle,
     ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa,
     ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization,

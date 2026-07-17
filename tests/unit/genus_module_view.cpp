@@ -10,4 +10,4 @@
 
 #include <cache_engine/abi/view_module_abi_v1.hpp>
 
-COMDARE_DEFINE_VIEW_MODULE(int, int, int, int)
+COMDARE_DEFINE_VIEW_MODULE(int, int, int)

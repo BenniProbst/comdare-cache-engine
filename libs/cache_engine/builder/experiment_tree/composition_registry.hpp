@@ -24,16 +24,28 @@
 
 namespace comdare::cache_engine::builder::experiment {
 
-/// Die read-only Achsen-Definition einer Komposition: (Achsen-Name, Wrapper-Name) je der 19 Slots T0..T18
-/// (17 Such-Achsen + queuing q1/q2, Doc 30 §8.0). Quelle für BR-3 „Achsen-Definition read-only je Knoten".
+/// Die read-only Achsen-Definition einer Komposition: (Achsen-Name, Wrapper-Name) je der 18 Slots T0..T17
+/// (16 Such-Achsen + queuing q1/q2; Doc 30 §8.0 i.V.m. Bau-INC-2c: telemetry ist System-Achse). Quelle für BR-3 „Achsen-Definition read-only je Knoten".
 template <class C>
 [[nodiscard]] inline std::vector<std::pair<std::string, std::string>> composition_definition() {
-    std::array<std::string_view, 19> const v = {
-        C::search_algo::name(), C::cache_traversal::name(),    C::mapping::name(),     C::path_compression::name(),
-        C::node_type::name(),   C::memory_layout::name(),      C::allocator::name(),   C::prefetch::name(),
-        C::concurrency::name(), C::serialization::name(),      C::telemetry::name(),   C::value_handle::name(),
-        C::isa::name(),         C::index_organization::name(), C::io_dispatch::name(), C::migration_policy::name(),
-        C::filter::name(),      C::queuing_q1::name(),         C::queuing_q2::name()};
+    std::array<std::string_view, 18> const           v = {C::search_algo::name(),
+                                                          C::cache_traversal::name(),
+                                                          C::mapping::name(),
+                                                          C::path_compression::name(),
+                                                          C::node_type::name(),
+                                                          C::memory_layout::name(),
+                                                          C::allocator::name(),
+                                                          C::prefetch::name(),
+                                                          C::concurrency::name(),
+                                                          C::serialization::name(),
+                                                          C::value_handle::name(),
+                                                          C::isa::name(),
+                                                          C::index_organization::name(),
+                                                          C::io_dispatch::name(),
+                                                          C::migration_policy::name(),
+                                                          C::filter::name(),
+                                                          C::queuing_q1::name(),
+                                                          C::queuing_q2::name()};
     std::vector<std::pair<std::string, std::string>> out;
     out.reserve(v.size());
     for (std::size_t i = 0; i < v.size(); ++i)

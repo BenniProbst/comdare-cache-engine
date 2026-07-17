@@ -7,7 +7,7 @@
 // SearchAlgorithmPermutationEngine kündigt explizit an: "Andere Gattungen (Sequence/Set/Adapter/View) folgen in V42."
 //
 // Zwei Bausteine (analog composition_factory.hpp + search_algorithm_permutation_engine.hpp):
-//   (1) SetCompositionFromPermTuple<PermT> — Brückenkopf PermTuple<V0..V14> (15 Werte) → SetComposition<V0..V14>.
+//   (1) SetCompositionFromPermTuple<PermT> — Brückenkopf PermTuple<V0..V13> (14 Werte; INC-2c ohne telemetry) → SetComposition<V0..V13>.
 //   (2) SetPermutationEngine<TopicConfigSets...> — Genus-Marker + Pflicht-Slot-Genus-Validierung + technisch
 //       benannte Iteration (for_each_set materialisiert SetAnatomy<SetComp> pro Permutation).
 //
@@ -35,9 +35,8 @@ template <class PermT>
 struct SetCompositionFromPermTupleImpl;
 template <template <class...> class PermTupleTmpl, class... Vs>
 struct SetCompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
-    static_assert(
-        sizeof...(Vs) == 15,
-        "Set-PermTuple muss exakt 15 Achsen-Werte enthalten (Set-Gattung K-only, kein mapping/value_handle).");
+    static_assert(sizeof...(Vs) == 14, "Set-PermTuple muss exakt 14 Achsen-Werte enthalten (INC-2c: telemetry ist "
+                                       "System-Achse) (Set-Gattung K-only, kein mapping/value_handle).");
     using type = SetComposition<Vs...>;
 };
 } // namespace detail

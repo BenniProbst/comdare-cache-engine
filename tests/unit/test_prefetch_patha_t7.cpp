@@ -84,17 +84,17 @@ static an::ComdareSegmentLatencyV2 measure_patha(char const* name) {
 
     // (A) seg_ns[7] (T7 prefetch) > 0 — das re-grounded Segment wird real getrieben + gezeitet.
     tr(std::string(name) + ": T7 seg_prefetch_ns (seg_ns[7]) > 0 (real getrieben + gezeitet)", out.seg_ns[7] > 0);
-    // (B) die anderen 18 Segmente unberuehrt: nicht-negativ (kein Korruptionseffekt aus dem T7-Re-Grounding). Einzelne
-    //     sehr billige Segmente (z.B. T15 migration_decide_scan) koennen je nach Strategie < 1 steady_clock-Tick liegen
+    // (B) die anderen 17 Segmente unberuehrt: nicht-negativ (kein Korruptionseffekt aus dem T7-Re-Grounding). Einzelne
+    //     sehr billige Segmente (z.B. T14 migration_decide_scan) koennen je nach Strategie < 1 steady_clock-Tick liegen
     //     und damit 0 ns ablesen — das ist Timer-Granularitaet, NICHT „unberuehrt" verletzt; deshalb >= 0 (kein < 0).
     bool others_nonneg = true;
     int  neg_t         = -1;
-    for (int t = 0; t < 19; ++t)
+    for (int t = 0; t < 18; ++t)
         if (t != 7 && out.seg_ns[t] < 0) {
             others_nonneg = false;
             if (neg_t < 0) neg_t = t;
         }
-    tr(std::string(name) + ": die anderen 18 Segmente unberuehrt (kein < 0 durch T7-Re-Grounding)" +
+    tr(std::string(name) + ": die anderen 17 Segmente unberuehrt (kein < 0 durch T7-Re-Grounding)" +
            (others_nonneg ? "" : (" (neg bei T" + std::to_string(neg_t) + ")")),
        others_nonneg);
 
