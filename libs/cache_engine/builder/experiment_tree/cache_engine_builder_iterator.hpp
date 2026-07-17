@@ -154,6 +154,10 @@ struct LazyMeasuredRow {
     // alter fixer Workload (kein Achse-2-Profil). two_phase_valid=false ⇒ Messung UNGÜLTIG (nicht als valide werten).
     std::string profile_name;
     bool        two_phase_valid = false;
+    // INC-29.1 (D2): Mess-Status DIESER Zelle (aus PermResult durchgereicht). Failed -> op_lat-Spalten "failed"
+    // statt 0 ("Messung nie als Nullen"). Default Ok = gueltige Messung (Zahlen, byte-identisch).
+    ::comdare::cache_engine::measurement::SampleStatus sample_status =
+        ::comdare::cache_engine::measurement::SampleStatus::Ok;
     // M3v2-SELEKTION (Task #156): die 5 Lauf-/Selektions-Tags je Zeile (aus LazyRunConfig durchgereicht). Reine
     // Metadaten (kein Mess-Einfluss) → ermöglichen die Trennung Basis vs Per-Achsen-Sweep vs SOTA-Reihe A/B/C
     // sowie die Working-Set-N- und Plattform/Build-Version-Achsen in der Auswertung.
@@ -341,13 +345,21 @@ struct LazyMeasuredRow {
     }
     out += ';';
     // GOAL-L1: per-Interface-Funktions-Latenzen (Reihenfolge identisch zum Header / kOpKindNames).
+    // INC-29.1 (D2): eine algo-/mess-fehlerhafte Zelle (SampleStatus::Failed) traegt "failed" (NIE 0/still) —
+    // "Messung nie als Nullen"; der Ok-Pfad rendert byte-identisch die Zahlen. Failed setzt perm_runner
+    // (gate_failed_result_ / catch-OOM). Gleiche Spaltenzahl (3 je Op-Art) -> CSV-Ausrichtung unveraendert.
+    bool const cell_failed = (row.sample_status == ::comdare::cache_engine::measurement::SampleStatus::Failed);
     for (auto const& ol : row.op_lat) {
-        out += std::to_string(ol.n);
-        out += ';';
-        out += std::to_string(ol.p50_ns);
-        out += ';';
-        out += std::to_string(ol.p99_ns);
-        out += ';';
+        if (cell_failed) {
+            out += "failed;failed;failed;";
+        } else {
+            out += std::to_string(ol.n);
+            out += ';';
+            out += std::to_string(ol.p50_ns);
+            out += ';';
+            out += std::to_string(ol.p99_ns);
+            out += ';';
+        }
     }
     // (X) die 18 per-Segment-ns (T0..T17, INC-2c) — echt wenn seg_real, sonst ehrlich n/a (NICHT 0). Geschleift über
     // kCompositionAxisNames.size() in derselben Reihenfolge wie die Header-Spalten — single-source, keine Drift.
@@ -813,6 +825,7 @@ struct LazyRunResult {
                 row.unified_real    = pr.unified_real;
                 row.profile_name    = pr.profile_name;    // Achse 2: Lastprofil-Name (leer = alter fixer Workload)
                 row.two_phase_valid = pr.two_phase_valid; // Achse 2: Mess-Gültigkeit (Zwei-Phasen-Cache-Warmup exakt)
+                row.sample_status   = pr.sample_status;   // INC-29.1 (D2): Failed -> CSV "failed" statt 0
                 row.pmc             = pr.pmc; // #156-De-Risk: die HW-PMC-Counter DIESER Messung → CSV-Endspalten
                 // M3v2-SELEKTION (Task #156): die 5 Lauf-/Selektions-Tags je Zeile (aus der Config durchgereicht).
                 row.series         = cfg.row_series;
