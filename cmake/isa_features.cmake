@@ -182,3 +182,27 @@ function(comdare_apply_simd_extension_flags target ext)
             "Extension (erwartet: NO_EXTENSION/SSE2/AVX2/AVX512/NEON/SVE2/RVV/CUDA_GH200).")
     endif()
 endfunction()
+
+# ── comdare_apply_optimization_level_flags(target level) — Bau-INC-2c.opt Naht #2 ────────────────────
+# Wendet die Optimierungsstufe der Compiler-System-Achse (opt_level-Unterachse, siehe
+# include/cache_engine/measurement/optimization_level_sub_axis.hpp) auf ein Target an. Vorbild:
+# comdare_apply_simd_extension_flags (oben). Zweck HIER: mess-charakteristische Verifikations-Test-Targets
+# (Cache-Line-/Layout-Effekte sind nur UNTER Optimierung sichtbar; im unoptimierten Default-Build maskiert der
+# Instrumentierungs-Overhead den Effekt → Layout-Sensitivitaets-Check faellt physikalisch unter die 5%-Schwelle).
+# Level-Semantik deckungsgleich zur opt_level-Achse: O0/O1/O2/O3 = IEEE-754-treu + Run-to-Run-deterministisch;
+# Ofast = aggressiv (CEB-Default fuer Mess-Binaries, OF-2), aber determinismus-brechend → NICHT fuer die
+# deterministischen Verifikations-Tests. Der volle XML-permutierte opt_level-Raum kommt mit dem Planer (2c.opt-g/h).
+function(comdare_apply_optimization_level_flags target level)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        if(level STREQUAL "O0")
+            target_compile_options(${target} PRIVATE /Od)
+        else()
+            target_compile_options(${target} PRIVATE /O2)  # MSVC-naechstliegend fuer O1..Ofast
+        endif()
+    elseif(level MATCHES "^(O0|O1|O2|O3|Ofast)$")
+        target_compile_options(${target} PRIVATE "-${level}")
+    else()
+        message(FATAL_ERROR "comdare_apply_optimization_level_flags(${target} ${level}): unbekannte "
+            "opt_level-Stufe (erwartet: O0/O1/O2/O3/Ofast).")
+    endif()
+endfunction()
