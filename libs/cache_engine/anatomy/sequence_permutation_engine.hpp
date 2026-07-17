@@ -4,7 +4,7 @@
 //
 // Zwei Bausteine:
 //   (1) SequenceCompositionFromPermTuple<PermT> — PermTuple<V0..V10> (11 Werte: 10 geteilte + axis_growth) →
-//       SequenceComposition<V0..V10>. Der 11. Wert füllt den Growth-Slot (überschreibt den Default DoublingGrowth).
+//       SequenceComposition<V0..V9>. Der 10. Wert füllt den Growth-Slot (INC-2c ohne telemetry) (überschreibt den Default DoublingGrowth).
 //   (2) SequencePermutationEngine<TopicConfigSets...> — Genus-Marker + Slot-Genus-Validierung + for_each_sequence
 //       (materialisiert SequenceAnatomy<SeqComp> pro Permutation).
 //
@@ -32,8 +32,8 @@ template <class PermT>
 struct SequenceCompositionFromPermTupleImpl;
 template <template <class...> class PermTupleTmpl, class... Vs>
 struct SequenceCompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
-    static_assert(sizeof...(Vs) == 11,
-                  "Sequence-PermTuple muss exakt 11 Achsen-Werte enthalten (10 geteilte + axis_growth).");
+    static_assert(sizeof...(Vs) == 10,
+                  "Sequence-PermTuple muss exakt 10 Achsen-Werte enthalten (9 geteilte + axis_growth; INC-2c).");
     using type = SequenceComposition<Vs...>;
 };
 } // namespace detail

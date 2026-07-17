@@ -14,8 +14,8 @@
 
 using namespace comdare::cache_engine::builder::experiment;
 
-// Fake-Komposition mit den 19 von adhoc_macro_args erwarteten Member-Typen (type_name-fähig; Werte egal).
-// Doc 30 §8.0: queuing q1/q2 sind reguläre SA-Achsen-Slots (T17/T18) → adhoc_macro_args liest sie ebenso.
+// Fake-Komposition mit den 18 von adhoc_macro_args erwarteten Member-Typen (type_name-fähig; Werte egal).
+// Doc 30 §8.0 + Bau-INC-2c: queuing q1/q2 sind reguläre SA-Achsen-Slots (T16/T17); telemetry ist System-Achse.
 struct FakeComp {
     using search_algo        = int;
     using cache_traversal    = int;
@@ -27,7 +27,6 @@ struct FakeComp {
     using prefetch           = int;
     using concurrency        = int;
     using serialization      = int;
-    using telemetry          = int;
     using value_handle       = int;
     using isa                = int;
     using index_organization = int;

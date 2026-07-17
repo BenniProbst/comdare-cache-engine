@@ -5,7 +5,7 @@
 //
 // REPO-COMMITTET (vorher nur ephemer in build/ generiert) → der Set/Sequence/View-DLL-Round-Trip ist damit aus
 // committeter Quelle reproduzierbar (schließt den Phase-E-Audit-Vorbehalt "nur git-ignoriert scratch-verifiziert").
-// search_algo-Kern = SortedArrayKeySet (echtes Binary-Search-Set-Organ, K=V); T1..T14 = int (von SetAnatomy nicht
+// search_algo-Kern = SortedArrayKeySet (echtes Binary-Search-Set-Organ, K=V); T1..T13 = int (INC-2c: telemetry ist System-Achse) (von SetAnatomy nicht
 // getrieben — die Set-Gattung treibt real nur das search_algo-Organ, R5.B-Grenze ehrlich). Build: siehe
 // tests/unit/genus_dll_roundtrip.ps1 (committet).
 // SUPERSEDED 2026-07-11: genus_dll_roundtrip.ps1 entfernt (Behelfsweg-Bereinigung); DLL jetzt via CMakeLists
@@ -15,4 +15,4 @@
 #include <anatomy/set_default_organ.hpp>
 
 COMDARE_DEFINE_SET_MODULE(::comdare::cache_engine::anatomy::SortedArrayKeySet, int, int, int, int, int, int, int, int,
-                          int, int, int, int, int, int)
+                          int, int, int, int, int)

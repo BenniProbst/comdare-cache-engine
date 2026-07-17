@@ -36,7 +36,6 @@ concept IsComposition = requires {
     // Topic 10
     typename C::serialization;
     // Topic 11
-    typename C::telemetry;
     // Topic 14
     typename C::value_handle;
     // Topic hardware
@@ -58,10 +57,11 @@ concept IsComposition = requires {
 };
 
 /// Helper: zaehlt zur Compile-Zeit wie viele "Organe" eine Composition liefert.
-/// Pflicht: 19 (3 traversal + 2 nodes + 12 weitere Topics + 2 queuing q1/q2, Doc 30 §8.0).
+/// Pflicht: 18 (3 traversal + 2 nodes + 11 weitere Topics + 2 queuing q1/q2; Doc 30 §8.0
+/// i.V.m. Bau-INC-2c/F12iii: telemetry ist System-Achse, kein Organ-Slot mehr).
 template <typename C>
 struct composition_organ_count {
-    static constexpr std::size_t value = 19; // 3 + 2 + 12 + 2 queuing
+    static constexpr std::size_t value = 18; // 3 + 2 + 11 + 2 queuing
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -50,7 +50,7 @@ static void tr(char const* w, bool c) {
 
 // ViewComposition mit variabler Layout-Policy (4 Platzhalter + DynamicExtent + Layout + DefaultAccessor).
 template <class Layout>
-using ViewComp = cea::ViewComposition<int, int, int, int, cea::DynamicExtent, Layout, cea::DefaultAccessor>;
+using ViewComp = cea::ViewComposition<int, int, int, cea::DynamicExtent, Layout, cea::DefaultAccessor>;
 
 int main() {
     std::cout << "==== L-76c View-Achsen extent/layout/accessor (Mehr-Policy) ====\n";

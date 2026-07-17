@@ -89,10 +89,10 @@ static_assert(ContainerType<cea::AnatomyGenus::View>);
 static_assert(!ContainerType<cea::AnatomyGenus::SearchAlgorithm>,
               "#29: SearchAlgorithm ist eine EIGENE Gattung, kein Container-Typ");
 // (b) "exakt die bisherigen Container-Achsen": jeder Typ behaelt seinen Slot-Satz (keine Vereinheitlichung).
-static_assert(type_traits<cea::AnatomyGenus::Adapter>::slot_count == 13);
-static_assert(type_traits<cea::AnatomyGenus::Set>::slot_count == 15);
-static_assert(type_traits<cea::AnatomyGenus::Sequence>::slot_count == 11);
-static_assert(type_traits<cea::AnatomyGenus::View>::slot_count == 7);
+static_assert(type_traits<cea::AnatomyGenus::Adapter>::slot_count == 12); // INC-2c: telemetry raus
+static_assert(type_traits<cea::AnatomyGenus::Set>::slot_count == 14);
+static_assert(type_traits<cea::AnatomyGenus::Sequence>::slot_count == 10);
+static_assert(type_traits<cea::AnatomyGenus::View>::slot_count == 6);
 // (c) Gattungs-Konsistenz: alle Container-Typen tragen das Container-Aussen-Interface (Ebene 1).
 static_assert(type_traits<cea::AnatomyGenus::Adapter>::gattung == cea::AnatomyGattung::Container);
 static_assert(type_traits<cea::AnatomyGenus::View>::gattung == cea::AnatomyGattung::Container);

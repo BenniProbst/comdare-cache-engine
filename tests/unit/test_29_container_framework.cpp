@@ -44,15 +44,15 @@ TEST(V29ContainerFramework, FourContainerTypesUnderOneInterface) {
     EXPECT_EQ(seen[2], cea::AnatomyGenus::Sequence);
     EXPECT_EQ(seen[3], cea::AnatomyGenus::View);
     // "exakt die bisherigen Container-Achsen": jeder Typ behaelt seinen Slot-Satz (keine Vereinheitlichung).
-    EXPECT_EQ(slots, (std::vector<std::size_t>{13u, 15u, 11u, 7u}));
+    EXPECT_EQ(slots, (std::vector<std::size_t>{12u, 14u, 10u, 6u})); // INC-2c: telemetry ist System-Achse (je -1)
 }
 
 TEST(V29ContainerFramework, AxisNamesArePreservedPerType) {
     // Der Achsen-Satz je Typ = exakt die bestehende GenusBindingTraits-Definition (re-exportiert, nicht umgebaut).
-    EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::Adapter>::axis_names().size(), 13u);
-    EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::Set>::axis_names().size(), 15u);
-    EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::Sequence>::axis_names().size(), 11u);
-    EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::View>::axis_names().size(), 7u);
+    EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::Adapter>::axis_names().size(), 12u);
+    EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::Set>::axis_names().size(), 14u);
+    EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::Sequence>::axis_names().size(), 10u);
+    EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::View>::axis_names().size(), 6u);
     // Beispiel-Beleg: Sequence traegt growth_policy als letzte Achse (SequenceComposition-Growth-Slot).
     EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::Sequence>::axis_names().back(), std::string_view{"growth_policy"});
     EXPECT_EQ(cc::type_traits<cea::AnatomyGenus::Adapter>::axis_names().back(), std::string_view{"inner_container"});

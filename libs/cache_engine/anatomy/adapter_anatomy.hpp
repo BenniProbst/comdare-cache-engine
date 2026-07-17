@@ -3,10 +3,10 @@
 // + §26.4 + Doc 30 §8.0/§8.1). Ebene 2 unter dem Container-Außen-Interface (Ebene 1, AnatomyGattung::Container),
 // gleichrangig zu Set/Sequence/View. Gebaut EXAKT analog SequenceComposition (10 geteilt + growth):
 //
-//   AdapterComposition<T0..T11, Inner>  =  12 geteilte/delegierte Achsen (§28)  +  inner_container (NEU axis_inner).
+//   AdapterComposition<T0..T10, Inner>  =  11 geteilte/delegierte Achsen (§28; INC-2c)  +  inner_container (NEU axis_inner).
 //
-// §28-Invertebrate-Achsen (13): delegiert (9) search_algo, cache_traversal, memory_layout, allocator, prefetch,
-// concurrency, isa, io_dispatch, migration_policy + aktiv (3) serialization, telemetry, value_handle + spezifisch (1)
+// §28-Invertebrate-Achsen (12; INC-2c): delegiert (9) search_algo, cache_traversal, memory_layout, allocator, prefetch,
+// concurrency, isa, io_dispatch, migration_policy + aktiv (2) serialization, value_handle + spezifisch (1)
 // inner_container. §26.4: stack/queue→deque, priority_queue→vector+Compare; Pflicht-API push/pop/top/front/back
 // (KEIN begin/end). Die Disziplin (FIFO/LIFO/Priority) liegt in der API-NUTZUNG (front vs back), NICHT in einer Achse —
 // §28 kennt KEINE „ordering"-Achse (frühere inner+ordering-Version war ein geratener Ebenen-/Achsen-Fehler, verworfen).
@@ -110,9 +110,9 @@ struct
 };
 
 /// AdapterComposition — 12 geteilte/delegierte §28-Achsen + inner_container.
-/// Reihenfolge T0..T11 = §28-Invertebrate (delegiert + aktiv), dann Inner (spezifisch). Analog SequenceComposition.
+/// Reihenfolge T0..T10 = §28-Invertebrate (delegiert + aktiv), dann Inner (spezifisch). Analog SequenceComposition.
 template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10,
-          class T11, class Inner = DequeInner<>>
+          class Inner = DequeInner<>>
 struct AdapterComposition {
     using search_algo      = T0;    // axis_03a (delegated an inner)
     using cache_traversal  = T1;    // axis_03b (delegated)
@@ -121,14 +121,13 @@ struct AdapterComposition {
     using prefetch         = T4;    // axis_07  (delegated)
     using concurrency      = T5;    // axis_08  (delegated)
     using serialization    = T6;    // axis_10  (aktiv)
-    using telemetry        = T7;    // axis_11  (aktiv)
-    using value_handle     = T8;    // axis_14  (aktiv)
-    using isa              = T9;    // axis_09  (delegated)
-    using io_dispatch      = T10;   // axis_io  (delegated)
-    using migration_policy = T11;   // axis_migration (delegated)
+    using value_handle     = T7;    // axis_14  (aktiv)
+    using isa              = T8;    // axis_09  (delegated)
+    using io_dispatch      = T9;    // axis_io  (delegated)
+    using migration_policy = T10;   // axis_migration (delegated)
     using inner_container  = Inner; // NEU axis_inner (Adapter-spezifisch, §28)
 
-    static constexpr std::size_t      slot_count = 13; // 12 geteilt/delegiert + inner_container
+    static constexpr std::size_t      slot_count = 12; // 11 geteilt/delegiert + inner_container (INC-2c)
     static constexpr std::string_view name       = "AdapterComposition";
     static constexpr std::string_view paper_id   = "P00 Adapter (Container-Tier-Unterklasse, Doku 14 §28 Invertebrate)";
 };
@@ -143,7 +142,6 @@ concept IsAdapterComposition = requires {
     typename C::prefetch;
     typename C::concurrency;
     typename C::serialization;
-    typename C::telemetry;
     typename C::value_handle;
     typename C::isa;
     typename C::io_dispatch;
@@ -169,7 +167,7 @@ public:
     static constexpr std::string_view paper_id() noexcept { return Composition::paper_id; }
     static constexpr AnatomyGenus     genus() noexcept { return AnatomyGenus::Adapter; }         // Tier-Unterklasse
     static constexpr AnatomyGattung   gattung() noexcept { return AnatomyGattung::Container; }   // Außen-Interface
-    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 13
+    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 12
 
     AdapterAnatomy() = default;
     /// capacity wird für ABI-ctor-Kompatibilität akzeptiert, aber ignoriert (unbeschränkter Adapter).

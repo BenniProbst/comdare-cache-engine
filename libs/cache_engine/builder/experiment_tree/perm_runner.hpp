@@ -40,8 +40,8 @@
 
 namespace comdare::cache_engine::builder::experiment {
 
-/// KONSOLIDIERUNG (I-B.3, 2026-06-04, User-Fork „voll auf axis_stats[19][8]"): formatiert den EINEN konsolidierten
-/// Observer-POD als result_ingest-Zeile = binary_id + die VOLLE Matrix: axis_stats[19][8] (152) + seg_ns[19] (19)
+/// KONSOLIDIERUNG (I-B.3, 2026-06-04, User-Fork „voll auf axis_stats[18][8]"): formatiert den EINEN konsolidierten
+/// Observer-POD als result_ingest-Zeile = binary_id + die VOLLE Matrix: axis_stats[18][8] (152) + seg_ns[18] (19)
 /// + Meta (observable_axis_count, tier_fill_level, filled_axis_count, batches_measured) = 175 Felder. EXAKT das von
 /// ingest_result_line erwartete Format → Round-Trip-Garant (Cluster: perm_runner→Zeile→ingest→Baum-NodeValue).
 /// MAJOR-MESS-09 (Mess-Validität, Audit A1): binary_id ist das ERSTE ';'-Feld der result_ingest-Zeile (= Baum-Key).
@@ -66,15 +66,15 @@ namespace comdare::cache_engine::builder::experiment {
         out += ';';
         out += std::to_string(v);
     };
-    for (std::size_t t = 0; t < 19; ++t)
+    for (std::size_t t = 0; t < 18; ++t)
         for (std::size_t f = 0; f < 8; ++f) addu(s.axis_stats[t][f]);
-    for (std::size_t t = 0; t < 19; ++t) addi(s.seg_ns[t]);
+    for (std::size_t t = 0; t < 18; ++t) addi(s.seg_ns[t]);
     addu(s.observable_axis_count);
     addu(s.tier_fill_level);
     addu(s.filled_axis_count);
     addu(s.batches_measured);
     // P-MD3 (2026-06-18): die 2 additiven Coverage-Versöhnungs-Meta-Felder hinten anhängen → Wire-Format 175→177
-    // Felder (binary_id + 177 = 178 total). Round-Trip-Garant mit ingest_result_line (exaktes ==178).
+    // Felder (binary_id + 168 = 169 total, Bau-INC-2c). Round-Trip-Garant mit ingest_result_line (exaktes ==169).
     addi(s.seg_framework_ns);
     addi(s.seg_run_total_ns);
     return out;
@@ -104,7 +104,7 @@ struct PermResult {
     // GOAL-L1: per-Interface-Funktions-Latenzen (Reihenfolge kOpKindNames) — die z-Achsen-Quelle der
     // 3D-Diagramme (Verarbeitungsdauer je Testdatensatz-Operation, getrennt je Interface-Funktion).
     std::array<OpKindLatency, 6> op_lat{};
-    // KONSOLIDIERUNG (I1): der EINE konsolidierte Observer-Snapshot (axis_stats[19][8] + seg_ns[19]/Pfad B + Meta)
+    // KONSOLIDIERUNG (I1): der EINE konsolidierte Observer-Snapshot (axis_stats[18][8] + seg_ns[18]/Pfad B + Meta)
     // aus dem EINEN tier_observe. Trägt Observer-Stats UND das Pfad-B-Per-Achsen-Timing (reale Komposition) in EINEM
     // POD — die maßgebliche CSV-Quelle.
     anatomy::ComdareTierObserverSnapshot unified{};
@@ -303,7 +303,7 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
 
         r.total_ns     = total;
         r.n_ops        = res.op_count;
-        r.unified      = res.observer; // EIN konsolidierter Observer-POD (axis_stats[19][8]+seg_ns[19])
+        r.unified      = res.observer; // EIN konsolidierter Observer-POD (axis_stats[18][8]+seg_ns[18])
         r.unified_real = true;
         r.line = format_perm_result(binary_id, res.observer); // profile_name bereits oben gesetzt (Gate-Früh-Return)
     } catch (...) {

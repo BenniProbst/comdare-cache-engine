@@ -23,7 +23,6 @@ using SampleAdHoc =
                           ::comdare::cache_engine::prefetch::axis_07_prefetch::NonePrefetch,
                           ::comdare::cache_engine::concurrency::axis_08_concurrency::OlcOptimisticConcurrency,
                           ::comdare::cache_engine::serialization::axis_10_serialization::RawBinarySerialization,
-                          ::comdare::cache_engine::telemetry::axis_11_telemetry::LeafOnlyCounter,
                           ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle,
                           ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa,
                           ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization,
@@ -41,6 +40,6 @@ TEST(R5G_Umbrella, AllAxesResolveViaSingleIncludeAndComposeFullAnatomy) {
     static_assert(ana::AnatomyConcept<Anatomy>);
     ana::SearchAlgorithmAbiAdapter<Anatomy> adapter;
     ana::IAnatomyBase*                      base = &adapter;
-    EXPECT_EQ(base->organ_count(), 19u);
+    EXPECT_EQ(base->organ_count(), 18u);
     EXPECT_EQ(base->genus(), ana::AnatomyGenus::SearchAlgorithm);
 }

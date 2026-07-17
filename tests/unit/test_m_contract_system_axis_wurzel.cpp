@@ -119,7 +119,7 @@ TEST(MSystemAxisWurzel, ObserverSnapshotCollectsReadOnlyHostPodValues) {
     snapshot.axis_stats[5][2]  = 2048;   // memory_layout.field_bytes (Nutzbytes)
     snapshot.axis_stats[5][3]  = 64;     // memory_layout.cache_lines (beruehrte 64-B-Lines)
     snapshot.axis_stats[6][1]  = 4096;   // allocator.bytes_in_use (bewusst NICHT als FOOTPRINT etikettiert)
-    snapshot.axis_stats[17][4] = 12;     // queuing_q1.peak_size (Software-Puffer, kein LFB)
+    snapshot.axis_stats[16][4] = 12;     // queuing_q1.peak_size (T16 seit Bau-INC-2c) (Software-Puffer, kein LFB)
     snapshot.tier_fill_level   = 123456; // should not be mutated or consumed by these categories
 
     m::ObserverSnapshotSystemAxis axis{snapshot};

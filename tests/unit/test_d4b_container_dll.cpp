@@ -62,7 +62,8 @@ int main(int argc, char** argv) {
 
     // Gattungs-API über die DLL-Grenze: das ist eine CONTAINER-Gattung (NICHT SearchAlgorithm).
     check_true("genus == Adapter (Container über DLL)", a->genus() == ana::AnatomyGenus::Adapter);
-    check_eq("organ_count == 13 (§28: 12 geteilt/delegiert + inner_container)", a->organ_count(), std::size_t{13});
+    check_eq("organ_count == 12 (§28 + INC-2c: 11 geteilt/delegiert + inner_container)", a->organ_count(),
+             std::size_t{12});
     check_eq("composition_name == AdapterComposition", std::string{a->composition_name()},
              std::string{"AdapterComposition"});
 

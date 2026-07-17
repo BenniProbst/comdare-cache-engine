@@ -16,7 +16,6 @@
 #include <topics/prefetch/topic_prefetch_config_set.hpp>
 #include <topics/concurrency/topic_concurrency_config_set.hpp>
 #include <topics/serialization/topic_serialization_config_set.hpp>
-#include <topics/telemetry/topic_telemetry_config_set.hpp>
 #include <topics/value_handle/topic_value_handle_config_set.hpp>
 #include <topics/hardware/topic_hardware_config_set.hpp>
 #include <topics/search_engine/topic_search_engine_config_set.hpp>
@@ -41,29 +40,28 @@ template <class List>
 struct PilotCfg {
     using StaticAxisVariants = List;
 };
-using L0          = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03a, 1>;
-using L1          = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03b, 1>;
-using L2          = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03m, 1>;
-using L3          = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_02, 1>;
-using L4          = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_04, 1>;
-using L5          = mp::mp_take_c<ce::memory_layout::TopicConfigSet::StaticAxisVariants, 1>;
-using L6          = mp::mp_take_c<ce::allocator::TopicConfigSet::StaticAxisVariants, 1>;
-using L7          = mp::mp_take_c<ce::prefetch::TopicConfigSet::StaticAxisVariants, 1>;
-using L8          = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, 1>;
-using L9          = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, 1>;
-using L10         = mp::mp_take_c<ce::telemetry::TopicConfigSet::StaticAxisVariants, 1>;
-using L11         = mp::mp_take_c<ce::value_handle::TopicConfigSet::StaticAxisVariants, 1>;
-using L12         = mp::mp_take_c<ce::hardware::TopicConfigSet::StaticAxisVariants_09, 1>;
-using L13         = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants, 1>;
-using L14         = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;
-using L15         = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;
-using L16         = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;
-using L17         = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1 (Doc 30 §8.0)
-using L18         = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2 (Doc 30 §8.0)
-using PilotEngine = perm::PermutationEngine<PilotCfg<L0>, PilotCfg<L1>, PilotCfg<L2>, PilotCfg<L3>, PilotCfg<L4>,
-                                            PilotCfg<L5>, PilotCfg<L6>, PilotCfg<L7>, PilotCfg<L8>, PilotCfg<L9>,
-                                            PilotCfg<L10>, PilotCfg<L11>, PilotCfg<L12>, PilotCfg<L13>, PilotCfg<L14>,
-                                            PilotCfg<L15>, PilotCfg<L16>, PilotCfg<L17>, PilotCfg<L18>>;
+using L0  = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03a, 1>;
+using L1  = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03b, 1>;
+using L2  = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03m, 1>;
+using L3  = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_02, 1>;
+using L4  = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_04, 1>;
+using L5  = mp::mp_take_c<ce::memory_layout::TopicConfigSet::StaticAxisVariants, 1>;
+using L6  = mp::mp_take_c<ce::allocator::TopicConfigSet::StaticAxisVariants, 1>;
+using L7  = mp::mp_take_c<ce::prefetch::TopicConfigSet::StaticAxisVariants, 1>;
+using L8  = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, 1>;
+using L9  = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, 1>;
+using L11 = mp::mp_take_c<ce::value_handle::TopicConfigSet::StaticAxisVariants, 1>;
+using L12 = mp::mp_take_c<ce::hardware::TopicConfigSet::StaticAxisVariants_09, 1>;
+using L13 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants, 1>;
+using L14 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;
+using L15 = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;
+using L16 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;
+using L17 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1 (Doc 30 §8.0)
+using L18 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2 (Doc 30 §8.0)
+using PilotEngine =
+    perm::PermutationEngine<PilotCfg<L0>, PilotCfg<L1>, PilotCfg<L2>, PilotCfg<L3>, PilotCfg<L4>, PilotCfg<L5>,
+                            PilotCfg<L6>, PilotCfg<L7>, PilotCfg<L8>, PilotCfg<L9>, PilotCfg<L11>, PilotCfg<L12>,
+                            PilotCfg<L13>, PilotCfg<L14>, PilotCfg<L15>, PilotCfg<L16>, PilotCfg<L17>, PilotCfg<L18>>;
 
 int main(int argc, char** argv) {
     if (argc < 3) {

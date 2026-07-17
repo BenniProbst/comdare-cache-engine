@@ -7,7 +7,7 @@
 //   (b) None-Pin: tier_migrate_step gibt 0, tier_moves == 0, tier_size unveraendert (Mess-Pfad-Semantik unveraendert).
 //   (c) Memento-Exaktheit: save_all -> migrate (mutate) -> rollback_all -> Zustand bit-exakt wie vor save (inkl.
 //       tier1 wieder leer/zurueckgesetzt, tier_moves zurueckgesetzt).
-//   (d) keine Observer-Doppelzaehlung: axis_stats[15] (migration) vor == nach migrate (Migration NICHT im Observer-
+//   (d) keine Observer-Doppelzaehlung: axis_stats[14] (migration, seit INC-2c) vor == nach migrate (Migration NICHT im Observer-
 //       Pfad — tier_observe ist decide-only/idempotent; der reale Move laeuft ausschliesslich im Treibe-Pfad).
 //
 // Build: cl /std:c++latest /EHsc /DCOMDARE_MEASUREMENT_ON=1 /DCOMDARE_CE_ENABLE_STATISTICS=1 + ADHOC-Include-Satz
@@ -52,17 +52,17 @@ using MigStoreBackedComposition = an::AdHocComposition<
     ce03a::Array65535SearchAlgo, comp::HotComposition::cache_traversal, comp::HotComposition::mapping,
     comp::HotComposition::path_compression, comp::HotComposition::node_type, comp::HotComposition::memory_layout,
     comp::HotComposition::allocator, comp::HotComposition::prefetch, comp::HotComposition::concurrency,
-    comp::HotComposition::serialization, comp::HotComposition::telemetry, comp::HotComposition::value_handle,
-    comp::HotComposition::isa, comp::HotComposition::index_organization, comp::HotComposition::io_dispatch,
-    MigrationPolicy, comp::HotComposition::filter, comp::HotComposition::queuing_q1, comp::HotComposition::queuing_q2>;
+    comp::HotComposition::serialization, comp::HotComposition::value_handle, comp::HotComposition::isa,
+    comp::HotComposition::index_organization, comp::HotComposition::io_dispatch, MigrationPolicy,
+    comp::HotComposition::filter, comp::HotComposition::queuing_q1, comp::HotComposition::queuing_q2>;
 
 using MigNoneComposition    = MigStoreBackedComposition<mig::NoMigration>;
 using MigHotColdComposition = MigStoreBackedComposition<mig::HotColdMigration>;
 
-// row_sum der migration-Achse (T15) im Observer-POD.
+// row_sum der migration-Achse (T14 seit Bau-INC-2c; vorher T15) im Observer-POD.
 static std::uint64_t mig_row_sum(an::ComdareTierObserverSnapshot const& s) {
     std::uint64_t v = 0;
-    for (std::size_t f = 0; f < an::kV3FieldCount; ++f) v += s.axis_stats[15][f];
+    for (std::size_t f = 0; f < an::kV3FieldCount; ++f) v += s.axis_stats[14][f];
     return v;
 }
 
@@ -140,7 +140,7 @@ int main() {
         if (obs) {
             an::ComdareTierObserverSnapshot snap{};
             obs->tier_observe(&snap);
-            tr("None-Pin: Observer T15 tier_moves-Feld (r[4]) == 0", snap.axis_stats[15][4] == 0);
+            tr("None-Pin: Observer T14 tier_moves-Feld (r[4]) == 0", snap.axis_stats[14][4] == 0);
         }
     }
 
@@ -188,7 +188,7 @@ int main() {
     }
 
     // ──────────────────────────────────────────────────────────────────────────────────────────────────────────
-    // (d) keine Observer-Doppelzaehlung: axis_stats[15] vor == nach migrate (Migration NICHT im Observer-Pfad)
+    // (d) keine Observer-Doppelzaehlung: axis_stats[14] vor == nach migrate (Migration NICHT im Observer-Pfad)
     // ──────────────────────────────────────────────────────────────────────────────────────────────────────────
     {
         using Anatomy = an::SearchAlgorithmAnatomy<MigHotColdComposition>;
@@ -218,8 +218,8 @@ int main() {
         tr("Observer: T15 NICHT akkumuliert ueber den Move (after <= before, idempotenter Scan)",
            after_mig <= before_mig);
         // Und der Observer-Scan selbst bucht NIE tier_moves (decide-only): das r[4]-Feld bleibt 0 in beiden Snapshots.
-        tr("Observer: T15 tier_moves-Feld (r[4]) bleibt im Observer-Scan 0 (decide-only)",
-           before.axis_stats[15][4] == 0 && after.axis_stats[15][4] == 0);
+        tr("Observer: T14 tier_moves-Feld (r[4]) bleibt im Observer-Scan 0 (decide-only)",
+           before.axis_stats[14][4] == 0 && after.axis_stats[14][4] == 0);
     }
 
     std::cout << "==== P4 ECHTE 2-Ebenen-Migration: "

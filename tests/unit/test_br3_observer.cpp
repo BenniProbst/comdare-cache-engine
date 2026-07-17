@@ -21,7 +21,6 @@
 #include <topics/prefetch/topic_prefetch_config_set.hpp>
 #include <topics/concurrency/topic_concurrency_config_set.hpp>
 #include <topics/serialization/topic_serialization_config_set.hpp>
-#include <topics/telemetry/topic_telemetry_config_set.hpp>
 #include <topics/value_handle/topic_value_handle_config_set.hpp>
 #include <topics/hardware/topic_hardware_config_set.hpp>
 #include <topics/search_engine/topic_search_engine_config_set.hpp>
@@ -56,34 +55,33 @@ void check_true(char const* what, bool c) {
     if (!c) ++g_fail;
 }
 
-// 1er-PILOT: alle 19 Achsen mp_take_c<…,1> → ∏=1 (EINE reale Komposition, C1060-/OOM-leicht; Doc 30 §8.0: + q1/q2).
+// 1er-PILOT: alle 18 Achsen mp_take_c<…,1> (INC-2c: ohne telemetry) → ∏=1 (EINE reale Komposition, C1060-/OOM-leicht; Doc 30 §8.0: + q1/q2).
 template <class List>
 struct PilotCfg {
     using StaticAxisVariants = List;
 };
-using L0          = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03a, 1>;
-using L1          = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03b, 1>;
-using L2          = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03m, 1>;
-using L3          = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_02, 1>;
-using L4          = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_04, 1>;
-using L5          = mp::mp_take_c<ce::memory_layout::TopicConfigSet::StaticAxisVariants, 1>;
-using L6          = mp::mp_take_c<ce::allocator::TopicConfigSet::StaticAxisVariants, 1>;
-using L7          = mp::mp_take_c<ce::prefetch::TopicConfigSet::StaticAxisVariants, 1>;
-using L8          = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, 1>;
-using L9          = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, 1>;
-using L10         = mp::mp_take_c<ce::telemetry::TopicConfigSet::StaticAxisVariants, 1>;
-using L11         = mp::mp_take_c<ce::value_handle::TopicConfigSet::StaticAxisVariants, 1>;
-using L12         = mp::mp_take_c<ce::hardware::TopicConfigSet::StaticAxisVariants_09, 1>;
-using L13         = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants, 1>;
-using L14         = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;
-using L15         = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;
-using L16         = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;
-using L17         = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1 (Doc 30 §8.0)
-using L18         = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2 (Doc 30 §8.0)
-using PilotEngine = perm::PermutationEngine<PilotCfg<L0>, PilotCfg<L1>, PilotCfg<L2>, PilotCfg<L3>, PilotCfg<L4>,
-                                            PilotCfg<L5>, PilotCfg<L6>, PilotCfg<L7>, PilotCfg<L8>, PilotCfg<L9>,
-                                            PilotCfg<L10>, PilotCfg<L11>, PilotCfg<L12>, PilotCfg<L13>, PilotCfg<L14>,
-                                            PilotCfg<L15>, PilotCfg<L16>, PilotCfg<L17>, PilotCfg<L18>>;
+using L0  = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03a, 1>;
+using L1  = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03b, 1>;
+using L2  = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03m, 1>;
+using L3  = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_02, 1>;
+using L4  = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_04, 1>;
+using L5  = mp::mp_take_c<ce::memory_layout::TopicConfigSet::StaticAxisVariants, 1>;
+using L6  = mp::mp_take_c<ce::allocator::TopicConfigSet::StaticAxisVariants, 1>;
+using L7  = mp::mp_take_c<ce::prefetch::TopicConfigSet::StaticAxisVariants, 1>;
+using L8  = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, 1>;
+using L9  = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, 1>;
+using L11 = mp::mp_take_c<ce::value_handle::TopicConfigSet::StaticAxisVariants, 1>;
+using L12 = mp::mp_take_c<ce::hardware::TopicConfigSet::StaticAxisVariants_09, 1>;
+using L13 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants, 1>;
+using L14 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;
+using L15 = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;
+using L16 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;
+using L17 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1 (Doc 30 §8.0)
+using L18 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2 (Doc 30 §8.0)
+using PilotEngine =
+    perm::PermutationEngine<PilotCfg<L0>, PilotCfg<L1>, PilotCfg<L2>, PilotCfg<L3>, PilotCfg<L4>, PilotCfg<L5>,
+                            PilotCfg<L6>, PilotCfg<L7>, PilotCfg<L8>, PilotCfg<L9>, PilotCfg<L11>, PilotCfg<L12>,
+                            PilotCfg<L13>, PilotCfg<L14>, PilotCfg<L15>, PilotCfg<L16>, PilotCfg<L17>, PilotCfg<L18>>;
 
 int main() {
     std::cout << "BR-3 (Pilot): Baum-Knoten trägt ECHTEN ObserverAggregate-Snapshot (kein Stub):\n";
@@ -131,7 +129,6 @@ int main() {
     ex::push_static_axis<L7>(lv, "prefetch");
     ex::push_static_axis<L8>(lv, "concurrency");
     ex::push_static_axis<L9>(lv, "serialization");
-    ex::push_static_axis<L10>(lv, "telemetry");
     ex::push_static_axis<L11>(lv, "value_handle");
     ex::push_static_axis<L12>(lv, "isa");
     ex::push_static_axis<L13>(lv, "index_organization");
@@ -155,12 +152,12 @@ int main() {
              measured.observer.search_insert_count);
     check_eq("measured_node_count == 1 (sparse: nur der gemessene)", tree.measured_node_count(), std::size_t{1});
 
-    // (4) Achsen-Definition read-only je Knoten (BR-3): 19-Achsen-Definition via CompositionRegistry (Doc 30 §8.0).
+    // (4) Achsen-Definition read-only je Knoten (BR-3): 18-Achsen-Definition via CompositionRegistry (Doc 30 §8.0).
     ex::CompositionRegistry reg;
     reg.register_from_engine<PilotEngine>();
     ex::CompositionRecord const* rec = reg.lookup(path);
     check_true("Achsen-Definition für den Knoten abrufbar", rec != nullptr);
-    if (rec) check_eq("Definition trägt alle 19 Achsen (achse,wrapper)", rec->definition.size(), std::size_t{19});
+    if (rec) check_eq("Definition trägt alle 18 Achsen (achse,wrapper)", rec->definition.size(), std::size_t{18});
 
     std::cout << "\n==== BR-3 Observer: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
               << " ====\n";

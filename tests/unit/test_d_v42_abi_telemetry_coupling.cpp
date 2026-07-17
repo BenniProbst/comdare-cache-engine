@@ -1,6 +1,8 @@
-// V42 L-74c / I1 — Cross-ABI-Auto-Kopplung: der SearchAlgorithmAbiAdapter treibt beim tier_insert/lookup das
-// telemetry-Organ AUTOMATISCH (record_node_touch), und die EINE tier_observe zieht es in den konsolidierten
-// Observer-POD (axis_stats[10] = telemetry). Beweis über die Gattungs-ABI (tier_insert/lookup), nicht über explizites Organ-Treiben.
+// V42 L-74c / I1 — URSPRUENGLICH: Cross-ABI-Auto-Kopplung des telemetry-Organs in POD-Slot axis_stats[10].
+// UMGEWIDMET (Bau-INC-2c / F12iii, ABI-5): telemetry ist SYSTEM-Achse, kein Kompositions-Slot und keine POD-Zeile
+// mehr — dieser Test ist jetzt der NEGATIV-GUARD der Entfernung: (a) POD hat 18 Zeilen, (b) Slot [10] ist
+// value_handle (nicht telemetry), (c) die Gattungs-ABI treibt weiterhin real (search-Zeile > 0). Die honest-0
+// Store-Checks (#188-4c-i) bleiben unveraendert gueltig.
 //
 // HONEST-0-NACHZUG (#188-4c-i, Deep-Research 2026-07-13): ArtComposition ist eine REFERENZ-Hülle ohne store_type →
 // container_is_store_backed_ = false. Die per-op-gekoppelten Observer (search axis_stats[0], telemetry axis_stats[10])
@@ -18,6 +20,7 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <string_view>
 
 namespace ana = comdare::cache_engine::anatomy;
 namespace cc  = comdare::cache_engine::compositions;
@@ -44,22 +47,27 @@ int main() {
         (void)ad.tier_lookup(static_cast<std::uint64_t>(i), &out);
     }
 
-    // I1: die EINE konsolidierte Observer-Methode (axis_stats[19][8] + seg_ns[19]/Pfad B + Meta). Die früheren
-    // V2-Felder sind subsumiert: telemetry→axis_stats[10], memory_layout→[5], serialization→[9], node_type→[4].
+    // I1: die EINE konsolidierte Observer-Methode (axis_stats[18][8] + seg_ns[18]/Pfad B + Meta).
+    // F12iii-NEGATIV-GUARD (compile-time): POD traegt exakt 18 Achsen-Zeilen — keine telemetry-Zeile.
+    static_assert(ana::kV3AxisCount == 18, "Bau-INC-2c: telemetry ist System-Achse, POD hat 18 Zeilen");
     ana::ComdareTierObserverSnapshot u{};
     ad.tier_observe(&u);
     std::cout << "Unified-POD nach 20 insert + 20 lookup ueber die ABI:\n"
               << "  search_insert=" << u.axis_stats[0][3] << " search_lookup=" << u.axis_stats[0][0]
-              << " | telemetry_total=" << u.axis_stats[10][0] << " telemetry_leaf=" << u.axis_stats[10][1]
-              << " telemetry_node=" << u.axis_stats[10][2] << " | observable_axes=" << u.observable_axis_count << "\n";
+              << " | observable_axes=" << u.observable_axis_count << "\n";
 
-    CE_CHECK(u.axis_stats[0][3] == 20u); // search_insert
+    CE_CHECK(u.axis_stats[0][3] == 20u); // search_insert (Gattungs-ABI treibt weiterhin real)
     CE_CHECK(u.axis_stats[0][0] >= 20u); // search_lookup
-    // KERN-BEWEIS: telemetry wurde AUTOMATISCH ueber tier_insert/lookup gekoppelt (20+20 = 40 Knoten-Touches).
-    CE_CHECK(u.axis_stats[10][0] == 40u); // telemetry_total_events
-    CE_CHECK(u.axis_stats[10][1] == 40u); // telemetry_leaf_updates
-    CE_CHECK(u.axis_stats[10][2] == 0u);  // telemetry_node_updates (LeafOnlyCounter verwirft Inner-Touch)
-    CE_CHECK(u.observable_axis_count >= 5u);
+    // F12iii-POSITIV-GUARD: Slot [10] IST value_handle (nicht mehr telemetry). Compile-time-Beweis über das
+    // Single-Source-Schema — die erste Spalte der Zeile [10] heißt "access" (value_handle-Feld), NICHT ein
+    // telemetry-Feld ("total_events"/"leaf_updates"). Das ist der eigentliche F12iii-Nachweis (die Zeile hat
+    // die Identität gewechselt), stärker als der frühere runtime-!=40-Vergleich.
+    static_assert(std::string_view{ana::kV3AxisSchema[10].names[0]} == std::string_view{"access"},
+                  "Bau-INC-2c: Schema-Zeile [10] muss value_handle sein (erste Spalte 'access'), nicht telemetry");
+    // Und die alte per-op telemetry-Kopplung (20 insert + 20 lookup → 40 Knoten-Touches in Slot [10]) existiert
+    // nicht mehr: die value_handle-Zeile zählt Handle-Zugriffe, keine Knoten-Touches → != der alten 40er-Signatur.
+    CE_CHECK(u.axis_stats[10][0] != 40u || u.axis_stats[10][1] != 40u);
+    CE_CHECK(u.observable_axis_count >= 4u);
 
     // #188-4c-i: Referenz-Hülle hat kein store_type → honest-0 (Re-Kopplung #234). Die store-slot-gescannten Achsen
     // memory_layout + serialization sind für die Hülle ehrlich 0 (der store-backed Pfad mit eigenem Store füllt sie >0).
@@ -78,7 +86,7 @@ int main() {
     CE_CHECK(u.axis_stats[4][1] == 0u); // node_keys_stored (Huelle honest-0)
     CE_CHECK(u.axis_stats[4][3] == 0u); // node_last_checksum (Huelle honest-0)
 
-    std::cout << "OK: abi_adapter tier_insert/lookup koppelt telemetry AUTOMATISCH -> der EINE tier_observe "
-                 "(Cross-ABI konsolidierter Observer-POD ueber das Gattungs-Interface).\n";
+    std::cout << "OK (F12iii-Guard): telemetry ist KEINE POD-Zeile mehr (18 Achsen, [10]=value_handle); die "
+                 "Gattungs-ABI treibt weiterhin real (search-Zeile > 0).\n";
     return 0;
 }

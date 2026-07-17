@@ -4,7 +4,7 @@
 //
 // Zwei Bausteine:
 //   (1) ViewCompositionFromPermTuple<PermT> — PermTuple<V0..V6> (7 Werte: 4 geteilte + axis_extent/layout/accessor)
-//       → ViewComposition<V0..V6>. Die Werte 5/6/7 füllen Extent/Layout/Accessor (überschreiben die Defaults).
+//       → ViewComposition<V0..V5>. Die Werte 4/5/6 füllen (INC-2c ohne telemetry) Extent/Layout/Accessor (überschreiben die Defaults).
 //   (2) ViewPermutationEngine<TopicConfigSets...> — Genus-Marker + Slot-Genus-Validierung + for_each_view
 //       (materialisiert ViewAnatomy<ViewComp> pro Permutation).
 //
@@ -32,8 +32,8 @@ template <class PermT>
 struct ViewCompositionFromPermTupleImpl;
 template <template <class...> class PermTupleTmpl, class... Vs>
 struct ViewCompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
-    static_assert(sizeof...(Vs) == 7,
-                  "View-PermTuple muss exakt 7 Achsen-Werte enthalten (4 geteilte + extent/layout/accessor).");
+    static_assert(sizeof...(Vs) == 6,
+                  "View-PermTuple muss exakt 6 Achsen-Werte enthalten (INC-2c) (4 geteilte + extent/layout/accessor).");
     using type = ViewComposition<Vs...>;
 };
 } // namespace detail

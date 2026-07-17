@@ -81,7 +81,6 @@ struct PoolFlipComposition {
     using prefetch                             = comp::ArtComposition::prefetch;
     using concurrency                          = comp::ArtComposition::concurrency;
     using serialization                        = comp::ArtComposition::serialization;
-    using telemetry                            = comp::ArtComposition::telemetry;
     using value_handle                         = comp::ArtComposition::value_handle;
     using isa                                  = comp::ArtComposition::isa;
     using index_organization                   = comp::ArtComposition::index_organization;
@@ -100,8 +99,8 @@ template <class SearchAlgoWrapper>
 using PoolFlipPerm =
     perm::PermTuple<SearchAlgoWrapper, BstC::cache_traversal, BstC::mapping, BstC::path_compression, BstC::node_type,
                     BstC::memory_layout, BstC::allocator, BstC::prefetch, BstC::concurrency, BstC::serialization,
-                    BstC::telemetry, BstC::value_handle, BstC::isa, BstC::index_organization, BstC::io_dispatch,
-                    BstC::migration_policy, BstC::filter, BstC::queuing_q1, BstC::queuing_q2>;
+                    BstC::value_handle, BstC::isa, BstC::index_organization, BstC::io_dispatch, BstC::migration_policy,
+                    BstC::filter, BstC::queuing_q1, BstC::queuing_q2>;
 
 using BstPerm   = PoolFlipPerm<lk::BinarySearchTreeSearchAlgo>;
 using ArrayPerm = PoolFlipPerm<lk::Array256SearchAlgo>;
@@ -124,9 +123,8 @@ struct MiniEngineBst {
 COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_SHAPED(bst_shape::BstPtrU16, BstC::search_algo, BstC::cache_traversal,
                                            BstC::mapping, BstC::path_compression, BstC::node_type, BstC::memory_layout,
                                            BstC::allocator, BstC::prefetch, BstC::concurrency, BstC::serialization,
-                                           BstC::telemetry, BstC::value_handle, BstC::isa, BstC::index_organization,
-                                           BstC::io_dispatch, BstC::migration_policy, BstC::filter, BstC::queuing_q1,
-                                           BstC::queuing_q2)
+                                           BstC::value_handle, BstC::isa, BstC::index_organization, BstC::io_dispatch,
+                                           BstC::migration_policy, BstC::filter, BstC::queuing_q1, BstC::queuing_q2)
 
 TEST(V234bRestFamiliesShaped, BinaryIdShapeSegmentIsDefaultOff) {
     EXPECT_EQ(ce_exp::with_shape_segment<void>("a=b/c=d", kBstShapeAxis), "a=b/c=d");
@@ -160,7 +158,7 @@ TEST(V234bRestFamiliesShaped, BstShapedMacroMaterializesWorkingTier) {
 
     auto* base = ::comdare_create_anatomy();
     ASSERT_NE(base, nullptr);
-    EXPECT_EQ(base->organ_count(), 19u);
+    EXPECT_EQ(base->organ_count(), 18u);
     auto* drv = dynamic_cast<an::IDriveableTier*>(base);
     ASSERT_NE(drv, nullptr);
 
@@ -180,6 +178,6 @@ TEST(V234bRestFamiliesShaped, NeutralityGuardsStayIntact) {
     static_assert(std::is_trivially_copyable_v<an::ComdareTierObserverSnapshot>);
 
     EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 5);
-    EXPECT_EQ(sizeof(an::ComdareTierObserverSnapshot), 1416u);
-    EXPECT_EQ(an::kTierObserverSnapshotVersionUnified, 5u);
+    EXPECT_EQ(sizeof(an::ComdareTierObserverSnapshot), 1344u);
+    EXPECT_EQ(an::kTierObserverSnapshotVersionUnified, 6u);
 }

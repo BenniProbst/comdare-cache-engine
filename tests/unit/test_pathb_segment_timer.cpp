@@ -1,7 +1,7 @@
 // Plan v2 Schritt 2/3 (2026-06-04) / I1 (2026-06-05): BUILD-VERIFIKATION des Pfad-B Per-Achsen-TIMINGS über die
-// EINE konsolidierte tier_observe(ComdareTierObserverSnapshot*) (axis_stats[19][8] + seg_ns[19]) über die EINE
+// EINE konsolidierte tier_observe(ComdareTierObserverSnapshot*) (axis_stats[18][8] + seg_ns[18] (Bau-INC-2c)) über die EINE
 // REALE, befüllte composite-Tier-Struktur (container_algorithm_ + Instanz-Organe via layout-honorierender Store).
-// KEIN synthetischer Puffer. Prüft literal: (1) alle 19 seg_ns > 0 (jede Achse real getrieben); (2) Korrelation
+// KEIN synthetischer Puffer. Prüft literal: (1) alle 18 seg_ns > 0 (jede Achse real getrieben); (2) Korrelation
 // Observer>0 ⇒ seg_ns>0 (Observer + Timer aus DERSELBEN realen Struktur, EIN POD); (3) DATA-Neutralität (tier_size
 // + lookup unverändert nach dem Observe → memento-sicher); (4) Tier-Variation (Art/Hot/Masstree differieren in ≥1 Achse).
 // Build: cl /std:c++latest /EHsc /DCOMDARE_MEASUREMENT_ON=1 /DCOMDARE_CE_ENABLE_STATISTICS=1 + ADHOC-Include-Satz.
@@ -58,20 +58,20 @@ static an::ComdareTierObserverSnapshot measure(char const* name) {
        size_after == size_before && size_after == kN && hit_before && hit_after && lv_after == lv_before &&
            lv_before == 1234u * 7u + 1u);
 
-    // (1) alle 19 seg_ns > 0.
+    // (1) alle 18 seg_ns > 0.
     bool all_pos = true;
     int  zero_t  = -1;
-    for (int t = 0; t < 19; ++t)
+    for (int t = 0; t < 18; ++t)
         if (u.seg_ns[t] <= 0) {
             all_pos = false;
             if (zero_t < 0) zero_t = t;
         }
-    tr(std::string(name) + ": alle 19 seg_ns > 0" + (all_pos ? "" : (" (erste 0 bei T" + std::to_string(zero_t) + ")")),
+    tr(std::string(name) + ": alle 18 seg_ns > 0" + (all_pos ? "" : (" (erste 0 bei T" + std::to_string(zero_t) + ")")),
        all_pos);
 
     // (2) Korrelation: Achse mit Observer-Wert > 0 ⇒ seg_ns > 0 (gleiche reale Struktur).
     bool corr = true;
-    for (int t = 0; t < 19; ++t) {
+    for (int t = 0; t < 18; ++t) {
         std::uint64_t rs = 0;
         for (int f = 0; f < 8; ++f) rs += u.axis_stats[t][f];
         if (rs > 0 && u.seg_ns[t] <= 0) corr = false;
@@ -79,7 +79,7 @@ static an::ComdareTierObserverSnapshot measure(char const* name) {
     tr(std::string(name) + ": Korrelation (Observer>0 ⇒ seg_ns>0)", corr);
 
     std::int64_t total = 0;
-    for (int t = 0; t < 19; ++t) total += u.seg_ns[t];
+    for (int t = 0; t < 18; ++t) total += u.seg_ns[t];
     std::cout << "    " << name << " seg_ns[T0,T4,T5,T7,T16] = " << u.seg_ns[0] << "," << u.seg_ns[4] << ","
               << u.seg_ns[5] << "," << u.seg_ns[7] << "," << u.seg_ns[16] << "  total=" << total << "\n";
     return u;
@@ -105,7 +105,7 @@ static void measure_unified(char const* name) {
     // axis_stats deterministisch über zwei identische Läufe (Q1: kein Timing-Inflate); Meta identisch.
     bool stats_eq = (sa.observable_axis_count == sb.observable_axis_count && sa.tier_fill_level == sb.tier_fill_level &&
                      sa.filled_axis_count == sb.filled_axis_count);
-    for (int t = 0; t < 19 && stats_eq; ++t)
+    for (int t = 0; t < 18 && stats_eq; ++t)
         for (int f = 0; f < 8; ++f)
             if (sa.axis_stats[t][f] != sb.axis_stats[t][f]) {
                 stats_eq = false;
@@ -113,7 +113,7 @@ static void measure_unified(char const* name) {
             }
     tr(std::string(name) + ": unified axis_stats deterministisch (Q1: kein Timing-Inflate)", stats_eq);
     bool seg_pos = true;
-    for (int t = 0; t < 19; ++t)
+    for (int t = 0; t < 18; ++t)
         if (sa.seg_ns[t] <= 0) seg_pos = false;
     tr(std::string(name) + ": unified seg_ns[0..18] alle > 0 (Pfad-B-Timing im EINEN POD)", seg_pos);
 }
@@ -131,7 +131,7 @@ int main() {
 
     // (4) Tier-Variation: mind. EINE Achse differiert über die 3 Tiere (sonst misst der Timer nichts Tier-Spezifisches).
     bool varied = false;
-    for (int t = 0; t < 19; ++t)
+    for (int t = 0; t < 18; ++t)
         if (!(a.seg_ns[t] == h.seg_ns[t] && h.seg_ns[t] == m.seg_ns[t])) {
             varied = true;
             break;

@@ -67,7 +67,6 @@ using AL1 = ce::allocator::axis_06_allocator::PoolResourceAllocator; // eigener 
 using PF  = ce::prefetch::axis_07_prefetch::NonePrefetch;
 using CC  = ce::concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
 using SE  = ce::serialization::axis_10_serialization::RawBinarySerialization;
-using TM  = ce::telemetry::axis_11_telemetry::LeafOnlyCounter;
 using VH  = ce::value_handle::axis_14_value_handle::InlineValueHandle;
 using IS  = ce::hardware::axis_09_isa::Amd64Isa;
 using IO  = ce::search_engine::axis_01_index_organization::IotIndexOrganization;
@@ -108,9 +107,6 @@ struct C8 {
 struct C9 {
     using StaticAxisVariants = mp::mp_list<SE>;
 };
-struct C10 {
-    using StaticAxisVariants = mp::mp_list<TM>;
-};
 struct C11 {
     using StaticAxisVariants = mp::mp_list<VH>;
 };
@@ -136,8 +132,8 @@ struct C18 {
     using StaticAxisVariants = mp::mp_list<Q2>;
 }; // T18 queuing_q2
 
-using PilotEngine = ana::SearchAlgorithmPermutationEngine<C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13,
-                                                          C14, C15, C16, C17, C18>;
+using PilotEngine = ana::SearchAlgorithmPermutationEngine<C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C11, C12, C13, C14,
+                                                          C15, C16, C17, C18>; // INC-2c: C10/telemetry raus (18 Slots)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // V41.F.6.1 R5.D — VOLL-COVERAGE-Modus (--full-coverage): 1-wise-Ueberdeckungs-Stichprobe ueber die
@@ -160,8 +156,8 @@ using SampledComposition = ana::AdHocComposition<mp::mp_at_c<SearchList, R::valu
                                                  CT, MP, PC, NT,                          // T1..T4
                                                  mp::mp_at_c<LayoutList, R::value % kNl>, // T5  memory_layout
                                                  mp::mp_at_c<AllocList, R::value % kNa>,  // T6  allocator
-                                                 PF, CC, SE, TM, VH, IS, IO, IOD, MG, FL, // T7..T16
-                                                 Q1, Q2>; // T17 queuing_q1, T18 queuing_q2 (19-Slot, Doc 30 §8.0)
+                                                 PF, CC, SE, VH, IS, IO, IOD, MG, FL,     // T7..T15 (INC-2c: TM raus)
+                                                 Q1, Q2>; // T16 queuing_q1, T17 queuing_q2 (18-Slot, F12iii)
 
 using SampleList = mp::mp_transform<SampledComposition, mp::mp_iota_c<kMax>>;
 

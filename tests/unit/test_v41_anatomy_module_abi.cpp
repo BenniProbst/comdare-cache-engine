@@ -126,7 +126,7 @@ TEST(R5D_AnatomyFactory, CreateAnatomyReturnsValidPointer) {
     // ArtComposition wurde im Macro hinterlegt
     EXPECT_EQ(ptr->composition_name(), std::string_view{"ArtComposition"});
     EXPECT_EQ(ptr->genus(), ana::AnatomyGenus::SearchAlgorithm);
-    EXPECT_EQ(ptr->organ_count(), 19u);
+    EXPECT_EQ(ptr->organ_count(), 18u);
     EXPECT_EQ(ptr->engine_kind(), ee::ExecutionEngineKind::Anatomy);
     comdare_destroy_anatomy(ptr);
 }

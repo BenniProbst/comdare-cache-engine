@@ -72,7 +72,6 @@ public:
         // Composition traegt jetzt die ObservableTelemetry-Huelle (art_reference.hpp), die — anders als der
         // nackte Strategie-Marker (test_d_v42_probe2: ObservableAxis=0, kein statistics()) — eine echte
         // Mess-Mechanik bietet. Greift nur im STATISTICS-Build; sonst EmptyAxisSnapshot (Release-Pfad).
-        if constexpr (ObservableAxis<typename Composition::telemetry>) { agg.telemetry = axis_telemetry_.statistics(); }
         // V42 L-74c (Doc 29 §3e): memory_layout-Achse als 3. real gehaltenes Organ. Die Composition traegt
         // die ObservableMemoryLayout-Huelle (static scan_field_sum bleibt fuer ComposedStore/abi_adapter; der
         // Observer-Treiber ruft observe_scan() → statistics()). Greift nur im STATISTICS-Build.
@@ -114,8 +113,6 @@ public:
 
     /// V42 L-74c: Zugriff auf das telemetry-Organ (2. getriebenes Achsen-Organ). Der Builder/Mess-Treiber
     /// koppelt es an die Tier-Op (record_node_touch beim insert/lookup) → statistics() fliesst via observe_all().
-    [[nodiscard]] typename Composition::telemetry&       telemetry_organ() noexcept { return axis_telemetry_; }
-    [[nodiscard]] typename Composition::telemetry const& telemetry_organ() const noexcept { return axis_telemetry_; }
 
     /// V42 L-74c: Zugriff auf das memory_layout-Organ (3. getriebenes Achsen-Organ). Der Treiber ruft
     /// observe_scan(buf,n,record_size) → die Layout-Scan-Statistik fliesst via observe_all().
@@ -180,7 +177,6 @@ private:
     // ObservableTelemetry-Huelle ALS AUCH eine nackte Aggregat-Strategie sind default-init-fähig, aber
     // Aggregat + `{}` waere ill-formed (test_d_v42_probe2: is_aggregate=1, brace_ok{T{}}=0). Vom Builder via
     // telemetry_organ() getrieben; statistics() fliesst via observe_all() (nur im STATISTICS-Build).
-    typename Composition::telemetry axis_telemetry_;
 
     // V42 L-74c (Doc 29 §3e): memory_layout-Huelle als 3. Organ. Kein Aggregat (Decorator) → default-init.
     typename Composition::memory_layout axis_memory_layout_;

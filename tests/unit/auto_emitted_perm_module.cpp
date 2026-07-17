@@ -36,8 +36,6 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(
     ::comdare::cache_engine::concurrency::axis_08_concurrency::OlcOptimisticConcurrency,
     ::comdare::cache_engine::serialization::axis_10_serialization::ObservableSerialization<
         ::comdare::cache_engine::serialization::axis_10_serialization::RawBinarySerialization>,
-    ::comdare::cache_engine::telemetry::axis_11_telemetry::ObservableTelemetry<
-        ::comdare::cache_engine::telemetry::axis_11_telemetry::LeafOnlyCounter>,
     ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle,
     ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa,
     ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization,

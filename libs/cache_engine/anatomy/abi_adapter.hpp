@@ -42,7 +42,7 @@
 //        IMMER verfuegbar; 5 steuerbare Achsen (concurrency/prefetch/allocator/traversal/value_handle)
 //   - IAllocatorProxyTier (AP15-2)   -- tier_get_allocator (non-dagger get_allocator-Proxy)         (~:205)
 //   • IAnatomyBase-Override           — composition_name / paper_id / genus / organ_count          (~:212)
-//   • IMeasurableWorkload (Pfad A)    — run_workload / _segmented (4 Seg) / _segmented_v2 (19 Seg)  (~:232)
+//   • IMeasurableWorkload (Pfad A)    — run_workload / _segmented (4 Seg) / _segmented_v2 (18 Seg, INC-2c)  (~:232)
 //   • IDriveableTier-Antrieb (IMMER)  — tier_insert/lookup/erase/clear/size (Pfad-B Observer-Auto-Kopplung)(~:672)
 //        + Observer (MESSUNG-AN)      — fill_observer_v3 (~:907) · fill_segment_timing_v3 (~:1136) · tier_observe (~:1312)
 //   • IRollbackableTier (MESSUNG-AN)  — memento_all: tier_save_all / tier_rollback_all (CoW)        (~:1331)
@@ -104,7 +104,7 @@
 #include <array>
 #include <algorithm> // #278: std::max (Segment-Batch-Mindest-Ops) — direkt inkludieren, MSVC-strikt
 #include <chrono>
-#include <cstring> // (X) std::memcpy in den 19-Segment-Treibe-Ops
+#include <cstring> // (X) std::memcpy in den 18-Segment-Treibe-Ops
 #if defined(_M_X64) || defined(__x86_64__)
 #include <xmmintrin.h> // (X) _mm_prefetch für das T7-Prefetch-Segment (MSVC/x86_64-Mess-Build)
 #endif
@@ -131,7 +131,7 @@ namespace comdare::cache_engine::anatomy {
 /// GoF-Ehrlichkeit (K10/#224): "ABI-Adapter" = Adaption der Composition-Anatomie
 /// (A::composition_t-Organtypen) an die extern-C-IAnatomyBase-vtable — KEIN klassischer
 /// GoF-Object-Adapter. Die Organe werden INTERN konstruiert (eigene Member
-/// container_algorithm_/telemetry_organ_/...), es gibt KEINEN injizierten Adaptee-
+/// container_algorithm_/ml_organ_/...), es gibt KEINEN injizierten Adaptee-
 /// Instanz-Member (anders als SetAbiAdapter mit `A anatomy_{}`, das an eine Adaptee-
 /// Instanz delegiert). "Adapter" ist hier als vtable-/ABI-Adapter ehrlich, nicht als
 /// Adaptee-delegierender Object-Adapter. Die volle Delegations-Vereinheitlichung
@@ -181,7 +181,7 @@ class SearchAlgorithmAbiAdapter final
       public IObservableTier, // I1: GENAU EINE Observer-Schnittstelle (V2/V3/V4 konsolidiert, s. docs/architecture/31_*)
       public IMeasurableWorkload,
       public IMeasurableWorkloadV2, // (C-2): eigenständiges V2-Sub-Interface — per-Segment-Timer (4 Achsen)
-      public IMeasurableWorkloadV3, // (X): eigenständiges V3-Sub-Interface — per-Segment-Timer ALLER 19 Achsen
+      public IMeasurableWorkloadV3, // (X): eigenständiges V3-Sub-Interface — per-Segment-Timer ALLER 18 Achsen
       public IRollbackableTier,
       public IMigratableTier, // P4 (#123): ECHTER 2-Ebenen-Migrations-Schritt (tier_moves real > 0)
       public IScannableTier {
@@ -559,9 +559,9 @@ public:
         }
     }
 
-    // (X): per-Segment-Timer-Variante auf ALLE 19 SearchAlgorithm-Achsen ausgeweitet. Je Achse ein eigener
-    // steady_clock-Timer, über die batches AUFSUMMIERT → echte per-Achsen-ns für T0..T18 (kein n/a mehr).
-    // Seg-Index = kCompositionAxisNames-Reihenfolge (axis_path_serialization.hpp): 0 search_algo … 18 queuing_q2.
+    // (X): per-Segment-Timer-Variante auf ALLE 18 SearchAlgorithm-Achsen ausgeweitet. Je Achse ein eigener
+    // steady_clock-Timer, über die batches AUFSUMMIERT → echte per-Achsen-ns für T0..T17 (kein n/a mehr).
+    // Seg-Index = kCompositionAxisNames-Reihenfolge (axis_path_serialization.hpp): 0 search_algo … 17 queuing_q2.
     // Setup je Achse EINMAL vor der Batch-Schleife (Instanz + register/fill), gemessen wird nur die Op-Schleife.
     // sink-Akkumulation gegen Wegoptimierung. COMDARE_MEASUREMENT_ON-gegated (wie run_workload_segmented).
     //
@@ -594,7 +594,6 @@ public:
             using Prefetch        = typename A::composition_t::prefetch;
             using Concurrency     = typename A::composition_t::concurrency;
             using Serializer      = typename A::composition_t::serialization;
-            using Telemetry       = typename A::composition_t::telemetry;
             using ValueHandle     = typename A::composition_t::value_handle;
             using Isa             = typename A::composition_t::isa;
             using IndexOrg        = typename A::composition_t::index_organization;
@@ -643,9 +642,8 @@ public:
             std::array<unsigned char, kQueries> qbuf{};
             for (std::size_t i = 0; i < kQueries; ++i) qbuf[i] = static_cast<unsigned char>(i * 53u + 11u);
 
-            Telemetry telemetry_local; // T10: eigenes Segment (entkoppelt vom Cross-ABI-Auto-Coupling)
-            QueuingQ1 q1_local;        // T17: put/get-Churn
-            QueuingQ2 q2_local;        // T18: should_flush/on_flush_complete
+            QueuingQ1 q1_local; // T17: put/get-Churn
+            QueuingQ2 q2_local; // T18: should_flush/on_flush_complete
             using QElem = typename QueuingQ1::element_type;
 
             // GAP #2 Re-Grounding (P5d-Rest, User-Plan dynamic-frolicking-truffle Step 3, 2026-06-18): das T7-Segment
@@ -669,10 +667,10 @@ public:
             auto seg_ns = [](clock::time_point a, clock::time_point b) noexcept -> std::int64_t {
                 return std::chrono::duration_cast<std::chrono::nanoseconds>(b - a).count();
             };
-            std::int64_t  acc[19] = {};
+            std::int64_t  acc[18] = {};
             std::uint64_t sink    = 0;
 
-            // ── EIN Batch: die 19 Achsen-Segmente, jedes einzeln gezeitet (Index = Seg-Map T0..T18) ─────────
+            // ── EIN Batch: die 18 Achsen-Segmente, jedes einzeln gezeitet (Index = Seg-Map T0..T17) ─────────
             auto do_seg19 = [&]() {
                 clock::time_point t0, t1;
                 // T0 search_algo: Lookups auf der geladenen Such-Struktur.
@@ -790,49 +788,38 @@ public:
                 sink += Serializer::serialize_scan(lbuf, kRecords, kRecordSize);
                 t1 = clock::now();
                 acc[9] += seg_ns(t0, t1);
-                // T10 telemetry: record_node_touch N-fach (eigenes Segment, lokales Organ).
-                t0 = clock::now();
-                if constexpr (requires { telemetry_local.record_node_touch(true); }) {
-                    for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
-                        telemetry_local.record_node_touch((i & 1u) != 0u);
-                    }
-                    sink += static_cast<std::uint64_t>(ops_per_batch);
-                } else {
-                    sink += static_cast<std::uint64_t>(ops_per_batch);
-                }
-                t1 = clock::now();
-                acc[10] += seg_ns(t0, t1);
+                // (Bau-INC-2c: T10-telemetry-Segment entfernt — Indizes ab hier -1, global gerueckt.)
                 // T11 value_handle: value_access_scan (strategie-charakteristische Deref-Last).
                 t0 = clock::now();
                 sink += ValueHandle::value_access_scan(lbuf, kRecords, kRecordSize);
                 t1 = clock::now();
-                acc[11] += seg_ns(t0, t1);
+                acc[10] += seg_ns(t0, t1);
                 // T12 isa: simd_field_sum (Phase-0.1-Dispatch bei Amd64: AVX-512F/AVX2/SSE2 nach BUILD-SIMD-Stufe,
                 // uint64-akkumuliert build-invariant; Scalar-Fallback sonst). Nur (buf,n) — kein record_size.
                 t0 = clock::now();
                 sink += Isa::simd_field_sum(lbuf, kRecords);
                 t1 = clock::now();
-                acc[12] += seg_ns(t0, t1);
+                acc[11] += seg_ns(t0, t1);
                 // T13 index_organization: index_org_scan (sequential/random/embedded/unordered je Strategie).
                 t0 = clock::now();
                 sink += IndexOrg::index_org_scan(lbuf, kRecords, kRecordSize);
                 t1 = clock::now();
-                acc[13] += seg_ns(t0, t1);
+                acc[12] += seg_ns(t0, t1);
                 // T14 io_dispatch: io_dispatch_scan (in-memory-Dispatch-Simulation je Strategie).
                 t0 = clock::now();
                 sink += IoDispatch::io_dispatch_scan(lbuf, kRecords, kRecordSize);
                 t1 = clock::now();
-                acc[14] += seg_ns(t0, t1);
+                acc[13] += seg_ns(t0, t1);
                 // T15 migration_policy: migration_decide_scan (Entscheidungslogik-Kosten ohne 2. Tier).
                 t0 = clock::now();
                 sink += Migration::migration_decide_scan(lbuf, kRecords, kRecordSize);
                 t1 = clock::now();
-                acc[15] += seg_ns(t0, t1);
+                acc[14] += seg_ns(t0, t1);
                 // T16 filter: filter_probe_scan (Bloom/Cuckoo/SuRF/Xor-Probe; buf,n,queries,q).
                 t0 = clock::now();
                 sink += Filter::filter_probe_scan(lbuf, kRecords, qbuf.data(), kQueries);
                 t1 = clock::now();
-                acc[16] += seg_ns(t0, t1);
+                acc[15] += seg_ns(t0, t1);
                 // T17 queuing_q1: put N + get N (Buffer-Strategy).
                 t0 = clock::now();
                 for (std::uint64_t i = 0; i < ops_per_batch; ++i) q1_local.put(static_cast<QElem>(i));
@@ -841,7 +828,7 @@ public:
                     if (v) sink += static_cast<std::uint64_t>(*v);
                 }
                 t1 = clock::now();
-                acc[17] += seg_ns(t0, t1);
+                acc[16] += seg_ns(t0, t1);
                 // T18 queuing_q2: should_flush N + on_flush_complete (Flush-Policy).
                 t0 = clock::now();
                 for (std::uint64_t i = 0; i < ops_per_batch; ++i) {
@@ -850,7 +837,7 @@ public:
                     q2_local.on_flush_complete();
                 }
                 t1 = clock::now();
-                acc[18] += seg_ns(t0, t1);
+                acc[17] += seg_ns(t0, t1);
             };
 
             do_seg19(); // Warmup (verworfen)
@@ -863,7 +850,7 @@ public:
             alloc.deallocate(lbuf, kLbufBytes, 64);
 
             std::int64_t total = 0;
-            for (int i = 0; i < 19; ++i) {
+            for (int i = 0; i < 18; ++i) {
                 out->seg_ns[i] = acc[i];
                 total += acc[i];
             }
@@ -919,7 +906,6 @@ public:
         // reiner Overhead. Symmetrisch zu tier_lookup + dem bereits geklammerten CoW-Block oben. Mess-Build
         // identisch (kein M3-Effekt: derselbe Code lief vorher, nur jetzt explizit gegated).
         // V42 L-74c Cross-ABI-Auto-Kopplung: jeder insert berührt einen Blatt-Knoten → telemetry mit-treiben.
-        if constexpr (requires { telemetry_organ_.record_node_touch(true); }) telemetry_organ_.record_node_touch(true);
         // Phase A (2026-06-04) Auto-Kopplung der 4 neu verdrahteten Achsen (Pfad B): ein insert registriert den
         // Eintrag in der cache_traversal-/mapping-Indirektion (T1/T2) und puffert ihn in q1 + befragt die
         // q2-Flush-Policy (T17/T18) → ihre statistics() reflektieren die echte Tier-Op beim Observer-Read (tier_observe).
@@ -999,8 +985,6 @@ public:
         if (m8_hit && out_value != nullptr) *out_value = static_cast<std::uint64_t>(*cv);
 #if COMDARE_MEASUREMENT_ON
         // ── K10-PMAJOR-04 (2026-06-18): ALLE Observer-feeding Auto-Kopplungen NUR im Mess-Build (s. tier_insert) ──
-        // V42 L-74c: lookup berührt ebenfalls einen Knoten → telemetry mit-treiben (telemetry_organ_ mutable).
-        if constexpr (requires { telemetry_organ_.record_node_touch(true); }) telemetry_organ_.record_node_touch(true);
         // Phase A Auto-Kopplung (Pfad B): ein lookup löst die cache_traversal-/mapping-Indirektion auf (T1/T2)
         // und entnimmt einen Eintrag aus q1 (T17) → resolve/get-Zähler steigen. ct_organ_/map_organ_ mutable.
         if constexpr (requires { ct_organ_.resolve(typename Composition::cache_traversal::key_type{}); }) {
@@ -1190,7 +1174,7 @@ public:
             r[3]          = mp.total_resolve_miss_count;
             r[4]          = mp.total_reverse_lookup_count;
             r[5]          = mp.peak_mapped;
-            // T2 Indirektions-CM in den reservierten Slot [2][6] (layout-neutral, sizeof 1416 unveraendert):
+            // T2 Indirektions-CM in den reservierten Slot [2][6] (layout-neutral, sizeof unveraendert; 1344 seit INC-2c):
             r[6] = mp.total_indirection_steps;
             ++filled;
         }
@@ -1300,17 +1284,9 @@ public:
             r[3]          = sr.last_checksum;
             ++filled;
         }
-        // ── T10 telemetry (AUTO-gekoppelt via tier_insert/lookup, wie der frühere V2-Pfad) ──────────────────
-        if constexpr (ObservableAxis<typename Composition::telemetry>) {
-            auto const t = telemetry_organ_.statistics();
-            auto*      r = s.axis_stats[10];
-            r[0]         = t.total_events;
-            r[1]         = t.leaf_updates;
-            r[2]         = t.node_updates;
-            r[3]         = t.peak_tracked;
-            ++filled;
-        }
-        // ── T11 value_handle (Phase B neu, Pfad-B Zustand-Scan über container_algorithm_-Slot-Backing) ──────────────
+        // (Bau-INC-2c: der frühere T10-telemetry-Block ist entfernt — telemetry ist CEB-System-Achse,
+        //  kein Kompositions-Slot; alle folgenden axis_stats-Indizes sind um -1 gerückt.)
+        // ── T10 value_handle (Phase B neu, Pfad-B Zustand-Scan über container_algorithm_-Slot-Backing) ──────────────
         //    ECHTER Weg (Spec §3): vh_organ_ (ObservableValueHandle-Hülle) treibt value_access_scan über die
         //    REAL gespeicherten Slots (store_observe_value_handle → NodeChunkedStore::organ_observe_value_handle),
         //    KEINE flache Roh-Puffer-Simulation. idempotenter reset()+scan je Observe (wie ser/ml).
@@ -1318,21 +1294,21 @@ public:
             vh_organ_.reset();
             (void)container_algorithm_.store_observe_value_handle(vh_organ_);
             auto const vh = vh_organ_.statistics();
-            auto*      r  = s.axis_stats[11];
+            auto*      r  = s.axis_stats[10];
             r[0]          = vh.total_access_count;
             r[1]          = vh.indirect_deref_count;
             r[2]          = vh.version_tag_strips;
             r[3]          = vh.peak_chain_depth;
             ++filled;
         }
-        // ── T12 isa (Phase B neu, Pfad-B Zustand-Scan über container_algorithm_-Slot-Backing) ───────────────────────
+        // ── T11 isa (Phase B neu, Pfad-B Zustand-Scan über container_algorithm_-Slot-Backing) ───────────────────────
         //    isa_organ_ (ObservableIsa-Hülle) treibt simd_field_sum über die REAL gespeicherten Slot-Bytes als
         //    32-bit-Wort-Strom (store_observe_isa → NodeChunkedStore::organ_observe_isa). idempotenter reset()+scan.
         if constexpr (requires { container_algorithm_.store_observe_isa(isa_organ_); }) {
             isa_organ_.reset();
             (void)container_algorithm_.store_observe_isa(isa_organ_);
             auto const is = isa_organ_.statistics();
-            auto*      r  = s.axis_stats[12];
+            auto*      r  = s.axis_stats[11];
             r[0]          = is.simd_calls;
             r[1]          = is.elements_processed;
             r[2]          = is.simd_iterations;
@@ -1353,7 +1329,7 @@ public:
             r[4]          = pc.last_checksum;
             ++filled;
         }
-        // ── T13 index_organization (Phase B Abschluss, Pfad-B Zustand-Scan über container_algorithm_-Slot-Backing) ────
+        // ── T12 index_organization (Phase B Abschluss, Pfad-B Zustand-Scan über container_algorithm_-Slot-Backing) ────
         //    idx_organ_ (ObservableIndexOrg-Hülle) treibt index_org_scan über die REAL gespeicherten Slots
         //    (store_observe_index_org → NodeChunkedStore::organ_observe_index_org). predicate_evals/indirect_lookups
         //    folgen den static-deklarierten Strategie-Eigenschaften (is_clustered/has_secondary_indexes). reset()+scan.
@@ -1361,7 +1337,7 @@ public:
             idx_organ_.reset();
             (void)container_algorithm_.store_observe_index_org(idx_organ_);
             auto const ix = idx_organ_.statistics();
-            auto*      r  = s.axis_stats[13];
+            auto*      r  = s.axis_stats[12];
             r[0]          = ix.scan_count;
             r[1]          = ix.records_scanned;
             r[2]          = ix.predicate_evals;
@@ -1369,7 +1345,7 @@ public:
             r[4]          = ix.last_checksum;
             ++filled;
         }
-        // ── T14 io_dispatch (Phase B Abschluss, Pfad-B Zustand-Scan über container_algorithm_-Slot-Backing) ───────────
+        // ── T13 io_dispatch (Phase B Abschluss, Pfad-B Zustand-Scan über container_algorithm_-Slot-Backing) ───────────
         //    io_organ_ (ObservableIoDispatch-Hülle) treibt io_dispatch_scan über die REAL gespeicherten Slots als
         //    IN-MEMORY-Dispatch (store_observe_io_dispatch → NodeChunkedStore::organ_observe_io_dispatch); KEIN Disk-IO
         //    (Hauptagent-Entscheid). alignment_adjusts honest 0 für InMemoryOnly. reset()+scan.
@@ -1377,7 +1353,7 @@ public:
             io_organ_.reset();
             (void)container_algorithm_.store_observe_io_dispatch(io_organ_);
             auto const io = io_organ_.statistics();
-            auto*      r  = s.axis_stats[14];
+            auto*      r  = s.axis_stats[13];
             r[0]          = io.dispatch_rounds;
             r[1]          = io.bytes_dispatched;
             r[2]          = io.alignment_adjusts;
@@ -1385,7 +1361,7 @@ public:
             r[4]          = io.last_checksum;
             ++filled;
         }
-        // ── T15 migration_policy (Phase B Abschluss, Pfad-B Zustand-Scan über container_algorithm_-Slot-Backing) ───────
+        // ── T14 migration_policy (Phase B Abschluss, Pfad-B Zustand-Scan über container_algorithm_-Slot-Backing) ───────
         //    mig_organ_ (ObservableMigration-Hülle) treibt migration_decide_scan über die REAL gespeicherten Slots
         //    (store_observe_migration → NodeChunkedStore::organ_observe_migration). decide-only, KEIN 2. Tier →
         //    tier_moves honest 0; migrations/hot/cold honest 0 für NoMigration (is_active()==false). reset()+scan.
@@ -1393,7 +1369,7 @@ public:
             mig_organ_.reset();
             (void)container_algorithm_.store_observe_migration(mig_organ_);
             auto const mg = mig_organ_.statistics();
-            auto*      r  = s.axis_stats[15];
+            auto*      r  = s.axis_stats[14];
             r[0]          = mg.total_decisions;
             r[1]          = mg.migrations_triggered;
             r[2]          = mg.hot_votes;
@@ -1401,7 +1377,7 @@ public:
             r[4]          = mg.tier_moves;
             ++filled;
         }
-        // ── T16 filter (Phase B Abschluss, Pfad-B Zustand-Scan über container_algorithm_-Slot-Backing) ─────────────────
+        // ── T15 filter (Phase B Abschluss, Pfad-B Zustand-Scan über container_algorithm_-Slot-Backing) ─────────────────
         //    flt_organ_ (ObservableFilter-Hülle) treibt filter_probe_scan über die low-Bytes der REAL gespeicherten
         //    Keys als Query-Strom (store_observe_filter → NodeChunkedStore::organ_observe_filter). REALER In-Memory-
         //    Filter, keine Strategie-Internas (positive/negative je öffentliches Einzel-Query-Ergebnis). reset()+scan.
@@ -1409,7 +1385,7 @@ public:
             flt_organ_.reset();
             (void)container_algorithm_.store_observe_filter(flt_organ_);
             auto const fl = flt_organ_.statistics();
-            auto*      r  = s.axis_stats[16];
+            auto*      r  = s.axis_stats[15];
             r[0]          = fl.probe_count;
             r[1]          = fl.queries_positive;
             r[2]          = fl.queries_negative;
@@ -1417,10 +1393,10 @@ public:
             r[4]          = fl.last_checksum;
             ++filled;
         }
-        // ── T17 queuing_q1 (Phase A neu, AUTO-gekoppelt via tier_insert/lookup put/get) ──────────────────
+        // ── T16 queuing_q1 (Phase A neu, AUTO-gekoppelt via tier_insert/lookup put/get) ──────────────────
         if constexpr (ObservableAxis<typename Composition::queuing_q1>) {
             auto const q = queuing_q1_organ_.statistics();
-            auto*      r = s.axis_stats[17];
+            auto*      r = s.axis_stats[16];
             r[0]         = q.total_put_count;
             r[1]         = q.total_get_count;
             r[2]         = q.overflow_count;
@@ -1428,10 +1404,10 @@ public:
             r[4]         = q.peak_size;
             ++filled;
         }
-        // ── T18 queuing_q2 (Phase A neu, AUTO-gekoppelt via tier_insert should_flush/on_flush_complete) ──
+        // ── T17 queuing_q2 (Phase A neu, AUTO-gekoppelt via tier_insert should_flush/on_flush_complete) ──
         if constexpr (ObservableAxis<typename Composition::queuing_q2>) {
             auto const q = queuing_q2_organ_.statistics();
-            auto*      r = s.axis_stats[18];
+            auto*      r = s.axis_stats[17];
             r[0]         = q.total_decisions_evaluated;
             r[1]         = q.full_flush_count;
             r[2]         = q.partial_flush_count;
@@ -1448,7 +1424,7 @@ public:
     // I1: die früheren V2/V3/V4-Observer-Override-Methoden (eigene Sub-Interfaces) sind ENTFERNT — die EINE
     // tier_observe(ComdareTierObserverSnapshot*) unten vereint Observer-Stats + Pfad-B-Timing (s. Doc 31).
 
-    // Pfad-B Per-Achsen-TIMING-Kern (Plan v2): zeitet die 19 REALEN per-Achsen-Ops ueber die EINE schon
+    // Pfad-B Per-Achsen-TIMING-Kern (Plan v2): zeitet die 18 REALEN per-Achsen-Ops ueber die EINE schon
     // befuellte composite-Tier-Struktur (container_algorithm_ + Instanz-Organe) -- KEIN synthetischer Puffer (Pfad A).
     // Alle Ops lesend/idempotent (lookup/resolve/compress const; store_observe_* reset()+const-scan ueber chunks_);
     // die per-op-getriebenen Zaehler werden NACH dem Timing zurueckgesetzt (der Host zieht V3-Observer ohnehin
@@ -1489,7 +1465,7 @@ public:
             std::uint64_t const n_ops    = t1_shape.n_ops; // Ops JE Batch (Fenster-Groesse)
             std::uint64_t const batches  = t1_shape.batch_count;
             std::uint64_t       t1_base  = 0; // rotierende Fenster-Basis (vom Batch-Loop gesetzt)
-            std::int64_t        acc[19]  = {};
+            std::int64_t        acc[18]  = {};
             std::uint64_t       sink     = 0;
 
             auto do_batch = [&]() {
@@ -1599,14 +1575,7 @@ public:
                 }
                 t1 = clock::now();
                 acc[9] += dns(t0, t1);
-                // T10 telemetry: echtes record_node_touch.
-                t0 = clock::now();
-                if constexpr (requires { telemetry_organ_.record_node_touch(true); }) {
-                    for (std::uint64_t i = 0; i < n_ops; ++i) telemetry_organ_.record_node_touch((i & 1u) != 0u);
-                    sink += n_ops;
-                }
-                t1 = clock::now();
-                acc[10] += dns(t0, t1);
+                // (Bau-INC-2c: T10-telemetry-Segment entfernt — acc-Indizes ab hier -1.)
                 // T11 value_handle: store_observe über chunks_.
                 t0 = clock::now();
                 if constexpr (requires { container_algorithm_.store_observe_value_handle(vh_organ_); }) {
@@ -1614,7 +1583,7 @@ public:
                     sink += container_algorithm_.store_observe_value_handle(vh_organ_);
                 }
                 t1 = clock::now();
-                acc[11] += dns(t0, t1);
+                acc[10] += dns(t0, t1);
                 // T12 isa: store_observe (SIMD-Feld-Reduktion) über chunks_.
                 t0 = clock::now();
                 if constexpr (requires { container_algorithm_.store_observe_isa(isa_organ_); }) {
@@ -1622,7 +1591,7 @@ public:
                     sink += container_algorithm_.store_observe_isa(isa_organ_);
                 }
                 t1 = clock::now();
-                acc[12] += dns(t0, t1);
+                acc[11] += dns(t0, t1);
                 // T13 index_organization: store_observe über chunks_.
                 t0 = clock::now();
                 if constexpr (requires { container_algorithm_.store_observe_index_org(idx_organ_); }) {
@@ -1630,7 +1599,7 @@ public:
                     sink += container_algorithm_.store_observe_index_org(idx_organ_);
                 }
                 t1 = clock::now();
-                acc[13] += dns(t0, t1);
+                acc[12] += dns(t0, t1);
                 // T14 io_dispatch: store_observe (In-Memory-Dispatch) über chunks_.
                 t0 = clock::now();
                 if constexpr (requires { container_algorithm_.store_observe_io_dispatch(io_organ_); }) {
@@ -1638,7 +1607,7 @@ public:
                     sink += container_algorithm_.store_observe_io_dispatch(io_organ_);
                 }
                 t1 = clock::now();
-                acc[14] += dns(t0, t1);
+                acc[13] += dns(t0, t1);
                 // T15 migration_policy: store_observe (decide-only) über chunks_.
                 t0 = clock::now();
                 if constexpr (requires { container_algorithm_.store_observe_migration(mig_organ_); }) {
@@ -1646,7 +1615,7 @@ public:
                     sink += container_algorithm_.store_observe_migration(mig_organ_);
                 }
                 t1 = clock::now();
-                acc[15] += dns(t0, t1);
+                acc[14] += dns(t0, t1);
                 // T16 filter: store_observe (Probe über Key-Low-Bytes) über chunks_.
                 t0 = clock::now();
                 if constexpr (requires { container_algorithm_.store_observe_filter(flt_organ_); }) {
@@ -1654,7 +1623,7 @@ public:
                     sink += container_algorithm_.store_observe_filter(flt_organ_);
                 }
                 t1 = clock::now();
-                acc[16] += dns(t0, t1);
+                acc[15] += dns(t0, t1);
                 // T17 queuing_q1: put+get-Paar (bounded → kein Deque-Wachstum über die Batches).
                 t0 = clock::now();
                 if constexpr (requires {
@@ -1668,7 +1637,7 @@ public:
                     }
                 }
                 t1 = clock::now();
-                acc[17] += dns(t0, t1);
+                acc[16] += dns(t0, t1);
                 // T18 queuing_q2: should_flush + on_flush_complete.
                 t0 = clock::now();
                 if constexpr (requires {
@@ -1682,13 +1651,13 @@ public:
                     }
                 }
                 t1 = clock::now();
-                acc[18] += dns(t0, t1);
+                acc[17] += dns(t0, t1);
             };
 
             do_batch(); // Warmup (verworfen, Basis 0)
             for (auto& a : acc) a = 0;
             // P-MD3 (Coverage-Versöhnung): ÄUSSERE Wall-Clock um die gemessenen (Nicht-Warmup-)Batches. Sie erfasst
-            // ALLES — die 19 Segment-Timer UND den Rest dazwischen (rng, Schleifen-/Branch-/if-constexpr-Overhead,
+            // ALLES — die 18 Segment-Timer UND den Rest dazwischen (rng, Schleifen-/Branch-/if-constexpr-Overhead,
             // die Lücken zwischen aufeinanderfolgenden clock::now()-Paaren). seg_run_total_ns ist damit der
             // KOMMENSURABLE Nenner für die Coverage des Segment-Laufs; seg_framework_ns der explizite, benannte Rest.
             clock::time_point const run_t0 = clock::now();
@@ -1699,7 +1668,7 @@ public:
             clock::time_point const run_t1 = clock::now();
 
             std::int64_t total = 0;
-            for (int i = 0; i < 19; ++i) {
+            for (int i = 0; i < 18; ++i) {
                 out->seg_ns[i] = acc[i];
                 total += acc[i];
             }
@@ -1720,7 +1689,6 @@ public:
             if constexpr (requires { pc_organ_.reset(); }) pc_organ_.reset();
             if constexpr (requires { pf_organ_.reset(); }) pf_organ_.reset();
             if constexpr (requires { cc_organ_.reset(); }) cc_organ_.reset();
-            if constexpr (requires { telemetry_organ_.reset(); }) telemetry_organ_.reset();
             if constexpr (requires { queuing_q1_organ_.clear(); }) queuing_q1_organ_.clear();
             if constexpr (requires { queuing_q1_organ_.reset(); }) queuing_q1_organ_.reset();
             if constexpr (requires { queuing_q2_organ_.reset(); }) queuing_q2_organ_.reset();
@@ -1729,7 +1697,7 @@ public:
     }
 
     // KONSOLIDIERUNG (I1, 2026-06-05): die EINZIGE Observer-Methode über den konsolidierten POD. Vereint Observer-
-    // Stats (axis_stats[19][8]+Meta) UND Pfad-B-Timing (seg_ns[19]) in EINEN Snapshot. FIXE Q1-SEQUENZ (Preflight
+    // Stats (axis_stats[18][8]+Meta) UND Pfad-B-Timing (seg_ns[18]) in EINEN Snapshot. FIXE Q1-SEQUENZ (Preflight
     // wkqt7a0il): (1) axis_stats VOR dem Timing lesen (fill_observer_v3 schreibt sie DIREKT in *out), (2) DANN seg_ns
     // timen (fill_segment_timing_v3 treibt die per-op-Organe + resettet sie an seinem Ende = SCHRITT 3) → die in (1)
     // gelesenen Stats bleiben unverfälscht. Rationale-Historie: docs/architecture/31_observer_interface_konsolidierung_i1.md.
@@ -2015,7 +1983,7 @@ private:
 
         // KORREKTUR (2026-06-04, Defekt-Fix): clear() leert NUR die Daten (entries_/mappings_/Puffer); die
         // statistics()-Zaehler dieser Organe (LinearFanout/DirectPlacement/NoBuffer/LazyFlush) leben in einem
-        // SEPARATEN stats_ und werden ausschliesslich von reset() genullt. Ziel: ALLE 19 Achsen-statistics bei 0
+        // SEPARATEN stats_ und werden ausschliesslich von reset() genullt. Ziel: ALLE 18 Achsen-statistics bei 0
         // -> je Messung frisch, konsistent mit dem V1-Delta-Block. Daten-clears bleiben in tier_clear().
         if constexpr (requires { ct_organ_.reset(); }) ct_organ_.reset();                 // T1: stats_ nullen
         if constexpr (requires { map_organ_.reset(); }) map_organ_.reset();               // T2: stats_ nullen
@@ -2023,7 +1991,6 @@ private:
         if constexpr (requires { queuing_q2_organ_.reset(); }) queuing_q2_organ_.reset(); // T18: nur reset()
 
         // T10 telemetry: ebenfalls ueber tier_insert/lookup auto-gekoppelt und in fill_observer_v3 direkt gelesen.
-        if constexpr (requires { telemetry_organ_.reset(); }) telemetry_organ_.reset();
         // Phase B: T7/T8/T3-Mess-Organe zuruecksetzen; Scan-Achsen T13/T14/T15/T16 sind idempotent im Observe.
         if constexpr (requires { pf_organ_.reset(); }) pf_organ_.reset();
         if constexpr (requires { cc_organ_.reset(); }) cc_organ_.reset();
@@ -2134,7 +2101,6 @@ private:
     // getrieben (if-constexpr-geschützt: AdHoc-Compositions tragen die nackte Strategie ohne record_node_touch).
     // OHNE {} (Aggregat-Strategie UND Huelle beide default-init-fähig, test_d_v42_probe2). mutable: das Tracking
     // im const tier_lookup ist logisch nicht-const (analog observer-notify-Muster, observable_composed_search.hpp).
-    mutable typename Composition::telemetry telemetry_organ_;
     // V42 L-74c scan-Achsen-Auto-Kopplung: memory_layout + serialization Observer-Organe. Im Observer-Fill (fill_observer_v3)
     // ueber das ECHTE Slot-Backing des container_algorithm_ getrieben (Pfad-B Zustand-Scan). mutable (const-Methode).
     mutable typename Composition::memory_layout ml_organ_;
@@ -2144,18 +2110,18 @@ private:
     // instanziiert, damit das Achsen-Interface uniform vorhanden ist). Default-konstruiert; das Treiben/
     // Observieren (put/get bzw. should_flush in tier_insert/observe) ist ein Folge-Inkrement (Doc 30 §8.2).
     // mutable: ein späteres Mit-Treiben im const tier_lookup/observe bleibt logisch nicht-const (analog
-    // telemetry_organ_/ml_organ_). MUSS für die 19-Slot-Composition kompilieren.
+    // ml_organ_/ser_organ_). MUSS für die 18-Slot-Composition kompilieren.
     mutable typename Composition::queuing_q1 queuing_q1_organ_;
     mutable typename Composition::queuing_q2 queuing_q2_organ_;
     // Phase A (2026-06-04): cache_traversal (T1) + mapping (T2) als real gehaltene, auto-gekoppelte Organe
     // (register/resolve in tier_insert/lookup). mutable: das Resolve-Tracking im const tier_lookup ist logisch
-    // nicht-const (analog telemetry_organ_/queuing_*). Ihre statistics() liefert fill_observer_v3 (Pfad B).
+    // nicht-const (analog queuing_*). Ihre statistics() liefert fill_observer_v3 (Pfad B).
     mutable typename Composition::cache_traversal ct_organ_;
     mutable typename Composition::mapping         map_organ_;
     // Phase B (2026-06-04): T7 prefetch (ObservablePrefetch-Hülle um die rohe Composition::prefetch-Strategie)
     // + T8 concurrency (ObservableConcurrency-Hülle um Composition::concurrency). Anders als telemetry/q1/q2
     // trägt die Composition für T7/T8 die NACKTE Strategie (kein statistics()) → die Hülle hält das Mess-Organ.
-    // mutable: das observe_*-Tracking im const tier_lookup ist logisch nicht-const (analog telemetry_organ_).
+    // mutable: das observe_*-Tracking im const tier_lookup ist logisch nicht-const (analog ml_organ_).
     // Ihre statistics() liefert fill_observer_v3 (Pfad B). Default-konstruiert; auto-gekoppelt in tier_insert/lookup.
     mutable ::comdare::cache_engine::prefetch_axis::ObservablePrefetch<typename Composition::prefetch> pf_organ_{};
     mutable ::comdare::cache_engine::concurrency_axis::ObservableConcurrency<typename Composition::concurrency>
@@ -2173,7 +2139,7 @@ private:
     //  • T3 path_compression: Instanz-Driver compress(key,depth), AUTO-gekoppelt in tier_insert/lookup (wie T1/T2).
     //  • T13/T14/T15/T16 (index_org/io_dispatch/migration/filter): scan-Achsen, getrieben als Pfad-B Zustand-Scan über
     //    das ECHTE container_algorithm_-Slot-Backing in fill_observer_v3 (store_observe_*, idempotenter reset()+scan, wie ml/ser/vh).
-    // mutable: das Tracking im const tier_lookup / const fill_observer_v3 ist logisch nicht-const (analog telemetry_organ_).
+    // mutable: das Tracking im const tier_lookup / const fill_observer_v3 ist logisch nicht-const (analog ml_organ_).
     mutable ::comdare::cache_engine::path_compression::ObservablePathCompression<typename Composition::path_compression>
         pc_organ_{};
     mutable ::comdare::cache_engine::index_organization::ObservableIndexOrg<typename Composition::index_organization>

@@ -88,7 +88,6 @@ struct HostPrtMergeComposition {
     using prefetch           = typename Host::prefetch;
     using concurrency        = typename Host::concurrency;
     using serialization      = typename Host::serialization;
-    using telemetry          = typename Host::telemetry;
     using value_handle       = typename Host::value_handle;
     using isa                = typename Host::isa;
     using index_organization = typename Host::index_organization;

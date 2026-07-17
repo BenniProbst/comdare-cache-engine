@@ -60,7 +60,7 @@ std::vector<std::string> binary_ids(std::vector<ex::AxisLevel> const& levels) {
 
 void check_level_equivalence(std::vector<ex::AxisLevel> const& generated, std::vector<ex::AxisLevel> const& reference) {
     check_eq("Stufe 1: static_levels count", generated.size(), reference.size());
-    check_eq("Stufe 1: static_levels count == 19", generated.size(), std::size_t{19});
+    check_eq("Stufe 1: static_levels count == 18", generated.size(), std::size_t{18});
 
     bool axes_ok   = generated.size() == reference.size();
     bool values_ok = axes_ok;

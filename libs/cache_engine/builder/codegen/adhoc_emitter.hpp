@@ -43,9 +43,10 @@ namespace comdare::cache_engine::builder::codegen {
     return out;
 }
 
-/// adhoc_macro_args<C>() — die 19 FQ-Achsen-Typ-Namen einer Composition C als Komma-getrennter Block
-/// (Argument für COMDARE_DEFINE_ANATOMY_MODULE_ADHOC). Reihenfolge = AdHocComposition<T0..T18>
-/// (17 Such-Achsen + queuing q1/q2, Doc 30 §8.0). Jeder Name wird via strip_all_elaborated von INNEN-liegenden
+/// adhoc_macro_args<C>() — die 18 FQ-Achsen-Typ-Namen einer Composition C als Komma-getrennter Block
+/// (Argument für COMDARE_DEFINE_ANATOMY_MODULE_ADHOC). Reihenfolge = AdHocComposition<T0..T17>
+/// (16 Such-Achsen + queuing q1/q2; Bau-INC-2c: telemetry ist System-Achse, kein Slot mehr).
+/// Jeder Name wird via strip_all_elaborated von INNEN-liegenden
 /// "class "/"struct "-Keywords befreit (sonst Syntaxfehler bei Wrapper<class Inner>-Slots).
 template <class C>
 [[nodiscard]] std::string adhoc_macro_args() {
@@ -64,7 +65,6 @@ template <class C>
     add(type_name<typename C::prefetch>());
     add(type_name<typename C::concurrency>());
     add(type_name<typename C::serialization>());
-    add(type_name<typename C::telemetry>());
     add(type_name<typename C::value_handle>());
     add(type_name<typename C::isa>());
     add(type_name<typename C::index_organization>());

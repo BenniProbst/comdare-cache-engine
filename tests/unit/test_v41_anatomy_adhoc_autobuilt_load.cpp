@@ -42,7 +42,7 @@ TEST(R5G_AdHocAutoBuilt, AllEmittedPermutationsLoadAsDllsAndMeasure) {
         auto* a = h.anatomy();
         ASSERT_NE(a, nullptr);
         EXPECT_EQ(a->composition_name(), std::string_view{"AdHocComposition"});
-        EXPECT_EQ(a->organ_count(), 19u);
+        EXPECT_EQ(a->organ_count(), 18u);
         EXPECT_EQ(a->genus(), ana::AnatomyGenus::SearchAlgorithm);
 
         // Jede auto-gebaute DLL ist mess-fähig (Stufe B in-DLL).

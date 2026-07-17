@@ -36,7 +36,7 @@ TEST(R5G_AdHocDllLoad, AutoEmittedAdHocPermutationLoadsAsDllAndRuns) {
     auto* a = handles[0].anatomy();
     ASSERT_NE(a, nullptr);
     EXPECT_EQ(a->composition_name(), std::string_view{"AdHocComposition"}); // auto-enumerierte Komposition
-    EXPECT_EQ(a->organ_count(), 19u);
+    EXPECT_EQ(a->organ_count(), 18u);
     EXPECT_EQ(a->genus(), ana::AnatomyGenus::SearchAlgorithm);
 
     // Mess-Last (Stufe B) läuft auch in der auto-emittierten DLL.
@@ -158,12 +158,12 @@ TEST(R8RestA_DockMeasuresRealDll, ObserverOverRealDllBoundaryOrGracefulDegrade) 
     EXPECT_GE(u.axis_stats[0][3], 1u); // search_insert
     EXPECT_GE(u.observable_axis_count, 1u);
     EXPECT_GT(u.tier_fill_level, 0u);
-    // Die DLL-Composition traegt die OperativeCapable-Huellen (auto_emitted_perm_module.cpp): telemetry + scan-
+    // Die DLL-Composition traegt die OperativeCapable-Huellen (auto_emitted_perm_module.cpp): die scan-
     // Achsen tragen ueber die ECHTE .dll-Grenze REALE Werte, WENN die geladene DLL synchron mit dem Header gebaut
-    // ist (der ABI-Major-Bump 2→3 erzwingt das). Nur informativ ausgeben.
-    std::cout << "    [DLL 4-Achsen] telemetry=" << u.axis_stats[10][0] << " layout=" << u.axis_stats[5][1]
-              << " serialization=" << u.axis_stats[9][1] << " node=" << u.axis_stats[4][1]
-              << "  (>0 = synchron gebaute Huellen-DLL)\n";
+    // ist (der ABI-Major-Bump erzwingt das; telemetry ist seit Bau-INC-2c System-Achse, kein POD-Slot).
+    // Nur informativ ausgeben.
+    std::cout << "    [DLL 3-Achsen] layout=" << u.axis_stats[5][1] << " serialization=" << u.axis_stats[9][1]
+              << " node=" << u.axis_stats[4][1] << "  (>0 = synchron gebaute Huellen-DLL)\n";
 #else
     GTEST_SKIP() << "COMDARE_CE_ENABLE_STATISTICS aus";
 #endif

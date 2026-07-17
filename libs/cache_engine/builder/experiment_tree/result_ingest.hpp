@@ -31,13 +31,13 @@ namespace comdare::cache_engine::builder::experiment {
         if (sc == std::string_view::npos) break;
         i = sc + 1;
     }
-    // KONSOLIDIERUNG (I-B.3, 2026-06-04): volle Matrix = binary_id + axis_stats[19][8] (152) + seg_ns[19] (19)
-    // + Meta (observable_axis_count, tier_fill_level, filled_axis_count, batches_measured) + P-MD3 (seg_framework_ns,
-    // seg_run_total_ns) = 177 Felder = 178 total. MAJOR-MESS-09 (Audit A1): EXAKT ==178 prüfen (nicht ≥178). Ein
-    // ';'/Newline in der binary_id (oder ein angehängtes/verschmolzenes Feld) erzeugt eine Zeile ≠178 → die axis_stats
-    // wären gegen ihre Slots verschoben. format_perm_result lehnt verletzende IDs bereits ab; diese Schranke ist die
-    // zweite, lese-seitige Verteidigung: eine nicht-exakt-178-feldrige Zeile wird verworfen (kein stiller Slot-Versatz).
-    if (f.size() != 178 || f[0].empty()) return false;
+    // KONSOLIDIERUNG (I-B.3, 2026-06-04; Bau-INC-2c 19→18): volle Matrix = binary_id + axis_stats[18][8] (144)
+    // + seg_ns[18] (18) + Meta (observable_axis_count, tier_fill_level, filled_axis_count, batches_measured)
+    // + P-MD3 (seg_framework_ns, seg_run_total_ns) = 168 Felder = 169 total. MAJOR-MESS-09 (Audit A1): EXAKT ==169
+    // prüfen (nicht ≥169). Ein ';'/Newline in der binary_id (oder ein angehängtes/verschmolzenes Feld) erzeugt eine
+    // Zeile ≠169 → die axis_stats wären gegen ihre Slots verschoben. format_perm_result lehnt verletzende IDs bereits
+    // ab; diese Schranke ist die zweite, lese-seitige Verteidigung (kein stiller Slot-Versatz).
+    if (f.size() != 169 || f[0].empty()) return false;
 
     auto u64 = [](std::string_view s) -> std::uint64_t {
         std::uint64_t v = 0;
@@ -51,9 +51,9 @@ namespace comdare::cache_engine::builder::experiment {
     };
     NodeObserverSnapshot o{};
     std::size_t          idx = 1;
-    for (std::size_t t = 0; t < 19; ++t)
+    for (std::size_t t = 0; t < 18; ++t)
         for (std::size_t fi = 0; fi < 8; ++fi) o.axis_stats[t][fi] = u64(f[idx++]);
-    for (std::size_t t = 0; t < 19; ++t) o.seg_ns[t] = i64(f[idx++]);
+    for (std::size_t t = 0; t < 18; ++t) o.seg_ns[t] = i64(f[idx++]);
     o.observable_axis_count = u64(f[idx++]);
     o.tier_fill_level       = u64(f[idx++]);
     o.filled_axis_count     = u64(f[idx++]);

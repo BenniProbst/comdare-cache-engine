@@ -51,18 +51,18 @@ int main() {
         an::ComdareTierObserverSnapshot s{};
         check_eq_u64(ex::container_attribution(s).store_ops, 0u, "T3 leerer POD -> store_ops == 0");
     }
-    // T4 Store-Achsen anderer Achsen (T4/T5/T6/T11/T13) beeinflussen c1 NICHT (c1 zieht ausschliesslich T0).
+    // T4 Store-Achsen anderer Achsen (T4/T5/T6/T10/T12) beeinflussen c1 NICHT (c1 zieht ausschliesslich T0).
     {
         an::ComdareTierObserverSnapshot s{};
         s.axis_stats[0][0]  = 7; // lookup
         s.axis_stats[4][0]  = 999;
         s.axis_stats[5][0]  = 999;
         s.axis_stats[6][1]  = 999;
-        s.axis_stats[11][0] = 999;
-        s.axis_stats[13][0] = 999; // Store-/Value-/Index-Achsen: irrelevant fuer c1
+        s.axis_stats[10][0] = 999;
+        s.axis_stats[12][0] = 999; // Store-/Value-/Index-Achsen: irrelevant fuer c1
         check_eq_u64(ex::container_attribution(s).store_ops, 7u, "T4 nur T0 speist c1 (Store-Achsen irrelevant)");
     }
-    // T5 c3-als-Label: die thesis-kanonischen Store-Achsen sind genau T4/T5/T6 (KEINE Summe, kein T11/T13).
+    // T5 c3-als-Label: die thesis-kanonischen Store-Achsen sind genau T4/T5/T6 (KEINE Summe, kein T10/T12).
     {
         check_eq_u64(ex::kStoreAxes.size(), 3u, "T5 kStoreAxes == 3 (thesis-kanonisch T4/T5/T6)");
         check(ex::kStoreAxes[0] == std::string_view{"node_type"}, "T5 kStoreAxes[0] == node_type");

@@ -3,7 +3,8 @@
 //
 // Brueckenkopf zwischen PermutationEngine (PermTuple<V...>) und
 // SearchAlgorithmAnatomy<Composition>. Materialisiert pro Cartesian-Produkt-
-// Punkt eine konkrete Composition-Struct mit 19 named using-Aliases (17 Such-Achsen + queuing q1/q2).
+// Punkt eine konkrete Composition-Struct mit 18 named using-Aliases (16 Such-Achsen + queuing q1/q2;
+// Bau-INC-2c: telemetry ist System-Achse, kein Slot mehr).
 //
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §11.3+§14.3
 // @task V41.F.6.1.R4
@@ -18,7 +19,7 @@
 namespace comdare::cache_engine::anatomy {
 
 /// AdHocComposition — Composition-Struct die zur Compile-Time aus einem
-/// PermTuple materialisiert wird. 19 Template-Parameter in fester Reihenfolge:
+/// PermTuple materialisiert wird. 18 Template-Parameter in fester Reihenfolge:
 ///
 /// Pflicht-Reihenfolge (Topic-Slot-Convention V41.F.6.1.R4; Doc 30 §8.0 erweitert
 /// um die queuing-Achse als reguläre, mandatorische SA-Slots T17/T18):
@@ -32,22 +33,27 @@ namespace comdare::cache_engine::anatomy {
 ///   T7  = prefetch           (prefetch::axis_07)
 ///   T8  = concurrency        (concurrency::axis_08)
 ///   T9  = serialization      (serialization::axis_10)
-///   T10 = telemetry          (telemetry::axis_11)
-///   T11 = value_handle       (value_handle::axis_14)
-///   T12 = isa                (hardware::axis_09)
-///   T13 = index_organization (search_engine::axis_01)
-///   T14 = io_dispatch        (io::axis_io)
-///   T15 = migration_policy   (migration::axis_migration)
-///   T16 = filter             (filter::axis_filter)
-///   T17 = queuing_q1         (queuing::axis_q1_queuing — buffer_strategy)
-///   T18 = queuing_q2         (queuing::axis_q2_queuing — flush_policy)
+///   T10 = value_handle       (value_handle::axis_14)
+///   T11 = isa                (hardware::axis_09)
+///   T12 = index_organization (search_engine::axis_01)
+///   T13 = io_dispatch        (io::axis_io)
+///   T14 = migration_policy   (migration::axis_migration)
+///   T15 = filter             (filter::axis_filter)
+///   T16 = queuing_q1         (queuing::axis_q1_queuing — buffer_strategy)
+///   T17 = queuing_q2         (queuing::axis_q2_queuing — flush_policy)
+///
+/// Bau-INC-2c (F12iii, ABI-5): Telemetrie ist KEIN Kompositions-Slot mehr — sie wurde als
+/// CEB-System-Achse aus der binary_id-permutierenden Organ-Komposition herausgeloest
+/// (TelemetryConfig Active/Silent = System-Achsen-Belegung, versioniert im H-10-Sidecar
+/// NEBEN dem Binary; vorher T10, 19 Slots). Das Telemetrie-ORGAN (axes/telemetry) bleibt
+/// als Mess-Infrastruktur bestehen — es permutiert nur nicht mehr.
 ///
 /// queuing ist eine ACHSE der SearchAlgorithm-Tier-Unterklasse (Doc 30 §8 — KEINE
 /// Gattung). Ein nicht-pufferndes Tier wählt EXPLIZIT den Durchreich-Algorithmus
 /// (NoBuffer/LazyFlush) — das ist ein Algorithmus, kein „weglassen". KEINE
-/// Template-Defaults: jedes Tier deklariert q1/q2 ebenso explizit wie die 17 davor.
+/// Template-Defaults: jedes Tier deklariert q1/q2 ebenso explizit wie die 16 davor.
 template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10,
-          class T11, class T12, class T13, class T14, class T15, class T16, class T17, class T18>
+          class T11, class T12, class T13, class T14, class T15, class T16, class T17>
 struct AdHocComposition {
     using search_algo        = T0;
     using cache_traversal    = T1;
@@ -59,15 +65,14 @@ struct AdHocComposition {
     using prefetch           = T7;
     using concurrency        = T8;
     using serialization      = T9;
-    using telemetry          = T10;
-    using value_handle       = T11;
-    using isa                = T12;
-    using index_organization = T13;
-    using io_dispatch        = T14;
-    using migration_policy   = T15;
-    using filter             = T16;
-    using queuing_q1         = T17;
-    using queuing_q2         = T18;
+    using value_handle       = T10;
+    using isa                = T11;
+    using index_organization = T12;
+    using io_dispatch        = T13;
+    using migration_policy   = T14;
+    using filter             = T15;
+    using queuing_q1         = T16;
+    using queuing_q2         = T17;
 
     static constexpr std::string_view paper_id = "P00 AdHoc Permutation R4";
     static constexpr std::string_view name     = "AdHocComposition";
@@ -83,18 +88,18 @@ namespace detail {
 template <class PermT>
 struct CompositionFromPermTupleImpl;
 
-/// Match PermTuple<Vs...> — PermutationEngine produziert PermTuple<V0,V1,...V18>
+/// Match PermTuple<Vs...> — PermutationEngine produziert PermTuple<V0,V1,...V17>
 template <template <class...> class PermTupleTmpl, class... Vs>
 struct CompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
-    static_assert(sizeof...(Vs) == 19,
-                  "PermTuple muss exakt 19 Achsen-Werte enthalten "
-                  "(Topic-Slot-Convention V41.F.6.1.R4 §14.3 + Doc 30 §8.0: 17 Such-Achsen + queuing q1/q2)");
+    static_assert(sizeof...(Vs) == 18,
+                  "PermTuple muss exakt 18 Achsen-Werte enthalten (Bau-INC-2c/F12iii: telemetry ist "
+                  "System-Achse, kein Slot mehr; 16 Such-Achsen + queuing q1/q2)");
     using type = AdHocComposition<Vs...>;
 };
 
 } // namespace detail
 
-/// CompositionFromPermTuple<PermT> — extrahiert die 19 Vendor-Typen aus einem
+/// CompositionFromPermTuple<PermT> — extrahiert die 18 Vendor-Typen aus einem
 /// PermTuple und materialisiert eine AdHocComposition.
 ///
 /// Typische Verwendung im PermutationEngine-Visitor:
@@ -109,16 +114,16 @@ template <class PermT>
 using CompositionFromPermTuple = typename detail::CompositionFromPermTupleImpl<PermT>::type;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Concept: PermT ist ein 19-Slot-PermTuple das in AdHocComposition passt
-// (Doc 30 §8.0: 17 Such-Achsen + queuing q1/q2)
+// Concept: PermT ist ein 18-Slot-PermTuple das in AdHocComposition passt
+// (Doc 30 §8.0 i.V.m. Bau-INC-2c: 16 Such-Achsen + queuing q1/q2)
 // ─────────────────────────────────────────────────────────────────────────────
 
 template <class PermT>
 concept IsPermTuple19 = requires { typename detail::CompositionFromPermTupleImpl<PermT>::type; } &&
                         IsComposition<typename detail::CompositionFromPermTupleImpl<PermT>::type>;
 
-/// Rückwärts-kompatibles Alias (Verwender, die den alten 17-Slot-Namen referenzieren,
-/// bleiben gültig — die Slot-Zahl ist jetzt 19, Doc 30 §8.0).
+/// Rückwärts-kompatible Aliase (historische Slot-Zahlen 17/19 im Namen; die
+/// Slot-Zahl ist seit Bau-INC-2c 18 — Namen bleiben für bestehende Verwender stabil).
 template <class PermT>
 concept IsPermTuple17 = IsPermTuple19<PermT>;
 

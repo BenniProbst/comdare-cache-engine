@@ -11,10 +11,11 @@
 
 namespace comdare::cache_engine::anatomy {
 
-/// SetComposition<T0..T14> — 15 named Achsen-Slots der Set-Gattung (Reihenfolge = §28 Bird-Spalte).
+/// SetComposition<T0..T13> — 14 named Achsen-Slots der Set-Gattung (Reihenfolge = §28 Bird-Spalte;
+/// Bau-INC-2c: telemetry ist System-Achse, kein Slot mehr).
 /// Bewusst OHNE mapping (axis_03m) + value_handle (axis_14) — Set ist K-only (K=V).
 template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10,
-          class T11, class T12, class T13, class T14>
+          class T11, class T12, class T13>
 struct SetComposition {
     using search_algo        = T0;  // axis_03a — K-only-Suchkern
     using cache_traversal    = T1;  // axis_03b
@@ -25,19 +26,18 @@ struct SetComposition {
     using prefetch           = T6;  // axis_07
     using concurrency        = T7;  // axis_08
     using serialization      = T8;  // axis_10
-    using telemetry          = T9;  // axis_11
-    using isa                = T10; // axis_09
-    using index_organization = T11; // axis_01 (search_engine)
-    using io_dispatch        = T12; // axis_io
-    using migration_policy   = T13; // axis_migration
-    using filter             = T14; // axis_filter
+    using isa                = T9;  // axis_09
+    using index_organization = T10; // axis_01 (search_engine)
+    using io_dispatch        = T11; // axis_io
+    using migration_policy   = T12; // axis_migration
+    using filter             = T13; // axis_filter
 
-    static constexpr std::size_t      slot_count = 15;
+    static constexpr std::size_t      slot_count = 14; // INC-2c: telemetry raus (war 15)
     static constexpr std::string_view name       = "SetComposition";
     static constexpr std::string_view paper_id   = "P00 Set Gattung (Vogel, K-only)";
 };
 
-/// IsSetComposition — Concept: 15 named Set-Achsen-Aliase + Meta. KEIN mapping/value_handle (Set-Invariante).
+/// IsSetComposition — Concept: 14 named Set-Achsen-Aliase + Meta. KEIN mapping/value_handle (Set-Invariante).
 template <class C>
 concept IsSetComposition = requires {
     typename C::search_algo;
@@ -49,7 +49,6 @@ concept IsSetComposition = requires {
     typename C::prefetch;
     typename C::concurrency;
     typename C::serialization;
-    typename C::telemetry;
     typename C::isa;
     typename C::index_organization;
     typename C::io_dispatch;

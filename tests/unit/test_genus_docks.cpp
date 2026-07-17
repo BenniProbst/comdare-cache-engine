@@ -52,9 +52,9 @@ struct TestKeySet {
     void                      clear() { s.clear(); }
 };
 
-using SetComp  = cea::SetComposition<TestKeySet, int, int, int, int, int, int, int, int, int, int, int, int, int, int>;
-using SeqComp  = cea::SequenceComposition<int, int, int, int, int, int, int, int, int, int>; // Default DoublingGrowth
-using ViewComp = cea::ViewComposition<int, int, int, int>;                                   // Default Layout/Accessor
+using SetComp  = cea::SetComposition<TestKeySet, int, int, int, int, int, int, int, int, int, int, int, int, int>;
+using SeqComp  = cea::SequenceComposition<int, int, int, int, int, int, int, int, int>; // Default DoublingGrowth
+using ViewComp = cea::ViewComposition<int, int, int>; // Default Layout/Accessor (INC-2c)
 
 int main() {
     std::cout << "==== L-76 per-Gattung Prüf-Docks (Doc 24 §8.8): Set / Sequence / View ====\n";

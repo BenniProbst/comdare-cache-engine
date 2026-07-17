@@ -211,18 +211,18 @@ int main(int argc, char** argv) {
     axes.push_back(make_axis<ex::axes26::T07_prefetch, 4>("T07", "prefetch", "composition"));
     axes.push_back(make_axis<ex::axes26::T08_concurrency, 1>("T08", "concurrency", "composition"));
     axes.push_back(make_axis<ex::axes26::T09_serialization, 1>("T09", "serialization", "composition"));
-    axes.push_back(make_axis<ex::axes26::T10_telemetry, 1>("T10", "telemetry", "composition"));
-    axes.push_back(make_axis<ex::axes26::T11_value_handle, 1>("T11", "value_handle", "composition"));
-    axes.push_back(make_axis<ex::axes26::T12_isa, 1>("T12", "isa", "composition"));
-    axes.push_back(make_axis<ex::axes26::T13_index_organization, 1>("T13", "index_organization", "composition"));
-    axes.push_back(make_axis<ex::axes26::T14_io_dispatch, 1>("T14", "io_dispatch", "composition"));
-    axes.push_back(make_axis<ex::axes26::T15_migration_policy, 1>("T15", "migration_policy", "composition"));
-    axes.push_back(make_axis<ex::axes26::T16_filter, 1>("T16", "filter", "composition"));
-    axes.push_back(make_axis<ex::axes26::T20_queuing_q1, 1>("T17", "queuing_q1", "composition"));
-    axes.push_back(make_axis<ex::axes26::T21_queuing_q2, 1>("T18", "queuing_q2", "composition"));
+    axes.push_back(make_axis<ex::axes26::T11_value_handle, 1>("T10", "value_handle", "composition"));
+    axes.push_back(make_axis<ex::axes26::T12_isa, 1>("T11", "isa", "composition"));
+    axes.push_back(make_axis<ex::axes26::T13_index_organization, 1>("T12", "index_organization", "composition"));
+    axes.push_back(make_axis<ex::axes26::T14_io_dispatch, 1>("T13", "io_dispatch", "composition"));
+    axes.push_back(make_axis<ex::axes26::T15_migration_policy, 1>("T14", "migration_policy", "composition"));
+    axes.push_back(make_axis<ex::axes26::T16_filter, 1>("T15", "filter", "composition"));
+    axes.push_back(make_axis<ex::axes26::T20_queuing_q1, 1>("T16", "queuing_q1", "composition"));
+    axes.push_back(make_axis<ex::axes26::T21_queuing_q2, 1>("T17", "queuing_q2", "composition"));
 
     // -- Optional: 7 Build/Shape-Achsen (NICHT im 19-Achsen-serialize-Pfad; golden_wired stets false). --
     if (with_extra) {
+        axes.push_back(make_axis<ex::axes26::T10_telemetry, 0>("ext", "telemetry", "system_axis"));
         axes.push_back(make_axis<ex::axes26::T17_page_type, 0>("ext", "page_type", "build_shape"));
         axes.push_back(make_axis<ex::axes26::T18_simd_extension, 0>("ext", "simd_extension", "build_shape"));
         axes.push_back(make_axis<ex::axes26::T19_general_hardware, 0>("ext", "general_hardware", "build_shape"));
