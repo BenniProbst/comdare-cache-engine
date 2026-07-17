@@ -1,4 +1,23 @@
 #pragma once
+// ---------------------------------------------------------------------------
+// DEPRECATED (2026-07-16, Marker nachgezogen 2026-07-17 F6): HISTORISCHER
+// V32.EE.5-ALGORITHMUS-ACHSEN-ENTWURF (Runtime-vtable) -- 0 Konsumenten. Die
+// 4. Schwester der vtable-Achsen (numa_affinity/locking_mode/hardware_strategy
+// tragen den Marker seit 2026-07-16); hier nachgezogen. repo-weiter grep zeigt
+// nur diese Definitionsdatei; die Treffer in
+// builder/commands/axis_library_registry.hpp:289-294 sind reine deskriptive
+// source_ref-STRINGS, KEINE C++-Konsumtion (vgl. dort Z.311/314:
+// "0 Konsumenten ... scheduling_strategy.hpp bleibt hier UNBERUEHRT").
+// deprecated-by-design: wird durch die kommende compile-time CRTP+Concept
+//   Scheduling-SYSTEM-Achse (#37, User 2026-07-17: Scheduling = System-Achse,
+//   unter der die CEB gebaut wird, KEIN Runtime-Switch) ersetzt. Runtime-vtable
+//   hier = Doktrin-Verletzung (no_runtime_switch / compile_time_only), nie
+//   konsumiert.
+// Die SYSTEM-Seite (Pflicht-Systemachse im CacheEngineBuilder) wird NEU gebaut
+//   -- Dossier 23 (Abschnitt 6, S-2; User-Entscheid 2026-07-16).
+// NICHT reaktivieren, NICHT loeschen; Rest-Semantik ohne Live-Gegenstueck in
+//   der Delta-Matrix (Dossier 23 Abschnitt 2) als TODO getrackt.
+// ---------------------------------------------------------------------------
 // V32.EE.5 (2026-05-18 spaet) - Achse 13 SCHEDULING-STRATEGY (NEU)
 //
 // @achse 13
