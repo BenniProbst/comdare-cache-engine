@@ -9,7 +9,9 @@
 // **ADDITIV & golden/ABI-NEUTRAL:** reiner static_assert-Test; keine Aenderung an
 // kCompositionAxisNames/serialize_composition_path/golden_fullpilot_320/POD/ABI-4.
 
+#include <cache_engine/concepts/scheduling_strategy.hpp>
 #include <cache_engine/measurement/ceb_system_axis.hpp>
+#include <cache_engine/measurement/scheduling_system_axis.hpp>
 #include <cache_engine/measurement/system_axis.hpp>
 
 #include <gtest/gtest.h>
@@ -51,6 +53,20 @@ static_assert(std::is_empty_v<cem::SystemAxis<cem::WallClockSystemAxis>>);
 // ── Block D: die Familien schneiden sich NICHT (Separation of Hierarchies) ────────────────────────────────
 static_assert(!std::is_base_of_v<cem::SystemAxis<KonfigProbe>, KonfigProbe>);
 static_assert(!std::is_base_of_v<cem::CebSystemAxis<cem::WallClockSystemAxis>, cem::WallClockSystemAxis>);
+
+// ── Block E (INC-1c): Scheduling-Konfig-System-Achse #37 — compile-time-CRTP, vtable-frei ─────────────────
+static_assert(cem::SchedulingSystemAxisConcept<cem::DefaultSchedulingSystemAxis>);
+static_assert(cem::CebSystemAxisConcept<cem::DefaultSchedulingSystemAxis>);
+static_assert(cet::AxisConcept<cem::DefaultSchedulingSystemAxis>);
+static_assert(cem::DefaultSchedulingSystemAxis::axis_kind() == cet::AxisKind::system_config);
+static_assert(cem::DefaultSchedulingSystemAxis::axis_label() == std::string_view{"scheduling"});
+static_assert(cem::DefaultSchedulingSystemAxis::worker_pool_layout() ==
+              ::comdare::cache_engine::concepts::WorkerPoolLayout::ThreadPerCore);
+static_assert(cem::DefaultSchedulingSystemAxis::simd_worker_count_limit() == 2);
+static_assert(std::is_empty_v<cem::DefaultSchedulingSystemAxis>);
+static_assert(!std::is_polymorphic_v<cem::DefaultSchedulingSystemAxis>);
+// Kontrast (bewusste, DEPRECATED Grenze — nie im Hot-Path): die historische Runtime-vtable IST polymorph.
+static_assert(std::is_polymorphic_v<::comdare::cache_engine::concepts::ISchedulingStrategy>);
 
 TEST(StriktheitAxisDachGuard, DiskriminatorenSindDisjunkt) {
     EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ), static_cast<unsigned>(cet::AxisKind::system_measurement));
