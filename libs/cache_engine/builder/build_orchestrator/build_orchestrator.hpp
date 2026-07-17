@@ -448,9 +448,15 @@ namespace detail {
 /// Default-CompileFn: realer MSVC-Subprozess, baut perm_<id>.cpp → perm_<id>.dll (SHARED). {cores} → /MP<cores>.
 /// Host-Werkzeug (ruft cl via std::system; cl muss im PATH/Env sein, z.B. vcvars64). Ausgabe unterdrückt.
 [[nodiscard]] inline CompileFn make_system_compile_fn(std::vector<std::string> include_dirs = {},
-                                                      std::string              std_flag     = "/std:c++latest") {
-    return [include_dirs = std::move(include_dirs), std_flag = std::move(std_flag)](BuildJob const& job) -> int {
-        std::string cmd = "cl /nologo " + std_flag + " /EHsc /LD /MP" + std::to_string(job.cores);
+                                                      std::string              std_flag     = "/std:c++latest",
+                                                      std::string              opt_flag     = "/O2") {
+    // Bau-INC-2c.opt-c: MSVC-Spiegel des POSIX-opt_flag-Kanals. cl defaultet SONST still auf /Od
+    // (kein -O2-Aequivalent) -> die opt_level-Unter-Achse (msvc_opt_flag(): /Od,/O1,/O2) waere unter
+    // cl ein toter Accessor. Default "/O2" = Symmetrie zum g++-Default -O2. POSIX-first (Cluster=Linux):
+    // kein aktiver cl-Aufrufer, rein additive Symmetrie; die Facade-Verdrahtung folgt am Windows-Track.
+    return [include_dirs = std::move(include_dirs), std_flag = std::move(std_flag),
+            opt_flag = std::move(opt_flag)](BuildJob const& job) -> int {
+        std::string cmd = "cl /nologo " + std_flag + " " + opt_flag + " /EHsc /LD /MP" + std::to_string(job.cores);
         for (auto const& inc : include_dirs) cmd += " /I\"" + inc + "\"";
         cmd += " \"" + job.source.string() + "\"";
         cmd += " /Fe:\"" + job.output.string() + "\"";

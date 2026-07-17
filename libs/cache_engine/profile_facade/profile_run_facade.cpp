@@ -11,6 +11,7 @@
 
 #include <cache_engine/measurement/compiler_system_axis.hpp>           // INC-1h: Compiler-System-Achse (gcc|clang)
 #include <cache_engine/measurement/extension_hardware_system_axis.hpp> // INC-1d: Erweiterungshardware-Achse (Flag-Quelle)
+#include <cache_engine/measurement/optimization_level_sub_axis.hpp> // INC-2c.opt-c: opt_level-Unter-Achse (Flag-Quelle)
 
 #include <builder/build_orchestrator/build_orchestrator.hpp>
 #include <builder/experiment_tree/registry_to_axis_levels.hpp> // P5: build_all_axis_levels (EnabledStrategies)
@@ -164,13 +165,56 @@ namespace {
     return std::string{::comdare::cache_engine::measurement::GccCompilerAxis::driver_default()};
 }
 
+// opt_level-Unter-Achse der Compiler-Haupt-Achse (Bau-INC-2c.opt-c). Die Flag-QUELLE ist die Achse
+// (OptO*SubAxis::gcc/clang/msvc_opt_flag, compile-time-Reflexion), der ORT ist der opt_flag-Param von
+// make_gpp_compile_fn (opt-b). GOLDEN-SICHERE Transition: der Facade-Default bleibt "O2" (byte-identisch
+// zu den persistierten Reihen). Der CEB-Default Ofast (OF-2, DefaultOptLevelSubAxis) wird NICHT hier auf
+// der Signatur gezogen — das ist die offene OF-2-KERN-User-Entscheidung (Ofast bricht 1-Thread-
+// Determinismus/IEEE-754 der golden-Mess-Binaries); bis zu ihrer Freigabe ist COMDARE_PILOT_OPT_LEVEL
+// der Smoke-Schalter (analog COMDARE_PILOT_SIMD_POLICY). O3/Ofast leben additiv als +opt=-Sidecar-Reihen.
+[[nodiscard]] std::string_view active_opt_level() {
+    std::string_view level = "O2"; // golden-sicherer Transitions-Default (NICHT Ofast; s. OF-2-KERN)
+    if (char const* e = std::getenv("COMDARE_PILOT_OPT_LEVEL"); e != nullptr && *e != '\0') level = e;
+    return level;
+}
+
+[[nodiscard]] std::string perm_opt_level_cflags() {
+    namespace cm                 = ::comdare::cache_engine::measurement;
+    std::string_view const level = active_opt_level();
+    bool const             clang = cxx_compiler().find("clang") != std::string::npos;
+    auto pick = [&](std::string_view gcc, std::string_view cl) { return std::string{clang ? cl : gcc}; };
+    if (level == cm::OptO0SubAxis::opt_level_id())
+        return pick(cm::OptO0SubAxis::gcc_opt_flag(), cm::OptO0SubAxis::clang_opt_flag());
+    if (level == cm::OptO1SubAxis::opt_level_id())
+        return pick(cm::OptO1SubAxis::gcc_opt_flag(), cm::OptO1SubAxis::clang_opt_flag());
+    if (level == cm::OptO2SubAxis::opt_level_id())
+        return pick(cm::OptO2SubAxis::gcc_opt_flag(), cm::OptO2SubAxis::clang_opt_flag());
+    if (level == cm::OptO3SubAxis::opt_level_id())
+        return pick(cm::OptO3SubAxis::gcc_opt_flag(), cm::OptO3SubAxis::clang_opt_flag());
+    if (level == cm::OptOfastSubAxis::opt_level_id())
+        return pick(cm::OptOfastSubAxis::gcc_opt_flag(), cm::OptOfastSubAxis::clang_opt_flag());
+    // Fehlerklasse (INC-29.0, HardwareErweiterungFehlt-Nachbar KonfigXmlParse): unbekannter Smoke-Wert
+    // -> sichtbar degradiert, NIE leer (kein Compiler-Default /Od), NIE harter exit. Formale D1-Log-
+    // Klassifikation folgt INC-29.2.
+    std::cerr << "[profile_facade] COMDARE_PILOT_OPT_LEVEL='" << level
+              << "' unbekannt; nutze O2 (golden-sicherer Default).\n";
+    return std::string{cm::OptO2SubAxis::gcc_opt_flag()};
+}
+
 // H-10 (Bau-INC-1g): die VARIABLEN System-Achsen-Belegungen (Erweiterungshardware-Politik,
-// Compiler) werden in build_version kodiert — eine unter anderer Belegung gebaute DLL bekommt
+// Compiler, opt_level) werden in build_version kodiert — eine unter anderer Belegung gebaute DLL bekommt
 // ein eigenes .version-Sidecar (kein falsches Skip via dll_is_current) und die CSV-Spalte
 // build_version traegt die Provenienz. Konstante Achsen (Scheduling/Last=Default) bleiben
 // weggelassen, bis die CEB-Laufzeit-Permutation sie variabel macht.
 [[nodiscard]] std::string system_axes_version_suffix() {
-    return "+ext=" + std::string{active_simd_policy()} + "+cxx=" + cxx_compiler();
+    std::string suffix = "+ext=" + std::string{active_simd_policy()} + "+cxx=" + cxx_compiler();
+    // opt-c: +opt= NUR bei Abweichung vom golden-Anker O2 -> die O2-Default-.so behaelt ihr bisheriges
+    // .version-Sidecar BYTE-IDENTISCH (kein Rebuild aller Tier-Binaries), O3/Ofast werden distinkt.
+    if (std::string_view const lvl = active_opt_level(); lvl != std::string_view{"O2"}) {
+        suffix += "+opt=";
+        suffix += lvl;
+    }
+    return suffix;
 }
 
 } // namespace
@@ -223,7 +267,8 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.out_csv      = args.out_csv;
     a.src_dir      = args.src_dir;
     a.dll_dir      = args.dll_dir;
-    a.compile = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs());
+    a.compile = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs(),
+                                        perm_opt_level_cflags()); // opt-c: opt_level-Flag (Default O2 = byte-identisch)
     a.n_ops   = args.n_ops;
     a.max_binaries               = args.max_binaries;
     a.build_version              = args.build_version + system_axes_version_suffix();
@@ -399,7 +444,8 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     a.out_csv      = args.out_csv;
     a.src_dir      = args.src_dir;
     a.dll_dir      = args.dll_dir;
-    a.compile = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs());
+    a.compile = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs(),
+                                        perm_opt_level_cflags()); // opt-c: opt_level-Flag (Default O2 = byte-identisch)
     a.n_ops   = args.n_ops;
     a.max_binaries               = args.max_binaries;
     a.build_version              = args.build_version + system_axes_version_suffix();
