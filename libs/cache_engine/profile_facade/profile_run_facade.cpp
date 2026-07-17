@@ -72,6 +72,33 @@ namespace {
     return baked_perm_include_dirs();
 }
 
+[[nodiscard]] std::vector<std::string> baked_perm_link_libs() {
+#ifdef COMDARE_FACADE_PERM_LINK_LIBS
+    return split_on(COMDARE_FACADE_PERM_LINK_LIBS, '|');
+#else
+    return {};
+#endif
+}
+
+[[nodiscard]] std::vector<std::string> perm_link_libs() {
+    if (char const* e = std::getenv("COMDARE_PILOT_LINK_LIBS"); e != nullptr && *e != '\0') {
+        std::vector<std::string> env_libs = split_on(e, ';');
+        std::erase_if(env_libs, [](std::string const& p) { return !std::filesystem::exists(p); });
+        if (!env_libs.empty()) return env_libs;
+        std::cerr << "[profile_facade] COMDARE_PILOT_LINK_LIBS gesetzt, aber keine Datei existiert; "
+                     "nutze gebackene Link-Lib-Liste.\n";
+    }
+    return baked_perm_link_libs();
+}
+
+[[nodiscard]] std::vector<std::string> baked_perm_extra_cflags() {
+#ifdef COMDARE_FACADE_PERM_EXTRA_CFLAGS
+    return split_on(COMDARE_FACADE_PERM_EXTRA_CFLAGS, '|');
+#else
+    return {};
+#endif
+}
+
 [[nodiscard]] std::vector<std::string> perm_mess_defines() {
     std::vector<std::string> d = {"-DCOMDARE_ANATOMY_MODULE_BUILD=1", "-DCOMDARE_MEASUREMENT_ON=1",
                                   "-DCOMDARE_CE_ENABLE_STATISTICS=1", "-DCOMDARE_EXPERIMENT_MODE_ON=1"};
@@ -93,6 +120,9 @@ namespace {
 #ifdef COMDARE_CACHE_LINE_SIZE
     d.emplace_back("-DCOMDARE_CACHE_LINE_SIZE=" + std::to_string(static_cast<long long>(COMDARE_CACHE_LINE_SIZE)));
 #endif
+    // snmalloc ist header-only: seine INTERFACE-Defs + -mcx16 muessen dem g++-Subprozess
+    // explizit mitgegeben werden (gebacken, gleiche Luecke wie bei den Vendor-Archiven).
+    for (auto& f : baked_perm_extra_cflags()) d.push_back(std::move(f));
     return d;
 }
 
@@ -147,12 +177,12 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     }
 
     tlz::RunProfileArgs a;
-    a.profile_path               = args.profile_path;
-    a.out_csv                    = args.out_csv;
-    a.src_dir                    = args.src_dir;
-    a.dll_dir                    = args.dll_dir;
-    a.compile                    = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler());
-    a.n_ops                      = args.n_ops;
+    a.profile_path = args.profile_path;
+    a.out_csv      = args.out_csv;
+    a.src_dir      = args.src_dir;
+    a.dll_dir      = args.dll_dir;
+    a.compile = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs());
+    a.n_ops   = args.n_ops;
     a.max_binaries               = args.max_binaries;
     a.build_version              = args.build_version;
     a.n_repeats                  = args.n_repeats;
@@ -323,12 +353,12 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     // ── (4) Der EINE Compile-Injektionspunkt (identisch run_profile_facade:153) → Delegation an den umbrella-
     //    schweren Lauf-Unterbau run_experiment_profile (experiment_run_entry.hpp). ──
     tlz::RunExperimentArgs a;
-    a.profile_path               = args.profile_path;
-    a.out_csv                    = args.out_csv;
-    a.src_dir                    = args.src_dir;
-    a.dll_dir                    = args.dll_dir;
-    a.compile                    = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler());
-    a.n_ops                      = args.n_ops;
+    a.profile_path = args.profile_path;
+    a.out_csv      = args.out_csv;
+    a.src_dir      = args.src_dir;
+    a.dll_dir      = args.dll_dir;
+    a.compile = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs());
+    a.n_ops   = args.n_ops;
     a.max_binaries               = args.max_binaries;
     a.build_version              = args.build_version;
     a.n_repeats                  = args.n_repeats;
