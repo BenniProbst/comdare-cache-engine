@@ -136,3 +136,41 @@ endforeach()
 list(JOIN _facade_perm_inc_entries ";" _facade_perm_inc_expr)
 target_compile_definitions(comdare_profile_run_facade PRIVATE
     "COMDARE_FACADE_PERM_INCLUDES=\"$<JOIN:$<REMOVE_DUPLICATES:${_facade_perm_inc_expr}>,|>\"")
+
+# Vendor-Allokator-Archive fuer den Out-of-CMake-g++-Perm-Link baken: der Laufzeit-Subprozess
+# (make_gpp_compile_fn) erbt NICHTS vom directory-scope link_libraries() des Top-Level-CMake.
+# Archiv-Pull ist symbolgetrieben (on-demand): nicht referenzierte Archive ziehen keine Member.
+set(_facade_perm_link_libs "")
+if(COMDARE_HAVE_MIMALLOC AND TARGET comdare_vendor_mimalloc)
+    list(APPEND _facade_perm_link_libs "$<TARGET_FILE:comdare_vendor_mimalloc>")
+endif()
+if(COMDARE_HAVE_JEMALLOC AND TARGET comdare_vendor_jemalloc)
+    get_target_property(_facade_je_type comdare_vendor_jemalloc TYPE)
+    if(_facade_je_type STREQUAL "STATIC_LIBRARY")
+        list(APPEND _facade_perm_link_libs "$<TARGET_FILE:comdare_vendor_jemalloc>")
+    endif()
+endif()
+if(_facade_perm_link_libs)
+    list(JOIN _facade_perm_link_libs ";" _facade_perm_link_expr)
+    target_compile_definitions(comdare_profile_run_facade PRIVATE
+        "COMDARE_FACADE_PERM_LINK_LIBS=\"$<JOIN:$<REMOVE_DUPLICATES:${_facade_perm_link_expr}>,|>\"")
+endif()
+
+# snmalloc ist header-only (kein Archiv): seine INTERFACE-Compile-Defs + -mcx16 (ext/CMakeLists.txt:134-146)
+# erreichen den g++-Subprozess ebenso wenig wie die Archive -> als Extra-Compile-Flags baken.
+set(_facade_perm_extra_cflags "")
+if(COMDARE_HAVE_SNMALLOC AND TARGET comdare_vendor_snmalloc)
+    list(APPEND _facade_perm_extra_cflags
+        "-DSNMALLOC_HEADER_ONLY_LIBRARY=1"
+        "-DSNMALLOC_USE_CXX17=0"
+        "-DSNMALLOC_QEMU_WORKAROUND=0"
+        "-DSNMALLOC_USE_WAIT_ON_ADDRESS=0")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64")
+        list(APPEND _facade_perm_extra_cflags "-mcx16")
+    endif()
+endif()
+if(_facade_perm_extra_cflags)
+    list(JOIN _facade_perm_extra_cflags "|" _facade_perm_extra_expr)
+    target_compile_definitions(comdare_profile_run_facade PRIVATE
+        "COMDARE_FACADE_PERM_EXTRA_CFLAGS=\"${_facade_perm_extra_expr}\"")
+endif()

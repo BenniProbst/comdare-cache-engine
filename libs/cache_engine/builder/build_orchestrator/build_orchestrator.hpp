@@ -464,9 +464,10 @@ namespace detail {
 /// Nutzt @rsp und posix_spawnp(argv), also keinen /bin/sh-String; der wait-status wird
 /// auf den tatsaechlichen Prozess-Exitcode dekodiert.
 [[nodiscard]] inline CompileFn make_gpp_compile_fn(std::vector<std::string> include_dirs = {},
-                                                   std::vector<std::string> defines = {}, std::string cxx = "g++-16") {
-    return [include_dirs = std::move(include_dirs), defines = std::move(defines),
-            cxx = std::move(cxx)](BuildJob const& job) -> int {
+                                                   std::vector<std::string> defines = {}, std::string cxx = "g++-16",
+                                                   std::vector<std::string> link_libs = {}) {
+    return [include_dirs = std::move(include_dirs), defines = std::move(defines), cxx = std::move(cxx),
+            link_libs = std::move(link_libs)](BuildJob const& job) -> int {
         std::filesystem::path const rsp = job.output.string() + ".rsp";
         {
             std::ofstream rf{rsp};
@@ -480,6 +481,9 @@ namespace detail {
             for (auto const& d : defines) rf << d << "\n";
             for (auto const& i : include_dirs) rf << "-I\"" << i << "\"\n";
             rf << "\"" << job.source.string() << "\"\n";
+            // Archive MUESSEN nach der Quelle stehen: ld scannt statische Archive left-to-right und
+            // zieht Member nur fuer bereits offene undefined-Referenzen (sonst bleiben mi_* ungeloest).
+            for (auto const& l : link_libs) rf << "\"" << l << "\"\n";
             rf << "-o \"" << job.output.string() << "\"\n";
         }
 
