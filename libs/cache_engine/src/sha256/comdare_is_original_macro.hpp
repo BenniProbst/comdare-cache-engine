@@ -1,4 +1,18 @@
 #pragma once
+// ---------------------------------------------------------------------------
+// DEPRECATED (2026-07-17 F6): COMDARE_IS_ORIGINAL Source-Hash-Macro -- ECHT-TOT.
+// 0 Includer (repo-weiter grep), 0 Macro-Aufrufe. Die einzigen Nennungen von
+// COMDARE_IS_ORIGINAL_FROM_STRING/_FROM_GENERATED/_NOT_APPLICABLE ausserhalb
+// dieser Datei sind Doku-Kommentar-Beispiele im /** */-Block von
+// src/concepts/legacy_original_code_strategy_concept.hpp:87-88.
+// Der LIVE-Pfad der is_original-Validierung laeuft NICHT ueber dieses Macro,
+// sondern build-time ueber apps/is_original_validator
+// (cmake/is_original_codegen.cmake) + den consteval-Kern src/sha256/ctsha.hpp
+// -- ctsha.hpp LEBT (Konsument: apps/is_original_validator/main.cpp) und ist
+// bewusst NICHT deprecated. Ebenfalls LIVE und NICHT betroffen: das Sibling-
+// Concept LegacyOriginalCodePflicht in legacy_original_code_strategy_concept.hpp.
+// NICHT reaktivieren, NICHT loeschen (Doku-nie-loeschen).
+// ---------------------------------------------------------------------------
 // V41.F.6.1.P1 Phase B — COMDARE_IS_ORIGINAL Macro fuer Paper-Original-Code-Validierung
 //
 // @stand V41.F.6.1.P1 Phase B Pilot
