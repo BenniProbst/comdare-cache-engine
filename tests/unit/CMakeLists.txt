@@ -1937,6 +1937,19 @@ target_link_libraries(test_29_container_framework PRIVATE Boost::mp11 comdare::w
 target_compile_definitions(test_29_container_framework PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 
+# Bau-INC-1a (Q1-Ruling): Achsen-Dach-Guard — topics::Axis<Derived>-Dach + CebSystemAxis/SystemAxis-
+# Geschwister-Wurzeln bleiben zustandslos, vtable-frei und familien-getrennt (Blut-Direktive). Additiv,
+# golden/ABI-neutral (reiner static_assert-Test).
+comdare_add_test(test_striktheit_axis_dach_guard
+    SOURCES test_striktheit_axis_dach_guard.cpp)
+target_include_directories(test_striktheit_axis_dach_guard PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common")
+target_compile_definitions(test_striktheit_axis_dach_guard PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+
 # Goal-V3 Striktheit (Metaprogrammierung): prospektiver compile-time-Guard. Beweist POSITIV, dass die 11
 # Referenz-Anatomien nicht-polymorph (keine vtable im Hot-Path) + AnatomyConcept-erfuellt sind, und dass die
 # ABI-Grenze (IAnatomyBase/IDriveableTier/IMeasurableWorkload) bewusst polymorph bleibt -- faengt jede
