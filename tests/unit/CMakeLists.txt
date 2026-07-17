@@ -1965,6 +1965,13 @@ target_include_directories(test_striktheit_axis_dach_guard PRIVATE
 target_compile_definitions(test_striktheit_axis_dach_guard PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
 
+# Fehlerklassifizierungs-Framework INC-29.0 (Task #29): reiner static_assert-Taxonomie-Guard (axis_error.hpp,
+# header-only Enums; kein boost, keine lib). Beweist D1/D2-Taxonomie + Count-Drift-Guards + CSV-Token-Vokabeln.
+comdare_add_test(test_axis_error_taxonomy
+    SOURCES test_axis_error_taxonomy.cpp)
+target_include_directories(test_axis_error_taxonomy PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+
 # Goal-V3 Striktheit (Metaprogrammierung): prospektiver compile-time-Guard. Beweist POSITIV, dass die 11
 # Referenz-Anatomien nicht-polymorph (keine vtable im Hot-Path) + AnatomyConcept-erfuellt sind, und dass die
 # ABI-Grenze (IAnatomyBase/IDriveableTier/IMeasurableWorkload) bewusst polymorph bleibt -- faengt jede
