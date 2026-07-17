@@ -92,6 +92,13 @@ struct RunExperimentResult {
 /// run_experiment_profile — DIE EINE deklarative comdare_experiment-Lauf-API (Brücke-I4). Projiziert die
 /// 3-Phasen-XML auf SOTA-Reihen-Pässe (I3) und fährt sie über den BESTEHENDEN run_profile-Unterbau
 /// (run_lazy_static_then_dynamic) in DIE EINE offizielle CSV. KEINE Parallelstrecke, KEIN eigener Bau-/Mess-Code.
+///
+/// ═══ EXPERIMENT-PLANER-DOCK (INC-2a: BENENNUNG, kein Neubau — Muster Prüf-Dock 2026-05-30) ═══
+/// DIESE Naht ist das Experiment-Planer-Dock der rekursiven Dock-Architektur (§19.C): der EINDIMENSIONALE
+/// Vertrag Planer→CEB — der Experiment-Planer steuert hier die Einstellungen (XML→RunExperimentArgs→
+/// System-Achsen-Belegung) der von ihm kompilierten CEB; es gibt an diesem Dock KEINEN Rückkanal (die CEB
+/// schreibt Aufgaben+Messwerte SELBST ans XML-Ziel, §11-G). Das bidirektionale Gegenstück ist das
+/// Prüf-Dock (CEB↔Tier, builder/pruef_dock/). DER ANATOMY-MAJOR-4→5-BUMP REITET AN DIESER NAHT (INC-2b).
 [[nodiscard]] inline RunExperimentResult run_experiment_profile(RunExperimentArgs const& a) {
     RunExperimentResult res;
 

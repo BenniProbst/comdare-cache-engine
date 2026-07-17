@@ -33,8 +33,9 @@
 #include "result_ingest.hpp"           // ingest_result_line
 #include "../build_orchestrator/build_orchestrator.hpp"       // BuildOrchestrator / BuildConfig / *Fn
 #include "../anatomy_module_loader/anatomy_module_loader.hpp" // AnatomyModuleLoader / AnatomyModuleHandle
-#include "../../anatomy/observable_tier.hpp"                  // IObservableTier
-#include "../../anatomy/measurable_workload.hpp" // (X): IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
+#include "../pruef_dock/search_algorithm_dock.hpp" // INC-2a (Q4): acquire_search_algorithm_drive (Dock-Vertrag)
+#include "../../anatomy/observable_tier.hpp"       // IObservableTier
+#include "../../anatomy/measurable_workload.hpp"   // (X): IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
 #include "../../anatomy/resource_controllable_tier.hpp" // IResourceControllableTier
 
 #include <algorithm> // #165-B: std::nth_element (Gruppen-Median im quality_flag)
@@ -747,17 +748,18 @@ struct LazyRunResult {
             continue;
         }
 
-        anatomy::IAnatomyBase* base = handle.anatomy();
-        auto*                  obs  = (base != nullptr) ? dynamic_cast<anatomy::IObservableTier*>(base) : nullptr;
-        auto* ctrl = (base != nullptr) ? dynamic_cast<anatomy::IResourceControllableTier*>(base) : nullptr;
-        // Achse 2 (INC-3): Sub-Interfaces für den Interpreter — IRollbackableTier (Zwei-Phasen-Cache-Warmup,
-        // PFLICHT für Mess-Gültigkeit) + IScannableTier (YCSB-E Range-Scan). Alte DLLs → nullptr (Skip/Fallback).
-        auto* rbk = (base != nullptr) ? dynamic_cast<anatomy::IRollbackableTier*>(base) : nullptr;
-        auto* scn = (base != nullptr) ? dynamic_cast<anatomy::IScannableTier*>(base) : nullptr;
-        if (obs == nullptr) {
+        // INC-2a (Q4, Prüf-Dock als EINZIGER Träger): die Antriebs-Beschaffung läuft über den Dock-Vertrag
+        // (acquire_search_algorithm_drive) statt roher dynamic_casts — semantisch identisch (obs=Pflicht,
+        // ctrl/rbk/scn optional für Settings/Zwei-Phasen/YCSB-E; alte DLLs → nullptr-Fallback).
+        pruef_dock::SearchAlgorithmDrive drive;
+        if (pruef_dock::acquire_search_algorithm_drive(handle, drive) != pruef_dock::dock_status_ok) {
             ++result.load_failed;
             continue;
-        } // keine Mess-Ebene (kein COMDARE_MEASUREMENT_ON-Build)
+        } // keine Mess-Ebene (kein COMDARE_MEASUREMENT_ON-Build) oder kein IAnatomyBase
+        auto* obs  = drive.obs;
+        auto* ctrl = drive.ctrl;
+        auto* rbk  = drive.rbk;
+        auto* scn  = drive.scn;
         ++result.loaded;
 
         std::string const binary_id = b.binary_id;
