@@ -1,4 +1,10 @@
 #pragma once
+// ---------------------------------------------------------------------------
+// TEST-ONLY (Marker 2026-07-17 F6): Teil des REV7-Baustein-Clusters. Einziger
+// Includer ist resolve_baustein.hpp (siehe dort); der Cluster wird nur von
+// tests/unit/test_abi_interface.cpp konsumiert. KEIN Lib-/App-Konsument
+// (repo-weiter grep verifiziert). Rein additiver Marker; NICHT loeschen.
+// ---------------------------------------------------------------------------
 // baustein_variants.hpp — Konkrete std::variant Konkretisierungen pro 11 Achsen (REV 7.6 V9.2)
 //
 // Operationalisierung des Concept-Patterns aus algorithm_baustein.hpp.

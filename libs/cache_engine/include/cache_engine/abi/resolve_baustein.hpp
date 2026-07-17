@@ -1,4 +1,15 @@
 #pragma once
+// ---------------------------------------------------------------------------
+// TEST-ONLY (Marker 2026-07-17 F6): REV7-Baustein-Cluster
+// (resolve_baustein.hpp -> baustein_variants.hpp -> algorithm_baustein.hpp).
+// Konsumiert AUSSCHLIESSLICH von tests/unit/test_abi_interface.cpp (via
+// #include + comdare::has_member_baustein) sowie clusterintern; KEIN Lib-/App-
+// Konsument (repo-weiter grep verifiziert, auch symbol-level: resolve_baustein_t
+// / eleven_axes_permutation / algorithm_axis / baustein:: nirgends sonst).
+// NICHT test-only ist dagegen der ABI-Kern module_abi_v1.hpp (mehrere reale
+// Lib-Konsumenten, u.a. experiment_demo/result_aggregator/workload_generator)
+// -- NICHT anfassen. Rein additiver Marker; NICHT loeschen, Struktur unveraendert.
+// ---------------------------------------------------------------------------
 // resolve_baustein - Compile-time-Fallback fuer PRT-ART → CacheEngine (REV 7 §6.2 / V10.2)
 //
 // PRT-ART deklariert seine Bausteine in configuration_permutation_type.

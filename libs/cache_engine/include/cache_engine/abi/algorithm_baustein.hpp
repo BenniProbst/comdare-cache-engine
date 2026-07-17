@@ -1,4 +1,10 @@
 #pragma once
+// ---------------------------------------------------------------------------
+// TEST-ONLY (Marker 2026-07-17 F6): Teil des REV7-Baustein-Clusters. Einziger
+// Includer ist baustein_variants.hpp (siehe dort); der Cluster wird nur von
+// tests/unit/test_abi_interface.cpp konsumiert. KEIN Lib-/App-Konsument
+// (repo-weiter grep verifiziert). Rein additiver Marker; NICHT loeschen.
+// ---------------------------------------------------------------------------
 // algorithm_baustein.hpp — Compile-time std::variant Pattern (REV 7.6 V8.8)
 //
 // User-Direktive 2026-05-13/14 (STRUCTURAL_CORRECTION_diplomarbeit.md §2.3):
