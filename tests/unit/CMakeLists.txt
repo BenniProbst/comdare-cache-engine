@@ -3298,13 +3298,13 @@ comdare_add_simd_dispatch_test("" "" TRUE)
 # AVX2-Variante: bauen, wenn der Compiler -mavx2 kennt; ausfuehren nur bei Host-AVX2.
 check_cxx_compiler_flag("-mavx2" COMDARE_CXX_HAS_MAVX2)
 if(COMDARE_CXX_HAS_MAVX2)
-    comdare_add_simd_dispatch_test("_avx2" "-mavx2" ${COMDARE_HOST_RUNS_AVX2})
+    comdare_add_simd_dispatch_test("_avx2" "-mavx2" "${COMDARE_HOST_RUNS_AVX2}")
 endif()
 
 # AVX-512F-Variante: bauen, wenn der Compiler -mavx512f kennt; ausfuehren nur bei Host-AVX-512F.
 check_cxx_compiler_flag("-mavx512f" COMDARE_CXX_HAS_MAVX512F)
 if(COMDARE_CXX_HAS_MAVX512F)
-    comdare_add_simd_dispatch_test("_avx512" "-mavx512f" ${COMDARE_HOST_RUNS_AVX512F})
+    comdare_add_simd_dispatch_test("_avx512" "-mavx512f" "${COMDARE_HOST_RUNS_AVX512F}")
 endif()
 
 # M-CE-16 (G3 Batch-2): Regressionstest für comdare::simd::avx2::add_u64 (Carry-Verlust + UB-Tail-Read).
@@ -3329,10 +3329,10 @@ endfunction()
 # Baseline (Plattform-Default) — immer bauen UND ausfuehren.
 comdare_add_simd_add_u64_test("" "" TRUE)
 if(COMDARE_CXX_HAS_MAVX2)
-    comdare_add_simd_add_u64_test("_avx2" "-mavx2" ${COMDARE_HOST_RUNS_AVX2})
+    comdare_add_simd_add_u64_test("_avx2" "-mavx2" "${COMDARE_HOST_RUNS_AVX2}")
 endif()
 if(COMDARE_CXX_HAS_MAVX512F)
-    comdare_add_simd_add_u64_test("_avx512" "-mavx512f" ${COMDARE_HOST_RUNS_AVX512F})
+    comdare_add_simd_add_u64_test("_avx512" "-mavx512f" "${COMDARE_HOST_RUNS_AVX512F}")
 endif()
 
 # thesis_tiere ADHOC-Treiber: baubar per explizitem Target, aber absichtlich
