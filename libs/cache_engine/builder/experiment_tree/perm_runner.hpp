@@ -22,7 +22,8 @@
 #include "../../anatomy/observable_tier.hpp" // IObservableTier + ComdareTierObserverSnapshot (I1: EINE Schnittstelle/EIN POD)
 #include "../../anatomy/measurable_workload.hpp" // Pfad A: IMeasurableWorkloadV3 + ComdareSegmentLatencyV2 (19 Segmente)
 #include "../../anatomy/rollbackable_tier.hpp" // Achse 2 (INC-1): IRollbackableTier (Zwei-Phasen-Cache-Warmup, PFLICHT für Gültigkeit)
-#include "../../anatomy/scannable_tier.hpp" // Achse 2 (INC-1): IScannableTier (YCSB-E Range-Scan)
+#include "../../anatomy/scannable_tier.hpp"        // Achse 2 (INC-1): IScannableTier (YCSB-E Range-Scan)
+#include <cache_engine/measurement/axis_error.hpp> // INC-29.1 (D2): SampleStatus (Failed -> CSV "failed", nie Null)
 // Achse 2 (INC-1): run_workload_profile-Op-Skript-Runner (generischer CS-Interpreter über den flachen Op-Vektor — KEIN GoF-Interpreter mit Grammatik/AST) + WorkloadGenerator.
 #include "../workload_driver/workload_orchestrator.hpp" // Achse 2 (INC-1): run_workload_profile-Interpreter + WorkloadGenerator
 #include "../workload_driver/workload_profiles.hpp"   // Achse 2 (INC-1): Single-Source profile_by_name (Fallback)
@@ -118,6 +119,11 @@ struct PermResult {
     std::string profile_name{};          // Lastprofil-Name (z.B. "YCSB_C_read_only"); leer = alter fixer Workload
     bool        two_phase_valid = false; // Zwei-Phasen-Cache-Warmup aktiv+empirisch-exakt → Messung GÜLTIG
                                          // (false = ungültig: KEINE stille Kalt-Messung als gültiges Ergebnis)
+    // INC-29.1 (D2): Mess-Status DIESER Zelle. Default Ok = gültige Messung (Zahlen). Failed = Algo-/Gate-/OOM-
+    // Fehler -> CSV-Zelle "failed" (NICHT Null) + Log, Harness misst weiter ("Messung nie als Nullen"). Reist
+    // host-seitig (wie two_phase_valid/conformance_passed), NICHT im 175-Feld-Wire-Format -> Round-Trip/golden unverändert.
+    ::comdare::cache_engine::measurement::SampleStatus sample_status =
+        ::comdare::cache_engine::measurement::SampleStatus::Ok;
     // (Audit K9 / V5-I4) Konformitäts-Gate-Ergebnis (import→GATE→messen): die Hülle wurde VOR der Messung gegen
     // std::map<uint64,uint64> als Oracle getrieben. conformance_passed=false ⇒ NICHT std::map-konform → es gibt
     // KEINE gültige Performance-Zeile (gated≠gültig; der Mess-Block wird übersprungen, Zeile = genullte Matrix).
@@ -147,7 +153,9 @@ inline void apply_conformance_gate_(anatomy::IDriveableTier& tier, PermResult& r
 [[nodiscard]] inline PermResult gate_failed_result_(PermResult r, std::string const& binary_id) {
     r.two_phase_valid = false;
     r.unified_real    = false;
-    r.line            = format_perm_result(binary_id, r.unified); // genullter POD → ehrlich „nicht gemessen"
+    // INC-29.1 (D2): Konformitäts-Gate-Fehlschlag = Algo-Korrektheitsfehler -> "failed"-Zelle (nicht Null).
+    r.sample_status = ::comdare::cache_engine::measurement::SampleStatus::Failed;
+    r.line          = format_perm_result(binary_id, r.unified); // genullter POD → CSV rendert "failed" (nicht 0)
     return r;
 }
 
@@ -314,7 +322,9 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
         r.op_lat          = std::array<OpKindLatency, 6>{};
         r.total_ns        = 0;
         r.timed_ops       = 0;
-        r.line            = format_perm_result(binary_id, r.unified); // genullter POD → ehrlich „nicht gemessen"
+        // INC-29.1 (D2): Mess-Fehler (OOM/Exception) -> "failed"-Zelle (nicht Null) + Log, Harness misst weiter.
+        r.sample_status = ::comdare::cache_engine::measurement::SampleStatus::Failed;
+        r.line          = format_perm_result(binary_id, r.unified); // genullter POD → CSV rendert "failed" (nicht 0)
     }
     return r;
 }

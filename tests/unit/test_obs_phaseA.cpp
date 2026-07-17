@@ -132,6 +132,23 @@ int main() {
     check_one<comp::HotComposition>("Hot", hot, /*expected_filled=*/9u);
     check_one<comp::MasstreeComposition>("Masstree", mass, /*expected_filled=*/8u);
 
+    // INC-29.1 (D2): eine SampleStatus::Failed-Zelle traegt "failed" (NIE 0/still), Ok rendert die op_lat-Zahlen
+    // byte-identisch ("Messung nie als Nullen"). Guard gegen eine stille Rueckkehr zu genullten Fehlschlag-Zeilen.
+    {
+        namespace cem = ::comdare::cache_engine::measurement;
+        ex::LazyMeasuredRow d2;
+        d2.binary_id                 = "d2_probe";
+        d2.op_lat[0]                 = ex::OpKindLatency{42, 100, 200}; // insert: n=42, p50=100, p99=200
+        d2.sample_status             = cem::SampleStatus::Ok;
+        std::string const csv_ok     = ex::format_csv_row(d2);
+        d2.sample_status             = cem::SampleStatus::Failed;
+        std::string const csv_failed = ex::format_csv_row(d2);
+        tr("D2: Ok-Zelle rendert op_lat-Zahlen (42;100;200)", csv_ok.find("42;100;200") != std::string::npos);
+        tr("D2: Ok-Zelle traegt kein 'failed'", csv_ok.find("failed") == std::string::npos);
+        tr("D2: Failed-Zelle traegt 'failed' (nie 0)", csv_failed.find("failed;failed;failed") != std::string::npos);
+        tr("D2: Failed-Zelle rendert NICHT die Zahlen", csv_failed.find("42;100;200") == std::string::npos);
+    }
+
     std::cout << "==== Phase A Per-Achsen-Observer-V3: "
               << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER")) << " ====\n";
     return g_fail == 0 ? 0 : 1;
