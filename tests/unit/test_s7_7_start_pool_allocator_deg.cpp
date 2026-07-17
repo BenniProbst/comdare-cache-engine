@@ -144,7 +144,7 @@ TEST(S77StartPoolAllocatorDeg, NeutralityGuardsStayIntact) {
     static_assert(std::is_trivially_copyable_v<b::ComdareMeasurementSnapshotV1>);
     static_assert(std::is_trivially_copyable_v<an::ComdareTierObserverSnapshot>);
 
-    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 4);
+    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 5);
     EXPECT_EQ(sizeof(an::ComdareTierObserverSnapshot), 1416u);
     EXPECT_EQ(an::kTierObserverSnapshotVersionUnified, 5u);
 
