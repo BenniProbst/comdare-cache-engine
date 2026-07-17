@@ -33,6 +33,7 @@
 
 #include <array> // GOAL-L1: kOpKindNames + PermResult::op_lat (per-Interface-Funktions-Latenzen)
 #include <chrono>
+#include <iostream> // INC-29.1b (D2 "+Log"): klassifizierte Fehler-Deklaration neben der "failed"-CSV-Zelle
 #include <cstdint>
 #include <map>
 #include <string>
@@ -156,6 +157,10 @@ inline void apply_conformance_gate_(anatomy::IDriveableTier& tier, PermResult& r
     // INC-29.1 (D2): Konformitäts-Gate-Fehlschlag = Algo-Korrektheitsfehler -> "failed"-Zelle (nicht Null).
     r.sample_status = ::comdare::cache_engine::measurement::SampleStatus::Failed;
     r.line          = format_perm_result(binary_id, r.unified); // genullter POD → CSV rendert "failed" (nicht 0)
+    // INC-29.1b (D2 "+Log"): die klassifizierte Deklaration neben der "failed"-Zelle (Harness misst weiter).
+    std::cerr << "[perm_runner][Fehlerklasse "
+              << ::comdare::cache_engine::measurement::sample_status_token(r.sample_status) << "] binary_id='"
+              << binary_id << "': Konformitaets-Gate NICHT bestanden (nicht std::map-konform) -> CSV-Zelle 'failed'.\n";
     return r;
 }
 
@@ -325,6 +330,10 @@ namespace acd = ::comdare::cache_engine::builder::anatomy_commands::detail;
         // INC-29.1 (D2): Mess-Fehler (OOM/Exception) -> "failed"-Zelle (nicht Null) + Log, Harness misst weiter.
         r.sample_status = ::comdare::cache_engine::measurement::SampleStatus::Failed;
         r.line          = format_perm_result(binary_id, r.unified); // genullter POD → CSV rendert "failed" (nicht 0)
+        // INC-29.1b (D2 "+Log"): klassifizierte Deklaration neben der "failed"-Zelle.
+        std::cerr << "[perm_runner][Fehlerklasse "
+                  << ::comdare::cache_engine::measurement::sample_status_token(r.sample_status) << "] binary_id='"
+                  << binary_id << "': Mess-Fehler (OOM/Exception) -> CSV-Zelle 'failed'.\n";
     }
     return r;
 }
