@@ -13,6 +13,7 @@
 #include <cache_engine/measurement/ceb_system_axis.hpp>
 #include <cache_engine/measurement/extension_hardware_system_axis.hpp>
 #include <cache_engine/measurement/hardware_isa_system_axis.hpp>
+#include <cache_engine/measurement/load_framework_system_axis.hpp>
 #include <cache_engine/measurement/scheduling_system_axis.hpp>
 #include <cache_engine/measurement/system_axis.hpp>
 
@@ -84,6 +85,19 @@ static_assert(cem::Avx2ExtensionHardwareAxis::gcc_march_flag() == std::string_vi
 // Default = generisch: KEINE Flags (Ist-Verhalten der Mess-DLLs bleibt byte-identisch).
 static_assert(cem::GenericExtensionHardwareAxis::gcc_march_flag().empty());
 static_assert(cem::GenericExtensionHardwareAxis::clang_march_flag().empty());
+
+// ── Block G (INC-1e): die Mess-Telemetrie-Schicht ist vollstaendig unterm Dach verankert ──────────────────
+static_assert(cet::AxisConcept<cem::ObserverSnapshotSystemAxis>);
+static_assert(cet::AxisConcept<cem::PmcSystemAxis>);
+static_assert(cem::ObserverSnapshotSystemAxis::axis_kind() == cet::AxisKind::system_measurement);
+static_assert(cem::PmcSystemAxis::axis_kind() == cet::AxisKind::system_measurement);
+
+// ── Block H (INC-1f): Last-Framework-Achse (H-9) + Single-Source des Unter-Achsen-Labels ──────────────────
+static_assert(cem::LoadFrameworkSystemAxisConcept<cem::YcsbLoadFrameworkAxis>);
+static_assert(cem::YcsbLoadFrameworkAxis::axis_label() == std::string_view{"load_framework"});
+static_assert(cem::YcsbLoadFrameworkAxis::framework_id() == std::string_view{"ycsb"});
+// Die Zwei-Phasen-Konvention "workload.workload_id=..." haengt an diesem String — Drift bricht hier.
+static_assert(cem::YcsbLoadFrameworkAxis::sub_axis_label() == std::string_view{"workload"});
 
 TEST(StriktheitAxisDachGuard, DiskriminatorenSindDisjunkt) {
     EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ), static_cast<unsigned>(cet::AxisKind::system_measurement));
