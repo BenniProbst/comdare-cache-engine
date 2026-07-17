@@ -14,9 +14,11 @@
 // @doku docs/architecture/24_messmodell_korrektur_zwei_dimensionen.md §8.8
 
 #include "pruef_dock.hpp"
-#include "conformance_gate.hpp"          // V5-I4: std::map-Konformitäts-Gate vor der Messung
-#include <anatomy/observable_tier.hpp>   // IObservableTier (SearchAlgorithm-Gattungs-Antrieb)
-#include <anatomy/rollbackable_tier.hpp> // V5-I6/I7: IRollbackableTier (memento_all) für Zwei-Phasen-Messung
+#include "conformance_gate.hpp"                   // V5-I4: std::map-Konformitäts-Gate vor der Messung
+#include <anatomy/observable_tier.hpp>            // IObservableTier (SearchAlgorithm-Gattungs-Antrieb)
+#include <anatomy/resource_controllable_tier.hpp> // INC-2a: IResourceControllableTier (Prüf-Dock-Settings)
+#include <anatomy/rollbackable_tier.hpp>          // V5-I6/I7: IRollbackableTier (memento_all) für Zwei-Phasen-Messung
+#include <anatomy/scannable_tier.hpp>             // INC-2a: IScannableTier (YCSB-E Range-Scan)
 
 namespace comdare::cache_engine::builder::pruef_dock {
 
@@ -57,5 +59,30 @@ public:
         return dock_status_ok;
     }
 };
+
+/// INC-2a (Q4, Prüf-Dock scharf): das dock-vertragliche Antriebs-Bündel der SearchAlgorithm-Gattung.
+/// obs = Mess-Antrieb (Pflicht fuer Messung), ctrl/rbk/scn = optionale Sub-Antriebe (alte DLLs → nullptr).
+struct SearchAlgorithmDrive {
+    anatomy::IObservableTier*           obs  = nullptr;
+    anatomy::IResourceControllableTier* ctrl = nullptr;
+    anatomy::IRollbackableTier*         rbk  = nullptr;
+    anatomy::IScannableTier*            scn  = nullptr;
+};
+
+/// INC-2a (Q4): die EINE dock-vertragliche Antriebs-Beschaffung — ersetzt die rohen dynamic_cast-
+/// Bypaesse des Lazy-Iterators (cache_engine_builder_iterator). Semantik BEWUSST identisch zum
+/// bisherigen Iterator-Verhalten (kein Gattungs-Reject hier — der scharfe Gattungs-Match kommt mit
+/// den Multi-Gattungs-Docks in INC-2d/2e ueber accepts()): base fehlt → no_anatomy; Mess-Antrieb
+/// fehlt → subinterface_missing; sonst ok mit vollem Buendel.
+[[nodiscard]] inline int acquire_search_algorithm_drive(anatomy_loader::AnatomyModuleHandle& h,
+                                                        SearchAlgorithmDrive&                out) noexcept {
+    anatomy::IAnatomyBase* base = h.anatomy();
+    if (base == nullptr) return dock_status_no_anatomy;
+    out.obs  = dynamic_cast<anatomy::IObservableTier*>(base);
+    out.ctrl = dynamic_cast<anatomy::IResourceControllableTier*>(base);
+    out.rbk  = dynamic_cast<anatomy::IRollbackableTier*>(base);
+    out.scn  = dynamic_cast<anatomy::IScannableTier*>(base);
+    return (out.obs == nullptr) ? dock_status_subinterface_missing : dock_status_ok;
+}
 
 } // namespace comdare::cache_engine::builder::pruef_dock
