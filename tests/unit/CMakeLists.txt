@@ -1333,6 +1333,11 @@ target_include_directories(test_v41_scan_range_organ PRIVATE
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
     # Hermetik (CI-2): measurement/measurable_concept.hpp liegt unter libs/cache_engine/src
     "${PROJECT_SOURCE_DIR}/libs/cache_engine/src")
+# Hermetik (CI-3): scan_range zieht transitiv legacy_original_code_strategy_concept.hpp (boost::mp11).
+# Die vendored boost/mp11.hpp ist ein 23-Zeilen-Fassade-Redirect; nur die Boost::mp11-INTERFACE
+# traegt den korrekten vendored Include-Pfad. Ohne Link maskiert lokal ein transitiver Pfad den
+# Fehler, in der hermetischen CI schlaegt der Compile fehl ("'boost' has not been declared").
+target_link_libraries(test_v41_scan_range_organ PRIVATE Boost::mp11)
 
 # V5-I6-SUBSTANZ (#44) — echte produktive MementoAxis auf den Such-Organen (ComposedSearch + Observable-Wrapper).
 comdare_add_test(test_v5_organ_memento
