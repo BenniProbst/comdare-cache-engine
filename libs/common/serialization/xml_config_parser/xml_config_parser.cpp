@@ -418,16 +418,17 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
     }
     if (auto const* ot = root->child("op_types")) ep.op_types = ot->text_tokens();
     // <system_axes> (opt-f/A3): CEB-System-Achsen, konform Haupt→Unter→Option (V35 §2.1). compiler (Haupt) →
-    // opt_level (Unter-Achse, EIN Container) → <option>; extension_hardware (Haupt) → <option> direkt (keine
-    // simd-Unter-Achse, Code-Wahrheit). Rohstrings; binary_id-neutral (Provenienz build_version/Sidecar).
+    // opt_level (Unter-Achse, EIN Container) → <option>; extension_hardware (Haupt) → simd (Unter-Achse, EIN
+    // Container) → <option> (symmetrisch zu opt_level, F-SIMD). Rohstrings; binary_id-neutral (Provenienz).
     if (auto const* sa = root->child("system_axes")) {
         if (auto const* comp = sa->child("compiler")) {
             if (auto const* ol = comp->child("opt_level"))
                 for (auto const* o : ol->children_named("option")) ep.compiler.opt_levels.push_back(o->attr("value"));
         }
         if (auto const* xh = sa->child("extension_hardware")) {
-            for (auto const* o : xh->children_named("option"))
-                ep.extension_hardware.options.push_back(o->attr("value"));
+            if (auto const* simd = xh->child("simd"))
+                for (auto const* o : simd->children_named("option"))
+                    ep.extension_hardware.options.push_back(o->attr("value"));
         }
     }
     if (auto const* out = root->child("output")) {

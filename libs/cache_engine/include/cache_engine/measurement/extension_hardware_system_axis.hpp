@@ -1,6 +1,14 @@
 // measurement/extension_hardware_system_axis.hpp -- Erweiterungshardware als 6. CEB-Konfig-
 // System-Achse (Bau-INC-1d, Q2-Ruling Option C, 2026-07-17).
 //
+// DEPRECATED (F-SIMD, 2026-07-18): abgeloest durch measurement/simd_sub_axis.hpp. Dieses FLACHE Modell trug die
+// simd-Auspraegungen (no_extension/avx2/avx512) DIREKT an der extension_hardware-Haupt-Achse (asymmetrisch zu
+// compiler->opt_level->option). Die konforme Struktur ist jetzt extension_hardware (Haupt) -> simd (SimdSubAxis,
+// Unter-Achse) -> Optionen (SimdNoExt/Avx2/Avx512Option), spiegelbildlich zu OptimizationLevelSubAxis. KEINE
+// aktiven Consumer mehr (Parser/opt-g-Facade/Validate nutzen SimdSubAxis); NUR test_striktheit_axis_dach_guard
+// Block F haelt die Typen als Kontrast kompilierbar. NICHT LOESCHEN (Doku-nie-loeschen + Aufraeumen-unter-
+// Absprache) -- endgueltige Entfernung ist user-gated.
+//
 // User-Ruling verbatim-treu: die CEB bekommt die Einstellungen vom Experiment-Planer, permutiert
 // die simd_extension-Auspraegungen aber SELBST zu ihrer Laufzeit durch und stattet Tier-Binaries
 // zur compile time mit diesen Eigenschaften aus (Erweiterungshardware = SIMD, spaeter GPU).

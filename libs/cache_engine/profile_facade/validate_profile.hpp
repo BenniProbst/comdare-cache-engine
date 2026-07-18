@@ -549,7 +549,7 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
         }
     }
 
-    // ── (10) opt-f/A3: <system_axes> HART gegen die OptO*SubAxis-ids / simd_extension_ids. LEER ist zulaessig
+    // ── (10) opt-f/A3: <system_axes> HART gegen die OptO*Option-ids / SimdSubAxis::simd_id()s. LEER ist zulaessig
     //    (CEB-Default O3 / no_extension; XSD minOccurs=0). opt_level/simd sind system_config → binary_id-NEUTRAL
     //    (Provenienz build_version/H-10-Sidecar); hier nur die Enum-Wohlgeformtheit. Die Aufloesung id→Flag
     //    (-O<n> / -march) macht die opt-g-Facade (make_gpp_compile_fn-Kanal), die ISA-Gegatung ebenso.
@@ -566,14 +566,14 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
         }
     }
     static constexpr std::string_view kValidSimd[] = {"no_extension", "avx2", "avx512"};
-    for (auto const& s : ep.extension_hardware.options) { // simd-Optionen der extension_hardware-Haupt-Achse (direkt)
+    for (auto const& s : ep.extension_hardware.options) { // Optionen der simd-Unter-Achse (extension_hardware → simd)
         ++r.simd_checked;
         bool const known = std::find(std::begin(kValidSimd), std::end(kValidSimd), s) != std::end(kValidSimd);
         if (!known) {
             r.ok = false;
             r.errors.push_back("UNGUELTIGE <simd value=\"" + s +
                                "\">: kein Wert der XSD-Enumeration no_extension/avx2/avx512 "
-                               "(extension_hardware_system_axis.hpp).");
+                               "(simd_sub_axis.hpp).");
         }
     }
 

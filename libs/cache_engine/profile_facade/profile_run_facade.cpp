@@ -9,8 +9,8 @@
 
 #include "xml_config_parser/xml_config_parser.hpp" // Bruecke-I2: XmlConfigParser / ExperimentProfile
 
-#include <cache_engine/measurement/compiler_system_axis.hpp>           // INC-1h: Compiler-System-Achse (gcc|clang)
-#include <cache_engine/measurement/extension_hardware_system_axis.hpp> // INC-1d: Erweiterungshardware-Achse (Flag-Quelle)
+#include <cache_engine/measurement/compiler_system_axis.hpp> // INC-1h: Compiler-System-Achse (gcc|clang)
+#include <cache_engine/measurement/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=extension_hardware
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // INC-2c.opt-c: opt_level-Unter-Achse (Flag-Quelle)
 
 #include <builder/build_orchestrator/build_orchestrator.hpp>
@@ -103,13 +103,13 @@ namespace {
 #endif
 }
 
-// Erweiterungshardware-System-Achse (Bau-INC-1d, Q2-Option-C): die -march-Flag-QUELLE ist die
-// Achse (compile-time-Reflexion), der ORT ist diese CompileFn-Flag-Kette. Default = Generic
-// (keine Flags, Ist-Verhalten byte-identisch); die CEB-Laufzeit-Permutation aller Auspraegungen
+// simd-Unter-Achse der extension_hardware-Haupt-Achse (F-SIMD, Q2-Option-C): die -march-Flag-QUELLE ist die
+// SimdSubAxis-Option (compile-time-Reflexion), der ORT ist diese CompileFn-Flag-Kette. Default = no_extension
+// (SimdNoExtOption, keine Flags, Ist-Verhalten byte-identisch); die CEB-Laufzeit-Permutation aller Auspraegungen
 // kommt mit dem Planer-Strang, bis dahin ist COMDARE_PILOT_SIMD_POLICY der Smoke-Schalter.
 [[nodiscard]] std::string_view active_simd_policy() {
     namespace cm            = ::comdare::cache_engine::measurement;
-    std::string_view policy = cm::GenericExtensionHardwareAxis::simd_extension_id();
+    std::string_view policy = cm::SimdNoExtOption::simd_id();
     if (char const* e = std::getenv("COMDARE_PILOT_SIMD_POLICY"); e != nullptr && *e != '\0') policy = e;
     return policy;
 }
@@ -118,11 +118,11 @@ namespace {
     namespace cm                  = ::comdare::cache_engine::measurement;
     std::string_view const policy = active_simd_policy();
     std::string_view       flag;
-    if (policy == cm::Avx2ExtensionHardwareAxis::simd_extension_id()) {
-        flag = cm::Avx2ExtensionHardwareAxis::gcc_march_flag();
-    } else if (policy == cm::Avx512ExtensionHardwareAxis::simd_extension_id()) {
-        flag = cm::Avx512ExtensionHardwareAxis::gcc_march_flag();
-    } else if (policy != cm::GenericExtensionHardwareAxis::simd_extension_id()) {
+    if (policy == cm::SimdAvx2Option::simd_id()) {
+        flag = cm::SimdAvx2Option::gcc_march_flag();
+    } else if (policy == cm::SimdAvx512Option::simd_id()) {
+        flag = cm::SimdAvx512Option::gcc_march_flag();
+    } else if (policy != cm::SimdNoExtOption::simd_id()) {
         std::cerr << "[profile_facade] COMDARE_PILOT_SIMD_POLICY='" << policy
                   << "' unbekannt; nutze no_extension (generisch).\n";
     }
