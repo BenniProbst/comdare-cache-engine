@@ -23,10 +23,12 @@
 // OD-5 (User-Weiche, Empfehlung befolgt): 4+4-Granularitaet; GPU/FPGA wird additiv INNERHALB
 // HardwareErweiterungFehlt nachgeruestet (kein Enum-Bruch), sobald die Nicht-CPU-Detektions-Naht steht.
 
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
 #include <type_traits>
+#include <variant>
 
 namespace comdare::cache_engine::measurement {
 
@@ -79,6 +81,85 @@ inline constexpr std::size_t kSampleStatusCount = 4;
     return "failed";
 }
 
+// ── INC-29.2: Infra-Fehlerklassen (Prozess-/IO-Ebene) — DISJUNKT von D1 (Compiler-Compiler-Fehler). ──
+// Direktiven-Trennung: ein Infra-Fehler (Compiler-Subprozess nicht startbar, .rsp nicht schreibbar,
+// waitpid-Abbruch) ist KEIN Compiler-Compiler-Fehler und darf NICHT als HW-/Compile-Klasse fehletikettiert
+// werden (Sweep-Befund). Eigene Domaene, eigenes Log-Praefix. Exit-Codes: 127=Start, 125/-2=Abbruch, IO.
+enum class InfraErrorClass : std::uint8_t {
+    ProzessStart   = 0, // Compiler-/Tool-Subprozess nicht startbar (spawn/exec; exit 127)
+    ProzessAbbruch = 1, // Subprozess abgebrochen/signalisiert (waitpid; exit 125 / -2)
+    ArtefaktIo     = 2, // .rsp/Quell-/Ziel-Datei-IO fehlgeschlagen (kein Compiler-Urteil)
+};
+/// Single-Source der Infra-Klassenzahl (Drift-Guard unten).
+inline constexpr std::size_t kInfraErrorClassCount = 3;
+
+/// Log-Etikett je Infra-Klasse (stabil; getrennt von error_class_label).
+[[nodiscard]] constexpr std::string_view infra_error_label(InfraErrorClass c) noexcept {
+    switch (c) {
+        case InfraErrorClass::ProzessStart: return "prozess_start";
+        case InfraErrorClass::ProzessAbbruch: return "prozess_abbruch";
+        case InfraErrorClass::ArtefaktIo: return "artefakt_io";
+    }
+    return "unbekannt";
+}
+
+// ── Chain-of-Responsibility: die Fehler-DOMAENE diskriminiert, welche Log-/Behandlungs-Kette greift. ──
+// error_domain() ist je Fehler-Typ ueberladen (Tag-Dispatch, compile-time); die rekursive Dock-Kette
+// (Planer->CEB->Tier) reicht einen Fehler an die zustaendige Domaene weiter OHNE Runtime-Typ-Pruefung.
+enum class ErrorDomain : std::uint8_t {
+    Infra            = 0, // Prozess/IO — kein Compiler-Urteil, kein Mess-Ergebnis
+    CompilerCompiler = 1, // D1: HW-/Compile-Fehlen — Log, Experiment misst weiter
+    Sample           = 2, // D2: Mess-Zell-Status (Ok/n-a/failed)
+};
+[[nodiscard]] constexpr ErrorDomain error_domain(InfraErrorClass) noexcept { return ErrorDomain::Infra; }
+[[nodiscard]] constexpr ErrorDomain error_domain(CompilerCompilerErrorClass) noexcept {
+    return ErrorDomain::CompilerCompiler;
+}
+[[nodiscard]] constexpr ErrorDomain error_domain(SampleStatus) noexcept { return ErrorDomain::Sample; }
+
+/// Bau-Fehler-Traeger: EIN Wert, der ENTWEDER ein Infra- ODER ein Compiler-Compiler-Fehler ist (nie beides,
+/// nie fehletikettiert). std::variant = typisierte Summe (Expected/Result-Naht an BuildResult.outcome).
+using BuildError = std::variant<InfraErrorClass, CompilerCompilerErrorClass>;
+[[nodiscard]] constexpr ErrorDomain error_domain(BuildError const& e) noexcept {
+    return std::visit([](auto c) noexcept { return error_domain(c); }, e);
+}
+/// Log-Etikett je BuildError-Variante (Serialisierungs-Single-Source): das richtige Label je Domaene.
+[[nodiscard]] constexpr std::string_view build_error_label(BuildError const& e) noexcept {
+    return std::visit(
+        [](auto c) noexcept -> std::string_view {
+            if constexpr (std::is_same_v<decltype(c), InfraErrorClass>)
+                return infra_error_label(c);
+            else
+                return error_class_label(c);
+        },
+        e);
+}
+
+// ── Policy-Based Design: compile-time Behandlungs-Politik je Domaene (benannt, keine vtable). ──────
+// Jede Politik deklariert compile-time, ob sie die Pipeline ABBRICHT (nie: honest-weiter), welche Domaene
+// sie fuehrt und welches Log-Praefix. Der Aufrufer waehlt die Politik per static dispatch (kein Runtime-Switch).
+struct LogAndContinueInfraPolicy { // Infra: loggen, Permutation ueberspringen, Harness laeuft weiter
+    [[nodiscard]] static constexpr bool             aborts() noexcept { return false; }
+    [[nodiscard]] static constexpr ErrorDomain      domain() noexcept { return ErrorDomain::Infra; }
+    [[nodiscard]] static constexpr std::string_view log_prefix() noexcept { return "Infra-Fehler"; }
+};
+struct LogAndContinueD1Policy { // D1: Compiler-Compiler-Fehler loggen, Experiment misst weiter
+    [[nodiscard]] static constexpr bool             aborts() noexcept { return false; }
+    [[nodiscard]] static constexpr ErrorDomain      domain() noexcept { return ErrorDomain::CompilerCompiler; }
+    [[nodiscard]] static constexpr std::string_view log_prefix() noexcept { return "Compiler-Compiler-Fehler"; }
+};
+struct FailedCellD2Policy { // D2: Zelle "failed" + Log, Harness misst weiter (NIE Null)
+    [[nodiscard]] static constexpr bool             aborts() noexcept { return false; }
+    [[nodiscard]] static constexpr ErrorDomain      domain() noexcept { return ErrorDomain::Sample; }
+    [[nodiscard]] static constexpr std::string_view log_prefix() noexcept { return "Mess-Fehler"; }
+};
+template <class P>
+concept HandlingPolicyConcept = requires {
+    { P::aborts() } -> std::same_as<bool>;
+    { P::domain() } -> std::same_as<ErrorDomain>;
+    { P::log_prefix() } -> std::same_as<std::string_view>;
+};
+
 // ── Trennungs-Garantien + POD-Eigenschaften + Drift-Guards (alles compile-time) ───────────────────
 static_assert(std::is_same_v<std::underlying_type_t<CompilerCompilerErrorClass>, std::uint8_t>);
 static_assert(std::is_same_v<std::underlying_type_t<SampleStatus>, std::uint8_t>);
@@ -93,5 +174,27 @@ static_assert(kSampleStatusCount == static_cast<std::size_t>(SampleStatus::Faile
 static_assert(sample_status_token(SampleStatus::Failed) == std::string_view{"failed"});
 static_assert(sample_status_token(SampleStatus::NotApplicable) == std::string_view{"n/a"});
 static_assert(sample_status_token(SampleStatus::Ok) != sample_status_token(SampleStatus::Failed));
+
+// INC-29.2: Infra-Domaene disjunkt von D1 + Drift-Guards + Policy-Concept-Erfuellung (alles compile-time).
+static_assert(std::is_same_v<std::underlying_type_t<InfraErrorClass>, std::uint8_t>);
+static_assert(std::is_same_v<std::underlying_type_t<ErrorDomain>, std::uint8_t>);
+static_assert(kInfraErrorClassCount == static_cast<std::size_t>(InfraErrorClass::ArtefaktIo) + 1);
+static_assert(infra_error_label(InfraErrorClass::ProzessStart) == std::string_view{"prozess_start"});
+// Die geruegte Fehletikettierung ist hier ZEMENTIERT ausgeschlossen: ein Infra-Fehler ist NIE ein D1-Fehler.
+static_assert(error_domain(InfraErrorClass::ProzessStart) == ErrorDomain::Infra);
+static_assert(error_domain(CompilerCompilerErrorClass::ToolchainFehlt) == ErrorDomain::CompilerCompiler);
+static_assert(error_domain(InfraErrorClass::ProzessStart) != error_domain(CompilerCompilerErrorClass::ToolchainFehlt));
+static_assert(error_domain(BuildError{InfraErrorClass::ProzessAbbruch}) == ErrorDomain::Infra);
+static_assert(error_domain(BuildError{CompilerCompilerErrorClass::CompileKombination}) ==
+              ErrorDomain::CompilerCompiler);
+static_assert(build_error_label(BuildError{CompilerCompilerErrorClass::HardwareErweiterungFehlt}) ==
+              std::string_view{"hardware_erweiterung_fehlt"});
+static_assert(build_error_label(BuildError{InfraErrorClass::ProzessStart}) == std::string_view{"prozess_start"});
+static_assert(HandlingPolicyConcept<LogAndContinueInfraPolicy> && HandlingPolicyConcept<LogAndContinueD1Policy> &&
+              HandlingPolicyConcept<FailedCellD2Policy>);
+static_assert(!LogAndContinueInfraPolicy::aborts() && !LogAndContinueD1Policy::aborts() &&
+              !FailedCellD2Policy::aborts()); // honest-weiter, nie Abbruch (Pipeline reisst nicht)
+static_assert(LogAndContinueInfraPolicy::domain() == ErrorDomain::Infra &&
+              FailedCellD2Policy::domain() == ErrorDomain::Sample);
 
 } // namespace comdare::cache_engine::measurement

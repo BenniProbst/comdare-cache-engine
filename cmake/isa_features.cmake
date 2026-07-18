@@ -138,8 +138,9 @@ endfunction()
 # ─────────────────────────────────────────────────────────────────────────────
 function(comdare_apply_simd_extension_flags target ext)
     if(ext MATCHES "^(SSE2|AVX2|AVX512)$" AND NOT COMDARE_ARCH_X86_64)
-        message(FATAL_ERROR "comdare_apply_simd_extension_flags(${target} ${ext}): x86-Extension auf "
-            "Nicht-x86-Build (COMDARE_ARCH_X86_64=OFF) — das Etikett waere unwahr.")
+        message(WARNING "[Compiler-Compiler-Fehler: hardware_erweiterung_fehlt] comdare_apply_simd_extension_flags(${target} ${ext}): "
+            "x86-Extension auf Nicht-x86-Build (COMDARE_ARCH_X86_64=OFF) — Permutation uebersprungen (kein Flag), Pipeline laeuft weiter.")
+        return()
     endif()
     if(ext STREQUAL "NO_EXTENSION" OR ext STREQUAL "SSE2")
         # x86-64-ABI-Baseline: SSE2 ist Pflicht-Teil der ABI — keine zusaetzliche Flag noetig.
@@ -161,25 +162,25 @@ function(comdare_apply_simd_extension_flags target ext)
     elseif(ext STREQUAL "NEON")
         # aarch64-Baseline: NEON ist immer verfuegbar — keine Flag; auf Nicht-ARM ist die Deklaration unwahr.
         if(NOT COMDARE_ARCH_ARM64)
-            message(FATAL_ERROR "comdare_apply_simd_extension_flags(${target} NEON): NEON-Deklaration auf "
-                "Nicht-ARM-Build (COMDARE_ARCH_ARM64=OFF) — Etikett != Maschinencode.")
+            message(WARNING "[Compiler-Compiler-Fehler: hardware_erweiterung_fehlt] comdare_apply_simd_extension_flags(${target} NEON): "
+                "NEON auf Nicht-ARM-Build (COMDARE_ARCH_ARM64=OFF) — Permutation uebersprungen (kein Flag), Pipeline laeuft weiter.")
         endif()
     elseif(ext STREQUAL "SVE2")
         if(COMDARE_HAS_SVE2)
             target_compile_options(${target} PRIVATE -march=armv8.5-a+sve2)
         else()
-            message(FATAL_ERROR "comdare_apply_simd_extension_flags(${target} SVE2): COMDARE_HAS_SVE2 nicht "
-                "detektiert (Detection oben in dieser Datei) — die SVE2-Deklaration waere unwahr.")
+            message(WARNING "[Compiler-Compiler-Fehler: hardware_erweiterung_fehlt] comdare_apply_simd_extension_flags(${target} SVE2): "
+                "COMDARE_HAS_SVE2 nicht detektiert — Permutation uebersprungen (kein Flag), Pipeline laeuft weiter.")
         endif()
     elseif(ext STREQUAL "RVV")
-        message(FATAL_ERROR "comdare_apply_simd_extension_flags(${target} RVV): RVV-Flag-Kopplung ist "
-            "Folge-Slice R3 (Doc 21 §F: NEON/RVV HW-/INFRA-gated) — noch nicht verdrahtet.")
+        message(WARNING "[Compiler-Compiler-Fehler: hardware_erweiterung_fehlt] comdare_apply_simd_extension_flags(${target} RVV): "
+            "RVV-Flag-Kopplung Folge-Slice R3 noch nicht verdrahtet — Permutation uebersprungen (kein Flag), Pipeline laeuft weiter.")
     elseif(ext STREQUAL "CUDA_GH200")
-        message(FATAL_ERROR "comdare_apply_simd_extension_flags(${target} CUDA_GH200): CUDA ist keine "
-            "Host-CPU-ISA-Flag — GPU-Offload-Bau gehoert in die #276-Build-Matrix (8er-Docker/ISA-Doktrin).")
+        message(WARNING "[Compiler-Compiler-Fehler: hardware_erweiterung_fehlt] comdare_apply_simd_extension_flags(${target} CUDA_GH200): "
+            "CUDA ist keine Host-CPU-ISA-Flag (GPU-Offload = #276-Build-Matrix) — Permutation uebersprungen (kein Flag), Pipeline laeuft weiter.")
     else()
-        message(FATAL_ERROR "comdare_apply_simd_extension_flags(${target} ${ext}): unbekannte axis_09b-"
-            "Extension (erwartet: NO_EXTENSION/SSE2/AVX2/AVX512/NEON/SVE2/RVV/CUDA_GH200).")
+        message(WARNING "[Compiler-Compiler-Fehler: hardware_erweiterung_fehlt] comdare_apply_simd_extension_flags(${target} ${ext}): "
+            "unbekannte axis_09b-Extension (erwartet NO_EXTENSION/SSE2/AVX2/AVX512/NEON/SVE2/RVV/CUDA_GH200) — uebersprungen, Pipeline laeuft weiter.")
     endif()
 endfunction()
 
@@ -202,7 +203,7 @@ function(comdare_apply_optimization_level_flags target level)
     elseif(level MATCHES "^(O0|O1|O2|O3|Ofast)$")
         target_compile_options(${target} PRIVATE "-${level}")
     else()
-        message(FATAL_ERROR "comdare_apply_optimization_level_flags(${target} ${level}): unbekannte "
-            "opt_level-Stufe (erwartet: O0/O1/O2/O3/Ofast).")
+        message(WARNING "[Compiler-Compiler-Fehler: compile_kombination] comdare_apply_optimization_level_flags(${target} ${level}): "
+            "unbekannte opt_level-Stufe (erwartet O0/O1/O2/O3/Ofast) — Permutation uebersprungen (Default-Opt), Pipeline laeuft weiter.")
     endif()
 endfunction()

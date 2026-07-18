@@ -751,9 +751,15 @@ struct LazyRunResult {
             // stumm zu ueberspringen. Der Harness misst die uebrigen Permutationen WEITER (D1-Direktive:
             // "IM LOG deklariert, Experiment MISST WEITER"). Die Klasse kommt aus dem d1-carrier (b.outcome).
             namespace cm = ::comdare::cache_engine::measurement;
-            cm::CompilerCompilerErrorClass const cls =
-                b.outcome.has_value() ? cm::CompilerCompilerErrorClass::CompileKombination : b.outcome.error();
-            std::cerr << "[Compiler-Compiler-Fehler: " << cm::error_class_label(cls) << "] binary_id='" << b.binary_id
+            // CoR-Dispatch: der Bau-Fehler ist ENTWEDER Infra (Prozess/IO) ODER Compiler-Compiler (D1) — die
+            // Domaene waehlt das Log-Praefix (NIE fehletikettiert, Sweep-Fix). has_value() (unerwartet bei !ok())
+            // → D1-Default. Beide Domaenen loggen + der Harness MISST WEITER (continue).
+            cm::BuildError const   err = b.outcome.has_value()
+                                             ? cm::BuildError{cm::CompilerCompilerErrorClass::CompileKombination}
+                                             : b.outcome.error();
+            std::string_view const prefix =
+                cm::error_domain(err) == cm::ErrorDomain::Infra ? "Infra-Fehler" : "Compiler-Compiler-Fehler";
+            std::cerr << "[" << prefix << ": " << cm::build_error_label(err) << "] binary_id='" << b.binary_id
                       << "' status=" << b.status << " log=" << b.output.string() << ".cxx.log\n";
             continue; // Build-Fehler UND nicht resumebar → kein Mess-Eintrag (ehrlicher Sparse-Kontrast, jetzt geloggt)
         }
