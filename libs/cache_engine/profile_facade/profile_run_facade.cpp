@@ -165,6 +165,15 @@ namespace {
     return std::string{::comdare::cache_engine::measurement::GccCompilerAxis::driver_default()};
 }
 
+// opt-d (A2-Hybrid Teil 2): die EINE String->Compiler-Achsen-Typ-Aufloesung sitzt GENAU HIER (Facade), nicht
+// im achsen-blinden Builder. Der Builder empfaengt supports_fno_gnu_unique als vom Facade gesteuerten bool-WERT
+// (Muster (2)); der fragile cxx.find("clang")-Sniff im build_orchestrator faellt ersatzlos weg.
+[[nodiscard]] bool facade_supports_fno_gnu_unique() {
+    namespace cm = ::comdare::cache_engine::measurement;
+    return cxx_compiler().find("clang") != std::string::npos ? cm::ClangCompilerAxis::supports_fno_gnu_unique()
+                                                             : cm::GccCompilerAxis::supports_fno_gnu_unique();
+}
+
 // opt_level-Unter-Achse der Compiler-Haupt-Achse (Bau-INC-2c.opt-c). Die Flag-QUELLE ist die Achse
 // (OptO*SubAxis::gcc/clang/msvc_opt_flag, compile-time-Reflexion), der ORT ist der opt_flag-Param von
 // make_gpp_compile_fn (opt-b). CEB-DEFAULT = O3 (Ruling 2026-07-18, Option B): IEEE-754-deterministisch,
@@ -267,9 +276,11 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.out_csv      = args.out_csv;
     a.src_dir      = args.src_dir;
     a.dll_dir      = args.dll_dir;
-    a.compile = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs(),
-                                        perm_opt_level_cflags()); // opt-c: opt_level-Flag (Default O2 = byte-identisch)
-    a.n_ops   = args.n_ops;
+    a.compile      = ex::make_gpp_compile_fn(
+        perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs(),
+        perm_opt_level_cflags(),           // opt-c: opt_level-Flag (Default O3, beweglich)
+        facade_supports_fno_gnu_unique()); // opt-d: Dialekt-Gate als Wert (kein Sniff im Builder)
+    a.n_ops                      = args.n_ops;
     a.max_binaries               = args.max_binaries;
     a.build_version              = args.build_version + system_axes_version_suffix();
     a.n_repeats                  = args.n_repeats;
@@ -444,9 +455,11 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     a.out_csv      = args.out_csv;
     a.src_dir      = args.src_dir;
     a.dll_dir      = args.dll_dir;
-    a.compile = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs(),
-                                        perm_opt_level_cflags()); // opt-c: opt_level-Flag (Default O2 = byte-identisch)
-    a.n_ops   = args.n_ops;
+    a.compile      = ex::make_gpp_compile_fn(
+        perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs(),
+        perm_opt_level_cflags(),           // opt-c: opt_level-Flag (Default O3, beweglich)
+        facade_supports_fno_gnu_unique()); // opt-d: Dialekt-Gate als Wert (kein Sniff im Builder)
+    a.n_ops                      = args.n_ops;
     a.max_binaries               = args.max_binaries;
     a.build_version              = args.build_version + system_axes_version_suffix();
     a.n_repeats                  = args.n_repeats;
