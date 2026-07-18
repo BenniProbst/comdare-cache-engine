@@ -22,6 +22,7 @@
 
 #include <cache_engine/measurement/ceb_system_axis.hpp>
 
+#include <array>
 #include <concepts>
 #include <string_view>
 #include <type_traits>
@@ -125,6 +126,13 @@ struct OptOfastOption final : OptimizationLevelSubAxis<OptOfastOption> {
 /// beweglich": dies ist NUR der benannte Default-Startwert; env COMDARE_PILOT_OPT_LEVEL + XML/Planer (A3)
 /// ueberschreiben jedes Teil. Benannte Single-Source, damit die Default-Wahl nicht als rohes Literal dupliziert wird.
 using DefaultOptLevelOption = OptO3Option;
+
+/// Single-Source der gueltigen opt_level-ids (Reihenfolge = Design-Space-Vokabular). Speist die Profil-Validierung
+/// (validate_profile kValidOptLevels), damit die Werte nicht dupliziert werden (Konformitaets-Single-Source, analog
+/// kAllSimdIds). Deckungsgleich zur XSD-Enumeration compiler/opt_level/option (O0..Ofast).
+inline constexpr std::array<std::string_view, 5> kAllOptLevelIds = {
+    OptO0Option::opt_level_id(), OptO1Option::opt_level_id(), OptO2Option::opt_level_id(), OptO3Option::opt_level_id(),
+    OptOfastOption::opt_level_id()};
 
 static_assert(OptimizationLevelSubAxisConcept<OptO0Option>);
 static_assert(OptimizationLevelSubAxisConcept<OptO1Option>);
