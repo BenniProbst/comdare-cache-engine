@@ -257,8 +257,9 @@ struct RunExperimentResult {
             ? std::vector<std::string>{std::string{cm::DefaultOptLevelOption::opt_level_id()}}
             : ep.compiler.opt_levels;
     std::vector<std::string> const simd_perms =
-        ep.extension_hardware.options.empty() ? std::vector<std::string>{std::string{cm::DefaultSimdOption::simd_id()}}
-                                              : ep.extension_hardware.options;
+        ep.extension_hardware.simd_options.empty()
+            ? std::vector<std::string>{std::string{cm::DefaultSimdOption::simd_id()}}
+            : ep.extension_hardware.simd_options;
     bool const capped = a.max_binaries > 0;
     for (auto const& opt_id : opt_perms) {
         std::string opt_flag = experiment_opt_flag_of(opt_id);
