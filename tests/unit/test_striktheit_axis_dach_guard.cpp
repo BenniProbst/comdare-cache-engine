@@ -17,6 +17,7 @@
 #include <cache_engine/measurement/load_framework_system_axis.hpp>
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp>
 #include <cache_engine/measurement/scheduling_system_axis.hpp>
+#include <cache_engine/measurement/simd_sub_axis.hpp>
 #include <cache_engine/measurement/system_axis.hpp>
 
 #include <gtest/gtest.h>
@@ -87,6 +88,19 @@ static_assert(cem::Avx2ExtensionHardwareAxis::gcc_march_flag() == std::string_vi
 // Default = generisch: KEINE Flags (Ist-Verhalten der Mess-DLLs bleibt byte-identisch).
 static_assert(cem::GenericExtensionHardwareAxis::gcc_march_flag().empty());
 static_assert(cem::GenericExtensionHardwareAxis::clang_march_flag().empty());
+
+// ── Block F.2 (F-SIMD, 2026-07-18): simd als Unter-Achse UNTER extension_hardware (symmetrisch zu opt_level/compiler) ──
+// compile-time CRTP+Concept, keine vtable; parent_axis_label()=="extension_hardware" verankert die Unter-Achsen-
+// Zugehoerigkeit. no_extension/avx2/avx512 sind OPTIONEN der simd-Unter-Achse, KEINE Geschwister-System-Achsen.
+static_assert(cem::SimdSubAxisConcept<cem::SimdNoExtOption>);
+static_assert(cem::SimdSubAxisConcept<cem::SimdAvx2Option>);
+static_assert(cem::SimdSubAxisConcept<cem::SimdAvx512Option>);
+static_assert(cem::SimdAvx2Option::axis_label() == std::string_view{"simd"});
+static_assert(cem::SimdAvx2Option::parent_axis_label() == std::string_view{"extension_hardware"});
+static_assert(cem::SimdAvx512Option::gcc_march_flag() == std::string_view{"-mavx512f"});
+static_assert(cem::SimdAvx2Option::gcc_march_flag() == std::string_view{"-mavx2"});
+static_assert(cem::SimdNoExtOption::gcc_march_flag().empty());
+static_assert(cem::DefaultSimdOption::simd_id() == std::string_view{"no_extension"});
 
 // ── Block G (INC-1e): die Mess-Telemetrie-Schicht ist vollstaendig unterm Dach verankert ──────────────────
 static_assert(cet::AxisConcept<cem::ObserverSnapshotSystemAxis>);
