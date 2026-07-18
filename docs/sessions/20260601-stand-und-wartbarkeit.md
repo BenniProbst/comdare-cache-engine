@@ -117,7 +117,7 @@ Konkrete, in dieser Session aufgedeckte Wartbarkeits-Punkte (Empfehlung, keine B
 
 - **Build-Mechanik Allocator/Vendor:** `docs/sessions/20260601-19-vendor-allokatoren-beschaffungs-spec.md` §1 (ENABLE/HAVE/USE, `comdare::vendor_<v>`, PERMUTATIONS-Gate) — die autoritative Beschreibung des aktuellen Flag-Datenflusses.
 - **Modul-Aufteilung:** `docs/architecture/25_modul_aufteilung_submodule_vs_dependencymanager.md` (Option A umgesetzt, B verbleibt).
-- **Offene-Punkte-Ledger:** `docs/sessions/architektur-ziele-offene-punkte-ledger.md` (Single-Source-of-Truth, TODO-Sweep-Block 2026-06-01).
+- **Offene-Punkte-Ledger:** `docs/ledger-sections/architektur-ziele-offene-punkte-ledger.md` (Single-Source-of-Truth, TODO-Sweep-Block 2026-06-01).
 - **Mess-Architektur V5:** `docs/architecture/messarchitektur_v5_design.md` + die V5-I1–I10-Ledger-Einträge.
 
 ---

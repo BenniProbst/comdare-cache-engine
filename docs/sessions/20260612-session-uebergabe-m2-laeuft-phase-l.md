@@ -2,7 +2,7 @@
 
 > **Zweck:** Kontext-Übergabe (Kompaktierung). Der frische Kontext wartet GEMEINSAM MIT DEM USER auf den
 > M2.1-Voll-Lauf und baut parallel Phase L. **Autoritatives Goal mit allen TODOs:**
-> `docs/sessions/GOAL-MESSUNG-AUDIT-APPENDIX-20260612.md` (Phasen M/L/A + Gates G1-G4; User steuert manuell).
+> `docs/audits/GOAL-MESSUNG-AUDIT-APPENDIX-20260612.md` (Phasen M/L/A + Gates G1-G4; User steuert manuell).
 > **⚠️ MORGEN (2026-06-13) Professor-Termin:** interpretierbare Belege für die ACHSEN-AUSTAUSCHBARKEIT
 > in der Suchalgorithmus-Hülle — aus dem M2-Teilstand (L7).
 
@@ -92,7 +92,7 @@ Welle 4: Pattern-Etiketten). Dann M3-Final-Lauf + L8-E2E (ein Kommando → ferti
 ## 5. Schlüssel-Dateien/-Kommandos (Schnellreferenz)
 | Zweck | Pfad/Kommando |
 |---|---|
-| Goal+TODOs (autoritativ) | `docs/sessions/GOAL-MESSUNG-AUDIT-APPENDIX-20260612.md` |
+| Goal+TODOs (autoritativ) | `docs/audits/GOAL-MESSUNG-AUDIT-APPENDIX-20260612.md` |
 | Audit-Gesamtwissen | `docs/sessions/audit-sicherung-20260612/ERKENNTNISSE.md` (+ 4 JSONs in docs/sessions/) |
 | Lauf-Fortschritt | `pwsh scripts/collect_partial_results.ps1` (im ce-Repo-Root) |
 | Lauf-Neustart nach Crash | `pwsh tests\unit\thesis_tiere\build_and_measure_150_tiere.ps1 -MaxBinaries 320` |

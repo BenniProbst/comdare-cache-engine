@@ -20,9 +20,9 @@
 
 ## 0. SOFORT beim Session-Start — Lese-Reihenfolge (gründlich, in dieser Folge)
 1. **Diesen Übergabe-Text** (Überblick + Fahrplan).
-2. **`docs/sessions/20260613-MASTERPLAN-architektur-konsolidierung-und-aufraeumen.md`** — die Steuerung (Phasen A→F, Disposition).
+2. **`docs/plaene/20260613-MASTERPLAN-architektur-konsolidierung-und-aufraeumen.md`** — die Steuerung (Phasen A→F, Disposition).
 3. **`docs/sessions/20260613-A1-lesenotizen-ist-architektur.md`** — mein **durables IST-Architektur-Destillat** (das Wichtigste; enthält das 3-Ebenen-/Organ-/B+-Baum-/Mess-Modell + die Befunde + die A1-Lese-Checkliste).
-4. **`docs/sessions/architektur-ziele-offene-punkte-ledger.md`** + **`20260531-e2e-abnahme-audit-und-entscheidungen.md`** — die ZWEI IST-Single-Sources (alle Docs 00–14 sind SUPERSEDED-Banner-markiert!).
+4. **`docs/ledger-sections/architektur-ziele-offene-punkte-ledger.md`** + **`20260531-e2e-abnahme-audit-und-entscheidungen.md`** — die ZWEI IST-Single-Sources (alle Docs 00–14 sind SUPERSEDED-Banner-markiert!).
    **[KLARSTELLUNG 2026-07-16, Voll-Audit F67]:** historisch — das ce-Ledger ist selbst SUPERSEDED; autoritativ = super-Ledger `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` (Diplomarbeit-Root).
 5. Memory: `project_masterplan_architektur_konsolidierung_aufraeumen` + `feedback_axis_exchange_belongs_in_bplus_tree` (MEMORY.md-Index lädt sie zuerst).
 

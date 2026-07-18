@@ -3,7 +3,7 @@
 > ## ⭐ NEU-FASSUNG (2026-06-13 spät, User-Direktive) — dieses /goal = den MASTERPLAN autonom abarbeiten
 >
 > **Dieses /goal steuert ab jetzt AUSSCHLIESSLICH über den Masterplan**
-> `docs/sessions/20260613-MASTERPLAN-architektur-konsolidierung-und-aufraeumen.md` (Tasks #143–#150).
+> `docs/plaene/20260613-MASTERPLAN-architektur-konsolidierung-und-aufraeumen.md` (Tasks #143–#150).
 >
 > **⭐ B4-UPDATE (2026-06-13 spät) — Phase A+B (B1–B4) ERLEDIGT:** Der konsolidierte IST-Architektur-Stand (Masterplan B1) liegt jetzt als
 > **Single-Source `docs/architecture/34_KONSOLIDIERTER_MASTER_IST_STAND.md`** vor (§1–§12: 3-Ebenen/Organ/B+-Baum/4-Subsystem/3-Stufen/
@@ -245,7 +245,7 @@ roheste Beweis-Ebene (Logs/Zwischenstände). Gesamtumfang Rohdaten ≈ 1,37 MB, 
 
 | Zweck | Pfad (repo-relativ ab cache-engine) |
 |-------|-------------------------------------|
-| TODO-Substanz M/L/A + Gates | `docs/sessions/GOAL-MESSUNG-AUDIT-APPENDIX-20260612.md` |
+| TODO-Substanz M/L/A + Gates | `docs/audits/GOAL-MESSUNG-AUDIT-APPENDIX-20260612.md` |
 | Audit-Wissen (K1-K10, 4 Wellen, Lehren) | `docs/sessions/audit-sicherung-20260612/ERKENNTNISSE.md` |
 | Audit-Synthese + Fix-Plan §4 | `docs/sessions/20260611-audit-ergebnisse-synthese.md` |
 | Mess-Audit Volltexte (57 Befunde) | `docs/sessions/20260612-messaudit-endergebnis.json` |
@@ -271,7 +271,7 @@ roheste Beweis-Ebene (Logs/Zwischenstände). Gesamtumfang Rohdaten ≈ 1,37 MB, 
 > **erweitert** den Pflicht-Umfang des Goals (insb. G5) um drei verbindliche Bereiche, die zwischen der Phase-L-Abgabe-PDF und der
 > finalen gültigen Neumessung liegen.
 >
-> **⭐ SINGLE-SOURCE dieses Pflichtbereichs:** `docs/sessions/20260618-PHASE-E-VERTIEFUNG-AUDIT-NEUMESSUNG-MASTERPLAN.md`
+> **⭐ SINGLE-SOURCE dieses Pflichtbereichs:** `docs/audits/20260618-PHASE-E-VERTIEFUNG-AUDIT-NEUMESSUNG-MASTERPLAN.md`
 > (durable Planungssession — alle offenen TODOs + Pre-Mess-Sequenz + Task-ID-Mapping). Jede Session liest ihn nach Doc 34.
 
 ### §7.1 Provenienz (warum dieser Pflichtbereich existiert)
@@ -322,7 +322,7 @@ literale Evidenz bestätigt. **Getrennt geführt** (gated/needs_user, nicht als 
 > **AUSSCHLIESSLICH ERGÄNZEND** (User-Direktive 2026-06-19): nichts in §0–§7 wird geändert/aufgehoben; §8 erweitert den Pflicht-
 > Umfang (insb. G5) um vier **code-/generator-seitige** Arbeitspakete, die der **Text-Agent** (Diplomarbeit) beim Cross-Check der
 > geschärften Thesis-Front-Matter gegen den Code (Code = Primärquelle, für den Text-Agenten read-only) an den Implementierungsagenten
-> übergibt. **⭐ SINGLE-SOURCE:** `docs/sessions/20260619-HANDOUT-impl-agent-profile-pruefling-ziele-tabellenbreite.md` (Thesis-Task AP-X2).
+> übergibt. **⭐ SINGLE-SOURCE:** `docs/docs/sessions/20260619-HANDOUT-impl-agent-profile-pruefling-ziele-tabellenbreite.md` (Thesis-Task AP-X2).
 
 ### §8.1 TODO-1 — SOTA-Profile auf Paper-Vollabdeckung ausbauen
 **Ist (verifiziert):** `algorithm_profiles/sota/*.profile.xml` = **30** Profile; `compositions/*_reference.hpp` = 13 Referenz-

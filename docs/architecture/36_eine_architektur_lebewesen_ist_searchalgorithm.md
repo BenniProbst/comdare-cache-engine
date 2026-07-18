@@ -41,7 +41,7 @@ IExecutionEngine                       Wurzel: ALLES Ausmessbare
 Diese Notiz hält fest, was die Architektur-Doku schon immer meinte, was im Thesis-Text aber verzerrt
 wurde. Sie ist die kanonische Referenz für: (a) die Thesis-Formulierung (Kap. 1 + Kap. 4) und (b) den
 Vereinheitlichungs-Auftrag an den Implementierungs-Agenten (Übergabe-Dokument
-`docs/sessions/20260620-UEBERGABE-impl-agent-EINE-ARCHITEKTUR-vereinheitlichung.md`).
+`docs/docs/sessions/20260620-UEBERGABE-impl-agent-EINE-ARCHITEKTUR-vereinheitlichung.md`).
 
 **Leitsatz:** Maßgeblich für die *gewollte* Architektur ist die Doku/Metapher (Primärquelle der
 Intention), **nicht** der evtl. defekte Code-IST.

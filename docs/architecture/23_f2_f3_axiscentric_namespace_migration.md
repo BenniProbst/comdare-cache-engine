@@ -3,7 +3,7 @@
 > ✅ **STATUS-UPDATE / SUPERSEDED als aktiver Plan (2026-05-31):** Dieser MIGRATIONSPLAN ist UMGESETZT — F.2 (17/17
 > physische `axes/<axis>/`, volle Regression 2112/2112) + F.3 (Concept-Layer alle 17, `F2F3_AxisCentricFacade` +
 > perm_engine 21/21) sind **done-verified**. Als *aktiver* Plan damit **überholt** (historische Referenz); IST-treue
-> Single-Source-of-Truth: `docs/sessions/architektur-ziele-offene-punkte-ledger.md` (§e). Etwaige „pending"-
+> Single-Source-of-Truth: `docs/ledger-sections/architektur-ziele-offene-punkte-ledger.md` (§e). Etwaige „pending"-
 > Formulierungen unten sind historischer Plan, NICHT offener Stand. Niemals löschen — nur Banner.
 > **[KLARSTELLUNG 2026-07-16, Voll-Audit F67]:** historisch — das oben referenzierte ce-Ledger ist selbst SUPERSEDED; autoritativ = super-Ledger `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` (Diplomarbeit-Root).
 

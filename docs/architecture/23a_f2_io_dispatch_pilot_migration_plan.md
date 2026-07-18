@@ -1,6 +1,6 @@
 # Doku 23a — F.2 Pilot-Migrations-Spec: `io/axis_io` → `io_dispatch` (ausführbar, build-sicher)
 
-> ⚠️ **SUPERSEDED (2026-05-31):** Migrations-/Planungs-Stand teils überholt (F.2/F.3 umgesetzt, axes/ physisch). IST-treue Single-Source-of-Truth: `docs/sessions/architektur-ziele-offene-punkte-ledger.md`. Niemals löschen — nur Banner.
+> ⚠️ **SUPERSEDED (2026-05-31):** Migrations-/Planungs-Stand teils überholt (F.2/F.3 umgesetzt, axes/ physisch). IST-treue Single-Source-of-Truth: `docs/ledger-sections/architektur-ziele-offene-punkte-ledger.md`. Niemals löschen — nur Banner.
 > **[KLARSTELLUNG 2026-07-16, Voll-Audit F67]:** historisch — das oben referenzierte ce-Ledger ist selbst SUPERSEDED; autoritativ = super-Ledger `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` (Diplomarbeit-Root).
 
 **Stand:** 2026-05-31 · **Quelle:** Planrunde (Design-Agent, code-verifiziert) · **Bezug:** Doku 23 §2 Stufe 2.
