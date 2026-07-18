@@ -270,4 +270,4 @@ als False Positive verifiziert (private: liegt im #ifdef-Push-Zweig -> im Defaul
 public) + defensiv explizites public: ergaenzt; uebrige 4 Punkte bestaetigt.
 **Verifikation:** ce 6e484c6 -> GitLab-Pipeline id=7054 = **success** (baut alle DLLs zero-cost + die 3
 Push-Tests mit Flag). Super-Submodul 2c48b65 (bump -> 6e484c6, holt Stale-ef6ecd6 mit). Kontext-Dossier:
-docs/sessions/20260628-KONTEXT-DOSSIER-mess-echtheit-gattungen-observer-pruefdock-A2welle.md (Abschnitt 6).
+docs/plaene/20260628-KONTEXT-DOSSIER-mess-echtheit-gattungen-observer-pruefdock-A2welle.md (Abschnitt 6).

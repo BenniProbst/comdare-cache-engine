@@ -74,7 +74,7 @@ Session-Start ist verloren.
 **A1-BEFUND (2026-06-13, Docs 00 + 02 gelesen ✅):** Die Thesis-Basis-Docs **00–14 tragen durchgehend
 SUPERSEDED-Banner (2026-05-31)** (überholter Planungs-/V31-Stand: axis-zentrische Restruktur, Plugin-Prüfling,
 DLL-F15-Pipeline). Die **IST-treue Single-Source-of-Truth** ist laut Banner:
-`docs/sessions/architektur-ziele-offene-punkte-ledger.md` + `docs/sessions/20260531-e2e-abnahme-audit-und-
+`docs/ledger-sections/architektur-ziele-offene-punkte-ledger.md` + `docs/sessions/20260531-e2e-abnahme-audit-und-
 entscheidungen.md` (cache-engine). **[KLARSTELLUNG 2026-07-16, Voll-Audit F67]:** historisch — das ce-Ledger ist
 selbst SUPERSEDED; autoritativ = super-Ledger `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` (Diplomarbeit-Root). **KONSEQUENZ für B:** Phase B konsolidiert ONTO diese zwei IST-Docs als Basis;
 die 00–33 liefern Begriffs-/Historien-/Konzept-Kontext (3-Säulen, 4-Subsystem, 3-Stufen, Organ-Metapher,

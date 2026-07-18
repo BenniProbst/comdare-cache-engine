@@ -1,7 +1,7 @@
 # Session 2026-05-31 — /goal-V2 Ledger-Abarbeitung + finaler Audit
 
 **Modus:** Autonomes /goal V2 (Audit-garantierte Vollständigkeit, lebendiges Ledger als SSoT).
-**SSoT:** `docs/sessions/architektur-ziele-offene-punkte-ledger.md` (autoritativ; dieses Handoff ist nur Begleitung).
+**SSoT:** `docs/ledger-sections/architektur-ziele-offene-punkte-ledger.md` (autoritativ; dieses Handoff ist nur Begleitung).
 **[KLARSTELLUNG 2026-07-16, Voll-Audit F67]:** historisch — das ce-Ledger ist selbst SUPERSEDED; autoritativ = super-Ledger `docs/DIPLOMARBEIT-ZIELE-OFFENE-PUNKTE-LEDGER.md` (Diplomarbeit-Root).
 
 ---

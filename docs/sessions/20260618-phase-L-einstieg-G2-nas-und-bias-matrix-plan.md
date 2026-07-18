@@ -267,7 +267,7 @@ baut **beide PDFs in 69 s, byte-identisch** zum In-Place-Build (`diplomarbeit-de
 ## 3. Pflicht-Lese-Reihenfolge für die Phase-L-Umsetzungs-Session (frischer Kontext)
 
 1. `docs/architecture/34_KONSOLIDIERTER_MASTER_IST_STAND.md` — §F15-Pipeline + Mess-Modell + Bias-Matrix.
-2. `docs/sessions/GOAL-MESSUNG-AUDIT-APPENDIX-20260612.md` — die L1–L8-Spec (Substanz der Phase L).
+2. `docs/audits/GOAL-MESSUNG-AUDIT-APPENDIX-20260612.md` — die L1–L8-Spec (Substanz der Phase L).
 3. `docs/sessions/20260613-A3-audit-soll-abgleich.md` — die 85 Befunde, v.a. die Limitierungs-Tabelle (L-e).
 4. CLI-main von `csv_to_latex` lokalisieren (`Code/04_csv_to_latex/` app/main) + `diagram_generator.{hpp,cpp}` + `build.ps1`.
 

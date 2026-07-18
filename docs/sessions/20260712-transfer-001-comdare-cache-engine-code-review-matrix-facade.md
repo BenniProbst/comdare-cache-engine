@@ -5,7 +5,7 @@
 
 ## Quellen/Dependencies
 
-- 20 neueste relevante Session-Dokumente aus `docs/sessions` gelesen; Leitquellen darunter `docs/sessions/goal-v6-luecken-ledger.md`, `docs/sessions/GOAL-MESSUNG-AUDIT-APPENDIX-20260612.md`, `docs/sessions/GOAL-AUTONOM-ABARBEITUNG-20260613.md`.
+- 20 neueste relevante Session-Dokumente aus `docs/sessions` gelesen; Leitquellen darunter `docs/ledger-sections/goal-v6-luecken-ledger.md`, `docs/audits/GOAL-MESSUNG-AUDIT-APPENDIX-20260612.md`, `docs/ledger-sections/GOAL-AUTONOM-ABARBEITUNG-20260613.md`.
 - BuildSystem: Im Repo-Root existiert kein `buildsystem.xml`; damit fehlt die erste Stufe des geforderten XML→CMake→C++-Vertrags.
 - CMake: reales Projekt bei `CMakeLists.txt:8`; Domänen werden bei `CMakeLists.txt:587` bis `CMakeLists.txt:603` eingebunden, Tools/Apps bei `CMakeLists.txt:623` und `CMakeLists.txt:624`.
 - Weiche Abhängigkeitspfade: PAPI/PMC-Warnings bei `CMakeLists.txt:67` bis `CMakeLists.txt:88`, übersprungener Plugin-Prüfling bei `CMakeLists.txt:616`, konditionale Codegen-Targets ab `CMakeLists.txt:1487`.
