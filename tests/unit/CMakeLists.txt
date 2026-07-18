@@ -3244,6 +3244,8 @@ target_compile_definitions(test_limits_entkopplung_vorstufe PRIVATE
 comdare_attach_generated_catalog(test_limits_entkopplung_vorstufe)
 add_test(NAME test_limits_entkopplung_vorstufe COMMAND test_limits_entkopplung_vorstufe
     "${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt")
+# NEW-GOLDEN-ALL-AXES: der 2^17-Anker ist die committete CRC64 (kNewGolden131072Crc64, source_catalog.hpp), NICHT eine
+# 62-MB-Datei — der Test regeneriert die 131072 ids lazy und prueft ihre CRC64. Keine golden-131072-Datei im git.
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_limits_entkopplung_vorstufe)
 set_tests_properties(test_limits_entkopplung_vorstufe PROPERTIES LABELS "e4;limits")
 

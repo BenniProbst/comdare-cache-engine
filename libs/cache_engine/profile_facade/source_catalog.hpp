@@ -73,32 +73,42 @@ struct CatalogCfg {
     using StaticAxisVariants = List;
 };
 
-// ── Die 19 AdHocComposition-Slot-Listen des Katalogs. KEINE Selektion — die VOLLE Achsen-kartesische Domäne, die
-//    das comdare_thesis_profile (m3v2_study.profile.xml <permute_axes>) deklariert: variiert werden search_algo /
-//    node_type / memory_layout / prefetch; die übrigen 15 sind je 1 Wert gepinnt (deckungsgleich zur Profil-
-//    Deklaration → identische binary_ids = golden). 4·4·5·4 = 320 reale Kompositionen.
+// ── Die 17 AdHocComposition-Slot-Listen des Katalogs. KEINE Selektion — die VOLLE Achsen-kartesische Domäne.
+//    golden_320_catalog (die alte m3v2_study.profile.xml <permute_axes>-Grundlage): variiert werden search_algo /
+//    node_type / memory_layout / prefetch; die übrigen 13 sind je 1 Wert gepinnt (deckungsgleich zur Profil-
+//    Deklaration → identische binary_ids = golden-320). 4·4·5·4 = 320 reale Kompositionen. FullSourceCatalog (das NEUE
+//    golden ab 2026-07-18): variiert ALLE 17 Achsen je 2 = 2^17 = 131.072 (all_axes_golden.profile.xml).
 //    (Die mp_take_c-Reihenfolge + die per-Slot-Wahl ist die zentrale Konvention, die die Profil-binary_ids reproduziert
-//     — siehe golden_fullpilot_320_binary_ids.txt; eine Änderung hier bräche Resume #139, daher golden-gegated.) ──
-template <std::size_t KSearch, std::size_t KNode, std::size_t KLayout, std::size_t KPrefetch>
+//     — siehe golden_fullpilot_320_binary_ids.txt / golden_fullpilot_131072_binary_ids.txt; golden-gegated.) ──
+// NEW-GOLDEN-ALL-AXES (2026-07-18, BAUPLAN-NEW-GOLDEN-ALL-AXES.md §4): CatalogAxes ist ueber ALLE 17 Kompositions-
+// Achsen parametrisiert (K00..K16 = mp_take_c-Grad je Slot, kanonische L00..L16-Reihenfolge). Der golden-REFERENZ-
+// Katalog FullSourceCatalog variiert ab jetzt ALLE 17 Achsen je 2 (N=2^17=131072 = Ganz-System-Regressions-Detektor);
+// der messdaten-erhaltende golden_320_catalog behaelt die alte 4*4*5*4-Semantik. WICHTIG: Engine ist NUR ein Typ-Alias
+// (PermutationEngine<...> wird NICHT instanziiert, solange niemand ::count()/::AllPermutations/for_each_permutation
+// nennt bzw. build_pilot_source_map<Engine> aufruft) -> das mp_product-131072 wird NIE materialisiert. Zaehlung geht
+// ausschliesslich ueber catalog_axis_product<> (reines ∏ mp_size, s.u.) bzw. den LAZY StaticBinaryView (view.size()).
+template <std::size_t K00, std::size_t K01, std::size_t K02, std::size_t K03, std::size_t K04, std::size_t K05,
+          std::size_t K06, std::size_t K07, std::size_t K08, std::size_t K09, std::size_t K10, std::size_t K11,
+          std::size_t K12, std::size_t K13, std::size_t K14, std::size_t K15, std::size_t K16>
 struct CatalogAxes {
-    using L00 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03a, KSearch>; // search_algo
-    using L01 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03b, 1>;       // cache_traversal
-    using L02 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03m, 1>;       // mapping
-    using L03 = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_02, 1>;            // path_compression
-    using L04 = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_04, KNode>;        // node_type
-    using L05 = mp::mp_take_c<ce::memory_layout::TopicConfigSet::StaticAxisVariants, KLayout>; // memory_layout
-    using L06 = mp::mp_take_c<ce::allocator::TopicConfigSet::StaticAxisVariants, 1>;           // allocator
-    using L07 = mp::mp_take_c<ce::prefetch::TopicConfigSet::StaticAxisVariants, KPrefetch>;    // prefetch
-    using L08 = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, 1>;         // concurrency
-    using L09 = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, 1>;       // serialization
-    using L10 = mp::mp_take_c<ce::value_handle::TopicConfigSet::StaticAxisVariants, 1>;        // value_handle
+    using L00 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03a, K00>; // search_algo
+    using L01 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03b, K01>; // cache_traversal
+    using L02 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03m, K02>; // mapping
+    using L03 = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_02, K03>;      // path_compression
+    using L04 = mp::mp_take_c<ce::nodes::TopicConfigSet::StaticAxisVariants_04, K04>;      // node_type
+    using L05 = mp::mp_take_c<ce::memory_layout::TopicConfigSet::StaticAxisVariants, K05>; // memory_layout
+    using L06 = mp::mp_take_c<ce::allocator::TopicConfigSet::StaticAxisVariants, K06>;     // allocator
+    using L07 = mp::mp_take_c<ce::prefetch::TopicConfigSet::StaticAxisVariants, K07>;      // prefetch
+    using L08 = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, K08>;   // concurrency
+    using L09 = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, K09>; // serialization
+    using L10 = mp::mp_take_c<ce::value_handle::TopicConfigSet::StaticAxisVariants, K10>;  // value_handle
     using L11 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants,
-                              1>;                                             // index_organization (INC-2d: isa raus)
-    using L12 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>; // io_dispatch
-    using L13 = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;  // migration_policy
-    using L14 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;     // filter
-    using L15 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1
-    using L16 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2
+                              K11>;                                             // index_organization (INC-2d: isa raus)
+    using L12 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, K12>; // io_dispatch
+    using L13 = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, K13>;  // migration_policy
+    using L14 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, K14>;     // filter
+    using L15 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, K15>; // queuing_q1
+    using L16 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, K16>; // queuing_q2
 
     using Engine =
         perm::PermutationEngine<CatalogCfg<L00>, CatalogCfg<L01>, CatalogCfg<L02>, CatalogCfg<L03>, CatalogCfg<L04>,
@@ -107,12 +117,54 @@ struct CatalogAxes {
                                 CatalogCfg<L15>, CatalogCfg<L16>>;
 };
 
-// Voller Katalog: 4·4·5·4 = 320 reale SA-Kompositionen = der vom m3v2-Profil deklarierte Achsen-kartesische Raum.
-// (INC-2d: isa war Fanout-1-gepinnt → Count 320 unverändert; nur der konstante isa-Teilstring der binary_id fällt.)
-using FullSourceCatalog = CatalogAxes<4, 4, 5, 4>;
-// Klein-Katalog (1·2·2·1 = 4 Kompositionen): für den schnellen E2E-Treiber-Test (test_lazy_static_dynamic_driver),
-// der real 4 DLLs baut+lädt+misst. KEINE Lauf-Selektion — nur eine kleine Materialisierungs-Domäne für den Test.
-using SmallSourceCatalog = CatalogAxes<1, 2, 2, 1>;
+// NEW-GOLDEN-ALL-AXES: der golden-REFERENZ-Katalog variiert ALLE 17 Kompositions-Achsen je 2 (kartesisch) →
+// N = 2^17 = 131.072 reale SA-Kompositionen = der Ganz-System-Regressions-Detektor. Dies ist die REFERENZ-Grundlage
+// (Count-Guard + N-Zeilen-id-Datei + Roundtrip), NICHT der materialisierte Bau-/Mess-Katalog (der bleibt via
+// generated_source_catalog.hpp/GeneratedFullSourceCatalog bei 320/kuratiert — s. catalog_codegen.cmake, m3v2-XML).
+// mp_take_c<..., 2> ist fuer JEDE Achse gueltig (kleinstes enabled Inventar = mapping = 2). Es wird KEIN mp_product
+// materialisiert (Engine ist nur ein Typ-Alias; Zaehlung via catalog_axis_product<>/view.size()).
+using FullSourceCatalog = CatalogAxes<2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2>; // 2^17 = 131.072
+// Messdaten-erhaltend: die ALTE 320-Semantik (search_algo×node_type×memory_layout×prefetch = 4·4·5·4; die uebrigen
+// 13 Achsen je 1 Wert gepinnt) als benannter Alias. Deckungsgleich zum m3v2-Profil / GeneratedFullSourceCatalog →
+// bleibt compile-verankert (static_assert unten) + test-verankert (test_limits/test_profile_roundtrip/test_smoke).
+using golden_320_catalog = CatalogAxes<4, 1, 1, 1, 4, 5, 1, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1>; // 4·4·5·4 = 320
+// Klein-Katalog (node_type×memory_layout je 2 = 4 Kompositionen): für den schnellen E2E-Treiber-Test
+// (test_lazy_static_dynamic_driver), der real 4 DLLs baut+lädt+misst. KEINE Lauf-Selektion — nur eine kleine
+// Materialisierungs-Domäne für den Test.
+using SmallSourceCatalog = CatalogAxes<1, 1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1>; // 2·2 = 4
+
+// catalog_axis_product<Catalog>() — der EXPLOSIONSFREIE golden-Count: reines ∏ mp_size(L00..L16) (17 constexpr-
+// Multiplikationen, KEINE mp_product-Materialisierung; dieselbe Kardinalitaets-Identitaet wie all_axes_binary_count(),
+// Doc 27 §4.1). Der Count der 2^17-Grundlage ist damit compile-billig belegbar, OHNE die 131.072-Element-Produkt-
+// Typliste (PermutationEngine::AllPermutations) je zu bilden — das waere ein GB-Compile / g++-ICE.
+template <class Catalog>
+[[nodiscard]] constexpr std::size_t catalog_axis_product() noexcept {
+    return mp::mp_size<typename Catalog::L00>::value * mp::mp_size<typename Catalog::L01>::value *
+           mp::mp_size<typename Catalog::L02>::value * mp::mp_size<typename Catalog::L03>::value *
+           mp::mp_size<typename Catalog::L04>::value * mp::mp_size<typename Catalog::L05>::value *
+           mp::mp_size<typename Catalog::L06>::value * mp::mp_size<typename Catalog::L07>::value *
+           mp::mp_size<typename Catalog::L08>::value * mp::mp_size<typename Catalog::L09>::value *
+           mp::mp_size<typename Catalog::L10>::value * mp::mp_size<typename Catalog::L11>::value *
+           mp::mp_size<typename Catalog::L12>::value * mp::mp_size<typename Catalog::L13>::value *
+           mp::mp_size<typename Catalog::L14>::value * mp::mp_size<typename Catalog::L15>::value *
+           mp::mp_size<typename Catalog::L16>::value;
+}
+
+// DER GEFORDERTE COMPILE-GUARD (BAUPLAN §4): das neue golden-Ziel N=2^17 + die erhaltene 320-Grundlage, beide
+// compile-verankert und EXPLOSIONSFREI (∏ mp_size; NIE FullSourceCatalog::Engine::count() / mp_product bei 2^17).
+static_assert(catalog_axis_product<FullSourceCatalog>() == 131072u,
+              "NEW-GOLDEN-ALL-AXES: FullSourceCatalog muss alle 17 Achsen je 2 = 2^17 = 131072 abdecken.");
+static_assert(catalog_axis_product<golden_320_catalog>() == 320u,
+              "messdaten-erhaltend: golden_320_catalog muss die alte 4·4·5·4 = 320 Semantik behalten.");
+static_assert(catalog_axis_product<SmallSourceCatalog>() == 4u, "SmallSourceCatalog = 2·2 = 4 (E2E-Treiber-Test).");
+
+// NEW-GOLDEN CRC64-Anker (Feasibility, §0-GOAL CRC64): die CRC-64/ECMA-182 der 131.072 golden-binary_ids in
+// kanonischer StaticBinaryView-Reihenfolge (je binary_id gefolgt von '\n', OHNE Kommentar-Header). ERSETZT die
+// 62-MB-Datei golden_fullpilot_131072_binary_ids.txt als Test-Verankerung (die Datei kommt NICHT ins git — Repo-Bloat
+// ueber die Mirrors + CI). test_limits regeneriert die ids ON-DEMAND (lazy StaticBinaryView) und prueft ihre CRC64
+// gegen DIESEN committeten Wert. Neu-Ermittlung/Inspektion: `gen_golden_fullpilot --crc64` (druckt den Wert) bzw.
+// `gen_golden_fullpilot <datei>` (materialisiert die Datei manuell). Aenderung nur im koordinierten ABI-Fenster.
+inline constexpr std::uint64_t kNewGolden131072Crc64 = 0xF1C1F26A1232073BULL;
 
 /// catalog_static_levels<Catalog>() — die 17 STATISCHEN AxisLevels des Katalogs (Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen; gleiche reduzierte Listen + gleiche
 /// Achsen-Namen-Reihenfolge wie der Katalog-Engine = die binary_ids, die der Katalog materialisiert). Das ist KEINE
@@ -148,7 +200,11 @@ template <class Catalog>
 /// materialisiert (EINMAL, compile-time) den vollen deklarierten Achsenraum als Typ→Quelle-map (BR-2/BR-4). Ein
 /// binary_id außerhalb des deklarierten Raums liefert eine leere Quelle (Orchestrator markiert die DLL als nicht
 /// baubar — ehrlich sichtbar). Lazy-Compile (1 DLL = 1 TU) bleibt: je Quelle ein eigener perm_<id>.cpp.
-template <class Catalog = FullSourceCatalog>
+// EXPLOSIONS-LEITPLANKE (NEW-GOLDEN-ALL-AXES): dies ist der MATERIALISIERENDE Pfad — build_pilot_source_map<Engine>
+// KOMPLETTIERT PermutationEngine<...> und materialisiert damit AllPermutations (mp_product). Der Default-Katalog
+// MUSS deshalb der kleine/kuratierte golden_320_catalog sein, NIE der 2^17-FullSourceCatalog (das waere ein GB-Compile
+// / g++-ICE). Der Referenz-Count der 2^17-Grundlage laeuft ausschliesslich lazy (catalog_axis_product/view.size()).
+template <class Catalog = golden_320_catalog>
 [[nodiscard]] inline ex::SourceGenFn make_catalog_source_gen() {
     return ex::make_source_gen_from_map(ex::build_pilot_source_map<typename Catalog::Engine>());
 }
