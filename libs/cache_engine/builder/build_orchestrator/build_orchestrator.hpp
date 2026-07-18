@@ -337,7 +337,11 @@ private:
                         r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ProzessStart});
                     else if (r.status == 125)
                         r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ArtefaktIo});
-                    else if (r.status < 0)
+                    else if (r.status < 0 || r.status >= 128)
+                        // NACH-Prüfung-Fix: Signal-Abbruch. decode_process_status liefert 128+WTERMSIG POSITIV
+                        // (137=SIGKILL/OOM-Killer im RAM-Druck-Parallelbau, 139=SIGSEGV, 134=SIGABRT) — das ist
+                        // ein Prozess-Abbruch (INFRA), NIE ein Compiler-Urteil. (r.status<0 deckt zusätzlich die
+                        // Orchestrator-Sentinels.) Vorher fielen 128+sig fälschlich in den D1-else (Sweep-Rüge).
                         r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ProzessAbbruch});
                     else
                         r.outcome = std::unexpected(cm::BuildError{cm::CompilerCompilerErrorClass::CompileKombination});
@@ -496,10 +500,10 @@ namespace detail {
                                                    std::vector<std::string> link_libs = {},
                                                    std::string opt_flag = "-O2", bool emit_fno_gnu_unique = true) {
     // Bau-INC-2c.opt-b: opt_flag = der volle Optimierungs-Flag-String (Konvention aus opt-a:
-    // OptO*SubAxis::gcc_opt_flag() liefert "-O2"/"-O3"/"-Ofast"). Der Signatur-Default "-O2" ist ein
+    // OptO*Option::gcc_opt_flag() liefert "-O2"/"-O3"/"-Ofast"). Der Signatur-Default "-O2" ist ein
     // TRANSITIONALER, achsen-blinder Builder-Fallback fuer Direkt-Aufrufer, die (noch) nichts setzen —
     // NICHT der CEB-Default und KEIN Pin. Der bewegliche CEB-Default ist O3 (Ruling 2026-07-18, Option B,
-    // DefaultOptLevelSubAxis=OptO3SubAxis); die Facade (profile_run_facade active_opt_level) sourct ihn und
+    // DefaultOptLevelOption=OptO3Option); die Facade (profile_run_facade active_opt_level) sourct ihn und
     // reicht ihn hier als opt_flag runter. Ein harter O3-Signatur-Default hier waere selbst ein neuer Pin —
     // daher bleibt der transitional-ueberschreibbare "-O2" stehen (der Facade-Wert gewinnt immer).
     return [include_dirs = std::move(include_dirs), defines = std::move(defines), cxx = std::move(cxx),

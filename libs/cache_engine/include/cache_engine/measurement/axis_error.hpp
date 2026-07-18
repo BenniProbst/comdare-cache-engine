@@ -84,11 +84,11 @@ inline constexpr std::size_t kSampleStatusCount = 4;
 // ── INC-29.2: Infra-Fehlerklassen (Prozess-/IO-Ebene) — DISJUNKT von D1 (Compiler-Compiler-Fehler). ──
 // Direktiven-Trennung: ein Infra-Fehler (Compiler-Subprozess nicht startbar, .rsp nicht schreibbar,
 // waitpid-Abbruch) ist KEIN Compiler-Compiler-Fehler und darf NICHT als HW-/Compile-Klasse fehletikettiert
-// werden (Sweep-Befund). Eigene Domaene, eigenes Log-Praefix. Exit-Codes: 127=Start, 125/-2=Abbruch, IO.
+// werden (Sweep-Befund). Eigene Domaene, eigenes Log-Praefix. Exit-Codes: 127=Start, 125=IO, 128+sig=Abbruch.
 enum class InfraErrorClass : std::uint8_t {
     ProzessStart   = 0, // Compiler-/Tool-Subprozess nicht startbar (spawn/exec; exit 127)
-    ProzessAbbruch = 1, // Subprozess abgebrochen/signalisiert (waitpid; exit 125 / -2)
-    ArtefaktIo     = 2, // .rsp/Quell-/Ziel-Datei-IO fehlgeschlagen (kein Compiler-Urteil)
+    ProzessAbbruch = 1, // Subprozess signal-abgebrochen (128+WTERMSIG: 137=SIGKILL/OOM, 139=SIGSEGV) o. Sentinel <0
+    ArtefaktIo     = 2, // .rsp/Quell-/Ziel-Datei-IO fehlgeschlagen (exit 125; kein Compiler-Urteil)
 };
 /// Single-Source der Infra-Klassenzahl (Drift-Guard unten).
 inline constexpr std::size_t kInfraErrorClassCount = 3;
