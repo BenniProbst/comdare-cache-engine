@@ -1,4 +1,7 @@
 #pragma once
+// §23-QUARANTAENE (2026-07-18): std::variant-basiert (algorithm_axis = Runtime-Tag) -> fuer statische/Organ-
+// Achsen VERBOTEN (Runtime-Overhead + Code-Bloat, §23). NICHT in den Live-Codegen-Pfad verdrahten; der Live-Weg
+// sind monomorphe CRTP+Concept-Achsen. Guard: tests/unit/test_striktheit_metaprog_guard.cpp (Block D).
 // ---------------------------------------------------------------------------
 // TEST-ONLY (Marker 2026-07-17 F6): Teil des REV7-Baustein-Clusters. Einziger
 // Includer ist baustein_variants.hpp (siehe dort); der Cluster wird nur von
