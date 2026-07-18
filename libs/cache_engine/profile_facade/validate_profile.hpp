@@ -434,6 +434,8 @@ struct ExperimentValidationResult {
     std::size_t              variants_checked   = 0; // gepruefte allowed_variants (0 = registry_dir leer / keine)
     std::size_t              categories_checked = 0; // gepruefte <category>-Namen (0 = keine deklariert)
     std::size_t              workloads_checked  = 0; // Bruecke-I1/M-CE-12: gepruefte <workloads>-ids (0 = known leer)
+    std::size_t opt_levels_checked = 0; // opt-f/A3: gepruefte <system_axes><compiler><opt_level> (0 = keine)
+    std::size_t simd_checked       = 0; // opt-f/A3: gepruefte <system_axes><extension_hardware><simd> (0 = keine)
 };
 
 // ── Inhalt einer comdare_axis_registry.xml: engine-Attr + axis-id -> {baustein name}. ──
@@ -544,6 +546,34 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
             r.ok = false;
             r.errors.push_back("UNGUELTIGES <op_types>-Token \"" + tok +
                                "\": kein Wert der XSD-Enumeration OP-1..OP-6 (experiment_schema.xsd OpTypeType).");
+        }
+    }
+
+    // ── (10) opt-f/A3: <system_axes> HART gegen die OptO*SubAxis-ids / simd_extension_ids. LEER ist zulaessig
+    //    (CEB-Default O3 / no_extension; XSD minOccurs=0). opt_level/simd sind system_config → binary_id-NEUTRAL
+    //    (Provenienz build_version/H-10-Sidecar); hier nur die Enum-Wohlgeformtheit. Die Aufloesung id→Flag
+    //    (-O<n> / -march) macht die opt-g-Facade (make_gpp_compile_fn-Kanal), die ISA-Gegatung ebenso.
+    static constexpr std::string_view kValidOptLevels[] = {"O0", "O1", "O2", "O3", "Ofast"};
+    for (auto const& lvl : ep.opt_levels) {
+        ++r.opt_levels_checked;
+        bool const known =
+            std::find(std::begin(kValidOptLevels), std::end(kValidOptLevels), lvl) != std::end(kValidOptLevels);
+        if (!known) {
+            r.ok = false;
+            r.errors.push_back(
+                "UNGUELTIGE <opt_level value=\"" + lvl +
+                "\">: kein Wert der XSD-Enumeration O0/O1/O2/O3/Ofast (optimization_level_sub_axis.hpp).");
+        }
+    }
+    static constexpr std::string_view kValidSimd[] = {"no_extension", "avx2", "avx512"};
+    for (auto const& s : ep.simd_extensions) {
+        ++r.simd_checked;
+        bool const known = std::find(std::begin(kValidSimd), std::end(kValidSimd), s) != std::end(kValidSimd);
+        if (!known) {
+            r.ok = false;
+            r.errors.push_back("UNGUELTIGE <simd value=\"" + s +
+                               "\">: kein Wert der XSD-Enumeration no_extension/avx2/avx512 "
+                               "(extension_hardware_system_axis.hpp).");
         }
     }
 

@@ -144,6 +144,14 @@ TEST(ExperimentParser, ParsesGoldenInstanceLiterally) {
     EXPECT_EQ(ep->op_types[1], "OP-3");
     EXPECT_EQ(ep->op_types[2], "OP-4");
 
+    // <system_axes> (opt-f/A3): opt_level O2/O3 + simd no_extension/avx2 (System-Achsen, binary_id-neutral).
+    ASSERT_EQ(ep->opt_levels.size(), 2u);
+    EXPECT_EQ(ep->opt_levels[0], "O2");
+    EXPECT_EQ(ep->opt_levels[1], "O3");
+    ASSERT_EQ(ep->simd_extensions.size(), 2u);
+    EXPECT_EQ(ep->simd_extensions[0], "no_extension");
+    EXPECT_EQ(ep->simd_extensions[1], "avx2");
+
     // output.comparison_metrics == true (+ Pfade nicht leer).
     EXPECT_FALSE(ep->output.binary_path.empty());
     EXPECT_FALSE(ep->output.csv_path.empty());
@@ -164,6 +172,8 @@ TEST(ExperimentParser, ValidatesGoldenAgainstRegistries) {
     EXPECT_EQ(vr.phases_checked, 3u);
     EXPECT_EQ(vr.variants_checked, 6u); // 2 (isa) + 2 (search_algo) + 2 (path_compression)
     EXPECT_EQ(vr.categories_checked, 5u);
+    EXPECT_EQ(vr.opt_levels_checked, 2u); // opt-f/A3: O2 + O3
+    EXPECT_EQ(vr.simd_checked, 2u);       // opt-f/A3: no_extension + avx2
 
     std::error_code ec;
     fs::remove_all(reg, ec);
@@ -325,4 +335,45 @@ TEST(ExperimentParser, WorkloadGateSkippedWithoutKnownSet) {
 
     std::error_code ec;
     fs::remove_all(reg, ec);
+}
+
+// (c12) opt-f/A3 — ein Bogus-<opt_level>-Wert ist ein HARTER Fehler (XSD-Enumeration O0/O1/O2/O3/Ofast).
+//       So faellt ein Tippfehler in der System-Achsen-Permutation SCHON bei --validate auf, nicht erst
+//       als stiller /Od im CEB-Bau (Fehlerklassen-Pflicht: sichtbar statt still).
+TEST(ExperimentParser, BogusOptLevelIsError) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->opt_levels.push_back("O9"); // ausserhalb O0/O1/O2/O3/Ofast
+
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "UNGUELTIGE <opt_level"));
+    EXPECT_TRUE(any_contains(vr.errors, "O9"));
+    EXPECT_EQ(vr.opt_levels_checked, 3u); // 2 Golden (O2/O3) + 1 Tippfehler
+}
+
+// (c13) opt-f/A3 — ein Bogus-<simd>-Wert ist ein HARTER Fehler (no_extension/avx2/avx512).
+TEST(ExperimentParser, BogusSimdExtensionIsError) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->simd_extensions.push_back("avx1024"); // ausserhalb der Enumeration
+
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_FALSE(vr.ok);
+    EXPECT_TRUE(any_contains(vr.errors, "UNGUELTIGE <simd"));
+    EXPECT_TRUE(any_contains(vr.errors, "avx1024"));
+}
+
+// (c14) opt-f/A3 — LEERE <system_axes> sind ZULAESSIG (minOccurs=0; leer = CEB-Default O3 / no_extension).
+//       Die golden-Byte-Identitaet der 320 binary_ids bleibt unberuehrt (opt/simd sind binary_id-neutral).
+TEST(ExperimentParser, EmptySystemAxesIsOk) {
+    auto ep = parse_golden();
+    ASSERT_TRUE(ep.has_value());
+    ep->opt_levels.clear();
+    ep->simd_extensions.clear();
+
+    tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
+    EXPECT_TRUE(vr.ok) << "leere <system_axes> duerfen kein Fehler sein (additiv, CEB-Default)";
+    EXPECT_EQ(vr.opt_levels_checked, 0u);
+    EXPECT_EQ(vr.simd_checked, 0u);
 }

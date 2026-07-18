@@ -299,7 +299,12 @@ struct ExperimentProfile {
     std::vector<ThesisDatasetRef>      datasets;     // <datasets><dataset id akte_ref loader>* (Single-Source-Akten)
     std::vector<std::string> measurement_categories; // <measurement_categories><category name=..>* (Spalten-Projektion)
     std::vector<std::string> op_types;               // <op_types> (Whitespace-Tokens OP-1..OP-6)
-    ExperimentOutput         output;                 // <output>
+    // <system_axes> — CEB-System-Achsen-Permutation (opt-f/A3). binary_id-NEUTRAL: Provenienz build_version/Sidecar,
+    // NIE binary_id (opt/simd sind system_config, stehen nie in kCompositionAxisNames). Rohstrings (cache_engine-frei);
+    // Enum-Aufloesung O0..Ofast / no_extension|avx2|avx512 erfolgt in der cache_engine-Schicht (validate_profile).
+    std::vector<std::string> opt_levels;      // <system_axes><compiler><opt_level value=..>* (leer = CEB-Default O3)
+    std::vector<std::string> simd_extensions; // <system_axes><extension_hardware><simd value=..>* (ISA-gegated)
+    ExperimentOutput         output;          // <output>
 };
 
 class XmlConfigParser {
