@@ -13,6 +13,7 @@
 #include <cache_engine/measurement/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=extension_hardware
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // INC-2c.opt-c: opt_level-Unter-Achse (Flag-Quelle)
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>    // INC-0: atomic128-Unter-Achse (Cx16Option, -mcx16)
+#include <cache_engine/measurement/target_isa_system_axis.hpp>      // INC-2d: target_isa-System-Achse (Cross-Compile)
 #include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
 #include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
@@ -138,6 +139,32 @@ namespace {
     return {std::string{flag}};
 }
 
+// INC-2d: target_isa-System-Achse -- die ZIEL-ISA fuer Cross-Compile (x86->ARM64). Die Cross-Flags (-target/-march)
+// kommen single-source aus der TargetIsaSystemAxis-Auspraegung; Default X86_64TargetIsa = host==target = KEINE Flags
+// (golden byte-identisch). Der echte aarch64-Lauf braucht zusaetzlich den Cross-Treiber (Toolchain-Handover);
+// COMDARE_PILOT_TARGET_ISA ist der Smoke-Schalter bis zum Planer-Strang.
+[[nodiscard]] std::string_view active_target_isa() {
+    namespace cm            = ::comdare::cache_engine::measurement;
+    std::string_view target = cm::X86_64TargetIsa::target_isa_id();
+    if (char const* e = std::getenv("COMDARE_PILOT_TARGET_ISA"); e != nullptr && *e != '\0') target = e;
+    return target;
+}
+
+[[nodiscard]] std::vector<std::string> perm_target_isa_cflags() {
+    namespace cm                  = ::comdare::cache_engine::measurement;
+    std::string_view const target = active_target_isa();
+    if (target == cm::Aarch64TargetIsa::target_isa_id()) {
+        // "-target aarch64-linux-gnu" ist ZWEI Tokens -> auf Whitespace splitten (je Element ein Compiler-Arg).
+        std::vector<std::string> out = split_on(std::string{cm::Aarch64TargetIsa::target_triple()}, ' ');
+        if (!cm::Aarch64TargetIsa::target_march().empty()) out.emplace_back(cm::Aarch64TargetIsa::target_march());
+        return out;
+    }
+    if (target != cm::X86_64TargetIsa::target_isa_id())
+        std::cerr << "[profile_facade] COMDARE_PILOT_TARGET_ISA='" << target
+                  << "' unbekannt; nutze x86_64 (host==target, kein Cross).\n";
+    return {}; // x86_64 (Default) = native = KEINE Cross-Flags (golden byte-identisch)
+}
+
 // INC-0: Allokator-ORGAN-Kanal -- der snmalloc-Vendor-Build-Vertrag (SNMALLOC_*-INTERFACE-Defs). Werte single-source
 // aus der Organ-Achse (SnmallocAllocator::vendor_compile_defs()), NICHT mehr CMake-string-gebacken. Gate = das GLOBALE
 // COMDARE_AXIS_06_USE_SNMALLOC (NIE per-Tier: der Umbrella zieht snmalloc.h in JEDE TU -> alle Tiers brauchen den
@@ -199,6 +226,7 @@ namespace {
     for (auto& f : perm_alloc_organ_cflags()) d.push_back(std::move(f));
     for (auto& f : perm_compiler_isa_cflags()) d.push_back(std::move(f));
     for (auto& f : perm_extension_hardware_cflags()) d.push_back(std::move(f));
+    for (auto& f : perm_target_isa_cflags()) d.push_back(std::move(f)); // INC-2d: Ziel-ISA (Cross-Compile)
     return d;
 }
 
@@ -267,6 +295,11 @@ namespace {
     std::string suffix = "+ext=" + std::string{active_simd_policy()} + "+cxx=" + cxx_compiler();
     suffix += "+opt=";
     suffix += active_opt_level();
+    // INC-2d: Cross-Compile-Provenienz NUR wenn Ziel != Host (native x86_64 = kein Suffix -> build_version
+    // byte-identisch, golden-neutral). Ziel-ISA ist system_config -> .version-Sidecar, NIE binary_id.
+    if (std::string_view const t = active_target_isa();
+        t != ::comdare::cache_engine::measurement::X86_64TargetIsa::target_isa_id())
+        suffix += "+target=" + std::string{t};
     return suffix;
 }
 
