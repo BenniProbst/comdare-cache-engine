@@ -5,6 +5,7 @@
 
 #include "concepts/axis_03a_search_algo_concept.hpp"
 #include <topics/axis_base.hpp>
+#include <topics/organ_axis.hpp>               // INC-1a: OrganAxis<Derived>-Dach (axis_kind()==organ)
 #include <axes/cacheline/cacheline_config.hpp> // KF-5: per-Organ Cache-Line-Unterachse
 
 #include <type_traits>
@@ -24,7 +25,7 @@ namespace comdare::cache_engine::lookup {
 // cacheline-fähig. Default {} = unverändert (nicht-brechend, ODR-sicher).
 template <typename Derived, ::comdare::cache_engine::cacheline::CacheLineConfig CacheLineCfg =
                                 ::comdare::cache_engine::cacheline::CacheLineConfig{}>
-class SearchAlgoBase : public ::comdare::cache_engine::topics::AxisBase,
+class SearchAlgoBase : public ::comdare::cache_engine::topics::OrganAxis<Derived>,
                        public ::comdare::cache_engine::cacheline::CacheLineAware<CacheLineCfg> {
 protected:
     SearchAlgoBase() noexcept {

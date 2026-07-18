@@ -3,6 +3,7 @@
 
 #include "concepts/axis_03m_mapping_concept.hpp"
 #include <topics/axis_base.hpp>
+#include <topics/organ_axis.hpp> // INC-1a: OrganAxis<Derived>-Dach (axis_kind()==organ)
 
 #include <type_traits>
 
@@ -15,7 +16,7 @@ namespace comdare::cache_engine::mapping {
  * (Default "original", per Wrapper ueberschreibbar).
  */
 template <typename Derived>
-class MappingBase : public ::comdare::cache_engine::topics::AxisBase {
+class MappingBase : public ::comdare::cache_engine::topics::OrganAxis<Derived> {
 protected:
     MappingBase() noexcept {
         static_assert(concepts::MappingVariant<Derived>,

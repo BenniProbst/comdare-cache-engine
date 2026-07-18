@@ -4,6 +4,7 @@
 #include "concepts/axis_04_node_type_concept.hpp"
 #include "concepts/axis_04_node_type_cache_engine_permutation_concept.hpp"
 #include <topics/axis_base.hpp>
+#include <topics/organ_axis.hpp>                // INC-1a: OrganAxis<Derived>-Dach (axis_kind()==organ)
 #include <axes/cacheline/cacheline_config.hpp>  // KF-5: per-Organ Cache-Line-Unterachse
 #include <axes/cacheline/node_width_config.hpp> // C2/FF2: Knoten-Breite-in-Cache-Lines-Unterachse
 
@@ -20,7 +21,7 @@ template <typename Derived,
               ::comdare::cache_engine::cacheline::CacheLineConfig{},
           ::comdare::cache_engine::cacheline::NodeWidthConfig NodeWidthCfg =
               ::comdare::cache_engine::cacheline::NodeWidthConfig{}>
-class NodeTypeStrategyBase : public ::comdare::cache_engine::topics::AxisBase,
+class NodeTypeStrategyBase : public ::comdare::cache_engine::topics::OrganAxis<Derived>,
                              public ::comdare::cache_engine::cacheline::CacheLineAware<CacheLineCfg>,
                              public ::comdare::cache_engine::cacheline::NodeWidthAware<NodeWidthCfg> {
 protected:

@@ -4,6 +4,7 @@
 #include "concepts/axis_05_memory_layout_concept.hpp"
 #include "concepts/axis_05_memory_layout_cache_engine_permutation_concept.hpp"
 #include <topics/axis_base.hpp>
+#include <topics/organ_axis.hpp>               // INC-1a: OrganAxis<Derived>-Dach (axis_kind()==organ)
 #include <axes/cacheline/cacheline_config.hpp> // KF-5: per-Organ Cache-Line-Unterachse
 #include <type_traits>
 
@@ -41,7 +42,7 @@ enum class RepresentationKind {
 /// macht die gewählte Unterachsen-Linien-Größe explizit abfragbar (die Run-Body-Nutzung folgt mit KF-6).
 template <typename Derived, ::comdare::cache_engine::cacheline::CacheLineConfig CacheLineCfg =
                                 ::comdare::cache_engine::cacheline::CacheLineConfig{}>
-class MemoryLayoutStrategyBase : public ::comdare::cache_engine::topics::AxisBase,
+class MemoryLayoutStrategyBase : public ::comdare::cache_engine::topics::OrganAxis<Derived>,
                                  public ::comdare::cache_engine::cacheline::CacheLineAware<CacheLineCfg> {
 public:
     /// Die durch die Cache-Line-Unterachse gewählte Linien-Größe in Bytes (permutierbar; distinkt vom
