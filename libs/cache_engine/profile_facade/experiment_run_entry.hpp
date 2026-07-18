@@ -52,19 +52,21 @@ struct RunExperimentArgs {
     // (kennt include_dirs/defines/cxx/link_libs/fno_gnu_unique); run_experiment_profile permutiert opt×simd aus der
     // geparsten XML SELBST und ruft die Fabrik je Perm mit den aufgelösten Flags. Leer ⇒ Fallback auf `compile`.
     std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag)> compile_for_perm;
-    ex::AlgoSigFn algo_sig;                      // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
-    std::string   compiler_tag;                  // opt-g: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
-    std::uint64_t n_ops                = 10000;  // Mess-Workload je dyn-Setting
-    std::size_t   max_binaries         = 0;      // 0 ⇒ ALLE Pässe; sonst Cap auf die Zahl der SOTA-Pässe (Smoke)
-    std::string   build_version        = "m3v2"; // Resume-Marke (.version-Sidecar)
-    std::uint32_t n_repeats            = 3;      // Wiederholungen je (Binary×Setting) — repetition-DynDim
-    std::size_t   cores_per_build      = 4;
-    double        min_free_gb          = 0.0;
-    bool          resume_override_set  = false;
-    bool          resume               = true;
-    std::uint64_t working_set_override = 0;   // >0 ⇒ ein N-Wert (records); 0 ⇒ records=n_ops
-    std::string   platform_override;          // leer ⇒ Default-Tag; sonst Override (CSV-Tag)
-    std::string   build_version_tag_override; // leer ⇒ build_version; sonst Override (CSV-Tag)
+    ex::AlgoSigFn         algo_sig;         // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
+    ex::CachePushFn       cache_push;       // Storage #51: perm.dll(+.version) -> Objekt-Store (B); leer = No-Op
+    ex::MeasurementSinkFn measurement_sink; // Storage #51: Mess-Datei -> NFS additiv (C); leer = No-Op
+    std::string           compiler_tag;     // opt-g: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
+    std::uint64_t         n_ops                = 10000; // Mess-Workload je dyn-Setting
+    std::size_t           max_binaries         = 0;     // 0 ⇒ ALLE Pässe; sonst Cap auf die Zahl der SOTA-Pässe (Smoke)
+    std::string           build_version        = "m3v2"; // Resume-Marke (.version-Sidecar)
+    std::uint32_t         n_repeats            = 3;      // Wiederholungen je (Binary×Setting) — repetition-DynDim
+    std::size_t           cores_per_build      = 4;
+    double                min_free_gb          = 0.0;
+    bool                  resume_override_set  = false;
+    bool                  resume               = true;
+    std::uint64_t         working_set_override = 0;   // >0 ⇒ ein N-Wert (records); 0 ⇒ records=n_ops
+    std::string           platform_override;          // leer ⇒ Default-Tag; sonst Override (CSV-Tag)
+    std::string           build_version_tag_override; // leer ⇒ build_version; sonst Override (CSV-Tag)
     // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig). Vom Host via discover_load_profiles gesetzt.
     std::map<std::string, wd::WorkloadConfig> workload_registry;
     std::vector<std::string>                  workload_values; // die id-Werte der dynamischen Workload-Achse
@@ -337,6 +339,8 @@ struct RunExperimentResult {
                         cfg.output_dir         = a.dll_dir;
                         cfg.cores_per_build    = a.cores_per_build;
                         cfg.per_binary_subdirs = true;
+                        cfg.cache_push         = a.cache_push;       // Storage #51: bis zur per-Binary-Naht (No-Op)
+                        cfg.measurement_sink   = a.measurement_sink; // Storage #51: result.csv -> NFS (No-Op)
                         cfg.resume_completed_binaries = a.resume_override_set ? a.resume : true;
                         cfg.n_repeats                 = (a.n_repeats == 0) ? 1u : a.n_repeats;
                         cfg.env_limits.thread_count   = 16;
@@ -366,6 +370,10 @@ struct RunExperimentResult {
               << " sota_ids=" << res.sota_binary_ids << " measured=" << res.any_measured
               << " resumed=" << res.any_resumed << " csv_ok=" << (csv_ok ? "1" : "0") << " → " << a.out_csv.string()
               << "\n";
+
+    // Storage #51 (Ebene C, whole-run + datierter Baum): die EINE offizielle CSV NACH dem verifizierten Flush additiv
+    // an die NFS-Senke. No-Op-Default (leere measurement_sink) => byte-neutral. Nur bei csv_ok. SYNCHRON, kein async.
+    if (csv_ok && a.measurement_sink) a.measurement_sink(a.out_csv, "measurements.csv");
 
     // Exit 0 = mind. 1 (Binary × Setting) real gemessen ODER resumiert UND die CSV fehlerfrei geschrieben (M11).
     res.exit_code = ((res.any_measured > 0 || res.any_resumed > 0) && csv_ok) ? 0 : 1;

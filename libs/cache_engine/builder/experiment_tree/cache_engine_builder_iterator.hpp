@@ -31,7 +31,8 @@
 #include "container_attribution.hpp"   // CMD-2/#252: host-seitige Container-in-SA-Attribution (c1 store_ops)
 #include "perm_runner.hpp"             // run_observable_perm / format_perm_result
 #include "result_ingest.hpp"           // ingest_result_line
-#include "../build_orchestrator/build_orchestrator.hpp"       // BuildOrchestrator / BuildConfig / *Fn
+#include "../build_orchestrator/build_orchestrator.hpp" // BuildOrchestrator / BuildConfig / *Fn
+#include "../artifact_transport/artifact_cache.hpp"     // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
 #include "../anatomy_module_loader/anatomy_module_loader.hpp" // AnatomyModuleLoader / AnatomyModuleHandle
 #include "../pruef_dock/search_algorithm_dock.hpp" // INC-2a (Q4): acquire_search_algorithm_drive (Dock-Vertrag)
 #include "../../anatomy/observable_tier.hpp"       // IObservableTier
@@ -52,6 +53,12 @@
 #include <vector>
 
 namespace comdare::cache_engine::builder::experiment {
+
+// Storage #51 (No-Op-Naht): die Transport-Injektions-Typen liegen kanonisch im artifact_transport-Modul (haelt den
+// achsen-blinden Iterator transport-frei) — hier nur als Alias hochgezogen (ex::CachePushFn / ex::MeasurementSinkFn),
+// analog dazu, wie CompileFn/AlgoSigFn im experiment-Namespace sichtbar sind.
+using CachePushFn       = ::comdare::cache_engine::builder::artifact_transport::CachePushFn;
+using MeasurementSinkFn = ::comdare::cache_engine::builder::artifact_transport::MeasurementSinkFn;
 
 // ── Konfiguration des Lazy-E2E-Laufs ──────────────────────────────────────────
 struct LazyRunConfig {
@@ -129,6 +136,12 @@ struct LazyRunConfig {
     // werden NEU gemessen — der Zwei-Phasen-Cache-Warmup gilt auf Re-Entry intrinsisch je Op (Mess-Gültigkeit,
     // [[feedback_two_phase_warmup_mandatory_validity]]). Nur wirksam mit per_binary_subdirs.
     bool resume_completed_binaries = true;
+    // Storage #51 (Naht-Injektion, No-Op-Default => byte-neutral; Muster wie CompileFn/AlgoSigFn). Der Iterator ruft
+    // sie SYNCHRON an der per-Binary-Naht (NACH result.csv+stamp, VOR RAII-DLL-Unload) — nie async/detached (I/O-
+    // Contention = Messfehler). cache_push: perm.dll(+.version) -> Objekt-Store (Ebene B). measurement_sink:
+    // result.csv -> NFS additiv (Ebene C). Leer (Default) => No-Op => golden/CI byte-identisch (Anti-Phantom).
+    CachePushFn       cache_push;
+    MeasurementSinkFn measurement_sink;
 };
 
 // ── Eine gemessene CSV-Zeile (Binary × dyn-Setting) ───────────────────────────
@@ -706,6 +719,11 @@ struct LazyRunResult {
     bcfg.ram_safety_margin_bytes = cfg.ram_safety_margin_bytes;
     bcfg.per_binary_subdirs      = cfg.per_binary_subdirs; // (E): je Tier-Binary ein eigener Unterordner
 
+    // Storage #51 — PULL-HOOK-STELLE (push-only-first, NOCH NICHT AKTIV): die Warm-Cache-Hydrierung (minio->local)
+    // gehoert GENAU HIER in Phase A, VOR dem Bau — der Orchestrator prueft je Binary dll_is_current (build_orchestrator
+    // .hpp:332); ein Pull muesste perm.dll(+.version) unter <build_version>/<stem>/ ins output_dir legen, BEVOR
+    // provision_all laeuft, sodass dll_is_current sie als versions-aktuell erkennt und den Rebuild ueberspringt.
+    // Parallel-unbedenklich (pre-Messung). Das Folge-Increment aktiviert ihn (cfg.cache_pull); heute push-only.
     // Bauplan §8: die AlgoSigFn wird dem Orchestrator mitgegeben -> je Binary wird die Organ-Signatur (algo_sig)
     // berechnet, ins .algos-Sidecar geschrieben und in BuildResult.algo_sig getragen (fuer den Mess-Resume unten).
     // Leer = Organ-Gate aus (byte-neutral).
@@ -906,6 +924,24 @@ struct LazyRunResult {
                 if (sf) { sf << binary_resume_stamp << "|rows=" << per_binary_rows << "\n"; }
             } else {
                 std::filesystem::remove(bin_dir / "result.csv.stamp", ec); // stale Stempel nie stehen lassen
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════════════
+        // Storage #51 — NAHT-EINHAENGUNG (SYNCHRON, per-Binary, im 1-Thread-Mess-Loop): NACH result.csv+stamp,
+        // VOR dem RAII-DLL-Unload. (1) Push B->minio: perm.dll ZUERST + perm.dll.version ZULETZT (der Client
+        // leitet den Objekt-Key ab). (2) NFS-Sink C: result.csv additiv. BEIDE No-Op-Default (leere
+        // std::function) => golden byte-identisch (Anti-Phantom). SYNCHRON/blockierend => die naechste Messung
+        // startet erst nach Rueckkehr => NIE parallel zur Messung (I/O-Contention-Schutz; async/detached VERBOTEN).
+        // Fehler behandelt der Client selbst (ArtefaktIo geloggt, lokale Kopie bleibt) => MESSEN WEITER (kein throw).
+        // ════════════════════════════════════════════════════════════════════════════════════════════════
+        if (cfg.per_binary_subdirs && !bin_dir.empty()) {
+            if (cfg.cache_push) cfg.cache_push(bin_dir, cfg.build_version); // Ebene B: perm.dll(+.version) -> Store
+            if (cfg.measurement_sink) {
+                std::error_code             sec;
+                std::filesystem::path const rcsv = bin_dir / "result.csv";
+                if (std::filesystem::exists(rcsv, sec)) // Ebene C: result.csv -> NFS (datierter Baum/<stem>/result.csv)
+                    cfg.measurement_sink(rcsv, bin_dir.filename().string() + "/result.csv");
             }
         }
         // handle: RAII entlädt die DLL am Schleifenende (Pointer zuerst, dann FreeLibrary).
