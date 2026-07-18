@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <string_view>
 #include <type_traits>
+#include <variant>
 
 namespace cea  = ::comdare::cache_engine::anatomy;
 namespace comp = ::comdare::cache_engine::compositions;
@@ -74,6 +75,27 @@ static_assert(std::is_polymorphic_v<cea::IDriveableTier>,
 static_assert(std::is_polymorphic_v<cea::IMeasurableWorkload>,
               "ABI-Grenze: IMeasurableWorkload ist bewusst polymorph (Batch-Treiber, 1 Call je Batch).");
 
+// ── Block D: variant-Freiheit im Hot-Path (§23: std::variant VERBOTEN fuer statische/Organ-Achsen — Runtime-Tag-
+//    Overhead + Code-Bloat, laesst winzige Algorithmus-Reihungen MB fressen). Der REV7-Baustein-Variant-Cluster
+//    (abi/algorithm_baustein.hpp -> baustein_variants.hpp -> resolve_baustein.hpp) ist genau darum TEST-ONLY
+//    quarantaeniert (einziger Konsument tests/unit/test_abi_interface.cpp) + NICHT im Live-Codegen-Pfad. Positiv-
+//    Anker: keine Referenz-Anatomie und keine ihrer Compositions ist ein std::variant — der Hot-Path dispatcht
+//    monomorph (CRTP+Concept), nie ueber einen Runtime-Tag. Wird der Variant-Cluster je in den Live-Pfad
+//    verdrahtet, bricht dieser Guard. ──
+template <class T>
+struct is_std_variant : std::false_type {};
+template <class... Ts>
+struct is_std_variant<std::variant<Ts...>> : std::true_type {};
+
+template <class Entry>
+struct is_variant_free_hot_path : std::bool_constant<!is_std_variant<anatomy_of<Entry>>::value &&
+                                                     !is_std_variant<typename Entry::composition>::value> {};
+
+static_assert(mp::mp_all_of<comp::KnownReferenceCompositions, is_variant_free_hot_path>::value,
+              "§23 variant-Verbot: keine der 11 Referenz-Anatomien/Compositions darf ein std::variant sein "
+              "(Runtime-Tag/Bloat). Der REV7-Baustein-Variant-Cluster ist TEST-ONLY quarantaeniert; ihn in den "
+              "Live-Codegen-Pfad zu verdrahten (statt monomorpher CRTP+Concept-Achsen) bricht diesen Guard.");
+
 // ── GTEST-Traeger (dokumentiert die compile-time-Beweise + prueft Kardinalitaet/Konsistenz zur Laufzeit) ──
 TEST(MetaprogStriktheitGuard, ElevenReferenceAnatomiesAreNonPolymorphicHotPath) {
     std::size_t count               = 0;
@@ -103,4 +125,15 @@ TEST(MetaprogStriktheitGuard, AbiBoundaryIsDeliberatelyPolymorphic) {
     EXPECT_TRUE(std::is_polymorphic_v<cea::IAnatomyBase>);
     EXPECT_TRUE(std::is_polymorphic_v<cea::IDriveableTier>);
     EXPECT_TRUE(std::is_polymorphic_v<cea::IMeasurableWorkload>);
+}
+
+TEST(MetaprogStriktheitGuard, HotPathIsVariantFree) {
+    // §23: keine Referenz-Anatomie/Composition ist ein std::variant (Runtime-Tag/Bloat) — der Baustein-Variant-
+    // Cluster bleibt TEST-ONLY quarantaeniert, der Live-Hot-Path dispatcht monomorph via CRTP+Concept.
+    bool all_variant_free = true;
+    mp::mp_for_each<comp::KnownReferenceCompositions>([&]<class Entry>(Entry) {
+        if (is_std_variant<anatomy_of<Entry>>::value || is_std_variant<typename Entry::composition>::value)
+            all_variant_free = false;
+    });
+    EXPECT_TRUE(all_variant_free);
 }
