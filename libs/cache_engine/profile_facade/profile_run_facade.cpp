@@ -12,6 +12,9 @@
 #include <cache_engine/measurement/compiler_system_axis.hpp> // INC-1h: Compiler-System-Achse (gcc|clang)
 #include <cache_engine/measurement/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=extension_hardware
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // INC-2c.opt-c: opt_level-Unter-Achse (Flag-Quelle)
+#include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>    // INC-0: atomic128-Unter-Achse (Cx16Option, -mcx16)
+#include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
+#include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
 #include <builder/build_orchestrator/build_orchestrator.hpp>
 #include <builder/experiment_tree/registry_to_axis_levels.hpp> // P5: build_all_axis_levels (EnabledStrategies)
@@ -95,7 +98,12 @@ namespace {
     return baked_perm_link_libs();
 }
 
-[[nodiscard]] std::vector<std::string> baked_perm_extra_cflags() {
+// DEPRECATED (INC-0, 2026-07-18): der flache CMake-String-Bake COMDARE_FACADE_PERM_EXTRA_CFLAGS mischte snmalloc-
+// Organ-Defs + -mcx16-Compiler-Flag in EINEN Kanal. Abgeloest durch perm_alloc_organ_cflags() (Organ-Achse) +
+// perm_compiler_isa_cflags() (Compiler-atomic128-Achse), die die Werte single-source aus den Achsen ziehen. NICHT
+// mehr konsumiert (perm_compile_flags nutzt die getrennten Kanaele); Bake + diese Funktion bleiben additiv bis zur
+// Aufraeum-Absprache. [[maybe_unused]] haelt -Werror gruen.
+[[maybe_unused]] [[nodiscard]] std::vector<std::string> baked_perm_extra_cflags() {
 #ifdef COMDARE_FACADE_PERM_EXTRA_CFLAGS
     return split_on(COMDARE_FACADE_PERM_EXTRA_CFLAGS, '|');
 #else
@@ -130,6 +138,33 @@ namespace {
     return {std::string{flag}};
 }
 
+// INC-0: Allokator-ORGAN-Kanal -- der snmalloc-Vendor-Build-Vertrag (SNMALLOC_*-INTERFACE-Defs). Werte single-source
+// aus der Organ-Achse (SnmallocAllocator::vendor_compile_defs()), NICHT mehr CMake-string-gebacken. Gate = das GLOBALE
+// COMDARE_AXIS_06_USE_SNMALLOC (NIE per-Tier: der Umbrella zieht snmalloc.h in JEDE TU -> alle Tiers brauchen den
+// Vertrag, sonst ds/aba.h-#error). In conf/go2 (USE_SNMALLOC=0) inert -> byte-neutral zum Ist-Zustand.
+[[nodiscard]] std::vector<std::string> perm_alloc_organ_cflags() {
+#if defined(COMDARE_AXIS_06_USE_SNMALLOC) && COMDARE_AXIS_06_USE_SNMALLOC
+    std::vector<std::string> out;
+    for (auto const sv : ::comdare::cache_engine::alloc::SnmallocAllocator::vendor_compile_defs()) out.emplace_back(sv);
+    return out;
+#else
+    return {};
+#endif
+}
+
+// INC-0: Compiler-SYSTEM-Kanal -- -mcx16 (atomic128-Unter-Achse, Cx16Option). Gate = USE_SNMALLOC && x86_64 (snmallocs
+// ds/aba.h verlangt CMPXCHG16B; -mcx16 ist x86_64-only). Freigabe-Prinzip: die Compiler-Achse GIBT -mcx16 frei, das
+// snmalloc-Organ SETZT es durch. Wert single-source aus der Achse (gcc/clang teilen -mcx16). In conf/go2 inert.
+[[nodiscard]] std::vector<std::string> perm_compiler_isa_cflags() {
+#if defined(COMDARE_AXIS_06_USE_SNMALLOC) && COMDARE_AXIS_06_USE_SNMALLOC && defined(COMDARE_ARCH_X86_64)
+    std::string_view const flag = ::comdare::cache_engine::measurement::Cx16Option::gcc_flag(); // == clang_flag()
+    if (flag.empty()) return {};
+    return {std::string{flag}};
+#else
+    return {};
+#endif
+}
+
 [[nodiscard]] std::vector<std::string> perm_mess_defines() {
     std::vector<std::string> d = {"-DCOMDARE_ANATOMY_MODULE_BUILD=1", "-DCOMDARE_MEASUREMENT_ON=1",
                                   "-DCOMDARE_CE_ENABLE_STATISTICS=1", "-DCOMDARE_EXPERIMENT_MODE_ON=1"};
@@ -151,9 +186,18 @@ namespace {
 #ifdef COMDARE_CACHE_LINE_SIZE
     d.emplace_back("-DCOMDARE_CACHE_LINE_SIZE=" + std::to_string(static_cast<long long>(COMDARE_CACHE_LINE_SIZE)));
 #endif
-    // snmalloc ist header-only: seine INTERFACE-Defs + -mcx16 muessen dem g++-Subprozess
-    // explizit mitgegeben werden (gebacken, gleiche Luecke wie bei den Vendor-Archiven).
-    for (auto& f : baked_perm_extra_cflags()) d.push_back(std::move(f));
+    // INC-0-Entmischung: perm_mess_defines() traegt NUR noch Mess-/OS-/Arch-/Cache-Line-Defines. Die Achsen-Flags
+    // (Allokator-Organ, Compiler-atomic128, extension_hardware-SIMD) montiert perm_compile_flags() getrennt.
+    return d;
+}
+
+// INC-0: der EINE Compile-Flag-Assembler fuer die Tier-Binary-Subprozesse -- macht die WAS/WIE-Schicht-Trennung
+// SICHTBAR statt eines flachen Misch-Vektors: (1) Mess-/OS-/Arch-Defines (perm_mess_defines), (2) Allokator-ORGAN-
+// Defs (snmalloc-Vertrag), (3) Compiler-SYSTEM-Flag -mcx16 (atomic128-Achse), (4) extension_hardware-SIMD -march.
+[[nodiscard]] std::vector<std::string> perm_compile_flags() {
+    std::vector<std::string> d = perm_mess_defines();
+    for (auto& f : perm_alloc_organ_cflags()) d.push_back(std::move(f));
+    for (auto& f : perm_compiler_isa_cflags()) d.push_back(std::move(f));
     for (auto& f : perm_extension_hardware_cflags()) d.push_back(std::move(f));
     return d;
 }
@@ -277,7 +321,7 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.src_dir      = args.src_dir;
     a.dll_dir      = args.dll_dir;
     a.compile      = ex::make_gpp_compile_fn(
-        perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs(),
+        perm_include_dirs(), perm_compile_flags(), cxx_compiler(), perm_link_libs(),
         perm_opt_level_cflags(),           // opt-c: opt_level-Flag (Default O3, beweglich)
         facade_supports_fno_gnu_unique()); // opt-d: Dialekt-Gate als Wert (kein Sniff im Builder)
     a.n_ops                      = args.n_ops;
@@ -459,7 +503,7 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     //   permutiert opt_level×simd aus der XML (ep.opt_levels/simd_extensions) und ruft die Fabrik je Perm mit den
     //   aufgelösten Flags. Die include_dirs/defines/cxx/link_libs/fno_gnu_unique-Wahl bleibt Facade-Wissen
     //   (WAS/WIE-Trennung: der Planer permutiert die System-Achsen, die Facade montiert die CompileFn).
-    a.compile_for_perm = [inc = perm_include_dirs(), def = perm_mess_defines(), cxx = cxx_compiler(),
+    a.compile_for_perm = [inc = perm_include_dirs(), def = perm_compile_flags(), cxx = cxx_compiler(),
                           libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique()](
                              std::string const& opt_flag, std::string const& march_flag) {
         std::string flags = opt_flag; // opt-b-Kanal: eine rsp-Zeile, opt + optional -march (gcc/clang teilen Syntax)
@@ -471,9 +515,9 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     };
     a.compiler_tag = cxx_compiler(); // +cxx=-Provenienz im per-Perm-build_version
     // Fallback-Einzel-CompileFn (greift nur, wenn compile_for_perm null wäre) = beweglicher CEB-Default (O3).
-    a.compile      = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs(),
-                                             perm_opt_level_cflags(), facade_supports_fno_gnu_unique());
-    a.n_ops        = args.n_ops;
+    a.compile = ex::make_gpp_compile_fn(perm_include_dirs(), perm_compile_flags(), cxx_compiler(), perm_link_libs(),
+                                        perm_opt_level_cflags(), facade_supports_fno_gnu_unique());
+    a.n_ops   = args.n_ops;
     a.max_binaries = args.max_binaries;
     // opt-g: BASIS ohne System-Achsen-Suffix — die Perm-Schleife hängt je opt×simd "+cxx=+opt=+ext=" an
     // (system_axes_version_suffix() bleibt für den Einzel-Pfad run_profile_facade unverändert).
