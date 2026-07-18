@@ -156,6 +156,11 @@ if(_facade_perm_link_libs)
         "COMDARE_FACADE_PERM_LINK_LIBS=\"$<JOIN:$<REMOVE_DUPLICATES:${_facade_perm_link_expr}>,|>\"")
 endif()
 
+# DEPRECATED (INC-0, 2026-07-18): dieser Bake mischte snmalloc-Organ-Defs + -mcx16-Compiler-Flag in EINEN String-
+# Kanal (COMDARE_FACADE_PERM_EXTRA_CFLAGS). Abgeloest -> die Werte kommen jetzt compile-time single-source aus den
+# Achsen im Facade-TU (perm_alloc_organ_cflags() aus SnmallocAllocator::vendor_compile_defs(); perm_compiler_isa_
+# cflags() aus measurement::Cx16Option), gegated am globalen COMDARE_AXIS_06_USE_SNMALLOC. Bake bleibt additiv (nicht
+# mehr konsumiert) bis zur Aufraeum-Absprache; Entfernung entfernt auch baked_perm_extra_cflags() im Facade-TU.
 # snmalloc ist header-only (kein Archiv): seine INTERFACE-Compile-Defs + -mcx16 (ext/CMakeLists.txt:134-146)
 # erreichen den g++-Subprozess ebenso wenig wie die Archive -> als Extra-Compile-Flags baken.
 set(_facade_perm_extra_cflags "")
