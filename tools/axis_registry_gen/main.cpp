@@ -42,10 +42,13 @@
 //   volle, argument-erhaltende type_name<W>() emittiert ('::'-praefixiert, elaborated-normalisiert, F24) und
 //   per GUARD gegen das Literal geprueft (b.type muss mit W::cpp_type_name beginnen — faengt Literal-Drift).
 //
-// golden_wired: ein Baustein ist golden-verdrahtet, wenn er in den golden-320-Katalog (FullSourceCatalog =
-//   CatalogAxes<4,4,5,4>, profile_facade/source_catalog.hpp:83-113) eingeht: die ersten K je Achse
-//   (search_algo=4, node_type=4, memory_layout=5, prefetch=4; die uebrigen 15 Achsen je 1). Hier inline
-//   ueber mp_take_c<Enabled*, K> auf DENSELBEN Enabled-Listen berechnet (byte-identisch zur Katalog-Take).
+// golden_wired: ein Baustein ist golden-verdrahtet, wenn er in den golden-320-Katalog eingeht. ENTKOPPLUNG
+//   (NEW-GOLDEN-ALL-AXES 2026-07-18): der golden-320-Katalog heisst seit dem 2^17-Bump golden_320_catalog =
+//   CatalogAxes<4,1,1,1,4,5,1,4,1,1,1,1,1,1,1,1,1> (profile_facade/source_catalog.hpp); der auf 2^17 angehobene
+//   FullSourceCatalog ist der SEPARATE lazy Referenz-Detektor. golden_wired bleibt bewusst an die 320-Grundlage
+//   gekoppelt: die ersten K je Achse (search_algo=4, node_type=4, memory_layout=5, prefetch=4; die uebrigen 13 je 1).
+//   Hier inline ueber mp_take_c<Enabled*, K> auf DENSELBEN Enabled-Listen berechnet (byte-identisch zur Katalog-Take;
+//   die generierte Registry-XML bleibt damit unveraendert).
 //
 // C++23. Ausfuehren: `axis_registry_gen --out <pfad> [--with-extra-axes]`. TABU (permutation_axes.xml,
 // golden-320, POD-1416, kV3AxisSchema, ABI) wird NICHT beruehrt - der Generator LIEST nur Typen.

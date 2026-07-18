@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- comdare_thesis_profile — NEW-GOLDEN-ALL-AXES (2026-07-18, BAUPLAN-NEW-GOLDEN-ALL-AXES.md §4).
+     Plan-Root: docs/sessions/backups/20260718-new-golden-all-axes-vor/BAUPLAN-NEW-GOLDEN-ALL-AXES.md
+
+     ZWECK: die DEKLARATIVE Referenz-Grundlage des NEUEN golden-Standards. Waehrend m3v2_study.profile.xml nur 4
+     Achsen variiert (4·4·5·4 = 320), deckt DIESES Profil ALLE 17 Kompositions-Achsen ab und variiert JEDE je 2
+     Auspraegungen → kartesisch N = 2^17 = 131.072 Rekombinationen. Das ist der Ganz-System-Regressions-Detektor
+     (echte Regressionen ueber das GESAMTE System, nicht nur ein 4-Achsen-Subset).
+
+     ADDITIV, kein Ersatz: m3v2_study.profile.xml bleibt TABU-unberuehrt (320-Grundlage, messdaten-erhaltend). Dieses
+     Profil ist die DEKLARATIVE Spiegelung des golden-REFERENZ-Katalogs FullSourceCatalog = CatalogAxes<2,...,2>
+     (profile_facade/source_catalog.hpp): je Achse GENAU 2 <value> = die ERSTEN 2 Enabled-name()-Werte (deckungsgleich
+     zu mp_take_c<EnabledStrategies, 2>, siehe algorithm_profiles/cache_engine_axis_registry.xml). Leere <value>-Liste
+     ist VERBOTEN (expandierte sonst zur vollen Registry).
+
+     WICHTIG (Entkopplung REFERENZ vs BAU): dieses Profil ist die deklarative REFERENZ-Grundlage. Es wird bewusst NICHT
+     in catalog_codegen.cmake repointet — der materialisierte DLL-Codegen-Katalog (generated_source_catalog.hpp) MUSS
+     klein/kuratiert (320) bleiben; 131.072 materialisierte Quell-Eintraege = GB-TU / g++-ICE. Der golden-REFERENZ-Count
+     laeuft ausschliesslich lazy (catalog_axis_product<> ∏ mp_size / StaticBinaryView view.size()). -->
+<comdare_thesis_profile id="all_axes_golden" schema_version="1">
+
+  <!-- (a) BASIS-TIERE: identisch zu m3v2 (PRT-ART + die 6 SOTA-Kompositionen = 7 Lebewesen je Reihe). -->
+  <base_tiers>
+    <tier id="prt_art"  profile_ref="../sota/art.profile.xml"       paper_ref="PRT"/>
+    <tier id="art"      profile_ref="../sota/art.profile.xml"       paper_ref="P01"/>
+    <tier id="hot"      profile_ref="../sota/hot.profile.xml"       paper_ref="P02"/>
+    <tier id="masstree" profile_ref="../sota/masstree.profile.xml"  paper_ref="P03"/>
+    <tier id="surf"     profile_ref="../sota/surf.profile.xml"      paper_ref="P10"/>
+    <tier id="start"    profile_ref="../sota/start.profile.xml"     paper_ref="P05"/>
+    <tier id="wormhole" profile_ref="../sota/wormhole.profile.xml"  paper_ref="P07"/>
+  </base_tiers>
+
+  <!-- (b) ALLE 17 SLOTS in kanonischer kCompositionAxisNames-Reihenfolge (axis_path_serialization.hpp), je GENAU 2
+       konkrete <value> = die ersten 2 Enabled-name()-Werte (deckungsgleich mp_take_c<...,2>). 2^17 = 131.072. -->
+  <permute_axes>
+    <axis ref="search_algo"><value>k_ary</value><value>interpolation</value></axis>
+    <axis ref="cache_traversal"><value>linear_fanout</value><value>hash_lookup</value></axis>
+    <axis ref="mapping"><value>direct_placement</value><value>pool_relative</value></axis>
+    <axis ref="path_compression"><value>path_compression_none</value><value>path_compression_patricia</value></axis>
+    <axis ref="node_type"><value>node4</value><value>node16</value></axis>
+    <axis ref="memory_layout"><value>memory_layout_cache_line_aligned</value><value>memory_layout_aos_strict</value></axis>
+    <axis ref="allocator"><value>std_malloc</value><value>pmr_resource</value></axis>
+    <axis ref="prefetch"><value>prefetch_none</value><value>prefetch_distance_estimator</value></axis>
+    <axis ref="concurrency"><value>concurrency_none</value><value>concurrency_blocking</value></axis>
+    <axis ref="serialization"><value>serialization_raw_binary</value><value>serialization_var_len</value></axis>
+    <axis ref="value_handle"><value>value_handle_inline</value><value>value_handle_external_pool</value></axis>
+    <axis ref="index_organization"><value>index_org_heap</value><value>index_org_clustered</value></axis>
+    <axis ref="io_dispatch"><value>io_in_memory_only</value><value>io_direct</value></axis>
+    <axis ref="migration_policy"><value>migration_none</value><value>migration_hot_cold</value></axis>
+    <axis ref="filter"><value>filter_bloom</value><value>filter_cuckoo</value></axis>
+    <axis ref="queuing_q1"><value>no_buffer</value><value>fifo_queue</value></axis>
+    <axis ref="queuing_q2"><value>eager_flush</value><value>watermark_flush</value></axis>
+  </permute_axes>
+
+  <!-- (b') PER-ACHSEN-SWEEP: hier ALLE 17 Achsen (Ganz-System-Coverage). Deklarativ; die vertieften Achsen laufen
+       ueber eigene Sweep-Baeume (axis_sweep_levels + axis_sweep_source_map), die Basis-Achsen ueber ihre Katalog-View. -->
+  <axis_sweeps>
+    <axis_sweep axis="search_algo"        baseline="index0"/>
+    <axis_sweep axis="cache_traversal"    baseline="index0"/>
+    <axis_sweep axis="mapping"            baseline="index0"/>
+    <axis_sweep axis="path_compression"   baseline="index0"/>
+    <axis_sweep axis="node_type"          baseline="index0"/>
+    <axis_sweep axis="memory_layout"      baseline="index0"/>
+    <axis_sweep axis="allocator"          baseline="index0"/>
+    <axis_sweep axis="prefetch"           baseline="index0"/>
+    <axis_sweep axis="concurrency"        baseline="index0"/>
+    <axis_sweep axis="serialization"      baseline="index0"/>
+    <axis_sweep axis="value_handle"       baseline="index0"/>
+    <axis_sweep axis="index_organization" baseline="index0"/>
+    <axis_sweep axis="io_dispatch"        baseline="index0"/>
+    <axis_sweep axis="migration_policy"   baseline="index0"/>
+    <axis_sweep axis="filter"             baseline="index0"/>
+    <axis_sweep axis="queuing_q1"         baseline="index0"/>
+    <axis_sweep axis="queuing_q2"         baseline="index0"/>
+  </axis_sweeps>
+
+  <!-- (c) SOTA-REIHEN: identisch zu m3v2 (PRT-ART + 6 SOTA-Lebewesen unter Stufe1/2/3). -->
+  <sota_series_set>
+    <sota_series id="A" lebewesen="prt_art"  merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="art"      merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="hot"      merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="masstree" merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="surf"     merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="start"    merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="wormhole" merge="Stufe1_CeOnly"/>
+    <sota_series id="A" lebewesen="prt_art"  merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="art"      merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="hot"      merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="masstree" merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="surf"     merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="start"    merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="A" lebewesen="wormhole" merge="Stufe2_PrueflingReplace"/>
+    <sota_series id="B" lebewesen="prt_art"  merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="art"      merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="hot"      merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="masstree" merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="surf"     merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="start"    merge="Stufe3_FullJoin"/>
+    <sota_series id="B" lebewesen="wormhole" merge="Stufe3_FullJoin"/>
+  </sota_series_set>
+
+  <!-- (a-S1) WORKING-SET-SWEEP: wie m3v2 {2^14, 2^17, 2^20, 2^23}. -->
+  <working_set_sweep>16384 131072 1048576 8388608</working_set_sweep>
+
+  <compile_dims>
+    <workloads>ycsb_a ycsb_b ycsb_c ycsb_d ycsb_e ycsb_f</workloads>
+    <telemetry mode="on" silent="true"/>
+  </compile_dims>
+
+  <runtime_dynamic>
+    <thread_count>1</thread_count>
+    <hw_prefetcher>all_on adjacent_off all_off</hw_prefetcher>
+  </runtime_dynamic>
+
+  <repetitions count="3" interpolate="false" overlay_in_chart="true"/>
+
+  <!-- (d-S1) RUN-OPTIONS: cap = 131072 = das neue golden-Ziel N = 2^17 (Ganz-System-Kartesik). -->
+  <run_options cap="131072" platform="win-x86_64" build_version="all_axes_golden" resume="true"/>
+
+  <!-- (g) EIN Basis-Modus (Stufe-1 ce-only): alle 17 Slots aktiv in kanonischer Reihenfolge. -->
+  <modes>
+    <mode name="all_axes_golden_base" merge="Stufe1_CeOnly"
+          active_axes="search_algo cache_traversal mapping path_compression node_type memory_layout allocator prefetch concurrency serialization value_handle index_organization io_dispatch migration_policy filter queuing_q1 queuing_q2"/>
+  </modes>
+
+  <static_axes from="base_tier"/>
+
+  <key_value_signature>
+    <key_types>std::uint64_t</key_types>
+    <value_types>std::string</value_types>
+  </key_value_signature>
+</comdare_thesis_profile>
