@@ -178,11 +178,11 @@ namespace {
 // (OptO*SubAxis::gcc/clang/msvc_opt_flag, compile-time-Reflexion), der ORT ist der opt_flag-Param von
 // make_gpp_compile_fn (opt-b). CEB-DEFAULT = O3 (Ruling 2026-07-18, Option B): IEEE-754-deterministisch,
 // wahrt den 1-Thread-Mess-Determinismus der golden-Reihe. NICHTS GLOBAL GEPINNT — der Startwert kommt aus
-// der benannten Single-Source DefaultOptLevelSubAxis (=O3), env COMDARE_PILOT_OPT_LEVEL + XML/Planer (A3)
+// der benannten Single-Source DefaultOptLevelOption (=O3), env COMDARE_PILOT_OPT_LEVEL + XML/Planer (A3)
 // bewegen JEDES Teil. Ofast/O0/O1/O2 leben additiv als +opt=-Sidecar-Vergleichs-Extreme.
 [[nodiscard]] std::string_view active_opt_level() {
     // Startwert aus der benannten Achsen-Single-Source (kein rohes Literal, kein Pin) = "O3".
-    std::string_view level = ::comdare::cache_engine::measurement::DefaultOptLevelSubAxis::opt_level_id();
+    std::string_view level = ::comdare::cache_engine::measurement::DefaultOptLevelOption::opt_level_id();
     if (char const* e = std::getenv("COMDARE_PILOT_OPT_LEVEL"); e != nullptr && *e != '\0') level = e;
     return level;
 }
@@ -192,22 +192,22 @@ namespace {
     std::string_view const level = active_opt_level();
     bool const             clang = cxx_compiler().find("clang") != std::string::npos;
     auto pick = [&](std::string_view gcc, std::string_view cl) { return std::string{clang ? cl : gcc}; };
-    if (level == cm::OptO0SubAxis::opt_level_id())
-        return pick(cm::OptO0SubAxis::gcc_opt_flag(), cm::OptO0SubAxis::clang_opt_flag());
-    if (level == cm::OptO1SubAxis::opt_level_id())
-        return pick(cm::OptO1SubAxis::gcc_opt_flag(), cm::OptO1SubAxis::clang_opt_flag());
-    if (level == cm::OptO2SubAxis::opt_level_id())
-        return pick(cm::OptO2SubAxis::gcc_opt_flag(), cm::OptO2SubAxis::clang_opt_flag());
-    if (level == cm::OptO3SubAxis::opt_level_id())
-        return pick(cm::OptO3SubAxis::gcc_opt_flag(), cm::OptO3SubAxis::clang_opt_flag());
-    if (level == cm::OptOfastSubAxis::opt_level_id())
-        return pick(cm::OptOfastSubAxis::gcc_opt_flag(), cm::OptOfastSubAxis::clang_opt_flag());
+    if (level == cm::OptO0Option::opt_level_id())
+        return pick(cm::OptO0Option::gcc_opt_flag(), cm::OptO0Option::clang_opt_flag());
+    if (level == cm::OptO1Option::opt_level_id())
+        return pick(cm::OptO1Option::gcc_opt_flag(), cm::OptO1Option::clang_opt_flag());
+    if (level == cm::OptO2Option::opt_level_id())
+        return pick(cm::OptO2Option::gcc_opt_flag(), cm::OptO2Option::clang_opt_flag());
+    if (level == cm::OptO3Option::opt_level_id())
+        return pick(cm::OptO3Option::gcc_opt_flag(), cm::OptO3Option::clang_opt_flag());
+    if (level == cm::OptOfastOption::opt_level_id())
+        return pick(cm::OptOfastOption::gcc_opt_flag(), cm::OptOfastOption::clang_opt_flag());
     // Fehlerklasse (INC-29.0, KonfigXmlParse-Nachbar): unbekannter Smoke-Wert -> sichtbar degradiert, NIE leer
     // (kein impliziter Compiler-Default /Od), NIE harter exit. Fallback = der bewegliche CEB-Default (O3), NICHT
     // ein O2-Pin. Formale D1-Log-Klassifikation an der Build-Naht folgt INC-29.2/d1-log.
     std::cerr << "[profile_facade] COMDARE_PILOT_OPT_LEVEL='" << level << "' unbekannt; nutze CEB-Default "
-              << cm::DefaultOptLevelSubAxis::opt_level_id() << ".\n";
-    return pick(cm::DefaultOptLevelSubAxis::gcc_opt_flag(), cm::DefaultOptLevelSubAxis::clang_opt_flag());
+              << cm::DefaultOptLevelOption::opt_level_id() << ".\n";
+    return pick(cm::DefaultOptLevelOption::gcc_opt_flag(), cm::DefaultOptLevelOption::clang_opt_flag());
 }
 
 // H-10 (Bau-INC-1g): die VARIABLEN System-Achsen-Belegungen (Erweiterungshardware-Politik,

@@ -114,18 +114,18 @@ static_assert(!cem::ClangCompilerAxis::supports_fno_gnu_unique());
 // ── Block J (Bau-INC-2c.opt-a): opt_level als dynamische Unter-Achse UNTER der Compiler-Haupt-Achse (OF-1/2/3) ──
 // Compile-time-Schicht (CRTP+Concept, keine vtable), binary_id-neutral (H-10-Sidecar). parent_axis_label=="compiler"
 // verankert die Unter-Achsen-Zugehoerigkeit; opt_level ist KEINE Geschwister-System-Achse.
-static_assert(cem::OptimizationLevelSubAxisConcept<cem::OptO0SubAxis>);
-static_assert(cem::OptimizationLevelSubAxisConcept<cem::OptO3SubAxis>);
-static_assert(cem::OptimizationLevelSubAxisConcept<cem::OptOfastSubAxis>);
-static_assert(cem::OptO2SubAxis::axis_label() == std::string_view{"opt_level"});
-static_assert(cem::OptOfastSubAxis::parent_axis_label() == std::string_view{"compiler"});
-static_assert(cem::OptO3SubAxis::gcc_opt_flag() == std::string_view{"-O3"});
+static_assert(cem::OptimizationLevelSubAxisConcept<cem::OptO0Option>);
+static_assert(cem::OptimizationLevelSubAxisConcept<cem::OptO3Option>);
+static_assert(cem::OptimizationLevelSubAxisConcept<cem::OptOfastOption>);
+static_assert(cem::OptO2Option::axis_label() == std::string_view{"opt_level"});
+static_assert(cem::OptOfastOption::parent_axis_label() == std::string_view{"compiler"});
+static_assert(cem::OptO3Option::gcc_opt_flag() == std::string_view{"-O3"});
 // Ruling 2026-07-18 (Option B): CEB-Default = O3 (IEEE-754-deterministisch, beweglich, kein Pin); Ofast additive
 // Extreme, bricht den Determinismus (-fallow-store-data-races/-funsafe-math).
-static_assert(cem::DefaultOptLevelSubAxis::opt_level_id() == std::string_view{"O3"});
-static_assert(cem::DefaultOptLevelSubAxis::is_ieee754_deterministic());
-static_assert(cem::OptO3SubAxis::is_ieee754_deterministic());
-static_assert(!cem::OptOfastSubAxis::is_ieee754_deterministic());
+static_assert(cem::DefaultOptLevelOption::opt_level_id() == std::string_view{"O3"});
+static_assert(cem::DefaultOptLevelOption::is_ieee754_deterministic());
+static_assert(cem::OptO3Option::is_ieee754_deterministic());
+static_assert(!cem::OptOfastOption::is_ieee754_deterministic());
 
 TEST(StriktheitAxisDachGuard, DiskriminatorenSindDisjunkt) {
     EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ), static_cast<unsigned>(cet::AxisKind::system_measurement));
