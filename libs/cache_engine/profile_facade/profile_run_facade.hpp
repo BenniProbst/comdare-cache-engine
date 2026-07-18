@@ -7,6 +7,8 @@
 // gekapselt.
 // -----------------------------------------------------------------------------
 
+#include <builder/artifact_transport/artifact_cache.hpp> // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
+
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -35,6 +37,10 @@ struct ProfileRunArgs {
     std::string   sweep_axis;
     std::string   platform_override;
     std::string   build_version_tag_override;
+    // Storage #51 (No-Op-Default => byte-neutral): der Host (messung_driver) konstruiert sie via
+    // artifact_transport::ArtifactCache::from_env und reicht sie zur per-Binary-/whole-run-Naht durch. Leer = No-Op.
+    artifact_transport::CachePushFn       cache_push;
+    artifact_transport::MeasurementSinkFn measurement_sink;
 };
 
 struct ProfileRunResult {
@@ -77,6 +83,10 @@ struct ExperimentRunArgs {
     std::uint64_t working_set_override = 0;
     std::string   platform_override;
     std::string   build_version_tag_override;
+    // Storage #51 (No-Op-Default => byte-neutral): wie ProfileRunArgs — vom Host via from_env konstruiert,
+    // zur per-Binary-/whole-run-Naht durchgereicht. Leer = No-Op.
+    artifact_transport::CachePushFn       cache_push;
+    artifact_transport::MeasurementSinkFn measurement_sink;
 };
 
 struct ExperimentRunResult {

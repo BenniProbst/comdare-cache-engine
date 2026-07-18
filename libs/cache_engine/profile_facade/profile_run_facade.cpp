@@ -391,6 +391,8 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     a.working_set_override       = args.working_set_override;
     a.workload_registry          = std::move(workload_registry);
     a.workload_values            = std::move(workload_values);
+    a.cache_push                 = args.cache_push;       // Storage #51: No-Op-Naht durchreichen (byte-neutral)
+    a.measurement_sink           = args.measurement_sink; // Storage #51: perm.dll->Store (B) / CSV->NFS (C)
 
     tlz::RunProfileResult const r = tlz::run_profile(a);
     out.exit_code                 = r.exit_code;
@@ -591,6 +593,8 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     a.build_version_tag_override = args.build_version_tag_override;
     a.workload_registry          = std::move(workload_registry);
     a.workload_values            = std::move(workload_values);
+    a.cache_push                 = args.cache_push;       // Storage #51: No-Op-Naht durchreichen (byte-neutral)
+    a.measurement_sink           = args.measurement_sink; // Storage #51: perm.dll->Store (B) / CSV->NFS (C)
 
     tlz::RunExperimentResult const r = tlz::run_experiment_profile(a);
     out.exit_code                    = r.exit_code;
