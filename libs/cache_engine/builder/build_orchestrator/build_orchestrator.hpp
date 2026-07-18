@@ -16,6 +16,7 @@
 // Die reale OS-RAM-Abfrage (GlobalMemoryStatusEx/sysinfo) liegt in system_ram.hpp (hält diesen Header windows.h-frei).
 
 #include "../experiment_tree/experiment_tree.hpp"
+#include <cache_engine/measurement/axis_error.hpp> // opt-d/d1-carrier: CompilerCompilerErrorClass (A2-Hybrid Teil 1)
 
 #include <algorithm>
 #include <atomic>
@@ -26,6 +27,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <expected> // d1-carrier (C4/OD-3): std::expected<void, CompilerCompilerErrorClass> als Fehler-Traeger
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -99,7 +101,11 @@ struct BuildResult {
     bool                  skipped = false; // KF-16b: bestehende DLL war versions-aktuell → nicht neu gebaut
     std::filesystem::path output;
     std::string           message;
-    [[nodiscard]] bool    ok() const noexcept { return status == 0; }
+    // d1-carrier (A2-Hybrid Teil 1, C4/OD-3): klassifizierter Bau-Ausgang. Erfolg = has_value (Default);
+    // Fehlschlag = std::unexpected(CompilerCompilerErrorClass). Der Builder zieht das geteilte Taxonomie-
+    // Vokabular (measurement/axis_error.hpp) hoch — Bau-KONFIG bleibt Wert-runter (opt-d), Fehler-KLASSE Wert-hoch.
+    std::expected<void, ::comdare::cache_engine::measurement::CompilerCompilerErrorClass> outcome{};
+    [[nodiscard]] bool ok() const noexcept { return status == 0; }
 };
 
 struct BuildStats {
@@ -319,6 +325,16 @@ private:
                 if (r.status != -2) {
                     r.status  = compile_(job);
                     r.message = (r.status == 0) ? "ok" : ("compile-exit " + std::to_string(r.status));
+                    // d1-carrier: den rohen Exit-Code in die Fehlerklasse uebersetzen (Erfolg = has_value).
+                    // 125/127 = Infra/Toolchain (rsp-Schreibfehler/spawn), sonst nonzero = vom Compiler
+                    // abgelehnte Achsen-Kombination. Der Iterator (d1-log) liest r.outcome fuer die Log-Zeile.
+                    namespace cm = ::comdare::cache_engine::measurement;
+                    if (r.status == 0)
+                        r.outcome = {};
+                    else if (r.status == 125 || r.status == 127)
+                        r.outcome = std::unexpected(cm::CompilerCompilerErrorClass::ToolchainFehlt);
+                    else
+                        r.outcome = std::unexpected(cm::CompilerCompilerErrorClass::CompileKombination);
                     if (r.status == 0) write_version_sidecar(job.output, cfg_.build_version); // Resume-Marke
                 }
                 results[j] = std::move(r);
