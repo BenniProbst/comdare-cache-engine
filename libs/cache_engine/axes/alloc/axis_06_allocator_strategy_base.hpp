@@ -24,6 +24,7 @@
 #include "axis_06_allocator_subaxes_aa1_to_aa7.hpp"
 #include "alloc_hw_config.hpp" // F-B: NUMA/Page->allocator-Unterachse (GO4/#8, 2026-07-12)
 #include <topics/axis_base.hpp>
+#include <topics/organ_axis.hpp> // INC-1a: OrganAxis<Derived> = topics::Axis-Dach + AxisBase (axis_kind()==organ)
 #include <axes/cacheline/cacheline_config.hpp> // KF-5: per-Organ Cache-Line-Unterachse
 
 #include <concepts>
@@ -64,7 +65,7 @@ template <typename Derived,
           ::comdare::cache_engine::cacheline::CacheLineConfig CacheLineCfg =
               ::comdare::cache_engine::cacheline::CacheLineConfig{},
           AllocHwConfig AllocHwCfg = AllocHwConfig{}>
-class AllocatorStrategyBase : public ::comdare::cache_engine::topics::AxisBase,
+class AllocatorStrategyBase : public ::comdare::cache_engine::topics::OrganAxis<Derived>,
                               public ::comdare::cache_engine::cacheline::CacheLineAware<CacheLineCfg>,
                               public AllocHwAware<AllocHwCfg> {
 public:
@@ -75,9 +76,13 @@ public:
         static_assert(concepts::CacheEnginePermutationStrategy<Derived>,
                       "Derived must satisfy CacheEnginePermutationStrategy concept "
                       "(see concepts/axis_06_allocator_cache_engine_permutation_concept.hpp)");
-        static_assert(::comdare::cache_engine::topics::AxisBaseConcept<Derived>,
-                      "Derived must satisfy AxisBaseConcept (get_compiler() Pflicht-API). "
-                      "AllocatorStrategyBase erbt von AxisBase — Derived bekommt Default 'original' automatisch.");
+        static_assert(
+            ::comdare::cache_engine::topics::AxisBaseConcept<Derived>,
+            "Derived must satisfy AxisBaseConcept (get_compiler() Pflicht-API). "
+            "AllocatorStrategyBase erbt AxisBase via OrganAxis — Derived bekommt Default 'original' automatisch.");
+        static_assert(::comdare::cache_engine::topics::OrganAxisConcept<Derived>,
+                      "Derived must satisfy OrganAxisConcept: Organ-Achse unterm gemeinsamen Dach topics::Axis "
+                      "(axis_kind()==organ, EBO-neutral). INC-1a: AllocatorStrategyBase haengt via OrganAxis am Dach.");
     }
 
     // ───────────────────────────────────────────────────────────────────────
