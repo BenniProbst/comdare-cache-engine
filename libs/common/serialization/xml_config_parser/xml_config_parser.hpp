@@ -285,6 +285,18 @@ struct ExperimentOutput {
     bool        comparison_metrics = false; // <output><comparison_metrics> (bool)
 };
 
+// <system_axes> — CEB-System-Achsen (opt-f/A3), konform zur V35-Tabelle §2.1: Haupt-Achse → Unter-Achse → Optionen.
+// Die Parent-Ebene (compiler / extension_hardware) wird ERHALTEN (nicht flach gedroppt). binary_id-NEUTRAL
+// (system_config; opt/simd stehen NIE in kCompositionAxisNames). Rohstrings (cache_engine-frei); die Enum-/Flag-
+// Aufloesung (O0..Ofast → -O<n> / no_extension|avx2|avx512 → -march) erfolgt in der cache_engine-Schicht.
+struct CompilerAxisSel {                 // Haupt-System-Achse "compiler" (15) — trägt dynamische Unter-Achsen
+    std::vector<std::string> opt_levels; // Unter-Achse "opt_level" (15.2): ihre Optionen <option value=O0..Ofast>
+};
+struct ExtensionHardwareAxisSel { // Haupt-System-Achse "extension_hardware" (6., Q2 Option C)
+    std::vector<std::string>
+        options; // simd-Ausprägungen DIREKT <option value=no_extension|avx2|avx512> (keine Unter-Achse)
+};
+
 struct ExperimentProfile {
     std::string                   version;   // <comdare_experiment version=..>
     std::string                   id;        // <comdare_experiment id=..>
@@ -299,12 +311,10 @@ struct ExperimentProfile {
     std::vector<ThesisDatasetRef>      datasets;     // <datasets><dataset id akte_ref loader>* (Single-Source-Akten)
     std::vector<std::string> measurement_categories; // <measurement_categories><category name=..>* (Spalten-Projektion)
     std::vector<std::string> op_types;               // <op_types> (Whitespace-Tokens OP-1..OP-6)
-    // <system_axes> — CEB-System-Achsen-Permutation (opt-f/A3). binary_id-NEUTRAL: Provenienz build_version/Sidecar,
-    // NIE binary_id (opt/simd sind system_config, stehen nie in kCompositionAxisNames). Rohstrings (cache_engine-frei);
-    // Enum-Aufloesung O0..Ofast / no_extension|avx2|avx512 erfolgt in der cache_engine-Schicht (validate_profile).
-    std::vector<std::string> opt_levels;      // <system_axes><compiler><opt_level value=..>* (leer = CEB-Default O3)
-    std::vector<std::string> simd_extensions; // <system_axes><extension_hardware><simd value=..>* (ISA-gegated)
-    ExperimentOutput         output;          // <output>
+    CompilerAxisSel          compiler; // <system_axes><compiler> (Haupt-Achse → opt_level-Unter-Achse → Optionen)
+    ExtensionHardwareAxisSel
+                     extension_hardware; // <system_axes><extension_hardware> (Haupt-Achse, simd-Optionen direkt)
+    ExperimentOutput output;             // <output>
 };
 
 class XmlConfigParser {

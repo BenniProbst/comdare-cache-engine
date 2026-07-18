@@ -26,6 +26,11 @@
 // -----------------------------------------------------------------------------
 
 #include <cache_engine/measurement/load_framework_system_axis.hpp> // INC-1f: Single-Source des "workload"-Unter-Achsen-Labels
+#include <cache_engine/measurement/optimization_level_sub_axis.hpp>    // opt-g: OptO*SubAxis (opt_level-id -> -O<n>)
+#include <cache_engine/measurement/extension_hardware_system_axis.hpp> // opt-g: ExtensionHardware (simd-id -> -march)
+#include <cache_engine/measurement/axis_error.hpp>                     // opt-g: CompilerCompilerErrorClass (D1-Log)
+
+#include <functional> // opt-g: std::function (per-Perm-CompileFn-Fabrik)
 
 #include "profile_run_entry.hpp" // run_profile-Unterbau: count_lines / ex-/wd-Aliase / generated_make_catalog_source_gen /
                                  //   make_union_source_gen / make_system_free_ram_fn / sota_catalog (Projektion I3)
@@ -42,18 +47,23 @@ struct RunExperimentArgs {
     std::filesystem::path out_csv;      // DIE EINE offizielle CSV (Header genau EINMAL, alle Phasen darunter)
     std::filesystem::path src_dir;      // perm_<id>.cpp-Ausgabe (per-Binary-Subdir-Basis)
     std::filesystem::path dll_dir;      // perm_<id>.dll-Ausgabe (per-Binary-Subdir-Basis)
-    ex::CompileFn         compile;      // injizierter Compiler-Aufruf (make_gpp_compile_fn) — wie run_profile
-    std::uint64_t         n_ops                = 10000; // Mess-Workload je dyn-Setting
-    std::size_t           max_binaries         = 0;     // 0 ⇒ ALLE Pässe; sonst Cap auf die Zahl der SOTA-Pässe (Smoke)
-    std::string           build_version        = "m3v2"; // Resume-Marke (.version-Sidecar)
-    std::uint32_t         n_repeats            = 3;      // Wiederholungen je (Binary×Setting) — repetition-DynDim
-    std::size_t           cores_per_build      = 4;
-    double                min_free_gb          = 0.0;
-    bool                  resume_override_set  = false;
-    bool                  resume               = true;
-    std::uint64_t         working_set_override = 0;   // >0 ⇒ ein N-Wert (records); 0 ⇒ records=n_ops
-    std::string           platform_override;          // leer ⇒ Default-Tag; sonst Override (CSV-Tag)
-    std::string           build_version_tag_override; // leer ⇒ build_version; sonst Override (CSV-Tag)
+    ex::CompileFn         compile;      // injizierter Compiler-Aufruf (Fallback/Einzel-Default) — wie run_profile
+    // opt-g: per-Permutation-CompileFn-Fabrik (System-Achsen opt_level × simd). Der Facade-Planer liefert sie
+    // (kennt include_dirs/defines/cxx/link_libs/fno_gnu_unique); run_experiment_profile permutiert opt×simd aus der
+    // geparsten XML SELBST und ruft die Fabrik je Perm mit den aufgelösten Flags. Leer ⇒ Fallback auf `compile`.
+    std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag)> compile_for_perm;
+    std::string   compiler_tag;                  // opt-g: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
+    std::uint64_t n_ops                = 10000;  // Mess-Workload je dyn-Setting
+    std::size_t   max_binaries         = 0;      // 0 ⇒ ALLE Pässe; sonst Cap auf die Zahl der SOTA-Pässe (Smoke)
+    std::string   build_version        = "m3v2"; // Resume-Marke (.version-Sidecar)
+    std::uint32_t n_repeats            = 3;      // Wiederholungen je (Binary×Setting) — repetition-DynDim
+    std::size_t   cores_per_build      = 4;
+    double        min_free_gb          = 0.0;
+    bool          resume_override_set  = false;
+    bool          resume               = true;
+    std::uint64_t working_set_override = 0;   // >0 ⇒ ein N-Wert (records); 0 ⇒ records=n_ops
+    std::string   platform_override;          // leer ⇒ Default-Tag; sonst Override (CSV-Tag)
+    std::string   build_version_tag_override; // leer ⇒ build_version; sonst Override (CSV-Tag)
     // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig). Vom Host via discover_load_profiles gesetzt.
     std::map<std::string, wd::WorkloadConfig> workload_registry;
     std::vector<std::string>                  workload_values; // die id-Werte der dynamischen Workload-Achse
@@ -87,6 +97,37 @@ struct RunExperimentResult {
     std::strftime(buf, sizeof(buf), "%Y%m%d", &tm);
     for (auto p = path.find(token); p != std::string::npos; p = path.find(token, p)) path.replace(p, token.size(), buf);
     return path;
+}
+
+// ── opt-g: System-Achsen-id → Compile-Flag (Single-Source über die Achsen-Structs; gcc/clang teilen -O/-march). ──
+[[nodiscard]] inline std::string experiment_opt_flag_of(std::string_view opt_id) {
+    namespace cm = ::comdare::cache_engine::measurement;
+    if (opt_id == cm::OptO0SubAxis::opt_level_id()) return std::string{cm::OptO0SubAxis::gcc_opt_flag()};
+    if (opt_id == cm::OptO1SubAxis::opt_level_id()) return std::string{cm::OptO1SubAxis::gcc_opt_flag()};
+    if (opt_id == cm::OptO2SubAxis::opt_level_id()) return std::string{cm::OptO2SubAxis::gcc_opt_flag()};
+    if (opt_id == cm::OptO3SubAxis::opt_level_id()) return std::string{cm::OptO3SubAxis::gcc_opt_flag()};
+    if (opt_id == cm::OptOfastSubAxis::opt_level_id()) return std::string{cm::OptOfastSubAxis::gcc_opt_flag()};
+    return {}; // unbekannt ⇒ Caller degradiert sichtbar auf den CEB-Default (D1, KonfigXmlParse)
+}
+[[nodiscard]] inline std::string experiment_march_of(std::string_view simd_id) {
+    namespace cm = ::comdare::cache_engine::measurement;
+    if (simd_id == cm::Avx2ExtensionHardwareAxis::simd_extension_id())
+        return std::string{cm::Avx2ExtensionHardwareAxis::gcc_march_flag()};
+    if (simd_id == cm::Avx512ExtensionHardwareAxis::simd_extension_id())
+        return std::string{cm::Avx512ExtensionHardwareAxis::gcc_march_flag()};
+    return {}; // no_extension / unbekannt ⇒ generisch (kein -march)
+}
+// ISA-Gate (E1): die simd-Erweiterung nur zulassen, wenn der Host-Prozessor sie bietet. Die -march-Flag IST das
+// Gate für die Organ-SIMD-Codegen (Organ-SIMD ≤ System-SIMD-Zulassung); Bau- + Mess-Host sind derselbe (golden-
+// Lauf), daher __builtin_cpu_supports. Fused-off-AVX512 (prod2) meldet sich hier korrekt als nicht verfügbar.
+[[nodiscard]] inline bool experiment_host_supports_simd(std::string_view simd_id) {
+    namespace cm = ::comdare::cache_engine::measurement;
+    if (simd_id == cm::GenericExtensionHardwareAxis::simd_extension_id()) return true;
+#if defined(__x86_64__) || defined(_M_X64)
+    if (simd_id == cm::Avx2ExtensionHardwareAxis::simd_extension_id()) return __builtin_cpu_supports("avx2");
+    if (simd_id == cm::Avx512ExtensionHardwareAxis::simd_extension_id()) return __builtin_cpu_supports("avx512f");
+#endif
+    return false; // avx* auf nicht-x86 / unbekannte id ⇒ nicht zulassen
 }
 
 /// run_experiment_profile — DIE EINE deklarative comdare_experiment-Lauf-API (Brücke-I4). Projiziert die
@@ -207,70 +248,119 @@ struct RunExperimentResult {
     //    select_explicit({0}) → run_lazy_static_then_dynamic. BYTE-gleich zum SOTA-Pass-Muster in run_profile
     //    (profile_run_entry.hpp:387-421). Cap (a.max_binaries>0) begrenzt die GESAMTZAHL der Pässe (Smoke). Der
     //    globale seen-Set dedupliziert view_binary_ids über die Phasen (jede reale DLL genau EINMAL). ──
-    std::set<std::string> sota_seen_bids;
-    bool const            capped = a.max_binaries > 0;
-    for (auto const& proj : projections) {
-        std::cout << "  [PHASE] name=" << proj.phase_name << " merge=" << proj.merge
-                  << " baubare-paare=" << proj.passes.size() << "\n";
-        for (auto const& p : proj.passes) {
-            if (capped && sota_seen_bids.size() >= a.max_binaries) {
-                std::cout << "    [CAP] max_binaries=" << a.max_binaries << " erreicht — weitere Pässe übersprungen\n";
-                break;
-            }
-            if (!sota_seen_bids.insert(p.view_binary_id).second) continue; // schon in früherer Phase gebaut/gemessen
-
-            std::vector<ex::AxisLevel> sota_levels;
-            sota_levels.push_back(ex::AxisLevel{std::string{kSotaTierAxis}, {p.sota_bid}, /*is_static=*/true, "", ""});
-            for (auto const& dd : dyn_levels) sota_levels.push_back(dd);
-
-            auto               sota_factory = std::make_shared<ex::ExperimentNodeFactory>();
-            ex::ExperimentTree sota_tree{sota_factory};
-            sota_tree.build(sota_levels);
-            ex::StaticBinaryView const sota_view = sota_tree.static_binary_view();
-            ex::BuildSelection const   sel       = ex::select_explicit({0}); // EIN Lebewesen je Reihe = view-Index 0
-
-            std::cout << "    SOTA-Pass phase=" << proj.phase_name << " series=" << p.series
-                      << " pruefling_type=" << p.pruefling_type << " lebewesen=" << p.lebewesen
-                      << " binary_id=" << (sota_view.empty() ? std::string{"<leer>"} : sota_view[0].binary_id) << "\n";
-
-            for (std::uint64_t const ws_n : n_sweep) {
-                ex::LazyRunConfig cfg;
-                cfg.max_binaries       = 1; // einwertiger sota_tier-Baum (1 statisches Blatt), wie run_profile
-                cfg.n_ops              = a.n_ops;
-                cfg.workload_records   = ws_n;
-                cfg.workload_configs   = a.workload_registry;
-                cfg.build_version      = a.build_version;
-                cfg.row_series         = p.series.empty() ? std::string{"-"} : p.series;
-                cfg.row_pruefling_type = p.pruefling_type.empty() ? std::string{"-"} : p.pruefling_type;
-                cfg.row_sweep_axis     = "-"; // Experiment-Pässe sind keine Achsen-Sweeps
-                cfg.row_fairness_mode  = p.fairness_mode.empty() ? std::string{"-"} : p.fairness_mode;
-                cfg.row_h2_score       = "-"; // H2-Akte ist Thesis-Profil-Provenienz — von der Brücke nicht getragen
-                cfg.profile_datasets   = datasets_signature;
-                cfg.row_platform       = tag_platform;
-                cfg.row_build_version  = tag_build_version;
-                cfg.source_dir         = a.src_dir;
-                cfg.output_dir         = a.dll_dir;
-                cfg.cores_per_build    = a.cores_per_build;
-                cfg.per_binary_subdirs = true;
-                cfg.resume_completed_binaries = a.resume_override_set ? a.resume : true;
-                cfg.n_repeats                 = (a.n_repeats == 0) ? 1u : a.n_repeats;
-                cfg.env_limits.thread_count   = 16;
-                if (a.min_free_gb > 0.0) {
-                    cfg.ram_per_build_bytes     = static_cast<std::uint64_t>(a.min_free_gb * 1024.0 * 1024.0 * 1024.0);
-                    cfg.ram_safety_margin_bytes = cfg.ram_per_build_bytes;
-                }
-                ex::LazyRunResult const r =
-                    ex::run_lazy_static_then_dynamic(sota_tree, sel, a.compile, union_gen, ram, cfg);
-                std::cout << "      [pass] selected=" << r.selected << " built=" << r.built
-                          << " built_new=" << r.built_new << " loaded=" << r.loaded << " load_failed=" << r.load_failed
-                          << " dyn_settings=" << r.dynamic_settings_total << " measured=" << r.measured
-                          << " resumed=" << r.resumed_binaries << "\n";
-                emit(r);
-            }
+    // ── opt-g: System-Achsen-Permutation (opt_level × simd) am Planer-Dock. Wrappt die Phasen-Schleife UNTER dem
+    //    CSV-Header (der bleibt genau EINMAL); je Perm eigene CompileFn(opt_flag+march) + eigenes build_version-
+    //    Sidecar (+cxx=+opt=+ext=) + eigenes SOTA-Dedup. binary_id BLEIBT Organ-only (opt/simd = system_config →
+    //    NIE binary_id, Q2 Option C); es wächst nur die MESS-Matrix (CSV × |opt×simd|). Quelle = die geparste XML
+    //    (ep.compiler.opt_levels/simd_extensions, opt-f); leer ⇒ CEB-Default (O3 / no_extension). ──
+    namespace cm = ::comdare::cache_engine::measurement;
+    std::vector<std::string> const opt_perms =
+        ep.compiler.opt_levels.empty()
+            ? std::vector<std::string>{std::string{cm::DefaultOptLevelSubAxis::opt_level_id()}}
+            : ep.compiler.opt_levels;
+    std::vector<std::string> const simd_perms =
+        ep.extension_hardware.options.empty()
+            ? std::vector<std::string>{std::string{cm::GenericExtensionHardwareAxis::simd_extension_id()}}
+            : ep.extension_hardware.options;
+    bool const capped = a.max_binaries > 0;
+    for (auto const& opt_id : opt_perms) {
+        std::string opt_flag = experiment_opt_flag_of(opt_id);
+        if (opt_flag.empty()) {
+            std::cerr << "[Compiler-Compiler-Fehler: "
+                      << cm::error_class_label(cm::CompilerCompilerErrorClass::KonfigXmlParse) << "] <opt_level>='"
+                      << opt_id << "' unbekannt; degradiere auf CEB-Default "
+                      << cm::DefaultOptLevelSubAxis::opt_level_id() << ".\n";
+            opt_flag = std::string{cm::DefaultOptLevelSubAxis::gcc_opt_flag()};
         }
-        if (capped && sota_seen_bids.size() >= a.max_binaries) break;
-    }
-    res.sota_binary_ids = sota_seen_bids.size();
+        for (auto const& simd_id : simd_perms) {
+            if (!experiment_host_supports_simd(simd_id)) {
+                std::cerr << "[Compiler-Compiler-Fehler: "
+                          << cm::error_class_label(cm::CompilerCompilerErrorClass::HardwareErweiterungFehlt)
+                          << "] simd='" << simd_id << "' auf dieser ISA nicht verfügbar — Permutation übersprungen.\n";
+                continue;
+            }
+            std::string const   march_flag = experiment_march_of(simd_id);
+            ex::CompileFn const perm_compile =
+                a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag) : a.compile;
+            std::string const perm_suffix =
+                "+cxx=" + a.compiler_tag + "+opt=" + opt_id +
+                (simd_id == std::string{cm::GenericExtensionHardwareAxis::simd_extension_id()} ? std::string{}
+                                                                                               : "+ext=" + simd_id);
+            std::string const perm_build_version     = a.build_version + perm_suffix;
+            std::string const perm_tag_build_version = tag_build_version + perm_suffix;
+            std::cout << "  [PERM] opt=" << opt_id << " simd=" << simd_id << " flags='" << opt_flag
+                      << (march_flag.empty() ? std::string{} : (" " + march_flag))
+                      << "' build_version=" << perm_build_version << "\n";
+            std::set<std::string> sota_seen_bids; // per-Perm-Reset: jede opt×simd-Stufe ist ein eigenes SOTA-Rennen
+            for (auto const& proj : projections) {
+                std::cout << "  [PHASE] name=" << proj.phase_name << " merge=" << proj.merge
+                          << " baubare-paare=" << proj.passes.size() << "\n";
+                for (auto const& p : proj.passes) {
+                    if (capped && sota_seen_bids.size() >= a.max_binaries) {
+                        std::cout << "    [CAP] max_binaries=" << a.max_binaries
+                                  << " erreicht — weitere Pässe übersprungen\n";
+                        break;
+                    }
+                    if (!sota_seen_bids.insert(p.view_binary_id).second)
+                        continue; // schon in früherer Phase gebaut/gemessen
+
+                    std::vector<ex::AxisLevel> sota_levels;
+                    sota_levels.push_back(
+                        ex::AxisLevel{std::string{kSotaTierAxis}, {p.sota_bid}, /*is_static=*/true, "", ""});
+                    for (auto const& dd : dyn_levels) sota_levels.push_back(dd);
+
+                    auto               sota_factory = std::make_shared<ex::ExperimentNodeFactory>();
+                    ex::ExperimentTree sota_tree{sota_factory};
+                    sota_tree.build(sota_levels);
+                    ex::StaticBinaryView const sota_view = sota_tree.static_binary_view();
+                    ex::BuildSelection const   sel = ex::select_explicit({0}); // EIN Lebewesen je Reihe = view-Index 0
+
+                    std::cout << "    SOTA-Pass phase=" << proj.phase_name << " series=" << p.series
+                              << " pruefling_type=" << p.pruefling_type << " lebewesen=" << p.lebewesen
+                              << " binary_id=" << (sota_view.empty() ? std::string{"<leer>"} : sota_view[0].binary_id)
+                              << "\n";
+
+                    for (std::uint64_t const ws_n : n_sweep) {
+                        ex::LazyRunConfig cfg;
+                        cfg.max_binaries     = 1; // einwertiger sota_tier-Baum (1 statisches Blatt), wie run_profile
+                        cfg.n_ops            = a.n_ops;
+                        cfg.workload_records = ws_n;
+                        cfg.workload_configs = a.workload_registry;
+                        cfg.build_version    = perm_build_version; // opt-g: per-Perm-Sidecar (+opt/+ext), NIE binary_id
+                        cfg.row_series       = p.series.empty() ? std::string{"-"} : p.series;
+                        cfg.row_pruefling_type = p.pruefling_type.empty() ? std::string{"-"} : p.pruefling_type;
+                        cfg.row_sweep_axis     = "-"; // Experiment-Pässe sind keine Achsen-Sweeps
+                        cfg.row_fairness_mode  = p.fairness_mode.empty() ? std::string{"-"} : p.fairness_mode;
+                        cfg.row_h2_score = "-"; // H2-Akte ist Thesis-Profil-Provenienz — von der Brücke nicht getragen
+                        cfg.profile_datasets   = datasets_signature;
+                        cfg.row_platform       = tag_platform;
+                        cfg.row_build_version  = perm_tag_build_version; // opt-g: CSV-Provenienz-Spalte je opt×simd
+                        cfg.source_dir         = a.src_dir;
+                        cfg.output_dir         = a.dll_dir;
+                        cfg.cores_per_build    = a.cores_per_build;
+                        cfg.per_binary_subdirs = true;
+                        cfg.resume_completed_binaries = a.resume_override_set ? a.resume : true;
+                        cfg.n_repeats                 = (a.n_repeats == 0) ? 1u : a.n_repeats;
+                        cfg.env_limits.thread_count   = 16;
+                        if (a.min_free_gb > 0.0) {
+                            cfg.ram_per_build_bytes =
+                                static_cast<std::uint64_t>(a.min_free_gb * 1024.0 * 1024.0 * 1024.0);
+                            cfg.ram_safety_margin_bytes = cfg.ram_per_build_bytes;
+                        }
+                        ex::LazyRunResult const r =
+                            ex::run_lazy_static_then_dynamic(sota_tree, sel, perm_compile, union_gen, ram, cfg);
+                        std::cout << "      [pass] selected=" << r.selected << " built=" << r.built
+                                  << " built_new=" << r.built_new << " loaded=" << r.loaded
+                                  << " load_failed=" << r.load_failed << " dyn_settings=" << r.dynamic_settings_total
+                                  << " measured=" << r.measured << " resumed=" << r.resumed_binaries << "\n";
+                        emit(r);
+                    }
+                }
+                if (capped && sota_seen_bids.size() >= a.max_binaries) break;
+            } // for projections
+            res.sota_binary_ids += sota_seen_bids.size(); // opt-g: über alle opt×simd-Perms akkumulieren
+        } // for simd_perms
+    } // for opt_perms
 
     csv.flush();
     bool const csv_ok = csv.good();
