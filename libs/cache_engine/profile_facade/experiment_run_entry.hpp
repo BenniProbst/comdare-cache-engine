@@ -102,11 +102,11 @@ struct RunExperimentResult {
 // ── opt-g: System-Achsen-id → Compile-Flag (Single-Source über die Achsen-Structs; gcc/clang teilen -O/-march). ──
 [[nodiscard]] inline std::string experiment_opt_flag_of(std::string_view opt_id) {
     namespace cm = ::comdare::cache_engine::measurement;
-    if (opt_id == cm::OptO0SubAxis::opt_level_id()) return std::string{cm::OptO0SubAxis::gcc_opt_flag()};
-    if (opt_id == cm::OptO1SubAxis::opt_level_id()) return std::string{cm::OptO1SubAxis::gcc_opt_flag()};
-    if (opt_id == cm::OptO2SubAxis::opt_level_id()) return std::string{cm::OptO2SubAxis::gcc_opt_flag()};
-    if (opt_id == cm::OptO3SubAxis::opt_level_id()) return std::string{cm::OptO3SubAxis::gcc_opt_flag()};
-    if (opt_id == cm::OptOfastSubAxis::opt_level_id()) return std::string{cm::OptOfastSubAxis::gcc_opt_flag()};
+    if (opt_id == cm::OptO0Option::opt_level_id()) return std::string{cm::OptO0Option::gcc_opt_flag()};
+    if (opt_id == cm::OptO1Option::opt_level_id()) return std::string{cm::OptO1Option::gcc_opt_flag()};
+    if (opt_id == cm::OptO2Option::opt_level_id()) return std::string{cm::OptO2Option::gcc_opt_flag()};
+    if (opt_id == cm::OptO3Option::opt_level_id()) return std::string{cm::OptO3Option::gcc_opt_flag()};
+    if (opt_id == cm::OptOfastOption::opt_level_id()) return std::string{cm::OptOfastOption::gcc_opt_flag()};
     return {}; // unbekannt ⇒ Caller degradiert sichtbar auf den CEB-Default (D1, KonfigXmlParse)
 }
 [[nodiscard]] inline std::string experiment_march_of(std::string_view simd_id) {
@@ -256,7 +256,7 @@ struct RunExperimentResult {
     namespace cm = ::comdare::cache_engine::measurement;
     std::vector<std::string> const opt_perms =
         ep.compiler.opt_levels.empty()
-            ? std::vector<std::string>{std::string{cm::DefaultOptLevelSubAxis::opt_level_id()}}
+            ? std::vector<std::string>{std::string{cm::DefaultOptLevelOption::opt_level_id()}}
             : ep.compiler.opt_levels;
     std::vector<std::string> const simd_perms =
         ep.extension_hardware.options.empty()
@@ -269,8 +269,8 @@ struct RunExperimentResult {
             std::cerr << "[Compiler-Compiler-Fehler: "
                       << cm::error_class_label(cm::CompilerCompilerErrorClass::KonfigXmlParse) << "] <opt_level>='"
                       << opt_id << "' unbekannt; degradiere auf CEB-Default "
-                      << cm::DefaultOptLevelSubAxis::opt_level_id() << ".\n";
-            opt_flag = std::string{cm::DefaultOptLevelSubAxis::gcc_opt_flag()};
+                      << cm::DefaultOptLevelOption::opt_level_id() << ".\n";
+            opt_flag = std::string{cm::DefaultOptLevelOption::gcc_opt_flag()};
         }
         for (auto const& simd_id : simd_perms) {
             if (!experiment_host_supports_simd(simd_id)) {

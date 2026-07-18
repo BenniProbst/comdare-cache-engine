@@ -73,7 +73,7 @@ concept OptimizationLevelSubAxisConcept =
 // ── Die volle {O0,O1,O2,O3,Ofast}-Auspraegungs-Familie (OF-2). Jede ist eine leere CRTP-Struct
 //    (Design-Space-Vokabular); der Planer/die XML waehlt+permutiert, nichts ist gepinnt. ──
 
-struct OptO0SubAxis final : OptimizationLevelSubAxis<OptO0SubAxis> {
+struct OptO0Option final : OptimizationLevelSubAxis<OptO0Option> {
     [[nodiscard]] static constexpr std::string_view do_opt_level_id() noexcept { return "O0"; }
     [[nodiscard]] static constexpr std::string_view do_gcc_opt_flag() noexcept { return "-O0"; }
     [[nodiscard]] static constexpr std::string_view do_clang_opt_flag() noexcept { return "-O0"; }
@@ -81,7 +81,7 @@ struct OptO0SubAxis final : OptimizationLevelSubAxis<OptO0SubAxis> {
     [[nodiscard]] static constexpr bool             do_is_ieee754_deterministic() noexcept { return true; }
 };
 
-struct OptO1SubAxis final : OptimizationLevelSubAxis<OptO1SubAxis> {
+struct OptO1Option final : OptimizationLevelSubAxis<OptO1Option> {
     [[nodiscard]] static constexpr std::string_view do_opt_level_id() noexcept { return "O1"; }
     [[nodiscard]] static constexpr std::string_view do_gcc_opt_flag() noexcept { return "-O1"; }
     [[nodiscard]] static constexpr std::string_view do_clang_opt_flag() noexcept { return "-O1"; }
@@ -89,7 +89,7 @@ struct OptO1SubAxis final : OptimizationLevelSubAxis<OptO1SubAxis> {
     [[nodiscard]] static constexpr bool             do_is_ieee754_deterministic() noexcept { return true; }
 };
 
-struct OptO2SubAxis final : OptimizationLevelSubAxis<OptO2SubAxis> {
+struct OptO2Option final : OptimizationLevelSubAxis<OptO2Option> {
     [[nodiscard]] static constexpr std::string_view do_opt_level_id() noexcept { return "O2"; }
     [[nodiscard]] static constexpr std::string_view do_gcc_opt_flag() noexcept { return "-O2"; }
     [[nodiscard]] static constexpr std::string_view do_clang_opt_flag() noexcept { return "-O2"; }
@@ -97,7 +97,7 @@ struct OptO2SubAxis final : OptimizationLevelSubAxis<OptO2SubAxis> {
     [[nodiscard]] static constexpr bool             do_is_ieee754_deterministic() noexcept { return true; }
 };
 
-struct OptO3SubAxis final : OptimizationLevelSubAxis<OptO3SubAxis> {
+struct OptO3Option final : OptimizationLevelSubAxis<OptO3Option> {
     [[nodiscard]] static constexpr std::string_view do_opt_level_id() noexcept { return "O3"; }
     [[nodiscard]] static constexpr std::string_view do_gcc_opt_flag() noexcept { return "-O3"; }
     [[nodiscard]] static constexpr std::string_view do_clang_opt_flag() noexcept { return "-O3"; }
@@ -109,7 +109,7 @@ struct OptO3SubAxis final : OptimizationLevelSubAxis<OptO3SubAxis> {
 /// Determinismus-brechend (is_ieee754_deterministic()==false). CEB-DEFAULT (OF-2), per XML
 /// ueberschreibbar. MSVC hat kein direktes Aequivalent -> /O2 (naechstliegend; /fp:fast waere die
 /// separate Fliesskomma-Achse).
-struct OptOfastSubAxis final : OptimizationLevelSubAxis<OptOfastSubAxis> {
+struct OptOfastOption final : OptimizationLevelSubAxis<OptOfastOption> {
     [[nodiscard]] static constexpr std::string_view do_opt_level_id() noexcept { return "Ofast"; }
     [[nodiscard]] static constexpr std::string_view do_gcc_opt_flag() noexcept { return "-Ofast"; }
     [[nodiscard]] static constexpr std::string_view do_clang_opt_flag() noexcept { return "-Ofast"; }
@@ -121,19 +121,19 @@ struct OptOfastSubAxis final : OptimizationLevelSubAxis<OptOfastSubAxis> {
 /// Korrektur der frueheren OF-2-Buchstaben-Lesart ("Default = Ofast"): der CEB-Default ist **O3**, weil O3
 /// IEEE-754-DETERMINISTISCH ist (do_is_ieee754_deterministic()==true) und den 1-Thread-Mess-Determinismus der
 /// golden-Reihe wahrt; -Ofast bricht ihn (-fallow-store-data-races/-funsafe-math). Ofast/O0/O1/O2 leben ADDITIV
-/// als +opt=-Sidecar-Vergleichs-Extreme (OptOfastSubAxis bleibt konkrete Achse). "Nichts gepinnt, JEDES TEIL
+/// als +opt=-Sidecar-Vergleichs-Extreme (OptOfastOption bleibt konkrete Achse). "Nichts gepinnt, JEDES TEIL
 /// beweglich": dies ist NUR der benannte Default-Startwert; env COMDARE_PILOT_OPT_LEVEL + XML/Planer (A3)
 /// ueberschreiben jedes Teil. Benannte Single-Source, damit die Default-Wahl nicht als rohes Literal dupliziert wird.
-using DefaultOptLevelSubAxis = OptO3SubAxis;
+using DefaultOptLevelOption = OptO3Option;
 
-static_assert(OptimizationLevelSubAxisConcept<OptO0SubAxis>);
-static_assert(OptimizationLevelSubAxisConcept<OptO1SubAxis>);
-static_assert(OptimizationLevelSubAxisConcept<OptO2SubAxis>);
-static_assert(OptimizationLevelSubAxisConcept<OptO3SubAxis>);
-static_assert(OptimizationLevelSubAxisConcept<OptOfastSubAxis>);
-static_assert(DefaultOptLevelSubAxis::opt_level_id() == std::string_view{"O3"}, "Ruling 2026-07-18: CEB-Default = O3");
-static_assert(DefaultOptLevelSubAxis::is_ieee754_deterministic(), "O3 ist IEEE-754-deterministisch (Option B)");
-static_assert(OptO2SubAxis::gcc_opt_flag() == std::string_view{"-O2"});
-static_assert(OptOfastSubAxis::parent_axis_label() == std::string_view{"compiler"}, "opt_level haengt unter compiler");
+static_assert(OptimizationLevelSubAxisConcept<OptO0Option>);
+static_assert(OptimizationLevelSubAxisConcept<OptO1Option>);
+static_assert(OptimizationLevelSubAxisConcept<OptO2Option>);
+static_assert(OptimizationLevelSubAxisConcept<OptO3Option>);
+static_assert(OptimizationLevelSubAxisConcept<OptOfastOption>);
+static_assert(DefaultOptLevelOption::opt_level_id() == std::string_view{"O3"}, "Ruling 2026-07-18: CEB-Default = O3");
+static_assert(DefaultOptLevelOption::is_ieee754_deterministic(), "O3 ist IEEE-754-deterministisch (Option B)");
+static_assert(OptO2Option::gcc_opt_flag() == std::string_view{"-O2"});
+static_assert(OptOfastOption::parent_axis_label() == std::string_view{"compiler"}, "opt_level haengt unter compiler");
 
 } // namespace comdare::cache_engine::measurement
