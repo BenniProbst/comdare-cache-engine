@@ -54,7 +54,7 @@ struct RunExperimentArgs {
     std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag)> compile_for_perm;
     ex::AlgoSigFn         algo_sig;         // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
     ex::CachePushFn       cache_push;       // Storage #51: perm.dll(+.version) -> Objekt-Store (B); leer = No-Op
-    ex::MeasurementSinkFn measurement_sink; // Storage #51: Mess-Datei -> NFS additiv (C); leer = No-Op
+    ex::MeasurementSinkFn measurement_sink; // Storage #51: Mess-Datei -> measure-drop additiv (C); leer = No-Op
     std::string           compiler_tag;     // opt-g: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
     std::uint64_t         n_ops                = 10000; // Mess-Workload je dyn-Setting
     std::size_t           max_binaries         = 0;     // 0 ⇒ ALLE Pässe; sonst Cap auf die Zahl der SOTA-Pässe (Smoke)
@@ -340,7 +340,7 @@ struct RunExperimentResult {
                         cfg.cores_per_build    = a.cores_per_build;
                         cfg.per_binary_subdirs = true;
                         cfg.cache_push         = a.cache_push;       // Storage #51: bis zur per-Binary-Naht (No-Op)
-                        cfg.measurement_sink   = a.measurement_sink; // Storage #51: result.csv -> NFS (No-Op)
+                        cfg.measurement_sink   = a.measurement_sink; // Storage #51: result.csv -> measure-drop (No-Op)
                         cfg.resume_completed_binaries = a.resume_override_set ? a.resume : true;
                         cfg.n_repeats                 = (a.n_repeats == 0) ? 1u : a.n_repeats;
                         cfg.env_limits.thread_count   = 16;
@@ -372,7 +372,7 @@ struct RunExperimentResult {
               << "\n";
 
     // Storage #51 (Ebene C, whole-run + datierter Baum): die EINE offizielle CSV NACH dem verifizierten Flush additiv
-    // an die NFS-Senke. No-Op-Default (leere measurement_sink) => byte-neutral. Nur bei csv_ok. SYNCHRON, kein async.
+    // an die measure-drop-Senke. No-Op-Default (leere measurement_sink) => byte-neutral. Nur csv_ok. SYNCHRON, kein async.
     if (csv_ok && a.measurement_sink) a.measurement_sink(a.out_csv, "measurements.csv");
 
     // Exit 0 = mind. 1 (Binary × Setting) real gemessen ODER resumiert UND die CSV fehlerfrei geschrieben (M11).

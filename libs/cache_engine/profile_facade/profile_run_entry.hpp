@@ -63,7 +63,7 @@ struct RunProfileArgs {
     ex::CompileFn            compile;          // injizierter Compiler-Aufruf (cl @rsp) — wie BuildOrchestrator
     ex::AlgoSigFn            algo_sig;         // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
     ex::CachePushFn          cache_push;       // Storage #51: perm.dll(+.version) -> Objekt-Store (B); leer = No-Op
-    ex::MeasurementSinkFn    measurement_sink; // Storage #51: Mess-Datei -> NFS additiv (C); leer = No-Op
+    ex::MeasurementSinkFn    measurement_sink; // Storage #51: Mess-Datei -> measure-drop additiv (C); leer = No-Op
     std::vector<std::string> compile_includes; // ungenutzt hier (der Host backt die Includes in compile) — Doku
     std::uint64_t            n_ops               = 10000;  // Mess-Workload je dyn-Setting
     std::size_t              max_binaries        = 0;      // 0 ⇒ run_options.cap; beide 0 ⇒ KEIN Cap
@@ -251,7 +251,7 @@ struct RunProfileResult {
         cfg.per_binary_subdirs        = true;
         cfg.resume_completed_binaries = resume;
         cfg.cache_push                = a.cache_push;       // Storage #51: bis zur per-Binary-Naht (No-Op-Default)
-        cfg.measurement_sink          = a.measurement_sink; // Storage #51: result.csv -> NFS (No-Op-Default)
+        cfg.measurement_sink          = a.measurement_sink; // Storage #51: result.csv -> measure-drop (No-Op-Default)
         // G4: informatives Feld konsistent aus <repetitions count> speisen (die echten Wiederholungen
         // laufen ohnehin ueber die repetition-DynDim aus tp.repetitions; cfg.n_repeats wird nicht geloopt).
         cfg.n_repeats               = (tp.repetitions > 0) ? static_cast<std::uint32_t>(tp.repetitions) : a.n_repeats;
@@ -438,7 +438,7 @@ struct RunProfileResult {
               << " csv_ok=" << (csv_ok ? "1" : "0") << " → " << a.out_csv.string() << "\n";
 
     // Storage #51 (Ebene C, whole-run + datierter Baum): die EINE offizielle CSV NACH dem verifizierten Flush additiv
-    // an die NFS-Senke. No-Op-Default (leere measurement_sink) => byte-neutral. Nur bei csv_ok (keine abgeschnittene
+    // an die measure-drop-Senke. No-Op-Default (leere measurement_sink) => byte-neutral. Nur bei csv_ok (keine abgeschn.
     // CSV spiegeln). SYNCHRON (alle Paesse fertig) — kein async/detached.
     if (csv_ok && a.measurement_sink) a.measurement_sink(a.out_csv, "measurements.csv");
 
