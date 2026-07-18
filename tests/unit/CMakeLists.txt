@@ -1679,6 +1679,7 @@ set(COMDARE_MCE24_PLAIN_TESTS
     test_cow_capable_wrappers
     test_d4b_container_adapter
     test_genus_binding
+    test_genus_organ_binding        # INC-1b: Organ-Achsen->Gattungs-Bindung (typisiert + drift-guarded)
     test_kf4_resource_control
     test_kf5_cacheline_weave
     test_kf6_node_run_body
