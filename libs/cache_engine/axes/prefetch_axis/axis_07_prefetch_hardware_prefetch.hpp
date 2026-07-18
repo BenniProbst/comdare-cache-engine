@@ -41,6 +41,12 @@ public:
         return "HardwarePrefetch (Wormhole PREFETCHT0, CPU-managed distance)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "HARDWARE_PREFETCH"; }
+
+    /// Algorithmus-Version (Organ-Provenienz, inkrementeller Tier-Binary-Cache): Bump bei algorithmischer
+    /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
+    /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
+    /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
+    static constexpr std::string_view algo_version = "v1";
 };
 
 } // namespace comdare::cache_engine::prefetch_axis

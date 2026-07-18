@@ -52,6 +52,7 @@ struct RunExperimentArgs {
     // (kennt include_dirs/defines/cxx/link_libs/fno_gnu_unique); run_experiment_profile permutiert opt×simd aus der
     // geparsten XML SELBST und ruft die Fabrik je Perm mit den aufgelösten Flags. Leer ⇒ Fallback auf `compile`.
     std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag)> compile_for_perm;
+    ex::AlgoSigFn algo_sig;                      // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
     std::string   compiler_tag;                  // opt-g: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
     std::uint64_t n_ops                = 10000;  // Mess-Workload je dyn-Setting
     std::size_t   max_binaries         = 0;      // 0 ⇒ ALLE Pässe; sonst Cap auf die Zahl der SOTA-Pässe (Smoke)
@@ -344,8 +345,8 @@ struct RunExperimentResult {
                                 static_cast<std::uint64_t>(a.min_free_gb * 1024.0 * 1024.0 * 1024.0);
                             cfg.ram_safety_margin_bytes = cfg.ram_per_build_bytes;
                         }
-                        ex::LazyRunResult const r =
-                            ex::run_lazy_static_then_dynamic(sota_tree, sel, perm_compile, union_gen, ram, cfg);
+                        ex::LazyRunResult const r = ex::run_lazy_static_then_dynamic(sota_tree, sel, perm_compile,
+                                                                                     union_gen, ram, cfg, a.algo_sig);
                         std::cout << "      [pass] selected=" << r.selected << " built=" << r.built
                                   << " built_new=" << r.built_new << " loaded=" << r.loaded
                                   << " load_failed=" << r.load_failed << " dyn_settings=" << r.dynamic_settings_total

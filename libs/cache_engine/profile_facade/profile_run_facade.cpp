@@ -17,8 +17,10 @@
 #include <axes/alloc/axis_06_allocator_snmalloc.hpp> // INC-0: SnmallocAllocator::vendor_compile_defs() (Organ-Vertrag)
 #include <axes/alloc/axis_06_allocator_flags.hpp>    // INC-0: COMDARE_AXIS_06_USE_SNMALLOC (globales Umbrella-Gate)
 
+#include <cache_engine/abi/anatomy_module_abi_v1_decl.hpp> // Bauplan §4: ceb_contract_version (+ceb= in build_version)
 #include <builder/build_orchestrator/build_orchestrator.hpp>
-#include <builder/experiment_tree/registry_to_axis_levels.hpp> // P5: build_all_axis_levels (EnabledStrategies)
+#include <builder/experiment_tree/axis_variant_version_table.hpp> // Bauplan §4/§5: AlgoSigFn aus compose_algo_signature
+#include <builder/experiment_tree/registry_to_axis_levels.hpp>    // P5: build_all_axis_levels (EnabledStrategies)
 #include <builder/workload_driver/load_profile_parser.hpp>
 
 #include <algorithm>
@@ -26,6 +28,7 @@
 #include <filesystem>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <utility>
@@ -295,6 +298,12 @@ namespace {
     std::string suffix = "+ext=" + std::string{active_simd_policy()} + "+cxx=" + cxx_compiler();
     suffix += "+opt=";
     suffix += active_opt_level();
+    // Bauplan §4 (inkrementeller Cache): die CEB-Contract-Version (Framework/System-Ebene) faltet sich in die
+    // build_version -> jeder Bump (ABI-Major AUTOMATISCH ueber COMDARE_ANATOMY_ABI_MAJOR, codegen-Minor manuell/
+    // CI-Tripwire) laesst jede perm.dll.version mismatchen -> ALLE Tier-Binaries neu ("CEB-Aenderung betrifft alle").
+    // Konsistent zum Loader-host_compatible_with-Major-Backstop. Organ-Provenienz bleibt STRIKT getrennt (perm.algos).
+    suffix += "+ceb=" + std::to_string(COMDARE_ANATOMY_ABI_MAJOR) + "." +
+              std::to_string(::comdare::cache_engine::abi::kCebContractCodegenMinor);
     // INC-2d: Cross-Compile-Provenienz NUR wenn Ziel != Host (native x86_64 = kein Suffix -> build_version
     // byte-identisch, golden-neutral). Ziel-ISA ist system_config -> .version-Sidecar, NIE binary_id.
     if (std::string_view const t = active_target_isa();
@@ -357,6 +366,16 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
         perm_include_dirs(), perm_compile_flags(), cxx_compiler(), perm_link_libs(),
         perm_opt_level_cflags(),           // opt-c: opt_level-Flag (Default O3, beweglich)
         facade_supports_fno_gnu_unique()); // opt-d: Dialekt-Gate als Wert (kein Sniff im Builder)
+    // Bauplan §5/§7: die AlgoSigFn aus der compile-time Versions-Tabelle (axis_variant_version_table). Der
+    // Orchestrator berechnet damit je Binary die Organ-Signatur (perm.algos) und gated Rebuild + Neu-Messung. Die
+    // Tabelle wird EINMAL gebaut (dieser TU zieht ohnehin alle 17 Registries) und per shared_ptr in der Closure
+    // gehalten. Leer waere Organ-Gate aus; hier IMMER gesetzt -> der produktive Mess-Pfad cached organ-genau.
+    {
+        auto algo_table = std::make_shared<std::vector<ex::AxisVariantVersion>>(ex::build_axis_variant_version_table());
+        a.algo_sig      = [algo_table](std::vector<std::pair<std::string, std::string>> const& axes) {
+            return ex::compose_algo_signature(axes, *algo_table);
+        };
+    }
     a.n_ops                      = args.n_ops;
     a.max_binaries               = args.max_binaries;
     a.build_version              = args.build_version + system_axes_version_suffix();
@@ -547,6 +566,13 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
         return ex::make_gpp_compile_fn(inc, def, cxx, libs, flags, fno);
     };
     a.compiler_tag = cxx_compiler(); // +cxx=-Provenienz im per-Perm-build_version
+    // Bauplan §5/§7: dieselbe AlgoSigFn wie der Profile-Pfad -> auch der XML-Experiment-Lauf cached organ-genau.
+    {
+        auto algo_table = std::make_shared<std::vector<ex::AxisVariantVersion>>(ex::build_axis_variant_version_table());
+        a.algo_sig      = [algo_table](std::vector<std::pair<std::string, std::string>> const& axes) {
+            return ex::compose_algo_signature(axes, *algo_table);
+        };
+    }
     // Fallback-Einzel-CompileFn (greift nur, wenn compile_for_perm null wäre) = beweglicher CEB-Default (O3).
     a.compile = ex::make_gpp_compile_fn(perm_include_dirs(), perm_compile_flags(), cxx_compiler(), perm_link_libs(),
                                         perm_opt_level_cflags(), facade_supports_fno_gnu_unique());

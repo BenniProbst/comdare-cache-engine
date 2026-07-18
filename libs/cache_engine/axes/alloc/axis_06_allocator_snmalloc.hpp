@@ -88,6 +88,11 @@ public:
     [[nodiscard]] static constexpr std::string_view family_name() noexcept {
         return "Snmalloc Message-Passing (Paul Liétar et al., ISMM 2019)";
     }
+    /// Algorithmus-Version (Organ-Provenienz, inkrementeller Tier-Binary-Cache): Bump bei algorithmischer
+    /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
+    /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
+    /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
+    static constexpr std::string_view               algo_version = "v1";
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "SNMALLOC"; }
 
     // INC-0 (2026-07-18): der snmalloc-Vendor-Build-Vertrag als deklarativer ORGAN-Slot. Diese 4 INTERFACE-Compile-
