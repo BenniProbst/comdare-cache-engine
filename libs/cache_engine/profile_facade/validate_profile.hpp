@@ -554,7 +554,7 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
     //    (Provenienz build_version/H-10-Sidecar); hier nur die Enum-Wohlgeformtheit. Die Aufloesung id→Flag
     //    (-O<n> / -march) macht die opt-g-Facade (make_gpp_compile_fn-Kanal), die ISA-Gegatung ebenso.
     static constexpr std::string_view kValidOptLevels[] = {"O0", "O1", "O2", "O3", "Ofast"};
-    for (auto const& lvl : ep.opt_levels) {
+    for (auto const& lvl : ep.compiler.opt_levels) { // Optionen der opt_level-Unter-Achse unter compiler
         ++r.opt_levels_checked;
         bool const known =
             std::find(std::begin(kValidOptLevels), std::end(kValidOptLevels), lvl) != std::end(kValidOptLevels);
@@ -566,7 +566,7 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
         }
     }
     static constexpr std::string_view kValidSimd[] = {"no_extension", "avx2", "avx512"};
-    for (auto const& s : ep.simd_extensions) {
+    for (auto const& s : ep.extension_hardware.options) { // simd-Optionen der extension_hardware-Haupt-Achse (direkt)
         ++r.simd_checked;
         bool const known = std::find(std::begin(kValidSimd), std::end(kValidSimd), s) != std::end(kValidSimd);
         if (!known) {

@@ -145,12 +145,12 @@ TEST(ExperimentParser, ParsesGoldenInstanceLiterally) {
     EXPECT_EQ(ep->op_types[2], "OP-4");
 
     // <system_axes> (opt-f/A3): opt_level O2/O3 + simd no_extension/avx2 (System-Achsen, binary_id-neutral).
-    ASSERT_EQ(ep->opt_levels.size(), 2u);
-    EXPECT_EQ(ep->opt_levels[0], "O2");
-    EXPECT_EQ(ep->opt_levels[1], "O3");
-    ASSERT_EQ(ep->simd_extensions.size(), 2u);
-    EXPECT_EQ(ep->simd_extensions[0], "no_extension");
-    EXPECT_EQ(ep->simd_extensions[1], "avx2");
+    ASSERT_EQ(ep->compiler.opt_levels.size(), 2u);
+    EXPECT_EQ(ep->compiler.opt_levels[0], "O2");
+    EXPECT_EQ(ep->compiler.opt_levels[1], "O3");
+    ASSERT_EQ(ep->extension_hardware.options.size(), 2u);
+    EXPECT_EQ(ep->extension_hardware.options[0], "no_extension");
+    EXPECT_EQ(ep->extension_hardware.options[1], "avx2");
 
     // output.comparison_metrics == true (+ Pfade nicht leer).
     EXPECT_FALSE(ep->output.binary_path.empty());
@@ -343,7 +343,7 @@ TEST(ExperimentParser, WorkloadGateSkippedWithoutKnownSet) {
 TEST(ExperimentParser, BogusOptLevelIsError) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
-    ep->opt_levels.push_back("O9"); // ausserhalb O0/O1/O2/O3/Ofast
+    ep->compiler.opt_levels.push_back("O9"); // ausserhalb O0/O1/O2/O3/Ofast
 
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_FALSE(vr.ok);
@@ -356,7 +356,7 @@ TEST(ExperimentParser, BogusOptLevelIsError) {
 TEST(ExperimentParser, BogusSimdExtensionIsError) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
-    ep->simd_extensions.push_back("avx1024"); // ausserhalb der Enumeration
+    ep->extension_hardware.options.push_back("avx1024"); // ausserhalb der Enumeration
 
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_FALSE(vr.ok);
@@ -369,8 +369,8 @@ TEST(ExperimentParser, BogusSimdExtensionIsError) {
 TEST(ExperimentParser, EmptySystemAxesIsOk) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
-    ep->opt_levels.clear();
-    ep->simd_extensions.clear();
+    ep->compiler.opt_levels.clear();
+    ep->extension_hardware.options.clear();
 
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_TRUE(vr.ok) << "leere <system_axes> duerfen kein Fehler sein (additiv, CEB-Default)";

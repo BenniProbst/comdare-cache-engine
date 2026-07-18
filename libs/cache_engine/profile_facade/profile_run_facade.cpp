@@ -455,13 +455,29 @@ ExperimentRunResult run_experiment_profile_facade(ExperimentRunArgs const& args)
     a.out_csv      = args.out_csv;
     a.src_dir      = args.src_dir;
     a.dll_dir      = args.dll_dir;
-    a.compile      = ex::make_gpp_compile_fn(
-        perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs(),
-        perm_opt_level_cflags(),           // opt-c: opt_level-Flag (Default O3, beweglich)
-        facade_supports_fno_gnu_unique()); // opt-d: Dialekt-Gate als Wert (kein Sniff im Builder)
-    a.n_ops                      = args.n_ops;
-    a.max_binaries               = args.max_binaries;
-    a.build_version              = args.build_version + system_axes_version_suffix();
+    // opt-g: per-Perm-CompileFn-Fabrik statt EINER festen CompileFn. Der Planer (run_experiment_profile)
+    //   permutiert opt_level×simd aus der XML (ep.opt_levels/simd_extensions) und ruft die Fabrik je Perm mit den
+    //   aufgelösten Flags. Die include_dirs/defines/cxx/link_libs/fno_gnu_unique-Wahl bleibt Facade-Wissen
+    //   (WAS/WIE-Trennung: der Planer permutiert die System-Achsen, die Facade montiert die CompileFn).
+    a.compile_for_perm = [inc = perm_include_dirs(), def = perm_mess_defines(), cxx = cxx_compiler(),
+                          libs = perm_link_libs(), fno = facade_supports_fno_gnu_unique()](
+                             std::string const& opt_flag, std::string const& march_flag) {
+        std::string flags = opt_flag; // opt-b-Kanal: eine rsp-Zeile, opt + optional -march (gcc/clang teilen Syntax)
+        if (!march_flag.empty()) {
+            flags += ' ';
+            flags += march_flag;
+        }
+        return ex::make_gpp_compile_fn(inc, def, cxx, libs, flags, fno);
+    };
+    a.compiler_tag = cxx_compiler(); // +cxx=-Provenienz im per-Perm-build_version
+    // Fallback-Einzel-CompileFn (greift nur, wenn compile_for_perm null wäre) = beweglicher CEB-Default (O3).
+    a.compile      = ex::make_gpp_compile_fn(perm_include_dirs(), perm_mess_defines(), cxx_compiler(), perm_link_libs(),
+                                             perm_opt_level_cflags(), facade_supports_fno_gnu_unique());
+    a.n_ops        = args.n_ops;
+    a.max_binaries = args.max_binaries;
+    // opt-g: BASIS ohne System-Achsen-Suffix — die Perm-Schleife hängt je opt×simd "+cxx=+opt=+ext=" an
+    // (system_axes_version_suffix() bleibt für den Einzel-Pfad run_profile_facade unverändert).
+    a.build_version              = args.build_version;
     a.n_repeats                  = args.n_repeats;
     a.cores_per_build            = args.cores_per_build;
     a.min_free_gb                = args.min_free_gb;

@@ -69,13 +69,15 @@
        simd ist ISA-gegated (nur wenn die Ziel-ISA es bietet). O2/O3 = deterministische Mess-golden-Baseline
        (E1b, IEEE-754); no_extension/avx2 = universell auf prod1(Zen5)+prod2(i9). -->
   <system_axes>
-    <compiler>
-      <opt_level value="O2"/>
-      <opt_level value="O3"/>
+    <compiler>                          <!-- Haupt-System-Achse -->
+      <opt_level>                        <!-- Unter-Achse 15.2 -->
+        <option value="O2"/>             <!-- Optionen (Ausprägungen), KEINE eigenen Achsen -->
+        <option value="O3"/>
+      </opt_level>
     </compiler>
-    <extension_hardware>
-      <simd value="no_extension"/>
-      <simd value="avx2"/>
+    <extension_hardware>                 <!-- Haupt-System-Achse (6.); simd-Optionen direkt -->
+      <option value="no_extension"/>
+      <option value="avx2"/>
     </extension_hardware>
   </system_axes>
 
