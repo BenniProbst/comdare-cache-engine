@@ -64,6 +64,21 @@
     <axis ref="path_compression" allowed_variants="path_compression_none path_compression_patricia"/>
   </axes_default_lookup>
 
+  <!-- System-Achsen-Permutation (opt-f/A3): binary_id-NEUTRAL (opt_level/simd sind system_config, Provenienz
+       build_version/H-10-Sidecar, NIE binary_id). Der Planer permutiert opt_level x simd SELBST (opt-g);
+       simd ist ISA-gegated (nur wenn die Ziel-ISA es bietet). O2/O3 = deterministische Mess-golden-Baseline
+       (E1b, IEEE-754); no_extension/avx2 = universell auf prod1(Zen5)+prod2(i9). -->
+  <system_axes>
+    <compiler>
+      <opt_level value="O2"/>
+      <opt_level value="O3"/>
+    </compiler>
+    <extension_hardware>
+      <simd value="no_extension"/>
+      <simd value="avx2"/>
+    </extension_hardware>
+  </system_axes>
+
   <!-- Achse-2: die YCSB-Lastprofile (load_profiles/ycsb_*.xml). -->
   <workloads>ycsb_a ycsb_b ycsb_c ycsb_d ycsb_e ycsb_f</workloads>
 
