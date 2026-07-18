@@ -75,9 +75,11 @@
         <option value="O3"/>
       </opt_level>
     </compiler>
-    <extension_hardware>                 <!-- Haupt-System-Achse (6.); simd-Optionen direkt -->
-      <option value="no_extension"/>
-      <option value="avx2"/>
+    <extension_hardware>                 <!-- Haupt-System-Achse (6.) -->
+      <simd>                             <!-- Unter-Achse (symmetrisch zu opt_level) -->
+        <option value="no_extension"/>
+        <option value="avx2"/>
+      </simd>
     </extension_hardware>
   </system_axes>
 

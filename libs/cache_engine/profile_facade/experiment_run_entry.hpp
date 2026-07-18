@@ -26,9 +26,9 @@
 // -----------------------------------------------------------------------------
 
 #include <cache_engine/measurement/load_framework_system_axis.hpp> // INC-1f: Single-Source des "workload"-Unter-Achsen-Labels
-#include <cache_engine/measurement/optimization_level_sub_axis.hpp>    // opt-g: OptO*SubAxis (opt_level-id -> -O<n>)
-#include <cache_engine/measurement/extension_hardware_system_axis.hpp> // opt-g: ExtensionHardware (simd-id -> -march)
-#include <cache_engine/measurement/axis_error.hpp>                     // opt-g: CompilerCompilerErrorClass (D1-Log)
+#include <cache_engine/measurement/optimization_level_sub_axis.hpp> // opt-g: OptO*SubAxis (opt_level-id -> -O<n>)
+#include <cache_engine/measurement/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (simd_id -> -march), parent=extension_hardware
+#include <cache_engine/measurement/axis_error.hpp> // opt-g: CompilerCompilerErrorClass (D1-Log)
 
 #include <functional> // opt-g: std::function (per-Perm-CompileFn-Fabrik)
 
@@ -111,10 +111,8 @@ struct RunExperimentResult {
 }
 [[nodiscard]] inline std::string experiment_march_of(std::string_view simd_id) {
     namespace cm = ::comdare::cache_engine::measurement;
-    if (simd_id == cm::Avx2ExtensionHardwareAxis::simd_extension_id())
-        return std::string{cm::Avx2ExtensionHardwareAxis::gcc_march_flag()};
-    if (simd_id == cm::Avx512ExtensionHardwareAxis::simd_extension_id())
-        return std::string{cm::Avx512ExtensionHardwareAxis::gcc_march_flag()};
+    if (simd_id == cm::SimdAvx2Option::simd_id()) return std::string{cm::SimdAvx2Option::gcc_march_flag()};
+    if (simd_id == cm::SimdAvx512Option::simd_id()) return std::string{cm::SimdAvx512Option::gcc_march_flag()};
     return {}; // no_extension / unbekannt ⇒ generisch (kein -march)
 }
 // ISA-Gate (E1): die simd-Erweiterung nur zulassen, wenn der Host-Prozessor sie bietet. Die -march-Flag IST das
@@ -122,10 +120,10 @@ struct RunExperimentResult {
 // Lauf), daher __builtin_cpu_supports. Fused-off-AVX512 (prod2) meldet sich hier korrekt als nicht verfügbar.
 [[nodiscard]] inline bool experiment_host_supports_simd(std::string_view simd_id) {
     namespace cm = ::comdare::cache_engine::measurement;
-    if (simd_id == cm::GenericExtensionHardwareAxis::simd_extension_id()) return true;
+    if (simd_id == cm::SimdNoExtOption::simd_id()) return true;
 #if defined(__x86_64__) || defined(_M_X64)
-    if (simd_id == cm::Avx2ExtensionHardwareAxis::simd_extension_id()) return __builtin_cpu_supports("avx2");
-    if (simd_id == cm::Avx512ExtensionHardwareAxis::simd_extension_id()) return __builtin_cpu_supports("avx512f");
+    if (simd_id == cm::SimdAvx2Option::simd_id()) return __builtin_cpu_supports("avx2");
+    if (simd_id == cm::SimdAvx512Option::simd_id()) return __builtin_cpu_supports("avx512f");
 #endif
     return false; // avx* auf nicht-x86 / unbekannte id ⇒ nicht zulassen
 }
@@ -259,9 +257,8 @@ struct RunExperimentResult {
             ? std::vector<std::string>{std::string{cm::DefaultOptLevelOption::opt_level_id()}}
             : ep.compiler.opt_levels;
     std::vector<std::string> const simd_perms =
-        ep.extension_hardware.options.empty()
-            ? std::vector<std::string>{std::string{cm::GenericExtensionHardwareAxis::simd_extension_id()}}
-            : ep.extension_hardware.options;
+        ep.extension_hardware.options.empty() ? std::vector<std::string>{std::string{cm::DefaultSimdOption::simd_id()}}
+                                              : ep.extension_hardware.options;
     bool const capped = a.max_binaries > 0;
     for (auto const& opt_id : opt_perms) {
         std::string opt_flag = experiment_opt_flag_of(opt_id);
@@ -284,8 +281,7 @@ struct RunExperimentResult {
                 a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag) : a.compile;
             std::string const perm_suffix =
                 "+cxx=" + a.compiler_tag + "+opt=" + opt_id +
-                (simd_id == std::string{cm::GenericExtensionHardwareAxis::simd_extension_id()} ? std::string{}
-                                                                                               : "+ext=" + simd_id);
+                (simd_id == std::string{cm::SimdNoExtOption::simd_id()} ? std::string{} : "+ext=" + simd_id);
             std::string const perm_build_version     = a.build_version + perm_suffix;
             std::string const perm_tag_build_version = tag_build_version + perm_suffix;
             std::cout << "  [PERM] opt=" << opt_id << " simd=" << simd_id << " flags='" << opt_flag
