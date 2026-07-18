@@ -12,6 +12,7 @@
 // static_assert hier).
 
 #include "concepts/axis_q2_queuing_concept.hpp"
+#include <topics/organ_axis.hpp> // INC-1a: OrganAxis<Derived>-Dach (axis_kind()==organ)
 #include "concepts/axis_q2_queuing_cache_engine_permutation_concept.hpp"
 #include "../../axis_base.hpp"
 
@@ -26,7 +27,7 @@ namespace comdare::cache_engine::queuing::axis_q2_queuing {
  * (Default "original", per Wrapper ueberschreibbar) + is_original_module()=false.
  */
 template <typename Derived>
-class FlushPolicyStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
+class FlushPolicyStrategyBase : public ::comdare::cache_engine::topics::OrganAxis<Derived> {
 protected:
     FlushPolicyStrategyBase() noexcept {
         static_assert(concepts::FlushPolicy<Derived>, "Pflicht: Derived muss FlushPolicy erfuellen "

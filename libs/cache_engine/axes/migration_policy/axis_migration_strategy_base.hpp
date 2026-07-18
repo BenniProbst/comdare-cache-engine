@@ -4,11 +4,12 @@
 #include "concepts/axis_migration_concept.hpp"
 #include "concepts/axis_migration_cache_engine_permutation_concept.hpp"
 #include <topics/axis_base.hpp>
+#include <topics/organ_axis.hpp> // INC-1a: OrganAxis<Derived>-Dach (axis_kind()==organ)
 
 namespace comdare::cache_engine::migration_policy {
 
 template <typename Derived>
-class MigrationStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
+class MigrationStrategyBase : public ::comdare::cache_engine::topics::OrganAxis<Derived> {
 protected:
     MigrationStrategyBase() noexcept {
         static_assert(concepts::MigrationStrategy<Derived>);

@@ -5,6 +5,7 @@
 // @achse Q1 buffer_strategy
 
 #include "concepts/axis_q1_queuing_concept.hpp"
+#include <topics/organ_axis.hpp> // INC-1a: OrganAxis<Derived>-Dach (axis_kind()==organ)
 #include "../../axis_base.hpp"
 
 #include <type_traits>
@@ -22,7 +23,7 @@ namespace comdare::cache_engine::queuing::axis_q1_queuing {
  * (Default "original", per Wrapper ueberschreibbar).
  */
 template <typename Derived>
-class BufferStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
+class BufferStrategyBase : public ::comdare::cache_engine::topics::OrganAxis<Derived> {
 protected:
     BufferStrategyBase() noexcept {
         static_assert(concepts::BufferStrategy<Derived>,

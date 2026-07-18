@@ -2,6 +2,7 @@
 // DOSSIER W1/234-K axis_skip_list_shape CRTP-StrategyBase
 
 #include "concepts/axis_skip_list_shape_cache_engine_permutation_concept.hpp"
+#include <topics/organ_axis.hpp> // INC-1a: OrganAxis<Derived>-Dach (axis_kind()==organ)
 #include "concepts/axis_skip_list_shape_concept.hpp"
 #include "../../axis_base.hpp"
 
@@ -10,7 +11,7 @@ namespace comdare::cache_engine::nodes::axis_skip_list_shape {
 struct skip_list_shape_family_tag {};
 
 template <typename Derived>
-class SkipListShapeStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
+class SkipListShapeStrategyBase : public ::comdare::cache_engine::topics::OrganAxis<Derived> {
 protected:
     SkipListShapeStrategyBase() noexcept {
         static_assert(concepts::SkipListShape<Derived>);

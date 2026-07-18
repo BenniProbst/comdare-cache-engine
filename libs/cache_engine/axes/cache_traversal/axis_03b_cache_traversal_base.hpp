@@ -3,6 +3,7 @@
 
 #include "concepts/axis_03b_cache_traversal_concept.hpp"
 #include <topics/axis_base.hpp>
+#include <topics/organ_axis.hpp> // INC-1a: OrganAxis<Derived>-Dach (axis_kind()==organ)
 
 #include <type_traits>
 
@@ -15,7 +16,7 @@ namespace comdare::cache_engine::cache_traversal {
  * (Default "original", per Wrapper ueberschreibbar).
  */
 template <typename Derived>
-class CacheTraversalBase : public ::comdare::cache_engine::topics::AxisBase {
+class CacheTraversalBase : public ::comdare::cache_engine::topics::OrganAxis<Derived> {
 protected:
     CacheTraversalBase() noexcept {
         static_assert(concepts::CacheTraversalVariant<Derived>,

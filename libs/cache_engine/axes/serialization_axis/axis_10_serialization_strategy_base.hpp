@@ -4,11 +4,12 @@
 #include "concepts/axis_10_serialization_concept.hpp"
 #include "concepts/axis_10_serialization_cache_engine_permutation_concept.hpp"
 #include <topics/axis_base.hpp>
+#include <topics/organ_axis.hpp> // INC-1a: OrganAxis<Derived>-Dach (axis_kind()==organ)
 
 namespace comdare::cache_engine::serialization_axis {
 
 template <typename Derived>
-class SerializationStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
+class SerializationStrategyBase : public ::comdare::cache_engine::topics::OrganAxis<Derived> {
 protected:
     SerializationStrategyBase() noexcept {
         static_assert(concepts::SerializationStrategy<Derived>);
