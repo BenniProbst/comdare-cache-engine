@@ -35,8 +35,9 @@ template <class PermT>
 struct SetCompositionFromPermTupleImpl;
 template <template <class...> class PermTupleTmpl, class... Vs>
 struct SetCompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
-    static_assert(sizeof...(Vs) == 14, "Set-PermTuple muss exakt 14 Achsen-Werte enthalten (INC-2c: telemetry ist "
-                                       "System-Achse) (Set-Gattung K-only, kein mapping/value_handle).");
+    static_assert(sizeof...(Vs) == 13,
+                  "Set-PermTuple muss exakt 13 Achsen-Werte enthalten (INC-2c: telemetry / "
+                  "INC-2d: isa sind System-Achsen) (Set-Gattung K-only, kein mapping/value_handle).");
     using type = SetComposition<Vs...>;
 };
 } // namespace detail

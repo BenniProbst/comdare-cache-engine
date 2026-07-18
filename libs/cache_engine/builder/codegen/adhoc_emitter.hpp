@@ -43,9 +43,9 @@ namespace comdare::cache_engine::builder::codegen {
     return out;
 }
 
-/// adhoc_macro_args<C>() — die 18 FQ-Achsen-Typ-Namen einer Composition C als Komma-getrennter Block
-/// (Argument für COMDARE_DEFINE_ANATOMY_MODULE_ADHOC). Reihenfolge = AdHocComposition<T0..T17>
-/// (16 Such-Achsen + queuing q1/q2; Bau-INC-2c: telemetry ist System-Achse, kein Slot mehr).
+/// adhoc_macro_args<C>() — die 17 FQ-Achsen-Typ-Namen einer Composition C als Komma-getrennter Block
+/// (Argument für COMDARE_DEFINE_ANATOMY_MODULE_ADHOC). Reihenfolge = AdHocComposition<T0..T16>
+/// (15 Such-Achsen + queuing q1/q2; Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen, kein Slot mehr).
 /// Jeder Name wird via strip_all_elaborated von INNEN-liegenden
 /// "class "/"struct "-Keywords befreit (sonst Syntaxfehler bei Wrapper<class Inner>-Slots).
 template <class C>
@@ -66,7 +66,7 @@ template <class C>
     add(type_name<typename C::concurrency>());
     add(type_name<typename C::serialization>());
     add(type_name<typename C::value_handle>());
-    add(type_name<typename C::isa>());
+    // Bau-INC-2d: C::isa entfaellt (Target-ISA-System-Achse, build-config-Codepfad, kein Kompositions-Slot).
     add(type_name<typename C::index_organization>());
     add(type_name<typename C::io_dispatch>());
     add(type_name<typename C::migration_policy>());

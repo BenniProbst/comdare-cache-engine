@@ -58,8 +58,9 @@ using DistanceStoreBackedComposition = an::AdHocComposition<
     ce03a::Array256SearchAlgo, ct::LinearFanout, map::DirectPlacement, pc::PathCompressionNone,
     nd::ObservableNodeType<nd::Node256NodeType>, ml::ObservableMemoryLayout<ml::CacheLineAlignedMemoryLayout>,
     al::StdMalloc, pf::DistanceEstimatorPrefetch, cc::NoneConcurrency,
-    ser::ObservableSerialization<ser::RawBinarySerialization>, vh::InlineValueHandle, hw::Amd64Isa,
-    idx::IotIndexOrganization, ioax::InMemoryOnly, mig::NoMigration, flt::BloomFilter, q1::NoBuffer, q2::LazyFlush>;
+    ser::ObservableSerialization<ser::RawBinarySerialization>, vh::InlineValueHandle, idx::IotIndexOrganization,
+    ioax::InMemoryOnly, mig::NoMigration, flt::BloomFilter, q1::NoBuffer,
+    q2::LazyFlush>; // INC-2d: isa raus (17 Slots)
 
 using DistanceTier = an::SearchAlgorithmAbiAdapter<an::SearchAlgorithmAnatomy<DistanceStoreBackedComposition>>;
 

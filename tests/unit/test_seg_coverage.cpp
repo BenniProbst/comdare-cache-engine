@@ -44,9 +44,9 @@ using StoreBackedAdHocComposition = an::AdHocComposition<
     ce03a::Array256SearchAlgo, comp::ArtComposition::cache_traversal, comp::ArtComposition::mapping,
     comp::ArtComposition::path_compression, comp::ArtComposition::node_type, comp::ArtComposition::memory_layout,
     comp::ArtComposition::allocator, comp::ArtComposition::prefetch, comp::ArtComposition::concurrency,
-    comp::ArtComposition::serialization, comp::ArtComposition::value_handle, comp::ArtComposition::isa,
-    comp::ArtComposition::index_organization, comp::ArtComposition::io_dispatch, comp::ArtComposition::migration_policy,
-    comp::ArtComposition::filter, comp::ArtComposition::queuing_q1, comp::ArtComposition::queuing_q2>;
+    comp::ArtComposition::serialization, comp::ArtComposition::value_handle, comp::ArtComposition::index_organization,
+    comp::ArtComposition::io_dispatch, comp::ArtComposition::migration_policy, comp::ArtComposition::filter,
+    comp::ArtComposition::queuing_q1, comp::ArtComposition::queuing_q2>;
 
 static int  g_fail = 0;
 static void tr(std::string const& w, bool c) {
@@ -71,7 +71,7 @@ static void check_coverage(char const* name, bool store_axes_backed) {
     tr(std::string(name) + ": unified observer real", pr.unified_real);
 
     std::int64_t seg_sum = 0;
-    for (int t = 0; t < 18; ++t) seg_sum += s.seg_ns[t];
+    for (int t = 0; t < 17; ++t) seg_sum += s.seg_ns[t];
 
     std::int64_t const run_total = s.seg_run_total_ns;
     std::int64_t const framework = s.seg_framework_ns;

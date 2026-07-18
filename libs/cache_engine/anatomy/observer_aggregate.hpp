@@ -103,7 +103,6 @@ struct ObserverAggregate {
     snapshot_of_t<typename Composition::concurrency>        concurrency;
     snapshot_of_t<typename Composition::serialization>      serialization;
     snapshot_of_t<typename Composition::value_handle>       value_handle;
-    snapshot_of_t<typename Composition::isa>                isa;
     snapshot_of_t<typename Composition::index_organization> index_organization;
     snapshot_of_t<typename Composition::io_dispatch>        io_dispatch;
     snapshot_of_t<typename Composition::migration_policy>   migration_policy;
@@ -127,7 +126,6 @@ struct ObserverAggregate {
         if constexpr (ObservableAxis<typename Composition::concurrency>) ++n;
         if constexpr (ObservableAxis<typename Composition::serialization>) ++n;
         if constexpr (ObservableAxis<typename Composition::value_handle>) ++n;
-        if constexpr (ObservableAxis<typename Composition::isa>) ++n;
         if constexpr (ObservableAxis<typename Composition::index_organization>) ++n;
         if constexpr (ObservableAxis<typename Composition::io_dispatch>) ++n;
         if constexpr (ObservableAxis<typename Composition::migration_policy>) ++n;
@@ -137,9 +135,9 @@ struct ObserverAggregate {
         return n;
     }
 
-    /// Total Achsen-Slot-Anzahl (Pflicht: 18 fuer Vollausbau — 16 Such-Achsen + queuing q1/q2;
-    /// Doc 30 §8.0 i.V.m. Bau-INC-2c/F12iii: telemetry ist System-Achse, kein Slot mehr)
-    [[nodiscard]] static constexpr std::size_t total_slots() noexcept { return 18; }
+    /// Total Achsen-Slot-Anzahl (Pflicht: 17 fuer Vollausbau — 15 Such-Achsen + queuing q1/q2;
+    /// Doc 30 §8.0 i.V.m. Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen, kein Slot mehr)
+    [[nodiscard]] static constexpr std::size_t total_slots() noexcept { return 17; }
 };
 
 } // namespace comdare::cache_engine::anatomy

@@ -109,9 +109,9 @@ struct
     std::uint64_t peak_occupancy    = 0; // maximale inner_container-Größe
 };
 
-/// AdapterComposition — 12 geteilte/delegierte §28-Achsen + inner_container.
-/// Reihenfolge T0..T10 = §28-Invertebrate (delegiert + aktiv), dann Inner (spezifisch). Analog SequenceComposition.
-template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9, class T10,
+/// AdapterComposition — 11 geteilte/delegierte §28-Achsen + inner_container (INC-2d: isa raus).
+/// Reihenfolge T0..T9 = §28-Invertebrate (delegiert + aktiv), dann Inner (spezifisch). Analog SequenceComposition.
+template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8, class T9,
           class Inner = DequeInner<>>
 struct AdapterComposition {
     using search_algo      = T0;    // axis_03a (delegated an inner)
@@ -122,17 +122,16 @@ struct AdapterComposition {
     using concurrency      = T5;    // axis_08  (delegated)
     using serialization    = T6;    // axis_10  (aktiv)
     using value_handle     = T7;    // axis_14  (aktiv)
-    using isa              = T8;    // axis_09  (delegated)
-    using io_dispatch      = T9;    // axis_io  (delegated)
-    using migration_policy = T10;   // axis_migration (delegated)
+    using io_dispatch      = T8;    // axis_io  (delegated; INC-2d: isa raus, war T9)
+    using migration_policy = T9;    // axis_migration (delegated; INC-2d: war T10)
     using inner_container  = Inner; // NEU axis_inner (Adapter-spezifisch, §28)
 
-    static constexpr std::size_t      slot_count = 12; // 11 geteilt/delegiert + inner_container (INC-2c)
+    static constexpr std::size_t      slot_count = 11; // 10 geteilt/delegiert + inner_container (INC-2d: isa raus)
     static constexpr std::string_view name       = "AdapterComposition";
     static constexpr std::string_view paper_id   = "P00 Adapter (Container-Tier-Unterklasse, Doku 14 §28 Invertebrate)";
 };
 
-/// IsAdapterComposition — Concept: 12 geteilte named Achsen + inner_container (§28 Invertebrate).
+/// IsAdapterComposition — Concept: 11 geteilte named Achsen + inner_container (§28 Invertebrate; INC-2d ohne isa).
 template <class C>
 concept IsAdapterComposition = requires {
     typename C::search_algo;
@@ -143,14 +142,13 @@ concept IsAdapterComposition = requires {
     typename C::concurrency;
     typename C::serialization;
     typename C::value_handle;
-    typename C::isa;
     typename C::io_dispatch;
     typename C::migration_policy;
     typename C::inner_container;
     { C::slot_count } -> std::convertible_to<std::size_t>;
 };
 
-inline constexpr std::size_t kAdapterCompositionSlotCount = 13;
+inline constexpr std::size_t kAdapterCompositionSlotCount = 13; // frozen legacy §28-Count (nicht live slot_count)
 
 /// AdapterAnatomy — die Container-Gattung, Adapter-Tier-Unterklasse
 /// (genus()==Adapter, gattung_of→Container). Treibt die spezifische Achse inner_container REAL über die

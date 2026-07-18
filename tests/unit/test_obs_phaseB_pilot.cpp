@@ -52,9 +52,9 @@ using StoreBackedAdHocComposition = an::AdHocComposition<
     ce03a::Array256SearchAlgo, comp::ArtComposition::cache_traversal, comp::ArtComposition::mapping,
     comp::ArtComposition::path_compression, comp::ArtComposition::node_type, comp::ArtComposition::memory_layout,
     comp::ArtComposition::allocator, comp::ArtComposition::prefetch, comp::ArtComposition::concurrency,
-    comp::ArtComposition::serialization, comp::ArtComposition::value_handle, comp::ArtComposition::isa,
-    comp::ArtComposition::index_organization, comp::ArtComposition::io_dispatch, comp::ArtComposition::migration_policy,
-    comp::ArtComposition::filter, comp::ArtComposition::queuing_q1, comp::ArtComposition::queuing_q2>;
+    comp::ArtComposition::serialization, comp::ArtComposition::value_handle, comp::ArtComposition::index_organization,
+    comp::ArtComposition::io_dispatch, comp::ArtComposition::migration_policy, comp::ArtComposition::filter,
+    comp::ArtComposition::queuing_q1, comp::ArtComposition::queuing_q2>;
 
 static int  g_fail = 0;
 static void tr(char const* w, bool c) {
@@ -89,7 +89,7 @@ static an::ComdareTierObserverSnapshot measure_v3(char const* name, std::string&
     csv_out += ex::format_csv_row(row);
 
     std::cout << "  " << name << ": filled_axis_count=" << pr.unified.filled_axis_count << "  T0..T18 row_sum=";
-    for (int t = 0; t < 18; ++t) std::cout << row_sum(pr.unified, t) << (t < 17 ? "," : "");
+    for (int t = 0; t < 17; ++t) std::cout << row_sum(pr.unified, t) << (t < 16 ? "," : "");
     std::cout << "\n";
     return pr.unified;
 }
@@ -99,15 +99,18 @@ static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s
                       std::uint32_t expected_filled = 0) {
     if (store_axes_backed) {
         // Store-backed AdHoc bleibt die volle Phase-B-Coverage-Kontrolle: alle Schema-Achsen sind befüllt.
-        tr((std::string{name} + ": filled_axis_count == 18 (store-backed)").c_str(), s.filled_axis_count == 18u);
+        tr((std::string{name} + ": filled_axis_count == 17 (store-backed; INC-2d)").c_str(),
+           s.filled_axis_count == 17u);
         tr((std::string{name} + ": filled_axis_count == kV3FilledAxisCount (store-backed)").c_str(),
            s.filled_axis_count == an::kV3FilledAxisCount);
-        for (int t : {3, 12, 13, 14, 15}) {
+        // Bau-INC-2d: index_org/io/migration/filter sind von T12-T15 auf T11-T14 gerueckt (isa raus, Indizes >=11 -1);
+        // path_compression (T3) bleibt unveraendert.
+        for (int t : {3, 11, 12, 13, 14}) {
             tr((std::string{name} + ": T" + std::to_string(t) + " row_sum > 0 (store-backed)").c_str(),
                row_sum(s, t) > 0);
         }
-        tr((std::string{name} + ": T14 total_decisions > 0 (Store-Scan getrieben)").c_str(), s.axis_stats[14][0] > 0);
-        tr((std::string{name} + ": T14 tier_moves == 0 (honest, kein 2. Tier)").c_str(), s.axis_stats[14][4] == 0);
+        tr((std::string{name} + ": T13 total_decisions > 0 (Store-Scan getrieben)").c_str(), s.axis_stats[13][0] > 0);
+        tr((std::string{name} + ": T13 tier_moves == 0 (honest, kein 2. Tier)").c_str(), s.axis_stats[13][4] == 0);
         return;
     }
 
@@ -121,17 +124,18 @@ static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s
            .c_str(),
        s.filled_axis_count == expected_filled);
     tr((std::string{name} + ": T3 row_sum > 0 (Auto-Kopplung bleibt real)").c_str(), row_sum(s, 3) > 0);
-    for (int t : {12, 13, 14, 15}) {
+    // Bau-INC-2d: die Store-Scan-Achsen (index_org/io/migration/filter) sind von T12-T15 auf T11-T14 gerueckt.
+    for (int t : {11, 12, 13, 14}) {
         tr((std::string{name} + ": T" + std::to_string(t) + " row_sum == 0 (Huellen honest-0)").c_str(),
            row_sum(s, t) == 0u);
     }
-    tr((std::string{name} + ": T14 total_decisions == 0 (kein Store-Scan bei Huellen)").c_str(),
-       s.axis_stats[14][0] == 0u);
-    tr((std::string{name} + ": T14 tier_moves == 0 (honest, kein 2. Tier)").c_str(), s.axis_stats[14][4] == 0u);
+    tr((std::string{name} + ": T13 total_decisions == 0 (kein Store-Scan bei Huellen)").c_str(),
+       s.axis_stats[13][0] == 0u);
+    tr((std::string{name} + ": T13 tier_moves == 0 (honest, kein 2. Tier)").c_str(), s.axis_stats[13][4] == 0u);
 }
 
 int main() {
-    std::cout << "==== Phase B Abschluss: Per-Achsen-Observer-V3 ALLE 18 Achsen (search_algo_grid) ====\n";
+    std::cout << "==== Phase B Abschluss: Per-Achsen-Observer-V3 ALLE 17 Achsen (search_algo_grid; INC-2d) ====\n";
 
     std::string csv   = ex::lazy_csv_header();
     auto        adhoc = measure_v3<StoreBackedAdHocComposition>("AdHocArray256StoreBacked", csv);

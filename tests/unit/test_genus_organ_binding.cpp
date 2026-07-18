@@ -35,20 +35,21 @@ int main() {
 
     // (b) Organ-Universum: Komposition-Achsen + genus-Erweiterungen = Organ; System-Achsen = NICHT Organ.
     check(ex::is_organ_axis_label("search_algo"), "search_algo ist Organ (Komposition T0)");
-    check(ex::is_organ_axis_label("isa"), "isa ist Organ (T11, jetzt unterm Dach)");
     check(ex::is_organ_axis_label("inner_container"), "inner_container ist Organ-Erweiterung (Adapter)");
     check(ex::is_organ_axis_label("accessor_policy"), "accessor_policy ist Organ-Erweiterung (View)");
     check(!ex::is_organ_axis_label("telemetry"), "telemetry ist KEINE Organ-Achse (system_measurement/config)");
+    // Bau-INC-2d: isa ist KEINE Organ-Achse mehr — Target-ISA-System-Achse (build-config-Codepfad, kein binary_id-Slot).
+    check(!ex::is_organ_axis_label("isa"), "isa ist KEINE Organ-Achse mehr (Target-ISA-System-Achse, INC-2d)");
     check(!ex::is_organ_axis_label("compiler"), "compiler ist KEINE Organ-Achse (system_config)");
     check(!ex::is_organ_axis_label("opt_level"), "opt_level ist KEINE Organ-Achse (System-Unter-Achse)");
     check(!ex::is_organ_axis_label("extension_hardware"), "extension_hardware ist KEINE Organ-Achse (System)");
 
     // (c) RequiredOrgans<G>() liefert genau die slot_count Organ-Achsen je Gattung.
-    check(ex::RequiredOrgans<cea::AnatomyGenus::SearchAlgorithm>().size() == 18u, "SearchAlgorithm RequiredOrgans==18");
-    check(ex::RequiredOrgans<cea::AnatomyGenus::Adapter>().size() == 12u, "Adapter RequiredOrgans==12");
-    check(ex::RequiredOrgans<cea::AnatomyGenus::Set>().size() == 14u, "Set RequiredOrgans==14");
-    check(ex::RequiredOrgans<cea::AnatomyGenus::Sequence>().size() == 10u, "Sequence RequiredOrgans==10");
-    check(ex::RequiredOrgans<cea::AnatomyGenus::View>().size() == 6u, "View RequiredOrgans==6");
+    check(ex::RequiredOrgans<cea::AnatomyGenus::SearchAlgorithm>().size() == 17u, "SearchAlgorithm RequiredOrgans==17");
+    check(ex::RequiredOrgans<cea::AnatomyGenus::Adapter>().size() == 11u, "Adapter RequiredOrgans==11");
+    check(ex::RequiredOrgans<cea::AnatomyGenus::Set>().size() == 13u, "Set RequiredOrgans==13");
+    check(ex::RequiredOrgans<cea::AnatomyGenus::Sequence>().size() == 9u, "Sequence RequiredOrgans==9");
+    check(ex::RequiredOrgans<cea::AnatomyGenus::View>().size() == 5u, "View RequiredOrgans==5");
 
     std::cout << (g_fail == 0 ? "\n==== INC-1b Organ-Gattungs-Bindung: ALLE OK ====\n" : "\n!! INC-1b: FEHLER\n");
     return g_fail == 0 ? 0 : 1;

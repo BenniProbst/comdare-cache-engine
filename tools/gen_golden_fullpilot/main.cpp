@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
         return 3;
     }
     out << "# GOLDEN-REFERENZ: " << view.size()
-        << " binary_ids des FullSourceCatalog (4*4*5*4) — ABI-5 / Bau-INC-2c (F12iii: 18 Slots, ohne telemetry-"
+        << " binary_ids des FullSourceCatalog (4*4*5*4) — ABI-6 / Bau-INC-2d (17 Slots, ohne telemetry-/isa-"
            "Segment).\n"
         << "# EINGEFROREN. test_profile_roundtrip vergleicht den PROFIL-Pfad gegen DIESE Liste (Resume #139-Schutz).\n"
         << "# Eine Zeile = ein binary_id (positions-getreue Reihenfolge des StaticBinaryView). Regeneration NUR über\n"

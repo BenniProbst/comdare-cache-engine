@@ -195,9 +195,9 @@ using PFStoreBackedComposition = an::AdHocComposition<
     ce03a::Array256SearchAlgo, comp::HotComposition::cache_traversal, comp::HotComposition::mapping,
     comp::HotComposition::path_compression, comp::HotComposition::node_type, comp::HotComposition::memory_layout,
     comp::HotComposition::allocator, PFStrategy, comp::HotComposition::concurrency, comp::HotComposition::serialization,
-    comp::HotComposition::value_handle, comp::HotComposition::isa, comp::HotComposition::index_organization,
-    comp::HotComposition::io_dispatch, comp::HotComposition::migration_policy, comp::HotComposition::filter,
-    comp::HotComposition::queuing_q1, comp::HotComposition::queuing_q2>;
+    comp::HotComposition::value_handle, comp::HotComposition::index_organization, comp::HotComposition::io_dispatch,
+    comp::HotComposition::migration_policy, comp::HotComposition::filter, comp::HotComposition::queuing_q1,
+    comp::HotComposition::queuing_q2>;
 
 template <class Composition>
 static an::ComdareTierObserverSnapshot drive_composition_and_observe(std::uint64_t n_keys,

@@ -83,8 +83,8 @@ using T25_hash_probe_shape = ce::nodes::axis_hash_probe_shape::EnabledShapes;
 /// simd_extension = Auspraegungsquelle der Erweiterungshardware-System-Achse, von der CEB zur
 /// Laufzeit selbst permutiert). build_all_axis_levels() bleibt byte-identisch (Reihenfolge + Labels).
 
-/// Die 16 Kern-Kompositions-Achsen (Organ-Seite, permutieren die binary_id).
-/// Bau-INC-2c: telemetry ist KEIN Organ-Slot mehr — sie steht in build_system_axis_levels().
+/// Die 15 Kern-Kompositions-Achsen (Organ-Seite, permutieren die binary_id).
+/// Bau-INC-2c: telemetry / Bau-INC-2d: isa sind KEINE Organ-Slots mehr — sie stehen in build_system_axis_levels().
 inline void append_organ_core_axis_levels(std::vector<AxisLevel>& lv) {
     push_static_axis<axes26::T00_search_algo>(lv, "search_algo");
     push_static_axis<axes26::T01_cache_traversal>(lv, "cache_traversal");
@@ -97,7 +97,6 @@ inline void append_organ_core_axis_levels(std::vector<AxisLevel>& lv) {
     push_static_axis<axes26::T08_concurrency>(lv, "concurrency");
     push_static_axis<axes26::T09_serialization>(lv, "serialization");
     push_static_axis<axes26::T11_value_handle>(lv, "value_handle");
-    push_static_axis<axes26::T12_isa>(lv, "isa");
     push_static_axis<axes26::T13_index_organization>(lv, "index_organization");
     push_static_axis<axes26::T14_io_dispatch>(lv, "io_dispatch");
     push_static_axis<axes26::T15_migration_policy>(lv, "migration_policy");
@@ -107,19 +106,22 @@ inline void append_organ_core_axis_levels(std::vector<AxisLevel>& lv) {
 /// Die System-Schicht-Keimzelle: die build-only-/System-Achsen (binary_id-orthogonal, stehen NICHT in
 /// kCompositionAxisNames). Eigenstaendig abrufbar, damit die CEB-System-Achsen-Schicht sie getrennt
 /// von der Organ-Permutation treiben kann (Erweiterungshardware/Compiler-Ordner statt Baum-Ebenen).
-/// Bau-INC-2c (F12iii): telemetry gehoert jetzt HIERHER — TelemetryConfig (Active/Silent) ist
-/// CEB-System-Achsen-Belegung, versioniert im H-10-Sidecar NEBEN dem Binary (kein binary_id-Segment).
+/// Bau-INC-2c (F12iii): telemetry gehoert HIERHER — TelemetryConfig (Active/Silent) ist CEB-System-Achsen-
+/// Belegung, H-10-Sidecar NEBEN dem Binary (kein binary_id-Segment). Bau-INC-2d: isa gehoert EBENFALLS
+/// hierher — die Ziel-ISA wird build-config-gewaehlt (Target-ISA-System-Achse, +target=-Sidecar); das
+/// isa-ORGAN (T12_isa-Alias) bleibt als Registry-Reflexions-Quelle der System-Seite (kein binary_id-Segment).
 [[nodiscard]] inline std::vector<AxisLevel> build_system_axis_levels() {
     std::vector<AxisLevel> lv;
-    lv.reserve(4);
+    lv.reserve(5);
     push_static_axis<axes26::T17_page_type>(lv, "page_type");
     push_static_axis<axes26::T18_simd_extension>(lv, "simd_extension");
     push_static_axis<axes26::T19_general_hardware>(lv, "general_hardware");
     push_static_axis<axes26::T10_telemetry>(lv, "telemetry");
+    push_static_axis<axes26::T12_isa>(lv, "isa");
     return lv;
 }
 
-/// Die 2 queuing-Kompositions-Achsen (q1/q2, T16/T17 der 18-Slot-Komposition) + die 4 Shape-Achsen.
+/// Die 2 queuing-Kompositions-Achsen (q1/q2, T15/T16 der 17-Slot-Komposition) + die 4 Shape-Achsen.
 inline void append_composition_tail_axis_levels(std::vector<AxisLevel>& lv) {
     push_static_axis<axes26::T20_queuing_q1>(lv, "queuing_q1");
     push_static_axis<axes26::T21_queuing_q2>(lv, "queuing_q2");

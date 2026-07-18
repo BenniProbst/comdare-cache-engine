@@ -126,7 +126,7 @@ TEST(R5CA2_AnatomyInheritance, SearchAlgorithmAdapterBridgeToBothInterfaces) {
     ana::IAnatomyBase const& anat = adapter;
     EXPECT_EQ(anat.composition_name(), std::string_view{"ArtComposition"});
     EXPECT_EQ(anat.genus(), ana::AnatomyGenus::SearchAlgorithm);
-    EXPECT_EQ(anat.organ_count(), 18u);
+    EXPECT_EQ(anat.organ_count(), 17u);
 
     // Lifecycle-Transitionen (R5.C.A4: vollstaendiger Roundtrip mit run())
     adapter.warm_up();

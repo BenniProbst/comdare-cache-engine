@@ -80,7 +80,6 @@ struct PoolFlipComposition {
     using concurrency                          = comp::ArtComposition::concurrency;
     using serialization                        = comp::ArtComposition::serialization;
     using value_handle                         = comp::ArtComposition::value_handle;
-    using isa                                  = comp::ArtComposition::isa;
     using index_organization                   = comp::ArtComposition::index_organization;
     using io_dispatch                          = comp::ArtComposition::io_dispatch;
     using migration_policy                     = comp::ArtComposition::migration_policy;
@@ -154,9 +153,8 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_SHAPED(ord::BtreeOrderKt2, BTreeC::search_al
                                            BTreeC::mapping, BTreeC::path_compression, BTreeC::node_type,
                                            BTreeC::memory_layout, BTreeC::allocator, BTreeC::prefetch,
                                            BTreeC::concurrency, BTreeC::serialization, BTreeC::value_handle,
-                                           BTreeC::isa, BTreeC::index_organization, BTreeC::io_dispatch,
-                                           BTreeC::migration_policy, BTreeC::filter, BTreeC::queuing_q1,
-                                           BTreeC::queuing_q2)
+                                           BTreeC::index_organization, BTreeC::io_dispatch, BTreeC::migration_policy,
+                                           BTreeC::filter, BTreeC::queuing_q1, BTreeC::queuing_q2)
 
 // (2a) Adapter-Traeger-Beweis STRUKTURELL (REVIEW-FIX Important-2, F1-Praezedenz): live_nodes ist die
 // pool-native Groesse (zaehlt je new_node, unabhaengig von vector-Growth-Buckets) -- Kt2 (max 3 Keys/
@@ -271,7 +269,7 @@ TEST(V234aShapedAdapter, NeutralityGuardsStayIntact) {
     static_assert(std::is_trivially_copyable_v<b::ComdareMeasurementSnapshotV1>);
     static_assert(std::is_trivially_copyable_v<an::ComdareTierObserverSnapshot>);
 
-    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 5);
-    EXPECT_EQ(sizeof(an::ComdareTierObserverSnapshot), 1344u);
-    EXPECT_EQ(an::kTierObserverSnapshotVersionUnified, 6u);
+    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 6);
+    EXPECT_EQ(sizeof(an::ComdareTierObserverSnapshot), 1272u);
+    EXPECT_EQ(an::kTierObserverSnapshotVersionUnified, 7u);
 }

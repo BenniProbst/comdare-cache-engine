@@ -72,8 +72,8 @@ using RcComposition =
                          nd::ObservableNodeType<nd::Node4NodeType>,
                          ml::ObservableMemoryLayout<ml::CacheLineAlignedMemoryLayout>, al::StdMalloc, pf::NonePrefetch,
                          cc::BlockingConcurrency, ser::ObservableSerialization<ser::RawBinarySerialization>,
-                         ValueHandle, hw::Amd64Isa, idx::IotIndexOrganization, ioax::InMemoryOnly, mig::NoMigration,
-                         flt::BloomFilter, q1::NoBuffer, q2::LazyFlush>;
+                         ValueHandle, idx::IotIndexOrganization, ioax::InMemoryOnly, mig::NoMigration, flt::BloomFilter,
+                         q1::NoBuffer, q2::LazyFlush>; // INC-2d: isa raus (17 Slots)
 
 template <class ValueHandle = vh::InlineValueHandle>
 using RcTier = an::SearchAlgorithmAbiAdapter<an::SearchAlgorithmAnatomy<RcComposition<ValueHandle>>>;
@@ -205,7 +205,8 @@ TEST(E1ResourceControlKonsum, RejectedInsertDoesNotDriveObserverAuxOrgans) {
 
     EXPECT_EQ(snapshot.axis_stats[0][3], 0u);
     EXPECT_EQ(snapshot.axis_stats[10][0], 4u);
-    EXPECT_EQ(snapshot.axis_stats[15][1] + snapshot.axis_stats[15][2], 4u);
+    // Bau-INC-2d: filter ist von Slot 15 auf 14 gerueckt (isa raus, Indizes >=11 -1).
+    EXPECT_EQ(snapshot.axis_stats[14][1] + snapshot.axis_stats[14][2], 4u);
     EXPECT_EQ(tv.obs->tier_size(), 4u);
 }
 

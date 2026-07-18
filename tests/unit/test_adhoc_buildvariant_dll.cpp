@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
         tr("anatomy() != null", a != nullptr);
         if (a != nullptr) {
             tr("genus() == SearchAlgorithm (die 17-Slot-Anatomie)", a->genus() == ana::AnatomyGenus::SearchAlgorithm);
-            eq("organ_count() == 18", a->organ_count(), std::size_t{18});
+            eq("organ_count() == 17", a->organ_count(), std::size_t{17});
         }
     } else {
         std::cerr << "  status: " << loader::status_name(st) << "\n";

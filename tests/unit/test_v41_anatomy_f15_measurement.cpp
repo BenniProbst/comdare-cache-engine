@@ -78,9 +78,9 @@ using StoreBackedAdHocComposition = ::comdare::cache_engine::anatomy::AdHocCompo
     ce03a::Array256SearchAlgo, comp::ArtComposition::cache_traversal, comp::ArtComposition::mapping,
     comp::ArtComposition::path_compression, comp::ArtComposition::node_type, comp::ArtComposition::memory_layout,
     comp::ArtComposition::allocator, comp::ArtComposition::prefetch, comp::ArtComposition::concurrency,
-    comp::ArtComposition::serialization, comp::ArtComposition::value_handle, comp::ArtComposition::isa,
-    comp::ArtComposition::index_organization, comp::ArtComposition::io_dispatch, comp::ArtComposition::migration_policy,
-    comp::ArtComposition::filter, comp::ArtComposition::queuing_q1, comp::ArtComposition::queuing_q2>;
+    comp::ArtComposition::serialization, comp::ArtComposition::value_handle, comp::ArtComposition::index_organization,
+    comp::ArtComposition::io_dispatch, comp::ArtComposition::migration_policy, comp::ArtComposition::filter,
+    comp::ArtComposition::queuing_q1, comp::ArtComposition::queuing_q2>;
 
 namespace {
 
@@ -141,7 +141,7 @@ TEST(F15Measurement, LoadsGeneratedPermutationDllsAndRunsLifecycle) {
         auto* a = h.anatomy();
         ASSERT_NE(a, nullptr);
         EXPECT_FALSE(a->composition_name().empty()); // Identität aus der DLL
-        EXPECT_EQ(a->organ_count(), 18u);            // volle Anatomie (18 Achsen, Doc 30 §8.0 + INC-2c)
+        EXPECT_EQ(a->organ_count(), 17u);            // volle Anatomie (17 Achsen, INC-2d: isa raus)
         // Lifecycle (state-Flips; keine Daten — s. Datei-Kopf): muss ohne Crash durchlaufen.
         a->warm_up();
         a->run();

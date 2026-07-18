@@ -89,7 +89,7 @@ static an::ComdareSegmentLatencyV2 measure_patha(char const* name) {
     //     und damit 0 ns ablesen — das ist Timer-Granularitaet, NICHT „unberuehrt" verletzt; deshalb >= 0 (kein < 0).
     bool others_nonneg = true;
     int  neg_t         = -1;
-    for (int t = 0; t < 18; ++t)
+    for (int t = 0; t < 17; ++t)
         if (t != 7 && out.seg_ns[t] < 0) {
             others_nonneg = false;
             if (neg_t < 0) neg_t = t;

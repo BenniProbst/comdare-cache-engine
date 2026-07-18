@@ -85,7 +85,6 @@ struct ArtComposition {
     // Topic 14
     using value_handle = value_handle::axis_14_value_handle::InlineValueHandle;
     // Topic hardware
-    using isa = hardware::axis_09_isa::Amd64Isa;
     // Topic search_engine
     using index_organization = search_engine::axis_01_index_organization::IotIndexOrganization;
     // Topic io

@@ -83,10 +83,10 @@ using L16 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;   
 using L17 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>;    // queuing_q1 ×1 (Doc 30 §8.0)
 using L18 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>;    // queuing_q2 ×1 (Doc 30 §8.0)
 
-using PilotEngine =
+using PilotEngine = // INC-2d: PilotCfg<L12>/isa raus (17 Slots)
     perm::PermutationEngine<PilotCfg<L0>, PilotCfg<L1>, PilotCfg<L2>, PilotCfg<L3>, PilotCfg<L4>, PilotCfg<L5>,
-                            PilotCfg<L6>, PilotCfg<L7>, PilotCfg<L8>, PilotCfg<L9>, PilotCfg<L11>, PilotCfg<L12>,
-                            PilotCfg<L13>, PilotCfg<L14>, PilotCfg<L15>, PilotCfg<L16>, PilotCfg<L17>, PilotCfg<L18>>;
+                            PilotCfg<L6>, PilotCfg<L7>, PilotCfg<L8>, PilotCfg<L9>, PilotCfg<L11>, PilotCfg<L13>,
+                            PilotCfg<L14>, PilotCfg<L15>, PilotCfg<L16>, PilotCfg<L17>, PilotCfg<L18>>;
 
 int main() {
     std::cout << "BR-2 (Pilot, C1060-sicher): Baum-Blatt ↔ reale AdHocComposition<18> Round-Trip:\n";
@@ -105,7 +105,7 @@ int main() {
     reg.for_each([&](ex::CompositionRecord const& r) {
         if (r.path != r.slot_path) rt = false; // P→Composition Slot-Reihenfolge verlustfrei
         if (!r.materialized) rt = false;       // CompositionFromPermTuple<P> kompilierte
-        if (r.definition.size() == 18)
+        if (r.definition.size() == 17)
             ++def_ok; // reale Achsen-Definition je Slot (Doc 30 §8.0 + INC-2c: 16 + queuing q1/q2)
     });
     check_true("Round-Trip: path == slot_path + materialized (alle)", rt);
@@ -124,7 +124,7 @@ int main() {
     ex::push_static_axis<L8>(lv, "concurrency");
     ex::push_static_axis<L9>(lv, "serialization");
     ex::push_static_axis<L11>(lv, "value_handle");
-    ex::push_static_axis<L12>(lv, "isa");
+    // Bau-INC-2d: isa (L12) raus — Target-ISA-System-Achse, kein binary_id-Segment.
     ex::push_static_axis<L13>(lv, "index_organization");
     ex::push_static_axis<L14>(lv, "io_dispatch");
     ex::push_static_axis<L15>(lv, "migration_policy");

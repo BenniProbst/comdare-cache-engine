@@ -89,7 +89,6 @@ struct HostPrtMergeComposition {
     using concurrency        = typename Host::concurrency;
     using serialization      = typename Host::serialization;
     using value_handle       = typename Host::value_handle;
-    using isa                = typename Host::isa;
     using index_organization = typename Host::index_organization;
     using io_dispatch        = typename Host::io_dispatch;
     using migration_policy   = typename Host::migration_policy;

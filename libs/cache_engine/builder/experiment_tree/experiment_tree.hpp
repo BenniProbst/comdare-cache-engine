@@ -69,9 +69,10 @@ struct NodeObserverSnapshot {
     // KONSOLIDIERUNG (I-B.3, 2026-06-04, User-Fork „voll auf axis_stats[19][8] migrieren"): die VOLLE Per-Achsen-
     // Matrix + das Pfad-B-Per-Achsen-Timing. Das Wire-Format (format_perm_result↔ingest_result_line) trägt sie,
     // der Baum persistiert sie. FLACHE uint64/int64-Felder (experiment_tree bleibt umbrella-/anatomy-unabhängig,
-    // layout-identisch zu anatomy::ComdareTierObserverSnapshot ohne den Typ zu importieren). 19×8 = kV3-Schema.
-    std::uint64_t axis_stats[19][8] = {}; // T0..T18 × 8 Felder (Schema = kV3AxisSchema)
-    std::int64_t  seg_ns[19]        = {}; // Pfad-B Per-Achsen-Timing (ns, ALGORITHMISCHE Organ-Zeit)
+    // layout-identisch zu anatomy::ComdareTierObserverSnapshot ohne den Typ zu importieren). 17×8 = kV3-Schema
+    // (Bau-INC-2c: telemetry / Bau-INC-2d: isa raus — war [19] bei Konsolidierung; INC-2c-Rest hier mitgeräumt).
+    std::uint64_t axis_stats[17][8] = {}; // T0..T16 × 8 Felder (Schema = kV3AxisSchema)
+    std::int64_t  seg_ns[17]        = {}; // Pfad-B Per-Achsen-Timing (ns, ALGORITHMISCHE Organ-Zeit)
     std::uint64_t filled_axis_count = 0;  // # Achsen mit Observer-Werten
     std::uint64_t batches_measured  = 0;  // # Timing-Batches (Warmup verworfen)
     // P-MD3 (2026-06-18): kommensurabler Coverage-Nenner + benannter Rest des Pfad-B-Segment-Laufs (additiv).

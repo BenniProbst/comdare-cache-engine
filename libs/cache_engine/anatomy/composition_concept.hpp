@@ -38,8 +38,7 @@ concept IsComposition = requires {
     // Topic 11
     // Topic 14
     typename C::value_handle;
-    // Topic hardware
-    typename C::isa;
+    // Topic hardware — Bau-INC-2d: isa ist Target-ISA-System-Achse, KEIN Kompositions-Slot mehr
     // Topic search_engine
     typename C::index_organization;
     // Topic io
@@ -57,11 +56,12 @@ concept IsComposition = requires {
 };
 
 /// Helper: zaehlt zur Compile-Zeit wie viele "Organe" eine Composition liefert.
-/// Pflicht: 18 (3 traversal + 2 nodes + 11 weitere Topics + 2 queuing q1/q2; Doc 30 §8.0
-/// i.V.m. Bau-INC-2c/F12iii: telemetry ist System-Achse, kein Organ-Slot mehr).
+/// Pflicht: 17 (3 traversal + 2 nodes + 10 weitere Topics + 2 queuing q1/q2; Doc 30 §8.0
+/// i.V.m. Bau-INC-2c: telemetry ist System-Achse; Bau-INC-2d/ABI-6: isa ist Target-ISA-System-Achse —
+/// beide kein Organ-Slot mehr).
 template <typename C>
 struct composition_organ_count {
-    static constexpr std::size_t value = 18; // 3 + 2 + 11 + 2 queuing
+    static constexpr std::size_t value = 17; // 3 + 2 + 10 + 2 queuing
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

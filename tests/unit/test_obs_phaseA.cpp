@@ -77,7 +77,7 @@ static an::ComdareTierObserverSnapshot measure_v3(char const* name, std::string&
 
     std::cout << "  " << name << ": unified_real=" << (pr.unified_real ? 1 : 0)
               << " filled_axis_count=" << pr.unified.filled_axis_count << "\n    T0..T17 row_sum=";
-    for (int t = 0; t < 18; ++t) std::cout << row_sum(pr.unified, t) << (t < 17 ? "," : "");
+    for (int t = 0; t < 17; ++t) std::cout << row_sum(pr.unified, t) << (t < 16 ? "," : "");
     std::cout << "\n";
     return pr.unified;
 }
@@ -89,7 +89,7 @@ static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s
     // prefetch mit NonePrefetch = ehrliche 0-Baseline, KEIN enqueue-Pfad; T8 pattern_id=0 bei NoneConcurrency).
     // Daher KEINE pauschale „filled > 0"-Annahme — das wäre für Baseline-Strategien falsch.
     bool phaseb_zero = true;
-    for (int t = 0; t < 18; ++t) {
+    for (int t = 0; t < 17; ++t) {
         if (!is_filled(t) && row_sum(s, t) != 0) phaseb_zero = false;
     }
     tr((std::string{name} + ": alle Schema-leeren (noch nicht implementierten) Achsen == 0").c_str(), phaseb_zero);
@@ -104,8 +104,9 @@ static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s
     // Die explizit über die Tier-Op getriebenen Achsen MÜSSEN > 0 sein (echte Auto-Kopplung verifiziert).
     tr((std::string{name} + ": T1 cache_traversal > 0").c_str(), row_sum(s, 1) > 0);
     tr((std::string{name} + ": T2 mapping > 0").c_str(), row_sum(s, 2) > 0);
-    tr((std::string{name} + ": T17 queuing_q1 > 0").c_str(), row_sum(s, 17) > 0);
-    tr((std::string{name} + ": T18 queuing_q2 > 0").c_str(), row_sum(s, 18) > 0);
+    // Bau-INC-2d (17-Slot-POD): queuing_q1 = Index 15, queuing_q2 = Index 16 (isa raus, Indizes ab 11 -1).
+    tr((std::string{name} + ": T15 queuing_q1 > 0").c_str(), row_sum(s, 15) > 0);
+    tr((std::string{name} + ": T16 queuing_q2 > 0").c_str(), row_sum(s, 16) > 0);
     // Phase B (T8): concurrency wird über observe_critical_section() getrieben → acquire/release > 0 (auch bei
     // NoneConcurrency: die Op läuft, nur pattern_id=0). T7 prefetch ist mit NonePrefetch ehrlich 0 (Baseline) →
     // NICHT auf > 0 prüfen; die Beobachtbarkeit ist über filled_axis_count + is_filled(7) bereits abgedeckt.

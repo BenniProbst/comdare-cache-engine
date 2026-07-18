@@ -28,10 +28,9 @@ struct DoublingGrowth {
     [[nodiscard]] double growth_factor() const noexcept { return 2.0; }
 };
 
-/// SequenceComposition<T0..T8, Growth> — 9 geteilte Achsen (§28 Reptile; INC-2c: telemetry ist
-/// System-Achse, kein Slot) + axis_growth. V-indexed (K=∅).
-template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class T8,
-          class Growth = DoublingGrowth>
+/// SequenceComposition<T0..T7, Growth> — 8 geteilte Achsen (§28 Reptile; INC-2c: telemetry / INC-2d: isa sind
+/// System-Achsen, kein Slot) + axis_growth. V-indexed (K=∅).
+template <class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7, class Growth = DoublingGrowth>
 struct SequenceComposition {
     using memory_layout    = T0;     // axis_05
     using allocator        = T1;     // axis_06
@@ -39,17 +38,16 @@ struct SequenceComposition {
     using concurrency      = T3;     // axis_08
     using serialization    = T4;     // axis_10
     using value_handle     = T5;     // axis_14
-    using isa              = T6;     // axis_09
-    using io_dispatch      = T7;     // axis_io
-    using migration_policy = T8;     // axis_migration
+    using io_dispatch      = T6;     // axis_io (INC-2d: isa raus, war T7)
+    using migration_policy = T7;     // axis_migration (INC-2d: war T8)
     using growth_policy    = Growth; // NEU axis_growth (eigene Sequence-Achse)
 
-    static constexpr std::size_t      slot_count = 10; // 9 geteilte + axis_growth (INC-2c: telemetry raus)
+    static constexpr std::size_t      slot_count = 9; // 8 geteilte + axis_growth (INC-2d: isa raus)
     static constexpr std::string_view name       = "SequenceComposition";
     static constexpr std::string_view paper_id   = "P00 Sequence Gattung (Reptil, V-indexed)";
 };
 
-/// IsSequenceComposition — Concept: 10 geteilte named Achsen + growth_policy. Kein search_algo (V-indexed).
+/// IsSequenceComposition — Concept: 8 geteilte named Achsen + growth_policy. Kein search_algo (V-indexed); INC-2d ohne isa.
 template <class C>
 concept IsSequenceComposition = requires {
     typename C::memory_layout;
@@ -58,7 +56,6 @@ concept IsSequenceComposition = requires {
     typename C::concurrency;
     typename C::serialization;
     typename C::value_handle;
-    typename C::isa;
     typename C::io_dispatch;
     typename C::migration_policy;
     typename C::growth_policy;

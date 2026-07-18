@@ -70,8 +70,8 @@ fs::path m3v2_profile_path() { return fs::path{COMDARE_THESIS_PROFILES_DIR} / "m
 // Basis (69/90 Default-Baum, 70/91 mit MIMALLOC) statt die 69 hart zu verdrahten; Drift jeder
 // ANDEREN Achse/Vendor-Detection schlaegt weiterhin als Pin-Verletzung auf.
 constexpr std::size_t kExpectedSweepUnion =                               // 1 Baseline + Sum(USE-Enabled-1)
-    69 + (comdare::cache_engine::alloc::flags::mimalloc_enabled ? 1 : 0); // INC-2c: 72-3 telemetry-Sweeps
-constexpr std::size_t kExpectedTotalBinaries = kExpectedSweepUnion + 21;  // + 7 Lebewesen x 3 Stufen (SOTA) = 93
+    66 + (comdare::cache_engine::alloc::flags::mimalloc_enabled ? 1 : 0); // INC-2d: 69-3 isa-Sweeps (4 EnabledIsas-1)
+constexpr std::size_t kExpectedTotalBinaries = kExpectedSweepUnion + 21;  // + 7 Lebewesen x 3 Stufen (SOTA)
 
 std::vector<std::string> load_golden_ids() {
     std::vector<std::string> ids;
@@ -104,14 +104,14 @@ TEST(SmokeCoverageProfile, DeclaresFullCoverageWithPinnedBasis) {
     ASSERT_TRUE(tp.has_value()) << "Profil nicht lesbar: " << smoke_profile_path().string();
     EXPECT_EQ(tp->id, "m3_smoke_coverage");
     EXPECT_EQ(tp->base_tiers.size(), 7u);
-    ASSERT_EQ(tp->permute_axes.size(), 18u); // INC-2c: ohne telemetry
+    ASSERT_EQ(tp->permute_axes.size(), 17u); // INC-2d: ohne telemetry+isa
     std::size_t basis_cells = 1;
     for (auto const& ax : tp->permute_axes) {
         EXPECT_EQ(ax.values.size(), 1u) << "Basis nicht gepinnt (Achse " << ax.ref << ")";
         basis_cells *= (ax.values.empty() ? 1u : ax.values.size());
     }
     EXPECT_EQ(basis_cells, 1u) << "Basis-Zellen-Anzahl muss 1 sein (KEIN Kreuzprodukt)";
-    EXPECT_EQ(tp->axis_sweeps.size(), 18u) << "alle 18 Achsen-Sweeps muessen deklariert sein";
+    EXPECT_EQ(tp->axis_sweeps.size(), 17u) << "alle 17 Achsen-Sweeps muessen deklariert sein (INC-2d: isa raus)";
     EXPECT_EQ(tp->sota_series.size(), 21u) << "7 Lebewesen x 3 Merge-Stufen";
     EXPECT_EQ(tp->workloads.size(), 21u) << "alle 21 Lastprofile (Achse-2-Voll-Coverage)";
     EXPECT_EQ(tp->working_set_sweep.size(), 2u) << "2 Working-Sets (klein + >LLC)";
@@ -190,9 +190,10 @@ TEST(SmokeCoverageProfile, SweepPassPlanIsDeterministic) {
     auto const tp = tlz::load_thesis_profile(smoke_profile_path());
     ASSERT_TRUE(tp.has_value());
 
-    // Leer ⇒ Basis-Pass ("") + die 18 deklarierten Sweeps in Dokument-Reihenfolge (INC-2c).
+    // Leer ⇒ Basis-Pass ("") + die 17 deklarierten Sweeps in Dokument-Reihenfolge (INC-2d: isa verliess die
+    // Komposition/den Organ-Sweep -> target_isa-System-Achse; smoke-Profil deklariert daher 18->17 Sweeps).
     std::vector<std::string> const passes = tlz::profile_sweep_passes(*tp, "");
-    ASSERT_EQ(passes.size(), 19u);
+    ASSERT_EQ(passes.size(), 18u);
     EXPECT_TRUE(passes.front().empty()) << "der Basis-Pass muss IMMER zuerst laufen";
     for (std::size_t i = 0; i < tp->axis_sweeps.size(); ++i)
         EXPECT_EQ(passes[i + 1], tp->axis_sweeps[i].axis) << "Pass-Reihenfolge != Dokument-Reihenfolge (i=" << i << ")";
@@ -224,7 +225,7 @@ TEST(SmokeCoverageProfile, ValidatesAgainstEnabledStrategies) {
     tlz::ProfileValidationResult const vr       = tlz::validate_profile(*tp, registry);
     for (auto const& e : vr.errors) ADD_FAILURE() << "[validate] " << e;
     EXPECT_TRUE(vr.ok);
-    EXPECT_EQ(vr.axes_checked, 18u);
-    EXPECT_EQ(vr.sweeps_checked, 18u);
+    EXPECT_EQ(vr.axes_checked, 17u);
+    EXPECT_EQ(vr.sweeps_checked, 17u);
     EXPECT_EQ(vr.series_checked, 21u);
 }

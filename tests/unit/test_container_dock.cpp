@@ -35,7 +35,7 @@ int main() {
     std::cout << "Container-Prüf-Dock (Doc 24 §8.8): treibt Container-Tier + misst Container-Observer:\n";
 
     using D       = DelegatedAxis;
-    using Comp    = cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>; // 11 + inner (INC-2c)
+    using Comp    = cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>; // 11 + inner (INC-2c)
     using Anatomy = cea::AdapterAnatomy<Comp>;
     pd::AdapterDock<Anatomy> dock;
 
