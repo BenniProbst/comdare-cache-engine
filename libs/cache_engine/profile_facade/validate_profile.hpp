@@ -54,7 +54,9 @@
 #include <builder/experiment_tree/axis_path_serialization.hpp> // kCompositionAxisNames (die 19 Komposition-Achsen)
 #include <cache_engine/measurement/measurement_axis_registry.hpp> // kMeasurementAxisRegistry (INC-3: Single-Source der 16 Kategorie-Namen)
 #include <cache_engine/measurement/system_axis.hpp> // kAllMeasurementCategories (INC-D: Single-Source der 16 Kategorie-Enums)
-#include <anatomy/pruefling_merge.hpp>              // MergeStrategy-Enum (INC-D: die 3 Kompositionalen Joins)
+#include <cache_engine/measurement/optimization_level_sub_axis.hpp> // kAllOptLevelIds (Single-Source der opt_level-ids)
+#include <cache_engine/measurement/simd_sub_axis.hpp>               // kAllSimdIds (Single-Source der simd-ids, F-SIMD)
+#include <anatomy/pruefling_merge.hpp>             // MergeStrategy-Enum (INC-D: die 3 Kompositionalen Joins)
 #include "xml_config_parser/xml_config_parser.hpp" // ThesisProfile / ExperimentProfile
 #include "xml_config_parser/xml_reader.hpp"        // INC-D: common-DOM zum Lesen der Registry-XML (kein regex)
 
@@ -553,11 +555,12 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
     //    (CEB-Default O3 / no_extension; XSD minOccurs=0). opt_level/simd sind system_config → binary_id-NEUTRAL
     //    (Provenienz build_version/H-10-Sidecar); hier nur die Enum-Wohlgeformtheit. Die Aufloesung id→Flag
     //    (-O<n> / -march) macht die opt-g-Facade (make_gpp_compile_fn-Kanal), die ISA-Gegatung ebenso.
-    static constexpr std::string_view kValidOptLevels[] = {"O0", "O1", "O2", "O3", "Ofast"};
+    // Single-Source: die gueltigen opt_level-ids kommen aus der OptimizationLevelSubAxis-Familie (kAllOptLevelIds),
+    // NICHT hartkodiert (Konformitaets-Single-Source; deckungsgleich zur XSD-Enumeration compiler/opt_level/option).
     for (auto const& lvl : ep.compiler.opt_levels) { // Optionen der opt_level-Unter-Achse unter compiler
         ++r.opt_levels_checked;
         bool const known =
-            std::find(std::begin(kValidOptLevels), std::end(kValidOptLevels), lvl) != std::end(kValidOptLevels);
+            std::find(ms::kAllOptLevelIds.begin(), ms::kAllOptLevelIds.end(), lvl) != ms::kAllOptLevelIds.end();
         if (!known) {
             r.ok = false;
             r.errors.push_back(
@@ -565,11 +568,12 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
                 "\">: kein Wert der XSD-Enumeration O0/O1/O2/O3/Ofast (optimization_level_sub_axis.hpp).");
         }
     }
-    static constexpr std::string_view kValidSimd[] = {"no_extension", "avx2", "avx512"};
+    // Single-Source: die gueltigen simd-ids kommen aus der SimdSubAxis-Familie (kAllSimdIds), NICHT hartkodiert
+    // (Konformitaets-NACH F-SIMD 2026-07-18; deckungsgleich zur XSD-Enumeration extension_hardware/simd/option).
     for (auto const& s :
          ep.extension_hardware.simd_options) { // Optionen der simd-Unter-Achse (extension_hardware → simd)
         ++r.simd_checked;
-        bool const known = std::find(std::begin(kValidSimd), std::end(kValidSimd), s) != std::end(kValidSimd);
+        bool const known = std::find(ms::kAllSimdIds.begin(), ms::kAllSimdIds.end(), s) != ms::kAllSimdIds.end();
         if (!known) {
             r.ok = false;
             r.errors.push_back("UNGUELTIGE <simd value=\"" + s +

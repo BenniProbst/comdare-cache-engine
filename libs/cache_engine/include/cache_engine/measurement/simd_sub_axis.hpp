@@ -19,6 +19,7 @@
 
 #include <cache_engine/measurement/ceb_system_axis.hpp>
 
+#include <array>
 #include <concepts>
 #include <string_view>
 #include <type_traits>
@@ -88,6 +89,12 @@ struct SimdAvx512Option final : SimdSubAxis<SimdAvx512Option> {
 /// CEB-Default-Auspraegung -- generisch (kein -march); Ist-Verhalten der Mess-DLLs byte-identisch. Beweglicher
 /// Startwert, KEIN Pin (jede Auspraegung per XML/Planer waehlbar).
 using DefaultSimdOption = SimdNoExtOption;
+
+/// Single-Source der gueltigen simd-ids (Reihenfolge = Design-Space-Vokabular). Speist die Profil-Validierung
+/// (validate_profile kValidSimd) + jede kuenftige Enum-Wohlgeformtheits-Pruefung, damit die Werte nicht dupliziert
+/// werden (Konformitaets-NACH F-SIMD 2026-07-18). Deckungsgleich zur XSD-Enumeration extension_hardware/simd/option.
+inline constexpr std::array<std::string_view, 3> kAllSimdIds = {SimdNoExtOption::simd_id(), SimdAvx2Option::simd_id(),
+                                                                SimdAvx512Option::simd_id()};
 
 static_assert(SimdSubAxisConcept<SimdNoExtOption>);
 static_assert(SimdSubAxisConcept<SimdAvx2Option>);
