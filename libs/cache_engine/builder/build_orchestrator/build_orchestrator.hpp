@@ -104,8 +104,8 @@ struct BuildResult {
     // d1-carrier (A2-Hybrid Teil 1, C4/OD-3): klassifizierter Bau-Ausgang. Erfolg = has_value (Default);
     // Fehlschlag = std::unexpected(CompilerCompilerErrorClass). Der Builder zieht das geteilte Taxonomie-
     // Vokabular (measurement/axis_error.hpp) hoch — Bau-KONFIG bleibt Wert-runter (opt-d), Fehler-KLASSE Wert-hoch.
-    std::expected<void, ::comdare::cache_engine::measurement::CompilerCompilerErrorClass> outcome{};
-    [[nodiscard]] bool ok() const noexcept { return status == 0; }
+    std::expected<void, ::comdare::cache_engine::measurement::BuildError> outcome{};
+    [[nodiscard]] bool                                                    ok() const noexcept { return status == 0; }
 };
 
 struct BuildStats {
@@ -325,16 +325,22 @@ private:
                 if (r.status != -2) {
                     r.status  = compile_(job);
                     r.message = (r.status == 0) ? "ok" : ("compile-exit " + std::to_string(r.status));
-                    // d1-carrier: den rohen Exit-Code in die Fehlerklasse uebersetzen (Erfolg = has_value).
-                    // 125/127 = Infra/Toolchain (rsp-Schreibfehler/spawn), sonst nonzero = vom Compiler
-                    // abgelehnte Achsen-Kombination. Der Iterator (d1-log) liest r.outcome fuer die Log-Zeile.
+                    // d1-carrier + INC-29.2: den rohen Exit-Code in die richtige Fehler-DOMAENE uebersetzen
+                    // (Erfolg = has_value). 127=spawn/argv (Prozess-Start), 125=rsp-IO, <0=Signal/Abbruch =>
+                    // INFRA (kein Compiler-Urteil, NIE als D1 fehletikettieren, Sweep-Fix); sonst nonzero =
+                    // vom Compiler abgelehnte Achsen-Kombination (D1). Der Iterator liest r.outcome +
+                    // error_domain() fuer die richtige Log-Zeile ([Infra-Fehler:…] vs [Compiler-Compiler-Fehler:…]).
                     namespace cm = ::comdare::cache_engine::measurement;
                     if (r.status == 0)
                         r.outcome = {};
-                    else if (r.status == 125 || r.status == 127)
-                        r.outcome = std::unexpected(cm::CompilerCompilerErrorClass::ToolchainFehlt);
+                    else if (r.status == 127)
+                        r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ProzessStart});
+                    else if (r.status == 125)
+                        r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ArtefaktIo});
+                    else if (r.status < 0)
+                        r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ProzessAbbruch});
                     else
-                        r.outcome = std::unexpected(cm::CompilerCompilerErrorClass::CompileKombination);
+                        r.outcome = std::unexpected(cm::BuildError{cm::CompilerCompilerErrorClass::CompileKombination});
                     if (r.status == 0) write_version_sidecar(job.output, cfg_.build_version); // Resume-Marke
                 }
                 results[j] = std::move(r);
