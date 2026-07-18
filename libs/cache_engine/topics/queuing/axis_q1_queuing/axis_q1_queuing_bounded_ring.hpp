@@ -64,6 +64,11 @@ public:
         return "BoundedRingBuffer<N> (Disruptor-Pattern LMAX 2011, SPSC/MPMC)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "BOUNDED_RING"; }
+    /// Algorithmus-Version (Organ-Provenienz, inkrementeller Tier-Binary-Cache): Bump bei algorithmischer
+    /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
+    /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
+    /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
+    static constexpr std::string_view algo_version = "v1";
 
     [[nodiscard]] static constexpr bool supports_concurrent_producers() noexcept { return false; } // SPSC-Variante
     [[nodiscard]] static constexpr bool supports_concurrent_consumers() noexcept { return false; }

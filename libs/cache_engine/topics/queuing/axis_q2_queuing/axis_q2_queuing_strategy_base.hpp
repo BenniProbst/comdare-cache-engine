@@ -30,6 +30,13 @@ template <typename Derived>
 class FlushPolicyStrategyBase : public ::comdare::cache_engine::topics::OrganAxis<Derived> {
 protected:
     FlushPolicyStrategyBase() noexcept {
+        // Inkrementeller Tier-Binary-Cache (Bauplan §2): Pflicht-algo_version je Kompositions-Organ-Variante — ohne
+        // sie kann der Rebuild-/Neu-Mess-Selektor die Binary nicht organ-genau invalidieren. CRTP-Ctor-Guard;
+        // universell zusaetzlich via build_axis_variant_version_table() (Typ-Ebene, alle 17 Kompositions-Registries).
+        static_assert(
+            requires { Derived::algo_version; },
+            "Kompositions-Organ-Variante ohne 'static constexpr std::string_view algo_version' "
+            "(Bauplan §2): Rebuild-Selektor kann nicht organ-genau invalidieren.");
         static_assert(concepts::FlushPolicy<Derived>, "Pflicht: Derived muss FlushPolicy erfuellen "
                                                       "(should_flush/on_flush_complete + topic_tag)");
         static_assert(concepts::CacheEngineFlushPolicyPermutationStrategy<Derived>,

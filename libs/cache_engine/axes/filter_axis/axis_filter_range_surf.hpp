@@ -106,6 +106,11 @@ public:
         return "RangeSurfFilter (Zhang SIGMOD 2018, succinct LOUDS-Trie, range-query)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "RANGE_SURF"; }
+    /// Algorithmus-Version (Organ-Provenienz, inkrementeller Tier-Binary-Cache): Bump bei algorithmischer
+    /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
+    /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
+    /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
+    static constexpr std::string_view algo_version = "v1";
 
     // F15-Pfad-A Treibe-Op (Spec §5 T16, Goldstandard analog axis_05 scan_field_sum / axis_10
     // serialize_scan / axis_04 node_find_scan). SYNTHETISCHE Mindest-Op (ehrlich deklariert): es

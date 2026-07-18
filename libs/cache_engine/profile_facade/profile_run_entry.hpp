@@ -61,6 +61,7 @@ struct RunProfileArgs {
     std::filesystem::path    src_dir;          // perm_<id>.cpp-Ausgabe (per-Binary-Subdir-Basis)
     std::filesystem::path    dll_dir;          // perm_<id>.dll-Ausgabe (per-Binary-Subdir-Basis)
     ex::CompileFn            compile;          // injizierter Compiler-Aufruf (cl @rsp) — wie BuildOrchestrator
+    ex::AlgoSigFn            algo_sig;         // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
     std::vector<std::string> compile_includes; // ungenutzt hier (der Host backt die Includes in compile) — Doku
     std::uint64_t            n_ops               = 10000;  // Mess-Workload je dyn-Setting
     std::size_t              max_binaries        = 0;      // 0 ⇒ run_options.cap; beide 0 ⇒ KEIN Cap
@@ -325,7 +326,7 @@ struct RunProfileResult {
                 ex::LazyRunConfig       cfg = make_cfg(ws_n, sweep_n, /*series=*/"-", pass_axis, /*pruefling_type=*/"-",
                                                        /*fairness_mode=*/"-", /*h2_score=*/"-");
                 ex::LazyRunResult const r =
-                    ex::run_lazy_static_then_dynamic(sweep_tree, sel, a.compile, union_gen, ram, cfg);
+                    ex::run_lazy_static_then_dynamic(sweep_tree, sel, a.compile, union_gen, ram, cfg, a.algo_sig);
                 emit(r, &res.basis_rows);
             }
         } else {
@@ -352,7 +353,7 @@ struct RunProfileResult {
                 ex::LazyRunConfig       cfg = make_cfg(ws_n, N, pts.series, pts.sweep_axis, /*pruefling_type=*/"-",
                                                        /*fairness_mode=*/"-", /*h2_score=*/"-");
                 ex::LazyRunResult const r =
-                    ex::run_lazy_static_then_dynamic(basis_tree, sel, a.compile, union_gen, ram, cfg);
+                    ex::run_lazy_static_then_dynamic(basis_tree, sel, a.compile, union_gen, ram, cfg, a.algo_sig);
                 emit(r, &res.basis_rows);
             }
         }
@@ -416,7 +417,7 @@ struct RunProfileResult {
                     make_cfg(ws_n, 1, p.series, /*sweep_axis=*/"", p.pruefling_type, p.fairness_mode,
                              h2_score); // #171 full/abstract + Fork 6 fairness + Fork 7 h2
                 ex::LazyRunResult const r =
-                    ex::run_lazy_static_then_dynamic(sota_tree, sel, a.compile, union_gen, ram, cfg);
+                    ex::run_lazy_static_then_dynamic(sota_tree, sel, a.compile, union_gen, ram, cfg, a.algo_sig);
                 emit(r, &res.sota_rows);
             }
         }

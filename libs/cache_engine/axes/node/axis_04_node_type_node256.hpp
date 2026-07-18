@@ -30,6 +30,12 @@ public:
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "NODE256"; }
 
+    /// Algorithmus-Version (Organ-Provenienz, inkrementeller Tier-Binary-Cache): Bump bei algorithmischer
+    /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
+    /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
+    /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
+    static constexpr std::string_view algo_version = "v1";
+
     // KF-6 (2026-06-02): Run-Body DIVERGENT je ART-Format. Node256 = DIREKT-adressiert: 256-Slot-ChildArray,
     // 1 Berührung je Lookup (kein Index, kein Scan). Prüfsumme reflektiert das O(1)-Direkt-Zugriffsmuster
     // (NUR Child-Touch, KEIN Index-Touch wie Node48 → andere Prüfsumme).

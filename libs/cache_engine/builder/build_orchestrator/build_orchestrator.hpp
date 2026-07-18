@@ -105,7 +105,12 @@ struct BuildResult {
     // Fehlschlag = std::unexpected(CompilerCompilerErrorClass). Der Builder zieht das geteilte Taxonomie-
     // Vokabular (measurement/axis_error.hpp) hoch — Bau-KONFIG bleibt Wert-runter (opt-d), Fehler-KLASSE Wert-hoch.
     std::expected<void, ::comdare::cache_engine::measurement::BuildError> outcome{};
-    [[nodiscard]] bool                                                    ok() const noexcept { return status == 0; }
+    // Inkrementeller Tier-Binary-Cache (Bauplan §1+§3): die Organ-Algorithmus-Signatur DIESER Binary (perm.algos-
+    // Inhalt), waehrend des Baus aus spec.axes berechnet. Leer, wenn keine AlgoSigFn injiziert ist (rueckwaerts-
+    // kompatibel). Der Mess-Resume-Pfad (cache_engine_builder_iterator) haengt sie additiv an den Resume-Stamp ->
+    // eine Algo-Aenderung erzwingt die Neu-Messung GENAU der betroffenen Binaries (ehrlich, kein stilles Stale-Resume).
+    std::string        algo_sig;
+    [[nodiscard]] bool ok() const noexcept { return status == 0; }
 };
 
 struct BuildStats {
@@ -121,6 +126,11 @@ struct BuildStats {
 using CompileFn   = std::function<int(BuildJob const&)>;            // 0 = Erfolg
 using SourceGenFn = std::function<std::string(std::string const&)>; // binary_id → perm-Source (KF-8)
 using FreeRamFn   = std::function<std::uint64_t()>;                 // freier physischer RAM in Bytes
+// Inkrementeller Tier-Binary-Cache (Bauplan §3): spec.axes (die 17 (achse,wert)-Paare der Binary) → deterministische
+// Organ-Algorithmus-Signatur (algo_sig, perm.algos-Inhalt). Analog SourceGenFn injiziert (die Facade baut sie aus der
+// compile-time Versions-Tabelle, axis_variant_version_table.hpp::compose_algo_signature). Leer/ungesetzt = Organ-Gate
+// AUS -> byte-neutrales Alt-Verhalten (nur perm.dll.version-Skip). Der achsen-blinde Orchestrator bleibt registry-frei.
+using AlgoSigFn = std::function<std::string(std::vector<std::pair<std::string, std::string>> const&)>;
 
 /// Default-FreeRamFn: „unbegrenzt" → RAM-Gate effektiv aus, wenn keine reale Abfrage injiziert ist.
 [[nodiscard]] inline std::uint64_t free_ram_unlimited() noexcept { return (std::numeric_limits<std::uint64_t>::max)(); }
@@ -168,27 +178,56 @@ inline constexpr std::size_t     kStemMax = 120;
 [[nodiscard]] inline std::filesystem::path version_sidecar_path(std::filesystem::path const& output) {
     return std::filesystem::path{output.string() + ".version"};
 }
-/// true, wenn die DLL existiert UND ihr Sidecar exakt der geforderten Version entspricht (→ überspringen).
-[[nodiscard]] inline bool dll_is_current(std::filesystem::path const& output, std::string const& version) {
+// Inkrementeller Tier-Binary-Cache (Bauplan §1): das ZWEITE, additive Sidecar `<output>.algos` traegt die Organ-
+// Provenienz (algo_sig) — bewusst SEPARAT von `.version` (System-Provenienz: ext/cxx/opt/target/ceb), damit Organ-
+// und System-Achsen NIE vermischt werden. perm.dll.version bleibt byte-genau unveraendert.
+[[nodiscard]] inline std::filesystem::path algo_sidecar_path(std::filesystem::path const& output) {
+    return std::filesystem::path{output.string() + ".algos"};
+}
+/// true, wenn die DLL existiert, ihr `.version`-Sidecar exakt der geforderten System-Version entspricht UND (nur wenn
+/// eine algo_sig gefordert ist) ihr `.algos`-Sidecar exakt der erwarteten Organ-Signatur entspricht (→ überspringen).
+/// algo_sig LEER = Organ-Gate AUS (rueckwaerts-kompatibel: reiner Versions-Skip, byte-identisch zum Alt-Verhalten).
+/// Beide Prueflinge sind reine String-Gleichheit -> additiv, risikoarm; ein fehlendes `.algos` bei gesetzter Erwartung
+/// erzwingt Neubau (Alt-Binary vor der Cache-Einfuehrung -> einmal frisch, dann Sidecar vorhanden).
+[[nodiscard]] inline bool dll_is_current(std::filesystem::path const& output, std::string const& version,
+                                         std::string const& algo_sig = std::string{}) {
     if (version.empty()) return false; // ohne Versions-Anforderung nie überspringen
     std::error_code ec;
     if (!std::filesystem::exists(output, ec)) return false; // DLL fehlt → bauen
-    std::ifstream f{version_sidecar_path(output), std::ios::binary};
-    if (!f) return false;
-    std::string content((std::istreambuf_iterator<char>(f)), {});
-    return content == version;
+    {
+        std::ifstream f{version_sidecar_path(output), std::ios::binary};
+        if (!f) return false;
+        std::string content((std::istreambuf_iterator<char>(f)), {});
+        if (content != version) return false; // System-Provenienz (ext/cxx/opt/target/ceb) veraltet → bauen
+    }
+    if (!algo_sig.empty()) { // Organ-Gate aktiv: die einkompilierten Algorithmus-Versionen muessen ebenfalls passen
+        std::ifstream af{algo_sidecar_path(output), std::ios::binary};
+        if (!af) return false; // kein Organ-Sidecar → als veraltet behandeln (Neubau schreibt es)
+        std::string acontent((std::istreambuf_iterator<char>(af)), {});
+        if (acontent != algo_sig) return false; // eine Variante im Tupel wurde gebumpt → GENAU diese Binary neu
+    }
+    return true;
 }
 inline void write_version_sidecar(std::filesystem::path const& output, std::string const& version) {
     if (version.empty()) return;
     std::ofstream f{version_sidecar_path(output), std::ios::binary | std::ios::trunc};
     if (f) f << version;
 }
+/// Schreibt das Organ-Provenienz-Sidecar (`.algos`). Leer = no-op (kein AlgoSigFn injiziert -> byte-neutral). Nur bei
+/// erfolgreichem Bau (r.status==0) aufgerufen -> ein Fehlbau hinterlaesst KEIN falsches Organ-Sidecar.
+inline void write_algos_sidecar(std::filesystem::path const& output, std::string const& algo_sig) {
+    if (algo_sig.empty()) return;
+    std::ofstream f{algo_sidecar_path(output), std::ios::binary | std::ios::trunc};
+    if (f) f << algo_sig;
+}
 
 // ── Der Orchestrator ──────────────────────────────────────────────────────────
 class BuildOrchestrator {
 public:
-    BuildOrchestrator(BuildConfig cfg, CompileFn compile, SourceGenFn gen, FreeRamFn free_ram = free_ram_unlimited)
-        : cfg_{std::move(cfg)}, compile_{std::move(compile)}, gen_{std::move(gen)}, free_ram_{std::move(free_ram)} {}
+    BuildOrchestrator(BuildConfig cfg, CompileFn compile, SourceGenFn gen, FreeRamFn free_ram = free_ram_unlimited,
+                      AlgoSigFn algo_sig = {})
+        : cfg_{std::move(cfg)}, compile_{std::move(compile)}, gen_{std::move(gen)}, free_ram_{std::move(free_ram)},
+          algo_sig_{std::move(algo_sig)} {}
 
     /// Stellt ALLE Tier-Binaries des statischen Teilbaums bereit (rückwärtskompatibel): je Binary Source (KF-8)
     /// + DLL kompilieren — INKREMENTELL, RAM-gewahr, MULTITHREADED. ⚠️ results-Vektor O(view.size()): nur für
@@ -280,12 +319,17 @@ private:
                 }
                 job.cores = cores;
 
+                // Inkrementeller Tier-Binary-Cache (Bauplan §3): die Organ-Algorithmus-Signatur DIESER Binary aus
+                // spec.axes (den 17 (achse,wert)-Paaren). Leer, wenn keine AlgoSigFn injiziert ist (Organ-Gate aus).
+                std::string const algos = algo_sig_ ? algo_sig_(spec.axes) : std::string{};
+
                 r.index     = spec.index;
                 r.binary_id = spec.binary_id;
                 r.output    = job.output;
+                r.algo_sig  = algos;
 
-                // (A) INKREMENTELL: bestehende, versions-aktuelle DLL überspringen (Resume nach Absturz).
-                if (dll_is_current(job.output, cfg_.build_version)) {
+                // (A) INKREMENTELL: bestehende, versions- UND organ-aktuelle DLL überspringen (Resume nach Absturz).
+                if (dll_is_current(job.output, cfg_.build_version, algos)) {
                     r.status   = 0;
                     r.skipped  = true;
                     r.message  = "übersprungen (Version aktuell)";
@@ -345,7 +389,10 @@ private:
                         r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ProzessAbbruch});
                     else
                         r.outcome = std::unexpected(cm::BuildError{cm::CompilerCompilerErrorClass::CompileKombination});
-                    if (r.status == 0) write_version_sidecar(job.output, cfg_.build_version); // Resume-Marke
+                    if (r.status == 0) {
+                        write_version_sidecar(job.output, cfg_.build_version); // System-Provenienz-Resume-Marke
+                        write_algos_sidecar(job.output, algos); // Organ-Provenienz (Bauplan §1); leer=no-op
+                    }
                 }
                 results[j] = std::move(r);
 
@@ -383,6 +430,7 @@ private:
     CompileFn   compile_;
     SourceGenFn gen_;
     FreeRamFn   free_ram_;
+    AlgoSigFn   algo_sig_; // Bauplan §3: spec.axes → algo_sig; leer = Organ-Gate aus (byte-neutral)
 };
 
 namespace detail {

@@ -30,6 +30,12 @@ public:
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "NODE4"; }
 
+    /// Algorithmus-Version (Organ-Provenienz, inkrementeller Tier-Binary-Cache): Bump bei algorithmischer
+    /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
+    /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
+    /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
+    static constexpr std::string_view algo_version = "v1";
+
     // KF-6 (2026-06-02): verhaltens-tragender Run-Body, DIVERGENT je ART-Node-Format (Leis ICDE 2013) —
     // macht die node-Achse F15-operativ (analog axis_05 scan_field_sum / axis_10 serialize_scan).
     // Node4 = LINEAR-Scan über bis zu 4 sortierte Schlüssel; Prüfsumme der berührten Zellen (Scan-Kosten,

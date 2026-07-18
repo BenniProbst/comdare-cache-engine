@@ -34,6 +34,12 @@ public:
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "WAIT_FREE"; }
 
+    /// Algorithmus-Version (Organ-Provenienz, inkrementeller Tier-Binary-Cache): Bump bei algorithmischer
+    /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
+    /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
+    /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
+    static constexpr std::string_view algo_version = "v1";
+
     // V41 F15 Pfad-A — treibbare Concurrency-Op (acquire/release-Paar). WaitFree = beschraenkte
     // Schrittzahl OHNE Retry (staerkste Garantie, im Ggs. zu LockFree's CAS-Retry-Schleife):
     // acquire() = EIN atomares fetch_add (acquire-Order), release() = EIN atomares fetch_sub

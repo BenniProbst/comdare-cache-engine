@@ -40,6 +40,12 @@ public:
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "CACHE_LINE_ALIGNED"; }
 
+    /// Algorithmus-Version (Organ-Provenienz, inkrementeller Tier-Binary-Cache): Bump bei algorithmischer
+    /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
+    /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
+    /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
+    static constexpr std::string_view algo_version = "v1";
+
     // V41.F.6.1 R5.B — verhaltens-tragende Laufzeit-API (macht die Layout-Achse F15-operativ).
     // LAYOUT-FIX (X-§4, 2026-06-04): cache_line_aligned modelliert auf 64-Byte-Grenzen GEPADDETE Records →
     // effektiver Stride = round_up(record_size, 64). Bei record_size < 64 (z.B. dem Mess-Build record_size=48)

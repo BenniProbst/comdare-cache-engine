@@ -35,6 +35,12 @@ public:
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "EXTERNAL_POOL"; }
 
+    /// Algorithmus-Version (Organ-Provenienz, inkrementeller Tier-Binary-Cache): Bump bei algorithmischer
+    /// Aenderung dieser Variante ODER eines von ihr allein genutzten Helfers. Fliesst in algo_sig/perm.algos
+    /// (build_orchestrator .algos-Sidecar) -> nur betroffene Tier-Binaries werden neu gebaut/gemessen; die
+    /// binary_id bleibt unberuehrt (Version lebt im Sidecar). Startwert "v1"; Bump-Disziplin ab dem 1. Bump.
+    static constexpr std::string_view algo_version = "v1";
+
     // T11 value_handle F15-operativ (Pfad A, abi_adapter-Segment): strategie-charakteristische
     // Value-Zugriffs-SIMULATION. SIMULATION (kein echter Pool): External-Pool speichert im Slot nur
     // einen Pool-OFFSET; der eigentliche Value liegt extern -> 1 zusaetzliche, daten-abhaengige

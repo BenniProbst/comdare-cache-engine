@@ -130,4 +130,22 @@ struct AnatomyAbiVersion {
 /// Compile-Time Host-Version (zur Build-Zeit der cache-engine eingebrannt).
 inline constexpr AnatomyAbiVersion kHostAnatomyAbiVersion{COMDARE_ANATOMY_ABI_MAJOR, COMDARE_ANATOMY_ABI_MINOR};
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CEB-Contract-Version (inkrementeller Tier-Binary-Cache, Bauplan §4)
+// ─────────────────────────────────────────────────────────────────────────────
+/// Codegen-Minor der CEB-Contract-Version. Der Major IST der ABI-Major (jeder echte ABI-Bruch — POD-Schema/
+/// vtable/Emitter-Aritaet — bumpt ihn AUTOMATISCH ueber COMDARE_ANATOMY_ABI_MAJOR). Der Minor wird HIER von Hand
+/// gebumpt, wenn sich eine CEB-UNIVERSELLE Codegen-Quelle aendert, die ALLE Tier-Binaries betrifft, OHNE das
+/// POD-/vtable-ABI zu brechen (z.B. all_axes_umbrella / adhoc_emitter / Observer-Basis-Emission). Beide zusammen
+/// bilden ceb_contract_version = <ABI-Major>.<codegen-Minor>. System-/Framework-Provenienz: sie wird via
+/// +ceb=<major>.<minor> in die build_version (system_axes_version_suffix) eingefaltet — NIE in perm.algos (Organ)
+/// und NIE in die binary_id. Jeder Bump laesst jede perm.dll.version mismatchen -> ALLE Binaries neu ("CEB-
+/// Aenderung betrifft alle"). CI-Tripwire-gated (Bauplan §5): ein universeller Codegen-Diff ohne Minor-Bump = rot.
+inline constexpr std::uint32_t kCebContractCodegenMinor = 0;
+
+/// ceb_contract_version als Tupel (Major = ABI-Major, Minor = codegen-Minor). host_compatible_with-Backstop des
+/// Loaders (host_compatible_with, decl:124-127) lehnt Major-Mismatch-DLLs ohnehin ab -> +ceb= macht Bau-Skip +
+/// Lade-Akzeptanz konsistent.
+inline constexpr AnatomyAbiVersion kCebContractVersion{COMDARE_ANATOMY_ABI_MAJOR, kCebContractCodegenMinor};
+
 } // namespace comdare::cache_engine::abi

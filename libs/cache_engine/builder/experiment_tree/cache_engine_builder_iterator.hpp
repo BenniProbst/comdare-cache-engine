@@ -680,7 +680,7 @@ struct LazyRunResult {
 /// die ersten cfg.max_binaries gekappt. compile/gen/ram werden injiziert (Engine-agnostisch wie BuildOrchestrator).
 [[nodiscard]] inline LazyRunResult run_lazy_static_then_dynamic(ExperimentTree& tree, BuildSelection const& sel,
                                                                 CompileFn compile, SourceGenFn gen, FreeRamFn ram,
-                                                                LazyRunConfig const& cfg) {
+                                                                LazyRunConfig const& cfg, AlgoSigFn algo_sig = {}) {
     LazyRunResult                 result;
     StaticBinaryView const        view     = tree.static_binary_view();
     std::vector<DynamicDim> const dyn_dims = tree.dynamic_filter(); // der dynamische Sub-Filterbaum (LAZY-Quelle)
@@ -706,7 +706,10 @@ struct LazyRunResult {
     bcfg.ram_safety_margin_bytes = cfg.ram_safety_margin_bytes;
     bcfg.per_binary_subdirs      = cfg.per_binary_subdirs; // (E): je Tier-Binary ein eigener Unterordner
 
-    BuildOrchestrator              orch{bcfg, std::move(compile), std::move(gen), std::move(ram)};
+    // Bauplan §8: die AlgoSigFn wird dem Orchestrator mitgegeben -> je Binary wird die Organ-Signatur (algo_sig)
+    // berechnet, ins .algos-Sidecar geschrieben und in BuildResult.algo_sig getragen (fuer den Mess-Resume unten).
+    // Leer = Organ-Gate aus (byte-neutral).
+    BuildOrchestrator              orch{bcfg, std::move(compile), std::move(gen), std::move(ram), std::move(algo_sig)};
     std::vector<BuildResult> const builds =
         orch.provision_all(view, std::span<const std::size_t>{indices}, &result.build_stats);
 
@@ -729,6 +732,14 @@ struct LazyRunResult {
 
     // ── Je erfolgreich bereitgestellte DLL: laden + die zwei Lazy-Sub-Iteratoren fahren ──
     for (BuildResult const& b : builds) {
+        // Bauplan §8 (inkrementeller Cache): der PER-BINARY Resume-Stamp = Config-Prefix + additive Organ-Signatur.
+        // b.algo_sig ist leer, wenn keine AlgoSigFn injiziert war -> binary_resume_stamp == resume_stamp_prefix
+        // (BYTE-IDENTISCH zum Alt-Verhalten, kein Bruch bestehender Mess-Resumes). Ist sie gesetzt, invalidiert eine
+        // Algo-Versions-Aenderung GENAU die betroffenen Binaries (ihr algo_sig aendert sich -> Stamp-Mismatch ->
+        // ehrliche Neu-Messung), waehrend unveraenderte Binaries ihre gecachte result.csv behalten. Read UND Write
+        // (unten) nutzen denselben Wert -> konsistent.
+        std::string const binary_resume_stamp =
+            b.algo_sig.empty() ? resume_stamp_prefix : (resume_stamp_prefix + "|algos=" + b.algo_sig);
         // ════════════════════════════════════════════════════════════════════════════════════════════════
         // Mess-RESUME (#139 + Audit K8): Resume-Check VOR dem b.ok()-Gate. Ist die per-Binary result.csv für DIESE
         // Konfiguration vollständig+aktuell (Stamp+Header+Zeilenzahl), wird die Binary übersprungen und ihre Zeilen
@@ -740,7 +751,7 @@ struct LazyRunResult {
         // ════════════════════════════════════════════════════════════════════════════════════════════════
         if (cfg.resume_completed_binaries && cfg.per_binary_subdirs) {
             std::string resumed_rows;
-            if (lazy_try_resume_binary(b.output.parent_path(), resume_stamp_prefix, &resumed_rows)) {
+            if (lazy_try_resume_binary(b.output.parent_path(), binary_resume_stamp, &resumed_rows)) {
                 result.resumed_csv_rows += resumed_rows;
                 ++result.resumed_binaries;
                 continue;
@@ -892,7 +903,7 @@ struct LazyRunResult {
             // einfrieren, Audit). Sonst Stempel entfernen → der nächste Lauf misst die Binary komplett neu.
             if (csv_write_ok && per_binary_rows == per_binary_settings && per_binary_rows > 0 && per_binary_all_valid) {
                 std::ofstream sf{bin_dir / "result.csv.stamp", std::ios::trunc};
-                if (sf) { sf << resume_stamp_prefix << "|rows=" << per_binary_rows << "\n"; }
+                if (sf) { sf << binary_resume_stamp << "|rows=" << per_binary_rows << "\n"; }
             } else {
                 std::filesystem::remove(bin_dir / "result.csv.stamp", ec); // stale Stempel nie stehen lassen
             }

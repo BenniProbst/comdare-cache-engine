@@ -71,6 +71,13 @@ class AllocatorStrategyBase : public ::comdare::cache_engine::topics::OrganAxis<
 public:
     /// Concept-Check im Konstruktor: Pflicht-Set AllocatorStrategy + CacheEnginePermutationStrategy + AxisBase
     constexpr AllocatorStrategyBase() noexcept {
+        // Inkrementeller Tier-Binary-Cache (Bauplan §2): Pflicht-algo_version je Kompositions-Organ-Variante — ohne
+        // sie kann der Rebuild-/Neu-Mess-Selektor die Binary nicht organ-genau invalidieren. CRTP-Ctor-Guard;
+        // universell zusaetzlich via build_axis_variant_version_table() (Typ-Ebene, alle 17 Kompositions-Registries).
+        static_assert(
+            requires { Derived::algo_version; },
+            "Kompositions-Organ-Variante ohne 'static constexpr std::string_view algo_version' "
+            "(Bauplan §2): Rebuild-Selektor kann nicht organ-genau invalidieren.");
         static_assert(concepts::AllocatorStrategy<Derived>, "Derived must satisfy AllocatorStrategy concept "
                                                             "(see concepts/axis_06_allocator_concept.hpp)");
         static_assert(concepts::CacheEnginePermutationStrategy<Derived>,

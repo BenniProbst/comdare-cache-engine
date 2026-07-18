@@ -228,7 +228,8 @@ struct ShippedArtifact {
     std::filesystem::path source_dll;        // gefundene reale perm.dll
     std::filesystem::path shipped_dll;       // Kopie im out_dir
     std::filesystem::path manifest_path;     // geschriebenes Manifest
-    std::string           dll_build_version; // Inhalt des .version-Sidecars (z.B. cowfix-v1)
+    std::string           dll_build_version; // Inhalt des .version-Sidecars (System-Provenienz, z.B. cowfix-v1)
+    std::string           dll_algos;         // Inhalt des .algos-Sidecars (Organ-Provenienz, algo_sig; leer wenn keins)
 };
 
 /// ShippedArtifactBuilder (Builder): validierter Zusammenbau (Kopie → Version → Manifest).

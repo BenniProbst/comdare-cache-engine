@@ -337,6 +337,26 @@ std::optional<ShippedArtifact> ShippedArtifactBuilder::build(RankedBinary const&
         if (!vout.good()) return fail("Version-Sidecar-Schreiben fehlgeschlagen: " + tmp_version.string());
     }
 
+    // Schritt 3b (tmp, OPTIONAL): das .algos-Sidecar (Organ-Provenienz = algo_sig; inkrementeller Tier-Binary-Cache)
+    // mitliefern — NUR wenn die Quelle eins hat. Kein AlgoSigFn injiziert -> kein Sidecar -> stiller Skip, KEIN Fehler
+    // (rueckwaerts-kompatibel). perm.dll.version (System) bleibt unberuehrt daneben stehen (Provenienz-Trennung).
+    fs::path const tmp_algos = tmp_dir / (artifact_name_ + ".dll.algos");
+    bool           has_algos = false;
+    {
+        std::ifstream af{source_dir / "perm.dll.algos", std::ios::binary};
+        if (af) {
+            std::ostringstream ss;
+            ss << af.rdbuf();
+            art.dll_algos = ss.str();
+            std::ofstream aout{tmp_algos, std::ios::binary | std::ios::trunc};
+            if (!aout) return fail("Algos-Sidecar konnte nicht geoeffnet werden: " + tmp_algos.string());
+            aout << art.dll_algos;
+            aout.flush();
+            if (!aout.good()) return fail("Algos-Sidecar-Schreiben fehlgeschlagen: " + tmp_algos.string());
+            has_algos = true;
+        }
+    }
+
     // Zielpfade (kanonischer out_dir-Bestand) — erst NACH vollständigem tmp-Set befüllt.
     art.shipped_dll   = out_dir_ / (artifact_name_ + ".dll");
     art.manifest_path = out_dir_ / (artifact_name_ + ".manifest.txt");
@@ -360,6 +380,7 @@ std::optional<ShippedArtifact> ShippedArtifactBuilder::build(RankedBinary const&
         mf << "missing_cells_policy=disqualify(candidate_must_cover_union_grid)\n";
         mf << "source_dir=" << source_dir.string() << "\n";
         mf << "dll_build_version=" << art.dll_build_version << "\n";
+        mf << "algos=" << art.dll_algos << "\n"; // Organ-Provenienz (algo_sig); leer wenn kein .algos-Sidecar vorlag
         mf << "abi_major=" << kAbiMajor << "\n";
         mf << "abi_minor=" << kAbiMinor << "\n";
         mf << "abi_magic=0x" << std::hex << kAbiMagic << std::dec << "\n";
@@ -373,6 +394,10 @@ std::optional<ShippedArtifact> ShippedArtifactBuilder::build(RankedBinary const&
     if (ec) return fail("Publish-rename der DLL fehlgeschlagen: " + ec.message());
     fs::rename(tmp_version, out_dir_ / (artifact_name_ + ".dll.version"), ec);
     if (ec) return fail("Publish-rename des Version-Sidecars fehlgeschlagen: " + ec.message());
+    if (has_algos) { // Organ-Provenienz-Sidecar (optional) mit-publizieren
+        fs::rename(tmp_algos, out_dir_ / (artifact_name_ + ".dll.algos"), ec);
+        if (ec) return fail("Publish-rename des Algos-Sidecars fehlgeschlagen: " + ec.message());
+    }
     fs::rename(tmp_manifest, art.manifest_path, ec);
     if (ec) return fail("Publish-rename des Manifests fehlgeschlagen: " + ec.message());
 
