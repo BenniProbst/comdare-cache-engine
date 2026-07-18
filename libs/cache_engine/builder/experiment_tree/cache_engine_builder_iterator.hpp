@@ -139,7 +139,7 @@ struct LazyRunConfig {
     // Storage #51 (Naht-Injektion, No-Op-Default => byte-neutral; Muster wie CompileFn/AlgoSigFn). Der Iterator ruft
     // sie SYNCHRON an der per-Binary-Naht (NACH result.csv+stamp, VOR RAII-DLL-Unload) — nie async/detached (I/O-
     // Contention = Messfehler). cache_push: perm.dll(+.version) -> Objekt-Store (Ebene B). measurement_sink:
-    // result.csv -> NFS additiv (Ebene C). Leer (Default) => No-Op => golden/CI byte-identisch (Anti-Phantom).
+    // result.csv -> measure-drop additiv (Ebene C). Leer (Default) => No-Op => golden/CI byte-identisch (Anti-Phantom).
     CachePushFn       cache_push;
     MeasurementSinkFn measurement_sink;
 };
@@ -930,7 +930,7 @@ struct LazyRunResult {
         // ════════════════════════════════════════════════════════════════════════════════════════════════
         // Storage #51 — NAHT-EINHAENGUNG (SYNCHRON, per-Binary, im 1-Thread-Mess-Loop): NACH result.csv+stamp,
         // VOR dem RAII-DLL-Unload. (1) Push B->minio: perm.dll ZUERST + perm.dll.version ZULETZT (der Client
-        // leitet den Objekt-Key ab). (2) NFS-Sink C: result.csv additiv. BEIDE No-Op-Default (leere
+        // leitet den Objekt-Key ab). (2) measure-drop-Sink C: result.csv additiv. BEIDE No-Op-Default (leere
         // std::function) => golden byte-identisch (Anti-Phantom). SYNCHRON/blockierend => die naechste Messung
         // startet erst nach Rueckkehr => NIE parallel zur Messung (I/O-Contention-Schutz; async/detached VERBOTEN).
         // Fehler behandelt der Client selbst (ArtefaktIo geloggt, lokale Kopie bleibt) => MESSEN WEITER (kein throw).
@@ -940,7 +940,7 @@ struct LazyRunResult {
             if (cfg.measurement_sink) {
                 std::error_code             sec;
                 std::filesystem::path const rcsv = bin_dir / "result.csv";
-                if (std::filesystem::exists(rcsv, sec)) // Ebene C: result.csv -> NFS (datierter Baum/<stem>/result.csv)
+                if (std::filesystem::exists(rcsv, sec)) // Ebene C: result.csv -> measure-drop (Baum/<stem>/result.csv)
                     cfg.measurement_sink(rcsv, bin_dir.filename().string() + "/result.csv");
             }
         }
