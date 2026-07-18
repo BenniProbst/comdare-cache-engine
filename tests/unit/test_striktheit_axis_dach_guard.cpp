@@ -120,8 +120,10 @@ static_assert(cem::OptimizationLevelSubAxisConcept<cem::OptOfastSubAxis>);
 static_assert(cem::OptO2SubAxis::axis_label() == std::string_view{"opt_level"});
 static_assert(cem::OptOfastSubAxis::parent_axis_label() == std::string_view{"compiler"});
 static_assert(cem::OptO3SubAxis::gcc_opt_flag() == std::string_view{"-O3"});
-// OF-2: CEB-Default = Ofast; Ofast bricht IEEE-754/Determinismus (die Verifikations-Tests nutzen daher O3, nicht Ofast).
-static_assert(cem::DefaultOptLevelSubAxis::opt_level_id() == std::string_view{"Ofast"});
+// Ruling 2026-07-18 (Option B): CEB-Default = O3 (IEEE-754-deterministisch, beweglich, kein Pin); Ofast additive
+// Extreme, bricht den Determinismus (-fallow-store-data-races/-funsafe-math).
+static_assert(cem::DefaultOptLevelSubAxis::opt_level_id() == std::string_view{"O3"});
+static_assert(cem::DefaultOptLevelSubAxis::is_ieee754_deterministic());
 static_assert(cem::OptO3SubAxis::is_ieee754_deterministic());
 static_assert(!cem::OptOfastSubAxis::is_ieee754_deterministic());
 
