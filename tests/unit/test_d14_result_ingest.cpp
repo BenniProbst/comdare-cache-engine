@@ -63,7 +63,7 @@ int main() {
     std::string const id2 = "search_algo=Patricia/allocator=jemalloc";
     std::string const l1  = make_line(id1, 100, 80, 256, 256);
     std::string const l2  = make_line(id2, 50, 40, 128, 128);
-    eq("Wire-Zeile l1 hat EXAKT 169 Felder", field_count(l1), std::size_t{169});
+    eq("Wire-Zeile l1 hat EXAKT 160 Felder", field_count(l1), std::size_t{160});
 
     // 2 Ergebnis-Zeilen (volle Matrix) + 1 Kommentar + 1 Leerzeile.
     std::string const text = "# perm-results batch (Cluster/perm_runner)\n" + l1 + "\n\n" + l2 + "\n";
@@ -94,9 +94,9 @@ int main() {
     std::cout << "---- MAJOR-MESS-09 Negativ-Tests (Feldzahl-Exaktheit + binary_id-Hygiene) ----\n";
 
     // (a) Genau 169 Felder → akzeptiert. (b) 168 oder 170 Felder → verworfen (kein stiller Slot-Versatz).
-    tr("EXAKT 169 Felder → akzeptiert", ex::ingest_result_line(tree, l1));
+    tr("EXAKT 160 Felder → akzeptiert", ex::ingest_result_line(tree, l1));
     tr("168 Felder (ein Feld zu wenig) → verworfen", !ex::ingest_result_line(tree, l1.substr(0, l1.rfind(';'))));
-    tr("170 Felder (ein Feld zu viel) → verworfen", !ex::ingest_result_line(tree, l1 + ";999"));
+    tr("161 Felder (ein Feld zu viel) → verworfen", !ex::ingest_result_line(tree, l1 + ";999"));
 
     // (c) binary_id mit eingebettetem ';' → format_perm_result lehnt ab (leere Zeile) → ingest verwirft.
     std::string const bad_semi = ex::format_perm_result("evil;id_with_semicolon", ana::ComdareTierObserverSnapshot{});
@@ -109,8 +109,8 @@ int main() {
     // (d) Ein manuell mit ';'-Injektion verschmolzenes binary_id-Feld ergäbe 170 Felder → verworfen
     //     (zweite, lese-seitige Verteidigung gegen Slot-Versatz selbst wenn die ID anders an die Zeile käme).
     std::string const injected = "evil;id" + l1.substr(l1.find(';')); // 1 zusätzliches ';'-Feld
-    eq("injizierte Zeile hat 170 Felder", field_count(injected), std::size_t{170});
-    tr("injizierte (170-Feld-)Zeile → verworfen", !ex::ingest_result_line(tree, injected));
+    eq("injizierte Zeile hat 161 Felder", field_count(injected), std::size_t{161});
+    tr("injizierte (161-Feld-)Zeile → verworfen", !ex::ingest_result_line(tree, injected));
 
     std::cout << "\n==== D14 result_ingest: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))
               << " ====\n";

@@ -69,7 +69,7 @@ template <class P>
     nv.observer.observable_axis_count    = pod.observable_axis_count;
     nv.observer.tier_fill_level          = pod.tier_fill_level;
     // I1: zusätzlich die volle Per-Achsen-Matrix + Pfad-B-seg_ns in den Knoten (NodeObserverSnapshot trägt sie).
-    for (std::size_t t = 0; t < 18; ++t) {
+    for (std::size_t t = 0; t < 17; ++t) { // Bau-INC-2d: 17 Achsen (isa raus)
         for (std::size_t f = 0; f < 8; ++f) nv.observer.axis_stats[t][f] = pod.axis_stats[t][f];
         nv.observer.seg_ns[t] = pod.seg_ns[t];
     }

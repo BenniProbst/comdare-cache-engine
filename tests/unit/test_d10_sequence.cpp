@@ -15,11 +15,11 @@
 namespace cea = comdare::cache_engine::anatomy;
 namespace eng = comdare::cache_engine::execution_engine;
 
-using SC = cea::SequenceComposition<int, int, int, int, int, int, int, int, int>; // Growth = DoublingGrowth (default)
+using SC    = cea::SequenceComposition<int, int, int, int, int, int, int, int>; // Growth = DoublingGrowth (default)
 using SAnat = cea::SequenceAnatomy<SC>;
 
 static_assert(cea::IsSequenceComposition<SC>);
-static_assert(SC::slot_count == 10, "Sequence = 9 geteilte + axis_growth (§28, K-B; INC-2c)");
+static_assert(SC::slot_count == 9, "Sequence = 8 geteilte + axis_growth (§28, K-B; INC-2d: isa raus)");
 static_assert(cea::GrowthPolicy<cea::DoublingGrowth>, "DoublingGrowth muss GrowthPolicy erfuellen");
 static_assert(SAnat::genus() == cea::AnatomyGenus::Sequence);
 
@@ -42,9 +42,9 @@ static void tr(char const* w, bool c) {
 int main() {
     std::cout << "==== D10 Sequence-Typ-Ebene ====\n";
     tr("IsSequenceComposition<SC>", cea::IsSequenceComposition<SC>);
-    eq("SC::slot_count == 10 (9 + axis_growth)", SC::slot_count, std::size_t{10});
+    eq("SC::slot_count == 9 (9 + axis_growth)", SC::slot_count, std::size_t{9});
     tr("genus() == Sequence (Reptil)", SAnat::genus() == cea::AnatomyGenus::Sequence);
-    eq("organ_count() == 10", SAnat::organ_count(), std::size_t{10});
+    eq("organ_count() == 9", SAnat::organ_count(), std::size_t{9});
     eq("SequenceObserverSnapshotV1 = 8 uint64", sizeof(cea::SequenceObserverSnapshotV1), std::size_t{8 * 8});
 
     std::cout << "\n==== D10 SequenceAnatomy V-indexed (push_back/at) + axis_growth ====\n";
@@ -68,7 +68,7 @@ int main() {
     cea::IAnatomyBase*             base = &adapter;
     tr("genus() == Sequence", base->genus() == cea::AnatomyGenus::Sequence);
     tr("engine_kind() == Anatomy", base->engine_kind() == eng::ExecutionEngineKind::Anatomy);
-    eq("organ_count() == 10", base->organ_count(), std::size_t{10});
+    eq("organ_count() == 9", base->organ_count(), std::size_t{9});
     auto* st = dynamic_cast<cea::ISequenceTier*>(base);
     tr("dynamic_cast<ISequenceTier*> != null", st != nullptr);
     if (st) {
@@ -80,7 +80,7 @@ int main() {
         cea::SequenceObserverSnapshotV1 pod{};
         st->tier_observe_sequence(&pod);
         eq("observe: push_count == 10", pod.push_count, std::uint64_t{10});
-        eq("observe: organ_count == 10", pod.organ_count, std::uint64_t{10});
+        eq("observe: organ_count == 9", pod.organ_count, std::uint64_t{9});
         tr("observe: growth_events > 0", pod.growth_events > 0);
     }
 

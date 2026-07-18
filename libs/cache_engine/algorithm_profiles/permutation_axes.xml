@@ -112,8 +112,8 @@
     </values>
   </axis>
 
-  <axis id="isa" required="true">
-    <description>ISA-Feature-Set</description>
+  <axis id="isa" required="false">
+    <description>ISA-Feature-Set (INC-2d: isa verliess die binary_id-Komposition -&gt; target_isa-System-Achse, analog telemetry/INC-2c)</description>
     <values>
       <value>X86_BASELINE</value>
       <value>X86_SSE42</value>

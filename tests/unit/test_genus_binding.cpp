@@ -32,14 +32,15 @@ int main() {
     std::cout << "Gattungs-Generik (Schritt 2): GenusBindingTraits<G> — Bau-Brücke gattungs-parametrisch:\n";
 
     using SA = ex::GenusBindingTraits<cea::AnatomyGenus::SearchAlgorithm>;
-    check_eq("SearchAlgorithm: slot_count == 18", SA::slot_count, std::size_t{18});
+    check_eq("SearchAlgorithm: slot_count == 17", SA::slot_count, std::size_t{17});
     check_eq("SearchAlgorithm: name", std::string{SA::name}, std::string{"SearchAlgorithm"});
-    check_eq("SearchAlgorithm: axis_names() size == 18", SA::axis_names().size(), std::size_t{18});
+    check_eq("SearchAlgorithm: axis_names() size == 17", SA::axis_names().size(), std::size_t{17});
     check_eq("axis_names[0] == search_algo", std::string{SA::axis_names()[0]}, std::string{"search_algo"});
-    check_eq("axis_names[15] == filter", std::string{SA::axis_names()[15]}, std::string{"filter"});
-    check_eq("axis_names[16] == queuing_q1", std::string{SA::axis_names()[16]},
+    // Bau-INC-2d (17-Slot, isa raus): filter=14, queuing_q1=15, queuing_q2=16 (Indizes ab 11 um -1 gerueckt).
+    check_eq("axis_names[14] == filter", std::string{SA::axis_names()[14]}, std::string{"filter"});
+    check_eq("axis_names[15] == queuing_q1", std::string{SA::axis_names()[15]},
              std::string{"queuing_q1"}); // Doc 30 §8.0
-    check_eq("axis_names[17] == queuing_q2", std::string{SA::axis_names()[17]},
+    check_eq("axis_names[16] == queuing_q2", std::string{SA::axis_names()[16]},
              std::string{"queuing_q2"}); // Doc 30 §8.0
 
     // Die Generik: SearchAlgorithm ist GEBUNDEN; die übrigen Gattungen sind definierte Erweiterungspunkte (noch nicht).
@@ -53,20 +54,20 @@ int main() {
     // D9 (2026-06-02): Set ist jetzt GEBUNDEN (GenusBindingTraits<Set>, 15 Achsen) — frühere Assert „Set==false" stale.
     check_true("GenusBound<Set> == true (Set-Gattung seit D9 gebunden, 14 Achsen seit INC-2c)",
                ex::GenusBound<cea::AnatomyGenus::Set>);
-    check_eq("GenusBindingTraits<Set>::slot_count == 14", ex::GenusBindingTraits<cea::AnatomyGenus::Set>::slot_count,
-             std::size_t{14});
+    check_eq("GenusBindingTraits<Set>::slot_count == 13", ex::GenusBindingTraits<cea::AnatomyGenus::Set>::slot_count,
+             std::size_t{13});
     check_eq("GenusBindingTraits<Set>::name", std::string{ex::GenusBindingTraits<cea::AnatomyGenus::Set>::name},
              std::string{"Set"});
     // D10 (2026-06-02): Sequence ist GEBUNDEN (9 + axis_growth = 10 Slots seit INC-2c).
     check_true("GenusBound<Sequence> == true (Sequence-Gattung seit D10 gebunden, 10 Slots)",
                ex::GenusBound<cea::AnatomyGenus::Sequence>);
-    check_eq("GenusBindingTraits<Sequence>::slot_count == 10",
-             ex::GenusBindingTraits<cea::AnatomyGenus::Sequence>::slot_count, std::size_t{10});
+    check_eq("GenusBindingTraits<Sequence>::slot_count == 9",
+             ex::GenusBindingTraits<cea::AnatomyGenus::Sequence>::slot_count, std::size_t{9});
     // D11 (2026-06-02): View ist GEBUNDEN (3 geteilt + extent/layout/accessor = 6 seit INC-2c).
     check_true("GenusBound<View> == true (View-Gattung seit D11 gebunden, 6 Slots)",
                ex::GenusBound<cea::AnatomyGenus::View>);
-    check_eq("GenusBindingTraits<View>::slot_count == 6", ex::GenusBindingTraits<cea::AnatomyGenus::View>::slot_count,
-             std::size_t{6});
+    check_eq("GenusBindingTraits<View>::slot_count == 5", ex::GenusBindingTraits<cea::AnatomyGenus::View>::slot_count,
+             std::size_t{5});
     std::cout << "    Gattungs-Bindung: ALLE 5 von 5 gebunden (SearchAlgorithm + Adapter + Set + Sequence + View)\n";
 
     // Statische Bindungs-Identität: CompositionFor<PermTuple> ist eine AdHocComposition (BR-2 belegt die Materialisierung;

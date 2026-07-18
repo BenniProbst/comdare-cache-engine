@@ -91,7 +91,7 @@ TEST(R5A_SnapshotAxis, EmptyForNonObservable) {
 
 TEST(R5A_ObserverAggregate, ArtCompositionHasEighteenSlots) {
     using Agg = ana::ObserverAggregate<ce_compos::ArtComposition>;
-    static_assert(Agg::total_slots() == 18);
+    static_assert(Agg::total_slots() == 17);
     SUCCEED();
 }
 
@@ -103,12 +103,12 @@ TEST(R5A_ObserverAggregate, AllSixCompositionsConformLayout) {
     using AggSurf     = ana::ObserverAggregate<ce_compos::SurfComposition>;
     using AggMasstree = ana::ObserverAggregate<ce_compos::MasstreeComposition>;
     using AggStart    = ana::ObserverAggregate<ce_compos::StartComposition>;
-    static_assert(AggArt::total_slots() == 18);
-    static_assert(AggHot::total_slots() == 18);
-    static_assert(AggWormhole::total_slots() == 18);
-    static_assert(AggSurf::total_slots() == 18);
-    static_assert(AggMasstree::total_slots() == 18);
-    static_assert(AggStart::total_slots() == 18);
+    static_assert(AggArt::total_slots() == 17);
+    static_assert(AggHot::total_slots() == 17);
+    static_assert(AggWormhole::total_slots() == 17);
+    static_assert(AggSurf::total_slots() == 17);
+    static_assert(AggMasstree::total_slots() == 17);
+    static_assert(AggStart::total_slots() == 17);
     SUCCEED();
 }
 
@@ -121,7 +121,7 @@ TEST(R5A_AnatomyObserveAll, ArtAnatomyProducesAggregate) {
     auto     agg = anatomy.observe_all();
     // R5.A Pilot: Default-Aggregate (Achsen-Member-Aggregation R5.B pending)
     using AggT = decltype(agg);
-    static_assert(AggT::total_slots() == 18);
+    static_assert(AggT::total_slots() == 17);
     SUCCEED();
 }
 
@@ -138,8 +138,8 @@ TEST(R5A_AnatomyObserveAll, AllElevenAnatomiesProduceAggregate) {
     [[maybe_unused]] auto agg9  = ana::StartPaperBinding{}.observe_all();
     [[maybe_unused]] auto agg10 = ana::WormholePaperBinding{}.observe_all();
     [[maybe_unused]] auto agg11 = ana::SurfPaperBinding{}.observe_all();
-    static_assert(decltype(agg1)::total_slots() == 18);
-    static_assert(decltype(agg11)::total_slots() == 18);
+    static_assert(decltype(agg1)::total_slots() == 17);
+    static_assert(decltype(agg11)::total_slots() == 17);
     SUCCEED();
 }
 
@@ -190,7 +190,7 @@ TEST(R5A_AbiStability, AllEmptyAggregateIsStandardLayoutPod) {
     static_assert(std::is_trivially_copyable_v<Agg>);
     static_assert(std::is_trivially_default_constructible_v<Agg>);
     static_assert(Agg::observable_count() == 0);
-    static_assert(Agg::total_slots() == 18);
+    static_assert(Agg::total_slots() == 17);
     SUCCEED();
 }
 
@@ -232,7 +232,7 @@ TEST(Saeule2_ObserveAllReal, TelemetryIsSystemAxisNotAnatomyOrgan_F12iii) {
     static_assert(!HasTelemetrySlot<ce_compos::ArtComposition>,
                   "Bau-INC-2c: ArtComposition darf keinen telemetry-Slot mehr tragen (System-Achse)");
     // Aggregat trägt exakt die 18 Kompositions-Achsen, keine telemetry-Zeile.
-    static_assert(ana::ObserverAggregate<ce_compos::ArtComposition>::total_slots() == 18);
+    static_assert(ana::ObserverAggregate<ce_compos::ArtComposition>::total_slots() == 17);
 
     // (b) die telemetry-Organ-Infrastruktur lebt eigenständig (Concept-Strategie direkt getrieben, nicht via Anatomie).
     ce::LeafOnlyCounter counter{4};

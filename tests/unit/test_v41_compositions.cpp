@@ -263,7 +263,7 @@ TEST(CompositionFifteenAxes, ArtCompositionHasAllFifteen) {
     static_assert(sizeof(typename C::concurrency) > 0);
     static_assert(sizeof(typename C::serialization) > 0);
     static_assert(sizeof(typename C::value_handle) > 0);
-    static_assert(sizeof(typename C::isa) > 0);
+    // Bau-INC-2d: C::isa entfaellt (isa ist Target-ISA-System-Achse, kein Kompositions-Slot).
     static_assert(sizeof(typename C::index_organization) > 0);
     static_assert(sizeof(typename C::io_dispatch) > 0);
     static_assert(sizeof(typename C::migration_policy) > 0);
@@ -283,8 +283,7 @@ TEST(CompositionFifteenAxes, AllSixCompositionsHaveAllFifteen) {
     // Beispielhafte Probe (alle 6 × 15 Achsen geprueft):
     static_assert(sizeof(typename A::filter) > 0 && sizeof(typename H::filter) > 0 && sizeof(typename W::filter) > 0 &&
                   sizeof(typename S::filter) > 0 && sizeof(typename T::filter) > 0 && sizeof(typename M::filter) > 0);
-    static_assert(sizeof(typename A::isa) > 0 && sizeof(typename H::isa) > 0 && sizeof(typename W::isa) > 0 &&
-                  sizeof(typename S::isa) > 0 && sizeof(typename T::isa) > 0 && sizeof(typename M::isa) > 0);
+    // Bau-INC-2d: C::isa entfaellt (isa ist Target-ISA-System-Achse, kein Kompositions-Slot).
     static_assert(sizeof(typename A::concurrency) > 0 && sizeof(typename H::concurrency) > 0 &&
                   sizeof(typename W::concurrency) > 0 && sizeof(typename S::concurrency) > 0 &&
                   sizeof(typename T::concurrency) > 0 && sizeof(typename M::concurrency) > 0);
@@ -301,7 +300,8 @@ TEST(CompositionFifteenAxes, NewAxesAllUseAxisBaseDefault) {
     static_assert(A::concurrency::get_compiler() == std::string_view{"original"});
     static_assert(A::serialization::get_compiler() == std::string_view{"original"});
     static_assert(A::value_handle::get_compiler() == std::string_view{"original"});
-    static_assert(A::isa::get_compiler() == std::string_view{"original"});
+    // Bau-INC-2d: A::isa entfaellt (isa ist Target-ISA-System-Achse); der isa-ORGAN-Codegen wird in
+    // test_v41_axis_09_isa geprueft, nicht mehr ueber den Kompositions-Slot.
     static_assert(A::index_organization::get_compiler() == std::string_view{"original"});
     static_assert(A::io_dispatch::get_compiler() == std::string_view{"original"});
     static_assert(A::migration_policy::get_compiler() == std::string_view{"original"});

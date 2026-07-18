@@ -27,7 +27,7 @@ struct TestKeySet {
     [[nodiscard]] std::size_t occupied_count() const { return s.size(); }
     void                      clear() { s.clear(); }
 };
-using SC    = cea::SetComposition<TestKeySet, int, int, int, int, int, int, int, int, int, int, int, int, int>;
+using SC    = cea::SetComposition<TestKeySet, int, int, int, int, int, int, int, int, int, int, int, int>;
 using SAnat = cea::SetAnatomy<SC>;
 
 static int g_fail = 0;
@@ -52,7 +52,7 @@ int main() {
     cea::IAnatomyBase* base = &adapter;
     tr("genus() == Set", base->genus() == cea::AnatomyGenus::Set);
     tr("engine_kind() == Anatomy", base->engine_kind() == eng::ExecutionEngineKind::Anatomy);
-    eq("organ_count() == 14", base->organ_count(), std::size_t{14});
+    eq("organ_count() == 13", base->organ_count(), std::size_t{13});
     eq("composition_name", std::string{base->composition_name()}, std::string{"SetComposition"});
     base->warm_up();
     base->run();
@@ -74,7 +74,7 @@ int main() {
         cea::SetObserverSnapshotV1 pod{};
         st->tier_observe_set(&pod);
         eq("observe: insert_count == 3", pod.insert_count, std::uint64_t{3});
-        eq("observe: organ_count == 14", pod.organ_count, std::uint64_t{14});
+        eq("observe: organ_count == 13", pod.organ_count, std::uint64_t{13});
         eq("observe: erase_count == 1", pod.erase_count, std::uint64_t{1});
     }
     std::cout << "\n==== D9.2 SetAbiAdapter: " << (g_fail == 0 ? "ALLE OK" : (std::to_string(g_fail) + " FEHLER"))

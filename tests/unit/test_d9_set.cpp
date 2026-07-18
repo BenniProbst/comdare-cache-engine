@@ -30,11 +30,11 @@ struct TestKeySet {
     void                      clear() { s.clear(); }
 };
 
-using SC    = cea::SetComposition<TestKeySet, int, int, int, int, int, int, int, int, int, int, int, int, int>;
+using SC    = cea::SetComposition<TestKeySet, int, int, int, int, int, int, int, int, int, int, int, int>;
 using SAnat = cea::SetAnatomy<SC>;
 
 static_assert(cea::IsSetComposition<SC>, "SetComposition muss IsSetComposition erfuellen");
-static_assert(SC::slot_count == 14, "Set = 14 Achsen (§28, K-A; INC-2c: telemetry ist System-Achse)");
+static_assert(SC::slot_count == 13, "Set = 13 Achsen (§28, K-A; INC-2d: isa ist System-Achse)");
 static_assert(cea::kSetCompositionSlotCount == 15);
 static_assert(SAnat::genus() == cea::AnatomyGenus::Set, "SetAnatomy genus == Set");
 
@@ -57,10 +57,10 @@ static void tr(char const* w, bool c) {
 int main() {
     std::cout << "==== D9 Set-Typ-Ebene ====\n";
     tr("IsSetComposition<SC>", cea::IsSetComposition<SC>);
-    eq("SC::slot_count == 14", SC::slot_count, std::size_t{14});
+    eq("SC::slot_count == 13", SC::slot_count, std::size_t{13});
     eq("composition_name", std::string{SAnat::composition_name()}, std::string{"SetComposition"});
     tr("genus() == Set (Vogel)", SAnat::genus() == cea::AnatomyGenus::Set);
-    eq("organ_count() == 14", SAnat::organ_count(), std::size_t{14});
+    eq("organ_count() == 14", SAnat::organ_count(), std::size_t{13});
     eq("SetObserverSnapshotV1 = 9 uint64", sizeof(cea::SetObserverSnapshotV1), std::size_t{9 * 8});
 
     std::cout << "\n==== D9 SetAnatomy K-only-Mengen-Semantik ====\n";

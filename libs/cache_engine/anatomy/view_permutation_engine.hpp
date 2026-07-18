@@ -32,8 +32,9 @@ template <class PermT>
 struct ViewCompositionFromPermTupleImpl;
 template <template <class...> class PermTupleTmpl, class... Vs>
 struct ViewCompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
-    static_assert(sizeof...(Vs) == 6,
-                  "View-PermTuple muss exakt 6 Achsen-Werte enthalten (INC-2c) (4 geteilte + extent/layout/accessor).");
+    static_assert(
+        sizeof...(Vs) == 5,
+        "View-PermTuple muss exakt 5 Achsen-Werte enthalten (INC-2d: isa raus) (2 geteilte + extent/layout/accessor).");
     using type = ViewComposition<Vs...>;
 };
 } // namespace detail

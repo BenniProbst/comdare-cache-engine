@@ -231,9 +231,9 @@ TEST(AP153DriveableMapContract, NeutralityGuardsStayIntact) {
     static_assert(std::is_trivially_copyable_v<b::ComdareMeasurementSnapshotV1>);
     static_assert(std::is_trivially_copyable_v<an::ComdareTierObserverSnapshot>);
 
-    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 5);
-    EXPECT_EQ(sizeof(an::ComdareTierObserverSnapshot), 1344u);
-    EXPECT_EQ(an::kTierObserverSnapshotVersionUnified, 6u);
+    EXPECT_EQ(COMDARE_ANATOMY_ABI_MAJOR, 6);
+    EXPECT_EQ(sizeof(an::ComdareTierObserverSnapshot), 1272u);
+    EXPECT_EQ(an::kTierObserverSnapshotVersionUnified, 7u);
 
     std::vector<b::ComdareMeasurementSnapshotV1> rows(1);
     std::vector<std::string>                     ids{"neutrality_guard"};

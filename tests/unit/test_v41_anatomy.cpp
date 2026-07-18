@@ -48,12 +48,12 @@ TEST(AnatomyR3_Concept, AllSixCompositionsConform) {
 }
 
 TEST(AnatomyR3_Concept, OrganCountIsEighteenForAllCompositions) {
-    static_assert(ana::composition_organ_count<ce_compos::ArtComposition>::value == 18);
-    static_assert(ana::composition_organ_count<ce_compos::HotComposition>::value == 18);
-    static_assert(ana::composition_organ_count<ce_compos::WormholeComposition>::value == 18);
-    static_assert(ana::composition_organ_count<ce_compos::SurfComposition>::value == 18);
-    static_assert(ana::composition_organ_count<ce_compos::MasstreeComposition>::value == 18);
-    static_assert(ana::composition_organ_count<ce_compos::StartComposition>::value == 18);
+    static_assert(ana::composition_organ_count<ce_compos::ArtComposition>::value == 17);
+    static_assert(ana::composition_organ_count<ce_compos::HotComposition>::value == 17);
+    static_assert(ana::composition_organ_count<ce_compos::WormholeComposition>::value == 17);
+    static_assert(ana::composition_organ_count<ce_compos::SurfComposition>::value == 17);
+    static_assert(ana::composition_organ_count<ce_compos::MasstreeComposition>::value == 17);
+    static_assert(ana::composition_organ_count<ce_compos::StartComposition>::value == 17);
     SUCCEED();
 }
 
@@ -98,12 +98,12 @@ TEST(AnatomyR3_Inspection, CompositionNameAndPaperIdMatch) {
 }
 
 TEST(AnatomyR3_Inspection, AllSixAlgosHaveNineteenOrgans) {
-    static_assert(ana::Art::organ_count() == 18);
-    static_assert(ana::Hot::organ_count() == 18);
-    static_assert(ana::Wormhole::organ_count() == 18);
-    static_assert(ana::SuRF::organ_count() == 18);
-    static_assert(ana::Masstree::organ_count() == 18);
-    static_assert(ana::Start::organ_count() == 18);
+    static_assert(ana::Art::organ_count() == 17);
+    static_assert(ana::Hot::organ_count() == 17);
+    static_assert(ana::Wormhole::organ_count() == 17);
+    static_assert(ana::SuRF::organ_count() == 17);
+    static_assert(ana::Masstree::organ_count() == 17);
+    static_assert(ana::Start::organ_count() == 17);
     SUCCEED();
 }
 
@@ -157,7 +157,6 @@ struct FrankensteinComposition {
     using concurrency                          = ce_compos::ArtComposition::concurrency;
     using serialization                        = ce_compos::ArtComposition::serialization;
     using value_handle                         = ce_compos::ArtComposition::value_handle;
-    using isa                                  = ce_compos::ArtComposition::isa;
     using index_organization                   = ce_compos::ArtComposition::index_organization;
     using io_dispatch                          = ce_compos::ArtComposition::io_dispatch;
     using migration_policy                     = ce_compos::ArtComposition::migration_policy;
@@ -174,7 +173,7 @@ TEST(AnatomyR3_Frankenstein, AdHocCompositionInstantiatesNewTier) {
     [[maybe_unused]] Frankenstein f;
     // Identitaet: neues Tier, identische Anatomie
     static_assert(Frankenstein::composition_name() == std::string_view{"FrankensteinComposition"});
-    static_assert(Frankenstein::organ_count() == 18);
+    static_assert(Frankenstein::organ_count() == 17);
     SUCCEED();
 }
 
@@ -241,7 +240,7 @@ TEST(AnatomyR3_2_Promotion, ArtVsArtPaperBindingShareOrganDifferInProvenance) {
     static_assert(std::is_same_v<A::concurrency, AP::concurrency>);
     static_assert(std::is_same_v<A::serialization, AP::serialization>);
     static_assert(std::is_same_v<A::value_handle, AP::value_handle>);
-    static_assert(std::is_same_v<A::isa, AP::isa>);
+    // Bau-INC-2d: A::isa/AP::isa entfaellt (isa ist Target-ISA-System-Achse, kein Kompositions-Slot).
     static_assert(std::is_same_v<A::index_organization, AP::index_organization>);
     static_assert(std::is_same_v<A::io_dispatch, AP::io_dispatch>);
     static_assert(std::is_same_v<A::migration_policy, AP::migration_policy>);
@@ -250,16 +249,16 @@ TEST(AnatomyR3_2_Promotion, ArtVsArtPaperBindingShareOrganDifferInProvenance) {
 }
 
 TEST(AnatomyR3_2_Promotion, ElevenAlgosFromAnatomyOrganCount19) {
-    static_assert(ana::Art::organ_count() == 18);
-    static_assert(ana::Hot::organ_count() == 18);
-    static_assert(ana::Wormhole::organ_count() == 18);
-    static_assert(ana::SuRF::organ_count() == 18);
-    static_assert(ana::Masstree::organ_count() == 18);
-    static_assert(ana::Start::organ_count() == 18);
-    static_assert(ana::ArtPaperBinding::organ_count() == 18);
-    static_assert(ana::HotPaperBinding::organ_count() == 18);
-    static_assert(ana::StartPaperBinding::organ_count() == 18);
-    static_assert(ana::WormholePaperBinding::organ_count() == 18);
-    static_assert(ana::SurfPaperBinding::organ_count() == 18);
+    static_assert(ana::Art::organ_count() == 17);
+    static_assert(ana::Hot::organ_count() == 17);
+    static_assert(ana::Wormhole::organ_count() == 17);
+    static_assert(ana::SuRF::organ_count() == 17);
+    static_assert(ana::Masstree::organ_count() == 17);
+    static_assert(ana::Start::organ_count() == 17);
+    static_assert(ana::ArtPaperBinding::organ_count() == 17);
+    static_assert(ana::HotPaperBinding::organ_count() == 17);
+    static_assert(ana::StartPaperBinding::organ_count() == 17);
+    static_assert(ana::WormholePaperBinding::organ_count() == 17);
+    static_assert(ana::SurfPaperBinding::organ_count() == 17);
     SUCCEED();
 }

@@ -31,7 +31,7 @@ static void check(bool cond, std::string const& msg) {
 
 int main() {
     using D    = DelegatedAxis;
-    using Comp = cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>; // 11 + inner (INC-2c)
+    using Comp = cea::AdapterComposition<D, D, D, D, D, D, D, D, D, D, cea::DequeInner<>>; // 11 + inner (INC-2c)
     using Anat = cea::AdapterAnatomy<Comp>;
     cea::AdapterAbiAdapter<Anat> adapter; // unbeschränkter Container-Adapter (13 Achsen)
 
@@ -39,7 +39,7 @@ int main() {
     cea::IAnatomyBase* base = &adapter;
     check(base->genus() == cea::AnatomyGenus::Adapter, "genus() == Adapter");
     check(base->engine_kind() == eng::ExecutionEngineKind::Anatomy, "engine_kind() == Anatomy");
-    check(base->organ_count() == 12, "organ_count() == 12 (§28 + INC-2c: 11 geteilt/delegiert + inner_container)");
+    check(base->organ_count() == 11, "organ_count() == 11 (§28 + INC-2c: 11 geteilt/delegiert + inner_container)");
     check(std::string{base->composition_name()} == "AdapterComposition", "composition_name == AdapterComposition");
     base->warm_up();
     base->run();
@@ -53,7 +53,7 @@ int main() {
         cea::AdapterObserverSnapshotV1 obs{};
         ct->tier_observe_container(&obs);
         check(obs.push_count == 20, "tier_observe_container: push_count == 20 (über Interface getrieben)");
-        check(obs.organ_count == 12, "tier_observe_container: organ_count == 12 (INC-2c)");
+        check(obs.organ_count == 11, "tier_observe_container: organ_count == 11 (INC-2c)");
         check(obs.peak_occupancy == 20, "tier_observe_container: peak_occupancy == 20 (unbeschränkter Adapter)");
         check(ct->tier_size() == 20, "tier_size() == 20 (kein Flush — Container-Adapter unbeschränkt)");
         std::uint64_t out = 999;

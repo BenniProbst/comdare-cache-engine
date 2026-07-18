@@ -61,47 +61,47 @@ struct Cfg1 {
     using StaticAxisVariants = mp::mp_list<V_x>;
 }; // 1 (Filler)
 
-// ── Set-Engine: 14 Slots, Slot0=3 × Slot1=2 × 1^12 = 6 (INC-2c: telemetry raus) ──
+// ── Set-Engine: 13 Slots, Slot0=3 × Slot1=2 × 1^11 = 6 (INC-2c telemetry / INC-2d isa raus) ──
 using SetEngine =
-    ana::SetPermutationEngine<Cfg3, Cfg2, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1>;
-// ── Sequence-Engine: 10 Slots, Slot0=2 × 1^9 = 2 (INC-2c) ──
-using SeqEngine = ana::SequencePermutationEngine<Cfg2, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1>;
-// ── View-Engine: 6 Slots, Slot0=3 × 1^5 = 3 (INC-2c) ──
-using ViewEngine = ana::ViewPermutationEngine<Cfg3, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1>;
+    ana::SetPermutationEngine<Cfg3, Cfg2, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1>;
+// ── Sequence-Engine: 9 Slots, Slot0=2 × 1^8 = 2 (INC-2d) ──
+using SeqEngine = ana::SequencePermutationEngine<Cfg2, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1, Cfg1>;
+// ── View-Engine: 5 Slots, Slot0=3 × 1^4 = 3 (INC-2d) ──
+using ViewEngine = ana::ViewPermutationEngine<Cfg3, Cfg1, Cfg1, Cfg1, Cfg1>;
 
 // Compile-Time-Marker + Arität
 static_assert(SetEngine::genus == ana::AnatomyGenus::Set);
 static_assert(SeqEngine::genus == ana::AnatomyGenus::Sequence);
 static_assert(ViewEngine::genus == ana::AnatomyGenus::View);
-static_assert(SetEngine::arity() == 14);
-static_assert(SeqEngine::arity() == 10);
-static_assert(ViewEngine::arity() == 6);
-static_assert(SetEngine::count() == 6, "3 × 2 × 1^12 = 6");
-static_assert(SeqEngine::count() == 2, "2 × 1^9 = 2");
-static_assert(ViewEngine::count() == 3, "3 × 1^5 = 3");
+static_assert(SetEngine::arity() == 13);
+static_assert(SeqEngine::arity() == 9);
+static_assert(ViewEngine::arity() == 5);
+static_assert(SetEngine::count() == 6, "3 × 2 × 1^11 = 6");
+static_assert(SeqEngine::count() == 2, "2 × 1^8 = 2");
+static_assert(ViewEngine::count() == 3, "3 × 1^4 = 3");
 
 // Factory-Materialisierung direkt (synthetisches PermTuple → korrekte Slots)
-using SetPerm = pe::PermTuple<V_a1, V_b1, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x>;
+using SetPerm = pe::PermTuple<V_a1, V_b1, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x>;
 using SetComp = ana::SetCompositionFromPermTuple<SetPerm>;
 static_assert(ana::IsSetComposition<SetComp>);
 static_assert(std::is_same_v<SetComp::search_algo, V_a1>);     // Slot 0
 static_assert(std::is_same_v<SetComp::cache_traversal, V_b1>); // Slot 1
-static_assert(std::is_same_v<SetComp::filter, V_x>);           // Slot 13 (letzter, INC-2c)
-static_assert(SetComp::slot_count == 14);
+static_assert(std::is_same_v<SetComp::filter, V_x>);           // Slot 12 (letzter, INC-2d)
+static_assert(SetComp::slot_count == 13);
 
-using SeqPerm = pe::PermTuple<V_a1, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_b2>;
+using SeqPerm = pe::PermTuple<V_a1, V_x, V_x, V_x, V_x, V_x, V_x, V_x, V_b2>;
 using SeqComp = ana::SequenceCompositionFromPermTuple<SeqPerm>;
 static_assert(ana::IsSequenceComposition<SeqComp>);
 static_assert(std::is_same_v<SeqComp::memory_layout, V_a1>); // Slot 0
-static_assert(std::is_same_v<SeqComp::growth_policy, V_b2>); // Slot 9 (axis_growth, überschreibt Default; INC-2c)
-static_assert(SeqComp::slot_count == 10);
+static_assert(std::is_same_v<SeqComp::growth_policy, V_b2>); // Slot 8 (axis_growth, überschreibt Default; INC-2d)
+static_assert(SeqComp::slot_count == 9);
 
-using ViewPerm = pe::PermTuple<V_a2, V_x, V_x, V_x, V_x, V_b1>;
+using ViewPerm = pe::PermTuple<V_a2, V_x, V_x, V_x, V_b1>;
 using ViewComp = ana::ViewCompositionFromPermTuple<ViewPerm>;
 static_assert(ana::IsViewComposition<ViewComp>);
 static_assert(std::is_same_v<ViewComp::memory_layout, V_a2>);   // Slot 0
-static_assert(std::is_same_v<ViewComp::accessor_policy, V_b1>); // Slot 5 (axis_accessor, überschreibt Default; INC-2c)
-static_assert(ViewComp::slot_count == 6);
+static_assert(std::is_same_v<ViewComp::accessor_policy, V_b1>); // Slot 4 (axis_accessor, überschreibt Default; INC-2d)
+static_assert(ViewComp::slot_count == 5);
 
 int main() {
     std::cout << "==== L-76 per-Gattung PermutationEngines (Doku 14 §29.2): Set / Sequence / View ====\n";
@@ -109,8 +109,8 @@ int main() {
     // ── Set ──
     std::cout << "\n-- SetPermutationEngine (Vogel) --\n";
     tr("genus == Set", SetEngine::genus == ana::AnatomyGenus::Set);
-    eq("arity() == 14", SetEngine::arity(), std::size_t{14});
-    eq("count() == 6 (3×2×1^12)", SetEngine::count(), std::size_t{6});
+    eq("arity() == 13", SetEngine::arity(), std::size_t{13});
+    eq("count() == 6 (3×2×1^11)", SetEngine::count(), std::size_t{6});
     {
         std::size_t visited     = 0;
         bool        all_conform = true;
@@ -125,8 +125,8 @@ int main() {
     // ── Sequence ──
     std::cout << "\n-- SequencePermutationEngine (Reptil) --\n";
     tr("genus == Sequence", SeqEngine::genus == ana::AnatomyGenus::Sequence);
-    eq("arity() == 10", SeqEngine::arity(), std::size_t{10});
-    eq("count() == 2 (2×1^9)", SeqEngine::count(), std::size_t{2});
+    eq("arity() == 9", SeqEngine::arity(), std::size_t{9});
+    eq("count() == 2 (2×1^8)", SeqEngine::count(), std::size_t{2});
     {
         std::size_t visited     = 0;
         bool        all_conform = true;
@@ -141,8 +141,8 @@ int main() {
     // ── View ──
     std::cout << "\n-- ViewPermutationEngine (Pflanze) --\n";
     tr("genus == View", ViewEngine::genus == ana::AnatomyGenus::View);
-    eq("arity() == 6", ViewEngine::arity(), std::size_t{6});
-    eq("count() == 3 (3×1^5)", ViewEngine::count(), std::size_t{3});
+    eq("arity() == 5", ViewEngine::arity(), std::size_t{5});
+    eq("count() == 3 (3×1^4)", ViewEngine::count(), std::size_t{3});
     {
         std::size_t visited     = 0;
         bool        all_conform = true;

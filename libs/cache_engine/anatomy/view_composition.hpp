@@ -41,29 +41,27 @@ struct DefaultAccessor { // Default-axis_accessor: direkter Element-Zugriff.
     [[nodiscard]] std::uint64_t access(std::uint64_t const* d, std::size_t i) const noexcept { return d[i]; }
 };
 
-/// ViewComposition<T0..T2, Extent, Layout, Accessor> — 3 geteilte Achsen (§28 Plant; INC-2c: telemetry
-/// ist System-Achse, kein Slot) + 3 eigene. non-owning.
-template <class T0, class T1, class T2, class Extent = DynamicExtent, class Layout = LayoutRight,
+/// ViewComposition<T0..T1, Extent, Layout, Accessor> — 2 geteilte Achsen (§28 Plant; INC-2c: telemetry /
+/// INC-2d: isa sind System-Achsen, kein Slot) + 3 eigene. non-owning.
+template <class T0, class T1, class Extent = DynamicExtent, class Layout = LayoutRight,
           class Accessor = DefaultAccessor>
 struct ViewComposition {
     using memory_layout   = T0;       // axis_05
-    using value_handle    = T1;       // axis_14
-    using isa             = T2;       // axis_09
+    using value_handle    = T1;       // axis_14 (INC-2d: isa raus, war T2)
     using extent_policy   = Extent;   // NEU axis_extent
     using layout_policy   = Layout;   // NEU axis_layout
     using accessor_policy = Accessor; // NEU axis_accessor
 
-    static constexpr std::size_t      slot_count = 6; // 3 geteilt + extent/layout/accessor (INC-2c)
+    static constexpr std::size_t      slot_count = 5; // 2 geteilt + extent/layout/accessor (INC-2d: isa raus)
     static constexpr std::string_view name       = "ViewComposition";
     static constexpr std::string_view paper_id   = "P00 View Gattung (Pflanze, non-owning)";
 };
 
-/// IsViewComposition — Concept: 4 geteilte named Achsen + extent/layout/accessor. Kein allocator/concurrency (non-owning).
+/// IsViewComposition — Concept: 2 geteilte named Achsen + extent/layout/accessor. Kein allocator/concurrency (non-owning); INC-2d ohne isa.
 template <class C>
 concept IsViewComposition = requires {
     typename C::memory_layout;
     typename C::value_handle;
-    typename C::isa;
     typename C::extent_policy;
     typename C::layout_policy;
     typename C::accessor_policy;

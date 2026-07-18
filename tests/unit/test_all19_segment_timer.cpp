@@ -55,7 +55,6 @@ struct ArtAosStrictComposition {
     using concurrency        = comp::ArtComposition::concurrency;
     using serialization      = comp::ArtComposition::serialization;
     using value_handle       = comp::ArtComposition::value_handle;
-    using isa                = comp::ArtComposition::isa;
     using index_organization = comp::ArtComposition::index_organization;
     using io_dispatch        = comp::ArtComposition::io_dispatch;
     using migration_policy   = comp::ArtComposition::migration_policy;
@@ -81,7 +80,7 @@ static an::ComdareSegmentLatencyV2 measure19(char const* name, std::string& csv_
     row.setting_label = "-";
     row.n_ops         = 4000;
     row.total_ns      = seg.total_ns;
-    for (int i = 0; i < 18; ++i)
+    for (int i = 0; i < 17; ++i)
         row.unified.seg_ns[i] = seg.seg_ns[i]; // I1-Konsolidierung: seg-Struct -> unified.seg_ns[18]
     row.unified.seg_framework_ns = seg.seg_framework_ns;
     row.unified.seg_run_total_ns = seg.seg_run_total_ns;
@@ -90,7 +89,7 @@ static an::ComdareSegmentLatencyV2 measure19(char const* name, std::string& csv_
     csv_out += ex::format_csv_row(row);
 
     std::cout << "  " << name << ": batches=" << n << "  seg_ns[T0..T17]=";
-    for (int i = 0; i < 18; ++i) std::cout << seg.seg_ns[i] << (i < 17 ? "," : "");
+    for (int i = 0; i < 17; ++i) std::cout << seg.seg_ns[i] << (i < 16 ? "," : "");
     std::cout << "  total=" << seg.total_ns << "\n";
     return seg;
 }
@@ -115,7 +114,7 @@ int main() {
     // (1) ALLE 18 seg_*_ns > 0 bei jeder Komposition (kein n/a, kein 0).
     auto all19_pos = [](an::ComdareSegmentLatencyV2 const& s) {
         if (s.batches_measured == 0) return false;
-        for (int i = 0; i < 18; ++i)
+        for (int i = 0; i < 17; ++i)
             if (s.seg_ns[i] <= 0) return false;
         return true;
     };
@@ -126,7 +125,7 @@ int main() {
 
     // (2) plausible Variation: nicht alle 18 Segmente identisch (echte, achsen-spezifische Last).
     auto varies = [](an::ComdareSegmentLatencyV2 const& s) {
-        for (int i = 1; i < 18; ++i)
+        for (int i = 1; i < 17; ++i)
             if (s.seg_ns[i] != s.seg_ns[0]) return true;
         return false;
     };
@@ -164,7 +163,7 @@ int main() {
     // (4) total_ns == Σ der 18 Segmente (Konsistenz).
     auto consistent = [](an::ComdareSegmentLatencyV2 const& s) {
         std::int64_t sum = 0;
-        for (int i = 0; i < 18; ++i) sum += s.seg_ns[i];
+        for (int i = 0; i < 17; ++i) sum += s.seg_ns[i];
         return s.total_ns == sum;
     };
     tr("Art: total_ns == Σ 18 Segmente", consistent(art));

@@ -49,7 +49,7 @@ TEST(R5D2_Codegen, CreateAnatomyReturnsHotComposition) {
     // Codegen-Pilot wurde mit HotComposition-Type aufgerufen
     EXPECT_EQ(ptr->composition_name(), std::string_view{"HotComposition"});
     EXPECT_EQ(ptr->genus(), ana::AnatomyGenus::SearchAlgorithm);
-    EXPECT_EQ(ptr->organ_count(), 18u);
+    EXPECT_EQ(ptr->organ_count(), 17u);
     EXPECT_EQ(ptr->engine_kind(), ee::ExecutionEngineKind::Anatomy);
     comdare_destroy_anatomy(ptr);
 }

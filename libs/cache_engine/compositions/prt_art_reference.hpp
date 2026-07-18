@@ -71,7 +71,6 @@ struct PrtArtComposition {
     using serialization = serialization::axis_10_serialization::ObservableSerialization<
         serialization::axis_10_serialization::RawBinarySerialization>;
     using value_handle       = value_handle::axis_14_value_handle::InlineValueHandle;
-    using isa                = hardware::axis_09_isa::Amd64Isa;
     using index_organization = search_engine::axis_01_index_organization::IotIndexOrganization;
     using io_dispatch        = io::axis_io::InMemoryOnly;
     using migration_policy   = migration::axis_migration::NoMigration;

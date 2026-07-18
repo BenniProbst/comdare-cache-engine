@@ -14,5 +14,6 @@
 #include <cache_engine/abi/set_module_abi_v1.hpp>
 #include <anatomy/set_default_organ.hpp>
 
+// Bau-INC-2d: isa raus → 13 Slots (SortedArrayKeySet + 12 int-Slots).
 COMDARE_DEFINE_SET_MODULE(::comdare::cache_engine::anatomy::SortedArrayKeySet, int, int, int, int, int, int, int, int,
-                          int, int, int, int, int)
+                          int, int, int, int)

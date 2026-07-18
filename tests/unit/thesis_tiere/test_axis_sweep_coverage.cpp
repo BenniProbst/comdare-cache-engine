@@ -29,9 +29,9 @@ std::vector<std::string> const kSweepAxes = {
     "search_algo", "node_type", "memory_layout", "prefetch",
     // 4 vertiefte (im Basis-320 gepinnt, eigener Katalog historisch, #168)
     "path_compression", "value_handle", "migration_policy", "filter",
-    // 10 uebrige (#18; INC-2c: ohne telemetry)
-    "cache_traversal", "mapping", "allocator", "concurrency", "serialization", "isa", "index_organization",
-    "io_dispatch", "queuing_q1", "queuing_q2"};
+    // 9 uebrige (#18; INC-2c: ohne telemetry / INC-2d: ohne isa)
+    "cache_traversal", "mapping", "allocator", "concurrency", "serialization", "index_organization", "io_dispatch",
+    "queuing_q1", "queuing_q2"};
 
 } // namespace
 
@@ -43,7 +43,7 @@ TEST(AxisSweepCoverage, AllAxesMaterialize) {
         auto const m = tlz::axis_sweep_source_map(ax);
         EXPECT_FALSE(m.empty()) << "Sweep-Katalog leer (nicht materialisierbar) fuer Achse: " << ax;
         auto const lv = tlz::axis_sweep_levels(ax);
-        EXPECT_EQ(lv.size(), 18u) << "Sweep-Levels nicht 18-slotig fuer Achse: " << ax;
+        EXPECT_EQ(lv.size(), 17u) << "Sweep-Levels nicht 17-slotig fuer Achse: " << ax;
     }
 }
 

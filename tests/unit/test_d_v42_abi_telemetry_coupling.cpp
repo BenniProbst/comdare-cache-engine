@@ -47,9 +47,10 @@ int main() {
         (void)ad.tier_lookup(static_cast<std::uint64_t>(i), &out);
     }
 
-    // I1: die EINE konsolidierte Observer-Methode (axis_stats[18][8] + seg_ns[18]/Pfad B + Meta).
-    // F12iii-NEGATIV-GUARD (compile-time): POD traegt exakt 18 Achsen-Zeilen — keine telemetry-Zeile.
-    static_assert(ana::kV3AxisCount == 18, "Bau-INC-2c: telemetry ist System-Achse, POD hat 18 Zeilen");
+    // I1: die EINE konsolidierte Observer-Methode (axis_stats[17][8] + seg_ns[17]/Pfad B + Meta).
+    // F12iii/INC-2d-NEGATIV-GUARD (compile-time): POD traegt exakt 17 Achsen-Zeilen — keine telemetry-/isa-Zeile.
+    static_assert(ana::kV3AxisCount == 17,
+                  "Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen, POD hat 17 Zeilen");
     ana::ComdareTierObserverSnapshot u{};
     ad.tier_observe(&u);
     std::cout << "Unified-POD nach 20 insert + 20 lookup ueber die ABI:\n"

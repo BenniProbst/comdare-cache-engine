@@ -163,11 +163,11 @@ struct T18_QueuingQ2 {
     using StaticAxisVariants = mp::mp_list<LazyFlush>;
 }; // Doc 30 §8.0
 
-using PilotEngine =
+using PilotEngine = // INC-2d: T12_Isa raus (17 Slots)
     ana::SearchAlgorithmPermutationEngine<T0_SearchAlgo, T1_CacheTraversal, T2_Mapping, T3_PathCompr, T4_NodeType,
                                           T5_MemoryLayout, T6_Allocator, T7_Prefetch, T8_Concurrency, T9_Serialization,
-                                          T11_ValueHandle, T12_Isa, T13_IndexOrg, T14_IoDispatch, T15_Migration,
-                                          T16_Filter, T17_QueuingQ1, T18_QueuingQ2>;
+                                          T11_ValueHandle, T13_IndexOrg, T14_IoDispatch, T15_Migration, T16_Filter,
+                                          T17_QueuingQ1, T18_QueuingQ2>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sample-Slots fuer Gattungs-Constraint-Tests
@@ -214,8 +214,9 @@ TEST(R5CB_SearchAlgoEngine, GenusIsSearchAlgorithm) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 TEST(R5CB_SearchAlgoEngine, ArityAndCountMatchPermutationEngine) {
-    static_assert(PilotEngine::arity() == 18, "18 Topic-Achsen Pflicht (16 + queuing q1/q2; INC-2c: telemetry raus)");
-    static_assert(PilotEngine::count() == 6, "3 search_algo × 2 cache_traversal × 1^17 = 6 (queuing ×1)");
+    static_assert(PilotEngine::arity() == 17,
+                  "17 Topic-Achsen Pflicht (15 + queuing q1/q2; INC-2c telemetry / INC-2d isa raus)");
+    static_assert(PilotEngine::count() == 6, "3 search_algo × 2 cache_traversal × 1^16 = 6 (queuing ×1)");
     SUCCEED();
 }
 
@@ -311,7 +312,7 @@ TEST(R5CB_VisitorApi, ForEachSearchAlgorithmIteratesAllPermutations) {
     PilotEngine::for_each_search_algorithm([&](auto& anatomy, std::string_view name) {
         visited_names.push_back(name);
         using AnatomyT = std::remove_reference_t<decltype(anatomy)>;
-        EXPECT_EQ(AnatomyT::organ_count(), 18u);
+        EXPECT_EQ(AnatomyT::organ_count(), 17u);
         EXPECT_EQ(AnatomyT::genus(), ana::AnatomyGenus::SearchAlgorithm);
     });
     EXPECT_EQ(visited_names.size(), 6u);
@@ -340,7 +341,7 @@ TEST(R5CB_AbiAdapterIteration, ForEachAbiAdapterProducesIAnatomyBasePerPermutati
         // Pro Permutation ein IAnatomyBase mit korrekter Gattung
         genera_seen.push_back(base.genus());
         names_seen.push_back(name);
-        EXPECT_EQ(base.organ_count(), 18u);
+        EXPECT_EQ(base.organ_count(), 17u);
         EXPECT_EQ(base.engine_kind(), ee::ExecutionEngineKind::Anatomy);
 
         // R5.C.A4: vollstaendiger Mess-Lifecycle (CacheEngineBuilder-Pattern R5.D)
@@ -387,7 +388,7 @@ std::string adhoc_macro_args() {
     add(cg::type_name<typename C::concurrency>());
     add(cg::type_name<typename C::serialization>());
     add(cg::type_name<typename C::value_handle>());
-    add(cg::type_name<typename C::isa>());
+    // Bau-INC-2d: C::isa entfaellt (Target-ISA-System-Achse).
     add(cg::type_name<typename C::index_organization>());
     add(cg::type_name<typename C::io_dispatch>());
     add(cg::type_name<typename C::migration_policy>());
@@ -405,8 +406,8 @@ TEST(R5G_AutoEmitter, BuildsAdHocMacroArgsPerPermutation) {
     // Eine Argument-Zeile pro Permutation des gemergten Raums.
     ASSERT_EQ(emitted.size(), PilotEngine::count()); // 6
     for (auto const& s : emitted) {
-        // 18 FQ-Typ-Namen → 17 Kommas (Doc 30 §8.0 + INC-2c); reale Achsen-Namespaces vorhanden.
-        EXPECT_EQ(std::count(s.begin(), s.end(), ','), 17);
+        // 17 FQ-Typ-Namen → 16 Kommas (Doc 30 §8.0 + INC-2c telemetry / INC-2d isa raus); reale Achsen-Namespaces vorhanden.
+        EXPECT_EQ(std::count(s.begin(), s.end(), ','), 16);
         EXPECT_NE(s.find("comdare::cache_engine::"), std::string::npos);
         EXPECT_EQ(s.find("class "), std::string::npos); // codegen-nutzbar (kein Elaborated-Prefix)
     }

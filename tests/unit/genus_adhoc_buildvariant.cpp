@@ -32,7 +32,7 @@ COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(
     ::comdare::cache_engine::concurrency::axis_08_concurrency::OlcOptimisticConcurrency,
     ::comdare::cache_engine::serialization::axis_10_serialization::RawBinarySerialization,
     ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle,
-    ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa,
+    // Bau-INC-2d: isa (axis_09 Amd64Isa) entfaellt — Target-ISA-System-Achse, kein Kompositions-Slot.
     ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization,
     ::comdare::cache_engine::io::axis_io::InMemoryOnly, ::comdare::cache_engine::migration::axis_migration::NoMigration,
     ::comdare::cache_engine::filter::axis_filter::BloomFilter,

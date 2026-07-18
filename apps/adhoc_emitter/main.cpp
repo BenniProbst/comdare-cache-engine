@@ -68,7 +68,7 @@ using PF  = ce::prefetch::axis_07_prefetch::NonePrefetch;
 using CC  = ce::concurrency::axis_08_concurrency::OlcOptimisticConcurrency;
 using SE  = ce::serialization::axis_10_serialization::RawBinarySerialization;
 using VH  = ce::value_handle::axis_14_value_handle::InlineValueHandle;
-using IS  = ce::hardware::axis_09_isa::Amd64Isa;
+// IS (isa=Amd64Isa) entfaellt — Bau-INC-2d: isa ist Target-ISA-System-Achse, kein Kompositions-Slot.
 using IO  = ce::search_engine::axis_01_index_organization::IotIndexOrganization;
 using IOD = ce::io::axis_io::InMemoryOnly;
 using MG  = ce::migration::axis_migration::NoMigration;
@@ -110,9 +110,7 @@ struct C9 {
 struct C11 {
     using StaticAxisVariants = mp::mp_list<VH>;
 };
-struct C12 {
-    using StaticAxisVariants = mp::mp_list<IS>;
-};
+// C12 (isa) entfaellt — Bau-INC-2d: isa ist Target-ISA-System-Achse, kein Kompositions-Slot mehr.
 struct C13 {
     using StaticAxisVariants = mp::mp_list<IO>;
 };
@@ -132,8 +130,9 @@ struct C18 {
     using StaticAxisVariants = mp::mp_list<Q2>;
 }; // T18 queuing_q2
 
-using PilotEngine = ana::SearchAlgorithmPermutationEngine<C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C11, C12, C13, C14,
-                                                          C15, C16, C17, C18>; // INC-2c: C10/telemetry raus (18 Slots)
+using PilotEngine =
+    ana::SearchAlgorithmPermutationEngine<C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C11, C13, C14, C15, C16, C17,
+                                          C18>; // INC-2c: C10/telemetry, INC-2d: C12/isa raus (17 Slots)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // V41.F.6.1 R5.D — VOLL-COVERAGE-Modus (--full-coverage): 1-wise-Ueberdeckungs-Stichprobe ueber die
@@ -152,12 +151,13 @@ inline constexpr std::size_t kMax = (kNs > kNa ? (kNs > kNl ? kNs : kNl) : (kNa 
 
 // Zeile r → Achse i = (r mod n_i): jede Variante jeder Achse erscheint mind. 1× (1-wise).
 template <class R>
-using SampledComposition = ana::AdHocComposition<mp::mp_at_c<SearchList, R::value % kNs>, // T0  search_algo
-                                                 CT, MP, PC, NT,                          // T1..T4
-                                                 mp::mp_at_c<LayoutList, R::value % kNl>, // T5  memory_layout
-                                                 mp::mp_at_c<AllocList, R::value % kNa>,  // T6  allocator
-                                                 PF, CC, SE, VH, IS, IO, IOD, MG, FL,     // T7..T15 (INC-2c: TM raus)
-                                                 Q1, Q2>; // T16 queuing_q1, T17 queuing_q2 (18-Slot, F12iii)
+using SampledComposition =
+    ana::AdHocComposition<mp::mp_at_c<SearchList, R::value % kNs>, // T0  search_algo
+                          CT, MP, PC, NT,                          // T1..T4
+                          mp::mp_at_c<LayoutList, R::value % kNl>, // T5  memory_layout
+                          mp::mp_at_c<AllocList, R::value % kNa>,  // T6  allocator
+                          PF, CC, SE, VH, IO, IOD, MG, FL,         // T7..T14 (INC-2c: TM, INC-2d: IS raus)
+                          Q1, Q2>;                                 // T15 queuing_q1, T16 queuing_q2 (17-Slot, INC-2d)
 
 using SampleList = mp::mp_transform<SampledComposition, mp::mp_iota_c<kMax>>;
 

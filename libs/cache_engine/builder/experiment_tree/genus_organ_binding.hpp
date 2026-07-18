@@ -24,7 +24,7 @@
 
 namespace comdare::cache_engine::builder::experiment {
 
-// ── Das Organ-Achsen-UNIVERSUM: die genus-spezifischen Erweiterungs-Organ-Achsen NEBEN den 18 Komposition-Achsen.
+// ── Das Organ-Achsen-UNIVERSUM: die genus-spezifischen Erweiterungs-Organ-Achsen NEBEN den 17 Komposition-Achsen.
 //    Diese sind Organ (per-Gattung eigene binary_id-neutrale Slots wie inner_container/growth/extent), KEINE
 //    System-Achse. Eine Gattung darf NUR gegen kCompositionAxisNames ∪ diese Menge binden. ──
 inline constexpr std::array<std::string_view, 5> kGenusExtensionOrganAxes = {

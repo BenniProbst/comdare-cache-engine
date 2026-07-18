@@ -92,28 +92,29 @@ struct CatalogAxes {
     using L08 = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, 1>;         // concurrency
     using L09 = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, 1>;       // serialization
     using L10 = mp::mp_take_c<ce::value_handle::TopicConfigSet::StaticAxisVariants, 1>;        // value_handle
-    using L11 = mp::mp_take_c<ce::hardware::TopicConfigSet::StaticAxisVariants_09, 1>;         // isa
-    using L12 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants, 1>;       // index_organization
-    using L13 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;                  // io_dispatch
-    using L14 = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;           // migration_policy
-    using L15 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;              // filter
-    using L16 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>;          // queuing_q1
-    using L17 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>;          // queuing_q2
+    using L11 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants,
+                              1>;                                             // index_organization (INC-2d: isa raus)
+    using L12 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>; // io_dispatch
+    using L13 = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;  // migration_policy
+    using L14 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;     // filter
+    using L15 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1
+    using L16 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2
 
     using Engine =
         perm::PermutationEngine<CatalogCfg<L00>, CatalogCfg<L01>, CatalogCfg<L02>, CatalogCfg<L03>, CatalogCfg<L04>,
                                 CatalogCfg<L05>, CatalogCfg<L06>, CatalogCfg<L07>, CatalogCfg<L08>, CatalogCfg<L09>,
                                 CatalogCfg<L10>, CatalogCfg<L11>, CatalogCfg<L12>, CatalogCfg<L13>, CatalogCfg<L14>,
-                                CatalogCfg<L15>, CatalogCfg<L16>, CatalogCfg<L17>>;
+                                CatalogCfg<L15>, CatalogCfg<L16>>;
 };
 
 // Voller Katalog: 4·4·5·4 = 320 reale SA-Kompositionen = der vom m3v2-Profil deklarierte Achsen-kartesische Raum.
+// (INC-2d: isa war Fanout-1-gepinnt → Count 320 unverändert; nur der konstante isa-Teilstring der binary_id fällt.)
 using FullSourceCatalog = CatalogAxes<4, 4, 5, 4>;
 // Klein-Katalog (1·2·2·1 = 4 Kompositionen): für den schnellen E2E-Treiber-Test (test_lazy_static_dynamic_driver),
 // der real 4 DLLs baut+lädt+misst. KEINE Lauf-Selektion — nur eine kleine Materialisierungs-Domäne für den Test.
 using SmallSourceCatalog = CatalogAxes<1, 2, 2, 1>;
 
-/// catalog_static_levels<Catalog>() — die 18 STATISCHEN AxisLevels des Katalogs (Bau-INC-2c: telemetry ist System-Achse; gleiche reduzierte Listen + gleiche
+/// catalog_static_levels<Catalog>() — die 17 STATISCHEN AxisLevels des Katalogs (Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen; gleiche reduzierte Listen + gleiche
 /// Achsen-Namen-Reihenfolge wie der Katalog-Engine = die binary_ids, die der Katalog materialisiert). Das ist KEINE
 /// Lauf-Selektion (der Lauf-Baum kommt aus build_axis_levels(Profil)) — es ist die REFERENZ-Level-Quelle, mit der die
 /// committete golden_fullpilot_320_binary_ids.txt EINMAL erzeugt + im Test gegen den Profil-Pfad gegengeprüft wird.
@@ -132,13 +133,12 @@ template <class Catalog>
     ex::push_static_axis<typename Catalog::L08>(lv, "concurrency");
     ex::push_static_axis<typename Catalog::L09>(lv, "serialization");
     ex::push_static_axis<typename Catalog::L10>(lv, "value_handle");
-    ex::push_static_axis<typename Catalog::L11>(lv, "isa");
-    ex::push_static_axis<typename Catalog::L12>(lv, "index_organization");
-    ex::push_static_axis<typename Catalog::L13>(lv, "io_dispatch");
-    ex::push_static_axis<typename Catalog::L14>(lv, "migration_policy");
-    ex::push_static_axis<typename Catalog::L15>(lv, "filter");
-    ex::push_static_axis<typename Catalog::L16>(lv, "queuing_q1");
-    ex::push_static_axis<typename Catalog::L17>(lv, "queuing_q2");
+    ex::push_static_axis<typename Catalog::L11>(lv, "index_organization"); // INC-2d: isa raus (war L11)
+    ex::push_static_axis<typename Catalog::L12>(lv, "io_dispatch");
+    ex::push_static_axis<typename Catalog::L13>(lv, "migration_policy");
+    ex::push_static_axis<typename Catalog::L14>(lv, "filter");
+    ex::push_static_axis<typename Catalog::L15>(lv, "queuing_q1");
+    ex::push_static_axis<typename Catalog::L16>(lv, "queuing_q2");
     return lv;
 }
 
@@ -201,7 +201,7 @@ template <class Catalog>
 //    14 uebrige Slots auf Index 0), ABER genau EINE vertiefte Achsen-Slot-Liste = die VOLLE Enabled-Liste. Die
 //    mp_take_c-Konvention + Slot-Reihenfolge bleibt identisch zu CatalogAxes → der binary_id der Baseline-Auspraegung
 //    (Index 0 dieser Achse) ist BYTE-IDENTISCH zur Basis-320-Baseline (= drop_tier-Baseline des Profils). ──
-template <class SweepListL03, class SweepListL10, class SweepListL14, class SweepListL15>
+template <class SweepListL03, class SweepListL10, class SweepListL13, class SweepListL14>
 struct AxisSweepCatalog {
     using L00 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03a, 1>; // search_algo (Baseline)
     using L01 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03b, 1>; // cache_traversal
@@ -213,20 +213,20 @@ struct AxisSweepCatalog {
     using L07 = mp::mp_take_c<ce::prefetch::TopicConfigSet::StaticAxisVariants, 1>;      // prefetch (Baseline)
     using L08 = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, 1>;   // concurrency
     using L09 = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, 1>; // serialization
-    using L10 = SweepListL10;                                                          // value_handle (sweep|Baseline)
-    using L11 = mp::mp_take_c<ce::hardware::TopicConfigSet::StaticAxisVariants_09, 1>; // isa
-    using L12 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants, 1>; // index_organization
-    using L13 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;            // io_dispatch
-    using L14 = SweepListL14; // migration_policy (sweep|Baseline)
-    using L15 = SweepListL15; // filter (sweep|Baseline)
-    using L16 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1
-    using L17 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2
+    using L10 = SweepListL10; // value_handle (sweep|Baseline)
+    using L11 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants,
+                              1>;                                             // index_organization (INC-2d: isa raus)
+    using L12 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>; // io_dispatch
+    using L13 = SweepListL13;                                                 // migration_policy (sweep|Baseline)
+    using L14 = SweepListL14;                                                 // filter (sweep|Baseline)
+    using L15 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1
+    using L16 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2
 
     using Engine =
         perm::PermutationEngine<CatalogCfg<L00>, CatalogCfg<L01>, CatalogCfg<L02>, CatalogCfg<L03>, CatalogCfg<L04>,
                                 CatalogCfg<L05>, CatalogCfg<L06>, CatalogCfg<L07>, CatalogCfg<L08>, CatalogCfg<L09>,
                                 CatalogCfg<L10>, CatalogCfg<L11>, CatalogCfg<L12>, CatalogCfg<L13>, CatalogCfg<L14>,
-                                CatalogCfg<L15>, CatalogCfg<L16>, CatalogCfg<L17>>;
+                                CatalogCfg<L15>, CatalogCfg<L16>>;
 };
 
 // Die 4 Baseline-Slot-Listen (Index 0 == take<…,1>) — fuer die je 3 NICHT gesweepten der 4 vertieften Achsen.
@@ -247,13 +247,13 @@ using ValueHandleSweepCatalog     = AxisSweepCatalog<Pc1, VhAll, Mg1, Flt1>;
 using PathCompressionSweepCatalog = AxisSweepCatalog<PcAll, Vh1, Mg1, Flt1>;
 
 // ── #18 Golden-Coverage: die 10 uebrigen Achsen (seit INC-2c ohne telemetry; nicht Basis-320, nicht vertieft) brauchen je einen eigenen
-//    Sweep-Katalog, damit der Coverage-Test JEDE Achse beruehrt. Voll-18-Slot-parametrisiert: genau EIN Slot =
-//    volle Enabled-Liste, die uebrigen 17 = Baseline (Index 0) → byte-identische Baseline-DLL (idempotenter
-//    Baseline-Key, disjunkter binary_id-Raum wie die 4 vertieften Sweeps). Slot-Reihenfolge == AxisSweepCatalog. ──
+//    Sweep-Katalog, damit der Coverage-Test JEDE Achse beruehrt. Voll-17-Slot-parametrisiert (INC-2d: isa raus):
+//    genau EIN Slot = volle Enabled-Liste, die uebrigen 16 = Baseline (Index 0) → byte-identische Baseline-DLL
+//    (idempotenter Baseline-Key, disjunkter binary_id-Raum wie die 4 vertieften Sweeps). Slot-Reihenfolge == AxisSweepCatalog. ──
 template <class P00, class P01, class P02, class P03, class P04, class P05, class P06, class P07, class P08, class P09,
-          class P10, class P11, class P12, class P13, class P14, class P15, class P16, class P17>
+          class P10, class P11, class P12, class P13, class P14, class P15, class P16>
 struct AxisSweepCatalogFull {
-    // L00..L17 als Member-Typen exponiert — catalog_static_levels<T> reflektiert T::L00..L17 (wie AxisSweepCatalog).
+    // L00..L16 als Member-Typen exponiert — catalog_static_levels<T> reflektiert T::L00..L16 (wie AxisSweepCatalog).
     using L00 = P00;
     using L01 = P01;
     using L02 = P02;
@@ -271,15 +271,14 @@ struct AxisSweepCatalogFull {
     using L14 = P14;
     using L15 = P15;
     using L16 = P16;
-    using L17 = P17;
     using Engine =
         perm::PermutationEngine<CatalogCfg<L00>, CatalogCfg<L01>, CatalogCfg<L02>, CatalogCfg<L03>, CatalogCfg<L04>,
                                 CatalogCfg<L05>, CatalogCfg<L06>, CatalogCfg<L07>, CatalogCfg<L08>, CatalogCfg<L09>,
                                 CatalogCfg<L10>, CatalogCfg<L11>, CatalogCfg<L12>, CatalogCfg<L13>, CatalogCfg<L14>,
-                                CatalogCfg<L15>, CatalogCfg<L16>, CatalogCfg<L17>>;
+                                CatalogCfg<L15>, CatalogCfg<L16>>;
 };
 
-// Baseline (Index 0) je Slot — Reihenfolge identisch zu AxisSweepCatalog/CatalogAxes.
+// Baseline (Index 0) je Slot — Reihenfolge identisch zu AxisSweepCatalog/CatalogAxes (INC-2d: isa raus, 17 Slots).
 using B00 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03a, 1>; // search_algo
 using B01 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03b, 1>; // cache_traversal
 using B02 = mp::mp_take_c<ce::traversal::TopicConfigSet::StaticAxisVariants_03m, 1>; // mapping
@@ -291,50 +290,48 @@ using B07 = mp::mp_take_c<ce::prefetch::TopicConfigSet::StaticAxisVariants, 1>; 
 using B08 = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, 1>;   // concurrency
 using B09 = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, 1>; // serialization
 using B10 = Vh1;                                                                     // value_handle
-using B11 = mp::mp_take_c<ce::hardware::TopicConfigSet::StaticAxisVariants_09, 1>;   // isa
-using B12 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants, 1>; // index_organization
-using B13 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;            // io_dispatch
-using B14 = Mg1;                                                                     // migration_policy
-using B15 = Flt1;                                                                    // filter
-using B16 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>;    // queuing_q1
-using B17 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>;    // queuing_q2
+using B11 =
+    mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants, 1>; // index_organization (INC-2d: isa raus)
+using B12 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;    // io_dispatch
+using B13 = Mg1;                                                             // migration_policy
+using B14 = Flt1;                                                            // filter
+using B15 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1
+using B16 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2
 
-// Volle Enabled-Liste je gesweepter (nicht-Basis, nicht-vertiefter) Achse — die 10 uebrigen Achsen.
+// Volle Enabled-Liste je gesweepter (nicht-Basis, nicht-vertiefter) Achse — die 9 uebrigen Achsen (INC-2d: isa raus).
 using F01 = ce::traversal::TopicConfigSet::StaticAxisVariants_03b; // cache_traversal
 using F02 = ce::traversal::TopicConfigSet::StaticAxisVariants_03m; // mapping
 using F06 = ce::allocator::TopicConfigSet::StaticAxisVariants;     // allocator
 using F08 = ce::concurrency::TopicConfigSet::StaticAxisVariants;   // concurrency
 using F09 = ce::serialization::TopicConfigSet::StaticAxisVariants; // serialization
-using F11 = ce::hardware::TopicConfigSet::StaticAxisVariants_09;   // isa
-using F12 = ce::search_engine::TopicConfigSet::StaticAxisVariants; // index_organization
-using F13 = ce::io::TopicConfigSet::StaticAxisVariants;            // io_dispatch
-using F16 = ce::queuing::TopicConfigSet::StaticAxisVariants_Q1;    // queuing_q1
-using F17 = ce::queuing::TopicConfigSet::StaticAxisVariants_Q2;    // queuing_q2
+using F11 = ce::search_engine::TopicConfigSet::StaticAxisVariants; // index_organization (slot 11, INC-2d)
+using F12 = ce::io::TopicConfigSet::StaticAxisVariants;            // io_dispatch (slot 12)
+using F15 = ce::queuing::TopicConfigSet::StaticAxisVariants_Q1;    // queuing_q1 (slot 15)
+using F16 = ce::queuing::TopicConfigSet::StaticAxisVariants_Q2;    // queuing_q2 (slot 16)
 
 using CacheTraversalSweepCatalog =
-    AxisSweepCatalogFull<B00, F01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
+    AxisSweepCatalogFull<B00, F01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16>;
 using MappingSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, F02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
+    AxisSweepCatalogFull<B00, B01, F02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16>;
 using AllocatorSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, F06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, F06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16>;
 using ConcurrencySweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, F08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, F08, B09, B10, B11, B12, B13, B14, B15, B16>;
 using SerializationSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, F09, B10, B11, B12, B13, B14, B15, B16, B17>;
-using IsaSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, F11, B12, B13, B14, B15, B16, B17>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, F09, B10, B11, B12, B13, B14, B15, B16>;
+// (Bau-INC-2d: IsaSweepCatalog entfernt — isa ist Target-ISA-System-Achse, keine sweepbare Kompositions-Achse mehr.)
 using IndexOrganizationSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, F12, B13, B14, B15, B16, B17>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, F11, B12, B13, B14, B15, B16>;
 using IoDispatchSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, F13, B14, B15, B16, B17>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, F12, B13, B14, B15, B16>;
 using QueuingQ1SweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, F16, B17>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, F15, B16>;
 using QueuingQ2SweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, F17>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, F16>;
 
 // ── #26/GO-5 (B.4.1-a, 2026-07-12): auch die 4 BASIS-Achsen (search_algo/node_type/memory_layout/prefetch)
 //    bekommen je einen dedizierten Sweep-Katalog nach der #18-Schablone. GRUND: ein Smoke-/Coverage-Profil mit
-//    GEPINNTER Basis (alle 18 Slots je 1 Wert, m3_smoke_coverage) kann die 4 Basis-Achsen NICHT ueber die
+//    GEPINNTER Basis (alle 17 Slots je 1 Wert, m3_smoke_coverage) kann die 4 Basis-Achsen NICHT ueber die
 //    Basis-320-View sweepen (level_size==1) — ohne eigene Kataloge verloere der Smoke-Lauf genau diese 4 Achsen.
 //    Jeder Katalog traegt die VOLLE Enabled-Liste im jeweiligen Slot gegen die Index-0-Baseline. Unter den
 //    Default-Enables (4/4/5/4) sind die binary_ids eine TEILMENGE der golden-320 → idempotente Keys in der
@@ -347,13 +344,13 @@ using F05 = ce::memory_layout::TopicConfigSet::StaticAxisVariants; // memory_lay
 using F07 = ce::prefetch::TopicConfigSet::StaticAxisVariants;      // prefetch
 
 using SearchAlgoSweepCatalog =
-    AxisSweepCatalogFull<F00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
+    AxisSweepCatalogFull<F00, B01, B02, B03, B04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16>;
 using NodeTypeSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, F04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, F04, B05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16>;
 using MemoryLayoutSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, F05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, F05, B06, B07, B08, B09, B10, B11, B12, B13, B14, B15, B16>;
 using PrefetchSweepCatalog =
-    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, F07, B08, B09, B10, B11, B12, B13, B14, B15, B16, B17>;
+    AxisSweepCatalogFull<B00, B01, B02, B03, B04, B05, B06, F07, B08, B09, B10, B11, B12, B13, B14, B15, B16>;
 
 /// axis_sweep_source_map(axis_name) — die KLEINE per-Achse Sweep-Quellen-map (binary_id → reale Modul-Quelle) der
 /// gesweepten Achse. |Achsen-Werte| Eintraege; jeder ist eine reale AdHocComposition (Baseline + nur
@@ -376,7 +373,7 @@ using PrefetchSweepCatalog =
     if (axis_name == "allocator") return ex::build_pilot_source_map<typename AllocatorSweepCatalog::Engine>();
     if (axis_name == "concurrency") return ex::build_pilot_source_map<typename ConcurrencySweepCatalog::Engine>();
     if (axis_name == "serialization") return ex::build_pilot_source_map<typename SerializationSweepCatalog::Engine>();
-    if (axis_name == "isa") return ex::build_pilot_source_map<typename IsaSweepCatalog::Engine>();
+    // (Bau-INC-2d: "isa" entfernt — Target-ISA-System-Achse, keine sweepbare Kompositions-Achse.)
     if (axis_name == "index_organization")
         return ex::build_pilot_source_map<typename IndexOrganizationSweepCatalog::Engine>();
     if (axis_name == "io_dispatch") return ex::build_pilot_source_map<typename IoDispatchSweepCatalog::Engine>();
@@ -403,7 +400,7 @@ using PrefetchSweepCatalog =
     if (axis_name == "allocator") return catalog_static_levels<AllocatorSweepCatalog>();
     if (axis_name == "concurrency") return catalog_static_levels<ConcurrencySweepCatalog>();
     if (axis_name == "serialization") return catalog_static_levels<SerializationSweepCatalog>();
-    if (axis_name == "isa") return catalog_static_levels<IsaSweepCatalog>();
+    // (Bau-INC-2d: "isa" entfernt — Target-ISA-System-Achse.)
     if (axis_name == "index_organization") return catalog_static_levels<IndexOrganizationSweepCatalog>();
     if (axis_name == "io_dispatch") return catalog_static_levels<IoDispatchSweepCatalog>();
     if (axis_name == "queuing_q1") return catalog_static_levels<QueuingQ1SweepCatalog>();
@@ -423,8 +420,8 @@ using PrefetchSweepCatalog =
            axis_name == "prefetch" || axis_name == "migration_policy" || axis_name == "filter" ||
            axis_name == "value_handle" || axis_name == "path_compression" || axis_name == "cache_traversal" ||
            axis_name == "mapping" || axis_name == "allocator" || axis_name == "concurrency" ||
-           axis_name == "serialization" || axis_name == "isa" || axis_name == "index_organization" ||
-           axis_name == "io_dispatch" || axis_name == "queuing_q1" || axis_name == "queuing_q2";
+           axis_name == "serialization" || axis_name == "index_organization" || axis_name == "io_dispatch" ||
+           axis_name == "queuing_q1" || axis_name == "queuing_q2"; // Bau-INC-2d: "isa" raus (System-Achse)
 }
 
 /// make_all_axis_sweeps_source_map() — die VEREINIGTE Sweep-Quellen-map ueber ALLE 18 Achsen-Sweeps (disjunkte
@@ -437,7 +434,7 @@ using PrefetchSweepCatalog =
     std::map<std::string, std::string> all;
     for (char const* ax : {"search_algo", "node_type", "memory_layout", "prefetch", "migration_policy", "filter",
                            "value_handle", "path_compression", "cache_traversal", "mapping", "allocator", "concurrency",
-                           "serialization", "isa", "index_organization", "io_dispatch", "queuing_q1", "queuing_q2"}) {
+                           "serialization", "index_organization", "io_dispatch", "queuing_q1", "queuing_q2"}) {
         auto m = axis_sweep_source_map(ax);
         for (auto& [k, v] : m) all.emplace(k, std::move(v)); // Baseline-Key kollidiert idempotent
     }
@@ -472,19 +469,19 @@ struct KaryPerKCatalog {
     using L08 = mp::mp_take_c<ce::concurrency::TopicConfigSet::StaticAxisVariants, 1>;   // concurrency
     using L09 = mp::mp_take_c<ce::serialization::TopicConfigSet::StaticAxisVariants, 1>; // serialization
     using L10 = mp::mp_take_c<ce::value_handle::TopicConfigSet::StaticAxisVariants, 1>;  // value_handle
-    using L11 = mp::mp_take_c<ce::hardware::TopicConfigSet::StaticAxisVariants_09, 1>;   // isa
-    using L12 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants, 1>; // index_organization
-    using L13 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>;            // io_dispatch
-    using L14 = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;     // migration_policy
-    using L15 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;        // filter
-    using L16 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>;    // queuing_q1
-    using L17 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>;    // queuing_q2
+    using L11 = mp::mp_take_c<ce::search_engine::TopicConfigSet::StaticAxisVariants,
+                              1>;                                             // index_organization (INC-2d: isa raus)
+    using L12 = mp::mp_take_c<ce::io::TopicConfigSet::StaticAxisVariants, 1>; // io_dispatch
+    using L13 = mp::mp_take_c<ce::migration::TopicConfigSet::StaticAxisVariants, 1>;  // migration_policy
+    using L14 = mp::mp_take_c<ce::filter::TopicConfigSet::StaticAxisVariants, 1>;     // filter
+    using L15 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q1, 1>; // queuing_q1
+    using L16 = mp::mp_take_c<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2, 1>; // queuing_q2
 
     using Engine =
         perm::PermutationEngine<CatalogCfg<L00>, CatalogCfg<L01>, CatalogCfg<L02>, CatalogCfg<L03>, CatalogCfg<L04>,
                                 CatalogCfg<L05>, CatalogCfg<L06>, CatalogCfg<L07>, CatalogCfg<L08>, CatalogCfg<L09>,
                                 CatalogCfg<L10>, CatalogCfg<L11>, CatalogCfg<L12>, CatalogCfg<L13>, CatalogCfg<L14>,
-                                CatalogCfg<L15>, CatalogCfg<L16>, CatalogCfg<L17>>;
+                                CatalogCfg<L15>, CatalogCfg<L16>>;
 };
 
 /// kary_perk_source_map() — die per-K Sweep-Quellen-map (binary_id → reale Modul-Quelle): genau 4 Eintraege

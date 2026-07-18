@@ -24,7 +24,6 @@ using SampleAdHoc =
                           ::comdare::cache_engine::concurrency::axis_08_concurrency::OlcOptimisticConcurrency,
                           ::comdare::cache_engine::serialization::axis_10_serialization::RawBinarySerialization,
                           ::comdare::cache_engine::value_handle::axis_14_value_handle::InlineValueHandle,
-                          ::comdare::cache_engine::hardware::axis_09_isa::Amd64Isa,
                           ::comdare::cache_engine::search_engine::axis_01_index_organization::IotIndexOrganization,
                           ::comdare::cache_engine::io::axis_io::InMemoryOnly,
                           ::comdare::cache_engine::migration::axis_migration::NoMigration,
@@ -33,13 +32,14 @@ using SampleAdHoc =
                           ::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush>; // T18 (Doc 30 §8.0)
 
 static_assert(ana::IsComposition<SampleAdHoc>,
-              "Umbrella muss alle 19 Achsen-Typen für eine vollständige AdHoc-Composition liefern (Doc 30 §8.0).");
+              "Umbrella muss alle 17 Achsen-Typen für eine vollständige AdHoc-Composition liefern (Doc 30 §8.0; "
+              "INC-2c telemetry / INC-2d isa sind System-Achsen).");
 
 TEST(R5G_Umbrella, AllAxesResolveViaSingleIncludeAndComposeFullAnatomy) {
     using Anatomy = ana::SearchAlgorithmAnatomy<SampleAdHoc>;
     static_assert(ana::AnatomyConcept<Anatomy>);
     ana::SearchAlgorithmAbiAdapter<Anatomy> adapter;
     ana::IAnatomyBase*                      base = &adapter;
-    EXPECT_EQ(base->organ_count(), 18u);
+    EXPECT_EQ(base->organ_count(), 17u);
     EXPECT_EQ(base->genus(), ana::AnatomyGenus::SearchAlgorithm);
 }

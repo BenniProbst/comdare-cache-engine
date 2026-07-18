@@ -76,7 +76,6 @@ struct PoolFlipComposition {
     using concurrency                          = comp::ArtComposition::concurrency;
     using serialization                        = comp::ArtComposition::serialization;
     using value_handle                         = comp::ArtComposition::value_handle;
-    using isa                                  = comp::ArtComposition::isa;
     using index_organization                   = comp::ArtComposition::index_organization;
     using io_dispatch                          = comp::ArtComposition::io_dispatch;
     using migration_policy                     = comp::ArtComposition::migration_policy;

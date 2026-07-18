@@ -32,8 +32,9 @@ template <class PermT>
 struct SequenceCompositionFromPermTupleImpl;
 template <template <class...> class PermTupleTmpl, class... Vs>
 struct SequenceCompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
-    static_assert(sizeof...(Vs) == 10,
-                  "Sequence-PermTuple muss exakt 10 Achsen-Werte enthalten (9 geteilte + axis_growth; INC-2c).");
+    static_assert(
+        sizeof...(Vs) == 9,
+        "Sequence-PermTuple muss exakt 9 Achsen-Werte enthalten (8 geteilte + axis_growth; INC-2d: isa raus).");
     using type = SequenceComposition<Vs...>;
 };
 } // namespace detail

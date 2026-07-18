@@ -110,8 +110,8 @@ template <class List>
     return out;
 }
 
-[[nodiscard]] std::array<SlotSpec, 18> make_slots() {
-    // Kanonische 18-Slot-Tabelle (Bau-INC-2c: telemetry ist System-Achse, kein Slot).
+[[nodiscard]] std::array<SlotSpec, 17> make_slots() {
+    // Kanonische 17-Slot-Tabelle (Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen, kein Slot).
     // L00 search_algo        -> traversal::TopicConfigSet::StaticAxisVariants_03a
     // L01 cache_traversal    -> traversal::TopicConfigSet::StaticAxisVariants_03b
     // L02 mapping            -> traversal::TopicConfigSet::StaticAxisVariants_03m
@@ -123,13 +123,12 @@ template <class List>
     // L08 concurrency        -> concurrency::TopicConfigSet::StaticAxisVariants
     // L09 serialization      -> serialization::TopicConfigSet::StaticAxisVariants
     // L10 value_handle       -> value_handle::TopicConfigSet::StaticAxisVariants
-    // L11 isa                -> hardware::TopicConfigSet::StaticAxisVariants_09
-    // L12 index_organization -> search_engine::TopicConfigSet::StaticAxisVariants
-    // L13 io_dispatch        -> io::TopicConfigSet::StaticAxisVariants
-    // L14 migration_policy   -> migration::TopicConfigSet::StaticAxisVariants
-    // L15 filter             -> filter::TopicConfigSet::StaticAxisVariants
-    // L16 queuing_q1         -> queuing::TopicConfigSet::StaticAxisVariants_Q1
-    // L17 queuing_q2         -> queuing::TopicConfigSet::StaticAxisVariants_Q2
+    // L11 index_organization -> search_engine::TopicConfigSet::StaticAxisVariants  (INC-2d: isa raus)
+    // L12 io_dispatch        -> io::TopicConfigSet::StaticAxisVariants
+    // L13 migration_policy   -> migration::TopicConfigSet::StaticAxisVariants
+    // L14 filter             -> filter::TopicConfigSet::StaticAxisVariants
+    // L15 queuing_q1         -> queuing::TopicConfigSet::StaticAxisVariants_Q1
+    // L16 queuing_q2         -> queuing::TopicConfigSet::StaticAxisVariants_Q2
     return {SlotSpec{"search_algo", variants_for_list<ce::traversal::TopicConfigSet::StaticAxisVariants_03a>()},
             SlotSpec{"cache_traversal", variants_for_list<ce::traversal::TopicConfigSet::StaticAxisVariants_03b>()},
             SlotSpec{"mapping", variants_for_list<ce::traversal::TopicConfigSet::StaticAxisVariants_03m>()},
@@ -141,7 +140,6 @@ template <class List>
             SlotSpec{"concurrency", variants_for_list<ce::concurrency::TopicConfigSet::StaticAxisVariants>()},
             SlotSpec{"serialization", variants_for_list<ce::serialization::TopicConfigSet::StaticAxisVariants>()},
             SlotSpec{"value_handle", variants_for_list<ce::value_handle::TopicConfigSet::StaticAxisVariants>()},
-            SlotSpec{"isa", variants_for_list<ce::hardware::TopicConfigSet::StaticAxisVariants_09>()},
             SlotSpec{"index_organization", variants_for_list<ce::search_engine::TopicConfigSet::StaticAxisVariants>()},
             SlotSpec{"io_dispatch", variants_for_list<ce::io::TopicConfigSet::StaticAxisVariants>()},
             SlotSpec{"migration_policy", variants_for_list<ce::migration::TopicConfigSet::StaticAxisVariants>()},
@@ -150,7 +148,7 @@ template <class List>
             SlotSpec{"queuing_q2", variants_for_list<ce::queuing::TopicConfigSet::StaticAxisVariants_Q2>()}};
 }
 
-[[nodiscard]] SlotSpec const* find_slot(std::array<SlotSpec, 18> const& slots, std::string_view axis) {
+[[nodiscard]] SlotSpec const* find_slot(std::array<SlotSpec, 17> const& slots, std::string_view axis) {
     auto const it = std::find_if(slots.begin(), slots.end(), [&](SlotSpec const& s) { return s.axis == axis; });
     return it == slots.end() ? nullptr : &*it;
 }
@@ -161,14 +159,14 @@ template <class List>
     return it == slot.variants.end() ? nullptr : &*it;
 }
 
-[[nodiscard]] std::vector<std::string> value_axes(std::array<SlotSpec, 18> const& slots, std::string_view value) {
+[[nodiscard]] std::vector<std::string> value_axes(std::array<SlotSpec, 17> const& slots, std::string_view value) {
     std::vector<std::string> axes;
     for (SlotSpec const& slot : slots)
         if (find_variant(slot, value) != nullptr) axes.push_back(slot.axis);
     return axes;
 }
 
-[[nodiscard]] std::optional<std::vector<SelectedSlot>> select_slots(std::array<SlotSpec, 18> const& slots,
+[[nodiscard]] std::optional<std::vector<SelectedSlot>> select_slots(std::array<SlotSpec, 17> const& slots,
                                                                     cx::ThesisProfile const&        profile) {
     std::map<std::string, std::vector<std::string>> by_axis;
     std::size_t                                     last_slot_index = 0;
@@ -185,7 +183,7 @@ template <class List>
                 // statische binary_id-Segmente (profile_to_tree.hpp) -> hart ablehnen statt still verwerfen.
                 std::cerr << "catalog-codegen: axis '" << spec.ref
                           << "' ist in der Limits-Entkopplungs-Vorstufe nicht "
-                             "unterstuetzt (erzeugt zusaetzliche statische binary_id-Segmente jenseits der 18 "
+                             "unterstuetzt (erzeugt zusaetzliche statische binary_id-Segmente jenseits der 17 "
                              "Slot-Listen) -- Profil ablehnen.\n";
             } else {
                 std::cerr << "catalog-codegen: unknown axis ref in profile: " << spec.ref << "\n";
@@ -198,7 +196,7 @@ template <class List>
         std::size_t const slot_index = static_cast<std::size_t>(slot - slots.data());
         if (!first_slot_ref && slot_index <= last_slot_index) {
             std::cerr << "catalog-codegen: profile axis order deviates from canonical slot order at '" << spec.ref
-                      << "' -- permute_axes muessen in kanonischer 18-Slot-Reihenfolge stehen.\n";
+                      << "' -- permute_axes muessen in kanonischer 17-Slot-Reihenfolge stehen.\n";
             return std::nullopt;
         }
         first_slot_ref  = false;
@@ -296,7 +294,7 @@ bool write_header(fs::path const& out_path, std::vector<SelectedSlot> const& sel
            "                                CatalogCfg<L04>, CatalogCfg<L05>, CatalogCfg<L06>, CatalogCfg<L07>,\n"
            "                                CatalogCfg<L08>, CatalogCfg<L09>, CatalogCfg<L10>, CatalogCfg<L11>,\n"
            "                                CatalogCfg<L12>, CatalogCfg<L13>, CatalogCfg<L14>, CatalogCfg<L15>,\n"
-           "                                CatalogCfg<L16>, CatalogCfg<L17>>;\n"
+           "                                CatalogCfg<L16>>;\n"
            "};\n\n"
            "[[nodiscard]] inline std::vector<ex::AxisLevel> generated_catalog_static_levels() {\n"
            "    return catalog_static_levels<GeneratedFullSourceCatalog>();\n"
@@ -321,7 +319,7 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    std::array<SlotSpec, 18> const                 slots    = make_slots();
+    std::array<SlotSpec, 17> const                 slots    = make_slots();
     std::optional<std::vector<SelectedSlot>> const selected = select_slots(slots, *profile);
     if (!selected) return 3;
 
