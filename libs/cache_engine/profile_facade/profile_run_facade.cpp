@@ -167,13 +167,13 @@ namespace {
 
 // opt_level-Unter-Achse der Compiler-Haupt-Achse (Bau-INC-2c.opt-c). Die Flag-QUELLE ist die Achse
 // (OptO*SubAxis::gcc/clang/msvc_opt_flag, compile-time-Reflexion), der ORT ist der opt_flag-Param von
-// make_gpp_compile_fn (opt-b). GOLDEN-SICHERE Transition: der Facade-Default bleibt "O2" (byte-identisch
-// zu den persistierten Reihen). Der CEB-Default Ofast (OF-2, DefaultOptLevelSubAxis) wird NICHT hier auf
-// der Signatur gezogen — das ist die offene OF-2-KERN-User-Entscheidung (Ofast bricht 1-Thread-
-// Determinismus/IEEE-754 der golden-Mess-Binaries); bis zu ihrer Freigabe ist COMDARE_PILOT_OPT_LEVEL
-// der Smoke-Schalter (analog COMDARE_PILOT_SIMD_POLICY). O3/Ofast leben additiv als +opt=-Sidecar-Reihen.
+// make_gpp_compile_fn (opt-b). CEB-DEFAULT = O3 (Ruling 2026-07-18, Option B): IEEE-754-deterministisch,
+// wahrt den 1-Thread-Mess-Determinismus der golden-Reihe. NICHTS GLOBAL GEPINNT — der Startwert kommt aus
+// der benannten Single-Source DefaultOptLevelSubAxis (=O3), env COMDARE_PILOT_OPT_LEVEL + XML/Planer (A3)
+// bewegen JEDES Teil. Ofast/O0/O1/O2 leben additiv als +opt=-Sidecar-Vergleichs-Extreme.
 [[nodiscard]] std::string_view active_opt_level() {
-    std::string_view level = "O2"; // golden-sicherer Transitions-Default (NICHT Ofast; s. OF-2-KERN)
+    // Startwert aus der benannten Achsen-Single-Source (kein rohes Literal, kein Pin) = "O3".
+    std::string_view level = ::comdare::cache_engine::measurement::DefaultOptLevelSubAxis::opt_level_id();
     if (char const* e = std::getenv("COMDARE_PILOT_OPT_LEVEL"); e != nullptr && *e != '\0') level = e;
     return level;
 }
@@ -193,12 +193,12 @@ namespace {
         return pick(cm::OptO3SubAxis::gcc_opt_flag(), cm::OptO3SubAxis::clang_opt_flag());
     if (level == cm::OptOfastSubAxis::opt_level_id())
         return pick(cm::OptOfastSubAxis::gcc_opt_flag(), cm::OptOfastSubAxis::clang_opt_flag());
-    // Fehlerklasse (INC-29.0, HardwareErweiterungFehlt-Nachbar KonfigXmlParse): unbekannter Smoke-Wert
-    // -> sichtbar degradiert, NIE leer (kein Compiler-Default /Od), NIE harter exit. Formale D1-Log-
-    // Klassifikation folgt INC-29.2.
-    std::cerr << "[profile_facade] COMDARE_PILOT_OPT_LEVEL='" << level
-              << "' unbekannt; nutze O2 (golden-sicherer Default).\n";
-    return std::string{cm::OptO2SubAxis::gcc_opt_flag()};
+    // Fehlerklasse (INC-29.0, KonfigXmlParse-Nachbar): unbekannter Smoke-Wert -> sichtbar degradiert, NIE leer
+    // (kein impliziter Compiler-Default /Od), NIE harter exit. Fallback = der bewegliche CEB-Default (O3), NICHT
+    // ein O2-Pin. Formale D1-Log-Klassifikation an der Build-Naht folgt INC-29.2/d1-log.
+    std::cerr << "[profile_facade] COMDARE_PILOT_OPT_LEVEL='" << level << "' unbekannt; nutze CEB-Default "
+              << cm::DefaultOptLevelSubAxis::opt_level_id() << ".\n";
+    return pick(cm::DefaultOptLevelSubAxis::gcc_opt_flag(), cm::DefaultOptLevelSubAxis::clang_opt_flag());
 }
 
 // H-10 (Bau-INC-1g): die VARIABLEN System-Achsen-Belegungen (Erweiterungshardware-Politik,
@@ -207,13 +207,13 @@ namespace {
 // build_version traegt die Provenienz. Konstante Achsen (Scheduling/Last=Default) bleiben
 // weggelassen, bis die CEB-Laufzeit-Permutation sie variabel macht.
 [[nodiscard]] std::string system_axes_version_suffix() {
+    // A1/OF-2 (Ruling 2026-07-18): KEIN globaler Byte-Anker mehr. Die opt_level-Provenienz wird IMMER emittiert
+    // (kein O2-Sonderfall) -> jedes Teil beweglich, keine bevorzugte Referenz-Stufe. Folge: alle Tier-Binaries
+    // tragen +opt=<level> (Default +opt=O3) -> dll_is_current sieht sie unter neuer Belegung als neu; die golden-
+    // Reihe wird deterministisch unter O3 neu gebaut/gemessen (bewusster Neu-Mess-Lauf, alt-Reihen additiv erhalten).
     std::string suffix = "+ext=" + std::string{active_simd_policy()} + "+cxx=" + cxx_compiler();
-    // opt-c: +opt= NUR bei Abweichung vom golden-Anker O2 -> die O2-Default-.so behaelt ihr bisheriges
-    // .version-Sidecar BYTE-IDENTISCH (kein Rebuild aller Tier-Binaries), O3/Ofast werden distinkt.
-    if (std::string_view const lvl = active_opt_level(); lvl != std::string_view{"O2"}) {
-        suffix += "+opt=";
-        suffix += lvl;
-    }
+    suffix += "+opt=";
+    suffix += active_opt_level();
     return suffix;
 }
 

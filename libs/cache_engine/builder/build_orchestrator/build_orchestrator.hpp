@@ -475,10 +475,11 @@ namespace detail {
                                                    std::string              opt_flag  = "-O2") {
     // Bau-INC-2c.opt-b: opt_flag = der volle Optimierungs-Flag-String (Konvention aus opt-a:
     // OptO*SubAxis::gcc_opt_flag() liefert "-O2"/"-O3"/"-Ofast"). Der Signatur-Default "-O2" ist ein
-    // TRANSITIONALER Builder-Fallback fuer Aufrufer, die (noch) nichts setzen — NICHT der CEB-Default:
-    // der architektonische CEB-Default ist Ofast (OF-2, DefaultOptLevelSubAxis), erzwungen am Planer
-    // (opt-c/opt-g), NICHT auf dieser Signatur. Ein "Ofast"-Signatur-Default wuerde die unveraenderten
-    // Aufrufer sofort ziehen und die opt-b/opt-c-Trennung brechen — daher bleibt "-O2" hier stehen.
+    // TRANSITIONALER, achsen-blinder Builder-Fallback fuer Direkt-Aufrufer, die (noch) nichts setzen —
+    // NICHT der CEB-Default und KEIN Pin. Der bewegliche CEB-Default ist O3 (Ruling 2026-07-18, Option B,
+    // DefaultOptLevelSubAxis=OptO3SubAxis); die Facade (profile_run_facade active_opt_level) sourct ihn und
+    // reicht ihn hier als opt_flag runter. Ein harter O3-Signatur-Default hier waere selbst ein neuer Pin —
+    // daher bleibt der transitional-ueberschreibbare "-O2" stehen (der Facade-Wert gewinnt immer).
     return [include_dirs = std::move(include_dirs), defines = std::move(defines), cxx = std::move(cxx),
             link_libs = std::move(link_libs), opt_flag = std::move(opt_flag)](BuildJob const& job) -> int {
         std::filesystem::path const rsp = job.output.string() + ".rsp";

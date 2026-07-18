@@ -6,7 +6,8 @@
 // opt_level ist KEINE Geschwister-System-Achse, sondern eine Unter-Achse UNTER compiler
 // (parent_axis_label()=="compiler"). Der Experiment-Planer permutiert compiler x opt_level x ...
 // zu verschiedenen Tier-Binaries; alles per XML in ranges/batches/einzeln konfigurierbar,
-// NICHTS gepinnt. CEB-Default = Ofast (OF-2), per XML ueberschreibbar.
+// NICHTS gepinnt, JEDES TEIL beweglich. CEB-Default = O3 (IEEE-754-deterministisch, Option B, Ruling
+// 2026-07-18), per env/XML/Planer ueberschreibbar; Ofast/O0/O1/O2 additiv als Vergleichs-Extreme.
 //
 // Fluss wie extension_hardware (das strikte Vorbild): CompileFn-Flag (-O<n>) + H-10-Sidecar-
 // Provenienz (build_version "+opt="); binary_id-NEUTRAL (steht nie in kCompositionAxisNames,
@@ -116,17 +117,22 @@ struct OptOfastSubAxis final : OptimizationLevelSubAxis<OptOfastSubAxis> {
     [[nodiscard]] static constexpr bool             do_is_ieee754_deterministic() noexcept { return false; }
 };
 
-/// CEB-Default-Auspraegung (OF-2: "Standardeinstellung von CEB ist Ofast"). Alias, damit die
-/// Default-Wahl eine benannte Single-Source hat und nicht dupliziert wird.
-using DefaultOptLevelSubAxis = OptOfastSubAxis;
+/// CEB-Default-Auspraegung — BEWEGLICHER Startwert, KEIN globaler Pin (User-Ruling 2026-07-18, Option B).
+/// Korrektur der frueheren OF-2-Buchstaben-Lesart ("Default = Ofast"): der CEB-Default ist **O3**, weil O3
+/// IEEE-754-DETERMINISTISCH ist (do_is_ieee754_deterministic()==true) und den 1-Thread-Mess-Determinismus der
+/// golden-Reihe wahrt; -Ofast bricht ihn (-fallow-store-data-races/-funsafe-math). Ofast/O0/O1/O2 leben ADDITIV
+/// als +opt=-Sidecar-Vergleichs-Extreme (OptOfastSubAxis bleibt konkrete Achse). "Nichts gepinnt, JEDES TEIL
+/// beweglich": dies ist NUR der benannte Default-Startwert; env COMDARE_PILOT_OPT_LEVEL + XML/Planer (A3)
+/// ueberschreiben jedes Teil. Benannte Single-Source, damit die Default-Wahl nicht als rohes Literal dupliziert wird.
+using DefaultOptLevelSubAxis = OptO3SubAxis;
 
 static_assert(OptimizationLevelSubAxisConcept<OptO0SubAxis>);
 static_assert(OptimizationLevelSubAxisConcept<OptO1SubAxis>);
 static_assert(OptimizationLevelSubAxisConcept<OptO2SubAxis>);
 static_assert(OptimizationLevelSubAxisConcept<OptO3SubAxis>);
 static_assert(OptimizationLevelSubAxisConcept<OptOfastSubAxis>);
-static_assert(DefaultOptLevelSubAxis::opt_level_id() == std::string_view{"Ofast"}, "OF-2: CEB-Default = Ofast");
-static_assert(!DefaultOptLevelSubAxis::is_ieee754_deterministic(), "Ofast bricht IEEE-754/Determinismus");
+static_assert(DefaultOptLevelSubAxis::opt_level_id() == std::string_view{"O3"}, "Ruling 2026-07-18: CEB-Default = O3");
+static_assert(DefaultOptLevelSubAxis::is_ieee754_deterministic(), "O3 ist IEEE-754-deterministisch (Option B)");
 static_assert(OptO2SubAxis::gcc_opt_flag() == std::string_view{"-O2"});
 static_assert(OptOfastSubAxis::parent_axis_label() == std::string_view{"compiler"}, "opt_level haengt unter compiler");
 
