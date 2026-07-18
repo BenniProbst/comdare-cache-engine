@@ -472,7 +472,7 @@ namespace detail {
 [[nodiscard]] inline CompileFn make_gpp_compile_fn(std::vector<std::string> include_dirs = {},
                                                    std::vector<std::string> defines = {}, std::string cxx = "g++-16",
                                                    std::vector<std::string> link_libs = {},
-                                                   std::string              opt_flag  = "-O2") {
+                                                   std::string opt_flag = "-O2", bool emit_fno_gnu_unique = true) {
     // Bau-INC-2c.opt-b: opt_flag = der volle Optimierungs-Flag-String (Konvention aus opt-a:
     // OptO*SubAxis::gcc_opt_flag() liefert "-O2"/"-O3"/"-Ofast"). Der Signatur-Default "-O2" ist ein
     // TRANSITIONALER, achsen-blinder Builder-Fallback fuer Direkt-Aufrufer, die (noch) nichts setzen —
@@ -481,7 +481,8 @@ namespace detail {
     // reicht ihn hier als opt_flag runter. Ein harter O3-Signatur-Default hier waere selbst ein neuer Pin —
     // daher bleibt der transitional-ueberschreibbare "-O2" stehen (der Facade-Wert gewinnt immer).
     return [include_dirs = std::move(include_dirs), defines = std::move(defines), cxx = std::move(cxx),
-            link_libs = std::move(link_libs), opt_flag = std::move(opt_flag)](BuildJob const& job) -> int {
+            link_libs = std::move(link_libs), opt_flag = std::move(opt_flag),
+            emit_fno_gnu_unique](BuildJob const& job) -> int {
         std::filesystem::path const rsp = job.output.string() + ".rsp";
         {
             std::ofstream rf{rsp};
@@ -490,9 +491,11 @@ namespace detail {
             rf << opt_flag << "\n"; // opt-b: war hart "-O2"; Default-opt_flag=="-O2" => byte-identisch
             rf << "-fPIC\n";
             rf << "-shared\n";
-            // Compiler-Dialekt-Gate (INC-1h): -fno-gnu-unique ist GNU-only — clang bricht mit
-            // "unknown argument" ab; die Compiler-System-Achse baut mit BEIDEN Treibern.
-            if (cxx.find("clang") == std::string::npos) rf << "-fno-gnu-unique\n";
+            // Compiler-Dialekt-Gate (opt-d, A2-Hybrid Teil 2): -fno-gnu-unique ist GNU-only — clang bricht mit
+            // "unknown argument". Die WISSENS-QUELLE ist die Compiler-System-Achse (CompilerSystemAxis::
+            // supports_fno_gnu_unique(): Gcc=true, Clang=false); der achsen-blinde Builder empfaengt sie als
+            // vom Facade/Planer gesteuerten bool-WERT (Muster (2), keine String-Sniff-Heuristik mehr hier).
+            if (emit_fno_gnu_unique) rf << "-fno-gnu-unique\n";
             rf << "-fdiagnostics-color=never\n";
             for (auto const& d : defines) rf << d << "\n";
             for (auto const& i : include_dirs) rf << "-I\"" << i << "\"\n";
