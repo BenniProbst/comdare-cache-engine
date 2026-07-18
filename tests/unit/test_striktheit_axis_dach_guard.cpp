@@ -74,7 +74,9 @@ static_assert(!std::is_polymorphic_v<cem::DefaultSchedulingSystemAxis>);
 // Kontrast (bewusste, DEPRECATED Grenze — nie im Hot-Path): die historische Runtime-vtable IST polymorph.
 static_assert(std::is_polymorphic_v<::comdare::cache_engine::concepts::ISchedulingStrategy>);
 
-// ── Block F (INC-1d): Erweiterungshardware- + Hardware-Host-Achse (Q2-Option-C) ───────────────────────────
+// ── Block F (INC-1d, DEPRECATED Kontrast — das flache Alt-Modell, abgeloest durch die simd-Unter-Achse Block F.2;
+//    extension_hardware_system_axis.hpp haelt die Typen nur noch kompilierbar): Erweiterungshardware- + Hardware-
+//    Host-Achse (Q2-Option-C) ────────────────────────────────────────────────────────────────────────────────
 static_assert(cem::ExtensionHardwareSystemAxisConcept<cem::GenericExtensionHardwareAxis>);
 static_assert(cem::ExtensionHardwareSystemAxisConcept<cem::Avx2ExtensionHardwareAxis>);
 static_assert(cem::ExtensionHardwareSystemAxisConcept<cem::Avx512ExtensionHardwareAxis>);

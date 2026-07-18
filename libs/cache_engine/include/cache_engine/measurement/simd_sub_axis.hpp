@@ -38,11 +38,13 @@ struct SimdSubAxis : CebSystemAxis<Derived> {
     /// Deklarative Auspraegungs-Kennung (Ordner-/Sidecar-Etikett; deckungsgleich zur 09b-simd_extension-Nomenklatur).
     [[nodiscard]] static constexpr std::string_view simd_id() noexcept { return Derived::do_simd_id(); }
 
-    /// Compile-Flags je Compiler-Dialekt (leer = generisch, Ist-Verhalten byte-identisch).
+    /// Compile-Flags je Compiler-Dialekt (leer = generisch, Ist-Verhalten byte-identisch). gcc/clang teilen die
+    /// -m<ext>-Schreibweise; MSVC weicht mit /arch:<EXT> ab (spiegelbildlich zu opt_level gcc/clang/msvc, F-SIMD).
     [[nodiscard]] static constexpr std::string_view gcc_march_flag() noexcept { return Derived::do_gcc_march_flag(); }
     [[nodiscard]] static constexpr std::string_view clang_march_flag() noexcept {
         return Derived::do_clang_march_flag();
     }
+    [[nodiscard]] static constexpr std::string_view msvc_march_flag() noexcept { return Derived::do_msvc_march_flag(); }
 
 protected:
     constexpr SimdSubAxis() noexcept = default;
@@ -55,6 +57,7 @@ concept SimdSubAxisConcept = CebSystemAxisConcept<A> && std::derived_from<A, Sim
                                  { A::parent_axis_label() } -> std::same_as<std::string_view>;
                                  { A::gcc_march_flag() } -> std::same_as<std::string_view>;
                                  { A::clang_march_flag() } -> std::same_as<std::string_view>;
+                                 { A::msvc_march_flag() } -> std::same_as<std::string_view>;
                              };
 
 // ── Die simd-Auspraegungs-Familie {no_extension, avx2, avx512}. Jede eine leere CRTP-Struct (Design-Space-
@@ -65,18 +68,21 @@ struct SimdNoExtOption final : SimdSubAxis<SimdNoExtOption> {
     [[nodiscard]] static constexpr std::string_view do_simd_id() noexcept { return "no_extension"; }
     [[nodiscard]] static constexpr std::string_view do_gcc_march_flag() noexcept { return ""; }
     [[nodiscard]] static constexpr std::string_view do_clang_march_flag() noexcept { return ""; }
+    [[nodiscard]] static constexpr std::string_view do_msvc_march_flag() noexcept { return ""; }
 };
 
 struct SimdAvx2Option final : SimdSubAxis<SimdAvx2Option> {
     [[nodiscard]] static constexpr std::string_view do_simd_id() noexcept { return "avx2"; }
     [[nodiscard]] static constexpr std::string_view do_gcc_march_flag() noexcept { return "-mavx2"; }
     [[nodiscard]] static constexpr std::string_view do_clang_march_flag() noexcept { return "-mavx2"; }
+    [[nodiscard]] static constexpr std::string_view do_msvc_march_flag() noexcept { return "/arch:AVX2"; }
 };
 
 struct SimdAvx512Option final : SimdSubAxis<SimdAvx512Option> {
     [[nodiscard]] static constexpr std::string_view do_simd_id() noexcept { return "avx512"; }
     [[nodiscard]] static constexpr std::string_view do_gcc_march_flag() noexcept { return "-mavx512f"; }
     [[nodiscard]] static constexpr std::string_view do_clang_march_flag() noexcept { return "-mavx512f"; }
+    [[nodiscard]] static constexpr std::string_view do_msvc_march_flag() noexcept { return "/arch:AVX512"; }
 };
 
 /// CEB-Default-Auspraegung -- generisch (kein -march); Ist-Verhalten der Mess-DLLs byte-identisch. Beweglicher
@@ -92,6 +98,10 @@ static_assert(SimdAvx2Option::parent_axis_label() == std::string_view{"extension
 static_assert(SimdAvx2Option::gcc_march_flag() == std::string_view{"-mavx2"});
 static_assert(SimdAvx512Option::gcc_march_flag() == std::string_view{"-mavx512f"});
 static_assert(SimdNoExtOption::gcc_march_flag().empty() && SimdNoExtOption::clang_march_flag().empty());
+// MSVC-Dialekt-Spiegel (opt_level modelliert gcc/clang/msvc; simd zieht symmetrisch nach): /arch:<EXT>.
+static_assert(SimdAvx2Option::msvc_march_flag() == std::string_view{"/arch:AVX2"});
+static_assert(SimdAvx512Option::msvc_march_flag() == std::string_view{"/arch:AVX512"});
+static_assert(SimdNoExtOption::msvc_march_flag().empty());
 static_assert(DefaultSimdOption::simd_id() == std::string_view{"no_extension"});
 
 } // namespace comdare::cache_engine::measurement

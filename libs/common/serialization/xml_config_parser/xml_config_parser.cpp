@@ -428,7 +428,7 @@ XmlConfigParser::parse_experiment_profile(std::filesystem::path const& xml_file)
         if (auto const* xh = sa->child("extension_hardware")) {
             if (auto const* simd = xh->child("simd"))
                 for (auto const* o : simd->children_named("option"))
-                    ep.extension_hardware.options.push_back(o->attr("value"));
+                    ep.extension_hardware.simd_options.push_back(o->attr("value"));
         }
     }
     if (auto const* out = root->child("output")) {

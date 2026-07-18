@@ -566,7 +566,8 @@ validate_experiment_profile(cx::ExperimentProfile const& ep, std::filesystem::pa
         }
     }
     static constexpr std::string_view kValidSimd[] = {"no_extension", "avx2", "avx512"};
-    for (auto const& s : ep.extension_hardware.options) { // Optionen der simd-Unter-Achse (extension_hardware → simd)
+    for (auto const& s :
+         ep.extension_hardware.simd_options) { // Optionen der simd-Unter-Achse (extension_hardware → simd)
         ++r.simd_checked;
         bool const known = std::find(std::begin(kValidSimd), std::end(kValidSimd), s) != std::end(kValidSimd);
         if (!known) {

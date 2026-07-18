@@ -148,9 +148,9 @@ TEST(ExperimentParser, ParsesGoldenInstanceLiterally) {
     ASSERT_EQ(ep->compiler.opt_levels.size(), 2u);
     EXPECT_EQ(ep->compiler.opt_levels[0], "O2");
     EXPECT_EQ(ep->compiler.opt_levels[1], "O3");
-    ASSERT_EQ(ep->extension_hardware.options.size(), 2u);
-    EXPECT_EQ(ep->extension_hardware.options[0], "no_extension");
-    EXPECT_EQ(ep->extension_hardware.options[1], "avx2");
+    ASSERT_EQ(ep->extension_hardware.simd_options.size(), 2u);
+    EXPECT_EQ(ep->extension_hardware.simd_options[0], "no_extension");
+    EXPECT_EQ(ep->extension_hardware.simd_options[1], "avx2");
 
     // output.comparison_metrics == true (+ Pfade nicht leer).
     EXPECT_FALSE(ep->output.binary_path.empty());
@@ -356,7 +356,7 @@ TEST(ExperimentParser, BogusOptLevelIsError) {
 TEST(ExperimentParser, BogusSimdExtensionIsError) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
-    ep->extension_hardware.options.push_back("avx1024"); // ausserhalb der Enumeration
+    ep->extension_hardware.simd_options.push_back("avx1024"); // ausserhalb der Enumeration
 
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_FALSE(vr.ok);
@@ -370,7 +370,7 @@ TEST(ExperimentParser, EmptySystemAxesIsOk) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
     ep->compiler.opt_levels.clear();
-    ep->extension_hardware.options.clear();
+    ep->extension_hardware.simd_options.clear();
 
     tlz::ExperimentValidationResult const vr = tlz::validate_experiment_profile(*ep);
     EXPECT_TRUE(vr.ok) << "leere <system_axes> duerfen kein Fehler sein (additiv, CEB-Default)";

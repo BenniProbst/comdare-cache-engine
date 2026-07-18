@@ -294,7 +294,7 @@ struct CompilerAxisSel {                 // Haupt-System-Achse "compiler" (15) â
 };
 struct ExtensionHardwareAxisSel { // Haupt-System-Achse "extension_hardware" (6., Q2 Option C)
     std::vector<std::string>
-        options; // Optionen der simd-Unter-Achse <simd><option value=no_extension|avx2|avx512> (symmetrisch opt_level)
+        simd_options; // Optionen der simd-Unter-Achse <simd><option value=no_extension|avx2|avx512> (Spiegel opt_levels)
 };
 
 struct ExperimentProfile {
