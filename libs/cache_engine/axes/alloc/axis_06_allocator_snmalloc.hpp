@@ -34,6 +34,7 @@
 
 #include <cache_engine/allocators/portable_aligned_alloc.hpp>
 #include <measurement/measurable_concept.hpp> // V41.F.6.1 Stufe 3: MeasurableObserver<snapshot_t>
+#include <array>                              // INC-0: vendor_compile_defs()
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -88,6 +89,17 @@ public:
         return "Snmalloc Message-Passing (Paul Liétar et al., ISMM 2019)";
     }
     [[nodiscard]] static constexpr std::string_view flag_suffix() noexcept { return "SNMALLOC"; }
+
+    // INC-0 (2026-07-18): der snmalloc-Vendor-Build-Vertrag als deklarativer ORGAN-Slot. Diese 4 INTERFACE-Compile-
+    // Defs sind snmallocs EIGENE header-only-Build-Konfiguration (von snmallocs Headern erwartet) -- sie beschreiben
+    // die snmalloc-Organ-Auspraegung, NICHT die Messung und NICHT den Compiler. Single-Source (bisher 3x in
+    // CMake/Facade dupliziert); der Facade-Assembler haengt sie am GLOBALEN COMDARE_AXIS_06_USE_SNMALLOC-Gate an ALLE
+    // Tiers an (Umbrella: snmalloc.h kompiliert in jeder TU). Das ISA-Codegen-Flag -mcx16 gehoert NICHT hierher,
+    // sondern auf die Compiler-System-Achse (measurement::Cx16Option) -- klare Trennung malloc-Organ vs Compiler-Flag.
+    [[nodiscard]] static constexpr std::array<std::string_view, 4> vendor_compile_defs() noexcept {
+        return {"-DSNMALLOC_HEADER_ONLY_LIBRARY=1", "-DSNMALLOC_USE_CXX17=0", "-DSNMALLOC_QEMU_WORKAROUND=0",
+                "-DSNMALLOC_USE_WAIT_ON_ADDRESS=0"};
+    }
 
     // V41.F.6.1 Vendor-Sonderfall-Properties (Pflicht, [[vendor-sonderfaelle-als-pflicht-property]])
     [[nodiscard]] static constexpr bool has_native_aligned_alloc() noexcept {

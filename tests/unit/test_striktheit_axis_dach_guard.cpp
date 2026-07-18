@@ -18,6 +18,7 @@
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp>
 #include <cache_engine/measurement/scheduling_system_axis.hpp>
 #include <cache_engine/measurement/simd_sub_axis.hpp>
+#include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>
 #include <cache_engine/measurement/system_axis.hpp>
 
 #include <gtest/gtest.h>
@@ -142,6 +143,18 @@ static_assert(cem::DefaultOptLevelOption::opt_level_id() == std::string_view{"O3
 static_assert(cem::DefaultOptLevelOption::is_ieee754_deterministic());
 static_assert(cem::OptO3Option::is_ieee754_deterministic());
 static_assert(!cem::OptOfastOption::is_ieee754_deterministic());
+
+// ── Block K (INC-0): atomic128 (-mcx16) als dynamische Unter-Achse UNTER der Compiler-Haupt-Achse ─────────────
+// Compile-time-Schicht (CRTP+Concept, keine vtable), binary_id-neutral (system_config). parent_axis_label=="compiler"
+// (NICHT extension_hardware: CMPXCHG16B ist Baseline-x86-64, keine optionale Erweiterung; INC-0-Ruling "Flags→Compiler").
+static_assert(cem::CompilerAtomicSubAxisConcept<cem::NoCx16Option>);
+static_assert(cem::CompilerAtomicSubAxisConcept<cem::Cx16Option>);
+static_assert(cem::Cx16Option::axis_label() == std::string_view{"atomic128"});
+static_assert(cem::Cx16Option::parent_axis_label() == std::string_view{"compiler"});
+static_assert(cem::Cx16Option::gcc_flag() == std::string_view{"-mcx16"});
+static_assert(cem::Cx16Option::clang_flag() == std::string_view{"-mcx16"});
+static_assert(cem::NoCx16Option::gcc_flag().empty()); // Default = kein Flag, Ist-Verhalten byte-identisch
+static_assert(cem::Cx16Option::axis_kind() == cet::AxisKind::system_config);
 
 TEST(StriktheitAxisDachGuard, DiskriminatorenSindDisjunkt) {
     EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ), static_cast<unsigned>(cet::AxisKind::system_measurement));
