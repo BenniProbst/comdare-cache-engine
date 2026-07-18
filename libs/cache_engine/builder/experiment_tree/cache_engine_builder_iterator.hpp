@@ -746,7 +746,17 @@ struct LazyRunResult {
                 continue;
             }
         }
-        if (!b.ok()) continue; // Build-Fehler UND nicht resumebar → kein Mess-Eintrag (ehrlicher Sparse-Kontrast)
+        if (!b.ok()) {
+            // d1-log (D1): den Bau-Fehler KLASSIFIZIERT im Log deklarieren (Compiler-Compiler-Fehler), statt
+            // stumm zu ueberspringen. Der Harness misst die uebrigen Permutationen WEITER (D1-Direktive:
+            // "IM LOG deklariert, Experiment MISST WEITER"). Die Klasse kommt aus dem d1-carrier (b.outcome).
+            namespace cm = ::comdare::cache_engine::measurement;
+            cm::CompilerCompilerErrorClass const cls =
+                b.outcome.has_value() ? cm::CompilerCompilerErrorClass::CompileKombination : b.outcome.error();
+            std::cerr << "[Compiler-Compiler-Fehler: " << cm::error_class_label(cls) << "] binary_id='" << b.binary_id
+                      << "' status=" << b.status << " log=" << b.output.string() << ".cxx.log\n";
+            continue; // Build-Fehler UND nicht resumebar → kein Mess-Eintrag (ehrlicher Sparse-Kontrast, jetzt geloggt)
+        }
 
         // ════════════════════════════════════════════════════════════════════════════════════════════════
         // (2) LADEN: DLL → IAnatomyBase* → die zwei ABI-Sub-Interfaces via dynamic_cast.
