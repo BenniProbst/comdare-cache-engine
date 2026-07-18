@@ -19,6 +19,7 @@
 #include <cache_engine/measurement/scheduling_system_axis.hpp>
 #include <cache_engine/measurement/simd_sub_axis.hpp>
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>
+#include <cache_engine/measurement/target_isa_system_axis.hpp>
 #include <cache_engine/measurement/system_axis.hpp>
 
 #include <gtest/gtest.h>
@@ -155,6 +156,19 @@ static_assert(cem::Cx16Option::gcc_flag() == std::string_view{"-mcx16"});
 static_assert(cem::Cx16Option::clang_flag() == std::string_view{"-mcx16"});
 static_assert(cem::NoCx16Option::gcc_flag().empty()); // Default = kein Flag, Ist-Verhalten byte-identisch
 static_assert(cem::Cx16Option::axis_kind() == cet::AxisKind::system_config);
+
+// ── Block L (INC-2d): target_isa als build-treibende eigene System-Achse (Ziel-ISA, Cross-Compile) ────────────
+// isa verlaesst mit INC-2d die binary_id-Komposition; TargetIsaSystemAxis TREIBT den Bau (Ziel-ISA), abgegrenzt von
+// HardwareIsaSystemAxis (Host-Deskriptor "hardware"). Default X86_64TargetIsa = host==target = keine Cross-Flags =
+// golden byte-identisch. system_config (binary_id-neutral). CRTP+Concept, keine vtable.
+static_assert(cem::TargetIsaSystemAxisConcept<cem::X86_64TargetIsa>);
+static_assert(cem::TargetIsaSystemAxisConcept<cem::Aarch64TargetIsa>);
+static_assert(cem::X86_64TargetIsa::axis_label() == std::string_view{"target_isa"});
+static_assert(cem::X86_64TargetIsa::axis_kind() == cet::AxisKind::system_config);
+static_assert(cem::X86_64TargetIsa::is_native() && cem::X86_64TargetIsa::target_triple().empty());
+static_assert(cem::Aarch64TargetIsa::target_triple() == std::string_view{"-target aarch64-linux-gnu"});
+// Zwei ISA-System-Achsen, ABER verschiedene Labels (kollisionsfrei): target_isa (Ziel) != hardware (Host).
+static_assert(cem::X86_64TargetIsa::axis_label() != cem::Amd64HostIsaAxis::axis_label());
 
 TEST(StriktheitAxisDachGuard, DiskriminatorenSindDisjunkt) {
     EXPECT_NE(static_cast<unsigned>(cet::AxisKind::organ), static_cast<unsigned>(cet::AxisKind::system_measurement));
