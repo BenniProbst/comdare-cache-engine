@@ -7,13 +7,15 @@
 // StrategyBase nur AxisBase (cross-axis Properties) OHNE das Dach -- der AxisKind::organ-Diskriminator war
 // definiert, aber real ungenutzt (Konformitaets-Sweep-Befund INC-1, User-Ruling 2026-07-18: "gemeinsamer
 // Header fuer Mess-, System- und Organ-Achsen"). OrganAxis<Derived> vereinigt beide Basen -- BEIDE EMPTY
-// -> Empty-Base-Optimization -> sizeof/Layout aller Wrapper UNVERAENDERT (golden==320 byte-identisch,
-// kein ABI-Bump) -- und liefert axis_kind()==organ GENAU EINMAL (DRY, statt 22x wiederholt = musterlos).
+// -> Empty-Base-Optimization: entscheidend ist, dass Axis<Derived> ein UNIKALER leerer Typ ist (es entsteht
+// KEIN zweites Axis<Derived>-Subobjekt) -> sizeof/Layout aller Wrapper UNVERAENDERT, d.h. sizeof(alt :AxisBase)
+// == sizeof(neu :OrganAxis<Derived>) -- und liefert axis_kind()==organ GENAU EINMAL (DRY). Die golden==320-Byte-
+// Identitaet folgt daraus, wird aber SEPARAT per golden-Roundtrip/CI belegt (hier keine Erfolgsmarke behauptet).
 //
-// Benannter Pattern-Stapel (compile-time-only, keine vtable): CRTP (Coplien) + Mixin-from-above
-// (Smaragdakis & Batory, "Mixin Layers") + Layer Supertype (Fowler, PoEAA) + Concept-based Static
-// Interface (C++20/23). Der Concept-Guard (is_empty && !is_polymorphic) faengt jede kuenftige
-// vtable-Einschleppung beim Kompilieren (Anti-Runtime-Switch-Sicherung, wie beim Dach selbst).
+// Benannter Pattern-Stapel (compile-time-only, keine vtable): CRTP (Coplien) + Layer Supertype (Fowler, PoEAA)
+// + Concept-based Static Interface (C++20/23). Der Concept-Guard (is_empty && !is_polymorphic auf der Dach-/
+// OrganAxis-Schicht) sichert DIESE Schicht gegen vtable-Einschleppung -- NICHT das Derived selbst; dessen
+// Polymorphie prueft der jeweilige per-Wrapper-Concept, wo Derived vollstaendig ist.
 
 #pragma once
 
@@ -39,7 +41,8 @@ protected:
 
 /// Concept-Guard: eine Organ-Achse haengt unterm Dach (AxisConcept), erfuellt die cross-axis Properties
 /// (AxisBaseConcept), leitet von OrganAxis ab und traegt den organ-Diskriminator. Die is_empty-/
-/// !is_polymorphic-Pruefungen auf OrganAxis<D> (zwei EMPTY Basen -> EBO) beweisen die golden-Byte-Neutralitaet.
+/// !is_polymorphic-Pruefungen auf OrganAxis<D> belegen die Leerheit DIESER Schicht (EBO-Voraussetzung); die
+/// Wrapper-Byte-Neutralitaet folgt aus dem UNIKATEN Axis<D> (kein zweites Subobjekt), nicht aus is_empty_v<OrganAxis<D>>.
 template <class D>
 concept OrganAxisConcept =
     AxisConcept<D> && AxisBaseConcept<D> && std::derived_from<D, OrganAxis<D>> && std::is_empty_v<OrganAxis<D>> &&

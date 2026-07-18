@@ -4,11 +4,12 @@
 #include "concepts/axis_09_isa_concept.hpp"
 #include "concepts/axis_09_isa_cache_engine_permutation_concept.hpp"
 #include <topics/axis_base.hpp>
+#include <topics/organ_axis.hpp> // INC-1a: isa ist HEUTE Organ (in kCompositionAxisNames); INC-2d homet es zu hardware_isa-System
 
 namespace comdare::cache_engine::simd {
 
 template <typename Derived>
-class IsaStrategyBase : public ::comdare::cache_engine::topics::AxisBase {
+class IsaStrategyBase : public ::comdare::cache_engine::topics::OrganAxis<Derived> {
 protected:
     IsaStrategyBase() noexcept {
         static_assert(concepts::IsaStrategy<Derived>);
