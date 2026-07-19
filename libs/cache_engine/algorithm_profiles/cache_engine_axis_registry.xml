@@ -74,37 +74,31 @@
     <baustein name="value_handle_versioned_pointer" wrapper="VersionedPointerValueHandle" type="::comdare::cache_engine::value_handle_axis::VersionedPointerValueHandle" header="axes/value_handle_axis/axis_14_value_handle_versioned_pointer.hpp" enabled="true" golden_wired="false"/>
     <baustein name="value_handle_chain_ref" wrapper="ChainRefValueHandle" type="::comdare::cache_engine::value_handle_axis::ChainRefValueHandle" header="axes/value_handle_axis/axis_14_value_handle_chain_ref.hpp" enabled="true" golden_wired="false"/>
   </axis>
-  <axis id="isa" slot="T11" category="composition" genus="SearchAlgorithm" baustein_count="4">
-    <baustein name="isa_amd64" wrapper="Amd64Isa" type="::comdare::cache_engine::simd::Amd64Isa" header="axes/simd/axis_09_isa_amd64.hpp" enabled="true" golden_wired="true"/>
-    <baustein name="isa_aarch64" wrapper="Aarch64Isa" type="::comdare::cache_engine::simd::Aarch64Isa" header="axes/simd/axis_09_isa_aarch64.hpp" enabled="true" golden_wired="false"/>
-    <baustein name="isa_riscv" wrapper="RiscVIsa" type="::comdare::cache_engine::simd::RiscVIsa" header="axes/simd/axis_09_isa_riscv.hpp" enabled="true" golden_wired="false"/>
-    <baustein name="isa_powerpc" wrapper="PowerPcIsa" type="::comdare::cache_engine::simd::PowerPcIsa" header="axes/simd/axis_09_isa_powerpc.hpp" enabled="true" golden_wired="false"/>
-  </axis>
-  <axis id="index_organization" slot="T12" category="composition" genus="SearchAlgorithm" baustein_count="4">
+  <axis id="index_organization" slot="T11" category="composition" genus="SearchAlgorithm" baustein_count="4">
     <baustein name="index_org_heap" wrapper="HeapIndexOrganization" type="::comdare::cache_engine::index_organization::HeapIndexOrganization" header="axes/index_organization/axis_01_index_organization_heap.hpp" enabled="true" golden_wired="true"/>
     <baustein name="index_org_clustered" wrapper="ClusteredIndexOrganization" type="::comdare::cache_engine::index_organization::ClusteredIndexOrganization" header="axes/index_organization/axis_01_index_organization_clustered.hpp" enabled="true" golden_wired="false"/>
     <baustein name="index_org_non_clustered" wrapper="NonClusteredIndexOrganization" type="::comdare::cache_engine::index_organization::NonClusteredIndexOrganization" header="axes/index_organization/axis_01_index_organization_non_clustered.hpp" enabled="true" golden_wired="false"/>
     <baustein name="index_org_index_organized_table" wrapper="IotIndexOrganization" type="::comdare::cache_engine::index_organization::IotIndexOrganization" header="axes/index_organization/axis_01_index_organization_index_organized_table.hpp" enabled="true" golden_wired="false"/>
   </axis>
-  <axis id="io_dispatch" slot="T13" category="composition" genus="SearchAlgorithm" baustein_count="4">
+  <axis id="io_dispatch" slot="T12" category="composition" genus="SearchAlgorithm" baustein_count="4">
     <baustein name="io_in_memory_only" wrapper="InMemoryOnly" type="::comdare::cache_engine::io_dispatch::InMemoryOnly" header="axes/io_dispatch/axis_io_in_memory_only.hpp" enabled="true" golden_wired="true"/>
     <baustein name="io_direct" wrapper="DirectIo" type="::comdare::cache_engine::io_dispatch::DirectIo" header="axes/io_dispatch/axis_io_direct.hpp" enabled="true" golden_wired="false"/>
     <baustein name="io_buffered" wrapper="BufferedIo" type="::comdare::cache_engine::io_dispatch::BufferedIo" header="axes/io_dispatch/axis_io_buffered.hpp" enabled="true" golden_wired="false"/>
     <baustein name="io_mmap" wrapper="MmapIo" type="::comdare::cache_engine::io_dispatch::MmapIo" header="axes/io_dispatch/axis_io_mmap.hpp" enabled="true" golden_wired="false"/>
   </axis>
-  <axis id="migration_policy" slot="T14" category="composition" genus="SearchAlgorithm" baustein_count="4">
+  <axis id="migration_policy" slot="T13" category="composition" genus="SearchAlgorithm" baustein_count="4">
     <baustein name="migration_none" wrapper="NoMigration" type="::comdare::cache_engine::migration_policy::NoMigration" header="axes/migration_policy/axis_migration_none.hpp" enabled="true" golden_wired="true"/>
     <baustein name="migration_hot_cold" wrapper="HotColdMigration" type="::comdare::cache_engine::migration_policy::HotColdMigration" header="axes/migration_policy/axis_migration_hot_cold.hpp" enabled="true" golden_wired="false"/>
     <baustein name="migration_tier_based" wrapper="TierBasedMigration" type="::comdare::cache_engine::migration_policy::TierBasedMigration" header="axes/migration_policy/axis_migration_tier_based.hpp" enabled="true" golden_wired="false"/>
     <baustein name="migration_adaptive" wrapper="AdaptiveMigration" type="::comdare::cache_engine::migration_policy::AdaptiveMigration" header="axes/migration_policy/axis_migration_adaptive.hpp" enabled="true" golden_wired="false"/>
   </axis>
-  <axis id="filter" slot="T15" category="composition" genus="SearchAlgorithm" baustein_count="4">
+  <axis id="filter" slot="T14" category="composition" genus="SearchAlgorithm" baustein_count="4">
     <baustein name="filter_bloom" wrapper="BloomFilter" type="::comdare::cache_engine::filter_axis::BloomFilter" header="axes/filter_axis/axis_filter_bloom.hpp" enabled="true" golden_wired="true"/>
     <baustein name="filter_cuckoo" wrapper="CuckooFilter" type="::comdare::cache_engine::filter_axis::CuckooFilter" header="axes/filter_axis/axis_filter_cuckoo.hpp" enabled="true" golden_wired="false"/>
     <baustein name="filter_range_surf" wrapper="RangeSurfFilter" type="::comdare::cache_engine::filter_axis::RangeSurfFilter" header="axes/filter_axis/axis_filter_range_surf.hpp" enabled="true" golden_wired="false"/>
     <baustein name="filter_xor" wrapper="XorFilter" type="::comdare::cache_engine::filter_axis::XorFilter" header="axes/filter_axis/axis_filter_xor.hpp" enabled="true" golden_wired="false"/>
   </axis>
-  <axis id="queuing_q1" slot="T16" category="composition" genus="SearchAlgorithm" baustein_count="15">
+  <axis id="queuing_q1" slot="T15" category="composition" genus="SearchAlgorithm" baustein_count="15">
     <baustein name="no_buffer" wrapper="NoBuffer" type="::comdare::cache_engine::queuing::axis_q1_queuing::NoBuffer" header="topics/queuing/axis_q1_queuing/axis_q1_queuing_no_buffer.hpp" enabled="true" golden_wired="true"/>
     <baustein name="fifo_queue" wrapper="FIFOQueueBuffer" type="::comdare::cache_engine::queuing::axis_q1_queuing::FIFOQueueBuffer" header="topics/queuing/axis_q1_queuing/axis_q1_queuing_fifo.hpp" enabled="true" golden_wired="false"/>
     <baustein name="lifo_stack" wrapper="LIFOStackBuffer" type="::comdare::cache_engine::queuing::axis_q1_queuing::LIFOStackBuffer" header="topics/queuing/axis_q1_queuing/axis_q1_queuing_lifo.hpp" enabled="true" golden_wired="false"/>
@@ -121,7 +115,7 @@
     <baustein name="lockfree_mpmc" wrapper="LockFreeMPMCBuffer" type="::comdare::cache_engine::queuing::axis_q1_queuing::LockFreeMPMCBuffer" header="topics/queuing/axis_q1_queuing/axis_q1_queuing_lockfree_mpmc.hpp" enabled="true" golden_wired="false"/>
     <baustein name="original_concurrentqueue" wrapper="OriginalLockFreeMpmcConcurrentQueue" type="::comdare::cache_engine::queuing::axis_q1_queuing::OriginalLockFreeMpmcConcurrentQueue" header="topics/queuing/axis_q1_queuing/axis_q1_queuing_original_concurrentqueue.hpp" enabled="true" golden_wired="false"/>
   </axis>
-  <axis id="queuing_q2" slot="T17" category="composition" genus="SearchAlgorithm" baustein_count="5">
+  <axis id="queuing_q2" slot="T16" category="composition" genus="SearchAlgorithm" baustein_count="5">
     <baustein name="eager_flush" wrapper="EagerFlush" type="::comdare::cache_engine::queuing::axis_q2_queuing::EagerFlush" header="topics/queuing/axis_q2_queuing/axis_q2_queuing_eager.hpp" enabled="true" golden_wired="true"/>
     <baustein name="watermark_flush" wrapper="WatermarkFlush" type="::comdare::cache_engine::queuing::axis_q2_queuing::WatermarkFlush" header="topics/queuing/axis_q2_queuing/axis_q2_queuing_watermark.hpp" enabled="true" golden_wired="false"/>
     <baustein name="lazy_flush" wrapper="LazyFlush" type="::comdare::cache_engine::queuing::axis_q2_queuing::LazyFlush" header="topics/queuing/axis_q2_queuing/axis_q2_queuing_lazy.hpp" enabled="true" golden_wired="false"/>
