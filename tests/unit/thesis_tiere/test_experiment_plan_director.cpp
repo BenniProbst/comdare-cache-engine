@@ -20,6 +20,7 @@
 // LESE-Schicht: alle Fixtures + Registries werden NUR GELESEN (per CMake-Define auf die realen/committeten Dateien).
 
 #include "planner/experiment_plan_director.hpp" // ExperimentPlanDirector / IPlanBuilder / PlanTextBuilder / RegistryTrio-Annotation
+#include "planner/plan_legend.hpp"              // W10-A: das dreistufige Legenden-Namensschema (Single-Source)
 #include "validate_profile.hpp"                 // read_axis_registry_trio / RegistryTrio
 #include "xml_config_parser/xml_config_parser.hpp" // XmlConfigParser / ThesisProfile / ExperimentProfile
 
@@ -57,13 +58,16 @@ namespace tlz     = comdare::cache_engine::thesis_lazy;
 namespace planner = comdare::cache_engine::planner;
 namespace fs      = std::filesystem;
 
-// CountingBuilder — ConcreteBuilder, der Perms + Schritte je Perm zaehlt (fuer die strukturellen Assertions).
+// CountingBuilder — ConcreteBuilder, der Mess-Kombinationen + Perms + Schritte je Perm zaehlt (strukturelle
+// Assertions). W10-A: die aeussere Mess-Achsen-Stufe wird ueber begin_measurement_combo mitgezaehlt.
 struct CountingBuilder final : planner::IPlanBuilder {
     planner::PlanHeader                         header;
+    std::vector<planner::PlanMeasurementCombo>  combos;
     std::vector<planner::PlanPerm>              perms;
     std::vector<std::vector<planner::PlanStep>> steps_per_perm; // parallel zu perms
 
     void begin_plan(planner::PlanHeader const& h) override { header = h; }
+    void begin_measurement_combo(planner::PlanMeasurementCombo const& c) override { combos.push_back(c); }
     void begin_perm(planner::PlanPerm const& p) override {
         perms.push_back(p);
         steps_per_perm.emplace_back();
@@ -327,8 +331,9 @@ TEST(CMakeGraphBuilder, ExperimentTopologyIsomorphicToDirectorWalk) {
     EXPECT_EQ(gb_total, 76u) << "4 Perms x 19 Passes";
 }
 
-// (H) build:->measure:-Kanten: N Perms => N build- + N measure-Targets + N build->measure-DEPENDS + 1 Aggregat.
-TEST(CMakeGraphBuilder, EmitsPerPermBuildMeasureEdgesAndAggregate) {
+// (H) STUFE 1 (W10-A): je Mess-Kombination EIN ceb:build- + EIN ceb:emit-Target (ceb:build->ceb:emit-Kante) +
+//     1 Aggregat. all_axes_golden traegt EINE Kombination ([all], alle 16 Kategorien) => 1+1 Targets.
+TEST(CMakeGraphBuilder, EmitsPerComboCebBuildEmitTargetsAndAggregate) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
 
@@ -337,13 +342,21 @@ TEST(CMakeGraphBuilder, EmitsPerPermBuildMeasureEdgesAndAggregate) {
     director.construct(*tp, gb);
     std::string const& cmake = gb.text();
 
-    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_experiment_plan_build_perm"), 4u);
-    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_experiment_plan_measure_perm"), 4u);
-    EXPECT_EQ(count_occurrences(cmake, "# build:->measure:-Kante"), 4u) << "eine Bau->Mess-Kante je Perm";
+    // EINE Mess-Kombination => 1 CEB-Bau- + 1 CEB-Emit-Target ([all]).
+    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_ceb_build_"), 1u)
+        << "1 CEB-Bau-Target je Kombination";
+    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_ceb_emit_"), 1u)
+        << "1 CEB-Emit-Target je Kombination";
+    EXPECT_EQ(count_occurrences(cmake, "# ceb:build->ceb:emit-Kante"), 1u) << "eine Bau->Emit-Kante je Kombination";
+    // Der CEB-Emit-Schritt ruft --emit-tier-cmake (die CEB emittiert SELBST die Stufe-2, §40.b-Hoheit).
+    EXPECT_NE(cmake.find("--emit-tier-cmake"), std::string::npos) << "CEB emittiert Stufe-2 selbst (--emit-tier-cmake)";
     EXPECT_NE(cmake.find("add_custom_target(comdare_experiment_plan_all DEPENDS"), std::string::npos);
     // Blaupausen-Treue (catalog_codegen.cmake:27-37): add_custom_command + DEPENDS + VERBATIM.
     EXPECT_NE(cmake.find("add_custom_command("), std::string::npos);
     EXPECT_NE(cmake.find("VERBATIM)"), std::string::npos);
+    // STUFE 1 baut KEINE Tier-Binaries (kein provision-only-Kommando) -- das ist Stufe-2 (--emit-tier-cmake).
+    EXPECT_EQ(cmake.find("COMDARE_GOLDEN_N_PROVISION_ONLY=true"), std::string::npos)
+        << "Stufe 1 (Planer-Rolle) baut keine Tier-Binaries";
 }
 
 // (I) Byte-Determinismus des .cmake-Textes (Thesis + Experiment): zwei Laeufe -> byte-gleich.
@@ -371,33 +384,34 @@ TEST(CMakeGraphBuilder, CMakeTextIsByteDeterministic) {
     }
 }
 
-// (J) SCHARF (W7-B/§40.c): der build:-Schritt traegt echte provision-only-Treiber-Kommandos (kein No-Op mehr),
-//     der measure:-Schritt ist GN-11-gegatet (kein Auto-Messlauf). Treiber/Profil/Range/Out = CMake-Variablen.
-TEST(CMakeGraphBuilder, SharpenedBuildCommandIsProvisionOnlyAndMeasureIsGated) {
+// (J) STUFE 2 (W10-A/§42.b, TierCmakeGraphBuilder): der tier:build-Schritt traegt echte provision-only-Treiber-
+//     Kommandos, chunk-gebuendelt (kTierChunkCount je Perm); der measure:-Schritt ist GN-11/320er-gegatet.
+TEST(TierCmakeGraphBuilder, TierBuildIsProvisionOnlyChunkedAndMeasureIsGated) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
 
     planner::ExperimentPlanDirector const director;
-    planner::CMakeGraphBuilder            gb;
+    planner::TierCmakeGraphBuilder        gb;
     director.construct(*tp, gb);
     std::string const& cmake = gb.text();
 
-    // Echter Bau: je Perm ein cmake -E env ... $DRIVER experiment_config-Kommando mit provision-only. Der measure:-
-    // Schritt nutzt -E echo (kein -E env) -> das aktive env-getriebene Bau-COMMAND zaehlt genau 1x je Perm.
-    EXPECT_EQ(count_occurrences(cmake, "COMDARE_GOLDEN_N_PROVISION_ONLY=true"), 4u) << "je Perm ein provision-only-Bau";
-    EXPECT_EQ(count_occurrences(cmake, "        COMMAND \"${CMAKE_COMMAND}\" -E env\n"), 4u)
-        << "je Perm ein aktives env-getriebenes Treiber-Bau-COMMAND (measure nutzt -E echo)";
+    // 4 Perms x kTierChunkCount(=4) = 16 Tier-Chunk-Bau-Targets, je mit provision-only. Der measure:-Schritt nutzt
+    // -E echo (kein -E env) -> das aktive env-getriebene Bau-COMMAND zaehlt genau 16x.
+    std::size_t const expected_builds = 4u * planner::kTierChunkCount;
+    EXPECT_EQ(count_occurrences(cmake, "COMDARE_GOLDEN_N_PROVISION_ONLY=true"), expected_builds)
+        << "je Perm x chunk ein provision-only-Tier-Bau";
+    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_tier_build_perm"), expected_builds);
+    EXPECT_EQ(count_occurrences(cmake, "add_custom_target(comdare_tier_measure_perm"), 4u)
+        << "1 gegateter Mess-Job je Perm";
     EXPECT_NE(cmake.find("\"COMDARE_GN_OPT=O2\""), std::string::npos) << "opt/simd als Plan-Konstanten (LITERALE)";
     EXPECT_NE(cmake.find("\"COMDARE_GN_SIMD=avx2\""), std::string::npos);
     // Host-unabhaengig: konfigurierbare Eingaben als CMake-Variablen mit Defaults, KEINE Host-Absolutpfade.
     EXPECT_NE(cmake.find("if(NOT DEFINED COMDARE_PLAN_DRIVER)"), std::string::npos);
     EXPECT_NE(cmake.find("if(NOT DEFINED COMDARE_PLAN_RANGE)"), std::string::npos);
     EXPECT_EQ(cmake.find("/home/"), std::string::npos) << "keine emit-Zeit-Host-Absolutpfade im .cmake";
-    // Messen bleibt GN-11-gegatet: der measure:-Schritt ist ein Skelett (kein aktiver COMDARE_RUN_MEASURE-Aufruf).
-    EXPECT_NE(cmake.find("measure GATED (GN-11"), std::string::npos) << "measure:-Schritt ist gegatetes Skelett";
-    EXPECT_EQ(cmake.find("COMMAND \"${CMAKE_COMMAND}\" -E env \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\" "
-                         "\"COMDARE_GN_OPT=O2\" \"COMDARE_GN_SIMD=no_extension\" COMDARE_RUN_MEASURE=true"),
-              std::string::npos)
+    // Messen bleibt GN-11/320er-gegatet: der measure:-Schritt ist ein Skelett (kein aktiver COMDARE_RUN_MEASURE).
+    EXPECT_NE(cmake.find("measure GATED (GN-11/320er"), std::string::npos) << "measure:-Schritt ist gegatetes Skelett";
+    EXPECT_EQ(cmake.find("COMDARE_RUN_MEASURE=true\n"), std::string::npos)
         << "das echte Mess-Kommando steht NUR als Kommentar-Skelett, nie als aktiver COMMAND";
 }
 
@@ -461,8 +475,9 @@ TEST(CiYamlBuilder, ExperimentTopologyIsomorphicToDirectorWalk) {
     EXPECT_EQ(yb_total, 76u) << "4 Perms x 19 Passes";
 }
 
-// (L) Je Perm GENAU 1 ceb:build- + 1 Trigger-Job (+ 1 tier:emit-Helfer) + zweistufige stages-Struktur.
-TEST(CiYamlBuilder, EmitsPerPermCebBuildAndTriggerJobsWithTwoStages) {
+// (L) STUFE 1 (W10-A/§42): je Mess-Kombination GENAU 1 ceb:build-, 1 ceb:emit- und 1 ceb:trigger-Job +
+//     zweistufige stages-Struktur (ceb-build/ceb-emit). all_axes_golden => 1 Kombination ([all]).
+TEST(CiYamlBuilder, EmitsPerComboCebJobsWithTwoStages) {
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
 
@@ -471,21 +486,26 @@ TEST(CiYamlBuilder, EmitsPerPermCebBuildAndTriggerJobsWithTwoStages) {
     director.construct(*tp, yb);
     std::string const& yaml = yb.text();
 
-    // STUFE 1: genau 1 CEB-Bau-Job je Perm (Marker-Kommentar, kollisionsfrei zu needs:-Referenzen).
-    EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-build perm "), 4u) << "1 CEB-Bau-Job je Perm";
-    // STUFE 2b: genau 1 Trigger-Job je Perm.
-    EXPECT_EQ(count_occurrences(yaml, "# JOB tier-trigger perm "), 4u) << "1 Grandchild-Trigger-Job je Perm";
-    EXPECT_EQ(count_occurrences(yaml, "# JOB tier-emit perm "), 4u) << "1 Tier-Emitter-Job je Perm (STUFE 2a)";
-    // Jeder Trigger-Job traegt genau EINEN trigger:-Schluessel (Grandchild via include: artifact:).
-    EXPECT_EQ(count_occurrences(yaml, "\n  trigger:\n"), 4u) << "je Perm ein trigger:-Schluessel";
-    EXPECT_EQ(count_occurrences(yaml, "include:\n      - artifact:"), 4u)
-        << "je Perm ein include: artifact:-Grandchild";
+    // EINE Mess-Kombination => je 1 ceb:build/emit/trigger-Job (Marker-Kommentare, kollisionsfrei zu needs).
+    EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-build combo "), 1u) << "1 CEB-Bau-Job je Kombination";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-emit combo "), 1u) << "1 CEB-Emit-Job je Kombination (--emit-tier-ci)";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-trigger combo "), 1u) << "1 Grandchild-Trigger-Job je Kombination";
+    // Die Legenden-Job-Namen tragen die [a,b,c]-Kurzform ([all] = alle 16 Kategorien).
+    EXPECT_NE(yaml.find("\"ceb:build:[all]\":"), std::string::npos) << "ceb:build:[a,b,c]-Legende (all)";
+    EXPECT_NE(yaml.find("\"ceb:emit:[all]\":"), std::string::npos);
+    EXPECT_NE(yaml.find("\"ceb:trigger:[all]\":"), std::string::npos);
+    // Die CEB emittiert SELBST die Stufe-2 (§40.b-Hoheit: --emit-tier-ci, nicht --dump-ci).
+    EXPECT_NE(yaml.find("--emit-tier-ci"), std::string::npos) << "CEB-Hoheit: die CEB emittiert Stufe-2 selbst";
+    // Genau EIN trigger:-Schluessel (Grandchild via include: artifact:) je Kombination.
+    EXPECT_EQ(count_occurrences(yaml, "\n  trigger:\n"), 1u) << "je Kombination ein trigger:-Schluessel";
+    EXPECT_EQ(count_occurrences(yaml, "include:\n      - artifact:"), 1u);
     // Zweistufige stages-Struktur (genau einmal, im Kopf).
     EXPECT_EQ(count_occurrences(yaml, "\nstages:\n"), 1u);
     EXPECT_NE(yaml.find("  - ceb-build\n"), std::string::npos);
-    EXPECT_NE(yaml.find("  - tier-emit\n"), std::string::npos);
-    // provision-only im STUFE-1-Skript (Pilot-Matrix-UMSCHALT-ZEILE), kein Messlauf.
-    EXPECT_EQ(count_occurrences(yaml, "COMDARE_GOLDEN_N_PROVISION_ONLY=true"), 4u);
+    EXPECT_NE(yaml.find("  - ceb-emit\n"), std::string::npos);
+    // STUFE 1 (Planer-Rolle) baut KEINE Tier-Binaries (kein provision-only) -- das ist Stufe-2 (--emit-tier-ci).
+    EXPECT_EQ(yaml.find("COMDARE_GOLDEN_N_PROVISION_ONLY=true"), std::string::npos)
+        << "Stufe 1 baut keine Tier-Binaries";
 }
 
 // (M) Byte-Determinismus der YAML (Thesis + Experiment): zwei Laeufe -> byte-gleich.
@@ -519,12 +539,169 @@ TEST(CiYamlBuilder, SimdRunnerTagRoutingMatchesPilotMatrix) {
     EXPECT_EQ(planner::CiYamlBuilder::simd_runner_tag("avx2"), "avx2");
     EXPECT_EQ(planner::CiYamlBuilder::simd_runner_tag("avx512"), "avx512");
 
-    // all_axes_golden traegt no_extension + avx2 -> die YAML routet auf beide Tags.
+    // all_axes_golden traegt no_extension + avx2 -> die STUFE-2-YAML (System-Perm-Ebene, TierCiYamlBuilder) routet
+    // auf beide Tags; die STUFE-1-YAML (CiYamlBuilder, CEB-Bau) ist compiler-only => broadest amd64.
     auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
     ASSERT_TRUE(tp.has_value());
     planner::ExperimentPlanDirector const director;
     planner::CiYamlBuilder                yb;
     director.construct(*tp, yb);
-    EXPECT_NE(yb.text().find("tags: [\"amd64\"]"), std::string::npos);
-    EXPECT_NE(yb.text().find("tags: [\"avx2\"]"), std::string::npos);
+    EXPECT_NE(yb.text().find("tags: [\"amd64\"]"), std::string::npos) << "Stufe 1: CEB-Bau amd64 (broadest)";
+    EXPECT_EQ(yb.text().find("tags: [\"avx2\"]"), std::string::npos) << "Stufe 1 routet NICHT per SIMD";
+    planner::TierCiYamlBuilder tb;
+    director.construct(*tp, tb);
+    EXPECT_NE(tb.text().find("tags: [\"amd64\"]"), std::string::npos) << "Stufe 2: no_extension-Perm -> amd64";
+    EXPECT_NE(tb.text().find("tags: [\"avx2\"]"), std::string::npos) << "Stufe 2: avx2-Perm -> avx2";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAKET W10-A / §42+§42.b — die DREISTUFIGE Legenden-Kette (CE erhaelt die XML und steuert ALLES). GEPRUEFT:
+// (W1) Legenden-Single-Source: [a,b,c]/[d,e,f]/[g,h,i]-Formatierung deterministisch + YAML-quote-sicher, Job-Namen.
+// (W2) DREISTUFIGE Topologie im Director-Walk: Mess-Kombination -> System-Perm -> (Chunk); Kombinations-Zahl.
+// (W3) Der --dump-plan-Text traegt die Mess-Achsen-Stufe sichtbar (measurement_combo-Zeilen).
+// (W4) Stufe 2 (TierCiYamlBuilder) enthaelt NUR die freigegebenen System-Perms + Tier-Chunk-Jobs + gegatete Mess-Jobs.
+// (W5) §42.b Bau=Haupt-only-Gate: KEINE Unter-Achse in Bau-Job-Legenden; die Mess-Jobs sind GN-11/320er-gegatet.
+// (W6) Legenden-Determinismus: zwei Laeufe beider Stufen -> byte-gleich.
+// ─────────────────────────────────────────────────────────────────────────────
+
+namespace lg = comdare::cache_engine::planner::legend;
+
+// (W1) Legenden-Single-Source: die Array-/Combo-/Perm-/Organ-/Job-Formatierung.
+TEST(PlanLegend, FormatsShortDeterministicYamlSafeArraysAndJobNames) {
+    // Achsen-Array (kurz, kommagetrennt, Klammern).
+    EXPECT_EQ(lg::axis_array({"a", "b", "c"}), "[a,b,c]");
+    EXPECT_EQ(lg::axis_array({}), "[]");
+    // Sanitisierung: Trennzeichen ([ ] , :) werden defensiv auf '_' gefaltet (YAML-quote-sicher).
+    EXPECT_EQ(lg::sanitize_token("a:b,c[d]"), "a_b_c_d_");
+    // System-Perm [d,e,f] = [opt,simd].
+    EXPECT_EQ(lg::system_perm("O2", "avx2"), "[O2,avx2]");
+    // Organ-Referenz [g,h,i] = die fuehrenden Organ-Haupt-Achsen (kCompositionAxisNames-Single-Source).
+    EXPECT_EQ(lg::organ_reference(), "[search_algo,cache_traversal,mapping]");
+    // Mess-Kombination: leer ODER alle 16 => [all]; echtes Subset => sortiertes Array.
+    EXPECT_EQ(lg::measurement_combo({}), "[all]");
+    EXPECT_EQ(lg::measurement_combo({"THROUGHPUT", "CLU"}), "[CLU,THROUGHPUT]") << "dedupliziert + sortiert";
+    // Job-Namen der drei Stufen.
+    EXPECT_EQ(lg::ceb_build_job("[all]"), "ceb:build:[all]");
+    EXPECT_EQ(lg::ceb_emit_job("[all]"), "ceb:emit:[all]");
+    EXPECT_EQ(lg::ceb_trigger_job("[all]"), "ceb:trigger:[all]");
+    EXPECT_EQ(lg::tier_build_job("[all]", "[O2,avx2]", 3), "tier:build:[all][O2,avx2]:chunk3");
+    EXPECT_EQ(lg::measure_job("[all]", "[O2,avx2]", "[g,h,i]"), "measure:[all][O2,avx2][g,h,i]");
+}
+
+// (W2) DREISTUFIGE Topologie: die Anwender-XML bestimmt die Mess-Kombination; darunter die System-Perms.
+TEST(ExperimentPlanDirector, ThreeStageTopologyMeasurementComboOuterSystemPermInner) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    CountingBuilder                       cb;
+    director.construct(*tp, cb);
+
+    // all_axes_golden deklariert alle 16 <measurement_categories> => EINE Kombination mit Legende [all].
+    ASSERT_EQ(cb.combos.size(), 1u) << "heute typisch EINE Mess-Kombination (ersetzt GN_MSYS=default)";
+    EXPECT_EQ(cb.header.measurement_combo_count, 1u);
+    EXPECT_EQ(cb.combos[0].legend, "[all]") << "alle 16 Kategorien => [all]-Sentinel";
+    // Die System-Perms bleiben byte-identisch zum Vor-W10-Verhalten (4 Perms je Kombination).
+    ASSERT_EQ(cb.perms.size(), 4u) << "2 opt x 2 simd je Mess-Kombination";
+    EXPECT_EQ(cb.header.perm_count, 4u) << "perm_count = |opt x simd| JE Mess-Kombination";
+}
+
+// (W3) --dump-plan zeigt die Mess-Achsen-Stufe sichtbar (measurement_combo-Zeile + count-Kopf).
+TEST(PlanTextBuilder, DumpPlanShowsMeasurementComboStage) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::PlanTextBuilder              pt;
+    director.construct(*tp, pt);
+    EXPECT_NE(pt.text().find("measurement_combo_count=1"), std::string::npos);
+    EXPECT_NE(pt.text().find("measurement_combo 0 legend=[all]"), std::string::npos);
+    EXPECT_NE(pt.text().find("perm_count=4"), std::string::npos) << "Perm-Ebene bleibt unter der Kombination";
+}
+
+// (W4) Stufe 2 (CEB-Rolle, TierCiYamlBuilder): NUR die freigegebenen System-Perms + Tier-Chunk-Jobs + gegatete
+//      Mess-Jobs. all_axes_golden: 4 Perms x kTierChunkCount Chunk-Bau-Jobs + 4 gegatete Mess-Jobs.
+TEST(TierCiYamlBuilder, EmitsFreedSystemPermsWithTierChunkAndGatedMeasureJobs) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    std::size_t const expected_chunks = 4u * planner::kTierChunkCount;
+    EXPECT_EQ(count_occurrences(yaml, "# JOB tier-build "), expected_chunks)
+        << "kTierChunkCount Chunk-Bau-Jobs je Perm";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB measure "), 4u) << "1 (gegateter) Mess-Job je System-Perm";
+    // Die zwei Stufen-2-stages.
+    EXPECT_NE(yaml.find("  - tier-build\n"), std::string::npos);
+    EXPECT_NE(yaml.find("  - measure\n"), std::string::npos);
+    // KEINE Stufe-1-CEB-Jobs in der Stufe-2-Sicht (die CEB-Jobs gehoeren in --dump-ci).
+    EXPECT_EQ(yaml.find("ceb:build:"), std::string::npos) << "Stufe 2 enthaelt KEINE CEB-Bau-Jobs";
+    EXPECT_EQ(yaml.find("stage: ceb-build"), std::string::npos);
+    // Die Tier-Bau-Jobs tragen die volle [a,b,c][d,e,f]:chunk<k>-Legende (die freigegebenen System-Perms).
+    EXPECT_NE(yaml.find("\"tier:build:[all][O2,no_extension]:chunk0\":"), std::string::npos);
+    EXPECT_NE(yaml.find("\"tier:build:[all][O2,avx2]:chunk0\":"), std::string::npos);
+    EXPECT_NE(yaml.find("\"tier:build:[all][O3,avx2]:chunk3\":"), std::string::npos);
+    // Die Mess-Jobs tragen die volle [a,b,c][d,e,f][g,h,i]-Legende und sind provision-only im Bau (golden-neutral).
+    EXPECT_EQ(count_occurrences(yaml, "COMDARE_GOLDEN_N_PROVISION_ONLY=true"), expected_chunks)
+        << "je Chunk-Bau-Job provision-only (Bau ohne Messung)";
+}
+
+// (W5) §42.b Bau=Haupt-only-Gate: KEINE Unter-Achse (Laufzeit-Parameter) in irgendeiner Bau-Job-Legende; die
+//      Mess-Jobs sind GN-11/320er-gegatet (when: manual = Struktur ja, kein Auto-Messlauf).
+TEST(TierCiYamlBuilder, BuildLegendsCarryNoSubAxisAndMeasureIsGated) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    planner::TierCiYamlBuilder            tb;
+    director.construct(*tp, tb);
+    std::string const& yaml = tb.text();
+
+    // Die Bau-Job-Schluessel selbst tragen KEINE Unter-Achsen-Namen (reine Laufzeit-Parameter, §42.b). Wir pruefen
+    // die Legenden-Zeilen der Bau-Jobs ("tier:build:...) auf die bekannten dynamischen Unter-Achsen-Dimensionen.
+    for (char const* sub :
+         {"thread_count", "prefetch_distance", "pool_budget", "batch_size", "inline_threshold", "workload"}) {
+        // In den Bau-JOB-Namen darf keine Unter-Achse vorkommen: wir scannen jede "tier:build:"-Zeile.
+        std::size_t pos = 0;
+        while ((pos = yaml.find("\"tier:build:", pos)) != std::string::npos) {
+            std::size_t const eol  = yaml.find('\n', pos);
+            std::string const line = yaml.substr(pos, eol - pos);
+            EXPECT_EQ(line.find(sub), std::string::npos) << "Bau=Haupt-only-Gate (§42.b): Unter-Achse '" << sub
+                                                         << "' darf NICHT in der Bau-Legende stehen: " << line;
+            pos = eol;
+        }
+    }
+    // Die Mess-Jobs sind GN-11/320er-gegatet (rules: - when: manual) -- Struktur ja, Auto-Messlauf nein.
+    EXPECT_EQ(count_occurrences(yaml, "    - when: manual"), 4u)
+        << "je Mess-Job ein when:manual-Gate-Rule (kein Auto-Messlauf)";
+    EXPECT_NE(yaml.find("GN-11/320er"), std::string::npos) << "Gate-Provenienz dokumentiert";
+    // Das echte Mess-Kommando steht NUR als Kommentar-Skelett (kein aktiver COMDARE_RUN_MEASURE-Aufruf).
+    EXPECT_EQ(yaml.find("\n      COMDARE_RUN_MEASURE=true"), std::string::npos)
+        << "echtes Mess-Kommando nur als Kommentar-Skelett";
+}
+
+// (W6) Legenden-Determinismus beider Stufen: zwei Laeufe -> byte-gleich (Thesis + Experiment).
+TEST(TierCiYamlBuilder, StageTwoIsByteDeterministic) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    auto const ep = parse_experiment(COMDARE_EXPERIMENT_GOLDEN);
+    ASSERT_TRUE(ep.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    {
+        planner::TierCiYamlBuilder a, b;
+        director.construct(*tp, a);
+        director.construct(*tp, b);
+        EXPECT_EQ(a.text(), b.text()) << "thesis Stufe-2-YAML byte-deterministisch";
+        EXPECT_FALSE(a.text().empty());
+        EXPECT_EQ(a.text().find("/home/"), std::string::npos) << "keine emit-Zeit-Host-Absolutpfade";
+    }
+    {
+        planner::TierCmakeGraphBuilder a, b;
+        director.construct(*ep, a);
+        director.construct(*ep, b);
+        EXPECT_EQ(a.text(), b.text()) << "experiment Stufe-2-cmake byte-deterministisch";
+    }
 }

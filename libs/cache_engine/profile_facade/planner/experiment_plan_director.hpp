@@ -46,7 +46,8 @@
 #include "profile_run_entry.hpp" // system_axis_opt_flag_of / system_axis_march_of / system_axis_host_supports_simd
 //   + profile_sweep_passes (via profile_runner.hpp) + project_experiment_to_sota_passes
 //   (via sota_catalog.hpp) + cm::Default*Option + cx::ThesisProfile/XmlConfigParser
-#include "validate_profile.hpp" // RegistryTrio / RegistryContents (Registry-Trio-Annotation des Plan-Kopfs)
+#include "validate_profile.hpp"    // RegistryTrio / RegistryContents (Registry-Trio-Annotation des Plan-Kopfs)
+#include "planner/plan_legend.hpp" // W10-A: das dreistufige Legenden-Namensschema (EINE Formatierungs-Single-Source)
 
 #include "xml_config_parser/xml_config_parser.hpp" // cx::ExperimentProfile / cx::ThesisProfile (explizit)
 
@@ -79,11 +80,23 @@ struct PlanRegistryTrioAnnotation {
     bool               loaded = false; // true = alle 3 Registries gelesen und annotiert
 };
 
+/// EINE Mess-Achsen-Kombination (W10-A / §42): der AEUSSERSTE Walk-Schritt (Mess-Kombination -> System-Perms ->
+/// Chunk-Buendel). Sie bestimmt den CEB-TYP: die Anwender-XML (<measurement_categories>) waehlt die Mess-Achsen
+/// [a,b,c]; je Kombination EINE dynamische CEB-Pipeline. `legend` = die kanonische [a,b,c]-Kurzform (plan_legend;
+/// `[all]` = alle 16 System-Kategorien / kein Subset deklariert). `categories` = die deklarierten Roh-Namen
+/// (Dokument-Reihenfolge). Heute typisch EINE Kombination (ersetzt den GN_MSYS="default"-Platzhalter des Piloten).
+struct PlanMeasurementCombo {
+    std::size_t              index = 0;  // 0-basierter Kombinations-Index im deterministischen Walk
+    std::vector<std::string> categories; // die deklarierten <measurement_categories> (leer = alle 16 Default)
+    std::string              legend;     // kanonische [a,b,c]-Kurzform (legend::measurement_combo)
+};
+
 /// Kopf des Plans: Provenienz (Quelle/Profil) + Perm-Zahl + Registry-Trio-Annotation.
 struct PlanHeader {
-    std::string                source_kind; // "thesis" | "experiment"
-    std::string                profile_id;
-    std::size_t                perm_count = 0; // |opt x simd|
+    std::string source_kind; // "thesis" | "experiment"
+    std::string profile_id;
+    std::size_t perm_count              = 0; // |opt x simd| JE Mess-Kombination
+    std::size_t measurement_combo_count = 0; // W10-A: Zahl der Mess-Achsen-Kombinationen (heute typisch 1)
     PlanRegistryTrioAnnotation registries;
 };
 
@@ -124,6 +137,11 @@ public:
     virtual void on_step(PlanStep const& step)        = 0;
     virtual void end_perm(PlanPerm const& perm)       = 0;
     virtual void end_plan(PlanHeader const& header)   = 0;
+    // W10-A (§42): die AEUSSERE Mess-Achsen-Stufe. DEFAULT-No-Op, damit die bestehenden ConcreteBuilder
+    // (PlanTextBuilder) und struktur-zaehlende Builder unveraendert bleiben (additiv). Die Stufen-Builder
+    // (CiYamlBuilder Stufe 1 / TierCiYamlBuilder Stufe 2) ueberschreiben sie und emittieren an dieser Ebene.
+    virtual void begin_measurement_combo(PlanMeasurementCombo const& /*combo*/) {}
+    virtual void end_measurement_combo(PlanMeasurementCombo const& /*combo*/) {}
 };
 
 // ── PlanTextBuilder — ConcreteBuilder + der --dump-plan-Traeger. Deterministische Zeilen-Textform. ──────────
@@ -151,7 +169,12 @@ public:
                 " measurement=" + nz(h.registries.measurement.engine) +
                 " measurement_axes=" + std::to_string(h.registries.measurement.axis_count) +
                 " measurement_offers=" + std::to_string(h.registries.measurement.baustein_count) + "\n";
+        out_ += "measurement_combo_count=" + std::to_string(h.measurement_combo_count) + "\n";
         out_ += "perm_count=" + std::to_string(h.perm_count) + "\n";
+    }
+    // W10-A: die aeussere Mess-Achsen-Stufe im Plan-Text sichtbar machen (dreistufige Topologie).
+    void begin_measurement_combo(PlanMeasurementCombo const& c) override {
+        out_ += "measurement_combo " + std::to_string(c.index) + " legend=" + c.legend + "\n";
     }
     void begin_perm(PlanPerm const& p) override {
         out_ += "perm " + std::to_string(p.index) + " opt=" + nz(p.opt_id) + " simd=" + nz(p.simd_id) +
@@ -175,136 +198,92 @@ private:
     std::string                      out_;
 };
 
-// ── CMakeGraphBuilder — zweiter ConcreteBuilder (GoF Builder) am SELBEN Director-Walk (PAKET W5-B / I2). ──────
-//    Emittiert ein deterministisches experiment_plan.cmake: die Bau-/Mess-Matrix als CMake-Graph. Pro Perm
-//    (opt x simd-Zelle) EIN build:-Schritt (Bau der Zell-Binaries) + EIN measure:-Schritt; die build:->measure:-
-//    Kante ist das DEPENDS des measure- auf den build-Stamp (Blaupause add_custom_command/DEPENDS/VERBATIM,
-//    cmake/catalog_codegen.cmake:27-37). REIN beschreibend: die COMMANDs sind No-Op (echo+touch), es findet KEIN
-//    echter Compile/Run statt (Anti-Phantom, golden-neutral, wie der PlanTextBuilder-Schwesterzweig). Host-
-//    unabhaengig reproduzierbar: der Text traegt nur CMake-Generator-Variablen (${CMAKE_CURRENT_BINARY_DIR}) als
-//    LITERALE, keine emit-Zeit-Host-Werte => byte-deterministisch. Isomorph zum PlanTextBuilder: BEIDE sehen
-//    ueber denselben Director-Walk dieselbe begin_perm/on_step-Folge (die perms()/steps_per_perm()-Aufzeichnung
-//    ist der strukturelle Zeuge fuer den Contract-Test).
+// ── CMakeGraphBuilder — STUFE-1-Emitter (Planer-Rolle, PAKET W10-A / §42, ersetzt die W7-B-Zell-Direktbau-Sicht).
+//    Emittiert ein deterministisches experiment_plan.cmake der MESS-ACHSEN-Stufe: je Mess-Kombination [a,b,c]
+//    (aus der Anwender-XML) EIN CEB-Bau-Target + EIN CEB-Emit-Target, das die CEB SELBST die STUFE-2-Sicht
+//    emittieren laesst (--emit-tier-cmake). Der Bare-Metal-Bau ist damit DREISTUFIG (§42: „das Konzept der
+//    lokalen Compile" identisch korrigiert): --dump-cmake -> Stufe-1 (CEB) -> --emit-tier-cmake -> Stufe-2
+//    (Tier-Binaries). Der REALE provision-only-Tier-Bau lebt in der Stufe-2 (TierCmakeGraphBuilder), nicht hier.
 //
-//    SCHARF (PAKET W7-B / §40.c = §0-DoD5, Bare-Metal-Pflicht): die build:-COMMANDs sind KEINE No-Ops mehr,
-//    sondern echte provision-only-Treiber-Kommandos je Zelle (cmake -E env COMDARE_THESIS_PROFILE/GN_OPT/GN_SIMD/
-//    GOLDEN_N_RANGE/PROVISION_ONLY $<driver> experiment_config <out>). Ein Bare-Metal-Lauf = cmake-Aufruf DIESES
-//    emittierten Plans OHNE GitLab. Die Zelle bleibt host-unabhaengig: Treiber/Profil/Range/Out sind CMake-
-//    Variablen mit Defaults (ueberschreibbar via -D...), NUR opt/simd sind Plan-Konstanten (LITERALE). Die
-//    measure:-COMMANDs bleiben ein GN-11-GEGATETES Skelett (kein Auto-Messlauf!).
+//    Host-unabhaengig: Treiber/Profil sind CMake-Variablen mit Defaults (per -D ueberschreibbar), nur die
+//    [a,b,c]-Legenden sind Plan-Konstanten. Isomorph zum Director-Walk (perms()/steps_per_perm() = Zeuge).
 class CMakeGraphBuilder final : public IPlanBuilder {
 public:
     void begin_plan(PlanHeader const& h) override {
         header_ = h;
-        out_ += "# comdare-experiment-plan (generated .cmake blueprint, CMakeGraphBuilder v1)\n";
+        out_ += "# comdare-experiment-plan (generated .cmake blueprint, CMakeGraphBuilder v2 = STUFE 1)\n";
         out_ += "# source_kind=" + h.source_kind + " profile_id=" + h.profile_id +
+                " measurement_combo_count=" + std::to_string(h.measurement_combo_count) +
                 " perm_count=" + std::to_string(h.perm_count) +
                 " registry_trio_loaded=" + std::string(h.registries.loaded ? "1" : "0") + "\n";
         out_ += "#\n";
-        out_ += "# Deterministische Bau-/Mess-Matrix als CMake-Graph: pro Perm (opt x simd) EIN build:- + EIN\n";
-        out_ += "# measure:-Schritt; die build:->measure:-Kante ist das DEPENDS des measure- auf den build-Stamp.\n";
-        out_ += "#\n";
-        out_ += "# W7-B/§40.c (Bare-Metal): die build:-COMMANDs sind echte provision-only-Treiber-Aufrufe. Ein\n";
-        out_ += "# Bare-Metal-Lauf = cmake -P/Konfiguration dieses Plans + `cmake --build <dir> --target\n";
+        out_ += "# Ledger §42: STUFE 1 (Mess-Achsen-Stufe) -- je Mess-Kombination [a,b,c] EIN CEB-Bau-Target +\n";
+        out_ += "# EIN CEB-Emit-Target (--emit-tier-cmake => Stufe-2-Plan). Dreistufiger Bare-Metal-Bau:\n";
+        out_ += "#   cmake --build <dir> --target comdare_ceb_emit_<combo>  # emittiert tier_plan_<combo>.cmake\n";
         out_ +=
-            "# comdare_experiment_plan_build_perm0` OHNE GitLab. Konfigurierbare Eingaben (per -D ueberschreibbar):\n";
-        out_ += "#   COMDARE_PLAN_DRIVER  = Pfad/Name des comdare-messung-driver (Default: PATH-Suche)\n";
-        out_ += "#   COMDARE_PLAN_PROFILE = Thesis-/Experiment-Profil-XML (Default: leer => Treiber-Default-Profil)\n";
-        out_ += "#   COMDARE_PLAN_RANGE   = golden-N Chunk-Fenster start:count (Default: 0:4 = SICHER klein)\n";
-        out_ += "#   COMDARE_PLAN_OUT     = Ausgabe-Wurzel fuer die provision-DLLs (Default: "
-                "<bindir>/experiment_plan/out)\n";
+            "#   (dann Stufe-2: cmake -P/Konfiguration dieses tier_plan + --build comdare_tier_build_perm0_chunk0)\n";
+        out_ += "# Konfigurierbare Eingaben (per -D ueberschreibbar):\n";
+        out_ += "#   COMDARE_PLAN_DRIVER   = Pfad/Name des comdare-messung-driver / CEB (Default: PATH-Suche)\n";
+        out_ += "#   COMDARE_PLAN_PROFILE  = Thesis-/Experiment-Profil-XML (Default: leer => Treiber-Default-Profil)\n";
+        out_ += "#   COMDARE_PLAN_TIER_OUT = Ausgabe-Wurzel fuer die emittierten Stufe-2-cmake (Default: "
+                "<bindir>/tier_plans)\n";
         out_ += "if(NOT DEFINED COMDARE_PLAN_DRIVER)\n";
         out_ += "    set(COMDARE_PLAN_DRIVER \"comdare-messung-driver\")\n";
         out_ += "endif()\n";
         out_ += "if(NOT DEFINED COMDARE_PLAN_PROFILE)\n";
         out_ += "    set(COMDARE_PLAN_PROFILE \"\")\n";
         out_ += "endif()\n";
-        out_ += "if(NOT DEFINED COMDARE_PLAN_RANGE)\n";
-        out_ += "    set(COMDARE_PLAN_RANGE \"0:4\")\n";
+        out_ += "if(NOT DEFINED COMDARE_PLAN_TIER_OUT)\n";
+        out_ += "    set(COMDARE_PLAN_TIER_OUT \"${CMAKE_CURRENT_BINARY_DIR}/tier_plans\")\n";
         out_ += "endif()\n";
-        out_ += "if(NOT DEFINED COMDARE_PLAN_OUT)\n";
-        out_ += "    set(COMDARE_PLAN_OUT \"${CMAKE_CURRENT_BINARY_DIR}/experiment_plan/out\")\n";
+    }
+    // STUFE 1 haengt an der Mess-Achsen-Ebene: je Mess-Kombination CEB-Bau + CEB-Emit(--emit-tier-cmake).
+    void begin_measurement_combo(PlanMeasurementCombo const& c) override {
+        combos_.push_back(c);
+        std::string const slug    = legend::cmake_slug(c.legend);
+        std::string const stemdir = "${CMAKE_CURRENT_BINARY_DIR}/experiment_plan";
+        std::string const bstamp  = stemdir + "/ceb_" + slug + ".build.stamp";
+        std::string const tierpl  = "${COMDARE_PLAN_TIER_OUT}/tier_plan_" + slug + ".cmake";
+        out_ += "\n# --- measurement_combo " + std::to_string(c.index) + ": " + c.legend + " (CEB-Typ) ---\n";
+        // CEB-Bau-Target (STUFE 1): der CEB (=comdare-messung-driver) ist die Voraussetzung. Echo-Acknowledgment
+        // (der Treiber wird ueber COMDARE_PLAN_DRIVER hereingereicht bzw. vom aeusseren cmake gebaut).
+        out_ += "if(NOT TARGET " + ceb_build_target(slug) + ")\n";
+        out_ += "    add_custom_command(\n";
+        out_ += "        OUTPUT \"" + bstamp + "\"\n";
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E make_directory \"" + stemdir + "\"\n";
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"ceb:build " + c.legend +
+                " (CEB-Typ = comdare-messung-driver)\"\n";
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E touch \"" + bstamp + "\"\n";
+        out_ += "        COMMENT \"ceb:build " + c.legend + "\"\n";
+        out_ += "        VERBATIM)\n";
+        out_ += "    add_custom_target(" + ceb_build_target(slug) + " DEPENDS \"" + bstamp + "\")\n";
         out_ += "endif()\n";
-        // Messen ist GN-11-gegatet: kein Auto-Messlauf. COMDARE_PLAN_ENABLE_MEASURE bleibt fuer die Zukunft
-        // deklariert, der measure:-Schritt bleibt dennoch ein Echo-/Skelett-Schritt (kein Treiber-Messaufruf).
-        out_ += "if(NOT DEFINED COMDARE_PLAN_ENABLE_MEASURE)\n";
-        out_ += "    set(COMDARE_PLAN_ENABLE_MEASURE OFF)  # GN-11-Gate: Messen erst nach User-Entscheid\n";
+        // CEB-Emit-Target (STUFE 1->2): die GEBAUTE CEB emittiert ihre STUFE-2-Sicht (--emit-tier-cmake). CEB-Hoheit
+        // (§40.b). DEPENDS auf den CEB-Bau-Stamp (Bau->Emit-Kante). Host-unabhaengig (Treiber/Profil = Variablen).
+        out_ += "if(NOT TARGET " + ceb_emit_target(slug) + ")\n";
+        out_ += "    add_custom_command(\n";
+        out_ += "        OUTPUT \"" + tierpl + "\"\n";
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E make_directory \"${COMDARE_PLAN_TIER_OUT}\"\n";
+        out_ += "        COMMAND \"${COMDARE_PLAN_DRIVER}\" --emit-tier-cmake \"${COMDARE_PLAN_PROFILE}\" > \"" +
+                tierpl + "\"\n";
+        out_ += "        DEPENDS \"" + bstamp + "\" # ceb:build->ceb:emit-Kante\n";
+        out_ += "        COMMENT \"ceb:emit " + c.legend + " (--emit-tier-cmake => Stufe-2-Plan)\"\n";
+        out_ += "        VERBATIM)\n";
+        out_ += "    add_custom_target(" + ceb_emit_target(slug) + " DEPENDS \"" + tierpl + "\")\n";
         out_ += "endif()\n";
     }
     void begin_perm(PlanPerm const& p) override {
         perms_.push_back(p);
         steps_per_perm_.emplace_back();
-        out_ += "\n# --- perm " + std::to_string(p.index) + ": opt=" + nz(p.opt_id) + " simd=" + nz(p.simd_id) +
-                " build_version_suffix=" + nz(p.build_version_suffix) + " ---\n";
     }
-    void on_step(PlanStep const& s) override {
-        steps_per_perm_.back().push_back(s);
-        out_ += "#   step " + std::to_string(s.index) + " kind=" + nz(s.kind) +
-                " label=" + (s.label.empty() ? std::string{"<basis>"} : s.label) + " merge=" + nz(s.merge) +
-                " binary_id=" + nz(s.binary_id) + " lebewesen=" + nz(s.lebewesen) + "\n";
-    }
-    void end_perm(PlanPerm const& p) override {
-        std::string const idx     = std::to_string(p.index);
-        std::string const opt     = nz(p.opt_id);
-        std::string const simd    = nz(p.simd_id);
-        std::string const stemdir = "${CMAKE_CURRENT_BINARY_DIR}/experiment_plan";
-        std::string const stem    = stemdir + "/perm" + idx;
-        std::string const bstamp  = stem + ".build.stamp";
-        std::string const mstamp  = stem + ".measure.stamp";
-        std::string const cell =
-            "perm " + idx + " opt=" + opt + " simd=" + simd + " steps=" + std::to_string(steps_per_perm_.back().size());
-        // build:-Schritt (Bau der Zell-Binaries dieser opt x simd-Perm) -- SCHARF (W7-B/§40.c): echter
-        // provision-only-Treiber-Aufruf. opt/simd sind Plan-Konstanten (LITERALE); Treiber/Profil/Range/Out
-        // sind CMake-Variablen mit Defaults (host-unabhaengig). Muster = Pilot-Matrix-UMSCHALT-ZEILE. Das
-        // make_directory sichert das Stamp-Elternverzeichnis (Bare-Metal-Beweis W7-B: ohne dieses schlaegt
-        // der cmake -E touch am nicht-existenten Ordner fehl).
-        out_ += "if(NOT TARGET " + build_target(p.index) + ")\n";
-        out_ += "    add_custom_command(\n";
-        out_ += "        OUTPUT \"" + bstamp + "\"\n";
-        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E make_directory \"" + stemdir + "\"\n";
-        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"build (provision-only): " + cell + "\"\n";
-        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E env\n";
-        out_ += "            \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\"\n";
-        out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
-        out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
-        out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
-        out_ += "            COMDARE_GOLDEN_N_PROVISION_ONLY=true\n";
-        out_ += "            COMDARE_RUN_SOTA=0\n";
-        out_ += "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/perm" + idx + "\"\n";
-        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E touch \"" + bstamp + "\"\n";
-        out_ += "        COMMENT \"build (provision-only): " + cell + "\"\n";
-        out_ += "        VERBATIM)\n";
-        out_ += "    add_custom_target(" + build_target(p.index) + " DEPENDS \"" + bstamp + "\")\n";
-        out_ += "endif()\n";
-        // measure:-Schritt mit build:->measure:-Kante (DEPENDS auf den build-Stamp derselben Perm). GN-11-GEGATET:
-        // KEIN Auto-Messlauf (Ledger §40.c). Der Schritt ist ein Echo-/Skelett-Schritt; das echte Mess-Kommando
-        // (COMDARE_GOLDEN_N_PROVISION_ONLY ENTFERNT => echte Messung) steht NUR als Kommentar-Skelett -- es wird
-        // erst nach dem GN-11-Entscheid scharfgeschaltet.
-        out_ += "if(NOT TARGET " + measure_target(p.index) + ")\n";
-        out_ += "    add_custom_command(\n";
-        out_ += "        OUTPUT \"" + mstamp + "\"\n";
-        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E make_directory \"" + stemdir + "\"\n";
-        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo\n";
-        out_ += "            \"measure GATED (GN-11, kein Auto-Messlauf): " + cell + " -- Skelett siehe Kommentar\"\n";
-        out_ += "        # MESS-KOMMANDO-SKELETT (GN-11-gated, NICHT aktiv; COMDARE_GOLDEN_N_PROVISION_ONLY ENTFERNT = "
-                "echte Messung):\n";
-        out_ += "        #   \"${CMAKE_COMMAND}\" -E env \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\"\n";
-        out_ +=
-            "        #     \"COMDARE_GN_OPT=" + opt + "\" \"COMDARE_GN_SIMD=" + simd + "\" COMDARE_RUN_MEASURE=true\n";
-        out_ += "        #     \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/perm" + idx + "\"\n";
-        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E touch \"" + mstamp + "\"\n";
-        out_ += "        DEPENDS \"" + bstamp + "\" # build:->measure:-Kante\n";
-        out_ += "        COMMENT \"measure (GN-11-gated skeleton): " + cell + "\"\n";
-        out_ += "        VERBATIM)\n";
-        out_ += "    add_custom_target(" + measure_target(p.index) + " DEPENDS \"" + mstamp + "\")\n";
-        out_ += "endif()\n";
-    }
+    void on_step(PlanStep const& s) override { steps_per_perm_.back().push_back(s); }
+    void end_perm(PlanPerm const&) override {}
     void end_plan(PlanHeader const&) override {
-        // Aggregat-Target: alle measure:-Schritte (=> transitiv alle build:-Schritte via build:->measure:-Kante).
-        out_ += "\n# Aggregat: alle measure:-Schritte (transitiv alle build:-Schritte via DEPENDS-Kante).\n";
+        // Aggregat-Target: alle CEB-Emit-Targets (=> transitiv alle CEB-Bau-Targets via Bau->Emit-Kante).
+        out_ += "\n# Aggregat: alle ceb:emit-Targets (transitiv alle ceb:build-Targets via DEPENDS-Kante).\n";
         out_ += "if(NOT TARGET " + all_target() + ")\n";
         out_ += "    add_custom_target(" + all_target() + " DEPENDS";
-        for (auto const& p : perms_) out_ += "\n        " + measure_target(p.index);
+        for (auto const& c : combos_) out_ += "\n        " + ceb_emit_target(legend::cmake_slug(c.legend));
         out_ += ")\n";
         out_ += "endif()\n";
     }
@@ -315,67 +294,69 @@ public:
     [[nodiscard]] std::vector<std::vector<PlanStep>> const& steps_per_perm() const noexcept { return steps_per_perm_; }
 
 private:
-    [[nodiscard]] static std::string nz(std::string const& s) { return s.empty() ? std::string{"-"} : s; }
-    [[nodiscard]] static std::string build_target(std::size_t i) {
-        return "comdare_experiment_plan_build_perm" + std::to_string(i);
-    }
-    [[nodiscard]] static std::string measure_target(std::size_t i) {
-        return "comdare_experiment_plan_measure_perm" + std::to_string(i);
-    }
+    [[nodiscard]] static std::string ceb_build_target(std::string const& slug) { return "comdare_ceb_build_" + slug; }
+    [[nodiscard]] static std::string ceb_emit_target(std::string const& slug) { return "comdare_ceb_emit_" + slug; }
     [[nodiscard]] static std::string all_target() { return "comdare_experiment_plan_all"; }
 
     PlanHeader                         header_;
+    std::vector<PlanMeasurementCombo>  combos_;
     std::vector<PlanPerm>              perms_;
     std::vector<std::vector<PlanStep>> steps_per_perm_;
     std::string                        out_;
 };
 
-// ── CiYamlBuilder — vierter ConcreteBuilder (GoF Builder) am SELBEN Director-Walk (PAKET W7-A / I3, §40.b). ────
-//    Emittiert eine deterministische GitLab-Child-Pipeline-YAML: die dynamische, Planer-gesteuerte CI (§40.b:
-//    Pilot->Serie). Die statische 24-Zellen-Matrix im super/.gitlab-ci.yml bleibt der Pilot-Fallback; DIESER
-//    Traeger ist die vom Planer selbst EMITTIERTE Folge-CI.
+// SIMD-Capability-Routing (Pilot-Matrix §36.3): no_extension->amd64, avx2->avx2, avx512->avx512. Ein unbekannter
+// SIMD-Wert routet auf seinen eigenen Namen als Tag (die Infra taggt Nodes nach realer CPU-Faehigkeit) --
+// deterministisch, kein stiller Fallback auf einen falschen Tag. GETEILT zwischen Stufe-1 (CiYamlBuilder) und
+// Stufe-2 (TierCiYamlBuilder) -- EINE Routing-Single-Source.
+[[nodiscard]] inline std::string simd_runner_tag(std::string const& simd_id) {
+    if (simd_id.empty() || simd_id == "no_extension") return "amd64";
+    return simd_id; // avx2 -> "avx2", avx512 -> "avx512", sonst der ISA-Name selbst
+}
+
+// Wie viele Chunk-Bau-Jobs die CEB-Rolle je System-Perm emittiert (Organ-Raum-Buendelung, §42.b). Default 4 =
+// die Pilot-Matrix-Chunk-Zahl (GN_CHUNK 0..3, super/.gitlab-ci.yml) -- 2^17 Einzel-Jobs waeren keine Legende.
+inline constexpr std::size_t kTierChunkCount = 4;
+
+// ── CiYamlBuilder — STUFE-1-Emitter (Planer-Rolle, PAKET W10-A / §42, ersetzt die W7-A-Zweistufigkeit). ───────
+//    Emittiert eine deterministische GitLab-Child-Pipeline-YAML: die MESS-ACHSEN-Stufe der CE-gesteuerten Kette.
+//    Je Mess-Achsen-Kombination [a,b,c] (aus der Anwender-XML, <measurement_categories>) EINE dynamische
+//    CEB-Pipeline:
+//      "ceb:build:[a,b,c]"   -> baut die CEB fuer diesen CEB-Typ (Messsystem).
+//      "ceb:emit:[a,b,c]"    -> die GEBAUTE CEB emittiert SELBST Child-2 (--emit-tier-ci, §40.b-Praezisierung:
+//                               Planer steuert CEB-Jobs, CEB steuert Tier-Jobs) aus ihren einkompilierten
+//                               System-Achsen-Freigaben. Heute EINE Binary in zwei Rollen (Planer-Rolle --dump-ci
+//                               vs CEB-Rolle --emit-tier-ci; ehrlich dokumentiert, kein Schein-Split).
+//      "ceb:trigger:[a,b,c]" -> Grandchild-Trigger der Child-2-YAML (trigger: include: artifact:).
 //
-//    ZWEISTUFIGE Struktur (Ledger §40.b-PRAEZISIERUNG, exakt auf der Binary-Kette §30):
-//      STUFE 1 (stage ceb-build): je System-Permutation (opt x simd des Director-Walks) EIN CEB-Bau-Job
-//              "ceb:build:<opt>:<simd>" -- der Planer STEUERT die CEB-Bau-Jobs. Runner-Tag = SIMD-Capability-
-//              Routing der Pilot-Matrix (§36.3): no_extension->amd64, avx2->avx2, avx512->avx512. resource_group
-//              gn-analog (gn-default-<simd>-<opt>) = natives Ein-Job-Lock je Zelle. Die script-Zeilen sind die
-//              Pilot-Matrix-UMSCHALT-ZEILE (provision-only-Treiber-Aufruf; keine Messung, golden-neutral).
-//      STUFE 2 (stage tier-emit): je System-Permutation EIN Emitter-Job "tier:emit:<opt>:<simd>" (die CEB
-//              emittiert ihre Tier-Binary-Job-YAML als Platzhalter via "--dump-ci") + EIN Trigger-Job
-//              "tier:trigger:<opt>:<simd>", der diese YAML als GRANDCHILD-Pipeline triggert
-//              (trigger: include: artifact:). Die Tier-Job-Emission ist CEB-Hoheit (§37.b-Delegation), heute
-//              Platzhalter (--dump-ci) bis Fork C (aktive CEB-Generierung .so) landet.
+//    Der Director-Walk ist dreistufig (Mess-Kombination -> System-Perm -> Chunk-Buendel); die STUFE-1-Emission
+//    haengt an der Mess-Kombinations-Ebene (begin_measurement_combo). Die System-Perms [d,e,f] und die
+//    Tier-Chunk-/Mess-Jobs gehoeren in die STUFE-2-Sicht (TierCiYamlBuilder, CEB-Rolle) -- NICHT hierher.
 //
-//    GITLAB-NESTING: GitLab erlaubt parent->child->grandchild (maximal 2 Ebenen tiefe verschachtelte
-//    Child-Pipelines). Diese Kette nutzt genau diese Tiefe: super-Pipeline (parent) -> diese YAML (child,
-//    getriggert vom planer:emit-ci/-trigger-Job) -> Tier-Job-YAML (grandchild, getriggert vom tier:trigger-Job).
-//
-//    GOLDEN/HOST-NEUTRAL: rein beschreibende Text-Emission (KEIN Bau, KEINE Messung im Builder selbst). Der Text
-//    traegt NUR CI-Variablen ($CI_PROJECT_DIR, $COMDARE_GOLDEN_N_PROFILE, $DRIVER) + die opt/simd-Plan-Konstanten
-//    als LITERALE, KEINE emit-Zeit-Host-Absolutpfade => byte-deterministisch/reproduzierbar. Isomorph zum
-//    PlanTextBuilder/CMakeGraphBuilder: BEIDE sehen ueber denselben Director-Walk dieselbe begin_perm/on_step-Folge
-//    (perms()/steps_per_perm() = struktureller Zeuge fuer den Topologie-Isomorphie-Contract-Test).
+//    GITLAB-NESTING: super(parent) -> diese YAML(child, planer:delegate) -> CEB-emittierte Child-2(grandchild)
+//    (max. 2 Ebenen tiefe Verschachtelung -- genau ausgeschoepft). GOLDEN/HOST-NEUTRAL: reine Text-Emission,
+//    KEIN Bau/Messung im Builder; nur CI-Variablen + [a,b,c]-Legenden als LITERALE => byte-deterministisch.
+//    perms()/steps_per_perm() bleiben aufgezeichnet (struktureller Zeuge fuer den Isomorphie-Contract-Test).
 class CiYamlBuilder final : public IPlanBuilder {
 public:
     void begin_plan(PlanHeader const& h) override {
         header_ = h;
-        out_ += "# comdare dynamic planer child-pipeline (CiYamlBuilder v1) -- GENERIERT, deterministisch, "
-                "host-unabhaengig.\n";
+        out_ += "# comdare dynamic planer child-pipeline (CiYamlBuilder v2, STUFE 1 = Mess-Achsen-Stufe) -- "
+                "GENERIERT, deterministisch, host-unabhaengig.\n";
         out_ += "# source_kind=" + h.source_kind + " profile_id=" + h.profile_id +
+                " measurement_combo_count=" + std::to_string(h.measurement_combo_count) +
                 " perm_count=" + std::to_string(h.perm_count) +
                 " registry_trio_loaded=" + std::string(h.registries.loaded ? "1" : "0") + "\n";
         out_ += "#\n";
-        out_ += "# Ledger §40.b-Praezisierung: ZWEISTUFIGE dynamische CI-Steuerung auf der Binary-Kette (§30).\n";
-        out_ += "#   STUFE 1 (ceb-build): je System-Perm EIN CEB-Bau-Job -- der Planer steuert die CEB-Bau-Jobs.\n";
-        out_ += "#   STUFE 2 (tier-emit): je System-Perm EIN Emitter-Job (CEB emittiert Tier-Job-YAML, Platzhalter\n";
-        out_ += "#           --dump-ci, §37.b-Delegation/Fork C) + EIN Trigger-Job (Grandchild via "
-                "trigger:include:artifact:).\n";
-        out_ += "#   GitLab-Nesting parent->child->grandchild (max. 2 Ebenen): super(parent)->diese "
-                "YAML(child)->Tier-YAML(grandchild).\n";
+        out_ += "# Ledger §42: CE erhaelt die XML und steuert ALLES. DREISTUFIGE Legenden-Kette --\n";
+        out_ += "#   STUFE 1 (HIER, ceb-build/ceb-emit): je Mess-Kombination [a,b,c] EINE CEB-Pipeline\n";
+        out_ +=
+            "#           (ceb:build -> ceb:emit(--emit-tier-ci) -> ceb:trigger). Der PLANER steuert die CEB-Jobs.\n";
+        out_ += "#   STUFE 2 (CEB-emittiert, --emit-tier-ci): je System-Perm [d,e,f] die Tier-Chunk-Jobs\n";
+        out_ += "#           \"tier:build:[a,b,c][d,e,f]:chunk<k>\" + GN-11/320er-gegatete Mess-Jobs.\n";
         out_ += "stages:\n";
         out_ += "  - ceb-build\n";
-        out_ += "  - tier-emit\n";
+        out_ += "  - ceb-emit\n";
         // Child-eigene Defaults (self-contained fuer standalone-Lint; der Parent-Trigger reicht globale Variablen
         // ohnehin durch). Profil-Default = CI_PROJECT_DIR-relativ (host-unabhaengig). Range-Default = kleines,
         // SICHERES Fenster 0:4 (kein versehentlicher 2^17-Voll-Bau; COMDARE_GN_RANGE override).
@@ -386,21 +367,21 @@ public:
         out_ +=
             "  COMDARE_GN_RANGE: \"0:4\"   # SICHERES kleines Fenster (Pilot->Serie); Voll-Bau ist INC-G6-gegatet\n";
     }
+    // STUFE 1 haengt an der Mess-Achsen-Ebene: je Mess-Kombination die drei CEB-Jobs.
+    void begin_measurement_combo(PlanMeasurementCombo const& c) override {
+        out_ += "\n# =================================================================================\n";
+        out_ += "# measurement_combo " + std::to_string(c.index) + " legend=" + c.legend + " (CEB-Typ)\n";
+        out_ += "# =================================================================================\n";
+        out_ += emit_ceb_build_job(c);
+        out_ += emit_ceb_emit_job(c);
+        out_ += emit_ceb_trigger_job(c);
+    }
     void begin_perm(PlanPerm const& p) override {
         perms_.push_back(p);
         steps_per_perm_.emplace_back();
-        out_ += "\n# =================================================================================\n";
-        out_ += "# perm " + std::to_string(p.index) + ": opt=" + nz(p.opt_id) + " simd=" + nz(p.simd_id) +
-                " (runner-tag=" + simd_runner_tag(p.simd_id) + " build_version_suffix=" + nz(p.build_version_suffix) +
-                ")\n";
-        out_ += "# =================================================================================\n";
     }
     void on_step(PlanStep const& s) override { steps_per_perm_.back().push_back(s); }
-    void end_perm(PlanPerm const& p) override {
-        out_ += emit_ceb_build_job(p);
-        out_ += emit_tier_emit_job(p);
-        out_ += emit_tier_trigger_job(p);
-    }
+    void end_perm(PlanPerm const&) override {}
     void end_plan(PlanHeader const&) override {}
 
     [[nodiscard]] std::string const&                        text() const noexcept { return out_; }
@@ -408,41 +389,23 @@ public:
     [[nodiscard]] std::vector<PlanPerm> const&              perms() const noexcept { return perms_; }
     [[nodiscard]] std::vector<std::vector<PlanStep>> const& steps_per_perm() const noexcept { return steps_per_perm_; }
 
-    // SIMD-Capability-Routing (Pilot-Matrix §36.3): no_extension->amd64, avx2->avx2, avx512->avx512. Ein
-    // unbekannter SIMD-Wert routet auf seinen eigenen Namen als Tag (die Infra taggt Nodes nach realer
-    // CPU-Faehigkeit) -- deterministisch, kein stiller Fallback auf einen falschen Tag.
     [[nodiscard]] static std::string simd_runner_tag(std::string const& simd_id) {
-        if (simd_id.empty() || simd_id == "no_extension") return "amd64";
-        return simd_id; // avx2 -> "avx2", avx512 -> "avx512", sonst der ISA-Name selbst
+        return ::comdare::cache_engine::planner::simd_runner_tag(simd_id);
     }
 
 private:
-    [[nodiscard]] static std::string nz(std::string const& s) { return s.empty() ? std::string{"-"} : s; }
-    // Job-Namen tragen Doppelpunkte (GitLab-Konvention) -> YAML-quoten macht den Schluessel eindeutig.
-    [[nodiscard]] static std::string ceb_build_job(PlanPerm const& p) {
-        return "ceb:build:" + nz(p.opt_id) + ":" + nz(p.simd_id);
-    }
-    [[nodiscard]] static std::string tier_emit_job(PlanPerm const& p) {
-        return "tier:emit:" + nz(p.opt_id) + ":" + nz(p.simd_id);
-    }
-    [[nodiscard]] static std::string tier_trigger_job(PlanPerm const& p) {
-        return "tier:trigger:" + nz(p.opt_id) + ":" + nz(p.simd_id);
-    }
-    [[nodiscard]] static std::string tier_artifact(PlanPerm const& p) {
-        return "tier-child-perm" + std::to_string(p.index) + ".yml";
-    }
-
-    // STUFE 1: der CEB-Bau-Job dieser System-Permutation. script = Pilot-Matrix-UMSCHALT-ZEILE (provision-only).
-    [[nodiscard]] static std::string emit_ceb_build_job(PlanPerm const& p) {
-        std::string const idx = std::to_string(p.index);
-        std::string const opt = nz(p.opt_id), simd = nz(p.simd_id);
+    // STUFE 1a: der CEB-Bau-Job dieser Mess-Kombination. Baut die CEB (heute: comdare-messung-driver). Tag amd64
+    // (broadest: der CEB-Bau ist compiler-only; die SIMD-Wahl faellt erst in der CEB-Rolle je System-Perm).
+    [[nodiscard]] static std::string emit_ceb_build_job(PlanMeasurementCombo const& c) {
+        std::string const slug = legend::cmake_slug(c.legend);
         std::string       s;
-        s += "# JOB ceb-build perm " + idx + " (STUFE 1: Planer steuert CEB-Bau)\n";
-        s += "\"" + ceb_build_job(p) + "\":\n";
+        s += "# JOB ceb-build combo " + std::to_string(c.index) + " (STUFE 1: Planer steuert CEB-Bau, CEB-Typ " +
+             c.legend + ")\n";
+        s += "\"" + legend::ceb_build_job(c.legend) + "\":\n";
         s += "  stage: ceb-build\n";
-        s += "  tags: [\"" + simd_runner_tag(p.simd_id) + "\"]\n";
-        s += "  resource_group: \"gn-default-" + simd + "-" + opt + "\"\n";
-        s += "  interruptible: false   # provision-Bau darf nie auto-cancelt werden\n";
+        s += "  tags: [\"amd64\"]\n";
+        s += "  resource_group: \"ceb-" + slug + "\"\n";
+        s += "  interruptible: false   # CEB-Bau darf nie auto-cancelt werden\n";
         s += "  variables:\n";
         s += "    GIT_SUBMODULE_STRATEGY: recursive   # ce-Submodul fuer den Treiber-Bau (REV-17-Deploy-Token, "
              "Architekt lintet)\n";
@@ -455,26 +418,22 @@ private:
         s += "    - |\n";
         s += "      set -euo pipefail\n";
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
-        s += "      test -n \"$DRIVER\" -a -x \"$DRIVER\" || { echo \"comdare-messung-driver fehlt\"; exit 1; }\n";
-        s += "      # STUFE 1: CEB-Bau dieser System-Perm (opt=" + opt + " simd=" + simd +
-             "), provision-only (Bau ohne Messung, golden-neutral).\n";
-        s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" "
-             "COMDARE_GOLDEN_N_RANGE=\"${COMDARE_GN_RANGE:-0:4}\" \\\n";
-        s += "        COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
-             "\" COMDARE_GOLDEN_N_PROVISION_ONLY=true COMDARE_RUN_SOTA=0 \\\n";
-        s += "        \"$DRIVER\" experiment_config \"$CI_PROJECT_DIR/Code/gn_out/perm" + idx + "\"\n";
+        s +=
+            "      test -n \"$DRIVER\" -a -x \"$DRIVER\" || { echo \"comdare-messung-driver (CEB) fehlt\"; exit 1; }\n";
+        s += "      echo \"== STUFE 1: CEB " + c.legend + " gebaut (Messsystem-Typ) ==\"\n";
         return s;
     }
 
-    // STUFE 2a: die CEB emittiert ihre Tier-Binary-Job-YAML (Platzhalter --dump-ci, §37.b-Delegation/Fork C).
-    [[nodiscard]] static std::string emit_tier_emit_job(PlanPerm const& p) {
-        std::string const idx = std::to_string(p.index);
+    // STUFE 1b: die GEBAUTE CEB emittiert SELBST Child-2 (--emit-tier-ci, CEB-Rolle) -> Artefakt. §40.b-Hoheit.
+    [[nodiscard]] static std::string emit_ceb_emit_job(PlanMeasurementCombo const& c) {
+        std::string const slug = legend::cmake_slug(c.legend);
+        std::string const art  = "tier-child-" + slug + ".yml";
         std::string       s;
-        s += "# JOB tier-emit perm " + idx + " (STUFE 2: CEB emittiert Tier-Job-YAML, Platzhalter)\n";
-        s += "\"" + tier_emit_job(p) + "\":\n";
-        s += "  stage: tier-emit\n";
-        s += "  tags: [\"" + simd_runner_tag(p.simd_id) + "\"]\n";
-        s += "  needs: [\"" + ceb_build_job(p) + "\"]\n";
+        s += "# JOB ceb-emit combo " + std::to_string(c.index) + " (STUFE 1->2: CEB emittiert Child-2, CEB-Hoheit)\n";
+        s += "\"" + legend::ceb_emit_job(c.legend) + "\":\n";
+        s += "  stage: ceb-emit\n";
+        s += "  tags: [\"amd64\"]\n";
+        s += "  needs: [\"" + legend::ceb_build_job(c.legend) + "\"]\n";
         s += "  variables:\n";
         s += "    GIT_SUBMODULE_STRATEGY: recursive\n";
         s += "  script:\n";
@@ -484,36 +443,186 @@ private:
         s += "    - |\n";
         s += "      set -euo pipefail\n";
         s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
-        s += "      # Platzhalter (§37.b-Delegation/Fork C): die CEB emittiert ihre Tier-Binary-Job-YAML. Heute\n";
-        s += "      # derselbe --dump-ci-Traeger; kuenftig CEB-eigene Tier-Emission der Zell-Tier-Binaries.\n";
-        s += "      \"$DRIVER\" --dump-ci \"$COMDARE_GOLDEN_N_PROFILE\" > \"$CI_PROJECT_DIR/" + tier_artifact(p) +
-             "\"\n";
-        s += "      head -20 \"$CI_PROJECT_DIR/" + tier_artifact(p) + "\"\n";
+        s += "      # §40.b-Praezisierung: die CEB (nicht der Planer) emittiert ihre STUFE-2-Sicht (System-Perms\n";
+        s += "      # des FREIGEGEBENEN Raums + Tier-Chunk-Jobs + gegatete Mess-Jobs) via --emit-tier-ci.\n";
+        s += "      \"$DRIVER\" --emit-tier-ci \"$COMDARE_GOLDEN_N_PROFILE\" > \"$CI_PROJECT_DIR/" + art + "\"\n";
+        s +=
+            "      echo \"== CEB-emittierte STUFE-2 (erste 20 Zeilen) ==\"; head -20 \"$CI_PROJECT_DIR/" + art + "\"\n";
         s += "  artifacts:\n";
         s += "    paths:\n";
-        s += "      - " + tier_artifact(p) + "\n";
+        s += "      - " + art + "\n";
         return s;
     }
 
-    // STUFE 2b: Grandchild-Trigger der vom Emitter-Job produzierten Tier-Job-YAML (trigger: include: artifact:).
-    [[nodiscard]] static std::string emit_tier_trigger_job(PlanPerm const& p) {
-        std::string const idx = std::to_string(p.index);
+    // STUFE 1c: Grandchild-Trigger der CEB-emittierten Child-2-YAML (trigger: include: artifact:).
+    [[nodiscard]] static std::string emit_ceb_trigger_job(PlanMeasurementCombo const& c) {
+        std::string const slug = legend::cmake_slug(c.legend);
+        std::string const art  = "tier-child-" + slug + ".yml";
         std::string       s;
-        s += "# JOB tier-trigger perm " + idx + " (STUFE 2: Grandchild-Trigger)\n";
-        s += "\"" + tier_trigger_job(p) + "\":\n";
-        s += "  stage: tier-emit\n";
+        s += "# JOB ceb-trigger combo " + std::to_string(c.index) + " (STUFE 1: Grandchild-Trigger der Child-2)\n";
+        s += "\"" + legend::ceb_trigger_job(c.legend) + "\":\n";
+        s += "  stage: ceb-emit\n";
         s += "  needs:\n";
-        s += "    - job: \"" + tier_emit_job(p) + "\"\n";
+        s += "    - job: \"" + legend::ceb_emit_job(c.legend) + "\"\n";
         s += "      artifacts: true\n";
         s += "  trigger:\n";
         s += "    include:\n";
-        s += "      - artifact: " + tier_artifact(p) + "\n";
-        s += "        job: \"" + tier_emit_job(p) + "\"\n";
+        s += "      - artifact: " + art + "\n";
+        s += "        job: \"" + legend::ceb_emit_job(c.legend) + "\"\n";
         s += "    strategy: depend\n";
         return s;
     }
 
     PlanHeader                         header_;
+    std::vector<PlanPerm>              perms_;
+    std::vector<std::vector<PlanStep>> steps_per_perm_;
+    std::string                        out_;
+};
+
+// ── TierCiYamlBuilder — STUFE-2-Emitter (CEB-Rolle, PAKET W10-A / §42/§42.b, --emit-tier-ci). ─────────────────
+//    Emittiert NUR die STUFE-2-Sicht der CE-gesteuerten Kette: den FREIGEGEBENEN System-Achsen-Raum [d,e,f]
+//    (opt x simd des Director-Walks) einer CEB (=Mess-Kombination [a,b,c]) + die Tier-Chunk-Bau-Jobs + die
+//    GN-11/320er-gegateten Mess-Jobs. Dies ist die CEB-HOHEIT (§40.b-Praezisierung: der Planer steuert die
+//    CEB-Jobs, die CEB steuert die Tier-Jobs). Heute traegt EINE Binary beide Rollen (Planer-Rolle CiYamlBuilder
+//    vs CEB-Rolle DIESER Builder) -- ehrlich getrennt ueber getrennte CLI-Modi + getrennte Emissions-Sichten.
+//
+//    Je System-Perm [d,e,f] (des FREIGEGEBENEN Raums der Mess-Kombination):
+//      "tier:build:[a,b,c][d,e,f]:chunk<k>" (k=0..kTierChunkCount-1) -- baut die Tier-Binaries dieser Zelle;
+//         der 2^17-Organ-Raum ist als chunk<k> GEBUENDELT (§42.b: 2^17 Einzel-Jobs waeren Rauschen). Die
+//         Bau-Job-Legende traegt NUR HAUPT-Achsen (Mess [a,b,c] + System [d,e,f]) + chunk -- KEINE Organ-Haupt-
+//         Achse (die steckt im binary_id-Artefaktpfad) und KEINE Unter-Achse (Bau=Haupt-only-Gate, §42.b).
+//      "measure:[a,b,c][d,e,f][g,h,i]" -- der GN-11/320er-GEGATETE Mess-Job (when: manual = Struktur ja,
+//         Auto-Messlauf nein). [g,h,i] = Organ-Referenz (fuehrende Organ-Haupt-Achsen; die reale Auffaecherung
+//         ist EIN Job je Organ-Haupt-Achsen-Perm = binary_id, gated). Der Job sweept zur Laufzeit die
+//         Unter-Achsen (§42.b) unter selbem Compile und schreibt EIN CSV zurueck.
+//
+//    GOLDEN/HOST-NEUTRAL: reine Text-Emission; nur CI-Variablen + [a,b,c][d,e,f]-Legenden als LITERALE =>
+//    byte-deterministisch. Isomorph zum Director-Walk (perms()/steps_per_perm() = struktureller Zeuge).
+class TierCiYamlBuilder final : public IPlanBuilder {
+public:
+    void begin_plan(PlanHeader const& h) override {
+        header_ = h;
+        out_ += "# comdare CEB-emitted tier child-pipeline (TierCiYamlBuilder v1, STUFE 2 = System-Achsen-Stufe) "
+                "-- GENERIERT, deterministisch, host-unabhaengig.\n";
+        out_ += "# source_kind=" + h.source_kind + " profile_id=" + h.profile_id +
+                " measurement_combo_count=" + std::to_string(h.measurement_combo_count) +
+                " perm_count=" + std::to_string(h.perm_count) + " chunks_per_perm=" + std::to_string(kTierChunkCount) +
+                "\n";
+        out_ += "#\n";
+        out_ += "# Ledger §42.b (CEB-Rolle --emit-tier-ci): NUR die STUFE-2-Sicht des FREIGEGEBENEN CEB-Raums.\n";
+        out_ += "#   tier:build:[a,b,c][d,e,f]:chunk<k> -- Tier-Bau (Organ-Raum als chunk gebuendelt, Haupt-only).\n";
+        out_ += "#   measure:[a,b,c][d,e,f][g,h,i]      -- GN-11/320er-GEGATET (when: manual = Struktur ja, kein "
+                "Auto-Messlauf).\n";
+        out_ += "stages:\n";
+        out_ += "  - tier-build\n";
+        out_ += "  - measure\n";
+        out_ += "variables:\n";
+        out_ += "  COMDARE_GOLDEN_N_PROFILE: "
+                "\"$CI_PROJECT_DIR/Code/external/comdare-cache-engine/libs/cache_engine/algorithm_profiles/"
+                "thesis_profiles/all_axes_golden.profile.xml\"\n";
+        out_ +=
+            "  COMDARE_GN_RANGE: \"0:4\"   # SICHERES kleines Fenster (Pilot->Serie); Voll-Bau ist INC-G6-gegatet\n";
+    }
+    // Die CEB-Rolle emittiert je Mess-Kombination (die CEB, die --emit-tier-ci aufruft) ihre STUFE-2-Sicht. Heute
+    // ist das die EINE Kombination des Profils; der combo-Kontext [a,b,c] wird fuer die Perm-Legenden gehalten.
+    void begin_measurement_combo(PlanMeasurementCombo const& c) override {
+        combo_legend_ = c.legend;
+        out_ += "\n# --- CEB-Raum " + c.legend + " (Mess-Kombination " + std::to_string(c.index) + ") ---\n";
+    }
+    void begin_perm(PlanPerm const& p) override {
+        perms_.push_back(p);
+        steps_per_perm_.emplace_back();
+    }
+    void on_step(PlanStep const& s) override { steps_per_perm_.back().push_back(s); }
+    // Je System-Perm: die Tier-Chunk-Bau-Jobs + der gegatete Mess-Job (am Perm-Ende, wenn combo-Kontext steht).
+    void end_perm(PlanPerm const& p) override {
+        std::string const perm_legend = legend::system_perm(p.opt_id, p.simd_id);
+        out_ += "\n# perm " + std::to_string(p.index) + ": " + perm_legend +
+                " (runner-tag=" + simd_runner_tag(p.simd_id) + ")\n";
+        for (std::size_t k = 0; k < kTierChunkCount; ++k) out_ += emit_tier_build_job(p, perm_legend, k);
+        out_ += emit_measure_job(p, perm_legend);
+    }
+    void end_plan(PlanHeader const&) override {}
+
+    [[nodiscard]] std::string const&                        text() const noexcept { return out_; }
+    [[nodiscard]] PlanHeader const&                         header() const noexcept { return header_; }
+    [[nodiscard]] std::vector<PlanPerm> const&              perms() const noexcept { return perms_; }
+    [[nodiscard]] std::vector<std::vector<PlanStep>> const& steps_per_perm() const noexcept { return steps_per_perm_; }
+
+private:
+    // STUFE 2 Bau-Job: EIN Chunk des 2^17-Organ-Raums dieser Zelle (Haupt-only-Legende, §42.b). script =
+    // provision-only-Treiber-Aufruf (Bau ohne Messung, golden-neutral), mit dem Chunk-Fenster als GN-Range.
+    [[nodiscard]] std::string emit_tier_build_job(PlanPerm const& p, std::string const& perm_legend,
+                                                  std::size_t k) const {
+        std::string const job  = legend::tier_build_job(combo_legend_, perm_legend, k);
+        std::string const opt  = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
+        std::string const simd = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
+        std::string const kstr = std::to_string(k);
+        std::string       s;
+        s += "# JOB tier-build combo=" + combo_legend_ + " perm " + std::to_string(p.index) + " chunk " + kstr +
+             " (STUFE 2: CEB steuert Tier-Bau)\n";
+        s += "\"" + job + "\":\n";
+        s += "  stage: tier-build\n";
+        s += "  tags: [\"" + simd_runner_tag(p.simd_id) + "\"]\n";
+        s += "  resource_group: \"tier-" + legend::cmake_slug(combo_legend_) + "-" + simd + "-" + opt + "-c" + kstr +
+             "\"\n";
+        s += "  interruptible: false   # provision-Bau darf nie auto-cancelt werden\n";
+        s += "  variables:\n";
+        s += "    GIT_SUBMODULE_STRATEGY: recursive\n";
+        s += "  script:\n";
+        s += "    - cd Code\n";
+        s += "    - cmake -B build -G Ninja -DCOMDARE_V32_ENABLE=ON -DCMAKE_BUILD_TYPE=Release\n";
+        s += "    - cmake --build build --target comdare-messung-driver\n";
+        s += "    - |\n";
+        s += "      set -euo pipefail\n";
+        s += "      DRIVER=$(find build -type f -name \"comdare-messung-driver\" | head -1)\n";
+        s += "      # STUFE 2: Tier-Bau der Zelle [a,b,c][d,e,f]=" + combo_legend_ + perm_legend + " chunk " + kstr +
+             " (provision-only, golden-neutral).\n";
+        s += "      COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" "
+             "COMDARE_GOLDEN_N_RANGE=\"${COMDARE_GN_RANGE:-0:4}\" \\\n";
+        s += "        COMDARE_GN_OPT=\"" + opt + "\" COMDARE_GN_SIMD=\"" + simd +
+             "\" COMDARE_GOLDEN_N_PROVISION_ONLY=true COMDARE_RUN_SOTA=0 \\\n";
+        s += "        \"$DRIVER\" experiment_config \"$CI_PROJECT_DIR/Code/gn_out/" +
+             legend::cmake_slug(combo_legend_) + "/perm" + std::to_string(p.index) + "/chunk" + kstr + "\"\n";
+        return s;
+    }
+
+    // STUFE 3 Mess-Job (GN-11/320er-GEGATET): when: manual = Struktur ja, Auto-Messlauf nein. [g,h,i] =
+    // Organ-Referenz (fuehrende Organ-Haupt-Achsen; reale Auffaecherung = EIN Job je binary_id, gated). needs =
+    // die Chunk-Bau-Jobs derselben Perm (Bau->Mess-Kante). Das echte Mess-Kommando steht NUR als Skelett-Kommentar.
+    [[nodiscard]] std::string emit_measure_job(PlanPerm const& p, std::string const& perm_legend) const {
+        std::string const organ = legend::organ_reference();
+        std::string const job   = legend::measure_job(combo_legend_, perm_legend, organ);
+        std::string const opt   = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
+        std::string const simd  = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
+        std::string       s;
+        s += "# JOB measure combo=" + combo_legend_ + " perm " + std::to_string(p.index) +
+             " (STUFE 3: GN-11/320er-GEGATET, when: manual = Struktur ja / kein Auto-Messlauf)\n";
+        s += "\"" + job + "\":\n";
+        s += "  stage: measure\n";
+        s += "  tags: [\"" + simd_runner_tag(p.simd_id) + "\"]\n";
+        s += "  needs:\n";
+        for (std::size_t k = 0; k < kTierChunkCount; ++k)
+            s += "    - \"" + legend::tier_build_job(combo_legend_, perm_legend, k) + "\"\n";
+        s += "  rules:\n";
+        s += "    - when: manual   # GN-11/320er-Gate: Messen erst nach User-Entscheid (kein Auto-Messlauf)\n";
+        s += "  allow_failure: true\n";
+        s += "  script:\n";
+        s += "    - |\n";
+        s += "      set -euo pipefail\n";
+        s += "      echo \"measure GATED (GN-11/320er): Zelle [a,b,c][d,e,f][g,h,i]=" + combo_legend_ + perm_legend +
+             organ + " -- Skelett\"\n";
+        s += "      # MESS-KOMMANDO-SKELETT (GN-11/320er-gated, NICHT aktiv; COMDARE_GOLDEN_N_PROVISION_ONLY "
+             "ENTFERNT = echte Messung, 1-Thread-Doktrin §38.b, voller Unter-Achsen-Sweep, EIN CSV zurueck):\n";
+        s += "      #   DRIVER=$(find build -type f -name comdare-messung-driver | head -1)\n";
+        s += "      #   COMDARE_THESIS_PROFILE=\"$COMDARE_GOLDEN_N_PROFILE\" COMDARE_GN_OPT=\"" + opt +
+             "\" COMDARE_GN_SIMD=\"" + simd + "\" COMDARE_RUN_MEASURE=true \\\n";
+        s += "      #     \"$DRIVER\" experiment_config \"$CI_PROJECT_DIR/Code/measure_out\"\n";
+        return s;
+    }
+
+    PlanHeader                         header_;
+    std::string                        combo_legend_ = "[all]"; // gesetzt in begin_measurement_combo
     std::vector<PlanPerm>              perms_;
     std::vector<std::vector<PlanStep>> steps_per_perm_;
     std::string                        out_;
@@ -534,6 +643,146 @@ private:
     return a;
 }
 
+// ── TierCmakeGraphBuilder — STUFE-2-Emitter (CEB-Rolle, PAKET W10-A / §42/§42.b, --emit-tier-cmake). ──────────
+//    Der Bare-Metal-Gegenpart zum TierCiYamlBuilder: emittiert das tier_plan.cmake einer CEB (Mess-Kombination
+//    [a,b,c]) -- je System-Perm [d,e,f] die REALEN provision-only-Tier-Bau-Targets (Organ-Raum als chunk<k>
+//    gebuendelt) + je Perm EIN GN-11/320er-gegatetes measure:-Skelett-Target. Dies traegt den SCHARFEN
+//    provision-only-Treiber-Aufruf (der frueher in der W7-B-CMakeGraphBuilder-Zelle lag) -- die STUFE-2 ist der
+//    Ort des Tier-Baus. Ein Bare-Metal-Lauf der DREISTUFIGEN Kette: --dump-cmake (Stufe 1) -> CEB -> --emit-tier-
+//    cmake (Stufe 2, DIESER Builder) -> `cmake --build <dir> --target comdare_tier_build_perm0_chunk0`.
+//
+//    Host-unabhaengig: Treiber/Profil/Range/Out = CMake-Variablen mit Defaults; nur [a,b,c][d,e,f]-Legenden +
+//    chunk sind Plan-Konstanten. measure:-Target bleibt GN-11/320er-gegatet (Echo-Skelett, kein Auto-Messlauf).
+class TierCmakeGraphBuilder final : public IPlanBuilder {
+public:
+    void begin_plan(PlanHeader const& h) override {
+        header_ = h;
+        out_ += "# comdare tier-plan (generated .cmake blueprint, TierCmakeGraphBuilder v1 = STUFE 2)\n";
+        out_ += "# source_kind=" + h.source_kind + " profile_id=" + h.profile_id +
+                " perm_count=" + std::to_string(h.perm_count) + " chunks_per_perm=" + std::to_string(kTierChunkCount) +
+                "\n";
+        out_ += "#\n";
+        out_ += "# Ledger §42.b (CEB-Rolle --emit-tier-cmake): je System-Perm [d,e,f] die Tier-Chunk-Bau-Targets\n";
+        out_ += "# (provision-only, SCHARF) + EIN GN-11/320er-gegatetes measure:-Skelett-Target. Bare-Metal:\n";
+        out_ += "#   cmake --build <dir> --target comdare_tier_build_perm0_chunk0   # baut die Tier-DLLs (perm.dll)\n";
+        out_ += "# Konfigurierbare Eingaben (per -D ueberschreibbar):\n";
+        out_ += "#   COMDARE_PLAN_DRIVER  = Pfad/Name des comdare-messung-driver (Default: PATH-Suche)\n";
+        out_ += "#   COMDARE_PLAN_PROFILE = Thesis-/Experiment-Profil-XML (Default: leer => Treiber-Default-Profil)\n";
+        out_ += "#   COMDARE_PLAN_RANGE   = golden-N Chunk-Fenster start:count (Default: 0:4 = SICHER klein)\n";
+        out_ += "#   COMDARE_PLAN_OUT     = Ausgabe-Wurzel fuer die provision-DLLs (Default: <bindir>/tier/out)\n";
+        out_ += "if(NOT DEFINED COMDARE_PLAN_DRIVER)\n";
+        out_ += "    set(COMDARE_PLAN_DRIVER \"comdare-messung-driver\")\n";
+        out_ += "endif()\n";
+        out_ += "if(NOT DEFINED COMDARE_PLAN_PROFILE)\n";
+        out_ += "    set(COMDARE_PLAN_PROFILE \"\")\n";
+        out_ += "endif()\n";
+        out_ += "if(NOT DEFINED COMDARE_PLAN_RANGE)\n";
+        out_ += "    set(COMDARE_PLAN_RANGE \"0:4\")\n";
+        out_ += "endif()\n";
+        out_ += "if(NOT DEFINED COMDARE_PLAN_OUT)\n";
+        out_ += "    set(COMDARE_PLAN_OUT \"${CMAKE_CURRENT_BINARY_DIR}/tier/out\")\n";
+        out_ += "endif()\n";
+    }
+    void begin_measurement_combo(PlanMeasurementCombo const& c) override {
+        combo_legend_ = c.legend;
+        out_ += "\n# --- CEB-Raum " + c.legend + " (Mess-Kombination " + std::to_string(c.index) + ") ---\n";
+    }
+    void begin_perm(PlanPerm const& p) override {
+        perms_.push_back(p);
+        steps_per_perm_.emplace_back();
+    }
+    void on_step(PlanStep const& s) override { steps_per_perm_.back().push_back(s); }
+    void end_perm(PlanPerm const& p) override {
+        std::string const idx         = std::to_string(p.index);
+        std::string const opt         = p.opt_id.empty() ? std::string{"O3"} : p.opt_id;
+        std::string const simd        = p.simd_id.empty() ? std::string{"no_extension"} : p.simd_id;
+        std::string const slug        = legend::cmake_slug(combo_legend_);
+        std::string const stemdir     = "${CMAKE_CURRENT_BINARY_DIR}/tier";
+        std::string const perm_legend = legend::system_perm(p.opt_id, p.simd_id);
+        out_ += "\n# perm " + idx + ": [a,b,c][d,e,f]=" + combo_legend_ + perm_legend + "\n";
+        // K Tier-Chunk-Bau-Targets (provision-only, SCHARF) je System-Perm. Organ-Raum als chunk<k> gebuendelt.
+        std::vector<std::string> chunk_stamps;
+        for (std::size_t k = 0; k < kTierChunkCount; ++k) {
+            std::string const kstr   = std::to_string(k);
+            std::string const bstamp = stemdir + "/" + slug + "_perm" + idx + "_chunk" + kstr + ".build.stamp";
+            std::string const tgt    = tier_build_target(p.index, k);
+            std::string const cell   = "combo=" + combo_legend_ + " perm " + idx + " " + perm_legend + " chunk " + kstr;
+            chunk_stamps.push_back(bstamp);
+            out_ += "if(NOT TARGET " + tgt + ")\n";
+            out_ += "    add_custom_command(\n";
+            out_ += "        OUTPUT \"" + bstamp + "\"\n";
+            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E make_directory \"" + stemdir + "\"\n";
+            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo \"tier:build (provision-only): " + cell + "\"\n";
+            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E env\n";
+            out_ += "            \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\"\n";
+            out_ += "            \"COMDARE_GOLDEN_N_RANGE=${COMDARE_PLAN_RANGE}\"\n";
+            out_ += "            \"COMDARE_GN_OPT=" + opt + "\"\n";
+            out_ += "            \"COMDARE_GN_SIMD=" + simd + "\"\n";
+            out_ += "            COMDARE_GOLDEN_N_PROVISION_ONLY=true\n";
+            out_ += "            COMDARE_RUN_SOTA=0\n";
+            out_ += "            \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/" + slug + "/perm" +
+                    idx + "/chunk" + kstr + "\"\n";
+            out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E touch \"" + bstamp + "\"\n";
+            out_ += "        COMMENT \"tier:build (provision-only): " + cell + "\"\n";
+            out_ += "        VERBATIM)\n";
+            out_ += "    add_custom_target(" + tgt + " DEPENDS \"" + bstamp + "\")\n";
+            out_ += "endif()\n";
+        }
+        // measure:-Target (GN-11/320er-GEGATET): Echo-Skelett, DEPENDS auf ALLE Chunk-Bau-Stamps derselben Perm
+        // (Bau->Mess-Kante). Das echte Mess-Kommando steht NUR als Kommentar-Skelett (kein Auto-Messlauf).
+        std::string const mstamp = stemdir + "/" + slug + "_perm" + idx + ".measure.stamp";
+        std::string const mtgt   = tier_measure_target(p.index);
+        std::string const organ  = legend::organ_reference();
+        out_ += "if(NOT TARGET " + mtgt + ")\n";
+        out_ += "    add_custom_command(\n";
+        out_ += "        OUTPUT \"" + mstamp + "\"\n";
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E echo\n";
+        out_ += "            \"measure GATED (GN-11/320er): [a,b,c][d,e,f][g,h,i]=" + combo_legend_ + perm_legend +
+                organ + " -- Skelett\"\n";
+        out_ += "        # MESS-KOMMANDO-SKELETT (GN-11/320er-gated, NICHT aktiv; PROVISION_ONLY ENTFERNT = echte "
+                "Messung, 1-Thread §38.b):\n";
+        out_ += "        #   \"${CMAKE_COMMAND}\" -E env \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\"\n";
+        out_ += "        #     \"COMDARE_GN_OPT=" + opt + "\" \"COMDARE_GN_SIMD=" + simd +
+                "\" COMDARE_RUN_MEASURE=true \\\n";
+        out_ += "        #     \"${COMDARE_PLAN_DRIVER}\" experiment_config \"${COMDARE_PLAN_OUT}/measure\"\n";
+        out_ += "        COMMAND \"${CMAKE_COMMAND}\" -E touch \"" + mstamp + "\"\n";
+        for (auto const& st : chunk_stamps) out_ += "        DEPENDS \"" + st + "\" # tier:build->measure:-Kante\n";
+        out_ +=
+            "        COMMENT \"measure (GN-11/320er-gated skeleton): combo=" + combo_legend_ + " perm " + idx + "\"\n";
+        out_ += "        VERBATIM)\n";
+        out_ += "    add_custom_target(" + mtgt + " DEPENDS \"" + mstamp + "\")\n";
+        out_ += "endif()\n";
+    }
+    void end_plan(PlanHeader const&) override {
+        out_ += "\n# Aggregat: alle measure:-Targets (transitiv alle tier:build-Targets via DEPENDS-Kante).\n";
+        out_ += "if(NOT TARGET " + all_target() + ")\n";
+        out_ += "    add_custom_target(" + all_target() + " DEPENDS";
+        for (auto const& p : perms_) out_ += "\n        " + tier_measure_target(p.index);
+        out_ += ")\n";
+        out_ += "endif()\n";
+    }
+
+    [[nodiscard]] std::string const&                        text() const noexcept { return out_; }
+    [[nodiscard]] PlanHeader const&                         header() const noexcept { return header_; }
+    [[nodiscard]] std::vector<PlanPerm> const&              perms() const noexcept { return perms_; }
+    [[nodiscard]] std::vector<std::vector<PlanStep>> const& steps_per_perm() const noexcept { return steps_per_perm_; }
+
+private:
+    [[nodiscard]] static std::string tier_build_target(std::size_t i, std::size_t k) {
+        return "comdare_tier_build_perm" + std::to_string(i) + "_chunk" + std::to_string(k);
+    }
+    [[nodiscard]] static std::string tier_measure_target(std::size_t i) {
+        return "comdare_tier_measure_perm" + std::to_string(i);
+    }
+    [[nodiscard]] static std::string all_target() { return "comdare_tier_plan_all"; }
+
+    PlanHeader                         header_;
+    std::string                        combo_legend_ = "[all]";
+    std::vector<PlanPerm>              perms_;
+    std::vector<std::vector<PlanStep>> steps_per_perm_;
+    std::string                        out_;
+};
+
 // ── ExperimentPlanDirector — DIRECTOR (GoF Builder). EIN deterministischer Walk, zwei Kanaele. ──────────────
 class ExperimentPlanDirector {
 public:
@@ -543,10 +792,11 @@ public:
     /// Thesis-Kanal: opt x simd x profile_sweep_passes(tp, ""). KEIN Bau; die Selektions-Pass-Liste ist die
     /// deterministische #26/GO-5-Enumeration (Basis-Pass zuerst + je <axis_sweep> ein Pass in Dokument-Reihenfolge).
     void construct(cx::ThesisProfile const& tp, IPlanBuilder& b) const {
-        std::vector<std::string> const opt_perms  = opt_perms_of(tp.compiler.opt_levels);
-        std::vector<std::string> const simd_perms = simd_perms_of(tp.extension_hardware.simd_options);
-        std::vector<std::string> const passes     = tlz::profile_sweep_passes(tp, /*requested_axis=*/"");
-        walk_perms_("thesis", tp.id, opt_perms, simd_perms, b, [&](IPlanBuilder& bb) {
+        std::vector<std::string> const          opt_perms  = opt_perms_of(tp.compiler.opt_levels);
+        std::vector<std::string> const          simd_perms = simd_perms_of(tp.extension_hardware.simd_options);
+        std::vector<std::string> const          passes     = tlz::profile_sweep_passes(tp, /*requested_axis=*/"");
+        std::vector<PlanMeasurementCombo> const combos     = measurement_combos_of(tp.measurement_categories);
+        walk_perms_("thesis", tp.id, combos, opt_perms, simd_perms, b, [&](IPlanBuilder& bb) {
             std::size_t j = 0;
             for (auto const& sweep_axis : passes) {
                 PlanStep s;
@@ -569,7 +819,8 @@ public:
         std::vector<std::string> const opt_perms  = opt_perms_of(ep.compiler.opt_levels);
         std::vector<std::string> const simd_perms = simd_perms_of(ep.extension_hardware.simd_options);
         std::vector<tlz::ExperimentPhaseProjection> const projections = tlz::project_experiment_to_sota_passes(ep);
-        walk_perms_("experiment", ep.id, opt_perms, simd_perms, b, [&](IPlanBuilder& bb) {
+        std::vector<PlanMeasurementCombo> const           combos = measurement_combos_of(ep.measurement_categories);
+        walk_perms_("experiment", ep.id, combos, opt_perms, simd_perms, b, [&](IPlanBuilder& bb) {
             std::size_t j = 0;
             for (auto const& proj : projections) {
                 for (auto const& p : proj.passes) {
@@ -600,37 +851,59 @@ private:
                                         : xml_simd_options;
     }
 
-    // Der EINE Perm-Walk (opt x simd) + Builder-Treiber. Der Steps-Emitter ist der einzige art-abhaengige Teil
-    // (er ruft die BESTEHENDEN Callees). KEIN dritter Enumerations-Walk: die opt/simd/pass/phase-Enumeration
-    // stammt vollstaendig aus profile_sweep_passes/project_experiment_to_sota_passes + den XML-System-Achsen-Listen.
+    // W10-A (§42): die Mess-Achsen-Kombinationen aus der Anwender-XML (<measurement_categories>). Heute traegt die
+    // Schema EINEN <measurement_categories>-Block => GENAU EINE Kombination (der CEB-Typ [a,b,c]); die Legende ist
+    // die kanonische Kurzform (legend::measurement_combo; `[all]` = alle 16 / kein Subset). Die Rueckgabe ist ein
+    // VECTOR (Struktur fuer die Zukunft: mehrere deklarierte Mess-Systeme => mehrere CEB-Pipelines), heute size==1.
+    // Ersetzt den konzeptlosen GN_MSYS="default"-Platzhalter des W4-Piloten durch die ECHT deklarierte Legende.
+    [[nodiscard]] static std::vector<PlanMeasurementCombo>
+    measurement_combos_of(std::vector<std::string> const& measurement_categories) {
+        PlanMeasurementCombo combo;
+        combo.index      = 0;
+        combo.categories = measurement_categories;
+        combo.legend     = legend::measurement_combo(measurement_categories);
+        return {combo};
+    }
+
+    // Der EINE dreistufige Walk (Mess-Kombination -> System-Perm (opt x simd) -> Chunk-Buendel) + Builder-Treiber.
+    // Der Steps-Emitter ist der einzige art-abhaengige Teil (er ruft die BESTEHENDEN Callees). KEIN dritter
+    // Enumerations-Walk: opt/simd/pass/phase stammen vollstaendig aus profile_sweep_passes/
+    // project_experiment_to_sota_passes + den XML-System-Achsen-Listen; die Mess-Kombinationen aus
+    // measurement_combos_of. perm_count = |opt x simd| JE Mess-Kombination (heute 1 Kombination => byte-identische
+    // Perm-Menge zum Vor-W10-Verhalten; der perm_index laeuft ueber den gesamten Walk).
     template <class StepEmitter>
     void walk_perms_(std::string_view source_kind, std::string const& profile_id,
-                     std::vector<std::string> const& opt_perms, std::vector<std::string> const& simd_perms,
-                     IPlanBuilder& b, StepEmitter&& emit_steps) const {
+                     std::vector<PlanMeasurementCombo> const& combos, std::vector<std::string> const& opt_perms,
+                     std::vector<std::string> const& simd_perms, IPlanBuilder& b, StepEmitter&& emit_steps) const {
         PlanHeader header;
-        header.source_kind = std::string{source_kind};
-        header.profile_id  = profile_id;
-        header.perm_count  = opt_perms.size() * simd_perms.size();
-        header.registries  = trio_;
+        header.source_kind             = std::string{source_kind};
+        header.profile_id              = profile_id;
+        header.perm_count              = opt_perms.size() * simd_perms.size();
+        header.measurement_combo_count = combos.size();
+        header.registries              = trio_;
         b.begin_plan(header);
 
         std::size_t perm_index = 0;
-        for (auto const& opt_id : opt_perms) {
-            for (auto const& simd_id : simd_perms) {
-                PlanPerm perm;
-                perm.index              = perm_index++;
-                perm.opt_id             = opt_id;
-                perm.simd_id            = simd_id;
-                perm.opt_flag           = tlz::system_axis_opt_flag_of(opt_id); // leer => D1-Degradierung beim Lauf
-                perm.march_flag         = tlz::system_axis_march_of(simd_id);   // leer bei no_extension
-                perm.host_supports_simd = tlz::system_axis_host_supports_simd(simd_id); // ANNOTATION, kein Filter
-                perm.build_version_suffix =
-                    "+opt=" + opt_id +
-                    (simd_id == std::string{cm::SimdNoExtOption::simd_id()} ? std::string{} : "+ext=" + simd_id);
-                b.begin_perm(perm);
-                emit_steps(b);
-                b.end_perm(perm);
+        for (auto const& combo : combos) {
+            b.begin_measurement_combo(combo);
+            for (auto const& opt_id : opt_perms) {
+                for (auto const& simd_id : simd_perms) {
+                    PlanPerm perm;
+                    perm.index              = perm_index++;
+                    perm.opt_id             = opt_id;
+                    perm.simd_id            = simd_id;
+                    perm.opt_flag           = tlz::system_axis_opt_flag_of(opt_id); // leer => D1-Degradierung beim Lauf
+                    perm.march_flag         = tlz::system_axis_march_of(simd_id);   // leer bei no_extension
+                    perm.host_supports_simd = tlz::system_axis_host_supports_simd(simd_id); // ANNOTATION, kein Filter
+                    perm.build_version_suffix =
+                        "+opt=" + opt_id +
+                        (simd_id == std::string{cm::SimdNoExtOption::simd_id()} ? std::string{} : "+ext=" + simd_id);
+                    b.begin_perm(perm);
+                    emit_steps(b);
+                    b.end_perm(perm);
+                }
             }
+            b.end_measurement_combo(combo);
         }
         b.end_plan(header);
     }
