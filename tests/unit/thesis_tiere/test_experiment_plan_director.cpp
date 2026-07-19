@@ -720,18 +720,53 @@ TEST(CiYamlBuilder, BothStagesEmitParentMirroredCcacheConfig) {
     director.construct(*tp, s2);
 
     for (auto const* yaml : {&s1.text(), &s2.text()}) {
-        // ccache-/Parallel-Variablen (Parent-Spiegel, EXAKT).
-        EXPECT_NE(yaml->find("  CCACHE_DIR: \"$CI_PROJECT_DIR/.ccache\""), std::string::npos)
-            << "projektlokaler ccache (sonst /.ccache-Permission-Fail)";
+        // LITERAL-Variablen bleiben in variables: (Parent-Spiegel). CCACHE_DIR NICHT mehr hier (W10-Nacharbeit 4:
+        // $CI_PROJECT_DIR-Werte ausschliesslich per Prolog-Export, s. Test W8/W9).
         EXPECT_NE(yaml->find("  CCACHE_MAXSIZE: \"3G\""), std::string::npos);
         EXPECT_NE(yaml->find("  CMAKE_BUILD_PARALLEL_LEVEL: \"6\""), std::string::npos);
-        // top-level cache:-Block mit dem GLEICHEN Key wie der Parent (Warm-ccache zieht auch im Child).
+        EXPECT_EQ(yaml->find("  CCACHE_DIR:"), std::string::npos)
+            << "CCACHE_DIR steht NICHT mehr in variables: (nur noch Prolog-Export)";
+        // top-level cache:-Block mit dem GLEICHEN Key wie der Parent (Warm-ccache zieht auch im Child); paths ist
+        // workdir-relativ (.ccache), der Key nutzt $CI_PROJECT_NAME (Cache-System-Expansion, NICHT $CI_PROJECT_DIR).
         EXPECT_NE(yaml->find("\ncache:\n  key: \"ccache-$CI_PROJECT_NAME\"\n  paths: [\".ccache\"]\n"),
                   std::string::npos)
             << "top-level cache:-Block (gleicher Key wie Parent)";
         // genau EIN top-level cache:-Block je Child (kein Duplikat).
         EXPECT_EQ(count_occurrences(*yaml, "\ncache:\n"), 1u);
     }
+}
+
+// (W9) W10-Nacharbeit 4 (Serie-E2E Lauf 4): KLASSEN-WACHE -- der variables:-Block beider Stufen enthaelt KEINEN
+//      $CI_PROJECT_DIR-Anteil mehr (die gitlab-seitig vorexpandierte, vererbte Parent-Variable expandiert im Child
+//      versions-/wegabhaengig LEER -> /.ccache bzw. /Code/...-fehlt). Alle $CI_PROJECT_DIR-Werte kommen
+//      ausschliesslich per Runtime-Shell-Export im Prolog. HART, damit die Klasse nie wieder aufmacht.
+TEST(CiYamlBuilder, NoCiProjectDirInVariablesBlockBothStages) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::CiYamlBuilder                s1;
+    planner::TierCiYamlBuilder            s2;
+    director.construct(*tp, s1);
+    director.construct(*tp, s2);
+
+    for (auto const* yaml : {&s1.text(), &s2.text()}) {
+        // Den variables:-Block isolieren (von "variables:\n" bis zum naechsten top-level Key "cache:\n").
+        auto const vbeg = yaml->find("\nvariables:\n");
+        ASSERT_NE(vbeg, std::string::npos);
+        auto const vend = yaml->find("\ncache:\n", vbeg);
+        ASSERT_NE(vend, std::string::npos);
+        std::string const variables_block = yaml->substr(vbeg, vend - vbeg);
+        EXPECT_EQ(variables_block.find("$CI_PROJECT_DIR"), std::string::npos)
+            << "KLASSE: kein $CI_PROJECT_DIR in variables: (nur Literale) -- Block:\n"
+            << variables_block;
+        // Positiv: der Prolog exportiert die $CI_PROJECT_DIR-Werte zur Laufzeit.
+        EXPECT_NE(yaml->find("export COMDARE_GOLDEN_N_PROFILE=\"${CI_PROJECT_DIR}/Code/external/comdare-cache-engine/"),
+                  std::string::npos)
+            << "COMDARE_GOLDEN_N_PROFILE per Runtime-Export im Prolog";
+    }
+    // je Bau-Job ein GOLDEN_N_PROFILE-Export: Stufe 1 = 2 (ceb:build + ceb:emit), Stufe 2 = 16 (tier:build).
+    EXPECT_EQ(count_occurrences(s1.text(), "export COMDARE_GOLDEN_N_PROFILE="), 2u);
+    EXPECT_EQ(count_occurrences(s2.text(), "export COMDARE_GOLDEN_N_PROFILE="), 4u * planner::kTierChunkCount);
 }
 
 // (W8) W10-Nacharbeit 2 (Serie-E2E 11569/11576): die self-contained Child-YAMLs erben default:before_script NICHT
