@@ -1,5 +1,5 @@
 // Phase B Abschluss (2026-06-04) — search_algo_grid-Lauf der VOLLSTÄNDIGEN Per-Achsen-Observer-Vervollständigung:
-//   IObservableTier::tier_observe → ComdareTierObserverSnapshot.axis_stats[19][8] über mehrere reale SA-
+//   IObservableTier::tier_observe → ComdareTierObserverSnapshot.axis_stats[17][8] über mehrere reale SA-
 //   Kompositionen (in-process Stand-in: identische vtable/POD-Layout wie über die .dll-Grenze). Emittiert die WIDE-
 //   Schema-CSV via die ECHTEN Writer (lazy_csv_header/format_csv_row) nach build/thesis_tiere/obs_phaseB_pilot.csv
 //   und prüft literal:
@@ -88,7 +88,7 @@ static an::ComdareTierObserverSnapshot measure_v3(char const* name, std::string&
     row.unified_real  = pr.unified_real;
     csv_out += ex::format_csv_row(row);
 
-    std::cout << "  " << name << ": filled_axis_count=" << pr.unified.filled_axis_count << "  T0..T18 row_sum=";
+    std::cout << "  " << name << ": filled_axis_count=" << pr.unified.filled_axis_count << "  T0..T16 row_sum=";
     for (int t = 0; t < 17; ++t) std::cout << row_sum(pr.unified, t) << (t < 16 ? "," : "");
     std::cout << "\n";
     return pr.unified;

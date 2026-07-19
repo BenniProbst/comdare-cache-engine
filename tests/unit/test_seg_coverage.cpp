@@ -1,4 +1,4 @@
-// P-MD3 (2026-06-18) — SEGMENT-COVERAGE-VERSÖHNUNG. Belegt LITERAL, dass die Per-Achsen-Segment-Zeit (seg_ns[19])
+// P-MD3 (2026-06-18) — SEGMENT-COVERAGE-VERSÖHNUNG. Belegt LITERAL, dass die Per-Achsen-Segment-Zeit (seg_ns[17])
 // sich gegen einen KOMMENSURABLEN Nenner (die eigene Wall-Clock des Segment-Mess-Laufs, seg_run_total_ns) zu
 // nahe 100% versöhnen lässt — mit einem EXPLIZIT benannten Rest (seg_framework_ns = Loop-/Instrumentierungs-Overhead).
 //
@@ -65,7 +65,7 @@ static void check_coverage(char const* name, bool store_axes_backed) {
     }
 
     // Der reale Host-Mess-Pfad: tier_clear → n_ops insert + n_ops lookup (total_ns) → EIN konsolidierter Observer-POD
-    // (axis_stats + seg_ns[19] + seg_framework_ns + seg_run_total_ns).
+    // (axis_stats + seg_ns[17] + seg_framework_ns + seg_run_total_ns).
     ex::PermResult const                   pr = ex::run_observable_perm(*obs, name, /*n_ops=*/4000);
     an::ComdareTierObserverSnapshot const& s  = pr.unified;
     tr(std::string(name) + ": unified observer real", pr.unified_real);

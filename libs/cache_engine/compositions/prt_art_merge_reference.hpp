@@ -112,7 +112,7 @@ struct HotPrtStufe2ReplaceComposition : HostPrtMergeComposition<HotComposition, 
 //    F/G): der HOT-Pilot war die EINE Stufe2-Binary; damit erzeugten N <sota_series merge="Stufe2_.." lebewesen=X>
 //    N Paesse auf DERSELBEN HOT-Binary (Dedup fing es ab, aber die per-Host-Distinktheit fehlte). ANALOG zur
 //    Stufe3-Reihe (unten) faechert Stufe2 jetzt je SOTA-Host eine EIGENE <Host>PrtStufe2ReplaceComposition: der
-//    Host stellt 18 Achsen (search_algo/node_type/... je Repository VERSCHIEDEN), path_compression = das PRT-Redirect-
+//    Host stellt 16 Achsen (search_algo/node_type/... je Repository VERSCHIEDEN), path_compression = das PRT-Redirect-
 //    Organ (Stufe2PathCompressionOrgan). Damit sind die Stufe2-binary_ids GENUINE per-Host distinkt (KEIN
 //    Fake-id fuer byte-identischen HOT-Code -- ArtHost != HotHost != ...): der frueher zurecht kritisierte
 //    Anti-Phantom-Fall ("N FAKE-distinkte-ids fuer byte-identischen HOT-Code") entfaellt, weil die Kompositionen

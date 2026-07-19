@@ -1,6 +1,6 @@
 #pragma once
 // STRANG A KORRIGIERT — Increment 5 / S6a (2026-06-18). PrtArtComposition: PRT-ART als reale
-// 19-Achsen-Komposition (das Thesis-EIGENE Prüfling-Lebewesen, #8/#162 P-MD6).
+// 17-Achsen-Komposition (das Thesis-EIGENE Prüfling-Lebewesen, #8/#162 P-MD6).
 //
 // PRT-ART = "Probst Redirect Tree — ART" (Memory feedback_namens_inkonsistenzen / Task #11). Es ist
 // KEINE neue Selektion, sondern eine reale AdHocComposition-Ausprägung: identisch zu ArtComposition
@@ -55,7 +55,7 @@ namespace comdare::cache_engine::compositions {
 /// PathCompressionStrategy (compression_ratio()) erfüllt — der abi_adapter verlangt das Konzept im Slot.
 using PrtArtPathCompressionOrgan = nodes::axis_02_path_compression::PatriciaPathCompression;
 
-/// PrtArtComposition — PRT-ART als 19-Achsen-Komposition (Reihe-A Stufe1: das Prüfling-Lebewesen isoliert).
+/// PrtArtComposition — PRT-ART als 17-Achsen-Komposition (Reihe-A Stufe1: das Prüfling-Lebewesen isoliert).
 /// = ArtComposition mit path_compression = PrtArtPathCompressionOrgan (Redirect/Patricia statt None).
 struct PrtArtComposition {
     using search_algo      = traversal::axis_03a_search_algo::composable::ObservableArtTrieOrgan;

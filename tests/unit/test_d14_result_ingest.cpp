@@ -1,8 +1,8 @@
 // D14 / L-CLUSTER (gate-frei) — result_ingest: Cluster-/perm_runner-Mess-Zeilen → Baum-NodeValue (sparse).
 // Der host-seitige Ergebnis-Rückführungs-Pfad (Doc 28 §5), LOKAL verifizierbar (kein Cluster-Gate). Build: cl /I libs/cache_engine.
 //
-// KONSOLIDIERUNG (I-B.3): die Wire-Zeile = binary_id + axis_stats[19][8] (152) + seg_ns[19] (19) + 4 Meta
-// + P-MD3 (seg_framework_ns, seg_run_total_ns) = 169 Felder. Die Zeilen werden hier über format_perm_result
+// KONSOLIDIERUNG (I-B.3): die Wire-Zeile = binary_id + axis_stats[17][8] (136) + seg_ns[17] (17) + 4 Meta
+// + P-MD3 (seg_framework_ns, seg_run_total_ns) = 160 Felder. Die Zeilen werden hier über format_perm_result
 // (perm_runner) erzeugt → 1:1 das reale Wire-Format. Audit A1 / MAJOR-MESS-09: Negativ-Tests für EXAKTE
 // Feldzahl (==169) + binary_id-Hygiene.
 

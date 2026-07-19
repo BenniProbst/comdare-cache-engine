@@ -368,7 +368,7 @@ TEST(R5CB_AbiAdapterIteration, ForEachAbiAdapterProducesIAnatomyBasePerPermutati
 namespace {
 namespace cg = ::comdare::cache_engine::builder::codegen;
 
-/// Baut den 19-Achsen-FQ-Typ-Namen-String einer Composition C (Komma-getrennt) — der
+/// Baut den 17-Achsen-FQ-Typ-Namen-String einer Composition C (Komma-getrennt) — der
 /// Argument-Block für COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(...). Doc 30 §8.0: + queuing q1/q2 (T17/T18).
 template <class C>
 std::string adhoc_macro_args() {

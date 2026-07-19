@@ -1,5 +1,5 @@
 // Phase A (2026-06-04) / I1 (2026-06-05) BUILD-VERIFIKATION der Per-Achsen-Observer-Vervollständigung:
-//   die EINE tier_observe(ComdareTierObserverSnapshot*).axis_stats[18][8] über mehrere reale SA-Kompositionen
+//   die EINE tier_observe(ComdareTierObserverSnapshot*).axis_stats[17][8] über mehrere reale SA-Kompositionen
 //   (in-process Stand-in: identisches vtable/POD-Layout wie über die .dll-Grenze; das dynamic_cast<IObservableTier*>
 //   ist exakt der Host-Pfad). Emittiert die WIDE-Schema-CSV via die ECHTEN
 //   Writer (lazy_csv_header/format_csv_row) nach build/thesis_tiere/obs_phaseA_pilot.csv und prüft literal:
@@ -76,7 +76,7 @@ static an::ComdareTierObserverSnapshot measure_v3(char const* name, std::string&
        pr.unified_real);
 
     std::cout << "  " << name << ": unified_real=" << (pr.unified_real ? 1 : 0)
-              << " filled_axis_count=" << pr.unified.filled_axis_count << "\n    T0..T17 row_sum=";
+              << " filled_axis_count=" << pr.unified.filled_axis_count << "\n    T0..T16 row_sum=";
     for (int t = 0; t < 17; ++t) std::cout << row_sum(pr.unified, t) << (t < 16 ? "," : "");
     std::cout << "\n";
     return pr.unified;
@@ -114,7 +114,7 @@ static void check_one(char const* name, an::ComdareTierObserverSnapshot const& s
 }
 
 int main() {
-    std::cout << "==== Phase A: Per-Achsen-Observer-V3 (axis_stats[18][8]) in-process ====\n";
+    std::cout << "==== Phase A: Per-Achsen-Observer-V3 (axis_stats[17][8]) in-process ====\n";
 
     std::string csv  = ex::lazy_csv_header();
     auto        art  = measure_v3<comp::ArtComposition>("ArtComposition", csv);

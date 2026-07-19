@@ -25,7 +25,7 @@
 // ABI-Version + Magic-Number (Compile-Time-Konstanten fuer Module-Loader-Check)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Anatomy-Module ABI Version. Major: 4 (#216-H2 tier_reset_statistics). Minor: 0.
+/// Anatomy-Module ABI Version. Major: 6 (#216-H2 tier_reset_statistics). Minor: 0.
 /// V5-I2.2 ABI-Bruch (Major 1→2): IObservableTier→IDriveableTier-Split + konditionale Adapter-Vererbung
 /// (observer_all nur bei MESSUNG-AN compile-time einkompiliert).
 /// I1 Observer-Konsolidierung (Major 2→3, Minor→0, User-Direktive 2026-06-04 „EINE konsistente Observer-

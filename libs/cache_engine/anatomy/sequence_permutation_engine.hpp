@@ -39,7 +39,7 @@ struct SequenceCompositionFromPermTupleImpl<PermTupleTmpl<Vs...>> {
 };
 } // namespace detail
 
-/// SequenceCompositionFromPermTuple<PermT> — materialisiert eine SequenceComposition aus einem 11-Slot-PermTuple.
+/// SequenceCompositionFromPermTuple<PermT> — materialisiert eine SequenceComposition aus einem 9-Slot-PermTuple.
 template <class PermT>
 using SequenceCompositionFromPermTuple = typename detail::SequenceCompositionFromPermTupleImpl<PermT>::type;
 

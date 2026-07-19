@@ -38,8 +38,8 @@
 #ifndef COMDARE_THESIS_PROFILES_DIR
 #error "COMDARE_THESIS_PROFILES_DIR must point to libs/cache_engine/algorithm_profiles/thesis_profiles"
 #endif
-#ifndef COMDARE_GOLDEN_320_IDS
-#error "COMDARE_GOLDEN_320_IDS must point to tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt"
+#ifndef COMDARE_GOLDEN_320_BYTE_GUARD_IDS
+#error "COMDARE_GOLDEN_320_BYTE_GUARD_IDS must point to tests/unit/thesis_tiere/golden_fullpilot_320_binary_ids.txt"
 #endif
 
 namespace {
@@ -52,7 +52,7 @@ namespace fs  = std::filesystem;
 fs::path example_profile_path() { return fs::path{COMDARE_THESIS_PROFILES_DIR} / "wdk_fairness_example.profile.xml"; }
 
 std::string first_golden_id() {
-    std::ifstream f{fs::path{COMDARE_GOLDEN_320_IDS}};
+    std::ifstream f{fs::path{COMDARE_GOLDEN_320_BYTE_GUARD_IDS}};
     std::string   line;
     while (std::getline(f, line)) {
         while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) line.pop_back();

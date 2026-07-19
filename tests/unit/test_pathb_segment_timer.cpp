@@ -1,5 +1,5 @@
 // Plan v2 Schritt 2/3 (2026-06-04) / I1 (2026-06-05): BUILD-VERIFIKATION des Pfad-B Per-Achsen-TIMINGS über die
-// EINE konsolidierte tier_observe(ComdareTierObserverSnapshot*) (axis_stats[18][8] + seg_ns[18] (Bau-INC-2c)) über die EINE
+// EINE konsolidierte tier_observe(ComdareTierObserverSnapshot*) (axis_stats[17][8] + seg_ns[17] (Bau-INC-2c)) über die EINE
 // REALE, befüllte composite-Tier-Struktur (container_algorithm_ + Instanz-Organe via layout-honorierender Store).
 // KEIN synthetischer Puffer. Prüft literal: (1) alle 18 seg_ns > 0 (jede Achse real getrieben); (2) Korrelation
 // Observer>0 ⇒ seg_ns>0 (Observer + Timer aus DERSELBEN realen Struktur, EIN POD); (3) DATA-Neutralität (tier_size
@@ -115,7 +115,7 @@ static void measure_unified(char const* name) {
     bool seg_pos = true;
     for (int t = 0; t < 17; ++t)
         if (sa.seg_ns[t] <= 0) seg_pos = false;
-    tr(std::string(name) + ": unified seg_ns[0..18] alle > 0 (Pfad-B-Timing im EINEN POD)", seg_pos);
+    tr(std::string(name) + ": unified seg_ns[0..16] alle > 0 (Pfad-B-Timing im EINEN POD)", seg_pos);
 }
 
 int main() {

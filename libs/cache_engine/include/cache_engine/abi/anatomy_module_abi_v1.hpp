@@ -63,8 +63,8 @@
     }
 
 /// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(...) — R5.G: Materialisiert eine AUTO-ENUMERIERTE Permutation
-/// (AdHocComposition) als Permutations-Binary, OHNE benannten Composition-Header. Nimmt die 19
-/// Achsen-Vendor-Typen VARIADISCH (T0..T18 — 17 Such-Achsen + queuing q1/q2, Doc 30 §8.0) und baut die
+/// (AdHocComposition) als Permutations-Binary, OHNE benannten Composition-Header. Nimmt die 17
+/// Achsen-Vendor-Typen VARIADISCH (T0..T16 — 15 Such-Achsen + queuing q1/q2, Doc 30 §8.0) und baut die
 /// Composition intern als Alias — das löst das Komma-im-Makro-Argument-Problem von AdHocComposition<A,B,…>.
 #define COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(...)                                                                       \
     using ComdareAdHocPermutationComposition = ::comdare::cache_engine::anatomy::AdHocComposition<__VA_ARGS__>;        \

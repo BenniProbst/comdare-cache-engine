@@ -84,7 +84,7 @@ template <class C>
 }
 
 /// with_shape_segment<Shape>(path, shape_axis) — haengt OPTIONAL EIN node-shape-Segment
-/// "/<shape_axis>=<Shape::name()>" an einen serialisierten 19-Achsen-binary_id. Default-OFF: Shape=void => path
+/// "/<shape_axis>=<Shape::name()>" an einen serialisierten 17-Achsen-binary_id. Default-OFF: Shape=void => path
 /// BYTE-IDENTISCH zurueck (golden_fullpilot_320 unberuehrt). Nur bei aktivem Shape-Traeger EINER organ-backed
 /// Familie (234-V-b) wird das Segment NACH queuing_q2 emittiert. shape_axis-Name vom Aufrufer (dieser Header
 /// bleibt achsen-frei).

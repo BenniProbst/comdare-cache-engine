@@ -1,7 +1,7 @@
 // L-74a — ADHOC-BUILDVARIANT-DLL: EINE DLL trägt SOWOHL die 17-Slot-SearchAlgorithm-Anatomie (4 ABI-Symbole,
-// genus()==SearchAlgorithm, organ_count()==18, Doc 30 §8.0) ALS AUCH die Build-Identität der 3 Build-Achsen (page_type/09b/12)
+// genus()==SearchAlgorithm, organ_count()==17, Doc 30 §8.0) ALS AUCH die Build-Identität der 3 Build-Achsen (page_type/09b/12)
 // als extern-"C"-Inspection-Symbol. Beweist Doc 27 §0.1: die 3 Build-Achsen sind Build-Parameter DERSELBEN
-// 17-Slot-Binary (Sub/Build-Varianten DESSELBEN Algorithmus), NICHT eine eigene Gattung (KEINE AdHocComposition<20>).
+// 17-Slot-Binary (Sub/Build-Varianten DESSELBEN Algorithmus), NICHT eine eigene Gattung (KEINE AdHocComposition<18>).
 //
 // Achsen-Belegung = Art-Default-Permutation (wie auto_emitted_perm_module.cpp); Build-Achsen = DenseByte/Avx512/X86_64.
 // Baut im CMake-Kontext (all_axes_umbrella braucht generierte flags.hpp-Dirs + Boost::mp11). cl /LD /DCOMDARE_ANATOMY_MODULE_BUILD.

@@ -7,7 +7,7 @@
 // Degradation (versehentliche vtable/virtual im Hot-Path) automatisch beim Build/ctest.
 //
 // **ADDITIV & golden/ABI-NEUTRAL:** reiner Test ueber BESTEHENDE Typen (static_assert). KEINE Aenderung an
-// anatomy_base-Enums, den Anatomien, GenusBindingTraits, golden_fullpilot_320, permutation_axes, POD/ABI-4.
+// anatomy_base-Enums, den Anatomien, GenusBindingTraits, golden_fullpilot_320, permutation_axes, POD/ABI-6.
 //
 // **Scope (robuster Kern):** die 11 Referenz-Anatomien (SearchAlgorithm-Gattung) + 3-Ebenen-Totalitaet +
 // ABI-Grenze-Positiv-Beweis. Das flache 26-Achsen-Strategie-Aggregat (registry_to_axis_levels.hpp axes26)

@@ -1,3 +1,5 @@
+# W9.5/G10 VERMERK: Einmal-Scaffolding-Werkzeug (Phase-4-Repo-Aufbau), NICHT Teil der Build-Pipeline.
+# KEIN Python in der Buildchain (Talos OS hat kein Python, s. cmake/permutations.cmake); nur manueller Lauf.
 """Kopiert geklonte Originalcode-Repos in comdare-cache-engine/ext/.
 
 (a) Phase 4.B-detail: 12 Repos ohne .git aus Forschungsarbeiten/code/ in ext/.
@@ -5,7 +7,7 @@
 import shutil
 from pathlib import Path
 
-SOURCE_ROOT = Path(r"C:\Users\benja\OneDrive\Desktop\Diplomarbeit - Datenbanken\Forschungsarbeiten\code")
+SOURCE_ROOT = Path(r"<PFAD-ZU>/Forschungsarbeiten/code")  # W9.5/G10: Personen-Pfad durch Platzhalter ersetzt
 TARGET_ROOT = Path(__file__).parent / "ext"
 
 # Mapping: P-ID-Verzeichnis → Liste der zu kopierenden Repo-Subverzeichnisse

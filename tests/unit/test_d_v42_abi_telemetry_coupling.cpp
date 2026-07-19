@@ -87,7 +87,7 @@ int main() {
     CE_CHECK(u.axis_stats[4][1] == 0u); // node_keys_stored (Huelle honest-0)
     CE_CHECK(u.axis_stats[4][3] == 0u); // node_last_checksum (Huelle honest-0)
 
-    std::cout << "OK (F12iii-Guard): telemetry ist KEINE POD-Zeile mehr (18 Achsen, [10]=value_handle); die "
+    std::cout << "OK (F12iii-Guard): telemetry ist KEINE POD-Zeile mehr (17 Achsen, [10]=value_handle); die "
                  "Gattungs-ABI treibt weiterhin real (search-Zeile > 0).\n";
     return 0;
 }

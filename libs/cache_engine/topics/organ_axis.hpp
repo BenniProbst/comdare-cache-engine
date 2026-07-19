@@ -1,6 +1,6 @@
 // topics/organ_axis.hpp -- Organ-Familien-Wurzel unterm gemeinsamen Achsen-Dach (Bau-INC-1a, 2026-07-18).
 //
-// Die Organ-Achsen (T0..T18, die kompositions-/binary_id-permutierenden Achsen) haengen -- wie die
+// Die Organ-Achsen (T0..T16, die kompositions-/binary_id-permutierenden Achsen) haengen -- wie die
 // Mess-Wurzel SystemAxis (system_measurement) und die Konfig-Wurzel CebSystemAxis (system_config) --
 // unter dem gemeinsamen semantik-freien Dach topics::Axis (Q1-Ruling; Blut-Direktive: die drei Familien
 // teilen NUR das zustandslose Dach, ihre Semantik schneidet sich nicht). Vorher trugen die ~20 Organ-

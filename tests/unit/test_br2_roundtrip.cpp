@@ -89,17 +89,17 @@ using PilotEngine = // INC-2d: PilotCfg<L12>/isa raus (17 Slots)
                             PilotCfg<L14>, PilotCfg<L15>, PilotCfg<L16>, PilotCfg<L17>, PilotCfg<L18>>;
 
 int main() {
-    std::cout << "BR-2 (Pilot, C1060-sicher): Baum-Blatt ↔ reale AdHocComposition<18> Round-Trip:\n";
+    std::cout << "BR-2 (Pilot, C1060-sicher): Baum-Blatt ↔ reale AdHocComposition<17> Round-Trip:\n";
 
-    // (1) CompositionRegistry aus dem PILOT-Engine: jede Permutation → reale AdHocComposition<18>.
+    // (1) CompositionRegistry aus dem PILOT-Engine: jede Permutation → reale AdHocComposition<17>.
     ex::CompositionRegistry reg;
     reg.register_from_engine<PilotEngine>();
     std::cout << "  PilotEngine::count() = " << PilotEngine::count() << "  reg.size() = " << reg.size() << "\n";
     check_eq("reg.size() == PilotEngine::count()", reg.size(), PilotEngine::count());
     check_true("∏ > 1 (echtes Fanout: node_type ×2 · memory_layout ×2)", reg.size() > 1);
 
-    // (2) Round-Trip P → CompositionFromPermTuple → AdHocComposition<18>: path (aus PermTuple) == slot_path
-    //     (aus den 18 named Slots) + materialisiert + 18-Achsen-Definition.
+    // (2) Round-Trip P → CompositionFromPermTuple → AdHocComposition<17>: path (aus PermTuple) == slot_path
+    //     (aus den 17 named Slots) + materialisiert + 17-Achsen-Definition.
     bool        rt     = true;
     std::size_t def_ok = 0;
     reg.for_each([&](ex::CompositionRecord const& r) {
@@ -109,7 +109,7 @@ int main() {
             ++def_ok; // reale Achsen-Definition je Slot (Doc 30 §8.0 + INC-2c: 16 + queuing q1/q2)
     });
     check_true("Round-Trip: path == slot_path + materialized (alle)", rt);
-    check_eq("jede Komposition hat 18-Achsen-Definition", def_ok, reg.size());
+    check_eq("jede Komposition hat 17-Achsen-Definition", def_ok, reg.size());
 
     // (3) Baum über DIESELBEN Pilot-Listen + Achsen-Namen (= kCompositionAxisNames) → identische Pfade.
     std::vector<ex::AxisLevel> lv;

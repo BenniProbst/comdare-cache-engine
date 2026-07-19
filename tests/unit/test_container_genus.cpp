@@ -70,7 +70,7 @@ int main() {
     check_true("top()==back()==20", queue.top().has_value() && *queue.top() == 20u);
     check_eq("size == 1", queue.size(), std::size_t{1});
 
-    // ── EIGENER Adapter-Observer (getrennt von ObserverAggregate<19>) ──
+    // ── EIGENER Adapter-Observer (getrennt von ObserverAggregate<17>) ──
     cea::AdapterObserverSnapshot const obs = queue.observe_all();
     check_eq("Observer: push_count == 3", obs.push_count, std::uint64_t{3});
     check_eq("Observer: pop_count == 2", obs.pop_count, std::uint64_t{2});

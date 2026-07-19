@@ -28,8 +28,8 @@
 //   W::header_include gelesen (organ_header<W>(), nur falls HasOrganLocation<W>), NIE aus dem Typ-Namen
 //   abgeleitet (das waere fragil/fabriziert). Wrapper OHNE Location liefern weiterhin header="".
 //
-// genus="SearchAlgorithm": die 19 Kompositions-Achsen sind die 19 Organe der SearchAlgorithm-Anatomie
-//   (AnatomyGenus::SearchAlgorithm, anatomy_base.hpp:68 = "vollst. 19-Achsen-Anatomie"). Die Achsen-
+// genus="SearchAlgorithm": die 17 Kompositions-Achsen sind die 17 Organe der SearchAlgorithm-Anatomie
+//   (AnatomyGenus::SearchAlgorithm, anatomy_base.hpp:68 = "vollst. 17-Achsen-Anatomie"). Die Achsen-
 //   Wrapper tragen selbst kein per-Organ-genus-Member; 'genus' ist daher der Anatomie-Genus der Komposition.
 //   F30 (WP-4, 2026-07-16): der Wert wird nicht mehr als String-Literal emittiert, sondern via
 //   anat::genus_name(AnatomyGenus::SearchAlgorithm) aus der Enum-Single-Source reflektiert (byte-identisch).
@@ -51,7 +51,7 @@
 //   die generierte Registry-XML bleibt damit unveraendert).
 //
 // C++23. Ausfuehren: `axis_registry_gen --out <pfad> [--with-extra-axes]`. TABU (permutation_axes.xml,
-// golden-320, POD-1416, kV3AxisSchema, ABI) wird NICHT beruehrt - der Generator LIEST nur Typen.
+// golden-320, POD-1272, kV3AxisSchema, ABI) wird NICHT beruehrt - der Generator LIEST nur Typen.
 
 #include <anatomy/anatomy_base.hpp>                            // AnatomyGenus + genus_name (F30: genus reflektiert)
 #include <anatomy/organ_location.hpp>                          // HasOrganLocation<W> (INC-A #6: header_include)

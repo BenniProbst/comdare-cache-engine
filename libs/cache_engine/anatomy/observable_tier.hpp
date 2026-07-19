@@ -14,7 +14,7 @@
 // versionierte `IObservableTier` mit GENAU EINER `tier_observe(ComdareTierObserverSnapshot*)` + GENAU EINEM
 // versionierten POD (axis_stats[17][8] + seg_ns[17]/Pfad B + Meta). Die früheren parallelen Observer-Sub-
 // Interfaces + die früheren mehrfach versionierten Observer-PODs sind ENTFERNT; die Versionierung läuft
-// jetzt über ABI-Major (anatomy_module_abi_v1_decl.hpp, aktuell Major 4) — der Loader lehnt inkompatible Alt-DLLs per
+// jetzt über ABI-Major (anatomy_module_abi_v1_decl.hpp, aktuell Major 6) — der Loader lehnt inkompatible Alt-DLLs per
 // Major-Mismatch ab (KEINE per-Version-Sub-Interface-Vermehrung mit dynamic_cast-Degrade mehr). Historie:
 // docs/architecture/31_observer_interface_konsolidierung_i1.md.
 //
@@ -56,7 +56,7 @@ inline constexpr std::size_t kV3FieldCount = 8;
 //    Diese Tabelle treibt die CSV-Spaltennamen (stat_<achse>_<feld>) → keine Namens-Drift. Seit Phase-B-Abschluss
 //    (2026-06-04) sind ALLE 17 Achsen befüllt (Phase A: T0,T1,T2,T4,T5,T6,T9,T15,T16; Phase B ergänzt
 //    T3 path_compression, T7 prefetch, T8 concurrency, T10 value_handle, T11 index_org, T12 io_dispatch,
-//    T14 migration_policy, T15 filter; INC-2d: isa raus). ────────────────────────────────────────────────────────
+//    T13 migration_policy, T14 filter; INC-2d: isa raus). ────────────────────────────────────────────────────────
 struct V3AxisFieldNames {
     char const* names[kV3FieldCount] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
 };
@@ -88,13 +88,12 @@ inline constexpr V3AxisFieldNames kV3AxisSchema[kV3AxisCount] = {
     /*T10 value_handle (INC-2c: telemetry-Zeile entfernt; INC-2d: isa-Zeile entfernt, Indizes ab hier -1)*/
     {{"access", "indirect_deref", "version_strips", "peak_chain_depth", nullptr, nullptr, nullptr, nullptr}}, // Phase B
     /*T11 index_org*/
-    {{"scan", "records", "predicate_evals", "indirect_lookups", "checksum", nullptr, nullptr,
-      nullptr}},                                                                                   // Phase B (T12)
-                                                                                                   /*T12 io_dispatch*/
-    {{"rounds", "bytes", "align_adjusts", "dispatch_cnt", "checksum", nullptr, nullptr, nullptr}}, // Phase B (T13)
+    {{"scan", "records", "predicate_evals", "indirect_lookups", "checksum", nullptr, nullptr, nullptr}}, // Phase B
+    /*T12 io_dispatch*/
+    {{"rounds", "bytes", "align_adjusts", "dispatch_cnt", "checksum", nullptr, nullptr, nullptr}}, // Phase B
     /*T13 migration_policy*/
-    {{"decisions", "migrations", "hot_votes", "cold_votes", "tier_moves", nullptr, nullptr, nullptr}}, // Phase B (T14)
-    /*T14 filter*/ {{"probe", "pos", "neg", "hash_probes", "checksum", nullptr, nullptr, nullptr}},    // Phase B (T14)
+    {{"decisions", "migrations", "hot_votes", "cold_votes", "tier_moves", nullptr, nullptr, nullptr}}, // Phase B
+    /*T14 filter*/ {{"probe", "pos", "neg", "hash_probes", "checksum", nullptr, nullptr, nullptr}},    // Phase B
     /*T15 queuing_q1*/ {{"put", "get", "overflow", "underflow", "peak_size", nullptr, nullptr, nullptr}},
     /*T16 queuing_q2*/
     {{"decisions", "full_flush", "partial_flush", "no_flush", "flush_complete", nullptr, nullptr, nullptr}},
@@ -134,7 +133,7 @@ struct ComdareTierObserverSnapshot {
     std::uint64_t batches_measured                        = 0;  // Meta: # Timing-Batches (Warmup verworfen)
     // P-MD3 (Coverage-Versöhnung, 2026-06-18): der kommensurable Nenner + benannte Rest des Pfad-B-Per-Achsen-Timings.
     // seg_run_total_ns = äußere Wall-Clock des Segment-Mess-Laufs (fill_segment_timing_v3); seg_framework_ns =
-    // seg_run_total_ns − Σseg_ns[0..18] (NICHT-segmentierter Loop-/Instrumentierungs-Overhead). Damit gilt
+    // seg_run_total_ns − Σseg_ns[0..16] (NICHT-segmentierter Loop-/Instrumentierungs-Overhead). Damit gilt
     // Σseg_ns + seg_framework_ns ≡ seg_run_total_ns → Coverage gegen die EIGENE Wall-Clock ~100% (Rest EXPLIZIT benannt),
     // statt die irreführende sum(seg)/total_ns-Quote gegen die unkommensurable Real-Workload-Wall-Clock (war ~33,6%).
     // REIN ADDITIV (hinten angehängt) → ABI-Layout aller bestehenden Felder/Slots unberührt.
