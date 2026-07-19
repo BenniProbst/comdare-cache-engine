@@ -1222,6 +1222,15 @@ target_include_directories(test_v5_measurement_snapshot PRIVATE
 target_link_libraries(test_v5_measurement_snapshot PRIVATE
     comdare::workload_driver)
 
+# PAKET W3-C (Ledger Sec.32-F8): Heuristik-Spline-Vorbau -- AxisSpline (Strategy: Fritsch-Carlson monoton /
+# natuerlich-kubisch) + Break-Even-Finder + n/a-toleranter Measurement-Curve-Loader. Header-only, keine
+# Lib-Abhaengigkeit -> nur der ce-Include-Pfad noetig.
+comdare_add_test(test_heuristik_spline_break_even
+    SOURCES test_heuristik_spline_break_even.cpp)
+target_include_directories(test_heuristik_spline_break_even PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include")
+
 # AP-9/#243: host-side provenance manifest sidecar, golden-/POD-neutral.
 comdare_add_test(test_ap9_provenance_manifest
     SOURCES test_ap9_provenance_manifest.cpp)
@@ -2632,6 +2641,42 @@ target_compile_definitions(test_experiment_projection PRIVATE
     COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
     "COMDARE_EXPERIMENT_GOLDEN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_golden.xml\"")
 set_tests_properties(test_experiment_projection PROPERTIES LABELS "contract;profiles;e4;incd")
+
+# PAKET W3-B / Phase-1-I1 (2026-07-19) — Contract-Test des ExperimentPlanDirector (GoF Director + Builder,
+# profile_facade/planner/experiment_plan_director.hpp) + des Registry-Trio-Lesers (validate_profile.hpp
+# read_axis_registry_trio). Beweist LITERAL: (T) die 3 Art-Registries (Organ/System/Mess) laden ueber DIESELBE
+# read_axis_registry-Naht -> 17/5/16-Zaehlung; (A) Thesis-min (keine <system_axes>/<axis_sweeps>) = 1 Identitaets-
+# Perm x 1 Basis-Pass; (B) all_axes_golden = 2x2 Perms x 18 Sweep-Passes = 72 Schritte; (C/C') der --dump-plan-
+# Text ist byte-deterministisch (2 Laeufe gleich, Thesis + Experiment); (D) der Experiment-Kanal enumeriert je
+# Perm die Bruecke-I3-Phasen (3 Phasen -> 19 Passes); (E) der Plan-Kopf traegt die 3 Angebots-Quellen (Resolver-
+# Vorstufe). REINER Enumerations-/Render-Schritt: KEIN Bau, KEINE Messung, KEIN run_lazy_static_then_dynamic,
+# KEINE CSV (Anti-Phantom, golden-neutral). Alle Fixtures + die 3 Art-Registries werden NUR GELESEN (Single-
+# Source per Define auf die realen/committeten Dateien; kein Kopie-Drift). sota_catalog.hpp zieht die
+# Compositions => Boost::mp11 + Achsen-Generated-Dirs wie test_experiment_projection.
+comdare_add_test(test_experiment_plan_director
+    SOURCES thesis_tiere/test_experiment_plan_director.cpp
+    LIBRARIES comdare_builder_xml_config_parser)
+comdare_prepare_thesis_object_dir(test_experiment_plan_director)
+target_include_directories(test_experiment_plan_director PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${PROJECT_SOURCE_DIR}/libs/common/serialization"
+    "${CMAKE_CURRENT_SOURCE_DIR}/thesis_tiere"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/profile_facade"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_experiment_plan_director PRIVATE Boost::mp11)
+target_compile_definitions(test_experiment_plan_director PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1
+    "COMDARE_PLANNER_THESIS_MIN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/planner_thesis_min.profile.xml\""
+    "COMDARE_PLANNER_THESIS_ALL_AXES=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/thesis_profiles/all_axes_golden.profile.xml\""
+    "COMDARE_EXPERIMENT_GOLDEN=\"${PROJECT_SOURCE_DIR}/tests/unit/thesis_tiere/experiment_golden.xml\""
+    "COMDARE_CE_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/algorithm_profiles/cache_engine_axis_registry.xml\""
+    "COMDARE_SYSTEM_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement/system_axis_registry.xml\""
+    "COMDARE_MEASUREMENT_AXIS_REGISTRY=\"${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement/measurement_axis_registry.xml\"")
+set_tests_properties(test_experiment_plan_director PROPERTIES LABELS "contract;profiles;e4;planner")
 
 # M-CE-10 (Voll-Review 2026-07-13; per-Host-Auffaecherung 2026-07-14) — ctest-Gate der
 # Stufe2_PrueflingReplace-Materialisierung im sota_catalog. KORREKTUR F23 (2026-07-16): die fruehere
