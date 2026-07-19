@@ -75,6 +75,11 @@ struct LazyRunConfig {
     std::size_t           cores_per_build         = 4; // KF-16b Default (keine Oversubscription)
     std::uint64_t         ram_per_build_bytes     = 0; // 0 = RAM-Gate aus (nur CPU-Cap)
     std::uint64_t         ram_safety_margin_bytes = 0;
+    // W6 (2026-07-19, Ledger §32-F7): expliziter Override der parallelen Compile-Worker-Zahl des Bau-Pools
+    // (BuildConfig::build_parallelism). 0 = ungesetzt => parallel_jobs()-Heuristik = heutiges byte-neutrales
+    // Verhalten. >0 = harte Worker-Zahl. Der Facade-Rand belegt dies aus Env COMDARE_BUILD_PARALLEL. NUR der
+    // provision-/Bau-Pfad (STATISCHE Kompilierung) wird davon parallelisiert; die Mess-Schleife bleibt 1-Thread.
+    std::size_t build_parallelism = 0;
     // (E): je Tier-Binary ein eigener Unterordner output_dir/<stem>/ (DLL + Source + .obj + .cl.log + .version
     // + per-Binary-Ergebnis-CSV). Default false = altes flaches Verhalten (rückwärtskompatibel, opt-in).
     bool per_binary_subdirs = false;
@@ -740,6 +745,7 @@ struct LazyRunResult {
     bcfg.ram_per_build_bytes     = cfg.ram_per_build_bytes;
     bcfg.ram_safety_margin_bytes = cfg.ram_safety_margin_bytes;
     bcfg.per_binary_subdirs      = cfg.per_binary_subdirs; // (E): je Tier-Binary ein eigener Unterordner
+    bcfg.build_parallelism       = cfg.build_parallelism;  // W6 (§32-F7): expliziter Bau-Pool-Worker-Override (0=heute)
 
     // Storage #51 — PULL-HOOK-STELLE (push-only-first, NOCH NICHT AKTIV): die Warm-Cache-Hydrierung (minio->local)
     // gehoert GENAU HIER in Phase A, VOR dem Bau — der Orchestrator prueft je Binary dll_is_current (build_orchestrator

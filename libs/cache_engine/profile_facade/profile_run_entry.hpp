@@ -113,6 +113,10 @@ struct RunProfileArgs {
     std::size_t golden_range_start = 0;
     std::size_t golden_range_count = 0;     // 0 = kein Fenster (Ist-Verhalten)
     bool        provision_only     = false; // true = nur bauen, nicht messen
+    // W6 (Ledger §32-F7): expliziter Bau-Pool-Worker-Override (COMDARE_BUILD_PARALLEL). 0 = ungesetzt =>
+    // parallel_jobs()-Heuristik = byte-neutrales Ist. >0 = harte parallele Compile-Zahl (KOMPILATION parallel,
+    // MESSEN bleibt 1-Thread). Reist bis LazyRunConfig::build_parallelism durch.
+    std::size_t build_parallelism = 0;
     // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig). Vom Host via discover_load_profiles gesetzt.
     std::map<std::string, wd::WorkloadConfig> workload_registry;
     std::vector<std::string>                  workload_values; // nur fuers Log (Achse-2-Werte)
@@ -337,6 +341,7 @@ struct RunProfileResult {
         cfg.source_dir                = a.src_dir;
         cfg.output_dir                = a.dll_dir;
         cfg.cores_per_build           = a.cores_per_build;
+        cfg.build_parallelism         = a.build_parallelism; // W6 (§32-F7): Bau-Pool-Worker-Override (0 = byte-neutral)
         cfg.per_binary_subdirs        = true;
         cfg.resume_completed_binaries = resume;
         cfg.provision_only            = a.provision_only; // INC-G6: nur bauen, nicht messen (byte-identisch bei false)
