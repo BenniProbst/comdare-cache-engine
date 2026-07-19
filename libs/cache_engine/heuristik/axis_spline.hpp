@@ -54,8 +54,7 @@ namespace detail {
     for (CurveSample const& s : in) {
         if (std::isfinite(s.x) && std::isfinite(s.y)) clean.push_back(s);
     }
-    std::stable_sort(clean.begin(), clean.end(),
-                     [](CurveSample const& a, CurveSample const& b) { return a.x < b.x; });
+    std::stable_sort(clean.begin(), clean.end(), [](CurveSample const& a, CurveSample const& b) { return a.x < b.x; });
     std::vector<CurveSample> out;
     out.reserve(clean.size());
     std::size_t i = 0;
@@ -103,7 +102,7 @@ struct MonotoneCubicHermiteStrategy {
 
     [[nodiscard]] static std::vector<double> compute_slopes(std::vector<double> const& x,
                                                             std::vector<double> const& y) {
-        std::size_t const n = x.size();
+        std::size_t const   n = x.size();
         std::vector<double> m(n, 0.0);
         if (n < 2) return m;
         std::vector<double> delta(n - 1, 0.0); // Sekanten-Steigungen
@@ -121,8 +120,8 @@ struct MonotoneCubicHermiteStrategy {
             }
             double const alpha = m[i] / delta[i];
             double const beta  = m[i + 1] / delta[i];
-            if (alpha < 0.0) m[i] = 0.0;         // Vorzeichenwechsel am linken Knoten -> lokaler Extrempunkt
-            if (beta < 0.0) m[i + 1] = 0.0;      // Vorzeichenwechsel am rechten Knoten
+            if (alpha < 0.0) m[i] = 0.0;    // Vorzeichenwechsel am linken Knoten -> lokaler Extrempunkt
+            if (beta < 0.0) m[i + 1] = 0.0; // Vorzeichenwechsel am rechten Knoten
             double const s = alpha * alpha + beta * beta;
             if (s > 9.0) {
                 double const tau = 3.0 / std::sqrt(s);
@@ -144,13 +143,13 @@ struct NaturalCubicStrategy {
 
     [[nodiscard]] static std::vector<double> compute_slopes(std::vector<double> const& x,
                                                             std::vector<double> const& y) {
-        std::size_t const n = x.size();
+        std::size_t const   n = x.size();
         std::vector<double> m(n, 0.0);
         if (n < 2) return m;
         if (n == 2) { // eine Strecke -> lineare Steigung an beiden Knoten
             double const d = (y[1] - y[0]) / (x[1] - x[0]);
-            m[0] = d;
-            m[1] = d;
+            m[0]           = d;
+            m[1]           = d;
             return m;
         }
         std::vector<double> h(n - 1, 0.0), delta(n - 1, 0.0);
@@ -171,9 +170,9 @@ struct NaturalCubicStrategy {
             d[i] = 3.0 * (delta[i - 1] / h[i - 1] + delta[i] / h[i]);
         }
         // Zeile n-1: m_{n-2} + 2 m_{n-1} = 3 delta_{n-2}  (natuerliche Randbedingung S''(x_{n-1})=0)
-        a[n - 1] = 1.0;
-        b[n - 1] = 2.0;
-        d[n - 1] = 3.0 * delta[n - 2];
+        a[n - 1]                = 1.0;
+        b[n - 1]                = 2.0;
+        d[n - 1]                = 3.0 * delta[n - 2];
         std::vector<double> sol = detail::solve_tridiagonal(std::move(a), std::move(b), std::move(c), std::move(d));
         if (sol.size() != n) { // degeneriert -> Fallback auf Sekanten-Steigungen (nie NaN)
             m[0]     = delta[0];
@@ -200,7 +199,7 @@ concept InterpolationStrategy = requires(std::vector<double> const& xs, std::vec
 /// Extrapolation fuer den Break-Even-Finder, der ohnehin nur die Domaenen-Ueberlappung betrachtet).
 template <InterpolationStrategy Strategy = MonotoneCubicHermiteStrategy>
 class AxisSpline {
-  public:
+public:
     /// Baut den Spline aus rohen Stuetzstellen. HONEST-EMPTY: < 2 verwertbare Knoten -> std::nullopt.
     [[nodiscard]] static std::optional<AxisSpline> build(std::vector<CurveSample> samples) {
         std::vector<CurveSample> knots = detail::normalize_samples(std::move(samples));
@@ -222,13 +221,11 @@ class AxisSpline {
     }
 
     [[nodiscard]] static constexpr std::string_view strategy_name() noexcept { return Strategy::name(); }
-    [[nodiscard]] static constexpr bool             preserves_monotonicity() noexcept {
-        return Strategy::preserves_monotonicity();
-    }
+    [[nodiscard]] static constexpr bool preserves_monotonicity() noexcept { return Strategy::preserves_monotonicity(); }
 
-    [[nodiscard]] std::size_t size() const noexcept { return x_.size(); }
-    [[nodiscard]] double      x_min() const noexcept { return x_.front(); }
-    [[nodiscard]] double      x_max() const noexcept { return x_.back(); }
+    [[nodiscard]] std::size_t                size() const noexcept { return x_.size(); }
+    [[nodiscard]] double                     x_min() const noexcept { return x_.front(); }
+    [[nodiscard]] double                     x_max() const noexcept { return x_.back(); }
     [[nodiscard]] std::vector<double> const& knots_x() const noexcept { return x_; }
 
     /// Wertet f(x) aus. Ausserhalb der Domaene: flach geklemmt auf den jeweiligen Randwert.
@@ -236,13 +233,12 @@ class AxisSpline {
         if (x <= x_.front()) return y_.front();
         if (x >= x_.back()) return y_.back();
         // Segment finden: groesstes i mit x_[i] <= x (x liegt echt im Inneren).
-        std::size_t const idx = static_cast<std::size_t>(
-            std::upper_bound(x_.begin(), x_.end(), x) - x_.begin() - 1);
-        std::size_t const i = std::min(idx, x_.size() - 2);
-        double const      h = x_[i + 1] - x_[i];
-        double const      t = (x - x_[i]) / h;
-        double const      t2 = t * t;
-        double const      t3 = t2 * t;
+        std::size_t const idx = static_cast<std::size_t>(std::upper_bound(x_.begin(), x_.end(), x) - x_.begin() - 1);
+        std::size_t const i   = std::min(idx, x_.size() - 2);
+        double const      h   = x_[i + 1] - x_[i];
+        double const      t   = (x - x_[i]) / h;
+        double const      t2  = t * t;
+        double const      t3  = t2 * t;
         // Hermite-Basis: h00,h10,h01,h11.
         double const h00 = 2.0 * t3 - 3.0 * t2 + 1.0;
         double const h10 = t3 - 2.0 * t2 + t;
@@ -251,7 +247,7 @@ class AxisSpline {
         return h00 * y_[i] + h10 * h * m_[i] + h01 * y_[i + 1] + h11 * h * m_[i + 1];
     }
 
-  private:
+private:
     AxisSpline() = default;
     std::vector<double> x_; // streng aufsteigende Knoten
     std::vector<double> y_;

@@ -44,9 +44,9 @@
 // -----------------------------------------------------------------------------
 
 #include "profile_run_entry.hpp" // system_axis_opt_flag_of / system_axis_march_of / system_axis_host_supports_simd
-                                 //   + profile_sweep_passes (via profile_runner.hpp) + project_experiment_to_sota_passes
-                                 //   (via sota_catalog.hpp) + cm::Default*Option + cx::ThesisProfile/XmlConfigParser
-#include "validate_profile.hpp"  // RegistryTrio / RegistryContents (Registry-Trio-Annotation des Plan-Kopfs)
+//   + profile_sweep_passes (via profile_runner.hpp) + project_experiment_to_sota_passes
+//   (via sota_catalog.hpp) + cm::Default*Option + cx::ThesisProfile/XmlConfigParser
+#include "validate_profile.hpp" // RegistryTrio / RegistryContents (Registry-Trio-Annotation des Plan-Kopfs)
 
 #include "xml_config_parser/xml_config_parser.hpp" // cx::ExperimentProfile / cx::ThesisProfile (explizit)
 
@@ -57,8 +57,8 @@
 
 namespace comdare::cache_engine::planner {
 
-namespace cx = ::comdare::builder::xml;
-namespace cm = ::comdare::cache_engine::measurement;
+namespace cx  = ::comdare::builder::xml;
+namespace cm  = ::comdare::cache_engine::measurement;
 namespace tlz = ::comdare::cache_engine::thesis_lazy;
 
 // ── Plan-Wertobjekte (POD, reine Beschreibung — kein Verhalten, keine Bau-Semantik). ────────────────────────
@@ -66,16 +66,16 @@ namespace tlz = ::comdare::cache_engine::thesis_lazy;
 /// EINE Angebots-Registry-Quelle (Resolver-Vorstufe): Wurzel-engine + Zaehlungen. axis_count = Zahl der <axis>,
 /// baustein_count = Summe aller <baustein name>-Angebote ueber die Achsen dieser Registry.
 struct PlanRegistrySource {
-    std::string engine;             // comdare_axis_registry @engine (cache_engine / cache_engine_system / ..._measurement)
+    std::string engine; // comdare_axis_registry @engine (cache_engine / cache_engine_system / ..._measurement)
     std::size_t axis_count     = 0; // Zahl der Angebots-Achsen
     std::size_t baustein_count = 0; // Zahl der Angebots-Bausteine (Summe ueber die Achsen)
 };
 
 /// Der Plan-Kopf annotiert mit den DREI Angebots-Quellen (Ledger §28/§30: Mess->Planer / System->CEB / Organ->Tier).
 struct PlanRegistryTrioAnnotation {
-    PlanRegistrySource organ;       // engine="cache_engine" (Organ-Angebot der Tier-Stufe)
-    PlanRegistrySource system;      // engine="cache_engine_system" (System-Angebot der CEB-Stufe)
-    PlanRegistrySource measurement; // engine="cache_engine_measurement" (Mess-Angebot der Planer-Stufe)
+    PlanRegistrySource organ;          // engine="cache_engine" (Organ-Angebot der Tier-Stufe)
+    PlanRegistrySource system;         // engine="cache_engine_system" (System-Angebot der CEB-Stufe)
+    PlanRegistrySource measurement;    // engine="cache_engine_measurement" (Mess-Angebot der Planer-Stufe)
     bool               loaded = false; // true = alle 3 Registries gelesen und annotiert
 };
 
@@ -89,10 +89,10 @@ struct PlanHeader {
 
 /// EINE opt x simd Permutation (system_config => NIE binary_id, NIE N; nur BAU-/MESS-Matrix + build_version-Suffix).
 struct PlanPerm {
-    std::size_t index = 0; // 0-basierter Perm-Index im deterministischen Walk
-    std::string opt_id;    // z.B. "O3"
-    std::string simd_id;   // z.B. "no_extension" / "avx2"
-    std::string opt_flag;  // aus system_axis_opt_flag_of (z.B. "-O3"); leer => Caller-Default (D1-Log-Fall)
+    std::size_t index = 0;  // 0-basierter Perm-Index im deterministischen Walk
+    std::string opt_id;     // z.B. "O3"
+    std::string simd_id;    // z.B. "no_extension" / "avx2"
+    std::string opt_flag;   // aus system_axis_opt_flag_of (z.B. "-O3"); leer => Caller-Default (D1-Log-Fall)
     std::string march_flag; // aus system_axis_march_of (z.B. "-mavx2"); leer bei no_extension
     // build_version-Suffix OHNE +cxx= (compiler_tag ist Host-Provenienz, kein Planungs-Entscheid => der Plan
     // bleibt compiler-tag-agnostisch/reproduzierbar). Form: "+opt=<id>" bzw. "+opt=<id>+ext=<simd>".
@@ -104,20 +104,21 @@ struct PlanPerm {
 
 /// EIN Walk-Schritt unter einer Perm. Deckt beide Kanaele mit stabilen "-"/"<basis>"-Fuellwerten ab.
 struct PlanStep {
-    std::size_t index = 0;   // 0-basierter Schritt-Index INNERHALB der aktuellen Perm
-    std::string kind;        // "thesis_sweep_pass" | "experiment_phase_pass"
-    std::string label;       // thesis: Sweep-Achse ("" = Basis-Pass) ; experiment: Phasen-Name
-    std::string merge;       // experiment: MergeStrategy ; thesis: "-"
-    std::string binary_id;   // experiment: view_binary_id ; thesis: "-" (Basis-binary_ids entstehen erst in der Selektion)
-    std::string series;      // experiment: Reihe A/B ; thesis: "-"
+    std::size_t index = 0; // 0-basierter Schritt-Index INNERHALB der aktuellen Perm
+    std::string kind;      // "thesis_sweep_pass" | "experiment_phase_pass"
+    std::string label;     // thesis: Sweep-Achse ("" = Basis-Pass) ; experiment: Phasen-Name
+    std::string merge;     // experiment: MergeStrategy ; thesis: "-"
+    std::string
+        binary_id;      // experiment: view_binary_id ; thesis: "-" (Basis-binary_ids entstehen erst in der Selektion)
+    std::string series; // experiment: Reihe A/B ; thesis: "-"
     std::string pruefling_type; // experiment: full/abstract ; thesis: "-"
-    std::string lebewesen;   // experiment: das SOTA-Lebewesen ; thesis: "-"
+    std::string lebewesen;      // experiment: das SOTA-Lebewesen ; thesis: "-"
 };
 
 // ── IPlanBuilder — das GoF-Builder-Interface: der Director treibt, der ConcreteBuilder waehlt die Syntax. ────
 class IPlanBuilder {
 public:
-    virtual ~IPlanBuilder()                          = default;
+    virtual ~IPlanBuilder()                           = default;
     virtual void begin_plan(PlanHeader const& header) = 0;
     virtual void begin_perm(PlanPerm const& perm)     = 0;
     virtual void on_step(PlanStep const& step)        = 0;
@@ -140,26 +141,28 @@ public:
         out_ += "# comdare-experiment-plan v1\n";
         out_ += "source_kind=" + h.source_kind + "\n";
         out_ += "profile_id=" + h.profile_id + "\n";
-        out_ += "registry_trio loaded=" + std::string(h.registries.loaded ? "1" : "0") + " organ=" +
-                nz(h.registries.organ.engine) + " organ_axes=" + std::to_string(h.registries.organ.axis_count) +
-                " organ_offers=" + std::to_string(h.registries.organ.baustein_count) + " system=" +
-                nz(h.registries.system.engine) + " system_axes=" + std::to_string(h.registries.system.axis_count) +
-                " system_offers=" + std::to_string(h.registries.system.baustein_count) + " measurement=" +
-                nz(h.registries.measurement.engine) + " measurement_axes=" +
-                std::to_string(h.registries.measurement.axis_count) + " measurement_offers=" +
-                std::to_string(h.registries.measurement.baustein_count) + "\n";
+        out_ += "registry_trio loaded=" + std::string(h.registries.loaded ? "1" : "0") +
+                " organ=" + nz(h.registries.organ.engine) +
+                " organ_axes=" + std::to_string(h.registries.organ.axis_count) +
+                " organ_offers=" + std::to_string(h.registries.organ.baustein_count) +
+                " system=" + nz(h.registries.system.engine) +
+                " system_axes=" + std::to_string(h.registries.system.axis_count) +
+                " system_offers=" + std::to_string(h.registries.system.baustein_count) +
+                " measurement=" + nz(h.registries.measurement.engine) +
+                " measurement_axes=" + std::to_string(h.registries.measurement.axis_count) +
+                " measurement_offers=" + std::to_string(h.registries.measurement.baustein_count) + "\n";
         out_ += "perm_count=" + std::to_string(h.perm_count) + "\n";
     }
     void begin_perm(PlanPerm const& p) override {
         out_ += "perm " + std::to_string(p.index) + " opt=" + nz(p.opt_id) + " simd=" + nz(p.simd_id) +
-                " opt_flag=" + nz(p.opt_flag) + " march_flag=" + nz(p.march_flag) + " build_version_suffix=" +
-                nz(p.build_version_suffix) + "\n";
+                " opt_flag=" + nz(p.opt_flag) + " march_flag=" + nz(p.march_flag) +
+                " build_version_suffix=" + nz(p.build_version_suffix) + "\n";
     }
     void on_step(PlanStep const& s) override {
-        out_ += "  step " + std::to_string(s.index) + " kind=" + nz(s.kind) + " label=" +
-                (s.label.empty() ? std::string{"<basis>"} : s.label) + " merge=" + nz(s.merge) + " binary_id=" +
-                nz(s.binary_id) + " series=" + nz(s.series) + " pruefling_type=" + nz(s.pruefling_type) +
-                " lebewesen=" + nz(s.lebewesen) + "\n";
+        out_ += "  step " + std::to_string(s.index) + " kind=" + nz(s.kind) +
+                " label=" + (s.label.empty() ? std::string{"<basis>"} : s.label) + " merge=" + nz(s.merge) +
+                " binary_id=" + nz(s.binary_id) + " series=" + nz(s.series) +
+                " pruefling_type=" + nz(s.pruefling_type) + " lebewesen=" + nz(s.lebewesen) + "\n";
     }
     void end_perm(PlanPerm const&) override {}
     void end_plan(PlanHeader const&) override {}
@@ -169,7 +172,7 @@ public:
 private:
     // Leerer String -> "-" (stabile, eindeutige Feldtrennung; kein Feld bleibt leer im Zeilen-Text).
     [[nodiscard]] static std::string nz(std::string const& s) { return s.empty() ? std::string{"-"} : s; }
-    std::string out_;
+    std::string                      out_;
 };
 
 // ── Registry-Trio-Annotation aus einem gelesenen RegistryTrio (Resolver-Vorstufe). ──────────────────────────
@@ -271,12 +274,12 @@ private:
         for (auto const& opt_id : opt_perms) {
             for (auto const& simd_id : simd_perms) {
                 PlanPerm perm;
-                perm.index               = perm_index++;
-                perm.opt_id              = opt_id;
-                perm.simd_id             = simd_id;
-                perm.opt_flag            = tlz::system_axis_opt_flag_of(opt_id);   // leer => D1-Degradierung beim Lauf
-                perm.march_flag          = tlz::system_axis_march_of(simd_id);     // leer bei no_extension
-                perm.host_supports_simd  = tlz::system_axis_host_supports_simd(simd_id); // ANNOTATION, kein Filter
+                perm.index              = perm_index++;
+                perm.opt_id             = opt_id;
+                perm.simd_id            = simd_id;
+                perm.opt_flag           = tlz::system_axis_opt_flag_of(opt_id); // leer => D1-Degradierung beim Lauf
+                perm.march_flag         = tlz::system_axis_march_of(simd_id);   // leer bei no_extension
+                perm.host_supports_simd = tlz::system_axis_host_supports_simd(simd_id); // ANNOTATION, kein Filter
                 perm.build_version_suffix =
                     "+opt=" + opt_id +
                     (simd_id == std::string{cm::SimdNoExtOption::simd_id()} ? std::string{} : "+ext=" + simd_id);

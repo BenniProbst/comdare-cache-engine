@@ -41,9 +41,9 @@ enum class Curve : std::uint8_t {
 
 /// Ein Break-Even-Uebergang: bei x kreuzen sich f und g; links/rechts ist jeweils eine Kurve besser.
 struct BreakEvenPoint {
-    double x = 0.0;               ///< Schnittpunkt-Position (Parameter-Achse)
-    double y = 0.0;               ///< Funktionswert am Schnittpunkt (Mittel aus f,g)
-    Curve  links_besser = Curve::Tie;  ///< welche Kurve unmittelbar LINKS niedriger liegt
+    double x             = 0.0;        ///< Schnittpunkt-Position (Parameter-Achse)
+    double y             = 0.0;        ///< Funktionswert am Schnittpunkt (Mittel aus f,g)
+    Curve  links_besser  = Curve::Tie; ///< welche Kurve unmittelbar LINKS niedriger liegt
     Curve  rechts_besser = Curve::Tie; ///< welche Kurve unmittelbar RECHTS niedriger liegt
 };
 
@@ -99,8 +99,8 @@ template <class SplineF, class SplineG>
     auto record = [&](double xr) {
         // Doppelzaehlung vermeiden (Knoten-Treffer, der auch als Segment-Wechsel erscheint).
         if (!out.empty() && std::fabs(out.back().x - xr) <= span * 1e-9) return;
-        double const xl = std::max(lo, xr - side_step);
-        double const xh = std::min(hi, xr + side_step);
+        double const   xl = std::max(lo, xr - side_step);
+        double const   xh = std::min(hi, xr + side_step);
         BreakEvenPoint p;
         p.x             = xr;
         p.y             = 0.5 * (f.eval(xr) + g.eval(xr));

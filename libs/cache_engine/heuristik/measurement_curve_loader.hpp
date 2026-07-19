@@ -41,9 +41,9 @@ namespace comdare::cache_engine::heuristik {
 /// (ehrlich, kein Absturz). x/y MUESSEN existieren, sonst leeres Ergebnis.
 struct LoaderSpec {
     char        delimiter    = ';';
-    std::string axis_col     = "sweep_axis";   // Gruppen-Dim "achse"   (leer -> "-")
-    std::string variant_col  = "binary_id";    // Gruppen-Dim "variante"(leer -> "-")
-    std::string workload_col = "workload";     // Gruppen-Dim "workload"(leer -> "-")
+    std::string axis_col     = "sweep_axis";    // Gruppen-Dim "achse"   (leer -> "-")
+    std::string variant_col  = "binary_id";     // Gruppen-Dim "variante"(leer -> "-")
+    std::string workload_col = "workload";      // Gruppen-Dim "workload"(leer -> "-")
     std::string x_col        = "working_set_n"; // Parameter-Achse
     std::string y_col        = "ns_per_op";     // Messwert
     // Ehrliche Nicht-Zahl-Tokens (K-10) -> Zeile wird uebersprungen. Leere Zelle zaehlt ebenfalls als n/a.
@@ -55,7 +55,7 @@ struct LoaderSpec {
 [[nodiscard]] inline LoaderSpec snapshot_spec() {
     LoaderSpec s;
     s.delimiter    = ',';
-    s.axis_col     = "";              // Snapshot-CSV traegt keine eigene Achsen-Spalte
+    s.axis_col     = ""; // Snapshot-CSV traegt keine eigene Achsen-Spalte
     s.variant_col  = "permutation_id";
     s.workload_col = "workload_used";
     s.x_col        = "op_count";
@@ -65,9 +65,9 @@ struct LoaderSpec {
 
 /// Gruppen-Schluessel (achse, variante, workload). Ordenbar -> deterministische Ausgabe-Reihenfolge.
 struct GroupKey {
-    std::string axis     = "-";
-    std::string variant  = "-";
-    std::string workload = "-";
+    std::string        axis     = "-";
+    std::string        variant  = "-";
+    std::string        workload = "-";
     [[nodiscard]] bool operator<(GroupKey const& o) const {
         return std::tie(axis, variant, workload) < std::tie(o.axis, o.variant, o.workload);
     }
@@ -164,13 +164,13 @@ namespace loader_detail {
     std::string line;
     while (std::getline(csv, line)) {
         if (line.empty() || line == "\r") continue;
-        std::vector<std::string> const cells = loader_detail::split_csv_line(line, spec.delimiter);
-        auto const max_idx = static_cast<std::ptrdiff_t>(cells.size());
+        std::vector<std::string> const cells   = loader_detail::split_csv_line(line, spec.delimiter);
+        auto const                     max_idx = static_cast<std::ptrdiff_t>(cells.size());
 
         GroupKey key;
-        key.axis     = loader_detail::cell_or_dash(cells, ax_idx);
-        key.variant  = loader_detail::cell_or_dash(cells, va_idx);
-        key.workload = loader_detail::cell_or_dash(cells, wl_idx);
+        key.axis                  = loader_detail::cell_or_dash(cells, ax_idx);
+        key.variant               = loader_detail::cell_or_dash(cells, va_idx);
+        key.workload              = loader_detail::cell_or_dash(cells, wl_idx);
         MeasurementSeries& series = out[key];
 
         if (x_idx >= max_idx || y_idx >= max_idx) { // unvollstaendige Zeile
@@ -180,10 +180,8 @@ namespace loader_detail {
         std::string const& xc = cells[static_cast<std::size_t>(x_idx)];
         std::string const& yc = cells[static_cast<std::size_t>(y_idx)];
         double             x = 0.0, y = 0.0;
-        bool const         x_ok = !loader_detail::is_na(xc, spec.na_tokens) &&
-                          loader_detail::parse_double_cell(xc, x);
-        bool const y_ok = !loader_detail::is_na(yc, spec.na_tokens) &&
-                          loader_detail::parse_double_cell(yc, y);
+        bool const         x_ok = !loader_detail::is_na(xc, spec.na_tokens) && loader_detail::parse_double_cell(xc, x);
+        bool const         y_ok = !loader_detail::is_na(yc, spec.na_tokens) && loader_detail::parse_double_cell(yc, y);
         if (!x_ok || !y_ok) { // n/a / failed / nicht-numerisch -> NIE Phantom-Punkt
             ++series.skipped_rows;
             continue;
