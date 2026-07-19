@@ -132,16 +132,16 @@ int AnatomyModuleLoader::load(std::filesystem::path const& dll_path, AnatomyModu
         return status_magic_mismatch;
     }
 
-    // Version-Check (Major-Match + Modul-Minor <= Host-Minor)
+    // Version-Check ueber den EINEN benannten Vertrag (V6/P3, K-6 2026-07-19): das Gate ist
+    // AnatomyAbiVersion::host_compatible_with (anatomy_module_abi_v1_decl.hpp:124-127, Major identisch +
+    // Modul-Minor <= Host-Minor) statt einer Inline-Reimplementation. Die beiden differenzierten
+    // Status-Codes bleiben als reine DIAGNOSE des abgelehnten Falls erhalten (Verhalten byte-identisch).
     auto const module_version = abi::AnatomyAbiVersion::unpack(pfn_version());
 
-    if (module_version.major != abi::kHostAnatomyAbiVersion.major) {
+    if (!abi::kHostAnatomyAbiVersion.host_compatible_with(module_version)) {
         native_unload(native);
-        return status_abi_major_mismatch;
-    }
-    if (module_version.minor > abi::kHostAnatomyAbiVersion.minor) {
-        native_unload(native);
-        return status_abi_minor_too_new;
+        return (module_version.major != abi::kHostAnatomyAbiVersion.major) ? status_abi_major_mismatch
+                                                                           : status_abi_minor_too_new;
     }
 
     // Factory aufrufen
