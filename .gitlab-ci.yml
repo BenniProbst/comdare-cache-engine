@@ -433,3 +433,27 @@ sanitize:tsan:
     - cmake -B build-tsan -G Ninja -DCOMDARE_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
     - cmake --build build-tsan --target test_concurrency_disciplines test_rcu test_v41_axis_08_concurrency
     - 'TSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-tsan -R "^(test_concurrency_disciplines|test_rcu|test_v41_axis_08_concurrency)$" --output-on-failure -V'
+
+# -- PAKET W3-C (Ledger Sec.32-F4/GN-8/O-4): axis-version-lock Content-Digest-Tripwire --
+# Baut das EXCLUDE_FROM_ALL-Tool comdare_axis_version_lock (2-Pass wie die anderen Tool-Gates) und prueft den
+# SHA-256-Content-Digest der 3 Heuristik-Strategie-Header gegen das committete axis_version.lock. ROT (Exit 1),
+# wenn ein Header-Digest geaendert wurde OHNE algo_version-Bump (F4). Header werden NUR GELESEN; golden/TABU
+# unberuehrt. INERT-by-default: rules-gated auf COMDARE_AXIS_LOCK_CHECK=="true"; zum Dauergate: rules-Zeile weg.
+contract:axis-version-lock:
+  extends: .bare_metal
+  stage: contract
+  tags: [baremetal]
+  needs: ["lint:secrets"]
+  rules:
+    - if: '$COMDARE_AXIS_LOCK_CHECK == "true"'
+  script:
+    - cmake -B build-axislock -G Ninja -DCOMDARE_BUILD_TESTS=ON
+    - cmake --build build-axislock --target comdare_axis_version_lock
+    - >
+      ./build-axislock/tools/axis_version_lock/comdare_axis_version_lock --check
+      tools/axis_version_lock/axis_version.lock
+      libs/cache_engine/heuristik/axis_spline.hpp
+      libs/cache_engine/heuristik/break_even.hpp
+      libs/cache_engine/heuristik/measurement_curve_loader.hpp
+  artifacts:
+    paths: []     # kein build/Testing-Artefakt (Storage-500-Konvention der contract-Jobs)

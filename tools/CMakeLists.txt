@@ -20,3 +20,6 @@ add_subdirectory(measurement_axis_registry_gen)
 add_subdirectory(gen_golden_fullpilot)
 # tools/latex_toolchain ist eine CMake-only-Toolchain (kein C++-Target);
 # wird via cmake -P aufgerufen, kein add_subdirectory noetig.
+# PAKET W3-C (Ledger Sec.32-F4/GN-8/O-4): axis_version_lock -- Content-Digest-Tripwire der Heuristik-
+# Strategie-Header (EXCLUDE_FROM_ALL, INERT-by-default; explizit gebaut vom CI-Lock-Check-Job).
+add_subdirectory(axis_version_lock)
