@@ -43,6 +43,10 @@ struct ProfileRunArgs {
     std::size_t golden_range_start = 0;
     std::size_t golden_range_count = 0;     // 0 = kein Fenster (Ist-Verhalten)
     bool        provision_only     = false; // true = nur bauen, nicht messen
+    // W6 (Ledger §32-F7, 2026-07-19): expliziter Bau-Pool-Worker-Override. Der Host (messung_driver) belegt ihn aus
+    // COMDARE_BUILD_PARALLEL (env_parallelism_value). 0 = ungesetzt => parallel_jobs()-Heuristik = byte-neutrales Ist;
+    // >0 = harte parallele Compile-Zahl (KOMPILATION parallel, MESSEN bleibt 1-Thread).
+    std::size_t build_parallelism = 0;
     // W5-C+ (§36.1 Zellen-Locking, 2026-07-19): der GN-Zellen-Filter der opt×simd-Delegations-Naht. Der Host
     // (messung_driver) belegt sie aus COMDARE_GN_OPT/COMDARE_GN_SIMD. Gesetzt => run_profile baut in dieser
     // Cluster-Zelle NUR die matchende (opt,simd)-Perm; leer (Default) = kein Filter = alle Perms => byte-neutral.
@@ -98,6 +102,9 @@ struct ExperimentRunArgs {
     // sie aus COMDARE_GN_OPT/COMDARE_GN_SIMD). Leer (Default) = kein Filter = alle Perms => byte-neutral.
     std::string gn_cell_opt;  // leer = kein opt-Zellen-Filter
     std::string gn_cell_simd; // leer = kein simd-Zellen-Filter
+    // W6 (Ledger §32-F7): expliziter Bau-Pool-Worker-Override -- SPIEGEL zu ProfileRunArgs::build_parallelism
+    // (der Host belegt ihn aus COMDARE_BUILD_PARALLEL). 0 = ungesetzt => byte-neutrales Ist.
+    std::size_t build_parallelism = 0;
     // Storage #51 (No-Op-Default => byte-neutral): wie ProfileRunArgs — vom Host via from_env konstruiert,
     // zur per-Binary-/whole-run-Naht durchgereicht. Leer = No-Op.
     artifact_transport::CachePushFn       cache_push;
@@ -141,5 +148,19 @@ struct ExperimentRunResult {
 // nicht als bekannte Wurzel lesbar. Der katalog-schwere Planer-Header (experiment_plan_director.hpp:42-43)
 // wird NUR in der Fassaden-.cpp inkludiert, NIE in diesem Header (umbrella-frei fuer den Treiber).
 [[nodiscard]] int dump_experiment_plan_facade(std::filesystem::path const& profile_path, std::ostream& os);
+
+// GoF Facade (PAKET W7-A, §40.b): --dump-ci -- rein-lesende Emission der deterministischen GitLab-Child-
+// Pipeline-YAML (CiYamlBuilder am SELBEN Director-Walk). Die dynamische, Planer-gesteuerte Folge-CI (§40.b:
+// Pilot->Serie): zweistufig (STUFE 1 = CEB-Bau-Jobs je System-Perm; STUFE 2 = Tier-Job-Emitter + Grandchild-
+// Trigger). Byte-deterministisch/host-unabhaengig (nur CI-Variablen + opt/simd-Plan-Konstanten). Baut KEINE
+// DLL und misst NICHT. Rueckgabe: 0 = YAML nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
+[[nodiscard]] int dump_experiment_ci_facade(std::filesystem::path const& profile_path, std::ostream& os);
+
+// GoF Facade (PAKET W7-B, §40.c): --dump-cmake -- rein-lesende Emission des scharfen experiment_plan.cmake
+// (CMakeGraphBuilder am SELBEN Director-Walk). Der Bare-Metal-Bauplan: pro Perm ein echtes provision-only-
+// Treiber-Kommando (build:) + ein GN-11-gegatetes measure:-Skelett. Byte-deterministisch/host-unabhaengig
+// (Treiber/Profil/Range/Out = CMake-Variablen mit Defaults; nur opt/simd = Plan-Konstanten). Baut KEINE DLL
+// und misst NICHT. Rueckgabe: 0 = .cmake nach os emittiert, 5 = Profil nicht als bekannte Wurzel lesbar.
+[[nodiscard]] int dump_experiment_cmake_facade(std::filesystem::path const& profile_path, std::ostream& os);
 
 } // namespace comdare::cache_engine::builder::profile_facade
