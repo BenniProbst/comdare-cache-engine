@@ -59,7 +59,7 @@
   <!-- Reines LIMIT: axis ref = Registry-axis-id, allowed_variants = Teilmenge der
        baustein-name-Werte der ce-Registry. Ungenannte Achsen = volle Registry-Liste. -->
   <axes_default_lookup enabled="true">
-    <axis ref="isa"              allowed_variants="isa_amd64 isa_aarch64"/>
+    <axis ref="mapping"          allowed_variants="direct_placement pool_relative"/>
     <axis ref="search_algo"      allowed_variants="k_ary eytzinger"/>
     <axis ref="path_compression" allowed_variants="path_compression_none path_compression_patricia"/>
   </axes_default_lookup>

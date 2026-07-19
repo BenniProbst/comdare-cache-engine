@@ -117,10 +117,12 @@ TEST(ExperimentParser, ParsesGoldenInstanceLiterally) {
     // axes_default_lookup (enabled + 3 Achsen mit allowed_variants).
     EXPECT_TRUE(ep->axes_default_lookup_enabled);
     ASSERT_EQ(ep->axes_default_lookup.size(), 3u);
-    EXPECT_EQ(ep->axes_default_lookup[0].ref, "isa");
+    // INC-2d-Verbund (Registry-Regen 18->17): isa verliess die Komposition (System-Achse target_isa) ->
+    // Fixture-Achse [0] ist jetzt mapping (echte Organ-Achse mit exakt 2 Varianten, Kardinalitaeten stabil).
+    EXPECT_EQ(ep->axes_default_lookup[0].ref, "mapping");
     ASSERT_EQ(ep->axes_default_lookup[0].allowed_variants.size(), 2u);
-    EXPECT_EQ(ep->axes_default_lookup[0].allowed_variants[0], "isa_amd64");
-    EXPECT_EQ(ep->axes_default_lookup[0].allowed_variants[1], "isa_aarch64");
+    EXPECT_EQ(ep->axes_default_lookup[0].allowed_variants[0], "direct_placement");
+    EXPECT_EQ(ep->axes_default_lookup[0].allowed_variants[1], "pool_relative");
     EXPECT_EQ(ep->axes_default_lookup[1].ref, "search_algo");
     EXPECT_EQ(ep->axes_default_lookup[2].ref, "path_compression");
 
@@ -170,7 +172,7 @@ TEST(ExperimentParser, ValidatesGoldenAgainstRegistries) {
     EXPECT_TRUE(vr.ok);
     EXPECT_EQ(vr.engines_checked, 2u);
     EXPECT_EQ(vr.phases_checked, 3u);
-    EXPECT_EQ(vr.variants_checked, 6u); // 2 (isa) + 2 (search_algo) + 2 (path_compression)
+    EXPECT_EQ(vr.variants_checked, 6u); // 2 (mapping) + 2 (search_algo) + 2 (path_compression)
     EXPECT_EQ(vr.categories_checked, 5u);
     EXPECT_EQ(vr.opt_levels_checked, 2u); // opt-f/A3: O2 + O3
     EXPECT_EQ(vr.simd_checked, 2u);       // opt-f/A3: no_extension + avx2
@@ -195,13 +197,13 @@ TEST(ExperimentParser, InvalidMergeStrategyIsError) {
 TEST(ExperimentParser, AllowedVariantNotInRegistryIsError) {
     auto ep = parse_golden();
     ASSERT_TRUE(ep.has_value());
-    ep->axes_default_lookup[0].allowed_variants.push_back("isa_does_not_exist");
+    ep->axes_default_lookup[0].allowed_variants.push_back("mapping_does_not_exist");
 
     fs::path const                        reg = make_registry_dir();
     tlz::ExperimentValidationResult const vr  = tlz::validate_experiment_profile(*ep, reg);
     EXPECT_FALSE(vr.ok);
     EXPECT_TRUE(any_contains(vr.errors, "UNGUELTIGE allowed_variant"));
-    EXPECT_TRUE(any_contains(vr.errors, "isa_does_not_exist"));
+    EXPECT_TRUE(any_contains(vr.errors, "mapping_does_not_exist"));
 
     std::error_code ec;
     fs::remove_all(reg, ec);
