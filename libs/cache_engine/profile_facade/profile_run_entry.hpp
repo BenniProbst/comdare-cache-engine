@@ -34,10 +34,15 @@
 #include <builder/experiment_tree/coverage_selection.hpp> // select_explicit
 #include <builder/build_orchestrator/system_ram.hpp>      // make_system_free_ram_fn
 
+#include <cache_engine/measurement/optimization_level_sub_axis.hpp> // GN-3: OptO*SubAxis (opt_level-id -> -O<n>)
+#include <cache_engine/measurement/simd_sub_axis.hpp>               // GN-3/F-SIMD: simd-Unter-Achse (simd_id -> -march)
+#include <cache_engine/measurement/axis_error.hpp> // GN-3: CompilerCompilerErrorClass (D1-Log der opt×simd-Naht)
+
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional> // GN-3: std::function (per-Perm-CompileFn-Fabrik der opt×simd-Naht)
 #include <iostream>
 #include <map>
 #include <memory>
@@ -56,11 +61,18 @@ namespace wd = ::comdare::cache_engine::builder::workload_driver;
 //    aus dem Profil (tp). cap/resume/platform/build_version werden aus <run_options> vorbelegt; argv/env darf
 //    weiterhin uebersteuern (der Treiber-Host setzt die Felder hier vor dem Aufruf).
 struct RunProfileArgs {
-    std::filesystem::path    profile_path;     // das comdare_thesis_profile (m3v2_study.profile.xml)
-    std::filesystem::path    out_csv;          // Ziel-CSV (Header genau EINMAL, alle Paesse darunter)
-    std::filesystem::path    src_dir;          // perm_<id>.cpp-Ausgabe (per-Binary-Subdir-Basis)
-    std::filesystem::path    dll_dir;          // perm_<id>.dll-Ausgabe (per-Binary-Subdir-Basis)
-    ex::CompileFn            compile;          // injizierter Compiler-Aufruf (cl @rsp) — wie BuildOrchestrator
+    std::filesystem::path profile_path; // das comdare_thesis_profile (m3v2_study.profile.xml)
+    std::filesystem::path out_csv;      // Ziel-CSV (Header genau EINMAL, alle Paesse darunter)
+    std::filesystem::path src_dir;      // perm_<id>.cpp-Ausgabe (per-Binary-Subdir-Basis)
+    std::filesystem::path dll_dir;      // perm_<id>.dll-Ausgabe (per-Binary-Subdir-Basis)
+    ex::CompileFn         compile;      // injizierter Compiler-Aufruf (cl @rsp) — wie BuildOrchestrator
+    // GN-3 (§33, 2026-07-19): per-Permutation-CompileFn-Fabrik (System-Achsen opt_level × simd), SPIEGEL der
+    // RunExperimentArgs::compile_for_perm-Naht. Der Facade-Planer liefert sie (kennt include_dirs/defines/cxx/
+    // link_libs/fno_gnu_unique); run_profile permutiert opt×simd aus dem GEPARSTEN Profil (tp.compiler.opt_levels /
+    // tp.extension_hardware.simd_options) SELBST und ruft die Fabrik je Perm mit den aufgeloesten Flags. Leer ⇒
+    // Fallback auf `compile` (Einzel-Pfad, byte-identisch zum Vor-Wiring-Verhalten).
+    std::function<ex::CompileFn(std::string const& opt_flag, std::string const& march_flag)> compile_for_perm;
+    std::string              compiler_tag;     // GN-3: +cxx=-Provenienz im per-Perm-build_version (NIE binary_id)
     ex::AlgoSigFn            algo_sig;         // Bauplan §7: spec.axes → algo_sig (perm.algos); leer = Organ-Gate aus
     ex::CachePushFn          cache_push;       // Storage #51: perm.dll(+.version) -> Objekt-Store (B); leer = No-Op
     ex::MeasurementSinkFn    measurement_sink; // Storage #51: Mess-Datei -> measure-drop additiv (C); leer = No-Op
@@ -103,6 +115,39 @@ struct RunProfileResult {
     for (char c : s)
         if (c == '\n') ++n;
     return n;
+}
+
+// ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): die GETEILTE opt×simd-Flag-Aufloesung. Vorher lebten diese drei
+//    Helfer im comdare_experiment-Kanal (experiment_run_entry.hpp), der DIESEN Header inkludiert; relokiert nach
+//    UNTEN, damit BEIDE Lauf-Pfade (run_profile hier + run_experiment_profile oben) die SELBE Naht nutzen (kein
+//    Duplikat). Single-Source der Flags = die Achsen-Structs (OptO*SubAxis::gcc_opt_flag / SimdSubAxis::gcc_march_flag).
+//    gcc/clang teilen -O<n>/-march (der Facade-compile_for_perm haengt sie an die eine rsp-Zeile). ──
+[[nodiscard]] inline std::string system_axis_opt_flag_of(std::string_view opt_id) {
+    namespace cm = ::comdare::cache_engine::measurement;
+    if (opt_id == cm::OptO0Option::opt_level_id()) return std::string{cm::OptO0Option::gcc_opt_flag()};
+    if (opt_id == cm::OptO1Option::opt_level_id()) return std::string{cm::OptO1Option::gcc_opt_flag()};
+    if (opt_id == cm::OptO2Option::opt_level_id()) return std::string{cm::OptO2Option::gcc_opt_flag()};
+    if (opt_id == cm::OptO3Option::opt_level_id()) return std::string{cm::OptO3Option::gcc_opt_flag()};
+    if (opt_id == cm::OptOfastOption::opt_level_id()) return std::string{cm::OptOfastOption::gcc_opt_flag()};
+    return {}; // unbekannt ⇒ Caller degradiert sichtbar auf den CEB-Default (D1, KonfigXmlParse)
+}
+[[nodiscard]] inline std::string system_axis_march_of(std::string_view simd_id) {
+    namespace cm = ::comdare::cache_engine::measurement;
+    if (simd_id == cm::SimdAvx2Option::simd_id()) return std::string{cm::SimdAvx2Option::gcc_march_flag()};
+    if (simd_id == cm::SimdAvx512Option::simd_id()) return std::string{cm::SimdAvx512Option::gcc_march_flag()};
+    return {}; // no_extension / unbekannt ⇒ generisch (kein -march)
+}
+// ISA-Gate (E1): die simd-Erweiterung nur zulassen, wenn der Host-Prozessor sie bietet. Die -march-Flag IST das
+// Gate fuer die Organ-SIMD-Codegen (Organ-SIMD ≤ System-SIMD-Zulassung); Bau- + Mess-Host sind derselbe (golden-
+// Lauf), daher __builtin_cpu_supports. Fused-off-AVX512 (prod2) meldet sich hier korrekt als nicht verfuegbar.
+[[nodiscard]] inline bool system_axis_host_supports_simd(std::string_view simd_id) {
+    namespace cm = ::comdare::cache_engine::measurement;
+    if (simd_id == cm::SimdNoExtOption::simd_id()) return true;
+#if defined(__x86_64__) || defined(_M_X64)
+    if (simd_id == cm::SimdAvx2Option::simd_id()) return __builtin_cpu_supports("avx2");
+    if (simd_id == cm::SimdAvx512Option::simd_id()) return __builtin_cpu_supports("avx512f");
+#endif
+    return false; // avx* auf nicht-x86 / unbekannte id ⇒ nicht zulassen
 }
 
 /// run_profile — DIE EINE deklarative CEB-Eintritts-API (S7c). Faehrt aus EINEM Profil BEIDE Subsets:
@@ -226,9 +271,18 @@ struct RunProfileResult {
                   << " Eintraege (tool=" << h2_akte->tool << " " << h2_akte->tool_version << ")\n";
     else
         std::cout << "  [H2-AKTE] keine sota_h2_scores.xml — h2_code_quality_score der SOTA-Reihen = n/a (honest)\n";
-    auto make_cfg = [&](std::uint64_t ws_n, std::size_t cap_for_pass, std::string const& series,
-                        std::string const& sweep_axis, std::string const& pruefling_type,
-                        std::string const& fairness_mode, std::string const& h2_score) {
+
+    // ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): per-Perm-Kontext der opt×simd-System-Achsen-Naht (Spiegel
+    //    experiment_run_entry.hpp:257-289). make_cfg + die Pass-Treiber lesen diese drei Variablen; die opt×simd-
+    //    Schleife (unten) setzt sie je Kombination. IDENTITAETS-DEFAULT (kein <system_axes> im Profil) = exakt das
+    //    Vor-Wiring-Verhalten: perm_compile=a.compile, build_version/CSV-Tag UNVERAENDERT (die Facade traegt den
+    //    system_axes_version_suffix bereits) → golden-320/golden_fullpilot byte-identisch. ──
+    ex::CompileFn perm_compile           = a.compile;
+    std::string   perm_build_version     = a.build_version;   // .version-Sidecar (Resume-Marke) je Perm
+    std::string   perm_tag_build_version = tag_build_version; // CSV-Provenienz-Spalte build_version je Perm
+    auto          make_cfg               = [&](std::uint64_t ws_n, std::size_t cap_for_pass, std::string const& series,
+                                               std::string const& sweep_axis, std::string const& pruefling_type,
+                                               std::string const& fairness_mode, std::string const& h2_score) {
         ex::LazyRunConfig cfg;
         cfg.max_binaries = cap_for_pass;
         // G5: <run_options n_ops> ist autoritativ (XML steuert ALLES, #229); der Fassaden-/argv-Wert
@@ -236,7 +290,7 @@ struct RunProfileResult {
         cfg.n_ops                     = (tp.run_options.n_ops > 0) ? tp.run_options.n_ops : a.n_ops;
         cfg.workload_records          = ws_n;
         cfg.workload_configs          = a.workload_registry;
-        cfg.build_version             = a.build_version;
+        cfg.build_version             = perm_build_version; // GN-3: per-Perm (+cxx=+opt=+ext=), sonst = a.build_version
         cfg.row_series                = series.empty() ? std::string{"-"} : series;
         cfg.row_pruefling_type        = pruefling_type.empty() ? std::string{"-"} : pruefling_type;
         cfg.row_sweep_axis            = sweep_axis.empty() ? std::string{"-"} : sweep_axis;
@@ -244,7 +298,7 @@ struct RunProfileResult {
         cfg.row_h2_score              = h2_score.empty() ? std::string{"-"} : h2_score;           // GO-5 Fork 7
         cfg.profile_datasets          = datasets_signature; // GO-5 Fork 1: lauf-weite <datasets>-Signatur (Stamp)
         cfg.row_platform              = tag_platform;
-        cfg.row_build_version         = tag_build_version;
+        cfg.row_build_version         = perm_tag_build_version; // GN-3: per-Perm-CSV-Tag, sonst = tag_build_version
         cfg.source_dir                = a.src_dir;
         cfg.output_dir                = a.dll_dir;
         cfg.cores_per_build           = a.cores_per_build;
@@ -330,7 +384,7 @@ struct RunProfileResult {
                 ex::LazyRunConfig       cfg = make_cfg(ws_n, sweep_n, /*series=*/"-", pass_axis, /*pruefling_type=*/"-",
                                                        /*fairness_mode=*/"-", /*h2_score=*/"-");
                 ex::LazyRunResult const r =
-                    ex::run_lazy_static_then_dynamic(sweep_tree, sel, a.compile, union_gen, ram, cfg, a.algo_sig);
+                    ex::run_lazy_static_then_dynamic(sweep_tree, sel, perm_compile, union_gen, ram, cfg, a.algo_sig);
                 emit(r, &res.basis_rows);
             }
         } else {
@@ -357,7 +411,7 @@ struct RunProfileResult {
                 ex::LazyRunConfig       cfg = make_cfg(ws_n, N, pts.series, pts.sweep_axis, /*pruefling_type=*/"-",
                                                        /*fairness_mode=*/"-", /*h2_score=*/"-");
                 ex::LazyRunResult const r =
-                    ex::run_lazy_static_then_dynamic(basis_tree, sel, a.compile, union_gen, ram, cfg, a.algo_sig);
+                    ex::run_lazy_static_then_dynamic(basis_tree, sel, perm_compile, union_gen, ram, cfg, a.algo_sig);
                 emit(r, &res.basis_rows);
             }
         }
@@ -367,62 +421,126 @@ struct RunProfileResult {
     if (selection_passes.size() > 1)
         std::cout << "  [MULTI-SWEEP] Basis-Pass + " << (selection_passes.size() - 1)
                   << " deklarierte <axis_sweep>-Paesse (Dokument-Reihenfolge, #26/GO-5)\n";
-    for (auto const& pass_axis : selection_passes) run_selection_pass(pass_axis);
-    // Distinkte Basis-/Sweep-binary_ids DIESES Laufs (Baseline zaehlt ueber alle Paesse genau 1x). Im
-    // Einzel-Pass-Fall identisch zur frueheren sel.indices.size()-Zaehlung (Selektionen sind duplikatfrei).
-    res.basis_binary_ids = pass_seen_ids.size();
 
-    // ════════════════════════════════════════════════════════════════════════════════════════════════════
-    // S7b — PASS 2..k: je <sota_series> EIN SOTA-Reihen-Lebewesen (einwertiger "sota_tier"-Baum, Tag A/B/C).
-    //   Disjunkter binary_id-Namensraum ("sota_tier=sota::S::name") → die union_gen liefert die SOTA-Quelle.
-    // ════════════════════════════════════════════════════════════════════════════════════════════════════
-    if (a.run_sota_series) {
-        std::vector<SotaPass> const passes = build_sota_passes(tp);
-        std::cout << "  [SOTA] real baubare <sota_series>-Paesse = " << passes.size() << " (von "
-                  << tp.sota_series.size() << " deklariert)\n";
-        // M-CE-10 (Voll-Review 2026-07-13, Fix (b)): res.sota_binary_ids ist per Doku "distinkte SOTA-Reihen-
-        // binary_ids, die gebaut/gemessen wurden" — NICHT die Pass-Zahl. build_sota_passes dedupliziert bereits
-        // identische Messungen (KORREKTUR F23 2026-07-16: seit der per-Host-Auffaecherung 2026-07-14 sind St2-
-        // Paesse per-Host GENUINE distinkt — "St2 = 1 HOT-Pilot" war die VOR-M-CE-10-Semantik; dedupliziert
-        // werden nur noch WIRKLICH identische Deklarationen, gleicher Host + gleicher fairness_mode); dieser
-        // Set-Guard fängt zusätzlich die legitimen fairness-Varianten ab (gleiche binary_id, verschiedener
-        // fairness_mode ⇒ EINE reale DLL). So bleibt der Zähler exakt == Zahl der real gebauten/gemessenen
-        // distinkten DLLs (kein Über-Zählen wie vor dem Fix).
-        std::set<std::string> sota_seen_bids;
-        for (auto const& p : passes) {
-            // Einwertiger Static-Baum: AxisLevel "sota_tier"=<sota_bid> + dieselben DynamicDims wie der Basis-Baum
-            // (damit die SOTA-Zeilen die gleiche thread_count×prefetch×repetition-Variation tragen).
-            std::vector<ex::AxisLevel> sota_levels;
-            sota_levels.push_back(ex::AxisLevel{std::string{kSotaTierAxis}, {p.sota_bid}, /*is_static=*/true, "", ""});
-            for (auto const& dd : basis_tree.dynamic_filter())
-                sota_levels.push_back(ex::AxisLevel{dd.axis, dd.values, /*is_static=*/false, dd.variable, dd.block_id});
+    // ── run_all_passes: EIN kompletter Selektions-Durchlauf (Basis/Sweep-Paesse + SOTA-Reihen) fuer die AKTUELLE
+    //    opt×simd-Perm. pass_seen_ids wird per-Perm frisch gesetzt (jede opt×simd-Stufe ist ein eigenes Bau-Rennen:
+    //    gleiche binary_ids, anderes build_version → eigenes .version-Sidecar/eigene Messung). ──
+    auto run_all_passes = [&]() {
+        pass_seen_ids.clear(); // per-Perm-Reset (Identitaets-Fall: startet ohnehin leer)
+        for (auto const& pass_axis : selection_passes) run_selection_pass(pass_axis);
+        // Distinkte Basis-/Sweep-binary_ids DIESES Passes (Baseline je Pass genau 1x). Ueber die opt×simd-Perms
+        // akkumuliert (jede Perm = eigenes Bau-Rennen); im Einzel-Pass/Identitaets-Fall == frueherer sel.size()-Wert.
+        res.basis_binary_ids += pass_seen_ids.size();
 
-            auto               sota_factory = std::make_shared<ex::ExperimentNodeFactory>();
-            ex::ExperimentTree sota_tree{sota_factory};
-            sota_tree.build(sota_levels);
-            ex::StaticBinaryView const sota_view = sota_tree.static_binary_view();
-            // EIN Lebewesen je Reihe = view-Index 0. binary_id == p.view_binary_id ("sota_tier=…").
-            ex::BuildSelection const sel = ex::select_explicit({0});
-            if (sota_seen_bids.insert(p.view_binary_id).second) ++res.sota_binary_ids; // M-CE-10 (b): distinkt
-            // GO-5 Fork 7 + M-CE-10 (c): der tool-berechnete H2-Score wird ueber das HOST-Lebewesen (p.h2_lebewesen)
-            // aufgeloest — host-dominant (#171: "abstract" = Host fuellt 16/17 Achsen, INC-2d). KORREKTUR F23 (2026-07-16):
-            // die fruehere Aussage 'fuer St2 FIX "hot", NIE das angefragte lebewesen' beschrieb die VOR-M-CE-10-
-            // Semantik (nur der HOT-Host existierte als St2-Komposition). Seit der per-Host-Auffaecherung
-            // (2026-07-14) gilt fuer ALLE Stufen St1/St2/St3: h2_lebewesen == lebewesen (der per-Host-Replace hat
-            // DIESEN Host; Gate: test_sota_st2_dedup asserted EXPECT_EQ(p.h2_lebewesen, p.lebewesen), 19 Paesse).
-            // prt_art/fehlende Akte ⇒ honest "n/a" (sota-Profil-Dateistamm == Lebewesen-Name der 6 SOTA).
-            std::string const h2_score = h2_score_for(h2_akte, p.h2_lebewesen);
-            std::cout << "    SOTA-Pass series=" << p.series << " pruefling_type=" << p.pruefling_type
-                      << " fairness=" << p.fairness_mode << " h2_score=" << h2_score
-                      << " h2_lebewesen=" << p.h2_lebewesen << " lebewesen=" << p.lebewesen
-                      << " binary_id=" << (sota_view.empty() ? std::string{"<leer>"} : sota_view[0].binary_id) << "\n";
-            for (std::uint64_t const ws_n : n_sweep) {
-                ex::LazyRunConfig cfg =
-                    make_cfg(ws_n, 1, p.series, /*sweep_axis=*/"", p.pruefling_type, p.fairness_mode,
-                             h2_score); // #171 full/abstract + Fork 6 fairness + Fork 7 h2
-                ex::LazyRunResult const r =
-                    ex::run_lazy_static_then_dynamic(sota_tree, sel, a.compile, union_gen, ram, cfg, a.algo_sig);
-                emit(r, &res.sota_rows);
+        // ════════════════════════════════════════════════════════════════════════════════════════════════════
+        // S7b — PASS 2..k: je <sota_series> EIN SOTA-Reihen-Lebewesen (einwertiger "sota_tier"-Baum, Tag A/B/C).
+        //   Disjunkter binary_id-Namensraum ("sota_tier=sota::S::name") → die union_gen liefert die SOTA-Quelle.
+        // ════════════════════════════════════════════════════════════════════════════════════════════════════
+        if (a.run_sota_series) {
+            std::vector<SotaPass> const passes = build_sota_passes(tp);
+            std::cout << "  [SOTA] real baubare <sota_series>-Paesse = " << passes.size() << " (von "
+                      << tp.sota_series.size() << " deklariert)\n";
+            // M-CE-10 (Voll-Review 2026-07-13, Fix (b)): res.sota_binary_ids ist per Doku "distinkte SOTA-Reihen-
+            // binary_ids, die gebaut/gemessen wurden" — NICHT die Pass-Zahl. build_sota_passes dedupliziert bereits
+            // identische Messungen (KORREKTUR F23 2026-07-16: seit der per-Host-Auffaecherung 2026-07-14 sind St2-
+            // Paesse per-Host GENUINE distinkt — "St2 = 1 HOT-Pilot" war die VOR-M-CE-10-Semantik; dedupliziert
+            // werden nur noch WIRKLICH identische Deklarationen, gleicher Host + gleicher fairness_mode); dieser
+            // Set-Guard fängt zusätzlich die legitimen fairness-Varianten ab (gleiche binary_id, verschiedener
+            // fairness_mode ⇒ EINE reale DLL). So bleibt der Zähler exakt == Zahl der real gebauten/gemessenen
+            // distinkten DLLs (kein Über-Zählen wie vor dem Fix).
+            std::set<std::string> sota_seen_bids;
+            for (auto const& p : passes) {
+                // Einwertiger Static-Baum: AxisLevel "sota_tier"=<sota_bid> + dieselben DynamicDims wie der Basis-Baum
+                // (damit die SOTA-Zeilen die gleiche thread_count×prefetch×repetition-Variation tragen).
+                std::vector<ex::AxisLevel> sota_levels;
+                sota_levels.push_back(
+                    ex::AxisLevel{std::string{kSotaTierAxis}, {p.sota_bid}, /*is_static=*/true, "", ""});
+                for (auto const& dd : basis_tree.dynamic_filter())
+                    sota_levels.push_back(
+                        ex::AxisLevel{dd.axis, dd.values, /*is_static=*/false, dd.variable, dd.block_id});
+
+                auto               sota_factory = std::make_shared<ex::ExperimentNodeFactory>();
+                ex::ExperimentTree sota_tree{sota_factory};
+                sota_tree.build(sota_levels);
+                ex::StaticBinaryView const sota_view = sota_tree.static_binary_view();
+                // EIN Lebewesen je Reihe = view-Index 0. binary_id == p.view_binary_id ("sota_tier=…").
+                ex::BuildSelection const sel = ex::select_explicit({0});
+                if (sota_seen_bids.insert(p.view_binary_id).second) ++res.sota_binary_ids; // M-CE-10 (b): distinkt
+                // GO-5 Fork 7 + M-CE-10 (c): der tool-berechnete H2-Score wird ueber das HOST-Lebewesen (p.h2_lebewesen)
+                // aufgeloest — host-dominant (#171: "abstract" = Host fuellt 16/17 Achsen, INC-2d). KORREKTUR F23 (2026-07-16):
+                // die fruehere Aussage 'fuer St2 FIX "hot", NIE das angefragte lebewesen' beschrieb die VOR-M-CE-10-
+                // Semantik (nur der HOT-Host existierte als St2-Komposition). Seit der per-Host-Auffaecherung
+                // (2026-07-14) gilt fuer ALLE Stufen St1/St2/St3: h2_lebewesen == lebewesen (der per-Host-Replace hat
+                // DIESEN Host; Gate: test_sota_st2_dedup asserted EXPECT_EQ(p.h2_lebewesen, p.lebewesen), 19 Paesse).
+                // prt_art/fehlende Akte ⇒ honest "n/a" (sota-Profil-Dateistamm == Lebewesen-Name der 6 SOTA).
+                std::string const h2_score = h2_score_for(h2_akte, p.h2_lebewesen);
+                std::cout << "    SOTA-Pass series=" << p.series << " pruefling_type=" << p.pruefling_type
+                          << " fairness=" << p.fairness_mode << " h2_score=" << h2_score
+                          << " h2_lebewesen=" << p.h2_lebewesen << " lebewesen=" << p.lebewesen
+                          << " binary_id=" << (sota_view.empty() ? std::string{"<leer>"} : sota_view[0].binary_id)
+                          << "\n";
+                for (std::uint64_t const ws_n : n_sweep) {
+                    ex::LazyRunConfig cfg =
+                        make_cfg(ws_n, 1, p.series, /*sweep_axis=*/"", p.pruefling_type, p.fairness_mode,
+                                 h2_score); // #171 full/abstract + Fork 6 fairness + Fork 7 h2
+                    ex::LazyRunResult const r =
+                        ex::run_lazy_static_then_dynamic(sota_tree, sel, perm_compile, union_gen, ram, cfg, a.algo_sig);
+                    emit(r, &res.sota_rows);
+                }
+            }
+        }
+    };
+
+    // ── GN-3 (§33 Systembeweis-Traeger, 2026-07-19): opt×simd-System-Achsen-Permutation UM die Passes (Spiegel
+    //    experiment_run_entry.hpp:257-289, KEINE Parallel-Schleife). Quelle = das GEPARSTE Profil
+    //    (tp.compiler.opt_levels / tp.extension_hardware.simd_options, geteilte parse_system_axes-Naht). KEIN
+    //    <system_axes> ⇒ EINE Identitaets-Perm: run_all_passes() genau einmal, perm_compile/perm_build_version/
+    //    perm_tag_build_version bleiben auf a.compile/a.build_version/tag_build_version → byte-identisch zum
+    //    Vor-Wiring-Verhalten (golden-320/golden_fullpilot unberuehrt; die Facade traegt dort den
+    //    system_axes_version_suffix). MIT <system_axes> ⇒ je opt×simd eigene CompileFn (compile_for_perm) + eigenes
+    //    build_version-/CSV-Suffix (+cxx=+opt=+ext=) + eigener pass/sota-Dedup-Reset; binary_id BLEIBT Organ-only
+    //    (opt/simd=system_config, NIE binary_id, NIE N) — es waechst NUR die MESS-Matrix (CSV × |opt×simd|).
+    //    ISA-gegated (avx2 nur x86_64, wie system_axis_host_supports_simd). ──
+    namespace cm = ::comdare::cache_engine::measurement;
+    if (tp.compiler.opt_levels.empty() && tp.extension_hardware.simd_options.empty()) {
+        run_all_passes(); // Identitaet: perm_* bleiben unveraendert (Vor-Wiring-Verhalten)
+    } else {
+        std::vector<std::string> const opt_perms =
+            tp.compiler.opt_levels.empty()
+                ? std::vector<std::string>{std::string{cm::DefaultOptLevelOption::opt_level_id()}}
+                : tp.compiler.opt_levels;
+        std::vector<std::string> const simd_perms =
+            tp.extension_hardware.simd_options.empty()
+                ? std::vector<std::string>{std::string{cm::DefaultSimdOption::simd_id()}}
+                : tp.extension_hardware.simd_options;
+        for (auto const& opt_id : opt_perms) {
+            std::string opt_flag = system_axis_opt_flag_of(opt_id);
+            if (opt_flag.empty()) {
+                std::cerr << "[Compiler-Compiler-Fehler: "
+                          << cm::error_class_label(cm::CompilerCompilerErrorClass::KonfigXmlParse) << "] <opt_level>='"
+                          << opt_id << "' unbekannt; degradiere auf CEB-Default "
+                          << cm::DefaultOptLevelOption::opt_level_id() << ".\n";
+                opt_flag = std::string{cm::DefaultOptLevelOption::gcc_opt_flag()};
+            }
+            for (auto const& simd_id : simd_perms) {
+                if (!system_axis_host_supports_simd(simd_id)) {
+                    std::cerr << "[Compiler-Compiler-Fehler: "
+                              << cm::error_class_label(cm::CompilerCompilerErrorClass::HardwareErweiterungFehlt)
+                              << "] simd='" << simd_id
+                              << "' auf dieser ISA nicht verfuegbar — Permutation uebersprungen.\n";
+                    continue;
+                }
+                std::string const march_flag = system_axis_march_of(simd_id);
+                perm_compile = a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag) : a.compile;
+                std::string const perm_suffix =
+                    "+cxx=" + a.compiler_tag + "+opt=" + opt_id +
+                    (simd_id == std::string{cm::SimdNoExtOption::simd_id()} ? std::string{} : "+ext=" + simd_id);
+                perm_build_version     = a.build_version + perm_suffix;   // .version-Sidecar je Perm
+                perm_tag_build_version = tag_build_version + perm_suffix; // CSV-Provenienz-Spalte je Perm
+                std::cout << "  [PERM] opt=" << opt_id << " simd=" << simd_id << " flags='" << opt_flag
+                          << (march_flag.empty() ? std::string{} : (" " + march_flag))
+                          << "' build_version=" << perm_build_version << "\n";
+                run_all_passes();
             }
         }
     }

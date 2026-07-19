@@ -30,6 +30,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <optional> // GN-3: std::optional<cx::ThesisProfile> fuer den <system_axes>-Deklarations-Check
 #include <set>
 #include <string>
 #include <utility>
@@ -336,8 +337,15 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
     // (z.B. ycsb_a..ycsb_f). Nur die dort genannten werden aus dem (bewusst reicheren) load_profiles/-
     // Verzeichnis uebernommen — so steuert die XML den Workload-Satz vollstaendig (#229). Leer bzw. kein
     // parsbares Profil => alle entdeckten Profile (Rueckwaerts-Kompatibilitaet mit dem env-Override-Pfad).
-    std::vector<std::string> workload_select;
-    if (auto tp = tlz::load_thesis_profile(args.profile_path)) workload_select = tp->workloads;
+    std::optional<cx::ThesisProfile> const tp_opt = tlz::load_thesis_profile(args.profile_path);
+    std::vector<std::string>               workload_select;
+    if (tp_opt) workload_select = tp_opt->workloads;
+    // GN-3 (§33 Systembeweis-Traeger, 2026-07-19): deklariert das Profil <system_axes> (opt_level/simd), permutiert
+    // run_profile sie SELBST (opt×simd-Walk) und haengt je Kombination das +cxx=+opt=+ext=-Suffix ans build_version.
+    // Dann darf die BASIS-build_version den system_axes_version_suffix() NICHT tragen (sonst doppelte Provenienz) —
+    // exakt wie run_experiment_profile_facade. OHNE <system_axes> bleibt der Einzel-Pfad byte-identisch.
+    bool const profile_has_system_axes =
+        tp_opt && (!tp_opt->compiler.opt_levels.empty() || !tp_opt->extension_hardware.simd_options.empty());
     auto const is_selected = [&workload_select](std::string const& id) {
         return workload_select.empty() ||
                std::find(workload_select.begin(), workload_select.end(), id) != workload_select.end();
@@ -382,9 +390,30 @@ ProfileRunResult run_profile_facade(ProfileRunArgs const& args) {
             return ex::compose_algo_signature(axes, *algo_table);
         };
     }
-    a.n_ops                      = args.n_ops;
-    a.max_binaries               = args.max_binaries;
-    a.build_version              = args.build_version + system_axes_version_suffix();
+    a.n_ops        = args.n_ops;
+    a.max_binaries = args.max_binaries;
+    // GN-3 (§33, 2026-07-19): build_version + opt×simd-Kanal je nach <system_axes>-Deklaration (profile_has_system_axes).
+    if (profile_has_system_axes) {
+        // Die opt×simd-Perm-Schleife in run_profile haengt je Kombination +cxx=+opt=+ext= an → BASIS OHNE
+        // system_axes_version_suffix() (Spiegel run_experiment_profile_facade). compile_for_perm montiert je Perm
+        // die CompileFn aus den aufgeloesten Flags (WAS/WIE-Trennung: run_profile permutiert, die Facade montiert;
+        // include_dirs/defines/cxx/link_libs/fno_gnu_unique bleiben Facade-Wissen).
+        a.build_version = args.build_version;
+        a.compiler_tag  = cxx_compiler(); // +cxx=-Provenienz im per-Perm-build_version
+        a.compile_for_perm =
+            [inc = perm_include_dirs(), def = perm_compile_flags(), cxx = cxx_compiler(), libs = perm_link_libs(),
+             fno = facade_supports_fno_gnu_unique()](std::string const& opt_flag, std::string const& march_flag) {
+                std::string flags =
+                    opt_flag; // opt-b-Kanal: eine rsp-Zeile, opt + optional -march (gcc/clang teilen Syntax)
+                if (!march_flag.empty()) {
+                    flags += ' ';
+                    flags += march_flag;
+                }
+                return ex::make_gpp_compile_fn(inc, def, cxx, libs, flags, fno);
+            };
+    } else {
+        a.build_version = args.build_version + system_axes_version_suffix(); // Einzel-Pfad byte-identisch
+    }
     a.n_repeats                  = args.n_repeats;
     a.cores_per_build            = args.cores_per_build;
     a.min_free_gb                = args.min_free_gb;
