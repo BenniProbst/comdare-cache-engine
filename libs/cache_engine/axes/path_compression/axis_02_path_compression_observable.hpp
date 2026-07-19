@@ -77,6 +77,8 @@ public:
     // Strategie NICHT als Instanz gehalten; der compress()-Driver nutzt das freie ByteWiseKeyPrefix-Organ + die
     // static Strategy::key_split_bit (Patricia) — beides ohne Strategie-Instanz.
     [[nodiscard]] static constexpr std::string_view name() noexcept { return Strategy::name(); }
+    static constexpr std::string_view               algo_version =
+        Strategy::algo_version; // #50 Caching: algo_version-Weiterleitung (Organ-Provenienz, reflect_versions)
     [[nodiscard]] static constexpr std::string_view family_name() noexcept
         requires requires { Strategy::family_name(); }
     {
