@@ -11,6 +11,7 @@
 
 #include <cache_engine/measurement/compiler_system_axis.hpp> // INC-1h: Compiler-System-Achse (gcc|clang)
 #include <cache_engine/measurement/simd_sub_axis.hpp> // F-SIMD: simd-Unter-Achse (Flag-Quelle), parent=extension_hardware
+#include <cache_engine/measurement/extension_hardware_family_axis.hpp> // GN-1: aktiver extension_hardware-Familien-Knoten
 #include <cache_engine/measurement/optimization_level_sub_axis.hpp> // INC-2c.opt-c: opt_level-Unter-Achse (Flag-Quelle)
 #include <cache_engine/measurement/compiler_atomic_sub_axis.hpp>    // INC-0: atomic128-Unter-Achse (Cx16Option, -mcx16)
 #include <cache_engine/measurement/target_isa_system_axis.hpp>      // INC-2d: target_isa-System-Achse (Cross-Compile)
@@ -119,6 +120,11 @@ namespace {
 // SimdSubAxis-Option (compile-time-Reflexion), der ORT ist diese CompileFn-Flag-Kette. Default = no_extension
 // (SimdNoExtOption, keine Flags, Ist-Verhalten byte-identisch); die CEB-Laufzeit-Permutation aller Auspraegungen
 // kommt mit dem Planer-Strang, bis dahin ist COMDARE_PILOT_SIMD_POLICY der Smoke-Schalter.
+// GN-1-Anker (opt-g-Facade): die hier gezogenen simd-Optionen haengen unter dem AKTIVEN extension_hardware-
+// Familien-Knoten (extension_hardware_family_axis.hpp, analog CompilerSystemAxis) -- Label-Drift bricht compile-time.
+static_assert(::comdare::cache_engine::measurement::SimdNoExtOption::parent_axis_label() ==
+                  ::comdare::cache_engine::measurement::SimdExtensionHardwareFamily::axis_label(),
+              "GN-1: die opt-g-Facade zieht simd-Flags nur ueber den aktiven extension_hardware-Knoten.");
 [[nodiscard]] std::string_view active_simd_policy() {
     namespace cm            = ::comdare::cache_engine::measurement;
     std::string_view policy = cm::SimdNoExtOption::simd_id();
