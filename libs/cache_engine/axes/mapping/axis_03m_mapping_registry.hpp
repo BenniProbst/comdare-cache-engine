@@ -18,7 +18,7 @@ using AllStrategies = mp::mp_list<
     DirectPlacement, PoolRelative
     // -- SCOPE-LIMITATION (T2 mapping, Diplomarbeit) -----------------------------------------------
     // mapping ist eine KOMPOSITIONS-Achse: mp_size(EnabledStrategies) geht als Faktor in
-    // all_axes_binary_count() == PROD enabled_count == 137.594.142.720.000 (Gate-1,
+    // all_axes_matrix_count() == PROD enabled_count == 137.594.142.720.000 (Gate-1; K-7-Rename,
     // registry_to_axis_levels.hpp:114) UND in den mixed-radix StaticBinaryView
     // (golden_fullpilot_320_binary_ids.txt pinnt mapping=direct_placement). Ein HINZUFUEGEN von
     // MP03 PermutationIndexed / MP04 HashedOffset als Registry-WERT hebt mp_size 2->4, verdoppelt
