@@ -102,34 +102,10 @@ struct RunExperimentResult {
     return path;
 }
 
-// ── opt-g: System-Achsen-id → Compile-Flag (Single-Source über die Achsen-Structs; gcc/clang teilen -O/-march). ──
-[[nodiscard]] inline std::string experiment_opt_flag_of(std::string_view opt_id) {
-    namespace cm = ::comdare::cache_engine::measurement;
-    if (opt_id == cm::OptO0Option::opt_level_id()) return std::string{cm::OptO0Option::gcc_opt_flag()};
-    if (opt_id == cm::OptO1Option::opt_level_id()) return std::string{cm::OptO1Option::gcc_opt_flag()};
-    if (opt_id == cm::OptO2Option::opt_level_id()) return std::string{cm::OptO2Option::gcc_opt_flag()};
-    if (opt_id == cm::OptO3Option::opt_level_id()) return std::string{cm::OptO3Option::gcc_opt_flag()};
-    if (opt_id == cm::OptOfastOption::opt_level_id()) return std::string{cm::OptOfastOption::gcc_opt_flag()};
-    return {}; // unbekannt ⇒ Caller degradiert sichtbar auf den CEB-Default (D1, KonfigXmlParse)
-}
-[[nodiscard]] inline std::string experiment_march_of(std::string_view simd_id) {
-    namespace cm = ::comdare::cache_engine::measurement;
-    if (simd_id == cm::SimdAvx2Option::simd_id()) return std::string{cm::SimdAvx2Option::gcc_march_flag()};
-    if (simd_id == cm::SimdAvx512Option::simd_id()) return std::string{cm::SimdAvx512Option::gcc_march_flag()};
-    return {}; // no_extension / unbekannt ⇒ generisch (kein -march)
-}
-// ISA-Gate (E1): die simd-Erweiterung nur zulassen, wenn der Host-Prozessor sie bietet. Die -march-Flag IST das
-// Gate für die Organ-SIMD-Codegen (Organ-SIMD ≤ System-SIMD-Zulassung); Bau- + Mess-Host sind derselbe (golden-
-// Lauf), daher __builtin_cpu_supports. Fused-off-AVX512 (prod2) meldet sich hier korrekt als nicht verfügbar.
-[[nodiscard]] inline bool experiment_host_supports_simd(std::string_view simd_id) {
-    namespace cm = ::comdare::cache_engine::measurement;
-    if (simd_id == cm::SimdNoExtOption::simd_id()) return true;
-#if defined(__x86_64__) || defined(_M_X64)
-    if (simd_id == cm::SimdAvx2Option::simd_id()) return __builtin_cpu_supports("avx2");
-    if (simd_id == cm::SimdAvx512Option::simd_id()) return __builtin_cpu_supports("avx512f");
-#endif
-    return false; // avx* auf nicht-x86 / unbekannte id ⇒ nicht zulassen
-}
+// ── opt-g / GN-3 (2026-07-19): die opt×simd-Flag-Aufloesung (opt_flag / march / ISA-Gate) ist nach UNTEN in den
+//    geteilten profile_run_entry.hpp relokiert (system_axis_opt_flag_of / system_axis_march_of /
+//    system_axis_host_supports_simd), damit BEIDE Lauf-Pfade (run_profile + run_experiment_profile) DIESELBE Naht
+//    nutzen (kein Duplikat). Sie ist hier via #include "profile_run_entry.hpp" verfuegbar. ──
 
 /// run_experiment_profile — DIE EINE deklarative comdare_experiment-Lauf-API (Brücke-I4). Projiziert die
 /// 3-Phasen-XML auf SOTA-Reihen-Pässe (I3) und fährt sie über den BESTEHENDEN run_profile-Unterbau
@@ -265,7 +241,7 @@ struct RunExperimentResult {
             : ep.extension_hardware.simd_options;
     bool const capped = a.max_binaries > 0;
     for (auto const& opt_id : opt_perms) {
-        std::string opt_flag = experiment_opt_flag_of(opt_id);
+        std::string opt_flag = system_axis_opt_flag_of(opt_id);
         if (opt_flag.empty()) {
             std::cerr << "[Compiler-Compiler-Fehler: "
                       << cm::error_class_label(cm::CompilerCompilerErrorClass::KonfigXmlParse) << "] <opt_level>='"
@@ -274,13 +250,13 @@ struct RunExperimentResult {
             opt_flag = std::string{cm::DefaultOptLevelOption::gcc_opt_flag()};
         }
         for (auto const& simd_id : simd_perms) {
-            if (!experiment_host_supports_simd(simd_id)) {
+            if (!system_axis_host_supports_simd(simd_id)) {
                 std::cerr << "[Compiler-Compiler-Fehler: "
                           << cm::error_class_label(cm::CompilerCompilerErrorClass::HardwareErweiterungFehlt)
                           << "] simd='" << simd_id << "' auf dieser ISA nicht verfügbar — Permutation übersprungen.\n";
                 continue;
             }
-            std::string const   march_flag = experiment_march_of(simd_id);
+            std::string const   march_flag = system_axis_march_of(simd_id);
             ex::CompileFn const perm_compile =
                 a.compile_for_perm ? a.compile_for_perm(opt_flag, march_flag) : a.compile;
             std::string const perm_suffix =
