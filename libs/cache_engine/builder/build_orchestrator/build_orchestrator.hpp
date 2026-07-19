@@ -65,6 +65,15 @@ struct BuildConfig {
     // (E) 2026-06-04: je Tier-Binary ein eigener Unterordner output_dir/<stem>/ (DLL + Source + .obj + .cl.log
     // + .version landen alle darin). Default false = altes flaches Verhalten (rückwärtskompatibel, opt-in).
     bool per_binary_subdirs = false;
+    // W6 (2026-07-19, Ledger §32-F7 "KOMPILATION darf parallel, nur MESSEN ist 1-Thread"): EXPLIZITER Override der
+    // parallelen Compile-Worker-Zahl (Bau-Pool). 0 = ungesetzt => die parallel_jobs()-Heuristik (Kerne/cores_per_build)
+    // gilt = EXAKT das heutige Verhalten (byte-neutral: kein Aufrufer, der dieses Feld nicht setzt, aendert sich).
+    // >0 = harte Worker-Zahl (gekappt auf k = Zahl der Bau-Jobs), UNABHAENGIG von cores_per_build. Grund: eine
+    // Tier-Binary ist EINE Translation-Unit -> ein g++-Aufruf nutzt ~1 Kern; die parallel_jobs()-Heuristik reserviert
+    // aber cores_per_build Kerne je Build und kollabiert im Mess-Kontext (kleiner Runner) auf ~1 gleichzeitigen Build
+    // (~7.5s/DLL sequenziell = Voll-Matrix unfeasible). Der Facade-Rand belegt dies aus Env COMDARE_BUILD_PARALLEL
+    // (env_parallelism_value); der achsen-blinde Orchestrator bleibt env-frei/deterministisch-testbar.
+    std::size_t build_parallelism = 0;
 
     /// Effektive Gesamtkern-Zahl (0 → Hardware-Concurrency, Fallback 1).
     [[nodiscard]] std::size_t effective_total() const noexcept {
@@ -82,7 +91,27 @@ struct BuildConfig {
         std::size_t const j = effective_total() / effective_cores_per_build();
         return j == 0 ? std::size_t{1} : j;
     }
+    /// W6: die tatsaechliche Compile-Worker-Zahl fuer k Bau-Jobs. build_parallelism>0 => harter Override (auf k
+    /// gekappt, mind. 1); sonst die parallel_jobs()-Heuristik (= heute). IMMER mind. 1 (Fortschritt garantiert),
+    /// nie mehr als k (keine Leerlauf-Worker). Byte-neutral bei build_parallelism==0.
+    [[nodiscard]] std::size_t effective_build_workers(std::size_t k) const noexcept {
+        if (k == 0) return 1;
+        std::size_t const want = (build_parallelism != 0) ? build_parallelism : parallel_jobs();
+        return std::min(want == 0 ? std::size_t{1} : want, k);
+    }
 };
+
+/// W6 (Ledger §32-F7): REINER Parser des COMDARE_BUILD_PARALLEL-Roh-Werts (der Facade-Rand ruft std::getenv und
+/// reicht das Ergebnis hier herein -> der Orchestrator-Header bleibt env-frei/deterministisch testbar). nullptr /
+/// leer / nicht-numerisch / 0 => 0 (= ungesetzt = parallel_jobs()-Heuristik = heutiges byte-neutrales Verhalten).
+/// Sonst der geparste Wert (>0 = harte Worker-Zahl). Fuehrende Ziffern werden gelesen (strtoul), Ueberlauf => 0.
+[[nodiscard]] inline std::size_t env_parallelism_value(char const* raw) noexcept {
+    if (raw == nullptr || *raw == '\0') return 0;
+    char*               end = nullptr;
+    unsigned long const v   = std::strtoul(raw, &end, 10);
+    if (end == raw) return 0; // keine fuehrende Ziffer => ungesetzt-aequivalent
+    return static_cast<std::size_t>(v);
+}
 
 // ── Ein Build-Auftrag (eine Tier-Binary) ──────────────────────────────────────
 struct BuildJob {
@@ -273,7 +302,12 @@ private:
         std::size_t             peak     = 0;
         std::uint64_t           min_free = (std::numeric_limits<std::uint64_t>::max)();
 
-        std::size_t const n_workers = std::min(cfg_.parallel_jobs(), k);
+        // W6 (Ledger §32-F7): die Compile-Worker-Zahl kommt aus effective_build_workers (harter COMDARE_BUILD_PARALLEL-
+        // Override, sonst die parallel_jobs()-Heuristik = heute). Die RAM-Admission (unten) throttelt die tatsaechliche
+        // Gleichzeitigkeit weiter (bei gesetztem ram_per_build_bytes) -> ein hoher Override bleibt OOM-sicher. Die
+        // results[j] werden POSITIONS-TREU befuellt (j = next.fetch_add) -> die Reihenfolge ist worker-zahl-INVARIANT:
+        // der Iterator sammelt sie in j-Ordnung ein und feuert die Sinks streng sequenziell (Determinismus-Gate).
+        std::size_t const n_workers = cfg_.effective_build_workers(k);
         std::size_t const cores     = cfg_.effective_cores_per_build();
         // RAM-Baseline EINMAL zu Beginn messen (= jetzt frei verfügbar). Die Admission reserviert dagegen
         // (active+1)×Budget — deterministisch + OOM-sicher, unabhängig vom Ramp-Lag des OS-free_ram.

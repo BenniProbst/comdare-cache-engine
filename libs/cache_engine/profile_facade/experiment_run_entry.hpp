@@ -73,6 +73,9 @@ struct RunExperimentArgs {
     // NUR die matchende (opt,simd)-Perm; leer (Default) = kein Filter = alle Perms ⇒ byte-neutral.
     std::string gn_cell_opt;  // leer = kein opt-Zellen-Filter
     std::string gn_cell_simd; // leer = kein simd-Zellen-Filter
+    // W6 (Ledger §32-F7): expliziter Bau-Pool-Worker-Override (COMDARE_BUILD_PARALLEL) -- SPIEGEL zu
+    // RunProfileArgs::build_parallelism. 0 = ungesetzt => parallel_jobs()-Heuristik = byte-neutrales Ist.
+    std::size_t build_parallelism = 0;
     // Achse 2 (#135): XML-Lastprofil-Registry (id → WorkloadConfig). Vom Host via discover_load_profiles gesetzt.
     std::map<std::string, wd::WorkloadConfig> workload_registry;
     std::vector<std::string>                  workload_values; // die id-Werte der dynamischen Workload-Achse
@@ -328,12 +331,14 @@ struct RunExperimentResult {
                         cfg.row_sweep_axis     = "-"; // Experiment-Pässe sind keine Achsen-Sweeps
                         cfg.row_fairness_mode  = p.fairness_mode.empty() ? std::string{"-"} : p.fairness_mode;
                         cfg.row_h2_score = "-"; // H2-Akte ist Thesis-Profil-Provenienz — von der Brücke nicht getragen
-                        cfg.profile_datasets   = datasets_signature;
-                        cfg.row_platform       = tag_platform;
-                        cfg.row_build_version  = perm_tag_build_version; // opt-g: CSV-Provenienz-Spalte je opt×simd
-                        cfg.source_dir         = a.src_dir;
-                        cfg.output_dir         = a.dll_dir;
-                        cfg.cores_per_build    = a.cores_per_build;
+                        cfg.profile_datasets  = datasets_signature;
+                        cfg.row_platform      = tag_platform;
+                        cfg.row_build_version = perm_tag_build_version; // opt-g: CSV-Provenienz-Spalte je opt×simd
+                        cfg.source_dir        = a.src_dir;
+                        cfg.output_dir        = a.dll_dir;
+                        cfg.cores_per_build   = a.cores_per_build;
+                        cfg.build_parallelism =
+                            a.build_parallelism; // W6 (§32-F7): Bau-Pool-Override (0 = byte-neutral)
                         cfg.per_binary_subdirs = true;
                         cfg.cache_push         = a.cache_push;       // Storage #51: bis zur per-Binary-Naht (No-Op)
                         cfg.measurement_sink   = a.measurement_sink; // Storage #51: result.csv -> measure-drop (No-Op)
