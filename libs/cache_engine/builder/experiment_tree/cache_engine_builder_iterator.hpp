@@ -137,6 +137,11 @@ struct LazyRunConfig {
     // werden NEU gemessen — der Zwei-Phasen-Cache-Warmup gilt auf Re-Entry intrinsisch je Op (Mess-Gültigkeit,
     // [[feedback_two_phase_warmup_mandatory_validity]]). Nur wirksam mit per_binary_subdirs.
     bool resume_completed_binaries = true;
+    // INC-G6 (Ledger 33/34/35, 2026-07-19, BAUPLAN Abschnitt 2): NUR bauen (DLLs provisionieren), NICHT messen.
+    // Kehrt in run_lazy_static_then_dynamic NACH provision_all (die DLLs stehen versions-aktuell) VOR der
+    // Lade-/Mess-Phase zurueck -> keine gemessenen CSV-Zeilen, kein DLL-Laden. Entkoppelt den ~8h-Materialisierungs-
+    // Bau vom mehrtaegigen Messlauf (Storage-cachebar). Default false = altes Verhalten (byte-identisch).
+    bool provision_only = false;
     // Storage #51 (Naht-Injektion, No-Op-Default => byte-neutral; Muster wie CompileFn/AlgoSigFn). Der Iterator ruft
     // sie SYNCHRON an der per-Binary-Naht (NACH result.csv+stamp, VOR RAII-DLL-Unload) — nie async/detached (I/O-
     // Contention = Messfehler). cache_push: perm.dll(+.version) -> Objekt-Store (Ebene B). measurement_sink:
@@ -742,6 +747,25 @@ struct LazyRunResult {
     result.built_new          = result.build_stats.built;
     result.built_skip         = result.build_stats.skipped;
     result.min_free_ram_bytes = result.build_stats.min_free_ram_bytes;
+
+    // ════════════════════════════════════════════════════════════════════════════════════════════════════
+    // INC-G6 (Ledger 33/34, 2026-07-19, BAUPLAN Abschnitt 2): PROVISION-ONLY. Nach der STATISCHEN Kompilierung
+    // (DLLs + .version/.algos-Sidecars stehen versions-aktuell) VOR der Lade-/Mess-Phase zurueckkehren: KEIN
+    // DLL-Laden, NICHTS gemessen, KEINE CSV-Mess-Zeilen. result.built traegt die Zahl bereitgestellter Binaries.
+    // Entkoppelt den ~8h-Materialisierungs-Bau vom mehrtaegigen Messlauf (Storage-cachebar). Byte-identisch fuer
+    // provision_only==false (Default) -- der Zweig wird dann nie betreten.
+    // ════════════════════════════════════════════════════════════════════════════════════════════════════
+    if (cfg.provision_only) {
+        // Storage #51 (Ebene B, No-Op-Default => byte-neutral): die frisch bereitgestellten Binaries additiv in den
+        // Objekt-Store schieben (perm.dll + .version), damit der Materialisierungs-Bau storage-cachebar ist. Ohne
+        // COMDARE_STORAGE_CACHE ist cache_push leer => KEIN Push (byte-neutral). Nutzt die BESTEHENDE Push-Naht
+        // (der symmetrische Pull bleibt das dokumentierte Storage-Folge-Increment, BAUPLAN Abschnitt 3).
+        if (cfg.cache_push && cfg.per_binary_subdirs)
+            for (BuildResult const& b : builds)
+                if (b.ok() && !b.output.parent_path().empty())
+                    cfg.cache_push(b.output.parent_path(), cfg.build_version);
+        return result;
+    }
 
     RuntimeVariableLoop const loop{cfg.env_limits};
 

@@ -3294,6 +3294,31 @@ add_test(NAME test_limits_entkopplung_vorstufe COMMAND test_limits_entkopplung_v
 set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_limits_entkopplung_vorstufe)
 set_tests_properties(test_limits_entkopplung_vorstufe PROPERTIES LABELS "e4;limits")
 
+# INC-G6 (Ledger 33/34/35): Round-Trip-Gate des lazy Per-Index-Adhoc-Emitters (lazy_adhoc_source_gen.hpp).
+# Belegt VOR einem golden-N-Voll-Lauf, dass der lazy Gen (a) fuer die 320er-ids byte-identisch zum Katalog-Gen
+# rendert, (b) fuer Nicht-320 golden-N-ids nicht-leer + wert-korrekt liefert und (c) die StaticBinaryView-ids
+# den committeten CRC64-Anker treffen. Gleiche Abhaengigkeiten wie test_limits (generierter 320er-Katalog +
+# source_catalog + experiment_tree + crc64) -> spiegelt dessen Registrierung inkl. comdare_attach_generated_catalog.
+add_executable(test_lazy_adhoc_source_gen
+    "test_lazy_adhoc_source_gen.cpp")
+target_compile_features(test_lazy_adhoc_source_gen PRIVATE cxx_std_23)
+target_include_directories(test_lazy_adhoc_source_gen PRIVATE
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/src"
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/builder"
+    "${PROJECT_SOURCE_DIR}/libs/common"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    ${COMDARE_ALL_AXIS_GENERATED_DIRS})
+target_link_libraries(test_lazy_adhoc_source_gen PRIVATE Boost::mp11)
+comdare_set_platform_defines(test_lazy_adhoc_source_gen)
+target_compile_definitions(test_lazy_adhoc_source_gen PRIVATE
+    COMDARE_MEASUREMENT_ON=1 COMDARE_CE_ENABLE_STATISTICS=1 COMDARE_EXPERIMENT_MODE_ON=1)
+comdare_attach_generated_catalog(test_lazy_adhoc_source_gen)
+add_test(NAME test_lazy_adhoc_source_gen COMMAND test_lazy_adhoc_source_gen)
+set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS test_lazy_adhoc_source_gen)
+set_tests_properties(test_lazy_adhoc_source_gen PROPERTIES LABELS "e4;limits;inc-g6")
+
 # Phase 7 (Parser-/Gating-Konsolidierung): Regressions-Gate der DOM-Fassung (parse_profile/
 # load_messreihen/parse_one) gegen die eingefrorenen Regex-Referenzwerte.
 add_executable(test_parser_konsolidierung "test_parser_konsolidierung.cpp")
