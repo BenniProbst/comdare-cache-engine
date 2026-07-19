@@ -1,0 +1,93 @@
+<comdare_axis_registry engine="cache_engine_system" schema="1" generator="system_axis_registry_gen">
+  <!-- GENERIERT von tools/system_axis_registry_gen (PAKET W2-B) per compile-time-Reflektion der
+       realen CebSystemAxis-Typen (measurement/*_system_axis.hpp/*_sub_axis.hpp). NICHT von Hand
+       editieren. Ledger §28/§30: System-Art-Registry im Mess-/System-Modul (Angebot fuer System->CEB). -->
+  <!-- Haupt-Achse=CT-statisch (stage=ct, in die CEB/Tier-Binary einkompiliert); Unter-Achse=dynamisch
+       (stage=runtime, vom Planer permutiert). Q2/K2: opt_level/simd/atomic128 materialisieren als
+       CompileFn-Flags (build_version-Suffix), NIE als Laufzeit-Typ-Switch und NIE in der binary_id. -->
+  <!-- AUSSCHLUSS: extension_hardware_system_axis.hpp = DEPRECATED-Insel; hardware_isa_system_axis.hpp =
+       HOST-Deskriptor (treibt NICHT den Bau) -- beide NICHT Teil dieses Bau-treibenden Angebots. -->
+  <axis id="compiler" category="system_config" axis_kind="system_config" binary_id="never" stage="ct" baustein_count="2">
+    <baustein name="gcc" wrapper="GccCompilerAxis" type="::comdare::cache_engine::measurement::GccCompilerAxis" enabled="true" driver="g++-16" supports_fno_gnu_unique="true"/>
+    <baustein name="clang" wrapper="ClangCompilerAxis" type="::comdare::cache_engine::measurement::ClangCompilerAxis" enabled="true" driver="clang++-22" supports_fno_gnu_unique="false"/>
+    <sub_axis id="opt_level" parent="compiler" stage="runtime" value_type="token" option_count="5">
+      <option id="O0" ieee754_deterministic="true">
+        <flag dialect="gpp" value="-O0"/>
+        <flag dialect="clang" value="-O0"/>
+        <flag dialect="msvc" value="/Od"/>
+      </option>
+      <option id="O1" ieee754_deterministic="true">
+        <flag dialect="gpp" value="-O1"/>
+        <flag dialect="clang" value="-O1"/>
+        <flag dialect="msvc" value="/O1"/>
+      </option>
+      <option id="O2" ieee754_deterministic="true">
+        <flag dialect="gpp" value="-O2"/>
+        <flag dialect="clang" value="-O2"/>
+        <flag dialect="msvc" value="/O2"/>
+      </option>
+      <option id="O3" ieee754_deterministic="true">
+        <flag dialect="gpp" value="-O3"/>
+        <flag dialect="clang" value="-O3"/>
+        <flag dialect="msvc" value="/O2"/>
+      </option>
+      <option id="Ofast" ieee754_deterministic="false">
+        <flag dialect="gpp" value="-Ofast"/>
+        <flag dialect="clang" value="-Ofast"/>
+        <flag dialect="msvc" value="/O2"/>
+      </option>
+    </sub_axis>
+    <sub_axis id="atomic128" parent="compiler" stage="runtime" value_type="token" option_count="2">
+      <option id="no_cx16">
+        <flag dialect="gpp" value=""/>
+        <flag dialect="clang" value=""/>
+        <flag dialect="msvc" value=""/>
+      </option>
+      <option id="cx16">
+        <flag dialect="gpp" value="-mcx16"/>
+        <flag dialect="clang" value="-mcx16"/>
+        <flag dialect="msvc" value=""/>
+      </option>
+    </sub_axis>
+  </axis>
+  <axis id="extension_hardware" category="system_config" axis_kind="system_config" binary_id="never" stage="ct" baustein_count="1">
+    <baustein name="simd" wrapper="SimdExtensionHardwareFamily" type="::comdare::cache_engine::measurement::SimdExtensionHardwareFamily" enabled="true" family_id="simd"/>
+    <sub_axis id="simd" parent="extension_hardware" stage="runtime" value_type="token" option_count="3">
+      <option id="no_extension">
+        <flag dialect="gpp" value=""/>
+        <flag dialect="clang" value=""/>
+        <flag dialect="msvc" value=""/>
+      </option>
+      <option id="avx2">
+        <flag dialect="gpp" value="-mavx2"/>
+        <flag dialect="clang" value="-mavx2"/>
+        <flag dialect="msvc" value="/arch:AVX2"/>
+      </option>
+      <option id="avx512">
+        <flag dialect="gpp" value="-mavx512f"/>
+        <flag dialect="clang" value="-mavx512f"/>
+        <flag dialect="msvc" value="/arch:AVX512"/>
+      </option>
+    </sub_axis>
+  </axis>
+  <axis id="target_isa" category="system_config" axis_kind="system_config" binary_id="never" stage="ct" baustein_count="2">
+    <baustein name="x86_64" wrapper="X86_64TargetIsa" type="::comdare::cache_engine::measurement::X86_64TargetIsa" enabled="true" native="true" triple="" march=""/>
+    <baustein name="aarch64" wrapper="Aarch64TargetIsa" type="::comdare::cache_engine::measurement::Aarch64TargetIsa" enabled="true" native="false" triple="-target aarch64-linux-gnu" march="-march=armv8-a"/>
+  </axis>
+  <axis id="scheduling" category="system_config" axis_kind="system_config" binary_id="never" stage="ct" baustein_count="1">
+    <baustein name="DefaultSchedulingSystemAxis" wrapper="DefaultSchedulingSystemAxis" type="::comdare::cache_engine::measurement::DefaultSchedulingSystemAxis" enabled="true"/>
+    <sub_axis id="scheduling_dims" parent="scheduling" stage="ct" kind="fixed_enum_tuple">
+      <!-- Ordinals = rohe Enum-Werte (kein CT-Label-Vorbild); id-Strings sind an die Accessor-
+           Aufrufe compile-gekoppelt (concepts::scheduling_strategy.hpp). -->
+      <sub_dim id="worker_pool_layout" value_ordinal="0"/>
+      <sub_dim id="simd_worker_count_limit" value="2"/>
+      <sub_dim id="hetero_core_dispatch" value_ordinal="0"/>
+      <sub_dim id="co_routine_strategy" value_ordinal="0"/>
+      <sub_dim id="batch_granularity" value_ordinal="0"/>
+    </sub_axis>
+  </axis>
+  <axis id="load_framework" category="system_config" axis_kind="system_config" binary_id="never" stage="ct" baustein_count="1">
+    <baustein name="ycsb" wrapper="YcsbLoadFrameworkAxis" type="::comdare::cache_engine::measurement::YcsbLoadFrameworkAxis" enabled="true" framework_id="ycsb"/>
+    <sub_axis id="workload" parent="load_framework" stage="runtime" value_type="token" option_source="user_load_profile_akten"/>
+  </axis>
+</comdare_axis_registry>

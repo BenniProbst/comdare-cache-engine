@@ -1,0 +1,58 @@
+<comdare_axis_registry engine="cache_engine_measurement" schema="1" generator="measurement_axis_registry_gen">
+  <!-- GENERIERT von tools/measurement_axis_registry_gen (PAKET W2-B) per compile-time-Reflektion
+       der realen Mess-Achsen-Typen (measurement/measurement_axis_registry.hpp + system_axis.hpp).
+       NICHT von Hand editieren. Ledger §28/§30: Mess-Art-Registry im Mess-Modul (Angebot Mess->Planer). -->
+  <!-- Mess-Achsen ("Blut") stehen NIE in der binary_id (binary_id=never); Werte = CSV-Spalten/
+       setting_label. Regime-Ordinal: 0=TimeObserver, 1=PmcCounter (system_axis.hpp regime_of). -->
+  <axis id="measurement_category" category="system_measurement" axis_kind="system_measurement" binary_id="never" stage="ct" baustein_count="16">
+    <baustein name="CLU" category_ordinal="0" regime_ordinal="0" enabled="true"/>
+    <baustein name="CACHE_MISS_L1" category_ordinal="1" regime_ordinal="1" enabled="true"/>
+    <baustein name="CACHE_MISS_L2" category_ordinal="2" regime_ordinal="1" enabled="true"/>
+    <baustein name="CACHE_MISS_L3" category_ordinal="3" regime_ordinal="1" enabled="true"/>
+    <baustein name="DTLB_MISS" category_ordinal="4" regime_ordinal="1" enabled="true"/>
+    <baustein name="MEMORY_FOOTPRINT" category_ordinal="5" regime_ordinal="0" enabled="true"/>
+    <baustein name="BRANCH_MISS" category_ordinal="6" regime_ordinal="1" enabled="true"/>
+    <baustein name="IPC_CPI" category_ordinal="7" regime_ordinal="1" enabled="true"/>
+    <baustein name="LATENCY_MEAN" category_ordinal="8" regime_ordinal="0" enabled="true"/>
+    <baustein name="LATENCY_P50" category_ordinal="9" regime_ordinal="0" enabled="true"/>
+    <baustein name="LATENCY_P95" category_ordinal="10" regime_ordinal="0" enabled="true"/>
+    <baustein name="LATENCY_P99" category_ordinal="11" regime_ordinal="0" enabled="true"/>
+    <baustein name="LATENCY_P999" category_ordinal="12" regime_ordinal="0" enabled="true"/>
+    <baustein name="THROUGHPUT" category_ordinal="13" regime_ordinal="0" enabled="true"/>
+    <baustein name="ENERGY_J" category_ordinal="14" regime_ordinal="1" enabled="true"/>
+    <baustein name="FILL_BUFFER_OCCUPANCY" category_ordinal="15" regime_ordinal="0" enabled="true"/>
+  </axis>
+  <axis id="collector" category="system_measurement" axis_kind="system_measurement" binary_id="never" stage="ct" baustein_count="3">
+    <baustein name="WallClockSystemAxis" wrapper="WallClockSystemAxis" type="::comdare::cache_engine::measurement::WallClockSystemAxis" enabled="true" regime_ordinal="0">
+      <category ref="LATENCY_MEAN"/>
+      <category ref="THROUGHPUT"/>
+    </baustein>
+    <baustein name="ObserverSnapshotSystemAxis" wrapper="ObserverSnapshotSystemAxis" type="::comdare::cache_engine::measurement::ObserverSnapshotSystemAxis" enabled="true" regime_ordinal="0">
+      <category ref="CLU"/>
+    </baustein>
+    <baustein name="PmcSystemAxis" wrapper="PmcSystemAxis" type="::comdare::cache_engine::measurement::PmcSystemAxis" enabled="true" regime_ordinal="1">
+      <category ref="CACHE_MISS_L1"/>
+      <category ref="CACHE_MISS_L2"/>
+      <category ref="CACHE_MISS_L3"/>
+      <category ref="DTLB_MISS"/>
+      <category ref="BRANCH_MISS"/>
+      <category ref="IPC_CPI"/>
+      <category ref="ENERGY_J"/>
+    </baustein>
+  </axis>
+  <dynamic_dims resource_control_version="1">
+    <!-- workload: Single-Source LoadFrameworkSystemAxis::sub_axis_label() (Angebots-Eigner =
+         System-Registry load_framework); hier als Mess-Sweep-Dimension referenziert. -->
+    <dim id="workload" stage="runtime" source="system:load_framework" value_type="token"/>
+    <!-- RC-POD-gekoppelte Dimensionen (ComdareResourceControlV1-Felder; setting_label axis.var=value). -->
+    <dim id="thread_count" stage="runtime" source="resource_control_pod" value_type="uint"/>
+    <dim id="prefetch_distance" stage="runtime" source="resource_control_pod" value_type="uint"/>
+    <dim id="pool_budget_bytes" stage="runtime" source="resource_control_pod" value_type="uint"/>
+    <dim id="batch_size" stage="runtime" source="resource_control_pod" value_type="uint"/>
+    <dim id="inline_threshold_bytes" stage="runtime" source="resource_control_pod" value_type="uint"/>
+    <!-- TODO(W2-B): repetition ist eine reine setting_label-DynDim OHNE CT-Anker -> nicht emittiert
+         (kein handgeschriebenes Phantom). Erst mit einer constexpr-Namens-Single-Source reflektierbar. -->
+    <!-- TODO(W2-B, §32-F1/F7): die 3 Mess-Modi Debug/Mess/Release existieren NICHT als Typen ->
+         nicht emittiert; erst nach ihrer Typisierung als Mess-Unter-Achse reflektierbar. -->
+  </dynamic_dims>
+</comdare_axis_registry>

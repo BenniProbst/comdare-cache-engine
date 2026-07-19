@@ -3496,6 +3496,51 @@ if(TARGET comdare_axis_registry_gen)
 endif()
 
 # ─────────────────────────────────────────────────────────────────────────────
+# PAKET W2-B (2026-07-19) — die 2 FEHLENDEN Art-Registry-Roundtrip-Gates (Ledger §28/§30). Muster wie
+# test_axis_registry_roundtrip (registry_roundtrip.cmake WIEDERVERWENDET): das VOR-gebaute Generator-Tool
+# regeneriert nach WORKDIR + byte-difft gegen die committete XML (NUR GELESEN). DIESE Roundtrip-Tests SIND
+# der geforderte Konsument+Contract-Test IM SELBEN Increment (axis_binding-Anti-Lehre: keine Registry ohne
+# verdrahteten Konsumenten). ABWEICHUNG zum Vorbild — KEIN contract-Label: gemaess Kapseln-Lehre C.1/L2
+# MUESSEN diese Gates im DEFAULT-Sweep test:unit (-LE contract|pmc) laufen, damit Drift LOKAL sofort faengt
+# (das Vorbild ist nur wegen seiner schweren registry_to_axis_levels-TU nach contract:profile_coverage
+# ausgelagert; diese 2 Generatoren sind leichte Mess-/System-TUs ohne Organ-Topic-Registries).
+#
+# EXISTS-GUARD (bindend): das committete XML existiert ERST, nachdem der Architekt nach dem seriellen Build
+# das Tool laufen liess + die XML committete (Tool-Bau ist in W2-B gesperrt, Platzhalter verboten). Solange
+# die XML fehlt, wird das Gate NICHT registriert (Pipeline bleibt hart gruen); es bewaffnet sich beim naechsten
+# Configure automatisch, sobald die generierte XML committet ist. Erst-Generierungs-Befehl siehe W2-B-Report.
+# ─────────────────────────────────────────────────────────────────────────────
+set(_w2b_system_registry
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement/system_axis_registry.xml")
+if(TARGET comdare_system_axis_registry_gen AND EXISTS "${_w2b_system_registry}")
+    add_test(
+        NAME test_system_axis_registry_roundtrip
+        COMMAND "${CMAKE_COMMAND}"
+            "-DGEN_TOOL=$<TARGET_FILE:comdare_system_axis_registry_gen>"
+            "-DCOMMITTED=${_w2b_system_registry}"
+            "-DWORKDIR=${CMAKE_CURRENT_BINARY_DIR}/registry_roundtrip_system"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/registry_roundtrip.cmake")
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS comdare_system_axis_registry_gen)
+    set_tests_properties(test_system_axis_registry_roundtrip
+        PROPERTIES LABELS "registry;roundtrip;system" TIMEOUT 120)
+endif()
+
+set(_w2b_measurement_registry
+    "${PROJECT_SOURCE_DIR}/libs/cache_engine/include/cache_engine/measurement/measurement_axis_registry.xml")
+if(TARGET comdare_measurement_axis_registry_gen AND EXISTS "${_w2b_measurement_registry}")
+    add_test(
+        NAME test_measurement_axis_registry_roundtrip
+        COMMAND "${CMAKE_COMMAND}"
+            "-DGEN_TOOL=$<TARGET_FILE:comdare_measurement_axis_registry_gen>"
+            "-DCOMMITTED=${_w2b_measurement_registry}"
+            "-DWORKDIR=${CMAKE_CURRENT_BINARY_DIR}/registry_roundtrip_measurement"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/registry_roundtrip.cmake")
+    set_property(GLOBAL APPEND PROPERTY COMDARE_TEST_TARGETS comdare_measurement_axis_registry_gen)
+    set_tests_properties(test_measurement_axis_registry_roundtrip
+        PROPERTIES LABELS "registry;roundtrip;measurement" TIMEOUT 120)
+endif()
+
+# ─────────────────────────────────────────────────────────────────────────────
 # GN-5 / L2 stale-skip-Guard (Roadmap 2026-07-19; #50-Stale-Green-Wurzel): reflect_versions-
 # Instanziierung ueber ALLE 17 Kompositions-Achsen als Default-ctest. build_axis_variant_version_table()
 # war bisher NUR von der CEB-Runtime instanziiert — eine Organ-Variante OHNE algo_version blieb im
