@@ -57,6 +57,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -134,7 +135,7 @@ using golden_320_catalog = CatalogAxes<4, 1, 1, 1, 4, 5, 1, 4, 1, 1, 1, 1, 1, 1,
 using SmallSourceCatalog = CatalogAxes<1, 1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1>; // 2·2 = 4
 
 // catalog_axis_product<Catalog>() — der EXPLOSIONSFREIE golden-Count: reines ∏ mp_size(L00..L16) (17 constexpr-
-// Multiplikationen, KEINE mp_product-Materialisierung; dieselbe Kardinalitaets-Identitaet wie all_axes_binary_count(),
+// Multiplikationen, KEINE mp_product-Materialisierung; dieselbe Kardinalitaets-Identitaet wie all_axes_matrix_count(),
 // Doc 27 §4.1). Der Count der 2^17-Grundlage ist damit compile-billig belegbar, OHNE die 131.072-Element-Produkt-
 // Typliste (PermutationEngine::AllPermutations) je zu bilden — das waere ein GB-Compile / g++-ICE.
 template <class Catalog>
@@ -165,6 +166,28 @@ static_assert(catalog_axis_product<SmallSourceCatalog>() == 4u, "SmallSourceCata
 // gegen DIESEN committeten Wert. Neu-Ermittlung/Inspektion: `gen_golden_fullpilot --crc64` (druckt den Wert) bzw.
 // `gen_golden_fullpilot <datei>` (materialisiert die Datei manuell). Aenderung nur im koordinierten ABI-Fenster.
 inline constexpr std::uint64_t kNewGolden131072Crc64 = 0xF1C1F26A1232073BULL;
+
+// ── GN-2 / §26.6 (Register-Kritik 9): NEGATIVER INSTANZIIERUNGS-GUARD an der Katalog-Naht ────────────────────
+// Die golden-REFERENZ (FullSourceCatalog, 2^17) ist vom MATERIALISIERTEN Katalog (GeneratedFullSourceCatalog,
+// 320/kuratiert) ENTKOPPELT -- bisher nur per Konvention/Doku (Verbots-Kommentare oben + an make_catalog_source_gen).
+// Dieser Guard setzt die Entkopplung compile-time durch: die materialisierende Naht (make_catalog_source_gen ->
+// build_pilot_source_map<Engine> -> mp_product) bricht ill-formed, BEVOR ein kuenftiger Codegen-/Repoint-Change
+// die 2^17-Vollform je materialisieren kann (GB-TU / g++-ICE, NEW-GOLDEN-ALL-AXES.md:100). Beide Pruefungen sind
+// EXPLOSIONSFREI (is_same + reines Produkt catalog_axis_product<>, KEINE Engine-/mp_product-Instanziierung).
+//
+// Kardinalitaets-Obergrenze der Materialisierung: verankert zwischen den BELEGTEN Punkten des Repos --
+// 320 (golden_320_catalog, legitim materialisiert) < 4096 (diese Grenze, 2^12: Headroom fuer kuratierte
+// Saetze) << 76.800 (belegt compile-brechend: die historische C1060-Rechnung 320*|mig|*|flt|*|vh|*|pc|,
+// s. FF-Block unten) < 131.072 (2^17-Vollform = GB-TU/ICE). Eine bewusste Anhebung braucht einen Bauplan
+// (Compile-Feasibility-Beleg), KEIN stilles Hochdrehen.
+inline constexpr std::size_t kMaxMaterializableCatalogCardinality = 4096;
+
+// Guard-des-Guards: die Grenze muss die 2^17-Vollform IMMER ausschliessen und die 320-Basis IMMER zulassen --
+// wer FullSourceCatalog vergroessert oder die Grenze verschiebt, bricht bewusst HIER (nicht still im Codegen).
+static_assert(catalog_axis_product<FullSourceCatalog>() > kMaxMaterializableCatalogCardinality,
+              "GN-2/§26.6: die Materialisierungs-Grenze muss die golden-N-Vollform (2^17) ausschliessen.");
+static_assert(catalog_axis_product<golden_320_catalog>() <= kMaxMaterializableCatalogCardinality,
+              "GN-2/§26.6: die Materialisierungs-Grenze muss den 320-Basis-Katalog zulassen.");
 
 /// catalog_static_levels<Catalog>() — die 17 STATISCHEN AxisLevels des Katalogs (Bau-INC-2c: telemetry / Bau-INC-2d: isa sind System-Achsen; gleiche reduzierte Listen + gleiche
 /// Achsen-Namen-Reihenfolge wie der Katalog-Engine = die binary_ids, die der Katalog materialisiert). Das ist KEINE
@@ -206,7 +229,27 @@ template <class Catalog>
 // / g++-ICE). Der Referenz-Count der 2^17-Grundlage laeuft ausschliesslich lazy (catalog_axis_product/view.size()).
 template <class Catalog = golden_320_catalog>
 [[nodiscard]] inline ex::SourceGenFn make_catalog_source_gen() {
-    return ex::make_source_gen_from_map(ex::build_pilot_source_map<typename Catalog::Engine>());
+    // GN-2 / §26.6: DER negative Instanziierungs-Guard (Definition s. kMaxMaterializableCatalogCardinality oben).
+    // build_pilot_source_map<FullSourceCatalog::Engine> ist VERBOTEN -- und jede andere Katalog-Form jenseits
+    // der Materialisierungs-Grenze ebenso. Beide Checks sind explosionsfrei (reines ∏ mp_size). Der heisse
+    // Zweig steht in einem discarded-faehigen if-constexpr: im Fehlerfall wird das mp_product NICHT einmal
+    // ANinstanziiert -- der Build bricht billig und laut mit den static_assert-Meldungen, statt im GB-TU/ICE.
+    constexpr bool is_forbidden_full_form = std::is_same_v<Catalog, FullSourceCatalog>;
+    constexpr bool within_materialization_bound =
+        catalog_axis_product<Catalog>() <= kMaxMaterializableCatalogCardinality;
+    if constexpr (!is_forbidden_full_form && within_materialization_bound) {
+        return ex::make_source_gen_from_map(ex::build_pilot_source_map<typename Catalog::Engine>());
+    } else {
+        static_assert(!is_forbidden_full_form,
+                      "GN-2/§26.6: build_pilot_source_map<FullSourceCatalog::Engine> ist VERBOTEN -- die 2^17-"
+                      "golden-Referenz wird NIE materialisiert (GB-TU/ICE). Referenz-Zaehlung nur lazy via "
+                      "catalog_axis_product<>/StaticBinaryView; materialisiert wird 320/kuratiert.");
+        static_assert(within_materialization_bound,
+                      "GN-2/§26.6: Katalog-Kardinalitaet jenseits der Materialisierungs-Grenze -- dieser Katalog "
+                      "wuerde beim build_pilot_source_map-mp_product einen GB-TU/ICE ausloesen. Bewusste Anhebung "
+                      "nur per Bauplan an kMaxMaterializableCatalogCardinality.");
+        return {};
+    }
 }
 
 /// catalog_levels<Catalog>(with_dynamic) — der GESAMT-Level-Satz fuer den E2E-Treiber-Test (Klein-Katalog): die 18
