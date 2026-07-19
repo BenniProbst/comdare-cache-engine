@@ -370,3 +370,161 @@ TEST(CMakeGraphBuilder, CMakeTextIsByteDeterministic) {
         EXPECT_EQ(a.text(), b.text()) << "experiment .cmake byte-deterministisch";
     }
 }
+
+// (J) SCHARF (W7-B/§40.c): der build:-Schritt traegt echte provision-only-Treiber-Kommandos (kein No-Op mehr),
+//     der measure:-Schritt ist GN-11-gegatet (kein Auto-Messlauf). Treiber/Profil/Range/Out = CMake-Variablen.
+TEST(CMakeGraphBuilder, SharpenedBuildCommandIsProvisionOnlyAndMeasureIsGated) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    planner::CMakeGraphBuilder            gb;
+    director.construct(*tp, gb);
+    std::string const& cmake = gb.text();
+
+    // Echter Bau: je Perm ein cmake -E env ... $DRIVER experiment_config-Kommando mit provision-only. Der measure:-
+    // Schritt nutzt -E echo (kein -E env) -> das aktive env-getriebene Bau-COMMAND zaehlt genau 1x je Perm.
+    EXPECT_EQ(count_occurrences(cmake, "COMDARE_GOLDEN_N_PROVISION_ONLY=true"), 4u) << "je Perm ein provision-only-Bau";
+    EXPECT_EQ(count_occurrences(cmake, "        COMMAND \"${CMAKE_COMMAND}\" -E env\n"), 4u)
+        << "je Perm ein aktives env-getriebenes Treiber-Bau-COMMAND (measure nutzt -E echo)";
+    EXPECT_NE(cmake.find("\"COMDARE_GN_OPT=O2\""), std::string::npos) << "opt/simd als Plan-Konstanten (LITERALE)";
+    EXPECT_NE(cmake.find("\"COMDARE_GN_SIMD=avx2\""), std::string::npos);
+    // Host-unabhaengig: konfigurierbare Eingaben als CMake-Variablen mit Defaults, KEINE Host-Absolutpfade.
+    EXPECT_NE(cmake.find("if(NOT DEFINED COMDARE_PLAN_DRIVER)"), std::string::npos);
+    EXPECT_NE(cmake.find("if(NOT DEFINED COMDARE_PLAN_RANGE)"), std::string::npos);
+    EXPECT_EQ(cmake.find("/home/"), std::string::npos) << "keine emit-Zeit-Host-Absolutpfade im .cmake";
+    // Messen bleibt GN-11-gegatet: der measure:-Schritt ist ein Skelett (kein aktiver COMDARE_RUN_MEASURE-Aufruf).
+    EXPECT_NE(cmake.find("measure GATED (GN-11"), std::string::npos) << "measure:-Schritt ist gegatetes Skelett";
+    EXPECT_EQ(cmake.find("COMMAND \"${CMAKE_COMMAND}\" -E env \"COMDARE_THESIS_PROFILE=${COMDARE_PLAN_PROFILE}\" "
+                         "\"COMDARE_GN_OPT=O2\" \"COMDARE_GN_SIMD=no_extension\" COMDARE_RUN_MEASURE=true"),
+              std::string::npos)
+        << "das echte Mess-Kommando steht NUR als Kommentar-Skelett, nie als aktiver COMMAND";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAKET W7-A / I3 (§40.b) — CiYamlBuilder: vierter ConcreteBuilder (GoF Builder) am SELBEN Director-Walk.
+// Emittiert eine deterministische GitLab-Child-Pipeline-YAML (dynamische, Planer-gesteuerte Folge-CI). GEPRUEFT:
+// (K) Topologie-Isomorphie zum Director-Walk (dieselbe Perm-Menge + Schritt-Reihenfolge wie ein CountingBuilder);
+// (L) je Perm GENAU 1 ceb:build- + 1 Trigger-Job (STUFE 1 + STUFE 2b) + die zweistufige stages-Struktur;
+// (M) Byte-Determinismus der YAML (Thesis + Experiment); (N) SIMD-Capability-Routing (no_extension->amd64, ...).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// (K) Topologie-Isomorphie (Thesis): CiYamlBuilder und ein CountingBuilder sehen ueber DASSELBE Profil dieselbe
+//     Perm-Menge + Schritt-Reihenfolge (strukturelle Synchronie zu PlanText/CMakeGraph).
+TEST(CiYamlBuilder, ThesisTopologyIsomorphicToDirectorWalk) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    CountingBuilder                       ref;
+    planner::CiYamlBuilder                yb;
+    director.construct(*tp, ref);
+    director.construct(*tp, yb);
+
+    ASSERT_EQ(yb.perms().size(), ref.perms.size()) << "gleiche Perm-Menge";
+    ASSERT_EQ(yb.perms().size(), 4u) << "2 opt x 2 simd";
+    for (std::size_t i = 0; i < ref.perms.size(); ++i) {
+        EXPECT_EQ(yb.perms()[i].index, ref.perms[i].index);
+        EXPECT_EQ(yb.perms()[i].opt_id, ref.perms[i].opt_id);
+        EXPECT_EQ(yb.perms()[i].simd_id, ref.perms[i].simd_id);
+        ASSERT_EQ(yb.steps_per_perm()[i].size(), ref.steps_per_perm[i].size()) << "gleiche Schritt-Zahl je Perm";
+        for (std::size_t j = 0; j < ref.steps_per_perm[i].size(); ++j) {
+            EXPECT_EQ(yb.steps_per_perm()[i][j].kind, ref.steps_per_perm[i][j].kind);
+            EXPECT_EQ(yb.steps_per_perm()[i][j].label, ref.steps_per_perm[i][j].label) << "gleiche Reihenfolge";
+        }
+    }
+    // Cross-Check: dieselbe Perm-Menge, die auch der PlanTextBuilder-Text spiegelt.
+    planner::PlanTextBuilder pt;
+    director.construct(*tp, pt);
+    EXPECT_NE(pt.text().find("perm_count=4"), std::string::npos);
+}
+
+// (G') Experiment-Kanal: dieselbe Isomorphie (4 Perms x 19 Passes = 76 Schritte).
+TEST(CiYamlBuilder, ExperimentTopologyIsomorphicToDirectorWalk) {
+    auto const ep = parse_experiment(COMDARE_EXPERIMENT_GOLDEN);
+    ASSERT_TRUE(ep.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    CountingBuilder                       ref;
+    planner::CiYamlBuilder                yb;
+    director.construct(*ep, ref);
+    director.construct(*ep, yb);
+
+    ASSERT_EQ(yb.perms().size(), ref.perms.size());
+    std::size_t yb_total = 0, ref_total = 0;
+    for (std::size_t i = 0; i < ref.perms.size(); ++i) {
+        ASSERT_EQ(yb.steps_per_perm()[i].size(), ref.steps_per_perm[i].size());
+        yb_total += yb.steps_per_perm()[i].size();
+        ref_total += ref.steps_per_perm[i].size();
+    }
+    EXPECT_EQ(yb_total, ref_total);
+    EXPECT_EQ(yb_total, 76u) << "4 Perms x 19 Passes";
+}
+
+// (L) Je Perm GENAU 1 ceb:build- + 1 Trigger-Job (+ 1 tier:emit-Helfer) + zweistufige stages-Struktur.
+TEST(CiYamlBuilder, EmitsPerPermCebBuildAndTriggerJobsWithTwoStages) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    planner::CiYamlBuilder                yb;
+    director.construct(*tp, yb);
+    std::string const& yaml = yb.text();
+
+    // STUFE 1: genau 1 CEB-Bau-Job je Perm (Marker-Kommentar, kollisionsfrei zu needs:-Referenzen).
+    EXPECT_EQ(count_occurrences(yaml, "# JOB ceb-build perm "), 4u) << "1 CEB-Bau-Job je Perm";
+    // STUFE 2b: genau 1 Trigger-Job je Perm.
+    EXPECT_EQ(count_occurrences(yaml, "# JOB tier-trigger perm "), 4u) << "1 Grandchild-Trigger-Job je Perm";
+    EXPECT_EQ(count_occurrences(yaml, "# JOB tier-emit perm "), 4u) << "1 Tier-Emitter-Job je Perm (STUFE 2a)";
+    // Jeder Trigger-Job traegt genau EINEN trigger:-Schluessel (Grandchild via include: artifact:).
+    EXPECT_EQ(count_occurrences(yaml, "\n  trigger:\n"), 4u) << "je Perm ein trigger:-Schluessel";
+    EXPECT_EQ(count_occurrences(yaml, "include:\n      - artifact:"), 4u)
+        << "je Perm ein include: artifact:-Grandchild";
+    // Zweistufige stages-Struktur (genau einmal, im Kopf).
+    EXPECT_EQ(count_occurrences(yaml, "\nstages:\n"), 1u);
+    EXPECT_NE(yaml.find("  - ceb-build\n"), std::string::npos);
+    EXPECT_NE(yaml.find("  - tier-emit\n"), std::string::npos);
+    // provision-only im STUFE-1-Skript (Pilot-Matrix-UMSCHALT-ZEILE), kein Messlauf.
+    EXPECT_EQ(count_occurrences(yaml, "COMDARE_GOLDEN_N_PROVISION_ONLY=true"), 4u);
+}
+
+// (M) Byte-Determinismus der YAML (Thesis + Experiment): zwei Laeufe -> byte-gleich.
+TEST(CiYamlBuilder, YamlIsByteDeterministic) {
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    auto const ep = parse_experiment(COMDARE_EXPERIMENT_GOLDEN);
+    ASSERT_TRUE(ep.has_value());
+
+    planner::ExperimentPlanDirector const director;
+    {
+        planner::CiYamlBuilder a, b;
+        director.construct(*tp, a);
+        director.construct(*tp, b);
+        EXPECT_EQ(a.text(), b.text()) << "thesis child-pipeline YAML byte-deterministisch";
+        EXPECT_FALSE(a.text().empty());
+        EXPECT_EQ(a.text().find("/home/"), std::string::npos) << "keine emit-Zeit-Host-Absolutpfade in der YAML";
+    }
+    {
+        planner::CiYamlBuilder a, b;
+        director.construct(*ep, a);
+        director.construct(*ep, b);
+        EXPECT_EQ(a.text(), b.text()) << "experiment child-pipeline YAML byte-deterministisch";
+    }
+}
+
+// (N) SIMD-Capability-Routing (Pilot-Matrix §36.3): no_extension->amd64, avx2->avx2, avx512->avx512.
+TEST(CiYamlBuilder, SimdRunnerTagRoutingMatchesPilotMatrix) {
+    EXPECT_EQ(planner::CiYamlBuilder::simd_runner_tag("no_extension"), "amd64");
+    EXPECT_EQ(planner::CiYamlBuilder::simd_runner_tag(""), "amd64") << "leer = kein SIMD -> broadest amd64";
+    EXPECT_EQ(planner::CiYamlBuilder::simd_runner_tag("avx2"), "avx2");
+    EXPECT_EQ(planner::CiYamlBuilder::simd_runner_tag("avx512"), "avx512");
+
+    // all_axes_golden traegt no_extension + avx2 -> die YAML routet auf beide Tags.
+    auto const tp = parse_thesis(COMDARE_PLANNER_THESIS_ALL_AXES);
+    ASSERT_TRUE(tp.has_value());
+    planner::ExperimentPlanDirector const director;
+    planner::CiYamlBuilder                yb;
+    director.construct(*tp, yb);
+    EXPECT_NE(yb.text().find("tags: [\"amd64\"]"), std::string::npos);
+    EXPECT_NE(yb.text().find("tags: [\"avx2\"]"), std::string::npos);
+}
