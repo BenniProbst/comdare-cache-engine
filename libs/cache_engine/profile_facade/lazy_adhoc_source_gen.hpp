@@ -38,6 +38,37 @@
 // -- er umgeht die Materialisierung, ohne den Guard anzufassen. Der committete Systembeweis-Anker
 // (`kNewGolden131072Crc64` + `static_assert(...==131072)`) bleibt unberuehrt.
 //
+// -- FREIGABE-KOPPLUNG System->Organ (Ledger 36/37/37.b, 2026-07-19; SIMD = PILOT eines generischen Prinzips) --
+// Dieser Emitter rendert die Organ-Quelle SYSTEM-BLIND: er kennt NUR den binary_id (die 17 Organ-Achsen), NICHT
+// die freigegebene System-Zelle (opt_level/simd_extension). Das ist ARCHITEKTUR-KORREKT (37.b): der
+// Zulaessigkeits-Filter (Organ <= System-Freigabe) sitzt NICHT hier, NICHT im Tier und NICHT im Planer, sondern
+// EXAKT an der CEB-BAU-DELEGATIONS-NAHT -- der per-System-Zelle montierten CompileFn `perm_compile`
+// (profile_run_entry.hpp, run_profile optxsimd-Schleife: `perm_compile = compile_for_perm(opt_flag, march_flag)`),
+// die `provision_all` je Binary VOR der Kompilation nutzt. Die CEB bestimmt aus ihrer System-Freigabe
+// (system_axis_host_supports_simd + system_axis_march_of) ZUR LAUFZEIT, WAS gebaut werden darf, und DELEGIERT die
+// Kompilation der gewaehlten/permutierten Organ-Rekombination (Auswahl VOR der Kompilation).
+//
+// SIMD-PILOT-INSTANZ (37): die -march-Flag der freigegebenen System-Zelle IST heute das Gate der Organ-SIMD-
+// Codegen (Organ-SIMD <= System-SIMD-Zulassung; ISA-Gate E1, profile_run_entry.hpp). Die SIMD-gekoppelten Organ-
+// Varianten sind die search_algo-Wrapper mit SimdCapableStrategy-Concept (array256 = dense+SIMD, vector_u8u8 =
+// Patricia+SIMD; k_ary/original_art/original_hot). Sie tragen per Concept-Vertrag IMMER einen Skalar-Pfad
+// (`simd_lookup` == `lookup`, nur schneller) -> unter simd=no_extension (kein -march) DEGRADIEREN sie via #ifdef
+// auf Skalar, sie schlagen NICHT fehl. Damit ist die 36-Forderung "Degradation/Skip statt Bau-Fehler" fuer den
+// HEUTIGEN Organ-Satz bereits durch die -march-CompileFn an der richtigen Naht erfuellt; der Emitter muss (und
+// DARF) hier NICHT zusaetzlich filtern -- ein Hard-Skip verloere die valide, skalar-degradierte Mess-Zelle
+// (Gate-Test (d) belegt: der Emitter rendert array256/vector_u8u8 system-blind nicht-leer).
+//
+// GENERISCH (37) + ZIELBILD: SIMD ist die PILOT-Instanz. Kuenftige System-Consumer-Achsen (NUMA/NPU/GPU/FPGA
+// unter der Hardware-Achse; die Ist-Vorbilder simd_extension-09b / isa-Codegen-Traeger / general_hardware sind
+// bereits Dual-Naturen) koppeln an DERSELBEN perm_compile/provision_all-Naht -- mehrere Organ-Systemconsumer-
+// Achsen permutieren die Freigabe bis zur maximalen Faehigkeitsstufe. Freigabe betrifft NUR statische System-
+// HAUPT-Achsen (dynamische Unter-Achsen wie threads = Runtime-Durchreichung, KEINE Freigabe). Mechanik-Zielbild
+// (Folge-Increment, HIER NICHT gebaut): Dual-Aufnahme (System-Aufnahme CEB + Organ-Aufnahme Tier) + Freischaltung
+// von der CEB ueber ein STATE PATTERN durchs Pruef-Dock in die Organ-Repraesentation; ein HART SIMD-erfordernder
+// Organ-Variant (OHNE Skalar-Pfad, den es heute NICHT gibt) braeuchte dann den constexpr-Zulaessigkeits-Filter
+// (Audit-G7 -> Bau-Gate: `requires_simd()` <= System-Freigabe) GENAU an dieser provision_all/CompileFn-Naht. Die
+// Naht ist so geschnitten, dass der State-Pattern-Filter dort andockt, OHNE diesen Emitter zu aendern.
+//
 // Umbrella-schwer (source_catalog.hpp zieht die 17 Topic-ConfigSets) -> gehoert NEBEN source_catalog.hpp in die
 // Materialisierungs-Domaene, NICHT in den engine-agnostischen Treiber-Header. C++23, header-only.
 

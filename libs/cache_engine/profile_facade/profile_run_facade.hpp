@@ -38,7 +38,7 @@ struct ProfileRunArgs {
     std::string   platform_override;
     std::string   build_version_tag_override;
     // INC-G6 (Ledger 33/34/35, 2026-07-19): der golden-N-Materialisierungs-Kanal (Chunk-Fenster + provision-only).
-    // ADDITIV/INERT -- golden_range_count==0 UND provision_only==false ⇒ byte-identisch zum Ist-Lauf. Der Host
+    // ADDITIV/INERT -- golden_range_count==0 UND provision_only==false => byte-identisch zum Ist-Lauf. Der Host
     // (messung_driver) belegt sie aus COMDARE_GOLDEN_N_RANGE="start:count" bzw. COMDARE_GOLDEN_N_PROVISION_ONLY.
     std::size_t golden_range_start = 0;
     std::size_t golden_range_count = 0;     // 0 = kein Fenster (Ist-Verhalten)
