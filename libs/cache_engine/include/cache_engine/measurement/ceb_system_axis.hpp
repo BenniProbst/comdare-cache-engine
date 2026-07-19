@@ -4,7 +4,7 @@
 // (Q1-Ruling). Konfig-System-Achsen sind KEINE Mess-Quellen: sie bestimmen als
 // CEB-Bau-Parameter, wie die untergeordneten Tier-Binaries statisch gebaut und
 // durchgemessen werden (Scheduling / Hardware-ISA / Telemetrie-Regime / Last-Framework /
-// Compiler / Erweiterungshardware). Sie permutieren die 19 Organ-Achsen NICHT und
+// Compiler / Erweiterungshardware). Sie permutieren die 17 Organ-Achsen NICHT und
 // stehen nie in kCompositionAxisNames (golden==320 bleibt unberuehrt).
 
 #pragma once

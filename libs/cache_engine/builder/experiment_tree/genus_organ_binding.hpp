@@ -7,7 +7,7 @@
 // axis_names() heute als FREIE std::string_view-Arrays -> Drift-Gefahr (Tippfehler, falsche Slot-Zahl, versehentlich
 // eine System-/Fremd-Achse). Diese Datei fuegt ADDITIV (KEIN Touch an GenusBindingTraits; kCompositionAxisNames,
 // slot_count, ABI, golden==320 unberuehrt) einen compile-time Konsistenz-/Bindungs-Vertrag hinzu:
-//   (1) das ORGAN-Achsen-UNIVERSUM (die 18 Komposition-Achsen kCompositionAxisNames + die genus-spezifischen
+//   (1) das ORGAN-Achsen-UNIVERSUM (die 17 Komposition-Achsen kCompositionAxisNames + die genus-spezifischen
 //       Erweiterungs-Organ-Achsen), gegen das eine Gattung binden DARF -- KEINE System-/Mess-Achse.
 //   (2) RequiredOrgans<G>() -- die typisierte, drift-geguardte Abfrage "welche Organ-Achsen verlangt Gattung G".
 //   (3) genus_organ_binding_consistent<G>() -- der Drift-Guard je Gattung (Groesse == slot_count, jedes Label

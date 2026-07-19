@@ -41,7 +41,7 @@ public:
 /// AUFSUMMIERTE) Wall-Clock-Zeit der 4 in do_batch (abi_adapter.hpp) instrumentierten Achsen-Segmente
 /// über die Modul-Binary-Grenze trägt: search_algo / allocator / memory_layout / serialization.
 /// NUR int64-Felder → standard_layout + trivially_copyable (memcpy über die .dll-Grenze, identisch zum
-/// Observer-Snapshot-Designprinzip). Die übrigen 15 Achsen sind passive Compile-Time-Deskriptoren ohne
+/// Observer-Snapshot-Designprinzip). Die uebrigen 13 Achsen (INC-2d: 17 Slots) sind passive Compile-Time-Deskriptoren ohne
 /// Laufzeit-Segment-Timer → der Host kennzeichnet sie ehrlich als n/a (NICHT 0, NICHT erfunden).
 struct ComdareSegmentLatencyV1 {
     std::int64_t  seg_search_algo_ns   = 0; // Segment 1 (axis_03a search_algo): Lookups auf der Such-Struktur

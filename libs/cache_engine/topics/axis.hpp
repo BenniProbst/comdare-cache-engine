@@ -15,7 +15,7 @@ namespace comdare::cache_engine::topics {
 
 /// Familien-Diskriminator des Achsen-Dachs.
 enum class AxisKind : unsigned char {
-    organ,              ///< Organ-/Tier-Binary-Achse (permutiert die binary_id, 19 Slots)
+    organ,              ///< Organ-/Tier-Binary-Achse (permutiert die binary_id, 17 Slots; INC-2d)
     system_measurement, ///< Mess-System-Achse ("Blut", host-seitig immer praesent, golden-neutral)
     system_config,      ///< CEB-Konfig-System-Achse (Bau-/Steuer-Parameter, beruehrt NIE die binary_id)
 };

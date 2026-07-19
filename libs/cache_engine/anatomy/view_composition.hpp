@@ -1,6 +1,7 @@
 #pragma once
-// D11 / L-76c (2026-06-02) — ViewComposition: die VIEW-Gattungs-Komposition (Pflanze, non-owning). 7 Slots =
-// 3 geteilte Achsen (Doku 14 §28 Plant: memory_layout/value_handle/isa; INC-2c: telemetry ist System-Achse) + 3 eigene
+// D11 / L-76c (2026-06-02) — ViewComposition: die VIEW-Gattungs-Komposition (Pflanze, non-owning). 5 Slots =
+// 2 geteilte Achsen (Doku 14 §28 Plant: memory_layout/value_handle; INC-2c/2d: telemetry+isa sind System-Achsen,
+// kein Slot) + 3 eigene
 // (axis_extent/axis_layout/axis_accessor, mdspan-Bezug §26.6). GETRENNTE Gattung (Cross-Genus type-unmöglich,
 // Doku 14 §32). non-owning → KEIN allocator/concurrency/insert (Doku 14 §28 „— (non-owning)/(immutable)").
 //
@@ -68,6 +69,7 @@ concept IsViewComposition = requires {
     { C::slot_count } -> std::convertible_to<std::size_t>;
 };
 
-inline constexpr std::size_t kViewCompositionSlotCount = 7;
+/// L4/K-3 (2026-07-19): 7 → 5 gesynct (INC-2c telemetry + INC-2d isa raus) == ViewComposition::slot_count.
+inline constexpr std::size_t kViewCompositionSlotCount = 5;
 
 } // namespace comdare::cache_engine::anatomy

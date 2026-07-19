@@ -70,24 +70,25 @@
     using ComdareAdHocPermutationComposition = ::comdare::cache_engine::anatomy::AdHocComposition<__VA_ARGS__>;        \
     COMDARE_DEFINE_ANATOMY_MODULE(ComdareAdHocPermutationComposition)
 
-/// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(PT, SE, HW, <19 Anatomie-Achsen>) — L-74a: EINE DLL trägt
-/// SOWOHL die 19-Slot-SearchAlgorithm-Anatomie (4 ABI-Symbole, genus()==SearchAlgorithm, organ_count()==19 — 17
-/// Such-Achsen + queuing q1/q2, Doc 30 §8.0) ALS AUCH die Build-Identität der 3 Build-Achsen (page_type/09b/12)
+/// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(PT, SE, HW, <17 Anatomie-Achsen>) — L-74a: EINE DLL trägt
+/// SOWOHL die 17-Slot-SearchAlgorithm-Anatomie (4 ABI-Symbole, genus()==SearchAlgorithm, organ_count()==17 — 15
+/// Such-Achsen + queuing q1/q2, Doc 30 §8.0; INC-2c/2d: telemetry+isa sind System-Achsen) ALS AUCH die
+/// Build-Identität der 3 Build-Achsen (page_type/09b/12)
 /// als extern-"C"-Inspection-Symbol (comdare_build_variant_inspect). Beweist Doc 27 §0.1: die 3 Build-Achsen sind
 /// Build-Parameter DERSELBEN Binary (Sub/Build-Varianten DESSELBEN Algorithmus), NICHT eine eigene Gattung.
-/// Reihenfolge: die 3 Build-Achsen ZUERST (named), dann die 19 Anatomie-Achsen variadisch (Komma-Problem von
-/// AdHocComposition<19>). Host: genus über den Loader + Build-Identität über GetProcAddress/dlsym aus DERSELBEN .dll.
+/// Reihenfolge: die 3 Build-Achsen ZUERST (named), dann die 17 Anatomie-Achsen variadisch (Komma-Problem von
+/// AdHocComposition<17>). Host: genus über den Loader + Build-Identität über GetProcAddress/dlsym aus DERSELBEN .dll.
 #define COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_BUILDVARIANT(PT, SE, HW, ...)                                              \
     COMDARE_DEFINE_ANATOMY_MODULE_ADHOC(__VA_ARGS__)                                                                   \
     COMDARE_DEFINE_BUILD_VARIANT_INSPECTION(comdare_build_variant_inspect, PT, SE, HW)
 
-/// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_SHAPED(ShapeType, <19 Anatomie-Achsen>) — 234-V-a (Option A,
+/// COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_SHAPED(ShapeType, <17 Anatomie-Achsen>) — 234-V-a (Option A,
 /// User-GO 07.07.): Materialisiert eine auto-enumerierte Permutation MIT Shape-Traeger (z.B.
 /// axis_btree_order::BtreeOrderKt8). Der Shape faehrt als ADAPTER-Traeger mit (2. Template-Parameter des
 /// SearchAlgorithmAbiAdapter) und waehlt ueber `organ_for_search_algo_shaped<S,Shape>` das Shaped-Organ
-/// der Pool-Familie — er ist KEIN 20. Composition-Slot: die 19-Slot-ABI-Invariante, organ_count()==19,
+/// der Pool-Familie — er ist KEIN 18. Composition-Slot: die 17-Slot-ABI-Invariante, organ_count()==17,
 /// alle POD-Layouts und ABI-MAJOR bleiben unveraendert. Reihenfolge nach BUILDVARIANT-Praezedenz:
-/// benannter Shape ZUERST, dann die 19 Anatomie-Achsen variadisch (Komma-Problem von AdHocComposition).
+/// benannter Shape ZUERST, dann die 17 Anatomie-Achsen variadisch (Komma-Problem von AdHocComposition).
 /// Bewusst SELBSTSTAENDIG (4 Symbole erneut definiert statt Basis-Makro-Refactor): der Golden-Pfad
 /// (COMDARE_DEFINE_ANATOMY_MODULE/_ADHOC/_BUILDVARIANT) wird nicht angefasst.
 #define COMDARE_DEFINE_ANATOMY_MODULE_ADHOC_SHAPED(ShapeType, ...)                                                     \

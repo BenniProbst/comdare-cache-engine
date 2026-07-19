@@ -3,7 +3,8 @@
 //
 // Die 6 bekannten Suchalgorithmen sind reine Template-Spezialisierungen der
 // zentralen Anatomie-Klasse. KEIN eigener Algorithmus-Code — nur Komposition
-// aus 19 Achsen-Auspraegungen (17 Such-Achsen + queuing q1/q2, Doc 30 §8.0).
+// aus 17 Achsen-Auspraegungen (15 Such-Achsen + queuing q1/q2, Doc 30 §8.0; INC-2c/2d:
+// telemetry+isa sind System-Achsen, kein Slot).
 //
 // @doku docs/architektur/14_achsen_komposition_organ_metapher.md §11.3+§13
 
@@ -27,7 +28,7 @@
 namespace comdare::cache_engine::anatomy {
 
 /// 6 CE-Re-Impl Tiere — Stufe-A Defaults (search_algo = Array256SearchAlgo/VectorU8U8SearchAlgo/VectorU16U16SearchAlgo).
-/// Alle nutzen DIESELBE Anatomie-Klasse, unterscheiden sich nur durch 19 Achsen-Auspraegungen (17 Such-Achsen + queuing q1/q2).
+/// Alle nutzen DIESELBE Anatomie-Klasse, unterscheiden sich nur durch 17 Achsen-Auspraegungen (15 Such-Achsen + queuing q1/q2, INC-2d).
 
 using Art      = SearchAlgorithmAnatomy<compositions::ArtComposition>;
 using Hot      = SearchAlgorithmAnatomy<compositions::HotComposition>;

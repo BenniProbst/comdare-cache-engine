@@ -93,7 +93,7 @@ struct SotaModule {
     std::string header;           // Include-Header der Composition
     // M-CE-10 (Voll-Review 2026-07-13; per-Host-Auffächerung 2026-07-14): das HOST-Lebewesen der Komposition — das
     // Original-Quell-Repository, dessen H2-Code-Qualitäts-Score dieses Modul trägt (host-dominant, #171: "abstract" =
-    // der Host füllt 18/19 Achsen, der Prüfling nur den path_compression-Slot). Stufe1 (isoliert) == lebewesen;
+    // der Host füllt 16/17 Achsen (INC-2d), der Prüfling nur den path_compression-Slot). Stufe1 (isoliert) == lebewesen;
     // Stufe2 UND Stufe3 (per-Host) == dem angefragten Lebewesen (das IST der Host). Damit trägt h2_score_for das
     // reale Host-Lebewesen (nach der per-Host-Auffächerung ist das = das angefragte lebewesen, kein FIX "hot" mehr).
     std::string host_lebewesen;
@@ -168,7 +168,7 @@ struct SotaModule {
     std::string const reihe = stufe_to_reihe(merge); // #178: Reihe mechanisch aus der Stufe (A für St2, B für St3)
     if (merge == "Stufe2_PrueflingReplace") {
         // M-CE-10 (per-Host-Stufe2, 2026-07-14, Ledger :1134 — bau-relevant mit F/G): ANALOG zu Stufe3 (unten)
-        // fächert Stufe2 jetzt je SOTA-Host eine distinkte <Host>PrtStufe2ReplaceComposition (Host stellt 18 Achsen,
+        // fächert Stufe2 jetzt je SOTA-Host eine distinkte <Host>PrtStufe2ReplaceComposition (Host stellt 16 Achsen, INC-2d,
         // PRT-ART ersetzt den path_compression-Slot). Die binary_id ist damit GENUINE per-Host distinkt (verschiedene
         // Hosts = verschiedene Kompositionen — KEIN Fake-id für byte-identischen HOT-Code, der alte Anti-Phantom-
         // Fall entfällt). host_lebewesen == lebewesen (der reale Host trägt den H2-Score). prt_art-als-Host ist
@@ -275,10 +275,10 @@ inline constexpr char const* kSotaTierAxis = "sota_tier";
 // #171 (Text-Agent AP-X2/TODO-2, 2026-06-20) — die Pruefling-Auspraegung "full" vs "abstract" als 1:1-Sicht auf
 //   die BESTEHENDE MergeStrategy/sota_series-Mechanik (KEINE neue Achse, KEINE neue Selektion):
 //     • full     == "Originalkonfiguration"/self-contained == Reihe A == merge=Stufe1_CeOnly: das Lebewesen
-//                   fuellt ALLE 19 Achsen mit EIGENEN Organen (PrtArtComposition / die 6 SOTA isoliert).
+//                   fuellt ALLE 17 Achsen (INC-2d) mit EIGENEN Organen (PrtArtComposition / die 6 SOTA isoliert).
 //                   Beleg: pruefling_merge.hpp:93-95 StufeOneAxis=DefaultList; prt_art_reference.hpp:61-80.
 //     • abstract == Teilmenge + Host-Fallback == Stufe2/Reihe A oder Stufe3/Reihe B:
-//                   der Pruefling fuellt NUR einen Slot (path_compression), 18 Achsen via Host-Fallback.
+//                   der Pruefling fuellt NUR einen Slot (path_compression), 16 Achsen via Host-Fallback (INC-2d).
 //                   Beleg: pruefling_merge.hpp:113-118 conditional_t Ersetzt-mit-Fallback; prt_art_merge_reference.hpp.
 //   Quelle der cacheline-doc §0 Z.11 / §1.2 Z.19 ("Paper-Algorithmen als Basis-Lebewesen in Originalkonfiguration").
 //   Die Ableitung ist DETERMINISTISCH aus merge (bzw. series-id als Fallback); ein explizites

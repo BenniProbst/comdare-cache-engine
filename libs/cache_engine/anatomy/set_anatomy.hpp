@@ -38,7 +38,7 @@ public:
     static constexpr std::string_view composition_name() noexcept { return Composition::name; }
     static constexpr std::string_view paper_id() noexcept { return Composition::paper_id; }
     static constexpr AnatomyGenus     genus() noexcept { return AnatomyGenus::Set; }             // Vogel
-    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 15
+    static constexpr std::size_t      organ_count() noexcept { return Composition::slot_count; } // 13 (INC-2d)
 
     // ── Set-Gattungs-API (K-only) — treibt das ECHTE search_algo-Organ als Menge (K=V) ──
     bool insert(std::uint64_t key) {

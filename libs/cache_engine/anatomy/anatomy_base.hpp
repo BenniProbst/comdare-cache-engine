@@ -33,7 +33,7 @@ namespace comdare::cache_engine::anatomy {
 //   Ebene 2  AnatomyGenus      = TIER-UNTERKLASSE unter einem Gattungs-Interface (fester Achsen-Satz)
 //   Ebene 3  Achsen            = Organe der Tier-Unterklasse (permutieren; KEINE optional)
 // Set/Sequence/Adapter/View sind Tier-Unterklassen UNTER der Container-Gattung (Doc 24 Z.564 / Doc 27 §0),
-// NICHT je eine eigene Gattung. SearchAlgorithm ist eine Gattung MIT einer Tier-Unterklasse (std::map-artig, 18 Achsen; INC-2c: telemetry ist System-Achse).
+// NICHT je eine eigene Gattung. SearchAlgorithm ist eine Gattung MIT einer Tier-Unterklasse (std::map-artig, 17 Achsen; INC-2c/2d: telemetry+isa sind System-Achsen).
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// AnatomyGattung — Ebene 1: das Außen-Interface zur Welt (Prüf-Dock je Gattung, Doc 24 §8.8). NUR 3.
@@ -76,7 +76,7 @@ enum class AnatomyGattung : std::uint8_t {
 /// eigenständige `AnatomyGattung`) ist der SEPARATE, koordinierte ABI-Schritt F1b (NICHT hier;
 /// s. container_framework.hpp #29-Vermerk + docs/architecture/37).
 enum class AnatomyGenus : std::uint8_t {
-    SearchAlgorithm = 0, ///< Tier-Unterklasse der SearchAlgorithm-Gattung (vollst. 19-Achsen-Anatomie)
+    SearchAlgorithm = 0, ///< Tier-Unterklasse der SearchAlgorithm-Gattung (vollst. 17-Achsen-Anatomie, INC-2d)
     Set             = 1, ///< Tier-Unterklasse der Container-Gattung (K only, Bird)
     Sequence        = 2, ///< Tier-Unterklasse der Container-Gattung (V indexed, Reptile)
     Adapter         = 3, ///< Tier-Unterklasse der Container-Gattung (Wrapper über Inner-Substrat, Invertebrate)
@@ -166,7 +166,7 @@ public:
     /// Anatomie-Gattung (Saeugetier/Vogel/Reptil/Wirbelloses/Pflanze)
     [[nodiscard]] virtual AnatomyGenus genus() const noexcept = 0;
 
-    /// Anzahl Achsen (Pflicht 19 fuer Mammal = 17 Such-Achsen + queuing q1/q2; weniger fuer andere Gattungen)
+    /// Anzahl Achsen (Pflicht 17 fuer Mammal = 15 Such-Achsen + queuing q1/q2, INC-2d; weniger fuer andere Gattungen)
     [[nodiscard]] virtual std::size_t organ_count() const noexcept = 0;
 };
 
