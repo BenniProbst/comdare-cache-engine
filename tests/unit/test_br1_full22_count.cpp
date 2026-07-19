@@ -3,7 +3,7 @@
 // Verifiziert das Vollständigkeits-Gate (Doc 27 §4) über ALLE 22 realen Achsen — registry-getrieben,
 // NICHT string-getrieben. Nutzt build_all_axis_levels() (registry_to_axis_levels.hpp) → 26 AxisLevels
 // aus den ECHTEN Enabled-Listen, baut den Experiment-Baum, prüft die Kardinalitäts-Identität
-// tree.binary_count() == ∏ mp_size(Enabled_i) == all_axes_binary_count() (Doc 27 §6: == PermutationEngine::
+// tree.binary_count() == ∏ mp_size(Enabled_i) == all_axes_matrix_count() (Doc 27 §6: == PermutationEngine::
 // count() per mp_size<mp_product<L…>> = ∏|L|, OHNE den C1060-infeasiblen mp_product-Typ-Baum).
 //
 // ⚠️ Dieser TU inkludiert ALLE 22 Achsen-Registries (registry_to_axis_levels.hpp). Er nutzt aber NUR
@@ -57,14 +57,14 @@ int main() {
     check_true("Gate-2: jede der 26 Achsen hat volles Enabled-Inventar (>0)", nonempty);
     check_true("block_id == Achsen-Name (Bidir.-Tag) für alle 26", block_ok);
 
-    // GATE-1 (Doc 27 §4.1+§6): tree.binary_count() == ∏ mp_size(Enabled_i) == all_axes_binary_count()
+    // GATE-1 (Doc 27 §4.1+§6): tree.binary_count() == ∏ mp_size(Enabled_i) == all_axes_matrix_count()
     // (== PermutationEngine::count() per Kardinalitäts-Identität, OHNE mp_product-Materialisierung).
-    constexpr std::size_t expected = ex::all_axes_binary_count();
+    constexpr std::size_t expected = ex::all_axes_matrix_count();
     auto                  factory  = std::make_shared<ex::ExperimentNodeFactory>();
     ex::ExperimentTree    tree{factory};
     tree.build(lv);
     std::cout << "  ∏ (Laufzeit über values.size()) = " << prod << "\n";
-    std::cout << "  all_axes_binary_count() (constexpr ∏ mp_size) = " << expected << "\n";
+    std::cout << "  all_axes_matrix_count() (constexpr ∏ mp_size) = " << expected << "\n";
     std::cout << "  tree.binary_count() = " << tree.binary_count() << "\n";
     check_eq("Laufzeit-∏ == constexpr ∏ mp_size (reflect_names == Enabled-Inventar)", prod, expected);
     check_eq("GATE-1: tree.binary_count() == ∏ mp_size(Enabled_i)", tree.binary_count(), expected);

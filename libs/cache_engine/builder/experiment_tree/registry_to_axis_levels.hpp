@@ -5,8 +5,8 @@
 //
 // User-Korrektur 2026-06-02: KEINE 17-Achsen-Bindung, sondern ALLE 26 (15 Topics). 17 davon sind AdHocComposition-
 // Slots T0..T16; die übrigen 5 Registry-Achsen = 3 build-only-Achsen (page_type/01, simd_extension/09b,
-// general_hardware/12; DefinitionOnly) + die 2 queuing-KOMPOSITION-Achsen q1/q2 (gehören zur 19-Slot-Komposition
-// als T17/T18, NICHT „andere Gattung" — nur spät in der Registry-Reihenfolge), die der Baum EBENFALLS bindet.
+// general_hardware/12; DefinitionOnly) + die 2 queuing-KOMPOSITION-Achsen q1/q2 (gehören zur 17-Slot-Komposition
+// als T15/T16, NICHT „andere Gattung" — nur spät in der Registry-Reihenfolge), die der Baum EBENFALLS bindet.
 // Anker (namespace-sicher): TopicConfigSet::StaticAxisVariants_* (+ axis_01_page_type::EnabledPageTypes).
 //
 // ⚠️ OOM-HINWEIS: dieser Header inkludiert ALLE Achsen-Registries → in EINEM TU compiler-heap-schwer (Windows-OOM
@@ -144,7 +144,10 @@ inline void append_composition_tail_axis_levels(std::vector<AxisLevel>& lv) {
 }
 
 /// Compile-time-Produkt der 26 Enabled-Größen = die volle Permutations-Kardinalität (ohne mp_product-Materialisierung).
-[[nodiscard]] inline constexpr std::size_t all_axes_binary_count() {
+/// V7/P4 (K-7, 2026-07-19): umbenannt von all_axes_binary_count() -- der alte Name suggerierte ein
+/// binary_id-Produkt, aber System-/Build-/Shape-Achsen permutieren die binary_id NICHT (nur die 17
+/// Organ-Slots tun das). Das 26-Achsen-Produkt ist die MATRIX-Kardinalitaet des Experiment-Baums.
+[[nodiscard]] inline constexpr std::size_t all_axes_matrix_count() {
     return enabled_count<axes26::T00_search_algo> * enabled_count<axes26::T01_cache_traversal> *
            enabled_count<axes26::T02_mapping> * enabled_count<axes26::T03_path_compression> *
            enabled_count<axes26::T04_node_type> * enabled_count<axes26::T05_memory_layout> *
