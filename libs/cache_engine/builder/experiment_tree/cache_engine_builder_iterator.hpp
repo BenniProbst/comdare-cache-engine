@@ -34,6 +34,7 @@
 #include "result_ingest.hpp"                       // ingest_result_line
 #include "../build_orchestrator/build_orchestrator.hpp" // BuildOrchestrator / BuildConfig / *Fn
 #include "../artifact_transport/artifact_cache.hpp"     // Storage #51: CachePushFn / MeasurementSinkFn (No-Op-Naht)
+#include "../artifact_transport/async_push_pump.hpp"    // W11 (§43.c): AsyncPushPump (BAU-Modus async Push-Pump)
 #include "progress_delta.hpp" // Welle 5 (E-W5-2): ProgressDelta / ProgressSinkFn / Delta-Logik (builder-Sibling-Leaf, §38 hinauf)
 #include "../anatomy_module_loader/anatomy_module_loader.hpp" // AnatomyModuleLoader / AnatomyModuleHandle
 #include "../pruef_dock/search_algorithm_dock.hpp" // INC-2a (Q4): acquire_search_algorithm_drive (Dock-Vertrag)
@@ -61,6 +62,9 @@ namespace comdare::cache_engine::builder::experiment {
 // analog dazu, wie CompileFn/AlgoSigFn im experiment-Namespace sichtbar sind.
 using CachePushFn       = ::comdare::cache_engine::builder::artifact_transport::CachePushFn;
 using MeasurementSinkFn = ::comdare::cache_engine::builder::artifact_transport::MeasurementSinkFn;
+// W11 (§43.c): der Teil-Marker-Sink + der async Push-Pump (BAU-Modus). Wie CachePushFn transport-kanonisch, hier aliast.
+using PartialMarkerFn = ::comdare::cache_engine::builder::artifact_transport::PartialMarkerFn;
+using AsyncPushPump   = ::comdare::cache_engine::builder::artifact_transport::AsyncPushPump;
 // Welle 5 (E-W5-2, §38-Rueck-Kanal): ProgressDelta / ProgressSinkFn / progress_delta_between liegen im
 // builder-Sibling-Leaf progress_delta.hpp (SELBER Namespace builder::experiment) -> hier ohne Alias direkt
 // sichtbar. Der achsen-blinde Iterator inkludiert NUR den builder-Leaf (kein Aufwaerts-Include in profile_facade).
@@ -163,6 +167,14 @@ struct LazyRunConfig {
     // Deltas in StaticBinaryView-Ordnung) und am Fensterende genau EINEN done=true-Delta (= §38.b-Fertig-Signal).
     // KEIN Mess-Daten-Rueckfluss. Leer (Default) => No-Op => golden/CI byte-identisch (Anti-Phantom).
     ProgressSinkFn progress_sink;
+    // W11 (Ledger §43.c): der BAU-MODUS async Push-Pump. NUR im provision_only-Zweig aktiv (Mess-Modus bleibt strikt
+    // synchron). Ist cache_push gesetzt + per_binary_subdirs, ueberlappt der Push mit dem Bau (statt Batch danach).
+    //  - partial_marker_sink: nach je chunk_part_size gepushten DLLs EIN Teil-Marker (Cluster-Resume). Leer = keine.
+    //  - chunk_part_size: N (0 = keine Teil-Marker). Der Host belegt es aus COMDARE_GN_PART_SIZE (Default 1024).
+    // Beide leer/0 => byte-neutral (kein Pump-Teil-Marker; der Pump selbst ist reines Ueberlappen ohne Verhaltens-
+    // Aenderung an der Push-MENGE). Byte-neutral bleibt ausserdem garantiert, wenn cache_push leer ist (Storage inert).
+    PartialMarkerFn partial_marker_sink;
+    std::size_t     chunk_part_size = 0;
 };
 
 // ── Eine gemessene CSV-Zeile (Binary × dyn-Setting) ───────────────────────────
@@ -179,7 +191,7 @@ struct LazyMeasuredRow {
     std::uint64_t timed_ops = 0;
     // GOAL-L1: per-Interface-Funktions-Latenzen (Reihenfolge kOpKindNames) — z-Achsen-Quelle der 3D-Auswertung.
     std::array<OpKindLatency, 6> op_lat{};
-    // KONSOLIDIERUNG (I1): der EINE konsolidierte Observer-POD (axis_stats[18][8] + seg_ns[18]/Pfad B + Meta).
+    // KONSOLIDIERUNG (I1): der EINE konsolidierte Observer-POD (axis_stats[17][8] + seg_ns[17]/Pfad B + Meta).
     // Maßgebliche CSV-Quelle: stat_*-Spalten aus unified.axis_stats, seg_*-Spalten aus unified.seg_ns (Pfad B, reale
     // Komposition). Ersetzt den früheren V3-Snapshot + den Pfad-A-Segment-Timer.
     anatomy::ComdareTierObserverSnapshot unified{};
@@ -225,8 +237,8 @@ struct LazyMeasuredRow {
 //   binary_id;setting;repetition;n_ops;total_ns;ns_per_op;
 //   seg_<T0>_ns;…;seg_<T17>_ns;   (18 per-Achsen-Timer-Spalten, kCompositionAxisNames-Reihenfolge)
 //   <die 13 differenzierten Observer-Counter>;applied_axes
-// (X) Die frühere `na_axes`-Notiz-Spalte ist ENTFALLEN: ALLE 18 Achsen tragen jetzt einen echten per-Achsen-
-// Timer (kein „15 Deskriptor-Achsen ohne Timer" mehr). Die 18 seg_*-Spalten = "n/a", wenn das Modul kein
+// (X) Die frühere `na_axes`-Notiz-Spalte ist ENTFALLEN: ALLE 17 Achsen tragen jetzt einen echten per-Achsen-
+// Timer (kein „15 Deskriptor-Achsen ohne Timer" mehr). Die 17 seg_*-Spalten = "n/a", wenn das Modul kein
 // IMeasurableWorkloadV3 exponiert (seg_real=false) — ehrlich n/a, NICHT 0. Die Spaltennamen werden aus der
 // EINEN Single-Source kCompositionAxisNames (axis_path_serialization.hpp) generiert → keine Namens-Drift.
 //
@@ -234,7 +246,7 @@ struct LazyMeasuredRow {
 // (generisch aus der EINEN Single-Source kV3AxisSchema, observable_tier.hpp). CSV-SCHEMA-WAHL = WIDE NAMED COLUMNS
 // (nicht long-format), BEGRÜNDUNG: (1) die bestehende CSV ist bereits wide (13 Observer-Counter + 18 seg-Spalten),
 // 1 Zeile je Messung — wide bleibt konsistent + direkt vom Thesis-PDF-Pipeline konsumierbar; (2) der V3-POD ist
-// generisch [18][8], ABER nur die im Schema BENANNTEN (non-null) Felder werden zu Spalten → die Breite ist gegen
+// generisch [17][8], ABER nur die im Schema BENANNTEN (non-null) Felder werden zu Spalten → die Breite ist gegen
 // weitere Felder gedeckelt (Phase B füllt nur leere Schema-Slots, KEINE neue Spalte ausser tatsächlich benannt);
 // (3) Schema-Stabilität: kV3AxisSchema IST der Vertrag Schreiber(DLL)↔Spaltenname(Host) → keine Drift. Die
 // stat_*-Spalten sind „n/a", wenn die DLL kein Mess-Interface trägt (unified_real=false) — ehrlich n/a, NICHT 0.
@@ -266,7 +278,7 @@ struct LazyMeasuredRow {
         h += k;
         h += "_p99_ns;";
     }
-    for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) { // 19 seg_<axis>_ns-Spalten, single-source
+    for (std::size_t i = 0; i < kCompositionAxisNames.size(); ++i) { // 17 seg_<axis>_ns-Spalten, single-source
         h += "seg_";
         h += kCompositionAxisNames[i];
         h += "_ns;";
@@ -291,7 +303,7 @@ struct LazyMeasuredRow {
         }
     }
     h +=
-        "v3_filled_axes;workload;two_phase_valid;"; // Diagnose 19 Achsen befüllt + Achse 2 (Lastprofil + Mess-Gültigkeit)
+        "v3_filled_axes;workload;two_phase_valid;"; // Diagnose 17 Achsen befüllt + Achse 2 (Lastprofil + Mess-Gültigkeit)
     // M3v2-SELEKTION (Task #156): die 5 Selektions-/Lauf-Tag-Spalten ANS ENDE (Positionen aller bestehenden
     // Spalten unverändert → header-getriebene Auswertung + Resume-Schema-Vergleich bleiben rückwärtskompatibel).
     // #171 (2026-06-20): pruefling_type GANZ ANS ENDE (additiv, gleiches lazy_csv_header-Muster wie series/sweep_axis):
@@ -430,7 +442,14 @@ struct LazyMeasuredRow {
             int const    nb = std::snprintf(buf, sizeof(buf), "%.6f", cov);
             out.append(buf, (nb > 0) ? static_cast<std::size_t>(nb) : 0);
         } else {
-            out += "n/a";
+            // G6 (W9.5): Coverage bei seg_run_total_ns==0 nicht berechenbar (die Mess-DLL IST da, aber der Nenner
+            // ist 0) -> das ist NICHT SourceUnavailable, sondern SampleStatus::NotApplicable ("Wert fuer diese
+            // Zelle sinnlos, KEIN Fehler, NIE 0"). Ueber die EINE D2-Taxonomie geleitet (sample_status_token,
+            // per static_assert == "n/a") -> CSV-Bytes UNVERAENDERT (golden-neutral), aber die Semantik ist
+            // jetzt praezise NotApplicable statt eines rohen Literals. (Der !unified_real-Zweig unten bleibt
+            // SourceUnavailable = keine Mess-DLL -> ebenfalls "n/a".)
+            out += ::comdare::cache_engine::measurement::sample_status_token(
+                ::comdare::cache_engine::measurement::SampleStatus::NotApplicable);
         }
         out += ';';
     } else {
@@ -755,7 +774,23 @@ struct LazyRunResult {
     // Bauplan §8: die AlgoSigFn wird dem Orchestrator mitgegeben -> je Binary wird die Organ-Signatur (algo_sig)
     // berechnet, ins .algos-Sidecar geschrieben und in BuildResult.algo_sig getragen (fuer den Mess-Resume unten).
     // Leer = Organ-Gate aus (byte-neutral).
-    BuildOrchestrator              orch{bcfg, std::move(compile), std::move(gen), std::move(ram), std::move(algo_sig)};
+    BuildOrchestrator orch{bcfg, std::move(compile), std::move(gen), std::move(ram), std::move(algo_sig)};
+
+    // W11 (Ledger §43.c): der BAU-MODUS async Push-Pump. NUR im provision_only-Bau (der Mess-Modus bleibt STRIKT
+    // synchron -- er baut hier NICHT mit cache_push, sondern pusht per-Binary im 1-Thread-Mess-Loop unten). Gated auf
+    // cache_push + per_binary_subdirs; ohne COMDARE_STORAGE_CACHE ist cache_push leer => kein Pump => byte-neutral.
+    // Der Completion-Hook feuert aus den Build-Workern (Completion-Reihenfolge) und reiht jede fertige ok()-perm.dll
+    // ein; der EINE Push-Thread serialisiert die mc-Aufrufe und UEBERLAPPT sie mit dem weiterlaufenden Bau. Die index-
+    // geordnete progress_sink-/Determinismus-Naht (W6/§38) bleibt UNBERUEHRT (unten, 1-Thread, reihenfolge-stabil).
+    std::unique_ptr<AsyncPushPump> push_pump;
+    if (cfg.provision_only && cfg.cache_push && cfg.per_binary_subdirs) {
+        push_pump = std::make_unique<AsyncPushPump>(cfg.cache_push, cfg.build_version, cfg.partial_marker_sink,
+                                                    cfg.chunk_part_size);
+        orch.set_on_binary_done([&push_pump](BuildResult const& b) {
+            if (b.ok() && !b.output.parent_path().empty()) push_pump->enqueue(b.output.parent_path());
+        });
+    }
+
     std::vector<BuildResult> const builds =
         orch.provision_all(view, std::span<const std::size_t>{indices}, &result.build_stats);
 
@@ -792,14 +827,13 @@ struct LazyRunResult {
     // provision_only==false (Default) -- der Zweig wird dann nie betreten.
     // ════════════════════════════════════════════════════════════════════════════════════════════════════
     if (cfg.provision_only) {
-        // Storage #51 (Ebene B, No-Op-Default => byte-neutral): die frisch bereitgestellten Binaries additiv in den
-        // Objekt-Store schieben (perm.dll + .version), damit der Materialisierungs-Bau storage-cachebar ist. Ohne
-        // COMDARE_STORAGE_CACHE ist cache_push leer => KEIN Push (byte-neutral). Nutzt die BESTEHENDE Push-Naht
-        // (der symmetrische Pull bleibt das dokumentierte Storage-Folge-Increment, BAUPLAN Abschnitt 3).
-        if (cfg.cache_push && cfg.per_binary_subdirs)
-            for (BuildResult const& b : builds)
-                if (b.ok() && !b.output.parent_path().empty())
-                    cfg.cache_push(b.output.parent_path(), cfg.build_version);
+        // W11 (Ledger §43.c): den async Push-Pump DRAINEN -- alle waehrend des Baus ueberlappend eingereihten Pushes
+        // fertig abarbeiten + den Push-Thread joinen -- BEVOR wir zurueckkehren. Der (CI-seitige) Whole-Chunk-Marker
+        // erscheint erst NACH diesem vollen Drain (Vollstaendigkeits-Garantie bleibt: Marker => alle DLLs im Store).
+        // Ist kein Pump aktiv (cache_push leer / kein per_binary_subdirs), war auch nichts zu pushen => byte-neutral.
+        // Der frueherer Batch-Push-Loop (perm.dll+.version je ok()-Binary NACH provision_all) ist damit ersetzt: die
+        // Push-MENGE ist identisch (jede ok()-Binary genau einmal), nur zeitlich mit dem Bau ueberlappt.
+        if (push_pump) push_pump->close();
         // Welle 5 (E-W5-2): der §38-Rueck-Kanal feuert AUCH im provision_only-Lauf — je bereitgestellte Binary EIN
         // Delta (in StaticBinaryView-Ordnung), danach genau EIN done-Delta am Fensterende. No-Op ohne progress_sink.
         for (std::size_t j = 0; j < builds.size(); ++j) fire_progress(builds[j].index, j);
