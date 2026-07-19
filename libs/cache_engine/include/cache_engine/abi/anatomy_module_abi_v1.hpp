@@ -111,3 +111,19 @@
         ::comdare::cache_engine::anatomy::IAnatomyBase* ptr) noexcept {                                                \
         delete ptr;                                                                                                    \
     }
+
+/// COMDARE_ANATOMY_VERSION_STAMP(organ_lit, system_lit) -- W12-A2 (Section 43): materialisiert das OPTIONALE
+/// extern-"C"-Probe-Symbol comdare_anatomy_version_lines() aus zwei String-Literalen (der Organ- und der
+/// System-Stempel-Zeile). Die Literale werden im Modul als static constexpr char[] hinterlegt (KEIN std::string
+/// im Modul); der zurueckgegebene POD traegt nur Zeiger + Laengen. KEIN Loader-Pflicht-Symbol -> KEIN ABI-Bruch.
+/// Der Emitter (adhoc_emitter.hpp) haengt diese Makro-Zeile NACH COMDARE_DEFINE_ANATOMY_MODULE_ADHOC an; die
+/// Stempel-Strings sind C-literal-sicher (nur =@;.+_ und alnum, keine Quotes/Backslashes).
+#define COMDARE_ANATOMY_VERSION_STAMP(organ_lit, system_lit)                                                           \
+    extern "C" COMDARE_ANATOMY_ABI_EXPORT ::comdare::cache_engine::abi::AnatomyVersionLines const*                     \
+    comdare_anatomy_version_lines() noexcept {                                                                         \
+        static constexpr char                                              kO[] = organ_lit;                           \
+        static constexpr char                                              kS[] = system_lit;                          \
+        static constexpr ::comdare::cache_engine::abi::AnatomyVersionLines kL{                                         \
+            ::comdare::cache_engine::abi::kAnatomyVersionLinesLayout, 0u, kO, sizeof(kO) - 1, kS, sizeof(kS) - 1};     \
+        return &kL;                                                                                                    \
+    }

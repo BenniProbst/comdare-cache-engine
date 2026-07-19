@@ -17,12 +17,17 @@
 // cache_engine_builder_iterator.hpp (der bleibt umbrella-frei). C++23.
 
 #include "axis_path_serialization.hpp"           // serialize_composition_path<P>() (== Baum-binary_id)
+#include "axis_variant_version_table.hpp"        // compose_organ_stamp_line / build_axis_variant_version_table (W12-A2)
+#include "ceb_generator.hpp"                     // ceb_parse_path (binary_id -> (achse,wert)-Paare, W12-A2)
 #include "../codegen/adhoc_emitter.hpp"          // render_adhoc_module_source / adhoc_macro_args<Comp>
 #include "../../anatomy/composition_factory.hpp" // CompositionFromPermTuple<P> (PermTuple → AdHocComposition)
+
+#include <cache_engine/abi/anatomy_version_stamp.hpp> // abi::system_stamp_line (W12-A2 System-Stempel-Zeile)
 
 #include <functional>
 #include <map>
 #include <string>
+#include <vector>
 
 namespace comdare::cache_engine::builder::experiment {
 
@@ -36,10 +41,19 @@ template <class Engine>
 [[nodiscard]] inline std::map<std::string, std::string> build_pilot_source_map() {
     std::map<std::string, std::string> by_path;
     int                                idx = 0;
+    // W12-A2 (Section 43): die {axis,variant->version}-Tabelle EINMAL vor der Schleife bauen (Registry-Reflexion,
+    // heap-schwer). Sie speist compose_organ_stamp_line je binary_id -- identisch zum lazy Pfad
+    // (lazy_adhoc_source_gen.hpp make_lazy_adhoc_source_gen), das build_axis_variant_version_table ebenso einmal ruft.
+    std::vector<AxisVariantVersion> const version_table = build_axis_variant_version_table();
     Engine::for_each_permutation([&]<class P>() {
         using Comp = anatomy::CompositionFromPermTuple<P>; // reale AdHocComposition<17> (compile-time materialisiert)
         std::string const path = serialize_composition_path<P>();
-        by_path.emplace(path, codegen::render_adhoc_module_source(idx, codegen::adhoc_macro_args<Comp>()));
+        // DENSELBEN geteilten Helfer + DENSELBEN binary_id (== path) wie der lazy Pfad durchreichen -> byte-
+        // identische Stempel -> Round-Trip STRIKT. system_stamp_line = die statischen System-Achsen-Algo-Versionen.
+        by_path.emplace(
+            path, codegen::render_adhoc_module_source(idx, codegen::adhoc_macro_args<Comp>(),
+                                                      compose_organ_stamp_line(ceb_parse_path(path), version_table),
+                                                      ::comdare::cache_engine::abi::system_stamp_line()));
         ++idx;
     });
     return by_path;
