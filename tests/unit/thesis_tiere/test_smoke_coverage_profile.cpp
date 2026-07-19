@@ -69,9 +69,12 @@ fs::path m3v2_profile_path() { return fs::path{COMDARE_THESIS_PROFILES_DIR} / "m
 // Test AUCH im perms-ON-Baum (USE_MIMALLOC=1). Der Pin folgt compile-time der oben dokumentierten
 // Basis (69/90 Default-Baum, 70/91 mit MIMALLOC) statt die 69 hart zu verdrahten; Drift jeder
 // ANDEREN Achse/Vendor-Detection schlaegt weiterhin als Pin-Verletzung auf.
-constexpr std::size_t kExpectedSweepUnion =                               // 1 Baseline + Sum(USE-Enabled-1)
-    66 + (comdare::cache_engine::alloc::flags::mimalloc_enabled ? 1 : 0); // INC-2d: 69-3 isa-Sweeps (4 EnabledIsas-1)
-constexpr std::size_t kExpectedTotalBinaries = kExpectedSweepUnion + 21;  // + 7 Lebewesen x 3 Stufen (SOTA)
+constexpr std::size_t kExpectedSweepUnion =                              // 1 Baseline + Sum(USE-Enabled-1)
+    66 + (comdare::cache_engine::alloc::flags::mimalloc_enabled ? 1 : 0) // INC-2d: 69-3 isa-Sweeps (4 EnabledIsas-1)
+    + (comdare::cache_engine::alloc::flags::snmalloc_enabled
+           ? 1
+           : 0); // basis-bewusst: snmalloc-USE (F12i) zaehlt wie mimalloc
+constexpr std::size_t kExpectedTotalBinaries = kExpectedSweepUnion + 21; // + 7 Lebewesen x 3 Stufen (SOTA)
 
 std::vector<std::string> load_golden_ids() {
     std::vector<std::string> ids;
