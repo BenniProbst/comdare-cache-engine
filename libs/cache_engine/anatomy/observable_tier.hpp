@@ -147,6 +147,12 @@ static_assert(std::is_standard_layout_v<ComdareTierObserverSnapshot>,
               "ABI-Pflicht: konsolidierter Observer-POD muss standard_layout sein (memcpy über DLL-Grenze)");
 static_assert(std::is_trivially_copyable_v<ComdareTierObserverSnapshot>,
               "ABI-Pflicht: konsolidierter Observer-POD muss trivially_copyable sein");
+// L3/K-2 (Register QW1, 2026-07-19): das dokumentierte Layout (Kommentar oben, sizeof==1272 seit
+// Bau-INC-2d/ABI-6 = 17*8*8 axis_stats + 17*8 seg_ns + 48 Meta) wird hier compile-time zementiert --
+// vorher nur Laufzeit-EXPECT. Jede Layout-Aenderung ist ein ABI-Major-Bump und muss diesen Wert bewusst anfassen.
+static_assert(sizeof(ComdareTierObserverSnapshot) == 1272,
+              "ABI-Bruch: sizeof(ComdareTierObserverSnapshot) != 1272 (ABI-6/Bau-INC-2d) -- "
+              "Layout-Aenderung erfordert koordinierten ABI-Major-Bump (anatomy_module_abi_v1_decl.hpp)");
 
 /// Format-Version des konsolidierten Observer-POD (die Loader-Kompatibilität läuft über ABI-Major, s.
 /// anatomy_module_abi_v1_decl.hpp; diese Konstante dient der Diagnose/Tests).
