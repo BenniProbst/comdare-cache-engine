@@ -295,9 +295,9 @@ int main(int argc, char** argv) {
     }
     f << "  </axis>\n";
 
-    // ── Section 40.a: deklarierte per-Maschine SIMD-Flag-Signaturen (reflektiert aus machine_simd_signature.hpp,
+    // == Section 40.a: deklarierte per-Maschine SIMD-Flag-Signaturen (reflektiert aus machine_simd_signature.hpp,
     //    Host-Capability-Domaene). DIESE Signatur entscheidet den Bau (Gate Organ <= Signatur geschnitten
-    //    Sinnhaftigkeit); die grobe simd-Sub-Achse bleibt Runner-Routing-Vorstufe. NIE binary_id. ──
+    //    Sinnhaftigkeit); die grobe simd-Sub-Achse bleibt Runner-Routing-Vorstufe. NIE binary_id. ==
     {
         f << "  <machine_signatures count=\"3\">\n";
         // static-only Zugriff (die Signatur-Typen werden NIE instanziiert -- wie alle Achsen-Structs);
