@@ -59,6 +59,12 @@ using CachePushFn = std::function<void(std::filesystem::path const& bin_dir, std
 //   (local_file, relative_dest); Ziel-URL = <drop_url>/<lauf_stamp>/<relative_dest>. Leer = No-Op.
 using MeasurementSinkFn =
     std::function<void(std::filesystem::path const& local_file, std::string const& relative_dest)>;
+// W11 (Ledger §43.c): PartialMarkerFn -- nach je N gepushten DLLs im BAU-Modus feuert der async Push-Pump einen
+//   TEIL-Marker in den Objekt-Store, damit ein Runner, der einen abgebrochenen Chunk-Job wieder aufnimmt, die
+//   bereits gepushten DLLs dieses Chunks pullen kann (Cluster-Resume). Args (build_version, part_index); der Client
+//   leitet den Key <build_version>/_gn_chunk_markers/<range>.part<k>.done ab (range im Client-Closure gekapselt).
+//   Leer = No-Op (byte-neutral). Reihenfolge-unabhaengig (Objekt-Store), daher aus dem Push-Thread erlaubt.
+using PartialMarkerFn = std::function<void(std::string const& build_version, std::size_t part_index)>;
 
 // ── Der Transport-Client ──────────────────────────────────────────────────────────────────────────────────────
 class ArtifactCache {
@@ -98,17 +104,25 @@ public:
 
     [[nodiscard]] std::string const& run_stamp() const noexcept { return run_stamp_; }
 
+    /// W11/W12 (§43): die EINE Stelle, an der aus der build_version der Objekt-Store-Key-PRAEFIX wird. HEUTE Identitaet
+    /// (== build_version) -> byte-identisch zum Ist. SINGLE-SOURCE: push_tier_binary (DLL-Key) UND
+    /// push_chunk_partial_marker (Teil-Marker-Key) ziehen den Praefix ausschliesslich von hier -> KEIN Key-Drift.
+    /// W12-B (§43-Cache-Key-Konsumption der einkompilierten X.Y.Z-Stempel) haengt seine Stempel-Zeilen GENAU HIER in
+    /// den Key ein -- an dieser einen Naht, ohne push_tier_binary/push_chunk_partial_marker/den Iterator anzufassen.
+    /// Die .version/.algos-Sidecar-Semantik bleibt davon UNBERUEHRT (nur der Objekt-Store-Key-Praefix).
+    [[nodiscard]] std::string cache_key_prefix(std::string const& build_version) const { return build_version; }
+
     /// Ebene B: schiebt die Bau-Artefakte EINES Tier-Binary-Ordners in den Objekt-Store. Vollstaendigkeits-Marke:
     /// perm.dll ZUERST, perm.dll.version ZULETZT (schlaegt perm.dll fehl, wird das Sidecar NICHT gepusht -> Pull
     /// findet keine Marke -> kein falscher Reuse). Objekt-Key = <build_version>/<stem>/perm.dll(+.version), stem =
     /// bin_dir.filename(). Fehler -> ArtefaktIo geloggt + lokale Kopie bleibt; MESSEN WEITER (kein throw).
     void push_tier_binary(std::filesystem::path const& bin_dir, std::string const& build_version) const {
         if (!minio_enabled()) return; // No-Op (byte-neutral)
-        std::string const           stem     = bin_dir.filename().string();
-        std::string const           key_base = build_version + "/" + stem;
-        std::filesystem::path const dll      = bin_dir / "perm.dll";
-        std::filesystem::path const sidecar  = bin_dir / "perm.dll.version";
-        std::filesystem::path const log      = bin_dir / "perm.dll.push.log";
+        std::string const stem     = bin_dir.filename().string();
+        std::string const key_base = cache_key_prefix(build_version) + "/" + stem; // W11/W12: Single-Source-Praefix
+        std::filesystem::path const dll     = bin_dir / "perm.dll";
+        std::filesystem::path const sidecar = bin_dir / "perm.dll.version";
+        std::filesystem::path const log     = bin_dir / "perm.dll.push.log";
 
         std::error_code ec;
         if (!std::filesystem::exists(dll, ec)) {
@@ -127,6 +141,39 @@ public:
                                 "Push perm.dll.version fehlgeschlagen (perm.dll ist oben, Marke fehlt -> kein Pull): " +
                                     key_base + "/perm.dll.version");
         }
+    }
+
+    /// W11 (Ledger §43.c): Ebene B TEIL-Marker. Legt einen kleinen Marker <build_version>/_gn_chunk_markers/
+    /// <range>.part<k>.done in den Objekt-Store (range: ':' -> '-', wie die YAML-Whole-Chunk-Marke). Signalisiert:
+    /// die ersten k*N DLLs dieses Chunks sind gepusht -> ein resumierender Runner darf den PREFIX pullen und lokal
+    /// via dll_is_current uebernehmen (nur die fehlenden werden neu gebaut). No-Op ohne Ebene B. Fehler -> ArtefaktIo
+    /// geloggt, Bau LAEUFT WEITER (kein throw). Inhalt = part/utc-Metadaten (nur informativ; die Existenz zaehlt).
+    void push_chunk_partial_marker(std::string const& build_version, std::string const& range,
+                                   std::size_t part_index) const {
+        if (!minio_enabled()) return; // No-Op (byte-neutral)
+        std::string range_key = range;
+        for (char& c : range_key)
+            if (c == ':') c = '-'; // deckungsgleich mit der YAML-Marke ${GN_RANGE//:/-}
+        std::string const object_key = cache_key_prefix(build_version) + "/_gn_chunk_markers/" + range_key + ".part" +
+                                       std::to_string(part_index) + ".done"; // W11/W12: Single-Source-Praefix
+
+        // Kleinen lokalen Marker schreiben (temp), pushen, entfernen. Der Inhalt ist rein informativ.
+        std::error_code             ec;
+        std::filesystem::path const tmp =
+            std::filesystem::temp_directory_path(ec) /
+            ("comdare_gn_part_" + range_key + "_" + std::to_string(part_index) + "_" + run_stamp_ + ".done");
+        std::filesystem::path const log = tmp.string() + ".push.log";
+        {
+            std::ofstream f{tmp, std::ios::binary | std::ios::trunc};
+            if (!f) {
+                log_artefakt_io(log, "Teil-Marker lokal nicht schreibbar: " + tmp.string());
+                return;
+            }
+            f << "part=" << part_index << " range=" << range << " build_version=" << build_version << "\n";
+        }
+        if (!mc_cp(tmp, object_key, log))
+            log_artefakt_io(log, "Teil-Marker-Push fehlgeschlagen (Bau laeuft weiter): " + object_key);
+        std::filesystem::remove(tmp, ec);
     }
 
     /// Ebene C: legt eine Mess-Datei additiv per HTTPS-PUT im write-only measure-drop ab. Ziel-URL =

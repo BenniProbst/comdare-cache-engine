@@ -162,6 +162,14 @@ using FreeRamFn   = std::function<std::uint64_t()>;                 // freier ph
 // compile-time Versions-Tabelle, axis_variant_version_table.hpp::compose_algo_signature). Leer/ungesetzt = Organ-Gate
 // AUS -> byte-neutrales Alt-Verhalten (nur perm.dll.version-Skip). Der achsen-blinde Orchestrator bleibt registry-frei.
 using AlgoSigFn = std::function<std::string(std::vector<std::pair<std::string, std::string>> const&)>;
+// W11 (Ledger §43.c, 2026-07-19): Completion-Hook -- feuert je Binary SOFORT nach der Finalisierung von results[j]
+// (aus dem Build-Worker-Thread, in COMPLETION-Reihenfolge, NICHT index-geordnet). Zweck: der BAU-Modus (provision_only)
+// haengt hier einen asynchronen Push-Pump ein, der die fertige perm.dll ueberlappend mit dem weiterlaufenden Bau in den
+// Objekt-Store schiebt (statt Batch NACH provision_all). Default leer => nie gefeuert => byte-identisch. Muss thread-safe
+// sein (mehrere Worker feuern gleichzeitig) -- der Konsument (AsyncPushPump::enqueue) ist intern mutex-serialisiert. Die
+// index-geordnete progress_sink-/Determinismus-Naht (W6/§38) bleibt UNBERUEHRT: sie feuert weiterhin sequenziell im
+// 1-Thread-Loop NACH provision_all; nur der reihenfolge-UNABHAENGIGE Objekt-Store-Push nutzt diesen Completion-Kanal.
+using BinaryDoneFn = std::function<void(BuildResult const&)>;
 
 /// Default-FreeRamFn: „unbegrenzt" → RAM-Gate effektiv aus, wenn keine reale Abfrage injiziert ist.
 [[nodiscard]] inline std::uint64_t free_ram_unlimited() noexcept { return (std::numeric_limits<std::uint64_t>::max)(); }
@@ -191,7 +199,7 @@ using AlgoSigFn = std::function<std::string(std::vector<std::pair<std::string, s
 }
 
 /// L-LAZY-E2E (2026-06-03): der DATEI-STEM `perm_<…>` einer Tier-Binary — LÄNGEN-GEKAPPT gegen Windows-MAX_PATH (260).
-/// Der volle, sanitisierte 19-Achsen-binary_id ist ~520+ Zeichen → `source_dir/perm_<id>.cpp` sprengt MAX_PATH →
+/// Der volle, sanitisierte 17-Achsen-binary_id ist ~520+ Zeichen → `source_dir/perm_<id>.cpp` sprengt MAX_PATH →
 /// `std::ofstream::open` schlägt still fehl (Befund 2026-06-03: built=0, src-Dir leer). Lösung: ist der sanitisierte
 /// Pfad lang, wird er auf ein lesbares Präfix + `_<index>_<fnv1a-hex>` gekürzt (stabil + kollisionsfrei je Pfad).
 /// Kurze IDs (z.B. Tests/handbenannte Tiere) bleiben unverändert (rückwärtskompatibel). `kStemMax` lässt Raum für
@@ -252,6 +260,13 @@ inline void write_algos_sidecar(std::filesystem::path const& output, std::string
     if (f) f << algo_sig;
 }
 
+// G5 (W9.5): dedizierter Rueckgabe-Code des Compile-Wrappers fuer "Compiler-Binary nicht gefunden"
+// (posix_spawnp ENOENT). Der Orchestrator klassifiziert ihn als ToolchainFehlt (die geforderte Toolchain
+// fehlt -- D1-Domaene, ein klassifizierbarer Bau-Config-Zustand) statt als generischen InfraErrorClass::
+// ProzessStart. 126 = POSIX-Konvention "command found but not executable"; g++/clang geben ihn nie selbst
+// zurueck -> innerhalb dieses Wrappers eindeutig "Compiler-Binary fehlt". Andere spawn-Fehler bleiben 127/Infra.
+inline constexpr int kExitToolchainMissing = 126;
+
 // ── Der Orchestrator ──────────────────────────────────────────────────────────
 class BuildOrchestrator {
 public:
@@ -259,6 +274,10 @@ public:
                       AlgoSigFn algo_sig = {})
         : cfg_{std::move(cfg)}, compile_{std::move(compile)}, gen_{std::move(gen)}, free_ram_{std::move(free_ram)},
           algo_sig_{std::move(algo_sig)} {}
+
+    /// W11: den Completion-Hook setzen (BAU-Modus async Push-Feed). VOR provision_all aufrufen; leer = kein Hook
+    /// (byte-neutral). Feuert je Binary aus dem Worker-Thread nach results[j]-Finalisierung (Completion-Reihenfolge).
+    void set_on_binary_done(BinaryDoneFn fn) { on_binary_done_ = std::move(fn); }
 
     /// Stellt ALLE Tier-Binaries des statischen Teilbaums bereit (rückwärtskompatibel): je Binary Source (KF-8)
     /// + DLL kompilieren — INKREMENTELL, RAM-gewahr, MULTITHREADED. ⚠️ results-Vektor O(view.size()): nur für
@@ -315,6 +334,13 @@ private:
         // (active+1)×Budget — deterministisch + OOM-sicher, unabhängig vom Ramp-Lag des OS-free_ram.
         std::uint64_t const baseline_free = (cfg_.ram_per_build_bytes != 0) ? free_ram_() : 0;
 
+        // W11: EINE Finalisierungs-Naht je Binary -> results[j] setzen + (falls gesetzt) den Completion-Hook feuern.
+        // Feuert aus dem Worker-Thread in COMPLETION-Reihenfolge; der Hook-Konsument ist thread-safe. Leer = byte-neutral.
+        auto finalize = [&](std::size_t slot, BuildResult&& res) {
+            results[slot] = std::move(res);
+            if (on_binary_done_) on_binary_done_(results[slot]);
+        };
+
         auto worker = [&] {
             for (;;) {
                 std::size_t const j = next.fetch_add(1); // selektions-relativ
@@ -324,10 +350,10 @@ private:
                 BuildResult r;
                 // Defensiv: ungültiger Selektions-Index → Fehler-Result statt OOB-Dekodierung.
                 if (i >= view.size()) {
-                    r.index    = i;
-                    r.status   = -3;
-                    r.message  = "selection index out of range";
-                    results[j] = std::move(r);
+                    r.index   = i;
+                    r.status  = -3;
+                    r.message = "selection index out of range";
+                    finalize(j, std::move(r));
                     continue;
                 }
 
@@ -374,21 +400,21 @@ private:
                     !gate_req.empty()) {
                     if (auto const gate_err = ::comdare::cache_engine::measurement::admit_organ_on_machine(
                             gate_req, ::comdare::cache_engine::measurement::active_machine_signature())) {
-                        r.status   = -4; // Gate-Ablehnung: Organ verlangt ein von der Maschine nicht freigegebenes Flag
-                        r.message  = std::string{"simd-gate: "} +
-                                     std::string{::comdare::cache_engine::measurement::error_class_label(*gate_err)};
-                        r.outcome  = std::unexpected(::comdare::cache_engine::measurement::BuildError{*gate_err});
-                        results[j] = std::move(r);
+                        r.status  = -4; // Gate-Ablehnung: Organ verlangt ein von der Maschine nicht freigegebenes Flag
+                        r.message = std::string{"simd-gate: "} +
+                                    std::string{::comdare::cache_engine::measurement::error_class_label(*gate_err)};
+                        r.outcome = std::unexpected(::comdare::cache_engine::measurement::BuildError{*gate_err});
+                        finalize(j, std::move(r));
                         continue; // Log + weiter (baut/misst die uebrigen Binaries)
                     }
                 }
 
                 // (A) INKREMENTELL: bestehende, versions- UND organ-aktuelle DLL überspringen (Resume nach Absturz).
                 if (dll_is_current(job.output, cfg_.build_version, algos)) {
-                    r.status   = 0;
-                    r.skipped  = true;
-                    r.message  = "übersprungen (Version aktuell)";
-                    results[j] = std::move(r);
+                    r.status  = 0;
+                    r.skipped = true;
+                    r.message = "übersprungen (Version aktuell)";
+                    finalize(j, std::move(r));
                     continue;
                 }
 
@@ -432,6 +458,12 @@ private:
                     namespace cm = ::comdare::cache_engine::measurement;
                     if (r.status == 0)
                         r.outcome = {};
+                    else if (r.status == kExitToolchainMissing)
+                        // G5 (W9.5): Compiler-Binary nicht auffindbar (ENOENT an der spawn-Naht) -> die geforderte
+                        // Toolchain fehlt. Eigene D1-Klasse ToolchainFehlt (NICHT der generische Infra-ProzessStart,
+                        // NICHT CompileKombination = kein Compiler-Urteil ueber die Achsen-Kombination). Der Sweep
+                        // misst die uebrigen Permutationen weiter (honest-weiter, kein Abbruch).
+                        r.outcome = std::unexpected(cm::BuildError{cm::CompilerCompilerErrorClass::ToolchainFehlt});
                     else if (r.status == 127)
                         r.outcome = std::unexpected(cm::BuildError{cm::InfraErrorClass::ProzessStart});
                     else if (r.status == 125)
@@ -449,7 +481,7 @@ private:
                         write_algos_sidecar(job.output, algos); // Organ-Provenienz (Bauplan §1); leer=no-op
                     }
                 }
-                results[j] = std::move(r);
+                finalize(j, std::move(r));
 
                 {
                     std::lock_guard<std::mutex> lk(mtx);
@@ -481,11 +513,12 @@ private:
         return results;
     }
 
-    BuildConfig cfg_;
-    CompileFn   compile_;
-    SourceGenFn gen_;
-    FreeRamFn   free_ram_;
-    AlgoSigFn   algo_sig_; // Bauplan §3: spec.axes → algo_sig; leer = Organ-Gate aus (byte-neutral)
+    BuildConfig  cfg_;
+    CompileFn    compile_;
+    SourceGenFn  gen_;
+    FreeRamFn    free_ram_;
+    AlgoSigFn    algo_sig_;       // Bauplan §3: spec.axes → algo_sig; leer = Organ-Gate aus (byte-neutral)
+    BinaryDoneFn on_binary_done_; // W11: per-Binary Completion-Hook (BAU-Modus async Push-Feed); leer = byte-neutral
 };
 
 namespace detail {
@@ -558,7 +591,10 @@ namespace detail {
     if (rc != 0) {
         std::ofstream lf{log, std::ios::app};
         lf << "posix_spawnp(" << argv.front() << ") fehlgeschlagen: " << std::strerror(rc) << "\n";
-        return 127;
+        // G5 (W9.5): ENOENT = das Compiler-Binary existiert nicht -> die Toolchain fehlt (eigener Code, den der
+        // Orchestrator als ToolchainFehlt klassifiziert). Andere spawn-Fehler (EACCES/ENOMEM/...) bleiben
+        // generischer Prozess-Start (127, Infra-Domaene, NIE als Compiler-Urteil fehletikettiert).
+        return (rc == ENOENT) ? kExitToolchainMissing : 127;
     }
 
     int status = 0;
