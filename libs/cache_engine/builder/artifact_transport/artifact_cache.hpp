@@ -70,8 +70,10 @@ public:
     ///   COMDARE_MINIO_BUCKET    — Ziel-Bucket (getrennt vom buildsystem-cache).
     ///   COMDARE_MINIO_PREFIX    — optionaler Key-Praefix im Bucket.
     ///   COMDARE_MEASUREMENT_DROP_URL — Basis-URL des write-only measure-drop (Ebene C, HTTPS-PUT).
-    ///   COMDARE_NFS_DROP_TOKEN  — Bearer-Token fuer den measure-drop (NUR aus env; geht ausschliesslich ueber eine
-    ///                             0600-curl-Config, NIE in argv/ps oder ins Log).
+    ///   COMDARE_NFS_DROP_TOKEN  — Basic-Auth-Passwort fuer den measure-drop (nginx htpasswd, HANDOFF3: user
+    ///                             'measure' + Token; NUR aus env; geht ausschliesslich ueber eine 0600-curl-Config,
+    ///                             NIE in argv/ps oder ins Log).
+    ///   COMDARE_NFS_DROP_USER   — optionaler Basic-Auth-User des measure-drop (Default: "measure").
     ///   COMDARE_MC_BIN / COMDARE_CURL_BIN — optional: Pfad/Name der mc-/curl-Binaries (Default via PATH).
     [[nodiscard]] static ArtifactCache from_env() {
         ArtifactCache c;
@@ -80,6 +82,7 @@ public:
         c.prefix_   = env_or_empty("COMDARE_MINIO_PREFIX");
         c.drop_url_ = env_or_empty("COMDARE_MEASUREMENT_DROP_URL");
         c.token_    = env_or_empty("COMDARE_NFS_DROP_TOKEN"); // NIE geloggt, NIE in argv
+        if (std::string const du = env_or_empty("COMDARE_NFS_DROP_USER"); !du.empty()) c.drop_user_ = du;
         if (std::string const mc = env_or_empty("COMDARE_MC_BIN"); !mc.empty()) c.mc_bin_ = mc;
         if (std::string const cu = env_or_empty("COMDARE_CURL_BIN"); !cu.empty()) c.curl_bin_ = cu;
         c.run_stamp_ = make_run_stamp(); // EIN datierter Lauf-Baum (Sink-Besitzer des Timestamps)
@@ -195,7 +198,9 @@ private:
         body += "request = \"PUT\"\n";
         body += "upload-file = \"" + local_file.string() + "\"\n";
         body += "url = \"" + url + "\"\n";
-        if (!token_.empty()) body += "header = \"Authorization: Bearer " + token_ + "\"\n";
+        // measure-drop authentifiziert per HTTP Basic Auth (nginx htpasswd, HANDOFF3), NICHT per Bearer:
+        // 11401-Beleg 19.07.: Bearer -> 401, Basic 'measure:<token>' -> 201. curl-Config-Direktive 'user'.
+        if (!token_.empty()) body += "user = \"" + drop_user_ + ":" + token_ + "\"\n";
         body += "silent\nshow-error\n";
         body += "output = \"/dev/null\"\n";                 // Response-Body verwerfen
         body += "write-out = \"HTTP_CODE=%{http_code}\"\n"; // Status -> stdout (== out-Datei)
@@ -373,16 +378,17 @@ private:
         return std::string{buf};
     }
 
-    std::string endpoint_;          // COMDARE_MINIO_ENDPOINT (mc-Alias-Name; leer = Ebene B aus)
-    std::string bucket_;            // COMDARE_MINIO_BUCKET
-    std::string prefix_;            // COMDARE_MINIO_PREFIX (optional)
-    std::string drop_url_;          // COMDARE_MEASUREMENT_DROP_URL (measure-drop Basis-URL; leer = Ebene C aus)
-    std::string token_;             // COMDARE_NFS_DROP_TOKEN (NIE geloggt, NIE in argv — nur 0600-curl-Config)
-    std::string mc_bin_   = "mc";   // COMDARE_MC_BIN override (Default via PATH)
-    std::string curl_bin_ = "curl"; // COMDARE_CURL_BIN override (Default via PATH)
-    std::string run_stamp_;         // datierter Lauf-Baum (Sink-Besitzer des Timestamps)
-    std::size_t tries_   = 12;      // Retry-Zahl (Vorbild copy_results_to_nas.sh: 12)
-    std::size_t sleep_s_ = 5;       // Pause zwischen Versuchen (s)
+    std::string endpoint_;             // COMDARE_MINIO_ENDPOINT (mc-Alias-Name; leer = Ebene B aus)
+    std::string bucket_;               // COMDARE_MINIO_BUCKET
+    std::string prefix_;               // COMDARE_MINIO_PREFIX (optional)
+    std::string drop_url_;             // COMDARE_MEASUREMENT_DROP_URL (measure-drop Basis-URL; leer = Ebene C aus)
+    std::string token_;                // COMDARE_NFS_DROP_TOKEN (NIE geloggt, NIE in argv — nur 0600-curl-Config)
+    std::string drop_user_{"measure"}; // COMDARE_NFS_DROP_USER (Basic-Auth-User; HANDOFF3-Default 'measure')
+    std::string mc_bin_   = "mc";      // COMDARE_MC_BIN override (Default via PATH)
+    std::string curl_bin_ = "curl";    // COMDARE_CURL_BIN override (Default via PATH)
+    std::string run_stamp_;            // datierter Lauf-Baum (Sink-Besitzer des Timestamps)
+    std::size_t tries_   = 12;         // Retry-Zahl (Vorbild copy_results_to_nas.sh: 12)
+    std::size_t sleep_s_ = 5;          // Pause zwischen Versuchen (s)
 };
 
 } // namespace comdare::cache_engine::builder::artifact_transport
