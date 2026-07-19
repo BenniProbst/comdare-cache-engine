@@ -348,9 +348,22 @@ inline void emit_child_ccache_config(std::string& out) {
 // Klartext (=> Byte-Determinismus + kein Leak). Auf ce + prt-art PFAD-GESKOPT (die Overleaf-Thesis braucht der
 // C++-Bau nicht); --recursive holt ce's nested public-github-Submodul (concurrentqueue); --force + sync auf den
 // GEPINNTEN gitlink-SHA (idempotent auf stalem Workdir). EINE Single-Source fuer alle Bau-Jobs beider Stufen.
+//
+// W10-Nacharbeit 3 (§42, Serie-E2E 11586, NUR prod1/Runner 18.9.0): der Prolog setzt CCACHE_DIR/CCACHE_MAXSIZE
+// zusaetzlich per RUNTIME-SHELL-EXPORT. Die YAML-variables-Definition allein reicht NICHT: die gitlab-seitig
+// vorexpandierte Parent-globale CCACHE_DIR wird als Pipeline-Variable an das Child vererbt und ueberschreibt die
+// Child-YAML-Definition versions-/vererbungsabhaengig (leer expandiertes $CI_PROJECT_DIR -> /.ccache -> Permission
+// denied). Der Shell-Export zur Laufzeit ist immun gegen jede GitLab-Expansions-/Vererbungs-/Runner-Versions-
+// Semantik und schlaegt die vererbte Env-Variable (er laeuft in der Job-Shell VOR jedem cmake-Aufruf; die
+// YAML-variables + der cache:-Block bleiben harmlos-redundant erhalten).
 inline void emit_child_submodule_prolog(std::string& out) {
     out += "    - |\n";
     out += "      set -euo pipefail\n";
+    out += "      # ccache-Env per RUNTIME-Shell-Export (Nacharbeit 3): immun gegen GitLab-variables-Expansion/\n";
+    out +=
+        "      # -Vererbung (vorexpandierte Parent-CCACHE_DIR ueberschreibt sonst versionsabhaengig die Child-Def).\n";
+    out += "      export CCACHE_DIR=\"${CI_PROJECT_DIR}/.ccache\"\n";
+    out += "      export CCACHE_MAXSIZE=\"3G\"\n";
     out += "      # CHILD-SUBMODULE-KLON (W10-Nacharbeit 2): Parent-Spiegel, Deploy-Token via CI-Variablen (NIE "
            "Klartext).\n";
     out += "      if [ -f .gitmodules ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then\n";
